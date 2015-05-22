@@ -1,44 +1,71 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] test_bpf: add more eBPF jump torture cases
-Date: Fri, 22 May 2015 16:28:57 -0700
-Message-ID: <555FBBB9.2070509@plumgrid.com>
-References: <b23d3a10edbe46ac70bcc57a05ece597e1b6c09c.1432335952.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH net-next 1/3] cxgb4: Add support for loopback between VI of same port
+Date: Fri, 22 May 2015 16:46:57 -0700
+Message-ID: <02F05AD8-11B0-4CC9-955C-2D0FACC8522C@chelsio.com>
+References: <4985EFDD773FCB459EF7915D2A3621ADBD9FE5@nice.asicdesigners.com> <20150521.153029.774385014187583893.davem@davemloft.net> <4985EFDD773FCB459EF7915D2A3621ADBDA809@nice.asicdesigners.com> <20150522.140100.204940697669252730.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
+	nirranjan@chelsio.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:36254 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757335AbbEVX27 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 19:28:59 -0400
-Received: by igbpi8 with SMTP id pi8so1836716igb.1
-        for <netdev@vger.kernel.org>; Fri, 22 May 2015 16:28:59 -0700 (PDT)
-In-Reply-To: <b23d3a10edbe46ac70bcc57a05ece597e1b6c09c.1432335952.git.daniel@iogearbox.net>
+Received: from stargate.chelsio.com ([67.207.112.58]:30054 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757376AbbEVXrA convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 May 2015 19:47:00 -0400
+In-Reply-To: <20150522.140100.204940697669252730.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/22/15 4:10 PM, Daniel Borkmann wrote:
-> Add two more eBPF test cases for JITs, i.e. the second one revealed a
-> bug in the x86_64 JIT compiler, where only an int3 filled image from
-> the allocator was emitted and later wrongly set by the compiler as the
-> bpf_func program code since optimization pass boundary was surpassed
-> w/o actually emitting opcodes.
->
-> Interpreter:
->
->    [   45.782892] test_bpf: #242 BPF_MAXINSNS: Very long jump backwards jited:0 11 PASS
->    [   45.783062] test_bpf: #243 BPF_MAXINSNS: Edge hopping nuthouse jited:0 14705 PASS
->
-> After x86_64 JIT (fixed):
->
->    [   80.495638] test_bpf: #242 BPF_MAXINSNS: Very long jump backwards jited:1 6 PASS
->    [   80.495957] test_bpf: #243 BPF_MAXINSNS: Edge hopping nuthouse jited:1 17157 PASS
->
-> Reference: http://thread.gmane.org/gmane.linux.network/364729
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+  Okay, really: I=92m not arguing for module parameters.  I=92m agreein=
+g with you 100%.
+I=92m not trying to be snarky or back you into admitting that there are=
+ some times
+when a module parameter is needed.  I=92m not being sneaky, etc.  I=92m=
+ really just
+asking a mechanism question.  It is, on the other hand, quite likely th=
+at I=92m
+being dumb.  I=92ll absolutely grant you that.
 
-Thanks a lot for great tests!
+  So let me turn this around and ask:
 
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+    What command would you envision that I use in order to tell a drive=
+r
+    to use a different TX routine for an interface?
+
+        ethtool =97tx-routine eth{n} loopback
+
+    Or?
+
+ Sorry for being so dense.  We really are trying to live within the rul=
+es but
+we=92re struggling to figure out what patch we should submit.
+
+Casey
+
+> On May 22, 2015, at 11:01 AM, David Miller <davem@davemloft.net> wrot=
+e:
+>=20
+> From: Casey Leedom <leedom@chelsio.com>
+> Date: Fri, 22 May 2015 16:49:03 +0000
+>=20
+>>  Oh I definitely understand that and agree.  Unfortunately I've
+>> inherited a driver architecture that makes that ... "difficult"
+>> for many operations ...  And I have an internal bug filed
+>> against me to fix those particular issues.
+>>=20
+>>  However, that doesn't answer at least one of my questions
+>> which was how do I pass information into the driver _before_
+>> it does the device probe?
+>=20
+> I did answer the question, I said that if you fix the real actual
+> core problem then you won't have this need to begin with.
+>=20
+> I thought I made that perfectly clear.
+>=20
+> I really am not going to entertain arguments of the form "it's
+> too hard to implement this correctly so I'm going to try
+> and slam a module parameter into the driver to fix things".
+>=20
