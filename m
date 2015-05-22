@@ -1,106 +1,91 @@
-From: Stephan Mueller <smueller@chronox.de>
-Subject: Re: [v2 PATCH 13/13] crypto: algif_aead - Switch to new AEAD interface
-Date: Fri, 22 May 2015 22:59:34 +0200
-Message-ID: <1711949.C5mmxUsD4a@myon.chronox.de>
-References: <20150522082708.GA3507@gondor.apana.org.au> <E1YviMC-00010E-Uk@gondolin.me.apana.org.au>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net-next v2 0/7] netns: ease netlink use with a lot of netns
+Date: Fri, 22 May 2015 14:04:29 -0700
+Message-ID: <CAHA+R7NCjKn86R+OLX+4bkB0kv3WcXGB5NPui+v_X=CKqQtPLA@mail.gmail.com>
+References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>
+	<874mnn9t12.fsf@x220.int.ebiederm.org>
+	<555F969B.3090706@ahsoftware.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <E1YviMC-00010E-Uk@gondolin.me.apana.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>,
+	David Miller <davem@davemloft.net>
+To: Alexander Holler <holler@ahsoftware.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:32956 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757693AbbEVVEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 17:04:30 -0400
+Received: by wgez8 with SMTP id z8so28337093wge.0
+        for <netdev@vger.kernel.org>; Fri, 22 May 2015 14:04:29 -0700 (PDT)
+In-Reply-To: <555F969B.3090706@ahsoftware.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Freitag, 22. Mai 2015, 16:31:04 schrieb Herbert Xu:
+On Fri, May 22, 2015 at 1:50 PM, Alexander Holler <holler@ahsoftware.de> wrote:
+> Am 08.05.2015 um 14:02 schrieb Eric W. Biederman:
+>>
+>>
+>> So I am dense.  I have read through the patches and I don't see where
+>> you tag packets from other network namespaces with a network namespace
+>> id.
+>
+>
+> Me too,
+>
+> I've recently written a little tool called snetmanmon (source is
+> available at github) to monitor and handle network related events
+> by using rtnetlink.
+>
+> Having seen this patch series (thanks!), I've played with it.
+>
+> I've applied the patch series to v4.1-rc4.
+>
+> Maybe I'm using or holding it wrong, but I've some comments.
+>
+> First I think if NETLINK_LISTEN_ALL_NSID is enabled, a dump
+> of the interfaces through RTM_GETLINK together with NLM_F_DUMP and
+> NLM_F_REQUEST should return all interfaces of all reachable namespaces.
+>
+> Next, if NETLINK_LISTEN_ALL_NSID is enabled, I receive RTM_NEWLINK
+> but without any indication of the namespace. E.g. if I do
+>         ip netns add netns1
+>         ip netns exec netns1 brctl addbr br0
+> the RTM_NEWLINK for br0 (received in the root ns, not netns1) doesn't
+> have the attribute IFLA_LINK_NETNSID.
 
-Hi Herbert,
 
-> This patch makes use of the new AEAD interface which uses a single
-> SG list instead of separate lists for the AD and plain text.
-
-Using an up-to date tree with the full set of patches of this patch set, I get 
-the following oops.
-
-It can easily be reproduced by using [1]: go to libkcapi/test/ and compile 
-with make. Then execute ./test.sh
-
-[1] http://www.chronox.de/libkcapi.html
+Bridge doesn't have an underlying link, so no LINK_NETNSID. LINK_NETNSID
+is only added when its underlying link is in a different netns.
 
 
+>
+> Same for the RTM_DELLINK msg if I call
+>         ip netns exec netns1 brctl delbr br0
+> afterwards. So both netlink messages are looking like br0 was
+> created in the root ns.
+>
+> Another problem seems to be with veth devices. E.g. if I do
+>         ip link add veth0 type veth peer name veth1
+>         ip link set veth1 netns netns1
+> I receive
+>         RTM_NEWLINK for veth0 (no nsid)
+>         RTM_NEWLINK for veth1 (no nsid)
+>         RTM_DELLINK for veth1 (no nsid)
+>         RTM_NEWLINK for veth1 (with nsid 0)
+> That looks ok, except the missing RTM_NEWLINK for lo in netns1, which
+> was created together with the namespace. But if I now request a dump,
+> I get
+>         RTM_NEWLINK for veth0 (with nsid 0)
+> which looks like veth0 is part of nsid 0, and I get nothing for veth1.
+> Of course, that vlan device might be part of nsid 0 too (as veth1),
+> but its part named veth0 is not part of that namespace. So the
+> IFLA_LINK_NETNSID attribute received with the RTM_NEWLINK for veth0 through
+> the dump is misleading.
 
-[   22.680910] BUG: unable to handle kernel NULL pointer dereference at           
-(null)
-[   22.680915] IP: [<          (null)>]           (null)
-[   22.680917] PGD 3c62e067 PUD 3b28e067 PMD 0 
-[   22.680919] Oops: 0010 [#1] SMP 
-[   22.680921] Modules linked in: seqiv ccm gcm crypto_null algif_aead 
-algif_skcipher sha512_ssse3 sha512_generic mcryptd sha1_ssse3 sha1_generic 
-crypto_user des3_ede_x86_64 des_generic algif_hash af_alg 
-nf_conntrack_netbios_ns nf_conntrack_broadcast ip6t_rpfilter ip6t_REJECT 
-nf_reject_ipv6 nf_conntrack_ipv6 nf_defrag_ipv6 nf_conntrack_ipv4 
-nf_defrag_ipv4 xt_conntrack nf_conntrack cfg80211 ebtable_nat ebtable_broute 
-bridge stp llc ebtable_filter ebtables ip6table_mangle ip6table_security 
-ip6table_raw ip6table_filter ip6_tables iptable_mangle iptable_security 
-iptable_raw crct10dif_pclmul crc32_pclmul crc32c_intel ghash_clmulni_intel 
-aesni_intel aes_x86_64 glue_helper ablk_helper joydev microcode virtio_console 
-serio_raw virtio_balloon pcspkr i2c_piix4 acpi_cpufreq qxl drm_kms_helper ttm 
-drm virtio_net
-[   22.680948]  virtio_blk virtio_pci virtio_ring virtio
-[   22.680952] CPU: 1 PID: 1889 Comm: kcapi Not tainted 4.0.0+ #122
-[   22.680954] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[   22.680955] task: ffff88003c08cc80 ti: ffff88003b300000 task.ti: 
-ffff88003b300000
-[   22.680956] RIP: 0010:[<0000000000000000>]  [<          (null)>]           
-(null)
-[   22.680958] RSP: 0018:ffff88003b303ce0  EFLAGS: 00010282
-[   22.680959] RAX: ffffffffa02f5080 RBX: ffffffffa0138b20 RCX: 
-0000000000000001
-[   22.680960] RDX: 0000000000000001 RSI: ffffffffa02f5368 RDI: 
-ffff88003b303cf8
-[   22.680961] RBP: ffff88003b303d88 R08: 0000000000000000 R09: 
-ffffea0000ecbd00
-[   22.680962] R10: ffffffff810676b4 R11: ffff88003c275240 R12: 
-ffff88003b1ff200
-[   22.680963] R13: 00000000fffffffe R14: ffffffffa02f5080 R15: 
-0000000000000203
-[   22.680965] FS:  00007fade1fe8700(0000) GS:ffff88003fd00000(0000) 
-knlGS:0000000000000000
-[   22.680966] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[   22.680967] CR2: 0000000000000000 CR3: 000000003bdc9000 CR4: 
-00000000000407e0
-[   22.680971] Stack:
-[   22.680973]  ffffffff812b7e6d 0002000c00000003 0000020f00000203 
-ffff88003b303cec
-[   22.680975]  ffff88003b303d14 0000000000000000 00010044812b49c4 
-2d36303134636672
-[   22.680977]  6e7365612d6d6367 0000000000000069 0000000000000000 
-0000000000000000
-[   22.680979] Call Trace:
-[   22.680984]  [<ffffffff812b7e6d>] ? crypto_nivaead_default+0x14d/0x1a0
-[   22.680986]  [<ffffffff812b7f5a>] crypto_lookup_aead+0x9a/0xf0
-[   22.680989]  [<ffffffff812b4f33>] crypto_alloc_tfm+0x63/0x130
-[   22.680992]  [<ffffffff81193dd1>] ? kmem_cache_alloc_trace+0x1f1/0x230
-[   22.680994]  [<ffffffff812b7fc9>] crypto_alloc_aead+0x19/0x20
-[   22.680996]  [<ffffffffa02d638e>] aead_bind+0xe/0x10 [algif_aead]
-[   22.680999]  [<ffffffffa02848d0>] alg_bind+0x60/0x130 [af_alg]
-[   22.681003]  [<ffffffff81561f68>] SYSC_bind+0xb8/0xf0
-[   22.681003]  [<ffffffff811c7eb5>] ? fd_install+0x25/0x30
-[   22.681003]  [<ffffffff81562850>] ? SyS_socket+0x90/0xd0
-[   22.681003]  [<ffffffff8104a0f7>] ? trace_do_page_fault+0x37/0xb0
-[   22.681003]  [<ffffffff81562ade>] SyS_bind+0xe/0x10
-[   22.681003]  [<ffffffff81687f6e>] system_call_fastpath+0x12/0x71
-[   22.681003] Code:  Bad RIP value.
-[   22.681003] RIP  [<          (null)>]           (null)
-[   22.681003]  RSP <ffff88003b303ce0>
-[   22.681003] CR2: 0000000000000000
-[   22.681053] ---[ end trace c1a8ba963ebab541 ]---
-
--- 
-Ciao
-Stephan
+That is because the code tries to do "lazy" allocation for netnsid,
+it defers it util the dumping, veth case is special here given how they pair,
+I noticed the same "problem" (it doesn't have to be a bug) when I reviewed
+the code, nobody cared. ;-/
