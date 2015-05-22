@@ -1,64 +1,68 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
-Date: Fri, 22 May 2015 15:07:33 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912FB5E4@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB3B4A@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912FBBEC@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4EE6@BPXM14GP.gisp.nec.co.jp>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v4 net-next 05/11] net: Add full IPv6 addresses to flow_keys
+Date: Fri, 22 May 2015 08:08:26 -0700
+Message-ID: <CALx6S36uh-m3isgMdSNCfRqRPAHm-98Y56r8C0bDHMvzgLw+Lw@mail.gmail.com>
+References: <1432253506-3646977-1-git-send-email-tom@herbertland.com>
+	<1432253506-3646977-6-git-send-email-tom@herbertland.com>
+	<20150522075738.GE2138@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	"David Miller" <davem@davemloft.net>,
-	Edward Cree <ecree@solarflare.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:61700 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756048AbbEVPHn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 May 2015 11:07:43 -0400
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4EE6@BPXM14GP.gisp.nec.co.jp>
-Content-Language: en-US
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:34495 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756048AbbEVPI1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 11:08:27 -0400
+Received: by ieczm2 with SMTP id zm2so33389085iec.1
+        for <netdev@vger.kernel.org>; Fri, 22 May 2015 08:08:26 -0700 (PDT)
+In-Reply-To: <20150522075738.GE2138@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEludGVsLXdpcmVkLWxhbiBb
-bWFpbHRvOmludGVsLXdpcmVkLWxhbi1ib3VuY2VzQGxpc3RzLm9zdW9zbC5vcmddIE9uDQo+IEJl
-aGFsZiBPZiBIaXJvc2hpIFNoaW1hbW90bw0KPiBTZW50OiBUaHVyc2RheSwgTWF5IDIxLCAyMDE1
-IDc6MzEgUE0NCj4gVG86IFNraWRtb3JlLCBEb25hbGQgQzsgS2lyc2hlciwgSmVmZnJleSBUOyBp
-bnRlbC13aXJlZC0NCj4gbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4gQ2M6IG5ob3JtYW5AcmVkaGF0
-LmNvbTsgam9ncmVlbmVAcmVkaGF0LmNvbTsgTGludXggTmV0ZGV2IExpc3Q7IENob2ksIFN5DQo+
-IEpvbmc7IFJvbnkgRWZyYWltOyBEYXZpZCBNaWxsZXI7IEVkd2FyZCBDcmVlOyBPciBHZXJsaXR6
-Ow0KPiBzYXNzbWFubkByZWRoYXQuY29tDQo+IFN1YmplY3Q6IFJlOiBbSW50ZWwtd2lyZWQtbGFu
-XSBbUEFUQ0ggdjUgMy8zXSBpeGdiZTogQWRkIG5ldyBuZG8gdG8gdHJ1c3QNCj4gVkYNCj4gDQoN
-CltiaWcgc25pcF0NCg0KPiBJIHRoaW5rIHlvdXIgY29uY2VybnMgYXJlIHJlbGF0ZWQgdG8gc29t
-ZSBvcGVyYXRpb25hbCBhc3N1bXB0aW9ucy4NCj4gTXkgYmFzaWMgY29uY2VwdCBpcywgbm90IHRv
-IGNoYW5nZSB0aGUgYmVoYXZpb3Igb2YgVk0sIGV4aXN0aW5nIHVzZXINCj4gb3BlcmF0aW9uLg0K
-PiBJIG1lYW4gdGhhdCBJIGRpZG4ndCB0aGluayBpdCdzIGJldHRlciB0aGF0IHRoZSB1c2VyIHNo
-b3VsZCBjaGVjayB0aGUgYm90aA0KPiBvZiB0aGUgaXhnYmV2ZiBkcml2ZXIgY2FuIGRlYWwgd2l0
-aCBuZXcgQVBJIGFuZCB0aGUgVkYgaXMgdHJ1c3RlZC4NCj4gDQo+IE5vdywgSSB0aGluayB0aGUg
-cG9pbnQgaXMgd2hvIHRha2VzIGNhcmUgd2hldGhlciB0aGUgVkYgaXMgdHJ1c3RlZC4gUmlnaHQ/
-DQo+IEl0IHNlZW1zIHRoYXQgeW91IHRoaW5rIHRoZSBWRiB1c2VyIHNob3VsZCBoYW5kbGUgdGhh
-dCB1c2VyIGlzIHRydXN0ZWQgYW5kDQo+IGRvIHNvbWV0aGluZyB3aXRoIGEgbm90aWNlIHRoYXQg
-InlvdSdyZSB0cnVzdGVkIG9yIHVudHJ1c3RlZCIgZnJvbSB0aGUNCj4gaG9zdC4NCj4gSXMgdGhh
-dCBjb3JyZWN0Pw0KPiBJIG1hZGUgaXQgaW4gUEYgc2lkZSwgYmVjYXVzZSBpdCBsb29rcyBlYXN5
-IHRvIGhhbmRsZSBpdC4gSWYgc29tZXRoaW5nIHRvDQo+IGRvIGluIFZGIHNpZGUsIEkgdGhpbmsg
-aXhnYmV2ZiBkcml2ZXIgc2hvdWxkIGhhbmRsZSBpdC4NCg0KU2V0dGluZyB0aGUgVkYgdHJ1c3Rl
-ZCBtb2RlIGZlYXR1cmUgc2hvdWxkIG9ubHkgYmUgYWxsb3dlZCB0aHJvdWdoIHRoZSBQRiBhcyBp
-dCBpcyB0aGUgb25seSB0cnVzdGVkIGVudGl0eSBmcm9tIHRoZSBzdGFydC4gIFdlIGRvIG5vdCB3
-YW50IHRoZSBWRiBiZWluZyBhYmxlIHRvIGRlY2lkZSBmb3IgaXRzZWxmIHRvIGJlIHRydXN0ZWQu
-DQoNCi0gR3JlZw0KDQo+IA0KPiB0aGFua3MsDQo+IEhpcm9zaGkNCj4gDQo+IF9fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fDQo+IEludGVsLXdpcmVkLWxhbiBt
-YWlsaW5nIGxpc3QNCj4gSW50ZWwtd2lyZWQtbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4gaHR0cDov
-L2xpc3RzLm9zdW9zbC5vcmcvbWFpbG1hbi9saXN0aW5mby9pbnRlbC13aXJlZC1sYW4NCg==
+On Fri, May 22, 2015 at 12:57 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Fri, May 22, 2015 at 02:11:40AM CEST, tom@herbertland.com wrote:
+>>This patch adds full IPv6 addresses into flow_keys and uses them as
+>>input to the flow hash function. The implementation supports either
+>>IPv4 or IPv6 addresses in a union, and selector is used to determine
+>>how may words to input to jhash2.
+>>
+>>We also add flow_get_u32_dst and flow_get_u32_src functions which are
+>>used to get a u32 representation of the source and destination
+>>addresses. For IPv6, ipv6_addr_hash is called. These functions retain
+>>getting the legacy values of src and dst in flow_keys.
+>>
+>>With this patch, Ethertype and IP protocol are now included in the
+>>flow hash input.
+>>
+>>Signed-off-by: Tom Herbert <tom@herbertland.com>
+>
+> ...
+>
+>>diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
+>>index cba6a10..306d461 100644
+>>--- a/include/net/flow_dissector.h
+>>+++ b/include/net/flow_dissector.h
+>>@@ -12,7 +12,7 @@
+>>  */
+>> struct flow_dissector_key_control {
+>>       u16     thoff;
+>>-      u16     padding;
+>>+      u16     addr_type;
+>
+>
+> I don't understand why this is needed. I don't like this. You assign enum
+> flow_dissector_key_id to this. Why not just continue to use
+> key->basic.n_proto?
+
+The reason we need the address type is in the case that the caller
+provides a single union space for the addresses. Caller is just
+interested in the last address type written to that space. If we
+overload n_proto to be both the protocol and address type there is a
+loss of information. For instance, with MPLS we should be able to
+return the value (e.g. MPLS) but also return Ethernet addresses-- this
+can be done if n_proto is set to ETH_P_MPLS_UC and addr_type is set to
+FLOW_DISSECTOR_KEY_ETH_ADDRS (need to add latter). Another point is
+that not all address types we could conceive will have an Ethertype,
+but all would have a FLOW_DISSECTOR_KEY_*_ADDRS definition.
