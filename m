@@ -1,40 +1,70 @@
 From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCHv2 net-next] bridge: allow setting hash_max +
- multicast_router if interface is down
-Date: Fri, 22 May 2015 09:26:40 -0700
-Message-ID: <CAHA+R7MGcfUVPzjt582FkZ1zBx35U71kRRfTFkjHbPiXi=TGTA@mail.gmail.com>
-References: <1432301557-6928-1-git-send-email-linus.luessing@c0d3.blue>
+Subject: Re: [PATCH] bridge: fix parsing of MLDv2 reports
+Date: Fri, 22 May 2015 09:37:17 -0700
+Message-ID: <CAHA+R7OzznLYc-5dsTgZ02H8Q2jG9pc4e3_Ko2F_wyfjrRJ+cA@mail.gmail.com>
+References: <1432307939-19640-1-git-send-email-cascardo@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev <netdev@vger.kernel.org>,
-	roopa <roopa@cumulusnetworks.com>,
-	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>,
+	"bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Wilson Kok <wkok@cumulusnetworks.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: =?UTF-8?Q?Linus_L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1432301557-6928-1-git-send-email-linus.luessing@c0d3.blue>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Rik.Theys@esat.kuleuven.be
+To: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:38248 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756536AbbEVQhS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 12:37:18 -0400
+Received: by wichy4 with SMTP id hy4so52981548wic.1
+        for <netdev@vger.kernel.org>; Fri, 22 May 2015 09:37:17 -0700 (PDT)
+In-Reply-To: <1432307939-19640-1-git-send-email-cascardo@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 22, 2015 at 6:32 AM, Linus L=C3=BCssing <linus.luessing@c0d3.bl=
-ue> wrote:
-> Changelog v2:
-> * remove another now unnecessary -ENOENT initialization
-> * consistently initialize to -EINVAL, allowing to shorten two switch-case=
-s
+On Fri, May 22, 2015 at 8:18 AM, Thadeu Lima de Souza Cascardo
+<cascardo@redhat.com> wrote:
+> When more than a multicast address is present in a MLDv2 report, all but
+> the first address is ignored, because the code breaks out of the loop if
+> there has not been an error adding that address.
 >
+> This has caused failures when two guests connected through the bridge
+> tried to communicate using IPv6. Neighbor discoveries would not be
+> transmitted to the other guest when both used a link-local address and a
+> static address.
+>
+> This only happens when there is a MLDv2 querier in the network.
+>
+> The fix will only break out of the loop when there is a failure adding a
+> multicast address.
+>
+> The mdb before the patch:
+>
+> dev ovirtmgmt port vnet0 grp ff02::1:ff7d:6603 temp
+> dev ovirtmgmt port vnet1 grp ff02::1:ff7d:6604 temp
+> dev ovirtmgmt port bond0.86 grp ff02::2 temp
+>
+> After the patch:
+>
+> dev ovirtmgmt port vnet0 grp ff02::1:ff7d:6603 temp
+> dev ovirtmgmt port vnet1 grp ff02::1:ff7d:6604 temp
+> dev ovirtmgmt port bond0.86 grp ff02::fb temp
+> dev ovirtmgmt port bond0.86 grp ff02::2 temp
+> dev ovirtmgmt port bond0.86 grp ff02::d temp
+> dev ovirtmgmt port vnet0 grp ff02::1:ff00:76 temp
+> dev ovirtmgmt port bond0.86 grp ff02::16 temp
+> dev ovirtmgmt port vnet1 grp ff02::1:ff00:77 temp
+> dev ovirtmgmt port bond0.86 grp ff02::1:ff00:def temp
+> dev ovirtmgmt port bond0.86 grp ff02::1:ffa1:40bf temp
+>
+> Reported-by: Rik Theys <Rik.Theys@esat.kuleuven.be>
+> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+> Tested-by: Rik Theys <Rik.Theys@esat.kuleuven.be>
 
-Looks perfect now. :)
 
-Thanks for update.
+Fixes:  08b202b67264 ("bridge br_multicast: IPv6 MLD support.")
+
+Good catch!
