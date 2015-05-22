@@ -1,84 +1,215 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net] ipv4: Avoid crashing in ip_error
-Date: Fri, 22 May 2015 04:58:12 -0500
-Message-ID: <87zj4x6iiz.fsf_-_@x220.int.ebiederm.org>
-References: <2b6d6ab2d8c35af3be55c82e507f5376@vittgam.net>
-	<20150520025428.GA23304@kroah.com>
-	<b5abf7328b22373e4ec18bd6da479431@vittgam.net>
-	<06f5f10e9ee831f5a839c6ea24b94f64@vittgam.net>
-	<d146b8b8a69462ced89a384e6be85b28@vittgam.net>
-	<4cb068397127c2b2baee1f021b014b11@vittgam.net>
-	<da006bc9072931406270f0fdda06045d@vittgam.net>
-	<6056363be65a2c129551518da94bff20@vittgam.net>
-	<87a8wx97er.fsf@x220.int.ebiederm.org>
-	<ff82713d6862786de9784bd3c9c06bfa@vittgam.net>
-	<20150522040453.GC8530@1wt.eu>
+From: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+Subject: Re: pull-request: wireless-drivers-next 2015-05-21
+Date: Fri, 22 May 2015 12:16:17 +0200
+Message-ID: <CA+BoTQmukTiNFrsLA5rdiQe=Ga45JNuFzSmqQ4h-VJMW97f=_w@mail.gmail.com>
+References: <87k2w26oef.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	"Vittorio G \(VittGam\)" <linuxbugs@vittgam.net>,
-	security@kernel.org, Greg KH <greg@kroah.com>, luto@amacapital.net,
-	Willy Tarreau <w@1wt.eu>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:44819 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755795AbbEVKD2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 06:03:28 -0400
-In-Reply-To: <20150522040453.GC8530@1wt.eu> (Willy Tarreau's message of "Fri,
-	22 May 2015 06:04:53 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87k2w26oef.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+On 21 May 2015 at 15:39, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrote:
+> Hi Dave,
+>
+> here's a wireless-drivers pull request for 4.2. This time please pay
+> extra attention to this pull as there are two problems:
+>
+> First of all as you can see the diffstat from git-pull-request in the
+> end is just weird. I was long and hard trying to check everything and=
+ to
+> my understanding all the merges look ok and I cannot explain the reas=
+on
+> for the diffstat, but of course I might be missing something. Maybe
+> git-request-pull is just buggy? At least with gitk everything looks t=
+o
+> be ok and the patch list below also looks valid.
+>
+> Secondly there's a non-trivial conflict in
+> drivers/net/wireless/ath/ath10k/mac.c which is due to removal of
+> FIF_PROMISC_IN_BSS in commit df1404650c. You need to remove more code
+> than just the obvious conflicts shown by git. In the end of this mail=
+ I
+> added a git diff output after I fixed the conflict, hopefully that he=
+lps
+> you to fix it. The main points are that you remove
+> ath10k_mac_should_disable_promisc() and the last ath10k_monitor_recal=
+c()
+> call from ath10k_vdev_start_restart() along with the obvious conflict
+> fixes git points out.
+>
+> There's also a patch from Michal which will also help to fix the
+> resolution. Michal, please double check the resolution proposal below=
+ so
+> that I didn't miss anything.
+>
+> https://patchwork.kernel.org/patch/6387631/
+
+[...]
+
+> diff --cc drivers/net/wireless/ath/ath10k/mac.c
+> index fcd08b2f8d26,eaa0182e001d..000000000000
+> --- a/drivers/net/wireless/ath/ath10k/mac.c
+> +++ b/drivers/net/wireless/ath/ath10k/mac.c
+> @@@ -766,9 -1031,68 +1031,48 @@@ static int ath10k_monitor_stop(struc=
+t a
+>         return 0;
+>   }
+>
+>  -static bool ath10k_mac_should_disable_promisc(struct ath10k *ar)
+>  -{
+>  -      struct ath10k_vif *arvif;
+>  -
+>  -      if (!(ar->filter_flags & FIF_PROMISC_IN_BSS))
+>  -              return true;
+>  -
+>  -      if (!ar->num_started_vdevs)
+>  -              return false;
+>  -
+>  -      list_for_each_entry(arvif, &ar->arvifs, list)
+>  -              if (arvif->vdev_type !=3D WMI_VDEV_TYPE_AP)
+>  -                      return false;
+>  -
+>  -      ath10k_dbg(ar, ATH10K_DBG_MAC,
+>  -                 "mac disabling promiscuous mode because vdev is st=
+arted\n");
+>  -      return true;
+>  -}
+>  -
+> + static bool ath10k_mac_monitor_vdev_is_needed(struct ath10k *ar)
+> + {
+> +       int num_ctx;
+> +
+> +       /* At least one chanctx is required to derive a channel to st=
+art
+> +        * monitor vdev on.
+> +        */
+> +       num_ctx =3D ath10k_mac_num_chanctxs(ar);
+> +       if (num_ctx =3D=3D 0)
+> +               return false;
+> +
+> +       /* If there's already an existing special monitor interface t=
+hen don't
+> +        * bother creating another monitor vdev.
+> +        */
+> +       if (ar->monitor_arvif)
+> +               return false;
+> +
+> +       return ar->monitor ||
+>  -             !ath10k_mac_should_disable_promisc(ar) ||
+> +              test_bit(ATH10K_CAC_RUNNING, &ar->dev_flags);
+> + }
+> +
+> + static bool ath10k_mac_monitor_vdev_is_allowed(struct ath10k *ar)
+> + {
+> +       int num_ctx;
+> +
+> +       num_ctx =3D ath10k_mac_num_chanctxs(ar);
+> +
+> +       /* FIXME: Current interface combinations and cfg80211/mac8021=
+1 code
+> +        * shouldn't allow this but make sure to prevent handling the=
+ following
+> +        * case anyway since multi-channel DFS hasn't been tested at =
+all.
+> +        */
+> +       if (test_bit(ATH10K_CAC_RUNNING, &ar->dev_flags) && num_ctx >=
+ 1)
+> +               return false;
+> +
+> +       return true;
+> + }
+> +
+>   static int ath10k_monitor_recalc(struct ath10k *ar)
+>   {
+> -       bool should_start;
+> +       bool needed;
+> +       bool allowed;
+> +       int ret;
+>
+>         lockdep_assert_held(&ar->conf_mutex);
+>
+
+Looks good to me.
+
+There's still some code left which is unnecessary (see 2 last hunks on
+patchwork) because due to FIF_PROMISC_IN_BSS removal entire commit
+548462133d98 becomes obsolete. Since these 2 hunk leftovers don't
+break anything functionally I guess this can be cleaned up in a follow
+up patch after the merge. Just my 2cc.
 
 
-ip_error does not check if in_dev is NULL before dereferencing it.
+> @@@ -871,12 -1231,46 +1211,46 @@@ static void ath10k_recalc_radar_det=
+ecti
+>         }
+>   }
+>
+> - static int ath10k_vdev_start_restart(struct ath10k_vif *arvif, bool=
+ restart)
+> + static int ath10k_vdev_stop(struct ath10k_vif *arvif)
+> + {
+> +       struct ath10k *ar =3D arvif->ar;
+> +       int ret;
+> +
+> +       lockdep_assert_held(&ar->conf_mutex);
+> +
+> +       reinit_completion(&ar->vdev_setup_done);
+> +
+> +       ret =3D ath10k_wmi_vdev_stop(ar, arvif->vdev_id);
+> +       if (ret) {
+> +               ath10k_warn(ar, "failed to stop WMI vdev %i: %d\n",
+> +                           arvif->vdev_id, ret);
+> +               return ret;
+> +       }
+> +
+> +       ret =3D ath10k_vdev_setup_sync(ar);
+> +       if (ret) {
+> +               ath10k_warn(ar, "failed to syncronise setup for vdev =
+%i: %d\n",
+> +                           arvif->vdev_id, ret);
+> +               return ret;
+> +       }
+> +
+> +       WARN_ON(ar->num_started_vdevs =3D=3D 0);
+> +
+> +       if (ar->num_started_vdevs !=3D 0) {
+> +               ar->num_started_vdevs--;
+> +               ath10k_recalc_radar_detection(ar);
+> +       }
+> +
+> +       return ret;
+> + }
+> +
+> + static int ath10k_vdev_start_restart(struct ath10k_vif *arvif,
+> +                                    const struct cfg80211_chan_def *=
+chandef,
+> +                                    bool restart)
+>   {
+>         struct ath10k *ar =3D arvif->ar;
+> -       struct cfg80211_chan_def *chandef =3D &ar->chandef;
+>         struct wmi_vdev_start_request_arg arg =3D {};
+>  -      int ret =3D 0, ret2;
+>  +      int ret =3D 0;
+>
+>         lockdep_assert_held(&ar->conf_mutex);
+>
 
-IThe following sequence of calls is possible:
-CPU A                          CPU B
-ip_rcv_finish
-    ip_route_input_noref()
-        ip_route_input_slow()
-                               inetdev_destroy()
-    dst_input()
+Kalle, I'm not seeing this when I merge your pull tag on top of
+net-next/master. Am I missing something?
 
-With the result that a network device can be destroyed while processing
-an input packet.
+Anyway FYI ath10k_vdev_stop() was moved up in the code to avoid
+forward declaration in 822b7e0b633b.
 
-A crash was triggered with only unicast packets in flight, and
-forwarding enabled on the only network device.   The error condition
-was created by the removal of the network device.
 
-As such it is likely the that error code was -EHOSTUNREACH, and the
-action taken by ip_error (if in_dev had been accessible) would have
-been to not increment any counters and to have tried and likely failed
-to send an icmp error as the network device is going away.
-
-Therefore handle this weird case by just dropping the packet if
-!in_dev.  It will result in dropping the packet sooner, and will not
-result in an actual change of behavior.
-
-Fixes: 251da4130115b ("ipv4: Cache ip_error() routes even when not forwarding.")
-Reported-by: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
-Tested-by: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- net/ipv4/route.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 9e15f5ca4495..f6055984c307 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -900,6 +900,10 @@ static int ip_error(struct sk_buff *skb)
- 	bool send;
- 	int code;
- 
-+	/* IP on this device is disabled. */
-+	if (!in_dev)
-+		goto out;
-+
- 	net = dev_net(rt->dst.dev);
- 	if (!IN_DEV_FORWARD(in_dev)) {
- 		switch (rt->dst.error) {
--- 
-2.2.1
+Micha=C5=82
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
