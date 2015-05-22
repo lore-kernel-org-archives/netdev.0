@@ -1,45 +1,118 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net-next] tcp: fix a potential deadlock in
- tcp_get_info()
-Date: Fri, 22 May 2015 13:50:42 -0400 (EDT)
-Message-ID: <20150522.135042.1383929510137041615.davem@redhat.com>
-References: <20150521.232541.173137306546517818.davem@davemloft.net>
-	<1432266206.4060.119.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1432270279.4060.128.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: RE: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
+Date: Fri, 22 May 2015 17:51:51 +0000
+Message-ID: <F6FB0E698C9B3143BDF729DF22286646912FC2E3@ORSMSX110.amr.corp.intel.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FB5E4@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB3B4A@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FBBEC@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4EE6@BPXM14GP.gisp.nec.co.jp>
+ <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mleitner@redhat.com, edumazet@google.com, netdev@vger.kernel.org,
-	ycheng@google.com, mattmathis@google.com, cgallek@google.com,
-	kafai@fb.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	"David Miller" <davem@davemloft.net>,
+	Edward Cree <ecree@solarflare.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48897 "EHLO mx1.redhat.com"
+Received: from mga09.intel.com ([134.134.136.24]:27731 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757504AbbEVRuo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 May 2015 13:50:44 -0400
-In-Reply-To: <1432270279.4060.128.camel@edumazet-glaptop2.roam.corp.google.com>
+	id S1756894AbbEVRvx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 May 2015 13:51:53 -0400
+In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 21 May 2015 21:51:19 -0700
-
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Taking socket spinlock in tcp_get_info() can deadlock, as
-> inet_diag_dump_icsk() holds the &hashinfo->ehash_locks[i],
-> while packet processing can use the reverse locking order.
-> 
-> We could avoid this locking for TCP_LISTEN states, but lockdep would
-> certainly get confused as all TCP sockets share same lockdep classes.
- ...
-> Lets use u64_sync infrastructure instead. As a bonus, 64bit
-> arches get optimized, as these are nop for them.
-> 
-> Fixes: 0df48c26d841 ("tcp: add tcpi_bytes_acked to tcp_info")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-This bug exists in 'net' so I've applied it there.
-
-Thanks Eric.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogUm9zZSwgR3JlZ29yeSBW
+DQo+IFNlbnQ6IEZyaWRheSwgTWF5IDIyLCAyMDE1IDg6MDggQU0NCj4gVG86IEhpcm9zaGkgU2hp
+bWFtb3RvOyBTa2lkbW9yZSwgRG9uYWxkIEM7IEtpcnNoZXIsIEplZmZyZXkgVDsgaW50ZWwtd2ly
+ZWQtDQo+IGxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+IENjOiBuaG9ybWFuQHJlZGhhdC5jb207IGpv
+Z3JlZW5lQHJlZGhhdC5jb207IExpbnV4IE5ldGRldiBMaXN0OyBDaG9pLA0KPiBTeSBKb25nOyBS
+b255IEVmcmFpbTsgRGF2aWQgTWlsbGVyOyBFZHdhcmQgQ3JlZTsgT3IgR2VybGl0ejsNCj4gc2Fz
+c21hbm5AcmVkaGF0LmNvbQ0KPiBTdWJqZWN0OiBSRTogW1BBVENIIHY1IDMvM10gaXhnYmU6IEFk
+ZCBuZXcgbmRvIHRvIHRydXN0IFZGDQo+IA0KPiANCj4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2Ut
+LS0tLQ0KPiA+IEZyb206IEludGVsLXdpcmVkLWxhbg0KPiA+IFttYWlsdG86aW50ZWwtd2lyZWQt
+bGFuLWJvdW5jZXNAbGlzdHMub3N1b3NsLm9yZ10gT24gQmVoYWxmIE9mIEhpcm9zaGkNCj4gPiBT
+aGltYW1vdG8NCj4gPiBTZW50OiBUaHVyc2RheSwgTWF5IDIxLCAyMDE1IDc6MzEgUE0NCj4gPiBU
+bzogU2tpZG1vcmUsIERvbmFsZCBDOyBLaXJzaGVyLCBKZWZmcmV5IFQ7IGludGVsLXdpcmVkLQ0K
+PiA+IGxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+ID4gQ2M6IG5ob3JtYW5AcmVkaGF0LmNvbTsgam9n
+cmVlbmVAcmVkaGF0LmNvbTsgTGludXggTmV0ZGV2IExpc3Q7IENob2ksDQo+ID4gU3kgSm9uZzsg
+Um9ueSBFZnJhaW07IERhdmlkIE1pbGxlcjsgRWR3YXJkIENyZWU7IE9yIEdlcmxpdHo7DQo+ID4g
+c2Fzc21hbm5AcmVkaGF0LmNvbQ0KPiA+IFN1YmplY3Q6IFJlOiBbSW50ZWwtd2lyZWQtbGFuXSBb
+UEFUQ0ggdjUgMy8zXSBpeGdiZTogQWRkIG5ldyBuZG8gdG8NCj4gPiB0cnVzdCBWRg0KPiA+DQo+
+IA0KPiBbYmlnIHNuaXBdDQo+IA0KPiA+IEkgdGhpbmsgeW91ciBjb25jZXJucyBhcmUgcmVsYXRl
+ZCB0byBzb21lIG9wZXJhdGlvbmFsIGFzc3VtcHRpb25zLg0KPiA+IE15IGJhc2ljIGNvbmNlcHQg
+aXMsIG5vdCB0byBjaGFuZ2UgdGhlIGJlaGF2aW9yIG9mIFZNLCBleGlzdGluZyB1c2VyDQo+ID4g
+b3BlcmF0aW9uLg0KPiA+IEkgbWVhbiB0aGF0IEkgZGlkbid0IHRoaW5rIGl0J3MgYmV0dGVyIHRo
+YXQgdGhlIHVzZXIgc2hvdWxkIGNoZWNrIHRoZQ0KPiA+IGJvdGggb2YgdGhlIGl4Z2JldmYgZHJp
+dmVyIGNhbiBkZWFsIHdpdGggbmV3IEFQSSBhbmQgdGhlIFZGIGlzIHRydXN0ZWQuDQo+ID4NCj4g
+PiBOb3csIEkgdGhpbmsgdGhlIHBvaW50IGlzIHdobyB0YWtlcyBjYXJlIHdoZXRoZXIgdGhlIFZG
+IGlzIHRydXN0ZWQuIFJpZ2h0Pw0KPiA+IEl0IHNlZW1zIHRoYXQgeW91IHRoaW5rIHRoZSBWRiB1
+c2VyIHNob3VsZCBoYW5kbGUgdGhhdCB1c2VyIGlzIHRydXN0ZWQNCj4gPiBhbmQgZG8gc29tZXRo
+aW5nIHdpdGggYSBub3RpY2UgdGhhdCAieW91J3JlIHRydXN0ZWQgb3IgdW50cnVzdGVkIiBmcm9t
+DQo+ID4gdGhlIGhvc3QuDQo+ID4gSXMgdGhhdCBjb3JyZWN0Pw0KPiA+IEkgbWFkZSBpdCBpbiBQ
+RiBzaWRlLCBiZWNhdXNlIGl0IGxvb2tzIGVhc3kgdG8gaGFuZGxlIGl0LiBJZiBzb21ldGhpbmcN
+Cj4gPiB0byBkbyBpbiBWRiBzaWRlLCBJIHRoaW5rIGl4Z2JldmYgZHJpdmVyIHNob3VsZCBoYW5k
+bGUgaXQuDQo+IA0KPiBTZXR0aW5nIHRoZSBWRiB0cnVzdGVkIG1vZGUgZmVhdHVyZSBzaG91bGQg
+b25seSBiZSBhbGxvd2VkIHRocm91Z2ggdGhlIFBGDQo+IGFzIGl0IGlzIHRoZSBvbmx5IHRydXN0
+ZWQgZW50aXR5IGZyb20gdGhlIHN0YXJ0LiAgV2UgZG8gbm90IHdhbnQgdGhlIFZGIGJlaW5nDQo+
+IGFibGUgdG8gZGVjaWRlIGZvciBpdHNlbGYgdG8gYmUgdHJ1c3RlZC4NCj4gDQo+IC0gR3JlZw0K
+PiANCg0KSSBjb21wbGV0ZWx5IGFncmVlIHdpdGggR3JlZyBhbmQgbmV2ZXIgbWVhbnQgdG8gaW1w
+bHkgYW55dGhpbmcgZWxzZS4NCg0KVGhlIFBGIHNob3VsZCBiZSB3aGVyZSBhIGdpdmVuIFZGIGlz
+IG1hZGUgInRydXN0ZWQiLiAgTGlrZXdpc2UgYSBWRiBjYW4gZ2V0IHByb21vdGVkIHRvIE1DIFBy
+b21pc2N1b3VzIGJ1eSByZXF1ZXN0aW5nIG92ZXIgMzAgTUMgZ3JvdXBzLiAgSSBsaWtlIHRoaXMg
+YW5kIHlvdXIgcGF0Y2ggY3VycmVudGx5IGRvZXMgdGhpcy4gIFNvIGZvciBleGFtcGxlIGJlbG93
+Og0KDQpQRgkJCQkJVkYNCi0tLS0tLS0tLS0JCQkJLS0tLS0tLS0tLS0NClNldCBnaXZlbiBWRiBh
+cyB0cnVzdGVkDQoJCQkJCVJlcXVlc3QgMzArIE1DIGdyb3VwcyB2aWEgTWFpbCBCb3gNClB1dCBQ
+RiBpbiBNQyBQcm9taXNjdW91cyBtb2RlDQoNCg0KV2hhdCBJIGFtIGNvbmNlcm5lZCBhYm91dCBp
+cyB0aGUgZm9sbG93aW5nIGZsb3cgd2hlcmUgd2Ugc2VlbSB0byBzdG9yZSB0aGUgZmFjdCB0aGUg
+VkYgcmVxdWVzdHMgbW9yZSB0aGFuIDMwKyBNQyBncm91cHMgc28gdGhhdCB3ZSBjYW4gYXV0b21h
+dGljYWxseSBlbnRlciBNQyBQcm9taXNjIE1vZGUgaWYgdGhhdCBWRiBpcyBldmVyIG1hZGUgdHJ1
+c3RlZC4gDQoNClBGCQkJCQlWRg0KLS0tLS0tLS0tLS0JCQkJLS0tLS0tLS0tLQ0KQ3VycmVudGx5
+IFZGIGlzIE5PVCB0cnVzdGVkDQoJCQkJCVJlcXVlc3QgMzArIE1DIGdyb3VwcyB2aWEgTWFpbCBC
+b3gNCkRvIE5PVCBwdXQgUEYgaW4gTUMgUHJvbWlzYw0KKGh3LT5tYWMubWNfcHJvbWlzYyA9IHRy
+dWUpDQoNCjwgU29tZSB0aW1lIGxhdGVyID4NCg0KU2V0IGdpdmVuIFZGIGFzIHRydXN0ZWQNCihi
+ZWNhdXNlIG1jX3Byb21pc2Mgc2V0KSBQdXQgUEYgaW4gTUMgUHJvbWlzYw0KDQoNCkkgZG9uJ3Qg
+bGlrZSB0aGUgZmFjdCB0aGF0IHRoZSBQRiByZW1lbWJlcnMgdGhhdCB0aGUgVkYgd2FzIGRlbmll
+ZCBNQyBQcm9taXNjdW91cyBtb2RlIGluIHRoZSBwYXN0LiAgQW5kIGJlY2F1c2Ugb2YgdGhhdCBh
+dXRvbWF0aWNhbGx5IHB1dCB0aGUgVkYgaW4gTUMgUHJvbWlzY3VvdXMgbW9kZSB3aGVuIGl0IGJl
+Y29tZXMgdHJ1c3RlZC4gIE1heWJlIHNob3dpbmcgaW4gY29kZSB3aGF0IEkgd291bGQgbGlrZSBy
+ZW1vdmVkL2FkZGVkIHdvdWxkIGJlIG1vcmUgaGVscGZ1bCwgcHJvYmFibHkgc2hvdWxkIGhhdmUg
+c3RhcnRlZCBkb2luZyB0aGF0LiA6KQ0KDQpJIHdvdWxkIHJlbW92ZSB0aGlzIGJpdCBvZiBjb2Rl
+IGZyb20gaXhnYmVfbmRvX3NldF92Zl90cnVzdCgpOg0KDQppbnQgaXhnYmVfbmRvX3NldF92Zl90
+cnVzdChzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2LCBpbnQgdmYsIGJvb2wgDQpzZXR0aW5nKSB7
+DQoJc3RydWN0IGl4Z2JlX2FkYXB0ZXIgKmFkYXB0ZXIgPSBuZXRkZXZfcHJpdihuZXRkZXYpOw0K
+DQoJaWYgKHZmID49IGFkYXB0ZXItPm51bV92ZnMpDQoJCXJldHVybiAtRUlOVkFMOw0KDQoJLyog
+bm90aGluZyB0byBkbyAqLw0KCWlmIChhZGFwdGVyLT52ZmluZm9bdmZdLnRydXN0ZWQgPT0gc2V0
+dGluZykNCgkJcmV0dXJuIDA7DQoNCglhZGFwdGVyLT52ZmluZm9bdmZdLnRydXN0ZWQgPSBzZXR0
+aW5nOw0KDQotCS8qIFJlY29uZmlndXJlIGZlYXR1cmVzIHdoaWNoIGFyZSBvbmx5IGFsbG93ZWQg
+Zm9yIHRydXN0ZWQgVkYgKi8NCi0JLyogVkYgbXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUgKi8N
+Ci0JaWYgKGFkYXB0ZXItPnZmaW5mb1t2Zl0ubWNfcHJvbWlzYykNCi0JCWl4Z2JlX2VuYWJsZV92
+Zl9tY19wcm9taXNjKGFkYXB0ZXIsIHZmKTsNCg0KCXJldHVybiAwOw0KfQ0KDQpUaGlzIG9mIGNv
+dXJzZSB3b3VsZCBiZSB3ZSBzaG91bGQgbm90IHNldCBtY19wcm9taXNjIGV2ZXIgaWYgd2UgYXJl
+IE5PVCB0cnVzdGVkIChhZGFwdGVyLT52ZmluZm9bdmZdLnRydXN0ZWQpIHNvIGluIGl4Z2JlX3Nl
+dF92Zl9tY19wcm9taXNjKCkgSSB3b3VsZCBhZGQgb3Igc29tZXRoaW5nIGxpa2UgaXQ6DQoNCnN0
+YXRpYyBpbnQgaXhnYmVfc2V0X3ZmX21jX3Byb21pc2Moc3RydWN0IGl4Z2JlX2FkYXB0ZXIgKmFk
+YXB0ZXIsDQoJCQkJICAgdTMyICptc2didWYsIHUzMiB2ZikNCnsNCglib29sIGVuYWJsZSA9ICEh
+bXNnYnVmWzFdOwkvKiBtc2didWYgY29udGFpbnMgdGhlIGZsYWcgdG8gZW5hYmxlICovDQoNCglz
+d2l0Y2ggKGFkYXB0ZXItPnZmaW5mb1t2Zl0udmZfYXBpKSB7DQoJY2FzZSBpeGdiZV9tYm94X2Fw
+aV8xMjoNCgkJYnJlYWs7DQoJZGVmYXVsdDoNCgkJcmV0dXJuIC0xOw0KCX0NCg0KKwkvKiBoYXZl
+IHRvIGJlIHRydXN0ZWQgKi8NCisJSWYgKCFhZGFwdGVyLT52ZmluZm9bdmZdLnRydXN0ZWQpDQor
+CQlSZXR1cm4gMDsNCisNCgkvKiBub3RoaW5nIHRvIGRvICovDQoJaWYgKGFkYXB0ZXItPnZmaW5m
+b1t2Zl0ubWNfcHJvbWlzYyA9PSBlbmFibGUpDQoJCXJldHVybiAwOw0KDQoJYWRhcHRlci0+dmZp
+bmZvW3ZmXS5tY19wcm9taXNjID0gZW5hYmxlOw0KDQoJaWYgKGVuYWJsZSkNCgkJcmV0dXJuIGl4
+Z2JlX2VuYWJsZV92Zl9tY19wcm9taXNjKGFkYXB0ZXIsIHZmKTsNCgllbHNlDQoJCXJldHVybiBp
+eGdiZV9kaXNhYmxlX3ZmX21jX3Byb21pc2MoYWRhcHRlciwgdmYpOyB9DQoNCg0KRG9lcyB0aGlz
+IGJldHRlciBleHBsYWluIHdoYXQgbXkgY29uY2VybiBpcz8NCg0KVGhhbmtzLA0KLURvbiBTa2lk
+bW9yZSA8ZG9uYWxkLmMuc2tpZG1vcmVAaW50ZWwuY29tPg0K
