@@ -1,67 +1,149 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/3] Netfilter fixes for net
-Date: Fri, 22 May 2015 12:34:03 +0200
-Message-ID: <1432290846-4310-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/3] netfilter: nfnetlink_{log,queue}: Register pernet in first place
+Date: Fri, 22 May 2015 12:34:04 +0200
+Message-ID: <1432290846-4310-2-git-send-email-pablo@netfilter.org>
+References: <1432290846-4310-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38957 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161013AbbEVK3R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 May 2015 06:29:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1432290846-4310-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Francesco Ruggeri <fruggeri@aristanetworks.com>
 
-The following patchset contain Netfilter fixes for your net tree, they are:
+nfnetlink_{log,queue}_init() register the netlink callback nf*_rcv_nl_event
+before registering the pernet_subsys, but the callback relies on data
+structures allocated by pernet init functions.
 
-1) Fix a race in nfnetlink_log and nfnetlink_queue that can lead to a crash.
-   This problem is due to wrong order in the per-net registration and netlink
-   socket events. Patch from Francesco Ruggeri.
+When nfnetlink_{log,queue} is loaded, if a netlink message is received after
+the netlink callback is registered but before the pernet_subsys is registered,
+the kernel will panic in the sequence
 
-2) Make sure that counters that userspace pass us are higher than 0 in all the
-   x_tables frontends. Discovered via Trinity, patch from Dave Jones.
+nfulnl_rcv_nl_event
+  nfnl_log_pernet
+    net_generic
+      BUG_ON(id == 0)  where id is nfnl_log_net_id.
 
-3) Revert a patch for br_netfilter to rely on the conntrack status bits. This
-   breaks stateless IPv6 NAT transformations. Patch from Florian Westphal.
+The panic can be easily reproduced in 4.0.3 by:
 
-You can pull these changes from:
+while true ;do modprobe nfnetlink_log ; rmmod nfnetlink_log ; done &
+while true ;do ip netns add dummy ; ip netns del dummy ; done &
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+This patch moves register_pernet_subsys to earlier in nfnetlink_log_init.
 
-Thanks!
+Notice that the BUG_ON hit in 4.0.3 was recently removed in 2591ffd308
+["netns: remove BUG_ONs from net_generic()"].
 
-----------------------------------------------------------------
-
-The following changes since commit 13c3ed6a92724d8c8cb148a14b0ae190ddfe7413:
-
-  vxlan: correct typo in call to unregister_netdevice_queue (2015-05-18 16:57:09 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to faecbb45ebefb20260ad4a631e011e93c896cb73:
-
-  Revert "netfilter: bridge: query conntrack about skb dnat" (2015-05-20 13:51:25 +0200)
-
-----------------------------------------------------------------
-Dave Jones (1):
-      netfilter: ensure number of counters is >0 in do_replace()
-
-Florian Westphal (1):
-      Revert "netfilter: bridge: query conntrack about skb dnat"
-
-Francesco Ruggeri (1):
-      netfilter: nfnetlink_{log,queue}: Register pernet in first place
-
- include/linux/skbuff.h               |    1 +
- net/bridge/br_netfilter.c            |   27 +++++++++------------------
- net/bridge/netfilter/ebtables.c      |    4 ++++
- net/ipv4/netfilter/arp_tables.c      |    6 ++++++
- net/ipv4/netfilter/ip_tables.c       |    6 ++++++
- net/ipv6/netfilter/ip6_tables.c      |    6 ++++++
+Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
  net/netfilter/nfnetlink_log.c        |   19 ++++++++++---------
  net/netfilter/nfnetlink_queue_core.c |   18 +++++++++---------
- 8 files changed, 51 insertions(+), 36 deletions(-)
+ 2 files changed, 19 insertions(+), 18 deletions(-)
+
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index 3ad9126..4ef1fae 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -1073,7 +1073,13 @@ static struct pernet_operations nfnl_log_net_ops = {
+ 
+ static int __init nfnetlink_log_init(void)
+ {
+-	int status = -ENOMEM;
++	int status;
++
++	status = register_pernet_subsys(&nfnl_log_net_ops);
++	if (status < 0) {
++		pr_err("failed to register pernet ops\n");
++		goto out;
++	}
+ 
+ 	netlink_register_notifier(&nfulnl_rtnl_notifier);
+ 	status = nfnetlink_subsys_register(&nfulnl_subsys);
+@@ -1088,28 +1094,23 @@ static int __init nfnetlink_log_init(void)
+ 		goto cleanup_subsys;
+ 	}
+ 
+-	status = register_pernet_subsys(&nfnl_log_net_ops);
+-	if (status < 0) {
+-		pr_err("failed to register pernet ops\n");
+-		goto cleanup_logger;
+-	}
+ 	return status;
+ 
+-cleanup_logger:
+-	nf_log_unregister(&nfulnl_logger);
+ cleanup_subsys:
+ 	nfnetlink_subsys_unregister(&nfulnl_subsys);
+ cleanup_netlink_notifier:
+ 	netlink_unregister_notifier(&nfulnl_rtnl_notifier);
++	unregister_pernet_subsys(&nfnl_log_net_ops);
++out:
+ 	return status;
+ }
+ 
+ static void __exit nfnetlink_log_fini(void)
+ {
+-	unregister_pernet_subsys(&nfnl_log_net_ops);
+ 	nf_log_unregister(&nfulnl_logger);
+ 	nfnetlink_subsys_unregister(&nfulnl_subsys);
+ 	netlink_unregister_notifier(&nfulnl_rtnl_notifier);
++	unregister_pernet_subsys(&nfnl_log_net_ops);
+ }
+ 
+ MODULE_DESCRIPTION("netfilter userspace logging");
+diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
+index 0b98c74..11c7682 100644
+--- a/net/netfilter/nfnetlink_queue_core.c
++++ b/net/netfilter/nfnetlink_queue_core.c
+@@ -1317,7 +1317,13 @@ static struct pernet_operations nfnl_queue_net_ops = {
+ 
+ static int __init nfnetlink_queue_init(void)
+ {
+-	int status = -ENOMEM;
++	int status;
++
++	status = register_pernet_subsys(&nfnl_queue_net_ops);
++	if (status < 0) {
++		pr_err("nf_queue: failed to register pernet ops\n");
++		goto out;
++	}
+ 
+ 	netlink_register_notifier(&nfqnl_rtnl_notifier);
+ 	status = nfnetlink_subsys_register(&nfqnl_subsys);
+@@ -1326,19 +1332,13 @@ static int __init nfnetlink_queue_init(void)
+ 		goto cleanup_netlink_notifier;
+ 	}
+ 
+-	status = register_pernet_subsys(&nfnl_queue_net_ops);
+-	if (status < 0) {
+-		pr_err("nf_queue: failed to register pernet ops\n");
+-		goto cleanup_subsys;
+-	}
+ 	register_netdevice_notifier(&nfqnl_dev_notifier);
+ 	nf_register_queue_handler(&nfqh);
+ 	return status;
+ 
+-cleanup_subsys:
+-	nfnetlink_subsys_unregister(&nfqnl_subsys);
+ cleanup_netlink_notifier:
+ 	netlink_unregister_notifier(&nfqnl_rtnl_notifier);
++out:
+ 	return status;
+ }
+ 
+@@ -1346,9 +1346,9 @@ static void __exit nfnetlink_queue_fini(void)
+ {
+ 	nf_unregister_queue_handler();
+ 	unregister_netdevice_notifier(&nfqnl_dev_notifier);
+-	unregister_pernet_subsys(&nfnl_queue_net_ops);
+ 	nfnetlink_subsys_unregister(&nfqnl_subsys);
+ 	netlink_unregister_notifier(&nfqnl_rtnl_notifier);
++	unregister_pernet_subsys(&nfnl_queue_net_ops);
+ 
+ 	rcu_barrier(); /* Wait for completion of call_rcu()'s */
+ }
+-- 
+1.7.10.4
+
