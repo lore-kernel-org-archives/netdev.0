@@ -1,33 +1,47 @@
-From: Mark Salyzyn <salyzyn@android.com>
-Subject: Re: net/unix: sk_socket can disappear when state is unlocked
-Date: Fri, 22 May 2015 09:24:27 -0700
-Message-ID: <555F583B.1010309@android.com>
-References: <1432225541-28498-1-git-send-email-salyzyn@android.com>	 <1432288230.3364.23.camel@redhat.com> <555F4267.30704@android.com> <1432308915.28081.10.camel@redhat.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] xen-netfront crash when detaching network while some
+ network activity
+Date: Fri, 22 May 2015 17:25:44 +0100
+Message-ID: <555F5888.4020303@citrix.com>
+References: <20150522114932.GC8664@mail-itl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	David Howells <dhowells@redhat.com>,
-	Ying Xue <ying.xue@windriver.com>,
-	Christoph Hellwig <hch@lst.de>, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1432308915.28081.10.camel@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, xen-devel <xen-devel@lists.xen.org>
+To: =?windows-1252?Q?Marek_Marczykowski-G=F3recki?=
+	<marmarek@invisiblethingslab.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	"David Vrabel" <david.vrabel@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:54149 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161018AbbEVQZr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 12:25:47 -0400
+In-Reply-To: <20150522114932.GC8664@mail-itl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/22/2015 08:35 AM, Hannes Frederic Sowa wrote:
-> I still wonder if we need to actually recheck the condition and not
-> simply break out of unix_stream_data_wait:
->
-> We return to the unix_stream_recvmsg loop and recheck the
-> sk_receive_queue. At this point sk_receive_queue is not really protected
-> with unix_state_lock against concurrent modification with unix_release,
-> as such we could end up concurrently dequeueing packets if socket is
-> DEAD.
-sock destroy(sic) is called before sock_orphan which sets SOCK_DEAD, so 
-the receive queue has already been drained.
+On 22/05/15 12:49, Marek Marczykowski-G=F3recki wrote:
+> Hi all,
+>=20
+> I'm experiencing xen-netfront crash when doing xl network-detach whil=
+e
+> some network activity is going on at the same time. It happens only w=
+hen
+> domU has more than one vcpu. Not sure if this matters, but the backen=
+d
+> is in another domU (not dom0). I'm using Xen 4.2.2. It happens on ker=
+nel
+> 3.9.4 and 4.1-rc1 as well.
+>=20
+> Steps to reproduce:
+> 1. Start the domU with some network interface
+> 2. Call there 'ping -f some-IP'
+> 3. Call 'xl network-detach NAME 0'
 
-Sincerely -- Mark Salyzyn
+I tried this about 10 times without a crash.  How reproducible is it?
+
+I used a 4.1-rc4 frontend and a 4.0 backend.
+
+David
