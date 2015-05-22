@@ -1,31 +1,67 @@
-From: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
-Subject: Re: [PATCH net] ipv4: Avoid crashing in =?UTF-8?Q?ip=5Ferror?=
-Date: Fri, 22 May 2015 20:48:38 +0200
-Message-ID: <379cd5bb2c3e9b3041c41d758c833ff0@vittgam.net>
-References: <ff82713d6862786de9784bd3c9c06bfa@vittgam.net>
- <20150522040453.GC8530@1wt.eu> <87zj4x6iiz.fsf_-_@x220.int.ebiederm.org>
- <20150522.142447.1048811620866120127.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net-next] bridge: allow setting hash_max +
+ multicast_router if interface is down
+Date: Fri, 22 May 2015 14:56:36 -0400 (EDT)
+Message-ID: <20150522.145636.734827115116283588.davem@davemloft.net>
+References: <1432301557-6928-1-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <ebiederm@xmission.com>, <netdev@vger.kernel.org>,
-	<security@kernel.org>, <greg@kroah.com>, <luto@amacapital.net>,
-	<w@1wt.eu>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from server1.vittgam.net ([213.239.197.142]:32750 "EHLO
-	mail.vittgam.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756645AbbEVStM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 14:49:12 -0400
-In-Reply-To: <20150522.142447.1048811620866120127.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, wkok@cumulusnetworks.com,
+	cwang@twopensource.com
+To: linus.luessing@c0d3.blue
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1432301557-6928-1-git-send-email-linus.luessing@c0d3.blue>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Il 22.05.2015 20:24 David Miller ha scritto:
-> Looks good, applied and queued up for -stable, thanks!
+From: Linus L=FCssing <linus.luessing@c0d3.blue>
+Date: Fri, 22 May 2015 15:32:37 +0200
 
-That's great!
+> @@ -1786,14 +1784,8 @@ int br_multicast_set_router(struct net_bridge =
+*br, unsigned long val)
+>  	case 1:
+>  		br->multicast_router =3D val;
+>  		err =3D 0;
+> -		break;
+> -
+> -	default:
+> -		err =3D -EINVAL;
+> -		break;
+>  	}
 
-I think this should also be backported up to Linux mainline 3.10, since
-the original commit that introduced the bug first appeared in 3.6.
+Please don't remove the break; statement.
+
+> @@ -1827,14 +1817,8 @@ int br_multicast_set_port_router(struct net_br=
+idge_port *p, unsigned long val)
+>  			break;
+>  =
+
+>  		br_multicast_add_router(br, p);
+> -		break;
+> -
+> -	default:
+> -		err =3D -EINVAL;
+> -		break;
+>  	}
+>  =
+
+> -unlock:
+>  	spin_unlock(&br->multicast_lock);
+>  =
+
+>  	return err;
+
+Likewise.
+
+Thanks.
