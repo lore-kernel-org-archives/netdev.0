@@ -1,66 +1,64 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Subject: Re: [V5 PATCH 1/5] ACPI / scan: Parse _CCA and setup device coherency
-Date: Sat, 23 May 2015 01:05:30 +0200
-Message-ID: <2939517.7sXtxU6TkU@vostro.rjw.lan>
-References: <1432159758-4486-1-git-send-email-Suravee.Suthikulpanit@amd.com> <1815824.lIg0NQ97lU@vostro.rjw.lan> <555FAC8F.4010306@amd.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com,
-	thomas.lendacky@amd.com, herbert@gondor.apana.org.au,
-	davem@davemloft.net, arnd@arndb.de, msalter@redhat.com,
-	hanjun.guo@linaro.org, al.stone@linaro.org,
-	grant.likely@linaro.org, leo.duran@amd.com,
-	linux-arm-kernel@lists.infradead.org, linux-acpi@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linaro-acpi@lists.linaro.org,
-	netdev@vger.kernel.org, linux-crypto@vger.kernel.org
-To: Suravee Suthikulanit <suravee.suthikulpanit@amd.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <555FAC8F.4010306@amd.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net] x86: bpf_jit: fix compilation of large bpf programs
+Date: Fri, 22 May 2015 15:42:55 -0700
+Message-ID: <1432334575-16959-1-git-send-email-ast@plumgrid.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:36031 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422679AbbEVWnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 18:43:03 -0400
+Received: by paza2 with SMTP id a2so20691747paz.3
+        for <netdev@vger.kernel.org>; Fri, 22 May 2015 15:43:02 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday, May 22, 2015 05:24:15 PM Suravee Suthikulanit wrote:
-> Not sure if this went out earlier. So I am resending.
-> 
-> On 5/22/15 16:56, Rafael J. Wysocki wrote:
-> >> diff --git a/drivers/acpi/glue.c b/drivers/acpi/glue.c
-> >> >index 39c485b..b9657af 100644
-> >> >--- a/drivers/acpi/glue.c
-> >> >+++ b/drivers/acpi/glue.c
-> >> >@@ -13,6 +13,7 @@
-> >> >  #include <linux/slab.h>
-> >> >  #include <linux/rwsem.h>
-> >> >  #include <linux/acpi.h>
-> >> >+#include <linux/dma-mapping.h>
-> >> >
-> >> >  #include "internal.h"
-> >> >
-> >> >@@ -167,6 +168,7 @@ int acpi_bind_one(struct device *dev, struct acpi_device *acpi_dev)
-> >> >  	struct list_head *physnode_list;
-> >> >  	unsigned int node_id;
-> >> >  	int retval = -EINVAL;
-> >> >+	bool coherent;
-> >> >
-> >> >  	if (has_acpi_companion(dev)) {
-> >> >  		if (acpi_dev) {
-> >> >@@ -223,6 +225,9 @@ int acpi_bind_one(struct device *dev, struct acpi_device *acpi_dev)
-> >> >  	if (!has_acpi_companion(dev))
-> >> >  		ACPI_COMPANION_SET(dev, acpi_dev);
-> >> >
-> >> >+	if (acpi_check_dma(acpi_dev, &coherent))
-> >> >+		arch_setup_dma_ops(dev, 0, 0, NULL, coherent);
-> >> >+
-> > Well, so is this going to work for PCI too after all?
-> >
-> 
-> No, as Bjorn suggested, PCI changes for setting DMA coherent from _CCA 
-> (patch 3/6 in V4) will be submitted separately. We are working on 
-> cleaning up and up-streaming the PCI ACPI support for ARM64.
+x86 has variable length encoding. x86 JIT compiler is trying
+to pick the shortest encoding for given bpf instruction.
+While doing so the jump targets are changing, so JIT is doing
+multiple passes over the program. Typical program needs 3 passes.
+Some very short programs converge with 2 passes. Large programs
+may need 4 or 5. But specially crafted bpf programs may hit the
+pass limit and if the program converges on the last iteration
+the JIT compiler will be producing an image full of 'int 3' insns.
+Fix this corner case by doing final iteration over bpf program.
 
-OK, but acpi_bind_one() is called for PCI devices too.  Won't that be a problem?
+Fixes: 0a14842f5a3c ("net: filter: Just In Time compiler for x86-64")
+Reported-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+Daniel wrote the 'Edge hopping nuthouse' test case with 4k jump
+instructions that managed to trigger this bug.
+The test case is nuts and the bug is real.
+It's an old bug, but I think worth backporting all the way.
+Though this fix will apply cleanly only till commit:
+f3c2af7ba17a ("net: filter: x86: split bpf_jit_compile()")
+The older kernels should be similar. They have
+'for (pass = 0; pass < 10; pass++) {' at the line 153 or so.
+and all have similar problem as far as I can see.
 
+ arch/x86/net/bpf_jit_comp.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 99f76103c6b7..ddeff4844a10 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -966,7 +966,12 @@ void bpf_int_jit_compile(struct bpf_prog *prog)
+ 	}
+ 	ctx.cleanup_addr = proglen;
+ 
+-	for (pass = 0; pass < 10; pass++) {
++	/* JITed image shrinks with every pass and the loop iterates
++	 * until the image stops shrinking. Very large bpf programs
++	 * may converge on the last pass. In such case do one more
++	 * pass to emit the final image
++	 */
++	for (pass = 0; pass < 10 || image; pass++) {
+ 		proglen = do_jit(prog, addrs, image, oldproglen, &ctx);
+ 		if (proglen <= 0) {
+ 			image = NULL;
 -- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+1.7.9.5
