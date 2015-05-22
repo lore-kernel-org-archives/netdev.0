@@ -1,57 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv4: Avoid crashing in ip_error
-Date: Fri, 22 May 2015 14:24:47 -0400 (EDT)
-Message-ID: <20150522.142447.1048811620866120127.davem@davemloft.net>
-References: <ff82713d6862786de9784bd3c9c06bfa@vittgam.net>
-	<20150522040453.GC8530@1wt.eu>
-	<87zj4x6iiz.fsf_-_@x220.int.ebiederm.org>
+Subject: Re: [PATCH 0/3] Netfilter fixes for net
+Date: Fri, 22 May 2015 14:33:53 -0400 (EDT)
+Message-ID: <20150522.143353.1996617853428090735.davem@davemloft.net>
+References: <1432290846-4310-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxbugs@vittgam.net, security@kernel.org,
-	greg@kroah.com, luto@amacapital.net, w@1wt.eu
-To: ebiederm@xmission.com
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49453 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49556 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756692AbbEVSYu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 14:24:50 -0400
-In-Reply-To: <87zj4x6iiz.fsf_-_@x220.int.ebiederm.org>
+	with ESMTP id S1757207AbbEVSd4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 14:33:56 -0400
+In-Reply-To: <1432290846-4310-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Fri, 22 May 2015 04:58:12 -0500
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Fri, 22 May 2015 12:34:03 +0200
 
-> ip_error does not check if in_dev is NULL before dereferencing it.
+> The following patchset contain Netfilter fixes for your net tree, they are:
 > 
-> IThe following sequence of calls is possible:
-> CPU A                          CPU B
-> ip_rcv_finish
->     ip_route_input_noref()
->         ip_route_input_slow()
->                                inetdev_destroy()
->     dst_input()
+> 1) Fix a race in nfnetlink_log and nfnetlink_queue that can lead to a crash.
+>    This problem is due to wrong order in the per-net registration and netlink
+>    socket events. Patch from Francesco Ruggeri.
 > 
-> With the result that a network device can be destroyed while processing
-> an input packet.
+> 2) Make sure that counters that userspace pass us are higher than 0 in all the
+>    x_tables frontends. Discovered via Trinity, patch from Dave Jones.
 > 
-> A crash was triggered with only unicast packets in flight, and
-> forwarding enabled on the only network device.   The error condition
-> was created by the removal of the network device.
+> 3) Revert a patch for br_netfilter to rely on the conntrack status bits. This
+>    breaks stateless IPv6 NAT transformations. Patch from Florian Westphal.
 > 
-> As such it is likely the that error code was -EHOSTUNREACH, and the
-> action taken by ip_error (if in_dev had been accessible) would have
-> been to not increment any counters and to have tried and likely failed
-> to send an icmp error as the network device is going away.
+> You can pull these changes from:
 > 
-> Therefore handle this weird case by just dropping the packet if
-> !in_dev.  It will result in dropping the packet sooner, and will not
-> result in an actual change of behavior.
-> 
-> Fixes: 251da4130115b ("ipv4: Cache ip_error() routes even when not forwarding.")
-> Reported-by: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
-> Tested-by: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
 
-Looks good, applied and queued up for -stable, thanks!
+Pulled, thanks Pablo.
