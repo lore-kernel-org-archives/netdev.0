@@ -1,84 +1,59 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
-Subject: Re: net/unix: sk_socket can disappear when state is unlocked
-Date: Fri, 22 May 2015 17:35:15 +0200
-Message-ID: <1432308915.28081.10.camel@redhat.com>
-References: <1432225541-28498-1-git-send-email-salyzyn@android.com>
-	 <1432288230.3364.23.camel@redhat.com> <555F4267.30704@android.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	David Howells <dhowells@redhat.com>,
-	Ying Xue <ying.xue@windriver.com>,
-	Christoph Hellwig <hch@lst.de>, netdev@vger.kernel.org
-To: Mark Salyzyn <salyzyn@android.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <555F4267.30704@android.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next] test_bpf: Add backward jump test case
+Date: Fri, 22 May 2015 08:36:40 -0700
+Message-ID: <1432309000-11545-1-git-send-email-ast@plumgrid.com>
+Cc: Michael Holzheu <holzheu@linux.vnet.ibm.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:33081 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757493AbbEVPgv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 11:36:51 -0400
+Received: by pdbqa5 with SMTP id qa5so22372528pdb.0
+        for <netdev@vger.kernel.org>; Fri, 22 May 2015 08:36:51 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fr, 2015-05-22 at 07:51 -0700, Mark Salyzyn wrote:
-> On 05/22/2015 02:50 AM, Hannes Frederic Sowa wrote:
-> > On Do, 2015-05-21 at 09:25 -0700, Mark Salyzyn wrote:
-> >> got a rare NULL pointer dereference in clear_bit
-> >>
-> >> Signed-off-by: Mark Salyzyn <salyzyn@android.com>
-> >> ---
-> >>   net/unix/af_unix.c | 5 +++++
-> >>   1 file changed, 5 insertions(+)
-> >>
-> >> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> >> index 5266ea7..37a8925 100644
-> >> --- a/net/unix/af_unix.c
-> >> +++ b/net/unix/af_unix.c
-> >> @@ -1880,6 +1880,11 @@ static long unix_stream_data_wait(struct sock *sk, long timeo,
-> >>   		unix_state_unlock(sk);
-> >>   		timeo = freezable_schedule_timeout(timeo);
-> >>   		unix_state_lock(sk);
-> >> +
-> >> +		/* sk_socket may have been killed while unlocked */
-> >> +		if (!sk->sk_socket)
-> >> +			break;
-> >> +
-> >>   		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-> >>   	}
-> >>   
-> > Canonical way is to test for sock_flag(sk, SOCK_DEAD). Also it does not
-> > seem like we are returning an error to user space but are still looping
-> > to try to dequeue skbs from sk_receive_queue, which is concurrently
-> > emptied by unix_release (maybe, without holding unix_state_lock).
-> >
-> > Bye,
-> > Hannes
-> >
-> I will send an updated patch shortly.
-> 
-> It may be acceptable given the expectation that sk_set_socket(sk, NULL) 
-> occurs after SOCK_DEAD flag is set since we would not be here during the 
-> socket initialization/connection phases. As such, for all phases (and I 
-> re-iterate, we can only be here if in connected state), it is not a 
-> generic guarantee of sk_socket != NULL. But I only saw one apparent 
-> example (in net/decnet/dn_nsp_in.c) of using sock_flag(sk, SOCK_DEAD) as 
-> protection against a possible deference NULL access with sk_socket, and 
-> many KISS examples of checking sk_socket for NULL to protect against thus.
-> 
-> Thanks for making me look though, it appears that I missed the same 
-> problem in net/caif/caif_socket.c and will add it!
+From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
 
-Thank you for v2 of the patch.
+Currently the testsuite does not have a test case with a backward jump.
+The s390x JIT (kernel 4.0) had a bug in that area.
+So add one new test case for this now.
 
-I still wonder if we need to actually recheck the condition and not
-simply break out of unix_stream_data_wait:
+Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+ lib/test_bpf.c |   16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-We return to the unix_stream_recvmsg loop and recheck the
-sk_receive_queue. At this point sk_receive_queue is not really protected
-with unix_state_lock against concurrent modification with unix_release,
-as such we could end up concurrently dequeueing packets if socket is
-DEAD.
-
-Does that make sense?
-
-Thanks,
-Hannes
+diff --git a/lib/test_bpf.c b/lib/test_bpf.c
+index aaa0a40a7eb3..9b012a811ee1 100644
+--- a/lib/test_bpf.c
++++ b/lib/test_bpf.c
+@@ -3940,6 +3940,22 @@ static struct bpf_test tests[] = {
+ 		{ },
+ 		{ { 0, 1 } },
+ 	},
++	/* BPF_JMP | BPF_JGT | BPF_K jump backwards */
++	{
++		"JMP_JGT_K: if (3 > 2) return 1 (jump backwards)",
++		.u.insns_int = {
++			BPF_JMP_IMM(BPF_JA, 0, 0, 2), /* goto start */
++			BPF_ALU32_IMM(BPF_MOV, R0, 1), /* out: */
++			BPF_EXIT_INSN(),
++			BPF_ALU32_IMM(BPF_MOV, R0, 0), /* start: */
++			BPF_LD_IMM64(R1, 3), /* note: this takes 2 insns */
++			BPF_JMP_IMM(BPF_JGT, R1, 2, -6), /* goto out */
++			BPF_EXIT_INSN(),
++		},
++		INTERNAL,
++		{ },
++		{ { 0, 1 } },
++	},
+ 	{
+ 		"JMP_JGE_K: if (3 >= 3) return 1",
+ 		.u.insns_int = {
+-- 
+1.7.9.5
