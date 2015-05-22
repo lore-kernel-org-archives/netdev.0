@@ -1,65 +1,47 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 3/4] sfc: add module parameter to enable MCDI logging
- on new functions
-Date: Fri, 22 May 2015 20:20:26 +0100
-Message-ID: <555F817A.1050904@solarflare.com>
-References: <555F813D.8000108@solarflare.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH -next, V3 0/2] net: force refragmentation for DF
+ reassembed skbs
+Date: Fri, 22 May 2015 21:26:51 +0200
+Message-ID: <20150522192651.GA3629@breakpoint.cc>
+References: <1432305171-21932-1-git-send-email-fw@strlen.de>
+ <20150522.150310.2248217318352290500.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: fw@strlen.de, netdev@vger.kernel.org, hannes@stressinduktion.org,
+	Maxime Bizon <mbizon@freebox.fr>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:13464 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757293AbbEVTVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 15:21:36 -0400
-In-Reply-To: <555F813D.8000108@solarflare.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:38757 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756645AbbEVT0y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 15:26:54 -0400
+Content-Disposition: inline
+In-Reply-To: <20150522.150310.2248217318352290500.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As many issues are encountered at probe time, where MCDI logging can't be
- enabled through the sysfs node, this change adds a module parameter
- 'mcdi_logging_default', which defaults to false.  When set to true, newly-
- probed functions will have MCDI logging enabled.  The setting can
- subsequently be changed as normal through the sysfs node.
+David Miller <davem@davemloft.net> wrote:
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/ethernet/sfc/mcdi.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+[ cc'd Maxime Bizon ]
 
-diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index 3e4137c..1f7153d 100644
---- a/drivers/net/ethernet/sfc/mcdi.c
-+++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -8,6 +8,7 @@
-  */
- 
- #include <linux/delay.h>
-+#include <linux/moduleparam.h>
- #include <asm/cmpxchg.h>
- #include "net_driver.h"
- #include "nic.h"
-@@ -54,6 +55,13 @@ static int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
- static bool efx_mcdi_poll_once(struct efx_nic *efx);
- static void efx_mcdi_abandon(struct efx_nic *efx);
- 
-+#ifdef CONFIG_SFC_MCDI_LOGGING
-+static bool mcdi_logging_default;
-+module_param(mcdi_logging_default, bool, 0644);
-+MODULE_PARM_DESC(mcdi_logging_default,
-+		 "Enable MCDI logging on newly-probed functions");
-+#endif
-+
- int efx_mcdi_init(struct efx_nic *efx)
- {
- 	struct efx_mcdi_iface *mcdi;
-@@ -71,6 +79,7 @@ int efx_mcdi_init(struct efx_nic *efx)
- 	mcdi->logging_buffer = (char *)__get_free_page(GFP_KERNEL);
- 	if (!mcdi->logging_buffer)
- 		goto fail1;
-+	mcdi->logging_enabled = mcdi_logging_default;
- #endif
- 	init_waitqueue_head(&mcdi->wq);
- 	spin_lock_init(&mcdi->iface_lock);
+> From: Florian Westphal <fw@strlen.de>
+> Date: Fri, 22 May 2015 16:32:49 +0200
+> 
+> > IP (ttl 64, id 12345, offset 0, flags [+, DF], proto UDP (17), length 1204)
+> >     192.168.7.1.42 > 10.23.42.2.42: UDP, length 1400
+> > IP (ttl 64, id 12345, offset 1184, flags [DF], proto UDP (17), length 244)
+> >     192.168.7.1 > 10.23.42.2: ip-proto-17
+> 
+> I almost consider a fragment with DF set an oxymoron.
+> 
+> How does this happen?
+
+Good question.  I have no idea why or how this happens.
+
+But it does happen, see e.g. following bug report:
+http://marc.info/?l=linux-netdev&m=139870308431986&w=2
+
+Maxime, do you recall what type of traffic generates
+the DF-fragments you reported?
+
+Thanks.
