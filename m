@@ -1,51 +1,57 @@
 From: Arun Parameswaran <aparames@broadcom.com>
-Subject: [PATCH 0/2] Fix couple of issues with 'ethtool' get/set API's
-Date: Fri, 22 May 2015 15:43:27 -0700
-Message-ID: <1432334609-3971-1-git-send-email-aparames@broadcom.com>
+Subject: [PATCH 1/2] ethtool: Clear the command data structure before sending requests
+Date: Fri, 22 May 2015 15:43:28 -0700
+Message-ID: <1432334609-3971-2-git-send-email-aparames@broadcom.com>
+References: <1432334609-3971-1-git-send-email-aparames@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <jdzheng@broadcom.com>,
 	<aparames@broadcom.com>
 To: Ben Hutchings <bwh@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:10976 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422688AbbEVWnh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 18:43:37 -0400
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:35346 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756896AbbEVWng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 18:43:36 -0400
+In-Reply-To: <1432334609-3971-1-git-send-email-aparames@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-The patch fixes 2 issues with 'ethtool' getting/setting parametres in
-the do_gset() do_sset() API's.
+The 'ethtool' is not clearing the command data structure in the
+do_gset() & do_sset() API's while sending commands to get/set
+parametres. This used to work since the Kernel clears the
+data structure (which was a bug and is being fixed).
 
-I have pushed a patch to the Kernel to fix an issue in the handling of
-the 'ethtool' commands which got accepted.
-This Kernel patch was based on Linux v4.1-rc4 and is available in:
-https://github.com/Broadcom/cygnus-linux/tree/net-core-ethtool-fix-v1
+This patch adds a 'memset' to the do_gset() & do_sset() to clear
+the command data structure. This will prevent the 'ethtool' from
+passing wrong parametres, for example incorrect 'phyad'.
 
-The Kernel was always clearing the command from the 'ethtool' resulting
-in all operations to deal with PHY0. This prevents querying/setting
-PHY 1's settings.
+Signed-off-by: Arun Parameswaran <aparames@broadcom.com>
+Reviewed-by: JD (Jiandong) Zheng <jdzheng@broadcom.com>
+---
+ ethtool.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-The first patch is required due to the fact that Kernel will not be
-clearing the command data structure. Without this the query will fail
-as the command will get to the Kernel with arbitary phyad info.
-
-The second patch is to fix the issue in which the 'ethtool' gets the
-settings of the wrong phyad before applying the new settings.
-
-These changes will still work with older Kernel's (as the Kernel
-clears the command data structure).
-
-Thanks
-
-Arun Parameswaran (2):
-  ethtool: Clear the command data structure before sending requests
-  ethtool: Fix an issue with handling 'phyad' while updating settings
-
- ethtool.c |    9 +++++++++
- 1 file changed, 9 insertions(+)
-
+diff --git a/ethtool.c b/ethtool.c
+index 01b13a6..668c189 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -2275,6 +2275,7 @@ static int do_gset(struct cmd_context *ctx)
+ 
+ 	fprintf(stdout, "Settings for %s:\n", ctx->devname);
+ 
++	memset(&ecmd, 0, sizeof(struct ethtool_cmd));
+ 	ecmd.cmd = ETHTOOL_GSET;
+ 	err = send_ioctl(ctx, &ecmd);
+ 	if (err == 0) {
+@@ -2520,6 +2521,8 @@ static int do_sset(struct cmd_context *ctx)
+ 	if (gset_changed) {
+ 		struct ethtool_cmd ecmd;
+ 
++		memset(&ecmd, 0, sizeof(struct ethtool_cmd));
++
+ 		ecmd.cmd = ETHTOOL_GSET;
+ 		err = send_ioctl(ctx, &ecmd);
+ 		if (err < 0) {
 -- 
 1.7.9.5
