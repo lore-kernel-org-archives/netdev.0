@@ -1,79 +1,48 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v4 net-next 09/11] net: Add IPv6 flow label to flow_keys
-Date: Fri, 22 May 2015 13:12:38 -0700
-Message-ID: <CALx6S34M_6kS_LWAuiFu0SZwn6VKvjSj8LDt+EzbRqpeKqXu+g@mail.gmail.com>
-References: <1432253506-3646977-1-git-send-email-tom@herbertland.com>
-	<1432253506-3646977-10-git-send-email-tom@herbertland.com>
-	<20150522081428.GH2138@nanopsycho.orion>
-	<CALx6S35PHMadpa49XXkrju3rDBujXHjAz7zd0GgkK_3JN8nkkA@mail.gmail.com>
-	<20150522152232.GR2138@nanopsycho.orion>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] net: core: 'ethtool' issue with querying phy
+ settings
+Date: Fri, 22 May 2015 16:15:11 -0400 (EDT)
+Message-ID: <20150522.161511.1791346966770946099.davem@davemloft.net>
+References: <1432157730-26865-1-git-send-email-aparames@broadcom.com>
+	<1432157730-26865-2-git-send-email-aparames@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:36142 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756674AbbEVUMj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 16:12:39 -0400
-Received: by iepj10 with SMTP id j10so38993974iep.3
-        for <netdev@vger.kernel.org>; Fri, 22 May 2015 13:12:38 -0700 (PDT)
-In-Reply-To: <20150522152232.GR2138@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bcm-kernel-feedback-list@broadcom.com, rjui@broadcom.com,
+	sbranden@broadcom.com, jdzheng@broadcom.com
+To: aparames@broadcom.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1432157730-26865-2-git-send-email-aparames@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 22, 2015 at 8:22 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Fri, May 22, 2015 at 05:14:21PM CEST, tom@herbertland.com wrote:
->>On Fri, May 22, 2015 at 1:14 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>> Fri, May 22, 2015 at 02:11:44AM CEST, tom@herbertland.com wrote:
->>>>In flow_dissector set the flow label in flow_keys for IPv6. This also
->>>>removes the shortcircuiting of flow dissection when a non-zero label
->>>>is present, the flow label can be considered to provide additional
->>>>entropy for a hash.
->>>>
->>>>Signed-off-by: Tom Herbert <tom@herbertland.com>
->>>>---
->>>> include/net/flow_dissector.h |  4 +++-
->>>> net/core/flow_dissector.c    | 37 +++++++++++++------------------------
->>>> 2 files changed, 16 insertions(+), 25 deletions(-)
->>>>
->>>>diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
->>>>index 08480fb..effe607 100644
->>>>--- a/include/net/flow_dissector.h
->>>>+++ b/include/net/flow_dissector.h
->>>>@@ -28,7 +28,8 @@ struct flow_dissector_key_basic {
->>>> };
->>>>
->>>> struct flow_dissector_key_tags {
->>>>-      u32     vlan_id:12;
->>>>+      u32     vlan_id:12,
->>>>+              flow_label:20;
->>>> };
->>>>
->>>> /**
->>>>@@ -111,6 +112,7 @@ enum flow_dissector_key_id {
->>>>       FLOW_DISSECTOR_KEY_ETH_ADDRS, /* struct flow_dissector_key_eth_addrs */
->>>>       FLOW_DISSECTOR_KEY_TIPC_ADDRS, /* struct flow_dissector_key_tipc_addrs */
->>>>       FLOW_DISSECTOR_KEY_VLANID, /* struct flow_dissector_key_flow_tags */
->>>>+      FLOW_DISSECTOR_KEY_FLOW_LABEL, /* struct flow_dissector_key_flow_label */
->>>
->>>
->>> I think it makes sense to pair FLOW_DISSECTOR_KEY_* with
->>> struct flow_dissector_key_*
->>>
->>> How about to have FLOW_DISSECTOR_KEY_TAGS istead of VLANID and FLOW_LABEL?
->>>
->>
->>I thought about that, but it doesn't really save anything to be less
->>explicit as we still need a conditional at each occurrence. If someone
->>is only looking for IPv6 flow label and nothing else they are able to
->>do that.
->
-> So have 2 structs then.
+From: Arun Parameswaran <aparames@broadcom.com>
+Date: Wed, 20 May 2015 14:35:30 -0700
 
-We also use this structure in flow_keys and it's convenient to packet
-both VLAN and and flow label into single structure in that case. So we
-get precisely 24 or 48 bytes in flow_keys from skb_flow_dissector with
-the trick os setting keys to same field. The comment for
-FLOW_DISSECTOR_KEY_FLOW_LABEL does need to be fixed.
+> When trying to configure the settings for PHY1, using commands
+> like 'ethtool -s eth0 phyad 1 speed 100', the 'ethtool' seems to
+> modify other settings apart from the speed of the PHY1, in the
+> above case.
+> 
+> The ethtool seems to query the settings for PHY0, and use this
+> as the base to apply the new settings to the PHY1. This is
+> causing the other settings of the PHY 1 to be wrongly
+> configured.
+> 
+> The issue is caused by the '_ethtool_get_settings()' API, which
+> gets called because of the 'ETHTOOL_GSET' command, is clearing
+> the 'cmd' pointer (of type 'struct ethtool_cmd') by calling
+> memset. This clears all the parameters (if any) passed for the
+> 'ETHTOOL_GSET' cmd. So the driver's callback is always invoked
+> with 'cmd->phy_address' as '0'.
+> 
+> The '_ethtool_get_settings()' is called from other files in the
+> 'net/core'. So the fix is applied to the 'ethtool_get_settings()'
+> which is only called in the context of the 'ethtool'.
+> 
+> Signed-off-by: Arun Parameswaran <aparames@broadcom.com>
+> Reviewed-by: Ray Jui <rjui@broadcom.com>
+> Reviewed-by: Scott Branden <sbranden@broadcom.com>
+
+Applied and queued up for -stable, thanks.
