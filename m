@@ -1,58 +1,51 @@
 From: Arun Parameswaran <aparames@broadcom.com>
-Subject: [PATCH 2/2] ethtool: Fix an issue with handling 'phyad' while updating settings
-Date: Fri, 22 May 2015 15:43:29 -0700
-Message-ID: <1432334609-3971-3-git-send-email-aparames@broadcom.com>
-References: <1432334609-3971-1-git-send-email-aparames@broadcom.com>
+Subject: [PATCH 0/2] Fix couple of issues with 'ethtool' get/set API's
+Date: Fri, 22 May 2015 15:43:27 -0700
+Message-ID: <1432334609-3971-1-git-send-email-aparames@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <jdzheng@broadcom.com>,
 	<aparames@broadcom.com>
 To: Ben Hutchings <bwh@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:58230 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756929AbbEVWng (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 18:43:36 -0400
-In-Reply-To: <1432334609-3971-1-git-send-email-aparames@broadcom.com>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:10976 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422688AbbEVWnh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 18:43:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When using the 'ethtool' to set PHY1's settings, the 'ethtool'
-seems to do the 'get' settings with incorrect PHY ID and then
-apply the new settings on it.
+Hi,
+The patch fixes 2 issues with 'ethtool' getting/setting parametres in
+the do_gset() do_sset() API's.
 
-For example when using the command, to change PHY1's speed,
-'ethtool -s eth0 phyad 1 speed 100', the 'ethtool' will end up
-querying PHY0's settings and then apply the new settings specified
-in the command on top of the PHY0's settings. So the PHY1 will
-end up with worng settings (partial settings of PHY0 for example).
+I have pushed a patch to the Kernel to fix an issue in the handling of
+the 'ethtool' commands which got accepted.
+This Kernel patch was based on Linux v4.1-rc4 and is available in:
+https://github.com/Broadcom/cygnus-linux/tree/net-core-ethtool-fix-v1
 
-This patch fixes the issue by specifying the 'phyad' or 'port'
-requested in the command to query for the settings, before applying
-the new ones.
+The Kernel was always clearing the command from the 'ethtool' resulting
+in all operations to deal with PHY0. This prevents querying/setting
+PHY 1's settings.
 
-Signed-off-by: Arun Parameswaran <aparames@broadcom.com>
-Reviewed-by: JD (Jiandong) Zheng <jdzheng@broadcom.com>
----
- ethtool.c |    6 ++++++
- 1 file changed, 6 insertions(+)
+The first patch is required due to the fact that Kernel will not be
+clearing the command data structure. Without this the query will fail
+as the command will get to the Kernel with arbitary phyad info.
 
-diff --git a/ethtool.c b/ethtool.c
-index 668c189..6c57297 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -2523,6 +2523,12 @@ static int do_sset(struct cmd_context *ctx)
- 
- 		memset(&ecmd, 0, sizeof(struct ethtool_cmd));
- 
-+		if (phyad_wanted != -1)
-+			ecmd.phy_address = phyad_wanted;
-+
-+		if (port_wanted != -1)
-+			ecmd.port = port_wanted;
-+
- 		ecmd.cmd = ETHTOOL_GSET;
- 		err = send_ioctl(ctx, &ecmd);
- 		if (err < 0) {
+The second patch is to fix the issue in which the 'ethtool' gets the
+settings of the wrong phyad before applying the new settings.
+
+These changes will still work with older Kernel's (as the Kernel
+clears the command data structure).
+
+Thanks
+
+Arun Parameswaran (2):
+  ethtool: Clear the command data structure before sending requests
+  ethtool: Fix an issue with handling 'phyad' while updating settings
+
+ ethtool.c |    9 +++++++++
+ 1 file changed, 9 insertions(+)
+
 -- 
 1.7.9.5
