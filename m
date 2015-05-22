@@ -1,39 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Netfilter fixes for net
-Date: Fri, 22 May 2015 14:33:53 -0400 (EDT)
-Message-ID: <20150522.143353.1996617853428090735.davem@davemloft.net>
-References: <1432290846-4310-1-git-send-email-pablo@netfilter.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net,stable-4.0] cdc_ncm: Fix tx_bytes statistics
+Date: Fri, 22 May 2015 14:34:21 -0400 (EDT)
+Message-ID: <20150522.143421.442426385899149301.davem@davemloft.net>
+References: <1432293322-11928-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49556 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757207AbbEVSd4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 14:33:56 -0400
-In-Reply-To: <1432290846-4310-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, me-J2duszcpOy900TDglC2tyg@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org,
+	ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org
+To: bjorn-yOkvZcmFvRU@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1432293322-11928-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Fri, 22 May 2015 12:34:03 +0200
+=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Date: Fri, 22 May 2015 13:15:22 +0200
 
-> The following patchset contain Netfilter fixes for your net tree, they are:
-> 
-> 1) Fix a race in nfnetlink_log and nfnetlink_queue that can lead to a crash.
->    This problem is due to wrong order in the per-net registration and netlink
->    socket events. Patch from Francesco Ruggeri.
-> 
-> 2) Make sure that counters that userspace pass us are higher than 0 in all the
->    x_tables frontends. Discovered via Trinity, patch from Dave Jones.
-> 
-> 3) Revert a patch for br_netfilter to rely on the conntrack status bits. This
->    breaks stateless IPv6 NAT transformations. Patch from Florian Westphal.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+> The tx_curr_frame_payload field is u32. When we try to calculate a
+> small negative delta based on it, we end up with a positive integer
+> close to 2^32 instead.  So the tx_bytes pointer increases by about
+> 2^32 for every transmitted frame.
+>=20
+> Fix by calculating the delta as a signed long.
+>=20
+> Cc: Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+> Reported-by: Florian Bruhin <me-J2duszcpOy900TDglC2tyg@public.gmane.org>
+> Fixes: 7a1e890e2168 ("usbnet: Fix tx_bytes statistic running backward=
+ in cdc_ncm")
+> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 
-Pulled, thanks Pablo.
+Applied and queued up for -stable.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
