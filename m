@@ -1,68 +1,57 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Re: [PATCH net-next v2 0/7] netns: ease netlink use with a lot of
- netns
-Date: Fri, 22 May 2015 23:46:47 +0200
-Message-ID: <555FA3C7.7060301@ahsoftware.de>
-References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>	<1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>	<874mnn9t12.fsf@x220.int.ebiederm.org>	<555F969B.3090706@ahsoftware.de>	<CAHA+R7NCjKn86R+OLX+4bkB0kv3WcXGB5NPui+v_X=CKqQtPLA@mail.gmail.com>	<555F9BC8.1040509@ahsoftware.de> <CAHA+R7O7sVkA7Ku13gKbwa9HZ0gJZm5kw09Oeiy4u1ZMiv=ijA@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH 0/2] crypto: Use tmpl->create when registering geniv
+Date: Sat, 23 May 2015 05:54:31 +0800
+Message-ID: <20150522215430.GA11512@gondor.apana.org.au>
+References: <20150522082708.GA3507@gondor.apana.org.au>
+ <E1YviMC-00010E-Uk@gondolin.me.apana.org.au>
+ <1711949.C5mmxUsD4a@myon.chronox.de>
+ <13023896.hEcYqcIc2j@myon.chronox.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>,
-	David Miller <davem@davemloft.net>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from h1446028.stratoserver.net ([85.214.92.142]:59530 "EHLO
-	mail.ahsoftware.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161098AbbEVVq4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 17:46:56 -0400
-Received: from wandq.ahsoftware (p4FC3696B.dip0.t-ipconnect.de [79.195.105.107])
-	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mail.ahsoftware.de (Postfix) with ESMTPSA id E762D2C9C1D5
-	for <netdev@vger.kernel.org>; Fri, 22 May 2015 23:46:53 +0200 (CEST)
-In-Reply-To: <CAHA+R7O7sVkA7Ku13gKbwa9HZ0gJZm5kw09Oeiy4u1ZMiv=ijA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Stephan Mueller <smueller@chronox.de>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <13023896.hEcYqcIc2j@myon.chronox.de>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am 22.05.2015 um 23:29 schrieb Cong Wang:
-> On Fri, May 22, 2015 at 2:12 PM, Alexander Holler <holler@ahsoftware.de> wrote:
->>>
->>> Bridge doesn't have an underlying link, so no LINK_NETNSID. LINK_NETNSID
->>> is only added when its underlying link is in a different netns.
->>
->>
->> I'm using "link" similiar as interface. Maybe I've no idea what the
->> attribute LINK:NETSID really means, but I've understood it as the one
->> attribute which indicates the namespace an interface (or link), br0 in my
->> example, lives in.
->>
->
-> It is for an underlying link for example: a veth pair is a link for each other,
-> a tunnel device has a link to transmit packets.
->
-> Bridge and bonding are master devices where "slaves" (or ports for bridge)
-> can join.
->
-> netns doesn't have a name or id by nature, we assign it a name by binding
-> mount some /proc file, these LINK_NETNSID's are not absolutely unique either,
-> just relatively.
->
+On Fri, May 22, 2015 at 11:04:39PM +0200, Stephan Mueller wrote:
+> Am Freitag, 22. Mai 2015, 22:59:34 schrieb Stephan Mueller:
+> 
+> Hi Stephan,
+> 
+> > Am Freitag, 22. Mai 2015, 16:31:04 schrieb Herbert Xu:
+> > 
+> > Hi Herbert,
+> > 
+> > > This patch makes use of the new AEAD interface which uses a single
+> > > SG list instead of separate lists for the AD and plain text.
+> > 
+> > Using an up-to date tree with the full set of patches of this patch set, I
+> > get the following oops.
+> > 
+> > It can easily be reproduced by using [1]: go to libkcapi/test/ and compile
+> > with make. Then execute ./test.sh
+> > 
+> > [1] http://www.chronox.de/libkcapi.html
+> 
+> Note, gcm(aes) looks good. Only rfc4106(gcm(aes)) causes the crash.
 
-Hmm. so making an inventory of all existing interfaces in all namespaces 
-is either not really possible or ugly. If these IDs are not unique, what 
-will I get when dumping the NETSID's? Sounds like I better forget that 
-approach of using these IDs which means I would have to travel through 
-the mounts and have to use GETLINK (with dump) from inside these 
-namespaces, while having to identify the namespaces by their mount. That 
-leads me to the problem how to find these mounts and ...
+Thanks for the report!
 
-Not sure if I want to do that. It looked so easy to support namespaces 
-but know it looks rather complicated.
+The crash is because ablkcipher/aead are still using tmpl->alloc
+and I forgot about them.
 
-Anyway, thanks a lot for the quick and fast responses and explanations.
+The following two patches will fix the crash by making them call
+tmpl->create if it is set.
 
-Regards,
-
-Alexander Holler
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
