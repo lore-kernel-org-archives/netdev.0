@@ -1,122 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 3/13] crypto: echainiv - Use aead_register_instance
-Date: Fri, 22 May 2015 16:30:51 +0800
-Message-ID: <E1YviLz-0000xM-9A@gondolin.me.apana.org.au>
-References: <20150522082708.GA3507@gondor.apana.org.au>
-To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Stephan Mueller <smueller@chronox.de>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] flow_dissector: do not break if ports are not needed in flowlabel
+Date: Fri, 22 May 2015 11:05:58 +0200
+Message-ID: <1432285558-19470-1-git-send-email-jiri@resnulli.us>
+Cc: tom@herbertland.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:47718 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752567AbbEVIay (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 04:30:54 -0400
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:36277 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757060AbbEVJGD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 05:06:03 -0400
+Received: by wizk4 with SMTP id k4so40608908wiz.1
+        for <netdev@vger.kernel.org>; Fri, 22 May 2015 02:06:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-New style AEAD instances must use aead_register_instance.  This
-worked by chance because aead_geniv_alloc is still setting things
-the old way.
+This restored previous behaviour. If caller does not want ports to be
+filled, we should not break.
 
-This patch converts the template over to the create model where
-we are responsible for instance registration so that we can call
-the correct function.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Fixes: 06635a35d13d ("flow_dissect: use programable dissector in skb_flow_dissect and friends")
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
+ net/core/flow_dissector.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
- crypto/echainiv.c |   42 +++++++++++++++++++++++-------------------
- 1 file changed, 23 insertions(+), 19 deletions(-)
-
-diff --git a/crypto/echainiv.c b/crypto/echainiv.c
-index e5a9878..86e92fa 100644
---- a/crypto/echainiv.c
-+++ b/crypto/echainiv.c
-@@ -430,26 +430,24 @@ static void echainiv_exit(struct crypto_tfm *tfm)
- 	crypto_put_default_null_skcipher();
- }
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 703d059..1f2d893 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -221,13 +221,13 @@ flow_label:
+ 			key_basic->ip_proto = ip_proto;
+ 			key_basic->thoff = (u16)nhoff;
  
--static struct crypto_template echainiv_tmpl;
--
--static struct crypto_instance *echainiv_aead_alloc(struct rtattr **tb)
-+static int echainiv_aead_create(struct crypto_template *tmpl,
-+				struct rtattr **tb)
- {
- 	struct aead_instance *inst;
- 	struct crypto_aead_spawn *spawn;
- 	struct aead_alg *alg;
-+	int err;
+-			if (!skb_flow_dissector_uses_key(flow_dissector,
+-							 FLOW_DISSECTOR_KEY_PORTS))
+-				break;
+-			key_ports = skb_flow_dissector_target(flow_dissector,
+-							      FLOW_DISSECTOR_KEY_PORTS,
+-							      target_container);
+-			key_ports->ports = flow_label;
++			if (skb_flow_dissector_uses_key(flow_dissector,
++							FLOW_DISSECTOR_KEY_PORTS)) {
++				key_ports = skb_flow_dissector_target(flow_dissector,
++								      FLOW_DISSECTOR_KEY_PORTS,
++								      target_container);
++				key_ports->ports = flow_label;
++			}
  
--	inst = aead_geniv_alloc(&echainiv_tmpl, tb, 0, 0);
-+	inst = aead_geniv_alloc(tmpl, tb, 0, 0);
- 
- 	if (IS_ERR(inst))
--		goto out;
-+		return PTR_ERR(inst);
- 
-+	err = -EINVAL;
- 	if (inst->alg.ivsize < sizeof(u64) ||
- 	    inst->alg.ivsize & (sizeof(u32) - 1) ||
--	    inst->alg.ivsize > MAX_IV_SIZE) {
--		aead_geniv_free(inst);
--		inst = ERR_PTR(-EINVAL);
--		goto out;
--	}
-+	    inst->alg.ivsize > MAX_IV_SIZE)
-+		goto free_inst;
- 
- 	spawn = aead_instance_ctx(inst);
- 	alg = crypto_spawn_aead_alg(spawn);
-@@ -474,26 +472,32 @@ static struct crypto_instance *echainiv_aead_alloc(struct rtattr **tb)
- 		inst->alg.base.cra_exit = echainiv_compat_exit;
- 	}
- 
-+	err = aead_register_instance(tmpl, inst);
-+	if (err)
-+		goto free_inst;
-+
- out:
--	return aead_crypto_instance(inst);
-+	return err;
-+
-+free_inst:
-+	aead_geniv_free(inst);
-+	goto out;
- }
- 
--static struct crypto_instance *echainiv_alloc(struct rtattr **tb)
-+static int echainiv_create(struct crypto_template *tmpl, struct rtattr **tb)
- {
--	struct crypto_instance *inst;
- 	int err;
- 
- 	err = crypto_get_default_rng();
- 	if (err)
--		return ERR_PTR(err);
--
--	inst = echainiv_aead_alloc(tb);
-+		goto out;
- 
--	if (IS_ERR(inst))
-+	err = echainiv_aead_create(tmpl, tb);
-+	if (err)
- 		goto put_rng;
- 
- out:
--	return inst;
-+	return err;
- 
- put_rng:
- 	crypto_put_default_rng();
-@@ -508,7 +512,7 @@ static void echainiv_free(struct crypto_instance *inst)
- 
- static struct crypto_template echainiv_tmpl = {
- 	.name = "echainiv",
--	.alloc = echainiv_alloc,
-+	.create = echainiv_create,
- 	.free = echainiv_free,
- 	.module = THIS_MODULE,
- };
+ 			return true;
+ 		}
+-- 
+1.9.3
