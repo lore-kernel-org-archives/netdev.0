@@ -1,81 +1,67 @@
-From: Joao Martins <Joao.Martins@neclab.eu>
-Subject: Re: [RFC PATCH 00/13] Persistent grant maps for xen net drivers
-Date: Fri, 22 May 2015 10:27:06 +0000
-Message-ID: <191EF54A-D8DE-4BAA-B15D-41B2BA35353F@neclab.eu>
-References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
- <20150519153901.GH26335@zion.uk.xensource.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
-	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
-	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: Wei Liu <wei.liu2@citrix.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/3] Netfilter fixes for net
+Date: Fri, 22 May 2015 12:34:03 +0200
+Message-ID: <1432290846-4310-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.neclab.eu ([195.37.70.40]:60499 "EHLO mailer1.neclab.eu"
+Received: from mail.us.es ([193.147.175.20]:38957 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756032AbbEVK1X convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 06:27:23 -0400
-In-Reply-To: <20150519153901.GH26335@zion.uk.xensource.com>
-Content-Language: en-US
-Content-ID: <F464C0902DC744478A15EEC95DD28FDF@office.hd>
+	id S1161013AbbEVK3R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 May 2015 06:29:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi David,
 
-On 19 May 2015, at 17:39, Wei Liu <wei.liu2@citrix.com> wrote:
+The following patchset contain Netfilter fixes for your net tree, they are:
 
-> On Tue, May 12, 2015 at 07:18:24PM +0200, Joao Martins wrote:
-> 
->> There have been recently[3] some discussions and issues raised on
->> persistent grants for the block layer, though the numbers above
->> show some significant improvements specially on more network intensive
->> workloads and provide a margin for comparison against future map/unmap
->> improvements.
->> 
->> Any comments or suggestions are welcome,
->> Thanks!
-> 
-> Thanks, the numbers certainly look interesting.
-> 
-> I'm just a bit concerned about the complexity of netback. I've
-> commented on individual patches, we can discuss the issues there.
+1) Fix a race in nfnetlink_log and nfnetlink_queue that can lead to a crash.
+   This problem is due to wrong order in the per-net registration and netlink
+   socket events. Patch from Francesco Ruggeri.
 
-Thanks a lot for the review! It does add more complexity, mainly for
-the TX path, but I also would like to mention that a portion of this
-changeset is also the persistent grants ops that could potentially live
-outside.
+2) Make sure that counters that userspace pass us are higher than 0 in all the
+   x_tables frontends. Discovered via Trinity, patch from Dave Jones.
 
-Joao
+3) Revert a patch for br_netfilter to rely on the conntrack status bits. This
+   breaks stateless IPv6 NAT transformations. Patch from Florian Westphal.
 
->> [1] http://article.gmane.org/gmane.linux.network/249383
->> [2] http://bit.ly/1IhJfXD
->> [3] http://lists.xen.org/archives/html/xen-devel/2015-02/msg02292.html
->> 
->> Joao Martins (13):
->>  xen-netback: add persistent grant tree ops
->>  xen-netback: xenbus feature persistent support
->>  xen-netback: implement TX persistent grants
->>  xen-netback: implement RX persistent grants
->>  xen-netback: refactor xenvif_rx_action
->>  xen-netback: copy buffer on xenvif_start_xmit()
->>  xen-netback: add persistent tree counters to debugfs
->>  xen-netback: clone skb if skb->xmit_more is set
->>  xen-netfront: move grant_{ref,page} to struct grant
->>  xen-netfront: refactor claim/release grant
->>  xen-netfront: feature-persistent xenbus support
->>  xen-netfront: implement TX persistent grants
->>  xen-netfront: implement RX persistent grants
->> 
->> drivers/net/xen-netback/common.h    |  79 ++++
->> drivers/net/xen-netback/interface.c |  78 +++-
->> drivers/net/xen-netback/netback.c   | 873 ++++++++++++++++++++++++++++++------
->> drivers/net/xen-netback/xenbus.c    |  24 +
->> drivers/net/xen-netfront.c          | 362 ++++++++++++---
->> 5 files changed, 1216 insertions(+), 200 deletions(-)
->> 
->> -- 
->> 2.1.3
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 13c3ed6a92724d8c8cb148a14b0ae190ddfe7413:
+
+  vxlan: correct typo in call to unregister_netdevice_queue (2015-05-18 16:57:09 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+for you to fetch changes up to faecbb45ebefb20260ad4a631e011e93c896cb73:
+
+  Revert "netfilter: bridge: query conntrack about skb dnat" (2015-05-20 13:51:25 +0200)
+
+----------------------------------------------------------------
+Dave Jones (1):
+      netfilter: ensure number of counters is >0 in do_replace()
+
+Florian Westphal (1):
+      Revert "netfilter: bridge: query conntrack about skb dnat"
+
+Francesco Ruggeri (1):
+      netfilter: nfnetlink_{log,queue}: Register pernet in first place
+
+ include/linux/skbuff.h               |    1 +
+ net/bridge/br_netfilter.c            |   27 +++++++++------------------
+ net/bridge/netfilter/ebtables.c      |    4 ++++
+ net/ipv4/netfilter/arp_tables.c      |    6 ++++++
+ net/ipv4/netfilter/ip_tables.c       |    6 ++++++
+ net/ipv6/netfilter/ip6_tables.c      |    6 ++++++
+ net/netfilter/nfnetlink_log.c        |   19 ++++++++++---------
+ net/netfilter/nfnetlink_queue_core.c |   18 +++++++++---------
+ 8 files changed, 51 insertions(+), 36 deletions(-)
