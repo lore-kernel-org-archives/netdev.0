@@ -1,68 +1,90 @@
-From: Mark Salyzyn <salyzyn@android.com>
-Subject: Re: net/unix: sk_socket can disappear when state is unlocked
-Date: Fri, 22 May 2015 07:51:19 -0700
-Message-ID: <555F4267.30704@android.com>
-References: <1432225541-28498-1-git-send-email-salyzyn@android.com> <1432288230.3364.23.camel@redhat.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH v2 2/3] net: macb: Disable half duplex gigabit on Zynq
+Date: Fri, 22 May 2015 16:56:28 +0200
+Message-ID: <555F439C.1020703@atmel.com>
+References: <1432304531-23682-1-git-send-email-nathan.sullivan@ni.com> <1432304531-23682-2-git-send-email-nathan.sullivan@ni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	David Howells <dhowells@redhat.com>,
-	Ying Xue <ying.xue@windriver.com>,
-	Christoph Hellwig <hch@lst.de>, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@redhat.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Nathan Sullivan <nathan.sullivan@ni.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1432288230.3364.23.camel@redhat.com>
+In-Reply-To: <1432304531-23682-2-git-send-email-nathan.sullivan@ni.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/22/2015 02:50 AM, Hannes Frederic Sowa wrote:
-> On Do, 2015-05-21 at 09:25 -0700, Mark Salyzyn wrote:
->> got a rare NULL pointer dereference in clear_bit
->>
->> Signed-off-by: Mark Salyzyn <salyzyn@android.com>
->> ---
->>   net/unix/af_unix.c | 5 +++++
->>   1 file changed, 5 insertions(+)
->>
->> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
->> index 5266ea7..37a8925 100644
->> --- a/net/unix/af_unix.c
->> +++ b/net/unix/af_unix.c
->> @@ -1880,6 +1880,11 @@ static long unix_stream_data_wait(struct sock *sk, long timeo,
->>   		unix_state_unlock(sk);
->>   		timeo = freezable_schedule_timeout(timeo);
->>   		unix_state_lock(sk);
->> +
->> +		/* sk_socket may have been killed while unlocked */
->> +		if (!sk->sk_socket)
->> +			break;
->> +
->>   		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
->>   	}
->>   
-> Canonical way is to test for sock_flag(sk, SOCK_DEAD). Also it does not
-> seem like we are returning an error to user space but are still looping
-> to try to dequeue skbs from sk_receive_queue, which is concurrently
-> emptied by unix_release (maybe, without holding unix_state_lock).
->
-> Bye,
-> Hannes
->
-I will send an updated patch shortly.
+Le 22/05/2015 16:22, Nathan Sullivan a =E9crit :
+> According to the Zynq TRM, gigabit half duplex is not supported.  Add=
+ a
+> new cap and compatible string so Zynq can avoid advertising that mode=
+=2E
+>=20
+> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
 
-It may be acceptable given the expectation that sk_set_socket(sk, NULL) 
-occurs after SOCK_DEAD flag is set since we would not be here during the 
-socket initialization/connection phases. As such, for all phases (and I 
-re-iterate, we can only be here if in connected state), it is not a 
-generic guarantee of sk_socket != NULL. But I only saw one apparent 
-example (in net/decnet/dn_nsp_in.c) of using sock_flag(sk, SOCK_DEAD) as 
-protection against a possible deference NULL access with sk_socket, and 
-many KISS examples of checking sk_socket for NULL to protect against thus.
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-Thanks for making me look though, it appears that I missed the same 
-problem in net/caif/caif_socket.c and will add it!
+> ---
+>  drivers/net/ethernet/cadence/macb.c |   12 ++++++++++++
+>  drivers/net/ethernet/cadence/macb.h |    1 +
+>  2 files changed, 13 insertions(+)
+>=20
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
+et/cadence/macb.c
+> index 61aa570..e7c0ef6 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -350,6 +350,9 @@ static int macb_mii_probe(struct net_device *dev)
+>  	else
+>  		phydev->supported &=3D PHY_BASIC_FEATURES;
+> =20
+> +	if (bp->caps & MACB_CAPS_NO_GIGABIT_HALF)
+> +		phydev->supported &=3D ~SUPPORTED_1000baseT_Half;
+> +
+>  	phydev->advertising =3D phydev->supported;
+> =20
+>  	bp->link =3D 0;
+> @@ -2693,6 +2696,14 @@ static const struct macb_config emac_config =3D=
+ {
+>  	.init =3D at91ether_init,
+>  };
+> =20
+> +static const struct macb_config zynq_config =3D {
+> +	.caps =3D MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE =
+|
+> +		MACB_CAPS_NO_GIGABIT_HALF,
+> +	.dma_burst_length =3D 16,
+> +	.clk_init =3D macb_clk_init,
+> +	.init =3D macb_init,
+> +};
+> +
+>  static const struct of_device_id macb_dt_ids[] =3D {
+>  	{ .compatible =3D "cdns,at32ap7000-macb" },
+>  	{ .compatible =3D "cdns,at91sam9260-macb", .data =3D &at91sam9260_c=
+onfig },
+> @@ -2703,6 +2714,7 @@ static const struct of_device_id macb_dt_ids[] =
+=3D {
+>  	{ .compatible =3D "atmel,sama5d4-gem", .data =3D &sama5d4_config },
+>  	{ .compatible =3D "cdns,at91rm9200-emac", .data =3D &emac_config },
+>  	{ .compatible =3D "cdns,emac", .data =3D &emac_config },
+> +	{ .compatible =3D "cdns,zynq-gem", .data =3D &zynq_config },
+>  	{ /* sentinel */ }
+>  };
+>  MODULE_DEVICE_TABLE(of, macb_dt_ids);
+> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethern=
+et/cadence/macb.h
+> index eb7d76f..24b1d9b 100644
+> --- a/drivers/net/ethernet/cadence/macb.h
+> +++ b/drivers/net/ethernet/cadence/macb.h
+> @@ -393,6 +393,7 @@
+>  #define MACB_CAPS_ISR_CLEAR_ON_WRITE		0x00000001
+>  #define MACB_CAPS_USRIO_HAS_CLKEN		0x00000002
+>  #define MACB_CAPS_USRIO_DEFAULT_IS_MII		0x00000004
+> +#define MACB_CAPS_NO_GIGABIT_HALF		0x00000008
+>  #define MACB_CAPS_FIFO_MODE			0x10000000
+>  #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
+>  #define MACB_CAPS_SG_DISABLED			0x40000000
+>=20
 
-Sincerely -- Mark Salyzyn
+
+--=20
+Nicolas Ferre
