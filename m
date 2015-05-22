@@ -1,149 +1,129 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/3] netfilter: nfnetlink_{log,queue}: Register pernet in first place
-Date: Fri, 22 May 2015 12:34:04 +0200
-Message-ID: <1432290846-4310-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/3] Revert "netfilter: bridge: query conntrack about skb dnat"
+Date: Fri, 22 May 2015 12:34:06 +0200
+Message-ID: <1432290846-4310-4-git-send-email-pablo@netfilter.org>
 References: <1432290846-4310-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:38984 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161062AbbEVK3X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 May 2015 06:29:23 -0400
 In-Reply-To: <1432290846-4310-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Francesco Ruggeri <fruggeri@aristanetworks.com>
+From: Florian Westphal <fw@strlen.de>
 
-nfnetlink_{log,queue}_init() register the netlink callback nf*_rcv_nl_event
-before registering the pernet_subsys, but the callback relies on data
-structures allocated by pernet init functions.
+This reverts commit c055d5b03bb4cb69d349d787c9787c0383abd8b2.
 
-When nfnetlink_{log,queue} is loaded, if a netlink message is received after
-the netlink callback is registered but before the pernet_subsys is registered,
-the kernel will panic in the sequence
+There are two issues:
+'dnat_took_place' made me think that this is related to
+-j DNAT/MASQUERADE.
 
-nfulnl_rcv_nl_event
-  nfnl_log_pernet
-    net_generic
-      BUG_ON(id == 0)  where id is nfnl_log_net_id.
+But thats only one part of the story.  This is also relevant for SNAT
+when we undo snat translation in reverse/reply direction.
 
-The panic can be easily reproduced in 4.0.3 by:
+Furthermore, I originally wanted to do this mainly to avoid
+storing ipv6 addresses once we make DNAT/REDIRECT work
+for ipv6 on bridges.
 
-while true ;do modprobe nfnetlink_log ; rmmod nfnetlink_log ; done &
-while true ;do ip netns add dummy ; ip netns del dummy ; done &
+However, I forgot about SNPT/DNPT which is stateless.
 
-This patch moves register_pernet_subsys to earlier in nfnetlink_log_init.
+So we can't escape storing address for ipv6 anyway. Might as
+well do it for ipv4 too.
 
-Notice that the BUG_ON hit in 4.0.3 was recently removed in 2591ffd308
-["netns: remove BUG_ONs from net_generic()"].
-
-Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
+Reported-and-tested-by: Bernhard Thaler <bernhard.thaler@wvnet.at>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_log.c        |   19 ++++++++++---------
- net/netfilter/nfnetlink_queue_core.c |   18 +++++++++---------
- 2 files changed, 19 insertions(+), 18 deletions(-)
+ include/linux/skbuff.h    |    1 +
+ net/bridge/br_netfilter.c |   27 +++++++++------------------
+ 2 files changed, 10 insertions(+), 18 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 3ad9126..4ef1fae 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -1073,7 +1073,13 @@ static struct pernet_operations nfnl_log_net_ops = {
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 66e374d..f15154a 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -176,6 +176,7 @@ struct nf_bridge_info {
+ 	struct net_device	*physindev;
+ 	struct net_device	*physoutdev;
+ 	char			neigh_header[8];
++	__be32			ipv4_daddr;
+ };
+ #endif
  
- static int __init nfnetlink_log_init(void)
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index ab55e24..60ddfbe 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -37,10 +37,6 @@
+ #include <net/route.h>
+ #include <net/netfilter/br_netfilter.h>
+ 
+-#if IS_ENABLED(CONFIG_NF_CONNTRACK)
+-#include <net/netfilter/nf_conntrack.h>
+-#endif
+-
+ #include <asm/uaccess.h>
+ #include "br_private.h"
+ #ifdef CONFIG_SYSCTL
+@@ -350,24 +346,15 @@ free_skb:
+ 	return 0;
+ }
+ 
+-static bool dnat_took_place(const struct sk_buff *skb)
++static bool daddr_was_changed(const struct sk_buff *skb,
++			      const struct nf_bridge_info *nf_bridge)
  {
--	int status = -ENOMEM;
-+	int status;
-+
-+	status = register_pernet_subsys(&nfnl_log_net_ops);
-+	if (status < 0) {
-+		pr_err("failed to register pernet ops\n");
-+		goto out;
-+	}
+-#if IS_ENABLED(CONFIG_NF_CONNTRACK)
+-	enum ip_conntrack_info ctinfo;
+-	struct nf_conn *ct;
+-
+-	ct = nf_ct_get(skb, &ctinfo);
+-	if (!ct || nf_ct_is_untracked(ct))
+-		return false;
+-
+-	return test_bit(IPS_DST_NAT_BIT, &ct->status);
+-#else
+-	return false;
+-#endif
++	return ip_hdr(skb)->daddr != nf_bridge->ipv4_daddr;
+ }
  
- 	netlink_register_notifier(&nfulnl_rtnl_notifier);
- 	status = nfnetlink_subsys_register(&nfulnl_subsys);
-@@ -1088,28 +1094,23 @@ static int __init nfnetlink_log_init(void)
- 		goto cleanup_subsys;
+ /* This requires some explaining. If DNAT has taken place,
+  * we will need to fix up the destination Ethernet address.
++ * This is also true when SNAT takes place (for the reply direction).
+  *
+  * There are two cases to consider:
+  * 1. The packet was DNAT'ed to a device in the same bridge
+@@ -421,7 +408,7 @@ static int br_nf_pre_routing_finish(struct sock *sk, struct sk_buff *skb)
+ 		nf_bridge->pkt_otherhost = false;
  	}
+ 	nf_bridge->mask ^= BRNF_NF_BRIDGE_PREROUTING;
+-	if (dnat_took_place(skb)) {
++	if (daddr_was_changed(skb, nf_bridge)) {
+ 		if ((err = ip_route_input(skb, iph->daddr, iph->saddr, iph->tos, dev))) {
+ 			struct in_device *in_dev = __in_dev_get_rcu(dev);
  
--	status = register_pernet_subsys(&nfnl_log_net_ops);
--	if (status < 0) {
--		pr_err("failed to register pernet ops\n");
--		goto cleanup_logger;
--	}
- 	return status;
- 
--cleanup_logger:
--	nf_log_unregister(&nfulnl_logger);
- cleanup_subsys:
- 	nfnetlink_subsys_unregister(&nfulnl_subsys);
- cleanup_netlink_notifier:
- 	netlink_unregister_notifier(&nfulnl_rtnl_notifier);
-+	unregister_pernet_subsys(&nfnl_log_net_ops);
-+out:
- 	return status;
- }
- 
- static void __exit nfnetlink_log_fini(void)
+@@ -632,6 +619,7 @@ static unsigned int br_nf_pre_routing(const struct nf_hook_ops *ops,
+ 				      struct sk_buff *skb,
+ 				      const struct nf_hook_state *state)
  {
--	unregister_pernet_subsys(&nfnl_log_net_ops);
- 	nf_log_unregister(&nfulnl_logger);
- 	nfnetlink_subsys_unregister(&nfulnl_subsys);
- 	netlink_unregister_notifier(&nfulnl_rtnl_notifier);
-+	unregister_pernet_subsys(&nfnl_log_net_ops);
- }
++	struct nf_bridge_info *nf_bridge;
+ 	struct net_bridge_port *p;
+ 	struct net_bridge *br;
+ 	__u32 len = nf_bridge_encap_header_len(skb);
+@@ -669,6 +657,9 @@ static unsigned int br_nf_pre_routing(const struct nf_hook_ops *ops,
+ 	if (!setup_pre_routing(skb))
+ 		return NF_DROP;
  
- MODULE_DESCRIPTION("netfilter userspace logging");
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index 0b98c74..11c7682 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -1317,7 +1317,13 @@ static struct pernet_operations nfnl_queue_net_ops = {
- 
- static int __init nfnetlink_queue_init(void)
- {
--	int status = -ENOMEM;
-+	int status;
++	nf_bridge = nf_bridge_info_get(skb);
++	nf_bridge->ipv4_daddr = ip_hdr(skb)->daddr;
 +
-+	status = register_pernet_subsys(&nfnl_queue_net_ops);
-+	if (status < 0) {
-+		pr_err("nf_queue: failed to register pernet ops\n");
-+		goto out;
-+	}
+ 	skb->protocol = htons(ETH_P_IP);
  
- 	netlink_register_notifier(&nfqnl_rtnl_notifier);
- 	status = nfnetlink_subsys_register(&nfqnl_subsys);
-@@ -1326,19 +1332,13 @@ static int __init nfnetlink_queue_init(void)
- 		goto cleanup_netlink_notifier;
- 	}
- 
--	status = register_pernet_subsys(&nfnl_queue_net_ops);
--	if (status < 0) {
--		pr_err("nf_queue: failed to register pernet ops\n");
--		goto cleanup_subsys;
--	}
- 	register_netdevice_notifier(&nfqnl_dev_notifier);
- 	nf_register_queue_handler(&nfqh);
- 	return status;
- 
--cleanup_subsys:
--	nfnetlink_subsys_unregister(&nfqnl_subsys);
- cleanup_netlink_notifier:
- 	netlink_unregister_notifier(&nfqnl_rtnl_notifier);
-+out:
- 	return status;
- }
- 
-@@ -1346,9 +1346,9 @@ static void __exit nfnetlink_queue_fini(void)
- {
- 	nf_unregister_queue_handler();
- 	unregister_netdevice_notifier(&nfqnl_dev_notifier);
--	unregister_pernet_subsys(&nfnl_queue_net_ops);
- 	nfnetlink_subsys_unregister(&nfqnl_subsys);
- 	netlink_unregister_notifier(&nfqnl_rtnl_notifier);
-+	unregister_pernet_subsys(&nfnl_queue_net_ops);
- 
- 	rcu_barrier(); /* Wait for completion of call_rcu()'s */
- }
+ 	NF_HOOK(NFPROTO_IPV4, NF_INET_PRE_ROUTING, state->sk, skb,
 -- 
 1.7.10.4
-
