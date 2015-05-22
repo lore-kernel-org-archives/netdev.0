@@ -1,47 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: fix parsing of MLDv2 reports
-Date: Fri, 22 May 2015 15:09:03 -0400 (EDT)
-Message-ID: <20150522.150903.570785706419447424.davem@davemloft.net>
-References: <1432307939-19640-1-git-send-email-cascardo@redhat.com>
+Subject: Re: [PATCH net-next] test_bpf: Add backward jump test case
+Date: Fri, 22 May 2015 15:11:19 -0400 (EDT)
+Message-ID: <20150522.151119.1223342901130247361.davem@davemloft.net>
+References: <1432309000-11545-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	Rik.Theys@esat.kuleuven.be
-To: cascardo@redhat.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1432307939-19640-1-git-send-email-cascardo@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: holzheu@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
+	daniel@iogearbox.net, netdev@vger.kernel.org
+To: ast@plumgrid.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49885 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756510AbbEVTLX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 15:11:23 -0400
+In-Reply-To: <1432309000-11545-1-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
-Date: Fri, 22 May 2015 12:18:59 -0300
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Fri, 22 May 2015 08:36:40 -0700
 
-> When more than a multicast address is present in a MLDv2 report, all but
-> the first address is ignored, because the code breaks out of the loop if
-> there has not been an error adding that address.
+> From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
 > 
-> This has caused failures when two guests connected through the bridge
-> tried to communicate using IPv6. Neighbor discoveries would not be
-> transmitted to the other guest when both used a link-local address and a
-> static address.
+> Currently the testsuite does not have a test case with a backward jump.
+> The s390x JIT (kernel 4.0) had a bug in that area.
+> So add one new test case for this now.
 > 
-> This only happens when there is a MLDv2 querier in the network.
-> 
-> The fix will only break out of the loop when there is a failure adding a
-> multicast address.
- ...
-> Reported-by: Rik Theys <Rik.Theys@esat.kuleuven.be>
-> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
-> Tested-by: Rik Theys <Rik.Theys@esat.kuleuven.be>
+> Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
