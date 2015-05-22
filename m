@@ -1,72 +1,63 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH v4 net-next 09/11] net: Add IPv6 flow label to flow_keys
-Date: Fri, 22 May 2015 17:22:32 +0200
-Message-ID: <20150522152232.GR2138@nanopsycho.orion>
-References: <1432253506-3646977-1-git-send-email-tom@herbertland.com>
- <1432253506-3646977-10-git-send-email-tom@herbertland.com>
- <20150522081428.GH2138@nanopsycho.orion>
- <CALx6S35PHMadpa49XXkrju3rDBujXHjAz7zd0GgkK_3JN8nkkA@mail.gmail.com>
+From: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
+Subject: Re: [PATCH net] ipv4: Avoid crashing in =?UTF-8?Q?ip=5Ferror?=
+Date: Fri, 22 May 2015 17:12:09 +0200
+Message-ID: <4e2509a329a821ca67e9a7fc55b54aa5@vittgam.net>
+References: <2b6d6ab2d8c35af3be55c82e507f5376@vittgam.net>
+ <20150520025428.GA23304@kroah.com>
+ <b5abf7328b22373e4ec18bd6da479431@vittgam.net>
+ <06f5f10e9ee831f5a839c6ea24b94f64@vittgam.net>
+ <d146b8b8a69462ced89a384e6be85b28@vittgam.net>
+ <4cb068397127c2b2baee1f021b014b11@vittgam.net>
+ <da006bc9072931406270f0fdda06045d@vittgam.net>
+ <6056363be65a2c129551518da94bff20@vittgam.net>
+ <87a8wx97er.fsf@x220.int.ebiederm.org>
+ <ff82713d6862786de9784bd3c9c06bfa@vittgam.net>
+ <20150522040453.GC8530@1wt.eu> <87zj4x6iiz.fsf_-_@x220.int.ebiederm.org>
+ <1432296520.4060.129.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<security@kernel.org>, Greg KH <greg@kroah.com>,
+	<luto@amacapital.net>, Willy Tarreau <w@1wt.eu>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:35420 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757443AbbEVPWf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 11:22:35 -0400
-Received: by wicmx19 with SMTP id mx19so50948368wic.0
-        for <netdev@vger.kernel.org>; Fri, 22 May 2015 08:22:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CALx6S35PHMadpa49XXkrju3rDBujXHjAz7zd0GgkK_3JN8nkkA@mail.gmail.com>
+Received: from server1.vittgam.net ([213.239.197.142]:50393 "EHLO
+	mail.vittgam.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757820AbbEVPY5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 11:24:57 -0400
+In-Reply-To: <1432296520.4060.129.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, May 22, 2015 at 05:14:21PM CEST, tom@herbertland.com wrote:
->On Fri, May 22, 2015 at 1:14 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Fri, May 22, 2015 at 02:11:44AM CEST, tom@herbertland.com wrote:
->>>In flow_dissector set the flow label in flow_keys for IPv6. This also
->>>removes the shortcircuiting of flow dissection when a non-zero label
->>>is present, the flow label can be considered to provide additional
->>>entropy for a hash.
->>>
->>>Signed-off-by: Tom Herbert <tom@herbertland.com>
->>>---
->>> include/net/flow_dissector.h |  4 +++-
->>> net/core/flow_dissector.c    | 37 +++++++++++++------------------------
->>> 2 files changed, 16 insertions(+), 25 deletions(-)
->>>
->>>diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
->>>index 08480fb..effe607 100644
->>>--- a/include/net/flow_dissector.h
->>>+++ b/include/net/flow_dissector.h
->>>@@ -28,7 +28,8 @@ struct flow_dissector_key_basic {
->>> };
->>>
->>> struct flow_dissector_key_tags {
->>>-      u32     vlan_id:12;
->>>+      u32     vlan_id:12,
->>>+              flow_label:20;
->>> };
->>>
->>> /**
->>>@@ -111,6 +112,7 @@ enum flow_dissector_key_id {
->>>       FLOW_DISSECTOR_KEY_ETH_ADDRS, /* struct flow_dissector_key_eth_addrs */
->>>       FLOW_DISSECTOR_KEY_TIPC_ADDRS, /* struct flow_dissector_key_tipc_addrs */
->>>       FLOW_DISSECTOR_KEY_VLANID, /* struct flow_dissector_key_flow_tags */
->>>+      FLOW_DISSECTOR_KEY_FLOW_LABEL, /* struct flow_dissector_key_flow_label */
->>
->>
->> I think it makes sense to pair FLOW_DISSECTOR_KEY_* with
->> struct flow_dissector_key_*
->>
->> How about to have FLOW_DISSECTOR_KEY_TAGS istead of VLANID and FLOW_LABEL?
->>
+Il 22.05.2015 14:08 Eric Dumazet ha scritto:
+> On Fri, 2015-05-22 at 04:58 -0500, Eric W. Biederman wrote:
+>> ip_error does not check if in_dev is NULL before dereferencing it.
 >
->I thought about that, but it doesn't really save anything to be less
->explicit as we still need a conditional at each occurrence. If someone
->is only looking for IPv6 flow label and nothing else they are able to
->do that.
+>>
+>> Therefore handle this weird case by just dropping the packet if
+>> !in_dev.  It will result in dropping the packet sooner, and will not
+>> result in an actual change of behavior.
+>>
+>> Fixes: 251da4130115b ("ipv4: Cache ip_error() routes even when not forwarding.")
+>> Reported-by: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
+>> Tested-by: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
+>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>> ---
+>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+>
+> Thanks !
 
-So have 2 structs then.
+I've no problem using my real name here, so:
+
+Reported-by: Vittorio Gambaletta <linuxbugs@vittgam.net>
+Tested-by: Vittorio Gambaletta <linuxbugs@vittgam.net>
+Signed-off-by: Vittorio Gambaletta <linuxbugs@vittgam.net>
+
+Signed-off too, since this is actually v2 of my patch with the warning removed.
+
+Thanks!
+Vittorio
