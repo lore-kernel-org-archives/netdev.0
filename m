@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 5/13] crypto: testmgr - Switch to new AEAD interface
-Date: Fri, 22 May 2015 16:30:53 +0800
-Message-ID: <E1YviM1-0000xu-GV@gondolin.me.apana.org.au>
+Subject: [v2 PATCH 10/13] mac802154: Switch to new AEAD interface
+Date: Fri, 22 May 2015 16:30:59 +0800
+Message-ID: <E1YviM7-0000zN-Kk@gondolin.me.apana.org.au>
 References: <20150522082708.GA3507@gondor.apana.org.au>
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
@@ -10,10 +10,10 @@ To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	Stephan Mueller <smueller@chronox.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:35419 "EHLO
+Received: from helcar.hengli.com.au ([209.40.204.226]:43653 "EHLO
 	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755728AbbEVIa5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 04:30:57 -0400
+	with ESMTP id S1756473AbbEVIbE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 04:31:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -23,168 +23,99 @@ SG list instead of separate lists for the AD and plain text.
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- crypto/testmgr.c |   84 +++++++++++++++++++++++++++++++------------------------
- 1 file changed, 48 insertions(+), 36 deletions(-)
+ net/mac802154/llsec.c |   41 ++++++++++++++---------------------------
+ 1 file changed, 14 insertions(+), 27 deletions(-)
 
-diff --git a/crypto/testmgr.c b/crypto/testmgr.c
-index 1817252..e6472b2 100644
---- a/crypto/testmgr.c
-+++ b/crypto/testmgr.c
-@@ -427,7 +427,6 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
- 	char *key;
+diff --git a/net/mac802154/llsec.c b/net/mac802154/llsec.c
+index 3ccf1e9..e6332cd 100644
+--- a/net/mac802154/llsec.c
++++ b/net/mac802154/llsec.c
+@@ -650,7 +650,7 @@ llsec_do_encrypt_auth(struct sk_buff *skb, const struct mac802154_llsec *sec,
+ 	u8 iv[16];
+ 	unsigned char *data;
+ 	int authlen, assoclen, datalen, rc;
+-	struct scatterlist src, assoc[2], dst[2];
++	struct scatterlist sg;
  	struct aead_request *req;
- 	struct scatterlist *sg;
--	struct scatterlist *asg;
- 	struct scatterlist *sgout;
- 	const char *e, *d;
- 	struct tcrypt_result result;
-@@ -454,11 +453,10 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
- 		goto out_nooutbuf;
  
- 	/* avoid "the frame size is larger than 1024 bytes" compiler warning */
--	sg = kmalloc(sizeof(*sg) * 8 * (diff_dst ? 3 : 2), GFP_KERNEL);
-+	sg = kmalloc(sizeof(*sg) * 8 * (diff_dst ? 4 : 2), GFP_KERNEL);
- 	if (!sg)
- 		goto out_nosg;
--	asg = &sg[8];
--	sgout = &asg[8];
-+	sgout = &sg[16];
+ 	authlen = ieee802154_sechdr_authtag_len(&hdr->sec);
+@@ -660,30 +660,23 @@ llsec_do_encrypt_auth(struct sk_buff *skb, const struct mac802154_llsec *sec,
+ 	if (!req)
+ 		return -ENOMEM;
  
- 	if (diff_dst)
- 		d = "-ddst";
-@@ -537,23 +535,28 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
- 			goto out;
- 		}
+-	sg_init_table(assoc, 2);
+-	sg_set_buf(&assoc[0], skb_mac_header(skb), skb->mac_len);
+ 	assoclen = skb->mac_len;
  
-+		k = !!template[i].alen;
-+		sg_init_table(sg, k + 1);
-+		sg_set_buf(&sg[0], assoc, template[i].alen);
+ 	data = skb_mac_header(skb) + skb->mac_len;
+ 	datalen = skb_tail_pointer(skb) - data;
+ 
+-	if (hdr->sec.level & IEEE802154_SCF_SECLEVEL_ENC) {
+-		sg_set_buf(&assoc[1], data, 0);
+-	} else {
+-		sg_set_buf(&assoc[1], data, datalen);
++	skb_put(skb, authlen);
 +
- 		if (diff_dst) {
-+			sg_init_table(sgout, k + 1);
-+			sg_set_buf(&sgout[0], assoc, template[i].alen);
++	sg_init_one(&sg, skb_mac_header(skb), assoclen + datalen + authlen);
 +
- 			output = xoutbuf[0];
- 			output += align_offset;
--			sg_init_one(&sg[0], input, template[i].ilen);
--			sg_init_one(&sgout[0], output, template[i].rlen);
-+			sg_set_buf(&sg[k], input, template[i].ilen);
-+			sg_set_buf(&sgout[k], output, template[i].rlen);
- 		} else {
--			sg_init_one(&sg[0], input,
--				    template[i].ilen + (enc ? authsize : 0));
-+			sg_set_buf(&sg[k], input,
-+				   template[i].ilen + (enc ? authsize : 0));
- 			output = input;
- 		}
++	if (!(hdr->sec.level & IEEE802154_SCF_SECLEVEL_ENC)) {
+ 		assoclen += datalen;
+ 		datalen = 0;
+ 	}
  
--		sg_init_one(&asg[0], assoc, template[i].alen);
+-	sg_init_one(&src, data, datalen);
 -
- 		aead_request_set_crypt(req, sg, (diff_dst) ? sgout : sg,
- 				       template[i].ilen, iv);
- 
--		aead_request_set_assoc(req, asg, template[i].alen);
-+		aead_request_set_ad(req, template[i].alen, 0);
- 
- 		ret = enc ? crypto_aead_encrypt(req) : crypto_aead_decrypt(req);
- 
-@@ -633,9 +636,29 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
- 		authsize = abs(template[i].rlen - template[i].ilen);
- 
- 		ret = -EINVAL;
--		sg_init_table(sg, template[i].np);
-+		sg_init_table(sg, template[i].anp + template[i].np);
- 		if (diff_dst)
--			sg_init_table(sgout, template[i].np);
-+			sg_init_table(sgout, template[i].anp + template[i].np);
-+
-+		ret = -EINVAL;
-+		for (k = 0, temp = 0; k < template[i].anp; k++) {
-+			if (WARN_ON(offset_in_page(IDX[k]) +
-+				    template[i].atap[k] > PAGE_SIZE))
-+				goto out;
-+			sg_set_buf(&sg[k],
-+				   memcpy(axbuf[IDX[k] >> PAGE_SHIFT] +
-+					  offset_in_page(IDX[k]),
-+					  template[i].assoc + temp,
-+					  template[i].atap[k]),
-+				   template[i].atap[k]);
-+			if (diff_dst)
-+				sg_set_buf(&sgout[k],
-+					   axbuf[IDX[k] >> PAGE_SHIFT] +
-+					   offset_in_page(IDX[k]),
-+					   template[i].atap[k]);
-+			temp += template[i].atap[k];
-+		}
-+
- 		for (k = 0, temp = 0; k < template[i].np; k++) {
- 			if (WARN_ON(offset_in_page(IDX[k]) +
- 				    template[i].tap[k] > PAGE_SIZE))
-@@ -643,7 +666,8 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
- 
- 			q = xbuf[IDX[k] >> PAGE_SHIFT] + offset_in_page(IDX[k]);
- 			memcpy(q, template[i].input + temp, template[i].tap[k]);
--			sg_set_buf(&sg[k], q, template[i].tap[k]);
-+			sg_set_buf(&sg[template[i].anp + k],
-+				   q, template[i].tap[k]);
- 
- 			if (diff_dst) {
- 				q = xoutbuf[IDX[k] >> PAGE_SHIFT] +
-@@ -651,7 +675,8 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
- 
- 				memset(q, 0, template[i].tap[k]);
- 
--				sg_set_buf(&sgout[k], q, template[i].tap[k]);
-+				sg_set_buf(&sgout[template[i].anp + k],
-+					   q, template[i].tap[k]);
- 			}
- 
- 			n = template[i].tap[k];
-@@ -671,39 +696,26 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
- 		}
- 
- 		if (enc) {
--			if (WARN_ON(sg[k - 1].offset +
--				    sg[k - 1].length + authsize >
--				    PAGE_SIZE)) {
-+			if (WARN_ON(sg[template[i].anp + k - 1].offset +
-+				    sg[template[i].anp + k - 1].length +
-+				    authsize > PAGE_SIZE)) {
- 				ret = -EINVAL;
- 				goto out;
- 			}
- 
- 			if (diff_dst)
--				sgout[k - 1].length += authsize;
-+				sgout[template[i].anp + k - 1].length +=
-+					authsize;
- 			else
--				sg[k - 1].length += authsize;
--		}
+-	sg_init_table(dst, 2);
+-	sg_set_buf(&dst[0], data, datalen);
+-	sg_set_buf(&dst[1], skb_put(skb, authlen), authlen);
 -
--		sg_init_table(asg, template[i].anp);
--		ret = -EINVAL;
--		for (k = 0, temp = 0; k < template[i].anp; k++) {
--			if (WARN_ON(offset_in_page(IDX[k]) +
--				    template[i].atap[k] > PAGE_SIZE))
--				goto out;
--			sg_set_buf(&asg[k],
--				   memcpy(axbuf[IDX[k] >> PAGE_SHIFT] +
--					  offset_in_page(IDX[k]),
--					  template[i].assoc + temp,
--					  template[i].atap[k]),
--				   template[i].atap[k]);
--			temp += template[i].atap[k];
-+				sg[template[i].anp + k - 1].length +=
-+					authsize;
- 		}
+ 	aead_request_set_callback(req, 0, NULL, NULL);
+-	aead_request_set_assoc(req, assoc, assoclen);
+-	aead_request_set_crypt(req, &src, dst, datalen, iv);
++	aead_request_set_crypt(req, &sg, &sg, datalen, iv);
++	aead_request_set_ad(req, assoclen, 0);
  
- 		aead_request_set_crypt(req, sg, (diff_dst) ? sgout : sg,
- 				       template[i].ilen,
- 				       iv);
+ 	rc = crypto_aead_encrypt(req);
  
--		aead_request_set_assoc(req, asg, template[i].alen);
-+		aead_request_set_ad(req, template[i].alen, 0);
+@@ -859,7 +852,7 @@ llsec_do_decrypt_auth(struct sk_buff *skb, const struct mac802154_llsec *sec,
+ 	u8 iv[16];
+ 	unsigned char *data;
+ 	int authlen, datalen, assoclen, rc;
+-	struct scatterlist src, assoc[2];
++	struct scatterlist sg;
+ 	struct aead_request *req;
  
- 		ret = enc ? crypto_aead_encrypt(req) : crypto_aead_decrypt(req);
+ 	authlen = ieee802154_sechdr_authtag_len(&hdr->sec);
+@@ -869,27 +862,21 @@ llsec_do_decrypt_auth(struct sk_buff *skb, const struct mac802154_llsec *sec,
+ 	if (!req)
+ 		return -ENOMEM;
+ 
+-	sg_init_table(assoc, 2);
+-	sg_set_buf(&assoc[0], skb_mac_header(skb), skb->mac_len);
+ 	assoclen = skb->mac_len;
+ 
+ 	data = skb_mac_header(skb) + skb->mac_len;
+ 	datalen = skb_tail_pointer(skb) - data;
+ 
+-	if (hdr->sec.level & IEEE802154_SCF_SECLEVEL_ENC) {
+-		sg_set_buf(&assoc[1], data, 0);
+-	} else {
+-		sg_set_buf(&assoc[1], data, datalen - authlen);
++	sg_init_one(&sg, skb_mac_header(skb), assoclen + datalen);
++
++	if (!(hdr->sec.level & IEEE802154_SCF_SECLEVEL_ENC)) {
+ 		assoclen += datalen - authlen;
+-		data += datalen - authlen;
+ 		datalen = authlen;
+ 	}
+ 
+-	sg_init_one(&src, data, datalen);
+-
+ 	aead_request_set_callback(req, 0, NULL, NULL);
+-	aead_request_set_assoc(req, assoc, assoclen);
+-	aead_request_set_crypt(req, &src, &src, datalen, iv);
++	aead_request_set_crypt(req, &sg, &sg, datalen, iv);
++	aead_request_set_ad(req, assoclen, 0);
+ 
+ 	rc = crypto_aead_decrypt(req);
  
