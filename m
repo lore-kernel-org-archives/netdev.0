@@ -1,33 +1,95 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH iproute2] tc: bpf: add initial man page
-Date: Thu, 21 May 2015 16:55:08 -0700
-Message-ID: <555E705C.5070202@plumgrid.com>
-References: <1bb51d4d3bc272e787bd963671047712bed97ada.1432246443.git.daniel@iogearbox.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH v4 net-next 01/11] net: Simplify GRE case in flow_dissector
+Date: Thu, 21 May 2015 17:11:36 -0700
+Message-ID: <1432253506-3646977-2-git-send-email-tom@herbertland.com>
+References: <1432253506-3646977-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>, stephen@networkplumber.org
+Content-Type: text/plain
+To: <davem@davemloft.net>, <jiri@resnulli.us>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:33316 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756117AbbEUXzL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 19:55:11 -0400
-Received: by igbpi8 with SMTP id pi8so23870194igb.0
-        for <netdev@vger.kernel.org>; Thu, 21 May 2015 16:55:11 -0700 (PDT)
-In-Reply-To: <1bb51d4d3bc272e787bd963671047712bed97ada.1432246443.git.daniel@iogearbox.net>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:16227 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755787AbbEVAMB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 20:12:01 -0400
+Received: from pps.filterd (m0004077 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4M0848N010413
+	for <netdev@vger.kernel.org>; Thu, 21 May 2015 17:12:00 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 1uhrt705bx-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 21 May 2015 17:12:00 -0700
+Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ 296ddb4e001711e58a870002c95209d8-d12dc3a0 for <netdev@vger.kernel.org>;	Thu,
+ 21 May 2015 17:11:58 -0700
+In-Reply-To: <1432253506-3646977-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/21/15 3:17 PM, Daniel Borkmann wrote:
-> Add a start of a man-page to the misc section as a reference and
-> guide on (e)BPF classifier and actions. Given that tc is only tersely
-> documented, this is provided in the hope that users will have an
-> easier getting started with tc and (e)BPF. And, that there's now more
-> incentive for others to also start documenting their classifier and
-> actions as well. ;)
->
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Do break when we see routing flag or a non-zero version number in GRE
+header.
 
-Very well written! Better than a blog :)
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ net/core/flow_dissector.c | 44 ++++++++++++++++++++++----------------------
+ 1 file changed, 22 insertions(+), 22 deletions(-)
+
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 703d059..4a2cb93 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -308,30 +308,30 @@ flow_label:
+ 		 * Only look inside GRE if version zero and no
+ 		 * routing
+ 		 */
+-		if (!(hdr->flags & (GRE_VERSION|GRE_ROUTING))) {
+-			proto = hdr->proto;
++		if (hdr->flags & (GRE_VERSION | GRE_ROUTING))
++			break;
++
++		proto = hdr->proto;
++		nhoff += 4;
++		if (hdr->flags & GRE_CSUM)
++			nhoff += 4;
++		if (hdr->flags & GRE_KEY)
+ 			nhoff += 4;
+-			if (hdr->flags & GRE_CSUM)
+-				nhoff += 4;
+-			if (hdr->flags & GRE_KEY)
+-				nhoff += 4;
+-			if (hdr->flags & GRE_SEQ)
+-				nhoff += 4;
+-			if (proto == htons(ETH_P_TEB)) {
+-				const struct ethhdr *eth;
+-				struct ethhdr _eth;
+-
+-				eth = __skb_header_pointer(skb, nhoff,
+-							   sizeof(_eth),
+-							   data, hlen, &_eth);
+-				if (!eth)
+-					return false;
+-				proto = eth->h_proto;
+-				nhoff += sizeof(*eth);
+-			}
+-			goto again;
++		if (hdr->flags & GRE_SEQ)
++			nhoff += 4;
++		if (proto == htons(ETH_P_TEB)) {
++			const struct ethhdr *eth;
++			struct ethhdr _eth;
++
++			eth = __skb_header_pointer(skb, nhoff,
++						   sizeof(_eth),
++						   data, hlen, &_eth);
++			if (!eth)
++				return false;
++			proto = eth->h_proto;
++			nhoff += sizeof(*eth);
+ 		}
+-		break;
++		goto again;
+ 	}
+ 	case IPPROTO_IPIP:
+ 		proto = htons(ETH_P_IP);
+-- 
+1.8.1
