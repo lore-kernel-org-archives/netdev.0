@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next v5 02/11] ipv6: Remove external dependency on rt6i_dst and rt6i_src
-Date: Fri, 22 May 2015 20:55:57 -0700
-Message-ID: <1432353366-2296465-3-git-send-email-kafai@fb.com>
+Subject: [PATCH net-next v5 08/11] ipv6: Create RTF_CACHE clone when FLOWI_FLAG_KNOWN_NH is set
+Date: Fri, 22 May 2015 20:56:03 -0700
+Message-ID: <1432353366-2296465-9-git-send-email-kafai@fb.com>
 References: <1432353366-2296465-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,237 +12,142 @@ Cc: David Miller <davem@davemloft.net>,
 	Kernel Team <Kernel-team@fb.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38575 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757129AbbEWD4P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 23:56:15 -0400
-Received: from pps.filterd (m0044010 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4N3snOa013958
-	for <netdev@vger.kernel.org>; Fri, 22 May 2015 20:56:14 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:4199 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1946088AbbEWD4T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 23:56:19 -0400
+Received: from pps.filterd (m0004060 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4N3uIwq005940
+	for <netdev@vger.kernel.org>; Fri, 22 May 2015 20:56:19 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1ujba10j0t-1
+	by mx0b-00082601.pphosted.com with ESMTP id 1ujhfj02bh-4
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 22 May 2015 20:56:14 -0700
+	for <netdev@vger.kernel.org>; Fri, 22 May 2015 20:56:19 -0700
 Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
- mx-out.facebook.com (10.212.232.59) with ESMTP	id
- a6b71e9c00ff11e58dbc0002c991e86a-726dd3a0 for <netdev@vger.kernel.org>;	Fri,
- 22 May 2015 20:56:12 -0700
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ a7a2d73800ff11e58a080002c95209d8-cc3f83a0 for <netdev@vger.kernel.org>;	Fri,
+ 22 May 2015 20:56:13 -0700
 In-Reply-To: <1432353366-2296465-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes the assumptions that the returned rt is always
-a RTF_CACHE entry with the rt6i_dst and rt6i_src containing the
-destination and source address.  The dst and src can be recovered from
-the calling site.
-
-We may consider to rename (rt6i_dst, rt6i_src) to
-(rt6i_key_dst, rt6i_key_src) later.
+This patch always creates RTF_CACHE clone with DST_NOCACHE
+when FLOWI_FLAG_KNOWN_NH is set so that the rt6i_dst is set to
+the fl6->daddr.
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Tested-by: Julian Anastasov <ja@ssi.bg>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: Julian Anastasov <ja@ssi.bg>
 ---
- drivers/scsi/cxgbi/libcxgbi.c   |  2 +-
- include/net/ipv6.h              |  4 +++-
- net/ipv6/icmp.c                 |  2 +-
- net/ipv6/ip6_output.c           | 13 ++++++++-----
- net/ipv6/ndisc.c                |  2 +-
- net/ipv6/output_core.c          | 10 ++++++----
- net/ipv6/tcp_ipv6.c             |  2 +-
- net/netfilter/ipvs/ip_vs_xmit.c |  4 ++--
- net/sctp/ipv6.c                 |  3 ++-
- 9 files changed, 25 insertions(+), 17 deletions(-)
+ include/net/ip6_fib.h |  3 +++
+ net/ipv6/route.c      | 59 ++++++++++++++++++++++++++++++++++++++++++---------
+ 2 files changed, 52 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
-index eb58afc..45d3039 100644
---- a/drivers/scsi/cxgbi/libcxgbi.c
-+++ b/drivers/scsi/cxgbi/libcxgbi.c
-@@ -728,7 +728,7 @@ static struct cxgbi_sock *cxgbi_check_route6(struct sockaddr *dst_addr)
- 	}
- 	ndev = n->dev;
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index a4bece6..5556111 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -161,6 +161,9 @@ static inline void rt6_update_expires(struct rt6_info *rt0, int timeout)
  
--	if (ipv6_addr_is_multicast(&rt->rt6i_dst.addr)) {
-+	if (ipv6_addr_is_multicast(&daddr6->sin6_addr)) {
- 		pr_info("multi-cast route %pI6 port %u, dev %s.\n",
- 			daddr6->sin6_addr.s6_addr,
- 			ntohs(daddr6->sin6_port), ndev->name);
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 8c4f881..b950a20 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -671,7 +671,9 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
- 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
+ static inline u32 rt6_get_cookie(const struct rt6_info *rt)
+ {
++	if (unlikely(rt->dst.flags & DST_NOCACHE))
++		rt = (struct rt6_info *)(rt->dst.from);
++
+ 	return rt->rt6i_node ? rt->rt6i_node->fn_sernum : 0;
  }
  
--u32 ipv6_select_ident(struct net *net, struct rt6_info *rt);
-+u32 ipv6_select_ident(struct net *net,
-+		      const struct in6_addr *daddr,
-+		      const struct in6_addr *saddr);
- void ipv6_proxy_select_ident(struct net *net, struct sk_buff *skb);
- 
- int ip6_dst_hoplimit(struct dst_entry *dst);
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index 2c2b5d5..24b359d 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -207,7 +207,7 @@ static bool icmpv6_xrlim_allow(struct sock *sk, u8 type,
- 			struct inet_peer *peer;
- 
- 			peer = inet_getpeer_v6(net->ipv6.peers,
--					       &rt->rt6i_dst.addr, 1);
-+					       &fl6->daddr, 1);
- 			res = inet_peer_xrlim_allow(peer, tmo);
- 			if (peer)
- 				inet_putpeer(peer);
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index e4772ab..1b0e3ad 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -459,7 +459,7 @@ int ip6_forward(struct sk_buff *skb)
- 		else
- 			target = &hdr->daddr;
- 
--		peer = inet_getpeer_v6(net->ipv6.peers, &rt->rt6i_dst.addr, 1);
-+		peer = inet_getpeer_v6(net->ipv6.peers, &hdr->daddr, 1);
- 
- 		/* Limit redirects both by destination (here)
- 		   and by source (inside ndisc_send_redirect)
-@@ -584,7 +584,8 @@ int ip6_fragment(struct sock *sk, struct sk_buff *skb,
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 77a2c1a..6880378 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -901,13 +901,34 @@ redo_rt6_select:
+ 		}
  	}
- 	mtu -= hlen + sizeof(struct frag_hdr);
  
--	frag_id = ipv6_select_ident(net, rt);
-+	frag_id = ipv6_select_ident(net, &ipv6_hdr(skb)->daddr,
-+				    &ipv6_hdr(skb)->saddr);
+-	dst_hold(&rt->dst);
++	dst_use(&rt->dst, jiffies);
+ 	read_unlock_bh(&table->tb6_lock);
  
- 	if (skb_has_frag_list(skb)) {
- 		int first_len = skb_pagelen(skb);
-@@ -1057,7 +1058,7 @@ static inline int ip6_ufo_append_data(struct sock *sk,
- 			int odd, struct sk_buff *skb),
- 			void *from, int length, int hh_len, int fragheaderlen,
- 			int transhdrlen, int mtu, unsigned int flags,
--			struct rt6_info *rt)
-+			const struct flowi6 *fl6)
+-	rt6_dst_from_metrics_check(rt);
+-	rt->dst.lastuse = jiffies;
+-	rt->dst.__use++;
++	if (rt == net->ipv6.ip6_null_entry || (rt->rt6i_flags & RTF_CACHE)) {
++		goto done;
++	} else if (unlikely((fl6->flowi6_flags & FLOWI_FLAG_KNOWN_NH) &&
++			    !(rt->rt6i_flags & RTF_GATEWAY))) {
++		/* Create a RTF_CACHE clone which will not be
++		 * owned by the fib6 tree.  It is for the special case where
++		 * the daddr in the skb during the neighbor look-up is different
++		 * from the fl6->daddr used to look-up route here.
++		 */
++
++		struct rt6_info *uncached_rt;
++
++		uncached_rt = ip6_rt_cache_alloc(rt, &fl6->daddr, NULL);
++		dst_release(&rt->dst);
++
++		if (uncached_rt)
++			uncached_rt->dst.flags |= DST_NOCACHE;
++		else
++			uncached_rt = net->ipv6.ip6_null_entry;
++		dst_hold(&uncached_rt->dst);
++		return uncached_rt;
++	}
  
- {
- 	struct sk_buff *skb;
-@@ -1102,7 +1103,9 @@ static inline int ip6_ufo_append_data(struct sock *sk,
- 	skb_shinfo(skb)->gso_size = (mtu - fragheaderlen -
- 				     sizeof(struct frag_hdr)) & ~7;
- 	skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
--	skb_shinfo(skb)->ip6_frag_id = ipv6_select_ident(sock_net(sk), rt);
-+	skb_shinfo(skb)->ip6_frag_id = ipv6_select_ident(sock_net(sk),
-+							 &fl6->daddr,
-+							 &fl6->saddr);
- 
- append:
- 	return skb_append_datato_frags(sk, skb, getfrag, from,
-@@ -1325,7 +1328,7 @@ emsgsize:
- 	    (sk->sk_type == SOCK_DGRAM)) {
- 		err = ip6_ufo_append_data(sk, queue, getfrag, from, length,
- 					  hh_len, fragheaderlen,
--					  transhdrlen, mtu, flags, rt);
-+					  transhdrlen, mtu, flags, fl6);
- 		if (err)
- 			goto error;
- 		return 0;
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 96f153c..0a05b35 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1506,7 +1506,7 @@ void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
- 			  "Redirect: destination is not a neighbour\n");
- 		goto release;
- 	}
--	peer = inet_getpeer_v6(net->ipv6.peers, &rt->rt6i_dst.addr, 1);
-+	peer = inet_getpeer_v6(net->ipv6.peers, &ipv6_hdr(skb)->saddr, 1);
- 	ret = inet_peer_xrlim_allow(peer, 1*HZ);
- 	if (peer)
- 		inet_putpeer(peer);
-diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
-index ef0e232..055e85c 100644
---- a/net/ipv6/output_core.c
-+++ b/net/ipv6/output_core.c
-@@ -10,7 +10,8 @@
- #include <net/secure_seq.h>
- 
- static u32 __ipv6_select_ident(struct net *net, u32 hashrnd,
--			       struct in6_addr *dst, struct in6_addr *src)
-+			       const struct in6_addr *dst,
-+			       const struct in6_addr *src)
- {
- 	u32 hash, id;
- 
-@@ -60,15 +61,16 @@ void ipv6_proxy_select_ident(struct net *net, struct sk_buff *skb)
++done:
++	rt6_dst_from_metrics_check(rt);
+ 	return rt;
  }
- EXPORT_SYMBOL_GPL(ipv6_proxy_select_ident);
  
--u32 ipv6_select_ident(struct net *net, struct rt6_info *rt)
-+u32 ipv6_select_ident(struct net *net,
-+		      const struct in6_addr *daddr,
-+		      const struct in6_addr *saddr)
- {
- 	static u32 ip6_idents_hashrnd __read_mostly;
- 	u32 id;
- 
- 	net_get_random_once(&ip6_idents_hashrnd, sizeof(ip6_idents_hashrnd));
- 
--	id = __ipv6_select_ident(net, ip6_idents_hashrnd, &rt->rt6i_dst.addr,
--				 &rt->rt6i_src.addr);
-+	id = __ipv6_select_ident(net, ip6_idents_hashrnd, daddr, saddr);
- 	return htonl(id);
+@@ -1019,6 +1040,26 @@ static void rt6_dst_from_metrics_check(struct rt6_info *rt)
+ 		dst_init_metrics(&rt->dst, dst_metrics_ptr(rt->dst.from), true);
  }
- EXPORT_SYMBOL(ipv6_select_ident);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index beac6bf..2275999 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -262,7 +262,7 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	rt = (struct rt6_info *) dst;
- 	if (tcp_death_row.sysctl_tw_recycle &&
- 	    !tp->rx_opt.ts_recent_stamp &&
--	    ipv6_addr_equal(&rt->rt6i_dst.addr, &sk->sk_v6_daddr))
-+	    ipv6_addr_equal(&fl6.daddr, &sk->sk_v6_daddr))
- 		tcp_fetch_timewait_stamp(sk, dst);
  
- 	icsk->icsk_ext_hdr_len = 0;
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 19986ec..38f8627 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -781,7 +781,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
++static struct dst_entry *rt6_check(struct rt6_info *rt, u32 cookie)
++{
++	if (!rt->rt6i_node || (rt->rt6i_node->fn_sernum != cookie))
++		return NULL;
++
++	if (rt6_check_expired(rt))
++		return NULL;
++
++	return &rt->dst;
++}
++
++static struct dst_entry *rt6_dst_from_check(struct rt6_info *rt, u32 cookie)
++{
++	if (rt->dst.obsolete == DST_OBSOLETE_FORCE_CHK &&
++	    rt6_check((struct rt6_info *)(rt->dst.from), cookie))
++		return &rt->dst;
++	else
++		return NULL;
++}
++
+ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
+ {
+ 	struct rt6_info *rt;
+@@ -1029,15 +1070,13 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
+ 	 * DST_OBSOLETE_FORCE_CHK which forces validation calls down
+ 	 * into this function always.
+ 	 */
+-	if (!rt->rt6i_node || (rt->rt6i_node->fn_sernum != cookie))
+-		return NULL;
+-
+-	if (rt6_check_expired(rt))
+-		return NULL;
  
- 	/* From world but DNAT to loopback address? */
- 	if (local && skb->dev && !(skb->dev->flags & IFF_LOOPBACK) &&
--	    ipv6_addr_type(&rt->rt6i_dst.addr) & IPV6_ADDR_LOOPBACK) {
-+	    ipv6_addr_type(&cp->daddr.in6) & IPV6_ADDR_LOOPBACK) {
- 		IP_VS_DBG_RL_PKT(1, AF_INET6, pp, skb, 0,
- 				 "ip_vs_nat_xmit_v6(): "
- 				 "stopping DNAT to loopback address");
-@@ -1346,7 +1346,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	rt6_dst_from_metrics_check(rt);
  
- 	/* From world but DNAT to loopback address? */
- 	if (local && skb->dev && !(skb->dev->flags & IFF_LOOPBACK) &&
--	    ipv6_addr_type(&rt->rt6i_dst.addr) & IPV6_ADDR_LOOPBACK) {
-+	    ipv6_addr_type(&cp->daddr.in6) & IPV6_ADDR_LOOPBACK) {
- 		IP_VS_DBG(1, "%s(): "
- 			  "stopping DNAT to loopback %pI6\n",
- 			  __func__, &cp->daddr.in6);
-diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index e703ff7..17a0120 100644
---- a/net/sctp/ipv6.c
-+++ b/net/sctp/ipv6.c
-@@ -332,7 +332,8 @@ out:
- 		rt = (struct rt6_info *)dst;
- 		t->dst = dst;
- 		t->dst_cookie = rt->rt6i_node ? rt->rt6i_node->fn_sernum : 0;
--		pr_debug("rt6_dst:%pI6 rt6_src:%pI6\n", &rt->rt6i_dst.addr,
-+		pr_debug("rt6_dst:%pI6/%d rt6_src:%pI6\n",
-+			 &rt->rt6i_dst.addr, rt->rt6i_dst.plen,
- 			 &fl6->saddr);
- 	} else {
- 		t->dst = NULL;
+-	return dst;
++	if (unlikely(dst->flags & DST_NOCACHE))
++		return rt6_dst_from_check(rt, cookie);
++	else
++		return rt6_check(rt, cookie);
+ }
+ 
+ static struct dst_entry *ip6_negative_advice(struct dst_entry *dst)
 -- 
 1.8.1
