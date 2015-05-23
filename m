@@ -1,66 +1,72 @@
-From: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
-Subject: Re: [PATCH net] ipv4: Avoid crashing in =?UTF-8?Q?ip=5Ferror?=
-Date: Sat, 23 May 2015 18:59:45 +0200
-Message-ID: <f68c1ee01934e4ce4e4379af7a72327a@vittgam.net>
-References: <2b6d6ab2d8c35af3be55c82e507f5376@vittgam.net>
- <20150520025428.GA23304@kroah.com>
- <b5abf7328b22373e4ec18bd6da479431@vittgam.net>
- <06f5f10e9ee831f5a839c6ea24b94f64@vittgam.net>
- <d146b8b8a69462ced89a384e6be85b28@vittgam.net>
- <4cb068397127c2b2baee1f021b014b11@vittgam.net>
- <da006bc9072931406270f0fdda06045d@vittgam.net>
- <6056363be65a2c129551518da94bff20@vittgam.net>
- <87a8wx97er.fsf@x220.int.ebiederm.org>
- <ff82713d6862786de9784bd3c9c06bfa@vittgam.net>
- <20150522040453.GC8530@1wt.eu> <87zj4x6iiz.fsf_-_@x220.int.ebiederm.org>
- <alpine.LFD.2.11.1505231158240.1796@ja.home.ssi.bg>
- <87oalb2w8l.fsf@x220.int.ebiederm.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: e1000e fixes
+Date: Sat, 23 May 2015 18:08:34 +0100
+Message-ID: <1432400914.12412.88.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<security@kernel.org>, Greg KH <greg@kroah.com>,
-	<luto@amacapital.net>, Willy Tarreau <w@1wt.eu>
-To: <ebiederm@xmission.com>, Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from server1.vittgam.net ([213.239.197.142]:21169 "EHLO
-	mail.vittgam.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758035AbbEWRAZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 May 2015 13:00:25 -0400
-In-Reply-To: <87oalb2w8l.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-rk3UbV7hIG/h1ehkrwj5"
+Cc: stable <stable@vger.kernel.org>, netdev <netdev@vger.kernel.org>
+To: e1000-devel@lists.sourceforge.net
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Il 23.05.2015 16:40 ebiederm@xmission.com ha scritto:
-> The reproducer was apparently:
-> ip netns add ns0
-> ip netns add ns1
-> ip link add test0 type veth peer name test1
-> ip link set test0 netns ns0
-> ip link set test1 netns ns1
-> ip netns exec ns0 sysctl net.ipv4.ip_forward=1
-> ip netns exec ns1 sysctl net.ipv4.ip_forward=1
-> ip netns exec ns0 sysctl net.ipv4.conf.all.accept_local=1
-> ip netns exec ns1 sysctl net.ipv4.conf.all.accept_local=1
-> ip netns exec ns0 sysctl net.ipv4.conf.test0.accept_local=1
-> ip netns exec ns1 sysctl net.ipv4.conf.test1.accept_local=1
-> ip netns exec ns0 sysctl net.ipv4.conf.all.send_redirects=0
-> ip netns exec ns1 sysctl net.ipv4.conf.all.send_redirects=0
-> ip netns exec ns0 sysctl net.ipv4.conf.test0.send_redirects=0
-> ip netns exec ns1 sysctl net.ipv4.conf.test1.send_redirects=0
-> ip netns exec ns0 ip addr add 10.10.10.1/24 dev test0
-> ip netns exec ns1 ip addr add 10.10.10.2/24 dev test1
-> ip netns exec ns0 ip link set up dev test0
-> ip netns exec ns1 ip link set up dev test1
-> ip netns exec ns0 ip route add 10.20.30.40 via 10.10.10.2 dev test0
-> ip netns exec ns1 ip route add 10.20.30.40 via 10.10.10.1 dev test1
-> ip netns exec ns0 iptables -t mangle -A PREROUTING -i test0 -j TTL --ttl-inc 1
-> ip netns exec ns1 iptables -t mangle -A PREROUTING -i test1 -j TTL --ttl-inc 1
-> ip netns exec ns0 ping -s 1400 -f -w 5 10.20.30.40
-> ip netns delete ns0
-> ip netns delete ns1
 
-Yes, and the commands were ultimately wrapped in a "while true; do ... done" loop,
-since the crash would not happen every time, but it eventually will, without the
-patch.
+--=-rk3UbV7hIG/h1ehkrwj5
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+I was looking through recent changes in e1000e, and thought these might
+be suitable for inclusion in stable updates:
+
+commit 493004d04f56fd7d642bdbb2938e17e5f7d622d1
+Author: David Ertman <david.m.ertman@intel.com>
+Date:   Fri Jul 4 01:44:32 2014 +0000
+
+    e1000e: Fix CRC errors with jumbo traffic
+
+commit 47ccd1edc57ddabb81f6ba07e1e30201a8f578d6
+Author: Vlad Yasevich <vyasevich@gmail.com>
+Date:   Mon Aug 25 10:34:48 2014 -0400
+
+    e1000e: Fix TSO with non-accelerated vlans
+
+commit 6930895df994af212985396f1274712aaaa5bc26
+Author: Mathias Koehrer <mathias.koehrer@etas.com>
+Date:   Thu Aug 7 18:51:53 2014 +0000
+
+    e1000e: Fix 82572EI that has no hardware timestamp support
+
+This is purely based on the commit messages, not on bug reports or my
+own experience of the bugs.  I leave it to the e1000e maintainers to
+judge whether they're important enough.
+
+Ben.
+
+--=20
+Ben Hutchings
+If more than one person is responsible for a bug, no one is at fault.
+
+--=-rk3UbV7hIG/h1ehkrwj5
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVWC0F+e/yOyVhhEJAQpRwBAAsJwxRErhpif9Ua5u5HKEFh3E+tIiPwmh
+AOjP8KXYEH8iLyQx/V20gdDZmmaptw2dhIXhUXpoA9zG7KaHx1molZiFAkq8KpuK
+G8QU9SHKMC9jk1ZSMzvb76h87tLbp/s8Saagg6lqbQUJE+llNDfEh5Sb+S8iHljl
+45+1vo6ecPprg4DQ58jX3CGI0HLm/Yks3hl/GMAcT5zw9xBQCodq8dQ/frx5Mhml
+/RgnzxU5QYfNvAE/kHI4AHSXl0wHYoh5IJZOhyTK6eCcZE+NN77ToXOUHcYdITDl
+XOGvciNgYXyQBsaQFimFZMastrsE49/Scm8YRD4K5FujITMYx7SmhfYwTO5nyvID
+5Us0/uNcuT+F9DfIusNge3oETJ8fskL5er3fbYZWgE6IcK6zwZl3ZpU7lLp8HL/K
+Pspj8KxU8I1oP1EOdf1oumwyOo8Mif+s+IkYw7Avbpy3KJolnajpSskIxagEBIRq
+jEKNTmaaGsVAGlXsw2mRT04K/4i9i6uAKwizVFflKr0HoB/2aaHdDhqAcheqoqeg
+QlV6l/zH2w3VQjHubnZcoG8tvjpg3zmDalTGQV5AQDHG6tDZtg1DRNQnWGeQQa+k
+bLcJFkoOF0aOghlepvx+xTDa1l4rm4OTUPklOZpI1jBw6pLnQMPRhhz72skZP762
+6Q0k5M9F8r0=
+=esoI
+-----END PGP SIGNATURE-----
+
+--=-rk3UbV7hIG/h1ehkrwj5--
