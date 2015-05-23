@@ -1,72 +1,50 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: e1000e fixes
-Date: Sat, 23 May 2015 18:08:34 +0100
-Message-ID: <1432400914.12412.88.camel@decadent.org.uk>
+From: Joe Perches <joe@perches.com>
+Subject: [trivial PATCH] neterion: s2io: Fix kernel doc formatting
+Date: Sat, 23 May 2015 10:32:55 -0700
+Message-ID: <1432402375.29657.56.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-rk3UbV7hIG/h1ehkrwj5"
-Cc: stable <stable@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: e1000-devel@lists.sourceforge.net
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Jon Mason <jdmason@kudzu.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0139.hostedemail.com ([216.40.44.139]:41940 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757957AbbEWRc6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 May 2015 13:32:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+These two uses seem to have had carriage returns removed.
+Make these entries like all the others in this file.
 
---=-rk3UbV7hIG/h1ehkrwj5
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/ethernet/neterion/s2io.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-I was looking through recent changes in e1000e, and thought these might
-be suitable for inclusion in stable updates:
-
-commit 493004d04f56fd7d642bdbb2938e17e5f7d622d1
-Author: David Ertman <david.m.ertman@intel.com>
-Date:   Fri Jul 4 01:44:32 2014 +0000
-
-    e1000e: Fix CRC errors with jumbo traffic
-
-commit 47ccd1edc57ddabb81f6ba07e1e30201a8f578d6
-Author: Vlad Yasevich <vyasevich@gmail.com>
-Date:   Mon Aug 25 10:34:48 2014 -0400
-
-    e1000e: Fix TSO with non-accelerated vlans
-
-commit 6930895df994af212985396f1274712aaaa5bc26
-Author: Mathias Koehrer <mathias.koehrer@etas.com>
-Date:   Thu Aug 7 18:51:53 2014 +0000
-
-    e1000e: Fix 82572EI that has no hardware timestamp support
-
-This is purely based on the commit messages, not on bug reports or my
-own experience of the bugs.  I leave it to the e1000e maintainers to
-judge whether they're important enough.
-
-Ben.
-
---=20
-Ben Hutchings
-If more than one person is responsible for a bug, no one is at fault.
-
---=-rk3UbV7hIG/h1ehkrwj5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVWC0F+e/yOyVhhEJAQpRwBAAsJwxRErhpif9Ua5u5HKEFh3E+tIiPwmh
-AOjP8KXYEH8iLyQx/V20gdDZmmaptw2dhIXhUXpoA9zG7KaHx1molZiFAkq8KpuK
-G8QU9SHKMC9jk1ZSMzvb76h87tLbp/s8Saagg6lqbQUJE+llNDfEh5Sb+S8iHljl
-45+1vo6ecPprg4DQ58jX3CGI0HLm/Yks3hl/GMAcT5zw9xBQCodq8dQ/frx5Mhml
-/RgnzxU5QYfNvAE/kHI4AHSXl0wHYoh5IJZOhyTK6eCcZE+NN77ToXOUHcYdITDl
-XOGvciNgYXyQBsaQFimFZMastrsE49/Scm8YRD4K5FujITMYx7SmhfYwTO5nyvID
-5Us0/uNcuT+F9DfIusNge3oETJ8fskL5er3fbYZWgE6IcK6zwZl3ZpU7lLp8HL/K
-Pspj8KxU8I1oP1EOdf1oumwyOo8Mif+s+IkYw7Avbpy3KJolnajpSskIxagEBIRq
-jEKNTmaaGsVAGlXsw2mRT04K/4i9i6uAKwizVFflKr0HoB/2aaHdDhqAcheqoqeg
-QlV6l/zH2w3VQjHubnZcoG8tvjpg3zmDalTGQV5AQDHG6tDZtg1DRNQnWGeQQa+k
-bLcJFkoOF0aOghlepvx+xTDa1l4rm4OTUPklOZpI1jBw6pLnQMPRhhz72skZP762
-6Q0k5M9F8r0=
-=esoI
------END PGP SIGNATURE-----
-
---=-rk3UbV7hIG/h1ehkrwj5--
+diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
+index 1e0f72b..c281117 100644
+--- a/drivers/net/ethernet/neterion/s2io.c
++++ b/drivers/net/ethernet/neterion/s2io.c
+@@ -5308,7 +5308,8 @@ static int do_s2io_prog_unicast(struct net_device *dev, u8 *addr)
+ 
+ /**
+  * s2io_ethtool_sset - Sets different link parameters.
+- * @sp : private member of the device structure, which is a pointer to the  * s2io_nic structure.
++ * @sp : private member of the device structure, which is a pointer to the
++ * s2io_nic structure.
+  * @info: pointer to the structure with parameters given by ethtool to set
+  * link information.
+  * Description:
+@@ -5793,7 +5794,8 @@ static void s2io_vpd_read(struct s2io_nic *nic)
+ 
+ /**
+  *  s2io_ethtool_geeprom  - reads the value stored in the Eeprom.
+- *  @sp : private member of the device structure, which is a pointer to the *       s2io_nic structure.
++ *  @sp : private member of the device structure, which is a pointer to the
++ *  s2io_nic structure.
+  *  @eeprom : pointer to the user level structure provided by ethtool,
+  *  containing all relevant information.
+  *  @data_buf : user defined value to be written into Eeprom.
