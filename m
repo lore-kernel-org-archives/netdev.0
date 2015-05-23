@@ -1,127 +1,86 @@
-From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: [PATCHv3 net-next] bridge: allow setting hash_max + multicast_router
- if interface is down
-Date: Sat, 23 May 2015 03:12:34 +0200
-Message-ID: <1432343554-3493-1-git-send-email-linus.luessing@c0d3.blue>
+From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
+Subject: [PATCH net-next v5 0/2] Adding support for Cavium ThunderX network
+ controller
+Date: Fri, 22 May 2015 18:28:14 -0700
+Message-ID: <1432344498-17131-1-git-send-email-aleksey.makarov@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Satish Ashok <sashok@cumulusnetworks.com>,
-	Wilson Kok <wkok@cumulusnetworks.com>,
-	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
-To: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	roopa <roopa@cumulusnetworks.com>,
-	Cong Wang <cwang@twopensource.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Robert Richter <robert.richter@caviumnetworks.com>,
+ Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ David Daney <david.daney@cavium.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Network managers like netifd (used in OpenWRT for instance) try to
-configure interface options after creation but before setting the
-interface up.
+This patchset adds support for the Cavium ThunderX network controller.
 
-Unfortunately the sysfs / bridge currently only allows to configure the
-hash_max and multicast_router options when the bridge interface is up.
-But since br_multicast_init() doesn't start any timers and only sets
-default values and initializes timers it should be save to reconfigure
-the default values after that, before things actually get active after
-the bridge is set up.
+changes in v5:
+ * __packed were removed.  now we rely on C language ABI
+ * nic_dbg() -> netdev_dbg()
+ * fixes for a typo, constant spelling and using BIT_ULL
+ * use print_hex_dump()
+ * unnecessary conditions in a long if() chain were removed
 
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
----
-Changelog v3:
-* Readded two breaks (cosmetic / for future safety reasons)
+changes in v4:
+ * the patch "pci: Add Cavium PCI vendor id" was attributed correctly
+ * a note that Cavium id is used in many drivers was added
+ * the license comments now match MODULE_LICENSE
+ * a comment explaining usage of writeq_relaxed()/readq_relaxed() was added
 
-Changelog v2:
-* remove another now unnecessary -ENOENT initialization
-* consistently initialize to -EINVAL, allowing to shorten two switch-ca=
-ses
+changes in v3:
+ * code cleanup
+ * issues discovered by reviewers were addressed
 
- net/bridge/br_multicast.c |   24 +++---------------------
- 1 file changed, 3 insertions(+), 21 deletions(-)
+changes in v2:
+ * non-generic module parameters removed
+ * ethtool support added (nicvf_set_rxnfc())
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 2d69d5c..28a87c2 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1772,11 +1772,9 @@ out:
-=20
- int br_multicast_set_router(struct net_bridge *br, unsigned long val)
- {
--	int err =3D -ENOENT;
-+	int err =3D -EINVAL;
-=20
- 	spin_lock_bh(&br->multicast_lock);
--	if (!netif_running(br->dev))
--		goto unlock;
-=20
- 	switch (val) {
- 	case 0:
-@@ -1787,13 +1785,8 @@ int br_multicast_set_router(struct net_bridge *b=
-r, unsigned long val)
- 		br->multicast_router =3D val;
- 		err =3D 0;
- 		break;
--
--	default:
--		err =3D -EINVAL;
--		break;
- 	}
-=20
--unlock:
- 	spin_unlock_bh(&br->multicast_lock);
-=20
- 	return err;
-@@ -1802,11 +1795,9 @@ unlock:
- int br_multicast_set_port_router(struct net_bridge_port *p, unsigned l=
-ong val)
- {
- 	struct net_bridge *br =3D p->br;
--	int err =3D -ENOENT;
-+	int err =3D -EINVAL;
-=20
- 	spin_lock(&br->multicast_lock);
--	if (!netif_running(br->dev) || p->state =3D=3D BR_STATE_DISABLED)
--		goto unlock;
-=20
- 	switch (val) {
- 	case 0:
-@@ -1828,13 +1819,8 @@ int br_multicast_set_port_router(struct net_brid=
-ge_port *p, unsigned long val)
-=20
- 		br_multicast_add_router(br, p);
- 		break;
--
--	default:
--		err =3D -EINVAL;
--		break;
- 	}
-=20
--unlock:
- 	spin_unlock(&br->multicast_lock);
-=20
- 	return err;
-@@ -1939,15 +1925,11 @@ unlock:
-=20
- int br_multicast_set_hash_max(struct net_bridge *br, unsigned long val=
-)
- {
--	int err =3D -ENOENT;
-+	int err =3D -EINVAL;
- 	u32 old;
- 	struct net_bridge_mdb_htable *mdb;
-=20
- 	spin_lock_bh(&br->multicast_lock);
--	if (!netif_running(br->dev))
--		goto unlock;
--
--	err =3D -EINVAL;
- 	if (!is_power_of_2(val))
- 		goto unlock;
-=20
---=20
-1.7.10.4
+Sunil Goutham (2):
+  pci: Add Cavium PCI vendor id
+  net: Adding support for Cavium ThunderX network controller
+
+ MAINTAINERS                                        |    7 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/cavium/Kconfig                |   40 +
+ drivers/net/ethernet/cavium/Makefile               |    5 +
+ drivers/net/ethernet/cavium/thunder/Makefile       |   11 +
+ drivers/net/ethernet/cavium/thunder/nic.h          |  419 ++++++
+ drivers/net/ethernet/cavium/thunder/nic_main.c     |  940 +++++++++++++
+ drivers/net/ethernet/cavium/thunder/nic_reg.h      |  213 +++
+ .../net/ethernet/cavium/thunder/nicvf_ethtool.c    |  624 +++++++++
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 1324 ++++++++++++++++++
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 1413 ++++++++++++++++++++
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h |  375 ++++++
+ drivers/net/ethernet/cavium/thunder/q_struct.h     |  701 ++++++++++
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |  966 +++++++++++++
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.h  |  223 +++
+ include/linux/pci_ids.h                            |    2 +
+ 17 files changed, 7265 insertions(+)
+ create mode 100644 drivers/net/ethernet/cavium/Kconfig
+ create mode 100644 drivers/net/ethernet/cavium/Makefile
+ create mode 100644 drivers/net/ethernet/cavium/thunder/Makefile
+ create mode 100644 drivers/net/ethernet/cavium/thunder/nic.h
+ create mode 100644 drivers/net/ethernet/cavium/thunder/nic_main.c
+ create mode 100644 drivers/net/ethernet/cavium/thunder/nic_reg.h
+ create mode 100644 drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+ create mode 100644 drivers/net/ethernet/cavium/thunder/nicvf_main.c
+ create mode 100644 drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+ create mode 100644 drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+ create mode 100644 drivers/net/ethernet/cavium/thunder/q_struct.h
+ create mode 100644 drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+ create mode 100644 drivers/net/ethernet/cavium/thunder/thunder_bgx.h
+
+-- 
+2.4.1
