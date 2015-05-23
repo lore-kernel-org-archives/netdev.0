@@ -1,56 +1,113 @@
-From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
-Subject: [PATCH net-next v5 1/2] pci: Add Cavium PCI vendor id
-Date: Fri, 22 May 2015 18:28:15 -0700
-Message-ID: <1432344498-17131-2-git-send-email-aleksey.makarov@caviumnetworks.com>
-References: <1432344498-17131-1-git-send-email-aleksey.makarov@caviumnetworks.com>
+From: Suravee Suthikulanit <suravee.suthikulpanit@amd.com>
+Subject: Re: [V5 PATCH 1/5] ACPI / scan: Parse _CCA and setup device coherency
+Date: Fri, 22 May 2015 20:38:28 -0500
+Message-ID: <555FDA14.9050404@amd.com>
+References: <1432159758-4486-1-git-send-email-Suravee.Suthikulpanit@amd.com>
+ <2939517.7sXtxU6TkU@vostro.rjw.lan> <555FC695.1000404@amd.com>
+ <9319342.HPcAml3MbA@vostro.rjw.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Daney <david.daney@cavium.com>, linux-pci@vger.kernel.org,
- Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
- linux-kernel@vger.kernel.org,
- Robert Richter <robert.richter@caviumnetworks.com>,
- Bjorn Helgaas <bhelgaas@google.com>, Sunil Goutham <sgoutham@cavium.com>,
- linux-arm-kernel@lists.infradead.org
-To: <netdev@vger.kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1432344498-17131-1-git-send-email-aleksey.makarov@caviumnetworks.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: <lenb@kernel.org>, <catalin.marinas@arm.com>,
+	<will.deacon@arm.com>, <thomas.lendacky@amd.com>,
+	<herbert@gondor.apana.org.au>, <davem@davemloft.net>,
+	<arnd@arndb.de>, <msalter@redhat.com>, <hanjun.guo@linaro.org>,
+	<al.stone@linaro.org>, <grant.likely@linaro.org>,
+	<leo.duran@amd.com>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-acpi@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linaro-acpi@lists.linaro.org>, <netdev@vger.kernel.org>,
+	<linux-crypto@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <9319342.HPcAml3MbA@vostro.rjw.lan>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sunil Goutham <sgoutham@cavium.com>
+On 5/22/2015 8:25 PM, Rafael J. Wysocki wrote:
+> On Friday, May 22, 2015 07:15:17 PM Suravee Suthikulanit wrote:
+>> On 5/22/2015 6:05 PM, Rafael J. Wysocki wrote:
+>>> On Friday, May 22, 2015 05:24:15 PM Suravee Suthikulanit wrote:
+>>>> Not sure if this went out earlier. So I am resending.
+>>>>
+>>>> On 5/22/15 16:56, Rafael J. Wysocki wrote:
+>>>>>> diff --git a/drivers/acpi/glue.c b/drivers/acpi/glue.c
+>>>>>>> index 39c485b..b9657af 100644
+>>>>>>> --- a/drivers/acpi/glue.c
+>>>>>>> +++ b/drivers/acpi/glue.c
+>>>>>>> @@ -13,6 +13,7 @@
+>>>>>>>    #include <linux/slab.h>
+>>>>>>>    #include <linux/rwsem.h>
+>>>>>>>    #include <linux/acpi.h>
+>>>>>>> +#include <linux/dma-mapping.h>
+>>>>>>>
+>>>>>>>    #include "internal.h"
+>>>>>>>
+>>>>>>> @@ -167,6 +168,7 @@ int acpi_bind_one(struct device *dev, struct acpi_device *acpi_dev)
+>>>>>>>    	struct list_head *physnode_list;
+>>>>>>>    	unsigned int node_id;
+>>>>>>>    	int retval = -EINVAL;
+>>>>>>> +	bool coherent;
+>>>>>>>
+>>>>>>>    	if (has_acpi_companion(dev)) {
+>>>>>>>    		if (acpi_dev) {
+>>>>>>> @@ -223,6 +225,9 @@ int acpi_bind_one(struct device *dev, struct acpi_device *acpi_dev)
+>>>>>>>    	if (!has_acpi_companion(dev))
+>>>>>>>    		ACPI_COMPANION_SET(dev, acpi_dev);
+>>>>>>>
+>>>>>>> +	if (acpi_check_dma(acpi_dev, &coherent))
+>>>>>>> +		arch_setup_dma_ops(dev, 0, 0, NULL, coherent);
+>>>>>>> +
+>>>>> Well, so is this going to work for PCI too after all?
+>>>>>
+>>>>
+>>>> No, as Bjorn suggested, PCI changes for setting DMA coherent from _CCA
+>>>> (patch 3/6 in V4) will be submitted separately. We are working on
+>>>> cleaning up and up-streaming the PCI ACPI support for ARM64.
+>>>
+>>> OK, but acpi_bind_one() is called for PCI devices too.  Won't that be a problem?
+>>>
+>>>
+>>   >
+>> In this case, we would be going through the following call path:
+>>
+>>     --> pci_device_add()
+>>      |--> pci_dma_configure() ** 1 **
+>>      |--> device_add()
+>>        |--> platform_notify()
+>>          |--> acpi_platform_notify()
+>>           |--> acpi_bind_one() ** 2 **
+>>
+>> At (1), we would be calling arch_setup_dma_ops() with the PCI host
+>> bridge _CCA information. So, it should have already taken care of
+>> setting up device coherency here.
+>>
+>> At (2), if there is no acpi_dev for endpoint devices (which I believe
+>> this is normally the case), it would return early and skip
+>> arch_setup_dma_ops().
+>
+> That's not correct.  There may be ACPI companions for endpoint devices too.
 
-This vendor id will be used by network (vNIC), USB (xHCI),
-SATA (AHCI), GPIO, I2C, MMC and maybe other drivers
-for ThunderX SoC.
+Ok. Duly noted :)
 
-Acked-by: Bjorn Helgaas <bhelgaas@google.com>
-Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
-Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
----
- include/linux/pci_ids.h | 2 ++
- 1 file changed, 2 insertions(+)
+>> At (2), if there is an acpi_dev, the coherent_dma flag should have
+>> already been setup by the acpi_init_device_object during ACPI scan.
+>
+> That one sets the flag for the *ACPI* *companion* of the device, which
+> I'm still thinking is pointless, isn't it?
 
-diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
-index 1fa99a3..80bd333 100644
---- a/include/linux/pci_ids.h
-+++ b/include/linux/pci_ids.h
-@@ -2324,6 +2324,8 @@
- #define PCI_DEVICE_ID_ALTIMA_AC9100	0x03ea
- #define PCI_DEVICE_ID_ALTIMA_AC1003	0x03eb
- 
-+#define PCI_VENDOR_ID_CAVIUM		0x177d
-+
- #define PCI_VENDOR_ID_BELKIN		0x1799
- #define PCI_DEVICE_ID_BELKIN_F5D7010V7	0x701f
- 
--- 
-2.4.1
+When you say pointless, are you referring to the part where we are end 
+up calling arch_setup_dma_coherent() twice in this case? I am not quite 
+following your point.
+
+>> However, I am not certain about this case since I don't have the DSDT
+>> containing  PCI endpoint devices to test with.
+>
+> Every x86 PC has them (as far as I can say), but in that case there's no
+> _CCA and they are all coherent.
+
+Ok.
+
+Thanks,
+Suravee
+
+
