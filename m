@@ -1,45 +1,58 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH v4] bnx2x: Alloc 4k fragment for each rx ring buffer element
-Date: Sat, 23 May 2015 13:14:35 +0200
-Message-ID: <5560611B.6060500@gmx.de>
-References: <553AD097.4020209@gmx.de>	<87383jhxj9.fsf@dhcp-9-18-235-171.br.ibm.com>	<B5657A6538887040AD3A81F1008BEC63D383CB@avmb3.qlogic.org>	<20150430.160537.232956261880122754.davem@davemloft.net>	<874mnsxhnm.fsf_-_@dhcp-9-18-235-171.br.ibm.com>	<B5657A6538887040AD3A81F1008BEC63D6F990@AVMB1.qlogic.org> <87wq02t6ce.fsf_-_@dhcp-9-18-235-171.br.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	"cascardo@cascardo.eti.br" <cascardo@cascardo.eti.br>,
-	"brking@linux.vnet.ibm.com" <brking@linux.vnet.ibm.com>
-To: Gabriel Krisman Bertazi <krisman@linux.vnet.ibm.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH] irda: irda-usb: use msecs_to_jiffies for conversions
+Date: Sat, 23 May 2015 14:46:30 +0200
+Message-ID: <1432385190-6333-1-git-send-email-hofrat@osadl.org>
+Cc: David Miller <davem@davemloft.net>, Joe Perches <joe@perches.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicholas Mc Guire <hofrat@osadl.org>
+To: Samuel Ortiz <samuel@sortiz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.20]:49310 "EHLO mout.gmx.net"
+Received: from www.osadl.org ([62.245.132.105]:44996 "EHLO www.osadl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757551AbbEWLOx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 May 2015 07:14:53 -0400
-In-Reply-To: <87wq02t6ce.fsf_-_@dhcp-9-18-235-171.br.ibm.com>
+	id S1757518AbbEWM4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 May 2015 08:56:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21.05.2015 15:20, Gabriel Krisman Bertazi wrote:
-> Yuval Mintz <Yuval.Mintz@qlogic.com> writes:
-> 
->> Regardless, I'll give it a more thorough review tomorrow.
->> [If those are all the "problems" we'll find with it, I don't think we'll
->> need to re-spin this once more; that is, unless Dave insists]
-> 
-> As a follow up, here is a new version that fixes the style issues that Yuval
-> pointed out.  Are there any other concerns regarding this one?
-> 
+API compliance scanning with coccinelle flagged:
 
-Hi Gabriel,
+Converting milliseconds to jiffies by "val * HZ / 1000" is technically
+is not a clean solution as it does not handle all corner cases correctly.
+By changing the conversion to use msecs_to_jiffies(val) conversion is
+correct in all cases.
 
-the patch looks good concerning this issue in a former version:
-http://marc.info/?l=linux-netdev&m=142991786419997&w=2
+in the current code: 
+  mod_timer(&self->rx_defer_timer, jiffies + (10 * HZ / 1000));
+for HZ < 100 (e.g. CONFIG_HZ == 64|32 in alpha) this effectively results 
+in no delay at all.
 
-And (at least to me) it also looks good on the whole. You can
-add Reviewed-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>.
+Patch was compile tested for x86_64_defconfig (implies CONFIG_USB_IRDA=m)
 
-Regards,
-Lino
+Patch is against 4.1-rc4 (localversion-next is -next-20150522)
+
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+---
+
+V2: the unnecessary () flagged by Joe Perches <joe@perches.com>
+    was removed - thanks (...once again...) !
+
+ drivers/net/irda/irda-usb.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
+index f6c9163..f3e4563 100644
+--- a/drivers/net/irda/irda-usb.c
++++ b/drivers/net/irda/irda-usb.c
+@@ -848,7 +848,9 @@ static void irda_usb_receive(struct urb *urb)
+ 		 * Jean II */
+ 		self->rx_defer_timer.function = irda_usb_rx_defer_expired;
+ 		self->rx_defer_timer.data = (unsigned long) urb;
+-		mod_timer(&self->rx_defer_timer, jiffies + (10 * HZ / 1000));
++		mod_timer(&self->rx_defer_timer,
++			  jiffies + msecs_to_jiffies(10));
++
+ 		return;
+ 	}
+ 	
+-- 
+1.7.10.4
