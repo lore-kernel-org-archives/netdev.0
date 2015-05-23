@@ -1,80 +1,48 @@
-From: Florian Bruhin <me-J2duszcpOy900TDglC2tyg@public.gmane.org>
-Subject: Re: [PATCH net,stable-4.0] cdc_ncm: Fix tx_bytes statistics
-Date: Sat, 23 May 2015 11:27:08 +0200
-Message-ID: <20150523092708.GA23152@tonks>
-References: <1432293322-11928-1-git-send-email-bjorn@mork.no>
- <20150522.143421.442426385899149301.davem@davemloft.net>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH v4] bnx2x: Alloc 4k fragment for each rx ring buffer
+ element
+Date: Sat, 23 May 2015 10:04:02 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63DA5888@avmb3.qlogic.org>
+References: <553AD097.4020209@gmx.de>
+	<87383jhxj9.fsf@dhcp-9-18-235-171.br.ibm.com>
+	<B5657A6538887040AD3A81F1008BEC63D383CB@avmb3.qlogic.org>
+	<20150430.160537.232956261880122754.davem@davemloft.net>
+	<874mnsxhnm.fsf_-_@dhcp-9-18-235-171.br.ibm.com>
+	<B5657A6538887040AD3A81F1008BEC63D6F990@AVMB1.qlogic.org>
+ <87wq02t6ce.fsf_-_@dhcp-9-18-235-171.br.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256; protocol="application/pgp-signature"; boundary="=_mehl.schokokeks.org-26073-1432373230-0001-2"
-Cc: bjorn-yOkvZcmFvRU@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20150522.143421.442426385899149301.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	"LinoSanfilippo@gmx.de" <LinoSanfilippo@gmx.de>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	"cascardo@cascardo.eti.br" <cascardo@cascardo.eti.br>,
+	"brking@linux.vnet.ibm.com" <brking@linux.vnet.ibm.com>
+To: Gabriel Krisman Bertazi <krisman@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:26359 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757421AbbEWKEO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 May 2015 06:04:14 -0400
+In-Reply-To: <87wq02t6ce.fsf_-_@dhcp-9-18-235-171.br.ibm.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a MIME-formatted message.  If you see this text it means that your
-E-mail software does not support MIME-formatted messages.
+> Subject: Re: [PATCH v4] bnx2x: Alloc 4k fragment for each rx ring buffer element
+> 
+> Yuval Mintz <Yuval.Mintz@qlogic.com> writes:
+> 
+> > Regardless, I'll give it a more thorough review tomorrow.
+> > [If those are all the "problems" we'll find with it, I don't think
+> > we'll need to re-spin this once more; that is, unless Dave insists]
+> 
+> As a follow up, here is a new version that fixes the style issues that Yuval pointed
+> out.  Are there any other concerns regarding this one?
+> 
 
---=_mehl.schokokeks.org-26073-1432373230-0001-2
-Content-Type: text/plain; charset=iso-8859-15
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Not from me; Thanks again for the effort of doing this.
 
-* David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> [2015-05-22 14:34:21 -0400]:
-> From: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-> Date: Fri, 22 May 2015 13:15:22 +0200
->=20
-> > The tx_curr_frame_payload field is u32. When we try to calculate a
-> > small negative delta based on it, we end up with a positive integer
-> > close to 2^32 instead.  So the tx_bytes pointer increases by about
-> > 2^32 for every transmitted frame.
-> >=20
-> > Fix by calculating the delta as a signed long.
-> >=20
-> > Cc: Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-> > Reported-by: Florian Bruhin <me-J2duszcpOy900TDglC2tyg@public.gmane.org>
-> > Fixes: 7a1e890e2168 ("usbnet: Fix tx_bytes statistic running backward i=
-n cdc_ncm")
-> > Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
->=20
-> Applied and queued up for -stable.
-
-Thank you, and thanks Bj=F8rn for the quick fix!
-
-Florian
-
---=20
-http://www.the-compiler.org | me-J2duszcpOy900TDglC2tyg@public.gmane.org (Mail/XMPP)
-   GPG: 916E B0C8 FD55 A072 | http://the-compiler.org/pubkey.asc
-         I love long mails! | http://email.is-not-s.ms/
-
---=_mehl.schokokeks.org-26073-1432373230-0001-2
-Content-Type: application/pgp-signature
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJVYEfsAAoJEJFusMj9VaBya8EP/0GLVUah5Hh0aINlzB+Yoy9g
-7j1qvYqY9DSmGXx0rll8gyvmB0iydxA5fxJ+Kae4quwk2D8sRmgPGv3+yMyogFau
-6rWlW8r0DpfTZb8WQxCffHgzgsFTrX3YgpahOBqowdqisv6WmKjwFK225LXcxwDJ
-BRI7TT5xl5kS+2q6hhbXOTeyYrm1q1YLtOumDbpIwIkLMtmKbbWsi43GKjFyl7Ql
-/VWUdlsWYaMI5yqUGjPYLRMxBXt9E3kibpKzpOtMokQvz8lF8F42p+vgQ2fRMlWt
-Q1xz6n4rolGX/H5w8LsVD4Aap4VzX2pYKWlXj6uTfvFxd1RzeSS+9U1JTUDbR07W
-dl+uTxx6rqCc5NvYrh0CXo3r622FmPFhNhnVVIYmheZvZzdxmx8SdrPM0ijnlkpl
-ZCfqhQJc6ZMpPJY6RvDCJyVKzEoeanmpcDNMFgxEHFiZR4TX9p9pimhwN757CL4N
-SK+aBlHJvtNZ2ssu5v7W0+7N0ZdM7x/JWOJnCvcleZt7z+/Gkf2mVW39vZGfzWlC
-hay0TFAVAC9PwkPcZY+AXQZW4y2FsyTrg1P6aGKVpIZe7WP0kFIBTH2SF3dAvDKs
-O+lDpA+EkiURgRTkIliK0n2nUs/ToytX2gMmHK2bATAYr8OkXU1341tGA0iZI5yA
-ViuarL4XV57yovx4w1Nf
-=8hZL
------END PGP SIGNATURE-----
-
---=_mehl.schokokeks.org-26073-1432373230-0001-2--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
