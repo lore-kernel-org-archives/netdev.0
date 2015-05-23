@@ -1,103 +1,127 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Subject: Re: [V5 PATCH 1/5] ACPI / scan: Parse _CCA and setup device coherency
-Date: Sat, 23 May 2015 03:25:21 +0200
-Message-ID: <9319342.HPcAml3MbA@vostro.rjw.lan>
-References: <1432159758-4486-1-git-send-email-Suravee.Suthikulpanit@amd.com> <2939517.7sXtxU6TkU@vostro.rjw.lan> <555FC695.1000404@amd.com>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: [PATCHv3 net-next] bridge: allow setting hash_max + multicast_router
+ if interface is down
+Date: Sat, 23 May 2015 03:12:34 +0200
+Message-ID: <1432343554-3493-1-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com,
-	thomas.lendacky@amd.com, herbert@gondor.apana.org.au,
-	davem@davemloft.net, arnd@arndb.de, msalter@redhat.com,
-	hanjun.guo@linaro.org, al.stone@linaro.org,
-	grant.likely@linaro.org, leo.duran@amd.com,
-	linux-arm-kernel@lists.infradead.org, linux-acpi@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linaro-acpi@lists.linaro.org,
-	netdev@vger.kernel.org, linux-crypto@vger.kernel.org
-To: Suravee Suthikulanit <suravee.suthikulpanit@amd.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <555FC695.1000404@amd.com>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Satish Ashok <sashok@cumulusnetworks.com>,
+	Wilson Kok <wkok@cumulusnetworks.com>,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
+To: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	roopa <roopa@cumulusnetworks.com>,
+	Cong Wang <cwang@twopensource.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, May 22, 2015 07:15:17 PM Suravee Suthikulanit wrote:
-> On 5/22/2015 6:05 PM, Rafael J. Wysocki wrote:
-> > On Friday, May 22, 2015 05:24:15 PM Suravee Suthikulanit wrote:
-> >> Not sure if this went out earlier. So I am resending.
-> >>
-> >> On 5/22/15 16:56, Rafael J. Wysocki wrote:
-> >>>> diff --git a/drivers/acpi/glue.c b/drivers/acpi/glue.c
-> >>>>> index 39c485b..b9657af 100644
-> >>>>> --- a/drivers/acpi/glue.c
-> >>>>> +++ b/drivers/acpi/glue.c
-> >>>>> @@ -13,6 +13,7 @@
-> >>>>>   #include <linux/slab.h>
-> >>>>>   #include <linux/rwsem.h>
-> >>>>>   #include <linux/acpi.h>
-> >>>>> +#include <linux/dma-mapping.h>
-> >>>>>
-> >>>>>   #include "internal.h"
-> >>>>>
-> >>>>> @@ -167,6 +168,7 @@ int acpi_bind_one(struct device *dev, struct acpi_device *acpi_dev)
-> >>>>>   	struct list_head *physnode_list;
-> >>>>>   	unsigned int node_id;
-> >>>>>   	int retval = -EINVAL;
-> >>>>> +	bool coherent;
-> >>>>>
-> >>>>>   	if (has_acpi_companion(dev)) {
-> >>>>>   		if (acpi_dev) {
-> >>>>> @@ -223,6 +225,9 @@ int acpi_bind_one(struct device *dev, struct acpi_device *acpi_dev)
-> >>>>>   	if (!has_acpi_companion(dev))
-> >>>>>   		ACPI_COMPANION_SET(dev, acpi_dev);
-> >>>>>
-> >>>>> +	if (acpi_check_dma(acpi_dev, &coherent))
-> >>>>> +		arch_setup_dma_ops(dev, 0, 0, NULL, coherent);
-> >>>>> +
-> >>> Well, so is this going to work for PCI too after all?
-> >>>
-> >>
-> >> No, as Bjorn suggested, PCI changes for setting DMA coherent from _CCA
-> >> (patch 3/6 in V4) will be submitted separately. We are working on
-> >> cleaning up and up-streaming the PCI ACPI support for ARM64.
-> >
-> > OK, but acpi_bind_one() is called for PCI devices too.  Won't that be a problem?
-> >
-> >
->  >
-> In this case, we would be going through the following call path:
-> 
->    --> pci_device_add()
->     |--> pci_dma_configure() ** 1 **
->     |--> device_add()
->       |--> platform_notify()
->         |--> acpi_platform_notify()
->          |--> acpi_bind_one() ** 2 **
-> 
-> At (1), we would be calling arch_setup_dma_ops() with the PCI host 
-> bridge _CCA information. So, it should have already taken care of 
-> setting up device coherency here.
-> 
-> At (2), if there is no acpi_dev for endpoint devices (which I believe 
-> this is normally the case), it would return early and skip 
-> arch_setup_dma_ops().
+Network managers like netifd (used in OpenWRT for instance) try to
+configure interface options after creation but before setting the
+interface up.
 
-That's not correct.  There may be ACPI companions for endpoint devices too.
+Unfortunately the sysfs / bridge currently only allows to configure the
+hash_max and multicast_router options when the bridge interface is up.
+But since br_multicast_init() doesn't start any timers and only sets
+default values and initializes timers it should be save to reconfigure
+the default values after that, before things actually get active after
+the bridge is set up.
 
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
+---
+Changelog v3:
+* Readded two breaks (cosmetic / for future safety reasons)
 
-> At (2), if there is an acpi_dev, the coherent_dma flag should have 
-> already been setup by the acpi_init_device_object during ACPI scan.
+Changelog v2:
+* remove another now unnecessary -ENOENT initialization
+* consistently initialize to -EINVAL, allowing to shorten two switch-ca=
+ses
 
-That one sets the flag for the *ACPI* *companion* of the device, which
-I'm still thinking is pointless, isn't it?
+ net/bridge/br_multicast.c |   24 +++---------------------
+ 1 file changed, 3 insertions(+), 21 deletions(-)
 
-
-> However, I am not certain about this case since I don't have the DSDT 
-> containing  PCI endpoint devices to test with.
-
-Every x86 PC has them (as far as I can say), but in that case there's no
-_CCA and they are all coherent.
-
-
--- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 2d69d5c..28a87c2 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1772,11 +1772,9 @@ out:
+=20
+ int br_multicast_set_router(struct net_bridge *br, unsigned long val)
+ {
+-	int err =3D -ENOENT;
++	int err =3D -EINVAL;
+=20
+ 	spin_lock_bh(&br->multicast_lock);
+-	if (!netif_running(br->dev))
+-		goto unlock;
+=20
+ 	switch (val) {
+ 	case 0:
+@@ -1787,13 +1785,8 @@ int br_multicast_set_router(struct net_bridge *b=
+r, unsigned long val)
+ 		br->multicast_router =3D val;
+ 		err =3D 0;
+ 		break;
+-
+-	default:
+-		err =3D -EINVAL;
+-		break;
+ 	}
+=20
+-unlock:
+ 	spin_unlock_bh(&br->multicast_lock);
+=20
+ 	return err;
+@@ -1802,11 +1795,9 @@ unlock:
+ int br_multicast_set_port_router(struct net_bridge_port *p, unsigned l=
+ong val)
+ {
+ 	struct net_bridge *br =3D p->br;
+-	int err =3D -ENOENT;
++	int err =3D -EINVAL;
+=20
+ 	spin_lock(&br->multicast_lock);
+-	if (!netif_running(br->dev) || p->state =3D=3D BR_STATE_DISABLED)
+-		goto unlock;
+=20
+ 	switch (val) {
+ 	case 0:
+@@ -1828,13 +1819,8 @@ int br_multicast_set_port_router(struct net_brid=
+ge_port *p, unsigned long val)
+=20
+ 		br_multicast_add_router(br, p);
+ 		break;
+-
+-	default:
+-		err =3D -EINVAL;
+-		break;
+ 	}
+=20
+-unlock:
+ 	spin_unlock(&br->multicast_lock);
+=20
+ 	return err;
+@@ -1939,15 +1925,11 @@ unlock:
+=20
+ int br_multicast_set_hash_max(struct net_bridge *br, unsigned long val=
+)
+ {
+-	int err =3D -ENOENT;
++	int err =3D -EINVAL;
+ 	u32 old;
+ 	struct net_bridge_mdb_htable *mdb;
+=20
+ 	spin_lock_bh(&br->multicast_lock);
+-	if (!netif_running(br->dev))
+-		goto unlock;
+-
+-	err =3D -EINVAL;
+ 	if (!is_power_of_2(val))
+ 		goto unlock;
+=20
+--=20
+1.7.10.4
