@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next v5 01/11] ipv6: Clean up ipv6_select_ident() and ip6_fragment()
-Date: Fri, 22 May 2015 20:55:56 -0700
-Message-ID: <1432353366-2296465-2-git-send-email-kafai@fb.com>
+Subject: [PATCH net-next v5 10/11] ipv6: Break up ip6_rt_copy()
+Date: Fri, 22 May 2015 20:56:05 -0700
+Message-ID: <1432353366-2296465-11-git-send-email-kafai@fb.com>
 References: <1432353366-2296465-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,145 +12,166 @@ Cc: David Miller <davem@davemloft.net>,
 	Kernel Team <Kernel-team@fb.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:53384 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:52399 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757176AbbEWD4P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 23:56:15 -0400
-Received: from pps.filterd (m0044012 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4N3rNGk028980
-	for <netdev@vger.kernel.org>; Fri, 22 May 2015 20:56:15 -0700
+	by vger.kernel.org with ESMTP id S1946071AbbEWD4T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 23:56:19 -0400
+Received: from pps.filterd (m0044010 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4N3snOo013958
+	for <netdev@vger.kernel.org>; Fri, 22 May 2015 20:56:17 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1ujcx68c77-4
+	by mx0a-00082601.pphosted.com with ESMTP id 1ujba10j0t-15
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 22 May 2015 20:56:15 -0700
+	for <netdev@vger.kernel.org>; Fri, 22 May 2015 20:56:17 -0700
 Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
  mx-out.facebook.com (10.212.236.87) with ESMTP	id
- a6aff5e000ff11e580230002c9521c9e-a67f23a0 for <netdev@vger.kernel.org>;	Fri,
- 22 May 2015 20:56:12 -0700
+ a7b0096c00ff11e5ac510002c9521c9e-17c9f6e0 for <netdev@vger.kernel.org>;	Fri,
+ 22 May 2015 20:56:13 -0700
 In-Reply-To: <1432353366-2296465-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes the ipv6_select_ident() signature to return a
-fragment id instead of taking a whole frag_hdr as a param to
-only set the frag_hdr->identification.
+This patch breaks up ip6_rt_copy() into ip6_rt_copy_init() and
+ip6_rt_cache_alloc().
 
-It also cleans up ip6_fragment() to obtain the fragment id at the
-beginning instead of using multiple "if" later to check fragment id
-has been generated or not.
+In the later patch, we need to create a percpu rt6_info copy. Hence,
+refactor the common rt6_info init codes to ip6_rt_copy_init().
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Cc: Steffen Klassert <steffen.klassert@secunet.com>
 Cc: Julian Anastasov <ja@ssi.bg>
 ---
- include/net/ipv6.h     |  3 +--
- net/ipv6/ip6_output.c  | 17 ++++++-----------
- net/ipv6/output_core.c |  5 ++---
- 3 files changed, 9 insertions(+), 16 deletions(-)
+ net/ipv6/route.c | 90 ++++++++++++++++++++++++++------------------------------
+ 1 file changed, 41 insertions(+), 49 deletions(-)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index aab8190..8c4f881 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -671,8 +671,7 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
- 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
- }
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 3efc147..3e33ddb 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -72,8 +72,7 @@ enum rt6_nud_state {
+ 	RT6_NUD_SUCCEED = 1
+ };
  
--void ipv6_select_ident(struct net *net, struct frag_hdr *fhdr,
--		       struct rt6_info *rt);
-+u32 ipv6_select_ident(struct net *net, struct rt6_info *rt);
- void ipv6_proxy_select_ident(struct net *net, struct sk_buff *skb);
+-static struct rt6_info *ip6_rt_copy(struct rt6_info *ort,
+-				    const struct in6_addr *dest);
++static void ip6_rt_copy_init(struct rt6_info *rt, struct rt6_info *ort);
+ static struct dst_entry	*ip6_dst_check(struct dst_entry *dst, u32 cookie);
+ static unsigned int	 ip6_default_advmss(const struct dst_entry *dst);
+ static unsigned int	 ip6_mtu(const struct dst_entry *dst);
+@@ -913,22 +912,32 @@ static struct rt6_info *ip6_rt_cache_alloc(struct rt6_info *ort,
+ 	 *	Clone the route.
+ 	 */
  
- int ip6_dst_hoplimit(struct dst_entry *dst);
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index c217775..e4772ab 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -551,7 +551,7 @@ int ip6_fragment(struct sock *sk, struct sk_buff *skb,
- 	struct frag_hdr *fh;
- 	unsigned int mtu, hlen, left, len;
- 	int hroom, troom;
--	__be32 frag_id = 0;
-+	__be32 frag_id;
- 	int ptr, offset = 0, err = 0;
- 	u8 *prevhdr, nexthdr = 0;
- 	struct net *net = dev_net(skb_dst(skb)->dev);
-@@ -584,6 +584,8 @@ int ip6_fragment(struct sock *sk, struct sk_buff *skb,
- 	}
- 	mtu -= hlen + sizeof(struct frag_hdr);
+-	rt = ip6_rt_copy(ort, daddr);
++	if (ort->rt6i_flags & RTF_CACHE)
++		ort = (struct rt6_info *)ort->dst.from;
  
-+	frag_id = ipv6_select_ident(net, rt);
+-	if (rt) {
+-		rt->rt6i_flags |= RTF_CACHE;
++	rt = ip6_dst_alloc(dev_net(ort->dst.dev), ort->dst.dev,
++			   0, ort->rt6i_table);
 +
- 	if (skb_has_frag_list(skb)) {
- 		int first_len = skb_pagelen(skb);
- 		struct sk_buff *frag2;
-@@ -632,11 +634,10 @@ int ip6_fragment(struct sock *sk, struct sk_buff *skb,
- 		skb_reset_network_header(skb);
- 		memcpy(skb_network_header(skb), tmp_hdr, hlen);
++	if (!rt)
++		return NULL;
++
++	ip6_rt_copy_init(rt, ort);
++	rt->rt6i_flags |= RTF_CACHE;
++	rt->rt6i_metric = 0;
++	rt->dst.flags |= DST_HOST;
++	rt->rt6i_dst.addr = *daddr;
++	rt->rt6i_dst.plen = 128;
  
--		ipv6_select_ident(net, fh, rt);
- 		fh->nexthdr = nexthdr;
- 		fh->reserved = 0;
- 		fh->frag_off = htons(IP6_MF);
--		frag_id = fh->identification;
-+		fh->identification = frag_id;
+-		if (!rt6_is_gw_or_nonexthop(ort)) {
+-			if (ort->rt6i_dst.plen != 128 &&
+-			    ipv6_addr_equal(&ort->rt6i_dst.addr, daddr))
+-				rt->rt6i_flags |= RTF_ANYCAST;
++	if (!rt6_is_gw_or_nonexthop(ort)) {
++		if (ort->rt6i_dst.plen != 128 &&
++		    ipv6_addr_equal(&ort->rt6i_dst.addr, daddr))
++			rt->rt6i_flags |= RTF_ANYCAST;
+ #ifdef CONFIG_IPV6_SUBTREES
+-			if (rt->rt6i_src.plen && saddr) {
+-				rt->rt6i_src.addr = *saddr;
+-				rt->rt6i_src.plen = 128;
+-			}
+-#endif
++		if (rt->rt6i_src.plen && saddr) {
++			rt->rt6i_src.addr = *saddr;
++			rt->rt6i_src.plen = 128;
+ 		}
++#endif
+ 	}
  
- 		first_len = skb_pagelen(skb);
- 		skb->data_len = first_len - skb_headlen(skb);
-@@ -778,11 +779,7 @@ slow_path:
- 		 */
- 		fh->nexthdr = nexthdr;
- 		fh->reserved = 0;
--		if (!frag_id) {
--			ipv6_select_ident(net, fh, rt);
--			frag_id = fh->identification;
--		} else
--			fh->identification = frag_id;
-+		fh->identification = frag_id;
+ 	return rt;
+@@ -1980,7 +1989,7 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
+ 				     NEIGH_UPDATE_F_ISROUTER))
+ 		     );
  
- 		/*
- 		 *	Copy a block of the IP datagram.
-@@ -1064,7 +1061,6 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+-	nrt = ip6_rt_copy(rt, &msg->dest);
++	nrt = ip6_rt_cache_alloc(rt, &msg->dest, NULL);
+ 	if (!nrt)
+ 		goto out;
  
- {
- 	struct sk_buff *skb;
--	struct frag_hdr fhdr;
- 	int err;
- 
- 	/* There is support for UDP large send offload by network
-@@ -1106,8 +1102,7 @@ static inline int ip6_ufo_append_data(struct sock *sk,
- 	skb_shinfo(skb)->gso_size = (mtu - fragheaderlen -
- 				     sizeof(struct frag_hdr)) & ~7;
- 	skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
--	ipv6_select_ident(sock_net(sk), &fhdr, rt);
--	skb_shinfo(skb)->ip6_frag_id = fhdr.identification;
-+	skb_shinfo(skb)->ip6_frag_id = ipv6_select_ident(sock_net(sk), rt);
- 
- append:
- 	return skb_append_datato_frags(sk, skb, getfrag, from,
-diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
-index 85892af..ef0e232 100644
---- a/net/ipv6/output_core.c
-+++ b/net/ipv6/output_core.c
-@@ -60,8 +60,7 @@ void ipv6_proxy_select_ident(struct net *net, struct sk_buff *skb)
+@@ -2022,42 +2031,25 @@ static void rt6_set_from(struct rt6_info *rt, struct rt6_info *from)
+ 	dst_init_metrics(&rt->dst, dst_metrics_ptr(&from->dst), true);
  }
- EXPORT_SYMBOL_GPL(ipv6_proxy_select_ident);
  
--void ipv6_select_ident(struct net *net, struct frag_hdr *fhdr,
--		       struct rt6_info *rt)
-+u32 ipv6_select_ident(struct net *net, struct rt6_info *rt)
- {
- 	static u32 ip6_idents_hashrnd __read_mostly;
- 	u32 id;
-@@ -70,7 +69,7 @@ void ipv6_select_ident(struct net *net, struct frag_hdr *fhdr,
- 
- 	id = __ipv6_select_ident(net, ip6_idents_hashrnd, &rt->rt6i_dst.addr,
- 				 &rt->rt6i_src.addr);
--	fhdr->identification = htonl(id);
-+	return htonl(id);
+-static struct rt6_info *ip6_rt_copy(struct rt6_info *ort,
+-				    const struct in6_addr *dest)
+-{
+-	struct net *net = dev_net(ort->dst.dev);
+-	struct rt6_info *rt;
+-
+-	if (ort->rt6i_flags & RTF_CACHE)
+-		ort = (struct rt6_info *)ort->dst.from;
+-
+-	rt = ip6_dst_alloc(net, ort->dst.dev, 0,
+-			   ort->rt6i_table);
+-
+-	if (rt) {
+-		rt->dst.input = ort->dst.input;
+-		rt->dst.output = ort->dst.output;
+-		rt->dst.flags |= DST_HOST;
+-
+-		rt->rt6i_dst.addr = *dest;
+-		rt->rt6i_dst.plen = 128;
+-		rt->dst.error = ort->dst.error;
+-		rt->rt6i_idev = ort->rt6i_idev;
+-		if (rt->rt6i_idev)
+-			in6_dev_hold(rt->rt6i_idev);
+-		rt->dst.lastuse = jiffies;
+-		rt->rt6i_gateway = ort->rt6i_gateway;
+-		rt->rt6i_flags = ort->rt6i_flags;
+-		rt6_set_from(rt, ort);
+-		rt->rt6i_metric = 0;
+-
++static void ip6_rt_copy_init(struct rt6_info *rt, struct rt6_info *ort)
++{
++	rt->dst.input = ort->dst.input;
++	rt->dst.output = ort->dst.output;
++	rt->rt6i_dst = ort->rt6i_dst;
++	rt->dst.error = ort->dst.error;
++	rt->rt6i_idev = ort->rt6i_idev;
++	if (rt->rt6i_idev)
++		in6_dev_hold(rt->rt6i_idev);
++	rt->dst.lastuse = jiffies;
++	rt->rt6i_gateway = ort->rt6i_gateway;
++	rt->rt6i_flags = ort->rt6i_flags;
++	rt6_set_from(rt, ort);
++	rt->rt6i_metric = ort->rt6i_metric;
+ #ifdef CONFIG_IPV6_SUBTREES
+-		memcpy(&rt->rt6i_src, &ort->rt6i_src, sizeof(struct rt6key));
++	rt->rt6i_src = ort->rt6i_src;
+ #endif
+-		memcpy(&rt->rt6i_prefsrc, &ort->rt6i_prefsrc, sizeof(struct rt6key));
+-		rt->rt6i_table = ort->rt6i_table;
+-	}
+-	return rt;
++	rt->rt6i_prefsrc = ort->rt6i_prefsrc;
++	rt->rt6i_table = ort->rt6i_table;
  }
- EXPORT_SYMBOL(ipv6_select_ident);
  
+ #ifdef CONFIG_IPV6_ROUTE_INFO
 -- 
 1.8.1
