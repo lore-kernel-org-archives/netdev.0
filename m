@@ -1,63 +1,56 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [v2 PATCH 13/13] crypto: algif_aead - Switch to new AEAD
- interface
-Date: Sun, 24 May 2015 11:34:20 +0800
-Message-ID: <20150524033420.GC20656@gondor.apana.org.au>
-References: <20150522082708.GA3507@gondor.apana.org.au>
- <E1YviMC-00010E-Uk@gondolin.me.apana.org.au>
- <1969904.xZlo35YxmK@tachyon.chronox.de>
+From: Oliver Graff <oliver.e.graff@gmail.com>
+Subject: Re: Socket receives packet to multicast group to which it was not joined since kernel 3.13.10-1
+Date: Sun, 24 May 2015 04:55:40 +0000 (UTC)
+Message-ID: <loom.20150524T065137-105@post.gmane.org>
+References: <5370F8EB.2070009@oktetlabs.ru> <1399915082.7973.27.camel@edumazet-glaptop2.roam.corp.google.com> <5371BAE1.2090806@oktetlabs.ru> <20140513213641.GA19087@sbohrermbp13-local.rgmadvisors.com> <20140514204010.GA5719@sbohrermbp13-local.rgmadvisors.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Stephan Mueller <smueller@chronox.de>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1969904.xZlo35YxmK@tachyon.chronox.de>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:48362 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751585AbbEXFAI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 May 2015 01:00:08 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1YwO17-0002Sp-8P
+	for netdev@vger.kernel.org; Sun, 24 May 2015 07:00:05 +0200
+Received: from cpe-45-50-188-106.socal.res.rr.com ([45.50.188.106])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 24 May 2015 07:00:05 +0200
+Received: from oliver.e.graff by cpe-45-50-188-106.socal.res.rr.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 24 May 2015 07:00:05 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 23, 2015 at 08:04:19PM +0200, Stephan Mueller wrote:
-> Am Freitag, 22. Mai 2015, 16:31:04 schrieb Herbert Xu:
+Shawn Bohrer <shawn.bohrer <at> gmail.com> writes:
+
 > 
-> Hi Herbert,
+> On Tue, May 13, 2014 at 04:36:41PM -0500, Shawn Bohrer wrote:
+
+> > If I did "break" something here it appears to be because with
+> > ip_early_demux we only call ip_check_mc_rcu() once on the initial
+> > packet, and subsequent packets destined for that socket simply need to
+> > pass the __udp_is_mcast_sock() test.  With ip_early_demux disaled we
+> > call ip_check_mc_rcu() for every packet.
 > 
-> > This patch makes use of the new AEAD interface which uses a single
-> > SG list instead of separate lists for the AD and plain text.
+> So is the solution to effectively call ip_check_mc_rcu() inside
+> udp_v4_early_demux()?
 > 
-> After applying your additional patch, the "normal" AEAD operation works.
+> --
+> Shawn
 > 
-> But with long messages (16 filled pages), I get the following. To test, simply 
-> use [1], cd libkcapi/test, compile and execute ./kcapi -y
+(See earlier parts of thread here: 
+http://netdev.vger.kernel.narkive.com/mwurLsMT/socket-receives-packet-to-multicast-
+group-to-which-it-was-not-joined-since-kernel-3-13-10-1)
 
-Thanks for testing!
+Was a bug report filed for this / was this fixed? 
+I looked at the diffs from the referenced commit and the current version of 
+udp_v4_early_demux and the changes appear to be 
+minimal,
+it doesn't look like ip_check_mc_rcu was added. Is that all that's needed?
 
-Does this patch help?
-
-diff --git a/crypto/algif_aead.c b/crypto/algif_aead.c
-index a483a6f..1d08483 100644
---- a/crypto/algif_aead.c
-+++ b/crypto/algif_aead.c
-@@ -494,11 +494,11 @@ static int aead_recvmsg(struct socket *sock, struct msghdr *msg, size_t ignored,
- 	else if (outlen)
- 		/* AD size is non-zero */
- 		scatterwalk_crypto_chain(
--			dst, ctx->rsgl[0].sg,
-+			dst + i - 1, ctx->rsgl[0].sg,
- 			sg_page(ctx->rsgl[0].sg) == sg_page(dst + i - 1) &&
- 			ctx->rsgl[0].sg[0].offset == dst[i - 1].offset +
- 						     dst[i - 1].length,
--			i + 1);
-+			2);
- 	else
- 		/* AD only */
- 		sg_mark_end(dst + i);
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+- Oliver
