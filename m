@@ -1,68 +1,61 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv6: ipv6_select_ident() returns a __be32
-Date: Mon, 25 May 2015 16:02:21 -0700
-Message-ID: <1432594941.4060.198.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <201505260544.3guHqjoi%fengguang.wu@intel.com>
+Subject: [PATCH net-next] pktgen: remove one sparse error
+Date: Mon, 25 May 2015 16:06:37 -0700
+Message-ID: <1432595197.4060.201.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org
-To: kbuild test robot <fengguang.wu@intel.com>,
-	David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:34038 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750903AbbEYXCX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 19:02:23 -0400
-Received: by igbhj9 with SMTP id hj9so46307566igb.1
-        for <netdev@vger.kernel.org>; Mon, 25 May 2015 16:02:23 -0700 (PDT)
-In-Reply-To: <201505260544.3guHqjoi%fengguang.wu@intel.com>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:36564 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750934AbbEYXGj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 19:06:39 -0400
+Received: by igbpi8 with SMTP id pi8so44999775igb.1
+        for <netdev@vger.kernel.org>; Mon, 25 May 2015 16:06:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-ipv6_select_ident() returns a 32bit value in network order.
+net/core/pktgen.c:2672:43: warning: incorrect type in assignment (different base types)
+net/core/pktgen.c:2672:43:    expected unsigned short [unsigned] [short] [usertype] <noident>
+net/core/pktgen.c:2672:43:    got restricted __be16 [usertype] protocol
 
-Fixes: 286c2349f666 ("ipv6: Clean up ipv6_select_ident() and ip6_fragment()")
+Let's use proper struct ethhdr instead of hard coding everything.
+
 Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
 ---
- include/net/ipv6.h     |    6 +++---
- net/ipv6/output_core.c |    6 +++---
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ net/core/pktgen.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index b950a2000b7f4608647b77dd029c94277a1afd97..35d485c780802cc28dedb4f889f3478be712b9df 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -671,9 +671,9 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
- 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
- }
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 62f979984a23236db1109bb109f46a932840633f..46dfcfcb9c540dac0853b5648cce2d69e8fa3608 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2645,9 +2645,9 @@ static int process_ipsec(struct pktgen_dev *pkt_dev,
+ 		struct xfrm_state *x = pkt_dev->flows[pkt_dev->curfl].x;
+ 		int nhead = 0;
+ 		if (x) {
+-			int ret;
+-			__u8 *eth;
++			struct ethhdr *eth;
+ 			struct iphdr *iph;
++			int ret;
  
--u32 ipv6_select_ident(struct net *net,
--		      const struct in6_addr *daddr,
--		      const struct in6_addr *saddr);
-+__be32 ipv6_select_ident(struct net *net,
-+			 const struct in6_addr *daddr,
-+			 const struct in6_addr *saddr);
- void ipv6_proxy_select_ident(struct net *net, struct sk_buff *skb);
+ 			nhead = x->props.header_len - skb_headroom(skb);
+ 			if (nhead > 0) {
+@@ -2667,9 +2667,9 @@ static int process_ipsec(struct pktgen_dev *pkt_dev,
+ 				goto err;
+ 			}
+ 			/* restore ll */
+-			eth = (__u8 *) skb_push(skb, ETH_HLEN);
+-			memcpy(eth, pkt_dev->hh, 12);
+-			*(u16 *) &eth[12] = protocol;
++			eth = (struct ethhdr *)skb_push(skb, ETH_HLEN);
++			memcpy(eth, pkt_dev->hh, 2 * ETH_ALEN);
++			eth->h_proto = protocol;
  
- int ip6_dst_hoplimit(struct dst_entry *dst);
-diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
-index 055e85cb7b6518f20796859e46fa043b186278e7..21678acd452165fae8a2c0b7c007ed1daa407344 100644
---- a/net/ipv6/output_core.c
-+++ b/net/ipv6/output_core.c
-@@ -61,9 +61,9 @@ void ipv6_proxy_select_ident(struct net *net, struct sk_buff *skb)
- }
- EXPORT_SYMBOL_GPL(ipv6_proxy_select_ident);
- 
--u32 ipv6_select_ident(struct net *net,
--		      const struct in6_addr *daddr,
--		      const struct in6_addr *saddr)
-+__be32 ipv6_select_ident(struct net *net,
-+			 const struct in6_addr *daddr,
-+			 const struct in6_addr *saddr)
- {
- 	static u32 ip6_idents_hashrnd __read_mostly;
- 	u32 id;
+ 			/* Update IPv4 header len as well as checksum value */
+ 			iph = ip_hdr(skb);
