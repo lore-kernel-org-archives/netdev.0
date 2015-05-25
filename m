@@ -1,386 +1,281 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [RFC V7 PATCH 5/7] virtio_net: enable tx interrupt
-Date: Mon, 25 May 2015 01:24:02 -0400
-Message-ID: <1432531444-50193-6-git-send-email-jasowang@redhat.com>
+Subject: [RFC V7 PATCH 6/7] vhost: interrupt coalescing support
+Date: Mon, 25 May 2015 01:24:03 -0400
+Message-ID: <1432531444-50193-7-git-send-email-jasowang@redhat.com>
 References: <1432531444-50193-1-git-send-email-jasowang@redhat.com>
-Cc: rusty@rustcorp.com.au, Jason Wang <jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: mst@redhat.com, virtualization@lists.linux-foundation.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 In-Reply-To: <1432531444-50193-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This patch enable tx interrupt for virtio-net driver. This can make
-socket accounting works again and help to reduce the buffer bloat. To
-reduce the performance impacts, only enable tx interrupt on newer host
-with interrupt coalescing support.
+This patch implements basic interrupt coalescing support. This is done
+by introducing two new per virtqueue parameters:
+
+- max_coalescced_buffers: maximum number of buffers before trying to
+  issue an interrupt.
+- coalesce_usecs: maximum number of microseconds waited if at least
+  one buffer is pending before trying to issue an interrupt.
+
+A new ioctl was also introduced for userspace to set or get the above
+two values.
+
+The number of coalesced buffers were increased in vhost_add_used_n()
+and vhost_signal() was modified that it will only try to issue an
+interrupt when:
+
+- The number of coalesced buffers exceed or is equal to
+  max_coalesced_buffes.
+- The time since last signal trying exceed or is equal to
+  coalesce_usecs.
+
+When neither of the above two conditions were met, the interrupt was
+delayed and during exit of a round of processing, device specific code
+will call vhost_check_coalesce_and_signal() to check the above two
+conditions again and schedule a timer for delayed interrupt if the
+conditions were still not met.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/virtio_net.c | 214 ++++++++++++++++++++++++++++++++++++-----------
- 1 file changed, 164 insertions(+), 50 deletions(-)
+ drivers/vhost/vhost.c      | 88 ++++++++++++++++++++++++++++++++++++++++++++--
+ drivers/vhost/vhost.h      | 20 +++++++++++
+ include/uapi/linux/vhost.h | 13 ++++++-
+ 3 files changed, 117 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 4ad739f..a48b1f9 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -72,6 +72,8 @@ struct send_queue {
- 
- 	/* Name of the send queue: output.$index */
- 	char name[40];
-+
-+	struct napi_struct napi;
- };
- 
- /* Internal representation of a receive virtqueue */
-@@ -123,6 +125,9 @@ struct virtnet_info {
- 	/* Host can handle any s/g split between our header and packet data */
- 	bool any_header_sg;
- 
-+	/* Host can coalesce interrupts */
-+	bool intr_coalescing;
-+
- 	/* Packet virtio header size */
- 	u8 hdr_len;
- 
-@@ -215,15 +220,54 @@ static struct page *get_a_page(struct receive_queue *rq, gfp_t gfp_mask)
- 	return p;
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 2ee2826..7739112 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -199,6 +199,11 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+ 	vq->call = NULL;
+ 	vq->log_ctx = NULL;
+ 	vq->memory = NULL;
++	vq->coalesce_usecs = ktime_set(0, 0);
++	vq->max_coalesced_buffers = 0;
++	vq->coalesced = 0;
++	vq->last_signal = ktime_get();
++	hrtimer_cancel(&vq->ctimer);
  }
  
-+static unsigned int free_old_xmit_skbs(struct netdev_queue *txq,
-+				       struct send_queue *sq, int budget)
+ static int vhost_worker(void *data)
+@@ -291,6 +296,23 @@ static void vhost_dev_free_iovecs(struct vhost_dev *dev)
+ 		vhost_vq_free_iovecs(dev->vqs[i]);
+ }
+ 
++void vhost_check_coalesce_and_signal(struct vhost_dev *dev,
++				     struct vhost_virtqueue *vq,
++				bool timer);
++static enum hrtimer_restart vhost_ctimer_handler(struct hrtimer *timer)
 +{
-+	struct sk_buff *skb;
-+	unsigned int len;
-+	struct virtnet_info *vi = sq->vq->vdev->priv;
-+	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
-+	unsigned int packets = 0, bytes = 0;
++	struct vhost_virtqueue *vq =
++		container_of(timer, struct vhost_virtqueue, ctimer);
 +
-+	while (packets < budget &&
-+	       (skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
-+		pr_debug("Sent skb %p\n", skb);
++	if (mutex_trylock(&vq->mutex)) {
++		vhost_check_coalesce_and_signal(vq->dev, vq, false);
++		mutex_unlock(&vq->mutex);
++	} else
++		vhost_poll_queue(&vq->poll);
 +
-+		bytes += skb->len;
-+		packets++;
-+
-+		dev_kfree_skb_any(skb);
-+	}
-+
-+	if (vi->intr_coalescing &&
-+	    sq->vq->num_free >= 2 + MAX_SKB_FRAGS)
-+		netif_wake_subqueue(vi->dev, vq2txq(sq->vq));
-+
-+	u64_stats_update_begin(&stats->tx_syncp);
-+	stats->tx_bytes += bytes;
-+	stats->tx_packets += packets;
-+	u64_stats_update_end(&stats->tx_syncp);
-+
-+	return packets;
++	return HRTIMER_NORESTART;
 +}
 +
- static void skb_xmit_done(struct virtqueue *vq)
+ void vhost_dev_init(struct vhost_dev *dev,
+ 		    struct vhost_virtqueue **vqs, int nvqs)
  {
- 	struct virtnet_info *vi = vq->vdev->priv;
-+	struct send_queue *sq = &vi->sq[vq2txq(vq)];
+@@ -315,6 +337,8 @@ void vhost_dev_init(struct vhost_dev *dev,
+ 		vq->heads = NULL;
+ 		vq->dev = dev;
+ 		mutex_init(&vq->mutex);
++		hrtimer_init(&vq->ctimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
++		vq->ctimer.function = vhost_ctimer_handler;
+ 		vhost_vq_reset(dev, vq);
+ 		if (vq->handle_kick)
+ 			vhost_poll_init(&vq->poll, vq->handle_kick,
+@@ -640,6 +664,7 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
+ 	struct vhost_vring_state s;
+ 	struct vhost_vring_file f;
+ 	struct vhost_vring_addr a;
++	struct vhost_vring_coalesce c;
+ 	u32 idx;
+ 	long r;
  
--	/* Suppress further interrupts. */
--	virtqueue_disable_cb(vq);
-+	if (vi->intr_coalescing) {
-+		if (napi_schedule_prep(&sq->napi)) {
-+			virtqueue_disable_cb(sq->vq);
-+			__napi_schedule(&sq->napi);
+@@ -696,6 +721,19 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
+ 		if (copy_to_user(argp, &s, sizeof s))
+ 			r = -EFAULT;
+ 		break;
++	case VHOST_SET_VRING_COALESCE:
++		if (copy_from_user(&c, argp, sizeof c)) {
++			r = -EFAULT;
++			break;
 +		}
++		vq->coalesce_usecs = ns_to_ktime(c.coalesce_usecs * NSEC_PER_USEC) ;
++		vq->max_coalesced_buffers = c.max_coalesced_buffers;
++		break;
++	case VHOST_GET_VRING_COALESCE:
++		s.index = idx;
++		if (copy_to_user(argp, &c, sizeof c))
++			r = -EFAULT;
++		break;
+ 	case VHOST_SET_VRING_ADDR:
+ 		if (copy_from_user(&a, argp, sizeof a)) {
+ 			r = -EFAULT;
+@@ -1415,6 +1453,9 @@ int vhost_add_used_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
+ {
+ 	int start, n, r;
+ 
++	if (vq->max_coalesced_buffers && ktime_to_ns(vq->coalesce_usecs))
++		vq->coalesced += count;
++
+ 	start = vq->last_used_idx % vq->num;
+ 	n = vq->num - start;
+ 	if (n < count) {
+@@ -1440,6 +1481,7 @@ int vhost_add_used_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
+ 		if (vq->log_ctx)
+ 			eventfd_signal(vq->log_ctx, 1);
+ 	}
++
+ 	return r;
+ }
+ EXPORT_SYMBOL_GPL(vhost_add_used_n);
+@@ -1481,15 +1523,55 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ 	return vring_need_event(vhost16_to_cpu(vq, event), new, old);
+ }
+ 
++static void __vhost_signal(struct vhost_dev *dev, struct vhost_virtqueue *vq)
++{
++	if (vq->call_ctx && vhost_notify(dev, vq)) {
++		eventfd_signal(vq->call_ctx, 1);
++	}
++
++	vq->coalesced = 0;
++	vq->last_signal = ktime_get();
++}
++
+ /* This actually signals the guest, using eventfd. */
+ void vhost_signal(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ {
+-	/* Signal the Guest tell them we used something up. */
+-	if (vq->call_ctx && vhost_notify(dev, vq))
+-		eventfd_signal(vq->call_ctx, 1);
++	bool can_coalesce = vq->max_coalesced_buffers &&
++		            ktime_to_ns(vq->coalesce_usecs);
++
++	if (can_coalesce) {
++		ktime_t passed = ktime_sub(ktime_get(), vq->last_signal);
++
++		if ((vq->coalesced >= vq->max_coalesced_buffers) ||
++		     !ktime_before(passed, vq->coalesce_usecs))
++			__vhost_signal(dev, vq);
 +	} else {
-+		/* Suppress further interrupts. */
-+		virtqueue_disable_cb(vq);
- 
--	/* We were probably waiting for more output buffers. */
--	netif_wake_subqueue(vi->dev, vq2txq(vq));
-+		/* We were probably waiting for more output buffers. */
-+		netif_wake_subqueue(vi->dev, vq2txq(vq));
++		__vhost_signal(dev, vq);
 +	}
  }
+ EXPORT_SYMBOL_GPL(vhost_signal);
  
- static unsigned int mergeable_ctx_to_buf_truesize(unsigned long mrg_ctx)
-@@ -775,6 +819,30 @@ static int virtnet_poll(struct napi_struct *napi, int budget)
- 	return received;
- }
- 
-+static int virtnet_poll_tx(struct napi_struct *napi, int budget)
++void vhost_check_coalesce_and_signal(struct vhost_dev *dev,
++				     struct vhost_virtqueue *vq,
++				     bool timer)
 +{
-+	struct send_queue *sq =
-+		container_of(napi, struct send_queue, napi);
-+	struct virtnet_info *vi = sq->vq->vdev->priv;
-+	struct netdev_queue *txq = netdev_get_tx_queue(vi->dev, vq2txq(sq->vq));
-+	u32 limit = vi->tx_work_limit;
-+	unsigned int r, sent;
++	bool can_coalesce = vq->max_coalesced_buffers &&
++		            ktime_to_ns(vq->coalesce_usecs);
 +
-+	__netif_tx_lock(txq, smp_processor_id());
-+	sent = free_old_xmit_skbs(txq, sq, limit);
-+	if (sent < limit) {
-+		r = virtqueue_enable_cb_prepare(sq->vq);
-+		napi_complete(napi);
-+		if (unlikely(virtqueue_poll(sq->vq, r)) &&
-+		    napi_schedule_prep(napi)) {
-+			virtqueue_disable_cb(sq->vq);
-+			__napi_schedule(napi);
++	hrtimer_try_to_cancel(&vq->ctimer);
++	if (can_coalesce && vq->coalesced) {
++		ktime_t passed = ktime_sub(ktime_get(), vq->last_signal);
++		ktime_t left = ktime_sub(vq->coalesce_usecs, passed);
++
++		if (ktime_to_ns(left) <= 0) {
++			__vhost_signal(dev, vq);
++		} else if (timer) {
++			hrtimer_start(&vq->ctimer, left, HRTIMER_MODE_REL);
 +		}
 +	}
-+	__netif_tx_unlock(txq);
-+	return sent < limit ? 0 : budget;
 +}
++EXPORT_SYMBOL_GPL(vhost_check_coalesce_and_signal);
 +
- #ifdef CONFIG_NET_RX_BUSY_POLL
- /* must be called with local_bh_disable()d */
- static int virtnet_busy_poll(struct napi_struct *napi)
-@@ -823,40 +891,12 @@ static int virtnet_open(struct net_device *dev)
- 			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
- 				schedule_delayed_work(&vi->refill, 0);
- 		virtnet_napi_enable(&vi->rq[i]);
-+		napi_enable(&vi->sq[i].napi);
- 	}
+ /* And here's the combo meal deal.  Supersize me! */
+ void vhost_add_used_and_signal(struct vhost_dev *dev,
+ 			       struct vhost_virtqueue *vq,
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index 8c1c792..2e6754d 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -92,6 +92,23 @@ struct vhost_virtqueue {
+ 	/* Last used index value we have signalled on */
+ 	bool signalled_used_valid;
  
- 	return 0;
- }
- 
--static void free_old_xmit_skbs(struct send_queue *sq)
--{
--	struct sk_buff *skb;
--	unsigned int len;
--	struct virtnet_info *vi = sq->vq->vdev->priv;
--	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
--	unsigned int packets = 0, bytes = 0;
--
--	while ((skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
--		pr_debug("Sent skb %p\n", skb);
--
--		bytes += skb->len;
--		packets++;
--
--		dev_kfree_skb_any(skb);
--	}
--
--	/* Avoid overhead when no packets have been processed
--	 * happens when called speculatively from start_xmit.
--	 */
--	if (!packets)
--		return ;
--
--	u64_stats_update_begin(&stats->tx_syncp);
--	stats->tx_bytes += bytes;
--	stats->tx_packets += packets;
--	u64_stats_update_end(&stats->tx_syncp);
--}
--
- static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
- {
- 	struct virtio_net_hdr_mrg_rxbuf *hdr;
-@@ -921,7 +961,9 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
- 		sg_set_buf(sq->sg, hdr, hdr_len);
- 		num_sg = skb_to_sgvec(skb, sq->sg + 1, 0, skb->len) + 1;
- 	}
--	return virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, skb, GFP_ATOMIC);
++	/* Maxinum microseconds waited after at least one buffer is
++	 * processed before generating an interrupt.
++	 */
++	ktime_t coalesce_usecs;
 +
-+	return virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, skb,
-+				    GFP_ATOMIC);
- }
- 
- static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
-@@ -934,7 +976,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	bool kick = !skb->xmit_more;
- 
- 	/* Free up any pending old buffers before queueing new ones. */
--	free_old_xmit_skbs(sq);
-+	free_old_xmit_skbs(txq, sq, virtqueue_get_vring_size(sq->vq));
- 
- 	/* timestamp packet in software */
- 	skb_tx_timestamp(skb);
-@@ -957,21 +999,13 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	skb_orphan(skb);
- 	nf_reset(skb);
- 
--	/* If running out of space, stop queue to avoid getting packets that we
--	 * are then unable to transmit.
--	 * An alternative would be to force queuing layer to requeue the skb by
--	 * returning NETDEV_TX_BUSY. However, NETDEV_TX_BUSY should not be
--	 * returned in a normal path of operation: it means that driver is not
--	 * maintaining the TX queue stop/start state properly, and causes
--	 * the stack to do a non-trivial amount of useless work.
--	 * Since most packets only take 1 or 2 ring slots, stopping the queue
--	 * early means 16 slots are typically wasted.
--	 */
-+	/* Apparently nice girls don't return TX_BUSY; stop the queue
-+	 * before it gets out of hand.  Naturally, this wastes entries. */
- 	if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
- 		netif_stop_subqueue(dev, qnum);
- 		if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
- 			/* More just got used, free them then recheck. */
--			free_old_xmit_skbs(sq);
-+			free_old_xmit_skbs(txq, sq, virtqueue_get_vring_size(sq->vq));
- 			if (sq->vq->num_free >= 2+MAX_SKB_FRAGS) {
- 				netif_start_subqueue(dev, qnum);
- 				virtqueue_disable_cb(sq->vq);
-@@ -985,6 +1019,50 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return NETDEV_TX_OK;
- }
- 
-+static netdev_tx_t start_xmit_txintr(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	int qnum = skb_get_queue_mapping(skb);
-+	struct send_queue *sq = &vi->sq[qnum];
-+	int err;
-+	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
-+	bool kick = !skb->xmit_more;
++	/* Maxinum number of pending buffers before genearting an interrupt. */
++	__u32 max_coalesced_buffers;
 +
-+	virtqueue_disable_cb(sq->vq);
++	/* The number of buffers whose interrupt are coalesced */
++	__u32 coalesced;
 +
-+	/* timestamp packet in software */
-+	skb_tx_timestamp(skb);
++	/* Last time we singalled guest. */
++	ktime_t last_signal;
 +
-+	/* Try to transmit */
-+	err = xmit_skb(sq, skb);
++	/* Timer used to trigger an coalesced interrupt. */
++	struct hrtimer ctimer;
 +
-+	/* This should not happen! */
-+	if (unlikely(err)) {
-+		dev->stats.tx_fifo_errors++;
-+		if (net_ratelimit())
-+			dev_warn(&dev->dev,
-+				 "Unexpected TXQ (%d) queue failure: %d\n", qnum, err);
-+		dev->stats.tx_dropped++;
-+		dev_kfree_skb_any(skb);
-+		return NETDEV_TX_OK;
-+	}
-+
-+	/* Apparently nice girls don't return TX_BUSY; stop the queue
-+	 * before it gets out of hand.  Naturally, this wastes entries. */
-+	if (sq->vq->num_free < 2+MAX_SKB_FRAGS)
-+		netif_stop_subqueue(dev, qnum);
-+
-+	if (kick || netif_xmit_stopped(txq)) {
-+		virtqueue_kick(sq->vq);
-+		if (!virtqueue_enable_cb_delayed(sq->vq) &&
-+		    napi_schedule_prep(&sq->napi)) {
-+			virtqueue_disable_cb(sq->vq);
-+			__napi_schedule(&sq->napi);
-+		}
-+	}
-+	return NETDEV_TX_OK;
-+}
-+
- /*
-  * Send command via the control virtqueue and check status.  Commands
-  * supported by the hypervisor, as indicated by feature bits, should
-@@ -1159,8 +1237,10 @@ static int virtnet_close(struct net_device *dev)
- 	/* Make sure refill_work doesn't re-enable napi! */
- 	cancel_delayed_work_sync(&vi->refill);
+ 	/* Log writes to used structure. */
+ 	bool log_used;
+ 	u64 log_addr;
+@@ -149,6 +166,9 @@ void vhost_add_used_and_signal(struct vhost_dev *, struct vhost_virtqueue *,
+ void vhost_add_used_and_signal_n(struct vhost_dev *, struct vhost_virtqueue *,
+ 			       struct vring_used_elem *heads, unsigned count);
+ void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
++void vhost_check_coalesce_and_signal(struct vhost_dev *dev,
++				     struct vhost_virtqueue *vq,
++				     bool timer);
+ void vhost_disable_notify(struct vhost_dev *, struct vhost_virtqueue *);
+ bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
  
--	for (i = 0; i < vi->max_queue_pairs; i++)
-+	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		napi_disable(&vi->rq[i].napi);
-+		napi_disable(&vi->sq[i].napi);
-+	}
+diff --git a/include/uapi/linux/vhost.h b/include/uapi/linux/vhost.h
+index bb6a5b4..6362e6e 100644
+--- a/include/uapi/linux/vhost.h
++++ b/include/uapi/linux/vhost.h
+@@ -27,6 +27,12 @@ struct vhost_vring_file {
  
- 	return 0;
- }
-@@ -1485,6 +1565,25 @@ static const struct net_device_ops virtnet_netdev = {
- #endif
  };
  
-+static const struct net_device_ops virtnet_netdev_txintr = {
-+	.ndo_open            = virtnet_open,
-+	.ndo_stop   	     = virtnet_close,
-+	.ndo_start_xmit      = start_xmit_txintr,
-+	.ndo_validate_addr   = eth_validate_addr,
-+	.ndo_set_mac_address = virtnet_set_mac_address,
-+	.ndo_set_rx_mode     = virtnet_set_rx_mode,
-+	.ndo_change_mtu	     = virtnet_change_mtu,
-+	.ndo_get_stats64     = virtnet_stats,
-+	.ndo_vlan_rx_add_vid = virtnet_vlan_rx_add_vid,
-+	.ndo_vlan_rx_kill_vid = virtnet_vlan_rx_kill_vid,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller = virtnet_netpoll,
-+#endif
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	.ndo_busy_poll		= virtnet_busy_poll,
-+#endif
++struct vhost_vring_coalesce {
++	unsigned int index;
++	__u32 coalesce_usecs;
++	__u32 max_coalesced_buffers;
 +};
 +
- static void virtnet_config_changed_work(struct work_struct *work)
- {
- 	struct virtnet_info *vi =
-@@ -1531,6 +1630,7 @@ static void virtnet_free_queues(struct virtnet_info *vi)
- 	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		napi_hash_del(&vi->rq[i].napi);
- 		netif_napi_del(&vi->rq[i].napi);
-+		netif_napi_del(&vi->sq[i].napi);
- 	}
+ struct vhost_vring_addr {
+ 	unsigned int index;
+ 	/* Option flags. */
+@@ -102,7 +108,12 @@ struct vhost_memory {
+ #define VHOST_SET_VRING_BASE _IOW(VHOST_VIRTIO, 0x12, struct vhost_vring_state)
+ /* Get accessor: reads index, writes value in num */
+ #define VHOST_GET_VRING_BASE _IOWR(VHOST_VIRTIO, 0x12, struct vhost_vring_state)
+-
++/* Set coalescing parameters for the ring. */
++#define VHOST_SET_VRING_COALESCE _IOW(VHOST_VIRTIO, 0x13, \
++				      struct vhost_vring_coalesce)
++/* Get coalescing parameters for the ring. */
++#define VHOST_GET_VRING_COALESCE _IOW(VHOST_VIRTIO, 0x14, \
++				      struct vhost_vring_coalesce)
+ /* The following ioctls use eventfd file descriptors to signal and poll
+  * for events. */
  
- 	kfree(vi->rq);
-@@ -1685,6 +1785,8 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
- 		netif_napi_add(vi->dev, &vi->rq[i].napi, virtnet_poll,
- 			       napi_weight);
- 		napi_hash_add(&vi->rq[i].napi);
-+		netif_napi_add(vi->dev, &vi->sq[i].napi, virtnet_poll_tx,
-+			       napi_weight);
- 
- 		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
- 		ewma_init(&vi->rq[i].mrg_avg_pkt_len, 1, RECEIVE_AVG_WEIGHT);
-@@ -1819,7 +1921,10 @@ static int virtnet_probe(struct virtio_device *vdev)
- 
- 	/* Set up network device as normal. */
- 	dev->priv_flags |= IFF_UNICAST_FLT | IFF_LIVE_ADDR_CHANGE;
--	dev->netdev_ops = &virtnet_netdev;
-+	if (virtio_has_feature(vdev, VIRTIO_RING_F_INTR_COALESCING))
-+		dev->netdev_ops = &virtnet_netdev_txintr;
-+	else
-+		dev->netdev_ops = &virtnet_netdev;
- 	dev->features = NETIF_F_HIGHDMA;
- 
- 	dev->ethtool_ops = &virtnet_ethtool_ops;
-@@ -1906,6 +2011,9 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
- 		vi->has_cvq = true;
- 
-+	if (virtio_has_feature(vdev, VIRTIO_RING_F_INTR_COALESCING))
-+		vi->intr_coalescing = true;
-+
- 	if (vi->any_header_sg)
- 		dev->needed_headroom = vi->hdr_len;
- 
-@@ -1918,6 +2026,8 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (err)
- 		goto free_stats;
- 
-+	vi->tx_work_limit = napi_weight;
-+
- #ifdef CONFIG_SYSFS
- 	if (vi->mergeable_rx_bufs)
- 		dev->sysfs_rx_queue_group = &virtio_net_mrg_rx_group;
-@@ -2030,8 +2140,10 @@ static int virtnet_freeze(struct virtio_device *vdev)
- 	cancel_delayed_work_sync(&vi->refill);
- 
- 	if (netif_running(vi->dev)) {
--		for (i = 0; i < vi->max_queue_pairs; i++)
-+		for (i = 0; i < vi->max_queue_pairs; i++) {
- 			napi_disable(&vi->rq[i].napi);
-+			napi_disable(&vi->sq[i].napi);
-+		}
- 	}
- 
- 	remove_vq_common(vi);
-@@ -2055,8 +2167,10 @@ static int virtnet_restore(struct virtio_device *vdev)
- 			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
- 				schedule_delayed_work(&vi->refill, 0);
- 
--		for (i = 0; i < vi->max_queue_pairs; i++)
-+		for (i = 0; i < vi->max_queue_pairs; i++) {
- 			virtnet_napi_enable(&vi->rq[i]);
-+			napi_enable(&vi->sq[i].napi);
-+		}
- 	}
- 
- 	netif_device_attach(vi->dev);
 -- 
 1.8.3.1
