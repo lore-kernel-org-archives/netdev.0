@@ -1,35 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] irda: use msecs_to_jiffies for conversion to jiffies
-Date: Mon, 25 May 2015 17:46:41 -0400 (EDT)
-Message-ID: <20150525.174641.1276114476375534221.davem@davemloft.net>
-References: <1432534610-4643-1-git-send-email-hofrat@osadl.org>
+Subject: Re: [PATCH v3 net-next 0/2] rocker: unused parameter and const
+ cleanups
+Date: Mon, 25 May 2015 18:17:57 -0400 (EDT)
+Message-ID: <20150525.181757.2291834753304841483.davem@davemloft.net>
+References: <1432531716-9189-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hofrat@osadl.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1432534610-4643-1-git-send-email-hofrat@osadl.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sfeldma@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org
+To: simon.horman@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47142 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751037AbbEYWSB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 18:18:01 -0400
+In-Reply-To: <1432531716-9189-1-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Date: Mon, 25 May 2015 08:16:50 +0200
+From: Simon Horman <simon.horman@netronome.com>
+Date: Mon, 25 May 2015 14:28:34 +0900
 
-> API compliance scanning with coccinelle flagged:
-> ./net/irda/timer.c:63:35-37: use of msecs_to_jiffies probably perferable
+> This series provides some minor though verbose cleanup of rocker.
 > 
-> Converting milliseconds to jiffies by "val * HZ / 1000" technically
-> is not a clean solution as it does not handle all corner cases correctly.
-> By changing the conversion to use msecs_to_jiffies(val) conversion is
-> correct in all cases. Further the () around the arithmetic expression
-> was dropped.
+> The second patch depends on the first though it could be rebased.
 > 
-> Patch was compile tested for x86_64_defconfig + CONFIG_IRDA=m
+> I had previously asked for v2 to be put on hold while some bugs I had found
+> in the rocker driver were shaken out. That has now happened and the bugs
+> turned out to be unrelated.  Accordingly I am reposting the series.
 > 
-> Patch is against 4.1-rc4 (localversion-next is -next-20150522)
+> * Changes v2 -> v3
+>   - Rebase and update for new variables and parameters that may be const
 > 
-> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+> * Changes v1 -> v2
+>   - Found quite a few more variables and parameters to make const
 
-Applied, thank you.
+Series applied, thanks Simon.
