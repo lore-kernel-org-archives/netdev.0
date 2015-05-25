@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: phy: bcm7xxx: Fix 7425 PHY ID and flags
-Date: Mon, 25 May 2015 00:16:35 -0400 (EDT)
-Message-ID: <20150525.001635.502403543821394724.davem@davemloft.net>
-References: <1432328850-29065-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] cxgb4: Add PHY firmware support for T420-BT
+ cards
+Date: Mon, 25 May 2015 00:17:48 -0400 (EDT)
+Message-ID: <20150525.001748.1897260635248782607.davem@davemloft.net>
+References: <1432312101-7944-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pgynther@google.com, netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41725 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41729 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750859AbbEYEQh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 00:16:37 -0400
-In-Reply-To: <1432328850-29065-1-git-send-email-f.fainelli@gmail.com>
+	with ESMTP id S1750845AbbEYERu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 00:17:50 -0400
+In-Reply-To: <1432312101-7944-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 22 May 2015 14:07:30 -0700
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Fri, 22 May 2015 21:58:21 +0530
 
-> While adding support for 7425 PHY in the 7xxx PHY driver, the ID that
-> was used was actually coming from an external PHY: a BCM5461x. Fix this
-> by using the proper ID for the internal 7425 PHY and set the
-> PHY_IS_INTERNAL flag, otherwise consumers of this PHY driver would not
-> be able to properly identify it as such.
+> Add support for flashing 10GBaseT adapter with BCM 84834 PHY and
+> Aquantia AQ1202 PHY.
 > 
-> Fixes: d068b02cfdfc2 ("net: phy: add BCM7425 and BCM7429 PHYs")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Updating of the PHY firmware must happen before the INITIALIZE_CMD.
+> 
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-Applied, thank you.
+Applied, thanks.
