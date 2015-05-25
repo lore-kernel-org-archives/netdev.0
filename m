@@ -1,37 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] x86: bpf_jit: fix compilation of large bpf programs
-Date: Mon, 25 May 2015 00:19:32 -0400 (EDT)
-Message-ID: <20150525.001932.849051101973512567.davem@davemloft.net>
-References: <1432334575-16959-1-git-send-email-ast@plumgrid.com>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: Re: [PATCH] staging: r8712u: Fix kernel warning for improper call of
+ del_timer_sync()
+Date: Mon, 25 May 2015 10:12:50 +0530
+Message-ID: <20150525044250.GA3385@sudip-PC>
+Reply-To: 1432415812-1285-1-git-send-email-Larry.Finger@lwfinger.net
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, edumazet@google.com, netdev@vger.kernel.org
-To: ast@plumgrid.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41800 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750783AbbEYETh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 00:19:37 -0400
-In-Reply-To: <1432334575-16959-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	devel@driverdev.osuosl.org, linux-wireless@vger.kernel.org,
+	Stable <stable@vger.kernel.org>,
+	Arek Rusniak <arek.rusi@gmail.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>
+To: haggai.eran@gmail.com
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Fri, 22 May 2015 15:42:55 -0700
+>I haven't been using kernel v4.1 so I haven't seen this warning, but looking
+>at the code it seems to originate from the two recent patches to remove
+>_cancel_timer and _cancel_timer_ex. I see that there's another patch in lkml [1]
+>that changes del_timer_sync back to del_timer in more places. Perhaps it
+>could prevent other warnings like this in the future.
 
-> x86 has variable length encoding. x86 JIT compiler is trying
-> to pick the shortest encoding for given bpf instruction.
-> While doing so the jump targets are changing, so JIT is doing
-> multiple passes over the program. Typical program needs 3 passes.
-> Some very short programs converge with 2 passes. Large programs
-> may need 4 or 5. But specially crafted bpf programs may hit the
-> pass limit and if the program converges on the last iteration
-> the JIT compiler will be producing an image full of 'int 3' insns.
-> Fix this corner case by doing final iteration over bpf program.
-> 
-> Fixes: 0a14842f5a3c ("net: filter: Just In Time compiler for x86-64")
-> Reported-by: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+_cancel_timer and _cancel_timer_ex both were internally using del_timer,
+and the issue was reported in bugzilla. I have given the reference of the
+bugzilla in my patch in lkml.
+I have changed the reference of del_timer_sync to del_timer in all places
+which were in interrupt context, in some places it was not removed as
+those were not in interrupt context.
 
-Applied and queued up for -stable, thanks.
+regards
+sudip
