@@ -1,33 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 0/3] amd-xgbe: AMD XGBE driver updates
- 2015-05-22
-Date: Mon, 25 May 2015 00:14:52 -0400 (EDT)
-Message-ID: <20150525.001452.1388174078778902437.davem@davemloft.net>
-References: <20150522213202.23869.67673.stgit@tlendack-t1.amdoffice.net>
+Subject: Re: [PATCH net-next] test_bpf: add more eBPF jump torture cases
+Date: Mon, 25 May 2015 00:15:36 -0400 (EDT)
+Message-ID: <20150525.001536.383553511855379504.davem@davemloft.net>
+References: <b23d3a10edbe46ac70bcc57a05ece597e1b6c09c.1432335952.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
+Cc: ast@plumgrid.com, edumazet@google.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41715 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41718 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750783AbbEYEOy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 00:14:54 -0400
-In-Reply-To: <20150522213202.23869.67673.stgit@tlendack-t1.amdoffice.net>
+	with ESMTP id S1750852AbbEYEPi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 00:15:38 -0400
+In-Reply-To: <b23d3a10edbe46ac70bcc57a05ece597e1b6c09c.1432335952.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Fri, 22 May 2015 16:32:03 -0500
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Sat, 23 May 2015 01:10:07 +0200
 
-> The following patches are included in this driver update series:
+> Add two more eBPF test cases for JITs, i.e. the second one revealed a
+> bug in the x86_64 JIT compiler, where only an int3 filled image from
+> the allocator was emitted and later wrongly set by the compiler as the
+> bpf_func program code since optimization pass boundary was surpassed
+> w/o actually emitting opcodes.
 > 
-> - Retrieve and set an additional hardware feature setting
-> - Fix the initial mode/speed determination when auto-negotiation is
->   disabled
-> - Add additional netif_dbg support to the driver
+> Interpreter:
 > 
-> This patch series is based on net-next.
+>   [   45.782892] test_bpf: #242 BPF_MAXINSNS: Very long jump backwards jited:0 11 PASS
+>   [   45.783062] test_bpf: #243 BPF_MAXINSNS: Edge hopping nuthouse jited:0 14705 PASS
+> 
+> After x86_64 JIT (fixed):
+> 
+>   [   80.495638] test_bpf: #242 BPF_MAXINSNS: Very long jump backwards jited:1 6 PASS
+>   [   80.495957] test_bpf: #243 BPF_MAXINSNS: Edge hopping nuthouse jited:1 17157 PASS
+> 
+> Reference: http://thread.gmane.org/gmane.linux.network/364729
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Series applied, thank you.
+Applied, thank you.
