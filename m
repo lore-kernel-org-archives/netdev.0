@@ -1,25 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [trivial PATCH] neterion: s2io: Fix kernel doc formatting
-Date: Mon, 25 May 2015 17:45:49 -0400 (EDT)
-Message-ID: <20150525.174549.1343224901675613200.davem@davemloft.net>
-References: <1432402375.29657.56.camel@perches.com>
+Subject: Re: [PATCH V2] irda: use msecs_to_jiffies for conversion to jiffies
+Date: Mon, 25 May 2015 17:46:41 -0400 (EDT)
+Message-ID: <20150525.174641.1276114476375534221.davem@davemloft.net>
+References: <1432534610-4643-1-git-send-email-hofrat@osadl.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jdmason@kudzu.us, netdev@vger.kernel.org,
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: joe@perches.com
+To: hofrat@osadl.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1432402375.29657.56.camel@perches.com>
+In-Reply-To: <1432534610-4643-1-git-send-email-hofrat@osadl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Sat, 23 May 2015 10:32:55 -0700
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Date: Mon, 25 May 2015 08:16:50 +0200
 
-> These two uses seem to have had carriage returns removed.
-> Make these entries like all the others in this file.
+> API compliance scanning with coccinelle flagged:
+> ./net/irda/timer.c:63:35-37: use of msecs_to_jiffies probably perferable
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Converting milliseconds to jiffies by "val * HZ / 1000" technically
+> is not a clean solution as it does not handle all corner cases correctly.
+> By changing the conversion to use msecs_to_jiffies(val) conversion is
+> correct in all cases. Further the () around the arithmetic expression
+> was dropped.
+> 
+> Patch was compile tested for x86_64_defconfig + CONFIG_IRDA=m
+> 
+> Patch is against 4.1-rc4 (localversion-next is -next-20150522)
+> 
+> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
 
-Applied, thanks.
+Applied, thank you.
