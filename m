@@ -1,28 +1,28 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net:wireless - Change 1 to true for bool type variable.
-Date: Mon, 25 May 2015 11:11:16 -0700
-Message-ID: <1432577476.2846.68.camel@perches.com>
-References: <1432576544-3639-1-git-send-email-shailendra.capricorn@gmail.com>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: TX abort errors on GRE tunnels
+Date: Mon, 25 May 2015 14:39:05 -0400
+Message-ID: <1432579145.32671.61.camel@jasiiieee.pacifera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shailendra Verma <shailendra.capricorn@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1432576544-3639-1-git-send-email-shailendra.capricorn@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.perfora.net ([74.208.4.197]:60697 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750837AbbEYSjK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 May 2015 14:39:10 -0400
+Received: from [10.3.0.5] ([69.74.118.2]) by mrelay.perfora.net (mreueus002)
+ with ESMTPSA (Nemesis) id 0LaVAX-1ZPvFK0A2B-00mNJZ for
+ <netdev@vger.kernel.org>; Mon, 25 May 2015 20:39:09 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-05-25 at 23:25 +0530, Shailendra Verma wrote:
-> The variable translate is bool type.So assigning true instead of 1.
+Hello, all.  We are seeing TX abort errors on all of our GRE tunnels.
+What would cause such a thing? We suspected it might be MTU because
+these are encapsulated in IPSec transport and the MTU on the GRE tunnel
+is still 1476 so we reduced the MTU but that did not eliminate the
+problem.
 
-There are a lot these in the kernel.
-
-$ git grep -P "^[ \t]*(?:static[ \t]+)?(?:const\s+)?bool\s+\w+\s*=\s*[01]\s*;" * | wc -l
-161
-
-Are you going to submit patches for all of them one at a time?
-
-I suggest sending maybe 10 to 12 patches, one for each subsystem,
-and cc the trivial maintainer Jiri Kosina <trivial@kernel.org>
+By the way, I submitted a separate thread about TCP windowing problems
+inside GRE tunnels but those test tunnels are not generating the TX
+abort errors.  Thanks - John
