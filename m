@@ -1,53 +1,53 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [linuxwifi] [PATCH] iwlwifi: Remove use of the deprecacted
- marco, PTR_RET for the function, iwl_mvm_get_regdomain
-Date: Mon, 25 May 2015 06:02:35 +0000
-Message-ID: <1432533755.2957.0.camel@intel.com>
-References: <1432428801-2458-1-git-send-email-xerofoify@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Coelho, Luciano" <luciano.coelho-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"Berg, Johannes" <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: "xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1432428801-2458-1-git-send-email-xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Content-Language: en-US
-Content-ID: <36473655A10EE74C9A04A2DC5720F814-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH V2] irda: use msecs_to_jiffies for conversion to jiffies
+Date: Mon, 25 May 2015 08:16:50 +0200
+Message-ID: <1432534610-4643-1-git-send-email-hofrat@osadl.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
+To: Samuel Ortiz <samuel@sortiz.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gU2F0LCAyMDE1LTA1LTIzIGF0IDIwOjUzIC0wNDAwLCBOaWNob2xhcyBLcmF1c2Ugd3JvdGU6
-DQo+IFRoaXMgcmVtb3ZlcyB0aGUgdXNlIG9mIHRoZSB0d28gZGVwcmVjYXRlZCBjYWxscyB0byB0
-aGUNCj4gbWFyY28sIFBUUl9SRVQgaW4gdGhlIGZ1bmN0aW9uLCBpd2xfbXZtX2dldF9yZWdkb21h
-aW4NCj4gYW5kIHJlcGxhY2VzIHRoZW0gYm90aCB3aXRoIGEgY2FsbCB0byB0aGUgZnVuY3Rpb24s
-DQo+IFBUUl9FUlJfT1JfWkVSTy4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IE5pY2hvbGFzIEtyYXVz
-ZSA8eGVyb2ZvaWZ5QGdtYWlsLmNvbT4NCg0KQXBwbGllZCBpbiBvdXIgaW50ZXJuYWwgdHJlZSBh
-ZnRlciBhIGZldyBmaXhlcyB0byB0aGUgY29tbWl0IG1lc3NhZ2UuDQpXaWxsIGJlIHB1c2hlZCBv
-dXQgd2l0aCB0aGUgcmVndWxhciBwcm9jZXNzLg0KVGhhbmtzLg0KDQo+IC0tLQ0KPiAgZHJpdmVy
-cy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9tdm0vbWFjODAyMTEuYyB8IDQgKystLQ0KPiAgMSBmaWxl
-IGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1n
-aXQgYS9kcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL212bS9tYWM4MDIxMS5jIGIvZHJpdmVy
-cy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9tdm0vbWFjODAyMTEuYw0KPiBpbmRleCA0MDI2NWI5Li41
-ZmIyZThlIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL212bS9t
-YWM4MDIxMS5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2l3bHdpZmkvbXZtL21hYzgw
-MjExLmMNCj4gQEAgLTMxOSw3ICszMTksNyBAQCBzdHJ1Y3QgaWVlZTgwMjExX3JlZ2RvbWFpbiAq
-aXdsX212bV9nZXRfcmVnZG9tYWluKHN0cnVjdCB3aXBoeSAqd2lwaHksDQo+ICAJcmVzcCA9IGl3
-bF9tdm1fdXBkYXRlX21jYyhtdm0sIGFscGhhMiwgc3JjX2lkKTsNCj4gIAlpZiAoSVNfRVJSX09S
-X05VTEwocmVzcCkpIHsNCj4gIAkJSVdMX0RFQlVHX0xBUihtdm0sICJDb3VsZCBub3QgZ2V0IHVw
-ZGF0ZSBmcm9tIEZXICVkXG4iLA0KPiAtCQkJICAgICAgUFRSX1JFVChyZXNwKSk7DQo+ICsJCQkg
-ICAgICBQVFJfRVJSX09SX1pFUk8ocmVzcCkpOw0KPiAgCQlnb3RvIG91dDsNCj4gIAl9DQo+ICAN
-Cj4gQEAgLTMzNSw3ICszMzUsNyBAQCBzdHJ1Y3QgaWVlZTgwMjExX3JlZ2RvbWFpbiAqaXdsX212
-bV9nZXRfcmVnZG9tYWluKHN0cnVjdCB3aXBoeSAqd2lwaHksDQo+ICAJa2ZyZWUocmVzcCk7DQo+
-ICAJaWYgKElTX0VSUl9PUl9OVUxMKHJlZ2QpKSB7DQo+ICAJCUlXTF9ERUJVR19MQVIobXZtLCAi
-Q291bGQgbm90IGdldCBwYXJzZSB1cGRhdGUgZnJvbSBGVyAlZFxuIiwNCj4gLQkJCSAgICAgIFBU
-Ul9SRVQocmVnZCkpOw0KPiArCQkJICAgICAgUFRSX0VSUl9PUl9aRVJPKHJlZ2QpKTsNCj4gIAkJ
-Z290byBvdXQ7DQo+ICAJfQ0KPiAgDQoNCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+API compliance scanning with coccinelle flagged:
+./net/irda/timer.c:63:35-37: use of msecs_to_jiffies probably perferable
+
+Converting milliseconds to jiffies by "val * HZ / 1000" technically
+is not a clean solution as it does not handle all corner cases correctly.
+By changing the conversion to use msecs_to_jiffies(val) conversion is
+correct in all cases. Further the () around the arithmetic expression
+was dropped.
+
+Patch was compile tested for x86_64_defconfig + CONFIG_IRDA=m
+
+Patch is against 4.1-rc4 (localversion-next is -next-20150522)
+
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+---
+
+V2: botched prefix in the subject line updated to irda: thanks
+    to David Miller <davem@davemloft.net>
+
+Should the Status note at the top of the file be updated ? it seems
+the file has been marked experimental since at least 1999 ?
+
+ net/irda/timer.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/irda/timer.c b/net/irda/timer.c
+index 0c4c115..f2280f7 100644
+--- a/net/irda/timer.c
++++ b/net/irda/timer.c
+@@ -60,8 +60,8 @@ void irlap_start_query_timer(struct irlap_cb *self, int S, int s)
+ 	 * to avoid messing with for incoming connections requests and
+ 	 * to accommodate devices that perform discovery slower than us.
+ 	 * Jean II */
+-	timeout = ((sysctl_slot_timeout * HZ / 1000) * (S - s)
+-		   + XIDEXTRA_TIMEOUT + SMALLBUSY_TIMEOUT);
++	timeout = msecs_to_jiffies(sysctl_slot_timeout) * (S - s)
++		   + XIDEXTRA_TIMEOUT + SMALLBUSY_TIMEOUT;
+ 
+ 	/* Set or re-set the timer. We reset the timer for each received
+ 	 * discovery query, which allow us to automatically adjust to
+-- 
+1.7.10.4
