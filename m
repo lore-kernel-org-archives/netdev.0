@@ -1,40 +1,40 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH] staging: r8712u: Fix kernel warning for improper call
- of del_timer_sync()
-Date: Mon, 25 May 2015 10:37:28 -0700
-Message-ID: <1432575448.2846.63.camel@perches.com>
-References: <1432415812-1285-1-git-send-email-Larry.Finger@lwfinger.net>
-	 <CAJ=9CzbPmo+f4zjY4CqQ7TsUENpwy+zHcpxeLTbAH0DAZSkqsQ@mail.gmail.com>
-	 <556268BC.5050807@lwfinger.net> <20150525091737.GQ4150@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	Haggai Eran <haggai.eran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
-	Sudip Mukherjee <sudip-ofJRbWXBVFamYgehrs7/Lw@public.gmane.org>,
-	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Arek Rusniak <arek.rusi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150525091737.GQ4150@mwanda>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Shailendra Verma <shailendra.capricorn@gmail.com>
+Subject: [PATCH] net:xen-netback - Change 1 to true for bool type variable.
+Date: Mon, 25 May 2015 23:19:31 +0530
+Message-ID: <1432576171-3563-1-git-send-email-shailendra.capricorn@gmail.com>
+Cc: linux-kernel@vger.kernel.org,
+	Shailendra Verma <shailendra.capricorn@gmail.com>
+To: Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xenproject.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:34526 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750791AbbEYRtp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 13:49:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-05-25 at 12:17 +0300, Dan Carpenter wrote:
-> These are special intern patches that
-> dont' go through the normal review process.  The intern process is over
-> this year.  The lack of normal review introduced a number of bugs this
-> year.  I always complain to Greg about it and he says that I should join
-> the intern mailing list if I care so much.
+The variable separate_tx_rx_irq is bool type so assigning true
+instead of 1.
 
-It'd be better if the approved patches from the intern list
-(no idea what that is) were sent to lkml/devel@driverdev lists
-for review before actually being applied.
+Signed-off-by: Shailendra Verma <shailendra.capricorn@gmail.com>
+---
+ drivers/net/xen-netback/netback.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 4de46aa..792ada6 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -52,7 +52,7 @@
+  * event channels are limited resource. Split event channels are
+  * enabled by default.
+  */
+-bool separate_tx_rx_irq = 1;
++bool separate_tx_rx_irq = true;
+ module_param(separate_tx_rx_irq, bool, 0644);
+ 
+ /* The time that packets can stay on the guest Rx internal queue
+-- 
+1.7.9.5
