@@ -1,41 +1,35 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] tools: bpf_jit_disasm: fix segfault on disabled debugging log output
-Date: Mon, 25 May 2015 14:08:03 +0200
-Message-ID: <beb215366f62df41ce57bbb523e0c554719cf9c1.1432555472.git.daniel@iogearbox.net>
-Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:37954 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751759AbbEYMIG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 08:08:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 1/3 nf-next] netfilter: default CONFIG_NETFILTER_INGRESS to y
+Date: Mon, 25 May 2015 14:46:40 +0200
+Message-ID: <1432558004-13481-2-git-send-email-pablo@netfilter.org>
+References: <1432558004-13481-1-git-send-email-pablo@netfilter.org>
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1432558004-13481-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-With recent debugging, I noticed that bpf_jit_disasm segfaults when
-there's no debugging output from the JIT compiler to the kernel log.
+Useful to compile-test all options.
 
-Reason is that when regexec(3) doesn't match on anything, start/end
-offsets are not being filled out and contain some uninitialized garbage
-from stack. Thus, we need zero out offsets first.
-
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Suggested-by: by Alexei Stavoroitov <ast@plumgrid.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- tools/net/bpf_jit_disasm.c | 2 ++
- 1 file changed, 2 insertions(+)
+ net/netfilter/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/tools/net/bpf_jit_disasm.c b/tools/net/bpf_jit_disasm.c
-index c5baf9c..618c2bc 100644
---- a/tools/net/bpf_jit_disasm.c
-+++ b/tools/net/bpf_jit_disasm.c
-@@ -123,6 +123,8 @@ static int get_last_jit_image(char *haystack, size_t hlen,
- 	assert(ret == 0);
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index db1c674..9a89e7c 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -3,6 +3,7 @@ menu "Core Netfilter Configuration"
  
- 	ptr = haystack;
-+	memset(pmatch, 0, sizeof(pmatch));
-+
- 	while (1) {
- 		ret = regexec(&regex, ptr, 1, pmatch, 0);
- 		if (ret == 0) {
+ config NETFILTER_INGRESS
+ 	bool "Netfilter ingress support"
++	default y
+ 	select NET_INGRESS
+ 	help
+ 	  This allows you to classify packets from ingress using the Netfilter
 -- 
-1.9.3
+1.7.10.4
+
