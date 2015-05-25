@@ -1,66 +1,105 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: pull-request: wireless-drivers-next 2015-05-21
-Date: Mon, 25 May 2015 13:57:33 +0300
-Message-ID: <87wpzw3owx.fsf@kamboji.qca.qualcomm.com>
-References: <87k2w26oef.fsf@kamboji.qca.qualcomm.com>
-	<20150524.232955.425320477500361631.davem@davemloft.net>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bridge: skip fdb add if the port
+	shouldn't learn
+Date: Mon, 25 May 2015 13:35:20 +0200
+Message-ID: <CABQ03vEiLYWJ+jAttW1XU5EZOjFSRn_dRXyNiE_+hOcmXoQSAQ@mail.gmail.com>
+References: <1432204977-4293-1-git-send-email-nikolay@cumulusnetworks.com>
+	<20150524.225902.2017701461230237731.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	michal.kazior@tieto.com
+Content-Type: multipart/alternative; boundary=90e6ba6e84609f06bd0516e6678b
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Wilson Kok <wkok@cumulusnetworks.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:44065 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752260AbbEYK5l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 06:57:41 -0400
-In-Reply-To: <20150524.232955.425320477500361631.davem@davemloft.net> (David
-	Miller's message of "Sun, 24 May 2015 23:29:55 -0400 (EDT)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20150524.225902.2017701461230237731.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+--90e6ba6e84609f06bd0516e6678b
+Content-Type: text/plain; charset=UTF-8
 
-> From: Kalle Valo <kvalo@codeaurora.org>
-> Date: Thu, 21 May 2015 16:39:04 +0300
+On Mon, May 25, 2015 at 4:59 AM, David Miller <davem@davemloft.net> wrote:
+
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Date: Thu, 21 May 2015 03:42:57 -0700
 >
->> here's a wireless-drivers pull request for 4.2. This time please pay
->> extra attention to this pull as there are two problems:
->> 
->> First of all as you can see the diffstat from git-pull-request in the
->> end is just weird. I was long and hard trying to check everything and to
->> my understanding all the merges look ok and I cannot explain the reason
->> for the diffstat, but of course I might be missing something. Maybe
->> git-request-pull is just buggy? At least with gitk everything looks to
->> be ok and the patch list below also looks valid.
+> > From: Wilson Kok <wkok@cumulusnetworks.com>
+> >
+> > Check in fdb_add_entry() if the source port should learn, similar
+> > check is used in br_fdb_update.
+> > Note that new fdb entries which are added manually or
+> > as local ones are still permitted.
+> > This patch has been tested by running traffic via a bridge port and
+> > switching the port's state, also by manually adding/removing entries
+> > from the bridge's fdb.
+> >
+> > Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+> > Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> > ---
+> > Nik: Maybe it'd be better if we returned an error even though it
+> >      doesn't look necessary. I'm open to suggestions.
 >
-> The diffstat doesn't look anything like that for me.  It contained only
-> your wireless changes.
+> If you don't return an error, then rtnetlink.c is going to emit a
+> NEWNEIGH netlink message.  I seriously doubt we want that to happen.
 >
-> It may have helped that I merged 'net' into 'net-next' right before I
-> pulled this.
 
-Good to hear.
+Thanks Dave, I was afraid I've missed something like that. I'll re-spin,
+test
+and post a v2.
 
->> Secondly there's a non-trivial conflict in
->> drivers/net/wireless/ath/ath10k/mac.c which is due to removal of
->> FIF_PROMISC_IN_BSS in commit df1404650c. You need to remove more code
->> than just the obvious conflicts shown by git. In the end of this mail I
->> added a git diff output after I fixed the conflict, hopefully that helps
->> you to fix it. The main points are that you remove
->> ath10k_mac_should_disable_promisc() and the last ath10k_monitor_recalc()
->> call from ath10k_vdev_start_restart() along with the obvious conflict
->> fixes git points out.
->> 
->> There's also a patch from Michal which will also help to fix the
->> resolution. Michal, please double check the resolution proposal below so
->> that I didn't miss anything.
->> 
->> https://patchwork.kernel.org/patch/6387631/
+Nik
+
+--90e6ba6e84609f06bd0516e6678b
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr">On Mon, May 25, 2015 at 4:59 AM, David Miller <span dir=3D=
+"ltr">&lt;<a href=3D"mailto:davem@davemloft.net" target=3D"_blank">davem@da=
+vemloft.net</a>&gt;</span> wrote:<br><div class=3D"gmail_extra"><div class=
+=3D"gmail_quote"><blockquote class=3D"gmail_quote" style=3D"margin:0 0 0 .8=
+ex;border-left:1px #ccc solid;padding-left:1ex">From: Nikolay Aleksandrov &=
+lt;<a href=3D"mailto:nikolay@cumulusnetworks.com">nikolay@cumulusnetworks.c=
+om</a>&gt;<br>
+Date: Thu, 21 May 2015 03:42:57 -0700<br>
+<span class=3D""><br>
+&gt; From: Wilson Kok &lt;<a href=3D"mailto:wkok@cumulusnetworks.com">wkok@=
+cumulusnetworks.com</a>&gt;<br>
+&gt;<br>
+&gt; Check in fdb_add_entry() if the source port should learn, similar<br>
+&gt; check is used in br_fdb_update.<br>
+&gt; Note that new fdb entries which are added manually or<br>
+&gt; as local ones are still permitted.<br>
+&gt; This patch has been tested by running traffic via a bridge port and<br=
 >
-> Thanks, I think I got the conflict resolution correct, please have a look.
+&gt; switching the port&#39;s state, also by manually adding/removing entri=
+es<br>
+&gt; from the bridge&#39;s fdb.<br>
+&gt;<br>
+&gt; Signed-off-by: Wilson Kok &lt;<a href=3D"mailto:wkok@cumulusnetworks.c=
+om">wkok@cumulusnetworks.com</a>&gt;<br>
+&gt; Signed-off-by: Nikolay Aleksandrov &lt;<a href=3D"mailto:nikolay@cumul=
+usnetworks.com">nikolay@cumulusnetworks.com</a>&gt;<br>
+&gt; ---<br>
+&gt; Nik: Maybe it&#39;d be better if we returned an error even though it<b=
+r>
+&gt;=C2=A0 =C2=A0 =C2=A0 doesn&#39;t look necessary. I&#39;m open to sugges=
+tions.<br>
+<br>
+</span>If you don&#39;t return an error, then rtnetlink.c is going to emit =
+a<br>
+NEWNEIGH netlink message.=C2=A0 I seriously doubt we want that to happen.<b=
+r>
+</blockquote></div><br></div><div class=3D"gmail_extra">Thanks Dave, I was =
+afraid I&#39;ve missed something like that. I&#39;ll re-spin, test<br></div=
+><div class=3D"gmail_extra">and post a v2.<br><br></div><div class=3D"gmail=
+_extra">Nik<br></div></div>
 
-Looks good, thanks for fixing it.
-
--- 
-Kalle Valo
+--90e6ba6e84609f06bd0516e6678b--
