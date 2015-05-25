@@ -1,61 +1,74 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] pktgen: remove one sparse error
-Date: Mon, 25 May 2015 16:06:37 -0700
-Message-ID: <1432595197.4060.201.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: TCP window auto-tuning sub-optimal in GRE tunnel
+Date: Mon, 25 May 2015 16:19:55 -0700
+Message-ID: <1432595995.4060.207.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1432568524.32671.29.camel@jasiiieee.pacifera.com>
+	 <1432573139.4060.167.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1432579766.32671.66.camel@jasiiieee.pacifera.com>
+	 <1432580733.4060.178.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1432581685.32671.80.camel@jasiiieee.pacifera.com>
+	 <1432586494.4060.183.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1432589642.32671.108.camel@jasiiieee.pacifera.com>
+	 <1432592520.32671.110.camel@jasiiieee.pacifera.com>
+	 <1432593501.4060.193.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1432593884.32671.113.camel@jasiiieee.pacifera.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:36564 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750934AbbEYXGj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 19:06:39 -0400
-Received: by igbpi8 with SMTP id pi8so44999775igb.1
-        for <netdev@vger.kernel.org>; Mon, 25 May 2015 16:06:38 -0700 (PDT)
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:33299 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751147AbbEYXUB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 19:20:01 -0400
+Received: by iebgx4 with SMTP id gx4so80296071ieb.0
+        for <netdev@vger.kernel.org>; Mon, 25 May 2015 16:20:00 -0700 (PDT)
+In-Reply-To: <1432593884.32671.113.camel@jasiiieee.pacifera.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, 2015-05-25 at 18:44 -0400, John A. Sullivan III wrote:
+> On Mon, 2015-05-25 at 15:38 -0700, Eric Dumazet wrote:
+> > On Mon, 2015-05-25 at 18:22 -0400, John A. Sullivan III wrote:
+> > 
+> > > 2) Why do we still not negotiate the 16MB buffer that we get when we are
+> > > not using GRE?
+> > 
+> > What exact NIC handles receive side ?
+> > 
+> > If drivers allocate a full 4KB page to hold each frame,
+> > plus sk_buff overhead,
+> > then 32MB of kernel memory translates to 8MB of TCP window space.
+> > 
+> > 
+> > 
+> > 
+> Hi, Eric.  I'm not sure I understand the question or how to obtain the
+> information you've requested.  The receive side system has 48GB of RAM
+> but that does not sound like what you are requesting.
+> 
+> I suspect the behavior is a "protection mechanism", i.e., it is being
+> calculated for good reason.  When I set the buffer to 16MB manually in
+> nuttcp, performance degraded so I assume I was overrunning something.  I
+> am still downloading the traces.
+> 
+> But I'm still mystified by why this only affects GRE traffic.  Thanks -
 
-net/core/pktgen.c:2672:43: warning: incorrect type in assignment (different base types)
-net/core/pktgen.c:2672:43:    expected unsigned short [unsigned] [short] [usertype] <noident>
-net/core/pktgen.c:2672:43:    got restricted __be16 [usertype] protocol
+GRE is quite expensive, some extra cpu load is needed.
 
-Let's use proper struct ethhdr instead of hard coding everything.
+On receiver, can you please check what exact driver is loaded ?
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/pktgen.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+Is it igb, ixgbe, e1000e, i40e ?
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 62f979984a23236db1109bb109f46a932840633f..46dfcfcb9c540dac0853b5648cce2d69e8fa3608 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2645,9 +2645,9 @@ static int process_ipsec(struct pktgen_dev *pkt_dev,
- 		struct xfrm_state *x = pkt_dev->flows[pkt_dev->curfl].x;
- 		int nhead = 0;
- 		if (x) {
--			int ret;
--			__u8 *eth;
-+			struct ethhdr *eth;
- 			struct iphdr *iph;
-+			int ret;
- 
- 			nhead = x->props.header_len - skb_headroom(skb);
- 			if (nhead > 0) {
-@@ -2667,9 +2667,9 @@ static int process_ipsec(struct pktgen_dev *pkt_dev,
- 				goto err;
- 			}
- 			/* restore ll */
--			eth = (__u8 *) skb_push(skb, ETH_HLEN);
--			memcpy(eth, pkt_dev->hh, 12);
--			*(u16 *) &eth[12] = protocol;
-+			eth = (struct ethhdr *)skb_push(skb, ETH_HLEN);
-+			memcpy(eth, pkt_dev->hh, 2 * ETH_ALEN);
-+			eth->h_proto = protocol;
- 
- 			/* Update IPv4 header len as well as checksum value */
- 			iph = ip_hdr(skb);
+ethtool -i eth0
+
+GRE has extra 28 bytes of encapsulation, this definitely can make skb a
+little bit fat. TCP has very simple heuristics (using power of two
+steps) and a 50% factor can be explained by this extra 28 bytes for some
+particular driver.
+
+You could emulate this at the sender (without GRE) by reducing the mtu
+for the route to your target.
+
+ip route add 192.x.y.z via <gateway> mtu 1450
