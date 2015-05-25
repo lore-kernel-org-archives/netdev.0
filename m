@@ -1,52 +1,28 @@
-From: Shailendra Verma <shailendra.capricorn@gmail.com>
-Subject: [PATCH] net:wireless:rndis_wlan - Use bool function return value
-Date: Mon, 25 May 2015 23:40:22 +0530
-Message-ID: <1432577422-3917-1-git-send-email-shailendra.capricorn@gmail.com>
-Cc: linux-kernel@vger.kernel.org,
-	Shailendra Verma <shailendra.capricorn@gmail.com>
-To: Jussi Kivilinna <jussi.kivilinna@iki.fi>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net:wireless - Change 1 to true for bool type variable.
+Date: Mon, 25 May 2015 11:11:16 -0700
+Message-ID: <1432577476.2846.68.camel@perches.com>
+References: <1432576544-3639-1-git-send-email-shailendra.capricorn@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Shailendra Verma <shailendra.capricorn@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1432576544-3639-1-git-send-email-shailendra.capricorn@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The function rndis_bss_info_update() has bool return type.
-So use bool value flase instead of NULL to return.
+On Mon, 2015-05-25 at 23:25 +0530, Shailendra Verma wrote:
+> The variable translate is bool type.So assigning true instead of 1.
 
-Signed-off-by: Shailendra Verma <shailendra.capricorn@gmail.com>
----
- drivers/net/wireless/rndis_wlan.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+There are a lot these in the kernel.
 
-diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
-index d72ff8e..b2bff5c 100644
---- a/drivers/net/wireless/rndis_wlan.c
-+++ b/drivers/net/wireless/rndis_wlan.c
-@@ -2000,7 +2000,7 @@ static bool rndis_bss_info_update(struct usbnet *usbdev,
- 
- 	if (bssid_len < sizeof(struct ndis_80211_bssid_ex) +
- 			sizeof(struct ndis_80211_fixed_ies))
--		return NULL;
-+		return false;
- 
- 	fixed = (struct ndis_80211_fixed_ies *)bssid->ies;
- 
-@@ -2009,13 +2009,13 @@ static bool rndis_bss_info_update(struct usbnet *usbdev,
- 					(int)le32_to_cpu(bssid->ie_length));
- 	ie_len -= sizeof(struct ndis_80211_fixed_ies);
- 	if (ie_len < 0)
--		return NULL;
-+		return false;
- 
- 	/* extract data for cfg80211_inform_bss */
- 	channel = ieee80211_get_channel(priv->wdev.wiphy,
- 			KHZ_TO_MHZ(le32_to_cpu(bssid->config.ds_config)));
- 	if (!channel)
--		return NULL;
-+		return false;
- 
- 	signal = level_to_qual(le32_to_cpu(bssid->rssi));
- 	timestamp = le64_to_cpu(*(__le64 *)fixed->timestamp);
--- 
-1.7.9.5
+$ git grep -P "^[ \t]*(?:static[ \t]+)?(?:const\s+)?bool\s+\w+\s*=\s*[01]\s*;" * | wc -l
+161
+
+Are you going to submit patches for all of them one at a time?
+
+I suggest sending maybe 10 to 12 patches, one for each subsystem,
+and cc the trivial maintainer Jiri Kosina <trivial@kernel.org>
