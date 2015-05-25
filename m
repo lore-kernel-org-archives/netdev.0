@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/3 nf-next] netfilter: nf_tables: add netdev table to filter from ingress
-Date: Mon, 25 May 2015 14:46:42 +0200
-Message-ID: <1432558004-13481-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/3 nf-next] netfilter: nf_tables: allow to bind table to net_device
+Date: Mon, 25 May 2015 14:46:41 +0200
+Message-ID: <1432558004-13481-3-git-send-email-pablo@netfilter.org>
 References: <1432558004-13481-1-git-send-email-pablo@netfilter.org>
 Cc: kaber@trash.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,250 +10,196 @@ In-Reply-To: <1432558004-13481-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This allows us to create netdev tables that contain ingress chains. Use
-skb_header_pointer() as we may see shared sk_buffs at this stage.
+This patch adds the internal NFT_AF_NEEDS_DEV flag to indicate that you must
+attach this table to a net_device.
 
-This change provides access to the existing nf_tables features from the ingress
-hook.
+This change is required by the follow up patch that introduces the new netdev
+table.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netns/nftables.h     |    1 +
- net/netfilter/Kconfig            |    5 ++
- net/netfilter/Makefile           |    1 +
- net/netfilter/nf_tables_netdev.c |  183 ++++++++++++++++++++++++++++++++++++++
- 4 files changed, 190 insertions(+)
- create mode 100644 net/netfilter/nf_tables_netdev.c
+ include/net/netfilter/nf_tables.h        |    8 ++++++
+ include/uapi/linux/netfilter/nf_tables.h |    2 ++
+ net/netfilter/nf_tables_api.c            |   46 ++++++++++++++++++++++++++----
+ 3 files changed, 51 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/netns/nftables.h b/include/net/netns/nftables.h
-index eee608b..c807811 100644
---- a/include/net/netns/nftables.h
-+++ b/include/net/netns/nftables.h
-@@ -13,6 +13,7 @@ struct netns_nftables {
- 	struct nft_af_info	*inet;
- 	struct nft_af_info	*arp;
- 	struct nft_af_info	*bridge;
-+	struct nft_af_info	*netdev;
- 	unsigned int		base_seq;
- 	u8			gencursor;
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index e6bcf55..3d6f48c 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -819,6 +819,7 @@ unsigned int nft_do_chain(struct nft_pktinfo *pkt,
+  *	@use: number of chain references to this table
+  *	@flags: table flag (see enum nft_table_flags)
+  *	@name: name of the table
++ *	@dev: this table is bound to this device (if any)
+  */
+ struct nft_table {
+ 	struct list_head		list;
+@@ -828,6 +829,11 @@ struct nft_table {
+ 	u32				use;
+ 	u16				flags;
+ 	char				name[NFT_TABLE_MAXNAMELEN];
++	struct net_device		*dev;
++};
++
++enum nft_af_flags {
++	NFT_AF_NEEDS_DEV	= (1 << 0),
  };
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 9a89e7c..bd5aaeb 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -456,6 +456,11 @@ config NF_TABLES_INET
- 	help
- 	  This option enables support for a mixed IPv4/IPv6 "inet" table.
  
-+config NF_TABLES_NETDEV
-+	tristate "Netfilter nf_tables netdev tables support"
-+	help
-+	  This option enables support for the "netdev" table.
-+
- config NFT_EXTHDR
- 	tristate "Netfilter nf_tables IPv6 exthdr module"
- 	help
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index a87d8b8..70d026d 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -75,6 +75,7 @@ nf_tables-objs += nft_bitwise.o nft_byteorder.o nft_payload.o
+ /**
+@@ -838,6 +844,7 @@ struct nft_table {
+  *	@nhooks: number of hooks in this family
+  *	@owner: module owner
+  *	@tables: used internally
++ *	@flags: family flags
+  *	@nops: number of hook ops in this family
+  *	@hook_ops_init: initialization function for chain hook ops
+  *	@hooks: hookfn overrides for packet validation
+@@ -848,6 +855,7 @@ struct nft_af_info {
+ 	unsigned int			nhooks;
+ 	struct module			*owner;
+ 	struct list_head		tables;
++	u32				flags;
+ 	unsigned int			nops;
+ 	void				(*hook_ops_init)(struct nf_hook_ops *,
+ 							 unsigned int);
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index 5fa1cd0..89a671e 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -146,12 +146,14 @@ enum nft_table_flags {
+  * @NFTA_TABLE_NAME: name of the table (NLA_STRING)
+  * @NFTA_TABLE_FLAGS: bitmask of enum nft_table_flags (NLA_U32)
+  * @NFTA_TABLE_USE: number of chains in this table (NLA_U32)
++ * @NFTA_TABLE_DEV: net device name (NLA_STRING)
+  */
+ enum nft_table_attributes {
+ 	NFTA_TABLE_UNSPEC,
+ 	NFTA_TABLE_NAME,
+ 	NFTA_TABLE_FLAGS,
+ 	NFTA_TABLE_USE,
++	NFTA_TABLE_DEV,
+ 	__NFTA_TABLE_MAX
+ };
+ #define NFTA_TABLE_MAX		(__NFTA_TABLE_MAX - 1)
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index ad9d11f..2fd4e99 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -399,6 +399,8 @@ static const struct nla_policy nft_table_policy[NFTA_TABLE_MAX + 1] = {
+ 	[NFTA_TABLE_NAME]	= { .type = NLA_STRING,
+ 				    .len = NFT_TABLE_MAXNAMELEN - 1 },
+ 	[NFTA_TABLE_FLAGS]	= { .type = NLA_U32 },
++	[NFTA_TABLE_DEV]	= { .type = NLA_STRING,
++				    .len = IFNAMSIZ - 1 },
+ };
  
- obj-$(CONFIG_NF_TABLES)		+= nf_tables.o
- obj-$(CONFIG_NF_TABLES_INET)	+= nf_tables_inet.o
-+obj-$(CONFIG_NF_TABLES_NETDEV)	+= nf_tables_netdev.o
- obj-$(CONFIG_NFT_COMPAT)	+= nft_compat.o
- obj-$(CONFIG_NFT_EXTHDR)	+= nft_exthdr.o
- obj-$(CONFIG_NFT_META)		+= nft_meta.o
-diff --git a/net/netfilter/nf_tables_netdev.c b/net/netfilter/nf_tables_netdev.c
-new file mode 100644
-index 0000000..04cb170
---- /dev/null
-+++ b/net/netfilter/nf_tables_netdev.c
-@@ -0,0 +1,183 @@
-+/*
-+ * Copyright (c) 2015 Pablo Neira Ayuso <pablo@netfilter.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
+ static int nf_tables_fill_table_info(struct sk_buff *skb, struct net *net,
+@@ -423,6 +425,10 @@ static int nf_tables_fill_table_info(struct sk_buff *skb, struct net *net,
+ 	    nla_put_be32(skb, NFTA_TABLE_USE, htonl(table->use)))
+ 		goto nla_put_failure;
+ 
++	if (table->dev &&
++	    nla_put_string(skb, NFTA_TABLE_DEV, table->dev->name))
++		goto nla_put_failure;
 +
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <net/netfilter/nf_tables.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <net/netfilter/nf_tables_ipv4.h>
-+#include <net/netfilter/nf_tables_ipv6.h>
+ 	nlmsg_end(skb, nlh);
+ 	return 0;
+ 
+@@ -608,6 +614,11 @@ static int nf_tables_updtable(struct nft_ctx *ctx)
+ 	if (flags == ctx->table->flags)
+ 		return 0;
+ 
++	if ((ctx->afi->flags & NFT_AF_NEEDS_DEV) &&
++	    ctx->nla[NFTA_TABLE_DEV] &&
++	    nla_strcmp(ctx->nla[NFTA_TABLE_DEV], ctx->table->dev->name))
++		return -EOPNOTSUPP;
 +
-+static inline void
-+nft_netdev_set_pktinfo_ipv4(struct nft_pktinfo *pkt,
-+			    const struct nf_hook_ops *ops, struct sk_buff *skb,
-+			    const struct nf_hook_state *state)
-+{
-+	struct iphdr *iph, _iph;
-+	u32 len, thoff;
+ 	trans = nft_trans_alloc(ctx, NFT_MSG_NEWTABLE,
+ 				sizeof(struct nft_trans_table));
+ 	if (trans == NULL)
+@@ -645,6 +656,7 @@ static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
+ 	struct nft_table *table;
+ 	struct net *net = sock_net(skb->sk);
+ 	int family = nfmsg->nfgen_family;
++	struct net_device *dev = NULL;
+ 	u32 flags = 0;
+ 	struct nft_ctx ctx;
+ 	int err;
+@@ -679,30 +691,50 @@ static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
+ 			return -EINVAL;
+ 	}
+ 
++	if (afi->flags & NFT_AF_NEEDS_DEV) {
++		char ifname[IFNAMSIZ];
 +
-+	nft_set_pktinfo(pkt, ops, skb, state);
++		if (!nla[NFTA_TABLE_DEV])
++			return -EOPNOTSUPP;
 +
-+	iph = skb_header_pointer(skb, skb_network_offset(skb), sizeof(*iph),
-+				 &_iph);
-+	if (!iph)
-+		return;
-+
-+	iph = ip_hdr(skb);
-+	if (iph->ihl < 5 || iph->version != 4)
-+		return;
-+
-+	len = ntohs(iph->tot_len);
-+	thoff = iph->ihl * 4;
-+	if (skb->len < len)
-+		return;
-+	else if (len < thoff)
-+		return;
-+
-+	pkt->tprot = iph->protocol;
-+	pkt->xt.thoff = thoff;
-+	pkt->xt.fragoff = ntohs(iph->frag_off) & IP_OFFSET;
-+}
-+
-+static inline void
-+__nft_netdev_set_pktinfo_ipv6(struct nft_pktinfo *pkt,
-+			      const struct nf_hook_ops *ops,
-+			      struct sk_buff *skb,
-+			      const struct nf_hook_state *state)
-+{
-+#if IS_ENABLED(CONFIG_IPV6)
-+	struct ipv6hdr *ip6h, _ip6h;
-+	unsigned int thoff = 0;
-+	unsigned short frag_off;
-+	int protohdr;
-+	u32 pkt_len;
-+
-+	ip6h = skb_header_pointer(skb, skb_network_offset(skb), sizeof(*ip6h),
-+				  &_ip6h);
-+	if (!ip6h)
-+		return;
-+
-+	if (ip6h->version != 6)
-+		return;
-+
-+	pkt_len = ntohs(ip6h->payload_len);
-+	if (pkt_len + sizeof(*ip6h) > skb->len)
-+		return;
-+
-+	protohdr = ipv6_find_hdr(pkt->skb, &thoff, -1, &frag_off, NULL);
-+	if (protohdr < 0)
-+                return;
-+
-+	pkt->tprot = protohdr;
-+	pkt->xt.thoff = thoff;
-+	pkt->xt.fragoff = frag_off;
-+#endif
-+}
-+
-+static inline void nft_netdev_set_pktinfo_ipv6(struct nft_pktinfo *pkt,
-+					       const struct nf_hook_ops *ops,
-+					       struct sk_buff *skb,
-+					       const struct nf_hook_state *state)
-+{
-+	nft_set_pktinfo(pkt, ops, skb, state);
-+	__nft_netdev_set_pktinfo_ipv6(pkt, ops, skb, state);
-+}
-+
-+static unsigned int
-+nft_do_chain_netdev(const struct nf_hook_ops *ops, struct sk_buff *skb,
-+		    const struct nf_hook_state *state)
-+{
-+	struct nft_pktinfo pkt;
-+
-+	switch (eth_hdr(skb)->h_proto) {
-+	case htons(ETH_P_IP):
-+		nft_netdev_set_pktinfo_ipv4(&pkt, ops, skb, state);
-+		break;
-+	case htons(ETH_P_IPV6):
-+		nft_netdev_set_pktinfo_ipv6(&pkt, ops, skb, state);
-+		break;
-+	default:
-+		nft_set_pktinfo(&pkt, ops, skb, state);
-+		break;
++		nla_strlcpy(ifname, nla[NFTA_TABLE_DEV], IFNAMSIZ);
++		dev = dev_get_by_name(net, ifname);
++		if (!dev)
++			return -ENOENT;
++	} else if (nla[NFTA_TABLE_DEV]) {
++		return -EOPNOTSUPP;
 +	}
 +
-+	return nft_do_chain(&pkt, ops);
-+}
++	err = -EAFNOSUPPORT;
+ 	if (!try_module_get(afi->owner))
+-		return -EAFNOSUPPORT;
++		goto err1;
+ 
+ 	err = -ENOMEM;
+ 	table = kzalloc(sizeof(*table), GFP_KERNEL);
+ 	if (table == NULL)
+-		goto err1;
++		goto err2;
+ 
+ 	nla_strlcpy(table->name, name, NFT_TABLE_MAXNAMELEN);
+ 	INIT_LIST_HEAD(&table->chains);
+ 	INIT_LIST_HEAD(&table->sets);
+ 	table->flags = flags;
++	table->dev   = dev;
+ 
+ 	nft_ctx_init(&ctx, skb, nlh, afi, table, NULL, nla);
+ 	err = nft_trans_table_add(&ctx, NFT_MSG_NEWTABLE);
+ 	if (err < 0)
+-		goto err2;
++		goto err3;
+ 
+ 	list_add_tail_rcu(&table->list, &afi->tables);
+ 	return 0;
+-err2:
++err3:
+ 	kfree(table);
+-err1:
++err2:
+ 	module_put(afi->owner);
++err1:
++	if (dev != NULL)
++		dev_put(dev);
 +
-+static struct nft_af_info nft_af_netdev __read_mostly = {
-+	.family		= NFPROTO_NETDEV,
-+	.nhooks		= NF_NETDEV_NUMHOOKS,
-+	.owner		= THIS_MODULE,
-+	.flags		= NFT_AF_NEEDS_DEV,
-+	.nops		= 1,
-+	.hooks		= {
-+		[NF_NETDEV_INGRESS]	= nft_do_chain_netdev,
-+	},
-+};
+ 	return err;
+ }
+ 
+@@ -806,6 +838,9 @@ static void nf_tables_table_destroy(struct nft_ctx *ctx)
+ {
+ 	BUG_ON(ctx->table->use > 0);
+ 
++	if (ctx->table->dev)
++		dev_put(ctx->table->dev);
 +
-+static int nf_tables_netdev_init_net(struct net *net)
-+{
-+	net->nft.netdev = kmalloc(sizeof(struct nft_af_info), GFP_KERNEL);
-+	if (net->nft.netdev == NULL)
-+		return -ENOMEM;
-+
-+	memcpy(net->nft.netdev, &nft_af_netdev, sizeof(nft_af_netdev));
-+
-+	if (nft_register_afinfo(net, net->nft.netdev) < 0)
-+		goto err;
-+
-+	return 0;
-+err:
-+	kfree(net->nft.netdev);
-+	return -ENOMEM;
-+}
-+
-+static void nf_tables_netdev_exit_net(struct net *net)
-+{
-+	nft_unregister_afinfo(net->nft.netdev);
-+	kfree(net->nft.netdev);
-+}
-+
-+static struct pernet_operations nf_tables_netdev_net_ops = {
-+	.init	= nf_tables_netdev_init_net,
-+	.exit	= nf_tables_netdev_exit_net,
-+};
-+
-+static const struct nf_chain_type nft_filter_chain_netdev = {
-+	.name		= "filter",
-+	.type		= NFT_CHAIN_T_DEFAULT,
-+	.family		= NFPROTO_NETDEV,
-+	.owner		= THIS_MODULE,
-+	.hook_mask	= (1 << NF_NETDEV_INGRESS),
-+};
-+
-+static int __init nf_tables_netdev_init(void)
-+{
-+	int ret;
-+
-+	nft_register_chain_type(&nft_filter_chain_netdev);
-+	ret = register_pernet_subsys(&nf_tables_netdev_net_ops);
-+	if (ret < 0)
-+		nft_unregister_chain_type(&nft_filter_chain_netdev);
-+
-+	return ret;
-+}
-+
-+static void __exit nf_tables_netdev_exit(void)
-+{
-+	unregister_pernet_subsys(&nf_tables_netdev_net_ops);
-+	nft_unregister_chain_type(&nft_filter_chain_netdev);
-+}
-+
-+module_init(nf_tables_netdev_init);
-+module_exit(nf_tables_netdev_exit);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Pablo Neira Ayuso <pablo@netfilter.org>");
-+MODULE_ALIAS_NFT_FAMILY(5); /* NFPROTO_NETDEV */
+ 	kfree(ctx->table);
+ 	module_put(ctx->afi->owner);
+ }
+@@ -1361,6 +1396,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+ 			ops->priority	= priority;
+ 			ops->priv	= chain;
+ 			ops->hook	= afi->hooks[ops->hooknum];
++			ops->dev	= table->dev;
+ 			if (hookfn)
+ 				ops->hook = hookfn;
+ 			if (afi->hook_ops_init)
 -- 
 1.7.10.4
 
