@@ -1,35 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 -next] ip: reject too-big defragmented DF-skb when
- forwarding
-Date: Mon, 25 May 2015 00:09:40 -0400 (EDT)
-Message-ID: <20150525.000940.93491597643033970.davem@davemloft.net>
-References: <1432246000-11104-1-git-send-email-fw@strlen.de>
+Subject: Re: [PATCH net-next v3 0/4] sfc: add MCDI tracing
+Date: Mon, 25 May 2015 00:11:38 -0400 (EDT)
+Message-ID: <20150525.001138.1265925235771537042.davem@davemloft.net>
+References: <555F813D.8000108@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41698 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41702 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750900AbbEYEJo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 00:09:44 -0400
-In-Reply-To: <1432246000-11104-1-git-send-email-fw@strlen.de>
+	with ESMTP id S1751187AbbEYELk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 00:11:40 -0400
+In-Reply-To: <555F813D.8000108@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Fri, 22 May 2015 00:06:40 +0200
+From: Edward Cree <ecree@solarflare.com>
+Date: Fri, 22 May 2015 20:19:25 +0100
 
-> Send icmp pmtu error if we find that the largest fragment of df-skb
-> exceeded the output path mtu.
+> This patchset adds support for logging MCDI (Management-Controller-to-
+>  Driver Interface) interactions between the sfc driver and a bound device,
+>  to aid in debugging.
+> Solarflare has a tool to decode the resulting traces and will look to
+>  open-source this if there is any external interest, but the protocol is
+>  already detailed in drivers/net/ethernet/sfc/mcdi_pcol.h.
+> The logging buffer we allocate per MCDI context is a work area for
+>  constructing each individual message before logging it with netif_info.
+> The reason the buffer is long-lived is simply to avoid the overhead of
+>  allocating and freeing it every MCDI call, since MCDIs are already known
+>  to be serialised for other reasons.
 > 
-> The ip output path will still catch this later on but we can avoid the
-> forward/postrouting hook traversal by rejecting right away.
-> 
-> This is what ipv6 already does.
-> 
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> --
+> v3: add some explanations to cover letter and patch #4
+> v2: avoid long lines in cover letter; fix multiline comment style
 
-Applied, thank you.
+Patch #4 doesn't apply cleanly to net-next, please respin.
+
+Thank you.
