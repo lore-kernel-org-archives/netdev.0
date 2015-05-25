@@ -1,56 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers-next 2015-05-21
-Date: Sun, 24 May 2015 23:29:55 -0400 (EDT)
-Message-ID: <20150524.232955.425320477500361631.davem@davemloft.net>
-References: <87k2w26oef.fsf@kamboji.qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 -next] ip: reject too-big defragmented DF-skb when
+ forwarding
+Date: Mon, 25 May 2015 00:09:40 -0400 (EDT)
+Message-ID: <20150525.000940.93491597643033970.davem@davemloft.net>
+References: <1432246000-11104-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87k2w26oef.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41698 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750900AbbEYEJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 00:09:44 -0400
+In-Reply-To: <1432246000-11104-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Thu, 21 May 2015 16:39:04 +0300
+From: Florian Westphal <fw@strlen.de>
+Date: Fri, 22 May 2015 00:06:40 +0200
 
-> here's a wireless-drivers pull request for 4.2. This time please pay
-> extra attention to this pull as there are two problems:
+> Send icmp pmtu error if we find that the largest fragment of df-skb
+> exceeded the output path mtu.
 > 
-> First of all as you can see the diffstat from git-pull-request in the
-> end is just weird. I was long and hard trying to check everything and to
-> my understanding all the merges look ok and I cannot explain the reason
-> for the diffstat, but of course I might be missing something. Maybe
-> git-request-pull is just buggy? At least with gitk everything looks to
-> be ok and the patch list below also looks valid.
-
-The diffstat doesn't look anything like that for me.  It contained only
-your wireless changes.
-
-It may have helped that I merged 'net' into 'net-next' right before I
-pulled this.
-
-> Secondly there's a non-trivial conflict in
-> drivers/net/wireless/ath/ath10k/mac.c which is due to removal of
-> FIF_PROMISC_IN_BSS in commit df1404650c. You need to remove more code
-> than just the obvious conflicts shown by git. In the end of this mail I
-> added a git diff output after I fixed the conflict, hopefully that helps
-> you to fix it. The main points are that you remove
-> ath10k_mac_should_disable_promisc() and the last ath10k_monitor_recalc()
-> call from ath10k_vdev_start_restart() along with the obvious conflict
-> fixes git points out.
+> The ip output path will still catch this later on but we can avoid the
+> forward/postrouting hook traversal by rejecting right away.
 > 
-> There's also a patch from Michal which will also help to fix the
-> resolution. Michal, please double check the resolution proposal below so
-> that I didn't miss anything.
+> This is what ipv6 already does.
 > 
-> https://patchwork.kernel.org/patch/6387631/
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Thanks, I think I got the conflict resolution correct, please have a look.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thank you.
