@@ -1,90 +1,50 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net 2/3] net: dp83640: reinforce locking rules.
-Date: Mon, 25 May 2015 11:55:44 +0200
-Message-ID: <e7890424afd2dce4a4b04cfbad9bc6c600cae4fb.1432547381.git.richardcochran@gmail.com>
-References: <cover.1432547381.git.richardcochran@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-	Christian Riesch <christian.riesch@omicron.at>,
-	Stefan Sorensen <stefan.sorensen@spectralink.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:35769 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751880AbbEYJzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 05:55:52 -0400
-Received: by wgme6 with SMTP id e6so410968wgm.2
-        for <netdev@vger.kernel.org>; Mon, 25 May 2015 02:55:51 -0700 (PDT)
-In-Reply-To: <cover.1432547381.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH] staging: r8712u: Fix kernel warning for improper call of
+ del_timer_sync()
+Date: Mon, 25 May 2015 13:12:07 +0300
+Message-ID: <20150525101207.GC22558@mwanda>
+References: <1432415812-1285-1-git-send-email-Larry.Finger@lwfinger.net>
+ <CAJ=9CzbPmo+f4zjY4CqQ7TsUENpwy+zHcpxeLTbAH0DAZSkqsQ@mail.gmail.com>
+ <556268BC.5050807@lwfinger.net> <20150525091737.GQ4150@mwanda>
+ <CAK-LDb+1WscLTFw=NDY=_aUOGw72a4wRsqCU-1N+KJ11k15S5w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, Sudip Mukherjee <sudip@vectorindia.org>,
+ Greg KH <gregkh@linuxfoundation.org>, linux-wireless@vger.kernel.org,
+ Stable <stable@vger.kernel.org>, netdev@vger.kernel.org,
+ Haggai Eran <haggai.eran@gmail.com>, Arek Rusniak <arek.rusi@gmail.com>,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: Vaishali Thakkar <vthakkar1994@gmail.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <CAK-LDb+1WscLTFw=NDY=_aUOGw72a4wRsqCU-1N+KJ11k15S5w@mail.gmail.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Callers of the ext_write function are supposed to hold a mutex that
-protects the state of the dialed page, but one caller was missing the
-lock from the very start, and over time the code has been changed
-without following the rule.  This patch cleans up the call sites in
-violation of the rule.
+On Mon, May 25, 2015 at 03:07:08PM +0530, Vaishali Thakkar wrote:
+> I am sorry for those patches. It was me who introduced those bugs. Yes, it
+> was sent during Outreachy process. But it was my mistake as a newbie. May
+> be I should have taken care of interrupt mode thing.
+> 
+> I would like to fix it if someone is not doing it. Sorry again. I will take
+> care of these things in my future patches.
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/net/phy/dp83640.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+No, it's not your fault for making mistakes.  We *expect* newbies to
+make mistakes.
 
-diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index 7a068d9..e570036 100644
---- a/drivers/net/phy/dp83640.c
-+++ b/drivers/net/phy/dp83640.c
-@@ -496,7 +496,9 @@ static int ptp_dp83640_enable(struct ptp_clock_info *ptp,
- 			else
- 				evnt |= EVNT_RISE;
- 		}
-+		mutex_lock(&clock->extreg_lock);
- 		ext_write(0, phydev, PAGE5, PTP_EVNT, evnt);
-+		mutex_unlock(&clock->extreg_lock);
- 		return 0;
- 
- 	case PTP_CLK_REQ_PEROUT:
-@@ -532,6 +534,8 @@ static u8 status_frame_src[6] = { 0x08, 0x00, 0x17, 0x0B, 0x6B, 0x0F };
- 
- static void enable_status_frames(struct phy_device *phydev, bool on)
- {
-+	struct dp83640_private *dp83640 = phydev->priv;
-+	struct dp83640_clock *clock = dp83640->clock;
- 	u16 cfg0 = 0, ver;
- 
- 	if (on)
-@@ -539,9 +543,13 @@ static void enable_status_frames(struct phy_device *phydev, bool on)
- 
- 	ver = (PSF_PTPVER & VERSIONPTP_MASK) << VERSIONPTP_SHIFT;
- 
-+	mutex_lock(&clock->extreg_lock);
-+
- 	ext_write(0, phydev, PAGE5, PSF_CFG0, cfg0);
- 	ext_write(0, phydev, PAGE6, PSF_CFG1, ver);
- 
-+	mutex_unlock(&clock->extreg_lock);
-+
- 	if (!phydev->attached_dev) {
- 		pr_warn("expected to find an attached netdevice\n");
- 		return;
-@@ -1173,11 +1181,18 @@ static int dp83640_config_init(struct phy_device *phydev)
- 
- 	if (clock->chosen && !list_empty(&clock->phylist))
- 		recalibrate(clock);
--	else
-+	else {
-+		mutex_lock(&clock->extreg_lock);
- 		enable_broadcast(phydev, clock->page, 1);
-+		mutex_unlock(&clock->extreg_lock);
-+	}
- 
- 	enable_status_frames(phydev, true);
-+
-+	mutex_lock(&clock->extreg_lock);
- 	ext_write(0, phydev, PAGE4, PTP_CTL, PTP_ENABLE);
-+	mutex_unlock(&clock->extreg_lock);
-+
- 	return 0;
- }
- 
--- 
-2.1.4
+It's Greg's fault for merging these when they weren't sent to the list
+or to the other maintainers.  But Greg knows I'm annoyed already since
+we have been dealing with the fallout for months and I always make sure
+to complain whenever I have a chance.  /me shakes a fist!  Grrr....  :P
+
+regards,
+dan carpenter
