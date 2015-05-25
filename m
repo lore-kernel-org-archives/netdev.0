@@ -1,41 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 net-next] bridge: allow setting hash_max +
- multicast_router if interface is down
-Date: Mon, 25 May 2015 17:28:18 -0400 (EDT)
-Message-ID: <20150525.172818.2000334376621437405.davem@davemloft.net>
-References: <1432343554-3493-1-git-send-email-linus.luessing@c0d3.blue>
+Subject: Re: [PATCH net-next v5 2/2] net: Adding support for Cavium
+ ThunderX network controller
+Date: Mon, 25 May 2015 17:33:48 -0400 (EDT)
+Message-ID: <20150525.173348.561751759043903433.davem@davemloft.net>
+References: <1432344498-17131-1-git-send-email-aleksey.makarov@caviumnetworks.com>
+	<1432344498-17131-3-git-send-email-aleksey.makarov@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, stephen@networkplumber.org,
-	herbert@gondor.apana.org.au, roopa@cumulusnetworks.com,
-	cwang@twopensource.com, sashok@cumulusnetworks.com,
-	wkok@cumulusnetworks.com
-To: linus.luessing@c0d3.blue
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, david.daney@cavium.com,
+	robert.richter@caviumnetworks.com, sgoutham@cavium.com,
+	mjc@semihalf.com, ganapatrao.kulkarni@caviumnetworks.com,
+	tomasz.nowicki@linaro.org, rrichter@cavium.com, kamil@semihalf.com,
+	tsrinivasulu@caviumnetworks.com, svangala@cavium.com,
+	rric@kernel.org
+To: aleksey.makarov@caviumnetworks.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1432343554-3493-1-git-send-email-linus.luessing@c0d3.blue>
+In-Reply-To: <1432344498-17131-3-git-send-email-aleksey.makarov@caviumnetworks.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Linus L=FCssing <linus.luessing@c0d3.blue>
-Date: Sat, 23 May 2015 03:12:34 +0200
+From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
+Date: Fri, 22 May 2015 18:28:16 -0700
 
-> Network managers like netifd (used in OpenWRT for instance) try to
-> configure interface options after creation but before setting the
-> interface up.
->=20
-> Unfortunately the sysfs / bridge currently only allows to configure t=
-he
-> hash_max and multicast_router options when the bridge interface is up=
-=2E
-> But since br_multicast_init() doesn't start any timers and only sets
-> default values and initializes timers it should be save to reconfigur=
-e
-> the default values after that, before things actually get active afte=
-r
-> the bridge is set up.
->=20
-> Signed-off-by: Linus L=FCssing <linus.luessing@c0d3.blue>
+> +#ifdef NOT_SUPPORTED_FOR_NOW
+> +static int nicvf_set_coalesce(struct net_device *netdev,
+> +			      struct ethtool_coalesce *cmd)
+> +{
+ ...
+> +#ifdef NOT_SUPPORTED_FOR_NOW
+> +	.set_coalesce		= nicvf_set_coalesce,
+> +#endif
+> +	.get_ringparam		= nicvf_get_ringparam,
 
-Applied to net-next, thanks.
+Remove this completely.  When you actually make it work and want to
+enable it, you can re-add the code.
+
+The upstream kernel is not your personal workspace :-)
+
+> +#ifdef VNIC_RSS_SUPPORT
+
+This is unconditionally defined in one of your headers, please remove
+these ifdefs as they will never be false.
+
+> +#ifdef VNIC_RSS_SUPPORT
+
+Likewise.
