@@ -1,45 +1,77 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
 Subject: Re: [PATCH] staging: r8712u: Fix kernel warning for improper call
  of del_timer_sync()
-Date: Mon, 25 May 2015 10:59:43 -0500
-Message-ID: <556346EF.8000804@lwfinger.net>
-References: <20150525044250.GA3385@sudip-PC>
+Date: Mon, 25 May 2015 11:02:27 -0500
+Message-ID: <55634793.4050002@lwfinger.net>
+References: <1432415812-1285-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Arek Rusniak <arek.rusi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: 1432415812-1285-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org,
-	haggai.eran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150525044250.GA3385@sudip-PC>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
+	linux-wireless@vger.kernel.org, Stable <stable@vger.kernel.org>,
+	Haggi Eran <haggai.eran@gmail.com>
+To: gregkh@linuxfoundation.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1432415812-1285-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/24/2015 11:42 PM, Sudip Mukherjee wrote:
->> I haven't been using kernel v4.1 so I haven't seen this warning, but looking
->> at the code it seems to originate from the two recent patches to remove
->> _cancel_timer and _cancel_timer_ex. I see that there's another patch in lkml [1]
->> that changes del_timer_sync back to del_timer in more places. Perhaps it
->> could prevent other warnings like this in the future.
+On 05/23/2015 04:16 PM, Larry Finger wrote:
+> The driver is reporting a warning at kernel/time/timer.c:1096 due to calling
+> del_timer_sync() while in interrupt mode. Such warnings are fixed by calling
+> del_timer() instead.
 >
-> _cancel_timer and _cancel_timer_ex both were internally using del_timer,
-> and the issue was reported in bugzilla. I have given the reference of the
-> bugzilla in my patch in lkml.
-> I have changed the reference of del_timer_sync to del_timer in all places
-> which were in interrupt context, in some places it was not removed as
-> those were not in interrupt context.
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> Cc: Stable <stable@vger.kernel.org>
+> Cc: Haggi Eran <haggai.eran@gmail.com>
+> ---
 
-Why did you not Cc the maintainers?? That is why file MAINTAINERS exists.
+Greg,
 
-Was your patch sent to Greg?
+Please drop this patch. The same fixes were submitted as 
+https://lkml.org/lkml/2015/5/15/226.
+
+It is crucial that this get into the 4.1 kernel where the regression was introduced.
 
 Larry
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   drivers/staging/rtl8712/rtl8712_led.c  | 2 +-
+>   drivers/staging/rtl8712/rtl871x_mlme.c | 4 ++--
+>   2 files changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/staging/rtl8712/rtl8712_led.c b/drivers/staging/rtl8712/rtl8712_led.c
+> index f1d47a0..8cc716c 100644
+> --- a/drivers/staging/rtl8712/rtl8712_led.c
+> +++ b/drivers/staging/rtl8712/rtl8712_led.c
+> @@ -921,7 +921,7 @@ static void SwLedControlMode1(struct _adapter *padapter,
+>   			    IS_LED_WPS_BLINKING(pLed))
+>   				return;
+>   			if (pLed->bLedNoLinkBlinkInProgress == true) {
+> -				del_timer_sync(&pLed->BlinkTimer);
+> +				del_timer(&pLed->BlinkTimer);
+>   				pLed->bLedNoLinkBlinkInProgress = false;
+>   			}
+>   			if (pLed->bLedBlinkInProgress == true) {
+> diff --git a/drivers/staging/rtl8712/rtl871x_mlme.c b/drivers/staging/rtl8712/rtl871x_mlme.c
+> index fb2b195..ace88ab 100644
+> --- a/drivers/staging/rtl8712/rtl871x_mlme.c
+> +++ b/drivers/staging/rtl8712/rtl871x_mlme.c
+> @@ -582,7 +582,7 @@ void r8712_surveydone_event_callback(struct _adapter *adapter, u8 *pbuf)
+>   	spin_lock_irqsave(&pmlmepriv->lock, irqL);
+>
+>   	if (check_fwstate(pmlmepriv, _FW_UNDER_SURVEY) == true) {
+> -		del_timer_sync(&pmlmepriv->scan_to_timer);
+> +		del_timer(&pmlmepriv->scan_to_timer);
+>
+>   		_clr_fwstate_(pmlmepriv, _FW_UNDER_SURVEY);
+>   	}
+> @@ -910,7 +910,7 @@ void r8712_joinbss_event_callback(struct _adapter *adapter, u8 *pbuf)
+>   			if (check_fwstate(pmlmepriv, WIFI_STATION_STATE)
+>   				== true)
+>   				r8712_indicate_connect(adapter);
+> -			del_timer_sync(&pmlmepriv->assoc_timer);
+> +			del_timer(&pmlmepriv->assoc_timer);
+>   		} else
+>   			goto ignore_joinbss_callback;
+>   	} else {
+>
