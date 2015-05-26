@@ -1,51 +1,80 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] staging: r8712u: Fix kernel warning for improper call
- of del_timer_sync()
-Date: Tue, 26 May 2015 10:31:52 -0500
-Message-ID: <556491E8.60606@lwfinger.net>
-References: <1432415812-1285-1-git-send-email-Larry.Finger@lwfinger.net> <CAJ=9CzbPmo+f4zjY4CqQ7TsUENpwy+zHcpxeLTbAH0DAZSkqsQ@mail.gmail.com> <556268BC.5050807@lwfinger.net> <20150525091737.GQ4150@mwanda> <1432575448.2846.63.camel@perches.com> <20150526044611.GA3465@sudip-PC> <1432616108.2846.83.camel@perches.com> <20150526050212.GC3465@sudip-PC> <1432616879.2846.86.camel@perches.com> <20150526053022.GA4585@sudip-PC>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 98781] New: WWAN: TX bytes counter shows very huge
+ impossible value
+Date: Tue, 26 May 2015 08:38:57 -0700
+Message-ID: <20150526083857.78cb053b@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	devel@driverdev.osuosl.org,
-	Sudip Mukherjee <sudip@vectorindia.org>,
-	gregkh@linuxfoundation.org, linux-wireless@vger.kernel.org,
-	Stable <stable@vger.kernel.org>, netdev@vger.kernel.org,
-	Haggai Eran <haggai.eran@gmail.com>,
-	Arek Rusniak <arek.rusi@gmail.com>
-To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
-	Joe Perches <joe@perches.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20150526053022.GA4585@sudip-PC>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [209.85.220.42] ([209.85.220.42]:35078 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752809AbbEZPkF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 11:40:05 -0400
+Received: by pacwv17 with SMTP id wv17so95448194pac.2
+        for <netdev@vger.kernel.org>; Tue, 26 May 2015 08:38:53 -0700 (PDT)
+Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
+        by mx.google.com with ESMTPSA id ym6sm13515470pac.32.2015.05.26.08.38.52
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Tue, 26 May 2015 08:38:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/26/2015 12:30 AM, Sudip Mukherjee wrote:
-> On Mon, May 25, 2015 at 10:07:59PM -0700, Joe Perches wrote:
->> On Tue, 2015-05-26 at 10:32 +0530, Sudip Mukherjee wrote:
->>> On Mon, May 25, 2015 at 09:55:08PM -0700, Joe Perches wrote:
->>>> On Tue, 2015-05-26 at 10:16 +0530, Sudip Mukherjee wrote:
->>>>> On Mon, May 25, 2015 at 10:37:28AM -0700, Joe Perches wrote:
->
->>> But for eudyptula, patches have to properly submitted to lkml and
->>> maintainers. And today I am here just because of eudyptula. My patches
->>> and contributions here, everything started with it. :)
->>
->> As far as I understand, the Eudyptula Challenge list has
->> internal mechanisms to nominally review patches before some
->> patch is submitted to lkml.
-> well, yes, sort of. Submitting patch is task 10, and all the previous
-> tasks will train people on creating patch, sending etc.
->>
->> The main point is that patches shouldn't be applied without
->> being submitted to a more widely read list.
-> yes, and Eudyptula requires the participant to send patch to maintainer,
-> lkml and relevant mailing list where outreachy specifies not to send to
-> lkml. Next outreachy will start from September.
 
-At a minimum, outreachy needs to require that patches are sent to the 
-maintainer(s). I can understand not wanting to burden LKML, but getting 
-defective patches into the kernel must be avoided.
 
-Larry
+Begin forwarded message:
+
+Date: Sat, 23 May 2015 16:54:50 +0000
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+Subject: [Bug 98781] New: WWAN: TX bytes counter shows very huge impossible value
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=98781
+
+            Bug ID: 98781
+           Summary: WWAN: TX bytes counter shows very huge impossible
+                    value
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 4.0.x
+          Hardware: Intel
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+          Assignee: shemminger@linux-foundation.org
+          Reporter: mm@superbash.de
+        Regression: No
+
+Since version 4.0.x the TX bytes counter of the WWAN module shows a weird
+value.
+
+Example:
+
+$ > ifconfig wwan
+
+wwan0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet xxx.xxx.xxx.xxx  netmask 255.255.255.252  broadcast
+xxx.xxx.xxx.xxx
+        inet6 xxxx::xxxx:xxxx:xxxx:xxxx  prefixlen 64  scopeid 0x20<link>
+        ether xx:xx:xx:xx:xx:xx  txqueuelen 1000  (Ethernet)
+        RX packets 19036  bytes 19190321 (18.3 MiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 15874  bytes 43228847574631 (39.3 TiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+39.3 TiB - wow, absolutely not true
+
+The WWAN is used as bridge to my internet provider (LTE usb stick)
+
+I use the counter to control the traffic. It's only the TX counter, the RX
+works ok.
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
