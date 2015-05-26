@@ -1,60 +1,60 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: tcp: Fix a PTO timing granularity issue
-Date: Tue, 26 May 2015 11:13:12 -0700
-Message-ID: <1432663992.4060.286.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1432650358-11470-1-git-send-email-ido@wizery.com>
-	 <1432657435.4060.267.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150526170222.GA13376@WorkStation.home>
-	 <1432660420.4060.271.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150526175540.GB13376@WorkStation.home>
+Subject: Re: [PATCH v2 net-next 0/3] net: Add incoming CPU mask to sockets
+Date: Tue, 26 May 2015 11:19:48 -0700
+Message-ID: <1432664388.4060.292.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1432658049-3400132-1-git-send-email-tom@herbertland.com>
+	 <1432660689.4060.275.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALx6S34DxrhBvnMyovQFF+Kzpvx3h6=Nviu7XOegPsZa71KrvA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Nandita Dukkipati <nanditad@google.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ido Yariv <idox.yariv@intel.com>
-To: Ido Yariv <ido@wizery.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150526175540.GB13376@WorkStation.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:37449 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751184AbbEZSTv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 14:19:51 -0400
+Received: by igbsb11 with SMTP id sb11so60138791igb.0
+        for <netdev@vger.kernel.org>; Tue, 26 May 2015 11:19:50 -0700 (PDT)
+In-Reply-To: <CALx6S34DxrhBvnMyovQFF+Kzpvx3h6=Nviu7XOegPsZa71KrvA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-05-26 at 13:55 -0400, Ido Yariv wrote:
-> Hi Eric,
-> 
+On Tue, 2015-05-26 at 11:00 -0700, Tom Herbert wrote:
+> On Tue, May 26, 2015 at 10:18 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Tue, 2015-05-26 at 09:34 -0700, Tom Herbert wrote:
+> >> Added matching of CPU to a socket CPU mask. This is useful for TCP
+> >> listeners and unconnected UDP. This works with SO_REUSPORT to steer
+> >> packets to listener sockets based on CPU affinity. These patches
+> >> allow steering packets to listeners based on numa locality. This is
+> >> only useful for passive connections.
+> >>
+> >> v2:
+> >>   - Add cache alignment for fields used in socket lookup in sock_common
+> >>   - Added UDP test results
+> >
+> > What about the feedback I gave earlier Tom ???
+> >
+> > This cannot work for TCP in its current state.
+> >
+> It does work and it fixes cache server locality issues we are seeing.
+> Right now half of our connections are persistently crossing numa nodes
+> on receive-- this is having big negative impact. Yes, there may be
+> edge conditions where SYN goes to a different CPU than the rest of the
+> flow (probably need RFS or flow director for that problem), and that
+> sounds like something nice to fix, but this patch is not dependent on
+> that. Besides, did you foresee an API change would be required?
 
-> 
-> I understand, and I also suspect that having it expire after 9ms will
-> have very little impact, if at all.
-> 
-> Since it mainly affects HZ=100 systems, we can simply go with having at
-> least 2 jiffies on these systems, and leave everything else as is.
-> 
-> However, if the 10ms has a special meaning (couldn't find reasoning for
-> it in the RFC), making sure this timer doesn't expire prematurely could
-> be beneficial. I'm afraid this was not tested on the setup mentioned
-> above though.
-> 
+With current stack, there is no guarantee SYN and ACK packets are
+handled by same cpu.
 
+These are no edge conditions, but real ones, even with RFS.
 
-RFC did not explain how 10ms delay was implemented. This is the kind of
-dark side. RFC are full of 'unsaid things', like OS bugs.
+Not everyone tweaks /proc/irq/*/smp_affinity
 
-What is not said in TLP paper is : linux timers have a 'jiffie'
-granularity that might be 1/100, 1/250, 1/1000, or even 1/64 on Alpha
-processors...
+Default is still allowing cpus being almost random (affinity=fffffff)
 
-Fact is : We did TLP implementation and experimentations and paper at
-the same time, and we do not want to change the current behavior on
-HZ=1000 hosts. This is the kind of change that would require lot of
-tests for Google. 
-
-Please resend your patch so that only HZ <= 100 is changed, we will
-happily acknowledge it.
-
-Thanks
+That was partly for these reasons that SO_REUSEPORT (for TCP) could not
+use cpu number, but a flow hash to select the target socket.
