@@ -1,88 +1,48 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/3 nf-next] netfilter: nf_tables: allow to bind table to
- net_device
-Date: Tue, 26 May 2015 11:58:24 +0200
-Message-ID: <20150526095824.GB3535@salvia>
-References: <1432558004-13481-1-git-send-email-pablo@netfilter.org>
- <1432558004-13481-3-git-send-email-pablo@netfilter.org>
- <20150526004840.GB23370@vergenet.net>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: Re: [PATCH -next, V3 0/2] net: force refragmentation for DF
+ reassembed skbs
+Date: Tue, 26 May 2015 11:57:25 +0200
+Message-ID: <1432634245.17881.57.camel@sakura.staff.proxad.net>
+References: <1432305171-21932-1-git-send-email-fw@strlen.de>
+	 <20150522.150310.2248217318352290500.davem@davemloft.net>
+	 <20150522192651.GA3629@breakpoint.cc>
+Reply-To: mbizon@freebox.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, kaber@trash.net,
-	netdev@vger.kernel.org
-To: Simon Horman <simon.horman@netronome.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150526004840.GB23370@vergenet.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	hannes@stressinduktion.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [212.27.33.1] ([212.27.33.1]:50406 "EHLO ns.iliad.fr"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752603AbbEZKIW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 May 2015 06:08:22 -0400
+In-Reply-To: <20150522192651.GA3629@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 26, 2015 at 09:48:41AM +0900, Simon Horman wrote:
-> Hi Pablo,
-> 
-> On Mon, May 25, 2015 at 02:46:41PM +0200, Pablo Neira Ayuso wrote:
-> > This patch adds the internal NFT_AF_NEEDS_DEV flag to indicate that you must
-> > attach this table to a net_device.
-> > 
-> > This change is required by the follow up patch that introduces the new netdev
-> > table.
-> > 
-> > Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> > ---
-> >  include/net/netfilter/nf_tables.h        |    8 ++++++
-> >  include/uapi/linux/netfilter/nf_tables.h |    2 ++
-> >  net/netfilter/nf_tables_api.c            |   46 ++++++++++++++++++++++++++----
-> >  3 files changed, 51 insertions(+), 5 deletions(-)
-> 
-> [snip]
-> 
-> > diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-> > index 5fa1cd0..89a671e 100644
-> > --- a/include/uapi/linux/netfilter/nf_tables.h
-> > +++ b/include/uapi/linux/netfilter/nf_tables.h
-> 
-> [snip]
-> 
-> > @@ -423,6 +425,10 @@ static int nf_tables_fill_table_info(struct sk_buff *skb, struct net *net,
-> >  	    nla_put_be32(skb, NFTA_TABLE_USE, htonl(table->use)))
-> >  		goto nla_put_failure;
-> >  
-> > +	if (table->dev &&
-> > +	    nla_put_string(skb, NFTA_TABLE_DEV, table->dev->name))
-> > +		goto nla_put_failure;
-> > +
-> >  	nlmsg_end(skb, nlh);
-> >  	return 0;
-> >  
-> > @@ -608,6 +614,11 @@ static int nf_tables_updtable(struct nft_ctx *ctx)
-> >  	if (flags == ctx->table->flags)
-> >  		return 0;
-> >  
-> > +	if ((ctx->afi->flags & NFT_AF_NEEDS_DEV) &&
-> > +	    ctx->nla[NFTA_TABLE_DEV] &&
-> > +	    nla_strcmp(ctx->nla[NFTA_TABLE_DEV], ctx->table->dev->name))
-> > +		return -EOPNOTSUPP;
-> > +
-> >  	trans = nft_trans_alloc(ctx, NFT_MSG_NEWTABLE,
-> >  				sizeof(struct nft_trans_table));
-> >  	if (trans == NULL)
-> 
-> I'm a little unsure of the above logic.
-> 
-> Is it ok for NFT_AF_NEEDS_DEV to be set but ctx->nla[NFTA_TABLE_DEV] to
-> be absent?
 
-This path is only run if the table already exists.
+On Fri, 2015-05-22 at 21:26 +0200, Florian Westphal wrote:
 
-So it basically checks if we're trying to update the binding, in that
-case we hit -EOPNOTSUPP.
+Hello,
 
-If we don't pass any NFTA_TABLE_DEV, then we assume we stick to the
-existing binding.
+> But it does happen, see e.g. following bug report:
+> http://marc.info/?l=linux-netdev&m=139870308431986&w=2
+> 
+> Maxime, do you recall what type of traffic generates
+> the DF-fragments you reported?
 
-This allows us to update the table flags without indicating the
-binding, eg.
+Yep
 
-        nft add table netdev filter { flags dormant\; }
+We are an ISP and provide our own home gateway to the subscribers, which
+ends up routing traffic of a large range of end user devices.
 
-which basically disables the entire table content.
+In that case, the frag+DF traffic was seen in an exchange between a
+femtocell and a femto GW during the IPsec IKE exchange, more precisely
+on the IKE_AUTH message sent from the femto GW.
+
+You can contact me privately if you need more details.
+
+-- 
+Maxime
