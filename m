@@ -1,43 +1,68 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] bridge: skip fdb add if the port shouldn't
- learn
-Date: Tue, 26 May 2015 10:28:09 -0700
-Message-ID: <20150526102809.5c3e8abc@urahara>
-References: <1432204977-4293-1-git-send-email-nikolay@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wkok@cumulusnetworks.com,
-	davem@davemloft.net, bridge@lists.linux-foundation.org
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net] openvswitch: disable LRO unless stated otherwise
+Date: Tue, 26 May 2015 19:38:29 +0200
+Message-ID: <15f0c96df9cc152b05d8a5ff0c0059eb1f042cca.1432661690.git.jbenc@redhat.com>
+Cc: dev@openvswitch.org, Pravin Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:35371 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752105AbbEZR2G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 13:28:06 -0400
-Received: by pacwv17 with SMTP id wv17so97597852pac.2
-        for <netdev@vger.kernel.org>; Tue, 26 May 2015 10:28:06 -0700 (PDT)
-In-Reply-To: <1432204977-4293-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53747 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751243AbbEZRjF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 May 2015 13:39:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 21 May 2015 03:42:57 -0700
-Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+Currently, openvswitch tries to disable LRO from the user space. This does
+not work correctly when the device added is a vlan interface, though.
+Instead of dealing with possibly complex stacked cross name space relations
+in the user space, do the same as bridging does and call dev_disable_lro in
+the kernel.
 
-> From: Wilson Kok <wkok@cumulusnetworks.com>
-> 
-> Check in fdb_add_entry() if the source port should learn, similar
-> check is used in br_fdb_update.
-> Note that new fdb entries which are added manually or
-> as local ones are still permitted.
-> This patch has been tested by running traffic via a bridge port and
-> switching the port's state, also by manually adding/removing entries
-> from the bridge's fdb.
-> 
-> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+As there are use cases of openvswitch setup that can keep LRO enabled and
+there's a planned feature to optimize such use cases (and stop disabling LRO
+unconditionally from the user space daemon), allow the user space to
+override this when adding the interface.
 
-What is the problem this is trying to solve?
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+ include/uapi/linux/openvswitch.h | 9 +++++++++
+ net/openvswitch/vport-netdev.c   | 3 +++
+ 2 files changed, 12 insertions(+)
 
-I think user should be allowed to manually add any entry
-even if learning.
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index bbd49a0c46c7..3832953a4f27 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -252,6 +252,15 @@ enum ovs_vport_attr {
+ 
+ #define OVS_VPORT_ATTR_MAX (__OVS_VPORT_ATTR_MAX - 1)
+ 
++/* OVS_VPORT_ATTR_OPTIONS attributes for netdev vports.
++ */
++enum {
++	OVS_NETDEV_ATTR_KEEP_LRO, /* flag */
++	__OVS_NETDEV_ATTR_MAX
++};
++
++#define OVS_NETDEV_ATTR_MAX (__OVS_NETDEV_ATTR_MAX - 1)
++
+ enum {
+ 	OVS_VXLAN_EXT_UNSPEC,
+ 	OVS_VXLAN_EXT_GBP,	/* Flag or __u32 */
+diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
+index 4776282c6417..04391b6cfb9a 100644
+--- a/net/openvswitch/vport-netdev.c
++++ b/net/openvswitch/vport-netdev.c
+@@ -125,6 +125,9 @@ static struct vport *netdev_create(const struct vport_parms *parms)
+ 	if (err)
+ 		goto error_master_upper_dev_unlink;
+ 
++	if (!parms->options ||
++	    !nla_find_nested(parms->options, OVS_NETDEV_ATTR_KEEP_LRO))
++		dev_disable_lro(netdev_vport->dev);
+ 	dev_set_promiscuity(netdev_vport->dev, 1);
+ 	netdev_vport->dev->priv_flags |= IFF_OVS_DATAPATH;
+ 	rtnl_unlock();
+-- 
+1.8.3.1
