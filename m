@@ -1,326 +1,132 @@
-From: Vladimir Zapolskiy <vz@mleia.com>
-Subject: [PATCH] net: qlcnic: clean up sysfs error codes
-Date: Tue, 26 May 2015 03:49:45 +0300
-Message-ID: <1432601385-24582-1-git-send-email-vz@mleia.com>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Dept-GELinuxNICDev@qlogic.com
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: RE: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
+Date: Tue, 26 May 2015 00:59:57 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB8A65@BPXM14GP.gisp.nec.co.jp>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FB5E4@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB3B4A@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FBBEC@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4EE6@BPXM14GP.gisp.nec.co.jp>
+ <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com>
+ <F6FB0E698C9B3143BDF729DF22286646912FC2E3@ORSMSX110.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	"David Miller" <davem@davemloft.net>,
+	Edward Cree <ecree@solarflare.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from li271-223.members.linode.com ([178.79.152.223]:37131 "EHLO
-	mail.mleia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751046AbbEZA5A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 May 2015 20:57:00 -0400
+Received: from TYO201.gate.nec.co.jp ([210.143.35.51]:40789 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751143AbbEZBAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 21:00:39 -0400
+In-Reply-To: <F6FB0E698C9B3143BDF729DF22286646912FC2E3@ORSMSX110.amr.corp.intel.com>
+Content-Language: ja-JP
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace confusing QL_STATUS_INVALID_PARAM == -1 == -EPERM with -EINVAL
-and QLC_STATUS_UNSUPPORTED_CMD == -2 == -ENOENT with -EOPNOTSUPP, the
-latter error code is arguable, but it is already used in the driver,
-so let it be here as well.
-
-Also remove always false (!buf) check on read(), the driver should
-not care if userspace gets its EFAULT or not.
-
-Signed-off-by: Vladimir Zapolskiy <vz@mleia.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h       |  3 -
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c  |  2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c | 77 +++++++++++------------
- 3 files changed, 36 insertions(+), 46 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index f221126..055f376 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1326,9 +1326,6 @@ struct qlcnic_eswitch {
- };
- 
- 
--/* Return codes for Error handling */
--#define QL_STATUS_INVALID_PARAM	-1
--
- #define MAX_BW			100	/* % of link speed */
- #define MIN_BW			1	/* % of link speed */
- #define MAX_VLAN_ID		4095
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 367f397..2f6cc42 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -1031,7 +1031,7 @@ int qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
- 		pfn = pci_info[i].id;
- 
- 		if (pfn >= ahw->max_vnic_func) {
--			ret = QL_STATUS_INVALID_PARAM;
-+			ret = -EINVAL;
- 			dev_err(&adapter->pdev->dev, "%s: Invalid function 0x%x, max 0x%x\n",
- 				__func__, pfn, ahw->max_vnic_func);
- 			goto err_eswitch;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-index 59a721f..05c28f2 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-@@ -24,8 +24,6 @@
- #include <linux/hwmon-sysfs.h>
- #endif
- 
--#define QLC_STATUS_UNSUPPORTED_CMD	-2
--
- int qlcnicvf_config_bridged_mode(struct qlcnic_adapter *adapter, u32 enable)
- {
- 	return -EOPNOTSUPP;
-@@ -166,7 +164,7 @@ static int qlcnic_82xx_store_beacon(struct qlcnic_adapter *adapter,
- 	u8 b_state, b_rate;
- 
- 	if (len != sizeof(u16))
--		return QL_STATUS_INVALID_PARAM;
-+		return -EINVAL;
- 
- 	memcpy(&beacon, buf, sizeof(u16));
- 	err = qlcnic_validate_beacon(adapter, beacon, &b_state, &b_rate);
-@@ -383,17 +381,17 @@ static int validate_pm_config(struct qlcnic_adapter *adapter,
- 		dest_pci_func = pm_cfg[i].dest_npar;
- 		src_index = qlcnic_is_valid_nic_func(adapter, src_pci_func);
- 		if (src_index < 0)
--			return QL_STATUS_INVALID_PARAM;
-+			return -EINVAL;
- 
- 		dest_index = qlcnic_is_valid_nic_func(adapter, dest_pci_func);
- 		if (dest_index < 0)
--			return QL_STATUS_INVALID_PARAM;
-+			return -EINVAL;
- 
- 		s_esw_id = adapter->npars[src_index].phy_port;
- 		d_esw_id = adapter->npars[dest_index].phy_port;
- 
- 		if (s_esw_id != d_esw_id)
--			return QL_STATUS_INVALID_PARAM;
-+			return -EINVAL;
- 	}
- 
- 	return 0;
-@@ -414,7 +412,7 @@ static ssize_t qlcnic_sysfs_write_pm_config(struct file *filp,
- 	count	= size / sizeof(struct qlcnic_pm_func_cfg);
- 	rem	= size % sizeof(struct qlcnic_pm_func_cfg);
- 	if (rem)
--		return QL_STATUS_INVALID_PARAM;
-+		return -EINVAL;
- 
- 	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
- 	pm_cfg = (struct qlcnic_pm_func_cfg *)buf;
-@@ -427,7 +425,7 @@ static ssize_t qlcnic_sysfs_write_pm_config(struct file *filp,
- 		action = !!pm_cfg[i].action;
- 		index = qlcnic_is_valid_nic_func(adapter, pci_func);
- 		if (index < 0)
--			return QL_STATUS_INVALID_PARAM;
-+			return -EINVAL;
- 
- 		id = adapter->npars[index].phy_port;
- 		ret = qlcnic_config_port_mirroring(adapter, id,
-@@ -440,7 +438,7 @@ static ssize_t qlcnic_sysfs_write_pm_config(struct file *filp,
- 		pci_func = pm_cfg[i].pci_func;
- 		index = qlcnic_is_valid_nic_func(adapter, pci_func);
- 		if (index < 0)
--			return QL_STATUS_INVALID_PARAM;
-+			return -EINVAL;
- 		id = adapter->npars[index].phy_port;
- 		adapter->npars[index].enable_pm = !!pm_cfg[i].action;
- 		adapter->npars[index].dest_npar = id;
-@@ -499,11 +497,11 @@ static int validate_esw_config(struct qlcnic_adapter *adapter,
- 	for (i = 0; i < count; i++) {
- 		pci_func = esw_cfg[i].pci_func;
- 		if (pci_func >= ahw->max_vnic_func)
--			return QL_STATUS_INVALID_PARAM;
-+			return -EINVAL;
- 
- 		if (adapter->ahw->op_mode == QLCNIC_MGMT_FUNC)
- 			if (qlcnic_is_valid_nic_func(adapter, pci_func) < 0)
--				return QL_STATUS_INVALID_PARAM;
-+				return -EINVAL;
- 
- 		switch (esw_cfg[i].op_mode) {
- 		case QLCNIC_PORT_DEFAULTS:
-@@ -517,25 +515,25 @@ static int validate_esw_config(struct qlcnic_adapter *adapter,
- 
- 			if (ret != QLCNIC_NON_PRIV_FUNC) {
- 				if (esw_cfg[i].mac_anti_spoof != 0)
--					return QL_STATUS_INVALID_PARAM;
-+					return -EINVAL;
- 				if (esw_cfg[i].mac_override != 1)
--					return QL_STATUS_INVALID_PARAM;
-+					return -EINVAL;
- 				if (esw_cfg[i].promisc_mode != 1)
--					return QL_STATUS_INVALID_PARAM;
-+					return -EINVAL;
- 			}
- 			break;
- 		case QLCNIC_ADD_VLAN:
- 			if (!IS_VALID_VLAN(esw_cfg[i].vlan_id))
--				return QL_STATUS_INVALID_PARAM;
-+				return -EINVAL;
- 			if (!esw_cfg[i].op_type)
--				return QL_STATUS_INVALID_PARAM;
-+				return -EINVAL;
- 			break;
- 		case QLCNIC_DEL_VLAN:
- 			if (!esw_cfg[i].op_type)
--				return QL_STATUS_INVALID_PARAM;
-+				return -EINVAL;
- 			break;
- 		default:
--			return QL_STATUS_INVALID_PARAM;
-+			return -EINVAL;
- 		}
- 	}
- 
-@@ -559,7 +557,7 @@ static ssize_t qlcnic_sysfs_write_esw_config(struct file *file,
- 	count	= size / sizeof(struct qlcnic_esw_func_cfg);
- 	rem	= size % sizeof(struct qlcnic_esw_func_cfg);
- 	if (rem)
--		return QL_STATUS_INVALID_PARAM;
-+		return -EINVAL;
- 
- 	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
- 	esw_cfg = (struct qlcnic_esw_func_cfg *)buf;
-@@ -570,7 +568,7 @@ static ssize_t qlcnic_sysfs_write_esw_config(struct file *file,
- 	for (i = 0; i < count; i++) {
- 		if (adapter->ahw->op_mode == QLCNIC_MGMT_FUNC)
- 			if (qlcnic_config_switch_port(adapter, &esw_cfg[i]))
--				return QL_STATUS_INVALID_PARAM;
-+				return -EINVAL;
- 
- 		if (adapter->ahw->pci_func != esw_cfg[i].pci_func)
- 			continue;
-@@ -604,7 +602,7 @@ static ssize_t qlcnic_sysfs_write_esw_config(struct file *file,
- 		pci_func = esw_cfg[i].pci_func;
- 		index = qlcnic_is_valid_nic_func(adapter, pci_func);
- 		if (index < 0)
--			return QL_STATUS_INVALID_PARAM;
-+			return -EINVAL;
- 		npar = &adapter->npars[index];
- 		switch (esw_cfg[i].op_mode) {
- 		case QLCNIC_PORT_DEFAULTS:
-@@ -654,7 +652,7 @@ static ssize_t qlcnic_sysfs_read_esw_config(struct file *file,
- 
- 		esw_cfg[pci_func].pci_func = pci_func;
- 		if (qlcnic_get_eswitch_port_config(adapter, &esw_cfg[pci_func]))
--			return QL_STATUS_INVALID_PARAM;
-+			return -EINVAL;
- 	}
- 	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
- 	return size;
-@@ -669,11 +667,11 @@ static int validate_npar_config(struct qlcnic_adapter *adapter,
- 	for (i = 0; i < count; i++) {
- 		pci_func = np_cfg[i].pci_func;
- 		if (qlcnic_is_valid_nic_func(adapter, pci_func) < 0)
--			return QL_STATUS_INVALID_PARAM;
-+			return -EINVAL;
- 
- 		if (!IS_VALID_BW(np_cfg[i].min_bw) ||
- 		    !IS_VALID_BW(np_cfg[i].max_bw))
--			return QL_STATUS_INVALID_PARAM;
-+			return -EINVAL;
- 	}
- 	return 0;
- }
-@@ -694,7 +692,7 @@ static ssize_t qlcnic_sysfs_write_npar_config(struct file *file,
- 	count	= size / sizeof(struct qlcnic_npar_func_cfg);
- 	rem	= size % sizeof(struct qlcnic_npar_func_cfg);
- 	if (rem)
--		return QL_STATUS_INVALID_PARAM;
-+		return -EINVAL;
- 
- 	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
- 	np_cfg = (struct qlcnic_npar_func_cfg *)buf;
-@@ -717,7 +715,7 @@ static ssize_t qlcnic_sysfs_write_npar_config(struct file *file,
- 			return ret;
- 		index = qlcnic_is_valid_nic_func(adapter, pci_func);
- 		if (index < 0)
--			return QL_STATUS_INVALID_PARAM;
-+			return -EINVAL;
- 		adapter->npars[index].min_bw = nic_info.min_tx_bw;
- 		adapter->npars[index].max_bw = nic_info.max_tx_bw;
- 	}
-@@ -784,13 +782,13 @@ static ssize_t qlcnic_sysfs_get_port_stats(struct file *file,
- 	int ret;
- 
- 	if (qlcnic_83xx_check(adapter))
--		return QLC_STATUS_UNSUPPORTED_CMD;
-+		return -EOPNOTSUPP;
- 
- 	if (size != sizeof(struct qlcnic_esw_statistics))
--		return QL_STATUS_INVALID_PARAM;
-+		return -EINVAL;
- 
- 	if (offset >= adapter->ahw->max_vnic_func)
--		return QL_STATUS_INVALID_PARAM;
-+		return -EINVAL;
- 
- 	memset(&port_stats, 0, size);
- 	ret = qlcnic_get_port_stats(adapter, offset, QLCNIC_QUERY_RX_COUNTER,
-@@ -819,13 +817,13 @@ static ssize_t qlcnic_sysfs_get_esw_stats(struct file *file,
- 	int ret;
- 
- 	if (qlcnic_83xx_check(adapter))
--		return QLC_STATUS_UNSUPPORTED_CMD;
-+		return -EOPNOTSUPP;
- 
- 	if (size != sizeof(struct qlcnic_esw_statistics))
--		return QL_STATUS_INVALID_PARAM;
-+		return -EINVAL;
- 
- 	if (offset >= QLCNIC_NIU_MAX_XG_PORTS)
--		return QL_STATUS_INVALID_PARAM;
-+		return -EINVAL;
- 
- 	memset(&esw_stats, 0, size);
- 	ret = qlcnic_get_eswitch_stats(adapter, offset, QLCNIC_QUERY_RX_COUNTER,
-@@ -853,10 +851,10 @@ static ssize_t qlcnic_sysfs_clear_esw_stats(struct file *file,
- 	int ret;
- 
- 	if (qlcnic_83xx_check(adapter))
--		return QLC_STATUS_UNSUPPORTED_CMD;
-+		return -EOPNOTSUPP;
- 
- 	if (offset >= QLCNIC_NIU_MAX_XG_PORTS)
--		return QL_STATUS_INVALID_PARAM;
-+		return -EINVAL;
- 
- 	ret = qlcnic_clear_esw_stats(adapter, QLCNIC_STATS_ESWITCH, offset,
- 				     QLCNIC_QUERY_RX_COUNTER);
-@@ -883,10 +881,10 @@ static ssize_t qlcnic_sysfs_clear_port_stats(struct file *file,
- 	int ret;
- 
- 	if (qlcnic_83xx_check(adapter))
--		return QLC_STATUS_UNSUPPORTED_CMD;
-+		return -EOPNOTSUPP;
- 
- 	if (offset >= adapter->ahw->max_vnic_func)
--		return QL_STATUS_INVALID_PARAM;
-+		return -EINVAL;
- 
- 	ret = qlcnic_clear_esw_stats(adapter, QLCNIC_STATS_PORT, offset,
- 				     QLCNIC_QUERY_RX_COUNTER);
-@@ -953,9 +951,7 @@ static ssize_t qlcnic_83xx_sysfs_flash_read_handler(struct file *filp,
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
- 
- 	if (!size)
--		return QL_STATUS_INVALID_PARAM;
--	if (!buf)
--		return QL_STATUS_INVALID_PARAM;
-+		return -EINVAL;
- 
- 	count = size / sizeof(u32);
- 
-@@ -1132,9 +1128,6 @@ static ssize_t qlcnic_83xx_sysfs_flash_write_handler(struct file *filp,
- 	struct device *dev = container_of(kobj, struct device, kobj);
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
- 
--	if (!buf)
--		return QL_STATUS_INVALID_PARAM;
--
- 	ret = kstrtoul(buf, 16, &data);
- 
- 	switch (data) {
--- 
-2.1.4
+PiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gRnJvbTogUm9zZSwgR3JlZ29yeSBW
+DQo+ID4gU2VudDogRnJpZGF5LCBNYXkgMjIsIDIwMTUgODowOCBBTQ0KPiA+IFRvOiBIaXJvc2hp
+IFNoaW1hbW90bzsgU2tpZG1vcmUsIERvbmFsZCBDOyBLaXJzaGVyLCBKZWZmcmV5IFQ7IGludGVs
+LXdpcmVkLQ0KPiA+IGxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+ID4gQ2M6IG5ob3JtYW5AcmVkaGF0
+LmNvbTsgam9ncmVlbmVAcmVkaGF0LmNvbTsgTGludXggTmV0ZGV2IExpc3Q7IENob2ksDQo+ID4g
+U3kgSm9uZzsgUm9ueSBFZnJhaW07IERhdmlkIE1pbGxlcjsgRWR3YXJkIENyZWU7IE9yIEdlcmxp
+dHo7DQo+ID4gc2Fzc21hbm5AcmVkaGF0LmNvbQ0KPiA+IFN1YmplY3Q6IFJFOiBbUEFUQ0ggdjUg
+My8zXSBpeGdiZTogQWRkIG5ldyBuZG8gdG8gdHJ1c3QgVkYNCj4gPg0KPiA+DQo+ID4gPiAtLS0t
+LU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+ID4gRnJvbTogSW50ZWwtd2lyZWQtbGFuDQo+ID4g
+PiBbbWFpbHRvOmludGVsLXdpcmVkLWxhbi1ib3VuY2VzQGxpc3RzLm9zdW9zbC5vcmddIE9uIEJl
+aGFsZiBPZiBIaXJvc2hpDQo+ID4gPiBTaGltYW1vdG8NCj4gPiA+IFNlbnQ6IFRodXJzZGF5LCBN
+YXkgMjEsIDIwMTUgNzozMSBQTQ0KPiA+ID4gVG86IFNraWRtb3JlLCBEb25hbGQgQzsgS2lyc2hl
+ciwgSmVmZnJleSBUOyBpbnRlbC13aXJlZC0NCj4gPiA+IGxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+
+ID4gPiBDYzogbmhvcm1hbkByZWRoYXQuY29tOyBqb2dyZWVuZUByZWRoYXQuY29tOyBMaW51eCBO
+ZXRkZXYgTGlzdDsgQ2hvaSwNCj4gPiA+IFN5IEpvbmc7IFJvbnkgRWZyYWltOyBEYXZpZCBNaWxs
+ZXI7IEVkd2FyZCBDcmVlOyBPciBHZXJsaXR6Ow0KPiA+ID4gc2Fzc21hbm5AcmVkaGF0LmNvbQ0K
+PiA+ID4gU3ViamVjdDogUmU6IFtJbnRlbC13aXJlZC1sYW5dIFtQQVRDSCB2NSAzLzNdIGl4Z2Jl
+OiBBZGQgbmV3IG5kbyB0bw0KPiA+ID4gdHJ1c3QgVkYNCj4gPiA+DQo+ID4NCj4gPiBbYmlnIHNu
+aXBdDQo+ID4NCj4gPiA+IEkgdGhpbmsgeW91ciBjb25jZXJucyBhcmUgcmVsYXRlZCB0byBzb21l
+IG9wZXJhdGlvbmFsIGFzc3VtcHRpb25zLg0KPiA+ID4gTXkgYmFzaWMgY29uY2VwdCBpcywgbm90
+IHRvIGNoYW5nZSB0aGUgYmVoYXZpb3Igb2YgVk0sIGV4aXN0aW5nIHVzZXINCj4gPiA+IG9wZXJh
+dGlvbi4NCj4gPiA+IEkgbWVhbiB0aGF0IEkgZGlkbid0IHRoaW5rIGl0J3MgYmV0dGVyIHRoYXQg
+dGhlIHVzZXIgc2hvdWxkIGNoZWNrIHRoZQ0KPiA+ID4gYm90aCBvZiB0aGUgaXhnYmV2ZiBkcml2
+ZXIgY2FuIGRlYWwgd2l0aCBuZXcgQVBJIGFuZCB0aGUgVkYgaXMgdHJ1c3RlZC4NCj4gPiA+DQo+
+ID4gPiBOb3csIEkgdGhpbmsgdGhlIHBvaW50IGlzIHdobyB0YWtlcyBjYXJlIHdoZXRoZXIgdGhl
+IFZGIGlzIHRydXN0ZWQuIFJpZ2h0Pw0KPiA+ID4gSXQgc2VlbXMgdGhhdCB5b3UgdGhpbmsgdGhl
+IFZGIHVzZXIgc2hvdWxkIGhhbmRsZSB0aGF0IHVzZXIgaXMgdHJ1c3RlZA0KPiA+ID4gYW5kIGRv
+IHNvbWV0aGluZyB3aXRoIGEgbm90aWNlIHRoYXQgInlvdSdyZSB0cnVzdGVkIG9yIHVudHJ1c3Rl
+ZCIgZnJvbQ0KPiA+ID4gdGhlIGhvc3QuDQo+ID4gPiBJcyB0aGF0IGNvcnJlY3Q/DQo+ID4gPiBJ
+IG1hZGUgaXQgaW4gUEYgc2lkZSwgYmVjYXVzZSBpdCBsb29rcyBlYXN5IHRvIGhhbmRsZSBpdC4g
+SWYgc29tZXRoaW5nDQo+ID4gPiB0byBkbyBpbiBWRiBzaWRlLCBJIHRoaW5rIGl4Z2JldmYgZHJp
+dmVyIHNob3VsZCBoYW5kbGUgaXQuDQo+ID4NCj4gPiBTZXR0aW5nIHRoZSBWRiB0cnVzdGVkIG1v
+ZGUgZmVhdHVyZSBzaG91bGQgb25seSBiZSBhbGxvd2VkIHRocm91Z2ggdGhlIFBGDQo+ID4gYXMg
+aXQgaXMgdGhlIG9ubHkgdHJ1c3RlZCBlbnRpdHkgZnJvbSB0aGUgc3RhcnQuICBXZSBkbyBub3Qg
+d2FudCB0aGUgVkYgYmVpbmcNCj4gPiBhYmxlIHRvIGRlY2lkZSBmb3IgaXRzZWxmIHRvIGJlIHRy
+dXN0ZWQuDQo+ID4NCj4gPiAtIEdyZWcNCj4gPg0KPiANCj4gSSBjb21wbGV0ZWx5IGFncmVlIHdp
+dGggR3JlZyBhbmQgbmV2ZXIgbWVhbnQgdG8gaW1wbHkgYW55dGhpbmcgZWxzZS4NCj4gDQo+IFRo
+ZSBQRiBzaG91bGQgYmUgd2hlcmUgYSBnaXZlbiBWRiBpcyBtYWRlICJ0cnVzdGVkIi4gIExpa2V3
+aXNlIGEgVkYgY2FuIGdldCBwcm9tb3RlZCB0byBNQyBQcm9taXNjdW91cyBidXkgcmVxdWVzdGlu
+Zw0KPiBvdmVyIDMwIE1DIGdyb3Vwcy4gIEkgbGlrZSB0aGlzIGFuZCB5b3VyIHBhdGNoIGN1cnJl
+bnRseSBkb2VzIHRoaXMuICBTbyBmb3IgZXhhbXBsZSBiZWxvdzoNCj4gDQo+IFBGCQkJCQlWRg0K
+PiAtLS0tLS0tLS0tCQkJCS0tLS0tLS0tLS0tDQo+IFNldCBnaXZlbiBWRiBhcyB0cnVzdGVkDQo+
+IAkJCQkJUmVxdWVzdCAzMCsgTUMgZ3JvdXBzIHZpYSBNYWlsIEJveA0KPiBQdXQgUEYgaW4gTUMg
+UHJvbWlzY3VvdXMgbW9kZQ0KPiANCj4gDQo+IFdoYXQgSSBhbSBjb25jZXJuZWQgYWJvdXQgaXMg
+dGhlIGZvbGxvd2luZyBmbG93IHdoZXJlIHdlIHNlZW0gdG8gc3RvcmUgdGhlIGZhY3QgdGhlIFZG
+IHJlcXVlc3RzIG1vcmUgdGhhbiAzMCsgTUMgZ3JvdXBzDQo+IHNvIHRoYXQgd2UgY2FuIGF1dG9t
+YXRpY2FsbHkgZW50ZXIgTUMgUHJvbWlzYyBNb2RlIGlmIHRoYXQgVkYgaXMgZXZlciBtYWRlIHRy
+dXN0ZWQuDQo+IA0KPiBQRgkJCQkJVkYNCj4gLS0tLS0tLS0tLS0JCQkJLS0tLS0tLS0tLQ0KPiBD
+dXJyZW50bHkgVkYgaXMgTk9UIHRydXN0ZWQNCj4gCQkJCQlSZXF1ZXN0IDMwKyBNQyBncm91cHMg
+dmlhIE1haWwgQm94DQo+IERvIE5PVCBwdXQgUEYgaW4gTUMgUHJvbWlzYw0KPiAoaHctPm1hYy5t
+Y19wcm9taXNjID0gdHJ1ZSkNCj4gDQo+IDwgU29tZSB0aW1lIGxhdGVyID4NCj4gDQo+IFNldCBn
+aXZlbiBWRiBhcyB0cnVzdGVkDQo+IChiZWNhdXNlIG1jX3Byb21pc2Mgc2V0KSBQdXQgUEYgaW4g
+TUMgUHJvbWlzYw0KPiANCj4gDQo+IEkgZG9uJ3QgbGlrZSB0aGUgZmFjdCB0aGF0IHRoZSBQRiBy
+ZW1lbWJlcnMgdGhhdCB0aGUgVkYgd2FzIGRlbmllZCBNQyBQcm9taXNjdW91cyBtb2RlIGluIHRo
+ZSBwYXN0LiAgQW5kIGJlY2F1c2Ugb2YgdGhhdA0KPiBhdXRvbWF0aWNhbGx5IHB1dCB0aGUgVkYg
+aW4gTUMgUHJvbWlzY3VvdXMgbW9kZSB3aGVuIGl0IGJlY29tZXMgdHJ1c3RlZC4gIE1heWJlIHNo
+b3dpbmcgaW4gY29kZSB3aGF0IEkgd291bGQgbGlrZSByZW1vdmVkL2FkZGVkDQo+IHdvdWxkIGJl
+IG1vcmUgaGVscGZ1bCwgcHJvYmFibHkgc2hvdWxkIGhhdmUgc3RhcnRlZCBkb2luZyB0aGF0LiA6
+KQ0KDQpEbyB5b3UgbWVhbiB0aGF0IFZGIHNob3VsZCBjYXJlIGFib3V0IGl0IGlzIHRydXN0ZWQg
+b3Igbm90Pw0KU2hvdWxkIFZGIHJlcXVlc3QgTUMgUHJvbWlzYyBhZ2FpbiB3aGVuIGl0J3MgdHJ1
+c3RlZD8NCk9yLCBkbyB5b3UgbWVhbiBWRiBuZXZlciBiZSB0cnVzdGVkIGR1cmluZyBpdHMgKG9y
+IFZNJ3MpIGxpZmV0aW1lPw0KDQpBbmQgd2hhdCBkbyB5b3UgdGhpbmsgYWJvdXQgYmVpbmcgdW50
+cnVzdGVkIGZyb20gdHJ1c3RlZCBzdGF0ZT8NCg0KPiANCj4gSSB3b3VsZCByZW1vdmUgdGhpcyBi
+aXQgb2YgY29kZSBmcm9tIGl4Z2JlX25kb19zZXRfdmZfdHJ1c3QoKToNCj4gDQo+IGludCBpeGdi
+ZV9uZG9fc2V0X3ZmX3RydXN0KHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYsIGludCB2ZiwgYm9v
+bA0KPiBzZXR0aW5nKSB7DQo+IAlzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlciA9IG5ldGRl
+dl9wcml2KG5ldGRldik7DQo+IA0KPiAJaWYgKHZmID49IGFkYXB0ZXItPm51bV92ZnMpDQo+IAkJ
+cmV0dXJuIC1FSU5WQUw7DQo+IA0KPiAJLyogbm90aGluZyB0byBkbyAqLw0KPiAJaWYgKGFkYXB0
+ZXItPnZmaW5mb1t2Zl0udHJ1c3RlZCA9PSBzZXR0aW5nKQ0KPiAJCXJldHVybiAwOw0KPiANCj4g
+CWFkYXB0ZXItPnZmaW5mb1t2Zl0udHJ1c3RlZCA9IHNldHRpbmc7DQo+IA0KPiAtCS8qIFJlY29u
+ZmlndXJlIGZlYXR1cmVzIHdoaWNoIGFyZSBvbmx5IGFsbG93ZWQgZm9yIHRydXN0ZWQgVkYgKi8N
+Cj4gLQkvKiBWRiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9kZSAqLw0KPiAtCWlmIChhZGFwdGVy
+LT52ZmluZm9bdmZdLm1jX3Byb21pc2MpDQo+IC0JCWl4Z2JlX2VuYWJsZV92Zl9tY19wcm9taXNj
+KGFkYXB0ZXIsIHZmKTsNCg0KSSB1bmRlcnN0YW5kLCB5b3UgZG9uJ3QgdGhpbmsgd2UgbmVlZCB0
+byBoYXZlIGEgY2FwYWJpbGl0eSB0byBlbmFibGUvZGlzYWJsZSBNQyBQcm9taXNjIG9uIHRoZSBm
+bHkuDQoNCj4gDQo+IAlyZXR1cm4gMDsNCj4gfQ0KPiANCj4gVGhpcyBvZiBjb3Vyc2Ugd291bGQg
+YmUgd2Ugc2hvdWxkIG5vdCBzZXQgbWNfcHJvbWlzYyBldmVyIGlmIHdlIGFyZSBOT1QgdHJ1c3Rl
+ZCAoYWRhcHRlci0+dmZpbmZvW3ZmXS50cnVzdGVkKSBzbyBpbg0KPiBpeGdiZV9zZXRfdmZfbWNf
+cHJvbWlzYygpIEkgd291bGQgYWRkIG9yIHNvbWV0aGluZyBsaWtlIGl0Og0KPiANCj4gc3RhdGlj
+IGludCBpeGdiZV9zZXRfdmZfbWNfcHJvbWlzYyhzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRl
+ciwNCj4gCQkJCSAgIHUzMiAqbXNnYnVmLCB1MzIgdmYpDQo+IHsNCj4gCWJvb2wgZW5hYmxlID0g
+ISFtc2didWZbMV07CS8qIG1zZ2J1ZiBjb250YWlucyB0aGUgZmxhZyB0byBlbmFibGUgKi8NCj4g
+DQo+IAlzd2l0Y2ggKGFkYXB0ZXItPnZmaW5mb1t2Zl0udmZfYXBpKSB7DQo+IAljYXNlIGl4Z2Jl
+X21ib3hfYXBpXzEyOg0KPiAJCWJyZWFrOw0KPiAJZGVmYXVsdDoNCj4gCQlyZXR1cm4gLTE7DQo+
+IAl9DQo+IA0KPiArCS8qIGhhdmUgdG8gYmUgdHJ1c3RlZCAqLw0KPiArCUlmICghYWRhcHRlci0+
+dmZpbmZvW3ZmXS50cnVzdGVkKQ0KPiArCQlSZXR1cm4gMDsNCg0KU2hvdWxkIHdlIHJldHVybiBh
+biBlcnJvciB0byBWRiB0byBpbmZvcm0gaXQgaXNuJ3QgdHJ1c3RlZD8NCg0KPiArDQo+IAkvKiBu
+b3RoaW5nIHRvIGRvICovDQo+IAlpZiAoYWRhcHRlci0+dmZpbmZvW3ZmXS5tY19wcm9taXNjID09
+IGVuYWJsZSkNCj4gCQlyZXR1cm4gMDsNCj4gDQo+IAlhZGFwdGVyLT52ZmluZm9bdmZdLm1jX3By
+b21pc2MgPSBlbmFibGU7DQo+IA0KPiAJaWYgKGVuYWJsZSkNCj4gCQlyZXR1cm4gaXhnYmVfZW5h
+YmxlX3ZmX21jX3Byb21pc2MoYWRhcHRlciwgdmYpOw0KPiAJZWxzZQ0KPiAJCXJldHVybiBpeGdi
+ZV9kaXNhYmxlX3ZmX21jX3Byb21pc2MoYWRhcHRlciwgdmYpOyB9DQo+IA0KPiANCj4gRG9lcyB0
+aGlzIGJldHRlciBleHBsYWluIHdoYXQgbXkgY29uY2VybiBpcz8NCg0KeWVzLCBJIHNlZSwgYnV0
+IEkgd291bGQgbGlrZSB0byBjbGFyaWZ5IHRoZSBhYm92ZSB0aGluZ3MuDQoNCnRoYW5rcywNCkhp
+cm9zaGkNCg==
