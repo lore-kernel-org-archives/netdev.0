@@ -1,43 +1,45 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net] x86: bpf_jit: fix compilation of large bpf programs
-Date: Tue, 26 May 2015 13:40:15 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB3EA6A@AcuExch.aculab.com>
-References: <1432334575-16959-1-git-send-email-ast@plumgrid.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH] sched: Avoid NULL pointer in the function, qdisc_get_rtab
+Date: Tue, 26 May 2015 05:31:01 -0400
+Message-ID: <55643D55.5070709@mojatatu.com>
+References: <1432315985-11857-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Eric Dumazet <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Alexei Starovoitov' <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Nicholas Krause <xerofoify@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.192]:53807 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932439AbbEZNlz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 09:41:55 -0400
-In-Reply-To: <1432334575-16959-1-git-send-email-ast@plumgrid.com>
-Content-Language: en-US
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:35060 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753367AbbEZNsE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 09:48:04 -0400
+Received: by igbyr2 with SMTP id yr2so58402511igb.0
+        for <netdev@vger.kernel.org>; Tue, 26 May 2015 06:48:04 -0700 (PDT)
+In-Reply-To: <1432315985-11857-1-git-send-email-xerofoify@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov
-> Sent: 22 May 2015 23:43
-> x86 has variable length encoding. x86 JIT compiler is trying
-> to pick the shortest encoding for given bpf instruction.
-> While doing so the jump targets are changing, so JIT is doing
-> multiple passes over the program. Typical program needs 3 passes.
-> Some very short programs converge with 2 passes. Large programs
-> may need 4 or 5. But specially crafted bpf programs may hit the
-> pass limit and if the program converges on the last iteration
-> the JIT compiler will be producing an image full of 'int 3' insns.
-> Fix this corner case by doing final iteration over bpf program.
+On 05/22/15 13:33, Nicholas Krause wrote:
 
-If the JIT compiler is only changing the encoding of the constants
-in the x86 instructions (rather than changing the instructions themselves)
-then there is likely to me an unmeasurable change in the execution time.
-For instance I don't remember there being a difference in execution time
-between long and short branches - the only difference is the amount of
-cache they use.
+>
+> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+> index ad9eed7..44a8995 100644
+> --- a/net/sched/sch_api.c
+> +++ b/net/sched/sch_api.c
+> @@ -400,7 +400,7 @@ struct qdisc_rate_table *qdisc_get_rtab(struct tc_ratespec *r, struct nlattr *ta
+>   	}
+>
+>   	rtab = kmalloc(sizeof(*rtab), GFP_KERNEL);
+> -	if (rtab) {
+> +	if (!rtab) {
+>   		rtab->rate = *r;
+>   		rtab->refcnt = 1;
+>   		memcpy(rtab->data, nla_data(tab), 1024);
+>
 
-	David
+Did i miss something so clever it is not obvious? ;->
+If rtab's kmalloc fails  you want to set rtab's fields?
+And what is wrong with returning a null rtab again?
+
+cheers,
+jamal
