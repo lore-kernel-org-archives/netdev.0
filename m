@@ -1,60 +1,51 @@
-From: Ido Yariv <ido@wizery.com>
-Subject: [PATCH] net: tcp: Fix a PTO timing granularity issue
-Date: Tue, 26 May 2015 16:17:17 -0400
-Message-ID: <1432671437-19140-1-git-send-email-ido@wizery.com>
-References: <1432663992.4060.286.camel@edumazet-glaptop2.roam.corp.google.com>
-Cc: Ido Yariv <ido@wizery.com>, Ido Yariv <idox.yariv@intel.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f178.google.com ([209.85.220.178]:36049 "EHLO
-	mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751475AbbEZUUL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 16:20:11 -0400
-Received: by qkx62 with SMTP id 62so99402192qkx.3
-        for <netdev@vger.kernel.org>; Tue, 26 May 2015 13:20:10 -0700 (PDT)
-In-Reply-To: <1432663992.4060.286.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH] staging: r8712u: Fix kernel warning for improper call of
+ del_timer_sync()
+Date: Tue, 26 May 2015 23:25:43 +0300
+Message-ID: <20150526202543.GD11734@mwanda>
+References: <20150525091737.GQ4150@mwanda>
+ <1432575448.2846.63.camel@perches.com>
+ <20150526044611.GA3465@sudip-PC>
+ <1432616108.2846.83.camel@perches.com>
+ <20150526050212.GC3465@sudip-PC>
+ <1432616879.2846.86.camel@perches.com>
+ <20150526141401.GC21573@kroah.com>
+ <1432651739.2846.93.camel@perches.com>
+ <20150526163555.GA9685@kroah.com>
+ <1432659977.2846.100.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, Sudip Mukherjee <sudip@vectorindia.org>,
+ Greg KH <gregkh@linuxfoundation.org>, Haggai Eran <haggai.eran@gmail.com>,
+ linux-wireless@vger.kernel.org, Stable <stable@vger.kernel.org>,
+ netdev@vger.kernel.org, Arek Rusniak <arek.rusi@gmail.com>,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: Joe Perches <joe@perches.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <1432659977.2846.100.camel@perches.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-The Tail Loss Probe RFC specifies that the PTO value should be set to
-max(2 * SRTT, 10ms), where SRTT is the smoothed round-trip time.
+On Tue, May 26, 2015 at 10:06:17AM -0700, Joe Perches wrote:
+> If you're collecting them, I suggest you stick them in
+> a separate branch, post them to your driverdev list and
+> cc the appropriate maintainers, wait a week, then apply
+> them to your main branch.
 
-The PTO value is converted to jiffies, so the timer may expire
-prematurely.
+That would work.  A massive thread is easy to delete.  Or even just
+apply them first, and we tell people to send follow on patches or revert
+as needed.  My whole setup revolves around email so finding and
+reviewing patches using git log is awkward.
 
-This is especially problematic on systems in which HZ <= 100, so work
-around this by setting the timeout to at least 2 jiffies on such
-systems.
-
-The 10ms figure was originally selected based on tests performed with
-the current implementation and HZ = 1000. Thus, leave the behavior on
-systems with HZ > 100 unchanged.
-
-Signed-off-by: Ido Yariv <idox.yariv@intel.com>
----
- net/ipv4/tcp_output.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 534e5fd..5321df8 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2208,6 +2208,9 @@ bool tcp_schedule_loss_probe(struct sock *sk)
- 		timeout = max_t(u32, timeout,
- 				(rtt + (rtt >> 1) + TCP_DELACK_MAX));
- 	timeout = max_t(u32, timeout, msecs_to_jiffies(10));
-+#if HZ <= 100
-+	timeout = max_t(u32, timeout, 2);
-+#endif
- 
- 	/* If RTO is shorter, just schedule TLP in its place. */
- 	tlp_time_stamp = tcp_time_stamp + timeout;
--- 
-2.1.0
+regards,
+dan carpenter
