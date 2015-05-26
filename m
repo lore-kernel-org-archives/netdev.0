@@ -1,90 +1,92 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Re: [PATCH net-next v2 0/7] netns: ease netlink use with a lot of
- netns
-Date: Tue, 26 May 2015 12:53:11 +0200
-Message-ID: <55645097.5000509@ahsoftware.de>
-References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>	<1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com> <874mnn9t12.fsf@x220.int.ebiederm.org> <555F969B.3090706@ahsoftware.de> <5562D315.9070405@6wind.com> <5562FFB0.40708@ahsoftware.de> <55631F22.90903@6wind.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH/RFC net-next] rocker: by default accept untagged packets
+Date: Tue, 26 May 2015 02:04:00 -0700
+Message-ID: <CAE4R7bBYK0zJbb_q0BUowh_jrrCMapVq8xouD5bv56hPXYGsWQ@mail.gmail.com>
+References: <1432601703-26774-1-git-send-email-simon.horman@netronome.com>
+	<CAE4R7bAEQDE0QCnfVet29BZ574vVFqBoXv_EbyhYXYvBqo_xEA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev@vger.kernel.org, tgraf@suug.ch, davem@davemloft.net
-To: nicolas.dichtel@6wind.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>, David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [85.214.92.142] ([85.214.92.142]:48043 "EHLO mail.ahsoftware.de"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752987AbbEZKyO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 06:54:14 -0400
-Received: from wandq.ahsoftware (p4FC36136.dip0.t-ipconnect.de [79.195.97.54])
-	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mail.ahsoftware.de (Postfix) with ESMTPSA id 0E04A2C9C1C7
-	for <netdev@vger.kernel.org>; Tue, 26 May 2015 12:53:16 +0200 (CEST)
-In-Reply-To: <55631F22.90903@6wind.com>
+Received: from [209.85.220.181] ([209.85.220.181]:35806 "EHLO
+	mail-qk0-f181.google.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752641AbbEZMrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 08:47:52 -0400
+Received: by qkdn188 with SMTP id n188so87381868qkd.2
+        for <netdev@vger.kernel.org>; Tue, 26 May 2015 05:46:51 -0700 (PDT)
+In-Reply-To: <CAE4R7bAEQDE0QCnfVet29BZ574vVFqBoXv_EbyhYXYvBqo_xEA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 25.05.2015 um 15:09 schrieb Nicolas Dichtel:
-> Le 25/05/2015 12:55, Alexander Holler a =C3=A9crit :
->> Am 25.05.2015 um 09:45 schrieb Nicolas Dichtel:
->>> Le 22/05/2015 22:50, Alexander Holler a =C3=A9crit :
+On Tue, May 26, 2015 at 12:28 AM, Scott Feldman <sfeldma@gmail.com> wrote:
+> On Mon, May 25, 2015 at 5:55 PM, Simon Horman
+> <simon.horman@netronome.com> wrote:
+>> This will occur anyway if the 8021q module is loaded as it will
+>> call rocker_port_vlan_rx_add_vid for vlan 0. This code is here
+>> to handle the case where the 8021q module is not loaded.
 >>
->>>> First I think if NETLINK_LISTEN_ALL_NSID is enabled, a dump
->>>> of the interfaces through RTM_GETLINK together with NLM_F_DUMP and
->>>> NLM_F_REQUEST should return all interfaces of all reachable namesp=
-aces.
->>> This option is only for 'listening', ie spontaneous notifications
->>> from the
->>> kernel. It does nothing for request.
+>> This patch also handles the case where the 8021q is unloaded
+>> removing all VLANs from all ports.
 >>
->> The problem is that you need informations about the affected
->> interfaces. E.g. if
->> you receive an NEWADDR or NEWROUTE for some interface (indicated by
->> the index of
->> the interface) in a(nother) namespace, how do you get informations
->> about that
->> interface, if not by a dump which includes the interfaces of these
->> namespaces
->> too? Without knowledge about the interface, these messages are not
->> very usable. ;)
-> Yes, this is the right things.
+>> This change should not affect bridging, although the rules are
+>> harmlessly installed anyway. This is in keeping with the behaviour
+>> for VLANs when the 8021q modules is loaded.
+>>
+>> To aid implementation of the above provide a helper
+>> and use it to replace some existing code.
+>>
+>> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+
+[cut]
+
 >
-> Usually, a daemon opens a socket to listen netlink event. Then, it op=
-ens
-> another netlink socket to dump the configuration (interfaces, address=
-es,
-> routes, etc.) and fill its internal structures. Starting from that
-> point, for
-> most of configuration parameters, it doesn't need anymore to do dumps
-> and thus
-> it can close the second socket. This allows your daemon to have only =
-one
-> socket
-> to monitor a set a netns.
-> Look at iproute for example, it starts by dumping all interfaces befo=
-re
-> executing the specified command.
+> Hi Simon,
+>
+> Thanks for looking into this one.  I looked at your patch and the code
+> and I think we can streamline it a little bit more.  For the
+> no-8021q-module case we use rocker_port_vlan_add() and
+> rocker_port_vlan_del() to add/del bridge vlans.  We should be able to
+> move those functions up in the file so they can be called from
+> rocker_port_vlan_rx_add_vid() and rocker_port_vlan_rx_kill_vid(),
+> passing trans=SWITCHDEV_TRANS_NONE, but only if vid != 0.  Next, like
+> in your patch, we need to call rocker_port_vlan_add() in
+> rocker_port_open(), passing in vid=0 for untagged.  And in
+> rocker_port_stop(), call rocker_port_vlan_del(), again passing in
+> vid=0.
+>
+> To summarize:
+>
+> Call rocker_port_vlan_add() from:
+>
+> 1) rocker_port_open with vid=0
+> 2) rocker_port_vlans_add()                             // bridge vlan
+> 3) rocker_port_vlan_rx_add_vid() if vid != 0       // 8021q vlan
+>
+> Call rocker_port_vlan_del() from:
+>
+> 1) rocker_port_stop with vid=0
+> 2) rocker_port_vlans_del()                              // bridge vlan
+> 3) rocker_port_vlan_rx_kill_vid() if vid != 0        // 8021q vlan
+>
+> Does this look right?
 
-Hmm, sounds like we're talking in different rooms about the same thing=20
-in regard to the dump. ;)
 
-I just wanted to explain why I think this series misses the (extended)=20
-dump which includes all interfaces (those of other namespaces too).
+Hmmmm...things get simpler if we removed support for 8021q module in
+rocker driver by removing NETIF_F_HW_VLAN_CTAG_FILTER.  That gets rid
+of rocker_port_vlan_rx_add_vid() and rocker_port_vlan_rx_kill_vid().
+Leaving us with the bridge VLAN interface to add/del/show vlans on the
+port.  I'm wondering if we can also avoid setting up untagged traffic
+on the port during port open by requiring a explicit command on the
+port from the user:
 
-How does one use NETLINK_LISTEN_ALL_NSID without beeing able to dump al=
-l=20
-the interfaces of namespaces your patch series might send messages for?
+bridge vlan add vid 0 dev DEV master self        // enable untagged
+traffic on port
 
-The only way I currently see, is to start the listening part before any=
-=20
-namespace is created. Doing so, it can fill it's internal structures=20
-with the RTM_NEWLINK messages (besides that missing one for lo). But ho=
-w=20
-do you get these RTM_NEWLINK messages for already created namespaces an=
-d=20
-their interfaces, if not by a dump?
+Do you have a requirement for 8021q module?  I'm leaning towards a
+clean break from 8021q and using just the built-in bridge VLAN
+support.  I'm curious if others have an opinion about 8021q module
+used with switchdev devices.
 
-Regards,
-
-Alexander Holler
+-scott
