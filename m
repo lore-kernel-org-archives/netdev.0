@@ -1,98 +1,57 @@
-From: Ido Yariv <ido@wizery.com>
-Subject: Re: [PATCH] net: tcp: Fix a PTO timing granularity issue
-Date: Tue, 26 May 2015 13:02:22 -0400
-Message-ID: <20150526170222.GA13376@WorkStation.home>
-References: <1432650358-11470-1-git-send-email-ido@wizery.com>
- <1432657435.4060.267.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] staging: r8712u: Fix kernel warning for improper call
+ of del_timer_sync()
+Date: Tue, 26 May 2015 10:06:17 -0700
+Message-ID: <1432659977.2846.100.camel@perches.com>
+References: <CAJ=9CzbPmo+f4zjY4CqQ7TsUENpwy+zHcpxeLTbAH0DAZSkqsQ@mail.gmail.com>
+	 <556268BC.5050807@lwfinger.net> <20150525091737.GQ4150@mwanda>
+	 <1432575448.2846.63.camel@perches.com> <20150526044611.GA3465@sudip-PC>
+	 <1432616108.2846.83.camel@perches.com> <20150526050212.GC3465@sudip-PC>
+	 <1432616879.2846.86.camel@perches.com> <20150526141401.GC21573@kroah.com>
+	 <1432651739.2846.93.camel@perches.com> <20150526163555.GA9685@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Nandita Dukkipati <nanditad@google.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ido Yariv <idox.yariv@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1432657435.4060.267.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
+	Dan Carpenter <dan.carpenter@oracle.com>,
+	devel@driverdev.osuosl.org,
+	Sudip Mukherjee <sudip@vectorindia.org>,
+	linux-wireless@vger.kernel.org, Stable <stable@vger.kernel.org>,
+	netdev@vger.kernel.org, Haggai Eran <haggai.eran@gmail.com>,
+	Arek Rusniak <arek.rusi@gmail.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20150526163555.GA9685@kroah.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Eric,
-
-On Tue, May 26, 2015 at 09:23:55AM -0700, Eric Dumazet wrote:
-> On Tue, 2015-05-26 at 10:25 -0400, Ido Yariv wrote:
-> > The Tail Loss Probe RFC specifies that the PTO value should be set to
-> > max(2 * SRTT, 10ms), where SRTT is the smoothed round-trip time.
+On Tue, 2015-05-26 at 09:35 -0700, Greg KH wrote:
+> On Tue, May 26, 2015 at 07:48:59AM -0700, Joe Perches wrote:
+> > > > The main point is that patches shouldn't be applied without
+> > > > being submitted to a more widely read list.
+> > > 
+> > > I take the blame for any problems with Outreachy patches.
 > > 
-> > The PTO value is converted to jiffies, so the timer might expire
-> > prematurely. This is especially problematic on systems in which HZ=100.
-> > 
-> > To work around this issue, increase the number of jiffies by one,
-> > ensuring that the timeout won't expire in less than 10ms.
-> > 
-> > Signed-off-by: Ido Yariv <idox.yariv@intel.com>
-> > ---
-> >  net/ipv4/tcp_output.c | 2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> > index 534e5fd..6f57d3d 100644
-> > --- a/net/ipv4/tcp_output.c
-> > +++ b/net/ipv4/tcp_output.c
-> > @@ -2207,7 +2207,7 @@ bool tcp_schedule_loss_probe(struct sock *sk)
-> >  	if (tp->packets_out == 1)
-> >  		timeout = max_t(u32, timeout,
-> >  				(rtt + (rtt >> 1) + TCP_DELACK_MAX));
-> > -	timeout = max_t(u32, timeout, msecs_to_jiffies(10));
-> > +	timeout = max_t(u32, timeout, msecs_to_jiffies(10) + 1);
-> >  
-> >  	/* If RTO is shorter, just schedule TLP in its place. */
-> >  	tlp_time_stamp = tcp_time_stamp + timeout;
+> > Are you going to change any procedure associated to these
+> > Outreachy patches?
 > 
-> Have you really hit an issue, or did you send this patch after all these
-> msecs_to_jiffies() discussions on lkml/netdev ?
-
-This actually fixed a specific issue I ran into. This issue caused a
-degradation in throughput in a benchmark which sent relatively small
-chunks of data (100KB) in a loop. The impact was quite substantial -
-with this patch, throughput increased by up to 50% on the platform this
-was tested on.
-
+> 2 bugs out of 900?  Nah, I think that's good odds.
 > 
-> Not sure this is the right fix.
-> 
-> TLP was really tested with an effective min delay of 10ms.
-> 
-> Adding 10% for the sake of crazy HZ=100 builds seems a high price.
-> (All recent TCP changes were tested with HZ=1000 BTW ...)
-> 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 534e5fdb04c11152bae36f47a786e8b10b823cd3..5321df89af9b59c6727395c489e6f9b2770dcd5e 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -2208,6 +2208,9 @@ bool tcp_schedule_loss_probe(struct sock *sk)
->  		timeout = max_t(u32, timeout,
->  				(rtt + (rtt >> 1) + TCP_DELACK_MAX));
->  	timeout = max_t(u32, timeout, msecs_to_jiffies(10));
-> +#if HZ <= 100
-> +	timeout = max_t(u32, timeout, 2);
-> +#endif
->  
->  	/* If RTO is shorter, just schedule TLP in its place. */
->  	tlp_time_stamp = tcp_time_stamp + timeout;
+> Also, the outreachy patch process would overwhelm everyone else on the
+> list, it's really high volume during the application phase, I'd prefer
+> it to stick with the mentors that wish to help out with the process.  If
+> you and/or Dan, or anyone else wishes to help out with this, I would
+> really appreciate it.  But I don't think that forcing them to post to
+> the driverdevel list is a good idea.
 
-This was actually the first incarnation of this patch. However, while
-the impact of this issue when HZ=100 is the greatest, it can also impact
-other settings as well. For instance, if HZ=250, the timer could expire
-after a bit over 8ms instead of 10ms, and 9ms for HZ=1000.
+I don't think that's necessary, but sending them to any
+listed maintainer should be.
 
-By increasing the number of jiffies, we ensure that we'll wait at least
-10ms but never less than that, so for HZ=1000, it'll be anywhere between
-10ms and 11ms instead of 9ms and 10ms.
+If you're collecting them, I suggest you stick them in
+a separate branch, post them to your driverdev list and
+cc the appropriate maintainers, wait a week, then apply
+them to your main branch.
 
-Thanks,
-Ido.
+You already batch post hundreds of patches for kernel
+x.y.z stable branches.  What's another few hundred?
