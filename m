@@ -1,33 +1,70 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 5/7] esp6: Switch to new AEAD interface
-Date: Tue, 26 May 2015 15:21:52 +0800
-Message-ID: <20150526072152.GA6407@gondor.apana.org.au>
-References: <20150521103938.GA23035@gondor.apana.org.au>
- <2066513.Bca9qAkvxD@tauon>
- <20150522071923.GA2777@gondor.apana.org.au>
- <2306681.gksi6E3i3N@tachyon.chronox.de>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: pull-request: mac80211 2015-05-26
+Date: Tue, 26 May 2015 09:25:03 +0200
+Message-ID: <1432625103.2141.5.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Stephan Mueller <smueller@chronox.de>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <2306681.gksi6E3i3N@tachyon.chronox.de>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:41730 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751011AbbEZHZG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 May 2015 03:25:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 26, 2015 at 08:39:56AM +0200, Stephan Mueller wrote:
-> 
-> May I also ask where I can find the generated IV when using rfc4106(gcm(aes))? 
+Hi Dave,
 
-You need to use the IV generator, seqniv(rfc4106(gcm(aes)))
+Unfortunately I neglected to send this to you last week before our long
+weekend.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+These changes look fairly big, but they're fairly contained to the
+remain-on- channel and AP_VLAN key handling code.
+
+However, if you think you don't want to pull them into net any more at
+this stage just let me know.
+
+Thanks,
+johannes
+
+
+The following changes since commit 47b4e1fc4972cc43a19121bc2608a60aef3bf216:
+
+  mac80211: move WEP tailroom size check (2015-05-11 14:51:29 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2015-05-26
+
+for you to fetch changes up to f9dca80b98caac8b4bfb43a2edf1e9f877ccf322:
+
+  mac80211: fix AP_VLAN crypto tailroom calculation (2015-05-20 15:10:11 +0200)
+
+----------------------------------------------------------------
+We have three more fixes:
+ * AP_VLAN tailroom calculation fix, the bug leads to warnings
+   along with dropped packets
+ * NAPI context issue, calling napi_gro_receive() from a timer
+   (obviously) can lead to crashes
+ * remain-on-channel combining leads to dropped requests and not
+   being able to finish certain operations, so remove it
+
+----------------------------------------------------------------
+Johannes Berg (2):
+      mac80211: don't use napi_gro_receive() outside NAPI context
+      mac80211: don't split remain-on-channel for coalescing
+
+Michal Kazior (1):
+      mac80211: fix AP_VLAN crypto tailroom calculation
+
+ net/mac80211/cfg.c         | 59 +++++++--------------------------
+ net/mac80211/ieee80211_i.h |  9 ++---
+ net/mac80211/iface.c       |  6 ++++
+ net/mac80211/key.c         | 82 +++++++++++++++++++++++++++++++++++++++++-----
+ net/mac80211/key.h         |  1 +
+ net/mac80211/rx.c          |  5 +--
+ net/mac80211/util.c        |  3 ++
+ 7 files changed, 100 insertions(+), 65 deletions(-)
