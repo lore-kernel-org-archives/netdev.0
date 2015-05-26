@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH RFC 1/3] ip_vti/ip6_vti: Do not touch skb->mark on
- xmit
-Date: Tue, 26 May 2015 15:41:17 -0700
-Message-ID: <20150526224117.1328.98060.stgit@ahduyck-vm-fedora22>
+Subject: [net-next PATCH RFC 3/3] ip_vti/ip6_vti: Preserve skb->mark after
+ rcv_cb call
+Date: Tue, 26 May 2015 15:41:29 -0700
+Message-ID: <20150526224129.1328.69180.stgit@ahduyck-vm-fedora22>
 References: <20150526223849.1328.64212.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,64 +10,92 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org
 To: steffen.klassert@secunet.com, davem@davemloft.net,
 	herbert@gondor.apana.org.au
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44318 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751085AbbEZWla (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 May 2015 18:41:30 -0400
 In-Reply-To: <20150526223849.1328.64212.stgit@ahduyck-vm-fedora22>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Instead of modifying skb->mark we can simply modify the flowi_mark that is
-generated as a result of the xfrm_decode_session.  By doing this we don't
-need to actually touch the skb->mark and it can be preserved as it passes
-out through the tunnel.
+The vti6_rcv_cb and vti_rcv_cb calls were leaving the skb->mark modified
+after completing the function.  This resulted in the original skb->mark
+value being lost.  Since we only need skb->mark to be set for
+xfrm_policy_check we can pull the assignment into the rcv_cb calls and then
+just restore the original mark after xfrm_policy_check has been completed.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/ipv4/ip_vti.c  |    5 +++--
- net/ipv6/ip6_vti.c |    4 +++-
- 2 files changed, 6 insertions(+), 3 deletions(-)
+ net/ipv4/ip_vti.c  |    9 +++++++--
+ net/ipv6/ip6_vti.c |    9 +++++++--
+ 2 files changed, 14 insertions(+), 4 deletions(-)
 
 diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 9f7269f3c54a..4c318e1c13c8 100644
+index 4c318e1c13c8..0c152087ca15 100644
 --- a/net/ipv4/ip_vti.c
 +++ b/net/ipv4/ip_vti.c
-@@ -216,8 +216,6 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -65,7 +65,6 @@ static int vti_input(struct sk_buff *skb, int nexthdr, __be32 spi,
+ 			goto drop;
  
- 	memset(&fl, 0, sizeof(fl));
+ 		XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4 = tunnel;
+-		skb->mark = be32_to_cpu(tunnel->parms.i_key);
  
--	skb->mark = be32_to_cpu(tunnel->parms.o_key);
--
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP):
- 		xfrm_decode_session(skb, &fl, AF_INET);
-@@ -233,6 +231,9 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 		return NETDEV_TX_OK;
+ 		return xfrm_input(skb, nexthdr, spi, encap_type);
  	}
+@@ -91,6 +90,8 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
+ 	struct pcpu_sw_netstats *tstats;
+ 	struct xfrm_state *x;
+ 	struct ip_tunnel *tunnel = XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4;
++	u32 orig_mark = skb->mark;
++	int ret;
  
-+	/* override mark with tunnel output key */
-+	fl.flowi_mark = be32_to_cpu(tunnel->parms.o_key);
+ 	if (!tunnel)
+ 		return 1;
+@@ -107,7 +108,11 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
+ 	x = xfrm_input_state(skb);
+ 	family = x->inner_mode->afinfo->family;
+ 
+-	if (!xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family))
++	skb->mark = be32_to_cpu(tunnel->parms.i_key);
++	ret = xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family);
++	skb->mark = orig_mark;
 +
- 	return vti_xmit(skb, dev, &fl);
- }
++	if (!ret)
+ 		return -EPERM;
  
+ 	skb_scrub_packet(skb, !net_eq(tunnel->net, dev_net(skb->dev)));
 diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index ed9d681207fa..104de4da3ff3 100644
+index 104de4da3ff3..ff3bd863fa03 100644
 --- a/net/ipv6/ip6_vti.c
 +++ b/net/ipv6/ip6_vti.c
-@@ -495,7 +495,6 @@ vti6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 	int ret;
+@@ -322,7 +322,6 @@ static int vti6_rcv(struct sk_buff *skb)
+ 		}
  
- 	memset(&fl, 0, sizeof(fl));
--	skb->mark = be32_to_cpu(t->parms.o_key);
+ 		XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 = t;
+-		skb->mark = be32_to_cpu(t->parms.i_key);
  
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IPV6):
-@@ -516,6 +515,9 @@ vti6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 		goto tx_err;
- 	}
+ 		rcu_read_unlock();
  
-+	/* override mark with tunnel output key */
-+	fl.flowi_mark = be32_to_cpu(t->parms.o_key);
+@@ -342,6 +341,8 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
+ 	struct pcpu_sw_netstats *tstats;
+ 	struct xfrm_state *x;
+ 	struct ip6_tnl *t = XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6;
++	u32 orig_mark = skb->mark;
++	int ret;
+ 
+ 	if (!t)
+ 		return 1;
+@@ -358,7 +359,11 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
+ 	x = xfrm_input_state(skb);
+ 	family = x->inner_mode->afinfo->family;
+ 
+-	if (!xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family))
++	skb->mark = be32_to_cpu(t->parms.i_key);
++	ret = xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family);
++	skb->mark = orig_mark;
 +
- 	ret = vti6_xmit(skb, dev, &fl);
- 	if (ret < 0)
- 		goto tx_err;
++	if (!ret)
+ 		return -EPERM;
+ 
+ 	skb_scrub_packet(skb, !net_eq(t->net, dev_net(skb->dev)));
