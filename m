@@ -1,68 +1,45 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] staging: r8712u: Fix kernel warning for improper call of
- del_timer_sync()
-Date: Tue, 26 May 2015 07:14:01 -0700
-Message-ID: <20150526141401.GC21573@kroah.com>
-References: <1432415812-1285-1-git-send-email-Larry.Finger@lwfinger.net>
- <CAJ=9CzbPmo+f4zjY4CqQ7TsUENpwy+zHcpxeLTbAH0DAZSkqsQ@mail.gmail.com>
- <556268BC.5050807@lwfinger.net> <20150525091737.GQ4150@mwanda>
- <1432575448.2846.63.camel@perches.com>
- <20150526044611.GA3465@sudip-PC>
- <1432616108.2846.83.camel@perches.com>
- <20150526050212.GC3465@sudip-PC>
- <1432616879.2846.86.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, Sudip Mukherjee <sudip@vectorindia.org>,
- netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
- Stable <stable@vger.kernel.org>, Arek Rusniak <arek.rusi@gmail.com>,
- Haggai Eran <haggai.eran@gmail.com>, Dan Carpenter <dan.carpenter@oracle.com>,
- Larry Finger <Larry.Finger@lwfinger.net>
-To: Joe Perches <joe@perches.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1432616879.2846.86.camel@perches.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+From: Ido Yariv <ido@wizery.com>
+Subject: [PATCH] net: tcp: Fix a PTO timing granularity issue
+Date: Tue, 26 May 2015 10:25:58 -0400
+Message-ID: <1432650358-11470-1-git-send-email-ido@wizery.com>
+Cc: Ido Yariv <ido@wizery.com>, Ido Yariv <idox.yariv@intel.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Nandita Dukkipati <nanditad@google.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 25, 2015 at 10:07:59PM -0700, Joe Perches wrote:
-> On Tue, 2015-05-26 at 10:32 +0530, Sudip Mukherjee wrote:
-> > On Mon, May 25, 2015 at 09:55:08PM -0700, Joe Perches wrote:
-> > > On Tue, 2015-05-26 at 10:16 +0530, Sudip Mukherjee wrote:
-> > > > On Mon, May 25, 2015 at 10:37:28AM -0700, Joe Perches wrote:
-> > > > > It'd be better if the approved patches from the intern list
-> > > > > (no idea what that is) were sent to lkml/devel@driverdev lists
-> > > > > for review before actually being applied.
-> > > > Its the outreachy program. And http://kernelnewbies.org/OutreachyApply
-> > > > mentions specifically: "email your first patch to the outreachy-kernel
-> > > > mailing list. Do not send patches to the tmain Linux mailing lists"
-> > > 
-> > > The same thing happens with the eudyptula patches.
-> > But for eudyptula, patches have to properly submitted to lkml and
-> > maintainers. And today I am here just because of eudyptula. My patches
-> > and contributions here, everything started with it. :)
-> 
-> As far as I understand, the Eudyptula Challenge list has
-> internal mechanisms to nominally review patches before some
-> patch is submitted to lkml.
+The Tail Loss Probe RFC specifies that the PTO value should be set to
+max(2 * SRTT, 10ms), where SRTT is the smoothed round-trip time.
 
-No it does not.
+The PTO value is converted to jiffies, so the timer might expire
+prematurely. This is especially problematic on systems in which HZ=100.
 
-> The main point is that patches shouldn't be applied without
-> being submitted to a more widely read list.
+To work around this issue, increase the number of jiffies by one,
+ensuring that the timeout won't expire in less than 10ms.
 
-I take the blame for any problems with Outreachy patches.  Given the
-huge volume of them, one bug out of 900 isn't that bad of a percentage.
+Signed-off-by: Ido Yariv <idox.yariv@intel.com>
+---
+ net/ipv4/tcp_output.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-thanks,
-
-greg k-h
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 534e5fd..6f57d3d 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2207,7 +2207,7 @@ bool tcp_schedule_loss_probe(struct sock *sk)
+ 	if (tp->packets_out == 1)
+ 		timeout = max_t(u32, timeout,
+ 				(rtt + (rtt >> 1) + TCP_DELACK_MAX));
+-	timeout = max_t(u32, timeout, msecs_to_jiffies(10));
++	timeout = max_t(u32, timeout, msecs_to_jiffies(10) + 1);
+ 
+ 	/* If RTO is shorter, just schedule TLP in its place. */
+ 	tlp_time_stamp = tcp_time_stamp + timeout;
+-- 
+2.1.0
