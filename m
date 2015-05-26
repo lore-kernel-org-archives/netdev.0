@@ -1,105 +1,125 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH 2/3 nf-next] netfilter: nf_tables: allow to bind table to
- net_device
-Date: Tue, 26 May 2015 09:48:41 +0900
-Message-ID: <20150526004840.GB23370@vergenet.net>
-References: <1432558004-13481-1-git-send-email-pablo@netfilter.org>
- <1432558004-13481-3-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, kaber@trash.net,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1432558004-13481-3-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH/RFC net-next] rocker: by default accept untagged packets
+Date: Tue, 26 May 2015 09:55:03 +0900
+Message-ID: <1432601703-26774-1-git-send-email-simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
+To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35799 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751127AbbEZAzO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 20:55:14 -0400
+Received: by pacwv17 with SMTP id wv17so79841024pac.2
+        for <netdev@vger.kernel.org>; Mon, 25 May 2015 17:55:13 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Pablo,
+This will occur anyway if the 8021q module is loaded as it will
+call rocker_port_vlan_rx_add_vid for vlan 0. This code is here
+to handle the case where the 8021q module is not loaded.
 
-On Mon, May 25, 2015 at 02:46:41PM +0200, Pablo Neira Ayuso wrote:
-> This patch adds the internal NFT_AF_NEEDS_DEV flag to indicate that you must
-> attach this table to a net_device.
-> 
-> This change is required by the follow up patch that introduces the new netdev
-> table.
-> 
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> ---
->  include/net/netfilter/nf_tables.h        |    8 ++++++
->  include/uapi/linux/netfilter/nf_tables.h |    2 ++
->  net/netfilter/nf_tables_api.c            |   46 ++++++++++++++++++++++++++----
->  3 files changed, 51 insertions(+), 5 deletions(-)
+This patch also handles the case where the 8021q is unloaded
+removing all VLANs from all ports.
 
-[snip]
+This change should not affect bridging, although the rules are
+harmlessly installed anyway. This is in keeping with the behaviour
+for VLANs when the 8021q modules is loaded.
 
-> diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-> index 5fa1cd0..89a671e 100644
-> --- a/include/uapi/linux/netfilter/nf_tables.h
-> +++ b/include/uapi/linux/netfilter/nf_tables.h
+To aid implementation of the above provide a helper
+and use it to replace some existing code.
 
-[snip]
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+ drivers/net/ethernet/rocker/rocker.c | 51 +++++++++++++++++++++++++++---------
+ 1 file changed, 39 insertions(+), 12 deletions(-)
 
-> @@ -423,6 +425,10 @@ static int nf_tables_fill_table_info(struct sk_buff *skb, struct net *net,
->  	    nla_put_be32(skb, NFTA_TABLE_USE, htonl(table->use)))
->  		goto nla_put_failure;
->  
-> +	if (table->dev &&
-> +	    nla_put_string(skb, NFTA_TABLE_DEV, table->dev->name))
-> +		goto nla_put_failure;
-> +
->  	nlmsg_end(skb, nlh);
->  	return 0;
->  
-> @@ -608,6 +614,11 @@ static int nf_tables_updtable(struct nft_ctx *ctx)
->  	if (flags == ctx->table->flags)
->  		return 0;
->  
-> +	if ((ctx->afi->flags & NFT_AF_NEEDS_DEV) &&
-> +	    ctx->nla[NFTA_TABLE_DEV] &&
-> +	    nla_strcmp(ctx->nla[NFTA_TABLE_DEV], ctx->table->dev->name))
-> +		return -EOPNOTSUPP;
-> +
->  	trans = nft_trans_alloc(ctx, NFT_MSG_NEWTABLE,
->  				sizeof(struct nft_trans_table));
->  	if (trans == NULL)
-
-I'm a little unsure of the above logic.
-
-Is it ok for NFT_AF_NEEDS_DEV to be set but ctx->nla[NFTA_TABLE_DEV] to
-be absent?
-
-> @@ -645,6 +656,7 @@ static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
->  	struct nft_table *table;
->  	struct net *net = sock_net(skb->sk);
->  	int family = nfmsg->nfgen_family;
-> +	struct net_device *dev = NULL;
->  	u32 flags = 0;
->  	struct nft_ctx ctx;
->  	int err;
-> @@ -679,30 +691,50 @@ static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
->  			return -EINVAL;
->  	}
->  
-> +	if (afi->flags & NFT_AF_NEEDS_DEV) {
-> +		char ifname[IFNAMSIZ];
-> +
-> +		if (!nla[NFTA_TABLE_DEV])
-> +			return -EOPNOTSUPP;
-> +
-> +		nla_strlcpy(ifname, nla[NFTA_TABLE_DEV], IFNAMSIZ);
-> +		dev = dev_get_by_name(net, ifname);
-> +		if (!dev)
-> +			return -ENOENT;
-> +	} else if (nla[NFTA_TABLE_DEV]) {
-> +		return -EOPNOTSUPP;
-> +	}
-> +
-> +	err = -EAFNOSUPPORT;
->  	if (!try_module_get(afi->owner))
-> -		return -EAFNOSUPPORT;
-> +		goto err1;
->  
-
-[snip]
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 36f7edfc3c7a..bc00e0abd8b6 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -3720,6 +3720,19 @@ static int rocker_port_router_mac(struct rocker_port *rocker_port,
+ 	return err;
+ }
+ 
++static int rocker_port_vlan_rx_vid(struct rocker_port *rocker_port,
++				   enum switchdev_trans trans, int flag,
++				   u16 vid)
++{
++	int err;
++
++	err = rocker_port_vlan(rocker_port, trans, flag, vid);
++	if (err)
++		return err;
++
++	return rocker_port_router_mac(rocker_port, trans, flag, htons(vid));
++}
++
+ static int rocker_port_fwding(struct rocker_port *rocker_port,
+ 			      enum switchdev_trans trans)
+ {
+@@ -4009,6 +4022,16 @@ static int rocker_port_open(struct net_device *dev)
+ 		goto err_request_rx_irq;
+ 	}
+ 
++	/* By default accept untagged vlan packets.
++	 *
++	 * This will occur anyway if the 8021q module is loaded as it will
++	 * call rocker_port_vlan_rx_add_vid for vlan 0. This code is here
++	 * to handle the case where the 8021q module is not loaded.
++	 */
++	err = rocker_port_vlan_rx_vid(rocker_port, SWITCHDEV_TRANS_NONE, 0, 0);
++	if (err)
++		goto err_fwd_enable;
++
+ 	err = rocker_port_fwd_enable(rocker_port, SWITCHDEV_TRANS_NONE);
+ 	if (err)
+ 		goto err_fwd_enable;
+@@ -4187,29 +4210,33 @@ static int rocker_port_vlan_rx_add_vid(struct net_device *dev,
+ 				       __be16 proto, u16 vid)
+ {
+ 	struct rocker_port *rocker_port = netdev_priv(dev);
+-	int err;
+-
+-	err = rocker_port_vlan(rocker_port, SWITCHDEV_TRANS_NONE, 0, vid);
+-	if (err)
+-		return err;
+ 
+-	return rocker_port_router_mac(rocker_port, SWITCHDEV_TRANS_NONE,
+-				      0, htons(vid));
++	return rocker_port_vlan_rx_vid(rocker_port, SWITCHDEV_TRANS_NONE,
++				       0, vid);
+ }
+ 
+ static int rocker_port_vlan_rx_kill_vid(struct net_device *dev,
+ 					__be16 proto, u16 vid)
+ {
+ 	struct rocker_port *rocker_port = netdev_priv(dev);
+-	int err;
++	int err, i;
+ 
+-	err = rocker_port_router_mac(rocker_port, SWITCHDEV_TRANS_NONE,
+-				     ROCKER_OP_FLAG_REMOVE, htons(vid));
++	err = rocker_port_vlan_rx_vid(rocker_port, SWITCHDEV_TRANS_NONE,
++				      ROCKER_OP_FLAG_REMOVE, vid);
+ 	if (err)
+ 		return err;
+ 
+-	return rocker_port_vlan(rocker_port, SWITCHDEV_TRANS_NONE,
+-				ROCKER_OP_FLAG_REMOVE, vid);
++	/* If no vlans are set then the last one has been removed;
++	 * restore the default behaviour of accepting untagged packets.
++	 *
++	 * This may occur if the 8021q module is unloaded.
++	 */
++	for (i = 0; i < ROCKER_VLAN_BITMAP_LEN; i++)
++		if (rocker_port->vlan_bitmap[i])
++			return 0;
++	return rocker_port_vlan_rx_vid(rocker_port, SWITCHDEV_TRANS_NONE,
++				       0, 0);
++
+ }
+ 
+ static int rocker_port_get_phys_port_name(struct net_device *dev,
+-- 
+2.1.4
