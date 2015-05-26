@@ -1,39 +1,57 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net] x86: bpf_jit: fix compilation of large bpf programs
-Date: Tue, 26 May 2015 15:47:19 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB3ED4D@AcuExch.aculab.com>
-References: <1432334575-16959-1-git-send-email-ast@plumgrid.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CB3EA6A@AcuExch.aculab.com>
-	 <1432650922.4060.236.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CB3ECB8@AcuExch.aculab.com>
- <1432654198.4060.248.camel@edumazet-glaptop2.roam.corp.google.com>
+From: punnaiah choudary kalluri <punnaia@xilinx.com>
+Subject: Support for Ethernet Phy interfaced through i2c bus
+Date: Tue, 26 May 2015 21:23:05 +0530
+Message-ID: <CAGnW=BakaGvnZREG2qTT91dhvitHjpc-ts6b+xhh+OU_KPN-uw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: 'Alexei Starovoitov' <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Eric Dumazet <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Punnaiah Choudary <kpc528@gmail.com>,
+	punnaiah choudary kalluri <kalluripunnaiahchoudary@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.186]:60006 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753371AbbEZPtF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 11:49:05 -0400
-In-Reply-To: <1432654198.4060.248.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:34240 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751311AbbEZPxF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 11:53:05 -0400
+Received: by pdbki1 with SMTP id ki1so52068245pdb.1
+        for <netdev@vger.kernel.org>; Tue, 26 May 2015 08:53:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0IA0KPiBTZW50OiAyNiBNYXkgMjAxNSAxNjozMA0KPiANCj4gPiBZ
-ZXMsIGludGVyZXN0aW5nLCBhIGJlbmNobWFyayB0aGF0IG1hbmFnZXMgdG8gcnVuIGEgbG90IG9m
-IGNvZGUgJ2NvbGQgY2FjaGUnLg0KPiANCj4gV2UgaGF2ZSBiaW5hcmllcyBoZXJlIGF0IEdvb2ds
-ZSB3aXRoIDQwMCBvciA1MDAgTUJ5dGVzIG9mIHRleHQuDQo+IA0KPiBOb3QgYmVuY2htYXJrLCBz
-dXBlciByZWFsIHdvcmtsb2FkcyB5b3Uga25vdy4NCg0KSW5kZWVkLCBhbmQgYSBsb3Qgb2YgdGhl
-IGNvZGUgaXMgbGlrZWx5IHRvIGJlIHJ1bm5pbmcgJ2NvbGQgY2FjaGUnLg0KDQpJIHdhcyBhbGx1
-ZGluZyB0byB0aGUgcHJvYmxlbSB3aGVyZSBwZW9wbGUgd2lsbCBiZW5jaG1hcmsgYSBzbWFsbCBm
-dW5jdGlvbg0KYnkgcnVubmluZyBpbiAxMDAwcyBvZiB0aW1lcyBpbiBhIHRpZ2h0IGxvb3Agd2l0
-aCBleGFjdGx5IHRoZSBzYW1lIGRhdGEuDQpOb3Qgb25seSBpcyBpdCAnaG90IGNhY2hlJyBidXQg
-YW55IGR5bmFtaWMgYnJhbmNoIHByZWRpY3Rpb24gaXMgJ3RyYWluZWQnDQp0byB0aGUgc3BlY2lm
-aWMgZGF0YS4NCg0KCURhdmlkDQoNCg0KIA0KDQo=
+Hi,
+
+I have a design for adding the sgmii support to the Ethernet mac.
+The Ethernet mac is interfaced to the SGMII core and the mdio interface
+from the mac is connected to the sgmii core for querying the link status
+and autonegotaiation status.
+The external phy is connected to the i2c bus and it is accessed through
+i2c controller.
+
+I have tested this design with out registering phy framework and configured
+the external phy using the i2c lib and modified the Ethernet driver to include
+code for accessing the sgmii core using the mdio interface.
+
+Now i am looking for a solution to implement the following requirement using the
+existing phy framework. But it looks the current phy framework is using only
+the mdio bus.
+
+Could some one suggest the better approach or solution for
+implementing the below
+requirement.
+
+
+    --------
+   |        |   I2C
+   | I2c   |----------------
+   | ctrl|   |               |
+    ---------                |
+    ----------               |                                  -----------
+   |          |              -------------------------------- |           |
+   | MAC  |                                               |           |
+   |          |    MDIO     ------------     TX/RX   |   PHY |
+   |          |---------------- |            |---------------- |           |
+   |          | GMII         | SGMII |                 |           |
+   |          | --------------- |            |                  -----------
+    ----------                  |            |
+                                 ----------
+Regards,
+Punnaiah
