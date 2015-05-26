@@ -1,45 +1,40 @@
-From: Ido Yariv <ido@wizery.com>
-Subject: [PATCH] net: tcp: Fix a PTO timing granularity issue
-Date: Tue, 26 May 2015 10:25:58 -0400
-Message-ID: <1432650358-11470-1-git-send-email-ido@wizery.com>
-Cc: Ido Yariv <ido@wizery.com>, Ido Yariv <idox.yariv@intel.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Nandita Dukkipati <nanditad@google.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] x86: bpf_jit: fix compilation of large bpf programs
+Date: Tue, 26 May 2015 07:35:22 -0700
+Message-ID: <1432650922.4060.236.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1432334575-16959-1-git-send-email-ast@plumgrid.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CB3EA6A@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: 'Alexei Starovoitov' <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Eric Dumazet <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:35578 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752445AbbEZOfZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 10:35:25 -0400
+Received: by iesa3 with SMTP id a3so93476097ies.2
+        for <netdev@vger.kernel.org>; Tue, 26 May 2015 07:35:24 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB3EA6A@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Tail Loss Probe RFC specifies that the PTO value should be set to
-max(2 * SRTT, 10ms), where SRTT is the smoothed round-trip time.
+On Tue, 2015-05-26 at 13:40 +0000, David Laight wrote:
 
-The PTO value is converted to jiffies, so the timer might expire
-prematurely. This is especially problematic on systems in which HZ=100.
+> If the JIT compiler is only changing the encoding of the constants
+> in the x86 instructions (rather than changing the instructions themselves)
+> then there is likely to me an unmeasurable change in the execution time.
+> For instance I don't remember there being a difference in execution time
+> between long and short branches - the only difference is the amount of
+> cache they use.
 
-To work around this issue, increase the number of jiffies by one,
-ensuring that the timeout won't expire in less than 10ms.
+icache is precisely the matter here. In the end, it makes a difference.
 
-Signed-off-by: Ido Yariv <idox.yariv@intel.com>
----
- net/ipv4/tcp_output.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+You could check this interesting study Ingo did recently :
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 534e5fd..6f57d3d 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2207,7 +2207,7 @@ bool tcp_schedule_loss_probe(struct sock *sk)
- 	if (tp->packets_out == 1)
- 		timeout = max_t(u32, timeout,
- 				(rtt + (rtt >> 1) + TCP_DELACK_MAX));
--	timeout = max_t(u32, timeout, msecs_to_jiffies(10));
-+	timeout = max_t(u32, timeout, msecs_to_jiffies(10) + 1);
- 
- 	/* If RTO is shorter, just schedule TLP in its place. */
- 	tlp_time_stamp = tcp_time_stamp + timeout;
--- 
-2.1.0
+https://lkml.org/lkml/2015/5/19/1009
