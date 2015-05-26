@@ -1,73 +1,90 @@
-From: Shawn Bohrer <shawn.bohrer@gmail.com>
-Subject: Re: Socket receives packet to multicast group to which it was not
- joined since kernel 3.13.10-1
-Date: Tue, 26 May 2015 12:41:13 -0500
-Message-ID: <20150526174113.GA17751@sbohrermbp13-local.rgmadvisors.com>
-References: <5370F8EB.2070009@oktetlabs.ru>
- <1399915082.7973.27.camel@edumazet-glaptop2.roam.corp.google.com>
- <5371BAE1.2090806@oktetlabs.ru>
- <20140513213641.GA19087@sbohrermbp13-local.rgmadvisors.com>
- <20140514204010.GA5719@sbohrermbp13-local.rgmadvisors.com>
- <loom.20150524T065137-105@post.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Oliver Graff <oliver.e.graff@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] test_bpf: add similarly conflicting jump test case only for classic
+Date: Tue, 26 May 2015 19:45:18 +0200
+Message-ID: <7e621bdbd1df285fc9685f3a068accd8bb22d429.1432661933.git.daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, ast@plumgrid.com,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:32768 "EHLO
-	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751009AbbEZRlQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 13:41:16 -0400
-Received: by oiww2 with SMTP id w2so83638854oiw.0
-        for <netdev@vger.kernel.org>; Tue, 26 May 2015 10:41:16 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <loom.20150524T065137-105@post.gmane.org>
+Received: from www62.your-server.de ([213.133.104.62]:45668 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751432AbbEZRpW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 13:45:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 24, 2015 at 04:55:40AM +0000, Oliver Graff wrote:
-> Shawn Bohrer <shawn.bohrer <at> gmail.com> writes:
-> 
-> > 
-> > On Tue, May 13, 2014 at 04:36:41PM -0500, Shawn Bohrer wrote:
-> 
-> > > If I did "break" something here it appears to be because with
-> > > ip_early_demux we only call ip_check_mc_rcu() once on the initial
-> > > packet, and subsequent packets destined for that socket simply need to
-> > > pass the __udp_is_mcast_sock() test.  With ip_early_demux disaled we
-> > > call ip_check_mc_rcu() for every packet.
-> > 
-> > So is the solution to effectively call ip_check_mc_rcu() inside
-> > udp_v4_early_demux()?
-> > 
-> > --
-> > Shawn
-> > 
-> (See earlier parts of thread here: 
-> http://netdev.vger.kernel.narkive.com/mwurLsMT/socket-receives-packet-to-multicast-
-> group-to-which-it-was-not-joined-since-kernel-3-13-10-1)
-> 
-> Was a bug report filed for this / was this fixed? 
-> I looked at the diffs from the referenced commit and the current version of 
-> udp_v4_early_demux and the changes appear to be 
-> minimal,
-> it doesn't look like ip_check_mc_rcu was added. Is that all that's needed?
+While 3b52960266a3 ("test_bpf: add more eBPF jump torture cases")
+added the int3 bug test case only for eBPF, which needs exactly 11
+passes to converge, here's a version for classic BPF that would
+need 70 passes on x86_64 to actually converge for being sucessfully
+JITed. Effectively, all jumps are being optimized out resulting in
+a JIT image of only 89 bytes (from originally 4096 BPF insns) only
+returning K (if we would allow for it).
 
-Hi Oliver,
+Might be useful for folks wanting to test out backporting the fix in
+commit 3f7352bf21f8 ("x86: bpf_jit: fix compilation of large bpf
+programs") who don't have eBPF. With the fix, it's delegated to the
+interpreter, if the last pass still results in shrinking, in other
+words this one here won't be JITed on x86_64.
 
-I haven't tested but looking over the code I would say that this has
-not been fixed.  Is this issue impacting you?
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ lib/test_bpf.c | 36 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
 
-I think calling ip_check_mc_rcu (you might need some of the code from
-ip_route_input_noref too) might "fix" the issue, though I have not
-tried.  My concern is that early demux is a performance optimization
-and I don't know how much this would impact multicast receive
-performance.
-
-As Eric mentioned in the earlier email if you don't care about
-performance you can simply disable early demux:
-
-echo 0 >/proc/sys/net/ipv4/ip_early_demux
-
---
-Shawn
+diff --git a/lib/test_bpf.c b/lib/test_bpf.c
+index c07b8e7..849a39f 100644
+--- a/lib/test_bpf.c
++++ b/lib/test_bpf.c
+@@ -314,6 +314,33 @@ static int bpf_fill_maxinsns10(struct bpf_test *self)
+ 	return 0;
+ }
+ 
++static int bpf_fill_maxinsns11(struct bpf_test *self)
++{
++	unsigned int len = BPF_MAXINSNS, plen, rlen;
++	struct sock_filter *insn;
++	int i, j;
++
++	insn = kmalloc_array(len, sizeof(*insn), GFP_KERNEL);
++	if (!insn)
++		return -ENOMEM;
++
++	plen = 68;
++	rlen = (len % plen) - 1;
++
++	for (i = 0; i + plen < len; i += plen)
++		for (j = 0; j < plen; j++)
++			insn[i + j] = __BPF_JUMP(BPF_JMP | BPF_JA, plen - 1 - j, 0, 0);
++	for (j = 0; j < rlen; j++)
++		insn[i + j] = __BPF_JUMP(BPF_JMP | BPF_JA, rlen - 1 - j, 0, 0);
++
++	insn[len - 1] = __BPF_STMT(BPF_RET | BPF_K, 0xababcbac);
++
++	self->u.ptr.insns = insn;
++	self->u.ptr.len = len;
++
++	return 0;
++}
++
+ static struct bpf_test tests[] = {
+ 	{
+ 		"TAX",
+@@ -4335,6 +4362,15 @@ static struct bpf_test tests[] = {
+ 		{ { 0, 0xabababac } },
+ 		.fill_helper = bpf_fill_maxinsns10,
+ 	},
++	{	/* Mainly checking JIT here. */
++		"BPF_MAXINSNS: Jump, gap, jump, ...",
++		{ },
++		CLASSIC | FLAG_NO_DATA,
++		{ },
++		{ { 0, 0xababcbac } },
++		.fill_helper = bpf_fill_maxinsns11,
++	},
++
+ };
+ 
+ static struct net_device dev;
+-- 
+1.9.3
