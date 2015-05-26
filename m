@@ -1,54 +1,31 @@
-From: Sorin Dumitru <sorin@returnze.ro>
-Subject: [PATCH net-next] vxlan: release lock after each bucket in vxlan_cleanup
-Date: Tue, 26 May 2015 10:42:04 +0300
-Message-ID: <1432626124-24676-1-git-send-email-sorin@returnze.ro>
-Cc: davem@davemloft.net, Sorin Dumitru <sorin@returnze.ro>,
-	Sorin Dumitru <sdumitru@ixiacom.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:34950 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751621AbbEZHmQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 03:42:16 -0400
-Received: by wgme6 with SMTP id e6so20422429wgm.2
-        for <netdev@vger.kernel.org>; Tue, 26 May 2015 00:42:12 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephan Mueller <smueller@chronox.de>
+Subject: Re: [v2 PATCH 13/13] crypto: algif_aead - Switch to new AEAD interface
+Date: Tue, 26 May 2015 09:57:51 +0200
+Message-ID: <5101027.rdCY05rkLJ@tauon>
+References: <20150522082708.GA3507@gondor.apana.org.au> <1720790.K1nOQU1Nxi@tachyon.chronox.de> <20150526073605.GA6530@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20150526073605.GA6530@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We're seeing some softlockups from this function when there
-are a lot fdb entries on a vxlan device. Taking the lock for
-each bucket instead of the whole table is enough to fix that.
+Am Dienstag, 26. Mai 2015, 15:36:05 schrieb Herbert Xu:
 
-Signed-off-by: Sorin Dumitru <sdumitru@ixiacom.com>
----
- drivers/net/vxlan.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Hi Herbert,
+>
+>In order to allow this to be done I'm going to disable the AEAD
+>user-space interface in 4.1 so that we have time to fix it properly
+>for 4.2.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 5eddbc0..34c519e 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2131,9 +2131,10 @@ static void vxlan_cleanup(unsigned long arg)
- 	if (!netif_running(vxlan->dev))
- 		return;
- 
--	spin_lock_bh(&vxlan->hash_lock);
- 	for (h = 0; h < FDB_HASH_SIZE; ++h) {
- 		struct hlist_node *p, *n;
-+
-+		spin_lock_bh(&vxlan->hash_lock);
- 		hlist_for_each_safe(p, n, &vxlan->fdb_head[h]) {
- 			struct vxlan_fdb *f
- 				= container_of(p, struct vxlan_fdb, hlist);
-@@ -2152,8 +2153,8 @@ static void vxlan_cleanup(unsigned long arg)
- 			} else if (time_before(timeout, next_timer))
- 				next_timer = timeout;
- 		}
-+		spin_unlock_bh(&vxlan->hash_lock);
- 	}
--	spin_unlock_bh(&vxlan->hash_lock);
- 
- 	mod_timer(&vxlan->age_timer, next_timer);
- }
--- 
-2.4.1
+Ok. Would you look into that one or shall I do that?
+
+Ciao
+Stephan
