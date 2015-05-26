@@ -1,38 +1,39 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: carl9170: match wait_for_completion_timeout return type
-Date: Tue, 26 May 2015 10:53:35 +0000 (UTC)
-Message-ID: <20150526105335.0AEF81416BB@smtp.codeaurora.org>
-References: <1431454718-23701-1-git-send-email-hofrat@osadl.org>
+Subject: Re: [1/5] rtlwifi: Update regulatory database
+Date: Tue, 26 May 2015 10:57:08 +0000 (UTC)
+Message-ID: <20150526105708.78A79141726@smtp.codeaurora.org>
+References: <1431725583-7324-2-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Christian Lamparter <chunkeey@googlemail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
-To: Nicholas Mc Guire <hofrat@osadl.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431454718-23701-1-git-send-email-hofrat@osadl.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, Shao Fu <shaofu@realtek.com>,
+	netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:59679 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753539AbbEZOCt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 10:02:49 -0400
+In-Reply-To: <1431725583-7324-2-git-send-email-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> Return type of wait_for_completion_timeout is unsigned long not int.
-> An appropriately named unsigned long is added, and the assignments
-> as well as error checking fixed up.
+> From: Shao Fu <shaofu@realtek.com>
 > 
-> API conformance testing for completions with coccinelle spatches are being
-> used to locate API usage inconsistencies:
-> ./drivers/net/wireless/ath/carl9170/usb.c:675 
-> 	int return assigned to unsigned long
+> Driver rtlwifi maintains its own regulatory information, The Chrome Autotest
+> (https://www.chromium.org/chromium-os/testing/autotest-user-doc)
+> showed some errors. This patch adds the necessary information for rtlwifi.
 > 
-> Patch was compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
-> CONFIG_CARL9170=m
-> 
-> Patch is against 4.1-rc3 (localversion-next is -next-20150512)
-> 
-> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
-> Acked-by: Christian Lamparter <chunkeey@googlemail.com>
+> Signed-off-by: Shao Fu <shaofu@realtek.com>
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 
-Thanks, applied to wireless-drivers-next.git.
+Thanks, 5 patches applied to wireless-drivers-next.git:
+
+02b5fffbe9e0 rtlwifi: Update regulatory database
+852ce7805638 rtlwifi: rtl8188ee: Apply the new regulatory information
+5620302484d4 rtlwifi: rtl8192ee: Apply the regulatory changes to driver
+b23cd22d3923 rtlwifi: rtl8723be: Update driver for regulatory changes
+d10101a60372 rtlwifi: rtl8821ae: Fix problem with regulatory information
 
 Kalle Valo
