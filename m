@@ -1,66 +1,32 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: [PATCH] sctp: Fix mangled IPv4 addresses on a IPv6 listening socket
-Date: Tue, 26 May 2015 17:30:17 -0600
-Message-ID: <20150526233017.GB22391@obsidianresearch.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: mac80211 2015-05-26
+Date: Tue, 26 May 2015 19:40:47 -0400 (EDT)
+Message-ID: <20150526.194047.730701928865644574.davem@davemloft.net>
+References: <1432625103.2141.5.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:51485 "EHLO quartz.orcorp.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751230AbbEZXa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 May 2015 19:30:26 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1432625103.2141.5.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-sctp_v4_map_v6 was subtly writing and reading from members
-of a union in a way the clobbered data it needed to read before
-it read it.
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Tue, 26 May 2015 09:25:03 +0200
 
-Zeroing the v6 flowinfo overwrites the v4 sin_addr with 0, meaning
-that every place that calls sctp_v4_map_v6 gets ::ffff:0.0.0.0 as the
-result.
+> Unfortunately I neglected to send this to you last week before our long
+> weekend.
+> 
+> These changes look fairly big, but they're fairly contained to the
+> remain-on- channel and AP_VLAN key handling code.
+> 
+> However, if you think you don't want to pull them into net any more at
+> this stage just let me know.
 
-Reorder things to guarantee correct behaviour no matter what the
-union layout is.
-
-This impacts user space clients that open an IPv6 SCTP socket and
-receive IPv4 connections. Prior to 299ee user space would see a
-sockaddr with AF_INET and a correct address, after 299ee the sockaddr
-is AF_INET6, but the address is wrong.
-
-Fixes: 299ee123e198 (sctp: Fixup v4mapped behaviour to comply with Sock API)
-Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
----
- include/net/sctp/sctp.h | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-This bugfix should be a candidate for -stable
-
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index 856f01cb51dd..230775f5952a 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -571,11 +571,14 @@ static inline void sctp_v6_map_v4(union sctp_addr *addr)
- /* Map v4 address to v4-mapped v6 address */
- static inline void sctp_v4_map_v6(union sctp_addr *addr)
- {
-+	__be16 port;
-+
-+	port = addr->v4.sin_port;
-+	addr->v6.sin6_addr.s6_addr32[3] = addr->v4.sin_addr.s_addr;
-+	addr->v6.sin6_port = port;
- 	addr->v6.sin6_family = AF_INET6;
- 	addr->v6.sin6_flowinfo = 0;
- 	addr->v6.sin6_scope_id = 0;
--	addr->v6.sin6_port = addr->v4.sin_port;
--	addr->v6.sin6_addr.s6_addr32[3] = addr->v4.sin_addr.s_addr;
- 	addr->v6.sin6_addr.s6_addr32[0] = 0;
- 	addr->v6.sin6_addr.s6_addr32[1] = 0;
- 	addr->v6.sin6_addr.s6_addr32[2] = htonl(0x0000ffff);
--- 
-2.1.4
+This looks fine, pulled, thanks Johannes.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
