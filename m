@@ -1,58 +1,98 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH -next, V3 0/2] net: force refragmentation for DF
- reassembed skbs
-Date: Tue, 26 May 2015 16:50:07 +0200
-Message-ID: <20150526145007.GF7817@breakpoint.cc>
-References: <1432305171-21932-1-git-send-email-fw@strlen.de>
- <20150522.150310.2248217318352290500.davem@davemloft.net>
- <20150522192651.GA3629@breakpoint.cc>
- <1432634245.17881.57.camel@sakura.staff.proxad.net>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net] amd-xgbe-phy: Fix initial mode when autoneg is disabled
+Date: Tue, 26 May 2015 09:51:49 -0500
+Message-ID: <20150526145149.29899.24836.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	hannes@stressinduktion.org
-To: Maxime Bizon <mbizon@freebox.fr>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:43358 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752460AbbEZOuM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 10:50:12 -0400
-Content-Disposition: inline
-In-Reply-To: <1432634245.17881.57.camel@sakura.staff.proxad.net>
+Received: from mail-bl2on0146.outbound.protection.outlook.com ([65.55.169.146]:42170
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753369AbbEZOw3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 May 2015 10:52:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Maxime Bizon <mbizon@freebox.fr> wrote:
-> On Fri, 2015-05-22 at 21:26 +0200, Florian Westphal wrote:
-> > But it does happen, see e.g. following bug report:
-> > http://marc.info/?l=linux-netdev&m=139870308431986&w=2
-> > 
-> > Maxime, do you recall what type of traffic generates
-> > the DF-fragments you reported?
-> 
-> Yep
-> 
-> We are an ISP and provide our own home gateway to the subscribers, which
-> ends up routing traffic of a large range of end user devices.
-> 
-> In that case, the frag+DF traffic was seen in an exchange between a
-> femtocell and a femto GW during the IPsec IKE exchange, more precisely
-> on the IKE_AUTH message sent from the femto GW.
+When the ethtool command is used to set the speed of the device while
+the device is down, the check to set the initial mode may fail when
+the device is brought up, causing failure to bring the device up.
 
-Thanks, so it seems its used to push udp frag/defrag operation to end
-hosts.
+Update the code to set the initial mode based on the desired speed if
+auto-negotiation is disabled.
 
-> You can contact me privately if you need more details.
+This patch fixes a bug introduced by:
+d9663c8c2149 ("amd-xgbe-phy: Use phydev advertising field vs supported")
 
-Its enough for me to know that this isn't random fluke, thanks.
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+---
+ drivers/net/phy/amd-xgbe-phy.c |   45 +++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 42 insertions(+), 3 deletions(-)
 
-Dave, if you disagree, one possibility would be to strip DF bit on
-defrag/refrag when forwarding.
-
-However, I think that we should respect end host "wish", i.e. reject too
-big df fragment and also re-set DF on refrag so we don't conceal lower
-mtu in the network.
-
-Thanks,
-Florian
+diff --git a/drivers/net/phy/amd-xgbe-phy.c b/drivers/net/phy/amd-xgbe-phy.c
+index fb276f6..34a75cb 100644
+--- a/drivers/net/phy/amd-xgbe-phy.c
++++ b/drivers/net/phy/amd-xgbe-phy.c
+@@ -755,6 +755,45 @@ static int amd_xgbe_phy_set_mode(struct phy_device *phydev,
+ 	return ret;
+ }
+ 
++static bool amd_xgbe_phy_use_xgmii_mode(struct phy_device *phydev)
++{
++	if (phydev->autoneg == AUTONEG_ENABLE) {
++		if (phydev->advertising & ADVERTISED_10000baseKR_Full)
++			return true;
++	} else {
++		if (phydev->speed == SPEED_10000)
++			return true;
++	}
++
++	return false;
++}
++
++static bool amd_xgbe_phy_use_gmii_2500_mode(struct phy_device *phydev)
++{
++	if (phydev->autoneg == AUTONEG_ENABLE) {
++		if (phydev->advertising & ADVERTISED_2500baseX_Full)
++			return true;
++	} else {
++		if (phydev->speed == SPEED_2500)
++			return true;
++	}
++
++	return false;
++}
++
++static bool amd_xgbe_phy_use_gmii_mode(struct phy_device *phydev)
++{
++	if (phydev->autoneg == AUTONEG_ENABLE) {
++		if (phydev->advertising & ADVERTISED_1000baseKX_Full)
++			return true;
++	} else {
++		if (phydev->speed == SPEED_1000)
++			return true;
++	}
++
++	return false;
++}
++
+ static int amd_xgbe_phy_set_an(struct phy_device *phydev, bool enable,
+ 			       bool restart)
+ {
+@@ -1235,11 +1274,11 @@ static int amd_xgbe_phy_config_init(struct phy_device *phydev)
+ 	/* Set initial mode - call the mode setting routines
+ 	 * directly to insure we are properly configured
+ 	 */
+-	if (phydev->advertising & SUPPORTED_10000baseKR_Full)
++	if (amd_xgbe_phy_use_xgmii_mode(phydev))
+ 		ret = amd_xgbe_phy_xgmii_mode(phydev);
+-	else if (phydev->advertising & SUPPORTED_1000baseKX_Full)
++	else if (amd_xgbe_phy_use_gmii_mode(phydev))
+ 		ret = amd_xgbe_phy_gmii_mode(phydev);
+-	else if (phydev->advertising & SUPPORTED_2500baseX_Full)
++	else if (amd_xgbe_phy_use_gmii_2500_mode(phydev))
+ 		ret = amd_xgbe_phy_gmii_2500_mode(phydev);
+ 	else
+ 		ret = -EINVAL;
