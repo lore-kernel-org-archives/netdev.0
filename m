@@ -1,68 +1,114 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC V7 PATCH 7/7] vhost_net: add interrupt coalescing support
-Date: Tue, 26 May 2015 11:02:52 -0700
-Message-ID: <20150526110252.6437cea8@urahara>
-References: <1432531444-50193-1-git-send-email-jasowang@redhat.com>
-	<1432531444-50193-8-git-send-email-jasowang@redhat.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
+Date: Tue, 26 May 2015 18:03:57 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A07892FC8C7@ORSMSX108.amr.corp.intel.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FB5E4@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB3B4A@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FBBEC@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4EE6@BPXM14GP.gisp.nec.co.jp>
+ <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com>
+ <F6FB0E698C9B3143BDF729DF22286646912FC2E3@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB8A65@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FDC17@ORSMSX110.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1432531444-50193-8-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	"David Miller" <davem@davemloft.net>,
+	Edward Cree <ecree@solarflare.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:23839 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751043AbbEZSD7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 May 2015 14:03:59 -0400
+In-Reply-To: <F6FB0E698C9B3143BDF729DF22286646912FDC17@ORSMSX110.amr.corp.intel.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 25 May 2015 01:24:04 -0400
-Jason Wang <jasowang@redhat.com> wrote:
-
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/vhost/net.c | 8 ++++++++
->  1 file changed, 8 insertions(+)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 7d137a4..5ee28b7 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -320,6 +320,9 @@ static void handle_tx(struct vhost_net *net)
->  	hdr_size = nvq->vhost_hlen;
->  	zcopy = nvq->ubufs;
->  
-> +	/* Finish pending interrupts first */
-> +	vhost_check_coalesce_and_signal(vq->dev, vq, false);
-> +
->  	for (;;) {
->  		/* Release DMAs done buffers first */
->  		if (zcopy)
-> @@ -415,6 +418,7 @@ static void handle_tx(struct vhost_net *net)
->  		}
->  	}
->  out:
-> +	vhost_check_coalesce_and_signal(vq->dev, vq, true);
->  	mutex_unlock(&vq->mutex);
->  }
->  
-> @@ -554,6 +558,9 @@ static void handle_rx(struct vhost_net *net)
->  		vq->log : NULL;
->  	mergeable = vhost_has_feature(vq, VIRTIO_NET_F_MRG_RXBUF);
->  
-> +	/* Finish pending interrupts first */
-> +	vhost_check_coalesce_and_signal(vq->dev, vq, false);
-> +
->  	while ((sock_len = peek_head_len(sock->sk))) {
->  		sock_len += sock_hlen;
->  		vhost_len = sock_len + vhost_hlen;
-> @@ -638,6 +645,7 @@ static void handle_rx(struct vhost_net *net)
->  		}
->  	}
->  out:
-> +	vhost_check_coalesce_and_signal(vq->dev, vq, true);
->  	mutex_unlock(&vq->mutex);
->  }
->  
-
-Could you implement ethtool control of these coalescing parameters?
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogU2tpZG1vcmUsIERvbmFs
+ZCBDDQo+IFNlbnQ6IFR1ZXNkYXksIE1heSAyNiwgMjAxNSAxMDo0NiBBTQ0KPiBUbzogSGlyb3No
+aSBTaGltYW1vdG87IFJvc2UsIEdyZWdvcnkgVjsgS2lyc2hlciwgSmVmZnJleSBUOyBpbnRlbC13
+aXJlZC0NCj4gbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4gQ2M6IG5ob3JtYW5AcmVkaGF0LmNvbTsg
+am9ncmVlbmVAcmVkaGF0LmNvbTsgTGludXggTmV0ZGV2IExpc3Q7IENob2ksIFN5DQo+IEpvbmc7
+IFJvbnkgRWZyYWltOyBEYXZpZCBNaWxsZXI7IEVkd2FyZCBDcmVlOyBPciBHZXJsaXR6Ow0KPiBz
+YXNzbWFubkByZWRoYXQuY29tDQo+IFN1YmplY3Q6IFJFOiBbUEFUQ0ggdjUgMy8zXSBpeGdiZTog
+QWRkIG5ldyBuZG8gdG8gdHJ1c3QgVkYNCj4gDQo+IA0KDQpbc25pcF0NCg0KPiANCj4gPiAtLS0t
+LU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+IEZyb206IEhpcm9zaGkgU2hpbWFtb3RvIFttYWls
+dG86aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbV0NCj4gPiBTZW50OiBNb25kYXksIE1heSAyNSwg
+MjAxNSA2OjAwIFBNDQo+ID4gVG86IFNraWRtb3JlLCBEb25hbGQgQzsgUm9zZSwgR3JlZ29yeSBW
+OyBLaXJzaGVyLCBKZWZmcmV5IFQ7DQo+ID4gaW50ZWwtd2lyZWQtIGxhbkBsaXN0cy5vc3Vvc2wu
+b3JnDQo+ID4gQ2M6IG5ob3JtYW5AcmVkaGF0LmNvbTsgam9ncmVlbmVAcmVkaGF0LmNvbTsgTGlu
+dXggTmV0ZGV2IExpc3Q7IENob2ksDQo+ID4gU3kgSm9uZzsgUm9ueSBFZnJhaW07IERhdmlkIE1p
+bGxlcjsgRWR3YXJkIENyZWU7IE9yIEdlcmxpdHo7DQo+ID4gc2Fzc21hbm5AcmVkaGF0LmNvbQ0K
+PiA+IFN1YmplY3Q6IFJFOiBbUEFUQ0ggdjUgMy8zXSBpeGdiZTogQWRkIG5ldyBuZG8gdG8gdHJ1
+c3QgVkYNCj4gPg0KPiA+DQo+ID4gRG8geW91IG1lYW4gdGhhdCBWRiBzaG91bGQgY2FyZSBhYm91
+dCBpdCBpcyB0cnVzdGVkIG9yIG5vdD8NCj4gPiBTaG91bGQgVkYgcmVxdWVzdCBNQyBQcm9taXNj
+IGFnYWluIHdoZW4gaXQncyB0cnVzdGVkPw0KPiA+IE9yLCBkbyB5b3UgbWVhbiBWRiBuZXZlciBi
+ZSB0cnVzdGVkIGR1cmluZyBpdHMgKG9yIFZNJ3MpIGxpZmV0aW1lPw0KPiANCj4gSSB0aGluayB0
+aGUgVkYgc2hvdWxkbid0IGRpcmVjdGx5IGtub3cgd2hldGhlciBpdCBpcyB0cnVzdGVkIG9yIG5v
+dA0KDQpUaGF0J3MgY29tcGxldGVseSBpcnJldmVsYW50LiAgVGhlIHBlcnNvbiBhZG1pbmlzdGVy
+aW5nIHRoZSBQRiB3aWxsIGJlIHRoZSBwZXJzb24gd2hvIHByb3ZpZGVkIHRydXN0ZWQgcHJpdmls
+ZWdlcyB0byB0aGUgVkYuICBIZSdsbCB0aGVuICp0ZWxsKiBvciBzb21laG93IG90aGVyIGNvbW11
+bmljYXRlIHRvIHRoZSBwZXJzb24gYWRtaW5pc3RlcmluZyB0aGUgVkYgKHByb2JhYmx5IGhpbXNl
+bGYvaGVyc2VsZikgYW5kIHRoZW4gcHJvY2VlZCB0byBleGVjdXRlIGNvbW1hbmRzIG9uIHRoYXQg
+VkYgdGhhdCByZXF1aXJlIHRydXN0ZWQgcHJpdmlsZWdlcy4NCg0KSWYgdGhlIFZGIGRvZXMgbm90
+IGhhdmUgdHJ1c3RlZCBwcml2aWxlZ2VzIHRoZW4gdGhlIGNvbW1hbmRzIHRvIGFkZCBWTEFOIGZp
+bHRlcnMsIHNldCBwcm9taXNjdW91cyBtb2RlcywgYW5kIGFueSBvdGhlciBwcml2aWxlZ2VkIGNv
+bW1hbmRzIHdpbGwgZmFpbC4NCg0KTGV0J3Mgbm90IGdldCB0b28gZmFuY3kgd2l0aCB0aGlzLiAg
+SXQncyBzaW1wbGUgLSB0aGUgaG9zdCBWTU0gYWRtaW4gcHJvdmlkZXMgdHJ1c3RlZCBwcml2aWxl
+Z2VzIHRvIHRoZSBWRi4gIFRoZSBwZXJzb24gYWRtaW5pc3RlcmluZyB0aGUgVkYgKGlmIGluIGZh
+Y3QgaXQgaXMgbm90IHRoZSBzYW1lIHBlcnNvbiwgaXQgdXN1YWxseSB3aWxsIGJlKSB3aWxsIHBy
+b2NlZWQgdG8gZG8gdGhpbmdzIHRoYXQgcmVxdWlyZSBWRiB0cnVzdGVkIHByaXZpbGVnZXMuICAN
+Cg0KDQouICBJdA0KPiBzaG91bGQgcmVxdWVzdCBNQyBQcm9taXNjIGFuZCBnZXQgaXQgaWYgaXQg
+aXMgdHJ1c3RlZCBhbmQgbm90IGlmIGl0IGlzIG5vdA0KPiB0cnVzdGVkLiAgU28gaWYgeW91IChh
+cyB0aGUgc3lzdGVtIGFkbWluIGtub3cgeW91IGhhdmUgYSBWRiB0aGF0IHdpbGwgbmVlZA0KPiB0
+byByZXF1ZXN0IE1DIFByb21pc2MgbWFrZSBzdXJlIHlvdSBwcm9tb3RlIHRoYXQgVkYgdG8gdHJ1
+c3RlZCBiZWZvcmUNCj4gYXNzaWduaW5nIGl0IHRvIGEgVk0uICBUaGF0IHdheSB3aGVuIGl0IHJl
+cXVlc3RzIE1DIFByb21pc2MgdGhlIFBGIHdpbGwgYmUNCj4gYWJsZSB0byBncmFudCBpdC4NCj4g
+DQoNCk11bHRpY2FzdCBwcm9taXNjdW91cyBzaG91bGQgYmUgYWxsb3dlZCBmb3IgdGhlIFZGcy4g
+IFdlIGFscmVhZHkgYWxsb3cgVkZzIHRvIHNldCB3aGF0ZXZlciBtdWx0aWNhc3QgZmlsdGVycyB0
+aGV5IHdhbnQgc28gaWYgdGhleSB3YW50IHRvIGdvIGludG8gTVBFIHRoZW4gc28gd2hhdD8gIFdl
+IGRvbid0IGNhcmUuICBJdCdzIG5vdCBhIHNlY3VyaXR5IHJpc2suICBSaWdodCBub3csIHdpdGhv
+dXQgYW55IG1vZGlmaWNhdGlvbiwgdGhlIFZGIGNhbiBzZXQgMzAgbXVsdGljYXN0IGZpbHRlcnMg
+YW5kIGxpc3Rlbi4gIEl0IGNhbiB0aGVuIHJlbW92ZSB0aG9zZSBhbmQgc2V0IGFub3RoZXIgMzAg
+ZmlsdGVycyBhbmQgbGlzdGVuLiAgQW5kIHNvIG9uIGFuZCBzbyBvbi4gIFNvIGlmIGEgVkYgY2Fu
+IGFscmVhZHkgbGlzdGVuIG9uIGFueSBNQyBmaWx0ZXIgaXQgd2FudHMgdGhlbiB3aHkgdGhpcyBh
+cnRpZmljaWFsIHJlc3RyaWN0aW9uIG9uIE1DIHByb21pc2N1b3VzIG1vZGUuDQoNCldlIGRvbid0
+IGNhcmUgYWJvdXQgdGhpcyBjYXNlLiBVbmljYXN0IHByb21pc2N1b3VzIGlzIHRoZSBzZWN1cml0
+eSByaXNrIGFuZCBJIHRoaW5rIHdlJ3ZlIGhhbmRsZWQgdGhhdC4NCg0KPiANCj4gPg0KPiA+IEFu
+ZCB3aGF0IGRvIHlvdSB0aGluayBhYm91dCBiZWluZyB1bnRydXN0ZWQgZnJvbSB0cnVzdGVkIHN0
+YXRlPw0KPiANCj4gVGhpcyBpcyBhbiBpbnRlcmVzdGluZyBxdWVzdGlvbi4gIElmIHdlIGFsbG93
+ZWQgYSBWTSB0byBnbyBmcm9tIHRydXN0ZWQgLT4NCj4gdW50cnVzdGVkIHdlIHdvdWxkIGhhdmUg
+dG8gdHVybiBvZmYgYW55ICJzcGVjaWFsIiBjb25maWd1cmF0aW9uIHRoYXQNCj4gdHJ1c3RlZCBh
+bGxvd2VkLiAgTWF5YmUgaW4gc3VjaCBjYXNlcyB3ZSBjb3VsZCByZXNldCB0aGUgUEY/ICBBbmQg
+b2YNCj4gY291cnNlIHJlcXVpcmUgYWxsIHRoZSAic3BlY2lhbCIgY29uZmlndXJhdGlvbiAoTUMg
+UHJvbWlzYykgdG8gZGVmYXVsdCB0bw0KPiBvZmYgYWZ0ZXIgYmVpbmcgcmVzZXQuDQo+IA0KDQpU
+byByZW1vdmUgcHJpdmlsZWdlcyBmcm9tIGEgVkYgdGhhdCB5b3UncmUgYWxyZWFkeSBzZXQgdG8g
+cHJpdmlsZWdlZCB3aWxsIHJlcXVpcmUgZGVzdHJ1Y3Rpb24gb2YgdGhlIFZGIFZTSSBhbmQgVkZM
+UiB0byB0aGUgVkYgLSBhZnRlciBpdCBjb21lcyB1cCBpdCBjYW4ndCBkbyBhbnkgZnVydGhlciBw
+cml2aWxlZ2VkIG9wZXJhdGlvbnMuDQoNCltzbmlwDQoNCj4gVGhpcyB0b28gaXMgYSB2YWxpZCBw
+b2ludC4gIEN1cnJlbnRseSB3ZSB3b3VsZCBqdXN0IG5vdCBkbyBpdCAoTUMgUHJvbWlzYykNCj4g
+YW5kIHRoZSBWRiB3b3VsZCBoYXZlIHRvIGZpZ3VyZSB0aGF0IG91dCBmb3IgaXRzZWxmLiAgUGFz
+c2luZyBhIE5BSyBiYWNrDQo+IHRvIHRoZSBWRiBtaWdodCBiZSBuaWNlci4gOikgIE9mIGNvdXJz
+ZSBJIGFzc3VtZWQgdGhlIHN5c2FkbSB3b3VsZCBrbm93DQo+IHRoYXQgaGUvc2hlIHdhbnRlZCB0
+byBnaXZlIGEgVkYgdHJ1c3RlZCBzdGF0dXMgYW5kIHdvdWxkIGRvIHRoYXQgYmVmb3JlDQo+IHRo
+ZSBWRiB3YXMgZXZlbiBhc3NpZ25lZCB0byBhIFZNLCBzbyB0aGUgaXNzdWUgd291bGQgbmV2ZXIg
+Y29tZSB1cC4gIE1heWJlDQo+IHRoYXQgaXMgbm90IHZhbGlkIGZvciB5b3VyIHVzZSBjYXNlPw0K
+DQpMZXQncyBub3Qgd29ycnkgYWJvdXQgTUMgcHJvbWlzY3VvdXMgbW9kZS4gIEFzIEkgcG9pbnRl
+ZCBvdXQgYWJvdmUgd2UgYWxyZWFkeSBsZXQgVkZzIHNldCBhbnkgTUMgYWRkcmVzcyBmaWx0ZXJz
+IHRoZXkgd2FudCBzbyB0aGF0IGhvcnNlIGhhcyBhbHJlYWR5IGxlZnQgdGhlIGJhcm4uDQoNCkZv
+Y3VzIG9uIGdldHRpbmcgdGhlIFZGIHByaXZpbGVnZWQgbW9kZSBjb25maWd1cmF0aW9uIGdvaW5n
+IGFuZCB0aGVuIHdlJ3JlIHdlbGwgb24gb3VyIHdheSB0byBhY2NvbXBsaXNoaW5nIHdoYXQgd2Ug
+bmVlZCB0byBkby4NCg0KLSBHcmVnDQoNCg==
