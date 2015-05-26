@@ -1,81 +1,35 @@
-From: Mark Salyzyn <salyzyn@android.com>
-Subject: [PATCH v3] net/unix: sk_socket can disappear when state is unlocked
-Date: Tue, 26 May 2015 08:22:19 -0700
-Message-ID: <1432653777-13799-1-git-send-email-salyzyn@android.com>
-Cc: Mark Salyzyn <salyzyn@android.com>,
-	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] x86: bpf_jit: fix compilation of large bpf programs
+Date: Tue, 26 May 2015 08:29:58 -0700
+Message-ID: <1432654198.4060.248.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1432334575-16959-1-git-send-email-ast@plumgrid.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CB3EA6A@AcuExch.aculab.com>
+	 <1432650922.4060.236.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CB3ECB8@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: 'Alexei Starovoitov' <ast@plumgrid.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	David Howells <dhowells@redhat.com>,
-	Ying Xue <ying.xue@windriver.com>,
-	Christoph Hellwig <hch@lst.de>, netdev@vger.kernel.org
-To: hannes@redhat.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Eric Dumazet <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:33472 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753798AbbEZPaB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 11:30:01 -0400
+Received: by igbpi8 with SMTP id pi8so62486777igb.0
+        for <netdev@vger.kernel.org>; Tue, 26 May 2015 08:30:00 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB3ECB8@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-got a rare NULL pointer dereference in clear_bit
+On Tue, 2015-05-26 at 15:13 +0000, David Laight wrote:
 
-Signed-off-by: Mark Salyzyn <salyzyn@android.com>
-----
-v2: switch to sock_flag(sk, SOCK_DEAD) and added net/caif/caif_socket.c
-v3: return -ECONNRESET in upstream caller of wait function for SOCK_DEAD
----
- net/caif/caif_socket.c | 8 ++++++++
- net/unix/af_unix.c     | 8 ++++++++
- 2 files changed, 16 insertions(+)
+> Yes, interesting, a benchmark that manages to run a lot of code 'cold cache'.
 
-diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
-index 4ec0c80..112ad78 100644
---- a/net/caif/caif_socket.c
-+++ b/net/caif/caif_socket.c
-@@ -330,6 +330,10 @@ static long caif_stream_data_wait(struct sock *sk, long timeo)
- 		release_sock(sk);
- 		timeo = schedule_timeout(timeo);
- 		lock_sock(sk);
-+
-+		if (sock_flag(sk, SOCK_DEAD))
-+			break;
-+
- 		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
- 	}
- 
-@@ -373,6 +377,10 @@ static int caif_stream_recvmsg(struct socket *sock, struct msghdr *msg,
- 		struct sk_buff *skb;
- 
- 		lock_sock(sk);
-+		if (sock_flag(sk, SOCK_DEAD)) {
-+			err = -ECONNRESET;
-+			goto unlock;
-+		}
- 		skb = skb_dequeue(&sk->sk_receive_queue);
- 		caif_check_flow_release(sk);
- 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 5266ea7..0643059 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1880,6 +1880,10 @@ static long unix_stream_data_wait(struct sock *sk, long timeo,
- 		unix_state_unlock(sk);
- 		timeo = freezable_schedule_timeout(timeo);
- 		unix_state_lock(sk);
-+
-+		if (sock_flag(sk, SOCK_DEAD))
-+			break;
-+
- 		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
- 	}
- 
-@@ -1939,6 +1943,10 @@ static int unix_stream_recvmsg(struct socket *sock, struct msghdr *msg,
- 		struct sk_buff *skb, *last;
- 
- 		unix_state_lock(sk);
-+		if (sock_flag(sk, SOCK_DEAD)) {
-+			err = -ECONNRESET;
-+			goto unlock;
-+		}
- 		last = skb = skb_peek(&sk->sk_receive_queue);
- again:
- 		if (skb == NULL) {
--- 
-2.2.0.rc0.207.ga3a616c
+We have binaries here at Google with 400 or 500 MBytes of text.
+
+Not benchmark, super real workloads you know.
