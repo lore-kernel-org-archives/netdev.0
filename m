@@ -1,125 +1,56 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH/RFC net-next] rocker: by default accept untagged packets
-Date: Tue, 26 May 2015 09:55:03 +0900
-Message-ID: <1432601703-26774-1-git-send-email-simon.horman@netronome.com>
-Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
-To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	David Miller <davem@davemloft.net>
+From: Vladimir Zapolskiy <vz@mleia.com>
+Subject: [PATCH] net: netxen: correct sysfs bin attribute return code
+Date: Tue, 26 May 2015 03:50:04 +0300
+Message-ID: <1432601404-24632-1-git-send-email-vz@mleia.com>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Manish Chopra <manish.chopra@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35799 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751127AbbEZAzO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 20:55:14 -0400
-Received: by pacwv17 with SMTP id wv17so79841024pac.2
-        for <netdev@vger.kernel.org>; Mon, 25 May 2015 17:55:13 -0700 (PDT)
+Received: from li271-223.members.linode.com ([178.79.152.223]:37132 "EHLO
+	mail.mleia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751134AbbEZA5A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 May 2015 20:57:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This will occur anyway if the 8021q module is loaded as it will
-call rocker_port_vlan_rx_add_vid for vlan 0. This code is here
-to handle the case where the 8021q module is not loaded.
+If read() syscall requests unexpected number of bytes from "dimm" binary
+attribute file, return EINVAL instead of EPERM.
 
-This patch also handles the case where the 8021q is unloaded
-removing all VLANs from all ports.
+At the same time pin down sysfs file size to the fixed
+sizeof(struct netxen_dimm_cfg), which allows to exploit some missing
+sanity checks from kernfs (file boundary checks vs offset etc.)
 
-This change should not affect bridging, although the rules are
-harmlessly installed anyway. This is in keeping with the behaviour
-for VLANs when the 8021q modules is loaded.
-
-To aid implementation of the above provide a helper
-and use it to replace some existing code.
-
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
+Signed-off-by: Vladimir Zapolskiy <vz@mleia.com>
 ---
- drivers/net/ethernet/rocker/rocker.c | 51 +++++++++++++++++++++++++++---------
- 1 file changed, 39 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 36f7edfc3c7a..bc00e0abd8b6 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -3720,6 +3720,19 @@ static int rocker_port_router_mac(struct rocker_port *rocker_port,
- 	return err;
- }
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index e0c31e3..6409a06 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -3025,9 +3025,9 @@ netxen_sysfs_read_dimm(struct file *filp, struct kobject *kobj,
+ 	u8 dw, rows, cols, banks, ranks;
+ 	u32 val;
  
-+static int rocker_port_vlan_rx_vid(struct rocker_port *rocker_port,
-+				   enum switchdev_trans trans, int flag,
-+				   u16 vid)
-+{
-+	int err;
-+
-+	err = rocker_port_vlan(rocker_port, trans, flag, vid);
-+	if (err)
-+		return err;
-+
-+	return rocker_port_router_mac(rocker_port, trans, flag, htons(vid));
-+}
-+
- static int rocker_port_fwding(struct rocker_port *rocker_port,
- 			      enum switchdev_trans trans)
- {
-@@ -4009,6 +4022,16 @@ static int rocker_port_open(struct net_device *dev)
- 		goto err_request_rx_irq;
+-	if (size != sizeof(struct netxen_dimm_cfg)) {
++	if (size < attr->size) {
+ 		netdev_err(netdev, "Invalid size\n");
+-		return -1;
++		return -EINVAL;
  	}
  
-+	/* By default accept untagged vlan packets.
-+	 *
-+	 * This will occur anyway if the 8021q module is loaded as it will
-+	 * call rocker_port_vlan_rx_add_vid for vlan 0. This code is here
-+	 * to handle the case where the 8021q module is not loaded.
-+	 */
-+	err = rocker_port_vlan_rx_vid(rocker_port, SWITCHDEV_TRANS_NONE, 0, 0);
-+	if (err)
-+		goto err_fwd_enable;
-+
- 	err = rocker_port_fwd_enable(rocker_port, SWITCHDEV_TRANS_NONE);
- 	if (err)
- 		goto err_fwd_enable;
-@@ -4187,29 +4210,33 @@ static int rocker_port_vlan_rx_add_vid(struct net_device *dev,
- 				       __be16 proto, u16 vid)
- {
- 	struct rocker_port *rocker_port = netdev_priv(dev);
--	int err;
--
--	err = rocker_port_vlan(rocker_port, SWITCHDEV_TRANS_NONE, 0, vid);
--	if (err)
--		return err;
+ 	memset(&dimm, 0, sizeof(struct netxen_dimm_cfg));
+@@ -3137,7 +3137,7 @@ out:
  
--	return rocker_port_router_mac(rocker_port, SWITCHDEV_TRANS_NONE,
--				      0, htons(vid));
-+	return rocker_port_vlan_rx_vid(rocker_port, SWITCHDEV_TRANS_NONE,
-+				       0, vid);
- }
+ static struct bin_attribute bin_attr_dimm = {
+ 	.attr = { .name = "dimm", .mode = (S_IRUGO | S_IWUSR) },
+-	.size = 0,
++	.size = sizeof(struct netxen_dimm_cfg),
+ 	.read = netxen_sysfs_read_dimm,
+ };
  
- static int rocker_port_vlan_rx_kill_vid(struct net_device *dev,
- 					__be16 proto, u16 vid)
- {
- 	struct rocker_port *rocker_port = netdev_priv(dev);
--	int err;
-+	int err, i;
- 
--	err = rocker_port_router_mac(rocker_port, SWITCHDEV_TRANS_NONE,
--				     ROCKER_OP_FLAG_REMOVE, htons(vid));
-+	err = rocker_port_vlan_rx_vid(rocker_port, SWITCHDEV_TRANS_NONE,
-+				      ROCKER_OP_FLAG_REMOVE, vid);
- 	if (err)
- 		return err;
- 
--	return rocker_port_vlan(rocker_port, SWITCHDEV_TRANS_NONE,
--				ROCKER_OP_FLAG_REMOVE, vid);
-+	/* If no vlans are set then the last one has been removed;
-+	 * restore the default behaviour of accepting untagged packets.
-+	 *
-+	 * This may occur if the 8021q module is unloaded.
-+	 */
-+	for (i = 0; i < ROCKER_VLAN_BITMAP_LEN; i++)
-+		if (rocker_port->vlan_bitmap[i])
-+			return 0;
-+	return rocker_port_vlan_rx_vid(rocker_port, SWITCHDEV_TRANS_NONE,
-+				       0, 0);
-+
- }
- 
- static int rocker_port_get_phys_port_name(struct net_device *dev,
 -- 
 2.1.4
