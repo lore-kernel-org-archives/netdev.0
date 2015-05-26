@@ -1,158 +1,120 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
-Date: Tue, 26 May 2015 17:45:58 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF22286646912FDC17@ORSMSX110.amr.corp.intel.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912FB5E4@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB3B4A@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912FBBEC@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4EE6@BPXM14GP.gisp.nec.co.jp>
- <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com>
- <F6FB0E698C9B3143BDF729DF22286646912FC2E3@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB8A65@BPXM14GP.gisp.nec.co.jp>
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the
+ RDMA-CM
+Date: Tue, 26 May 2015 13:46:36 -0400
+Message-ID: <1432662396.28905.157.camel@redhat.com>
+References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
+	 <1432647280.28905.107.camel@redhat.com>
+	 <20150526165928.GC11800@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	"David Miller" <davem@davemloft.net>,
-	Edward Cree <ecree@solarflare.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Content-Type: multipart/signed; micalg="pgp-sha256";
+	protocol="application/pgp-signature"; boundary="=-9sFUD7FrFbaf1XN+erhX"
+Cc: Haggai Eran <haggaie@mellanox.com>, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, Liran Liss <liranl@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Yotam Kenneth <yotamke@mellanox.com>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:57471 "EHLO mga11.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:10278 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751572AbbEZRqA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 May 2015 13:46:00 -0400
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB8A65@BPXM14GP.gisp.nec.co.jp>
-Content-Language: en-US
+	id S1751818AbbEZRqs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 May 2015 13:46:48 -0400
+In-Reply-To: <20150526165928.GC11800@obsidianresearch.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSGlyb3NoaSBTaGltYW1v
-dG8gW21haWx0bzpoLXNoaW1hbW90b0BjdC5qcC5uZWMuY29tXQ0KPiBTZW50OiBNb25kYXksIE1h
-eSAyNSwgMjAxNSA2OjAwIFBNDQo+IFRvOiBTa2lkbW9yZSwgRG9uYWxkIEM7IFJvc2UsIEdyZWdv
-cnkgVjsgS2lyc2hlciwgSmVmZnJleSBUOyBpbnRlbC13aXJlZC0NCj4gbGFuQGxpc3RzLm9zdW9z
-bC5vcmcNCj4gQ2M6IG5ob3JtYW5AcmVkaGF0LmNvbTsgam9ncmVlbmVAcmVkaGF0LmNvbTsgTGlu
-dXggTmV0ZGV2IExpc3Q7IENob2ksDQo+IFN5IEpvbmc7IFJvbnkgRWZyYWltOyBEYXZpZCBNaWxs
-ZXI7IEVkd2FyZCBDcmVlOyBPciBHZXJsaXR6Ow0KPiBzYXNzbWFubkByZWRoYXQuY29tDQo+IFN1
-YmplY3Q6IFJFOiBbUEFUQ0ggdjUgMy8zXSBpeGdiZTogQWRkIG5ldyBuZG8gdG8gdHJ1c3QgVkYN
-Cj4gDQo+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+ID4gRnJvbTogUm9zZSwg
-R3JlZ29yeSBWDQo+ID4gPiBTZW50OiBGcmlkYXksIE1heSAyMiwgMjAxNSA4OjA4IEFNDQo+ID4g
-PiBUbzogSGlyb3NoaSBTaGltYW1vdG87IFNraWRtb3JlLCBEb25hbGQgQzsgS2lyc2hlciwgSmVm
-ZnJleSBUOw0KPiA+ID4gaW50ZWwtd2lyZWQtIGxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+ID4gPiBD
-Yzogbmhvcm1hbkByZWRoYXQuY29tOyBqb2dyZWVuZUByZWRoYXQuY29tOyBMaW51eCBOZXRkZXYg
-TGlzdDsNCj4gPiA+IENob2ksIFN5IEpvbmc7IFJvbnkgRWZyYWltOyBEYXZpZCBNaWxsZXI7IEVk
-d2FyZCBDcmVlOyBPciBHZXJsaXR6Ow0KPiA+ID4gc2Fzc21hbm5AcmVkaGF0LmNvbQ0KPiA+ID4g
-U3ViamVjdDogUkU6IFtQQVRDSCB2NSAzLzNdIGl4Z2JlOiBBZGQgbmV3IG5kbyB0byB0cnVzdCBW
-Rg0KPiA+ID4NCj4gPiA+DQo+ID4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4g
-PiA+IEZyb206IEludGVsLXdpcmVkLWxhbg0KPiA+ID4gPiBbbWFpbHRvOmludGVsLXdpcmVkLWxh
-bi1ib3VuY2VzQGxpc3RzLm9zdW9zbC5vcmddIE9uIEJlaGFsZiBPZg0KPiA+ID4gPiBIaXJvc2hp
-IFNoaW1hbW90bw0KPiA+ID4gPiBTZW50OiBUaHVyc2RheSwgTWF5IDIxLCAyMDE1IDc6MzEgUE0N
-Cj4gPiA+ID4gVG86IFNraWRtb3JlLCBEb25hbGQgQzsgS2lyc2hlciwgSmVmZnJleSBUOyBpbnRl
-bC13aXJlZC0NCj4gPiA+ID4gbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4gPiA+ID4gQ2M6IG5ob3Jt
-YW5AcmVkaGF0LmNvbTsgam9ncmVlbmVAcmVkaGF0LmNvbTsgTGludXggTmV0ZGV2IExpc3Q7DQo+
-ID4gPiA+IENob2ksIFN5IEpvbmc7IFJvbnkgRWZyYWltOyBEYXZpZCBNaWxsZXI7IEVkd2FyZCBD
-cmVlOyBPciBHZXJsaXR6Ow0KPiA+ID4gPiBzYXNzbWFubkByZWRoYXQuY29tDQo+ID4gPiA+IFN1
-YmplY3Q6IFJlOiBbSW50ZWwtd2lyZWQtbGFuXSBbUEFUQ0ggdjUgMy8zXSBpeGdiZTogQWRkIG5l
-dyBuZG8NCj4gPiA+ID4gdG8gdHJ1c3QgVkYNCj4gPiA+ID4NCj4gPiA+DQo+ID4gPiBbYmlnIHNu
-aXBdDQo+ID4gPg0KPiA+ID4gPiBJIHRoaW5rIHlvdXIgY29uY2VybnMgYXJlIHJlbGF0ZWQgdG8g
-c29tZSBvcGVyYXRpb25hbCBhc3N1bXB0aW9ucy4NCj4gPiA+ID4gTXkgYmFzaWMgY29uY2VwdCBp
-cywgbm90IHRvIGNoYW5nZSB0aGUgYmVoYXZpb3Igb2YgVk0sIGV4aXN0aW5nDQo+ID4gPiA+IHVz
-ZXIgb3BlcmF0aW9uLg0KPiA+ID4gPiBJIG1lYW4gdGhhdCBJIGRpZG4ndCB0aGluayBpdCdzIGJl
-dHRlciB0aGF0IHRoZSB1c2VyIHNob3VsZCBjaGVjaw0KPiA+ID4gPiB0aGUgYm90aCBvZiB0aGUg
-aXhnYmV2ZiBkcml2ZXIgY2FuIGRlYWwgd2l0aCBuZXcgQVBJIGFuZCB0aGUgVkYgaXMNCj4gdHJ1
-c3RlZC4NCj4gPiA+ID4NCj4gPiA+ID4gTm93LCBJIHRoaW5rIHRoZSBwb2ludCBpcyB3aG8gdGFr
-ZXMgY2FyZSB3aGV0aGVyIHRoZSBWRiBpcyB0cnVzdGVkLg0KPiBSaWdodD8NCj4gPiA+ID4gSXQg
-c2VlbXMgdGhhdCB5b3UgdGhpbmsgdGhlIFZGIHVzZXIgc2hvdWxkIGhhbmRsZSB0aGF0IHVzZXIg
-aXMNCj4gPiA+ID4gdHJ1c3RlZCBhbmQgZG8gc29tZXRoaW5nIHdpdGggYSBub3RpY2UgdGhhdCAi
-eW91J3JlIHRydXN0ZWQgb3INCj4gPiA+ID4gdW50cnVzdGVkIiBmcm9tIHRoZSBob3N0Lg0KPiA+
-ID4gPiBJcyB0aGF0IGNvcnJlY3Q/DQo+ID4gPiA+IEkgbWFkZSBpdCBpbiBQRiBzaWRlLCBiZWNh
-dXNlIGl0IGxvb2tzIGVhc3kgdG8gaGFuZGxlIGl0LiBJZg0KPiA+ID4gPiBzb21ldGhpbmcgdG8g
-ZG8gaW4gVkYgc2lkZSwgSSB0aGluayBpeGdiZXZmIGRyaXZlciBzaG91bGQgaGFuZGxlIGl0Lg0K
-PiA+ID4NCj4gPiA+IFNldHRpbmcgdGhlIFZGIHRydXN0ZWQgbW9kZSBmZWF0dXJlIHNob3VsZCBv
-bmx5IGJlIGFsbG93ZWQgdGhyb3VnaA0KPiA+ID4gdGhlIFBGIGFzIGl0IGlzIHRoZSBvbmx5IHRy
-dXN0ZWQgZW50aXR5IGZyb20gdGhlIHN0YXJ0LiAgV2UgZG8gbm90DQo+ID4gPiB3YW50IHRoZSBW
-RiBiZWluZyBhYmxlIHRvIGRlY2lkZSBmb3IgaXRzZWxmIHRvIGJlIHRydXN0ZWQuDQo+ID4gPg0K
-PiA+ID4gLSBHcmVnDQo+ID4gPg0KPiA+DQo+ID4gSSBjb21wbGV0ZWx5IGFncmVlIHdpdGggR3Jl
-ZyBhbmQgbmV2ZXIgbWVhbnQgdG8gaW1wbHkgYW55dGhpbmcgZWxzZS4NCj4gPg0KPiA+IFRoZSBQ
-RiBzaG91bGQgYmUgd2hlcmUgYSBnaXZlbiBWRiBpcyBtYWRlICJ0cnVzdGVkIi4gIExpa2V3aXNl
-IGEgVkYNCj4gPiBjYW4gZ2V0IHByb21vdGVkIHRvIE1DIFByb21pc2N1b3VzIGJ1eSByZXF1ZXN0
-aW5nIG92ZXIgMzAgTUMgZ3JvdXBzLiAgSQ0KPiBsaWtlIHRoaXMgYW5kIHlvdXIgcGF0Y2ggY3Vy
-cmVudGx5IGRvZXMgdGhpcy4gIFNvIGZvciBleGFtcGxlIGJlbG93Og0KPiA+DQo+ID4gUEYJCQkJ
-CVZGDQo+ID4gLS0tLS0tLS0tLQkJCQktLS0tLS0tLS0tLQ0KPiA+IFNldCBnaXZlbiBWRiBhcyB0
-cnVzdGVkDQo+ID4gCQkJCQlSZXF1ZXN0IDMwKyBNQyBncm91cHMgdmlhIE1haWwgQm94DQo+IFB1
-dCBQRiBpbiBNQyBQcm9taXNjdW91cyBtb2RlDQo+ID4NCj4gPg0KPiA+IFdoYXQgSSBhbSBjb25j
-ZXJuZWQgYWJvdXQgaXMgdGhlIGZvbGxvd2luZyBmbG93IHdoZXJlIHdlIHNlZW0gdG8gc3RvcmUN
-Cj4gPiB0aGUgZmFjdCB0aGUgVkYgcmVxdWVzdHMgbW9yZSB0aGFuIDMwKyBNQyBncm91cHMgc28g
-dGhhdCB3ZSBjYW4NCj4gYXV0b21hdGljYWxseSBlbnRlciBNQyBQcm9taXNjIE1vZGUgaWYgdGhh
-dCBWRiBpcyBldmVyIG1hZGUgdHJ1c3RlZC4NCj4gPg0KPiA+IFBGCQkJCQlWRg0KPiA+IC0tLS0t
-LS0tLS0tCQkJCS0tLS0tLS0tLS0NCj4gPiBDdXJyZW50bHkgVkYgaXMgTk9UIHRydXN0ZWQNCj4g
-PiAJCQkJCVJlcXVlc3QgMzArIE1DIGdyb3VwcyB2aWEgTWFpbCBCb3gNCj4gRG8gTk9UIHB1dCBQ
-RiBpbiBNQyBQcm9taXNjDQo+ID4gKGh3LT5tYWMubWNfcHJvbWlzYyA9IHRydWUpDQo+ID4NCj4g
-PiA8IFNvbWUgdGltZSBsYXRlciA+DQo+ID4NCj4gPiBTZXQgZ2l2ZW4gVkYgYXMgdHJ1c3RlZA0K
-PiA+IChiZWNhdXNlIG1jX3Byb21pc2Mgc2V0KSBQdXQgUEYgaW4gTUMgUHJvbWlzYw0KPiA+DQo+
-ID4NCj4gPiBJIGRvbid0IGxpa2UgdGhlIGZhY3QgdGhhdCB0aGUgUEYgcmVtZW1iZXJzIHRoYXQg
-dGhlIFZGIHdhcyBkZW5pZWQgTUMNCj4gPiBQcm9taXNjdW91cyBtb2RlIGluIHRoZSBwYXN0LiAg
-QW5kIGJlY2F1c2Ugb2YgdGhhdCBhdXRvbWF0aWNhbGx5IHB1dA0KPiA+IHRoZSBWRiBpbiBNQyBQ
-cm9taXNjdW91cyBtb2RlIHdoZW4gaXQgYmVjb21lcyB0cnVzdGVkLiAgTWF5YmUNCj4gc2hvd2lu
-Zw0KPiA+IGluIGNvZGUgd2hhdCBJIHdvdWxkIGxpa2UgcmVtb3ZlZC9hZGRlZCB3b3VsZCBiZSBt
-b3JlIGhlbHBmdWwsDQo+ID4gcHJvYmFibHkgc2hvdWxkIGhhdmUgc3RhcnRlZCBkb2luZyB0aGF0
-LiA6KQ0KPiANCj4gRG8geW91IG1lYW4gdGhhdCBWRiBzaG91bGQgY2FyZSBhYm91dCBpdCBpcyB0
-cnVzdGVkIG9yIG5vdD8NCj4gU2hvdWxkIFZGIHJlcXVlc3QgTUMgUHJvbWlzYyBhZ2FpbiB3aGVu
-IGl0J3MgdHJ1c3RlZD8NCj4gT3IsIGRvIHlvdSBtZWFuIFZGIG5ldmVyIGJlIHRydXN0ZWQgZHVy
-aW5nIGl0cyAob3IgVk0ncykgbGlmZXRpbWU/DQoNCkkgdGhpbmsgdGhlIFZGIHNob3VsZG4ndCBk
-aXJlY3RseSBrbm93IHdoZXRoZXIgaXQgaXMgdHJ1c3RlZCBvciBub3QuICBJdCBzaG91bGQgcmVx
-dWVzdCBNQyBQcm9taXNjIGFuZCBnZXQgaXQgaWYgaXQgaXMgdHJ1c3RlZCBhbmQgbm90IGlmIGl0
-IGlzIG5vdCB0cnVzdGVkLiAgU28gaWYgeW91IChhcyB0aGUgc3lzdGVtIGFkbWluIGtub3cgeW91
-IGhhdmUgYSBWRiB0aGF0IHdpbGwgbmVlZCB0byByZXF1ZXN0IE1DIFByb21pc2MgbWFrZSBzdXJl
-IHlvdSBwcm9tb3RlIHRoYXQgVkYgdG8gdHJ1c3RlZCBiZWZvcmUgYXNzaWduaW5nIGl0IHRvIGEg
-Vk0uICBUaGF0IHdheSB3aGVuIGl0IHJlcXVlc3RzIE1DIFByb21pc2MgdGhlIFBGIHdpbGwgYmUg
-YWJsZSB0byBncmFudCBpdC4NCg0KDQo+IA0KPiBBbmQgd2hhdCBkbyB5b3UgdGhpbmsgYWJvdXQg
-YmVpbmcgdW50cnVzdGVkIGZyb20gdHJ1c3RlZCBzdGF0ZT8NCg0KVGhpcyBpcyBhbiBpbnRlcmVz
-dGluZyBxdWVzdGlvbi4gIElmIHdlIGFsbG93ZWQgYSBWTSB0byBnbyBmcm9tIHRydXN0ZWQgLT4g
-dW50cnVzdGVkIHdlIHdvdWxkIGhhdmUgdG8gdHVybiBvZmYgYW55ICJzcGVjaWFsIiBjb25maWd1
-cmF0aW9uIHRoYXQgdHJ1c3RlZCBhbGxvd2VkLiAgTWF5YmUgaW4gc3VjaCBjYXNlcyB3ZSBjb3Vs
-ZCByZXNldCB0aGUgUEY/ICBBbmQgb2YgY291cnNlIHJlcXVpcmUgYWxsIHRoZSAic3BlY2lhbCIg
-Y29uZmlndXJhdGlvbiAoTUMgUHJvbWlzYykgdG8gZGVmYXVsdCB0byBvZmYgYWZ0ZXIgYmVpbmcg
-cmVzZXQuDQoNCj4gDQo+ID4NCj4gPiBJIHdvdWxkIHJlbW92ZSB0aGlzIGJpdCBvZiBjb2RlIGZy
-b20gaXhnYmVfbmRvX3NldF92Zl90cnVzdCgpOg0KPiA+DQo+ID4gaW50IGl4Z2JlX25kb19zZXRf
-dmZfdHJ1c3Qoc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwgaW50IHZmLCBib29sDQo+ID4gc2V0
-dGluZykgew0KPiA+IAlzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlciA9IG5ldGRldl9wcml2
-KG5ldGRldik7DQo+ID4NCj4gPiAJaWYgKHZmID49IGFkYXB0ZXItPm51bV92ZnMpDQo+ID4gCQly
-ZXR1cm4gLUVJTlZBTDsNCj4gPg0KPiA+IAkvKiBub3RoaW5nIHRvIGRvICovDQo+ID4gCWlmIChh
-ZGFwdGVyLT52ZmluZm9bdmZdLnRydXN0ZWQgPT0gc2V0dGluZykNCj4gPiAJCXJldHVybiAwOw0K
-PiA+DQo+ID4gCWFkYXB0ZXItPnZmaW5mb1t2Zl0udHJ1c3RlZCA9IHNldHRpbmc7DQo+ID4NCj4g
-PiAtCS8qIFJlY29uZmlndXJlIGZlYXR1cmVzIHdoaWNoIGFyZSBvbmx5IGFsbG93ZWQgZm9yIHRy
-dXN0ZWQgVkYgKi8NCj4gPiAtCS8qIFZGIG11bHRpY2FzdCBwcm9taXNjdW91cyBtb2RlICovDQo+
-ID4gLQlpZiAoYWRhcHRlci0+dmZpbmZvW3ZmXS5tY19wcm9taXNjKQ0KPiA+IC0JCWl4Z2JlX2Vu
-YWJsZV92Zl9tY19wcm9taXNjKGFkYXB0ZXIsIHZmKTsNCj4gDQo+IEkgdW5kZXJzdGFuZCwgeW91
-IGRvbid0IHRoaW5rIHdlIG5lZWQgdG8gaGF2ZSBhIGNhcGFiaWxpdHkgdG8gZW5hYmxlL2Rpc2Fi
-bGUNCj4gTUMgUHJvbWlzYyBvbiB0aGUgZmx5Lg0KPiANCj4gPg0KPiA+IAlyZXR1cm4gMDsNCj4g
-PiB9DQo+ID4NCj4gPiBUaGlzIG9mIGNvdXJzZSB3b3VsZCBiZSB3ZSBzaG91bGQgbm90IHNldCBt
-Y19wcm9taXNjIGV2ZXIgaWYgd2UgYXJlDQo+ID4gTk9UIHRydXN0ZWQgKGFkYXB0ZXItPnZmaW5m
-b1t2Zl0udHJ1c3RlZCkgc28gaW4NCj4gPiBpeGdiZV9zZXRfdmZfbWNfcHJvbWlzYygpIEkgd291
-bGQgYWRkIG9yIHNvbWV0aGluZyBsaWtlIGl0Og0KPiA+DQo+ID4gc3RhdGljIGludCBpeGdiZV9z
-ZXRfdmZfbWNfcHJvbWlzYyhzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlciwNCj4gPiAJCQkJ
-ICAgdTMyICptc2didWYsIHUzMiB2ZikNCj4gPiB7DQo+ID4gCWJvb2wgZW5hYmxlID0gISFtc2di
-dWZbMV07CS8qIG1zZ2J1ZiBjb250YWlucyB0aGUgZmxhZyB0byBlbmFibGUNCj4gKi8NCj4gPg0K
-PiA+IAlzd2l0Y2ggKGFkYXB0ZXItPnZmaW5mb1t2Zl0udmZfYXBpKSB7DQo+ID4gCWNhc2UgaXhn
-YmVfbWJveF9hcGlfMTI6DQo+ID4gCQlicmVhazsNCj4gPiAJZGVmYXVsdDoNCj4gPiAJCXJldHVy
-biAtMTsNCj4gPiAJfQ0KPiA+DQo+ID4gKwkvKiBoYXZlIHRvIGJlIHRydXN0ZWQgKi8NCj4gPiAr
-CUlmICghYWRhcHRlci0+dmZpbmZvW3ZmXS50cnVzdGVkKQ0KPiA+ICsJCVJldHVybiAwOw0KPiAN
-Cj4gU2hvdWxkIHdlIHJldHVybiBhbiBlcnJvciB0byBWRiB0byBpbmZvcm0gaXQgaXNuJ3QgdHJ1
-c3RlZD8NCg0KVGhpcyB0b28gaXMgYSB2YWxpZCBwb2ludC4gIEN1cnJlbnRseSB3ZSB3b3VsZCBq
-dXN0IG5vdCBkbyBpdCAoTUMgUHJvbWlzYykgYW5kIHRoZSBWRiB3b3VsZCBoYXZlIHRvIGZpZ3Vy
-ZSB0aGF0IG91dCBmb3IgaXRzZWxmLiAgUGFzc2luZyBhIE5BSyBiYWNrIHRvIHRoZSBWRiBtaWdo
-dCBiZSBuaWNlci4gOikgIE9mIGNvdXJzZSBJIGFzc3VtZWQgdGhlIHN5c2FkbSB3b3VsZCBrbm93
-IHRoYXQgaGUvc2hlIHdhbnRlZCB0byBnaXZlIGEgVkYgdHJ1c3RlZCBzdGF0dXMgYW5kIHdvdWxk
-IGRvIHRoYXQgYmVmb3JlIHRoZSBWRiB3YXMgZXZlbiBhc3NpZ25lZCB0byBhIFZNLCBzbyB0aGUg
-aXNzdWUgd291bGQgbmV2ZXIgY29tZSB1cC4gIE1heWJlIHRoYXQgaXMgbm90IHZhbGlkIGZvciB5
-b3VyIHVzZSBjYXNlPw0KDQpUaGFua3MsDQotRG9uIA0KDQo=
+
+--=-9sFUD7FrFbaf1XN+erhX
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2015-05-26 at 10:59 -0600, Jason Gunthorpe wrote:
+> On Tue, May 26, 2015 at 09:34:40AM -0400, Doug Ledford wrote:
+>=20
+> > This is a core feature more than anything else.  Namespaces for RDMA
+> > devices is not unique to IB or RoCE in any way.  Yet no thought has bee=
+n
+> > given to how this will work universally across all of the RDMA
+> > capable
+>=20
+> I think if Haggi is able to follow the perscription I gave then things
+> will be general.
+>=20
+>  - All rdma cm ids are associated with a netdev
+>  - The output flow uses that netdev to restrict, configure and
+>    determine the output RDMA device QP
+>  - The input flow locates the netdev as step one and then uses the
+>    (netdev,ip,port) tuple to find the rdma listener, which is in turn
+>    tied to a netdev and is restricted/configured by it.
+>=20
+> The technology specific part is the two maps: from (input
+> device,packet) to netdev, from netdev to (output device,packet)
+>=20
+> After the above clean up is done, namespace enabling is basically
+> providing those two mapping functions for each technology in a way
+> that can locate delegatable netdevs.
+>=20
+> The trivial case for all the ethernet techs is to provide the above
+> maps that can take the (input device,VLAN) and locate the correct
+> child VLAN specific netdev. The existing code to support VLAN should
+> pretty much immediately enable basic namespace support for all the
+> ethernet families.
+>=20
+> The big open question for ethernet is how to work without relying on
+> VLAN to create delgated netdevs - typically one would use a bridge and
+> veth's, which do not seem very RDMA compatible. But that doesn't need
+> to be answered right now.
+>=20
+> Remember, this isn't RDMA namespaces, this is netdev namespace support
+> for RDMA-CM -> very different things.
+
+That was the point of my email.  This is a very myopic view of the
+feature.  It *should* at least have an idea of these other things too.
+
+> Basically, I'm happy with the generality story, if the clean up work I
+> outlined turns out..
+>=20
+> > issue for usNIC as if you want namespace support there, you just start
+> > the user space app in a given namespace and you are probably 90% of
+> > the
+>=20
+> usNIC has no kernel facing functionality, and no interaction with
+> RDMA-CM, so it is irrelevant to any discussion about RDMA-CM :(
+
+Whether usNIC has a kernel facing functionality or not is irrelevant.
+This feature isn't kernel only, it effects user space applications
+launched in a namespace too.  And, again, my point was that this
+discussion is about RDMA-CM and it should be broader (even if the
+implementation isn't broader).  Due to the implementation of usNIC I
+suspect it would "just work", but it would be better to know so.
+
+--=20
+Doug Ledford <dledford@redhat.com>
+              GPG KeyID: 0E572FDD
+
+
+--=-9sFUD7FrFbaf1XN+erhX
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCAAGBQJVZLF8AAoJELgmozMOVy/dSK0P/1Fbwdlp35TkHKJS0/hSVVpF
+GeEoNSbS2xmCJxmozPArCO5/HN1MKZK3JZLEsIAtyd9pAw+FOLiHMHRSREBJRq2e
+HaX/+yNbSuZL+zBj4ueNN8V8NolzxH9TBulNTZvJAlv5GpzLxhV/n9FNTcloaDE/
+piSuqTrKvA2sRnIPqN1H8alO6FmaaH3BWev8zZLON66jGrYx6aMVa6a+IStJ8uB4
+iIDkvx+2Xfn2sWPmQvQsXv2/gkNp/31TzhAfS424Bh66B1MhcU2rfoB5WXOI6Zwa
+3DBBUYyB6jnivAStf3O8Hy4vgpt3oU5Fkn13U3JLjritZzL3C9H07NDqdi0sZJ6f
+k9nKSWANCenpo7DVqPjbmDs1RO7EpCha5ttw6KUcziTjw73Sg4JrjhmaAyBnTuog
+qsJ2Ckhyx808Mouo/fkNhoVOuvCdag4/dXFPI8nFB8rwITnXu5kqcJMW4oEqYiIP
++ZqWiHLKfA9efADZITnmGJlov8eTXcEtCHtfG2DZPqS0gPIu00roYz3SwFQB45KG
+yRGrWZHdiQme/3dCiUl/t46kvE9P44Ys9+gF694FxFUipOwTkHapegFBRZlnqNkQ
+h9Dm0USltdON/3966h83KELpwzXoeoQQDM2m3WJ4Ic1cJQ2oHwJLhC3ivfdqk2oh
+epMBZ918TzF0lL7kqTLt
+=0MEv
+-----END PGP SIGNATURE-----
+
+--=-9sFUD7FrFbaf1XN+erhX--
