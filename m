@@ -1,51 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] amd-xgbe-phy: Fix initial mode when autoneg is
- disabled
-Date: Tue, 26 May 2015 19:48:05 -0400 (EDT)
-Message-ID: <20150526.194805.1511976622067653946.davem@davemloft.net>
-References: <20150526145149.29899.24836.stgit@tlendack-t1.amdoffice.net>
-	<556489DD.3070002@amd.com>
+Subject: Re: [PATCH net-next] tcp: fix/cleanup inet_ehash_locks_alloc()
+Date: Tue, 26 May 2015 19:48:58 -0400 (EDT)
+Message-ID: <20150526.194858.341347965444056849.davem@davemloft.net>
+References: <1432652134.4060.244.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58585 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58588 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751230AbbEZXsG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 19:48:06 -0400
-In-Reply-To: <556489DD.3070002@amd.com>
+	with ESMTP id S1751078AbbEZXtA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 19:49:00 -0400
+In-Reply-To: <1432652134.4060.244.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Tue, 26 May 2015 09:57:33 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 26 May 2015 07:55:34 -0700
 
-> On 05/26/2015 09:51 AM, Tom Lendacky wrote:
->> When the ethtool command is used to set the speed of the device while
->> the device is down, the check to set the initial mode may fail when
->> the device is brought up, causing failure to bring the device up.
->>
->> Update the code to set the initial mode based on the desired speed if
->> auto-negotiation is disabled.
->>
->> This patch fixes a bug introduced by:
->> d9663c8c2149 ("amd-xgbe-phy: Use phydev advertising field vs
->> supported")
->>
->> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
->> ---
->>   drivers/net/phy/amd-xgbe-phy.c | 45
->>   +++++++++++++++++++++++++++++++++++++---
->>   1 file changed, 42 insertions(+), 3 deletions(-)
->>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Hi David,
+> If tcp ehash table is constrained to a very small number of buckets
+> (eg boot parameter thash_entries=128), then we can crash if spinlock
+> array has more entries.
 > 
-> Just a heads up on this patch. With the removal of this file in
-> net-next
-> you'll have a conflict when merging into net-next. My updates from the
-> other day to net-next fix this bug in the new file/location.
+> While we are at it, un-inline inet_ehash_locks_alloc() and make
+> following changes :
+> 
+> - Budget 2 cache lines per cpu worth of 'spinlocks'
+> - Try to kmalloc() the array to avoid extra TLB pressure.
+>   (Most servers at Google allocate 8192 bytes for this hash table)
+> - Get rid of various #ifdef
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Ok, applied, and thanks for the heads up about the conflict.
+Applied, thanks Eric.
