@@ -1,40 +1,73 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: DSA and underlying 802.1Q encapsulation
-Date: Tue, 26 May 2015 18:29:57 -0400 (EDT)
-Message-ID: <1183592753.514019.1432679397515.JavaMail.zimbra@savoirfairelinux.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net-next PATCH RFC 1/3] ip_vti/ip6_vti: Do not touch skb->mark on
+ xmit
+Date: Tue, 26 May 2015 15:41:17 -0700
+Message-ID: <20150526224117.1328.98060.stgit@ahduyck-vm-fedora22>
+References: <20150526223849.1328.64212.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>, Chris Healy <cphealy@gmail.com>,
-	=?utf-8?Q?J=C3=A9rome?= Oufella
-	<jerome.oufella@savoirfairelinux.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:58611 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751085AbbEZWaD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 18:30:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org
+To: steffen.klassert@secunet.com, davem@davemloft.net,
+	herbert@gondor.apana.org.au
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20150526223849.1328.64212.stgit@ahduyck-vm-fedora22>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Instead of modifying skb->mark we can simply modify the flowi_mark that is
+generated as a result of the xfrm_decode_session.  By doing this we don't
+need to actually touch the skb->mark and it can be preserved as it passes
+out through the tunnel.
 
-I'm doing tests with VLAN support in DSA and I noticed that the EDSA 
-frame is prepended with a 802.1q header once queued to the underlying 
-network device, in net/dsa/tag_edsa.c:
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+ net/ipv4/ip_vti.c  |    5 +++--
+ net/ipv6/ip6_vti.c |    4 +++-
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
-    skb->dev = p->parent->dst->master_netdev;
-    dev_queue_xmit(skb);
-
-This issue can be observed with the following dump:
-
-    curl -s http://ix.io/iIv | tcpdump -en -r -
-
-I suspect that the DSA code must clear some VLAN flags in the skb
-structure, in order to prevent the additional encapsulation by the lower
-level. Does this make sense?
-
-Thanks,
--v
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 9f7269f3c54a..4c318e1c13c8 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -216,8 +216,6 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	memset(&fl, 0, sizeof(fl));
+ 
+-	skb->mark = be32_to_cpu(tunnel->parms.o_key);
+-
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IP):
+ 		xfrm_decode_session(skb, &fl, AF_INET);
+@@ -233,6 +231,9 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		return NETDEV_TX_OK;
+ 	}
+ 
++	/* override mark with tunnel output key */
++	fl.flowi_mark = be32_to_cpu(tunnel->parms.o_key);
++
+ 	return vti_xmit(skb, dev, &fl);
+ }
+ 
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index ed9d681207fa..104de4da3ff3 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -495,7 +495,6 @@ vti6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	int ret;
+ 
+ 	memset(&fl, 0, sizeof(fl));
+-	skb->mark = be32_to_cpu(t->parms.o_key);
+ 
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IPV6):
+@@ -516,6 +515,9 @@ vti6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		goto tx_err;
+ 	}
+ 
++	/* override mark with tunnel output key */
++	fl.flowi_mark = be32_to_cpu(t->parms.o_key);
++
+ 	ret = vti6_xmit(skb, dev, &fl);
+ 	if (ret < 0)
+ 		goto tx_err;
