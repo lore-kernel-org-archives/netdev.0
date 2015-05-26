@@ -1,7 +1,8 @@
 From: Mathieu Olivari <mathieu@codeaurora.org>
-Subject: [PATCH 0/5] Add support for QCA IPQ806x Ethernet GMAC controller
-Date: Tue, 26 May 2015 12:27:12 -0700
-Message-ID: <1432668437-27763-1-git-send-email-mathieu@codeaurora.org>
+Subject: [PATCH 5/5] net: stmmac: ipq806x: document device tree bindings
+Date: Tue, 26 May 2015 12:27:17 -0700
+Message-ID: <1432668437-27763-6-git-send-email-mathieu@codeaurora.org>
+References: <1432668437-27763-1-git-send-email-mathieu@codeaurora.org>
 Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
 	linux-clk@vger.kernel.org, netdev@vger.kernel.org
 To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
@@ -13,50 +14,59 @@ To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	wsa@the-dreams.de, rnayak@codeaurora.org, davem@davemloft.net,
 	vbridger@opensource.altera.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1432668437-27763-1-git-send-email-mathieu@codeaurora.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch set adds support for the integrated Ethernet GMAC controller
-on QCA IPQ806x SoC. This controller is based on a Gigabit Synopsys
-DesignWare IP, already supported in the stmmac driver located in
-drivers/net/ethernet/stmicro/stmmac.
+Add the device tree bindings documentation for the QCA IPQ806x
+variant of the Synopsys DesignWare MAC.
 
-This change is done as a follow-up to the following thread:
-*http://www.spinics.net/lists/netdev/msg311265.html
-While previous attempt was creating a new driver to drive this controller,
-this new post leverages the existing stmmac driver by implementing the
-SoC specific glue to it.
-
-Aside from the pure stmmac glue layer, we have a couple of related
-patches:
-*IPQ806x NSS clock addition is cherry-picked and refreshed from the
- following thread: https://lkml.org/lkml/2014/8/6/390
-*phy-handle and fixed-link support are also added in this change set so the
- driver can be fully functional on platforms using device-trees as well as
- ethernet switches.
-
-Mathieu Olivari (4):
-  stmmac: add phy-handle support to the platform layer
-  stmmac: add fixed-link device-tree support
-  stmmac: add ipq806x glue layer
-  net: stmmac: ipq806x: document device tree bindings
-
-Stephen Boyd (1):
-  clk: qcom: Add support for NSS/GMAC clocks and resets
-
- .../devicetree/bindings/net/ipq806x-dwmac.txt      |  35 ++
- drivers/clk/qcom/gcc-ipq806x.c                     | 594 ++++++++++++++++++++-
- drivers/net/ethernet/stmicro/stmmac/Kconfig        |  14 +
- drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
- .../net/ethernet/stmicro/stmmac/dwmac-ipq806x.c    | 365 +++++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  30 +-
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  18 +-
- include/dt-bindings/clock/qcom,gcc-ipq806x.h       |   2 +
- include/dt-bindings/reset/qcom,gcc-ipq806x.h       |  43 ++
- include/linux/stmmac.h                             |   1 +
- 10 files changed, 1089 insertions(+), 14 deletions(-)
+Signed-off-by: Mathieu Olivari <mathieu@codeaurora.org>
+---
+ .../devicetree/bindings/net/ipq806x-dwmac.txt      | 35 ++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/ipq806x-dwmac.txt
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
 
+diff --git a/Documentation/devicetree/bindings/net/ipq806x-dwmac.txt b/Documentation/devicetree/bindings/net/ipq806x-dwmac.txt
+new file mode 100644
+index 0000000..6d7ab4e
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/ipq806x-dwmac.txt
+@@ -0,0 +1,35 @@
++* IPQ806x DWMAC Ethernet controller
++
++The device inherits all the properties of the dwmac/stmmac devices
++described in the file net/stmmac.txt with the following changes.
++
++Required properties:
++
++- compatible: should be "qcom,ipq806x-gmac" along with "snps,dwmac"
++	      and any applicable more detailed version number
++	      described in net/stmmac.txt
++
++- qcom,nss-common: should contain a phandle to a syscon device mapping the
++		   nss-common registers.
++
++- qcom,qsgmii-csr: should contain a phandle to a syscon device mapping the
++		   qsgmii-csr registers.
++
++Example:
++
++	gmac: ethernet@37000000 {
++		device_type = "network";
++		compatible = "qcom,ipq806x-gmac";
++		reg = <0x37000000 0x200000>;
++		interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>;
++		interrupt-names = "macirq";
++
++		qcom,nss-common = <&nss_common>;
++		qcom,qsgmii-csr = <&qsgmii_csr>;
++
++		clocks = <&gcc GMAC_CORE1_CLK>;
++		clock-names = "stmmaceth";
++
++		resets = <&gcc GMAC_CORE1_RESET>;
++		reset-names = "stmmaceth";
++	};
 -- 
 2.1.4
