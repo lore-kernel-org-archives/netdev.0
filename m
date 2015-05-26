@@ -1,79 +1,51 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v2 net-next 0/3] net: Add incoming CPU mask to sockets
-Date: Tue, 26 May 2015 13:01:03 -0700
-Message-ID: <CALx6S34AGs79MvbS52Hkc44=0vN=Ga=H_b8QCTbN0MG6fP2-uQ@mail.gmail.com>
-References: <1432658049-3400132-1-git-send-email-tom@herbertland.com>
-	<1432660689.4060.275.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CALx6S34DxrhBvnMyovQFF+Kzpvx3h6=Nviu7XOegPsZa71KrvA@mail.gmail.com>
-	<1432664388.4060.292.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH] staging: r8712u: Fix kernel warning for improper call of
+ del_timer_sync()
+Date: Tue, 26 May 2015 23:09:42 +0300
+Message-ID: <20150526200941.GC11734@mwanda>
+References: <556268BC.5050807@lwfinger.net> <20150525091737.GQ4150@mwanda>
+ <1432575448.2846.63.camel@perches.com>
+ <20150526044611.GA3465@sudip-PC>
+ <1432616108.2846.83.camel@perches.com>
+ <20150526050212.GC3465@sudip-PC>
+ <1432616879.2846.86.camel@perches.com>
+ <20150526141401.GC21573@kroah.com>
+ <1432651739.2846.93.camel@perches.com>
+ <20150526163555.GA9685@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:38571 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751143AbbEZUBE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 16:01:04 -0400
-Received: by igcau1 with SMTP id au1so62170126igc.1
-        for <netdev@vger.kernel.org>; Tue, 26 May 2015 13:01:03 -0700 (PDT)
-In-Reply-To: <1432664388.4060.292.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, Sudip Mukherjee <sudip@vectorindia.org>,
+ netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+ Stable <stable@vger.kernel.org>, Haggai Eran <haggai.eran@gmail.com>,
+ Joe Perches <joe@perches.com>, Arek Rusniak <arek.rusi@gmail.com>,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <20150526163555.GA9685@kroah.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 26, 2015 at 11:19 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2015-05-26 at 11:00 -0700, Tom Herbert wrote:
->> On Tue, May 26, 2015 at 10:18 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Tue, 2015-05-26 at 09:34 -0700, Tom Herbert wrote:
->> >> Added matching of CPU to a socket CPU mask. This is useful for TCP
->> >> listeners and unconnected UDP. This works with SO_REUSPORT to steer
->> >> packets to listener sockets based on CPU affinity. These patches
->> >> allow steering packets to listeners based on numa locality. This is
->> >> only useful for passive connections.
->> >>
->> >> v2:
->> >>   - Add cache alignment for fields used in socket lookup in sock_common
->> >>   - Added UDP test results
->> >
->> > What about the feedback I gave earlier Tom ???
->> >
->> > This cannot work for TCP in its current state.
->> >
->> It does work and it fixes cache server locality issues we are seeing.
->> Right now half of our connections are persistently crossing numa nodes
->> on receive-- this is having big negative impact. Yes, there may be
->> edge conditions where SYN goes to a different CPU than the rest of the
->> flow (probably need RFS or flow director for that problem), and that
->> sounds like something nice to fix, but this patch is not dependent on
->> that. Besides, did you foresee an API change would be required?
->
-> With current stack, there is no guarantee SYN and ACK packets are
-> handled by same cpu.
->
-> These are no edge conditions, but real ones, even with RFS.
->
-> Not everyone tweaks /proc/irq/*/smp_affinity
->
-> Default is still allowing cpus being almost random (affinity=fffffff)
->
-In that case there's no guarantee that any two packets in a flow will
-hit the same CPU so there's no way to establish affinity to the
-interrupt anyway. RFS would work okay to get affinity of the soft
-processing, but there would be no point in trying to do any affinity
-with incoming cpu so this feature wouldn't help.
+On Tue, May 26, 2015 at 09:35:55AM -0700, Greg KH wrote:
+> Also, the outreachy patch process would overwhelm everyone else on the
+> list, it's really high volume during the application phase, I'd prefer
+> it to stick with the mentors that wish to help out with the process.  If
+> you and/or Dan, or anyone else wishes to help out with this, I would
+> really appreciate it.  But I don't think that forcing them to post to
+> the driverdevel list is a good idea.
 
-The general problem is that the flow hash and/or RX CPU for a flow are
-not guaranteed to be persistent for a connection. UDP doesn't have a
-problem with this since every RX UDP packet can be independently
-steered to a good socket in SO_REUSEPORT. For TCP we only get to make
-this decision once for the whole lifetime of the flow, which means
-that eventually that may turn out to made "wrong". These patches don't
-try to fix that problem, for that I believe we're going to need to do
-something a little more radical :-)
+If it makes your life easier to merge them directly from outreachy
+that's great and I'm ok with that, but don't skip the normal review
+process as a favour to us.
 
-> That was partly for these reasons that SO_REUSEPORT (for TCP) could not
-> use cpu number, but a flow hash to select the target socket.
->
->
->
+regards,
+dan carpenter
