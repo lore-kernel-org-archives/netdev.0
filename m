@@ -1,75 +1,50 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH RFC 2/3] xfrm: Override skb->mark with
- tunnel->parm.i_key in xfrm_input
-Date: Tue, 26 May 2015 15:41:23 -0700
-Message-ID: <20150526224123.1328.85343.stgit@ahduyck-vm-fedora22>
-References: <20150526223849.1328.64212.stgit@ahduyck-vm-fedora22>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next 0/3] net: Add incoming CPU mask to sockets
+Date: Tue, 26 May 2015 15:42:33 -0700
+Message-ID: <1432680153.4060.304.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1432658049-3400132-1-git-send-email-tom@herbertland.com>
+	 <1432660689.4060.275.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALx6S34DxrhBvnMyovQFF+Kzpvx3h6=Nviu7XOegPsZa71KrvA@mail.gmail.com>
+	 <1432664388.4060.292.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALx6S34AGs79MvbS52Hkc44=0vN=Ga=H_b8QCTbN0MG6fP2-uQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org
-To: steffen.klassert@secunet.com, davem@davemloft.net,
-	herbert@gondor.apana.org.au
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20150526223849.1328.64212.stgit@ahduyck-vm-fedora22>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:35167 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751061AbbEZWmf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 18:42:35 -0400
+Received: by iesa3 with SMTP id a3so639331ies.2
+        for <netdev@vger.kernel.org>; Tue, 26 May 2015 15:42:34 -0700 (PDT)
+In-Reply-To: <CALx6S34AGs79MvbS52Hkc44=0vN=Ga=H_b8QCTbN0MG6fP2-uQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This change makes it so that if a tunnel is defined we just use the mark
-from the tunnel instead of the mark from the skb header.  By doing this we
-can avoid the need to set skb->mark inside of the tunnel receive functions.
+On Tue, 2015-05-26 at 13:01 -0700, Tom Herbert wrote:
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- net/xfrm/xfrm_input.c |   17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+> In that case there's no guarantee that any two packets in a flow will
+> hit the same CPU so there's no way to establish affinity to the
+> interrupt anyway. RFS would work okay to get affinity of the soft
+> processing, but there would be no point in trying to do any affinity
+> with incoming cpu so this feature wouldn't help.
 
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 526c4feb3b50..b58286ecd156 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -13,6 +13,8 @@
- #include <net/dst.h>
- #include <net/ip.h>
- #include <net/xfrm.h>
-+#include <net/ip_tunnels.h>
-+#include <net/ip6_tunnel.h>
- 
- static struct kmem_cache *secpath_cachep __read_mostly;
- 
-@@ -186,6 +188,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 	struct xfrm_state *x = NULL;
- 	xfrm_address_t *daddr;
- 	struct xfrm_mode *inner_mode;
-+	u32 mark = skb->mark;
- 	unsigned int family;
- 	int decaps = 0;
- 	int async = 0;
-@@ -203,6 +206,18 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 				   XFRM_SPI_SKB_CB(skb)->daddroff);
- 	family = XFRM_SPI_SKB_CB(skb)->family;
- 
-+	/* if tunnel is present override skb->mark value with tunnel i_key */
-+	if (XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4) {
-+		switch (family) {
-+		case AF_INET:
-+			mark = be32_to_cpu(XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4->parms.i_key);
-+			break;
-+		case AF_INET6:
-+			mark = be32_to_cpu(XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6->parms.i_key);
-+			break;
-+		}
-+	}
-+
- 	/* Allocate new secpath or COW existing one. */
- 	if (!skb->sp || atomic_read(&skb->sp->refcnt) != 1) {
- 		struct sec_path *sp;
-@@ -229,7 +244,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 			goto drop;
- 		}
- 
--		x = xfrm_state_lookup(net, skb->mark, daddr, spi, nexthdr, family);
-+		x = xfrm_state_lookup(net, mark, daddr, spi, nexthdr, family);
- 		if (x == NULL) {
- 			XFRM_INC_STATS(net, LINUX_MIB_XFRMINNOSTATES);
- 			xfrm_audit_state_notfound(skb, family, spi, seq);
+This is why I think this patch can hurt users.
+
+RPS/RFS/smp_affinity/SO_REUSEPORT/cpuhotplug are only hints, that would
+never break TCP session establishment, even with hash collisions and
+sockets being added/deleted to SO_REUSEPORT pools.
+
+It works in _all_ situations. Even the crazy/stupid setups.
+
+Your patch is breaking this rule, without any clear documentation on how
+to make sure everything is properly setup.
+
+I am not sure my tcp listener stuff will be finished for 4.2, because I
+had to spend lot of time to more urgent stuff lately, like reviewing
+patches ;)
+
+I would prefer your patch is added for 4.3, not before.
