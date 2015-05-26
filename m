@@ -1,119 +1,66 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] net_sched: invoke ->attach() after setting dev->qdisc
-Date: Tue, 26 May 2015 16:08:48 -0700
-Message-ID: <1432681729-1295-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: [PATCH] sctp: Fix mangled IPv4 addresses on a IPv6 listening socket
+Date: Tue, 26 May 2015 17:30:17 -0600
+Message-ID: <20150526233017.GB22391@obsidianresearch.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>,
+	Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:33318 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751320AbbEZXI7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 19:08:59 -0400
-Received: by pdbqa5 with SMTP id qa5so101124463pdb.0
-        for <netdev@vger.kernel.org>; Tue, 26 May 2015 16:08:59 -0700 (PDT)
+Received: from quartz.orcorp.ca ([184.70.90.242]:51485 "EHLO quartz.orcorp.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751230AbbEZXa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 May 2015 19:30:26 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For mq qdisc, we add per tx queue qdisc to root qdisc
-for display purpose, however, that happens too early,
-before the new dev->qdisc is finally set, this causes
-q->list points to an old root qdisc which is going to be
-freed right before assigning with a new one.
+sctp_v4_map_v6 was subtly writing and reading from members
+of a union in a way the clobbered data it needed to read before
+it read it.
 
-Fix this by moving ->attach() after setting dev->qdisc.
+Zeroing the v6 flowinfo overwrites the v4 sin_addr with 0, meaning
+that every place that calls sctp_v4_map_v6 gets ::ffff:0.0.0.0 as the
+result.
 
-For the record, this fixes the following crash:
+Reorder things to guarantee correct behaviour no matter what the
+union layout is.
 
- ------------[ cut here ]------------
- WARNING: CPU: 1 PID: 975 at lib/list_debug.c:59 __list_del_entry+0x5a/0x98()
- list_del corruption. prev->next should be ffff8800d1998ae8, but was 6b6b6b6b6b6b6b6b
- CPU: 1 PID: 975 Comm: tc Not tainted 4.1.0-rc4+ #1019
- Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-  0000000000000009 ffff8800d73fb928 ffffffff81a44e7f 0000000047574756
-  ffff8800d73fb978 ffff8800d73fb968 ffffffff810790da ffff8800cfc4cd20
-  ffffffff814e725b ffff8800d1998ae8 ffffffff82381250 0000000000000000
- Call Trace:
-  [<ffffffff81a44e7f>] dump_stack+0x4c/0x65
-  [<ffffffff810790da>] warn_slowpath_common+0x9c/0xb6
-  [<ffffffff814e725b>] ? __list_del_entry+0x5a/0x98
-  [<ffffffff81079162>] warn_slowpath_fmt+0x46/0x48
-  [<ffffffff81820eb0>] ? dev_graft_qdisc+0x5e/0x6a
-  [<ffffffff814e725b>] __list_del_entry+0x5a/0x98
-  [<ffffffff814e72a7>] list_del+0xe/0x2d
-  [<ffffffff81822f05>] qdisc_list_del+0x1e/0x20
-  [<ffffffff81820cd1>] qdisc_destroy+0x30/0xd6
-  [<ffffffff81822676>] qdisc_graft+0x11d/0x243
-  [<ffffffff818233c1>] tc_get_qdisc+0x1a6/0x1d4
-  [<ffffffff810b5eaf>] ? mark_lock+0x2e/0x226
-  [<ffffffff817ff8f5>] rtnetlink_rcv_msg+0x181/0x194
-  [<ffffffff817ff72e>] ? rtnl_lock+0x17/0x19
-  [<ffffffff817ff72e>] ? rtnl_lock+0x17/0x19
-  [<ffffffff817ff774>] ? __rtnl_unlock+0x17/0x17
-  [<ffffffff81855dc6>] netlink_rcv_skb+0x4d/0x93
-  [<ffffffff817ff756>] rtnetlink_rcv+0x26/0x2d
-  [<ffffffff818544b2>] netlink_unicast+0xcb/0x150
-  [<ffffffff81161db9>] ? might_fault+0x59/0xa9
-  [<ffffffff81854f78>] netlink_sendmsg+0x4fa/0x51c
-  [<ffffffff817d6e09>] sock_sendmsg_nosec+0x12/0x1d
-  [<ffffffff817d8967>] sock_sendmsg+0x29/0x2e
-  [<ffffffff817d8cf3>] ___sys_sendmsg+0x1b4/0x23a
-  [<ffffffff8100a1b8>] ? native_sched_clock+0x35/0x37
-  [<ffffffff810a1d83>] ? sched_clock_local+0x12/0x72
-  [<ffffffff810a1fd4>] ? sched_clock_cpu+0x9e/0xb7
-  [<ffffffff810def2a>] ? current_kernel_time+0xe/0x32
-  [<ffffffff810b4bc5>] ? lock_release_holdtime.part.29+0x71/0x7f
-  [<ffffffff810ddebf>] ? read_seqcount_begin.constprop.27+0x5f/0x76
-  [<ffffffff810b6292>] ? trace_hardirqs_on_caller+0x17d/0x199
-  [<ffffffff811b14d5>] ? __fget_light+0x50/0x78
-  [<ffffffff817d9808>] __sys_sendmsg+0x42/0x60
-  [<ffffffff817d9838>] SyS_sendmsg+0x12/0x1c
-  [<ffffffff81a50e97>] system_call_fastpath+0x12/0x6f
- ---[ end trace ef29d3fb28e97ae7 ]---
+This impacts user space clients that open an IPv6 SCTP socket and
+receive IPv4 connections. Prior to 299ee user space would see a
+sockaddr with AF_INET and a correct address, after 299ee the sockaddr
+is AF_INET6, but the address is wrong.
 
-For long term, we probably need to clean up the qdisc_graft() code
-in case it hides other bugs like this.
-
-Fixes: 95dc19299f74 ("pkt_sched: give visibility to mq slave qdiscs")
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Fixes: 299ee123e198 (sctp: Fixup v4mapped behaviour to comply with Sock API)
+Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 ---
- net/sched/sch_api.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ include/net/sctp/sctp.h | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index ad9eed7..1e1c89e 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -815,10 +815,8 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
- 		if (dev->flags & IFF_UP)
- 			dev_deactivate(dev);
- 
--		if (new && new->ops->attach) {
--			new->ops->attach(new);
--			num_q = 0;
--		}
-+		if (new && new->ops->attach)
-+			goto skip;
- 
- 		for (i = 0; i < num_q; i++) {
- 			struct netdev_queue *dev_queue = dev_ingress_queue(dev);
-@@ -834,12 +832,16 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
- 				qdisc_destroy(old);
- 		}
- 
-+skip:
- 		if (!ingress) {
- 			notify_and_destroy(net, skb, n, classid,
- 					   dev->qdisc, new);
- 			if (new && !new->ops->attach)
- 				atomic_inc(&new->refcnt);
- 			dev->qdisc = new ? : &noop_qdisc;
+This bugfix should be a candidate for -stable
+
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 856f01cb51dd..230775f5952a 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -571,11 +571,14 @@ static inline void sctp_v6_map_v4(union sctp_addr *addr)
+ /* Map v4 address to v4-mapped v6 address */
+ static inline void sctp_v4_map_v6(union sctp_addr *addr)
+ {
++	__be16 port;
 +
-+			if (new && new->ops->attach)
-+				new->ops->attach(new);
- 		} else {
- 			notify_and_destroy(net, skb, n, classid, old, new);
- 		}
++	port = addr->v4.sin_port;
++	addr->v6.sin6_addr.s6_addr32[3] = addr->v4.sin_addr.s_addr;
++	addr->v6.sin6_port = port;
+ 	addr->v6.sin6_family = AF_INET6;
+ 	addr->v6.sin6_flowinfo = 0;
+ 	addr->v6.sin6_scope_id = 0;
+-	addr->v6.sin6_port = addr->v4.sin_port;
+-	addr->v6.sin6_addr.s6_addr32[3] = addr->v4.sin_addr.s_addr;
+ 	addr->v6.sin6_addr.s6_addr32[0] = 0;
+ 	addr->v6.sin6_addr.s6_addr32[1] = 0;
+ 	addr->v6.sin6_addr.s6_addr32[2] = htonl(0x0000ffff);
 -- 
-1.8.3.1
+2.1.4
