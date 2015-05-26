@@ -1,40 +1,38 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH iproute2] enable transparent LFS
-Date: Tue, 26 May 2015 02:51:30 -0400
-Message-ID: <1432623090-2264-1-git-send-email-vapier@gentoo.org>
-To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:58344 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751486AbbEZGvj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 May 2015 02:51:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephan Mueller <smueller@chronox.de>
+Subject: Re: [v2 PATCH 13/13] crypto: algif_aead - Switch to new AEAD interface
+Date: Tue, 26 May 2015 08:44:29 +0200
+Message-ID: <1720790.K1nOQU1Nxi@tachyon.chronox.de>
+References: <20150522082708.GA3507@gondor.apana.org.au> <20150525115341.GA30627@gondor.apana.org.au> <20150526062433.GA6025@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20150526062433.GA6025@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mike Frysinger <vapier@chromium.org>
+Am Dienstag, 26. Mai 2015, 14:24:33 schrieb Herbert Xu:
 
-Make sure we use 64-bit filesystem functions everywhere.  This applies not
-only to being able to read large files (which generally doesn't apply to
-us), but also being able to simply stat them (as they might be using large
-inodes).
+Hi Herbert,
 
-Signed-off-by: Mike Frysinger <vapier@chromium.org>
----
- Makefile | 2 ++
- 1 file changed, 2 insertions(+)
+> On Mon, May 25, 2015 at 07:53:41PM +0800, Herbert Xu wrote:
+> > On Mon, May 25, 2015 at 01:50:55PM +0200, Stephan Mueller wrote:
+> > > When you have my code local, simply execute libkcapi/test/kcapi -y twice
+> > > or
+> > > three times. That triggered the crash.
+> > 
+> > Aha that's what I was missing.  I'll look into the crash.
+> 
+> OK I forgot to initialise the SG list.  This patch fixes it for me.
 
-diff --git a/Makefile b/Makefile
-index 35cacc4..9d35ef1 100644
---- a/Makefile
-+++ b/Makefile
-@@ -32,6 +32,8 @@ ADDLIB+=mpls_ntop.o mpls_pton.o
- CC = gcc
- HOSTCC = gcc
- DEFINES += -D_GNU_SOURCE
-+# Turn on transparent support for LFS
-+DEFINES += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
- CCOPTS = -O2
- WFLAGS := -Wall -Wstrict-prototypes  -Wmissing-prototypes
- WFLAGS += -Wmissing-declarations -Wold-style-definition -Wformat=2
+Confirmed. I see no more issues on the AF_ALG side.
+
 -- 
-2.4.1
+Ciao
+Stephan
