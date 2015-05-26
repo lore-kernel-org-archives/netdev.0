@@ -1,58 +1,39 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH] staging: r8712u: Fix kernel warning for improper call of
- del_timer_sync()
-Date: Tue, 26 May 2015 18:48:26 +0300
-Message-ID: <20150526154826.GJ11588@mwanda>
-References: <1432415812-1285-1-git-send-email-Larry.Finger@lwfinger.net>
- <CAJ=9CzbPmo+f4zjY4CqQ7TsUENpwy+zHcpxeLTbAH0DAZSkqsQ@mail.gmail.com>
- <556268BC.5050807@lwfinger.net> <20150525091737.GQ4150@mwanda>
- <1432575448.2846.63.camel@perches.com>
- <20150526044611.GA3465@sudip-PC>
- <1432616108.2846.83.camel@perches.com>
- <20150526050212.GC3465@sudip-PC>
- <1432616879.2846.86.camel@perches.com>
- <20150526141401.GC21573@kroah.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net] x86: bpf_jit: fix compilation of large bpf programs
+Date: Tue, 26 May 2015 15:47:19 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB3ED4D@AcuExch.aculab.com>
+References: <1432334575-16959-1-git-send-email-ast@plumgrid.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CB3EA6A@AcuExch.aculab.com>
+	 <1432650922.4060.236.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CB3ECB8@AcuExch.aculab.com>
+ <1432654198.4060.248.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, Sudip Mukherjee <sudip@vectorindia.org>,
- netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
- Stable <stable@vger.kernel.org>, Haggai Eran <haggai.eran@gmail.com>,
- Joe Perches <joe@perches.com>, Arek Rusniak <arek.rusi@gmail.com>,
- Larry Finger <Larry.Finger@lwfinger.net>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <20150526141401.GC21573@kroah.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: 'Alexei Starovoitov' <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Eric Dumazet <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.186]:60006 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753371AbbEZPtF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 11:49:05 -0400
+In-Reply-To: <1432654198.4060.248.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 26, 2015 at 07:14:01AM -0700, Greg KH wrote:
-> I take the blame for any problems with Outreachy patches.  Given the
-> huge volume of them, one bug out of 900 isn't that bad of a percentage.
-
-We don't get many bugs through outreachy, but this isn't the first one.
-For example, in March and April people complained about:
-
-95745e9b1de2 ('staging: lustre: Use kasprintf.')
-45de432775d6 ('Staging: rtl8712: Use memdup_user() instead of copy_from_user()')
-
-There have been others but I have a short memory.  We have this
-discussion every time.  How come no one caught this bug in review??  Oh,
-it never went through the list.
-
-I'm fine with 5 bugs per 900 patches or whatever.  I wish that the
-patches came to the list, but I get that that would double your review
-workload to review 900 patches on the outreachy list and again on the
-normal dev list.
-
-regards,
-dan carpenter
+RnJvbTogRXJpYyBEdW1hemV0IA0KPiBTZW50OiAyNiBNYXkgMjAxNSAxNjozMA0KPiANCj4gPiBZ
+ZXMsIGludGVyZXN0aW5nLCBhIGJlbmNobWFyayB0aGF0IG1hbmFnZXMgdG8gcnVuIGEgbG90IG9m
+IGNvZGUgJ2NvbGQgY2FjaGUnLg0KPiANCj4gV2UgaGF2ZSBiaW5hcmllcyBoZXJlIGF0IEdvb2ds
+ZSB3aXRoIDQwMCBvciA1MDAgTUJ5dGVzIG9mIHRleHQuDQo+IA0KPiBOb3QgYmVuY2htYXJrLCBz
+dXBlciByZWFsIHdvcmtsb2FkcyB5b3Uga25vdy4NCg0KSW5kZWVkLCBhbmQgYSBsb3Qgb2YgdGhl
+IGNvZGUgaXMgbGlrZWx5IHRvIGJlIHJ1bm5pbmcgJ2NvbGQgY2FjaGUnLg0KDQpJIHdhcyBhbGx1
+ZGluZyB0byB0aGUgcHJvYmxlbSB3aGVyZSBwZW9wbGUgd2lsbCBiZW5jaG1hcmsgYSBzbWFsbCBm
+dW5jdGlvbg0KYnkgcnVubmluZyBpbiAxMDAwcyBvZiB0aW1lcyBpbiBhIHRpZ2h0IGxvb3Agd2l0
+aCBleGFjdGx5IHRoZSBzYW1lIGRhdGEuDQpOb3Qgb25seSBpcyBpdCAnaG90IGNhY2hlJyBidXQg
+YW55IGR5bmFtaWMgYnJhbmNoIHByZWRpY3Rpb24gaXMgJ3RyYWluZWQnDQp0byB0aGUgc3BlY2lm
+aWMgZGF0YS4NCg0KCURhdmlkDQoNCg0KIA0KDQo=
