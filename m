@@ -1,71 +1,121 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] staging: r8712u: Fix kernel warning for improper call of
- del_timer_sync()
-Date: Tue, 26 May 2015 13:30:47 -0700
-Message-ID: <20150526203047.GA21732@kroah.com>
-References: <20150525091737.GQ4150@mwanda>
- <1432575448.2846.63.camel@perches.com>
- <20150526044611.GA3465@sudip-PC>
- <1432616108.2846.83.camel@perches.com>
- <20150526050212.GC3465@sudip-PC>
- <1432616879.2846.86.camel@perches.com>
- <20150526141401.GC21573@kroah.com>
- <1432651739.2846.93.camel@perches.com>
- <20150526163555.GA9685@kroah.com>
- <1432659977.2846.100.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	devel@driverdev.osuosl.org,
-	Sudip Mukherjee <sudip@vectorindia.org>,
-	linux-wireless@vger.kernel.org, Stable <stable@vger.kernel.org>,
-	netdev@vger.kernel.org, Haggai Eran <haggai.eran@gmail.com>,
-	Arek Rusniak <arek.rusi@gmail.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>
-To: Joe Perches <joe@perches.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1432659977.2846.100.camel@perches.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next v2] test_bpf: add similarly conflicting jump test case only for classic
+Date: Tue, 26 May 2015 22:35:43 +0200
+Message-ID: <81f8411227ef0e1829b2b9511094112c3f4f3ca5.1432671849.git.daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, ast@plumgrid.com,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:60815 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750961AbbEZUfr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 16:35:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 26, 2015 at 10:06:17AM -0700, Joe Perches wrote:
-> On Tue, 2015-05-26 at 09:35 -0700, Greg KH wrote:
-> > On Tue, May 26, 2015 at 07:48:59AM -0700, Joe Perches wrote:
-> > > > > The main point is that patches shouldn't be applied without
-> > > > > being submitted to a more widely read list.
-> > > > 
-> > > > I take the blame for any problems with Outreachy patches.
-> > > 
-> > > Are you going to change any procedure associated to these
-> > > Outreachy patches?
-> > 
-> > 2 bugs out of 900?  Nah, I think that's good odds.
-> > 
-> > Also, the outreachy patch process would overwhelm everyone else on the
-> > list, it's really high volume during the application phase, I'd prefer
-> > it to stick with the mentors that wish to help out with the process.  If
-> > you and/or Dan, or anyone else wishes to help out with this, I would
-> > really appreciate it.  But I don't think that forcing them to post to
-> > the driverdevel list is a good idea.
-> 
-> I don't think that's necessary, but sending them to any
-> listed maintainer should be.
-> 
-> If you're collecting them, I suggest you stick them in
-> a separate branch, post them to your driverdev list and
-> cc the appropriate maintainers, wait a week, then apply
-> them to your main branch.
-> 
-> You already batch post hundreds of patches for kernel
-> x.y.z stable branches.  What's another few hundred?
-> 
+While 3b52960266a3 ("test_bpf: add more eBPF jump torture cases")
+added the int3 bug test case only for eBPF, which needs exactly 11
+passes to converge, here's a version for classic BPF with 11 passes,
+and one that would need 70 passes on x86_64 to actually converge for
+being successfully JITed. Effectively, all jumps are being optimized
+out resulting in a JIT image of just 89 bytes (from originally max
+BPF insns), only returning K.
 
-Stable patches is a totally different workflow from my "normal" kernel
-patch acceptance work.  I'll consider changing something for the future
-outreachy application process.
+Might be useful as a receipe for folks wanting to craft a test case
+when backporting the fix in commit 3f7352bf21f8 ("x86: bpf_jit: fix
+compilation of large bpf programs") while not having eBPF. The 2nd
+one is delegated to the interpreter as the last pass still results
+in shrinking, in other words, this one won't be JITed on x86_64.
 
-thanks,
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ v1 -> v2:
+  - Fixed newline, added 2nd case
 
-greg k-h
+ lib/test_bpf.c | 57 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 57 insertions(+)
+
+diff --git a/lib/test_bpf.c b/lib/test_bpf.c
+index c07b8e7..7f58c73 100644
+--- a/lib/test_bpf.c
++++ b/lib/test_bpf.c
+@@ -314,6 +314,47 @@ static int bpf_fill_maxinsns10(struct bpf_test *self)
+ 	return 0;
+ }
+ 
++static int __bpf_fill_ja(struct bpf_test *self, unsigned int len,
++			 unsigned int plen)
++{
++	struct sock_filter *insn;
++	unsigned int rlen;
++	int i, j;
++
++	insn = kmalloc_array(len, sizeof(*insn), GFP_KERNEL);
++	if (!insn)
++		return -ENOMEM;
++
++	rlen = (len % plen) - 1;
++
++	for (i = 0; i + plen < len; i += plen)
++		for (j = 0; j < plen; j++)
++			insn[i + j] = __BPF_JUMP(BPF_JMP | BPF_JA,
++						 plen - 1 - j, 0, 0);
++	for (j = 0; j < rlen; j++)
++		insn[i + j] = __BPF_JUMP(BPF_JMP | BPF_JA, rlen - 1 - j,
++					 0, 0);
++
++	insn[len - 1] = __BPF_STMT(BPF_RET | BPF_K, 0xababcbac);
++
++	self->u.ptr.insns = insn;
++	self->u.ptr.len = len;
++
++	return 0;
++}
++
++static int bpf_fill_maxinsns11(struct bpf_test *self)
++{
++	/* Hits 70 passes on x86_64, so cannot get JITed there. */
++	return __bpf_fill_ja(self, BPF_MAXINSNS, 68);
++}
++
++static int bpf_fill_ja(struct bpf_test *self)
++{
++	/* Hits exactly 11 passes on x86_64 JIT. */
++	return __bpf_fill_ja(self, 12, 9);
++}
++
+ static struct bpf_test tests[] = {
+ 	{
+ 		"TAX",
+@@ -4252,6 +4293,14 @@ static struct bpf_test tests[] = {
+ 		{ },
+ 		{ { 0, 1 } },
+ 	},
++	{
++		"JMP_JA: Jump, gap, jump, ...",
++		{ },
++		CLASSIC | FLAG_NO_DATA,
++		{ },
++		{ { 0, 0xababcbac } },
++		.fill_helper = bpf_fill_ja,
++	},
+ 	{	/* Mainly checking JIT here. */
+ 		"BPF_MAXINSNS: Maximum possible literals",
+ 		{ },
+@@ -4335,6 +4384,14 @@ static struct bpf_test tests[] = {
+ 		{ { 0, 0xabababac } },
+ 		.fill_helper = bpf_fill_maxinsns10,
+ 	},
++	{
++		"BPF_MAXINSNS: Jump, gap, jump, ...",
++		{ },
++		CLASSIC | FLAG_NO_DATA,
++		{ },
++		{ { 0, 0xababcbac } },
++		.fill_helper = bpf_fill_maxinsns11,
++	},
+ };
+ 
+ static struct net_device dev;
+-- 
+1.9.3
