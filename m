@@ -1,32 +1,42 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: mac80211 2015-05-26
-Date: Tue, 26 May 2015 19:40:47 -0400 (EDT)
-Message-ID: <20150526.194047.730701928865644574.davem@davemloft.net>
-References: <1432625103.2141.5.camel@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/1] tipc: fix bug in link protocol message
+ create function
+Date: Tue, 26 May 2015 19:43:42 -0400 (EDT)
+Message-ID: <20150526.194342.115254427393620467.davem@davemloft.net>
+References: <1432633219-3354-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1432625103.2141.5.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58544 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751295AbbEZXno (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 19:43:44 -0400
+In-Reply-To: <1432633219-3354-1-git-send-email-jon.maloy@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Tue, 26 May 2015 09:25:03 +0200
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Tue, 26 May 2015 05:40:19 -0400
 
-> Unfortunately I neglected to send this to you last week before our long
-> weekend.
+> In commit dd3f9e70f59f43a5712eba9cf3ee4f1e6999540c
+> ("tipc: add packet sequence number at instant of transmission") we
+> made a change with the consequence that packets in the link backlog
+> queue don't contain valid sequence numbers.
 > 
-> These changes look fairly big, but they're fairly contained to the
-> remain-on- channel and AP_VLAN key handling code.
+> However, when we create a link protocol message, we still use the
+> sequence number of the first packet in the backlog, if there is any,
+> as "next_sent" indicator in the message. This may entail unnecessary
+> retransissions or stale packet transmission when there is very low
+> traffic on the link.
 > 
-> However, if you think you don't want to pull them into net any more at
-> this stage just let me know.
+> This commit fixes this issue by only using the current value of
+> tipc_link::snd_nxt as indicator.
+> 
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-This looks fine, pulled, thanks Johannes.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
