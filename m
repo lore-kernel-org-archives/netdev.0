@@ -1,70 +1,35 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: xen-netfront crash when detaching network while
- some network activity
-Date: Tue, 26 May 2015 11:56:00 +0100
-Message-ID: <55645140.1050209@citrix.com>
-References: <20150522114932.GC8664@mail-itl>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/3 nf-next] netfilter: default CONFIG_NETFILTER_INGRESS
+ to y
+Date: Tue, 26 May 2015 11:41:48 +0200
+Message-ID: <20150526094148.GA3535@salvia>
+References: <1432558004-13481-1-git-send-email-pablo@netfilter.org>
+ <1432558004-13481-2-git-send-email-pablo@netfilter.org>
+ <20150526004441.GA23370@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, xen-devel <xen-devel@lists.xen.org>
-To: =?UTF-8?B?TWFyZWsgTWFyY3p5a293c2tpLUfDs3JlY2tp?=
-	<marmarek@invisiblethingslab.com>, Konrad Rzeszutek Wilk
-	<konrad.wilk@oracle.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <20150522114932.GC8664@mail-itl>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, kaber@trash.net,
+	netdev@vger.kernel.org
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:48031 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752312AbbEZJgt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 May 2015 05:36:49 -0400
+Content-Disposition: inline
+In-Reply-To: <20150526004441.GA23370@vergenet.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMjIvMDUvMTUgMTI6NDksIE1hcmVrIE1hcmN6eWtvd3NraS1Hw7NyZWNraSB3cm90ZToKPiBI
-aSBhbGwsCj4gCj4gSSdtIGV4cGVyaWVuY2luZyB4ZW4tbmV0ZnJvbnQgY3Jhc2ggd2hlbiBkb2lu
-ZyB4bCBuZXR3b3JrLWRldGFjaCB3aGlsZQo+IHNvbWUgbmV0d29yayBhY3Rpdml0eSBpcyBnb2lu
-ZyBvbiBhdCB0aGUgc2FtZSB0aW1lLiBJdCBoYXBwZW5zIG9ubHkgd2hlbgo+IGRvbVUgaGFzIG1v
-cmUgdGhhbiBvbmUgdmNwdS4gTm90IHN1cmUgaWYgdGhpcyBtYXR0ZXJzLCBidXQgdGhlIGJhY2tl
-bmQKPiBpcyBpbiBhbm90aGVyIGRvbVUgKG5vdCBkb20wKS4gSSdtIHVzaW5nIFhlbiA0LjIuMi4g
-SXQgaGFwcGVucyBvbiBrZXJuZWwKPiAzLjkuNCBhbmQgNC4xLXJjMSBhcyB3ZWxsLgo+IAo+IFN0
-ZXBzIHRvIHJlcHJvZHVjZToKPiAxLiBTdGFydCB0aGUgZG9tVSB3aXRoIHNvbWUgbmV0d29yayBp
-bnRlcmZhY2UKPiAyLiBDYWxsIHRoZXJlICdwaW5nIC1mIHNvbWUtSVAnCj4gMy4gQ2FsbCAneGwg
-bmV0d29yay1kZXRhY2ggTkFNRSAwJwoKVGhlcmUncyBhIHVzZS1hZnRlci1mcmVlIGluIHhlbm5l
-dF9yZW1vdmUoKS4gIERvZXMgdGhpcyBwYXRjaCBmaXggaXQ/Cgo4PC0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tCnhlbi1uZXRmcm9udDogcHJvcGVybHkgZGVzdHJveSBxdWV1ZXMgd2hl
-biByZW1vdmluZyBkZXZpY2UKCnhlbm5ldF9yZW1vdmUoKSBmcmVlZCB0aGUgcXVldWVzIGJlZm9y
-ZSBmcmVlaW5nIHRoZSBuZXRkZXZpY2Ugd2hpY2gKcmVzdWx0cyBpbiBhIHVzZS1hZnRlci1mcmVl
-IHdoZW4gZnJlZV9uZXRkZXYoKSB0cmllcyB0byBkZWxldGUgdGhlCm5hcGkgaW5zdGFuY2VzIHRo
-YXQgaGF2ZSBhbHJlYWR5IGJlZW4gZnJlZWQuCgpGaXggdGhpcyBieSBmdWxseSBkZXN0cm95IHRo
-ZSBxdWV1ZXMgKHdoaWNoIGluY2x1ZGVzIGRlbGV0aW5nIHRoZSBuYXBpCmluc3RhbmNlcykgYmVm
-b3JlIGZyZWVpbmcgdGhlIG5ldGRldmljZS4KClJlcG9ydGVkLWJ5OiBNYXJlayBNYXJjenlrb3dz
-a2kgPG1hcm1hcmVrQGludmlzaWJsZXRoaW5nc2xhYi5jb20+ClNpZ25lZC1vZmYtYnk6IERhdmlk
-IFZyYWJlbCA8ZGF2aWQudnJhYmVsQGNpdHJpeC5jb20+Ci0tLQogZHJpdmVycy9uZXQveGVuLW5l
-dGZyb250LmMgfCAgIDE1ICsrLS0tLS0tLS0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDIgaW5zZXJ0
-aW9ucygrKSwgMTMgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5l
-dGZyb250LmMgYi9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYwppbmRleCAzZjQ1YWZkLi5lMDMx
-Yzk0IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYworKysgYi9kcml2ZXJz
-L25ldC94ZW4tbmV0ZnJvbnQuYwpAQCAtMTY5OCw2ICsxNjk4LDcgQEAgc3RhdGljIHZvaWQgeGVu
-bmV0X2Rlc3Ryb3lfcXVldWVzKHN0cnVjdCBuZXRmcm9udF9pbmZvICppbmZvKQogCiAJCWlmIChu
-ZXRpZl9ydW5uaW5nKGluZm8tPm5ldGRldikpCiAJCQluYXBpX2Rpc2FibGUoJnF1ZXVlLT5uYXBp
-KTsKKwkJZGVsX3RpbWVyX3N5bmMoJnF1ZXVlLT5yeF9yZWZpbGxfdGltZXIpOwogCQluZXRpZl9u
-YXBpX2RlbCgmcXVldWUtPm5hcGkpOwogCX0KIApAQCAtMjEwMiw5ICsyMTAzLDYgQEAgc3RhdGlj
-IGNvbnN0IHN0cnVjdCBhdHRyaWJ1dGVfZ3JvdXAgeGVubmV0X2Rldl9ncm91cCA9IHsKIHN0YXRp
-YyBpbnQgeGVubmV0X3JlbW92ZShzdHJ1Y3QgeGVuYnVzX2RldmljZSAqZGV2KQogewogCXN0cnVj
-dCBuZXRmcm9udF9pbmZvICppbmZvID0gZGV2X2dldF9kcnZkYXRhKCZkZXYtPmRldik7Ci0JdW5z
-aWduZWQgaW50IG51bV9xdWV1ZXMgPSBpbmZvLT5uZXRkZXYtPnJlYWxfbnVtX3R4X3F1ZXVlczsK
-LQlzdHJ1Y3QgbmV0ZnJvbnRfcXVldWUgKnF1ZXVlID0gTlVMTDsKLQl1bnNpZ25lZCBpbnQgaSA9
-IDA7CiAKIAlkZXZfZGJnKCZkZXYtPmRldiwgIiVzXG4iLCBkZXYtPm5vZGVuYW1lKTsKIApAQCAt
-MjExMiwxNiArMjExMCw3IEBAIHN0YXRpYyBpbnQgeGVubmV0X3JlbW92ZShzdHJ1Y3QgeGVuYnVz
-X2RldmljZSAqZGV2KQogCiAJdW5yZWdpc3Rlcl9uZXRkZXYoaW5mby0+bmV0ZGV2KTsKIAotCWZv
-ciAoaSA9IDA7IGkgPCBudW1fcXVldWVzOyArK2kpIHsKLQkJcXVldWUgPSAmaW5mby0+cXVldWVz
-W2ldOwotCQlkZWxfdGltZXJfc3luYygmcXVldWUtPnJ4X3JlZmlsbF90aW1lcik7Ci0JfQotCi0J
-aWYgKG51bV9xdWV1ZXMpIHsKLQkJa2ZyZWUoaW5mby0+cXVldWVzKTsKLQkJaW5mby0+cXVldWVz
-ID0gTlVMTDsKLQl9Ci0KKwl4ZW5uZXRfZGVzdHJveV9xdWV1ZXMoaW5mbyk7CiAJeGVubmV0X2Zy
-ZWVfbmV0ZGV2KGluZm8tPm5ldGRldik7CiAKIAlyZXR1cm4gMDsKLS0gCjEuNy4xMC40CgoKX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVsIG1h
-aWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwOi8vbGlzdHMueGVuLm9yZy94
-ZW4tZGV2ZWwK
+On Tue, May 26, 2015 at 09:44:44AM +0900, Simon Horman wrote:
+> Hi Pablo,
+> 
+> On Mon, May 25, 2015 at 02:46:40PM +0200, Pablo Neira Ayuso wrote:
+> > Useful to compile-test all options.
+> > 
+> > Suggested-by: by Alexei Stavoroitov <ast@plumgrid.com>
+> > Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> 
+> There seems to be a stray "by" between ':' and Alexi's name.
+
+Will fix that nit here, thanks Simon.
