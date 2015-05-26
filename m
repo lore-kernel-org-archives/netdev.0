@@ -1,51 +1,48 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH] staging: r8712u: Fix kernel warning for improper call of
- del_timer_sync()
-Date: Tue, 26 May 2015 23:09:42 +0300
-Message-ID: <20150526200941.GC11734@mwanda>
-References: <556268BC.5050807@lwfinger.net> <20150525091737.GQ4150@mwanda>
- <1432575448.2846.63.camel@perches.com>
- <20150526044611.GA3465@sudip-PC>
- <1432616108.2846.83.camel@perches.com>
- <20150526050212.GC3465@sudip-PC>
- <1432616879.2846.86.camel@perches.com>
- <20150526141401.GC21573@kroah.com>
- <1432651739.2846.93.camel@perches.com>
- <20150526163555.GA9685@kroah.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, Sudip Mukherjee <sudip@vectorindia.org>,
- netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
- Stable <stable@vger.kernel.org>, Haggai Eran <haggai.eran@gmail.com>,
- Joe Perches <joe@perches.com>, Arek Rusniak <arek.rusi@gmail.com>,
- Larry Finger <Larry.Finger@lwfinger.net>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <20150526163555.GA9685@kroah.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+From: Laurent Navet <laurent.navet@gmail.com>
+Subject: [PATCH] i40e: remove unneeded tests
+Date: Tue, 26 May 2015 22:26:14 +0200
+Message-ID: <1432671974-16704-1-git-send-email-laurent.navet@gmail.com>
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Laurent Navet <laurent.navet@gmail.com>
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 26, 2015 at 09:35:55AM -0700, Greg KH wrote:
-> Also, the outreachy patch process would overwhelm everyone else on the
-> list, it's really high volume during the application phase, I'd prefer
-> it to stick with the mentors that wish to help out with the process.  If
-> you and/or Dan, or anyone else wishes to help out with this, I would
-> really appreciate it.  But I don't think that forcing them to post to
-> the driverdevel list is a good idea.
+The same code is executed regardless ret_code value, so these tests can
+be removed.
+Fix Coverity CID 1268789 and 1268791
 
-If it makes your life easier to merge them directly from outreachy
-that's great and I'm ok with that, but don't skip the normal review
-process as a favour to us.
+Signed-off-by: Laurent Navet <laurent.navet@gmail.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_hmc.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-regards,
-dan carpenter
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_hmc.c
+index 9b987cc..eae4248 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_hmc.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_hmc.c
+@@ -298,8 +298,6 @@ i40e_status i40e_remove_sd_bp_new(struct i40e_hw *hw,
+ 		goto exit;
+ 	}
+ 	ret_code = i40e_free_dma_mem(hw, &(sd_entry->u.bp.addr));
+-	if (ret_code)
+-		goto exit;
+ exit:
+ 	return ret_code;
+ }
+@@ -353,8 +351,6 @@ i40e_status i40e_remove_pd_page_new(struct i40e_hw *hw,
+ 	}
+ 	/* free memory here */
+ 	ret_code = i40e_free_dma_mem(hw, &(sd_entry->u.pd_table.pd_page_addr));
+-	if (ret_code)
+-		goto exit;
+ exit:
+ 	return ret_code;
+ }
+-- 
+2.1.4
