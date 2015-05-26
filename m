@@ -1,80 +1,58 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 98781] New: WWAN: TX bytes counter shows very huge
- impossible value
-Date: Tue, 26 May 2015 08:38:57 -0700
-Message-ID: <20150526083857.78cb053b@urahara>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH] staging: r8712u: Fix kernel warning for improper call of
+ del_timer_sync()
+Date: Tue, 26 May 2015 18:48:26 +0300
+Message-ID: <20150526154826.GJ11588@mwanda>
+References: <1432415812-1285-1-git-send-email-Larry.Finger@lwfinger.net>
+ <CAJ=9CzbPmo+f4zjY4CqQ7TsUENpwy+zHcpxeLTbAH0DAZSkqsQ@mail.gmail.com>
+ <556268BC.5050807@lwfinger.net> <20150525091737.GQ4150@mwanda>
+ <1432575448.2846.63.camel@perches.com>
+ <20150526044611.GA3465@sudip-PC>
+ <1432616108.2846.83.camel@perches.com>
+ <20150526050212.GC3465@sudip-PC>
+ <1432616879.2846.86.camel@perches.com>
+ <20150526141401.GC21573@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [209.85.220.42] ([209.85.220.42]:35078 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752809AbbEZPkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 11:40:05 -0400
-Received: by pacwv17 with SMTP id wv17so95448194pac.2
-        for <netdev@vger.kernel.org>; Tue, 26 May 2015 08:38:53 -0700 (PDT)
-Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
-        by mx.google.com with ESMTPSA id ym6sm13515470pac.32.2015.05.26.08.38.52
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Tue, 26 May 2015 08:38:53 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, Sudip Mukherjee <sudip@vectorindia.org>,
+ netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+ Stable <stable@vger.kernel.org>, Haggai Eran <haggai.eran@gmail.com>,
+ Joe Perches <joe@perches.com>, Arek Rusniak <arek.rusi@gmail.com>,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <20150526141401.GC21573@kroah.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
+On Tue, May 26, 2015 at 07:14:01AM -0700, Greg KH wrote:
+> I take the blame for any problems with Outreachy patches.  Given the
+> huge volume of them, one bug out of 900 isn't that bad of a percentage.
 
+We don't get many bugs through outreachy, but this isn't the first one.
+For example, in March and April people complained about:
 
-Begin forwarded message:
+95745e9b1de2 ('staging: lustre: Use kasprintf.')
+45de432775d6 ('Staging: rtl8712: Use memdup_user() instead of copy_from_user()')
 
-Date: Sat, 23 May 2015 16:54:50 +0000
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-Subject: [Bug 98781] New: WWAN: TX bytes counter shows very huge impossible value
+There have been others but I have a short memory.  We have this
+discussion every time.  How come no one caught this bug in review??  Oh,
+it never went through the list.
 
+I'm fine with 5 bugs per 900 patches or whatever.  I wish that the
+patches came to the list, but I get that that would double your review
+workload to review 900 patches on the outreachy list and again on the
+normal dev list.
 
-https://bugzilla.kernel.org/show_bug.cgi?id=98781
-
-            Bug ID: 98781
-           Summary: WWAN: TX bytes counter shows very huge impossible
-                    value
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 4.0.x
-          Hardware: Intel
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: Other
-          Assignee: shemminger@linux-foundation.org
-          Reporter: mm@superbash.de
-        Regression: No
-
-Since version 4.0.x the TX bytes counter of the WWAN module shows a weird
-value.
-
-Example:
-
-$ > ifconfig wwan
-
-wwan0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
-        inet xxx.xxx.xxx.xxx  netmask 255.255.255.252  broadcast
-xxx.xxx.xxx.xxx
-        inet6 xxxx::xxxx:xxxx:xxxx:xxxx  prefixlen 64  scopeid 0x20<link>
-        ether xx:xx:xx:xx:xx:xx  txqueuelen 1000  (Ethernet)
-        RX packets 19036  bytes 19190321 (18.3 MiB)
-        RX errors 0  dropped 0  overruns 0  frame 0
-        TX packets 15874  bytes 43228847574631 (39.3 TiB)
-        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
-
-39.3 TiB - wow, absolutely not true
-
-The WWAN is used as bridge to my internet provider (LTE usb stick)
-
-I use the counter to control the traffic. It's only the TX counter, the RX
-works ok.
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+regards,
+dan carpenter
