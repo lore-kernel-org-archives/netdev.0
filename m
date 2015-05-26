@@ -1,33 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] pktgen: remove one sparse error
-Date: Mon, 25 May 2015 20:28:43 -0400 (EDT)
-Message-ID: <20150525.202843.1224223950662769355.davem@davemloft.net>
-References: <1432595197.4060.201.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH 1/3 nf-next] netfilter: default CONFIG_NETFILTER_INGRESS
+ to y
+Date: Tue, 26 May 2015 09:44:44 +0900
+Message-ID: <20150526004441.GA23370@vergenet.net>
+References: <1432558004-13481-1-git-send-email-pablo@netfilter.org>
+ <1432558004-13481-2-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47743 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751021AbbEZA2o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2015 20:28:44 -0400
-In-Reply-To: <1432595197.4060.201.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, kaber@trash.net,
+	netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1432558004-13481-2-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 25 May 2015 16:06:37 -0700
+Hi Pablo,
 
-> From: Eric Dumazet <edumazet@google.com>
+On Mon, May 25, 2015 at 02:46:40PM +0200, Pablo Neira Ayuso wrote:
+> Useful to compile-test all options.
 > 
-> net/core/pktgen.c:2672:43: warning: incorrect type in assignment (different base types)
-> net/core/pktgen.c:2672:43:    expected unsigned short [unsigned] [short] [usertype] <noident>
-> net/core/pktgen.c:2672:43:    got restricted __be16 [usertype] protocol
-> 
-> Let's use proper struct ethhdr instead of hard coding everything.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Suggested-by: by Alexei Stavoroitov <ast@plumgrid.com>
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Applied.
+There seems to be a stray "by" between ':' and Alexi's name.
+
+> ---
+>  net/netfilter/Kconfig |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+> index db1c674..9a89e7c 100644
+> --- a/net/netfilter/Kconfig
+> +++ b/net/netfilter/Kconfig
+> @@ -3,6 +3,7 @@ menu "Core Netfilter Configuration"
+>  
+>  config NETFILTER_INGRESS
+>  	bool "Netfilter ingress support"
+> +	default y
+>  	select NET_INGRESS
+>  	help
+>  	  This allows you to classify packets from ingress using the Netfilter
+> -- 
+> 1.7.10.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
