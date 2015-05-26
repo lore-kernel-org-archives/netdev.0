@@ -1,59 +1,92 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 net-next 1/3] net: Add cache alignment in sock_common for socket lookup fields
-Date: Tue, 26 May 2015 09:34:07 -0700
-Message-ID: <1432658049-3400132-2-git-send-email-tom@herbertland.com>
+Subject: [PATCH v2 net-next 2/3] kernel: Make compat bitmap functions externally visible
+Date: Tue, 26 May 2015 09:34:08 -0700
+Message-ID: <1432658049-3400132-3-git-send-email-tom@herbertland.com>
 References: <1432658049-3400132-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38718 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:64402 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752084AbbEZQe0 (ORCPT
+	by vger.kernel.org with ESMTP id S1753973AbbEZQe0 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 12:34:26 -0400
-Received: from pps.filterd (m0004348 [127.0.0.1])
-	by m0004348.ppops.net (8.14.5/8.14.5) with SMTP id t4QGXfnd023954
-	for <netdev@vger.kernel.org>; Tue, 26 May 2015 09:34:24 -0700
+Received: from pps.filterd (m0044010 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4QGUFCJ027345
+	for <netdev@vger.kernel.org>; Tue, 26 May 2015 09:34:26 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0004348.ppops.net with ESMTP id 1umun7g3ef-1
+	by mx0a-00082601.pphosted.com with ESMTP id 1umv3081r7-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 26 May 2015 09:34:24 -0700
+	for <netdev@vger.kernel.org>; Tue, 26 May 2015 09:34:26 -0700
 Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.236.89) with ESMTP	id
- 10fcbc0403c511e5bb350002c95209d8-cbbf73a0 for <netdev@vger.kernel.org>;	Tue,
- 26 May 2015 09:34:23 -0700
+ mx-out.facebook.com (10.212.232.63) with ESMTP	id
+ 11d213ae03c511e597040002c992ebde-96add3a0 for <netdev@vger.kernel.org>;	Tue,
+ 26 May 2015 09:34:24 -0700
 In-Reply-To: <1432658049-3400132-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use ____cacheline_aligned_in_smp to keep the fields used on socket
-lookup in their own cachelines. These are read only fields and will
-be often accessed on accross CPUs (would be very common with
-SO_REUSEPORT for instance).
+Export compat_get_bitmap and compat_put_bitmap. Make
+compat_get_user_cpu_mask not static, add prototype in compat.h, and
+export it.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/net/sock.h | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ include/linux/compat.h | 2 ++
+ kernel/compat.c        | 7 +++++--
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 26c1c31..bcf6114 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -211,7 +211,13 @@ struct sock_common {
- 		struct hlist_node	skc_node;
- 		struct hlist_nulls_node skc_nulls_node;
- 	};
--	int			skc_tx_queue_mapping;
-+
-+	/* Cachelines above this point are read mostly and are used in socket
-+	 * lookup.
-+	 */
-+	int			skc_tx_queue_mapping
-+				____cacheline_aligned_in_smp;
-+
- 	atomic_t		skc_refcnt;
- 	/* private: */
- 	int                     skc_dontcopy_end[0];
+diff --git a/include/linux/compat.h b/include/linux/compat.h
+index ab25814..b52bc0c 100644
+--- a/include/linux/compat.h
++++ b/include/linux/compat.h
+@@ -380,6 +380,8 @@ long compat_get_bitmap(unsigned long *mask, const compat_ulong_t __user *umask,
+ 		       unsigned long bitmap_size);
+ long compat_put_bitmap(compat_ulong_t __user *umask, unsigned long *mask,
+ 		       unsigned long bitmap_size);
++int compat_get_user_cpu_mask(compat_ulong_t __user *user_mask_ptr,
++			     unsigned len, struct cpumask *new_mask);
+ int copy_siginfo_from_user32(siginfo_t *to, struct compat_siginfo __user *from);
+ int copy_siginfo_to_user32(struct compat_siginfo __user *to, const siginfo_t *from);
+ int get_compat_sigevent(struct sigevent *event,
+diff --git a/kernel/compat.c b/kernel/compat.c
+index 24f0061..0b74ad9 100644
+--- a/kernel/compat.c
++++ b/kernel/compat.c
+@@ -599,8 +599,8 @@ COMPAT_SYSCALL_DEFINE5(waitid,
+ 	return copy_siginfo_to_user32(uinfo, &info);
+ }
+ 
+-static int compat_get_user_cpu_mask(compat_ulong_t __user *user_mask_ptr,
+-				    unsigned len, struct cpumask *new_mask)
++int compat_get_user_cpu_mask(compat_ulong_t __user *user_mask_ptr,
++			     unsigned len, struct cpumask *new_mask)
+ {
+ 	unsigned long *k;
+ 
+@@ -612,6 +612,7 @@ static int compat_get_user_cpu_mask(compat_ulong_t __user *user_mask_ptr,
+ 	k = cpumask_bits(new_mask);
+ 	return compat_get_bitmap(k, user_mask_ptr, len * 8);
+ }
++EXPORT_SYMBOL_GPL(compat_get_user_cpu_mask);
+ 
+ COMPAT_SYSCALL_DEFINE3(sched_setaffinity, compat_pid_t, pid,
+ 		       unsigned int, len,
+@@ -927,6 +928,7 @@ long compat_get_bitmap(unsigned long *mask, const compat_ulong_t __user *umask,
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(compat_get_bitmap);
+ 
+ long compat_put_bitmap(compat_ulong_t __user *umask, unsigned long *mask,
+ 		       unsigned long bitmap_size)
+@@ -967,6 +969,7 @@ long compat_put_bitmap(compat_ulong_t __user *umask, unsigned long *mask,
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(compat_put_bitmap);
+ 
+ void
+ sigset_from_compat(sigset_t *set, const compat_sigset_t *compat)
 -- 
 1.8.1
