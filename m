@@ -1,11 +1,8 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v3 PATCH 0/8] crypto: Convert all AEAD users to new interface
-Date: Wed, 27 May 2015 16:01:05 +0800
-Message-ID: <20150527080105.GA26751@gondor.apana.org.au>
-References: <20150521103938.GA23035@gondor.apana.org.au>
- <20150522082708.GA3507@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Subject: [v3 PATCH 1/8] crypto: testmgr - Switch to new AEAD interface
+Date: Wed, 27 May 2015 16:03:43 +0800
+Message-ID: <E1YxWJT-0006yQ-9G@gondolin.me.apana.org.au>
+References: <20150527080105.GA26751@gondor.apana.org.au>
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	Johannes Berg <johannes@sipsolutions.net>,
@@ -13,51 +10,177 @@ To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	Stephan Mueller <smueller@chronox.de>
 Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150522082708.GA3507@gondor.apana.org.au>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi:
+This patch makes use of the new AEAD interface which uses a single
+SG list instead of separate lists for the AD and plain text.
 
-The only changes from the last version are that set_ad no longer
-takes a cryptoff argument and testmgr has been updated to always
-supply space for the authentication tag.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
-The algif_aead patch has been removed and will be posted separately.
+ crypto/testmgr.c |   87 ++++++++++++++++++++++++++++++-------------------------
+ 1 file changed, 48 insertions(+), 39 deletions(-)
 
-Series description:
-
-This series of patches convert all in-tree AEAD users that I
-could find to the new single SG list interface.  For IPsec it
-also adopts the new explicit IV generator scheme.
-
-To recap, the old AEAD interface takes an associated data (AD)
-SG list in addition to the plain/cipher text SG list(s).  That
-forces the underlying AEAD algorithm implementors to try to stitch
-those two lists together where possible in order to maximise the
-contiguous chunk of memory passed to the ICV/hash function.  Things
-get even more hairy for IPsec as it has a third piece of memory,
-the generated IV (giv) that needs to be hashed.  One look at the
-nasty things authenc does for example is enough to make anyone
-puke :)
-
-In fact the interface is just getting in our way because for the
-main user IPsec the data is naturally contiguous as the protocol
-was designed with this in mind.
-
-So the new AEAD interface gets rid of the separate AD SG list
-and instead simply requires the AD to be at the head of the src
-and dst SG lists.
-
-The conversion of in-tree users is fairly straightforward.  The
-only non-trivial bit is IPsec as I'm taking this opportunity to
-move the IV generation knowledge into IPsec as that's where it
-belongs since we may in future wish to support different generation
-schemes for a single algorithm.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/crypto/testmgr.c b/crypto/testmgr.c
+index 1817252..eff8eba 100644
+--- a/crypto/testmgr.c
++++ b/crypto/testmgr.c
+@@ -427,7 +427,6 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 	char *key;
+ 	struct aead_request *req;
+ 	struct scatterlist *sg;
+-	struct scatterlist *asg;
+ 	struct scatterlist *sgout;
+ 	const char *e, *d;
+ 	struct tcrypt_result result;
+@@ -454,11 +453,10 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 		goto out_nooutbuf;
+ 
+ 	/* avoid "the frame size is larger than 1024 bytes" compiler warning */
+-	sg = kmalloc(sizeof(*sg) * 8 * (diff_dst ? 3 : 2), GFP_KERNEL);
++	sg = kmalloc(sizeof(*sg) * 8 * (diff_dst ? 4 : 2), GFP_KERNEL);
+ 	if (!sg)
+ 		goto out_nosg;
+-	asg = &sg[8];
+-	sgout = &asg[8];
++	sgout = &sg[16];
+ 
+ 	if (diff_dst)
+ 		d = "-ddst";
+@@ -537,23 +535,27 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 			goto out;
+ 		}
+ 
++		k = !!template[i].alen;
++		sg_init_table(sg, k + 1);
++		sg_set_buf(&sg[0], assoc, template[i].alen);
++		sg_set_buf(&sg[k], input,
++			   template[i].ilen + (enc ? authsize : 0));
++		output = input;
++
+ 		if (diff_dst) {
++			sg_init_table(sgout, k + 1);
++			sg_set_buf(&sgout[0], assoc, template[i].alen);
++
+ 			output = xoutbuf[0];
+ 			output += align_offset;
+-			sg_init_one(&sg[0], input, template[i].ilen);
+-			sg_init_one(&sgout[0], output, template[i].rlen);
+-		} else {
+-			sg_init_one(&sg[0], input,
+-				    template[i].ilen + (enc ? authsize : 0));
+-			output = input;
++			sg_set_buf(&sgout[k], output,
++				   template[i].rlen + (enc ? 0 : authsize));
+ 		}
+ 
+-		sg_init_one(&asg[0], assoc, template[i].alen);
+-
+ 		aead_request_set_crypt(req, sg, (diff_dst) ? sgout : sg,
+ 				       template[i].ilen, iv);
+ 
+-		aead_request_set_assoc(req, asg, template[i].alen);
++		aead_request_set_ad(req, template[i].alen);
+ 
+ 		ret = enc ? crypto_aead_encrypt(req) : crypto_aead_decrypt(req);
+ 
+@@ -633,9 +635,29 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 		authsize = abs(template[i].rlen - template[i].ilen);
+ 
+ 		ret = -EINVAL;
+-		sg_init_table(sg, template[i].np);
++		sg_init_table(sg, template[i].anp + template[i].np);
+ 		if (diff_dst)
+-			sg_init_table(sgout, template[i].np);
++			sg_init_table(sgout, template[i].anp + template[i].np);
++
++		ret = -EINVAL;
++		for (k = 0, temp = 0; k < template[i].anp; k++) {
++			if (WARN_ON(offset_in_page(IDX[k]) +
++				    template[i].atap[k] > PAGE_SIZE))
++				goto out;
++			sg_set_buf(&sg[k],
++				   memcpy(axbuf[IDX[k] >> PAGE_SHIFT] +
++					  offset_in_page(IDX[k]),
++					  template[i].assoc + temp,
++					  template[i].atap[k]),
++				   template[i].atap[k]);
++			if (diff_dst)
++				sg_set_buf(&sgout[k],
++					   axbuf[IDX[k] >> PAGE_SHIFT] +
++					   offset_in_page(IDX[k]),
++					   template[i].atap[k]);
++			temp += template[i].atap[k];
++		}
++
+ 		for (k = 0, temp = 0; k < template[i].np; k++) {
+ 			if (WARN_ON(offset_in_page(IDX[k]) +
+ 				    template[i].tap[k] > PAGE_SIZE))
+@@ -643,7 +665,8 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 
+ 			q = xbuf[IDX[k] >> PAGE_SHIFT] + offset_in_page(IDX[k]);
+ 			memcpy(q, template[i].input + temp, template[i].tap[k]);
+-			sg_set_buf(&sg[k], q, template[i].tap[k]);
++			sg_set_buf(&sg[template[i].anp + k],
++				   q, template[i].tap[k]);
+ 
+ 			if (diff_dst) {
+ 				q = xoutbuf[IDX[k] >> PAGE_SHIFT] +
+@@ -651,7 +674,8 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 
+ 				memset(q, 0, template[i].tap[k]);
+ 
+-				sg_set_buf(&sgout[k], q, template[i].tap[k]);
++				sg_set_buf(&sgout[template[i].anp + k],
++					   q, template[i].tap[k]);
+ 			}
+ 
+ 			n = template[i].tap[k];
+@@ -671,39 +695,24 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 		}
+ 
+ 		if (enc) {
+-			if (WARN_ON(sg[k - 1].offset +
+-				    sg[k - 1].length + authsize >
+-				    PAGE_SIZE)) {
++			if (WARN_ON(sg[template[i].anp + k - 1].offset +
++				    sg[template[i].anp + k - 1].length +
++				    authsize > PAGE_SIZE)) {
+ 				ret = -EINVAL;
+ 				goto out;
+ 			}
+ 
+ 			if (diff_dst)
+-				sgout[k - 1].length += authsize;
+-			else
+-				sg[k - 1].length += authsize;
+-		}
+-
+-		sg_init_table(asg, template[i].anp);
+-		ret = -EINVAL;
+-		for (k = 0, temp = 0; k < template[i].anp; k++) {
+-			if (WARN_ON(offset_in_page(IDX[k]) +
+-				    template[i].atap[k] > PAGE_SIZE))
+-				goto out;
+-			sg_set_buf(&asg[k],
+-				   memcpy(axbuf[IDX[k] >> PAGE_SHIFT] +
+-					  offset_in_page(IDX[k]),
+-					  template[i].assoc + temp,
+-					  template[i].atap[k]),
+-				   template[i].atap[k]);
+-			temp += template[i].atap[k];
++				sgout[template[i].anp + k - 1].length +=
++					authsize;
++			sg[template[i].anp + k - 1].length += authsize;
+ 		}
+ 
+ 		aead_request_set_crypt(req, sg, (diff_dst) ? sgout : sg,
+ 				       template[i].ilen,
+ 				       iv);
+ 
+-		aead_request_set_assoc(req, asg, template[i].alen);
++		aead_request_set_ad(req, template[i].alen);
+ 
+ 		ret = enc ? crypto_aead_encrypt(req) : crypto_aead_decrypt(req);
+ 
