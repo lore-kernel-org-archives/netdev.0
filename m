@@ -1,17 +1,17 @@
 From: Gopakumar Choorakkot Edakkunni <gopakumar.c.e@gmail.com>
 Subject: Bug in tcp timestamp option ? TSecr in SYN-ACK != TSval in SYN
-Date: Tue, 26 May 2015 22:47:39 -0700
-Message-ID: <CABK1yFBN7KgBxRRzx-Bmt86_L8PnbfgqNJr7Mc2o9usn=LKSTg@mail.gmail.com>
+Date: Tue, 26 May 2015 23:03:13 -0700
+Message-ID: <CABK1yFDuN41bLV2zXRTtLZHO=K9Wx7d57ZZ61ecCnLXHm6JrjA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:35111 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751658AbbE0Frk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 01:47:40 -0400
-Received: by igbyr2 with SMTP id yr2so76676077igb.0
-        for <netdev@vger.kernel.org>; Tue, 26 May 2015 22:47:40 -0700 (PDT)
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:36696 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751265AbbE0GDO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 02:03:14 -0400
+Received: by igbpi8 with SMTP id pi8so76584685igb.1
+        for <netdev@vger.kernel.org>; Tue, 26 May 2015 23:03:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
