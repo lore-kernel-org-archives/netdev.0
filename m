@@ -1,49 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bug in tcp timestamp option ? TSecr in SYN-ACK != TSval in SYN
-Date: Wed, 27 May 2015 06:45:19 -0700
-Message-ID: <1432734319.4060.383.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CABK1yFBN7KgBxRRzx-Bmt86_L8PnbfgqNJr7Mc2o9usn=LKSTg@mail.gmail.com>
-	 <1432707139.4060.351.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1432707810.4060.352.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CABK1yFDJNonOr0O7N3gjJw-AripeaRqC1Xi+sDt7i_s0gC+ZLQ@mail.gmail.com>
-	 <1432733597.4060.375.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] sctp: Fix mangled IPv4 addresses on a IPv6 listening
+ socket
+Date: Wed, 27 May 2015 10:06:25 -0400
+Message-ID: <20150527140625.GB19290@hmsreliant.think-freely.org>
+References: <20150526233017.GB22391@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Van Jacobson <vanj@google.com>
-To: Gopakumar Choorakkot Edakkunni <gopakumar.c.e@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <dborkman@redhat.com>, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:38904 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751326AbbE0NpV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 09:45:21 -0400
-Received: by igcau1 with SMTP id au1so14050987igc.1
-        for <netdev@vger.kernel.org>; Wed, 27 May 2015 06:45:21 -0700 (PDT)
-In-Reply-To: <1432733597.4060.375.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:41098 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751445AbbE0OGo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 10:06:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20150526233017.GB22391@obsidianresearch.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-05-27 at 06:33 -0700, Eric Dumazet wrote:
-
-> The problem is in linux code itself. Please try the patch I sent ?
-> (On the client)
-
-On the server, sorry for the typo.
-
+On Tue, May 26, 2015 at 05:30:17PM -0600, Jason Gunthorpe wrote:
+> sctp_v4_map_v6 was subtly writing and reading from members
+> of a union in a way the clobbered data it needed to read before
+> it read it.
 > 
-> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-> index df7fe3c31162e77b96f81399ef7d893485ab3d91..70db6572d241e132c28c381dfc1155b150c9557b 100644
-> --- a/net/ipv4/tcp_minisocks.c
-> +++ b/net/ipv4/tcp_minisocks.c
-> @@ -588,6 +588,9 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
->  	if (TCP_SKB_CB(skb)->seq == tcp_rsk(req)->rcv_isn &&
->  	    flg == TCP_FLAG_SYN &&
->  	    !paws_reject) {
-> +		if (tmp_opt.saw_tstamp &&
-> +		    after(tmp_opt.rcv_tsval, req->ts_recent))
-> +			req->ts_recent = tmp_opt.rcv_tsval;
->  		/*
->  		 * RFC793 draws (Incorrectly! It was fixed in RFC1122)
->  		 * this case on figure 6 and figure 8, but formal
+> Zeroing the v6 flowinfo overwrites the v4 sin_addr with 0, meaning
+> that every place that calls sctp_v4_map_v6 gets ::ffff:0.0.0.0 as the
+> result.
+> 
+> Reorder things to guarantee correct behaviour no matter what the
+> union layout is.
+> 
+> This impacts user space clients that open an IPv6 SCTP socket and
+> receive IPv4 connections. Prior to 299ee user space would see a
+> sockaddr with AF_INET and a correct address, after 299ee the sockaddr
+> is AF_INET6, but the address is wrong.
+> 
+> Fixes: 299ee123e198 (sctp: Fixup v4mapped behaviour to comply with Sock API)
+> Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+> ---
+>  include/net/sctp/sctp.h | 7 +++++--
+>  1 file changed, 5 insertions(+), 2 deletions(-)
+> 
+> This bugfix should be a candidate for -stable
+> 
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index 856f01cb51dd..230775f5952a 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -571,11 +571,14 @@ static inline void sctp_v6_map_v4(union sctp_addr *addr)
+>  /* Map v4 address to v4-mapped v6 address */
+>  static inline void sctp_v4_map_v6(union sctp_addr *addr)
+>  {
+> +	__be16 port;
+> +
+> +	port = addr->v4.sin_port;
+> +	addr->v6.sin6_addr.s6_addr32[3] = addr->v4.sin_addr.s_addr;
+> +	addr->v6.sin6_port = port;
+>  	addr->v6.sin6_family = AF_INET6;
+>  	addr->v6.sin6_flowinfo = 0;
+>  	addr->v6.sin6_scope_id = 0;
+> -	addr->v6.sin6_port = addr->v4.sin_port;
+> -	addr->v6.sin6_addr.s6_addr32[3] = addr->v4.sin_addr.s_addr;
+>  	addr->v6.sin6_addr.s6_addr32[0] = 0;
+>  	addr->v6.sin6_addr.s6_addr32[1] = 0;
+>  	addr->v6.sin6_addr.s6_addr32[2] = htonl(0x0000ffff);
+> -- 
+> 2.1.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
+Nice catch
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
