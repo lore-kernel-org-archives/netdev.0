@@ -1,88 +1,63 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next] bridge: skip fdb add if the port shouldn't learn
-Date: Wed, 27 May 2015 00:59:15 -0700
-Message-ID: <CAE4R7bBEn8Tvct_W0n7nR5YccEmTRByUc=-4nmvuQNqfrBFABg@mail.gmail.com>
-References: <1432204977-4293-1-git-send-email-nikolay@cumulusnetworks.com>
-	<20150526102809.5c3e8abc@urahara>
-	<CABQ03vEQhdXgWk5r103Yd0CPxEWuU3i0m8ztQjtgR0NFDbEXRQ@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [v3 PATCH 0/8] crypto: Convert all AEAD users to new interface
+Date: Wed, 27 May 2015 16:01:05 +0800
+Message-ID: <20150527080105.GA26751@gondor.apana.org.au>
+References: <20150521103938.GA23035@gondor.apana.org.au>
+ <20150522082708.GA3507@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Wilson Kok <wkok@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>,
-	bridge@lists.linux-foundation.org,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f176.google.com ([209.85.216.176]:34178 "EHLO
-	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977AbbE0H7Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 03:59:16 -0400
-Received: by qcbhb1 with SMTP id hb1so741083qcb.1
-        for <netdev@vger.kernel.org>; Wed, 27 May 2015 00:59:15 -0700 (PDT)
-In-Reply-To: <CABQ03vEQhdXgWk5r103Yd0CPxEWuU3i0m8ztQjtgR0NFDbEXRQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Stephan Mueller <smueller@chronox.de>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150522082708.GA3507@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 27, 2015 at 12:05 AM, Nikolay Aleksandrov
-<nikolay@cumulusnetworks.com> wrote:
-> On Tue, May 26, 2015 at 7:28 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
->> On Thu, 21 May 2015 03:42:57 -0700
->> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
->>
->>> From: Wilson Kok <wkok@cumulusnetworks.com>
->>>
->>> Check in fdb_add_entry() if the source port should learn, similar
->>> check is used in br_fdb_update.
->>> Note that new fdb entries which are added manually or
->>> as local ones are still permitted.
->>> This patch has been tested by running traffic via a bridge port and
->>> switching the port's state, also by manually adding/removing entries
->>> from the bridge's fdb.
->>>
->>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
->>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->>
->> What is the problem this is trying to solve?
->>
->> I think user should be allowed to manually add any entry
->> even if learning.
->
-> Hi Stephen,
-> I have been thinking about the use case and have discussed it
-> internally with colleagues and the patch
-> author, the main problem is when there's an external software that
-> adds dynamic entries (learning) and
-> it could experience a race condition, here's a possible situation:
-> * external software learns a mac from hw, sends an add to kernel
->  * right before that, port goes blocking (or down) and kernel flushes
->    mac, sends notification about the state change and mac flush
->  * right after that, kernel gets the previous add from external software, it's
->    allowed to add, and then sends an add notification
->  * mean while, external software processes the link block/down and mac flush,
->    followed by the mac add from kernel.  At this point, external software can't
->    really know whether it's a user adding the mac intentionally or it's
->    a race.
->
-> This issue can't really be avoided in user-space.
-> As I've noted local and static entries are still allowed, and iproute2
-> bridge utility always
-> marks the entries as static (NUD_NOARP), this only affects external
-> dynamic entries which
-> are usually sent by something that does the learning externally.
-> I'll keep digging to see if there's another way to go about this since
-> I'd like to give the user
-> full freedom. Personally I don't have strong feeling for this patch
-> and if it's not preferred then
-> I'll post a revert.
+Hi:
 
-So there is already a switchdev API to add/del an externally learned
-FDB entry which holds rtnl_lock and avoids these races.  I would
-suggest using that and revert this patch.
+The only changes from the last version are that set_ad no longer
+takes a cryptoff argument and testmgr has been updated to always
+supply space for the authentication tag.
 
-See call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL) and
-the handler in br.c:br_switchdev_event().
+The algif_aead patch has been removed and will be posted separately.
 
--scott
+Series description:
+
+This series of patches convert all in-tree AEAD users that I
+could find to the new single SG list interface.  For IPsec it
+also adopts the new explicit IV generator scheme.
+
+To recap, the old AEAD interface takes an associated data (AD)
+SG list in addition to the plain/cipher text SG list(s).  That
+forces the underlying AEAD algorithm implementors to try to stitch
+those two lists together where possible in order to maximise the
+contiguous chunk of memory passed to the ICV/hash function.  Things
+get even more hairy for IPsec as it has a third piece of memory,
+the generated IV (giv) that needs to be hashed.  One look at the
+nasty things authenc does for example is enough to make anyone
+puke :)
+
+In fact the interface is just getting in our way because for the
+main user IPsec the data is naturally contiguous as the protocol
+was designed with this in mind.
+
+So the new AEAD interface gets rid of the separate AD SG list
+and instead simply requires the AD to be at the head of the src
+and dst SG lists.
+
+The conversion of in-tree users is fairly straightforward.  The
+only non-trivial bit is IPsec as I'm taking this opportunity to
+move the IV generation knowledge into IPsec as that's where it
+belongs since we may in future wish to support different generation
+schemes for a single algorithm.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
