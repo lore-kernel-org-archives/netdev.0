@@ -1,7 +1,7 @@
 From: Mathieu Olivari <mathieu-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: [PATCH V2 2/5] stmmac: add phy-handle support to the platform layer
-Date: Wed, 27 May 2015 11:02:47 -0700
-Message-ID: <1432749770-26133-3-git-send-email-mathieu@codeaurora.org>
+Subject: [PATCH V2 1/5] clk: qcom: Add support for NSS/GMAC clocks and resets
+Date: Wed, 27 May 2015 11:02:46 -0700
+Message-ID: <1432749770-26133-2-git-send-email-mathieu@codeaurora.org>
 References: <1432749770-26133-1-git-send-email-mathieu@codeaurora.org>
 Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
@@ -18,111 +18,742 @@ In-Reply-To: <1432749770-26133-1-git-send-email-mathieu-sgV2jX0FEOL9JmXXK+q4OQ@p
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On stmmac driver, PHY specification in device-tree was done using the
-non-standard property "snps,phy-addr". Specifying a PHY on a different
-MDIO bus that the one within the stmmac controller doesn't seem to be
-possible when device-tree is used.
+From: Stephen Boyd <sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
 
-This change adds support for the phy-handle property, as specified in
-Documentation/devicetree/bindings/net/ethernet.txt.
+Add the NSS/GMAC clocks and the TCM clock and NSS resets.
 
+Signed-off-by: Stephen Boyd <sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
 Signed-off-by: Mathieu Olivari <mathieu-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 28 ++++++++++++++--------
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  6 ++++-
- include/linux/stmmac.h                             |  1 +
- 3 files changed, 24 insertions(+), 11 deletions(-)
+ drivers/clk/qcom/gcc-ipq806x.c               | 594 ++++++++++++++++++++++++++-
+ include/dt-bindings/clock/qcom,gcc-ipq806x.h |   2 +
+ include/dt-bindings/reset/qcom,gcc-ipq806x.h |  43 ++
+ 3 files changed, 638 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index e4f2739..31c6416 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -52,6 +52,7 @@
- #include "stmmac_ptp.h"
- #include "stmmac.h"
- #include <linux/reset.h>
-+#include <linux/of_mdio.h>
+diff --git a/drivers/clk/qcom/gcc-ipq806x.c b/drivers/clk/qcom/gcc-ipq806x.c
+index a50936a..5639699 100644
+--- a/drivers/clk/qcom/gcc-ipq806x.c
++++ b/drivers/clk/qcom/gcc-ipq806x.c
+@@ -140,12 +140,47 @@ static struct clk_regmap pll14_vote = {
+ 	},
+ };
  
- #define STMMAC_ALIGN(x)	L1_CACHE_ALIGN(x)
- 
-@@ -816,18 +817,25 @@ static int stmmac_init_phy(struct net_device *dev)
- 	priv->speed = 0;
- 	priv->oldduplex = -1;
- 
--	if (priv->plat->phy_bus_name)
--		snprintf(bus_id, MII_BUS_ID_SIZE, "%s-%x",
--			 priv->plat->phy_bus_name, priv->plat->bus_id);
--	else
--		snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
--			 priv->plat->bus_id);
-+	if (priv->plat->phy_node) {
-+		phydev = of_phy_connect(dev, priv->plat->phy_node,
-+					&stmmac_adjust_link, 0, interface);
-+	} else {
-+		if (priv->plat->phy_bus_name)
-+			snprintf(bus_id, MII_BUS_ID_SIZE, "%s-%x",
-+				 priv->plat->phy_bus_name, priv->plat->bus_id);
-+		else
-+			snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
-+				 priv->plat->bus_id);
- 
--	snprintf(phy_id_fmt, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
--		 priv->plat->phy_addr);
--	pr_debug("stmmac_init_phy:  trying to attach to %s\n", phy_id_fmt);
-+		snprintf(phy_id_fmt, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
-+			 priv->plat->phy_addr);
-+		pr_debug("stmmac_init_phy:  trying to attach to %s\n",
-+			 phy_id_fmt);
- 
--	phydev = phy_connect(dev, phy_id_fmt, &stmmac_adjust_link, interface);
-+		phydev = phy_connect(dev, phy_id_fmt, &stmmac_adjust_link,
-+				     interface);
++#define NSS_PLL_RATE(f, _l, _m, _n, i) \
++	{  \
++		.freq = f,  \
++		.l = _l, \
++		.m = _m, \
++		.n = _n, \
++		.ibits = i, \
 +	}
- 
- 	if (IS_ERR(phydev)) {
- 		pr_err("%s: Could not attach to PHY\n", dev->name);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 1664c01..8d23155 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -28,6 +28,7 @@
- #include <linux/of.h>
- #include <linux/of_net.h>
- #include <linux/of_device.h>
-+#include <linux/of_mdio.h>
- 
- #include "stmmac.h"
- #include "stmmac_platform.h"
-@@ -144,13 +145,16 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
- 	/* Default to phy auto-detection */
- 	plat->phy_addr = -1;
- 
-+	/* If we find a phy-handle property, use it as the PHY */
-+	plat->phy_node = of_parse_phandle(np, "phy-handle", 0);
 +
- 	/* "snps,phy-addr" is not a standard property. Mark it as deprecated
- 	 * and warn of its use. Remove this when phy node support is added.
- 	 */
- 	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) == 0)
- 		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
++static struct pll_freq_tbl pll18_freq_tbl[] = {
++	NSS_PLL_RATE(550000000, 44, 0, 1, 0x01495625),
++	NSS_PLL_RATE(733000000, 58, 16, 25, 0x014b5625),
++};
++
++static struct clk_pll pll18 = {
++	.l_reg = 0x31a4,
++	.m_reg = 0x31a8,
++	.n_reg = 0x31ac,
++	.config_reg = 0x31b4,
++	.mode_reg = 0x31a0,
++	.status_reg = 0x31b8,
++	.status_bit = 16,
++	.post_div_shift = 16,
++	.post_div_width = 1,
++	.freq_tbl = pll18_freq_tbl,
++	.clkr.hw.init = &(struct clk_init_data){
++		.name = "pll18",
++		.parent_names = (const char *[]){ "pxo" },
++		.num_parents = 1,
++		.ops = &clk_pll_ops,
++	},
++};
++
+ enum {
+ 	P_PXO,
+ 	P_PLL8,
+ 	P_PLL3,
+ 	P_PLL0,
+ 	P_CXO,
++	P_PLL14,
++	P_PLL18,
+ };
  
--	if (plat->phy_bus_name)
-+	if (plat->phy_node || plat->phy_bus_name)
- 		plat->mdio_bus_data = NULL;
- 	else
- 		plat->mdio_bus_data =
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 7f484a2..c735f5c 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -99,6 +99,7 @@ struct plat_stmmacenet_data {
- 	int phy_addr;
- 	int interface;
- 	struct stmmac_mdio_bus_data *mdio_bus_data;
-+	struct device_node *phy_node;
- 	struct stmmac_dma_cfg *dma_cfg;
- 	int clk_csr;
- 	int has_gmac;
+ static const struct parent_map gcc_pxo_pll8_map[] = {
+@@ -197,6 +232,22 @@ static const char *gcc_pxo_pll8_pll0_map[] = {
+ 	"pll0_vote",
+ };
+ 
++static const struct parent_map gcc_pxo_pll8_pll14_pll18_pll0_map[] = {
++	{ P_PXO, 0 },
++	{ P_PLL8, 4 },
++	{ P_PLL0, 2 },
++	{ P_PLL14, 5 },
++	{ P_PLL18, 1 }
++};
++
++static const char *gcc_pxo_pll8_pll14_pll18_pll0[] = {
++	"pxo",
++	"pll8_vote",
++	"pll0_vote",
++	"pll14",
++	"pll18",
++};
++
+ static struct freq_tbl clk_tbl_gsbi_uart[] = {
+ 	{  1843200, P_PLL8, 2,  6, 625 },
+ 	{  3686400, P_PLL8, 2, 12, 625 },
+@@ -2202,6 +2253,472 @@ static struct clk_branch ebi2_aon_clk = {
+ 	},
+ };
+ 
++static const struct freq_tbl clk_tbl_gmac[] = {
++	{ 133000000, P_PLL0, 1,  50, 301 },
++	{ 266000000, P_PLL0, 1, 127, 382 },
++	{ }
++};
++
++static struct clk_dyn_rcg gmac_core1_src = {
++	.ns_reg[0] = 0x3cac,
++	.ns_reg[1] = 0x3cb0,
++	.md_reg[0] = 0x3ca4,
++	.md_reg[1] = 0x3ca8,
++	.bank_reg = 0x3ca0,
++	.mn[0] = {
++		.mnctr_en_bit = 8,
++		.mnctr_reset_bit = 7,
++		.mnctr_mode_shift = 5,
++		.n_val_shift = 16,
++		.m_val_shift = 16,
++		.width = 8,
++	},
++	.mn[1] = {
++		.mnctr_en_bit = 8,
++		.mnctr_reset_bit = 7,
++		.mnctr_mode_shift = 5,
++		.n_val_shift = 16,
++		.m_val_shift = 16,
++		.width = 8,
++	},
++	.s[0] = {
++		.src_sel_shift = 0,
++		.parent_map = gcc_pxo_pll8_pll14_pll18_pll0_map,
++	},
++	.s[1] = {
++		.src_sel_shift = 0,
++		.parent_map = gcc_pxo_pll8_pll14_pll18_pll0_map,
++	},
++	.p[0] = {
++		.pre_div_shift = 3,
++		.pre_div_width = 2,
++	},
++	.p[1] = {
++		.pre_div_shift = 3,
++		.pre_div_width = 2,
++	},
++	.mux_sel_bit = 0,
++	.freq_tbl = clk_tbl_gmac,
++	.clkr = {
++		.enable_reg = 0x3ca0,
++		.enable_mask = BIT(1),
++		.hw.init = &(struct clk_init_data){
++			.name = "gmac_core1_src",
++			.parent_names = gcc_pxo_pll8_pll14_pll18_pll0,
++			.num_parents = 5,
++			.ops = &clk_dyn_rcg_ops,
++		},
++	},
++};
++
++static struct clk_branch gmac_core1_clk = {
++	.halt_reg = 0x3c20,
++	.halt_bit = 4,
++	.hwcg_reg = 0x3cb4,
++	.hwcg_bit = 6,
++	.clkr = {
++		.enable_reg = 0x3cb4,
++		.enable_mask = BIT(4),
++		.hw.init = &(struct clk_init_data){
++			.name = "gmac_core1_clk",
++			.parent_names = (const char *[]){
++				"gmac_core1_src",
++			},
++			.num_parents = 1,
++			.ops = &clk_branch_ops,
++			.flags = CLK_SET_RATE_PARENT,
++		},
++	},
++};
++
++static struct clk_dyn_rcg gmac_core2_src = {
++	.ns_reg[0] = 0x3ccc,
++	.ns_reg[1] = 0x3cd0,
++	.md_reg[0] = 0x3cc4,
++	.md_reg[1] = 0x3cc8,
++	.bank_reg = 0x3ca0,
++	.mn[0] = {
++		.mnctr_en_bit = 8,
++		.mnctr_reset_bit = 7,
++		.mnctr_mode_shift = 5,
++		.n_val_shift = 16,
++		.m_val_shift = 16,
++		.width = 8,
++	},
++	.mn[1] = {
++		.mnctr_en_bit = 8,
++		.mnctr_reset_bit = 7,
++		.mnctr_mode_shift = 5,
++		.n_val_shift = 16,
++		.m_val_shift = 16,
++		.width = 8,
++	},
++	.s[0] = {
++		.src_sel_shift = 0,
++		.parent_map = gcc_pxo_pll8_pll14_pll18_pll0_map,
++	},
++	.s[1] = {
++		.src_sel_shift = 0,
++		.parent_map = gcc_pxo_pll8_pll14_pll18_pll0_map,
++	},
++	.p[0] = {
++		.pre_div_shift = 3,
++		.pre_div_width = 2,
++	},
++	.p[1] = {
++		.pre_div_shift = 3,
++		.pre_div_width = 2,
++	},
++	.mux_sel_bit = 0,
++	.freq_tbl = clk_tbl_gmac,
++	.clkr = {
++		.enable_reg = 0x3cc0,
++		.enable_mask = BIT(1),
++		.hw.init = &(struct clk_init_data){
++			.name = "gmac_core2_src",
++			.parent_names = gcc_pxo_pll8_pll14_pll18_pll0,
++			.num_parents = 5,
++			.ops = &clk_dyn_rcg_ops,
++		},
++	},
++};
++
++static struct clk_branch gmac_core2_clk = {
++	.halt_reg = 0x3c20,
++	.halt_bit = 5,
++	.hwcg_reg = 0x3cd4,
++	.hwcg_bit = 6,
++	.clkr = {
++		.enable_reg = 0x3cd4,
++		.enable_mask = BIT(4),
++		.hw.init = &(struct clk_init_data){
++			.name = "gmac_core2_clk",
++			.parent_names = (const char *[]){
++				"gmac_core2_src",
++			},
++			.num_parents = 1,
++			.ops = &clk_branch_ops,
++			.flags = CLK_SET_RATE_PARENT,
++		},
++	},
++};
++
++static struct clk_dyn_rcg gmac_core3_src = {
++	.ns_reg[0] = 0x3cec,
++	.ns_reg[1] = 0x3cf0,
++	.md_reg[0] = 0x3ce4,
++	.md_reg[1] = 0x3ce8,
++	.bank_reg = 0x3ce0,
++	.mn[0] = {
++		.mnctr_en_bit = 8,
++		.mnctr_reset_bit = 7,
++		.mnctr_mode_shift = 5,
++		.n_val_shift = 16,
++		.m_val_shift = 16,
++		.width = 8,
++	},
++	.mn[1] = {
++		.mnctr_en_bit = 8,
++		.mnctr_reset_bit = 7,
++		.mnctr_mode_shift = 5,
++		.n_val_shift = 16,
++		.m_val_shift = 16,
++		.width = 8,
++	},
++	.s[0] = {
++		.src_sel_shift = 0,
++		.parent_map = gcc_pxo_pll8_pll14_pll18_pll0_map,
++	},
++	.s[1] = {
++		.src_sel_shift = 0,
++		.parent_map = gcc_pxo_pll8_pll14_pll18_pll0_map,
++	},
++	.p[0] = {
++		.pre_div_shift = 3,
++		.pre_div_width = 2,
++	},
++	.p[1] = {
++		.pre_div_shift = 3,
++		.pre_div_width = 2,
++	},
++	.mux_sel_bit = 0,
++	.freq_tbl = clk_tbl_gmac,
++	.clkr = {
++		.enable_reg = 0x3ce0,
++		.enable_mask = BIT(1),
++		.hw.init = &(struct clk_init_data){
++			.name = "gmac_core3_src",
++			.parent_names = gcc_pxo_pll8_pll14_pll18_pll0,
++			.num_parents = 5,
++			.ops = &clk_dyn_rcg_ops,
++		},
++	},
++};
++
++static struct clk_branch gmac_core3_clk = {
++	.halt_reg = 0x3c20,
++	.halt_bit = 6,
++	.hwcg_reg = 0x3cf4,
++	.hwcg_bit = 6,
++	.clkr = {
++		.enable_reg = 0x3cf4,
++		.enable_mask = BIT(4),
++		.hw.init = &(struct clk_init_data){
++			.name = "gmac_core3_clk",
++			.parent_names = (const char *[]){
++				"gmac_core3_src",
++			},
++			.num_parents = 1,
++			.ops = &clk_branch_ops,
++			.flags = CLK_SET_RATE_PARENT,
++		},
++	},
++};
++
++static struct clk_dyn_rcg gmac_core4_src = {
++	.ns_reg[0] = 0x3d0c,
++	.ns_reg[1] = 0x3d10,
++	.md_reg[0] = 0x3d04,
++	.md_reg[1] = 0x3d08,
++	.bank_reg = 0x3d00,
++	.mn[0] = {
++		.mnctr_en_bit = 8,
++		.mnctr_reset_bit = 7,
++		.mnctr_mode_shift = 5,
++		.n_val_shift = 16,
++		.m_val_shift = 16,
++		.width = 8,
++	},
++	.mn[1] = {
++		.mnctr_en_bit = 8,
++		.mnctr_reset_bit = 7,
++		.mnctr_mode_shift = 5,
++		.n_val_shift = 16,
++		.m_val_shift = 16,
++		.width = 8,
++	},
++	.s[0] = {
++		.src_sel_shift = 0,
++		.parent_map = gcc_pxo_pll8_pll14_pll18_pll0_map,
++	},
++	.s[1] = {
++		.src_sel_shift = 0,
++		.parent_map = gcc_pxo_pll8_pll14_pll18_pll0_map,
++	},
++	.p[0] = {
++		.pre_div_shift = 3,
++		.pre_div_width = 2,
++	},
++	.p[1] = {
++		.pre_div_shift = 3,
++		.pre_div_width = 2,
++	},
++	.mux_sel_bit = 0,
++	.freq_tbl = clk_tbl_gmac,
++	.clkr = {
++		.enable_reg = 0x3d00,
++		.enable_mask = BIT(1),
++		.hw.init = &(struct clk_init_data){
++			.name = "gmac_core4_src",
++			.parent_names = gcc_pxo_pll8_pll14_pll18_pll0,
++			.num_parents = 5,
++			.ops = &clk_dyn_rcg_ops,
++		},
++	},
++};
++
++static struct clk_branch gmac_core4_clk = {
++	.halt_reg = 0x3c20,
++	.halt_bit = 7,
++	.hwcg_reg = 0x3d14,
++	.hwcg_bit = 6,
++	.clkr = {
++		.enable_reg = 0x3d14,
++		.enable_mask = BIT(4),
++		.hw.init = &(struct clk_init_data){
++			.name = "gmac_core4_clk",
++			.parent_names = (const char *[]){
++				"gmac_core4_src",
++			},
++			.num_parents = 1,
++			.ops = &clk_branch_ops,
++			.flags = CLK_SET_RATE_PARENT,
++		},
++	},
++};
++
++static const struct freq_tbl clk_tbl_nss_tcm[] = {
++	{ 266000000, P_PLL0, 3, 0, 0 },
++	{ 400000000, P_PLL0, 2, 0, 0 },
++	{ }
++};
++
++static struct clk_dyn_rcg nss_tcm_src = {
++	.ns_reg[0] = 0x3dc4,
++	.ns_reg[1] = 0x3dc8,
++	.bank_reg = 0x3dc0,
++	.s[0] = {
++		.src_sel_shift = 0,
++		.parent_map = gcc_pxo_pll8_pll14_pll18_pll0_map,
++	},
++	.s[1] = {
++		.src_sel_shift = 0,
++		.parent_map = gcc_pxo_pll8_pll14_pll18_pll0_map,
++	},
++	.p[0] = {
++		.pre_div_shift = 3,
++		.pre_div_width = 4,
++	},
++	.p[1] = {
++		.pre_div_shift = 3,
++		.pre_div_width = 4,
++	},
++	.mux_sel_bit = 0,
++	.freq_tbl = clk_tbl_nss_tcm,
++	.clkr = {
++		.enable_reg = 0x3dc0,
++		.enable_mask = BIT(1),
++		.hw.init = &(struct clk_init_data){
++			.name = "nss_tcm_src",
++			.parent_names = gcc_pxo_pll8_pll14_pll18_pll0,
++			.num_parents = 5,
++			.ops = &clk_dyn_rcg_ops,
++		},
++	},
++};
++
++static struct clk_branch nss_tcm_clk = {
++	.halt_reg = 0x3c20,
++	.halt_bit = 14,
++	.clkr = {
++		.enable_reg = 0x3dd0,
++		.enable_mask = BIT(6) | BIT(4),
++		.hw.init = &(struct clk_init_data){
++			.name = "nss_tcm_clk",
++			.parent_names = (const char *[]){
++				"nss_tcm_src",
++			},
++			.num_parents = 1,
++			.ops = &clk_branch_ops,
++			.flags = CLK_SET_RATE_PARENT,
++		},
++	},
++};
++
++static const struct freq_tbl clk_tbl_nss[] = {
++	{ 110000000, P_PLL18, 1, 1, 5 },
++	{ 275000000, P_PLL18, 2, 0, 0 },
++	{ 550000000, P_PLL18, 1, 0, 0 },
++	{ 733000000, P_PLL18, 1, 0, 0 },
++	{ }
++};
++
++static struct clk_dyn_rcg ubi32_core1_src_clk = {
++	.ns_reg[0] = 0x3d2c,
++	.ns_reg[1] = 0x3d30,
++	.md_reg[0] = 0x3d24,
++	.md_reg[1] = 0x3d28,
++	.bank_reg = 0x3d20,
++	.mn[0] = {
++		.mnctr_en_bit = 8,
++		.mnctr_reset_bit = 7,
++		.mnctr_mode_shift = 5,
++		.n_val_shift = 16,
++		.m_val_shift = 16,
++		.width = 8,
++	},
++	.mn[1] = {
++		.mnctr_en_bit = 8,
++		.mnctr_reset_bit = 7,
++		.mnctr_mode_shift = 5,
++		.n_val_shift = 16,
++		.m_val_shift = 16,
++		.width = 8,
++	},
++	.s[0] = {
++		.src_sel_shift = 0,
++		.parent_map = gcc_pxo_pll8_pll14_pll18_pll0_map,
++	},
++	.s[1] = {
++		.src_sel_shift = 0,
++		.parent_map = gcc_pxo_pll8_pll14_pll18_pll0_map,
++	},
++	.p[0] = {
++		.pre_div_shift = 3,
++		.pre_div_width = 2,
++	},
++	.p[1] = {
++		.pre_div_shift = 3,
++		.pre_div_width = 2,
++	},
++	.mux_sel_bit = 0,
++	.freq_tbl = clk_tbl_nss,
++	.clkr = {
++		.enable_reg = 0x3d20,
++		.enable_mask = BIT(1),
++		.hw.init = &(struct clk_init_data){
++			.name = "ubi32_core1_src_clk",
++			.parent_names = gcc_pxo_pll8_pll14_pll18_pll0,
++			.num_parents = 5,
++			.ops = &clk_dyn_rcg_ops,
++			.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
++		},
++	},
++};
++
++static struct clk_dyn_rcg ubi32_core2_src_clk = {
++	.ns_reg[0] = 0x3d4c,
++	.ns_reg[1] = 0x3d50,
++	.md_reg[0] = 0x3d44,
++	.md_reg[1] = 0x3d48,
++	.bank_reg = 0x3d40,
++	.mn[0] = {
++		.mnctr_en_bit = 8,
++		.mnctr_reset_bit = 7,
++		.mnctr_mode_shift = 5,
++		.n_val_shift = 16,
++		.m_val_shift = 16,
++		.width = 8,
++	},
++	.mn[1] = {
++		.mnctr_en_bit = 8,
++		.mnctr_reset_bit = 7,
++		.mnctr_mode_shift = 5,
++		.n_val_shift = 16,
++		.m_val_shift = 16,
++		.width = 8,
++	},
++	.s[0] = {
++		.src_sel_shift = 0,
++		.parent_map = gcc_pxo_pll8_pll14_pll18_pll0_map,
++	},
++	.s[1] = {
++		.src_sel_shift = 0,
++		.parent_map = gcc_pxo_pll8_pll14_pll18_pll0_map,
++	},
++	.p[0] = {
++		.pre_div_shift = 3,
++		.pre_div_width = 2,
++	},
++	.p[1] = {
++		.pre_div_shift = 3,
++		.pre_div_width = 2,
++	},
++	.mux_sel_bit = 0,
++	.freq_tbl = clk_tbl_nss,
++	.clkr = {
++		.enable_reg = 0x3d40,
++		.enable_mask = BIT(1),
++		.hw.init = &(struct clk_init_data){
++			.name = "ubi32_core2_src_clk",
++			.parent_names = gcc_pxo_pll8_pll14_pll18_pll0,
++			.num_parents = 5,
++			.ops = &clk_dyn_rcg_ops,
++			.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
++		},
++	},
++};
++
+ static struct clk_regmap *gcc_ipq806x_clks[] = {
+ 	[PLL0] = &pll0.clkr,
+ 	[PLL0_VOTE] = &pll0_vote,
+@@ -2211,6 +2728,7 @@ static struct clk_regmap *gcc_ipq806x_clks[] = {
+ 	[PLL8_VOTE] = &pll8_vote,
+ 	[PLL14] = &pll14.clkr,
+ 	[PLL14_VOTE] = &pll14_vote,
++	[PLL18] = &pll18.clkr,
+ 	[GSBI1_UART_SRC] = &gsbi1_uart_src.clkr,
+ 	[GSBI1_UART_CLK] = &gsbi1_uart_clk.clkr,
+ 	[GSBI2_UART_SRC] = &gsbi2_uart_src.clkr,
+@@ -2307,6 +2825,18 @@ static struct clk_regmap *gcc_ipq806x_clks[] = {
+ 	[USB_FS1_SYSTEM_CLK] = &usb_fs1_sys_clk.clkr,
+ 	[EBI2_CLK] = &ebi2_clk.clkr,
+ 	[EBI2_AON_CLK] = &ebi2_aon_clk.clkr,
++	[GMAC_CORE1_CLK_SRC] = &gmac_core1_src.clkr,
++	[GMAC_CORE1_CLK] = &gmac_core1_clk.clkr,
++	[GMAC_CORE2_CLK_SRC] = &gmac_core2_src.clkr,
++	[GMAC_CORE2_CLK] = &gmac_core2_clk.clkr,
++	[GMAC_CORE3_CLK_SRC] = &gmac_core3_src.clkr,
++	[GMAC_CORE3_CLK] = &gmac_core3_clk.clkr,
++	[GMAC_CORE4_CLK_SRC] = &gmac_core4_src.clkr,
++	[GMAC_CORE4_CLK] = &gmac_core4_clk.clkr,
++	[UBI32_CORE1_CLK_SRC] = &ubi32_core1_src_clk.clkr,
++	[UBI32_CORE2_CLK_SRC] = &ubi32_core2_src_clk.clkr,
++	[NSSTCM_CLK_SRC] = &nss_tcm_src.clkr,
++	[NSSTCM_CLK] = &nss_tcm_clk.clkr,
+ };
+ 
+ static const struct qcom_reset_map gcc_ipq806x_resets[] = {
+@@ -2425,6 +2955,48 @@ static const struct qcom_reset_map gcc_ipq806x_resets[] = {
+ 	[USB30_1_PHY_RESET] = { 0x3b58, 0 },
+ 	[NSSFB0_RESET] = { 0x3b60, 6 },
+ 	[NSSFB1_RESET] = { 0x3b60, 7 },
++	[UBI32_CORE1_CLKRST_CLAMP_RESET] = { 0x3d3c, 3},
++	[UBI32_CORE1_CLAMP_RESET] = { 0x3d3c, 2 },
++	[UBI32_CORE1_AHB_RESET] = { 0x3d3c, 1 },
++	[UBI32_CORE1_AXI_RESET] = { 0x3d3c, 0 },
++	[UBI32_CORE2_CLKRST_CLAMP_RESET] = { 0x3d5c, 3 },
++	[UBI32_CORE2_CLAMP_RESET] = { 0x3d5c, 2 },
++	[UBI32_CORE2_AHB_RESET] = { 0x3d5c, 1 },
++	[UBI32_CORE2_AXI_RESET] = { 0x3d5c, 0 },
++	[GMAC_CORE1_RESET] = { 0x3cbc, 0 },
++	[GMAC_CORE2_RESET] = { 0x3cdc, 0 },
++	[GMAC_CORE3_RESET] = { 0x3cfc, 0 },
++	[GMAC_CORE4_RESET] = { 0x3d1c, 0 },
++	[GMAC_AHB_RESET] = { 0x3e24, 0 },
++	[NSS_CH0_RST_RX_CLK_N_RESET] = { 0x3b60, 0 },
++	[NSS_CH0_RST_TX_CLK_N_RESET] = { 0x3b60, 1 },
++	[NSS_CH0_RST_RX_125M_N_RESET] = { 0x3b60, 2 },
++	[NSS_CH0_HW_RST_RX_125M_N_RESET] = { 0x3b60, 3 },
++	[NSS_CH0_RST_TX_125M_N_RESET] = { 0x3b60, 4 },
++	[NSS_CH1_RST_RX_CLK_N_RESET] = { 0x3b60, 5 },
++	[NSS_CH1_RST_TX_CLK_N_RESET] = { 0x3b60, 6 },
++	[NSS_CH1_RST_RX_125M_N_RESET] = { 0x3b60, 7 },
++	[NSS_CH1_HW_RST_RX_125M_N_RESET] = { 0x3b60, 8 },
++	[NSS_CH1_RST_TX_125M_N_RESET] = { 0x3b60, 9 },
++	[NSS_CH2_RST_RX_CLK_N_RESET] = { 0x3b60, 10 },
++	[NSS_CH2_RST_TX_CLK_N_RESET] = { 0x3b60, 11 },
++	[NSS_CH2_RST_RX_125M_N_RESET] = { 0x3b60, 12 },
++	[NSS_CH2_HW_RST_RX_125M_N_RESET] = { 0x3b60, 13 },
++	[NSS_CH2_RST_TX_125M_N_RESET] = { 0x3b60, 14 },
++	[NSS_CH3_RST_RX_CLK_N_RESET] = { 0x3b60, 15 },
++	[NSS_CH3_RST_TX_CLK_N_RESET] = { 0x3b60, 16 },
++	[NSS_CH3_RST_RX_125M_N_RESET] = { 0x3b60, 17 },
++	[NSS_CH3_HW_RST_RX_125M_N_RESET] = { 0x3b60, 18 },
++	[NSS_CH3_RST_TX_125M_N_RESET] = { 0x3b60, 19 },
++	[NSS_RST_RX_250M_125M_N_RESET] = { 0x3b60, 20 },
++	[NSS_RST_TX_250M_125M_N_RESET] = { 0x3b60, 21 },
++	[NSS_QSGMII_TXPI_RST_N_RESET] = { 0x3b60, 22 },
++	[NSS_QSGMII_CDR_RST_N_RESET] = { 0x3b60, 23 },
++	[NSS_SGMII2_CDR_RST_N_RESET] = { 0x3b60, 24 },
++	[NSS_SGMII3_CDR_RST_N_RESET] = { 0x3b60, 25 },
++	[NSS_CAL_PRBS_RST_N_RESET] = { 0x3b60, 26 },
++	[NSS_LCKDT_RST_N_RESET] = { 0x3b60, 27 },
++	[NSS_SRDS_N_RESET] = { 0x3b60, 28 },
+ };
+ 
+ static const struct regmap_config gcc_ipq806x_regmap_config = {
+@@ -2453,6 +3025,8 @@ static int gcc_ipq806x_probe(struct platform_device *pdev)
+ {
+ 	struct clk *clk;
+ 	struct device *dev = &pdev->dev;
++	struct regmap *regmap;
++	int ret;
+ 
+ 	/* Temporary until RPM clocks supported */
+ 	clk = clk_register_fixed_rate(dev, "cxo", NULL, CLK_IS_ROOT, 25000000);
+@@ -2463,7 +3037,25 @@ static int gcc_ipq806x_probe(struct platform_device *pdev)
+ 	if (IS_ERR(clk))
+ 		return PTR_ERR(clk);
+ 
+-	return qcom_cc_probe(pdev, &gcc_ipq806x_desc);
++	ret = qcom_cc_probe(pdev, &gcc_ipq806x_desc);
++	if (ret)
++		return ret;
++
++	regmap = dev_get_regmap(dev, NULL);
++	if (!regmap)
++		return -ENODEV;
++
++	/* Setup PLL18 static bits */
++	regmap_update_bits(regmap, 0x31a4, 0xffffffc0, 0x40000400);
++	regmap_write(regmap, 0x31b0, 0x3080);
++
++	/* Set GMAC footswitch sleep/wakeup values */
++	regmap_write(regmap, 0x3cb8, 8);
++	regmap_write(regmap, 0x3cd8, 8);
++	regmap_write(regmap, 0x3cf8, 8);
++	regmap_write(regmap, 0x3d18, 8);
++
++	return 0;
+ }
+ 
+ static int gcc_ipq806x_remove(struct platform_device *pdev)
+diff --git a/include/dt-bindings/clock/qcom,gcc-ipq806x.h b/include/dt-bindings/clock/qcom,gcc-ipq806x.h
+index ebd63fd..dc4254b 100644
+--- a/include/dt-bindings/clock/qcom,gcc-ipq806x.h
++++ b/include/dt-bindings/clock/qcom,gcc-ipq806x.h
+@@ -289,5 +289,7 @@
+ #define UBI32_CORE1_CLK				279
+ #define UBI32_CORE2_CLK				280
+ #define EBI2_AON_CLK				281
++#define NSSTCM_CLK_SRC				282
++#define NSSTCM_CLK				283
+ 
+ #endif
+diff --git a/include/dt-bindings/reset/qcom,gcc-ipq806x.h b/include/dt-bindings/reset/qcom,gcc-ipq806x.h
+index 0ad5ef9..de9c814 100644
+--- a/include/dt-bindings/reset/qcom,gcc-ipq806x.h
++++ b/include/dt-bindings/reset/qcom,gcc-ipq806x.h
+@@ -129,4 +129,47 @@
+ #define USB30_1_PHY_RESET				112
+ #define NSSFB0_RESET					113
+ #define NSSFB1_RESET					114
++#define UBI32_CORE1_CLKRST_CLAMP_RESET			115
++#define UBI32_CORE1_CLAMP_RESET				116
++#define UBI32_CORE1_AHB_RESET				117
++#define UBI32_CORE1_AXI_RESET				118
++#define UBI32_CORE2_CLKRST_CLAMP_RESET			119
++#define UBI32_CORE2_CLAMP_RESET				120
++#define UBI32_CORE2_AHB_RESET				121
++#define UBI32_CORE2_AXI_RESET				122
++#define GMAC_CORE1_RESET				123
++#define GMAC_CORE2_RESET				124
++#define GMAC_CORE3_RESET				125
++#define GMAC_CORE4_RESET				126
++#define GMAC_AHB_RESET					127
++#define NSS_CH0_RST_RX_CLK_N_RESET			128
++#define NSS_CH0_RST_TX_CLK_N_RESET			129
++#define NSS_CH0_RST_RX_125M_N_RESET			130
++#define NSS_CH0_HW_RST_RX_125M_N_RESET			131
++#define NSS_CH0_RST_TX_125M_N_RESET			132
++#define NSS_CH1_RST_RX_CLK_N_RESET			133
++#define NSS_CH1_RST_TX_CLK_N_RESET			134
++#define NSS_CH1_RST_RX_125M_N_RESET			135
++#define NSS_CH1_HW_RST_RX_125M_N_RESET			136
++#define NSS_CH1_RST_TX_125M_N_RESET			137
++#define NSS_CH2_RST_RX_CLK_N_RESET			138
++#define NSS_CH2_RST_TX_CLK_N_RESET			139
++#define NSS_CH2_RST_RX_125M_N_RESET			140
++#define NSS_CH2_HW_RST_RX_125M_N_RESET			141
++#define NSS_CH2_RST_TX_125M_N_RESET			142
++#define NSS_CH3_RST_RX_CLK_N_RESET			143
++#define NSS_CH3_RST_TX_CLK_N_RESET			144
++#define NSS_CH3_RST_RX_125M_N_RESET			145
++#define NSS_CH3_HW_RST_RX_125M_N_RESET			146
++#define NSS_CH3_RST_TX_125M_N_RESET			147
++#define NSS_RST_RX_250M_125M_N_RESET			148
++#define NSS_RST_TX_250M_125M_N_RESET			149
++#define NSS_QSGMII_TXPI_RST_N_RESET			150
++#define NSS_QSGMII_CDR_RST_N_RESET			151
++#define NSS_SGMII2_CDR_RST_N_RESET			152
++#define NSS_SGMII3_CDR_RST_N_RESET			153
++#define NSS_CAL_PRBS_RST_N_RESET			154
++#define NSS_LCKDT_RST_N_RESET				155
++#define NSS_SRDS_N_RESET				156
++
+ #endif
 -- 
 2.1.4
 
