@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [ipsec PATCH 2/3] xfrm: Override skb->mark with tunnel->parm.i_key
- in xfrm_input
-Date: Wed, 27 May 2015 07:16:49 -0700
-Message-ID: <20150527141649.1576.27662.stgit@ahduyck-vm-fedora22>
+Subject: [ipsec PATCH 3/3] ip_vti/ip6_vti: Preserve skb->mark after rcv_cb
+ call
+Date: Wed, 27 May 2015 07:16:54 -0700
+Message-ID: <20150527141654.1576.93876.stgit@ahduyck-vm-fedora22>
 References: <20150527141042.1576.47399.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,61 +15,83 @@ In-Reply-To: <20150527141042.1576.47399.stgit@ahduyck-vm-fedora22>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This change makes it so that if a tunnel is defined we just use the mark
-from the tunnel instead of the mark from the skb header.  By doing this we
-can avoid the need to set skb->mark inside of the tunnel receive functions.
+The vti6_rcv_cb and vti_rcv_cb calls were leaving the skb->mark modified
+after completing the function.  This resulted in the original skb->mark
+value being lost.  Since we only need skb->mark to be set for
+xfrm_policy_check we can pull the assignment into the rcv_cb calls and then
+just restore the original mark after xfrm_policy_check has been completed.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/xfrm/xfrm_input.c |   17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+ net/ipv4/ip_vti.c  |    9 +++++++--
+ net/ipv6/ip6_vti.c |    9 +++++++--
+ 2 files changed, 14 insertions(+), 4 deletions(-)
 
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 526c4feb3b50..b58286ecd156 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -13,6 +13,8 @@
- #include <net/dst.h>
- #include <net/ip.h>
- #include <net/xfrm.h>
-+#include <net/ip_tunnels.h>
-+#include <net/ip6_tunnel.h>
- 
- static struct kmem_cache *secpath_cachep __read_mostly;
- 
-@@ -186,6 +188,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 	struct xfrm_state *x = NULL;
- 	xfrm_address_t *daddr;
- 	struct xfrm_mode *inner_mode;
-+	u32 mark = skb->mark;
- 	unsigned int family;
- 	int decaps = 0;
- 	int async = 0;
-@@ -203,6 +206,18 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 				   XFRM_SPI_SKB_CB(skb)->daddroff);
- 	family = XFRM_SPI_SKB_CB(skb)->family;
- 
-+	/* if tunnel is present override skb->mark value with tunnel i_key */
-+	if (XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4) {
-+		switch (family) {
-+		case AF_INET:
-+			mark = be32_to_cpu(XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4->parms.i_key);
-+			break;
-+		case AF_INET6:
-+			mark = be32_to_cpu(XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6->parms.i_key);
-+			break;
-+		}
-+	}
-+
- 	/* Allocate new secpath or COW existing one. */
- 	if (!skb->sp || atomic_read(&skb->sp->refcnt) != 1) {
- 		struct sec_path *sp;
-@@ -229,7 +244,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 4c318e1c13c8..0c152087ca15 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -65,7 +65,6 @@ static int vti_input(struct sk_buff *skb, int nexthdr, __be32 spi,
  			goto drop;
+ 
+ 		XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4 = tunnel;
+-		skb->mark = be32_to_cpu(tunnel->parms.i_key);
+ 
+ 		return xfrm_input(skb, nexthdr, spi, encap_type);
+ 	}
+@@ -91,6 +90,8 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
+ 	struct pcpu_sw_netstats *tstats;
+ 	struct xfrm_state *x;
+ 	struct ip_tunnel *tunnel = XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4;
++	u32 orig_mark = skb->mark;
++	int ret;
+ 
+ 	if (!tunnel)
+ 		return 1;
+@@ -107,7 +108,11 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
+ 	x = xfrm_input_state(skb);
+ 	family = x->inner_mode->afinfo->family;
+ 
+-	if (!xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family))
++	skb->mark = be32_to_cpu(tunnel->parms.i_key);
++	ret = xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family);
++	skb->mark = orig_mark;
++
++	if (!ret)
+ 		return -EPERM;
+ 
+ 	skb_scrub_packet(skb, !net_eq(tunnel->net, dev_net(skb->dev)));
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index 104de4da3ff3..ff3bd863fa03 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -322,7 +322,6 @@ static int vti6_rcv(struct sk_buff *skb)
  		}
  
--		x = xfrm_state_lookup(net, skb->mark, daddr, spi, nexthdr, family);
-+		x = xfrm_state_lookup(net, mark, daddr, spi, nexthdr, family);
- 		if (x == NULL) {
- 			XFRM_INC_STATS(net, LINUX_MIB_XFRMINNOSTATES);
- 			xfrm_audit_state_notfound(skb, family, spi, seq);
+ 		XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 = t;
+-		skb->mark = be32_to_cpu(t->parms.i_key);
+ 
+ 		rcu_read_unlock();
+ 
+@@ -342,6 +341,8 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
+ 	struct pcpu_sw_netstats *tstats;
+ 	struct xfrm_state *x;
+ 	struct ip6_tnl *t = XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6;
++	u32 orig_mark = skb->mark;
++	int ret;
+ 
+ 	if (!t)
+ 		return 1;
+@@ -358,7 +359,11 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
+ 	x = xfrm_input_state(skb);
+ 	family = x->inner_mode->afinfo->family;
+ 
+-	if (!xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family))
++	skb->mark = be32_to_cpu(t->parms.i_key);
++	ret = xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family);
++	skb->mark = orig_mark;
++
++	if (!ret)
+ 		return -EPERM;
+ 
+ 	skb_scrub_packet(skb, !net_eq(t->net, dev_net(skb->dev)));
