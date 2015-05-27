@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v3 PATCH 1/8] crypto: testmgr - Switch to new AEAD interface
-Date: Wed, 27 May 2015 16:03:43 +0800
-Message-ID: <E1YxWJT-0006yQ-9G@gondolin.me.apana.org.au>
+Subject: [v3 PATCH 2/8] xfrm: Add IV generator information to xfrm_algo_desc
+Date: Wed, 27 May 2015 16:03:44 +0800
+Message-ID: <E1YxWJU-0006yj-Cd@gondolin.me.apana.org.au>
 References: <20150527080105.GA26751@gondor.apana.org.au>
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
@@ -13,174 +13,166 @@ Return-path: <linux-crypto-owner@vger.kernel.org>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes use of the new AEAD interface which uses a single
-SG list instead of separate lists for the AD and plain text.
+This patch adds IV generator information for each AEAD and block
+cipher to xfrm_algo_desc.  This will be used to access the new
+AEAD interface.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- crypto/testmgr.c |   87 ++++++++++++++++++++++++++++++-------------------------
- 1 file changed, 48 insertions(+), 39 deletions(-)
+ include/net/xfrm.h   |    2 ++
+ net/xfrm/xfrm_algo.c |   16 ++++++++++++++++
+ 2 files changed, 18 insertions(+)
 
-diff --git a/crypto/testmgr.c b/crypto/testmgr.c
-index 1817252..eff8eba 100644
---- a/crypto/testmgr.c
-+++ b/crypto/testmgr.c
-@@ -427,7 +427,6 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
- 	char *key;
- 	struct aead_request *req;
- 	struct scatterlist *sg;
--	struct scatterlist *asg;
- 	struct scatterlist *sgout;
- 	const char *e, *d;
- 	struct tcrypt_result result;
-@@ -454,11 +453,10 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
- 		goto out_nooutbuf;
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 36ac102..30bca86 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1314,6 +1314,7 @@ static inline int xfrm_id_proto_match(u8 proto, u8 userproto)
+  * xfrm algorithm information
+  */
+ struct xfrm_algo_aead_info {
++	char *geniv;
+ 	u16 icv_truncbits;
+ };
  
- 	/* avoid "the frame size is larger than 1024 bytes" compiler warning */
--	sg = kmalloc(sizeof(*sg) * 8 * (diff_dst ? 3 : 2), GFP_KERNEL);
-+	sg = kmalloc(sizeof(*sg) * 8 * (diff_dst ? 4 : 2), GFP_KERNEL);
- 	if (!sg)
- 		goto out_nosg;
--	asg = &sg[8];
--	sgout = &asg[8];
-+	sgout = &sg[16];
+@@ -1323,6 +1324,7 @@ struct xfrm_algo_auth_info {
+ };
  
- 	if (diff_dst)
- 		d = "-ddst";
-@@ -537,23 +535,27 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
- 			goto out;
+ struct xfrm_algo_encr_info {
++	char *geniv;
+ 	u16 blockbits;
+ 	u16 defkeybits;
+ };
+diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
+index 12e82a5..67266b7 100644
+--- a/net/xfrm/xfrm_algo.c
++++ b/net/xfrm/xfrm_algo.c
+@@ -31,6 +31,7 @@ static struct xfrm_algo_desc aead_list[] = {
+ 
+ 	.uinfo = {
+ 		.aead = {
++			.geniv = "seqniv",
+ 			.icv_truncbits = 64,
  		}
+ 	},
+@@ -49,6 +50,7 @@ static struct xfrm_algo_desc aead_list[] = {
  
-+		k = !!template[i].alen;
-+		sg_init_table(sg, k + 1);
-+		sg_set_buf(&sg[0], assoc, template[i].alen);
-+		sg_set_buf(&sg[k], input,
-+			   template[i].ilen + (enc ? authsize : 0));
-+		output = input;
-+
- 		if (diff_dst) {
-+			sg_init_table(sgout, k + 1);
-+			sg_set_buf(&sgout[0], assoc, template[i].alen);
-+
- 			output = xoutbuf[0];
- 			output += align_offset;
--			sg_init_one(&sg[0], input, template[i].ilen);
--			sg_init_one(&sgout[0], output, template[i].rlen);
--		} else {
--			sg_init_one(&sg[0], input,
--				    template[i].ilen + (enc ? authsize : 0));
--			output = input;
-+			sg_set_buf(&sgout[k], output,
-+				   template[i].rlen + (enc ? 0 : authsize));
+ 	.uinfo = {
+ 		.aead = {
++			.geniv = "seqniv",
+ 			.icv_truncbits = 96,
  		}
+ 	},
+@@ -67,6 +69,7 @@ static struct xfrm_algo_desc aead_list[] = {
  
--		sg_init_one(&asg[0], assoc, template[i].alen);
--
- 		aead_request_set_crypt(req, sg, (diff_dst) ? sgout : sg,
- 				       template[i].ilen, iv);
- 
--		aead_request_set_assoc(req, asg, template[i].alen);
-+		aead_request_set_ad(req, template[i].alen);
- 
- 		ret = enc ? crypto_aead_encrypt(req) : crypto_aead_decrypt(req);
- 
-@@ -633,9 +635,29 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
- 		authsize = abs(template[i].rlen - template[i].ilen);
- 
- 		ret = -EINVAL;
--		sg_init_table(sg, template[i].np);
-+		sg_init_table(sg, template[i].anp + template[i].np);
- 		if (diff_dst)
--			sg_init_table(sgout, template[i].np);
-+			sg_init_table(sgout, template[i].anp + template[i].np);
-+
-+		ret = -EINVAL;
-+		for (k = 0, temp = 0; k < template[i].anp; k++) {
-+			if (WARN_ON(offset_in_page(IDX[k]) +
-+				    template[i].atap[k] > PAGE_SIZE))
-+				goto out;
-+			sg_set_buf(&sg[k],
-+				   memcpy(axbuf[IDX[k] >> PAGE_SHIFT] +
-+					  offset_in_page(IDX[k]),
-+					  template[i].assoc + temp,
-+					  template[i].atap[k]),
-+				   template[i].atap[k]);
-+			if (diff_dst)
-+				sg_set_buf(&sgout[k],
-+					   axbuf[IDX[k] >> PAGE_SHIFT] +
-+					   offset_in_page(IDX[k]),
-+					   template[i].atap[k]);
-+			temp += template[i].atap[k];
-+		}
-+
- 		for (k = 0, temp = 0; k < template[i].np; k++) {
- 			if (WARN_ON(offset_in_page(IDX[k]) +
- 				    template[i].tap[k] > PAGE_SIZE))
-@@ -643,7 +665,8 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
- 
- 			q = xbuf[IDX[k] >> PAGE_SHIFT] + offset_in_page(IDX[k]);
- 			memcpy(q, template[i].input + temp, template[i].tap[k]);
--			sg_set_buf(&sg[k], q, template[i].tap[k]);
-+			sg_set_buf(&sg[template[i].anp + k],
-+				   q, template[i].tap[k]);
- 
- 			if (diff_dst) {
- 				q = xoutbuf[IDX[k] >> PAGE_SHIFT] +
-@@ -651,7 +674,8 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
- 
- 				memset(q, 0, template[i].tap[k]);
- 
--				sg_set_buf(&sgout[k], q, template[i].tap[k]);
-+				sg_set_buf(&sgout[template[i].anp + k],
-+					   q, template[i].tap[k]);
- 			}
- 
- 			n = template[i].tap[k];
-@@ -671,39 +695,24 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 	.uinfo = {
+ 		.aead = {
++			.geniv = "seqniv",
+ 			.icv_truncbits = 128,
  		}
+ 	},
+@@ -85,6 +88,7 @@ static struct xfrm_algo_desc aead_list[] = {
  
- 		if (enc) {
--			if (WARN_ON(sg[k - 1].offset +
--				    sg[k - 1].length + authsize >
--				    PAGE_SIZE)) {
-+			if (WARN_ON(sg[template[i].anp + k - 1].offset +
-+				    sg[template[i].anp + k - 1].length +
-+				    authsize > PAGE_SIZE)) {
- 				ret = -EINVAL;
- 				goto out;
- 			}
- 
- 			if (diff_dst)
--				sgout[k - 1].length += authsize;
--			else
--				sg[k - 1].length += authsize;
--		}
--
--		sg_init_table(asg, template[i].anp);
--		ret = -EINVAL;
--		for (k = 0, temp = 0; k < template[i].anp; k++) {
--			if (WARN_ON(offset_in_page(IDX[k]) +
--				    template[i].atap[k] > PAGE_SIZE))
--				goto out;
--			sg_set_buf(&asg[k],
--				   memcpy(axbuf[IDX[k] >> PAGE_SHIFT] +
--					  offset_in_page(IDX[k]),
--					  template[i].assoc + temp,
--					  template[i].atap[k]),
--				   template[i].atap[k]);
--			temp += template[i].atap[k];
-+				sgout[template[i].anp + k - 1].length +=
-+					authsize;
-+			sg[template[i].anp + k - 1].length += authsize;
+ 	.uinfo = {
+ 		.aead = {
++			.geniv = "seqniv",
+ 			.icv_truncbits = 64,
  		}
+ 	},
+@@ -103,6 +107,7 @@ static struct xfrm_algo_desc aead_list[] = {
  
- 		aead_request_set_crypt(req, sg, (diff_dst) ? sgout : sg,
- 				       template[i].ilen,
- 				       iv);
+ 	.uinfo = {
+ 		.aead = {
++			.geniv = "seqniv",
+ 			.icv_truncbits = 96,
+ 		}
+ 	},
+@@ -121,6 +126,7 @@ static struct xfrm_algo_desc aead_list[] = {
  
--		aead_request_set_assoc(req, asg, template[i].alen);
-+		aead_request_set_ad(req, template[i].alen);
+ 	.uinfo = {
+ 		.aead = {
++			.geniv = "seqniv",
+ 			.icv_truncbits = 128,
+ 		}
+ 	},
+@@ -139,6 +145,7 @@ static struct xfrm_algo_desc aead_list[] = {
  
- 		ret = enc ? crypto_aead_encrypt(req) : crypto_aead_decrypt(req);
+ 	.uinfo = {
+ 		.aead = {
++			.geniv = "seqiv",
+ 			.icv_truncbits = 128,
+ 		}
+ 	},
+@@ -353,6 +360,7 @@ static struct xfrm_algo_desc ealg_list[] = {
  
+ 	.uinfo = {
+ 		.encr = {
++			.geniv = "echainiv",
+ 			.blockbits = 64,
+ 			.defkeybits = 64,
+ 		}
+@@ -373,6 +381,7 @@ static struct xfrm_algo_desc ealg_list[] = {
+ 
+ 	.uinfo = {
+ 		.encr = {
++			.geniv = "echainiv",
+ 			.blockbits = 64,
+ 			.defkeybits = 192,
+ 		}
+@@ -393,6 +402,7 @@ static struct xfrm_algo_desc ealg_list[] = {
+ 
+ 	.uinfo = {
+ 		.encr = {
++			.geniv = "echainiv",
+ 			.blockbits = 64,
+ 			.defkeybits = 128,
+ 		}
+@@ -413,6 +423,7 @@ static struct xfrm_algo_desc ealg_list[] = {
+ 
+ 	.uinfo = {
+ 		.encr = {
++			.geniv = "echainiv",
+ 			.blockbits = 64,
+ 			.defkeybits = 128,
+ 		}
+@@ -433,6 +444,7 @@ static struct xfrm_algo_desc ealg_list[] = {
+ 
+ 	.uinfo = {
+ 		.encr = {
++			.geniv = "echainiv",
+ 			.blockbits = 128,
+ 			.defkeybits = 128,
+ 		}
+@@ -453,6 +465,7 @@ static struct xfrm_algo_desc ealg_list[] = {
+ 
+ 	.uinfo = {
+ 		.encr = {
++			.geniv = "echainiv",
+ 			.blockbits = 128,
+ 			.defkeybits = 128,
+ 		}
+@@ -473,6 +486,7 @@ static struct xfrm_algo_desc ealg_list[] = {
+ 
+ 	.uinfo = {
+ 		.encr = {
++			.geniv = "echainiv",
+ 			.blockbits = 128,
+ 			.defkeybits = 128,
+ 		}
+@@ -493,6 +507,7 @@ static struct xfrm_algo_desc ealg_list[] = {
+ 
+ 	.uinfo = {
+ 		.encr = {
++			.geniv = "echainiv",
+ 			.blockbits = 128,
+ 			.defkeybits = 128,
+ 		}
+@@ -512,6 +527,7 @@ static struct xfrm_algo_desc ealg_list[] = {
+ 
+ 	.uinfo = {
+ 		.encr = {
++			.geniv = "seqiv",
+ 			.blockbits = 128,
+ 			.defkeybits = 160, /* 128-bit key + 32-bit nonce */
+ 		}
