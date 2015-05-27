@@ -1,111 +1,130 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [PATCH] pci: Use a bus-global mutex to protect VPD operations
-Date: Wed, 27 May 2015 19:11:05 +0000
-Message-ID: <151DE2D4-7D19-48B1-8317-9470F03B400D@intel.com>
-References: <20150519000037.56109.68356.stgit@mdrustad-wks.jf.intel.com>
- <20150527172741.GX32152@google.com>
+From: Ido Yariv <ido@wizery.com>
+Subject: Re: [PATCH] net: tcp: Fix a PTO timing granularity issue
+Date: Wed, 27 May 2015 15:15:26 -0400
+Message-ID: <20150527191526.GA17823@WorkStation.home>
+References: <1432663992.4060.286.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1432671437-19140-1-git-send-email-ido@wizery.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB40A1A@AcuExch.aculab.com>
+ <1432734077.4060.382.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150527144029.GA558@WorkStation.home>
+ <1432738585.4060.392.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150527152337.GB558@WorkStation.home>
+ <1432743816.4060.404.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150527165403.GC558@WorkStation.home>
+ <1432747456.4060.409.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_2CAACB5C-A450-43BD-A92C-2F5701829C79";
-	protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Bjorn Helgaas <bhelgaas@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:17449 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754033AbbE0TLJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 May 2015 15:11:09 -0400
-In-Reply-To: <20150527172741.GX32152@google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Nandita Dukkipati <nanditad@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ido Yariv <idox.yariv@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1432747456.4060.409.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---Apple-Mail=_2CAACB5C-A450-43BD-A92C-2F5701829C79
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
+Hi Eric,
 
-> On May 27, 2015, at 10:27 AM, Bjorn Helgaas <bhelgaas@google.com> =
-wrote:
->=20
-> It sounds like there are real problems here that would be fixed by =
-changing
-> the mutex strategy and limiting VPD read lengths, but that we don't =
-quite
-> have consensus on how to solve them yet.
+On Wed, May 27, 2015 at 10:24:16AM -0700, Eric Dumazet wrote:
+> On Wed, 2015-05-27 at 12:54 -0400, Ido Yariv wrote:
+> > Hi Eric,
+> 
+> > That's a nice optimization ;)
+> > 
+> > However, I think that with Nicholas Mc Guire's recent changes to
+> > msecs_to_jiffies (http://marc.info/?l=linux-kernel&m=143195210010666),
+> > we should get this for free, no?
+> 
+> Well, on net and net-next tree we currently have :
+> 
+> $ grep msecs_to_jiffies include/linux/jiffies.h
+> extern unsigned long msecs_to_jiffies(const unsigned int m);
+> 
+> Given your patch is for stable, I would not mind having this done
+> anyway.
 
-I have a new pair of patches that I am getting internal feedback on. I
-will be on vacation starting tomorrow and won't be back until Tuesday, =
-so
-I think it best to send them when I get back so that I will be available
-to respond. I could be convinced to send them now.
+I believe these changes are in tip, but not in net/net-next just yet.
 
-> VPD is a bit of a tar pit.
+I actually didn't think this patch is for stable, but we can certainly
+do that.
 
-It sure is.
+Would you be fine with the patch below? Please note that I modified your
+optimization a bit.
 
-> We've talked about limiting VPD read length
-> before (see links below), which requires interpreting the VPD contents
-> (just the tags & sizes) the kernel.  I think I'm OK with doing that,
-> provided we should audit existing users and make sure we don't break =
-them.
->=20
-> =
-http://lkml.kernel.org/r/c67cd7f4-8d8f-48fc-a63c-dbdafde873a2@CMEXHTCAS1.a=
-d.emulex.com
-> =
-http://lkml.kernel.org/r/1f6d7b6c-7189-4fe3-926b-42609724cab9@CMEXHTCAS2.a=
-d.emulex.com
->=20
-> I'd also like to include specifics, e.g., bugzillas with complete =
-dmesg and
-> lspci information, for the problems we're fixing.
+Cheers,
+Ido.
 
-The issue I am addressing is for when the VPD Address/F and Data =
-registers
-are shared across multiple functions. My latest patch addresses this by
-always performing the access through function 0. I added a dev_flags bit
-to indicate when this should be done, so only devices that have a quirk
-that sets that bit will get that treatment.
+>From 6b406d4746fe5523f29863c10e43ab8bba913307 Mon Sep 17 00:00:00 2001
+From: Ido Yariv <ido@wizery.com>
+Date: Thu, 21 May 2015 08:23:13 +0200
+Subject: [PATCH v4] net: tcp: Fix a PTO timing granularity issue
 
-The patch I have still doesn't address the issue for direct-assigned
-devices. I have no answer to that, but will point out that most guests
-seem to use virtual machines that don't support extended config space
-anyway. Only those that do support extended config space and access VPD
-could be a source of trouble.
+The Tail Loss Probe RFC specifies that the PTO value should be set to
+max(2 * SRTT, 10ms), where SRTT is the smoothed round-trip time.
 
-I have to say that I haven't actually reproduced the failure, but given
-the design of the hardware it is clear that somehow a common mutex needs
-to protect those shared registers.
+The PTO value is converted to jiffies, so the timer may expire
+prematurely.
 
---
-Mark Rustad, Networking Division, Intel Corporation
+This is especially problematic on systems in which HZ <= 100, so work
+around this by setting the timeout to at least 2 jiffies on such
+systems.
 
+The 10ms figure was originally selected based on tests performed with
+the current implementation and HZ = 1000. Thus, leave the behavior on
+systems with HZ > 100 unchanged.
 
---Apple-Mail=_2CAACB5C-A450-43BD-A92C-2F5701829C79
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
+Signed-off-by: Ido Yariv <idox.yariv@intel.com>
+---
+ include/net/tcp.h     | 17 +++++++++++++++++
+ net/ipv4/tcp_output.c |  2 +-
+ 2 files changed, 18 insertions(+), 1 deletion(-)
 
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
-
-iQIcBAEBCAAGBQJVZhbJAAoJEDwO/+eO4+5uf40QAKfoXP3qP/Tby1eKVA/I0mht
-lyCVAZBVOni7NWU93ERbXGM6wU6Vrx7JpxxYQbaDJ6zwPp6IWW5Sk6fBnxUWFmjc
-ARGXgQm+IYl8Zjrqw9SGQsQUJB+PuBWIVKbMqAQfbRFlPGmwQfFaQUxN5elZQpAg
-WEzLNUNSBUoKyz735cqqDPajUYRkD6kDbeMf8UkJQ+VOghwCTPG3WzSQThI61oSE
-EptUZdJa6ZKlrk+JtFV36/wX2TAX9Xw7fjlLCtEr8y8q6XFa/m0NQXKe9V0Y8Tur
-3dKd1tXdVWuJzGgUtWcUAWiPlkCbDzl+WJ1HF5vGr8dKQXfLTEBGchcccxGs1mnK
-l4s/0cbncPTQYwbD9eoe+hKhELersdPgXTXODOaJQkYkJkd75g2HKNptt5GJV/Sd
-N6iNVHgVxKMUyK6XN2ak2tVmF4ARW+GPUcFLT3uYWoHxZm27Y6J2u7traIwS+pwr
-707IUTlwuxFlNxmHo1Z198d7M7yoCZlIXTskISHw/BAnxGx9e7r+9c+dvvmq6AFC
-uyZQD9DVKd1G1+2mP7MLbKHhs3RmsKJaO4D9htKMV22zGXQ8aFk8LKlpLwjHR2Yz
-KS6JBEWF4uOPBomTtWEuoMNmoEc+6mCGKBonsN+qLL833R9pUoHrwivqtL2//c+m
-vCuQrJ9G7znvbNVZKQAV
-=iuey
------END PGP SIGNATURE-----
-
---Apple-Mail=_2CAACB5C-A450-43BD-A92C-2F5701829C79--
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 2bb2bad..d22c93c 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1751,4 +1751,21 @@ static inline void skb_set_tcp_pure_ack(struct sk_buff *skb)
+ 	skb->truesize = 2;
+ }
+ 
++/* Convert msecs to jiffies, ensuring that the return value is always at least
++ * 2 jiffies.
++ * This can be used when setting tick-based timers to guarantee that they won't
++ * expire right away.
++ */
++static inline unsigned long tcp_safe_msecs_to_jiffies(const unsigned int m)
++{
++	if (__builtin_constant_p(m)) {
++		if (m * HZ > MSEC_PER_SEC)
++			return msecs_to_jiffies(m);
++
++		return 2;
++	}
++
++	return max_t(u32, 2, msecs_to_jiffies(m));
++}
++
+ #endif	/* _TCP_H */
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 534e5fd..83021c5 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2207,7 +2207,7 @@ bool tcp_schedule_loss_probe(struct sock *sk)
+ 	if (tp->packets_out == 1)
+ 		timeout = max_t(u32, timeout,
+ 				(rtt + (rtt >> 1) + TCP_DELACK_MAX));
+-	timeout = max_t(u32, timeout, msecs_to_jiffies(10));
++	timeout = max_t(u32, timeout, tcp_safe_msecs_to_jiffies(10));
+ 
+ 	/* If RTO is shorter, just schedule TLP in its place. */
+ 	tlp_time_stamp = tcp_time_stamp + timeout;
+-- 
+2.1.0
