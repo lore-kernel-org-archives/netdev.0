@@ -1,48 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] hv_netvsc: Properly size the vrss queues
-Date: Wed, 27 May 2015 14:12:48 -0400 (EDT)
-Message-ID: <20150527.141248.2127547726940414483.davem@davemloft.net>
-References: <1432682469-15033-1-git-send-email-kys@microsoft.com>
+From: Gopakumar Choorakkot Edakkunni <gopakumar.c.e@gmail.com>
+Subject: Re: Bug in tcp timestamp option ? TSecr in SYN-ACK != TSval in SYN
+Date: Wed, 27 May 2015 11:15:37 -0700
+Message-ID: <CABK1yFBZWms=ojvzA8YvB=GY7m5jJCk7-d+jf7s8PQNdmhRauQ@mail.gmail.com>
+References: <CABK1yFBN7KgBxRRzx-Bmt86_L8PnbfgqNJr7Mc2o9usn=LKSTg@mail.gmail.com>
+	<1432707139.4060.351.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1432707810.4060.352.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CABK1yFDJNonOr0O7N3gjJw-AripeaRqC1Xi+sDt7i_s0gC+ZLQ@mail.gmail.com>
+	<1432733597.4060.375.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1432734319.4060.383.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CABK1yFDu+76vYJwwXf+0Kc3YBK6VHL224v_u=HTf-RZ7dGN6qQ@mail.gmail.com>
+	<1432749433.4060.416.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1432749732.4060.418.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
-	jasowang@redhat.com
-To: kys@microsoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1432682469-15033-1-git-send-email-kys@microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Van Jacobson <vanj@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:33169 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752116AbbE0SPi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 14:15:38 -0400
+Received: by igbpi8 with SMTP id pi8so93730770igb.0
+        for <netdev@vger.kernel.org>; Wed, 27 May 2015 11:15:37 -0700 (PDT)
+In-Reply-To: <1432749732.4060.418.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Date: Tue, 26 May 2015 16:21:09 -0700
+Doesnt seem so. This is the output from one of the servers I have
+where I periodically hit this TSval != TSecr condition.
 
-> The current algorithm for deciding on the number of VRSS channels is
-> not optimal since we open up the min of number of CPUs online and the
-> number of VRSS channels the host is offering. So on a 32 VCPU guest
-> we could potentially open 32 VRSS subchannels. Experimentation has
-> shown that it is best to limit the number of VRSS channels to the number
-> of CPUs within a NUMA node. As part of this work introduce a module
-> parameter to control the number of sub-channels we would open up as well.
-> Here is the new algorithm for deciding on the number of sub-channels we
-> would open up:
->         1) Pick the minimum of what the host is offering and what the driver
->            in the guest is specifying via the module parameter.
->         2) Pick the minimum of (1) and the numbers of CPUs in the NUMA
->            node the primary channel is bound to.
-> 
-> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+ubuntu@server:~$ sudo su
+root@server:/home/ubuntu# sysctl net.ipv4.tcp_tw_recycle
+net.ipv4.tcp_tw_recycle = 0
+root@server:/home/ubuntu#  sysctl net.ipv4.tcp_tw_reuse
+net.ipv4.tcp_tw_reuse = 0
 
-No new module parameters, sorry.
+Also I dont think your theory about port-reuse is what is happening
+either - because as I mentioned, its a very very lightly loaded
+server, and the client is also very very light weight in terms of tcp
+connections (makes one connection every 30 seconds to this one server
+and no one else). But the reason I mentioned the SYN-ACK-lost +
+SYN-retry theory is because the client<-->server is over internet via
+standard broadband links shared across multiple people and hence can
+be quite lossy.
 
-You will have to make it such that this can be changed at run time,
-and use a generic run-time mechanism to configure this value that any
-driver can use.
+At any rate, whatever is the cause behind this, I guess what you
+mentioned still holds good - that the tcp stack needs to update the
+saved TSval to that of the latest SYN, right ?
 
-I will not accept: "this is not possible" or "this is too hard" as a
-reason why you have to use a module parameter.
+Rgds,
+Gopa.
 
-Settings that cannot be set at run time are painful for people who run
-large scale operations where resetting entire systems to change a
-setting is completely and utterly impractical.
+
+On Wed, May 27, 2015 at 11:02 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2015-05-27 at 10:57 -0700, Eric Dumazet wrote:
+>> On Wed, 2015-05-27 at 10:29 -0700, Gopakumar Choorakkot Edakkunni wrote:
+>> > Thanks Eric. I will give this a spin. The issue doesnt happen all the
+>> > time, I can keep the server running with this patch for a while and
+>> > observe if the issue resurfaces or not
+>>
+>> Note that if the traffic on the server is low, you might want to keep a
+>> tcpdump running (capturing only headers for TCP port 443) for further
+>> analysis.
+>
+> We wonder if this could be a time-wait issue
+>
+> Could you check on the server :
+>
+> sysctl net.ipv4.tcp_tw_recycle
+> sysctl net.ipv4.tcp_tw_reuse
+>
+> Thanks
+>
+>
