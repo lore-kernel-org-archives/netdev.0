@@ -1,50 +1,46 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] sctp: Fix mangled IPv4 addresses on a IPv6 listening
- socket
-Date: Wed, 27 May 2015 10:11:22 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB409AD@AcuExch.aculab.com>
-References: <20150526233017.GB22391@obsidianresearch.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CB408FE@AcuExch.aculab.com>
- <55658F9D.6030404@iogearbox.net>
+From: Ross Lagerwall <ross.lagerwall@citrix.com>
+Subject: [PATCH net v2] xen/netback: Properly initialize credit_bytes
+Date: Wed, 27 May 2015 11:44:32 +0100
+Message-ID: <1432723472-7793-1-git-send-email-ross.lagerwall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Daniel Borkmann' <daniel@iogearbox.net>,
-	'Jason Gunthorpe' <jgunthorpe@obsidianresearch.com>
+Content-Type: text/plain
+Cc: <xen-devel@lists.xenproject.org>, Wei Liu <wei.liu2@citrix.com>,
+	"Ian Campbell" <ian.campbell@citrix.com>,
+	Ross Lagerwall <ross.lagerwall@citrix.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.191]:62938 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752071AbbE0KNG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 06:13:06 -0400
-In-Reply-To: <55658F9D.6030404@iogearbox.net>
-Content-Language: en-US
+Received: from smtp02.citrix.com ([66.165.176.63]:19275 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751498AbbE0Kol (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 06:44:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann
-> Sent: 27 May 2015 10:34
-...
-> >> Fixes: 299ee123e198 (sctp: Fixup v4mapped behaviour to comply with Sock API)
-> > ...
-> >> This bugfix should be a candidate for -stable
-> >
-> > Anyone know off-hand which kernel releases are affected?
-> > I'm going to have to note this in the release notes for one of our products.
-> 
-> Ever heard of git-describe(1) ? ;)
-> 
-> git describe 299ee123e19889d511092347f5fc14db0f10e3a6
-> v3.16-rc7-1525-g299ee12
+Commit e9ce7cb6b107 ("xen-netback: Factor queue-specific data into queue
+struct") introduced a regression when moving queue-specific data into
+the queue struct by failing to set the credit_bytes field. This
+prevented bandwidth limiting from working. Initialize the field as it
+was done before multiqueue support was added.
 
-Probably last time I asked the same question :-)
-Since I don't spend all day fighting git, I don't know all the sub-commands.
+Signed-off-by: Ross Lagerwall <ross.lagerwall@citrix.com>
+---
 
-In any case it looks like I can escape by turning off
-SCTP_I_WANT_MAPPED_V4_ADDR for kernels 3.17 through 4.0.
+Changed in v2: Fixed multiple-assignment.
 
-	David
+ drivers/net/xen-netback/xenbus.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index 3d8dbf5..fee0241 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -793,6 +793,7 @@ static void connect(struct backend_info *be)
+ 			goto err;
+ 		}
+ 
++		queue->credit_bytes = credit_bytes;
+ 		queue->remaining_credit = credit_bytes;
+ 		queue->credit_usec = credit_usec;
+ 
+-- 
+2.1.0
