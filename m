@@ -1,99 +1,88 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH 2/3 nf-next] netfilter: nf_tables: allow to bind table to
- net_device
-Date: Wed, 27 May 2015 10:08:16 +0900
-Message-ID: <20150527010815.GB24249@vergenet.net>
-References: <1432558004-13481-1-git-send-email-pablo@netfilter.org>
- <1432558004-13481-3-git-send-email-pablo@netfilter.org>
- <20150526004840.GB23370@vergenet.net>
- <20150526095824.GB3535@salvia>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: RE: [Intel-wired-lan] [PATCH v5] ixgbe: Add module parameter to
+ disable VLAN filter
+Date: Wed, 27 May 2015 01:11:50 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB9F5A@BPXM14GP.gisp.nec.co.jp>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB460C@BPXM14GP.gisp.nec.co.jp>
+ <555F5644.8040401@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, kaber@trash.net,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset="iso-2022-jp"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"sy.jong.choi@intel.com" <sy.jong.choi@intel.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35505 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751570AbbE0BIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 21:08:22 -0400
-Received: by pacwv17 with SMTP id wv17so105355144pac.2
-        for <netdev@vger.kernel.org>; Tue, 26 May 2015 18:08:22 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150526095824.GB3535@salvia>
+Received: from TYO201.gate.nec.co.jp ([210.143.35.51]:52812 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751472AbbE0BMS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 21:12:18 -0400
+In-Reply-To: <555F5644.8040401@redhat.com>
+Content-Language: ja-JP
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 26, 2015 at 11:58:24AM +0200, Pablo Neira Ayuso wrote:
-> On Tue, May 26, 2015 at 09:48:41AM +0900, Simon Horman wrote:
-> > Hi Pablo,
-> > 
-> > On Mon, May 25, 2015 at 02:46:41PM +0200, Pablo Neira Ayuso wrote:
-> > > This patch adds the internal NFT_AF_NEEDS_DEV flag to indicate that you must
-> > > attach this table to a net_device.
-> > > 
-> > > This change is required by the follow up patch that introduces the new netdev
-> > > table.
-> > > 
-> > > Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> > > ---
-> > >  include/net/netfilter/nf_tables.h        |    8 ++++++
-> > >  include/uapi/linux/netfilter/nf_tables.h |    2 ++
-> > >  net/netfilter/nf_tables_api.c            |   46 ++++++++++++++++++++++++++----
-> > >  3 files changed, 51 insertions(+), 5 deletions(-)
-> > 
-> > [snip]
-> > 
-> > > diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-> > > index 5fa1cd0..89a671e 100644
-> > > --- a/include/uapi/linux/netfilter/nf_tables.h
-> > > +++ b/include/uapi/linux/netfilter/nf_tables.h
-> > 
-> > [snip]
-> > 
-> > > @@ -423,6 +425,10 @@ static int nf_tables_fill_table_info(struct sk_buff *skb, struct net *net,
-> > >  	    nla_put_be32(skb, NFTA_TABLE_USE, htonl(table->use)))
-> > >  		goto nla_put_failure;
-> > >  
-> > > +	if (table->dev &&
-> > > +	    nla_put_string(skb, NFTA_TABLE_DEV, table->dev->name))
-> > > +		goto nla_put_failure;
-> > > +
-> > >  	nlmsg_end(skb, nlh);
-> > >  	return 0;
-> > >  
-> > > @@ -608,6 +614,11 @@ static int nf_tables_updtable(struct nft_ctx *ctx)
-> > >  	if (flags == ctx->table->flags)
-> > >  		return 0;
-> > >  
-> > > +	if ((ctx->afi->flags & NFT_AF_NEEDS_DEV) &&
-> > > +	    ctx->nla[NFTA_TABLE_DEV] &&
-> > > +	    nla_strcmp(ctx->nla[NFTA_TABLE_DEV], ctx->table->dev->name))
-> > > +		return -EOPNOTSUPP;
-> > > +
-> > >  	trans = nft_trans_alloc(ctx, NFT_MSG_NEWTABLE,
-> > >  				sizeof(struct nft_trans_table));
-> > >  	if (trans == NULL)
-> > 
-> > I'm a little unsure of the above logic.
-> > 
-> > Is it ok for NFT_AF_NEEDS_DEV to be set but ctx->nla[NFTA_TABLE_DEV] to
-> > be absent?
+> On 05/21/2015 06:10 AM, Hiroshi Shimamoto wrote:
+> > From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> >
+> > Introduce module parameter "disable_hw_vlan_filter" to disable HW VLAN
+> > filter on ixgbe module load.
+> >
+> >  From the hardware limitation, there are only 64 VLAN entries for HW VLAN
+> > filter, and it leads to limit the number of VLANs up to 64 among PF and
+> > VFs. For SDN/NFV case, we need to handle unlimited VLAN packets on VF.
+> > In such case, every VLAN packet can be transmitted to each VF.
+> >
+> > When we try to make VLAN devices on VF, the 65th VLAN registration fails
+> > and never be able to receive a packet with that VLAN tag.
+> > If we do the below command on VM, ethX.65 to ethX.100 cannot be created.
+> >    # for i in `seq 1 100`; do \
+> >      ip link add link ethX name ethX.$i type vlan id $i; done
+> >
+> > There is a capability to disable HW VLAN filter and that makes all VLAN
+> > tagged packets can be transmitted to every VFs. After VLAN filter stage,
+> > unicast packets are transmitted to VF which has the MAC address same as
+> > the transmitting packet.
+> >
+> > With this patch and "disable_hw_vlan_filter=1", we can use unlimited
+> > number of VLANs on VF.
+> >
+> > Disabling HW VLAN filter breaks some NIC features such as DCB and FCoE.
+> > DCB and FCoE are disabled when HW VLAN filter is disabled by this module
+> > parameter.
+> > Because of that reason, the administrator has to know that before turning
+> > off HW VLAN filter.
 > 
-> This path is only run if the table already exists.
-> 
-> So it basically checks if we're trying to update the binding, in that
-> case we hit -EOPNOTSUPP.
-> 
-> If we don't pass any NFTA_TABLE_DEV, then we assume we stick to the
-> existing binding.
-> 
-> This allows us to update the table flags without indicating the
-> binding, eg.
-> 
->         nft add table netdev filter { flags dormant\; }
-> 
-> which basically disables the entire table content.
+> You might also want to note that it makes the system susceptible to
+> broadcast/multicast storms since it eliminates any/all VLAN isolation.
+> So a broadcast or multicast packet on one VLAN is received on ALL
+> interfaces regardless of their VLAN configuration. In addition the
+> current VF driver is likely to just receive the packet as untagged, see
+> ixgbevf_process_skb_fields().  As a result one or two VFs can bring the
+> entire system to a crawl by saturating the PCIe bus via
+> broadcast/multicast traffic since there is nothing to prevent them from
+> talking to each other over VLANs that are no longer there.
 
-Thanks Pablo, that is clear to me now.
-I have no objections.
+that's right.
+
+On the other hand, an untagged packet is not isolated,
+doesn't it same broadcast/multicast storm on untagged network?
+
+> 
+> For the sake of backwards compatibility I would say that a feature like
+> this should be mutually exclusive with SR-IOV as well since it will
+> cause erratic behavior.  The VF will receive requests from all VLANs
+> thinking the traffic is untagged, and then send replies back to VLAN 0
+> even though that isn't where the message originated.
+
+Sorry, I couldn't catch the above part.
+Could you explain a bit more?
+
+thanks,
+Hiroshi
+
+> Until the VF issue
+> is fixed this type of feature is a no-go.
