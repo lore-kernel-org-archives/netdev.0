@@ -1,117 +1,50 @@
-From: Ido Yariv <ido@wizery.com>
-Subject: Re: [PATCH] net: tcp: Fix a PTO timing granularity issue
-Date: Wed, 27 May 2015 11:23:37 -0400
-Message-ID: <20150527152337.GB558@WorkStation.home>
-References: <1432663992.4060.286.camel@edumazet-glaptop2.roam.corp.google.com>
- <1432671437-19140-1-git-send-email-ido@wizery.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CB40A1A@AcuExch.aculab.com>
- <1432734077.4060.382.camel@edumazet-glaptop2.roam.corp.google.com>
- <20150527144029.GA558@WorkStation.home>
- <1432738585.4060.392.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Crestez Dan Leonard <cdleonard@gmail.com>
+Subject: __inet_hash_connect port_offset parameter
+Date: Wed, 27 May 2015 18:25:54 +0300
+Message-ID: <5565E202.8010202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Nandita Dukkipati <nanditad@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Ido Yariv <idox.yariv@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1432738585.4060.392.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:37605 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751143AbbE0PZw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 11:25:52 -0400
+Received: by wifw1 with SMTP id w1so27088827wif.0
+        for <netdev@vger.kernel.org>; Wed, 27 May 2015 08:25:51 -0700 (PDT)
+Received: from [10.205.20.121] ([109.100.41.154])
+        by mx.google.com with ESMTPSA id bm9sm27406739wjc.21.2015.05.27.08.25.49
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 27 May 2015 08:25:50 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+Hello,
 
-On Wed, May 27, 2015 at 07:56:25AM -0700, Eric Dumazet wrote:
-> On Wed, 2015-05-27 at 10:40 -0400, Ido Yariv wrote:
-> 
-> > HZ=100 is used on some embedded platforms, so it's still something we
-> > have to deal with unfortunately..
-> > 
-> > Since the '2' here is a lower bound, and msecs_to_jiffies(10) will
-> > return values greater than 2 for HZ>100 anyway, always ensuring the
-> > 2 jiffies lower bound shouldn't impact the behavior when HZ=1000.
-> > 
-> > However, as far as I can tell, comparing msecs_to_jiffies(10) to 2, or
-> > comparing the whole timeout to 2 doesn't make much difference, since
-> > msecs_to_jiffies isn't inlined.
-> > 
-> > In other words, keeping the #if shouldn't make much difference in behavior,
-> > but will save the small comparison.
-> 
-> Yes, I guess David point is to have a macro in include/linux/tcp.h so
-> that we can have a nice comment, and not having #if ... in a C file.
-> 
-> Maybe other timers in TCP need the same care (I am not asking you to
-> find them, but having a macro would ease things perhaps)
+I'm confused about the port_offset parameter to __inet_hash_connect.
 
-Something along the lines of the patch below?
+When allocating the local port for an outgoing TCP connection the port search looks something like this:
 
-Thanks,
-Ido.
+    static u32 hint;
+    u32 offset = hint + port_offset;
 
->From 562019884d1b2c7619ce3f49ecb595147d28bbdd Mon Sep 17 00:00:00 2001
-From: Ido Yariv <ido@wizery.com>
-Date: Thu, 21 May 2015 08:23:13 +0200
-Subject: [PATCH v3] net: tcp: Fix a PTO timing granularity issue
+    inet_get_local_port_range(net, &low, &high);
+    remaining = (high - low) + 1;
 
-The Tail Loss Probe RFC specifies that the PTO value should be set to
-max(2 * SRTT, 10ms), where SRTT is the smoothed round-trip time.
+    for (i = 1; i <= remaining; i++) {
+        port = low + (i + offset) % remaining;
+        /* check port is free */
 
-The PTO value is converted to jiffies, so the timer may expire
-prematurely.
+The port_offset is calculated for v4 and v6 based on a hash of src/dst addresses, presumably in order to improve security.
 
-This is especially problematic on systems in which HZ <= 100, so work
-around this by setting the timeout to at least 2 jiffies on such
-systems.
+I see a few issues with this:
+ - The port_offset is calculated even if the local port was already assigned via bind. This wastes a few cycles.
+ - Keeping the last searched port as a static variable is a bad idea on multicore cpus. Starting a lot of connections to the same target will result in lock contention in the bind hash. This is probably only visible in highly synthetic tests.
+ - When doing a port search at bind() time the search starts from "prandom_32()". Is this "less secure" for port allocation? I bet most applications are not aware of this difference.
 
-The 10ms figure was originally selected based on tests performed with
-the current implementation and HZ = 1000. Thus, leave the behavior on
-systems with HZ > 100 unchanged.
+Wouldn't it be better to use the same local port search mechanism at both bind (inet_csk_get_port) and connect (__inet_hash_connect) time, based on starting from a random point? It would also make connecting slightly faster.
 
-Signed-off-by: Ido Yariv <idox.yariv@intel.com>
----
- include/net/tcp.h     | 9 +++++++++
- net/ipv4/tcp_output.c | 2 +-
- 2 files changed, 10 insertions(+), 1 deletion(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 2bb2bad..86090b6 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1751,4 +1751,13 @@ static inline void skb_set_tcp_pure_ack(struct sk_buff *skb)
- 	skb->truesize = 2;
- }
- 
-+/* Convert msecs to jiffies, ensuring that the return value is always at least
-+ * 2. This can be used when setting tick-based timers to guarantee that they
-+ * won't expire right away.
-+ */
-+static inline unsigned long tcp_safe_msecs_to_jiffies(const unsigned int m)
-+{
-+	return max_t(u32, 2, msecs_to_jiffies(m));
-+}
-+
- #endif	/* _TCP_H */
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 534e5fd..83021c5 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2207,7 +2207,7 @@ bool tcp_schedule_loss_probe(struct sock *sk)
- 	if (tp->packets_out == 1)
- 		timeout = max_t(u32, timeout,
- 				(rtt + (rtt >> 1) + TCP_DELACK_MAX));
--	timeout = max_t(u32, timeout, msecs_to_jiffies(10));
-+	timeout = max_t(u32, timeout, tcp_safe_msecs_to_jiffies(10));
- 
- 	/* If RTO is shorter, just schedule TLP in its place. */
- 	tlp_time_stamp = tcp_time_stamp + timeout;
--- 
-2.1.0
+Regards,
+Leonard
