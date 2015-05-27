@@ -1,194 +1,118 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
-Date: Wed, 27 May 2015 16:00:32 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF22286646912FE19D@ORSMSX110.amr.corp.intel.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912FB5E4@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB3B4A@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912FBBEC@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4EE6@BPXM14GP.gisp.nec.co.jp>
- <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com>
- <F6FB0E698C9B3143BDF729DF22286646912FC2E3@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB8A65@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912FDC17@ORSMSX110.amr.corp.intel.com>
- <C5551D9AAB213A418B7FD5E4A6F30A07892FC8C7@ORSMSX108.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB9DA7@BPXM14GP.gisp.nec.co.jp>
- <C5551D9AAB213A418B7FD5E4A6F30A07892FCD87@ORSMSX108.amr.corp.intel.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next] bridge: skip fdb add if the port shouldn't learn
+Date: Wed, 27 May 2015 09:01:37 -0700
+Message-ID: <CAE4R7bDtY1jDcLnvEMx-y4U=SVvf867SPZc3vRjfrUYBA8W=0g@mail.gmail.com>
+References: <1432204977-4293-1-git-send-email-nikolay@cumulusnetworks.com>
+	<20150526102809.5c3e8abc@urahara>
+	<CABQ03vEQhdXgWk5r103Yd0CPxEWuU3i0m8ztQjtgR0NFDbEXRQ@mail.gmail.com>
+	<CAE4R7bBEn8Tvct_W0n7nR5YccEmTRByUc=-4nmvuQNqfrBFABg@mail.gmail.com>
+	<CABQ03vEbgtHLyFmRs7ffpXGkTmjX9G=RbAhWwDrj-5rKysys5g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	"David Miller" <davem@davemloft.net>,
-	Edward Cree <ecree@solarflare.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Wilson Kok <wkok@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:21591 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751809AbbE0QAi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 May 2015 12:00:38 -0400
-In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A07892FCD87@ORSMSX108.amr.corp.intel.com>
-Content-Language: en-US
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:32870 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752221AbbE0QBi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 12:01:38 -0400
+Received: by qcmi9 with SMTP id i9so5813079qcm.0
+        for <netdev@vger.kernel.org>; Wed, 27 May 2015 09:01:38 -0700 (PDT)
+In-Reply-To: <CABQ03vEbgtHLyFmRs7ffpXGkTmjX9G=RbAhWwDrj-5rKysys5g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogUm9zZSwgR3JlZ29yeSBW
-DQo+IFNlbnQ6IFR1ZXNkYXksIE1heSAyNiwgMjAxNSA3OjAxIFBNDQo+IFRvOiBIaXJvc2hpIFNo
-aW1hbW90bzsgU2tpZG1vcmUsIERvbmFsZCBDOyBLaXJzaGVyLCBKZWZmcmV5IFQ7IGludGVsLXdp
-cmVkLQ0KPiBsYW5AbGlzdHMub3N1b3NsLm9yZw0KPiBDYzogbmhvcm1hbkByZWRoYXQuY29tOyBq
-b2dyZWVuZUByZWRoYXQuY29tOyBMaW51eCBOZXRkZXYgTGlzdDsgQ2hvaSwNCj4gU3kgSm9uZzsg
-Um9ueSBFZnJhaW07IERhdmlkIE1pbGxlcjsgRWR3YXJkIENyZWU7IE9yIEdlcmxpdHo7DQo+IHNh
-c3NtYW5uQHJlZGhhdC5jb20NCj4gU3ViamVjdDogUkU6IFtQQVRDSCB2NSAzLzNdIGl4Z2JlOiBB
-ZGQgbmV3IG5kbyB0byB0cnVzdCBWRg0KPiANCj4gDQo+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdl
-LS0tLS0NCj4gPiBGcm9tOiBIaXJvc2hpIFNoaW1hbW90byBbbWFpbHRvOmgtc2hpbWFtb3RvQGN0
-LmpwLm5lYy5jb21dDQo+ID4gU2VudDogVHVlc2RheSwgTWF5IDI2LCAyMDE1IDU6MjggUE0NCj4g
-PiBUbzogUm9zZSwgR3JlZ29yeSBWOyBTa2lkbW9yZSwgRG9uYWxkIEM7IEtpcnNoZXIsIEplZmZy
-ZXkgVDsNCj4gPiBpbnRlbC13aXJlZC0gbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4gPiBDYzogbmhv
-cm1hbkByZWRoYXQuY29tOyBqb2dyZWVuZUByZWRoYXQuY29tOyBMaW51eCBOZXRkZXYgTGlzdDsg
-Q2hvaSwNCj4gPiBTeSBKb25nOyBSb255IEVmcmFpbTsgRGF2aWQgTWlsbGVyOyBFZHdhcmQgQ3Jl
-ZTsgT3IgR2VybGl0ejsNCj4gPiBzYXNzbWFubkByZWRoYXQuY29tDQo+ID4gU3ViamVjdDogUkU6
-IFtQQVRDSCB2NSAzLzNdIGl4Z2JlOiBBZGQgbmV3IG5kbyB0byB0cnVzdCBWRg0KPiA+DQo+ID4g
-PiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPiA+IEZyb206IFNraWRtb3JlLCBE
-b25hbGQgQw0KPiA+ID4gPiBTZW50OiBUdWVzZGF5LCBNYXkgMjYsIDIwMTUgMTA6NDYgQU0NCj4g
-PiA+ID4gVG86IEhpcm9zaGkgU2hpbWFtb3RvOyBSb3NlLCBHcmVnb3J5IFY7IEtpcnNoZXIsIEpl
-ZmZyZXkgVDsNCj4gPiA+ID4gaW50ZWwtd2lyZWQtIGxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+ID4g
-PiA+IENjOiBuaG9ybWFuQHJlZGhhdC5jb207IGpvZ3JlZW5lQHJlZGhhdC5jb207IExpbnV4IE5l
-dGRldiBMaXN0Ow0KPiA+ID4gPiBDaG9pLCBTeSBKb25nOyBSb255IEVmcmFpbTsgRGF2aWQgTWls
-bGVyOyBFZHdhcmQgQ3JlZTsgT3IgR2VybGl0ejsNCj4gPiA+ID4gc2Fzc21hbm5AcmVkaGF0LmNv
-bQ0KPiA+ID4gPiBTdWJqZWN0OiBSRTogW1BBVENIIHY1IDMvM10gaXhnYmU6IEFkZCBuZXcgbmRv
-IHRvIHRydXN0IFZGDQo+ID4gPiA+DQo+ID4gPiA+DQo+ID4gPg0KPiA+ID4gW3NuaXBdDQo+ID4g
-Pg0KPiA+ID4gPg0KPiA+ID4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPiA+
-ID4gRnJvbTogSGlyb3NoaSBTaGltYW1vdG8gW21haWx0bzpoLXNoaW1hbW90b0BjdC5qcC5uZWMu
-Y29tXQ0KPiA+ID4gPiA+IFNlbnQ6IE1vbmRheSwgTWF5IDI1LCAyMDE1IDY6MDAgUE0NCj4gPiA+
-ID4gPiBUbzogU2tpZG1vcmUsIERvbmFsZCBDOyBSb3NlLCBHcmVnb3J5IFY7IEtpcnNoZXIsIEpl
-ZmZyZXkgVDsNCj4gPiA+ID4gPiBpbnRlbC13aXJlZC0gbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4g
-PiA+ID4gPiBDYzogbmhvcm1hbkByZWRoYXQuY29tOyBqb2dyZWVuZUByZWRoYXQuY29tOyBMaW51
-eCBOZXRkZXYgTGlzdDsNCj4gPiA+ID4gPiBDaG9pLCBTeSBKb25nOyBSb255IEVmcmFpbTsgRGF2
-aWQgTWlsbGVyOyBFZHdhcmQgQ3JlZTsgT3INCj4gPiA+ID4gPiBHZXJsaXR6OyBzYXNzbWFubkBy
-ZWRoYXQuY29tDQo+ID4gPiA+ID4gU3ViamVjdDogUkU6IFtQQVRDSCB2NSAzLzNdIGl4Z2JlOiBB
-ZGQgbmV3IG5kbyB0byB0cnVzdCBWRg0KPiA+ID4gPiA+DQo+ID4gPiA+ID4NCj4gPiA+ID4gPiBE
-byB5b3UgbWVhbiB0aGF0IFZGIHNob3VsZCBjYXJlIGFib3V0IGl0IGlzIHRydXN0ZWQgb3Igbm90
-Pw0KPiA+ID4gPiA+IFNob3VsZCBWRiByZXF1ZXN0IE1DIFByb21pc2MgYWdhaW4gd2hlbiBpdCdz
-IHRydXN0ZWQ/DQo+ID4gPiA+ID4gT3IsIGRvIHlvdSBtZWFuIFZGIG5ldmVyIGJlIHRydXN0ZWQg
-ZHVyaW5nIGl0cyAob3IgVk0ncykgbGlmZXRpbWU/DQo+ID4gPiA+DQo+ID4gPiA+IEkgdGhpbmsg
-dGhlIFZGIHNob3VsZG4ndCBkaXJlY3RseSBrbm93IHdoZXRoZXIgaXQgaXMgdHJ1c3RlZCBvcg0K
-PiA+ID4gPiBub3QNCj4gPiA+DQo+ID4gPiBUaGF0J3MgY29tcGxldGVseSBpcnJldmVsYW50LiAg
-VGhlIHBlcnNvbiBhZG1pbmlzdGVyaW5nIHRoZSBQRiB3aWxsDQo+ID4gPiBiZSB0aGUgcGVyc29u
-IHdobyBwcm92aWRlZCB0cnVzdGVkIHByaXZpbGVnZXMgdG8gdGhlIFZGLiAgSGUnbGwgdGhlbg0K
-PiA+ID4gKnRlbGwqIG9yIHNvbWVob3cgb3RoZXIgY29tbXVuaWNhdGUgdG8gdGhlIHBlcnNvbiBh
-ZG1pbmlzdGVyaW5nIHRoZQ0KPiA+ID4gVkYNCj4gPiAocHJvYmFibHkgaGltc2VsZi9oZXJzZWxm
-KSBhbmQgdGhlbiBwcm9jZWVkIHRvIGV4ZWN1dGUgY29tbWFuZHMgb24NCj4gPiB0aGF0IFZGIHRo
-YXQgcmVxdWlyZSB0cnVzdGVkIHByaXZpbGVnZXMuDQo+ID4gPg0KPiA+ID4gSWYgdGhlIFZGIGRv
-ZXMgbm90IGhhdmUgdHJ1c3RlZCBwcml2aWxlZ2VzIHRoZW4gdGhlIGNvbW1hbmRzIHRvIGFkZA0K
-PiA+ID4gVkxBTiBmaWx0ZXJzLCBzZXQgcHJvbWlzY3VvdXMgbW9kZXMsIGFuZCBhbnkgb3RoZXIg
-cHJpdmlsZWdlZA0KPiA+ID4gY29tbWFuZHMNCj4gPiB3aWxsIGZhaWwuDQo+ID4gPg0KPiA+ID4g
-TGV0J3Mgbm90IGdldCB0b28gZmFuY3kgd2l0aCB0aGlzLiAgSXQncyBzaW1wbGUgLSB0aGUgaG9z
-dCBWTU0gYWRtaW4NCj4gPiA+IHByb3ZpZGVzIHRydXN0ZWQgcHJpdmlsZWdlcyB0byB0aGUgVkYu
-ICBUaGUgcGVyc29uIGFkbWluaXN0ZXJpbmcgdGhlDQo+ID4gPiBWRiAoaWYgaW4gZmFjdCBpdCBp
-cyBub3QgdGhlIHNhbWUgcGVyc29uLCBpdCB1c3VhbGx5IHdpbGwgYmUpIHdpbGwNCj4gPiBwcm9j
-ZWVkIHRvIGRvIHRoaW5ncyB0aGF0IHJlcXVpcmUgVkYgdHJ1c3RlZCBwcml2aWxlZ2VzLg0KPiA+
-DQo+ID4gTm93IEkgdGhpbmsgdGhhdCBpdCdzIGJldHRlciB0byBoYXZlIGFuIGludGVyZmFjZSBi
-ZXR3ZWVuIFBGIGFuZCBWRiB0bw0KPiA+IGtub3cgdGhlIFZGIGlzIHRydXN0ZWQuDQo+ID4gT3Ro
-ZXJ3aXNlIFZNIGNhbm5vdCBrbm93IHdoZXRoZXIgaXRzIFZGIGlzIHRydXN0ZWQsIHRoYXQgcHJl
-dmVudHMNCj4gPiBhdXRvbWF0aWMgb3BlcmF0aW9ucy4NCj4gDQo+IEFncmVlZCwgaXQgd291bGQg
-YmUgc2lsbHkgZm9yIHRoZSBWRiB0byBoYXZlIHByaXZpbGVnZXMgYnV0IG5vdCBrbm93IHRoYXQg
-aXQgY2FuDQo+IHVzZSB0aGVtIQ0KPiANCj4gPiBPciBhZGQgYW5vdGhlciBjb21tdW5pY2F0aW5n
-IGludGVyZmFjZSBvdXRzaWRlIG9mIGl4Z2JlIFBGLVZGIG1ib3ggQVBJPw0KPiANCj4gV2UgY2Fu
-J3QgZGVwZW5kIG9uIGFueSBnaXZlbiB2ZW5kb3Igc3BlY2lmaWMgaW50ZXJmYWNlLiAgSSdkIGFk
-ZCBhIHZlcnkgY2xlYXINCj4gY29tbWVudCBpbiB0aGUgUGh5c2ljYWwgRnVuY3Rpb24gbmRvIG9w
-IHRoYXQgZ2l2ZXMgYSBWRiB0cnVzdGVkIHByaXZpbGVnZXMNCj4gdGhhdCBpdCBpcyB1cCB0byB0
-aGUgZHJpdmVyIHRvIG5vdGlmeSB0aGUgVkYgZHJpdmVyLiAgQnV0IHllcywgaW4gdGhlIGNhc2Ug
-b2YgSW50ZWwNCj4gZHJpdmVycyB0aGUgbWFpbGJveCBvciBhZG1pbiBxdWV1ZSAoZm9yIGk0MGUp
-IHdvdWxkIGJlIHRoZSBtZWNoYW5pc20gdG8gZG8NCj4gdGhhdC4gIEkga25vdyB5b3UgaGF2ZSBz
-b21lIGl4Z2JlIHBhdGNoZXMgdGhhdCBjb2luY2lkZSB3aXRoIHRoaXMgcGF0Y2ggc28NCj4gdGhh
-dCdzIGEgZ29vZCBwbGFjZSB0byBsb29rLg0KPg0KDQpOb3cgd2h5IEkgYW0gbm90IGFnYWluc3Qg
-dGhpcyAoVkYga25vd2luZyBpdCBpcyAidHJ1c3RlZCIpIGhhcHBlbmluZyBJIGRvbid0IHNlZSB0
-aGUgbmVlZCBmb3IgaXQgZWl0aGVyLiAgSSBiZWxpZXZlIHRoZSBzYW1lIGNvdWxkIGJlIGFjY29t
-cGxpc2hlZCBieSBhbGxvd2luZyB0aGUgUEYgdG8gYXNrIGZvciB3aGF0ZXZlciBjb25maWd1cmF0
-aW9uIGl0IHdhbnRzIGFuZCBzb21lIHJlcXVlc3RzIHdpbGwgbm90IGJlIGdyYW50ZWQgYnkgdGhl
-IFBGIHVubGVzcyB0aGUgVkYgaXMgdHJ1c3RlZC4gIEdpdmVuLCB0aGlzIG1heSByZXF1aXJlIGFu
-IGV4dGVuc2lvbiBvZiB0aGUgbWFpbGJveCBtZXNzYWdlcyB0byBhbGxvdyBmb3IgTkFLJ3MgdG8g
-bWFrZSBpdCBjbGVhciB0byB0aGUgVkYgdGhlIHJlcXVlc3Qgd2Fzbid0IGdyYW50ZWQuDQoNCkhv
-d2V2ZXIgbGlrZSBHcmVnIG1lbnRpb25zIGFib3ZlIHRoaXMgbmVlZCBub3QgYmUgcmVxdWlyZW1l
-bnQsIGRpZmZlcmVudCBkcml2ZXJzIGNvdWxkIGltcGxlbWVudCB0aGlzIHdheSBvciBub3QuDQog
-DQo+ID4NCj4gPiA+DQo+ID4gPg0KPiA+ID4gLiAgSXQNCj4gPiA+ID4gc2hvdWxkIHJlcXVlc3Qg
-TUMgUHJvbWlzYyBhbmQgZ2V0IGl0IGlmIGl0IGlzIHRydXN0ZWQgYW5kIG5vdCBpZg0KPiA+ID4g
-PiBpdCBpcyBub3QgdHJ1c3RlZC4gIFNvIGlmIHlvdSAoYXMgdGhlIHN5c3RlbSBhZG1pbiBrbm93
-IHlvdSBoYXZlIGENCj4gPiA+ID4gVkYgdGhhdCB3aWxsIG5lZWQgdG8gcmVxdWVzdCBNQyBQcm9t
-aXNjIG1ha2Ugc3VyZSB5b3UgcHJvbW90ZSB0aGF0DQo+ID4gPiA+IFZGIHRvIHRydXN0ZWQgYmVm
-b3JlIGFzc2lnbmluZyBpdCB0byBhIFZNLiAgVGhhdCB3YXkgd2hlbiBpdA0KPiA+ID4gPiByZXF1
-ZXN0cyBNQyBQcm9taXNjIHRoZSBQRiB3aWxsIGJlIGFibGUgdG8gZ3JhbnQgaXQuDQo+ID4gPiA+
-DQo+ID4gPg0KPiA+ID4gTXVsdGljYXN0IHByb21pc2N1b3VzIHNob3VsZCBiZSBhbGxvd2VkIGZv
-ciB0aGUgVkZzLiAgV2UgYWxyZWFkeQ0KPiA+ID4gYWxsb3cgVkZzIHRvIHNldCB3aGF0ZXZlciBt
-dWx0aWNhc3QgZmlsdGVycyB0aGV5IHdhbnQgc28gaWYgdGhleQ0KPiA+ID4gd2FudCB0byBnbyBp
-bnRvIE1QRSB0aGVuIHNvIHdoYXQ/ICBXZSBkb24ndCBjYXJlLiAgSXQncyBub3QgYSBzZWN1cml0
-eSByaXNrLg0KPiA+ID4gUmlnaHQgbm93LCB3aXRob3V0IGFueSBtb2RpZmljYXRpb24sIHRoZSBW
-RiBjYW4gc2V0IDMwIG11bHRpY2FzdA0KPiA+ID4gZmlsdGVycyBhbmQgbGlzdGVuLiAgSXQgY2Fu
-IHRoZW4gcmVtb3ZlIHRob3NlIGFuZCBzZXQgYW5vdGhlciAzMA0KPiA+ID4gZmlsdGVycw0KPiA+
-IGFuZCBsaXN0ZW4uICBBbmQgc28gb24gYW5kIHNvIG9uLiAgU28gaWYgYSBWRiBjYW4gYWxyZWFk
-eSBsaXN0ZW4gb24NCj4gPiBhbnkgTUMgZmlsdGVyIGl0IHdhbnRzIHRoZW4gd2h5IHRoaXMgYXJ0
-aWZpY2lhbCByZXN0cmljdGlvbiBvbiBNQw0KPiA+IHByb21pc2N1b3VzIG1vZGUuDQo+ID4NCj4g
-PiBJJ20gZmluZSB3aXRoIHRoYXQsIHByZXZpb3VzbHkgSSBtZW50aW9uZWQgYWJvdXQgdGhhdC4N
-Cj4gPiBXaXRob3V0IHJlc2V0dGluZyBQRiwgd2UgY2FuIGxpc3RlbiBldmVyeSBNQyBwYWNrZXQg
-d2hpY2ggaGFzaCB3YXMgc2V0Lg0KPiA+IFBGIHJlc2V0IHdpbGwgcmVzdG9yZSB0aGUgbGFzdCAz
-MCBNQyBhZGRyZXNzZXMgcGVyIFZGLg0KPiA+DQo+ID4gQWxzbyB0aGVyZSBpcyBhIHNpbmdsZSBo
-YXNoIGVudHJpZXMgdGFibGUsIGFsbCBWRnMgd2lsbCBnb3QgYSBNQw0KPiA+IHBhY2tldCB3aGlj
-aCBoYXNoIHdhcyBzZXQgaW4gdGhlIHRhYmxlLiBJZiBhIFZGIHVzZXIgc2V0IGEgZmlsdGVyLA0K
-PiA+IG90aGVyIHVzZXJzIHdpbGwgcmVjZWl2ZSB0aGF0IE1DIHBhY2tldC4NCj4gPg0KPiA+ID4N
-Cj4gPiA+IFdlIGRvbid0IGNhcmUgYWJvdXQgdGhpcyBjYXNlLiBVbmljYXN0IHByb21pc2N1b3Vz
-IGlzIHRoZSBzZWN1cml0eQ0KPiA+ID4gcmlzaw0KPiA+IGFuZCBJIHRoaW5rIHdlJ3ZlIGhhbmRs
-ZWQgdGhhdC4NCj4gPg0KPiA+IFNvLCBzaG91bGQgd2Ugc2VwYXJhdGUgdGhlIGRpc2N1c3Npb24s
-IGFib3V0IHRydXN0aW5nIFZGIG9wZXJhdGlvbiBhbmQNCj4gPiBhYm91dCBNQyBwcm9taXNjdW91
-cz8NCj4gDQo+IFllcy4gIEFuZCB0byBteSBtaW5kIGl0IHNob3VsZG4ndCByZWFsbHkgYmUgaW4g
-dGhlIGNvbnRleHQgb2YgdmlydHVhbCBmdW5jdGlvbg0KPiBwcml2aWxlZ2Ugb3IgdHJ1c3QuDQoN
-CklmIEkgcmVtZW1iZXIgY29ycmVjdCB0aGUgcmVhc29uaW5nIGJlaGluZCByZXF1aXJpbmcgYSBW
-RiB0byBiZSAidHJ1c3RlZCIgdG8gZW50ZXIgTUMgUHJvbWlzY3VvdXMgbW9kZSB3YXMgbm90IGZv
-ciBzZWN1cml0eSBhcyBtdWNoIGFzIHRoZSB2ZXJ5IHJlYWwgcG90ZW50aWFsIHRoYXQgaXQgd291
-bGQgaGF2ZSBhIGxhcmdlIG5lZ2F0aXZlIGltcGFjdCBvbiBhbGwgdGhlIG90aGVyIFZGIGR1ZSB0
-byAgZnJhbWUgZHVwbGljYXRpb24uICBTbyByYXRoZXIgdGhhbiBhbGxvdyBhbnkgVkYgdG8gZW50
-ZXIgdGhpcyBtb2RlIGFuZCBhZHZlcnNlbHkgYWZmZWN0IGFsbCB0aGUgb3RoZXIgVkYncyB3ZSBy
-ZXF1aXJlIHRoYXQgdGhlIFZGIGJlICJ0cnVzdGVkIiwgaW1wbHlpbmcgdGhhdCBQRiB1bmRlcnN0
-YW5kcyB0aGlzIHJpc2sgYW5kIGlzIG9rIHdpdGggaXQuICANCg0KPiANCj4gPg0KPiA+ID4NCj4g
-PiA+ID4NCj4gPiA+ID4gPg0KPiA+ID4gPiA+IEFuZCB3aGF0IGRvIHlvdSB0aGluayBhYm91dCBi
-ZWluZyB1bnRydXN0ZWQgZnJvbSB0cnVzdGVkIHN0YXRlPw0KPiA+ID4gPg0KPiA+ID4gPiBUaGlz
-IGlzIGFuIGludGVyZXN0aW5nIHF1ZXN0aW9uLiAgSWYgd2UgYWxsb3dlZCBhIFZNIHRvIGdvIGZy
-b20NCj4gPiA+ID4gdHJ1c3RlZCAtPiB1bnRydXN0ZWQgd2Ugd291bGQgaGF2ZSB0byB0dXJuIG9m
-ZiBhbnkgInNwZWNpYWwiDQo+ID4gPiA+IGNvbmZpZ3VyYXRpb24gdGhhdCB0cnVzdGVkIGFsbG93
-ZWQuICBNYXliZSBpbiBzdWNoIGNhc2VzIHdlIGNvdWxkDQo+ID4gPiA+IHJlc2V0IHRoZSBQRj8g
-IEFuZCBvZiBjb3Vyc2UgcmVxdWlyZSBhbGwgdGhlICJzcGVjaWFsIg0KPiA+ID4gPiBjb25maWd1
-cmF0aW9uIChNQyBQcm9taXNjKSB0byBkZWZhdWx0IHRvIG9mZiBhZnRlciBiZWluZyByZXNldC4N
-Cj4gPiA+ID4NCj4gPiA+DQo+ID4gPiBUbyByZW1vdmUgcHJpdmlsZWdlcyBmcm9tIGEgVkYgdGhh
-dCB5b3UncmUgYWxyZWFkeSBzZXQgdG8gcHJpdmlsZWdlZA0KPiA+ID4gd2lsbCByZXF1aXJlIGRl
-c3RydWN0aW9uIG9mIHRoZSBWRiBWU0kgYW5kIFZGTFIgdG8gdGhlIFZGIC0gYWZ0ZXIgaXQNCj4g
-PiBjb21lcyB1cCBpdCBjYW4ndCBkbyBhbnkgZnVydGhlciBwcml2aWxlZ2VkIG9wZXJhdGlvbnMu
-DQo+ID4NCj4gPiB5ZWFoLCBzb3VuZHMgZ29vZCB0byByZXNldCBWRiBvbiBjaGFuZ2luZyBwcml2
-aWxlZ2UuDQo+ID4NCj4gPiA+DQo+ID4gPiBbc25pcA0KPiA+ID4NCj4gPiA+ID4gVGhpcyB0b28g
-aXMgYSB2YWxpZCBwb2ludC4gIEN1cnJlbnRseSB3ZSB3b3VsZCBqdXN0IG5vdCBkbyBpdCAoTUMN
-Cj4gPiA+ID4gUHJvbWlzYykgYW5kIHRoZSBWRiB3b3VsZCBoYXZlIHRvIGZpZ3VyZSB0aGF0IG91
-dCBmb3IgaXRzZWxmLg0KPiA+ID4gPiBQYXNzaW5nIGEgTkFLIGJhY2sgdG8gdGhlIFZGIG1pZ2h0
-IGJlIG5pY2VyLiA6KSAgT2YgY291cnNlIEkNCj4gPiA+ID4gYXNzdW1lZCB0aGUgc3lzYWRtIHdv
-dWxkIGtub3cgdGhhdCBoZS9zaGUgd2FudGVkIHRvIGdpdmUgYSBWRg0KPiA+ID4gPiB0cnVzdGVk
-IHN0YXR1cyBhbmQgd291bGQgZG8gdGhhdCBiZWZvcmUgdGhlIFZGIHdhcyBldmVuIGFzc2lnbmVk
-DQo+ID4gPiA+IHRvIGEgVk0sIHNvIHRoZSBpc3N1ZSB3b3VsZCBuZXZlciBjb21lIHVwLiAgTWF5
-YmUgdGhhdCBpcyBub3QgdmFsaWQgZm9yDQo+IHlvdXIgdXNlIGNhc2U/DQo+ID4gPg0KPiA+ID4g
-TGV0J3Mgbm90IHdvcnJ5IGFib3V0IE1DIHByb21pc2N1b3VzIG1vZGUuICBBcyBJIHBvaW50ZWQg
-b3V0IGFib3ZlDQo+ID4gPiB3ZSBhbHJlYWR5IGxldCBWRnMgc2V0IGFueSBNQyBhZGRyZXNzIGZp
-bHRlcnMgdGhleSB3YW50IHNvIHRoYXQNCj4gPiA+IGhvcnNlIGhhcw0KPiA+IGFscmVhZHkgbGVm
-dCB0aGUgYmFybi4NCj4gPg0KPiA+IERvIHlvdSB0aGluayB0aGF0IFZGIE1DIHByb21pc2N1b3Vz
-IG1vZGUgaXNuJ3QgbmVlZGVkIHRvIGhhbmRsZSB1bmRlcg0KPiA+IHRydXN0ZWQgbW9kZSwgcmln
-aHQ/DQo+IA0KPiBDb3JyZWN0LCB0aGF0J3MgbXkgb3BpbmlvbiBvbiBpdCBnaXZlbiB0aGUgZmFj
-dCB0aGF0IGhpc3RvcmljYWxseSB0aGVyZSBoYXMgbmV2ZXINCj4gYmVlbiBhbnkgcmVzdHJpY3Rp
-b24gb24gc2V0dGluZyBNQyBhZGRyZXNzZXMgYnkgdGhlIFZGLiBTZWUgbXkgY29tbWVudHMNCj4g
-YWJvdmUgaW4gdGhlIHJlc3BlY3QuDQo+IA0KPiBUaGFua3MgYW5kIHJlZ2FyZHMgSGlyb3NoaSwN
-Cj4gDQo+IC0gR3JlZw0KPiANCj4gPg0KPiA+IHRoYW5rcywNCj4gPiBIaXJvc2hpDQo+ID4NCj4g
-PiA+DQo+ID4gPiBGb2N1cyBvbiBnZXR0aW5nIHRoZSBWRiBwcml2aWxlZ2VkIG1vZGUgY29uZmln
-dXJhdGlvbiBnb2luZyBhbmQgdGhlbg0KPiA+ID4gd2UncmUgd2VsbCBvbiBvdXIgd2F5IHRvIGFj
-Y29tcGxpc2hpbmcgd2hhdCB3ZSBuZWVkIHRvIGRvLg0KPiA+ID4NCj4gPiA+IC0gR3JlZw0KDQo=
+On Wed, May 27, 2015 at 1:35 AM, Nikolay Aleksandrov
+<nikolay@cumulusnetworks.com> wrote:
+> On Wed, May 27, 2015 at 9:59 AM, Scott Feldman <sfeldma@gmail.com> wrote:
+>> On Wed, May 27, 2015 at 12:05 AM, Nikolay Aleksandrov
+>> <nikolay@cumulusnetworks.com> wrote:
+>>> On Tue, May 26, 2015 at 7:28 PM, Stephen Hemminger
+>>> <stephen@networkplumber.org> wrote:
+>>>> On Thu, 21 May 2015 03:42:57 -0700
+>>>> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+>>>>
+>>>>> From: Wilson Kok <wkok@cumulusnetworks.com>
+>>>>>
+>>>>> Check in fdb_add_entry() if the source port should learn, similar
+>>>>> check is used in br_fdb_update.
+>>>>> Note that new fdb entries which are added manually or
+>>>>> as local ones are still permitted.
+>>>>> This patch has been tested by running traffic via a bridge port and
+>>>>> switching the port's state, also by manually adding/removing entries
+>>>>> from the bridge's fdb.
+>>>>>
+>>>>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+>>>>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>>>
+>>>> What is the problem this is trying to solve?
+>>>>
+>>>> I think user should be allowed to manually add any entry
+>>>> even if learning.
+>>>
+>>> Hi Stephen,
+>>> I have been thinking about the use case and have discussed it
+>>> internally with colleagues and the patch
+>>> author, the main problem is when there's an external software that
+>>> adds dynamic entries (learning) and
+>>> it could experience a race condition, here's a possible situation:
+>>> * external software learns a mac from hw, sends an add to kernel
+>>>  * right before that, port goes blocking (or down) and kernel flushes
+>>>    mac, sends notification about the state change and mac flush
+>>>  * right after that, kernel gets the previous add from external software, it's
+>>>    allowed to add, and then sends an add notification
+>>>  * mean while, external software processes the link block/down and mac flush,
+>>>    followed by the mac add from kernel.  At this point, external software can't
+>>>    really know whether it's a user adding the mac intentionally or it's
+>>>    a race.
+>>>
+>>> This issue can't really be avoided in user-space.
+>>> As I've noted local and static entries are still allowed, and iproute2
+>>> bridge utility always
+>>> marks the entries as static (NUD_NOARP), this only affects external
+>>> dynamic entries which
+>>> are usually sent by something that does the learning externally.
+>>> I'll keep digging to see if there's another way to go about this since
+>>> I'd like to give the user
+>>> full freedom. Personally I don't have strong feeling for this patch
+>>> and if it's not preferred then
+>>> I'll post a revert.
+>>
+>> So there is already a switchdev API to add/del an externally learned
+>> FDB entry which holds rtnl_lock and avoids these races.  I would
+>> suggest using that and revert this patch.
+>>
+>> See call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL) and
+>> the handler in br.c:br_switchdev_event().
+>>
+>> -scott
+>
+> Hmm, I'm new to the switchdev API and am possibly missing something,
+> but how do you suggest to use it here ?
+
+You need to call
+call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL) when the
+device learns a new mac/vlan on the port interface.
+
+> How can we differentiate between user-added entry and an externally
+> learned one ?
+
+Externally added ones will be marked with NTF_EXT_LEARNED set in
+ndm->ndm_flags in the netlink echo.  Manually added ones from the user
+will have ndm->ndm_state set to NUD_NOARP in the netlink echo.
+
+> Do you mean to use (for example) the NTF_EXT_LEARNED flag when adding
+> an entry from user-space so
+> the API can get called in br_fdb_add ?
+
+No.  br_fdb_add is the bridge's .ndo_fdb_add handler called when user
+manually adds an FDB entry using netlink RTM_NEWNEIGH.  For externally
+learned entries, use the internal
+call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL).
+
+-scott
