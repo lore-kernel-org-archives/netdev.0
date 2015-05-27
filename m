@@ -1,82 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: __inet_hash_connect port_offset parameter
-Date: Wed, 27 May 2015 09:18:18 -0700
-Message-ID: <1432743498.4060.399.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5565E202.8010202@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] sctp: Fix mangled IPv4 addresses on a IPv6 listening
+ socket
+Date: Wed, 27 May 2015 16:16:44 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB40D32@AcuExch.aculab.com>
+References: <20150526233017.GB22391@obsidianresearch.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB408FE@AcuExch.aculab.com>
+ <55658F9D.6030404@iogearbox.net>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB409AD@AcuExch.aculab.com>
+ <20150527153226.GA9909@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Crestez Dan Leonard <cdleonard@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: 'Daniel Borkmann' <daniel@iogearbox.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Jason Gunthorpe' <jgunthorpe@obsidianresearch.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:36456 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751669AbbE0QSW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 12:18:22 -0400
-Received: by iepj10 with SMTP id j10so17414153iep.3
-        for <netdev@vger.kernel.org>; Wed, 27 May 2015 09:18:22 -0700 (PDT)
-In-Reply-To: <5565E202.8010202@gmail.com>
+Received: from smtp-out6.electric.net ([192.162.217.181]:55230 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751358AbbE0QS3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 12:18:29 -0400
+In-Reply-To: <20150527153226.GA9909@obsidianresearch.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-05-27 at 18:25 +0300, Crestez Dan Leonard wrote:
-> Hello,
+From: Jason Gunthorpe
+> Sent: 27 May 2015 16:32
+> On Wed, May 27, 2015 at 10:11:22AM +0000, David Laight wrote:
 > 
-> I'm confused about the port_offset parameter to __inet_hash_connect.
+> > In any case it looks like I can escape by turning off
+> > SCTP_I_WANT_MAPPED_V4_ADDR for kernels 3.17 through 4.0.
 > 
-> When allocating the local port for an outgoing TCP connection the port
-> search looks something like this:
+> Just be aware that option is unusable on kernels without 299ee.
 > 
->     static u32 hint;
->     u32 offset = hint + port_offset;
-> 
->     inet_get_local_port_range(net, &low, &high);
->     remaining = (high - low) + 1;
-> 
->     for (i = 1; i <= remaining; i++) {
->         port = low + (i + offset) % remaining;
->         /* check port is free */
-> 
-> The port_offset is calculated for v4 and v6 based on a hash of src/dst
-> addresses, presumably in order to improve security.
-> 
-> I see a few issues with this:
->  - The port_offset is calculated even if the local port was already
-> assigned via bind. This wastes a few cycles.
+> I fixed everything wrong I saw, but that doesn't mean it works
+> 100%. Honestly, I don't think anyone has ever used it.
 
-OK. Not a big deal I guess.
+I'm now confused.
 
->  - Keeping the last searched port as a static variable is a bad idea
-> on multicore cpus. Starting a lot of connections to the same target
-> will result in lock contention in the bind hash. This is probably only
-> visible in highly synthetic tests.
+I've just done a test using a 4.0.0-rc1 kernel.
+I'm binding an IPv6 listening socket and then connecting to it
+from 127.0.0.1.
+I don't know it I'm being given an IPv4 format address or a
+v6mapped one (I shorten the latter before tracing it) - but
+it contains 127.0.0.1 (not 0.0.0.0).
+(That is without changing any socket options.)
 
-Not really. This is a hint only.
+The kernel code I have seems to default 'v4mapped = 1' which means
+it should (if I read the code correctly) hit sctp_v4_map_v6().
+But I'm not seeing the corruption.
+Does 127.0.0.1 go through a different path that means the address
+is already in IPv6 format?
 
-I have one patch adding an array of hints, but this does not change
-behavior if connecting to same target.
+Testing without using the loopback address is rather harder (for automated
+test scripts).
 
-u32 key = port_offset % HINTS_SZ;
+(If anyone suggests that network namespaces might help, they can then
+explain how a single kernel entity is going to choose between different
+namespaces on an individual connection basis.
+Think of something that is receiving data on one connection, decoding the
+requests, re-encapsulation the data in a different protocol and then
+sending the data onwards.)
 
->  - When doing a port search at bind() time the search starts from
-> "prandom_32()". Is this "less secure" for port allocation? I bet most
-> applications are not aware of this difference.
-
-I am afraid we need to keep a sequential search for ephemeral port
-selection.
-
-This known behavior is described in RFC 6056
-
-> 
-> Wouldn't it be better to use the same local port search mechanism at
-> both bind (inet_csk_get_port) and connect (__inet_hash_connect) time,
-> based on starting from a random point? It would also make connecting
-> slightly faster.
-
-Nope, bind() and connect() have different semantics.
-
-The randomization is only good for bind(port=0) users.
-
-Have you seen my proposal ?
-
-https://patchwork.ozlabs.org/patch/476002/
+	David
