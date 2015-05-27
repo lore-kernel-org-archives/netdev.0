@@ -1,45 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: Fix mangled IPv4 addresses on a IPv6 listening
- socket
-Date: Wed, 27 May 2015 14:17:28 -0400 (EDT)
-Message-ID: <20150527.141728.1015701398260699520.davem@davemloft.net>
-References: <20150526233017.GB22391@obsidianresearch.com>
+Subject: Re: [PATCH v3] isdn: Use ktime_t instead of 'struct timeval'
+Date: Wed, 27 May 2015 14:17:52 -0400 (EDT)
+Message-ID: <20150527.141752.362019334106417785.davem@davemloft.net>
+References: <20150527012212.GA2613@tinar>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, dborkman@redhat.com,
-	linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-	netdev@vger.kernel.org
-To: jgunthorpe@obsidianresearch.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: arnd@arndb.de, isdn@linux-pingi.de, netdev@vger.kernel.org,
+	y2038@lists.linaro.org
+To: ruchandani.tina@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37918 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37924 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751287AbbE0SRa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 14:17:30 -0400
-In-Reply-To: <20150526233017.GB22391@obsidianresearch.com>
+	with ESMTP id S1751913AbbE0SRz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 14:17:55 -0400
+In-Reply-To: <20150527012212.GA2613@tinar>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Date: Tue, 26 May 2015 17:30:17 -0600
-
-> sctp_v4_map_v6 was subtly writing and reading from members
-> of a union in a way the clobbered data it needed to read before
-> it read it.
-> 
-> Zeroing the v6 flowinfo overwrites the v4 sin_addr with 0, meaning
-> that every place that calls sctp_v4_map_v6 gets ::ffff:0.0.0.0 as the
-> result.
-> 
-> Reorder things to guarantee correct behaviour no matter what the
-> union layout is.
-> 
-> This impacts user space clients that open an IPv6 SCTP socket and
-> receive IPv4 connections. Prior to 299ee user space would see a
-> sockaddr with AF_INET and a correct address, after 299ee the sockaddr
-> is AF_INET6, but the address is wrong.
-> 
-> Fixes: 299ee123e198 (sctp: Fixup v4mapped behaviour to comply with Sock API)
-> Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-
-Applied and queued up for -stable, thakns.
+RnJvbTogVGluYSBSdWNoYW5kYW5pIDxydWNoYW5kYW5pLnRpbmFAZ21haWwuY29tPg0KRGF0ZTog
+V2VkLCAyNyBNYXkgMjAxNSAwNjo1MjoxMiArMDUzMA0KDQo+ICdzdHJ1Y3QgdGltZXZhbCcgdXNl
+cyAzMi1iaXQgcmVwcmVzZW50YXRpb24gZm9yIHNlY29uZHMgd2hpY2ggd2lsbA0KPiBvdmVyZmxv
+dyBpbiB5ZWFyIDIwMzggYW5kIGJleW9uZC4gbUlTRE4vY2xvY2suYyBuZWVkcyB0byBjb21wdXRl
+IGFuZA0KPiBzdG9yZSBlbGFwc2VkIHRpbWUgaW4gaW50ZXJ2YWxzIG9mIDEyNSBtaWNyb3NlY29u
+ZHMuIFRoaXMgcGF0Y2ggcmVwbGFjZXMNCj4gdGhlIHVzYWdlIG9mICdzdHJ1Y3QgdGltZXZhbCcg
+d2l0aCA2NC1iaXQga3RpbWVfdCB3aGljaCBpcyB5MjAzOCBzYWZlLg0KPiBUaGUgcGF0Y2ggYWxz
+byByZXBsYWNlcyBkb19nZXR0aW1lb2ZkYXkoKSAod2FsbC1jbG9jayB0aW1lKSB3aXRoIA0KPiBr
+dGltZV9nZXQoKSAobW9ub3RvbmljIHRpbWUpIHNpbmNlIHdlIG9ubHkgY2FyZSBhYm91dCBlbGFw
+c2VkIHRpbWUgaGVyZS4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IFRpbmEgUnVjaGFuZGFuaSA8cnVj
+aGFuZGFuaS50aW5hQGdtYWlsLmNvbT4NCj4gU3VnZ2VzdGVkLWJ5OiBBcm5kIEJlcmdtbmFubiA8
+YXJuZEBhcm5kYi5kZT4NCg0KVGhpcyBkb2Vzbid0IGNvbXBpbGU6DQoNCiAgQ0MgW01dICBkcml2
+ZXJzL2lzZG4vbUlTRE4vY2xvY2subw0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIGluY2x1ZGUvbGlu
+dXgvdGltZXIuaDo1OjAsDQogICAgICAgICAgICAgICAgIGZyb20gaW5jbHVkZS9saW51eC93b3Jr
+cXVldWUuaDo4LA0KICAgICAgICAgICAgICAgICBmcm9tIGluY2x1ZGUvbGludXgvc3JjdS5oOjM0
+LA0KICAgICAgICAgICAgICAgICBmcm9tIGluY2x1ZGUvbGludXgvbm90aWZpZXIuaDoxNSwNCiAg
+ICAgICAgICAgICAgICAgZnJvbSBpbmNsdWRlL2xpbnV4L21lbW9yeV9ob3RwbHVnLmg6NiwNCiAg
+ICAgICAgICAgICAgICAgZnJvbSBpbmNsdWRlL2xpbnV4L21tem9uZS5oOjc4OSwNCiAgICAgICAg
+ICAgICAgICAgZnJvbSBpbmNsdWRlL2xpbnV4L2dmcC5oOjUsDQogICAgICAgICAgICAgICAgIGZy
+b20gaW5jbHVkZS9saW51eC9zbGFiLmg6MTQsDQogICAgICAgICAgICAgICAgIGZyb20gZHJpdmVy
+cy9pc2RuL21JU0ROL2Nsb2NrLmM6MzY6DQpkcml2ZXJzL2lzZG4vbUlTRE4vY2xvY2suYzogSW4g
+ZnVuY3Rpb24goW1JU0ROX2Nsb2NrX3VwZGF0ZaI6DQpkcml2ZXJzL2lzZG4vbUlTRE4vY2xvY2su
+YzoxNzU6MTA6IGVycm9yOiChTlNfUEVSX1NFQ6IgdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluIHRo
+aXMgZnVuY3Rpb24pDQogICAgICAgICAoTlNfUEVSX1NFQyAvIDgwMDApKTsNCiAgICAgICAgICBe
+DQppbmNsdWRlL2xpbnV4L2t0aW1lLmg6MTgxOjUxOiBub3RlOiBpbiBkZWZpbml0aW9uIG9mIG1h
+Y3JvIKFrdGltZV9kaXZuc6INCiAjIGRlZmluZSBrdGltZV9kaXZucyhrdCwgZGl2KSAgKHU2NCko
+KGt0KS50djY0IC8gKGRpdikpDQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICBeDQpkcml2ZXJzL2lzZG4vbUlTRE4vY2xvY2suYzoxNzU6MTA6IG5vdGU6
+IGVhY2ggdW5kZWNsYXJlZCBpZGVudGlmaWVyIGlzIHJlcG9ydGVkIG9ubHkgb25jZSBmb3IgZWFj
+aCBmdW5jdGlvbiBpdCBhcHBlYXJzIGluDQogICAgICAgICAoTlNfUEVSX1NFQyAvIDgwMDApKTsN
+CiAgICAgICAgICBeDQppbmNsdWRlL2xpbnV4L2t0aW1lLmg6MTgxOjUxOiBub3RlOiBpbiBkZWZp
+bml0aW9uIG9mIG1hY3JvIKFrdGltZV9kaXZuc6INCiAjIGRlZmluZSBrdGltZV9kaXZucyhrdCwg
+ZGl2KSAgKHU2NCkoKGt0KS50djY0IC8gKGRpdikpDQogICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICBeDQpkcml2ZXJzL2lzZG4vbUlTRE4vY2xvY2suYzog
+SW4gZnVuY3Rpb24goW1JU0ROX2Nsb2NrX2dldKI6DQpkcml2ZXJzL2lzZG4vbUlTRE4vY2xvY2su
+YzoxOTk6NTM6IGVycm9yOiChTlNfUEVSX1NFQ6IgdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluIHRo
+aXMgZnVuY3Rpb24pDQogIGRlbHRhID0ga3RpbWVfZGl2bnMoa3RpbWVfc3ViKHR2X25vdywgaWNs
+b2NrX3R2KSwgKE5TX1BFUl9TRUMgLyA4MDAwKSk7DQogICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4NCmluY2x1ZGUvbGludXgva3RpbWUuaDoxODE6
+NTE6IG5vdGU6IGluIGRlZmluaXRpb24gb2YgbWFjcm8goWt0aW1lX2Rpdm5zog0KICMgZGVmaW5l
+IGt0aW1lX2Rpdm5zKGt0LCBkaXYpICAodTY0KSgoa3QpLnR2NjQgLyAoZGl2KSkNCiANCg==
