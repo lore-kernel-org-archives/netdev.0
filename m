@@ -1,81 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V4 00/12] net/mlx5: ConnectX-4 100G Ethernet
- driver
-Date: Wed, 27 May 2015 13:36:20 -0400 (EDT)
-Message-ID: <20150527.133620.1867770619067144773.davem@davemloft.net>
-References: <20150519.124128.353071028525864155.davem@davemloft.net>
-	<CAPcc5Ph+JOZO=bnh6f7DJ-B9=z1cCWy_HJdBx1-BG2_JKgTVtA@mail.gmail.com>
-	<CAJ3xEMiteyRsGuNQoQYiiZKeWkpjQE8WcJdQfWyxntJ9bjYXcw@mail.gmail.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [PATCH] xfrm6: Do not use xfrm_local_error for path MTU issues in
+ tunnels
+Date: Wed, 27 May 2015 10:40:32 -0700
+Message-ID: <20150527173823.1415.96248.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, talal@mellanox.com,
-	achiad@mellanox.com, saeedm@mellanox.com, amirv@mellanox.com,
-	edumazet@google.com, ben@decadent.org.uk, tom@herbertland.com,
-	jiri@resnulli.us, bpoirier@suse.de, nhorman@tuxdriver.com
-To: gerlitz.or@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37594 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751488AbbE0Rg0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 13:36:26 -0400
-In-Reply-To: <CAJ3xEMiteyRsGuNQoQYiiZKeWkpjQE8WcJdQfWyxntJ9bjYXcw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org
+To: steffen.klassert@secunet.com, davem@davemloft.net,
+	herbert@gondor.apana.org.au
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Date: Mon, 25 May 2015 22:07:23 +0300
+This change makes it so that we use icmpv6_send to report PMTU issues back
+into tunnels in the case that the resulting packet is larger than the MTU
+of the outgoing interface.  Previously xfrm_local_error was being used in
+this case, however this was resulting in no changes, I suspect due to the
+fact that the tunnel itself was being kept out of the loop.
 
-> On Wed, May 20, 2015 at 5:17 PM, Amir Vadai <amirv@mellanox.com> wrote:
->> On Tue, May 19, 2015 at 7:41 PM, David Miller <davem@davemloft.net> wrote:
->>> From: Amir Vadai <amirv@mellanox.com>
->>> Date: Tue, 19 May 2015 12:25:12 +0300
->>>
->>>> On Sun, May 17, 2015 at 8:05 PM, David Miller <davem@davemloft.net> wrote:
->>>>> From: Amir Vadai <amirv@mellanox.com>
->>>>> Date: Sun, 17 May 2015 16:02:11 +0300
->>>>>
->>>>>> We didn't get a response yet regarding your comment about the irq
->>>>>> renaming [3].
->>>>>
->>>>> Well then, please hold off on resubmissions of this series until you
->>>>> do get a response and that issue is firmly resolved.
->>>> Hi,
->>>>
->>>> I don't mean to push you, I only want to understand what is expected
->>>> from me and what are the next steps:
->>>> How will the issue be resolved? Do you plan to answer my question [1]
->>>> from last week, and just too busy right now or something like that?
->>>
->>> I have not seen any response to me explaining why it's ok to change
->>> the IRQ name strings in the context where this will occur.
->>>
->>> Once you explain that, we can make forward progress, but only at that
->>> point.
->>
->> Hi Dave,
->>
->> Just to put us back on the same page, repeating a bit the previous chapters..
->>
->> You wrote [1] that if we change these names after the request_irq() call(s), the
->> new name string will not propagate to /proc/interrupts output.
->>
->> So, indeed, request_irq() is called when the driver is loaded (and we
->> don't know yet if the port types are Infiniband or Ethernet). Only later
->> on, we rename the name when the Ethernet interface is up and we know
->> its name.
->>
->> Fact is that the new name does propagate to /proc/interrupts.
->>
->> Also, looking in the code, I don't see a reason why shouldn't it
->> be properly updated. When calling request_irq(), the name argument
->> is not copied, but irq_desc->action->name points to it. This same pointer
->> is being used by show_interrupts() when /proc/interrupts is shown.
+This patch fixes PMTU problems seen on ip6_vti tunnels and is based on the
+behavior seen if the socket was orphaned.  Instead of requiring the socket
+to be orphaned this patch simply defaults to using icmpv6_send in the case
+that the frame came though a tunnel.
 
-The problem is, applications might cache the name of the interrupt source
-from /proc/interrupts or elsewhere as soon as the device is instantiated.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+ net/ipv6/xfrm6_output.c |   18 ++++++++++++------
+ 1 file changed, 12 insertions(+), 6 deletions(-)
 
-You cannot change it after you've published it there.
-
-Therefore, it is mandatory that the name string is at the time you call
-request_irq().
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index 09c76a7b474d..6f9b514d0e38 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -72,6 +72,7 @@ static int xfrm6_tunnel_check_size(struct sk_buff *skb)
+ {
+ 	int mtu, ret = 0;
+ 	struct dst_entry *dst = skb_dst(skb);
++	struct xfrm_state *x = dst->xfrm;
+ 
+ 	mtu = dst_mtu(dst);
+ 	if (mtu < IPV6_MIN_MTU)
+@@ -82,7 +83,7 @@ static int xfrm6_tunnel_check_size(struct sk_buff *skb)
+ 
+ 		if (xfrm6_local_dontfrag(skb))
+ 			xfrm6_local_rxpmtu(skb, mtu);
+-		else if (skb->sk)
++		else if (skb->sk && x->props.mode != XFRM_MODE_TUNNEL)
+ 			xfrm_local_error(skb, mtu);
+ 		else
+ 			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+@@ -149,11 +150,16 @@ static int __xfrm6_output(struct sock *sk, struct sk_buff *skb)
+ 	else
+ 		mtu = dst_mtu(skb_dst(skb));
+ 
+-	if (skb->len > mtu && xfrm6_local_dontfrag(skb)) {
+-		xfrm6_local_rxpmtu(skb, mtu);
+-		return -EMSGSIZE;
+-	} else if (!skb->ignore_df && skb->len > mtu && skb->sk) {
+-		xfrm_local_error(skb, mtu);
++	if (!skb->ignore_df && skb->len > mtu) {
++		skb->dev = dst->dev;
++
++		if (xfrm6_local_dontfrag(skb))
++			xfrm6_local_rxpmtu(skb, mtu);
++		else if (skb->sk && x->props.mode != XFRM_MODE_TUNNEL)
++			xfrm_local_error(skb, mtu);
++		else
++			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
++
+ 		return -EMSGSIZE;
+ 	}
+ 
