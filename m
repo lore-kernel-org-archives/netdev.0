@@ -1,47 +1,36 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH] sctp: Fix mangled IPv4 addresses on a IPv6 listening
- socket
-Date: Wed, 27 May 2015 11:04:40 -0600
-Message-ID: <20150527170440.GA15308@obsidianresearch.com>
-References: <20150526233017.GB22391@obsidianresearch.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CB408FE@AcuExch.aculab.com>
- <55658F9D.6030404@iogearbox.net>
- <063D6719AE5E284EB5DD2968C1650D6D1CB409AD@AcuExch.aculab.com>
- <20150527153226.GA9909@obsidianresearch.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CB40D32@AcuExch.aculab.com>
- <20150527163157.GA15041@obsidianresearch.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CB40E15@AcuExch.aculab.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
+Date: Wed, 27 May 2015 18:04:27 +0100
+Message-ID: <5565F91B.8080405@solarflare.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp> <F6FB0E698C9B3143BDF729DF22286646912FB5E4@ORSMSX110.amr.corp.intel.com> <7F861DC0615E0C47A872E6F3C5FCDDBD05EB3B4A@BPXM14GP.gisp.nec.co.jp> <F6FB0E698C9B3143BDF729DF22286646912FBBEC@ORSMSX110.amr.corp.intel.com> <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4EE6@BPXM14GP.gisp.nec.co.jp> <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com> <F6FB0E698C9B3143BDF729DF22286646912FC2E3@ORSMSX110.amr.corp.intel.com> <7F861DC0615E0C47A872E6F3C5FCDDBD05EB8A65@BPXM14GP.gisp.nec.co.jp> <F6FB0E698C9B3143BDF729DF22286646912FDC17@ORSMSX110.amr.corp.intel.com> <C5551D9AAB213A418B7FD5E4A6F30A07892FC8C7@ORSMSX108.amr.corp.intel.com> <7F861DC0615E0C47A872E6F3C5FCDDBD05EB9DA7@BPXM14GP.gisp.nec.co.jp> <5565887B.5010808@sol
+ arflare.com> <F6FB0E698C9B3143BDF729DF22286646912FE16E@ORSMSX110.amr.corp.intel.com> <C5551D9AAB213A418B7FD5E4A6F30A07892FD632@ORSMSX108.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 'Daniel Borkmann' <daniel@iogearbox.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	"Linux Netdev List" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Rose, Gregory V" <gregory.v.rose@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:51687 "EHLO quartz.orcorp.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751793AbbE0RFA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 May 2015 13:05:00 -0400
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB40E15@AcuExch.aculab.com>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:10622 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751474AbbE0RE5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 13:04:57 -0400
+In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A07892FD632@ORSMSX108.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 27, 2015 at 04:41:18PM +0000, David Laight wrote:
-
-> The code will be sleeping in kernel_accept() and later calls
-> kernel_getpeername().
-> The code is used for both TCP and SCTP and this part is common (using
-> the TCP semantics).
-
-getpeername uses a different flow, it calls into inet6_getname which
-will always return the AF_INET6 version.
-
-The call to sctp_v6_addr_to_user after is to support the v6->v4 coversion
-when SCTP_I_WANT_MAPPED_V4_ADDR=0, it will never do the broken v4->v6
-conversion.
-
-Jason
+On 27/05/15 16:55, Rose, Gregory V wrote:
+> There's nothing to prevent any vendor from notifying a VF that it has privileges and there's nothing that require that they do.  This should be a vendor specific detail.
+Agreed - purely a driver implementation detail.
+> So now that I've stated my preference let me also state that I do not want to hold up acceptance of the Hiroshi's if_link patch that sets the trusted/privileged state for the VF while we further discuss this driver specific detail.
+Agreed.
