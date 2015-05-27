@@ -1,39 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: fix/cleanup inet_ehash_locks_alloc()
-Date: Tue, 26 May 2015 19:48:58 -0400 (EDT)
-Message-ID: <20150526.194858.341347965444056849.davem@davemloft.net>
-References: <1432652134.4060.244.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next] tcp: tcp_tso_autosize() minimum is one packet
+Date: Wed, 27 May 2015 08:03:42 +0800
+Message-ID: <20150527000342.GA16379@gondor.apana.org.au>
+References: <1432655728.4060.257.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ncardwell@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58588 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078AbbEZXtA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 19:49:00 -0400
-In-Reply-To: <1432652134.4060.244.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:40752 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751237AbbE0ADr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 20:03:47 -0400
+Content-Disposition: inline
+In-Reply-To: <1432655728.4060.257.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 26 May 2015 07:55:34 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> -               if (tso_segs == 1 || !max_segs) {
+> +               if (tso_segs == 1) {
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> If tcp ehash table is constrained to a very small number of buckets
-> (eg boot parameter thash_entries=128), then we can crash if spinlock
-> array has more entries.
-> 
-> While we are at it, un-inline inet_ehash_locks_alloc() and make
-> following changes :
-> 
-> - Budget 2 cache lines per cpu worth of 'spinlocks'
-> - Try to kmalloc() the array to avoid extra TLB pressure.
->   (Most servers at Google allocate 8192 bytes for this hash table)
-> - Get rid of various #ifdef
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+What we're testing for here with max_segs is actually the question
+"is TSO enabled".  So with your patch we will be taking the TSO
+code path even when TSO is disabled.  Now this may or may not
+trigger the original bug that I was trying to fix but it still
+feels unsafe.
 
-Applied, thanks Eric.
+So please convince me that it is totally safe to take the TSO
+code path with TSO disabled, e.g., when PMTU causes tso_segs
+to be greater than one.
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
