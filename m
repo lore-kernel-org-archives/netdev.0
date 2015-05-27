@@ -1,42 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] qla4xxx: add a missing include
-Date: Tue, 26 May 2015 21:43:44 -0700
-Message-ID: <1432701824.4060.346.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Gopakumar Choorakkot Edakkunni <gopakumar.c.e@gmail.com>
+Subject: Bug in tcp timestamp option ? TSecr in SYN-ACK != TSval in SYN
+Date: Tue, 26 May 2015 22:27:59 -0700
+Message-ID: <CABK1yFB=dN=WN3H=RQfAprVK-6SPMKfU=bqh-Fszuk06R=PZvQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, linux-scsi@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:33686 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753130AbbE0F2A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 01:28:00 -0400
+Received: by igbpi8 with SMTP id pi8so77797044igb.0
+        for <netdev@vger.kernel.org>; Tue, 26 May 2015 22:27:59 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumzet@google.com>
+All,
 
-vmalloc.h used to be included from include/net/inet_hashtables.h
-but it is no longer the case.
+The original query I had posted is here :
+http://stackoverflow.com/questions/30414350/tcp-syn-ack-tsecr-not-matching-tsval-in-syn
+.. The summary is that once in a while, the TSval in SYN is not what
+is getting echoed in TSecr, and looks like something on amazon aws
+side is very strict about that and drops those packets. Any clues on
+this - whether its a known issue/fixed elsewhere etc. would be of
+great help.
 
-Fixes: 095dc8e0c368 ("tcp: fix/cleanup inet_ehash_locks_alloc()")
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Eric Dumazet <edumzet@google.com>
----
-Given its broken in David net-next tree, its probably simpler
-that David merges this fix directly ? Thanks !
-
- drivers/scsi/qla4xxx/ql4_def.h |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/scsi/qla4xxx/ql4_def.h b/drivers/scsi/qla4xxx/ql4_def.h
-index 8f6d0fb2cd807255a66e962c3cb7c4c8633d4d77..a7cfc270bd08a1f01867affc2dee0fc6b7611472 100644
---- a/drivers/scsi/qla4xxx/ql4_def.h
-+++ b/drivers/scsi/qla4xxx/ql4_def.h
-@@ -26,6 +26,7 @@
- #include <linux/mutex.h>
- #include <linux/aer.h>
- #include <linux/bsg-lib.h>
-+#include <linux/vmalloc.h>
- 
- #include <net/tcp.h>
- #include <scsi/scsi.h>
-
-
+Rgds,
+Gopa.
