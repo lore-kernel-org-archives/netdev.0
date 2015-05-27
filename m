@@ -1,50 +1,39 @@
-From: Crestez Dan Leonard <cdleonard@gmail.com>
-Subject: __inet_hash_connect port_offset parameter
-Date: Wed, 27 May 2015 18:25:54 +0300
-Message-ID: <5565E202.8010202@gmail.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH] sctp: Fix mangled IPv4 addresses on a IPv6 listening
+ socket
+Date: Wed, 27 May 2015 09:32:26 -0600
+Message-ID: <20150527153226.GA9909@obsidianresearch.com>
+References: <20150526233017.GB22391@obsidianresearch.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB408FE@AcuExch.aculab.com>
+ <55658F9D.6030404@iogearbox.net>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB409AD@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: 'Daniel Borkmann' <daniel@iogearbox.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:37605 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751143AbbE0PZw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 11:25:52 -0400
-Received: by wifw1 with SMTP id w1so27088827wif.0
-        for <netdev@vger.kernel.org>; Wed, 27 May 2015 08:25:51 -0700 (PDT)
-Received: from [10.205.20.121] ([109.100.41.154])
-        by mx.google.com with ESMTPSA id bm9sm27406739wjc.21.2015.05.27.08.25.49
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 27 May 2015 08:25:50 -0700 (PDT)
+Received: from quartz.orcorp.ca ([184.70.90.242]:56224 "EHLO quartz.orcorp.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751679AbbE0Pcx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 May 2015 11:32:53 -0400
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB409AD@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Wed, May 27, 2015 at 10:11:22AM +0000, David Laight wrote:
 
-I'm confused about the port_offset parameter to __inet_hash_connect.
+> In any case it looks like I can escape by turning off
+> SCTP_I_WANT_MAPPED_V4_ADDR for kernels 3.17 through 4.0.
 
-When allocating the local port for an outgoing TCP connection the port search looks something like this:
+Just be aware that option is unusable on kernels without 299ee.
 
-    static u32 hint;
-    u32 offset = hint + port_offset;
+I fixed everything wrong I saw, but that doesn't mean it works
+100%. Honestly, I don't think anyone has ever used it.
 
-    inet_get_local_port_range(net, &low, &high);
-    remaining = (high - low) + 1;
-
-    for (i = 1; i <= remaining; i++) {
-        port = low + (i + offset) % remaining;
-        /* check port is free */
-
-The port_offset is calculated for v4 and v6 based on a hash of src/dst addresses, presumably in order to improve security.
-
-I see a few issues with this:
- - The port_offset is calculated even if the local port was already assigned via bind. This wastes a few cycles.
- - Keeping the last searched port as a static variable is a bad idea on multicore cpus. Starting a lot of connections to the same target will result in lock contention in the bind hash. This is probably only visible in highly synthetic tests.
- - When doing a port search at bind() time the search starts from "prandom_32()". Is this "less secure" for port allocation? I bet most applications are not aware of this difference.
-
-Wouldn't it be better to use the same local port search mechanism at both bind (inet_csk_get_port) and connect (__inet_hash_connect) time, based on starting from a random point? It would also make connecting slightly faster.
-
-Regards,
-Leonard
+Jason
