@@ -1,37 +1,76 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [ipsec PATCH 0/3] Preserve skb->mark through VTI tunnels
-Date: Wed, 27 May 2015 07:16:37 -0700
-Message-ID: <20150527141042.1576.47399.stgit@ahduyck-vm-fedora22>
+Subject: [ipsec PATCH 1/3] ip_vti/ip6_vti: Do not touch skb->mark on xmit
+Date: Wed, 27 May 2015 07:16:43 -0700
+Message-ID: <20150527141643.1576.89311.stgit@ahduyck-vm-fedora22>
+References: <20150527141042.1576.47399.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: linux-crypto@vger.kernel.org, davem@davemloft.net,
 	herbert@gondor.apana.org.au
 To: steffen.klassert@secunet.com, netdev@vger.kernel.org
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49935 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751677AbbE0OQs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 May 2015 10:16:48 -0400
+In-Reply-To: <20150527141042.1576.47399.stgit@ahduyck-vm-fedora22>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-These patches are meant to try and address the fact the VTI tunnels are
-currently overwriting the skb->mark value.  I am generally happy with the
-first two patches, however the third patch still modifies the skb->mark,
-though it undoes after the fact.
+Instead of modifying skb->mark we can simply modify the flowi_mark that is
+generated as a result of the xfrm_decode_session.  By doing this we don't
+need to actually touch the skb->mark and it can be preserved as it passes
+out through the tunnel.
 
-The main problem I am trying to address is the fact that currently if I use
-an v6 over v6 VTI tunnel I cannot receive any traffic on the interface as
-the skb->mark is bleeding through and causing the traffic to be dropped.
-
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
+ net/ipv4/ip_vti.c  |    5 +++--
+ net/ipv6/ip6_vti.c |    4 +++-
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
-Alexander Duyck (3):
-      ip_vti/ip6_vti: Do not touch skb->mark on xmit
-      xfrm: Override skb->mark with tunnel->parm.i_key in xfrm_input
-      ip_vti/ip6_vti: Preserve skb->mark after rcv_cb call
-
-
- net/ipv4/ip_vti.c     |   14 ++++++++++----
- net/ipv6/ip6_vti.c    |   13 ++++++++++---
- net/xfrm/xfrm_input.c |   17 ++++++++++++++++-
- 3 files changed, 36 insertions(+), 8 deletions(-)
-
---
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 9f7269f3c54a..4c318e1c13c8 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -216,8 +216,6 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	memset(&fl, 0, sizeof(fl));
+ 
+-	skb->mark = be32_to_cpu(tunnel->parms.o_key);
+-
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IP):
+ 		xfrm_decode_session(skb, &fl, AF_INET);
+@@ -233,6 +231,9 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		return NETDEV_TX_OK;
+ 	}
+ 
++	/* override mark with tunnel output key */
++	fl.flowi_mark = be32_to_cpu(tunnel->parms.o_key);
++
+ 	return vti_xmit(skb, dev, &fl);
+ }
+ 
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index ed9d681207fa..104de4da3ff3 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -495,7 +495,6 @@ vti6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	int ret;
+ 
+ 	memset(&fl, 0, sizeof(fl));
+-	skb->mark = be32_to_cpu(t->parms.o_key);
+ 
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IPV6):
+@@ -516,6 +515,9 @@ vti6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		goto tx_err;
+ 	}
+ 
++	/* override mark with tunnel output key */
++	fl.flowi_mark = be32_to_cpu(t->parms.o_key);
++
+ 	ret = vti6_xmit(skb, dev, &fl);
+ 	if (ret < 0)
+ 		goto tx_err;
