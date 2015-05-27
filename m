@@ -1,134 +1,82 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] bridge: skip fdb add if the port shouldn't learn
-Date: Wed, 27 May 2015 18:14:47 +0200
-Message-ID: <CABQ03vE_UqSpXdw7_nxFDt+aDgqW=XMnZrr4v72bqGJO6GUnpw@mail.gmail.com>
-References: <1432204977-4293-1-git-send-email-nikolay@cumulusnetworks.com>
-	<20150526102809.5c3e8abc@urahara>
-	<CABQ03vEQhdXgWk5r103Yd0CPxEWuU3i0m8ztQjtgR0NFDbEXRQ@mail.gmail.com>
-	<CAE4R7bBEn8Tvct_W0n7nR5YccEmTRByUc=-4nmvuQNqfrBFABg@mail.gmail.com>
-	<CABQ03vEbgtHLyFmRs7ffpXGkTmjX9G=RbAhWwDrj-5rKysys5g@mail.gmail.com>
-	<CAE4R7bDtY1jDcLnvEMx-y4U=SVvf867SPZc3vRjfrUYBA8W=0g@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: __inet_hash_connect port_offset parameter
+Date: Wed, 27 May 2015 09:18:18 -0700
+Message-ID: <1432743498.4060.399.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5565E202.8010202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Wilson Kok <wkok@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>,
-	bridge@lists.linux-foundation.org,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Crestez Dan Leonard <cdleonard@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:35378 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751689AbbE0QOs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 12:14:48 -0400
-Received: by igbyr2 with SMTP id yr2so89409570igb.0
-        for <netdev@vger.kernel.org>; Wed, 27 May 2015 09:14:47 -0700 (PDT)
-In-Reply-To: <CAE4R7bDtY1jDcLnvEMx-y4U=SVvf867SPZc3vRjfrUYBA8W=0g@mail.gmail.com>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:36456 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751669AbbE0QSW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 12:18:22 -0400
+Received: by iepj10 with SMTP id j10so17414153iep.3
+        for <netdev@vger.kernel.org>; Wed, 27 May 2015 09:18:22 -0700 (PDT)
+In-Reply-To: <5565E202.8010202@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 27, 2015 at 6:01 PM, Scott Feldman <sfeldma@gmail.com> wrote:
-> On Wed, May 27, 2015 at 1:35 AM, Nikolay Aleksandrov
-> <nikolay@cumulusnetworks.com> wrote:
->> On Wed, May 27, 2015 at 9:59 AM, Scott Feldman <sfeldma@gmail.com> wrote:
->>> On Wed, May 27, 2015 at 12:05 AM, Nikolay Aleksandrov
->>> <nikolay@cumulusnetworks.com> wrote:
->>>> On Tue, May 26, 2015 at 7:28 PM, Stephen Hemminger
->>>> <stephen@networkplumber.org> wrote:
->>>>> On Thu, 21 May 2015 03:42:57 -0700
->>>>> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
->>>>>
->>>>>> From: Wilson Kok <wkok@cumulusnetworks.com>
->>>>>>
->>>>>> Check in fdb_add_entry() if the source port should learn, similar
->>>>>> check is used in br_fdb_update.
->>>>>> Note that new fdb entries which are added manually or
->>>>>> as local ones are still permitted.
->>>>>> This patch has been tested by running traffic via a bridge port and
->>>>>> switching the port's state, also by manually adding/removing entries
->>>>>> from the bridge's fdb.
->>>>>>
->>>>>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
->>>>>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->>>>>
->>>>> What is the problem this is trying to solve?
->>>>>
->>>>> I think user should be allowed to manually add any entry
->>>>> even if learning.
->>>>
->>>> Hi Stephen,
->>>> I have been thinking about the use case and have discussed it
->>>> internally with colleagues and the patch
->>>> author, the main problem is when there's an external software that
->>>> adds dynamic entries (learning) and
->>>> it could experience a race condition, here's a possible situation:
->>>> * external software learns a mac from hw, sends an add to kernel
->>>>  * right before that, port goes blocking (or down) and kernel flushes
->>>>    mac, sends notification about the state change and mac flush
->>>>  * right after that, kernel gets the previous add from external software, it's
->>>>    allowed to add, and then sends an add notification
->>>>  * mean while, external software processes the link block/down and mac flush,
->>>>    followed by the mac add from kernel.  At this point, external software can't
->>>>    really know whether it's a user adding the mac intentionally or it's
->>>>    a race.
->>>>
->>>> This issue can't really be avoided in user-space.
->>>> As I've noted local and static entries are still allowed, and iproute2
->>>> bridge utility always
->>>> marks the entries as static (NUD_NOARP), this only affects external
->>>> dynamic entries which
->>>> are usually sent by something that does the learning externally.
->>>> I'll keep digging to see if there's another way to go about this since
->>>> I'd like to give the user
->>>> full freedom. Personally I don't have strong feeling for this patch
->>>> and if it's not preferred then
->>>> I'll post a revert.
->>>
->>> So there is already a switchdev API to add/del an externally learned
->>> FDB entry which holds rtnl_lock and avoids these races.  I would
->>> suggest using that and revert this patch.
->>>
->>> See call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL) and
->>> the handler in br.c:br_switchdev_event().
->>>
->>> -scott
->>
->> Hmm, I'm new to the switchdev API and am possibly missing something,
->> but how do you suggest to use it here ?
->
-> You need to call
-> call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL) when the
-> device learns a new mac/vlan on the port interface.
->
->> How can we differentiate between user-added entry and an externally
->> learned one ?
->
-> Externally added ones will be marked with NTF_EXT_LEARNED set in
-> ndm->ndm_flags in the netlink echo.  Manually added ones from the user
-> will have ndm->ndm_state set to NUD_NOARP in the netlink echo.
->
+On Wed, 2015-05-27 at 18:25 +0300, Crestez Dan Leonard wrote:
+> Hello,
+> 
+> I'm confused about the port_offset parameter to __inet_hash_connect.
+> 
+> When allocating the local port for an outgoing TCP connection the port
+> search looks something like this:
+> 
+>     static u32 hint;
+>     u32 offset = hint + port_offset;
+> 
+>     inet_get_local_port_range(net, &low, &high);
+>     remaining = (high - low) + 1;
+> 
+>     for (i = 1; i <= remaining; i++) {
+>         port = low + (i + offset) % remaining;
+>         /* check port is free */
+> 
+> The port_offset is calculated for v4 and v6 based on a hash of src/dst
+> addresses, presumably in order to improve security.
+> 
+> I see a few issues with this:
+>  - The port_offset is calculated even if the local port was already
+> assigned via bind. This wastes a few cycles.
 
-I meant between externally learned entries from a user-space daemon and manually
-added by the user.
+OK. Not a big deal I guess.
 
->> Do you mean to use (for example) the NTF_EXT_LEARNED flag when adding
->> an entry from user-space so
->> the API can get called in br_fdb_add ?
->
-> No.  br_fdb_add is the bridge's .ndo_fdb_add handler called when user
-> manually adds an FDB entry using netlink RTM_NEWNEIGH.  For externally
-> learned entries, use the internal
-> call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL).
->
-> -scott
+>  - Keeping the last searched port as a static variable is a bad idea
+> on multicore cpus. Starting a lot of connections to the same target
+> will result in lock contention in the bind hash. This is probably only
+> visible in highly synthetic tests.
 
-I got the API, but it doesn't help in the situation I explained
-because it's a user-space
-software that adds the externally learned entry, so I'm talking about
-differentiating between externally learned dynamic entry from a device
-which doesn't have
-a kernel driver and can't call these notifiers, thus if we disallow
-such dynamic entries when
-the port is not in the proper state helps to both close the race and
-fix the problem.
+Not really. This is a hint only.
+
+I have one patch adding an array of hints, but this does not change
+behavior if connecting to same target.
+
+u32 key = port_offset % HINTS_SZ;
+
+>  - When doing a port search at bind() time the search starts from
+> "prandom_32()". Is this "less secure" for port allocation? I bet most
+> applications are not aware of this difference.
+
+I am afraid we need to keep a sequential search for ephemeral port
+selection.
+
+This known behavior is described in RFC 6056
+
+> 
+> Wouldn't it be better to use the same local port search mechanism at
+> both bind (inet_csk_get_port) and connect (__inet_hash_connect) time,
+> based on starting from a random point? It would also make connecting
+> slightly faster.
+
+Nope, bind() and connect() have different semantics.
+
+The randomization is only good for bind(port=0) users.
+
+Have you seen my proposal ?
+
+https://patchwork.ozlabs.org/patch/476002/
