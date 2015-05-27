@@ -1,36 +1,50 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: DSA and underlying 802.1Q encapsulation
-Date: Wed, 27 May 2015 23:05:23 +0200
-Message-ID: <20150527210523.GE31127@lunn.ch>
-References: <1183592753.514019.1432679397515.JavaMail.zimbra@savoirfairelinux.com>
- <20150526225142.GB26454@roeck-us.net>
- <1250227394.1145458.1432759717091.JavaMail.zimbra@savoirfairelinux.com>
- <556630EA.7060707@roeck-us.net>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next] openvswitch: include datapath actions with
+ sampled-packet upcall to userspace
+Date: Wed, 27 May 2015 14:10:20 -0700
+Message-ID: <CAEP_g=8fRDQWfDo0HszXezDzOc4xntKUpJf5ucVrcsZ6M+OSZQ@mail.gmail.com>
+References: <1432150358-13108-1-git-send-email-neil.mckee@inmon.com> <CALnjE+rxMdfZFe5nTGzJSpeH4a1+0Z3ka8Gur1jGmVNBPAcF+w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Chris Healy <cphealy@gmail.com>,
-	=?iso-8859-1?Q?J=E9rome?= Oufella
-	<jerome.oufella@savoirfairelinux.com>
-To: Guenter Roeck <linux@roeck-us.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Neil McKee <neil.mckee@inmon.com>, netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41958 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751648AbbE0VKj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 May 2015 17:10:39 -0400
-Content-Disposition: inline
-In-Reply-To: <556630EA.7060707@roeck-us.net>
+Received: from na3sys009aog102.obsmtp.com ([74.125.149.69]:33410 "HELO
+	na3sys009aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751648AbbE0VKl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 17:10:41 -0400
+Received: by mail-yk0-f177.google.com with SMTP id d142so6743710yke.3
+        for <netdev@vger.kernel.org>; Wed, 27 May 2015 14:10:41 -0700 (PDT)
+In-Reply-To: <CALnjE+rxMdfZFe5nTGzJSpeH4a1+0Z3ka8Gur1jGmVNBPAcF+w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Do you have lock debugging enabled in your code ? I am getting a recursive
-> lock warning due to a recursive call to dev_mc_sync(). I think we may have
-> to implement lock nesting for dsa, similar to how it id done for vlan
-> support, but I have not been able to figure out how exactly it works yet.
+On Fri, May 22, 2015 at 10:53 AM, Pravin Shelar <pshelar@nicira.com> wrote:
+> On Wed, May 20, 2015 at 12:32 PM, Neil McKee <neil.mckee@inmon.com> wrote:
+>> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+>> index b491c1c..ee5760d 100644
+>> --- a/net/openvswitch/actions.c
+>> +++ b/net/openvswitch/actions.c
+>> @@ -608,7 +608,8 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
+>>  }
+>>
+>>  static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+>> -                           struct sw_flow_key *key, const struct nlattr *attr)
+>> +                           struct sw_flow_key *key, const struct nlattr *attr,
+>> +                           const struct nlattr *actions, int actions_len)
+>>  {
+>>         struct ovs_tunnel_info info;
+>>         struct dp_upcall_info upcall;
+>> @@ -619,6 +620,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+>>         upcall.userdata = NULL;
+>>         upcall.portid = 0;
+>>         upcall.egress_tun_info = NULL;
+>> +       upcall.actions = actions;
+>> +       upcall.actions_len = actions_len;
+>>
+> Rather than unconditionally passing actions to the upcall, there
+> should be attribute in ovs_userspace_attr to request the actions list.
 
-I might be able to help, since i solve two similar problems already in
-DSA, one for MDIO bus, and a second one for transmit buffers.
-
-     Andrew
+Why? It seems simpler to just always pass the actions and I'm not sure
+that this is really performance critical (which is the only reason
+that comes to mind to not always pass this).
