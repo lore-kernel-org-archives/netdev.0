@@ -1,49 +1,51 @@
-From: Jeremy <poseng@gmail.com>
-Subject: IPv6: finding a match in =?utf-8?b?ZmluZF9ycl9sZWFm?= that cause a NULL pointer dereference
-Date: Wed, 27 May 2015 06:28:19 +0000 (UTC)
-Message-ID: <loom.20150527T081417-915@post.gmane.org>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 4/5] stmmac: add ipq806x glue layer
+Date: Wed, 27 May 2015 09:03:38 +0200
+Message-ID: <1432710218.27695.215.camel@x220>
+References: <1432668437-27763-1-git-send-email-mathieu@codeaurora.org>
+	 <1432668437-27763-5-git-send-email-mathieu@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:37172 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751777AbbE0GaH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 May 2015 02:30:07 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1YxUqq-0001FL-6c
-	for netdev@vger.kernel.org; Wed, 27 May 2015 08:30:04 +0200
-Received: from pgdmzpr04-ext.png.intel.com ([pgdmzpr04-ext.png.intel.com])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 27 May 2015 08:30:04 +0200
-Received: from poseng by pgdmzpr04-ext.png.intel.com with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 27 May 2015 08:30:04 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	mturquette@linaro.org, sboyd@codeaurora.org,
+	peppe.cavallaro@st.com, agross@codeaurora.org,
+	joshc@codeaurora.org, architt@codeaurora.org,
+	georgi.djakov@linaro.org, wsa@the-dreams.de, rnayak@codeaurora.org,
+	davem@davemloft.net, vbridger@opensource.altera.com,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-clk@vger.kernel.org, netdev@vger.kernel.org
+To: Mathieu Olivari <mathieu@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1432668437-27763-5-git-send-email-mathieu@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+Just a nit: a license mismatch.
 
-My kernel is 3.10.20 and I encountered this NULL pointer dereference.
+On Tue, 2015-05-26 at 12:27 -0700, Mathieu Olivari wrote:
+> --- /dev/null
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
 
-According to my log, I found that dev is NULL in the beginning of for 
-loop. it is the dev of rr_head that has been set to NULL. That might be 
-possible that dev being NULL but I don't see any case to avoid such case 
-in rt6_check_dev(), even the kernel 4.0.
+> + * Permission to use, copy, modify, and/or distribute this software for any
+> + * purpose with or without fee is hereby granted, provided that the above
+> + * copyright notice and this permission notice appear in all copies.
+> + *
+> + * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+> + * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+> + * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+> + * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+> + * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+> + * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+> + * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-Don't know if my concern is necessary or not or there has a mechanism in 
-somewhere that I hadn't been noticed.
+I have no idea which license this is.
 
-Any comment of my concern is welcome and thanks for your time to review my 
-post.
+> +MODULE_LICENSE("GPL");
 
-for (rt = rr_head; rt && rt->rt6i_metric == metric; rt = rt->dst.rt6_next)
-    match = find_match(rt, oif, strict, &mpri, match, do_rr);
-  --> rt6_score_route(rt, oif, strict);
-    --> rt6_check_dev(rt, oif);
-     --> struct net_device *dev = rt->dst.dev;
-     --> if (!oif || dev->ifindex == oif) <------NULL pointer dereference 
-on dev object.
+But I do know that it's not GPL v2 or later (see
+include/linux/module.h).
+
+
+Paul Bolle
