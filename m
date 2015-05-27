@@ -1,173 +1,52 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH v5 2/3] if_link: Add control trust VF
-Date: Wed, 27 May 2015 18:11:36 +0100
-Message-ID: <5565FAC8.4020906@solarflare.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28C7@BPXM14GP.gisp.nec.co.jp>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: tcp: Fix a PTO timing granularity issue
+Date: Wed, 27 May 2015 10:24:16 -0700
+Message-ID: <1432747456.4060.409.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1432663992.4060.286.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1432671437-19140-1-git-send-email-ido@wizery.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CB40A1A@AcuExch.aculab.com>
+	 <1432734077.4060.382.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150527144029.GA558@WorkStation.home>
+	 <1432738585.4060.392.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150527152337.GB558@WorkStation.home>
+	 <1432743816.4060.404.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150527165403.GC558@WorkStation.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Nandita Dukkipati <nanditad@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ido Yariv <idox.yariv@intel.com>
+To: Ido Yariv <ido@wizery.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:8366 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751361AbbE0RLp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 13:11:45 -0400
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28C7@BPXM14GP.gisp.nec.co.jp>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:36353 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751207AbbE0RYS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 13:24:18 -0400
+In-Reply-To: <20150527165403.GC558@WorkStation.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20/05/15 01:04, Hiroshi Shimamoto wrote:
-> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
->
-> Add netlink directives and ndo entry to trust VF user.
->
-> This controls the special permission of VF user.
-> The administrator will dedicatedly trust VF user to use some features
-> which impacts security and/or performance.
->
-> The administrator never turn it on unless VF user is fully trusted.
-Seems fine; it's clear to me how these semantics would map to sfc (grant to the VF all the privilege groups the PF has).  So I'm happy this entry point is sufficiently generic.
+On Wed, 2015-05-27 at 12:54 -0400, Ido Yariv wrote:
+> Hi Eric,
 
-Acked-by: Edward Cree <ecree@solarflare.com>
-> Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-> Reviewed-by: Hayato Momma <h-momma@ce.jp.nec.com>
-> CC: Choi, Sy Jong <sy.jong.choi@intel.com>
-> ---
->  include/linux/if_link.h      |  1 +
->  include/linux/netdevice.h    |  3 +++
->  include/uapi/linux/if_link.h |  6 ++++++
->  net/core/rtnetlink.c         | 19 +++++++++++++++++--
->  4 files changed, 27 insertions(+), 2 deletions(-)
->
-> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-> index da49299..f3d2d2f 100644
-> --- a/include/linux/if_link.h
-> +++ b/include/linux/if_link.h
-> @@ -15,5 +15,6 @@ struct ifla_vf_info {
->  	__u32 min_tx_rate;
->  	__u32 max_tx_rate;
->  	__u32 rss_query_en;
-> +	__u32 trusted;
->  };
->  #endif /* _LINUX_IF_LINK_H */
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 51f8d2f..0875149 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -873,6 +873,7 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
->   * int (*ndo_set_vf_rate)(struct net_device *dev, int vf, int min_tx_rate,
->   *			  int max_tx_rate);
->   * int (*ndo_set_vf_spoofchk)(struct net_device *dev, int vf, bool setting);
-> + * int (*ndo_set_vf_trust)(struct net_device *dev, int vf, bool setting);
->   * int (*ndo_get_vf_config)(struct net_device *dev,
->   *			    int vf, struct ifla_vf_info *ivf);
->   * int (*ndo_set_vf_link_state)(struct net_device *dev, int vf, int link_state);
-> @@ -1095,6 +1096,8 @@ struct net_device_ops {
->  						   int max_tx_rate);
->  	int			(*ndo_set_vf_spoofchk)(struct net_device *dev,
->  						       int vf, bool setting);
-> +	int			(*ndo_set_vf_trust)(struct net_device *dev,
-> +						    int vf, bool setting);
->  	int			(*ndo_get_vf_config)(struct net_device *dev,
->  						     int vf,
->  						     struct ifla_vf_info *ivf);
-> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-> index afccc93..f05549c 100644
-> --- a/include/uapi/linux/if_link.h
-> +++ b/include/uapi/linux/if_link.h
-> @@ -480,6 +480,7 @@ enum {
->  	IFLA_VF_RSS_QUERY_EN,	/* RSS Redirection Table and Hash Key query
->  				 * on/off switch
->  				 */
-> +	IFLA_VF_TRUST,		/* Trust VF */
->  	__IFLA_VF_MAX,
->  };
->  
-> @@ -529,6 +530,11 @@ struct ifla_vf_rss_query_en {
->  	__u32 setting;
->  };
->  
-> +struct ifla_vf_trust {
-> +	__u32 vf;
-> +	__u32 setting;
-> +};
-> +
->  /* VF ports management section
->   *
->   *	Nested layout of set/get msg is:
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index 141ccc3..1d9205a 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -819,7 +819,8 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev,
->  			 nla_total_size(sizeof(struct ifla_vf_spoofchk)) +
->  			 nla_total_size(sizeof(struct ifla_vf_rate)) +
->  			 nla_total_size(sizeof(struct ifla_vf_link_state)) +
-> -			 nla_total_size(sizeof(struct ifla_vf_rss_query_en)));
-> +			 nla_total_size(sizeof(struct ifla_vf_rss_query_en)) +
-> +			 nla_total_size(sizeof(struct ifla_vf_trust)));
->  		return size;
->  	} else
->  		return 0;
-> @@ -1138,6 +1139,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
->  			struct ifla_vf_spoofchk vf_spoofchk;
->  			struct ifla_vf_link_state vf_linkstate;
->  			struct ifla_vf_rss_query_en vf_rss_query_en;
-> +			struct ifla_vf_trust vf_trust;
->  
->  			/*
->  			 * Not all SR-IOV capable drivers support the
-> @@ -1147,6 +1149,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
->  			 */
->  			ivi.spoofchk = -1;
->  			ivi.rss_query_en = -1;
-> +			ivi.trusted = -1;
->  			memset(ivi.mac, 0, sizeof(ivi.mac));
->  			/* The default value for VF link state is "auto"
->  			 * IFLA_VF_LINK_STATE_AUTO which equals zero
-> @@ -1160,7 +1163,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
->  				vf_tx_rate.vf =
->  				vf_spoofchk.vf =
->  				vf_linkstate.vf =
-> -				vf_rss_query_en.vf = ivi.vf;
-> +				vf_rss_query_en.vf =
-> +				vf_trust.vf = ivi.vf;
->  
->  			memcpy(vf_mac.mac, ivi.mac, sizeof(ivi.mac));
->  			vf_vlan.vlan = ivi.vlan;
-> @@ -1171,6 +1175,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
->  			vf_spoofchk.setting = ivi.spoofchk;
->  			vf_linkstate.link_state = ivi.linkstate;
->  			vf_rss_query_en.setting = ivi.rss_query_en;
-> +			vf_trust.setting = ivi.trusted;
->  			vf = nla_nest_start(skb, IFLA_VF_INFO);
->  			if (!vf) {
->  				nla_nest_cancel(skb, vfinfo);
-> @@ -1524,6 +1529,16 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
->  							    ivrssq_en->setting);
->  			break;
->  		}
-> +		case IFLA_VF_TRUST: {
-> +			struct ifla_vf_trust *ivt;
-> +
-> +			ivt = nla_data(vf);
-> +			err = -EOPNOTSUPP;
-> +			if (ops->ndo_set_vf_trust)
-> +				err = ops->ndo_set_vf_trust(dev, ivt->vf,
-> +							    ivt->setting);
-> +			break;
-> +		}
->  		default:
->  			err = -EINVAL;
->  			break;
+> That's a nice optimization ;)
+> 
+> However, I think that with Nicholas Mc Guire's recent changes to
+> msecs_to_jiffies (http://marc.info/?l=linux-kernel&m=143195210010666),
+> we should get this for free, no?
+
+Well, on net and net-next tree we currently have :
+
+$ grep msecs_to_jiffies include/linux/jiffies.h
+extern unsigned long msecs_to_jiffies(const unsigned int m);
+
+Given your patch is for stable, I would not mind having this done
+anyway.
