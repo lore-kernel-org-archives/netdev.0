@@ -1,117 +1,69 @@
-From: Nikola Ciprich <nikola.ciprich@linuxbox.cz>
-Subject: 4.0.4 - bnx2x - DEBUG_LOCKS_WARN_ON(in_interrupt())
-Date: Wed, 27 May 2015 18:10:37 +0200
-Message-ID: <20150527161037.GF20255@pcnci.linuxbox.cz>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: __inet_hash_connect port_offset parameter
+Date: Wed, 27 May 2015 09:30:46 -0700
+Message-ID: <1432744246.4060.406.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5565E202.8010202@gmail.com>
+	 <1432743498.4060.399.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="eNMatiwYGLtwo1cJ"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Crestez Dan Leonard <cdleonard@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gwu.lbox.cz ([62.245.111.132]:59984 "EHLO gwu.lbox.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751440AbbE0Q0v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 May 2015 12:26:51 -0400
-Received: from pcnci.linuxbox.cz (pcnci.linuxbox.cz [10.76.3.14])
-	by gwu.lbox.cz (Sendmail) with ESMTPS id t4RGAb5O020532
-	(version=TLSv1.2 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 27 May 2015 18:10:37 +0200
-Received: from pcnci.linuxbox.cz (localhost.localdomain [127.0.0.1])
-	by pcnci.linuxbox.cz (8.14.7/8.14.7) with SMTP id t4RGAbRn017725
-	for <netdev@vger.kernel.org>; Wed, 27 May 2015 18:10:37 +0200
-Content-Disposition: inline
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:35379 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752302AbbE0Qat (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 12:30:49 -0400
+Received: by igbyr2 with SMTP id yr2so89814623igb.0
+        for <netdev@vger.kernel.org>; Wed, 27 May 2015 09:30:48 -0700 (PDT)
+In-Reply-To: <1432743498.4060.399.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2015-05-27 at 09:18 -0700, Eric Dumazet wrote:
+> On Wed, 2015-05-27 at 18:25 +0300, Crestez Dan Leonard wrote:
+> > Hello,
+> > 
+> > I'm confused about the port_offset parameter to __inet_hash_connect.
+> > 
+> > When allocating the local port for an outgoing TCP connection the port
+> > search looks something like this:
+> > 
+> >     static u32 hint;
+> >     u32 offset = hint + port_offset;
+> > 
+> >     inet_get_local_port_range(net, &low, &high);
+> >     remaining = (high - low) + 1;
+> > 
+> >     for (i = 1; i <= remaining; i++) {
+> >         port = low + (i + offset) % remaining;
+> >         /* check port is free */
+> > 
+> > The port_offset is calculated for v4 and v6 based on a hash of src/dst
+> > addresses, presumably in order to improve security.
+> > 
+> > I see a few issues with this:
+> >  - The port_offset is calculated even if the local port was already
+> > assigned via bind. This wastes a few cycles.
+> 
+> OK. Not a big deal I guess.
 
---eNMatiwYGLtwo1cJ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Patch for IPv4 would be :
 
-Hi,
-
-just wanted to report, that I'm getting following trace on 4.0.4 kernel:
-
-[  +0.301517] ------------[ cut here ]------------
-[  +0.000227] WARNING: CPU: 0 PID: 0 at kernel/locking/mutex.c:877 mutex_tr=
-ylock+0x15d/0x190()
-[  +0.000376] DEBUG_LOCKS_WARN_ON(in_interrupt())
-[  +0.000072] Modules linked in:
-[  +0.000278]  8021q bridge stp llc bonding ipv6 ext3 jbd joydev usbhid vho=
-st_net macvtap macvlan vhost tun kvm_intel kvm iTCO_wdt pcspkr sb_edac edac=
-_core i2c_i801 sg lpc_i
-[  +0.005326] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.0.4lb6.00_01_PRE0=
-1 #1
-[  +0.000226] Hardware name: Supermicro X10DRW/X10DRW-i, BIOS 1.0c 01/07/20=
-15
-[  +0.000224]  000000000000036d ffff88107fc03cf8 ffffffff814ab37b 000000000=
-000036d
-[  +0.000619]  ffff88107fc03d48 ffff88107fc03d38 ffffffff8104f715 ffff88107=
-fc03e38
-[  +0.000618]  ffff8810316adbb0 ffff8810316adbb0 0000000000000002 000000000=
-0000001
-[  +0.000622] Call Trace:
-[  +0.000215]  <IRQ>  [<ffffffff814ab37b>] dump_stack+0x4f/0x74
-[  +0.000351]  [<ffffffff8104f715>] warn_slowpath_common+0x95/0xe0
-[  +0.000224]  [<ffffffff8104f816>] warn_slowpath_fmt+0x46/0x70
-[  +0.000224]  [<ffffffff814acd3d>] mutex_trylock+0x15d/0x190
-[  +0.004247]  [<ffffffffa055f7d7>] bnx2x_stats_handle+0x47/0x190 [bnx2x]
-[  +0.000230]  [<ffffffffa051107d>] bnx2x_timer+0x19d/0x1b0 [bnx2x]
-[  +0.000228]  [<ffffffffa0510ee0>] ? bnx2x_read_fwinfo+0x310/0x310 [bnx2x]
-[  +0.000229]  [<ffffffff810ac747>] call_timer_fn+0x47/0x160
-[  +0.000224]  [<ffffffff810ad5b8>] run_timer_softirq+0x268/0x2d0
-[  +0.000227]  [<ffffffffa0510ee0>] ? bnx2x_read_fwinfo+0x310/0x310 [bnx2x]
-[  +0.000227]  [<ffffffff81053963>] __do_softirq+0xf3/0x2d0
-[  +0.000224]  [<ffffffff81053bfe>] irq_exit+0x7e/0xa0
-[  +0.000223]  [<ffffffff814b344a>] smp_apic_timer_interrupt+0x4a/0x59
-[  +0.000225]  [<ffffffff814b191a>] apic_timer_interrupt+0x6a/0x70
-[  +0.000223]  <EOI>  [<ffffffff813be6cc>] ? cpuidle_enter_state+0x7c/0x1b0
-[  +0.000353]  [<ffffffff813be6b5>] ? cpuidle_enter_state+0x65/0x1b0
-[  +0.000224]  [<ffffffff813be817>] cpuidle_enter+0x17/0x20
-[  +0.000225]  [<ffffffff81089599>] cpu_startup_entry+0x259/0x440
-[  +0.000226]  [<ffffffff814a35f3>] rest_init+0x83/0x90
-[  +0.000223]  [<ffffffff81ac318b>] start_kernel+0x3fd/0x40a
-[  +0.000223]  [<ffffffff81ac2bac>] ? set_init_arg+0x5d/0x5d
-[  +0.000223]  [<ffffffff81ac25ad>] x86_64_start_reservations+0x2a/0x2c
-[  +0.000225]  [<ffffffff81ac26fb>] x86_64_start_kernel+0x14c/0x153
-[  +0.000223] ---[ end trace 0f28c467beec99ef ]---
-
-It's x86_64 4.0.4 kernel, running on supermicro X10DRW box.
-
-bnx devices are bonded in 802.3ad mode and bond device is member of
-bridge..
-
-If I could provide more information, or perform some debugging, please
-let me know, I'll have those boxed for few more days for testing here.
-
-BR
-
-nik
-
---=20
--------------------------------------
-Ing. Nikola CIPRICH
-LinuxBox.cz, s.r.o.
-28.rijna 168, 709 00 Ostrava
-
-tel.:   +420 591 166 214
-fax:    +420 596 621 273
-mobil:  +420 777 093 799
-www.linuxbox.cz
-
-mobil servis: +420 737 238 656
-email servis: servis@linuxbox.cz
--------------------------------------
-
---eNMatiwYGLtwo1cJ
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.14 (GNU/Linux)
-
-iEYEARECAAYFAlVl7H0ACgkQ3xdJJrLygV5m8wCfR8gBll3Jp7fAOZ/uqX/BmcmU
-/bgAn2K0umU3mLHyUrxg52MvNlHFXj6/
-=LQIB
------END PGP SIGNATURE-----
-
---eNMatiwYGLtwo1cJ--
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index 185efef0f1251ba9d45fabb3ed51777a8be097a6..be4bac368b6bfb8a1eca429cce415da99adc5515 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -594,7 +594,11 @@ out:
+ int inet_hash_connect(struct inet_timewait_death_row *death_row,
+ 		      struct sock *sk)
+ {
+-	return __inet_hash_connect(death_row, sk, inet_sk_port_offset(sk),
++	u32 port_offset = 0;
++
++	if (!inet_sk(sk)->inet_num)
++		port_offset = inet_sk_port_offset(sk);
++	return __inet_hash_connect(death_row, sk, port_offset,
+ 				   __inet_check_established);
+ }
+ EXPORT_SYMBOL_GPL(inet_hash_connect);
