@@ -1,69 +1,129 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] sctp: Fix mangled IPv4 addresses on a IPv6 listening
- socket
-Date: Wed, 27 May 2015 16:16:44 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB40D32@AcuExch.aculab.com>
-References: <20150526233017.GB22391@obsidianresearch.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CB408FE@AcuExch.aculab.com>
- <55658F9D.6030404@iogearbox.net>
- <063D6719AE5E284EB5DD2968C1650D6D1CB409AD@AcuExch.aculab.com>
- <20150527153226.GA9909@obsidianresearch.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
+Date: Wed, 27 May 2015 16:19:04 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A07892FD723@ORSMSX108.amr.corp.intel.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FB5E4@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB3B4A@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FBBEC@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4EE6@BPXM14GP.gisp.nec.co.jp>
+ <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com>
+ <F6FB0E698C9B3143BDF729DF22286646912FC2E3@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB8A65@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FDC17@ORSMSX110.amr.corp.intel.com>
+ <C5551D9AAB213A418B7FD5E4A6F30A07892FC8C7@ORSMSX108.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB9DA7@BPXM14GP.gisp.nec.co.jp>
+ <C5551D9AAB213A418B7FD5E4A6F30A07892FCD87@ORSMSX108.amr.corp.intel.com>
+ <F6FB0E698C9B3143BDF729DF22286646912FE19D@ORSMSX110.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: 'Daniel Borkmann' <daniel@iogearbox.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Jason Gunthorpe' <jgunthorpe@obsidianresearch.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	"David Miller" <davem@davemloft.net>,
+	Edward Cree <ecree@solarflare.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.181]:55230 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751358AbbE0QS3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 12:18:29 -0400
-In-Reply-To: <20150527153226.GA9909@obsidianresearch.com>
+Received: from mga11.intel.com ([192.55.52.93]:48144 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751471AbbE0QTH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 May 2015 12:19:07 -0400
+In-Reply-To: <F6FB0E698C9B3143BDF729DF22286646912FE19D@ORSMSX110.amr.corp.intel.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Gunthorpe
-> Sent: 27 May 2015 16:32
-> On Wed, May 27, 2015 at 10:11:22AM +0000, David Laight wrote:
-> 
-> > In any case it looks like I can escape by turning off
-> > SCTP_I_WANT_MAPPED_V4_ADDR for kernels 3.17 through 4.0.
-> 
-> Just be aware that option is unusable on kernels without 299ee.
-> 
-> I fixed everything wrong I saw, but that doesn't mean it works
-> 100%. Honestly, I don't think anyone has ever used it.
-
-I'm now confused.
-
-I've just done a test using a 4.0.0-rc1 kernel.
-I'm binding an IPv6 listening socket and then connecting to it
-from 127.0.0.1.
-I don't know it I'm being given an IPv4 format address or a
-v6mapped one (I shorten the latter before tracing it) - but
-it contains 127.0.0.1 (not 0.0.0.0).
-(That is without changing any socket options.)
-
-The kernel code I have seems to default 'v4mapped = 1' which means
-it should (if I read the code correctly) hit sctp_v4_map_v6().
-But I'm not seeing the corruption.
-Does 127.0.0.1 go through a different path that means the address
-is already in IPv6 format?
-
-Testing without using the loopback address is rather harder (for automated
-test scripts).
-
-(If anyone suggests that network namespaces might help, they can then
-explain how a single kernel entity is going to choose between different
-namespaces on an individual connection basis.
-Think of something that is receiving data on one connection, decoding the
-requests, re-encapsulation the data in a different protocol and then
-sending the data onwards.)
-
-	David
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IFNraWRtb3JlLCBEb25hbGQg
+Qw0KPiBTZW50OiBXZWRuZXNkYXksIE1heSAyNywgMjAxNSA5OjAxIEFNDQo+IFRvOiBSb3NlLCBH
+cmVnb3J5IFY7IEhpcm9zaGkgU2hpbWFtb3RvOyBLaXJzaGVyLCBKZWZmcmV5IFQ7IGludGVsLXdp
+cmVkLQ0KPiBsYW5AbGlzdHMub3N1b3NsLm9yZw0KPiBDYzogbmhvcm1hbkByZWRoYXQuY29tOyBq
+b2dyZWVuZUByZWRoYXQuY29tOyBMaW51eCBOZXRkZXYgTGlzdDsgQ2hvaSwgU3kNCj4gSm9uZzsg
+Um9ueSBFZnJhaW07IERhdmlkIE1pbGxlcjsgRWR3YXJkIENyZWU7IE9yIEdlcmxpdHo7DQo+IHNh
+c3NtYW5uQHJlZGhhdC5jb20NCj4gU3ViamVjdDogUkU6IFtQQVRDSCB2NSAzLzNdIGl4Z2JlOiBB
+ZGQgbmV3IG5kbyB0byB0cnVzdCBWRg0KPiANCj4gDQo+IA0KPiA+IC0tLS0tT3JpZ2luYWwgTWVz
+c2FnZS0tLS0tDQo+ID4gRnJvbTogUm9zZSwgR3JlZ29yeSBWDQo+ID4gU2VudDogVHVlc2RheSwg
+TWF5IDI2LCAyMDE1IDc6MDEgUE0NCj4gPiBUbzogSGlyb3NoaSBTaGltYW1vdG87IFNraWRtb3Jl
+LCBEb25hbGQgQzsgS2lyc2hlciwgSmVmZnJleSBUOw0KPiA+IGludGVsLXdpcmVkLSBsYW5AbGlz
+dHMub3N1b3NsLm9yZw0KPiA+IENjOiBuaG9ybWFuQHJlZGhhdC5jb207IGpvZ3JlZW5lQHJlZGhh
+dC5jb207IExpbnV4IE5ldGRldiBMaXN0OyBDaG9pLA0KPiA+IFN5IEpvbmc7IFJvbnkgRWZyYWlt
+OyBEYXZpZCBNaWxsZXI7IEVkd2FyZCBDcmVlOyBPciBHZXJsaXR6Ow0KPiA+IHNhc3NtYW5uQHJl
+ZGhhdC5jb20NCj4gPiBTdWJqZWN0OiBSRTogW1BBVENIIHY1IDMvM10gaXhnYmU6IEFkZCBuZXcg
+bmRvIHRvIHRydXN0IFZGDQoNCltzbmlwXQ0KDQo+ID4NCj4gPg0KPiA+DQo+ID4gV2UgY2FuJ3Qg
+ZGVwZW5kIG9uIGFueSBnaXZlbiB2ZW5kb3Igc3BlY2lmaWMgaW50ZXJmYWNlLiAgSSdkIGFkZCBh
+DQo+ID4gdmVyeSBjbGVhciBjb21tZW50IGluIHRoZSBQaHlzaWNhbCBGdW5jdGlvbiBuZG8gb3Ag
+dGhhdCBnaXZlcyBhIFZGDQo+ID4gdHJ1c3RlZCBwcml2aWxlZ2VzIHRoYXQgaXQgaXMgdXAgdG8g
+dGhlIGRyaXZlciB0byBub3RpZnkgdGhlIFZGDQo+ID4gZHJpdmVyLiAgQnV0IHllcywgaW4gdGhl
+IGNhc2Ugb2YgSW50ZWwgZHJpdmVycyB0aGUgbWFpbGJveCBvciBhZG1pbg0KPiA+IHF1ZXVlIChm
+b3IgaTQwZSkgd291bGQgYmUgdGhlIG1lY2hhbmlzbSB0byBkbyB0aGF0LiAgSSBrbm93IHlvdSBo
+YXZlDQo+ID4gc29tZSBpeGdiZSBwYXRjaGVzIHRoYXQgY29pbmNpZGUgd2l0aCB0aGlzIHBhdGNo
+IHNvIHRoYXQncyBhIGdvb2QgcGxhY2UNCj4gdG8gbG9vay4NCj4gPg0KPiANCj4gTm93IHdoeSBJ
+IGFtIG5vdCBhZ2FpbnN0IHRoaXMgKFZGIGtub3dpbmcgaXQgaXMgInRydXN0ZWQiKSBoYXBwZW5p
+bmcgSQ0KPiBkb24ndCBzZWUgdGhlIG5lZWQgZm9yIGl0IGVpdGhlci4gIEkgYmVsaWV2ZSB0aGUg
+c2FtZSBjb3VsZCBiZQ0KPiBhY2NvbXBsaXNoZWQgYnkgYWxsb3dpbmcgdGhlIFBGIHRvIGFzayBm
+b3Igd2hhdGV2ZXIgY29uZmlndXJhdGlvbiBpdCB3YW50cw0KPiBhbmQgc29tZSByZXF1ZXN0cyB3
+aWxsIG5vdCBiZSBncmFudGVkIGJ5IHRoZSBQRiB1bmxlc3MgdGhlIFZGIGlzIHRydXN0ZWQuDQo+
+IEdpdmVuLCB0aGlzIG1heSByZXF1aXJlIGFuIGV4dGVuc2lvbiBvZiB0aGUgbWFpbGJveCBtZXNz
+YWdlcyB0byBhbGxvdyBmb3INCj4gTkFLJ3MgdG8gbWFrZSBpdCBjbGVhciB0byB0aGUgVkYgdGhl
+IHJlcXVlc3Qgd2Fzbid0IGdyYW50ZWQuDQo+IA0KPiBIb3dldmVyIGxpa2UgR3JlZyBtZW50aW9u
+cyBhYm92ZSB0aGlzIG5lZWQgbm90IGJlIHJlcXVpcmVtZW50LCBkaWZmZXJlbnQNCj4gZHJpdmVy
+cyBjb3VsZCBpbXBsZW1lbnQgdGhpcyB3YXkgb3Igbm90Lg0KPiANCj4gPiA+DQo+ID4gPiA+DQo+
+ID4gPiA+DQo+ID4gPiA+IC4gIEl0DQo+ID4gPiA+ID4gc2hvdWxkIHJlcXVlc3QgTUMgUHJvbWlz
+YyBhbmQgZ2V0IGl0IGlmIGl0IGlzIHRydXN0ZWQgYW5kIG5vdCBpZg0KPiA+ID4gPiA+IGl0IGlz
+IG5vdCB0cnVzdGVkLiAgU28gaWYgeW91IChhcyB0aGUgc3lzdGVtIGFkbWluIGtub3cgeW91IGhh
+dmUNCj4gPiA+ID4gPiBhIFZGIHRoYXQgd2lsbCBuZWVkIHRvIHJlcXVlc3QgTUMgUHJvbWlzYyBt
+YWtlIHN1cmUgeW91IHByb21vdGUNCj4gPiA+ID4gPiB0aGF0IFZGIHRvIHRydXN0ZWQgYmVmb3Jl
+IGFzc2lnbmluZyBpdCB0byBhIFZNLiAgVGhhdCB3YXkgd2hlbg0KPiA+ID4gPiA+IGl0IHJlcXVl
+c3RzIE1DIFByb21pc2MgdGhlIFBGIHdpbGwgYmUgYWJsZSB0byBncmFudCBpdC4NCj4gPiA+ID4g
+Pg0KPiA+ID4gPg0KPiA+ID4gPiBNdWx0aWNhc3QgcHJvbWlzY3VvdXMgc2hvdWxkIGJlIGFsbG93
+ZWQgZm9yIHRoZSBWRnMuICBXZSBhbHJlYWR5DQo+ID4gPiA+IGFsbG93IFZGcyB0byBzZXQgd2hh
+dGV2ZXIgbXVsdGljYXN0IGZpbHRlcnMgdGhleSB3YW50IHNvIGlmIHRoZXkNCj4gPiA+ID4gd2Fu
+dCB0byBnbyBpbnRvIE1QRSB0aGVuIHNvIHdoYXQ/ICBXZSBkb24ndCBjYXJlLiAgSXQncyBub3Qg
+YQ0KPiBzZWN1cml0eSByaXNrLg0KPiA+ID4gPiBSaWdodCBub3csIHdpdGhvdXQgYW55IG1vZGlm
+aWNhdGlvbiwgdGhlIFZGIGNhbiBzZXQgMzAgbXVsdGljYXN0DQo+ID4gPiA+IGZpbHRlcnMgYW5k
+IGxpc3Rlbi4gIEl0IGNhbiB0aGVuIHJlbW92ZSB0aG9zZSBhbmQgc2V0IGFub3RoZXIgMzANCj4g
+PiA+ID4gZmlsdGVycw0KPiA+ID4gYW5kIGxpc3Rlbi4gIEFuZCBzbyBvbiBhbmQgc28gb24uICBT
+byBpZiBhIFZGIGNhbiBhbHJlYWR5IGxpc3RlbiBvbg0KPiA+ID4gYW55IE1DIGZpbHRlciBpdCB3
+YW50cyB0aGVuIHdoeSB0aGlzIGFydGlmaWNpYWwgcmVzdHJpY3Rpb24gb24gTUMNCj4gPiA+IHBy
+b21pc2N1b3VzIG1vZGUuDQo+ID4gPg0KPiA+ID4gSSdtIGZpbmUgd2l0aCB0aGF0LCBwcmV2aW91
+c2x5IEkgbWVudGlvbmVkIGFib3V0IHRoYXQuDQo+ID4gPiBXaXRob3V0IHJlc2V0dGluZyBQRiwg
+d2UgY2FuIGxpc3RlbiBldmVyeSBNQyBwYWNrZXQgd2hpY2ggaGFzaCB3YXMNCj4gc2V0Lg0KPiA+
+ID4gUEYgcmVzZXQgd2lsbCByZXN0b3JlIHRoZSBsYXN0IDMwIE1DIGFkZHJlc3NlcyBwZXIgVkYu
+DQo+ID4gPg0KPiA+ID4gQWxzbyB0aGVyZSBpcyBhIHNpbmdsZSBoYXNoIGVudHJpZXMgdGFibGUs
+IGFsbCBWRnMgd2lsbCBnb3QgYSBNQw0KPiA+ID4gcGFja2V0IHdoaWNoIGhhc2ggd2FzIHNldCBp
+biB0aGUgdGFibGUuIElmIGEgVkYgdXNlciBzZXQgYSBmaWx0ZXIsDQo+ID4gPiBvdGhlciB1c2Vy
+cyB3aWxsIHJlY2VpdmUgdGhhdCBNQyBwYWNrZXQuDQo+ID4gPg0KPiA+ID4gPg0KPiA+ID4gPiBX
+ZSBkb24ndCBjYXJlIGFib3V0IHRoaXMgY2FzZS4gVW5pY2FzdCBwcm9taXNjdW91cyBpcyB0aGUg
+c2VjdXJpdHkNCj4gPiA+ID4gcmlzaw0KPiA+ID4gYW5kIEkgdGhpbmsgd2UndmUgaGFuZGxlZCB0
+aGF0Lg0KPiA+ID4NCj4gPiA+IFNvLCBzaG91bGQgd2Ugc2VwYXJhdGUgdGhlIGRpc2N1c3Npb24s
+IGFib3V0IHRydXN0aW5nIFZGIG9wZXJhdGlvbg0KPiA+ID4gYW5kIGFib3V0IE1DIHByb21pc2N1
+b3VzPw0KPiA+DQo+ID4gWWVzLiAgQW5kIHRvIG15IG1pbmQgaXQgc2hvdWxkbid0IHJlYWxseSBi
+ZSBpbiB0aGUgY29udGV4dCBvZiB2aXJ0dWFsDQo+ID4gZnVuY3Rpb24gcHJpdmlsZWdlIG9yIHRy
+dXN0Lg0KPiANCj4gSWYgSSByZW1lbWJlciBjb3JyZWN0IHRoZSByZWFzb25pbmcgYmVoaW5kIHJl
+cXVpcmluZyBhIFZGIHRvIGJlICJ0cnVzdGVkIg0KPiB0byBlbnRlciBNQyBQcm9taXNjdW91cyBt
+b2RlIHdhcyBub3QgZm9yIHNlY3VyaXR5IGFzIG11Y2ggYXMgdGhlIHZlcnkgcmVhbA0KPiBwb3Rl
+bnRpYWwgdGhhdCBpdCB3b3VsZCBoYXZlIGEgbGFyZ2UgbmVnYXRpdmUgaW1wYWN0IG9uIGFsbCB0
+aGUgb3RoZXIgVkYNCj4gZHVlIHRvICBmcmFtZSBkdXBsaWNhdGlvbi4gIFNvIHJhdGhlciB0aGFu
+IGFsbG93IGFueSBWRiB0byBlbnRlciB0aGlzIG1vZGUNCj4gYW5kIGFkdmVyc2VseSBhZmZlY3Qg
+YWxsIHRoZSBvdGhlciBWRidzIHdlIHJlcXVpcmUgdGhhdCB0aGUgVkYgYmUNCj4gInRydXN0ZWQi
+LCBpbXBseWluZyB0aGF0IFBGIHVuZGVyc3RhbmRzIHRoaXMgcmlzayBhbmQgaXMgb2sgd2l0aCBp
+dC4NCj4gDQoNCkFsbG93aW5nIHByb21pc2N1b3VzIG1vZGUgb3BlcmF0aW9uIGJ5IHRoZSBWRiB3
+YXMgcmVhbGx5IGEgc2VjdXJpdHkgY29uY2VybiBkdXJpbmcgdGhlIGluaXRpYWwgZGVzaWduIHBo
+YXNlcyBmb3IgU1ItSU9WIHdheSBiYWNrIGluIDIwMDcvMjAwOCBidXQgc2luY2UgSW50ZWwgVmly
+dHVhbCBGdW5jdGlvbnMgZm9yIDFHaWcgYW5kIDEwR2lnIGRpZG4ndCBzdXBwb3J0IHByb21pc2N1
+b3VzIGFueXdheSBpdCB3YXMgYSBtb290IHBvaW50Lg0KDQpMaW1pdGF0aW9ucyBvbiB0aGUgbnVt
+YmVyIG9mIG11bHRpY2FzdCBhZGRyZXNzIGZpbHRlcnMgYXZhaWxhYmxlIHRvIGEgVkYgd2VyZSBz
+aW1wbHkgYW4gaW1wbGVtZW50YXRpb24gZGV0YWlsIGR1ZSB0byB0aGUgc2l6ZSBvZiB0aGUgbWFp
+bGJveCAtIG9uZSB0aGF0IGhhZCBub3RoaW5nIHRvIGRvIHdpdGggc2VjdXJpdHkgb3Igd29ycmll
+cyBhYm91dCBmbG9vZGluZyB0aGUgUENJZSBidXMuDQoNClRoYXQgc2FpZCwgaWYgdGhlIGNvbW11
+bml0eSBmZWVscyB0aGF0IGFsbG93aW5nIG11bHRpY2FzdCBwcm9taXNjdW91cyBmb3IgVkZzIHNo
+b3VsZCBiZSBwYXJ0IG9mIGJlaW5nICJ0cnVzdGVkIiB0aGVuIEknbSBmaW5lIHdpdGggdGhhdCBh
+bmQgaGF2ZSBubyBvYmplY3Rpb24gdG8gcmVxdWlyaW5nICJ0cnVzdGVkIiBtb2RlIGZvciBlbmFi
+bGVtZW50IG9mIG11bHRpY2FzdCBwcm9taXNjdW91cyBtb2RlLg0KDQotIEdyZWcNCg==
