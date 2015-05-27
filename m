@@ -1,76 +1,143 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] bridge: skip fdb add if the port shouldn't learn
-Date: Wed, 27 May 2015 09:05:32 +0200
-Message-ID: <CABQ03vEQhdXgWk5r103Yd0CPxEWuU3i0m8ztQjtgR0NFDbEXRQ@mail.gmail.com>
-References: <1432204977-4293-1-git-send-email-nikolay@cumulusnetworks.com>
-	<20150526102809.5c3e8abc@urahara>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bug in tcp timestamp option ? TSecr in SYN-ACK != TSval in SYN
+Date: Wed, 27 May 2015 00:08:38 -0700
+Message-ID: <1432710518.4060.363.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CABK1yFBN7KgBxRRzx-Bmt86_L8PnbfgqNJr7Mc2o9usn=LKSTg@mail.gmail.com>
+	 <1432707139.4060.351.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1432707810.4060.352.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Wilson Kok <wkok@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>,
-	bridge@lists.linux-foundation.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Van Jacobson <vanj@google.com>
+To: Gopakumar Choorakkot Edakkunni <gopakumar.c.e@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:35514 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751398AbbE0HFd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 03:05:33 -0400
-Received: by iesa3 with SMTP id a3so6884472ies.2
-        for <netdev@vger.kernel.org>; Wed, 27 May 2015 00:05:33 -0700 (PDT)
-In-Reply-To: <20150526102809.5c3e8abc@urahara>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:36170 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752013AbbE0HIl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 03:08:41 -0400
+Received: by iepj10 with SMTP id j10so6866474iep.3
+        for <netdev@vger.kernel.org>; Wed, 27 May 2015 00:08:40 -0700 (PDT)
+In-Reply-To: <1432707810.4060.352.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 26, 2015 at 7:28 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Thu, 21 May 2015 03:42:57 -0700
-> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
->
->> From: Wilson Kok <wkok@cumulusnetworks.com>
->>
->> Check in fdb_add_entry() if the source port should learn, similar
->> check is used in br_fdb_update.
->> Note that new fdb entries which are added manually or
->> as local ones are still permitted.
->> This patch has been tested by running traffic via a bridge port and
->> switching the port's state, also by manually adding/removing entries
->> from the bridge's fdb.
->>
->> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
->> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->
-> What is the problem this is trying to solve?
->
-> I think user should be allowed to manually add any entry
-> even if learning.
+On Tue, 2015-05-26 at 23:23 -0700, Eric Dumazet wrote:
+> On Tue, 2015-05-26 at 23:12 -0700, Eric Dumazet wrote:
+> > On Tue, 2015-05-26 at 22:47 -0700, Gopakumar Choorakkot Edakkunni wrote:
+> > > All,
+> > > 
+> > > The original query I had posted is here :
+> > > http://stackoverflow.com/questions/30414350/tcp-syn-ack-tsecr-not-matching-tsval-in-syn
+> > > .. The summary is that once in a while, the TSval in SYN is not what
+> > > is getting echoed in TSecr, and looks like something on amazon aws
+> > > side is very strict about that and drops those packets. Any clues on
+> > > this - whether its a known issue/fixed elsewhere etc. would be of
+> > > great help.
+> > 
+> > I guess that if you send SYN packets 3 times as your email did on
+> > netdev, that might cause some issues...
+> > 
+> > More seriously, server has a SYN_RECV socket with same tuple, because of
+> > a SYN sent earlier :
+> > 
+> > 8:36:00.593136 IP XX.YY.ZZ.VV.24548 > AA.BB.CC.DD.443: Flags [S], seq
+> > 1204544933, win 29200, options [mss 1320,sackOK,TS val 6032576 ecr
+> > 0,nop,wscale 7], length 0
+> > 
+> > 18:36:00.593171 IP AA.BB.CC.DD.443 > XX.YY.ZZ.VV.24548: Flags [S.], seq
+> > 986069863, ack 1204544934, win 14480, options [mss 1460,sackOK,TS val
+> > 180940028 ecr 6001497,nop,wscale 5], length 0
+> > 
+> > 18:36:00.992699 IP AA.BB.CC.DD.443 > XX.YY.ZZ.VV.24548: Flags [S.], seq
+> > 986069863, ack 1204544934, win 14480, options [mss 1460,sackOK,TS val
+> > 180940128 ecr 6001497,nop,wscale 5], length 0
+> > 
+> > 
+> > From these traces, we can guess a SYN packet was sent about 31 seconds
+> > earlier.
+> > 
+> > SYNACK rtx do not update the TSECR : Initial SYN TSval value (6001497)
+> > is mirrored.
+> > 
+> > Are you establishing many active sessions per minute to this particular
+> > target ?
+> > 
+> 
+> Here is a packetdrill test to demonstrate behavior :
+> 
+> // Test that SYNACK rtx tsecr is not changed (original SYN tsval)
+> 
+> `../common/defaults.sh
+> `
+> 
+> // Create a socket.
+> 0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+> 0.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+> 
+> 0.000 bind(3, ..., ...) = 0
+> 0.000 listen(3, 1) = 0
+> 
+> // Establish a connection.
+> 0.100 < S 0:0(0) win 20000 <mss 1000,sackOK,TS val 100 ecr 0>
+> +0    > S. 0:0(0) ack 1 <mss 1460,sackOK,TS val 100 ecr 100>
+> 
+> +0.100 < S 0:0(0) win 20000 <mss 1000,sackOK,TS val 199 ecr 0>
+> // check rtx tsecr is sill 100, not 199
+> +0     > S. 0:0(0) ack 1 <mss 1460,sackOK,TS val 200 ecr 100>
+> 
+> +0.100 < . 1:1(0) ack 1 win 20000 <nop,nop,TS val 300 ecr 200>
+> +0    accept(3, ..., ...) = 4
+> 
 
-Hi Stephen,
-I have been thinking about the use case and have discussed it
-internally with colleagues and the patch
-author, the main problem is when there's an external software that
-adds dynamic entries (learning) and
-it could experience a race condition, here's a possible situation:
-* external software learns a mac from hw, sends an add to kernel
- * right before that, port goes blocking (or down) and kernel flushes
-   mac, sends notification about the state change and mac flush
- * right after that, kernel gets the previous add from external software, it's
-   allowed to add, and then sends an add notification
- * mean while, external software processes the link block/down and mac flush,
-   followed by the mac add from kernel.  At this point, external software can't
-   really know whether it's a user adding the mac intentionally or it's
-   a race.
+Reading again https://tools.ietf.org/html/rfc7323#section-4.3 
 
-This issue can't really be avoided in user-space.
-As I've noted local and static entries are still allowed, and iproute2
-bridge utility always
-marks the entries as static (NUD_NOARP), this only affects external
-dynamic entries which
-are usually sent by something that does the learning externally.
-I'll keep digging to see if there's another way to go about this since
-I'd like to give the user
-full freedom. Personally I don't have strong feeling for this patch
-and if it's not preferred then
-I'll post a revert.
+I am not sure we do the right thing here. :(
 
-Thanks,
- Nik
+Yuchung, Neal, what do you think ?
+
+If we receive a SYN matching an existing SYN_RECV, should we update
+TS.recent with latest SYN.tsval ? I see nothing wrong with that.
+
+Patch would be :
+
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index df7fe3c31162e77b96f81399ef7d893485ab3d91..70db6572d241e132c28c381dfc1155b150c9557b 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -588,6 +588,9 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
+ 	if (TCP_SKB_CB(skb)->seq == tcp_rsk(req)->rcv_isn &&
+ 	    flg == TCP_FLAG_SYN &&
+ 	    !paws_reject) {
++		if (tmp_opt.saw_tstamp &&
++		    after(tmp_opt.rcv_tsval, req->ts_recent))
++			req->ts_recent = tmp_opt.rcv_tsval;
+ 		/*
+ 		 * RFC793 draws (Incorrectly! It was fixed in RFC1122)
+ 		 * this case on figure 6 and figure 8, but formal
+
+
+And updated packetdrill test would be :
+// Test that SYNACK rtx tsecr is not changed (original SYN tsval)
+
+`../common/defaults.sh
+`
+
+// Create a socket.
+0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+0.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+
+0.000 bind(3, ..., ...) = 0
+0.000 listen(3, 1) = 0
+
+// Establish a connection.
+0.100 < S 0:0(0) win 20000 <mss 1000,sackOK,TS val 100 ecr 0>
++0    > S. 0:0(0) ack 1 <mss 1460,sackOK,TS val 100 ecr 100>
+
++0.100 < S 0:0(0) win 20000 <mss 1000,sackOK,TS val 199 ecr 0>
+// check rtx tsecr is 199, not 100
++0     > S. 0:0(0) ack 1 <mss 1460,sackOK,TS val 200 ecr 199>
+
++0.100 < . 1:1(0) ack 1 win 20000 <nop,nop,TS val 300 ecr 200>
++0    accept(3, ..., ...) = 4
