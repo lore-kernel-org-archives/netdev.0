@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tools: bpf_jit_disasm: fix segfault on disabled
- debugging log output
-Date: Wed, 27 May 2015 00:24:21 -0400 (EDT)
-Message-ID: <20150527.002421.933751602719615067.davem@davemloft.net>
-References: <beb215366f62df41ce57bbb523e0c554719cf9c1.1432555472.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 0/2] net: phy: phy_interface_is_rgmii helper
+Date: Wed, 27 May 2015 00:27:56 -0400 (EDT)
+Message-ID: <20150527.002756.1418735064606746085.davem@davemloft.net>
+References: <1432667999-11563-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: netdev@vger.kernel.org, dmurphy@ti.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60289 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60306 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750851AbbE0EYX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 00:24:23 -0400
-In-Reply-To: <beb215366f62df41ce57bbb523e0c554719cf9c1.1432555472.git.daniel@iogearbox.net>
+	with ESMTP id S1750751AbbE0E15 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 00:27:57 -0400
+In-Reply-To: <1432667999-11563-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Mon, 25 May 2015 14:08:03 +0200
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 26 May 2015 12:19:57 -0700
 
-> With recent debugging, I noticed that bpf_jit_disasm segfaults when
-> there's no debugging output from the JIT compiler to the kernel log.
+> As you suggested, here is the helper function to avoid missing some RGMII
+> interface checks. Had to wait for net to be merged in net-next to avoid
+> submitting the same patch/commit.
 > 
-> Reason is that when regexec(3) doesn't match on anything, start/end
-> offsets are not being filled out and contain some uninitialized garbage
-> from stack. Thus, we need zero out offsets first.
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Dan, you might want to rebase your dp83867 submission to use that helper
+> when you this patchset gets merged into net-next, thanks!
 
-Applied, thanks Daniel.
+Applied, thanks for following up on this.
