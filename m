@@ -1,87 +1,150 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net iproute2 v2 1/2] mpls: always set type as RTN_UNICAST
- for route add/deletes
-Date: Wed, 27 May 2015 13:08:25 -0700
-Message-ID: <55662439.7010503@cumulusnetworks.com>
-References: <1432751825-40804-2-git-send-email-roopa@cumulusnetworks.com> <5566221A.5020001@brocade.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next] bridge: skip fdb add if the port shouldn't learn
+Date: Wed, 27 May 2015 13:41:35 -0700
+Message-ID: <CAE4R7bBRcs-HS9ytG5jncE=rFvrVWQLkbjh8xGdRsVQ0m53uVQ@mail.gmail.com>
+References: <1432204977-4293-1-git-send-email-nikolay@cumulusnetworks.com>
+	<20150526102809.5c3e8abc@urahara>
+	<CABQ03vEQhdXgWk5r103Yd0CPxEWuU3i0m8ztQjtgR0NFDbEXRQ@mail.gmail.com>
+	<CAE4R7bBEn8Tvct_W0n7nR5YccEmTRByUc=-4nmvuQNqfrBFABg@mail.gmail.com>
+	<CABQ03vEbgtHLyFmRs7ffpXGkTmjX9G=RbAhWwDrj-5rKysys5g@mail.gmail.com>
+	<CAE4R7bDtY1jDcLnvEMx-y4U=SVvf867SPZc3vRjfrUYBA8W=0g@mail.gmail.com>
+	<CABQ03vE_UqSpXdw7_nxFDt+aDgqW=XMnZrr4v72bqGJO6GUnpw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, davem@davemloft.net, netdev@vger.kernel.org,
-	vivek@cumulusnetworks.com
-To: Robert Shearman <rshearma@brocade.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Wilson Kok <wkok@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:33861 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751883AbbE0UI1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 16:08:27 -0400
-Received: by pdbki1 with SMTP id ki1so24626900pdb.1
-        for <netdev@vger.kernel.org>; Wed, 27 May 2015 13:08:26 -0700 (PDT)
-In-Reply-To: <5566221A.5020001@brocade.com>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:36095 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751389AbbE0Ulg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 16:41:36 -0400
+Received: by qgf2 with SMTP id 2so8485027qgf.3
+        for <netdev@vger.kernel.org>; Wed, 27 May 2015 13:41:35 -0700 (PDT)
+In-Reply-To: <CABQ03vE_UqSpXdw7_nxFDt+aDgqW=XMnZrr4v72bqGJO6GUnpw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/27/15, 12:59 PM, Robert Shearman wrote:
-> On 27/05/15 19:37, Roopa Prabhu wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Wed, May 27, 2015 at 9:14 AM, Nikolay Aleksandrov
+<nikolay@cumulusnetworks.com> wrote:
+> On Wed, May 27, 2015 at 6:01 PM, Scott Feldman <sfeldma@gmail.com> wrote:
+>> On Wed, May 27, 2015 at 1:35 AM, Nikolay Aleksandrov
+>> <nikolay@cumulusnetworks.com> wrote:
+>>> On Wed, May 27, 2015 at 9:59 AM, Scott Feldman <sfeldma@gmail.com> wrote:
+>>>> On Wed, May 27, 2015 at 12:05 AM, Nikolay Aleksandrov
+>>>> <nikolay@cumulusnetworks.com> wrote:
+>>>>> On Tue, May 26, 2015 at 7:28 PM, Stephen Hemminger
+>>>>> <stephen@networkplumber.org> wrote:
+>>>>>> On Thu, 21 May 2015 03:42:57 -0700
+>>>>>> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+>>>>>>
+>>>>>>> From: Wilson Kok <wkok@cumulusnetworks.com>
+>>>>>>>
+>>>>>>> Check in fdb_add_entry() if the source port should learn, similar
+>>>>>>> check is used in br_fdb_update.
+>>>>>>> Note that new fdb entries which are added manually or
+>>>>>>> as local ones are still permitted.
+>>>>>>> This patch has been tested by running traffic via a bridge port and
+>>>>>>> switching the port's state, also by manually adding/removing entries
+>>>>>>> from the bridge's fdb.
+>>>>>>>
+>>>>>>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+>>>>>>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>>>>>
+>>>>>> What is the problem this is trying to solve?
+>>>>>>
+>>>>>> I think user should be allowed to manually add any entry
+>>>>>> even if learning.
+>>>>>
+>>>>> Hi Stephen,
+>>>>> I have been thinking about the use case and have discussed it
+>>>>> internally with colleagues and the patch
+>>>>> author, the main problem is when there's an external software that
+>>>>> adds dynamic entries (learning) and
+>>>>> it could experience a race condition, here's a possible situation:
+>>>>> * external software learns a mac from hw, sends an add to kernel
+>>>>>  * right before that, port goes blocking (or down) and kernel flushes
+>>>>>    mac, sends notification about the state change and mac flush
+>>>>>  * right after that, kernel gets the previous add from external software, it's
+>>>>>    allowed to add, and then sends an add notification
+>>>>>  * mean while, external software processes the link block/down and mac flush,
+>>>>>    followed by the mac add from kernel.  At this point, external software can't
+>>>>>    really know whether it's a user adding the mac intentionally or it's
+>>>>>    a race.
+>>>>>
+>>>>> This issue can't really be avoided in user-space.
+>>>>> As I've noted local and static entries are still allowed, and iproute2
+>>>>> bridge utility always
+>>>>> marks the entries as static (NUD_NOARP), this only affects external
+>>>>> dynamic entries which
+>>>>> are usually sent by something that does the learning externally.
+>>>>> I'll keep digging to see if there's another way to go about this since
+>>>>> I'd like to give the user
+>>>>> full freedom. Personally I don't have strong feeling for this patch
+>>>>> and if it's not preferred then
+>>>>> I'll post a revert.
+>>>>
+>>>> So there is already a switchdev API to add/del an externally learned
+>>>> FDB entry which holds rtnl_lock and avoids these races.  I would
+>>>> suggest using that and revert this patch.
+>>>>
+>>>> See call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL) and
+>>>> the handler in br.c:br_switchdev_event().
+>>>>
+>>>> -scott
+>>>
+>>> Hmm, I'm new to the switchdev API and am possibly missing something,
+>>> but how do you suggest to use it here ?
 >>
->> Kernel expects type RTN_UNICAST for mpls route/dels
+>> You need to call
+>> call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL) when the
+>> device learns a new mac/vlan on the port interface.
 >>
->> Signed-off-by: Vivek Venkataraman <vivek@cumulusnetworks.com>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->> ---
->>   ip/iproute.c |    5 +++++
->>   1 file changed, 5 insertions(+)
+>>> How can we differentiate between user-added entry and an externally
+>>> learned one ?
 >>
->> diff --git a/ip/iproute.c b/ip/iproute.c
->> index 670a4c6..71c088b 100644
->> --- a/ip/iproute.c
->> +++ b/ip/iproute.c
->> @@ -803,6 +803,7 @@ static int iproute_modify(int cmd, unsigned 
->> flags, int argc, char **argv)
->>       int scope_ok = 0;
->>       int table_ok = 0;
->>       int raw = 0;
->> +    int type_ok = 0;
->>
->>       memset(&req, 0, sizeof(req));
->>
->> @@ -1095,6 +1096,7 @@ static int iproute_modify(int cmd, unsigned 
->> flags, int argc, char **argv)
->>                   rtnl_rtntype_a2n(&type, *argv) == 0) {
->>                   NEXT_ARG();
->>                   req.r.rtm_type = type;
->> +                type_ok = 1;
->>               }
->>
->>               if (matches(*argv, "help") == 0)
->> @@ -1160,6 +1162,9 @@ static int iproute_modify(int cmd, unsigned 
->> flags, int argc, char **argv)
->>           }
->>       }
->>
->> +    if (!type_ok && req.r.rtm_family == AF_MPLS)
->> +        req.r.rtm_type = RTN_UNICAST;
->> +
->>       if (req.r.rtm_family == AF_UNSPEC)
->>           req.r.rtm_family = AF_INET;
->>
+>> Externally added ones will be marked with NTF_EXT_LEARNED set in
+>> ndm->ndm_flags in the netlink echo.  Manually added ones from the user
+>> will have ndm->ndm_state set to NUD_NOARP in the netlink echo.
 >>
 >
-> There is this block of code near the start of iproute_modify that sets 
-> req.r.rtm_type in the add/modify cases:
+> I meant between externally learned entries from a user-space daemon and manually
+> added by the user.
 >
->         if (cmd != RTM_DELROUTE) {
->                 req.r.rtm_protocol = RTPROT_BOOT;
->                 req.r.rtm_scope = RT_SCOPE_UNIVERSE;
->                 req.r.rtm_type = RTN_UNICAST;
->         }
+>>> Do you mean to use (for example) the NTF_EXT_LEARNED flag when adding
+>>> an entry from user-space so
+>>> the API can get called in br_fdb_add ?
+>>
+>> No.  br_fdb_add is the bridge's .ndo_fdb_add handler called when user
+>> manually adds an FDB entry using netlink RTM_NEWNEIGH.  For externally
+>> learned entries, use the internal
+>> call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL).
+>>
+>> -scott
 >
-> How about doing similar for the mpls delete case? This would avoid the 
-> need to track if the type has been set and would also make the way 
-> rtm_type is set in the delete case as close as possible to that in the 
-> add/modify cases.
-sure that works too. There was already *_ok checks for the rest of the 
-attributes, ..so added it there.
+> I got the API, but it doesn't help in the situation I explained
+> because it's a user-space
+> software that adds the externally learned entry, so I'm talking about
+> differentiating between externally learned dynamic entry from a device
+> which doesn't have
+> a kernel driver and can't call these notifiers, thus if we disallow
+> such dynamic entries when
+> the port is not in the proper state helps to both close the race and
+> fix the problem.
 
-v3 ...coming...
+IMO, we should not be adding weird patches like this to the kernel to
+support the out-of-kernel user-space switch drivers (SDK).  This patch
+is trying to workaround a serialization issue with netlink messages
+created by you because you're using a closed-source user-space driver.
+It took us a couple of email replies to draw out your use-case, and if
+someone down the road tries to figure out what this patch is doing,
+it's not going to be obvious from the kernel code.
+
+I feel this patch should be reverted unless someone can show how it
+can be useful in another context.
+
+-scotta
