@@ -1,78 +1,53 @@
-From: Sorin Dumitru <sorin@returnze.ro>
-Subject: [PATCH net-next] net: limit tcp/udp rmem/wmem to SOCK_{RCV,SND}BUF_MIN
-Date: Wed, 27 May 2015 22:16:49 +0300
-Message-ID: <1432754209-21397-1-git-send-email-sorin@returnze.ro>
-Cc: davem@davemloft.net, Sorin Dumitru <sorin@returnze.ro>
-To: netdev@vger.kernel.org
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net v2 2/2] mpls: fix mpls route deletes to not check
+ for route scope
+Date: Wed, 27 May 2015 20:46:31 +0100
+Message-ID: <55661F17.5050504@brocade.com>
+References: <1432751825-40804-3-git-send-email-roopa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<vivek@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>, <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:38842 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754646AbbE0TQ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 15:16:58 -0400
-Received: by wizo1 with SMTP id o1so34681431wiz.1
-        for <netdev@vger.kernel.org>; Wed, 27 May 2015 12:16:57 -0700 (PDT)
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:28766 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751866AbbE0TrZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 15:47:25 -0400
+In-Reply-To: <1432751825-40804-3-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is similar to b1cb59cf2efe(net: sysctl_net_core: check SNDBUF
-and RCVBUF for min length). I don't think too small values can cause
-crashes in the case of udp and tcp, but I've seen this set to too
-small values which triggered awful performance. It also makes the
-setting consistent across all the wmem/rmem sysctls.
+On 27/05/15 19:37, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> Ignore scope for route del messages
+>
+> Signed-off-by: Vivek Venkataraman <vivek@cumulusnetworks.com>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Signed-off-by: Sorin Dumitru <sdumitru@ixiacom.com>
----
- net/ipv4/sysctl_net_ipv4.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+Reviewed-by: Robert Shearman <rshearma@brocade.com>
 
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index e648927..4f36afd 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -41,6 +41,8 @@ static int tcp_syn_retries_min = 1;
- static int tcp_syn_retries_max = MAX_TCP_SYNCNT;
- static int ip_ping_group_range_min[] = { 0, 0 };
- static int ip_ping_group_range_max[] = { GID_T_MAX, GID_T_MAX };
-+static int min_sndbuf = SOCK_MIN_SNDBUF;
-+static int min_rcvbuf = SOCK_MIN_RCVBUF;
- 
- /* Update system visible IP port range */
- static void set_local_port_range(struct net *net, int range[2])
-@@ -522,7 +524,7 @@ static struct ctl_table ipv4_table[] = {
- 		.maxlen		= sizeof(sysctl_tcp_wmem),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
--		.extra1		= &one,
-+		.extra1		= &min_sndbuf,
- 	},
- 	{
- 		.procname	= "tcp_notsent_lowat",
-@@ -537,7 +539,7 @@ static struct ctl_table ipv4_table[] = {
- 		.maxlen		= sizeof(sysctl_tcp_rmem),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
--		.extra1		= &one,
-+		.extra1		= &min_rcvbuf,
- 	},
- 	{
- 		.procname	= "tcp_app_win",
-@@ -750,7 +752,7 @@ static struct ctl_table ipv4_table[] = {
- 		.maxlen		= sizeof(sysctl_udp_rmem_min),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
--		.extra1		= &one
-+		.extra1		= &min_rcvbuf,
- 	},
- 	{
- 		.procname	= "udp_wmem_min",
-@@ -758,7 +760,7 @@ static struct ctl_table ipv4_table[] = {
- 		.maxlen		= sizeof(sysctl_udp_wmem_min),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
--		.extra1		= &one
-+		.extra1		= &min_sndbuf,
- 	},
- 	{ }
- };
--- 
-2.4.1
+> ---
+>   net/mpls/af_mpls.c |    6 ++++--
+>   1 file changed, 4 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+> index 7b3f732..f4eb0dd 100644
+> --- a/net/mpls/af_mpls.c
+> +++ b/net/mpls/af_mpls.c
+> @@ -693,8 +693,10 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
+>   	 * (or source specific address in the case of multicast)
+>   	 * all addresses have universal scope.
+>   	 */
+> -	if (rtm->rtm_scope != RT_SCOPE_UNIVERSE)
+> -		goto errout;
+> +	if (nlh->nlmsg_type != RTM_DELROUTE &&
+> +		rtm->rtm_scope != RT_SCOPE_UNIVERSE)
+> +			goto errout;
+> +
+>   	if (rtm->rtm_type != RTN_UNICAST)
+>   		goto errout;
+>   	if (rtm->rtm_flags != 0)
+>
