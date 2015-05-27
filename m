@@ -1,139 +1,46 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
-Date: Wed, 27 May 2015 15:55:02 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A07892FD632@ORSMSX108.amr.corp.intel.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912FB5E4@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB3B4A@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912FBBEC@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4EE6@BPXM14GP.gisp.nec.co.jp>
- <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com>
- <F6FB0E698C9B3143BDF729DF22286646912FC2E3@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB8A65@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912FDC17@ORSMSX110.amr.corp.intel.com>
- <C5551D9AAB213A418B7FD5E4A6F30A07892FC8C7@ORSMSX108.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB9DA7@BPXM14GP.gisp.nec.co.jp>
- <5565887B.5010808@solarflare.com>
- <F6FB0E698C9B3143BDF729DF22286646912FE16E@ORSMSX110.amr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [ovs-dev] [PATCH net] openvswitch: disable LRO unless stated
+ otherwise
+Date: Wed, 27 May 2015 11:56:02 -0400 (EDT)
+Message-ID: <20150527.115602.371758291208515839.davem@davemloft.net>
+References: <CALnjE+o-rHrcrmbwb4n4Py5smH3M8oOS-EBCGF2Rc0-e_Y1rmQ@mail.gmail.com>
+	<20150527105021.21879f6c@griffin>
+	<20150527132414.GB2502@x240.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	"David Miller" <davem@davemloft.net>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Edward Cree <ecree@solarflare.com>,
-	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dev@openvswitch.org, pshelar@nicira.com, netdev@vger.kernel.org,
+	jbenc@redhat.com
+To: fbl@sysclose.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:9124 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752201AbbE0PzF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 May 2015 11:55:05 -0400
-In-Reply-To: <F6FB0E698C9B3143BDF729DF22286646912FE16E@ORSMSX110.amr.corp.intel.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:36702 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751852AbbE0P4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 11:56:05 -0400
+In-Reply-To: <20150527132414.GB2502@x240.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBTa2lkbW9yZSwgRG9uYWxkIEMN
-Cj4gU2VudDogV2VkbmVzZGF5LCBNYXkgMjcsIDIwMTUgODozNCBBTQ0KPiBUbzogRWR3YXJkIENy
-ZWU7IEhpcm9zaGkgU2hpbWFtb3RvDQo+IENjOiBSb3NlLCBHcmVnb3J5IFY7IEtpcnNoZXIsIEpl
-ZmZyZXkgVDsgaW50ZWwtd2lyZWQtbGFuQGxpc3RzLm9zdW9zbC5vcmc7DQo+IG5ob3JtYW5AcmVk
-aGF0LmNvbTsgam9ncmVlbmVAcmVkaGF0LmNvbTsgTGludXggTmV0ZGV2IExpc3Q7IENob2ksIFN5
-IEpvbmc7DQo+IFJvbnkgRWZyYWltOyBEYXZpZCBNaWxsZXI7IE9yIEdlcmxpdHo7IHNhc3NtYW5u
-QHJlZGhhdC5jb20NCj4gU3ViamVjdDogUkU6IFtQQVRDSCB2NSAzLzNdIGl4Z2JlOiBBZGQgbmV3
-IG5kbyB0byB0cnVzdCBWRg0KPiANCj4gDQo+IA0KPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0t
-LS0tDQo+ID4gRnJvbTogRWR3YXJkIENyZWUgW21haWx0bzplY3JlZUBzb2xhcmZsYXJlLmNvbV0N
-Cj4gPiBTZW50OiBXZWRuZXNkYXksIE1heSAyNywgMjAxNSAyOjA0IEFNDQo+ID4gVG86IEhpcm9z
-aGkgU2hpbWFtb3RvDQo+ID4gQ2M6IFJvc2UsIEdyZWdvcnkgVjsgU2tpZG1vcmUsIERvbmFsZCBD
-OyBLaXJzaGVyLCBKZWZmcmV5IFQ7DQo+ID4gaW50ZWwtd2lyZWQtIGxhbkBsaXN0cy5vc3Vvc2wu
-b3JnOyBuaG9ybWFuQHJlZGhhdC5jb207DQo+ID4gam9ncmVlbmVAcmVkaGF0LmNvbTsgTGludXgg
-TmV0ZGV2IExpc3Q7IENob2ksIFN5IEpvbmc7IFJvbnkgRWZyYWltOw0KPiA+IERhdmlkIE1pbGxl
-cjsgT3IgR2VybGl0ejsgc2Fzc21hbm5AcmVkaGF0LmNvbQ0KPiA+IFN1YmplY3Q6IFJlOiBbUEFU
-Q0ggdjUgMy8zXSBpeGdiZTogQWRkIG5ldyBuZG8gdG8gdHJ1c3QgVkYNCj4gPg0KPiA+IE9uIDI3
-LzA1LzE1IDAxOjI3LCBIaXJvc2hpIFNoaW1hbW90byB3cm90ZToNCj4gPiA+Pj4gSSB0aGluayB0
-aGUgVkYgc2hvdWxkbid0IGRpcmVjdGx5IGtub3cgd2hldGhlciBpdCBpcyB0cnVzdGVkIG9yDQo+
-ID4gPj4+IG5vdA0KPiA+ID4+IFRoYXQncyBjb21wbGV0ZWx5IGlycmV2ZWxhbnQuICBUaGUgcGVy
-c29uIGFkbWluaXN0ZXJpbmcgdGhlIFBGIHdpbGwNCj4gPiA+PiBiZSB0aGUgcGVyc29uIHdobyBw
-cm92aWRlZCB0cnVzdGVkIHByaXZpbGVnZXMgdG8gdGhlIFZGLiAgSGUnbGwNCj4gPiA+PiB0aGVu
-DQo+ID4gPj4gKnRlbGwqIG9yIHNvbWVob3cgb3RoZXIgY29tbXVuaWNhdGUgdG8gdGhlIHBlcnNv
-biBhZG1pbmlzdGVyaW5nIHRoZQ0KPiA+IFZGIChwcm9iYWJseSBoaW1zZWxmL2hlcnNlbGYpIGFu
-ZCB0aGVuIHByb2NlZWQgdG8gZXhlY3V0ZSBjb21tYW5kcyBvbg0KPiA+IHRoYXQgVkYgdGhhdCBy
-ZXF1aXJlIHRydXN0ZWQgcHJpdmlsZWdlcy4NCj4gPiA+Pg0KPiA+ID4+IElmIHRoZSBWRiBkb2Vz
-IG5vdCBoYXZlIHRydXN0ZWQgcHJpdmlsZWdlcyB0aGVuIHRoZSBjb21tYW5kcyB0byBhZGQNCj4g
-PiA+PiBWTEFOIGZpbHRlcnMsIHNldCBwcm9taXNjdW91cyBtb2RlcywgYW5kIGFueSBvdGhlciBw
-cml2aWxlZ2VkDQo+ID4gPj4gY29tbWFuZHMNCj4gPiB3aWxsIGZhaWwuDQo+ID4gPj4NCj4gPiA+
-PiBMZXQncyBub3QgZ2V0IHRvbyBmYW5jeSB3aXRoIHRoaXMuICBJdCdzIHNpbXBsZSAtIHRoZSBo
-b3N0IFZNTQ0KPiA+ID4+IGFkbWluIHByb3ZpZGVzIHRydXN0ZWQgcHJpdmlsZWdlcyB0byB0aGUg
-VkYuICBUaGUgcGVyc29uDQo+ID4gPj4gYWRtaW5pc3RlcmluZyB0aGUgVkYgKGlmIGluIGZhY3Qg
-aXQgaXMgbm90IHRoZSBzYW1lIHBlcnNvbiwgaXQNCj4gPiA+PiB1c3VhbGx5IHdpbGwgYmUpIHdp
-bGwgcHJvY2VlZCB0byBkbw0KPiA+IHRoaW5ncyB0aGF0IHJlcXVpcmUgVkYgdHJ1c3RlZCBwcml2
-aWxlZ2VzLg0KPiA+ID4gTm93IEkgdGhpbmsgdGhhdCBpdCdzIGJldHRlciB0byBoYXZlIGFuIGlu
-dGVyZmFjZSBiZXR3ZWVuIFBGIGFuZCBWRg0KPiA+ID4gdG8NCj4gPiBrbm93IHRoZSBWRiBpcyB0
-cnVzdGVkLg0KPiA+ID4gT3RoZXJ3aXNlIFZNIGNhbm5vdCBrbm93IHdoZXRoZXIgaXRzIFZGIGlz
-IHRydXN0ZWQsIHRoYXQgcHJldmVudHMNCj4gPiBhdXRvbWF0aWMgb3BlcmF0aW9ucy4NCj4gPiBJ
-IGRvbid0IHRoaW5rIHRoaXMgaXMgcmlnaHQuICBUaGUgYXBwcm9hY2ggdG8gVkYgdHJ1c3QvcGVy
-bWlzc2lvbnMNCj4gPiBpc3N1ZXMgd2UgdG9vayBpbiBzZmMgKGFuZCB0aGF0IEknZCByZWNvbW1l
-bmQgZm9sbG93aW5nKSB3YXMgdGhhdCBhbGwNCj4gPiBkcml2ZXJzIHdpbGwgYWx3YXlzIF9hdHRl
-bXB0XyBhY3Rpb25zIG9uIHRoZSBhc3N1bXB0aW9uIHRoZXkgaGF2ZQ0KPiA+IHByaXZpbGVnZSwg
-dGhlbiBpZiB0aGV5IGluIGZhY3QgZG9uJ3QsIHRoZXkgZ2V0IGFuIEVQRVJNIChlaXRoZXIgZnJv
-bQ0KPiA+IHRoZSBmaXJtd2FyZSBvciBmcm9tIHNvbWUgcHJveHkgaW4gdGhlIFBGIGRyaXZlcikg
-YW5kIHRoZXkgZGVhbCB3aXRoDQo+IHRoYXQgYXBwcm9wcmlhdGVseS4NCj4gPg0KPiA+IFNvIGlu
-IHRoaXMgY2FzZSB0aGUgVkYgd291bGQgc2F5ICJJIGhhdmUgbW9yZSB0aGFuIDMwIG1jYXN0IGFk
-ZHJzLCBJDQo+ID4gbmVlZCBwcm9taXNjIiwgaXQgd291bGQgdHJ5IHRvIHNldCBwcm9taXNjLCB0
-aGUgUEYgd291bGQgZGVjaWRlICJpdCdzDQo+ID4gbm90IHRydXN0ZWQsIERlbmllZCIgYW5kIHRo
-ZSBWRiB3b3VsZCBnZXQgYW4gRVBFUk0gYmFjay4gIEF0IHdoaWNoDQo+ID4gcG9pbnQgdGhlIFZG
-IHdvdWxkIHByZXN1bWFibHkgaW5zZXJ0IGFzIG1hbnkgbWNhc3QgYWRkcmVzc2VzIGFzIGl0DQo+
-ID4gY291bGQgYW5kIHdhcm4gdGhhdCBpdCBoYWRuJ3QgZ290IHRoZW0gYWxsIChvciwgaWYgdGhl
-IHdob2xlIHRoaW5nIHdhcw0KPiA+IHRyaWdnZXJlZCBieSBhZGRpbmcgYSBuZXcgbWNhc3QgYWRk
-ciwgaXQgbWlnaHQgYmUgYWJsZSB0byBwYXNzIEVQRVJNDQo+IGJhY2sgdG8gd2hvZXZlciByZXF1
-ZXN0ZWQgaXQpLg0KPiA+DQo+ID4gVGhlbiBpZiB0aGUgVkYncyBwcml2aWxlZ2UgaXMgY2hhbmdl
-ZCwgVkZMUiBpdCBzbyB0aGF0IGl0IHJlLWRvZXMgYWxsDQo+ID4gb2YgaXRzIHNldHVwIHRoaXMg
-dGltZSBzdWJqZWN0IHRvIHRoZSBuZXcgcGVybWlzc2lvbnMuDQo+ID4gKEFsdGVybmF0aXZlbHks
-IGlmIHRoZSBwcml2aWxlZ2UgaXMgc3RyaWN0bHkgaW5jcmVhc2VkLCB5b3UgY2FuIGNob29zZQ0K
-PiA+IG5vdCB0byBkbyB0aGlzIGFuZCBpbnN0ZWFkIHRoZSBWRiBkcml2ZXIgbWF5IGJlIHRvbGQg
-ZnJvbSB1c2Vyc3BhY2UgdG8NCj4gPiByZS1kbyB0aGUgcmVsZXZhbnQgc2V0dXAsIGluIHdoaWNo
-IGNhc2UgdHJhZmZpYyBpbnRlcnJ1cHRpb24gbWF5IGJlDQo+ID4gYWJsZSB0byBiZSBhdm9pZGVk
-LikNCj4gPg0KPiA+IFRoZSBhZHZhbnRhZ2Ugb2YgdGhpcyBtb2RlbCBpcyB0aGF0IHRoZSBWRiBk
-cml2ZXIgZG9lc24ndCBoYXZlIHRvIGtub3cNCj4gPiB3aGF0IHBlcm1pc3Npb25zIGRpZmZlcmVu
-dCBvcGVyYXRpb25zIHJlcXVpcmU7IHRoYXQga25vd2xlZGdlIGNhbiBsaXZlDQo+ID4gaW4gb25l
-IHBsYWNlIG9ubHkgKGluIG91ciBjYXNlIHRoZSBmaXJtd2FyZSwgaW4geW91ciBjYXNlIGl0IHNv
-dW5kcw0KPiA+IGxpa2UgdGhlIFBGIGRyaXZlcikgYWxsb3dpbmcgdGhlIHBvbGljeSB0byBiZSBj
-aGFuZ2VkIHdpdGhvdXQgcHJvYmxlbXMNCj4gd2l0aCB2ZXJzaW9uIHNrZXcuDQo+ID4NCj4gPiBU
-aGUgZGlzYWR2YW50YWdlcyBhcmUgdGhhdCB0aGUgYW1vdW50IG9mIGNvbnRyb2wtcGxhbmUgdHJh
-ZmZpYyBpcw0KPiA+IGluY3JlYXNlZCAodHJ5LCBmYWlsLCB0cnkgc29tZXRoaW5nIGVsc2UpLCBh
-bmQgcmVpbml0aWFsaXNhdGlvbiBvbg0KPiA+IHByaXZpbGVnZSBjaGFuZ2UgbWF5IGNhdXNlIHRy
-YWZmaWMgaW50ZXJydXB0aW9uLiAgQnV0IHRoZSBmb3JtZXIgaXNuJ3QNCj4gPiBhIHdvcnJ5IHNp
-bmNlIHRoZSBjb250cm9sIHBsYW5lIHRyYWZmaWMgdm9sdW1lIGlzIHNvIHNtYWxsLiAgVGhlDQo+
-ID4gbGF0dGVyIHdvdWxkIHN0aWxsIGhhdmUgdG8gaGFwcGVuIG9uIHByaXZpbGVnZSBkZWNyZWFz
-ZSBpbiBhbnkgY2FzZSwgYXMNCj4gR3JlZyBzdGF0ZWQuDQo+IA0KPiBUaGlzIGlzIGhvdyBJIGhh
-ZCBlbnZpc2lvbmVkIGl0IHdvcmtpbmcgYXMgd2VsbC4gIFRoZSBWRiBjYW4gYXNrIGZvciB3aGF0
-DQo+IGl0IHdhbnRzLCB3aGV0aGVyIGl0IHJlY2VpdmVzIGl0IGlzIGRlcGVuZGVudCBvbiBpZiB0
-aGUgUEYgY29uc2lkZXJzIGl0DQo+IHRydXN0ZWQgb3Igbm90LiAgQXMgSGlyb3NoaSBhbHJlYWR5
-IG1lbnRpb25lZCAoYW1vbmcgb3RoZXJzKSB3ZSBtYXkgbmVlZA0KPiB0byBoYXZlIHRoZSBtYWls
-Ym94IHByb3RvY29sIGV4dGVuZGVkIHRvIGFsbG93IHRoZSBQRiB0byB0ZWxsIHRoZSBWRiBpdA0K
-PiBkaWRuJ3QgZ2V0IHdoYXQgd2FzIGFza2VkIGZvci4NCg0KSG1tLi4uIHdlbGwgSSB0aGluayBp
-dCdzIGVhc2llciBpbiB0aGUgSW50ZWwgY2FzZSB0byBqdXN0IHRlbGwgdGhlIFZGIGl0IGhhcyBw
-cml2aWxlZ2VzIGFuZCBpdCByZWR1Y2VzIGNvbXBsZXhpdHkgb2YgYWxsIHRoZSBhZGRpdGlvbmFs
-IE5BS3MgYW5kIHJldHJpZXMuICBUaGF0IHNhaWQsIGlmIG90aGVyIHZlbmRvcnMgd2lzaCB0byBn
-byB0aGF0IHJvdXRlIHRoZW4gdGhleSBkbyBub3QgKmhhdmUqIHRvIHRlbGwgdGhlIFZGIHRoYXQg
-aXQgaGFzIGFkZGl0aW9uYWwgcHJpdmlsZWdlcyBhbmQgdGhlbiB0aGV5IGNhbiBhZGQgYWxsIHRo
-ZSBhZGRpdGlvbmFsIGNvbXBsZXhpdHkgb2YgdGhlIE5BS3MgYW5kIHJldHJpZXMuICBUaGVyZSdz
-IG5vdGhpbmcgdG8gcHJldmVudCBhbnkgdmVuZG9yIGZyb20gbm90aWZ5aW5nIGEgVkYgdGhhdCBp
-dCBoYXMgcHJpdmlsZWdlcyBhbmQgdGhlcmUncyBub3RoaW5nIHRoYXQgcmVxdWlyZSB0aGF0IHRo
-ZXkgZG8uICBUaGlzIHNob3VsZCBiZSBhIHZlbmRvciBzcGVjaWZpYyBkZXRhaWwuDQoNCkluIHRo
-ZSBjYXNlIG9mIEludGVsIGNvbnRyb2xsZXJzIC0gSSBwcmVmZXIgdGhhdCB3ZSBjcmVhdGUgYW4g
-SW50ZWwgc3BlY2lmaWMgbWFpbGJveCBtZXNzYWdlIHRoYXQgdGVsbHMgdGhlIFZGIGl0J3MgZ290
-IHByaXZpbGVnZXMgYW5kIGN1dHMgZG93biBvbiB0aGUgYW1vdW50IG9mIGhhbmQgc2hha2luZyB0
-aGF0IGdvZXMgb24gaW4gbWFpbGJveCAoaWdiLCBpeGdiZSkgb3IgYWRtaW4gcXVldWUgKGk0MGUp
-IG1lc3NhZ2luZy4NCg0KU28gbm93IHRoYXQgSSd2ZSBzdGF0ZWQgbXkgcHJlZmVyZW5jZSBsZXQg
-bWUgYWxzbyBzdGF0ZSB0aGF0IEkgZG8gbm90IHdhbnQgdG8gaG9sZCB1cCBhY2NlcHRhbmNlIG9m
-IHRoZSBIaXJvc2hpJ3MgaWZfbGluayBwYXRjaCB0aGF0IHNldHMgdGhlIHRydXN0ZWQvcHJpdmls
-ZWdlZCBzdGF0ZSBmb3IgdGhlIFZGIHdoaWxlIHdlIGZ1cnRoZXIgZGlzY3VzcyB0aGlzIGRyaXZl
-ciBzcGVjaWZpYyBkZXRhaWwuDQoNCi0gR3JlZw0KDQo=
+From: Flavio Leitner <fbl@sysclose.org>
+Date: Wed, 27 May 2015 10:24:14 -0300
+
+> On Wed, May 27, 2015 at 10:50:21AM +0200, Jiri Benc wrote:
+>> On Tue, 26 May 2015 15:03:56 -0700, Pravin Shelar wrote:
+>> > OVS interface for generic networking device operation looks odd. have
+>> > you considered adding new device ioctl to do this?
+>> 
+>> New ioctls for networking configuration are generally not allowed. The
+>> preferred way to configure networking is netlink. And as this is very
+>> much ovs specific (all other users of dev_disable_lro such as bridging
+>> want to do this unconditionally), ovs netlink is the correct place to
+>> put this to.
+> 
+> Exactly. Team, Bonding, bridge, and when you enable forwarding on a
+> networking device gets LRO automatically disabled in the kernel.
+> 
+> I suggest to always disable LRO in the kernel as the other examples
+> do until there is a real need in OVS to benefit from LRO to implement
+> such API change.
+
+Agreed, just turn off LRO by default and don't add a new interface to
+turn it back on until we actually need it.
