@@ -1,43 +1,73 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [v3 PATCH 0/8] crypto: Convert all AEAD users to new interface
-Date: Wed, 27 May 2015 10:15:50 +0200
-Message-ID: <1432714550.2159.4.camel@sipsolutions.net>
-References: <20150521103938.GA23035@gondor.apana.org.au>
-	 <20150522082708.GA3507@gondor.apana.org.au>
-	 <20150527080105.GA26751@gondor.apana.org.au>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [RFC V7 PATCH 7/7] vhost_net: add interrupt coalescing support
+Date: Wed, 27 May 2015 16:30:48 +0800
+Message-ID: <556580B8.4080805@redhat.com>
+References: <1432531444-50193-1-git-send-email-jasowang@redhat.com>	<1432531444-50193-8-git-send-email-jasowang@redhat.com> <20150526110252.6437cea8@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Stephan Mueller <smueller@chronox.de>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:49383 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751741AbbE0IPz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 May 2015 04:15:55 -0400
-In-Reply-To: <20150527080105.GA26751@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150526110252.6437cea8@urahara>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-> The conversion of in-tree users is fairly straightforward.
 
-It is pretty much - but a related question (that you totally don't have
-to answer if you don't want to think about this).
+On 05/27/2015 02:02 AM, Stephen Hemminger wrote:
+> On Mon, 25 May 2015 01:24:04 -0400
+> Jason Wang <jasowang@redhat.com> wrote:
+>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>  drivers/vhost/net.c | 8 ++++++++
+>>  1 file changed, 8 insertions(+)
+>>
+>> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+>> index 7d137a4..5ee28b7 100644
+>> --- a/drivers/vhost/net.c
+>> +++ b/drivers/vhost/net.c
+>> @@ -320,6 +320,9 @@ static void handle_tx(struct vhost_net *net)
+>>  	hdr_size = nvq->vhost_hlen;
+>>  	zcopy = nvq->ubufs;
+>>  
+>> +	/* Finish pending interrupts first */
+>> +	vhost_check_coalesce_and_signal(vq->dev, vq, false);
+>> +
+>>  	for (;;) {
+>>  		/* Release DMAs done buffers first */
+>>  		if (zcopy)
+>> @@ -415,6 +418,7 @@ static void handle_tx(struct vhost_net *net)
+>>  		}
+>>  	}
+>>  out:
+>> +	vhost_check_coalesce_and_signal(vq->dev, vq, true);
+>>  	mutex_unlock(&vq->mutex);
+>>  }
+>>  
+>> @@ -554,6 +558,9 @@ static void handle_rx(struct vhost_net *net)
+>>  		vq->log : NULL;
+>>  	mergeable = vhost_has_feature(vq, VIRTIO_NET_F_MRG_RXBUF);
+>>  
+>> +	/* Finish pending interrupts first */
+>> +	vhost_check_coalesce_and_signal(vq->dev, vq, false);
+>> +
+>>  	while ((sock_len = peek_head_len(sock->sk))) {
+>>  		sock_len += sock_hlen;
+>>  		vhost_len = sock_len + vhost_hlen;
+>> @@ -638,6 +645,7 @@ static void handle_rx(struct vhost_net *net)
+>>  		}
+>>  	}
+>>  out:
+>> +	vhost_check_coalesce_and_signal(vq->dev, vq, true);
+>>  	mutex_unlock(&vq->mutex);
+>>  }
+>>  
+> Could you implement ethtool control of these coalescing parameters?
 
-I'm going to have to (continue) backport(ing) this code to older kernels
-for customer support, and I prefer making as few modifications to the
-code as possible and putting all the logic into the external backports
-project.
-
-Do you think it'd be feasible at all to somehow override the
-aead_request_set_crypt() and aead_request_set_ad() functions or so to do
-something that works on older kernels (and thus older crypto subsystems)
-or do you think I just shouldn't bother looking at that and just add
-ifdefs to "undo" your changes in this series on older kernels?
-
-johannes
+I believe you mean guest ethtool control. If yes, it has been
+implemented in [RFC V7 PATCH 4/7] virtio-net: add basic interrupt
+coalescing support.
