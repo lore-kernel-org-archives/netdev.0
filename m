@@ -1,99 +1,38 @@
-From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
-Subject: [PATCH net-next v6 0/2] Adding support for Cavium ThunderX network
- controller
-Date: Tue, 26 May 2015 19:20:13 -0700
-Message-ID: <1432693228-5554-1-git-send-email-aleksey.makarov@caviumnetworks.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next] tcp: tcp_tso_autosize() minimum is one packet
+Date: Wed, 27 May 2015 10:52:00 +0800
+Message-ID: <20150527025200.GA21106@gondor.apana.org.au>
+References: <20150527000342.GA16379@gondor.apana.org.au>
+ <1432686994.4060.312.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150527013840.GA20585@gondor.apana.org.au>
+ <1432692881.4060.333.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Robert Richter <robert.richter@caviumnetworks.com>,
- Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- David Daney <david.daney@cavium.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ncardwell@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:42901 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751518AbbE0CwG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 22:52:06 -0400
+Content-Disposition: inline
+In-Reply-To: <1432692881.4060.333.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patchset adds support for the Cavium ThunderX network controller.
+On Tue, May 26, 2015 at 07:14:41PM -0700, Eric Dumazet wrote:
+>
+> Fact that Nagle or tso should defer applies in this corner case is not
+> very important here, unless you have a specific case in mind ?
+> Anyway I double checked and I believes it is fine.
 
-changes in v6:
- * unused preprocessor symbols were removed
- * reduce no of atomic operations in SQ maintenance
- * support for TCP segmentation at driver level
- * reset RBDR if fifo state is FAIL
- * fixed an issue with link state mailbox message
+Yes it does appear to be fine on a second look, for the case where
+skb->len > mss.
 
-changes in v5:
- * __packed were removed.  now we rely on C language ABI
- * nic_dbg() -> netdev_dbg()
- * fixes for a typo, constant spelling and using BIT_ULL
- * use print_hex_dump()
- * unnecessary conditions in a long if() chain were removed
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-changes in v4:
- * the patch "pci: Add Cavium PCI vendor id" was attributed correctly
- * a note that Cavium id is used in many drivers was added
- * the license comments now match MODULE_LICENSE
- * a comment explaining usage of writeq_relaxed()/readq_relaxed() was added
-
-changes in v3:
- * code cleanup
- * issues discovered by reviewers were addressed
-
-changes in v2:
- * non-generic module parameters removed
- * ethtool support added (nicvf_set_rxnfc())
-
-v5: https://lkml.kernel.org/g/<1432344498-17131-1-git-send-email-aleksey.makarov@caviumnetworks.com>
-v4: https://lkml.kernel.org/g/<1432000757-28700-1-git-send-email-aleksey.makarov@auriga.com>
-v3: https://lkml.kernel.org/g/<1431747401-20847-1-git-send-email-aleksey.makarov@auriga.com>
-v2: https://lkml.kernel.org/g/<1415596445-10061-1-git-send-email-rric@kernel.org>
-v1: https://lkml.kernel.org/g/<20141030165434.GW20170@rric.localhost>
-
-Sunil Goutham (2):
-  pci: Add Cavium PCI vendor id
-  net: Adding support for Cavium ThunderX network controller
-
- MAINTAINERS                                        |    7 +
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/cavium/Kconfig                |   40 +
- drivers/net/ethernet/cavium/Makefile               |    5 +
- drivers/net/ethernet/cavium/thunder/Makefile       |   11 +
- drivers/net/ethernet/cavium/thunder/nic.h          |  414 ++++++
- drivers/net/ethernet/cavium/thunder/nic_main.c     |  940 ++++++++++++
- drivers/net/ethernet/cavium/thunder/nic_reg.h      |  213 +++
- .../net/ethernet/cavium/thunder/nicvf_ethtool.c    |  601 ++++++++
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 1332 +++++++++++++++++
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 1544 ++++++++++++++++++++
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |  381 +++++
- drivers/net/ethernet/cavium/thunder/q_struct.h     |  701 +++++++++
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |  966 ++++++++++++
- drivers/net/ethernet/cavium/thunder/thunder_bgx.h  |  223 +++
- include/linux/pci_ids.h                            |    2 +
- 17 files changed, 7382 insertions(+)
- create mode 100644 drivers/net/ethernet/cavium/Kconfig
- create mode 100644 drivers/net/ethernet/cavium/Makefile
- create mode 100644 drivers/net/ethernet/cavium/thunder/Makefile
- create mode 100644 drivers/net/ethernet/cavium/thunder/nic.h
- create mode 100644 drivers/net/ethernet/cavium/thunder/nic_main.c
- create mode 100644 drivers/net/ethernet/cavium/thunder/nic_reg.h
- create mode 100644 drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
- create mode 100644 drivers/net/ethernet/cavium/thunder/nicvf_main.c
- create mode 100644 drivers/net/ethernet/cavium/thunder/nicvf_queues.c
- create mode 100644 drivers/net/ethernet/cavium/thunder/nicvf_queues.h
- create mode 100644 drivers/net/ethernet/cavium/thunder/q_struct.h
- create mode 100644 drivers/net/ethernet/cavium/thunder/thunder_bgx.c
- create mode 100644 drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-
+Cheers,
 -- 
-2.4.1
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
