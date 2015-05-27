@@ -1,53 +1,33 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net v2 2/2] mpls: fix mpls route deletes to not check
- for route scope
-Date: Wed, 27 May 2015 20:46:31 +0100
-Message-ID: <55661F17.5050504@brocade.com>
-References: <1432751825-40804-3-git-send-email-roopa@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] qla4xxx: add a missing include
+Date: Wed, 27 May 2015 12:47:57 -0700
+Message-ID: <1432756077.4060.424.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1432701824.4060.346.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150527.142117.1711665345600870663.davem@davemloft.net>
+	 <1432751594.2194.54.camel@HansenPartnership.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<vivek@cumulusnetworks.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>, <ebiederm@xmission.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org
+To: James Bottomley <James.Bottomley@HansenPartnership.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:28766 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751866AbbE0TrZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 15:47:25 -0400
-In-Reply-To: <1432751825-40804-3-git-send-email-roopa@cumulusnetworks.com>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:33354 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751361AbbE0TsA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 15:48:00 -0400
+In-Reply-To: <1432751594.2194.54.camel@HansenPartnership.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27/05/15 19:37, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> Ignore scope for route del messages
->
-> Signed-off-by: Vivek Venkataraman <vivek@cumulusnetworks.com>
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Wed, 2015-05-27 at 11:33 -0700, James Bottomley wrote:
+> On Wed, 2015-05-27 at 14:21 -0400, David Miller wrote:
 
-Reviewed-by: Robert Shearman <rshearma@brocade.com>
+> > Yeah it's easiest if I just apply this to net-next, which I've just done,
+> > thanks Eric.
+> 
+> Fine with me.  There's no point creating cross tree hassle for a simple
+> include problem.
 
-> ---
->   net/mpls/af_mpls.c |    6 ++++--
->   1 file changed, 4 insertions(+), 2 deletions(-)
->
-> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-> index 7b3f732..f4eb0dd 100644
-> --- a/net/mpls/af_mpls.c
-> +++ b/net/mpls/af_mpls.c
-> @@ -693,8 +693,10 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
->   	 * (or source specific address in the case of multicast)
->   	 * all addresses have universal scope.
->   	 */
-> -	if (rtm->rtm_scope != RT_SCOPE_UNIVERSE)
-> -		goto errout;
-> +	if (nlh->nlmsg_type != RTM_DELROUTE &&
-> +		rtm->rtm_scope != RT_SCOPE_UNIVERSE)
-> +			goto errout;
-> +
->   	if (rtm->rtm_type != RTN_UNICAST)
->   		goto errout;
->   	if (rtm->rtm_flags != 0)
->
+Note there are other drivers to fix, I'll try to submit patches for
+them.
