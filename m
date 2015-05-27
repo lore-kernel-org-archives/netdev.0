@@ -1,36 +1,148 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
-Date: Wed, 27 May 2015 18:04:27 +0100
-Message-ID: <5565F91B.8080405@solarflare.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp> <F6FB0E698C9B3143BDF729DF22286646912FB5E4@ORSMSX110.amr.corp.intel.com> <7F861DC0615E0C47A872E6F3C5FCDDBD05EB3B4A@BPXM14GP.gisp.nec.co.jp> <F6FB0E698C9B3143BDF729DF22286646912FBBEC@ORSMSX110.amr.corp.intel.com> <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4EE6@BPXM14GP.gisp.nec.co.jp> <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com> <F6FB0E698C9B3143BDF729DF22286646912FC2E3@ORSMSX110.amr.corp.intel.com> <7F861DC0615E0C47A872E6F3C5FCDDBD05EB8A65@BPXM14GP.gisp.nec.co.jp> <F6FB0E698C9B3143BDF729DF22286646912FDC17@ORSMSX110.amr.corp.intel.com> <C5551D9AAB213A418B7FD5E4A6F30A07892FC8C7@ORSMSX108.amr.corp.intel.com> <7F861DC0615E0C47A872E6F3C5FCDDBD05EB9DA7@BPXM14GP.gisp.nec.co.jp> <5565887B.5010808@sol
- arflare.com> <F6FB0E698C9B3143BDF729DF22286646912FE16E@ORSMSX110.amr.corp.intel.com> <C5551D9AAB213A418B7FD5E4A6F30A07892FD632@ORSMSX108.amr.corp.intel.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [RFC 1/6] VSOCK: Introduce vsock_find_unbound_socket and
+	vsock_bind_dgram_generic
+Date: Wed, 27 May 2015 18:05:55 +0100
+Message-ID: <1432746360-14940-2-git-send-email-stefanha@redhat.com>
+References: <1432746360-14940-1-git-send-email-stefanha@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	"Linux Netdev List" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:10622 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751474AbbE0RE5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 13:04:57 -0400
-In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A07892FD632@ORSMSX108.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Asias He <asias@redhat.com>,
+	virtualization@lists.linux-foundation.org,
+	Stefan Hajnoczi <stefanha@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: kvm@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1432746360-14940-1-git-send-email-stefanha@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 27/05/15 16:55, Rose, Gregory V wrote:
-> There's nothing to prevent any vendor from notifying a VF that it has privileges and there's nothing that require that they do.  This should be a vendor specific detail.
-Agreed - purely a driver implementation detail.
-> So now that I've stated my preference let me also state that I do not want to hold up acceptance of the Hiroshi's if_link patch that sets the trusted/privileged state for the VF while we further discuss this driver specific detail.
-Agreed.
+From: Asias He <asias@redhat.com>
+
+Signed-off-by: Asias He <asias@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+---
+ include/net/af_vsock.h   |  2 ++
+ net/vmw_vsock/af_vsock.c | 70 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 72 insertions(+)
+
+diff --git a/include/net/af_vsock.h b/include/net/af_vsock.h
+index 172632d..d52b984 100644
+--- a/include/net/af_vsock.h
++++ b/include/net/af_vsock.h
+@@ -172,8 +172,10 @@ void vsock_insert_connected(struct vsock_sock *vsk);
+ void vsock_remove_bound(struct vsock_sock *vsk);
+ void vsock_remove_connected(struct vsock_sock *vsk);
+ struct sock *vsock_find_bound_socket(struct sockaddr_vm *addr);
++struct sock *vsock_find_unbound_socket(struct sockaddr_vm *addr);
+ struct sock *vsock_find_connected_socket(struct sockaddr_vm *src,
+ 					 struct sockaddr_vm *dst);
+ void vsock_for_each_connected_socket(void (*fn)(struct sock *sk));
++int vsock_bind_dgram_generic(struct vsock_sock *vsk, struct sockaddr_vm *addr);
+ 
+ #endif /* __AF_VSOCK_H__ */
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index 2ec86e6..ae3ce3d 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -224,6 +224,17 @@ static struct sock *__vsock_find_bound_socket(struct sockaddr_vm *addr)
+ 	return NULL;
+ }
+ 
++static struct sock *__vsock_find_unbound_socket(struct sockaddr_vm *addr)
++{
++	struct vsock_sock *vsk;
++
++	list_for_each_entry(vsk, vsock_unbound_sockets, bound_table)
++		if (addr->svm_port == vsk->local_addr.svm_port)
++			return sk_vsock(vsk);
++
++	return NULL;
++}
++
+ static struct sock *__vsock_find_connected_socket(struct sockaddr_vm *src,
+ 						  struct sockaddr_vm *dst)
+ {
+@@ -299,6 +310,21 @@ struct sock *vsock_find_bound_socket(struct sockaddr_vm *addr)
+ }
+ EXPORT_SYMBOL_GPL(vsock_find_bound_socket);
+ 
++struct sock *vsock_find_unbound_socket(struct sockaddr_vm *addr)
++{
++	struct sock *sk;
++
++	spin_lock_bh(&vsock_table_lock);
++	sk = __vsock_find_unbound_socket(addr);
++	if (sk)
++		sock_hold(sk);
++
++	spin_unlock_bh(&vsock_table_lock);
++
++	return sk;
++}
++EXPORT_SYMBOL_GPL(vsock_find_unbound_socket);
++
+ struct sock *vsock_find_connected_socket(struct sockaddr_vm *src,
+ 					 struct sockaddr_vm *dst)
+ {
+@@ -533,6 +559,50 @@ static int __vsock_bind_stream(struct vsock_sock *vsk,
+ 	return 0;
+ }
+ 
++int vsock_bind_dgram_generic(struct vsock_sock *vsk, struct sockaddr_vm *addr)
++{
++	static u32 port = LAST_RESERVED_PORT + 1;
++	struct sockaddr_vm new_addr;
++
++	vsock_addr_init(&new_addr, addr->svm_cid, addr->svm_port);
++
++	if (addr->svm_port == VMADDR_PORT_ANY) {
++		bool found = false;
++		unsigned int i;
++
++		for (i = 0; i < MAX_PORT_RETRIES; i++) {
++			if (port <= LAST_RESERVED_PORT)
++				port = LAST_RESERVED_PORT + 1;
++
++			new_addr.svm_port = port++;
++
++			if (!__vsock_find_unbound_socket(&new_addr)) {
++				found = true;
++				break;
++			}
++		}
++
++		if (!found)
++			return -EADDRNOTAVAIL;
++	} else {
++		/* If port is in reserved range, ensure caller
++		 * has necessary privileges.
++		 */
++		if (addr->svm_port <= LAST_RESERVED_PORT &&
++		    !capable(CAP_NET_BIND_SERVICE)) {
++			return -EACCES;
++		}
++
++		if (__vsock_find_unbound_socket(&new_addr))
++			return -EADDRINUSE;
++	}
++
++	vsock_addr_init(&vsk->local_addr, new_addr.svm_cid, new_addr.svm_port);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(vsock_bind_dgram_generic);
++
+ static int __vsock_bind_dgram(struct vsock_sock *vsk,
+ 			      struct sockaddr_vm *addr)
+ {
+-- 
+2.4.1
