@@ -1,134 +1,52 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: RE: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
-Date: Wed, 27 May 2015 00:27:30 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB9DA7@BPXM14GP.gisp.nec.co.jp>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912FB5E4@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB3B4A@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912FBBEC@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4EE6@BPXM14GP.gisp.nec.co.jp>
- <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com>
- <F6FB0E698C9B3143BDF729DF22286646912FC2E3@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB8A65@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912FDC17@ORSMSX110.amr.corp.intel.com>
- <C5551D9AAB213A418B7FD5E4A6F30A07892FC8C7@ORSMSX108.amr.corp.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: tcp_tso_autosize() minimum is one packet
+Date: Tue, 26 May 2015 17:36:34 -0700
+Message-ID: <1432686994.4060.312.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150527000342.GA16379@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	"David Miller" <davem@davemloft.net>,
-	Edward Cree <ecree@solarflare.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ncardwell@google.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO201.gate.nec.co.jp ([210.143.35.51]:43522 "EHLO
-	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751382AbbE0A2l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 20:28:41 -0400
-In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A07892FC8C7@ORSMSX108.amr.corp.intel.com>
-Content-Language: ja-JP
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:38436 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751492AbbE0Agh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 20:36:37 -0400
+Received: by igcau1 with SMTP id au1so2245676igc.1
+        for <netdev@vger.kernel.org>; Tue, 26 May 2015 17:36:36 -0700 (PDT)
+In-Reply-To: <20150527000342.GA16379@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gRnJvbTogU2tpZG1vcmUsIERvbmFs
-ZCBDDQo+ID4gU2VudDogVHVlc2RheSwgTWF5IDI2LCAyMDE1IDEwOjQ2IEFNDQo+ID4gVG86IEhp
-cm9zaGkgU2hpbWFtb3RvOyBSb3NlLCBHcmVnb3J5IFY7IEtpcnNoZXIsIEplZmZyZXkgVDsgaW50
-ZWwtd2lyZWQtDQo+ID4gbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4gPiBDYzogbmhvcm1hbkByZWRo
-YXQuY29tOyBqb2dyZWVuZUByZWRoYXQuY29tOyBMaW51eCBOZXRkZXYgTGlzdDsgQ2hvaSwgU3kN
-Cj4gPiBKb25nOyBSb255IEVmcmFpbTsgRGF2aWQgTWlsbGVyOyBFZHdhcmQgQ3JlZTsgT3IgR2Vy
-bGl0ejsNCj4gPiBzYXNzbWFubkByZWRoYXQuY29tDQo+ID4gU3ViamVjdDogUkU6IFtQQVRDSCB2
-NSAzLzNdIGl4Z2JlOiBBZGQgbmV3IG5kbyB0byB0cnVzdCBWRg0KPiA+DQo+ID4NCj4gDQo+IFtz
-bmlwXQ0KPiANCj4gPg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+IEZy
-b206IEhpcm9zaGkgU2hpbWFtb3RvIFttYWlsdG86aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbV0N
-Cj4gPiA+IFNlbnQ6IE1vbmRheSwgTWF5IDI1LCAyMDE1IDY6MDAgUE0NCj4gPiA+IFRvOiBTa2lk
-bW9yZSwgRG9uYWxkIEM7IFJvc2UsIEdyZWdvcnkgVjsgS2lyc2hlciwgSmVmZnJleSBUOw0KPiA+
-ID4gaW50ZWwtd2lyZWQtIGxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+ID4gPiBDYzogbmhvcm1hbkBy
-ZWRoYXQuY29tOyBqb2dyZWVuZUByZWRoYXQuY29tOyBMaW51eCBOZXRkZXYgTGlzdDsgQ2hvaSwN
-Cj4gPiA+IFN5IEpvbmc7IFJvbnkgRWZyYWltOyBEYXZpZCBNaWxsZXI7IEVkd2FyZCBDcmVlOyBP
-ciBHZXJsaXR6Ow0KPiA+ID4gc2Fzc21hbm5AcmVkaGF0LmNvbQ0KPiA+ID4gU3ViamVjdDogUkU6
-IFtQQVRDSCB2NSAzLzNdIGl4Z2JlOiBBZGQgbmV3IG5kbyB0byB0cnVzdCBWRg0KPiA+ID4NCj4g
-PiA+DQo+ID4gPiBEbyB5b3UgbWVhbiB0aGF0IFZGIHNob3VsZCBjYXJlIGFib3V0IGl0IGlzIHRy
-dXN0ZWQgb3Igbm90Pw0KPiA+ID4gU2hvdWxkIFZGIHJlcXVlc3QgTUMgUHJvbWlzYyBhZ2FpbiB3
-aGVuIGl0J3MgdHJ1c3RlZD8NCj4gPiA+IE9yLCBkbyB5b3UgbWVhbiBWRiBuZXZlciBiZSB0cnVz
-dGVkIGR1cmluZyBpdHMgKG9yIFZNJ3MpIGxpZmV0aW1lPw0KPiA+DQo+ID4gSSB0aGluayB0aGUg
-VkYgc2hvdWxkbid0IGRpcmVjdGx5IGtub3cgd2hldGhlciBpdCBpcyB0cnVzdGVkIG9yIG5vdA0K
-PiANCj4gVGhhdCdzIGNvbXBsZXRlbHkgaXJyZXZlbGFudC4gIFRoZSBwZXJzb24gYWRtaW5pc3Rl
-cmluZyB0aGUgUEYgd2lsbCBiZSB0aGUgcGVyc29uIHdobyBwcm92aWRlZCB0cnVzdGVkIHByaXZp
-bGVnZXMgdG8gdGhlDQo+IFZGLiAgSGUnbGwgdGhlbiAqdGVsbCogb3Igc29tZWhvdyBvdGhlciBj
-b21tdW5pY2F0ZSB0byB0aGUgcGVyc29uIGFkbWluaXN0ZXJpbmcgdGhlIFZGIChwcm9iYWJseSBo
-aW1zZWxmL2hlcnNlbGYpIGFuZA0KPiB0aGVuIHByb2NlZWQgdG8gZXhlY3V0ZSBjb21tYW5kcyBv
-biB0aGF0IFZGIHRoYXQgcmVxdWlyZSB0cnVzdGVkIHByaXZpbGVnZXMuDQo+IA0KPiBJZiB0aGUg
-VkYgZG9lcyBub3QgaGF2ZSB0cnVzdGVkIHByaXZpbGVnZXMgdGhlbiB0aGUgY29tbWFuZHMgdG8g
-YWRkIFZMQU4gZmlsdGVycywgc2V0IHByb21pc2N1b3VzIG1vZGVzLCBhbmQgYW55IG90aGVyDQo+
-IHByaXZpbGVnZWQgY29tbWFuZHMgd2lsbCBmYWlsLg0KPiANCj4gTGV0J3Mgbm90IGdldCB0b28g
-ZmFuY3kgd2l0aCB0aGlzLiAgSXQncyBzaW1wbGUgLSB0aGUgaG9zdCBWTU0gYWRtaW4gcHJvdmlk
-ZXMgdHJ1c3RlZCBwcml2aWxlZ2VzIHRvIHRoZSBWRi4gIFRoZSBwZXJzb24NCj4gYWRtaW5pc3Rl
-cmluZyB0aGUgVkYgKGlmIGluIGZhY3QgaXQgaXMgbm90IHRoZSBzYW1lIHBlcnNvbiwgaXQgdXN1
-YWxseSB3aWxsIGJlKSB3aWxsIHByb2NlZWQgdG8gZG8gdGhpbmdzIHRoYXQgcmVxdWlyZQ0KPiBW
-RiB0cnVzdGVkIHByaXZpbGVnZXMuDQoNCk5vdyBJIHRoaW5rIHRoYXQgaXQncyBiZXR0ZXIgdG8g
-aGF2ZSBhbiBpbnRlcmZhY2UgYmV0d2VlbiBQRiBhbmQgVkYgdG8ga25vdyB0aGUgVkYgaXMgdHJ1
-c3RlZC4NCk90aGVyd2lzZSBWTSBjYW5ub3Qga25vdyB3aGV0aGVyIGl0cyBWRiBpcyB0cnVzdGVk
-LCB0aGF0IHByZXZlbnRzIGF1dG9tYXRpYyBvcGVyYXRpb25zLg0KT3IgYWRkIGFub3RoZXIgY29t
-bXVuaWNhdGluZyBpbnRlcmZhY2Ugb3V0c2lkZSBvZiBpeGdiZSBQRi1WRiBtYm94IEFQST8NCg0K
-PiANCj4gDQo+IC4gIEl0DQo+ID4gc2hvdWxkIHJlcXVlc3QgTUMgUHJvbWlzYyBhbmQgZ2V0IGl0
-IGlmIGl0IGlzIHRydXN0ZWQgYW5kIG5vdCBpZiBpdCBpcyBub3QNCj4gPiB0cnVzdGVkLiAgU28g
-aWYgeW91IChhcyB0aGUgc3lzdGVtIGFkbWluIGtub3cgeW91IGhhdmUgYSBWRiB0aGF0IHdpbGwg
-bmVlZA0KPiA+IHRvIHJlcXVlc3QgTUMgUHJvbWlzYyBtYWtlIHN1cmUgeW91IHByb21vdGUgdGhh
-dCBWRiB0byB0cnVzdGVkIGJlZm9yZQ0KPiA+IGFzc2lnbmluZyBpdCB0byBhIFZNLiAgVGhhdCB3
-YXkgd2hlbiBpdCByZXF1ZXN0cyBNQyBQcm9taXNjIHRoZSBQRiB3aWxsIGJlDQo+ID4gYWJsZSB0
-byBncmFudCBpdC4NCj4gPg0KPiANCj4gTXVsdGljYXN0IHByb21pc2N1b3VzIHNob3VsZCBiZSBh
-bGxvd2VkIGZvciB0aGUgVkZzLiAgV2UgYWxyZWFkeSBhbGxvdyBWRnMgdG8gc2V0IHdoYXRldmVy
-IG11bHRpY2FzdCBmaWx0ZXJzIHRoZXkgd2FudA0KPiBzbyBpZiB0aGV5IHdhbnQgdG8gZ28gaW50
-byBNUEUgdGhlbiBzbyB3aGF0PyAgV2UgZG9uJ3QgY2FyZS4gIEl0J3Mgbm90IGEgc2VjdXJpdHkg
-cmlzay4gIFJpZ2h0IG5vdywgd2l0aG91dCBhbnkgbW9kaWZpY2F0aW9uLA0KPiB0aGUgVkYgY2Fu
-IHNldCAzMCBtdWx0aWNhc3QgZmlsdGVycyBhbmQgbGlzdGVuLiAgSXQgY2FuIHRoZW4gcmVtb3Zl
-IHRob3NlIGFuZCBzZXQgYW5vdGhlciAzMCBmaWx0ZXJzIGFuZCBsaXN0ZW4uICBBbmQNCj4gc28g
-b24gYW5kIHNvIG9uLiAgU28gaWYgYSBWRiBjYW4gYWxyZWFkeSBsaXN0ZW4gb24gYW55IE1DIGZp
-bHRlciBpdCB3YW50cyB0aGVuIHdoeSB0aGlzIGFydGlmaWNpYWwgcmVzdHJpY3Rpb24gb24gTUMg
-cHJvbWlzY3VvdXMNCj4gbW9kZS4NCg0KSSdtIGZpbmUgd2l0aCB0aGF0LCBwcmV2aW91c2x5IEkg
-bWVudGlvbmVkIGFib3V0IHRoYXQuDQpXaXRob3V0IHJlc2V0dGluZyBQRiwgd2UgY2FuIGxpc3Rl
-biBldmVyeSBNQyBwYWNrZXQgd2hpY2ggaGFzaCB3YXMgc2V0Lg0KUEYgcmVzZXQgd2lsbCByZXN0
-b3JlIHRoZSBsYXN0IDMwIE1DIGFkZHJlc3NlcyBwZXIgVkYuDQoNCkFsc28gdGhlcmUgaXMgYSBz
-aW5nbGUgaGFzaCBlbnRyaWVzIHRhYmxlLCBhbGwgVkZzIHdpbGwgZ290IGEgTUMgcGFja2V0DQp3
-aGljaCBoYXNoIHdhcyBzZXQgaW4gdGhlIHRhYmxlLiBJZiBhIFZGIHVzZXIgc2V0IGEgZmlsdGVy
-LCBvdGhlciB1c2Vycw0Kd2lsbCByZWNlaXZlIHRoYXQgTUMgcGFja2V0Lg0KDQo+IA0KPiBXZSBk
-b24ndCBjYXJlIGFib3V0IHRoaXMgY2FzZS4gVW5pY2FzdCBwcm9taXNjdW91cyBpcyB0aGUgc2Vj
-dXJpdHkgcmlzayBhbmQgSSB0aGluayB3ZSd2ZSBoYW5kbGVkIHRoYXQuDQoNClNvLCBzaG91bGQg
-d2Ugc2VwYXJhdGUgdGhlIGRpc2N1c3Npb24sIGFib3V0IHRydXN0aW5nIFZGIG9wZXJhdGlvbiBh
-bmQNCmFib3V0IE1DIHByb21pc2N1b3VzPw0KDQo+IA0KPiA+DQo+ID4gPg0KPiA+ID4gQW5kIHdo
-YXQgZG8geW91IHRoaW5rIGFib3V0IGJlaW5nIHVudHJ1c3RlZCBmcm9tIHRydXN0ZWQgc3RhdGU/
-DQo+ID4NCj4gPiBUaGlzIGlzIGFuIGludGVyZXN0aW5nIHF1ZXN0aW9uLiAgSWYgd2UgYWxsb3dl
-ZCBhIFZNIHRvIGdvIGZyb20gdHJ1c3RlZCAtPg0KPiA+IHVudHJ1c3RlZCB3ZSB3b3VsZCBoYXZl
-IHRvIHR1cm4gb2ZmIGFueSAic3BlY2lhbCIgY29uZmlndXJhdGlvbiB0aGF0DQo+ID4gdHJ1c3Rl
-ZCBhbGxvd2VkLiAgTWF5YmUgaW4gc3VjaCBjYXNlcyB3ZSBjb3VsZCByZXNldCB0aGUgUEY/ICBB
-bmQgb2YNCj4gPiBjb3Vyc2UgcmVxdWlyZSBhbGwgdGhlICJzcGVjaWFsIiBjb25maWd1cmF0aW9u
-IChNQyBQcm9taXNjKSB0byBkZWZhdWx0IHRvDQo+ID4gb2ZmIGFmdGVyIGJlaW5nIHJlc2V0Lg0K
-PiA+DQo+IA0KPiBUbyByZW1vdmUgcHJpdmlsZWdlcyBmcm9tIGEgVkYgdGhhdCB5b3UncmUgYWxy
-ZWFkeSBzZXQgdG8gcHJpdmlsZWdlZCB3aWxsIHJlcXVpcmUgZGVzdHJ1Y3Rpb24gb2YgdGhlIFZG
-IFZTSSBhbmQgVkZMUiB0bw0KPiB0aGUgVkYgLSBhZnRlciBpdCBjb21lcyB1cCBpdCBjYW4ndCBk
-byBhbnkgZnVydGhlciBwcml2aWxlZ2VkIG9wZXJhdGlvbnMuDQoNCnllYWgsIHNvdW5kcyBnb29k
-IHRvIHJlc2V0IFZGIG9uIGNoYW5naW5nIHByaXZpbGVnZS4NCg0KPiANCj4gW3NuaXANCj4gDQo+
-ID4gVGhpcyB0b28gaXMgYSB2YWxpZCBwb2ludC4gIEN1cnJlbnRseSB3ZSB3b3VsZCBqdXN0IG5v
-dCBkbyBpdCAoTUMgUHJvbWlzYykNCj4gPiBhbmQgdGhlIFZGIHdvdWxkIGhhdmUgdG8gZmlndXJl
-IHRoYXQgb3V0IGZvciBpdHNlbGYuICBQYXNzaW5nIGEgTkFLIGJhY2sNCj4gPiB0byB0aGUgVkYg
-bWlnaHQgYmUgbmljZXIuIDopICBPZiBjb3Vyc2UgSSBhc3N1bWVkIHRoZSBzeXNhZG0gd291bGQg
-a25vdw0KPiA+IHRoYXQgaGUvc2hlIHdhbnRlZCB0byBnaXZlIGEgVkYgdHJ1c3RlZCBzdGF0dXMg
-YW5kIHdvdWxkIGRvIHRoYXQgYmVmb3JlDQo+ID4gdGhlIFZGIHdhcyBldmVuIGFzc2lnbmVkIHRv
-IGEgVk0sIHNvIHRoZSBpc3N1ZSB3b3VsZCBuZXZlciBjb21lIHVwLiAgTWF5YmUNCj4gPiB0aGF0
-IGlzIG5vdCB2YWxpZCBmb3IgeW91ciB1c2UgY2FzZT8NCj4gDQo+IExldCdzIG5vdCB3b3JyeSBh
-Ym91dCBNQyBwcm9taXNjdW91cyBtb2RlLiAgQXMgSSBwb2ludGVkIG91dCBhYm92ZSB3ZSBhbHJl
-YWR5IGxldCBWRnMgc2V0IGFueSBNQyBhZGRyZXNzIGZpbHRlcnMgdGhleQ0KPiB3YW50IHNvIHRo
-YXQgaG9yc2UgaGFzIGFscmVhZHkgbGVmdCB0aGUgYmFybi4NCg0KRG8geW91IHRoaW5rIHRoYXQg
-VkYgTUMgcHJvbWlzY3VvdXMgbW9kZSBpc24ndCBuZWVkZWQgdG8gaGFuZGxlIHVuZGVyIHRydXN0
-ZWQgbW9kZSwgcmlnaHQ/DQoNCnRoYW5rcywNCkhpcm9zaGkNCg0KPiANCj4gRm9jdXMgb24gZ2V0
-dGluZyB0aGUgVkYgcHJpdmlsZWdlZCBtb2RlIGNvbmZpZ3VyYXRpb24gZ29pbmcgYW5kIHRoZW4g
-d2UncmUgd2VsbCBvbiBvdXIgd2F5IHRvIGFjY29tcGxpc2hpbmcgd2hhdCB3ZSBuZWVkDQo+IHRv
-IGRvLg0KPiANCj4gLSBHcmVnDQoNCg==
+On Wed, 2015-05-27 at 08:03 +0800, Herbert Xu wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >
+> > -               if (tso_segs == 1 || !max_segs) {
+> > +               if (tso_segs == 1) {
+> 
+> What we're testing for here with max_segs is actually the question
+> "is TSO enabled".  So with your patch we will be taking the TSO
+> code path even when TSO is disabled.  Now this may or may not
+> trigger the original bug that I was trying to fix but it still
+> feels unsafe.
+> 
+> So please convince me that it is totally safe to take the TSO
+> code path with TSO disabled, e.g., when PMTU causes tso_segs
+> to be greater than one.
+
+tldr:  "TSO with max_segs==1"  <is the same than> "no TSO/GSO"
+
+
+So worth thing that will happen is that the call to
+tcp_mss_split_point() / tso_fragment() will nicely split the (TSO/GSO)
+packet in a nice non GSO packet of one MSS before transmit.
+
+Right now, one can "ethtool -K eth0 tso off gso off" in the middle of a
+TCP session and  tcp_write_xmit() automatically falls back to splitting
+too big skbs that were cooked at the time GSO/TSO was considered true in
+sendmsg().
+  
+Not sure what you need to be convinced ;)
+
+Thanks !
