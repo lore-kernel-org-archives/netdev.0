@@ -1,59 +1,38 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net iproute2 v2 1/2] mpls: always set type as RTN_UNICAST for route add/deletes
-Date: Wed, 27 May 2015 11:37:04 -0700
-Message-ID: <1432751825-40804-2-git-send-email-roopa@cumulusnetworks.com>
-Cc: davem@davemloft.net, rshearma@brocade.com, netdev@vger.kernel.org,
-	vivek@cumulusnetworks.com
-To: ebiederm@xmission.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp/dccp: warn user for preferred
+ ip_local_port_range
+Date: Wed, 27 May 2015 14:37:22 -0400 (EDT)
+Message-ID: <20150527.143722.1854988910324788026.davem@davemloft.net>
+References: <1432751677.4060.423.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:34969 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753327AbbE0ShL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 14:37:11 -0400
-Received: by pdea3 with SMTP id a3so22867990pde.2
-        for <netdev@vger.kernel.org>; Wed, 27 May 2015 11:37:11 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:38026 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753492AbbE0ShX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 14:37:23 -0400
+In-Reply-To: <1432751677.4060.423.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 27 May 2015 11:34:37 -0700
 
-Kernel expects type RTN_UNICAST for mpls route/dels
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> After commit 07f4c90062f8f ("tcp/dccp: try to not exhaust
+> ip_local_port_range in connect()") it is advised to have an even number
+> of ports described in /proc/sys/net/ipv4/ip_local_port_range
+> 
+> This means start/end values should have a different parity.
+> 
+> Let's warn sysadmins of this, so that they can update their settings
+> if they want to.
+> 
+> Suggested-by: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Vivek Venkataraman <vivek@cumulusnetworks.com>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- ip/iproute.c |    5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 670a4c6..71c088b 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -803,6 +803,7 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
- 	int scope_ok = 0;
- 	int table_ok = 0;
- 	int raw = 0;
-+	int type_ok = 0;
- 
- 	memset(&req, 0, sizeof(req));
- 
-@@ -1095,6 +1096,7 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
- 			    rtnl_rtntype_a2n(&type, *argv) == 0) {
- 				NEXT_ARG();
- 				req.r.rtm_type = type;
-+				type_ok = 1;
- 			}
- 
- 			if (matches(*argv, "help") == 0)
-@@ -1160,6 +1162,9 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
- 		}
- 	}
- 
-+	if (!type_ok && req.r.rtm_family == AF_MPLS)
-+		req.r.rtm_type = RTN_UNICAST;
-+
- 	if (req.r.rtm_family == AF_UNSPEC)
- 		req.r.rtm_family = AF_INET;
- 
--- 
-1.7.10.4
+Looks good, applied, thanks Eric.
