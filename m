@@ -1,96 +1,162 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net] net_sched: invoke ->attach() after setting
- dev->qdisc
-Date: Tue, 26 May 2015 18:57:54 -0700
-Message-ID: <1432691874.4060.321.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1432681729-1295-1-git-send-email-xiyou.wangcong@gmail.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
+Date: Wed, 27 May 2015 02:00:36 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A07892FCD87@ORSMSX108.amr.corp.intel.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FB5E4@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB3B4A@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FBBEC@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4EE6@BPXM14GP.gisp.nec.co.jp>
+ <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com>
+ <F6FB0E698C9B3143BDF729DF22286646912FC2E3@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB8A65@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FDC17@ORSMSX110.amr.corp.intel.com>
+ <C5551D9AAB213A418B7FD5E4A6F30A07892FC8C7@ORSMSX108.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB9DA7@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	"David Miller" <davem@davemloft.net>,
+	Edward Cree <ecree@solarflare.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:33098 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752203AbbE0B55 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2015 21:57:57 -0400
-Received: by iebgx4 with SMTP id gx4so3259939ieb.0
-        for <netdev@vger.kernel.org>; Tue, 26 May 2015 18:57:57 -0700 (PDT)
-In-Reply-To: <1432681729-1295-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:51141 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751796AbbE0CAj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 May 2015 22:00:39 -0400
+In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB9DA7@BPXM14GP.gisp.nec.co.jp>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-05-26 at 16:08 -0700, Cong Wang wrote:
-> For mq qdisc, we add per tx queue qdisc to root qdisc
-> for display purpose, however, that happens too early,
-> before the new dev->qdisc is finally set, this causes
-> q->list points to an old root qdisc which is going to be
-> freed right before assigning with a new one.
-> 
-> Fix this by moving ->attach() after setting dev->qdisc.
-> 
-> For the record, this fixes the following crash:
-...
-
-> For long term, we probably need to clean up the qdisc_graft() code
-> in case it hides other bugs like this.
-> 
-> Fixes: 95dc19299f74 ("pkt_sched: give visibility to mq slave qdiscs")
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  net/sched/sch_api.c | 10 ++++++----
->  1 file changed, 6 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-> index ad9eed7..1e1c89e 100644
-> --- a/net/sched/sch_api.c
-> +++ b/net/sched/sch_api.c
-> @@ -815,10 +815,8 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
->  		if (dev->flags & IFF_UP)
->  			dev_deactivate(dev);
->  
-> -		if (new && new->ops->attach) {
-> -			new->ops->attach(new);
-> -			num_q = 0;
-> -		}
-> +		if (new && new->ops->attach)
-> +			goto skip;
->  
->  		for (i = 0; i < num_q; i++) {
->  			struct netdev_queue *dev_queue = dev_ingress_queue(dev);
-> @@ -834,12 +832,16 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
->  				qdisc_destroy(old);
->  		}
->  
-> +skip:
->  		if (!ingress) {
->  			notify_and_destroy(net, skb, n, classid,
->  					   dev->qdisc, new);
->  			if (new && !new->ops->attach)
->  				atomic_inc(&new->refcnt);
->  			dev->qdisc = new ? : &noop_qdisc;
-> +
-> +			if (new && new->ops->attach)
-> +				new->ops->attach(new);
->  		} else {
->  			notify_and_destroy(net, skb, n, classid, old, new);
->  		}
-
-Good catch !
-
-Please CC author of a buggy patch, always interesting to learn from our
-mistakes. ;)
-
-Note that attach() method is called with the 'new' qdisc,
-we might pass this parameter up to qdisc_list_add()
-
-Conceptually, setting dev->qdisc before attach() seems a bit awkward,
-but given that attach() returns void, we did not planned having an error
-path anyway.
-
-No strong feeling here, I think your patch is fine as is.
-
-Acked-by: Eric Dumazet <edumazet@google.com>
-
-Thanks a lot.
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEhpcm9zaGkgU2hpbWFtb3Rv
+IFttYWlsdG86aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbV0NCj4gU2VudDogVHVlc2RheSwgTWF5
+IDI2LCAyMDE1IDU6MjggUE0NCj4gVG86IFJvc2UsIEdyZWdvcnkgVjsgU2tpZG1vcmUsIERvbmFs
+ZCBDOyBLaXJzaGVyLCBKZWZmcmV5IFQ7IGludGVsLXdpcmVkLQ0KPiBsYW5AbGlzdHMub3N1b3Ns
+Lm9yZw0KPiBDYzogbmhvcm1hbkByZWRoYXQuY29tOyBqb2dyZWVuZUByZWRoYXQuY29tOyBMaW51
+eCBOZXRkZXYgTGlzdDsgQ2hvaSwgU3kNCj4gSm9uZzsgUm9ueSBFZnJhaW07IERhdmlkIE1pbGxl
+cjsgRWR3YXJkIENyZWU7IE9yIEdlcmxpdHo7DQo+IHNhc3NtYW5uQHJlZGhhdC5jb20NCj4gU3Vi
+amVjdDogUkU6IFtQQVRDSCB2NSAzLzNdIGl4Z2JlOiBBZGQgbmV3IG5kbyB0byB0cnVzdCBWRg0K
+PiANCj4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPiBGcm9tOiBTa2lkbW9y
+ZSwgRG9uYWxkIEMNCj4gPiA+IFNlbnQ6IFR1ZXNkYXksIE1heSAyNiwgMjAxNSAxMDo0NiBBTQ0K
+PiA+ID4gVG86IEhpcm9zaGkgU2hpbWFtb3RvOyBSb3NlLCBHcmVnb3J5IFY7IEtpcnNoZXIsIEpl
+ZmZyZXkgVDsNCj4gPiA+IGludGVsLXdpcmVkLSBsYW5AbGlzdHMub3N1b3NsLm9yZw0KPiA+ID4g
+Q2M6IG5ob3JtYW5AcmVkaGF0LmNvbTsgam9ncmVlbmVAcmVkaGF0LmNvbTsgTGludXggTmV0ZGV2
+IExpc3Q7DQo+ID4gPiBDaG9pLCBTeSBKb25nOyBSb255IEVmcmFpbTsgRGF2aWQgTWlsbGVyOyBF
+ZHdhcmQgQ3JlZTsgT3IgR2VybGl0ejsNCj4gPiA+IHNhc3NtYW5uQHJlZGhhdC5jb20NCj4gPiA+
+IFN1YmplY3Q6IFJFOiBbUEFUQ0ggdjUgMy8zXSBpeGdiZTogQWRkIG5ldyBuZG8gdG8gdHJ1c3Qg
+VkYNCj4gPiA+DQo+ID4gPg0KPiA+DQo+ID4gW3NuaXBdDQo+ID4NCj4gPiA+DQo+ID4gPiA+IC0t
+LS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPiA+IEZyb206IEhpcm9zaGkgU2hpbWFtb3Rv
+IFttYWlsdG86aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbV0NCj4gPiA+ID4gU2VudDogTW9uZGF5
+LCBNYXkgMjUsIDIwMTUgNjowMCBQTQ0KPiA+ID4gPiBUbzogU2tpZG1vcmUsIERvbmFsZCBDOyBS
+b3NlLCBHcmVnb3J5IFY7IEtpcnNoZXIsIEplZmZyZXkgVDsNCj4gPiA+ID4gaW50ZWwtd2lyZWQt
+IGxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+ID4gPiA+IENjOiBuaG9ybWFuQHJlZGhhdC5jb207IGpv
+Z3JlZW5lQHJlZGhhdC5jb207IExpbnV4IE5ldGRldiBMaXN0Ow0KPiA+ID4gPiBDaG9pLCBTeSBK
+b25nOyBSb255IEVmcmFpbTsgRGF2aWQgTWlsbGVyOyBFZHdhcmQgQ3JlZTsgT3IgR2VybGl0ejsN
+Cj4gPiA+ID4gc2Fzc21hbm5AcmVkaGF0LmNvbQ0KPiA+ID4gPiBTdWJqZWN0OiBSRTogW1BBVENI
+IHY1IDMvM10gaXhnYmU6IEFkZCBuZXcgbmRvIHRvIHRydXN0IFZGDQo+ID4gPiA+DQo+ID4gPiA+
+DQo+ID4gPiA+IERvIHlvdSBtZWFuIHRoYXQgVkYgc2hvdWxkIGNhcmUgYWJvdXQgaXQgaXMgdHJ1
+c3RlZCBvciBub3Q/DQo+ID4gPiA+IFNob3VsZCBWRiByZXF1ZXN0IE1DIFByb21pc2MgYWdhaW4g
+d2hlbiBpdCdzIHRydXN0ZWQ/DQo+ID4gPiA+IE9yLCBkbyB5b3UgbWVhbiBWRiBuZXZlciBiZSB0
+cnVzdGVkIGR1cmluZyBpdHMgKG9yIFZNJ3MpIGxpZmV0aW1lPw0KPiA+ID4NCj4gPiA+IEkgdGhp
+bmsgdGhlIFZGIHNob3VsZG4ndCBkaXJlY3RseSBrbm93IHdoZXRoZXIgaXQgaXMgdHJ1c3RlZCBv
+ciBub3QNCj4gPg0KPiA+IFRoYXQncyBjb21wbGV0ZWx5IGlycmV2ZWxhbnQuICBUaGUgcGVyc29u
+IGFkbWluaXN0ZXJpbmcgdGhlIFBGIHdpbGwgYmUNCj4gPiB0aGUgcGVyc29uIHdobyBwcm92aWRl
+ZCB0cnVzdGVkIHByaXZpbGVnZXMgdG8gdGhlIFZGLiAgSGUnbGwgdGhlbg0KPiA+ICp0ZWxsKiBv
+ciBzb21laG93IG90aGVyIGNvbW11bmljYXRlIHRvIHRoZSBwZXJzb24gYWRtaW5pc3RlcmluZyB0
+aGUgVkYNCj4gKHByb2JhYmx5IGhpbXNlbGYvaGVyc2VsZikgYW5kIHRoZW4gcHJvY2VlZCB0byBl
+eGVjdXRlIGNvbW1hbmRzIG9uIHRoYXQgVkYNCj4gdGhhdCByZXF1aXJlIHRydXN0ZWQgcHJpdmls
+ZWdlcy4NCj4gPg0KPiA+IElmIHRoZSBWRiBkb2VzIG5vdCBoYXZlIHRydXN0ZWQgcHJpdmlsZWdl
+cyB0aGVuIHRoZSBjb21tYW5kcyB0byBhZGQNCj4gPiBWTEFOIGZpbHRlcnMsIHNldCBwcm9taXNj
+dW91cyBtb2RlcywgYW5kIGFueSBvdGhlciBwcml2aWxlZ2VkIGNvbW1hbmRzDQo+IHdpbGwgZmFp
+bC4NCj4gPg0KPiA+IExldCdzIG5vdCBnZXQgdG9vIGZhbmN5IHdpdGggdGhpcy4gIEl0J3Mgc2lt
+cGxlIC0gdGhlIGhvc3QgVk1NIGFkbWluDQo+ID4gcHJvdmlkZXMgdHJ1c3RlZCBwcml2aWxlZ2Vz
+IHRvIHRoZSBWRi4gIFRoZSBwZXJzb24gYWRtaW5pc3RlcmluZyB0aGUNCj4gPiBWRiAoaWYgaW4g
+ZmFjdCBpdCBpcyBub3QgdGhlIHNhbWUgcGVyc29uLCBpdCB1c3VhbGx5IHdpbGwgYmUpIHdpbGwN
+Cj4gcHJvY2VlZCB0byBkbyB0aGluZ3MgdGhhdCByZXF1aXJlIFZGIHRydXN0ZWQgcHJpdmlsZWdl
+cy4NCj4gDQo+IE5vdyBJIHRoaW5rIHRoYXQgaXQncyBiZXR0ZXIgdG8gaGF2ZSBhbiBpbnRlcmZh
+Y2UgYmV0d2VlbiBQRiBhbmQgVkYgdG8NCj4ga25vdyB0aGUgVkYgaXMgdHJ1c3RlZC4NCj4gT3Ro
+ZXJ3aXNlIFZNIGNhbm5vdCBrbm93IHdoZXRoZXIgaXRzIFZGIGlzIHRydXN0ZWQsIHRoYXQgcHJl
+dmVudHMNCj4gYXV0b21hdGljIG9wZXJhdGlvbnMuDQoNCkFncmVlZCwgaXQgd291bGQgYmUgc2ls
+bHkgZm9yIHRoZSBWRiB0byBoYXZlIHByaXZpbGVnZXMgYnV0IG5vdCBrbm93IHRoYXQgaXQgY2Fu
+IHVzZSB0aGVtISAgDQoNCj4gT3IgYWRkIGFub3RoZXIgY29tbXVuaWNhdGluZyBpbnRlcmZhY2Ug
+b3V0c2lkZSBvZiBpeGdiZSBQRi1WRiBtYm94IEFQST8NCg0KV2UgY2FuJ3QgZGVwZW5kIG9uIGFu
+eSBnaXZlbiB2ZW5kb3Igc3BlY2lmaWMgaW50ZXJmYWNlLiAgSSdkIGFkZCBhIHZlcnkgY2xlYXIg
+Y29tbWVudCBpbiB0aGUgDQpQaHlzaWNhbCBGdW5jdGlvbiBuZG8gb3AgdGhhdCBnaXZlcyBhIFZG
+IHRydXN0ZWQgcHJpdmlsZWdlcyB0aGF0IGl0IGlzIHVwIHRvIHRoZSBkcml2ZXIgdG8gbm90aWZ5
+IHRoZSBWRiBkcml2ZXIuICBCdXQgeWVzLCBpbiB0aGUgY2FzZSBvZiBJbnRlbCBkcml2ZXJzIHRo
+ZSBtYWlsYm94IG9yIGFkbWluIHF1ZXVlIChmb3IgaTQwZSkgd291bGQgYmUgdGhlIG1lY2hhbmlz
+bSB0byBkbyB0aGF0LiAgSSBrbm93IHlvdSBoYXZlIHNvbWUgaXhnYmUgcGF0Y2hlcyB0aGF0IGNv
+aW5jaWRlIHdpdGggdGhpcyBwYXRjaCBzbyB0aGF0J3MgYSBnb29kIHBsYWNlIHRvIGxvb2suDQoN
+Cj4gDQo+ID4NCj4gPg0KPiA+IC4gIEl0DQo+ID4gPiBzaG91bGQgcmVxdWVzdCBNQyBQcm9taXNj
+IGFuZCBnZXQgaXQgaWYgaXQgaXMgdHJ1c3RlZCBhbmQgbm90IGlmIGl0DQo+ID4gPiBpcyBub3Qg
+dHJ1c3RlZC4gIFNvIGlmIHlvdSAoYXMgdGhlIHN5c3RlbSBhZG1pbiBrbm93IHlvdSBoYXZlIGEg
+VkYNCj4gPiA+IHRoYXQgd2lsbCBuZWVkIHRvIHJlcXVlc3QgTUMgUHJvbWlzYyBtYWtlIHN1cmUg
+eW91IHByb21vdGUgdGhhdCBWRg0KPiA+ID4gdG8gdHJ1c3RlZCBiZWZvcmUgYXNzaWduaW5nIGl0
+IHRvIGEgVk0uICBUaGF0IHdheSB3aGVuIGl0IHJlcXVlc3RzDQo+ID4gPiBNQyBQcm9taXNjIHRo
+ZSBQRiB3aWxsIGJlIGFibGUgdG8gZ3JhbnQgaXQuDQo+ID4gPg0KPiA+DQo+ID4gTXVsdGljYXN0
+IHByb21pc2N1b3VzIHNob3VsZCBiZSBhbGxvd2VkIGZvciB0aGUgVkZzLiAgV2UgYWxyZWFkeSBh
+bGxvdw0KPiA+IFZGcyB0byBzZXQgd2hhdGV2ZXIgbXVsdGljYXN0IGZpbHRlcnMgdGhleSB3YW50
+IHNvIGlmIHRoZXkgd2FudCB0byBnbw0KPiA+IGludG8gTVBFIHRoZW4gc28gd2hhdD8gIFdlIGRv
+bid0IGNhcmUuICBJdCdzIG5vdCBhIHNlY3VyaXR5IHJpc2suDQo+ID4gUmlnaHQgbm93LCB3aXRo
+b3V0IGFueSBtb2RpZmljYXRpb24sIHRoZSBWRiBjYW4gc2V0IDMwIG11bHRpY2FzdA0KPiA+IGZp
+bHRlcnMgYW5kIGxpc3Rlbi4gIEl0IGNhbiB0aGVuIHJlbW92ZSB0aG9zZSBhbmQgc2V0IGFub3Ro
+ZXIgMzAgZmlsdGVycw0KPiBhbmQgbGlzdGVuLiAgQW5kIHNvIG9uIGFuZCBzbyBvbi4gIFNvIGlm
+IGEgVkYgY2FuIGFscmVhZHkgbGlzdGVuIG9uIGFueSBNQw0KPiBmaWx0ZXIgaXQgd2FudHMgdGhl
+biB3aHkgdGhpcyBhcnRpZmljaWFsIHJlc3RyaWN0aW9uIG9uIE1DIHByb21pc2N1b3VzDQo+IG1v
+ZGUuDQo+IA0KPiBJJ20gZmluZSB3aXRoIHRoYXQsIHByZXZpb3VzbHkgSSBtZW50aW9uZWQgYWJv
+dXQgdGhhdC4NCj4gV2l0aG91dCByZXNldHRpbmcgUEYsIHdlIGNhbiBsaXN0ZW4gZXZlcnkgTUMg
+cGFja2V0IHdoaWNoIGhhc2ggd2FzIHNldC4NCj4gUEYgcmVzZXQgd2lsbCByZXN0b3JlIHRoZSBs
+YXN0IDMwIE1DIGFkZHJlc3NlcyBwZXIgVkYuDQo+IA0KPiBBbHNvIHRoZXJlIGlzIGEgc2luZ2xl
+IGhhc2ggZW50cmllcyB0YWJsZSwgYWxsIFZGcyB3aWxsIGdvdCBhIE1DIHBhY2tldA0KPiB3aGlj
+aCBoYXNoIHdhcyBzZXQgaW4gdGhlIHRhYmxlLiBJZiBhIFZGIHVzZXIgc2V0IGEgZmlsdGVyLCBv
+dGhlciB1c2Vycw0KPiB3aWxsIHJlY2VpdmUgdGhhdCBNQyBwYWNrZXQuDQo+IA0KPiA+DQo+ID4g
+V2UgZG9uJ3QgY2FyZSBhYm91dCB0aGlzIGNhc2UuIFVuaWNhc3QgcHJvbWlzY3VvdXMgaXMgdGhl
+IHNlY3VyaXR5IHJpc2sNCj4gYW5kIEkgdGhpbmsgd2UndmUgaGFuZGxlZCB0aGF0Lg0KPiANCj4g
+U28sIHNob3VsZCB3ZSBzZXBhcmF0ZSB0aGUgZGlzY3Vzc2lvbiwgYWJvdXQgdHJ1c3RpbmcgVkYg
+b3BlcmF0aW9uIGFuZA0KPiBhYm91dCBNQyBwcm9taXNjdW91cz8NCg0KWWVzLiAgQW5kIHRvIG15
+IG1pbmQgaXQgc2hvdWxkbid0IHJlYWxseSBiZSBpbiB0aGUgY29udGV4dCBvZiB2aXJ0dWFsIGZ1
+bmN0aW9uIHByaXZpbGVnZSBvciB0cnVzdC4NCg0KPiANCj4gPg0KPiA+ID4NCj4gPiA+ID4NCj4g
+PiA+ID4gQW5kIHdoYXQgZG8geW91IHRoaW5rIGFib3V0IGJlaW5nIHVudHJ1c3RlZCBmcm9tIHRy
+dXN0ZWQgc3RhdGU/DQo+ID4gPg0KPiA+ID4gVGhpcyBpcyBhbiBpbnRlcmVzdGluZyBxdWVzdGlv
+bi4gIElmIHdlIGFsbG93ZWQgYSBWTSB0byBnbyBmcm9tDQo+ID4gPiB0cnVzdGVkIC0+IHVudHJ1
+c3RlZCB3ZSB3b3VsZCBoYXZlIHRvIHR1cm4gb2ZmIGFueSAic3BlY2lhbCINCj4gPiA+IGNvbmZp
+Z3VyYXRpb24gdGhhdCB0cnVzdGVkIGFsbG93ZWQuICBNYXliZSBpbiBzdWNoIGNhc2VzIHdlIGNv
+dWxkDQo+ID4gPiByZXNldCB0aGUgUEY/ICBBbmQgb2YgY291cnNlIHJlcXVpcmUgYWxsIHRoZSAi
+c3BlY2lhbCIgY29uZmlndXJhdGlvbg0KPiA+ID4gKE1DIFByb21pc2MpIHRvIGRlZmF1bHQgdG8g
+b2ZmIGFmdGVyIGJlaW5nIHJlc2V0Lg0KPiA+ID4NCj4gPg0KPiA+IFRvIHJlbW92ZSBwcml2aWxl
+Z2VzIGZyb20gYSBWRiB0aGF0IHlvdSdyZSBhbHJlYWR5IHNldCB0byBwcml2aWxlZ2VkDQo+ID4g
+d2lsbCByZXF1aXJlIGRlc3RydWN0aW9uIG9mIHRoZSBWRiBWU0kgYW5kIFZGTFIgdG8gdGhlIFZG
+IC0gYWZ0ZXIgaXQNCj4gY29tZXMgdXAgaXQgY2FuJ3QgZG8gYW55IGZ1cnRoZXIgcHJpdmlsZWdl
+ZCBvcGVyYXRpb25zLg0KPiANCj4geWVhaCwgc291bmRzIGdvb2QgdG8gcmVzZXQgVkYgb24gY2hh
+bmdpbmcgcHJpdmlsZWdlLg0KPiANCj4gPg0KPiA+IFtzbmlwDQo+ID4NCj4gPiA+IFRoaXMgdG9v
+IGlzIGEgdmFsaWQgcG9pbnQuICBDdXJyZW50bHkgd2Ugd291bGQganVzdCBub3QgZG8gaXQgKE1D
+DQo+ID4gPiBQcm9taXNjKSBhbmQgdGhlIFZGIHdvdWxkIGhhdmUgdG8gZmlndXJlIHRoYXQgb3V0
+IGZvciBpdHNlbGYuDQo+ID4gPiBQYXNzaW5nIGEgTkFLIGJhY2sgdG8gdGhlIFZGIG1pZ2h0IGJl
+IG5pY2VyLiA6KSAgT2YgY291cnNlIEkgYXNzdW1lZA0KPiA+ID4gdGhlIHN5c2FkbSB3b3VsZCBr
+bm93IHRoYXQgaGUvc2hlIHdhbnRlZCB0byBnaXZlIGEgVkYgdHJ1c3RlZCBzdGF0dXMNCj4gPiA+
+IGFuZCB3b3VsZCBkbyB0aGF0IGJlZm9yZSB0aGUgVkYgd2FzIGV2ZW4gYXNzaWduZWQgdG8gYSBW
+TSwgc28gdGhlDQo+ID4gPiBpc3N1ZSB3b3VsZCBuZXZlciBjb21lIHVwLiAgTWF5YmUgdGhhdCBp
+cyBub3QgdmFsaWQgZm9yIHlvdXIgdXNlIGNhc2U/DQo+ID4NCj4gPiBMZXQncyBub3Qgd29ycnkg
+YWJvdXQgTUMgcHJvbWlzY3VvdXMgbW9kZS4gIEFzIEkgcG9pbnRlZCBvdXQgYWJvdmUgd2UNCj4g
+PiBhbHJlYWR5IGxldCBWRnMgc2V0IGFueSBNQyBhZGRyZXNzIGZpbHRlcnMgdGhleSB3YW50IHNv
+IHRoYXQgaG9yc2UgaGFzDQo+IGFscmVhZHkgbGVmdCB0aGUgYmFybi4NCj4gDQo+IERvIHlvdSB0
+aGluayB0aGF0IFZGIE1DIHByb21pc2N1b3VzIG1vZGUgaXNuJ3QgbmVlZGVkIHRvIGhhbmRsZSB1
+bmRlcg0KPiB0cnVzdGVkIG1vZGUsIHJpZ2h0Pw0KDQpDb3JyZWN0LCB0aGF0J3MgbXkgb3Bpbmlv
+biBvbiBpdCBnaXZlbiB0aGUgZmFjdCB0aGF0IGhpc3RvcmljYWxseSB0aGVyZSBoYXMgbmV2ZXIg
+YmVlbiBhbnkgcmVzdHJpY3Rpb24gb24gc2V0dGluZyBNQyBhZGRyZXNzZXMgYnkgdGhlIFZGLiBT
+ZWUgbXkgY29tbWVudHMgYWJvdmUgaW4gdGhlIHJlc3BlY3QuDQoNClRoYW5rcyBhbmQgcmVnYXJk
+cyBIaXJvc2hpLA0KDQotIEdyZWcNCg0KPiANCj4gdGhhbmtzLA0KPiBIaXJvc2hpDQo+IA0KPiA+
+DQo+ID4gRm9jdXMgb24gZ2V0dGluZyB0aGUgVkYgcHJpdmlsZWdlZCBtb2RlIGNvbmZpZ3VyYXRp
+b24gZ29pbmcgYW5kIHRoZW4NCj4gPiB3ZSdyZSB3ZWxsIG9uIG91ciB3YXkgdG8gYWNjb21wbGlz
+aGluZyB3aGF0IHdlIG5lZWQgdG8gZG8uDQo+ID4NCj4gPiAtIEdyZWcNCg0K
