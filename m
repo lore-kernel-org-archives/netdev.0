@@ -1,53 +1,94 @@
-From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the RDMA-CM
-Date: Thu, 28 May 2015 22:05:05 +0300
-Message-ID: <CAJ3xEMh2T5-56rFxWVdct2uAZYW1ZrKivWfS45V-mvhAfwyGaA@mail.gmail.com>
-References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
-	<1432647280.28905.107.camel@redhat.com>
-	<55671309.6080303@mellanox.com>
-	<1432822057.114391.26.camel@redhat.com>
-	<55674077.5040707@mellanox.com>
-	<20150528174337.GA10448@obsidianresearch.com>
-	<1432837360.114391.35.camel@redhat.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH] xfrm6: Do not use xfrm_local_error for path MTU issues
+ in tunnels
+Date: Thu, 28 May 2015 12:15:43 -0700
+Message-ID: <5567695F.6070505@gmail.com>
+References: <20150527173823.1415.96248.stgit@ahduyck-vm-fedora22> <20150528053607.GF27342@secunet.com> <5566C15B.7090403@gmail.com> <20150528084002.GI27342@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1432837360.114391.35.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	davem@davemloft.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, linux-crypto@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20150528084002.GI27342@secunet.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 28, 2015 at 9:22 PM, Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+On 05/28/2015 01:40 AM, Steffen Klassert wrote:
+> On Thu, May 28, 2015 at 12:18:51AM -0700, Alexander Duyck wrote:
+>> On 05/27/2015 10:36 PM, Steffen Klassert wrote:
+>>> On Wed, May 27, 2015 at 10:40:32AM -0700, Alexander Duyck wrote:
+>>>> This change makes it so that we use icmpv6_send to report PMTU issues back
+>>>> into tunnels in the case that the resulting packet is larger than the MTU
+>>>> of the outgoing interface.  Previously xfrm_local_error was being used in
+>>>> this case, however this was resulting in no changes, I suspect due to the
+>>>> fact that the tunnel itself was being kept out of the loop.
+>>>>
+>>>> This patch fixes PMTU problems seen on ip6_vti tunnels and is based on the
+>>>> behavior seen if the socket was orphaned.  Instead of requiring the socket
+>>>> to be orphaned this patch simply defaults to using icmpv6_send in the case
+>>>> that the frame came though a tunnel.
+>>> We can use icmpv6_send() just in the case that the packet
+>>> was already transmitted by a tunnel device, otherwise we
+>>> get the bug back that I mentioned in my other mail.
+>>>
+>>> Not sure if we have something to know that the packet
+>>> traversed a tunnel device. That's what I asked in the
+>>> thread 'Looking for a lost patch'.
+>> Okay I will try to do some more digging.  From what I can tell right
+>> now it looks like my ping attempts are getting hung up on the
+>> xfrm_local_error in __xfrm6_output.  I wonder if we couldn't somehow
+>> make use of the skb->cb to store a pointer to the tunnel that could
+>> be checked to determine if we are going through a VTI or not.
+> Maybe it is as easy as the patch below, could you please test it?
+>
+> Subject: [PATCH RFC] vti6: Add pmtu handling to vti6_xmit.
+>
+> We currently rely on the PMTU discovery of xfrm.
+> However if a packet is localy sent, the PMTU mechanism
+> of xfrm tries to to local socket notification what
+> might not work for applications like ping that don't
+> check for this. So add pmtu handling to vti6_xmit to
+> report MTU changes immediately.
+>
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>   net/ipv6/ip6_vti.c | 10 ++++++++++
+>   1 file changed, 10 insertions(+)
+>
+> diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+> index ff3bd86..13cb771 100644
+> --- a/net/ipv6/ip6_vti.c
+> +++ b/net/ipv6/ip6_vti.c
+> @@ -434,6 +434,7 @@ vti6_xmit(struct sk_buff *skb, struct net_device *dev, struct flowi *fl)
+>   	struct dst_entry *dst = skb_dst(skb);
+>   	struct net_device *tdev;
+>   	struct xfrm_state *x;
+> +	int mtu;
+>   	int err = -1;
+>   
+>   	if (!dst)
+> @@ -468,6 +469,15 @@ vti6_xmit(struct sk_buff *skb, struct net_device *dev, struct flowi *fl)
+>   	skb_dst_set(skb, dst);
+>   	skb->dev = skb_dst(skb)->dev;
+>   
+> +	mtu = dst_mtu(dst);
+> +	if (!skb->ignore_df && skb->len > mtu) {
+> +		skb_dst(skb)->ops->update_pmtu(dst, NULL, skb, mtu);
+> +
+> +		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+> +
+> +		return -EMSGSIZE;
+> +	}
+> +
+>   	err = dst_output(skb);
+>   	if (net_xmit_eval(err) == 0) {
+>   		struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
 
->> I don't think that is what Doug said.
+That seems to be working for me.  I'm able to ping and while the first 
+packet fails the second one and all that follow make it through 
+correctly after the ptmu update.
 
-> Indeed.  There is no need to scrap things, but if the design as it
-> stands, and the intended means of creating objects for use in
-> containers, is going to result in an unworkable network, then we have to
-> re-evaluate how the container constructs are created, and that then has
-> possible consequences for how we would get from an incoming packet to
-> the proper container.
-
-To be precise, do we agree that the issue here isn't "in the design as
-it stands" but rather in a problem we found in the intended way of
-assigning IP addresses through DHCP for the containers?
-
-> I'm not trying to stop the "support train" here, but at the same time,
-> if the train is headed for a bridge that's out....
-
-So what's your concrete saying here? where should we go from here?
-
-Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+- Alex
