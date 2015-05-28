@@ -1,58 +1,68 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: DSA and underlying 802.1Q encapsulation
-Date: Thu, 28 May 2015 07:19:43 -0700
-Message-ID: <556723FF.7030606@roeck-us.net>
-References: <1183592753.514019.1432679397515.JavaMail.zimbra@savoirfairelinux.com> <20150526225142.GB26454@roeck-us.net> <1250227394.1145458.1432759717091.JavaMail.zimbra@savoirfairelinux.com> <556630EA.7060707@roeck-us.net> <1072166088.99991.1432820687442.JavaMail.zimbra@savoirfairelinux.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next 01/14] ethtool: Add helper routines to pass vf to rx_flow_spec
+Date: Thu, 28 May 2015 17:20:05 +0300
+Message-ID: <55672415.4070300@cogentembedded.com>
+References: <1432812339-17129-1-git-send-email-jeffrey.t.kirsher@intel.com> <1432812339-17129-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>, Chris Healy <cphealy@gmail.com>,
-	=?UTF-8?B?SsOpcm9tZSBPdWZlbGxh?=
-	<jerome.oufella@savoirfairelinux.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Alex Duyck <alexander.h.duyck@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:44994 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751588AbbE1OTr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 10:19:47 -0400
-In-Reply-To: <1072166088.99991.1432820687442.JavaMail.zimbra@savoirfairelinux.com>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:33331 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751387AbbE1OUJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 10:20:09 -0400
+Received: by labpy14 with SMTP id py14so21278717lab.0
+        for <netdev@vger.kernel.org>; Thu, 28 May 2015 07:20:07 -0700 (PDT)
+In-Reply-To: <1432812339-17129-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/28/2015 06:44 AM, Vivien Didelot wrote:
-> Hi Guenter,
->
->>>> If yes, the dsa code may need to move the tag into the header.
->>>> If we are lucky, a call to vlan_hwaccel_push_inside() might do it.
->>>
->>> Thanks, I'm currently looking into it and doing some tests, I'm coming back to
->>> you asap.
->
-> Issue fixed, thanks! vlan_hwaccel_push_inside() adds additional memmove, but
-> this approach is simpler.
->
->>>> Do you have some vlan dsa code to share, by any chance ? That might
->>>> save me some time, as I am looking into it as well.
->>>
->>> Yes, I am about the send an RFC for fully integrated 802.1q VLAN support on
->>> Marvell 88E6352 devices.
->>>
->> Excellent, that is going to safe me a lot of work! If you don't mind,
->> please Cc: me as I am not subscribed to the network mailing list.
->
-> My work is based on v4.1-rc3. Unfortunately the VLAN support breaks on latest
-> net-next/master (e.g. NETIF_F_HW_SWITCH_OFFLOAD is removed; .ndo_bridge_setlink
-> used to set tag and PVID, is moved to switchdev.)
->
-> Are you willing to give it a try based on v4.1-rc3 in the meantime?
-> Otherwise, I'll send the RFC as soon as the support is functional on net-next.
->
+Hello.
 
-I already rebased my code to net-next, not for the switchdev changes but
-to catch the dsa changes, so net-next would be much better. I'd like to get
-a glance at your code, though, if that is possible.
+On 5/28/2015 2:25 PM, Jeff Kirsher wrote:
 
-Thanks,
-Guenter
+> From: John Fastabend <john.r.fastabend@intel.com>
+
+> The ring_cookie is 64 bits wide which is much larger than can be used
+> for actual queue index values. So provide some helper routines to
+> pack a VF index into the cookie. This is useful to steer packets to
+> a VF ring without having to know the queue layout of the device.
+
+> CC: Alex Duyck <alexander.h.duyck@redhat.com>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>   include/uapi/linux/ethtool.h | 25 +++++++++++++++++++++++++
+>   1 file changed, 25 insertions(+)
+
+> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+> index ae832b4..0594933 100644
+> --- a/include/uapi/linux/ethtool.h
+> +++ b/include/uapi/linux/ethtool.h
+> @@ -796,6 +796,31 @@ struct ethtool_rx_flow_spec {
+>   	__u32		location;
+>   };
+>
+> +/* How rings are layed out when accessing virtual functions or
+
+    s/layed/laid/.
+
+> + * offloaded queues is device specific. To allow users to do flow
+> + * steering and specify these queues the ring cookie is partitioned
+> + * into a 32bit queue index with an 8 bit virtual function id.
+> + * This also leaves the 3bytes for further specifiers. It is possible
+> + * future devices may support more than 256 virtual functions if
+> + * devices start supporting PCIe w/ARI. However at the moment I
+> + * do not know of any devices that support this so I do not reserve
+> + * space for this at this time. If a future patch consumes the next
+> + * byte it should be aware of this possiblity.
+
+    Possibility.
+
+[...]
+
+WBR, Sergei
