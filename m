@@ -1,107 +1,109 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [PATCH] sctp: fix ASCONF list handling
-Date: Thu, 28 May 2015 11:46:29 -0300
-Message-ID: <20150528144629.GD3387@localhost.localdomain>
-References: <d78e23c156981e761086f4e37517e441c84d6f90.1432769183.git.marcelo.leitner@gmail.com>
- <20150528101511.GA14938@hmsreliant.think-freely.org>
- <20150528111727.GB3387@localhost.localdomain>
- <20150528132732.GC3387@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Drops in qdisc on ifb interface
+Date: Thu, 28 May 2015 08:14:45 -0700
+Message-ID: <1432826085.7456.6.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1432584300.32671.103.camel@jasiiieee.pacifera.com>
+	 <1432593064.4060.190.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1767970154.119773.1432823923389.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Michio Honda <micchie@sfc.wide.ad.jp>
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "jsullivan@opensourcedevel.com" <jsullivan@opensourcedevel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41613 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752606AbbE1Oqc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 10:46:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20150528132732.GC3387@localhost.localdomain>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:35547 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753304AbbE1POs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 11:14:48 -0400
+Received: by igbyr2 with SMTP id yr2so114910837igb.0
+        for <netdev@vger.kernel.org>; Thu, 28 May 2015 08:14:47 -0700 (PDT)
+In-Reply-To: <1767970154.119773.1432823923389.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 28, 2015 at 10:27:32AM -0300, Marcelo Ricardo Leitner wrote:
-> On Thu, May 28, 2015 at 08:17:27AM -0300, Marcelo Ricardo Leitner wrote:
-> > On Thu, May 28, 2015 at 06:15:11AM -0400, Neil Horman wrote:
-> > > On Wed, May 27, 2015 at 09:52:17PM -0300, mleitner@redhat.com wrote:
-> > > > From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > > > 
-> > > > ->auto_asconf_splist is per namespace and mangled by functions like
-> > > > sctp_setsockopt_auto_asconf() which doesn't guarantee any serialization.
-> > > > 
-> > > > Also, the call to inet_sk_copy_descendant() was backuping
-> > > > ->auto_asconf_list through the copy but was not honoring
-> > > > ->do_auto_asconf, which could lead to list corruption if it was
-> > > > different between both sockets.
-> > > > 
-> > > > This commit thus fixes the list handling by adding a spinlock to protect
-> > > > against multiple writers and converts the list to be protected by RCU
-> > > > too, so that we don't have a lock inverstion issue at
-> > > > sctp_addr_wq_timeout_handler().
-> > > > 
-> > > > And as this list now uses RCU, we cannot do such backup and restore
-> > > > while copying descendant data anymore as readers may be traversing the
-> > > > list meanwhile. We fix this by simply ignoring/not copying those fields,
-> > > > placed at the end of struct sctp_sock, so we can just ignore it together
-> > > > with struct ipv6_pinfo data. For that we create sctp_copy_descendant()
-> > > > so we don't clutter inet_sk_copy_descendant() with SCTP info.
-> > > > 
-> > > > Issue was found with a test application that kept flipping sysctl
-> > > > default_auto_asconf on and off.
-> > > > 
-> > > > Fixes: 9f7d653b67ae ("sctp: Add Auto-ASCONF support (core).")
-> > > > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > > > ---
-> > > >  include/net/netns/sctp.h   |  6 +++++-
-> > > >  include/net/sctp/structs.h |  2 ++
-> > > >  net/sctp/protocol.c        |  6 +++++-
-> > > >  net/sctp/socket.c          | 39 ++++++++++++++++++++++++++-------------
-> > > >  4 files changed, 38 insertions(+), 15 deletions(-)
-> > > > 
-> > > > diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
-> > > > index 3573a81815ad9e0efb6ceb721eb066d3726419f0..e080bebb3147af39c8275261f57018eb01e917b0 100644
-> > > > --- a/include/net/netns/sctp.h
-> > > > +++ b/include/net/netns/sctp.h
-> > > > @@ -30,12 +30,15 @@ struct netns_sctp {
-> > > >  	struct list_head local_addr_list;
-> > > >  	struct list_head addr_waitq;
-> > > >  	struct timer_list addr_wq_timer;
-> > > > -	struct list_head auto_asconf_splist;
-> > > > +	struct list_head __rcu auto_asconf_splist;
-> > > You should use the addr_wq_lock here instead of creating a new lock, as thats
-> > > already used to protect most accesses to the list you are concerned about.
-> > 
-> > Ok, that works too.
-> > 
-> > > Though truthfully, that shouldn't be necessecary.  The list in question is only
-> > > read in one location and only written in one location.  You can likely just
-> > > rcu-ify, as the write side is in process context and protected by lock_sock.
-> > 
-> > It should, it's not protected by lock_sock as this list resides in
-> > netns_sctp structure, which lock_sock doesn't cover. Write side is in
-> > process context yes, but this list is written in sctp_init_sock(),
-> > sctp_destroy_sock() and sctp_setsockopt_auto_asconf(), so one could
-> > trigger this by either creating/destroying sockets if
-> > default_auto_asconf=1 or just by creating a bunch of sockets and
-> > flipping asconf via setsockopt (or a combination of these operations).
-> > (I'll point this out in the changelog)
+On Thu, 2015-05-28 at 10:38 -0400, jsullivan@opensourcedevel.com wrote:
+
+> This has been an interesting exercise - thank you for your help along the way,
+> Eric.  IFB did not seem to bottleneck in our initial testing but there was
+> really only one flow of traffic during the test at around 1 Gbps.  However, on a
+> non-test system with many different flows, IFB does seem to be a serious
+> bottleneck - I assume this is the consequence of being single-threaded.
 > 
-> Hmm.. by reusing addr_wq_lock we don't need to rcu-ify the list, as the
-> reader is inside that lock too, so I can just protect auto_asconf_splist
-> writers with addr_wq_lock.
+> Single queue did not seem to help.
 > 
-> Nice, thanks Neil.
+> Am I correct to assume that IFB would be as much as a bottleneck on the ingress
+> side as it would be on the egress side? If so, is there any way to do high
+> performance ingress traffic shaping on Linux - a multi-threaded version of IFB
+> or a different approach? Thanks - John
 
-Cannot really do that.. as that creates a lock inversion between
-sctp_destroy_sock() (which already holds lock_sock) and
-sctp_addr_wq_timeout_handler(), which first grabs addr_wq_lock and then
-locks socket by socket.
+IFB has still a long way before being efficient.
 
-Due to that, I'm afraid reusing this lock is not possible, and we should
-stick with the patch.. what do you think? (though I have to fix the nits
-in there)
+In the mean time, you could play with following patch, and
+setup /sys/class/net/eth0/gro_timeout to 20000
 
-  Marcelo
+This way, the GRO aggregation will work even at 1Gbps, and your IFB will
+get big GRO packets instead of single MSS segments.
+
+Both IFB but also IP/TCP stack will have less work to do,
+and receiver will send fewer ACK packets as well.
+
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index f287186192bb655ba2dc1a205fb251351d593e98..c37f6657c047d3eb9bd72b647572edd53b1881ac 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -151,7 +151,7 @@ static void igb_setup_dca(struct igb_adapter *);
+ #endif /* CONFIG_IGB_DCA */
+ static int igb_poll(struct napi_struct *, int);
+ static bool igb_clean_tx_irq(struct igb_q_vector *);
+-static bool igb_clean_rx_irq(struct igb_q_vector *, int);
++static unsigned int igb_clean_rx_irq(struct igb_q_vector *, int);
+ static int igb_ioctl(struct net_device *, struct ifreq *, int cmd);
+ static void igb_tx_timeout(struct net_device *);
+ static void igb_reset_task(struct work_struct *);
+@@ -6342,6 +6342,7 @@ static int igb_poll(struct napi_struct *napi, int budget)
+ 						     struct igb_q_vector,
+ 						     napi);
+ 	bool clean_complete = true;
++	unsigned int packets = 0;
+ 
+ #ifdef CONFIG_IGB_DCA
+ 	if (q_vector->adapter->flags & IGB_FLAG_DCA_ENABLED)
+@@ -6350,15 +6351,17 @@ static int igb_poll(struct napi_struct *napi, int budget)
+ 	if (q_vector->tx.ring)
+ 		clean_complete = igb_clean_tx_irq(q_vector);
+ 
+-	if (q_vector->rx.ring)
+-		clean_complete &= igb_clean_rx_irq(q_vector, budget);
++	if (q_vector->rx.ring) {
++		packets = igb_clean_rx_irq(q_vector, budget);
++		clean_complete &= packets < budget;
++	}
+ 
+ 	/* If all work not completed, return budget and keep polling */
+ 	if (!clean_complete)
+ 		return budget;
+ 
+ 	/* If not enough Rx work done, exit the polling mode */
+-	napi_complete(napi);
++	napi_complete_done(napi, packets);
+ 	igb_ring_irq_enable(q_vector);
+ 
+ 	return 0;
+@@ -6926,7 +6929,7 @@ static void igb_process_skb_fields(struct igb_ring *rx_ring,
+ 	skb->protocol = eth_type_trans(skb, rx_ring->netdev);
+ }
+ 
+-static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)
++static unsigned int igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)
+ {
+ 	struct igb_ring *rx_ring = q_vector->rx.ring;
+ 	struct sk_buff *skb = rx_ring->skb;
+@@ -7000,7 +7003,7 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)
+ 	if (cleaned_count)
+ 		igb_alloc_rx_buffers(rx_ring, cleaned_count);
+ 
+-	return total_packets < budget;
++	return total_packets;
+ }
+ 
+ static bool igb_alloc_mapped_page(struct igb_ring *rx_ring,
