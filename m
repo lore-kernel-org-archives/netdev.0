@@ -1,65 +1,51 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 2/9] ipv6: drop unneeded goto
-Date: Thu, 28 May 2015 23:02:17 +0200
-Message-ID: <1432846944-7122-3-git-send-email-Julia.Lawall@lip6.fr>
-References: <1432846944-7122-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: "Guzman Mosqueda, Jose R" <jose.r.guzman.mosqueda@intel.com>
+Subject: Possible issue in iproute2 package
+Date: Thu, 28 May 2015 21:12:15 +0000
+Message-ID: <1432847547.19276.47.camel@jrguzman-mobl2.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shemminger@osdl.org" <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:51325
-	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932105AbbE1VLk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 17:11:40 -0400
-In-Reply-To: <1432846944-7122-1-git-send-email-Julia.Lawall@lip6.fr>
+Received: from mga01.intel.com ([192.55.52.88]:23799 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754550AbbE1VMU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2015 17:12:20 -0400
+Content-Language: en-US
+Content-ID: <6D63714EC3841C4C8C6C3BAB21220B65@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-
-Delete jump to a label on the next line, when that label is not
-used elsewhere.
-
-A simplified version of the semantic patch that makes this change is as
-follows: (http://coccinelle.lip6.fr/)
-
-// <smpl>
-@r@
-identifier l;
-@@
-
--if (...) goto l;
--l:
-// </smpl>
-
-Also remove the unnecessary ret variable.
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
- net/ipv6/raw.c |    8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
-
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 484a5c1..ca4700c 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -1327,13 +1327,7 @@ static struct inet_protosw rawv6_protosw = {
- 
- int __init rawv6_init(void)
- {
--	int ret;
--
--	ret = inet6_register_protosw(&rawv6_protosw);
--	if (ret)
--		goto out;
--out:
--	return ret;
-+	return inet6_register_protosw(&rawv6_protosw);
- }
- 
- void rawv6_exit(void)
+DQpIaSBhbGwNCg0KSSdtIEpvc2UgR3V6bWFuIGZyb20gYSBzZWN1cml0eSB0ZWFtIGF0IEludGVs
+Lg0KV2UncmUgdXNpbmcgaXByb3V0ZTIgaW4gYSBHTlUtTGludXggcHJvamVjdCBhbmQgSSdtIGFu
+YWx5emluZyB0aGUgY29kZQ0KdG8gdHJ5IHRvIGZpbmQgcG9zc2libGUgaXNzdWVzL2dhcHMvcmlz
+a3MuDQpTaW5jZSBJJ20gbm90IHRvbyBmYW1pbGlhciB3aXRoIHRoZSBwYWNrYWdlIHlldCBJIGhh
+dmUgYSBxdWVzdGlvbiBhYm91dA0KYSBwYXJ0aWN1bGFyIHBpZWNlIG9mIGNvZGUgdGhhdCBjb3Vs
+ZCByZXN1bHQgaW4gYSBtZW1vcnkgY29ycnVwdGlvbjoNCg0KVmVyc2lvbjogNC4wLjANCkZpbGU6
+IG1pc2Mvc3MuYw0KRnVuY3Rpb246IHN0YXRpYyB2b2lkIHRjcF9zaG93X2luZm8oLi4uKQ0KTGlu
+ZTogfjE5MDMNCkRlc2NyaXB0aW9uOiBUaGVyZSBpcyBhIG1lbW9yeSBhbGxvY2F0aW9uIGZvciBh
+ICJzLmNvbmdfYWxnIiB2YXJpYWJsZToNCnMuY29uZ19hbGcgPSBtYWxsb2Moc3RybGVuKGNvbmdf
+YXR0ciArIDEpKTsNClRoZSBsZW5ndGggaXMgY2FsY3VsYXRlZCBhYm91dCBuZXh0IHBvc2l0aW9u
+IG9mIHRoZSBzdGFydGluZyBjaGFyYWN0ZXIuDQpCdXQgbmV4dCBsaW5lIHRoZXJlIGlzIGEgY29w
+eSBvZiB0aGUgd2hvbGUgY29udGVudDoNCnN0cmNweShzLmNvbmdfYWxnLCBjb25nX2F0dHIpOw0K
+SSB0aGluayB0aGVyZSBpcyBhIG1pc3Rha2UgYW5kIGl0IHNob3VsZCBiZSBzb21ldGhpbmcgbGlr
+ZToNCnMuY29uZ19hbGcgPSBtYWxsb2Moc3RybGVuKGNvbmdfYXR0cikgKyAxKTsNCklzIHRoaXMg
+dGhlIGNhc2U/IElzIGl0IGEgcmVhbCBidWc/DQpBbHNvIEkgZG9uJ3Qgc2VlIGFueSBjaGVja2lu
+ZyBmb3IgdGhlIHZhbHVlIHJldHVybmVkIGJ5IHRoZSBtYWxsb2MgY2FsbCwNCndoYXQgaWYgaXQg
+cmV0dXJucyBhIE5VTEwgcG9pbnRlcj8NCg0KQWxzbyBJIGZvdW5kIHNvbWV0aGluZyBzaW1pbGFy
+IGFib3V0IGxpbmUgMTkwMzoNCnMuY29uZ19hbGcgPSBtYWxsb2Moc3RybGVuKGNvbmdfYXR0ciAr
+IDEpKTsNCnN0cmNweShzLmNvbmdfYWxnLCBjb25nX2F0dHIpOw0KDQpBbmQgYW5vdGhlciBwb3Nz
+aWJsZSBpc3N1ZSB0aGF0IEkgZm91bmQ6DQoNCkZpbGU6IHRjL3RjX3V0aWwuYw0KRnVuY3Rpb246
+IHZvaWQgcHJpbnRfcmF0ZShjaGFyICpidWYsIGludCBsZW4sIF9fdTY0IHJhdGUpDQpMaW5lOiB+
+MjY0DQoNCkluIHRoZSBjYXNlIHRoYXQgdXNlciBpbnB1dHMgYSBoaWdoIHZhbHVlIGZvciByYXRl
+LCB0aGUgImZvciIgbG9vcCB3aWxsDQpleGl0IGluIHRoZSBjb25kaXRpb24gbWVhbmluZyB0aGF0
+IHZhcmlhYmxlICJpIiBnZXQgdGhlIHZhbHVlIG9mIDUgd2hpY2gNCndpbGwgYmUgYW4gaW52YWxp
+ZCBpbmRleCBmb3IgdGhlICJ1bml0cyIgYXJyYXkgZHVlIHRvIHRoYXQgYXJyYXkgaGFzDQpvbmx5
+IDUgZWxlbWVudHMuDQoNCkkgaG9wZSB5b3UgY2FuIGhlbHAgbWUgYnkgY2hlY2tpbmcgdGhlc2Ug
+aXNzdWVzIGFuZCB0ZWxsIG1lIHdoZXRoZXIgdGhleQ0KYXJlIHJlYWwgaXNzdWVzIG9yIG5vdCBz
+aW5jZSB5b3Uga25vdyBtdWNoIGJldHRlciB0aGUgY29kZS4NCkFsc28gSSBkb24ndCBrbm93IGlm
+IHlvdSBoYXZlIGFscmVhZHkgdGhpcyByZXBvcnRlZCwgSSBkaWRuJ3QgZmluZCBhDQpsaXN0IG9m
+IGlzc3VlcyBmb3IgdGhpcyBwYWNrYWdlLiBDYW4geW91IHRlbGwgbWUgd2hlcmUgaXMgc3VjaCBs
+aXN0Pw0KDQpJIHJlYWxseSBhcHByZWNpYXRlIGFueSBoZWxwIG9uIHRoaXMuDQoNClRoYW5rcyBp
+biBhZHZhbmNlLg0KSm9zZSBHLg0KDQoNCg0KDQoNCg0KDQo=
