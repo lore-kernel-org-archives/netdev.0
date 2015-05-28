@@ -1,19 +1,15 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 5/9] wl1251: drop unneeded goto
-Date: Thu, 28 May 2015 23:02:20 +0200
-Message-ID: <1432846944-7122-6-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 6/9] ssb: drop unneeded goto
+Date: Thu, 28 May 2015 23:02:21 +0200
+Message-ID: <1432846944-7122-7-git-send-email-Julia.Lawall@lip6.fr>
 References: <1432846944-7122-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:56662
-	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932250AbbE1VLp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 17:11:45 -0400
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Michael Buesch <m@bues.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1432846944-7122-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Julia Lawall <Julia.Lawall@lip6.fr>
 
@@ -32,24 +28,34 @@ identifier l;
 -l:
 // </smpl>
 
+Also drop the unneeded err variable.
+
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- drivers/net/wireless/ti/wl1251/acx.c |    3 ---
- 1 file changed, 3 deletions(-)
+ drivers/ssb/pci.c |    8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-diff --git a/drivers/net/wireless/ti/wl1251/acx.c b/drivers/net/wireless/ti/wl1251/acx.c
-index 5695628..d6fbdda 100644
---- a/drivers/net/wireless/ti/wl1251/acx.c
-+++ b/drivers/net/wireless/ti/wl1251/acx.c
-@@ -53,10 +53,7 @@ int wl1251_acx_station_id(struct wl1251 *wl)
- 		mac->mac[i] = wl->mac_addr[ETH_ALEN - 1 - i];
+diff --git a/drivers/ssb/pci.c b/drivers/ssb/pci.c
+index 0f28c08..d6ca4d3 100644
+--- a/drivers/ssb/pci.c
++++ b/drivers/ssb/pci.c
+@@ -1173,17 +1173,11 @@ void ssb_pci_exit(struct ssb_bus *bus)
+ int ssb_pci_init(struct ssb_bus *bus)
+ {
+ 	struct pci_dev *pdev;
+-	int err;
  
- 	ret = wl1251_cmd_configure(wl, DOT11_STATION_ID, mac, sizeof(*mac));
--	if (ret < 0)
+ 	if (bus->bustype != SSB_BUSTYPE_PCI)
+ 		return 0;
+ 
+ 	pdev = bus->host_pci;
+ 	mutex_init(&bus->sprom_mutex);
+-	err = device_create_file(&pdev->dev, &dev_attr_ssb_sprom);
+-	if (err)
 -		goto out;
- 
+-
 -out:
- 	kfree(mac);
- 	return ret;
+-	return err;
++	return device_create_file(&pdev->dev, &dev_attr_ssb_sprom);
  }
