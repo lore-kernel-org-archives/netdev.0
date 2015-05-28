@@ -1,129 +1,107 @@
-From: Ken Moffat <zarniwhoop@ntlworld.com>
-Subject: Re: Lost network connectivity in 4.0.x
-Date: Thu, 28 May 2015 15:41:49 +0100
-Message-ID: <20150528144149.GA29350@milliways>
-References: <20150524024352.GA15747@milliways>
- <20150524032938.GA16664@milliways>
- <CAM_iQpXH_-WO8W=zVUaXezeGGOjFy-nBLy0k+tytZuMQqV1hcQ@mail.gmail.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [PATCH] sctp: fix ASCONF list handling
+Date: Thu, 28 May 2015 11:46:29 -0300
+Message-ID: <20150528144629.GD3387@localhost.localdomain>
+References: <d78e23c156981e761086f4e37517e441c84d6f90.1432769183.git.marcelo.leitner@gmail.com>
+ <20150528101511.GA14938@hmsreliant.think-freely.org>
+ <20150528111727.GB3387@localhost.localdomain>
+ <20150528132732.GC3387@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Michio Honda <micchie@sfc.wide.ad.jp>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41613 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752606AbbE1Oqc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2015 10:46:32 -0400
 Content-Disposition: inline
-In-Reply-To: <CAM_iQpXH_-WO8W=zVUaXezeGGOjFy-nBLy0k+tytZuMQqV1hcQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20150528132732.GC3387@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 27, 2015 at 10:53:00PM -0700, Cong Wang wrote:
-> (Please always Cc netdev for networking bugs.)
->=20
-> On Sat, May 23, 2015 at 8:29 PM, Ken Moffat <zarniwhoop@ntlworld.com>=
- wrote:
-> > On Sun, May 24, 2015 at 03:43:52AM +0100, Ken Moffat wrote:
-> >> Anybody else suffering frm lost network connectivity in 4.0.x
-> >> kernels ?  A couple of times this week, vim on an nfs-3 mount hung
-> >> and I had to reboot.  Both of those occasions were on an AMD deskt=
-op
-> >> with the r8169 driver, running 4.0.3.  I thought it might be
-> >> specific to that machine.  For the last two or three days I've bee=
-n
-> >> using an intel, and about 10 minutes ago it suffered the same prob=
-lem
-> >> while running 4.0.4.  Using ping from another term showed that it
-> >> had no connectivity to the server on my local network.
-> >>
-> >> This is a bit hard to diagnose - nothing in the logs.
-> >>
-> > I forgot to add that this is with the released gcc-5.1 : I keep
-> > forgetting that some people use old compilers ;-)
-> >
->=20
-> Is there any way you can help to narrow down the problem?
->=20
+On Thu, May 28, 2015 at 10:27:32AM -0300, Marcelo Ricardo Leitner wrote:
+> On Thu, May 28, 2015 at 08:17:27AM -0300, Marcelo Ricardo Leitner wrote:
+> > On Thu, May 28, 2015 at 06:15:11AM -0400, Neil Horman wrote:
+> > > On Wed, May 27, 2015 at 09:52:17PM -0300, mleitner@redhat.com wrote:
+> > > > From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> > > > 
+> > > > ->auto_asconf_splist is per namespace and mangled by functions like
+> > > > sctp_setsockopt_auto_asconf() which doesn't guarantee any serialization.
+> > > > 
+> > > > Also, the call to inet_sk_copy_descendant() was backuping
+> > > > ->auto_asconf_list through the copy but was not honoring
+> > > > ->do_auto_asconf, which could lead to list corruption if it was
+> > > > different between both sockets.
+> > > > 
+> > > > This commit thus fixes the list handling by adding a spinlock to protect
+> > > > against multiple writers and converts the list to be protected by RCU
+> > > > too, so that we don't have a lock inverstion issue at
+> > > > sctp_addr_wq_timeout_handler().
+> > > > 
+> > > > And as this list now uses RCU, we cannot do such backup and restore
+> > > > while copying descendant data anymore as readers may be traversing the
+> > > > list meanwhile. We fix this by simply ignoring/not copying those fields,
+> > > > placed at the end of struct sctp_sock, so we can just ignore it together
+> > > > with struct ipv6_pinfo data. For that we create sctp_copy_descendant()
+> > > > so we don't clutter inet_sk_copy_descendant() with SCTP info.
+> > > > 
+> > > > Issue was found with a test application that kept flipping sysctl
+> > > > default_auto_asconf on and off.
+> > > > 
+> > > > Fixes: 9f7d653b67ae ("sctp: Add Auto-ASCONF support (core).")
+> > > > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> > > > ---
+> > > >  include/net/netns/sctp.h   |  6 +++++-
+> > > >  include/net/sctp/structs.h |  2 ++
+> > > >  net/sctp/protocol.c        |  6 +++++-
+> > > >  net/sctp/socket.c          | 39 ++++++++++++++++++++++++++-------------
+> > > >  4 files changed, 38 insertions(+), 15 deletions(-)
+> > > > 
+> > > > diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
+> > > > index 3573a81815ad9e0efb6ceb721eb066d3726419f0..e080bebb3147af39c8275261f57018eb01e917b0 100644
+> > > > --- a/include/net/netns/sctp.h
+> > > > +++ b/include/net/netns/sctp.h
+> > > > @@ -30,12 +30,15 @@ struct netns_sctp {
+> > > >  	struct list_head local_addr_list;
+> > > >  	struct list_head addr_waitq;
+> > > >  	struct timer_list addr_wq_timer;
+> > > > -	struct list_head auto_asconf_splist;
+> > > > +	struct list_head __rcu auto_asconf_splist;
+> > > You should use the addr_wq_lock here instead of creating a new lock, as thats
+> > > already used to protect most accesses to the list you are concerned about.
+> > 
+> > Ok, that works too.
+> > 
+> > > Though truthfully, that shouldn't be necessecary.  The list in question is only
+> > > read in one location and only written in one location.  You can likely just
+> > > rcu-ify, as the write side is in process context and protected by lock_sock.
+> > 
+> > It should, it's not protected by lock_sock as this list resides in
+> > netns_sctp structure, which lock_sock doesn't cover. Write side is in
+> > process context yes, but this list is written in sctp_init_sock(),
+> > sctp_destroy_sock() and sctp_setsockopt_auto_asconf(), so one could
+> > trigger this by either creating/destroying sockets if
+> > default_auto_asconf=1 or just by creating a bunch of sockets and
+> > flipping asconf via setsockopt (or a combination of these operations).
+> > (I'll point this out in the changelog)
+> 
+> Hmm.. by reusing addr_wq_lock we don't need to rcu-ify the list, as the
+> reader is inside that lock too, so I can just protect auto_asconf_splist
+> writers with addr_wq_lock.
+> 
+> Nice, thanks Neil.
 
-Thanks for the reply.  The problem is continuing to show up, but
-irregularly and often only after the machine has been booted for a
-long time (with s2ram, but I don't think I've used s2ram on every
-occasion).
+Cannot really do that.. as that creates a lock inversion between
+sctp_destroy_sock() (which already holds lock_sock) and
+sctp_addr_wq_timeout_handler(), which first grabs addr_wq_lock and then
+locks socket by socket.
 
-> For example:
->=20
-> 1) What is your network setup? iptables? routes? etc.
->=20
-I'm using iptables.  Ah, yes - it started dropping packets around
-the time I last had a problem:
+Due to that, I'm afraid reusing this lock is not possible, and we should
+stick with the patch.. what do you think? (though I have to fix the nits
+in there)
 
-May 27 00:48:26 ac4tv dhclient: DHCPREQUEST on eth0 to 192.168.7.254
-port 67
-May 27 00:48:27 ac4tv dhclient: DHCPACK from 192.168.7.254
-May 27 00:48:27 ac4tv dhclient: bound to 192.168.7.152 -- renewal in
-1787 seconds.
-
- That address came from my router, and I had been getting the same
-address for an hour, tbut then the dropped packet messages start
-appearing - they are for a different address, one that would have
-been offered by my server:
-
-May 27 00:53:16 ac4tv kernel: [31922.316798] IPTABLES Packet
-Dropped: IN=3Deth0 OUT=3D MAC=3Dc8:60:00:97:07:35:bc:ae:c5:57:70:c5:08:=
-00
-SRC=3D192.168.7.11 DST=3D192.168.7.121 LEN=3D60 TOS=3D0x00 PREC=3D0x00 =
-TTL=3D64
-ID=3D0 DF PROTO=3DTCP SPT=3D2049 DPT=3D1005 WINDOW=3D28960 RES=3D0x00 A=
-CK SYN
-URGP=3D0=20
-May 27 00:53:17 ac4tv kernel: [31923.316612] IPTABLES Packet
-Dropped: IN=3Deth0 OUT=3D MAC=3Dc8:60:00:97:07:35:bc:ae:c5:57:70:c5:08:=
-00
-SRC=3D192.168.7.11 DST=3D192.168.7.121 LEN=3D60 TOS=3D0x00 PREC=3D0x00 =
-TTL=3D64
-ID=3D0 DF PROTO=3DTCP SPT=3D2049 DPT=3D1005 WINDOW=3D28960 RES=3D0x00 A=
-CK SYN
-URGP=3D0=20
-
-and those continued until I forced a reboot.
-
-> 2) Can you check the stats to see if there is any error?
->   `ip -s -s li show`, `ethtool -S <DEV>`
->=20
-
-I don't have ethtool installed, and that ip command appears ok at
-the moment:
-
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
-mode DEFAULT group default=20
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    RX: bytes  packets  errors  dropped overrun mcast  =20
-    3964       66       0       0       0       0      =20
-    RX errors: length   crc     frame   fifo    missed
-               0        0       0       0       0      =20
-    TX: bytes  packets  errors  dropped carrier collsns=20
-    3964       66       0       0       0       0      =20
-    TX errors: aborted  fifo   window heartbeat transns
-               0        0       0       0       0      =20
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-state UP mode DEFAULT group default qlen 1000
-    link/ether c8:60:00:97:07:35 brd ff:ff:ff:ff:ff:ff
-    RX: bytes  packets  errors  dropped overrun mcast  =20
-    224661061  277642   0       0       0       0      =20
-    RX errors: length   crc     frame   fifo    missed
-               0        0       0       0       0      =20
-    TX: bytes  packets  errors  dropped carrier collsns=20
-    278152429  370438   0       0       0       0      =20
-    TX errors: aborted  fifo   window heartbeat transns
-               0        0       0       0       6      =20
-
-> 3) Do a bisect?
->=20
-> Thanks!
-
-That doesn't seem very practical when the machine is ok for a couple
-of days at a time.
-
-=C4=B8en
---=20
-Nanny Ogg usually went to bed early. After all, she was an old lady.
-Sometimes she went to bed as early as 6 a.m.
+  Marcelo
