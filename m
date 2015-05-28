@@ -1,48 +1,34 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 2/7] esp4: Use high-order sequence number bits for IV generation
-Date: Thu, 28 May 2015 09:28:05 +0200
-Message-ID: <1432798090-20657-3-git-send-email-steffen.klassert@secunet.com>
-References: <1432798090-20657-1-git-send-email-steffen.klassert@secunet.com>
+From: Richard Weinberger <richard.weinberger@gmail.com>
+Subject: Re: kmalloc panic
+Date: Thu, 28 May 2015 09:35:08 +0200
+Message-ID: <CAFLxGvw=n6SdJmCk4ftRbKm2XdyZOgU53gJw37JCC=mF7b7itw@mail.gmail.com>
+References: <5565CAA1.9070409@redpinesignals.com>
+	<CAM_iQpUGLW44vzkN-5TJ9ww3RSz=2sRMnm7GKP6V0N9WGszRZQ@mail.gmail.com>
+	<5566C1F1.8090807@redpinesignals.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:51254 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752995AbbE1H2d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 03:28:33 -0400
-In-Reply-To: <1432798090-20657-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: pavani <pavani.muthyala@redpinesignals.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5566C1F1.8090807@redpinesignals.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
+On Thu, May 28, 2015 at 9:21 AM, pavani
+<pavani.muthyala@redpinesignals.com> wrote:
+> Hi Cong ,
+>
+> Thanks for the response.
+>
+> Where we need to fix the bug ?I mean in the driver or kernel source code or
+> hardware level.
 
-I noticed we were only using the low-order bits for IV generation
-when ESN is enabled.  This is very bad because it means that the
-IV can repeat.  We must use the full 64 bits.
+The more interesting question is, is this a recent and pristine kernel
+from kernel.org?
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv4/esp4.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 421a80b..30b544f 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -256,7 +256,8 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 	aead_givcrypt_set_crypt(req, sg, sg, clen, iv);
- 	aead_givcrypt_set_assoc(req, asg, assoclen);
- 	aead_givcrypt_set_giv(req, esph->enc_data,
--			      XFRM_SKB_CB(skb)->seq.output.low);
-+			      XFRM_SKB_CB(skb)->seq.output.low +
-+			      ((u64)XFRM_SKB_CB(skb)->seq.output.hi << 32));
- 
- 	ESP_SKB_CB(skb)->tmp = tmp;
- 	err = crypto_aead_givencrypt(req);
 -- 
-1.9.1
+Thanks,
+//richard
