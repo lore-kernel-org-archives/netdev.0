@@ -1,98 +1,51 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v4 net-next 00/11] net: Increase inputs to flow_keys hashing
-Date: Thu, 28 May 2015 11:18:57 -0700
-Message-ID: <1432837148-1359931-1-git-send-email-tom@herbertland.com>
+Subject: [PATCH v4 net-next 02/11] mpls: Add definition for IPPROTO_MPLS
+Date: Thu, 28 May 2015 11:18:59 -0700
+Message-ID: <1432837148-1359931-3-git-send-email-tom@herbertland.com>
+References: <1432837148-1359931-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43051 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754184AbbE1STZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 14:19:25 -0400
-Received: from pps.filterd (m0004077 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4SIIobw028617
-	for <netdev@vger.kernel.org>; Thu, 28 May 2015 11:19:24 -0700
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:33140 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754184AbbE1ST3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 14:19:29 -0400
+Received: from pps.filterd (m0044008 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4SIGKlv016963
+	for <netdev@vger.kernel.org>; Thu, 28 May 2015 11:19:28 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1up7dr864s-3
+	by mx0a-00082601.pphosted.com with ESMTP id 1up5n4gbpb-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 28 May 2015 11:19:24 -0700
+	for <netdev@vger.kernel.org>; Thu, 28 May 2015 11:19:28 -0700
 Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.232.59) with ESMTP	id
- 10b59f5c056611e597f60002c991e86a-6fed83a0 for <netdev@vger.kernel.org>;	Thu,
- 28 May 2015 11:19:23 -0700
+ mx-out.facebook.com (10.212.232.63) with ESMTP	id
+ 12dc7ecc056611e58fdd0002c992ebde-972de3a0 for <netdev@vger.kernel.org>;	Thu,
+ 28 May 2015 11:19:26 -0700
+In-Reply-To: <1432837148-1359931-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set adds new fields to the flow_keys structure and hashes
-over these fields to get a better flow hash. In particular, these
-patches now include hashing over the full IPv6 addresses in order
-to defend against address spoofing that always results in the
-same hash. The new input also includes the Ethertype, L4 protocol,
-VLAN, flow label, GRE keyid, and MPLS entropy label.
+Add uapi define for MPLS over IP.
 
-In order to increase hash inputs, we switch to using jhash2
-which operates an an array of u32's. jhash2 operates on multiples of
-three words. The data in the hash is constructed for that, and there
-are are two variants for IPv4 and Ipv6 addressing. For IPv4 addresses,
-jhash is performed over six u32's and for IPv6 it is done over twelve.
+Acked-by: Jiri Pirko <jiri@resnulli.us>
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ include/uapi/linux/in.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-flow_keys can store either IPv4 or IPv6 addresses (addr_proto field
-is a selector). ipv6_addr_hash is no longer used to convert addresses
-for setting in flow table. For legacy uses of flow keys outside of
-flow_dissector the flow_get_u32_src and flow_get_u32_dst functions
-have been added to get u32 representation representations of addresses
-in flow_keys.
-
-For flow lables we also eliminate the short circuit in flow_dissector
-for non-zero flow label. The flow label is now considered additional
-input to ports.
-
-Testing: Ran netperf TCP_RR for 200 flows using IPv4 and IPv6 comparing
-before the patches and with the patches. Did not detect any performance
-degradation.
-
-v2:
-  - Took out MPLS entropy label. Will add this later.
-v3:
-  - Ensure hash start offset is a four byte boundary. Add BUG_BUILD_ON
-    to check for this.
-  - Fixes sparse error in GRE to get entropy from keyid.
-v4:
-  - Rebase to Jiri changes to generalize flow dissection
-  - Support TIPC as its own address
-  - Bring back MPLS entropy label dissection
-  - Remove FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS
-
-v5:
-  - Minor fixes from feedback
-
-Tom Herbert (11):
-  net: Simplify GRE case in flow_dissector
-  mpls: Add definition for IPPROTO_MPLS
-  net: Remove superfluous setting of key_basic
-  net: Get skb hash over flow_keys structure
-  net: Add full IPv6 addresses to flow_keys
-  net: Add keys for TIPC address
-  net: Get rid of IPv6 hash addresses flow keys
-  net: Add VLAN ID to flow_keys
-  net: Add IPv6 flow label to flow_keys
-  net: Add GRE keyid in flow_keys
-  mpls: Add MPLS entropy label in flow_keys
-
- drivers/net/bonding/bond_main.c                |   9 +-
- drivers/net/ethernet/cisco/enic/enic_clsf.c    |   8 +-
- drivers/net/ethernet/cisco/enic/enic_ethtool.c |   4 +-
- include/linux/skbuff.h                         |   2 +-
- include/net/flow_dissector.h                   |  97 ++++++--
- include/net/ip.h                               |  21 +-
- include/net/ipv6.h                             |  23 +-
- include/uapi/linux/in.h                        |   2 +
- net/core/flow_dissector.c                      | 329 ++++++++++++++++++-------
- net/ethernet/eth.c                             |   2 +-
- net/sched/cls_flow.c                           |  14 +-
- net/sched/cls_flower.c                         |  13 +-
- 12 files changed, 388 insertions(+), 136 deletions(-)
-
+diff --git a/include/uapi/linux/in.h b/include/uapi/linux/in.h
+index 589ced0..641338b 100644
+--- a/include/uapi/linux/in.h
++++ b/include/uapi/linux/in.h
+@@ -69,6 +69,8 @@ enum {
+ #define IPPROTO_SCTP		IPPROTO_SCTP
+   IPPROTO_UDPLITE = 136,	/* UDP-Lite (RFC 3828)			*/
+ #define IPPROTO_UDPLITE		IPPROTO_UDPLITE
++  IPPROTO_MPLS = 137,		/* MPLS in IP (RFC 4023)		*/
++#define IPPROTO_MPLS		IPPROTO_MPLS
+   IPPROTO_RAW = 255,		/* Raw IP packets			*/
+ #define IPPROTO_RAW		IPPROTO_RAW
+   IPPROTO_MAX
 -- 
 1.8.1
