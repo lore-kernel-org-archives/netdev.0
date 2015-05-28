@@ -1,96 +1,74 @@
-From: "jsullivan@opensourcedevel.com" <jsullivan@opensourcedevel.com>
-Subject: Re: Drops in qdisc on ifb interface
-Date: Thu, 28 May 2015 12:28:43 -0400 (EDT)
-Message-ID: <521945576.128820.1432830523270.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net>
-References: <1432584300.32671.103.camel@jasiiieee.pacifera.com> <1432593064.4060.190.camel@edumazet-glaptop2.roam.corp.google.com> <1767970154.119773.1432823923389.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net> <1432826085.7456.6.camel@edumazet-glaptop2.roam.corp.google.com> <746223891.124020.1432827038389.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net> <5567382E.4010706@gmail.com>
-Reply-To: "jsullivan@opensourcedevel.com" <jsullivan@opensourcedevel.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: iproute2: missing patches in branch net-next
+Date: Thu, 28 May 2015 18:32:32 +0200
+Message-ID: <55674320.2030002@iogearbox.net>
+References: <5566FC7C.1000200@6wind.com> <20150528091949.6cabe893@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@redhat.com>, Jiri Pirko <jiri@resnulli.us>,
+	David Ward <david.ward@ll.mit.edu>,
+	Jonathan Toppins <jtoppins@cumulusnetworks.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.197]:59325 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751676AbbE1Q2r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 12:28:47 -0400
-In-Reply-To: <5567382E.4010706@gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:39194 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751556AbbE1Qcp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 12:32:45 -0400
+In-Reply-To: <20150528091949.6cabe893@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 05/28/2015 06:19 PM, Stephen Hemminger wrote:
+> On Thu, 28 May 2015 13:31:08 +0200
+> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+>
+>> Hi Stephen,
+>>
+>> some patches that were recently included in iproute2 branch net-next are not
+>> visible anymore on kernel.org. It seems that the branch has been overridden
+>> (note the "forced update" when I've fetched it):
+>>
+>> $ git fetch
+>> remote: Counting objects: 65, done.
+>> remote: Compressing objects: 100% (65/65), done.
+>> remote: Total 65 (delta 58), reused 0 (delta 0)
+>> Unpacking objects: 100% (65/65), done.
+>>   From git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2
+>>    + aacee2695a90...eb9d6e794b52 net-next   -> origin/net-next  (forced update)
+>>      f043759dd492..c52827e9077f  master     -> origin/master
+>>
+>>
+>> The following patches are lost:
+>> aacee2695a90 tc: gred: Add support for TCA_GRED_LIMIT attribute
+>> b6ec53e3008a xfrmmonitor: allows to monitor in several netns
+>> 449b824ad196 ipmonitor: allows to monitor in several netns
+>> 3b0006f8183e ipmonitor: introduce print_headers
+>> 0628cddd9d5c libnetlink: introduce rtnl_listen_filter_t
+>> 2503247d58c3 man: update ip monitor page
+>> 6fc1f8add30b iplink_bond: add support for ad_actor and port_key options
+>> df1c7d9138ea codel: add ce_threshold support to codel & fc_codel
+>> 30eb304ecd1d tc: add support for Flower classifier
+>> 1a4dda7103bc ss: add support for bytes_acked & bytes_received
+>> 908755dc49df iproute2: GENEVE support
+>> f9b004020a89 Merge branch 'master' into net-next
+>> 8f42ceaf2491 Update kernels for net-next
+>>
+>>
+>> Regards,
+>> Nicolas
+>
+> Ah found it was botched merge. The commits were still there locally.
+> Should be fixed now, but had to force back to known good state on net-next branch.
 
-> On May 28, 2015 at 11:45 AM John Fastabend <john.fastabend@gmail.com> wrote:
->
->
-> On 05/28/2015 08:30 AM, jsullivan@opensourcedevel.com wrote:
-> >
-> >> On May 28, 2015 at 11:14 AM Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >>
-> >>
-> >> On Thu, 2015-05-28 at 10:38 -0400, jsullivan@opensourcedevel.com wrote:
-> >>
-> > <snip>
-> >> IFB has still a long way before being efficient.
-> >>
-> >> In the mean time, you could play with following patch, and
-> >> setup /sys/class/net/eth0/gro_timeout to 20000
-> >>
-> >> This way, the GRO aggregation will work even at 1Gbps, and your IFB will
-> >> get big GRO packets instead of single MSS segments.
-> >>
-> >> Both IFB but also IP/TCP stack will have less work to do,
-> >> and receiver will send fewer ACK packets as well.
-> >>
-> >> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c
-> >> b/drivers/net/ethernet/intel/igb/igb_main.c
-> >> index
-> >> f287186192bb655ba2dc1a205fb251351d593e98..c37f6657c047d3eb9bd72b647572edd53b1881ac
-> >> 100644
-> >> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> >> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> >> @@ -151,7 +151,7 @@ static void igb_setup_dca(struct igb_adapter *);
-> >> #endif /* CONFIG_IGB_DCA */
-> > <snip>
-> >
-> > Interesting but this is destined to become a critical production system for
-> > a
-> > high profile, internationally recognized product so I am hesitant to patch.
-> > I
-> > doubt I can convince my company to do it but is improving IFB the sort of
-> > development effort that could be sponsored and then executed in a moderately
-> > short period of time? Thanks - John
-> > --
->
-> If your experimenting one thing you could do is create many
-> ifb devices and load balance across them from tc. I'm not
-> sure if this would be practical in your setup or not but might
-> be worth trying.
->
-> One thing I've been debating adding is the ability to match
-> on current cpu_id in tc which would allow you to load balance by
-> cpu. I could send you a patch if you wanted to test it. I would
-> expect this to help somewhat with 'single queue' issue but sorry
-> haven't had time yet to test it out myself.
->
-> .John
->
-> --
-> John Fastabend Intel Corporation
+Okay, but now the iproute2 -next patches from last days are gone,
+right? I noticed the tc man page bits applied from yesterday are
+not in the -next tree anymore. Do you re-push those on top of the
+current restored state?
 
-In the meantime, I've noticed something strange.  When testing traffic between
-the two primary gateways and thus identical traffic flows, I have the bottleneck
-on the one which uses two bonded GbE igb interfaces but not on the one which
-uses two bonded 10 GbE ixgbe interfaces.  The ethtool -k settings are identical,
-e.g., gso, gro, lro.  The ring buffer is larger on the ixgbe cards but I would
-not think that would affect this.   Identical kernels.  The gateway hardware is
-identical and not working hard at all - no CPU or RAM pressure.
-
-Any idea why one bottlenecks and the other does not?
-
-Returning to your idea, John, how would I load balance? I assume I would need to
-attach several filters to the physical interfaces each redirecting traffic to
-different IFB devices.  However, couldn't this work against the traffic shaping?
-Let's take an extreme example: all the time sensitive ingress packets find their
-way onto ifb0 and all the bulk ingress packets find their way onto ifb1.  As
-these packets are merged back to the physical interface, wont' they simply be
-treated in pfifo_fast (or other physical interface qdisc) order? Thanks - John
+Thanks,
+Daniel
