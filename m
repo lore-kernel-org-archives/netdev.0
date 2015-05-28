@@ -1,54 +1,60 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net 1/3] bna: fix firmware loading on big-endian machines
-Date: Thu, 28 May 2015 23:10:06 +0200
-Message-ID: <1432847408-5066-2-git-send-email-ivecera@redhat.com>
-References: <1432847408-5066-1-git-send-email-ivecera@redhat.com>
-Cc: Rasesh Mody <rasesh.mody@qlogic.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55209 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754352AbbE1VKF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 17:10:05 -0400
-In-Reply-To: <1432847408-5066-1-git-send-email-ivecera@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+Subject: [PATCH 0/9] drop unneeded goto
+Date: Thu, 28 May 2015 23:02:15 +0200
+Message-ID: <1432846944-7122-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, HPDD-discuss-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Firmware required by bna is stored in appropriate files as sequence
-of LE32 integers. After loading by request_firmware() they need to be
-byte-swapped on big-endian arches. Without this conversion the NIC
-is unusable on big-endian machines.
+These patches drop gotos that jump to a label that is at the next
+instruction, in the case that the label is not used elsewhere in the
+function.  The complete semantic patch that performs this transformation is
+as follows:
 
-Cc: Rasesh Mody <rasesh.mody@qlogic.com>
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/brocade/bna/cna_fwimg.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+// <smpl>
+@r@
+position p;
+identifier l;
+@@
 
-diff --git a/drivers/net/ethernet/brocade/bna/cna_fwimg.c b/drivers/net/ethernet/brocade/bna/cna_fwimg.c
-index ebf462d..badea36 100644
---- a/drivers/net/ethernet/brocade/bna/cna_fwimg.c
-+++ b/drivers/net/ethernet/brocade/bna/cna_fwimg.c
-@@ -30,6 +30,7 @@ cna_read_firmware(struct pci_dev *pdev, u32 **bfi_image,
- 			u32 *bfi_image_size, char *fw_name)
- {
- 	const struct firmware *fw;
-+	u32 n;
- 
- 	if (request_firmware(&fw, fw_name, &pdev->dev)) {
- 		pr_alert("Can't locate firmware %s\n", fw_name);
-@@ -40,6 +41,12 @@ cna_read_firmware(struct pci_dev *pdev, u32 **bfi_image,
- 	*bfi_image_size = fw->size/sizeof(u32);
- 	bfi_fw = fw;
- 
-+	/* Convert loaded firmware to host order as it is stored in file
-+	 * as sequence of LE32 integers.
-+	 */
-+	for (n = 0; n < *bfi_image_size; n++)
-+		le32_to_cpus(*bfi_image + n);
-+
- 	return *bfi_image;
- error:
- 	return NULL;
--- 
-2.3.6
+if (...) goto l@p;
+l:
+
+@script:ocaml s@
+p << r.p;
+nm;
+@@
+
+nm := (List.hd p).current_element
+
+@ok exists@
+identifier s.nm,l;
+position p != r.p;
+@@
+
+nm(...) {
+<+... goto l@p; ...+>
+}
+
+@depends on !ok@
+identifier s.nm;
+position r.p;
+identifier l;
+@@
+
+nm(...) {
+<...
+- if(...) goto l@p; l:
+...>
+}
+// </smpl>
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
