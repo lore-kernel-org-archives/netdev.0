@@ -1,372 +1,134 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/14] i40e/i40evf: Add ATR support for tunneled TCP/IPv4/IPv6 packets.
-Date: Thu, 28 May 2015 04:25:30 -0700
-Message-ID: <1432812339-17129-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/14] i40e/i40evf: Add stats to count Tunnel ATR hits
+Date: Thu, 28 May 2015 04:25:31 -0700
+Message-ID: <1432812339-17129-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1432812339-17129-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:4939 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:56315 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753987AbbE1LZt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 07:25:49 -0400
+	id S1753981AbbE1LZr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2015 07:25:47 -0400
 In-Reply-To: <1432812339-17129-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Without this, RSS would have done inner header load balancing. Now we can
-get the benefits of ATR for tunneled packets to better align TX and RX
-queues with the right core/interrupt.
+Add a 3rd dynamic filter counter to track Tunneled ATR hits separately.
+Ethtool port stat "fdir_atr_tunnel_match"
 
-Change-ID: I07d0e0a192faf28fdd33b2f04c32b2a82ff97ddd
+Change-ID: Idd978b6db2a462b5722397cd2ffd04ef055f8655
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 77 +++++++++++++++------------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h   |  1 +
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 34 ++++++------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h |  1 +
- 4 files changed, 62 insertions(+), 51 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         |  3 +++
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c    |  4 ++++
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c    | 13 ++++++++++---
+ drivers/net/ethernet/intel/i40e/i40e_type.h    |  1 +
+ drivers/net/ethernet/intel/i40evf/i40e_type.h  |  1 +
+ 6 files changed, 20 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 33c35d3..0bfa5a0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -182,6 +182,7 @@ struct i40e_lump_tracking {
+ enum i40e_fd_stat_idx {
+ 	I40E_FD_STAT_ATR,
+ 	I40E_FD_STAT_SB,
++	I40E_FD_STAT_ATR_TUNNEL,
+ 	I40E_FD_STAT_PF_COUNT
+ };
+ #define I40E_FD_STAT_PF_IDX(pf_id) ((pf_id) * I40E_FD_STAT_PF_COUNT)
+@@ -189,6 +190,8 @@ enum i40e_fd_stat_idx {
+ 			(I40E_FD_STAT_PF_IDX(pf_id) + I40E_FD_STAT_ATR)
+ #define I40E_FD_SB_STAT_IDX(pf_id)  \
+ 			(I40E_FD_STAT_PF_IDX(pf_id) + I40E_FD_STAT_SB)
++#define I40E_FD_ATR_TUNNEL_STAT_IDX(pf_id) \
++			(I40E_FD_STAT_PF_IDX(pf_id) + I40E_FD_STAT_ATR_TUNNEL)
+ 
+ struct i40e_fdir_filter {
+ 	struct hlist_node fdir_node;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index e77b6bd..c568c90 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -147,6 +147,7 @@ static struct i40e_stats i40e_gstrings_stats[] = {
+ 	I40E_PF_STAT("rx_hwtstamp_cleared", rx_hwtstamp_cleared),
+ 	I40E_PF_STAT("fdir_flush_cnt", fd_flush_cnt),
+ 	I40E_PF_STAT("fdir_atr_match", stats.fd_atr_match),
++	I40E_PF_STAT("fdir_atr_tunnel_match", stats.fd_atr_tunnel_match),
+ 	I40E_PF_STAT("fdir_sb_match", stats.fd_sb_match),
+ 
+ 	/* LPI stats */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index f1a8c4c..e70a616 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1102,6 +1102,10 @@ static void i40e_update_pf_stats(struct i40e_pf *pf)
+ 	i40e_stat_update32(hw, I40E_GLQF_PCNT(pf->fd_sb_cnt_idx),
+ 			   pf->stat_offsets_loaded,
+ 			   &osd->fd_sb_match, &nsd->fd_sb_match);
++	i40e_stat_update32(hw,
++		      I40E_GLQF_PCNT(I40E_FD_ATR_TUNNEL_STAT_IDX(pf->hw.pf_id)),
++		      pf->stat_offsets_loaded,
++		      &osd->fd_atr_tunnel_match, &nsd->fd_atr_tunnel_match);
+ 
+ 	val = rd32(hw, I40E_PRTPM_EEE_STAT);
+ 	nsd->tx_lpi_status =
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 0b4a7be..8565495 100644
+index 8565495..fc4ec82 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1923,11 +1923,11 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
-  * i40e_atr - Add a Flow Director ATR filter
-  * @tx_ring:  ring to add programming descriptor to
-  * @skb:      send buffer
-- * @flags:    send flags
-+ * @tx_flags: send tx flags
-  * @protocol: wire protocol
-  **/
- static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
--		     u32 flags, __be16 protocol)
-+		     u32 tx_flags, __be16 protocol)
- {
- 	struct i40e_filter_program_desc *fdir_desc;
- 	struct i40e_pf *pf = tx_ring->vsi->back;
-@@ -1952,25 +1952,38 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	if (!tx_ring->atr_sample_rate)
- 		return;
+@@ -2033,9 +2033,16 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 		     I40E_TXD_FLTR_QW1_FD_STATUS_SHIFT;
  
--	/* snag network header to get L4 type and address */
--	hdr.network = skb_network_header(skb);
-+	if (!(tx_flags & (I40E_TX_FLAGS_IPV4 | I40E_TX_FLAGS_IPV6)))
-+		return;
+ 	dtype_cmd |= I40E_TXD_FLTR_QW1_CNT_ENA_MASK;
+-	dtype_cmd |=
+-		((u32)pf->fd_atr_cnt_idx << I40E_TXD_FLTR_QW1_CNTINDEX_SHIFT) &
+-		I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
++	if (!(tx_flags & I40E_TX_FLAGS_VXLAN_TUNNEL))
++		dtype_cmd |=
++			((u32)I40E_FD_ATR_STAT_IDX(pf->hw.pf_id) <<
++			I40E_TXD_FLTR_QW1_CNTINDEX_SHIFT) &
++			I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
++	else
++		dtype_cmd |=
++			((u32)I40E_FD_ATR_TUNNEL_STAT_IDX(pf->hw.pf_id) <<
++			I40E_TXD_FLTR_QW1_CNTINDEX_SHIFT) &
++			I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
  
--	/* Currently only IPv4/IPv6 with TCP is supported */
--	if (protocol == htons(ETH_P_IP)) {
--		if (hdr.ipv4->protocol != IPPROTO_TCP)
--			return;
-+	if (!(tx_flags & I40E_TX_FLAGS_VXLAN_TUNNEL)) {
-+		/* snag network header to get L4 type and address */
-+		hdr.network = skb_network_header(skb);
- 
--		/* access ihl as a u8 to avoid unaligned access on ia64 */
--		hlen = (hdr.network[0] & 0x0F) << 2;
--	} else if (protocol == htons(ETH_P_IPV6)) {
--		if (hdr.ipv6->nexthdr != IPPROTO_TCP)
-+		/* Currently only IPv4/IPv6 with TCP is supported
-+		 * access ihl as u8 to avoid unaligned access on ia64
-+		 */
-+		if (tx_flags & I40E_TX_FLAGS_IPV4)
-+			hlen = (hdr.network[0] & 0x0F) << 2;
-+		else if (protocol == htons(ETH_P_IPV6))
-+			hlen = sizeof(struct ipv6hdr);
-+		else
- 			return;
--
--		hlen = sizeof(struct ipv6hdr);
- 	} else {
--		return;
-+		hdr.network = skb_inner_network_header(skb);
-+		hlen = skb_inner_network_header_len(skb);
- 	}
- 
-+	/* Currently only IPv4/IPv6 with TCP is supported
-+	 * Note: tx_flags gets modified to reflect inner protocols in
-+	 * tx_enable_csum function if encap is enabled.
-+	 */
-+	if ((tx_flags & I40E_TX_FLAGS_IPV4) &&
-+	    (hdr.ipv4->protocol != IPPROTO_TCP))
-+		return;
-+	else if ((tx_flags & I40E_TX_FLAGS_IPV6) &&
-+		 (hdr.ipv6->nexthdr != IPPROTO_TCP))
-+		return;
-+
- 	th = (struct tcphdr *)(hdr.network + hlen);
- 
- 	/* Due to lack of space, no more new filters can be programmed */
-@@ -2117,16 +2130,14 @@ out:
-  * i40e_tso - set up the tso context descriptor
-  * @tx_ring:  ptr to the ring to send
-  * @skb:      ptr to the skb we're sending
-- * @tx_flags: the collected send information
-- * @protocol: the send protocol
-  * @hdr_len:  ptr to the size of the packet header
-  * @cd_tunneling: ptr to context descriptor bits
-  *
-  * Returns 0 if no TSO can happen, 1 if tso is going, or error
-  **/
- static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
--		    u32 tx_flags, __be16 protocol, u8 *hdr_len,
--		    u64 *cd_type_cmd_tso_mss, u32 *cd_tunneling)
-+		    u8 *hdr_len, u64 *cd_type_cmd_tso_mss,
-+		    u32 *cd_tunneling)
- {
- 	u32 cd_cmd, cd_tso_len, cd_mss;
- 	struct ipv6hdr *ipv6h;
-@@ -2218,12 +2229,12 @@ static int i40e_tsyn(struct i40e_ring *tx_ring, struct sk_buff *skb,
- /**
-  * i40e_tx_enable_csum - Enable Tx checksum offloads
-  * @skb: send buffer
-- * @tx_flags: Tx flags currently set
-+ * @tx_flags: pointer to Tx flags currently set
-  * @td_cmd: Tx descriptor command bits to set
-  * @td_offset: Tx descriptor header offsets to set
-  * @cd_tunneling: ptr to context desc bits
-  **/
--static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
-+static void i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
- 				u32 *td_cmd, u32 *td_offset,
- 				struct i40e_ring *tx_ring,
- 				u32 *cd_tunneling)
-@@ -2239,6 +2250,7 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
- 		switch (ip_hdr(skb)->protocol) {
- 		case IPPROTO_UDP:
- 			l4_tunnel = I40E_TXD_CTX_UDP_TUNNELING;
-+			*tx_flags |= I40E_TX_FLAGS_VXLAN_TUNNEL;
- 			break;
- 		default:
- 			return;
-@@ -2248,18 +2260,17 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
- 		this_ipv6_hdr = inner_ipv6_hdr(skb);
- 		this_tcp_hdrlen = inner_tcp_hdrlen(skb);
- 
--		if (tx_flags & I40E_TX_FLAGS_IPV4) {
--
--			if (tx_flags & I40E_TX_FLAGS_TSO) {
-+		if (*tx_flags & I40E_TX_FLAGS_IPV4) {
-+			if (*tx_flags & I40E_TX_FLAGS_TSO) {
- 				*cd_tunneling |= I40E_TX_CTX_EXT_IP_IPV4;
- 				ip_hdr(skb)->check = 0;
- 			} else {
- 				*cd_tunneling |=
- 					 I40E_TX_CTX_EXT_IP_IPV4_NO_CSUM;
- 			}
--		} else if (tx_flags & I40E_TX_FLAGS_IPV6) {
-+		} else if (*tx_flags & I40E_TX_FLAGS_IPV6) {
- 			*cd_tunneling |= I40E_TX_CTX_EXT_IP_IPV6;
--			if (tx_flags & I40E_TX_FLAGS_TSO)
-+			if (*tx_flags & I40E_TX_FLAGS_TSO)
- 				ip_hdr(skb)->check = 0;
- 		}
- 
-@@ -2271,8 +2282,8 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
- 					skb_transport_offset(skb)) >> 1) <<
- 				   I40E_TXD_CTX_QW0_NATLEN_SHIFT;
- 		if (this_ip_hdr->version == 6) {
--			tx_flags &= ~I40E_TX_FLAGS_IPV4;
--			tx_flags |= I40E_TX_FLAGS_IPV6;
-+			*tx_flags &= ~I40E_TX_FLAGS_IPV4;
-+			*tx_flags |= I40E_TX_FLAGS_IPV6;
- 		}
- 	} else {
- 		network_hdr_len = skb_network_header_len(skb);
-@@ -2282,12 +2293,12 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
- 	}
- 
- 	/* Enable IP checksum offloads */
--	if (tx_flags & I40E_TX_FLAGS_IPV4) {
-+	if (*tx_flags & I40E_TX_FLAGS_IPV4) {
- 		l4_hdr = this_ip_hdr->protocol;
- 		/* the stack computes the IP header already, the only time we
- 		 * need the hardware to recompute it is in the case of TSO.
- 		 */
--		if (tx_flags & I40E_TX_FLAGS_TSO) {
-+		if (*tx_flags & I40E_TX_FLAGS_TSO) {
- 			*td_cmd |= I40E_TX_DESC_CMD_IIPT_IPV4_CSUM;
- 			this_ip_hdr->check = 0;
- 		} else {
-@@ -2296,7 +2307,7 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
- 		/* Now set the td_offset for IP header length */
- 		*td_offset = (network_hdr_len >> 2) <<
- 			      I40E_TX_DESC_LENGTH_IPLEN_SHIFT;
--	} else if (tx_flags & I40E_TX_FLAGS_IPV6) {
-+	} else if (*tx_flags & I40E_TX_FLAGS_IPV6) {
- 		l4_hdr = this_ipv6_hdr->nexthdr;
- 		*td_cmd |= I40E_TX_DESC_CMD_IIPT_IPV6;
- 		/* Now set the td_offset for IP header length */
-@@ -2709,7 +2720,7 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	else if (protocol == htons(ETH_P_IPV6))
- 		tx_flags |= I40E_TX_FLAGS_IPV6;
- 
--	tso = i40e_tso(tx_ring, skb, tx_flags, protocol, &hdr_len,
-+	tso = i40e_tso(tx_ring, skb, &hdr_len,
- 		       &cd_type_cmd_tso_mss, &cd_tunneling);
- 
- 	if (tso < 0)
-@@ -2735,7 +2746,7 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		tx_flags |= I40E_TX_FLAGS_CSUM;
- 
--		i40e_tx_enable_csum(skb, tx_flags, &td_cmd, &td_offset,
-+		i40e_tx_enable_csum(skb, &tx_flags, &td_cmd, &td_offset,
- 				    tx_ring, &cd_tunneling);
- 	}
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index 4b0b810..ea1df3b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -139,6 +139,7 @@ enum i40e_dyn_idx_t {
- #define I40E_TX_FLAGS_FSO		(u32)(1 << 7)
- #define I40E_TX_FLAGS_TSYN		(u32)(1 << 8)
- #define I40E_TX_FLAGS_FD_SB		(u32)(1 << 9)
-+#define I40E_TX_FLAGS_VXLAN_TUNNEL	(u32)(1 << 10)
- #define I40E_TX_FLAGS_VLAN_MASK		0xffff0000
- #define I40E_TX_FLAGS_VLAN_PRIO_MASK	0xe0000000
- #define I40E_TX_FLAGS_VLAN_PRIO_SHIFT	29
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 3ef2309..09cc2d7 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1406,16 +1406,14 @@ out:
-  * i40e_tso - set up the tso context descriptor
-  * @tx_ring:  ptr to the ring to send
-  * @skb:      ptr to the skb we're sending
-- * @tx_flags: the collected send information
-- * @protocol: the send protocol
-  * @hdr_len:  ptr to the size of the packet header
-  * @cd_tunneling: ptr to context descriptor bits
-  *
-  * Returns 0 if no TSO can happen, 1 if tso is going, or error
-  **/
- static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
--		    u32 tx_flags, __be16 protocol, u8 *hdr_len,
--		    u64 *cd_type_cmd_tso_mss, u32 *cd_tunneling)
-+		    u8 *hdr_len, u64 *cd_type_cmd_tso_mss,
-+		    u32 *cd_tunneling)
- {
- 	u32 cd_cmd, cd_tso_len, cd_mss;
- 	struct ipv6hdr *ipv6h;
-@@ -1466,12 +1464,12 @@ static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
- /**
-  * i40e_tx_enable_csum - Enable Tx checksum offloads
-  * @skb: send buffer
-- * @tx_flags: Tx flags currently set
-+ * @tx_flags: pointer to Tx flags currently set
-  * @td_cmd: Tx descriptor command bits to set
-  * @td_offset: Tx descriptor header offsets to set
-  * @cd_tunneling: ptr to context desc bits
-  **/
--static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
-+static void i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
- 				u32 *td_cmd, u32 *td_offset,
- 				struct i40e_ring *tx_ring,
- 				u32 *cd_tunneling)
-@@ -1487,6 +1485,7 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
- 		switch (ip_hdr(skb)->protocol) {
- 		case IPPROTO_UDP:
- 			l4_tunnel = I40E_TXD_CTX_UDP_TUNNELING;
-+			*tx_flags |= I40E_TX_FLAGS_VXLAN_TUNNEL;
- 			break;
- 		default:
- 			return;
-@@ -1496,18 +1495,17 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
- 		this_ipv6_hdr = inner_ipv6_hdr(skb);
- 		this_tcp_hdrlen = inner_tcp_hdrlen(skb);
- 
--		if (tx_flags & I40E_TX_FLAGS_IPV4) {
--
--			if (tx_flags & I40E_TX_FLAGS_TSO) {
-+		if (*tx_flags & I40E_TX_FLAGS_IPV4) {
-+			if (*tx_flags & I40E_TX_FLAGS_TSO) {
- 				*cd_tunneling |= I40E_TX_CTX_EXT_IP_IPV4;
- 				ip_hdr(skb)->check = 0;
- 			} else {
- 				*cd_tunneling |=
- 					 I40E_TX_CTX_EXT_IP_IPV4_NO_CSUM;
- 			}
--		} else if (tx_flags & I40E_TX_FLAGS_IPV6) {
-+		} else if (*tx_flags & I40E_TX_FLAGS_IPV6) {
- 			*cd_tunneling |= I40E_TX_CTX_EXT_IP_IPV6;
--			if (tx_flags & I40E_TX_FLAGS_TSO)
-+			if (*tx_flags & I40E_TX_FLAGS_TSO)
- 				ip_hdr(skb)->check = 0;
- 		}
- 
-@@ -1519,8 +1517,8 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
- 					skb_transport_offset(skb)) >> 1) <<
- 				   I40E_TXD_CTX_QW0_NATLEN_SHIFT;
- 		if (this_ip_hdr->version == 6) {
--			tx_flags &= ~I40E_TX_FLAGS_IPV4;
--			tx_flags |= I40E_TX_FLAGS_IPV6;
-+			*tx_flags &= ~I40E_TX_FLAGS_IPV4;
-+			*tx_flags |= I40E_TX_FLAGS_IPV6;
- 		}
- 
- 
-@@ -1532,12 +1530,12 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
- 	}
- 
- 	/* Enable IP checksum offloads */
--	if (tx_flags & I40E_TX_FLAGS_IPV4) {
-+	if (*tx_flags & I40E_TX_FLAGS_IPV4) {
- 		l4_hdr = this_ip_hdr->protocol;
- 		/* the stack computes the IP header already, the only time we
- 		 * need the hardware to recompute it is in the case of TSO.
- 		 */
--		if (tx_flags & I40E_TX_FLAGS_TSO) {
-+		if (*tx_flags & I40E_TX_FLAGS_TSO) {
- 			*td_cmd |= I40E_TX_DESC_CMD_IIPT_IPV4_CSUM;
- 			this_ip_hdr->check = 0;
- 		} else {
-@@ -1546,7 +1544,7 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
- 		/* Now set the td_offset for IP header length */
- 		*td_offset = (network_hdr_len >> 2) <<
- 			      I40E_TX_DESC_LENGTH_IPLEN_SHIFT;
--	} else if (tx_flags & I40E_TX_FLAGS_IPV6) {
-+	} else if (*tx_flags & I40E_TX_FLAGS_IPV6) {
- 		l4_hdr = this_ipv6_hdr->nexthdr;
- 		*td_cmd |= I40E_TX_DESC_CMD_IIPT_IPV6;
- 		/* Now set the td_offset for IP header length */
-@@ -1940,7 +1938,7 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	else if (protocol == htons(ETH_P_IPV6))
- 		tx_flags |= I40E_TX_FLAGS_IPV6;
- 
--	tso = i40e_tso(tx_ring, skb, tx_flags, protocol, &hdr_len,
-+	tso = i40e_tso(tx_ring, skb, &hdr_len,
- 		       &cd_type_cmd_tso_mss, &cd_tunneling);
- 
- 	if (tso < 0)
-@@ -1961,7 +1959,7 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		tx_flags |= I40E_TX_FLAGS_CSUM;
- 
--		i40e_tx_enable_csum(skb, tx_flags, &td_cmd, &td_offset,
-+		i40e_tx_enable_csum(skb, &tx_flags, &td_cmd, &td_offset,
- 				    tx_ring, &cd_tunneling);
- 	}
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index 1e49bb1..a23f5e8 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -138,6 +138,7 @@ enum i40e_dyn_idx_t {
- #define I40E_TX_FLAGS_FCCRC		(u32)(1 << 6)
- #define I40E_TX_FLAGS_FSO		(u32)(1 << 7)
- #define I40E_TX_FLAGS_FD_SB		(u32)(1 << 9)
-+#define I40E_TX_FLAGS_VXLAN_TUNNEL	(u32)(1 << 10)
- #define I40E_TX_FLAGS_VLAN_MASK		0xffff0000
- #define I40E_TX_FLAGS_VLAN_PRIO_MASK	0xe0000000
- #define I40E_TX_FLAGS_VLAN_PRIO_SHIFT	29
+ 	fdir_desc->qindex_flex_ptype_vsi = cpu_to_le32(flex_ptype);
+ 	fdir_desc->rsvd = cpu_to_le32(0);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 568e855..9a5a75b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -1133,6 +1133,7 @@ struct i40e_hw_port_stats {
+ 	/* flow director stats */
+ 	u64 fd_atr_match;
+ 	u64 fd_sb_match;
++	u64 fd_atr_tunnel_match;
+ 	/* EEE LPI */
+ 	u32 tx_lpi_status;
+ 	u32 rx_lpi_status;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index ec9d83a..c463ec4 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -1108,6 +1108,7 @@ struct i40e_hw_port_stats {
+ 	/* flow director stats */
+ 	u64 fd_atr_match;
+ 	u64 fd_sb_match;
++	u64 fd_atr_tunnel_match;
+ 	/* EEE LPI */
+ 	u32 tx_lpi_status;
+ 	u32 rx_lpi_status;
 -- 
 2.1.0
