@@ -1,8 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/7] xfrm: remove the xfrm_queue_purge definition
-Date: Thu, 28 May 2015 08:25:48 +0200
-Message-ID: <1432794354-19391-2-git-send-email-steffen.klassert@secunet.com>
-References: <1432794354-19391-1-git-send-email-steffen.klassert@secunet.com>
+Subject: pull request (net-next): ipsec-next 2015-05-28
+Date: Thu, 28 May 2015 08:25:47 +0200
+Message-ID: <1432794354-19391-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -10,60 +9,60 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:49912 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:49924 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750886AbbE1G0K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 02:26:10 -0400
-In-Reply-To: <1432794354-19391-1-git-send-email-steffen.klassert@secunet.com>
+	id S1751836AbbE1G0L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2015 02:26:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+1) Remove xfrm_queue_purge as this is the same as skb_queue_purge.
 
-The task of xfrm_queue_purge is same as skb_queue_purge, so remove it
+2) Optimize policy and state walk.
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_policy.c | 12 ++----------
- 1 file changed, 2 insertions(+), 10 deletions(-)
+3) Use a sane return code if afinfo registration fails.
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 638af06..d8c35ad 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -315,14 +315,6 @@ void xfrm_policy_destroy(struct xfrm_policy *policy)
- }
- EXPORT_SYMBOL(xfrm_policy_destroy);
- 
--static void xfrm_queue_purge(struct sk_buff_head *list)
--{
--	struct sk_buff *skb;
--
--	while ((skb = skb_dequeue(list)) != NULL)
--		kfree_skb(skb);
--}
--
- /* Rule must be locked. Release descentant resources, announce
-  * entry dead. The rule must be unlinked from lists to the moment.
-  */
-@@ -335,7 +327,7 @@ static void xfrm_policy_kill(struct xfrm_policy *policy)
- 
- 	if (del_timer(&policy->polq.hold_timer))
- 		xfrm_pol_put(policy);
--	xfrm_queue_purge(&policy->polq.hold_queue);
-+	skb_queue_purge(&policy->polq.hold_queue);
- 
- 	if (del_timer(&policy->timer))
- 		xfrm_pol_put(policy);
-@@ -1955,7 +1947,7 @@ out:
- 
- purge_queue:
- 	pq->timeout = 0;
--	xfrm_queue_purge(&pq->hold_queue);
-+	skb_queue_purge(&pq->hold_queue);
- 	xfrm_pol_put(pol);
- }
- 
--- 
-1.9.1
+4) Only check fori a acquire state if the state is not valid.
+
+5) Remove a unnecessary NULL check before xfrm_pol_hold
+   as it checks the input for NULL.
+
+6) Return directly if the xfrm hold queue is empty, avoid
+   to take a lock as it is nothing to do in this case.
+
+7) Optimize the inexact policy search and allow for matching
+   of policies with priority ~0U.
+
+All from Li RongQing.
+
+Please pull or let me know if there are problems.
+
+Thanks!
+
+The following changes since commit 04b7fe6a4a231871ef681bc95e08fe66992f7b1f:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/ide (2015-04-17 16:36:59 -0400)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
+
+for you to fetch changes up to 8faf491e642011f449d6405be52bedb70964aed6:
+
+  xfrm: optimise to search the inexact policy list (2015-05-18 10:31:56 +0200)
+
+----------------------------------------------------------------
+Li RongQing (7):
+      xfrm: remove the xfrm_queue_purge definition
+      xfrm: optimise the use of walk list header in xfrm_policy/state_walk
+      xfrm: fix the return code when xfrm_*_register_afinfo failed
+      xfrm: slightly optimise xfrm_input
+      xfrm: remove the unnecessary checking before call xfrm_pol_hold
+      xfrm: move the checking for old xfrm_policy hold_queue to beginning
+      xfrm: optimise to search the inexact policy list
+
+ net/xfrm/xfrm_input.c  | 12 ++++++------
+ net/xfrm/xfrm_policy.c | 42 ++++++++++++++++++++----------------------
+ net/xfrm/xfrm_state.c  |  4 ++--
+ 3 files changed, 28 insertions(+), 30 deletions(-)
