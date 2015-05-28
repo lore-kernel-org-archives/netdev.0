@@ -1,92 +1,59 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/14] i40e: Remove unnecessary pf members
-Date: Thu, 28 May 2015 04:25:32 -0700
-Message-ID: <1432812339-17129-8-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1432812339-17129-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: iproute2: missing patches in branch net-next
+Date: Thu, 28 May 2015 13:31:08 +0200
+Message-ID: <5566FC7C.1000200@6wind.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@redhat.com>, Jiri Pirko <jiri@resnulli.us>,
+	David Ward <david.ward@ll.mit.edu>,
+	Jonathan Toppins <jtoppins@cumulusnetworks.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:11036 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753991AbbE1LZv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 07:25:51 -0400
-In-Reply-To: <1432812339-17129-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:35659 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753704AbbE1LbQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 07:31:16 -0400
+Received: by wicmx19 with SMTP id mx19so142949078wic.0
+        for <netdev@vger.kernel.org>; Thu, 28 May 2015 04:31:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+Hi Stephen,
 
-We can use the stat index macro directly, a variable is not required.
+some patches that were recently included in iproute2 branch net-next are not
+visible anymore on kernel.org. It seems that the branch has been overridden
+(note the "forced update" when I've fetched it):
 
-Change-ID: I19f08ac16353dc0cd87a1a8248d714e15a54aa8a
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Tested-by: Jim Young <james.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e.h         |  2 --
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 10 ++++------
- 3 files changed, 5 insertions(+), 9 deletions(-)
+$ git fetch
+remote: Counting objects: 65, done.
+remote: Compressing objects: 100% (65/65), done.
+remote: Total 65 (delta 58), reused 0 (delta 0)
+Unpacking objects: 100% (65/65), done.
+ From git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2
+  + aacee2695a90...eb9d6e794b52 net-next   -> origin/net-next  (forced update)
+    f043759dd492..c52827e9077f  master     -> origin/master
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 0bfa5a0..aca9cef 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -266,8 +266,6 @@ struct i40e_pf {
- 
- 	struct hlist_head fdir_filter_list;
- 	u16 fdir_pf_active_filters;
--	u16 fd_sb_cnt_idx;
--	u16 fd_atr_cnt_idx;
- 	unsigned long fd_flush_timestamp;
- 	u32 fd_flush_cnt;
- 	u32 fd_add_err;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index c568c90..9a68c65 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -2293,7 +2293,7 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
- 	input->pctype = 0;
- 	input->dest_vsi = vsi->id;
- 	input->fd_status = I40E_FILTER_PROGRAM_DESC_FD_STATUS_FD_ID;
--	input->cnt_index  = pf->fd_sb_cnt_idx;
-+	input->cnt_index  = I40E_FD_SB_STAT_IDX(pf->hw.pf_id);
- 	input->flow_type = fsp->flow_type;
- 	input->ip4_proto = fsp->h_u.usr_ip4_spec.proto;
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index e70a616..6f16f56 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1096,10 +1096,12 @@ static void i40e_update_pf_stats(struct i40e_pf *pf)
- 			   &osd->rx_jabber, &nsd->rx_jabber);
- 
- 	/* FDIR stats */
--	i40e_stat_update32(hw, I40E_GLQF_PCNT(pf->fd_atr_cnt_idx),
-+	i40e_stat_update32(hw,
-+			   I40E_GLQF_PCNT(I40E_FD_ATR_STAT_IDX(pf->hw.pf_id)),
- 			   pf->stat_offsets_loaded,
- 			   &osd->fd_atr_match, &nsd->fd_atr_match);
--	i40e_stat_update32(hw, I40E_GLQF_PCNT(pf->fd_sb_cnt_idx),
-+	i40e_stat_update32(hw,
-+			   I40E_GLQF_PCNT(I40E_FD_SB_STAT_IDX(pf->hw.pf_id)),
- 			   pf->stat_offsets_loaded,
- 			   &osd->fd_sb_match, &nsd->fd_sb_match);
- 	i40e_stat_update32(hw,
-@@ -7679,12 +7681,8 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 	    (pf->hw.func_caps.fd_filters_best_effort > 0)) {
- 		pf->flags |= I40E_FLAG_FD_ATR_ENABLED;
- 		pf->atr_sample_rate = I40E_DEFAULT_ATR_SAMPLE_RATE;
--		/* Setup a counter for fd_atr per PF */
--		pf->fd_atr_cnt_idx = I40E_FD_ATR_STAT_IDX(pf->hw.pf_id);
- 		if (!(pf->flags & I40E_FLAG_MFP_ENABLED)) {
- 			pf->flags |= I40E_FLAG_FD_SB_ENABLED;
--			/* Setup a counter for fd_sb per PF */
--			pf->fd_sb_cnt_idx = I40E_FD_SB_STAT_IDX(pf->hw.pf_id);
- 		} else {
- 			dev_info(&pf->pdev->dev,
- 				 "Flow Director Sideband mode Disabled in MFP mode\n");
--- 
-2.1.0
+
+The following patches are lost:
+aacee2695a90 tc: gred: Add support for TCA_GRED_LIMIT attribute
+b6ec53e3008a xfrmmonitor: allows to monitor in several netns
+449b824ad196 ipmonitor: allows to monitor in several netns
+3b0006f8183e ipmonitor: introduce print_headers
+0628cddd9d5c libnetlink: introduce rtnl_listen_filter_t
+2503247d58c3 man: update ip monitor page
+6fc1f8add30b iplink_bond: add support for ad_actor and port_key options
+df1c7d9138ea codel: add ce_threshold support to codel & fc_codel
+30eb304ecd1d tc: add support for Flower classifier
+1a4dda7103bc ss: add support for bytes_acked & bytes_received
+908755dc49df iproute2: GENEVE support
+f9b004020a89 Merge branch 'master' into net-next
+8f42ceaf2491 Update kernels for net-next
+
+
+Regards,
+Nicolas
