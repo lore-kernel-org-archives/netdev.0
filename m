@@ -1,155 +1,51 @@
-From: Andrey Korolyov <andrey@xdel.ru>
-Subject: Connection tracking and soft lockups with certain field values
-Date: Thu, 28 May 2015 22:41:37 +0300
-Message-ID: <CABYiri8ec20K51v4jSwwxfK-n3Guw+ASq2mkd1Ox9zfTRVnBuw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a1133f9947fd1ac0517298da7
-To: netdev@vger.kernel.org
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH 1/1] hv_netvsc: Allocate the receive buffer from the correct NUMA node
+Date: Thu, 28 May 2015 14:56:26 -0700
+Message-ID: <1432850186-31770-1-git-send-email-kys@microsoft.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:34271 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752781AbbE1TmA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 15:42:00 -0400
-Received: by laat2 with SMTP id t2so40103075laa.1
-        for <netdev@vger.kernel.org>; Thu, 28 May 2015 12:41:58 -0700 (PDT)
+Received: from p3plsmtps2ded03.prod.phx3.secureserver.net ([208.109.80.60]:39471
+	"EHLO p3plsmtps2ded03.prod.phx3.secureserver.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753372AbbE1Ufc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2015 16:35:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001a1133f9947fd1ac0517298da7
-Content-Type: text/plain; charset=UTF-8
+Allocate the receive bufer from the NUMA node assigned to the primary
+channel.
 
-Hi,
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
 
-I am currently playing with SYNPROXY target to optimize SYN filtering
-performance and by occasion found that TCP SYN packets containing port
-0 can result in a soft lockup when conntrack is enabled just by
-itself, given high packet ratio (I`ve reached 450kpps so far with 60b
-packets on a /32<->/32 flood with enabled flow control at the media
-level and middle-level E3 Xeon on receiver side). Same flood with port
-> 0 going just well, producing same ceil numbers but without visible
-lockups in kernel log. I`ve tested the issue on a broad range of 3.x
-kernels and all of them are seemingly affected. Fast and dirty grep
-revealed special conditions for port 0 only for protocol-specific
-helpers, but there are none of them.
-
-Please find both same captures and traceback below.
-
---001a1133f9947fd1ac0517298da7
-Content-Type: text/plain; charset=US-ASCII; name="conntrack-port-0-trace.txt"
-Content-Disposition: attachment; filename="conntrack-port-0-trace.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ia8l1e782
-
-WyAgMTUyLjAwMTk1N10gaXhnYmUgMDAwMDowMTowMC4wIGV0aDg6IE5JQyBMaW5rIGlzIFVwIDEw
-IEdicHMsIEZsb3cgQ29udHJvbDogUlgvVFgKWyAgMTU3LjMyNjQxMF0gc2NoZWQ6IFJUIHRocm90
-dGxpbmcgYWN0aXZhdGVkClsgIDE4MC4wMzgxMDVdIE5NSSB3YXRjaGRvZzogQlVHOiBzb2Z0IGxv
-Y2t1cCAtIENQVSMwIHN0dWNrIGZvciAyMXMhIFtyY3Vvcy8wOjldClsgIDE4MC4wMzgxMjhdIE1v
-ZHVsZXMgbGlua2VkIGluOiB4dF9DVCBpcHRhYmxlX3JhdyBpcHRfU1lOUFJPWFkgbmZfc3lucHJv
-eHlfY29yZSBuZl9jb25udHJhY2tfaXB2NCBuZl9kZWZyYWdfaXB2NCB4dF90Y3B1ZHAgeHRfY29u
-bnRyYWNrIG5mX2Nvbm50cmFjayBpcHRhYmxlX2ZpbHRlciBpcF90YWJsZXMgeF90YWJsZXMgdHVu
-IG9wZW52c3dpdGNoKE8pIGxpYmNyYzMyYyBuZnNkIGF1dGhfcnBjZ3NzIG5mc19hY2wgbmZzIGxv
-Y2tkIGdyYWNlIGZzY2FjaGUgc3VucnBjIGJyaWRnZSBzdHAgbGxjIHc4MzYyN2VoZiBod21vbl92
-aWQgamM0MiBsb29wIGZ1c2UgZG1fY3J5cHQgam95ZGV2IGhpZF9nZW5lcmljIHVzYmhpZCB4ODZf
-cGtnX3RlbXBfdGhlcm1hbCBpbnRlbF9wb3dlcmNsYW1wIGFzdCBjb3JldGVtcCBpZ2IgdHRtIGRy
-bV9rbXNfaGVscGVyIGt2bV9pbnRlbChPKSBkcm0gaVRDT193ZHQgaVRDT192ZW5kb3Jfc3VwcG9y
-dCBzZyBwY3Nwa3Iga3ZtKE8pIHN5c2NvcHlhcmVhIHN5c2ZpbGxyZWN0IHN5c2ltZ2JsdCB2aWRl
-byB0aGVybWFsIHRwbV90aXMgaTJjX2FsZ29fYml0IGlwbWlfc2kgaXBtaV9tc2doYW5kbGVyIHRw
-bSBpMmNfaTgwMSA4MjUwX2ZpbnRlayBmYW4gYmF0dGVyeSBzaHBjaHAgYnV0dG9uIGllMzEyMDBf
-ZWRhYyBlZGFjX2NvcmUgeGhjaV9wY2kgbHBjX2ljaCBtZmRfY29yZSB4aGNpX2hjZCBwcm9jZXNz
-b3IgY3JjdDEwZGlmX3BjbG11bCBjcmMzMl9wY2xtdWwgY3JjMzJjX2ludGVsIGdoYXNoX2NsbXVs
-bmlfaW50ZWwgYWVzbmlfaW50ZWwgYWVzX3g4Nl82NCBscncgZ2YxMjhtdWwgZ2x1ZV9oZWxwZXIK
-WyAgMTgwLjAzODE1N10gIGFibGtfaGVscGVyIGNyeXB0ZCBtcHQyc2FzIHJhaWRfY2xhc3MgZWhj
-aV9wY2kgaXhnYmUoTykgZWhjaV9oY2QgdnhsYW4gaXA2X3VkcF90dW5uZWwgdWRwX3R1bm5lbCB1
-c2Jjb3JlIHB0cCB1c2JfY29tbW9uIHBwc19jb3JlIGRjYSBkbV9taXJyb3IgZG1fcmVnaW9uX2hh
-c2ggZG1fbG9nIGRtX21vZApbICAxODAuMDM4MTY1XSBDUFU6IDAgUElEOiA5IENvbW06IHJjdW9z
-LzAgVGFpbnRlZDogRyAgICAgICAgICAgTyAgIDMuMTguMTAtZGVmYXVsdCAjNQpbICAxODAuMDM4
-MTY2XSBIYXJkd2FyZSBuYW1lOiBTdXBlcm1pY3JvIFgxMFNMNy1GL1gxMFNMNy1GLCBCSU9TIDIu
-MDAgMDQvMjQvMjAxNApbICAxODAuMDM4MTY3XSB0YXNrOiBmZmZmODgwNDA5NjI0YzIwIHRpOiBm
-ZmZmODgwNDA5NjMwMDAwIHRhc2sudGk6IGZmZmY4ODA0MDk2MzAwMDAKWyAgMTgwLjAzODE2OF0g
-UklQOiAwMDEwOls8ZmZmZmZmZmY4MTU1Yjk3Mj5dICBbPGZmZmZmZmZmODE1NWI5NzI+XSBkZXZf
-Z3JvX3JlY2VpdmUrMHgxODIvMHgzNzAKWyAgMTgwLjAzODE3Ml0gUlNQOiAwMDE4OmZmZmY4ODA0
-MWZjMDNkNDggIEVGTEFHUzogMDAwMDAyOTYKWyAgMTgwLjAzODE3M10gUkFYOiBmZmZmZmZmZjgx
-Y2Y2OTIwIFJCWDogMDAwMDAwMDE4MDIwMDAyMCBSQ1g6IDAwMDAwMDAwNjc2MzI1MzMKWyAgMTgw
-LjAzODE3NF0gUkRYOiBmZmZmODgwNDA1NTgwMDAwIFJTSTogZmZmZjg4MDBkODM5MjEwMCBSREk6
-IGZmZmY4ODA0MDU0ZGM0NDAKWyAgMTgwLjAzODE3NV0gUkJQOiBmZmZmODgwNDFmYzAzZDk4IFIw
-ODogMDAwMDAwMDAwMDAwMDAyZSBSMDk6IDAwMDAwMDAwMDAwMDAwMDAKWyAgMTgwLjAzODE3NV0g
-UjEwOiBmZmZmODgwMGQ4MzkyMTAwIFIxMTogZmZmZmVhMDAxMDE5ZGUwMCBSMTI6IGZmZmY4ODA0
-MWZjMDNjYjgKWyAgMTgwLjAzODE3Nl0gUjEzOiBmZmZmZmZmZjgxNjViODNkIFIxNDogZmZmZjg4
-MDQxZmMwM2Q5OCBSMTU6IGZmZmY4ODAwZDgzOTIxMDAKWyAgMTgwLjAzODE3N10gRlM6ICAwMDAw
-MDAwMDAwMDAwMDAwKDAwMDApIEdTOmZmZmY4ODA0MWZjMDAwMDAoMDAwMCkga25sR1M6MDAwMDAw
-MDAwMDAwMDAwMApbICAxODAuMDM4MTc4XSBDUzogIDAwMTAgRFM6IDAwMDAgRVM6IDAwMDAgQ1Iw
-OiAwMDAwMDAwMDgwMDUwMDMzClsgIDE4MC4wMzgxNzldIENSMjogMDAwMDdmZWQwODlkMjFiMCBD
-UjM6IDAwMDAwMDAwMDFjMTUwMDAgQ1I0OiAwMDAwMDAwMDAwMTQwN2YwClsgIDE4MC4wMzgxODBd
-IERSMDogMDAwMDAwMDAwMDAwMDAwMCBEUjE6IDAwMDAwMDAwMDAwMDAwMDAgRFIyOiAwMDAwMDAw
-MDAwMDAwMDAwClsgIDE4MC4wMzgxODBdIERSMzogMDAwMDAwMDAwMDAwMDAwMCBEUjY6IDAwMDAw
-MDAwZmZmZTBmZjAgRFI3OiAwMDAwMDAwMDAwMDAwNDAwClsgIDE4MC4wMzgxODFdIFN0YWNrOgpb
-ICAxODAuMDM4MTgxXSAgMDAwMDAwMDAwMDAwMDI4MCAwMDAwMDAwMDAwMDAwMDBlIDAwMDAwMDAw
-MDAwMDAwMGIgZmZmZmZmZmY4MWNmODg2MApbICAxODAuMDM4MTgzXSAgZmZmZjg4MDQxZmMwM2Q5
-OCBmZmZmODgwNDA1NGRjNjQwIGZmZmY4ODAwZDgzOTIxMDAgZmZmZjg4MDQwNTRkYzQ0MApbICAx
-ODAuMDM4MTg0XSAgMDAwMDAwMDAwMDAwMDAwYyBmZmZmODgwNDA3MDIzZmIwIGZmZmY4ODA0MWZj
-MDNkYzggZmZmZmZmZmY4MTU1YzBkMApbICAxODAuMDM4MTg1XSBDYWxsIFRyYWNlOgpbICAxODAu
-MDM4MTg2XSAgPElSUT4gCgpbICAxODAuMDM4MTg5XSAgWzxmZmZmZmZmZjgxNTVjMGQwPl0gbmFw
-aV9ncm9fcmVjZWl2ZSsweDMwLzB4MTAwClsgIDE4MC4wMzgxOTZdICBbPGZmZmZmZmZmYTAxMmNj
-Mzk+XSBpeGdiZV9jbGVhbl9yeF9pcnErMHg4ZDkvMHgxMDMwIFtpeGdiZV0KWyAgMTgwLjAzODIw
-MF0gIFs8ZmZmZmZmZmZhMDEyZTU4OD5dIGl4Z2JlX3BvbGwrMHg0NzgvMHg2OTAgW2l4Z2JlXQpb
-ICAxODAuMDM4MjAzXSAgWzxmZmZmZmZmZjgxNTBkYTkwPl0gPyBzaG93X25vX3R1cmJvKzB4OTAv
-MHg5MApbICAxODAuMDM4MjA0XSAgWzxmZmZmZmZmZjgxNTViZDk5Pl0gbmV0X3J4X2FjdGlvbisw
-eDE0OS8weDI1MApbICAxODAuMDM4MjA4XSAgWzxmZmZmZmZmZjgxMDY2MjlmPl0gX19kb19zb2Z0
-aXJxKzB4ZGYvMHgyNjAKWyAgMTgwLjAzODIxMF0gIFs8ZmZmZmZmZmY4MTY1YzRmYz5dIGRvX3Nv
-ZnRpcnFfb3duX3N0YWNrKzB4MWMvMHgzMApbICAxODAuMDM4MjExXSAgPEVPST4gCgpbICAxODAu
-MDM4MjEzXSAgWzxmZmZmZmZmZjgxMDY2NGQ1Pl0gZG9fc29mdGlycSsweDY1LzB4NzAKWyAgMTgw
-LjAzODIxNF0gIFs8ZmZmZmZmZmY4MTA2NjU3ND5dIF9fbG9jYWxfYmhfZW5hYmxlX2lwKzB4OTQv
-MHhhMApbICAxODAuMDM4MjE2XSAgWzxmZmZmZmZmZjgxMGJmYTE1Pl0gcmN1X25vY2Jfa3RocmVh
-ZCsweDE1NS8weDU4MApbICAxODAuMDM4MjE5XSAgWzxmZmZmZmZmZjgxMDlmY2MwPl0gPyBmaW5p
-c2hfd2FpdCsweDgwLzB4ODAKWyAgMTgwLjAzODIyMF0gIFs8ZmZmZmZmZmY4MTBiZjhjMD5dID8g
-cmN1X2Vxc19leGl0X2NvbW1vbi5pc3JhLjYwKzB4ZTAvMHhlMApbICAxODAuMDM4MjIyXSAgWzxm
-ZmZmZmZmZjgxMDdmYWQ5Pl0ga3RocmVhZCsweGM5LzB4ZTAKWyAgMTgwLjAzODIyNF0gIFs8ZmZm
-ZmZmZmY4MTA3ZmExMD5dID8ga3RocmVhZF9jcmVhdGVfb25fbm9kZSsweDFhMC8weDFhMApbICAx
-ODAuMDM4MjI2XSAgWzxmZmZmZmZmZjgxNjVhNzk4Pl0gcmV0X2Zyb21fZm9yaysweDU4LzB4OTAK
-WyAgMTgwLjAzODIyN10gIFs8ZmZmZmZmZmY4MTA3ZmExMD5dID8ga3RocmVhZF9jcmVhdGVfb25f
-bm9kZSsweDFhMC8weDFhMApbICAxODAuMDM4MjI4XSBDb2RlOiAwMCA0OCA4YiAwNSA5MSA4YSA3
-OSAwMCA0OCA4OSA0NSBjOCA0YyA4YiA3NSBjOCA0OSA4MSBmZSBlMCA0MyBjZiA4MSA0OSA4ZCA0
-NiBlMCAwZiA4NCBiNiAwMSAwMCAwMCA2NiA0NCAzOSAyOCA3NCAwYSA0OCA4YiA0MCAyMCA8ZWI+
-IGRiIDBmIDFmIDQwIDAwIDQ4IDgzIDc4IDEwIDAwIDc0IGVmIDQ4IDhiIDkzIGQ4IDAwIDAwIDAw
-IDQ4Cg==
---001a1133f9947fd1ac0517298da7
-Content-Type: application/vnd.tcpdump.pcap; name="0-80.pcap"
-Content-Disposition: attachment; filename="0-80.pcap"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ia8l09ya0
-
-1MOyoQIABAAAAAAAAAAAAAAABAABAAAAA2xnVdO6DQA8AAAAPAAAAJDiuoQZsJDiuoQZoAgARRAA
-LgAAQABABv6NChQUAwoUFAIAAABQxiN7MgAAAABQAgIA68YAAG5ldG1hcANsZ1ViQQ8APAAAADwA
-AACQ4rqEGbCQ4rqEGaAIAEUQAC4AAEAAQAb+jQoUFAMKFBQCAAAAUMYjezIAAAAAUAICAOvGAABu
-ZXRtYXAEbGdV0YUBADwAAAA8AAAAkOK6hBmwkOK6hBmgCABFEAAuAABAAEAG/o0KFBQDChQUAgAA
-AFDGI3syAAAAAFACAgDrxgAAbmV0bWFwBGxnVWQMAwA8AAAAPAAAAJDiuoQZsJDiuoQZoAgARRAA
-LgAAQABABv6NChQUAwoUFAIAAABQxiN7MgAAAABQAgIA68YAAG5ldG1hcARsZ1V2DAMAKgAAACoA
-AAD///////+Q4rqEGbAIBgABCAAGBAABkOK6hBmwChQUAgAAAAAAAAoUFAMEbGdVEpMEADwAAAA8
-AAAAkOK6hBmwkOK6hBmgCABFEAAuAABAAEAG/o0KFBQDChQUAgAAAFDGI3syAAAAAFACAgDrxgAA
-bmV0bWFwBGxnVbIZBgA8AAAAPAAAAJDiuoQZsJDiuoQZoAgARRAALgAAQABABv6NChQUAwoUFAIA
-AABQxiN7MgAAAABQAgIA68YAAG5ldG1hcARsZ1VKoAcAPAAAADwAAACQ4rqEGbCQ4rqEGaAIAEUQ
-AC4AAEAAQAb+jQoUFAMKFBQCAAAAUMYjezIAAAAAUAICAOvGAABuZXRtYXAEbGdV3SYJADwAAAA8
-AAAAkOK6hBmwkOK6hBmgCABFEAAuAABAAEAG/o0KFBQDChQUAgAAAFDGI3syAAAAAFACAgDrxgAA
-bmV0bWFwBGxnVX2tCgA8AAAAPAAAAJDiuoQZsJDiuoQZoAgARRAALgAAQABABv6NChQUAwoUFAIA
-AABQxiN7MgAAAABQAgIA68YAAG5ldG1hcA==
---001a1133f9947fd1ac0517298da7
-Content-Type: application/vnd.tcpdump.pcap; name="80-80.pcap"
-Content-Disposition: attachment; filename="80-80.pcap"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ia8l0ebk1
-
-1MOyoQIABAAAAAAAAAAAAAAABAABAAAA7WtnVdtBDwA8AAAAPAAAAJDiuoQZsJDiuoQZoAgARRAA
-LgAAQABABv6NChQUAwoUFAIAUABQxiN7MgAAAABQAgIA63YAAG5ldG1hcO5rZ1U4hgEAPAAAADwA
-AACQ4rqEGbCQ4rqEGaAIAEUQAC4AAEAAQAb+jQoUFAMKFBQCAFAAUMYjezIAAAAAUAICAOt2AABu
-ZXRtYXDua2dVSQIDACoAAAAqAAAA////////kOK6hBmwCAYAAQgABgQAAZDiuoQZsAoUFAIAAAAA
-AAAKFBQD7mtnVcIMAwA8AAAAPAAAAJDiuoQZsJDiuoQZoAgARRAALgAAQABABv6NChQUAwoUFAIA
-UABQxiN7MgAAAABQAgIA63YAAG5ldG1hcO5rZ1VzkwQAPAAAADwAAACQ4rqEGbCQ4rqEGaAIAEUQ
-AC4AAEAAQAb+jQoUFAMKFBQCAFAAUMYjezIAAAAAUAICAOt2AABuZXRtYXDua2dVBBoGADwAAAA8
-AAAAkOK6hBmwkOK6hBmgCABFEAAuAABAAEAG/o0KFBQDChQUAgBQAFDGI3syAAAAAFACAgDrdgAA
-bmV0bWFw7mtnVaSgBwA8AAAAPAAAAJDiuoQZsJDiuoQZoAgARRAALgAAQABABv6NChQUAwoUFAIA
-UABQxiN7MgAAAABQAgIA63YAAG5ldG1hcO5rZ1VCJwkAPAAAADwAAACQ4rqEGbCQ4rqEGaAIAEUQ
-AC4AAEAAQAb+jQoUFAMKFBQCAFAAUMYjezIAAAAAUAICAOt2AABuZXRtYXDua2dV4q0KADwAAAA8
-AAAAkOK6hBmwkOK6hBmgCABFEAAuAABAAEAG/o0KFBQDChQUAgBQAFDGI3syAAAAAFACAgDrdgAA
-bmV0bWFw7mtnVYE0DAA8AAAAPAAAAJDiuoQZsJDiuoQZoAgARRAALgAAQABABv6NChQUAwoUFAIA
-UABQxiN7MgAAAABQAgIA63YAAG5ldG1hcA==
---001a1133f9947fd1ac0517298da7--
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index b024968..d187965 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -227,13 +227,18 @@ static int netvsc_init_buf(struct hv_device *device)
+ 	struct netvsc_device *net_device;
+ 	struct nvsp_message *init_packet;
+ 	struct net_device *ndev;
++	int node;
+ 
+ 	net_device = get_outbound_net_device(device);
+ 	if (!net_device)
+ 		return -ENODEV;
+ 	ndev = net_device->ndev;
+ 
+-	net_device->recv_buf = vzalloc(net_device->recv_buf_size);
++	node = cpu_to_node(device->channel->target_cpu);
++	net_device->recv_buf = vzalloc_node(net_device->recv_buf_size, node);
++	if (!net_device->recv_buf)
++		net_device->recv_buf = vzalloc(net_device->recv_buf_size);
++
+ 	if (!net_device->recv_buf) {
+ 		netdev_err(ndev, "unable to allocate receive "
+ 			"buffer of size %d\n", net_device->recv_buf_size);
+-- 
+1.7.4.1
