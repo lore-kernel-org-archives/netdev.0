@@ -1,169 +1,121 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/14] i40evf: skb->xmit_more support
-Date: Thu, 28 May 2015 04:25:36 -0700
-Message-ID: <1432812339-17129-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/14] i40e/i40evf: remove time_stamp member
+Date: Thu, 28 May 2015 04:25:38 -0700
+Message-ID: <1432812339-17129-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1432812339-17129-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:56315 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:11036 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754007AbbE1LZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 07:25:58 -0400
+	id S1753990AbbE1L0E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2015 07:26:04 -0400
 In-Reply-To: <1432812339-17129-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Eric added support for skb->xmit_more in i40e, this ports that into
-i40evf as well.
+The driver doesn't use the time_stamp member to determine if there is a
+tx_hang any more. There really isn't any point to the variable at all
+so just remove it. It was left over from a previous tx_hang design.
 
-Support skb->xmit_more in i40evf is straightforward; we need to move
-around i40e_maybe_stop_tx() call to correctly test netif_xmit_stopped()
-before taking the decision to not kick the NIC.
-
-Change-ID: Idddda6a2e4a7ab335631c91ced51f55b25eb8468
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Change-ID: I4c814827e1bcb46e45118fe37acdcfa814fb62a0
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 88 ++++++++++++++-------------
- 1 file changed, 47 insertions(+), 41 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 10 ----------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h   |  1 -
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c |  7 -------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h |  1 -
+ 4 files changed, 19 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 5fa43f7..cc82a7f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -165,9 +165,6 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
+ 	tx_desc->cmd_type_offset_bsz =
+ 		build_ctob(td_cmd, 0, I40E_FDIR_MAX_RAW_PACKET_SIZE, 0);
+ 
+-	/* set the timestamp */
+-	tx_buf->time_stamp = jiffies;
+-
+ 	/* Force memory writes to complete before letting h/w
+ 	 * know there are new descriptors to fetch.
+ 	 */
+@@ -810,10 +807,6 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
+ 			 tx_ring->vsi->seid,
+ 			 tx_ring->queue_index,
+ 			 tx_ring->next_to_use, i);
+-		dev_info(tx_ring->dev, "tx_bi[next_to_clean]\n"
+-			 "  time_stamp           <%lx>\n"
+-			 "  jiffies              <%lx>\n",
+-			 tx_ring->tx_bi[i].time_stamp, jiffies);
+ 
+ 		netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
+ 
+@@ -2606,9 +2599,6 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 						 tx_ring->queue_index),
+ 			     first->bytecount);
+ 
+-	/* set the timestamp */
+-	first->time_stamp = jiffies;
+-
+ 	/* Force memory writes to complete before letting h/w
+ 	 * know there are new descriptors to fetch.  (Only
+ 	 * applicable for weak-ordered memory model archs,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index ea1df3b..0dc48dc 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -147,7 +147,6 @@ enum i40e_dyn_idx_t {
+ 
+ struct i40e_tx_buffer {
+ 	struct i40e_tx_desc *next_to_watch;
+-	unsigned long time_stamp;
+ 	union {
+ 		struct sk_buff *skb;
+ 		void *raw_buf;
 diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 1c79a08..6450663 100644
+index 0ac134b..ec7e220 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1670,6 +1670,47 @@ linearize_chk_done:
- }
+@@ -322,10 +322,6 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
+ 			 tx_ring->vsi->seid,
+ 			 tx_ring->queue_index,
+ 			 tx_ring->next_to_use, i);
+-		dev_info(tx_ring->dev, "tx_bi[next_to_clean]\n"
+-			 "  time_stamp           <%lx>\n"
+-			 "  jiffies              <%lx>\n",
+-			 tx_ring->tx_bi[i].time_stamp, jiffies);
  
- /**
-+ * __i40evf_maybe_stop_tx - 2nd level check for tx stop conditions
-+ * @tx_ring: the ring to be checked
-+ * @size:    the size buffer we want to assure is available
-+ *
-+ * Returns -EBUSY if a stop is needed, else 0
-+ **/
-+static inline int __i40evf_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
-+{
-+	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
-+	/* Memory barrier before checking head and tail */
-+	smp_mb();
-+
-+	/* Check again in a case another CPU has just made room available. */
-+	if (likely(I40E_DESC_UNUSED(tx_ring) < size))
-+		return -EBUSY;
-+
-+	/* A reprieve! - use start_queue because it doesn't call schedule */
-+	netif_start_subqueue(tx_ring->netdev, tx_ring->queue_index);
-+	++tx_ring->tx_stats.restart_queue;
-+	return 0;
-+}
-+
-+/**
-+ * i40evf_maybe_stop_tx - 1st level check for tx stop conditions
-+ * @tx_ring: the ring to be checked
-+ * @size:    the size buffer we want to assure is available
-+ *
-+ * Returns 0 if stop is not needed
-+ **/
-+#ifdef I40E_FCOE
-+int i40evf_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
-+#else
-+static int i40evf_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
-+#endif
-+{
-+	if (likely(I40E_DESC_UNUSED(tx_ring) >= size))
-+		return 0;
-+	return __i40evf_maybe_stop_tx(tx_ring, size);
-+}
-+
-+/**
-  * i40e_tx_map - Build the Tx descriptor
-  * @tx_ring:  ring to send buffer on
-  * @skb:      send buffer
-@@ -1806,8 +1847,12 @@ static void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 		netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
  
- 	tx_ring->next_to_use = i;
+@@ -1824,9 +1820,6 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 						 tx_ring->queue_index),
+ 			     first->bytecount);
  
-+	i40evf_maybe_stop_tx(tx_ring, DESC_NEEDED);
- 	/* notify HW of packet */
--	writel(i, tx_ring->tail);
-+	if (!skb->xmit_more ||
-+	    netif_xmit_stopped(netdev_get_tx_queue(tx_ring->netdev,
-+						   tx_ring->queue_index)))
-+		writel(i, tx_ring->tail);
- 
- 	return;
- 
-@@ -1829,43 +1874,6 @@ dma_error:
- }
- 
- /**
-- * __i40e_maybe_stop_tx - 2nd level check for tx stop conditions
-- * @tx_ring: the ring to be checked
-- * @size:    the size buffer we want to assure is available
-- *
-- * Returns -EBUSY if a stop is needed, else 0
-- **/
--static inline int __i40e_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
--{
--	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
--	/* Memory barrier before checking head and tail */
--	smp_mb();
+-	/* set the timestamp */
+-	first->time_stamp = jiffies;
 -
--	/* Check again in a case another CPU has just made room available. */
--	if (likely(I40E_DESC_UNUSED(tx_ring) < size))
--		return -EBUSY;
--
--	/* A reprieve! - use start_queue because it doesn't call schedule */
--	netif_start_subqueue(tx_ring->netdev, tx_ring->queue_index);
--	++tx_ring->tx_stats.restart_queue;
--	return 0;
--}
--
--/**
-- * i40e_maybe_stop_tx - 1st level check for tx stop conditions
-- * @tx_ring: the ring to be checked
-- * @size:    the size buffer we want to assure is available
-- *
-- * Returns 0 if stop is not needed
-- **/
--static int i40e_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
--{
--	if (likely(I40E_DESC_UNUSED(tx_ring) >= size))
--		return 0;
--	return __i40e_maybe_stop_tx(tx_ring, size);
--}
--
--/**
-  * i40e_xmit_descriptor_count - calculate number of tx descriptors needed
-  * @skb:     send buffer
-  * @tx_ring: ring to send buffer on
-@@ -1890,7 +1898,7 @@ static int i40e_xmit_descriptor_count(struct sk_buff *skb,
- 		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
+ 	/* Force memory writes to complete before letting h/w
+ 	 * know there are new descriptors to fetch.  (Only
+ 	 * applicable for weak-ordered memory model archs,
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index a23f5e8..e7a34f8 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -146,7 +146,6 @@ enum i40e_dyn_idx_t {
  
- 	count += TXD_USE_COUNT(skb_headlen(skb));
--	if (i40e_maybe_stop_tx(tx_ring, count + 4 + 1)) {
-+	if (i40evf_maybe_stop_tx(tx_ring, count + 4 + 1)) {
- 		tx_ring->tx_stats.tx_busy++;
- 		return 0;
- 	}
-@@ -1966,8 +1974,6 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	i40e_tx_map(tx_ring, skb, first, tx_flags, hdr_len,
- 		    td_cmd, td_offset);
- 
--	i40e_maybe_stop_tx(tx_ring, DESC_NEEDED);
--
- 	return NETDEV_TX_OK;
- 
- out_drop:
+ struct i40e_tx_buffer {
+ 	struct i40e_tx_desc *next_to_watch;
+-	unsigned long time_stamp;
+ 	union {
+ 		struct sk_buff *skb;
+ 		void *raw_buf;
 -- 
 2.1.0
