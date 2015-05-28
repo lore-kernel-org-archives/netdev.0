@@ -1,44 +1,84 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net-next 2/2] hv_netvsc: Allocate the sendbuf in a NUMA aware way
-Date: Thu, 28 May 2015 17:08:07 -0700
-Message-ID: <1432858087-4704-2-git-send-email-kys@microsoft.com>
-References: <1432858064-4627-1-git-send-email-kys@microsoft.com>
- <1432858087-4704-1-git-send-email-kys@microsoft.com>
-Cc: "K. Y. Srinivasan" <kys@microsoft.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
-	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: iproute2: missing patches in branch net-next
+Date: Thu, 28 May 2015 16:12:54 -0700
+Message-ID: <20150528161254.605afff0@urahara>
+References: <5566FC7C.1000200@6wind.com>
+	<20150528091949.6cabe893@urahara>
+	<55674320.2030002@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	netdev <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@redhat.com>, Jiri Pirko <jiri@resnulli.us>,
+	David Ward <david.ward@ll.mit.edu>,
+	Jonathan Toppins <jtoppins@cumulusnetworks.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded04.prod.phx3.secureserver.net ([208.109.80.198]:41505
-	"EHLO p3plsmtps2ded04.prod.phx3.secureserver.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754566AbbE1WrM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 18:47:12 -0400
-In-Reply-To: <1432858087-4704-1-git-send-email-kys@microsoft.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35816 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754908AbbE1XMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 19:12:52 -0400
+Received: by pacwv17 with SMTP id wv17so34121882pac.2
+        for <netdev@vger.kernel.org>; Thu, 28 May 2015 16:12:51 -0700 (PDT)
+In-Reply-To: <55674320.2030002@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allocate the send buffer in a NUMA aware way.
+On Thu, 28 May 2015 18:32:32 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/netvsc.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+> On 05/28/2015 06:19 PM, Stephen Hemminger wrote:
+> > On Thu, 28 May 2015 13:31:08 +0200
+> > Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+> >
+> >> Hi Stephen,
+> >>
+> >> some patches that were recently included in iproute2 branch net-next are not
+> >> visible anymore on kernel.org. It seems that the branch has been overridden
+> >> (note the "forced update" when I've fetched it):
+> >>
+> >> $ git fetch
+> >> remote: Counting objects: 65, done.
+> >> remote: Compressing objects: 100% (65/65), done.
+> >> remote: Total 65 (delta 58), reused 0 (delta 0)
+> >> Unpacking objects: 100% (65/65), done.
+> >>   From git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2
+> >>    + aacee2695a90...eb9d6e794b52 net-next   -> origin/net-next  (forced update)
+> >>      f043759dd492..c52827e9077f  master     -> origin/master
+> >>
+> >>
+> >> The following patches are lost:
+> >> aacee2695a90 tc: gred: Add support for TCA_GRED_LIMIT attribute
+> >> b6ec53e3008a xfrmmonitor: allows to monitor in several netns
+> >> 449b824ad196 ipmonitor: allows to monitor in several netns
+> >> 3b0006f8183e ipmonitor: introduce print_headers
+> >> 0628cddd9d5c libnetlink: introduce rtnl_listen_filter_t
+> >> 2503247d58c3 man: update ip monitor page
+> >> 6fc1f8add30b iplink_bond: add support for ad_actor and port_key options
+> >> df1c7d9138ea codel: add ce_threshold support to codel & fc_codel
+> >> 30eb304ecd1d tc: add support for Flower classifier
+> >> 1a4dda7103bc ss: add support for bytes_acked & bytes_received
+> >> 908755dc49df iproute2: GENEVE support
+> >> f9b004020a89 Merge branch 'master' into net-next
+> >> 8f42ceaf2491 Update kernels for net-next
+> >>
+> >>
+> >> Regards,
+> >> Nicolas
+> >
+> > Ah found it was botched merge. The commits were still there locally.
+> > Should be fixed now, but had to force back to known good state on net-next branch.
+> 
+> Okay, but now the iproute2 -next patches from last days are gone,
+> right? I noticed the tc man page bits applied from yesterday are
+> not in the -next tree anymore. Do you re-push those on top of the
+> current restored state?
+> 
+> Thanks,
+> Daniel
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index d187965..06de98a 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -326,7 +326,9 @@ static int netvsc_init_buf(struct hv_device *device)
- 
- 	/* Now setup the send buffer.
- 	 */
--	net_device->send_buf = vzalloc(net_device->send_buf_size);
-+	net_device->send_buf = vzalloc_node(net_device->send_buf_size, node);
-+	if (!net_device->send_buf)
-+		net_device->send_buf = vzalloc(net_device->send_buf_size);
- 	if (!net_device->send_buf) {
- 		netdev_err(ndev, "unable to allocate send "
- 			   "buffer of size %d\n", net_device->send_buf_size);
--- 
-1.7.4.1
+I will go back and recreate what is missing.
+Sorry for the confusion.
