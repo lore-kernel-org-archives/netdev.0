@@ -1,56 +1,452 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next] openvswitch: include datapath actions with
- sampled-packet upcall to userspace
-Date: Wed, 27 May 2015 19:46:48 -0700
-Message-ID: <CALnjE+r175gt=umf6DCi82HQqiZnj+U7Vg3j+HCBXeFAqN-s3Q@mail.gmail.com>
-References: <1432150358-13108-1-git-send-email-neil.mckee@inmon.com>
-	<CALnjE+rxMdfZFe5nTGzJSpeH4a1+0Z3ka8Gur1jGmVNBPAcF+w@mail.gmail.com>
-	<CAEP_g=8fRDQWfDo0HszXezDzOc4xntKUpJf5ucVrcsZ6M+OSZQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Neil McKee <neil.mckee@inmon.com>, netdev <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH/RFC net-next] rocker: remove rocker parameter from functions that have rocker_port parameter
+Date: Thu, 28 May 2015 12:23:17 +0900
+Message-ID: <1432783397-12868-1-git-send-email-simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
+To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:40094 "HELO
-	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750812AbbE1Cqu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 22:46:50 -0400
-Received: by igbyr2 with SMTP id yr2so101454877igb.0
-        for <netdev@vger.kernel.org>; Wed, 27 May 2015 19:46:49 -0700 (PDT)
-In-Reply-To: <CAEP_g=8fRDQWfDo0HszXezDzOc4xntKUpJf5ucVrcsZ6M+OSZQ@mail.gmail.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36264 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751185AbbE1DXr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 23:23:47 -0400
+Received: by paza2 with SMTP id a2so12906542paz.3
+        for <netdev@vger.kernel.org>; Wed, 27 May 2015 20:23:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 27, 2015 at 2:10 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Fri, May 22, 2015 at 10:53 AM, Pravin Shelar <pshelar@nicira.com> wrote:
->> On Wed, May 20, 2015 at 12:32 PM, Neil McKee <neil.mckee@inmon.com> wrote:
->>> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
->>> index b491c1c..ee5760d 100644
->>> --- a/net/openvswitch/actions.c
->>> +++ b/net/openvswitch/actions.c
->>> @@ -608,7 +608,8 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
->>>  }
->>>
->>>  static int output_userspace(struct datapath *dp, struct sk_buff *skb,
->>> -                           struct sw_flow_key *key, const struct nlattr *attr)
->>> +                           struct sw_flow_key *key, const struct nlattr *attr,
->>> +                           const struct nlattr *actions, int actions_len)
->>>  {
->>>         struct ovs_tunnel_info info;
->>>         struct dp_upcall_info upcall;
->>> @@ -619,6 +620,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
->>>         upcall.userdata = NULL;
->>>         upcall.portid = 0;
->>>         upcall.egress_tun_info = NULL;
->>> +       upcall.actions = actions;
->>> +       upcall.actions_len = actions_len;
->>>
->> Rather than unconditionally passing actions to the upcall, there
->> should be attribute in ovs_userspace_attr to request the actions list.
->
-> Why? It seems simpler to just always pass the actions and I'm not sure
-> that this is really performance critical (which is the only reason
-> that comes to mind to not always pass this).
+The rocker (switch) of a rocker_port may be trivially obtained from
+the latter it seems cleaner not to pass the former to a function when
+the latter is being passed anyway.
 
-This is only required for sFlow sampling so I do not think we should
-send it on every upcall.
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+ drivers/net/ethernet/rocker/rocker.c | 122 ++++++++++++++---------------------
+ 1 file changed, 48 insertions(+), 74 deletions(-)
+
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 36f7edfc3c7a..23f3d572c52b 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -1172,11 +1172,11 @@ static void rocker_dma_rings_fini(struct rocker *rocker)
+ 	rocker_dma_ring_destroy(rocker, &rocker->cmd_ring);
+ }
+ 
+-static int rocker_dma_rx_ring_skb_map(const struct rocker *rocker,
+-				      const struct rocker_port *rocker_port,
++static int rocker_dma_rx_ring_skb_map(const struct rocker_port *rocker_port,
+ 				      struct rocker_desc_info *desc_info,
+ 				      struct sk_buff *skb, size_t buf_len)
+ {
++	const struct rocker *rocker = rocker_port->rocker;
+ 	struct pci_dev *pdev = rocker->pdev;
+ 	dma_addr_t dma_handle;
+ 
+@@ -1201,8 +1201,7 @@ static size_t rocker_port_rx_buf_len(const struct rocker_port *rocker_port)
+ 	return rocker_port->dev->mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
+ }
+ 
+-static int rocker_dma_rx_ring_skb_alloc(const struct rocker *rocker,
+-					const struct rocker_port *rocker_port,
++static int rocker_dma_rx_ring_skb_alloc(const struct rocker_port *rocker_port,
+ 					struct rocker_desc_info *desc_info)
+ {
+ 	struct net_device *dev = rocker_port->dev;
+@@ -1219,8 +1218,7 @@ static int rocker_dma_rx_ring_skb_alloc(const struct rocker *rocker,
+ 	skb = netdev_alloc_skb_ip_align(dev, buf_len);
+ 	if (!skb)
+ 		return -ENOMEM;
+-	err = rocker_dma_rx_ring_skb_map(rocker, rocker_port, desc_info,
+-					 skb, buf_len);
++	err = rocker_dma_rx_ring_skb_map(rocker_port, desc_info, skb, buf_len);
+ 	if (err) {
+ 		dev_kfree_skb_any(skb);
+ 		return err;
+@@ -1257,15 +1255,15 @@ static void rocker_dma_rx_ring_skb_free(const struct rocker *rocker,
+ 	dev_kfree_skb_any(skb);
+ }
+ 
+-static int rocker_dma_rx_ring_skbs_alloc(const struct rocker *rocker,
+-					 const struct rocker_port *rocker_port)
++static int rocker_dma_rx_ring_skbs_alloc(const struct rocker_port *rocker_port)
+ {
+ 	const struct rocker_dma_ring_info *rx_ring = &rocker_port->rx_ring;
++	const struct rocker *rocker = rocker_port->rocker;
+ 	int i;
+ 	int err;
+ 
+ 	for (i = 0; i < rx_ring->size; i++) {
+-		err = rocker_dma_rx_ring_skb_alloc(rocker, rocker_port,
++		err = rocker_dma_rx_ring_skb_alloc(rocker_port,
+ 						   &rx_ring->desc_info[i]);
+ 		if (err)
+ 			goto rollback;
+@@ -1278,10 +1276,10 @@ rollback:
+ 	return err;
+ }
+ 
+-static void rocker_dma_rx_ring_skbs_free(const struct rocker *rocker,
+-					 const struct rocker_port *rocker_port)
++static void rocker_dma_rx_ring_skbs_free(const struct rocker_port *rocker_port)
+ {
+ 	const struct rocker_dma_ring_info *rx_ring = &rocker_port->rx_ring;
++	const struct rocker *rocker = rocker_port->rocker;
+ 	int i;
+ 
+ 	for (i = 0; i < rx_ring->size; i++)
+@@ -1327,7 +1325,7 @@ static int rocker_port_dma_rings_init(struct rocker_port *rocker_port)
+ 		goto err_dma_rx_ring_bufs_alloc;
+ 	}
+ 
+-	err = rocker_dma_rx_ring_skbs_alloc(rocker, rocker_port);
++	err = rocker_dma_rx_ring_skbs_alloc(rocker_port);
+ 	if (err) {
+ 		netdev_err(rocker_port->dev, "failed to alloc rx dma ring skbs\n");
+ 		goto err_dma_rx_ring_skbs_alloc;
+@@ -1353,7 +1351,7 @@ static void rocker_port_dma_rings_fini(struct rocker_port *rocker_port)
+ {
+ 	struct rocker *rocker = rocker_port->rocker;
+ 
+-	rocker_dma_rx_ring_skbs_free(rocker, rocker_port);
++	rocker_dma_rx_ring_skbs_free(rocker_port);
+ 	rocker_dma_ring_bufs_free(rocker, &rocker_port->rx_ring,
+ 				  PCI_DMA_BIDIRECTIONAL);
+ 	rocker_dma_ring_destroy(rocker, &rocker_port->rx_ring);
+@@ -1588,22 +1586,20 @@ static irqreturn_t rocker_rx_irq_handler(int irq, void *dev_id)
+  * Command interface
+  ********************/
+ 
+-typedef int (*rocker_cmd_prep_cb_t)(const struct rocker *rocker,
+-				    const struct rocker_port *rocker_port,
++typedef int (*rocker_cmd_prep_cb_t)(const struct rocker_port *rocker_port,
+ 				    struct rocker_desc_info *desc_info,
+ 				    void *priv);
+ 
+-typedef int (*rocker_cmd_proc_cb_t)(const struct rocker *rocker,
+-				    const struct rocker_port *rocker_port,
++typedef int (*rocker_cmd_proc_cb_t)(const struct rocker_port *rocker_port,
+ 				    const struct rocker_desc_info *desc_info,
+ 				    void *priv);
+ 
+-static int rocker_cmd_exec(struct rocker *rocker,
+-			   struct rocker_port *rocker_port,
++static int rocker_cmd_exec(struct rocker_port *rocker_port,
+ 			   enum switchdev_trans trans,
+ 			   rocker_cmd_prep_cb_t prepare, void *prepare_priv,
+ 			   rocker_cmd_proc_cb_t process, void *process_priv)
+ {
++	struct rocker *rocker = rocker_port->rocker;
+ 	struct rocker_desc_info *desc_info;
+ 	struct rocker_wait *wait;
+ 	unsigned long flags;
+@@ -1622,7 +1618,7 @@ static int rocker_cmd_exec(struct rocker *rocker,
+ 		goto out;
+ 	}
+ 
+-	err = prepare(rocker, rocker_port, desc_info, prepare_priv);
++	err = prepare(rocker_port, desc_info, prepare_priv);
+ 	if (err) {
+ 		spin_unlock_irqrestore(&rocker->cmd_ring_lock, flags);
+ 		goto out;
+@@ -1644,7 +1640,7 @@ static int rocker_cmd_exec(struct rocker *rocker,
+ 		return err;
+ 
+ 	if (process)
+-		err = process(rocker, rocker_port, desc_info, process_priv);
++		err = process(rocker_port, desc_info, process_priv);
+ 
+ 	rocker_desc_gen_clear(desc_info);
+ out:
+@@ -1653,8 +1649,7 @@ out:
+ }
+ 
+ static int
+-rocker_cmd_get_port_settings_prep(const struct rocker *rocker,
+-				  const struct rocker_port *rocker_port,
++rocker_cmd_get_port_settings_prep(const struct rocker_port *rocker_port,
+ 				  struct rocker_desc_info *desc_info,
+ 				  void *priv)
+ {
+@@ -1674,8 +1669,7 @@ rocker_cmd_get_port_settings_prep(const struct rocker *rocker,
+ }
+ 
+ static int
+-rocker_cmd_get_port_settings_ethtool_proc(const struct rocker *rocker,
+-					  const struct rocker_port *rocker_port,
++rocker_cmd_get_port_settings_ethtool_proc(const struct rocker_port *rocker_port,
+ 					  const struct rocker_desc_info *desc_info,
+ 					  void *priv)
+ {
+@@ -1713,8 +1707,7 @@ rocker_cmd_get_port_settings_ethtool_proc(const struct rocker *rocker,
+ }
+ 
+ static int
+-rocker_cmd_get_port_settings_macaddr_proc(const struct rocker *rocker,
+-					  const struct rocker_port *rocker_port,
++rocker_cmd_get_port_settings_macaddr_proc(const struct rocker_port *rocker_port,
+ 					  const struct rocker_desc_info *desc_info,
+ 					  void *priv)
+ {
+@@ -1746,8 +1739,7 @@ struct port_name {
+ };
+ 
+ static int
+-rocker_cmd_get_port_settings_phys_name_proc(const struct rocker *rocker,
+-					    const struct rocker_port *rocker_port,
++rocker_cmd_get_port_settings_phys_name_proc(const struct rocker_port *rocker_port,
+ 					    const struct rocker_desc_info *desc_info,
+ 					    void *priv)
+ {
+@@ -1788,8 +1780,7 @@ rocker_cmd_get_port_settings_phys_name_proc(const struct rocker *rocker,
+ }
+ 
+ static int
+-rocker_cmd_set_port_settings_ethtool_prep(const struct rocker *rocker,
+-					  const struct rocker_port *rocker_port,
++rocker_cmd_set_port_settings_ethtool_prep(const struct rocker_port *rocker_port,
+ 					  struct rocker_desc_info *desc_info,
+ 					  void *priv)
+ {
+@@ -1819,8 +1810,7 @@ rocker_cmd_set_port_settings_ethtool_prep(const struct rocker *rocker,
+ }
+ 
+ static int
+-rocker_cmd_set_port_settings_macaddr_prep(const struct rocker *rocker,
+-					  const struct rocker_port *rocker_port,
++rocker_cmd_set_port_settings_macaddr_prep(const struct rocker_port *rocker_port,
+ 					  struct rocker_desc_info *desc_info,
+ 					  void *priv)
+ {
+@@ -1844,8 +1834,7 @@ rocker_cmd_set_port_settings_macaddr_prep(const struct rocker *rocker,
+ }
+ 
+ static int
+-rocker_cmd_set_port_learning_prep(const struct rocker *rocker,
+-				  const struct rocker_port *rocker_port,
++rocker_cmd_set_port_learning_prep(const struct rocker_port *rocker_port,
+ 				  struct rocker_desc_info *desc_info,
+ 				  void *priv)
+ {
+@@ -1870,8 +1859,7 @@ rocker_cmd_set_port_learning_prep(const struct rocker *rocker,
+ static int rocker_cmd_get_port_settings_ethtool(struct rocker_port *rocker_port,
+ 						struct ethtool_cmd *ecmd)
+ {
+-	return rocker_cmd_exec(rocker_port->rocker, rocker_port,
+-			       SWITCHDEV_TRANS_NONE,
++	return rocker_cmd_exec(rocker_port, SWITCHDEV_TRANS_NONE,
+ 			       rocker_cmd_get_port_settings_prep, NULL,
+ 			       rocker_cmd_get_port_settings_ethtool_proc,
+ 			       ecmd);
+@@ -1880,8 +1868,7 @@ static int rocker_cmd_get_port_settings_ethtool(struct rocker_port *rocker_port,
+ static int rocker_cmd_get_port_settings_macaddr(struct rocker_port *rocker_port,
+ 						unsigned char *macaddr)
+ {
+-	return rocker_cmd_exec(rocker_port->rocker, rocker_port,
+-			       SWITCHDEV_TRANS_NONE,
++	return rocker_cmd_exec(rocker_port, SWITCHDEV_TRANS_NONE,
+ 			       rocker_cmd_get_port_settings_prep, NULL,
+ 			       rocker_cmd_get_port_settings_macaddr_proc,
+ 			       macaddr);
+@@ -1890,8 +1877,7 @@ static int rocker_cmd_get_port_settings_macaddr(struct rocker_port *rocker_port,
+ static int rocker_cmd_set_port_settings_ethtool(struct rocker_port *rocker_port,
+ 						struct ethtool_cmd *ecmd)
+ {
+-	return rocker_cmd_exec(rocker_port->rocker, rocker_port,
+-			       SWITCHDEV_TRANS_NONE,
++	return rocker_cmd_exec(rocker_port, SWITCHDEV_TRANS_NONE,
+ 			       rocker_cmd_set_port_settings_ethtool_prep,
+ 			       ecmd, NULL, NULL);
+ }
+@@ -1899,8 +1885,7 @@ static int rocker_cmd_set_port_settings_ethtool(struct rocker_port *rocker_port,
+ static int rocker_cmd_set_port_settings_macaddr(struct rocker_port *rocker_port,
+ 						unsigned char *macaddr)
+ {
+-	return rocker_cmd_exec(rocker_port->rocker, rocker_port,
+-			       SWITCHDEV_TRANS_NONE,
++	return rocker_cmd_exec(rocker_port, SWITCHDEV_TRANS_NONE,
+ 			       rocker_cmd_set_port_settings_macaddr_prep,
+ 			       macaddr, NULL, NULL);
+ }
+@@ -1908,7 +1893,7 @@ static int rocker_cmd_set_port_settings_macaddr(struct rocker_port *rocker_port,
+ static int rocker_port_set_learning(struct rocker_port *rocker_port,
+ 				    enum switchdev_trans trans)
+ {
+-	return rocker_cmd_exec(rocker_port->rocker, rocker_port, trans,
++	return rocker_cmd_exec(rocker_port, trans,
+ 			       rocker_cmd_set_port_learning_prep,
+ 			       NULL, NULL, NULL);
+ }
+@@ -2114,8 +2099,7 @@ rocker_cmd_flow_tbl_add_acl(struct rocker_desc_info *desc_info,
+ 	return 0;
+ }
+ 
+-static int rocker_cmd_flow_tbl_add(const struct rocker *rocker,
+-				   const struct rocker_port *rocker_port,
++static int rocker_cmd_flow_tbl_add(const struct rocker_port *rocker_port,
+ 				   struct rocker_desc_info *desc_info,
+ 				   void *priv)
+ {
+@@ -2172,8 +2156,7 @@ static int rocker_cmd_flow_tbl_add(const struct rocker *rocker,
+ 	return 0;
+ }
+ 
+-static int rocker_cmd_flow_tbl_del(const struct rocker *rocker,
+-				   const struct rocker_port *rocker_port,
++static int rocker_cmd_flow_tbl_del(const struct rocker_port *rocker_port,
+ 				   struct rocker_desc_info *desc_info,
+ 				   void *priv)
+ {
+@@ -2282,8 +2265,7 @@ rocker_cmd_group_tbl_add_l3_unicast(struct rocker_desc_info *desc_info,
+ 	return 0;
+ }
+ 
+-static int rocker_cmd_group_tbl_add(const struct rocker *rocker,
+-				    const struct rocker_port *rocker_port,
++static int rocker_cmd_group_tbl_add(const struct rocker_port *rocker_port,
+ 				    struct rocker_desc_info *desc_info,
+ 				    void *priv)
+ {
+@@ -2328,8 +2310,7 @@ static int rocker_cmd_group_tbl_add(const struct rocker *rocker,
+ 	return 0;
+ }
+ 
+-static int rocker_cmd_group_tbl_del(const struct rocker *rocker,
+-				    const struct rocker_port *rocker_port,
++static int rocker_cmd_group_tbl_del(const struct rocker_port *rocker_port,
+ 				    struct rocker_desc_info *desc_info,
+ 				    void *priv)
+ {
+@@ -2460,8 +2441,7 @@ static int rocker_flow_tbl_add(struct rocker_port *rocker_port,
+ 
+ 	spin_unlock_irqrestore(&rocker->flow_tbl_lock, flags);
+ 
+-	return rocker_cmd_exec(rocker, rocker_port, trans,
+-			       rocker_cmd_flow_tbl_add,
++	return rocker_cmd_exec(rocker_port, trans, rocker_cmd_flow_tbl_add,
+ 			       found, NULL, NULL);
+ }
+ 
+@@ -2492,7 +2472,7 @@ static int rocker_flow_tbl_del(struct rocker_port *rocker_port,
+ 	rocker_port_kfree(trans, match);
+ 
+ 	if (found) {
+-		err = rocker_cmd_exec(rocker, rocker_port, trans,
++		err = rocker_cmd_exec(rocker_port, trans,
+ 				      rocker_cmd_flow_tbl_del,
+ 				      found, NULL, NULL);
+ 		rocker_port_kfree(trans, found);
+@@ -2782,8 +2762,7 @@ static int rocker_group_tbl_add(struct rocker_port *rocker_port,
+ 
+ 	spin_unlock_irqrestore(&rocker->group_tbl_lock, flags);
+ 
+-	return rocker_cmd_exec(rocker, rocker_port, trans,
+-			       rocker_cmd_group_tbl_add,
++	return rocker_cmd_exec(rocker_port, trans, rocker_cmd_group_tbl_add,
+ 			       found, NULL, NULL);
+ }
+ 
+@@ -2811,7 +2790,7 @@ static int rocker_group_tbl_del(struct rocker_port *rocker_port,
+ 	rocker_group_tbl_entry_free(trans, match);
+ 
+ 	if (found) {
+-		err = rocker_cmd_exec(rocker, rocker_port, trans,
++		err = rocker_cmd_exec(rocker_port, trans,
+ 				      rocker_cmd_group_tbl_del,
+ 				      found, NULL, NULL);
+ 		rocker_group_tbl_entry_free(trans, found);
+@@ -4219,8 +4198,7 @@ static int rocker_port_get_phys_port_name(struct net_device *dev,
+ 	struct port_name name = { .buf = buf, .len = len };
+ 	int err;
+ 
+-	err = rocker_cmd_exec(rocker_port->rocker, rocker_port,
+-			      SWITCHDEV_TRANS_NONE,
++	err = rocker_cmd_exec(rocker_port, SWITCHDEV_TRANS_NONE,
+ 			      rocker_cmd_get_port_settings_prep, NULL,
+ 			      rocker_cmd_get_port_settings_phys_name_proc,
+ 			      &name);
+@@ -4600,8 +4578,7 @@ static void rocker_port_get_strings(struct net_device *netdev, u32 stringset,
+ }
+ 
+ static int
+-rocker_cmd_get_port_stats_prep(const struct rocker *rocker,
+-			       const struct rocker_port *rocker_port,
++rocker_cmd_get_port_stats_prep(const struct rocker_port *rocker_port,
+ 			       struct rocker_desc_info *desc_info,
+ 			       void *priv)
+ {
+@@ -4625,8 +4602,7 @@ rocker_cmd_get_port_stats_prep(const struct rocker *rocker,
+ }
+ 
+ static int
+-rocker_cmd_get_port_stats_ethtool_proc(const struct rocker *rocker,
+-				       const struct rocker_port *rocker_port,
++rocker_cmd_get_port_stats_ethtool_proc(const struct rocker_port *rocker_port,
+ 				       const struct rocker_desc_info *desc_info,
+ 				       void *priv)
+ {
+@@ -4666,8 +4642,7 @@ rocker_cmd_get_port_stats_ethtool_proc(const struct rocker *rocker,
+ static int rocker_cmd_get_port_stats_ethtool(struct rocker_port *rocker_port,
+ 					     void *priv)
+ {
+-	return rocker_cmd_exec(rocker_port->rocker, rocker_port,
+-			       SWITCHDEV_TRANS_NONE,
++	return rocker_cmd_exec(rocker_port, SWITCHDEV_TRANS_NONE,
+ 			       rocker_cmd_get_port_stats_prep, NULL,
+ 			       rocker_cmd_get_port_stats_ethtool_proc,
+ 			       priv);
+@@ -4754,12 +4729,12 @@ static int rocker_port_poll_tx(struct napi_struct *napi, int budget)
+ 	return 0;
+ }
+ 
+-static int rocker_port_rx_proc(const struct rocker *rocker,
+-			       const struct rocker_port *rocker_port,
++static int rocker_port_rx_proc(const struct rocker_port *rocker_port,
+ 			       struct rocker_desc_info *desc_info)
+ {
+ 	const struct rocker_tlv *attrs[ROCKER_TLV_RX_MAX + 1];
+ 	struct sk_buff *skb = rocker_desc_cookie_ptr_get(desc_info);
++	const struct rocker *rocker = rocker_port->rocker;
+ 	size_t rx_len;
+ 
+ 	if (!skb)
+@@ -4780,7 +4755,7 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
+ 
+ 	netif_receive_skb(skb);
+ 
+-	return rocker_dma_rx_ring_skb_alloc(rocker, rocker_port, desc_info);
++	return rocker_dma_rx_ring_skb_alloc(rocker_port, desc_info);
+ }
+ 
+ static struct rocker_port *rocker_port_napi_rx_get(struct napi_struct *napi)
+@@ -4805,8 +4780,7 @@ static int rocker_port_poll_rx(struct napi_struct *napi, int budget)
+ 				netdev_err(rocker_port->dev, "rx desc received with err %d\n",
+ 					   err);
+ 		} else {
+-			err = rocker_port_rx_proc(rocker, rocker_port,
+-						  desc_info);
++			err = rocker_port_rx_proc(rocker_port, desc_info);
+ 			if (err && net_ratelimit())
+ 				netdev_err(rocker_port->dev, "rx processing failed with err %d\n",
+ 					   err);
+@@ -4858,9 +4832,9 @@ static void rocker_remove_ports(const struct rocker *rocker)
+ 	kfree(rocker->ports);
+ }
+ 
+-static void rocker_port_dev_addr_init(const struct rocker *rocker,
+-				      struct rocker_port *rocker_port)
++static void rocker_port_dev_addr_init(struct rocker_port *rocker_port)
+ {
++	const struct rocker *rocker = rocker_port->rocker;
+ 	const struct pci_dev *pdev = rocker->pdev;
+ 	int err;
+ 
+@@ -4890,7 +4864,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+ 	rocker_port->brport_flags = BR_LEARNING | BR_LEARNING_SYNC;
+ 	INIT_LIST_HEAD(&rocker_port->trans_mem);
+ 
+-	rocker_port_dev_addr_init(rocker, rocker_port);
++	rocker_port_dev_addr_init(rocker_port);
+ 	dev->netdev_ops = &rocker_port_netdev_ops;
+ 	dev->ethtool_ops = &rocker_port_ethtool_ops;
+ 	dev->switchdev_ops = &rocker_port_switchdev_ops;
+-- 
+2.1.4
