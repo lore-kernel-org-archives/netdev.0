@@ -1,106 +1,64 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: fix ASCONF list handling
-Date: Thu, 28 May 2015 10:31:22 -0400
-Message-ID: <20150528143122.GB14938@hmsreliant.think-freely.org>
-References: <d78e23c156981e761086f4e37517e441c84d6f90.1432769183.git.marcelo.leitner@gmail.com>
- <20150528101511.GA14938@hmsreliant.think-freely.org>
- <20150528111727.GB3387@localhost.localdomain>
- <20150528132732.GC3387@localhost.localdomain>
+From: "jsullivan@opensourcedevel.com" <jsullivan@opensourcedevel.com>
+Subject: Re: tc drop stats different between bond and slave interfaces
+Date: Thu, 28 May 2015 10:33:19 -0400 (EDT)
+Message-ID: <2070535585.119404.1432823599221.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net>
+References: <616929303.117745.1432618508227.JavaMail.open-xchange@oxuslxltgw05.lxa.perfora.net> <CAHA+R7MnHDVayA3MqpyR7J09tGNdh=OMmJAZG-0+rRhsmCNTNA@mail.gmail.com>
+Reply-To: "jsullivan@opensourcedevel.com" <jsullivan@opensourcedevel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Michio Honda <micchie@sfc.wide.ad.jp>
-To: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:60471 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753675AbbE1Obh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 10:31:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20150528132732.GC3387@localhost.localdomain>
+Received: from mout.perfora.net ([74.208.4.194]:49584 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751676AbbE1OdU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2015 10:33:20 -0400
+In-Reply-To: <CAHA+R7MnHDVayA3MqpyR7J09tGNdh=OMmJAZG-0+rRhsmCNTNA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 28, 2015 at 10:27:32AM -0300, Marcelo Ricardo Leitner wrote:
-> On Thu, May 28, 2015 at 08:17:27AM -0300, Marcelo Ricardo Leitner wrote:
-> > On Thu, May 28, 2015 at 06:15:11AM -0400, Neil Horman wrote:
-> > > On Wed, May 27, 2015 at 09:52:17PM -0300, mleitner@redhat.com wrote:
-> > > > From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > > > 
-> > > > ->auto_asconf_splist is per namespace and mangled by functions like
-> > > > sctp_setsockopt_auto_asconf() which doesn't guarantee any serialization.
-> > > > 
-> > > > Also, the call to inet_sk_copy_descendant() was backuping
-> > > > ->auto_asconf_list through the copy but was not honoring
-> > > > ->do_auto_asconf, which could lead to list corruption if it was
-> > > > different between both sockets.
-> > > > 
-> > > > This commit thus fixes the list handling by adding a spinlock to protect
-> > > > against multiple writers and converts the list to be protected by RCU
-> > > > too, so that we don't have a lock inverstion issue at
-> > > > sctp_addr_wq_timeout_handler().
-> > > > 
-> > > > And as this list now uses RCU, we cannot do such backup and restore
-> > > > while copying descendant data anymore as readers may be traversing the
-> > > > list meanwhile. We fix this by simply ignoring/not copying those fields,
-> > > > placed at the end of struct sctp_sock, so we can just ignore it together
-> > > > with struct ipv6_pinfo data. For that we create sctp_copy_descendant()
-> > > > so we don't clutter inet_sk_copy_descendant() with SCTP info.
-> > > > 
-> > > > Issue was found with a test application that kept flipping sysctl
-> > > > default_auto_asconf on and off.
-> > > > 
-> > > > Fixes: 9f7d653b67ae ("sctp: Add Auto-ASCONF support (core).")
-> > > > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > > > ---
-> > > >  include/net/netns/sctp.h   |  6 +++++-
-> > > >  include/net/sctp/structs.h |  2 ++
-> > > >  net/sctp/protocol.c        |  6 +++++-
-> > > >  net/sctp/socket.c          | 39 ++++++++++++++++++++++++++-------------
-> > > >  4 files changed, 38 insertions(+), 15 deletions(-)
-> > > > 
-> > > > diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
-> > > > index 3573a81815ad9e0efb6ceb721eb066d3726419f0..e080bebb3147af39c8275261f57018eb01e917b0 100644
-> > > > --- a/include/net/netns/sctp.h
-> > > > +++ b/include/net/netns/sctp.h
-> > > > @@ -30,12 +30,15 @@ struct netns_sctp {
-> > > >  	struct list_head local_addr_list;
-> > > >  	struct list_head addr_waitq;
-> > > >  	struct timer_list addr_wq_timer;
-> > > > -	struct list_head auto_asconf_splist;
-> > > > +	struct list_head __rcu auto_asconf_splist;
-> > > You should use the addr_wq_lock here instead of creating a new lock, as thats
-> > > already used to protect most accesses to the list you are concerned about.
-> > 
-> > Ok, that works too.
-> > 
-> > > Though truthfully, that shouldn't be necessecary.  The list in question is only
-> > > read in one location and only written in one location.  You can likely just
-> > > rcu-ify, as the write side is in process context and protected by lock_sock.
-> > 
-> > It should, it's not protected by lock_sock as this list resides in
-> > netns_sctp structure, which lock_sock doesn't cover. Write side is in
-> > process context yes, but this list is written in sctp_init_sock(),
-> > sctp_destroy_sock() and sctp_setsockopt_auto_asconf(), so one could
-> > trigger this by either creating/destroying sockets if
-> > default_auto_asconf=1 or just by creating a bunch of sockets and
-> > flipping asconf via setsockopt (or a combination of these operations).
-> > (I'll point this out in the changelog)
-> 
-> Hmm.. by reusing addr_wq_lock we don't need to rcu-ify the list, as the
-> reader is inside that lock too, so I can just protect auto_asconf_splist
-> writers with addr_wq_lock.
-> 
-> Nice, thanks Neil.
-> 
-Yup, thanks!
-Neil
 
->   Marcelo
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> On May 26, 2015 at 1:10 PM Cong Wang <cwang@twopensource.com> wrote:
+>
+>
+> On Mon, May 25, 2015 at 10:35 PM, jsullivan@opensourcedevel.com
+> <jsullivan@opensourcedevel.com> wrote:
+> >
+> > I was also surprised to see that, although we are using a prio qdisc on the
+> > bond, the physical interface is showing pfifo_fast.
+> >
+> [...]
+> >
+> > So why the difference and why the pfifo_fast qdiscs on the physical
+> > interfaces?
+>
+> Qdisc is not aware of the network interface you attach it to, so it doesn't
+> know
+> whether it is bond or whatever stacked interface, the qdisc you add to bonding
+> master has no idea about its slaves.
+>
+> For pfifo_fast, it is the default qdisc when you install mq on root, it is
+> where
+> mq actually holds the packets.
+>
+> Hope this helps.
+
+Grr . . . . I think this web client formatted my last response with HTML by
+default.  My apologies.
+
+Yes, your reply does help, thank you although it then raises an interesting
+question.  If I
+neglect the slave interfaces as I have done, can I accidentally impact the
+shaping I have done on the bond master? For example, I may prioritize real time
+voice and video so their relatively evenly spaced packets are prioritized and
+sent to the physical interface with no special ToS marking.  Someone's selfish
+mail application sets ToS bits for high priority and decides to send a huge
+attachment.  Those packets also flood into the physical interface behind the
+video and voice packets but now the physical interface using pfifo_fast sends
+the bulk email packets ahead of the voice and video.  Is this an accurate
+scenario?
+ 
+Thus, if one uses traffic shaping on a bonded interface, should one then do
+something like use a prio qdisc with a single priority on the physical
+interfaces? Thanks - John
