@@ -1,125 +1,95 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v4 net-next 06/11] net: Add keys for TIPC address
-Date: Thu, 28 May 2015 11:19:03 -0700
-Message-ID: <1432837148-1359931-7-git-send-email-tom@herbertland.com>
-References: <1432837148-1359931-1-git-send-email-tom@herbertland.com>
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the
+ RDMA-CM
+Date: Thu, 28 May 2015 14:22:40 -0400
+Message-ID: <1432837360.114391.35.camel@redhat.com>
+References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
+	 <1432647280.28905.107.camel@redhat.com> <55671309.6080303@mellanox.com>
+	 <1432822057.114391.26.camel@redhat.com> <55674077.5040707@mellanox.com>
+	 <20150528174337.GA10448@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:38787 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754532AbbE1STh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 14:19:37 -0400
-Received: from pps.filterd (m0004060 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4SIGADl001555
-	for <netdev@vger.kernel.org>; Thu, 28 May 2015 11:19:32 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1up6yg0a76-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 28 May 2015 11:19:32 -0700
-Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.232.63) with ESMTP	id
- 15620e32056611e5a2b30002c992ebde-902d03a0 for <netdev@vger.kernel.org>;	Thu,
- 28 May 2015 11:19:30 -0700
-In-Reply-To: <1432837148-1359931-1-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha256";
+	protocol="application/pgp-signature"; boundary="=-c7OMWg5gF1v5UBMrYl2S"
+Cc: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150528174337.GA10448-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add a new flow key for TIPC addresses.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- include/net/flow_dissector.h | 10 ++++++++++
- net/core/flow_dissector.c    | 18 +++++++++++++-----
- 2 files changed, 23 insertions(+), 5 deletions(-)
+--=-c7OMWg5gF1v5UBMrYl2S
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 306d461..3ee606a 100644
---- a/include/net/flow_dissector.h
-+++ b/include/net/flow_dissector.h
-@@ -50,6 +50,14 @@ struct flow_dissector_key_ipv6_addrs {
- };
- 
- /**
-+ * struct flow_dissector_key_tipc_addrs:
-+ * @srcnode: source node address
-+ */
-+struct flow_dissector_key_tipc_addrs {
-+	__be32 srcnode;
-+};
-+
-+/**
-  * struct flow_dissector_key_addrs:
-  * @v4addrs: IPv4 addresses
-  * @v6addrs: IPv6 addresses
-@@ -58,6 +66,7 @@ struct flow_dissector_key_addrs {
- 	union {
- 		struct flow_dissector_key_ipv4_addrs v4addrs;
- 		struct flow_dissector_key_ipv6_addrs v6addrs;
-+		struct flow_dissector_key_tipc_addrs tipcaddrs;
- 	};
- };
- 
-@@ -97,6 +106,7 @@ enum flow_dissector_key_id {
- 	FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS, /* struct flow_dissector_key_addrs */
- 	FLOW_DISSECTOR_KEY_PORTS, /* struct flow_dissector_key_ports */
- 	FLOW_DISSECTOR_KEY_ETH_ADDRS, /* struct flow_dissector_key_eth_addrs */
-+	FLOW_DISSECTOR_KEY_TIPC_ADDRS, /* struct flow_dissector_key_tipc_addrs */
- 
- 	FLOW_DISSECTOR_KEY_MAX,
- };
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index ca9d224..91861c3 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -294,13 +294,12 @@ flow_label:
- 		key_control->thoff = (u16)nhoff;
- 
- 		if (skb_flow_dissector_uses_key(flow_dissector,
--						FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS)) {
-+						FLOW_DISSECTOR_KEY_TIPC_ADDRS)) {
- 			key_addrs = skb_flow_dissector_target(flow_dissector,
--							      FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS,
-+							      FLOW_DISSECTOR_KEY_TIPC_ADDRS,
- 							      target_container);
--			key_addrs->v4addrs.src = hdr->srcnode;
--			key_addrs->v4addrs.dst = 0;
--			key_control->addr_type = FLOW_DISSECTOR_KEY_IPV4_ADDRS;
-+			key_addrs->tipcaddrs.srcnode = hdr->srcnode;
-+			key_control->addr_type = FLOW_DISSECTOR_KEY_TIPC_ADDRS;
- 		}
- 		return true;
- 	}
-@@ -408,6 +407,9 @@ static inline size_t flow_keys_hash_length(struct flow_keys *flow)
- 	case FLOW_DISSECTOR_KEY_IPV6_ADDRS:
- 		diff -= sizeof(flow->addrs.v6addrs);
- 		break;
-+	case FLOW_DISSECTOR_KEY_TIPC_ADDRS:
-+		diff -= sizeof(flow->addrs.tipcaddrs);
-+		break;
- 	}
- 	return (sizeof(*flow) - diff) / sizeof(u32);
- }
-@@ -420,6 +422,8 @@ __be32 flow_get_u32_src(const struct flow_keys *flow)
- 	case FLOW_DISSECTOR_KEY_IPV6_ADDRS:
- 		return (__force __be32)ipv6_addr_hash(
- 			&flow->addrs.v6addrs.src);
-+	case FLOW_DISSECTOR_KEY_TIPC_ADDRS:
-+		return flow->addrs.tipcaddrs.srcnode;
- 	default:
- 		return 0;
- 	}
-@@ -651,6 +655,10 @@ static const struct flow_dissector_key flow_keys_dissector_keys[] = {
- 		.offset = offsetof(struct flow_keys, addrs.v4addrs),
- 	},
- 	{
-+		.key_id = FLOW_DISSECTOR_KEY_TIPC_ADDRS,
-+		.offset = offsetof(struct flow_keys, addrs.tipcaddrs),
-+	},
-+	{
- 		.key_id = FLOW_DISSECTOR_KEY_PORTS,
- 		.offset = offsetof(struct flow_keys, ports),
- 	},
--- 
-1.8.1
+On Thu, 2015-05-28 at 11:43 -0600, Jason Gunthorpe wrote:
+> On Thu, May 28, 2015 at 07:21:11PM +0300, Or Gerlitz wrote:
+>=20
+> > Anything else except for that (you said "reworking of the network scrip=
+ts
+> > and NetworkManager assumptions to make it work")??
+>=20
+> IPv6 becomes very broken, child interfaces will generate the same IPv6
+> addreses for radv and link local resulting in duplicate address
+> scenarios.
+>=20
+> About the only thing that will work properly is statically assigned
+> IPv4 addresses.
+>=20
+> > I don't see why we should stop the whole RDMA containers support train =
+just
+> > b/c we found out the IPoIB DHCP bug which was there for few years befor=
+e
+> > this effort started.
+>=20
+> I don't think that is what Doug said.
+
+Indeed.  There is no need to scrap things, but if the design as it
+stands, and the intended means of creating objects for use in
+containers, is going to result in an unworkable network, then we have to
+re-evaluate how the container constructs are created, and that then has
+possible consequences for how we would get from an incoming packet to
+the proper container.
+
+I'm not trying to stop the "support train" here, but at the same time,
+if the train is headed for a bridge that's out....
+
+--=20
+Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+              GPG KeyID: 0E572FDD
+
+
+--=-c7OMWg5gF1v5UBMrYl2S
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCAAGBQJVZ1zwAAoJELgmozMOVy/dSSYQAJqif1VrR0/mhmQgRqJHh8Ze
+xQ2Ewm+84ajmpBO960/PrzMzyMUdiJUgYtABXg8Vsnx6Xr1T0ZHOldmNVpHEumYv
+9ktDuUVP6VatSPTSpuNMx1ibDqRmBN3lcUbJEV6brHW2qQ2QxiIrxqiAXzaEmaKX
+2UtBhwwJkgcfrTRZKjnDpMaRpvWsbGaO4ilYe4WBjAxRaOEaxQKTHVMXM3ATlqwE
+QYUBxSSJ1+hjNogVFnPWll43jxMSvoCkk+UgwpqouiT5jGTS/q6d9Ebt1yD1Xbck
+7rVUZKn/msvwQiZ1SjXFJPuzx2+rE9FYvyhrlSewALIplqsh5GVllGh4hWj0szk3
+haqyrwUzj2kDt8HdKMyxMYHOcpt7Ns/7GHfSwt5Ms5/CA23k2LQaBDmH+6r+EbQx
+INIUrLYLKQFUeaFLH8jo5qskAnSaDCigGute9dbt7acVDxpajvaB1hwuiy0r4HRx
+D+NBme3yxnYMBNH0CYUHZuPdlnr+q4FRhbxtteXDolppx9iE5dwMUalvuSwOGZAL
+yPkGt5sTJ9hr9BaNLse4h+oicEM030ONZMudB1NTRjaLmYdllqf/G4zZF5c+ZIxw
+cnCYveU6wPlSQbbTGt9v9HE6RyAo+1VCVVchlll/mFOYTJYc/D8K+7lCQg9Fk/+B
+0gCknS5Voc7OUBizxLje
+=HOXL
+-----END PGP SIGNATURE-----
+
+--=-c7OMWg5gF1v5UBMrYl2S--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
