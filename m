@@ -1,79 +1,47 @@
-From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the
- RDMA-CM
-Date: Thu, 28 May 2015 19:21:11 +0300
-Message-ID: <55674077.5040707@mellanox.com>
-References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
-	 <1432647280.28905.107.camel@redhat.com> <55671309.6080303@mellanox.com>
- <1432822057.114391.26.camel@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Drops in qdisc on ifb interface
+Date: Thu, 28 May 2015 09:26:46 -0700
+Message-ID: <1432830406.7456.19.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1432584300.32671.103.camel@jasiiieee.pacifera.com>
+	 <1432593064.4060.190.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1767970154.119773.1432823923389.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net>
+	 <1432826085.7456.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <746223891.124020.1432827038389.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net>
+	 <5567382E.4010706@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1432822057.114391.26.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "jsullivan@opensourcedevel.com" <jsullivan@opensourcedevel.com>,
+	netdev@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:38552 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753669AbbE1Q0s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 12:26:48 -0400
+Received: by igbjd9 with SMTP id jd9so28328428igb.1
+        for <netdev@vger.kernel.org>; Thu, 28 May 2015 09:26:48 -0700 (PDT)
+In-Reply-To: <5567382E.4010706@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/28/2015 5:07 PM, Doug Ledford wrote:
-> You would think that, but sometimes important information comes from
-> totally different places.  See mine and Jason's comments back and forth
-> in the SRIOV thread started by Or.
->
-> Long story short:
->
-> ip link add dev ib0 name ib0.1 type ipoib
->
-> is totally broken on at least all Red Hat OSes.  It will require
-> reworking of the network scripts and NetworkManager assumptions to make
-> it work.  It will also break DHCP on the interface as pkey/guid are the
-> only items that uniquely identify DHCP clients.  The net result of our
-> talks was that it is likely that each interface on the same pkey will
-> require an alias GUID per child interface in order to keep things workable.
->
+ On Thu, 2015-05-28 at 08:45 -0700, John Fastabend wrote:
+> If your experimenting one thing you could do is create many
+> ifb devices and load balance across them from tc. I'm not
+> sure if this would be practical in your setup or not but might
+> be worth trying.
+> 
+> One thing I've been debating adding is the ability to match
+> on current cpu_id in tc which would allow you to load balance by
+> cpu. I could send you a patch if you wanted to test it. I would
+> expect this to help somewhat with 'single queue' issue but sorry
+> haven't had time yet to test it out myself.
 
-Doug,
+It seems John uses a single 1Gbps flow, so only one cpu would receive
+NIC interrupts.
 
-Just to make sure we're on the same page, you're saying that the IPoIB 
-DHCP scheme (client + server) used on RH product uses Client-ID which is 
-eight byte long or 20 byte long the four upper bytes masked out (which 
-of them?) and hence is broken when multiple entities use the same ID.
+The only way he could get better results would be to schedule IFB work
+on another core.
 
-Anything else except for that (you said "reworking of the network 
-scripts and NetworkManager assumptions to make it work")??
-
-OTOH we realized that the implementation for same PKEY IPoIB childs 
-which exist for a while is broken with the RH DHCP scheme and should be 
-enhanced.   OTOH these childs can serve as nice building blocks for 
-IPoIB containers or virtio-IPoIB scheme.
-
-Note that out of the eleven patches that make the series, only ONE 
-relates directly to IPoIB, the rest are either applicable to all the 
-transport supported by the RDMA stack, or to IPoIB + RoCE.
-
-Under some assumptions and changes people can test it with DHCP scheme 
-different from RH or with non-DHCP based IP address assignment scheme.
-
-So we have a very nice effort and work done by developers, to bring RDMA 
-into containers, accompanied by reviewers providing lots of their brain 
-power to make it robust.
-
-I don't see why we should stop the whole RDMA containers support train 
-just b/c we found out the IPoIB DHCP bug which was there for few years 
-before this effort started.
-
-How about let this series to go after the rest of the reviewers comments 
-are addressed, s.t under IPoIB it will work on small set of 
-environments, while with macvlan based RoCE support to be introduced 
-later it will work on wider set of environments.
-
-Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+(Assuming one cpu is 100% busy servicing NIC + IFB, but I really doubt
+it...)
