@@ -1,102 +1,262 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V5 06/11] net/mlx5_core: Implement get/set port status
-Date: Thu, 28 May 2015 22:28:43 +0300
-Message-ID: <1432841328-11063-7-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V5 01/11] net/mlx5_core,mlx5_ib: Do not use vmap() on coherent memory
+Date: Thu, 28 May 2015 22:28:38 +0300
+Message-ID: <1432841328-11063-2-git-send-email-amirv@mellanox.com>
 References: <1432841328-11063-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Achiad Shochat <achiad@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
-	Rana Shahout <ranas@mellanox.com>
+	David Daney <david.daney@cavium.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:46094 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:46076 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751303AbbE1T3n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 15:29:43 -0400
+	id S1754445AbbE1T3l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2015 15:29:41 -0400
 In-Reply-To: <1432841328-11063-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rana Shahout <ranas@mellanox.com>
+As David Daney pointed in mlx4_core driver [1], mlx5_core is also
+misusing the DMA-API.
 
-Implemet get/set port status low level functions to be exposed by the
-netdev.
+This patch is removing the code that vmap() memory allocated by
+dma_alloc_coherent().
 
-Signed-off-by: Rana Shahout <ranas@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+After this patch, users of this drivers might fail allocating resources
+on memory fragmeneted systems.  This will be fixed later on.
+
+[1] - https://patchwork.ozlabs.org/patch/458531/
+
+CC: David Daney <david.daney@cavium.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/port.c | 32 ++++++++++++++++++++++++++
- include/linux/mlx5/driver.h                    |  8 +++++++
- 2 files changed, 40 insertions(+)
+ drivers/infiniband/hw/mlx5/cq.c                 |  3 +-
+ drivers/infiniband/hw/mlx5/qp.c                 |  2 +-
+ drivers/infiniband/hw/mlx5/srq.c                |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/alloc.c | 96 +++++--------------------
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c    |  3 +-
+ include/linux/mlx5/driver.h                     |  9 +--
+ 6 files changed, 22 insertions(+), 93 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index 6e2d99c..742a6fb 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -179,3 +179,35 @@ int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
- 	return err;
+diff --git a/drivers/infiniband/hw/mlx5/cq.c b/drivers/infiniband/hw/mlx5/cq.c
+index 2ee6b10..4e88b18 100644
+--- a/drivers/infiniband/hw/mlx5/cq.c
++++ b/drivers/infiniband/hw/mlx5/cq.c
+@@ -590,8 +590,7 @@ static int alloc_cq_buf(struct mlx5_ib_dev *dev, struct mlx5_ib_cq_buf *buf,
+ {
+ 	int err;
+ 
+-	err = mlx5_buf_alloc(dev->mdev, nent * cqe_size,
+-			     PAGE_SIZE * 2, &buf->buf);
++	err = mlx5_buf_alloc(dev->mdev, nent * cqe_size, &buf->buf);
+ 	if (err)
+ 		return err;
+ 
+diff --git a/drivers/infiniband/hw/mlx5/qp.c b/drivers/infiniband/hw/mlx5/qp.c
+index d35f62d..426eb88 100644
+--- a/drivers/infiniband/hw/mlx5/qp.c
++++ b/drivers/infiniband/hw/mlx5/qp.c
+@@ -768,7 +768,7 @@ static int create_kernel_qp(struct mlx5_ib_dev *dev,
+ 	qp->sq.offset = qp->rq.wqe_cnt << qp->rq.wqe_shift;
+ 	qp->buf_size = err + (qp->rq.wqe_cnt << qp->rq.wqe_shift);
+ 
+-	err = mlx5_buf_alloc(dev->mdev, qp->buf_size, PAGE_SIZE * 2, &qp->buf);
++	err = mlx5_buf_alloc(dev->mdev, qp->buf_size, &qp->buf);
+ 	if (err) {
+ 		mlx5_ib_dbg(dev, "err %d\n", err);
+ 		goto err_uuar;
+diff --git a/drivers/infiniband/hw/mlx5/srq.c b/drivers/infiniband/hw/mlx5/srq.c
+index 02d77a2..4242e1d 100644
+--- a/drivers/infiniband/hw/mlx5/srq.c
++++ b/drivers/infiniband/hw/mlx5/srq.c
+@@ -165,7 +165,7 @@ static int create_srq_kernel(struct mlx5_ib_dev *dev, struct mlx5_ib_srq *srq,
+ 		return err;
+ 	}
+ 
+-	if (mlx5_buf_alloc(dev->mdev, buf_size, PAGE_SIZE * 2, &srq->buf)) {
++	if (mlx5_buf_alloc(dev->mdev, buf_size, &srq->buf)) {
+ 		mlx5_ib_dbg(dev, "buf alloc failed\n");
+ 		err = -ENOMEM;
+ 		goto err_db;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
+index ac0f7bf..0715b49 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
+@@ -42,95 +42,36 @@
+ #include "mlx5_core.h"
+ 
+ /* Handling for queue buffers -- we allocate a bunch of memory and
+- * register it in a memory region at HCA virtual address 0.  If the
+- * requested size is > max_direct, we split the allocation into
+- * multiple pages, so we don't require too much contiguous memory.
++ * register it in a memory region at HCA virtual address 0.
+  */
+ 
+-int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, int max_direct,
+-		   struct mlx5_buf *buf)
++int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, struct mlx5_buf *buf)
+ {
+ 	dma_addr_t t;
+ 
+ 	buf->size = size;
+-	if (size <= max_direct) {
+-		buf->nbufs        = 1;
+-		buf->npages       = 1;
+-		buf->page_shift   = (u8)get_order(size) + PAGE_SHIFT;
+-		buf->direct.buf   = dma_zalloc_coherent(&dev->pdev->dev,
+-							size, &t, GFP_KERNEL);
+-		if (!buf->direct.buf)
+-			return -ENOMEM;
+-
+-		buf->direct.map = t;
+-
+-		while (t & ((1 << buf->page_shift) - 1)) {
+-			--buf->page_shift;
+-			buf->npages *= 2;
+-		}
+-	} else {
+-		int i;
+-
+-		buf->direct.buf  = NULL;
+-		buf->nbufs       = (size + PAGE_SIZE - 1) / PAGE_SIZE;
+-		buf->npages      = buf->nbufs;
+-		buf->page_shift  = PAGE_SHIFT;
+-		buf->page_list   = kcalloc(buf->nbufs, sizeof(*buf->page_list),
+-					   GFP_KERNEL);
+-		if (!buf->page_list)
+-			return -ENOMEM;
+-
+-		for (i = 0; i < buf->nbufs; i++) {
+-			buf->page_list[i].buf =
+-				dma_zalloc_coherent(&dev->pdev->dev, PAGE_SIZE,
+-						    &t, GFP_KERNEL);
+-			if (!buf->page_list[i].buf)
+-				goto err_free;
+-
+-			buf->page_list[i].map = t;
+-		}
+-
+-		if (BITS_PER_LONG == 64) {
+-			struct page **pages;
+-			pages = kmalloc(sizeof(*pages) * buf->nbufs, GFP_KERNEL);
+-			if (!pages)
+-				goto err_free;
+-			for (i = 0; i < buf->nbufs; i++)
+-				pages[i] = virt_to_page(buf->page_list[i].buf);
+-			buf->direct.buf = vmap(pages, buf->nbufs, VM_MAP, PAGE_KERNEL);
+-			kfree(pages);
+-			if (!buf->direct.buf)
+-				goto err_free;
+-		}
+-	}
++	buf->npages       = 1;
++	buf->page_shift   = (u8)get_order(size) + PAGE_SHIFT;
++	buf->direct.buf   = dma_zalloc_coherent(&dev->pdev->dev,
++						size, &t, GFP_KERNEL);
++	if (!buf->direct.buf)
++		return -ENOMEM;
+ 
+-	return 0;
++	buf->direct.map = t;
+ 
+-err_free:
+-	mlx5_buf_free(dev, buf);
++	while (t & ((1 << buf->page_shift) - 1)) {
++		--buf->page_shift;
++		buf->npages *= 2;
++	}
+ 
+-	return -ENOMEM;
++	return 0;
  }
- EXPORT_SYMBOL_GPL(mlx5_set_port_proto);
-+
-+int mlx5_set_port_status(struct mlx5_core_dev *dev,
-+			 enum mlx5_port_status status)
-+{
-+	u32 in[MLX5_ST_SZ_DW(paos_reg)];
-+	u32 out[MLX5_ST_SZ_DW(paos_reg)];
-+
-+	memset(in, 0, sizeof(in));
-+
-+	MLX5_SET(paos_reg, in, admin_status, status);
-+	MLX5_SET(paos_reg, in, ase, 1);
-+
-+	return mlx5_core_access_reg(dev, in, sizeof(in), out,
-+				    sizeof(out), MLX5_REG_PAOS, 0, 1);
-+}
-+
-+int mlx5_query_port_status(struct mlx5_core_dev *dev, u8 *status)
-+{
-+	u32 in[MLX5_ST_SZ_DW(paos_reg)];
-+	u32 out[MLX5_ST_SZ_DW(paos_reg)];
-+	int err;
-+
-+	memset(in, 0, sizeof(in));
-+
-+	err = mlx5_core_access_reg(dev, in, sizeof(in), out,
-+				   sizeof(out), MLX5_REG_PAOS, 0, 0);
-+	if (err)
-+		return err;
-+
-+	*status = MLX5_GET(paos_reg, out, oper_status);
-+	return err;
-+}
+ EXPORT_SYMBOL_GPL(mlx5_buf_alloc);
+ 
+ void mlx5_buf_free(struct mlx5_core_dev *dev, struct mlx5_buf *buf)
+ {
+-	int i;
+-
+-	if (buf->nbufs == 1)
+-		dma_free_coherent(&dev->pdev->dev, buf->size, buf->direct.buf,
+-				  buf->direct.map);
+-	else {
+-		if (BITS_PER_LONG == 64)
+-			vunmap(buf->direct.buf);
+-
+-		for (i = 0; i < buf->nbufs; i++)
+-			if (buf->page_list[i].buf)
+-				dma_free_coherent(&dev->pdev->dev, PAGE_SIZE,
+-						  buf->page_list[i].buf,
+-						  buf->page_list[i].map);
+-		kfree(buf->page_list);
+-	}
++	dma_free_coherent(&dev->pdev->dev, buf->size, buf->direct.buf,
++			  buf->direct.map);
+ }
+ EXPORT_SYMBOL_GPL(mlx5_buf_free);
+ 
+@@ -230,10 +171,7 @@ void mlx5_fill_page_array(struct mlx5_buf *buf, __be64 *pas)
+ 	int i;
+ 
+ 	for (i = 0; i < buf->npages; i++) {
+-		if (buf->nbufs == 1)
+-			addr = buf->direct.map + (i << buf->page_shift);
+-		else
+-			addr = buf->page_list[i].map;
++		addr = buf->direct.map + (i << buf->page_shift);
+ 
+ 		pas[i] = cpu_to_be64(addr);
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+index 58800e4..3f511bd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+@@ -346,8 +346,7 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
+ 	int inlen;
+ 
+ 	eq->nent = roundup_pow_of_two(nent + MLX5_NUM_SPARE_EQE);
+-	err = mlx5_buf_alloc(dev, eq->nent * MLX5_EQE_SIZE, 2 * PAGE_SIZE,
+-			     &eq->buf);
++	err = mlx5_buf_alloc(dev, eq->nent * MLX5_EQE_SIZE, &eq->buf);
+ 	if (err)
+ 		return err;
+ 
 diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 266d549..6438444 100644
+index 9a90e75..c4cf25f 100644
 --- a/include/linux/mlx5/driver.h
 +++ b/include/linux/mlx5/driver.h
-@@ -149,6 +149,11 @@ enum mlx5_dev_event {
- 	MLX5_DEV_EVENT_CLIENT_REREG,
- };
+@@ -334,8 +334,6 @@ struct mlx5_buf_list {
  
-+enum mlx5_port_status {
-+	MLX5_PORT_UP        = 1 << 1,
-+	MLX5_PORT_DOWN      = 1 << 2,
-+};
-+
- struct mlx5_uuar_info {
- 	struct mlx5_uar	       *uars;
- 	int			num_uars;
-@@ -701,6 +706,9 @@ int mlx5_query_port_proto_admin(struct mlx5_core_dev *dev,
- 				u32 *proto_admin, int proto_mask);
- int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
- 			int proto_mask);
-+int mlx5_set_port_status(struct mlx5_core_dev *dev,
-+			 enum mlx5_port_status status);
-+int mlx5_query_port_status(struct mlx5_core_dev *dev, u8 *status);
+ struct mlx5_buf {
+ 	struct mlx5_buf_list	direct;
+-	struct mlx5_buf_list   *page_list;
+-	int			nbufs;
+ 	int			npages;
+ 	int			size;
+ 	u8			page_shift;
+@@ -586,11 +584,7 @@ struct mlx5_pas {
  
- int mlx5_debug_eq_add(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
- void mlx5_debug_eq_remove(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
+ static inline void *mlx5_buf_offset(struct mlx5_buf *buf, int offset)
+ {
+-	if (likely(BITS_PER_LONG == 64 || buf->nbufs == 1))
+ 		return buf->direct.buf + offset;
+-	else
+-		return buf->page_list[offset >> PAGE_SHIFT].buf +
+-			(offset & (PAGE_SIZE - 1));
+ }
+ 
+ extern struct workqueue_struct *mlx5_core_wq;
+@@ -669,8 +663,7 @@ void mlx5_health_cleanup(void);
+ void  __init mlx5_health_init(void);
+ void mlx5_start_health_poll(struct mlx5_core_dev *dev);
+ void mlx5_stop_health_poll(struct mlx5_core_dev *dev);
+-int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, int max_direct,
+-		   struct mlx5_buf *buf);
++int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, struct mlx5_buf *buf);
+ void mlx5_buf_free(struct mlx5_core_dev *dev, struct mlx5_buf *buf);
+ struct mlx5_cmd_mailbox *mlx5_alloc_cmd_mailbox_chain(struct mlx5_core_dev *dev,
+ 						      gfp_t flags, int npages);
 -- 
 1.9.3
