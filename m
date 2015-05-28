@@ -1,92 +1,105 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net v2] switchdev: don't abort hardware ipv4 fib offload
- on failure to program fib entry in hardware
-Date: Thu, 28 May 2015 08:40:11 -0700
-Message-ID: <CAE4R7bB-LazvjPYZmPRE8e-mq_vML+jCBswMkOq-QeV-8ad41A@mail.gmail.com>
-References: <1431906125-13808-1-git-send-email-roopa@cumulusnetworks.com>
-	<20150518.161916.2132217836491222672.davem@davemloft.net>
-	<20150528094244.GA19629@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Jiri Pirko <jiri@resnulli.us>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 1/4] net/mlx4_core: Demote simple multicast and broadcast flow steering rules
+Date: Thu, 28 May 2015 18:41:13 +0300
+Message-ID: <1432827676-5599-2-git-send-email-ogerlitz@mellanox.com>
+References: <1432827676-5599-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:33218 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751676AbbE1PkM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 11:40:12 -0400
-Received: by qcmi9 with SMTP id i9so15940408qcm.0
-        for <netdev@vger.kernel.org>; Thu, 28 May 2015 08:40:12 -0700 (PDT)
-In-Reply-To: <20150528094244.GA19629@nanopsycho.orion>
+Received: from ns1327.ztomy.com ([193.47.165.129]:57602 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754067AbbE1Plk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2015 11:41:40 -0400
+In-Reply-To: <1432827676-5599-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 28, 2015 at 2:42 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Mon, May 18, 2015 at 10:19:16PM CEST, davem@davemloft.net wrote:
->>From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>Date: Sun, 17 May 2015 16:42:05 -0700
->>
->>> On most systems where you can offload routes to hardware,
->>> doing routing in software is not an option (the cpu limitations
->>> make routing impossible in software).
->>
->>You absolutely do not get to determine this policy, none of us
->>do.
->>
->>What matters is that by default the damn switch device being there
->>is %100 transparent to the user.
->>
->>And the way to achieve that default is to do software routes as
->>a fallback.
->>
->>I am not going to entertain changes of this nature which fail
->>route loading by default just because we've exceeded a device's
->>HW capacity to offload.
->>
->>I thought I was _really_ clear about this at netdev 0.1
->
-> I certainly agree that by default, transparency 1:1 sw:hw mapping is
-> what we need for fib. The current code is a good start!
->
-> I see couple of issues regarding switchdev_fib_ipv4_abort:
-> 1) If user adds and entry, switchdev_fib_ipv4_add fails, abort is
->    executed -> and, error returned. I would expect that route entry should
->    be added in this case. The next attempt of adding the same entry will
->    be successful.
->    The current behaviour breaks the transparency you are reffering to.
-> 2) When switchdev_fib_ipv4_abort happens to be executed, the offload is
->    disabled for good (until reboot). That is certainly not nice, alhough
->    I understand that is the easiest solution for now.
->
-> I believe that we all agree that the 1:1 transparency, although it is a
-> default, may not be optimal for real-life usage. HW resources are
-> limited and user does not know them. The danger of hitting _abort and
-> screwing-up the whole system is huge, unacceptable.
->
-> So here, there are couple of more or less simple things that I suggest to
-> do in order to move a little bit forward:
-> 1) Introduce system-wide option to switch _abort to just plain fail.
->    When HW does not have capacity, do not flush and fallback to sw, but
->    rather just fail to add the entry. This would not break anything.
->    Userspace has to be prepared that entry add could fail.
-> 2) Introduce a way to propagate resources to userspace. Driver knows about
->    resources used/available/potentially_available. Switchdev infra could
->    be extended in order to propagate the info to the user.
-> 3) Introduce couple of flags for entry add that would alter the default
->    behaviour. Something like:
->         NLM_F_SKIP_KERNEL
->         NLM_F_SKIP_OFFLOAD
->    Again, this does not break the current users. On the other hand, this
->    gives new users a leverage to instruct kernel where the entry should
->    be added to (or not added to).
->
-> Any thoughts? Objections?
+From: Matan Barak <matanb@mellanox.com>
 
-I don't like these.  Breaks transparency and forces the user in a
-position of having to know hardware failures modes (unique to each
-hardware device).  I presented an option d) which avoids this issues;
-was it not understood?
+In SRIOV, when simple (i.e - Ethernet L2 only) flow steering rules are
+created, always create them at MLX4_DOMAIN_NIC priority (instead of
+the real priority the function created them at). This is done in order
+to let multiple functions add broadcast/multicast rules without
+affecting other functions, which is necessary for DPDK in SRIOV.
+
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/infiniband/hw/mlx4/main.c                  |    4 +-
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   23 ++++++++++++++++++++
+ 2 files changed, 25 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
+index cc64400..8c96c71 100644
+--- a/drivers/infiniband/hw/mlx4/main.c
++++ b/drivers/infiniband/hw/mlx4/main.c
+@@ -1090,7 +1090,7 @@ static int __mlx4_ib_create_flow(struct ib_qp *qp, struct ib_flow_attr *flow_att
+ 
+ 	ret = mlx4_cmd_imm(mdev->dev, mailbox->dma, reg_id, size >> 2, 0,
+ 			   MLX4_QP_FLOW_STEERING_ATTACH, MLX4_CMD_TIME_CLASS_A,
+-			   MLX4_CMD_NATIVE);
++			   MLX4_CMD_WRAPPED);
+ 	if (ret == -ENOMEM)
+ 		pr_err("mcg table is full. Fail to register network rule.\n");
+ 	else if (ret == -ENXIO)
+@@ -1107,7 +1107,7 @@ static int __mlx4_ib_destroy_flow(struct mlx4_dev *dev, u64 reg_id)
+ 	int err;
+ 	err = mlx4_cmd(dev, reg_id, 0, 0,
+ 		       MLX4_QP_FLOW_STEERING_DETACH, MLX4_CMD_TIME_CLASS_A,
+-		       MLX4_CMD_NATIVE);
++		       MLX4_CMD_WRAPPED);
+ 	if (err)
+ 		pr_err("Fail to detach network rule. registration id = 0x%llx\n",
+ 		       reg_id);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 15ec081..ab48386 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -3973,6 +3973,22 @@ static int validate_eth_header_mac(int slave, struct _rule_hw *eth_header,
+ 	return 0;
+ }
+ 
++static void handle_eth_header_mcast_prio(struct mlx4_net_trans_rule_hw_ctrl *ctrl,
++					 struct _rule_hw *eth_header)
++{
++	if (is_multicast_ether_addr(eth_header->eth.dst_mac) ||
++	    is_broadcast_ether_addr(eth_header->eth.dst_mac)) {
++		struct mlx4_net_trans_rule_hw_eth *eth =
++			(struct mlx4_net_trans_rule_hw_eth *)eth_header;
++		struct _rule_hw *next_rule = (struct _rule_hw *)(eth + 1);
++		bool last_rule = next_rule->size == 0 && next_rule->id == 0 &&
++			next_rule->rsvd == 0;
++
++		if (last_rule)
++			ctrl->prio = cpu_to_be16(MLX4_DOMAIN_NIC);
++	}
++}
++
+ /*
+  * In case of missing eth header, append eth header with a MAC address
+  * assigned to the VF.
+@@ -4125,6 +4141,12 @@ int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
+ 	rule_header = (struct _rule_hw *)(ctrl + 1);
+ 	header_id = map_hw_to_sw_id(be16_to_cpu(rule_header->id));
+ 
++	if (header_id == MLX4_NET_TRANS_RULE_ID_ETH)
++		handle_eth_header_mcast_prio(ctrl, rule_header);
++
++	if (slave == dev->caps.function)
++		goto execute;
++
+ 	switch (header_id) {
+ 	case MLX4_NET_TRANS_RULE_ID_ETH:
+ 		if (validate_eth_header_mac(slave, rule_header, rlist)) {
+@@ -4151,6 +4173,7 @@ int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
+ 		goto err_put;
+ 	}
+ 
++execute:
+ 	err = mlx4_cmd_imm(dev, inbox->dma, &vhcr->out_param,
+ 			   vhcr->in_modifier, 0,
+ 			   MLX4_QP_FLOW_STEERING_ATTACH, MLX4_CMD_TIME_CLASS_A,
+-- 
+1.7.1
