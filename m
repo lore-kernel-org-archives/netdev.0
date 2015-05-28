@@ -1,93 +1,37 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] xfrm6: Do not use xfrm_local_error for path MTU issues
- in tunnels
-Date: Thu, 28 May 2015 10:40:05 +0200
-Message-ID: <20150528084002.GI27342@secunet.com>
-References: <20150527173823.1415.96248.stgit@ahduyck-vm-fedora22>
- <20150528053607.GF27342@secunet.com>
- <5566C15B.7090403@gmail.com>
+From: sssdrb <sssdrb@gmail.com>
+Subject: Problems with receiving packets
+Date: Thu, 28 May 2015 10:46:47 +0200
+Message-ID: <CA+b3SM+Kzj6RZr7uKHef23NeXDZGf03Ux2eddDLzO8ZE=SJHUQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	<davem@davemloft.net>, <herbert@gondor.apana.org.au>,
-	<netdev@vger.kernel.org>, <linux-crypto@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5566C15B.7090403@gmail.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:34519 "EHLO
+	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753279AbbE1IrT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 04:47:19 -0400
+Received: by oifu123 with SMTP id u123so27117142oif.1
+        for <netdev@vger.kernel.org>; Thu, 28 May 2015 01:47:18 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 28, 2015 at 12:18:51AM -0700, Alexander Duyck wrote:
-> On 05/27/2015 10:36 PM, Steffen Klassert wrote:
-> >On Wed, May 27, 2015 at 10:40:32AM -0700, Alexander Duyck wrote:
-> >>This change makes it so that we use icmpv6_send to report PMTU issues back
-> >>into tunnels in the case that the resulting packet is larger than the MTU
-> >>of the outgoing interface.  Previously xfrm_local_error was being used in
-> >>this case, however this was resulting in no changes, I suspect due to the
-> >>fact that the tunnel itself was being kept out of the loop.
-> >>
-> >>This patch fixes PMTU problems seen on ip6_vti tunnels and is based on the
-> >>behavior seen if the socket was orphaned.  Instead of requiring the socket
-> >>to be orphaned this patch simply defaults to using icmpv6_send in the case
-> >>that the frame came though a tunnel.
-> >We can use icmpv6_send() just in the case that the packet
-> >was already transmitted by a tunnel device, otherwise we
-> >get the bug back that I mentioned in my other mail.
-> >
-> >Not sure if we have something to know that the packet
-> >traversed a tunnel device. That's what I asked in the
-> >thread 'Looking for a lost patch'.
-> 
-> Okay I will try to do some more digging.  From what I can tell right
-> now it looks like my ping attempts are getting hung up on the
-> xfrm_local_error in __xfrm6_output.  I wonder if we couldn't somehow
-> make use of the skb->cb to store a pointer to the tunnel that could
-> be checked to determine if we are going through a VTI or not.
+Hello,
 
-Maybe it is as easy as the patch below, could you please test it?
+I use Linux kernel 3.3.8 on Arm Xscale based embedded platform.
+I noticed that sometimes some applications lost data from network.
+To be more detailed - for example I'm using ping command between two
+Arm boards. The communication goes through ethernet or wifi. Now from
+time to time ping reports that it losts some packets. Additionaly I
+run tcpdump on the same side where ping was invoced and it reports
+that all the packets arrived (!).
 
-Subject: [PATCH RFC] vti6: Add pmtu handling to vti6_xmit.
+This is the strange part - ping reports lost of data, while tcpdump
+shows all of the packets (icmp request and replies).
 
-We currently rely on the PMTU discovery of xfrm.
-However if a packet is localy sent, the PMTU mechanism
-of xfrm tries to to local socket notification what
-might not work for applications like ping that don't
-check for this. So add pmtu handling to vti6_xmit to
-report MTU changes immediately.
+It seems like there is some problem with transferring network data
+from kernel space to user space (in RX path).
+I'm sure that all the icmp reply packets are received by ethernet
+driver and kernel, but ping application received only part of them
+(not all of them).
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv6/ip6_vti.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
-
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index ff3bd86..13cb771 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -434,6 +434,7 @@ vti6_xmit(struct sk_buff *skb, struct net_device *dev, struct flowi *fl)
- 	struct dst_entry *dst = skb_dst(skb);
- 	struct net_device *tdev;
- 	struct xfrm_state *x;
-+	int mtu;
- 	int err = -1;
- 
- 	if (!dst)
-@@ -468,6 +469,15 @@ vti6_xmit(struct sk_buff *skb, struct net_device *dev, struct flowi *fl)
- 	skb_dst_set(skb, dst);
- 	skb->dev = skb_dst(skb)->dev;
- 
-+	mtu = dst_mtu(dst);
-+	if (!skb->ignore_df && skb->len > mtu) {
-+		skb_dst(skb)->ops->update_pmtu(dst, NULL, skb, mtu);
-+
-+		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
-+
-+		return -EMSGSIZE;
-+	}
-+
- 	err = dst_output(skb);
- 	if (net_xmit_eval(err) == 0) {
- 		struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
--- 
-1.9.1
+Is it known problem and is there any solution for it?
