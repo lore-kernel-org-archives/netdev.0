@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: iproute2: missing patches in branch net-next
-Date: Thu, 28 May 2015 09:14:07 -0700
-Message-ID: <20150528091407.1d045958@urahara>
+Date: Thu, 28 May 2015 09:19:49 -0700
+Message-ID: <20150528091949.6cabe893@urahara>
 References: <5566FC7C.1000200@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -14,12 +14,12 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>
 To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:34885 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932237AbbE1QOD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 12:14:03 -0400
-Received: by pdea3 with SMTP id a3so44929895pde.2
-        for <netdev@vger.kernel.org>; Thu, 28 May 2015 09:14:03 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:36789 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751556AbbE1QTq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 12:19:46 -0400
+Received: by paza2 with SMTP id a2so27101948paz.3
+        for <netdev@vger.kernel.org>; Thu, 28 May 2015 09:19:45 -0700 (PDT)
 In-Reply-To: <5566FC7C.1000200@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -62,5 +62,5 @@ Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
 > Regards,
 > Nicolas
 
-I had to do a force update at one point to finish off one patch.
-The net-next branch is temporary anyway until the next merge.
+Ah found it was botched merge. The commits were still there locally.
+Should be fixed now, but had to force back to known good state on net-next branch.
