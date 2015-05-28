@@ -1,66 +1,79 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: iproute2: missing patches in branch net-next
-Date: Thu, 28 May 2015 09:19:49 -0700
-Message-ID: <20150528091949.6cabe893@urahara>
-References: <5566FC7C.1000200@6wind.com>
+From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the
+ RDMA-CM
+Date: Thu, 28 May 2015 19:21:11 +0300
+Message-ID: <55674077.5040707@mellanox.com>
+References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
+	 <1432647280.28905.107.camel@redhat.com> <55671309.6080303@mellanox.com>
+ <1432822057.114391.26.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@redhat.com>, Jiri Pirko <jiri@resnulli.us>,
-	David Ward <david.ward@ll.mit.edu>,
-	Jonathan Toppins <jtoppins@cumulusnetworks.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36789 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751556AbbE1QTq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 12:19:46 -0400
-Received: by paza2 with SMTP id a2so27101948paz.3
-        for <netdev@vger.kernel.org>; Thu, 28 May 2015 09:19:45 -0700 (PDT)
-In-Reply-To: <5566FC7C.1000200@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1432822057.114391.26.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 28 May 2015 13:31:08 +0200
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+On 5/28/2015 5:07 PM, Doug Ledford wrote:
+> You would think that, but sometimes important information comes from
+> totally different places.  See mine and Jason's comments back and forth
+> in the SRIOV thread started by Or.
+>
+> Long story short:
+>
+> ip link add dev ib0 name ib0.1 type ipoib
+>
+> is totally broken on at least all Red Hat OSes.  It will require
+> reworking of the network scripts and NetworkManager assumptions to make
+> it work.  It will also break DHCP on the interface as pkey/guid are the
+> only items that uniquely identify DHCP clients.  The net result of our
+> talks was that it is likely that each interface on the same pkey will
+> require an alias GUID per child interface in order to keep things workable.
+>
 
-> Hi Stephen,
-> 
-> some patches that were recently included in iproute2 branch net-next are not
-> visible anymore on kernel.org. It seems that the branch has been overridden
-> (note the "forced update" when I've fetched it):
-> 
-> $ git fetch
-> remote: Counting objects: 65, done.
-> remote: Compressing objects: 100% (65/65), done.
-> remote: Total 65 (delta 58), reused 0 (delta 0)
-> Unpacking objects: 100% (65/65), done.
->  From git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2
->   + aacee2695a90...eb9d6e794b52 net-next   -> origin/net-next  (forced update)
->     f043759dd492..c52827e9077f  master     -> origin/master
-> 
-> 
-> The following patches are lost:
-> aacee2695a90 tc: gred: Add support for TCA_GRED_LIMIT attribute
-> b6ec53e3008a xfrmmonitor: allows to monitor in several netns
-> 449b824ad196 ipmonitor: allows to monitor in several netns
-> 3b0006f8183e ipmonitor: introduce print_headers
-> 0628cddd9d5c libnetlink: introduce rtnl_listen_filter_t
-> 2503247d58c3 man: update ip monitor page
-> 6fc1f8add30b iplink_bond: add support for ad_actor and port_key options
-> df1c7d9138ea codel: add ce_threshold support to codel & fc_codel
-> 30eb304ecd1d tc: add support for Flower classifier
-> 1a4dda7103bc ss: add support for bytes_acked & bytes_received
-> 908755dc49df iproute2: GENEVE support
-> f9b004020a89 Merge branch 'master' into net-next
-> 8f42ceaf2491 Update kernels for net-next
-> 
-> 
-> Regards,
-> Nicolas
+Doug,
 
-Ah found it was botched merge. The commits were still there locally.
-Should be fixed now, but had to force back to known good state on net-next branch.
+Just to make sure we're on the same page, you're saying that the IPoIB 
+DHCP scheme (client + server) used on RH product uses Client-ID which is 
+eight byte long or 20 byte long the four upper bytes masked out (which 
+of them?) and hence is broken when multiple entities use the same ID.
+
+Anything else except for that (you said "reworking of the network 
+scripts and NetworkManager assumptions to make it work")??
+
+OTOH we realized that the implementation for same PKEY IPoIB childs 
+which exist for a while is broken with the RH DHCP scheme and should be 
+enhanced.   OTOH these childs can serve as nice building blocks for 
+IPoIB containers or virtio-IPoIB scheme.
+
+Note that out of the eleven patches that make the series, only ONE 
+relates directly to IPoIB, the rest are either applicable to all the 
+transport supported by the RDMA stack, or to IPoIB + RoCE.
+
+Under some assumptions and changes people can test it with DHCP scheme 
+different from RH or with non-DHCP based IP address assignment scheme.
+
+So we have a very nice effort and work done by developers, to bring RDMA 
+into containers, accompanied by reviewers providing lots of their brain 
+power to make it robust.
+
+I don't see why we should stop the whole RDMA containers support train 
+just b/c we found out the IPoIB DHCP bug which was there for few years 
+before this effort started.
+
+How about let this series to go after the rest of the reviewers comments 
+are addressed, s.t under IPoIB it will work on small set of 
+environments, while with macvlan based RoCE support to be introduced 
+later it will work on wider set of environments.
+
+Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
