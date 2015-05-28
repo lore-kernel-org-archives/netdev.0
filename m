@@ -1,91 +1,190 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [PATCH] sctp: fix ASCONF list handling
-Date: Thu, 28 May 2015 08:17:27 -0300
-Message-ID: <20150528111727.GB3387@localhost.localdomain>
-References: <d78e23c156981e761086f4e37517e441c84d6f90.1432769183.git.marcelo.leitner@gmail.com>
- <20150528101511.GA14938@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Michio Honda <micchie@sfc.wide.ad.jp>
-To: Neil Horman <nhorman@tuxdriver.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net-next] vlan: Add GRO support for non hardware accelerated vlan
+Date: Thu, 28 May 2015 20:17:41 +0900
+Message-ID: <1432811861-9976-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	netdev@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57557 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753704AbbE1LRb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 07:17:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20150528101511.GA14938@hmsreliant.think-freely.org>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:41853 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753802AbbE1LSE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 07:18:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 28, 2015 at 06:15:11AM -0400, Neil Horman wrote:
-> On Wed, May 27, 2015 at 09:52:17PM -0300, mleitner@redhat.com wrote:
-> > From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > 
-> > ->auto_asconf_splist is per namespace and mangled by functions like
-> > sctp_setsockopt_auto_asconf() which doesn't guarantee any serialization.
-> > 
-> > Also, the call to inet_sk_copy_descendant() was backuping
-> > ->auto_asconf_list through the copy but was not honoring
-> > ->do_auto_asconf, which could lead to list corruption if it was
-> > different between both sockets.
-> > 
-> > This commit thus fixes the list handling by adding a spinlock to protect
-> > against multiple writers and converts the list to be protected by RCU
-> > too, so that we don't have a lock inverstion issue at
-> > sctp_addr_wq_timeout_handler().
-> > 
-> > And as this list now uses RCU, we cannot do such backup and restore
-> > while copying descendant data anymore as readers may be traversing the
-> > list meanwhile. We fix this by simply ignoring/not copying those fields,
-> > placed at the end of struct sctp_sock, so we can just ignore it together
-> > with struct ipv6_pinfo data. For that we create sctp_copy_descendant()
-> > so we don't clutter inet_sk_copy_descendant() with SCTP info.
-> > 
-> > Issue was found with a test application that kept flipping sysctl
-> > default_auto_asconf on and off.
-> > 
-> > Fixes: 9f7d653b67ae ("sctp: Add Auto-ASCONF support (core).")
-> > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > ---
-> >  include/net/netns/sctp.h   |  6 +++++-
-> >  include/net/sctp/structs.h |  2 ++
-> >  net/sctp/protocol.c        |  6 +++++-
-> >  net/sctp/socket.c          | 39 ++++++++++++++++++++++++++-------------
-> >  4 files changed, 38 insertions(+), 15 deletions(-)
-> > 
-> > diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
-> > index 3573a81815ad9e0efb6ceb721eb066d3726419f0..e080bebb3147af39c8275261f57018eb01e917b0 100644
-> > --- a/include/net/netns/sctp.h
-> > +++ b/include/net/netns/sctp.h
-> > @@ -30,12 +30,15 @@ struct netns_sctp {
-> >  	struct list_head local_addr_list;
-> >  	struct list_head addr_waitq;
-> >  	struct timer_list addr_wq_timer;
-> > -	struct list_head auto_asconf_splist;
-> > +	struct list_head __rcu auto_asconf_splist;
-> You should use the addr_wq_lock here instead of creating a new lock, as thats
-> already used to protect most accesses to the list you are concerned about.
+Currently packets with non-hardware-accelerated vlan cannot be handled
+by GRO. This causes low performance for 802.1ad and stacked vlan, as their
+vlan tags are currently not stripped by hardware.
 
-Ok, that works too.
+This patch adds GRO support for non-hardware-accelerated vlan and
+improves receive performance of them.
 
-> Though truthfully, that shouldn't be necessecary.  The list in question is only
-> read in one location and only written in one location.  You can likely just
-> rcu-ify, as the write side is in process context and protected by lock_sock.
+Test Environment:
+ vlan device (.1Q) on vlan device (.1ad) on ixgbe (82599)
 
-It should, it's not protected by lock_sock as this list resides in
-netns_sctp structure, which lock_sock doesn't cover. Write side is in
-process context yes, but this list is written in sctp_init_sock(),
-sctp_destroy_sock() and sctp_setsockopt_auto_asconf(), so one could
-trigger this by either creating/destroying sockets if
-default_auto_asconf=1 or just by creating a bunch of sockets and
-flipping asconf via setsockopt (or a combination of these operations).
-(I'll point this out in the changelog)
+Result:
 
-Btw I have two nits on the patch kindly broght to my attention already,
-on adding blank newline and bad comment block, will fix it in v2.
+- Before
 
-  Marcelo
+$ netperf -t TCP_STREAM -H 192.168.20.2 -l 60
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
+
+ 87380  16384  16384    60.00    5233.17
+
+Rx side CPU usage:
+  %usr      %sys      %irq     %soft     %idle
+  0.27     58.03      0.00     41.70      0.00
+
+- After
+
+$ netperf -t TCP_STREAM -H 192.168.20.2 -l 60
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
+
+ 87380  16384  16384    60.00    7586.85
+
+Rx side CPU usage:
+  %usr      %sys      %irq     %soft     %idle
+  0.50     25.83      0.00     59.53     14.14
+
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+ net/8021q/vlan.c | 94 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 94 insertions(+)
+
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 59555f0..0a9e8e1 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -618,6 +618,90 @@ out:
+ 	return err;
+ }
+ 
++static struct sk_buff **vlan_gro_receive(struct sk_buff **head,
++					 struct sk_buff *skb)
++{
++	struct sk_buff *p, **pp = NULL;
++	struct vlan_hdr *vhdr;
++	unsigned int hlen, off_vlan;
++	const struct packet_offload *ptype;
++	__be16 type;
++	int flush = 1;
++
++	off_vlan = skb_gro_offset(skb);
++	hlen = off_vlan + sizeof(*vhdr);
++	vhdr = skb_gro_header_fast(skb, off_vlan);
++	if (skb_gro_header_hard(skb, hlen)) {
++		vhdr = skb_gro_header_slow(skb, hlen, off_vlan);
++		if (unlikely(!vhdr))
++			goto out;
++	}
++
++	type = vhdr->h_vlan_encapsulated_proto;
++
++	rcu_read_lock();
++	ptype = gro_find_receive_by_type(type);
++	if (!ptype)
++		goto out_unlock;
++
++	flush = 0;
++
++	for (p = *head; p; p = p->next) {
++		struct vlan_hdr *vhdr2;
++
++		if (!NAPI_GRO_CB(p)->same_flow)
++			continue;
++
++		vhdr2 = (struct vlan_hdr *)(p->data + off_vlan);
++		if (memcmp(vhdr, vhdr2, VLAN_HLEN))
++			NAPI_GRO_CB(p)->same_flow = 0;
++	}
++
++	skb_gro_pull(skb, sizeof(*vhdr));
++	skb_gro_postpull_rcsum(skb, vhdr, sizeof(*vhdr));
++	pp = ptype->callbacks.gro_receive(head, skb);
++
++out_unlock:
++	rcu_read_unlock();
++out:
++	NAPI_GRO_CB(skb)->flush |= flush;
++
++	return pp;
++}
++
++static int vlan_gro_complete(struct sk_buff *skb, int nhoff)
++{
++	struct vlan_hdr *vhdr = (struct vlan_hdr *)(skb->data + nhoff);
++	__be16 type = vhdr->h_vlan_encapsulated_proto;
++	struct packet_offload *ptype;
++	int err = -ENOENT;
++
++	rcu_read_lock();
++	ptype = gro_find_complete_by_type(type);
++	if (ptype)
++		err = ptype->callbacks.gro_complete(skb, nhoff + sizeof(*vhdr));
++
++	rcu_read_unlock();
++	return err;
++}
++
++static struct packet_offload vlan_packet_offloads[] __read_mostly = {
++	{
++		.type = cpu_to_be16(ETH_P_8021Q),
++		.callbacks = {
++			.gro_receive = vlan_gro_receive,
++			.gro_complete = vlan_gro_complete,
++		},
++	},
++	{
++		.type = cpu_to_be16(ETH_P_8021AD),
++		.callbacks = {
++			.gro_receive = vlan_gro_receive,
++			.gro_complete = vlan_gro_complete,
++		},
++	},
++};
++
+ static int __net_init vlan_init_net(struct net *net)
+ {
+ 	struct vlan_net *vn = net_generic(net, vlan_net_id);
+@@ -645,6 +729,7 @@ static struct pernet_operations vlan_net_ops = {
+ static int __init vlan_proto_init(void)
+ {
+ 	int err;
++	unsigned int i;
+ 
+ 	pr_info("%s v%s\n", vlan_fullname, vlan_version);
+ 
+@@ -668,6 +753,9 @@ static int __init vlan_proto_init(void)
+ 	if (err < 0)
+ 		goto err5;
+ 
++	for (i = 0; i < ARRAY_SIZE(vlan_packet_offloads); i++)
++		dev_add_offload(&vlan_packet_offloads[i]);
++
+ 	vlan_ioctl_set(vlan_ioctl_handler);
+ 	return 0;
+ 
+@@ -685,7 +773,13 @@ err0:
+ 
+ static void __exit vlan_cleanup_module(void)
+ {
++	unsigned int i;
++
+ 	vlan_ioctl_set(NULL);
++
++	for (i = 0; i < ARRAY_SIZE(vlan_packet_offloads); i++)
++		dev_remove_offload(&vlan_packet_offloads[i]);
++
+ 	vlan_netlink_fini();
+ 
+ 	unregister_netdevice_notifier(&vlan_notifier_block);
+-- 
+1.8.1.2
