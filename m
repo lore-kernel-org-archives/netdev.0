@@ -1,71 +1,107 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/14] ethtool: Add helper routines to pass vf to rx_flow_spec
-Date: Thu, 28 May 2015 04:25:26 -0700
-Message-ID: <1432812339-17129-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/14] i40e: Disable offline diagnostics if VFs are enabled
+Date: Thu, 28 May 2015 04:25:29 -0700
+Message-ID: <1432812339-17129-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1432812339-17129-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Alex Duyck <alexander.h.duyck@redhat.com>,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:4939 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:11036 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753669AbbE1LZl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 07:25:41 -0400
+	id S1753973AbbE1LZn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2015 07:25:43 -0400
 In-Reply-To: <1432812339-17129-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-The ring_cookie is 64 bits wide which is much larger than can be used
-for actual queue index values. So provide some helper routines to
-pack a VF index into the cookie. This is useful to steer packets to
-a VF ring without having to know the queue layout of the device.
+Require the user to disable virtual functions before running the device
+offline diagnostics.  The offline diagnostics are intended to ensure
+basic operation of the device - it is beyond the scope of the diagnostic
+test to handle the additional complexity of bringing all the virtual
+functions offline and then back online for each test run.
 
-CC: Alex Duyck <alexander.h.duyck@redhat.com>
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Change-ID: Ic0b854851a09fc85df0c9e82c220e45885457c30
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- include/uapi/linux/ethtool.h | 25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 27 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  7 ++++++
+ 2 files changed, 34 insertions(+)
 
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index ae832b4..0594933 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -796,6 +796,31 @@ struct ethtool_rx_flow_spec {
- 	__u32		location;
- };
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 4cbaaeb..e77b6bd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1548,6 +1548,17 @@ static int i40e_loopback_test(struct net_device *netdev, u64 *data)
+ 	return *data;
+ }
  
-+/* How rings are layed out when accessing virtual functions or
-+ * offloaded queues is device specific. To allow users to do flow
-+ * steering and specify these queues the ring cookie is partitioned
-+ * into a 32bit queue index with an 8 bit virtual function id.
-+ * This also leaves the 3bytes for further specifiers. It is possible
-+ * future devices may support more than 256 virtual functions if
-+ * devices start supporting PCIe w/ARI. However at the moment I
-+ * do not know of any devices that support this so I do not reserve
-+ * space for this at this time. If a future patch consumes the next
-+ * byte it should be aware of this possiblity.
-+ */
-+#define ETHTOOL_RX_FLOW_SPEC_RING	0x00000000FFFFFFFFLL
-+#define ETHTOOL_RX_FLOW_SPEC_RING_VF	0x000000FF00000000LL
-+#define ETHTOOL_RX_FLOW_SPEC_RING_VF_OFF 32
-+static inline __u64 ethtool_get_flow_spec_ring(__u64 ring_cookie)
++static inline bool i40e_active_vfs(struct i40e_pf *pf)
 +{
-+	return ETHTOOL_RX_FLOW_SPEC_RING & ring_cookie;
-+};
++	struct i40e_vf *vfs = pf->vf;
++	int i;
 +
-+static inline __u64 ethtool_get_flow_spec_ring_vf(__u64 ring_cookie)
-+{
-+	return (ETHTOOL_RX_FLOW_SPEC_RING_VF & ring_cookie) >>
-+				ETHTOOL_RX_FLOW_SPEC_RING_VF_OFF;
-+};
++	for (i = 0; i < pf->num_alloc_vfs; i++)
++		if (vfs[i].vf_states & I40E_VF_STAT_ACTIVE)
++			return true;
++	return false;
++}
 +
- /**
-  * struct ethtool_rxnfc - command to get or set RX flow classification rules
-  * @cmd: Specific command number - %ETHTOOL_GRXFH, %ETHTOOL_SRXFH,
+ static void i40e_diag_test(struct net_device *netdev,
+ 			   struct ethtool_test *eth_test, u64 *data)
+ {
+@@ -1560,6 +1571,20 @@ static void i40e_diag_test(struct net_device *netdev,
+ 		netif_info(pf, drv, netdev, "offline testing starting\n");
+ 
+ 		set_bit(__I40E_TESTING, &pf->state);
++
++		if (i40e_active_vfs(pf)) {
++			dev_warn(&pf->pdev->dev,
++				 "Please take active VFS offline and restart the adapter before running NIC diagnostics\n");
++			data[I40E_ETH_TEST_REG]		= 1;
++			data[I40E_ETH_TEST_EEPROM]	= 1;
++			data[I40E_ETH_TEST_INTR]	= 1;
++			data[I40E_ETH_TEST_LOOPBACK]	= 1;
++			data[I40E_ETH_TEST_LINK]	= 1;
++			eth_test->flags |= ETH_TEST_FL_FAILED;
++			clear_bit(__I40E_TESTING, &pf->state);
++			goto skip_ol_tests;
++		}
++
+ 		/* If the device is online then take it offline */
+ 		if (if_running)
+ 			/* indicate we're in test mode */
+@@ -1605,6 +1630,8 @@ static void i40e_diag_test(struct net_device *netdev,
+ 		data[I40E_ETH_TEST_LOOPBACK] = 0;
+ 	}
+ 
++skip_ol_tests:
++
+ 	netif_info(pf, drv, netdev, "testing finished\n");
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 78d1c4f..4653b6e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -980,6 +980,13 @@ static int i40e_pci_sriov_enable(struct pci_dev *pdev, int num_vfs)
+ 	int pre_existing_vfs = pci_num_vf(pdev);
+ 	int err = 0;
+ 
++	if (pf->state & __I40E_TESTING) {
++		dev_warn(&pdev->dev,
++			 "Cannot enable SR-IOV virtual functions while the device is undergoing diagnostic testing\n");
++		err = -EPERM;
++		goto err_out;
++	}
++
+ 	dev_info(&pdev->dev, "Allocating %d VFs.\n", num_vfs);
+ 	if (pre_existing_vfs && pre_existing_vfs != num_vfs)
+ 		i40e_free_vfs(pf);
 -- 
 2.1.0
