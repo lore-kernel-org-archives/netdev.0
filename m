@@ -1,46 +1,98 @@
-From: "jsullivan@opensourcedevel.com" <jsullivan@opensourcedevel.com>
-Subject: Re: Drops in qdisc on ifb interface
-Date: Thu, 28 May 2015 13:54:31 -0400 (EDT)
-Message-ID: <1813033466.134788.1432835671936.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net>
-References: <1432584300.32671.103.camel@jasiiieee.pacifera.com> <1432593064.4060.190.camel@edumazet-glaptop2.roam.corp.google.com> <1767970154.119773.1432823923389.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net> <1432826085.7456.6.camel@edumazet-glaptop2.roam.corp.google.com> <746223891.124020.1432827038389.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net> <5567382E.4010706@gmail.com> <1432830406.7456.19.camel@edumazet-glaptop2.roam.corp.google.com> <133859123.129202.1432830817627.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net> <1432833476.7456.21.camel@edumazet-glaptop2.roam.corp.google.com> <2104973120.133348.1432834303388.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net> <1432835387.7456.23.camel@edumazet-glaptop2.roam.corp.google.com>
-Reply-To: "jsullivan@opensourcedevel.com" <jsullivan@opensourcedevel.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH v4 net-next 00/11] net: Increase inputs to flow_keys hashing
+Date: Thu, 28 May 2015 11:18:57 -0700
+Message-ID: <1432837148-1359931-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, John Fastabend <john.fastabend@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.196]:59421 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754014AbbE1Ryd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 13:54:33 -0400
-In-Reply-To: <1432835387.7456.23.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43051 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754184AbbE1STZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 14:19:25 -0400
+Received: from pps.filterd (m0004077 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4SIIobw028617
+	for <netdev@vger.kernel.org>; Thu, 28 May 2015 11:19:24 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 1up7dr864s-3
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 28 May 2015 11:19:24 -0700
+Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
+ mx-out.facebook.com (10.212.232.59) with ESMTP	id
+ 10b59f5c056611e597f60002c991e86a-6fed83a0 for <netdev@vger.kernel.org>;	Thu,
+ 28 May 2015 11:19:23 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch set adds new fields to the flow_keys structure and hashes
+over these fields to get a better flow hash. In particular, these
+patches now include hashing over the full IPv6 addresses in order
+to defend against address spoofing that always results in the
+same hash. The new input also includes the Ethertype, L4 protocol,
+VLAN, flow label, GRE keyid, and MPLS entropy label.
 
-> On May 28, 2015 at 1:49 PM Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
->
-> On Thu, 2015-05-28 at 13:31 -0400, jsullivan@opensourcedevel.com wrote:
->
-> > The overall product does but the video source feeds come over a different
-> > network via UDP. There are, however, RTMP quality control feeds coming
-> > across
-> > this connection. There may also occasionally be test UDP source feeds on
-> > this
-> > connection but those are not production. Thanks - John
->
-> This is important to know, because UDP wont benefit from GRO.
->
-> I was assuming your receiver had to handle ~88000 packets per second,
-> so I was doubting it could saturate one core,
-> but maybe your target is very different.
->
->
->
-That PPS estimate seems accurate - the port speed and CIR on the shaped
-connection is 1 Gbps.
+In order to increase hash inputs, we switch to using jhash2
+which operates an an array of u32's. jhash2 operates on multiples of
+three words. The data in the hash is constructed for that, and there
+are are two variants for IPv4 and Ipv6 addressing. For IPv4 addresses,
+jhash is performed over six u32's and for IPv6 it is done over twelve.
 
-I'm still mystified by why the GbE bottlenecks on IFB but the 10GbE does not.
- Thanks -  John
+flow_keys can store either IPv4 or IPv6 addresses (addr_proto field
+is a selector). ipv6_addr_hash is no longer used to convert addresses
+for setting in flow table. For legacy uses of flow keys outside of
+flow_dissector the flow_get_u32_src and flow_get_u32_dst functions
+have been added to get u32 representation representations of addresses
+in flow_keys.
+
+For flow lables we also eliminate the short circuit in flow_dissector
+for non-zero flow label. The flow label is now considered additional
+input to ports.
+
+Testing: Ran netperf TCP_RR for 200 flows using IPv4 and IPv6 comparing
+before the patches and with the patches. Did not detect any performance
+degradation.
+
+v2:
+  - Took out MPLS entropy label. Will add this later.
+v3:
+  - Ensure hash start offset is a four byte boundary. Add BUG_BUILD_ON
+    to check for this.
+  - Fixes sparse error in GRE to get entropy from keyid.
+v4:
+  - Rebase to Jiri changes to generalize flow dissection
+  - Support TIPC as its own address
+  - Bring back MPLS entropy label dissection
+  - Remove FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS
+
+v5:
+  - Minor fixes from feedback
+
+Tom Herbert (11):
+  net: Simplify GRE case in flow_dissector
+  mpls: Add definition for IPPROTO_MPLS
+  net: Remove superfluous setting of key_basic
+  net: Get skb hash over flow_keys structure
+  net: Add full IPv6 addresses to flow_keys
+  net: Add keys for TIPC address
+  net: Get rid of IPv6 hash addresses flow keys
+  net: Add VLAN ID to flow_keys
+  net: Add IPv6 flow label to flow_keys
+  net: Add GRE keyid in flow_keys
+  mpls: Add MPLS entropy label in flow_keys
+
+ drivers/net/bonding/bond_main.c                |   9 +-
+ drivers/net/ethernet/cisco/enic/enic_clsf.c    |   8 +-
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c |   4 +-
+ include/linux/skbuff.h                         |   2 +-
+ include/net/flow_dissector.h                   |  97 ++++++--
+ include/net/ip.h                               |  21 +-
+ include/net/ipv6.h                             |  23 +-
+ include/uapi/linux/in.h                        |   2 +
+ net/core/flow_dissector.c                      | 329 ++++++++++++++++++-------
+ net/ethernet/eth.c                             |   2 +-
+ net/sched/cls_flow.c                           |  14 +-
+ net/sched/cls_flower.c                         |  13 +-
+ 12 files changed, 388 insertions(+), 136 deletions(-)
+
+-- 
+1.8.1
