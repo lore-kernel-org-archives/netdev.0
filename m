@@ -1,47 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Drops in qdisc on ifb interface
-Date: Thu, 28 May 2015 08:51:22 -0700
-Message-ID: <1432828282.7456.17.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1432584300.32671.103.camel@jasiiieee.pacifera.com>
-	 <1432593064.4060.190.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1767970154.119773.1432823923389.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net>
-	 <1432826085.7456.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <746223891.124020.1432827038389.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH/RFC net-next] rocker: remove rocker parameter from
+ functions that have rocker_port parameter
+Date: Thu, 28 May 2015 08:53:20 -0700
+Message-ID: <CAE4R7bC7qt9LhDqvpb-ZvWB6te=nf4DgXrC0T4NT7DX2yrCgrw@mail.gmail.com>
+References: <1432783397-12868-1-git-send-email-simon.horman@netronome.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CB417A2@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "jsullivan@opensourcedevel.com" <jsullivan@opensourcedevel.com>,
-	John Fastabend <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Simon Horman <simon.horman@netronome.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:36108 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932326AbbE1PvY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 11:51:24 -0400
-Received: by igbpi8 with SMTP id pi8so115439109igb.1
-        for <netdev@vger.kernel.org>; Thu, 28 May 2015 08:51:23 -0700 (PDT)
-In-Reply-To: <746223891.124020.1432827038389.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net>
+Received: from mail-qc0-f172.google.com ([209.85.216.172]:36271 "EHLO
+	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754271AbbE1PxV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 11:53:21 -0400
+Received: by qcxw10 with SMTP id w10so16085977qcx.3
+        for <netdev@vger.kernel.org>; Thu, 28 May 2015 08:53:20 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB417A2@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-05-28 at 11:30 -0400, jsullivan@opensourcedevel.com wrote:
+On Thu, May 28, 2015 at 2:18 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Simon Horman
+>> Sent: 28 May 2015 04:23
+>> The rocker (switch) of a rocker_port may be trivially obtained from
+>> the latter it seems cleaner not to pass the former to a function when
+>> the latter is being passed anyway.
+>
+> If the arguments are passed in registers (they almost certainly are)
+> or the function is inlined (possible since they are static) and
+> the calling code already has both values in registers then
+> passing both values saves a memory read inside the called code.
+>
+> So on 'hot paths' it probably makes sense to pass both values.
 
-> Interesting but this is destined to become a critical production system for a
-> high profile, internationally recognized product so I am hesitant to patch.  I
-> doubt I can convince my company to do it but is improving IFB the sort of
-> development effort that could be sponsored and then executed in a moderately
-> short period of time? Thanks - John
+Agreed, and Simon's patch is 99% cold path, so I'd rather trade
+clarity in the code than saving a nanosec in a driver cold path.
 
-I intend to submit this patch very officially.
+Simon, would you respin, remove rocker_port_rx_proc() changes, remove
+RFC, and add my ack?  rocker_port_rx_proc() was the only hot path case
+I found.
 
-Note that some Google servers use the same feature with good success on
-other NIC. This allowed us to remove interrupt coalescing, lowering RPC
-latencies, but keeping good throughput and cpu efficiency for bulk
-flows.
-
-http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=1a2881728211f0915c0fa1364770b9c73a67a073
-
-While IFB might need quite a lot of efforts, I don't know.
-
-You certainly can ask to John Fastabend if he has plans about it in the
-short term.
+-scott
