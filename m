@@ -1,37 +1,34 @@
-From: sssdrb <sssdrb@gmail.com>
-Subject: Problems with receiving packets
-Date: Thu, 28 May 2015 10:46:47 +0200
-Message-ID: <CA+b3SM+Kzj6RZr7uKHef23NeXDZGf03Ux2eddDLzO8ZE=SJHUQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V4 00/12] net/mlx5: ConnectX-4 100G Ethernet
+ driver
+Date: Thu, 28 May 2015 01:52:32 -0700 (PDT)
+Message-ID: <20150528.015232.1205990019180315319.davem@davemloft.net>
+References: <CAJ3xEMiteyRsGuNQoQYiiZKeWkpjQE8WcJdQfWyxntJ9bjYXcw@mail.gmail.com>
+	<20150527.133620.1867770619067144773.davem@davemloft.net>
+	<1432756657.6319.22.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gerlitz.or@gmail.com, netdev@vger.kernel.org,
+	ogerlitz@mellanox.com, talal@mellanox.com, achiad@mellanox.com,
+	saeedm@mellanox.com, amirv@mellanox.com, edumazet@google.com,
+	tom@herbertland.com, jiri@resnulli.us, bpoirier@suse.de,
+	nhorman@tuxdriver.com
+To: ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:34519 "EHLO
-	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753279AbbE1IrT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 04:47:19 -0400
-Received: by oifu123 with SMTP id u123so27117142oif.1
-        for <netdev@vger.kernel.org>; Thu, 28 May 2015 01:47:18 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:45179 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752886AbbE1Iwg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 04:52:36 -0400
+In-Reply-To: <1432756657.6319.22.camel@decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Wed, 27 May 2015 20:57:37 +0100
 
-I use Linux kernel 3.3.8 on Arm Xscale based embedded platform.
-I noticed that sometimes some applications lost data from network.
-To be more detailed - for example I'm using ping command between two
-Arm boards. The communication goes through ethernet or wifi. Now from
-time to time ping reports that it losts some packets. Additionaly I
-run tcpdump on the same side where ping was invoced and it reports
-that all the packets arrived (!).
+> How would an application tell the difference between an IRQ handler
+> being renamed, or being unregistered and re-registered under a different
+> name?  I'm fairly sure it can't tell.
 
-This is the strange part - ping reports lost of data, while tcpdump
-shows all of the packets (icmp request and replies).
-
-It seems like there is some problem with transferring network data
-from kernel space to user space (in RX path).
-I'm sure that all the icmp reply packets are received by ethernet
-driver and kernel, but ping application received only part of them
-(not all of them).
-
-Is it known problem and is there any solution for it?
+What do things like the userland IRQ balancer do?
