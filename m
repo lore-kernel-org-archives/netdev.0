@@ -1,62 +1,28 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
-Subject: [PATCH iproute2] Fix changing tunnel remote and local address to any
-Date: Thu, 28 May 2015 08:32:55 -0300
-Message-ID: <1432812775-21452-1-git-send-email-cascardo@redhat.com>
-To: netdev@vger.kernel.org
+From: "Mr.Simon Isaac" <simonisaac100@gmail.com>
+Subject: I Need Your Attention,Reply
+Date: Thu, 28 May 2015 11:37:50 +0000
+Message-ID: <CAFWqFTi7qOhi=qU7TfhXzomnsYrbb4NeESaf0Ti+0Y6U5siV2Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33311 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753490AbbE1LdF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 07:33:05 -0400
-Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (Postfix) with ESMTPS id 4339F3674C3
-	for <netdev@vger.kernel.org>; Thu, 28 May 2015 11:33:05 +0000 (UTC)
-Received: from indiana.gru.redhat.com (ovpn-113-61.phx2.redhat.com [10.3.113.61])
-	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t4SBX3cv017115
-	for <netdev@vger.kernel.org>; Thu, 28 May 2015 07:33:04 -0400
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:35613 "EHLO
+	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753518AbbE1Lhv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 07:37:51 -0400
+Received: by oihd6 with SMTP id d6so29803324oih.2
+        for <netdev@vger.kernel.org>; Thu, 28 May 2015 04:37:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If a tunnel is created with a local address, you can't change it to any.
-
- # ip tunnel add tunl1 mode ipip remote 10.16.42.37 local 10.16.42.214 ttl 64
- # ip tunnel show tunl1
- tunl1: ip/ip  remote 10.16.42.37  local 10.16.42.214  ttl 64
- # ip tunnel change tunl1 local any
- # echo $?
- 0
- # ip tunnel show tunl1
- tunl1: ip/ip  remote 10.16.42.37  local 10.16.42.214  ttl 64
-
-It happens that parse_args zeroes ip_tunnel_parm, and when creating the
-tunnel, it is OK to leave it as is if the address is any. However, when
-changing the tunnel, the current parameters will be read from
-ip_tunnel_parm, and local and remote address won't be zeroes anymore, so
-it needs to be explicitly set to any.
-
-Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
----
- ip/iptunnel.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/ip/iptunnel.c b/ip/iptunnel.c
-index be84b83..78fa988 100644
---- a/ip/iptunnel.c
-+++ b/ip/iptunnel.c
-@@ -167,10 +167,14 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
- 			NEXT_ARG();
- 			if (strcmp(*argv, "any"))
- 				p->iph.daddr = get_addr32(*argv);
-+			else
-+				p->iph.daddr = htonl(INADDR_ANY);
- 		} else if (strcmp(*argv, "local") == 0) {
- 			NEXT_ARG();
- 			if (strcmp(*argv, "any"))
- 				p->iph.saddr = get_addr32(*argv);
-+			else
-+				p->iph.saddr = htonl(INADDR_ANY);
- 		} else if (strcmp(*argv, "dev") == 0) {
- 			NEXT_ARG();
- 			strncpy(medium, *argv, IFNAMSIZ-1);
--- 
-2.4.1
+I am Mr.Simon Isaac a regional managing director (Africa Development
+Bank) Ouagadougou Burkina Faso,If you are interested to help the
+orphans with US$9,500.0000 million united state dollars around the
+world contact me and send your personal information for more details:
+Names...
+Country...
+Occupation...
+Age...
+Your phone number...,
+Call my Number. +22664786944
+Via email (simonisaac100@gmail.com)
