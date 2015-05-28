@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 6/7] xfrm: Override skb->mark with tunnel->parm.i_key in xfrm_input
-Date: Thu, 28 May 2015 09:28:09 +0200
-Message-ID: <1432798090-20657-7-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 5/7] ip_vti/ip6_vti: Do not touch skb->mark on xmit
+Date: Thu, 28 May 2015 09:28:08 +0200
+Message-ID: <1432798090-20657-6-git-send-email-steffen.klassert@secunet.com>
 References: <1432798090-20657-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,9 +10,9 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:51245 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:51251 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752917AbbE1H2c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751515AbbE1H2c (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 28 May 2015 03:28:32 -0400
 In-Reply-To: <1432798090-20657-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,64 +20,62 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-This change makes it so that if a tunnel is defined we just use the mark
-from the tunnel instead of the mark from the skb header.  By doing this we
-can avoid the need to set skb->mark inside of the tunnel receive functions.
+Instead of modifying skb->mark we can simply modify the flowi_mark that is
+generated as a result of the xfrm_decode_session.  By doing this we don't
+need to actually touch the skb->mark and it can be preserved as it passes
+out through the tunnel.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/xfrm/xfrm_input.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+ net/ipv4/ip_vti.c  | 5 +++--
+ net/ipv6/ip6_vti.c | 4 +++-
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 526c4fe..b58286e 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -13,6 +13,8 @@
- #include <net/dst.h>
- #include <net/ip.h>
- #include <net/xfrm.h>
-+#include <net/ip_tunnels.h>
-+#include <net/ip6_tunnel.h>
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 9f7269f..4c318e1 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -216,8 +216,6 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
  
- static struct kmem_cache *secpath_cachep __read_mostly;
+ 	memset(&fl, 0, sizeof(fl));
  
-@@ -186,6 +188,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 	struct xfrm_state *x = NULL;
- 	xfrm_address_t *daddr;
- 	struct xfrm_mode *inner_mode;
-+	u32 mark = skb->mark;
- 	unsigned int family;
- 	int decaps = 0;
- 	int async = 0;
-@@ -203,6 +206,18 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 				   XFRM_SPI_SKB_CB(skb)->daddroff);
- 	family = XFRM_SPI_SKB_CB(skb)->family;
+-	skb->mark = be32_to_cpu(tunnel->parms.o_key);
+-
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IP):
+ 		xfrm_decode_session(skb, &fl, AF_INET);
+@@ -233,6 +231,9 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		return NETDEV_TX_OK;
+ 	}
  
-+	/* if tunnel is present override skb->mark value with tunnel i_key */
-+	if (XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4) {
-+		switch (family) {
-+		case AF_INET:
-+			mark = be32_to_cpu(XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4->parms.i_key);
-+			break;
-+		case AF_INET6:
-+			mark = be32_to_cpu(XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6->parms.i_key);
-+			break;
-+		}
-+	}
++	/* override mark with tunnel output key */
++	fl.flowi_mark = be32_to_cpu(tunnel->parms.o_key);
 +
- 	/* Allocate new secpath or COW existing one. */
- 	if (!skb->sp || atomic_read(&skb->sp->refcnt) != 1) {
- 		struct sec_path *sp;
-@@ -229,7 +244,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 			goto drop;
- 		}
+ 	return vti_xmit(skb, dev, &fl);
+ }
  
--		x = xfrm_state_lookup(net, skb->mark, daddr, spi, nexthdr, family);
-+		x = xfrm_state_lookup(net, mark, daddr, spi, nexthdr, family);
- 		if (x == NULL) {
- 			XFRM_INC_STATS(net, LINUX_MIB_XFRMINNOSTATES);
- 			xfrm_audit_state_notfound(skb, family, spi, seq);
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index ed9d681..104de4d 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -495,7 +495,6 @@ vti6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	int ret;
+ 
+ 	memset(&fl, 0, sizeof(fl));
+-	skb->mark = be32_to_cpu(t->parms.o_key);
+ 
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IPV6):
+@@ -516,6 +515,9 @@ vti6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		goto tx_err;
+ 	}
+ 
++	/* override mark with tunnel output key */
++	fl.flowi_mark = be32_to_cpu(t->parms.o_key);
++
+ 	ret = vti6_xmit(skb, dev, &fl);
+ 	if (ret < 0)
+ 		goto tx_err;
 -- 
 1.9.1
