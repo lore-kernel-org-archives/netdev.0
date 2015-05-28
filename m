@@ -1,109 +1,156 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Drops in qdisc on ifb interface
-Date: Thu, 28 May 2015 08:14:45 -0700
-Message-ID: <1432826085.7456.6.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1432584300.32671.103.camel@jasiiieee.pacifera.com>
-	 <1432593064.4060.190.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1767970154.119773.1432823923389.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net>
+Subject: Re: linux-next: build failure after merge of most of the trees
+Date: Thu, 28 May 2015 08:26:51 -0700
+Message-ID: <1432826811.7456.10.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150528220607.67a68696@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "jsullivan@opensourcedevel.com" <jsullivan@opensourcedevel.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:35547 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753304AbbE1POs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 11:14:48 -0400
-Received: by igbyr2 with SMTP id yr2so114910837igb.0
-        for <netdev@vger.kernel.org>; Thu, 28 May 2015 08:14:47 -0700 (PDT)
-In-Reply-To: <1767970154.119773.1432823923389.JavaMail.open-xchange@oxuslxltgw11.lxa.perfora.net>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:36582 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751556AbbE1P0y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 11:26:54 -0400
+In-Reply-To: <20150528220607.67a68696@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-05-28 at 10:38 -0400, jsullivan@opensourcedevel.com wrote:
-
-> This has been an interesting exercise - thank you for your help along the way,
-> Eric.  IFB did not seem to bottleneck in our initial testing but there was
-> really only one flow of traffic during the test at around 1 Gbps.  However, on a
-> non-test system with many different flows, IFB does seem to be a serious
-> bottleneck - I assume this is the consequence of being single-threaded.
+On Thu, 2015-05-28 at 22:06 +1000, Stephen Rothwell wrote:
+> Hi all,
 > 
-> Single queue did not seem to help.
+> After merging the all the trees, today's linux-next build (powerpc
+> allyesconfig) failed like this:
 > 
-> Am I correct to assume that IFB would be as much as a bottleneck on the ingress
-> side as it would be on the egress side? If so, is there any way to do high
-> performance ingress traffic shaping on Linux - a multi-threaded version of IFB
-> or a different approach? Thanks - John
+> drivers/vhost/scsi.c: In function 'vhost_scsi_open':
+> drivers/vhost/scsi.c:1422:3: error: implicit declaration of function 'vzalloc' [-Werror=implicit-function-declaration]
+>    vs = vzalloc(sizeof(*vs));
+>    ^
+> drivers/vhost/scsi.c:1422:6: warning: assignment makes pointer from integer without a cast
+>    vs = vzalloc(sizeof(*vs));
+>       ^
+> drivers/target/target_core_pr.c: In function 'core_scsi3_update_and_write_aptpl':
+> drivers/target/target_core_pr.c:1985:2: error: implicit declaration of function 'vzalloc' [-Werror=implicit-function-declaration]
+>   buf = vzalloc(len);
+>   ^
+> drivers/target/target_core_pr.c:1985:6: warning: assignment makes pointer from integer without a cast
+>   buf = vzalloc(len);
+>       ^
+> drivers/target/target_core_pr.c:1991:3: error: implicit declaration of function 'vfree' [-Werror=implicit-function-declaration]
+>    vfree(buf);
+>    ^
+> drivers/target/target_core_transport.c: In function 'transport_alloc_session_tags':
+> drivers/target/target_core_transport.c:258:3: error: implicit declaration of function 'vzalloc' [-Werror=implicit-function-declaration]
+>    se_sess->sess_cmd_map = vzalloc(tag_num * tag_size);
+>    ^
+> drivers/target/target_core_transport.c:258:25: warning: assignment makes pointer from integer without a cast
+>    se_sess->sess_cmd_map = vzalloc(tag_num * tag_size);
+>                          ^
+> drivers/target/target_core_transport.c:270:4: error: implicit declaration of function 'vfree' [-Werror=implicit-function-declaration]
+>     vfree(se_sess->sess_cmd_map);
+>     ^
+> drivers/target/target_core_transport.c: In function 'transport_kmap_data_sg':
+> drivers/target/target_core_transport.c:2317:2: error: implicit declaration of function 'vmap' [-Werror=implicit-function-declaration]
+>   cmd->t_data_vmap = vmap(pages, cmd->t_data_nents,  VM_MAP, PAGE_KERNEL);
+>   ^
+> drivers/target/target_core_transport.c:2317:53: error: 'VM_MAP' undeclared (first use in this function)
+>   cmd->t_data_vmap = vmap(pages, cmd->t_data_nents,  VM_MAP, PAGE_KERNEL);
+>                                                      ^
+> drivers/target/target_core_transport.c: In function 'transport_kunmap_data_sg':
+> drivers/target/target_core_transport.c:2335:2: error: implicit declaration of function 'vunmap' [-Werror=implicit-function-declaration]
+>   vunmap(cmd->t_data_vmap);
+>   ^
+> drivers/target/target_core_file.c: In function 'fd_format_prot':
+> drivers/target/target_core_file.c:809:2: error: implicit declaration of function 'vzalloc' [-Werror=implicit-function-declaration]
+>   buf = vzalloc(unit_size);
+>   ^
+> drivers/target/target_core_file.c:809:6: warning: assignment makes pointer from integer without a cast
+>   buf = vzalloc(unit_size);
+>       ^
+> drivers/target/target_core_file.c:822:2: error: implicit declaration of function 'vfree' [-Werror=implicit-function-declaration]
+>   vfree(buf);
+>   ^
+> drivers/target/target_core_user.c: In function 'tcmu_configure_device':
+> drivers/target/target_core_user.c:895:2: error: implicit declaration of function 'vzalloc' [-Werror=implicit-function-declaration]
+>   udev->mb_addr = vzalloc(TCMU_RING_SIZE);
+>   ^
+> drivers/target/target_core_user.c:895:16: warning: assignment makes pointer from integer without a cast
+>   udev->mb_addr = vzalloc(TCMU_RING_SIZE);
+>                 ^
+> drivers/target/target_core_user.c:947:2: error: implicit declaration of function 'vfree' [-Werror=implicit-function-declaration]
+>   vfree(udev->mb_addr);
+>   ^
+> drivers/target/iscsi/iscsi_target.c: In function 'iscsi_target_init_module':
+> drivers/target/iscsi/iscsi_target.c:557:2: error: implicit declaration of function 'vzalloc' [-Werror=implicit-function-declaration]
+>   iscsit_global->ts_bitmap = vzalloc(size);
+>   ^
+> drivers/target/iscsi/iscsi_target.c:557:27: warning: assignment makes pointer from integer without a cast
+>   iscsit_global->ts_bitmap = vzalloc(size);
+>                            ^
+> drivers/target/iscsi/iscsi_target.c:615:2: error: implicit declaration of function 'vfree' [-Werror=implicit-function-declaration]
+>   vfree(iscsit_global->ts_bitmap);
+>   ^
+> drivers/scsi/qla2xxx/tcm_qla2xxx.c: In function 'tcm_qla2xxx_init_lport':
+> drivers/scsi/qla2xxx/tcm_qla2xxx.c:1578:2: error: implicit declaration of function 'vmalloc' [-Werror=implicit-function-declaration]
+>   lport->lport_loopid_map = vmalloc(sizeof(struct tcm_qla2xxx_fc_loopid) *
+>   ^
+> drivers/scsi/qla2xxx/tcm_qla2xxx.c:1578:26: warning: assignment makes pointer from integer without a cast
+>   lport->lport_loopid_map = vmalloc(sizeof(struct tcm_qla2xxx_fc_loopid) *
+>                           ^
+> drivers/scsi/qla2xxx/tcm_qla2xxx.c: In function 'tcm_qla2xxx_make_lport':
+> drivers/scsi/qla2xxx/tcm_qla2xxx.c:1643:2: error: implicit declaration of function 'vfree' [-Werror=implicit-function-declaration]
+>   vfree(lport->lport_loopid_map);
+>   ^
+> 
+> Ouch :-(
+> 
+> Maybe commit 095dc8e0c368 ("tcp: fix/cleanup
+> inet_ehash_locks_alloc()")?  (that is the only commit I can find that
+> remove an include of vmalloc.h
+> 
+> Ah ha.  I applied this fix patch:
+> 
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Thu, 28 May 2015 21:54:40 +1000
+> Subject: [PATCH] try putting the include of vmalloc.h back into inet_hashtables.h
+> 
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> ---
+>  include/net/inet_hashtables.h | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+> index b73c88a19dd4..0046b9f91ed3 100644
+> --- a/include/net/inet_hashtables.h
+> +++ b/include/net/inet_hashtables.h
+> @@ -24,6 +24,7 @@
+>  #include <linux/spinlock.h>
+>  #include <linux/types.h>
+>  #include <linux/wait.h>
+> +#include <linux/vmalloc.h>
+>  
+>  #include <net/inet_connection_sock.h>
+>  #include <net/inet_sock.h>
+> -- 
 
-IFB has still a long way before being efficient.
+Hi Stephen
 
-In the mean time, you could play with following patch, and
-setup /sys/class/net/eth0/gro_timeout to 20000
+We were alerted of this problem thanks to kbuild test robot.
 
-This way, the GRO aggregation will work even at 1Gbps, and your IFB will
-get big GRO packets instead of single MSS segments.
+This fix is not a definitive one I hope.
 
-Both IFB but also IP/TCP stack will have less work to do,
-and receiver will send fewer ACK packets as well.
+Golden rule is that vmalloc() users must include vmalloc.h themselves,
+not by an indirect include.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index f287186192bb655ba2dc1a205fb251351d593e98..c37f6657c047d3eb9bd72b647572edd53b1881ac 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -151,7 +151,7 @@ static void igb_setup_dca(struct igb_adapter *);
- #endif /* CONFIG_IGB_DCA */
- static int igb_poll(struct napi_struct *, int);
- static bool igb_clean_tx_irq(struct igb_q_vector *);
--static bool igb_clean_rx_irq(struct igb_q_vector *, int);
-+static unsigned int igb_clean_rx_irq(struct igb_q_vector *, int);
- static int igb_ioctl(struct net_device *, struct ifreq *, int cmd);
- static void igb_tx_timeout(struct net_device *);
- static void igb_reset_task(struct work_struct *);
-@@ -6342,6 +6342,7 @@ static int igb_poll(struct napi_struct *napi, int budget)
- 						     struct igb_q_vector,
- 						     napi);
- 	bool clean_complete = true;
-+	unsigned int packets = 0;
- 
- #ifdef CONFIG_IGB_DCA
- 	if (q_vector->adapter->flags & IGB_FLAG_DCA_ENABLED)
-@@ -6350,15 +6351,17 @@ static int igb_poll(struct napi_struct *napi, int budget)
- 	if (q_vector->tx.ring)
- 		clean_complete = igb_clean_tx_irq(q_vector);
- 
--	if (q_vector->rx.ring)
--		clean_complete &= igb_clean_rx_irq(q_vector, budget);
-+	if (q_vector->rx.ring) {
-+		packets = igb_clean_rx_irq(q_vector, budget);
-+		clean_complete &= packets < budget;
-+	}
- 
- 	/* If all work not completed, return budget and keep polling */
- 	if (!clean_complete)
- 		return budget;
- 
- 	/* If not enough Rx work done, exit the polling mode */
--	napi_complete(napi);
-+	napi_complete_done(napi, packets);
- 	igb_ring_irq_enable(q_vector);
- 
- 	return 0;
-@@ -6926,7 +6929,7 @@ static void igb_process_skb_fields(struct igb_ring *rx_ring,
- 	skb->protocol = eth_type_trans(skb, rx_ring->netdev);
- }
- 
--static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)
-+static unsigned int igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)
- {
- 	struct igb_ring *rx_ring = q_vector->rx.ring;
- 	struct sk_buff *skb = rx_ring->skb;
-@@ -7000,7 +7003,7 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)
- 	if (cleaned_count)
- 		igb_alloc_rx_buffers(rx_ring, cleaned_count);
- 
--	return total_packets < budget;
-+	return total_packets;
- }
- 
- static bool igb_alloc_mapped_page(struct igb_ring *rx_ring,
+include/net/inet_hashtables.h no longer uses vmalloc(), so this include
+is not needed anymore.
+
+I sent one fix, and prepared others, but I prefer that each offender is
+fixed.
+
+http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=c6bfda8d72c485b2eee1642cbcbd92e3fbb93ed3
+
+Thanks
