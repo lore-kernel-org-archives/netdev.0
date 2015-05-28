@@ -1,45 +1,45 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH net-next 1/1] hv_netvsc: Properly size the vrss queues
-Date: Thu, 28 May 2015 10:06:13 +0300
-Message-ID: <20150528070613.GV11588@mwanda>
-References: <1432682469-15033-1-git-send-email-kys@microsoft.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH] xfrm6: Do not use xfrm_local_error for path MTU issues
+ in tunnels
+Date: Thu, 28 May 2015 00:18:51 -0700
+Message-ID: <5566C15B.7090403@gmail.com>
+References: <20150527173823.1415.96248.stgit@ahduyck-vm-fedora22> <20150528053607.GF27342@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org,
- davem@davemloft.net
-To: "K. Y. Srinivasan" <kys@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1432682469-15033-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, linux-crypto@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20150528053607.GF27342@secunet.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since you're redoing this anyway.
+On 05/27/2015 10:36 PM, Steffen Klassert wrote:
+> On Wed, May 27, 2015 at 10:40:32AM -0700, Alexander Duyck wrote:
+>> This change makes it so that we use icmpv6_send to report PMTU issues back
+>> into tunnels in the case that the resulting packet is larger than the MTU
+>> of the outgoing interface.  Previously xfrm_local_error was being used in
+>> this case, however this was resulting in no changes, I suspect due to the
+>> fact that the tunnel itself was being kept out of the loop.
+>>
+>> This patch fixes PMTU problems seen on ip6_vti tunnels and is based on the
+>> behavior seen if the socket was orphaned.  Instead of requiring the socket
+>> to be orphaned this patch simply defaults to using icmpv6_send in the case
+>> that the frame came though a tunnel.
+> We can use icmpv6_send() just in the case that the packet
+> was already transmitted by a tunnel device, otherwise we
+> get the bug back that I mentioned in my other mail.
+>
+> Not sure if we have something to know that the packet
+> traversed a tunnel device. That's what I asked in the
+> thread 'Looking for a lost patch'.
 
-On Tue, May 26, 2015 at 04:21:09PM -0700, K. Y. Srinivasan wrote:
-> diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-> index ddcc7f8..dd45440 100644
-> --- a/drivers/net/hyperv/hyperv_net.h
-> +++ b/drivers/net/hyperv/hyperv_net.h
-> @@ -161,6 +161,7 @@ struct netvsc_device_info {
->  	unsigned char mac_adr[ETH_ALEN];
->  	bool link_state;	/* 0 - link up, 1 - link down */
->  	int  ring_size;
-> +	u32  max_num_vrss_chns;
+Okay I will try to do some more digging.  From what I can tell right now 
+it looks like my ping attempts are getting hung up on the 
+xfrm_local_error in __xfrm6_output.  I wonder if we couldn't somehow 
+make use of the skb->cb to store a pointer to the tunnel that could be 
+checked to determine if we are going through a VTI or not.
 
-We (Joe and I) have commented before that long names don't mix well with
-the 80 character limit.  You could just leave the "num_" out.  Almost
-all variables are numbers in C so it doesn't add anything.
-
-regards,
-dan carpenter
+- Alex
