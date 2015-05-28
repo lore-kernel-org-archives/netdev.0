@@ -1,66 +1,50 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH v4] bnx2x: Alloc 4k fragment for each rx ring buffer
- element
-Date: Thu, 28 May 2015 07:24:22 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63DA8E49@avmb3.qlogic.org>
-References: <553AD097.4020209@gmx.de>
-	<87383jhxj9.fsf@dhcp-9-18-235-171.br.ibm.com>
-	<B5657A6538887040AD3A81F1008BEC63D383CB@avmb3.qlogic.org>
-	<20150430.160537.232956261880122754.davem@davemloft.net>
-	<874mnsxhnm.fsf_-_@dhcp-9-18-235-171.br.ibm.com>
-	<B5657A6538887040AD3A81F1008BEC63D6F990@AVMB1.qlogic.org>
- <87wq02t6ce.fsf_-_@dhcp-9-18-235-171.br.ibm.com>,<55658781.8060104@redhat.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 1/7] xfrm: fix a race in xfrm_state_lookup_byspi
+Date: Thu, 28 May 2015 09:28:04 +0200
+Message-ID: <1432798090-20657-2-git-send-email-steffen.klassert@secunet.com>
+References: <1432798090-20657-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"LinoSanfilippo@gmx.de" <LinoSanfilippo@gmx.de>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	"cascardo@cascardo.eti.br" <cascardo@cascardo.eti.br>,
-	"brking@linux.vnet.ibm.com" <brking@linux.vnet.ibm.com>
-To: Michal Schmidt <mschmidt@redhat.com>,
-	Gabriel Krisman Bertazi <krisman@linux.vnet.ibm.com>
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:44519 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752733AbbE1HYh convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 03:24:37 -0400
-In-Reply-To: <55658781.8060104@redhat.com>
-Content-Language: en-US
+Received: from a.mx.secunet.com ([195.81.216.161]:51215 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751515AbbE1H23 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2015 03:28:29 -0400
+In-Reply-To: <1432798090-20657-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> +struct bnx2x_alloc_pool {
->> +     struct page     *page;
->> +     dma_addr_t      dma;
->> +     u8              offset;
->> +     u8              frag_count;
->> +};
->...
->>  static int bnx2x_alloc_rx_sge(struct bnx2x *bp, struct bnx2x_fastpath *fp,
->>                             u16 index, gfp_t gfp_mask)
->>  {
->        ...
->> +     pool->offset += SGE_PAGE_SIZE;
->> +     pool->frag_count--;
->> +
->>       return 0;
->>  }
+From: Li RongQing <roy.qing.li@gmail.com>
 
-> One SGE_PAGE_SIZE is already bigger than representable by u8, so offset
-> will overflow.
+The returned xfrm_state should be hold before unlock xfrm_state_lock,
+otherwise the returned xfrm_state maybe be released.
 
-Thanks for the catch Michal.
+Fixes: c454997e6[{pktgen, xfrm} Introduce xfrm_state_lookup_byspi..]
+Cc: Fan Du <fan.du@intel.com>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+Acked-by: Fan Du <fan.du@intel.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/xfrm/xfrm_state.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Actually, this upsets me greatly. We didn't see it on a system with 4KB
-pages, but this means you've actually tried to 'sell' us a fastpath fix that
-was never tested on machines for which it was meant as an improvement.
-
-Dave - if possible, please wait with accepting any further fixes for this
-issue until we [qlogic] manage to prepare a test environment
-where we can properly test this with 64KB page size architecture.
-
-Thanks,
-Yuval
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index f5e39e3..96688cd 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -927,8 +927,8 @@ struct xfrm_state *xfrm_state_lookup_byspi(struct net *net, __be32 spi,
+ 			x->id.spi != spi)
+ 			continue;
+ 
+-		spin_unlock_bh(&net->xfrm.xfrm_state_lock);
+ 		xfrm_state_hold(x);
++		spin_unlock_bh(&net->xfrm.xfrm_state_lock);
+ 		return x;
+ 	}
+ 	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
+-- 
+1.9.1
