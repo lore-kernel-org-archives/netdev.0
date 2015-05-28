@@ -1,31 +1,34 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: iproute2: missing patches in branch net-next
-Date: Fri, 29 May 2015 01:15:03 +0200
-Message-ID: <5567A177.5040809@iogearbox.net>
-References: <5566FC7C.1000200@6wind.com>	<20150528091949.6cabe893@urahara>	<55674320.2030002@iogearbox.net> <20150528161254.605afff0@urahara>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: qlcnic: clean up sysfs error codes
+Date: Thu, 28 May 2015 16:28:44 -0700 (PDT)
+Message-ID: <20150528.162844.418918111650211346.davem@davemloft.net>
+References: <1432601385-24582-1-git-send-email-vz@mleia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	netdev <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@redhat.com>, Jiri Pirko <jiri@resnulli.us>,
-	David Ward <david.ward@ll.mit.edu>,
-	Jonathan Toppins <jtoppins@cumulusnetworks.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: shahed.shaikh@qlogic.com, Dept-GELinuxNICDev@qlogic.com,
+	netdev@vger.kernel.org
+To: vz@mleia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:39619 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754142AbbE1XP5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 19:15:57 -0400
-In-Reply-To: <20150528161254.605afff0@urahara>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51576 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754884AbbE1X2r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 19:28:47 -0400
+In-Reply-To: <1432601385-24582-1-git-send-email-vz@mleia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/29/2015 01:12 AM, Stephen Hemminger wrote:
-...
-> I will go back and recreate what is missing.
-> Sorry for the confusion.
+From: Vladimir Zapolskiy <vz@mleia.com>
+Date: Tue, 26 May 2015 03:49:45 +0300
 
-Great thanks, no problem.
+> Replace confusing QL_STATUS_INVALID_PARAM == -1 == -EPERM with -EINVAL
+> and QLC_STATUS_UNSUPPORTED_CMD == -2 == -ENOENT with -EOPNOTSUPP, the
+> latter error code is arguable, but it is already used in the driver,
+> so let it be here as well.
+> 
+> Also remove always false (!buf) check on read(), the driver should
+> not care if userspace gets its EFAULT or not.
+> 
+> Signed-off-by: Vladimir Zapolskiy <vz@mleia.com>
+
+Qlogic folks, I'm waiting for your promised feedback.
