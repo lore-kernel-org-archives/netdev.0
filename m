@@ -1,36 +1,93 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH/RFC net-next] rocker: remove rocker parameter from
- functions that have rocker_port parameter
-Date: Thu, 28 May 2015 17:30:57 +0900
-Message-ID: <20150528083055.GA30133@vergenet.net>
-References: <1432783397-12868-1-git-send-email-simon.horman@netronome.com>
- <20150528061542.GA2302@nanopsycho.orion>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm6: Do not use xfrm_local_error for path MTU issues
+ in tunnels
+Date: Thu, 28 May 2015 10:40:05 +0200
+Message-ID: <20150528084002.GI27342@secunet.com>
+References: <20150527173823.1415.96248.stgit@ahduyck-vm-fedora22>
+ <20150528053607.GF27342@secunet.com>
+ <5566C15B.7090403@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>, netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34487 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753009AbbE1IbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 04:31:04 -0400
-Received: by pabru16 with SMTP id ru16so18394914pab.1
-        for <netdev@vger.kernel.org>; Thu, 28 May 2015 01:31:02 -0700 (PDT)
+Content-Type: text/plain; charset="us-ascii"
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	<davem@davemloft.net>, <herbert@gondor.apana.org.au>,
+	<netdev@vger.kernel.org>, <linux-crypto@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20150528061542.GA2302@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <5566C15B.7090403@gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 28, 2015 at 08:15:42AM +0200, Jiri Pirko wrote:
-> Thu, May 28, 2015 at 05:23:17AM CEST, simon.horman@netronome.com wrote:
-> >The rocker (switch) of a rocker_port may be trivially obtained from
-> >the latter it seems cleaner not to pass the former to a function when
-> >the latter is being passed anyway.
+On Thu, May 28, 2015 at 12:18:51AM -0700, Alexander Duyck wrote:
+> On 05/27/2015 10:36 PM, Steffen Klassert wrote:
+> >On Wed, May 27, 2015 at 10:40:32AM -0700, Alexander Duyck wrote:
+> >>This change makes it so that we use icmpv6_send to report PMTU issues back
+> >>into tunnels in the case that the resulting packet is larger than the MTU
+> >>of the outgoing interface.  Previously xfrm_local_error was being used in
+> >>this case, however this was resulting in no changes, I suspect due to the
+> >>fact that the tunnel itself was being kept out of the loop.
+> >>
+> >>This patch fixes PMTU problems seen on ip6_vti tunnels and is based on the
+> >>behavior seen if the socket was orphaned.  Instead of requiring the socket
+> >>to be orphaned this patch simply defaults to using icmpv6_send in the case
+> >>that the frame came though a tunnel.
+> >We can use icmpv6_send() just in the case that the packet
+> >was already transmitted by a tunnel device, otherwise we
+> >get the bug back that I mentioned in my other mail.
+> >
+> >Not sure if we have something to know that the packet
+> >traversed a tunnel device. That's what I asked in the
+> >thread 'Looking for a lost patch'.
 > 
-> I don't understand reason for this patch. I like it the way it is I must
-> say. + you introduce possible multiple dereference in a row in call-chain.
+> Okay I will try to do some more digging.  From what I can tell right
+> now it looks like my ping attempts are getting hung up on the
+> xfrm_local_error in __xfrm6_output.  I wonder if we couldn't somehow
+> make use of the skb->cb to store a pointer to the tunnel that could
+> be checked to determine if we are going through a VTI or not.
 
-My main motivation is that it seems cleaner. I marked it as an RFC
-as I wasn't sure if there was a particular reason that thins are how they
-are. I have no objection to leaving things as they are if thats the
-consensus.
+Maybe it is as easy as the patch below, could you please test it?
+
+Subject: [PATCH RFC] vti6: Add pmtu handling to vti6_xmit.
+
+We currently rely on the PMTU discovery of xfrm.
+However if a packet is localy sent, the PMTU mechanism
+of xfrm tries to to local socket notification what
+might not work for applications like ping that don't
+check for this. So add pmtu handling to vti6_xmit to
+report MTU changes immediately.
+
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv6/ip6_vti.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index ff3bd86..13cb771 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -434,6 +434,7 @@ vti6_xmit(struct sk_buff *skb, struct net_device *dev, struct flowi *fl)
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	struct net_device *tdev;
+ 	struct xfrm_state *x;
++	int mtu;
+ 	int err = -1;
+ 
+ 	if (!dst)
+@@ -468,6 +469,15 @@ vti6_xmit(struct sk_buff *skb, struct net_device *dev, struct flowi *fl)
+ 	skb_dst_set(skb, dst);
+ 	skb->dev = skb_dst(skb)->dev;
+ 
++	mtu = dst_mtu(dst);
++	if (!skb->ignore_df && skb->len > mtu) {
++		skb_dst(skb)->ops->update_pmtu(dst, NULL, skb, mtu);
++
++		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
++
++		return -EMSGSIZE;
++	}
++
+ 	err = dst_output(skb);
+ 	if (net_xmit_eval(err) == 0) {
+ 		struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
+-- 
+1.9.1
