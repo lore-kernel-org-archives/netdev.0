@@ -1,119 +1,66 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net v2] switchdev: don't abort hardware ipv4 fib offload
- on failure to program fib entry in hardware
-Date: Thu, 28 May 2015 09:10:29 -0700
-Message-ID: <55673DF5.7060401@gmail.com>
-References: <1431906125-13808-1-git-send-email-roopa@cumulusnetworks.com> <20150518.161916.2132217836491222672.davem@davemloft.net> <20150528094244.GA19629@nanopsycho.orion> <CAE4R7bB-LazvjPYZmPRE8e-mq_vML+jCBswMkOq-QeV-8ad41A@mail.gmail.com>
+From: Ken Moffat <zarniwhoop@ntlworld.com>
+Subject: Re: Lost network connectivity in 4.0.x
+Date: Thu, 28 May 2015 17:11:19 +0100
+Message-ID: <20150528161119.GA31622@milliways>
+References: <20150524024352.GA15747@milliways>
+ <20150524032938.GA16664@milliways>
+ <CAM_iQpXH_-WO8W=zVUaXezeGGOjFy-nBLy0k+tytZuMQqV1hcQ@mail.gmail.com>
+ <20150528144149.GA29350@milliways>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, David Miller <davem@davemloft.net>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:36558 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753574AbbE1QKk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 12:10:40 -0400
-Received: by obbea2 with SMTP id ea2so36582974obb.3
-        for <netdev@vger.kernel.org>; Thu, 28 May 2015 09:10:40 -0700 (PDT)
-In-Reply-To: <CAE4R7bB-LazvjPYZmPRE8e-mq_vML+jCBswMkOq-QeV-8ad41A@mail.gmail.com>
+Received: from know-smtprelay-omc-7.server.virginmedia.net ([80.0.253.71]:60652
+	"EHLO know-smtprelay-omc-7.server.virginmedia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754010AbbE1QLV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2015 12:11:21 -0400
+Content-Disposition: inline
+In-Reply-To: <20150528144149.GA29350@milliways>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/28/2015 08:40 AM, Scott Feldman wrote:
-> On Thu, May 28, 2015 at 2:42 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Mon, May 18, 2015 at 10:19:16PM CEST, davem@davemloft.net wrote:
->>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>> Date: Sun, 17 May 2015 16:42:05 -0700
->>>
->>>> On most systems where you can offload routes to hardware,
->>>> doing routing in software is not an option (the cpu limitations
->>>> make routing impossible in software).
->>>
->>> You absolutely do not get to determine this policy, none of us
->>> do.
->>>
->>> What matters is that by default the damn switch device being there
->>> is %100 transparent to the user.
->>>
->>> And the way to achieve that default is to do software routes as
->>> a fallback.
->>>
->>> I am not going to entertain changes of this nature which fail
->>> route loading by default just because we've exceeded a device's
->>> HW capacity to offload.
->>>
->>> I thought I was _really_ clear about this at netdev 0.1
->>
->> I certainly agree that by default, transparency 1:1 sw:hw mapping is
->> what we need for fib. The current code is a good start!
->>
->> I see couple of issues regarding switchdev_fib_ipv4_abort:
->> 1) If user adds and entry, switchdev_fib_ipv4_add fails, abort is
->>     executed -> and, error returned. I would expect that route entry should
->>     be added in this case. The next attempt of adding the same entry will
->>     be successful.
->>     The current behaviour breaks the transparency you are reffering to.
->> 2) When switchdev_fib_ipv4_abort happens to be executed, the offload is
->>     disabled for good (until reboot). That is certainly not nice, alhough
->>     I understand that is the easiest solution for now.
->>
->> I believe that we all agree that the 1:1 transparency, although it is a
->> default, may not be optimal for real-life usage. HW resources are
->> limited and user does not know them. The danger of hitting _abort and
->> screwing-up the whole system is huge, unacceptable.
->>
->> So here, there are couple of more or less simple things that I suggest to
->> do in order to move a little bit forward:
->> 1) Introduce system-wide option to switch _abort to just plain fail.
->>     When HW does not have capacity, do not flush and fallback to sw, but
->>     rather just fail to add the entry. This would not break anything.
->>     Userspace has to be prepared that entry add could fail.
->> 2) Introduce a way to propagate resources to userspace. Driver knows about
->>     resources used/available/potentially_available. Switchdev infra could
->>     be extended in order to propagate the info to the user.
->> 3) Introduce couple of flags for entry add that would alter the default
->>     behaviour. Something like:
->>          NLM_F_SKIP_KERNEL
->>          NLM_F_SKIP_OFFLOAD
->>     Again, this does not break the current users. On the other hand, this
->>     gives new users a leverage to instruct kernel where the entry should
->>     be added to (or not added to).
->>
->> Any thoughts? Objections?
->
-> I don't like these.  Breaks transparency and forces the user in a
-> position of having to know hardware failures modes (unique to each
-> hardware device).  I presented an option d) which avoids this issues;
-> was it not understood?
->
+On Thu, May 28, 2015 at 03:41:49PM +0100, Ken Moffat wrote:
+> On Wed, May 27, 2015 at 10:53:00PM -0700, Cong Wang wrote:
+> > (Please always Cc netdev for networking bugs.)
+> >=20
+Sorry, didn't spot that.  But anyway
+>=20
+> > For example:
+> >=20
+> > 1) What is your network setup? iptables? routes? etc.
+> >=20
+> I'm using iptables.  Ah, yes - it started dropping packets around
+> the time I last had a problem:
+>=20
+> May 27 00:48:26 ac4tv dhclient: DHCPREQUEST on eth0 to 192.168.7.254
+> port 67
+> May 27 00:48:27 ac4tv dhclient: DHCPACK from 192.168.7.254
+> May 27 00:48:27 ac4tv dhclient: bound to 192.168.7.152 -- renewal in
+> 1787 seconds.
+>=20
+>  That address came from my router, and I had been getting the same
+> address for an hour, tbut then the dropped packet messages start
+> appearing - they are for a different address, one that would have
+> been offered by my server:
+>=20
+Now that I've had time to think about this and look a bit more
+deeply, I can see that at one point I got a lease from my server,
+but then after a random length of time the client tried to renew and
+got a lease from the router.  Some time after that, it failed
+because iptables rejected the nfs packets because they were "not for
+me".
 
-Hi Scott,
+So, not a kernel problem, and the reason I'm (now) seeing this on
+4.0+ kernels is that I have not recently booted a system with an old
+(3.19 or earlier) kernel and kept it running for a long time.
 
-I understood your proposal. One caveat I had is in response to this,
+Thanks again, sorry to waste everybody's bandwidth.
 
-"Actually, now that I think of it, the device/driver could decide which
-related-prefix to evict from HW, if driver/device wanted to have a
-sense of which routes are more important to offload than other"
-
-hardware/driver/device shouldn't have a sense of which routes are more
-important than others. I think this is where the NLM_F_* flags come in.
-If userspace _wants_ to push policy into the kernel about what is
-important it can. If it doesn't we get a sensible heuristic that does
-a reasonable job offloading rules transparently. This is how we did
-L2 and I think that seems to work fairly well. At least for me but,
-always interested to hear other use cases though.
-
-Also I guess I'm not seeing the multitude of hardware failure modes. I
-see two either the hardware doesn't support the operation or it is out
-of resources. Both can be learned if the hardware exports a model of its
-capabilities and resources.
-
-Thanks,
-John
-
--- 
-John Fastabend         Intel Corporation
+=C4=B8en
+--=20
+Nanny Ogg usually went to bed early. After all, she was an old lady.
+Sometimes she went to bed as early as 6 a.m.
