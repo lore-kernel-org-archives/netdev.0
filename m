@@ -1,51 +1,55 @@
-From: "Guzman Mosqueda, Jose R" <jose.r.guzman.mosqueda@intel.com>
-Subject: Possible issue in iproute2 package
-Date: Thu, 28 May 2015 21:12:15 +0000
-Message-ID: <1432847547.19276.47.camel@jrguzman-mobl2.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shemminger@osdl.org" <shemminger@osdl.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 5/9] wl1251: drop unneeded goto
+Date: Thu, 28 May 2015 23:02:20 +0200
+Message-ID: <1432846944-7122-6-git-send-email-Julia.Lawall@lip6.fr>
+References: <1432846944-7122-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:23799 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754550AbbE1VMU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2015 17:12:20 -0400
-Content-Language: en-US
-Content-ID: <6D63714EC3841C4C8C6C3BAB21220B65@intel.com>
+Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:56662
+	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932250AbbE1VLp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 17:11:45 -0400
+In-Reply-To: <1432846944-7122-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpIaSBhbGwNCg0KSSdtIEpvc2UgR3V6bWFuIGZyb20gYSBzZWN1cml0eSB0ZWFtIGF0IEludGVs
-Lg0KV2UncmUgdXNpbmcgaXByb3V0ZTIgaW4gYSBHTlUtTGludXggcHJvamVjdCBhbmQgSSdtIGFu
-YWx5emluZyB0aGUgY29kZQ0KdG8gdHJ5IHRvIGZpbmQgcG9zc2libGUgaXNzdWVzL2dhcHMvcmlz
-a3MuDQpTaW5jZSBJJ20gbm90IHRvbyBmYW1pbGlhciB3aXRoIHRoZSBwYWNrYWdlIHlldCBJIGhh
-dmUgYSBxdWVzdGlvbiBhYm91dA0KYSBwYXJ0aWN1bGFyIHBpZWNlIG9mIGNvZGUgdGhhdCBjb3Vs
-ZCByZXN1bHQgaW4gYSBtZW1vcnkgY29ycnVwdGlvbjoNCg0KVmVyc2lvbjogNC4wLjANCkZpbGU6
-IG1pc2Mvc3MuYw0KRnVuY3Rpb246IHN0YXRpYyB2b2lkIHRjcF9zaG93X2luZm8oLi4uKQ0KTGlu
-ZTogfjE5MDMNCkRlc2NyaXB0aW9uOiBUaGVyZSBpcyBhIG1lbW9yeSBhbGxvY2F0aW9uIGZvciBh
-ICJzLmNvbmdfYWxnIiB2YXJpYWJsZToNCnMuY29uZ19hbGcgPSBtYWxsb2Moc3RybGVuKGNvbmdf
-YXR0ciArIDEpKTsNClRoZSBsZW5ndGggaXMgY2FsY3VsYXRlZCBhYm91dCBuZXh0IHBvc2l0aW9u
-IG9mIHRoZSBzdGFydGluZyBjaGFyYWN0ZXIuDQpCdXQgbmV4dCBsaW5lIHRoZXJlIGlzIGEgY29w
-eSBvZiB0aGUgd2hvbGUgY29udGVudDoNCnN0cmNweShzLmNvbmdfYWxnLCBjb25nX2F0dHIpOw0K
-SSB0aGluayB0aGVyZSBpcyBhIG1pc3Rha2UgYW5kIGl0IHNob3VsZCBiZSBzb21ldGhpbmcgbGlr
-ZToNCnMuY29uZ19hbGcgPSBtYWxsb2Moc3RybGVuKGNvbmdfYXR0cikgKyAxKTsNCklzIHRoaXMg
-dGhlIGNhc2U/IElzIGl0IGEgcmVhbCBidWc/DQpBbHNvIEkgZG9uJ3Qgc2VlIGFueSBjaGVja2lu
-ZyBmb3IgdGhlIHZhbHVlIHJldHVybmVkIGJ5IHRoZSBtYWxsb2MgY2FsbCwNCndoYXQgaWYgaXQg
-cmV0dXJucyBhIE5VTEwgcG9pbnRlcj8NCg0KQWxzbyBJIGZvdW5kIHNvbWV0aGluZyBzaW1pbGFy
-IGFib3V0IGxpbmUgMTkwMzoNCnMuY29uZ19hbGcgPSBtYWxsb2Moc3RybGVuKGNvbmdfYXR0ciAr
-IDEpKTsNCnN0cmNweShzLmNvbmdfYWxnLCBjb25nX2F0dHIpOw0KDQpBbmQgYW5vdGhlciBwb3Nz
-aWJsZSBpc3N1ZSB0aGF0IEkgZm91bmQ6DQoNCkZpbGU6IHRjL3RjX3V0aWwuYw0KRnVuY3Rpb246
-IHZvaWQgcHJpbnRfcmF0ZShjaGFyICpidWYsIGludCBsZW4sIF9fdTY0IHJhdGUpDQpMaW5lOiB+
-MjY0DQoNCkluIHRoZSBjYXNlIHRoYXQgdXNlciBpbnB1dHMgYSBoaWdoIHZhbHVlIGZvciByYXRl
-LCB0aGUgImZvciIgbG9vcCB3aWxsDQpleGl0IGluIHRoZSBjb25kaXRpb24gbWVhbmluZyB0aGF0
-IHZhcmlhYmxlICJpIiBnZXQgdGhlIHZhbHVlIG9mIDUgd2hpY2gNCndpbGwgYmUgYW4gaW52YWxp
-ZCBpbmRleCBmb3IgdGhlICJ1bml0cyIgYXJyYXkgZHVlIHRvIHRoYXQgYXJyYXkgaGFzDQpvbmx5
-IDUgZWxlbWVudHMuDQoNCkkgaG9wZSB5b3UgY2FuIGhlbHAgbWUgYnkgY2hlY2tpbmcgdGhlc2Ug
-aXNzdWVzIGFuZCB0ZWxsIG1lIHdoZXRoZXIgdGhleQ0KYXJlIHJlYWwgaXNzdWVzIG9yIG5vdCBz
-aW5jZSB5b3Uga25vdyBtdWNoIGJldHRlciB0aGUgY29kZS4NCkFsc28gSSBkb24ndCBrbm93IGlm
-IHlvdSBoYXZlIGFscmVhZHkgdGhpcyByZXBvcnRlZCwgSSBkaWRuJ3QgZmluZCBhDQpsaXN0IG9m
-IGlzc3VlcyBmb3IgdGhpcyBwYWNrYWdlLiBDYW4geW91IHRlbGwgbWUgd2hlcmUgaXMgc3VjaCBs
-aXN0Pw0KDQpJIHJlYWxseSBhcHByZWNpYXRlIGFueSBoZWxwIG9uIHRoaXMuDQoNClRoYW5rcyBp
-biBhZHZhbmNlLg0KSm9zZSBHLg0KDQoNCg0KDQoNCg0KDQo=
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+
+Delete jump to a label on the next line, when that label is not
+used elsewhere.
+
+A simplified version of the semantic patch that makes this change is as
+follows: (http://coccinelle.lip6.fr/)
+
+// <smpl>
+@r@
+identifier l;
+@@
+
+-if (...) goto l;
+-l:
+// </smpl>
+
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+
+---
+ drivers/net/wireless/ti/wl1251/acx.c |    3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/net/wireless/ti/wl1251/acx.c b/drivers/net/wireless/ti/wl1251/acx.c
+index 5695628..d6fbdda 100644
+--- a/drivers/net/wireless/ti/wl1251/acx.c
++++ b/drivers/net/wireless/ti/wl1251/acx.c
+@@ -53,10 +53,7 @@ int wl1251_acx_station_id(struct wl1251 *wl)
+ 		mac->mac[i] = wl->mac_addr[ETH_ALEN - 1 - i];
+ 
+ 	ret = wl1251_cmd_configure(wl, DOT11_STATION_ID, mac, sizeof(*mac));
+-	if (ret < 0)
+-		goto out;
+ 
+-out:
+ 	kfree(mac);
+ 	return ret;
+ }
