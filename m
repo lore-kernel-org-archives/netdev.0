@@ -1,51 +1,31 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH] if_vlan: fix vlaue -> value typo
-Date: Wed, 27 May 2015 21:07:26 -0400
-Message-ID: <1432775246-12938-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: stack smashing in iproute/ip
+Date: Wed, 27 May 2015 18:31:41 -0700
+Message-ID: <20150527183141.0ff9caa9@urahara>
+References: <555AF73C.7050405@nokia.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jetchko Jekov <jetchko.jekov@nokia.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:32818 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751398AbbE1Bbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 21:31:39 -0400
+Received: by padbw4 with SMTP id bw4so10890250pad.0
+        for <netdev@vger.kernel.org>; Wed, 27 May 2015 18:31:38 -0700 (PDT)
+In-Reply-To: <555AF73C.7050405@nokia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fixes "vlaue" for "value" in include/linux/if_vlan.h.
+On Tue, 19 May 2015 10:41:32 +0200
+Jetchko Jekov <jetchko.jekov@nokia.com> wrote:
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- include/linux/if_vlan.h | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+> Hello,
+> 
+> I hope this is the right way to report a bug regarding iproute.
+> 
+> While playing with gre[tap] tunnels I run in the following:
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index b9ab677..a40d298 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -416,7 +416,7 @@ static inline void __vlan_hwaccel_put_tag(struct sk_buff *skb,
- /**
-  * __vlan_get_tag - get the VLAN ID that is part of the payload
-  * @skb: skbuff to query
-- * @vlan_tci: buffer to store vlaue
-+ * @vlan_tci: buffer to store value
-  *
-  * Returns error if the skb is not of VLAN type
-  */
-@@ -435,7 +435,7 @@ static inline int __vlan_get_tag(const struct sk_buff *skb, u16 *vlan_tci)
- /**
-  * __vlan_hwaccel_get_tag - get the VLAN ID that is in @skb->cb[]
-  * @skb: skbuff to query
-- * @vlan_tci: buffer to store vlaue
-+ * @vlan_tci: buffer to store value
-  *
-  * Returns error if @skb->vlan_tci is not set correctly
-  */
-@@ -456,7 +456,7 @@ static inline int __vlan_hwaccel_get_tag(const struct sk_buff *skb,
- /**
-  * vlan_get_tag - get the VLAN ID from the skb
-  * @skb: skbuff to query
-- * @vlan_tci: buffer to store vlaue
-+ * @vlan_tci: buffer to store value
-  *
-  * Returns error if the skb is not VLAN tagged
-  */
--- 
-2.4.1
+I integrated your patch into upcoming release.
