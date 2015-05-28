@@ -1,26 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: linux-next: build failure after merge of most of the trees
-Date: Thu, 28 May 2015 15:13:24 -0700
-Message-ID: <1432851204.7456.46.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150528220607.67a68696@canb.auug.org.au>
-	 <20150528.114203.717794268051352731.davem@davemloft.net>
-	 <1432839075.1556.4.camel@perches.com>
-	 <20150528.143545.1946361377143498741.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	edumazet@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20150528.143545.1946361377143498741.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/3] net: systemport: misc improvements
+Date: Thu, 28 May 2015 15:24:41 -0700
+Message-ID: <1432851884-12026-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, pgynther@google.com,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:36502 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754799AbbE1WZY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 18:25:24 -0400
+Received: by pdfh10 with SMTP id h10so51258560pdf.3
+        for <netdev@vger.kernel.org>; Thu, 28 May 2015 15:25:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-05-28 at 14:35 -0700, David Miller wrote:
+Hi David,
 
-> Bogus chunk in my local tree, didn't make it into the final commit I
-> pushed out.
+These patches are highly inspired by changes from Petri on bcmgenet, last patch
+is a misc fix that I had pending for a while, but is not a candidate for 'net'
+at this point.
 
-Thanks for taking care of this before me !
+Thanks!
+
+Florian Fainelli (3):
+  net: systemport: Pre-calculate and utilize cb->bd_addr
+  net: systemport: rewrite bcm_sysport_rx_refill
+  net: systemport: Add a check for oversized packets
+
+ drivers/net/ethernet/broadcom/bcmsysport.c | 107 ++++++++++++++++-------------
+ drivers/net/ethernet/broadcom/bcmsysport.h |   2 -
+ 2 files changed, 58 insertions(+), 51 deletions(-)
+
+-- 
+2.1.0
