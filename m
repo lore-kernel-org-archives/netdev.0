@@ -1,71 +1,60 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH net-next 1/1] hv_netvsc: Properly size the vrss queues
-Date: Thu, 28 May 2015 16:57:44 +0300
-Message-ID: <20150528135744.GN11734@mwanda>
-References: <1432682469-15033-1-git-send-email-kys@microsoft.com>
- <20150528070613.GV11588@mwanda>
- <BY2PR0301MB0711A3A5C1A400A54237D039A0CA0@BY2PR0301MB0711.namprd03.prod.outlook.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net: thunderx: add 64-bit dependency
+Date: Thu, 28 May 2015 16:00:46 +0200
+Message-ID: <5799754.oCDa9qX0W8@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: KY Srinivasan <kys@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <BY2PR0301MB0711A3A5C1A400A54237D039A0CA0@BY2PR0301MB0711.namprd03.prod.outlook.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7Bit
+Cc: David Miller <davem@davemloft.net>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	Maciej Czekaj <mjc@semihalf.com>,
+	David Daney <david.daney@cavium.com>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	Ganapatrao Kulkarni <ganapatrao.kulkarni@caviumnetworks.com>,
+	Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
+	Tomasz Nowicki <tomasz.nowicki@linaro.org>,
+	Robert Richter <rrichter@cavium.com>,
+	Kamil Rytarowski <kamil@semihalf.com>,
+	Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>,
+	Sruthi Vangala <svangala@cavium.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.187]:49326 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752130AbbE1OBO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 10:01:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 28, 2015 at 01:52:47PM +0000, KY Srinivasan wrote:
-> 
-> 
-> > -----Original Message-----
-> > From: Dan Carpenter [mailto:dan.carpenter@oracle.com]
-> > Sent: Thursday, May 28, 2015 12:06 AM
-> > To: KY Srinivasan
-> > Cc: davem@davemloft.net; netdev@vger.kernel.org; linux-
-> > kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
-> > apw@canonical.com; jasowang@redhat.com
-> > Subject: Re: [PATCH net-next 1/1] hv_netvsc: Properly size the vrss queues
-> > 
-> > Since you're redoing this anyway.
-> > 
-> > On Tue, May 26, 2015 at 04:21:09PM -0700, K. Y. Srinivasan wrote:
-> > > diff --git a/drivers/net/hyperv/hyperv_net.h
-> > b/drivers/net/hyperv/hyperv_net.h
-> > > index ddcc7f8..dd45440 100644
-> > > --- a/drivers/net/hyperv/hyperv_net.h
-> > > +++ b/drivers/net/hyperv/hyperv_net.h
-> > > @@ -161,6 +161,7 @@ struct netvsc_device_info {
-> > >  	unsigned char mac_adr[ETH_ALEN];
-> > >  	bool link_state;	/* 0 - link up, 1 - link down */
-> > >  	int  ring_size;
-> > > +	u32  max_num_vrss_chns;
-> > 
-> > We (Joe and I) have commented before that long names don't mix well with
-> > the 80 character limit.  You could just leave the "num_" out.  Almost
-> > all variables are numbers in C so it doesn't add anything.
-> 
-> Thanks Dan. Actually I sent out the revised patch yesterday and I currently don't
-> Have the 80 char issue. If it is ok with Dave, I will not re-spin the patch. However, I will
-> note this comment for future work.
+The thunderx ethernet driver fails to build on architectures
+that do not have an atomic readq() and writeq() function for
+64-bit PCI bus access:
 
-Yes.  I saw that.  Fine fine.  It wasn't a redo the patch worthy
-comment.  :P
+drivers/net/ethernet/cavium/thunder/thunder_bgx.c: In function 'bgx_reg_read':
+include/asm-generic/io.h:195:23: error: implicit declaration of function 'readq' [-Werror=implicit-function-declaration]
 
-regards,
-dan carpenter
+It seems impossible to get this driver to work on most 32-bit
+hardware, so it's better to add an explicit dependency, in
+order to let us keep building 'allmodconfig' kernels on
+all architectures.
+
+As the driver is meant for the internal hardware on an arm64 SoC, this
+is not a problem for usability. Allowing the build on all 64-bit
+architectures rather than just CONFIG_ARM64 on the other hand means that
+we get the benefit of build testing on x86.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+
+diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
+index 6365fb4242be..fc3d8e3ee807 100644
+--- a/drivers/net/ethernet/cavium/Kconfig
++++ b/drivers/net/ethernet/cavium/Kconfig
+@@ -4,7 +4,7 @@
+ 
+ config NET_VENDOR_CAVIUM
+ 	tristate "Cavium ethernet drivers"
+-	depends on PCI
++	depends on PCI && 64BIT
+ 	---help---
+ 	  Enable support for the Cavium ThunderX Network Interface
+ 	  Controller (NIC). The NIC provides the controller and DMA
