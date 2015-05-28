@@ -1,69 +1,56 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: DSA and underlying 802.1Q encapsulation
-Date: Thu, 28 May 2015 03:46:22 +0200
-Message-ID: <20150528014622.GD9751@lunn.ch>
-References: <1183592753.514019.1432679397515.JavaMail.zimbra@savoirfairelinux.com>
- <20150526225142.GB26454@roeck-us.net>
- <1250227394.1145458.1432759717091.JavaMail.zimbra@savoirfairelinux.com>
- <556630EA.7060707@roeck-us.net>
- <20150527210523.GE31127@lunn.ch>
- <55664A8F.6040006@roeck-us.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next] openvswitch: include datapath actions with
+ sampled-packet upcall to userspace
+Date: Wed, 27 May 2015 19:46:48 -0700
+Message-ID: <CALnjE+r175gt=umf6DCi82HQqiZnj+U7Vg3j+HCBXeFAqN-s3Q@mail.gmail.com>
+References: <1432150358-13108-1-git-send-email-neil.mckee@inmon.com>
+	<CALnjE+rxMdfZFe5nTGzJSpeH4a1+0Z3ka8Gur1jGmVNBPAcF+w@mail.gmail.com>
+	<CAEP_g=8fRDQWfDo0HszXezDzOc4xntKUpJf5ucVrcsZ6M+OSZQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Chris Healy <cphealy@gmail.com>,
-	=?iso-8859-1?Q?J=E9rome?= Oufella
-	<jerome.oufella@savoirfairelinux.com>
-To: Guenter Roeck <linux@roeck-us.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Neil McKee <neil.mckee@inmon.com>, netdev <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42020 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751398AbbE1Bvi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 May 2015 21:51:38 -0400
-Content-Disposition: inline
-In-Reply-To: <55664A8F.6040006@roeck-us.net>
+Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:40094 "HELO
+	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750812AbbE1Cqu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2015 22:46:50 -0400
+Received: by igbyr2 with SMTP id yr2so101454877igb.0
+        for <netdev@vger.kernel.org>; Wed, 27 May 2015 19:46:49 -0700 (PDT)
+In-Reply-To: <CAEP_g=8fRDQWfDo0HszXezDzOc4xntKUpJf5ucVrcsZ6M+OSZQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 27, 2015 at 03:51:59PM -0700, Guenter Roeck wrote:
-> On 05/27/2015 02:05 PM, Andrew Lunn wrote:
-> >>Do you have lock debugging enabled in your code ? I am getting a recursive
-> >>lock warning due to a recursive call to dev_mc_sync(). I think we may have
-> >>to implement lock nesting for dsa, similar to how it id done for vlan
-> >>support, but I have not been able to figure out how exactly it works yet.
-> >
-> >I might be able to help, since i solve two similar problems already in
-> >DSA, one for MDIO bus, and a second one for transmit buffers.
-> >
-> >      Andrew
-> >
-> What I did is to create a vlan interface on one of the dsa slave ports
-> and enabling it.
-> 
-> This results in a call to dev_mc_sync() on the dsa interface, which is passed
-> on to the real interface. dev_mc_sync() calls netif_addr_lock_nested(to),
-> which results in the recursive lock message.
-> 
->  ifconfig/2291 is trying to acquire lock:
->   (_xmit_ETHER/1){+.....}, at: [<ffffffff8175b757>] dev_mc_sync+0x57/0xa0
-> 
->  but task is already holding lock:
->   (_xmit_ETHER/1){+.....}, at: [<ffffffff8175b757>] dev_mc_sync+0x57/0xa0
-> 
->  other info that might help us debug this:
->   Possible unsafe locking scenario:
-> 
->         CPU0
->         ----
->    lock(_xmit_ETHER/1);
->    lock(_xmit_ETHER/1);
-> 
-> Pretty much inevitable as far as I can see.
+On Wed, May 27, 2015 at 2:10 PM, Jesse Gross <jesse@nicira.com> wrote:
+> On Fri, May 22, 2015 at 10:53 AM, Pravin Shelar <pshelar@nicira.com> wrote:
+>> On Wed, May 20, 2015 at 12:32 PM, Neil McKee <neil.mckee@inmon.com> wrote:
+>>> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+>>> index b491c1c..ee5760d 100644
+>>> --- a/net/openvswitch/actions.c
+>>> +++ b/net/openvswitch/actions.c
+>>> @@ -608,7 +608,8 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
+>>>  }
+>>>
+>>>  static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+>>> -                           struct sw_flow_key *key, const struct nlattr *attr)
+>>> +                           struct sw_flow_key *key, const struct nlattr *attr,
+>>> +                           const struct nlattr *actions, int actions_len)
+>>>  {
+>>>         struct ovs_tunnel_info info;
+>>>         struct dp_upcall_info upcall;
+>>> @@ -619,6 +620,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+>>>         upcall.userdata = NULL;
+>>>         upcall.portid = 0;
+>>>         upcall.egress_tun_info = NULL;
+>>> +       upcall.actions = actions;
+>>> +       upcall.actions_len = actions_len;
+>>>
+>> Rather than unconditionally passing actions to the upcall, there
+>> should be attribute in ovs_userspace_attr to request the actions list.
+>
+> Why? It seems simpler to just always pass the actions and I'm not sure
+> that this is really performance critical (which is the only reason
+> that comes to mind to not always pass this).
 
-It looks like DSA needs to implement ndo_get_lock_subclass().
-
-We can probably copy the code from macvlan.c.
-
-   Andrew
+This is only required for sFlow sampling so I do not think we should
+send it on every upcall.
