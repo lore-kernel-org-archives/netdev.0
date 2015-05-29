@@ -1,86 +1,70 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v2] ss: Fix allocation of cong control alg name
-Date: Fri, 29 May 2015 15:02:09 -0700
-Message-ID: <20150529150209.07430666@urahara>
-References: <1432922994-13735-1-git-send-email-vadim4j@gmail.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [RFC 1/3] net: dsa: add basic support for VLAN ndo
+Date: Fri, 29 May 2015 15:15:23 -0700
+Message-ID: <5568E4FB.6060309@roeck-us.net>
+References: <556723FF.7030606@roeck-us.net>	<1432849035-8499-1-git-send-email-vivien.didelot@savoirfairelinux.com>	<1432849035-8499-2-git-send-email-vivien.didelot@savoirfairelinux.com>	<CAJ3xEMjYn+eeGHi5dyAhjHivid4UKUyGAi8pwVD4PBhKn1HTKQ@mail.gmail.com>	<2010513546.247697.1432913908579.JavaMail.zimbra@savoirfairelinux.com> <CAJ3xEMhAusqPj9m2a-wx7FDC2rE+WUk3UobE3+nS8qRV8bWTGg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	daniel@iogearbox.net, jose.r.guzman.mosqueda@intel.com
-To: Vadim Kochan <vadim4j@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	=?UTF-8?B?SsOpcm9tZSBPdWZlbGxh?=
+	<jerome.oufella@savoirfairelinux.com>,
+	Chris Healy <cphealy@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
+	Scott Feldman <sfeldma@gmail.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:36475 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756904AbbE2WCH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 18:02:07 -0400
-Received: by pacux9 with SMTP id ux9so27566000pac.3
-        for <netdev@vger.kernel.org>; Fri, 29 May 2015 15:02:07 -0700 (PDT)
-In-Reply-To: <1432922994-13735-1-git-send-email-vadim4j@gmail.com>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:34089 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756266AbbE2WP2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 18:15:28 -0400
+In-Reply-To: <CAJ3xEMhAusqPj9m2a-wx7FDC2rE+WUk3UobE3+nS8qRV8bWTGg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 29 May 2015 21:09:54 +0300
-Vadim Kochan <vadim4j@gmail.com> wrote:
+On 05/29/2015 08:51 AM, Or Gerlitz wrote:
+> On Fri, May 29, 2015 at 6:38 PM, Vivien Didelot
+> <vivien.didelot@savoirfairelinux.com> wrote:
+>> Hi,
+>>
+>> ----- On May 29, 2015, at 11:24 AM, Or Gerlitz gerlitz.or@gmail.com wrote:
+>>
+>>> On Fri, May 29, 2015 at 12:37 AM, Vivien Didelot
+>>> <vivien.didelot@savoirfairelinux.com> wrote:
+>>>> @@ -854,7 +922,9 @@ int dsa_slave_create(struct dsa_switch *ds, struct device
+>>>> *parent,
+>>>>          if (slave_dev == NULL)
+>>>>                  return -ENOMEM;
+>>>>
+>>>> -       slave_dev->features = master->vlan_features;
+>>>> +       slave_dev->features = master->vlan_features |
+>>>> +               NETIF_F_VLAN_FEATURES |
+>>>> +               NETIF_F_HW_SWITCH_OFFLOAD;
+>>>
+>>> wait... didn't commit 7889cbee8357aaed85898d028829dfb4f75bae2c  remove
+>>> NETIF_F_HW_SWITCH_OFFLOAD?
+>>
+>> Indeed, note that this RFC is based on v4.1-rc3. This will become unneeded I guess.
+>
+>
+> You should rebase networking patches proposed for the next kernel
+> against the net-next tree.
+>
+>> BTW, given the commit message, I didn't really understand why?
+>
+> M2, I thought it was unsuccessful commit message and made a comment to
+> the maintainer, he didn't accept it.
+>
+Vivien,
 
-> From: Vadim Kochan <vadim4j@gmail.com>
-> 
-> Used 16 char array for cong alg name instead of malloc.
-> 
-> Fixes: 8250bc9ff4e5 ("ss: Unify inet sockets output")
-> Reported-by: Jose R. Guzman Mosqueda <jose.r.guzman.mosqueda@intel.com>
-> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
-> ---
-> v2:
->    Used 16 byte array for cong alg name instead of malloc
->    	suggested by Eric Dumazet <eric.dumazet@gmail.com>
-> 
->  misc/ss.c | 12 +++++-------
->  1 file changed, 5 insertions(+), 7 deletions(-)
-> 
-> diff --git a/misc/ss.c b/misc/ss.c
-> index 347e3a1..0bab8a2 100644
-> --- a/misc/ss.c
-> +++ b/misc/ss.c
-> @@ -755,7 +755,7 @@ struct tcpstat
->  	int		    timer;
->  	int		    timeout;
->  	int		    probes;
-> -	char		    *cong_alg;
-> +	char		    cong_alg[16];
->  	double		    rto, ato, rtt, rttvar;
->  	int		    qack, cwnd, ssthresh, backoff;
->  	double		    send_bps;
-> @@ -1664,7 +1664,7 @@ static void tcp_stats_print(struct tcpstat *s)
->  		printf(" ecnseen");
->  	if (s->has_fastopen_opt)
->  		printf(" fastopen");
-> -	if (s->cong_alg)
-> +	if (s->cong_alg[0])
->  		printf(" %s", s->cong_alg);
->  	if (s->has_wscale_opt)
->  		printf(" wscale:%d,%d", s->snd_wscale, s->rcv_wscale);
-> @@ -1907,9 +1907,9 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
->  		}
->  
->  		if (tb[INET_DIAG_CONG]) {
-> -			const char *cong_attr = rta_getattr_str(tb[INET_DIAG_CONG]);
-> -			s.cong_alg = malloc(strlen(cong_attr + 1));
-> -			strcpy(s.cong_alg, cong_attr);
-> +			strncpy(s.cong_alg,
-> +					rta_getattr_str(tb[INET_DIAG_CONG]),
-> +					sizeof(s.cong_alg) - 1);
->  		}
->  
->  		if (TCPI_HAS_OPT(info, TCPI_OPT_WSCALE)) {
-> @@ -1984,8 +1984,6 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
->  		tcp_stats_print(&s);
->  		if (s.dctcp)
->  			free(s.dctcp);
-> -		if (s.cong_alg)
-> -			free(s.cong_alg);
->  	}
->  }
->  
+sorry for asking for an early set of your patches. Obviously the idea was not
+to create trouble for anyone :-(. I wasn't aware that netdev only accepts patches
+which apply to the latest net-next, even if sent as RFC. My fault, I guess.
 
-Why not use strdupa? I handles arbitrary size?
+Maybe next time we can share patches in private first if we have a similar
+situation ?
+
+Thanks,
+Guenter
