@@ -1,70 +1,130 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] xen-netfront sets partial checksum at wrong offset
-Date: Fri, 29 May 2015 11:39:16 +0100
-Message-ID: <20150529103916.GY30474@zion.uk.xensource.com>
-References: <ee74926e-deb3-4cbc-9798-42c19f4fe219@default>
- <20150511150827.GA23561@l.oracle.com>
- <3a08e270-3a70-417b-9ab8-439c7cdc1eb2@default>
- <55685CBF020000780007EEF8@mail.emea.novell.com>
+From: Andrey Korolyov <andrey@xdel.ru>
+Subject: Re: Connection tracking and soft lockups with certain field values
+Date: Fri, 29 May 2015 13:42:27 +0300
+Message-ID: <CABYiri_aKZ6qj6Sws1ZAVYb7ejVpWeX-yA1rykRuB5QSUOd_sg@mail.gmail.com>
+References: <CABYiri8ec20K51v4jSwwxfK-n3Guw+ASq2mkd1Ox9zfTRVnBuw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	<david.vrabel@citrix.com>, <ian.campbell@citrix.com>,
-	<wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Konrad Wilk <konrad.wilk@oracle.com>, <netdev@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>
+Content-Type: multipart/mixed; boundary=001a11c34eb43881b605173623c4
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, kaber@trash.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:21936 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753839AbbE2KjT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 06:39:19 -0400
-Content-Disposition: inline
-In-Reply-To: <55685CBF020000780007EEF8@mail.emea.novell.com>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:33105 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755774AbbE2Kmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 06:42:52 -0400
+Received: by lbcue7 with SMTP id ue7so45770782lbc.0
+        for <netdev@vger.kernel.org>; Fri, 29 May 2015 03:42:50 -0700 (PDT)
+In-Reply-To: <CABYiri8ec20K51v4jSwwxfK-n3Guw+ASq2mkd1Ox9zfTRVnBuw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 29, 2015 at 11:34:07AM +0100, Jan Beulich wrote:
-> >>> On 11.05.15 at 19:25, <venkat.x.venkatsubra@oracle.com> wrote:
-> >>  
-> >> Please CC the maintainers of the driver. You can get that from
-> >> 'scripts/get_maintainer.pl'
-> >> 
-> >> I've done that for you.
-> > 
-> > Thanks, Konrad.
-> > 
-> > I am copying Wei too who had fixed the below problem earlier.
-> > It fixed the incorrect ip_hdr(). tcp_hdr() still needs to fixed.
-> > 
-> > commit d554f73df6bc35ac8f6a65e5560bf1d31dfebed9
-> > Author: Wei Liu <wei.liu2@citrix.com>
-> > Date:   Wed Feb 19 18:48:34 2014 +0000
-> > 
-> >     xen-netfront: reset skb network header before checksum
-> 
-> So no response at all so far from the maintainers made me look into
-> this: I first thought what we need would be calls to
-> skb_probe_transport_header() in skb_checksum_setup_ip() after
-> each of the skb_maybe_pull_tail() functions. But
-> skb_partial_csum_set() already calls skb_set_transport_header(),
-> so I now think things ought to be fine without any change. Can
-> you clarify what you think is missing? Or is this an issue in just the
-> old (3.8.x) kernel you're using?
-> 
+--001a11c34eb43881b605173623c4
+Content-Type: text/plain; charset=UTF-8
 
-I think this is the follow-up thread <20150512013424.GA7960@oracle.com>
+On Thu, May 28, 2015 at 10:41 PM, Andrey Korolyov <andrey@xdel.ru> wrote:
+> Hi,
+>
+> I am currently playing with SYNPROXY target to optimize SYN filtering
+> performance and by occasion found that TCP SYN packets containing port
+> 0 can result in a soft lockup when conntrack is enabled just by
+> itself, given high packet ratio (I`ve reached 450kpps so far with 60b
+> packets on a /32<->/32 flood with enabled flow control at the media
+> level and middle-level E3 Xeon on receiver side). Same flood with port
+>> 0 going just well, producing same ceil numbers but without visible
+> lockups in kernel log. I`ve tested the issue on a broad range of 3.x
+> kernels and all of them are seemingly affected. Fast and dirty grep
+> revealed special conditions for port 0 only for protocol-specific
+> helpers, but there are none of them.
+>
+> Please find both same captures and traceback below.
 
-And the conclusion is 3.8 is too old so the fix is not there.
+Attached trace without GSO, at its presence can be somehow confusing
+in a previous sample. The testbed using net.nf_conntrack_max =
+2000000, forgot to mention that previously.
 
-> (In either case netback's xenvif_tx_submit() calling
-> skb_probe_transport_header() would seem pointless, as
-> skb_checksum_setup() - with or without a fix - ought to be taking
-> care of this anyway.)
-> 
+--001a11c34eb43881b605173623c4
+Content-Type: text/plain; charset=US-ASCII; name="conntrack-port-0-gso-off.txt"
+Content-Disposition: attachment; filename="conntrack-port-0-gso-off.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ia9hb2n13
 
-Patches welcome. :-)
-
-Wei.
-
-> Jan
+WzUyNjcxLjcwNjMwN10gQlVHOiBzb2Z0IGxvY2t1cCAtIENQVSMwIHN0dWNrIGZvciAyNHMhIFty
+Y3Vvcy8wOjE4XQpbNTI2NzEuNzA2MzMxXSBNb2R1bGVzIGxpbmtlZCBpbjogaXhnYmUgbWRpbyB4
+dF9DVCBpcHRhYmxlX3JhdyBpcHRfU1lOUFJPWFkgbmZfc3lucHJveHlfY29yZSBuZl9jb25udHJh
+Y2tfaXB2NCBuZl9kZWZyYWdfaXB2NCB4dF90Y3B1ZHAgeHRfY29ubnRyYWNrIG5mX2Nvbm50cmFj
+ayBpcHRhYmxlX2ZpbHRlciBpcF90YWJsZXMgeF90YWJsZXMgdHVuIG9wZW52c3dpdGNoIG5mc2Qg
+YXV0aF9ycGNnc3Mgb2lkX3JlZ2lzdHJ5IG5mc19hY2wgbmZzIGxvY2tkIGRuc19yZXNvbHZlciBm
+c2NhY2hlIHN1bnJwYyBicmlkZ2Ugc3RwIGxsYyB3ODM2MjdlaGYgaHdtb25fdmlkIGxvb3AgZnVz
+ZSBkbV9jcnlwdCBkbV9tb2QgY29yZXRlbXAga3ZtX2ludGVsIHNuZF9wY20ga3ZtIHNuZF9wYWdl
+X2FsbG9jIHNuZF90aW1lciBjcmMzMmNfaW50ZWwgZ2hhc2hfY2xtdWxuaV9pbnRlbCBhZXNuaV9p
+bnRlbCBhZXNfeDg2XzY0IGFibGtfaGVscGVyIHNuZCBjcnlwdGQgbHJ3IGlUQ09fd2R0IHNvdW5k
+Y29yZSBpVENPX3ZlbmRvcl9zdXBwb3J0IGdmMTI4bXVsIGdsdWVfaGVscGVyIGpveWRldiBldmRl
+diBwY3Nwa3IgdmlkZW8gcHJvY2Vzc29yIGJ1dHRvbiBpMmNfaTgwMSBscGNfaWNoIG1mZF9jb3Jl
+IHNocGNocCBleHQ0IGNyYzE2IGpiZDIgbWJjYWNoZSBtaWNyb2NvZGUgc2cgc2RfbW9kIGNyY190
+MTBkaWYgaGlkX2dlbmVyaWMgdXNiaGlkIGhpZCBhaGNpIGxpYmFoY2kgbGliYXRhIG1wdDJzYXMg
+aWdiIHJhaWRfY2xhc3MgaTJjX2FsZ29fYml0IGRjYSBzY3NpX3RyYW5zcG9ydF9zYXMgcHRwIHBw
+c19jb3JlIGkyY19jb3JlIGVoY2lfcGNpCls1MjY3MS43MDYzNjRdICBzY3NpX21vZCBlaGNpX2hj
+ZCB4aGNpX2hjZCB1c2Jjb3JlIHVzYl9jb21tb24gdGhlcm1hbCBmYW4gdGhlcm1hbF9zeXMKWzUy
+NjcxLjcwNjM2OV0gQ1BVOiAwIFBJRDogMTggQ29tbTogcmN1b3MvMCBOb3QgdGFpbnRlZCAzLjEw
+LTAuYnBvLjMtYW1kNjQgIzEgRGViaWFuIDMuMTAuMTEtMX5icG83MCsxOQpbNTI2NzEuNzA2Mzcw
+XSBIYXJkd2FyZSBuYW1lOiBTdXBlcm1pY3JvIFgxMFNMNy1GL1gxMFNMNy1GLCBCSU9TIDIuMDAg
+MDQvMjQvMjAxNApbNTI2NzEuNzA2MzcyXSB0YXNrOiBmZmZmODgwNDBkNTI4NzkwIHRpOiBmZmZm
+ODgwNDBkNTMyMDAwIHRhc2sudGk6IGZmZmY4ODA0MGQ1MzIwMDAKWzUyNjcxLjcwNjM3M10gUklQ
+OiAwMDEwOls8ZmZmZmZmZmY4MTJiZjkyNz5dICBbPGZmZmZmZmZmODEyYmY5Mjc+XSBzb2NrX3dm
+cmVlKzB4NDIvMHg1YgpbNTI2NzEuNzA2Mzc3XSBSU1A6IDAwMTg6ZmZmZjg4MDQxZmMwM2IxOCAg
+RUZMQUdTOiAwMDAwMDIwMgpbNTI2NzEuNzA2Mzc4XSBSQVg6IGZmZmZmZmZmODEyYmY4MDEgUkJY
+OiBmZmZmODgwNDFmYzEwMTEwIFJDWDogMDAwMDAwMDAwMDAwMDAyNApbNTI2NzEuNzA2Mzc5XSBS
+RFg6IGZmZmY4ODAyZTA3NTE2MTAgUlNJOiAwMDAwMDAwMGZmZmZmZmZmIFJESTogZmZmZjg4MDQx
+ZmMwZmU0MApbNTI2NzEuNzA2MzgwXSBSQlA6IDAwMDAwMDAwMDAwMDAzMDAgUjA4OiAwMDAwMDAw
+MDAwMDAwMDAwIFIwOTogMDAwMDAwMDAwMDAwMDAwMApbNTI2NzEuNzA2MzgxXSBSMTA6IGZmZmY4
+ODA0MWZjMGZmNDQgUjExOiAwMDAwMDAwMDAwMDAwMDAxIFIxMjogZmZmZjg4MDQxZmMwM2E4OApb
+NTI2NzEuNzA2MzgyXSBSMTM6IGZmZmZmZmZmODEzOTcwNWQgUjE0OiAwMDAwMDAwMDAwMDAwMzAw
+IFIxNTogZmZmZjg4MDQxZmMwZmU0MApbNTI2NzEuNzA2MzgzXSBGUzogIDAwMDAwMDAwMDAwMDAw
+MDAoMDAwMCkgR1M6ZmZmZjg4MDQxZmMwMDAwMCgwMDAwKSBrbmxHUzowMDAwMDAwMDAwMDAwMDAw
+Cls1MjY3MS43MDYzODRdIENTOiAgMDAxMCBEUzogMDAwMCBFUzogMDAwMCBDUjA6IDAwMDAwMDAw
+ODAwNTAwMzMKWzUyNjcxLjcwNjM4NV0gQ1IyOiAwMDAwN2ZiODY2Y2MyMTQwIENSMzogMDAwMDAw
+MDAwMTYwYzAwMCBDUjQ6IDAwMDAwMDAwMDAxNDA3ZjAKWzUyNjcxLjcwNjM4Nl0gRFIwOiAwMDAw
+MDAwMDAwMDAwMDAwIERSMTogMDAwMDAwMDAwMDAwMDAwMCBEUjI6IDAwMDAwMDAwMDAwMDAwMDAK
+WzUyNjcxLjcwNjM4N10gRFIzOiAwMDAwMDAwMDAwMDAwMDAwIERSNjogMDAwMDAwMDBmZmZmMGZm
+MCBEUjc6IDAwMDAwMDAwMDAwMDA0MDAKWzUyNjcxLjcwNjM4OF0gU3RhY2s6Cls1MjY3MS43MDYz
+ODldICBmZmZmODgwNDBhYzdiMDAwIGZmZmY4ODA0MGFjN2FhMDAgZmZmZjg4MDQwYWM3YjAwMCBm
+ZmZmZmZmZjgxMmY4NzQ3Cls1MjY3MS43MDYzOTFdICBmZmZmODgwNDFmYzBmZTQwIGZmZmZmZmZm
+ODEyZmIwZDggZmZmZjg4MDQxZmMwM2I4MCBmZmZmODgwNDFmYzAzYjc4Cls1MjY3MS43MDYzOTJd
+ICBmZmZmZmZmZjAwMDAwMDQwIDAwMDAwMDAwMDAwMDAyODYgZmZmZmZmZmY4MTdkZGEwMCBmZmZm
+ZmZmZjAyMTQxNDBhCls1MjY3MS43MDYzOTRdIENhbGwgVHJhY2U6Cls1MjY3MS43MDYzOTVdICA8
+SVJRPiAKCls1MjY3MS43MDYzOTldICBbPGZmZmZmZmZmODEyZjg3NDc+XSA/IHNrYl9vcnBoYW4r
+MHgxMi8weDI3Cls1MjY3MS43MDY0MDJdICBbPGZmZmZmZmZmODEyZmIwZDg+XSA/IGlwX3NlbmRf
+dW5pY2FzdF9yZXBseSsweDI0My8weDI5NwpbNTI2NzEuNzA2NDA2XSAgWzxmZmZmZmZmZjgxMDQ3
+N2JmPl0gPyBtb2RfdGltZXIrMHg3Yi8weDg5Cls1MjY3MS43MDY0MDldICBbPGZmZmZmZmZmODEz
+MTIwYzI+XSA/IHRjcF92NF9zZW5kX3Jlc2V0KzB4MmRiLzB4MzI0Cls1MjY3MS43MDY0MTFdICBb
+PGZmZmZmZmZmODEzMTJlNTY+XSA/IHRjcF92NF9yY3YrMHgzODcvMHg1NTkKWzUyNjcxLjcwNjQx
+M10gIFs8ZmZmZmZmZmY4MTJmNjAxNz5dID8gX194ZnJtX3BvbGljeV9jaGVjazIuY29uc3Rwcm9w
+LjkrMHg1MC8weDUwCls1MjY3MS43MDY0MTVdICBbPGZmZmZmZmZmODEyZjYxMTc+XSA/IGlwX2xv
+Y2FsX2RlbGl2ZXJfZmluaXNoKzB4MTAwLzB4MTc2Cls1MjY3MS43MDY0MThdICBbPGZmZmZmZmZm
+ODEyY2Q2NDA+XSA/IF9fbmV0aWZfcmVjZWl2ZV9za2JfY29yZSsweDQ0Ny8weDRiZgpbNTI2NzEu
+NzA2NDIwXSAgWzxmZmZmZmZmZjgxMmNkODkzPl0gPyBuZXRpZl9yZWNlaXZlX3NrYisweDRjLzB4
+N2QKWzUyNjcxLjcwNjQyMl0gIFs8ZmZmZmZmZmY4MTJjZTAxMz5dID8gbmFwaV9ncm9fcmVjZWl2
+ZSsweDM1LzB4NzYKWzUyNjcxLjcwNjQyN10gIFs8ZmZmZmZmZmZhMDRhYjI0Yz5dID8gaXhnYmVf
+cG9sbCsweGJjOS8weGUwYSBbaXhnYmVdCls1MjY3MS43MDY0MjldICBbPGZmZmZmZmZmODEyY2Rk
+YWE+XSA/IG5ldF9yeF9hY3Rpb24rMHhhNy8weDFlMQpbNTI2NzEuNzA2NDMxXSAgWzxmZmZmZmZm
+ZjgxMDY0NDJjPl0gPyBhY2NvdW50X3N5c3RlbV90aW1lKzB4MTEzLzB4MTJjCls1MjY3MS43MDY0
+MzNdICBbPGZmZmZmZmZmODEwNDE2ODM+XSA/IF9fZG9fc29mdGlycSsweGYxLzB4MjE2Cls1MjY3
+MS43MDY0MzZdICBbPGZmZmZmZmZmODEzOTc4MWM+XSA/IGNhbGxfc29mdGlycSsweDFjLzB4MzAK
+WzUyNjcxLjcwNjQzNl0gIDxFT0k+IAoKWzUyNjcxLjcwNjQzOV0gIFs8ZmZmZmZmZmY4MTAwZWFk
+ZT5dID8gZG9fc29mdGlycSsweDNhLzB4NzgKWzUyNjcxLjcwNjQ0MF0gIFs8ZmZmZmZmZmY4MTA0
+MTQyZT5dID8gX2xvY2FsX2JoX2VuYWJsZV9pcC5pc3JhLjExKzB4NmEvMHg4OApbNTI2NzEuNzA2
+NDQzXSAgWzxmZmZmZmZmZjgxMGEyNDEzPl0gPyByY3Vfbm9jYl9rdGhyZWFkKzB4MjVlLzB4Mjk4
+Cls1MjY3MS43MDY0NDVdICBbPGZmZmZmZmZmODEwNTczZTM+XSA/IGFib3J0X2V4Y2x1c2l2ZV93
+YWl0KzB4NzkvMHg3OQpbNTI2NzEuNzA2NDQ3XSAgWzxmZmZmZmZmZjgxMGEyMWI1Pl0gPyBmb3Jj
+ZV9xc19ybnArMHgxMjAvMHgxMjAKWzUyNjcxLjcwNjQ0OF0gIFs8ZmZmZmZmZmY4MTBhMjFiNT5d
+ID8gZm9yY2VfcXNfcm5wKzB4MTIwLzB4MTIwCls1MjY3MS43MDY0NTBdICBbPGZmZmZmZmZmODEw
+NTZhNTQ+XSA/IGt0aHJlYWQrMHg4MS8weDg5Cls1MjY3MS43MDY0NTJdICBbPGZmZmZmZmZmODEw
+MTI2Zjk+XSA/IHBhcmF2aXJ0X3JlYWRfdHNjKzB4NS8weDgKWzUyNjcxLjcwNjQ1NF0gIFs8ZmZm
+ZmZmZmY4MTA1NjlkMz5dID8gX19rdGhyZWFkX3BhcmttZSsweDVkLzB4NWQKWzUyNjcxLjcwNjQ1
+N10gIFs8ZmZmZmZmZmY4MTM5NjNiYz5dID8gcmV0X2Zyb21fZm9yaysweDdjLzB4YjAKWzUyNjcx
+LjcwNjQ1OF0gIFs8ZmZmZmZmZmY4MTA1NjlkMz5dID8gX19rdGhyZWFkX3BhcmttZSsweDVkLzB4
+NWQKWzUyNjcxLjcwNjQ1OV0gQ29kZTogZTYgZmYgZmYgODQgYzAgNzUgMWQgOGQgN2QgZmYgYmQg
+MDEgMDAgMDAgMDAgNDggOGQgYjMgMDQgMDEgMDAgMDAgZTggN2QgZTMgZmYgZmYgNDggODkgZGYg
+ZmYgOTMgNzAgMDIgMDAgMDAgZjAgMjkgYWIgMDQgMDEgMDAgMDAgPDQwPiAwZiA5NCBjNSA0MCA4
+NCBlZCA3NCAwYiA0OCA4OSBkZiA1YiA1YiA1ZCBlOSA5NCBmZSBmZiBmZiA0MSAK
+--001a11c34eb43881b605173623c4--
