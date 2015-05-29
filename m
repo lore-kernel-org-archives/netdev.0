@@ -1,54 +1,84 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: netlink and user namespaces
-Date: Fri, 29 May 2015 11:14:11 -0500
-Message-ID: <87vbfb4azw.fsf@x220.int.ebiederm.org>
-References: <1432901907.7545.30.camel@redhat.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: Request for advice on where to put Root Complex "fix up" code
+ for downstream device
+Date: Fri, 29 May 2015 11:20:21 -0500
+Message-ID: <20150529162021.GA12733@google.com>
+References: <4985EFDD773FCB459EF7915D2A3621ADBC7408@nice.asicdesigners.com>
+ <20150507230426.GO24643@google.com>
+ <4985EFDD773FCB459EF7915D2A3621ADBC80D4@nice.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Linux Containers <containers@lists.linux-foundation.org>
-To: Alexander Larsson <alexl@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Casey Leedom <leedom@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:59395 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751885AbbE2QTL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 12:19:11 -0400
-Cc: <netdev@vger.kernel.org>
-In-Reply-To: <1432901907.7545.30.camel@redhat.com> (Alexander Larsson's
-	message of "Fri, 29 May 2015 14:18:27 +0200")
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:36747 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756209AbbE2QUY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 12:20:24 -0400
+Received: by iepj10 with SMTP id j10so66403544iep.3
+        for <netdev@vger.kernel.org>; Fri, 29 May 2015 09:20:24 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4985EFDD773FCB459EF7915D2A3621ADBC80D4@nice.asicdesigners.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexander Larsson <alexl@redhat.com> writes:
+Hi Casey,
 
-> Now that I'm using a non-privileged user namespace for my desktop
-> sandboxing system all kind of network status things are breaking. The
-> reason for this is that they use netlink to enumerated interfaces, and
-> to verify that the replies are from the kernel (apparently anyone can
-> send anyone netlink messages) this code is verifying that the
-> SCM_CREDENTIAL sender of the netlink messages is uid 0.
->
-> For instance: 
-> http://git.0pointer.net/avahi.git/commit/avahi-core/netlink.c?id=37b2be93e63ceff95698f24cd91cb11774eb621c
-> and:
-> https://git.gnome.org/browse/glib/tree/gio/gnetworkmonitornetlink.c#n340
->
-> This obviously breaks when uid is not mapped (as it can't be in an
-> unprivileged user namespace), as uid will be overflowuid.
->
-> Is there any other way to check that a netlink message is from the
-> kernel?
+Sorry, this one slipped through and I forgot to respond earlier.
 
-*scratches my head*  Those are weird pieces of code.
+On Thu, May 07, 2015 at 11:31:58PM +0000, Casey Leedom wrote:
+> | From: Bjorn Helgaas [bhelgaas@google.com]
+> | Sent: Thursday, May 07, 2015 4:04 PM
+> | 
+> | There are a lot of fixups in drivers/pci/quirks.c.  For things that have to
+> | be worked around either before a driver claims the device or if there is no
+> | driver at all, the fixup *has* to go in drivers/pci/quirks.c
+> | 
+> | But for things like this, where the problem can only occur after a driver
+> | claims the device, I think it makes more sense to put the fixup in the
+> | driver itself.  The only wrinkle here is that the fixup has to be done on a
+> | separate device, not the device claimed by the driver.  But I think it
+> | probably still makes sense to put this fixup in the driver.
+> 
+>   Okay, the example code that I provided (still quoted below) was indeed
+> done as a fix within the cxgb4 Network Driver.  I've also worked up a
+> version as a PCI Quirk but if you and David Miller agree that the fixup
+> code should go into cxgb4, I'm comfortable with that.  I can also provide
+> the example PCI Quirk code I worked up if you like.
+> 
+>   One complication to doing this in cxgb4 is that it attaches to Physical
+> Function 4 of our T5 chip.  Meanwhile, a completely separate storage
+> driver, csiostor, connections to PF5 and PF6 and there's no
+> requirement at all that cxgb4 be loaded.  So if we go down the road of
+> putting the fixup code in the cxgb4 driver, we'll also need to duplicate
+> that code in the csiostor driver.
 
-The answer is the way you do this with any other socket.
+Sounds simpler to just put the quirk in drivers/pci/quirks.c.
 
-Call recvfrom or recvmsg.
-Looking at the senders address.
-If in the senders address nl_pid == 0 then the message is from
-the kernel.  Otherwise the message is from userspace.
+> | > +static void clear_root_complex_tlp_attributes(struct pci_dev *pdev)
+> | > +{
+> | > +     struct pci_bus *bus = pdev->bus;
+> | > +     struct pci_dev *highest_pcie_bridge = NULL;
+> | > +
+> | > +     while (bus) {
+> | > +             struct pci_dev *bridge = bus->self;
+> | > +
+> | > +             if (!bridge || !bridge->pcie_cap)
+> | > +                     break;
+> | > +             highest_pcie_bridge = bridge;
+> | > +             bus = bus->parent;
+> | > +     }
+> | 
+> | Can you use pci_upstream_bridge() here?  There are a couple places where we
+> | want to find the Root Port, so we might factor that out someday.  It'll be
+> | easier to find all those places if they use with pci_upstream_bridge().
+> 
+> It looks like pci_upstream_bridge() just traverses one like upstream toward the
+> Root Complex?  Or am I misunderstanding that function?
 
-Looking anywhere else at anything else is bogus.
+No, you're right.  I was just trying to suggest using pci_upstream_bridge()
+instead of bus->parent->self in your loop.  It wouldn't replace the loop
+completely.
 
-And a note.  nl_pid is short for netlink port id.  It is not a process id.
-
-Eric
+Bjorn
