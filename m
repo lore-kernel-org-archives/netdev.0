@@ -1,62 +1,64 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: dsa: Properly propagate errors from dsa_switch_setup_one
-Date: Fri, 29 May 2015 10:29:46 -0700
-Message-ID: <1432920586-20482-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch, linux@roeck-us.net,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:35725 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752628AbbE2R36 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 13:29:58 -0400
-Received: by pdea3 with SMTP id a3so58155816pde.2
-        for <netdev@vger.kernel.org>; Fri, 29 May 2015 10:29:58 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Mathieu Olivari" <mathieu-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: RE: [PATCH 3/7] net: dsa: ar8xxx: add regmap support
+Date: Fri, 29 May 2015 10:36:49 -0700
+Message-ID: <005b01d09a36$0b77daa0$22678fe0$@codeaurora.org>
+References: <1432863742-18427-1-git-send-email-mathieu@codeaurora.org> <1432863742-18427-4-git-send-email-mathieu@codeaurora.org> <5567C7B6.5060905@gmail.com> <20150529022329.GH11260@lunn.ch> <5567D0BA.5020409@gmail.com> <20150529024425.GI11260@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>,
+	<gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
+	<leitec-z4FmpzNVuK5Wk0Htik3J/w@public.gmane.org>, <fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>,
+	<pavel.nakonechny-Fmhy8gsqeTEvJsYlp49lxw@public.gmane.org>, <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	<sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, <juhosg-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "'Andrew Lunn'" <andrew-g2DYL2Zd6BY@public.gmane.org>,
+	"'Florian Fainelli'" <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150529024425.GI11260-g2DYL2Zd6BY@public.gmane.org>
+Content-Language: en-us
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-While shuffling some code around, dsa_switch_setup_one() was introduced,
-and it was modified to return either an error code using ERR_PTR() or a
-NULL pointer when running out of memory or failing to setup a switch.
+Alternatively, we could have something similar to what happens for the phy
+in the wireless subsystems. Wireless PHYs are not registered as net_device
+but they can still be listed, queried or configured through netlink.
+Just thinking out loud here.
 
-This is a problem for its caler: dsa_switch_setup() which uses IS_ERR()
-and expects to find an error code, not a NULL pointer, so we still try
-to proceed with dsa_switch_setup() and operate on invalid memory
-addresses. This can be easily reproduced by having e.g: the bcm_sf2
-driver built-in, but having no such switch, such that drv->setup will
-fail.
+Thanks,
+Mathieu
 
-Fix this by using PTR_ERR() consistently which is both more informative
-and avoids for the caller to use IS_ERR_OR_NULL().
+-----Original Message-----
+From: Andrew Lunn [mailto:andrew-g2DYL2Zd6BY@public.gmane.org] 
+Sent: Thursday, May 28, 2015 7:44 PM
+To: Florian Fainelli
+Cc: Mathieu Olivari; robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org; pawel.moll-5wv7dgnIgG8@public.gmane.org;
+mark.rutland-5wv7dgnIgG8@public.gmane.org; ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org; galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org;
+davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org; gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org;
+jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org; leitec-z4FmpzNVuK5Wk0Htik3J/w@public.gmane.org; fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org;
+pavel.nakonechny-Fmhy8gsqeTEvJsYlp49lxw@public.gmane.org; joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org; sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org;
+nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org; juhosg-p3rKhJxN3npAfugRpC6u6w@public.gmane.org; devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
+linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Subject: Re: [PATCH 3/7] net: dsa: ar8xxx: add regmap support
 
-Fixes: df197195a5248 ("net: dsa: split dsa_switch_setup into two functions")
-Reported-by: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- net/dsa/dsa.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> Fair enough, are there other global "things" besides counters that 
+> could deserve adding maybe some sort of global/master net_device to 
+> help query switch-wide information?
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index e6f6cc3a1bcf..392e29a0227d 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -359,7 +359,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
- 	 */
- 	ds = kzalloc(sizeof(*ds) + drv->priv_size, GFP_KERNEL);
- 	if (ds == NULL)
--		return NULL;
-+		return ERR_PTR(-ENOMEM);
- 
- 	ds->dst = dst;
- 	ds->index = index;
-@@ -370,7 +370,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
- 
- 	ret = dsa_switch_setup_one(ds, parent);
- 	if (ret)
--		return NULL;
-+		return ERR_PTR(ret);
- 
- 	return ds;
- }
--- 
-2.1.0
+This was discussed a while back. I like the current abstraction, all
+interfaces are real interfaces you can send and receive packets over. This
+pseudo interface cannot be used for packet transfer, which seems odd.
+
+Having access to registers for debugging, so debugfs seems like the best
+option to me.
+
+     Andrew
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
