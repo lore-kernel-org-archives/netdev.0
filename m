@@ -1,8 +1,7 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next 02/14] sfc: Add sysfs entry for flags (link control
- and primary)
-Date: Fri, 29 May 2015 11:01:17 +0100
-Message-ID: <556838ED.8020407@solarflare.com>
+Subject: [PATCH net-next 07/14] sfc: DMA the VF stats only when requested
+Date: Fri, 29 May 2015 11:02:20 +0100
+Message-ID: <5568392C.7050905@solarflare.com>
 References: <55683895.2090408@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -10,147 +9,241 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:46374 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753839AbbE2KCW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 06:02:22 -0400
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:27518 "EHLO
+	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751763AbbE2KCd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 06:02:33 -0400
 In-Reply-To: <55683895.2090408@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On  every adapter there will be one primary PF per adaptor and
-one link control PF per port.
+From: Daniel Pieczko <dpieczko@solarflare.com>
+
+Firmware does not support a periodic DMA of vadaptor-stats
+on VFs, so only update the stats buffer when stats are
+requested (when running "ethtool -S" or an ip/ifconfig
+command that reports stats).
 
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c | 62 ++++++++++++++++++++++++++++++++++-------
- 1 file changed, 52 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c      | 149 +++++++++++++++++++++++++----------
+ drivers/net/ethernet/sfc/mcdi_pcol.h |   4 +-
+ 2 files changed, 112 insertions(+), 41 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index ee20d96..ebdf6ee 100644
+index bf4677e..6aaec4e 100644
 --- a/drivers/net/ethernet/sfc/ef10.c
 +++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -255,8 +255,34 @@ static ssize_t efx_ef10_show_physical_port(struct device *dev,
- 	return sprintf(buf, "%d\n", efx->port_num);
+@@ -1204,7 +1204,50 @@ static size_t efx_ef10_describe_stats(struct efx_nic *efx, u8 *names)
+ 				      mask, names);
  }
  
--static DEVICE_ATTR(physical_port, 0444, efx_ef10_show_physical_port,
-+static ssize_t efx_ef10_show_link_control_flag(struct device *dev,
-+					       struct device_attribute *attr,
-+					       char *buf)
+-static int efx_ef10_try_update_nic_stats(struct efx_nic *efx)
++static size_t efx_ef10_update_stats_common(struct efx_nic *efx, u64 *full_stats,
++					   struct rtnl_link_stats64 *core_stats)
 +{
-+	struct efx_nic *efx = pci_get_drvdata(to_pci_dev(dev));
++	DECLARE_BITMAP(mask, EF10_STAT_COUNT);
++	struct efx_ef10_nic_data *nic_data = efx->nic_data;
++	u64 *stats = nic_data->stats;
++	size_t stats_count = 0, index;
 +
-+	return sprintf(buf, "%d\n",
-+		       ((efx->mcdi->fn_flags) &
-+			(1 << MC_CMD_DRV_ATTACH_EXT_OUT_FLAG_LINKCTRL))
-+		       ? 1 : 0);
++	efx_ef10_get_stat_mask(efx, mask);
++
++	if (full_stats) {
++		for_each_set_bit(index, mask, EF10_STAT_COUNT) {
++			if (efx_ef10_stat_desc[index].name) {
++				*full_stats++ = stats[index];
++				++stats_count;
++			}
++		}
++	}
++
++	if (core_stats) {
++		core_stats->rx_packets = stats[EF10_STAT_port_rx_packets];
++		core_stats->tx_packets = stats[EF10_STAT_port_tx_packets];
++		core_stats->rx_bytes = stats[EF10_STAT_port_rx_bytes];
++		core_stats->tx_bytes = stats[EF10_STAT_port_tx_bytes];
++		core_stats->rx_dropped = stats[EF10_STAT_port_rx_nodesc_drops] +
++					 stats[GENERIC_STAT_rx_nodesc_trunc] +
++					 stats[GENERIC_STAT_rx_noskb_drops];
++		core_stats->multicast = stats[EF10_STAT_port_rx_multicast];
++		core_stats->rx_length_errors =
++			stats[EF10_STAT_port_rx_gtjumbo] +
++			stats[EF10_STAT_port_rx_length_error];
++		core_stats->rx_crc_errors = stats[EF10_STAT_port_rx_bad];
++		core_stats->rx_frame_errors =
++			stats[EF10_STAT_port_rx_align_error];
++		core_stats->rx_fifo_errors = stats[EF10_STAT_port_rx_overflow];
++		core_stats->rx_errors = (core_stats->rx_length_errors +
++					 core_stats->rx_crc_errors +
++					 core_stats->rx_frame_errors);
++	}
++
++	return stats_count;
 +}
 +
-+static ssize_t efx_ef10_show_primary_flag(struct device *dev,
-+					  struct device_attribute *attr,
-+					  char *buf)
-+{
-+	struct efx_nic *efx = pci_get_drvdata(to_pci_dev(dev));
-+
-+	return sprintf(buf, "%d\n",
-+		       ((efx->mcdi->fn_flags) &
-+			(1 << MC_CMD_DRV_ATTACH_EXT_OUT_FLAG_PRIMARY))
-+		       ? 1 : 0);
-+}
-+
-+static DEVICE_ATTR(physical_port, 0444, efx_ef10_show_physical_port, NULL);
-+static DEVICE_ATTR(link_control_flag, 0444, efx_ef10_show_link_control_flag,
- 		   NULL);
-+static DEVICE_ATTR(primary_flag, 0444, efx_ef10_show_primary_flag, NULL);
- 
- static int efx_ef10_probe(struct efx_nic *efx)
++static int efx_ef10_try_update_nic_stats_pf(struct efx_nic *efx)
  {
-@@ -323,32 +349,41 @@ static int efx_ef10_probe(struct efx_nic *efx)
- 	if (rc)
- 		goto fail3;
+ 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
+ 	DECLARE_BITMAP(mask, EF10_STAT_COUNT);
+@@ -1241,57 +1284,83 @@ static int efx_ef10_try_update_nic_stats(struct efx_nic *efx)
+ }
  
--	rc = efx_ef10_get_pf_index(efx);
-+	rc = device_create_file(&efx->pci_dev->dev,
-+				&dev_attr_link_control_flag);
- 	if (rc)
- 		goto fail3;
  
-+	rc = device_create_file(&efx->pci_dev->dev, &dev_attr_primary_flag);
-+	if (rc)
-+		goto fail4;
-+
-+	rc = efx_ef10_get_pf_index(efx);
-+	if (rc)
-+		goto fail5;
-+
- 	rc = efx_ef10_init_datapath_caps(efx);
- 	if (rc < 0)
--		goto fail3;
-+		goto fail5;
+-static size_t efx_ef10_update_stats(struct efx_nic *efx, u64 *full_stats,
+-				    struct rtnl_link_stats64 *core_stats)
++static size_t efx_ef10_update_stats_pf(struct efx_nic *efx, u64 *full_stats,
++				       struct rtnl_link_stats64 *core_stats)
+ {
+-	DECLARE_BITMAP(mask, EF10_STAT_COUNT);
+-	struct efx_ef10_nic_data *nic_data = efx->nic_data;
+-	u64 *stats = nic_data->stats;
+-	size_t stats_count = 0, index;
+ 	int retry;
  
- 	efx->rx_packet_len_offset =
- 		ES_DZ_RX_PREFIX_PKTLEN_OFST - ES_DZ_RX_PREFIX_SIZE;
- 
- 	rc = efx_mcdi_port_get_number(efx);
- 	if (rc < 0)
--		goto fail3;
-+		goto fail5;
- 	efx->port_num = rc;
- 	rc = device_create_file(&efx->pci_dev->dev, &dev_attr_physical_port);
- 	if (rc)
--		goto fail3;
-+		goto fail5;
- 
- 	rc = efx->type->get_mac_address(efx, efx->net_dev->perm_addr);
- 	if (rc)
--		goto fail4;
-+		goto fail6;
- 
- 	rc = efx_ef10_get_sysclk_freq(efx);
- 	if (rc < 0)
--		goto fail4;
-+		goto fail6;
- 
- 	efx->timer_quantum_ns = 1536000 / rc; /* 1536 cycles */
- 
-@@ -368,7 +403,7 @@ static int efx_ef10_probe(struct efx_nic *efx)
- 		nic_data->workaround_35388 = enabled &
- 			MC_CMD_GET_WORKAROUNDS_OUT_BUG35388;
- 	} else if (rc != -ENOSYS && rc != -ENOENT) {
--		goto fail4;
-+		goto fail6;
+-	efx_ef10_get_stat_mask(efx, mask);
+-
+ 	/* If we're unlucky enough to read statistics during the DMA, wait
+ 	 * up to 10ms for it to finish (typically takes <500us)
+ 	 */
+ 	for (retry = 0; retry < 100; ++retry) {
+-		if (efx_ef10_try_update_nic_stats(efx) == 0)
++		if (efx_ef10_try_update_nic_stats_pf(efx) == 0)
+ 			break;
+ 		udelay(100);
  	}
  
- 	netif_dbg(efx, probe, efx->net_dev,
-@@ -377,14 +412,18 @@ static int efx_ef10_probe(struct efx_nic *efx)
+-	if (full_stats) {
+-		for_each_set_bit(index, mask, EF10_STAT_COUNT) {
+-			if (efx_ef10_stat_desc[index].name) {
+-				*full_stats++ = stats[index];
+-				++stats_count;
+-			}
+-		}
+-	}
++	return efx_ef10_update_stats_common(efx, full_stats, core_stats);
++}
  
- 	rc = efx_mcdi_mon_probe(efx);
- 	if (rc && rc != -EPERM)
--		goto fail4;
-+		goto fail6;
- 
- 	efx_ptp_probe(efx, NULL);
- 
- 	return 0;
- 
--fail4:
-+fail6:
- 	device_remove_file(&efx->pci_dev->dev, &dev_attr_physical_port);
-+fail5:
-+	device_remove_file(&efx->pci_dev->dev, &dev_attr_primary_flag);
-+fail4:
-+	device_remove_file(&efx->pci_dev->dev, &dev_attr_link_control_flag);
- fail3:
- 	efx_mcdi_fini(efx);
- fail2:
-@@ -629,6 +668,9 @@ static void efx_ef10_remove(struct efx_nic *efx)
- 
- 	device_remove_file(&efx->pci_dev->dev, &dev_attr_physical_port);
- 
-+	device_remove_file(&efx->pci_dev->dev, &dev_attr_primary_flag);
-+	device_remove_file(&efx->pci_dev->dev, &dev_attr_link_control_flag);
+-	if (core_stats) {
+-		core_stats->rx_packets = stats[EF10_STAT_port_rx_packets];
+-		core_stats->tx_packets = stats[EF10_STAT_port_tx_packets];
+-		core_stats->rx_bytes = stats[EF10_STAT_port_rx_bytes];
+-		core_stats->tx_bytes = stats[EF10_STAT_port_tx_bytes];
+-		core_stats->rx_dropped = stats[EF10_STAT_port_rx_nodesc_drops] +
+-					 stats[GENERIC_STAT_rx_nodesc_trunc] +
+-					 stats[GENERIC_STAT_rx_noskb_drops];
+-		core_stats->multicast = stats[EF10_STAT_port_rx_multicast];
+-		core_stats->rx_length_errors =
+-			stats[EF10_STAT_port_rx_gtjumbo] +
+-			stats[EF10_STAT_port_rx_length_error];
+-		core_stats->rx_crc_errors = stats[EF10_STAT_port_rx_bad];
+-		core_stats->rx_frame_errors =
+-			stats[EF10_STAT_port_rx_align_error];
+-		core_stats->rx_fifo_errors = stats[EF10_STAT_port_rx_overflow];
+-		core_stats->rx_errors = (core_stats->rx_length_errors +
+-					 core_stats->rx_crc_errors +
+-					 core_stats->rx_frame_errors);
++static int efx_ef10_try_update_nic_stats_vf(struct efx_nic *efx)
++{
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_MAC_STATS_IN_LEN);
++	struct efx_ef10_nic_data *nic_data = efx->nic_data;
++	DECLARE_BITMAP(mask, EF10_STAT_COUNT);
++	__le64 generation_start, generation_end;
++	u64 *stats = nic_data->stats;
++	u32 dma_len = MC_CMD_MAC_NSTATS * sizeof(u64);
++	struct efx_buffer stats_buf;
++	__le64 *dma_stats;
++	int rc;
 +
- 	efx_mcdi_fini(efx);
- 	efx_nic_free_buffer(efx, &nic_data->mcdi_buf);
- 	kfree(nic_data);
++	efx_ef10_get_stat_mask(efx, mask);
++
++	rc = efx_nic_alloc_buffer(efx, &stats_buf, dma_len, GFP_ATOMIC);
++	if (rc)
++		return rc;
++
++	dma_stats = stats_buf.addr;
++	dma_stats[MC_CMD_MAC_GENERATION_END] = EFX_MC_STATS_GENERATION_INVALID;
++
++	MCDI_SET_QWORD(inbuf, MAC_STATS_IN_DMA_ADDR, stats_buf.dma_addr);
++	MCDI_POPULATE_DWORD_1(inbuf, MAC_STATS_IN_CMD,
++			      MAC_STATS_IN_DMA, true);
++	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_DMA_LEN, dma_len);
++	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_PORT_ID, EVB_PORT_ID_ASSIGNED);
++
++	spin_unlock_bh(&efx->stats_lock);
++	rc = efx_mcdi_rpc(efx, MC_CMD_MAC_STATS, inbuf, sizeof(inbuf), NULL,
++			  0, NULL);
++	spin_lock_bh(&efx->stats_lock);
++	if (rc)
++		goto out;
++
++	generation_end = dma_stats[MC_CMD_MAC_GENERATION_END];
++	if (generation_end == EFX_MC_STATS_GENERATION_INVALID)
++		goto out;
++	rmb();
++	efx_nic_update_stats(efx_ef10_stat_desc, EF10_STAT_COUNT, mask,
++			     stats, stats_buf.addr, false);
++	rmb();
++	generation_start = dma_stats[MC_CMD_MAC_GENERATION_START];
++	if (generation_end != generation_start) {
++		rc = -EAGAIN;
++		goto out;
+ 	}
+ 
+-	return stats_count;
++	efx_update_sw_stats(efx, stats);
++out:
++	efx_nic_free_buffer(efx, &stats_buf);
++	return rc;
++}
++
++static size_t efx_ef10_update_stats_vf(struct efx_nic *efx, u64 *full_stats,
++				       struct rtnl_link_stats64 *core_stats)
++{
++	if (efx_ef10_try_update_nic_stats_vf(efx))
++		return 0;
++
++	return efx_ef10_update_stats_common(efx, full_stats, core_stats);
+ }
+ 
+ static void efx_ef10_push_irq_moderation(struct efx_channel *channel)
+@@ -4136,7 +4205,7 @@ const struct efx_nic_type efx_hunt_a0_vf_nic_type = {
+ 	.prepare_flr = efx_ef10_prepare_flr,
+ 	.finish_flr = efx_port_dummy_op_void,
+ 	.describe_stats = efx_ef10_describe_stats,
+-	.update_stats = efx_ef10_update_stats,
++	.update_stats = efx_ef10_update_stats_vf,
+ 	.start_stats = efx_port_dummy_op_void,
+ 	.pull_stats = efx_port_dummy_op_void,
+ 	.stop_stats = efx_port_dummy_op_void,
+@@ -4238,7 +4307,7 @@ const struct efx_nic_type efx_hunt_a0_nic_type = {
+ 	.prepare_flr = efx_ef10_prepare_flr,
+ 	.finish_flr = efx_port_dummy_op_void,
+ 	.describe_stats = efx_ef10_describe_stats,
+-	.update_stats = efx_ef10_update_stats,
++	.update_stats = efx_ef10_update_stats_pf,
+ 	.start_stats = efx_mcdi_mac_start_stats,
+ 	.pull_stats = efx_mcdi_mac_pull_stats,
+ 	.stop_stats = efx_mcdi_mac_stop_stats,
+diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
+index 0e497b3..181978d 100644
+--- a/drivers/net/ethernet/sfc/mcdi_pcol.h
++++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
+@@ -2755,7 +2755,7 @@
+ #define MC_CMD_0x2e_PRIVILEGE_CTG SRIOV_CTG_GENERAL
+ 
+ /* MC_CMD_MAC_STATS_IN msgrequest */
+-#define    MC_CMD_MAC_STATS_IN_LEN 16
++#define    MC_CMD_MAC_STATS_IN_LEN 20
+ /* ??? */
+ #define       MC_CMD_MAC_STATS_IN_DMA_ADDR_OFST 0
+ #define       MC_CMD_MAC_STATS_IN_DMA_ADDR_LEN 8
+@@ -2777,6 +2777,8 @@
+ #define        MC_CMD_MAC_STATS_IN_PERIOD_MS_LBN 16
+ #define        MC_CMD_MAC_STATS_IN_PERIOD_MS_WIDTH 16
+ #define       MC_CMD_MAC_STATS_IN_DMA_LEN_OFST 12
++/* port id so vadapter stats can be provided */
++#define       MC_CMD_MAC_STATS_IN_PORT_ID_OFST 16
+ 
+ /* MC_CMD_MAC_STATS_OUT_DMA msgresponse */
+ #define    MC_CMD_MAC_STATS_OUT_DMA_LEN 0
