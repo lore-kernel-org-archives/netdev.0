@@ -1,7 +1,7 @@
 From: Mathieu Olivari <mathieu@codeaurora.org>
-Subject: [PATCH 7/7] Documentation: devicetree: add ar8xxx binding
-Date: Thu, 28 May 2015 18:42:22 -0700
-Message-ID: <1432863742-18427-8-git-send-email-mathieu@codeaurora.org>
+Subject: [PATCH 4/7] net: dsa: add QCA tag support
+Date: Thu, 28 May 2015 18:42:19 -0700
+Message-ID: <1432863742-18427-5-git-send-email-mathieu@codeaurora.org>
 References: <1432863742-18427-1-git-send-email-mathieu@codeaurora.org>
 Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
@@ -18,89 +18,266 @@ In-Reply-To: <1432863742-18427-1-git-send-email-mathieu@codeaurora.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add device-tree binding for ar8xxx switch families.
+QCA tags are used on QCA ar8xxx switch family. This change adds support
+for encap/decap using 2 bytes header mode.
 
 Signed-off-by: Mathieu Olivari <mathieu@codeaurora.org>
 ---
- .../devicetree/bindings/net/dsa/qca-ar8xxx.txt     | 70 ++++++++++++++++++++++
- 1 file changed, 70 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/dsa/qca-ar8xxx.txt
+ include/net/dsa.h  |   1 +
+ net/dsa/Kconfig    |   3 +
+ net/dsa/Makefile   |   1 +
+ net/dsa/dsa.c      |   5 ++
+ net/dsa/dsa_priv.h |   2 +
+ net/dsa/slave.c    |   5 ++
+ net/dsa/tag_qca.c  | 158 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 175 insertions(+)
+ create mode 100644 net/dsa/tag_qca.c
 
-diff --git a/Documentation/devicetree/bindings/net/dsa/qca-ar8xxx.txt b/Documentation/devicetree/bindings/net/dsa/qca-ar8xxx.txt
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index fbca63b..64ddf6f 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -26,6 +26,7 @@ enum dsa_tag_protocol {
+ 	DSA_TAG_PROTO_TRAILER,
+ 	DSA_TAG_PROTO_EDSA,
+ 	DSA_TAG_PROTO_BRCM,
++	DSA_TAG_PROTO_QCA,
+ };
+ 
+ #define DSA_MAX_SWITCHES	4
+diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+index ff7736f..4f3cce1 100644
+--- a/net/dsa/Kconfig
++++ b/net/dsa/Kconfig
+@@ -26,6 +26,9 @@ config NET_DSA_HWMON
+ 	  via the hwmon sysfs interface and exposes the onboard sensors.
+ 
+ # tagging formats
++config NET_DSA_TAG_QCA
++	bool
++
+ config NET_DSA_TAG_BRCM
+ 	bool
+ 
+diff --git a/net/dsa/Makefile b/net/dsa/Makefile
+index da06ed1..9feb86c 100644
+--- a/net/dsa/Makefile
++++ b/net/dsa/Makefile
+@@ -3,6 +3,7 @@ obj-$(CONFIG_NET_DSA) += dsa_core.o
+ dsa_core-y += dsa.o slave.o
+ 
+ # tagging formats
++dsa_core-$(CONFIG_NET_DSA_TAG_QCA) += tag_qca.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_BRCM) += tag_brcm.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index fffb9aa..6010a7d 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -249,6 +249,11 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
+ 			dst->rcv = brcm_netdev_ops.rcv;
+ 			break;
+ #endif
++#ifdef CONFIG_NET_DSA_TAG_QCA
++		case DSA_TAG_PROTO_QCA:
++			dst->rcv = qca_netdev_ops.rcv;
++			break;
++#endif
+ 		case DSA_TAG_PROTO_NONE:
+ 			break;
+ 		default:
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index d5f1f9b..350c94b 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -74,5 +74,7 @@ extern const struct dsa_device_ops trailer_netdev_ops;
+ /* tag_brcm.c */
+ extern const struct dsa_device_ops brcm_netdev_ops;
+ 
++/* tag_qca.c */
++extern const struct dsa_device_ops qca_netdev_ops;
+ 
+ #endif
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 04ffad3..cd8f552 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -925,6 +925,11 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 		p->xmit = brcm_netdev_ops.xmit;
+ 		break;
+ #endif
++#ifdef CONFIG_NET_DSA_TAG_QCA
++	case DSA_TAG_PROTO_QCA:
++		p->xmit = qca_netdev_ops.xmit;
++		break;
++#endif
+ 	default:
+ 		p->xmit	= dsa_slave_notag_xmit;
+ 		break;
+diff --git a/net/dsa/tag_qca.c b/net/dsa/tag_qca.c
 new file mode 100644
-index 0000000..f4fd3f1
+index 0000000..8f02196
 --- /dev/null
-+++ b/Documentation/devicetree/bindings/net/dsa/qca-ar8xxx.txt
-@@ -0,0 +1,70 @@
-+* Qualcomm Atheros AR8xxx switch family
++++ b/net/dsa/tag_qca.c
+@@ -0,0 +1,158 @@
++/*
++ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 and
++ * only version 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
 +
-+Required properties:
++#include <linux/etherdevice.h>
++#include "dsa_priv.h"
 +
-+- compatible: should be "qca,ar8xxx"
-+- dsa,mii-bus: phandle to the MDIO bus controller, see dsa/dsa.txt
-+- dsa,ethernet: phandle to the CPU network interface controller, see dsa/dsa.txt
-+- #size-cells: must be 0
-+- #address-cells: must be 2, see dsa/dsa.txt
++#define QCA_HDR_LEN	2
++#define QCA_HDR_VERSION	0x2
 +
-+Subnodes:
++#define QCA_HDR_RECV_VERSION_MASK	GENMASK(15, 14)
++#define QCA_HDR_RECV_VERSION_S		14
++#define QCA_HDR_RECV_PRIORITY_MASK	GENMASK(13, 11)
++#define QCA_HDR_RECV_PRIORITY_S		11
++#define QCA_HDR_RECV_TYPE_MASK		GENMASK(10, 6)
++#define QCA_HDR_RECV_TYPE_S		6
++#define QCA_HDR_RECV_FRAME_IS_TAGGED	BIT(3)
++#define QCA_HDR_RECV_SOURCE_PORT_MASK	GENMASK(2, 0)
 +
-+The integrated switch subnode should be specified according to the binding
-+described in dsa/dsa.txt.
++#define QCA_HDR_XMIT_VERSION_MASK	GENMASK(15, 14)
++#define QCA_HDR_XMIT_VERSION_S		14
++#define QCA_HDR_XMIT_PRIORITY_MASK	GENMASK(13, 11)
++#define QCA_HDR_XMIT_PRIORITY_S		11
++#define QCA_HDR_XMIT_CONTROL_MASK	GENMASK(10, 8)
++#define QCA_HDR_XMIT_CONTROL_S		8
++#define QCA_HDR_XMIT_FROM_CPU		BIT(7)
++#define QCA_HDR_XMIT_DP_BIT_MASK	GENMASK(6, 0)
 +
-+Optional properties:
++static inline int reg_to_port(int reg)
++{
++	if (reg < 5)
++		return reg + 1;
 +
-+- qca,port6-phy-mode: if specified, the driver will configure Port 6 in the
-+  given phy-mode. See Documentation/devicetree/bindings/net/ethernet.txt for
-+  the list of valid phy-mode.
++	return -1;
++}
 +
-+- qca,port6-phy-id: if specified, the driver will connect Port 6 to the PHY
-+  given as a parameter. In this case, Port6 and the corresponding PHY will be
-+  isolated from the rest of the switch. From a system perspective, they will
-+  act as a regular PHY.
++static inline int port_to_reg(int port)
++{
++	if (port >= 1 && port <= 6)
++		return port - 1;
 +
-+Example:
++	return -1;
++}
 +
-+	dsa@0 {
-+		compatible = "qca,ar8xxx";
-+		#address-cells = <2>;
-+		#size-cells = <0>;
++static netdev_tx_t qca_tag_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	u16 *phdr, hdr;
 +
-+		dsa,ethernet = <&ethernet0>;
-+		dsa,mii-bus = <&mii_bus0>;
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += skb->len;
 +
-+		switch@0 {
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			reg = <0 0>;	/* MDIO address 0, switch 0 in tree */
++	if (skb_cow_head(skb, 0) < 0)
++		goto out_free;
 +
-+			qca,port6-phy-mode = "sgmii";
-+			qca,port6-phy-id = <4>;
++	skb_push(skb, QCA_HDR_LEN);
 +
-+			port@0 {
-+				reg = <11>;
-+				label = "cpu";
-+			};
++	memmove(skb->data, skb->data + QCA_HDR_LEN, 2 * ETH_ALEN);
++	phdr = (u16 *)(skb->data + 2 * ETH_ALEN);
 +
-+			port@1 {
-+				reg = <0>;
-+				label = "lan1";
-+			};
++	/* Set the version field, and set destination port information */
++	hdr = QCA_HDR_VERSION << QCA_HDR_XMIT_VERSION_S |
++		QCA_HDR_XMIT_FROM_CPU |
++		1 << reg_to_port(p->port);
 +
-+			port@2 {
-+				reg = <1>;
-+				label = "lan2";
-+			};
++	*phdr = htons(hdr);
 +
-+			port@3 {
-+				reg = <2>;
-+				label = "lan3";
-+			};
++	skb->dev = p->parent->dst->master_netdev;
++	dev_queue_xmit(skb);
 +
-+			port@4 {
-+				reg = <3>;
-+				label = "lan4";
-+			};
-+		};
-+	};
++	return NETDEV_TX_OK;
++
++out_free:
++	kfree_skb(skb);
++	return NETDEV_TX_OK;
++}
++
++static int qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
++		       struct packet_type *pt, struct net_device *orig_dev)
++{
++	struct dsa_switch_tree *dst = dev->dsa_ptr;
++	struct dsa_switch *ds;
++	u8 ver;
++	int port, phy;
++	__be16 *phdr, hdr;
++
++	if (unlikely(!dst))
++		goto out_drop;
++
++	skb = skb_unshare(skb, GFP_ATOMIC);
++	if (!skb)
++		goto out;
++
++	if (unlikely(!pskb_may_pull(skb, QCA_HDR_LEN)))
++		goto out_drop;
++
++	/* Ethernet is added by the switch between src addr and Ethertype
++	 * At this point, skb->data points to ethertype so header should be
++	 * right before
++	 */
++	phdr = (__be16 *)(skb->data - 2);
++	hdr = ntohs(*phdr);
++
++	/* Make sure the version is correct */
++	ver = (hdr & QCA_HDR_RECV_VERSION_MASK) >> QCA_HDR_RECV_VERSION_S;
++	if (unlikely(ver != QCA_HDR_VERSION))
++		goto out_drop;
++
++	/* Remove QCA tag and recalculate checksum */
++	skb_pull_rcsum(skb, QCA_HDR_LEN);
++	memmove(skb->data - ETH_HLEN, skb->data - ETH_HLEN - QCA_HDR_LEN,
++		ETH_HLEN - QCA_HDR_LEN);
++
++	/* This protocol doesn't support cascading multiple switches so it's
++	 * safe to assume the switch is first in the tree
++	 */
++	ds = dst->ds[0];
++	if (!ds)
++		goto out_drop;
++
++	/* Get source port information */
++	port = (hdr & QCA_HDR_RECV_SOURCE_PORT_MASK);
++	phy = port_to_reg(port);
++	if (unlikely(phy < 0) || !ds->ports[phy])
++		goto out_drop;
++
++	/* Update skb & forward the frame accordingly */
++	skb_push(skb, ETH_HLEN);
++	skb->pkt_type = PACKET_HOST;
++	skb->dev = ds->ports[phy];
++	skb->protocol = eth_type_trans(skb, skb->dev);
++
++	skb->dev->stats.rx_packets++;
++	skb->dev->stats.rx_bytes += skb->len;
++
++	netif_receive_skb(skb);
++
++	return 0;
++
++out_drop:
++	kfree_skb(skb);
++out:
++	return 0;
++}
++
++const struct dsa_device_ops qca_netdev_ops = {
++	.xmit	= qca_tag_xmit,
++	.rcv	= qca_tag_rcv,
++};
 -- 
 2.1.4
