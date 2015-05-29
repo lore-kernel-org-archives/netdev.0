@@ -1,35 +1,43 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] bpf: allow BPF programs access skb->skb_iif
- and skb->dev->ifindex fields
-Date: Thu, 28 May 2015 20:40:44 -0700
-Message-ID: <5567DFBC.3080008@plumgrid.com>
-References: <1432765839-7709-1-git-send-email-ast@plumgrid.com> <55676AFA.2030403@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request (net): ipsec 2015-05-28
+Date: Thu, 28 May 2015 20:41:52 -0700 (PDT)
+Message-ID: <20150528.204152.723928818590100061.davem@davemloft.net>
+References: <1432798090-20657-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33568 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751769AbbE2Dkq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 23:40:46 -0400
-Received: by padbw4 with SMTP id bw4so39541117pad.0
-        for <netdev@vger.kernel.org>; Thu, 28 May 2015 20:40:45 -0700 (PDT)
-In-Reply-To: <55676AFA.2030403@iogearbox.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52817 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754838AbbE2Dlx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 23:41:53 -0400
+In-Reply-To: <1432798090-20657-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/28/15 12:22 PM, Daniel Borkmann wrote:
->>
->> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
->
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Thu, 28 May 2015 09:28:03 +0200
 
-btw, Daniel, your ack appeared on the mailing list, but didn't make
-it into patchwork...
-Same issue as I was having.
-I noticed when I send email via gmail web interface it always
-appears as separate thread and doesn't register in patchwork.
-So now I've switched to mutt and thunderbird only :)
+> 1) Fix a race in xfrm_state_lookup_byspi, we need to take
+>    the refcount before we release xfrm_state_lock.
+>    From Li RongQing.
+> 
+> 2) Fix IV generation on ESN state. We used just the
+>    low order sequence numbers for IV generation on
+>    ESN, as a result the IV can repeat on the same
+>    state. Fix this by using the  high order sequence
+>    number bits too and make sure to always initialize
+>    the high order bits with zero. These patches are
+>    serious stable candidates. Fixes from Herbert Xu.
+> 
+> 3) Fix the skb->mark handling on vti. We don't
+>    reset skb->mark in skb_scrub_packet anymore,
+>    so vti must care to restore the original
+>    value back after it was used to lookup the
+>    vti policy and state. Fixes from Alexander Duyck.
+> 
+> Please pull or let me know if there are problems.
+
+Pulled, thanks Steffen.
