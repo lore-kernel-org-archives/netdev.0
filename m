@@ -1,255 +1,43 @@
-From: Mark Salter <msalter@redhat.com>
-Subject: Re: [V5 PATCH 2/5] arm64 : Introduce support for ACPI _CCA object
-Date: Thu, 28 May 2015 22:38:19 -0400
-Message-ID: <1432867099.24429.4.camel@deneb.redhat.com>
-References: <1432159758-4486-1-git-send-email-Suravee.Suthikulpanit@amd.com>
-	 <1432159758-4486-3-git-send-email-Suravee.Suthikulpanit@amd.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH 3/7] net: dsa: ar8xxx: add regmap support
+Date: Fri, 29 May 2015 04:44:25 +0200
+Message-ID: <20150529024425.GI11260@lunn.ch>
+References: <1432863742-18427-1-git-send-email-mathieu@codeaurora.org>
+ <1432863742-18427-4-git-send-email-mathieu@codeaurora.org>
+ <5567C7B6.5060905@gmail.com>
+ <20150529022329.GH11260@lunn.ch>
+ <5567D0BA.5020409@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: rjw@rjwysocki.net, lenb@kernel.org, catalin.marinas@arm.com,
-	will.deacon@arm.com, thomas.lendacky@amd.com,
-	herbert@gondor.apana.org.au, davem@davemloft.net, arnd@arndb.de,
-	hanjun.guo@linaro.org, al.stone@linaro.org,
-	grant.likely@linaro.org, leo.duran@amd.com,
-	linux-arm-kernel@lists.infradead.org, linux-acpi@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linaro-acpi@lists.linaro.org,
-	netdev@vger.kernel.org, linux-crypto@vger.kernel.org
-To: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1432159758-4486-3-git-send-email-Suravee.Suthikulpanit@amd.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mathieu Olivari <mathieu-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org, gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, leitec-z4FmpzNVuK5Wk0Htik3J/w@public.gmane.org, fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org,
+	pavel.nakonechny-Fmhy8gsqeTEvJsYlp49lxw@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, juhosg-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <5567D0BA.5020409-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-05-20 at 17:09 -0500, Suravee Suthikulpanit wrote:
-> From http://www.uefi.org/sites/default/files/resources/ACPI_6.0.pdf,
-> section 6.2.17 _CCA states that ARM platforms require ACPI _CCA
-> object to be specified for DMA-cabpable devices. Therefore, this patc=
-h
-> specifies ACPI_CCA_REQUIRED in arm64 Kconfig.
->=20
-> In addition, to handle the case when _CCA is missing, arm64 would ass=
-ign
-> dummy_dma_ops to disable DMA capability of the device.
->=20
-> Acked-by: Catalin Marinas <catalin.marinas@arm.com>
-> Signed-off-by: Mark Salter <msalter@redhat.com>
-> Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-> ---
->  arch/arm64/Kconfig                   |  1 +
->  arch/arm64/include/asm/dma-mapping.h | 18 ++++++-
->  arch/arm64/mm/dma-mapping.c          | 92 ++++++++++++++++++++++++++=
-++++++++++
->  3 files changed, 109 insertions(+), 2 deletions(-)
->=20
-> diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
-> index 4269dba..95307b4 100644
-> --- a/arch/arm64/Kconfig
-> +++ b/arch/arm64/Kconfig
-> @@ -1,5 +1,6 @@
->  config ARM64
->  	def_bool y
-> +	select ACPI_CCA_REQUIRED if ACPI
->  	select ACPI_GENERIC_GSI if ACPI
->  	select ACPI_REDUCED_HARDWARE_ONLY if ACPI
->  	select ARCH_HAS_ATOMIC64_DEC_IF_POSITIVE
-> diff --git a/arch/arm64/include/asm/dma-mapping.h b/arch/arm64/includ=
-e/asm/dma-mapping.h
-> index 9437e3d..f0d6d0b 100644
-> --- a/arch/arm64/include/asm/dma-mapping.h
-> +++ b/arch/arm64/include/asm/dma-mapping.h
-> @@ -18,6 +18,7 @@
-> =20
->  #ifdef __KERNEL__
-> =20
-> +#include <linux/acpi.h>
->  #include <linux/types.h>
->  #include <linux/vmalloc.h>
-> =20
+> Fair enough, are there other global "things" besides counters that could
+> deserve adding maybe some sort of global/master net_device to help query
+> switch-wide information?
 
-^^^ This hunk causes build issues with a couple of drivers:
+This was discussed a while back. I like the current abstraction, all
+interfaces are real interfaces you can send and receive packets
+over. This pseudo interface cannot be used for packet transfer, which
+seems odd.
 
-drivers/scsi/megaraid/megaraid_sas_fp.c:69:0: warning: "FALSE" redefine=
-d [enabled by default]
- #define FALSE 0
- ^
-In file included from include/acpi/acpi.h:58:0,
-                 from include/linux/acpi.h:37,
-                 from ./arch/arm64/include/asm/dma-mapping.h:21,
-                 from include/linux/dma-mapping.h:86,
-                 from ./arch/arm64/include/asm/pci.h:7,
-                 from include/linux/pci.h:1460,
-                 from drivers/scsi/megaraid/megaraid_sas_fp.c:37:
-include/acpi/actypes.h:433:0: note: this is the location of the previou=
-s definition
- #define FALSE                           (1 =3D=3D 0)
- ^
+Having access to registers for debugging, so debugfs seems like the
+best option to me.
 
-
-In file included from include/acpi/acpi.h:58:0,
-                 from include/linux/acpi.h:37,
-                 from ./arch/arm64/include/asm/dma-mapping.h:21,
-                 from include/linux/dma-mapping.h:86,
-                 from include/scsi/scsi_cmnd.h:4,
-                 from drivers/scsi/ufs/ufshcd.h:60,
-                 from drivers/scsi/ufs/ufshcd.c:43:
-include/acpi/actypes.h:433:41: error: expected identifier before =E2=80=
-=98(=E2=80=99 token
- #define FALSE                           (1 =3D=3D 0)
-                                         ^
-drivers/scsi/ufs/unipro.h:203:2: note: in expansion of macro =E2=80=98F=
-ALSE=E2=80=99
-  FALSE =3D 0,
-  ^
-
-This happens because the ACPI definitions of TRUE and FALSE conflict
-with local definitions in megaraid and enum declaration in ufs.
-
-
-> @@ -28,13 +29,23 @@
-> =20
->  #define DMA_ERROR_CODE	(~(dma_addr_t)0)
->  extern struct dma_map_ops *dma_ops;
-> +extern struct dma_map_ops dummy_dma_ops;
-> =20
->  static inline struct dma_map_ops *__generic_dma_ops(struct device *d=
-ev)
->  {
-> -	if (unlikely(!dev) || !dev->archdata.dma_ops)
-> +	if (unlikely(!dev))
->  		return dma_ops;
-> -	else
-> +	else if (dev->archdata.dma_ops)
->  		return dev->archdata.dma_ops;
-> +	else if (acpi_disabled)
-> +		return dma_ops;
-> +
-> +	/*
-> +	 * When ACPI is enabled, if arch_set_dma_ops is not called,
-> +	 * we will disable device DMA capability by setting it
-> +	 * to dummy_dma_ops.
-> +	 */
-> +	return &dummy_dma_ops;
->  }
-> =20
->  static inline struct dma_map_ops *get_dma_ops(struct device *dev)
-> @@ -48,6 +59,9 @@ static inline struct dma_map_ops *get_dma_ops(struc=
-t device *dev)
->  static inline void arch_setup_dma_ops(struct device *dev, u64 dma_ba=
-se, u64 size,
->  				      struct iommu_ops *iommu, bool coherent)
->  {
-> +	if (!acpi_disabled && !dev->archdata.dma_ops)
-> +		dev->archdata.dma_ops =3D dma_ops;
-> +
->  	dev->archdata.dma_coherent =3D coherent;
->  }
->  #define arch_setup_dma_ops	arch_setup_dma_ops
-> diff --git a/arch/arm64/mm/dma-mapping.c b/arch/arm64/mm/dma-mapping.=
-c
-> index ef7d112..6e6d6ad 100644
-> --- a/arch/arm64/mm/dma-mapping.c
-> +++ b/arch/arm64/mm/dma-mapping.c
-> @@ -415,6 +415,98 @@ out:
->  	return -ENOMEM;
->  }
-> =20
-> +/********************************************
-> + * The following APIs are for dummy DMA ops *
-> + ********************************************/
-> +
-> +static void *__dummy_alloc(struct device *dev, size_t size,
-> +			   dma_addr_t *dma_handle, gfp_t flags,
-> +			   struct dma_attrs *attrs)
-> +{
-> +	return NULL;
-> +}
-> +
-> +static void __dummy_free(struct device *dev, size_t size,
-> +			 void *vaddr, dma_addr_t dma_handle,
-> +			 struct dma_attrs *attrs)
-> +{
-> +}
-> +
-> +static int __dummy_mmap(struct device *dev,
-> +			struct vm_area_struct *vma,
-> +			void *cpu_addr, dma_addr_t dma_addr, size_t size,
-> +			struct dma_attrs *attrs)
-> +{
-> +	return -ENXIO;
-> +}
-> +
-> +static dma_addr_t __dummy_map_page(struct device *dev, struct page *=
-page,
-> +				   unsigned long offset, size_t size,
-> +				   enum dma_data_direction dir,
-> +				   struct dma_attrs *attrs)
-> +{
-> +	return DMA_ERROR_CODE;
-> +}
-> +
-> +static void __dummy_unmap_page(struct device *dev, dma_addr_t dev_ad=
-dr,
-> +			       size_t size, enum dma_data_direction dir,
-> +			       struct dma_attrs *attrs)
-> +{
-> +}
-> +
-> +static int __dummy_map_sg(struct device *dev, struct scatterlist *sg=
-l,
-> +			  int nelems, enum dma_data_direction dir,
-> +			  struct dma_attrs *attrs)
-> +{
-> +	return 0;
-> +}
-> +
-> +static void __dummy_unmap_sg(struct device *dev,
-> +			     struct scatterlist *sgl, int nelems,
-> +			     enum dma_data_direction dir,
-> +			     struct dma_attrs *attrs)
-> +{
-> +}
-> +
-> +static void __dummy_sync_single(struct device *dev,
-> +				dma_addr_t dev_addr, size_t size,
-> +				enum dma_data_direction dir)
-> +{
-> +}
-> +
-> +static void __dummy_sync_sg(struct device *dev,
-> +			    struct scatterlist *sgl, int nelems,
-> +			    enum dma_data_direction dir)
-> +{
-> +}
-> +
-> +static int __dummy_mapping_error(struct device *hwdev, dma_addr_t dm=
-a_addr)
-> +{
-> +	return 1;
-> +}
-> +
-> +static int __dummy_dma_supported(struct device *hwdev, u64 mask)
-> +{
-> +	return 0;
-> +}
-> +
-> +struct dma_map_ops dummy_dma_ops =3D {
-> +	.alloc                  =3D __dummy_alloc,
-> +	.free                   =3D __dummy_free,
-> +	.mmap                   =3D __dummy_mmap,
-> +	.map_page               =3D __dummy_map_page,
-> +	.unmap_page             =3D __dummy_unmap_page,
-> +	.map_sg                 =3D __dummy_map_sg,
-> +	.unmap_sg               =3D __dummy_unmap_sg,
-> +	.sync_single_for_cpu    =3D __dummy_sync_single,
-> +	.sync_single_for_device =3D __dummy_sync_single,
-> +	.sync_sg_for_cpu        =3D __dummy_sync_sg,
-> +	.sync_sg_for_device     =3D __dummy_sync_sg,
-> +	.mapping_error          =3D __dummy_mapping_error,
-> +	.dma_supported          =3D __dummy_dma_supported,
-> +};
-> +EXPORT_SYMBOL(dummy_dma_ops);
-> +
->  static int __init arm64_dma_init(void)
->  {
->  	int ret;
+     Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
