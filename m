@@ -1,60 +1,41 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] configure: Check for libmnl
-Date: Fri, 29 May 2015 13:27:41 +0300
-Message-ID: <1432895261-11826-1-git-send-email-vadim4j@gmail.com>
+Subject: [PATCH iproute2] ss: Fix allocation of cong control alg name
+Date: Fri, 29 May 2015 13:30:00 +0300
+Message-ID: <1432895400-12266-1-git-send-email-vadim4j@gmail.com>
 Cc: Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:33026 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755514AbbE2K2o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 06:28:44 -0400
-Received: by labpy14 with SMTP id py14so40613160lab.0
-        for <netdev@vger.kernel.org>; Fri, 29 May 2015 03:28:42 -0700 (PDT)
+Received: from mail-la0-f47.google.com ([209.85.215.47]:35777 "EHLO
+	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750998AbbE2KbB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 06:31:01 -0400
+Received: by labko7 with SMTP id ko7so48770425lab.2
+        for <netdev@vger.kernel.org>; Fri, 29 May 2015 03:30:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vadim Kochan <vadim4j@gmail.com>
 
-Indicate existence of libmnl which is required by tipc.
+Use strdup instead of malloc, and get rid of bad strcpy.
 
 Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 ---
- configure | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ misc/ss.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/configure b/configure
-index f1325df..1605464 100755
---- a/configure
-+++ b/configure
-@@ -284,6 +284,17 @@ check_selinux()
- 	fi
- }
+diff --git a/misc/ss.c b/misc/ss.c
+index 347e3a1..a719466 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1908,8 +1908,7 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
  
-+check_mnl()
-+{
-+	if ${PKG_CONFIG} libmnl --exists
-+	then
-+		echo "HAVE_MNL:=y" >>Config
-+		echo -n "yes"
-+	else
-+		echo -n "no"
-+	fi
-+}
-+
- echo "# Generated config based on" $INCLUDE >Config
- check_toolchain
+ 		if (tb[INET_DIAG_CONG]) {
+ 			const char *cong_attr = rta_getattr_str(tb[INET_DIAG_CONG]);
+-			s.cong_alg = malloc(strlen(cong_attr + 1));
+-			strcpy(s.cong_alg, cong_attr);
++			s.cong_alg = strdup(cong_attr);
+ 		}
  
-@@ -313,5 +324,10 @@ check_selinux
- echo -n "ELF support: "
- check_elf
- 
-+echo -n "libmnl support: "
-+check_mnl
-+echo " (required by tipc)"
-+
- echo -e "\nDocs"
- check_docs
-+echo ""
+ 		if (TCPI_HAS_OPT(info, TCPI_OPT_WSCALE)) {
 -- 
 2.3.1
