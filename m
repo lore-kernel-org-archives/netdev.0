@@ -1,56 +1,131 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH 0/7] net: dsa: add QCA AR8xxx switch family support\
-Date: Fri, 29 May 2015 20:59:53 +0200
-Message-ID: <20150529185953.GF19580@lunn.ch>
-References: <1432863742-18427-1-git-send-email-mathieu@codeaurora.org>
- <20150529020001.GF11260@lunn.ch>
- <20150529184951.GA2458@codeaurora.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org,
-	gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, leitec-z4FmpzNVuK5Wk0Htik3J/w@public.gmane.org,
-	fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org, alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	pavel.nakonechny-Fmhy8gsqeTEvJsYlp49lxw@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, juhosg-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Mathieu Olivari <mathieu-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20150529184951.GA2458-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH RFC 1/3] net: dsa: Refactor DT probing of a switch port
+Date: Fri, 29 May 2015 21:13:32 +0200
+Message-ID: <1432926814-22648-2-git-send-email-andrew@lunn.ch>
+References: <1432926814-22648-1-git-send-email-andrew@lunn.ch>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>, mathieu@codeaurora.org,
+	Andrew Lunn <andrew@lunn.ch>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:48109 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752882AbbE2TSz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 May 2015 15:18:55 -0400
+In-Reply-To: <1432926814-22648-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 29, 2015 at 11:49:54AM -0700, Mathieu Olivari wrote:
-> On Fri, May 29, 2015 at 04:00:01AM +0200, Andrew Lunn wrote:
-> > FYI:
-> > 
-> > I have patches which allow DSA to use two cpu interfaces. Seems to
-> > work on my DIR665 with a Marvell Switch.
-> > 
-> > I will post the patches as an RFC.
-> > 
-> >   Andrew
-> 
-> Does it require the switch CPU ports to support LAG or is it generic
-> enough to allow switch partitioning?
+Move the DT probing of a switch port into a function of its own, since
+it is about to get more complex. Add better error handling as well.
 
-When using tags, DSA by default partitions the switch. Each user port
-is separate from other ports. lan4 will not bridge to lan1 unless you
-either do it in software, or you implement the
-.port_join_bridge/.port_leave_bridge/.port_stp_update methods of
-dsa_switch_driver.
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ net/dsa/dsa.c | 77 ++++++++++++++++++++++++++++++++++-------------------------
+ 1 file changed, 44 insertions(+), 33 deletions(-)
 
-What it requires is that for each user port, you can configure what
-cpu port it should use. Marvell devices have this ability, and at a
-first look, it seems like SF2 does as well, but i will leave Florian
-to answer definitively.
-
-I will be posting an RFC patchset later today.
-
-  Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index e6f6cc3a1bcf..b7b72d398d00 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -570,17 +570,54 @@ static void dsa_of_free_platform_data(struct dsa_platform_data *pd)
+ 	kfree(pd->chip);
+ }
+ 
++static int dsa_of_probe_port(struct dsa_platform_data *pd,
++			     struct dsa_chip_data *cd,
++			     int chip_index,
++			     struct device_node *port)
++{
++	const unsigned int *port_reg;
++	const char *port_name;
++	struct device_node *link;
++	int port_index, ret;
++
++	port_reg = of_get_property(port, "reg", NULL);
++	if (!port_reg)
++		return -EINVAL;
++
++	port_index = be32_to_cpup(port_reg);
++
++	port_name = of_get_property(port, "label", NULL);
++	if (!port_name)
++		return -EINVAL;
++
++	cd->port_dn[port_index] = port;
++
++	cd->port_names[port_index] = kstrdup(port_name, GFP_KERNEL);
++	if (!cd->port_names[port_index])
++		return -ENOMEM;
++
++	link = of_parse_phandle(port, "link", 0);
++
++	if (!strcmp(port_name, "dsa") && link && pd->nr_chips > 1) {
++		ret = dsa_of_setup_routing_table(pd, cd,
++						 chip_index, port_index, link);
++		if (ret)
++			return ret;
++	}
++
++	return port_index;
++}
++
+ static int dsa_of_probe(struct device *dev)
+ {
+ 	struct device_node *np = dev->of_node;
+-	struct device_node *child, *mdio, *ethernet, *port, *link;
++	struct device_node *child, *mdio, *ethernet, *port;
+ 	struct mii_bus *mdio_bus;
+ 	struct net_device *ethernet_dev;
+ 	struct dsa_platform_data *pd;
+ 	struct dsa_chip_data *cd;
+-	const char *port_name;
+-	int chip_index, port_index;
+-	const unsigned int *sw_addr, *port_reg;
++	int chip_index;
++	const unsigned int *sw_addr;
+ 	u32 eeprom_len;
+ 	int ret;
+ 
+@@ -637,36 +674,10 @@ static int dsa_of_probe(struct device *dev)
+ 			cd->eeprom_len = eeprom_len;
+ 
+ 		for_each_available_child_of_node(child, port) {
+-			port_reg = of_get_property(port, "reg", NULL);
+-			if (!port_reg)
+-				continue;
+-
+-			port_index = be32_to_cpup(port_reg);
+-
+-			port_name = of_get_property(port, "label", NULL);
+-			if (!port_name)
+-				continue;
+-
+-			cd->port_dn[port_index] = port;
+-
+-			cd->port_names[port_index] = kstrdup(port_name,
+-					GFP_KERNEL);
+-			if (!cd->port_names[port_index]) {
+-				ret = -ENOMEM;
++			ret = dsa_of_probe_port(pd, cd, chip_index, port);
++			if (ret < 0)
+ 				goto out_free_chip;
+-			}
+-
+-			link = of_parse_phandle(port, "link", 0);
+-
+-			if (!strcmp(port_name, "dsa") && link &&
+-					pd->nr_chips > 1) {
+-				ret = dsa_of_setup_routing_table(pd, cd,
+-						chip_index, port_index, link);
+-				if (ret)
+-					goto out_free_chip;
+-			}
+-
+-			if (port_index == DSA_MAX_PORTS)
++			if (ret == DSA_MAX_PORTS)
+ 				break;
+ 		}
+ 	}
+-- 
+2.1.4
