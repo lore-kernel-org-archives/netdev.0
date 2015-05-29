@@ -1,70 +1,40 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [RFC 1/3] net: dsa: add basic support for VLAN ndo
-Date: Fri, 29 May 2015 15:15:23 -0700
-Message-ID: <5568E4FB.6060309@roeck-us.net>
-References: <556723FF.7030606@roeck-us.net>	<1432849035-8499-1-git-send-email-vivien.didelot@savoirfairelinux.com>	<1432849035-8499-2-git-send-email-vivien.didelot@savoirfairelinux.com>	<CAJ3xEMjYn+eeGHi5dyAhjHivid4UKUyGAi8pwVD4PBhKn1HTKQ@mail.gmail.com>	<2010513546.247697.1432913908579.JavaMail.zimbra@savoirfairelinux.com> <CAJ3xEMhAusqPj9m2a-wx7FDC2rE+WUk3UobE3+nS8qRV8bWTGg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH iproute2 v2] ss: Fix allocation of cong control alg name
+Date: Fri, 29 May 2015 15:37:09 -0700
+Message-ID: <1432939029.7456.95.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1432922994-13735-1-git-send-email-vadim4j@gmail.com>
+	 <20150529150209.07430666@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	=?UTF-8?B?SsOpcm9tZSBPdWZlbGxh?=
-	<jerome.oufella@savoirfairelinux.com>,
-	Chris Healy <cphealy@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	Scott Feldman <sfeldma@gmail.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org,
+	daniel@iogearbox.net, jose.r.guzman.mosqueda@intel.com
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:34089 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756266AbbE2WP2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 18:15:28 -0400
-In-Reply-To: <CAJ3xEMhAusqPj9m2a-wx7FDC2rE+WUk3UobE3+nS8qRV8bWTGg@mail.gmail.com>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:36493 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751538AbbE2WhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 18:37:12 -0400
+Received: by iepj10 with SMTP id j10so73320161iep.3
+        for <netdev@vger.kernel.org>; Fri, 29 May 2015 15:37:12 -0700 (PDT)
+In-Reply-To: <20150529150209.07430666@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/29/2015 08:51 AM, Or Gerlitz wrote:
-> On Fri, May 29, 2015 at 6:38 PM, Vivien Didelot
-> <vivien.didelot@savoirfairelinux.com> wrote:
->> Hi,
->>
->> ----- On May 29, 2015, at 11:24 AM, Or Gerlitz gerlitz.or@gmail.com wrote:
->>
->>> On Fri, May 29, 2015 at 12:37 AM, Vivien Didelot
->>> <vivien.didelot@savoirfairelinux.com> wrote:
->>>> @@ -854,7 +922,9 @@ int dsa_slave_create(struct dsa_switch *ds, struct device
->>>> *parent,
->>>>          if (slave_dev == NULL)
->>>>                  return -ENOMEM;
->>>>
->>>> -       slave_dev->features = master->vlan_features;
->>>> +       slave_dev->features = master->vlan_features |
->>>> +               NETIF_F_VLAN_FEATURES |
->>>> +               NETIF_F_HW_SWITCH_OFFLOAD;
->>>
->>> wait... didn't commit 7889cbee8357aaed85898d028829dfb4f75bae2c  remove
->>> NETIF_F_HW_SWITCH_OFFLOAD?
->>
->> Indeed, note that this RFC is based on v4.1-rc3. This will become unneeded I guess.
->
->
-> You should rebase networking patches proposed for the next kernel
-> against the net-next tree.
->
->> BTW, given the commit message, I didn't really understand why?
->
-> M2, I thought it was unsuccessful commit message and made a comment to
-> the maintainer, he didn't accept it.
->
-Vivien,
+On Fri, 2015-05-29 at 15:02 -0700, Stephen Hemminger wrote:
 
-sorry for asking for an early set of your patches. Obviously the idea was not
-to create trouble for anyone :-(. I wasn't aware that netdev only accepts patches
-which apply to the latest net-next, even if sent as RFC. My fault, I guess.
 
-Maybe next time we can share patches in private first if we have a similar
-situation ?
+> Why not use strdupa? I handles arbitrary size?
 
-Thanks,
-Guenter
+I doubt this will please security guys.
+
+RETURN VALUE
+       The alloca() function returns a pointer to the beginning of the
+allocated space.  If the allocation causes stack overflow, program
+behavior is undefined.
+
+
+Could we please stick with this 16 bytes value ?
+
+I am confident we wont increase kernel side because of various backward
+compatibility issues anyway.
