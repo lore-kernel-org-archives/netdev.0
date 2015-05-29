@@ -1,49 +1,106 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: Possible issue in iproute2 package
-Date: Fri, 29 May 2015 09:33:43 +0300
-Message-ID: <20150529063343.GA12719@angus-think.wlc.globallogic.com>
-References: <1432847547.19276.47.camel@jrguzman-mobl2.amr.corp.intel.com>
+From: "Yuzhou (C)" <vitas.yuzhou@huawei.com>
+Subject: RE: [Xen-devel] [RFC PATCH 00/13] Persistent grant maps for xen net
+	drivers
+Date: Fri, 29 May 2015 06:53:19 +0000
+Message-ID: <47498F109986134D9A5B42B82F405EBBA3244CB6@SZXEMA502-MBX.china.huawei.com>
+References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
+	<20150519153901.GH26335@zion.uk.xensource.com>
+ <191EF54A-D8DE-4BAA-B15D-41B2BA35353F@neclab.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shemminger@osdl.org" <shemminger@osdl.org>
-To: "Guzman Mosqueda, Jose R" <jose.r.guzman.mosqueda@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "ian.campbell@citrix.com" <ian.campbell@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
+	"Luohao (brian)" <brian.luohao@huawei.com>,
+	"Zhangleiqiang (Trump)" <zhangleiqiang@huawei.com>,
+	Zhuangyuxin <zhuangyuxin@huawei.com>,
+	"Xiaoding (B)" <xiaoding1@huawei.com>
+To: Joao Martins <Joao.Martins@neclab.eu>,
+	Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:34868 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752145AbbE2Geo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 02:34:44 -0400
-Received: by lbbuc2 with SMTP id uc2so42315501lbb.2
-        for <netdev@vger.kernel.org>; Thu, 28 May 2015 23:34:43 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1432847547.19276.47.camel@jrguzman-mobl2.amr.corp.intel.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:46097 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751933AbbE2Gxm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 02:53:42 -0400
+In-Reply-To: <191EF54A-D8DE-4BAA-B15D-41B2BA35353F@neclab.eu>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jose,
+Hi,
 
-On Thu, May 28, 2015 at 09:12:15PM +0000, Guzman Mosqueda, Jose R wrote:
-> 
-> Hi all
-> 
-> I'm Jose Guzman from a security team at Intel.
-> We're using iproute2 in a GNU-Linux project and I'm analyzing the code
-> to try to find possible issues/gaps/risks.
-> Since I'm not too familiar with the package yet I have a question about
-> a particular piece of code that could result in a memory corruption:
-> 
-> Version: 4.0.0
-> File: misc/ss.c
-> Function: static void tcp_show_info(...)
-> Line: ~1903
-> Description: There is a memory allocation for a "s.cong_alg" variable:
-> s.cong_alg = malloc(strlen(cong_attr + 1));
-> The length is calculated about next position of the starting character.
-> But next line there is a copy of the whole content:
-> strcpy(s.cong_alg, cong_attr);
-> I think there is a mistake and it should be something like:
-> s.cong_alg = malloc(strlen(cong_attr) + 1);
-I think strdup can be used here.
-I will send a patch.
+	About rx zerocopy, I have a question:
 
-Thank You!
+	If some application make a socket, then listen and accept, the client sends packets to it, but it doesn't recv from this socket right now, all persistent grant page would be in used.
+So other application cannot receive any packets.  Is my guess right or wrong?
+
+YuZhou
+
+-----Original Message-----
+From: xen-devel-bounces@lists.xen.org [mailto:xen-devel-bounces@lists.xen.org] On Behalf Of Joao Martins
+Sent: Friday, May 22, 2015 6:27 PM
+To: Wei Liu
+Cc: ian.campbell@citrix.com; netdev@vger.kernel.org; david.vrabel@citrix.com; xen-devel@lists.xenproject.org; boris.ostrovsky@oracle.com
+Subject: Re: [Xen-devel] [RFC PATCH 00/13] Persistent grant maps for xen net drivers
+
+
+On 19 May 2015, at 17:39, Wei Liu <wei.liu2@citrix.com> wrote:
+
+> On Tue, May 12, 2015 at 07:18:24PM +0200, Joao Martins wrote:
+> 
+>> There have been recently[3] some discussions and issues raised on 
+>> persistent grants for the block layer, though the numbers above show 
+>> some significant improvements specially on more network intensive 
+>> workloads and provide a margin for comparison against future 
+>> map/unmap improvements.
+>> 
+>> Any comments or suggestions are welcome, Thanks!
+> 
+> Thanks, the numbers certainly look interesting.
+> 
+> I'm just a bit concerned about the complexity of netback. I've 
+> commented on individual patches, we can discuss the issues there.
+
+Thanks a lot for the review! It does add more complexity, mainly for the TX path, but I also would like to mention that a portion of this changeset is also the persistent grants ops that could potentially live outside.
+
+Joao
+
+>> [1] http://article.gmane.org/gmane.linux.network/249383
+>> [2] http://bit.ly/1IhJfXD
+>> [3] 
+>> http://lists.xen.org/archives/html/xen-devel/2015-02/msg02292.html
+>> 
+>> Joao Martins (13):
+>>  xen-netback: add persistent grant tree ops
+>>  xen-netback: xenbus feature persistent support
+>>  xen-netback: implement TX persistent grants
+>>  xen-netback: implement RX persistent grants
+>>  xen-netback: refactor xenvif_rx_action
+>>  xen-netback: copy buffer on xenvif_start_xmit()
+>>  xen-netback: add persistent tree counters to debugfs
+>>  xen-netback: clone skb if skb->xmit_more is set
+>>  xen-netfront: move grant_{ref,page} to struct grant
+>>  xen-netfront: refactor claim/release grant
+>>  xen-netfront: feature-persistent xenbus support
+>>  xen-netfront: implement TX persistent grants
+>>  xen-netfront: implement RX persistent grants
+>> 
+>> drivers/net/xen-netback/common.h    |  79 ++++
+>> drivers/net/xen-netback/interface.c |  78 +++-
+>> drivers/net/xen-netback/netback.c   | 873 ++++++++++++++++++++++++++++++------
+>> drivers/net/xen-netback/xenbus.c    |  24 +
+>> drivers/net/xen-netfront.c          | 362 ++++++++++++---
+>> 5 files changed, 1216 insertions(+), 200 deletions(-)
+>> 
+>> --
+>> 2.1.3
+
+
+
+_______________________________________________
+Xen-devel mailing list
+Xen-devel@lists.xen.org
+http://lists.xen.org/xen-devel
