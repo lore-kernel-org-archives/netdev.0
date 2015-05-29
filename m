@@ -1,7 +1,7 @@
 From: Mathieu Olivari <mathieu@codeaurora.org>
-Subject: [PATCH 6/7] net: dsa: ar8xxx: add support for second xMII interfaces through DT
-Date: Thu, 28 May 2015 18:42:21 -0700
-Message-ID: <1432863742-18427-7-git-send-email-mathieu@codeaurora.org>
+Subject: [PATCH 3/7] net: dsa: ar8xxx: add regmap support
+Date: Thu, 28 May 2015 18:42:18 -0700
+Message-ID: <1432863742-18427-4-git-send-email-mathieu@codeaurora.org>
 References: <1432863742-18427-1-git-send-email-mathieu@codeaurora.org>
 Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
@@ -13,101 +13,144 @@ To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	alexander.h.duyck@intel.com, pavel.nakonechny@skitlab.ru,
 	joe@perches.com, sfeldma@gmail.com, nbd@openwrt.org,
 	juhosg@openwrt.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:37437 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754421AbbE2Bmd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 21:42:33 -0400
 In-Reply-To: <1432863742-18427-1-git-send-email-mathieu@codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch is adding support for port6 specific options to device tree.
-They can be used to setup the second xMII interface, and connect it to
-one of the switch port.
+All switch registers can now be dumped using regmap/debugfs.
+
+\# cat /sys/kernel/debug/regmap/<mdiobus>/registers
+0000: 00001302
+0004: ...
+...
 
 Signed-off-by: Mathieu Olivari <mathieu@codeaurora.org>
 ---
- drivers/net/dsa/ar8xxx.c | 50 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 50 insertions(+)
+ drivers/net/dsa/Kconfig  |  1 +
+ drivers/net/dsa/ar8xxx.c | 60 ++++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/ar8xxx.h |  5 ++++
+ 3 files changed, 66 insertions(+)
 
+diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
+index 2aae541..17fb296 100644
+--- a/drivers/net/dsa/Kconfig
++++ b/drivers/net/dsa/Kconfig
+@@ -68,6 +68,7 @@ config NET_DSA_BCM_SF2
+ config NET_DSA_AR8XXX
+ 	tristate "Qualcomm Atheros AR8XXX Ethernet switch family support"
+ 	depends on NET_DSA
++	select REGMAP
+ 	---help---
+ 	  This enables support for the Qualcomm Atheros AR8XXX Ethernet
+ 	  switch chips.
 diff --git a/drivers/net/dsa/ar8xxx.c b/drivers/net/dsa/ar8xxx.c
-index 4044614..7559249 100644
+index 2f0fa4d..327abd4 100644
 --- a/drivers/net/dsa/ar8xxx.c
 +++ b/drivers/net/dsa/ar8xxx.c
-@@ -19,6 +19,7 @@
- #include <net/dsa.h>
- #include <linux/phy.h>
- #include <linux/of_net.h>
-+#include <linux/of_platform.h>
- 
- #include "ar8xxx.h"
- 
-@@ -260,6 +261,9 @@ static int ar8xxx_set_pad_ctrl(struct dsa_switch *ds, int port, int mode)
- 		ar8xxx_write(ds, AR8327_REG_PORT5_PAD_CTRL,
- 			     AR8327_PORT_PAD_RGMII_RX_DELAY_EN);
- 		break;
-+	case PHY_INTERFACE_MODE_SGMII:
-+		ar8xxx_write(ds, reg, AR8327_PORT_PAD_SGMII_EN);
-+		break;
- 	default:
- 		pr_err("xMII mode %d not supported\n", mode);
- 		return -EINVAL;
-@@ -268,6 +272,48 @@ static int ar8xxx_set_pad_ctrl(struct dsa_switch *ds, int port, int mode)
- 	return 0;
+@@ -176,6 +176,57 @@ static char *ar8xxx_probe(struct device *host_dev, int sw_addr)
+ 	}
  }
  
-+static int ar8xxx_of_setup(struct dsa_switch *ds)
++static int ar8xxx_regmap_read(void *ctx, uint32_t reg, uint32_t *val)
 +{
-+	struct device_node *dn = ds->pd->of_node;
-+	const char *s_phymode;
-+	int ret, mode;
-+	u32 phy_id, ctrl;
++	struct dsa_switch *ds = (struct dsa_switch *)ctx;
 +
-+	/* If port6-phy-mode property exists, configure it accordingly */
-+	if (!of_property_read_string(dn, "qca,port6-phy-mode", &s_phymode)) {
-+		for (mode = 0; mode < PHY_INTERFACE_MODE_MAX; mode++)
-+			if (!strcasecmp(s_phymode, phy_modes(mode)))
-+				break;
-+
-+		if (mode == PHY_INTERFACE_MODE_MAX)
-+			pr_err("Unknown phy-mode: \"%s\"\n", s_phymode);
-+
-+		ret = ar8xxx_set_pad_ctrl(ds, 6, mode);
-+		if (ret < 0)
-+			return ret;
-+	}
-+
-+	/* If a phy ID is specified for PORT6 mac, connect them together */
-+	if (!of_property_read_u32(dn, "qca,port6-phy-id", &phy_id)) {
-+		ar8xxx_rmw(ds, AR8327_PORT_LOOKUP_CTRL(6),
-+			   AR8327_PORT_LOOKUP_MEMBER, BIT(phy_to_port(phy_id)));
-+		ar8xxx_rmw(ds, AR8327_PORT_LOOKUP_CTRL(phy_to_port(phy_id)),
-+			   AR8327_PORT_LOOKUP_MEMBER, BIT(6));
-+
-+		/* We want the switch to be pass-through and act like a PHY on
-+		 * these ports. So BC/MC/UC & IGMP frames need to be accepted
-+		 */
-+		ctrl = BIT(phy_to_port(phy_id)) | BIT(6);
-+		ar8xxx_reg_set(ds, AR8327_REG_GLOBAL_FW_CTRL1,
-+			       ctrl << AR8327_GLOBAL_FW_CTRL1_IGMP_DP_S |
-+			       ctrl << AR8327_GLOBAL_FW_CTRL1_BC_DP_S |
-+			       ctrl << AR8327_GLOBAL_FW_CTRL1_MC_DP_S |
-+			       ctrl << AR8327_GLOBAL_FW_CTRL1_UC_DP_S);
-+	}
++	*val = ar8xxx_read(ds, reg);
 +
 +	return 0;
 +}
 +
++static int ar8xxx_regmap_write(void *ctx, uint32_t reg, uint32_t val)
++{
++	struct dsa_switch *ds = (struct dsa_switch *)ctx;
++
++	ar8xxx_write(ds, reg, val);
++
++	return 0;
++}
++
++static const struct regmap_range ar8xxx_readable_ranges[] = {
++	regmap_reg_range(0x0000, 0x00e4), /* Global control */
++	regmap_reg_range(0x0100, 0x0168), /* EEE control */
++	regmap_reg_range(0x0200, 0x0270), /* Parser control */
++	regmap_reg_range(0x0400, 0x0454), /* ACL */
++	regmap_reg_range(0x0600, 0x0718), /* Lookup */
++	regmap_reg_range(0x0800, 0x0b70), /* QM */
++	regmap_reg_range(0x0C00, 0x0c80), /* PKT */
++	regmap_reg_range(0x1000, 0x10ac), /* MIB - Port0 */
++	regmap_reg_range(0x1100, 0x11ac), /* MIB - Port1 */
++	regmap_reg_range(0x1200, 0x12ac), /* MIB - Port2 */
++	regmap_reg_range(0x1300, 0x13ac), /* MIB - Port3 */
++	regmap_reg_range(0x1400, 0x14ac), /* MIB - Port4 */
++	regmap_reg_range(0x1500, 0x15ac), /* MIB - Port5 */
++	regmap_reg_range(0x1600, 0x16ac), /* MIB - Port6 */
++
++};
++
++static struct regmap_access_table ar8xxx_readable_table = {
++	.yes_ranges = ar8xxx_readable_ranges,
++	.n_yes_ranges = ARRAY_SIZE(ar8xxx_readable_ranges),
++};
++
++struct regmap_config ar8xxx_regmap_config = {
++	.reg_bits = 16,
++	.val_bits = 32,
++	.reg_stride = 4,
++	.max_register = 0x16ac, /* end MIB - Port6 range */
++	.reg_read = ar8xxx_regmap_read,
++	.reg_write = ar8xxx_regmap_write,
++	.rd_table = &ar8xxx_readable_table,
++};
++
+ static int ar8xxx_set_pad_ctrl(struct dsa_switch *ds, int port, int mode)
+ {
+ 	int reg;
+@@ -219,9 +270,17 @@ static int ar8xxx_set_pad_ctrl(struct dsa_switch *ds, int port, int mode)
+ 
  static int ar8xxx_setup(struct dsa_switch *ds)
  {
- 	struct ar8xxx_priv *priv = ds_to_priv(ds);
-@@ -341,6 +387,10 @@ static int ar8xxx_setup(struct dsa_switch *ds)
- 		}
- 	}
++	struct ar8xxx_priv *priv = ds_to_priv(ds);
+ 	struct net_device *netdev = ds->dst->pd->of_netdev;
+ 	int ret, i, phy_mode;
  
-+	ret = ar8xxx_of_setup(ds);
-+	if (ret < 0)
-+		return ret;
++	/* Start by setting up the register mapping */
++	priv->regmap = devm_regmap_init(ds->master_dev, NULL, ds,
++					&ar8xxx_regmap_config);
 +
- 	return 0;
- }
++	if (IS_ERR(priv->regmap))
++		pr_warn("regmap initialization failed");
++
+ 	/* Initialize CPU port pad mode (xMII type, delays...) */
+ 	phy_mode = of_get_phy_mode(netdev->dev.parent->of_node);
+ 	if (phy_mode < 0) {
+@@ -365,6 +424,7 @@ static void ar8xxx_poll_link(struct dsa_switch *ds)
  
+ static struct dsa_switch_driver ar8xxx_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_NONE,
++	.priv_size		= sizeof(struct ar8xxx_priv),
+ 	.probe			= ar8xxx_probe,
+ 	.setup			= ar8xxx_setup,
+ 	.set_addr		= ar8xxx_set_addr,
+diff --git a/drivers/net/dsa/ar8xxx.h b/drivers/net/dsa/ar8xxx.h
+index 7c7a125..98cc7ed 100644
+--- a/drivers/net/dsa/ar8xxx.h
++++ b/drivers/net/dsa/ar8xxx.h
+@@ -17,6 +17,11 @@
+ #define __AR8XXX_H
+ 
+ #include <linux/delay.h>
++#include <linux/regmap.h>
++
++struct ar8xxx_priv {
++	struct regmap *regmap;
++};
+ 
+ struct ar8xxx_mib_desc {
+ 	unsigned int size;
 -- 
 2.1.4
