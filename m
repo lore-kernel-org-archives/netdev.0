@@ -1,46 +1,64 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/4] netfilter: default CONFIG_NETFILTER_INGRESS to y
-Date: Fri, 29 May 2015 11:44:23 +0200
-Message-ID: <20150529094423.GA3347@salvia>
-References: <1432856695-23831-1-git-send-email-pablo@netfilter.org>
- <1432856695-23831-3-git-send-email-pablo@netfilter.org>
- <alpine.LSU.2.20.1505290813001.6979@nerf40.vanv.qr>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net-next 00/14] sfc: ndo_get_phys_port_id, vadaptor stats
+ and PF unload when Vf's assigned to guest
+Date: Fri, 29 May 2015 10:59:49 +0100
+Message-ID: <55683895.2090408@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@inai.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.20.1505290813001.6979@nerf40.vanv.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:45378 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755683AbbE2KA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 06:00:29 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 29, 2015 at 08:19:35AM +0200, Jan Engelhardt wrote:
-> On Friday 2015-05-29 01:44, Pablo Neira Ayuso wrote:
-> 
-> >Useful to compile-test all options.
-> >
-> >--- a/net/netfilter/Kconfig
-> >+++ b/net/netfilter/Kconfig
-> >@@ -3,6 +3,7 @@ menu "Core Netfilter Configuration"
-> > 
-> > config NETFILTER_INGRESS
-> > 	bool "Netfilter ingress support"
-> >+	default y
-> > 	select NET_INGRESS
-> > 	help
-> > 	  This allows you to classify packets from ingress using the Netfilter
-> 
-> Careful with default y. I seem to remember that someone higher up
-> (perhaps Linus himself) was against "default y" for features deemed
-> not essential (especially hardware drivers), as no driver is any
-> more important than another. If "compile-test" is your reason for the
-> patch, it might fall into the same category.
+This is the third and last instalment of SRIOV for EF10 patches.
 
-This config option is hiding behind the global CONFIG_NETFILTER switch
-that, if enabled, gets the very basic hook infrastructure, and this
-ingress hook falls into that category.
+This patch set includes implementation of ndo_get_phys_port_id
+and changes to the MAC statistics code in order to support
+vadaptor statistics.
 
-I agree this makes sense for hardware drivers, but this is not the
-case.
+It also includes code to deal with PF unload when Vf's are still
+assigned to the guest.
+
+The first couple of patches create sysfs files for physical port
+and link control flags which are particularly useful when we have
+enabled a large number of VF's.
+
+These patches have been tested with and without CONFIG_SFC_SRIOV.
+The creation and content of the sysfs files has been tested.
+The statistics are tested using ethtool for monitoring.
+
+Daniel Pieczko (11):
+  sfc: add "port_" prefix to MAC stats
+  sfc: set the port-id when calling MC_CMD_MAC_STATS
+  sfc: display vadaptor statistics for all interfaces
+  sfc: DMA the VF stats only when requested
+  sfc: update netdevice statistics to use vadaptor stats
+  sfc: suppress ENOENT error messages from MC_CMD_MAC_STATS
+  sfc: suppress vadaptor stats when EVB is not present
+  sfc: don't update stats on VF when called in atomic context
+  sfc: do not allow VFs to be destroyed if assigned to guests
+  sfc: force removal of VF and vport on driver removal
+  sfc: leak vports if a VF is assigned during PF unload
+
+Shradha Shah (3):
+  sfc: Add sysfs entry for physical port
+  sfc: Add sysfs entry for flags (link control and primary)
+  sfc: Implement ndo_gets_phys_port_id() for EF10 VFs
+
+ drivers/net/ethernet/sfc/ef10.c       | 553 ++++++++++++++++++++++++----------
+ drivers/net/ethernet/sfc/ef10_sriov.c |  57 +++-
+ drivers/net/ethernet/sfc/ef10_sriov.h |   5 +
+ drivers/net/ethernet/sfc/efx.c        |   8 +-
+ drivers/net/ethernet/sfc/mcdi_pcol.h  |  30 +-
+ drivers/net/ethernet/sfc/mcdi_port.c  |  12 +-
+ drivers/net/ethernet/sfc/net_driver.h |   2 +
+ drivers/net/ethernet/sfc/nic.h        | 117 ++++---
+ drivers/net/ethernet/sfc/sriov.c      |  11 +
+ drivers/net/ethernet/sfc/sriov.h      |   2 +
+ 10 files changed, 569 insertions(+), 228 deletions(-)
