@@ -1,55 +1,46 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 13/16] batman-adv: checkpatch - spaces preferred around that '*'
-Date: Fri, 29 May 2015 11:05:25 +0200
-Message-ID: <1432890328-8247-14-git-send-email-antonio@meshcoding.com>
-References: <1432890328-8247-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Antonio Quartulli <antonio@meshcoding.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:46393 "EHLO s1.neomailbox.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755784AbbE2Jaw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 May 2015 05:30:52 -0400
-In-Reply-To: <1432890328-8247-1-git-send-email-antonio@meshcoding.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 2/4] netfilter: default CONFIG_NETFILTER_INGRESS to y
+Date: Fri, 29 May 2015 11:44:23 +0200
+Message-ID: <20150529094423.GA3347@salvia>
+References: <1432856695-23831-1-git-send-email-pablo@netfilter.org>
+ <1432856695-23831-3-git-send-email-pablo@netfilter.org>
+ <alpine.LSU.2.20.1505290813001.6979@nerf40.vanv.qr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@inai.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LSU.2.20.1505290813001.6979@nerf40.vanv.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marek Lindner <mareklindner@neomailbox.ch>
+On Fri, May 29, 2015 at 08:19:35AM +0200, Jan Engelhardt wrote:
+> On Friday 2015-05-29 01:44, Pablo Neira Ayuso wrote:
+> 
+> >Useful to compile-test all options.
+> >
+> >--- a/net/netfilter/Kconfig
+> >+++ b/net/netfilter/Kconfig
+> >@@ -3,6 +3,7 @@ menu "Core Netfilter Configuration"
+> > 
+> > config NETFILTER_INGRESS
+> > 	bool "Netfilter ingress support"
+> >+	default y
+> > 	select NET_INGRESS
+> > 	help
+> > 	  This allows you to classify packets from ingress using the Netfilter
+> 
+> Careful with default y. I seem to remember that someone higher up
+> (perhaps Linus himself) was against "default y" for features deemed
+> not essential (especially hardware drivers), as no driver is any
+> more important than another. If "compile-test" is your reason for the
+> patch, it might fall into the same category.
 
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
----
- net/batman-adv/main.h           | 2 +-
- net/batman-adv/network-coding.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+This config option is hiding behind the global CONFIG_NETFILTER switch
+that, if enabled, gets the very basic hook infrastructure, and this
+ingress hook falls into that category.
 
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index 11d2d9f..026ba37 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -44,7 +44,7 @@
- #define BATADV_TT_CLIENT_TEMP_TIMEOUT 600000 /* in milliseconds */
- #define BATADV_TT_WORK_PERIOD 5000 /* 5 seconds */
- #define BATADV_ORIG_WORK_PERIOD 1000 /* 1 second */
--#define BATADV_DAT_ENTRY_TIMEOUT (5*60000) /* 5 mins in milliseconds */
-+#define BATADV_DAT_ENTRY_TIMEOUT (5 * 60000) /* 5 mins in milliseconds */
- /* sliding packet range of received originator messages in sequence numbers
-  * (should be a multiple of our word size)
-  */
-diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-coding.c
-index 4cb70bb..b984bc4 100644
---- a/net/batman-adv/network-coding.c
-+++ b/net/batman-adv/network-coding.c
-@@ -275,7 +275,7 @@ static bool batadv_nc_to_purge_nc_path_decoding(struct batadv_priv *bat_priv,
- 	 * max_buffer time
- 	 */
- 	return batadv_has_timed_out(nc_path->last_valid,
--				    bat_priv->nc.max_buffer_time*10);
-+				    bat_priv->nc.max_buffer_time * 10);
- }
- 
- /**
--- 
-2.4.2
+I agree this makes sense for hardware drivers, but this is not the
+case.
