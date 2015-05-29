@@ -1,7 +1,8 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next 06/14] sfc: display vadaptor statistics for all interfaces
-Date: Fri, 29 May 2015 11:02:07 +0100
-Message-ID: <5568391F.20306@solarflare.com>
+Subject: [PATCH net-next 11/14] sfc: don't update stats on VF when called
+ in atomic context
+Date: Fri, 29 May 2015 11:03:08 +0100
+Message-ID: <5568395C.5060504@solarflare.com>
 References: <55683895.2090408@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -9,153 +10,66 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:46627 "EHLO
-	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754449AbbE2KCv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 06:02:51 -0400
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:32416 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932315AbbE2KDO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 06:03:14 -0400
 In-Reply-To: <55683895.2090408@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Daniel Pieczko <dpieczko@solarflare.com>
 
-All interfaces will display vadaptor statistics, so set all the
-relevant bits in the stats bitmask. Only functions with the
-LINKCTRL flag will see other stats, including (per-port) MAC stats.
+The ifenslave command to set up a bond runs in an atomic
+context, and it queries the stats on the devices that are
+being enslaved. A VF needs to make an MCDI call to update
+its stats, which is not allowed in atomic context.
 
-The vadaptor stats are from rx_unicast to tx_overflow.
+The releasing of the stats_lock is moved to the beginning of
+the VF stats update function so that in_interrupt() can be
+used; it must be taken again before returning from this
+function.
 
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c      | 39 ++++++++++++++++++++++++++++++++----
- drivers/net/ethernet/sfc/mcdi_pcol.h | 20 ++++++++++++++++++
- drivers/net/ethernet/sfc/nic.h       | 18 +++++++++++++++++
- 3 files changed, 73 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 46ddd6e..bf4677e 100644
+index 8be9191..859980d 100644
 --- a/drivers/net/ethernet/sfc/ef10.c
 +++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -1060,6 +1060,24 @@ static const struct efx_hw_stat_desc efx_ef10_stat_desc[EF10_STAT_COUNT] = {
- 	EF10_DMA_STAT(port_rx_dp_streaming_packets, RXDP_STREAMING_PKTS),
- 	EF10_DMA_STAT(port_rx_dp_hlb_fetch, RXDP_HLB_FETCH_CONDITIONS),
- 	EF10_DMA_STAT(port_rx_dp_hlb_wait, RXDP_HLB_WAIT_CONDITIONS),
-+	EF10_DMA_STAT(rx_unicast, VADAPTER_RX_UNICAST_PACKETS),
-+	EF10_DMA_STAT(rx_unicast_bytes, VADAPTER_RX_UNICAST_BYTES),
-+	EF10_DMA_STAT(rx_multicast, VADAPTER_RX_MULTICAST_PACKETS),
-+	EF10_DMA_STAT(rx_multicast_bytes, VADAPTER_RX_MULTICAST_BYTES),
-+	EF10_DMA_STAT(rx_broadcast, VADAPTER_RX_BROADCAST_PACKETS),
-+	EF10_DMA_STAT(rx_broadcast_bytes, VADAPTER_RX_BROADCAST_BYTES),
-+	EF10_DMA_STAT(rx_bad, VADAPTER_RX_BAD_PACKETS),
-+	EF10_DMA_STAT(rx_bad_bytes, VADAPTER_RX_BAD_BYTES),
-+	EF10_DMA_STAT(rx_overflow, VADAPTER_RX_OVERFLOW),
-+	EF10_DMA_STAT(tx_unicast, VADAPTER_TX_UNICAST_PACKETS),
-+	EF10_DMA_STAT(tx_unicast_bytes, VADAPTER_TX_UNICAST_BYTES),
-+	EF10_DMA_STAT(tx_multicast, VADAPTER_TX_MULTICAST_PACKETS),
-+	EF10_DMA_STAT(tx_multicast_bytes, VADAPTER_TX_MULTICAST_BYTES),
-+	EF10_DMA_STAT(tx_broadcast, VADAPTER_TX_BROADCAST_PACKETS),
-+	EF10_DMA_STAT(tx_broadcast_bytes, VADAPTER_TX_BROADCAST_BYTES),
-+	EF10_DMA_STAT(tx_bad, VADAPTER_TX_BAD_PACKETS),
-+	EF10_DMA_STAT(tx_bad_bytes, VADAPTER_TX_BAD_BYTES),
-+	EF10_DMA_STAT(tx_overflow, VADAPTER_TX_OVERFLOW),
- };
+@@ -1320,11 +1320,24 @@ static int efx_ef10_try_update_nic_stats_vf(struct efx_nic *efx)
+ 	__le64 *dma_stats;
+ 	int rc;
  
- #define HUNT_COMMON_STAT_MASK ((1ULL << EF10_STAT_port_tx_bytes) |	\
-@@ -1140,6 +1158,10 @@ static u64 efx_ef10_raw_stat_mask(struct efx_nic *efx)
- 	u32 port_caps = efx_mcdi_phy_get_caps(efx);
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
- 
-+	if (!(efx->mcdi->fn_flags &
-+	      1 << MC_CMD_DRV_ATTACH_EXT_OUT_FLAG_LINKCTRL))
++	spin_unlock_bh(&efx->stats_lock);
++
++	if (in_interrupt()) {
++		/* If in atomic context, cannot update stats.  Just update the
++		 * software stats and return so the caller can continue.
++		 */
++		spin_lock_bh(&efx->stats_lock);
++		efx_update_sw_stats(efx, stats);
 +		return 0;
++	}
 +
- 	if (port_caps & (1 << MC_CMD_PHY_CAP_40000FDX_LBN))
- 		raw_mask |= HUNT_40G_EXTRA_STAT_MASK;
- 	else
-@@ -1154,13 +1176,22 @@ static u64 efx_ef10_raw_stat_mask(struct efx_nic *efx)
+ 	efx_ef10_get_stat_mask(efx, mask);
  
- static void efx_ef10_get_stat_mask(struct efx_nic *efx, unsigned long *mask)
- {
--	u64 raw_mask = efx_ef10_raw_stat_mask(efx);
-+	u64 raw_mask[2];
-+
-+	raw_mask[0] = efx_ef10_raw_stat_mask(efx);
-+
-+	/* All functions see the vadaptor stats */
-+	raw_mask[0] |= ~((1ULL << EF10_STAT_rx_unicast) - 1);
-+	raw_mask[1] = (1ULL << (EF10_STAT_COUNT - 63)) - 1;
+ 	rc = efx_nic_alloc_buffer(efx, &stats_buf, dma_len, GFP_ATOMIC);
+-	if (rc)
++	if (rc) {
++		spin_lock_bh(&efx->stats_lock);
+ 		return rc;
++	}
  
- #if BITS_PER_LONG == 64
--	mask[0] = raw_mask;
-+	mask[0] = raw_mask[0];
-+	mask[1] = raw_mask[1];
- #else
--	mask[0] = raw_mask & 0xffffffff;
--	mask[1] = raw_mask >> 32;
-+	mask[0] = raw_mask[0] & 0xffffffff;
-+	mask[1] = raw_mask[0] >> 32;
-+	mask[2] = raw_mask[1] & 0xffffffff;
-+	mask[3] = raw_mask[1] >> 32;
- #endif
- }
+ 	dma_stats = stats_buf.addr;
+ 	dma_stats[MC_CMD_MAC_GENERATION_END] = EFX_MC_STATS_GENERATION_INVALID;
+@@ -1335,7 +1348,6 @@ static int efx_ef10_try_update_nic_stats_vf(struct efx_nic *efx)
+ 	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_DMA_LEN, dma_len);
+ 	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_PORT_ID, EVB_PORT_ID_ASSIGNED);
  
-diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
-index 1e11bb8..0e497b3 100644
---- a/drivers/net/ethernet/sfc/mcdi_pcol.h
-+++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
-@@ -2896,6 +2896,26 @@
-  * descriptor fetch. Valid for EF10 with PM_AND_RXDP_COUNTERS capability only.
-  */
- #define          MC_CMD_MAC_RXDP_HLB_WAIT_CONDITIONS  0x48
-+#define          MC_CMD_MAC_VADAPTER_RX_DMABUF_START  0x4c /* enum */
-+#define          MC_CMD_MAC_VADAPTER_RX_UNICAST_PACKETS  0x4c /* enum */
-+#define          MC_CMD_MAC_VADAPTER_RX_UNICAST_BYTES  0x4d /* enum */
-+#define          MC_CMD_MAC_VADAPTER_RX_MULTICAST_PACKETS  0x4e /* enum */
-+#define          MC_CMD_MAC_VADAPTER_RX_MULTICAST_BYTES  0x4f /* enum */
-+#define          MC_CMD_MAC_VADAPTER_RX_BROADCAST_PACKETS  0x50 /* enum */
-+#define          MC_CMD_MAC_VADAPTER_RX_BROADCAST_BYTES  0x51 /* enum */
-+#define          MC_CMD_MAC_VADAPTER_RX_BAD_PACKETS  0x52 /* enum */
-+#define          MC_CMD_MAC_VADAPTER_RX_BAD_BYTES  0x53 /* enum */
-+#define          MC_CMD_MAC_VADAPTER_RX_OVERFLOW  0x54 /* enum */
-+#define          MC_CMD_MAC_VADAPTER_TX_DMABUF_START  0x57 /* enum */
-+#define          MC_CMD_MAC_VADAPTER_TX_UNICAST_PACKETS  0x57 /* enum */
-+#define          MC_CMD_MAC_VADAPTER_TX_UNICAST_BYTES  0x58 /* enum */
-+#define          MC_CMD_MAC_VADAPTER_TX_MULTICAST_PACKETS  0x59 /* enum */
-+#define          MC_CMD_MAC_VADAPTER_TX_MULTICAST_BYTES  0x5a /* enum */
-+#define          MC_CMD_MAC_VADAPTER_TX_BROADCAST_PACKETS  0x5b /* enum */
-+#define          MC_CMD_MAC_VADAPTER_TX_BROADCAST_BYTES  0x5c /* enum */
-+#define          MC_CMD_MAC_VADAPTER_TX_BAD_PACKETS  0x5d /* enum */
-+#define          MC_CMD_MAC_VADAPTER_TX_BAD_BYTES  0x5e /* enum */
-+#define          MC_CMD_MAC_VADAPTER_TX_OVERFLOW  0x5f /* enum */
- /* enum: Start of GMAC stats buffer space, for Siena only. */
- #define          MC_CMD_GMAC_DMABUF_START  0x40
- /* enum: End of GMAC stats buffer space, for Siena only. */
-diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
-index 8b69a31..31ff908 100644
---- a/drivers/net/ethernet/sfc/nic.h
-+++ b/drivers/net/ethernet/sfc/nic.h
-@@ -460,6 +460,24 @@ enum {
- 	EF10_STAT_port_rx_dp_streaming_packets,
- 	EF10_STAT_port_rx_dp_hlb_fetch,
- 	EF10_STAT_port_rx_dp_hlb_wait,
-+	EF10_STAT_rx_unicast,
-+	EF10_STAT_rx_unicast_bytes,
-+	EF10_STAT_rx_multicast,
-+	EF10_STAT_rx_multicast_bytes,
-+	EF10_STAT_rx_broadcast,
-+	EF10_STAT_rx_broadcast_bytes,
-+	EF10_STAT_rx_bad,
-+	EF10_STAT_rx_bad_bytes,
-+	EF10_STAT_rx_overflow,
-+	EF10_STAT_tx_unicast,
-+	EF10_STAT_tx_unicast_bytes,
-+	EF10_STAT_tx_multicast,
-+	EF10_STAT_tx_multicast_bytes,
-+	EF10_STAT_tx_broadcast,
-+	EF10_STAT_tx_broadcast_bytes,
-+	EF10_STAT_tx_bad,
-+	EF10_STAT_tx_bad_bytes,
-+	EF10_STAT_tx_overflow,
- 	EF10_STAT_COUNT
- };
- 
+-	spin_unlock_bh(&efx->stats_lock);
+ 	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_MAC_STATS, inbuf, sizeof(inbuf),
+ 				NULL, 0, NULL);
+ 	spin_lock_bh(&efx->stats_lock);
