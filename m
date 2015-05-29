@@ -1,102 +1,219 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 1/3] net: systemport: Pre-calculate and utilize cb->bd_addr
-Date: Fri, 29 May 2015 09:42:15 -0700
-Message-ID: <1432917737-16793-2-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 2/3] net: systemport: rewrite bcm_sysport_rx_refill
+Date: Fri, 29 May 2015 09:42:16 -0700
+Message-ID: <1432917737-16793-3-git-send-email-f.fainelli@gmail.com>
 References: <1432917737-16793-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, pgynther@google.com,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:35992 "EHLO
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:36013 "EHLO
 	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756950AbbE2QuL (ORCPT
+	with ESMTP id S1756708AbbE2QuL (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 12:50:11 -0400
-Received: by pdfh10 with SMTP id h10so57474177pdf.3
-        for <netdev@vger.kernel.org>; Fri, 29 May 2015 09:50:10 -0700 (PDT)
+Received: by pdfh10 with SMTP id h10so57474671pdf.3
+        for <netdev@vger.kernel.org>; Fri, 29 May 2015 09:50:11 -0700 (PDT)
 In-Reply-To: <1432917737-16793-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a 1:1 mapping between the software maintained control block in
-priv->rx_cbs and the buffer address in priv->rx_bds, such that there is
-no need to keep computing the buffer address when refiling a control
-block.
+Currently, bcm_sysport_desc_rx() calls bcm_sysport_rx_refill() at the end of Rx
+packet processing loop, after the current Rx packet has already been passed to
+napi_gro_receive(). However, bcm_sysport_rx_refill() might fail to allocate a new
+Rx skb, thus leaving a hole on the Rx queue where no valid Rx buffer exists.
 
-Reviewed-by: Petri Gynther <pgynther@google.com>
+To eliminate this situation:
+
+1. Rewrite bcm_sysport_rx_refill() to retain the current Rx skb on the
+Rx queue if a new replacement Rx skb can't be allocated and DMA-mapped.
+In this case, the data on the current Rx skb is effectively dropped.
+
+2. Modify bcm_sysport_desc_rx() to call bcm_sysport_rx_refill() at the
+top of Rx packet processing loop, so that the new replacement Rx skb is
+already in place before the current Rx skb is processed.
+
+This is loosely inspired from d6707bec5986 ("net: bcmgenet: rewrite
+bcmgenet_rx_refill()")
+
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/broadcom/bcmsysport.c | 18 +++++++++---------
- drivers/net/ethernet/broadcom/bcmsysport.h |  2 --
- 2 files changed, 9 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/broadcom/bcmsysport.c | 87 ++++++++++++++----------------
+ 1 file changed, 41 insertions(+), 46 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index 084a50a555de..267330ccd595 100644
+index 267330ccd595..62ea403e15b8 100644
 --- a/drivers/net/ethernet/broadcom/bcmsysport.c
 +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -549,12 +549,7 @@ static int bcm_sysport_rx_refill(struct bcm_sysport_priv *priv,
+@@ -524,62 +524,70 @@ static void bcm_sysport_free_cb(struct bcm_sysport_cb *cb)
+ 	dma_unmap_addr_set(cb, dma_addr, 0);
+ }
+ 
+-static int bcm_sysport_rx_refill(struct bcm_sysport_priv *priv,
+-				 struct bcm_sysport_cb *cb)
++static struct sk_buff *bcm_sysport_rx_refill(struct bcm_sysport_priv *priv,
++					     struct bcm_sysport_cb *cb)
+ {
+ 	struct device *kdev = &priv->pdev->dev;
+ 	struct net_device *ndev = priv->netdev;
++	struct sk_buff *skb, *rx_skb;
+ 	dma_addr_t mapping;
+-	int ret;
+ 
+-	cb->skb = netdev_alloc_skb(priv->netdev, RX_BUF_LENGTH);
+-	if (!cb->skb) {
++	/* Allocate a new SKB for a new packet */
++	skb = netdev_alloc_skb(priv->netdev, RX_BUF_LENGTH);
++	if (!skb) {
++		priv->mib.alloc_rx_buff_failed++;
+ 		netif_err(priv, rx_err, ndev, "SKB alloc failed\n");
+-		return -ENOMEM;
++		return NULL;
  	}
  
+-	mapping = dma_map_single(kdev, cb->skb->data,
++	mapping = dma_map_single(kdev, skb->data,
+ 				 RX_BUF_LENGTH, DMA_FROM_DEVICE);
+-	ret = dma_mapping_error(kdev, mapping);
+-	if (ret) {
++	if (dma_mapping_error(kdev, mapping)) {
+ 		priv->mib.rx_dma_failed++;
+-		bcm_sysport_free_cb(cb);
++		dev_kfree_skb_any(skb);
+ 		netif_err(priv, rx_err, ndev, "DMA mapping failure\n");
+-		return ret;
++		return NULL;
+ 	}
+ 
++	/* Grab the current SKB on the ring */
++	rx_skb = cb->skb;
++	if (likely(rx_skb))
++		dma_unmap_single(kdev, dma_unmap_addr(cb, dma_addr),
++				 RX_BUF_LENGTH, DMA_FROM_DEVICE);
++
++	/* Put the new SKB on the ring */
++	cb->skb = skb;
  	dma_unmap_addr_set(cb, dma_addr, mapping);
--	dma_desc_set_addr(priv, priv->rx_bd_assign_ptr, mapping);
--
--	priv->rx_bd_assign_index++;
--	priv->rx_bd_assign_index &= (priv->num_rx_bds - 1);
--	priv->rx_bd_assign_ptr = priv->rx_bds +
--		(priv->rx_bd_assign_index * DESC_SIZE);
-+	dma_desc_set_addr(priv, cb->bd_addr, mapping);
+ 	dma_desc_set_addr(priv, cb->bd_addr, mapping);
  
  	netif_dbg(priv, rx_status, ndev, "RX refill\n");
  
-@@ -568,7 +563,7 @@ static int bcm_sysport_alloc_rx_bufs(struct bcm_sysport_priv *priv)
+-	return 0;
++	/* Return the current SKB to the caller */
++	return rx_skb;
+ }
+ 
+ static int bcm_sysport_alloc_rx_bufs(struct bcm_sysport_priv *priv)
+ {
+ 	struct bcm_sysport_cb *cb;
+-	int ret = 0;
++	struct sk_buff *skb;
  	unsigned int i;
  
  	for (i = 0; i < priv->num_rx_bds; i++) {
--		cb = &priv->rx_cbs[priv->rx_bd_assign_index];
-+		cb = &priv->rx_cbs[i];
- 		if (cb->skb)
- 			continue;
- 
-@@ -1330,14 +1325,14 @@ static inline int tdma_enable_set(struct bcm_sysport_priv *priv,
- 
- static int bcm_sysport_init_rx_ring(struct bcm_sysport_priv *priv)
- {
-+	struct bcm_sysport_cb *cb;
- 	u32 reg;
- 	int ret;
-+	int i;
- 
- 	/* Initialize SW view of the RX ring */
- 	priv->num_rx_bds = NUM_RX_DESC;
- 	priv->rx_bds = priv->base + SYS_PORT_RDMA_OFFSET;
--	priv->rx_bd_assign_ptr = priv->rx_bds;
--	priv->rx_bd_assign_index = 0;
- 	priv->rx_c_index = 0;
- 	priv->rx_read_ptr = 0;
- 	priv->rx_cbs = kcalloc(priv->num_rx_bds, sizeof(struct bcm_sysport_cb),
-@@ -1347,6 +1342,11 @@ static int bcm_sysport_init_rx_ring(struct bcm_sysport_priv *priv)
- 		return -ENOMEM;
+ 		cb = &priv->rx_cbs[i];
+-		if (cb->skb)
+-			continue;
+-
+-		ret = bcm_sysport_rx_refill(priv, cb);
+-		if (ret)
+-			break;
++		skb = bcm_sysport_rx_refill(priv, cb);
++		if (skb)
++			dev_kfree_skb(skb);
++		if (!cb->skb)
++			return -ENOMEM;
  	}
  
-+	for (i = 0; i < priv->num_rx_bds; i++) {
-+		cb = priv->rx_cbs + i;
-+		cb->bd_addr = priv->rx_bds + i * DESC_SIZE;
-+	}
-+
- 	ret = bcm_sysport_alloc_rx_bufs(priv);
- 	if (ret) {
- 		netif_err(priv, hw, priv->netdev, "SKB allocation failed\n");
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.h b/drivers/net/ethernet/broadcom/bcmsysport.h
-index 42a4b4a0bc14..f28bf545d7f4 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.h
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.h
-@@ -663,8 +663,6 @@ struct bcm_sysport_priv {
+-	return ret;
++	return 0;
+ }
  
- 	/* Receive queue */
- 	void __iomem		*rx_bds;
--	void __iomem		*rx_bd_assign_ptr;
--	unsigned int		rx_bd_assign_index;
- 	struct bcm_sysport_cb	*rx_cbs;
- 	unsigned int		num_rx_bds;
- 	unsigned int		rx_read_ptr;
+ /* Poll the hardware for up to budget packets to process */
+ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
+ 					unsigned int budget)
+ {
+-	struct device *kdev = &priv->pdev->dev;
+ 	struct net_device *ndev = priv->netdev;
+ 	unsigned int processed = 0, to_process;
+ 	struct bcm_sysport_cb *cb;
+@@ -587,7 +595,6 @@ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
+ 	unsigned int p_index;
+ 	u16 len, status;
+ 	struct bcm_rsb *rsb;
+-	int ret;
+ 
+ 	/* Determine how much we should process since last call */
+ 	p_index = rdma_readl(priv, RDMA_PROD_INDEX);
+@@ -605,29 +612,15 @@ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
+ 
+ 	while ((processed < to_process) && (processed < budget)) {
+ 		cb = &priv->rx_cbs[priv->rx_read_ptr];
+-		skb = cb->skb;
+-
+-		processed++;
+-		priv->rx_read_ptr++;
+-
+-		if (priv->rx_read_ptr == priv->num_rx_bds)
+-			priv->rx_read_ptr = 0;
++		skb = bcm_sysport_rx_refill(priv, cb);
+ 
+-		/* We do not have a backing SKB, so we do not a corresponding
+-		 * DMA mapping for this incoming packet since
+-		 * bcm_sysport_rx_refill always either has both skb and mapping
+-		 * or none.
+-		 */
+ 		if (unlikely(!skb)) {
+ 			netif_err(priv, rx_err, ndev, "out of memory!\n");
+ 			ndev->stats.rx_dropped++;
+ 			ndev->stats.rx_errors++;
+-			goto refill;
++			goto next;
+ 		}
+ 
+-		dma_unmap_single(kdev, dma_unmap_addr(cb, dma_addr),
+-				 RX_BUF_LENGTH, DMA_FROM_DEVICE);
+-
+ 		/* Extract the Receive Status Block prepended */
+ 		rsb = (struct bcm_rsb *)skb->data;
+ 		len = (rsb->rx_status_len >> DESC_LEN_SHIFT) & DESC_LEN_MASK;
+@@ -643,8 +636,8 @@ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
+ 			netif_err(priv, rx_status, ndev, "fragmented packet!\n");
+ 			ndev->stats.rx_dropped++;
+ 			ndev->stats.rx_errors++;
+-			bcm_sysport_free_cb(cb);
+-			goto refill;
++			dev_kfree_skb_any(skb);
++			goto next;
+ 		}
+ 
+ 		if (unlikely(status & (RX_STATUS_ERR | RX_STATUS_OVFLOW))) {
+@@ -653,8 +646,8 @@ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
+ 				ndev->stats.rx_over_errors++;
+ 			ndev->stats.rx_dropped++;
+ 			ndev->stats.rx_errors++;
+-			bcm_sysport_free_cb(cb);
+-			goto refill;
++			dev_kfree_skb_any(skb);
++			goto next;
+ 		}
+ 
+ 		skb_put(skb, len);
+@@ -681,10 +674,12 @@ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
+ 		ndev->stats.rx_bytes += len;
+ 
+ 		napi_gro_receive(&priv->napi, skb);
+-refill:
+-		ret = bcm_sysport_rx_refill(priv, cb);
+-		if (ret)
+-			priv->mib.alloc_rx_buff_failed++;
++next:
++		processed++;
++		priv->rx_read_ptr++;
++
++		if (unlikely(priv->rx_read_ptr == priv->num_rx_bds))
++			priv->rx_read_ptr = 0;
+ 	}
+ 
+ 	return processed;
 -- 
 2.1.0
