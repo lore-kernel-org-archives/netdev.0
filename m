@@ -1,49 +1,29 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v4 net-next 05/11] net: Add full IPv6 addresses to flow_keys
-Date: Thu, 28 May 2015 15:38:14 -0700
-Message-ID: <CALx6S36WsA_GgEsWo96BPtJm95knCnusNOw_vsUOhQZnC5BxQw@mail.gmail.com>
-References: <1432837148-1359931-1-git-send-email-tom@herbertland.com>
-	<1432837148-1359931-6-git-send-email-tom@herbertland.com>
-	<1432849496.7456.34.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH net-next 0/2] hv_netvsc: Implement NUMA aware memory allocation
+Date: Thu, 28 May 2015 17:07:44 -0700
+Message-ID: <1432858064-4627-1-git-send-email-kys@microsoft.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:33673 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932503AbbE1WiO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 18:38:14 -0400
-Received: by iebgx4 with SMTP id gx4so49702891ieb.0
-        for <netdev@vger.kernel.org>; Thu, 28 May 2015 15:38:14 -0700 (PDT)
-In-Reply-To: <1432849496.7456.34.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from p3plsmtps2ded03.prod.phx3.secureserver.net ([208.109.80.60]:37650
+	"EHLO p3plsmtps2ded03.prod.phx3.secureserver.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754142AbbE1Wqv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2015 18:46:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 28, 2015 at 2:44 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2015-05-28 at 11:19 -0700, Tom Herbert wrote:
->
->> @@ -566,11 +640,15 @@ static const struct flow_dissector_key flow_keys_dissector_keys[] = {
->>       },
->>       {
->>               .key_id = FLOW_DISSECTOR_KEY_IPV4_ADDRS,
->> -             .offset = offsetof(struct flow_keys, addrs),
->> +             .offset = offsetof(struct flow_keys, addrs.v4addrs),
->> +     },
->> +     {
->> +             .key_id = FLOW_DISSECTOR_KEY_IPV6_ADDRS,
->> +             .offset = offsetof(struct flow_keys, addrs.v6addrs),
->>       },
->>       {
->>               .key_id = FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS,
->> -             .offset = offsetof(struct flow_keys, addrs),
->> +             .offset = offsetof(struct flow_keys, addrs.v4addrs),
->
-> Shouldn't it be offsetof(struct flow_keys, addrs.v6addrs), ?
->
-This is to hash 128 bit IP addresses into 32 bit values which fit in
-the v4addrs area. This completely goes away in 07 patch in this set.
+Allocate both receive buffer and send buffer from the NUMA node assigned to the
+primary channel.
 
->
->
+K. Y. Srinivasan (2):
+  hv_netvsc: Allocate the receive buffer from the correct NUMA node
+  hv_netvsc: Allocate the sendbuf in a NUMA aware way
+
+ drivers/net/hyperv/netvsc.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
+
+-- 
+1.7.4.1
