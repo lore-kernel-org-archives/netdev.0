@@ -1,57 +1,37 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH] xen: netback: fix error printf format string.
-Date: Fri, 29 May 2015 17:24:52 +0100
-Message-ID: <20150529162452.GH30474@zion.uk.xensource.com>
-References: <1432916524-20881-1-git-send-email-ian.campbell@citrix.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [PATCH net] xen: netback: read hotplug script once at start of
+ day.
+Date: Fri, 29 May 2015 17:28:42 +0100
+Message-ID: <556893BA.9030300@citrix.com>
+References: <1432916693-21121-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
-	<wei.liu2@citrix.com>
-To: Ian Campbell <ian.campbell@citrix.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <wei.liu2@citrix.com>
+To: Ian Campbell <ian.campbell@citrix.com>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:33395 "EHLO SMTP.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:52453 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030220AbbE2QY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 May 2015 12:24:56 -0400
-Content-Disposition: inline
-In-Reply-To: <1432916524-20881-1-git-send-email-ian.campbell@citrix.com>
+	id S1751854AbbE2Q3A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 May 2015 12:29:00 -0400
+In-Reply-To: <1432916693-21121-1-git-send-email-ian.campbell@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 29, 2015 at 05:22:04PM +0100, Ian Campbell wrote:
-> drivers/net/xen-netback/netback.c: In function =E2=80=98xenvif_tx_bui=
-ld_gops=E2=80=99:
-> drivers/net/xen-netback/netback.c:1253:8: warning: format =E2=80=98%l=
-u=E2=80=99 expects argument of type =E2=80=98long unsigned int=E2=80=99=
-, but argument 5 has type =E2=80=98int=E2=80=99 [-Wformat=3D]
->         (txreq.offset&~PAGE_MASK) + txreq.size);
->         ^
->=20
-> txreq.offset and .size are uint16_t fields.
->=20
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+On 29/05/15 17:24, Ian Campbell wrote:
+> --- a/drivers/net/xen-netback/xenbus.c
+> +++ b/drivers/net/xen-netback/xenbus.c
+> @@ -235,6 +235,7 @@ static int netback_remove(struct xenbus_device *dev)
+>  		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
+>  		xen_unregister_watchers(be->vif);
+>  		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
+> +		kfree(be->vif->hotplug_script);
 
-Acked-by: Wei Liu <wei.liu2@citrix.com>
+Should this kfree() be in xenvif_free()?
 
-> ---
->  drivers/net/xen-netback/netback.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netb=
-ack/netback.c
-> index 4de46aa..a3b1cbb 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -1248,7 +1248,7 @@ static void xenvif_tx_build_gops(struct xenvif_=
-queue *queue,
->  		/* No crossing a page as the payload mustn't fragment. */
->  		if (unlikely((txreq.offset + txreq.size) > PAGE_SIZE)) {
->  			netdev_err(queue->vif->dev,
-> -				   "txreq.offset: %x, size: %u, end: %lu\n",
-> +				   "txreq.offset: %x, size: %u, end: %u\n",
->  				   txreq.offset, txreq.size,
->  				   (txreq.offset&~PAGE_MASK) + txreq.size);
->  			xenvif_fatal_tx_err(queue->vif);
-> --=20
-> 1.7.10.4
+>  		xenvif_free(be->vif);
+>  		be->vif = NULL;
+>  	}
+
+David
