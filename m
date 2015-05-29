@@ -1,7 +1,7 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next 07/14] sfc: DMA the VF stats only when requested
-Date: Fri, 29 May 2015 11:02:20 +0100
-Message-ID: <5568392C.7050905@solarflare.com>
+Subject: [PATCH net-next 04/14] sfc: add "port_" prefix to MAC stats
+Date: Fri, 29 May 2015 11:01:42 +0100
+Message-ID: <55683906.1070802@solarflare.com>
 References: <55683895.2090408@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -9,241 +9,467 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:27518 "EHLO
-	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751763AbbE2KCd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 06:02:33 -0400
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:47742 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755763AbbE2KCh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 06:02:37 -0400
 In-Reply-To: <55683895.2090408@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Daniel Pieczko <dpieczko@solarflare.com>
 
-Firmware does not support a periodic DMA of vadaptor-stats
-on VFs, so only update the stats buffer when stats are
-requested (when running "ethtool -S" or an ip/ifconfig
-command that reports stats).
+The MAC stats are per-port and will only be displayed on the PF
+with control of the link (one per physical port). Vadapter stats
+will also be displayed for this PF, so distinguish the MAC stats
+by adding a prefix of "port_".
 
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c      | 149 +++++++++++++++++++++++++----------
+ drivers/net/ethernet/sfc/ef10.c      | 251 ++++++++++++++++++-----------------
  drivers/net/ethernet/sfc/mcdi_pcol.h |   4 +-
- 2 files changed, 112 insertions(+), 41 deletions(-)
+ drivers/net/ethernet/sfc/nic.h       | 106 +++++++--------
+ 3 files changed, 182 insertions(+), 179 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index bf4677e..6aaec4e 100644
+index 5c9576d..46ddd6e 100644
 --- a/drivers/net/ethernet/sfc/ef10.c
 +++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -1204,7 +1204,50 @@ static size_t efx_ef10_describe_stats(struct efx_nic *efx, u8 *names)
- 				      mask, names);
- }
+@@ -1005,93 +1005,94 @@ static int efx_ef10_reset(struct efx_nic *efx, enum reset_type reset_type)
+ 	[GENERIC_STAT_ ## ext_name] = { #ext_name, 0, 0 }
  
--static int efx_ef10_try_update_nic_stats(struct efx_nic *efx)
-+static size_t efx_ef10_update_stats_common(struct efx_nic *efx, u64 *full_stats,
-+					   struct rtnl_link_stats64 *core_stats)
-+{
-+	DECLARE_BITMAP(mask, EF10_STAT_COUNT);
-+	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+	u64 *stats = nic_data->stats;
-+	size_t stats_count = 0, index;
-+
-+	efx_ef10_get_stat_mask(efx, mask);
-+
-+	if (full_stats) {
-+		for_each_set_bit(index, mask, EF10_STAT_COUNT) {
-+			if (efx_ef10_stat_desc[index].name) {
-+				*full_stats++ = stats[index];
-+				++stats_count;
-+			}
-+		}
-+	}
-+
-+	if (core_stats) {
+ static const struct efx_hw_stat_desc efx_ef10_stat_desc[EF10_STAT_COUNT] = {
+-	EF10_DMA_STAT(tx_bytes, TX_BYTES),
+-	EF10_DMA_STAT(tx_packets, TX_PKTS),
+-	EF10_DMA_STAT(tx_pause, TX_PAUSE_PKTS),
+-	EF10_DMA_STAT(tx_control, TX_CONTROL_PKTS),
+-	EF10_DMA_STAT(tx_unicast, TX_UNICAST_PKTS),
+-	EF10_DMA_STAT(tx_multicast, TX_MULTICAST_PKTS),
+-	EF10_DMA_STAT(tx_broadcast, TX_BROADCAST_PKTS),
+-	EF10_DMA_STAT(tx_lt64, TX_LT64_PKTS),
+-	EF10_DMA_STAT(tx_64, TX_64_PKTS),
+-	EF10_DMA_STAT(tx_65_to_127, TX_65_TO_127_PKTS),
+-	EF10_DMA_STAT(tx_128_to_255, TX_128_TO_255_PKTS),
+-	EF10_DMA_STAT(tx_256_to_511, TX_256_TO_511_PKTS),
+-	EF10_DMA_STAT(tx_512_to_1023, TX_512_TO_1023_PKTS),
+-	EF10_DMA_STAT(tx_1024_to_15xx, TX_1024_TO_15XX_PKTS),
+-	EF10_DMA_STAT(tx_15xx_to_jumbo, TX_15XX_TO_JUMBO_PKTS),
+-	EF10_DMA_STAT(rx_bytes, RX_BYTES),
+-	EF10_DMA_INVIS_STAT(rx_bytes_minus_good_bytes, RX_BAD_BYTES),
+-	EF10_OTHER_STAT(rx_good_bytes),
+-	EF10_OTHER_STAT(rx_bad_bytes),
+-	EF10_DMA_STAT(rx_packets, RX_PKTS),
+-	EF10_DMA_STAT(rx_good, RX_GOOD_PKTS),
+-	EF10_DMA_STAT(rx_bad, RX_BAD_FCS_PKTS),
+-	EF10_DMA_STAT(rx_pause, RX_PAUSE_PKTS),
+-	EF10_DMA_STAT(rx_control, RX_CONTROL_PKTS),
+-	EF10_DMA_STAT(rx_unicast, RX_UNICAST_PKTS),
+-	EF10_DMA_STAT(rx_multicast, RX_MULTICAST_PKTS),
+-	EF10_DMA_STAT(rx_broadcast, RX_BROADCAST_PKTS),
+-	EF10_DMA_STAT(rx_lt64, RX_UNDERSIZE_PKTS),
+-	EF10_DMA_STAT(rx_64, RX_64_PKTS),
+-	EF10_DMA_STAT(rx_65_to_127, RX_65_TO_127_PKTS),
+-	EF10_DMA_STAT(rx_128_to_255, RX_128_TO_255_PKTS),
+-	EF10_DMA_STAT(rx_256_to_511, RX_256_TO_511_PKTS),
+-	EF10_DMA_STAT(rx_512_to_1023, RX_512_TO_1023_PKTS),
+-	EF10_DMA_STAT(rx_1024_to_15xx, RX_1024_TO_15XX_PKTS),
+-	EF10_DMA_STAT(rx_15xx_to_jumbo, RX_15XX_TO_JUMBO_PKTS),
+-	EF10_DMA_STAT(rx_gtjumbo, RX_GTJUMBO_PKTS),
+-	EF10_DMA_STAT(rx_bad_gtjumbo, RX_JABBER_PKTS),
+-	EF10_DMA_STAT(rx_overflow, RX_OVERFLOW_PKTS),
+-	EF10_DMA_STAT(rx_align_error, RX_ALIGN_ERROR_PKTS),
+-	EF10_DMA_STAT(rx_length_error, RX_LENGTH_ERROR_PKTS),
+-	EF10_DMA_STAT(rx_nodesc_drops, RX_NODESC_DROPS),
++	EF10_DMA_STAT(port_tx_bytes, TX_BYTES),
++	EF10_DMA_STAT(port_tx_packets, TX_PKTS),
++	EF10_DMA_STAT(port_tx_pause, TX_PAUSE_PKTS),
++	EF10_DMA_STAT(port_tx_control, TX_CONTROL_PKTS),
++	EF10_DMA_STAT(port_tx_unicast, TX_UNICAST_PKTS),
++	EF10_DMA_STAT(port_tx_multicast, TX_MULTICAST_PKTS),
++	EF10_DMA_STAT(port_tx_broadcast, TX_BROADCAST_PKTS),
++	EF10_DMA_STAT(port_tx_lt64, TX_LT64_PKTS),
++	EF10_DMA_STAT(port_tx_64, TX_64_PKTS),
++	EF10_DMA_STAT(port_tx_65_to_127, TX_65_TO_127_PKTS),
++	EF10_DMA_STAT(port_tx_128_to_255, TX_128_TO_255_PKTS),
++	EF10_DMA_STAT(port_tx_256_to_511, TX_256_TO_511_PKTS),
++	EF10_DMA_STAT(port_tx_512_to_1023, TX_512_TO_1023_PKTS),
++	EF10_DMA_STAT(port_tx_1024_to_15xx, TX_1024_TO_15XX_PKTS),
++	EF10_DMA_STAT(port_tx_15xx_to_jumbo, TX_15XX_TO_JUMBO_PKTS),
++	EF10_DMA_STAT(port_rx_bytes, RX_BYTES),
++	EF10_DMA_INVIS_STAT(port_rx_bytes_minus_good_bytes, RX_BAD_BYTES),
++	EF10_OTHER_STAT(port_rx_good_bytes),
++	EF10_OTHER_STAT(port_rx_bad_bytes),
++	EF10_DMA_STAT(port_rx_packets, RX_PKTS),
++	EF10_DMA_STAT(port_rx_good, RX_GOOD_PKTS),
++	EF10_DMA_STAT(port_rx_bad, RX_BAD_FCS_PKTS),
++	EF10_DMA_STAT(port_rx_pause, RX_PAUSE_PKTS),
++	EF10_DMA_STAT(port_rx_control, RX_CONTROL_PKTS),
++	EF10_DMA_STAT(port_rx_unicast, RX_UNICAST_PKTS),
++	EF10_DMA_STAT(port_rx_multicast, RX_MULTICAST_PKTS),
++	EF10_DMA_STAT(port_rx_broadcast, RX_BROADCAST_PKTS),
++	EF10_DMA_STAT(port_rx_lt64, RX_UNDERSIZE_PKTS),
++	EF10_DMA_STAT(port_rx_64, RX_64_PKTS),
++	EF10_DMA_STAT(port_rx_65_to_127, RX_65_TO_127_PKTS),
++	EF10_DMA_STAT(port_rx_128_to_255, RX_128_TO_255_PKTS),
++	EF10_DMA_STAT(port_rx_256_to_511, RX_256_TO_511_PKTS),
++	EF10_DMA_STAT(port_rx_512_to_1023, RX_512_TO_1023_PKTS),
++	EF10_DMA_STAT(port_rx_1024_to_15xx, RX_1024_TO_15XX_PKTS),
++	EF10_DMA_STAT(port_rx_15xx_to_jumbo, RX_15XX_TO_JUMBO_PKTS),
++	EF10_DMA_STAT(port_rx_gtjumbo, RX_GTJUMBO_PKTS),
++	EF10_DMA_STAT(port_rx_bad_gtjumbo, RX_JABBER_PKTS),
++	EF10_DMA_STAT(port_rx_overflow, RX_OVERFLOW_PKTS),
++	EF10_DMA_STAT(port_rx_align_error, RX_ALIGN_ERROR_PKTS),
++	EF10_DMA_STAT(port_rx_length_error, RX_LENGTH_ERROR_PKTS),
++	EF10_DMA_STAT(port_rx_nodesc_drops, RX_NODESC_DROPS),
+ 	GENERIC_SW_STAT(rx_nodesc_trunc),
+ 	GENERIC_SW_STAT(rx_noskb_drops),
+-	EF10_DMA_STAT(rx_pm_trunc_bb_overflow, PM_TRUNC_BB_OVERFLOW),
+-	EF10_DMA_STAT(rx_pm_discard_bb_overflow, PM_DISCARD_BB_OVERFLOW),
+-	EF10_DMA_STAT(rx_pm_trunc_vfifo_full, PM_TRUNC_VFIFO_FULL),
+-	EF10_DMA_STAT(rx_pm_discard_vfifo_full, PM_DISCARD_VFIFO_FULL),
+-	EF10_DMA_STAT(rx_pm_trunc_qbb, PM_TRUNC_QBB),
+-	EF10_DMA_STAT(rx_pm_discard_qbb, PM_DISCARD_QBB),
+-	EF10_DMA_STAT(rx_pm_discard_mapping, PM_DISCARD_MAPPING),
+-	EF10_DMA_STAT(rx_dp_q_disabled_packets, RXDP_Q_DISABLED_PKTS),
+-	EF10_DMA_STAT(rx_dp_di_dropped_packets, RXDP_DI_DROPPED_PKTS),
+-	EF10_DMA_STAT(rx_dp_streaming_packets, RXDP_STREAMING_PKTS),
+-	EF10_DMA_STAT(rx_dp_hlb_fetch, RXDP_EMERGENCY_FETCH_CONDITIONS),
+-	EF10_DMA_STAT(rx_dp_hlb_wait, RXDP_EMERGENCY_WAIT_CONDITIONS),
++	EF10_DMA_STAT(port_rx_pm_trunc_bb_overflow, PM_TRUNC_BB_OVERFLOW),
++	EF10_DMA_STAT(port_rx_pm_discard_bb_overflow, PM_DISCARD_BB_OVERFLOW),
++	EF10_DMA_STAT(port_rx_pm_trunc_vfifo_full, PM_TRUNC_VFIFO_FULL),
++	EF10_DMA_STAT(port_rx_pm_discard_vfifo_full, PM_DISCARD_VFIFO_FULL),
++	EF10_DMA_STAT(port_rx_pm_trunc_qbb, PM_TRUNC_QBB),
++	EF10_DMA_STAT(port_rx_pm_discard_qbb, PM_DISCARD_QBB),
++	EF10_DMA_STAT(port_rx_pm_discard_mapping, PM_DISCARD_MAPPING),
++	EF10_DMA_STAT(port_rx_dp_q_disabled_packets, RXDP_Q_DISABLED_PKTS),
++	EF10_DMA_STAT(port_rx_dp_di_dropped_packets, RXDP_DI_DROPPED_PKTS),
++	EF10_DMA_STAT(port_rx_dp_streaming_packets, RXDP_STREAMING_PKTS),
++	EF10_DMA_STAT(port_rx_dp_hlb_fetch, RXDP_HLB_FETCH_CONDITIONS),
++	EF10_DMA_STAT(port_rx_dp_hlb_wait, RXDP_HLB_WAIT_CONDITIONS),
+ };
+ 
+-#define HUNT_COMMON_STAT_MASK ((1ULL << EF10_STAT_tx_bytes) |		\
+-			       (1ULL << EF10_STAT_tx_packets) |		\
+-			       (1ULL << EF10_STAT_tx_pause) |		\
+-			       (1ULL << EF10_STAT_tx_unicast) |		\
+-			       (1ULL << EF10_STAT_tx_multicast) |	\
+-			       (1ULL << EF10_STAT_tx_broadcast) |	\
+-			       (1ULL << EF10_STAT_rx_bytes) |		\
+-			       (1ULL << EF10_STAT_rx_bytes_minus_good_bytes) | \
+-			       (1ULL << EF10_STAT_rx_good_bytes) |	\
+-			       (1ULL << EF10_STAT_rx_bad_bytes) |	\
+-			       (1ULL << EF10_STAT_rx_packets) |		\
+-			       (1ULL << EF10_STAT_rx_good) |		\
+-			       (1ULL << EF10_STAT_rx_bad) |		\
+-			       (1ULL << EF10_STAT_rx_pause) |		\
+-			       (1ULL << EF10_STAT_rx_control) |		\
+-			       (1ULL << EF10_STAT_rx_unicast) |		\
+-			       (1ULL << EF10_STAT_rx_multicast) |	\
+-			       (1ULL << EF10_STAT_rx_broadcast) |	\
+-			       (1ULL << EF10_STAT_rx_lt64) |		\
+-			       (1ULL << EF10_STAT_rx_64) |		\
+-			       (1ULL << EF10_STAT_rx_65_to_127) |	\
+-			       (1ULL << EF10_STAT_rx_128_to_255) |	\
+-			       (1ULL << EF10_STAT_rx_256_to_511) |	\
+-			       (1ULL << EF10_STAT_rx_512_to_1023) |	\
+-			       (1ULL << EF10_STAT_rx_1024_to_15xx) |	\
+-			       (1ULL << EF10_STAT_rx_15xx_to_jumbo) |	\
+-			       (1ULL << EF10_STAT_rx_gtjumbo) |		\
+-			       (1ULL << EF10_STAT_rx_bad_gtjumbo) |	\
+-			       (1ULL << EF10_STAT_rx_overflow) |	\
+-			       (1ULL << EF10_STAT_rx_nodesc_drops) |	\
++#define HUNT_COMMON_STAT_MASK ((1ULL << EF10_STAT_port_tx_bytes) |	\
++			       (1ULL << EF10_STAT_port_tx_packets) |	\
++			       (1ULL << EF10_STAT_port_tx_pause) |	\
++			       (1ULL << EF10_STAT_port_tx_unicast) |	\
++			       (1ULL << EF10_STAT_port_tx_multicast) |	\
++			       (1ULL << EF10_STAT_port_tx_broadcast) |	\
++			       (1ULL << EF10_STAT_port_rx_bytes) |	\
++			       (1ULL <<                                 \
++				EF10_STAT_port_rx_bytes_minus_good_bytes) | \
++			       (1ULL << EF10_STAT_port_rx_good_bytes) |	\
++			       (1ULL << EF10_STAT_port_rx_bad_bytes) |	\
++			       (1ULL << EF10_STAT_port_rx_packets) |	\
++			       (1ULL << EF10_STAT_port_rx_good) |	\
++			       (1ULL << EF10_STAT_port_rx_bad) |	\
++			       (1ULL << EF10_STAT_port_rx_pause) |	\
++			       (1ULL << EF10_STAT_port_rx_control) |	\
++			       (1ULL << EF10_STAT_port_rx_unicast) |	\
++			       (1ULL << EF10_STAT_port_rx_multicast) |	\
++			       (1ULL << EF10_STAT_port_rx_broadcast) |	\
++			       (1ULL << EF10_STAT_port_rx_lt64) |	\
++			       (1ULL << EF10_STAT_port_rx_64) |		\
++			       (1ULL << EF10_STAT_port_rx_65_to_127) |	\
++			       (1ULL << EF10_STAT_port_rx_128_to_255) |	\
++			       (1ULL << EF10_STAT_port_rx_256_to_511) |	\
++			       (1ULL << EF10_STAT_port_rx_512_to_1023) |\
++			       (1ULL << EF10_STAT_port_rx_1024_to_15xx) |\
++			       (1ULL << EF10_STAT_port_rx_15xx_to_jumbo) |\
++			       (1ULL << EF10_STAT_port_rx_gtjumbo) |	\
++			       (1ULL << EF10_STAT_port_rx_bad_gtjumbo) |\
++			       (1ULL << EF10_STAT_port_rx_overflow) |	\
++			       (1ULL << EF10_STAT_port_rx_nodesc_drops) |\
+ 			       (1ULL << GENERIC_STAT_rx_nodesc_trunc) |	\
+ 			       (1ULL << GENERIC_STAT_rx_noskb_drops))
+ 
+@@ -1099,39 +1100,39 @@ static const struct efx_hw_stat_desc efx_ef10_stat_desc[EF10_STAT_COUNT] = {
+  * switchable port we do not expose these because they might not
+  * include all the packets they should.
+  */
+-#define HUNT_10G_ONLY_STAT_MASK ((1ULL << EF10_STAT_tx_control) |	\
+-				 (1ULL << EF10_STAT_tx_lt64) |		\
+-				 (1ULL << EF10_STAT_tx_64) |		\
+-				 (1ULL << EF10_STAT_tx_65_to_127) |	\
+-				 (1ULL << EF10_STAT_tx_128_to_255) |	\
+-				 (1ULL << EF10_STAT_tx_256_to_511) |	\
+-				 (1ULL << EF10_STAT_tx_512_to_1023) |	\
+-				 (1ULL << EF10_STAT_tx_1024_to_15xx) |	\
+-				 (1ULL << EF10_STAT_tx_15xx_to_jumbo))
++#define HUNT_10G_ONLY_STAT_MASK ((1ULL << EF10_STAT_port_tx_control) |	\
++				 (1ULL << EF10_STAT_port_tx_lt64) |	\
++				 (1ULL << EF10_STAT_port_tx_64) |	\
++				 (1ULL << EF10_STAT_port_tx_65_to_127) |\
++				 (1ULL << EF10_STAT_port_tx_128_to_255) |\
++				 (1ULL << EF10_STAT_port_tx_256_to_511) |\
++				 (1ULL << EF10_STAT_port_tx_512_to_1023) |\
++				 (1ULL << EF10_STAT_port_tx_1024_to_15xx) |\
++				 (1ULL << EF10_STAT_port_tx_15xx_to_jumbo))
+ 
+ /* These statistics are only provided by the 40G MAC.  For a 10G/40G
+  * switchable port we do expose these because the errors will otherwise
+  * be silent.
+  */
+-#define HUNT_40G_EXTRA_STAT_MASK ((1ULL << EF10_STAT_rx_align_error) |	\
+-				  (1ULL << EF10_STAT_rx_length_error))
++#define HUNT_40G_EXTRA_STAT_MASK ((1ULL << EF10_STAT_port_rx_align_error) |\
++				  (1ULL << EF10_STAT_port_rx_length_error))
+ 
+ /* These statistics are only provided if the firmware supports the
+  * capability PM_AND_RXDP_COUNTERS.
+  */
+ #define HUNT_PM_AND_RXDP_STAT_MASK (					\
+-	(1ULL << EF10_STAT_rx_pm_trunc_bb_overflow) |			\
+-	(1ULL << EF10_STAT_rx_pm_discard_bb_overflow) |			\
+-	(1ULL << EF10_STAT_rx_pm_trunc_vfifo_full) |			\
+-	(1ULL << EF10_STAT_rx_pm_discard_vfifo_full) |			\
+-	(1ULL << EF10_STAT_rx_pm_trunc_qbb) |				\
+-	(1ULL << EF10_STAT_rx_pm_discard_qbb) |				\
+-	(1ULL << EF10_STAT_rx_pm_discard_mapping) |			\
+-	(1ULL << EF10_STAT_rx_dp_q_disabled_packets) |			\
+-	(1ULL << EF10_STAT_rx_dp_di_dropped_packets) |			\
+-	(1ULL << EF10_STAT_rx_dp_streaming_packets) |			\
+-	(1ULL << EF10_STAT_rx_dp_hlb_fetch) |				\
+-	(1ULL << EF10_STAT_rx_dp_hlb_wait))
++	(1ULL << EF10_STAT_port_rx_pm_trunc_bb_overflow) |		\
++	(1ULL << EF10_STAT_port_rx_pm_discard_bb_overflow) |		\
++	(1ULL << EF10_STAT_port_rx_pm_trunc_vfifo_full) |		\
++	(1ULL << EF10_STAT_port_rx_pm_discard_vfifo_full) |		\
++	(1ULL << EF10_STAT_port_rx_pm_trunc_qbb) |			\
++	(1ULL << EF10_STAT_port_rx_pm_discard_qbb) |			\
++	(1ULL << EF10_STAT_port_rx_pm_discard_mapping) |		\
++	(1ULL << EF10_STAT_port_rx_dp_q_disabled_packets) |		\
++	(1ULL << EF10_STAT_port_rx_dp_di_dropped_packets) |		\
++	(1ULL << EF10_STAT_port_rx_dp_streaming_packets) |		\
++	(1ULL << EF10_STAT_port_rx_dp_hlb_fetch) |			\
++	(1ULL << EF10_STAT_port_rx_dp_hlb_wait))
+ 
+ static u64 efx_ef10_raw_stat_mask(struct efx_nic *efx)
+ {
+@@ -1197,12 +1198,13 @@ static int efx_ef10_try_update_nic_stats(struct efx_nic *efx)
+ 		return -EAGAIN;
+ 
+ 	/* Update derived statistics */
+-	efx_nic_fix_nodesc_drop_stat(efx, &stats[EF10_STAT_rx_nodesc_drops]);
+-	stats[EF10_STAT_rx_good_bytes] =
+-		stats[EF10_STAT_rx_bytes] -
+-		stats[EF10_STAT_rx_bytes_minus_good_bytes];
+-	efx_update_diff_stat(&stats[EF10_STAT_rx_bad_bytes],
+-			     stats[EF10_STAT_rx_bytes_minus_good_bytes]);
++	efx_nic_fix_nodesc_drop_stat(efx,
++				     &stats[EF10_STAT_port_rx_nodesc_drops]);
++	stats[EF10_STAT_port_rx_good_bytes] =
++		stats[EF10_STAT_port_rx_bytes] -
++		stats[EF10_STAT_port_rx_bytes_minus_good_bytes];
++	efx_update_diff_stat(&stats[EF10_STAT_port_rx_bad_bytes],
++			     stats[EF10_STAT_port_rx_bytes_minus_good_bytes]);
+ 	efx_update_sw_stats(efx, stats);
+ 	return 0;
+ }
+@@ -1238,20 +1240,21 @@ static size_t efx_ef10_update_stats(struct efx_nic *efx, u64 *full_stats,
+ 	}
+ 
+ 	if (core_stats) {
+-		core_stats->rx_packets = stats[EF10_STAT_rx_packets];
+-		core_stats->tx_packets = stats[EF10_STAT_tx_packets];
+-		core_stats->rx_bytes = stats[EF10_STAT_rx_bytes];
+-		core_stats->tx_bytes = stats[EF10_STAT_tx_bytes];
+-		core_stats->rx_dropped = stats[EF10_STAT_rx_nodesc_drops] +
 +		core_stats->rx_packets = stats[EF10_STAT_port_rx_packets];
 +		core_stats->tx_packets = stats[EF10_STAT_port_tx_packets];
 +		core_stats->rx_bytes = stats[EF10_STAT_port_rx_bytes];
 +		core_stats->tx_bytes = stats[EF10_STAT_port_tx_bytes];
 +		core_stats->rx_dropped = stats[EF10_STAT_port_rx_nodesc_drops] +
-+					 stats[GENERIC_STAT_rx_nodesc_trunc] +
-+					 stats[GENERIC_STAT_rx_noskb_drops];
+ 					 stats[GENERIC_STAT_rx_nodesc_trunc] +
+ 					 stats[GENERIC_STAT_rx_noskb_drops];
+-		core_stats->multicast = stats[EF10_STAT_rx_multicast];
 +		core_stats->multicast = stats[EF10_STAT_port_rx_multicast];
-+		core_stats->rx_length_errors =
+ 		core_stats->rx_length_errors =
+-			stats[EF10_STAT_rx_gtjumbo] +
+-			stats[EF10_STAT_rx_length_error];
+-		core_stats->rx_crc_errors = stats[EF10_STAT_rx_bad];
+-		core_stats->rx_frame_errors = stats[EF10_STAT_rx_align_error];
+-		core_stats->rx_fifo_errors = stats[EF10_STAT_rx_overflow];
 +			stats[EF10_STAT_port_rx_gtjumbo] +
 +			stats[EF10_STAT_port_rx_length_error];
 +		core_stats->rx_crc_errors = stats[EF10_STAT_port_rx_bad];
 +		core_stats->rx_frame_errors =
 +			stats[EF10_STAT_port_rx_align_error];
 +		core_stats->rx_fifo_errors = stats[EF10_STAT_port_rx_overflow];
-+		core_stats->rx_errors = (core_stats->rx_length_errors +
-+					 core_stats->rx_crc_errors +
-+					 core_stats->rx_frame_errors);
-+	}
-+
-+	return stats_count;
-+}
-+
-+static int efx_ef10_try_update_nic_stats_pf(struct efx_nic *efx)
- {
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
- 	DECLARE_BITMAP(mask, EF10_STAT_COUNT);
-@@ -1241,57 +1284,83 @@ static int efx_ef10_try_update_nic_stats(struct efx_nic *efx)
- }
- 
- 
--static size_t efx_ef10_update_stats(struct efx_nic *efx, u64 *full_stats,
--				    struct rtnl_link_stats64 *core_stats)
-+static size_t efx_ef10_update_stats_pf(struct efx_nic *efx, u64 *full_stats,
-+				       struct rtnl_link_stats64 *core_stats)
- {
--	DECLARE_BITMAP(mask, EF10_STAT_COUNT);
--	struct efx_ef10_nic_data *nic_data = efx->nic_data;
--	u64 *stats = nic_data->stats;
--	size_t stats_count = 0, index;
- 	int retry;
- 
--	efx_ef10_get_stat_mask(efx, mask);
--
- 	/* If we're unlucky enough to read statistics during the DMA, wait
- 	 * up to 10ms for it to finish (typically takes <500us)
+ 		core_stats->rx_errors = (core_stats->rx_length_errors +
+ 					 core_stats->rx_crc_errors +
+ 					 core_stats->rx_frame_errors);
+@@ -1386,7 +1389,7 @@ static int efx_ef10_mcdi_poll_reboot(struct efx_nic *efx)
+ 	/* MAC statistics have been cleared on the NIC; clear the local
+ 	 * statistic that we update with efx_update_diff_stat().
  	 */
- 	for (retry = 0; retry < 100; ++retry) {
--		if (efx_ef10_try_update_nic_stats(efx) == 0)
-+		if (efx_ef10_try_update_nic_stats_pf(efx) == 0)
- 			break;
- 		udelay(100);
- 	}
+-	nic_data->stats[EF10_STAT_rx_bad_bytes] = 0;
++	nic_data->stats[EF10_STAT_port_rx_bad_bytes] = 0;
  
--	if (full_stats) {
--		for_each_set_bit(index, mask, EF10_STAT_COUNT) {
--			if (efx_ef10_stat_desc[index].name) {
--				*full_stats++ = stats[index];
--				++stats_count;
--			}
--		}
--	}
-+	return efx_ef10_update_stats_common(efx, full_stats, core_stats);
-+}
- 
--	if (core_stats) {
--		core_stats->rx_packets = stats[EF10_STAT_port_rx_packets];
--		core_stats->tx_packets = stats[EF10_STAT_port_tx_packets];
--		core_stats->rx_bytes = stats[EF10_STAT_port_rx_bytes];
--		core_stats->tx_bytes = stats[EF10_STAT_port_tx_bytes];
--		core_stats->rx_dropped = stats[EF10_STAT_port_rx_nodesc_drops] +
--					 stats[GENERIC_STAT_rx_nodesc_trunc] +
--					 stats[GENERIC_STAT_rx_noskb_drops];
--		core_stats->multicast = stats[EF10_STAT_port_rx_multicast];
--		core_stats->rx_length_errors =
--			stats[EF10_STAT_port_rx_gtjumbo] +
--			stats[EF10_STAT_port_rx_length_error];
--		core_stats->rx_crc_errors = stats[EF10_STAT_port_rx_bad];
--		core_stats->rx_frame_errors =
--			stats[EF10_STAT_port_rx_align_error];
--		core_stats->rx_fifo_errors = stats[EF10_STAT_port_rx_overflow];
--		core_stats->rx_errors = (core_stats->rx_length_errors +
--					 core_stats->rx_crc_errors +
--					 core_stats->rx_frame_errors);
-+static int efx_ef10_try_update_nic_stats_vf(struct efx_nic *efx)
-+{
-+	MCDI_DECLARE_BUF(inbuf, MC_CMD_MAC_STATS_IN_LEN);
-+	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+	DECLARE_BITMAP(mask, EF10_STAT_COUNT);
-+	__le64 generation_start, generation_end;
-+	u64 *stats = nic_data->stats;
-+	u32 dma_len = MC_CMD_MAC_NSTATS * sizeof(u64);
-+	struct efx_buffer stats_buf;
-+	__le64 *dma_stats;
-+	int rc;
-+
-+	efx_ef10_get_stat_mask(efx, mask);
-+
-+	rc = efx_nic_alloc_buffer(efx, &stats_buf, dma_len, GFP_ATOMIC);
-+	if (rc)
-+		return rc;
-+
-+	dma_stats = stats_buf.addr;
-+	dma_stats[MC_CMD_MAC_GENERATION_END] = EFX_MC_STATS_GENERATION_INVALID;
-+
-+	MCDI_SET_QWORD(inbuf, MAC_STATS_IN_DMA_ADDR, stats_buf.dma_addr);
-+	MCDI_POPULATE_DWORD_1(inbuf, MAC_STATS_IN_CMD,
-+			      MAC_STATS_IN_DMA, true);
-+	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_DMA_LEN, dma_len);
-+	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_PORT_ID, EVB_PORT_ID_ASSIGNED);
-+
-+	spin_unlock_bh(&efx->stats_lock);
-+	rc = efx_mcdi_rpc(efx, MC_CMD_MAC_STATS, inbuf, sizeof(inbuf), NULL,
-+			  0, NULL);
-+	spin_lock_bh(&efx->stats_lock);
-+	if (rc)
-+		goto out;
-+
-+	generation_end = dma_stats[MC_CMD_MAC_GENERATION_END];
-+	if (generation_end == EFX_MC_STATS_GENERATION_INVALID)
-+		goto out;
-+	rmb();
-+	efx_nic_update_stats(efx_ef10_stat_desc, EF10_STAT_COUNT, mask,
-+			     stats, stats_buf.addr, false);
-+	rmb();
-+	generation_start = dma_stats[MC_CMD_MAC_GENERATION_START];
-+	if (generation_end != generation_start) {
-+		rc = -EAGAIN;
-+		goto out;
- 	}
- 
--	return stats_count;
-+	efx_update_sw_stats(efx, stats);
-+out:
-+	efx_nic_free_buffer(efx, &stats_buf);
-+	return rc;
-+}
-+
-+static size_t efx_ef10_update_stats_vf(struct efx_nic *efx, u64 *full_stats,
-+				       struct rtnl_link_stats64 *core_stats)
-+{
-+	if (efx_ef10_try_update_nic_stats_vf(efx))
-+		return 0;
-+
-+	return efx_ef10_update_stats_common(efx, full_stats, core_stats);
+ 	return -EIO;
  }
- 
- static void efx_ef10_push_irq_moderation(struct efx_channel *channel)
-@@ -4136,7 +4205,7 @@ const struct efx_nic_type efx_hunt_a0_vf_nic_type = {
- 	.prepare_flr = efx_ef10_prepare_flr,
- 	.finish_flr = efx_port_dummy_op_void,
- 	.describe_stats = efx_ef10_describe_stats,
--	.update_stats = efx_ef10_update_stats,
-+	.update_stats = efx_ef10_update_stats_vf,
- 	.start_stats = efx_port_dummy_op_void,
- 	.pull_stats = efx_port_dummy_op_void,
- 	.stop_stats = efx_port_dummy_op_void,
-@@ -4238,7 +4307,7 @@ const struct efx_nic_type efx_hunt_a0_nic_type = {
- 	.prepare_flr = efx_ef10_prepare_flr,
- 	.finish_flr = efx_port_dummy_op_void,
- 	.describe_stats = efx_ef10_describe_stats,
--	.update_stats = efx_ef10_update_stats,
-+	.update_stats = efx_ef10_update_stats_pf,
- 	.start_stats = efx_mcdi_mac_start_stats,
- 	.pull_stats = efx_mcdi_mac_pull_stats,
- 	.stop_stats = efx_mcdi_mac_stop_stats,
 diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
-index 0e497b3..181978d 100644
+index 9efdf0a..1e11bb8 100644
 --- a/drivers/net/ethernet/sfc/mcdi_pcol.h
 +++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
-@@ -2755,7 +2755,7 @@
- #define MC_CMD_0x2e_PRIVILEGE_CTG SRIOV_CTG_GENERAL
+@@ -2891,11 +2891,11 @@
+ /* enum: RXDP counter: Number of times an emergency descriptor fetch was
+  * performed. Valid for EF10 with PM_AND_RXDP_COUNTERS capability only.
+  */
+-#define          MC_CMD_MAC_RXDP_EMERGENCY_FETCH_CONDITIONS  0x47
++#define          MC_CMD_MAC_RXDP_HLB_FETCH_CONDITIONS  0x47
+ /* enum: RXDP counter: Number of times the DPCPU waited for an existing
+  * descriptor fetch. Valid for EF10 with PM_AND_RXDP_COUNTERS capability only.
+  */
+-#define          MC_CMD_MAC_RXDP_EMERGENCY_WAIT_CONDITIONS  0x48
++#define          MC_CMD_MAC_RXDP_HLB_WAIT_CONDITIONS  0x48
+ /* enum: Start of GMAC stats buffer space, for Siena only. */
+ #define          MC_CMD_GMAC_DMABUF_START  0x40
+ /* enum: End of GMAC stats buffer space, for Siena only. */
+diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+index e146e30..8b69a31 100644
+--- a/drivers/net/ethernet/sfc/nic.h
++++ b/drivers/net/ethernet/sfc/nic.h
+@@ -407,59 +407,59 @@ struct siena_nic_data {
+ };
  
- /* MC_CMD_MAC_STATS_IN msgrequest */
--#define    MC_CMD_MAC_STATS_IN_LEN 16
-+#define    MC_CMD_MAC_STATS_IN_LEN 20
- /* ??? */
- #define       MC_CMD_MAC_STATS_IN_DMA_ADDR_OFST 0
- #define       MC_CMD_MAC_STATS_IN_DMA_ADDR_LEN 8
-@@ -2777,6 +2777,8 @@
- #define        MC_CMD_MAC_STATS_IN_PERIOD_MS_LBN 16
- #define        MC_CMD_MAC_STATS_IN_PERIOD_MS_WIDTH 16
- #define       MC_CMD_MAC_STATS_IN_DMA_LEN_OFST 12
-+/* port id so vadapter stats can be provided */
-+#define       MC_CMD_MAC_STATS_IN_PORT_ID_OFST 16
+ enum {
+-	EF10_STAT_tx_bytes = GENERIC_STAT_COUNT,
+-	EF10_STAT_tx_packets,
+-	EF10_STAT_tx_pause,
+-	EF10_STAT_tx_control,
+-	EF10_STAT_tx_unicast,
+-	EF10_STAT_tx_multicast,
+-	EF10_STAT_tx_broadcast,
+-	EF10_STAT_tx_lt64,
+-	EF10_STAT_tx_64,
+-	EF10_STAT_tx_65_to_127,
+-	EF10_STAT_tx_128_to_255,
+-	EF10_STAT_tx_256_to_511,
+-	EF10_STAT_tx_512_to_1023,
+-	EF10_STAT_tx_1024_to_15xx,
+-	EF10_STAT_tx_15xx_to_jumbo,
+-	EF10_STAT_rx_bytes,
+-	EF10_STAT_rx_bytes_minus_good_bytes,
+-	EF10_STAT_rx_good_bytes,
+-	EF10_STAT_rx_bad_bytes,
+-	EF10_STAT_rx_packets,
+-	EF10_STAT_rx_good,
+-	EF10_STAT_rx_bad,
+-	EF10_STAT_rx_pause,
+-	EF10_STAT_rx_control,
+-	EF10_STAT_rx_unicast,
+-	EF10_STAT_rx_multicast,
+-	EF10_STAT_rx_broadcast,
+-	EF10_STAT_rx_lt64,
+-	EF10_STAT_rx_64,
+-	EF10_STAT_rx_65_to_127,
+-	EF10_STAT_rx_128_to_255,
+-	EF10_STAT_rx_256_to_511,
+-	EF10_STAT_rx_512_to_1023,
+-	EF10_STAT_rx_1024_to_15xx,
+-	EF10_STAT_rx_15xx_to_jumbo,
+-	EF10_STAT_rx_gtjumbo,
+-	EF10_STAT_rx_bad_gtjumbo,
+-	EF10_STAT_rx_overflow,
+-	EF10_STAT_rx_align_error,
+-	EF10_STAT_rx_length_error,
+-	EF10_STAT_rx_nodesc_drops,
+-	EF10_STAT_rx_pm_trunc_bb_overflow,
+-	EF10_STAT_rx_pm_discard_bb_overflow,
+-	EF10_STAT_rx_pm_trunc_vfifo_full,
+-	EF10_STAT_rx_pm_discard_vfifo_full,
+-	EF10_STAT_rx_pm_trunc_qbb,
+-	EF10_STAT_rx_pm_discard_qbb,
+-	EF10_STAT_rx_pm_discard_mapping,
+-	EF10_STAT_rx_dp_q_disabled_packets,
+-	EF10_STAT_rx_dp_di_dropped_packets,
+-	EF10_STAT_rx_dp_streaming_packets,
+-	EF10_STAT_rx_dp_hlb_fetch,
+-	EF10_STAT_rx_dp_hlb_wait,
++	EF10_STAT_port_tx_bytes = GENERIC_STAT_COUNT,
++	EF10_STAT_port_tx_packets,
++	EF10_STAT_port_tx_pause,
++	EF10_STAT_port_tx_control,
++	EF10_STAT_port_tx_unicast,
++	EF10_STAT_port_tx_multicast,
++	EF10_STAT_port_tx_broadcast,
++	EF10_STAT_port_tx_lt64,
++	EF10_STAT_port_tx_64,
++	EF10_STAT_port_tx_65_to_127,
++	EF10_STAT_port_tx_128_to_255,
++	EF10_STAT_port_tx_256_to_511,
++	EF10_STAT_port_tx_512_to_1023,
++	EF10_STAT_port_tx_1024_to_15xx,
++	EF10_STAT_port_tx_15xx_to_jumbo,
++	EF10_STAT_port_rx_bytes,
++	EF10_STAT_port_rx_bytes_minus_good_bytes,
++	EF10_STAT_port_rx_good_bytes,
++	EF10_STAT_port_rx_bad_bytes,
++	EF10_STAT_port_rx_packets,
++	EF10_STAT_port_rx_good,
++	EF10_STAT_port_rx_bad,
++	EF10_STAT_port_rx_pause,
++	EF10_STAT_port_rx_control,
++	EF10_STAT_port_rx_unicast,
++	EF10_STAT_port_rx_multicast,
++	EF10_STAT_port_rx_broadcast,
++	EF10_STAT_port_rx_lt64,
++	EF10_STAT_port_rx_64,
++	EF10_STAT_port_rx_65_to_127,
++	EF10_STAT_port_rx_128_to_255,
++	EF10_STAT_port_rx_256_to_511,
++	EF10_STAT_port_rx_512_to_1023,
++	EF10_STAT_port_rx_1024_to_15xx,
++	EF10_STAT_port_rx_15xx_to_jumbo,
++	EF10_STAT_port_rx_gtjumbo,
++	EF10_STAT_port_rx_bad_gtjumbo,
++	EF10_STAT_port_rx_overflow,
++	EF10_STAT_port_rx_align_error,
++	EF10_STAT_port_rx_length_error,
++	EF10_STAT_port_rx_nodesc_drops,
++	EF10_STAT_port_rx_pm_trunc_bb_overflow,
++	EF10_STAT_port_rx_pm_discard_bb_overflow,
++	EF10_STAT_port_rx_pm_trunc_vfifo_full,
++	EF10_STAT_port_rx_pm_discard_vfifo_full,
++	EF10_STAT_port_rx_pm_trunc_qbb,
++	EF10_STAT_port_rx_pm_discard_qbb,
++	EF10_STAT_port_rx_pm_discard_mapping,
++	EF10_STAT_port_rx_dp_q_disabled_packets,
++	EF10_STAT_port_rx_dp_di_dropped_packets,
++	EF10_STAT_port_rx_dp_streaming_packets,
++	EF10_STAT_port_rx_dp_hlb_fetch,
++	EF10_STAT_port_rx_dp_hlb_wait,
+ 	EF10_STAT_COUNT
+ };
  
- /* MC_CMD_MAC_STATS_OUT_DMA msgresponse */
- #define    MC_CMD_MAC_STATS_OUT_DMA_LEN 0
