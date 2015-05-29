@@ -1,85 +1,74 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net v2] switchdev: don't abort hardware ipv4 fib offload
- on failure to program fib entry in hardware
-Date: Fri, 29 May 2015 08:39:46 -0700
-Message-ID: <CAE4R7bDSbVo7ryzHktLWtA07RswT929bhWpYwpLZUkv1eQB1tw@mail.gmail.com>
-References: <555AD11E.5040709@cumulusnetworks.com>
-	<20150519.123418.481170679256206928.davem@davemloft.net>
-	<20150519194731.GK9559@gospo.home.greyhouse.net>
-	<20150519.162845.955021778058631119.davem@davemloft.net>
-	<CAE4R7bAB2+Oy92w9RpLKL5LUq7gP1mBazBK9y4ZQ4b0k8t2WhQ@mail.gmail.com>
-	<20150529075003.GA11638@nanopsycho.orion>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [RFC 0/3] DSA and Marvell 88E6352 802.1q support
+Date: Fri, 29 May 2015 11:40:34 -0400 (EDT)
+Message-ID: <477095690.249160.1432914034177.JavaMail.zimbra@savoirfairelinux.com>
+References: <556723FF.7030606@roeck-us.net> <1432849035-8499-1-git-send-email-vivien.didelot@savoirfairelinux.com> <CAE4R7bA43Jg5e+DSySvG4X2ka0CXEk9K6eVv5fdN37EcLBoF_A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	=?utf-8?Q?J=C3=A9rome?= Oufella
+	<jerome.oufella@savoirfairelinux.com>,
+	Chris Healy <cphealy@gmail.com>, Jiri Pirko <jiri@resnulli.us>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f43.google.com ([209.85.192.43]:36304 "EHLO
-	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753184AbbE2Pjr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 11:39:47 -0400
-Received: by qgf2 with SMTP id 2so30676736qgf.3
-        for <netdev@vger.kernel.org>; Fri, 29 May 2015 08:39:47 -0700 (PDT)
-In-Reply-To: <20150529075003.GA11638@nanopsycho.orion>
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:52111 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964801AbbE2Pkg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 11:40:36 -0400
+In-Reply-To: <CAE4R7bA43Jg5e+DSySvG4X2ka0CXEk9K6eVv5fdN37EcLBoF_A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 29, 2015 at 12:50 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Thu, May 21, 2015 at 07:46:54AM CEST, sfeldma@gmail.com wrote:
->>On Tue, May 19, 2015 at 1:28 PM, David Miller <davem@davemloft.net> wrote:
->>> From: Andy Gospodarek <gospo@cumulusnetworks.com>
->>> Date: Tue, 19 May 2015 15:47:32 -0400
->>>
->>>> Are you actually saying that if users complain loudly enough about
->>>> the current behavior (not the change Roopa has proposed) that you
->>>> would be open to considering a change the current behavior?
->>>
->>> I am saying that we have a contract with users not to break existing
->>> behavior.  Full stop.
+Hi Scott,
+
+On May 29, 2015, at 1:02 AM, Scott Feldman sfeldma@gmail.com wrote:
+> On Thu, May 28, 2015 at 2:37 PM, Vivien Didelot <vivien.didelot@savoirfairelinux.com> wrote:
+>> This RFC is based on v4.1-rc3.
 >>
->>After rehearing David's argument, we should probably explore option d)
->>which is a refinement on the fib_offload_disable mechanism we have
->>today.  fib_offload_disable is global for all routes.  Once we hit a
->>HW install problem, the global flag is set and all routes fallback to
->>SW.  We did this because we can't allow the failed route to exist in
->>SW and not in HW because it could mess up LPM searches (HW could hit
->>on a lesser prefix even when SW has the true LPM, because HW gets
->>first shot at match).  The refinement on fib_offload_disable is this:
->>make it per-related-prefix rather than global, and on a HW install
->>problem, set the flag for the related-prefix and uninstall only those
->>routes from HW.  Related-prefix (is there a correct term for this?)
->>are routes to the same dst addr but with different prefix lengths.  I
->>haven't parsed the fib_trie structure to see how routes are organized,
->>but I suspect since it's optimized for lookup the related-prefix
->>tracking is already there and we can build on that.
+>> It is meant to get a glance to the commits responsible to implement the
+>> necessary NDOs between DSA and the Marvell 88E6352 switch driver.
+>>
+>> With this support, I am able to create VLANs with (un)tagged ports, setting
+>> their default VID, from a bridge.
+>>
+>> To create a bridge containing all switch ports, with a VLAN ID 400, swp2 and
+>> swp3 untagged (pvid), and swp4 tagged, the userspace commands look like this:
+>>
+>>     ip link add name br0 type bridge
+>>     [...]
+>>     ip link set dev swp2 up master br0
+>>     [...]
+>>     bridge vlan add vid 400 pvid untagged dev swp2
+>>     bridge vlan add vid 400 pvid untagged dev swp3
+>>     bridge vlan add vid 400 dev swp4
+>>     [...]
+>>     ip link add link br0 name br0.400 type vlan id 400
+>>     [...]
+>>     bridge vlan add dev br0 vid 400 self
+>>
+>> The code is currently being rebased to the latest net-next/master.
+>>
+>> Seems like the way to go now is through switchdev attr getter/setter...
 >
-> This looks interesting. However, I'm not sure that it is acceptable for
-> user to experience this hw evict of "random entries". User knows what
-> entries are essential to have in hw. With your solution, I can see no way
-> user can actually say what should be offloaded or not. Kernel just
-> automagically decides.
+> Indeed, for dsa_slave you should be able to port this to switchdev and
+> set your ndo_bridge_setlink/dellink handlers to
+> switchdev_port_bridge_setlink/dellink.  (And also implement the
+> switchdev ops for vlans).
+>
+> If you use switchdev_port_bridge_setlink/dellink, you shouldn't need
+> to implement ndo_vlan_rx_add_vid/ndo_vlan_rx_kill_vid at all.  The
+> setlink/dellink callbacks will give the same info (and more, e.g.
+> pvid, untagged flags) and you'll automatically get support for stacked
+> drivers, for example if you bonded swp2/3 and then included that bond
+> in your vlan bridge.  Your commands will be slightly modified: when
+> adding the vid to the port, specify master and self:
+>
+> bridge vlan add vid 400 dev swp4 master self
 
-The default eviction policy could be based on RTA_PRIORITY: evict
-lower priority routes first.  It would be up to the device driver to
-decide between two routes of same priority.
+Thanks a lot! I will send a complete RFC soon.
 
-To help device driver make the decision, we could have eviction policy options:
-
-    Priority-base (default)
-    Prefer IPv6 over IPv4
-    Prefer IPv4 over IPv6
-    Prefer single path over multipath
-    Prefer longer prefix lengths over shorter
-    Optimize for resource utilization
-
-These are portable across different switches.   They're in terms a
-user understands.  It's up to the device driver which truly
-understands the device constraints to translates the user's eviction
-policy choices into something that makes sense to that device.
-
--scott
+-v
