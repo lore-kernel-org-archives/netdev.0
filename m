@@ -1,51 +1,85 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [RFC 1/3] net: dsa: add basic support for VLAN ndo
-Date: Fri, 29 May 2015 11:38:28 -0400 (EDT)
-Message-ID: <2010513546.247697.1432913908579.JavaMail.zimbra@savoirfairelinux.com>
-References: <556723FF.7030606@roeck-us.net> <1432849035-8499-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1432849035-8499-2-git-send-email-vivien.didelot@savoirfairelinux.com> <CAJ3xEMjYn+eeGHi5dyAhjHivid4UKUyGAi8pwVD4PBhKn1HTKQ@mail.gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net v2] switchdev: don't abort hardware ipv4 fib offload
+ on failure to program fib entry in hardware
+Date: Fri, 29 May 2015 08:39:46 -0700
+Message-ID: <CAE4R7bDSbVo7ryzHktLWtA07RswT929bhWpYwpLZUkv1eQB1tw@mail.gmail.com>
+References: <555AD11E.5040709@cumulusnetworks.com>
+	<20150519.123418.481170679256206928.davem@davemloft.net>
+	<20150519194731.GK9559@gospo.home.greyhouse.net>
+	<20150519.162845.955021778058631119.davem@davemloft.net>
+	<CAE4R7bAB2+Oy92w9RpLKL5LUq7gP1mBazBK9y4ZQ4b0k8t2WhQ@mail.gmail.com>
+	<20150529075003.GA11638@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	=?utf-8?Q?J=C3=A9rome?= Oufella
-	<jerome.oufella@savoirfairelinux.com>,
-	Chris Healy <cphealy@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	Scott Feldman <sfeldma@gmail.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:56968 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756393AbbE2Pic (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 11:38:32 -0400
-In-Reply-To: <CAJ3xEMjYn+eeGHi5dyAhjHivid4UKUyGAi8pwVD4PBhKn1HTKQ@mail.gmail.com>
+Received: from mail-qg0-f43.google.com ([209.85.192.43]:36304 "EHLO
+	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753184AbbE2Pjr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 11:39:47 -0400
+Received: by qgf2 with SMTP id 2so30676736qgf.3
+        for <netdev@vger.kernel.org>; Fri, 29 May 2015 08:39:47 -0700 (PDT)
+In-Reply-To: <20150529075003.GA11638@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
------ On May 29, 2015, at 11:24 AM, Or Gerlitz gerlitz.or@gmail.com wrote:
-
-> On Fri, May 29, 2015 at 12:37 AM, Vivien Didelot
-> <vivien.didelot@savoirfairelinux.com> wrote:
->> @@ -854,7 +922,9 @@ int dsa_slave_create(struct dsa_switch *ds, struct device
->> *parent,
->>         if (slave_dev == NULL)
->>                 return -ENOMEM;
+On Fri, May 29, 2015 at 12:50 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Thu, May 21, 2015 at 07:46:54AM CEST, sfeldma@gmail.com wrote:
+>>On Tue, May 19, 2015 at 1:28 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Andy Gospodarek <gospo@cumulusnetworks.com>
+>>> Date: Tue, 19 May 2015 15:47:32 -0400
+>>>
+>>>> Are you actually saying that if users complain loudly enough about
+>>>> the current behavior (not the change Roopa has proposed) that you
+>>>> would be open to considering a change the current behavior?
+>>>
+>>> I am saying that we have a contract with users not to break existing
+>>> behavior.  Full stop.
 >>
->> -       slave_dev->features = master->vlan_features;
->> +       slave_dev->features = master->vlan_features |
->> +               NETIF_F_VLAN_FEATURES |
->> +               NETIF_F_HW_SWITCH_OFFLOAD;
-> 
-> wait... didn't commit 7889cbee8357aaed85898d028829dfb4f75bae2c  remove
-> NETIF_F_HW_SWITCH_OFFLOAD?
+>>After rehearing David's argument, we should probably explore option d)
+>>which is a refinement on the fib_offload_disable mechanism we have
+>>today.  fib_offload_disable is global for all routes.  Once we hit a
+>>HW install problem, the global flag is set and all routes fallback to
+>>SW.  We did this because we can't allow the failed route to exist in
+>>SW and not in HW because it could mess up LPM searches (HW could hit
+>>on a lesser prefix even when SW has the true LPM, because HW gets
+>>first shot at match).  The refinement on fib_offload_disable is this:
+>>make it per-related-prefix rather than global, and on a HW install
+>>problem, set the flag for the related-prefix and uninstall only those
+>>routes from HW.  Related-prefix (is there a correct term for this?)
+>>are routes to the same dst addr but with different prefix lengths.  I
+>>haven't parsed the fib_trie structure to see how routes are organized,
+>>but I suspect since it's optimized for lookup the related-prefix
+>>tracking is already there and we can build on that.
+>
+> This looks interesting. However, I'm not sure that it is acceptable for
+> user to experience this hw evict of "random entries". User knows what
+> entries are essential to have in hw. With your solution, I can see no way
+> user can actually say what should be offloaded or not. Kernel just
+> automagically decides.
 
-Indeed, note that this RFC is based on v4.1-rc3. This will become unneeded I guess.
+The default eviction policy could be based on RTA_PRIORITY: evict
+lower priority routes first.  It would be up to the device driver to
+decide between two routes of same priority.
 
-BTW, given the commit message, I didn't really understand why?
+To help device driver make the decision, we could have eviction policy options:
 
-Thanks,
--v
+    Priority-base (default)
+    Prefer IPv6 over IPv4
+    Prefer IPv4 over IPv6
+    Prefer single path over multipath
+    Prefer longer prefix lengths over shorter
+    Optimize for resource utilization
+
+These are portable across different switches.   They're in terms a
+user understands.  It's up to the device driver which truly
+understands the device constraints to translates the user's eviction
+policy choices into something that makes sense to that device.
+
+-scott
