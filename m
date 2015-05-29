@@ -1,7 +1,7 @@
 From: Mathieu Olivari <mathieu@codeaurora.org>
-Subject: [PATCH 4/7] net: dsa: add QCA tag support
-Date: Thu, 28 May 2015 18:42:19 -0700
-Message-ID: <1432863742-18427-5-git-send-email-mathieu@codeaurora.org>
+Subject: [PATCH 6/7] net: dsa: ar8xxx: add support for second xMII interfaces through DT
+Date: Thu, 28 May 2015 18:42:21 -0700
+Message-ID: <1432863742-18427-7-git-send-email-mathieu@codeaurora.org>
 References: <1432863742-18427-1-git-send-email-mathieu@codeaurora.org>
 Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
@@ -18,266 +18,96 @@ In-Reply-To: <1432863742-18427-1-git-send-email-mathieu@codeaurora.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-QCA tags are used on QCA ar8xxx switch family. This change adds support
-for encap/decap using 2 bytes header mode.
+This patch is adding support for port6 specific options to device tree.
+They can be used to setup the second xMII interface, and connect it to
+one of the switch port.
 
 Signed-off-by: Mathieu Olivari <mathieu@codeaurora.org>
 ---
- include/net/dsa.h  |   1 +
- net/dsa/Kconfig    |   3 +
- net/dsa/Makefile   |   1 +
- net/dsa/dsa.c      |   5 ++
- net/dsa/dsa_priv.h |   2 +
- net/dsa/slave.c    |   5 ++
- net/dsa/tag_qca.c  | 158 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 7 files changed, 175 insertions(+)
- create mode 100644 net/dsa/tag_qca.c
+ drivers/net/dsa/ar8xxx.c | 50 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 50 insertions(+)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index fbca63b..64ddf6f 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -26,6 +26,7 @@ enum dsa_tag_protocol {
- 	DSA_TAG_PROTO_TRAILER,
- 	DSA_TAG_PROTO_EDSA,
- 	DSA_TAG_PROTO_BRCM,
-+	DSA_TAG_PROTO_QCA,
- };
+diff --git a/drivers/net/dsa/ar8xxx.c b/drivers/net/dsa/ar8xxx.c
+index 4044614..7559249 100644
+--- a/drivers/net/dsa/ar8xxx.c
++++ b/drivers/net/dsa/ar8xxx.c
+@@ -19,6 +19,7 @@
+ #include <net/dsa.h>
+ #include <linux/phy.h>
+ #include <linux/of_net.h>
++#include <linux/of_platform.h>
  
- #define DSA_MAX_SWITCHES	4
-diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-index ff7736f..4f3cce1 100644
---- a/net/dsa/Kconfig
-+++ b/net/dsa/Kconfig
-@@ -26,6 +26,9 @@ config NET_DSA_HWMON
- 	  via the hwmon sysfs interface and exposes the onboard sensors.
+ #include "ar8xxx.h"
  
- # tagging formats
-+config NET_DSA_TAG_QCA
-+	bool
-+
- config NET_DSA_TAG_BRCM
- 	bool
- 
-diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-index da06ed1..9feb86c 100644
---- a/net/dsa/Makefile
-+++ b/net/dsa/Makefile
-@@ -3,6 +3,7 @@ obj-$(CONFIG_NET_DSA) += dsa_core.o
- dsa_core-y += dsa.o slave.o
- 
- # tagging formats
-+dsa_core-$(CONFIG_NET_DSA_TAG_QCA) += tag_qca.o
- dsa_core-$(CONFIG_NET_DSA_TAG_BRCM) += tag_brcm.o
- dsa_core-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
- dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index fffb9aa..6010a7d 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -249,6 +249,11 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 			dst->rcv = brcm_netdev_ops.rcv;
- 			break;
- #endif
-+#ifdef CONFIG_NET_DSA_TAG_QCA
-+		case DSA_TAG_PROTO_QCA:
-+			dst->rcv = qca_netdev_ops.rcv;
-+			break;
-+#endif
- 		case DSA_TAG_PROTO_NONE:
- 			break;
- 		default:
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index d5f1f9b..350c94b 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -74,5 +74,7 @@ extern const struct dsa_device_ops trailer_netdev_ops;
- /* tag_brcm.c */
- extern const struct dsa_device_ops brcm_netdev_ops;
- 
-+/* tag_qca.c */
-+extern const struct dsa_device_ops qca_netdev_ops;
- 
- #endif
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 04ffad3..cd8f552 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -925,6 +925,11 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 		p->xmit = brcm_netdev_ops.xmit;
+@@ -260,6 +261,9 @@ static int ar8xxx_set_pad_ctrl(struct dsa_switch *ds, int port, int mode)
+ 		ar8xxx_write(ds, AR8327_REG_PORT5_PAD_CTRL,
+ 			     AR8327_PORT_PAD_RGMII_RX_DELAY_EN);
  		break;
- #endif
-+#ifdef CONFIG_NET_DSA_TAG_QCA
-+	case DSA_TAG_PROTO_QCA:
-+		p->xmit = qca_netdev_ops.xmit;
++	case PHY_INTERFACE_MODE_SGMII:
++		ar8xxx_write(ds, reg, AR8327_PORT_PAD_SGMII_EN);
 +		break;
-+#endif
  	default:
- 		p->xmit	= dsa_slave_notag_xmit;
- 		break;
-diff --git a/net/dsa/tag_qca.c b/net/dsa/tag_qca.c
-new file mode 100644
-index 0000000..8f02196
---- /dev/null
-+++ b/net/dsa/tag_qca.c
-@@ -0,0 +1,158 @@
-+/*
-+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 and
-+ * only version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/etherdevice.h>
-+#include "dsa_priv.h"
-+
-+#define QCA_HDR_LEN	2
-+#define QCA_HDR_VERSION	0x2
-+
-+#define QCA_HDR_RECV_VERSION_MASK	GENMASK(15, 14)
-+#define QCA_HDR_RECV_VERSION_S		14
-+#define QCA_HDR_RECV_PRIORITY_MASK	GENMASK(13, 11)
-+#define QCA_HDR_RECV_PRIORITY_S		11
-+#define QCA_HDR_RECV_TYPE_MASK		GENMASK(10, 6)
-+#define QCA_HDR_RECV_TYPE_S		6
-+#define QCA_HDR_RECV_FRAME_IS_TAGGED	BIT(3)
-+#define QCA_HDR_RECV_SOURCE_PORT_MASK	GENMASK(2, 0)
-+
-+#define QCA_HDR_XMIT_VERSION_MASK	GENMASK(15, 14)
-+#define QCA_HDR_XMIT_VERSION_S		14
-+#define QCA_HDR_XMIT_PRIORITY_MASK	GENMASK(13, 11)
-+#define QCA_HDR_XMIT_PRIORITY_S		11
-+#define QCA_HDR_XMIT_CONTROL_MASK	GENMASK(10, 8)
-+#define QCA_HDR_XMIT_CONTROL_S		8
-+#define QCA_HDR_XMIT_FROM_CPU		BIT(7)
-+#define QCA_HDR_XMIT_DP_BIT_MASK	GENMASK(6, 0)
-+
-+static inline int reg_to_port(int reg)
+ 		pr_err("xMII mode %d not supported\n", mode);
+ 		return -EINVAL;
+@@ -268,6 +272,48 @@ static int ar8xxx_set_pad_ctrl(struct dsa_switch *ds, int port, int mode)
+ 	return 0;
+ }
+ 
++static int ar8xxx_of_setup(struct dsa_switch *ds)
 +{
-+	if (reg < 5)
-+		return reg + 1;
++	struct device_node *dn = ds->pd->of_node;
++	const char *s_phymode;
++	int ret, mode;
++	u32 phy_id, ctrl;
 +
-+	return -1;
-+}
++	/* If port6-phy-mode property exists, configure it accordingly */
++	if (!of_property_read_string(dn, "qca,port6-phy-mode", &s_phymode)) {
++		for (mode = 0; mode < PHY_INTERFACE_MODE_MAX; mode++)
++			if (!strcasecmp(s_phymode, phy_modes(mode)))
++				break;
 +
-+static inline int port_to_reg(int port)
-+{
-+	if (port >= 1 && port <= 6)
-+		return port - 1;
++		if (mode == PHY_INTERFACE_MODE_MAX)
++			pr_err("Unknown phy-mode: \"%s\"\n", s_phymode);
 +
-+	return -1;
-+}
++		ret = ar8xxx_set_pad_ctrl(ds, 6, mode);
++		if (ret < 0)
++			return ret;
++	}
 +
-+static netdev_tx_t qca_tag_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	u16 *phdr, hdr;
++	/* If a phy ID is specified for PORT6 mac, connect them together */
++	if (!of_property_read_u32(dn, "qca,port6-phy-id", &phy_id)) {
++		ar8xxx_rmw(ds, AR8327_PORT_LOOKUP_CTRL(6),
++			   AR8327_PORT_LOOKUP_MEMBER, BIT(phy_to_port(phy_id)));
++		ar8xxx_rmw(ds, AR8327_PORT_LOOKUP_CTRL(phy_to_port(phy_id)),
++			   AR8327_PORT_LOOKUP_MEMBER, BIT(6));
 +
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += skb->len;
++		/* We want the switch to be pass-through and act like a PHY on
++		 * these ports. So BC/MC/UC & IGMP frames need to be accepted
++		 */
++		ctrl = BIT(phy_to_port(phy_id)) | BIT(6);
++		ar8xxx_reg_set(ds, AR8327_REG_GLOBAL_FW_CTRL1,
++			       ctrl << AR8327_GLOBAL_FW_CTRL1_IGMP_DP_S |
++			       ctrl << AR8327_GLOBAL_FW_CTRL1_BC_DP_S |
++			       ctrl << AR8327_GLOBAL_FW_CTRL1_MC_DP_S |
++			       ctrl << AR8327_GLOBAL_FW_CTRL1_UC_DP_S);
++	}
 +
-+	if (skb_cow_head(skb, 0) < 0)
-+		goto out_free;
-+
-+	skb_push(skb, QCA_HDR_LEN);
-+
-+	memmove(skb->data, skb->data + QCA_HDR_LEN, 2 * ETH_ALEN);
-+	phdr = (u16 *)(skb->data + 2 * ETH_ALEN);
-+
-+	/* Set the version field, and set destination port information */
-+	hdr = QCA_HDR_VERSION << QCA_HDR_XMIT_VERSION_S |
-+		QCA_HDR_XMIT_FROM_CPU |
-+		1 << reg_to_port(p->port);
-+
-+	*phdr = htons(hdr);
-+
-+	skb->dev = p->parent->dst->master_netdev;
-+	dev_queue_xmit(skb);
-+
-+	return NETDEV_TX_OK;
-+
-+out_free:
-+	kfree_skb(skb);
-+	return NETDEV_TX_OK;
-+}
-+
-+static int qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
-+		       struct packet_type *pt, struct net_device *orig_dev)
-+{
-+	struct dsa_switch_tree *dst = dev->dsa_ptr;
-+	struct dsa_switch *ds;
-+	u8 ver;
-+	int port, phy;
-+	__be16 *phdr, hdr;
-+
-+	if (unlikely(!dst))
-+		goto out_drop;
-+
-+	skb = skb_unshare(skb, GFP_ATOMIC);
-+	if (!skb)
-+		goto out;
-+
-+	if (unlikely(!pskb_may_pull(skb, QCA_HDR_LEN)))
-+		goto out_drop;
-+
-+	/* Ethernet is added by the switch between src addr and Ethertype
-+	 * At this point, skb->data points to ethertype so header should be
-+	 * right before
-+	 */
-+	phdr = (__be16 *)(skb->data - 2);
-+	hdr = ntohs(*phdr);
-+
-+	/* Make sure the version is correct */
-+	ver = (hdr & QCA_HDR_RECV_VERSION_MASK) >> QCA_HDR_RECV_VERSION_S;
-+	if (unlikely(ver != QCA_HDR_VERSION))
-+		goto out_drop;
-+
-+	/* Remove QCA tag and recalculate checksum */
-+	skb_pull_rcsum(skb, QCA_HDR_LEN);
-+	memmove(skb->data - ETH_HLEN, skb->data - ETH_HLEN - QCA_HDR_LEN,
-+		ETH_HLEN - QCA_HDR_LEN);
-+
-+	/* This protocol doesn't support cascading multiple switches so it's
-+	 * safe to assume the switch is first in the tree
-+	 */
-+	ds = dst->ds[0];
-+	if (!ds)
-+		goto out_drop;
-+
-+	/* Get source port information */
-+	port = (hdr & QCA_HDR_RECV_SOURCE_PORT_MASK);
-+	phy = port_to_reg(port);
-+	if (unlikely(phy < 0) || !ds->ports[phy])
-+		goto out_drop;
-+
-+	/* Update skb & forward the frame accordingly */
-+	skb_push(skb, ETH_HLEN);
-+	skb->pkt_type = PACKET_HOST;
-+	skb->dev = ds->ports[phy];
-+	skb->protocol = eth_type_trans(skb, skb->dev);
-+
-+	skb->dev->stats.rx_packets++;
-+	skb->dev->stats.rx_bytes += skb->len;
-+
-+	netif_receive_skb(skb);
-+
-+	return 0;
-+
-+out_drop:
-+	kfree_skb(skb);
-+out:
 +	return 0;
 +}
 +
-+const struct dsa_device_ops qca_netdev_ops = {
-+	.xmit	= qca_tag_xmit,
-+	.rcv	= qca_tag_rcv,
-+};
+ static int ar8xxx_setup(struct dsa_switch *ds)
+ {
+ 	struct ar8xxx_priv *priv = ds_to_priv(ds);
+@@ -341,6 +387,10 @@ static int ar8xxx_setup(struct dsa_switch *ds)
+ 		}
+ 	}
+ 
++	ret = ar8xxx_of_setup(ds);
++	if (ret < 0)
++		return ret;
++
+ 	return 0;
+ }
+ 
 -- 
 2.1.4
