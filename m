@@ -1,59 +1,68 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] tcp: fix child sockets to use system default congestion
- control if not set
-Date: Fri, 29 May 2015 20:24:25 +0200
-Message-ID: <5568AED9.2030905@iogearbox.net>
-References: <1432921627-10515-1-git-send-email-ncardwell@google.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [PATCH] vti6: Add pmtu handling to vti6_xmit.
+Date: Fri, 29 May 2015 11:28:26 -0700
+Message-ID: <20150529182709.2147.78230.stgit@ahduyck-vm-fedora22>
+References: <5567695F.6070505@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>,
-	Glenn Judd <glenn.judd@morganstanley.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Neal Cardwell <ncardwell@google.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:53184 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756149AbbE2SYb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 14:24:31 -0400
-In-Reply-To: <1432921627-10515-1-git-send-email-ncardwell@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org
+To: steffen.klassert@secunet.com, davem@davemloft.net,
+	herbert@gondor.apana.org.au
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <5567695F.6070505@gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/29/2015 07:47 PM, Neal Cardwell wrote:
-> Linux 3.17 and earlier are explicitly engineered so that if the app
-> doesn't specifically request a CC module on a listener before the SYN
-> arrives, then the child gets the system default CC when the connection
-> is established. See tcp_init_congestion_control() in 3.17 or earlier,
-> which says "if no choice made yet assign the current value set as
-> default". The change ("net: tcp: assign tcp cong_ops when tcp sk is
-> created") altered these semantics, so that children got their parent
-> listener's congestion control even if the system default had changed
-> after the listener was created.
->
-> This commit returns to those original semantics from 3.17 and earlier,
-> since they are the original semantics from 2007 in 4d4d3d1e8 ("[TCP]:
-> Congestion control initialization."), and some Linux congestion
-> control workflows depend on that.
->
-> In summary, if a listener socket specifically sets TCP_CONGESTION to
-> "x", or the route locks the CC module to "x", then the child gets
-> "x". Otherwise the child gets current system default from
-> net.ipv4.tcp_congestion_control. That's the behavior in 3.17 and
-> earlier, and this commit restores that.
->
-> Fixes: 55d8694fa82c ("net: tcp: assign tcp cong_ops when tcp sk is created")
-> Cc: Florian Westphal <fw@strlen.de>
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Glenn Judd <glenn.judd@morganstanley.com>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
 
-Ok, change looks good to me, thanks.
+We currently rely on the PMTU discovery of xfrm.
+However if a packet is localy sent, the PMTU mechanism
+of xfrm tries to to local socket notification what
+might not work for applications like ping that don't
+check for this. So add pmtu handling to vti6_xmit to
+report MTU changes immediately.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+
+So this version is slightly modified to cover the IPv4 case in addition to
+the IPv6 case.  With this patch I was able to run netperf over either an
+IPv4 or IPv6 address routed over the ip6_vti tunnel.
+
+ net/ipv6/ip6_vti.c |   14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index d25209657edc..3b5c1ea50d2f 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -435,6 +435,7 @@ vti6_xmit(struct sk_buff *skb, struct net_device *dev, struct flowi *fl)
+ 	struct net_device *tdev;
+ 	struct xfrm_state *x;
+ 	int err = -1;
++	int mtu;
+ 
+ 	if (!dst)
+ 		goto tx_err_link_failure;
+@@ -468,6 +469,19 @@ vti6_xmit(struct sk_buff *skb, struct net_device *dev, struct flowi *fl)
+ 	skb_dst_set(skb, dst);
+ 	skb->dev = skb_dst(skb)->dev;
+ 
++	mtu = dst_mtu(dst);
++	if (!skb->ignore_df && skb->len > mtu) {
++		skb_dst(skb)->ops->update_pmtu(dst, NULL, skb, mtu);
++
++		if (skb->protocol == htons(ETH_P_IPV6))
++			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
++		else
++			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
++				  htonl(mtu));
++
++		return -EMSGSIZE;
++	}
++
+ 	err = dst_output(skb);
+ 	if (net_xmit_eval(err) == 0) {
+ 		struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
