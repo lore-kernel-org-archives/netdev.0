@@ -1,57 +1,41 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: Re: [PATCH net-next 3/3] net: systemport: Add a check for oversized packets
-Date: Thu, 28 May 2015 21:00:48 -0700
-Message-ID: <CAGXr9JHJ5X9FVTO-+-61HnFfsf=1dz7ObbbLxxDy9Zx=UbqhqQ@mail.gmail.com>
-References: <1432851884-12026-1-git-send-email-f.fainelli@gmail.com>
-	<1432851884-12026-4-git-send-email-f.fainelli@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 2/3] net: systemport: rewrite bcm_sysport_rx_refill
+Date: Thu, 28 May 2015 21:02:30 -0700
+Message-ID: <5567E4D6.3030409@gmail.com>
+References: <1432851884-12026-1-git-send-email-f.fainelli@gmail.com>	<1432851884-12026-3-git-send-email-f.fainelli@gmail.com> <CAGXr9JEEGSVKVgqzNTWePytjiFCqK32k4YWZGtORskW5H3Atbw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Florian Fainelli <f.fainelli@gmail.com>
+To: Petri Gynther <pgynther@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f45.google.com ([209.85.192.45]:36242 "EHLO
-	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750701AbbE2EAt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 00:00:49 -0400
-Received: by qgf2 with SMTP id 2so24775921qgf.3
-        for <netdev@vger.kernel.org>; Thu, 28 May 2015 21:00:48 -0700 (PDT)
-In-Reply-To: <1432851884-12026-4-git-send-email-f.fainelli@gmail.com>
+Received: from mail-ob0-f182.google.com ([209.85.214.182]:34927 "EHLO
+	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751933AbbE2ECc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 00:02:32 -0400
+Received: by obcnx10 with SMTP id nx10so43363352obc.2
+        for <netdev@vger.kernel.org>; Thu, 28 May 2015 21:02:32 -0700 (PDT)
+In-Reply-To: <CAGXr9JEEGSVKVgqzNTWePytjiFCqK32k4YWZGtORskW5H3Atbw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 28, 2015 at 3:24 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> Occasionnaly we may get oversized packets from the hardware which exceed
-> the nomimal 2KiB buffer size we allocate SKBs with. Add an early check
-> which drops the packet to avoid invoking skb_over_panic() and move on to
-> processing the next packet.
->
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Le 05/28/15 20:58, Petri Gynther a =C3=A9crit :
+[snip]
 
-Reviewed-by: Petri Gynther <pgynther@google.com>
+>>                 /* We do not have a backing SKB, so we do not a corr=
+esponding
+>=20
+> Is this comment still valid? I removed it from bcmgenet.
 
-> ---
->  drivers/net/ethernet/broadcom/bcmsysport.c | 8 ++++++++
->  1 file changed, 8 insertions(+)
->
-> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-> index d777b0db9e63..909ad7a0d480 100644
-> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
-> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-> @@ -638,6 +638,14 @@ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
->                           p_index, priv->rx_c_index, priv->rx_read_ptr,
->                           len, status);
->
-> +               if (unlikely(len > RX_BUF_LENGTH)) {
-> +                       netif_err(priv, rx_status, ndev, "oversized packet\n");
-> +                       ndev->stats.rx_length_errors++;
-> +                       ndev->stats.rx_errors++;
-> +                       dev_kfree_skb_any(skb);
-> +                       goto next;
-> +               }
-> +
->                 if (unlikely(!(status & DESC_EOP) || !(status & DESC_SOP))) {
->                         netif_err(priv, rx_status, ndev, "fragmented packet!\n");
->                         ndev->stats.rx_dropped++;
-> --
-> 2.1.0
->
+Not really, thanks, I will fix that in v2.
+
+[snip]
+
+>> +
+>> +               if (priv->rx_read_ptr =3D=3D priv->num_rx_bds)
+>=20
+> if (unlikely(priv->rx_read_ptr =3D=3D priv->num_rx_bds))
+
+Will fix that as well, thank you!
+--=20
+=46lorian
