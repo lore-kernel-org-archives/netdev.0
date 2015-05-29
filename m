@@ -1,109 +1,120 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: pull-request: mac80211-next 2015-05-29
-Date: Fri, 29 May 2015 13:25:14 +0200
-Message-ID: <1432898714.2104.15.camel@sipsolutions.net>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net 1/1] sfc: free multiple Rx buffers when required
+Date: Fri, 29 May 2015 12:25:54 +0100
+Message-ID: <55684CC2.2010202@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:40015 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755485AbbE2L0B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 07:26:01 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Daniel Pieczko <dpieczko@solarflare.com>
 
-It's been a while since I sent anything for -next, but with the merge
-window getting closer I wanted to send a few more things, mostly fixes.
-Of course I expect that tomorrow somebody will send an important fix,
-but hey :-)
+When Rx packet data must be dropped, all the buffers
+associated with that Rx packet must be freed. Extend
+and rename efx_free_rx_buffer() to efx_free_rx_buffers()
+and loop through all the fragments.
+By doing so this patch fixes a possible memory leak.
 
-johannes
+Signed-off-by: Shradha Shah <sshah@solarflare.com>
+---
+ drivers/net/ethernet/sfc/rx.c | 42 +++++++++++++++++++++++++-----------------
+ 1 file changed, 25 insertions(+), 17 deletions(-)
 
-
-The following changes since commit 658358cec93a7130615cfc1d6843ab07e496=
-25e6:
-
-  mac80211: fix throughput LED trigger (2015-05-11 19:16:04 +0200)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git=
- tags/mac80211-next-for-davem-2015-05-29
-
-for you to fetch changes up to f7959e9c73200f2ae361d0d311aa501f2c6a05c7=
-:
-
-  net: rfkill: gpio: make better use of gpiod API (2015-05-29 13:13:45 =
-+0200)
-
-----------------------------------------------------------------
-As we get closer to the merge window, here are a few
-more things for -next:
- * disconnect TDLS stations on CSA to avoid issues
- * fix a memory leak introduced in a recent commit
- * switch rfkill and cfg80211 to PM ops
- * in an unlikely scenario, prevent a bookkeeping
-   value to get corrupted leading to dropped packets
- * fix a crash in VLAN assignment
- * switch rfkill-gpio to more modern gpiod API
- * send disconnected event to userspace with proper
-   local/remote indication
-
-----------------------------------------------------------------
-Arik Nemtsov (1):
-      mac80211: disconnect TDLS stations on STA CSA
-
-Johannes Berg (3):
-      mac80211: fix memory leak
-      mac80211: add missing drv_priv description for TXQ struct
-      cfg80211: properly send NL80211_ATTR_DISCONNECTED_BY_AP in discon=
-nect
-
-Lars-Peter Clausen (2):
-      net: rfkill: Switch to PM ops
-      cfg80211: Switch to PM ops
-
-Michal Kazior (3):
-      mac80211: check fast-xmit on station change
-      mac80211: prevent possible crypto tx tailroom corruption
-      cfg80211: ignore netif running state when changing iftype
-
-Uwe Kleine-K=C3=B6nig (1):
-      net: rfkill: gpio: make better use of gpiod API
-
- drivers/net/wireless/ath/ath6kl/cfg80211.c         |  4 ++--
- drivers/net/wireless/ath/wil6210/main.c            |  2 +-
- drivers/net/wireless/brcm80211/brcmfmac/cfg80211.c |  4 ++--
- drivers/net/wireless/libertas/cfg.c                | 13 +++++------
- drivers/net/wireless/libertas/cfg.h                |  3 ++-
- drivers/net/wireless/libertas/cmd.h                |  3 ++-
- drivers/net/wireless/libertas/cmdresp.c            | 13 ++++++-----
- drivers/net/wireless/mwifiex/join.c                |  2 +-
- drivers/net/wireless/mwifiex/sta_event.c           |  2 +-
- drivers/net/wireless/rndis_wlan.c                  |  2 +-
- drivers/staging/rtl8723au/os_dep/ioctl_cfg80211.c  |  2 +-
- drivers/staging/wlan-ng/cfg80211.c                 |  2 +-
- include/net/cfg80211.h                             |  4 +++-
- include/net/mac80211.h                             |  1 +
- net/mac80211/cfg.c                                 |  1 +
- net/mac80211/main.c                                |  7 +++++-
- net/mac80211/mlme.c                                | 26 ++++++++++++++=
-++++++++
- net/mac80211/tdls.c                                |  6 +++++
- net/rfkill/core.c                                  | 12 +++++++---
- net/rfkill/rfkill-gpio.c                           | 24 +++++++++-----=
-------
- net/wireless/core.h                                |  1 +
- net/wireless/sme.c                                 |  4 +++-
- net/wireless/sysfs.c                               | 14 +++++++-----
- net/wireless/util.c                                |  5 +++--
- 24 files changed, 105 insertions(+), 52 deletions(-)
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index c0ad95d..809ea461 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -224,12 +224,17 @@ static void efx_unmap_rx_buffer(struct efx_nic *efx,
+ 	}
+ }
+ 
+-static void efx_free_rx_buffer(struct efx_rx_buffer *rx_buf)
++static void efx_free_rx_buffers(struct efx_rx_queue *rx_queue,
++				struct efx_rx_buffer *rx_buf,
++				unsigned int num_bufs)
+ {
+-	if (rx_buf->page) {
+-		put_page(rx_buf->page);
+-		rx_buf->page = NULL;
+-	}
++	do {
++		if (rx_buf->page) {
++			put_page(rx_buf->page);
++			rx_buf->page = NULL;
++		}
++		rx_buf = efx_rx_buf_next(rx_queue, rx_buf);
++	} while (--num_bufs);
+ }
+ 
+ /* Attempt to recycle the page if there is an RX recycle ring; the page can
+@@ -278,7 +283,7 @@ static void efx_fini_rx_buffer(struct efx_rx_queue *rx_queue,
+ 	/* If this is the last buffer in a page, unmap and free it. */
+ 	if (rx_buf->flags & EFX_RX_BUF_LAST_IN_PAGE) {
+ 		efx_unmap_rx_buffer(rx_queue->efx, rx_buf);
+-		efx_free_rx_buffer(rx_buf);
++		efx_free_rx_buffers(rx_queue, rx_buf, 1);
+ 	}
+ 	rx_buf->page = NULL;
+ }
+@@ -304,10 +309,7 @@ static void efx_discard_rx_packet(struct efx_channel *channel,
+ 
+ 	efx_recycle_rx_pages(channel, rx_buf, n_frags);
+ 
+-	do {
+-		efx_free_rx_buffer(rx_buf);
+-		rx_buf = efx_rx_buf_next(rx_queue, rx_buf);
+-	} while (--n_frags);
++	efx_free_rx_buffers(rx_queue, rx_buf, n_frags);
+ }
+ 
+ /**
+@@ -431,11 +433,10 @@ efx_rx_packet_gro(struct efx_channel *channel, struct efx_rx_buffer *rx_buf,
+ 
+ 	skb = napi_get_frags(napi);
+ 	if (unlikely(!skb)) {
+-		while (n_frags--) {
+-			put_page(rx_buf->page);
+-			rx_buf->page = NULL;
+-			rx_buf = efx_rx_buf_next(&channel->rx_queue, rx_buf);
+-		}
++		struct efx_rx_queue *rx_queue;
++
++		rx_queue = efx_channel_get_rx_queue(channel);
++		efx_free_rx_buffers(rx_queue, rx_buf, n_frags);
+ 		return;
+ 	}
+ 
+@@ -622,7 +623,10 @@ static void efx_rx_deliver(struct efx_channel *channel, u8 *eh,
+ 
+ 	skb = efx_rx_mk_skb(channel, rx_buf, n_frags, eh, hdr_len);
+ 	if (unlikely(skb == NULL)) {
+-		efx_free_rx_buffer(rx_buf);
++		struct efx_rx_queue *rx_queue;
++
++		rx_queue = efx_channel_get_rx_queue(channel);
++		efx_free_rx_buffers(rx_queue, rx_buf, n_frags);
+ 		return;
+ 	}
+ 	skb_record_rx_queue(skb, channel->rx_queue.core_index);
+@@ -661,8 +665,12 @@ void __efx_rx_packet(struct efx_channel *channel)
+ 	 * loopback layer, and free the rx_buf here
+ 	 */
+ 	if (unlikely(efx->loopback_selftest)) {
++		struct efx_rx_queue *rx_queue;
++
+ 		efx_loopback_rx_packet(efx, eh, rx_buf->len);
+-		efx_free_rx_buffer(rx_buf);
++		rx_queue = efx_channel_get_rx_queue(channel);
++		efx_free_rx_buffers(rx_queue, rx_buf,
++				    channel->rx_pkt_n_frags);
+ 		goto out;
+ 	}
+ 
