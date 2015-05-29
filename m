@@ -1,120 +1,151 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net 1/1] sfc: free multiple Rx buffers when required
-Date: Fri, 29 May 2015 12:25:54 +0100
-Message-ID: <55684CC2.2010202@solarflare.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH iproute2] ss: speedup resolve_service()
+Date: Fri, 29 May 2015 04:45:48 -0700
+Message-ID: <1432899948.7456.82.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:40015 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755485AbbE2L0B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 07:26:01 -0400
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:36010 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755443AbbE2Lpu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 07:45:50 -0400
+Received: by iepj10 with SMTP id j10so60269827iep.3
+        for <netdev@vger.kernel.org>; Fri, 29 May 2015 04:45:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Pieczko <dpieczko@solarflare.com>
+From: Eric Dumazet <edumazet@google.com>
 
-When Rx packet data must be dropped, all the buffers
-associated with that Rx packet must be freed. Extend
-and rename efx_free_rx_buffer() to efx_free_rx_buffers()
-and loop through all the fragments.
-By doing so this patch fixes a possible memory leak.
+Lets implement a full cache with proper hash table, memory got cheaper
+these days.
 
-Signed-off-by: Shradha Shah <sshah@solarflare.com>
+Before :
+
+$ time ss -t | wc -l
+529678
+
+real	0m22.708s
+user	0m19.591s
+sys	0m2.969s
+
+After :
+
+$ time ss -t | wc -l 
+528291
+
+real	0m5.078s
+user	0m4.099s
+sys	0m0.985s
+
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/sfc/rx.c | 42 +++++++++++++++++++++++++-----------------
- 1 file changed, 25 insertions(+), 17 deletions(-)
+ misc/ss.c |   71 +++++++++++++++++++++++-----------------------------
+ 1 file changed, 32 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index c0ad95d..809ea461 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -224,12 +224,17 @@ static void efx_unmap_rx_buffer(struct efx_nic *efx,
- 	}
+diff --git a/misc/ss.c b/misc/ss.c
+index 347e3a1..3f4b7f1 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -858,8 +858,7 @@ static const char *print_ms_timer(int timeout)
+ 	return buf;
  }
  
--static void efx_free_rx_buffer(struct efx_rx_buffer *rx_buf)
-+static void efx_free_rx_buffers(struct efx_rx_queue *rx_queue,
-+				struct efx_rx_buffer *rx_buf,
-+				unsigned int num_bufs)
+-struct scache
+-{
++struct scache {
+ 	struct scache *next;
+ 	int port;
+ 	char *name;
+@@ -949,11 +948,15 @@ static const char *__resolve_service(int port)
+ 	return NULL;
+ }
+ 
++#define SCACHE_BUCKETS 1024
++static struct scache *cache_htab[SCACHE_BUCKETS];
+ 
+ static const char *resolve_service(int port)
  {
--	if (rx_buf->page) {
--		put_page(rx_buf->page);
--		rx_buf->page = NULL;
--	}
-+	do {
-+		if (rx_buf->page) {
-+			put_page(rx_buf->page);
-+			rx_buf->page = NULL;
-+		}
-+		rx_buf = efx_rx_buf_next(rx_queue, rx_buf);
-+	} while (--num_bufs);
- }
+ 	static char buf[128];
+-	static struct scache cache[256];
++	struct scache *c;
++	const char *res;
++	int hash;
  
- /* Attempt to recycle the page if there is an RX recycle ring; the page can
-@@ -278,7 +283,7 @@ static void efx_fini_rx_buffer(struct efx_rx_queue *rx_queue,
- 	/* If this is the last buffer in a page, unmap and free it. */
- 	if (rx_buf->flags & EFX_RX_BUF_LAST_IN_PAGE) {
- 		efx_unmap_rx_buffer(rx_queue->efx, rx_buf);
--		efx_free_rx_buffer(rx_buf);
-+		efx_free_rx_buffers(rx_queue, rx_buf, 1);
+ 	if (port == 0) {
+ 		buf[0] = '*';
+@@ -961,45 +964,35 @@ static const char *resolve_service(int port)
+ 		return buf;
  	}
- 	rx_buf->page = NULL;
- }
-@@ -304,10 +309,7 @@ static void efx_discard_rx_packet(struct efx_channel *channel,
  
- 	efx_recycle_rx_pages(channel, rx_buf, n_frags);
+-	if (resolve_services) {
+-		if (dg_proto == RAW_PROTO) {
+-			return inet_proto_n2a(port, buf, sizeof(buf));
+-		} else {
+-			struct scache *c;
+-			const char *res;
+-			int hash = (port^(((unsigned long)dg_proto)>>2))&255;
+-
+-			for (c = &cache[hash]; c; c = c->next) {
+-				if (c->port == port &&
+-				    c->proto == dg_proto) {
+-					if (c->name)
+-						return c->name;
+-					goto do_numeric;
+-				}
+-			}
++	if (!resolve_services)
++		goto do_numeric;
  
--	do {
--		efx_free_rx_buffer(rx_buf);
--		rx_buf = efx_rx_buf_next(rx_queue, rx_buf);
--	} while (--n_frags);
-+	efx_free_rx_buffers(rx_queue, rx_buf, n_frags);
- }
- 
- /**
-@@ -431,11 +433,10 @@ efx_rx_packet_gro(struct efx_channel *channel, struct efx_rx_buffer *rx_buf,
- 
- 	skb = napi_get_frags(napi);
- 	if (unlikely(!skb)) {
--		while (n_frags--) {
--			put_page(rx_buf->page);
--			rx_buf->page = NULL;
--			rx_buf = efx_rx_buf_next(&channel->rx_queue, rx_buf);
+-			if ((res = __resolve_service(port)) != NULL) {
+-				if ((c = malloc(sizeof(*c))) == NULL)
+-					goto do_numeric;
+-			} else {
+-				c = &cache[hash];
+-				if (c->name)
+-					free(c->name);
+-			}
+-			c->port = port;
+-			c->name = NULL;
+-			c->proto = dg_proto;
+-			if (res) {
+-				c->name = strdup(res);
+-				c->next = cache[hash].next;
+-				cache[hash].next = c;
+-			}
+-			if (c->name)
+-				return c->name;
 -		}
-+		struct efx_rx_queue *rx_queue;
++	if (dg_proto == RAW_PROTO)
++		return inet_proto_n2a(port, buf, sizeof(buf));
 +
-+		rx_queue = efx_channel_get_rx_queue(channel);
-+		efx_free_rx_buffers(rx_queue, rx_buf, n_frags);
- 		return;
++
++	hash = (port^(((unsigned long)dg_proto)>>2)) % SCACHE_BUCKETS;
++
++	for (c = cache_htab[hash]; c; c = c->next) {
++		if (c->port == port && c->proto == dg_proto)
++			goto do_cache;
  	}
  
-@@ -622,7 +623,10 @@ static void efx_rx_deliver(struct efx_channel *channel, u8 *eh,
- 
- 	skb = efx_rx_mk_skb(channel, rx_buf, n_frags, eh, hdr_len);
- 	if (unlikely(skb == NULL)) {
--		efx_free_rx_buffer(rx_buf);
-+		struct efx_rx_queue *rx_queue;
+-	do_numeric:
++	c = malloc(sizeof(*c));
++	if (!c)
++		goto do_numeric;
++	res = __resolve_service(port);
++	c->port = port;
++	c->name = res ? strdup(res) : NULL;
++	c->proto = dg_proto;
++	c->next = cache_htab[hash];
++	cache_htab[hash] = c;
 +
-+		rx_queue = efx_channel_get_rx_queue(channel);
-+		efx_free_rx_buffers(rx_queue, rx_buf, n_frags);
- 		return;
- 	}
- 	skb_record_rx_queue(skb, channel->rx_queue.core_index);
-@@ -661,8 +665,12 @@ void __efx_rx_packet(struct efx_channel *channel)
- 	 * loopback layer, and free the rx_buf here
- 	 */
- 	if (unlikely(efx->loopback_selftest)) {
-+		struct efx_rx_queue *rx_queue;
++do_cache:
++	if (c->name)
++		return c->name;
 +
- 		efx_loopback_rx_packet(efx, eh, rx_buf->len);
--		efx_free_rx_buffer(rx_buf);
-+		rx_queue = efx_channel_get_rx_queue(channel);
-+		efx_free_rx_buffers(rx_queue, rx_buf,
-+				    channel->rx_pkt_n_frags);
- 		goto out;
- 	}
- 
++do_numeric:
+ 	sprintf(buf, "%u", port);
+ 	return buf;
+ }
