@@ -1,68 +1,77 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [PATCH] vti6: Add pmtu handling to vti6_xmit.
-Date: Fri, 29 May 2015 11:28:26 -0700
-Message-ID: <20150529182709.2147.78230.stgit@ahduyck-vm-fedora22>
-References: <5567695F.6070505@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net] net: dsa: Properly propagate errors from
+ dsa_switch_setup_one
+Date: Fri, 29 May 2015 20:28:09 +0200
+Message-ID: <20150529182809.GE19580@lunn.ch>
+References: <1432920586-20482-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org
-To: steffen.klassert@secunet.com, davem@davemloft.net,
-	herbert@gondor.apana.org.au
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <5567695F.6070505@gmail.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, linux@roeck-us.net
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:47826 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756060AbbE2Sd1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 May 2015 14:33:27 -0400
+Content-Disposition: inline
+In-Reply-To: <1432920586-20482-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
+On Fri, May 29, 2015 at 10:29:46AM -0700, Florian Fainelli wrote:
+> While shuffling some code around, dsa_switch_setup_one() was introduced,
+> and it was modified to return either an error code using ERR_PTR() or a
+> NULL pointer when running out of memory or failing to setup a switch.
+> 
+> This is a problem for its caler: dsa_switch_setup() which uses IS_ERR()
+> and expects to find an error code, not a NULL pointer, so we still try
+> to proceed with dsa_switch_setup() and operate on invalid memory
+> addresses. This can be easily reproduced by having e.g: the bcm_sf2
+> driver built-in, but having no such switch, such that drv->setup will
+> fail.
+> 
+> Fix this by using PTR_ERR() consistently which is both more informative
+> and avoids for the caller to use IS_ERR_OR_NULL().
+> 
+> Fixes: df197195a5248 ("net: dsa: split dsa_switch_setup into two functions")
+> Reported-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-We currently rely on the PMTU discovery of xfrm.
-However if a packet is localy sent, the PMTU mechanism
-of xfrm tries to to local socket notification what
-might not work for applications like ping that don't
-check for this. So add pmtu handling to vti6_xmit to
-report MTU changes immediately.
+Hi Florian
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
+No more crash and burn :-)
 
-So this version is slightly modified to cover the IPv4 case in addition to
-the IPv6 case.  With this patch I was able to run netperf over either an
-IPv4 or IPv6 address routed over the ip6_vti tunnel.
+Tested-by: Andrew Lunn <andrew@lunn.ch>
 
- net/ipv6/ip6_vti.c |   14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+Thanks
+	Andrew
 
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index d25209657edc..3b5c1ea50d2f 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -435,6 +435,7 @@ vti6_xmit(struct sk_buff *skb, struct net_device *dev, struct flowi *fl)
- 	struct net_device *tdev;
- 	struct xfrm_state *x;
- 	int err = -1;
-+	int mtu;
- 
- 	if (!dst)
- 		goto tx_err_link_failure;
-@@ -468,6 +469,19 @@ vti6_xmit(struct sk_buff *skb, struct net_device *dev, struct flowi *fl)
- 	skb_dst_set(skb, dst);
- 	skb->dev = skb_dst(skb)->dev;
- 
-+	mtu = dst_mtu(dst);
-+	if (!skb->ignore_df && skb->len > mtu) {
-+		skb_dst(skb)->ops->update_pmtu(dst, NULL, skb, mtu);
-+
-+		if (skb->protocol == htons(ETH_P_IPV6))
-+			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
-+		else
-+			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
-+				  htonl(mtu));
-+
-+		return -EMSGSIZE;
-+	}
-+
- 	err = dst_output(skb);
- 	if (net_xmit_eval(err) == 0) {
- 		struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
+> ---
+>  net/dsa/dsa.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index e6f6cc3a1bcf..392e29a0227d 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -359,7 +359,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+>  	 */
+>  	ds = kzalloc(sizeof(*ds) + drv->priv_size, GFP_KERNEL);
+>  	if (ds == NULL)
+> -		return NULL;
+> +		return ERR_PTR(-ENOMEM);
+>  
+>  	ds->dst = dst;
+>  	ds->index = index;
+> @@ -370,7 +370,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+>  
+>  	ret = dsa_switch_setup_one(ds, parent);
+>  	if (ret)
+> -		return NULL;
+> +		return ERR_PTR(ret);
+>  
+>  	return ds;
+>  }
+> -- 
+> 2.1.0
+> 
