@@ -1,42 +1,78 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH 3/7] net: dsa: ar8xxx: add regmap support
-Date: Fri, 29 May 2015 19:59:13 +0200
-Message-ID: <20150529175913.GB19580@lunn.ch>
-References: <1432863742-18427-1-git-send-email-mathieu@codeaurora.org>
- <1432863742-18427-4-git-send-email-mathieu@codeaurora.org>
- <5567C7B6.5060905@gmail.com>
- <20150529022329.GH11260@lunn.ch>
- <5567D0BA.5020409@gmail.com>
- <20150529024425.GI11260@lunn.ch>
- <005b01d09a36$0b77daa0$22678fe0$@codeaurora.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 'Florian Fainelli' <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org, gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, leitec-z4FmpzNVuK5Wk0Htik3J/w@public.gmane.org, fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org,
-	pavel.nakonechny-Fmhy8gsqeTEvJsYlp49lxw@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, juhosg-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Mathieu Olivari <mathieu-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <005b01d09a36$0b77daa0$22678fe0$@codeaurora.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2 v2] ss: Fix allocation of cong control alg name
+Date: Fri, 29 May 2015 21:09:54 +0300
+Message-ID: <1432922994-13735-1-git-send-email-vadim4j@gmail.com>
+Cc: eric.dumazet@gmail.com, daniel@iogearbox.net,
+	jose.r.guzman.mosqueda@intel.com, Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:34637 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752882AbbE2SK4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 14:10:56 -0400
+Received: by laat2 with SMTP id t2so61709841laa.1
+        for <netdev@vger.kernel.org>; Fri, 29 May 2015 11:10:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 29, 2015 at 10:36:49AM -0700, Mathieu Olivari wrote:
-> Alternatively, we could have something similar to what happens for the phy
-> in the wireless subsystems. Wireless PHYs are not registered as net_device
-> but they can still be listed, queried or configured through netlink.
+From: Vadim Kochan <vadim4j@gmail.com>
 
-It is a reasonable idea, but you retrieve most of the useful
-information using ethtool. That, as far as i know, operates on
-net_devices, not phys.
+Used 16 char array for cong alg name instead of malloc.
 
-	     Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Fixes: 8250bc9ff4e5 ("ss: Unify inet sockets output")
+Reported-by: Jose R. Guzman Mosqueda <jose.r.guzman.mosqueda@intel.com>
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+v2:
+   Used 16 byte array for cong alg name instead of malloc
+   	suggested by Eric Dumazet <eric.dumazet@gmail.com>
+
+ misc/ss.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/misc/ss.c b/misc/ss.c
+index 347e3a1..0bab8a2 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -755,7 +755,7 @@ struct tcpstat
+ 	int		    timer;
+ 	int		    timeout;
+ 	int		    probes;
+-	char		    *cong_alg;
++	char		    cong_alg[16];
+ 	double		    rto, ato, rtt, rttvar;
+ 	int		    qack, cwnd, ssthresh, backoff;
+ 	double		    send_bps;
+@@ -1664,7 +1664,7 @@ static void tcp_stats_print(struct tcpstat *s)
+ 		printf(" ecnseen");
+ 	if (s->has_fastopen_opt)
+ 		printf(" fastopen");
+-	if (s->cong_alg)
++	if (s->cong_alg[0])
+ 		printf(" %s", s->cong_alg);
+ 	if (s->has_wscale_opt)
+ 		printf(" wscale:%d,%d", s->snd_wscale, s->rcv_wscale);
+@@ -1907,9 +1907,9 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
+ 		}
+ 
+ 		if (tb[INET_DIAG_CONG]) {
+-			const char *cong_attr = rta_getattr_str(tb[INET_DIAG_CONG]);
+-			s.cong_alg = malloc(strlen(cong_attr + 1));
+-			strcpy(s.cong_alg, cong_attr);
++			strncpy(s.cong_alg,
++					rta_getattr_str(tb[INET_DIAG_CONG]),
++					sizeof(s.cong_alg) - 1);
+ 		}
+ 
+ 		if (TCPI_HAS_OPT(info, TCPI_OPT_WSCALE)) {
+@@ -1984,8 +1984,6 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
+ 		tcp_stats_print(&s);
+ 		if (s.dctcp)
+ 			free(s.dctcp);
+-		if (s.cong_alg)
+-			free(s.cong_alg);
+ 	}
+ }
+ 
+-- 
+2.3.1
