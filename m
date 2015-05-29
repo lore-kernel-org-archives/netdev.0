@@ -1,140 +1,100 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH net] xen: netback: read hotplug script once at start of day.
-Date: Fri, 29 May 2015 17:24:53 +0100
-Message-ID: <1432916693-21121-1-git-send-email-ian.campbell@citrix.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: RE: Request for advice on where to put Root Complex "fix up" code
+ for downstream device
+Date: Fri, 29 May 2015 16:46:58 +0000
+Message-ID: <4985EFDD773FCB459EF7915D2A3621ADBDF585@nice.asicdesigners.com>
+References: <4985EFDD773FCB459EF7915D2A3621ADBC7408@nice.asicdesigners.com>
+ <20150507230426.GO24643@google.com>
+ <4985EFDD773FCB459EF7915D2A3621ADBC80D4@nice.asicdesigners.com>,<20150529162021.GA12733@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <wei.liu2@citrix.com>, <david.vrabel@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Bjorn Helgaas <bhelgaas@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:63199 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030196AbbE2Qar (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 12:30:47 -0400
+Received: from stargate.chelsio.com ([67.207.112.58]:8984 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756619AbbE2QrC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 12:47:02 -0400
+In-Reply-To: <20150529162021.GA12733@google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we come to tear things down in netback_remove() and generate the
-uevent it is possible that the xenstore directory has already been
-removed (details below).
+  Thanks Bjorn and no issues at all about the delay -- I definitely understand how
+busy we all are.
 
-In such cases netback_uevent() won't be able to read the hotplug
-script and will write a xenstore error node.
+  I'll go ahead and submit a PCI Quirk.  As part of this, would you like me to
+also commit a new PCI-E routine to find the Root Complex Port for a given
+PCI Device?  It seem like it might prove useful in the future.  Otherwise I'll
+just incorporate that loop in my PCI Quirk.
 
-A recent change to the hypervisor exposed this race such that we now
-sometimes lose it (where apparently we didn't ever before).
+Casey
 
-Instead read the hotplug script configuration during setup and use it
-for the lifetime of the vif device.
+________________________________________
+From: Bjorn Helgaas [bhelgaas@google.com]
+Sent: Friday, May 29, 2015 9:20 AM
+To: Casey Leedom
+Cc: netdev@vger.kernel.org; linux-pci@vger.kernel.org
+Subject: Re: Request for advice on where to put Root Complex "fix up" code for downstream device
 
-The apparently more obvious fix of moving the transition to
-state=Closed in netback_remove() to after the uevent does not work
-because it is possible that we are already in state=Closed (in
-reaction to the guest having disconnected as it shutdown). Being
-already in Closed means the toolstack is at liberty to start tearing
-down the xenstore directories. In principal it might be possible to
-arrange to unregister the device sooner (e.g on transition to Closing)
-such that xenstore would still be there but this state machine is
-fragile and prone to anger...
+Hi Casey,
 
-A modern Xen system only relies on the hotplug uevent for driver
-domains, when the backend is in the same domain as the toolstack it
-will run the necessary setup/teardown directly in the correct sequence
-wrt xenstore changes.
+Sorry, this one slipped through and I forgot to respond earlier.
 
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
----
-DaveM, could this go to all stable trees please.
----
- drivers/net/xen-netback/common.h |    2 ++
- drivers/net/xen-netback/xenbus.c |   29 ++++++++++++++++-------------
- 2 files changed, 18 insertions(+), 13 deletions(-)
+On Thu, May 07, 2015 at 11:31:58PM +0000, Casey Leedom wrote:
+> | From: Bjorn Helgaas [bhelgaas@google.com]
+> | Sent: Thursday, May 07, 2015 4:04 PM
+> |
+> | There are a lot of fixups in drivers/pci/quirks.c.  For things that have to
+> | be worked around either before a driver claims the device or if there is no
+> | driver at all, the fixup *has* to go in drivers/pci/quirks.c
+> |
+> | But for things like this, where the problem can only occur after a driver
+> | claims the device, I think it makes more sense to put the fixup in the
+> | driver itself.  The only wrinkle here is that the fixup has to be done on a
+> | separate device, not the device claimed by the driver.  But I think it
+> | probably still makes sense to put this fixup in the driver.
+>
+>   Okay, the example code that I provided (still quoted below) was indeed
+> done as a fix within the cxgb4 Network Driver.  I've also worked up a
+> version as a PCI Quirk but if you and David Miller agree that the fixup
+> code should go into cxgb4, I'm comfortable with that.  I can also provide
+> the example PCI Quirk code I worked up if you like.
+>
+>   One complication to doing this in cxgb4 is that it attaches to Physical
+> Function 4 of our T5 chip.  Meanwhile, a completely separate storage
+> driver, csiostor, connections to PF5 and PF6 and there's no
+> requirement at all that cxgb4 be loaded.  So if we go down the road of
+> putting the fixup code in the cxgb4 driver, we'll also need to duplicate
+> that code in the csiostor driver.
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 8a495b3..01b54e9 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -248,6 +248,8 @@ struct xenvif {
- 
- 	/* Miscellaneous private stuff. */
- 	struct net_device *dev;
-+
-+	const char *hotplug_script;
- };
- 
- struct xenvif_rx_cb {
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 3d8dbf5..698b4ad 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -235,6 +235,7 @@ static int netback_remove(struct xenbus_device *dev)
- 		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
- 		xen_unregister_watchers(be->vif);
- 		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
-+		kfree(be->vif->hotplug_script);
- 		xenvif_free(be->vif);
- 		be->vif = NULL;
- 	}
-@@ -379,24 +380,14 @@ static int netback_uevent(struct xenbus_device *xdev,
- 			  struct kobj_uevent_env *env)
- {
- 	struct backend_info *be = dev_get_drvdata(&xdev->dev);
--	char *val;
- 
--	val = xenbus_read(XBT_NIL, xdev->nodename, "script", NULL);
--	if (IS_ERR(val)) {
--		int err = PTR_ERR(val);
--		xenbus_dev_fatal(xdev, err, "reading script");
--		return err;
--	} else {
--		if (add_uevent_var(env, "script=%s", val)) {
--			kfree(val);
--			return -ENOMEM;
--		}
--		kfree(val);
--	}
- 
- 	if (!be || !be->vif)
- 		return 0;
- 
-+	if (add_uevent_var(env, "script=%s", be->vif->hotplug_script))
-+		return -ENOMEM;
-+
- 	return add_uevent_var(env, "vif=%s", be->vif->dev->name);
- }
- 
-@@ -407,6 +398,7 @@ static int backend_create_xenvif(struct backend_info *be)
- 	long handle;
- 	struct xenbus_device *dev = be->dev;
- 	struct xenvif *vif;
-+	const char *script;
- 
- 	if (be->vif != NULL)
- 		return 0;
-@@ -417,12 +409,23 @@ static int backend_create_xenvif(struct backend_info *be)
- 		return (err < 0) ? err : -EINVAL;
- 	}
- 
-+	script = xenbus_read(XBT_NIL, dev->nodename, "script", NULL);
-+	if (IS_ERR(script)) {
-+		int err = PTR_ERR(script);
-+		xenbus_dev_fatal(dev, err, "reading script");
-+		return err;
-+	}
-+
- 	vif = xenvif_alloc(&dev->dev, dev->otherend_id, handle);
- 	if (IS_ERR(vif)) {
- 		err = PTR_ERR(vif);
- 		xenbus_dev_fatal(dev, err, "creating interface");
-+		kfree(script);
- 		return err;
- 	}
-+
-+	vif->hotplug_script = script;
-+
- 	be->vif = vif;
- 
- 	kobject_uevent(&dev->dev.kobj, KOBJ_ONLINE);
--- 
-1.7.10.4
+Sounds simpler to just put the quirk in drivers/pci/quirks.c.
+
+> | > +static void clear_root_complex_tlp_attributes(struct pci_dev *pdev)
+> | > +{
+> | > +     struct pci_bus *bus = pdev->bus;
+> | > +     struct pci_dev *highest_pcie_bridge = NULL;
+> | > +
+> | > +     while (bus) {
+> | > +             struct pci_dev *bridge = bus->self;
+> | > +
+> | > +             if (!bridge || !bridge->pcie_cap)
+> | > +                     break;
+> | > +             highest_pcie_bridge = bridge;
+> | > +             bus = bus->parent;
+> | > +     }
+> |
+> | Can you use pci_upstream_bridge() here?  There are a couple places where we
+> | want to find the Root Port, so we might factor that out someday.  It'll be
+> | easier to find all those places if they use with pci_upstream_bridge().
+>
+> It looks like pci_upstream_bridge() just traverses one like upstream toward the
+> Root Complex?  Or am I misunderstanding that function?
+
+No, you're right.  I was just trying to suggest using pci_upstream_bridge()
+instead of bus->parent->self in your loop.  It wouldn't replace the loop
+completely.
+
+Bjorn
