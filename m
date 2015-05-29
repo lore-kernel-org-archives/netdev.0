@@ -1,71 +1,115 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of most of the trees
-Date: Fri, 29 May 2015 10:34:59 +1000
-Message-ID: <20150529103459.4e90212d@canb.auug.org.au>
-References: <20150528220607.67a68696@canb.auug.org.au>
-	<1432826811.7456.10.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 net-next 09/11] net: Add IPv6 flow label to flow_keys
+Date: Thu, 28 May 2015 17:36:36 -0700
+Message-ID: <1432859796.7456.53.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1432837148-1359931-1-git-send-email-tom@herbertland.com>
+	 <1432837148-1359931-10-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/wPctUqjvJCDZIEGQrzDe7ND"; protocol="application/pgp-signature"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1432826811.7456.10.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:38279 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754794AbbE2Agj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 20:36:39 -0400
+Received: by igbjd9 with SMTP id jd9so2485525igb.1
+        for <netdev@vger.kernel.org>; Thu, 28 May 2015 17:36:38 -0700 (PDT)
+In-Reply-To: <1432837148-1359931-10-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/wPctUqjvJCDZIEGQrzDe7ND
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Thu, 2015-05-28 at 11:19 -0700, Tom Herbert wrote:
+> In flow_dissector set the flow label in flow_keys for IPv6. This also
+> removes the shortcircuiting of flow dissection when a non-zero label
+> is present, the flow label can be considered to provide additional
+> entropy for a hash.
+> 
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> ---
+>  include/net/flow_dissector.h |  4 +++-
+>  net/core/flow_dissector.c    | 31 +++++++++++--------------------
+>  2 files changed, 14 insertions(+), 21 deletions(-)
+> 
+> diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
+> index 08480fb..14d8483 100644
+> --- a/include/net/flow_dissector.h
+> +++ b/include/net/flow_dissector.h
+> @@ -28,7 +28,8 @@ struct flow_dissector_key_basic {
+>  };
+>  
+>  struct flow_dissector_key_tags {
+> -	u32	vlan_id:12;
+> +	u32	vlan_id:12,
+> +		flow_label:20;
+>  };
+>  
+>  /**
+> @@ -111,6 +112,7 @@ enum flow_dissector_key_id {
+>  	FLOW_DISSECTOR_KEY_ETH_ADDRS, /* struct flow_dissector_key_eth_addrs */
+>  	FLOW_DISSECTOR_KEY_TIPC_ADDRS, /* struct flow_dissector_key_tipc_addrs */
+>  	FLOW_DISSECTOR_KEY_VLANID, /* struct flow_dissector_key_flow_tags */
+> +	FLOW_DISSECTOR_KEY_FLOW_LABEL, /* struct flow_dissector_key_flow_tags */
+>  
+>  	FLOW_DISSECTOR_KEY_MAX,
+>  };
+> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+> index 5c66cb2..ba089d9 100644
+> --- a/net/core/flow_dissector.c
+> +++ b/net/core/flow_dissector.c
+> @@ -190,7 +190,7 @@ ip:
+>  	case htons(ETH_P_IPV6): {
+>  		const struct ipv6hdr *iph;
+>  		struct ipv6hdr _iph;
+> -		__be32 flow_label;
+> +		u32 flow_label;
 
-Hi Eric,
+You change flow_label from __be32 to u32.
 
-On Thu, 28 May 2015 08:26:51 -0700 Eric Dumazet <eric.dumazet@gmail.com> wr=
-ote:
->
-> We were alerted of this problem thanks to kbuild test robot.
->=20
-> This fix is not a definitive one I hope.
+>  
+>  ipv6:
+>  		iph = __skb_header_pointer(skb, nhoff, sizeof(_iph), data, hlen, &_iph);
+> @@ -210,30 +210,17 @@ ipv6:
+>  
+>  			memcpy(key_ipv6_addrs, &iph->saddr, sizeof(*key_ipv6_addrs));
+>  			key_control->addr_type = FLOW_DISSECTOR_KEY_IPV6_ADDRS;
+> -			goto flow_label;
+>  		}
+> -		break;
+> -flow_label:
+> +
+>  		flow_label = ip6_flowlabel(iph);
 
-No, just something to allow me to get my tree to build so I could go to
-bed :-)
+But ip6_flowlabel() returns a __be32. This should not please sparse.
 
-> Golden rule is that vmalloc() users must include vmalloc.h themselves,
-> not by an indirect include.
 
-Yep, that is a special case of Rule 1.
+>  		if (flow_label) {
+> -			/* Awesome, IPv6 packet has a flow label so we can
+> -			 * use that to represent the ports without any
+> -			 * further dissection.
+> -			 */
+> -
+> -			key_basic->n_proto = proto;
+> -			key_basic->ip_proto = ip_proto;
+> -			key_control->thoff = (u16)nhoff;
+> -
+>  			if (skb_flow_dissector_uses_key(flow_dissector,
+> -							FLOW_DISSECTOR_KEY_PORTS)) {
+> -				key_ports = skb_flow_dissector_target(flow_dissector,
+> -								      FLOW_DISSECTOR_KEY_PORTS,
+> -								      target_container);
+> -				key_ports->ports = flow_label;
+> +				FLOW_DISSECTOR_KEY_FLOW_LABEL)) {
+> +				key_tags = skb_flow_dissector_target(flow_dissector,
+> +								     FLOW_DISSECTOR_KEY_FLOW_LABEL,
+> +								     target_container);
+> +				key_tags->flow_label = ntohl(flow_label);
 
-> I sent one fix, and prepared others, but I prefer that each offender is
-> fixed.
+Then you call ntohl() on u32 variable. This should also complain.
 
-Yeah, thanks to Dave for that.
+Have you run sparse ?
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+make C=2 CF=-D__CHECK_ENDIAN__ net/core/flow_dissector.o
 
---Sig_/wPctUqjvJCDZIEGQrzDe7ND
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJVZ7Q4AAoJEMDTa8Ir7ZwVhosP+wc60HYnJ06VQli0LyUrxZxA
-CZZPUZcJin2Vztl+HY1HlSJzBbAO6G44xB2z9CwANWK8uIh3+Wcr6+BIwTksI0sE
-OlIFCz3MeQrQfGbty7J/dIBiuH2MStt7IwElWxOB/xqn9Hl8dOduULLzgiGOU2Gm
-yA6zmzqvkVouRmb1lV0sB0ub1FpUZfLYFb4LJYeUz1GEv5Q8BLy8MSzda+QEPg2s
-ScMEY+IvufKlCw4IBzU9k1sdQIc1IHQK7nLznRRzn/UKa5ym+vuHWUnL4MPspVVK
-w44SX/xx20evlfpSM7XSknO7mFD8qIhLhh3SglUji8oYzOkrYFY3Id0nJ7Td+wJS
-M60FgM+EYrD8xPA7zyxmmwsWIZgYUSWkJSLOEZHPRsxxkeIgQaLTlny6PlF+bMg2
-oFSPJAiFz6IHyoWerbi22OMksgWObmBkMrK8I88k2nOC4l8b2kLpSjvgoBbJ1hD1
-9godo6bSogG2M6IIb1ivQP3p/8SCN9oaco+eeILCBNBvyviGGxRkJW0DGh3tEbvS
-74r0zlqiIM852YJmDxvjL3VsvC9rR7DhT3N2rM2sVMKtc+eREhaddHhyWrO461Ns
-Ed0Fzt1UKFHU3C6qaLgLU0vw5+JboXsyU0L3d1CW4o9tea/t0HaNvehbd2qx0Urg
-dzNmvke18Y1Dc+nAwreR
-=IAab
------END PGP SIGNATURE-----
-
---Sig_/wPctUqjvJCDZIEGQrzDe7ND--
+Thanks.
