@@ -1,156 +1,108 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [PATCH] sctp: fix ASCONF list handling
-Date: Fri, 29 May 2015 13:50:37 -0300
-Message-ID: <20150529165037.GA3391@localhost.localdomain>
-References: <d78e23c156981e761086f4e37517e441c84d6f90.1432769183.git.marcelo.leitner@gmail.com>
- <20150528101511.GA14938@hmsreliant.think-freely.org>
- <20150528111727.GB3387@localhost.localdomain>
- <20150528132732.GC3387@localhost.localdomain>
- <20150528144629.GD3387@localhost.localdomain>
- <20150529131726.GA29575@hmsreliant.think-freely.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH] xfrm6: Do not use xfrm_local_error for path MTU issues
+ in tunnels
+Date: Fri, 29 May 2015 09:53:34 -0700
+Message-ID: <5568998E.9000907@gmail.com>
+References: <20150527173823.1415.96248.stgit@ahduyck-vm-fedora22> <20150528053607.GF27342@secunet.com> <5566C15B.7090403@gmail.com> <20150528084002.GI27342@secunet.com> <5567695F.6070505@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Michio Honda <micchie@sfc.wide.ad.jp>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40952 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756836AbbE2Qul (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 May 2015 12:50:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20150529131726.GA29575@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	davem@davemloft.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, linux-crypto@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <5567695F.6070505@gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 29, 2015 at 09:17:26AM -0400, Neil Horman wrote:
-> On Thu, May 28, 2015 at 11:46:29AM -0300, Marcelo Ricardo Leitner wrote:
-> > On Thu, May 28, 2015 at 10:27:32AM -0300, Marcelo Ricardo Leitner wrote:
-> > > On Thu, May 28, 2015 at 08:17:27AM -0300, Marcelo Ricardo Leitner wrote:
-> > > > On Thu, May 28, 2015 at 06:15:11AM -0400, Neil Horman wrote:
-> > > > > On Wed, May 27, 2015 at 09:52:17PM -0300, mleitner@redhat.com wrote:
-> > > > > > From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > > > > >
-> > > > > > ->auto_asconf_splist is per namespace and mangled by functions like
-> > > > > > sctp_setsockopt_auto_asconf() which doesn't guarantee any serialization.
-> > > > > >
-> > > > > > Also, the call to inet_sk_copy_descendant() was backuping
-> > > > > > ->auto_asconf_list through the copy but was not honoring
-> > > > > > ->do_auto_asconf, which could lead to list corruption if it was
-> > > > > > different between both sockets.
-> > > > > >
-> > > > > > This commit thus fixes the list handling by adding a spinlock to protect
-> > > > > > against multiple writers and converts the list to be protected by RCU
-> > > > > > too, so that we don't have a lock inverstion issue at
-> > > > > > sctp_addr_wq_timeout_handler().
-> > > > > >
-> > > > > > And as this list now uses RCU, we cannot do such backup and restore
-> > > > > > while copying descendant data anymore as readers may be traversing the
-> > > > > > list meanwhile. We fix this by simply ignoring/not copying those fields,
-> > > > > > placed at the end of struct sctp_sock, so we can just ignore it together
-> > > > > > with struct ipv6_pinfo data. For that we create sctp_copy_descendant()
-> > > > > > so we don't clutter inet_sk_copy_descendant() with SCTP info.
-> > > > > >
-> > > > > > Issue was found with a test application that kept flipping sysctl
-> > > > > > default_auto_asconf on and off.
-> > > > > >
-> > > > > > Fixes: 9f7d653b67ae ("sctp: Add Auto-ASCONF support (core).")
-> > > > > > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > > > > > ---
-> > > > > >  include/net/netns/sctp.h   |  6 +++++-
-> > > > > >  include/net/sctp/structs.h |  2 ++
-> > > > > >  net/sctp/protocol.c        |  6 +++++-
-> > > > > >  net/sctp/socket.c          | 39 ++++++++++++++++++++++++++-------------
-> > > > > >  4 files changed, 38 insertions(+), 15 deletions(-)
-> > > > > >
-> > > > > > diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
-> > > > > > index 3573a81815ad9e0efb6ceb721eb066d3726419f0..e080bebb3147af39c8275261f57018eb01e917b0 100644
-> > > > > > --- a/include/net/netns/sctp.h
-> > > > > > +++ b/include/net/netns/sctp.h
-> > > > > > @@ -30,12 +30,15 @@ struct netns_sctp {
-> > > > > >  	struct list_head local_addr_list;
-> > > > > >  	struct list_head addr_waitq;
-> > > > > >  	struct timer_list addr_wq_timer;
-> > > > > > -	struct list_head auto_asconf_splist;
-> > > > > > +	struct list_head __rcu auto_asconf_splist;
-> > > > > You should use the addr_wq_lock here instead of creating a new lock, as thats
-> > > > > already used to protect most accesses to the list you are concerned about.
-> > > >
-> > > > Ok, that works too.
-> > > >
-> > > > > Though truthfully, that shouldn't be necessecary.  The list in question is only
-> > > > > read in one location and only written in one location.  You can likely just
-> > > > > rcu-ify, as the write side is in process context and protected by lock_sock.
-> > > >
-> > > > It should, it's not protected by lock_sock as this list resides in
-> > > > netns_sctp structure, which lock_sock doesn't cover. Write side is in
-> > > > process context yes, but this list is written in sctp_init_sock(),
-> > > > sctp_destroy_sock() and sctp_setsockopt_auto_asconf(), so one could
-> > > > trigger this by either creating/destroying sockets if
-> > > > default_auto_asconf=1 or just by creating a bunch of sockets and
-> > > > flipping asconf via setsockopt (or a combination of these operations).
-> > > > (I'll point this out in the changelog)
-> > >
-> > > Hmm.. by reusing addr_wq_lock we don't need to rcu-ify the list, as the
-> > > reader is inside that lock too, so I can just protect auto_asconf_splist
-> > > writers with addr_wq_lock.
-> > >
-> > > Nice, thanks Neil.
-> >
-> > Cannot really do that.. as that creates a lock inversion between
-> > sctp_destroy_sock() (which already holds lock_sock) and
-> > sctp_addr_wq_timeout_handler(), which first grabs addr_wq_lock and then
-> > locks socket by socket.
-> >
-> > Due to that, I'm afraid reusing this lock is not possible, and we should
-> > stick with the patch.. what do you think? (though I have to fix the nits
-> > in there)
-> >
-> I don't think thats accurate.  You are correct in that the the locks are taken
-> in opposing order, which would imply a lock inversion that could result in
-> deadlock, but we can avoid that by deferring the asconf list removal until after
-> sk_common_release and unlock_sock_bh is called in sctp_close.  That will make
-> the lock ordering consistent.  Alternatively, we can pre-emptively take the
-> asconf_lock in sctp_close before locking the socket.
+On 05/28/2015 12:15 PM, Alexander Duyck wrote:
+> On 05/28/2015 01:40 AM, Steffen Klassert wrote:
+>> On Thu, May 28, 2015 at 12:18:51AM -0700, Alexander Duyck wrote:
+>>> On 05/27/2015 10:36 PM, Steffen Klassert wrote:
+>>>> On Wed, May 27, 2015 at 10:40:32AM -0700, Alexander Duyck wrote:
+>>>>> This change makes it so that we use icmpv6_send to report PMTU 
+>>>>> issues back
+>>>>> into tunnels in the case that the resulting packet is larger than 
+>>>>> the MTU
+>>>>> of the outgoing interface.  Previously xfrm_local_error was being 
+>>>>> used in
+>>>>> this case, however this was resulting in no changes, I suspect due 
+>>>>> to the
+>>>>> fact that the tunnel itself was being kept out of the loop.
+>>>>>
+>>>>> This patch fixes PMTU problems seen on ip6_vti tunnels and is 
+>>>>> based on the
+>>>>> behavior seen if the socket was orphaned.  Instead of requiring 
+>>>>> the socket
+>>>>> to be orphaned this patch simply defaults to using icmpv6_send in 
+>>>>> the case
+>>>>> that the frame came though a tunnel.
+>>>> We can use icmpv6_send() just in the case that the packet
+>>>> was already transmitted by a tunnel device, otherwise we
+>>>> get the bug back that I mentioned in my other mail.
+>>>>
+>>>> Not sure if we have something to know that the packet
+>>>> traversed a tunnel device. That's what I asked in the
+>>>> thread 'Looking for a lost patch'.
+>>> Okay I will try to do some more digging.  From what I can tell right
+>>> now it looks like my ping attempts are getting hung up on the
+>>> xfrm_local_error in __xfrm6_output.  I wonder if we couldn't somehow
+>>> make use of the skb->cb to store a pointer to the tunnel that could
+>>> be checked to determine if we are going through a VTI or not.
+>> Maybe it is as easy as the patch below, could you please test it?
+>>
+>> Subject: [PATCH RFC] vti6: Add pmtu handling to vti6_xmit.
+>>
+>> We currently rely on the PMTU discovery of xfrm.
+>> However if a packet is localy sent, the PMTU mechanism
+>> of xfrm tries to to local socket notification what
+>> might not work for applications like ping that don't
+>> check for this. So add pmtu handling to vti6_xmit to
+>> report MTU changes immediately.
+>>
+>> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+>> ---
+>>   net/ipv6/ip6_vti.c | 10 ++++++++++
+>>   1 file changed, 10 insertions(+)
+>>
+>> diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+>> index ff3bd86..13cb771 100644
+>> --- a/net/ipv6/ip6_vti.c
+>> +++ b/net/ipv6/ip6_vti.c
+>> @@ -434,6 +434,7 @@ vti6_xmit(struct sk_buff *skb, struct net_device 
+>> *dev, struct flowi *fl)
+>>       struct dst_entry *dst = skb_dst(skb);
+>>       struct net_device *tdev;
+>>       struct xfrm_state *x;
+>> +    int mtu;
+>>       int err = -1;
+>>         if (!dst)
+>> @@ -468,6 +469,15 @@ vti6_xmit(struct sk_buff *skb, struct net_device 
+>> *dev, struct flowi *fl)
+>>       skb_dst_set(skb, dst);
+>>       skb->dev = skb_dst(skb)->dev;
+>>   +    mtu = dst_mtu(dst);
+>> +    if (!skb->ignore_df && skb->len > mtu) {
+>> +        skb_dst(skb)->ops->update_pmtu(dst, NULL, skb, mtu);
+>> +
+>> +        icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+>> +
+>> +        return -EMSGSIZE;
+>> +    }
+>> +
+>>       err = dst_output(skb);
+>>       if (net_xmit_eval(err) == 0) {
+>>           struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
+>
+> That seems to be working for me.  I'm able to ping and while the first 
+> packet fails the second one and all that follow make it through 
+> correctly after the ptmu update.
+>
+> - Alex
 
-For your first approach, deferring the asconf list removal, we can only
-do that reliably via some work queue, because we initialize asconf stuff
-on sctp_init_sock() and it should be de-initialized on its counterpart,
-sctp_destroy_sock(), as we have code like:
+It looks like I spoke too soon.  It resolves it for IPv6, but IPv4 over 
+the tunnel has the same issue.  Probably need to have some sort of 
+protocol based check to determine which version of the call to use.
 
-(same for ipv4)
-sctp_v6_create_accept_sk()
-{
-...
-        if (newsk->sk_prot->init(newsk)) {
-                sk_common_release(newsk);
-                newsk = NULL;
-        }
-...
-}
-
-and at inet6_create() too:
-        if (sk->sk_prot->init) {
-                err = sk->sk_prot->init(sk);
-                if (err)
-                        sk_common_release(sk);
-        }
-
-Or we (kind of) abuse of knowing that sctp_init_sock() cannot fail after
-initializing asconf and move asconf stuff from sctp_destroy_sock() to
-sctp_close(). AFAICT it could be enough, I'm just not a big fan of not
-having that similarity.
-
-If we try to lock addr_wq_lock early in sctp_close(),
-sctp_destroy_sock() would be unprotected on above situations, but if we
-know that sctp_init_sock() won't fail after initilizating asconf, it
-wouldn't be a problem...
-
-> I'd really rather avoid creating an additional lock here if we don't have to
-
-I understand. I'm just not seeing another way out so far... I'll keep
-trying, but please I'm all ears to ideas ;)
-
-  Marcelo
+- Alex
