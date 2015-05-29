@@ -1,307 +1,41 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: [RFC][PATCH] x86: remove vmalloc.h from asm/io.h
-Date: Fri, 29 May 2015 19:18:47 +1000
-Message-ID: <20150529191847.2d4cb3a7@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/AHnZALoXU+dCl8Ov9Wmn7IL"; protocol="application/pgp-signature"
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Anton Vorontsov <anton@enomsg.org>,
-	Colin Cross <ccross@android.com>,
-	Kees Cook <keescook@chromium.org>,
-	Tony Luck <tony.luck@intel.com>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Len Brown <lenb@kernel.org>,
-	Kristen Carlson Accardi <kristen@linux.intel.com>,
-	Viresh Kumar <viresh.kumar@linaro.org>,
-	Vinod Koul <vinod.koul@intel.com>,
-	"K. Y. Srinivasan" <kys@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	Hiral Patel <hiralpat@cisco.com>,
-	Suma Ramars <sramars@cisco.com>,
-	Brian Uchino <buchino@cisco.com>,
-	"James E.J. Bottomley" <JBottomley@odin.com>,
-	Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>, <xen-
-To: Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, <x86@kernel.org>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: [PATCH 12/16] batman-adv: checkpatch - comparison to NULL could be rewritten
+Date: Fri, 29 May 2015 11:05:24 +0200
+Message-ID: <1432890328-8247-13-git-send-email-antonio@meshcoding.com>
+References: <1432890328-8247-1-git-send-email-antonio@meshcoding.com>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Antonio Quartulli <antonio@meshcoding.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:44918 "EHLO ozlabs.org"
+Received: from s1.neomailbox.net ([5.148.176.57]:2784 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754745AbbE2JTE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 May 2015 05:19:04 -0400
+	id S1754162AbbE2JUF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 May 2015 05:20:05 -0400
+In-Reply-To: <1432890328-8247-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Sig_/AHnZALoXU+dCl8Ov9Wmn7IL
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+From: Marek Lindner <mareklindner@neomailbox.ch>
 
-Nothing in asm/io.h uses anything from vmalloc.h, so remove the include
-and fix up the build problems in an allmodconfig (64 bit and 32 bit)
-build.
-
-This may be the place where x86 builds get vmalloc.h implicitly included
-and that tends to hide places where vmalloc() et al are added to files
-but the include of vmalloc.h is forgotten.
-
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
-Cc: <x86@kernel.org>
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Cc: David Vrabel <david.vrabel@citrix.com>
-Cc: Anton Vorontsov <anton@enomsg.org>
-Cc: Colin Cross <ccross@android.com>
-Cc: Kees Cook <keescook@chromium.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: Len Brown <lenb@kernel.org>
-Cc: Kristen Carlson Accardi <kristen@linux.intel.com>
-Cc: Viresh Kumar <viresh.kumar@linaro.org>
-Cc: Vinod Koul <vinod.koul@intel.com>
-Cc: "K. Y. Srinivasan" <kys@microsoft.com>
-Cc: Haiyang Zhang <haiyangz@microsoft.com>
-Cc: Hiral Patel <hiralpat@cisco.com>
-Cc: Suma Ramars <sramars@cisco.com>
-Cc: Brian Uchino <buchino@cisco.com>
-Cc: "James E.J. Bottomley" <JBottomley@odin.com>
-Cc: Jaroslav Kysela <perex@perex.cz>
-Cc: Takashi Iwai <tiwai@suse.de>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Suggested-by: David Miller <davem@davemloft.net>
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
+ net/batman-adv/soft-interface.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Based in Linus' tree of today.
-
-There are probably more places that need vmalloc.h included, but this
-passes 64 bit and 32 bit allmodconfig builds, so is a place to start.
-
-Dave Miller suggested that I start this journey.
-
- arch/x86/include/asm/io.h          | 2 --
- arch/x86/kernel/crash.c            | 1 +
- arch/x86/kernel/machine_kexec_64.c | 1 +
- arch/x86/mm/pageattr-test.c        | 1 +
- arch/x86/mm/pageattr.c             | 1 +
- arch/x86/xen/p2m.c                 | 1 +
- drivers/acpi/apei/erst.c           | 1 +
- drivers/cpufreq/intel_pstate.c     | 1 +
- drivers/dma/mic_x100_dma.c         | 1 +
- drivers/net/hyperv/netvsc.c        | 1 +
- drivers/net/hyperv/rndis_filter.c  | 1 +
- drivers/scsi/fnic/fnic_debugfs.c   | 1 +
- drivers/scsi/fnic/fnic_trace.c     | 1 +
- sound/pci/asihpi/hpioctl.c         | 1 +
- 14 files changed, 13 insertions(+), 2 deletions(-)
-
-diff --git a/arch/x86/include/asm/io.h b/arch/x86/include/asm/io.h
-index 34a5b93704d3..5791e7ace9db 100644
---- a/arch/x86/include/asm/io.h
-+++ b/arch/x86/include/asm/io.h
-@@ -197,8 +197,6 @@ extern void set_iounmap_nonlazy(void);
-=20
- #include <asm-generic/iomap.h>
-=20
--#include <linux/vmalloc.h>
--
- /*
-  * Convert a virtual cached pointer to an uncached pointer
-  */
-diff --git a/arch/x86/kernel/crash.c b/arch/x86/kernel/crash.c
-index c76d3e37c6e1..e068d6683dba 100644
---- a/arch/x86/kernel/crash.c
-+++ b/arch/x86/kernel/crash.c
-@@ -22,6 +22,7 @@
- #include <linux/elfcore.h>
- #include <linux/module.h>
- #include <linux/slab.h>
-+#include <linux/vmalloc.h>
-=20
- #include <asm/processor.h>
- #include <asm/hardirq.h>
-diff --git a/arch/x86/kernel/machine_kexec_64.c b/arch/x86/kernel/machine_k=
-exec_64.c
-index 415480d3ea84..11546b462fa6 100644
---- a/arch/x86/kernel/machine_kexec_64.c
-+++ b/arch/x86/kernel/machine_kexec_64.c
-@@ -17,6 +17,7 @@
- #include <linux/ftrace.h>
- #include <linux/io.h>
- #include <linux/suspend.h>
-+#include <linux/vmalloc.h>
-=20
- #include <asm/init.h>
- #include <asm/pgtable.h>
-diff --git a/arch/x86/mm/pageattr-test.c b/arch/x86/mm/pageattr-test.c
-index 6629f397b467..8ff686aa7e8c 100644
---- a/arch/x86/mm/pageattr-test.c
-+++ b/arch/x86/mm/pageattr-test.c
-@@ -9,6 +9,7 @@
- #include <linux/random.h>
- #include <linux/kernel.h>
- #include <linux/mm.h>
-+#include <linux/vmalloc.h>
-=20
- #include <asm/cacheflush.h>
- #include <asm/pgtable.h>
-diff --git a/arch/x86/mm/pageattr.c b/arch/x86/mm/pageattr.c
-index 89af288ec674..bedfc794b4ba 100644
---- a/arch/x86/mm/pageattr.c
-+++ b/arch/x86/mm/pageattr.c
-@@ -14,6 +14,7 @@
- #include <linux/percpu.h>
- #include <linux/gfp.h>
- #include <linux/pci.h>
-+#include <linux/vmalloc.h>
-=20
- #include <asm/e820.h>
- #include <asm/processor.h>
-diff --git a/arch/x86/xen/p2m.c b/arch/x86/xen/p2m.c
-index b47124d4cd67..8b7f18e200aa 100644
---- a/arch/x86/xen/p2m.c
-+++ b/arch/x86/xen/p2m.c
-@@ -67,6 +67,7 @@
- #include <linux/seq_file.h>
- #include <linux/bootmem.h>
- #include <linux/slab.h>
-+#include <linux/vmalloc.h>
-=20
- #include <asm/cache.h>
- #include <asm/setup.h>
-diff --git a/drivers/acpi/apei/erst.c b/drivers/acpi/apei/erst.c
-index ed65e9c4b5b0..3670bbab57a3 100644
---- a/drivers/acpi/apei/erst.c
-+++ b/drivers/acpi/apei/erst.c
-@@ -35,6 +35,7 @@
- #include <linux/nmi.h>
- #include <linux/hardirq.h>
- #include <linux/pstore.h>
-+#include <linux/vmalloc.h>
- #include <acpi/apei.h>
-=20
- #include "apei-internal.h"
-diff --git a/drivers/cpufreq/intel_pstate.c b/drivers/cpufreq/intel_pstate.c
-index 6414661ac1c4..2ba53f4f6af2 100644
---- a/drivers/cpufreq/intel_pstate.c
-+++ b/drivers/cpufreq/intel_pstate.c
-@@ -26,6 +26,7 @@
- #include <linux/fs.h>
- #include <linux/debugfs.h>
- #include <linux/acpi.h>
-+#include <linux/vmalloc.h>
- #include <trace/events/power.h>
-=20
- #include <asm/div64.h>
-diff --git a/drivers/dma/mic_x100_dma.c b/drivers/dma/mic_x100_dma.c
-index 6de2e677be04..74d9db05a5ad 100644
---- a/drivers/dma/mic_x100_dma.c
-+++ b/drivers/dma/mic_x100_dma.c
-@@ -22,6 +22,7 @@
- #include <linux/module.h>
- #include <linux/io.h>
- #include <linux/seq_file.h>
-+#include <linux/vmalloc.h>
-=20
- #include "mic_x100_dma.h"
-=20
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index ea091bc5ff09..1e09243d5449 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -28,6 +28,7 @@
- #include <linux/slab.h>
- #include <linux/netdevice.h>
- #include <linux/if_ether.h>
-+#include <linux/vmalloc.h>
- #include <asm/sync_bitops.h>
-=20
- #include "hyperv_net.h"
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_f=
-ilter.c
-index 9118cea91882..35a482d526d9 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -27,6 +27,7 @@
- #include <linux/netdevice.h>
- #include <linux/if_vlan.h>
- #include <linux/nls.h>
-+#include <linux/vmalloc.h>
-=20
- #include "hyperv_net.h"
-=20
-diff --git a/drivers/scsi/fnic/fnic_debugfs.c b/drivers/scsi/fnic/fnic_debu=
-gfs.c
-index 5980c10c734d..d6498fabe628 100644
---- a/drivers/scsi/fnic/fnic_debugfs.c
-+++ b/drivers/scsi/fnic/fnic_debugfs.c
-@@ -18,6 +18,7 @@
- #include <linux/module.h>
- #include <linux/errno.h>
- #include <linux/debugfs.h>
-+#include <linux/vmalloc.h>
- #include "fnic.h"
-=20
- static struct dentry *fnic_trace_debugfs_root;
-diff --git a/drivers/scsi/fnic/fnic_trace.c b/drivers/scsi/fnic/fnic_trace.c
-index 65a9bde26974..4e15c4bf0795 100644
---- a/drivers/scsi/fnic/fnic_trace.c
-+++ b/drivers/scsi/fnic/fnic_trace.c
-@@ -21,6 +21,7 @@
- #include <linux/spinlock.h>
- #include <linux/kallsyms.h>
- #include <linux/time.h>
-+#include <linux/vmalloc.h>
- #include "fnic_io.h"
- #include "fnic.h"
-=20
-diff --git a/sound/pci/asihpi/hpioctl.c b/sound/pci/asihpi/hpioctl.c
-index 6610bd096fc9..d17937b92331 100644
---- a/sound/pci/asihpi/hpioctl.c
-+++ b/sound/pci/asihpi/hpioctl.c
-@@ -32,6 +32,7 @@
- #include <linux/pci.h>
- #include <linux/stringify.h>
- #include <linux/module.h>
-+#include <linux/vmalloc.h>
-=20
- #ifdef MODULE_FIRMWARE
- MODULE_FIRMWARE("asihpi/dsp5000.bin");
---=20
-2.1.4
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/AHnZALoXU+dCl8Ov9Wmn7IL
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJVaC8EAAoJEMDTa8Ir7ZwVXFMP/2MEp5Xv9B5MHWE5AG8s5auS
-v+/J0l0sibIPIC3/PaSwr9DevWKQtAtf4p/ExDFZzgc5SDHI8vKor/TDPKjw/bey
-zUJdSUESCqaD9r1Nlif8viG9PPjOCRTAuoKXkjJbm572+TUTb1thJs7rTmsfrjif
-Z7jtfU6xv+b//E1drMhWvam17taGsYHus49z/sUffgosy7aPzLyXl5o/iAocg2Qr
-NLtc2aroc3Xsz44uU5gArAAIJkEIshkd/QgUGk2rxvJjv5Fjn6Mv71kKk+RrakGa
-XcqAgbWiKqaEKVPdFcfnnRu30i2P8sJe22MojtVe8bEB0jK3rPmjnY6mFrk2Ctdp
-WAmKQUrkwMJv067ir6jLvIKN4aYTPDdlKvdiTePHwbN7FWdnziE7aPZ3Xmi4+mkL
-7BmUgzaYDQsuBFWHSVg32iOeocVX6g80YVg8ja23p/Lk067ksLw3CTl/GKgom6y6
-92w2U6bmrIFB1T/p4Jkk/w8MHhOmJRhLj3UH5PwSQ7KceKvI1FoFeJyWy1XuOhNp
-NZ6yfLGKX/2iwue0/eehyeXFVMH/84v6Mpu5/aBOxngE2/rpbI7kbYbxXdPkbIQ9
-CmFyg/Ke2aLhk8sOTs3pvyZKpNZH7Fvk0RxNJvpddQlRi1iJeoTWn1lF+FzHjvnQ
-aBDyOAO1tgnlD0deUrGV
-=Ol0w
------END PGP SIGNATURE-----
-
---Sig_/AHnZALoXU+dCl8Ov9Wmn7IL--
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 9426b83..50cf722 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -818,7 +818,7 @@ static int batadv_softif_slave_add(struct net_device *dev,
+ 	int ret = -EINVAL;
+ 
+ 	hard_iface = batadv_hardif_get_by_netdev(slave_dev);
+-	if (!hard_iface || hard_iface->soft_iface != NULL)
++	if (!hard_iface || hard_iface->soft_iface)
+ 		goto out;
+ 
+ 	ret = batadv_hardif_enable_interface(hard_iface, dev->name);
+-- 
+2.4.2
