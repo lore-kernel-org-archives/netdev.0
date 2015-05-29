@@ -1,29 +1,34 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [PATCH v2] README: clarify redistribution requirements covering patents
-Date: Thu, 28 May 2015 17:48:34 -0700
-Message-ID: <CAB=NE6XdnUhXb++ic2Gr1Ktb17fJPXc2tuLy=6e7yX=+xQQakQ@mail.gmail.com>
-References: <1432066951-27346-1-git-send-email-mcgrof@do-not-panic.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net v2] openvswitch: disable LRO
+Date: Thu, 28 May 2015 17:56:25 -0700
+Message-ID: <CALnjE+qKKkBmeynbeUb42smnQyFrRGfTw7M-hCB-mCyCKXm3fQ@mail.gmail.com>
+References: <cf405251e71318f7c7f8ddac07919acb8c28232e.1432818254.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	"Luis R. Rodriguez" <mcgrof@suse.com>
-To: Kyle McMartin <kyle@kernel.org>, linux-firmware@kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Jesse Gross <jesse@nicira.com>,
+	Flavio Leitner <fbl@sysclose.org>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:36359 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753342AbbE2As4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 20:48:56 -0400
-In-Reply-To: <1432066951-27346-1-git-send-email-mcgrof@do-not-panic.com>
+Received: from na3sys009aog115.obsmtp.com ([74.125.149.238]:52158 "HELO
+	na3sys009aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755149AbbE2A40 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2015 20:56:26 -0400
+Received: by mail-ie0-f173.google.com with SMTP id j10so51299030iep.3
+        for <netdev@vger.kernel.org>; Thu, 28 May 2015 17:56:25 -0700 (PDT)
+In-Reply-To: <cf405251e71318f7c7f8ddac07919acb8c28232e.1432818254.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2015 at 1:22 PM, Luis R. Rodriguez
-<mcgrof@do-not-panic.com> wrote:
-> This v2 just changes "licence" to "license" as requested by Arend.
+On Thu, May 28, 2015 at 6:04 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> Currently, openvswitch tries to disable LRO from the user space. This does
+> not work correctly when the device added is a vlan interface, though.
+> Instead of dealing with possibly complex stacked cross name space relations
+> in the user space, do the same as bridging does and call dev_disable_lro in
+> the kernel.
+>
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-Please let me know if there is anything else needed.
-
- Luis
+Looks good.
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
