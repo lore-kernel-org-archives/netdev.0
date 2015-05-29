@@ -1,10 +1,9 @@
 From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [RFC 1/3] net: dsa: add basic support for VLAN ndo
-Date: Thu, 28 May 2015 21:46:34 -0700
-Message-ID: <CAE4R7bALVjX=wM=aO+M-O9X9cRj4wqKd0zb7eGBMtx59cz2rDw@mail.gmail.com>
+Subject: Re: [RFC 0/3] DSA and Marvell 88E6352 802.1q support
+Date: Thu, 28 May 2015 22:02:57 -0700
+Message-ID: <CAE4R7bA43Jg5e+DSySvG4X2ka0CXEk9K6eVv5fdN37EcLBoF_A@mail.gmail.com>
 References: <556723FF.7030606@roeck-us.net>
 	<1432849035-8499-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-	<1432849035-8499-2-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Netdev <netdev@vger.kernel.org>,
@@ -15,170 +14,58 @@ Cc: Netdev <netdev@vger.kernel.org>,
 	Chris Healy <cphealy@gmail.com>, Jiri Pirko <jiri@resnulli.us>
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f179.google.com ([209.85.216.179]:34942 "EHLO
-	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750740AbbE2Eqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 00:46:35 -0400
-Received: by qchk10 with SMTP id k10so23291404qch.2
-        for <netdev@vger.kernel.org>; Thu, 28 May 2015 21:46:34 -0700 (PDT)
-In-Reply-To: <1432849035-8499-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:35910 "EHLO
+	mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750873AbbE2FC6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 01:02:58 -0400
+Received: by qkx62 with SMTP id 62so38760868qkx.3
+        for <netdev@vger.kernel.org>; Thu, 28 May 2015 22:02:57 -0700 (PDT)
+In-Reply-To: <1432849035-8499-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Thu, May 28, 2015 at 2:37 PM, Vivien Didelot
 <vivien.didelot@savoirfairelinux.com> wrote:
-> This patch adds the ndo_vlan_rx_add_vid, ndo_vlan_rx_kill_vid, and
-> ndo_bridge_setlink wrapper operations, used to create and remove VLAN
-> entries in a DSA switch VLAN database.
+> This RFC is based on v4.1-rc3.
 >
-> The switch drivers have to implement the port_vlan_add, port_vlan_kill,
-> and port_bridge_setlink functions, in order to support VLANs.
+> It is meant to get a glance to the commits responsible to implement the
+> necessary NDOs between DSA and the Marvell 88E6352 switch driver.
 >
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->  include/net/dsa.h |  9 +++++++
->  net/dsa/slave.c   | 76 +++++++++++++++++++++++++++++++++++++++++++++++++++++--
->  2 files changed, 83 insertions(+), 2 deletions(-)
+> With this support, I am able to create VLANs with (un)tagged ports, setting
+> their default VID, from a bridge.
 >
-> diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index fbca63b..cf02357 100644
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -19,6 +19,7 @@
->  #include <linux/phy.h>
->  #include <linux/phy_fixed.h>
->  #include <linux/ethtool.h>
-> +#include <uapi/linux/if_bridge.h>
+> To create a bridge containing all switch ports, with a VLAN ID 400, swp2 and
+> swp3 untagged (pvid), and swp4 tagged, the userspace commands look like this:
 >
->  enum dsa_tag_protocol {
->         DSA_TAG_PROTO_NONE = 0,
-> @@ -302,6 +303,14 @@ struct dsa_switch_driver {
->                            const unsigned char *addr, u16 vid);
->         int     (*fdb_getnext)(struct dsa_switch *ds, int port,
->                                unsigned char *addr, bool *is_static);
-> +
-> +       /*
-> +        * VLAN support
-> +        */
-> +       int     (*port_vlan_add)(struct dsa_switch *ds, int port, u16 vid);
-> +       int     (*port_vlan_kill)(struct dsa_switch *ds, int port, u16 vid);
-> +       int     (*port_bridge_setlink)(struct dsa_switch *ds, int port,
-> +                                      struct bridge_vlan_info *vinfo);
->  };
+>     ip link add name br0 type bridge
+>     [...]
+>     ip link set dev swp2 up master br0
+>     [...]
+>     bridge vlan add vid 400 pvid untagged dev swp2
+>     bridge vlan add vid 400 pvid untagged dev swp3
+>     bridge vlan add vid 400 dev swp4
+>     [...]
+>     ip link add link br0 name br0.400 type vlan id 400
+>     [...]
+>     bridge vlan add dev br0 vid 400 self
 >
->  void register_switch_driver(struct dsa_switch_driver *type);
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index 827cda56..72c3ff0 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -412,6 +412,71 @@ static netdev_tx_t dsa_slave_notag_xmit(struct sk_buff *skb,
->         return NETDEV_TX_OK;
->  }
+> The code is currently being rebased to the latest net-next/master.
 >
-> +static int dsa_slave_vlan_rx_add_vid(struct net_device *dev,
-> +                                    __be16 proto, u16 vid)
-> +{
-> +       struct dsa_slave_priv *p = netdev_priv(dev);
-> +       struct dsa_switch *ds = p->parent;
-> +
-> +       if (!ds->drv->port_vlan_add)
-> +               return -EOPNOTSUPP;
-> +
-> +       netdev_dbg(dev, "adding to VLAN %d\n", vid);
-> +
-> +       return ds->drv->port_vlan_add(ds, p->port, vid);
-> +}
-> +
-> +static int dsa_slave_vlan_rx_kill_vid(struct net_device *dev,
-> +                                     __be16 proto, u16 vid)
-> +{
-> +       struct dsa_slave_priv *p = netdev_priv(dev);
-> +       struct dsa_switch *ds = p->parent;
-> +
-> +       if (!ds->drv->port_vlan_kill)
-> +               return -EOPNOTSUPP;
-> +
-> +       netdev_dbg(dev, "removing from VLAN %d\n", vid);
-> +
-> +       return ds->drv->port_vlan_kill(ds, p->port, vid);
-> +}
-> +
-> +static int dsa_slave_bridge_setlink(struct net_device *dev,
-> +                                   struct nlmsghdr *nlh, u16 flags)
-> +{
-> +       struct dsa_slave_priv *p = netdev_priv(dev);
-> +       struct dsa_switch *ds = p->parent;
-> +       struct nlattr *afspec;
-> +       struct nlattr *attr;
-> +       struct bridge_vlan_info *vinfo = NULL;
-> +       int rem;
-> +
-> +       if (!ds->drv->port_bridge_setlink)
-> +               return -EOPNOTSUPP;
-> +
-> +       afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
-> +       if (!afspec)
-> +               return -EINVAL;
-> +
-> +       nla_for_each_nested(attr, afspec, rem) {
-> +               if (nla_type(attr) != IFLA_BRIDGE_VLAN_INFO)
-> +                       continue;
-> +
-> +               if (nla_len(attr) != sizeof(struct bridge_vlan_info))
-> +                       return -EINVAL;
-> +
-> +               vinfo = nla_data(attr);
-> +       }
+> Seems like the way to go now is through switchdev attr getter/setter...
 
-This is only processing the first IFLA_BRIDGE_VLAN_INFO in the
-IFLA_AF_SPEC nest.  More can be packed in the nest to support ranges
-of vlans.
+Indeed, for dsa_slave you should be able to port this to switchdev and
+set your ndo_bridge_setlink/dellink handlers to
+switchdev_port_bridge_setlink/dellink.  (And also implement the
+switchdev ops for vlans).
 
-> +       if (!vinfo)
-> +               return -EINVAL;
-> +
-> +       netdev_dbg(dev, "setting link to VLAN %d%s%s\n", vinfo->vid,
-> +                  vinfo->flags & BRIDGE_VLAN_INFO_UNTAGGED ?  " untagged" : "",
-> +                  vinfo->flags & BRIDGE_VLAN_INFO_PVID ? " (default)" : "");
-> +
-> +       return ds->drv->port_bridge_setlink(ds, p->port, vinfo);
-> +}
-> +
->
->  /* ethtool operations *******************************************************/
->  static int
-> @@ -673,6 +738,9 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
->         .ndo_fdb_dump           = dsa_slave_fdb_dump,
->         .ndo_do_ioctl           = dsa_slave_ioctl,
->         .ndo_get_iflink         = dsa_slave_get_iflink,
-> +       .ndo_vlan_rx_add_vid    = dsa_slave_vlan_rx_add_vid,
-> +       .ndo_vlan_rx_kill_vid   = dsa_slave_vlan_rx_kill_vid,
-> +       .ndo_bridge_setlink     = dsa_slave_bridge_setlink,
->  };
->
->  static const struct swdev_ops dsa_slave_swdev_ops = {
-> @@ -854,7 +922,9 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
->         if (slave_dev == NULL)
->                 return -ENOMEM;
->
-> -       slave_dev->features = master->vlan_features;
-> +       slave_dev->features = master->vlan_features |
-> +               NETIF_F_VLAN_FEATURES |
-> +               NETIF_F_HW_SWITCH_OFFLOAD;
->         slave_dev->ethtool_ops = &dsa_slave_ethtool_ops;
->         eth_hw_addr_inherit(slave_dev, master);
->         slave_dev->tx_queue_len = 0;
-> @@ -863,7 +933,9 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
->
->         SET_NETDEV_DEV(slave_dev, parent);
->         slave_dev->dev.of_node = ds->pd->port_dn[port];
-> -       slave_dev->vlan_features = master->vlan_features;
-> +       slave_dev->vlan_features = master->vlan_features |
-> +               NETIF_F_VLAN_FEATURES |
-> +               NETIF_F_HW_SWITCH_OFFLOAD;
->
->         p = netdev_priv(slave_dev);
->         p->dev = slave_dev;
-> --
-> 2.4.1
->
+If you use switchdev_port_bridge_setlink/dellink, you shouldn't need
+to implement ndo_vlan_rx_add_vid/ndo_vlan_rx_kill_vid at all.  The
+setlink/dellink callbacks will give the same info (and more, e.g.
+pvid, untagged flags) and you'll automatically get support for stacked
+drivers, for example if you bonded swp2/3 and then included that bond
+in your vlan bridge.  Your commands will be slightly modified: when
+adding the vid to the port, specify master and self:
+
+bridge vlan add vid 400 dev swp4 master self
+
+-scott
