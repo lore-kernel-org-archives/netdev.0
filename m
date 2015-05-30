@@ -1,40 +1,55 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: Re: Ingress tc filters with IPSec
-Date: Sat, 30 May 2015 02:24:51 -0400
-Message-ID: <1432967091.4289.12.camel@jasiiieee.pacifera.com>
-References: <1432965132.4289.10.camel@jasiiieee.pacifera.com>
+From: Jakub Kicinski <moorray3@wp.pl>
+Subject: Re: [PATCH] can: mcp251x: not correct register address
+Date: Sat, 30 May 2015 09:41:06 +0200
+Message-ID: <20150530094106.72862564@north>
+References: <CAAJk-V21bpKN8vX86uQLA0Uo-NTjry+CtfE+1wNK9yJmaVSTVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: linux-can@vger.kernel.org, andri.yngvason@marel.com,
+	mkl@pengutronix.de, himangi774@gmail.com, netdev@vger.kernel.org
+To: Tomas Krcka <tomas.krcka@nkgroup.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.196]:50782 "EHLO mout.perfora.net"
+Received: from mx3.wp.pl ([212.77.101.9]:30662 "EHLO mx3.wp.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753238AbbE3GYz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 May 2015 02:24:55 -0400
-Received: from [192.168.1.3] ([69.116.52.45]) by mrelay.perfora.net
- (mreueus001) with ESMTPSA (Nemesis) id 0M4Yxu-1ZJXMQ0WxI-00ydzi for
- <netdev@vger.kernel.org>; Sat, 30 May 2015 08:24:54 +0200
-In-Reply-To: <1432965132.4289.10.camel@jasiiieee.pacifera.com>
+	id S1752574AbbE3HlP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 May 2015 03:41:15 -0400
+In-Reply-To: <CAAJk-V21bpKN8vX86uQLA0Uo-NTjry+CtfE+1wNK9yJmaVSTVw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2015-05-30 at 01:52 -0400, John A. Sullivan III wrote:
-> Argh! yet another obstacle from my ignorance.  We are attempting ingress
-> traffic shaping using IFB interfaces on traffic coming via GRE / IPSec.
-> Filters and hash tables are working fine with plain GRE including
-> stripping the header.  We even got the ematch filter working so that the
-> ESP packets are the only packets not redirected to IFB.
+On Mon, 25 May 2015 08:57:48 +0200, Tomas Krcka wrote:
+> This patch corrects addresses of acceptance filters.
+> These registers are not in use, but values should be correct.
+> Tested with MCP2515 and am3352 and also checked datasheets for MCP2515
+> and MCP2510.
 > 
-> But, regardless of whether we redirect ESP packets to IFB, the filters
-> never see the decrypted packets.  I thought the packets passed through
-> the interface twice - first encrypted and they decrypted.  However,
-> tcpdump only shows the ESP packets on the interface.
+> Signed-off-by: Tomas Krcka <tomas.krcka@nkgroup.cz>
 > 
-> How do we apply filters to the packets after decryption? Thanks - John
+> ---
+>   drivers/net/can/spi/mcp251x.c |    9 +++++----
+>   1 files changed, 5 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/can/spi/mcp251x.c b/drivers/net/can/spi/mcp251x.c
+> index bf63fee..c1a95a3 100644
+> --- a/drivers/net/can/spi/mcp251x.c
+> +++ b/drivers/net/can/spi/mcp251x.c
+> @@ -190,10 +190,11 @@
+>   #define RXBEID0_OFF 4
+>   #define RXBDLC_OFF  5
+>   #define RXBDAT_OFF  6
+> -#define RXFSIDH(n) ((n) * 4)
+> -#define RXFSIDL(n) ((n) * 4 + 1)
+> -#define RXFEID8(n) ((n) * 4 + 2)
+> -#define RXFEID0(n) ((n) * 4 + 3)
+> +#define RXFSID(n) ((n < 3) ? 0 : 4)
+> +#define RXFSIDH(n) ((n) * 4 + RXFSID(n))
+> +#define RXFSIDL(n) ((n) * 4 + 1 + RXFSID(n))
+> +#define RXFEID8(n) ((n) * 4 + 2 + RXFSID(n))
+> +#define RXFEID0(n) ((n) * 4 + 3 + RXFSID(n))
+>   #define RXMSIDH(n) ((n) * 4 + 0x20)
+>   #define RXMSIDL(n) ((n) * 4 + 0x21)
+>   #define RXMEID8(n) ((n) * 4 + 0x22)
 
-I see what changed.  In the past, this seemed to work but we were using
-tunnel mode.  We were trying to use transport mode in this application
-but that seems to prevent the decrypted packet contents from appearing
-again on the interface.  Reverting to tunnel mode made the contents
-visible again and our filters are working as expected - John
+I think your patch was corrupted.  It doesn't apply because you have
+extra space before each surviving #define.
