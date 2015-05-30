@@ -1,36 +1,43 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: Need a creative way to negate u32 filter matches
-Date: Fri, 29 May 2015 22:32:09 -0400
-Message-ID: <1432953129.4289.5.camel@jasiiieee.pacifera.com>
+From: Josh Hunt <johunt@akamai.com>
+Subject: Re: [PATCH v2] ipv6: Fix protocol resubmission
+Date: Fri, 29 May 2015 21:37:04 -0500
+Message-ID: <55692250.9070500@akamai.com>
+References: <1432929886-14259-1-git-send-email-johunt@akamai.com>	<5568CBCC.1080503@cogentembedded.com>	<5568DD83.8020600@akamai.com> <CALx6S34mG6HTtJ5sofLKayMgtJ9EhwCnk9RFX-He8sVBpO9ovg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.196]:53426 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756919AbbE3CcR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 May 2015 22:32:17 -0400
-Received: from [192.168.1.3] ([69.116.52.45]) by mrelay.perfora.net
- (mreueus002) with ESMTPSA (Nemesis) id 0MeRkP-1YkbHk0VG3-00Q8Fu for
- <netdev@vger.kernel.org>; Sat, 30 May 2015 04:32:15 +0200
+Received: from prod-mail-xrelay07.akamai.com ([72.246.2.115]:36527 "EHLO
+	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757166AbbE3ChF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2015 22:37:05 -0400
+In-Reply-To: <CALx6S34mG6HTtJ5sofLKayMgtJ9EhwCnk9RFX-He8sVBpO9ovg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, all.  I understand there is no direct way to negate a u32 match.
-I have a setup where I am redirecting all ingress traffic from the
-physical interface to an ifb interface with a u32 match u8 0 0 action
-mirred egress redirect filter attached to ffff:
+On 05/29/2015 04:48 PM, Tom Herbert wrote:
+> Hi Josh,
+>
+> Why did you need to move the resubmit label?
 
-I do not want to send ingress ESP packets to the IFB interface.  How do
-I exclude those?
-I tried creating a filter with a lower prio and added before the above
-rule which matches ESP packets and does nothing with them (action pass)
-in the hope that it would be the first match and ESP packets would then
-not be matched against the second filter.  That does not appear to be
-working from tc -s filter.  The rule is hit, the match succeeds, but the
-success count is 0 and I see the filter on the IFB interface which
-identifies ESP packets is successfully being hit.
+Grabbing nhoff out of the skb's cb didn't seem relevant anymore, unless 
+we're requiring the decapsulating code to update the control block 
+before it returns. Also, since we are returning nexthdr with the return 
+value it seems unnecessary to go through that work when we already have it.
 
-How do I redirect all packets EXCEPT ESP packets to an IFB interface?
-Thanks - John
+Not that there has to be symmetry here, but for example, the v4 code 
+doesn't look up the protocol field again in the inner ip header. It just 
+uses the protocol value returned from the protocol handler.
+
+Also, I'm skipping the pskb_pull(), which I assumed was left up to the 
+decapsulating code to setup the data pointer properly before returning. 
+Again, this is how the v4 code behaves.
+
+The only thing left is the idev which I'm not sure about. Could that 
+change b/t calls?
+
+Josh
