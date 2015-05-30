@@ -1,107 +1,107 @@
-From: Ian Campbell <ijc@debian.org>
-Subject: Re: [PATCHv2 1/3] xen-netback: return correct ethtool
-	stats
-Date: Sat, 30 May 2015 11:29:02 +0100
-Message-ID: <1432981742.5748.221.camel@debian.org>
-References: <1425467688-12846-1-git-send-email-david.vrabel@citrix.com>
-	<1425467688-12846-2-git-send-email-david.vrabel@citrix.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH RFC 2/3] dsa: Add support for multiple cpu ports.
+Date: Sat, 30 May 2015 14:09:55 +0200
+Message-ID: <871thyfer0.fsf@nemi.mork.no>
+References: <1432926814-22648-1-git-send-email-andrew@lunn.ch>
+	<1432926814-22648-3-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Wei Liu <wei.liu2@citrix.com>,
-	786936@bugs.debian.org, xen-devel@lists.xenproject.org
-To: David Vrabel <david.vrabel@citrix.com>, David Miller <davem@davemloft.net>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1425467688-12846-2-git-send-email-david.vrabel@citrix.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>, mathieu@codeaurora.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:51887 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757563AbbE3MKK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2015 08:10:10 -0400
+In-Reply-To: <1432926814-22648-3-git-send-email-andrew@lunn.ch> (Andrew Lunn's
+	message of "Fri, 29 May 2015 21:13:33 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Control: fixed -1 4.0-1~exp1
+Andrew Lunn <andrew@lunn.ch> writes:
 
-On Wed, 2015-03-04 at 11:14 +0000, David Vrabel wrote:
-> Use correct pointer arithmetic to get the pointer to each stat.
-
-I think this incorrect arithmetic was also responsible for the crash
-reported in http://bugs.debian.org/786936 which was using the resulting
-stray pointer.
-
-I'll add the fix to our kernel but: David (Miller) could we also have it
-queued for stable please?
-
-Thanks.
-
-Reasoning:
-
-IP: [<ffffffffa06802a0>] xenvif_get_ethtool_stats+0x50/0x80 [xen_netback]
-
-(gdb) disas xenvif_get_ethtool_stats+0x50
-Dump of assembler code for function xenvif_get_ethtool_stats:
-   0x0000000000005280 <+0>:	callq  0x5285 <xenvif_get_ethtool_stats+5>
-   0x0000000000005285 <+5>:	mov    0x900(%rdi),%r9d
-   0x000000000000528c <+12>:	mov    $0x0,%r8
-   0x0000000000005293 <+19>:	lea    -0x1(%r9),%r10d
-   0x0000000000005297 <+23>:	imul   $0x36258,%r10,%r10
-   0x000000000000529e <+30>:	xchg   %ax,%ax
-   0x00000000000052a0 <+32>:	test   %r9d,%r9d
-   0x00000000000052a3 <+35>:	je     0x52f8 <xenvif_get_ethtool_stats+120>
-   0x00000000000052a5 <+37>:	movzwl (%r8),%esi
-   0x00000000000052a9 <+41>:	mov    0x8f8(%rdi),%rcx
-   0x00000000000052b0 <+48>:	lea    0x0(,%rsi,8),%rax
-   0x00000000000052b8 <+56>:	shl    $0x6,%rsi
-   0x00000000000052bc <+60>:	sub    %rax,%rsi
-   0x00000000000052bf <+63>:	lea    (%rcx,%rsi,1),%rax
-   0x00000000000052c3 <+67>:	lea    0x36258(%rcx,%r10,1),%rcx
-   0x00000000000052cb <+75>:	add    %rcx,%rsi
-   0x00000000000052ce <+78>:	xor    %ecx,%ecx
-   0x00000000000052d0 <+80>:	add    0x36220(%rax),%rcx
-   0x00000000000052d7 <+87>:	add    $0x36258,%rax
-   0x00000000000052dd <+93>:	cmp    %rsi,%rax
-   0x00000000000052e0 <+96>:	jne    0x52d0 <xenvif_get_ethtool_stats+80>
-   0x00000000000052e2 <+98>:	add    $0x22,%r8
-   0x00000000000052e6 <+102>:	mov    %rcx,(%rdx)
-   0x00000000000052e9 <+105>:	add    $0x8,%rdx
-   0x00000000000052ed <+109>:	cmp    $0x0,%r8
-   0x00000000000052f4 <+116>:	jne    0x52a0 <xenvif_get_ethtool_stats+32>
-   0x00000000000052f6 <+118>:	repz retq 
-   0x00000000000052f8 <+120>:	xor    %ecx,%ecx
-   0x00000000000052fa <+122>:	jmp    0x52e2 <xenvif_get_ethtool_stats+98>
-End of assembler dump.
-(gdb) list *xenvif_get_ethtool_stats+0x50
-0x52d0 is in xenvif_get_ethtool_stats (/build/linux-RGM_Ed/linux-3.16.7-ckt9/drivers/net/xen-netback/interface.c:349).
-
-... and in the Debian kernel interface.c:349 is the accum += line from
-the patch.
-
-Ian.
-
-> 
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> Some boards have two CPU interfaces connected to the switch, e.g. WiF=
+i
+> access points, with 1 port labeled WAN, 4 ports labeled lan1-lan4, an=
+d
+> two port connected to the SoC.
+>
+> This patch extends DSA to allows both CPU ports to be used. The "cpu"
+> node in the DSA tree can now have a phandle to the host interface it
+> connects to. Each user port can have a phandle to a cpu port which
+> should be used for traffic between the port and the CPU. Thus simple
+> load sharing over the two CPU ports can be achieved.
+>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 > ---
->  drivers/net/xen-netback/interface.c |    3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-> index f38227a..3aa8648 100644
-> --- a/drivers/net/xen-netback/interface.c
-> +++ b/drivers/net/xen-netback/interface.c
-> @@ -340,12 +340,11 @@ static void xenvif_get_ethtool_stats(struct net_device *dev,
->  	unsigned int num_queues = vif->num_queues;
->  	int i;
->  	unsigned int queue_index;
-> -	struct xenvif_stats *vif_stats;
->  
->  	for (i = 0; i < ARRAY_SIZE(xenvif_stats); i++) {
->  		unsigned long accum = 0;
->  		for (queue_index = 0; queue_index < num_queues; ++queue_index) {
-> -			vif_stats = &vif->queues[queue_index].stats;
-> +			void *vif_stats = &vif->queues[queue_index].stats;
->  			accum += *(unsigned long *)(vif_stats + xenvif_stats[i].offset);
->  		}
->  		data[i] = accum;
+>  Documentation/devicetree/bindings/net/dsa/dsa.txt |  66 ++++++++++++=
+-
+>  drivers/net/dsa/mv88e6xxx.c                       |   8 +-
+>  include/net/dsa.h                                 |  28 +++++-
+>  net/dsa/dsa.c                                     | 109 ++++++++++++=
+++++++----
+>  net/dsa/dsa_priv.h                                |   6 ++
+>  net/dsa/slave.c                                   |  10 +-
+>  net/dsa/tag_brcm.c                                |   2 +-
+>  net/dsa/tag_dsa.c                                 |   2 +-
+>  net/dsa/tag_edsa.c                                |   2 +-
+>  net/dsa/tag_trailer.c                             |   2 +-
+>  10 files changed, 206 insertions(+), 29 deletions(-)
+>
+> diff --git a/Documentation/devicetree/bindings/net/dsa/dsa.txt b/Docu=
+mentation/devicetree/bindings/net/dsa/dsa.txt
+> index f0b4cd72411d..34f7f18026e5 100644
+> --- a/Documentation/devicetree/bindings/net/dsa/dsa.txt
+> +++ b/Documentation/devicetree/bindings/net/dsa/dsa.txt
+> @@ -58,13 +58,24 @@ Optionnal property:
+>  			  Documentation/devicetree/bindings/net/ethernet.txt
+>  			  for details.
+> =20
+> +- ethernet		: Optional for "cpu" ports. A phandle to an ethernet
+> +                          device which will be used by this CPU port=
+ for
+> +			  passing packets to/from the host. If not present,
+> +			  the port will use the "dsa,ethernet" property
+> +			  defined above.
+> +
+> +- cpu			: Option for non "cpu"/"dsa" ports. A phandle to a
+> +			  "cpu" port, which will be used for passing packets
+> +			  from this port to the host. If not present, the first
+> +			  "cpu" port will be used.
+> +
+
+I'm in deep water here, but this scheme sounds a little too static to m=
+e
+if I understand your proposal correctly.  Why would you want to create =
+a
+static mapping of CPU ports to external ports for any given device?  To
+me, that's part of the switch VLAN configuration.
+
+My experience with these devices is limited to running OpenWRT on an
+WRT1900AC, having a Marvell 88E6172 switch.  And using the OpenWRT
+switch API of course. There I've found it very useful to be able to mix
+and match the two CPU ports as I like with the external ports. How you
+want the CPU ports used is not as much depeing on device properties as
+on your network configuration, IMHO.  How many and which links do you
+have?  What bandwith are they? Trunks or not?  Etc.  You cannot describ=
+e
+these answers as device properties, because they aren't.
+
+You can currently configure this as you like in OpenWRT using their
+usual swconfig tool.  The CPU ports are added or removed from VLANs lik=
+e
+any other port on the switch, and that feels very natural for me as an
+end user.  The only distinction necessary to know, is your 'ethernet'
+property above:  Which host device is this switch port connected to.
+
+So I wonder: Do you plan to put all of the switch config into DT?  Wher=
+e
+does that stop? How about trunking between external ports and CPU ports=
+?
+Will every VLAN in the trunk have to go into DT too?
+
+
+Bj=C3=B8rn
