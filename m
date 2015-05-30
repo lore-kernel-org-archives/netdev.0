@@ -1,44 +1,139 @@
-From: Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org>
-Subject: [PATCH 81/98] include/uapi/linux/openvswitch.h: use __u32 from linux/types.h
-Date: Sat, 30 May 2015 17:39:13 +0200
-Message-ID: <1433000370-19509-82-git-send-email-mikko.rapeli@iki.fi>
-References: <1433000370-19509-1-git-send-email-mikko.rapeli@iki.fi>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: Recurring trace from tcp_fragment()
+Date: Sat, 30 May 2015 13:29:14 -0400
+Message-ID: <CADVnQy=rwKG_ddduixcee1D4HaaSBBk=X=2Htmdow0k6Cbxhzg@mail.gmail.com>
+References: <CFCC0DCC-4080-4195-9BA9-0860D9701805@fastly.com>
+	<CADVnQyngTDVYMhmQq=pjS3LrdQ+HXyizujiOkmgXxTjQ0QKH8A@mail.gmail.com>
+	<5E30A40E-EC6C-4D37-AB49-04BF40EEFBFC@fastly.com>
 Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=089e013cc3d88001fe05174feec3
+Cc: Netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Grant Zhang <gzhang@fastly.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:33823 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754038AbbE3R3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2015 13:29:15 -0400
+Received: by obew15 with SMTP id w15so78466094obe.1
+        for <netdev@vger.kernel.org>; Sat, 30 May 2015 10:29:14 -0700 (PDT)
+In-Reply-To: <5E30A40E-EC6C-4D37-AB49-04BF40EEFBFC@fastly.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--089e013cc3d88001fe05174feec3
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org>,
-	Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1433000370-19509-1-git-send-email-mikko.rapeli-X3B1VOXEql0@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
 
-=46ixes userspace compiler error:
+On Fri, May 29, 2015 at 3:53 PM, Grant Zhang <gzhang@fastly.com> wrote:
+> Hi Neal,
+>
+> I will be more happy to test the patch. Please send it my way.
 
-error: unknown type name =E2=80=98uint32_t=E2=80=99
+Great. Thank you so much for being willing to do this. Attached is a
+patch for testing. I generated it and tested it relative to Linux
+v3.14.39, since your stack trace seemed to suggest that you were
+seeing this on some variant of v3.14.39. (Newer kernels would need a
+slightly different patch, since the reneging code path has changed a
+little since 3.14.)
 
-Signed-off-by: Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org>
----
- include/uapi/linux/openvswitch.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Can you please try it out and see if it makes that warning go away?
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/open=
-vswitch.h
-index bbd49a0..0ab8eca 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -586,8 +586,8 @@ enum ovs_hash_alg {
-  * @hash_basis: basis used for computing hash.
-  */
- struct ovs_action_hash {
--	uint32_t  hash_alg;     /* One of ovs_hash_alg. */
--	uint32_t  hash_basis;
-+	__u32  hash_alg;     /* One of ovs_hash_alg. */
-+	__u32  hash_basis;
- };
-=20
- /**
---=20
-2.1.4
+Also, I would be interested in seeing the value of your
+TcpExtTCPSACKReneging counter, and some sense of how fast that value
+is increasing, on a machine that's seeing this issue:
+  nstat -z -a | grep Reneg
+
+Thanks!
+
+neal
+
+--089e013cc3d88001fe05174feec3
+Content-Type: application/octet-stream;
+	name="0001-RFC-for-tests-on-v3.14.39-tcp-resegment-skbs-that-we.patch"
+Content-Disposition: attachment;
+	filename="0001-RFC-for-tests-on-v3.14.39-tcp-resegment-skbs-that-we.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_iabb6cs50
+
+RnJvbSAyOGYxNzllMDA0YWRjYWEyMzk3Yzc3ODgyODM2ZmQ3MTExZWY2MWFhIE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBOZWFsIENhcmR3ZWxsIDxuY2FyZHdlbGxAZ29vZ2xlLmNvbT4K
+RGF0ZTogRnJpLCAyOSBNYXkgMjAxNSAyMDowNToyMyAtMDQwMApTdWJqZWN0OiBbUEFUQ0hdIFtS
+RkMgZm9yIHRlc3RzIG9uIHYzLjE0LjM5XSB0Y3A6IHJlc2VnbWVudCBza2JzIHRoYXQgd2UgbWFy
+awogdW4tU0FDS2VkIGR1ZSB0byByZW5lZ2luZwoKW1RoaXMgcGF0Y2ggaXMgZm9yIExpbnV4IHYz
+LjE0LjM5IGFuZCBpcyBmb3IgdGVzdGluZyBhIHByb3Bvc2VkIGZpeApmb3IgdGhlIGlzc3VlIHJl
+cG9ydGVkIGluIHRoZSBuZXRkZXYgdGhyZWFkICJSZWN1cnJpbmcgdHJhY2UgZnJvbQp0Y3BfZnJh
+Z21lbnQoKSIgZnJvbSBNYXkgMjksIDIwMTUuIEEgc2xpZ2h0bHkgZGlmZmVyZW50IHBhdGNoIHdv
+dWxkIGJlCm5lZWRlZCBmb3IgbW9yZSByZWNlbnQga2VybmVscy5dCgpJZiB3ZSBhcmUgcmVtb3Zp
+bmcgYSBTQUNLIG1hcmsgZHVlIHRvIHJlbmVnaW5nIHRoZW4gd2Ugc2hvdWxkIGNoZWNrIHRvCnNl
+ZSBpZiB0aGUgcGNvdW50IG5lZWRzIHRvIGJlIHNhbml0aXplZCwgc2luY2UgdGNwX3NoaWZ0ZWRf
+c2tiKCkKY2FuIGpvaW4gdG9nZXRoZXIgU0FDS2VkIHNrYnMgaW4gYSB3YXkgdGhhdCBtYWtlcyB0
+aGVpciBwY291bnQKdW5yZXByZXNlbnRhdGl2ZSBvZiB0aGUgbGVuZ3RoIG9mIHRoZSBwYWNrZXQu
+CgpUaGlzIGlzIGFpbWVkIGF0IGZpeGluZyBzY2VuYXJpb3MgbGlrZSB0aGUgb25lIHdoZXJlCnRj
+cF9tYXJrX2hlYWRfbG9zdCgpIGNhbGxzIHRjcF9mcmFnbWVudCgpIGFuZCB3ZSBmaXJlIHRoZSBm
+b2xsb3dpbmcKd2FybmluZzoKCiAgICAgICAgIGlmIChXQVJOX09OKGxlbiA+IHNrYi0+bGVuKSkK
+ICAgICAgICAgICAgICAgIHJldHVybiAtRUlOVkFMOwoKSGVyZSBpcyBhIHRoZW9yeSBhcyB0byBo
+b3cgdGhpcyBjb3VsZCBoYXBwZW4uLi4KClN1cHBvc2UgdGhlIE1TUz0xMDAwLCBmb3Igc2ltcGxp
+Y2l0eS4KCigxKSBzZW5kIHBhY2tldCBBLCAxMDAxIGJ5dGVzLCBwY291bnQgMgooMikgc2VuZCBw
+YWNrZXQgQiwgMTAwMSBieXRlcywgcGNvdW50IDIKKDMpIHJlY2VpdmUgU0FDSyBmb3IgQQooNCkg
+cmVjZWl2ZSBTQUNLIGZvciBBIGFuZCBCLCBzaGlmdCBCIG9udG8gQS4KCldoZW4gd2Ugc2hpZnQg
+QiBvbnRvIEEsIHRjcF9zaGlmdGVkX3NrYigpIGp1c3QgYWRkcyB0aGUgcGNvdW50cyBvZiBBCmFu
+ZCBCLCBzbyBub3cgQSdzIHBjb3VudCBpcyAyKzI9NC4gQnV0IGl0cyBza2ItPmxlbiBpcyAxMDAx
+KzEwMDEgPQoyMDAyIGJ5dGVzLiAgTm93IG5vcm1hbGx5IHdlIHdvdWxkIGV4cGVjdCBhbiBza2Ig
+d2l0aCBhIHBjb3VudCBvZiA0IHRvCmhhdmUgc29tZXdoZXJlIGJldHdlZW4gMypNU1MrMWJ5dGUg
+YW5kIDQqTVNTIChiZXR3ZWVuIDMwMDEgYW5kIDQwMDAKYnl0ZXMpLiBBbmQgdGNwX21hcmtfaGVh
+ZF9sb3N0KCkgYW5kIHRjcF9tYXRjaF9za2JfdG9fc2FjaygpCmltcGxpY2l0bHkgYXNzdW1lIHRo
+aXMuCgpTdXBwb3NlIHRoZXJlIGlzIHRoZW4gU0FDSyByZW5lZ2luZywgYW5kIHdlIHJlbW92ZSB0
+aGUgU0FDS2VkIGJpdCBmcm9tCnRoaXMgd2VpcmQgc2tiIEEgd2l0aCBwY291bnQgNCBhbmQgc2ti
+LT5sZW4gMjAwMi4gIFRoZW4gd2UgZ2V0IG1vcmUKU0FDS3MgZm9yIHBhY2tldHMgYmV5b25kIEEs
+IGFuZCB0aGUgbG9zcy1tYXJraW5nIHJ1bGVzIHNheSB3ZSBzaG91bGQKYmUgYWJsZSB0byBtYXJr
+IDMgcGFja2V0cyBzdGFydGluZyBhdCBBIGFzIGxvc3QuICBUaGVuIHdlIHRyeSB0byBjaG9wCjNN
+U1Mgd29ydGggb2YgYnl0ZXMgb2ZmIG9mIHBhY2tldCBBLCB3aGljaCBvbmx5IGhhcyAyLjAwMk1T
+UyBvZiBkYXRhLgpBbmQgdGhlIHdhcm5pbmcgZmlyZXMuCgpTaWduZWQtb2ZmLWJ5OiBOZWFsIENh
+cmR3ZWxsIDxuY2FyZHdlbGxAZ29vZ2xlLmNvbT4KLS0tCiBpbmNsdWRlL25ldC90Y3AuaCAgICAg
+fCAgMiArKwogbmV0L2lwdjQvdGNwX2lucHV0LmMgIHwgIDkgKysrKysrKystCiBuZXQvaXB2NC90
+Y3Bfb3V0cHV0LmMgfCAxNCArKysrKysrKysrKysrKwogMyBmaWxlcyBjaGFuZ2VkLCAyNCBpbnNl
+cnRpb25zKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvdGNwLmgg
+Yi9pbmNsdWRlL25ldC90Y3AuaAppbmRleCAxZjBkODQ3Li40NDY0MzEyIDEwMDY0NAotLS0gYS9p
+bmNsdWRlL25ldC90Y3AuaAorKysgYi9pbmNsdWRlL25ldC90Y3AuaApAQCAtNTQzLDYgKzU0Myw4
+IEBAIHZvaWQgdGNwX3htaXRfcmV0cmFuc21pdF9xdWV1ZShzdHJ1Y3Qgc29jayAqKTsKIHZvaWQg
+dGNwX3NpbXBsZV9yZXRyYW5zbWl0KHN0cnVjdCBzb2NrICopOwogaW50IHRjcF90cmltX2hlYWQo
+c3RydWN0IHNvY2sgKiwgc3RydWN0IHNrX2J1ZmYgKiwgdTMyKTsKIGludCB0Y3BfZnJhZ21lbnQo
+c3RydWN0IHNvY2sgKiwgc3RydWN0IHNrX2J1ZmYgKiwgdTMyLCB1bnNpZ25lZCBpbnQpOworaW50
+IHRjcF9yZXNldF9za2JfdHNvX3NlZ3Moc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAq
+c2tiLAorCQkJICAgdW5zaWduZWQgaW50IG1zc19ub3cpOwogCiB2b2lkIHRjcF9zZW5kX3Byb2Jl
+MChzdHJ1Y3Qgc29jayAqKTsKIHZvaWQgdGNwX3NlbmRfcGFydGlhbChzdHJ1Y3Qgc29jayAqKTsK
+ZGlmZiAtLWdpdCBhL25ldC9pcHY0L3RjcF9pbnB1dC5jIGIvbmV0L2lwdjQvdGNwX2lucHV0LmMK
+aW5kZXggMjI5MTc5MS4uODA0NzEzYiAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvdGNwX2lucHV0LmMK
+KysrIGIvbmV0L2lwdjQvdGNwX2lucHV0LmMKQEAgLTE5MTUsNiArMTkxNSw3IEBAIHZvaWQgdGNw
+X2VudGVyX2xvc3Moc3RydWN0IHNvY2sgKnNrLCBpbnQgaG93KQogCXN0cnVjdCB0Y3Bfc29jayAq
+dHAgPSB0Y3Bfc2soc2spOwogCXN0cnVjdCBza19idWZmICpza2I7CiAJYm9vbCBuZXdfcmVjb3Zl
+cnkgPSBmYWxzZTsKKwlib29sIHdhc19zYWNrZWQ7CiAKIAkvKiBSZWR1Y2Ugc3N0aHJlc2ggaWYg
+aXQgaGFzIG5vdCB5ZXQgYmVlbiBtYWRlIGluc2lkZSB0aGlzIHdpbmRvdy4gKi8KIAlpZiAoaWNz
+ay0+aWNza19jYV9zdGF0ZSA8PSBUQ1BfQ0FfRGlzb3JkZXIgfHwKQEAgLTE5NDksMTEgKzE5NTAs
+MTcgQEAgdm9pZCB0Y3BfZW50ZXJfbG9zcyhzdHJ1Y3Qgc29jayAqc2ssIGludCBob3cpCiAJCQl0
+cC0+dW5kb19tYXJrZXIgPSAwOwogCiAJCVRDUF9TS0JfQ0Ioc2tiKS0+c2Fja2VkICY9ICh+VENQ
+Q0JfVEFHQklUUyl8VENQQ0JfU0FDS0VEX0FDS0VEOwotCQlpZiAoIShUQ1BfU0tCX0NCKHNrYikt
+PnNhY2tlZCZUQ1BDQl9TQUNLRURfQUNLRUQpIHx8IGhvdykgeworCQl3YXNfc2Fja2VkID0gVENQ
+X1NLQl9DQihza2IpLT5zYWNrZWQgJiBUQ1BDQl9TQUNLRURfQUNLRUQ7CisJCWlmICghd2FzX3Nh
+Y2tlZCB8fCBob3cpIHsKIAkJCVRDUF9TS0JfQ0Ioc2tiKS0+c2Fja2VkICY9IH5UQ1BDQl9TQUNL
+RURfQUNLRUQ7CiAJCQlUQ1BfU0tCX0NCKHNrYiktPnNhY2tlZCB8PSBUQ1BDQl9MT1NUOwogCQkJ
+dHAtPmxvc3Rfb3V0ICs9IHRjcF9za2JfcGNvdW50KHNrYik7CiAJCQl0cC0+cmV0cmFuc21pdF9o
+aWdoID0gVENQX1NLQl9DQihza2IpLT5lbmRfc2VxOworCisJCQkvKiBDbGVhbiB1cCB3ZWlyZCBw
+Y291bnRzIGZyb20gdGNwX3NoaWZ0ZWRfc2tiKCkuICovCisJCQlpZiAod2FzX3NhY2tlZCkKKwkJ
+CQl0Y3BfcmVzZXRfc2tiX3Rzb19zZWdzKHNrLCBza2IsCisJCQkJCQkgICAgICAgdGNwX2N1cnJl
+bnRfbXNzKHNrKSk7CiAJCX0KIAl9CiAJdGNwX3ZlcmlmeV9sZWZ0X291dCh0cCk7CmRpZmYgLS1n
+aXQgYS9uZXQvaXB2NC90Y3Bfb3V0cHV0LmMgYi9uZXQvaXB2NC90Y3Bfb3V0cHV0LmMKaW5kZXgg
+OTZmNjRlNS4uNzRjODc1NyAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvdGNwX291dHB1dC5jCisrKyBi
+L25ldC9pcHY0L3RjcF9vdXRwdXQuYwpAQCAtMTUwMSw2ICsxNTAxLDIwIEBAIHN0YXRpYyBpbnQg
+dGNwX2luaXRfdHNvX3NlZ3MoY29uc3Qgc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAq
+c2tiLAogCXJldHVybiB0c29fc2VnczsKIH0KIAorLyogUmVjb21wdXRlIHRoZSBUU08gc2VnbWVu
+dGF0aW9uIGZvciBhbiBza2IgdGhhdCB3YXMgYWxyZWFkeSBzZW50LiAqLworaW50IHRjcF9yZXNl
+dF9za2JfdHNvX3NlZ3Moc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAorCQkJ
+ICAgdW5zaWduZWQgaW50IG1zc19ub3cpCit7CisJaW50IG9sZHBjb3VudCA9IHRjcF9za2JfcGNv
+dW50KHNrYik7CisKKwlpZiAoc2tiX3VuY2xvbmUoc2tiLCBHRlBfQVRPTUlDKSkKKwkJcmV0dXJu
+IC1FTk9NRU07CisKKwl0Y3Bfc2V0X3NrYl90c29fc2Vncyhzaywgc2tiLCBtc3Nfbm93KTsKKwl0
+Y3BfYWRqdXN0X3Bjb3VudChzaywgc2tiLCBvbGRwY291bnQgLSB0Y3Bfc2tiX3Bjb3VudChza2Ip
+KTsKKworCXJldHVybiAwOworfQogCiAvKiBSZXR1cm4gdHJ1ZSBpZiB0aGUgTmFnbGUgdGVzdCBh
+bGxvd3MgdGhpcyBwYWNrZXQgdG8gYmUKICAqIHNlbnQgbm93LgotLSAKMi4yLjAucmMwLjIwNy5n
+YTNhNjE2YwoK
+--089e013cc3d88001fe05174feec3--
