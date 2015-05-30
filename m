@@ -1,79 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] udp: fix behavior of wrong checksums
-Date: Sat, 30 May 2015 09:16:53 -0700
-Message-ID: <1433002613.7456.107.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org>
+Subject: [PATCH 81/98] include/uapi/linux/openvswitch.h: use __u32 from linux/types.h
+Date: Sat, 30 May 2015 17:39:13 +0200
+Message-ID: <1433000370-19509-82-git-send-email-mikko.rapeli@iki.fi>
+References: <1433000370-19509-1-git-send-email-mikko.rapeli@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Willem de Bruijn <willemb@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:38616 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756954AbbE3QQ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2015 12:16:56 -0400
-Received: by igbjd9 with SMTP id jd9so34880066igb.1
-        for <netdev@vger.kernel.org>; Sat, 30 May 2015 09:16:55 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org>,
+	Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1433000370-19509-1-git-send-email-mikko.rapeli-X3B1VOXEql0@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+=46ixes userspace compiler error:
 
-We have two problems in UDP stack related to bogus checksums :
+error: unknown type name =E2=80=98uint32_t=E2=80=99
 
-1) We return -EAGAIN to application even if receive queue is not empty.
-   This breaks applications using edge trigger epoll()
-
-2) Under UDP flood, we can loop forever without yielding to other
-   processes, potentially hanging the host, especially on non SMP.
-
-
-This patch is an attempt to make things better.
-
-We might in the future add extra support for rt applications
-wanting to better control time spent doing a recv() in a hostile
-environment. For example we could validate checksums before queuing
-packets in socket receive queue.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org>
 ---
- net/ipv4/udp.c |    6 ++----
- net/ipv6/udp.c |    6 ++----
- 2 files changed, 4 insertions(+), 8 deletions(-)
+ include/uapi/linux/openvswitch.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index d10b7e0112eb..1c92ea67baef 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1345,10 +1345,8 @@ csum_copy_err:
- 	}
- 	unlock_sock_fast(sk, slow);
- 
--	if (noblock)
--		return -EAGAIN;
--
--	/* starting over for a new packet */
-+	/* starting over for a new packet, but check if we need to yield */
-+	cond_resched();
- 	msg->msg_flags &= ~MSG_TRUNC;
- 	goto try_again;
- }
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index c2ec41617a35..e51fc3eee6db 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -525,10 +525,8 @@ csum_copy_err:
- 	}
- 	unlock_sock_fast(sk, slow);
- 
--	if (noblock)
--		return -EAGAIN;
--
--	/* starting over for a new packet */
-+	/* starting over for a new packet, but check if we need to yield */
-+	cond_resched();
- 	msg->msg_flags &= ~MSG_TRUNC;
- 	goto try_again;
- }
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/open=
+vswitch.h
+index bbd49a0..0ab8eca 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -586,8 +586,8 @@ enum ovs_hash_alg {
+  * @hash_basis: basis used for computing hash.
+  */
+ struct ovs_action_hash {
+-	uint32_t  hash_alg;     /* One of ovs_hash_alg. */
+-	uint32_t  hash_basis;
++	__u32  hash_alg;     /* One of ovs_hash_alg. */
++	__u32  hash_basis;
+ };
+=20
+ /**
+--=20
+2.1.4
