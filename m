@@ -1,38 +1,51 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: Recurring trace from tcp_fragment()
-Date: Sat, 30 May 2015 19:08:06 -0400
-Message-ID: <CADVnQymCSGyyOqdO2HOap+_6zsfy99-3CbgxnQTfGakRYNoteQ@mail.gmail.com>
-References: <CFCC0DCC-4080-4195-9BA9-0860D9701805@fastly.com>
-	<CADVnQyngTDVYMhmQq=pjS3LrdQ+HXyizujiOkmgXxTjQ0QKH8A@mail.gmail.com>
-	<5E30A40E-EC6C-4D37-AB49-04BF40EEFBFC@fastly.com>
-	<CADVnQy=rwKG_ddduixcee1D4HaaSBBk=X=2Htmdow0k6Cbxhzg@mail.gmail.com>
-	<904FADEB-C1EB-4384-BA47-0EB0273AFB71@fastly.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 0/5] Add support for QCA IPQ806x Ethernet GMAC
+ controller
+Date: Sat, 30 May 2015 17:05:05 -0700 (PDT)
+Message-ID: <20150530.170505.580510463560485549.davem@davemloft.net>
+References: <1432749770-26133-1-git-send-email-mathieu@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Grant Zhang <gzhang@fastly.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:34109 "EHLO
-	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751815AbbE3XIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2015 19:08:07 -0400
-Received: by oifu123 with SMTP id u123so79404796oif.1
-        for <netdev@vger.kernel.org>; Sat, 30 May 2015 16:08:06 -0700 (PDT)
-In-Reply-To: <904FADEB-C1EB-4384-BA47-0EB0273AFB71@fastly.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	mturquette@linaro.org, sboyd@codeaurora.org,
+	peppe.cavallaro@st.com, agross@codeaurora.org,
+	joshc@codeaurora.org, architt@codeaurora.org,
+	georgi.djakov@linaro.org, wsa@the-dreams.de, rnayak@codeaurora.org,
+	vbridger@opensource.altera.com, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-clk@vger.kernel.org,
+	netdev@vger.kernel.org
+To: mathieu@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1432749770-26133-1-git-send-email-mathieu@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, May 30, 2015 at 2:52 PM, Grant Zhang <gzhang@fastly.com> wrote:
-> Thank you Neal. Most likely I will test the patch on Monday and report
-> back the result.
->
-> As for the TcpExtTCPSACKReneging counter, attached is the captured
-> counter value on a 1-second interval for 10 minutes.
+From: Mathieu Olivari <mathieu@codeaurora.org>
+Date: Wed, 27 May 2015 11:02:45 -0700
 
-OK, great. Those TcpExtTCPSACKReneging values look consistent with the
-theory underlying the patch, so that's a good sign.
+> This patch set adds support for the integrated Ethernet GMAC controller
+> on QCA IPQ806x SoC. This controller is based on a Gigabit Synopsys
+> DesignWare IP, already supported in the stmmac driver located in
+> drivers/net/ethernet/stmicro/stmmac.
+> 
+> This change is done as a follow-up to the following thread:
+> *http://www.spinics.net/lists/netdev/msg311265.html
+> While previous attempt was creating a new driver to drive this controller,
+> this new post leverages the existing stmmac driver by implementing the
+> SoC specific glue to it.
+> 
+> Aside from the pure stmmac glue layer, we have a couple of related
+> patches:
+> *IPQ806x NSS clock addition is cherry-picked and refreshed from the
+>  following thread: https://lkml.org/lkml/2014/8/6/390
+> *phy-handle and fixed-link support are also added in this change set so the
+>  driver can be fully functional on platforms using device-trees as well as
+>  ethernet switches.
+> 
+> V2:
+>  *Fix MODULE_LICENSE to "Dual BSD/GPL" as the dwmac-ipq806x.c is using
+>   ISC license.
 
-Thanks!
-
-neal
+Series applied to net-next, thanks.
