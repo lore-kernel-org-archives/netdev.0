@@ -1,126 +1,75 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [RFC 0/3] DSA and Marvell 88E6352 802.1q support
-Date: Sun, 31 May 2015 14:21:16 -0700
-Message-ID: <CAE4R7bBavvmLS=Ra66eeEonZ7x4Syq_PQJ928Ry-f3O9yA9yRg@mail.gmail.com>
-References: <556723FF.7030606@roeck-us.net> <1432849035-8499-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <CAE4R7bA43Jg5e+DSySvG4X2ka0CXEk9K6eVv5fdN37EcLBoF_A@mail.gmail.com>
- <5568EB55.9090700@roeck-us.net> <CAE4R7bBfyN-R9DsPwTz4HMA-oimqKH73qEcxi4zfkM-7y2sgYg@mail.gmail.com>
- <556B3F93.5020701@roeck-us.net>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: ethtool 4.0 released
+Date: Sun, 31 May 2015 22:30:06 +0100
+Message-ID: <1433107806.6319.141.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Jerome Oufella <jerome.oufella@savoirfairelinux.com>,
-	Chris Healy <cphealy@gmail.com>, Jiri Pirko <jiri@resnulli.us>
-To: Guenter Roeck <linux@roeck-us.net>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-sQJtlm3mOAQPdI5GzeZn"
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f176.google.com ([209.85.220.176]:36518 "EHLO
-	mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751282AbbEaVVh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 May 2015 17:21:37 -0400
-Received: by qkx62 with SMTP id 62so74753842qkx.3
-        for <netdev@vger.kernel.org>; Sun, 31 May 2015 14:21:37 -0700 (PDT)
-In-Reply-To: <556B3F93.5020701@roeck-us.net>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58789 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758488AbbEaVaS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 May 2015 17:30:18 -0400
+Received: from deadeye.wl.decadent.org.uk ([192.168.4.249] helo=deadeye)
+	by shadbolt.decadent.org.uk with esmtps (TLS1.2:ECDHE_RSA_AES_128_GCM_SHA256:128)
+	(Exim 4.84)
+	(envelope-from <ben@decadent.org.uk>)
+	id 1YzAoC-00062c-QM
+	for netdev@vger.kernel.org; Sun, 31 May 2015 22:30:16 +0100
+Received: from ben by deadeye with local (Exim 4.85)
+	(envelope-from <ben@decadent.org.uk>)
+	id 1YzAo7-0005No-Ly
+	for netdev@vger.kernel.org; Sun, 31 May 2015 22:30:11 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 31, 2015 at 10:06 AM, Guenter Roeck <linux@roeck-us.net> wrote:
-> On 05/31/2015 09:48 AM, Scott Feldman wrote:
->>
->> On Fri, May 29, 2015 at 3:42 PM, Guenter Roeck <linux@roeck-us.net> wrote:
->>>
->>> Scott,
->>>
->>>
->>> On 05/28/2015 10:02 PM, Scott Feldman wrote:
->>>>
->>>>
->>>> On Thu, May 28, 2015 at 2:37 PM, Vivien Didelot
->>>> <vivien.didelot@savoirfairelinux.com> wrote:
->>>>>
->>>>>
->>>>> This RFC is based on v4.1-rc3.
->>>>>
->>>>> It is meant to get a glance to the commits responsible to implement the
->>>>> necessary NDOs between DSA and the Marvell 88E6352 switch driver.
->>>>>
->>>>> With this support, I am able to create VLANs with (un)tagged ports,
->>>>> setting
->>>>> their default VID, from a bridge.
->>>>>
->>>>> To create a bridge containing all switch ports, with a VLAN ID 400,
->>>>> swp2
->>>>> and
->>>>> swp3 untagged (pvid), and swp4 tagged, the userspace commands look like
->>>>> this:
->>>>>
->>>>>       ip link add name br0 type bridge
->>>>>       [...]
->>>>>       ip link set dev swp2 up master br0
->>>>>       [...]
->>>>>       bridge vlan add vid 400 pvid untagged dev swp2
->>>>>       bridge vlan add vid 400 pvid untagged dev swp3
->>>>>       bridge vlan add vid 400 dev swp4
->>>>>       [...]
->>>>>       ip link add link br0 name br0.400 type vlan id 400
->>>>>       [...]
->>>>>       bridge vlan add dev br0 vid 400 self
->>>>>
->>>>> The code is currently being rebased to the latest net-next/master.
->>>>>
->>>>> Seems like the way to go now is through switchdev attr getter/setter...
->>>>
->>>>
->>>>
->>>> Indeed, for dsa_slave you should be able to port this to switchdev and
->>>> set your ndo_bridge_setlink/dellink handlers to
->>>> switchdev_port_bridge_setlink/dellink.  (And also implement the
->>>> switchdev ops for vlans).
->>>>
->>>> If you use switchdev_port_bridge_setlink/dellink, you shouldn't need
->>>> to implement ndo_vlan_rx_add_vid/ndo_vlan_rx_kill_vid at all.  The
->>>
->>>
->>>
->>> Those functions are called from net/8021q/vlan_core.c if a vlan is
->>> configured on or removed from an interface. Does that result in a call to
->>> setlink/dellink as well, even if a switch port is not a member of a
->>> bridge group ?
->>
->>
->> No, not if you're using 8021q module for vlan setup on non-bridged
->> ports.  If using 8021q module, you'll need to retain the ndo ops.
->>
->> The alternative to the ndo ops for non-bridged ports is to use the
->> bridge_setlink/dellink interface on self:
->>
->>    bridge vlan add vid VID dev DEV self
->>
->> The would call into DEV port's bridge_setlink to add VID to port.  The
->> driver would setup HW to ingress VID tagged frames and egress VID
->> tagged frames on DEV port.
->>
->
-> Hi Scott,
->
-> If I understand you correctly, that means we would expect users to
-> use bridge commands even on non-bridged dsa ports. I don't think we can
-> make this kind of assumption. Users will expect configure VLANs on
-> non-bridge ports as they would normally configure VLANs, using the 8021q
-> module.
->
-> So I guess we'll have to support the ndo ops for dsa.
 
-I think that's fine.  There is flexibility here.  Using the "bridge"
-command for non-bridged ports is a little weird.  You'll still need
-setlink to get the PVID/untagged flags, for the bridged-port cases, as
-was done in the original RFC patch.
+--=-sQJtlm3mOAQPdI5GzeZn
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-I wonder if a new command "vlan" for the iproute2 pkg would be useful?
- It would absorb the vconfig command options, making vconfig obsolete.
-Some of vconfig functionality is already in iproute2, for example "ip
-link add link ... type vlan ..."
+ethtool version 4.0 has been released.
 
--scott
+Home page: https://www.kernel.org/pub/software/network/ethtool/
+Download link:
+https://www.kernel.org/pub/software/network/ethtool/ethtool-4.0.tar.xz
+
+Release notes:
+
+	* Fix: Formatting of RX flow hash indirection table when size not
+	  divisible by 8 (-x option)
+	* Fix: Add missing Advertised speeds (no option and -s option)
+	* Feature: Add support to get expansion ROM version (-i option)
+	* Feature: Include SFP serial number and date in EEPROM dump
+	  (-m option)
+
+Ben.
+
+--=20
+Ben Hutchings
+Reality is just a crutch for people who can't handle science fiction.
+
+--=-sQJtlm3mOAQPdI5GzeZn
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVWt9Y+e/yOyVhhEJAQrgeA/9H1vvu0GiHTcRd2tMD9wQ+/vGo6LiriBe
+8yuDD+iirUS9RygSUl3k3WrQMERC6r6AnYd806KBxbXjpXXu9qGEtlVbQxVq0QmW
+0DtQsCalt2sXqP3/MVd7ggeVzbSYzVOm4oyrWGcnpm6y4mUe5Y2vu2hv+bw1851I
+D20n+8M1i4QCXWS01vm2RfigARzgHgEP/zQtnmNsMIPxf3uSD9qkELc1UEQwEoIN
+xy60DzuKPCUvlAcyPLWEbRf95UfxuI1gFm3qAzvK20F5O25lvllAZNR17H5fYAyX
+ifw8ppDY8h/VyASYc9LXKMYSOa0kW+B1yqM83+zMOlFOn5NtMjpko+EnlYA6GBv1
+FClDeO+XRyLj6Ro8MmgWF9tz30v0ZvhvDQ6AMPKwNTOieZ10qHGjXegeZQ8PXY5I
+WPz+xh/dItWYG7dFlaERh/R4OEl5WQNVzWM22Hh0tPgRO090C6i+NIIPt5DWgvyg
+DNBRkt9BWDYw5zixEm0i0Ol/x4WKMiQETcBeFcP600MCcztQePmJTcBL34bEIh/p
+dd2fNR7UbgNTxq0sM+bGr1nKQLnahqpf4iq0J5uofrPsO0k/NGzQufRtn3tj3I4H
+5XU0bXXrPOs94ww8t52eC9ePXUMOmWEE+wm9C+rPKRLIqCGBf4IhLd18bhAZs7Fq
+la0qFHqr3pI=
+=FCGw
+-----END PGP SIGNATURE-----
+
+--=-sQJtlm3mOAQPdI5GzeZn--
