@@ -1,39 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: batman-adv 2015-05-29
-Date: Sun, 31 May 2015 01:08:05 -0700 (PDT)
-Message-ID: <20150531.010805.867337412648153602.davem@davemloft.net>
-References: <1432890328-8247-1-git-send-email-antonio@meshcoding.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: 4.0.4 - bnx2x - DEBUG_LOCKS_WARN_ON(in_interrupt())
+Date: Sun, 31 May 2015 11:34:50 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63DAB354@avmb3.qlogic.org>
+References: <20150527161037.GF20255@pcnci.linuxbox.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: antonio@meshcoding.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Nikola Ciprich <nikola.ciprich@linuxbox.cz>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39603 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754364AbbEaIIK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 May 2015 04:08:10 -0400
-In-Reply-To: <1432890328-8247-1-git-send-email-antonio@meshcoding.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:45877 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751337AbbEaLfN convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 31 May 2015 07:35:13 -0400
+In-Reply-To: <20150527161037.GF20255@pcnci.linuxbox.cz>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@meshcoding.com>
-Date: Fri, 29 May 2015 11:05:12 +0200
-
-> after quite some time of silence (mostly due to me being rather busy and not
-> because we did not have any active development) here you have my first batch
-> intended for net-next/linux-4.1.
+> Hi,
 > 
-> In this patchset you have quite some code cleanup and style fixes. A big chunk
-> of the cleanup work has been performed by Markus Pargmann, followed by a couple
-> of checkpatch fixes brought by Marek Lindner.
+> just wanted to report, that I'm getting following trace on 4.0.4 kernel:
 > 
-> Then we have a patch by Sven Eckelmann that disables some of the features we had
-> enabled by default, because not all the users having them enabled at compile
-> time are aware of those.
-> For example distributions like debian enables any compile-time option
-> without asking the user, thus having him using all these features without his
-> explicit consent with potentially unexpected behaviours. Therefore the decision
-> to disable by default not-so-user-safe options.
+> [  +0.301517] ------------[ cut here ]------------ [  +0.000227] WARNING: CPU: 0
+> PID: 0 at kernel/locking/mutex.c:877 mutex_trylock+0x15d/0x190() [
+> +0.000376] DEBUG_LOCKS_WARN_ON(in_interrupt())
+...
+> 0000000000000001 [  +0.000622] Call Trace:
+> [  +0.000215]  <IRQ>  [<ffffffff814ab37b>] dump_stack+0x4f/0x74 [  +0.000351]
+> [<ffffffff8104f715>] warn_slowpath_common+0x95/0xe0 [  +0.000224]
+> [<ffffffff8104f816>] warn_slowpath_fmt+0x46/0x70 [  +0.000224]
+> [<ffffffff814acd3d>] mutex_trylock+0x15d/0x190 [  +0.004247]
+> [<ffffffffa055f7d7>] bnx2x_stats_handle+0x47/0x190 [bnx2x] [  +0.000230]
+> [<ffffffffa051107d>] bnx2x_timer+0x19d/0x1b0 [bnx2x] [  +0.000228]
+...
+> 
+> It's x86_64 4.0.4 kernel, running on supermicro X10DRW box.
 
-Pulled, thanks Antonio.
+Hi, thanks for the notice Nikola.
+
+his was introduced by dff173de8495
+("bnx2x: Fix statistics locking scheme") Which apparently took the
+wrong assumption that mutex_trylock() can be called from a timer.
+
+Looks like we'll have to change the implementation into using a
+semaphore instead, which can be used from software interrupt context.
+
+[Notice that it's possible that the only thing enforcing this and
+Thus causing the warn is CONFIG_DEBUG_MUTEXES; So for now,
+You might consider removing such an option as a temporary solution]
+
+Thanks,
+Yuval
