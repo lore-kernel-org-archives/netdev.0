@@ -1,56 +1,59 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [cdc_ncm] guidance and help refactoring cdc_ncm
-Date: Sun, 31 May 2015 16:37:11 +0200 (CEST)
-Message-ID: <alpine.LNX.2.20.1505311628420.16456@localhost.localdomain>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [RFC 1/3] net: dsa: add basic support for VLAN ndo
+Date: Sun, 31 May 2015 09:14:01 -0700
+Message-ID: <CAE4R7bB6V4RkxuucGFxL=kQWfwjmjuN_yT+Vs8xXmGUrS7mcyA@mail.gmail.com>
+References: <556723FF.7030606@roeck-us.net> <1432849035-8499-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1432849035-8499-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <CAJ3xEMjYn+eeGHi5dyAhjHivid4UKUyGAi8pwVD4PBhKn1HTKQ@mail.gmail.com>
+ <2010513546.247697.1432913908579.JavaMail.zimbra@savoirfairelinux.com>
+ <CAJ3xEMhAusqPj9m2a-wx7FDC2rE+WUk3UobE3+nS8qRV8bWTGg@mail.gmail.com>
+ <5568E4FB.6060309@roeck-us.net> <332498294.570457.1432940265841.JavaMail.zimbra@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=US-ASCII
-Cc: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Guenter Roeck <linux@roeck-us.net>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	=?UTF-8?Q?J=C3=A9rome_Oufella?=
+	<jerome.oufella@savoirfairelinux.com>,
+	Chris Healy <cphealy@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:35766 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758152AbbEaQOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 May 2015 12:14:23 -0400
+Received: by qgg60 with SMTP id 60so41584647qgg.2
+        for <netdev@vger.kernel.org>; Sun, 31 May 2015 09:14:22 -0700 (PDT)
+In-Reply-To: <332498294.570457.1432940265841.JavaMail.zimbra@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello guys.
-I am writing to you all to ask for help and assistance in refactoring the 
-cdc_ncm driver to support newer devices.
-In particular - I would need step-by-step guidance in doing this: or any other 
-kind of help would be anyway greatly apreciated.
+On Fri, May 29, 2015 at 3:57 PM, Vivien Didelot
+<vivien.didelot@savoirfairelinux.com> wrote:
 
-1 - What we need:
-   We would need to refactor the driver to be able to re-order parts of the NCM
-   package itself.
-   In particular, being a single NCM frame composed of different parts, we would
-   need more flexibility in changing their order.
-2 - What might be nice
-   To do so, it would be nice to have the driver queue up frames, sending them
-   out as needed. this already happens to a certain extent, but the NCM package
-   is created in the process and updated in the while as I understood the code.
-   The best thing would be to have the NCM package created only before sending
-   it out, to achieve for best performance and code readability.
+> Scott,
+>
+> Can I ask details about this NETIF_F_HW_SWITCH_OFFLOAD flag? Why is it
+> unneeded?
 
-I already contactedprivately some of you to have some more insight on what 
-needs to be done, and to understand better how to organize the effort. I 
-unfortunately miss the time to do this right now: and infact I can't even be 
-sure to be able to do this, due to various problems (my tesis, my life in 
-general).
-But gathering more informations and in general trying to get some help is the 
-best thing I feel like doing right now.
+Sorry, the commit message for that changes wasn't very good because it
+didn't capture the email discussion leading up.
 
-The compelling reasons I find for trying to fix the situation are:
-1 - The fact these drivers are used in different products integrating or
-   interfacing with 3G/4G technologies.
-2 - To gain more flexibility in the long term.
+The issue I had with the flag was it could be set/cleared at any time
+and it wasn't clear what the driver should do in response.
 
-Thank you guys for reading this message and everything.
-Please keep me in CC since I am not subscribed to this list.
+Let's say flag is on for swp1, on startup.  swp1 driver offloads L2/L3
+to the device.  Next user clears flag with ethtool.  What does that
+mean?  That existing offloads should be removed from device?  Or just
+stop adding/removing offloads while flag is off?  Stopping offloads
+can cause problems for L3 offload by breaking LPM rules.  (You could
+end up with a shorter prefix route in HW and a longer prefix route in
+SW, and the HW route will win, which would be bad).
 
-Enrico Mioso
-My Tox ID is: 7C593F402A3C8632D87AB4B948D492294C39A6A614464ECF843CA3429FB023284180472C7475
+So Roopa wants to revisit the flag.  I might be that tightening up
+when the flag can be set/cleared will fix the sequencing issues.
 
-I like / reocmmend usage of open messaging standards: my preferred XMPP ID
-(JID) is: mrkiko-aHS423dKhWw@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-scott
