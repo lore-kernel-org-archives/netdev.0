@@ -1,28 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] if_vlan: fix vlaue -> value typo
-Date: Sat, 30 May 2015 17:52:38 -0700 (PDT)
-Message-ID: <20150530.175238.1924423776597085183.davem@davemloft.net>
-References: <1432775246-12938-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] tipc: unconditionally put
+ sock refcnt when sock timer to be deleted is pending
+Date: Sat, 30 May 2015 18:09:00 -0700 (PDT)
+Message-ID: <20150530.180900.1737461837131789193.davem@davemloft.net>
+References: <1432790362-19707-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net,
-	linux-kernel@vger.kernel.org
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38113 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756847AbbEaAwj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2015 20:52:39 -0400
-In-Reply-To: <1432775246-12938-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: ying.xue@windriver.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1432790362-19707-1-git-send-email-ying.xue@windriver.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Wed, 27 May 2015 21:07:26 -0400
+From: Ying Xue <ying.xue@windriver.com>
+Date: Thu, 28 May 2015 13:19:22 +0800
 
-> Fixes "vlaue" for "value" in include/linux/if_vlan.h.
+> As sock refcnt is taken when sock timer is started in
+> sk_reset_timer(), the sock refcnt should be put when sock timer
+> to be deleted is in pending state no matter what "probing_state"
+> value of tipc sock is.
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
 
 Applied, thanks.
+
+------------------------------------------------------------------------------
