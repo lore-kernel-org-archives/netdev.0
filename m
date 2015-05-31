@@ -1,28 +1,32 @@
-From: Tina Ruchandani <ruchandani.tina@gmail.com>
-Subject: Re: [PATCH v3] isdn: Use ktime_t instead of 'struct timeval'
-Date: Sat, 30 May 2015 23:27:13 -0700
-Message-ID: <CAB__kknpAuLRxO9XhoVSwxZqryUk3ACBqJTHTaWhc_XqxZQ-KA@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: bluetooth-next 2015-05-28
+Date: Sat, 30 May 2015 23:27:15 -0700 (PDT)
+Message-ID: <20150530.232715.2163410957549351469.davem@davemloft.net>
+References: <20150528093143.GA22996@t440s.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Arnd Bergmann <arnd@arndb.de>, Karsten Keil <isdn@linux-pingi.de>,
-	netdev@vger.kernel.org, y2038@lists.linaro.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:34449 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754861AbbEaG1N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 May 2015 02:27:13 -0400
-Received: by pdbki1 with SMTP id ki1so84309167pdb.1
-        for <netdev@vger.kernel.org>; Sat, 30 May 2015 23:27:13 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150528093143.GA22996-PpifH9ur/GT6KBX9AKxASLvm/XP+8Wra@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->
-> This doesn't compile:
->
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 28 May 2015 12:31:43 +0300
 
-Oops, I sent an older version of the patch with a typo. I've correct
-this in a v4. (NS_PER_SEC -> NSEC_PER_SEC). Thanks for taking a look
-at this.
+> Here's a set of patches intended for 4.2. The majority of the changes
+> are on the 802.15.4 side of things rather than Bluetooth related:
+> 
+>  - All sorts of cleanups & fixes to ieee802154 and related drivers
+>  - Rework of tx power support in ieee802154 and its drivers
+>  - Support for setting ieee802154 tx power through nl802154
+>  - New IDs for the btusb driver
+>  - Various cleanups & smaller fixes to btusb
+>  - New btrtl driver for Realtec devices
+>  - Fix suspend/resume for Realtek devices
+> 
+> Please let me know if there are any issues pulling. Thanks.
 
-Tina
+Pulled, thanks Johan.
