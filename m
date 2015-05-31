@@ -1,45 +1,113 @@
-From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH] staging: r8712u: Fix kernel warning for improper call of
- del_timer_sync()
-Date: Sun, 31 May 2015 11:54:50 +0900
-Message-ID: <20150531025450.GA10754@kroah.com>
-References: <1432415812-1285-1-git-send-email-Larry.Finger@lwfinger.net>
- <55634793.4050002@lwfinger.net>
- <20150531025347.GA8074@kroah.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net v2] switchdev: don't abort hardware ipv4 fib offload
+ on failure to program fib entry in hardware
+Date: Sat, 30 May 2015 21:19:36 -0700
+Message-ID: <556A8BD8.30604@gmail.com>
+References: <555AD11E.5040709@cumulusnetworks.com> <20150519.123418.481170679256206928.davem@davemloft.net> <20150519194731.GK9559@gospo.home.greyhouse.net> <20150519.162845.955021778058631119.davem@davemloft.net> <CAE4R7bAB2+Oy92w9RpLKL5LUq7gP1mBazBK9y4ZQ4b0k8t2WhQ@mail.gmail.com> <20150529075003.GA11638@nanopsycho.orion> <CAE4R7bDSbVo7ryzHktLWtA07RswT929bhWpYwpLZUkv1eQB1tw@mail.gmail.com> <20150530090057.GA1929@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Haggi Eran <haggai.eran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20150531025347.GA8074-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Scott Feldman <sfeldma@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:34191 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751604AbbEaETy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 May 2015 00:19:54 -0400
+Received: by oifu123 with SMTP id u123so81421682oif.1
+        for <netdev@vger.kernel.org>; Sat, 30 May 2015 21:19:53 -0700 (PDT)
+In-Reply-To: <20150530090057.GA1929@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 31, 2015 at 11:53:47AM +0900, Greg KH wrote:
-> On Mon, May 25, 2015 at 11:02:27AM -0500, Larry Finger wrote:
-> > On 05/23/2015 04:16 PM, Larry Finger wrote:
-> > >The driver is reporting a warning at kernel/time/timer.c:1096 due to calling
-> > >del_timer_sync() while in interrupt mode. Such warnings are fixed by calling
-> > >del_timer() instead.
-> > >
-> > >Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-> > >Cc: Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-> > >Cc: Haggi Eran <haggai.eran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > >---
-> > 
-> > Greg,
-> > 
-> > Please drop this patch. The same fixes were submitted as
-> > https://lkml.org/lkml/2015/5/15/226.
-> 
-> That's not working for me at the moment, what was the subject: name?  I
-> think I already applied it to the testing tree...
+On 05/30/2015 02:00 AM, Jiri Pirko wrote:
+> Fri, May 29, 2015 at 05:39:46PM CEST, sfeldma@gmail.com wrote:
+>> On Fri, May 29, 2015 at 12:50 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> Thu, May 21, 2015 at 07:46:54AM CEST, sfeldma@gmail.com wrote:
+>>>> On Tue, May 19, 2015 at 1:28 PM, David Miller <davem@davemloft.net> wrote:
+>>>>> From: Andy Gospodarek <gospo@cumulusnetworks.com>
+>>>>> Date: Tue, 19 May 2015 15:47:32 -0400
+>>>>>
+>>>>>> Are you actually saying that if users complain loudly enough about
+>>>>>> the current behavior (not the change Roopa has proposed) that you
+>>>>>> would be open to considering a change the current behavior?
+>>>>>
+>>>>> I am saying that we have a contract with users not to break existing
+>>>>> behavior.  Full stop.
+>>>>
+>>>> After rehearing David's argument, we should probably explore option d)
+>>>> which is a refinement on the fib_offload_disable mechanism we have
+>>>> today.  fib_offload_disable is global for all routes.  Once we hit a
+>>>> HW install problem, the global flag is set and all routes fallback to
+>>>> SW.  We did this because we can't allow the failed route to exist in
+>>>> SW and not in HW because it could mess up LPM searches (HW could hit
+>>>> on a lesser prefix even when SW has the true LPM, because HW gets
+>>>> first shot at match).  The refinement on fib_offload_disable is this:
+>>>> make it per-related-prefix rather than global, and on a HW install
+>>>> problem, set the flag for the related-prefix and uninstall only those
+>>>> routes from HW.  Related-prefix (is there a correct term for this?)
+>>>> are routes to the same dst addr but with different prefix lengths.  I
+>>>> haven't parsed the fib_trie structure to see how routes are organized,
+>>>> but I suspect since it's optimized for lookup the related-prefix
+>>>> tracking is already there and we can build on that.
+>>>
+>>> This looks interesting. However, I'm not sure that it is acceptable for
+>>> user to experience this hw evict of "random entries". User knows what
+>>> entries are essential to have in hw. With your solution, I can see no way
+>>> user can actually say what should be offloaded or not. Kernel just
+>>> automagically decides.
+>>
+>> The default eviction policy could be based on RTA_PRIORITY: evict
+>> lower priority routes first.  It would be up to the device driver to
+>> decide between two routes of same priority.
+>>
+>> To help device driver make the decision, we could have eviction policy options:
+>>
+>>     Priority-base (default)
+>>     Prefer IPv6 over IPv4
+>>     Prefer IPv4 over IPv6
+>>     Prefer single path over multipath
+>>     Prefer longer prefix lengths over shorter
+>>     Optimize for resource utilization
+>>
+>> These are portable across different switches.   They're in terms a
+>> user understands.  It's up to the device driver which truly
+>> understands the device constraints to translates the user's eviction
+>> policy choices into something that makes sense to that device.
+>
+> This sounds tempting... You plan to throw in some patches, or should I
+> take care of that?
+>
 
-Nevermind, found it...
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This is encoding specific policies into the kernel. I was hoping to
+avoid this and let user space develop whatever policy it wants. If you
+use Jiri's proposed NLM_F_SKIP_{KERNEL|OFFLOAD} flags you get this.
+
+Also I don't understand the "truly  understands the device constraints"
+comment. We can export a model of the device and know how many rules
+of each type will fit exactly into the table. This doesn't seem like
+much of a problem to me. In fact the driver developer should know this
+anyway.
+
+Part of my motivation here is I really don't want to get stuck with a
+case where each driver writer gets to translate the eviction policy
+onto their device in some device specific and slightly different way.
+It means every developer has to write a new mapping and get it correct.
+At very least we should put a layer in switchdev that reads the table
+out of the driver and does the mapping so we have it one spot. At least
+then the kernel is enforcing policy the same on all devices. Better
+still IMO would be to develop the policy in user space and have a
+library/tool that does this so we don't end up with a bunch of policy
+blobs in the kernel. The 6 above is a good start but over time we more
+policy blobs will surely pop up. I would for example put 'optimize for
+throughput' on the list.
+
+.John
+
+-- 
+John Fastabend         Intel Corporation
