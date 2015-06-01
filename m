@@ -1,30 +1,55 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] neighbour: Add loglevel to printk statment in the
- function, neigh_add_timer
-Date: Mon, 1 Jun 2015 12:01:58 -0700
-Message-ID: <CAM_iQpV3tHjq-f1fHXH3kefmzThyU4uCQ3JjyqrVcdGpLFA5TA@mail.gmail.com>
-References: <1433131982-13697-1-git-send-email-xerofoify@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net] xen: netback: read hotplug script once at start
+ of day.
+Date: Mon, 01 Jun 2015 12:03:38 -0700 (PDT)
+Message-ID: <20150601.120338.110050240723168805.davem@davemloft.net>
+References: <1433154624-28123-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>, jeff@melix.org,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Nicholas Krause <xerofoify@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1433131982-13697-1-git-send-email-xerofoify@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	wei.liu2@citrix.com, david.vrabel@citrix.com
+To: ian.campbell@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51904 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751474AbbFATDj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 15:03:39 -0400
+In-Reply-To: <1433154624-28123-1-git-send-email-ian.campbell@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 31, 2015 at 9:13 PM, Nicholas Krause <xerofoify@gmail.com> wrote:
-> This makes the printk statement in the function, neigh_add_timer
-> have a loglevel of KERN_CRIT in order to get printed with the
-> dumping of the stack if a double timer add arises rather then
-> get dumped into the syslog buffer file instead in order to
-> allow developers to see why a stack dump has arisen.
->
+From: Ian Campbell <ian.campbell@citrix.com>
+Date: Mon, 1 Jun 2015 11:30:24 +0100
 
-Instead, why not just use a WARN_ON() or something like that?
+> When we come to tear things down in netback_remove() and generate the
+> uevent it is possible that the xenstore directory has already been
+> removed (details below).
+> 
+> In such cases netback_uevent() won't be able to read the hotplug
+> script and will write a xenstore error node.
+> 
+> A recent change to the hypervisor exposed this race such that we now
+> sometimes lose it (where apparently we didn't ever before).
+> 
+> Instead read the hotplug script configuration during setup and use it
+> for the lifetime of the backend device.
+> 
+> The apparently more obvious fix of moving the transition to
+> state=Closed in netback_remove() to after the uevent does not work
+> because it is possible that we are already in state=Closed (in
+> reaction to the guest having disconnected as it shutdown). Being
+> already in Closed means the toolstack is at liberty to start tearing
+> down the xenstore directories. In principal it might be possible to
+> arrange to unregister the device sooner (e.g on transition to Closing)
+> such that xenstore would still be there but this state machine is
+> fragile and prone to anger...
+> 
+> A modern Xen system only relies on the hotplug uevent for driver
+> domains, when the backend is in the same domain as the toolstack it
+> will run the necessary setup/teardown directly in the correct sequence
+> wrt xenstore changes.
+> 
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+
+Applied and queued up for -stable, thanks.
