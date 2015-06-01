@@ -1,69 +1,56 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 7/7] mac80211: Switch to new AEAD interface
-Date: Mon, 01 Jun 2015 16:05:19 +0200
-Message-ID: <1433167519.3505.11.camel@sipsolutions.net>
-References: <20150521103938.GA23035@gondor.apana.org.au>
-	 <1706098.2opyZ2hT8S@tachyon.chronox.de>
-	 <1433166161.3505.7.camel@sipsolutions.net> <2141601.IbD2v8KjaT@tauon>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] vlan: Add GRO support for non hardware
+ accelerated vlan
+Date: Mon, 01 Jun 2015 07:12:37 -0700
+Message-ID: <1433167957.1895.4.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1433163307-9299-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Stephan Mueller <smueller@chronox.de>
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:59093 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751386AbbFAOFX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Jun 2015 10:05:23 -0400
-In-Reply-To: <2141601.IbD2v8KjaT@tauon>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:33723 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751540AbbFAOMk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 10:12:40 -0400
+Received: by iebgx4 with SMTP id gx4so109515629ieb.0
+        for <netdev@vger.kernel.org>; Mon, 01 Jun 2015 07:12:39 -0700 (PDT)
+In-Reply-To: <1433163307-9299-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-06-01 at 15:49 +0200, Stephan Mueller wrote:
+On Mon, 2015-06-01 at 21:55 +0900, Toshiaki Makita wrote:
 
-> >The contents, now, that's a more interesting question. I believe it can
-> >never be all zeroes, since association request frames are not
-> >encrypted/protected and thus at least one byte in here must be non-zero.
-> >The MAC addresses are also very likely non-zero, but technically
-> >00:00:00:00:00:00 is a valid MAC address I believe.
-> 
-> So, even when having a malicious AP, that value is never zero? The driver of 
-> the question is the following code in the patch set:
-> 
-> +       sg_set_buf(&sg[0], &aad[2], be16_to_cpup((__be16 *)aad));
-> 
-> ...
-> 
-> +       aead_request_set_crypt(aead_req, sg, sg, data_len, b_0);
-> 
-> ...
-> 
->         crypto_aead_encrypt(aead_req);
-> 
-> 
-> When I played around with the aead_request_set_crypt, I saw a crash in the 
-> scatterlist handling of the crypto API when the first SGL entry has a zero 
-> length.
+> @@ -668,6 +753,9 @@ static int __init vlan_proto_init(void)
+>  	if (err < 0)
+>  		goto err5;
+>  
+> +	for (i = 0; i < ARRAY_SIZE(vlan_packet_offloads); i++)
+> +		dev_add_offload(&vlan_packet_offloads[i]);
+> +
+>  	vlan_ioctl_set(vlan_ioctl_handler);
+>  	return 0;
 
-Wait, I guess that's a *third* way for this to be "zero" a valid pointer
-but zero length data?
+My concern about this is :
 
-Oh, no - you're referring to the CCM/GCM cases only, I guess, i.e. this
-part:
+This might slow down GRO stack for other traffic, if dev_add_offload()
+for vlan offloads is called after 
+dev_add_offload(&ip_packet_offload) /
+dev_add_offload(&ipv6_packet_offload)
 
--	sg_init_one(&assoc, &aad[2], be16_to_cpup((__be16 *)aad));
-+	sg_set_buf(&sg[0], &aad[2], be16_to_cpup((__be16 *)aad));
 
-I was looking at GMAC and that has a constant for the length :-)
+This is because list_add_rcu is used and this inserts in front of the
+offload_base list.
 
-Ok - here the length is kinda passed a part of the AAD buffer, but this
-is really just some arcane code that should be fixed to use a proper
-struct. The value there, even though it is __be16 and looks like it came
-from the data, is actually created locally, see ccmp_special_blocks()
-and gcmp_special_blocks().
+void dev_add_offload(struct packet_offload *po)
+{
+        struct list_head *head = &offload_base;
 
-johannes
+        spin_lock(&offload_lock);
+        list_add_rcu(&po->list, head);
+        spin_unlock(&offload_lock);
+}
+
+Can we ensure offload_base contains a sensible order of expected types ?
