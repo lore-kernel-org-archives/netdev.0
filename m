@@ -1,39 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen-netfront: Use setup_timer
-Date: Sun, 31 May 2015 22:26:32 -0700 (PDT)
-Message-ID: <20150531.222632.735641093507183502.davem@davemloft.net>
-References: <20150601045837.GA6448@vaishali-Ideapad-Z570>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: pull-request: wireless-drivers 2015-06-01
+Date: Mon, 01 Jun 2015 09:29:32 +0300
+Message-ID: <874mmsvt4j.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	david.vrabel@citrix.com, xen-devel@lists.xenproject.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	julia.lawall@lip6.fr
-To: vthakkar1994@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150601045837.GA6448@vaishali-Ideapad-Z570>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:40601 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751764AbbFAG3k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 02:29:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vaishali Thakkar <vthakkar1994@gmail.com>
-Date: Mon, 1 Jun 2015 10:28:37 +0530
+Hi Dave,
 
-> Use the timer API function setup_timer instead of structure field
-> assignments to initialize a timer.
-> 
-> A simplified version of the Coccinelle semantic patch that performs
-> this transformation is as follows:
-> 
-> @change@
-> expression e, func, da;
-> @@
-> 
-> -init_timer (&e);
-> +setup_timer (&e, func, da);
-> -e.data = da;
-> -e.function = func;
-> 
-> Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
+here are three more important fixes I'm hoping to get to 4.1 still, I
+hope I'm not too late with these. Please let me know if there are any
+problems.
 
-Applied, thanks.
+Kalle
+
+The following changes since commit aefa441b150279dd8d25658e018898a3fe9a6769:
+
+  Merge tag 'iwlwifi-for-kalle-2015-05-21' of https://git.kernel.org/pub/scm/linux/kernel/git/iwlwifi/iwlwifi-fixes (2015-05-22 10:47:02 +0300)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2015-06-01
+
+for you to fetch changes up to 38fe44e61a894f1c7b3e60b0614030271070ea53:
+
+  Merge tag 'iwlwifi-for-kalle-2015-05-28' of https://git.kernel.org/pub/scm/linux/kernel/git/iwlwifi/iwlwifi-fixes (2015-05-28 16:28:03 +0300)
+
+----------------------------------------------------------------
+
+iwlwifi:
+
+* fix OTP parsing 8260
+* fix powersave handling for 8260
+
+brcmfmac:
+
+* fix null pointer crash
+
+----------------------------------------------------------------
+Arend van Spriel (1):
+      brcmfmac: avoid null pointer access when brcmf_msgbuf_get_pktid() fails
+
+Ilan Peer (1):
+      iwlwifi: pcie: fix tracking of cmd_in_flight
+
+Kalle Valo (1):
+      Merge tag 'iwlwifi-for-kalle-2015-05-28' of https://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+
+Liad Kaufman (1):
+      iwlwifi: nvm: fix otp parsing in 8000 hw family
+
+ drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c |   12 +++++------
+ drivers/net/wireless/iwlwifi/iwl-nvm-parse.c     |    2 +-
+ drivers/net/wireless/iwlwifi/pcie/internal.h     |    6 +++---
+ drivers/net/wireless/iwlwifi/pcie/trans.c        |    4 ++--
+ drivers/net/wireless/iwlwifi/pcie/tx.c           |   23 +++++++++-------------
+ 5 files changed, 20 insertions(+), 27 deletions(-)
+
+-- 
+Kalle Valo
