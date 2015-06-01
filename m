@@ -1,65 +1,103 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: 2.6.32.66 tcp regression OOPs
-Date: Mon, 1 Jun 2015 09:49:22 +0200
-Message-ID: <20150601074922.GA28740@1wt.eu>
-References: <6.2.5.6.2.20150531210751.0722ad10@binnacle.cx> <CAH6sp9O9sqKuamwF38JZLh+K2QKXNB7RRJ8cPtz+1h6MV7foYg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: starlight.2015q2@binnacle.cx,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Frans Klaver <fransklaver@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wtarreau.pck.nerim.net ([62.212.114.60]:55090 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750936AbbFAHt2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Jun 2015 03:49:28 -0400
-Content-Disposition: inline
-In-Reply-To: <CAH6sp9O9sqKuamwF38JZLh+K2QKXNB7RRJ8cPtz+1h6MV7foYg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiang Liu <jiang.liu@linux.intel.com>
+Subject: [Patch v3 30/36] net/mlx4: Cache irq_desc->affinity instead of irq_desc
+Date: Mon,  1 Jun 2015 16:05:39 +0800
+Message-ID: <1433145945-789-31-git-send-email-jiang.liu@linux.intel.com>
+References: <1433145945-789-1-git-send-email-jiang.liu@linux.intel.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Tony Luck <tony.luck@intel.com>, x86@kernel.org,
+	linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
+	linux-acpi@vger.kernel.org, netdev@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Randy Dunlap <rdunlap@infradead.org>,
+	Yinghai Lu <yinghai@kernel.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Amir Vadai <amirv@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1433145945-789-1-git-send-email-jiang.liu@linux.intel.com>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+The field 'affinity' in irq_desc won't change once the irq_desc data
+structure is created. So cache irq_desc->affinity instead of irq_desc.
+This also helps to hide struct irq_desc from device drivers.
 
-On Mon, Jun 01, 2015 at 09:00:21AM +0200, Frans Klaver wrote:
-> [cc: Willy Tarreau]
-> 
-> On Mon, Jun 1, 2015 at 3:26 AM,  <starlight.2015q2@binnacle.cx> wrote:
-> > Hello,
-> >
-> > Apoligies if I have submitted to the wrong lists.
-> >
-> > Encountered a regression in
-> > 2.6.32.66 relative to 2.6.32.65.
-> >
-> > Crash eight minutes after boot.
-> >
-> > Will responded with additional details
-> > if the OOPS is not sufficent.
-> >
-> > Best Regards
-> >
-> 
-> Did you bisect it?
+Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c   |    6 +++---
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c   |    5 +----
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    2 +-
+ 3 files changed, 5 insertions(+), 8 deletions(-)
 
-Eric Dumazet notified me that of something possibly similar due to
-a mistake I made when backporting a fix by hand.
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+index 22da4d0d0f05..a03a01625398 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+@@ -31,6 +31,7 @@
+  *
+  */
+ 
++#include <linux/irq.h>
+ #include <linux/mlx4/cq.h>
+ #include <linux/mlx4/qp.h>
+ #include <linux/mlx4/cmd.h>
+@@ -135,9 +136,8 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
+ 				mdev->dev->caps.num_comp_vectors;
+ 		}
+ 
+-		cq->irq_desc =
+-			irq_to_desc(mlx4_eq_get_irq(mdev->dev,
+-						    cq->vector));
++		cq->irq_affinity = irq_get_affinity_mask(
++					mlx4_eq_get_irq(mdev->dev, cq->vector));
+ 	} else {
+ 		/* For TX we use the same irq per
+ 		ring we assigned for the RX    */
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 2a77a6b19121..5675febf478e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -1044,14 +1044,11 @@ int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget)
+ 	/* If we used up all the quota - we're probably not done yet... */
+ 	if (done == budget) {
+ 		int cpu_curr;
+-		const struct cpumask *aff;
+ 
+ 		INC_PERF_COUNTER(priv->pstats.napi_quota);
+ 
+ 		cpu_curr = smp_processor_id();
+-		aff = irq_desc_get_irq_data(cq->irq_desc)->affinity;
+-
+-		if (likely(cpumask_test_cpu(cpu_curr, aff)))
++		if (likely(cpumask_test_cpu(cpu_curr, cq->irq_affinity)))
+ 			return budget;
+ 
+ 		/* Current cpu is not according to smp_irq_affinity -
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index d021f079f181..33d544a1fe84 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -357,7 +357,7 @@ struct mlx4_en_cq {
+ #define CQ_USER_PEND (MLX4_EN_CQ_STATE_POLL | MLX4_EN_CQ_STATE_POLL_YIELD)
+ 	spinlock_t poll_lock; /* protects from LLS/napi conflicts */
+ #endif  /* CONFIG_NET_RX_BUSY_POLL */
+-	struct irq_desc *irq_desc;
++	struct cpumask	*irq_affinity;
+ };
+ 
+ struct mlx4_en_port_profile {
+-- 
+1.7.10.4
 
-Please apply the following patch to see if it fixes the problem :
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c                      
-index 5339f066234b..d1e2895bb63c 100644                                         
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2136,7 +2136,7 @@ void tcp_send_fin(struct sock *sk)
-	 */
-	if (tskb && (tcp_send_head(sk) || tcp_memory_pressure)) {
- coalesce:
--		TCP_SKB_CB(skb)->flags |= TCPCB_FLAG_FIN;
-+		TCP_SKB_CB(tskb)->flags |= TCPCB_FLAG_FIN;
-		TCP_SKB_CB(tskb)->end_seq++;
-		tp->write_seq++;
-	if (!tcp_send_head(sk)) {
-
-Thanks,
-Willy
