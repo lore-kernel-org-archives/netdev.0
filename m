@@ -1,53 +1,57 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH v2 net] xen: netback: read hotplug script once at start
- of day.
-Date: Mon, 1 Jun 2015 12:24:22 +0100
-Message-ID: <20150601112422.GB19403@zion.uk.xensource.com>
-References: <1433154624-28123-1-git-send-email-ian.campbell@citrix.com>
+From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [cdc_ncm] guidance and help refactoring cdc_ncm
+Date: Mon, 1 Jun 2015 13:41:34 +0200 (CEST)
+Message-ID: <alpine.LNX.2.20.1506011319330.4326@localhost.localdomain>
+References: <alpine.LNX.2.20.1505311628420.16456@localhost.localdomain> <20150601005917.GB5320@kroah.com> <alpine.LNX.2.20.1506010818110.3158@localhost.localdomain> <1433144906.1557.2.camel@suse.com> <alpine.LNX.2.20.1506011020001.3741@localhost.localdomain>
+ <1433155778.1884.12.camel@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
-	<wei.liu2@citrix.com>, <david.vrabel@citrix.com>
-To: Ian Campbell <ian.campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:43959 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751461AbbFALY3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Jun 2015 07:24:29 -0400
-Content-Disposition: inline
-In-Reply-To: <1433154624-28123-1-git-send-email-ian.campbell@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1433155778.1884.12.camel-l3A5Bk7waGM@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 01, 2015 at 11:30:24AM +0100, Ian Campbell wrote:
-> When we come to tear things down in netback_remove() and generate the
-> uevent it is possible that the xenstore directory has already been
-> removed (details below).
-> 
-> In such cases netback_uevent() won't be able to read the hotplug
-> script and will write a xenstore error node.
-> 
-> A recent change to the hypervisor exposed this race such that we now
-> sometimes lose it (where apparently we didn't ever before).
-> 
-> Instead read the hotplug script configuration during setup and use it
-> for the lifetime of the backend device.
-> 
-> The apparently more obvious fix of moving the transition to
-> state=Closed in netback_remove() to after the uevent does not work
-> because it is possible that we are already in state=Closed (in
-> reaction to the guest having disconnected as it shutdown). Being
-> already in Closed means the toolstack is at liberty to start tearing
-> down the xenstore directories. In principal it might be possible to
-> arrange to unregister the device sooner (e.g on transition to Closing)
-> such that xenstore would still be there but this state machine is
-> fragile and prone to anger...
-> 
-> A modern Xen system only relies on the hotplug uevent for driver
-> domains, when the backend is in the same domain as the toolstack it
-> will run the necessary setup/teardown directly in the correct sequence
-> wrt xenstore changes.
-> 
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Thank you Oliver, thank you all for reading this thread and the attention.
+For a more detailed discussion and how we got here, you might google for the 
+thread:
+"Is this 32-bit NCM?"
+and
+"Is this 32-bit NCM?y" (follow up).
+Where the "y" letter comes from a mistake of mine.
 
-Acked-by: Wei Liu <wei.liu2@citrix.com>
+The specification does only mandate the position of the NTH (header). The rest 
+can be in any order and position in general. This will work with most devices: 
+except, of course, those from Huawei.
+Our aggregate looks something like this from my perspective (anyone correct me 
+in case):
+NTH: header
+NDP: contains indexing informations
+ethernet packet 1
+ethernet packet 2
+...
+ethernet packet n;
+
+While it should look like:
+NTH: header
+ethernet packet 1
+ethernet packet 2
+...
+ethernet packet n;
+NDP: contains indexing informations
+
+but, when introducing such a change: you might break other devices now working. 
+Infact, clearly there are multiple vendors producing NCM device, as you might 
+also see by looking at the dirver's comments.
+So in general, we should be able to dynamically change the way in which the 
+driver order things in the package.
+and that's why I initially proposed the "redesign".
+
+thank you guys, for the patience and time.
+Enrico
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
