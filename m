@@ -1,42 +1,62 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH net] Netfilter fix for net
-Date: Mon,  1 Jun 2015 19:54:01 +0200
-Message-ID: <1433181242-22768-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH net] Revert "netfilter: ensure number of counters is >0 in do_replace()"
+Date: Mon,  1 Jun 2015 19:54:02 +0200
+Message-ID: <1433181242-22768-2-git-send-email-pablo@netfilter.org>
+References: <1433181242-22768-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1433181242-22768-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Bernhard Thaler <bernhard.thaler@wvnet.at>
 
-The following patch reverts the ebtables chunk that enforces counters that was
-introduced in the recently applied d26e2c9ffa38 ('Revert "netfilter: ensure
-number of counters is >0 in do_replace()"') since this breaks ebtables.
+This partially reverts commit 1086bbe97a07 ("netfilter: ensure number of
+counters is >0 in do_replace()") in net/bridge/netfilter/ebtables.c.
 
-You can pull this change from:
+Setting rules with ebtables does not work any more with 1086bbe97a07 place.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+There is an error message and no rules set in the end.
 
-Thanks!
+e.g.
 
-----------------------------------------------------------------
+~# ebtables -t nat -A POSTROUTING --src 12:34:56:78:9a:bc -j DROP
+Unable to update the kernel. Two possible causes:
+1. Multiple ebtables programs were executing simultaneously. The ebtables
+   userspace tool doesn't by default support multiple ebtables programs
+running
 
-The following changes since commit 9302d7bb0c5cd46be5706859301f18c137b2439f:
+Reverting the ebtables part of 1086bbe97a07 makes this work again.
 
-  sctp: Fix mangled IPv4 addresses on a IPv6 listening socket (2015-05-27 14:15:26 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to d26e2c9ffa385dd1b646f43c1397ba12af9ed431:
-
-  Revert "netfilter: ensure number of counters is >0 in do_replace()" (2015-06-01 19:45:47 +0200)
-
-----------------------------------------------------------------
-Bernhard Thaler (1):
-      Revert "netfilter: ensure number of counters is >0 in do_replace()"
-
+Signed-off-by: Bernhard Thaler <bernhard.thaler@wvnet.at>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
  net/bridge/netfilter/ebtables.c |    4 ----
  1 file changed, 4 deletions(-)
+
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index 24c7c96..91180a7 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -1117,8 +1117,6 @@ static int do_replace(struct net *net, const void __user *user,
+ 		return -ENOMEM;
+ 	if (tmp.num_counters >= INT_MAX / sizeof(struct ebt_counter))
+ 		return -ENOMEM;
+-	if (tmp.num_counters == 0)
+-		return -EINVAL;
+ 
+ 	tmp.name[sizeof(tmp.name) - 1] = 0;
+ 
+@@ -2161,8 +2159,6 @@ static int compat_copy_ebt_replace_from_user(struct ebt_replace *repl,
+ 		return -ENOMEM;
+ 	if (tmp.num_counters >= INT_MAX / sizeof(struct ebt_counter))
+ 		return -ENOMEM;
+-	if (tmp.num_counters == 0)
+-		return -EINVAL;
+ 
+ 	memcpy(repl, &tmp, offsetof(struct ebt_replace, hook_entry));
+ 
+-- 
+1.7.10.4
+
