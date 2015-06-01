@@ -1,7 +1,7 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [net-next RFC 02/14] ip_tunnel: support per packet tunnel metadata
-Date: Mon,  1 Jun 2015 16:27:26 +0200
-Message-ID: <e5f5b823edde327bb43f5583aa7edfca4504d863.1433167295.git.tgraf@suug.ch>
+Subject: [net-next RFC 04/14] route: Extend flow representation with tunnel key
+Date: Mon,  1 Jun 2015 16:27:28 +0200
+Message-ID: <f881e0452e2dd3090ca90ae7f04d528872acdfd5.1433167295.git.tgraf@suug.ch>
 References: <cover.1433167295.git.tgraf@suug.ch>
 Cc: pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
 	daniel@iogearbox.net, dev@openvswitch.org, tom@herbertland.com,
@@ -10,9 +10,9 @@ Cc: pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
 	jpettit@nicira.com, kaber@trash.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:50908 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:50927 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751609AbbFAO1r (ORCPT
+	with ESMTP id S1751234AbbFAO1r (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 10:27:47 -0400
 In-Reply-To: <cover.1433167295.git.tgraf@suug.ch>
 In-Reply-To: <cover.1433167295.git.tgraf@suug.ch>
@@ -20,167 +20,104 @@ References: <cover.1433167295.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This allows to attach an ip_tunnel_info metadata structure to skbs
-via skb_shared_info to represent receive side tunnel information
-as well as transmit side encapsulation instructions.
-
-The new field is added to skb_shared_info as the field is typically
-immutable after it has been attached. A new flag indicates whether
-the metadata is meant for receive or transmit. This allows to keep
-receive metadata attached to the skb all the way through the
-forwarding path without mistaking it for transmit instructions. The
-tun_info pointer is thus only released if a packet which has been
-received on a tunnel is being forwarded to tunnel device again.
-
-Since transmit instructions are immutable per flow which attaches
-them to the skb, a reference count is introduced which allows to
-reuse the metadata for many packets. Therefore, when a route later
-on receives the capability to attach tunnel metadata, it will only
-have to allocate the metadata once and can simply increment the
-reference counter for each packet that uses that instruction set.
+Add a new flowi_tunnel structure which is a subset of ip_tunnel_key
+to allow routes to match on tunnel metadata. For now, the tunnel id
+is added to flowi_tunnel which allows for routes to be bound to
+specific virtual tunnels.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- include/linux/skbuff.h    |  1 +
- include/net/ip_tunnels.h  | 45 +++++++++++++++++++++++++++++++++++++++++++++
- net/core/skbuff.c         |  8 ++++++++
- net/ipv4/ip_tunnel_core.c | 15 +++++++++++++++
- 4 files changed, 69 insertions(+)
+ include/net/flow.h       |  7 +++++++
+ include/net/ip_tunnels.h | 10 ++++++++++
+ net/ipv4/route.c         |  2 ++
+ 3 files changed, 19 insertions(+)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 6b41c15..83f9a59 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -323,6 +323,7 @@ struct skb_shared_info {
- 	unsigned short	gso_segs;
- 	unsigned short  gso_type;
- 	struct sk_buff	*frag_list;
-+	struct ip_tunnel_info	*tun_info;
- 	struct skb_shared_hwtstamps hwtstamps;
- 	u32		tskey;
- 	__be32          ip6_frag_id;
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 6b9d559..3968705 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -38,10 +38,20 @@ struct ip_tunnel_key {
- 	__be16			tp_dst;
- } __packed __aligned(4); /* Minimize padding. */
+diff --git a/include/net/flow.h b/include/net/flow.h
+index 8109a15..c15fb5e 100644
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -19,6 +19,10 @@
  
-+/* Indicates whether the tunnel info structure represents receive
-+ * or transmit tunnel parameters.
-+ */
-+enum {
-+	IP_TUNNEL_INFO_RX,
-+	IP_TUNNEL_INFO_TX,
+ #define LOOPBACK_IFINDEX	1
+ 
++struct flowi_tunnel {
++	__be64			tun_id;
 +};
 +
- struct ip_tunnel_info {
- 	struct ip_tunnel_key	key;
- 	const void		*options;
-+	atomic_t		refcnt;
- 	u8			options_len;
-+	u8			mode;
+ struct flowi_common {
+ 	int	flowic_oif;
+ 	int	flowic_iif;
+@@ -30,6 +34,7 @@ struct flowi_common {
+ #define FLOWI_FLAG_ANYSRC		0x01
+ #define FLOWI_FLAG_KNOWN_NH		0x02
+ 	__u32	flowic_secid;
++	struct flowi_tunnel flowic_tun_key;
  };
  
- /* 6rd prefix/relay information */
-@@ -284,6 +294,41 @@ static inline void iptunnel_xmit_stats(int err,
- 	}
+ union flowi_uli {
+@@ -66,6 +71,7 @@ struct flowi4 {
+ #define flowi4_proto		__fl_common.flowic_proto
+ #define flowi4_flags		__fl_common.flowic_flags
+ #define flowi4_secid		__fl_common.flowic_secid
++#define flowi4_tun_key		__fl_common.flowic_tun_key
+ 
+ 	/* (saddr,daddr) must be grouped, same order as in IP header */
+ 	__be32			saddr;
+@@ -165,6 +171,7 @@ struct flowi {
+ #define flowi_proto	u.__fl_common.flowic_proto
+ #define flowi_flags	u.__fl_common.flowic_flags
+ #define flowi_secid	u.__fl_common.flowic_secid
++#define flowi_tun_key	u.__fl_common.flowic_tun_key
+ } __attribute__((__aligned__(BITS_PER_LONG/8)));
+ 
+ static inline struct flowi *flowi4_to_flowi(struct flowi4 *fl4)
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 8b76ba1..df8cfd3 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -12,6 +12,7 @@
+ #include <net/ip.h>
+ #include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
++#include <net/flow.h>
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ #include <net/ipv6.h>
+@@ -337,6 +338,15 @@ static inline void *ip_tunnel_info_opts(struct ip_tunnel_info *info,
+ 	return info + 1;
  }
  
-+struct ip_tunnel_info *ip_tunnel_info_alloc(size_t optslen, gfp_t flags);
-+
-+static inline void ip_tunnel_info_get(struct ip_tunnel_info *info)
++static inline void ip_tunnel_derive_key(struct sk_buff *skb,
++					struct flowi_tunnel *key)
 +{
-+	atomic_inc(&info->refcnt);
-+}
++	struct ip_tunnel_info *tun_info = skb_shinfo(skb)->tun_info;
 +
-+static inline void ip_tunnel_info_put(struct ip_tunnel_info *info)
-+{
-+	if (!info)
-+		return;
-+
-+	if (atomic_dec_and_test(&info->refcnt))
-+		kfree(info);
-+}
-+
-+static inline int skb_attach_tunnel_info(struct sk_buff *skb,
-+					 struct ip_tunnel_info *info)
-+{
-+	if (skb_unclone(skb, GFP_ATOMIC))
-+		return -ENOMEM;
-+
-+	ip_tunnel_info_put(skb_shinfo(skb)->tun_info);
-+	ip_tunnel_info_get(info);
-+	skb_shinfo(skb)->tun_info = info;
-+
-+	return 0;
-+}
-+
-+static inline void skb_release_tunnel_info(struct sk_buff *skb)
-+{
-+	ip_tunnel_info_put(skb_shinfo(skb)->tun_info);
-+	skb_shinfo(skb)->tun_info = NULL;
++	if (tun_info && tun_info->mode == IP_TUNNEL_INFO_RX)
++		key->tun_id = tun_info->key.tun_id;
 +}
 +
  #endif /* CONFIG_INET */
  
  #endif /* __NET_IP_TUNNELS_H */
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 9bac0e6..dbbace2 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -69,6 +69,7 @@
- #include <net/sock.h>
- #include <net/checksum.h>
- #include <net/ip6_checksum.h>
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index f605598..6e8e1be 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -109,6 +109,7 @@
+ #include <linux/kmemleak.h>
+ #endif
+ #include <net/secure_seq.h>
 +#include <net/ip_tunnels.h>
- #include <net/xfrm.h>
  
- #include <asm/uaccess.h>
-@@ -594,6 +595,8 @@ static void skb_release_data(struct sk_buff *skb)
- 			uarg->callback(uarg, true);
- 	}
- 
-+	ip_tunnel_info_put(shinfo->tun_info);
-+
- 	if (shinfo->frag_list)
- 		kfree_skb_list(shinfo->frag_list);
- 
-@@ -985,6 +988,11 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- 	skb_shinfo(new)->gso_size = skb_shinfo(old)->gso_size;
- 	skb_shinfo(new)->gso_segs = skb_shinfo(old)->gso_segs;
- 	skb_shinfo(new)->gso_type = skb_shinfo(old)->gso_type;
-+
-+	if (skb_shinfo(old)->tun_info) {
-+		ip_tunnel_info_get(skb_shinfo(old)->tun_info);
-+		skb_shinfo(new)->tun_info = skb_shinfo(old)->tun_info;
-+	}
- }
- 
- static inline int skb_alloc_rx_flag(const struct sk_buff *skb)
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 6a51a71..bbd4f91 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -190,3 +190,18 @@ struct rtnl_link_stats64 *ip_tunnel_get_stats64(struct net_device *dev,
- 	return tot;
- }
- EXPORT_SYMBOL_GPL(ip_tunnel_get_stats64);
-+
-+struct ip_tunnel_info *ip_tunnel_info_alloc(size_t optslen, gfp_t flags)
-+{
-+	struct ip_tunnel_info *info;
-+
-+	info = kzalloc(sizeof(*info) + optslen, flags);
-+	if (!info)
-+		return NULL;
-+
-+	info->options_len = optslen;
-+
-+	return info;
-+
-+}
-+EXPORT_SYMBOL_GPL(ip_tunnel_info_alloc);
+ #define RT_FL_TOS(oldflp4) \
+ 	((oldflp4)->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK))
+@@ -1716,6 +1717,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	fl4.flowi4_scope = RT_SCOPE_UNIVERSE;
+ 	fl4.daddr = daddr;
+ 	fl4.saddr = saddr;
++	ip_tunnel_derive_key(skb, &fl4.flowi4_tun_key);
+ 	err = fib_lookup(net, &fl4, &res);
+ 	if (err != 0) {
+ 		if (!IN_DEV_FORWARD(in_dev))
 -- 
 2.3.5
