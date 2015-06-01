@@ -1,113 +1,53 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] ethtool: changes of emac_regs structure accordingly
- within driver emac_regs structure.
-Date: Mon, 01 Jun 2015 19:11:26 +0100
-Message-ID: <1433182286.6319.183.camel@decadent.org.uk>
-References: <20150521190917.6971eb09@fr-ThinkPad-W520>
-	 <20150601163057.01717aef@fr-ThinkPad-W520>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-DvkuUkFTroKW5XUzSQ0/"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Ivan Mikhaylov <ivan@ru.ibm.com>
+From: sfeldma@gmail.com
+Subject: [PATCH net-next 0/5] rocker: enable by default untagged VLAN support
+Date: Mon,  1 Jun 2015 11:39:01 -0700
+Message-ID: <1433183947-13095-1-git-send-email-sfeldma@gmail.com>
+Cc: jiri@resnulli.us, simon.horman@netronome.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:33939 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751474AbbFASLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 14:11:37 -0400
-In-Reply-To: <20150601163057.01717aef@fr-ThinkPad-W520>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:36305 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751546AbbFAShZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 14:37:25 -0400
+Received: by pdjm12 with SMTP id m12so30901480pdj.3
+        for <netdev@vger.kernel.org>; Mon, 01 Jun 2015 11:37:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Scott Feldman <sfeldma@gmail.com>
 
---=-DvkuUkFTroKW5XUzSQ0/
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+This patch set is a followup to Simon Horman's RFC patch:
 
-On Mon, 2015-06-01 at 16:30 +0400, Ivan Mikhaylov wrote:
-> On Mon, 1 June 2015 12:57 +0400
-> Ben Hutchings <ben@decadent.org.uk> wrote:
->=20
-> >On Thu, 2015-05-21 at 19:09 +0400, Ivan Mikhaylov wrote:
-> >> In ibm_emac.c in ethtool size of emac structure which passing through
-> >> to driver is nailed down and not correlating with current emac_regs
-> >> structure.
-> >>=20
-> >> Signed-off-by: Ivan Mikhaylov <ivan@ru.ibm.com>
-> >[...]
-> >
-> >This is not backward-compatible.  It ought to be possible to mix and
-> >match old and new ethtool and driver, except for the EMAC4SYNC case
-> >which has been broken up until now.
-> >
-> >Using the new definition of struct emac_regs, I think the driver and
-> >ethtool need to agree that the MAC register dump sizes are:
-> >
-> >EMAC:      offsetof(struct emac_regs, u1)
-> >EMAC4:     offsetof(struct emac_regs, u1.emac4) + sizeof(p->u1.emac4)
-> >EMAC4SYNC: offsetof(struct emac_regs, u1.emac4sync) +
-> >sizeof(p->u1.emac4sync)
-> >
-> >Ben.
-> >
-> >--=20
-> >Ben Hutchings
-> >Reality is just a crutch for people who can't handle science fiction.
->=20
-> Actually it is backward-compatible because we don't care about size
-> which is coming from driver side, only what we doing is map of driver
-> structure to ethtool structure and results will be same
-> for emac and emac4.
->=20
->  struct emac_regs *p =3D (struct emac_regs *)(hdr + 1);
+   [PATCH/RFC net-next] rocker: by default accept untagged packets
 
-The following registers won't be printed correctly.
+Now, on port probe, we install untagged VLAN (vid=0) support for each port
+as the default.  This is equivalent to the command:
 
-> Also size which you mentioned (112 emac, 116 emac4) can be different
-> from what you saying cause this managed by dts files where we can set
-> something like 0x100 or 0x80 for this memory area and we will still
-> have problem in representing MII area if this size wasn't set right
-> in dts.
+   bridge vlan add vid 0 dev DEV self
 
-Yes, I understand that.  However, the in-tree device trees consistently
-use those as the resource sizes so I think ethtool used to work properly
-for the machines supported by those.  Increasing the size of the MAC
-register dump is a regression for them.
+Accepting untagged VLAN pkts is a reasonable default, but the user could
+override this with:
 
-Ben.
+   bridge vlan del vid 0 dev DEV self
 
-> Ethtool will be work in same way even if we have emac or emac4.
->=20
-> Thank you for respond!
->=20
+With this, we no longer need 8021q module to install vid=0 when port interface
+opens.  In fact, we don't need support for legacy VLAN ndo ops at all since
+they're superseded by bridge_setlink/dellink.  So remove legacy VLAN ndo ops
+support in driver.  (The legacy VLAN ndo ops are supported by bonding/team
+drivers, but don't fit into the transaction model offered by switchdev, so
+switching all VLAN functions to bridge_setlink/dellink switchdev support gets
+us stacked driver + transaction model support).
 
---=20
-Ben Hutchings
-Power corrupts.  Absolute power is kind of neat.
-                           - John Lehman, Secretary of the US Navy 1981-198=
-7
+Scott Feldman (5):
+  rocker: zero allocate ports array
+  rocker: cleanup vlan table on error adding vlan
+  rocker: install untagged VLAN (vid=0) support for each port
+  rocker: install/remove router MAC for untagged VLAN when
+    joining/leaving bridge
+  rocker: remove support for legacy VLAN ndo ops
 
---=-DvkuUkFTroKW5XUzSQ0/
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+ drivers/net/ethernet/rocker/rocker.c |  105 ++++++++++++++++------------------
+ 1 file changed, 50 insertions(+), 55 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVWygUue/yOyVhhEJAQp6Sg/+ORRzCXIvs+XFQQ/HqAORxYvXG2Mye+j6
-viE9hro75XmJPuPko6TjFklnnifx33cu5UbI6Hng8UJFSoqhNlXarz4w4PJSDYSV
-tg7rE3o91ievt/hK/xYcwb2cAxRjnu8Mt/ZnwCyuQVS0KA6cWuLh6Lh5Jyy5u37E
-s494qw/gGNqfLjXEcyVT+YN1FJggmqnxbgjOS1PaEJkNTR8dpxePWwctsamawwiQ
-J5YvVw9WCEwcKUDmZhMUxdW85UAnEy9549x7K/WaZjrQjcW7dEx6mEQ5a6kD/HRm
-qsTBcmgqUoj0KiXBvbos+TUDhbVcbO9EY2rpFGKNPaKJcZQ1ETD1bF2GpZeIMlBD
-GRtsnzLqSJEzjwq85dMAJrKN+PW6M02FXnn9IL01LOMlgDvvbzpS2Yr7gxzTSWEq
-ML+s8I6g6MtochZZchzxBE9bzhP2jTyHie3BHO3fLjK6BYtSDbFH2Xb5ZotWUcJw
-3o/q9PFpmKV9DrDmf1lR3drcBXa3KGyR6XZJ+P/Sfe3Gzz4iFOmVH6T6n7W2nrKQ
-nmH7zYhM0AOFjiVCT022E3IZgAJCHBLHDPBYKCkPFkmq0CQlznAP8di+wcONfOc9
-4hIWd+K43g0Qvrzz2rk1tXQjtWyMUP7ssuEDKxJpPqRDi1pf0uzsflBPRkfY1dqI
-7avyJbn7hjI=
-=WYzD
------END PGP SIGNATURE-----
-
---=-DvkuUkFTroKW5XUzSQ0/--
+-- 
+1.7.10.4
