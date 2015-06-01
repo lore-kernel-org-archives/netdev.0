@@ -1,69 +1,59 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [cdc_ncm] guidance and help refactoring cdc_ncm
-Date: Mon, 1 Jun 2015 10:24:41 +0200 (CEST)
-Message-ID: <alpine.LNX.2.20.1506011020001.3741@localhost.localdomain>
-References: <alpine.LNX.2.20.1505311628420.16456@localhost.localdomain> <20150601005917.GB5320@kroah.com> <alpine.LNX.2.20.1506010818110.3158@localhost.localdomain> <1433144906.1557.2.camel@suse.com>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: Re: [PATCH] xen: netback: fix error printf format string.
+Date: Mon, 1 Jun 2015 09:29:16 +0100
+Message-ID: <1433147356.15036.74.camel@citrix.com>
+References: <1432916524-20881-1-git-send-email-ian.campbell@citrix.com>
+	 <20150531.212618.1162284397803953903.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1433144906.1557.2.camel-IBi9RG/b67k@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	<wei.liu2@citrix.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:37021 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750919AbbFAI3U convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 04:29:20 -0400
+In-Reply-To: <20150531.212618.1162284397803953903.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thank you Oliver for the reply.
+On Sun, 2015-05-31 at 21:26 -0700, David Miller wrote:
+> From: Ian Campbell <ian.campbell@citrix.com>
+> Date: Fri, 29 May 2015 17:22:04 +0100
+>=20
+> > drivers/net/xen-netback/netback.c: In function =E2=80=98xenvif_tx_b=
+uild_gops=E2=80=99:
+> > drivers/net/xen-netback/netback.c:1253:8: warning: format =E2=80=98=
+%lu=E2=80=99 expects argument of type =E2=80=98long unsigned int=E2=80=99=
+, but argument 5 has type =E2=80=98int=E2=80=99 [-Wformat=3D]
+> >         (txreq.offset&~PAGE_MASK) + txreq.size);
+> >         ^
+> >=20
+> > txreq.offset and .size are uint16_t fields.
+> >=20
+> > Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+>=20
+> This may get rid of the compiler warning on your machine, but it crea=
+tes
+> one on mine:
+>=20
+> drivers/net/xen-netback/netback.c: In function =E2=80=98xenvif_tx_bui=
+ld_gops=E2=80=99:
+> drivers/net/xen-netback/netback.c:1253:8: warning: format =E2=80=98%u=
+=E2=80=99 expects argument of type =E2=80=98unsigned int=E2=80=99, but =
+argument 5 has type =E2=80=98long unsigned int=E2=80=99 [-Wformat=3D]
+>         (txreq.offset&~PAGE_MASK) + txreq.size);
+>         ^
+>=20
+> There is a type involved in this calculation which is arch
+> dependent, so you'll need to add a cast or something to
+> make this warning go away in all cases.
 
+Ah, I only considered the types txreq.{offset,size} and missed thinking
+about PAGE_MASK.
 
-On Mon, 1 Jun 2015, Oliver Neukum wrote:
+I'll resend with a cast.
 
-==Date: Mon, 1 Jun 2015 09:48:26
-==From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-==To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-==Cc: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-==    netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-==Subject: Re: [cdc_ncm] guidance and help refactoring cdc_ncm
-==
-==On Mon, 2015-06-01 at 08:53 +0200, Enrico Mioso wrote:
-==
-==> A 32-bit version of the driver (talking 32-bit NCM) is here:
-==> http://www.gstorm.eu/cdc_ncm.c
-==> I modified the original driver with the help of a very talented friend.
-==> It works: but there seem to be no real reasons to implement this properly. We 
-==> did this in a consistent effort to understand what was wrong, and here it is.
-==
-==Well, you are really talking about two different things here.
-==Do we ever fail because we only do 16 bit as opposed to 32 bit?
-==Your 32 bit driver looks good, but it raises the question of what to do
-==if this test:
-==
-==        if (le16_to_cpu(ctx->ncm_parm.bmNtbFormatsSupported) &
-==                                                USB_CDC_NCM_NTB32_SUPPORTED) {
-==
-==fails. Otherwise it looks ready for merging.
-==
-==	Regards
-==		Oliver
-==
-==
-==
-==
-
-Oh - I am sorry. Infact, I am taling about two different things here. No, I've 
-seen no device failing because of this (16 vs. 32 bit problem).
-I was mentioning this only as an additional thing to consider, at least from my 
-side.
-We are failing on some cases only because of the position we put the NDP part 
-of the NCM frame. Infact, this 32-bit driver will work when the 16 bit one 
-does, and fail when the 16 bit one does.
-Thank you for your review and consideration.
-It would be nice to see this code merged - but I think we might need to merge 
-the two drivers in a way that reduces code de-duplication. But this might be 
-work for a second take in case.
-Thank you again,
-Enrico
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ian.
