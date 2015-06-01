@@ -1,46 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethernet/intel: Use setup_timer
-Date: Sun, 31 May 2015 21:46:13 -0700 (PDT)
-Message-ID: <20150531.214613.1488046829950588850.davem@davemloft.net>
-References: <20150601044349.GA4730@vaishali-Ideapad-Z570>
+Subject: Re: [PATCH 0/3] net/rds: SOL_RDS socket option to explicitly
+ select transport
+Date: Sun, 31 May 2015 21:47:41 -0700 (PDT)
+Message-ID: <20150531.214741.1556826335549377523.davem@davemloft.net>
+References: <cover.1432927392.git.sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr
-To: unlisted-recipients:; (no To-header on input)
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	chien.yen@oracle.com, rds-devel@oss.oracle.com,
+	ajaykumar.hotchandani@oracle.com, igor.maximov@oracle.com
+To: sowmini.varadhan@oracle.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150601044349.GA4730@vaishali-Ideapad-Z570>
+In-Reply-To: <cover.1432927392.git.sowmini.varadhan@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vaishali Thakkar <vthakkar1994@gmail.com>
-Date: Mon, 1 Jun 2015 10:13:49 +0530
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Fri, 29 May 2015 17:28:06 -0400
 
-> Use the timer API function setup_timer instead of structure field
-> assignments to initialize a timer.
+> Today the underlying transport (TCP or IB) for a PF_RDS socket is
+> implicitly selected based on the local address used to bind(2) the
+> PF_RDS socket. This results in some non-deterministic behavior when
+> there are un-numbered and IPoIB interfaces sharing the same IP address.
+> It also places the constraint that the IB interface must have an IP
+> address (and thus, IPoIB) configured on it.
 > 
-> A simplified version of the Coccinelle semantic patch that performs
-> this transformation is as follows:
+> The non-determinism may be avoided by providing the user-space application
+> a socket option that allows it to explicitly select the transport
+> prior to bind(2).
 > 
-> @change@
-> expression e1, e2, e3, e4, a, b;
-> @@
+> Patch 1 of this series provides the constant definitions needed by
+> the application via <linux/rds.h>.
 > 
-> -init_timer(&e1);
-> +setup_timer(&e1, a, b);
-> 
-> ... when != a = e2
->     when != b = e3
-> 
-> -e1.function = a;
-> ... when != b = e4
-> -e1.data = b;
-> 
-> Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
+> Patch 2 provides the setsockopt support, and Patch 3 provides the
+> getsockopt support.
 
-Applied, thanks.
+Seems reasonable, series applied to net-next, thanks.
