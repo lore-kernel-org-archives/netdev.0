@@ -1,404 +1,107 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [net-next RFC 12/14] vxlan: remove indirect call to vxlan_rcv() and vni member
-Date: Mon,  1 Jun 2015 16:27:36 +0200
-Message-ID: <92fb2f5faf82c1f773f009edfc16f7cfc81cf619.1433167296.git.tgraf@suug.ch>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: [net-next RFC 10/14] openvswitch: Abstract vport name
+	through ovs_vport_name()
+Date: Mon,  1 Jun 2015 16:27:34 +0200
+Message-ID: <8bc4d72a86610dbc4caf297d7ebeb5df11bf3f6e.1433167296.git.tgraf@suug.ch>
 References: <cover.1433167295.git.tgraf@suug.ch>
-Cc: pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
-	daniel@iogearbox.net, dev@openvswitch.org, tom@herbertland.com,
-	edumazet@google.com, jiri@resnulli.us, hannes@stressinduktion.org,
-	marcelo.leitner@gmail.com, stephen@networkplumber.org,
-	jpettit@nicira.com, kaber@trash.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:51058 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752103AbbFAO1z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 10:27:55 -0400
-In-Reply-To: <cover.1433167295.git.tgraf@suug.ch>
-In-Reply-To: <cover.1433167295.git.tgraf@suug.ch>
-References: <cover.1433167295.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
+ daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+ kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <cover.1433167295.git.tgraf-G/eBtMaohhA@public.gmane.org>
+In-Reply-To: <cover.1433167295.git.tgraf-G/eBtMaohhA@public.gmane.org>
+References: <cover.1433167295.git.tgraf-G/eBtMaohhA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-With the removal of the special treating of OVS VXLAN vports, the
-indirect call to vxlan_rcv() can be avoided and the VNI member
-in vxlan_metadata can be removed.
-
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- drivers/net/vxlan.c | 225 +++++++++++++++++++++++++---------------------------
- include/net/vxlan.h |   7 --
- 2 files changed, 107 insertions(+), 125 deletions(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index b696871..9cc7d5a 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -75,7 +75,6 @@ static struct rtnl_link_ops vxlan_link_ops;
- static const u8 all_zeros_mac[ETH_ALEN];
- 
- static struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
--					 vxlan_rcv_t *rcv, void *data,
- 					 bool no_share, u32 flags);
- 
- /* per-network namespace private data for this module */
-@@ -1122,6 +1121,102 @@ static struct vxlanhdr *vxlan_remcsum(struct sk_buff *skb, struct vxlanhdr *vh,
- 	return vh;
- }
- 
-+static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb,
-+		      struct vxlan_metadata *md, __u32 vni)
-+{
-+	struct ip_tunnel_info *tun_info = skb_shinfo(skb)->tun_info;
-+	struct iphdr *oip = NULL;
-+	struct ipv6hdr *oip6 = NULL;
-+	struct vxlan_dev *vxlan;
-+	struct pcpu_sw_netstats *stats;
-+	union vxlan_addr saddr;
-+	int err = 0;
-+	union vxlan_addr *remote_ip;
-+
-+	/* For flow based devices, map all packets to VNI 0 */
-+	if (vs->flags & VXLAN_F_FLOW_BASED)
-+		vni = 0;
-+
-+	/* Is this VNI defined? */
-+	vxlan = vxlan_vs_find_vni(vs, vni);
-+	if (!vxlan)
-+		goto drop;
-+
-+	remote_ip = &vxlan->default_dst.remote_ip;
-+	skb_reset_mac_header(skb);
-+	skb_scrub_packet(skb, !net_eq(vxlan->net, dev_net(vxlan->dev)));
-+	skb->protocol = eth_type_trans(skb, vxlan->dev);
-+	skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
-+
-+	/* Ignore packet loops (and multicast echo) */
-+	if (ether_addr_equal(eth_hdr(skb)->h_source, vxlan->dev->dev_addr))
-+		goto drop;
-+
-+	/* Re-examine inner Ethernet packet */
-+	if (remote_ip->sa.sa_family == AF_INET) {
-+		oip = ip_hdr(skb);
-+		saddr.sin.sin_addr.s_addr = oip->saddr;
-+		saddr.sa.sa_family = AF_INET;
-+
-+		if (tun_info) {
-+			tun_info->key.ipv4_src = oip->saddr;
-+			tun_info->key.ipv4_dst = oip->daddr;
-+			tun_info->key.ipv4_tos = oip->tos;
-+			tun_info->key.ipv4_ttl = oip->ttl;
-+		}
-+#if IS_ENABLED(CONFIG_IPV6)
-+	} else {
-+		oip6 = ipv6_hdr(skb);
-+		saddr.sin6.sin6_addr = oip6->saddr;
-+		saddr.sa.sa_family = AF_INET6;
-+
-+		/* TODO : Fill IPv6 tunnel info */
-+#endif
-+	}
-+
-+	if ((vxlan->flags & VXLAN_F_LEARN) &&
-+	    vxlan_snoop(skb->dev, &saddr, eth_hdr(skb)->h_source))
-+		goto drop;
-+
-+	skb_reset_network_header(skb);
-+	if (!(vs->flags & VXLAN_F_FLOW_BASED))
-+		skb->mark = md->gbp;
-+
-+	if (oip6)
-+		err = IP6_ECN_decapsulate(oip6, skb);
-+	if (oip)
-+		err = IP_ECN_decapsulate(oip, skb);
-+
-+	if (unlikely(err)) {
-+		if (log_ecn_error) {
-+			if (oip6)
-+				net_info_ratelimited("non-ECT from %pI6\n",
-+						     &oip6->saddr);
-+			if (oip)
-+				net_info_ratelimited("non-ECT from %pI4 with TOS=%#x\n",
-+						     &oip->saddr, oip->tos);
-+		}
-+		if (err > 1) {
-+			++vxlan->dev->stats.rx_frame_errors;
-+			++vxlan->dev->stats.rx_errors;
-+			goto drop;
-+		}
-+	}
-+
-+	stats = this_cpu_ptr(vxlan->dev->tstats);
-+	u64_stats_update_begin(&stats->syncp);
-+	stats->rx_packets++;
-+	stats->rx_bytes += skb->len;
-+	u64_stats_update_end(&stats->syncp);
-+
-+	netif_rx(skb);
-+
-+	return;
-+drop:
-+	/* Consume bad packet */
-+	kfree_skb(skb);
-+}
-+
- /* Callback from net/ipv4/udp.c to receive packets */
- static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- {
-@@ -1226,8 +1321,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 		goto bad_flags;
- 	}
- 
--	md->vni = vxh->vx_vni;
--	vs->rcv(vs, skb, md);
-+	vxlan_rcv(vs, skb, md, vni >> 8);
- 	return 0;
- 
- drop:
-@@ -1244,105 +1338,6 @@ error:
- 	return 1;
- }
- 
--static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb,
--		      struct vxlan_metadata *md)
--{
--	struct ip_tunnel_info *tun_info = skb_shinfo(skb)->tun_info;
--	struct iphdr *oip = NULL;
--	struct ipv6hdr *oip6 = NULL;
--	struct vxlan_dev *vxlan;
--	struct pcpu_sw_netstats *stats;
--	union vxlan_addr saddr;
--	__u32 vni;
--	int err = 0;
--	union vxlan_addr *remote_ip;
--
--	/* For flow based devices, map all packets to VNI 0 */
--	if (vs->flags & VXLAN_F_FLOW_BASED)
--		vni = 0;
--	else
--		vni = ntohl(md->vni) >> 8;
--
--	/* Is this VNI defined? */
--	vxlan = vxlan_vs_find_vni(vs, vni);
--	if (!vxlan)
--		goto drop;
--
--	remote_ip = &vxlan->default_dst.remote_ip;
--	skb_reset_mac_header(skb);
--	skb_scrub_packet(skb, !net_eq(vxlan->net, dev_net(vxlan->dev)));
--	skb->protocol = eth_type_trans(skb, vxlan->dev);
--	skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
--
--	/* Ignore packet loops (and multicast echo) */
--	if (ether_addr_equal(eth_hdr(skb)->h_source, vxlan->dev->dev_addr))
--		goto drop;
--
--	/* Re-examine inner Ethernet packet */
--	if (remote_ip->sa.sa_family == AF_INET) {
--		oip = ip_hdr(skb);
--		saddr.sin.sin_addr.s_addr = oip->saddr;
--		saddr.sa.sa_family = AF_INET;
--
--		if (tun_info) {
--			tun_info->key.ipv4_src = oip->saddr;
--			tun_info->key.ipv4_dst = oip->daddr;
--			tun_info->key.ipv4_tos = oip->tos;
--			tun_info->key.ipv4_ttl = oip->ttl;
--		}
--#if IS_ENABLED(CONFIG_IPV6)
--	} else {
--		oip6 = ipv6_hdr(skb);
--		saddr.sin6.sin6_addr = oip6->saddr;
--		saddr.sa.sa_family = AF_INET6;
--
--		/* TODO : Fill IPv6 tunnel info */
--#endif
--	}
--
--	if ((vxlan->flags & VXLAN_F_LEARN) &&
--	    vxlan_snoop(skb->dev, &saddr, eth_hdr(skb)->h_source))
--		goto drop;
--
--	skb_reset_network_header(skb);
--	if (!(vs->flags & VXLAN_F_FLOW_BASED))
--		skb->mark = md->gbp;
--
--	if (oip6)
--		err = IP6_ECN_decapsulate(oip6, skb);
--	if (oip)
--		err = IP_ECN_decapsulate(oip, skb);
--
--	if (unlikely(err)) {
--		if (log_ecn_error) {
--			if (oip6)
--				net_info_ratelimited("non-ECT from %pI6\n",
--						     &oip6->saddr);
--			if (oip)
--				net_info_ratelimited("non-ECT from %pI4 with TOS=%#x\n",
--						     &oip->saddr, oip->tos);
--		}
--		if (err > 1) {
--			++vxlan->dev->stats.rx_frame_errors;
--			++vxlan->dev->stats.rx_errors;
--			goto drop;
--		}
--	}
--
--	stats = this_cpu_ptr(vxlan->dev->tstats);
--	u64_stats_update_begin(&stats->syncp);
--	stats->rx_packets++;
--	stats->rx_bytes += skb->len;
--	u64_stats_update_end(&stats->syncp);
--
--	netif_rx(skb);
--
--	return;
--drop:
--	/* Consume bad packet */
--	kfree_skb(skb);
--}
--
- static int arp_reduce(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
-@@ -1681,7 +1676,7 @@ static int vxlan6_xmit_skb(struct dst_entry *dst, struct sock *sk,
- 			   struct sk_buff *skb,
- 			   struct net_device *dev, struct in6_addr *saddr,
- 			   struct in6_addr *daddr, __u8 prio, __u8 ttl,
--			   __be16 src_port, __be16 dst_port,
-+			   __be16 src_port, __be16 dst_port, __u32 vni,
- 			   struct vxlan_metadata *md, bool xnet, u32 vxflags)
- {
- 	struct vxlanhdr *vxh;
-@@ -1731,7 +1726,7 @@ static int vxlan6_xmit_skb(struct dst_entry *dst, struct sock *sk,
- 
- 	vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
- 	vxh->vx_flags = htonl(VXLAN_HF_VNI);
--	vxh->vx_vni = md->vni;
-+	vxh->vx_vni = vni;
- 
- 	if (type & SKB_GSO_TUNNEL_REMCSUM) {
- 		u32 data = (skb_checksum_start_offset(skb) - hdrlen) >>
-@@ -1766,7 +1761,7 @@ err:
- 
- static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
- 			  __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
--			  __be16 src_port, __be16 dst_port,
-+			  __be16 src_port, __be16 dst_port, __u32 vni,
- 			  struct vxlan_metadata *md, bool xnet, u32 vxflags)
- {
- 	struct vxlanhdr *vxh;
-@@ -1810,7 +1805,7 @@ static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *sk
- 
- 	vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
- 	vxh->vx_flags = htonl(VXLAN_HF_VNI);
--	vxh->vx_vni = md->vni;
-+	vxh->vx_vni = vni;
- 
- 	if (type & SKB_GSO_TUNNEL_REMCSUM) {
- 		u32 data = (skb_checksum_start_offset(skb) - hdrlen) >>
-@@ -2002,10 +1997,9 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- 		tos = ip_tunnel_ecn_encap(tos, old_iph, skb);
- 		ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
--		md->vni = htonl(vni << 8);
- 		err = vxlan_xmit_skb(rt, sk, skb, fl4.saddr,
- 				     dst->sin.sin_addr.s_addr, tos, ttl, df,
--				     src_port, dst_port, md,
-+				     src_port, dst_port, htonl(vni << 8), md,
- 				     !net_eq(vxlan->net, dev_net(vxlan->dev)),
- 				     flags);
- 		if (err < 0) {
-@@ -2060,11 +2054,10 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 		}
- 
- 		ttl = ttl ? : ip6_dst_hoplimit(ndst);
--		md->vni = htonl(vni << 8);
- 		md->gbp = skb->mark;
- 
- 		err = vxlan6_xmit_skb(ndst, sk, skb, dev, &fl6.saddr, &fl6.daddr,
--				      0, ttl, src_port, dst_port, md,
-+				      0, ttl, src_port, dst_port, htonl(vni << 8), md,
- 				      !net_eq(vxlan->net, dev_net(vxlan->dev)),
- 				      vxlan->flags);
- #endif
-@@ -2257,8 +2250,8 @@ static int vxlan_open(struct net_device *dev)
- 	struct vxlan_sock *vs;
- 	int ret = 0;
- 
--	vs = vxlan_sock_add(vxlan->net, vxlan->cfg.dst_port, vxlan_rcv,
--			    NULL, vxlan->cfg.no_share, vxlan->flags);
-+	vs = vxlan_sock_add(vxlan->net, vxlan->cfg.dst_port,
-+			    vxlan->cfg.no_share, vxlan->flags);
- 	if (IS_ERR(vs))
- 		return PTR_ERR(vs);
- 
-@@ -2557,7 +2550,6 @@ static struct socket *vxlan_create_sock(struct net *net, bool ipv6,
- 
- /* Create new listen socket if needed */
- static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
--					      vxlan_rcv_t *rcv, void *data,
- 					      u32 flags)
- {
- 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
-@@ -2586,8 +2578,6 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
- 
- 	vs->sock = sock;
- 	atomic_set(&vs->refcnt, 1);
--	vs->rcv = rcv;
--	vs->data = data;
- 	vs->flags = (flags & VXLAN_F_RCV_FLAGS);
- 
- 	/* Initialize the vxlan udp offloads structure */
-@@ -2612,7 +2602,6 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
- }
- 
- static struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
--					 vxlan_rcv_t *rcv, void *data,
- 					 bool no_share, u32 flags)
- {
- 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
-@@ -2623,7 +2612,7 @@ static struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
- 		spin_lock(&vn->sock_lock);
- 		vs = vxlan_find_sock(net, ipv6 ? AF_INET6 : AF_INET, port,
- 				     flags);
--		if (vs && vs->rcv == rcv) {
-+		if (vs) {
- 			if (!atomic_add_unless(&vs->refcnt, 1, 0))
- 				vs = ERR_PTR(-EBUSY);
- 			spin_unlock(&vn->sock_lock);
-@@ -2632,7 +2621,7 @@ static struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
- 		spin_unlock(&vn->sock_lock);
- 	}
- 
--	return vxlan_socket_create(net, port, rcv, data, flags);
-+	return vxlan_socket_create(net, port, flags);
- }
- 
- static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index d3ce81f..c157c5d 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -100,19 +100,12 @@ struct vxlanhdr {
- #define FDB_HASH_SIZE	(1<<FDB_HASH_BITS)
- 
- struct vxlan_metadata {
--	__be32		vni;
- 	u32		gbp;
- };
- 
--struct vxlan_sock;
--typedef void (vxlan_rcv_t)(struct vxlan_sock *vh, struct sk_buff *skb,
--			   struct vxlan_metadata *md);
--
- /* per UDP socket information */
- struct vxlan_sock {
- 	struct hlist_node hlist;
--	vxlan_rcv_t	 *rcv;
--	void		 *data;
- 	struct work_struct del_work;
- 	struct socket	 *sock;
- 	struct rcu_head	  rcu;
--- 
-2.3.5
+VGhpcyBhbGxvd3MgdG8gZ2V0IHJpZCBvZiB0aGUgZ2V0X25hbWUoKSB2cG9ydCBvcHMgbGF0ZXIg
+b24uCgpTaWduZWQtb2ZmLWJ5OiBUaG9tYXMgR3JhZiA8dGdyYWZAc3V1Zy5jaD4KLS0tCiBuZXQv
+b3BlbnZzd2l0Y2gvZGF0YXBhdGguYyAgICAgICAgICAgfCA0ICsrLS0KIG5ldC9vcGVudnN3aXRj
+aC92cG9ydC1pbnRlcm5hbF9kZXYuYyB8IDEgLQogbmV0L29wZW52c3dpdGNoL3Zwb3J0LW5ldGRl
+di5jICAgICAgIHwgNiAtLS0tLS0KIG5ldC9vcGVudnN3aXRjaC92cG9ydC1uZXRkZXYuaCAgICAg
+ICB8IDEgLQogbmV0L29wZW52c3dpdGNoL3Zwb3J0LmMgICAgICAgICAgICAgIHwgNCArKy0tCiBu
+ZXQvb3BlbnZzd2l0Y2gvdnBvcnQuaCAgICAgICAgICAgICAgfCA1ICsrKysrCiA2IGZpbGVzIGNo
+YW5nZWQsIDkgaW5zZXJ0aW9ucygrKSwgMTIgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvbmV0
+L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgYi9uZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYwppbmRl
+eCBjM2VjZmQ0Li44OTg2NTU4IDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGgu
+YworKysgYi9uZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYwpAQCAtMTc2LDcgKzE3Niw3IEBAIHN0
+YXRpYyBpbmxpbmUgc3RydWN0IGRhdGFwYXRoICpnZXRfZHAoc3RydWN0IG5ldCAqbmV0LCBpbnQg
+ZHBfaWZpbmRleCkKIGNvbnN0IGNoYXIgKm92c19kcF9uYW1lKGNvbnN0IHN0cnVjdCBkYXRhcGF0
+aCAqZHApCiB7CiAJc3RydWN0IHZwb3J0ICp2cG9ydCA9IG92c192cG9ydF9vdnNsX3JjdShkcCwg
+T1ZTUF9MT0NBTCk7Ci0JcmV0dXJuIHZwb3J0LT5vcHMtPmdldF9uYW1lKHZwb3J0KTsKKwlyZXR1
+cm4gb3ZzX3Zwb3J0X25hbWUodnBvcnQpOwogfQogCiBzdGF0aWMgaW50IGdldF9kcGlmaW5kZXgo
+Y29uc3Qgc3RydWN0IGRhdGFwYXRoICpkcCkKQEAgLTE3ODYsNyArMTc4Niw3IEBAIHN0YXRpYyBp
+bnQgb3ZzX3Zwb3J0X2NtZF9maWxsX2luZm8oc3RydWN0IHZwb3J0ICp2cG9ydCwgc3RydWN0IHNr
+X2J1ZmYgKnNrYiwKIAlpZiAobmxhX3B1dF91MzIoc2tiLCBPVlNfVlBPUlRfQVRUUl9QT1JUX05P
+LCB2cG9ydC0+cG9ydF9ubykgfHwKIAkgICAgbmxhX3B1dF91MzIoc2tiLCBPVlNfVlBPUlRfQVRU
+Ul9UWVBFLCB2cG9ydC0+b3BzLT50eXBlKSB8fAogCSAgICBubGFfcHV0X3N0cmluZyhza2IsIE9W
+U19WUE9SVF9BVFRSX05BTUUsCi0JCQkgICB2cG9ydC0+b3BzLT5nZXRfbmFtZSh2cG9ydCkpKQor
+CQkJICAgb3ZzX3Zwb3J0X25hbWUodnBvcnQpKSkKIAkJZ290byBubGFfcHV0X2ZhaWx1cmU7CiAK
+IAlvdnNfdnBvcnRfZ2V0X3N0YXRzKHZwb3J0LCAmdnBvcnRfc3RhdHMpOwpkaWZmIC0tZ2l0IGEv
+bmV0L29wZW52c3dpdGNoL3Zwb3J0LWludGVybmFsX2Rldi5jIGIvbmV0L29wZW52c3dpdGNoL3Zw
+b3J0LWludGVybmFsX2Rldi5jCmluZGV4IGEyYzIwNWQuLmMwNThiYmYgMTAwNjQ0Ci0tLSBhL25l
+dC9vcGVudnN3aXRjaC92cG9ydC1pbnRlcm5hbF9kZXYuYworKysgYi9uZXQvb3BlbnZzd2l0Y2gv
+dnBvcnQtaW50ZXJuYWxfZGV2LmMKQEAgLTI0Miw3ICsyNDIsNiBAQCBzdGF0aWMgc3RydWN0IHZw
+b3J0X29wcyBvdnNfaW50ZXJuYWxfdnBvcnRfb3BzID0gewogCS50eXBlCQk9IE9WU19WUE9SVF9U
+WVBFX0lOVEVSTkFMLAogCS5jcmVhdGUJCT0gaW50ZXJuYWxfZGV2X2NyZWF0ZSwKIAkuZGVzdHJv
+eQk9IGludGVybmFsX2Rldl9kZXN0cm95LAotCS5nZXRfbmFtZQk9IG92c19uZXRkZXZfZ2V0X25h
+bWUsCiAJLnNlbmQJCT0gaW50ZXJuYWxfZGV2X3JlY3YsCiB9OwogCmRpZmYgLS1naXQgYS9uZXQv
+b3BlbnZzd2l0Y2gvdnBvcnQtbmV0ZGV2LmMgYi9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtbmV0ZGV2
+LmMKaW5kZXggY2IyMjA1MS4uZWYxMWE0MSAxMDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL3Zw
+b3J0LW5ldGRldi5jCisrKyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC1uZXRkZXYuYwpAQCAtMTcw
+LDExICsxNzAsNiBAQCBzdGF0aWMgdm9pZCBuZXRkZXZfZGVzdHJveShzdHJ1Y3QgdnBvcnQgKnZw
+b3J0KQogCWNhbGxfcmN1KCZ2cG9ydC0+cmN1LCBmcmVlX3BvcnRfcmN1KTsKIH0KIAotY29uc3Qg
+Y2hhciAqb3ZzX25ldGRldl9nZXRfbmFtZShjb25zdCBzdHJ1Y3QgdnBvcnQgKnZwb3J0KQotewot
+CXJldHVybiB2cG9ydC0+ZGV2LT5uYW1lOwotfQotCiBzdGF0aWMgdW5zaWduZWQgaW50IHBhY2tl
+dF9sZW5ndGgoY29uc3Qgc3RydWN0IHNrX2J1ZmYgKnNrYikKIHsKIAl1bnNpZ25lZCBpbnQgbGVu
+Z3RoID0gc2tiLT5sZW4gLSBFVEhfSExFTjsKQEAgLTIyMiw3ICsyMTcsNiBAQCBzdGF0aWMgc3Ry
+dWN0IHZwb3J0X29wcyBvdnNfbmV0ZGV2X3Zwb3J0X29wcyA9IHsKIAkudHlwZQkJPSBPVlNfVlBP
+UlRfVFlQRV9ORVRERVYsCiAJLmNyZWF0ZQkJPSBuZXRkZXZfY3JlYXRlLAogCS5kZXN0cm95CT0g
+bmV0ZGV2X2Rlc3Ryb3ksCi0JLmdldF9uYW1lCT0gb3ZzX25ldGRldl9nZXRfbmFtZSwKIAkuc2Vu
+ZAkJPSBuZXRkZXZfc2VuZCwKIH07CiAKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC92cG9y
+dC1uZXRkZXYuaCBiL25ldC9vcGVudnN3aXRjaC92cG9ydC1uZXRkZXYuaAppbmRleCAxYzUyYWVk
+Li42ODRmYjg4IDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtbmV0ZGV2LmgKKysr
+IGIvbmV0L29wZW52c3dpdGNoL3Zwb3J0LW5ldGRldi5oCkBAIC0yNiw3ICsyNiw2IEBACiAKIHN0
+cnVjdCB2cG9ydCAqb3ZzX25ldGRldl9nZXRfdnBvcnQoc3RydWN0IG5ldF9kZXZpY2UgKmRldik7
+CiAKLWNvbnN0IGNoYXIgKm92c19uZXRkZXZfZ2V0X25hbWUoY29uc3Qgc3RydWN0IHZwb3J0ICop
+Owogdm9pZCBvdnNfbmV0ZGV2X2RldGFjaF9kZXYoc3RydWN0IHZwb3J0ICopOwogCiBpbnQgX19p
+bml0IG92c19uZXRkZXZfaW5pdCh2b2lkKTsKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC92
+cG9ydC5jIGIvbmV0L29wZW52c3dpdGNoL3Zwb3J0LmMKaW5kZXggYWYyM2JhMC4uZDE0ZjU5NCAx
+MDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL3Zwb3J0LmMKKysrIGIvbmV0L29wZW52c3dpdGNo
+L3Zwb3J0LmMKQEAgLTExMyw3ICsxMTMsNyBAQCBzdHJ1Y3QgdnBvcnQgKm92c192cG9ydF9sb2Nh
+dGUoY29uc3Qgc3RydWN0IG5ldCAqbmV0LCBjb25zdCBjaGFyICpuYW1lKQogCXN0cnVjdCB2cG9y
+dCAqdnBvcnQ7CiAKIAlobGlzdF9mb3JfZWFjaF9lbnRyeV9yY3UodnBvcnQsIGJ1Y2tldCwgaGFz
+aF9ub2RlKQotCQlpZiAoIXN0cmNtcChuYW1lLCB2cG9ydC0+b3BzLT5nZXRfbmFtZSh2cG9ydCkp
+ICYmCisJCWlmICghc3RyY21wKG5hbWUsIG92c192cG9ydF9uYW1lKHZwb3J0KSkgJiYKIAkJICAg
+IG5ldF9lcShvdnNfZHBfZ2V0X25ldCh2cG9ydC0+ZHApLCBuZXQpKQogCQkJcmV0dXJuIHZwb3J0
+OwogCkBAIC0yMjYsNyArMjI2LDcgQEAgc3RydWN0IHZwb3J0ICpvdnNfdnBvcnRfYWRkKGNvbnN0
+IHN0cnVjdCB2cG9ydF9wYXJtcyAqcGFybXMpCiAJCX0KIAogCQlidWNrZXQgPSBoYXNoX2J1Y2tl
+dChvdnNfZHBfZ2V0X25ldCh2cG9ydC0+ZHApLAotCQkJCSAgICAgdnBvcnQtPm9wcy0+Z2V0X25h
+bWUodnBvcnQpKTsKKwkJCQkgICAgIG92c192cG9ydF9uYW1lKHZwb3J0KSk7CiAJCWhsaXN0X2Fk
+ZF9oZWFkX3JjdSgmdnBvcnQtPmhhc2hfbm9kZSwgYnVja2V0KTsKIAkJcmV0dXJuIHZwb3J0Owog
+CX0KZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC92cG9ydC5oIGIvbmV0L29wZW52c3dpdGNo
+L3Zwb3J0LmgKaW5kZXggZTA1ZWM2OC4uMWE2ODljMiAxMDA2NDQKLS0tIGEvbmV0L29wZW52c3dp
+dGNoL3Zwb3J0LmgKKysrIGIvbmV0L29wZW52c3dpdGNoL3Zwb3J0LmgKQEAgLTIzNyw2ICsyMzcs
+MTEgQEAgc3RhdGljIGlubGluZSB2b2lkIG92c19za2JfcG9zdHB1c2hfcmNzdW0oc3RydWN0IHNr
+X2J1ZmYgKnNrYiwKIAkJc2tiLT5jc3VtID0gY3N1bV9hZGQoc2tiLT5jc3VtLCBjc3VtX3BhcnRp
+YWwoc3RhcnQsIGxlbiwgMCkpOwogfQogCitzdGF0aWMgaW5saW5lIGNvbnN0IGNoYXIgKm92c192
+cG9ydF9uYW1lKHN0cnVjdCB2cG9ydCAqdnBvcnQpCit7CisJcmV0dXJuIHZwb3J0LT5kZXYgPyB2
+cG9ydC0+ZGV2LT5uYW1lIDogdnBvcnQtPm9wcy0+Z2V0X25hbWUodnBvcnQpOworfQorCiBpbnQg
+b3ZzX3Zwb3J0X29wc19yZWdpc3RlcihzdHJ1Y3QgdnBvcnRfb3BzICpvcHMpOwogdm9pZCBvdnNf
+dnBvcnRfb3BzX3VucmVnaXN0ZXIoc3RydWN0IHZwb3J0X29wcyAqb3BzKTsKIAotLSAKMi4zLjUK
+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWls
+aW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxt
+YW4vbGlzdGluZm8vZGV2Cg==
