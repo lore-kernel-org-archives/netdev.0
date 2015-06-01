@@ -1,45 +1,65 @@
-From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-Subject: Re: [cdc_ncm] guidance and help refactoring cdc_ncm
-Date: Mon, 01 Jun 2015 09:48:26 +0200
-Message-ID: <1433144906.1557.2.camel@suse.com>
-References: <alpine.LNX.2.20.1505311628420.16456@localhost.localdomain>
-	 <20150601005917.GB5320@kroah.com>
-	 <alpine.LNX.2.20.1506010818110.3158@localhost.localdomain>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: 2.6.32.66 tcp regression OOPs
+Date: Mon, 1 Jun 2015 09:49:22 +0200
+Message-ID: <20150601074922.GA28740@1wt.eu>
+References: <6.2.5.6.2.20150531210751.0722ad10@binnacle.cx> <CAH6sp9O9sqKuamwF38JZLh+K2QKXNB7RRJ8cPtz+1h6MV7foYg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LNX.2.20.1506010818110.3158-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: starlight.2015q2@binnacle.cx,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Frans Klaver <fransklaver@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:55090 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750936AbbFAHt2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Jun 2015 03:49:28 -0400
+Content-Disposition: inline
+In-Reply-To: <CAH6sp9O9sqKuamwF38JZLh+K2QKXNB7RRJ8cPtz+1h6MV7foYg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-06-01 at 08:53 +0200, Enrico Mioso wrote:
+Hi,
 
-> A 32-bit version of the driver (talking 32-bit NCM) is here:
-> http://www.gstorm.eu/cdc_ncm.c
-> I modified the original driver with the help of a very talented friend.
-> It works: but there seem to be no real reasons to implement this properly. We 
-> did this in a consistent effort to understand what was wrong, and here it is.
+On Mon, Jun 01, 2015 at 09:00:21AM +0200, Frans Klaver wrote:
+> [cc: Willy Tarreau]
+> 
+> On Mon, Jun 1, 2015 at 3:26 AM,  <starlight.2015q2@binnacle.cx> wrote:
+> > Hello,
+> >
+> > Apoligies if I have submitted to the wrong lists.
+> >
+> > Encountered a regression in
+> > 2.6.32.66 relative to 2.6.32.65.
+> >
+> > Crash eight minutes after boot.
+> >
+> > Will responded with additional details
+> > if the OOPS is not sufficent.
+> >
+> > Best Regards
+> >
+> 
+> Did you bisect it?
 
-Well, you are really talking about two different things here.
-Do we ever fail because we only do 16 bit as opposed to 32 bit?
-Your 32 bit driver looks good, but it raises the question of what to do
-if this test:
+Eric Dumazet notified me that of something possibly similar due to
+a mistake I made when backporting a fix by hand.
 
-        if (le16_to_cpu(ctx->ncm_parm.bmNtbFormatsSupported) &
-                                                USB_CDC_NCM_NTB32_SUPPORTED) {
+Please apply the following patch to see if it fixes the problem :
 
-fails. Otherwise it looks ready for merging.
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c                      
+index 5339f066234b..d1e2895bb63c 100644                                         
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2136,7 +2136,7 @@ void tcp_send_fin(struct sock *sk)
+	 */
+	if (tskb && (tcp_send_head(sk) || tcp_memory_pressure)) {
+ coalesce:
+-		TCP_SKB_CB(skb)->flags |= TCPCB_FLAG_FIN;
++		TCP_SKB_CB(tskb)->flags |= TCPCB_FLAG_FIN;
+		TCP_SKB_CB(tskb)->end_seq++;
+		tp->write_seq++;
+	if (!tcp_send_head(sk)) {
 
-	Regards
-		Oliver
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Willy
