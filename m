@@ -1,49 +1,39 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH/RFC net-next] rocker: remove rocker parameter from
- functions that have rocker_port parameter
-Date: Mon, 1 Jun 2015 13:25:25 +0900
-Message-ID: <20150601042522.GA6026@vergenet.net>
-References: <1432783397-12868-1-git-send-email-simon.horman@netronome.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CB417A2@AcuExch.aculab.com>
- <CAE4R7bC7qt9LhDqvpb-ZvWB6te=nf4DgXrC0T4NT7DX2yrCgrw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] xen: netback: fix error printf format string.
+Date: Sun, 31 May 2015 21:26:18 -0700 (PDT)
+Message-ID: <20150531.212618.1162284397803953903.davem@davemloft.net>
+References: <1432916524-20881-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@aculab.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	wei.liu2@citrix.com
+To: ian.campbell@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:35220 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758711AbbFAEZe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 00:25:34 -0400
-Received: by pdbnf5 with SMTP id nf5so37087879pdb.2
-        for <netdev@vger.kernel.org>; Sun, 31 May 2015 21:25:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bC7qt9LhDqvpb-ZvWB6te=nf4DgXrC0T4NT7DX2yrCgrw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45144 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758539AbbFAE0U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 00:26:20 -0400
+In-Reply-To: <1432916524-20881-1-git-send-email-ian.campbell@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 28, 2015 at 08:53:20AM -0700, Scott Feldman wrote:
-> On Thu, May 28, 2015 at 2:18 AM, David Laight <David.Laight@aculab.com> wrote:
-> > From: Simon Horman
-> >> Sent: 28 May 2015 04:23
-> >> The rocker (switch) of a rocker_port may be trivially obtained from
-> >> the latter it seems cleaner not to pass the former to a function when
-> >> the latter is being passed anyway.
-> >
-> > If the arguments are passed in registers (they almost certainly are)
-> > or the function is inlined (possible since they are static) and
-> > the calling code already has both values in registers then
-> > passing both values saves a memory read inside the called code.
-> >
-> > So on 'hot paths' it probably makes sense to pass both values.
-> 
-> Agreed, and Simon's patch is 99% cold path, so I'd rather trade
-> clarity in the code than saving a nanosec in a driver cold path.
-> 
-> Simon, would you respin, remove rocker_port_rx_proc() changes, remove
-> RFC, and add my ack?  rocker_port_rx_proc() was the only hot path case
-> I found.
-
-Sure, that seems reasonable to me. I have done so.
+RnJvbTogSWFuIENhbXBiZWxsIDxpYW4uY2FtcGJlbGxAY2l0cml4LmNvbT4NCkRhdGU6IEZyaSwg
+MjkgTWF5IDIwMTUgMTc6MjI6MDQgKzAxMDANCg0KPiBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9u
+ZXRiYWNrLmM6IEluIGZ1bmN0aW9uIKF4ZW52aWZfdHhfYnVpbGRfZ29wc6I6DQo+IGRyaXZlcnMv
+bmV0L3hlbi1uZXRiYWNrL25ldGJhY2suYzoxMjUzOjg6IHdhcm5pbmc6IGZvcm1hdCChJWx1oiBl
+eHBlY3RzIGFyZ3VtZW50IG9mIHR5cGUgoWxvbmcgdW5zaWduZWQgaW50oiwgYnV0IGFyZ3VtZW50
+IDUgaGFzIHR5cGUgoWludKIgWy1XZm9ybWF0PV0NCj4gICAgICAgICAodHhyZXEub2Zmc2V0Jn5Q
+QUdFX01BU0spICsgdHhyZXEuc2l6ZSk7DQo+ICAgICAgICAgXg0KPiANCj4gdHhyZXEub2Zmc2V0
+IGFuZCAuc2l6ZSBhcmUgdWludDE2X3QgZmllbGRzLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogSWFu
+IENhbXBiZWxsIDxpYW4uY2FtcGJlbGxAY2l0cml4LmNvbT4NCg0KVGhpcyBtYXkgZ2V0IHJpZCBv
+ZiB0aGUgY29tcGlsZXIgd2FybmluZyBvbiB5b3VyIG1hY2hpbmUsIGJ1dCBpdCBjcmVhdGVzDQpv
+bmUgb24gbWluZToNCg0KZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jOiBJbiBmdW5j
+dGlvbiCheGVudmlmX3R4X2J1aWxkX2dvcHOiOg0KZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0
+YmFjay5jOjEyNTM6ODogd2FybmluZzogZm9ybWF0IKEldaIgZXhwZWN0cyBhcmd1bWVudCBvZiB0
+eXBlIKF1bnNpZ25lZCBpbnSiLCBidXQgYXJndW1lbnQgNSBoYXMgdHlwZSChbG9uZyB1bnNpZ25l
+ZCBpbnSiIFstV2Zvcm1hdD1dDQogICAgICAgICh0eHJlcS5vZmZzZXQmflBBR0VfTUFTSykgKyB0
+eHJlcS5zaXplKTsNCiAgICAgICAgXg0KDQpUaGVyZSBpcyBhIHR5cGUgaW52b2x2ZWQgaW4gdGhp
+cyBjYWxjdWxhdGlvbiB3aGljaCBpcyBhcmNoDQpkZXBlbmRlbnQsIHNvIHlvdSdsbCBuZWVkIHRv
+IGFkZCBhIGNhc3Qgb3Igc29tZXRoaW5nIHRvDQptYWtlIHRoaXMgd2FybmluZyBnbyBhd2F5IGlu
+IGFsbCBjYXNlcy4NCg0K
