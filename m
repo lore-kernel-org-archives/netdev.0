@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: core: 'ethtool' issue with querying phy
- settings
-Date: Mon, 01 Jun 2015 16:55:39 -0700 (PDT)
-Message-ID: <20150601.165539.1936083661032448096.davem@davemloft.net>
-References: <556CD197.8070401@broadcom.com>
-	<20150601.144635.1116373189875340733.davem@davemloft.net>
-	<556CF06F.7040402@broadcom.com>
+Subject: Re: [PATCH net] Netfilter fix for net
+Date: Mon, 01 Jun 2015 16:57:36 -0700 (PDT)
+Message-ID: <20150601.165736.2160584190989701208.davem@davemloft.net>
+References: <1433181242-22768-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: ben@decadent.org.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	bcm-kernel-feedback-list@broadcom.com, rjui@broadcom.com,
-	sbranden@broadcom.com, jdzheng@broadcom.com
-To: aparames@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <556CF06F.7040402@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53637 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752228AbbFAX5i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 19:57:38 -0400
+In-Reply-To: <1433181242-22768-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQXJ1biBQYXJhbWVzd2FyYW4gPGFwYXJhbWVzQGJyb2FkY29tLmNvbT4NCkRhdGU6IE1v
-biwgMSBKdW4gMjAxNSAxNjo1MzoxOSAtMDcwMA0KDQo+IEp1c3Qgc28gdGhhdCBJIGRvbqJ0IG1h
-a2UgdGhpcyBtaXN0YWtlIGluIHRoZSBmdXR1cmUgYW5kIHRvDQo+IHVuZGVyc3RhbmQgdGhpcyBi
-ZXR0ZXIsIGRvZXMgdGhpcyBtZWFuIHRoYXQgdGhlICdwaHlhZCcgcGFyYW1ldGVyDQo+IHNwZWNp
-ZmllZCBpbiB0aGUgJ2V0aHRvb2wnIGNvbW1hbmQgbGluZSBpcyBpZ25vcmVkID8NCg0KSXQgY2Fu
-bm90IHNlcnZlIGFueSB2YWxpZCBwdXJwb3NlIGZvciBhIEdFVCwgc28geWVzLg0K
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Mon,  1 Jun 2015 19:54:01 +0200
+
+> The following patch reverts the ebtables chunk that enforces counters that was
+> introduced in the recently applied d26e2c9ffa38 ('Revert "netfilter: ensure
+> number of counters is >0 in do_replace()"') since this breaks ebtables.
+> 
+> You can pull this change from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+
+Pulled, thanks Pablo.
