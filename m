@@ -1,55 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] xen: netback: read hotplug script once at start
- of day.
-Date: Mon, 01 Jun 2015 12:03:38 -0700 (PDT)
-Message-ID: <20150601.120338.110050240723168805.davem@davemloft.net>
-References: <1433154624-28123-1-git-send-email-ian.campbell@citrix.com>
+Subject: Re: [PATCH v2] xen: netback: fix printf format string warning
+Date: Mon, 01 Jun 2015 12:03:43 -0700 (PDT)
+Message-ID: <20150601.120343.1122621914202084967.davem@davemloft.net>
+References: <1433154604-27997-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	wei.liu2@citrix.com, david.vrabel@citrix.com
+	wei.liu2@citrix.com
 To: ian.campbell@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51904 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51910 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751474AbbFATDj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 15:03:39 -0400
-In-Reply-To: <1433154624-28123-1-git-send-email-ian.campbell@citrix.com>
+	with ESMTP id S1751233AbbFATDo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 15:03:44 -0400
+In-Reply-To: <1433154604-27997-1-git-send-email-ian.campbell@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <ian.campbell@citrix.com>
-Date: Mon, 1 Jun 2015 11:30:24 +0100
-
-> When we come to tear things down in netback_remove() and generate the
-> uevent it is possible that the xenstore directory has already been
-> removed (details below).
-> 
-> In such cases netback_uevent() won't be able to read the hotplug
-> script and will write a xenstore error node.
-> 
-> A recent change to the hypervisor exposed this race such that we now
-> sometimes lose it (where apparently we didn't ever before).
-> 
-> Instead read the hotplug script configuration during setup and use it
-> for the lifetime of the backend device.
-> 
-> The apparently more obvious fix of moving the transition to
-> state=Closed in netback_remove() to after the uevent does not work
-> because it is possible that we are already in state=Closed (in
-> reaction to the guest having disconnected as it shutdown). Being
-> already in Closed means the toolstack is at liberty to start tearing
-> down the xenstore directories. In principal it might be possible to
-> arrange to unregister the device sooner (e.g on transition to Closing)
-> such that xenstore would still be there but this state machine is
-> fragile and prone to anger...
-> 
-> A modern Xen system only relies on the hotplug uevent for driver
-> domains, when the backend is in the same domain as the toolstack it
-> will run the necessary setup/teardown directly in the correct sequence
-> wrt xenstore changes.
-> 
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-
-Applied and queued up for -stable, thanks.
+RnJvbTogSWFuIENhbXBiZWxsIDxpYW4uY2FtcGJlbGxAY2l0cml4LmNvbT4NCkRhdGU6IE1vbiwg
+MSBKdW4gMjAxNSAxMTozMDowNCArMDEwMA0KDQo+IGRyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL25l
+dGJhY2suYzogSW4gZnVuY3Rpb24goXhlbnZpZl90eF9idWlsZF9nb3BzojoNCj4gZHJpdmVycy9u
+ZXQveGVuLW5ldGJhY2svbmV0YmFjay5jOjEyNTM6ODogd2FybmluZzogZm9ybWF0IKElbHWiIGV4
+cGVjdHMgYXJndW1lbnQgb2YgdHlwZSChbG9uZyB1bnNpZ25lZCBpbnSiLCBidXQgYXJndW1lbnQg
+NSBoYXMgdHlwZSChaW50oiBbLVdmb3JtYXQ9XQ0KPiAgICAgICAgICh0eHJlcS5vZmZzZXQmflBB
+R0VfTUFTSykgKyB0eHJlcS5zaXplKTsNCj4gICAgICAgICBeDQo+IA0KPiBQQUdFX01BU0sncyB0
+eXBlIGNhbiB2YXJ5IGJ5IGFyY2gsIHNvIGEgY2FzdCBpcyBuZWVkZWQuDQo+IA0KPiBTaWduZWQt
+b2ZmLWJ5OiBJYW4gQ2FtcGJlbGwgPGlhbi5jYW1wYmVsbEBjaXRyaXguY29tPg0KPiAtLS0tDQo+
+IHYyOiBDYXN0IHRvIHVuc2lnbmVkIGxvbmcsIHNpbmNlIFBBR0VfTUFTSyBjYW4gdmFyeSBieSBh
+cmNoLg0KDQpBcHBsaWVkLg0K
