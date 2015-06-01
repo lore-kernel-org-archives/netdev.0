@@ -1,8 +1,8 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next v2 10/14] sfc: suppress vadaptor stats when EVB is
- not present
-Date: Mon, 1 Jun 2015 14:02:50 +0100
-Message-ID: <556C57FA.1060805@solarflare.com>
+Subject: [PATCH net-next v2 11/14] sfc: don't update stats on VF when called
+ in atomic context
+Date: Mon, 1 Jun 2015 14:03:04 +0100
+Message-ID: <556C5808.8010806@solarflare.com>
 References: <556C5704.4060901@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -10,67 +10,66 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:7208 "EHLO
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:53511 "EHLO
 	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752440AbbFANDJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 09:03:09 -0400
+	by vger.kernel.org with ESMTP id S1752814AbbFANDP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 09:03:15 -0400
 In-Reply-To: <556C5704.4060901@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Daniel Pieczko <dpieczko@solarflare.com>
 
-The raw_mask array is not initialised, so it needs to be
-explicitly set to zero in the 'else' branch.
+The ifenslave command to set up a bond runs in an atomic
+context, and it queries the stats on the devices that are
+being enslaved. A VF needs to make an MCDI call to update
+its stats, which is not allowed in atomic context.
 
-If the EVB capability is not present, a port cannot have multiple
-functions so the per-port MAC stats are correct and should match
-the corresponding vadaptor stats, so this redundancy can be
-removed from the ethtool stats output.
+The releasing of the stats_lock is moved to the beginning of
+the VF stats update function so that in_interrupt() can be
+used; it must be taken again before returning from this
+function.
 
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c      | 12 +++++++++---
- drivers/net/ethernet/sfc/mcdi_pcol.h |  2 ++
- 2 files changed, 11 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index cb4c972..39d0cf1 100644
+index 39d0cf1..e73d7b5 100644
 --- a/drivers/net/ethernet/sfc/ef10.c
 +++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -1161,13 +1161,19 @@ static u64 efx_ef10_raw_stat_mask(struct efx_nic *efx)
+@@ -1305,11 +1305,24 @@ static int efx_ef10_try_update_nic_stats_vf(struct efx_nic *efx)
+ 	__le64 *dma_stats;
+ 	int rc;
  
- static void efx_ef10_get_stat_mask(struct efx_nic *efx, unsigned long *mask)
- {
-+	struct efx_ef10_nic_data *nic_data = efx->nic_data;
- 	u64 raw_mask[2];
++	spin_unlock_bh(&efx->stats_lock);
++
++	if (in_interrupt()) {
++		/* If in atomic context, cannot update stats.  Just update the
++		 * software stats and return so the caller can continue.
++		 */
++		spin_lock_bh(&efx->stats_lock);
++		efx_update_sw_stats(efx, stats);
++		return 0;
++	}
++
+ 	efx_ef10_get_stat_mask(efx, mask);
  
- 	raw_mask[0] = efx_ef10_raw_stat_mask(efx);
- 
--	/* All functions see the vadaptor stats */
--	raw_mask[0] |= ~((1ULL << EF10_STAT_rx_unicast) - 1);
--	raw_mask[1] = (1ULL << (EF10_STAT_COUNT - 63)) - 1;
-+	/* Only show vadaptor stats when EVB capability is present */
-+	if (nic_data->datapath_caps &
-+	    (1 << MC_CMD_GET_CAPABILITIES_OUT_EVB_LBN)) {
-+		raw_mask[0] |= ~((1ULL << EF10_STAT_rx_unicast) - 1);
-+		raw_mask[1] = (1ULL << (EF10_STAT_COUNT - 63)) - 1;
-+	} else {
-+		raw_mask[1] = 0;
+ 	rc = efx_nic_alloc_buffer(efx, &stats_buf, dma_len, GFP_ATOMIC);
+-	if (rc)
++	if (rc) {
++		spin_lock_bh(&efx->stats_lock);
+ 		return rc;
 +	}
  
- #if BITS_PER_LONG == 64
- 	mask[0] = raw_mask[0];
-diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
-index 181978d..45fca9f 100644
---- a/drivers/net/ethernet/sfc/mcdi_pcol.h
-+++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
-@@ -5600,6 +5600,8 @@
- #define        MC_CMD_GET_CAPABILITIES_OUT_MCAST_FILTER_CHAINING_WIDTH 1
- #define        MC_CMD_GET_CAPABILITIES_OUT_PM_AND_RXDP_COUNTERS_LBN 27
- #define        MC_CMD_GET_CAPABILITIES_OUT_PM_AND_RXDP_COUNTERS_WIDTH 1
-+#define        MC_CMD_GET_CAPABILITIES_OUT_EVB_LBN 30
-+#define        MC_CMD_GET_CAPABILITIES_OUT_EVB_WIDTH 1
- /* RxDPCPU firmware id. */
- #define       MC_CMD_GET_CAPABILITIES_OUT_RX_DPCPU_FW_ID_OFST 4
- #define       MC_CMD_GET_CAPABILITIES_OUT_RX_DPCPU_FW_ID_LEN 2
+ 	dma_stats = stats_buf.addr;
+ 	dma_stats[MC_CMD_MAC_GENERATION_END] = EFX_MC_STATS_GENERATION_INVALID;
+@@ -1320,7 +1333,6 @@ static int efx_ef10_try_update_nic_stats_vf(struct efx_nic *efx)
+ 	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_DMA_LEN, dma_len);
+ 	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_PORT_ID, EVB_PORT_ID_ASSIGNED);
+ 
+-	spin_unlock_bh(&efx->stats_lock);
+ 	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_MAC_STATS, inbuf, sizeof(inbuf),
+ 				NULL, 0, NULL);
+ 	spin_lock_bh(&efx->stats_lock);
