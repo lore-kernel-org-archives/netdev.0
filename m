@@ -1,110 +1,69 @@
-From: Junling Zheng <zhengjunling@huawei.com>
-Subject: [RFC] [PATCH] net: socket: Fix the wrong returns for recvmsg and sendmsg
-Date: Mon, 1 Jun 2015 09:28:00 +0000
-Message-ID: <1433150880-9976-1-git-send-email-zhengjunling@huawei.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v6 2/8] tun: add tun_is_little_endian() helper
+Date: Mon, 1 Jun 2015 12:29:43 +0200
+Message-ID: <20150601122910-mutt-send-email-mst@redhat.com>
+References: <20150424122211.19156.97626.stgit@bahia.local>
+	<20150424122435.19156.18985.stgit@bahia.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <lizefan@huawei.com>, <viro@zeniv.linux.org.uk>,
-	<davem@davemloft.net>, <xuhanbing@huawei.com>,
-	<stable@vger.kernel.org>, <netdev@vger.kernel.org>
-To: <gregkh@linuxfoundation.org>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Huth <thuth@redhat.com>, kvm@vger.kernel.org,
+	linux-api@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Greg Kurz <gkurz@linux.vnet.ibm.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20150424122435.19156.18985.stgit@bahia.local>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Greg:
+On Fri, Apr 24, 2015 at 02:24:38PM +0200, Greg Kurz wrote:
+> Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
 
-We found that after v3.10.73, recvmsg might return -EFAULT while -EINVAL
-was expected.
+Dave, could you please ack merging this through
+the virtio tree?
 
-We tested it through the recvmsg01 testcase come from LTP testsuit. It set
-msg->msg_namelen to -1 and the recvmsg syscall returned errno 14, which is
-unexpected (errno 22 is expected):
-
-recvmsg01    4  TFAIL  :  invalid socket length ; returned -1 (expected -1),
-errno 14 (expected 22)
-
-Linux mainline has no this bug for commit 08adb7dab fixes it accidentally.
-However, it is too large and complex to be backported to LTS 3.10.
-
-So, I made the following patch to fix the above problem for LTS 3.10.
-
-Cheers,
-
-Junling
-
-============
-
-Commit 281c9c36 (net: compat: Update get_compat_msghdr() to match
-copy_msghdr_from_user() behaviour) made get_compat_msghdr() return
-error if msg_sys->msg_namelen was negative, which changed the behaviors
-of recvmsg and sendmsg syscall in a lib32 system:
-
-Before commit 281c9c36, get_compat_msghdr() wouldn't fail and it would
-return -EINVAL in move_addr_to_user() or somewhere if msg_sys->msg_namelen
-was invalid and then syscall returned -EINVAL, which is correct.
-
-And now, when msg_sys->msg_namelen is negative, get_compat_msghdr() will
-fail and wants to return -EINVAL, however, the outer syscall will return
--EFAULT directly, which is unexpected.
-
-This patch gets the return value of get_compat_msghdr() as well as
-copy_msghdr_from_user(), then returns this expected value if
-get_compat_msghdr() fails.
-
-Fixes: 281c9c36 (net: compat: Update get_compat_msghdr() to match copy_msghdr_from_user() behaviour)
-Signed-off-by: Junling Zheng <zhengjunling@huawei.com>
-Signed-off-by: Hanbing Xu <xuhanbing@huawei.com>
-Cc: Li Zefan <lizefan@huawei.com>
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: David Miller <davem@davemloft.net>
----
- net/socket.c | 24 ++++++++++--------------
- 1 file changed, 10 insertions(+), 14 deletions(-)
-
-diff --git a/net/socket.c b/net/socket.c
-index fc90b4f..53b6e41 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1988,14 +1988,12 @@ static int ___sys_sendmsg(struct socket *sock, struct msghdr __user *msg,
- 	int err, ctl_len, total_len;
- 
- 	err = -EFAULT;
--	if (MSG_CMSG_COMPAT & flags) {
--		if (get_compat_msghdr(msg_sys, msg_compat))
--			return -EFAULT;
--	} else {
-+	if (MSG_CMSG_COMPAT & flags)
-+		err = get_compat_msghdr(msg_sys, msg_compat);
-+	else
- 		err = copy_msghdr_from_user(msg_sys, msg);
--		if (err)
--			return err;
--	}
-+	if (err)
-+		return err;
- 
- 	if (msg_sys->msg_iovlen > UIO_FASTIOV) {
- 		err = -EMSGSIZE;
-@@ -2200,14 +2198,12 @@ static int ___sys_recvmsg(struct socket *sock, struct msghdr __user *msg,
- 	struct sockaddr __user *uaddr;
- 	int __user *uaddr_len;
- 
--	if (MSG_CMSG_COMPAT & flags) {
--		if (get_compat_msghdr(msg_sys, msg_compat))
--			return -EFAULT;
--	} else {
-+	if (MSG_CMSG_COMPAT & flags)
-+		err = get_compat_msghdr(msg_sys, msg_compat);
-+	else
- 		err = copy_msghdr_from_user(msg_sys, msg);
--		if (err)
--			return err;
--	}
-+	if (err)
-+		return err;
- 
- 	if (msg_sys->msg_iovlen > UIO_FASTIOV) {
- 		err = -EMSGSIZE;
--- 
-1.8.3.4
+> ---
+>  drivers/net/tun.c |    9 +++++++--
+>  1 file changed, 7 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 857dca4..3c3d6c0 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -206,14 +206,19 @@ struct tun_struct {
+>  	u32 flow_count;
+>  };
+>  
+> +static inline bool tun_is_little_endian(struct tun_struct *tun)
+> +{
+> +	return tun->flags & TUN_VNET_LE;
+> +}
+> +
+>  static inline u16 tun16_to_cpu(struct tun_struct *tun, __virtio16 val)
+>  {
+> -	return __virtio16_to_cpu(tun->flags & TUN_VNET_LE, val);
+> +	return __virtio16_to_cpu(tun_is_little_endian(tun), val);
+>  }
+>  
+>  static inline __virtio16 cpu_to_tun16(struct tun_struct *tun, u16 val)
+>  {
+> -	return __cpu_to_virtio16(tun->flags & TUN_VNET_LE, val);
+> +	return __cpu_to_virtio16(tun_is_little_endian(tun), val);
+>  }
+>  
+>  static inline u32 tun_hashfn(u32 rxhash)
+> 
+> _______________________________________________
+> Virtualization mailing list
+> Virtualization@lists.linux-foundation.org
+> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
