@@ -1,71 +1,69 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net] xen: netback: read hotplug script once at start of
- day.
-Date: Mon, 1 Jun 2015 10:07:04 +0100
-Message-ID: <20150601090704.GJ30474@zion.uk.xensource.com>
-References: <1432916693-21121-1-git-send-email-ian.campbell@citrix.com>
- <20150529173850.GI30474@zion.uk.xensource.com>
- <1433148765.15036.79.camel@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xen.org>,
-	<netdev@vger.kernel.org>, <david.vrabel@citrix.com>
-To: Ian Campbell <ian.campbell@citrix.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next] cxgb4: remove unused fn to enable/disable db coalescing
+Date: Mon,  1 Jun 2015 20:07:41 +0530
+Message-ID: <1433169461-19888-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:50981 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977AbbFAJHG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 05:07:06 -0400
-Content-Disposition: inline
-In-Reply-To: <1433148765.15036.79.camel@citrix.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:18601 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751468AbbFAJYb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 05:24:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 01, 2015 at 09:52:45AM +0100, Ian Campbell wrote:
-> On Fri, 2015-05-29 at 18:38 +0100, Wei Liu wrote:
-> > On Fri, May 29, 2015 at 05:24:53PM +0100, Ian Campbell wrote:
-> > [...]
-> > >  	if (be->vif != NULL)
-> > >  		return 0;
-> > > @@ -417,12 +409,23 @@ static int backend_create_xenvif(struct backend_info *be)
-> > >  		return (err < 0) ? err : -EINVAL;
-> > >  	}
-> > >  
-> > > +	script = xenbus_read(XBT_NIL, dev->nodename, "script", NULL);
-> > > +	if (IS_ERR(script)) {
-> > > +		int err = PTR_ERR(script);
-> > > +		xenbus_dev_fatal(dev, err, "reading script");
-> > > +		return err;
-> > > +	}
-> > > +
-> > >  	vif = xenvif_alloc(&dev->dev, dev->otherend_id, handle);
-> > >  	if (IS_ERR(vif)) {
-> > >  		err = PTR_ERR(vif);
-> > >  		xenbus_dev_fatal(dev, err, "creating interface");
-> > > +		kfree(script);
-> > >  		return err;
-> > >  	}
-> > > +
-> > > +	vif->hotplug_script = script;
-> > > +
-> > 
-> > IMO it's better we make xenvif_alloc accept a new parameter called
-> > "script" then allocate vif->hotplug_script there. Then free
-> > vif->hotplug_script in xenvif_free. This way it's less error prone
-> > because all memory allocated for vif is managed in proper place -
-> > xenvif_alloc and xenvif_free.
-> 
-> Well, except the allocation is still in xenbus_read via
-> backend_create_xenvif, but yes I think that refactoring would be an
-> improvement.
-> 
-> What about storing it in struct backend_info and setting/restoring in
-> netback_{probe,remove}? That might be best of all?
-> 
+Remove unused function cxgb4_enable_db_coalescing() and
+cxgb4_disable_db_coalescing()
 
-Yes, that would be best.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 19 -------------------
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |  2 --
+ 2 files changed, 21 deletions(-)
 
-Wei.
-
-> Ian.
-> 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 4f69b52..974b27c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -2069,25 +2069,6 @@ out:
+ }
+ EXPORT_SYMBOL(cxgb4_sync_txq_pidx);
+ 
+-void cxgb4_disable_db_coalescing(struct net_device *dev)
+-{
+-	struct adapter *adap;
+-
+-	adap = netdev2adap(dev);
+-	t4_set_reg_field(adap, SGE_DOORBELL_CONTROL_A, NOCOALESCE_F,
+-			 NOCOALESCE_F);
+-}
+-EXPORT_SYMBOL(cxgb4_disable_db_coalescing);
+-
+-void cxgb4_enable_db_coalescing(struct net_device *dev)
+-{
+-	struct adapter *adap;
+-
+-	adap = netdev2adap(dev);
+-	t4_set_reg_field(adap, SGE_DOORBELL_CONTROL_A, NOCOALESCE_F, 0);
+-}
+-EXPORT_SYMBOL(cxgb4_enable_db_coalescing);
+-
+ int cxgb4_read_tpte(struct net_device *dev, u32 stag, __be32 *tpte)
+ {
+ 	struct adapter *adap;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+index df34293..14e8110 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+@@ -298,8 +298,6 @@ struct sk_buff *cxgb4_pktgl_to_skb(const struct pkt_gl *gl,
+ 				   unsigned int skb_len, unsigned int pull_len);
+ int cxgb4_sync_txq_pidx(struct net_device *dev, u16 qid, u16 pidx, u16 size);
+ int cxgb4_flush_eq_cache(struct net_device *dev);
+-void cxgb4_disable_db_coalescing(struct net_device *dev);
+-void cxgb4_enable_db_coalescing(struct net_device *dev);
+ int cxgb4_read_tpte(struct net_device *dev, u32 stag, __be32 *tpte);
+ u64 cxgb4_read_sge_timestamp(struct net_device *dev);
+ 
+-- 
+2.3.4
