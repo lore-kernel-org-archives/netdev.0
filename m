@@ -1,33 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] sfc: free multiple Rx buffers when required
-Date: Sun, 31 May 2015 17:36:34 -0700 (PDT)
-Message-ID: <20150531.173634.715933710937064845.davem@davemloft.net>
-References: <55684CC2.2010202@solarflare.com>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH] NFC: nci: hci: Fix releasing uninitialized skbs
+Date: Sun, 31 May 2015 17:44:45 -0700
+Message-ID: <1433119485.2984.36.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: sshah@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44206 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751553AbbFAAgf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 May 2015 20:36:35 -0400
-In-Reply-To: <55684CC2.2010202@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Shradha Shah <sshah@solarflare.com>
-Date: Fri, 29 May 2015 12:25:54 +0100
+Several of these goto exit; uses should be direct returns
+as skb is not yet initialized by nci_hci_get_param().
 
-> From: Daniel Pieczko <dpieczko@solarflare.com>
-> 
-> When Rx packet data must be dropped, all the buffers
-> associated with that Rx packet must be freed. Extend
-> and rename efx_free_rx_buffer() to efx_free_rx_buffers()
-> and loop through all the fragments.
-> By doing so this patch fixes a possible memory leak.
-> 
-> Signed-off-by: Shradha Shah <sshah@solarflare.com>
+Miscellanea:
 
-Applied, thanks.
+o Use !memcmp instead of memcmp() == 0
+o Remove unnecessary goto from if () {... goto exit;} else {...} exit:
+
+Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+---
+ net/nfc/nci/hci.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
+
+diff --git a/net/nfc/nci/hci.c b/net/nfc/nci/hci.c
+index ed54ec5..af002df 100644
+--- a/net/nfc/nci/hci.c
++++ b/net/nfc/nci/hci.c
+@@ -639,22 +639,19 @@ int nci_hci_dev_session_init(struct nci_dev *ndev)
+ 				 ndev->hci_dev->init_data.gates[0].gate,
+ 				 ndev->hci_dev->init_data.gates[0].pipe);
+ 	if (r < 0)
+-		goto exit;
++		return r;
+ 
+ 	r = nci_hci_get_param(ndev, NCI_HCI_ADMIN_GATE,
+ 			      NCI_HCI_ADMIN_PARAM_SESSION_IDENTITY, &skb);
+ 	if (r < 0)
+-		goto exit;
++		return r;
+ 
+ 	if (skb->len &&
+ 	    skb->len == strlen(ndev->hci_dev->init_data.session_id) &&
+-	    memcmp(ndev->hci_dev->init_data.session_id,
+-		   skb->data, skb->len) == 0 &&
++	    !memcmp(ndev->hci_dev->init_data.session_id, skb->data, skb->len) &&
+ 	    ndev->ops->hci_load_session) {
+ 		/* Restore gate<->pipe table from some proprietary location. */
+ 		r = ndev->ops->hci_load_session(ndev);
+-		if (r < 0)
+-			goto exit;
+ 	} else {
+ 		r = nci_hci_dev_connect_gates(ndev,
+ 					      ndev->hci_dev->init_data.gate_count,
+@@ -667,8 +664,6 @@ int nci_hci_dev_session_init(struct nci_dev *ndev)
+ 				      ndev->hci_dev->init_data.session_id,
+ 				      strlen(ndev->hci_dev->init_data.session_id));
+ 	}
+-	if (r == 0)
+-		goto exit;
+ 
+ exit:
+ 	kfree_skb(skb);
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
