@@ -1,39 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen: netback: fix error printf format string.
-Date: Sun, 31 May 2015 21:26:18 -0700 (PDT)
-Message-ID: <20150531.212618.1162284397803953903.davem@davemloft.net>
-References: <1432916524-20881-1-git-send-email-ian.campbell@citrix.com>
+Subject: Re: [PATCH] net: dl2k: Use setup_timer
+Date: Sun, 31 May 2015 21:35:25 -0700 (PDT)
+Message-ID: <20150531.213525.419462746956225695.davem@davemloft.net>
+References: <20150601042510.GA3846@vaishali-Ideapad-Z570>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	wei.liu2@citrix.com
-To: ian.campbell@citrix.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: julia.lawall@lip6.fr, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: vthakkar1994@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45144 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45189 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758539AbbFAE0U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 00:26:20 -0400
-In-Reply-To: <1432916524-20881-1-git-send-email-ian.campbell@citrix.com>
+	with ESMTP id S1750761AbbFAEf0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 00:35:26 -0400
+In-Reply-To: <20150601042510.GA3846@vaishali-Ideapad-Z570>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSWFuIENhbXBiZWxsIDxpYW4uY2FtcGJlbGxAY2l0cml4LmNvbT4NCkRhdGU6IEZyaSwg
-MjkgTWF5IDIwMTUgMTc6MjI6MDQgKzAxMDANCg0KPiBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9u
-ZXRiYWNrLmM6IEluIGZ1bmN0aW9uIKF4ZW52aWZfdHhfYnVpbGRfZ29wc6I6DQo+IGRyaXZlcnMv
-bmV0L3hlbi1uZXRiYWNrL25ldGJhY2suYzoxMjUzOjg6IHdhcm5pbmc6IGZvcm1hdCChJWx1oiBl
-eHBlY3RzIGFyZ3VtZW50IG9mIHR5cGUgoWxvbmcgdW5zaWduZWQgaW50oiwgYnV0IGFyZ3VtZW50
-IDUgaGFzIHR5cGUgoWludKIgWy1XZm9ybWF0PV0NCj4gICAgICAgICAodHhyZXEub2Zmc2V0Jn5Q
-QUdFX01BU0spICsgdHhyZXEuc2l6ZSk7DQo+ICAgICAgICAgXg0KPiANCj4gdHhyZXEub2Zmc2V0
-IGFuZCAuc2l6ZSBhcmUgdWludDE2X3QgZmllbGRzLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogSWFu
-IENhbXBiZWxsIDxpYW4uY2FtcGJlbGxAY2l0cml4LmNvbT4NCg0KVGhpcyBtYXkgZ2V0IHJpZCBv
-ZiB0aGUgY29tcGlsZXIgd2FybmluZyBvbiB5b3VyIG1hY2hpbmUsIGJ1dCBpdCBjcmVhdGVzDQpv
-bmUgb24gbWluZToNCg0KZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jOiBJbiBmdW5j
-dGlvbiCheGVudmlmX3R4X2J1aWxkX2dvcHOiOg0KZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0
-YmFjay5jOjEyNTM6ODogd2FybmluZzogZm9ybWF0IKEldaIgZXhwZWN0cyBhcmd1bWVudCBvZiB0
-eXBlIKF1bnNpZ25lZCBpbnSiLCBidXQgYXJndW1lbnQgNSBoYXMgdHlwZSChbG9uZyB1bnNpZ25l
-ZCBpbnSiIFstV2Zvcm1hdD1dDQogICAgICAgICh0eHJlcS5vZmZzZXQmflBBR0VfTUFTSykgKyB0
-eHJlcS5zaXplKTsNCiAgICAgICAgXg0KDQpUaGVyZSBpcyBhIHR5cGUgaW52b2x2ZWQgaW4gdGhp
-cyBjYWxjdWxhdGlvbiB3aGljaCBpcyBhcmNoDQpkZXBlbmRlbnQsIHNvIHlvdSdsbCBuZWVkIHRv
-IGFkZCBhIGNhc3Qgb3Igc29tZXRoaW5nIHRvDQptYWtlIHRoaXMgd2FybmluZyBnbyBhd2F5IGlu
-IGFsbCBjYXNlcy4NCg0K
+From: Vaishali Thakkar <vthakkar1994@gmail.com>
+Date: Mon, 1 Jun 2015 09:55:10 +0530
+
+> Use the timer API function setup_timer instead of structure field
+> assignments to initialize a timer.
+> 
+> A simplified version of the Coccinelle semantic patch that performs
+> this transformation is as follows:
+> 
+> @change@
+> expression e1, e2, e3, e4, a, b;
+> @@
+> 
+> -init_timer(&e1);
+> +setup_timer(&e1, a, b);
+> 
+> ... when != a = e2
+>     when != b = e3
+> 
+> -e1.data = b;
+> ... when != a = e4
+> -e1.function = a;
+> 
+> Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
+
+Applied, thank you.
