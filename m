@@ -1,57 +1,81 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [cdc_ncm] guidance and help refactoring cdc_ncm
-Date: Mon, 1 Jun 2015 13:41:34 +0200 (CEST)
-Message-ID: <alpine.LNX.2.20.1506011319330.4326@localhost.localdomain>
-References: <alpine.LNX.2.20.1505311628420.16456@localhost.localdomain> <20150601005917.GB5320@kroah.com> <alpine.LNX.2.20.1506010818110.3158@localhost.localdomain> <1433144906.1557.2.camel@suse.com> <alpine.LNX.2.20.1506011020001.3741@localhost.localdomain>
- <1433155778.1884.12.camel@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1433155778.1884.12.camel-l3A5Bk7waGM@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Baolin Wang <baolin.wang@linaro.org>
+Subject: [PATCH v4 00/25] Convert the posix_clock_operations and k_clock structure to ready for 2038
+Date: Mon,  1 Jun 2015 19:44:53 +0800
+Message-ID: <1433159093-4548-1-git-send-email-baolin.wang@linaro.org>
+Cc: arnd@arndb.de, john.stultz@linaro.org, heenasirwani@gmail.com,
+	pang.xunlei@linaro.org, peterz@infradead.org,
+	rafael.j.wysocki@intel.com, gregkh@linuxfoundation.org,
+	richardcochran@gmail.com, benh@kernel.crashing.org,
+	paulus@samba.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, linux390@de.ibm.com, rth@twiddle.net,
+	riel@redhat.com, cl@linux.com, tj@kernel.org, fweisbec@gmail.com,
+	ahh@google.com, pjt@google.com, linuxppc-dev@lists.ozlabs.org,
+	linux-s390@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serge.hallyn@canonical.com, james.l.morris@oracle.com,
+	serge@hallyn.com, pmoore@redhat.com, tiwai@suse.de,
+	jeffv@google.com, jlayton@primarydata.com, keescook@chromium.org,
+	sds@tycho.nsa.gov, mark.d.rustad@intel.com,
+	linux-security-module@vger.kernel.org, baolin.wang@linaro.org,
+	y2038@lists.linaro
+To: tglx@linutronix.de
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thank you Oliver, thank you all for reading this thread and the attention.
-For a more detailed discussion and how we got here, you might google for the 
-thread:
-"Is this 32-bit NCM?"
-and
-"Is this 32-bit NCM?y" (follow up).
-Where the "y" letter comes from a mistake of mine.
+This patch series changes the 32-bit time types (timespec/itimerspec) to
+the 64-bit types (timespec64/itimerspec64), since 32-bit time types will
+break in the year 2038.
 
-The specification does only mandate the position of the NTH (header). The rest 
-can be in any order and position in general. This will work with most devices: 
-except, of course, those from Huawei.
-Our aggregate looks something like this from my perspective (anyone correct me 
-in case):
-NTH: header
-NDP: contains indexing informations
-ethernet packet 1
-ethernet packet 2
-...
-ethernet packet n;
+This patch series introduces new methods with timespec64/itimerspec64 type,
+and removes the old ones with timespec/itimerspec type for posix_clock_operations
+and k_clock structure.
 
-While it should look like:
-NTH: header
-ethernet packet 1
-ethernet packet 2
-...
-ethernet packet n;
-NDP: contains indexing informations
+Baolin Wang (25):
+  time:Introduce struct itimerspec64
+  timekeeping:Introduce the current_kernel_time64()
+  hrtimer:Introduce hrtimer_get_res64()
+  security: Introduce security_settime64()
+  time:Introduce the do_sys_settimeofday64()
+  posix-timers:Introduce {get,put}_timespec/{get,put}_itimerspec
+  posix-timers: Split up timer_gettime()/timer_settime()/clock_settime()/
+    clock_gettime()/clock_getres().
+  posix-timers: Convert timer_gettime()/timer_settime()/clock_settime()/
+    clock_gettime()/clock_getres() to timespec64/itimerspec64.
+  mmtimer:Convert to timespec64/itimerspec64
+  alarmtimer:Convert to timespec64/itimerspec64
+  posix-clock:Convert to timespec64/itimerspec64
+  time:Introduce timespec64_to_jiffies()/jiffies_to_timespec64()
+  cputime:Introduce cputime_to_timespec64()/timespec64_to_cputime()
+  posix-cpu-timers:Convert to timespec64/itimerspec64
+  k_clock:Remove timespec/itimerspec
 
-but, when introducing such a change: you might break other devices now working. 
-Infact, clearly there are multiple vendors producing NCM device, as you might 
-also see by looking at the dirver's comments.
-So in general, we should be able to dynamically change the way in which the 
-driver order things in the package.
-and that's why I initially proposed the "redesign".
+ arch/powerpc/include/asm/cputime.h    |    6 +-
+ arch/s390/include/asm/cputime.h       |    8 +-
+ drivers/char/mmtimer.c                |   36 +++--
+ drivers/ptp/ptp_clock.c               |   26 +---
+ include/asm-generic/cputime_jiffies.h |   10 +-
+ include/asm-generic/cputime_nsecs.h   |    4 +-
+ include/linux/cputime.h               |   16 ++
+ include/linux/hrtimer.h               |   16 +-
+ include/linux/jiffies.h               |   21 ++-
+ include/linux/posix-clock.h           |   10 +-
+ include/linux/posix-timers.h          |   18 +--
+ include/linux/security.h              |   25 +++-
+ include/linux/time64.h                |   35 +++++
+ include/linux/timekeeping.h           |   26 +++-
+ kernel/time/alarmtimer.c              |   43 +++---
+ kernel/time/hrtimer.c                 |   10 +-
+ kernel/time/posix-clock.c             |   20 +--
+ kernel/time/posix-cpu-timers.c        |   84 ++++++-----
+ kernel/time/posix-timers.c            |  259 +++++++++++++++++++++------------
+ kernel/time/time.c                    |   20 +--
+ kernel/time/timekeeping.c             |    6 +-
+ kernel/time/timekeeping.h             |    1 -
+ security/commoncap.c                  |    2 +-
+ security/security.c                   |    2 +-
+ 24 files changed, 437 insertions(+), 267 deletions(-)
 
-thank you guys, for the patience and time.
-Enrico
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+1.7.9.5
+
