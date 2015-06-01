@@ -1,67 +1,63 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [cdc_ncm] guidance and help refactoring cdc_ncm
-Date: Mon, 1 Jun 2015 09:59:17 +0900
-Message-ID: <20150601005917.GB5320@kroah.com>
-References: <alpine.LNX.2.20.1505311628420.16456@localhost.localdomain>
+From: Vaishali Thakkar <vthakkar1994@gmail.com>
+Subject: [PATCH] isdn/capi: Use setup_timer
+Date: Mon, 1 Jun 2015 07:10:15 +0530
+Message-ID: <20150601014015.GA6747@vaishali-Ideapad-Z570>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Julia Lawall <julia.lawall@lip6.fr>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.20.1505311628420.16456-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, May 31, 2015 at 04:37:11PM +0200, Enrico Mioso wrote:
-> Hello guys.
-> I am writing to you all to ask for help and assistance in refactoring the
-> cdc_ncm driver to support newer devices.
-> In particular - I would need step-by-step guidance in doing this: or any
-> other kind of help would be anyway greatly apreciated.
-> 
-> 1 - What we need:
->   We would need to refactor the driver to be able to re-order parts of the NCM
->   package itself.
->   In particular, being a single NCM frame composed of different parts, we would
->   need more flexibility in changing their order.
+Use the timer API function setup_timer instead of structure field
+assignments to initialize a timer.
 
-Do you have hardware that needs this now?  What exactly needs to be done
-here that currently doesn't work?
+A simplified version of the Coccinelle semantic patch that performs
+this transformation is as follows:
 
-> 2 - What might be nice
->   To do so, it would be nice to have the driver queue up frames, sending them
->   out as needed. this already happens to a certain extent, but the NCM package
->   is created in the process and updated in the while as I understood the code.
->   The best thing would be to have the NCM package created only before sending
->   it out, to achieve for best performance and code readability.
+@change@
+expression e1, e2, e3, e4, a, b;
+@@
 
-Would this really make things faster?
+-init_timer(&e1);
++setup_timer(&e1, a, b);
 
-> I already contactedprivately some of you to have some more insight on what
-> needs to be done, and to understand better how to organize the effort. I
-> unfortunately miss the time to do this right now: and infact I can't even be
-> sure to be able to do this, due to various problems (my tesis, my life in
-> general).
-> But gathering more informations and in general trying to get some help is
-> the best thing I feel like doing right now.
-> 
-> The compelling reasons I find for trying to fix the situation are:
-> 1 - The fact these drivers are used in different products integrating or
->   interfacing with 3G/4G technologies.
+... when != a = e2
+    when != b = e3
 
-Is there hardware that has out-of-tree drivers that implement what you
-are referring to here?  Or does someone just want this to make the
-hardware work "better"?
+-e1.data = b;
+... when != a = e4
+-e1.function = a;
 
-I think we need more specifics before being able to determine exactly
-what needs to be done.
+Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
+---
+ drivers/isdn/capi/capidrv.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-thanks,
-
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/isdn/capi/capidrv.c b/drivers/isdn/capi/capidrv.c
+index 1cc6ca8..85cfa4f 100644
+--- a/drivers/isdn/capi/capidrv.c
++++ b/drivers/isdn/capi/capidrv.c
+@@ -2264,7 +2264,7 @@ static int capidrv_addcontr(u16 contr, struct capi_profile *profp)
+ 		return -1;
+ 	}
+ 	card->owner = THIS_MODULE;
+-	init_timer(&card->listentimer);
++	setup_timer(&card->listentimer, listentimerfunc, (unsigned long)card);
+ 	strcpy(card->name, id);
+ 	card->contrnr = contr;
+ 	card->nbchan = profp->nbchannel;
+@@ -2331,8 +2331,6 @@ static int capidrv_addcontr(u16 contr, struct capi_profile *profp)
+ 	card->cipmask = 0x1FFF03FF;	/* any */
+ 	card->cipmask2 = 0;
+ 
+-	card->listentimer.data = (unsigned long)card;
+-	card->listentimer.function = listentimerfunc;
+ 	send_listen(card);
+ 	mod_timer(&card->listentimer, jiffies + 60 * HZ);
+ 
+-- 
+1.9.1
