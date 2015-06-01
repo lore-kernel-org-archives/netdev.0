@@ -1,8 +1,8 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next v2 08/14] sfc: update netdevice statistics to use
- vadaptor stats
-Date: Mon, 1 Jun 2015 14:02:18 +0100
-Message-ID: <556C57DA.80003@solarflare.com>
+Subject: [PATCH net-next v2 10/14] sfc: suppress vadaptor stats when EVB is
+ not present
+Date: Mon, 1 Jun 2015 14:02:50 +0100
+Message-ID: <556C57FA.1060805@solarflare.com>
 References: <556C5704.4060901@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -10,92 +10,67 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:53550 "EHLO
-	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753219AbbFANCt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 09:02:49 -0400
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:7208 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752440AbbFANDJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 09:03:09 -0400
 In-Reply-To: <556C5704.4060901@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Daniel Pieczko <dpieczko@solarflare.com>
 
-The netdevice statistics (in /proc/net/dev) are per-function
-stats so they must use the vadaptor stats. Change the use of
-MAC stats to vadaptor stats, and remove any statistics that
-can only be measured per-port.  All stats that are removed
-will be shown as zeroes when these statistics are displayed.
+The raw_mask array is not initialised, so it needs to be
+explicitly set to zero in the 'else' branch.
+
+If the EVB capability is not present, a port cannot have multiple
+functions so the per-port MAC stats are correct and should match
+the corresponding vadaptor stats, so this redundancy can be
+removed from the ethtool stats output.
 
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c | 41 ++++++++++++++++++++++-------------------
- 1 file changed, 22 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c      | 12 +++++++++---
+ drivers/net/ethernet/sfc/mcdi_pcol.h |  2 ++
+ 2 files changed, 11 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 323ca47..99bf296 100644
+index cb4c972..39d0cf1 100644
 --- a/drivers/net/ethernet/sfc/ef10.c
 +++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -1209,24 +1209,25 @@ static size_t efx_ef10_update_stats_common(struct efx_nic *efx, u64 *full_stats,
- 	}
+@@ -1161,13 +1161,19 @@ static u64 efx_ef10_raw_stat_mask(struct efx_nic *efx)
  
- 	if (core_stats) {
--		core_stats->rx_packets = stats[EF10_STAT_port_rx_packets];
--		core_stats->tx_packets = stats[EF10_STAT_port_tx_packets];
--		core_stats->rx_bytes = stats[EF10_STAT_port_rx_bytes];
--		core_stats->tx_bytes = stats[EF10_STAT_port_tx_bytes];
--		core_stats->rx_dropped = stats[EF10_STAT_port_rx_nodesc_drops] +
--					 stats[GENERIC_STAT_rx_nodesc_trunc] +
-+		core_stats->rx_packets = stats[EF10_STAT_rx_unicast] +
-+					 stats[EF10_STAT_rx_multicast] +
-+					 stats[EF10_STAT_rx_broadcast];
-+		core_stats->tx_packets = stats[EF10_STAT_tx_unicast] +
-+					 stats[EF10_STAT_tx_multicast] +
-+					 stats[EF10_STAT_tx_broadcast];
-+		core_stats->rx_bytes = stats[EF10_STAT_rx_unicast_bytes] +
-+				       stats[EF10_STAT_rx_multicast_bytes] +
-+				       stats[EF10_STAT_rx_broadcast_bytes];
-+		core_stats->tx_bytes = stats[EF10_STAT_tx_unicast_bytes] +
-+				       stats[EF10_STAT_tx_multicast_bytes] +
-+				       stats[EF10_STAT_tx_broadcast_bytes];
-+		core_stats->rx_dropped = stats[GENERIC_STAT_rx_nodesc_trunc] +
- 					 stats[GENERIC_STAT_rx_noskb_drops];
--		core_stats->multicast = stats[EF10_STAT_port_rx_multicast];
--		core_stats->rx_length_errors =
--			stats[EF10_STAT_port_rx_gtjumbo] +
--			stats[EF10_STAT_port_rx_length_error];
--		core_stats->rx_crc_errors = stats[EF10_STAT_port_rx_bad];
--		core_stats->rx_frame_errors =
--			stats[EF10_STAT_port_rx_align_error];
--		core_stats->rx_fifo_errors = stats[EF10_STAT_port_rx_overflow];
--		core_stats->rx_errors = (core_stats->rx_length_errors +
--					 core_stats->rx_crc_errors +
--					 core_stats->rx_frame_errors);
-+		core_stats->multicast = stats[EF10_STAT_rx_multicast];
-+		core_stats->rx_crc_errors = stats[EF10_STAT_rx_bad];
-+		core_stats->rx_fifo_errors = stats[EF10_STAT_rx_overflow];
-+		core_stats->rx_errors = core_stats->rx_crc_errors;
-+		core_stats->tx_errors = stats[EF10_STAT_tx_bad];
- 	}
+ static void efx_ef10_get_stat_mask(struct efx_nic *efx, unsigned long *mask)
+ {
++	struct efx_ef10_nic_data *nic_data = efx->nic_data;
+ 	u64 raw_mask[2];
  
- 	return stats_count;
-@@ -1309,7 +1310,7 @@ static int efx_ef10_try_update_nic_stats_vf(struct efx_nic *efx)
+ 	raw_mask[0] = efx_ef10_raw_stat_mask(efx);
  
- 	MCDI_SET_QWORD(inbuf, MAC_STATS_IN_DMA_ADDR, stats_buf.dma_addr);
- 	MCDI_POPULATE_DWORD_1(inbuf, MAC_STATS_IN_CMD,
--			      MAC_STATS_IN_DMA, true);
-+			      MAC_STATS_IN_DMA, 1);
- 	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_DMA_LEN, dma_len);
- 	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_PORT_ID, EVB_PORT_ID_ASSIGNED);
- 
-@@ -1321,8 +1322,10 @@ static int efx_ef10_try_update_nic_stats_vf(struct efx_nic *efx)
- 		goto out;
- 
- 	generation_end = dma_stats[MC_CMD_MAC_GENERATION_END];
--	if (generation_end == EFX_MC_STATS_GENERATION_INVALID)
-+	if (generation_end == EFX_MC_STATS_GENERATION_INVALID) {
-+		WARN_ON_ONCE(1);
- 		goto out;
+-	/* All functions see the vadaptor stats */
+-	raw_mask[0] |= ~((1ULL << EF10_STAT_rx_unicast) - 1);
+-	raw_mask[1] = (1ULL << (EF10_STAT_COUNT - 63)) - 1;
++	/* Only show vadaptor stats when EVB capability is present */
++	if (nic_data->datapath_caps &
++	    (1 << MC_CMD_GET_CAPABILITIES_OUT_EVB_LBN)) {
++		raw_mask[0] |= ~((1ULL << EF10_STAT_rx_unicast) - 1);
++		raw_mask[1] = (1ULL << (EF10_STAT_COUNT - 63)) - 1;
++	} else {
++		raw_mask[1] = 0;
 +	}
- 	rmb();
- 	efx_nic_update_stats(efx_ef10_stat_desc, EF10_STAT_COUNT, mask,
- 			     stats, stats_buf.addr, false);
+ 
+ #if BITS_PER_LONG == 64
+ 	mask[0] = raw_mask[0];
+diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
+index 181978d..45fca9f 100644
+--- a/drivers/net/ethernet/sfc/mcdi_pcol.h
++++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
+@@ -5600,6 +5600,8 @@
+ #define        MC_CMD_GET_CAPABILITIES_OUT_MCAST_FILTER_CHAINING_WIDTH 1
+ #define        MC_CMD_GET_CAPABILITIES_OUT_PM_AND_RXDP_COUNTERS_LBN 27
+ #define        MC_CMD_GET_CAPABILITIES_OUT_PM_AND_RXDP_COUNTERS_WIDTH 1
++#define        MC_CMD_GET_CAPABILITIES_OUT_EVB_LBN 30
++#define        MC_CMD_GET_CAPABILITIES_OUT_EVB_WIDTH 1
+ /* RxDPCPU firmware id. */
+ #define       MC_CMD_GET_CAPABILITIES_OUT_RX_DPCPU_FW_ID_OFST 4
+ #define       MC_CMD_GET_CAPABILITIES_OUT_RX_DPCPU_FW_ID_LEN 2
