@@ -1,75 +1,76 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH] NFC: nci: hci: Fix releasing uninitialized skbs
-Date: Sun, 31 May 2015 17:44:45 -0700
-Message-ID: <1433119485.2984.36.camel@perches.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH 03/11] netfilter: don't use module_init/exit in core IPV4 code
+Date: Sun, 31 May 2015 20:54:04 -0400
+Message-ID: <1433120052-18281-4-git-send-email-paul.gortmaker@windriver.com>
+References: <1433120052-18281-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1433120052-18281-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Several of these goto exit; uses should be direct returns
-as skb is not yet initialized by nci_hci_get_param().
+The file net/ipv4/netfilter.o is created based on whether
+CONFIG_NETFILTER is set.  However that is defined as a bool, and
+hence this file with the core netfilter hooks will never be
+modular.  So using module_init as an alias for __initcall can be
+somewhat misleading.
 
-Miscellanea:
+Fix this up now, so that we can relocate module_init from
+init.h into module.h in the future.  If we don't do this, we'd
+have to add module.h to obviously non-modular code, and that
+would be a worse thing.  Also add an inclusion of init.h, as
+that was previously implicit here in the netfilter.c file.
 
-o Use !memcmp instead of memcmp() == 0
-o Remove unnecessary goto from if () {... goto exit;} else {...} exit:
+Note that direct use of __initcall is discouraged, vs. one
+of the priority categorized subgroups.  As __initcall gets
+mapped onto device_initcall, our use of subsys_initcall (which
+seems to make sense for netfilter code) will thus change this
+registration from level 6-device to level 4-subsys (i.e. slightly
+earlier).  However no observable impact of that small difference
+has been observed during testing, or is expected. (i.e. the
+location of the netfilter messages in dmesg remains unchanged
+with respect to all the other surrounding messages.)
 
-Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+As for the module_exit, rather than replace it with __exitcall,
+we simply remove it, since it appears only UML does anything
+with those, and even for UML, there is no relevant cleanup
+to be done here.
+
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netfilter-devel@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/nfc/nci/hci.c | 11 +++--------
- 1 file changed, 3 insertions(+), 8 deletions(-)
+ net/ipv4/netfilter.c | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
 
-diff --git a/net/nfc/nci/hci.c b/net/nfc/nci/hci.c
-index ed54ec5..af002df 100644
---- a/net/nfc/nci/hci.c
-+++ b/net/nfc/nci/hci.c
-@@ -639,22 +639,19 @@ int nci_hci_dev_session_init(struct nci_dev *ndev)
- 				 ndev->hci_dev->init_data.gates[0].gate,
- 				 ndev->hci_dev->init_data.gates[0].pipe);
- 	if (r < 0)
--		goto exit;
-+		return r;
- 
- 	r = nci_hci_get_param(ndev, NCI_HCI_ADMIN_GATE,
- 			      NCI_HCI_ADMIN_PARAM_SESSION_IDENTITY, &skb);
- 	if (r < 0)
--		goto exit;
-+		return r;
- 
- 	if (skb->len &&
- 	    skb->len == strlen(ndev->hci_dev->init_data.session_id) &&
--	    memcmp(ndev->hci_dev->init_data.session_id,
--		   skb->data, skb->len) == 0 &&
-+	    !memcmp(ndev->hci_dev->init_data.session_id, skb->data, skb->len) &&
- 	    ndev->ops->hci_load_session) {
- 		/* Restore gate<->pipe table from some proprietary location. */
- 		r = ndev->ops->hci_load_session(ndev);
--		if (r < 0)
--			goto exit;
- 	} else {
- 		r = nci_hci_dev_connect_gates(ndev,
- 					      ndev->hci_dev->init_data.gate_count,
-@@ -667,8 +664,6 @@ int nci_hci_dev_session_init(struct nci_dev *ndev)
- 				      ndev->hci_dev->init_data.session_id,
- 				      strlen(ndev->hci_dev->init_data.session_id));
- 	}
--	if (r == 0)
--		goto exit;
- 
- exit:
- 	kfree_skb(skb);
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+index 65de0684e22a..61eafc9b4545 100644
+--- a/net/ipv4/netfilter.c
++++ b/net/ipv4/netfilter.c
+@@ -197,11 +197,4 @@ static int __init ipv4_netfilter_init(void)
+ {
+ 	return nf_register_afinfo(&nf_ip_afinfo);
+ }
+-
+-static void __exit ipv4_netfilter_fini(void)
+-{
+-	nf_unregister_afinfo(&nf_ip_afinfo);
+-}
+-
+-module_init(ipv4_netfilter_init);
+-module_exit(ipv4_netfilter_fini);
++subsys_initcall(ipv4_netfilter_init);
+-- 
+2.2.1
