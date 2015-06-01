@@ -1,46 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn/capi: Use setup_timer
-Date: Sun, 31 May 2015 21:36:57 -0700 (PDT)
-Message-ID: <20150531.213657.1250786887573503291.davem@davemloft.net>
-References: <20150601014015.GA6747@vaishali-Ideapad-Z570>
+Subject: Re: [PATCH v4] isdn: Use ktime_t instead of 'struct timeval'
+Date: Sun, 31 May 2015 21:38:00 -0700 (PDT)
+Message-ID: <20150531.213800.1614880603855736021.davem@davemloft.net>
+References: <20150531071937.GA3980@tinar>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, julia.lawall@lip6.fr, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: vthakkar1994@gmail.com
+Cc: arnd@arndb.de, isdn@linux-pingi.de, netdev@vger.kernel.org,
+	y2038@lists.linaro.org
+To: ruchandani.tina@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45249 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45307 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750987AbbFAEg6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 00:36:58 -0400
-In-Reply-To: <20150601014015.GA6747@vaishali-Ideapad-Z570>
+	with ESMTP id S1755804AbbFAEiB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 00:38:01 -0400
+In-Reply-To: <20150531071937.GA3980@tinar>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vaishali Thakkar <vthakkar1994@gmail.com>
-Date: Mon, 1 Jun 2015 07:10:15 +0530
+From: Tina Ruchandani <ruchandani.tina@gmail.com>
+Date: Sun, 31 May 2015 12:49:37 +0530
 
-> Use the timer API function setup_timer instead of structure field
-> assignments to initialize a timer.
+> 'struct timeval' uses 32-bit representation for seconds which will
+> overflow in year 2038 and beyond. mISDN/clock.c needs to compute and
+> store elapsed time in intervals of 125 microseconds. This patch replaces
+> the usage of 'struct timeval' with 64-bit ktime_t which is y2038 safe.
+> The patch also replaces do_gettimeofday (wall-clock time) with ktime_get
+> (monotonic time) since we only care about elapsed time here.
 > 
-> A simplified version of the Coccinelle semantic patch that performs
-> this transformation is as follows:
-> 
-> @change@
-> expression e1, e2, e3, e4, a, b;
-> @@
-> 
-> -init_timer(&e1);
-> +setup_timer(&e1, a, b);
-> 
-> ... when != a = e2
->     when != b = e3
-> 
-> -e1.data = b;
-> ... when != a = e4
-> -e1.function = a;
-> 
-> Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
+> Signed-off-by: Tina Ruchandani <ruchandani.tina@gmail.com>
+> Suggested-by: Arnd Bergmnann <arnd@arndb.de>
 
-Applied, thanks.
+This doesn't apply cleanly to net-next.
