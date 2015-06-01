@@ -1,399 +1,462 @@
 From: Robert Shearman <rshearma@brocade.com>
-Subject: [RFC net-next 3/3] mpls: new ipmpls device for encapsulating IP packets as mpls
-Date: Mon, 1 Jun 2015 17:46:15 +0100
-Message-ID: <1433177175-16775-4-git-send-email-rshearma@brocade.com>
-References: <1433177175-16775-1-git-send-email-rshearma@brocade.com>
+Subject: Re: [net-next RFC 05/14] route: Per route tunnel metadata with RTA_TUNNEL
+Date: Mon, 1 Jun 2015 17:51:33 +0100
+Message-ID: <556C8D95.7030008@brocade.com>
+References: <cover.1433167295.git.tgraf@suug.ch> <3b333ab393de268323c1eaa1d18169ec9c36f86b.1433167296.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	roopa <roopa@cumulusnetworks.com>, Thomas Graf <tgraf@suug.ch>,
-	Robert Shearman <rshearma@brocade.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <pshelar@nicira.com>, <jesse@nicira.com>, <davem@davemloft.net>,
+	<daniel@iogearbox.net>, <dev@openvswitch.org>,
+	<tom@herbertland.com>, <edumazet@google.com>, <jiri@resnulli.us>,
+	<hannes@stressinduktion.org>, <marcelo.leitner@gmail.com>,
+	<stephen@networkplumber.org>, <jpettit@nicira.com>,
+	<kaber@trash.net>
+To: Thomas Graf <tgraf@suug.ch>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:44839 "EHLO
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:2314 "EHLO
 	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753007AbbFAQtH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 12:49:07 -0400
-In-Reply-To: <1433177175-16775-1-git-send-email-rshearma@brocade.com>
+	by vger.kernel.org with ESMTP id S1752344AbbFAQxb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 12:53:31 -0400
+In-Reply-To: <3b333ab393de268323c1eaa1d18169ec9c36f86b.1433167296.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow creating an mpls device for the purposes of encapsulating IP
-packets with:
+On 01/06/15 15:27, Thomas Graf wrote:
+> Introduces a new Netlink attribute RTA_TUNNEL which allows routes
+> to set tunnel transmit metadata and specify the tunnel endpoint or
+> tunnel id on a per route basis. The route must point to a tunnel
+> device which understands per skb tunnel metadata and has been put
+> into the respective mode.
 
-  ip link add type ipmpls
+We've been discussing something similar for the purposes of IP over 
+MPLS, but most of the attributes for IP tunnels aren't relevant for 
+MPLS. It be great if we can come up with something general enough that 
+can serve both purposes. I've just sent a patch series ("[RFC net-next 
+0/3] IP imposition of per-nh MPLS encap") which I believe would allow this.
 
-This device defines its per-nexthop encapsulation data as a stack of
-labels, in the same format as for RTA_NEWST. It uses the encap data
-which will have been stored in the IP route to encapsulate the packet
-with that stack of labels, with the last label corresponding to a
-local label that defines how the packet will be sent out. The device
-sends packets over loopback to the local MPLS forwarding logic which
-performs all of the work.
+Thanks,
+Rob
 
-Stats are implemented, although any error in the sending via the real
-interface will be handled by the main mpls forwarding code and so not
-accounted by the interface.
-
-This implementation is based on an alternative earlier implementation
-by Eric W. Biederman.
-
-Signed-off-by: Robert Shearman <rshearma@brocade.com>
----
- include/uapi/linux/if_arp.h |   1 +
- net/mpls/Kconfig            |   5 +
- net/mpls/Makefile           |   1 +
- net/mpls/af_mpls.c          |   2 +
- net/mpls/ipmpls.c           | 284 ++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 293 insertions(+)
- create mode 100644 net/mpls/ipmpls.c
-
-diff --git a/include/uapi/linux/if_arp.h b/include/uapi/linux/if_arp.h
-index 4d024d75d64b..17d669fd1781 100644
---- a/include/uapi/linux/if_arp.h
-+++ b/include/uapi/linux/if_arp.h
-@@ -88,6 +88,7 @@
- #define ARPHRD_IEEE80211_RADIOTAP 803	/* IEEE 802.11 + radiotap header */
- #define ARPHRD_IEEE802154	  804
- #define ARPHRD_IEEE802154_MONITOR 805	/* IEEE 802.15.4 network monitor */
-+#define ARPHRD_MPLS	806		/* IP and IPv6 over MPLS tunnels */
- 
- #define ARPHRD_PHONET	820		/* PhoNet media type		*/
- #define ARPHRD_PHONET_PIPE 821		/* PhoNet pipe header		*/
-diff --git a/net/mpls/Kconfig b/net/mpls/Kconfig
-index 17bde799c854..5264da94733a 100644
---- a/net/mpls/Kconfig
-+++ b/net/mpls/Kconfig
-@@ -27,4 +27,9 @@ config MPLS_ROUTING
- 	help
- 	 Add support for forwarding of mpls packets.
- 
-+config MPLS_IPTUNNEL
-+	tristate "MPLS: IP over MPLS tunnel support"
-+	help
-+	 A network device that encapsulates ip packets as mpls
-+
- endif # MPLS
-diff --git a/net/mpls/Makefile b/net/mpls/Makefile
-index 65bbe68c72e6..3a93c14b23c5 100644
---- a/net/mpls/Makefile
-+++ b/net/mpls/Makefile
-@@ -3,5 +3,6 @@
- #
- obj-$(CONFIG_NET_MPLS_GSO) += mpls_gso.o
- obj-$(CONFIG_MPLS_ROUTING) += mpls_router.o
-+obj-$(CONFIG_MPLS_IPTUNNEL) += ipmpls.o
- 
- mpls_router-y := af_mpls.o
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 7b3f732269e4..68bdfbdddfaf 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -615,6 +615,7 @@ int nla_put_labels(struct sk_buff *skb, int attrtype,
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(nla_put_labels);
- 
- int nla_get_labels(const struct nlattr *nla,
- 		   u32 max_labels, u32 *labels, u32 label[])
-@@ -660,6 +661,7 @@ int nla_get_labels(const struct nlattr *nla,
- 	*labels = nla_labels;
- 	return 0;
- }
-+EXPORT_SYMBOL(nla_get_labels);
- 
- static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
- 			       struct mpls_route_config *cfg)
-diff --git a/net/mpls/ipmpls.c b/net/mpls/ipmpls.c
-new file mode 100644
-index 000000000000..cf6894ae0c61
---- /dev/null
-+++ b/net/mpls/ipmpls.c
-@@ -0,0 +1,284 @@
-+#include <linux/types.h>
-+#include <linux/netdevice.h>
-+#include <linux/if_vlan.h>
-+#include <linux/if_arp.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <linux/module.h>
-+#include <linux/mpls.h>
-+#include "internal.h"
-+
-+static LIST_HEAD(ipmpls_dev_list);
-+
-+#define MAX_NEW_LABELS 2
-+
-+struct ipmpls_dev_priv {
-+	struct net_device *out_dev;
-+	struct list_head list;
-+	struct net_device *dev;
-+};
-+
-+static netdev_tx_t ipmpls_dev_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct ipmpls_dev_priv *priv = netdev_priv(dev);
-+	struct net_device *out_dev = priv->out_dev;
-+	struct mpls_shim_hdr *hdr;
-+	bool bottom_of_stack = true;
-+	int len = skb->len;
-+	const void *encap;
-+	int num_labels;
-+	unsigned ttl;
-+	const u32 *labels;
-+	int ret;
-+	int i;
-+
-+	num_labels = dst_get_encap(skb, &encap) / 4;
-+	if (!num_labels)
-+		goto drop;
-+
-+	labels = encap;
-+
-+	/* Obtain the ttl */
-+	if (skb->protocol == htons(ETH_P_IP)) {
-+		ttl = ip_hdr(skb)->ttl;
-+	} else if (skb->protocol == htons(ETH_P_IPV6)) {
-+		ttl = ipv6_hdr(skb)->hop_limit;
-+	} else if (skb->protocol == htons(ETH_P_MPLS_UC)) {
-+		ttl = mpls_entry_decode(mpls_hdr(skb)).ttl;
-+		bottom_of_stack = false;
-+	} else {
-+		goto drop;
-+	}
-+
-+	/* Now that the encap has been retrieved, there's no longer
-+	 * any need to keep the dst around so clear it out.
-+	 */
-+	skb_dst_drop(skb);
-+	skb_orphan(skb);
-+
-+	skb->inner_protocol = skb->protocol;
-+	skb->inner_network_header = skb->network_header;
-+
-+	skb_push(skb, num_labels * sizeof(*hdr));
-+	skb_reset_network_header(skb);
-+	hdr = mpls_hdr(skb);
-+
-+	for (i = num_labels - 1; i >= 0; i--) {
-+		hdr[i] = mpls_entry_encode(labels[i], ttl, 0, bottom_of_stack);
-+		bottom_of_stack = false;
-+	}
-+
-+	skb->dev = out_dev;
-+	skb->protocol = htons(ETH_P_MPLS_UC);
-+
-+	ret = dev_hard_header(skb, out_dev, ETH_P_MPLS_UC,
-+			      out_dev->dev_addr, NULL, len);
-+	if (ret >= 0)
-+		ret = dev_queue_xmit(skb);
-+	if (ret)
-+		goto drop;
-+
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += len;
-+
-+	return 0;
-+
-+drop:
-+	dev->stats.tx_dropped++;
-+	kfree_skb(skb);
-+	return NETDEV_TX_OK;
-+}
-+
-+static int ipmpls_dev_init(struct net_device *dev)
-+{
-+	struct ipmpls_dev_priv *priv = netdev_priv(dev);
-+
-+	list_add_tail(&priv->list, &ipmpls_dev_list);
-+
-+	return 0;
-+}
-+
-+static void ipmpls_dev_uninit(struct net_device *dev)
-+{
-+	struct ipmpls_dev_priv *priv = netdev_priv(dev);
-+
-+	list_del_init(&priv->list);
-+}
-+
-+static void ipmpls_dev_free(struct net_device *dev)
-+{
-+	free_netdev(dev);
-+}
-+
-+static const struct net_device_ops ipmpls_netdev_ops = {
-+	.ndo_init		= ipmpls_dev_init,
-+	.ndo_start_xmit		= ipmpls_dev_xmit,
-+	.ndo_uninit		= ipmpls_dev_uninit,
-+};
-+
-+#define IPMPLS_FEATURES (NETIF_F_SG |			\
-+			 NETIF_F_FRAGLIST |		\
-+			 NETIF_F_HIGHDMA |		\
-+			 NETIF_F_VLAN_CHALLENGED)
-+
-+static void ipmpls_dev_setup(struct net_device *dev)
-+{
-+	dev->netdev_ops		= &ipmpls_netdev_ops;
-+
-+	dev->type		= ARPHRD_MPLS;
-+	dev->flags		= IFF_NOARP;
-+	netif_keep_dst(dev);
-+	dev->addr_len		= 0;
-+	dev->features		|= NETIF_F_LLTX;
-+	dev->features		|= IPMPLS_FEATURES;
-+	dev->hw_features	|= IPMPLS_FEATURES;
-+	dev->vlan_features	= 0;
-+
-+	dev->destructor = ipmpls_dev_free;
-+}
-+
-+static int ipmpls_dev_validate(struct nlattr *tb[], struct nlattr *data[])
-+{
-+	return 0;
-+}
-+
-+static int ipmpls_dev_newlink(struct net *src_net, struct net_device *dev,
-+			      struct nlattr *tb[], struct nlattr *data[])
-+{
-+	struct ipmpls_dev_priv *priv = netdev_priv(dev);
-+
-+	priv->out_dev = src_net->loopback_dev;
-+	priv->dev = dev;
-+
-+	dev->hard_header_len =
-+		priv->out_dev->hard_header_len +
-+		sizeof(struct mpls_shim_hdr) * MAX_NEW_LABELS;
-+
-+	return register_netdevice(dev);
-+}
-+
-+static void ipmpls_dev_dellink(struct net_device *dev, struct list_head *head)
-+{
-+	unregister_netdevice_queue(dev, head);
-+}
-+
-+static int ipmpls_dev_parse_encap(const struct net_device *dev,
-+				  const struct nlattr *nla,
-+				  void *encap)
-+{
-+	u32 labels;
-+
-+	if (nla_len(nla) / 4 > MAX_NEW_LABELS)
-+		return -EINVAL;
-+
-+	if (encap && nla_get_labels(nla, MAX_NEW_LABELS, &labels, encap))
-+		return -EINVAL;
-+
-+	/* Stored encap size is the same as the rtnl encap len */
-+	return nla_len(nla);
-+}
-+
-+static int ipmpls_dev_fill_encap(const struct net_device *dev,
-+				 struct sk_buff *skb, int encap_len,
-+				 const void *encap)
-+{
-+	return nla_put_labels(skb, RTA_ENCAP, encap_len / 4, encap);
-+}
-+
-+static int ipmpls_dev_match_encap(const struct net_device *dev,
-+				  const struct nlattr *nla, int encap_len,
-+				  const void *encap)
-+{
-+	unsigned nla_labels;
-+	struct mpls_shim_hdr *nla_label;
-+	const u32 *stored_labels = encap;
-+	int i;
-+
-+	/* Stored encap size is the same as the rtnl encap len */
-+	if (nla_len(nla) != encap_len)
-+		return 1;
-+
-+	nla_labels = nla_len(nla) / 4;
-+	nla_label = nla_data(nla);
-+
-+	for (i = 0; i < nla_labels; i++) {
-+		struct mpls_entry_decoded dec;
-+
-+		dec = mpls_entry_decode(nla_label + i);
-+
-+		if (stored_labels[i] != dec.label)
-+			return 1;
-+	}
-+
-+	return 0;
-+}
-+
-+static struct rtnl_link_ops ipmpls_ops = {
-+	.kind		= "ipmpls",
-+	.priv_size	= sizeof(struct ipmpls_dev_priv),
-+	.setup		= ipmpls_dev_setup,
-+	.validate	= ipmpls_dev_validate,
-+	.newlink	= ipmpls_dev_newlink,
-+	.dellink	= ipmpls_dev_dellink,
-+	.parse_encap	= ipmpls_dev_parse_encap,
-+	.fill_encap	= ipmpls_dev_fill_encap,
-+	.match_encap	= ipmpls_dev_match_encap,
-+};
-+
-+static int ipmpls_dev_notify(struct notifier_block *this, unsigned long event,
-+			     void *ptr)
-+{
-+	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+
-+	if (event == NETDEV_UNREGISTER) {
-+		struct ipmpls_dev_priv *priv, *priv2;
-+		LIST_HEAD(list_kill);
-+
-+		/* Ignore netns device moves */
-+		if (dev->reg_state != NETREG_UNREGISTERING)
-+			goto done;
-+
-+		list_for_each_entry_safe(priv, priv2, &ipmpls_dev_list, list) {
-+			if (priv->out_dev != dev)
-+				continue;
-+
-+			ipmpls_dev_dellink(priv->dev, &list_kill);
-+		}
-+		unregister_netdevice_many(&list_kill);
-+	}
-+done:
-+	return NOTIFY_OK;
-+}
-+
-+static struct notifier_block ipmpls_dev_notifier = {
-+	.notifier_call = ipmpls_dev_notify,
-+};
-+
-+static int __init ipmpls_init(void)
-+{
-+	int err;
-+
-+	err = register_netdevice_notifier(&ipmpls_dev_notifier);
-+	if (err)
-+		goto out;
-+
-+	err = rtnl_link_register(&ipmpls_ops);
-+	if (err)
-+		goto out_unregister_notifier;
-+out:
-+	return err;
-+out_unregister_notifier:
-+	unregister_netdevice_notifier(&ipmpls_dev_notifier);
-+	goto out;
-+}
-+module_init(ipmpls_init);
-+
-+static void __exit ipmpls_exit(void)
-+{
-+	rtnl_link_unregister(&ipmpls_ops);
-+	unregister_netdevice_notifier(&ipmpls_dev_notifier);
-+}
-+module_exit(ipmpls_exit);
-+
-+MODULE_LICENSE("GPL v2");
-+MODULE_ALIAS_RTNL_LINK("ipmpls");
--- 
-2.1.4
+>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> ---
+>   include/net/ip_fib.h           |  3 +++
+>   include/net/ip_tunnels.h       |  1 -
+>   include/net/route.h            | 10 ++++++++
+>   include/uapi/linux/rtnetlink.h | 16 ++++++++++++
+>   net/ipv4/fib_frontend.c        | 57 ++++++++++++++++++++++++++++++++++++++++++
+>   net/ipv4/fib_semantics.c       | 45 +++++++++++++++++++++++++++++++++
+>   net/ipv4/route.c               | 30 +++++++++++++++++++++-
+>   net/openvswitch/vport.h        |  1 +
+>   8 files changed, 161 insertions(+), 2 deletions(-)
+>
+> diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+> index 54271ed..1cd7cf8 100644
+> --- a/include/net/ip_fib.h
+> +++ b/include/net/ip_fib.h
+> @@ -22,6 +22,7 @@
+>   #include <net/fib_rules.h>
+>   #include <net/inetpeer.h>
+>   #include <linux/percpu.h>
+> +#include <net/ip_tunnels.h>
+>
+>   struct fib_config {
+>   	u8			fc_dst_len;
+> @@ -44,6 +45,7 @@ struct fib_config {
+>   	u32			fc_flow;
+>   	u32			fc_nlflags;
+>   	struct nl_info		fc_nlinfo;
+> +	struct ip_tunnel_info	fc_tunnel;
+>    };
+>
+>   struct fib_info;
+> @@ -117,6 +119,7 @@ struct fib_info {
+>   #ifdef CONFIG_IP_ROUTE_MULTIPATH
+>   	int			fib_power;
+>   #endif
+> +	struct ip_tunnel_info	*fib_tunnel;
+>   	struct rcu_head		rcu;
+>   	struct fib_nh		fib_nh[0];
+>   #define fib_dev		fib_nh[0].nh_dev
+> diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+> index df8cfd3..b4ab930 100644
+> --- a/include/net/ip_tunnels.h
+> +++ b/include/net/ip_tunnels.h
+> @@ -9,7 +9,6 @@
+>   #include <net/dsfield.h>
+>   #include <net/gro_cells.h>
+>   #include <net/inet_ecn.h>
+> -#include <net/ip.h>
+>   #include <net/netns/generic.h>
+>   #include <net/rtnetlink.h>
+>   #include <net/flow.h>
+> diff --git a/include/net/route.h b/include/net/route.h
+> index 6ede321..dbda603 100644
+> --- a/include/net/route.h
+> +++ b/include/net/route.h
+> @@ -28,6 +28,7 @@
+>   #include <net/inetpeer.h>
+>   #include <net/flow.h>
+>   #include <net/inet_sock.h>
+> +#include <net/ip_tunnels.h>
+>   #include <linux/in_route.h>
+>   #include <linux/rtnetlink.h>
+>   #include <linux/rcupdate.h>
+> @@ -66,6 +67,7 @@ struct rtable {
+>
+>   	struct list_head	rt_uncached;
+>   	struct uncached_list	*rt_uncached_list;
+> +	struct ip_tunnel_info	*rt_tun_info;
+>   };
+>
+>   static inline bool rt_is_input_route(const struct rtable *rt)
+> @@ -198,6 +200,8 @@ struct in_ifaddr;
+>   void fib_add_ifaddr(struct in_ifaddr *);
+>   void fib_del_ifaddr(struct in_ifaddr *, struct in_ifaddr *);
+>
+> +int fib_dump_tun_info(struct sk_buff *skb, struct ip_tunnel_info *tun_info);
+> +
+>   static inline void ip_rt_put(struct rtable *rt)
+>   {
+>   	/* dst_release() accepts a NULL parameter.
+> @@ -317,9 +321,15 @@ static inline int ip4_dst_hoplimit(const struct dst_entry *dst)
+>
+>   static inline struct ip_tunnel_info *skb_tunnel_info(struct sk_buff *skb)
+>   {
+> +	struct rtable *rt;
+> +
+>   	if (skb_shinfo(skb)->tun_info)
+>   		return skb_shinfo(skb)->tun_info;
+>
+> +	rt = skb_rtable(skb);
+> +	if (rt)
+> +		return rt->rt_tun_info;
+> +
+>   	return NULL;
+>   }
+>
+> diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+> index 17fb02f..1f7aa68 100644
+> --- a/include/uapi/linux/rtnetlink.h
+> +++ b/include/uapi/linux/rtnetlink.h
+> @@ -286,6 +286,21 @@ enum rt_class_t {
+>
+>   /* Routing message attributes */
+>
+> +enum rta_tunnel_t {
+> +	RTA_TUN_UNSPEC,
+> +	RTA_TUN_ID,
+> +	RTA_TUN_DST,
+> +	RTA_TUN_SRC,
+> +	RTA_TUN_TTL,
+> +	RTA_TUN_TOS,
+> +	RTA_TUN_SPORT,
+> +	RTA_TUN_DPORT,
+> +	RTA_TUN_FLAGS,
+> +	__RTA_TUN_MAX,
+> +};
+> +
+> +#define RTA_TUN_MAX (__RTA_TUN_MAX - 1)
+> +
+>   enum rtattr_type_t {
+>   	RTA_UNSPEC,
+>   	RTA_DST,
+> @@ -308,6 +323,7 @@ enum rtattr_type_t {
+>   	RTA_VIA,
+>   	RTA_NEWDST,
+>   	RTA_PREF,
+> +	RTA_TUNNEL,	/* destination VTEP */
+>   	__RTA_MAX
+>   };
+>
+> diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+> index 872494e..bfa77a6 100644
+> --- a/net/ipv4/fib_frontend.c
+> +++ b/net/ipv4/fib_frontend.c
+> @@ -580,6 +580,57 @@ int ip_rt_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+>   	return -EINVAL;
+>   }
+>
+> +static const struct nla_policy tunnel_policy[RTA_TUN_MAX + 1] = {
+> +	[RTA_TUN_ID]		= { .type = NLA_U64 },
+> +	[RTA_TUN_DST]		= { .type = NLA_U32 },
+> +	[RTA_TUN_SRC]		= { .type = NLA_U32 },
+> +	[RTA_TUN_TTL]		= { .type = NLA_U8 },
+> +	[RTA_TUN_TOS]		= { .type = NLA_U8 },
+> +	[RTA_TUN_SPORT]		= { .type = NLA_U16 },
+> +	[RTA_TUN_DPORT]		= { .type = NLA_U16 },
+> +	[RTA_TUN_FLAGS]		= { .type = NLA_U16 },
+> +};
+> +
+> +static int parse_rta_tunnel(struct fib_config *cfg, struct nlattr *attr)
+> +{
+> +	struct nlattr *tb[RTA_TUN_MAX+1];
+> +	int err;
+> +
+> +	err = nla_parse_nested(tb, RTA_TUN_MAX, attr, tunnel_policy);
+> +	if (err < 0)
+> +		return err;
+> +
+> +	if (tb[RTA_TUN_ID])
+> +		cfg->fc_tunnel.key.tun_id = nla_get_u64(tb[RTA_TUN_ID]);
+> +
+> +	if (tb[RTA_TUN_DST])
+> +		cfg->fc_tunnel.key.ipv4_dst = nla_get_be32(tb[RTA_TUN_DST]);
+> +
+> +	if (tb[RTA_TUN_SRC])
+> +		cfg->fc_tunnel.key.ipv4_src = nla_get_be32(tb[RTA_TUN_SRC]);
+> +
+> +	if (tb[RTA_TUN_TTL])
+> +		cfg->fc_tunnel.key.ipv4_ttl = nla_get_u8(tb[RTA_TUN_TTL]);
+> +
+> +	if (tb[RTA_TUN_TOS])
+> +		cfg->fc_tunnel.key.ipv4_tos = nla_get_u8(tb[RTA_TUN_TOS]);
+> +
+> +	if (tb[RTA_TUN_SPORT])
+> +		cfg->fc_tunnel.key.tp_src = nla_get_be16(tb[RTA_TUN_SPORT]);
+> +
+> +	if (tb[RTA_TUN_DPORT])
+> +		cfg->fc_tunnel.key.tp_dst = nla_get_be16(tb[RTA_TUN_DPORT]);
+> +
+> +	if (tb[RTA_TUN_FLAGS])
+> +		cfg->fc_tunnel.key.tun_flags = nla_get_u16(tb[RTA_TUN_FLAGS]);
+> +
+> +	cfg->fc_tunnel.mode = IP_TUNNEL_INFO_TX;
+> +	cfg->fc_tunnel.options = NULL;
+> +	cfg->fc_tunnel.options_len = 0;
+> +
+> +	return 0;
+> +}
+> +
+>   const struct nla_policy rtm_ipv4_policy[RTA_MAX + 1] = {
+>   	[RTA_DST]		= { .type = NLA_U32 },
+>   	[RTA_SRC]		= { .type = NLA_U32 },
+> @@ -591,6 +642,7 @@ const struct nla_policy rtm_ipv4_policy[RTA_MAX + 1] = {
+>   	[RTA_METRICS]		= { .type = NLA_NESTED },
+>   	[RTA_MULTIPATH]		= { .len = sizeof(struct rtnexthop) },
+>   	[RTA_FLOW]		= { .type = NLA_U32 },
+> +	[RTA_TUNNEL]		= { .type = NLA_NESTED },
+>   };
+>
+>   static int rtm_to_fib_config(struct net *net, struct sk_buff *skb,
+> @@ -656,6 +708,11 @@ static int rtm_to_fib_config(struct net *net, struct sk_buff *skb,
+>   		case RTA_TABLE:
+>   			cfg->fc_table = nla_get_u32(attr);
+>   			break;
+> +		case RTA_TUNNEL:
+> +			err = parse_rta_tunnel(cfg, attr);
+> +			if (err < 0)
+> +				goto errout;
+> +			break;
+>   		}
+>   	}
+>
+> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+> index 28ec3c1..1e94c81 100644
+> --- a/net/ipv4/fib_semantics.c
+> +++ b/net/ipv4/fib_semantics.c
+> @@ -215,6 +215,9 @@ static void free_fib_info_rcu(struct rcu_head *head)
+>
+>   	if (fi->fib_metrics != (u32 *) dst_default_metrics)
+>   		kfree(fi->fib_metrics);
+> +
+> +	ip_tunnel_info_put(fi->fib_tunnel);
+> +
+>   	kfree(fi);
+>   }
+>
+> @@ -760,6 +763,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+>   	struct fib_info *ofi;
+>   	int nhs = 1;
+>   	struct net *net = cfg->fc_nlinfo.nl_net;
+> +	struct ip_tunnel_info *tun_info = NULL;
+>
+>   	if (cfg->fc_type > RTN_MAX)
+>   		goto err_inval;
+> @@ -856,6 +860,19 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+>   		}
+>   	}
+>
+> +	if (cfg->fc_tunnel.mode) {
+> +		/* TODO: Allow specification of options */
+> +		tun_info = ip_tunnel_info_alloc(0, GFP_KERNEL);
+> +		if (!tun_info) {
+> +			err = -ENOMEM;
+> +			goto failure;
+> +		}
+> +
+> +		memcpy(tun_info, &cfg->fc_tunnel, sizeof(*tun_info));
+> +		ip_tunnel_info_get(tun_info);
+> +		fi->fib_tunnel = tun_info;
+> +	}
+> +
+>   	if (cfg->fc_mp) {
+>   #ifdef CONFIG_IP_ROUTE_MULTIPATH
+>   		err = fib_get_nhs(fi, cfg->fc_mp, cfg->fc_mp_len, cfg);
+> @@ -975,6 +992,8 @@ err_inval:
+>   	err = -EINVAL;
+>
+>   failure:
+> +	kfree(tun_info);
+> +
+>   	if (fi) {
+>   		fi->fib_dead = 1;
+>   		free_fib_info(fi);
+> @@ -983,6 +1002,29 @@ failure:
+>   	return ERR_PTR(err);
+>   }
+>
+> +int fib_dump_tun_info(struct sk_buff *skb, struct ip_tunnel_info *tun_info)
+> +{
+> +	struct nlattr *tun_attr;
+> +
+> +	tun_attr = nla_nest_start(skb, RTA_TUNNEL);
+> +	if (!tun_attr)
+> +		return -ENOMEM;
+> +
+> +	if (nla_put_u64(skb, RTA_TUN_ID, tun_info->key.tun_id) ||
+> +	    nla_put_be32(skb, RTA_TUN_DST, tun_info->key.ipv4_dst) ||
+> +	    nla_put_be32(skb, RTA_TUN_SRC, tun_info->key.ipv4_src) ||
+> +	    nla_put_u8(skb, RTA_TUN_TOS, tun_info->key.ipv4_tos) ||
+> +	    nla_put_u8(skb, RTA_TUN_TTL, tun_info->key.ipv4_ttl) ||
+> +	    nla_put_u16(skb, RTA_TUN_SPORT, tun_info->key.tp_src) ||
+> +	    nla_put_u16(skb, RTA_TUN_DPORT, tun_info->key.tp_dst) ||
+> +	    nla_put_u16(skb, RTA_TUN_FLAGS, tun_info->key.tun_flags))
+> +		return -ENOMEM;
+> +
+> +	nla_nest_end(skb, tun_attr);
+> +
+> +	return 0;
+> +}
+> +
+>   int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
+>   		  u32 tb_id, u8 type, __be32 dst, int dst_len, u8 tos,
+>   		  struct fib_info *fi, unsigned int flags)
+> @@ -1068,6 +1110,9 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
+>   		nla_nest_end(skb, mp);
+>   	}
+>   #endif
+> +	if (fi->fib_tunnel && fib_dump_tun_info(skb, fi->fib_tunnel))
+> +		goto nla_put_failure;
+> +
+>   	nlmsg_end(skb, nlh);
+>   	return 0;
+>
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 6e8e1be..f53c62f 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -1356,6 +1356,8 @@ static void ipv4_dst_destroy(struct dst_entry *dst)
+>   		list_del(&rt->rt_uncached);
+>   		spin_unlock_bh(&ul->lock);
+>   	}
+> +
+> +	ip_tunnel_info_put(rt->rt_tun_info);
+>   }
+>
+>   void rt_flush_dev(struct net_device *dev)
+> @@ -1489,6 +1491,7 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+>   	rth->rt_gateway	= 0;
+>   	rth->rt_uses_gateway = 0;
+>   	INIT_LIST_HEAD(&rth->rt_uncached);
+> +	rth->rt_tun_info = NULL;
+>   	if (our) {
+>   		rth->dst.input= ip_local_deliver;
+>   		rth->rt_flags |= RTCF_LOCAL;
+> @@ -1543,6 +1546,7 @@ static int __mkroute_input(struct sk_buff *skb,
+>   			   struct in_device *in_dev,
+>   			   __be32 daddr, __be32 saddr, u32 tos)
+>   {
+> +	struct fib_info *fi = res->fi;
+>   	struct fib_nh_exception *fnhe;
+>   	struct rtable *rth;
+>   	int err;
+> @@ -1590,7 +1594,7 @@ static int __mkroute_input(struct sk_buff *skb,
+>   	}
+>
+>   	fnhe = find_exception(&FIB_RES_NH(*res), daddr);
+> -	if (do_cache) {
+> +	if (do_cache && !(fi && fi->fib_tunnel)) {
+>   		if (fnhe)
+>   			rth = rcu_dereference(fnhe->fnhe_rth_input);
+>   		else
+> @@ -1621,6 +1625,13 @@ static int __mkroute_input(struct sk_buff *skb,
+>   	INIT_LIST_HEAD(&rth->rt_uncached);
+>   	RT_CACHE_STAT_INC(in_slow_tot);
+>
+> +	if (fi && fi->fib_tunnel) {
+> +		ip_tunnel_info_get(fi->fib_tunnel);
+> +		rth->rt_tun_info = fi->fib_tunnel;
+> +	} else {
+> +		rth->rt_tun_info = NULL;
+> +	}
+> +
+>   	rth->dst.input = ip_forward;
+>   	rth->dst.output = ip_output;
+>
+> @@ -1794,6 +1805,7 @@ local_input:
+>   	rth->rt_gateway	= 0;
+>   	rth->rt_uses_gateway = 0;
+>   	INIT_LIST_HEAD(&rth->rt_uncached);
+> +	rth->rt_tun_info = NULL;
+>   	RT_CACHE_STAT_INC(in_slow_tot);
+>   	if (res.type == RTN_UNREACHABLE) {
+>   		rth->dst.input= ip_error;
+> @@ -1940,6 +1952,11 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+>
+>   	fnhe = NULL;
+>   	do_cache &= fi != NULL;
+> +
+> +	/* Force dst for flows with tunnel encapsulation */
+> +	if (fi && fi->fib_tunnel)
+> +		goto add;
+> +
+>   	if (do_cache) {
+>   		struct rtable __rcu **prth;
+>   		struct fib_nh *nh = &FIB_RES_NH(*res);
+> @@ -1984,6 +2001,13 @@ add:
+>   	rth->rt_uses_gateway = 0;
+>   	INIT_LIST_HEAD(&rth->rt_uncached);
+>
+> +	if (fi && fi->fib_tunnel) {
+> +		ip_tunnel_info_get(fi->fib_tunnel);
+> +		rth->rt_tun_info = fi->fib_tunnel;
+> +	} else {
+> +		rth->rt_tun_info = NULL;
+> +	}
+> +
+>   	RT_CACHE_STAT_INC(out_slow_tot);
+>
+>   	if (flags & RTCF_LOCAL)
+> @@ -2263,6 +2287,7 @@ struct dst_entry *ipv4_blackhole_route(struct net *net, struct dst_entry *dst_or
+>   		rt->rt_uses_gateway = ort->rt_uses_gateway;
+>
+>   		INIT_LIST_HEAD(&rt->rt_uncached);
+> +		rt->rt_tun_info = NULL;
+>
+>   		dst_free(new);
+>   	}
+> @@ -2394,6 +2419,9 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src,
+>   	if (rtnl_put_cacheinfo(skb, &rt->dst, 0, expires, error) < 0)
+>   		goto nla_put_failure;
+>
+> +	if (rt->rt_tun_info && fib_dump_tun_info(skb, rt->rt_tun_info))
+> +		goto nla_put_failure;
+> +
+>   	nlmsg_end(skb, nlh);
+>   	return 0;
+>
+> diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+> index 4750fb6..75d6824 100644
+> --- a/net/openvswitch/vport.h
+> +++ b/net/openvswitch/vport.h
+> @@ -27,6 +27,7 @@
+>   #include <linux/skbuff.h>
+>   #include <linux/spinlock.h>
+>   #include <linux/u64_stats_sync.h>
+> +#include <net/route.h>
+>
+>   #include "datapath.h"
+>
+>
