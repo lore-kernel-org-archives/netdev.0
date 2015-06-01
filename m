@@ -1,69 +1,110 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next] cxgb4: remove unused fn to enable/disable db coalescing
-Date: Mon,  1 Jun 2015 20:07:41 +0530
-Message-ID: <1433169461-19888-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:18601 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751468AbbFAJYb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 05:24:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Junling Zheng <zhengjunling@huawei.com>
+Subject: [RFC] [PATCH] net: socket: Fix the wrong returns for recvmsg and sendmsg
+Date: Mon, 1 Jun 2015 09:28:00 +0000
+Message-ID: <1433150880-9976-1-git-send-email-zhengjunling@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <lizefan@huawei.com>, <viro@zeniv.linux.org.uk>,
+	<davem@davemloft.net>, <xuhanbing@huawei.com>,
+	<stable@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <gregkh@linuxfoundation.org>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Remove unused function cxgb4_enable_db_coalescing() and
-cxgb4_disable_db_coalescing()
+Hi, Greg:
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+We found that after v3.10.73, recvmsg might return -EFAULT while -EINVAL
+was expected.
+
+We tested it through the recvmsg01 testcase come from LTP testsuit. It set
+msg->msg_namelen to -1 and the recvmsg syscall returned errno 14, which is
+unexpected (errno 22 is expected):
+
+recvmsg01    4  TFAIL  :  invalid socket length ; returned -1 (expected -1),
+errno 14 (expected 22)
+
+Linux mainline has no this bug for commit 08adb7dab fixes it accidentally.
+However, it is too large and complex to be backported to LTS 3.10.
+
+So, I made the following patch to fix the above problem for LTS 3.10.
+
+Cheers,
+
+Junling
+
+============
+
+Commit 281c9c36 (net: compat: Update get_compat_msghdr() to match
+copy_msghdr_from_user() behaviour) made get_compat_msghdr() return
+error if msg_sys->msg_namelen was negative, which changed the behaviors
+of recvmsg and sendmsg syscall in a lib32 system:
+
+Before commit 281c9c36, get_compat_msghdr() wouldn't fail and it would
+return -EINVAL in move_addr_to_user() or somewhere if msg_sys->msg_namelen
+was invalid and then syscall returned -EINVAL, which is correct.
+
+And now, when msg_sys->msg_namelen is negative, get_compat_msghdr() will
+fail and wants to return -EINVAL, however, the outer syscall will return
+-EFAULT directly, which is unexpected.
+
+This patch gets the return value of get_compat_msghdr() as well as
+copy_msghdr_from_user(), then returns this expected value if
+get_compat_msghdr() fails.
+
+Fixes: 281c9c36 (net: compat: Update get_compat_msghdr() to match copy_msghdr_from_user() behaviour)
+Signed-off-by: Junling Zheng <zhengjunling@huawei.com>
+Signed-off-by: Hanbing Xu <xuhanbing@huawei.com>
+Cc: Li Zefan <lizefan@huawei.com>
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Cc: David Miller <davem@davemloft.net>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 19 -------------------
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |  2 --
- 2 files changed, 21 deletions(-)
+ net/socket.c | 24 ++++++++++--------------
+ 1 file changed, 10 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 4f69b52..974b27c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -2069,25 +2069,6 @@ out:
- }
- EXPORT_SYMBOL(cxgb4_sync_txq_pidx);
+diff --git a/net/socket.c b/net/socket.c
+index fc90b4f..53b6e41 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1988,14 +1988,12 @@ static int ___sys_sendmsg(struct socket *sock, struct msghdr __user *msg,
+ 	int err, ctl_len, total_len;
  
--void cxgb4_disable_db_coalescing(struct net_device *dev)
--{
--	struct adapter *adap;
--
--	adap = netdev2adap(dev);
--	t4_set_reg_field(adap, SGE_DOORBELL_CONTROL_A, NOCOALESCE_F,
--			 NOCOALESCE_F);
--}
--EXPORT_SYMBOL(cxgb4_disable_db_coalescing);
--
--void cxgb4_enable_db_coalescing(struct net_device *dev)
--{
--	struct adapter *adap;
--
--	adap = netdev2adap(dev);
--	t4_set_reg_field(adap, SGE_DOORBELL_CONTROL_A, NOCOALESCE_F, 0);
--}
--EXPORT_SYMBOL(cxgb4_enable_db_coalescing);
--
- int cxgb4_read_tpte(struct net_device *dev, u32 stag, __be32 *tpte)
- {
- 	struct adapter *adap;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index df34293..14e8110 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -298,8 +298,6 @@ struct sk_buff *cxgb4_pktgl_to_skb(const struct pkt_gl *gl,
- 				   unsigned int skb_len, unsigned int pull_len);
- int cxgb4_sync_txq_pidx(struct net_device *dev, u16 qid, u16 pidx, u16 size);
- int cxgb4_flush_eq_cache(struct net_device *dev);
--void cxgb4_disable_db_coalescing(struct net_device *dev);
--void cxgb4_enable_db_coalescing(struct net_device *dev);
- int cxgb4_read_tpte(struct net_device *dev, u32 stag, __be32 *tpte);
- u64 cxgb4_read_sge_timestamp(struct net_device *dev);
+ 	err = -EFAULT;
+-	if (MSG_CMSG_COMPAT & flags) {
+-		if (get_compat_msghdr(msg_sys, msg_compat))
+-			return -EFAULT;
+-	} else {
++	if (MSG_CMSG_COMPAT & flags)
++		err = get_compat_msghdr(msg_sys, msg_compat);
++	else
+ 		err = copy_msghdr_from_user(msg_sys, msg);
+-		if (err)
+-			return err;
+-	}
++	if (err)
++		return err;
  
+ 	if (msg_sys->msg_iovlen > UIO_FASTIOV) {
+ 		err = -EMSGSIZE;
+@@ -2200,14 +2198,12 @@ static int ___sys_recvmsg(struct socket *sock, struct msghdr __user *msg,
+ 	struct sockaddr __user *uaddr;
+ 	int __user *uaddr_len;
+ 
+-	if (MSG_CMSG_COMPAT & flags) {
+-		if (get_compat_msghdr(msg_sys, msg_compat))
+-			return -EFAULT;
+-	} else {
++	if (MSG_CMSG_COMPAT & flags)
++		err = get_compat_msghdr(msg_sys, msg_compat);
++	else
+ 		err = copy_msghdr_from_user(msg_sys, msg);
+-		if (err)
+-			return err;
+-	}
++	if (err)
++		return err;
+ 
+ 	if (msg_sys->msg_iovlen > UIO_FASTIOV) {
+ 		err = -EMSGSIZE;
 -- 
-2.3.4
+1.8.3.4
