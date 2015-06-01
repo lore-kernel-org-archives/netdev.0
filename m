@@ -1,69 +1,51 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v6 3/8] macvtap: introduce macvtap_is_little_endian()
-	helper
-Date: Mon, 1 Jun 2015 12:30:16 +0200
-Message-ID: <20150601122950-mutt-send-email-mst@redhat.com>
-References: <20150424122211.19156.97626.stgit@bahia.local>
-	<20150424122446.19156.93123.stgit@bahia.local>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: [PATCH v2] xen: netback: fix printf format string warning
+Date: Mon, 1 Jun 2015 11:30:04 +0100
+Message-ID: <1433154604-27997-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Huth <thuth@redhat.com>, kvm@vger.kernel.org,
-	linux-api@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Greg Kurz <gkurz@linux.vnet.ibm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20150424122446.19156.93123.stgit@bahia.local>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <wei.liu2@citrix.com>, Ian Campbell <ian.campbell@citrix.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:59207 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751754AbbFAKoz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Jun 2015 06:44:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 24, 2015 at 02:24:48PM +0200, Greg Kurz wrote:
-> Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
+drivers/net/xen-netback/netback.c: In function =E2=80=98xenvif_tx_build=
+_gops=E2=80=99:
+drivers/net/xen-netback/netback.c:1253:8: warning: format =E2=80=98%lu=E2=
+=80=99 expects argument of type =E2=80=98long unsigned int=E2=80=99, bu=
+t argument 5 has type =E2=80=98int=E2=80=99 [-Wformat=3D]
+        (txreq.offset&~PAGE_MASK) + txreq.size);
+        ^
 
-Dave, could you pls ack merging this through the virtio tree?
+PAGE_MASK's type can vary by arch, so a cast is needed.
 
-> ---
->  drivers/net/macvtap.c |    9 +++++++--
->  1 file changed, 7 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 27ecc5c..a2f2958 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -49,14 +49,19 @@ struct macvtap_queue {
->  
->  #define MACVTAP_VNET_LE 0x80000000
->  
-> +static inline bool macvtap_is_little_endian(struct macvtap_queue *q)
-> +{
-> +	return q->flags & MACVTAP_VNET_LE;
-> +}
-> +
->  static inline u16 macvtap16_to_cpu(struct macvtap_queue *q, __virtio16 val)
->  {
-> -	return __virtio16_to_cpu(q->flags & MACVTAP_VNET_LE, val);
-> +	return __virtio16_to_cpu(macvtap_is_little_endian(q), val);
->  }
->  
->  static inline __virtio16 cpu_to_macvtap16(struct macvtap_queue *q, u16 val)
->  {
-> -	return __cpu_to_virtio16(q->flags & MACVTAP_VNET_LE, val);
-> +	return __cpu_to_virtio16(macvtap_is_little_endian(q), val);
->  }
->  
->  static struct proto macvtap_proto = {
-> 
-> _______________________________________________
-> Virtualization mailing list
-> Virtualization@lists.linux-foundation.org
-> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+----
+v2: Cast to unsigned long, since PAGE_MASK can vary by arch.
+---
+ drivers/net/xen-netback/netback.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netbac=
+k/netback.c
+index 4de46aa..0d25943 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1250,7 +1250,7 @@ static void xenvif_tx_build_gops(struct xenvif_qu=
+eue *queue,
+ 			netdev_err(queue->vif->dev,
+ 				   "txreq.offset: %x, size: %u, end: %lu\n",
+ 				   txreq.offset, txreq.size,
+-				   (txreq.offset&~PAGE_MASK) + txreq.size);
++				   (unsigned long)(txreq.offset&~PAGE_MASK) + txreq.size);
+ 			xenvif_fatal_tx_err(queue->vif);
+ 			break;
+ 		}
+--=20
+1.7.10.4
