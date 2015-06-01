@@ -1,34 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] s390/bpf: implement bpf_tail_call JIT
- support
-Date: Sun, 31 May 2015 21:39:31 -0700 (PDT)
-Message-ID: <20150531.213931.282168647572228489.davem@davemloft.net>
-References: <1433007731-16992-1-git-send-email-ast@plumgrid.com>
+Subject: Re: [PATCH net] udp: fix behavior of wrong checksums
+Date: Sun, 31 May 2015 21:42:51 -0700 (PDT)
+Message-ID: <20150531.214251.957902561372382056.davem@davemloft.net>
+References: <1433002613.7456.107.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: holzheu@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
-	heiko.carstens@de.ibm.com, daniel@iogearbox.net,
-	netdev@vger.kernel.org
-To: ast@plumgrid.com
+Cc: netdev@vger.kernel.org, willemb@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45350 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45368 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755804AbbFAEjd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 00:39:33 -0400
-In-Reply-To: <1433007731-16992-1-git-send-email-ast@plumgrid.com>
+	with ESMTP id S1751475AbbFAEmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 00:42:52 -0400
+In-Reply-To: <1433002613.7456.107.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Sat, 30 May 2015 10:42:08 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 30 May 2015 09:16:53 -0700
 
-> This set is for net-next tree.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Patch 3 adds bpf_tail_call() support for s390x JIT. It has
-> a dependency on patches 1 and 2 that will also be submitted
-> to stable via Martin Schwidefsky.
+> We have two problems in UDP stack related to bogus checksums :
+> 
+> 1) We return -EAGAIN to application even if receive queue is not empty.
+>    This breaks applications using edge trigger epoll()
+> 
+> 2) Under UDP flood, we can loop forever without yielding to other
+>    processes, potentially hanging the host, especially on non SMP.
+> 
+> 
+> This patch is an attempt to make things better.
+> 
+> We might in the future add extra support for rt applications
+> wanting to better control time spent doing a recv() in a hostile
+> environment. For example we could validate checksums before queuing
+> packets in socket receive queue.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-In this kind of scenerio, patches #1 and #2 should go via my
-tree (somehow), and then when I next merge 'net' into 'net-next'
-you can submit patch #3.
+Yeah this looks correct, applied and queued up for -stable.
+
+Thanks!
