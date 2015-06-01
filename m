@@ -1,79 +1,88 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ipv4/udp: Verify multicast group is ours in upd_v4_early_demux()
-Date: Mon, 01 Jun 2015 23:11:42 +0300
-Message-ID: <556CBC7E.2050005@cogentembedded.com>
-References: <1432663193.4060.280.camel@edumazet-glaptop2.roam.corp.google.com> <1433176465-22941-1-git-send-email-shawn.bohrer@gmail.com>
+From: Arun Parameswaran <aparames@broadcom.com>
+Subject: Re: [PATCH 0/2] Fix couple of issues with 'ethtool' get/set API's
+Date: Mon, 1 Jun 2015 14:00:45 -0700
+Message-ID: <556CC7FD.6060002@broadcom.com>
+References: <1432334609-3971-1-git-send-email-aparames@broadcom.com>		 <1433102379.6319.110.camel@decadent.org.uk>	 <556C92E3.3030707@broadcom.com> <1433182033.6319.178.camel@decadent.org.uk>	 <556CAEA9.5090003@broadcom.com> <1433186963.6319.195.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
-	Alexandra.Kossovsky@oktetlabs.ru,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Oliver Graff <oliver.e.graff@gmail.com>, davem@davemloft.net,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: Shawn Bohrer <shawn.bohrer@gmail.com>, netdev@vger.kernel.org
+Cc: Ben Hutchings <bwh@kernel.org>, <netdev@vger.kernel.org>,
+	<jdzheng@broadcom.com>, <aparames@broadcom.com>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f48.google.com ([209.85.215.48]:36845 "EHLO
-	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751889AbbFAULr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 16:11:47 -0400
-Received: by laei3 with SMTP id i3so22271520lae.3
-        for <netdev@vger.kernel.org>; Mon, 01 Jun 2015 13:11:45 -0700 (PDT)
-In-Reply-To: <1433176465-22941-1-git-send-email-shawn.bohrer@gmail.com>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:19476 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751946AbbFAVA5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 17:00:57 -0400
+In-Reply-To: <1433186963.6319.195.camel@decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 15-06-01 12:29 PM, Ben Hutchings wrote:
+> On Mon, 2015-06-01 at 12:12 -0700, Arun Parameswaran wrote:
+>> On 15-06-01 11:07 AM, Ben Hutchings wrote:
+>>> On Mon, 2015-06-01 at 10:14 -0700, Arun Parameswaran wrote:
+>>>> On 15-05-31 12:59 PM, Ben Hutchings wrote:
+>>>>> On Fri, 2015-05-22 at 15:43 -0700, Arun Parameswaran wrote:
+>>>>>> Hi,
+>>>>>> The patch fixes 2 issues with 'ethtool' getting/setting parametres in
+>>>>>> the do_gset() do_sset() API's.
+>>>>>>
+>>>>>> I have pushed a patch to the Kernel to fix an issue in the handling of
+>>>>>> the 'ethtool' commands which got accepted.
+>>>>>> This Kernel patch was based on Linux v4.1-rc4 and is available in:
+>>>>>> https://github.com/Broadcom/cygnus-linux/tree/net-core-ethtool-fix-v1
+>>>>>>
+>>>>>> The Kernel was always clearing the command from the 'ethtool' resulting
+>>>>>> in all operations to deal with PHY0. This prevents querying/setting
+>>>>>> PHY 1's settings.
+>>>>> [...]
+>>>>>
+>>>>> Each net device can be associated with a single PHY at a time, and the
+>>>>> ETHTOOL_GSET implementation should fill in the PHY address in the
+>>>>> ethtool_cmd::phy_address field.  Where there are multiple PHYs that can
+>>>>> be connected to the net device's MAC, an ETHTOOL_SSET operation can be
+>>>>> used to change that PHY address.
+>>>>>
+>>>> The above can be done by the driver when there is one PHY per MAC. In our
+>>>> case we have multiple PHYs controlled by the same MAC. I should have
+>>>> clarified this earlier, I apologize.
+>>>
+>>> I understand that you can have multiple PHYs on the same MDIO bus, but
+>>> not how the MAC can use them at the same time.  Is this hardware level
+>>> bonding?  Or are multiple PHYs needed for a single link?
+>>>
+>> We have an internal switch which manages the traffic to the PHY's (ports).
+>> There is 1 PHY per external port.
+>> The MAC is connected to the internal port of the switch.
+> 
+> Then you should create net devices for those external ports as well as
+> the internal port.
+We can only have one MAC address as we have only one MAC. So we prefer to
+have a single net device which reflects the hardware better.
 
-On 06/01/2015 07:34 PM, Shawn Bohrer wrote:
+> 
+> If I understand the switchdev API rightly, the external port devices
+> should implement the ethtool {get,set}_settings operations and the
+> ndo_switch_parent_id_get operation.  The existing net device should
+> expose only the internal link to the switch (which presumably isn't
+> configurable at all).
+I agree, there can be an implementation like the above.
+The switch can be handled in multiple ways, in our case we use one net
+device as we are limited by the MAC.
 
-> From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Since the 'ethtool' provides the 'phyad' parameter to specifically
+address a particular PHY, I think the 'ethtool' should allow for this,
+irrespective of the net implementation. Wouldn't this make the 'ethtool'
+flexible and detached from the network driver implementation.
 
-> 421b3885bf6d56391297844f43fb7154a6396e12 "udp: ipv4: Add udp early
-> demux" introduced a regression that allowed sockets bound to INADDR_ANY
-> to receive packets from multicast groups that the socket had not joined.
-> For example a socket that had joined 224.168.2.9 could also receive
-> packets from 225.168.2.9 despite not having joined that group if
-> ip_early_demux is enabled.
-
-> Fix this by calling ip_check_mc_rcu() in udp_v4_early_demux() to verify
-> that the multicast packet is indeed ours.
-
-> Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
-> Reported-by: Yurij M. Plotnikov <Yurij.Plotnikov@oktetlabs.ru>
-> ---
->   net/ipv4/udp.c | 18 +++++++++++++-----
->   1 file changed, 13 insertions(+), 5 deletions(-)
-
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index d10b7e0..17d31f5 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-[...]
-> @@ -1971,10 +1972,17 @@ void udp_v4_early_demux(struct sk_buff *skb)
->   	uh = udp_hdr(skb);
->
->   	if (skb->pkt_type == PACKET_BROADCAST ||
-> -	    skb->pkt_type == PACKET_MULTICAST)
-> -		sk = __udp4_lib_mcast_demux_lookup(net, uh->dest, iph->daddr,
-> -						   uh->source, iph->saddr, dif);
-> -	else if (skb->pkt_type == PACKET_HOST)
-> +	    skb->pkt_type == PACKET_MULTICAST) {
-> +		struct in_device *in_dev = __in_dev_get_rcu(skb->dev);
-> +
-> +		if (in_dev) {
-> +			int our = ip_check_mc_rcu(in_dev, iph->daddr, iph->saddr,
-> +						  iph->protocol);
-> +			if (our)
-> +				sk = __udp4_lib_mcast_demux_lookup(net, uh->dest, iph->daddr,
-> +								   uh->source, iph->saddr, dif);
-> +		}
-> +	} else if (skb->pkt_type == PACKET_HOST)
->   		sk = __udp4_lib_demux_lookup(net, uh->dest, iph->daddr,
->   					     uh->source, iph->saddr, dif);
->   	else
-
-    Must add {} around all branches of the *if* statement if you're adding 
-them around just one; see Documentation/CodingStyle.
-
-WBR, Sergei
+> 
+> [...]
+>> But this prevents the 'ethtool' from being used to get/set data of
+>> specific PHY's.
+> 
+> That is fine because it is meant to manage the net device's own link (in
+> this case, the internal port), not other switch ports.
+> 
+> Ben.
+> 
