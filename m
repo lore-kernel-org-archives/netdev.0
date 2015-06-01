@@ -1,75 +1,65 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: ethtool 4.0 released
-Date: Sun, 31 May 2015 22:30:06 +0100
-Message-ID: <1433107806.6319.141.camel@decadent.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] net: core: 'ethtool' issue with querying phy
+ settings
+Date: Sun, 31 May 2015 17:19:40 -0700 (PDT)
+Message-ID: <20150531.171940.1635713770956335110.davem@davemloft.net>
+References: <1432157730-26865-2-git-send-email-aparames@broadcom.com>
+	<20150522.161511.1791346966770946099.davem@davemloft.net>
+	<1433102046.6319.103.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-sQJtlm3mOAQPdI5GzeZn"
-To: netdev <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: aparames@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	bcm-kernel-feedback-list@broadcom.com, rjui@broadcom.com,
+	sbranden@broadcom.com, jdzheng@broadcom.com
+To: ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58789 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758488AbbEaVaS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 May 2015 17:30:18 -0400
-Received: from deadeye.wl.decadent.org.uk ([192.168.4.249] helo=deadeye)
-	by shadbolt.decadent.org.uk with esmtps (TLS1.2:ECDHE_RSA_AES_128_GCM_SHA256:128)
-	(Exim 4.84)
-	(envelope-from <ben@decadent.org.uk>)
-	id 1YzAoC-00062c-QM
-	for netdev@vger.kernel.org; Sun, 31 May 2015 22:30:16 +0100
-Received: from ben by deadeye with local (Exim 4.85)
-	(envelope-from <ben@decadent.org.uk>)
-	id 1YzAo7-0005No-Ly
-	for netdev@vger.kernel.org; Sun, 31 May 2015 22:30:11 +0100
+Received: from shards.monkeyblade.net ([149.20.54.216]:44157 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751545AbbFAATl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 May 2015 20:19:41 -0400
+In-Reply-To: <1433102046.6319.103.camel@decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Sun, 31 May 2015 20:54:06 +0100
 
---=-sQJtlm3mOAQPdI5GzeZn
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> On Fri, 2015-05-22 at 16:15 -0400, David Miller wrote:
+>> From: Arun Parameswaran <aparames@broadcom.com>
+>> Date: Wed, 20 May 2015 14:35:30 -0700
+>> 
+>> > When trying to configure the settings for PHY1, using commands
+>> > like 'ethtool -s eth0 phyad 1 speed 100', the 'ethtool' seems to
+>> > modify other settings apart from the speed of the PHY1, in the
+>> > above case.
+>> > 
+>> > The ethtool seems to query the settings for PHY0, and use this
+>> > as the base to apply the new settings to the PHY1. This is
+>> > causing the other settings of the PHY 1 to be wrongly
+>> > configured.
+>> > 
+>> > The issue is caused by the '_ethtool_get_settings()' API, which
+>> > gets called because of the 'ETHTOOL_GSET' command, is clearing
+>> > the 'cmd' pointer (of type 'struct ethtool_cmd') by calling
+>> > memset. This clears all the parameters (if any) passed for the
+>> > 'ETHTOOL_GSET' cmd. So the driver's callback is always invoked
+>> > with 'cmd->phy_address' as '0'.
+>> > 
+>> > The '_ethtool_get_settings()' is called from other files in the
+>> > 'net/core'. So the fix is applied to the 'ethtool_get_settings()'
+>> > which is only called in the context of the 'ethtool'.
+>> > 
+>> > Signed-off-by: Arun Parameswaran <aparames@broadcom.com>
+>> > Reviewed-by: Ray Jui <rjui@broadcom.com>
+>> > Reviewed-by: Scott Branden <sbranden@broadcom.com>
+>> 
+>> Applied and queued up for -stable, thanks.
+> 
+> Please revert this.  This is an incompatible API change, not a bug fix.
+> The established semantics are that 'phyad' is filled in by the driver;
+> it is not a parameter to the ETHTOOL_GSET command.
 
-ethtool version 4.0 has been released.
-
-Home page: https://www.kernel.org/pub/software/network/ethtool/
-Download link:
-https://www.kernel.org/pub/software/network/ethtool/ethtool-4.0.tar.xz
-
-Release notes:
-
-	* Fix: Formatting of RX flow hash indirection table when size not
-	  divisible by 8 (-x option)
-	* Fix: Add missing Advertised speeds (no option and -s option)
-	* Feature: Add support to get expansion ROM version (-i option)
-	* Feature: Include SFP serial number and date in EEPROM dump
-	  (-m option)
-
-Ben.
-
---=20
-Ben Hutchings
-Reality is just a crutch for people who can't handle science fiction.
-
---=-sQJtlm3mOAQPdI5GzeZn
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVWt9Y+e/yOyVhhEJAQrgeA/9H1vvu0GiHTcRd2tMD9wQ+/vGo6LiriBe
-8yuDD+iirUS9RygSUl3k3WrQMERC6r6AnYd806KBxbXjpXXu9qGEtlVbQxVq0QmW
-0DtQsCalt2sXqP3/MVd7ggeVzbSYzVOm4oyrWGcnpm6y4mUe5Y2vu2hv+bw1851I
-D20n+8M1i4QCXWS01vm2RfigARzgHgEP/zQtnmNsMIPxf3uSD9qkELc1UEQwEoIN
-xy60DzuKPCUvlAcyPLWEbRf95UfxuI1gFm3qAzvK20F5O25lvllAZNR17H5fYAyX
-ifw8ppDY8h/VyASYc9LXKMYSOa0kW+B1yqM83+zMOlFOn5NtMjpko+EnlYA6GBv1
-FClDeO+XRyLj6Ro8MmgWF9tz30v0ZvhvDQ6AMPKwNTOieZ10qHGjXegeZQ8PXY5I
-WPz+xh/dItWYG7dFlaERh/R4OEl5WQNVzWM22Hh0tPgRO090C6i+NIIPt5DWgvyg
-DNBRkt9BWDYw5zixEm0i0Ol/x4WKMiQETcBeFcP600MCcztQePmJTcBL34bEIh/p
-dd2fNR7UbgNTxq0sM+bGr1nKQLnahqpf4iq0J5uofrPsO0k/NGzQufRtn3tj3I4H
-5XU0bXXrPOs94ww8t52eC9ePXUMOmWEE+wm9C+rPKRLIqCGBf4IhLd18bhAZs7Fq
-la0qFHqr3pI=
-=FCGw
------END PGP SIGNATURE-----
-
---=-sQJtlm3mOAQPdI5GzeZn--
+But then how in the world can the user specify specific PHY ADs for
+a device that will respond to more than one?
