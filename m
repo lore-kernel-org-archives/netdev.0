@@ -1,39 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Sun, 31 May 2015 21:35:54 -0700 (PDT)
-Message-ID: <20150531.213554.1200774935717475775.davem@davemloft.net>
-References: <20150601134413.34ccfce3@canb.auug.org.au>
+Subject: Re: [PATCH] isdn/capi: Use setup_timer
+Date: Sun, 31 May 2015 21:36:57 -0700 (PDT)
+Message-ID: <20150531.213657.1250786887573503291.davem@davemloft.net>
+References: <20150601014015.GA6747@vaishali-Ideapad-Z570>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	saeedm@mellanox.com, ranas@mellanox.com, achiad@mellanox.com,
-	amirv@mellanox.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20150601134413.34ccfce3@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: isdn@linux-pingi.de, julia.lawall@lip6.fr, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: vthakkar1994@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45249 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750987AbbFAEg6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 00:36:58 -0400
+In-Reply-To: <20150601014015.GA6747@vaishali-Ideapad-Z570>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 1 Jun 2015 13:44:13 +1000
+From: Vaishali Thakkar <vthakkar1994@gmail.com>
+Date: Mon, 1 Jun 2015 07:10:15 +0530
 
-> After merging the net-next tree, today's linux-next build (x86_64
-> allmodconfig) failed like this:
+> Use the timer API function setup_timer instead of structure field
+> assignments to initialize a timer.
 > 
-> drivers/net/ethernet/mellanox/mlx5/core/main.c: In function 'mlx5_irq_set_affinity_hint':
-> drivers/net/ethernet/mellanox/mlx5/core/main.c:474:2: error: implicit declaration of function 'cpumask_set_cpu_local_first' [-Werror=implicit-function-declaration]
->   err = cpumask_set_cpu_local_first(i, numa_node, priv->irq_info[i].mask);
->   ^
+> A simplified version of the Coccinelle semantic patch that performs
+> this transformation is as follows:
 > 
-> Caused by commit db058a186f98 ("net/mlx5_core: Set irq affinity hints")
-> interacting with commit f36963c9d3f6 ("cpumask_set_cpu_local_first =>
-> cpumask_local_spread, lament") from Linus' tree.
+> @change@
+> expression e1, e2, e3, e4, a, b;
+> @@
 > 
-> I have applied the following merge fix patch (Dave, you could do this
-> by back merging commit f36963c9d3f6 from Linus' tree - which is based
-> on v4.1-rc2 if that worries you).  Please yell if this is not correct
-> (it does build).
+> -init_timer(&e1);
+> +setup_timer(&e1, a, b);
+> 
+> ... when != a = e2
+>     when != b = e3
+> 
+> -e1.data = b;
+> ... when != a = e4
+> -e1.function = a;
+> 
+> Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
 
-Thanks Stephen, I'll take care of this next time I merge.
+Applied, thanks.
