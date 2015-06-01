@@ -1,85 +1,69 @@
-From: Shawn Bohrer <shawn.bohrer@gmail.com>
-Subject: [PATCH] ipv4/udp: Verify multicast group is ours in upd_v4_early_demux()
-Date: Mon,  1 Jun 2015 11:34:25 -0500
-Message-ID: <1433176465-22941-1-git-send-email-shawn.bohrer@gmail.com>
-References: <1432663193.4060.280.camel@edumazet-glaptop2.roam.corp.google.com>
-Cc: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
-	Alexandra.Kossovsky@oktetlabs.ru,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Oliver Graff <oliver.e.graff@gmail.com>, davem@davemloft.net,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: netdev@vger.kernel.org
+From: Robert Shearman <rshearma@brocade.com>
+Subject: [RFC net-next 0/3] IP imposition of per-nh MPLS encap
+Date: Mon, 1 Jun 2015 17:46:12 +0100
+Message-ID: <1433177175-16775-1-git-send-email-rshearma@brocade.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	roopa <roopa@cumulusnetworks.com>, Thomas Graf <tgraf@suug.ch>,
+	Robert Shearman <rshearma@brocade.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:34651 "EHLO
-	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752717AbbFAQez (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 12:34:55 -0400
-Received: by oifu123 with SMTP id u123so105782294oif.1
-        for <netdev@vger.kernel.org>; Mon, 01 Jun 2015 09:34:55 -0700 (PDT)
-In-Reply-To: <1432663193.4060.280.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:41214 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751771AbbFAQsW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 12:48:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+In order to be able to function as a Label Edge Router in an MPLS
+network, it is necessary to be able to take IP packets and impose an
+MPLS encap and forward them out. The traditional approach of setting
+up an interface for each "tunnel" endpoint doesn't scale for the
+common MPLS use-cases where each IP route tends to be assigned a
+different label as encap.
 
-421b3885bf6d56391297844f43fb7154a6396e12 "udp: ipv4: Add udp early
-demux" introduced a regression that allowed sockets bound to INADDR_ANY
-to receive packets from multicast groups that the socket had not joined.
-For example a socket that had joined 224.168.2.9 could also receive
-packets from 225.168.2.9 despite not having joined that group if
-ip_early_demux is enabled.
+The solution suggested here for further discussion is to provide the
+facility to define encap data on a per-nexthop basis using a new
+netlink attribue, RTA_ENCAP, which would be opaque to the IPv4/IPv6
+forwarding code, but interpreted by the virtual interface assigned to
+the nexthop.
 
-Fix this by calling ip_check_mc_rcu() in udp_v4_early_demux() to verify
-that the multicast packet is indeed ours.
+A new ipmpls interface type is defined to show the use of this
+facility to allow IP packets to be imposed with an MPLS
+encap. However, the facility is designed to be general enough to be
+used by any encapsulation/tunneling mechanism that has similar
+requirements of high-scale, high-variation-of-encap.
 
-Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Reported-by: Yurij M. Plotnikov <Yurij.Plotnikov@oktetlabs.ru>
----
- net/ipv4/udp.c | 18 +++++++++++++-----
- 1 file changed, 13 insertions(+), 5 deletions(-)
+RFC because:
+ - IPv6 side not implemented
+ - struct rtable shouldn't be bloated by pointer+uint
+ - Hasn't been thoroughly tested yet
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index d10b7e0..17d31f5 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -90,6 +90,7 @@
- #include <linux/socket.h>
- #include <linux/sockios.h>
- #include <linux/igmp.h>
-+#include <linux/inetdevice.h>
- #include <linux/in.h>
- #include <linux/errno.h>
- #include <linux/timer.h>
-@@ -1959,7 +1960,7 @@ void udp_v4_early_demux(struct sk_buff *skb)
- 	struct net *net = dev_net(skb->dev);
- 	const struct iphdr *iph;
- 	const struct udphdr *uh;
--	struct sock *sk;
-+	struct sock *sk = NULL;
- 	struct dst_entry *dst;
- 	int dif = skb->dev->ifindex;
- 
-@@ -1971,10 +1972,17 @@ void udp_v4_early_demux(struct sk_buff *skb)
- 	uh = udp_hdr(skb);
- 
- 	if (skb->pkt_type == PACKET_BROADCAST ||
--	    skb->pkt_type == PACKET_MULTICAST)
--		sk = __udp4_lib_mcast_demux_lookup(net, uh->dest, iph->daddr,
--						   uh->source, iph->saddr, dif);
--	else if (skb->pkt_type == PACKET_HOST)
-+	    skb->pkt_type == PACKET_MULTICAST) {
-+		struct in_device *in_dev = __in_dev_get_rcu(skb->dev);
-+
-+		if (in_dev) {
-+			int our = ip_check_mc_rcu(in_dev, iph->daddr, iph->saddr,
-+						  iph->protocol);
-+			if (our)
-+				sk = __udp4_lib_mcast_demux_lookup(net, uh->dest, iph->daddr,
-+								   uh->source, iph->saddr, dif);
-+		}
-+	} else if (skb->pkt_type == PACKET_HOST)
- 		sk = __udp4_lib_demux_lookup(net, uh->dest, iph->daddr,
- 					     uh->source, iph->saddr, dif);
- 	else
+Robert Shearman (3):
+  net: infra for per-nexthop encap data
+  ipv4: storing and retrieval of per-nexthop encap
+  mpls: new ipmpls device for encapsulating IP packets as mpls
+
+ include/linux/rtnetlink.h      |   7 +
+ include/net/dst.h              |  11 ++
+ include/net/dst_ops.h          |   2 +
+ include/net/ip_fib.h           |   2 +
+ include/net/route.h            |   3 +
+ include/net/rtnetlink.h        |  11 ++
+ include/uapi/linux/if_arp.h    |   1 +
+ include/uapi/linux/rtnetlink.h |   1 +
+ net/core/rtnetlink.c           |  36 ++++++
+ net/ipv4/fib_frontend.c        |   3 +
+ net/ipv4/fib_lookup.h          |   2 +
+ net/ipv4/fib_semantics.c       | 179 +++++++++++++++++++++++++-
+ net/ipv4/route.c               |  24 ++++
+ net/mpls/Kconfig               |   5 +
+ net/mpls/Makefile              |   1 +
+ net/mpls/af_mpls.c             |   2 +
+ net/mpls/ipmpls.c              | 284 +++++++++++++++++++++++++++++++++++++++++
+ 17 files changed, 572 insertions(+), 2 deletions(-)
+ create mode 100644 net/mpls/ipmpls.c
+
 -- 
-1.9.3
+2.1.4
