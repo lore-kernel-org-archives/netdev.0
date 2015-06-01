@@ -1,47 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] vlan: Add GRO support for non hardware
- accelerated vlan
-Date: Mon, 01 Jun 2015 09:28:41 -0700
-Message-ID: <1433176121.1895.12.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1433163307-9299-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	 <1433167957.1895.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <556C8244.1090400@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	"David S . Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Toshiaki Makita <toshiaki.makita1@gmail.com>
+From: Shawn Bohrer <shawn.bohrer@gmail.com>
+Subject: [PATCH] ipv4/udp: Verify multicast group is ours in upd_v4_early_demux()
+Date: Mon,  1 Jun 2015 11:34:25 -0500
+Message-ID: <1433176465-22941-1-git-send-email-shawn.bohrer@gmail.com>
+References: <1432663193.4060.280.camel@edumazet-glaptop2.roam.corp.google.com>
+Cc: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
+	Alexandra.Kossovsky@oktetlabs.ru,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Oliver Graff <oliver.e.graff@gmail.com>, davem@davemloft.net,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:33170 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753011AbbFAQ2o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 12:28:44 -0400
-Received: by iebgx4 with SMTP id gx4so112939150ieb.0
-        for <netdev@vger.kernel.org>; Mon, 01 Jun 2015 09:28:43 -0700 (PDT)
-In-Reply-To: <556C8244.1090400@gmail.com>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:34651 "EHLO
+	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752717AbbFAQez (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 12:34:55 -0400
+Received: by oifu123 with SMTP id u123so105782294oif.1
+        for <netdev@vger.kernel.org>; Mon, 01 Jun 2015 09:34:55 -0700 (PDT)
+In-Reply-To: <1432663193.4060.280.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-06-02 at 01:03 +0900, Toshiaki Makita wrote:
+From: Shawn Bohrer <sbohrer@rgmadvisors.com>
 
-> I didn't have that concern because there are already other similar 
-> offloads (eth, mpls_uc, mpls_mc). But indeed, they and this could slow 
-> down GRO stack.
+421b3885bf6d56391297844f43fb7154a6396e12 "udp: ipv4: Add udp early
+demux" introduced a regression that allowed sockets bound to INADDR_ANY
+to receive packets from multicast groups that the socket had not joined.
+For example a socket that had joined 224.168.2.9 could also receive
+packets from 225.168.2.9 despite not having joined that group if
+ip_early_demux is enabled.
 
-Right, but these mpls offloads are not installed on my kernels ;)
+Fix this by calling ip_check_mc_rcu() in udp_v4_early_demux() to verify
+that the multicast packet is indeed ours.
 
-And I already checked that eth was installed before IPv4/IPv6,
-although it might be pure luck.
+Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Reported-by: Yurij M. Plotnikov <Yurij.Plotnikov@oktetlabs.ru>
+---
+ net/ipv4/udp.c | 18 +++++++++++++-----
+ 1 file changed, 13 insertions(+), 5 deletions(-)
 
-
-
-> Add priority to packet_offload like nf_hook_ops?
-> Or have dev_add_offload() prioritize IP > IPV6 > others?
-
-
-You also could use a CONFIG_NET_VLAN_GRO module, so that only
-users stuck with non accelerated vlan can load.
-
-But yes, we might take care of this problem at some point.
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index d10b7e0..17d31f5 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -90,6 +90,7 @@
+ #include <linux/socket.h>
+ #include <linux/sockios.h>
+ #include <linux/igmp.h>
++#include <linux/inetdevice.h>
+ #include <linux/in.h>
+ #include <linux/errno.h>
+ #include <linux/timer.h>
+@@ -1959,7 +1960,7 @@ void udp_v4_early_demux(struct sk_buff *skb)
+ 	struct net *net = dev_net(skb->dev);
+ 	const struct iphdr *iph;
+ 	const struct udphdr *uh;
+-	struct sock *sk;
++	struct sock *sk = NULL;
+ 	struct dst_entry *dst;
+ 	int dif = skb->dev->ifindex;
+ 
+@@ -1971,10 +1972,17 @@ void udp_v4_early_demux(struct sk_buff *skb)
+ 	uh = udp_hdr(skb);
+ 
+ 	if (skb->pkt_type == PACKET_BROADCAST ||
+-	    skb->pkt_type == PACKET_MULTICAST)
+-		sk = __udp4_lib_mcast_demux_lookup(net, uh->dest, iph->daddr,
+-						   uh->source, iph->saddr, dif);
+-	else if (skb->pkt_type == PACKET_HOST)
++	    skb->pkt_type == PACKET_MULTICAST) {
++		struct in_device *in_dev = __in_dev_get_rcu(skb->dev);
++
++		if (in_dev) {
++			int our = ip_check_mc_rcu(in_dev, iph->daddr, iph->saddr,
++						  iph->protocol);
++			if (our)
++				sk = __udp4_lib_mcast_demux_lookup(net, uh->dest, iph->daddr,
++								   uh->source, iph->saddr, dif);
++		}
++	} else if (skb->pkt_type == PACKET_HOST)
+ 		sk = __udp4_lib_demux_lookup(net, uh->dest, iph->daddr,
+ 					     uh->source, iph->saddr, dif);
+ 	else
+-- 
+1.9.3
