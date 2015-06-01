@@ -1,118 +1,185 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] bridge: skip fdb add if the port
-	shouldn't learn
-Date: Tue, 02 Jun 2015 10:14:41 -0700
-Message-ID: <556DE481.5030201@cumulusnetworks.com>
-References: <1432204977-4293-1-git-send-email-nikolay@cumulusnetworks.com>
-	<20150526102809.5c3e8abc@urahara>
-	<CABQ03vEQhdXgWk5r103Yd0CPxEWuU3i0m8ztQjtgR0NFDbEXRQ@mail.gmail.com>
-	<CAE4R7bBEn8Tvct_W0n7nR5YccEmTRByUc=-4nmvuQNqfrBFABg@mail.gmail.com>
-	<CABQ03vEbgtHLyFmRs7ffpXGkTmjX9G=RbAhWwDrj-5rKysys5g@mail.gmail.com>
-	<CAE4R7bDtY1jDcLnvEMx-y4U=SVvf867SPZc3vRjfrUYBA8W=0g@mail.gmail.com>
+From: vaibhavkhanduja-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Subject: Re: [RFC PATCH 0/4] Make iSCSI network namespace aware
+Date: Sun, 31 May 2015 20:43:57 -0700 (PDT)
+Message-ID: <6c292826-4217-4e9e-aab4-4451a1460c3f@googlegroups.com>
+References: <1431555167-23995-1-git-send-email-cleech@redhat.com>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>, bridge@lists.linux-foundation.org,
-	Wilson Kok <wkok@cumulusnetworks.com>, David Miller <davem@davemloft.net>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAE4R7bDtY1jDcLnvEMx-y4U=SVvf867SPZc3vRjfrUYBA8W=0g@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: multipart/mixed;
+	boundary="----=_Part_279_1560941177.1433130237684"
+Cc: linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Return-path: <open-iscsi+bncBD65NQGTVQGBBWGPW6VQKGQEPC5YS7A-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <1431555167-23995-1-git-send-email-cleech-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Post: <http://groups.google.com/group/open-iscsi/post>, <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/open-iscsi
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/open-iscsi/subscribe>, <mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+856124926423+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <http://groups.google.com/group/open-iscsi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-On 5/27/15, 9:01 AM, Scott Feldman wrote:
-> On Wed, May 27, 2015 at 1:35 AM, Nikolay Aleksandrov
-> <nikolay@cumulusnetworks.com> wrote:
->> On Wed, May 27, 2015 at 9:59 AM, Scott Feldman <sfeldma@gmail.com> wrote:
->>> On Wed, May 27, 2015 at 12:05 AM, Nikolay Aleksandrov
->>> <nikolay@cumulusnetworks.com> wrote:
->>>> On Tue, May 26, 2015 at 7:28 PM, Stephen Hemminger
->>>> <stephen@networkplumber.org> wrote:
->>>>> On Thu, 21 May 2015 03:42:57 -0700
->>>>> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
->>>>>
->>>>>> From: Wilson Kok <wkok@cumulusnetworks.com>
->>>>>>
->>>>>> Check in fdb_add_entry() if the source port should learn, similar
->>>>>> check is used in br_fdb_update.
->>>>>> Note that new fdb entries which are added manually or
->>>>>> as local ones are still permitted.
->>>>>> This patch has been tested by running traffic via a bridge port and
->>>>>> switching the port's state, also by manually adding/removing entries
->>>>>> from the bridge's fdb.
->>>>>>
->>>>>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
->>>>>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->>>>> What is the problem this is trying to solve?
->>>>>
->>>>> I think user should be allowed to manually add any entry
->>>>> even if learning.
->>>> Hi Stephen,
->>>> I have been thinking about the use case and have discussed it
->>>> internally with colleagues and the patch
->>>> author, the main problem is when there's an external software that
->>>> adds dynamic entries (learning) and
->>>> it could experience a race condition, here's a possible situation:
->>>> * external software learns a mac from hw, sends an add to kernel
->>>>   * right before that, port goes blocking (or down) and kernel flushes
->>>>     mac, sends notification about the state change and mac flush
->>>>   * right after that, kernel gets the previous add from external software, it's
->>>>     allowed to add, and then sends an add notification
->>>>   * mean while, external software processes the link block/down and mac flush,
->>>>     followed by the mac add from kernel.  At this point, external software can't
->>>>     really know whether it's a user adding the mac intentionally or it's
->>>>     a race.
->>>>
->>>> This issue can't really be avoided in user-space.
->>>> As I've noted local and static entries are still allowed, and iproute2
->>>> bridge utility always
->>>> marks the entries as static (NUD_NOARP), this only affects external
->>>> dynamic entries which
->>>> are usually sent by something that does the learning externally.
->>>> I'll keep digging to see if there's another way to go about this since
->>>> I'd like to give the user
->>>> full freedom. Personally I don't have strong feeling for this patch
->>>> and if it's not preferred then
->>>> I'll post a revert.
->>> So there is already a switchdev API to add/del an externally learned
->>> FDB entry which holds rtnl_lock and avoids these races.  I would
->>> suggest using that and revert this patch.
->>>
->>> See call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL) and
->>> the handler in br.c:br_switchdev_event().
->>>
->>> -scott
->> Hmm, I'm new to the switchdev API and am possibly missing something,
->> but how do you suggest to use it here ?
-> You need to call
-> call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL) when the
-> device learns a new mac/vlan on the port interface.
->
->> How can we differentiate between user-added entry and an externally
->> learned one ?
-> Externally added ones will be marked with NTF_EXT_LEARNED set in
-> ndm->ndm_flags in the netlink echo.  Manually added ones from the user
-> will have ndm->ndm_state set to NUD_NOARP in the netlink echo.
->
->> Do you mean to use (for example) the NTF_EXT_LEARNED flag when adding
->> an entry from user-space so
->> the API can get called in br_fdb_add ?
-> No.  br_fdb_add is the bridge's .ndo_fdb_add handler called when user
-> manually adds an FDB entry using netlink RTM_NEWNEIGH.  For externally
-> learned entries, use the internal
-> call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL).
+------=_Part_279_1560941177.1433130237684
+Content-Type: multipart/alternative;
+	boundary="----=_Part_280_1078130087.1433130237684"
 
-scott, I am assuming you are ok with an external learning entity (user 
-space driver or a controller) pushing entries
-with the NTF_EXT_LEARNED correct ?. Because NTF_EXT_LEARNED is in uapi 
-(and analogous to RTNH_F_OFFLOAD in the fib offload world IMO)
+------=_Part_280_1078130087.1433130237684
+Content-Type: text/plain; charset=UTF-8
+
+Are there any plans to get it upstream? if yes which kernel version?
+
+On Wednesday, May 13, 2015 at 3:13:18 PM UTC-7, Chris Leech wrote:
+>
+> I've had a few reports of people trying to run iscsid in a container, 
+> which 
+> doesn't work at all when using network namespaces.  This is the start of 
+> me 
+> looking at what it would take to make that work, and if it makes sense at 
+> all. 
+>
+> The first issue is that the kernel side of the iSCSI netlink control 
+> protocol 
+> only operates in the initial network namespace.  But beyond that, if we 
+> allow 
+> iSCSI to be managed within a namespace we need to decide what that means. 
+>  I 
+> think it makes the most sense to isolate the iSCSI host, along with it's 
+> associated endpoints, connections, and sessions, to a network namespace 
+> and 
+> allow multiple instances of the userspace tools to exist in separate 
+> namespaces 
+> managing separate hosts. 
+>
+> It works well for iscsi_tcp, which creates a host per session.  There's no 
+> attempt to manage sessions on offloading hosts independently, although 
+> future 
+> work could include the ability to move an entire host to a new namespace 
+> like 
+> is supported for network devices. 
+>
+> This is only about the structures and functionality involved in 
+> maintaining the 
+> iSCSI session, the SCSI host along with it's discovered targets and 
+> devices has 
+> no association with network namespaces. 
+>
+> These patches are functional, but not complete.  There's no isolation 
+> enforced 
+> in the kernel just yet, so it relies on well behaved userspace.  I plan on 
+> fixing that, but wanted some feedback on the idea and approach so far. 
+>
+> Thanks, 
+>         Chris 
+>
+> Chris Leech (4): 
+>   iscsi: create per-net iscsi nl kernel sockets 
+>   iscsi: sysfs filtering by network namespace 
+>   iscsi: make all netlink multicast namespace aware 
+>   iscsi: set netns for iscsi_tcp hosts 
+>
+>  drivers/scsi/iscsi_tcp.c            |   7 + 
+>  drivers/scsi/scsi_transport_iscsi.c | 264 
+> +++++++++++++++++++++++++++++------- 
+>  include/scsi/scsi_transport_iscsi.h |   2 + 
+>  3 files changed, 222 insertions(+), 51 deletions(-) 
+>
+> -- 
+> 2.1.0 
+>
+>
+
+-- 
+You received this message because you are subscribed to the Google Groups "open-iscsi" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+Visit this group at http://groups.google.com/group/open-iscsi.
+For more options, visit https://groups.google.com/d/optout.
+
+------=_Part_280_1078130087.1433130237684
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr">Are there any plans to get it upstream? if yes which kerne=
+l version?<br><br>On Wednesday, May 13, 2015 at 3:13:18 PM UTC-7, Chris Lee=
+ch wrote:<blockquote class=3D"gmail_quote" style=3D"margin: 0;margin-left: =
+0.8ex;border-left: 1px #ccc solid;padding-left: 1ex;">I've had a few report=
+s of people trying to run iscsid in a container, which
+<br>doesn't work at all when using network namespaces. &nbsp;This is the st=
+art of me
+<br>looking at what it would take to make that work, and if it makes sense =
+at all.
+<br>
+<br>The first issue is that the kernel side of the iSCSI netlink control pr=
+otocol
+<br>only operates in the initial network namespace. &nbsp;But beyond that, =
+if we allow
+<br>iSCSI to be managed within a namespace we need to decide what that mean=
+s. &nbsp;I
+<br>think it makes the most sense to isolate the iSCSI host, along with it'=
+s
+<br>associated endpoints, connections, and sessions, to a network namespace=
+ and
+<br>allow multiple instances of the userspace tools to exist in separate na=
+mespaces
+<br>managing separate hosts.
+<br>
+<br>It works well for iscsi_tcp, which creates a host per session. &nbsp;Th=
+ere's no
+<br>attempt to manage sessions on offloading hosts independently, although =
+future
+<br>work could include the ability to move an entire host to a new namespac=
+e like
+<br>is supported for network devices.
+<br>
+<br>This is only about the structures and functionality involved in maintai=
+ning the
+<br>iSCSI session, the SCSI host along with it's discovered targets and dev=
+ices has
+<br>no association with network namespaces.
+<br>
+<br>These patches are functional, but not complete. &nbsp;There's no isolat=
+ion enforced
+<br>in the kernel just yet, so it relies on well behaved userspace. &nbsp;I=
+ plan on
+<br>fixing that, but wanted some feedback on the idea and approach so far.
+<br>
+<br>Thanks,
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Chris
+<br>
+<br>Chris Leech (4):
+<br>&nbsp; iscsi: create per-net iscsi nl kernel sockets
+<br>&nbsp; iscsi: sysfs filtering by network namespace
+<br>&nbsp; iscsi: make all netlink multicast namespace aware
+<br>&nbsp; iscsi: set netns for iscsi_tcp hosts
+<br>
+<br>&nbsp;drivers/scsi/iscsi_tcp.c &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp=
+;| &nbsp; 7 +
+<br>&nbsp;drivers/scsi/scsi_transport_<wbr>iscsi.c | 264 ++++++++++++++++++=
++++++++++++-<wbr>------
+<br>&nbsp;include/scsi/scsi_transport_<wbr>iscsi.h | &nbsp; 2 +
+<br>&nbsp;3 files changed, 222 insertions(+), 51 deletions(-)
+<br>
+<br>--=20
+<br>2.1.0
+<br>
+<br></blockquote></div>
+
+<p></p>
+
+-- <br />
+You received this message because you are subscribed to the Google Groups &=
+quot;open-iscsi&quot; group.<br />
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to <a href=3D"mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org">open-isc=
+si+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org</a>.<br />
+To post to this group, send email to <a href=3D"mailto:open-iscsi@googlegro=
+ups.com">open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org</a>.<br />
+Visit this group at <a href=3D"http://groups.google.com/group/open-iscsi">h=
+ttp://groups.google.com/group/open-iscsi</a>.<br />
+For more options, visit <a href=3D"https://groups.google.com/d/optout">http=
+s://groups.google.com/d/optout</a>.<br />
+
+------=_Part_280_1078130087.1433130237684--
+
+------=_Part_279_1560941177.1433130237684--
