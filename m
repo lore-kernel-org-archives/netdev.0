@@ -1,70 +1,42 @@
-From: Ivan Mikhaylov <ivan@ru.ibm.com>
-Subject: Re: [PATCH] ethtool: changes of emac_regs structure accordingly
- within driver emac_regs structure.
-Date: Mon, 1 Jun 2015 16:30:57 +0400
-Message-ID: <20150601163057.01717aef@fr-ThinkPad-W520>
-References: <20150521190917.6971eb09@fr-ThinkPad-W520>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 7/7] mac80211: Switch to new AEAD interface
+Date: Mon, 01 Jun 2015 15:42:41 +0200
+Message-ID: <1433166161.3505.7.camel@sipsolutions.net>
+References: <20150521103938.GA23035@gondor.apana.org.au>
+	 <E1YvNxS-00063i-AZ@gondolin.me.apana.org.au>
+	 <1432207249.2343.9.camel@sipsolutions.net>
+	 <1706098.2opyZ2hT8S@tachyon.chronox.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Ben Hutchings <ben@decadent.org.uk>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Stephan Mueller <smueller@chronox.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:59062 "EHLO
-	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751425AbbFAN2w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 09:28:52 -0400
-Received: from /spool/local
-	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <ivan@ru.ibm.com>;
-	Mon, 1 Jun 2015 14:28:50 +0100
-In-Reply-To: <20150521190917.6971eb09@fr-ThinkPad-W520>
+Received: from s3.sipsolutions.net ([5.9.151.49]:58754 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751447AbbFANmr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Jun 2015 09:42:47 -0400
+In-Reply-To: <1706098.2opyZ2hT8S@tachyon.chronox.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 1 June 2015 12:57 +0400
-Ben Hutchings <ben@decadent.org.uk> wrote:
+On Mon, 2015-06-01 at 15:21 +0200, Stephan Mueller wrote:
 
->On Thu, 2015-05-21 at 19:09 +0400, Ivan Mikhaylov wrote:
->> In ibm_emac.c in ethtool size of emac structure which passing through
->> to driver is nailed down and not correlating with current emac_regs
->> structure.
->> 
->> Signed-off-by: Ivan Mikhaylov <ivan@ru.ibm.com>
->[...]
->
->This is not backward-compatible.  It ought to be possible to mix and
->match old and new ethtool and driver, except for the EMAC4SYNC case
->which has been broken up until now.
->
->Using the new definition of struct emac_regs, I think the driver and
->ethtool need to agree that the MAC register dump sizes are:
->
->EMAC:      offsetof(struct emac_regs, u1)
->EMAC4:     offsetof(struct emac_regs, u1.emac4) + sizeof(p->u1.emac4)
->EMAC4SYNC: offsetof(struct emac_regs, u1.emac4sync) +
->sizeof(p->u1.emac4sync)
->
->Ben.
->
->-- 
->Ben Hutchings
->Reality is just a crutch for people who can't handle science fiction.
+> Just a short question on ieee80211_aes_ccm_encrypt, ieee80211_aes_ccm_decrypt, 
+> ieee80211_aes_gcm_encrypt, ieee80211_aes_gcm_decrypt, ieee80211_aes_gmac: can 
+> the aad parameter of these functions be zero?
 
-Actually it is backward-compatible because we don't care about size
-which is coming from driver side, only what we doing is map of driver
-structure to ethtool structure and results will be same
-for emac and emac4.
+What do you mean by "zero"? The pointer itself can clearly never be
+NULL.
 
- struct emac_regs *p = (struct emac_regs *)(hdr + 1);
+The contents, now, that's a more interesting question. I believe it can
+never be all zeroes, since association request frames are not
+encrypted/protected and thus at least one byte in here must be non-zero.
+The MAC addresses are also very likely non-zero, but technically
+00:00:00:00:00:00 is a valid MAC address I believe.
 
-Also size which you mentioned (112 emac, 116 emac4) can be different
-from what you saying cause this managed by dts files where we can set
-something like 0x100 or 0x80 for this memory area and we will still
-have problem in representing MII area if this size wasn't set right
-in dts.
-
-Ethtool will be work in same way even if we have emac or emac4.
-
-Thank you for respond!
+johannes
