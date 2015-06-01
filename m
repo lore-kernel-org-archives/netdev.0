@@ -1,8 +1,8 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next v2 11/14] sfc: don't update stats on VF when called
- in atomic context
-Date: Mon, 1 Jun 2015 14:03:04 +0100
-Message-ID: <556C5808.8010806@solarflare.com>
+Subject: [PATCH net-next v2 13/14] sfc: force removal of VF and vport on driver
+ removal
+Date: Mon, 1 Jun 2015 14:03:33 +0100
+Message-ID: <556C5825.4060702@solarflare.com>
 References: <556C5704.4060901@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -10,66 +10,68 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:53511 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752814AbbFANDP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 09:03:15 -0400
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:21626 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752363AbbFANDl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 09:03:41 -0400
 In-Reply-To: <556C5704.4060901@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Daniel Pieczko <dpieczko@solarflare.com>
 
-The ifenslave command to set up a bond runs in an atomic
-context, and it queries the stats on the devices that are
-being enslaved. A VF needs to make an MCDI call to update
-its stats, which is not allowed in atomic context.
+When the driver unloads, force the unbind and removal of any
+VFs in the host with the PF.  The PF cannot remove vports and
+vswitches if they are still being used by a VF driver, and when
+unloading the sfc driver the removal order is not guaranteed,
+so the instruction from the PF to the VF to unbind enforces a
+suitable ordering so that vswitches and vports can be removed.
 
-The releasing of the stats_lock is moved to the beginning of
-the VF stats update function so that in_interrupt() can be
-used; it must be taken again before returning from this
-function.
+As a result of this, manually unbinding the driver from a single
+PF will result in all of its VFs in the host also being removed.
 
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c | 16 ++++++++++++++--
- 1 file changed, 14 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/sfc/ef10_sriov.c | 9 +++++++++
+ drivers/net/ethernet/sfc/efx.c        | 3 ++-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 39d0cf1..e73d7b5 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -1305,11 +1305,24 @@ static int efx_ef10_try_update_nic_stats_vf(struct efx_nic *efx)
- 	__le64 *dma_stats;
+diff --git a/drivers/net/ethernet/sfc/ef10_sriov.c b/drivers/net/ethernet/sfc/ef10_sriov.c
+index 083c534..41ab18d 100644
+--- a/drivers/net/ethernet/sfc/ef10_sriov.c
++++ b/drivers/net/ethernet/sfc/ef10_sriov.c
+@@ -448,11 +448,20 @@ int efx_ef10_sriov_init(struct efx_nic *efx)
+ void efx_ef10_sriov_fini(struct efx_nic *efx)
+ {
+ 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
++	unsigned int i;
  	int rc;
  
-+	spin_unlock_bh(&efx->stats_lock);
+ 	if (!nic_data->vf)
+ 		return;
+ 
++	/* Remove any VFs in the host */
++	for (i = 0; i < efx->vf_count; ++i) {
++		struct efx_nic *vf_efx = nic_data->vf[i].efx;
 +
-+	if (in_interrupt()) {
-+		/* If in atomic context, cannot update stats.  Just update the
-+		 * software stats and return so the caller can continue.
-+		 */
-+		spin_lock_bh(&efx->stats_lock);
-+		efx_update_sw_stats(efx, stats);
-+		return 0;
++		if (vf_efx)
++			vf_efx->pci_dev->driver->remove(vf_efx->pci_dev);
 +	}
 +
- 	efx_ef10_get_stat_mask(efx, mask);
+ 	rc = efx_ef10_pci_sriov_disable(efx);
+ 	if (rc)
+ 		netif_dbg(efx, drv, efx->net_dev,
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index fe3481c..6887871 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -2867,7 +2867,8 @@ static void efx_pci_remove_main(struct efx_nic *efx)
+ }
  
- 	rc = efx_nic_alloc_buffer(efx, &stats_buf, dma_len, GFP_ATOMIC);
--	if (rc)
-+	if (rc) {
-+		spin_lock_bh(&efx->stats_lock);
- 		return rc;
-+	}
- 
- 	dma_stats = stats_buf.addr;
- 	dma_stats[MC_CMD_MAC_GENERATION_END] = EFX_MC_STATS_GENERATION_INVALID;
-@@ -1320,7 +1333,6 @@ static int efx_ef10_try_update_nic_stats_vf(struct efx_nic *efx)
- 	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_DMA_LEN, dma_len);
- 	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_PORT_ID, EVB_PORT_ID_ASSIGNED);
- 
--	spin_unlock_bh(&efx->stats_lock);
- 	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_MAC_STATS, inbuf, sizeof(inbuf),
- 				NULL, 0, NULL);
- 	spin_lock_bh(&efx->stats_lock);
+ /* Final NIC shutdown
+- * This is called only at module unload (or hotplug removal).
++ * This is called only at module unload (or hotplug removal).  A PF can call
++ * this on its VFs to ensure they are unbound first.
+  */
+ static void efx_pci_remove(struct pci_dev *pci_dev)
+ {
