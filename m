@@ -1,125 +1,67 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH 00/11] Replace module_init with an alternate initcall in non modules
-Date: Sun, 31 May 2015 20:54:01 -0400
-Message-ID: <1433120052-18281-1-git-send-email-paul.gortmaker@windriver.com>
+From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [cdc_ncm] guidance and help refactoring cdc_ncm
+Date: Mon, 1 Jun 2015 09:59:17 +0900
+Message-ID: <20150601005917.GB5320@kroah.com>
+References: <alpine.LNX.2.20.1505311628420.16456@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-        Andrew Morton
-	<akpm@linux-foundation.org>,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        "David S. Miller"
-	<davem@davemloft.net>,
-        Eric Paris <eparis@parisplace.org>, "H. Peter Anvin"
-	<hpa@zytor.com>,
-        Ingo Molnar <mingo@redhat.com>,
-        John McCutchan
-	<john@johnmccutchan.com>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Pablo
- Neira Ayuso <pablo@netfilter.org>,
-        Patrick McHardy <kaber@trash.net>, Paul
- Mackerras <paulus@samba.org>,
-        Peter Zijlstra <a.p.zijlstra@chello.nl>,
-        Robert
- Love <rlove@rlove.org>, Russell King <linux@arm.linux.org.uk>,
-        Scott Wood
-	<scottwood@freescale.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        <linux-arm-kernel@lists.infradead.org>, <linux-mm@kvack.
-To: <linux-kernel@vger.kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LNX.2.20.1505311628420.16456-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This series of commits converts non-modular code that is using the
-module_init() call to hook itself into the system to instead use one of
-the alternate priority initcalls.
+On Sun, May 31, 2015 at 04:37:11PM +0200, Enrico Mioso wrote:
+> Hello guys.
+> I am writing to you all to ask for help and assistance in refactoring the
+> cdc_ncm driver to support newer devices.
+> In particular - I would need step-by-step guidance in doing this: or any
+> other kind of help would be anyway greatly apreciated.
+> 
+> 1 - What we need:
+>   We would need to refactor the driver to be able to re-order parts of the NCM
+>   package itself.
+>   In particular, being a single NCM frame composed of different parts, we would
+>   need more flexibility in changing their order.
 
-Unlike the earlier series[1] that used device_initcall and hence was a
-runtime no-op, these commits change to one of the alternate initcalls,
-because (a) we have them and (b) it seems like the right thing to do.
-For example, it would seem logical to use arch_initcall for arch
-specific setup code and fs_initcall for filesystem setup code.
+Do you have hardware that needs this now?  What exactly needs to be done
+here that currently doesn't work?
 
-This does mean however, that changes in the init ordering will be taking
-place, and so there is a small risk that some kind of implicit init
-ordering issue may lie uncovered.  But I think it is still better to
-give these ones sensible priorities than to just assign them all to
-device_initcall in order to exactly preserve the old ordering.
+> 2 - What might be nice
+>   To do so, it would be nice to have the driver queue up frames, sending them
+>   out as needed. this already happens to a certain extent, but the NCM package
+>   is created in the process and updated in the while as I understood the code.
+>   The best thing would be to have the NCM package created only before sending
+>   it out, to achieve for best performance and code readability.
 
-Thad said, we have already made similar changes in core kernel code
-in commit c96d6660dc65b0a90aea9834bfd8be1d5656da18 ("kernel: audit/fix
-non-modular users of module_init in core code") without any regressions
-reported, so this type of change isn't without precedent.
+Would this really make things faster?
 
-This work is factored out from what was a previously larger series[2] so
-that there is a common theme and lower patch count to ease review.
+> I already contactedprivately some of you to have some more insight on what
+> needs to be done, and to understand better how to organize the effort. I
+> unfortunately miss the time to do this right now: and infact I can't even be
+> sure to be able to do this, due to various problems (my tesis, my life in
+> general).
+> But gathering more informations and in general trying to get some help is
+> the best thing I feel like doing right now.
+> 
+> The compelling reasons I find for trying to fix the situation are:
+> 1 - The fact these drivers are used in different products integrating or
+>   interfacing with 3G/4G technologies.
 
-Paul.
+Is there hardware that has out-of-tree drivers that implement what you
+are referring to here?  Or does someone just want this to make the
+hardware work "better"?
 
-[1] https://lkml.org/lkml/2015/5/28/809
-[2] https://marc.info/?l=linux-kernel&m=139033951228828
+I think we need more specifics before being able to determine exactly
+what needs to be done.
 
----
+thanks,
 
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Arnaldo Carvalho de Melo <acme@kernel.org>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Eric Paris <eparis@parisplace.org>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: John McCutchan <john@johnmccutchan.com>
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: Robert Love <rlove@rlove.org>
-Cc: Russell King <linux@arm.linux.org.uk>
-Cc: Scott Wood <scottwood@freescale.com>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-mm@kvack.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: netdev@vger.kernel.org
-Cc: netfilter-devel@vger.kernel.org
-Cc: x86@kernel.org
-
-
-Paul Gortmaker (11):
-  mm: replace module_init usages with subsys_initcall in nommu.c
-  fs/notify: don't use module_init for non-modular inotify_user code
-  netfilter: don't use module_init/exit in core IPV4 code
-  x86: don't use module_init for non-modular core bootflag code
-  powerpc: use subsys_initcall for Freescale Local Bus
-  powerpc: don't use module_init for non-modular core hugetlb code
-  arm: use subsys_initcall in non-modular pl320 IPC code
-  lib/list_sort: use late_initcall to hook in self tests
-  mm/page_owner.c: use late_initcall to hook in enabling
-  x86: perf_event_intel_bts.c: use arch_initcall to hook in enabling
-  x86: perf_event_intel_pt.c: use arch_initcall to hook in enabling
-
- arch/powerpc/mm/hugetlbpage.c              | 2 +-
- arch/powerpc/sysdev/fsl_lbc.c              | 2 +-
- arch/x86/kernel/bootflag.c                 | 2 +-
- arch/x86/kernel/cpu/perf_event_intel_bts.c | 3 +--
- arch/x86/kernel/cpu/perf_event_intel_pt.c  | 3 +--
- drivers/mailbox/pl320-ipc.c                | 2 +-
- fs/notify/inotify/inotify_user.c           | 4 ++--
- lib/list_sort.c                            | 2 +-
- mm/nommu.c                                 | 4 ++--
- mm/page_owner.c                            | 2 +-
- net/ipv4/netfilter.c                       | 9 +--------
- 11 files changed, 13 insertions(+), 22 deletions(-)
-
--- 
-2.2.1
-
+greg k-h
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
