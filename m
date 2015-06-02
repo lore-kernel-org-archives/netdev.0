@@ -1,79 +1,68 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH 1/2] Bluetooth: Add reset_resume function
-Date: Tue, 2 Jun 2015 17:07:25 +0200
-Message-ID: <1AD01E7E-4D71-444A-AB0F-F8261C925542@holtmann.org>
-References: <1433207682-15064-1-git-send-email-labbott@fedoraproject.org> <BB3BCC01-8BF0-4A17-B8E6-F17B875F1997@holtmann.org> <CA+5PVA6o2=dF5BrJQojhMjJhsAiM9vaADd_ix3SAvVEbLXkjCQ@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Laura Abbott <labbott-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>, Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>,
-	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Rafael J. Wysocki" <rafael.j.wysocki-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	BlueZ development <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Josh Boyer <jwboyer-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+5PVA6o2=dF5BrJQojhMjJhsAiM9vaADd_ix3SAvVEbLXkjCQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [RFC PATCH 04/13] xen-netback: implement RX persistent grants
+Date: Tue, 2 Jun 2015 16:07:04 +0100
+Message-ID: <20150602150704.GQ19403@zion.uk.xensource.com>
+References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
+ <1431451117-70051-5-git-send-email-joao.martins@neclab.eu>
+ <20150519153205.GC26335@zion.uk.xensource.com>
+ <65A385A5-4D11-4032-BB1B-82180AF76477@neclab.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
+	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
+	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Joao Martins <Joao.Martins@neclab.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:58647 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759046AbbFBPJY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 11:09:24 -0400
+Content-Disposition: inline
+In-Reply-To: <65A385A5-4D11-4032-BB1B-82180AF76477@neclab.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Josh,
-
->>> Bluetooth devices off of some buses such as USB may lose power across
->>> suspend/resume. When this happens, drivers may need to have the setup
->>> function called again and behave differently than a cold power on.
->>> Add a reset_resume function for drivers to call. During the
->>> reset_resume case, the flag HCI_RESET_RESUME will be set to allow
->>> drivers to differentate.
->>> 
->>> Signed-off-by: Laura Abbott <labbott-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
->>> ---
->>> This matches with what hci_reset_dev does and also ensures
->>> the setup function gets called again.
->>> ---
->>> include/net/bluetooth/hci.h      |  1 +
->>> include/net/bluetooth/hci_core.h |  1 +
->>> net/bluetooth/hci_core.c         | 16 ++++++++++++++++
->>> 3 files changed, 18 insertions(+)
->>> 
->>> diff --git a/include/net/bluetooth/hci.h b/include/net/bluetooth/hci.h
->>> index d95da83..6285410 100644
->>> --- a/include/net/bluetooth/hci.h
->>> +++ b/include/net/bluetooth/hci.h
->>> @@ -185,6 +185,7 @@ enum {
->>>      HCI_RAW,
->>> 
->>>      HCI_RESET,
->>> +     HCI_RESET_RESUME,
->>> };
->> 
->> no more addition to this list of flags please. These are userspace exposed flags and with that ABI that we are never ever touching again. If you need flags on a per device basis, then use the second list.
+On Fri, May 22, 2015 at 10:25:10AM +0000, Joao Martins wrote:
 > 
-> It would be helpful for other developers if you added a comment to
-> that effect above the enum definition.  Otherwise you're going to wind
-> up repeating yourself over time.
+> On 19 May 2015, at 17:32, Wei Liu <wei.liu2@citrix.com> wrote:
+> 
+> > On Tue, May 12, 2015 at 07:18:28PM +0200, Joao Martins wrote:
+> >> It starts by doing a lookup in the tree for a gref. If no persistent
+> >> grant is found on the tree, it will do grant copy and prepare
+> >> the grant maps. Finally valides the grant map and adds it to the tree.
+> > 
+> > validates?
+> > 
+> >> After mapped these grants can be pulled from the tree in the subsequent
+> >> requests. If it's out of pages in the tree pool, it will fallback to
+> >> grant copy.
+> >> 
+> > 
+> > Again, this looks complicated. Why use combined scheme? I will do
+> > detailed reviews after we're sure we need such scheme.
+> When we don't have the gref in tree we need to map it and then copying
+> afterwards into the newly mapped page (and this only happens once until
+> the grant is in tree). My options here were to either do this explicitly,
+> after we add the persistent grant in which we would need to save to
+> dst/src address and len to copy. The other option is to reuse the grant
+> copy (since it's only once until the grant is in the tree) and use memcpy
+> in followings requests. Additionally I allow the fallback to grant copy in
 
-nobody has done that so far ;)
+Which approach were you using here? I looked at the code but couldn't
+quite get which one you were getting at. I guess the first one?
 
-> Also, if they're exposed to userspace, should this file be using the
-> uapi mechanism?  I'm confused how they're exposed today, given that
-> they aren't installed via 'make headers_install'.  Is this manually
-> synced with some other .h file in a userspace package?
+> case the guest provides providing more grefs > max_grants.
+> 
+> Note that this is also the case for TX as well, with regard to grant
+> copying the header. I was unsure about which one is the most correct way
+> of doing it, but ultimately the latter involved a smaller codepath, and
+> that's why I chose it. What do you think?
+> 
 
-This code is from 2.4.6 and with that pretty much ancient and predates UAPI. The BlueZ userspace library provides userspace versions of these defines etc.
+Shorter is better. Easier to understand.
 
-Regards
-
-Marcel
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Wei.
