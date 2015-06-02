@@ -1,11 +1,11 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [RFC PATCH 04/13] xen-netback: implement RX persistent grants
-Date: Tue, 2 Jun 2015 16:07:04 +0100
-Message-ID: <20150602150704.GQ19403@zion.uk.xensource.com>
+Subject: Re: [RFC PATCH 06/13] xen-netback: copy buffer on xenvif_start_xmit()
+Date: Tue, 2 Jun 2015 16:10:00 +0100
+Message-ID: <20150602151000.GR19403@zion.uk.xensource.com>
 References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
- <1431451117-70051-5-git-send-email-joao.martins@neclab.eu>
- <20150519153205.GC26335@zion.uk.xensource.com>
- <65A385A5-4D11-4032-BB1B-82180AF76477@neclab.eu>
+ <1431451117-70051-7-git-send-email-joao.martins@neclab.eu>
+ <20150519153558.GE26335@zion.uk.xensource.com>
+ <915BCC85-25D1-4960-A1BA-0C6459ABC953@neclab.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: Wei Liu <wei.liu2@citrix.com>,
@@ -17,52 +17,44 @@ Cc: Wei Liu <wei.liu2@citrix.com>,
 	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
 To: Joao Martins <Joao.Martins@neclab.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:58647 "EHLO
+Received: from smtp02.citrix.com ([66.165.176.63]:39296 "EHLO
 	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759046AbbFBPJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 11:09:24 -0400
+	with ESMTP id S1759380AbbFBPMu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 11:12:50 -0400
 Content-Disposition: inline
-In-Reply-To: <65A385A5-4D11-4032-BB1B-82180AF76477@neclab.eu>
+In-Reply-To: <915BCC85-25D1-4960-A1BA-0C6459ABC953@neclab.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 22, 2015 at 10:25:10AM +0000, Joao Martins wrote:
-> 
-> On 19 May 2015, at 17:32, Wei Liu <wei.liu2@citrix.com> wrote:
-> 
-> > On Tue, May 12, 2015 at 07:18:28PM +0200, Joao Martins wrote:
-> >> It starts by doing a lookup in the tree for a gref. If no persistent
-> >> grant is found on the tree, it will do grant copy and prepare
-> >> the grant maps. Finally valides the grant map and adds it to the tree.
-> > 
-> > validates?
-> > 
-> >> After mapped these grants can be pulled from the tree in the subsequent
-> >> requests. If it's out of pages in the tree pool, it will fallback to
-> >> grant copy.
+On Fri, May 22, 2015 at 10:26:48AM +0000, Joao Martins wrote:
+[...]
+> >> 	return IRQ_HANDLED;
+> >> }
+> >> @@ -168,8 +169,12 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+> >> 	cb = XENVIF_RX_CB(skb);
+> >> 	cb->expires = jiffies + vif->drain_timeout;
+> >> 
+> >> -	xenvif_rx_queue_tail(queue, skb);
+> >> -	xenvif_kick_thread(queue);
+> >> +	if (!queue->vif->persistent_grants) {
+> >> +		xenvif_rx_queue_tail(queue, skb);
+> >> +		xenvif_kick_thread(queue);
+> >> +	} else if (xenvif_rx_map(queue, skb)) {
+> >> +		return NETDEV_TX_BUSY;
+> >> +	}
 > >> 
 > > 
-> > Again, this looks complicated. Why use combined scheme? I will do
-> > detailed reviews after we're sure we need such scheme.
-> When we don't have the gref in tree we need to map it and then copying
-> afterwards into the newly mapped page (and this only happens once until
-> the grant is in tree). My options here were to either do this explicitly,
-> after we add the persistent grant in which we would need to save to
-> dst/src address and len to copy. The other option is to reuse the grant
-> copy (since it's only once until the grant is in the tree) and use memcpy
-> in followings requests. Additionally I allow the fallback to grant copy in
-
-Which approach were you using here? I looked at the code but couldn't
-quite get which one you were getting at. I guess the first one?
-
-> case the guest provides providing more grefs > max_grants.
-> 
-> Note that this is also the case for TX as well, with regard to grant
-> copying the header. I was unsure about which one is the most correct way
-> of doing it, but ultimately the latter involved a smaller codepath, and
-> that's why I chose it. What do you think?
+> > We now have two different functions for guest RX, one is xenvif_rx_map,
+> > the other is xenvif_rx_action. They look very similar. Can we only have
+> > one?
+> I think I can merge this into xenvif_rx_action, and I notice that the stall
+> detection its missing. I will also add that.
+> Perhaps I could also disable the RX kthread, since this doesn't get used with
+> persistent grants?
 > 
 
-Shorter is better. Easier to understand.
+Disabling that kthread is fine. But we do need to make sure we can do
+the same things in start_xmit as we are in kthread. I.e. what context
+does start_xmit run in and what are the restrictions.
 
 Wei.
