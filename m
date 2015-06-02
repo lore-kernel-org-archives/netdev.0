@@ -1,108 +1,97 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net v3 2/2] mpls: fix mpls route deletes to not check
- for route scope
-Date: Tue, 02 Jun 2015 15:03:26 -0700
-Message-ID: <556E282E.2040501@cumulusnetworks.com>
-References: <1433226567-23302-3-git-send-email-roopa@cumulusnetworks.com> <87a8wholtc.fsf@x220.int.ebiederm.org>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [RFC net-next 0/3] IP imposition of per-nh MPLS encap
+Date: Tue, 2 Jun 2015 23:15:39 +0100
+Message-ID: <556E2B0B.4040100@brocade.com>
+References: <1433177175-16775-1-git-send-email-rshearma@brocade.com>	<87h9qqx9n5.fsf@x220.int.ebiederm.org> <556E18BE.8060505@brocade.com> <87d21dolyt.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, davem@davemloft.net,
-	rshearma@brocade.com, netdev@vger.kernel.org,
-	vivek@cumulusnetworks.com
+Cc: <netdev@vger.kernel.org>, roopa <roopa@cumulusnetworks.com>,
+	Thomas Graf <tgraf@suug.ch>
 To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f176.google.com ([209.85.216.176]:34624 "EHLO
-	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751481AbbFBWD3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 18:03:29 -0400
-Received: by qcej9 with SMTP id j9so22870141qce.1
-        for <netdev@vger.kernel.org>; Tue, 02 Jun 2015 15:03:28 -0700 (PDT)
-In-Reply-To: <87a8wholtc.fsf@x220.int.ebiederm.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:49078 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751411AbbFBWPx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 18:15:53 -0400
+In-Reply-To: <87d21dolyt.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/2/15, 2:13 PM, Eric W. Biederman wrote:
-> So I just stopped and looked at what is happening.  When you originally
-> reported this you said (or at least I understood) that rtm_scope was not
-> being set in iproute.  I assumed that meant it was not being touched
-> and it was taking a default value of zero (or else it was possibly
-> floating).  Having looked neither is true.  iproute sets rtm_scope
-> to RT_SCOPE_NOWHERE during delete deliberately to act as a wild card.
+On 02/06/15 22:10, Eric W. Biederman wrote:
+> Robert Shearman <rshearma@brocade.com> writes:
 >
-> In the kernel in other protocols currently ipv4 treats RT_SCOPE_NOWHERE
-> as a wild card during delete, decnet treats RT_SCOPE_NOWHERE as a wild
-> card during delete, the remaining protocols (ipv6, phonet, and can) that
-> implement RTM_DELROUTE do not look at rtm_scope at all.  Further ipv6
-> and phonet set rtm_scope to RT_SCOPE_UNIVERSE when dumped.
+>> On 02/06/15 19:11, Eric W. Biederman wrote:
+>>> Robert Shearman <rshearma@brocade.com> writes:
+>>>
+>>>> In order to be able to function as a Label Edge Router in an MPLS
+>>>> network, it is necessary to be able to take IP packets and impose an
+>>>> MPLS encap and forward them out. The traditional approach of setting
+>>>> up an interface for each "tunnel" endpoint doesn't scale for the
+>>>> common MPLS use-cases where each IP route tends to be assigned a
+>>>> different label as encap.
+>>>>
+>>>> The solution suggested here for further discussion is to provide the
+>>>> facility to define encap data on a per-nexthop basis using a new
+>>>> netlink attribue, RTA_ENCAP, which would be opaque to the IPv4/IPv6
+>>>> forwarding code, but interpreted by the virtual interface assigned to
+>>>> the nexthop.
+>>>>
+>>>> A new ipmpls interface type is defined to show the use of this
+>>>> facility to allow IP packets to be imposed with an MPLS
+>>>> encap. However, the facility is designed to be general enough to be
+>>>> used by any encapsulation/tunneling mechanism that has similar
+>>>> requirements of high-scale, high-variation-of-encap.
+>>>
+>>> I am still digging into the details but adding a new network device to
+>>> make this possible if very undesirable.
+>>>
+>>> It is a pain point.  Those network devices get to be a major source of
+>>> memory consumption when there are 4K network namespaces in existence.
+>>>
+>>> It is conceptually wrong.  The network device will never be used as an
+>>> ordinary network device.  All the network device gives you is the
+>>> ability to avoid creating an enumeration of different kinds of
+>>> encapsulation.
+>>
+>> This isn't true. The network device also gives some of the things you
+>> take for granted. Things like fragmentation through specifying the mtu
+>> on the shared tunnel device, being able to specify rules using the
+>> shared tunnel output device, IP stats, and the ability specify a
+>> different destination namespace.
 >
-> Which says to me that we have semantics in the kernel that no one has
-> let userspace know about, and that scares me when there is a
-> misunderstanding between the kernel and userspace about what fields
-> mean.  That inevitabily leads to bugs.  The kind of bugs that I have
-> to create security fixes for recently.
+> Granted you get a few more things.  It is still conceptually wrong as
+> the network device will netver be used as an ordinary network device.
 >
-> So I really think we should fix this in userspace so that that someone
-> reading iproute will have a chance at knowing that this scopes do not
-> exist in ipv6 and mpls and that scope logic is just noise in those
-> cases.
-ack,  i did start with handling both type and scope
-in iproute2. I misunderstood you when you said you did not care
-abt the scope in earlier comments. so i made the kernel not care abt the
-scope. :) but only handled type in 'iproute2' in v2.  now its clear. I 
-do have a similar patch like below.
-sorry abt the iterations. I will respin (If you prefer to post your 
-below patch yourself, pls do. I am ok either way. Thanks.
+> Fragmentation is already silly because we are talking about multiple
+> tunnels with different properties.  You need per-route mtu to handle
+> that case.
+
+It's unlikely you'll have a huge variation in the mtus across routes, 
+unless you're running in an ISP environment. In the example uses we've 
+got in hand, it's highly likely they'll only be a handful of different 
+mtus, if that.
+
+> Further I am not saying you don't need an output device (which is what
+> is needed to specify a different destination namespace) I am saying that
+> having a funny mpls device is wrong as far as I can see.  Certainly it
+> is a lot of bloody unnecessary overhead.
 >
-> Something like:
->
->  From 837dddea49af874fe750ab0712b3ef8066a2f55a Mon Sep 17 00:00:00 2001
-> From: "Eric W. Biederman" <ebiederm@xmission.com>
-> Date: Tue, 2 Jun 2015 15:51:31 -0500
-> Subject: [PATCH] iproute: When deleting routes don't always set the scope to RT_SCOPE_NOWHERE
->
-> IPv6 and MPLS do not implement scopes on addresses and using
-> RT_SCOPE_NOWHERE is just confusing noise.  Use RT_SCOPE_UNIVERSE
-> instead so that it is clear what is actually happening in the code.
->
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
->   ip/iproute.c | 11 +++++++----
->   1 file changed, 7 insertions(+), 4 deletions(-)
->
-> diff --git a/ip/iproute.c b/ip/iproute.c
-> index fba475f65314..e9b991fdf62f 100644
-> --- a/ip/iproute.c
-> +++ b/ip/iproute.c
-> @@ -1136,6 +1136,9 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
->   	if (nhs_ok)
->   		parse_nexthops(&req.n, &req.r, argc, argv);
->   
-> +	if (req.r.rtm_family == AF_UNSPEC)
-> +		req.r.rtm_family = AF_INET;
-> +
->   	if (!table_ok) {
->   		if (req.r.rtm_type == RTN_LOCAL ||
->   		    req.r.rtm_type == RTN_BROADCAST ||
-> @@ -1144,7 +1147,10 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
->   			req.r.rtm_table = RT_TABLE_LOCAL;
->   	}
->   	if (!scope_ok) {
-> -		if (req.r.rtm_type == RTN_LOCAL ||
-> +		if (req.r.rtm_family == AF_INET6 ||
-> +		    req.r.rtm_family == AF_MPLS)
-> +			req.r.rtm_scope = RT_SCOPE_UNIVERSE;
-> +		else if (req.r.rtm_type == RTN_LOCAL ||
->   		    req.r.rtm_type == RTN_NAT)
->   			req.r.rtm_scope = RT_SCOPE_HOST;
->   		else if (req.r.rtm_type == RTN_BROADCAST ||
-> @@ -1160,9 +1166,6 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
->   		}
->   	}
->   
-> -	if (req.r.rtm_family == AF_UNSPEC)
-> -		req.r.rtm_family = AF_INET;
-> -
->   	if (rtnl_talk(&rth, &req.n, NULL, 0) < 0)
->   		return -2;
->   
+> If we are going to design for maximum scaling (and 1 million+ routes)
+> sounds like maximum scaling we should see how far we can go without
+> dragging in the horrible heaviness of additional network devices.  35K a
+> piece last I measured it.  Just a small handful of them are already
+> scaling issues for network namespaces.
+
+For the ipmpls interface I've implemented here, you only need one per 
+namespace. You could argue the same for the veth interfaces which would 
+be much more commonly used in network namespaces.
+
+BTW, maybe I've missed something, or maybe netdevs have gone on a diet, 
+but I count the cost of creating a basic interface at ~2700 bytes on x86_64:
+sizeof(struct net_device) /* 2112 */ + 1 * sizeof(struct netdev_queue) 
+/* 384 */ + 1 * sizeof(struct netdev_rx_queue) /* 128 */ + sizeof(struct 
+netdev_hw_addr) /* 80 */ + sizeof(int) * nr_poss_cpus /* 4 * n */)
+
+Thanks,
+Rob
