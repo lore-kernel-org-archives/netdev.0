@@ -1,67 +1,28 @@
-From: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next V10 1/4] openvswitch: 802.1ad uapi
-	changes.
-Date: Tue,  2 Jun 2015 13:50:41 -0400
-Message-ID: <1433267444-26025-2-git-send-email-thomasfherbert@gmail.com>
-References: <1433267444-26025-1-git-send-email-thomasfherbert@gmail.com>
+From: Flavio Leitner <fbl@sysclose.org>
+Subject: Re: [ovs-dev] [net-next RFC 00/14] Convert OVS tunnel vports to use
+ regular net_devices
+Date: Tue, 2 Jun 2015 14:52:40 -0300
+Message-ID: <20150602175240.GH2688@x240.home>
+References: <cover.1433167295.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1433267444-26025-1-git-send-email-thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	marcelo.leitner@gmail.com, jiri@resnulli.us, daniel@iogearbox.net,
+	tom@herbertland.com, edumazet@google.com, kaber@trash.net,
+	stephen@networkplumber.org, hannes@stressinduktion.org,
+	davem@davemloft.net
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sender1.zohomail.com ([74.201.84.157]:24947 "EHLO
+	sender163-mail.zoho.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753623AbbFBRxH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 13:53:07 -0400
+Content-Disposition: inline
+In-Reply-To: <cover.1433167295.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-b3BlbnZzd2l0Y2g6IEFkZCBzdXBwb3J0IGZvciA4MDIxLkFECgpDaGFuZ2UgdGhlIGRlc2NyaXB0
-aW9uIG9mIHRoZSBWTEFOIHRwaWQgZmllbGQuCgpTaWduZWQtb2ZmLWJ5OiBUaG9tYXMgRiBIZXJi
-ZXJ0IDx0aG9tYXNmaGVyYmVydEBnbWFpbC5jb20+Ci0tLQogaW5jbHVkZS91YXBpL2xpbnV4L29w
-ZW52c3dpdGNoLmggfCAxNyArKysrKysrKystLS0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDkgaW5z
-ZXJ0aW9ucygrKSwgOCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9pbmNsdWRlL3VhcGkvbGlu
-dXgvb3BlbnZzd2l0Y2guaCBiL2luY2x1ZGUvdWFwaS9saW51eC9vcGVudnN3aXRjaC5oCmluZGV4
-IGJiZDQ5YTAuLmYyY2NkZWYgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvdWFwaS9saW51eC9vcGVudnN3
-aXRjaC5oCisrKyBiL2luY2x1ZGUvdWFwaS9saW51eC9vcGVudnN3aXRjaC5oCkBAIC01NTksMTMg
-KzU1OSwxMyBAQCBzdHJ1Y3Qgb3ZzX2FjdGlvbl9wdXNoX21wbHMgewogICogQHZsYW5fdGNpOiBU
-YWcgY29udHJvbCBpZGVudGlmaWVyIChUQ0kpIHRvIHB1c2guICBUaGUgQ0ZJIGJpdCBtdXN0IGJl
-IHNldAogICogKGJ1dCBpdCB3aWxsIG5vdCBiZSBzZXQgaW4gdGhlIDgwMi4xUSBoZWFkZXIgdGhh
-dCBpcyBwdXNoZWQpLgogICoKLSAqIFRoZSBAdmxhbl90cGlkIHZhbHVlIGlzIHR5cGljYWxseSAl
-RVRIX1BfODAyMVEuICBUaGUgb25seSBhY2NlcHRhYmxlIFRQSUQKLSAqIHZhbHVlcyBhcmUgdGhv
-c2UgdGhhdCB0aGUga2VybmVsIG1vZHVsZSBhbHNvIHBhcnNlcyBhcyA4MDIuMVEgaGVhZGVycywg
-dG8KLSAqIHByZXZlbnQgJU9WU19BQ1RJT05fQVRUUl9QVVNIX1ZMQU4gZm9sbG93ZWQgYnkgJU9W
-U19BQ1RJT05fQVRUUl9QT1BfVkxBTgotICogZnJvbSBoYXZpbmcgc3VycHJpc2luZyByZXN1bHRz
-LgorICogVGhlIEB2bGFuX3RwaWQgdmFsdWUgaXMgdHlwaWNhbGx5ICVFVEhfUF84MDIxUSBvciAl
-RVRIX1BfODAyMUFELgorICogVGhlIG9ubHkgYWNjZXB0YWJsZSBUUElEIHZhbHVlcyBhcmUgdGhv
-c2UgdGhhdCB0aGUga2VybmVsIG1vZHVsZSBhbHNvIHBhcnNlcworICogYXMgODAyLjFRIG9yIDgw
-Mi4xQUQgaGVhZGVycywgdG8gcHJldmVudCAlT1ZTX0FDVElPTl9BVFRSX1BVU0hfVkxBTiBmb2xs
-b3dlZAorICogYnkgJU9WU19BQ1RJT05fQVRUUl9QT1BfVkxBTiBmcm9tIGhhdmluZyBzdXJwcmlz
-aW5nIHJlc3VsdHMuCiAgKi8KIHN0cnVjdCBvdnNfYWN0aW9uX3B1c2hfdmxhbiB7Ci0JX19iZTE2
-IHZsYW5fdHBpZDsJLyogODAyLjFRIFRQSUQuICovCisJX19iZTE2IHZsYW5fdHBpZDsJLyogODAy
-LjFRIG9yIDgwMi4xYWQgVFBJRC4gKi8KIAlfX2JlMTYgdmxhbl90Y2k7CS8qIDgwMi4xUSBUQ0kg
-KFZMQU4gSUQgYW5kIHByaW9yaXR5KS4gKi8KIH07CiAKQEAgLTYwNSw5ICs2MDUsMTAgQEAgc3Ry
-dWN0IG92c19hY3Rpb25faGFzaCB7CiAgKiBpcyBjb3BpZWQgZnJvbSB0aGUgdmFsdWUgdG8gdGhl
-IHBhY2tldCBoZWFkZXIgZmllbGQsIHJlc3Qgb2YgdGhlIGJpdHMgYXJlCiAgKiBsZWZ0IHVuY2hh
-bmdlZC4gIFRoZSBub24tbWFza2VkIHZhbHVlIGJpdHMgbXVzdCBiZSBwYXNzZWQgaW4gYXMgemVy
-b2VzLgogICogTWFza2luZyBpcyBub3Qgc3VwcG9ydGVkIGZvciB0aGUgJU9WU19LRVlfQVRUUl9U
-VU5ORUwgYXR0cmlidXRlLgotICogQE9WU19BQ1RJT05fQVRUUl9QVVNIX1ZMQU46IFB1c2ggYSBu
-ZXcgb3V0ZXJtb3N0IDgwMi4xUSBoZWFkZXIgb250byB0aGUKLSAqIHBhY2tldC4KLSAqIEBPVlNf
-QUNUSU9OX0FUVFJfUE9QX1ZMQU46IFBvcCB0aGUgb3V0ZXJtb3N0IDgwMi4xUSBoZWFkZXIgb2Zm
-IHRoZSBwYWNrZXQuCisgKiBAT1ZTX0FDVElPTl9BVFRSX1BVU0hfVkxBTjogUHVzaCBhIG5ldyBv
-dXRlcm1vc3QgODAyLjFRIG9yIDgwMi4xYWQgaGVhZGVyCisgKiBvbnRvIHRoZSBwYWNrZXQuCisg
-KiBAT1ZTX0FDVElPTl9BVFRSX1BPUF9WTEFOOiBQb3AgdGhlIG91dGVybW9zdCA4MDIuMVEgb3Ig
-ODAyLjFhZCBoZWFkZXIKKyAqIGZyb20gdGhlIHBhY2tldC4KICAqIEBPVlNfQUNUSU9OX0FUVFJf
-U0FNUExFOiBQcm9iYWJpbGl0aWNhbGx5IGV4ZWN1dGVzIGFjdGlvbnMsIGFzIHNwZWNpZmllZCBp
-bgogICogdGhlIG5lc3RlZCAlT1ZTX1NBTVBMRV9BVFRSXyogYXR0cmlidXRlcy4KICAqIEBPVlNf
-QUNUSU9OX0FUVFJfUFVTSF9NUExTOiBQdXNoIGEgbmV3IE1QTFMgbGFiZWwgc3RhY2sgZW50cnkg
-b250byB0aGUKLS0gCjIuMS4wCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29w
-ZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+
+It seems patch 01 didn't make it to ovs dev mailing list,
+but it is available on netdev mailing list.
+fbl
