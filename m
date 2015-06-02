@@ -1,49 +1,72 @@
-From: Jouni Malinen <j@w1.fi>
-Subject: Re: [PATCH 7/7] mac80211: Switch to new AEAD interface
-Date: Tue, 2 Jun 2015 12:15:43 +0300
-Message-ID: <20150602091543.GA3140@w1.fi>
-References: <20150521103938.GA23035@gondor.apana.org.au>
- <1433167519.3505.11.camel@sipsolutions.net>
- <1433169326.3505.12.camel@sipsolutions.net>
- <2613062.1qx4rgqk9F@tauon>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: Re: [PATCH net-next v2 01/14] sfc: Add code to export port_num in
+ netdev->dev_port
+Date: Tue, 2 Jun 2015 10:14:51 +0100
+Message-ID: <556D740B.8000701@solarflare.com>
+References: <556C5704.4060901@solarflare.com>	<556C575C.2040403@solarflare.com> <20150601.120100.1499695282057656297.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	Linux Crypto Mailing List <linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Steffen Klassert <steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Stephan Mueller <smueller-T9tCv8IpfcWELgA04lAiVw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <2613062.1qx4rgqk9F@tauon>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:42665 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932207AbbFBJPI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 05:15:08 -0400
+In-Reply-To: <20150601.120100.1499695282057656297.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 01, 2015 at 05:36:58PM +0200, Stephan Mueller wrote:
-> Am Montag, 1. Juni 2015, 16:35:26 schrieb Johannes Berg:
-> >IOW, I think something like this would make sense:
+
+
+On 01/06/15 20:01, David Miller wrote:
+> From: Shradha Shah <sshah@solarflare.com>
+> Date: Mon, 1 Jun 2015 14:00:12 +0100
 > 
-> That looks definitely cleaner :-)
+>> In the case where we have multiple functions (PFs and VFs), this
+>> sysfs entry is useful to identify the physical port corresponding
+>> to the function we are interested in.
+>>
+>> Signed-off-by: Shradha Shah <sshah@solarflare.com>
+> 
+> This is a low effort change.
+> 
+> You retained all of the error handling changes that were only necessary when
+> you added the new sysfs file, but are completely unnecessary if you're
+> just reporting it via netdev->dev_port.
 
-Indeed.. That AAD length-in-the-buffer design came from the over ten
-year old code that was optimized to cover the CCM construction with the
-same buffer and that was not cleaned up when this was converted to use
-cryptoapi couple of years ago.
+With the addition of the sysfs change in my previous version, the error handling
+code required the addition of a fail4 tag to deal with the sysfs file on the
+error path.
 
-> Though, my main concern was just to ensure that the aad length value is not 
-> zero.
+Without the sysfs file in my current version v2, there is no extra fail4 tag, I
+have reverted back to using fail3.
 
-It won't be in IEEE 802.11 use cases. The exact length depends on the
-IEEE 802.11 frame type, but AAD is constructed in a way that it is
-normally a bit over 20 octets while allowing CCM to fit the related
-operations into two AES blocks.
- 
+The changes that are seen in the patch are stylistic changes following the rule
+that every branch of an if statement should have parenthesis if one of the
+branch uses parenthesis.
+
+The previous version of the patch touched this bit of code so the style change
+was relevant.
+
+I think my mistake here is that I left it in v2 as a style change, but I can
+assure you that I looked at the error path before submitting the patch and
+also that this patch does not affect the error path.
+
+Maybe I should have separated the style change to go as a different patch.
+
+I will do so now and submit a v3.
+
+Thanks.
+
+> 
+> This is extremely disappointing, because you expect me to put a good effort
+> into reviewing your changes yet you aren't putting that level of effort into
+> the submission itself.
+> 
+
 -- 
-Jouni Malinen                                            PGP id EFC895FA
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Many Thanks,
+Regards,
+Shradha Shah
