@@ -1,126 +1,81 @@
-From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
-Subject: [PATCH 01/10] net: thunderx: Cleanup duplicate NODE_ID macros,
- add nic_get_node_id()
-Date: Tue, 2 Jun 2015 11:00:18 -0700
-Message-ID: <1433268028-23992-2-git-send-email-aleksey.makarov@caviumnetworks.com>
-References: <1433268028-23992-1-git-send-email-aleksey.makarov@caviumnetworks.com>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [Intel-wired-lan] [PATCH 1/2] pci: Add dev_flags bit to access
+ VPD through function 0
+Date: Tue, 2 Jun 2015 18:15:14 +0000
+Message-ID: <CCF4C06B-1029-4341-B5AE-846C834DD747@intel.com>
+References: <20150602165706.6252.76253.stgit@mdrustad-wks.jf.intel.com>
+ <20150602170414.6252.48036.stgit@mdrustad-wks.jf.intel.com>
+ <556DEC80.70206@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_E85B156B-4084-42DB-AC89-B61AD227E479";
+	protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:62066 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759664AbbFBSPQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jun 2015 14:15:16 -0400
+In-Reply-To: <556DEC80.70206@redhat.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--Apple-Mail=_E85B156B-4084-42DB-AC89-B61AD227E479
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=windows-1252
+
+> On Jun 2, 2015, at 10:48 AM, Alexander Duyck =
+<alexander.h.duyck@redhat.com> wrote:
+>=20
+> I'm pretty sure these could cause some serious errors if you direct =
+assign the device into a VM since you then end up with multiple devices =
+sharing a bus.  Also it would likely have side-effects on a LOM (Lan On =
+Motherboard) as it also shares the bus with multiple non-Ethernet =
+devices.
+>=20
+> I believe you still need to add something like a check for =
+!pci_is_root_bus(dev->bus) before you attempt to grab function 0.  It =
+probably also wouldn't hurt to check the dev->multifunction bit before =
+running this code since it wouldn't make sense to go chasing down the =
+VPD on another function if the device doesn't have one.  You could =
+probably do that either as a part of this code, or perhaps put it in the =
+quirk.
+
+I'll look into those. I think you are right about more checks being =
+needed. Thanks for the comments.
+
+--
+Mark Rustad, Networking Division, Intel Corporation
+
+
+--Apple-Mail=_E85B156B-4084-42DB-AC89-B61AD227E479
 Content-Transfer-Encoding: 7bit
-Cc: Robert Richter <rric@kernel.org>, David Daney <david.daney@cavium.com>,
- Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
- linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>,
- Robert Richter <robert.richter@caviumnetworks.com>,
- Sunil Goutham <sgoutham@cavium.com>, linux-arm-kernel@lists.infradead.org
-To: <netdev@vger.kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1433268028-23992-1-git-send-email-aleksey.makarov@caviumnetworks.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
 
-From: Robert Richter <rrichter@cavium.com>
+-----BEGIN PGP SIGNATURE-----
+Comment: GPGTools - http://gpgtools.org
 
-There are duplicate NODE_ID macro definitions. Move all of them to
-nic.h for usage in nic and bgx driver and introduce nic_get_node_id()
-helper function.
+iQIcBAEBCAAGBQJVbfKyAAoJEDwO/+eO4+5uS1EP/0iz43K4T06SNaevlhCtbIJE
+Hs15bymg8LzlrmiB7fPnNG0UCEBm7ZRxYPHQk3XHlhDa9NzbmDSd/9AkFWQfJD7v
+o5ldapmrw0mMPrNwSiAGQe786JwVaY7OWholffaYPCoH0tvHEE1u6i+Y0XgijiZO
+uCngOplCqcVOF/ZQSZZFgL0J2tjYVtgjozN/N1gY9kb5qhGqGBrq2Y8KHQnGgWQo
+Gv1In08cOyqVc92PuVgRR8Yt/WiUZy319LuTpJLCaCHszYr6OB5PRrrtKwBHiHbE
+34CPrw9wyezz9D8Q96OYSKazEm8TiavsQxMs/TchwEl9oRStAELvEDXVzWbVLV1e
+n3mc2g7G0qcJVFsd9tRe++5C8pZslqGW2tMrmM7ZdYErK9iW63qWyleJ+YsHnSFd
+HVKidcMytR5K+FWosYO478J1VvTDKmpFAH2XQduByqskYZIJrWaGBWfPO3ort4F5
+T38w8+ZPPOvOTtVOpwfBnlKMhlrF3U/PVKmJDl9WwHyDqD1NZuX9IbHmy071vb9T
+t8KJ976ADLUCuQSouSTmZRCc3HErDYaJ8qCi4c1Edh6dWiMH9j77WwypNk/QvChy
+Mr+/uYifPsI5IX+K8421bWueC4U7SawVXZC++PeRJ38jK7PDy+peljN9vNKxT5j7
+d5t53styxL54g7GsKmMg
+=h75D
+-----END PGP SIGNATURE-----
 
-This patch also fixes 64bit mask which should have been ULL by
-reworking the node calculation.
-
-Signed-off-by: Robert Richter <rrichter@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/nic.h         | 10 ++++++++++
- drivers/net/ethernet/cavium/thunder/nic_main.c    |  4 +---
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c |  4 ++--
- drivers/net/ethernet/cavium/thunder/thunder_bgx.h |  3 ---
- 4 files changed, 13 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index 9b0be52..4f426db 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -11,6 +11,7 @@
- 
- #include <linux/netdevice.h>
- #include <linux/interrupt.h>
-+#include <linux/pci.h>
- #include "thunder_bgx.h"
- 
- /* PCI device IDs */
-@@ -398,6 +399,15 @@ union nic_mbx {
- 	struct bgx_link_status  link_status;
- };
- 
-+#define NIC_NODE_ID_MASK	0x03
-+#define NIC_NODE_ID_SHIFT	44
-+
-+static inline int nic_get_node_id(struct pci_dev *pdev)
-+{
-+	u64 addr = pci_resource_start(pdev, PCI_CFG_REG_BAR_NUM);
-+	return ((addr >> NIC_NODE_ID_SHIFT) & NIC_NODE_ID_MASK);
-+}
-+
- int nicvf_set_real_num_queues(struct net_device *netdev,
- 			      int tx_queues, int rx_queues);
- int nicvf_open(struct net_device *netdev);
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index 0f1f58b..3ca7ad8 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -23,8 +23,6 @@
- struct nicpf {
- 	struct pci_dev		*pdev;
- 	u8			rev_id;
--#define NIC_NODE_ID_MASK	0x300000000000
--#define NIC_NODE_ID(x)		((x & NODE_ID_MASK) >> 44)
- 	u8			node;
- 	unsigned int		flags;
- 	u8			num_vf_en;      /* No of VF enabled */
-@@ -851,7 +849,7 @@ static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	pci_read_config_byte(pdev, PCI_REVISION_ID, &nic->rev_id);
- 
--	nic->node = NIC_NODE_ID(pci_resource_start(pdev, PCI_CFG_REG_BAR_NUM));
-+	nic->node = nic_get_node_id(pdev);
- 
- 	nic_set_lmac_vf_mapping(nic);
- 
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 020e11c..cde604a 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -894,8 +894,8 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_release_regions;
- 	}
- 	bgx->bgx_id = (pci_resource_start(pdev, PCI_CFG_REG_BAR_NUM) >> 24) & 1;
--	bgx->bgx_id += NODE_ID(pci_resource_start(pdev, PCI_CFG_REG_BAR_NUM))
--							* MAX_BGX_PER_CN88XX;
-+	bgx->bgx_id += nic_get_node_id(pdev) * MAX_BGX_PER_CN88XX;
-+
- 	bgx_vnic[bgx->bgx_id] = bgx;
- 	bgx_get_qlm_mode(bgx);
- 
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-index 9d91ce4..f9e2170 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-@@ -20,9 +20,6 @@
- 
- #define    MAX_LMAC	(MAX_BGX_PER_CN88XX * MAX_LMAC_PER_BGX)
- 
--#define    NODE_ID_MASK				0x300000000000
--#define    NODE_ID(x)				((x & NODE_ID_MASK) >> 44)
--
- /* Registers */
- #define BGX_CMRX_CFG			0x00
- #define  CMR_PKT_TX_EN				BIT_ULL(13)
--- 
-2.4.1
+--Apple-Mail=_E85B156B-4084-42DB-AC89-B61AD227E479--
