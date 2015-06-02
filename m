@@ -1,7 +1,7 @@
 From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
-Subject: [PATCH 07/10] net: thunderx: fix nicvf_set_rxfh()
-Date: Tue, 2 Jun 2015 11:00:24 -0700
-Message-ID: <1433268028-23992-8-git-send-email-aleksey.makarov@caviumnetworks.com>
+Subject: [PATCH 03/10] net: thunderx: introduce a function for mailbox access
+Date: Tue, 2 Jun 2015 11:00:20 -0700
+Message-ID: <1433268028-23992-4-git-send-email-aleksey.makarov@caviumnetworks.com>
 References: <1433268028-23992-1-git-send-email-aleksey.makarov@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -18,68 +18,86 @@ In-Reply-To: <1433268028-23992-1-git-send-email-aleksey.makarov@caviumnetworks.c
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This fixes a copypaste bug that was discovered by a static analysis
-tool:
+This fixes sparse message:
 
-The patch 4863dea3fab0: "net: Adding support for Cavium ThunderX
-network controller" from May 26, 2015, leads to the following static
-checker warning:
+drivers/net/ethernet/cavium/thunder/nicvf_main.c:153:25: sparse: cast to
+restricted __le64
 
-        drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c:517
-nicvf_set_rxfh()
-        warn: we tested 'hkey' before and it was 'false'
-
-drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-   506          /* We do not allow change in unsupported parameters */
-   507          if (hkey ||
-                    ^^^^
-We return here.
-
-   508              (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc !=
-ETH_RSS_HASH_TOP))
-   509                  return -EOPNOTSUPP;
-   510
-   511          rss->enable = true;
-   512          if (indir) {
-   513                  for (idx = 0; idx < rss->rss_size; idx++)
-   514                          rss->ind_tbl[idx] = indir[idx];
-   515          }
-   516
-   517          if (hkey) {
-                    ^^^^
-So this is dead code.
-
-   518                  memcpy(rss->key, hkey, RSS_HASH_KEY_SIZE *
-sizeof(u64));
-   519                  nicvf_set_rss_key(nic);
-   520          }
-   521
-   522          nicvf_config_rss(nic);
-   523          return 0;
-   524  }
-
-regards,
-dan carpenter
-
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c | 27 +++++++++++++++---------
+ 1 file changed, 17 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-index 0fc4a53..16bd2d7 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-@@ -504,8 +504,7 @@ static int nicvf_set_rxfh(struct net_device *dev, const u32 *indir,
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index f81182c..989f005 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -110,17 +110,23 @@ u64 nicvf_queue_reg_read(struct nicvf *nic, u64 offset, u64 qidx)
+ 
+ /* VF -> PF mailbox communication */
+ 
++static void nicvf_write_to_mbx(struct nicvf *nic, union nic_mbx *mbx)
++{
++	u64 *msg = (u64 *)mbx;
++
++	nicvf_reg_write(nic, NIC_VF_PF_MAILBOX_0_1 + 0, msg[0]);
++	nicvf_reg_write(nic, NIC_VF_PF_MAILBOX_0_1 + 8, msg[1]);
++}
++
+ int nicvf_send_msg_to_pf(struct nicvf *nic, union nic_mbx *mbx)
+ {
+ 	int timeout = NIC_MBOX_MSG_TIMEOUT;
+ 	int sleep = 10;
+-	u64 *msg = (u64 *)mbx;
+ 
+ 	nic->pf_acked = false;
+ 	nic->pf_nacked = false;
+ 
+-	nicvf_reg_write(nic, NIC_VF_PF_MAILBOX_0_1 + 0, msg[0]);
+-	nicvf_reg_write(nic, NIC_VF_PF_MAILBOX_0_1 + 8, msg[1]);
++	nicvf_write_to_mbx(nic, mbx);
+ 
+ 	/* Wait for previous message to be acked, timeout 2sec */
+ 	while (!nic->pf_acked) {
+@@ -146,12 +152,13 @@ int nicvf_send_msg_to_pf(struct nicvf *nic, union nic_mbx *mbx)
+ static int nicvf_check_pf_ready(struct nicvf *nic)
+ {
+ 	int timeout = 5000, sleep = 20;
++	union nic_mbx mbx = {};
++
++	mbx.msg.msg = NIC_MBOX_MSG_READY;
+ 
+ 	nic->pf_ready_to_rcv_msg = false;
+ 
+-	nicvf_reg_write(nic, NIC_VF_PF_MAILBOX_0_1 + 0,
+-			le64_to_cpu(NIC_MBOX_MSG_READY));
+-	nicvf_reg_write(nic, NIC_VF_PF_MAILBOX_0_1 + 8, 1ULL);
++	nicvf_write_to_mbx(nic, &mbx);
+ 
+ 	while (!nic->pf_ready_to_rcv_msg) {
+ 		msleep(sleep);
+@@ -368,7 +375,9 @@ int nicvf_set_real_num_queues(struct net_device *netdev,
+ static int nicvf_init_resources(struct nicvf *nic)
+ {
+ 	int err;
+-	u64 mbx_addr = NIC_VF_PF_MAILBOX_0_1;
++	union nic_mbx mbx = {};
++
++	mbx.msg.msg = NIC_MBOX_MSG_CFG_DONE;
+ 
+ 	/* Enable Qset */
+ 	nicvf_qset_config(nic, true);
+@@ -382,9 +391,7 @@ static int nicvf_init_resources(struct nicvf *nic)
  	}
  
- 	/* We do not allow change in unsupported parameters */
--	if (hkey ||
--	    (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP))
-+	if (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP)
- 		return -EOPNOTSUPP;
+ 	/* Send VF config done msg to PF */
+-	nicvf_reg_write(nic, mbx_addr, le64_to_cpu(NIC_MBOX_MSG_CFG_DONE));
+-	mbx_addr += (NIC_PF_VF_MAILBOX_SIZE - 1) * 8;
+-	nicvf_reg_write(nic, mbx_addr, 1ULL);
++	nicvf_write_to_mbx(nic, &mbx);
  
- 	rss->enable = true;
+ 	return 0;
+ }
 -- 
 2.4.1
