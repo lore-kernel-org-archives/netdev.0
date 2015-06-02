@@ -1,7 +1,7 @@
 From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
-Subject: [PATCH 02/10] net: thunderx: fix constants
-Date: Tue, 2 Jun 2015 11:00:19 -0700
-Message-ID: <1433268028-23992-3-git-send-email-aleksey.makarov@caviumnetworks.com>
+Subject: [PATCH 05/10] net: thunderx: delete unused variables
+Date: Tue, 2 Jun 2015 11:00:22 -0700
+Message-ID: <1433268028-23992-6-git-send-email-aleksey.makarov@caviumnetworks.com>
 References: <1433268028-23992-1-git-send-email-aleksey.makarov@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,42 +13,45 @@ Cc: <linux-kernel@vger.kernel.org>,
 	Sunil Goutham <sgoutham@cavium.com>,
 	Robert Richter <rric@kernel.org>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0069.outbound.protection.outlook.com ([207.46.100.69]:64780
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1759923AbbFBSBP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jun 2015 14:01:15 -0400
 In-Reply-To: <1433268028-23992-1-git-send-email-aleksey.makarov@caviumnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This fixes sparse messages like this:
-
-drivers/net/ethernet/cavium/thunder/thunder_bgx.c:897:24: sparse:
-constant 0x300000000000 is so big it is long
+They were left from development stage
 
 Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/thunder/nicvf_main.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index abd446e6..f81182c 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -326,11 +326,11 @@ static int nicvf_rss_init(struct nicvf *nic)
- 	rss->enable = true;
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+index a58924c..83476f0 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+@@ -38,7 +38,7 @@ struct lmac {
+ 	bool			is_sgmii;
+ 	struct delayed_work	dwork;
+ 	struct workqueue_struct *check_link;
+-} lmac;
++};
  
- 	/* Using the HW reset value for now */
--	rss->key[0] = 0xFEED0BADFEED0BAD;
--	rss->key[1] = 0xFEED0BADFEED0BAD;
--	rss->key[2] = 0xFEED0BADFEED0BAD;
--	rss->key[3] = 0xFEED0BADFEED0BAD;
--	rss->key[4] = 0xFEED0BADFEED0BAD;
-+	rss->key[0] = 0xFEED0BADFEED0BADULL;
-+	rss->key[1] = 0xFEED0BADFEED0BADULL;
-+	rss->key[2] = 0xFEED0BADFEED0BADULL;
-+	rss->key[3] = 0xFEED0BADFEED0BADULL;
-+	rss->key[4] = 0xFEED0BADFEED0BADULL;
+ struct bgx {
+ 	u8			bgx_id;
+@@ -50,7 +50,7 @@ struct bgx {
+ 	int			use_training;
+ 	void __iomem		*reg_base;
+ 	struct pci_dev		*pdev;
+-} bgx;
++};
  
- 	nicvf_set_rss_key(nic);
- 
+ struct bgx *bgx_vnic[MAX_BGX_THUNDER];
+ static int lmac_count; /* Total no of LMACs in system */
 -- 
 2.4.1
