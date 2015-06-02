@@ -1,163 +1,99 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Mon, 01 Jun 2015 17:17:22 -0700 (PDT)
-Message-ID: <20150601.171722.1966882885860474515.davem@davemloft.net>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 1/1] net: core: 'ethtool' issue with querying phy
+ settings
+Date: Tue, 02 Jun 2015 01:57:28 +0100
+Message-ID: <1433206648.6319.206.camel@decadent.org.uk>
+References: <20150531.171940.1635713770956335110.davem@davemloft.net>
+		<1433181931.6319.176.camel@decadent.org.uk>	<556CD197.8070401@broadcom.com>
+	 <20150601.144635.1116373189875340733.davem@davemloft.net>
+	 <556CF06F.7040402@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-mlq7pxCpbKTTegQJhjn2"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	bcm-kernel-feedback-list@broadcom.com, rjui@broadcom.com,
+	sbranden@broadcom.com, jdzheng@broadcom.com
+To: Arun Parameswaran <aparames@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53748 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754508AbbFBARX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 20:17:23 -0400
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:35032 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750922AbbFBA5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 20:57:44 -0400
+In-Reply-To: <556CF06F.7040402@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-1) Various VTI tunnel (mark handling, PMTU) bug fixes from Alexander Duyck
-   and Steffen Klassert.
+--=-mlq7pxCpbKTTegQJhjn2
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-2) Revert ethtool PHY query change, it wasn't correct.  The PHY address
-   selected by the driver running the PHY to MAC connection decides
-   what PHY address GET ethtool operations return information from.
+On Mon, 2015-06-01 at 16:53 -0700, Arun Parameswaran wrote:
+> On 15-06-01 02:46 PM, David Miller wrote:
+> > From: Arun Parameswaran <aparames@broadcom.com>
+> > Date: Mon, 1 Jun 2015 14:41:43 -0700
+> >=20
+> >> It would be nice for the 'ethtool' to be flexible to support querying
+> >> specific PHY irrespective of the net implementation, but that is being
+> >> discussed in the other thread.
+> >=20
+> > Please stop arguing about this, it isn't valid.
+> >=20
+> > Your device is a switch, and therefore needs to be represented properly
+> > with the proper number of net_device objects.
+> >=20
+> > Even more importantly, the ethtool API is established and you cannot
+> > change these semantics without potentially breaking lots of application=
+s
+> > and libraries out there.
+> >=20
+> > Your change is reverted, and I will absolutely not entertain any
+> > attempt to again change the semantics of this ethtool operation.
+> >=20
+> > Thanks.
+> >=20
+> I apologize if the patch broke any conventions, it was not my intend. I
+> understand the implications on other programs that use the interface.
+>=20
+> Just so that I don=E2=80=99t make this mistake in the future and to under=
+stand this
+> better, does this mean that the 'phyad' parameter specified in the
+> 'ethtool' command line is ignored ?
 
-3) Fix handling of sequence number bits for encryption IV generation
-   in ESP driver, from Herbert Xu.
+There are some very old Ethernet cards where the driver can't
+automatically detect which PHY address to use, or where the MAC can be
+attached to one of several different PHYs.  This is what the 'phyad'
+parameter is used for.  I think the only remaining driver that supports
+changing the PHY address like this is natsemi.
 
-4) UDP can return -EAGAIN when we hit a bad checksum on receive, even
-   when there are other packets in the receive queue which is wrong.
-   Just respect the error returned from the generic socket recv
-   datagram helper.  From Eric Dumazet.
+Ben.
 
-5) Fix BNA driver firmware loading on big-endian systems, from Ivan
-   Vecera.
+--=20
+Ben Hutchings
+The obvious mathematical breakthrough [to break modern encryption] would be
+development of an easy way to factor large prime numbers. - Bill Gates
 
-6) Fix regression in that we were inheriting the congestion control
-   of the listening socket for new connections, the intended behavior
-   always was to use the default in this case.  From Neal Cardwell.
+--=-mlq7pxCpbKTTegQJhjn2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-7) Fix NULL deref in brcmfmac driver, from Arend van Spriel.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-8) OTP parsing fix in iwlwifi from Liad Kaufman.
+iQIVAwUAVWz/fOe/yOyVhhEJAQqCdw/+J/Gr9Q4zEkvKdOqqPwPy9GSZ6xKToszR
+yrfduA7K6f9jJhGGsjJBztBoLlb4Yx4OvHEPi1n3sF25BPmulP8Dg2fn0+KQheaK
+hYyAnj33/AnHduvhkeclvXGIkqxXp5wSCeTZFeCwiEMMogAyuyOR6QZKxDDI3Nk6
+pMZNdWsABo/NhfyNIzrv1ifieVROMxubBPs9GdOQc45HNaS9bYzk4n6CwNFNWx/8
+SNz3Bu/aeX4g5Sr/VC0JhwFgDt5/I9wuLkbGd878AZdZ+NIjUXVdY52YqwezlyE3
+iT5nf62/WVphcQ6bKQlUlhjNVelG45AgKqHbWfg8zT5fx2YrVSWZ+r900DAe6UbC
+iAZhTroBRN9HwVrlQYjXTBgzZHTDUVD8hfeooUQJSenuMmX18xWbxra5mFqLK7FI
+DUgyAG1WZ9nucffCsjjLC/xPXqSjXEzRJVDuJGIO9PlPdukQIfWiJl+3kuSkGGhE
+Nwz6Mes7mQL3YnzwUajmk4KtDcdtjRAH9MH2weemkxrue9qIw7ueM7HM16qe8o4u
+vSPJIOst7XNoMBcto4W4zdTs6fiENX9L7w11YY4NFYv0Iginq7nNmyL3JgF2ohZl
+qSlXNh5/vVsMOA5ron6x8oKwy6HnUfbf+IHwDJMl6sbmt6869ftZDj/Jlg6FEQZc
+x1jnfCtP6XQ=
+=WaBF
+-----END PGP SIGNATURE-----
 
-Please pull, thanks!
-
-The following changes since commit de182468d1bb726198abaab315820542425270b7:
-
-  Merge branch 'for-next' of git://git.samba.org/sfrench/cifs-2.6 (2015-05-27 14:09:16 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net 
-
-for you to fetch changes up to e453581dd518f60b45a8d2b9cf344e2a87d5267e:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf (2015-06-01 16:56:43 -0700)
-
-----------------------------------------------------------------
-Alexander Duyck (3):
-      ip_vti/ip6_vti: Do not touch skb->mark on xmit
-      xfrm: Override skb->mark with tunnel->parm.i_key in xfrm_input
-      ip_vti/ip6_vti: Preserve skb->mark after rcv_cb call
-
-Arend van Spriel (1):
-      brcmfmac: avoid null pointer access when brcmf_msgbuf_get_pktid() fails
-
-Bernhard Thaler (1):
-      Revert "netfilter: ensure number of counters is >0 in do_replace()"
-
-Daniel Pieczko (1):
-      sfc: free multiple Rx buffers when required
-
-David S. Miller (6):
-      Merge branch 'master' of git://git.kernel.org/.../klassert/ipsec
-      Merge tag 'mac80211-for-davem-2015-05-28' of git://git.kernel.org/.../jberg/mac80211
-      Merge branch 'bna-fixes'
-      Revert "net: core: 'ethtool' issue with querying phy settings"
-      Merge tag 'wireless-drivers-for-davem-2015-06-01' of git://git.kernel.org/.../kvalo/wireless-drivers
-      Merge git://git.kernel.org/.../pablo/nf
-
-Eric Dumazet (2):
-      bridge: fix br_multicast_query_expired() bug
-      udp: fix behavior of wrong checksums
-
-Florian Fainelli (1):
-      net: dsa: Properly propagate errors from dsa_switch_setup_one
-
-Herbert Xu (3):
-      esp4: Use high-order sequence number bits for IV generation
-      esp6: Use high-order sequence number bits for IV generation
-      xfrm: Always zero high-order sequence number bits
-
-Ian Campbell (2):
-      xen: netback: fix printf format string warning
-      xen: netback: read hotplug script once at start of day.
-
-Ilan Peer (1):
-      iwlwifi: pcie: fix tracking of cmd_in_flight
-
-Ivan Vecera (3):
-      bna: fix firmware loading on big-endian machines
-      bna: remove unreasonable iocpf timer start
-      bna: fix soft lock-up during firmware initialization failure
-
-Jonathan Corbet (1):
-      mac80211: Fix mac80211.h docbook comments
-
-Kalle Valo (1):
-      Merge tag 'iwlwifi-for-kalle-2015-05-28' of https://git.kernel.org/.../iwlwifi/iwlwifi-fixes
-
-Li RongQing (1):
-      xfrm: fix a race in xfrm_state_lookup_byspi
-
-Liad Kaufman (1):
-      iwlwifi: nvm: fix otp parsing in 8000 hw family
-
-Neal Cardwell (1):
-      tcp: fix child sockets to use system default congestion control if not set
-
-Roger Luethi (1):
-      via-rhine: Resigning as maintainer
-
-Steffen Klassert (1):
-      vti6: Add pmtu handling to vti6_xmit.
-
-Yuval Mintz (1):
-      bnx2x: Move statistics implementation into semaphores
-
- MAINTAINERS                                       |  3 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |  2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  9 ++---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c | 20 +++++++----
- drivers/net/ethernet/brocade/bna/bfa_ioc.c        |  4 +--
- drivers/net/ethernet/brocade/bna/bnad.c           |  4 ---
- drivers/net/ethernet/brocade/bna/cna_fwimg.c      |  7 ++++
- drivers/net/ethernet/sfc/rx.c                     | 42 ++++++++++++++---------
- drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c  | 12 +++----
- drivers/net/wireless/iwlwifi/iwl-nvm-parse.c      |  2 +-
- drivers/net/wireless/iwlwifi/pcie/internal.h      |  6 ++--
- drivers/net/wireless/iwlwifi/pcie/trans.c         |  4 +--
- drivers/net/wireless/iwlwifi/pcie/tx.c            | 23 +++++--------
- drivers/net/xen-netback/netback.c                 |  2 +-
- drivers/net/xen-netback/xenbus.c                  | 33 ++++++++++--------
- include/net/inet_connection_sock.h                |  3 +-
- include/net/mac80211.h                            |  7 ++--
- net/bridge/br_multicast.c                         |  2 +-
- net/bridge/netfilter/ebtables.c                   |  4 ---
- net/core/ethtool.c                                | 10 +-----
- net/dsa/dsa.c                                     |  4 +--
- net/ipv4/esp4.c                                   |  3 +-
- net/ipv4/ip_vti.c                                 | 14 +++++---
- net/ipv4/tcp_cong.c                               |  5 ++-
- net/ipv4/tcp_minisocks.c                          |  5 ++-
- net/ipv4/udp.c                                    |  6 ++--
- net/ipv6/esp6.c                                   |  3 +-
- net/ipv6/ip6_vti.c                                | 27 +++++++++++++--
- net/ipv6/udp.c                                    |  6 ++--
- net/xfrm/xfrm_input.c                             | 17 ++++++++-
- net/xfrm/xfrm_replay.c                            |  2 ++
- net/xfrm/xfrm_state.c                             |  2 +-
- 32 files changed, 174 insertions(+), 119 deletions(-)
+--=-mlq7pxCpbKTTegQJhjn2--
