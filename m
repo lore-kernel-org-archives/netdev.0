@@ -1,49 +1,49 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: [PATCH] ipv4: inet_bind: check the addr_len first
-Date: Tue,  2 Jun 2015 12:08:00 +0300
-Message-ID: <1433236080-5974-1-git-send-email-kda@linux-powerpc.org>
-Cc: Denis Kirjanov <kda@linux-powerpc.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:34408 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756098AbbFBJJy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 05:09:54 -0400
-Received: by lbcmx3 with SMTP id mx3so100228366lbc.1
-        for <netdev@vger.kernel.org>; Tue, 02 Jun 2015 02:09:52 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jouni Malinen <j@w1.fi>
+Subject: Re: [PATCH 7/7] mac80211: Switch to new AEAD interface
+Date: Tue, 2 Jun 2015 12:15:43 +0300
+Message-ID: <20150602091543.GA3140@w1.fi>
+References: <20150521103938.GA23035@gondor.apana.org.au>
+ <1433167519.3505.11.camel@sipsolutions.net>
+ <1433169326.3505.12.camel@sipsolutions.net>
+ <2613062.1qx4rgqk9F@tauon>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+	Linux Crypto Mailing List <linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Steffen Klassert <steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Stephan Mueller <smueller-T9tCv8IpfcWELgA04lAiVw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <2613062.1qx4rgqk9F@tauon>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Perform the address length check first, before calling
-the the proto specific bind() function
+On Mon, Jun 01, 2015 at 05:36:58PM +0200, Stephan Mueller wrote:
+> Am Montag, 1. Juni 2015, 16:35:26 schrieb Johannes Berg:
+> >IOW, I think something like this would make sense:
+> 
+> That looks definitely cleaner :-)
 
-Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
----
- net/ipv4/af_inet.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+Indeed.. That AAD length-in-the-buffer design came from the over ten
+year old code that was optimized to cover the CCM construction with the
+same buffer and that was not cleaned up when this was converted to use
+cryptoapi couple of years ago.
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 6ad0f7a..333e2fa 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -426,14 +426,15 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	int chk_addr_ret;
- 	int err;
+> Though, my main concern was just to ensure that the aad length value is not 
+> zero.
+
+It won't be in IEEE 802.11 use cases. The exact length depends on the
+IEEE 802.11 frame type, but AAD is constructed in a way that it is
+normally a bit over 20 octets while allowing CCM to fit the related
+operations into two AES blocks.
  
-+	err = -EINVAL;
-+	if (addr_len < sizeof(struct sockaddr_in))
-+		goto out;
-+
- 	/* If the socket has its own bind function then use it. (RAW) */
- 	if (sk->sk_prot->bind) {
- 		err = sk->sk_prot->bind(sk, uaddr, addr_len);
- 		goto out;
- 	}
--	err = -EINVAL;
--	if (addr_len < sizeof(struct sockaddr_in))
--		goto out;
- 
- 	if (addr->sin_family != AF_INET) {
- 		/* Compatibility games : accept AF_UNSPEC (mapped to AF_INET)
 -- 
-1.7.10.4
+Jouni Malinen                                            PGP id EFC895FA
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
