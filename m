@@ -1,123 +1,62 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [RFC 0/3] DSA and Marvell 88E6352 802.1q support
-Date: Mon, 1 Jun 2015 23:18:52 -0700
-Message-ID: <CAE4R7bCOVF6hT1-s5a5+Fs-06ks478Y3EZ45NTA4QNpy5uu9nw@mail.gmail.com>
-References: <556723FF.7030606@roeck-us.net> <1432849035-8499-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <CAE4R7bA43Jg5e+DSySvG4X2ka0CXEk9K6eVv5fdN37EcLBoF_A@mail.gmail.com> <429136619.719334.1433204323286.JavaMail.zimbra@savoirfairelinux.com>
+From: Junling Zheng <zhengjunling@huawei.com>
+Subject: Re: [RFC] [PATCH] net: socket: Fix the wrong returns for recvmsg
+ and sendmsg
+Date: Tue, 2 Jun 2015 14:19:46 +0800
+Message-ID: <556D4B02.2070307@huawei.com>
+References: <1433150880-9976-1-git-send-email-zhengjunling@huawei.com> <20150602012154.GB23370@kroah.com> <556D2B8C.9010108@huawei.com> <20150602044449.GA19083@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	=?UTF-8?Q?J=C3=A9rome_Oufella?=
-	<jerome.oufella@savoirfairelinux.com>,
-	Chris Healy <cphealy@gmail.com>, Jiri Pirko <jiri@resnulli.us>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f173.google.com ([209.85.216.173]:35267 "EHLO
-	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754503AbbFBGTO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 02:19:14 -0400
-Received: by qczw4 with SMTP id w4so31706377qcz.2
-        for <netdev@vger.kernel.org>; Mon, 01 Jun 2015 23:19:13 -0700 (PDT)
-In-Reply-To: <429136619.719334.1433204323286.JavaMail.zimbra@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <lizefan@huawei.com>, <viro@zeniv.linux.org.uk>,
+	<davem@davemloft.net>, <xuhanbing@huawei.com>,
+	<stable@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20150602044449.GA19083@kroah.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 1, 2015 at 5:18 PM, Vivien Didelot
-<vivien.didelot@savoirfairelinux.com> wrote:
->
-> On May 29, 2015, at 1:02 AM, Scott Feldman sfeldma@gmail.com wrote:
->> On Thu, May 28, 2015 at 2:37 PM, Vivien Didelot <vivien.didelot@savoirfairelinux.com> wrote:
->>> This RFC is based on v4.1-rc3.
+On 2015/6/2 12:44, Greg KH wrote:
+> On Tue, Jun 02, 2015 at 12:05:32PM +0800, Junling Zheng wrote:
+>> On 2015/6/2 9:21, Greg KH wrote:
+>>> On Mon, Jun 01, 2015 at 09:28:00AM +0000, Junling Zheng wrote:
+>>>> Hi, Greg:
+>>>>
+>>>> We found that after v3.10.73, recvmsg might return -EFAULT while -EINVAL
+>>>> was expected.
 >>>
->>> It is meant to get a glance to the commits responsible to implement the
->>> necessary NDOs between DSA and the Marvell 88E6352 switch driver.
+>>> That means I messed up and applied something I shouldn't have, right?
 >>>
->>> With this support, I am able to create VLANs with (un)tagged ports, setting
->>> their default VID, from a bridge.
+>>> Can you use 'git bisect' to find the problem patch?  That's probably
+>>> easier here, and then I can either revert it, or fix up a broken
+>>> backport.
 >>>
->>> To create a bridge containing all switch ports, with a VLAN ID 400, swp2 and
->>> swp3 untagged (pvid), and swp4 tagged, the userspace commands look like this:
->>>
->>>     ip link add name br0 type bridge
->>>     [...]
->>>     ip link set dev swp2 up master br0
->>>     [...]
->>>     bridge vlan add vid 400 pvid untagged dev swp2
->>>     bridge vlan add vid 400 pvid untagged dev swp3
->>>     bridge vlan add vid 400 dev swp4
->>>     [...]
->>>     ip link add link br0 name br0.400 type vlan id 400
->>>     [...]
->>>     bridge vlan add dev br0 vid 400 self
->>>
->>> The code is currently being rebased to the latest net-next/master.
->>>
->>> Seems like the way to go now is through switchdev attr getter/setter...
 >>
->> Indeed, for dsa_slave you should be able to port this to switchdev and
->> set your ndo_bridge_setlink/dellink handlers to
->> switchdev_port_bridge_setlink/dellink.  (And also implement the
->> switchdev ops for vlans).
->>
->> If you use switchdev_port_bridge_setlink/dellink, you shouldn't need
->> to implement ndo_vlan_rx_add_vid/ndo_vlan_rx_kill_vid at all.
->
-> Scott,
->
-> In fact I have to define these ndo, otherwise I get the "Buggy VLAN
-> acceleration in driver!" warning from net/core/dev.c and the switch
-> ports won't register.
->
-> I'm actually defining a noop function for them in dsa_slave_netdev_ops.
->
-> Is it correct to set NETIF_F_HW_VLAN_CTAG_FILTER in slave_dev->features?
+>> So, the problem commit is 281c9c36 (net: compat: Update get_compat_msghdr() to match copy_msghdr_from_user() behaviour), which fixes db31c55a6fb2
+>> and brings the get_compat_msghdr() in line with copy_msghdr_from_user().
+> 
+> Ok, but that patch itself isn't the issue, as it's "correct".  Something
 
-If your nooping ndo VLAN ops then just remove setting
-NETIF_F_HW_VLAN_CTAG_FILTER and then you can remove the noop funcs.
+I don't think so. The commit 281c9c36 is indeed the issue. Its upstream commit 91edd09
+has no problem in mainline, however it's not appropriate or complete for 3.10-stable.
+It changes the return value of get_compat_msghdr(), however, the outer caller still
+returns -EFAULT unconditionally, which goes against the intention of author.
 
->> The setlink/dellink callbacks will give the same info (and more, e.g.
->> pvid, untagged flags) and you'll automatically get support for stacked
->> drivers, for example if you bonded swp2/3 and then included that bond
->> in your vlan bridge.  Your commands will be slightly modified: when
->> adding the vid to the port, specify master and self:
->>
->> bridge vlan add vid 400 dev swp4 master self
->
-> Thanks it works! Now the switch VLAN database is consistent with the
-> bridge commands, I'm sending a complete RFC very soon.
->
-> Scott, David,
->
-> I use this mail to expose a potential problem between iproute2 and the
-> kernel, found with my previous code. When issuing "ip link set dev swp0
-> master br0", ndo_vlan_rx_add_vid is called, but not ndo_bridge_setlink,
+So, I don't think 281c9c36 is an complete patch for 3.10-stable. We should also fix it
+to return a correct value according to get_compat_msghdr() rather than returning -EFAULT
+unconditionally :)
 
-Remove NETIF_F_HW_VLAN_CTAG_FILTER and ndo_vlan_rx_add_vid will not be called.
+Cheers,
 
-Issuing "ip link set dev swp0 master br0" should only be setting the
-bridge member, not setting up any VLAN.  I suspect when you did this
-swp0 was admin UP and you're getting untagged VLAN 0 installed, which
-is the call to ndo_vlan_rx_add_vid.
+Junling
 
-> which results in an inconsistency between my switch VLAN database (and
-> port settings) and "bridge vlan", which shows "swp0   1 PVID Egress
-> Untagged".
-
-So that is a result of /sys/class/net/br0/bridge/default_pvid set to
-1.  If you don't want that, turn default_pvid off:
-
-echo 0 >/sys/class/net/br0/bridge/default_pvid
-
-Now you'll see "None" in the "bridge vlan" output.
-
-> Seems like there is a call to ndo_bridge_setlink to add somewhere, but I
-> have no clue where.
->
-> In the meantime, I call "bridge vlan add vid 1 dev swp0 pvid untagged
-> [master self]" at boot, to be consistent with the bridge output.
-
-Or turn off default_pvid.
+> else must be wrong here, did we backport db31c55a6fb2 incorrectly to
+> 3.10-stable?  What is really causing this to be so different that your
+> proposed patch needs to be applied to solve it?
+> 
+> thanks,
+> 
+> greg k-h
+> 
+> .
+> 
