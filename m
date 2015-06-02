@@ -1,8 +1,8 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next v3 09/15] sfc: update netdevice statistics to use
- vadaptor stats
-Date: Tue, 2 Jun 2015 11:39:33 +0100
-Message-ID: <556D87E5.60106@solarflare.com>
+Subject: [PATCH net-next v3 10/15] sfc: suppress ENOENT error messages from
+ MC_CMD_MAC_STATS
+Date: Tue, 2 Jun 2015 11:39:49 +0100
+Message-ID: <556D87F5.3010406@solarflare.com>
 References: <556D8710.6060706@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -10,92 +10,71 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:41050 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753246AbbFBKjk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 06:39:40 -0400
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:47527 "EHLO
+	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755651AbbFBKkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 06:40:03 -0400
 In-Reply-To: <556D8710.6060706@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Daniel Pieczko <dpieczko@solarflare.com>
 
-The netdevice statistics (in /proc/net/dev) are per-function
-stats so they must use the vadaptor stats. Change the use of
-MAC stats to vadaptor stats, and remove any statistics that
-can only be measured per-port.  All stats that are removed
-will be shown as zeroes when these statistics are displayed.
+MC_CMD_MAC_STATS can be called on a function before a
+vadaptor has been created, as the kernel can call into this
+through ndo_get_stats/ndo_get_stats64.
+
+If MC_CMD_MAC_STATS is called before the DMA queues have been
+setup, so that a vadaptor has not been created yet, firmware
+will return ENOENT. This is expected, so suppress the MCDI
+error message in this case.
 
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c | 41 ++++++++++++++++++++++-------------------
- 1 file changed, 22 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c      | 11 ++++++++---
+ drivers/net/ethernet/sfc/mcdi_port.c |  8 ++++++--
+ 2 files changed, 14 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index e5fe3b6..b880d98 100644
+index b880d98..a79a24f 100644
 --- a/drivers/net/ethernet/sfc/ef10.c
 +++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -1210,24 +1210,25 @@ static size_t efx_ef10_update_stats_common(struct efx_nic *efx, u64 *full_stats,
- 	}
- 
- 	if (core_stats) {
--		core_stats->rx_packets = stats[EF10_STAT_port_rx_packets];
--		core_stats->tx_packets = stats[EF10_STAT_port_tx_packets];
--		core_stats->rx_bytes = stats[EF10_STAT_port_rx_bytes];
--		core_stats->tx_bytes = stats[EF10_STAT_port_tx_bytes];
--		core_stats->rx_dropped = stats[EF10_STAT_port_rx_nodesc_drops] +
--					 stats[GENERIC_STAT_rx_nodesc_trunc] +
-+		core_stats->rx_packets = stats[EF10_STAT_rx_unicast] +
-+					 stats[EF10_STAT_rx_multicast] +
-+					 stats[EF10_STAT_rx_broadcast];
-+		core_stats->tx_packets = stats[EF10_STAT_tx_unicast] +
-+					 stats[EF10_STAT_tx_multicast] +
-+					 stats[EF10_STAT_tx_broadcast];
-+		core_stats->rx_bytes = stats[EF10_STAT_rx_unicast_bytes] +
-+				       stats[EF10_STAT_rx_multicast_bytes] +
-+				       stats[EF10_STAT_rx_broadcast_bytes];
-+		core_stats->tx_bytes = stats[EF10_STAT_tx_unicast_bytes] +
-+				       stats[EF10_STAT_tx_multicast_bytes] +
-+				       stats[EF10_STAT_tx_broadcast_bytes];
-+		core_stats->rx_dropped = stats[GENERIC_STAT_rx_nodesc_trunc] +
- 					 stats[GENERIC_STAT_rx_noskb_drops];
--		core_stats->multicast = stats[EF10_STAT_port_rx_multicast];
--		core_stats->rx_length_errors =
--			stats[EF10_STAT_port_rx_gtjumbo] +
--			stats[EF10_STAT_port_rx_length_error];
--		core_stats->rx_crc_errors = stats[EF10_STAT_port_rx_bad];
--		core_stats->rx_frame_errors =
--			stats[EF10_STAT_port_rx_align_error];
--		core_stats->rx_fifo_errors = stats[EF10_STAT_port_rx_overflow];
--		core_stats->rx_errors = (core_stats->rx_length_errors +
--					 core_stats->rx_crc_errors +
--					 core_stats->rx_frame_errors);
-+		core_stats->multicast = stats[EF10_STAT_rx_multicast];
-+		core_stats->rx_crc_errors = stats[EF10_STAT_rx_bad];
-+		core_stats->rx_fifo_errors = stats[EF10_STAT_rx_overflow];
-+		core_stats->rx_errors = core_stats->rx_crc_errors;
-+		core_stats->tx_errors = stats[EF10_STAT_tx_bad];
- 	}
- 
- 	return stats_count;
-@@ -1310,7 +1311,7 @@ static int efx_ef10_try_update_nic_stats_vf(struct efx_nic *efx)
- 
- 	MCDI_SET_QWORD(inbuf, MAC_STATS_IN_DMA_ADDR, stats_buf.dma_addr);
- 	MCDI_POPULATE_DWORD_1(inbuf, MAC_STATS_IN_CMD,
--			      MAC_STATS_IN_DMA, true);
-+			      MAC_STATS_IN_DMA, 1);
- 	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_DMA_LEN, dma_len);
+@@ -1316,11 +1316,16 @@ static int efx_ef10_try_update_nic_stats_vf(struct efx_nic *efx)
  	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_PORT_ID, EVB_PORT_ID_ASSIGNED);
  
-@@ -1322,8 +1323,10 @@ static int efx_ef10_try_update_nic_stats_vf(struct efx_nic *efx)
- 		goto out;
- 
- 	generation_end = dma_stats[MC_CMD_MAC_GENERATION_END];
--	if (generation_end == EFX_MC_STATS_GENERATION_INVALID)
-+	if (generation_end == EFX_MC_STATS_GENERATION_INVALID) {
-+		WARN_ON_ONCE(1);
+ 	spin_unlock_bh(&efx->stats_lock);
+-	rc = efx_mcdi_rpc(efx, MC_CMD_MAC_STATS, inbuf, sizeof(inbuf), NULL,
+-			  0, NULL);
++	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_MAC_STATS, inbuf, sizeof(inbuf),
++				NULL, 0, NULL);
+ 	spin_lock_bh(&efx->stats_lock);
+-	if (rc)
++	if (rc) {
++		/* Expect ENOENT if DMA queues have not been set up */
++		if (rc != -ENOENT || atomic_read(&efx->active_queues))
++			efx_mcdi_display_error(efx, MC_CMD_MAC_STATS,
++					       sizeof(inbuf), NULL, 0, rc);
  		goto out;
 +	}
- 	rmb();
- 	efx_nic_update_stats(efx_ef10_stat_desc, EF10_STAT_COUNT, mask,
- 			     stats, stats_buf.addr, false);
+ 
+ 	generation_end = dma_stats[MC_CMD_MAC_GENERATION_END];
+ 	if (generation_end == EFX_MC_STATS_GENERATION_INVALID) {
+diff --git a/drivers/net/ethernet/sfc/mcdi_port.c b/drivers/net/ethernet/sfc/mcdi_port.c
+index fffc348..7f295c4 100644
+--- a/drivers/net/ethernet/sfc/mcdi_port.c
++++ b/drivers/net/ethernet/sfc/mcdi_port.c
+@@ -948,8 +948,12 @@ static int efx_mcdi_mac_stats(struct efx_nic *efx,
+ 	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_DMA_LEN, dma_len);
+ 	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_PORT_ID, nic_data->vport_id);
+ 
+-	rc = efx_mcdi_rpc(efx, MC_CMD_MAC_STATS, inbuf, sizeof(inbuf),
+-			  NULL, 0, NULL);
++	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_MAC_STATS, inbuf, sizeof(inbuf),
++				NULL, 0, NULL);
++	/* Expect ENOENT if DMA queues have not been set up */
++	if (rc && (rc != -ENOENT || atomic_read(&efx->active_queues)))
++		efx_mcdi_display_error(efx, MC_CMD_MAC_STATS, sizeof(inbuf),
++				       NULL, 0, rc);
+ 	return rc;
+ }
+ 
