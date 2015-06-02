@@ -1,49 +1,89 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [RFC 3/9] net: dsa: mv88e6xxx: add support for VTU ops
-Date: Tue, 02 Jun 2015 07:47:14 -0700
-Message-ID: <556DC1F2.1070105@roeck-us.net>
-References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-4-git-send-email-vivien.didelot@savoirfairelinux.com> <556D522E.90607@roeck-us.net> <CAE4R7bChwW1awn8V6k7bF13v15_kPF0ui3NvyV2WkqN0XuTUqw@mail.gmail.com> <556DB283.8080300@roeck-us.net> <20150602134252.GT22739@lunn.ch>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [RFC PATCH 03/13] xen-netback: implement TX persistent grants
+Date: Tue, 2 Jun 2015 15:53:59 +0100
+Message-ID: <20150602145359.GP19403@zion.uk.xensource.com>
+References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
+ <1431451117-70051-4-git-send-email-joao.martins@neclab.eu>
+ <20150519152342.GB26335@zion.uk.xensource.com>
+ <30CF0FF9-3B1D-48AF-AFB4-73E20C404357@neclab.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Jerome Oufella <jerome.oufella@savoirfairelinux.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kernel@savoirfairelinux.com, Chris Healy <cphealy@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150602134252.GT22739@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
+	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
+	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Joao Martins <Joao.Martins@neclab.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:25659 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758542AbbFBOyD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 10:54:03 -0400
+Content-Disposition: inline
+In-Reply-To: <30CF0FF9-3B1D-48AF-AFB4-73E20C404357@neclab.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/02/2015 06:42 AM, Andrew Lunn wrote:
->> Also, we already have cases where the switch is connected to the CPU with
->> more than one Ethernet port. It is easy to imagine that the user of such
->> a system might want to configure two bridge groups.
->
-> Hi Guenter
->
-> I think that is orthogonal.  Having multiple CPU ports should really
-> only be seen as increased throughput with load sharing. It makes no
-> different to the basic user use cases. They can all be done with a
-> single CPU port, but with less bandwidth.
->
+On Fri, May 22, 2015 at 10:24:39AM +0000, Joao Martins wrote:
+> 
+> On 19 May 2015, at 17:23, Wei Liu <wei.liu2@citrix.com> wrote:
+> > On Tue, May 12, 2015 at 07:18:27PM +0200, Joao Martins wrote:
+> >> Introduces persistent grants for TX path which follows similar code path
+> >> as the grant mapping.
+> >> 
+> >> It starts by checking if there's a persistent grant available for header
+> >> and frags grefs and if so setting it in tx_pgrants. If no persistent grant
+> >> is found in the tree for the header it will resort to grant copy (but
+> >> preparing the map ops and add them laster). For the frags it will use the
+> >                                     ^
+> >                                     later
+> > 
+> >> tree page pool, and in case of no pages it fallbacks to grant map/unmap
+> >> using mmap_pages. When skb destructor callback gets called we release the
+> >> slot and persistent grant within the callback to avoid waking up the
+> >> dealloc thread. As long as there are no unmaps to done the dealloc thread
+> >> will remain inactive.
+> >> 
+> > 
+> > This scheme looks complicated. Can we just only use one
+> > scheme at a time? What's the rationale for using this combined scheme?
+> > Maybe you're thinking about using a max_grants < ring_size to save
+> > memory?
+> 
+> Yes, my purpose was to allow a max_grants < ring_size to save amount of
+> memory mapped. I did a bulk transfer test with iperf and the max amount of
+> grants in tree was <160 TX gnts, without affecting the max performance;
+> tough using pktgen fills the tree completely.
+> The second reason is to handle the case for a (malicious?) frontend providing
+> more grefs than the max allowed in which I would fallback to grant map/unmap.
+> 
 
-Hi Andrew,
+This is indeed a valid concern. The only method is to expires oldest
+grant when that happens -- but this is just complexity in another place,
+not really simplifying anything.
 
-quite possibly, but for my part I usually try not to restrict use cases.
-Some people may feel uncomfortable with load sharing and rather use
-the separate cpu ports to connect to dedicated external ports on the switch.
+> > 
+> > Only skim the patch. I will do detailed reviews after we're sure this is
+> > the right way to go.
+> > 
+[...]
+> > 
+> > Under what circumstance can we retrieve a already in use persistent
+> > grant? You seem to suggest this is a bug in RX case.
+> 
+> A guest could share try to share the same mapped page in multiple frags,
+> in which case I fallback to map/unmap. I think this is a limitation in
+> the way we manage the persistent gnts where we can only have a single
+> reference of a persistent grant inflight.
+> 
 
-Sure, that may reduce overall throughput, but it would provide a cleaner
-separation of traffic and guarantee that each of the ports gets its full
-bandwidth and is not starved by the other. Yes, I am sure that is all
-configurable, but it adds more and more complexity for the user.
+How much harder would it be to ref-count inflight grants? Would that
+simplify or perplex things? I'm just asking, not suggesting you should
+choose ref-counting over current scheme.
 
-Thanks,
-Guenter
+In principle I favour simple code path over optimisation for every
+possible corner case.
+
+Wei.
