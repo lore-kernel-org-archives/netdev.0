@@ -1,60 +1,36 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [RFC PATCH 06/13] xen-netback: copy buffer on xenvif_start_xmit()
-Date: Tue, 2 Jun 2015 16:10:00 +0100
-Message-ID: <20150602151000.GR19403@zion.uk.xensource.com>
-References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
- <1431451117-70051-7-git-send-email-joao.martins@neclab.eu>
- <20150519153558.GE26335@zion.uk.xensource.com>
- <915BCC85-25D1-4960-A1BA-0C6459ABC953@neclab.eu>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: Re: [net-next v2] ipv4: inet_bind: check the addr_len first
+Date: Tue, 2 Jun 2015 18:13:38 +0300
+Message-ID: <CAOJe8K3_Z91o2H9pWFCtSYMoQSbq2Ga0dYFR1Y=MFYGHsGccuA@mail.gmail.com>
+References: <1433247664-7151-1-git-send-email-kda@linux-powerpc.org>
+	<1433255612.1164050.284752905.33D64748@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
-	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
-	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: Joao Martins <Joao.Martins@neclab.eu>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:39296 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759380AbbFBPMu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 11:12:50 -0400
-Content-Disposition: inline
-In-Reply-To: <915BCC85-25D1-4960-A1BA-0C6459ABC953@neclab.eu>
+Received: from mail-yh0-f44.google.com ([209.85.213.44]:34949 "EHLO
+	mail-yh0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759455AbbFBPNj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 11:13:39 -0400
+Received: by yhda23 with SMTP id a23so42119898yhd.2
+        for <netdev@vger.kernel.org>; Tue, 02 Jun 2015 08:13:38 -0700 (PDT)
+In-Reply-To: <1433255612.1164050.284752905.33D64748@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 22, 2015 at 10:26:48AM +0000, Joao Martins wrote:
-[...]
-> >> 	return IRQ_HANDLED;
-> >> }
-> >> @@ -168,8 +169,12 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> >> 	cb = XENVIF_RX_CB(skb);
-> >> 	cb->expires = jiffies + vif->drain_timeout;
-> >> 
-> >> -	xenvif_rx_queue_tail(queue, skb);
-> >> -	xenvif_kick_thread(queue);
-> >> +	if (!queue->vif->persistent_grants) {
-> >> +		xenvif_rx_queue_tail(queue, skb);
-> >> +		xenvif_kick_thread(queue);
-> >> +	} else if (xenvif_rx_map(queue, skb)) {
-> >> +		return NETDEV_TX_BUSY;
-> >> +	}
-> >> 
-> > 
-> > We now have two different functions for guest RX, one is xenvif_rx_map,
-> > the other is xenvif_rx_action. They look very similar. Can we only have
-> > one?
-> I think I can merge this into xenvif_rx_action, and I notice that the stall
-> detection its missing. I will also add that.
-> Perhaps I could also disable the RX kthread, since this doesn't get used with
-> persistent grants?
-> 
+On 6/2/15, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> Hello,
+>
+> On Tue, Jun 2, 2015, at 14:21, Denis Kirjanov wrote:
+>> Perform the address length check first, before calling
+>> the proto specific bind() function
+>
+> Can you give more detail why you did this change and what bug it fixes?
+I've sent the v2 version with the net-next tag. The idea is simple:
+check the error condition first and then do the useful work.
 
-Disabling that kthread is fine. But we do need to make sure we can do
-the same things in start_xmit as we are in kthread. I.e. what context
-does start_xmit run in and what are the restrictions.
-
-Wei.
+>
+> Thanks,
+> Hannes
+>
