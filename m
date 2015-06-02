@@ -1,7 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC 0/9] net: dsa: mv88e6352: add 802.1q VLAN support
-Date: Mon,  1 Jun 2015 21:27:41 -0400
-Message-ID: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC 5/9] net: dsa: mv88e6352: disable mirroring
+Date: Mon,  1 Jun 2015 21:27:46 -0400
+Message-ID: <1433208470-25338-6-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Guenter Roeck <linux@roeck-us.net>,
@@ -12,64 +13,56 @@ Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"Chris Healy" <cphealy@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:51183 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754483AbbFBB2D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 21:28:03 -0400
+In-Reply-To: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patchset brings support for the 802.1q and VLAN operations to the Marvell
-88E6352 switch and compatibles.
+Disable the mirroring policy in the monitor control register, since this
+feature is not needed.
 
-The patch 1/9 adds more glue between switchdev and DSA.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6352.c | 10 +++-------
+ drivers/net/dsa/mv88e6xxx.h |  1 +
+ 2 files changed, 4 insertions(+), 7 deletions(-)
 
-Patches 2/9 to 4/9 add the VLAN operations to DSA and the mv88e6xxx family of
-switches.
-
-Patches 5/9 to 9/9 is the necessary configuration that I figured out during the
-VLAN tests I did. So far, I was able to confirm the following scenarios:
-
-  * Port untagged to Port untagged
-  * Port untagged to Port tagged
-  * Port tagged to Port tagged
-  * Port untagged to CPU tagged
-  * Port tagged to CPU tagged
-  * CPU tagged to port tagged
-
->From the userspace, here's a few commands I use to start using VLANs:
-
-    # create bridge
-    ip link set dev eth0 up
-    ip link add name br0 type bridge
-    echo 1 > /sys/class/net/br0/bridge/vlan_filtering
-    ip link set dev br0 up
-
-    # setup switch ports
-    for i in $(seq 0 4); do
-      ip link set dev swp$i up master br0
-      # HACK: bridge assumes the following but doesn't call ndo_bridge_setlink
-      bridge vlan add vid 1 pvid untagged dev swp$i master self
-    done
-
-Best,
- -v
-
-Vivien Didelot (9):
-  net: dsa: add basic support for switchdev obj
-  net: dsa: add basic support for VLAN operations
-  net: dsa: mv88e6xxx: add support for VTU ops
-  net: dsa: mv88e6352: add support for VLAN
-  net: dsa: mv88e6352: disable mirroring
-  net: dsa: mv88e6352: allow egress of unknown multicast
-  net: dsa: mv88e6352: lock CPU port from learning addresses
-  net: dsa: mv88e6352: set port 802.1Q mode to Secure
-  net: dsa: fix EDSA frame from hwaccel frame
-
- drivers/net/dsa/mv88e6352.c |  12 +-
- drivers/net/dsa/mv88e6xxx.c | 303 ++++++++++++++++++++++++++++++++++++++++++--
- drivers/net/dsa/mv88e6xxx.h |  39 ++++++
- include/net/dsa.h           |   7 +
- net/dsa/slave.c             | 100 ++++++++++++++-
- net/dsa/tag_edsa.c          |   5 +
- 6 files changed, 446 insertions(+), 20 deletions(-)
-
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 838494a..f541362 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -63,13 +63,9 @@ static int mv88e6352_setup_global(struct dsa_switch *ds)
+ 	REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL,
+ 		  GLOBAL_CONTROL_PPU_ENABLE | GLOBAL_CONTROL_DISCARD_EXCESS);
+ 
+-	/* Configure the upstream port, and configure the upstream
+-	 * port as the port to which ingress and egress monitor frames
+-	 * are to be sent.
+-	 */
+-	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT;
++	/* Configure the upstream port, and disable policy mirroring. */
++	reg = upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT |
++		GLOBAL_MONITOR_CONTROL_MIRROR_DISABLED;
+ 	REG_WRITE(REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
+ 
+ 	/* Disable remote management for now, and set the switch's
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 42032c3..f4ea66a 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -237,6 +237,7 @@
+ #define GLOBAL_MONITOR_CONTROL_ARP_SHIFT	4
+ #define GLOBAL_MONITOR_CONTROL_MIRROR_SHIFT	0
+ #define GLOBAL_MONITOR_CONTROL_ARP_DISABLED	(0xf0)
++#define GLOBAL_MONITOR_CONTROL_MIRROR_DISABLED	0x0f
+ #define GLOBAL_CONTROL_2	0x1c
+ #define GLOBAL_CONTROL_2_NO_CASCADE		0xe000
+ #define GLOBAL_CONTROL_2_MULTIPLE_CASCADE	0xf000
 -- 
 2.4.1
