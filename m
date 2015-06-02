@@ -1,62 +1,78 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC 7/9] net: dsa: mv88e6352: lock CPU port from learning addresses
-Date: Mon,  1 Jun 2015 21:27:48 -0400
-Message-ID: <1433208470-25338-8-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	"Scott Feldman" <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	Jerome Oufella <jerome.oufella@savoirfairelinux.com>,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"Chris Healy" <cphealy@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH 2/2] Bluetooth: btusb: Add reset_resume function
+Date: Tue, 2 Jun 2015 03:32:05 +0200
+Message-ID: <C3A9A104-993C-4C8F-A323-93FF58F03162@holtmann.org>
+References: <1433207682-15064-1-git-send-email-labbott@fedoraproject.org> <1433207682-15064-2-git-send-email-labbott@fedoraproject.org>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>, Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>,
+	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Rafael J. Wysocki" <rafael.j.wysocki-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Laura Abbott <labbott-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1433207682-15064-2-git-send-email-labbott-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This commit disables SA learning and refreshing for the CPU port.
+Hi Laura,
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 8 +++++---
- drivers/net/dsa/mv88e6xxx.h | 1 +
- 2 files changed, 6 insertions(+), 3 deletions(-)
+> Some USB hubs may lose power across suspend/resume.
+> Add a reset_resume callback to properly reset those bluetoot devices.
+>=20
+> Signed-off-by: Laura Abbott <labbott-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
+> ---
+> Now the setup function is called again with the HCI_RESET_RESUME
+> flag set. The various functions could then use that RESET_RESUME
+> flag to determine if loading the firmware is appropriate or not.
+> ---
+> drivers/bluetooth/btusb.c | 16 ++++++++++++++++
+> 1 file changed, 16 insertions(+)
+>=20
+> diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
+> index 3c10d4d..34884cf 100644
+> --- a/drivers/bluetooth/btusb.c
+> +++ b/drivers/bluetooth/btusb.c
+> @@ -3382,6 +3382,21 @@ done:
+>=20
+> 	return err;
+> }
+> +
+> +static int btusb_reset_resume(struct usb_interface *intf)
+> +{
+> +	struct btusb_data *data =3D usb_get_intfdata(intf);
+> +	struct hci_dev *hdev =3D data->hdev;
+> +	int ret;
+> +
+> +	BT_DBG("intf %p", intf);
+> +
+> +	ret =3D btusb_resume(intf);
+> +	if (ret)
+> +		return ret;
+> +
+> +	return hci_reset_resume_dev(hdev);
+> +}
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index d2beb10..ed49bd8 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1761,10 +1761,12 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 	/* Port Association Vector: when learning source addresses
- 	 * of packets, add the address to the address database using
- 	 * a port bitmap that has only the bit for this port set and
--	 * the other bits clear.
-+	 * the other bits clear, except for the CPU port.
- 	 */
--	ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_ASSOC_VECTOR,
--				   1 << port);
-+	reg = BIT(port);
-+	if (dsa_is_cpu_port(ds, port))
-+		reg |= PORT_ASSOC_VECTOR_LOCKED_PORT;
-+	ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_ASSOC_VECTOR, reg);
- 	if (ret)
- 		goto abort;
- 
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 412d14e..e26eb0c 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -144,6 +144,7 @@
- #define PORT_RATE_CONTROL	0x09
- #define PORT_RATE_CONTROL_2	0x0a
- #define PORT_ASSOC_VECTOR	0x0b
-+#define PORT_ASSOC_VECTOR_LOCKED_PORT	BIT(13)
- #define PORT_ATU_CONTROL	0x0c
- #define PORT_PRI_OVERRIDE	0x0d
- #define PORT_ETH_TYPE		0x0f
--- 
-2.4.1
+it seems convenient to call btusb_resume, but I would really prefer if =
+we didn=E2=80=99t. From what I know is that when reset_resume callback =
+is called, then the device has been reset. So that means any prior tran=
+sfer we have remembered is null and void. So even trying to replay any =
+of it is just a lost cause.
+
+Instead we should clear any pending transfers and clear everything and =
+instead pretend that we bring the transport back to its virgin state. I=
+t also means that isochronous transfers should be all killed since we w=
+ill have no SCO connections after this. Remember that we are telling th=
+e Bluetooth core to reset this device.
+
+Regards
+
+Marcel
