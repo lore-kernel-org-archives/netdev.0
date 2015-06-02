@@ -1,8 +1,8 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [RFC 6/9] net: dsa: mv88e6352: allow egress of unknown multicast
-Date: Tue, 02 Jun 2015 07:20:53 -0700
-Message-ID: <556DBBC5.5050009@roeck-us.net>
-References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-7-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [RFC 7/9] net: dsa: mv88e6352: lock CPU port from learning addresses
+Date: Tue, 02 Jun 2015 07:24:36 -0700
+Message-ID: <556DBCA4.10203@roeck-us.net>
+References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-8-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -17,67 +17,67 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:46272 "EHLO
+Received: from bh-25.webhostbox.net ([208.91.199.152]:46976 "EHLO
 	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758792AbbFBOU6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 10:20:58 -0400
-In-Reply-To: <1433208470-25338-7-git-send-email-vivien.didelot@savoirfairelinux.com>
+	with ESMTP id S1755833AbbFBOYk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 10:24:40 -0400
+In-Reply-To: <1433208470-25338-8-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 06/01/2015 06:27 PM, Vivien Didelot wrote:
-> This patch disables egress of unknown unicast destination addresses.
+> This commit disables SA learning and refreshing for the CPU port.
 >
 
 Hi Vivien,
 
-seems to me this patch is unrelated to the rest of the series.
+This patch also seems to be unrelated to the rest of the series.
 
-Not sure if we really want this. If an address is in the arp cache
-but has timed out from the bridge database, any unicast to that address
-will no longer be sent. If the bridge database has been flushed for some
-reason, such as a spanning tree reconfiguration, we'll have a hard time
-to send anything.
+Can you add an explanation why it is needed ?
 
-What is the problem you are trying to solve with this patch ?
+With this in place, how does the CPU port SA find its way into the fdb ?
+Do we assume that it will be configured statically ?
+An explanation might be useful.
 
 Thanks,
 Guenter
 
 > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 > ---
->   drivers/net/dsa/mv88e6xxx.c | 3 ++-
->   drivers/net/dsa/mv88e6xxx.h | 5 +++++
->   2 files changed, 7 insertions(+), 1 deletion(-)
+>   drivers/net/dsa/mv88e6xxx.c | 8 +++++---
+>   drivers/net/dsa/mv88e6xxx.h | 1 +
+>   2 files changed, 6 insertions(+), 3 deletions(-)
 >
 > diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-> index 49ef2f8..d2beb10 100644
+> index d2beb10..ed49bd8 100644
 > --- a/drivers/net/dsa/mv88e6xxx.c
 > +++ b/drivers/net/dsa/mv88e6xxx.c
-> @@ -1686,7 +1686,8 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
->   	    mv88e6xxx_6185_family(ds))
->   		reg = PORT_CONTROL_IGMP_MLD_SNOOP |
->   		PORT_CONTROL_USE_TAG | PORT_CONTROL_USE_IP |
-> -		PORT_CONTROL_STATE_FORWARDING;
-> +		PORT_CONTROL_STATE_FORWARDING |
-> +		PORT_CONTROL_EGRESS_FLOODS_NO_UNKNOWN_UNICAST_DA;
->   	if (dsa_is_cpu_port(ds, port)) {
->   		if (mv88e6xxx_6095_family(ds) || mv88e6xxx_6185_family(ds))
->   			reg |= PORT_CONTROL_DSA_TAG;
+> @@ -1761,10 +1761,12 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+>   	/* Port Association Vector: when learning source addresses
+>   	 * of packets, add the address to the address database using
+>   	 * a port bitmap that has only the bit for this port set and
+> -	 * the other bits clear.
+> +	 * the other bits clear, except for the CPU port.
+>   	 */
+> -	ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_ASSOC_VECTOR,
+> -				   1 << port);
+> +	reg = BIT(port);
+> +	if (dsa_is_cpu_port(ds, port))
+> +		reg |= PORT_ASSOC_VECTOR_LOCKED_PORT;
+> +	ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_ASSOC_VECTOR, reg);
+>   	if (ret)
+>   		goto abort;
+>
 > diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-> index f4ea66a..412d14e 100644
+> index 412d14e..e26eb0c 100644
 > --- a/drivers/net/dsa/mv88e6xxx.h
 > +++ b/drivers/net/dsa/mv88e6xxx.h
-> @@ -117,6 +117,11 @@
->   #define PORT_CONTROL_STATE_BLOCKING	0x01
->   #define PORT_CONTROL_STATE_LEARNING	0x02
->   #define PORT_CONTROL_STATE_FORWARDING	0x03
-> +#define PORT_CONTROL_EGRESS_FLOODS_MASK				(0x03 << 2)
-> +#define PORT_CONTROL_EGRESS_FLOODS_NO_UNKNOWN_ANY_DA		(0x00 << 2)
-> +#define PORT_CONTROL_EGRESS_FLOODS_NO_UNKNOWN_MULTICAST_DA	(0x01 << 2)
-> +#define PORT_CONTROL_EGRESS_FLOODS_NO_UNKNOWN_UNICAST_DA	(0x02 << 2)
-> +#define PORT_CONTROL_EGRESS_FLOODS_ANY_DA			(0x03 << 2)
->   #define PORT_CONTROL_1		0x05
->   #define PORT_BASE_VLAN		0x06
->   #define PORT_DEFAULT_VLAN	0x07
+> @@ -144,6 +144,7 @@
+>   #define PORT_RATE_CONTROL	0x09
+>   #define PORT_RATE_CONTROL_2	0x0a
+>   #define PORT_ASSOC_VECTOR	0x0b
+> +#define PORT_ASSOC_VECTOR_LOCKED_PORT	BIT(13)
+>   #define PORT_ATU_CONTROL	0x0c
+>   #define PORT_PRI_OVERRIDE	0x0d
+>   #define PORT_ETH_TYPE		0x0f
 >
