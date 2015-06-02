@@ -1,69 +1,65 @@
-From: Luis Henriques <luis.henriques@canonical.com>
-Subject: Re: [RFC] [PATCH] net: socket: Fix the wrong returns for recvmsg and
- sendmsg
-Date: Tue, 2 Jun 2015 11:15:22 +0100
-Message-ID: <20150602101522.GA2623@ares>
-References: <1433150880-9976-1-git-send-email-zhengjunling@huawei.com>
- <20150602012154.GB23370@kroah.com>
- <556D2B8C.9010108@huawei.com>
- <20150601.222357.122000161676177828.davem@davemloft.net>
- <20150602062751.GA3912@kroah.com>
- <556D50AA.4000005@huawei.com>
- <20150602065257.GA29335@1wt.eu>
- <556D55D5.6020303@huawei.com>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net-next v3 00/15] sfc: ndo_get_phys_port_id, vadaptor stats
+ and PF unload when Vf's assigned to guest
+Date: Tue, 2 Jun 2015 11:36:00 +0100
+Message-ID: <556D8710.6060706@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Willy Tarreau <w@1wt.eu>, Greg KH <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>, lizefan@huawei.com,
-	viro@zeniv.linux.org.uk, xuhanbing@huawei.com,
-	stable@vger.kernel.org, netdev@vger.kernel.org,
-	Kamal Mostafa <kamal@canonical.com>
-To: Junling Zheng <zhengjunling@huawei.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <556D55D5.6020303@huawei.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:24997 "EHLO
+	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753893AbbFBKgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 06:36:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 02, 2015 at 03:05:57PM +0800, Junling Zheng wrote:
-> On 2015/6/2 14:52, Willy Tarreau wrote:
-> > On Tue, Jun 02, 2015 at 02:43:54PM +0800, Junling Zheng wrote:
-> >> On 2015/6/2 14:27, Greg KH wrote:
-> >>> On Mon, Jun 01, 2015 at 10:23:57PM -0700, David Miller wrote:
-> >>>> From: Junling Zheng <zhengjunling@huawei.com>
-> >>>> Date: Tue, 2 Jun 2015 12:05:32 +0800
-> >>>>
-> >>>>> So, the problem commit is 281c9c36 (net: compat: Update
-> >>>>> get_compat_msghdr() to match copy_msghdr_from_user() behaviour)=
-,
-> >>>>> which fixes db31c55a6fb2 and brings the get_compat_msghdr() in =
-line
-> >>>>> with copy_msghdr_from_user().
-> >>>>
-> >>>> Upstream this got fixed by:
-> >>>>
-> >>>> 08adb7dabd4874cc5666b4490653b26534702ce0
-> >>>>
-> >>>> So the part that makes us not unconditionally return -EFAULT nee=
-ds
-> >>>> to be backported, and that's probably equivalent to the patch
-> >>>> your proposed which therefore should be applied.
-> >>>
-> >>> Ok, thanks, now applied.
-> >>>
-> >>
-> >> Maybe other stable version also needs this fix:)
-> >=20
-> > Yes, from what I'm seeing, at least 3.2 and 2.6.32 need it as well.
-> >=20
->=20
-> Yeah, all other stable versions *except 3.19 and 4.0* may need this f=
-ix:)
+This is the third and last instalment of SRIOV for EF10 patches.
 
-This seems to be correct.  I am queuing this fix for the 3.16 kernel
-as well.  Thank you!
+This patch set includes implementation of ndo_get_phys_port_id
+and changes to the MAC statistics code in order to support
+vadaptor statistics.
 
-Cheers,
---
-Lu=EDs
+It also includes code to deal with PF unload when Vf's are still
+assigned to the guest.
+
+The first couple of patches create sysfs files for physical port
+and link control flags which are particularly useful when we have
+enabled a large number of VF's.
+
+These patches have been tested with and without CONFIG_SFC_SRIOV.
+The creation and content of the sysfs files has been tested.
+The statistics are tested using ethtool for monitoring.
+
+Daniel Pieczko (11):
+  sfc: add "port_" prefix to MAC stats
+  sfc: set the port-id when calling MC_CMD_MAC_STATS
+  sfc: display vadaptor statistics for all interfaces
+  sfc: DMA the VF stats only when requested
+  sfc: update netdevice statistics to use vadaptor stats
+  sfc: suppress ENOENT error messages from MC_CMD_MAC_STATS
+  sfc: suppress vadaptor stats when EVB is not present
+  sfc: don't update stats on VF when called in atomic context
+  sfc: do not allow VFs to be destroyed if assigned to guests
+  sfc: force removal of VF and vport on driver removal
+  sfc: leak vports if a VF is assigned during PF unload
+
+Shradha Shah (4):
+  sfc: Add code to export port_num in netdev->dev_port
+  sfc: Add paranthesis correctly on all branches of the if statement
+  sfc: Add sysfs entry for flags (link control and primary)
+  sfc: Implement ndo_gets_phys_port_id() for EF10 VFs
+
+ drivers/net/ethernet/sfc/ef10.c       | 536 +++++++++++++++++++++++-----------
+ drivers/net/ethernet/sfc/ef10_sriov.c |  57 +++-
+ drivers/net/ethernet/sfc/ef10_sriov.h |   5 +
+ drivers/net/ethernet/sfc/efx.c        |   8 +-
+ drivers/net/ethernet/sfc/mcdi_pcol.h  |  30 +-
+ drivers/net/ethernet/sfc/mcdi_port.c  |  12 +-
+ drivers/net/ethernet/sfc/net_driver.h |   2 +
+ drivers/net/ethernet/sfc/nic.h        | 117 ++++----
+ drivers/net/ethernet/sfc/sriov.c      |  11 +
+ drivers/net/ethernet/sfc/sriov.h      |   2 +
+ 10 files changed, 552 insertions(+), 228 deletions(-)
