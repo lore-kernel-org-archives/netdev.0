@@ -1,104 +1,77 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next 5/5] rocker: remove support for legacy VLAN ndo ops
-Date: Tue, 2 Jun 2015 07:30:40 -0700
-Message-ID: <CAE4R7bAXA27cqBLv6MP0kak-L=1bXUoZPw7vxUyYpP=-dk=eAg@mail.gmail.com>
-References: <1433183947-13095-1-git-send-email-sfeldma@gmail.com>
- <1433183947-13095-6-git-send-email-sfeldma@gmail.com> <556D363A.5010005@lab.ntt.co.jp>
- <20150601.222442.1854333703599698362.davem@davemloft.net> <CAE4R7bBL+=-akoNLPqPae=zrYe3DH59t=8UK_T7KhcHSNaKUtw@mail.gmail.com>
- <556D96ED.9010309@mojatatu.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [RFC 8/9] net: dsa: mv88e6352: set port 802.1Q mode to Secure
+Date: Tue, 02 Jun 2015 07:31:57 -0700
+Message-ID: <556DBE5D.9000003@roeck-us.net>
+References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-9-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Jerome Oufella <jerome.oufella@savoirfairelinux.com>,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	Chris Healy <cphealy@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f54.google.com ([209.85.192.54]:35635 "EHLO
-	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758542AbbFBObC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 10:31:02 -0400
-Received: by qgg60 with SMTP id 60so59394926qgg.2
-        for <netdev@vger.kernel.org>; Tue, 02 Jun 2015 07:31:00 -0700 (PDT)
-In-Reply-To: <556D96ED.9010309@mojatatu.com>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:48046 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758542AbbFBOcE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 10:32:04 -0400
+In-Reply-To: <1433208470-25338-9-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 2, 2015 at 4:43 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 06/02/15 03:10, Scott Feldman wrote:
+On 06/01/2015 06:27 PM, Vivien Didelot wrote:
+> This commit changes the 802.1Q mode of each port from Disabled to
+> Secure. This enables the VLAN support, by checking the VTU entries on
+> ingress.
 >
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>   drivers/net/dsa/mv88e6xxx.c | 14 +++++++-------
+>   drivers/net/dsa/mv88e6xxx.h |  5 +++++
+>   2 files changed, 12 insertions(+), 7 deletions(-)
 >
->> Actually, we're now consistent with bridge man page which says master
->> is the default.
->>
->> Want we want, I believe, is to adjust what the man page says (and the
->> bridge vlan command itself), by making the default master and self.
->> The kernel and driver are fine, it's the default in the bridge command
->> that needs adjusting.  Once we do this, we'll be back to transparent
->> with software-only bridge.
->>
+> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+> index ed49bd8..35243d8 100644
+> --- a/drivers/net/dsa/mv88e6xxx.c
+> +++ b/drivers/net/dsa/mv88e6xxx.c
+> @@ -1723,13 +1723,11 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+>   			goto abort;
+>   	}
 >
-> Question to ask when looking at something of this nature:
-> Will it work with no suprises if you used today's unmodified app?
-> The default behavior shouldnt change and unfortunately it does here.
-
-The default behavior does change, yes, but there shouldn't be any
-surprises even if using today's unmodified app.  The reason why is no
-in-kernel driver is using ndo_bridge_setlink for VLAN setup.  The
-three drivers that have ndo_bridge_setlink use if to set hwmode to
-VEBA|VEB.  For VLAN setup, they use the (default master) bridge's
-ndo_bridge_setlink->ndo_vlan_rx_add_vid.  If the default changes from
-master to master|self, the bridge's
-ndo_bridge_setlink->ndo_vlan_rx_add_vid is still called for those
-driver's using ndo_vlan_rx_add_vid, and if they implement
-ndo_bridge_setlink, they'll get called a second time but will noop
-because there will be no IFLA_BRIDGE_MODE (hwmode) attr to process.
-
-So it comes down to two choices:
-
-1) break ABI, which is inconsequential for in-kernel drivers and
-preserve (iproute2) command transparency, or
-
-2) embrace existing behavior which is consistent with man pages but
-breaks command transparency for any driver implementing
-ndo_bridge_setlink for VLAN setup, which currently is just rocker.  I
-can see the DSA going down this path also based on another concurrent
-thread.
-
-We're at option 2) right now.
-
-> It is not just iproute2 - since this is breaking ABI expectations.
-> Looking at some app i wrote a while back based on analyzing kernel
-> expectations at the time, I see the following logic:
+> -	/* Port Control 2: don't force a good FCS, set the maximum
+> -	 * frame size to 10240 bytes, don't let the switch add or
+> -	 * strip 802.1q tags, don't discard tagged or untagged frames
+> -	 * on this port, do a destination address lookup on all
+> -	 * received packets as usual, disable ARP mirroring and don't
+> -	 * send a copy of all transmitted/received frames on this port
+> -	 * to the CPU.
+> +	/* Port Control 2: don't force a good FCS, set the maximum frame size to
+> +	 * 10240 bytes, enable secure 802.1q tags, don't discard tagged or
+> +	 * untagged frames on this port, do a destination address lookup on all
+> +	 * received packets as usual, disable ARP mirroring and don't send a
+> +	 * copy of all transmitted/received frames on this port to the CPU.
+>   	 */
+>   	reg = 0;
+>   	if (mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds) ||
+> @@ -1751,6 +1749,8 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+>   			reg |= PORT_CONTROL_2_FORWARD_UNKNOWN;
+>   	}
 >
-> user can set master or self on command line.
-> ...
-> ....
-> if (user DID NOT set master_on || user set self on)
->    then set self to on
->
-> iow, current behavior:
->  01: master is only set if user explicitly asked.
->  11: master|self when user explicitly sets both
->  10: self is on by default when the user doesnt specify anything
->  00: and the last option is to have none set which is not
->      possible since we have defaults.
->
-> cheers,
-> jamal
->
->
-> So this is very similar to iproute2 - if nothing is set
-> it defaults to self.
+> +	reg |= PORT_CONTROL_2_8021Q_SECURE;
+> +
 
-Ha, you're giving the behavior for "bridge fdb" command, where self is
-the default.
+Hi Vivien,
 
-For "bridge link" and "bridge vlan", the default is master.  The user
-must explicitly specify "self" to act on the device side of the port.
+Unless I misunderstand the documentation, this effectively disables VLAN
+support on non-bridge ports, especially since the ndo_ functions to add VLAN
+entries to such ports are not implemented. Is that intentional, or am I
+missing something ?
 
-It's unfortunate the iproute2 defaults aren't consistent between
-commands.  Maybe someone knows the history here and can explain.
-
--scott
+Thanks,
+Guenter
