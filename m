@@ -1,77 +1,52 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [RFC 8/9] net: dsa: mv88e6352: set port 802.1Q mode to Secure
-Date: Tue, 02 Jun 2015 07:31:57 -0700
-Message-ID: <556DBE5D.9000003@roeck-us.net>
-References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-9-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Josh Hunt <johunt@akamai.com>
+Subject: Re: [PATCH v2] ipv6: Fix protocol resubmission
+Date: Tue, 02 Jun 2015 09:32:09 -0500
+Message-ID: <556DBE69.60904@akamai.com>
+References: <1432929886-14259-1-git-send-email-johunt@akamai.com>	<5568CBCC.1080503@cogentembedded.com>	<5568DD83.8020600@akamai.com> <CALx6S34mG6HTtJ5sofLKayMgtJ9EhwCnk9RFX-He8sVBpO9ovg@mail.gmail.com> <55692250.9070500@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Jerome Oufella <jerome.oufella@savoirfairelinux.com>,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	Chris Healy <cphealy@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:48046 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758542AbbFBOcE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 10:32:04 -0400
-In-Reply-To: <1433208470-25338-9-git-send-email-vivien.didelot@savoirfairelinux.com>
+Received: from prod-mail-xrelay07.akamai.com ([72.246.2.115]:49721 "EHLO
+	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759211AbbFBOcL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 10:32:11 -0400
+In-Reply-To: <55692250.9070500@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/01/2015 06:27 PM, Vivien Didelot wrote:
-> This commit changes the 802.1Q mode of each port from Disabled to
-> Secure. This enables the VLAN support, by checking the VTU entries on
-> ingress.
+On 05/29/2015 09:37 PM, Josh Hunt wrote:
+> On 05/29/2015 04:48 PM, Tom Herbert wrote:
+>> Hi Josh,
+>>
+>> Why did you need to move the resubmit label?
 >
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->   drivers/net/dsa/mv88e6xxx.c | 14 +++++++-------
->   drivers/net/dsa/mv88e6xxx.h |  5 +++++
->   2 files changed, 12 insertions(+), 7 deletions(-)
+> Grabbing nhoff out of the skb's cb didn't seem relevant anymore, unless
+> we're requiring the decapsulating code to update the control block
+> before it returns. Also, since we are returning nexthdr with the return
+> value it seems unnecessary to go through that work when we already have it.
 >
-> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-> index ed49bd8..35243d8 100644
-> --- a/drivers/net/dsa/mv88e6xxx.c
-> +++ b/drivers/net/dsa/mv88e6xxx.c
-> @@ -1723,13 +1723,11 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
->   			goto abort;
->   	}
+> Not that there has to be symmetry here, but for example, the v4 code
+> doesn't look up the protocol field again in the inner ip header. It just
+> uses the protocol value returned from the protocol handler.
 >
-> -	/* Port Control 2: don't force a good FCS, set the maximum
-> -	 * frame size to 10240 bytes, don't let the switch add or
-> -	 * strip 802.1q tags, don't discard tagged or untagged frames
-> -	 * on this port, do a destination address lookup on all
-> -	 * received packets as usual, disable ARP mirroring and don't
-> -	 * send a copy of all transmitted/received frames on this port
-> -	 * to the CPU.
-> +	/* Port Control 2: don't force a good FCS, set the maximum frame size to
-> +	 * 10240 bytes, enable secure 802.1q tags, don't discard tagged or
-> +	 * untagged frames on this port, do a destination address lookup on all
-> +	 * received packets as usual, disable ARP mirroring and don't send a
-> +	 * copy of all transmitted/received frames on this port to the CPU.
->   	 */
->   	reg = 0;
->   	if (mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds) ||
-> @@ -1751,6 +1749,8 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
->   			reg |= PORT_CONTROL_2_FORWARD_UNKNOWN;
->   	}
+> Also, I'm skipping the pskb_pull(), which I assumed was left up to the
+> decapsulating code to setup the data pointer properly before returning.
+> Again, this is how the v4 code behaves.
 >
-> +	reg |= PORT_CONTROL_2_8021Q_SECURE;
-> +
+> The only thing left is the idev which I'm not sure about. Could that
+> change b/t calls?
+>
+Tom
 
-Hi Vivien,
+Do you think the above is incorrect and we should just leave the 
+resubmit label where it currently is? If so, do you think we should just 
+bypass the nhoff/nexthdr checks and use the nexthdr value returned by 
+the protocol handler?
 
-Unless I misunderstand the documentation, this effectively disables VLAN
-support on non-bridge ports, especially since the ndo_ functions to add VLAN
-entries to such ports are not implemented. Is that intentional, or am I
-missing something ?
-
-Thanks,
-Guenter
+Thanks
+Josh
