@@ -1,34 +1,40 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next 0/3] cxgb4/cxgb4vf: Adds support for Chelsio
  T6 adapter
-Date: Mon, 01 Jun 2015 17:03:21 -0700 (PDT)
-Message-ID: <20150601.170321.642455610763862859.davem@davemloft.net>
+Date: Mon, 01 Jun 2015 17:04:29 -0700 (PDT)
+Message-ID: <20150601.170429.598715578874417987.davem@davemloft.net>
 References: <1433206925-5997-1-git-send-email-hariprasad@chelsio.com>
+	<20150601.170321.642455610763862859.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
 To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53664 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53673 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754554AbbFBADX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 20:03:23 -0400
-In-Reply-To: <1433206925-5997-1-git-send-email-hariprasad@chelsio.com>
+	with ESMTP id S1754286AbbFBAEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 20:04:30 -0400
+In-Reply-To: <20150601.170321.642455610763862859.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Tue,  2 Jun 2015 06:32:02 +0530
-
-> This patch series adds the following:
-> Adds NIC driver support for T6 adapter
-> Adds vNIC driver support for T6 adapter
-> 
-> This patch series has been created against net-next tree and includes
-> patches on cxgb4 and cxgb4vf driver.
-> 
-> We have included all the maintainers of respective drivers. Kindly review
-> the change and let us know in case of any review comments.
-
-Series applied, thanks.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAwMSBK
+dW4gMjAxNSAxNzowMzoyMSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IEhhcmlwcmFzYWQgU2hlbmFp
+IDxoYXJpcHJhc2FkQGNoZWxzaW8uY29tPg0KPiBEYXRlOiBUdWUsICAyIEp1biAyMDE1IDA2OjMy
+OjAyICswNTMwDQo+IA0KPj4gVGhpcyBwYXRjaCBzZXJpZXMgYWRkcyB0aGUgZm9sbG93aW5nOg0K
+Pj4gQWRkcyBOSUMgZHJpdmVyIHN1cHBvcnQgZm9yIFQ2IGFkYXB0ZXINCj4+IEFkZHMgdk5JQyBk
+cml2ZXIgc3VwcG9ydCBmb3IgVDYgYWRhcHRlcg0KPj4gDQo+PiBUaGlzIHBhdGNoIHNlcmllcyBo
+YXMgYmVlbiBjcmVhdGVkIGFnYWluc3QgbmV0LW5leHQgdHJlZSBhbmQgaW5jbHVkZXMNCj4+IHBh
+dGNoZXMgb24gY3hnYjQgYW5kIGN4Z2I0dmYgZHJpdmVyLg0KPj4gDQo+PiBXZSBoYXZlIGluY2x1
+ZGVkIGFsbCB0aGUgbWFpbnRhaW5lcnMgb2YgcmVzcGVjdGl2ZSBkcml2ZXJzLiBLaW5kbHkgcmV2
+aWV3DQo+PiB0aGUgY2hhbmdlIGFuZCBsZXQgdXMga25vdyBpbiBjYXNlIG9mIGFueSByZXZpZXcg
+Y29tbWVudHMuDQo+IA0KPiBTZXJpZXMgYXBwbGllZCwgdGhhbmtzLg0KDQpBY3R1YWxseSwgcmV2
+ZXJ0ZWQsIHRoaXMgZG9lc24ndCBldmVuIGNvbXBpbGUuDQoNCmtlcm5lbC9NYWtlZmlsZToxMzU6
+ICoqKiBObyBYLjUwOSBjZXJ0aWZpY2F0ZXMgZm91bmQgKioqDQpkcml2ZXJzL25ldC9ldGhlcm5l
+dC9jaGVsc2lvL2N4Z2I0L3NnZS5jOiBJbiBmdW5jdGlvbiChY3hnYl9mY29lX29mZmxvYWSiOg0K
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvY2hlbHNpby9jeGdiNC9zZ2UuYzoxMTI4OjU6IGVycm9yOiBl
+eHBlY3RlZCBpZGVudGlmaWVyIG9yIKEooiBiZWZvcmUgoX2iIHRva2VuDQogdTY0IH0NCiAgICAg
+Xg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvY2hlbHNpby9jeGdiNC9zZ2UuYzoxMTI4OjE6IHdhcm5p
+bmc6IElTTyBDOTAgZm9yYmlkcyBtaXhlZCBkZWNsYXJhdGlvbnMgYW5kIGNvZGUgWy1XZGVjbGFy
+YXRpb24tYWZ0ZXItc3RhdGVtZW50XQ0KIHU2NCB9DQogXg0K
