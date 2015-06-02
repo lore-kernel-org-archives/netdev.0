@@ -1,40 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] cxgb4/cxgb4vf: Adds support for Chelsio
- T6 adapter
-Date: Mon, 01 Jun 2015 17:04:29 -0700 (PDT)
-Message-ID: <20150601.170429.598715578874417987.davem@davemloft.net>
-References: <1433206925-5997-1-git-send-email-hariprasad@chelsio.com>
-	<20150601.170321.642455610763862859.davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] rocker: enable by default untagged VLAN
+ support
+Date: Mon, 01 Jun 2015 17:01:10 -0700 (PDT)
+Message-ID: <20150601.170110.792713573803449471.davem@davemloft.net>
+References: <1433183947-13095-1-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
-To: hariprasad@chelsio.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	simon.horman@netronome.com
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53673 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53657 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754286AbbFBAEa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 20:04:30 -0400
-In-Reply-To: <20150601.170321.642455610763862859.davem@davemloft.net>
+	with ESMTP id S1753165AbbFBABL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 20:01:11 -0400
+In-Reply-To: <1433183947-13095-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAwMSBK
-dW4gMjAxNSAxNzowMzoyMSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IEhhcmlwcmFzYWQgU2hlbmFp
-IDxoYXJpcHJhc2FkQGNoZWxzaW8uY29tPg0KPiBEYXRlOiBUdWUsICAyIEp1biAyMDE1IDA2OjMy
-OjAyICswNTMwDQo+IA0KPj4gVGhpcyBwYXRjaCBzZXJpZXMgYWRkcyB0aGUgZm9sbG93aW5nOg0K
-Pj4gQWRkcyBOSUMgZHJpdmVyIHN1cHBvcnQgZm9yIFQ2IGFkYXB0ZXINCj4+IEFkZHMgdk5JQyBk
-cml2ZXIgc3VwcG9ydCBmb3IgVDYgYWRhcHRlcg0KPj4gDQo+PiBUaGlzIHBhdGNoIHNlcmllcyBo
-YXMgYmVlbiBjcmVhdGVkIGFnYWluc3QgbmV0LW5leHQgdHJlZSBhbmQgaW5jbHVkZXMNCj4+IHBh
-dGNoZXMgb24gY3hnYjQgYW5kIGN4Z2I0dmYgZHJpdmVyLg0KPj4gDQo+PiBXZSBoYXZlIGluY2x1
-ZGVkIGFsbCB0aGUgbWFpbnRhaW5lcnMgb2YgcmVzcGVjdGl2ZSBkcml2ZXJzLiBLaW5kbHkgcmV2
-aWV3DQo+PiB0aGUgY2hhbmdlIGFuZCBsZXQgdXMga25vdyBpbiBjYXNlIG9mIGFueSByZXZpZXcg
-Y29tbWVudHMuDQo+IA0KPiBTZXJpZXMgYXBwbGllZCwgdGhhbmtzLg0KDQpBY3R1YWxseSwgcmV2
-ZXJ0ZWQsIHRoaXMgZG9lc24ndCBldmVuIGNvbXBpbGUuDQoNCmtlcm5lbC9NYWtlZmlsZToxMzU6
-ICoqKiBObyBYLjUwOSBjZXJ0aWZpY2F0ZXMgZm91bmQgKioqDQpkcml2ZXJzL25ldC9ldGhlcm5l
-dC9jaGVsc2lvL2N4Z2I0L3NnZS5jOiBJbiBmdW5jdGlvbiChY3hnYl9mY29lX29mZmxvYWSiOg0K
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvY2hlbHNpby9jeGdiNC9zZ2UuYzoxMTI4OjU6IGVycm9yOiBl
-eHBlY3RlZCBpZGVudGlmaWVyIG9yIKEooiBiZWZvcmUgoX2iIHRva2VuDQogdTY0IH0NCiAgICAg
-Xg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvY2hlbHNpby9jeGdiNC9zZ2UuYzoxMTI4OjE6IHdhcm5p
-bmc6IElTTyBDOTAgZm9yYmlkcyBtaXhlZCBkZWNsYXJhdGlvbnMgYW5kIGNvZGUgWy1XZGVjbGFy
-YXRpb24tYWZ0ZXItc3RhdGVtZW50XQ0KIHU2NCB9DQogXg0K
+From: sfeldma@gmail.com
+Date: Mon,  1 Jun 2015 11:39:01 -0700
+
+> From: Scott Feldman <sfeldma@gmail.com>
+> 
+> This patch set is a followup to Simon Horman's RFC patch:
+> 
+>    [PATCH/RFC net-next] rocker: by default accept untagged packets
+> 
+> Now, on port probe, we install untagged VLAN (vid=0) support for each port
+> as the default.  This is equivalent to the command:
+> 
+>    bridge vlan add vid 0 dev DEV self
+> 
+> Accepting untagged VLAN pkts is a reasonable default, but the user could
+> override this with:
+> 
+>    bridge vlan del vid 0 dev DEV self
+> 
+> With this, we no longer need 8021q module to install vid=0 when port interface
+> opens.  In fact, we don't need support for legacy VLAN ndo ops at all since
+> they're superseded by bridge_setlink/dellink.  So remove legacy VLAN ndo ops
+> support in driver.  (The legacy VLAN ndo ops are supported by bonding/team
+> drivers, but don't fit into the transaction model offered by switchdev, so
+> switching all VLAN functions to bridge_setlink/dellink switchdev support gets
+> us stacked driver + transaction model support).
+
+Series applied, although I do have some trepidation about patch #5 since it
+removes a capability that existed beforehand so someone might (well, they will)
+get confused if they try to configure vlans that way and it no longer works.
+
+If anyone else expresses similar objections I will probably have to
+revert, just FYI.
