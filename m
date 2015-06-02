@@ -1,72 +1,68 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: Re: [PATCH net-next v2 01/14] sfc: Add code to export port_num in
- netdev->dev_port
-Date: Tue, 2 Jun 2015 10:14:51 +0100
-Message-ID: <556D740B.8000701@solarflare.com>
-References: <556C5704.4060901@solarflare.com>	<556C575C.2040403@solarflare.com> <20150601.120100.1499695282057656297.davem@davemloft.net>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] "tcp: refine TSO autosizing" causes performance
+ regression on Xen
+Date: Tue, 2 Jun 2015 10:52:37 +0100
+Message-ID: <20150602095237.GL19403@zion.uk.xensource.com>
+References: <552E9E8D.1080000@eu.citrix.com>
+ <1429118948.7346.114.camel@edumazet-glaptop2.roam.corp.google.com>
+ <552EA2BC.5000707@eu.citrix.com>
+ <1429120373.7346.125.camel@edumazet-glaptop2.roam.corp.google.com>
+ <552EA844.5010308@eu.citrix.com>
+ <1429121979.7346.138.camel@edumazet-glaptop2.roam.corp.google.com>
+ <552F7936.9070205@eu.citrix.com> <552F7EF4.9030107@iogearbox.net>
+ <552F887A.4060708@eu.citrix.com>
+ <1429188136.7346.198.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Cc: George Dunlap <george.dunlap@eu.citrix.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Jonathan Davies <Jonathan.Davies@citrix.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"Stefano Stabellini" <stefano.stabellini@eu.citrix.com>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"Paul Durrant" <paul.durrant@citrix.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>,
+	Felipe Franciosi <felipe.franciosi@citrix.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	"David Vrabel" <david.vrabel@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:42665 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932207AbbFBJPI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 05:15:08 -0400
-In-Reply-To: <20150601.120100.1499695282057656297.davem@davemloft.net>
+Received: from smtp02.citrix.com ([66.165.176.63]:35236 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750950AbbFBJwp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 05:52:45 -0400
+Content-Disposition: inline
+In-Reply-To: <1429188136.7346.198.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Eric
 
+Sorry for coming late to the discussion.
 
-On 01/06/15 20:01, David Miller wrote:
-> From: Shradha Shah <sshah@solarflare.com>
-> Date: Mon, 1 Jun 2015 14:00:12 +0100
+On Thu, Apr 16, 2015 at 05:42:16AM -0700, Eric Dumazet wrote:
+> On Thu, 2015-04-16 at 11:01 +0100, George Dunlap wrote:
 > 
->> In the case where we have multiple functions (PFs and VFs), this
->> sysfs entry is useful to identify the physical port corresponding
->> to the function we are interested in.
->>
->> Signed-off-by: Shradha Shah <sshah@solarflare.com>
+> > He suggested that after he'd been prodded by 4 more e-mails in which two
+> > of us guessed what he was trying to get at.  That's what I was
+> > complaining about.
 > 
-> This is a low effort change.
-> 
-> You retained all of the error handling changes that were only necessary when
-> you added the new sysfs file, but are completely unnecessary if you're
-> just reporting it via netdev->dev_port.
-
-With the addition of the sysfs change in my previous version, the error handling
-code required the addition of a fail4 tag to deal with the sysfs file on the
-error path.
-
-Without the sysfs file in my current version v2, there is no extra fail4 tag, I
-have reverted back to using fail3.
-
-The changes that are seen in the patch are stylistic changes following the rule
-that every branch of an if statement should have parenthesis if one of the
-branch uses parenthesis.
-
-The previous version of the patch touched this bit of code so the style change
-was relevant.
-
-I think my mistake here is that I left it in v2 as a style change, but I can
-assure you that I looked at the error path before submitting the patch and
-also that this patch does not affect the error path.
-
-Maybe I should have separated the style change to go as a different patch.
-
-I will do so now and submit a v3.
-
-Thanks.
-
-> 
-> This is extremely disappointing, because you expect me to put a good effort
-> into reviewing your changes yet you aren't putting that level of effort into
-> the submission itself.
+> My big complain is that I suggested to test to double the sysctl, which
+> gave good results.
 > 
 
--- 
-Many Thanks,
-Regards,
-Shradha Shah
+Do I understand correctly that it's acceptable to you to double the size
+of the buffer? If so I will send a patch to do that.
+
+Wei.
+
+> Then you provided a patch using a 8x factor. How does that sound ?
+> 
+> Next time I ask a raise, I should try a 8x factor as well, who knows,
+> it might be accepted.
+> 
+> 
