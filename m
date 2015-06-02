@@ -1,67 +1,123 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net] net/mlx4: fix typo in mlx4_set_vf_mac
-Date: Tue, 2 Jun 2015 08:58:25 +0300
-Message-ID: <CAJ3xEMhBOYOHaQ+xatUEFyt2o3bnSFGFAa+awJEpdNQ-Lvq23A@mail.gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [RFC 0/3] DSA and Marvell 88E6352 802.1q support
+Date: Mon, 1 Jun 2015 23:18:52 -0700
+Message-ID: <CAE4R7bCOVF6hT1-s5a5+Fs-06ks478Y3EZ45NTA4QNpy5uu9nw@mail.gmail.com>
+References: <556723FF.7030606@roeck-us.net> <1432849035-8499-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <CAE4R7bA43Jg5e+DSySvG4X2ka0CXEk9K6eVv5fdN37EcLBoF_A@mail.gmail.com> <429136619.719334.1433204323286.JavaMail.zimbra@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>, jackm@mellanox.com,
-	brking@linux.vnet.ibm.com
-To: clsoto@linux.vnet.ibm.com
+Cc: "David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	=?UTF-8?Q?J=C3=A9rome_Oufella?=
+	<jerome.oufella@savoirfairelinux.com>,
+	Chris Healy <cphealy@gmail.com>, Jiri Pirko <jiri@resnulli.us>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:33006 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752585AbbFBF6Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 01:58:25 -0400
-Received: by obbnx5 with SMTP id nx5so120045621obb.0
-        for <netdev@vger.kernel.org>; Mon, 01 Jun 2015 22:58:25 -0700 (PDT)
+Received: from mail-qc0-f173.google.com ([209.85.216.173]:35267 "EHLO
+	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754503AbbFBGTO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 02:19:14 -0400
+Received: by qczw4 with SMTP id w4so31706377qcz.2
+        for <netdev@vger.kernel.org>; Mon, 01 Jun 2015 23:19:13 -0700 (PDT)
+In-Reply-To: <429136619.719334.1433204323286.JavaMail.zimbra@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 1, 2015 at 5:41 PM,  <clsoto@linux.vnet.ibm.com> wrote:
-> fix typo in mlx4_set_vf_mac
+On Mon, Jun 1, 2015 at 5:18 PM, Vivien Didelot
+<vivien.didelot@savoirfairelinux.com> wrote:
 >
-> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/cmd.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> On May 29, 2015, at 1:02 AM, Scott Feldman sfeldma@gmail.com wrote:
+>> On Thu, May 28, 2015 at 2:37 PM, Vivien Didelot <vivien.didelot@savoirfairelinux.com> wrote:
+>>> This RFC is based on v4.1-rc3.
+>>>
+>>> It is meant to get a glance to the commits responsible to implement the
+>>> necessary NDOs between DSA and the Marvell 88E6352 switch driver.
+>>>
+>>> With this support, I am able to create VLANs with (un)tagged ports, setting
+>>> their default VID, from a bridge.
+>>>
+>>> To create a bridge containing all switch ports, with a VLAN ID 400, swp2 and
+>>> swp3 untagged (pvid), and swp4 tagged, the userspace commands look like this:
+>>>
+>>>     ip link add name br0 type bridge
+>>>     [...]
+>>>     ip link set dev swp2 up master br0
+>>>     [...]
+>>>     bridge vlan add vid 400 pvid untagged dev swp2
+>>>     bridge vlan add vid 400 pvid untagged dev swp3
+>>>     bridge vlan add vid 400 dev swp4
+>>>     [...]
+>>>     ip link add link br0 name br0.400 type vlan id 400
+>>>     [...]
+>>>     bridge vlan add dev br0 vid 400 self
+>>>
+>>> The code is currently being rebased to the latest net-next/master.
+>>>
+>>> Seems like the way to go now is through switchdev attr getter/setter...
+>>
+>> Indeed, for dsa_slave you should be able to port this to switchdev and
+>> set your ndo_bridge_setlink/dellink handlers to
+>> switchdev_port_bridge_setlink/dellink.  (And also implement the
+>> switchdev ops for vlans).
+>>
+>> If you use switchdev_port_bridge_setlink/dellink, you shouldn't need
+>> to implement ndo_vlan_rx_add_vid/ndo_vlan_rx_kill_vid at all.
 >
-> --- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-> @@ -2687,7 +2687,7 @@ int mlx4_set_vf_mac(struct mlx4_dev *dev
->         port = mlx4_slaves_closest_port(dev, slave, port);
->         s_info = &priv->mfunc.master.vf_admin[slave].vport[port];
->         s_info->mac = mac;
-> -       mlx4_info(dev, "default mac on vf %d port %d to %llX will take afect only after vf restart\n",
-> +       mlx4_info(dev, "default mac on vf %d port %d to %llX will take effect only after vf restart\n",
->                   vf, port, s_info->mac);
->         return 0;
->  }
+> Scott,
+>
+> In fact I have to define these ndo, otherwise I get the "Buggy VLAN
+> acceleration in driver!" warning from net/core/dev.c and the switch
+> ports won't register.
+>
+> I'm actually defining a noop function for them in dsa_slave_netdev_ops.
+>
+> Is it correct to set NETIF_F_HW_VLAN_CTAG_FILTER in slave_dev->features?
 
-Hi Carol,
+If your nooping ndo VLAN ops then just remove setting
+NETIF_F_HW_VLAN_CTAG_FILTER and then you can remove the noop funcs.
 
-Thanks for the fixes, will look on the other two today and provide feedback.
+>> The setlink/dellink callbacks will give the same info (and more, e.g.
+>> pvid, untagged flags) and you'll automatically get support for stacked
+>> drivers, for example if you bonded swp2/3 and then included that bond
+>> in your vlan bridge.  Your commands will be slightly modified: when
+>> adding the vid to the port, specify master and self:
+>>
+>> bridge vlan add vid 400 dev swp4 master self
+>
+> Thanks it works! Now the switch VLAN database is consistent with the
+> bridge commands, I'm sending a complete RFC very soon.
+>
+> Scott, David,
+>
+> I use this mail to expose a potential problem between iproute2 and the
+> kernel, found with my previous code. When issuing "ip link set dev swp0
+> master br0", ndo_vlan_rx_add_vid is called, but not ndo_bridge_setlink,
 
-As for this one: please re-send the patch and target it to net-next
-(i.e have [PATCH net-next] on the subject line and generate it against
-the net-next tree
-git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git).
+Remove NETIF_F_HW_VLAN_CTAG_FILTER and ndo_vlan_rx_add_vid will not be called.
 
-Also, we use some conventions in our commits, will be happy if you can
-pick on them:
+Issuing "ip link set dev swp0 master br0" should only be setting the
+bridge member, not setting up any VLAN.  I suspect when you did this
+swp0 was admin UP and you're getting untagged VLAN 0 installed, which
+is the call to ndo_vlan_rx_add_vid.
 
--- have "net/mlx4_core:" prefix
--- use capital letter in the 1st word of the subject line, that is
+> which results in an inconsistency between my switch VLAN database (and
+> port settings) and "bridge vlan", which shows "swp0   1 PVID Egress
+> Untagged".
 
-so [PATCH net] net/mlx4: fix typo in mlx4_set_vf_mac
+So that is a result of /sys/class/net/br0/bridge/default_pvid set to
+1.  If you don't want that, turn default_pvid off:
 
-becomes
+echo 0 >/sys/class/net/br0/bridge/default_pvid
 
-[PATCH net-next] net/mlx4_core: Fix typo in mlx4_set_vf_mac
+Now you'll see "None" in the "bridge vlan" output.
 
-You can add my ack
+> Seems like there is a call to ndo_bridge_setlink to add somewhere, but I
+> have no clue where.
+>
+> In the meantime, I call "bridge vlan add vid 1 dev swp0 pvid untagged
+> [master self]" at boot, to be consistent with the bridge output.
 
-Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
-
-Or.
+Or turn off default_pvid.
