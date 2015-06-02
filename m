@@ -1,100 +1,119 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC net-next 3/3] mpls: new ipmpls device for encapsulating IP packets as mpls
-Date: Tue, 02 Jun 2015 17:48:25 -0500
-Message-ID: <874mmpiv5y.fsf@x220.int.ebiederm.org>
-References: <1433177175-16775-1-git-send-email-rshearma@brocade.com>
-	<1433177175-16775-4-git-send-email-rshearma@brocade.com>
-	<87a8wivue4.fsf@x220.int.ebiederm.org>
-	<20150602213738.GA5842@pox.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Robert Shearman <rshearma@brocade.com>, netdev@vger.kernel.org,
-	roopa <roopa@cumulusnetworks.com>
-To: Thomas Graf <tgraf@suug.ch>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next] bpf: introduce bpf_clone_redirect() helper
+Date: Tue,  2 Jun 2015 16:03:14 -0700
+Message-ID: <1433286194-5246-1-git-send-email-ast@plumgrid.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:59393 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750836AbbFBWx3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 18:53:29 -0400
-In-Reply-To: <20150602213738.GA5842@pox.localdomain> (Thomas Graf's message of
-	"Tue, 2 Jun 2015 23:37:38 +0200")
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:35379 "EHLO
+	mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751443AbbFBXDW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 19:03:22 -0400
+Received: by qkhq76 with SMTP id q76so81502647qkh.2
+        for <netdev@vger.kernel.org>; Tue, 02 Jun 2015 16:03:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thomas Graf <tgraf@suug.ch> writes:
+Allow eBPF programs attached to classifier/actions to call
+bpf_clone_redirect(skb, ifindex, flags) helper which will
+mirror or redirect the packet by dynamic ifindex selection
+from within the program to a target device either at ingress
+or at egress. Can be used for various scenarios, for example,
+to load balance skbs into veths, split parts of the traffic
+to local taps, etc.
 
-> On 06/02/15 at 01:26pm, Eric W. Biederman wrote:
->> What we really want here is xfrm-lite.  By lite I mean the tunnel
->> selection criteria is simple enough that it fits into the normal
->> routing table instead of having to do weird flow based magic that
->> is rarely needed.
->> 
->> I believe what we want are the xfrm stacking of dst entries.
->
-> I assume you are referring to reusing the selector and stacked
-> dst. I considered that for the transmit side.
->
-> Can you elaborate on this some more? How would this look like
-> for the specific case of VXLAN? Any thoughts on the receive
-> side? You also mention that you dislike the net_device approach.
-> What do you suggest instead? The encapsulation is often postponed
-> to after the packet is fully constructed. Where should it get
-> hooked into?
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ include/uapi/linux/bpf.h |   10 ++++++++++
+ net/core/filter.c        |   40 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 50 insertions(+)
 
-Things I think xfrm does correct today:
-- Transmitting things when an appropriate dst has been found.
-
-Things I think xfrm could do better:
-- Finding the dst entry.  Having to perform a separate lookup in a
-  second set of tables looks slow, and not much maintained.
-
-So if we focus on the normal routing case where lookup works today (aka
-no source port or destination port based routing or any of the other
-weird things so we can use a standard fib lookup I think I can explain
-what I imagine things would look like.
-
-To be clear I am focusing on the very light weight tunnels and I am not
-certain vxlan applies.  It may be more reasonable to simply have a
-single ethernet looking device that does speaks vxlan behind the scenes.
-
-If I look at vxlan as a set of ipv4 host routes (no arp, no unknown host
-support) it looks like the kind of light-weight tunnel that we are
-dealing with for mpls.
-
-On the reception side packets that match the magic udp socket have their
-tunneling bits stripped off and pushed up to the ip layer.  Roughly
-equivalent to the current af_mpls code.
-
-On the transmit side there would be a host route for each remote host.
-In the fib we would store a pointer to a data structure that holds a
-precomputed header to be prepended to the packet (inner ethernet, vxlan,
-outer udp, outer ip).  That data pointer would become dst->xfrm when the
-route lookup happens and we generate a route/dst entry.  There would
-also be an output function in the fib and that output function would
-be compue dst->output.  I would be more specific but I forget the
-details of the fib_trie data structures.
-
-The output function function in the dst entry in the ipv4 route would
-know how to interpret the pointer in the ipv4 routing table, append
-the precomputed headers, update the precomputed udp header's source port
-with the flow hash of the the inner packet, and have an inner dst
-so that would essentially call ip_finish_output2 again and sending
-the packet to it's destination.
-
-There is some wiggle room but that is how I imagine things working, and
-that is what I think we want for the mpls case.  Adding two pointers to
-the fib could be interesting.  One pointer can be a union with the
-output network device, the other pointer I am not certain about.
-
-And of course we get fun cases where we have tunnels running through
-other tunnels.  So there likely needs to be a bit of indirection going
-on.
-
-The problem I think needs to be solved is how to make tunnels very light
-weight and cheap, so the can scale to 1million+.  Enough so that the
-kernel can hold a full routing table full of tunnels.
-
-It looks like xfrm is almost there but it's data structures appear to be
-excessively complicated and inscrutible, and the require an extra lookup.
-
-Eric
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 72f3080afa1e..42aa19abab86 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -220,6 +220,16 @@ enum bpf_func_id {
+ 	 * Return: 0 on success
+ 	 */
+ 	BPF_FUNC_tail_call,
++
++	/**
++	 * bpf_clone_redirect(skb, ifindex, flags) - redirect to another netdev
++	 * @skb: pointer to skb
++	 * @ifindex: ifindex of the net device
++	 * @flags: bit 0 - if set, redirect to ingress instead of egress
++	 *         other bits - reserved
++	 * Return: 0 on success
++	 */
++	BPF_FUNC_clone_redirect,
+ 	__BPF_FUNC_MAX_ID,
+ };
+ 
+diff --git a/net/core/filter.c b/net/core/filter.c
+index b78a010a957f..64c121c09655 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -46,6 +46,7 @@
+ #include <linux/seccomp.h>
+ #include <linux/if_vlan.h>
+ #include <linux/bpf.h>
++#include <net/sch_generic.h>
+ 
+ /**
+  *	sk_filter - run a packet through a socket filter
+@@ -1407,6 +1408,43 @@ const struct bpf_func_proto bpf_l4_csum_replace_proto = {
+ 	.arg5_type	= ARG_ANYTHING,
+ };
+ 
++#define BPF_IS_REDIRECT_INGRESS(flags)	((flags) & 1)
++
++static u64 bpf_clone_redirect(u64 r1, u64 ifindex, u64 flags, u64 r4, u64 r5)
++{
++	struct sk_buff *skb = (struct sk_buff *) (long) r1, *skb2;
++	struct net_device *dev;
++
++	dev = dev_get_by_index_rcu(dev_net(skb->dev), ifindex);
++	if (unlikely(!dev))
++		return -EINVAL;
++
++	if (unlikely(!(dev->flags & IFF_UP)))
++		return -EINVAL;
++
++	skb2 = skb_clone(skb, GFP_ATOMIC);
++	if (unlikely(!skb2))
++		return -ENOMEM;
++
++	if (G_TC_AT(skb2->tc_verd) & AT_INGRESS)
++		skb_push(skb2, skb2->mac_len);
++
++	if (BPF_IS_REDIRECT_INGRESS(flags))
++		return dev_forward_skb(dev, skb2);
++
++	skb2->dev = dev;
++	return dev_queue_xmit(skb2);
++}
++
++const struct bpf_func_proto bpf_clone_redirect_proto = {
++	.func           = bpf_clone_redirect,
++	.gpl_only       = false,
++	.ret_type       = RET_INTEGER,
++	.arg1_type      = ARG_PTR_TO_CTX,
++	.arg2_type      = ARG_ANYTHING,
++	.arg3_type      = ARG_ANYTHING,
++};
++
+ static const struct bpf_func_proto *
+ sk_filter_func_proto(enum bpf_func_id func_id)
+ {
+@@ -1440,6 +1478,8 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
+ 		return &bpf_l3_csum_replace_proto;
+ 	case BPF_FUNC_l4_csum_replace:
+ 		return &bpf_l4_csum_replace_proto;
++	case BPF_FUNC_clone_redirect:
++		return &bpf_clone_redirect_proto;
+ 	default:
+ 		return sk_filter_func_proto(func_id);
+ 	}
+-- 
+1.7.9.5
