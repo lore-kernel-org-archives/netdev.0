@@ -1,82 +1,40 @@
-From: David Malcolm <dmalcolm@redhat.com>
-Subject: [PATCH] drivers/net/ethernet/dec/tulip/uli526x.c: fix misleading indentation in uli526x_timer
-Date: Tue,  2 Jun 2015 15:31:17 -0400
-Message-ID: <1433273477-52330-1-git-send-email-dmalcolm@redhat.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH v4 00/25] Convert the posix_clock_operations and
+ k_clock structure to ready for 2038
+Date: Tue, 2 Jun 2015 21:19:17 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1506021719290.20347@nanos>
+References: <1433159093-4548-1-git-send-email-baolin.wang@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Malcolm <dmalcolm@redhat.com>
-To: Grant Grundler <grundler@parisc-linux.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35054 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751195AbbFBTRD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jun 2015 15:17:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: pang.xunlei@linaro.org, peterz@infradead.org, benh@kernel.crashing.org,
+ heiko.carstens@de.ibm.com, paulus@samba.org, jeffv@google.com, cl@linux.com,
+ mark.d.rustad@intel.com, heenasirwani@gmail.com, linux-arch@vger.kernel.org,
+ linux-s390@vger.kernel.org, y2038@lists.linaro.org, mpe@ellerman.id.au,
+ rafael.j.wysocki@intel.com, ahh@google.com, tiwai@suse.de,
+ jlayton@primarydata.com, fweisbec@gmail.com, pjt@google.com, serge@hallyn.com,
+ serge.hallyn@canonical.com, riel@redhat.com, keescook@chromium.org,
+ arnd@arndb.de, richardcochran@gmail.com, schwidefsky@de.ibm.com,
+ john.stultz@linaro.org, james.l.morris@oracle.com, rth@twiddle.net,
+ sds@tycho.nsa.gov, gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+ pmoore@redhat.com, linux-security-module@vger.kernel.org,
+ netdev@vger.kernel.org, tj@kernel.org, linux390@de.ibm.com,
+ linuxppc-dev@lists.ozlabs.org
+To: Baolin Wang <baolin.wang@linaro.org>
+Return-path: <y2038-bounces@lists.linaro.org>
+In-Reply-To: <1433159093-4548-1-git-send-email-baolin.wang@linaro.org>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+List-Id: netdev.vger.kernel.org
 
-This code in drivers/net/ethernet/dec/tulip/uli526x.c
-function "uli526x_timer":
-
-  1086          } else
-  1087                  if ((tmp_cr12 & 0x3) && db->link_failed) {
-  [...snip...]
-  1109                  }
-  1110                  else if(!(tmp_cr12 & 0x3) && db->link_failed)
-  1111                  {
-  [...snip...]
-  1117                  }
-  1118                  db->init=3D0;
-
-is misleadingly indented: the
-  db->init=3D0
-is indented as if part of the else clause at line 1086, but it is
-independent of it (no braces before the "if" at line 1087).
-
-This patch fixes the indentation to reflect the actual meaning of the c=
-ode,
-though is it actually meant to be part of the "else" clause?  (I'm a
-compiler developer, not a kernel person).  It also adds spaces around
-the assignment, to placate checkpatch.pl.
-
-Seen via an experimental new gcc warning I'm working on for gcc 6,
--Wmisleading-indentation, using gcc r223098 adding
--Werror=3Dmisleading-indentation to KBUILD_CFLAGS in Makefile.
-The experimental GCC emits this warning (as an error), rightly IMHO:
-
-drivers/net/ethernet/dec/tulip/uli526x.c: In function =E2=80=98uli526x_=
-timer=E2=80=99:
-drivers/net/ethernet/dec/tulip/uli526x.c:1118:3: error: statement is
-indented as if it were guarded by... [-Werror=3Dmisleading-indentation]
-   db->init=3D0;
-    ^
-drivers/net/ethernet/dec/tulip/uli526x.c:1086:4: note: ...this =E2=80=98=
-else=E2=80=99
-clause, but it is not
-  } else
-     ^
-
-Hope this is helpful
-Dave
-
-Signed-off-by: David Malcolm <dmalcolm@redhat.com>
----
- drivers/net/ethernet/dec/tulip/uli526x.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/dec/tulip/uli526x.c b/drivers/net/eth=
-ernet/dec/tulip/uli526x.c
-index 2c30c0c..447d092 100644
---- a/drivers/net/ethernet/dec/tulip/uli526x.c
-+++ b/drivers/net/ethernet/dec/tulip/uli526x.c
-@@ -1115,7 +1115,7 @@ static void uli526x_timer(unsigned long data)
- 				netif_carrier_off(dev);
- 			}
- 		}
--		db->init=3D0;
-+	db->init =3D 0;
-=20
- 	/* Timer active again */
- 	db->timer.expires =3D ULI526X_TIMER_WUT;
---=20
-1.8.5.3
+T24gTW9uLCAxIEp1biAyMDE1LCBCYW9saW4gV2FuZyB3cm90ZToKCllvdSBmYWlsZWQgdG8gdGhy
+ZWFkIHRoZSBwYXRjaCBzZXJpZXMgYWdhaW4gLi4uLgpfX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fXwpZMjAzOCBtYWlsaW5nIGxpc3QKWTIwMzhAbGlzdHMubGlu
+YXJvLm9yZwpodHRwczovL2xpc3RzLmxpbmFyby5vcmcvbWFpbG1hbi9saXN0aW5mby95MjAzOAo=
