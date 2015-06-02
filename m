@@ -1,81 +1,52 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC net-next 0/3] IP imposition of per-nh MPLS encap
-Date: Tue, 02 Jun 2015 16:10:34 -0500
-Message-ID: <87d21dolyt.fsf@x220.int.ebiederm.org>
-References: <1433177175-16775-1-git-send-email-rshearma@brocade.com>
-	<87h9qqx9n5.fsf@x220.int.ebiederm.org> <556E18BE.8060505@brocade.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: How do I avoid recvmsg races with IP_RECVERR?
+Date: Tue, 02 Jun 2015 23:17:02 +0200
+Message-ID: <1433279822.2479038.285136017.7DD69CC6@webmail.messagingengine.com>
+References: <CALCETrW-jkMrEjidwCTraeAaHCHA_+9eExQAz2phvn=OB8RMhQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, roopa <roopa@cumulusnetworks.com>,
-	Thomas Graf <tgraf@suug.ch>
-To: Robert Shearman <rshearma@brocade.com>
+Content-Transfer-Encoding: 7bit
+To: Andy Lutomirski <luto@kernel.org>,
+	Network Development <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:48372 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751393AbbFBVPi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 17:15:38 -0400
-In-Reply-To: <556E18BE.8060505@brocade.com> (Robert Shearman's message of
-	"Tue, 2 Jun 2015 21:57:34 +0100")
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:41289 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751556AbbFBVRD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 17:17:03 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id B3F5220486
+	for <netdev@vger.kernel.org>; Tue,  2 Jun 2015 17:17:02 -0400 (EDT)
+In-Reply-To: <CALCETrW-jkMrEjidwCTraeAaHCHA_+9eExQAz2phvn=OB8RMhQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Shearman <rshearma@brocade.com> writes:
+On Tue, Jun 2, 2015, at 21:40, Andy Lutomirski wrote:
+> As far as I can tell, enabling IP_RECVERR causes the presence of a
+> queued error to cause recvmsg, etc to return an error (once).  It's
+> worse, though: a new error can be queued asynchronously at any time,
+> this setting sk_err to a nonzero value.  How do I sensibly distinguish
+> recvmsg failures to to genuine errors receiving messages from recvmsg
+> failures because there's a queued error?
+> 
+> The only way I can see to get reliable error handling is to literally
+> call recvmsg in a loop:
+> 
+> while (true /* or while POLLIN is set */) {
+>   int ret = recvmsg(..., MSG_ERRQUEUE not set);
+>   if (ret < 0 && /* what goes here? */) {
+>     whoops!  this might be a harmless asynchronous error!
+>     take no action!
+>   }
 
-> On 02/06/15 19:11, Eric W. Biederman wrote:
->> Robert Shearman <rshearma@brocade.com> writes:
->>
->>> In order to be able to function as a Label Edge Router in an MPLS
->>> network, it is necessary to be able to take IP packets and impose an
->>> MPLS encap and forward them out. The traditional approach of setting
->>> up an interface for each "tunnel" endpoint doesn't scale for the
->>> common MPLS use-cases where each IP route tends to be assigned a
->>> different label as encap.
->>>
->>> The solution suggested here for further discussion is to provide the
->>> facility to define encap data on a per-nexthop basis using a new
->>> netlink attribue, RTA_ENCAP, which would be opaque to the IPv4/IPv6
->>> forwarding code, but interpreted by the virtual interface assigned to
->>> the nexthop.
->>>
->>> A new ipmpls interface type is defined to show the use of this
->>> facility to allow IP packets to be imposed with an MPLS
->>> encap. However, the facility is designed to be general enough to be
->>> used by any encapsulation/tunneling mechanism that has similar
->>> requirements of high-scale, high-variation-of-encap.
->>
->> I am still digging into the details but adding a new network device to
->> make this possible if very undesirable.
->>
->> It is a pain point.  Those network devices get to be a major source of
->> memory consumption when there are 4K network namespaces in existence.
->>
->> It is conceptually wrong.  The network device will never be used as an
->> ordinary network device.  All the network device gives you is the
->> ability to avoid creating an enumeration of different kinds of
->> encapsulation.
->
-> This isn't true. The network device also gives some of the things you
-> take for granted. Things like fragmentation through specifying the mtu
-> on the shared tunnel device, being able to specify rules using the
-> shared tunnel output device, IP stats, and the ability specify a
-> different destination namespace.
+I see either two possibilities:
 
-Granted you get a few more things.  It is still conceptually wrong as
-the network device will netver be used as an ordinary network device.
+We export the icmp_err_convert tables along with the udp_lib_err error
+conversions to user space and spice them up with flags to mark if they
+are transient (icmp_err_convert already has a fatal flag).
 
-Fragmentation is already silly because we are talking about multiple
-tunnels with different properties.  You need per-route mtu to handle
-that case.
+Otherwise you should be able to call recvmsg with MSG_ERRQUEUE set after
+you got a ret < 0 when calling without MSG_ERRQUEUE and inspect the
+sock_extended_err, no?
 
-Further I am not saying you don't need an output device (which is what
-is needed to specify a different destination namespace) I am saying that
-having a funny mpls device is wrong as far as I can see.  Certainly it
-is a lot of bloody unnecessary overhead.
-
-If we are going to design for maximum scaling (and 1 million+ routes)
-sounds like maximum scaling we should see how far we can go without
-dragging in the horrible heaviness of additional network devices.  35K a
-piece last I measured it.  Just a small handful of them are already
-scaling issues for network namespaces.
-
-Eric
+Bye,
+Hannes
