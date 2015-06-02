@@ -1,45 +1,44 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [RFC] [PATCH] net: socket: Fix the wrong returns for recvmsg and
- sendmsg
-Date: Tue, 2 Jun 2015 15:27:51 +0900
-Message-ID: <20150602062751.GA3912@kroah.com>
-References: <1433150880-9976-1-git-send-email-zhengjunling@huawei.com>
- <20150602012154.GB23370@kroah.com>
- <556D2B8C.9010108@huawei.com>
- <20150601.222357.122000161676177828.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: zhengjunling@huawei.com, lizefan@huawei.com,
-	viro@zeniv.linux.org.uk, xuhanbing@huawei.com,
-	stable@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net v3 2/2] mpls: fix mpls route deletes to not check for route scope
+Date: Mon,  1 Jun 2015 23:29:27 -0700
+Message-ID: <1433226567-23302-3-git-send-email-roopa@cumulusnetworks.com>
+Cc: davem@davemloft.net, rshearma@brocade.com, netdev@vger.kernel.org,
+	vivek@cumulusnetworks.com
+To: ebiederm@xmission.com, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:56494 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752142AbbFBG1y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 02:27:54 -0400
-Content-Disposition: inline
-In-Reply-To: <20150601.222357.122000161676177828.davem@davemloft.net>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34520 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754261AbbFBG3f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 02:29:35 -0400
+Received: by payr10 with SMTP id r10so43821885pay.1
+        for <netdev@vger.kernel.org>; Mon, 01 Jun 2015 23:29:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 01, 2015 at 10:23:57PM -0700, David Miller wrote:
-> From: Junling Zheng <zhengjunling@huawei.com>
-> Date: Tue, 2 Jun 2015 12:05:32 +0800
-> 
-> > So, the problem commit is 281c9c36 (net: compat: Update
-> > get_compat_msghdr() to match copy_msghdr_from_user() behaviour),
-> > which fixes db31c55a6fb2 and brings the get_compat_msghdr() in line
-> > with copy_msghdr_from_user().
-> 
-> Upstream this got fixed by:
-> 
-> 08adb7dabd4874cc5666b4490653b26534702ce0
-> 
-> So the part that makes us not unconditionally return -EFAULT needs
-> to be backported, and that's probably equivalent to the patch
-> your proposed which therefore should be applied.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Ok, thanks, now applied.
+Ignore scope for route del messages
 
-greg k-h
+Signed-off-by: Vivek Venkataraman <vivek@cumulusnetworks.com>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Reviewed-by: Robert Shearman <rshearma@brocade.com> 
+---
+ net/mpls/af_mpls.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 7b3f732..82dadab 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -693,7 +693,8 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
+ 	 * (or source specific address in the case of multicast)
+ 	 * all addresses have universal scope.
+ 	 */
+-	if (rtm->rtm_scope != RT_SCOPE_UNIVERSE)
++	if (nlh->nlmsg_type != RTM_DELROUTE &&
++	    rtm->rtm_scope != RT_SCOPE_UNIVERSE)
+ 		goto errout;
+ 	if (rtm->rtm_type != RTN_UNICAST)
+ 		goto errout;
+-- 
+1.7.10.4
