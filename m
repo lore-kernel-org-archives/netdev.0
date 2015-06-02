@@ -1,108 +1,163 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [RFC][PATCH] x86: remove vmalloc.h from asm/io.h
-Date: Tue, 2 Jun 2015 10:19:22 +1000
-Message-ID: <20150602101922.343a8012@canb.auug.org.au>
-References: <20150529191847.2d4cb3a7@canb.auug.org.au>
- <20150601.155931.1230241015446814769.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Mon, 01 Jun 2015 17:17:22 -0700 (PDT)
+Message-ID: <20150601.171722.1966882885860474515.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============2414694306556479053=="
-Cc: alsa-devel@alsa-project.org, x86@kernel.org, tiwai@suse.de,
- viresh.kumar@linaro.org, perex@perex.cz, kristen@linux.intel.com,
- hpa@zytor.com, buchino@cisco.com, tglx@linutronix.de,
- linux-scsi@vger.kernel.org, vinod.koul@intel.com, anton@enomsg.org,
- linux-acpi@vger.kernel.org, mingo@redhat.com, xen-devel@lists.xenproject.org,
- lenb@kernel.org, keescook@chromium.org, konrad.wilk@oracle.com,
- haiyangz@microsoft.com, JBottomley@odin.com, boris.ostrovsky@oracle.com,
- sramars@cisco.com, tony.luck@intel.com, netdev@vger.kernel.org,
- linux-pm@vger.kernel.org, hiralpat@cisco.com, rjw@rjwysocki.net,
- linux-kernel@vger.kernel.org, david.vrabel@citrix.com, ccross@android.com,
- dmaengine@vger.kernel.org, devel@linuxdriverproject.org,
- akpm@linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20150601.155931.1230241015446814769.davem@davemloft.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
-
---===============2414694306556479053==
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/zO9/aqai9vY0YrMljW=6zpt"; protocol="application/pgp-signature"
-
---Sig_/zO9/aqai9vY0YrMljW=6zpt
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
-
-Hi Dave,
-
-On Mon, 01 Jun 2015 15:59:31 -0700 (PDT) David Miller <davem@davemloft.net>=
- wrote:
->
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Fri, 29 May 2015 19:18:47 +1000
->=20
-> > Nothing in asm/io.h uses anything from vmalloc.h, so remove the include
-> > and fix up the build problems in an allmodconfig (64 bit and 32 bit)
-> > build.
-> >=20
-> > This may be the place where x86 builds get vmalloc.h implicitly included
-> > and that tends to hide places where vmalloc() et al are added to files
-> > but the include of vmalloc.h is forgotten.
-> >=20
->  ...
-> > Suggested-by: David Miller <davem@davemloft.net>
-> > Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
->=20
-> With the follow-on allnoconfig fixes:
->=20
-> Acked-by: David S. Miller <davem@davemloft.net>
-
-Noted, thanks.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/zO9/aqai9vY0YrMljW=6zpt
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJVbPaPAAoJEMDTa8Ir7ZwVSRMP/RqSVOgIYLMd6jY+xHYuR1X+
-CAI0Ar5tDaUWBbHiUFO+JP96M/Um9V3JRVqmflMT2lMQNnK67WSVMa4bFbMMXPnO
-QRmcFeEuvn2JPsZxBIYEqOxpZFBJbEp7CGp0VCdue2qAP/pterC8b4aDxZgfPds2
-wGWUkcOgyvX6++/TizmwiXw6OlQwjRWTUelMqNXoW3RqND8GdWyuLaiEKMMazJx1
-xCU+Lnh9KW3q1yQVkokdt9FcW6ME5DgzdFiernajVzaJlakLQgvqruf+4UOzM3m+
-3LkGuzfNcPon2JVMov7B4xmk03QPkQOUCdJoqw3NsrT8wZxEsuDndmCE3+/JXyTX
-75eMtPoOA4Y810CWXkOZrKFPxBahQGze0GF3ZQO7SzhK9cF2bFDMzSWi2vJmT/22
-qZlwPn4Z2spEwKS96Bn39JCavZroPA5R5YiuP5tWFG24ttjQgy4NNhAoKOOffiEE
-2lVrKssJDnesvBR/aV/kwqG8FLBniQYPusNEUr7QbCWLtFEQ7ucWqUrxeYySHzEX
-4Fxbxp73JxiE7P9qc55JQ+O7SyLHfvPNPFMG3w8f7HqSmffONNHQd5cP5bhWmWRb
-671Q31r4nz9V/NagsEzCFNdB7LnH24z3cfUjcTzKkihti1TKbTBoYECsAk9lZ+ZY
-VmDJ5yHOYG8uW0q3A0lt
-=pplq
------END PGP SIGNATURE-----
-
---Sig_/zO9/aqai9vY0YrMljW=6zpt--
-
---===============2414694306556479053==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53748 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754508AbbFBARX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 20:17:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-devel mailing list
-devel@linuxdriverproject.org
-http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
 
---===============2414694306556479053==--
+1) Various VTI tunnel (mark handling, PMTU) bug fixes from Alexander Duyck
+   and Steffen Klassert.
+
+2) Revert ethtool PHY query change, it wasn't correct.  The PHY address
+   selected by the driver running the PHY to MAC connection decides
+   what PHY address GET ethtool operations return information from.
+
+3) Fix handling of sequence number bits for encryption IV generation
+   in ESP driver, from Herbert Xu.
+
+4) UDP can return -EAGAIN when we hit a bad checksum on receive, even
+   when there are other packets in the receive queue which is wrong.
+   Just respect the error returned from the generic socket recv
+   datagram helper.  From Eric Dumazet.
+
+5) Fix BNA driver firmware loading on big-endian systems, from Ivan
+   Vecera.
+
+6) Fix regression in that we were inheriting the congestion control
+   of the listening socket for new connections, the intended behavior
+   always was to use the default in this case.  From Neal Cardwell.
+
+7) Fix NULL deref in brcmfmac driver, from Arend van Spriel.
+
+8) OTP parsing fix in iwlwifi from Liad Kaufman.
+
+Please pull, thanks!
+
+The following changes since commit de182468d1bb726198abaab315820542425270b7:
+
+  Merge branch 'for-next' of git://git.samba.org/sfrench/cifs-2.6 (2015-05-27 14:09:16 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net 
+
+for you to fetch changes up to e453581dd518f60b45a8d2b9cf344e2a87d5267e:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf (2015-06-01 16:56:43 -0700)
+
+----------------------------------------------------------------
+Alexander Duyck (3):
+      ip_vti/ip6_vti: Do not touch skb->mark on xmit
+      xfrm: Override skb->mark with tunnel->parm.i_key in xfrm_input
+      ip_vti/ip6_vti: Preserve skb->mark after rcv_cb call
+
+Arend van Spriel (1):
+      brcmfmac: avoid null pointer access when brcmf_msgbuf_get_pktid() fails
+
+Bernhard Thaler (1):
+      Revert "netfilter: ensure number of counters is >0 in do_replace()"
+
+Daniel Pieczko (1):
+      sfc: free multiple Rx buffers when required
+
+David S. Miller (6):
+      Merge branch 'master' of git://git.kernel.org/.../klassert/ipsec
+      Merge tag 'mac80211-for-davem-2015-05-28' of git://git.kernel.org/.../jberg/mac80211
+      Merge branch 'bna-fixes'
+      Revert "net: core: 'ethtool' issue with querying phy settings"
+      Merge tag 'wireless-drivers-for-davem-2015-06-01' of git://git.kernel.org/.../kvalo/wireless-drivers
+      Merge git://git.kernel.org/.../pablo/nf
+
+Eric Dumazet (2):
+      bridge: fix br_multicast_query_expired() bug
+      udp: fix behavior of wrong checksums
+
+Florian Fainelli (1):
+      net: dsa: Properly propagate errors from dsa_switch_setup_one
+
+Herbert Xu (3):
+      esp4: Use high-order sequence number bits for IV generation
+      esp6: Use high-order sequence number bits for IV generation
+      xfrm: Always zero high-order sequence number bits
+
+Ian Campbell (2):
+      xen: netback: fix printf format string warning
+      xen: netback: read hotplug script once at start of day.
+
+Ilan Peer (1):
+      iwlwifi: pcie: fix tracking of cmd_in_flight
+
+Ivan Vecera (3):
+      bna: fix firmware loading on big-endian machines
+      bna: remove unreasonable iocpf timer start
+      bna: fix soft lock-up during firmware initialization failure
+
+Jonathan Corbet (1):
+      mac80211: Fix mac80211.h docbook comments
+
+Kalle Valo (1):
+      Merge tag 'iwlwifi-for-kalle-2015-05-28' of https://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+
+Li RongQing (1):
+      xfrm: fix a race in xfrm_state_lookup_byspi
+
+Liad Kaufman (1):
+      iwlwifi: nvm: fix otp parsing in 8000 hw family
+
+Neal Cardwell (1):
+      tcp: fix child sockets to use system default congestion control if not set
+
+Roger Luethi (1):
+      via-rhine: Resigning as maintainer
+
+Steffen Klassert (1):
+      vti6: Add pmtu handling to vti6_xmit.
+
+Yuval Mintz (1):
+      bnx2x: Move statistics implementation into semaphores
+
+ MAINTAINERS                                       |  3 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |  2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  9 ++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c | 20 +++++++----
+ drivers/net/ethernet/brocade/bna/bfa_ioc.c        |  4 +--
+ drivers/net/ethernet/brocade/bna/bnad.c           |  4 ---
+ drivers/net/ethernet/brocade/bna/cna_fwimg.c      |  7 ++++
+ drivers/net/ethernet/sfc/rx.c                     | 42 ++++++++++++++---------
+ drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c  | 12 +++----
+ drivers/net/wireless/iwlwifi/iwl-nvm-parse.c      |  2 +-
+ drivers/net/wireless/iwlwifi/pcie/internal.h      |  6 ++--
+ drivers/net/wireless/iwlwifi/pcie/trans.c         |  4 +--
+ drivers/net/wireless/iwlwifi/pcie/tx.c            | 23 +++++--------
+ drivers/net/xen-netback/netback.c                 |  2 +-
+ drivers/net/xen-netback/xenbus.c                  | 33 ++++++++++--------
+ include/net/inet_connection_sock.h                |  3 +-
+ include/net/mac80211.h                            |  7 ++--
+ net/bridge/br_multicast.c                         |  2 +-
+ net/bridge/netfilter/ebtables.c                   |  4 ---
+ net/core/ethtool.c                                | 10 +-----
+ net/dsa/dsa.c                                     |  4 +--
+ net/ipv4/esp4.c                                   |  3 +-
+ net/ipv4/ip_vti.c                                 | 14 +++++---
+ net/ipv4/tcp_cong.c                               |  5 ++-
+ net/ipv4/tcp_minisocks.c                          |  5 ++-
+ net/ipv4/udp.c                                    |  6 ++--
+ net/ipv6/esp6.c                                   |  3 +-
+ net/ipv6/ip6_vti.c                                | 27 +++++++++++++--
+ net/ipv6/udp.c                                    |  6 ++--
+ net/xfrm/xfrm_input.c                             | 17 ++++++++-
+ net/xfrm/xfrm_replay.c                            |  2 ++
+ net/xfrm/xfrm_state.c                             |  2 +-
+ 32 files changed, 174 insertions(+), 119 deletions(-)
