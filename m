@@ -1,149 +1,66 @@
-From: Zhao Qiang <qiang.zhao@freescale.com>
-Subject: RE: [PATCH v5] QE: Move QE from arch/powerpc to drivers/soc
-Date: Tue, 2 Jun 2015 03:09:53 +0000
-Message-ID: <SN1PR0301MB1550FC059463446A422F37C09BB50@SN1PR0301MB1550.namprd03.prod.outlook.com>
-References: <1433212650-29579-1-git-send-email-B45475@freescale.com>
- <1433213604.3415.8.camel@freescale.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] neighbour: Convert if statment in the function,
+ neigh_add_timer to a WARN_ON
+Date: Mon, 1 Jun 2015 20:37:21 -0700
+Message-ID: <CAM_iQpXc8Sbo7UfJgfBNtv__dYnQzW29Jot+DKDHTQJ0aYqZ6A@mail.gmail.com>
+References: <1433188983-23207-1-git-send-email-xerofoify@gmail.com>
+	<556D16F4.3060307@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Scott Wood <scottwood@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0131.outbound.protection.outlook.com ([157.56.110.131]:41827
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751847AbbFBDZg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Jun 2015 23:25:36 -0400
-In-Reply-To: <1433213604.3415.8.camel@freescale.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nicholas Krause <xerofoify@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	johannes.berg@intel.com,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kv5ZCJ6Jek6Iux5piO?=
+	<hideaki.yoshifuji@miraclelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <556D16F4.3060307@miraclelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQpPbiBUdWUsIDIwMTUtMDYtMDIgYXQgMTA6NTMsIFdvb2QgU2NvdHQgd3JvdGU6DQoNCj4gLS0t
-LS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogV29vZCBTY290dC1CMDc0MjENCj4gU2Vu
-dDogVHVlc2RheSwgSnVuZSAwMiwgMjAxNSAxMDo1MyBBTQ0KPiBUbzogWmhhbyBRaWFuZy1CNDU0
-NzUNCj4gQ2M6IGxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnOyBsaW51eC1rZXJuZWxAdmdl
-ci5rZXJuZWwub3JnOw0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBb
-UEFUQ0ggdjVdIFFFOiBNb3ZlIFFFIGZyb20gYXJjaC9wb3dlcnBjIHRvIGRyaXZlcnMvc29jDQo+
-IA0KPiBPbiBUdWUsIDIwMTUtMDYtMDIgYXQgMTA6MzcgKzA4MDAsIFpoYW8gUWlhbmcgd3JvdGU6
-DQo+ID4gbHMxIGhhcyBxZSBhbmQgbHMxIGhhcyBhcm0gY3B1Lg0KPiA+IG1vdmUgcWUgZnJvbSBh
-cmNoL3Bvd2VycGMgdG8gZHJpdmVycy9zb2MvZnNsIHRvIGFkYXB0IHRvIHBvd2VycGMgYW5kDQo+
-ID4gYXJtDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBaaGFvIFFpYW5nIDxCNDU0NzVAZnJlZXNj
-YWxlLmNvbT4NCj4gPiAtLS0NCj4gPiBDaGFuZ2VzIGZvciB2MjoNCj4gPiAgICAgICAtIG1vdmUg
-Y29kZSB0byBkcml2ZXIvc29jDQo+ID4gQ2hhbmdlcyBmb3IgdjM6DQo+ID4gICAgICAgLSBjaGFu
-Z2UgZHJpdmVycy9zb2MvcWUgdG8gZHJpdmVycy9zb2MvZnNsLXFlIENoYW5nZXMgZm9yIHY0Og0K
-PiA+ICAgICAgIC0gbW92ZSBkcml2ZXJzL3NvYy9mc2wtcWUgdG8gZHJpdmVycy9zb2MvZnNsL3Fl
-DQo+ID4gICAgICAgLSBtb3ZlIGhlYWQgZmlsZXMgZm9yIHFlIGZyb20gaW5jbHVkZS9saW51eC9m
-c2wgdG8NCj4gaW5jbHVkZS9zb2MvZnNsDQo+ID4gICAgICAgLSBtb3ZlIHFlX2ljLmMgdG8gZHJp
-dmVycy9pcnFjaGlwLyBDaGFuZ2VzIGZvciB2NToNCj4gPiAgICAgICAtIHVwZGF0ZSBNQUlOVEFJ
-TkVSUw0KPiA+DQo+ID4gIE1BSU5UQUlORVJTICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgIHwgIDUgKysrLS0NCj4gPiAgYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy84M3h4L2tt
-ODN4eC5jICAgICAgICAgICAgICAgfCAgNCArKy0tDQo+ID4gIGFyY2gvcG93ZXJwYy9wbGF0Zm9y
-bXMvODN4eC9taXNjLmMgICAgICAgICAgICAgICAgIHwgIDIgKy0NCj4gPiAgYXJjaC9wb3dlcnBj
-L3BsYXRmb3Jtcy84M3h4L21wYzgzMnhfbWRzLmMgICAgICAgICAgfCAgNCArKy0tDQo+ID4gIGFy
-Y2gvcG93ZXJwYy9wbGF0Zm9ybXMvODN4eC9tcGM4MzJ4X3JkYi5jICAgICAgICAgIHwgIDQgKyst
-LQ0KPiA+ICBhcmNoL3Bvd2VycGMvcGxhdGZvcm1zLzgzeHgvbXBjODM2eF9tZHMuYyAgICAgICAg
-ICB8ICA0ICsrLS0NCj4gPiAgYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy84M3h4L21wYzgzNnhfcmRr
-LmMgICAgICAgICAgfCAgNCArKy0tDQo+ID4gIGFyY2gvcG93ZXJwYy9wbGF0Zm9ybXMvODV4eC9j
-b21tb24uYyAgICAgICAgICAgICAgIHwgIDIgKy0NCj4gPiAgYXJjaC9wb3dlcnBjL3BsYXRmb3Jt
-cy84NXh4L2NvcmVuZXRfZ2VuZXJpYy5jICAgICAgfCAgMiArLQ0KPiA+ICBhcmNoL3Bvd2VycGMv
-cGxhdGZvcm1zLzg1eHgvbXBjODV4eF9tZHMuYyAgICAgICAgICB8ICA0ICsrLS0NCj4gPiAgYXJj
-aC9wb3dlcnBjL3BsYXRmb3Jtcy84NXh4L21wYzg1eHhfcmRiLmMgICAgICAgICAgfCAgNCArKy0t
-DQo+ID4gIGFyY2gvcG93ZXJwYy9wbGF0Zm9ybXMvODV4eC90d3JfcDEwMnguYyAgICAgICAgICAg
-IHwgIDQgKystLQ0KPiA+ICBhcmNoL3Bvd2VycGMvcGxhdGZvcm1zL0tjb25maWcgICAgICAgICAg
-ICAgICAgICAgICB8IDE5IC0tLS0tLS0tLS0tLQ0KPiA+IC0tLS0tLQ0KPiA+ICBhcmNoL3Bvd2Vy
-cGMvc3lzZGV2L3FlX2xpYi9LY29uZmlnICAgICAgICAgICAgICAgICB8IDIzICsrKysrKy0tLS0t
-LQ0KPiA+IC0tLS0tLS0tLS0NCj4gPiAgYXJjaC9wb3dlcnBjL3N5c2Rldi9xZV9saWIvTWFrZWZp
-bGUgICAgICAgICAgICAgICAgfCAxMCArKystLS0tLS0tDQo+ID4gIGFyY2gvcG93ZXJwYy9zeXNk
-ZXYvcWVfbGliL2dwaW8uYyAgICAgICAgICAgICAgICAgIHwgIDIgKy0NCj4gPiAgYXJjaC9wb3dl
-cnBjL3N5c2Rldi9xZV9saWIvcWVfaW8uYyAgICAgICAgICAgICAgICAgfCAgMiArLQ0KPiA+ICBh
-cmNoL3Bvd2VycGMvc3lzZGV2L3FlX2xpYi91c2IuYyAgICAgICAgICAgICAgICAgICB8ICA0ICsr
-LS0NCj4gPiAgZHJpdmVycy9pcnFjaGlwL01ha2VmaWxlICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgfCAgMSArDQo+ID4gIC4uLi9zeXNkZXYvcWVfbGliID0+IGRyaXZlcnMvaXJxY2hpcH0vcWVf
-aWMuYyAgICAgIHwgIDIgKy0NCj4gPiAgLi4uL3N5c2Rldi9xZV9saWIgPT4gZHJpdmVycy9pcnFj
-aGlwfS9xZV9pYy5oICAgICAgfCAgMiArLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVl
-c2NhbGUvZnNsX3BxX21kaW8uYyAgICAgICB8ICAyICstDQo+ID4gIGRyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ZyZWVzY2FsZS91Y2NfZ2V0aC5jICAgICAgICAgIHwgIDggKysrKy0tLS0NCj4gPiAgZHJp
-dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19nZXRoLmggICAgICAgICAgfCAgOCArKysr
-LS0tLQ0KPiA+ICBkcml2ZXJzL3NvYy9LY29uZmlnICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICB8ICAyICsrDQo+ID4gIGRyaXZlcnMvc29jL01ha2VmaWxlICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgIHwgIDEgKw0KPiA+ICBkcml2ZXJzL3NvYy9mc2wvTWFrZWZpbGUgICAgICAg
-ICAgICAgICAgICAgICAgICAgICB8ICA1ICsrKysrDQo+ID4gIC4uLi9zeXNkZXYvcWVfbGliID0+
-IGRyaXZlcnMvc29jL2ZzbC9xZX0vS2NvbmZpZyAgIHwgMTYgKysrKysrKysrLS0tDQo+ID4gLS0t
-DQo+ID4gIGRyaXZlcnMvc29jL2ZzbC9xZS9NYWtlZmlsZSAgICAgICAgICAgICAgICAgICAgICAg
-IHwgIDggKysrKysrKysNCj4gPiAgLi4uL3N5c2Rldi9xZV9saWIgPT4gZHJpdmVycy9zb2MvZnNs
-L3FlfS9xZS5jICAgICAgfCAgNCArKy0tDQo+ID4gIC4uLi9zeXNkZXYvcWVfbGliID0+IGRyaXZl
-cnMvc29jL2ZzbC9xZX0vdWNjLmMgICAgIHwgIDYgKysrLS0tDQo+ID4gIC4uLi9xZV9saWIgPT4g
-ZHJpdmVycy9zb2MvZnNsL3FlfS91Y2NfZmFzdC5jICAgICAgIHwgIDggKysrKy0tLS0NCj4gPiAg
-Li4uL3FlX2xpYiA9PiBkcml2ZXJzL3NvYy9mc2wvcWV9L3VjY19zbG93LmMgICAgICAgfCAgOCAr
-KysrLS0tLQ0KPiA+ICBkcml2ZXJzL3NwaS9zcGktZnNsLWNwbS5jICAgICAgICAgICAgICAgICAg
-ICAgICAgICB8ICAyICstDQo+ID4gIGRyaXZlcnMvdHR5L3NlcmlhbC91Y2NfdWFydC5jICAgICAg
-ICAgICAgICAgICAgICAgIHwgIDIgKy0NCj4gPiAgZHJpdmVycy91c2IvZ2FkZ2V0L2ZzbF9xZV91
-ZGMuYyAgICAgICAgICAgICAgICAgICAgfCAgMiArLQ0KPiA+ICBkcml2ZXJzL3VzYi9ob3N0L2Zo
-Y2ktaGNkLmMgICAgICAgICAgICAgICAgICAgICAgICB8ICAyICstDQo+ID4gIGRyaXZlcnMvdXNi
-L2hvc3QvZmhjaS1odWIuYyAgICAgICAgICAgICAgICAgICAgICAgIHwgIDIgKy0NCj4gPiAgZHJp
-dmVycy91c2IvaG9zdC9maGNpLXNjaGVkLmMgICAgICAgICAgICAgICAgICAgICAgfCAgMiArLQ0K
-PiA+ICBkcml2ZXJzL3VzYi9ob3N0L2ZoY2kuaCAgICAgICAgICAgICAgICAgICAgICAgICAgICB8
-ICA0ICsrLS0NCj4gPiAgLi4uL2luY2x1ZGUvYXNtID0+IGluY2x1ZGUvbGludXgvZnNsfS9xZV9p
-Yy5oICAgICAgfCAgMA0KPiA+ICAuLi4vaW5jbHVkZS9hc20gPT4gaW5jbHVkZS9zb2MvZnNsfS9p
-bW1hcF9xZS5oICAgICB8ICAwDQo+ID4gIHthcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20gPT4gaW5j
-bHVkZS9zb2MvZnNsfS9xZS5oIHwgIDIgKy0NCj4gPiAuLi4vcG93ZXJwYy9pbmNsdWRlL2FzbSA9
-PiBpbmNsdWRlL3NvYy9mc2x9L3VjYy5oICB8ICA0ICsrLS0NCj4gPiAgLi4uL2luY2x1ZGUvYXNt
-ID0+IGluY2x1ZGUvc29jL2ZzbH0vdWNjX2Zhc3QuaCAgICAgfCAgNiArKystLS0NCj4gPiAgLi4u
-L2luY2x1ZGUvYXNtID0+IGluY2x1ZGUvc29jL2ZzbH0vdWNjX3Nsb3cuaCAgICAgfCAgNiArKyst
-LS0NCj4gPiAgNDYgZmlsZXMgY2hhbmdlZCwgMTAzIGluc2VydGlvbnMoKyksIDExNSBkZWxldGlv
-bnMoLSkgIHJlbmFtZQ0KPiA+IHthcmNoL3Bvd2VycGMvc3lzZGV2L3FlX2xpYiA9PiBkcml2ZXJz
-L2lycWNoaXB9L3FlX2ljLmMgKDk5JSkgIHJlbmFtZQ0KPiA+IHthcmNoL3Bvd2VycGMvc3lzZGV2
-L3FlX2xpYiA9PiBkcml2ZXJzL2lycWNoaXB9L3FlX2ljLmggKDk4JSkgIGNyZWF0ZQ0KPiA+IG1v
-ZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9NYWtlZmlsZSAgY29weSB7YXJjaC9wb3dlcnBjL3N5
-c2Rldi9xZV9saWINCj4gPiA9PiBkcml2ZXJzL3NvYy9mc2wvcWV9L0tjb25maWcNCj4gPiAoNTAl
-KQ0KPiA+ICBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL3FlL01ha2VmaWxlICBy
-ZW5hbWUNCj4gPiB7YXJjaC9wb3dlcnBjL3N5c2Rldi9xZV9saWIgPT4gZHJpdmVycy9zb2MvZnNs
-L3FlfS9xZS5jICg5OSUpICByZW5hbWUNCj4gPiB7YXJjaC9wb3dlcnBjL3N5c2Rldi9xZV9saWIg
-PT4gZHJpdmVycy9zb2MvZnNsL3FlfS91Y2MuYw0KPiA+ICg5OCUpDQo+ID4gIHJlbmFtZSB7YXJj
-aC9wb3dlcnBjL3N5c2Rldi9xZV9saWIgPT4gZHJpdmVycy9zb2MvZnNsL3FlfS91Y2NfZmFzdC5j
-DQo+ID4gKDk5JSkgIHJlbmFtZSB7YXJjaC9wb3dlcnBjL3N5c2Rldi9xZV9saWIgPT4NCj4gPiBk
-cml2ZXJzL3NvYy9mc2wvcWV9L3VjY19zbG93LmMgKDk4JSkgIHJlbmFtZSB7YXJjaC9wb3dlcnBj
-L2luY2x1ZGUvYXNtDQo+ID4gPT4gaW5jbHVkZS9saW51eC9mc2x9L3FlX2ljLmgNCj4gPiAoMTAw
-JSkNCj4gPiAgcmVuYW1lIHthcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20gPT4gaW5jbHVkZS9zb2Mv
-ZnNsfS9pbW1hcF9xZS5oDQo+ID4gKDEwMCUpDQo+ID4gIHJlbmFtZSB7YXJjaC9wb3dlcnBjL2lu
-Y2x1ZGUvYXNtID0+IGluY2x1ZGUvc29jL2ZzbH0vcWUuaCAoOTklKQ0KPiA+IHJlbmFtZSB7YXJj
-aC9wb3dlcnBjL2luY2x1ZGUvYXNtID0+IGluY2x1ZGUvc29jL2ZzbH0vdWNjLmggKDk2JSkNCj4g
-PiByZW5hbWUge2FyY2gvcG93ZXJwYy9pbmNsdWRlL2FzbSA9PiBpbmNsdWRlL3NvYy9mc2x9L3Vj
-Y19mYXN0LmgNCj4gPiAoOTglKQ0KPiA+ICByZW5hbWUge2FyY2gvcG93ZXJwYy9pbmNsdWRlL2Fz
-bSA9PiBpbmNsdWRlL3NvYy9mc2x9L3VjY19zbG93LmgNCj4gPiAoOTklKQ0KPiA+DQo+ID4gZGlm
-ZiAtLWdpdCBhL01BSU5UQUlORVJTIGIvTUFJTlRBSU5FUlMgaW5kZXggYzQzZWE4OC4uODRiMjM0
-YiAxMDA2NDQNCj4gPiAtLS0gYS9NQUlOVEFJTkVSUw0KPiA+ICsrKyBiL01BSU5UQUlORVJTDQo+
-ID4gQEAgLTM3NDMsOCArMzc0Myw5IEBAIEY6ICAgICAgaW5jbHVkZS9saW51eC9mc19lbmV0X3Bk
-LmgNCj4gPiAgRlJFRVNDQUxFIFFVSUNDIEVOR0lORSBMSUJSQVJZDQo+ID4gIEw6ICAgbGludXhw
-cGMtZGV2QGxpc3RzLm96bGFicy5vcmcNCj4gPiAgUzogICBPcnBoYW4NCj4gPiAtRjogICBhcmNo
-L3Bvd2VycGMvc3lzZGV2L3FlX2xpYi8NCj4gPiAtRjogICBhcmNoL3Bvd2VycGMvaW5jbHVkZS9h
-c20vKnFlLmgNCj4gPiArRjogICBkcml2ZXJzL3NvYy9mc2wvcWUvDQo+ID4gK0Y6ICAgaW5jbHVk
-ZS9zb2MvZnNsLypxZSouaA0KPiA+ICtGOiAgIGluY2x1ZGUvc29jL2ZzbC8qdWNjKi5oDQo+IA0K
-PiBZb3UgZm9yZ290IHRvIGNoYW5nZSAiT3JwaGFuIiB0byAiTWFpbnRhaW5lZCIgYW5kIGRlc2ln
-bmF0ZSBhIG1haW50YWluZXIuDQo+IA0KPiBXaG8gaXMgZ29pbmcgdG8gZG8gdGhlIGFkZGl0aW9u
-YWwgd29yayB0byBtYWtlIHRoaXMgdXNhYmxlIG9uIEFSTT8NCj4gV2hvIGlzIGdvaW5nIHRvIG1l
-cmdlIHRob3NlIHBhdGNoZXM/DQo+IA0KPiA+IGRpZmYgLS1naXQgYS9hcmNoL3Bvd2VycGMvc3lz
-ZGV2L3FlX2xpYi9LY29uZmlnDQo+ID4gYi9kcml2ZXJzL3NvYy9mc2wvcWUvS2NvbmZpZw0KPiA+
-IHNpbWlsYXJpdHkgaW5kZXggNTAlDQo+ID4gY29weSBmcm9tIGFyY2gvcG93ZXJwYy9zeXNkZXYv
-cWVfbGliL0tjb25maWcNCj4gPiBjb3B5IHRvIGRyaXZlcnMvc29jL2ZzbC9xZS9LY29uZmlnDQo+
-ID4gaW5kZXggM2MyNTE5OS4uZTZiODg2MiAxMDA2NDQNCj4gPiAtLS0gYS9hcmNoL3Bvd2VycGMv
-c3lzZGV2L3FlX2xpYi9LY29uZmlnDQo+ID4gKysrIGIvZHJpdmVycy9zb2MvZnNsL3FlL0tjb25m
-aWcNCj4gPiBAQCAtMSw2ICsxLDE2IEBADQo+ID4gICMNCj4gPiAgIyBRRSBDb21tdW5pY2F0aW9u
-IG9wdGlvbnMNCj4gPiAgIw0KPiA+ICtjb25maWcgUVVJQ0NfRU5HSU5FDQo+ID4gKyAgICAgYm9v
-bCAiRnJlZXNjYWxlIFFVSUNDIEVuZ2luZSAoUUUpIFN1cHBvcnQiDQo+ID4gKyAgICAgZGVwZW5k
-cyBvbiBGU0xfU09DICYmIFBQQzMyDQo+ID4gKyAgICAgc2VsZWN0IFBQQ19MSUJfUkhFQVANCj4g
-PiArICAgICBzZWxlY3QgQ1JDMzINCj4gPiArICAgICBoZWxwDQo+ID4gKyAgICAgICBUaGUgUVVJ
-Q0MgRW5naW5lIChRRSkgaXMgYSBuZXcgZ2VuZXJhdGlvbiBvZiBjb21tdW5pY2F0aW9ucw0KPiA+
-ICsgICAgICAgY29wcm9jZXNzb3JzIG9uIEZyZWVzY2FsZSBlbWJlZGRlZCBDUFVzIChha2luIHRv
-IENQTSBpbiBvbGRlcg0KPiA+IGNoaXBzKS4NCj4gPiArICAgICAgIFNlbGVjdGluZyB0aGlzIG9w
-dGlvbiBtZWFucyB0aGF0IHlvdSB3aXNoIHRvIGJ1aWxkIGEga2VybmVsDQo+ID4gKyAgICAgICBm
-b3IgYSBtYWNoaW5lIHdpdGggYSBRRSBjb3Byb2Nlc3Nvci4NCj4gDQo+IFRoZSB3aG9sZSBwb2lu
-dCBvZiB0aGlzIG1vdmUgaXMgdG8gbGV0IHRoZSBjb2RlIGJlIHVzZWQgb24gbW9yZSB0aGFuIGp1
-c3QNCj4gcG93ZXJwYywgc28gZml4IHRoZSByaGVhcCBhbmQgb3RoZXIgb2J2aW91cyBQUEMgZGVw
-ZW5kZW5jaWVzIGZpcnN0Lg0KDQpDYW4gSSBmaXggdGhlIHJoZWFwIGFuZCBvdGhlciBQUEMgZGVw
-ZW5kZW5jaWVzIGxhdGVyPw0KSSB3aWxsIHNlbmQgcGF0Y2hlcyB0byBmaXggaXQgbGF0ZXIuDQoN
-Cj4gDQo+IC1TY290dA0KDQpCZXN0IFJlZ2FyZHMNClpoYW8gUWlhbmcNCg==
+On Mon, Jun 1, 2015 at 7:37 PM, YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=
+=8B=B1=E6=98=8E
+<hideaki.yoshifuji@miraclelinux.com> wrote:
+> Nicholas Krause wrote:
+>> This converts the if statement for dumping the stack into a
+>> WARN_ON in order to make this function's debugging check
+>> simpler and have a cleaner output when this condition
+>> occurs inside this function for when bugs related to
+>> adding a duplicate neighbour table timer arise.
+>>
+>> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+>> ---
+>>  net/core/neighbour.c | 6 +-----
+>>  1 file changed, 1 insertion(+), 5 deletions(-)
+>>
+>> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+>> index 3de6542..0bf71da 100644
+>> --- a/net/core/neighbour.c
+>> +++ b/net/core/neighbour.c
+>> @@ -165,11 +165,7 @@ static int neigh_forced_gc(struct neigh_table *=
+tbl)
+>>  static void neigh_add_timer(struct neighbour *n, unsigned long when=
+)
+>>  {
+>>       neigh_hold(n);
+>> -     if (unlikely(mod_timer(&n->timer, when))) {
+>> -             printk("NEIGH: BUG, double timer add, state is %x\n",
+>> -                    n->nud_state);
+>> -             dump_stack();
+>> -     }
+>> +     WARN_ON(unlikely(mod_timer(&n->timer, when)));
+>>  }
+>
+> NACK, please do not use WARN_ON for things with side effects.
+
+Just:
+
+int ret =3D mod_timer(...);
+WARN_ON(ret);
+=2E..
