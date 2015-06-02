@@ -1,47 +1,37 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net-next 5/5] rocker: remove support for legacy VLAN ndo
- ops
-Date: Tue, 02 Jun 2015 13:51:06 +0900
-Message-ID: <556D363A.5010005@lab.ntt.co.jp>
-References: <1433183947-13095-1-git-send-email-sfeldma@gmail.com> <1433183947-13095-6-git-send-email-sfeldma@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net-next 0/3] cxgb4/cxgb4vf: Adds support for Chelsio
+ T6 adapter
+Date: Mon, 01 Jun 2015 22:21:40 -0700 (PDT)
+Message-ID: <20150601.222140.2060863829765438086.davem@davemloft.net>
+References: <1433233780-17734-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, simon.horman@netronome.com
-To: sfeldma@gmail.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:59881 "EHLO
-	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751600AbbFBEvP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 00:51:15 -0400
-In-Reply-To: <1433183947-13095-6-git-send-email-sfeldma@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55242 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753937AbbFBFVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 01:21:42 -0400
+In-Reply-To: <1433233780-17734-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2015/06/02 3:39, sfeldma@gmail.com wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Tue,  2 Jun 2015 13:59:37 +0530
+
+> This patch series adds the following:
+> Adds NIC driver support for T6 adapter
+> Adds vNIC driver support for T6 adapter
 > 
-> Remove support for legacy ndo ops
-> .ndo_vlan_rx_add_vid/.ndo_vlan_rx_kill_vid.  Rocker will use
-> bridge_setlink/dellink exclusively for VLAN add/del operations.
+> This patch series has been created against net-next tree and includes
+> patches on cxgb4 and cxgb4vf driver.
 > 
-> The legacy ops are needed if using 8021q driver module to setup VLANs on
-> the port.  But an alternative exists in using bridge_setlink/delink to
-> setup VLANs, which doesn't depend on 8021q module.  So rocker will switch
-> to the newer setlink/dellink ops.  VLANs can added/delete from the port,
-> regardless if port is bridged or not, using the bridge commands:
-> 
-> 	bridge vlan [add|del] vid VID dev DEV self
+> We have included all the maintainers of respective drivers. Kindly review
+> the change and let us know in case of any review comments.
+ ...
+> V2:
+>  Fixed compilation issue, when CHELSIO_T4_FCOE is set
 
-Hi Scott,
-
-This doesn't look transparent with bridge.
-
-Before this patch, I was able to add vid in the same way as software bridge:
-
-  ip link set DEV master br0
-  bridge vlan add vid VID dev DEV
-
-Now I need to add "self", which is different from software bridge...
-
-Toshiaki Makita
+Yeah this builds, applied, thanks :)
