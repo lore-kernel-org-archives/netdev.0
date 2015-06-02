@@ -1,98 +1,28 @@
-From: Mark D Rustad <mark.d.rustad@intel.com>
-Subject: [PATCH 1/2] pci: Add dev_flags bit to access VPD through function 0
-Date: Tue, 02 Jun 2015 10:04:14 -0700
-Message-ID: <20150602170414.6252.48036.stgit@mdrustad-wks.jf.intel.com>
-References: <20150602165706.6252.76253.stgit@mdrustad-wks.jf.intel.com>
+From: Mr David Brink <infotopdbrink@gmail.com>
+Subject: BOOKING=============
+Date: Tue, 02 Jun 2015 12:05:39 -0400
+Message-ID: <E1Yzoh9-003ojr-0X@awtwfy.awebsitethatworksforyou.com.au>
+Reply-To: infotopdbrink@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-pci@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org
-To: bhelgaas@google.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20150602165706.6252.76253.stgit@mdrustad-wks.jf.intel.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout.awebsitethatworksforyou.com.au ([202.60.92.135]:54437
+	"EHLO awtwfy.awebsitethatworksforyou.com.au" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754137AbbFBRHA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 13:07:00 -0400
+Received: from awebsite by awtwfy.awebsitethatworksforyou.com.au with local (Exim 4.85)
+	(envelope-from <awebsite@awtwfy.awebsitethatworksforyou.com.au>)
+	id 1Yzoh9-003ojr-0X
+	for netdev@vger.kernel.org; Tue, 02 Jun 2015 12:05:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a dev_flags bit, PCI_DEV_FLAGS_VPD_REF_F0, to access VPD through
-function 0 to provide VPD access on other functions. This solves
-concurrent access problems on many devices without changing the
-attributes exposed in sysfs. Never set this bit on funciton 0 or
-there will be an infinite recursion.
-
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
----
- drivers/pci/access.c |   39 ++++++++++++++++++++++++++++++++++++++-
- include/linux/pci.h  |    2 ++
- 2 files changed, 40 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/pci/access.c b/drivers/pci/access.c
-index d9b64a175990..e435c087c354 100644
---- a/drivers/pci/access.c
-+++ b/drivers/pci/access.c
-@@ -439,6 +439,40 @@ static const struct pci_vpd_ops pci_vpd_pci22_ops = {
- 	.release = pci_vpd_pci22_release,
- };
- 
-+static ssize_t pci_vpd_f0_read(struct pci_dev *dev, loff_t pos, size_t count,
-+			       void *arg)
-+{
-+	struct pci_dev *tdev = pci_get_slot(dev->bus, PCI_SLOT(dev->devfn));
-+	ssize_t ret;
-+
-+	if (!tdev)
-+		return -ENODEV;
-+
-+	ret = pci_read_vpd(tdev, pos, count, arg);
-+	pci_dev_put(tdev);
-+	return ret;
-+}
-+
-+static ssize_t pci_vpd_f0_write(struct pci_dev *dev, loff_t pos, size_t count,
-+				const void *arg)
-+{
-+	struct pci_dev *tdev = pci_get_slot(dev->bus, PCI_SLOT(dev->devfn));
-+	ssize_t ret;
-+
-+	if (!tdev)
-+		return -ENODEV;
-+
-+	ret = pci_write_vpd(tdev, pos, count, arg);
-+	pci_dev_put(tdev);
-+	return ret;
-+}
-+
-+static const struct pci_vpd_ops pci_vpd_f0_ops = {
-+	.read = pci_vpd_f0_read,
-+	.write = pci_vpd_f0_write,
-+	.release = pci_vpd_pci22_release,
-+};
-+
- int pci_vpd_pci22_init(struct pci_dev *dev)
- {
- 	struct pci_vpd_pci22 *vpd;
-@@ -452,7 +486,10 @@ int pci_vpd_pci22_init(struct pci_dev *dev)
- 		return -ENOMEM;
- 
- 	vpd->base.len = PCI_VPD_PCI22_SIZE;
--	vpd->base.ops = &pci_vpd_pci22_ops;
-+	if (dev->dev_flags & PCI_DEV_FLAGS_VPD_REF_F0)
-+		vpd->base.ops = &pci_vpd_f0_ops;
-+	else
-+		vpd->base.ops = &pci_vpd_pci22_ops;
- 	mutex_init(&vpd->lock);
- 	vpd->cap = cap;
- 	vpd->busy = false;
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 353db8dc4c6e..194df6d635e6 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -180,6 +180,8 @@ enum pci_dev_flags {
- 	PCI_DEV_FLAGS_NO_BUS_RESET = (__force pci_dev_flags_t) (1 << 6),
- 	/* Do not use PM reset even if device advertises NoSoftRst- */
- 	PCI_DEV_FLAGS_NO_PM_RESET = (__force pci_dev_flags_t) (1 << 7),
-+	/* Get VPD from function 0 VPD */
-+	PCI_DEV_FLAGS_VPD_REF_F0 = (__force pci_dev_flags_t) (1 << 8),
- };
- 
- enum pci_irq_reroute_variant {
+I am writing you this email to make reservations for my family at your hotel.
+Arrival day : 15/06/2015
+Departure day: 30/06/2015
+Number Of Gusts: 4 Adult
+Kindly send the total quotation so as to forward my card for the full payment only.
+Thanks
+Mr David Brink
