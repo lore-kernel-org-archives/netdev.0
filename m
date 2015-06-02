@@ -1,185 +1,87 @@
-From: vaibhavkhanduja-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Subject: Re: [RFC PATCH 0/4] Make iSCSI network namespace aware
-Date: Sun, 31 May 2015 20:43:57 -0700 (PDT)
-Message-ID: <6c292826-4217-4e9e-aab4-4451a1460c3f@googlegroups.com>
-References: <1431555167-23995-1-git-send-email-cleech@redhat.com>
-Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [Intel-wired-lan] [PATCH 1/2] pci: Add dev_flags bit to access
+ VPD through function 0
+Date: Tue, 02 Jun 2015 10:48:48 -0700
+Message-ID: <556DEC80.70206@redhat.com>
+References: <20150602165706.6252.76253.stgit@mdrustad-wks.jf.intel.com> <20150602170414.6252.48036.stgit@mdrustad-wks.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_279_1560941177.1433130237684"
-Cc: linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Return-path: <open-iscsi+bncBD65NQGTVQGBBWGPW6VQKGQEPC5YS7A-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1431555167-23995-1-git-send-email-cleech-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Post: <http://groups.google.com/group/open-iscsi/post>, <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/open-iscsi
-Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/open-iscsi/subscribe>, <mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+856124926423+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <http://groups.google.com/group/open-iscsi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-pci@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org
+To: Mark D Rustad <mark.d.rustad@intel.com>, bhelgaas@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48961 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752769AbbFBRs5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jun 2015 13:48:57 -0400
+In-Reply-To: <20150602170414.6252.48036.stgit@mdrustad-wks.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-------=_Part_279_1560941177.1433130237684
-Content-Type: multipart/alternative;
-	boundary="----=_Part_280_1078130087.1433130237684"
+On 06/02/2015 10:04 AM, Mark D Rustad wrote:
+> Add a dev_flags bit, PCI_DEV_FLAGS_VPD_REF_F0, to access VPD through
+> function 0 to provide VPD access on other functions. This solves
+> concurrent access problems on many devices without changing the
+> attributes exposed in sysfs. Never set this bit on funciton 0 or
+> there will be an infinite recursion.
+>
+> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+> ---
+>   drivers/pci/access.c |   39 ++++++++++++++++++++++++++++++++++++++-
+>   include/linux/pci.h  |    2 ++
+>   2 files changed, 40 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/pci/access.c b/drivers/pci/access.c
+> index d9b64a175990..e435c087c354 100644
+> --- a/drivers/pci/access.c
+> +++ b/drivers/pci/access.c
+> @@ -439,6 +439,40 @@ static const struct pci_vpd_ops pci_vpd_pci22_ops = {
+>   	.release = pci_vpd_pci22_release,
+>   };
+>   
+> +static ssize_t pci_vpd_f0_read(struct pci_dev *dev, loff_t pos, size_t count,
+> +			       void *arg)
+> +{
+> +	struct pci_dev *tdev = pci_get_slot(dev->bus, PCI_SLOT(dev->devfn));
+> +	ssize_t ret;
+> +
+> +	if (!tdev)
+> +		return -ENODEV;
+> +
+> +	ret = pci_read_vpd(tdev, pos, count, arg);
+> +	pci_dev_put(tdev);
+> +	return ret;
+> +}
+> +
+> +static ssize_t pci_vpd_f0_write(struct pci_dev *dev, loff_t pos, size_t count,
+> +				const void *arg)
+> +{
+> +	struct pci_dev *tdev = pci_get_slot(dev->bus, PCI_SLOT(dev->devfn));
+> +	ssize_t ret;
+> +
+> +	if (!tdev)
+> +		return -ENODEV;
+> +
+> +	ret = pci_write_vpd(tdev, pos, count, arg);
+> +	pci_dev_put(tdev);
+> +	return ret;
+> +}
+> +
 
-------=_Part_280_1078130087.1433130237684
-Content-Type: text/plain; charset=UTF-8
+I'm pretty sure these could cause some serious errors if you direct 
+assign the device into a VM since you then end up with multiple devices 
+sharing a bus.  Also it would likely have side-effects on a LOM (Lan On 
+Motherboard) as it also shares the bus with multiple non-Ethernet devices.
 
-Are there any plans to get it upstream? if yes which kernel version?
+I believe you still need to add something like a check for 
+!pci_is_root_bus(dev->bus) before you attempt to grab function 0.  It 
+probably also wouldn't hurt to check the dev->multifunction bit before 
+running this code since it wouldn't make sense to go chasing down the 
+VPD on another function if the device doesn't have one.  You could 
+probably do that either as a part of this code, or perhaps put it in the 
+quirk.
 
-On Wednesday, May 13, 2015 at 3:13:18 PM UTC-7, Chris Leech wrote:
->
-> I've had a few reports of people trying to run iscsid in a container, 
-> which 
-> doesn't work at all when using network namespaces.  This is the start of 
-> me 
-> looking at what it would take to make that work, and if it makes sense at 
-> all. 
->
-> The first issue is that the kernel side of the iSCSI netlink control 
-> protocol 
-> only operates in the initial network namespace.  But beyond that, if we 
-> allow 
-> iSCSI to be managed within a namespace we need to decide what that means. 
->  I 
-> think it makes the most sense to isolate the iSCSI host, along with it's 
-> associated endpoints, connections, and sessions, to a network namespace 
-> and 
-> allow multiple instances of the userspace tools to exist in separate 
-> namespaces 
-> managing separate hosts. 
->
-> It works well for iscsi_tcp, which creates a host per session.  There's no 
-> attempt to manage sessions on offloading hosts independently, although 
-> future 
-> work could include the ability to move an entire host to a new namespace 
-> like 
-> is supported for network devices. 
->
-> This is only about the structures and functionality involved in 
-> maintaining the 
-> iSCSI session, the SCSI host along with it's discovered targets and 
-> devices has 
-> no association with network namespaces. 
->
-> These patches are functional, but not complete.  There's no isolation 
-> enforced 
-> in the kernel just yet, so it relies on well behaved userspace.  I plan on 
-> fixing that, but wanted some feedback on the idea and approach so far. 
->
-> Thanks, 
->         Chris 
->
-> Chris Leech (4): 
->   iscsi: create per-net iscsi nl kernel sockets 
->   iscsi: sysfs filtering by network namespace 
->   iscsi: make all netlink multicast namespace aware 
->   iscsi: set netns for iscsi_tcp hosts 
->
->  drivers/scsi/iscsi_tcp.c            |   7 + 
->  drivers/scsi/scsi_transport_iscsi.c | 264 
-> +++++++++++++++++++++++++++++------- 
->  include/scsi/scsi_transport_iscsi.h |   2 + 
->  3 files changed, 222 insertions(+), 51 deletions(-) 
->
-> -- 
-> 2.1.0 
->
->
+- Alex
 
--- 
-You received this message because you are subscribed to the Google Groups "open-iscsi" group.
-To unsubscribe from this group and stop receiving emails from it, send an email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-Visit this group at http://groups.google.com/group/open-iscsi.
-For more options, visit https://groups.google.com/d/optout.
-
-------=_Part_280_1078130087.1433130237684
-Content-Type: text/html; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-<div dir=3D"ltr">Are there any plans to get it upstream? if yes which kerne=
-l version?<br><br>On Wednesday, May 13, 2015 at 3:13:18 PM UTC-7, Chris Lee=
-ch wrote:<blockquote class=3D"gmail_quote" style=3D"margin: 0;margin-left: =
-0.8ex;border-left: 1px #ccc solid;padding-left: 1ex;">I've had a few report=
-s of people trying to run iscsid in a container, which
-<br>doesn't work at all when using network namespaces. &nbsp;This is the st=
-art of me
-<br>looking at what it would take to make that work, and if it makes sense =
-at all.
-<br>
-<br>The first issue is that the kernel side of the iSCSI netlink control pr=
-otocol
-<br>only operates in the initial network namespace. &nbsp;But beyond that, =
-if we allow
-<br>iSCSI to be managed within a namespace we need to decide what that mean=
-s. &nbsp;I
-<br>think it makes the most sense to isolate the iSCSI host, along with it'=
-s
-<br>associated endpoints, connections, and sessions, to a network namespace=
- and
-<br>allow multiple instances of the userspace tools to exist in separate na=
-mespaces
-<br>managing separate hosts.
-<br>
-<br>It works well for iscsi_tcp, which creates a host per session. &nbsp;Th=
-ere's no
-<br>attempt to manage sessions on offloading hosts independently, although =
-future
-<br>work could include the ability to move an entire host to a new namespac=
-e like
-<br>is supported for network devices.
-<br>
-<br>This is only about the structures and functionality involved in maintai=
-ning the
-<br>iSCSI session, the SCSI host along with it's discovered targets and dev=
-ices has
-<br>no association with network namespaces.
-<br>
-<br>These patches are functional, but not complete. &nbsp;There's no isolat=
-ion enforced
-<br>in the kernel just yet, so it relies on well behaved userspace. &nbsp;I=
- plan on
-<br>fixing that, but wanted some feedback on the idea and approach so far.
-<br>
-<br>Thanks,
-<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Chris
-<br>
-<br>Chris Leech (4):
-<br>&nbsp; iscsi: create per-net iscsi nl kernel sockets
-<br>&nbsp; iscsi: sysfs filtering by network namespace
-<br>&nbsp; iscsi: make all netlink multicast namespace aware
-<br>&nbsp; iscsi: set netns for iscsi_tcp hosts
-<br>
-<br>&nbsp;drivers/scsi/iscsi_tcp.c &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp=
-;| &nbsp; 7 +
-<br>&nbsp;drivers/scsi/scsi_transport_<wbr>iscsi.c | 264 ++++++++++++++++++=
-+++++++++++-<wbr>------
-<br>&nbsp;include/scsi/scsi_transport_<wbr>iscsi.h | &nbsp; 2 +
-<br>&nbsp;3 files changed, 222 insertions(+), 51 deletions(-)
-<br>
-<br>--=20
-<br>2.1.0
-<br>
-<br></blockquote></div>
-
-<p></p>
-
--- <br />
-You received this message because you are subscribed to the Google Groups &=
-quot;open-iscsi&quot; group.<br />
-To unsubscribe from this group and stop receiving emails from it, send an e=
-mail to <a href=3D"mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org">open-isc=
-si+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org</a>.<br />
-To post to this group, send email to <a href=3D"mailto:open-iscsi@googlegro=
-ups.com">open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org</a>.<br />
-Visit this group at <a href=3D"http://groups.google.com/group/open-iscsi">h=
-ttp://groups.google.com/group/open-iscsi</a>.<br />
-For more options, visit <a href=3D"https://groups.google.com/d/optout">http=
-s://groups.google.com/d/optout</a>.<br />
-
-------=_Part_280_1078130087.1433130237684--
-
-------=_Part_279_1560941177.1433130237684--
+- Alex
