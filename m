@@ -1,83 +1,104 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [RFC 7/9] net: dsa: mv88e6352: lock CPU port from learning addresses
-Date: Tue, 02 Jun 2015 07:24:36 -0700
-Message-ID: <556DBCA4.10203@roeck-us.net>
-References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-8-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next 5/5] rocker: remove support for legacy VLAN ndo ops
+Date: Tue, 2 Jun 2015 07:30:40 -0700
+Message-ID: <CAE4R7bAXA27cqBLv6MP0kak-L=1bXUoZPw7vxUyYpP=-dk=eAg@mail.gmail.com>
+References: <1433183947-13095-1-git-send-email-sfeldma@gmail.com>
+ <1433183947-13095-6-git-send-email-sfeldma@gmail.com> <556D363A.5010005@lab.ntt.co.jp>
+ <20150601.222442.1854333703599698362.davem@davemloft.net> <CAE4R7bBL+=-akoNLPqPae=zrYe3DH59t=8UK_T7KhcHSNaKUtw@mail.gmail.com>
+ <556D96ED.9010309@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Jerome Oufella <jerome.oufella@savoirfairelinux.com>,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	Chris Healy <cphealy@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	"simon.horman@netronome.com" <simon.horman@netronome.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:46976 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755833AbbFBOYk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 10:24:40 -0400
-In-Reply-To: <1433208470-25338-8-git-send-email-vivien.didelot@savoirfairelinux.com>
+Received: from mail-qg0-f54.google.com ([209.85.192.54]:35635 "EHLO
+	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758542AbbFBObC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 10:31:02 -0400
+Received: by qgg60 with SMTP id 60so59394926qgg.2
+        for <netdev@vger.kernel.org>; Tue, 02 Jun 2015 07:31:00 -0700 (PDT)
+In-Reply-To: <556D96ED.9010309@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/01/2015 06:27 PM, Vivien Didelot wrote:
-> This commit disables SA learning and refreshing for the CPU port.
+On Tue, Jun 2, 2015 at 4:43 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 06/02/15 03:10, Scott Feldman wrote:
 >
-
-Hi Vivien,
-
-This patch also seems to be unrelated to the rest of the series.
-
-Can you add an explanation why it is needed ?
-
-With this in place, how does the CPU port SA find its way into the fdb ?
-Do we assume that it will be configured statically ?
-An explanation might be useful.
-
-Thanks,
-Guenter
-
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->   drivers/net/dsa/mv88e6xxx.c | 8 +++++---
->   drivers/net/dsa/mv88e6xxx.h | 1 +
->   2 files changed, 6 insertions(+), 3 deletions(-)
 >
-> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-> index d2beb10..ed49bd8 100644
-> --- a/drivers/net/dsa/mv88e6xxx.c
-> +++ b/drivers/net/dsa/mv88e6xxx.c
-> @@ -1761,10 +1761,12 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
->   	/* Port Association Vector: when learning source addresses
->   	 * of packets, add the address to the address database using
->   	 * a port bitmap that has only the bit for this port set and
-> -	 * the other bits clear.
-> +	 * the other bits clear, except for the CPU port.
->   	 */
-> -	ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_ASSOC_VECTOR,
-> -				   1 << port);
-> +	reg = BIT(port);
-> +	if (dsa_is_cpu_port(ds, port))
-> +		reg |= PORT_ASSOC_VECTOR_LOCKED_PORT;
-> +	ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_ASSOC_VECTOR, reg);
->   	if (ret)
->   		goto abort;
+>> Actually, we're now consistent with bridge man page which says master
+>> is the default.
+>>
+>> Want we want, I believe, is to adjust what the man page says (and the
+>> bridge vlan command itself), by making the default master and self.
+>> The kernel and driver are fine, it's the default in the bridge command
+>> that needs adjusting.  Once we do this, we'll be back to transparent
+>> with software-only bridge.
+>>
 >
-> diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-> index 412d14e..e26eb0c 100644
-> --- a/drivers/net/dsa/mv88e6xxx.h
-> +++ b/drivers/net/dsa/mv88e6xxx.h
-> @@ -144,6 +144,7 @@
->   #define PORT_RATE_CONTROL	0x09
->   #define PORT_RATE_CONTROL_2	0x0a
->   #define PORT_ASSOC_VECTOR	0x0b
-> +#define PORT_ASSOC_VECTOR_LOCKED_PORT	BIT(13)
->   #define PORT_ATU_CONTROL	0x0c
->   #define PORT_PRI_OVERRIDE	0x0d
->   #define PORT_ETH_TYPE		0x0f
+> Question to ask when looking at something of this nature:
+> Will it work with no suprises if you used today's unmodified app?
+> The default behavior shouldnt change and unfortunately it does here.
+
+The default behavior does change, yes, but there shouldn't be any
+surprises even if using today's unmodified app.  The reason why is no
+in-kernel driver is using ndo_bridge_setlink for VLAN setup.  The
+three drivers that have ndo_bridge_setlink use if to set hwmode to
+VEBA|VEB.  For VLAN setup, they use the (default master) bridge's
+ndo_bridge_setlink->ndo_vlan_rx_add_vid.  If the default changes from
+master to master|self, the bridge's
+ndo_bridge_setlink->ndo_vlan_rx_add_vid is still called for those
+driver's using ndo_vlan_rx_add_vid, and if they implement
+ndo_bridge_setlink, they'll get called a second time but will noop
+because there will be no IFLA_BRIDGE_MODE (hwmode) attr to process.
+
+So it comes down to two choices:
+
+1) break ABI, which is inconsequential for in-kernel drivers and
+preserve (iproute2) command transparency, or
+
+2) embrace existing behavior which is consistent with man pages but
+breaks command transparency for any driver implementing
+ndo_bridge_setlink for VLAN setup, which currently is just rocker.  I
+can see the DSA going down this path also based on another concurrent
+thread.
+
+We're at option 2) right now.
+
+> It is not just iproute2 - since this is breaking ABI expectations.
+> Looking at some app i wrote a while back based on analyzing kernel
+> expectations at the time, I see the following logic:
 >
+> user can set master or self on command line.
+> ...
+> ....
+> if (user DID NOT set master_on || user set self on)
+>    then set self to on
+>
+> iow, current behavior:
+>  01: master is only set if user explicitly asked.
+>  11: master|self when user explicitly sets both
+>  10: self is on by default when the user doesnt specify anything
+>  00: and the last option is to have none set which is not
+>      possible since we have defaults.
+>
+> cheers,
+> jamal
+>
+>
+> So this is very similar to iproute2 - if nothing is set
+> it defaults to self.
+
+Ha, you're giving the behavior for "bridge fdb" command, where self is
+the default.
+
+For "bridge link" and "bridge vlan", the default is master.  The user
+must explicitly specify "self" to act on the device side of the port.
+
+It's unfortunate the iproute2 defaults aren't consistent between
+commands.  Maybe someone knows the history here and can explain.
+
+-scott
