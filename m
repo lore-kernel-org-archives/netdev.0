@@ -1,7 +1,7 @@
 From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
-Subject: [PATCH 03/10] net: thunderx: introduce a function for mailbox access
-Date: Tue, 2 Jun 2015 11:00:20 -0700
-Message-ID: <1433268028-23992-4-git-send-email-aleksey.makarov@caviumnetworks.com>
+Subject: [PATCH 09/10] net: thunderx: check if memory allocation was successful
+Date: Tue, 2 Jun 2015 11:00:26 -0700
+Message-ID: <1433268028-23992-10-git-send-email-aleksey.makarov@caviumnetworks.com>
 References: <1433268028-23992-1-git-send-email-aleksey.makarov@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -18,86 +18,54 @@ In-Reply-To: <1433268028-23992-1-git-send-email-aleksey.makarov@caviumnetworks.c
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This fixes sparse message:
+This fixes a coccinelle warning:
 
-drivers/net/ethernet/cavium/thunder/nicvf_main.c:153:25: sparse: cast to
-restricted __le64
+coccinelle warnings: (new ones prefixed by >>)
+
+>> drivers/net/ethernet/cavium/thunder/nicvf_queues.c:360:1-11: alloc
+>> with no test, possible model on line 367
+
+vim +360 drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+
+   354		err = nicvf_alloc_q_desc_mem(nic, &sq->dmem, q_len,
+SND_QUEUE_DESC_SIZE,
+   355					     NICVF_SQ_BASE_ALIGN_BYTES);
+   356		if (err)
+   357			return err;
+   358
+   359		sq->desc = sq->dmem.base;
+ > 360		sq->skbuff = kcalloc(q_len, sizeof(u64), GFP_ATOMIC);
+   361		sq->head = 0;
+   362		sq->tail = 0;
+   363		atomic_set(&sq->free_cnt, q_len - 1);
+   364		sq->thresh = SND_QUEUE_THRESH;
+   365
+   366		/* Preallocate memory for TSO segment's header */
+ > 367		sq->tso_hdrs = dma_alloc_coherent(&nic->pdev->dev,
+   368						  q_len *
+TSO_HEADER_SIZE,
+   369						  &sq->tso_hdrs_phys,
+GFP_KERNEL);
+   370		if (!sq->tso_hdrs)
 
 Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/thunder/nicvf_main.c | 27 +++++++++++++++---------
- 1 file changed, 17 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index f81182c..989f005 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -110,17 +110,23 @@ u64 nicvf_queue_reg_read(struct nicvf *nic, u64 offset, u64 qidx)
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index 8929029..2ed7d1b 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -357,6 +357,8 @@ static int nicvf_init_snd_queue(struct nicvf *nic,
  
- /* VF -> PF mailbox communication */
- 
-+static void nicvf_write_to_mbx(struct nicvf *nic, union nic_mbx *mbx)
-+{
-+	u64 *msg = (u64 *)mbx;
-+
-+	nicvf_reg_write(nic, NIC_VF_PF_MAILBOX_0_1 + 0, msg[0]);
-+	nicvf_reg_write(nic, NIC_VF_PF_MAILBOX_0_1 + 8, msg[1]);
-+}
-+
- int nicvf_send_msg_to_pf(struct nicvf *nic, union nic_mbx *mbx)
- {
- 	int timeout = NIC_MBOX_MSG_TIMEOUT;
- 	int sleep = 10;
--	u64 *msg = (u64 *)mbx;
- 
- 	nic->pf_acked = false;
- 	nic->pf_nacked = false;
- 
--	nicvf_reg_write(nic, NIC_VF_PF_MAILBOX_0_1 + 0, msg[0]);
--	nicvf_reg_write(nic, NIC_VF_PF_MAILBOX_0_1 + 8, msg[1]);
-+	nicvf_write_to_mbx(nic, mbx);
- 
- 	/* Wait for previous message to be acked, timeout 2sec */
- 	while (!nic->pf_acked) {
-@@ -146,12 +152,13 @@ int nicvf_send_msg_to_pf(struct nicvf *nic, union nic_mbx *mbx)
- static int nicvf_check_pf_ready(struct nicvf *nic)
- {
- 	int timeout = 5000, sleep = 20;
-+	union nic_mbx mbx = {};
-+
-+	mbx.msg.msg = NIC_MBOX_MSG_READY;
- 
- 	nic->pf_ready_to_rcv_msg = false;
- 
--	nicvf_reg_write(nic, NIC_VF_PF_MAILBOX_0_1 + 0,
--			le64_to_cpu(NIC_MBOX_MSG_READY));
--	nicvf_reg_write(nic, NIC_VF_PF_MAILBOX_0_1 + 8, 1ULL);
-+	nicvf_write_to_mbx(nic, &mbx);
- 
- 	while (!nic->pf_ready_to_rcv_msg) {
- 		msleep(sleep);
-@@ -368,7 +375,9 @@ int nicvf_set_real_num_queues(struct net_device *netdev,
- static int nicvf_init_resources(struct nicvf *nic)
- {
- 	int err;
--	u64 mbx_addr = NIC_VF_PF_MAILBOX_0_1;
-+	union nic_mbx mbx = {};
-+
-+	mbx.msg.msg = NIC_MBOX_MSG_CFG_DONE;
- 
- 	/* Enable Qset */
- 	nicvf_qset_config(nic, true);
-@@ -382,9 +391,7 @@ static int nicvf_init_resources(struct nicvf *nic)
- 	}
- 
- 	/* Send VF config done msg to PF */
--	nicvf_reg_write(nic, mbx_addr, le64_to_cpu(NIC_MBOX_MSG_CFG_DONE));
--	mbx_addr += (NIC_PF_VF_MAILBOX_SIZE - 1) * 8;
--	nicvf_reg_write(nic, mbx_addr, 1ULL);
-+	nicvf_write_to_mbx(nic, &mbx);
- 
- 	return 0;
- }
+ 	sq->desc = sq->dmem.base;
+ 	sq->skbuff = kcalloc(q_len, sizeof(u64), GFP_ATOMIC);
++	if (!sq->skbuff)
++		return -ENOMEM;
+ 	sq->head = 0;
+ 	sq->tail = 0;
+ 	atomic_set(&sq->free_cnt, q_len - 1);
 -- 
 2.4.1
