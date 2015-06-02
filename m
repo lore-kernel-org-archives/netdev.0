@@ -1,61 +1,74 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net v3 0/2] mpls: fix route del errors on wrong scope and type
-Date: Mon,  1 Jun 2015 23:29:25 -0700
-Message-ID: <1433226567-23302-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: davem@davemloft.net, rshearma@brocade.com, netdev@vger.kernel.org,
-	vivek@cumulusnetworks.com
-To: ebiederm@xmission.com, stephen@networkplumber.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net V1] ethtool: Support for configurable RSS hash function
+Date: Tue, 2 Jun 2015 09:31:32 +0300
+Message-ID: <CAPcc5PgiKoT4=9u3J7Dcmt_Fy7Wc+wPk5p3=qeK2tQRpCzVQbg@mail.gmail.com>
+References: <1430133773-11613-1-git-send-email-amirv@mellanox.com>
+	<CAPcc5PigfcBCZV=z+Q15+0xBXh_GEyGEz6RASPCXtQvTXadP0w@mail.gmail.com>
+	<1433102761.6319.111.camel@decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>, Eyal Perry <eyalpe@mellanox.com>
+To: Ben Hutchings <ben@decadent.org.uk>,
+	Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:34940 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751863AbbFBG3d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 02:29:33 -0400
-Received: by padjw17 with SMTP id jw17so54237012pad.2
-        for <netdev@vger.kernel.org>; Mon, 01 Jun 2015 23:29:33 -0700 (PDT)
+Received: from mail-db3on0053.outbound.protection.outlook.com ([157.55.234.53]:5024
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752854AbbFBGbj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jun 2015 02:31:39 -0400
+Received: by wifw1 with SMTP id w1so131646791wif.0
+        for <netdev@vger.kernel.org>; Mon, 01 Jun 2015 23:31:32 -0700 (PDT)
+In-Reply-To: <1433102761.6319.111.camel@decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Sun, May 31, 2015 at 11:09 PM Ben Hutchings <ben@decadent.org.uk> wrote:
+>
+> On Tue, 2015-05-05 at 18:48 +0300, Amir Vadai wrote:
+> > On Mon, Apr 27, 2015 at 2:22 PM, Amir Vadai <amirv@mellanox.com> wrote:
+> > > From: Eyal Perry <eyalpe@mellanox.com>
+> > >
+> > > This ethtool patch adds support to set and get the current RSS hash
+> > > function for the device through through the new hfunc field in the
+> > > ethtool_rxfh struct. Kernel supported hash function names are queried
+> > > with ETHTOOL_GSTRINGS (value 0 is reserved and skipped).
+> > >
+> > > Although currently no device supports a combination of hash
+> > > functions/attributes, this ethtool implementation will support it. Both in the
+> > > set and in the get.
+> > > The device driver declares the functions and/or attributes that it supports,
+> > > and ethtool will show it correctly and enable the user to set those
+> > > combinations.
+> > > If a combination is not supported - the device driver will fail the operation
+> > > and ethtool will print an error message.
+> > >
+> > > Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
+> > > Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> > > ---
+> > > Changes from V1:
+> > > - Fixed some English mistakes
+> > > - Fixed the complicated way to write '= req_hfunc;'...
+> > > - Better support in combination of hash functions/attributes
+> >
+> > Ben Hi,
+> >
+> > Could you take a look at this patch?
+>
+> Didn't we agree that only one hash function should be selected at once?
+> Can you send a new version that implements that?
+Yeh, and actually I did send a V1 according to that approach, but Dave
+Miller has suggested [1] that we might add control attributes in
+combination to the hash function.
 
-This patch fixes incorrect -EINVAL errors due to invalid
-scope and type during mpls route deletes.
+[1] - http://permalink.gmane.org/gmane.linux.network/360812
 
-$ip -f mpls route add 100 as 200 via inet 10.1.1.2 dev swp1
+Amir
 
-$ip -f mpls route show
-100 as to 200 via inet 10.1.1.2 dev swp1
-
-$ip -f mpls route del 100 as 200 via inet 10.1.1.2 dev swp1
-RTNETLINK answers: Invalid argument
-
-$ip -f mpls route del 100
-RTNETLINK answers: Invalid argument
-
-After patch:
-
-$ip -f mpls route show
-100 as to 200 via inet 10.1.1.2 dev swp1
-
-$ip -f mpls route del 100 as 200 via inet 10.1.1.2 dev swp1
-
-$ip -f mpls route show
-
-Reported-by: Vivek Venkataraman <vivek@cumulusnetworks.com>
-Signed-off-by: Vivek Venkataraman <vivek@cumulusnetworks.com>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
-
-v2: split the fix between iproute2 and kernel as suggested by
-	Eric Biederman
-
-v3: fix if condition indent
-
-Roopa Prabhu (2):
-  iproute2: mpls: always set type as RTN_UNICAST for route
-  mpls: fix mpls route deletes to not check for route scope
-
- net/mpls/af_mpls.c |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
--- 
-1.7.10.4
+>
+> Ben.
+>
+> --
+> Ben Hutchings
+> Reality is just a crutch for people who can't handle science fiction.
