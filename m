@@ -1,78 +1,52 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH 2/2] Bluetooth: btusb: Add reset_resume function
-Date: Tue, 2 Jun 2015 03:32:05 +0200
-Message-ID: <C3A9A104-993C-4C8F-A323-93FF58F03162@holtmann.org>
-References: <1433207682-15064-1-git-send-email-labbott@fedoraproject.org> <1433207682-15064-2-git-send-email-labbott@fedoraproject.org>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>, Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>,
-	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Rafael J. Wysocki" <rafael.j.wysocki-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Laura Abbott <labbott-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1433207682-15064-2-git-send-email-labbott-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kvGyRCNUhGIzFRTEAbKEI=?=
+	<hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH] neighbour: Convert if statment in the function, neigh_add_timer
+ to a WARN_ON
+Date: Tue, 02 Jun 2015 11:37:40 +0900
+Message-ID: <556D16F4.3060307@miraclelinux.com>
+References: <1433188983-23207-1-git-send-email-xerofoify@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji@miraclelinux.com, ebiederm@xmission.com,
+	edumazet@google.com, xiyou.wangcong@gmail.com,
+	yoshfuji@linux-ipv6.org, johannes.berg@intel.com,
+	nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Nicholas Krause <xerofoify@gmail.com>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1433188983-23207-1-git-send-email-xerofoify@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Laura,
-
-> Some USB hubs may lose power across suspend/resume.
-> Add a reset_resume callback to properly reset those bluetoot devices.
->=20
-> Signed-off-by: Laura Abbott <labbott-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
+Nicholas Krause wrote:
+> This converts the if statement for dumping the stack into a
+> WARN_ON in order to make this function's debugging check
+> simpler and have a cleaner output when this condition
+> occurs inside this function for when bugs related to
+> adding a duplicate neighbour table timer arise.
+> 
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
 > ---
-> Now the setup function is called again with the HCI_RESET_RESUME
-> flag set. The various functions could then use that RESET_RESUME
-> flag to determine if loading the firmware is appropriate or not.
-> ---
-> drivers/bluetooth/btusb.c | 16 ++++++++++++++++
-> 1 file changed, 16 insertions(+)
->=20
-> diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
-> index 3c10d4d..34884cf 100644
-> --- a/drivers/bluetooth/btusb.c
-> +++ b/drivers/bluetooth/btusb.c
-> @@ -3382,6 +3382,21 @@ done:
->=20
-> 	return err;
-> }
-> +
-> +static int btusb_reset_resume(struct usb_interface *intf)
-> +{
-> +	struct btusb_data *data =3D usb_get_intfdata(intf);
-> +	struct hci_dev *hdev =3D data->hdev;
-> +	int ret;
-> +
-> +	BT_DBG("intf %p", intf);
-> +
-> +	ret =3D btusb_resume(intf);
-> +	if (ret)
-> +		return ret;
-> +
-> +	return hci_reset_resume_dev(hdev);
-> +}
+>  net/core/neighbour.c | 6 +-----
+>  1 file changed, 1 insertion(+), 5 deletions(-)
+> 
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 3de6542..0bf71da 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -165,11 +165,7 @@ static int neigh_forced_gc(struct neigh_table *tbl)
+>  static void neigh_add_timer(struct neighbour *n, unsigned long when)
+>  {
+>  	neigh_hold(n);
+> -	if (unlikely(mod_timer(&n->timer, when))) {
+> -		printk("NEIGH: BUG, double timer add, state is %x\n",
+> -		       n->nud_state);
+> -		dump_stack();
+> -	}
+> +	WARN_ON(unlikely(mod_timer(&n->timer, when)));
+>  }
 
-it seems convenient to call btusb_resume, but I would really prefer if =
-we didn=E2=80=99t. From what I know is that when reset_resume callback =
-is called, then the device has been reset. So that means any prior tran=
-sfer we have remembered is null and void. So even trying to replay any =
-of it is just a lost cause.
+NACK, please do not use WARN_ON for things with side effects.
 
-Instead we should clear any pending transfers and clear everything and =
-instead pretend that we bring the transport back to its virgin state. I=
-t also means that isochronous transfers should be all killed since we w=
-ill have no SCO connections after this. Remember that we are telling th=
-e Bluetooth core to reset this device.
-
-Regards
-
-Marcel
+--yoshfuji
