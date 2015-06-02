@@ -1,65 +1,82 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [net-next RFC 00/14] Convert OVS tunnel vports to use
-	regular net_devices
-Date: Tue, 02 Jun 2015 14:02:28 -0500
-Message-ID: <87a8wiszln.fsf@x220.int.ebiederm.org>
-References: <cover.1433167295.git.tgraf@suug.ch>
+From: David Malcolm <dmalcolm@redhat.com>
+Subject: [PATCH] drivers/net/ethernet/dec/tulip/uli526x.c: fix misleading indentation in uli526x_timer
+Date: Tue,  2 Jun 2015 15:31:17 -0400
+Message-ID: <1433273477-52330-1-git-send-email-dmalcolm@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
- daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- roopa <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
- stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org,
- Robert Shearman <rshearma-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1433167295.git.tgraf-G/eBtMaohhA@public.gmane.org> (Thomas Graf's message of
- "Mon, 1 Jun 2015 16:27:24 +0200")
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Malcolm <dmalcolm@redhat.com>
+To: Grant Grundler <grundler@parisc-linux.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35054 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751195AbbFBTRD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jun 2015 15:17:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhvbWFzIEdyYWYgPHRncmFmQHN1dWcuY2g+IHdyaXRlczoKCj4gVGhpcyBpcyB0aGUgZmlyc3Qg
-c2VyaWVzIGluIGEgZ3JlYXRlciBlZmZvcnQgdG8gYnJpbmcgdGhlIHNjYWxhYmlsaXR5Cj4gYW5k
-IHByb2dyYW1tYWJpbGl0eSBhZHZhbnRhZ2VzIG9mIE9WUyB0byB0aGUgcmVzdCBvZiB0aGUgbmV0
-d29yawo+IHN0YWNrIGFuZCB0byBnZXQgcmlkIG9mIGFzIG11Y2ggT1ZTIHNwZWNpZmljIGNvZGUg
-YXMgcG9zc2libGUuCj4KPiBUaGlzIGZpcnN0IHNlcmllcyBmb2N1c2VzIG9uIGdldHRpbmcgcmlk
-IG9mIE9WUyB0dW5uZWwgdnBvcnRzIGFuZCB1c2UKPiByZWd1bGFyIHR1bm5lbCBuZXRfZGV2aWNl
-cyBpbnN0ZWFkLiBBcyBwYXJ0IG9mIHRoaXMgZWZmb3J0LCB0aGUKPiByb3V0aW5nIHN1YnN5c3Rl
-bSBpcyBleHRlbmRlZCB3aXRoIHN1cHBvcnQgZm9yIGZsb3cgYmFzZWQgdHVubmVsaW5nLgo+IElu
-IHRoaXMgbmV3IHR1bm5lbGluZyBtb2RlLCB0aGUgcm91dGUgaXMgYWJsZSB0byBtYXRjaCBvbiB0
-dW5uZWwKPiBpbmZvcm1hdGlvbiBhcyB3ZWxsIGFzIHNldCB0dW5uZWwgZW5jYXBzdWxhdGlvbiBw
-YXJhbWV0ZXJzIHBlciByb3V0ZS4KPiBUaGlzIGFsbG93cyB0byBwZXJmb3JtIEwzIGZvcndhcmRp
-bmcgZm9yIGEgbGFyZ2UgbnVtYmVyIG9mIHR1bm5lbAo+IGVuZHBvaW50cyBhbmQgdmlydHVhbCBu
-ZXR3b3JrcyB1c2luZyBhIHNpbmdsZSB0dW5uZWwgbmV0X2RldmljZS4KClRoaXMgaXMgYSBkaWZm
-ZXJlbnQgZGlyZWN0aW9uIHRoYW4gSSB3YXMgaW1hZ2luaW5nIHRoaW5ncyBldm9sdmluZyB3aGVu
-Ckkgd2FzIGxvb2tpbmcgYXQgbXBscy4gIEhvd2V2ZXIgdGhlcmUgaXMgYSBsb3Qgb2Ygb3Zlcmxh
-cC4KCkkgZ2V0IHRoZSBpbXBlcmVzc2lvbiB0aGVyZSBhcmUgdHdvIGRpcmVjdGlvbnMgeW91IGFy
-ZSBsb29raW5nIGF0OgotIEFsbG93aW5nIG1vcmUgY29uZmlndXJhYmxlIGtlZXBzIGluIHJvdXRl
-IGJhc2VkIGxvb2t1cC4KLSBSZWR1Y2luZyB0aGUgY29zdHMgb2YgdGhlIHR1bm5lbHMuCgpXZSBh
-bHJlYWR5IGhhdmUgYSBzaW1pbGFyIHN1YnN5c3RlbSB4ZnJtLgoKSWYgd2UgYXJlIGdvaW5nIHRv
-IHVzZSBtb3JlIGZsZXhpYmxlIGtleXMgd2hlbiBsb29rdXAgdXAgcm91dGVzLCBpZiBpdAppcyBy
-ZWFzb25hYmx5IHBvc3NpYmxlICh3aGlsZSBtYWludGFpbmluZyBwZXJmb3JtYW5jZSkgSSBzdWdn
-ZXN0IHdlIHVzZQp0aGUgeGZybSBkYXRhIHN0cnVjdHVyZSBvciBtb3JlIGxpa2VseSByZXdvcmsg
-eGZybSBvbiB0b3Agb2YgdGhlIG5ldwpkYXRhIHN0cnVjdHVyZXMuICBUaGF0IHdheSB0aGVyZSBp
-cyBsZXNzIGNvZGUgdG8gbWFpbnRhaW4gb3ZlcmFsbC4KCkNlcnRhaW5seSBhbnkgd29yayB0aGF0
-IHBsYXlzIHdpdGggdHVubmVscyBhIG5ldyB3YXkgdG8gZG8gdHVubmVscyBpbgp0aGUga2VybmVs
-IG5lZWRzIHRvIGFuc3dlciB0aGUgcXVlc3Rpb24uICBXaHkgbm90IHhmcm0uICBBcyB4ZnJtIGFs
-cmVhZHkKZXhpc3RzIHRvIGRvIGV4YWN0bHkgdGhhdCBqb2IuCgpJIHRoaW5rIGEgY2x1bXN5IGFw
-aSBhbmQgZXhjZXNzIGZsZXhpYmlsaXR5IHN0YXJ0IHRvIGJlIGFuIGFuc3dlciBmb3IKbXBscyBp
-bmdyZXNzLiAgSnVzdCB1c2luZyB0aGUgZXhpc3Rpbmcgcm91dGluZyB0YWJsZSBjYW4gcmVzdWx0
-IGluCmNsZWFuZXIgZmFzdGVyIGNvZGUgd2l0aCBhIGJldHRlciB1c2Vyc3BhY2UgQVBJLiAgQnV0
-IEkgc3RpbGwgdGhpbmsgdGhlCm1wbHMgY2FzZSB3aGVyZSB3ZSBhdHRhY2ggbGFiZWxzIG5lZWRz
-IHRvIGFuc3dlciB0aGF0IGNhc2UuCgpJZiB5b3UgYXJlIHVzaW5nIGZsb3cgYmFzZWQgZmxleGli
-aWxpdHkgZnJvbSBvcGVudnN3aXRjaCBJIHRoaW5rIHdoeSBub3QKdXNlIHhmcm0gYmVjb21lcyBh
-IG1vcmUgY2hhbGxlbmdlIHF1ZXN0aW9uIHRvIGFuc3dlci4KCkVyaWMKX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3Bl
-bnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+This code in drivers/net/ethernet/dec/tulip/uli526x.c
+function "uli526x_timer":
+
+  1086          } else
+  1087                  if ((tmp_cr12 & 0x3) && db->link_failed) {
+  [...snip...]
+  1109                  }
+  1110                  else if(!(tmp_cr12 & 0x3) && db->link_failed)
+  1111                  {
+  [...snip...]
+  1117                  }
+  1118                  db->init=3D0;
+
+is misleadingly indented: the
+  db->init=3D0
+is indented as if part of the else clause at line 1086, but it is
+independent of it (no braces before the "if" at line 1087).
+
+This patch fixes the indentation to reflect the actual meaning of the c=
+ode,
+though is it actually meant to be part of the "else" clause?  (I'm a
+compiler developer, not a kernel person).  It also adds spaces around
+the assignment, to placate checkpatch.pl.
+
+Seen via an experimental new gcc warning I'm working on for gcc 6,
+-Wmisleading-indentation, using gcc r223098 adding
+-Werror=3Dmisleading-indentation to KBUILD_CFLAGS in Makefile.
+The experimental GCC emits this warning (as an error), rightly IMHO:
+
+drivers/net/ethernet/dec/tulip/uli526x.c: In function =E2=80=98uli526x_=
+timer=E2=80=99:
+drivers/net/ethernet/dec/tulip/uli526x.c:1118:3: error: statement is
+indented as if it were guarded by... [-Werror=3Dmisleading-indentation]
+   db->init=3D0;
+    ^
+drivers/net/ethernet/dec/tulip/uli526x.c:1086:4: note: ...this =E2=80=98=
+else=E2=80=99
+clause, but it is not
+  } else
+     ^
+
+Hope this is helpful
+Dave
+
+Signed-off-by: David Malcolm <dmalcolm@redhat.com>
+---
+ drivers/net/ethernet/dec/tulip/uli526x.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/dec/tulip/uli526x.c b/drivers/net/eth=
+ernet/dec/tulip/uli526x.c
+index 2c30c0c..447d092 100644
+--- a/drivers/net/ethernet/dec/tulip/uli526x.c
++++ b/drivers/net/ethernet/dec/tulip/uli526x.c
+@@ -1115,7 +1115,7 @@ static void uli526x_timer(unsigned long data)
+ 				netif_carrier_off(dev);
+ 			}
+ 		}
+-		db->init=3D0;
++	db->init =3D 0;
+=20
+ 	/* Timer active again */
+ 	db->timer.expires =3D ULI526X_TIMER_WUT;
+--=20
+1.8.5.3
