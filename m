@@ -1,8 +1,8 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next v3 13/15] sfc: do not allow VFs to be destroyed if
- assigned to guests
-Date: Tue, 2 Jun 2015 11:40:31 +0100
-Message-ID: <556D881F.1020300@solarflare.com>
+Subject: [PATCH net-next v3 14/15] sfc: force removal of VF and vport on driver
+ removal
+Date: Tue, 2 Jun 2015 11:40:46 +0100
+Message-ID: <556D882E.6000603@solarflare.com>
 References: <556D8710.6060706@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -10,38 +10,68 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:7136 "EHLO
-	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757279AbbFBKkk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 06:40:40 -0400
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:24858 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757279AbbFBKk4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 06:40:56 -0400
 In-Reply-To: <556D8710.6060706@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Daniel Pieczko <dpieczko@solarflare.com>
 
+When the driver unloads, force the unbind and removal of any
+VFs in the host with the PF.  The PF cannot remove vports and
+vswitches if they are still being used by a VF driver, and when
+unloading the sfc driver the removal order is not guaranteed,
+so the instruction from the PF to the VF to unbind enforces a
+suitable ordering so that vswitches and vports can be removed.
+
+As a result of this, manually unbinding the driver from a single
+PF will result in all of its VFs in the host also being removed.
+
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
  drivers/net/ethernet/sfc/ef10_sriov.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/ethernet/sfc/efx.c        | 3 ++-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10_sriov.c b/drivers/net/ethernet/sfc/ef10_sriov.c
-index cd52454..083c534 100644
+index 083c534..41ab18d 100644
 --- a/drivers/net/ethernet/sfc/ef10_sriov.c
 +++ b/drivers/net/ethernet/sfc/ef10_sriov.c
-@@ -417,6 +417,15 @@ static int efx_ef10_pci_sriov_disable(struct efx_nic *efx)
+@@ -448,11 +448,20 @@ int efx_ef10_sriov_init(struct efx_nic *efx)
+ void efx_ef10_sriov_fini(struct efx_nic *efx)
  {
- 	struct pci_dev *dev = efx->pci_dev;
+ 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
++	unsigned int i;
+ 	int rc;
  
-+	if (!efx->vf_count)
-+		return 0;
+ 	if (!nic_data->vf)
+ 		return;
+ 
++	/* Remove any VFs in the host */
++	for (i = 0; i < efx->vf_count; ++i) {
++		struct efx_nic *vf_efx = nic_data->vf[i].efx;
 +
-+	if (pci_vfs_assigned(dev)) {
-+		netif_err(efx, drv, efx->net_dev, "VFs are assigned to guests; "
-+			  "please detach them before disabling SR-IOV\n");
-+		return -EBUSY;
++		if (vf_efx)
++			vf_efx->pci_dev->driver->remove(vf_efx->pci_dev);
 +	}
 +
- 	pci_disable_sriov(dev);
- 	efx_ef10_sriov_free_vf_vswitching(efx);
- 	efx->vf_count = 0;
+ 	rc = efx_ef10_pci_sriov_disable(efx);
+ 	if (rc)
+ 		netif_dbg(efx, drv, efx->net_dev,
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index de16cec..62b2139 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -2902,7 +2902,8 @@ static void efx_pci_remove_main(struct efx_nic *efx)
+ }
+ 
+ /* Final NIC shutdown
+- * This is called only at module unload (or hotplug removal).
++ * This is called only at module unload (or hotplug removal).  A PF can call
++ * this on its VFs to ensure they are unbound first.
+  */
+ static void efx_pci_remove(struct pci_dev *pci_dev)
+ {
