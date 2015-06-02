@@ -1,8 +1,8 @@
 From: Laura Abbott <labbott-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
-Subject: [PATCH 1/2] Bluetooth: Add reset_resume function
-Date: Mon,  1 Jun 2015 18:14:41 -0700
-Message-ID: <1433207682-15064-1-git-send-email-labbott@fedoraproject.org>
-References: <DF182762-5B64-4B76-8D3E-AF3728102881@holtmann.org>
+Subject: [PATCH 2/2] Bluetooth: btusb: Add reset_resume function
+Date: Mon,  1 Jun 2015 18:14:42 -0700
+Message-ID: <1433207682-15064-2-git-send-email-labbott@fedoraproject.org>
+References: <1433207682-15064-1-git-send-email-labbott@fedoraproject.org>
 Cc: Laura Abbott <labbott-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>,
 	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
 	Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>, Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>,
@@ -16,92 +16,63 @@ Cc: Laura Abbott <labbott-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>,
 	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1433207682-15064-1-git-send-email-labbott-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
 In-Reply-To: <DF182762-5B64-4B76-8D3E-AF3728102881-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Bluetooth devices off of some buses such as USB may lose power across
-suspend/resume. When this happens, drivers may need to have the setup
-function called again and behave differently than a cold power on.
-Add a reset_resume function for drivers to call. During the
-reset_resume case, the flag HCI_RESET_RESUME will be set to allow
-drivers to differentate.
+
+Some USB hubs may lose power across suspend/resume.
+Add a reset_resume callback to properly reset those bluetoot devices.
 
 Signed-off-by: Laura Abbott <labbott-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
 ---
-This matches with what hci_reset_dev does and also ensures
-the setup function gets called again.
+Now the setup function is called again with the HCI_RESET_RESUME
+flag set. The various functions could then use that RESET_RESUME
+flag to determine if loading the firmware is appropriate or not.
 ---
- include/net/bluetooth/hci.h      |  1 +
- include/net/bluetooth/hci_core.h |  1 +
- net/bluetooth/hci_core.c         | 16 ++++++++++++++++
- 3 files changed, 18 insertions(+)
+ drivers/bluetooth/btusb.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-diff --git a/include/net/bluetooth/hci.h b/include/net/bluetooth/hci.h
-index d95da83..6285410 100644
---- a/include/net/bluetooth/hci.h
-+++ b/include/net/bluetooth/hci.h
-@@ -185,6 +185,7 @@ enum {
- 	HCI_RAW,
+diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
+index 3c10d4d..34884cf 100644
+--- a/drivers/bluetooth/btusb.c
++++ b/drivers/bluetooth/btusb.c
+@@ -3382,6 +3382,21 @@ done:
  
- 	HCI_RESET,
-+	HCI_RESET_RESUME,
- };
- 
- /* HCI socket flags */
-diff --git a/include/net/bluetooth/hci_core.h b/include/net/bluetooth/hci_core.h
-index a056c2b..14f9c72 100644
---- a/include/net/bluetooth/hci_core.h
-+++ b/include/net/bluetooth/hci_core.h
-@@ -941,6 +941,7 @@ int hci_register_dev(struct hci_dev *hdev);
- void hci_unregister_dev(struct hci_dev *hdev);
- int hci_suspend_dev(struct hci_dev *hdev);
- int hci_resume_dev(struct hci_dev *hdev);
-+int hci_reset_resume_dev(struct hci_dev *hdev);
- int hci_reset_dev(struct hci_dev *hdev);
- int hci_dev_open(__u16 dev);
- int hci_dev_close(__u16 dev);
-diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-index c4802f3..090762b 100644
---- a/net/bluetooth/hci_core.c
-+++ b/net/bluetooth/hci_core.c
-@@ -1558,6 +1558,7 @@ static int hci_dev_do_close(struct hci_dev *hdev)
- 	BT_DBG("%s %p", hdev->name, hdev);
- 
- 	if (!hci_dev_test_flag(hdev, HCI_UNREGISTER) &&
-+	    !test_bit(HCI_RESET_RESUME, &hdev->flags) &&
- 	    test_bit(HCI_UP, &hdev->flags)) {
- 		/* Execute vendor specific shutdown routine */
- 		if (hdev->shutdown)
-@@ -2110,6 +2111,7 @@ static void hci_power_on(struct work_struct *work)
- 		 */
- 		mgmt_index_added(hdev);
- 	}
-+	hci_dev_test_and_clear_flag(hdev, HCI_RESET_RESUME);
+ 	return err;
  }
- 
- static void hci_power_off(struct work_struct *work)
-@@ -3298,6 +3300,20 @@ int hci_reset_dev(struct hci_dev *hdev)
- }
- EXPORT_SYMBOL(hci_reset_dev);
- 
-+/*
-+ * For USB reset_resume callbacks
-+ */
-+int hci_reset_resume_dev(struct hci_dev *hdev)
++
++static int btusb_reset_resume(struct usb_interface *intf)
 +{
-+	set_bit(HCI_RESET_RESUME, &hdev->flags);
-+	hci_dev_do_close(hdev);
-+	hci_dev_set_flag(hdev, HCI_SETUP);
++	struct btusb_data *data = usb_get_intfdata(intf);
++	struct hci_dev *hdev = data->hdev;
++	int ret;
 +
-+	queue_work(hdev->req_workqueue, &hdev->power_on);
-+	return 0;
++	BT_DBG("intf %p", intf);
++
++	ret = btusb_resume(intf);
++	if (ret)
++		return ret;
++
++	return hci_reset_resume_dev(hdev);
 +}
-+EXPORT_SYMBOL(hci_reset_resume_dev);
-+
- /* Receive frame from HCI drivers */
- int hci_recv_frame(struct hci_dev *hdev, struct sk_buff *skb)
- {
+ #endif
+ 
+ static struct usb_driver btusb_driver = {
+@@ -3391,6 +3406,7 @@ static struct usb_driver btusb_driver = {
+ #ifdef CONFIG_PM
+ 	.suspend	= btusb_suspend,
+ 	.resume		= btusb_resume,
++	.reset_resume	= btusb_reset_resume,
+ #endif
+ 	.id_table	= btusb_table,
+ 	.supports_autosuspend = 1,
 -- 
 2.4.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
