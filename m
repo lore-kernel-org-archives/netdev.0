@@ -1,28 +1,43 @@
-From: Flavio Leitner <fbl@sysclose.org>
-Subject: Re: [ovs-dev] [net-next RFC 00/14] Convert OVS tunnel vports to use
- regular net_devices
-Date: Tue, 2 Jun 2015 14:52:40 -0300
-Message-ID: <20150602175240.GH2688@x240.home>
-References: <cover.1433167295.git.tgraf@suug.ch>
+From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
+Subject: [PATCH 00/10] net: thunderx: fix problems reported by static check tools
+Date: Tue, 2 Jun 2015 11:00:17 -0700
+Message-ID: <1433268028-23992-1-git-send-email-aleksey.makarov@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	marcelo.leitner@gmail.com, jiri@resnulli.us, daniel@iogearbox.net,
-	tom@herbertland.com, edumazet@google.com, kaber@trash.net,
-	stephen@networkplumber.org, hannes@stressinduktion.org,
-	davem@davemloft.net
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sender1.zohomail.com ([74.201.84.157]:24947 "EHLO
-	sender163-mail.zoho.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753623AbbFBRxH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 13:53:07 -0400
-Content-Disposition: inline
-In-Reply-To: <cover.1433167295.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	David Daney <david.daney@cavium.com>,
+	Robert Richter <robert.richter@caviumnetworks.com>,
+	Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+These are fixes for the problems that were reported by static check tools.
 
-It seems patch 01 didn't make it to ovs dev mailing list,
-but it is available on netdev mailing list.
-fbl
+Aleksey Makarov (9):
+  net: thunderx: fix constants
+  net: thunderx: introduce a function for mailbox access
+  net: thunderx: rework mac address handling
+  net: thunderx: delete unused variables
+  net: thunderx: add static
+  net: thunderx: fix nicvf_set_rxfh()
+  net: thunderx: remove unneeded type conversions
+  net: thunderx: check if memory allocation was successful
+  net: thunderx: use GFP_KERNEL in thread context
+
+Robert Richter (1):
+  net: thunderx: Cleanup duplicate NODE_ID macros, add nic_get_node_id()
+
+ drivers/net/ethernet/cavium/thunder/nic.h          | 16 +++--
+ drivers/net/ethernet/cavium/thunder/nic_main.c     | 12 +---
+ .../net/ethernet/cavium/thunder/nicvf_ethtool.c    |  3 +-
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 73 +++++++++++-----------
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |  9 +--
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c  | 18 +++---
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.h  |  7 +--
+ 7 files changed, 67 insertions(+), 71 deletions(-)
+
+-- 
+2.4.1
