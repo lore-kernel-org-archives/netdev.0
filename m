@@ -1,49 +1,55 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH v4 00/25] Convert the posix_clock_operations and
- k_clock structure to ready for 2038
-Date: Tue, 2 Jun 2015 21:20:45 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1506022115240.20347@nanos>
-References: <1433159093-4548-1-git-send-email-baolin.wang@linaro.org>
+From: Andy Lutomirski <luto@kernel.org>
+Subject: How do I avoid recvmsg races with IP_RECVERR?
+Date: Tue, 2 Jun 2015 12:40:33 -0700
+Message-ID: <CALCETrW-jkMrEjidwCTraeAaHCHA_+9eExQAz2phvn=OB8RMhQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: pang.xunlei@linaro.org, peterz@infradead.org, benh@kernel.crashing.org,
- heiko.carstens@de.ibm.com, paulus@samba.org, jeffv@google.com, cl@linux.com,
- mark.d.rustad@intel.com, heenasirwani@gmail.com, linux-arch@vger.kernel.org,
- linux-s390@vger.kernel.org, y2038@lists.linaro.org, mpe@ellerman.id.au,
- rafael.j.wysocki@intel.com, ahh@google.com, tiwai@suse.de,
- jlayton@primarydata.com, fweisbec@gmail.com, pjt@google.com, serge@hallyn.com,
- serge.hallyn@canonical.com, riel@redhat.com, keescook@chromium.org,
- arnd@arndb.de, richardcochran@gmail.com, schwidefsky@de.ibm.com,
- john.stultz@linaro.org, james.l.morris@oracle.com, rth@twiddle.net,
- sds@tycho.nsa.gov, gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
- pmoore@redhat.com, linux-security-module@vger.kernel.org,
- netdev@vger.kernel.org, tj@kernel.org, linux390@de.ibm.com,
- linuxppc-dev@lists.ozlabs.org
-To: Baolin Wang <baolin.wang@linaro.org>
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <1433159093-4548-1-git-send-email-baolin.wang@linaro.org>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: Network Development <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:54793 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751265AbbFBTk5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jun 2015 15:40:57 -0400
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id D0D6E204B5
+	for <netdev@vger.kernel.org>; Tue,  2 Jun 2015 19:40:56 +0000 (UTC)
+Received: from mail-la0-f46.google.com (mail-la0-f46.google.com [209.85.215.46])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id D988320412
+	for <netdev@vger.kernel.org>; Tue,  2 Jun 2015 19:40:55 +0000 (UTC)
+Received: by labpy14 with SMTP id py14so121968370lab.0
+        for <netdev@vger.kernel.org>; Tue, 02 Jun 2015 12:40:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCAxIEp1biAyMDE1LCBCYW9saW4gV2FuZyB3cm90ZToKCj4gVGhpcyBwYXRjaCBzZXJp
-ZXMgY2hhbmdlcyB0aGUgMzItYml0IHRpbWUgdHlwZXMgKHRpbWVzcGVjL2l0aW1lcnNwZWMpIHRv
-Cj4gdGhlIDY0LWJpdCB0eXBlcyAodGltZXNwZWM2NC9pdGltZXJzcGVjNjQpLCBzaW5jZSAzMi1i
-aXQgdGltZSB0eXBlcyB3aWxsCj4gYnJlYWsgaW4gdGhlIHllYXIgMjAzOC4KClRoYXQncyBvbmx5
-IHRydWUgZm9yIDMyYml0IHN5c3RlbXMuCgpBbGwgaW4gYWxsIHRoZSBwYXRjaCBzZXJpZXMgbG9v
-a3MgcmF0aGVyIHJlYXNvbmFibGUgbm93LCBleGNlcHQgZm9yCnRoZSBzdWJqZWN0IGxpbmVzIGFu
-ZCB0aGUgY2hhbmdlbG9ncy4KClRoZSBvbmx5IHRlY2huaWNhbCBvYmplY3Rpb24gSSBoYXZlIGlz
-IHRoZSBtYWNybyBjb252ZXJzaW9uIG1hZ2ljIGluCnBhdGNoICM2LiBUaGlzIGNhbiBiZSBkb25l
-IGluIGEgbGVzcyBjcnlwdGljIGFuZCBtb3JlIGVmZmljaWVudCB3YXkuCgpTZWUgdGhlIGNvbW1l
-bnRzIHRvIHRoZSB2YXJpb3VzIHBhdGNoZXMgYW5kIHBsZWFzZSBhcHBseSB0aGVtIHRvIGFsbApv
-ZiB0aGUgc2VyaWVzLgoKVGhhbmtzLAoKCXRnbHgKCgpfX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fXwpZMjAzOCBtYWlsaW5nIGxpc3QKWTIwMzhAbGlzdHMubGlu
-YXJvLm9yZwpodHRwczovL2xpc3RzLmxpbmFyby5vcmcvbWFpbG1hbi9saXN0aW5mby95MjAzOAo=
+As far as I can tell, enabling IP_RECVERR causes the presence of a
+queued error to cause recvmsg, etc to return an error (once).  It's
+worse, though: a new error can be queued asynchronously at any time,
+this setting sk_err to a nonzero value.  How do I sensibly distinguish
+recvmsg failures to to genuine errors receiving messages from recvmsg
+failures because there's a queued error?
+
+The only way I can see to get reliable error handling is to literally
+call recvmsg in a loop:
+
+while (true /* or while POLLIN is set */) {
+  int ret = recvmsg(..., MSG_ERRQUEUE not set);
+  if (ret < 0 && /* what goes here? */) {
+    whoops!  this might be a harmless asynchronous error!
+    take no action!
+  }
+
+  /* if POLLERR (or maybe unconditionally), recvmsg(..., MSG_ERRQUEUE);
+}
+
+The problem is that, if I'm screwing something up (thus causing EINVAL
+or something similar), this will just spin forever.
+
+Am I missing something here?  Would it make sense to add
+MSG_IGNORE_ERROR to suppress the sock_error check or IP_RECVERR=2 to
+stop setting sk_err?
+
+
+Thanks,
+Andy
