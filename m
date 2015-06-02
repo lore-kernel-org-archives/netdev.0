@@ -1,76 +1,72 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCHv2 net-next 2/3] cxgb4: Adds support for T6 adapter
-Date: Mon, 01 Jun 2015 20:43:37 -0700
-Message-ID: <1433216617.4861.60.camel@perches.com>
-References: <1433233780-17734-1-git-send-email-hariprasad@chelsio.com>
-	 <1433233780-17734-3-git-send-email-hariprasad@chelsio.com>
+From: Junling Zheng <zhengjunling@huawei.com>
+Subject: Re: [RFC] [PATCH] net: socket: Fix the wrong returns for recvmsg
+ and sendmsg
+Date: Tue, 2 Jun 2015 12:05:32 +0800
+Message-ID: <556D2B8C.9010108@huawei.com>
+References: <1433150880-9976-1-git-send-email-zhengjunling@huawei.com> <20150602012154.GB23370@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, leedom@chelsio.com,
-	nirranjan@chelsio.com
-To: Hariprasad Shenai <hariprasad@chelsio.com>
+Cc: <lizefan@huawei.com>, <viro@zeniv.linux.org.uk>,
+	<davem@davemloft.net>, <xuhanbing@huawei.com>,
+	<stable@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Greg KH <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0169.hostedemail.com ([216.40.44.169]:37359 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755053AbbFBDnl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2015 23:43:41 -0400
-In-Reply-To: <1433233780-17734-3-git-send-email-hariprasad@chelsio.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:13643 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751234AbbFBEKt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 00:10:49 -0400
+In-Reply-To: <20150602012154.GB23370@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-06-02 at 13:59 +0530, Hariprasad Shenai wrote:
-> Adds NIC driver related changes for T6 adapter. Register related
-> changes, MC related changes, VF related changes, doorbell related
-> changes, debugfs changes, etc
+On 2015/6/2 9:21, Greg KH wrote:
+> On Mon, Jun 01, 2015 at 09:28:00AM +0000, Junling Zheng wrote:
+>> Hi, Greg:
+>>
+>> We found that after v3.10.73, recvmsg might return -EFAULT while -EINVAL
+>> was expected.
+> 
+> That means I messed up and applied something I shouldn't have, right?
+> 
+> Can you use 'git bisect' to find the problem patch?  That's probably
+> easier here, and then I can either revert it, or fix up a broken
+> backport.
+> 
 
-trivial notes:
+The following is the log of 'git bisect' between v3.10.72 and v3.10.73:
 
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-[]
-> @@ -1084,41 +1084,89 @@ static inline void tcamxy2valmask(u64 x, u64 y, u8 *addr, u64 *mask)
->  
->  static int mps_tcam_show(struct seq_file *seq, void *v)
->  {
-> -	if (v == SEQ_START_TOKEN)
-> -		seq_puts(seq, "Idx  Ethernet address     Mask     Vld Ports PF"
-> -			 "  VF              Replication             "
-> -			 "P0 P1 P2 P3  ML\n");
-> -	else {
-> +	struct adapter *adap = seq->private;
-> +	unsigned int chip_ver = CHELSIO_CHIP_VERSION(adap->params.chip);
-> +
-> +	if (v == SEQ_START_TOKEN) {
-> +		if (adap->params.arch.mps_rplc_size > 128)
-> +			seq_puts(seq, "Idx  Ethernet address     Mask     "
-> +				 "Vld Ports PF  VF                           "
-> +				 "Replication                                "
-> +				 "    P0 P1 P2 P3  ML\n");
-> +		else
-> +			seq_puts(seq, "Idx  Ethernet address     Mask     "
-> +				 "Vld Ports PF  VF              Replication"
-> +				 "	         P0 P1 P2 P3  ML\n");
+z00238152@Patch-Test:linux-3.10>0$ git bisect log
+git bisect start
+# good: [7f4e64246049cef5ae1eca37eec1701a9477799e] Linux 3.10.72
+git bisect good 7f4e64246049cef5ae1eca37eec1701a9477799e
+# bad: [73895725a9401bd3454757fcfa7d691270ac7498] Linux 3.10.73
+git bisect bad 73895725a9401bd3454757fcfa7d691270ac7498
+# bad: [d8bee0e3abef10e73a003fdc7ec04ba313334007] workqueue: fix hang involving racing cancel[_delayed]_work_sync()'s for PREEMPT_NONE
+git bisect bad d8bee0e3abef10e73a003fdc7ec04ba313334007
+# bad: [281c9c3601b69f1fbc492beb5976e1e2685854de] net: compat: Update get_compat_msghdr() to match copy_msghdr_from_user() behaviour
+git bisect bad 281c9c3601b69f1fbc492beb5976e1e2685854de
+# good: [e2f572a9be3f00bcf470a918d9e53353bea9ef4c] net: sysctl_net_core: check SNDBUF and RCVBUF for min length
+git bisect good e2f572a9be3f00bcf470a918d9e53353bea9ef4c
+# good: [c77b9a724d8597e1151b1fcf013560188088dc8c] caif: fix MSG_OOB test in caif_seqpkt_recvmsg()
+git bisect good c77b9a724d8597e1151b1fcf013560188088dc8c
+# good: [742c1c523e50723c7b7ff0af228c6711f7d747dd] Revert "net: cx82310_eth: use common match macro"
+git bisect good 742c1c523e50723c7b7ff0af228c6711f7d747dd
+# good: [175ff19c37149c352e3b983a8d78add034aef36f] tcp: fix tcp fin memory accounting
+git bisect good 175ff19c37149c352e3b983a8d78add034aef36f
+# first bad commit: [281c9c3601b69f1fbc492beb5976e1e2685854de] net: compat: Update get_compat_msghdr() to match copy_msghdr_from_user() behaviour
+z00238152@Patch-Test:linux-3.10>0$
 
-Might as well add
-	return 0;
-here and unindent the block below:
+So, the problem commit is 281c9c36 (net: compat: Update get_compat_msghdr() to match copy_msghdr_from_user() behaviour), which fixes db31c55a6fb2
+and brings the get_compat_msghdr() in line with copy_msghdr_from_user().
 
-> +	} else {
->  		u64 mask;
->  		u8 addr[ETH_ALEN];
-[]
-> +		if (chip_ver > CHELSIO_T5)
-> +			seq_printf(seq, "%3u %02x:%02x:%02x:%02x:%02x:%02x "
-> +				   "%012llx%3c   %#x%4u%4d",
-> +				   idx, addr[0], addr[1], addr[2], addr[3],
+Cheers,
 
-could use %pM and addr
+Junling
 
-[]
-
-> +			seq_printf(seq, "%3u %02x:%02x:%02x:%02x:%02x:%02x "
-> +				   "%012llx%3c   %#x%4u%4d",
-> +				   idx, addr[0], addr[1], addr[2], addr[3],
-> +				   addr[4], addr[5], (unsigned long long)mask,
-
-here too
+> thanks,
+> 
+> greg k-h
+> 
+> .
+> 
