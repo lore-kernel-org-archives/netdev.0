@@ -1,119 +1,122 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net-next] bpf: introduce bpf_clone_redirect() helper
-Date: Tue,  2 Jun 2015 16:03:14 -0700
-Message-ID: <1433286194-5246-1-git-send-email-ast@plumgrid.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC net-next 0/3] IP imposition of per-nh MPLS encap
+Date: Tue, 02 Jun 2015 17:58:22 -0500
+Message-ID: <87a8whhg4x.fsf@x220.int.ebiederm.org>
+References: <1433177175-16775-1-git-send-email-rshearma@brocade.com>
+	<87h9qqx9n5.fsf@x220.int.ebiederm.org> <556E18BE.8060505@brocade.com>
+	<87d21dolyt.fsf@x220.int.ebiederm.org> <556E2B0B.4040100@brocade.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, roopa <roopa@cumulusnetworks.com>,
+	Thomas Graf <tgraf@suug.ch>
+To: Robert Shearman <rshearma@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f180.google.com ([209.85.220.180]:35379 "EHLO
-	mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751443AbbFBXDW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 19:03:22 -0400
-Received: by qkhq76 with SMTP id q76so81502647qkh.2
-        for <netdev@vger.kernel.org>; Tue, 02 Jun 2015 16:03:21 -0700 (PDT)
+Received: from out03.mta.xmission.com ([166.70.13.233]:57363 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751826AbbFBXD0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 19:03:26 -0400
+In-Reply-To: <556E2B0B.4040100@brocade.com> (Robert Shearman's message of
+	"Tue, 2 Jun 2015 23:15:39 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow eBPF programs attached to classifier/actions to call
-bpf_clone_redirect(skb, ifindex, flags) helper which will
-mirror or redirect the packet by dynamic ifindex selection
-from within the program to a target device either at ingress
-or at egress. Can be used for various scenarios, for example,
-to load balance skbs into veths, split parts of the traffic
-to local taps, etc.
+Robert Shearman <rshearma@brocade.com> writes:
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
- include/uapi/linux/bpf.h |   10 ++++++++++
- net/core/filter.c        |   40 ++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 50 insertions(+)
+> On 02/06/15 22:10, Eric W. Biederman wrote:
+>> Robert Shearman <rshearma@brocade.com> writes:
+>>
+>>> On 02/06/15 19:11, Eric W. Biederman wrote:
+>>>> Robert Shearman <rshearma@brocade.com> writes:
+>>>>
+>>>>> In order to be able to function as a Label Edge Router in an MPLS
+>>>>> network, it is necessary to be able to take IP packets and impose an
+>>>>> MPLS encap and forward them out. The traditional approach of setting
+>>>>> up an interface for each "tunnel" endpoint doesn't scale for the
+>>>>> common MPLS use-cases where each IP route tends to be assigned a
+>>>>> different label as encap.
+>>>>>
+>>>>> The solution suggested here for further discussion is to provide the
+>>>>> facility to define encap data on a per-nexthop basis using a new
+>>>>> netlink attribue, RTA_ENCAP, which would be opaque to the IPv4/IPv6
+>>>>> forwarding code, but interpreted by the virtual interface assigned to
+>>>>> the nexthop.
+>>>>>
+>>>>> A new ipmpls interface type is defined to show the use of this
+>>>>> facility to allow IP packets to be imposed with an MPLS
+>>>>> encap. However, the facility is designed to be general enough to be
+>>>>> used by any encapsulation/tunneling mechanism that has similar
+>>>>> requirements of high-scale, high-variation-of-encap.
+>>>>
+>>>> I am still digging into the details but adding a new network device to
+>>>> make this possible if very undesirable.
+>>>>
+>>>> It is a pain point.  Those network devices get to be a major source of
+>>>> memory consumption when there are 4K network namespaces in existence.
+>>>>
+>>>> It is conceptually wrong.  The network device will never be used as an
+>>>> ordinary network device.  All the network device gives you is the
+>>>> ability to avoid creating an enumeration of different kinds of
+>>>> encapsulation.
+>>>
+>>> This isn't true. The network device also gives some of the things you
+>>> take for granted. Things like fragmentation through specifying the mtu
+>>> on the shared tunnel device, being able to specify rules using the
+>>> shared tunnel output device, IP stats, and the ability specify a
+>>> different destination namespace.
+>>
+>> Granted you get a few more things.  It is still conceptually wrong as
+>> the network device will netver be used as an ordinary network device.
+>>
+>> Fragmentation is already silly because we are talking about multiple
+>> tunnels with different properties.  You need per-route mtu to handle
+>> that case.
+>
+> It's unlikely you'll have a huge variation in the mtus across routes,
+> unless you're running in an ISP environment. In the example uses we've
+> got in hand, it's highly likely they'll only be a handful of different
+> mtus, if that.
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 72f3080afa1e..42aa19abab86 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -220,6 +220,16 @@ enum bpf_func_id {
- 	 * Return: 0 on success
- 	 */
- 	BPF_FUNC_tail_call,
-+
-+	/**
-+	 * bpf_clone_redirect(skb, ifindex, flags) - redirect to another netdev
-+	 * @skb: pointer to skb
-+	 * @ifindex: ifindex of the net device
-+	 * @flags: bit 0 - if set, redirect to ingress instead of egress
-+	 *         other bits - reserved
-+	 * Return: 0 on success
-+	 */
-+	BPF_FUNC_clone_redirect,
- 	__BPF_FUNC_MAX_ID,
- };
- 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index b78a010a957f..64c121c09655 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -46,6 +46,7 @@
- #include <linux/seccomp.h>
- #include <linux/if_vlan.h>
- #include <linux/bpf.h>
-+#include <net/sch_generic.h>
- 
- /**
-  *	sk_filter - run a packet through a socket filter
-@@ -1407,6 +1408,43 @@ const struct bpf_func_proto bpf_l4_csum_replace_proto = {
- 	.arg5_type	= ARG_ANYTHING,
- };
- 
-+#define BPF_IS_REDIRECT_INGRESS(flags)	((flags) & 1)
-+
-+static u64 bpf_clone_redirect(u64 r1, u64 ifindex, u64 flags, u64 r4, u64 r5)
-+{
-+	struct sk_buff *skb = (struct sk_buff *) (long) r1, *skb2;
-+	struct net_device *dev;
-+
-+	dev = dev_get_by_index_rcu(dev_net(skb->dev), ifindex);
-+	if (unlikely(!dev))
-+		return -EINVAL;
-+
-+	if (unlikely(!(dev->flags & IFF_UP)))
-+		return -EINVAL;
-+
-+	skb2 = skb_clone(skb, GFP_ATOMIC);
-+	if (unlikely(!skb2))
-+		return -ENOMEM;
-+
-+	if (G_TC_AT(skb2->tc_verd) & AT_INGRESS)
-+		skb_push(skb2, skb2->mac_len);
-+
-+	if (BPF_IS_REDIRECT_INGRESS(flags))
-+		return dev_forward_skb(dev, skb2);
-+
-+	skb2->dev = dev;
-+	return dev_queue_xmit(skb2);
-+}
-+
-+const struct bpf_func_proto bpf_clone_redirect_proto = {
-+	.func           = bpf_clone_redirect,
-+	.gpl_only       = false,
-+	.ret_type       = RET_INTEGER,
-+	.arg1_type      = ARG_PTR_TO_CTX,
-+	.arg2_type      = ARG_ANYTHING,
-+	.arg3_type      = ARG_ANYTHING,
-+};
-+
- static const struct bpf_func_proto *
- sk_filter_func_proto(enum bpf_func_id func_id)
- {
-@@ -1440,6 +1478,8 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
- 		return &bpf_l3_csum_replace_proto;
- 	case BPF_FUNC_l4_csum_replace:
- 		return &bpf_l4_csum_replace_proto;
-+	case BPF_FUNC_clone_redirect:
-+		return &bpf_clone_redirect_proto;
- 	default:
- 		return sk_filter_func_proto(func_id);
- 	}
--- 
-1.7.9.5
+Did we ever implement an mpls mtu per netdevice (I think so).
+Anyway the tunnel mtu is easy enough to calculate in context (base mtu -
+tunnel overhead).  So for default we should not need to do much.
+
+>> Further I am not saying you don't need an output device (which is what
+>> is needed to specify a different destination namespace) I am saying that
+>> having a funny mpls device is wrong as far as I can see.  Certainly it
+>> is a lot of bloody unnecessary overhead.
+>>
+>> If we are going to design for maximum scaling (and 1 million+ routes)
+>> sounds like maximum scaling we should see how far we can go without
+>> dragging in the horrible heaviness of additional network devices.  35K a
+>> piece last I measured it.  Just a small handful of them are already
+>> scaling issues for network namespaces.
+>
+> For the ipmpls interface I've implemented here, you only need one per
+> namespace. You could argue the same for the veth interfaces which
+> would be much more commonly used in network namespaces.
+
+But if I can avoid the extra 143M (35Kibibytes*4096namespaces) I would like to.
+
+On the drawing board is getting cross namespace routes so with a little
+luck I will only need loopback devices in most of my network namespaces
+when the dust settles.
+
+Outputing to network devices in another network namespace is
+fundamentally simple but I haven't take the time to figure out which
+assumptions I may have to purge to make it work reliably.
+
+> BTW, maybe I've missed something, or maybe netdevs have gone on a
+> diet, but I count the cost of creating a basic interface at ~2700
+> bytes on x86_64:
+> sizeof(struct net_device) /* 2112 */ + 1 * sizeof(struct netdev_queue)
+> /* 384 */ + 1 * sizeof(struct netdev_rx_queue) /* 128 */ +
+> sizeof(struct netdev_hw_addr) /* 80 */ + sizeof(int) * nr_poss_cpus /*
+> 4 * n */)
+
+It is a non-trivial thing to measure.  You really have to create a lot
+of them and see how much memory is consumed.  But between the per cpu
+stats, the sysctl attributes, the sysfs attribute and everything else
+an actual working netdevice in an all yes config kernel was consuming
+something like 35K not too long ago.
+
+Eric
