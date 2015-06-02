@@ -1,399 +1,184 @@
-From: Dan Murphy <dmurphy@ti.com>
-Subject: [PATCH v2] net: phy: dp83867: Add TI dp83867 phy
-Date: Tue, 2 Jun 2015 09:34:37 -0500
-Message-ID: <1433255677-20293-1-git-send-email-dmurphy@ti.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [RFC 2/9] net: dsa: add basic support for VLAN operations
+Date: Tue, 02 Jun 2015 07:42:41 -0700
+Message-ID: <556DC0E1.9000709@roeck-us.net>
+References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-3-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <f.fainelli@gmail.com>, Dan Murphy <dmurphy@ti.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Jerome Oufella <jerome.oufella@savoirfairelinux.com>,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	Chris Healy <cphealy@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:37329 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752607AbbFBOek (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 10:34:40 -0400
+Received: from bh-25.webhostbox.net ([208.91.199.152]:49606 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754503AbbFBOmt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 10:42:49 -0400
+In-Reply-To: <1433208470-25338-3-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for the TI dp83867 Gigabit ethernet phy
-device.
+On 06/01/2015 06:27 PM, Vivien Didelot wrote:
+> This patch adds the glue between DSA and switchdev to add and delete
+> SWITCHDEV_OBJ_PORT_VLAN objects.
+>
+> This will allow the DSA switch drivers implementing the port_vlan_add
+> and port_vlan_del functions to access the switch VLAN database through
+> userspace commands such as "bridge vlan".
+>
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>   include/net/dsa.h |  7 +++++++
+>   net/dsa/slave.c   | 61 +++++++++++++++++++++++++++++++++++++++++++++++++++++--
+>   2 files changed, 66 insertions(+), 2 deletions(-)
+>
+> diff --git a/include/net/dsa.h b/include/net/dsa.h
+> index fbca63b..726357b 100644
+> --- a/include/net/dsa.h
+> +++ b/include/net/dsa.h
+> @@ -302,6 +302,13 @@ struct dsa_switch_driver {
+>   			   const unsigned char *addr, u16 vid);
+>   	int	(*fdb_getnext)(struct dsa_switch *ds, int port,
+>   			       unsigned char *addr, bool *is_static);
+> +
+> +	/*
+> +	 * VLAN support
+> +	 */
+> +	int	(*port_vlan_add)(struct dsa_switch *ds, int port, u16 vid,
+> +				 u16 bridge_flags);
+> +	int	(*port_vlan_del)(struct dsa_switch *ds, int port, u16 vid);
+>   };
+>
+>   void register_switch_driver(struct dsa_switch_driver *type);
+> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> index cbda00a..52ba5a1 100644
+> --- a/net/dsa/slave.c
+> +++ b/net/dsa/slave.c
+> @@ -363,6 +363,25 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
+>   	return ret;
+>   }
+>
+> +static int dsa_slave_port_vlans_add(struct net_device *dev,
+> +				    struct switchdev_obj_vlan *vlan)
+> +{
+> +	struct dsa_slave_priv *p = netdev_priv(dev);
+> +	struct dsa_switch *ds = p->parent;
+> +	int vid, err = 0;
+> +
+> +	if (!ds->drv->port_vlan_add)
+> +		return -ENOTSUPP;
+> +
+> +	for (vid = vlan->vid_start; vid <= vlan->vid_end; ++vid) {
+> +		err = ds->drv->port_vlan_add(ds, p->port, vid, vlan->flags);
+> +		if (err)
+> +			break;
+> +	}
+> +
+> +	return err;
+> +}
+> +
+>   static int dsa_slave_port_obj_add(struct net_device *dev,
+>   				  struct switchdev_obj *obj)
+>   {
+> @@ -378,6 +397,9 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
+>   		return 0;
+>
+>   	switch (obj->id) {
+> +	case SWITCHDEV_OBJ_PORT_VLAN:
+> +		err = dsa_slave_port_vlans_add(dev, &obj->u.vlan);
+> +		break;
+>   	default:
+>   		err = -ENOTSUPP;
+>   		break;
+> @@ -386,12 +408,34 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
+>   	return err;
+>   }
+>
+> +static int dsa_slave_port_vlans_del(struct net_device *dev,
+> +				    struct switchdev_obj_vlan *vlan)
+> +{
+> +	struct dsa_slave_priv *p = netdev_priv(dev);
+> +	struct dsa_switch *ds = p->parent;
+> +	int vid, err = 0;
+> +
+> +	if (!ds->drv->port_vlan_del)
+> +		return -ENOTSUPP;
+> +
+> +	for (vid = vlan->vid_start; vid <= vlan->vid_end; ++vid) {
+> +		err = ds->drv->port_vlan_del(ds, p->port, vid);
+> +		if (err)
+> +			break;
+> +	}
+> +
+> +	return err;
+> +}
+> +
+>   static int dsa_slave_port_obj_del(struct net_device *dev,
+>   				  struct switchdev_obj *obj)
+>   {
+>   	int err;
+>
+>   	switch (obj->id) {
+> +	case SWITCHDEV_OBJ_PORT_VLAN:
+> +		err = dsa_slave_port_vlans_del(dev, &obj->u.vlan);
+> +		break;
+>   	default:
+>   		err = -EOPNOTSUPP;
+>   		break;
+> @@ -473,6 +517,15 @@ static netdev_tx_t dsa_slave_notag_xmit(struct sk_buff *skb,
+>   	return NETDEV_TX_OK;
+>   }
+>
+> +static int dsa_slave_vlan_noop(struct net_device *dev, __be16 proto, u16 vid)
+> +{
+> +	/* NETIF_F_HW_VLAN_CTAG_FILTER requires ndo_vlan_rx_add_vid and
+> +	 * ndo_vlan_rx_kill_vid, otherwise the VLAN acceleration is considered
+> +	 * buggy (see net/core/dev.c).
+> +	 */
+> +	return 0;
+> +}
+> +
+>
+>   /* ethtool operations *******************************************************/
+>   static int
+> @@ -734,6 +787,10 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
+>   	.ndo_fdb_dump		= dsa_slave_fdb_dump,
+>   	.ndo_do_ioctl		= dsa_slave_ioctl,
+>   	.ndo_get_iflink		= dsa_slave_get_iflink,
+> +	.ndo_vlan_rx_add_vid	= dsa_slave_vlan_noop,
+> +	.ndo_vlan_rx_kill_vid	= dsa_slave_vlan_noop,
+> +	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
+> +	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
+>   };
+>
+>   static const struct switchdev_ops dsa_slave_switchdev_ops = {
+> @@ -924,7 +981,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+>   	if (slave_dev == NULL)
+>   		return -ENOMEM;
+>
+> -	slave_dev->features = master->vlan_features;
+> +	slave_dev->features = master->vlan_features | NETIF_F_VLAN_FEATURES;
 
-The DP83867 is a robust, low power, fully featured
-Physical Layer transceiver with integrated PMD
-sublayers to support 10BASE-T, 100BASE-TX and
-1000BASE-T Ethernet protocols.
+Hi Vivien,
 
-Signed-off-by: Dan Murphy <dmurphy@ti.com>
----
+NETIF_F_VLAN_FEATURES declares that the device supports receive and transmit
+tagging offload. We do this on transmit, by calling vlan_hwaccel_push_inside()
+with patch 9, but not on the receive side.
 
-v2 - Add device tree support and other minor changes.  Added change for rgmii helper
-http://patchwork.ozlabs.org/patch/476446/
+I think you may need to add matching code on the receive side to remove
+the VLAN tag and move it into the skb with __vlan_hwaccel_put_tag().
+It may also be necessary to add the same code for the other tag handlers.
 
- .../devicetree/bindings/net/ti,dp83867.txt         |  19 ++
- drivers/net/phy/Kconfig                            |   6 +-
- drivers/net/phy/Makefile                           |   1 +
- drivers/net/phy/dp83867.c                          | 239 +++++++++++++++++++++
- include/dt-bindings/net/ti-dp83867.h               |  45 ++++
- 5 files changed, 309 insertions(+), 1 deletion(-)
- create mode 100644 Documentation/devicetree/bindings/net/ti,dp83867.txt
- create mode 100644 drivers/net/phy/dp83867.c
- create mode 100644 include/dt-bindings/net/ti-dp83867.h
+Overall I wonder if it really makes sense to add those flags. Seems to me
+that would only make sense if the resulting code gets more efficient,
+which at least currently is not the case. Am I missing something ?
 
-diff --git a/Documentation/devicetree/bindings/net/ti,dp83867.txt b/Documentation/devicetree/bindings/net/ti,dp83867.txt
-new file mode 100644
-index 0000000..46bb67a
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/ti,dp83867.txt
-@@ -0,0 +1,19 @@
-+* Texas Instruments - dp83867 Giga bit ethernet phy
-+
-+Required properties:
-+	- reg - The ID number for the phy, usually a small integer
-+	- ti,rx_int_delay - RGMII Recieve Clock Delay - see dt-bindings/net/ti-dp83867.h
-+		for applicable values
-+	- ti,tx_int_delay - RGMII Transmit Clock Delay - see dt-bindings/net/ti-dp83867.h
-+		for applicable values
-+	- ti,fifo_depth - Transmitt FIFO depth- see dt-bindings/net/ti-dp83867.h
-+		for applicable values
-+
-+Example:
-+
-+	ethernet-phy@0 {
-+		reg = <0>;
-+		ti,rx_int_delay = <DP83867_RGMIIDCTL_2_25_NS>;
-+		ti,tx_int_delay = <DP83867_RGMIIDCTL_2_75_NS>;
-+		ti,fifo_depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
-+	};
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 70641d2..939f06e 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -119,6 +119,11 @@ config MICREL_PHY
- 	---help---
- 	  Supports the KSZ9021, VSC8201, KS8001 PHYs.
- 
-+config DP83867_PHY
-+	tristate "Drivers for Texas Instruments DP83867 Gigabit PHY"
-+	---help---
-+	  Currently supports the DP83867 PHY.
-+
- config FIXED_PHY
- 	tristate "Driver for MDIO Bus/PHY emulation with fixed speed/link PHYs"
- 	depends on PHYLIB
-@@ -212,7 +217,6 @@ config MDIO_BCM_UNIMAC
- 	  This hardware can be found in the Broadcom GENET Ethernet MAC
- 	  controllers as well as some Broadcom Ethernet switches such as the
- 	  Starfighter 2 switches.
--
- endif # PHYLIB
- 
- config MICREL_KS8995MA
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 501ea76..58e6131 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -22,6 +22,7 @@ obj-$(CONFIG_MDIO_BITBANG)	+= mdio-bitbang.o
- obj-$(CONFIG_MDIO_GPIO)		+= mdio-gpio.o
- obj-$(CONFIG_NATIONAL_PHY)	+= national.o
- obj-$(CONFIG_DP83640_PHY)	+= dp83640.o
-+obj-$(CONFIG_DP83867_PHY)	+= dp83867.o
- obj-$(CONFIG_STE10XP)		+= ste10Xp.o
- obj-$(CONFIG_MICREL_PHY)	+= micrel.o
- obj-$(CONFIG_MDIO_OCTEON)	+= mdio-octeon.o
-diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
-new file mode 100644
-index 0000000..ef0b4eb
---- /dev/null
-+++ b/drivers/net/phy/dp83867.c
-@@ -0,0 +1,239 @@
-+/*
-+ * Driver for the Texas Instruments DP83867 PHY
-+ *
-+ * Copyright (C) 2015 Texas Instruments Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/ethtool.h>
-+#include <linux/kernel.h>
-+#include <linux/mii.h>
-+#include <linux/module.h>
-+#include <linux/of.h>
-+#include <linux/phy.h>
-+
-+#include <dt-bindings/net/ti-dp83867.h>
-+
-+#define DP83867_PHY_ID		0x2000a231
-+#define DP83867_DEVADDR		0x1f
-+
-+#define MII_DP83867_PHYCTRL	0x10
-+#define MII_DP83867_MICR	0x12
-+#define MII_DP83867_ISR		0x13
-+#define DP83867_CTRL		0x1f
-+
-+/* Extended Registers */
-+#define DP83867_RGMIICTL	0x0032
-+#define DP83867_RGMIIDCTL	0x0086
-+
-+#define DP83867_SW_RESET	BIT(15)
-+#define DP83867_SW_RESTART	BIT(14)
-+
-+/* MICR Interrupt bits */
-+#define MII_DP83867_MICR_AN_ERR_INT_EN		BIT(15)
-+#define MII_DP83867_MICR_SPEED_CHNG_INT_EN	BIT(14)
-+#define MII_DP83867_MICR_DUP_MODE_CHNG_INT_EN	BIT(13)
-+#define MII_DP83867_MICR_PAGE_RXD_INT_EN	BIT(12)
-+#define MII_DP83867_MICR_AUTONEG_COMP_INT_EN	BIT(11)
-+#define MII_DP83867_MICR_LINK_STS_CHNG_INT_EN	BIT(10)
-+#define MII_DP83867_MICR_FALSE_CARRIER_INT_EN	BIT(8)
-+#define MII_DP83867_MICR_SLEEP_MODE_CHNG_INT_EN	BIT(4)
-+#define MII_DP83867_MICR_WOL_INT_EN		BIT(3)
-+#define MII_DP83867_MICR_XGMII_ERR_INT_EN	BIT(2)
-+#define MII_DP83867_MICR_POL_CHNG_INT_EN	BIT(1)
-+#define MII_DP83867_MICR_JABBER_INT_EN		BIT(0)
-+
-+/* RGMIICTL bits */
-+#define DP83867_RGMII_TX_CLK_DELAY_EN		BIT(1)
-+#define DP83867_RGMII_RX_CLK_DELAY_EN		BIT(0)
-+
-+/* PHY CTRL bits */
-+#define DP83867_PHYCR_FIFO_DEPTH_SHIFT		14
-+
-+/* RGMIIDCTL bits */
-+#define DP83867_RGMII_TX_CLK_DELAY_SHIFT	4
-+
-+struct dp83867_private {
-+	int rx_id_delay;
-+	int tx_id_delay;
-+	int fifo_depth;
-+};
-+
-+static int dp83867_ack_interrupt(struct phy_device *phydev)
-+{
-+	int err = phy_read(phydev, MII_DP83867_ISR);
-+
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
-+}
-+
-+static int dp83867_config_intr(struct phy_device *phydev)
-+{
-+	int micr_status;
-+
-+	if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
-+		micr_status = phy_read(phydev, MII_DP83867_MICR);
-+		if (micr_status < 0)
-+			return micr_status;
-+
-+		micr_status |=
-+			(MII_DP83867_MICR_AN_ERR_INT_EN |
-+			MII_DP83867_MICR_SPEED_CHNG_INT_EN |
-+			MII_DP83867_MICR_DUP_MODE_CHNG_INT_EN |
-+			MII_DP83867_MICR_SLEEP_MODE_CHNG_INT_EN);
-+
-+		return phy_write(phydev, MII_DP83867_MICR, micr_status);
-+	}
-+
-+	micr_status = 0x0;
-+	return phy_write(phydev, MII_DP83867_MICR, micr_status);
-+}
-+
-+#ifdef CONFIG_OF_MDIO
-+static int dp83867_of_init(struct phy_device *phydev)
-+{
-+	struct dp83867_private *dp83867 = phydev->priv;
-+	struct device *dev = &phydev->dev;
-+	struct device_node *of_node = dev->of_node;
-+	int ret;
-+
-+	if (!of_node && dev->parent->of_node)
-+		of_node = dev->parent->of_node;
-+
-+	if (!phydev->dev.of_node)
-+		return -ENODEV;
-+
-+	ret = of_property_read_u32(of_node, "ti,rx_int_delay",
-+				   &dp83867->rx_id_delay);
-+	if (ret)
-+		return ret;
-+
-+	ret = of_property_read_u32(of_node, "ti,tx_int_delay",
-+				   &dp83867->tx_id_delay);
-+	if (ret)
-+		return ret;
-+
-+	ret = of_property_read_u32(of_node, "ti,fifo_depth",
-+				   &dp83867->fifo_depth);
-+	if (ret)
-+		return ret;
-+
-+	return 0;
-+}
-+#else
-+static int dp83867_of_init(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+#endif /* CONFIG_OF_MDIO */
-+
-+static int dp83867_config_init(struct phy_device *phydev)
-+{
-+	struct dp83867_private *dp83867;
-+	int ret;
-+	u16 val, delay;
-+
-+	if (!phydev->priv) {
-+		dp83867 = devm_kzalloc(&phydev->dev, sizeof(*dp83867),
-+				       GFP_KERNEL);
-+		if (!dp83867)
-+			return -ENOMEM;
-+
-+		phydev->priv = dp83867;
-+		ret = dp83867_of_init(phydev);
-+		if (ret)
-+			return ret;
-+	} else {
-+		dp83867 = (struct dp83867_private *)phydev->priv;
-+	}
-+
-+	if (phy_interface_is_rgmii(phydev)) {
-+		ret = phy_write(phydev, MII_DP83867_PHYCTRL,
-+			(dp83867->fifo_depth << DP83867_PHYCR_FIFO_DEPTH_SHIFT));
-+		if (ret)
-+			return ret;
-+	}
-+
-+	if ((phydev->interface >= PHY_INTERFACE_MODE_RGMII_ID) ||
-+	    (phydev->interface <= PHY_INTERFACE_MODE_RGMII_RXID)) {
-+		val = phy_read_mmd_indirect(phydev, DP83867_RGMIICTL,
-+					    DP83867_DEVADDR, phydev->addr);
-+
-+		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
-+			val |= (DP83867_RGMII_TX_CLK_DELAY_EN | DP83867_RGMII_RX_CLK_DELAY_EN);
-+
-+		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)
-+			val |= DP83867_RGMII_TX_CLK_DELAY_EN;
-+
-+		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID)
-+			val |= DP83867_RGMII_RX_CLK_DELAY_EN;
-+
-+		phy_write_mmd_indirect(phydev, DP83867_RGMIICTL,
-+				       DP83867_DEVADDR, phydev->addr, val);
-+
-+		delay = (dp83867->rx_id_delay |
-+			(dp83867->tx_id_delay << DP83867_RGMII_TX_CLK_DELAY_SHIFT));
-+
-+		phy_write_mmd_indirect(phydev, DP83867_RGMIIDCTL,
-+				       DP83867_DEVADDR, phydev->addr, delay);
-+	}
-+
-+	return 0;
-+}
-+
-+static int dp83867_phy_reset(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	err = phy_write(phydev, DP83867_CTRL, DP83867_SW_RESET);
-+	if (err < 0)
-+		return err;
-+
-+	return dp83867_config_init(phydev);
-+}
-+
-+static struct phy_driver dp83867_driver[] = {
-+	{
-+		.phy_id		= DP83867_PHY_ID,
-+		.phy_id_mask	= 0xfffffff0,
-+		.name		= "TI DP83867",
-+		.features	= PHY_GBIT_FEATURES,
-+		.flags		= PHY_HAS_INTERRUPT,
-+
-+		.config_init	= dp83867_config_init,
-+		.soft_reset	= dp83867_phy_reset,
-+
-+		/* IRQ related */
-+		.ack_interrupt	= dp83867_ack_interrupt,
-+		.config_intr	= dp83867_config_intr,
-+
-+		.config_aneg	= genphy_config_aneg,
-+		.read_status	= genphy_read_status,
-+		.suspend	= genphy_suspend,
-+		.resume		= genphy_resume,
-+
-+		.driver		= {.owner = THIS_MODULE,}
-+	},
-+};
-+module_phy_driver(dp83867_driver);
-+
-+static struct mdio_device_id __maybe_unused dp83867_tbl[] = {
-+	{ DP83867_PHY_ID, 0xfffffff0 },
-+	{ }
-+};
-+
-+MODULE_DEVICE_TABLE(mdio, dp83867_tbl);
-+
-+MODULE_DESCRIPTION("Texas Instruments DP83867 PHY driver");
-+MODULE_AUTHOR("Dan Murphy <dmurphy@ti.com");
-+MODULE_LICENSE("GPL");
-diff --git a/include/dt-bindings/net/ti-dp83867.h b/include/dt-bindings/net/ti-dp83867.h
-new file mode 100644
-index 0000000..172744a
---- /dev/null
-+++ b/include/dt-bindings/net/ti-dp83867.h
-@@ -0,0 +1,45 @@
-+/*
-+ * Device Tree constants for the Texas Instruments DP83867 PHY
-+ *
-+ * Author: Dan Murphy <dmurphy@ti.com>
-+ *
-+ * Copyright:   (C) 2015 Texas Instruments, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+
-+#ifndef _DT_BINDINGS_TI_DP83867_H
-+#define _DT_BINDINGS_TI_DP83867_H
-+
-+/* PHY CTRL bits */
-+#define DP83867_PHYCR_FIFO_DEPTH_3_B_NIB	0x00
-+#define DP83867_PHYCR_FIFO_DEPTH_4_B_NIB	0x01
-+#define DP83867_PHYCR_FIFO_DEPTH_6_B_NIB	0x02
-+#define DP83867_PHYCR_FIFO_DEPTH_8_B_NIB	0x03
-+
-+/* RGMIIDCTL internal delay for rx and tx */
-+#define	DP83867_RGMIIDCTL_250_PS	0x0
-+#define	DP83867_RGMIIDCTL_500_PS	0x1
-+#define	DP83867_RGMIIDCTL_750_PS	0x2
-+#define	DP83867_RGMIIDCTL_1_NS		0x3
-+#define	DP83867_RGMIIDCTL_1_25_NS	0x4
-+#define	DP83867_RGMIIDCTL_1_50_NS	0x5
-+#define	DP83867_RGMIIDCTL_1_75_NS	0x6
-+#define	DP83867_RGMIIDCTL_2_00_NS	0x7
-+#define	DP83867_RGMIIDCTL_2_25_NS	0x8
-+#define	DP83867_RGMIIDCTL_2_50_NS	0x9
-+#define	DP83867_RGMIIDCTL_2_75_NS	0xa
-+#define	DP83867_RGMIIDCTL_3_00_NS	0xb
-+#define	DP83867_RGMIIDCTL_3_25_NS	0xc
-+#define	DP83867_RGMIIDCTL_3_50_NS	0xd
-+#define	DP83867_RGMIIDCTL_3_75_NS	0xe
-+#define	DP83867_RGMIIDCTL_4_00_NS	0xf
-+
-+#endif
--- 
-1.9.1
+Thanks,
+Guenter
