@@ -1,82 +1,212 @@
-From: Joao Martins <Joao.Martins@neclab.eu>
-Subject: Re: [RFC PATCH 04/13] xen-netback: implement RX persistent grants
-Date: Wed, 3 Jun 2015 17:08:00 +0000
-Message-ID: <A5DD989F-E37A-4070-AC82-0539431A08B2@neclab.eu>
-References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
- <1431451117-70051-5-git-send-email-joao.martins@neclab.eu>
- <20150519153205.GC26335@zion.uk.xensource.com>
- <65A385A5-4D11-4032-BB1B-82180AF76477@neclab.eu>
- <20150602150704.GQ19403@zion.uk.xensource.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [PATCH v2 1/2] sctp: rcu-ify addr_waitq
+Date: Wed, 3 Jun 2015 14:19:23 -0300
+Message-ID: <20150603171923.GA3402@localhost.localdomain>
+References: <20150602134851.GA15847@hmsreliant.think-freely.org>
+ <660872d4d795833eca5f7e517c7e1dabbc1df02b.1433350421.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
-	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
-	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Michio Honda <micchie@sfc.wide.ad.jp>
+To: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.neclab.eu ([195.37.70.40]:37580 "EHLO mailer1.neclab.eu"
+Received: from mx1.redhat.com ([209.132.183.28]:41941 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964984AbbFCRIR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 13:08:17 -0400
-In-Reply-To: <20150602150704.GQ19403@zion.uk.xensource.com>
-Content-Language: en-US
-Content-ID: <D4668EF0D6F2494A92CD37A92C2B5C1F@office.hd>
+	id S965468AbbFCRT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jun 2015 13:19:27 -0400
+Content-Disposition: inline
+In-Reply-To: <660872d4d795833eca5f7e517c7e1dabbc1df02b.1433350421.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 02 Jun 2015, at 17:07, Wei Liu <wei.liu2@citrix.com> wrote:
-
-> On Fri, May 22, 2015 at 10:25:10AM +0000, Joao Martins wrote:
->> 
->> On 19 May 2015, at 17:32, Wei Liu <wei.liu2@citrix.com> wrote:
->> 
->>> On Tue, May 12, 2015 at 07:18:28PM +0200, Joao Martins wrote:
->>>> It starts by doing a lookup in the tree for a gref. If no persistent
->>>> grant is found on the tree, it will do grant copy and prepare
->>>> the grant maps. Finally valides the grant map and adds it to the tree.
->>> 
->>> validates?
->>> 
->>>> After mapped these grants can be pulled from the tree in the subsequent
->>>> requests. If it's out of pages in the tree pool, it will fallback to
->>>> grant copy.
->>>> 
->>> 
->>> Again, this looks complicated. Why use combined scheme? I will do
->>> detailed reviews after we're sure we need such scheme.
->> When we don't have the gref in tree we need to map it and then copying
->> afterwards into the newly mapped page (and this only happens once until
->> the grant is in tree). My options here were to either do this explicitly,
->> after we add the persistent grant in which we would need to save to
->> dst/src address and len to copy. The other option is to reuse the grant
->> copy (since it's only once until the grant is in the tree) and use memcpy
->> in followings requests. Additionally I allow the fallback to grant copy in
+On Wed, Jun 03, 2015 at 01:54:01PM -0300, mleitner@redhat.com wrote:
+> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 > 
-> Which approach were you using here? I looked at the code but couldn't
-> quite get which one you were getting at. I guess the first one?
-
-The one I used was the second one i.e. grant copy when the gref is not in tree,
-and memcpy on subsequent requests. The only difference in these options is really
-to memcpy (first option) or to grant copy (second option) on the first lookup
-of the gref in the tree. The problem with the first option is adding more
-state to save where to memcpy which we can only do after mapping the grant. Thus
-reusing the grant copy simplifies, but probably makes things not as clear.
-
-Perhaps what I suggested in an earlier comment (regarding TX persistent grants) could
-simplify things.
-
-
->> case the guest provides providing more grefs > max_grants.
->> 
->> Note that this is also the case for TX as well, with regard to grant
->> copying the header. I was unsure about which one is the most correct way
->> of doing it, but ultimately the latter involved a smaller codepath, and
->> that's why I chose it. What do you think?
->> 
+> That's needed for the next patch, so we break the lock inversion between
+> netns_sctp->addr_wq_lock and socket lock on
+> sctp_addr_wq_timeout_handler(). With this, we can traverse addr_waitq
+> without taking addr_wq_lock, taking it just for the write operations.
 > 
-> Shorter is better. Easier to understand.
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> ---
+> 
+> Notes:
+>     v1->v2:
+>      As asked by Neil, this now reuses addr_wq_lock. And for that, also
+>      rcu-ifyies addr_waitq.
+> 
+>  include/net/netns/sctp.h |  2 +-
+>  net/sctp/protocol.c      | 81 +++++++++++++++++++++++++++++-------------------
+>  2 files changed, 50 insertions(+), 33 deletions(-)
+> 
+> diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
+> index 3573a81815ad9e0efb6ceb721eb066d3726419f0..9e53412c4ed829e8e45777a6d95406d490dbaa75 100644
+> --- a/include/net/netns/sctp.h
+> +++ b/include/net/netns/sctp.h
+> @@ -28,7 +28,7 @@ struct netns_sctp {
+>  	 * It is a list of sctp_sockaddr_entry.
+>  	 */
+>  	struct list_head local_addr_list;
+> -	struct list_head addr_waitq;
+> +	struct list_head __rcu addr_waitq;
+>  	struct timer_list addr_wq_timer;
+>  	struct list_head auto_asconf_splist;
+>  	spinlock_t addr_wq_lock;
+> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+> index 53b7acde9aa37bf3d4029c459421564d5270f4c0..a5089883b28195f3aef69ef35b5397322a01126f 100644
+> --- a/net/sctp/protocol.c
+> +++ b/net/sctp/protocol.c
+> @@ -593,15 +593,46 @@ static void sctp_v4_ecn_capable(struct sock *sk)
+>  	INET_ECN_xmit(sk);
+>  }
+>  
+> +static void sctp_free_addr_wq(struct net *net)
+> +{
+> +	struct sctp_sockaddr_entry *addrw;
+> +
+> +	spin_lock_bh(&net->sctp.addr_wq_lock);
+> +	del_timer(&net->sctp.addr_wq_timer);
+> +	list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, list) {
+> +		list_del_rcu(&addrw->list);
+> +		kfree_rcu(addrw, rcu);
+> +	}
+> +	spin_unlock_bh(&net->sctp.addr_wq_lock);
+> +}
+> +
+> +/* As there is no refcnt on sctp_sockaddr_entry, we must check inside
+> + * the lock if it wasn't removed from addr_waitq already, otherwise we
+> + * could double-free it.
+> + */
+> +static void sctp_free_addr_wq_entry(struct net *net,
+> +				    struct sctp_sockaddr_entry *addrw)
+> +{
+> +	struct sctp_sockaddr_entry *temp;
+> +
+> +	spin_lock_bh(&net->sctp.addr_wq_lock);
+> +	list_for_each_entry_rcu(temp, &net->sctp.addr_waitq, list) {
+> +		if (temp == addrw) {
+> +			list_del_rcu(&addrw->list);
+> +			kfree_rcu(addrw, rcu);
+
+Missed a break here, will issue a v3 when you review it too..
+
+  Marcelo
+
+> +		}
+> +	}
+> +	spin_unlock_bh(&net->sctp.addr_wq_lock);
+> +}
+> +
+>  static void sctp_addr_wq_timeout_handler(unsigned long arg)
+>  {
+>  	struct net *net = (struct net *)arg;
+> -	struct sctp_sockaddr_entry *addrw, *temp;
+> +	struct sctp_sockaddr_entry *addrw;
+>  	struct sctp_sock *sp;
+>  
+> -	spin_lock_bh(&net->sctp.addr_wq_lock);
+> -
+> -	list_for_each_entry_safe(addrw, temp, &net->sctp.addr_waitq, list) {
+> +	rcu_read_lock_bh();
+> +	list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, list) {
+>  		pr_debug("%s: the first ent in wq:%p is addr:%pISc for cmd:%d at "
+>  			 "entry:%p\n", __func__, &net->sctp.addr_waitq, &addrw->a.sa,
+>  			 addrw->state, addrw);
+> @@ -627,7 +658,9 @@ static void sctp_addr_wq_timeout_handler(unsigned long arg)
+>  
+>  				timeo_val = jiffies;
+>  				timeo_val += msecs_to_jiffies(SCTP_ADDRESS_TICK_DELAY);
+> +				spin_lock_bh(&net->sctp.addr_wq_lock);
+>  				mod_timer(&net->sctp.addr_wq_timer, timeo_val);
+> +				spin_unlock_bh(&net->sctp.addr_wq_lock);
+>  				break;
+>  			}
+>  		}
+> @@ -647,35 +680,20 @@ static void sctp_addr_wq_timeout_handler(unsigned long arg)
+>  #if IS_ENABLED(CONFIG_IPV6)
+>  free_next:
+>  #endif
+> -		list_del(&addrw->list);
+> -		kfree(addrw);
+> -	}
+> -	spin_unlock_bh(&net->sctp.addr_wq_lock);
+> -}
+> -
+> -static void sctp_free_addr_wq(struct net *net)
+> -{
+> -	struct sctp_sockaddr_entry *addrw;
+> -	struct sctp_sockaddr_entry *temp;
+> -
+> -	spin_lock_bh(&net->sctp.addr_wq_lock);
+> -	del_timer(&net->sctp.addr_wq_timer);
+> -	list_for_each_entry_safe(addrw, temp, &net->sctp.addr_waitq, list) {
+> -		list_del(&addrw->list);
+> -		kfree(addrw);
+> +		sctp_free_addr_wq_entry(net, addrw);
+>  	}
+> -	spin_unlock_bh(&net->sctp.addr_wq_lock);
+> +	rcu_read_unlock_bh();
+>  }
+>  
+>  /* lookup the entry for the same address in the addr_waitq
+> - * sctp_addr_wq MUST be locked
+> + * rcu read MUST be locked
+>   */
+>  static struct sctp_sockaddr_entry *sctp_addr_wq_lookup(struct net *net,
+>  					struct sctp_sockaddr_entry *addr)
+>  {
+>  	struct sctp_sockaddr_entry *addrw;
+>  
+> -	list_for_each_entry(addrw, &net->sctp.addr_waitq, list) {
+> +	list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, list) {
+>  		if (addrw->a.sa.sa_family != addr->a.sa.sa_family)
+>  			continue;
+>  		if (addrw->a.sa.sa_family == AF_INET) {
+> @@ -702,7 +720,7 @@ void sctp_addr_wq_mgmt(struct net *net, struct sctp_sockaddr_entry *addr, int cm
+>  	 * new address after a couple of addition and deletion of that address
+>  	 */
+>  
+> -	spin_lock_bh(&net->sctp.addr_wq_lock);
+> +	rcu_read_lock_bh();
+>  	/* Offsets existing events in addr_wq */
+>  	addrw = sctp_addr_wq_lookup(net, addr);
+>  	if (addrw) {
+> @@ -710,22 +728,21 @@ void sctp_addr_wq_mgmt(struct net *net, struct sctp_sockaddr_entry *addr, int cm
+>  			pr_debug("%s: offsets existing entry for %d, addr:%pISc "
+>  				 "in wq:%p\n", __func__, addrw->state, &addrw->a.sa,
+>  				 &net->sctp.addr_waitq);
+> -
+> -			list_del(&addrw->list);
+> -			kfree(addrw);
+> +			sctp_free_addr_wq_entry(net, addrw);
+>  		}
+> -		spin_unlock_bh(&net->sctp.addr_wq_lock);
+> +		rcu_read_unlock_bh();
+>  		return;
+>  	}
+> +	rcu_read_unlock_bh();
+>  
+>  	/* OK, we have to add the new address to the wait queue */
+>  	addrw = kmemdup(addr, sizeof(struct sctp_sockaddr_entry), GFP_ATOMIC);
+> -	if (addrw == NULL) {
+> -		spin_unlock_bh(&net->sctp.addr_wq_lock);
+> +	if (!addrw)
+>  		return;
+> -	}
+>  	addrw->state = cmd;
+> -	list_add_tail(&addrw->list, &net->sctp.addr_waitq);
+> +
+> +	spin_lock_bh(&net->sctp.addr_wq_lock);
+> +	list_add_tail_rcu(&addrw->list, &net->sctp.addr_waitq);
+>  
+>  	pr_debug("%s: add new entry for cmd:%d, addr:%pISc in wq:%p\n",
+>  		 __func__, addrw->state, &addrw->a.sa, &net->sctp.addr_waitq);
+> -- 
+> 2.4.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
