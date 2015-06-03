@@ -1,145 +1,72 @@
-From: Neil McKee <neil.mckee@inmon.com>
-Subject: [PATCH net-next] openvswitch: include actions with upcall if allocation allows
-Date: Wed,  3 Jun 2015 15:31:07 -0700
-Message-ID: <1433370667-30625-1-git-send-email-neil.mckee@inmon.com>
-Cc: Neil McKee <neil.mckee@inmon.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f172.google.com ([209.85.216.172]:34139 "EHLO
-	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752773AbbFCWbR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 18:31:17 -0400
-Received: by qcej9 with SMTP id j9so10856438qce.1
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 15:31:17 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the
+ RDMA-CM
+Date: Wed, 3 Jun 2015 17:48:11 -0600
+Message-ID: <20150603234811.GA15128@obsidianresearch.com>
+References: <55674077.5040707@mellanox.com>
+ <20150528174337.GA10448@obsidianresearch.com>
+ <1432837360.114391.35.camel@redhat.com>
+ <CAJ3xEMh2T5-56rFxWVdct2uAZYW1ZrKivWfS45V-mvhAfwyGaA@mail.gmail.com>
+ <1432850150.114391.56.camel@redhat.com>
+ <556ED0D5.8010502@mellanox.com>
+ <20150603161447.GC12073@obsidianresearch.com>
+ <CAJ3xEMjM53sYuEgQV3WPaN4WErk_YcojPY2zBcmq-+3W2dfD+A@mail.gmail.com>
+ <20150603195325.GC7902@obsidianresearch.com>
+ <CAJ3xEMiO+hEzOJ2oJ5G-mmBeaX4ZHvUyhNSAzsrRDui6dFjvCg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAJ3xEMiO+hEzOJ2oJ5G-mmBeaX4ZHvUyhNSAzsrRDui6dFjvCg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Back out the OVS_USERSPACE_ATTR_ACTIONS attribute that was
-gating the inclusion of datapath actions in the upcall.
-Instead include the actions every time, provided there is no
-problem with the atomic allocation.  If the atomic allocation
-fails then try it again with the actions omitted.
+On Wed, Jun 03, 2015 at 11:07:37PM +0300, Or Gerlitz wrote:
 
-Signed-off-by: Neil McKee <neil.mckee@inmon.com>
----
- include/uapi/linux/openvswitch.h |  4 ----
- net/openvswitch/actions.c        |  9 ++-------
- net/openvswitch/datapath.c       | 17 +++++++++++++----
- 3 files changed, 15 insertions(+), 15 deletions(-)
+> > I'm mostly fine with it as an optional capability, similar to macvlan,
+> > I just don't see how to cleanly integrate it with RDMA CM and
+> > namespaces. And I don't see what RDMA CM is supposed to do when
+> > it hits this case.
+> >
+> > So, any ideas that don't involve the searching for IP hack??
+> >
+> > [And yes, as discussed with Haggie, it is not the worst hack in the
+> >  world, and maybe we can live with it, but lets understand the trade
+> >  offs carefully]
+> 
+> As Haggai wrote, if we let the using IP address thing to fly up, we have
+> support for RDMA in containers using the RDMA-CM at IPoIB environments.
+> This will let people test, use, experiment, fix, interact (and even
+> production-it when static IP address assignment scheme is used).
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index 1dab776..bbd49a0 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -153,8 +153,6 @@ enum ovs_packet_cmd {
-  * flow key against the kernel's.
-  * @OVS_PACKET_ATTR_ACTIONS: Contains actions for the packet.  Used
-  * for %OVS_PACKET_CMD_EXECUTE.  It has nested %OVS_ACTION_ATTR_* attributes.
-- * Also used in upcall when %OVS_ACTION_ATTR_USERSPACE has optional
-- * %OVS_USERSPACE_ATTR_ACTIONS attribute.
-  * @OVS_PACKET_ATTR_USERDATA: Present for an %OVS_PACKET_CMD_ACTION
-  * notification if the %OVS_ACTION_ATTR_USERSPACE action specified an
-  * %OVS_USERSPACE_ATTR_USERDATA attribute, with the same length and content
-@@ -530,7 +528,6 @@ enum ovs_sample_attr {
-  * copied to the %OVS_PACKET_CMD_ACTION message as %OVS_PACKET_ATTR_USERDATA.
-  * @OVS_USERSPACE_ATTR_EGRESS_TUN_PORT: If present, u32 output port to get
-  * tunnel info.
-- * @OVS_USERSPACE_ATTR_ACTIONS: If present, send actions with upcall.
-  */
- enum ovs_userspace_attr {
- 	OVS_USERSPACE_ATTR_UNSPEC,
-@@ -538,7 +535,6 @@ enum ovs_userspace_attr {
- 	OVS_USERSPACE_ATTR_USERDATA,  /* Optional user-specified cookie. */
- 	OVS_USERSPACE_ATTR_EGRESS_TUN_PORT,  /* Optional, u32 output port
- 					      * to get tunnel info. */
--	OVS_USERSPACE_ATTR_ACTIONS,   /* Optional flag to get actions. */
- 	__OVS_USERSPACE_ATTR_MAX
- };
- 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 8a8c0b8..337730a 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -618,6 +618,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
- 
- 	memset(&upcall, 0, sizeof(upcall));
- 	upcall.cmd = OVS_PACKET_CMD_ACTION;
-+	upcall.actions = actions;
-+	upcall.actions_len = actions_len;
- 
- 	for (a = nla_data(attr), rem = nla_len(attr); rem > 0;
- 		 a = nla_next(a, &rem)) {
-@@ -646,13 +648,6 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
- 			break;
- 		}
- 
--		case OVS_USERSPACE_ATTR_ACTIONS: {
--			/* Include actions. */
--			upcall.actions = actions;
--			upcall.actions_len = actions_len;
--			break;
--		}
--
- 		} /* End of switch. */
- 	}
- 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index ff8c4a4..02b33a8 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -382,7 +382,7 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
- }
- 
- static size_t upcall_msg_size(const struct dp_upcall_info *upcall_info,
--			      unsigned int hdrlen)
-+			      unsigned int hdrlen, bool allow_actions)
- {
- 	size_t size = NLMSG_ALIGN(sizeof(struct ovs_header))
- 		+ nla_total_size(hdrlen) /* OVS_PACKET_ATTR_PACKET */
-@@ -397,7 +397,8 @@ static size_t upcall_msg_size(const struct dp_upcall_info *upcall_info,
- 		size += nla_total_size(ovs_tun_key_attr_size());
- 
- 	/* OVS_PACKET_ATTR_ACTIONS */
--	if (upcall_info->actions_len)
-+	if (allow_actions &&
-+	    upcall_info->actions_len)
- 		size += nla_total_size(upcall_info->actions_len);
- 
- 	return size;
-@@ -418,6 +419,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 	size_t len;
- 	unsigned int hlen;
- 	int err, dp_ifindex;
-+	bool allow_actions = true;
- 
- 	dp_ifindex = get_dpifindex(dp);
- 	if (!dp_ifindex)
-@@ -454,9 +456,15 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 	else
- 		hlen = skb->len;
- 
--	len = upcall_msg_size(upcall_info, hlen);
-+retry_alloc:
-+	len = upcall_msg_size(upcall_info, hlen, allow_actions);
- 	user_skb = genlmsg_new_unicast(len, &info, GFP_ATOMIC);
- 	if (!user_skb) {
-+		if (allow_actions &&
-+		    upcall_info->actions_len) {
-+			allow_actions = false;
-+			goto retry_alloc;
-+		}
- 		err = -ENOMEM;
- 		goto out;
- 	}
-@@ -481,7 +489,8 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 		nla_nest_end(user_skb, nla);
- 	}
- 
--	if (upcall_info->actions_len) {
-+	if (allow_actions &&
-+	    upcall_info->actions_len) {
- 		nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_ACTIONS);
- 		err = ovs_nla_put_actions(upcall_info->actions,
- 					  upcall_info->actions_len,
--- 
-1.9.3
+I just noticed ipvlan got merged a few months ago.. That certainly
+changed my view on this topic. It is basically a software
+version of the same-guid ipoib children scheme. Similar issues: Same MAC
+address as the parent, IPv6 SLAAC is disabled (?),  DHCP has similar
+issue (solved with RFC4361, and broadcasting fallback, it seems)..
+
+The l2/l3 distinction in ipvlan is also very interesting. The L3 mode
+solves some of the security type issues. What do you think Haggi?
+
+Is there any chance standard things like ipvlan and macvlan could be
+used with rdma-cm if their master devices are IPoIB? Are we even on
+the right path to do that someday? Is that the plan for roce?
+
+Any thoughts on the idea we still need ipoib same-guid children if
+ipvlan is available?
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
