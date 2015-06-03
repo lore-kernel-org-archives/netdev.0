@@ -1,29 +1,30 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
 Subject: Re: [PATCH net-next] net: change fib behavior based on interface
  link status
-Date: Wed, 03 Jun 2015 16:45:50 +0200
-Message-ID: <1433342750.3163.14.camel@redhat.com>
+Date: Wed, 3 Jun 2015 10:46:22 -0400
+Message-ID: <20150603144621.GF588@gospo.home.greyhouse.net>
 References: <1433300839-18511-1-git-send-email-gospo@cumulusnetworks.com>
-	 <20150603135347.GA10203@neilslaptop.think-freely.org>
-	 <1433340788.3163.6.camel@redhat.com>
-	 <20150603142131.GC10203@neilslaptop.think-freely.org>
+ <20150603135347.GA10203@neilslaptop.think-freely.org>
+ <1433340788.3163.6.camel@redhat.com>
+ <20150603142131.GC10203@neilslaptop.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	ddutt@cumulusnetworks.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Hannes Frederic Sowa <hannes@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, ddutt@cumulusnetworks.com
 To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54578 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756359AbbFCOpz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jun 2015 10:45:55 -0400
+Received: from mail-qc0-f173.google.com ([209.85.216.173]:36579 "EHLO
+	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754576AbbFCOq0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 10:46:26 -0400
+Received: by qcxw10 with SMTP id w10so4834557qcx.3
+        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 07:46:25 -0700 (PDT)
+Content-Disposition: inline
 In-Reply-To: <20150603142131.GC10203@neilslaptop.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mi, 2015-06-03 at 10:21 -0400, Neil Horman wrote:
+On Wed, Jun 03, 2015 at 10:21:31AM -0400, Neil Horman wrote:
 > On Wed, Jun 03, 2015 at 04:13:08PM +0200, Hannes Frederic Sowa wrote:
 > > On Mi, 2015-06-03 at 09:53 -0400, Neil Horman wrote:
 > > > On Tue, Jun 02, 2015 at 11:07:19PM -0400, Andy Gospodarek wrote:
@@ -147,21 +148,12 @@ On Mi, 2015-06-03 at 10:21 -0400, Neil Horman wrote:
 > and subsequent lookups should use the alternate interface.  But it seems like
 > thats not happening, so I'm wondering why that is.
 
-It is a matter of implementation, I think, albeit I would prefer to not
-kill all connections during a small link loss.
+Neil, I think I see what you are asking, let me see if I can clarify
+this.  The confusing part here is that NETDEV_DOWN events are done when
+IFF_UP is cleared, not when link changes (those are NETDEV_CHANGE
+events), but sync_fib_down_dev() is called by both with this patch.
 
-Given a laptop with unstable link, we would immediately kill all
-connections during packet send with this option enabled as error would
-propagate to local_error handlers (I hope this is correct, Andy?).
-
-If you have multiple routes to the same destination as in multipath,
-yes, this should work and I think will work.
-But as soon as you have to backtrack, this is not a semantically
-equivalent route to the destination any more, so we should not switch to
-it just because of a link event.
-
-I don't think we can change the default easily here, but I like this new
-feature.
-
-Bye,
-Hannes
+When NETDEV_DOWN events happen the DEAD_LINKDOWN flag needs to be
+cleared so that proper cleanup happens later when flushing routes later.
+This is why some action is needed in sync_fib_down_dev to handle this
+new flag.
