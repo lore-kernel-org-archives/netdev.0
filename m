@@ -1,8 +1,9 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [RFC 3/9] net: dsa: mv88e6xxx: add support for VTU ops
-Date: Tue, 2 Jun 2015 21:39:50 -0400 (EDT)
-Message-ID: <1561034247.953427.1433295590494.JavaMail.zimbra@savoirfairelinux.com>
-References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-4-git-send-email-vivien.didelot@savoirfairelinux.com> <556D522E.90607@roeck-us.net>
+Subject: Re: [RFC 6/9] net: dsa: mv88e6352: allow egress of unknown
+ multicast
+Date: Tue, 2 Jun 2015 21:52:38 -0400 (EDT)
+Message-ID: <760410371.953763.1433296358640.JavaMail.zimbra@savoirfairelinux.com>
+References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-7-git-send-email-vivien.didelot@savoirfairelinux.com> <556DBBC5.5050009@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -18,37 +19,39 @@ Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
 	Chris Healy <cphealy@gmail.com>
 To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:55314 "EHLO
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:54405 "EHLO
 	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751443AbbFCBjy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 21:39:54 -0400
-In-Reply-To: <556D522E.90607@roeck-us.net>
+	with ESMTP id S1751599AbbFCBwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 21:52:41 -0400
+In-Reply-To: <556DBBC5.5050009@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Guenter,
+Hi Guenter,
 
-On Jun 2, 2015, at 2:50 AM, Guenter Roeck linux@roeck-us.net wrote:
+On Jun 2, 2015, at 10:20 AM, Guenter Roeck linux@roeck-us.net wrote:
 > On 06/01/2015 06:27 PM, Vivien Didelot wrote:
->> +    /* Bringing an interface up adds it to the VLAN 0. Ignore this. */
->> +    if (!vid)
->> +        return 0;
->> +
+>> This patch disables egress of unknown unicast destination addresses.
+>>
 > 
-> Me puzzled ;-). I brought this and the fid question up before.
-> No idea if my e-mail got lost or what happened.
+> Hi Vivien,
 > 
-> Can you explain why we don't need a configuration for vlan 0 ?
+> seems to me this patch is unrelated to the rest of the series.
+> 
+> Not sure if we really want this. If an address is in the arp cache
+> but has timed out from the bridge database, any unicast to that address
+> will no longer be sent. If the bridge database has been flushed for some
+> reason, such as a spanning tree reconfiguration, we'll have a hard time
+> to send anything.
+> 
+> What is the problem you are trying to solve with this patch ?
 
-Sorry for late reply. Initially, when issuing "ip link set up dev swp0",
-ndo_vlan_rx_add_vid was called to add the interface in the VLAN 0.
+TBH, I don't remember which one of the test cases I described in 0/9
+this patch was solving... Some ARP request didn't propagate correctly
+without this, IIRC.
 
-2 things happen here:
-
-  * this is inconsistent with the "bridge vlan" output which doesn't seem to
-    know about a VID 0;
-  * VID 0 seems special for this switch: if an ingressing frame has VID 0, the
-    tagged port will override the VID bits with the port default VID at egress.
+I'll try to revert the change and do my tests again in order to isolate
+the problem.
 
 Thanks,
 -v
