@@ -1,17 +1,17 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [RFC 7/9] net: dsa: mv88e6352: lock CPU port from learning
- addresses
-Date: Tue, 2 Jun 2015 19:24:51 -0700
-Message-ID: <20150603022451.GB932@roeck-us.net>
+Subject: Re: [RFC 5/9] net: dsa: mv88e6352: disable mirroring
+Date: Tue, 2 Jun 2015 19:27:42 -0700
+Message-ID: <20150603022742.GC932@roeck-us.net>
 References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1433208470-25338-8-git-send-email-vivien.didelot@savoirfairelinux.com>
- <556DBCA4.10203@roeck-us.net>
- <1317462817.952931.1433293575321.JavaMail.zimbra@savoirfairelinux.com>
+ <1433208470-25338-6-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <556DBAAA.4010408@roeck-us.net>
+ <20150602145313.GU22739@lunn.ch>
+ <1365988647.953084.1433293950168.JavaMail.zimbra@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
+	David <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
 	Scott Feldman <sfeldma@gmail.com>,
 	Jiri Pirko <jiri@resnulli.us>,
 	=?iso-8859-1?Q?J=E9rome?= Oufella
@@ -20,43 +20,48 @@ Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
 	kernel <kernel@savoirfairelinux.com>,
 	Chris Healy <cphealy@gmail.com>
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:40567 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752654AbbFCC1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 22:27:46 -0400
 Content-Disposition: inline
-In-Reply-To: <1317462817.952931.1433293575321.JavaMail.zimbra@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1365988647.953084.1433293950168.JavaMail.zimbra@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 02, 2015 at 09:06:15PM -0400, Vivien Didelot wrote:
-> Hi Guenter,
+On Tue, Jun 02, 2015 at 09:12:30PM -0400, Vivien Didelot wrote:
+> Hi Guenter, Andrew,
 > 
-> On Jun 2, 2015, at 10:24 AM, Guenter Roeck linux@roeck-us.net wrote:
-> On 06/01/2015 06:27 PM, Vivien Didelot wrote:
-> >> This commit disables SA learning and refreshing for the CPU port.
-> >>
-> > 
-> > Hi Vivien,
-> > 
-> > This patch also seems to be unrelated to the rest of the series.
-> > 
-> > Can you add an explanation why it is needed ?
-> > 
-> > With this in place, how does the CPU port SA find its way into the fdb ?
-> > Do we assume that it will be configured statically ?
-> > An explanation might be useful.
+> On Jun 2, 2015, at 10:53 AM, Andrew Lunn andrew@lunn.ch wrote:
+> On Tue, Jun 02, 2015 at 07:16:10AM -0700, Guenter Roeck wrote:
+> >> On 06/01/2015 06:27 PM, Vivien Didelot wrote:
+> >> >Disable the mirroring policy in the monitor control register, since this
+> >> >feature is not needed.
+> >> >
+> >> >Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> >> 
+> >> Should this be a separate patch, unrelated to the patch set ?
 > 
-> Without this patch, I noticed the CPU port was stealing the SA of a PC
-> behind a switch port. this happened when the port was a bridge member,
-> as the bridge was relaying broadcast coming from one switch port to the
-> other switch ports in the same vlan.
+> Indeed, this one is an unrelated patch, sorry.
 > 
-Makes me feel really uncomfortable. I think we may be going into the wrong
-direction. The whole point of offloading bridging is to have the switch handle
-forwarding, and that includes multicasts and broadcasts. Instead of doing that,
-it looks like we put more and more workarounds in place.
+> >> If I understand correctly, this effectively disables IGMP/MLD snooping.
+> >> I think this warrants an explanation why that it not needed, not just
+> >> a statement that it is not needed.
+> > 
+> > +1
+> > 
+> > Especially since we might want to revisit this to implement IGMP/MLD
+> > snooping in the bridge. The hardware should be capable of it.
+> 
+> This is something I want to disable because I can have several times
+> gigabit traffic on my ports. This would end up in a bottleneck on the
+> CPU port. Am I right?
+> 
+Not really. That should not be that much traffic. Besides, IGMP/MLD snooping
+still needs to be enabled separately, as well as egress monitoring.
 
-Maybe the software bridge code needs to understand that it isn't support to
-forward broadcasts to ports of an offloaded bridge, and we should let the
-switch chip handle it ?
+I don't think this has any impact on the traffic to the CPU port unless other
+configuration bits are set as well.
 
-Thanks,
 Guenter
