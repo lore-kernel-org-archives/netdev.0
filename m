@@ -1,76 +1,92 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: Make the function sctp_chunk_abandoned bool
-Date: Wed, 3 Jun 2015 06:22:54 -0400
-Message-ID: <20150603102254.GA7234@hmsreliant.think-freely.org>
-References: <1433304173-4367-1-git-send-email-xerofoify@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vyasevich@gmail.com, davem@davemloft.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Nicholas Krause <xerofoify@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/9] e1000e: fix flush_desc_ring implementation
+Date: Wed,  3 Jun 2015 04:27:52 -0700
+Message-ID: <1433330876-2658-6-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1433330876-2658-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Yanir Lubetkin <yanirx.lubetkin@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:49834 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752548AbbFCKXJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 06:23:09 -0400
-Content-Disposition: inline
-In-Reply-To: <1433304173-4367-1-git-send-email-xerofoify@gmail.com>
+Received: from mga14.intel.com ([192.55.52.115]:63339 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754489AbbFCL2F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jun 2015 07:28:05 -0400
+In-Reply-To: <1433330876-2658-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 03, 2015 at 12:02:53AM -0400, Nicholas Krause wrote:
-> This makes the function sctp_chunk_abandoned bool due to this
-> function only returning either one or zero as its return value.
-> 
-> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
-> ---
->  include/net/sctp/structs.h | 2 +-
->  net/sctp/chunk.c           | 8 ++++----
->  2 files changed, 5 insertions(+), 5 deletions(-)
-> 
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 2bb2fcf..2691490 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -535,7 +535,7 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *,
->  void sctp_datamsg_free(struct sctp_datamsg *);
->  void sctp_datamsg_put(struct sctp_datamsg *);
->  void sctp_chunk_fail(struct sctp_chunk *, int error);
-> -int sctp_chunk_abandoned(struct sctp_chunk *);
-> +bool sctp_chunk_abandoned(struct sctp_chunk *);
->  
->  /* RFC2960 1.4 Key Terms
->   *
-> diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
-> index a338091..7bd1991 100644
-> --- a/net/sctp/chunk.c
-> +++ b/net/sctp/chunk.c
-> @@ -344,17 +344,17 @@ errout:
->  }
->  
->  /* Check whether this message has expired. */
-> -int sctp_chunk_abandoned(struct sctp_chunk *chunk)
-> +bool sctp_chunk_abandoned(struct sctp_chunk *chunk)
->  {
->  	struct sctp_datamsg *msg = chunk->msg;
->  
->  	if (!msg->can_abandon)
-> -		return 0;
-> +		return false;
->  
->  	if (time_after(jiffies, msg->expires_at))
-> -		return 1;
-> +		return true;
->  
-> -	return 0;
-> +	return false;
->  }
->  
->  /* This chunk (and consequently entire message) has failed in its sending. */
-> -- 
-> 2.1.4
-> 
-> 
-Seems reasonable
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+From: Yanir Lubetkin <yanirx.lubetkin@intel.com>
+
+The indication that a descriptor ring flush is required was read from
+FEXTNVM7 by mistake. It should be read from the PCI config space.
+
+Signed-off-by: Yanir Lubetkin <yanirx.lubetkin@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/e1000.h   |  2 ++
+ drivers/net/ethernet/intel/e1000e/ich8lan.h |  1 -
+ drivers/net/ethernet/intel/e1000e/netdev.c  | 12 +++++++-----
+ 3 files changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 0abc942..e78487a 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -98,6 +98,8 @@ struct e1000_info;
+ #define DEFAULT_RADV			8
+ #define BURST_RDTR			0x20
+ #define BURST_RADV			0x20
++#define PCICFG_DESC_RING_STATUS		0xe4
++#define FLUSH_DESC_REQUIRED		0x100
+ 
+ /* in the case of WTHRESH, it appears at least the 82571/2 hardware
+  * writes back 4 descriptors when WTHRESH=5, and 3 descriptors when
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.h b/drivers/net/ethernet/intel/e1000e/ich8lan.h
+index bf72ef8..1500536 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.h
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.h
+@@ -100,7 +100,6 @@
+ #define E1000_FEXTNVM7_DISABLE_PB_READ	0x00040000
+ 
+ #define E1000_FEXTNVM7_DISABLE_SMB_PERST	0x00000020
+-#define E1000_FEXTNVM7_NEED_DESCRING_FLUSH	0x00000100
+ #define E1000_FEXTNVM11_DISABLE_MULR_FIX	0x00002000
+ 
+ /* bit24: RXDCTL thresholds granularity: 0 - cache lines, 1 - descriptors */
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index b2d77a5..4f029b6 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -3867,7 +3867,7 @@ static void e1000_flush_rx_ring(struct e1000_adapter *adapter)
+ 
+ static void e1000_flush_desc_rings(struct e1000_adapter *adapter)
+ {
+-	u32 hang_state;
++	u16 hang_state;
+ 	u32 fext_nvm11, tdlen;
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
+@@ -3877,13 +3877,15 @@ static void e1000_flush_desc_rings(struct e1000_adapter *adapter)
+ 	ew32(FEXTNVM11, fext_nvm11);
+ 	/* do nothing if we're not in faulty state, or if the queue is empty */
+ 	tdlen = er32(TDLEN(0));
+-	hang_state = er32(FEXTNVM7);
+-	if (!(hang_state & E1000_FEXTNVM7_NEED_DESCRING_FLUSH) || !tdlen)
++	pci_read_config_word(adapter->pdev, PCICFG_DESC_RING_STATUS,
++			     &hang_state);
++	if (!(hang_state & FLUSH_DESC_REQUIRED) || !tdlen)
+ 		return;
+ 	e1000_flush_tx_ring(adapter);
+ 	/* recheck, maybe the fault is caused by the rx ring */
+-	hang_state = er32(FEXTNVM7);
+-	if (hang_state & E1000_FEXTNVM7_NEED_DESCRING_FLUSH)
++	pci_read_config_word(adapter->pdev, PCICFG_DESC_RING_STATUS,
++			     &hang_state);
++	if (hang_state & FLUSH_DESC_REQUIRED)
+ 		e1000_flush_rx_ring(adapter);
+ }
+ 
+-- 
+2.1.0
