@@ -1,200 +1,69 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [RFC 2/9] net: dsa: add basic support for VLAN operations
-Date: Tue, 2 Jun 2015 20:45:55 -0400 (EDT)
-Message-ID: <2072564647.943921.1433292355649.JavaMail.zimbra@savoirfairelinux.com>
-References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-3-git-send-email-vivien.didelot@savoirfairelinux.com> <556DC0E1.9000709@roeck-us.net>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: How do I avoid recvmsg races with IP_RECVERR?
+Date: Tue, 2 Jun 2015 17:56:57 -0700
+Message-ID: <CALCETrVN4Yp1gXUe=GQtA=2_ON6FUV7kp5UQCv6tzboTdXqRTg@mail.gmail.com>
+References: <CALCETrW-jkMrEjidwCTraeAaHCHA_+9eExQAz2phvn=OB8RMhQ@mail.gmail.com>
+ <1433279822.2479038.285136017.7DD69CC6@webmail.messagingengine.com>
+ <CALCETrXHLZKVuhSRdi1NvqjFbRf0-PKTt1PYPN6Dw=sXeRA4iw@mail.gmail.com>
+ <1433281373.2485127.285160441.6F17A081@webmail.messagingengine.com>
+ <1433281844.2487226.285170105.063B7084@webmail.messagingengine.com>
+ <CALCETrU3EXkxANKQYHYpB-cELeOGKAwB-8wTxX+xJ0Ms+kx4Bg@mail.gmail.com> <1433291591.3300318.285256449.713A7E1E@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	=?utf-8?Q?J=C3=A9rome?= Oufella
-	<jerome.oufella@savoirfairelinux.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>,
-	Chris Healy <cphealy@gmail.com>
-To: Guenter Roeck <linux@roeck-us.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Lutomirski <luto@kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:55255 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751479AbbFCAp7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 20:45:59 -0400
-In-Reply-To: <556DC0E1.9000709@roeck-us.net>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:36523 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751668AbbFCA5T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 20:57:19 -0400
+Received: by lbbqq2 with SMTP id qq2so115073812lbb.3
+        for <netdev@vger.kernel.org>; Tue, 02 Jun 2015 17:57:18 -0700 (PDT)
+In-Reply-To: <1433291591.3300318.285256449.713A7E1E@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Guenter,
+On Tue, Jun 2, 2015 at 5:33 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Wed, Jun 3, 2015, at 02:03, Andy Lutomirski wrote:
+>> On Tue, Jun 2, 2015 at 2:50 PM, Hannes Frederic Sowa
+>> <hannes@stressinduktion.org> wrote:
+>> >> My proposal would be to make the error conversion lazy:
+>> >>
+>> >> Keeping duplicate data is not a good idea in general: So we shouldn't
+>> >> use sk->sk_err if IP_RECVERR is set at all but let sock_error just use
+>> >> the sk_error_queue and extract the error code from there.
+>> >>
+>> >> Only if IP_RECVERR was not set, we use sk->sk_err logic.
+>> >>
+>> >> What do you think?
+>> >
+>> > I just noticed that this will probably break existing user space
+>> > applications which require that icmp errors are transient even with
+>> > IP_RECVERR. We can mark that with a bit in the sk_error_queue pointer
+>> > and xchg the pointer, hmmm....
+>>
+>> Do you mean to fix the race like this but to otherwise leave the
+>> semantics
+>> alone?  That would be an improvement, but it might be nice to also add
+>> a non-crappy API for this, too.
+>
+> Yes, keep current semantics but fix the race you reported.
+>
+> I currently don't have good proposals for a decent API to handle this
+> besides adding some ancillary cmsg data to msg_control. This still would
+> not solve the problem fundamentally, as a -EFAULT/-EINVAL return value
+> could also mean that msg_control should not be touched, thus we end up
+> again relying on errno checking. :/ Thus checking error queue after
+> receiving an error indications is my best hunch so far.
+>
+> Your proposal with MSG_IGNORE_ERROR seems reasonable so far for ping or
+> udp, but I haven't fully grasped the TCP semantics of sk->sk_err, yet.
 
-On Jun 2, 2015, at 10:42 AM, Guenter Roeck linux@roeck-us.net wrote:
-On 06/01/2015 06:27 PM, Vivien Didelot wrote:
->> This patch adds the glue between DSA and switchdev to add and delete
->> SWITCHDEV_OBJ_PORT_VLAN objects.
->>
->> This will allow the DSA switch drivers implementing the port_vlan_add
->> and port_vlan_del functions to access the switch VLAN database through
->> userspace commands such as "bridge vlan".
->>
->> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->> ---
->>   include/net/dsa.h |  7 +++++++
->>   net/dsa/slave.c   | 61 +++++++++++++++++++++++++++++++++++++++++++++++++++++--
->>   2 files changed, 66 insertions(+), 2 deletions(-)
->>
->> diff --git a/include/net/dsa.h b/include/net/dsa.h
->> index fbca63b..726357b 100644
->> --- a/include/net/dsa.h
->> +++ b/include/net/dsa.h
->> @@ -302,6 +302,13 @@ struct dsa_switch_driver {
->>                 const unsigned char *addr, u16 vid);
->>      int (*fdb_getnext)(struct dsa_switch *ds, int port,
->>                     unsigned char *addr, bool *is_static);
->> +
->> +    /*
->> +     * VLAN support
->> +     */
->> +    int (*port_vlan_add)(struct dsa_switch *ds, int port, u16 vid,
->> +                 u16 bridge_flags);
->> +    int (*port_vlan_del)(struct dsa_switch *ds, int port, u16 vid);
->>   };
->>
->>   void register_switch_driver(struct dsa_switch_driver *type);
->> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
->> index cbda00a..52ba5a1 100644
->> --- a/net/dsa/slave.c
->> +++ b/net/dsa/slave.c
->> @@ -363,6 +363,25 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
->>      return ret;
->>   }
->>
->> +static int dsa_slave_port_vlans_add(struct net_device *dev,
->> +                    struct switchdev_obj_vlan *vlan)
->> +{
->> +    struct dsa_slave_priv *p = netdev_priv(dev);
->> +    struct dsa_switch *ds = p->parent;
->> +    int vid, err = 0;
->> +
->> +    if (!ds->drv->port_vlan_add)
->> +        return -ENOTSUPP;
->> +
->> +    for (vid = vlan->vid_start; vid <= vlan->vid_end; ++vid) {
->> +        err = ds->drv->port_vlan_add(ds, p->port, vid, vlan->flags);
->> +        if (err)
->> +            break;
->> +    }
->> +
->> +    return err;
->> +}
->> +
->>   static int dsa_slave_port_obj_add(struct net_device *dev,
->>                    struct switchdev_obj *obj)
->>   {
->> @@ -378,6 +397,9 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
->>          return 0;
->>
->>      switch (obj->id) {
->> +    case SWITCHDEV_OBJ_PORT_VLAN:
->> +        err = dsa_slave_port_vlans_add(dev, &obj->u.vlan);
->> +        break;
->>      default:
->>          err = -ENOTSUPP;
->>          break;
->> @@ -386,12 +408,34 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
->>      return err;
->>   }
->>
->> +static int dsa_slave_port_vlans_del(struct net_device *dev,
->> +                    struct switchdev_obj_vlan *vlan)
->> +{
->> +    struct dsa_slave_priv *p = netdev_priv(dev);
->> +    struct dsa_switch *ds = p->parent;
->> +    int vid, err = 0;
->> +
->> +    if (!ds->drv->port_vlan_del)
->> +        return -ENOTSUPP;
->> +
->> +    for (vid = vlan->vid_start; vid <= vlan->vid_end; ++vid) {
->> +        err = ds->drv->port_vlan_del(ds, p->port, vid);
->> +        if (err)
->> +            break;
->> +    }
->> +
->> +    return err;
->> +}
->> +
->>   static int dsa_slave_port_obj_del(struct net_device *dev,
->>                    struct switchdev_obj *obj)
->>   {
->>      int err;
->>
->>      switch (obj->id) {
->> +    case SWITCHDEV_OBJ_PORT_VLAN:
->> +        err = dsa_slave_port_vlans_del(dev, &obj->u.vlan);
->> +        break;
->>      default:
->>          err = -EOPNOTSUPP;
->>          break;
->> @@ -473,6 +517,15 @@ static netdev_tx_t dsa_slave_notag_xmit(struct sk_buff
->> *skb,
->>      return NETDEV_TX_OK;
->>   }
->>
->> +static int dsa_slave_vlan_noop(struct net_device *dev, __be16 proto, u16 vid)
->> +{
->> +    /* NETIF_F_HW_VLAN_CTAG_FILTER requires ndo_vlan_rx_add_vid and
->> +     * ndo_vlan_rx_kill_vid, otherwise the VLAN acceleration is considered
->> +     * buggy (see net/core/dev.c).
->> +     */
->> +    return 0;
->> +}
->> +
->>
->>   /* ethtool operations *******************************************************/
->>   static int
->> @@ -734,6 +787,10 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
->>      .ndo_fdb_dump       = dsa_slave_fdb_dump,
->>      .ndo_do_ioctl       = dsa_slave_ioctl,
->>      .ndo_get_iflink     = dsa_slave_get_iflink,
->> +    .ndo_vlan_rx_add_vid    = dsa_slave_vlan_noop,
->> +    .ndo_vlan_rx_kill_vid   = dsa_slave_vlan_noop,
->> +    .ndo_bridge_setlink = switchdev_port_bridge_setlink,
->> +    .ndo_bridge_dellink = switchdev_port_bridge_dellink,
->>   };
->>
->>   static const struct switchdev_ops dsa_slave_switchdev_ops = {
->> @@ -924,7 +981,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device
->> *parent,
->>      if (slave_dev == NULL)
->>          return -ENOMEM;
->>
->> -    slave_dev->features = master->vlan_features;
->> +    slave_dev->features = master->vlan_features | NETIF_F_VLAN_FEATURES;
-> 
-> Hi Vivien,
-> 
-> NETIF_F_VLAN_FEATURES declares that the device supports receive and transmit
-> tagging offload. We do this on transmit, by calling vlan_hwaccel_push_inside()
-> with patch 9, but not on the receive side.
-> 
-> I think you may need to add matching code on the receive side to remove
-> the VLAN tag and move it into the skb with __vlan_hwaccel_put_tag().
-> It may also be necessary to add the same code for the other tag handlers.
-> 
-> Overall I wonder if it really makes sense to add those flags. Seems to me
-> that would only make sense if the resulting code gets more efficient,
-> which at least currently is not the case. Am I missing something ?
+I always assumed that TCP didn't have transient errors.  Shouldn't a
+connection either be up or down but not up with errors?  If that's
+wrong, then it's probably worth understanding what's going on before
+trying to design a fix.
 
-I initially added those flags because without them, bridge didn't call
-my ndo_vlan_rx_add_vid. But with the switchdev abstraction, they seem
-unrelevant.
-
-I just undo this change (keeping slave_dev->{vlan_,}features to
-master->vlan_features) and I am able to create VLANs through bridge.
-
-TBH, I'm not familiar at all with these flags. Seems like I must revert
-this feature changes.
-
-Thanks,
--v
+--Andy
