@@ -1,87 +1,74 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [Intel-wired-lan] [PATCH V2 1/2] pci: Add dev_flags bit to
- access VPD through function 0
-Date: Wed, 3 Jun 2015 16:16:43 +0000
-Message-ID: <4033DF50-0126-4F69-88FA-C6AABC0CADCE@intel.com>
-References: <20150603000645.71269.26134.stgit@mdrustad-wks.jf.intel.com>
- <20150603001011.71269.79857.stgit@mdrustad-wks.jf.intel.com>
- <556E6667.1020000@gmail.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH 03/11] netfilter: don't use module_init/exit in core IPV4
+ code
+Date: Wed, 3 Jun 2015 12:18:27 -0400
+Message-ID: <556F28D3.4060203@windriver.com>
+References: <1433120052-18281-1-git-send-email-paul.gortmaker@windriver.com> <1433120052-18281-4-git-send-email-paul.gortmaker@windriver.com> <20150603160429.GA3565@salvia>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_B443E2EF-BF6E-486A-A6C8-5F41C784D5D3";
-	protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <556E6667.1020000@gmail.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Apple-Mail=_B443E2EF-BF6E-486A-A6C8-5F41C784D5D3
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=windows-1252
-
-> On Jun 2, 2015, at 7:28 PM, Alexander Duyck =
-<alexander.duyck@gmail.com> wrote:
->=20
-> You can probably combine the dev->multifunction check with the =
-dev_flags check.  After all you don't need this workaround if the device =
-is not multifunction.  It might even make more sense to move the =
-multifunction check to the quirk in patch 2/2.
-
-Yes. I also realized that I really should check that tdev->vpd is not =
-NULL. There is no point in referencing it if, for whatever reason, it =
-has no VPD.
-
-> I also believe this leaks a reference to the device.
-
-Yes, and I was thinking that when I wrote the line, but forgot to do =
-anything about it. Good catch!
-
-> You should be calling pci_dev_put(tdev) if tdev is not NULL.  As such =
-you probably need to split up the !tdev and the rest of the checks.
-
-Yup. I will have a V3 coming. I still don't have anything to handle PFs =
-assigned to guests, but I think that would be best in a separate patch =
-set if there is need to fix that. It looks to me like that would involve =
-trapping on all config space accesses to such devices and then emulating =
-the behavior of the VPD Address/F and Data registers. It may be worth =
-seeing if anyone cares before doing anything about it. I haven't seen =
-any reports related to such a setup.
-
-Again, thank you for your comments.
-
---
-Mark Rustad, Networking Division, Intel Corporation
-
-
---Apple-Mail=_B443E2EF-BF6E-486A-A6C8-5F41C784D5D3
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
+Cc: <linux-kernel@vger.kernel.org>, Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:38654 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755611AbbFCQTL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 12:19:11 -0400
+In-Reply-To: <20150603160429.GA3565@salvia>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
+On 15-06-03 12:04 PM, Pablo Neira Ayuso wrote:
+> On Sun, May 31, 2015 at 08:54:04PM -0400, Paul Gortmaker wrote:
+>> The file net/ipv4/netfilter.o is created based on whether
+>> CONFIG_NETFILTER is set.  However that is defined as a bool, and
+>> hence this file with the core netfilter hooks will never be
+>> modular.  So using module_init as an alias for __initcall can be
+>> somewhat misleading.
+>>
+>> Fix this up now, so that we can relocate module_init from
+>> init.h into module.h in the future.  If we don't do this, we'd
+>> have to add module.h to obviously non-modular code, and that
+>> would be a worse thing.  Also add an inclusion of init.h, as
+>> that was previously implicit here in the netfilter.c file.
+>>
+>> Note that direct use of __initcall is discouraged, vs. one
+>> of the priority categorized subgroups.  As __initcall gets
+>> mapped onto device_initcall, our use of subsys_initcall (which
+>> seems to make sense for netfilter code) will thus change this
+>> registration from level 6-device to level 4-subsys (i.e. slightly
+>> earlier).  However no observable impact of that small difference
+>> has been observed during testing, or is expected. (i.e. the
+>> location of the netfilter messages in dmesg remains unchanged
+>> with respect to all the other surrounding messages.)
+>>
+>> As for the module_exit, rather than replace it with __exitcall,
+>> we simply remove it, since it appears only UML does anything
+>> with those, and even for UML, there is no relevant cleanup
+>> to be done here.
+>>
+>> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+>> Cc: Patrick McHardy <kaber@trash.net>
+>> Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+>> Cc: "David S. Miller" <davem@davemloft.net>
+>> Cc: netfilter-devel@vger.kernel.org
+>> Cc: netdev@vger.kernel.org
+>> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> 
+> Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> 
+> Or I can integrate this into the nf-next tree if you prefer it.
 
-iQIcBAEBCAAGBQJVbyhsAAoJEDwO/+eO4+5uKZYP/RTdMtrlhEh6X3JqPAMXfUQ7
-v+idF6gb2R9xmoJ+zvmoSiG+ggM7YvPi91fCee7g4YbmPJKs+yJ0lFfZgHGtV97U
-WwHehHjrYjWU1gr4vXeI/igeJj2WdCX5uiqImFss9cV0bgHG8YjkNx2JpXjGs6P2
-4SSoXg3Y/Dy2u8i89V0qg59n/ub4b6fNQLhVQrQZWe4KSh6gzgAOSKQpfPwmlBpY
-wWgvtSMmlbUVDQ4sxNxtYwTCBSUhuGOgKsND3epOUtRvZjAKNG2ji1p29D1pJ5bi
-Jc1KIQ874LO+pfPO66G/p0HOOTbJm9XRREJogHam7WMW6xbPVgO5fas55jAfjOuv
-qjQE9qwtqs62IGOtjkaKV1cc8Ryphr3sp6l/dXO/Hrq3t8bWyZ1eVuuXPEn68WDQ
-QFOcufx+qIp3WzQggn8n89Ip02DsR5IK0aJtlEoUz9vOH8lwJnHt6SxyDQgWLfXH
-cVyUg5syiL+0zKzF71E0c9w/aTdmyiK3yP2Y47+G5dWtb7CHL+ii6zejdAJRJvL4
-t9IXRXW6+sXYkVPMWYoG4QPkhZrMt1Gf89G8/anuBkJIZmOS0j9+xedfZbr8GUmH
-b2Z5bDCQi1GMRveKMvcf9khdw7xcSAngfB4fdISwAYmZPT+vGTlFytG1XJfRUF77
-DiEoFPL6MIoZ4CAM3k12
-=5hJu
------END PGP SIGNATURE-----
+I need to keep it in my series to avoid introducing compile
+fails into the bisect history, so I'll just add your Ack.
 
---Apple-Mail=_B443E2EF-BF6E-486A-A6C8-5F41C784D5D3--
+Thanks,
+Paul.
+--
+
+> 
+> Thanks.
+> 
