@@ -1,50 +1,145 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: Re: [net-next RFC 08/14] openvswitch: Allocate & attach
- ip_tunnel_info for tunnel set action
-Date: Thu, 4 Jun 2015 00:07:57 +0200
-Message-ID: <20150603220757.GA687@pox.localdomain>
-References: <cover.1433167295.git.tgraf@suug.ch>
- <13ac5a4837771ff2f52aa685f526b04c1ed76b86.1433167296.git.tgraf@suug.ch>
- <20150603172935.2a019653@griffin>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
- daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
- kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
- tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20150603172935.2a019653@griffin>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Neil McKee <neil.mckee@inmon.com>
+Subject: [PATCH net-next] openvswitch: include actions with upcall if allocation allows
+Date: Wed,  3 Jun 2015 15:31:07 -0700
+Message-ID: <1433370667-30625-1-git-send-email-neil.mckee@inmon.com>
+Cc: Neil McKee <neil.mckee@inmon.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f172.google.com ([209.85.216.172]:34139 "EHLO
+	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752773AbbFCWbR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 18:31:17 -0400
+Received: by qcej9 with SMTP id j9so10856438qce.1
+        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 15:31:17 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDYvMDMvMTUgYXQgMDU6MjlwbSwgSmlyaSBCZW5jIHdyb3RlOgo+IE9uIE1vbiwgIDEgSnVu
-IDIwMTUgMTY6Mjc6MzIgKzAyMDAsIFRob21hcyBHcmFmIHdyb3RlOgo+ID4gLS0tIGEvbmV0L29w
-ZW52c3dpdGNoL2Zsb3cuaAo+ID4gKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3cuaAo+ID4gQEAg
-LTQ1LDYgKzQ1LDExIEBAIHN0cnVjdCBza19idWZmOwo+ID4gICNkZWZpbmUgVFVOX01FVEFEQVRB
-X09QVFMoZmxvd19rZXksIG9wdF9sZW4pIFwKPiA+ICAJKCh2b2lkICopKChmbG93X2tleSktPnR1
-bl9vcHRzICsgVFVOX01FVEFEQVRBX09GRlNFVChvcHRfbGVuKSkpCj4gPiAgCj4gPiArc3RydWN0
-IG92c190dW5uZWxfaW5mbwo+ID4gK3sKPiA+ICsJc3RydWN0IGlwX3R1bm5lbF9pbmZvCSppbmZv
-Owo+ID4gK307Cj4gCj4gV2h5IGRvIHlvdSBrZWVwIHRoaXMgc3RydWN0dXJlPyBJdCBkb2Vzbid0
-IHNlZW0gaXQncyB1c2VmdWwuCgpJdCdzIHRoZSBzdHJ1Y3R1cmUgd2hpY2ggZGVmaW5lcyB0aGUg
-cGF5bG9hZCBvZiB0aGUgT1ZTIHNldAp0dW5uZWwgYWN0aW9uLiBUaG9zZSBhY3Rpb25zIGFyZSBj
-b25maWd1cmVkIGFzIE5ldGxpbmsgYXR0cmlidXRlcwpvbmx5IHZpc2libGUgdG8gdGhlIGtlcm5l
-bC4gU2luY2Ugd2UgYWxsb2NhdGUgdGhlIGlwX3R1bm5lbF9pbmZvCnRvIGF0dGFjaCBpdCB0byB0
-aGUgcGFja2V0cyBwYXNzaW5nIGJ5LCB3ZSBvbmx5IG5lZWQgdG8ga2VlcCBhCnBvaW50ZXIgYXMg
-dGhlIGNvbmZpZyB0byB0aGUgc2V0IGFjdGlvbi4gV2UgY291bGQgYWxzbyBkbwooc3RydWN0IGlw
-X3R1bm5lbF9pbmZvICopIG5sYV9kYXRhKC4uLikgYW5kIHN0b3JlIHRoZSBwb2ludGVyCndpdGhv
-dXQgZGVmaW5pbmcgYSBzdHJ1Y3QuIEkgZm91bmQgdGhpcyBtb3JlIHJlYWRhYmxlLiBIYXBweSB0
-bwpjaGFuZ2UgaWYgeW91IGxpa2UgaXQgYmV0dGVyIHdpdGhvdXQgYSBzdHJ1Y3QgYXJvdW5kIGl0
-LgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFp
-bGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWls
-bWFuL2xpc3RpbmZvL2Rldgo=
+Back out the OVS_USERSPACE_ATTR_ACTIONS attribute that was
+gating the inclusion of datapath actions in the upcall.
+Instead include the actions every time, provided there is no
+problem with the atomic allocation.  If the atomic allocation
+fails then try it again with the actions omitted.
+
+Signed-off-by: Neil McKee <neil.mckee@inmon.com>
+---
+ include/uapi/linux/openvswitch.h |  4 ----
+ net/openvswitch/actions.c        |  9 ++-------
+ net/openvswitch/datapath.c       | 17 +++++++++++++----
+ 3 files changed, 15 insertions(+), 15 deletions(-)
+
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index 1dab776..bbd49a0 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -153,8 +153,6 @@ enum ovs_packet_cmd {
+  * flow key against the kernel's.
+  * @OVS_PACKET_ATTR_ACTIONS: Contains actions for the packet.  Used
+  * for %OVS_PACKET_CMD_EXECUTE.  It has nested %OVS_ACTION_ATTR_* attributes.
+- * Also used in upcall when %OVS_ACTION_ATTR_USERSPACE has optional
+- * %OVS_USERSPACE_ATTR_ACTIONS attribute.
+  * @OVS_PACKET_ATTR_USERDATA: Present for an %OVS_PACKET_CMD_ACTION
+  * notification if the %OVS_ACTION_ATTR_USERSPACE action specified an
+  * %OVS_USERSPACE_ATTR_USERDATA attribute, with the same length and content
+@@ -530,7 +528,6 @@ enum ovs_sample_attr {
+  * copied to the %OVS_PACKET_CMD_ACTION message as %OVS_PACKET_ATTR_USERDATA.
+  * @OVS_USERSPACE_ATTR_EGRESS_TUN_PORT: If present, u32 output port to get
+  * tunnel info.
+- * @OVS_USERSPACE_ATTR_ACTIONS: If present, send actions with upcall.
+  */
+ enum ovs_userspace_attr {
+ 	OVS_USERSPACE_ATTR_UNSPEC,
+@@ -538,7 +535,6 @@ enum ovs_userspace_attr {
+ 	OVS_USERSPACE_ATTR_USERDATA,  /* Optional user-specified cookie. */
+ 	OVS_USERSPACE_ATTR_EGRESS_TUN_PORT,  /* Optional, u32 output port
+ 					      * to get tunnel info. */
+-	OVS_USERSPACE_ATTR_ACTIONS,   /* Optional flag to get actions. */
+ 	__OVS_USERSPACE_ATTR_MAX
+ };
+ 
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 8a8c0b8..337730a 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -618,6 +618,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+ 
+ 	memset(&upcall, 0, sizeof(upcall));
+ 	upcall.cmd = OVS_PACKET_CMD_ACTION;
++	upcall.actions = actions;
++	upcall.actions_len = actions_len;
+ 
+ 	for (a = nla_data(attr), rem = nla_len(attr); rem > 0;
+ 		 a = nla_next(a, &rem)) {
+@@ -646,13 +648,6 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+ 			break;
+ 		}
+ 
+-		case OVS_USERSPACE_ATTR_ACTIONS: {
+-			/* Include actions. */
+-			upcall.actions = actions;
+-			upcall.actions_len = actions_len;
+-			break;
+-		}
+-
+ 		} /* End of switch. */
+ 	}
+ 
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index ff8c4a4..02b33a8 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -382,7 +382,7 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
+ }
+ 
+ static size_t upcall_msg_size(const struct dp_upcall_info *upcall_info,
+-			      unsigned int hdrlen)
++			      unsigned int hdrlen, bool allow_actions)
+ {
+ 	size_t size = NLMSG_ALIGN(sizeof(struct ovs_header))
+ 		+ nla_total_size(hdrlen) /* OVS_PACKET_ATTR_PACKET */
+@@ -397,7 +397,8 @@ static size_t upcall_msg_size(const struct dp_upcall_info *upcall_info,
+ 		size += nla_total_size(ovs_tun_key_attr_size());
+ 
+ 	/* OVS_PACKET_ATTR_ACTIONS */
+-	if (upcall_info->actions_len)
++	if (allow_actions &&
++	    upcall_info->actions_len)
+ 		size += nla_total_size(upcall_info->actions_len);
+ 
+ 	return size;
+@@ -418,6 +419,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+ 	size_t len;
+ 	unsigned int hlen;
+ 	int err, dp_ifindex;
++	bool allow_actions = true;
+ 
+ 	dp_ifindex = get_dpifindex(dp);
+ 	if (!dp_ifindex)
+@@ -454,9 +456,15 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+ 	else
+ 		hlen = skb->len;
+ 
+-	len = upcall_msg_size(upcall_info, hlen);
++retry_alloc:
++	len = upcall_msg_size(upcall_info, hlen, allow_actions);
+ 	user_skb = genlmsg_new_unicast(len, &info, GFP_ATOMIC);
+ 	if (!user_skb) {
++		if (allow_actions &&
++		    upcall_info->actions_len) {
++			allow_actions = false;
++			goto retry_alloc;
++		}
+ 		err = -ENOMEM;
+ 		goto out;
+ 	}
+@@ -481,7 +489,8 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+ 		nla_nest_end(user_skb, nla);
+ 	}
+ 
+-	if (upcall_info->actions_len) {
++	if (allow_actions &&
++	    upcall_info->actions_len) {
+ 		nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_ACTIONS);
+ 		err = ovs_nla_put_actions(upcall_info->actions,
+ 					  upcall_info->actions_len,
+-- 
+1.9.3
