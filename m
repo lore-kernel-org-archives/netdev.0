@@ -1,55 +1,68 @@
-From: Baolin Wang <baolin.wang@linaro.org>
-Subject: Re: [PATCH v4 00/25] Convert the posix_clock_operations and
- k_clock structure to ready for 2038
-Date: Wed, 3 Jun 2015 10:13:24 +0800
-Message-ID: <CAMz4ku+8unOm7EpZyurO+mzUywTJWJng_NFMAfcD8jPMHQAneg@mail.gmail.com>
-References: <1433159093-4548-1-git-send-email-baolin.wang@linaro.org>
- <alpine.DEB.2.11.1506022115240.20347@nanos>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [RFC 3/9] net: dsa: mv88e6xxx: add support for VTU ops
+Date: Tue, 2 Jun 2015 19:17:14 -0700
+Message-ID: <20150603021714.GA932@roeck-us.net>
+References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1433208470-25338-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <556D522E.90607@roeck-us.net>
+ <1561034247.953427.1433295590494.JavaMail.zimbra@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Xunlei Pang <pang.xunlei@linaro.org>, peterz@infradead.org,
- benh@kernel.crashing.org, heiko.carstens@de.ibm.com, paulus@samba.org,
- Jeffrey Vander Stoep <jeffv@google.com>, cl@linux.com, mark.d.rustad@intel.com,
- Heena Sirwani <heenasirwani@gmail.com>, linux-arch@vger.kernel.org,
- linux-s390@vger.kernel.org, y2038 Mailman List <y2038@lists.linaro.org>,
- mpe@ellerman.id.au, rafael.j.wysocki@intel.com, Andrew Hunter <ahh@google.com>,
- tiwai@suse.de, Jeffrey Layton <jlayton@primarydata.com>,
- =?UTF-8?B?RnLDqWTDqXJpYyBXZWlzYmVja2Vy?= <fweisbec@gmail.com>,
- Paul Turner <pjt@google.com>, serge@hallyn.com,
- Serge Hallyn <serge.hallyn@canonical.com>, riel@redhat.com,
- Kees Cook <keescook@chromium.org>, Arnd Bergmann <arnd@arndb.de>,
- Richard Cochran <richardcochran@gmail.com>, schwidefsky@de.ibm.com,
- John Stultz <john.stultz@linaro.org>, james.l.morris@oracle.com,
- rth@twiddle.net, sds@tyc
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <alpine.DEB.2.11.1506022115240.20347@nanos>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	=?iso-8859-1?Q?J=E9rome?= Oufella
+	<jerome.oufella@savoirfairelinux.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>,
+	Chris Healy <cphealy@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:39548 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751493AbbFCCRU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 22:17:20 -0400
+Content-Disposition: inline
+In-Reply-To: <1561034247.953427.1433295590494.JavaMail.zimbra@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMyBKdW5lIDIwMTUgYXQgMDM6MjAsIFRob21hcyBHbGVpeG5lciA8dGdseEBsaW51dHJvbml4
-LmRlPiB3cm90ZToKCj4gT24gTW9uLCAxIEp1biAyMDE1LCBCYW9saW4gV2FuZyB3cm90ZToKPgo+
-ID4gVGhpcyBwYXRjaCBzZXJpZXMgY2hhbmdlcyB0aGUgMzItYml0IHRpbWUgdHlwZXMgKHRpbWVz
-cGVjL2l0aW1lcnNwZWMpIHRvCj4gPiB0aGUgNjQtYml0IHR5cGVzICh0aW1lc3BlYzY0L2l0aW1l
-cnNwZWM2NCksIHNpbmNlIDMyLWJpdCB0aW1lIHR5cGVzIHdpbGwKPiA+IGJyZWFrIGluIHRoZSB5
-ZWFyIDIwMzguCj4KPiBUaGF0J3Mgb25seSB0cnVlIGZvciAzMmJpdCBzeXN0ZW1zLgo+Cj4gQWxs
-IGluIGFsbCB0aGUgcGF0Y2ggc2VyaWVzIGxvb2tzIHJhdGhlciByZWFzb25hYmxlIG5vdywgZXhj
-ZXB0IGZvcgo+IHRoZSBzdWJqZWN0IGxpbmVzIGFuZCB0aGUgY2hhbmdlbG9ncy4KPgo+IFRoZSBv
-bmx5IHRlY2huaWNhbCBvYmplY3Rpb24gSSBoYXZlIGlzIHRoZSBtYWNybyBjb252ZXJzaW9uIG1h
-Z2ljIGluCj4gcGF0Y2ggIzYuIFRoaXMgY2FuIGJlIGRvbmUgaW4gYSBsZXNzIGNyeXB0aWMgYW5k
-IG1vcmUgZWZmaWNpZW50IHdheS4KPgo+IFNlZSB0aGUgY29tbWVudHMgdG8gdGhlIHZhcmlvdXMg
-cGF0Y2hlcyBhbmQgcGxlYXNlIGFwcGx5IHRoZW0gdG8gYWxsCj4gb2YgdGhlIHNlcmllcy4KPgo+
-IFRoYW5rcywKPgo+ICAgICAgICAgdGdseAo+Cj4KPgpIaSBUaG9tYXMsCgpUaGFua3MgZm9yIHlv
-dXIgY29tbWVudHMsIGFuZCBpJ2xsIGNoZWNrIGFuZCBmaXggdGhlc2UgcHJvYmxlbXMuCgotLSAK
-QmFvbGluLndhbmcKQmVzdCBSZWdhcmRzCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fClkyMDM4IG1haWxpbmcgbGlzdApZMjAzOEBsaXN0cy5saW5hcm8ub3Jn
-Cmh0dHBzOi8vbGlzdHMubGluYXJvLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3kyMDM4Cg==
+On Tue, Jun 02, 2015 at 09:39:50PM -0400, Vivien Didelot wrote:
+> Guenter,
+> 
+> On Jun 2, 2015, at 2:50 AM, Guenter Roeck linux@roeck-us.net wrote:
+> > On 06/01/2015 06:27 PM, Vivien Didelot wrote:
+> >> +    /* Bringing an interface up adds it to the VLAN 0. Ignore this. */
+> >> +    if (!vid)
+> >> +        return 0;
+> >> +
+> > 
+> > Me puzzled ;-). I brought this and the fid question up before.
+> > No idea if my e-mail got lost or what happened.
+> > 
+> > Can you explain why we don't need a configuration for vlan 0 ?
+> 
+> Sorry for late reply. Initially, when issuing "ip link set up dev swp0",
+> ndo_vlan_rx_add_vid was called to add the interface in the VLAN 0.
+> 
+Loading the 802.1q module has the same effect.
+
+I think this may be on purpose; it is telling the switch to accept
+packets with vid==0 (and untagged packets).
+
+> 2 things happen here:
+> 
+>   * this is inconsistent with the "bridge vlan" output which doesn't seem to
+>     know about a VID 0;
+>   * VID 0 seems special for this switch: if an ingressing frame has VID 0, the
+>     tagged port will override the VID bits with the port default VID at egress.
+> 
+As far as I can see, the switch treats packets with vid==0 and untaged packets
+as unknown if VLAN support is enabled.
+
+Anyway, sounds odd. Sure this isn't a configuration problem somethere ?
+
+Thanks,
+Guenter
