@@ -1,363 +1,224 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH WIP RFC 1/3] lwtunnels: basic infra for light weight tunnels like mpls
-Date: Wed,  3 Jun 2015 07:21:44 -0700
-Message-ID: <1433341306-29288-2-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH WIP RFC 3/3] mpls: register lwtunnel ops
+Date: Wed,  3 Jun 2015 07:21:46 -0700
+Message-ID: <1433341306-29288-4-git-send-email-roopa@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org
 To: ebiederm@xmission.com, rshearma@brocade.com, tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f44.google.com ([209.85.192.44]:35370 "EHLO
-	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932786AbbFCOVz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 10:21:55 -0400
-Received: by qgg60 with SMTP id 60so4292516qgg.2
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 07:21:54 -0700 (PDT)
+Received: from mail-qk0-f177.google.com ([209.85.220.177]:33450 "EHLO
+	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754596AbbFCOV6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 10:21:58 -0400
+Received: by qkhg32 with SMTP id g32so6029111qkh.0
+        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 07:21:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Still in the works. Not fully functional.
-And in some cases me going back and forth on a
-few things.
+- This is just part of the patch. Unfortunately
+i realized that my tree has other changes for mpls
+unrelated to ler
 
-Started with thinking the tunnel hdr can be shared
-and refcounted. Its somewhere mid way now.
+- also, The nla_put and nla_get label are different in the patch
+than upstream because of some other changes in my tree
 
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- include/linux/if_lwtunnel.h      |    8 ++
- include/net/lwtunnel.h           |   61 +++++++++++++
- include/uapi/linux/if_lwtunnel.h |   12 +++
- include/uapi/linux/rtnetlink.h   |    8 +-
- net/Makefile                     |    2 +-
- net/lwtunnel.c                   |  177 ++++++++++++++++++++++++++++++++++++++
- 6 files changed, 266 insertions(+), 2 deletions(-)
- create mode 100644 include/linux/if_lwtunnel.h
- create mode 100644 include/net/lwtunnel.h
- create mode 100644 include/uapi/linux/if_lwtunnel.h
- create mode 100644 net/lwtunnel.c
+ net/mpls/af_mpls.c  |  143 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/mpls/internal.h |    5 ++
+ 2 files changed, 148 insertions(+)
 
-diff --git a/include/linux/if_lwtunnel.h b/include/linux/if_lwtunnel.h
-new file mode 100644
-index 0000000..5fa7ca2
---- /dev/null
-+++ b/include/linux/if_lwtunnel.h
-@@ -0,0 +1,8 @@
-+#ifndef _IF_LWTUNNEL_H_
-+#define _IF_LWTUNNEL_H_
-+
-+#include <linux/ip.h>
-+#include <linux/in6.h>
-+#include <uapi/linux/if_lwtunnel.h>
-+
-+#endif /* _IF_LWTUNNEL_H_ */
-diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
-new file mode 100644
-index 0000000..3964f15
---- /dev/null
-+++ b/include/net/lwtunnel.h
-@@ -0,0 +1,61 @@
-+#ifndef __NET_LW_TUNNELS_H
-+#define __NET_LW_TUNNELS_H 1
-+
-+#include <linux/if_lwtunnel.h>
-+#include <linux/netdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/types.h>
-+#include <linux/u64_stats_sync.h>
-+#include <net/dsfield.h>
-+#include <net/gro_cells.h>
-+#include <net/inet_ecn.h>
-+#include <net/ip.h>
-+#include <net/netns/generic.h>
-+#include <net/rtnetlink.h>
-+
-+#define LW_TNL_HASH_BITS   7
-+#define LW_TNL_HASH_SIZE   (1 << LW_TNL_HASH_BITS)
-+
-+struct lwtunnel_hdr {
-+	int             len;
-+	__u8            data[0];
-+};
-+
-+struct lwtunnel_state {
-+	__u16			type;
-+	atomic_t          refcnt;
-+	spinlock_t        lock;
-+	struct lwtunnel_hdr tunnel;
-+};
-+
-+struct lwtunnel_net {
-+	struct hlist_head tunnels[LW_TNL_HASH_SIZE];
-+};
-+
-+struct lwtunnel_encap_ops {
-+	size_t (*encap_hlen)(struct rtencap *e);
-+	int (*build_state)(struct rtencap *e, int len, struct lwtunnel_state **ts);
-+	int (*output)(struct sock *sk, struct sk_buff *skb);
-+	int (*dump_encap_hdr)(struct sk_buff *skb, int attr, struct lwtunnel_state *lwtstate);
-+};
-+
-+#define MAX_LWTUN_ENCAP_OPS 8
-+extern const struct lwtunnel_encap_ops __rcu *
-+		lwtun_encaps[MAX_LWTUN_ENCAP_OPS];
-+
-+int lwtunnel_encap_add_ops(const struct lwtunnel_encap_ops *op,
-+			    unsigned int num);
-+int lwtunnel_encap_del_ops(const struct lwtunnel_encap_ops *op,
-+			    unsigned int num);
-+int lwtunnel_dst_set_output(struct lwtunnel_state *lwtstate,
-+                             struct dst_entry *dst);
-+int lwtunnel_build_state(struct rtencap *encap, int len,
-+                          struct lwtunnel_state **lws);
-+int lwtunnel_dump_encap(struct sk_buff *skb,
-+                         struct lwtunnel_state *lwtstate);
-+int lwtunnel_encap_size(struct lwtunnel_state *lwtstate);
-+
-+struct lwtunnel_state *lwtunnel_state_alloc(int hdr_len);
-+void lwtunnel_state_free(struct lwtunnel_state *lws);
-+
-+#endif /* __NET_LW_TUNNELS_H */
-diff --git a/include/uapi/linux/if_lwtunnel.h b/include/uapi/linux/if_lwtunnel.h
-new file mode 100644
-index 0000000..28b8497
---- /dev/null
-+++ b/include/uapi/linux/if_lwtunnel.h
-@@ -0,0 +1,12 @@
-+#ifndef _UAPI_IF_LW_TUNNEL_H_
-+#define _UAPI_IF_LW_TUNNEL_H_
-+
-+#include <linux/types.h>
-+#include <asm/byteorder.h>
-+
-+enum tunnel_encap_types {
-+	LW_TUNNEL_ENCAP_NONE,
-+	LW_TUNNEL_ENCAP_MPLS,
-+};
-+
-+#endif /* _UAPI_IF_LW_TUNNEL_H_ */
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 17fb02f..47e5de1 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -308,6 +308,7 @@ enum rtattr_type_t {
- 	RTA_VIA,
- 	RTA_NEWDST,
- 	RTA_PREF,
-+	RTA_ENCAP,
- 	__RTA_MAX
- };
- 
-@@ -356,8 +357,13 @@ struct rtvia {
- 	__u8			rtvia_addr[0];
- };
- 
--/* RTM_CACHEINFO */
-+/* RTA_ENCAP */
-+struct rtencap {
-+	__u16	type;
-+	__u8	dst[0];
-+};
- 
-+/* RTM_CACHEINFO */
- struct rta_cacheinfo {
- 	__u32	rta_clntref;
- 	__u32	rta_lastuse;
-diff --git a/net/Makefile b/net/Makefile
-index 3995613..6d51a9d 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -5,7 +5,7 @@
- # Rewritten to use lists instead of if-statements.
- #
- 
--obj-$(CONFIG_NET)		:= socket.o core/
-+obj-$(CONFIG_NET)		:= socket.o lwtunnel.o core/
- 
- tmp-$(CONFIG_COMPAT) 		:= compat.o
- obj-$(CONFIG_NET)		+= $(tmp-y)
-diff --git a/net/lwtunnel.c b/net/lwtunnel.c
-new file mode 100644
-index 0000000..e367a60
---- /dev/null
-+++ b/net/lwtunnel.c
-@@ -0,0 +1,177 @@
-+/*
-+ * Copyright (c) 2015 Cumulus Networks, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA
-+ */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/capability.h>
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/slab.h>
-+#include <linux/uaccess.h>
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include <linux/in.h>
-+#include <linux/tcp.h>
-+#include <linux/udp.h>
-+#include <linux/if_arp.h>
-+#include <linux/mroute.h>
-+#include <linux/init.h>
-+#include <linux/in6.h>
-+#include <linux/inetdevice.h>
-+#include <linux/igmp.h>
-+#include <linux/netfilter_ipv4.h>
-+#include <linux/etherdevice.h>
-+#include <linux/if_ether.h>
-+#include <linux/if_vlan.h>
-+#include <linux/rculist.h>
-+#include <linux/err.h>
-+
-+#include <net/sock.h>
-+#include <net/ip.h>
-+#include <net/icmp.h>
-+#include <net/protocol.h>
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 7b3f732..180c783 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -13,6 +13,7 @@
+ #include <net/sock.h>
+ #include <net/arp.h>
+ #include <net/ip_fib.h>
 +#include <net/lwtunnel.h>
-+#include <net/arp.h>
-+#include <net/checksum.h>
-+#include <net/dsfield.h>
-+#include <net/inet_ecn.h>
-+#include <net/rtnetlink.h>
-+#include <net/udp.h>
-+
-+
-+struct lwtunnel_state *lwtunnel_state_alloc(int hdr_len)
+ #include <net/netevent.h>
+ #include <net/netns/generic.h>
+ #include "internal.h"
+@@ -133,6 +134,84 @@ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+ 	return success;
+ }
+ 
++int mpls_output(struct sock *sk, struct sk_buff *skb)
 +{
-+    struct lwtunnel_state *lws;
++	struct dst_entry *dst = skb_dst(skb);
++	struct mpls_shim_hdr *hdr;
++	struct mpls_entry_decoded dec;
++	struct net_device *out_dev;
++	unsigned int hh_len;
++	unsigned int new_header_size;
++	unsigned int mtu;
++	struct lwtunnel_state *lwtstate;
++	struct mpls_nhlfe_labels *hdr_labels;
++	struct rtable *rt = (struct rtable *)dst;
++	int err;
++	bool bos;
++	int i;
 +
-+    lws = kzalloc(sizeof(*lws) + hdr_len, GFP_KERNEL);
++	if (skb->pkt_type != PACKET_HOST)
++		goto drop;
 +
-+    return lws;
-+}
-+EXPORT_SYMBOL(lwtunnel_state_alloc);
++	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
++		goto drop;
 +
-+void lwtunnel_state_free(struct lwtunnel_state *lws)
-+{
-+    kfree(lws);
-+}
++	/* Find the output device */
++	out_dev = rcu_dereference(skb_dst(skb)->dev);
++	if (!mpls_output_possible(out_dev))
++		goto drop;
 +
-+const struct lwtunnel_encap_ops __rcu *
-+		lwtun_encaps[MAX_LWTUN_ENCAP_OPS] __read_mostly;
++	if (skb_warn_if_lro(skb))
++		goto drop;
++	skb_forward_csum(skb);
 +
-+int lwtunnel_encap_add_ops(const struct lwtunnel_encap_ops *ops,
-+			                unsigned int num)
-+{
-+	if (num >= MAX_LWTUN_ENCAP_OPS)
-+		return -ERANGE;
++	lwtstate = dst->lwtstate;
++	if (!lwtstate)
++		goto drop;
 +
-+	return !cmpxchg((const struct lwtunnel_encap_ops **)
-+			&lwtun_encaps[num],
-+			NULL, ops) ? 0 : -1;
-+}
-+EXPORT_SYMBOL(lwtunnel_encap_add_ops);
++	hdr_labels = &(lwtstate->tunnel.data);
 +
-+int lwtunnel_encap_del_ops(const struct lwtunnel_encap_ops *ops,
-+			                unsigned int num)
-+{
-+	int ret;
++	/* Verify the destination can hold the packet */
++	new_header_size = mpls_header_size(hdr_labels);
++	mtu = mpls_dev_mtu(out_dev);
++	if (mpls_pkt_too_big(skb, mtu - new_header_size))
++		goto drop;
 +
-+	if (num >= MAX_LWTUN_ENCAP_OPS)
-+		return -ERANGE;
++	hh_len = LL_RESERVED_SPACE(out_dev);
++	if (!out_dev->header_ops)
++		hh_len = 0;
 +
-+	ret = (cmpxchg((const struct lwtunnel_encap_ops **)
-+		       &lwtun_encaps[num],
-+		       ops, NULL) == ops) ? 0 : -1;
++	/* Ensure there is enough space for the headers in the skb */
++	if (skb_cow(skb, hh_len + new_header_size))
++		goto drop;
 +
-+	synchronize_net();
++	skb->dev = out_dev;
++	skb->protocol = htons(ETH_P_MPLS_UC);
 +
-+	return ret;
-+}
-+EXPORT_SYMBOL(lwtunnel_encap_del_ops);
++	skb_push(skb, new_header_size);
++	skb_reset_network_header(skb);
 +
-+int lwtunnel_build_state(struct rtencap *encap, int len,
-+                          struct lwtunnel_state **lws)
-+{
-+	struct lwtunnel_encap_ops *ops;
-+	int ret = -EINVAL;
-+
-+	if (encap->type == LW_TUNNEL_ENCAP_NONE)
-+		return ret;
-+
-+	if (encap->type == MAX_LWTUN_ENCAP_OPS)
-+		return ret;
-+
-+	rcu_read_lock();
-+	ops = rcu_dereference(lwtun_encaps[encap->type]);
-+	if (likely(ops && ops->build_state))
-+		ret = ops->build_state(encap, len, lws);
-+	rcu_read_unlock();
++	/* Push the new labels */
++	hdr = mpls_hdr(skb);
++	bos = true;
++	for (i = hdr_labels->nh_labels - 1; i >= 0; i--) {
++		hdr[i] = mpls_entry_encode(hdr_labels->nh_label[i],
++					   dec.ttl, 0, bos);
++		bos = false;
++	}
++	err = neigh_xmit(NEIGH_ARP_TABLE, out_dev, rt->rt_gateway,
++			 skb);
++	if (err)
++		net_dbg_ratelimited("%s: packet transmission failed: "
++					"%d\n", __func__, err);
 +
 +	return 0;
++
++drop:
++	kfree_skb(skb);
++	return -EINVAL;
 +}
-+EXPORT_SYMBOL(lwtunnel_build_state);
 +
-+int lwtunnel_dst_set_output(struct lwtunnel_state *lwstate,
-+                             struct dst_entry *dst)
+ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+ 			struct packet_type *pt, struct net_device *orig_dev)
+ {
+@@ -1094,6 +1173,68 @@ static void mpls_net_exit(struct net *net)
+ 	kvfree(platform_label);
+ }
+ 
++static int mpls_build_state(struct rtencap *e, int len,
++			    struct lwtunnel_state **ts)
 +{
-+	struct lwtunnel_encap_ops *ops;
-+	int ret = -EINVAL;
++	unsigned dstlen;
++	struct lwtunnel_state *newts;
++	struct mpls_nhlfe_labels *hdr_labels;
++	int hdr_len;
++	int ret;
 +
-+	if (lwstate->type == LW_TUNNEL_ENCAP_NONE)
-+		return 0;
++	dstlen = len - sizeof(struct rtencap);
++	hdr_len = sizeof(*hdr_labels);
 +
-+	if (lwstate->type == MAX_LWTUN_ENCAP_OPS)
-+		return 0;
++	newts = lwtunnel_state_alloc(hdr_len);
++	if (!newts)
++		return -ENOMEM;
 +
-+	rcu_read_lock();
-+	ops = rcu_dereference(lwtun_encaps[lwstate->type]);
-+	if (likely(ops && ops->output))
-+	dst->output = ops->output;
-+	rcu_read_unlock();
++	newts->type = e->type;
++	newts->tunnel.len = hdr_len;
++	hdr_labels = &newts->tunnel.data;
++	ret = nla_get_labels(&e->dst, dstlen, MAX_NEW_LABELS,
++			     &hdr_labels->nh_labels, hdr_labels->nh_label);
++	if (ret)
++		goto errout;
++
++	*ts = newts;
++
++	return 0;
++
++errout:
++	kfree(newts);
++	*ts = NULL;
 +
 +	return ret;
 +}
-+EXPORT_SYMBOL(lwtunnel_dst_set_output);
 +
-+int lwtunnel_dump_encap(struct sk_buff *skb, struct lwtunnel_state *lwstate)
++static int mpls_dump_encap_hdr(struct sk_buff *skb, int attr,
++                               struct lwtunnel_state *lwtstate)
 +{
-+	struct lwtunnel_encap_ops *ops;
-+	int ret = -EINVAL;
++    struct rtencap *en;
++    struct mpls_nhlfe_labels *hdr;
++    struct nlattr *nla;
++    int alen;
 +
-+	if (lwstate->type == LW_TUNNEL_ENCAP_NONE)
-+		return 0;
++    hdr = &lwtstate->tunnel.data;
++    alen = mpls_header_size(hdr);
 +
-+	if (lwstate->type == MAX_LWTUN_ENCAP_OPS)
-+		return 0;
++    nla = nla_reserve(skb, attr, alen + 2);
++    if (!nla)
++	return -EMSGSIZE;
++    en = nla_data(nla);
++    nla_put_labels(skb, &en->dst, hdr->nh_labels, hdr->nh_label);
++    en->type = LW_TUNNEL_ENCAP_MPLS;
 +
-+	rcu_read_lock();
-+	ops = rcu_dereference(lwtun_encaps[lwstate->type]);
-+	if (likely(ops && ops->dump_encap_hdr))
-+		ret = ops->dump_encap_hdr(skb, RTA_ENCAP, lwstate);
-+	rcu_read_unlock();
-+
-+	return ret;
++    return 0;
 +}
-+EXPORT_SYMBOL(lwtunnel_dump_encap);
 +
-+int lwtunnel_encap_size(struct lwtunnel_state *lwstate)
-+{
-+	return lwstate->tunnel.len;
-+}
-+EXPORT_SYMBOL(lwtunnel_encap_size);
++static const struct lwtunnel_encap_ops mpls_iptun_ops = {
++	.build_state = mpls_build_state,
++	.dump_encap_hdr = mpls_dump_encap_hdr,
++	.output = mpls_output,
++};
 +
-+MODULE_LICENSE("GPL");
+ static struct pernet_operations mpls_net_ops = {
+ 	.init = mpls_net_init,
+ 	.exit = mpls_net_exit,
+@@ -1115,6 +1256,8 @@ static int __init mpls_init(void)
+ 
+ 	dev_add_pack(&mpls_packet_type);
+ 
++	lwtunnel_encap_add_ops(&mpls_iptun_ops, LW_TUNNEL_ENCAP_MPLS);
++
+ 	rtnl_register(PF_MPLS, RTM_NEWROUTE, mpls_rtm_newroute, NULL, NULL);
+ 	rtnl_register(PF_MPLS, RTM_DELROUTE, mpls_rtm_delroute, NULL, NULL);
+ 	rtnl_register(PF_MPLS, RTM_GETROUTE, NULL, mpls_dump_routes, NULL);
+diff --git a/net/mpls/internal.h b/net/mpls/internal.h
+index b064c34..53160ec 100644
+--- a/net/mpls/internal.h
++++ b/net/mpls/internal.h
+@@ -18,6 +18,11 @@ struct mpls_dev {
+ 	struct ctl_table_header *sysctl;
+ };
+ 
++struct mpls_nhlfe_labels {
++	u32	nh_label[MAX_NEW_LABELS];
++	u8	nh_labels;
++};
++
+ struct sk_buff;
+ 
+ static inline struct mpls_shim_hdr *mpls_hdr(const struct sk_buff *skb)
 -- 
 1.7.10.4
