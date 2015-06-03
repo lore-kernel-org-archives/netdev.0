@@ -1,216 +1,99 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 5/5] rocker: remove support for legacy VLAN ndo
- ops
-Date: Wed, 03 Jun 2015 11:41:21 -0700
-Message-ID: <556F4A51.3030908@cumulusnetworks.com>
-References: <1433183947-13095-1-git-send-email-sfeldma@gmail.com> <1433183947-13095-6-git-send-email-sfeldma@gmail.com> <556D363A.5010005@lab.ntt.co.jp> <20150601.222442.1854333703599698362.davem@davemloft.net> <CAE4R7bBL+=-akoNLPqPae=zrYe3DH59t=8UK_T7KhcHSNaKUtw@mail.gmail.com> <556D96ED.9010309@mojatatu.com> <CAE4R7bAXA27cqBLv6MP0kak-L=1bXUoZPw7vxUyYpP=-dk=eAg@mail.gmail.com> <556DE0CD.9080000@cumulusnetworks.com> <CAE4R7bCPKcCYcHZ3WhkvjpioPhJP12Q35zRsq=t5gAO7JOZ94Q@mail.gmail.com> <556F209A.6090304@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFC 3/9] net: dsa: mv88e6xxx: add support for VTU ops
+Date: Wed, 03 Jun 2015 11:42:18 -0700
+Message-ID: <556F4A8A.60806@gmail.com>
+References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-4-git-send-email-vivien.didelot@savoirfairelinux.com> <556D522E.90607@roeck-us.net> <CAE4R7bChwW1awn8V6k7bF13v15_kPF0ui3NvyV2WkqN0XuTUqw@mail.gmail.com> <556E2EC2.3020104@cumulusnetworks.com> <CAE4R7bCEqszSew4RadLoB-PcY0g74F+sLKQL42TgsfG8_89_Kg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>
-To: Toshiaki Makita <toshiaki.makita1@gmail.com>
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>,
+	Jerome Oufella <jerome.oufella@savoirfairelinux.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>,
+	Chris Healy <cphealy@gmail.com>
+To: Scott Feldman <sfeldma@gmail.com>,
+	nolan <nolan@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f54.google.com ([209.85.192.54]:35618 "EHLO
-	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754953AbbFCSlZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 14:41:25 -0400
-Received: by qgg60 with SMTP id 60so7808668qgg.2
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 11:41:25 -0700 (PDT)
-In-Reply-To: <556F209A.6090304@gmail.com>
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:36855 "EHLO
+	mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753272AbbFCSnS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 14:43:18 -0400
+In-Reply-To: <CAE4R7bCEqszSew4RadLoB-PcY0g74F+sLKQL42TgsfG8_89_Kg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/3/15, 8:43 AM, Toshiaki Makita wrote:
-> On 15/06/03 (=E6=B0=B4) 4:01, Scott Feldman wrote:
->> On Tue, Jun 2, 2015 at 9:58 AM, roopa <roopa@cumulusnetworks.com> wr=
-ote:
->>> On 6/2/15, 7:30 AM, Scott Feldman wrote:
->>>>
->>>> On Tue, Jun 2, 2015 at 4:43 AM, Jamal Hadi Salim <jhs@mojatatu.com=
->=20
->>>> wrote:
->>>>>
->>>>> On 06/02/15 03:10, Scott Feldman wrote:
->>>>>
->>>>>
->>>>>> Actually, we're now consistent with bridge man page which says=20
->>>>>> master
->>>>>> is the default.
->>>>>>
->>>>>> Want we want, I believe, is to adjust what the man page says (an=
-d=20
->>>>>> the
->>>>>> bridge vlan command itself), by making the default master and se=
-lf.
->>>>>> The kernel and driver are fine, it's the default in the bridge=20
->>>>>> command
->>>>>> that needs adjusting.  Once we do this, we'll be back to transpa=
-rent
->>>>>> with software-only bridge.
->>>>>>
->>>>> Question to ask when looking at something of this nature:
->>>>> Will it work with no suprises if you used today's unmodified app?
->>>>> The default behavior shouldnt change and unfortunately it does he=
-re.
->>>>
->>>> The default behavior does change, yes, but there shouldn't be any
->>>> surprises even if using today's unmodified app.  The reason why is=
- no
->>>> in-kernel driver is using ndo_bridge_setlink for VLAN setup.  The
->>>> three drivers that have ndo_bridge_setlink use if to set hwmode to
->>>> VEBA|VEB.  For VLAN setup, they use the (default master) bridge's
->>>> ndo_bridge_setlink->ndo_vlan_rx_add_vid.  If the default changes f=
-rom
->>>> master to master|self, the bridge's
->>>> ndo_bridge_setlink->ndo_vlan_rx_add_vid is still called for those
->>>> driver's using ndo_vlan_rx_add_vid, and if they implement
->>>> ndo_bridge_setlink, they'll get called a second time but will noop
->>>> because there will be no IFLA_BRIDGE_MODE (hwmode) attr to process=
-=2E
->>>>
->>>> So it comes down to two choices:
->>>>
->>>> 1) break ABI, which is inconsequential for in-kernel drivers and
->>>> preserve (iproute2) command transparency, or
->>>>
->>>> 2) embrace existing behavior which is consistent with man pages bu=
-t
->>>> breaks command transparency for any driver implementing
->>>> ndo_bridge_setlink for VLAN setup, which currently is just rocker.=
-  I
->>>> can see the DSA going down this path also based on another concurr=
-ent
->>>> thread.
->>>>
->>>> We're at option 2) right now.
->>>>
->>>>> It is not just iproute2 - since this is breaking ABI expectations=
-=2E
->>>>> Looking at some app i wrote a while back based on analyzing kerne=
-l
->>>>> expectations at the time, I see the following logic:
->>>>>
->>>>> user can set master or self on command line.
->>>>> ...
->>>>> ....
->>>>> if (user DID NOT set master_on || user set self on)
->>>>>      then set self to on
->>>>>
->>>>> iow, current behavior:
->>>>>    01: master is only set if user explicitly asked.
->>>>>    11: master|self when user explicitly sets both
->>>>>    10: self is on by default when the user doesnt specify anythin=
-g
->>>>>    00: and the last option is to have none set which is not
->>>>>        possible since we have defaults.
->>>>>
->>>>> cheers,
->>>>> jamal
->>>>>
->>>>>
->>>>> So this is very similar to iproute2 - if nothing is set
->>>>> it defaults to self.
->>>>
->>>> Ha, you're giving the behavior for "bridge fdb" command, where sel=
-f is
->>>> the default.
+On 02/06/15 23:53, Scott Feldman wrote:
+> On Tue, Jun 2, 2015 at 3:31 PM, nolan <nolan@cumulusnetworks.com> wrote:
+>> On 06/02/2015 12:44 AM, Scott Feldman wrote:
 >>>
->>>
->>> Oh...i did not realize this was the case either. Thats unfortunate.
->>>
->>>>
->>>> For "bridge link" and "bridge vlan", the default is master. The us=
-er
->>>> must explicitly specify "self" to act on the device side of the po=
-rt.
->>>>
->>>> It's unfortunate the iproute2 defaults aren't consistent between
->>>> commands.  Maybe someone knows the history here and can explain.
->>>>
->>>>
->>>
->>> scott, this brings back the discussion you and i had over the rever=
-t=20
->>> of my
->>> patches.. (commit id's at the end of this email)...
->>> which used to seamlessly offload to switchdev from bridge driver if=
-=20
->>> the port
->>> was a switch port (similar to stp state offload).
+>>> That brings up an interesting point about having multiple bridges with
+>>> the same vlan configured.  I struggled with that problem with rocker
+>>> also and I don't have an answer other than "don't do that".  Or,
+>>> better put, if you have multiple bridge on the same vlan, just use one
+>>> bridge for that vlan.  Otherwise, I don't know how at the device level
+>>> to partition the vlan between the bridges.  Maybe that's what Vivien
+>>> is facing also?  I can see how this works for software-only bridges,
+>>> because they should be isolated from each other and independent.  But
+>>> when offloading to a device which sees VLAN XXX global across the
+>>> entire switch, I don't see how we can preserve the bridge boundaries.
 >>
->> Your patch tried to do the same thing that the bridge's
->> ndo_bridge_setlink/dellink is doing which is using the handler for
->> MASTER to also set SELF stuff, when SELF was not specified.  I don't
->> feel we should be overriding the application defaults in the kernel;
->> instead, we should change the application if we want different
->> behavior.  The kernel should treat the two sides of the port
->> independent (that's the basic algo in rtnetlink.c handlers for
->> MASTER/SELF things).  When you start doing kernel SELF things in the
->> MASTER path, the application has lost the ability to address each si=
-de
->> of the port independently.
 >>
->>> 'self' used to exist before switchdev infra came in. My suggestion=20
->>> was to
->>> use it where required...but not build the switchdev api on the=20
->>> presence of
->>> 'self'. switchdev layer should be consistent across...all fib/fdb/n=
-eigh
->>> layers.
+>> Scott,
 >>
->> I don't understand why you're bringing up fib/neigh because there is
->> no master|self form for those.
+>> I'm confused by this.  I think you're saying this config is problematic:
 >>
->> The master|self objects are bridge fdb, settings, and vlans.  To be
->> clear, they are PF_BRIDGE handlers for:
+>> br0: eth0.100, eth1.100
+>> br1: eth2.100, eth3.100
 >>
->> PF_BRIDGE:RTM_NEWNEIGH: add fdb entry
->> PF_BRIDGE:RTM_DELNEIGH: del fdb entry
->> PF_BRIDGE:RTM_SETLINK: set bridge setting or add VLAN
->> PF_BRIDGE:RTM_DELLINK: del VLAN
 >>
->> The net/core/rtnetlink.c code for these _is_ consistent right now.
->> They all perform this same basic algorithm:
->>
->>      handler()
->>          if (!flags || flags & MASTER)
->>              if (master && master->op->foo)
->>                  master->op->foo();
->>          if (flags & SELF)
->>              if (port->op->foo)
->>                  port->op->foo();
->>
->> This lets the application set MASTER and/or SELF to address one or
->> both sides of the port.  The kernel only provides the mechanism; the
->> application decides which sides to address.
->>
->> Where we got into trouble is in the case of
->> PF_BRIDGE:RTM_SETLINK/RTM_DELLINK where the master->op->foo handler
->> calls into the member port's ndo_vlan_rx_add_vid(), which is really =
-a
->> SELF operation because it's setting the VLAN for the device-side of
->> the port.  Setting the VLAN on the device side should have only been
->> done if SELF was specified.
->
-> Bridge's vlan_filtering is handled in master->op->foo(), not in=20
-> port->op->foo().
-> Can't we introduce another switchdev handler that performs MASTER=20
-> operation instead of calling SELF operation?
->
-> br_afspec()
->  nbp_vlan_add()
->   netdev_switch_port_vlan_add()
->    rocker->ndo_switch_port_vlan_add() <- only used for MASTER operati=
-on
->
-> I'm wondering why SELF operation (rocker->ndo_bridge_setlink()) does=20
-> what should be done in MASTER operation.
-yes, this is what i have been alluding to (and I had commits which did=20
-this but got reverted).
+>> But this works fine today.
+> 
+> Ya, this is going to work because br0 and br1 are bridging untagged
+> traffic, but br0 and br1 have different internal VLAN ids for untagged
+> traffic, so there is no crosstalk between bridges.
+> 
+> (I'm assuming since you used the ethX.100 format, you've vconfig
+> created a vlan interface on ethX and added the vlan interface to brY).
+> The vlan interface eats the vlan tag and the bridge sees untagged
+> traffic.
+> 
+>> Could you clarify the issue you're referring to?
+> 
+> I'm talking about bridging tagged traffic.  E.g.:
+> 
+> ip link add name br0 type bridge
+> ip link add name br1 type bridge
+> 
+> ip link set dev sw1p1 master br0
+> ip link set dev sw1p2 master br0
+> ip link set dev sw1p3 master br1
+> ip link set dev sw1p4 master br1
+> 
+> bridge vlan add vid 100 dev sw1p1
+> bridge vlan add vid 100 dev sw1p2
+> bridge vlan add vid 100 dev sw1p3
+> bridge vlan add vid 100 dev sw1p4
+> 
+> Now the ports are trunking vlan 100 and the bridge/device see tagged
+> traffic.  If the device used floods vlan 100 pkt to all ports in vlan
+> 100, it'll flood to a port outside the bridge.  Oops!  For the device
+> I'm using (rocker w/ OF-DPA) the bridging table matches on vlan ID and
+> mac_dst.  There is no prevision to isolate vlans per bridge.
+> 
+> How do you solve the above case with your hardware?
+
+For switches that support double-tagging, I suppose you could utilize
+the fact that packets need to be normalized to include an internal outer
+tag as well (for both tagged and untagged packets), and utilize that to
+make sure there is no cross-talk. That way, you can have the same inner
+VLAN tags on both of your bridges but the internal outer tag can be
+different.
+
+There might be a better solution, like having proper partitioning based
+on whatever the switch is capable of?
+-- 
+Florian
