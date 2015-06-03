@@ -1,52 +1,120 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [RFC 5/9] net: dsa: mv88e6352: disable mirroring
-Date: Tue, 2 Jun 2015 21:12:30 -0400 (EDT)
-Message-ID: <1365988647.953084.1433293950168.JavaMail.zimbra@savoirfairelinux.com>
-References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-6-git-send-email-vivien.didelot@savoirfairelinux.com> <556DBAAA.4010408@roeck-us.net> <20150602145313.GU22739@lunn.ch>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net iproute2 v4] mpls: always set type RTN_UNICAST and scope RT_SCOPE_UNIVERSE for route add/deletes
+Date: Tue, 02 Jun 2015 20:08:41 -0500
+Message-ID: <87pp5dfvja.fsf@x220.int.ebiederm.org>
+References: <1433292167-13364-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	=?utf-8?Q?J=C3=A9rome?= Oufella
-	<jerome.oufella@savoirfairelinux.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>,
-	Chris Healy <cphealy@gmail.com>
-To: Guenter Roeck <linux@roeck-us.net>, Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150602145313.GU22739@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: stephen@networkplumber.org, davem@davemloft.net,
+	rshearma@brocade.com, netdev@vger.kernel.org,
+	vivek@cumulusnetworks.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out03.mta.xmission.com ([166.70.13.233]:46558 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751905AbbFCBNq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 21:13:46 -0400
+In-Reply-To: <1433292167-13364-1-git-send-email-roopa@cumulusnetworks.com>
+	(Roopa Prabhu's message of "Tue, 2 Jun 2015 17:42:47 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Guenter, Andrew,
+Roopa Prabhu <roopa@cumulusnetworks.com> writes:
 
-On Jun 2, 2015, at 10:53 AM, Andrew Lunn andrew@lunn.ch wrote:
-On Tue, Jun 02, 2015 at 07:16:10AM -0700, Guenter Roeck wrote:
->> On 06/01/2015 06:27 PM, Vivien Didelot wrote:
->> >Disable the mirroring policy in the monitor control register, since this
->> >feature is not needed.
->> >
->> >Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->> 
->> Should this be a separate patch, unrelated to the patch set ?
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> This patch fixes incorrect -EINVAL errors due to invalid
+> scope and type during mpls route deletes.
+>
+> $ip -f mpls route add 100 as 200 via inet 10.1.1.2 dev swp1
+>
+> $ip -f mpls route show
+> 100 as to 200 via inet 10.1.1.2 dev swp1
+>
+> $ip -f mpls route del 100 as 200 via inet 10.1.1.2 dev swp1
+> RTNETLINK answers: Invalid argument
+>
+> $ip -f mpls route del 100
+> RTNETLINK answers: Invalid argument
+>
+> After patch:
+>
+> $ip -f mpls route show
+> 100 as to 200 via inet 10.1.1.2 dev swp1
+>
+> $ip -f mpls route del 100 as 200 via inet 10.1.1.2 dev swp1
+>
+> $ip -f mpls route show
+>
+> Always set type to RTN_UNICAST for mpls route add/deletes.
+> Also to keep things consistent with kernel set scope to
+> RT_SCOPE_UNIVERSE for both mpls and ipv6 routes. Both mpls and ipv6 route
+> deletes ignore scope.
 
-Indeed, this one is an unrelated patch, sorry.
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
->> If I understand correctly, this effectively disables IGMP/MLD snooping.
->> I think this warrants an explanation why that it not needed, not just
->> a statement that it is not needed.
-> 
-> +1
-> 
-> Especially since we might want to revisit this to implement IGMP/MLD
-> snooping in the bridge. The hardware should be capable of it.
-
-This is something I want to disable because I can have several times
-gigabit traffic on my ports. This would end up in a bottleneck on the
-CPU port. Am I right?
-
-Thanks,
--v
+>
+> Suggested-by: Eric W. Biederman <ebiederm@xmission.com>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Signed-off-by: Vivek Venkataraman <vivek@cumulusnetworks.com>
+> --
+> v4 move fix to iproute2
+> ---
+>  ip/iproute.c |   16 ++++++++++++----
+>  1 file changed, 12 insertions(+), 4 deletions(-)
+>
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index 670a4c6..d0b9910 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -803,6 +803,7 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+>  	int scope_ok = 0;
+>  	int table_ok = 0;
+>  	int raw = 0;
+> +	int type_ok = 0;
+>  
+>  	memset(&req, 0, sizeof(req));
+>  
+> @@ -1095,6 +1096,7 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+>  			    rtnl_rtntype_a2n(&type, *argv) == 0) {
+>  				NEXT_ARG();
+>  				req.r.rtm_type = type;
+> +				type_ok = 1;
+>  			}
+>  
+>  			if (matches(*argv, "help") == 0)
+> @@ -1136,6 +1138,9 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+>  	if (nhs_ok)
+>  		parse_nexthops(&req.n, &req.r, argc, argv);
+>  
+> +	if (req.r.rtm_family == AF_UNSPEC)
+> +		req.r.rtm_family = AF_INET;
+> +
+>  	if (!table_ok) {
+>  		if (req.r.rtm_type == RTN_LOCAL ||
+>  		    req.r.rtm_type == RTN_BROADCAST ||
+> @@ -1144,8 +1149,11 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+>  			req.r.rtm_table = RT_TABLE_LOCAL;
+>  	}
+>  	if (!scope_ok) {
+> -		if (req.r.rtm_type == RTN_LOCAL ||
+> -		    req.r.rtm_type == RTN_NAT)
+> +		if (req.r.rtm_family == AF_INET6 ||
+> +		    req.r.rtm_family == AF_MPLS)
+> +			req.r.rtm_scope = RT_SCOPE_UNIVERSE;
+> +		else if (req.r.rtm_type == RTN_LOCAL ||
+> +			 req.r.rtm_type == RTN_NAT)
+>  			req.r.rtm_scope = RT_SCOPE_HOST;
+>  		else if (req.r.rtm_type == RTN_BROADCAST ||
+>  			 req.r.rtm_type == RTN_MULTICAST ||
+> @@ -1160,8 +1168,8 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+>  		}
+>  	}
+>  
+> -	if (req.r.rtm_family == AF_UNSPEC)
+> -		req.r.rtm_family = AF_INET;
+> +	if (!type_ok && req.r.rtm_family == AF_MPLS)
+> +		req.r.rtm_type = RTN_UNICAST;
+>  
+>  	if (rtnl_talk(&rth, &req.n, 0, 0, NULL) < 0)
+>  		return -2;
