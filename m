@@ -1,163 +1,147 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [RFC net-next 5/6] net: ILA iptables target
-Date: Wed, 3 Jun 2015 12:58:21 -0700
-Message-ID: <1433361502-3478761-6-git-send-email-tom@herbertland.com>
-References: <1433361502-3478761-1-git-send-email-tom@herbertland.com>
+Subject: [RFC net-next 0/6] net: Identifier Locator Addressing
+Date: Wed, 3 Jun 2015 12:58:16 -0700
+Message-ID: <1433361502-3478761-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <davem@davemloft.net>, <agartrell@fb.com>, <maheshb@google.com>,
 	<tgraf@suug.ch>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:29531 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754785AbbFCT6w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 15:58:52 -0400
-Received: from pps.filterd (m0004060 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t53JuJq2031899
-	for <netdev@vger.kernel.org>; Wed, 3 Jun 2015 12:58:51 -0700
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:56417 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754182AbbFCT6k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 15:58:40 -0400
+Received: from pps.filterd (m0004346 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t53Jwd0K021926
+	for <netdev@vger.kernel.org>; Wed, 3 Jun 2015 12:58:39 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1ut795r7eu-1
+	by mx0a-00082601.pphosted.com with ESMTP id 1ut80jg0md-2
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 12:58:51 -0700
+	for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 12:58:39 -0700
 Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.232.63) with ESMTP	id
- f379c7fa0a2a11e5ba0e0002c992ebde-bf6bb6c0 for <netdev@vger.kernel.org>;	Wed,
- 03 Jun 2015 12:58:49 -0700
-In-Reply-To: <1433361502-3478761-1-git-send-email-tom@herbertland.com>
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ ec7483fa0a2a11e59d570002c9521c9e-a55d5280 for <netdev@vger.kernel.org>;	Wed,
+ 03 Jun 2015 12:58:37 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add two target ILAIN and ILAOUT which hook into the ILA module.
+This patch set provides rudimentary support for Identifier Locator
+Addresssing or ILA. The basic concept of ILA is that we split and IPv6
+in to a 64 bit locator and 64 bit identifier. The identifier is the
+identity of an entity in communication ("who") and the locator
+expresses a the location of the entity ("where"). Applications
+use externally visible address that contains the identifier.
+When a packet is actually sent, a translation is done that
+overwrites the first 64 bits of the address with a locator.
+The packet can the be forwarded over the network to the host where
+the addressed entity is located. At the receiver, the reverse
+transation is done so the that the application sees the original,
+untranslated address. Presumably an external control plane will
+provide identfier->locator mapping.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- net/netfilter/Kconfig  | 11 +++++++
- net/netfilter/Makefile |  1 +
- net/netfilter/xt_ILA.c | 82 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 94 insertions(+)
+The data path for ILA is a simple NAT translation that only operates
+on the upper 64 bits of a destination address in IPv6 packets. The
+basic process is:
+
+   1) Lookup 64 bit identifier (lower 64 bits of destination) in a table
+   2) If a match is found
+      a) Overwrite locator (upper 64 bits of destination) with
+         new locator
+      b) Adjust any checksum that has destination address included in
+         pseudo header
+   3) Send or receive packet
+
+ILA is a means to implement tunnels or network virtualization without
+encapsulation. Since there is no encapsulation involved, we assume that
+statelss support in the network for IPv6 (e.g. RSS, ECMP, TSO, etc.)
+just works. Also, since we're minimally changing the packet many of
+the worries about encapsulation (MTU, checksum, fragmentation) are
+not relevant. The downside is that, ILA is not extensible like other
+encapsulations (GUE for instance) so it might not be appropriate for
+all use cases. Also, this only makes sense to do in IPv6!
+
+A key aspect of ILA is performance. The intent is that ILA would be
+used in data centers in virtualizing tasks or jobs. In the fullest
+incarnation all intra data center communications might be targeted to
+virtual ILA addresses. This is basically adding a new virtualization
+capability to the existing services in a datacenter, so there is a
+strong expectation is that this does not degrade performance
+for applications.
+
+Performance seems to be dependent on how ILA is hooked into kernel.
+This patch set includes IPtables, hacked up IPvlan, and a "special
+route" that calls directly into ILA module from where PRE and
+POST routing NF_HOOKs are. The best of these performance-wise
+is the special hook which seems to be ~2-3% loss of performance
+compared to native non-ILA. The other two are ~5% loss. My hope is
+to get a solution with <1% performance loss.
+
+Performance testing:
+
+Performing netperf TCP_RR with 200 clients:
+
+Non-ILA baselin
+  83.95% CPU utilization
+  1729209.7 99.3 178.6 363.9
+
+Special route
+  84.63% CPU utilization
+  1685847.2 tps				-2.5%
+  102/182/367 50/90/99% latencies
+
+IPVL hook
+  84.78% CPU utilization
+  1638595.9				-5.5%
+  106/187/374 50/90/99% latencies
+
+IPtables
+  85.10% CPU utilization
+  1634015.5 tps				-5.8%
+  105/188/380 50/90/99% latencies
+
+References:
+
+Slides from netfconf:
+http://vger.kernel.org/netconf2015Herbert-ILA.pdf
+
+Slides from presentation at IETF:
+https://www.ietf.org/proceedings/92/slides/slides-92-nvo3-1.pdf
+
+I-D:
+https://tools.ietf.org/html/draft-herbert-nvo3-ila-00
+
+Also, ILA is very much liek ILNP data plane.
+
+
+Tom Herbert (6):
+  net: Checksum functions to replace 8 bytes at a time
+  net: Identfier Locator Addressing module
+  net: Special routing hook
+  net: ILA use special route hook
+  net: ILA iptables target
+  ipvlan: Call ILA in incoming and outgoing receive paths
+
+ drivers/net/ipvlan/ipvlan.h      |   1 +
+ drivers/net/ipvlan/ipvlan_core.c |  27 ++-
+ drivers/net/ipvlan/ipvlan_main.c |   4 +
+ include/net/checksum.h           |   3 +
+ include/net/ila.h                |   7 +
+ include/net/ip6_route.h          |  22 ++
+ net/core/utils.c                 |  19 ++
+ net/ipv6/Kconfig                 |   8 +
+ net/ipv6/Makefile                |   1 +
+ net/ipv6/ila.c                   | 509 +++++++++++++++++++++++++++++++++++++++
+ net/ipv6/ip6_input.c             |   3 +
+ net/ipv6/ip6_output.c            |  24 +-
+ net/ipv6/route.c                 |  51 ++++
+ net/ipv6/xfrm6_input.c           |   4 +
+ net/netfilter/Kconfig            |  11 +
+ net/netfilter/Makefile           |   1 +
+ net/netfilter/xt_ILA.c           |  82 +++++++
+ 17 files changed, 767 insertions(+), 10 deletions(-)
+ create mode 100644 include/net/ila.h
+ create mode 100644 net/ipv6/ila.c
  create mode 100644 net/netfilter/xt_ILA.c
 
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index fbc8d15..eaf7d68 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -748,6 +748,17 @@ config NETFILTER_XT_TARGET_IDLETIMER
- 
- 	  To compile it as a module, choose M here.  If unsure, say N.
- 
-+config NETFILTER_XT_TARGET_ILA
-+	tristate "ILA target support"
-+	depends on IP_NF_MANGLE || IP6_NF_MANGLE
-+	depends on NETFILTER_ADVANCED
-+	help
-+	  This option adds an `ILA' target, which allow Identifier Locator
-+	  Addressing (ILA) translations. The ILA tables are managed by the
-+	  ILA module.
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config NETFILTER_XT_TARGET_LED
- 	tristate '"LED" target support'
- 	depends on LEDS_CLASS && LEDS_TRIGGERS
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 70d026d..d99740a 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -124,6 +124,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_TCPOPTSTRIP) += xt_TCPOPTSTRIP.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_TEE) += xt_TEE.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_TRACE) += xt_TRACE.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_IDLETIMER) += xt_IDLETIMER.o
-+obj-$(CONFIG_NETFILTER_XT_TARGET_ILA) += xt_ILA.o
- 
- # matches
- obj-$(CONFIG_NETFILTER_XT_MATCH_ADDRTYPE) += xt_addrtype.o
-diff --git a/net/netfilter/xt_ILA.c b/net/netfilter/xt_ILA.c
-new file mode 100644
-index 0000000..0d92c8f
---- /dev/null
-+++ b/net/netfilter/xt_ILA.c
-@@ -0,0 +1,82 @@
-+/* x_tables module for Identifier Locator Addressing (ILA) translation
-+ *
-+ * (C) 2015 by Tom Herbert <tom@herbertland.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <net/ila.h>
-+
-+#include <linux/netfilter/x_tables.h>
-+
-+MODULE_AUTHOR("Tom Herbert <tom@herbertland.com>");
-+MODULE_DESCRIPTION("Xtables: ILA translation");
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS("ip6t_ILA");
-+MODULE_ALIAS("ip6t_ILAIN");
-+MODULE_ALIAS("ip6t_ILAOUT");
-+
-+static unsigned int
-+ila_tg_input(struct sk_buff *skb, const struct xt_action_param *par)
-+{
-+	ila_xlat_incoming(skb);
-+
-+	return XT_CONTINUE;
-+}
-+
-+static unsigned int
-+ila_tg_output(struct sk_buff *skb, const struct xt_action_param *par)
-+{
-+	ila_xlat_outgoing(skb);
-+
-+	return XT_CONTINUE;
-+}
-+
-+static int ila_tg_check(const struct xt_tgchk_param *par)
-+{
-+	return 0;
-+}
-+
-+static struct xt_target ila_tg_reg[] __read_mostly = {
-+	{
-+		.name		= "ILAIN",
-+		.family		= NFPROTO_IPV6,
-+		.checkentry	= ila_tg_check,
-+		.target		= ila_tg_input,
-+		.targetsize	= 32,
-+		.table		= "mangle",
-+		.hooks		= (1 << NF_INET_POST_ROUTING) |
-+				  (1 << NF_INET_LOCAL_IN),
-+		.me		= THIS_MODULE,
-+	},
-+	{
-+		.name		= "ILAOUT",
-+		.family		= NFPROTO_IPV6,
-+		.checkentry	= ila_tg_check,
-+		.target		= ila_tg_output,
-+		.targetsize	= 32,
-+		.table		= "mangle",
-+		.hooks		= (1 << NF_INET_PRE_ROUTING) |
-+				  (1 << NF_INET_LOCAL_OUT),
-+		.me		= THIS_MODULE,
-+	},
-+};
-+
-+static int __init ila_tg_init(void)
-+{
-+	return xt_register_targets(ila_tg_reg, ARRAY_SIZE(ila_tg_reg));
-+}
-+
-+static void __exit ila_tg_exit(void)
-+{
-+	xt_unregister_targets(ila_tg_reg, ARRAY_SIZE(ila_tg_reg));
-+}
-+
-+module_init(ila_tg_init);
-+module_exit(ila_tg_exit);
 -- 
 1.8.1
