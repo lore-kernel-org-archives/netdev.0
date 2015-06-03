@@ -1,106 +1,40 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH V2 1/2] pci: Add dev_flags bit to access
- VPD through function 0
-Date: Tue, 02 Jun 2015 19:28:55 -0700
-Message-ID: <556E6667.1020000@gmail.com>
-References: <20150603000645.71269.26134.stgit@mdrustad-wks.jf.intel.com> <20150603001011.71269.79857.stgit@mdrustad-wks.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-pci@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org
-To: Mark D Rustad <mark.d.rustad@intel.com>, bhelgaas@google.com
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Subject: [PATCH] e1000e: Cleanup qos request in error handling of e1000_open
+Date: Wed,  3 Jun 2015 10:35:15 +0800
+Message-ID: <1433298915-8189-1-git-send-email-baijiaju1990@163.com>
+Cc: baijiaju1990@163.com, netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:33921 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752361AbbFCC25 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 22:28:57 -0400
-In-Reply-To: <20150603001011.71269.79857.stgit@mdrustad-wks.jf.intel.com>
+Received: from m12-17.163.com ([220.181.12.17]:53655 "EHLO m12-17.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751905AbbFCCfc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jun 2015 22:35:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/02/2015 05:10 PM, Mark D Rustad wrote:
-> Add a dev_flags bit, PCI_DEV_FLAGS_VPD_REF_F0, to access VPD through
-> function 0 to provide VPD access on other functions. This solves
-> concurrent access problems on many devices without changing the
-> attributes exposed in sysfs. Never set this bit on function 0 or
-> there will be an infinite recursion.
->
-> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-> ---
-> Changes in V2:
-> - Corrected spelling in log message
-> - Added checks to see that the referenced function 0 is reasonable
-> ---
->   drivers/pci/access.c |   48 +++++++++++++++++++++++++++++++++++++++++++++++-
->   1 file changed, 47 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/pci/access.c b/drivers/pci/access.c
-> index d9b64a175990..74634d4868a2 100644
-> --- a/drivers/pci/access.c
-> +++ b/drivers/pci/access.c
-> @@ -439,6 +439,40 @@ static const struct pci_vpd_ops pci_vpd_pci22_ops = {
->   	.release = pci_vpd_pci22_release,
->   };
->   
-> +static ssize_t pci_vpd_f0_read(struct pci_dev *dev, loff_t pos, size_t count,
-> +			       void *arg)
-> +{
-> +	struct pci_dev *tdev = pci_get_slot(dev->bus, PCI_SLOT(dev->devfn));
-> +	ssize_t ret;
-> +
-> +	if (!tdev)
-> +		return -ENODEV;
-> +
-> +	ret = pci_read_vpd(tdev, pos, count, arg);
-> +	pci_dev_put(tdev);
-> +	return ret;
-> +}
-> +
-> +static ssize_t pci_vpd_f0_write(struct pci_dev *dev, loff_t pos, size_t count,
-> +				const void *arg)
-> +{
-> +	struct pci_dev *tdev = pci_get_slot(dev->bus, PCI_SLOT(dev->devfn));
-> +	ssize_t ret;
-> +
-> +	if (!tdev)
-> +		return -ENODEV;
-> +
-> +	ret = pci_write_vpd(tdev, pos, count, arg);
-> +	pci_dev_put(tdev);
-> +	return ret;
-> +}
-> +
-> +static const struct pci_vpd_ops pci_vpd_f0_ops = {
-> +	.read = pci_vpd_f0_read,
-> +	.write = pci_vpd_f0_write,
-> +	.release = pci_vpd_pci22_release,
-> +};
-> +
->   int pci_vpd_pci22_init(struct pci_dev *dev)
->   {
->   	struct pci_vpd_pci22 *vpd;
-> @@ -447,12 +481,24 @@ int pci_vpd_pci22_init(struct pci_dev *dev)
->   	cap = pci_find_capability(dev, PCI_CAP_ID_VPD);
->   	if (!cap)
->   		return -ENODEV;
-> +	if (dev->dev_flags & PCI_DEV_FLAGS_VPD_REF_F0) {
-> +		struct pci_dev *tdev;
-> +
-> +		tdev = pci_get_slot(dev->bus, PCI_SLOT(dev->devfn));
-> +		if (!tdev || !dev->multifunction || !tdev->multifunction ||
-> +		    dev->class != tdev->class || dev->vendor != tdev->vendor ||
-> +		    dev->device != tdev->device)
-> +			return -ENODEV;
-> +	}
+The driver lacks pm_qos_remove_request in error handling (err_req_irq)
+of e1000_open, and qos request inserted by pm_qos_add_request is not removed.
+This patch add pm_qos_remove_request in error handling to fix it.
 
-You can probably combine the dev->multifunction check with the dev_flags 
-check.  After all you don't need this workaround if the device is not 
-multifunction.  It might even make more sense to move the multifunction 
-check to the quirk in patch 2/2.
+Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-I also believe this leaks a reference to the device.  You should be 
-calling pci_dev_put(tdev) if tdev is not NULL.  As such you probably 
-need to split up the !tdev and the rest of the checks.
-
-- Alex
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index c509a5c..f8c0dc4 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -4451,6 +4451,7 @@ static int e1000_open(struct net_device *netdev)
+ 	return 0;
+ 
+ err_req_irq:
++	pm_qos_remove_request(&adapter->pm_qos_req);
+ 	e1000e_release_hw_control(adapter);
+ 	e1000_power_down_phy(adapter);
+ 	e1000e_free_rx_resources(adapter->rx_ring);
+-- 
+1.7.9.5
