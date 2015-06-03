@@ -1,120 +1,54 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net iproute2 v4] mpls: always set type RTN_UNICAST and scope RT_SCOPE_UNIVERSE for route add/deletes
-Date: Tue, 02 Jun 2015 20:08:41 -0500
-Message-ID: <87pp5dfvja.fsf@x220.int.ebiederm.org>
-References: <1433292167-13364-1-git-send-email-roopa@cumulusnetworks.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [RFC 3/9] net: dsa: mv88e6xxx: add support for VTU ops
+Date: Tue, 2 Jun 2015 21:39:50 -0400 (EDT)
+Message-ID: <1561034247.953427.1433295590494.JavaMail.zimbra@savoirfairelinux.com>
+References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-4-git-send-email-vivien.didelot@savoirfairelinux.com> <556D522E.90607@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: stephen@networkplumber.org, davem@davemloft.net,
-	rshearma@brocade.com, netdev@vger.kernel.org,
-	vivek@cumulusnetworks.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	=?utf-8?Q?J=C3=A9rome?= Oufella
+	<jerome.oufella@savoirfairelinux.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>,
+	Chris Healy <cphealy@gmail.com>
+To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:46558 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751905AbbFCBNq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 21:13:46 -0400
-In-Reply-To: <1433292167-13364-1-git-send-email-roopa@cumulusnetworks.com>
-	(Roopa Prabhu's message of "Tue, 2 Jun 2015 17:42:47 -0700")
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:55314 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751443AbbFCBjy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 21:39:54 -0400
+In-Reply-To: <556D522E.90607@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roopa Prabhu <roopa@cumulusnetworks.com> writes:
+Guenter,
 
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> This patch fixes incorrect -EINVAL errors due to invalid
-> scope and type during mpls route deletes.
->
-> $ip -f mpls route add 100 as 200 via inet 10.1.1.2 dev swp1
->
-> $ip -f mpls route show
-> 100 as to 200 via inet 10.1.1.2 dev swp1
->
-> $ip -f mpls route del 100 as 200 via inet 10.1.1.2 dev swp1
-> RTNETLINK answers: Invalid argument
->
-> $ip -f mpls route del 100
-> RTNETLINK answers: Invalid argument
->
-> After patch:
->
-> $ip -f mpls route show
-> 100 as to 200 via inet 10.1.1.2 dev swp1
->
-> $ip -f mpls route del 100 as 200 via inet 10.1.1.2 dev swp1
->
-> $ip -f mpls route show
->
-> Always set type to RTN_UNICAST for mpls route add/deletes.
-> Also to keep things consistent with kernel set scope to
-> RT_SCOPE_UNIVERSE for both mpls and ipv6 routes. Both mpls and ipv6 route
-> deletes ignore scope.
+On Jun 2, 2015, at 2:50 AM, Guenter Roeck linux@roeck-us.net wrote:
+> On 06/01/2015 06:27 PM, Vivien Didelot wrote:
+>> +    /* Bringing an interface up adds it to the VLAN 0. Ignore this. */
+>> +    if (!vid)
+>> +        return 0;
+>> +
+> 
+> Me puzzled ;-). I brought this and the fid question up before.
+> No idea if my e-mail got lost or what happened.
+> 
+> Can you explain why we don't need a configuration for vlan 0 ?
 
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Sorry for late reply. Initially, when issuing "ip link set up dev swp0",
+ndo_vlan_rx_add_vid was called to add the interface in the VLAN 0.
 
->
-> Suggested-by: Eric W. Biederman <ebiederm@xmission.com>
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Signed-off-by: Vivek Venkataraman <vivek@cumulusnetworks.com>
-> --
-> v4 move fix to iproute2
-> ---
->  ip/iproute.c |   16 ++++++++++++----
->  1 file changed, 12 insertions(+), 4 deletions(-)
->
-> diff --git a/ip/iproute.c b/ip/iproute.c
-> index 670a4c6..d0b9910 100644
-> --- a/ip/iproute.c
-> +++ b/ip/iproute.c
-> @@ -803,6 +803,7 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
->  	int scope_ok = 0;
->  	int table_ok = 0;
->  	int raw = 0;
-> +	int type_ok = 0;
->  
->  	memset(&req, 0, sizeof(req));
->  
-> @@ -1095,6 +1096,7 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
->  			    rtnl_rtntype_a2n(&type, *argv) == 0) {
->  				NEXT_ARG();
->  				req.r.rtm_type = type;
-> +				type_ok = 1;
->  			}
->  
->  			if (matches(*argv, "help") == 0)
-> @@ -1136,6 +1138,9 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
->  	if (nhs_ok)
->  		parse_nexthops(&req.n, &req.r, argc, argv);
->  
-> +	if (req.r.rtm_family == AF_UNSPEC)
-> +		req.r.rtm_family = AF_INET;
-> +
->  	if (!table_ok) {
->  		if (req.r.rtm_type == RTN_LOCAL ||
->  		    req.r.rtm_type == RTN_BROADCAST ||
-> @@ -1144,8 +1149,11 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
->  			req.r.rtm_table = RT_TABLE_LOCAL;
->  	}
->  	if (!scope_ok) {
-> -		if (req.r.rtm_type == RTN_LOCAL ||
-> -		    req.r.rtm_type == RTN_NAT)
-> +		if (req.r.rtm_family == AF_INET6 ||
-> +		    req.r.rtm_family == AF_MPLS)
-> +			req.r.rtm_scope = RT_SCOPE_UNIVERSE;
-> +		else if (req.r.rtm_type == RTN_LOCAL ||
-> +			 req.r.rtm_type == RTN_NAT)
->  			req.r.rtm_scope = RT_SCOPE_HOST;
->  		else if (req.r.rtm_type == RTN_BROADCAST ||
->  			 req.r.rtm_type == RTN_MULTICAST ||
-> @@ -1160,8 +1168,8 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
->  		}
->  	}
->  
-> -	if (req.r.rtm_family == AF_UNSPEC)
-> -		req.r.rtm_family = AF_INET;
-> +	if (!type_ok && req.r.rtm_family == AF_MPLS)
-> +		req.r.rtm_type = RTN_UNICAST;
->  
->  	if (rtnl_talk(&rth, &req.n, 0, 0, NULL) < 0)
->  		return -2;
+2 things happen here:
+
+  * this is inconsistent with the "bridge vlan" output which doesn't seem to
+    know about a VID 0;
+  * VID 0 seems special for this switch: if an ingressing frame has VID 0, the
+    tagged port will override the VID bits with the port default VID at egress.
+
+Thanks,
+-v
