@@ -1,96 +1,74 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 2/4] cxgb4: Add support in ethtool to dump channel stats
-Date: Wed,  3 Jun 2015 21:04:40 +0530
-Message-ID: <1433345682-5846-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 3/4] cxgb4: Add support to dump loopback port stats
+Date: Wed,  3 Jun 2015 21:04:41 +0530
+Message-ID: <1433345682-5846-4-git-send-email-hariprasad@chelsio.com>
 References: <1433345682-5846-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:6067 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:19012 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932079AbbFCKVe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 06:21:34 -0400
+	by vger.kernel.org with ESMTP id S932091AbbFCKVh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 06:21:37 -0400
 In-Reply-To: <1433345682-5846-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support in ethtool to dump adapter channel stats
+Add support in ethtool to dump loopback port statistics
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         | 14 ++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c | 75 +++++++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         | 43 +++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |  5 ++
- 4 files changed, 136 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c | 43 ++++++++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         | 48 ++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |  1 +
+ 4 files changed, 92 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 2d9bc62..c8bc589 100644
+index c8bc589..9aab32e 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -210,6 +210,12 @@ struct tp_usm_stats {
- 	u64 octets;
- };
- 
-+struct tp_fcoe_stats {
-+	u32 frames_ddp;
-+	u32 frames_drop;
-+	u64 octets_ddp;
-+};
-+
- struct tp_err_stats {
- 	u32 mac_in_errs[4];
- 	u32 hdr_in_errs[4];
-@@ -223,6 +229,11 @@ struct tp_err_stats {
- 	u32 ofld_cong_defer;
- };
- 
-+struct tp_cpl_stats {
-+	u32 req[4];
-+	u32 rsp[4];
-+};
-+
- struct tp_rdma_stats {
- 	u32 rqe_dfr_pkt;
- 	u32 rqe_dfr_mod;
-@@ -1320,10 +1331,13 @@ void t4_tp_wr_bits_indirect(struct adapter *adap, unsigned int addr,
- 			    unsigned int mask, unsigned int val);
- void t4_tp_read_la(struct adapter *adap, u64 *la_buf, unsigned int *wrptr);
- void t4_tp_get_err_stats(struct adapter *adap, struct tp_err_stats *st);
-+void t4_tp_get_cpl_stats(struct adapter *adap, struct tp_cpl_stats *st);
- void t4_tp_get_rdma_stats(struct adapter *adap, struct tp_rdma_stats *st);
- void t4_get_usm_stats(struct adapter *adap, struct tp_usm_stats *st);
- void t4_tp_get_tcp_stats(struct adapter *adap, struct tp_tcp_stats *v4,
- 			 struct tp_tcp_stats *v6);
-+void t4_get_fcoe_stats(struct adapter *adap, unsigned int idx,
-+		       struct tp_fcoe_stats *st);
- void t4_load_mtus(struct adapter *adap, const unsigned short *mtus,
- 		  const unsigned short *alpha, const unsigned short *beta);
- 
+@@ -1325,6 +1325,7 @@ void t4_get_port_stats(struct adapter *adap, int idx, struct port_stats *p);
+ void t4_get_port_stats_offset(struct adapter *adap, int idx,
+ 			      struct port_stats *stats,
+ 			      struct port_stats *offset);
++void t4_get_lb_stats(struct adapter *adap, int idx, struct lb_port_stats *p);
+ void t4_read_mtu_tbl(struct adapter *adap, u16 *mtus, u8 *mtu_log);
+ void t4_read_cong_tbl(struct adapter *adap, u16 incr[NMTUS][NCCTRL_WIN]);
+ void t4_tp_wr_bits_indirect(struct adapter *adap, unsigned int addr,
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-index 63b1ae6..ada33c2 100644
+index ada33c2..36f6ff2 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-@@ -133,12 +133,30 @@ static char adapter_stats_strings[][ETH_GSTRING_LEN] = {
- 	"write_coal_fail        ",
+@@ -150,13 +150,40 @@ static char channel_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"fcoe_frames_drop       ",
  };
  
-+static char channel_stats_strings[][ETH_GSTRING_LEN] = {
-+	"--------Channel--------- ",
-+	"tp_cpl_requests        ",
-+	"tp_cpl_responses       ",
-+	"tp_mac_in_errs         ",
-+	"tp_hdr_in_errs         ",
-+	"tp_tcp_in_errs         ",
-+	"tp_tcp6_in_errs        ",
-+	"tp_tnl_cong_drops      ",
-+	"tp_tnl_tx_drops        ",
-+	"tp_ofld_vlan_drops     ",
-+	"tp_ofld_chan_drops     ",
-+	"fcoe_octets_ddp        ",
-+	"fcoe_frames_ddp        ",
-+	"fcoe_frames_drop       ",
++static char loopback_stats_strings[][ETH_GSTRING_LEN] = {
++	"-------Loopback----------- ",
++	"octets_ok              ",
++	"frames_ok              ",
++	"bcast_frames           ",
++	"mcast_frames           ",
++	"ucast_frames           ",
++	"error_frames           ",
++	"frames_64              ",
++	"frames_65_to_127       ",
++	"frames_128_to_255      ",
++	"frames_256_to_511      ",
++	"frames_512_to_1023     ",
++	"frames_1024_to_1518    ",
++	"frames_1519_to_max     ",
++	"frames_dropped         ",
++	"bg0_frames_dropped     ",
++	"bg1_frames_dropped     ",
++	"bg2_frames_dropped     ",
++	"bg3_frames_dropped     ",
++	"bg0_frames_trunc       ",
++	"bg1_frames_trunc       ",
++	"bg2_frames_trunc       ",
++	"bg3_frames_trunc       ",
 +};
 +
  static int get_sset_count(struct net_device *dev, int sset)
@@ -98,172 +76,119 @@ index 63b1ae6..ada33c2 100644
  	switch (sset) {
  	case ETH_SS_STATS:
  		return ARRAY_SIZE(stats_strings) +
--		       ARRAY_SIZE(adapter_stats_strings);
-+		       ARRAY_SIZE(adapter_stats_strings) +
-+		       ARRAY_SIZE(channel_stats_strings);
+ 		       ARRAY_SIZE(adapter_stats_strings) +
+-		       ARRAY_SIZE(channel_stats_strings);
++		       ARRAY_SIZE(channel_stats_strings) +
++		       ARRAY_SIZE(loopback_stats_strings);
  	default:
  		return -EOPNOTSUPP;
  	}
-@@ -195,6 +213,9 @@ static void get_strings(struct net_device *dev, u32 stringset, u8 *data)
- 		data += sizeof(stats_strings);
- 		memcpy(data, adapter_stats_strings,
- 		       sizeof(adapter_stats_strings));
-+		data += sizeof(adapter_stats_strings);
-+		memcpy(data, channel_stats_strings,
-+		       sizeof(channel_stats_strings));
+@@ -216,6 +243,9 @@ static void get_strings(struct net_device *dev, u32 stringset, u8 *data)
+ 		data += sizeof(adapter_stats_strings);
+ 		memcpy(data, channel_stats_strings,
+ 		       sizeof(channel_stats_strings));
++		data += sizeof(channel_stats_strings);
++		memcpy(data, loopback_stats_strings,
++		       sizeof(loopback_stats_strings));
  	}
  }
  
-@@ -234,6 +255,22 @@ struct adapter_stats {
- 	u64 wc_fail;
- };
- 
-+struct channel_stats {
-+	u64 cpl_req;
-+	u64 cpl_rsp;
-+	u64 mac_in_errs;
-+	u64 hdr_in_errs;
-+	u64 tcp_in_errs;
-+	u64 tcp6_in_errs;
-+	u64 tnl_cong_drops;
-+	u64 tnl_tx_drops;
-+	u64 ofld_vlan_drops;
-+	u64 ofld_chan_drops;
-+	u64 octets_ddp;
-+	u64 frames_ddp;
-+	u64 frames_drop;
-+};
-+
- static void collect_sge_port_stats(const struct adapter *adap,
- 				   const struct port_info *p,
- 				   struct queue_port_stats *s)
-@@ -308,6 +345,36 @@ static void collect_adapter_stats(struct adapter *adap, struct adapter_stats *s)
- 	}
- }
- 
-+static void collect_channel_stats(struct adapter *adap, struct channel_stats *s,
-+				  u8 i)
-+{
-+	struct tp_cpl_stats cpl_stats;
-+	struct tp_err_stats err_stats;
-+	struct tp_fcoe_stats fcoe_stats;
-+
-+	memset(s, 0, sizeof(*s));
-+
-+	spin_lock(&adap->stats_lock);
-+	t4_tp_get_cpl_stats(adap, &cpl_stats);
-+	t4_tp_get_err_stats(adap, &err_stats);
-+	t4_get_fcoe_stats(adap, i, &fcoe_stats);
-+	spin_unlock(&adap->stats_lock);
-+
-+	s->cpl_req = cpl_stats.req[i];
-+	s->cpl_rsp = cpl_stats.rsp[i];
-+	s->mac_in_errs = err_stats.mac_in_errs[i];
-+	s->hdr_in_errs = err_stats.hdr_in_errs[i];
-+	s->tcp_in_errs = err_stats.tcp_in_errs[i];
-+	s->tcp6_in_errs = err_stats.tcp6_in_errs[i];
-+	s->tnl_cong_drops = err_stats.tnl_cong_drops[i];
-+	s->tnl_tx_drops = err_stats.tnl_tx_drops[i];
-+	s->ofld_vlan_drops = err_stats.ofld_vlan_drops[i];
-+	s->ofld_chan_drops = err_stats.ofld_chan_drops[i];
-+	s->octets_ddp = fcoe_stats.octets_ddp;
-+	s->frames_ddp = fcoe_stats.frames_ddp;
-+	s->frames_drop = fcoe_stats.frames_drop;
-+}
-+
- static void get_stats(struct net_device *dev, struct ethtool_stats *stats,
- 		      u64 *data)
+@@ -380,6 +410,9 @@ static void get_stats(struct net_device *dev, struct ethtool_stats *stats,
  {
-@@ -322,6 +389,12 @@ static void get_stats(struct net_device *dev, struct ethtool_stats *stats,
- 	collect_sge_port_stats(adapter, pi, (struct queue_port_stats *)data);
- 	data += sizeof(struct queue_port_stats) / sizeof(u64);
- 	collect_adapter_stats(adapter, (struct adapter_stats *)data);
-+	data += sizeof(struct adapter_stats) / sizeof(u64);
+ 	struct port_info *pi = netdev_priv(dev);
+ 	struct adapter *adapter = pi->adapter;
++	struct lb_port_stats s;
++	int i;
++	u64 *p0;
+ 
+ 	t4_get_port_stats_offset(adapter, pi->tx_chan,
+ 				 (struct port_stats *)data,
+@@ -394,7 +427,15 @@ static void get_stats(struct net_device *dev, struct ethtool_stats *stats,
+ 	*data++ = (u64)pi->port_id;
+ 	collect_channel_stats(adapter, (struct channel_stats *)data,
+ 			      pi->port_id);
++	data += sizeof(struct channel_stats) / sizeof(u64);
 +
 +	*data++ = (u64)pi->port_id;
-+	collect_channel_stats(adapter, (struct channel_stats *)data,
-+			      pi->port_id);
-+
++	memset(&s, 0, sizeof(s));
++	t4_get_lb_stats(adapter, pi->port_id, &s);
+ 
++	p0 = &s.octets;
++	for (i = 0; i < ARRAY_SIZE(loopback_stats_strings) - 1; i++)
++		*data++ = (unsigned long long)*p0++;
  }
  
  static void get_regs(struct net_device *dev, struct ethtool_regs *regs,
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 79b2714..e8bfe6f 100644
+index e8bfe6f..c95714e 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -3829,6 +3829,27 @@ void t4_tp_get_err_stats(struct adapter *adap, struct tp_err_stats *st)
+@@ -4264,6 +4264,54 @@ void t4_get_port_stats(struct adapter *adap, int idx, struct port_stats *p)
  }
  
  /**
-+ *	t4_tp_get_cpl_stats - read TP's CPL MIB counters
++ *	t4_get_lb_stats - collect loopback port statistics
 + *	@adap: the adapter
-+ *	@st: holds the counter values
++ *	@idx: the loopback port index
++ *	@p: the stats structure to fill
 + *
-+ *	Returns the values of TP's CPL counters.
++ *	Return HW statistics for the given loopback port.
 + */
-+void t4_tp_get_cpl_stats(struct adapter *adap, struct tp_cpl_stats *st)
++void t4_get_lb_stats(struct adapter *adap, int idx, struct lb_port_stats *p)
 +{
-+	/* T6 and later has 2 channels */
-+	if (adap->params.arch.nchan == NCHAN) {
-+		t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, st->req,
-+				 8, TP_MIB_CPL_IN_REQ_0_A);
-+	} else {
-+		t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, st->req,
-+				 2, TP_MIB_CPL_IN_REQ_0_A);
-+		t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, st->rsp,
-+				 2, TP_MIB_CPL_OUT_RSP_0_A);
-+	}
++	u32 bgmap = t4_get_mps_bg_map(adap, idx);
++
++#define GET_STAT(name) \
++	t4_read_reg64(adap, \
++	(is_t4(adap->params.chip) ? \
++	PORT_REG(idx, MPS_PORT_STAT_LB_PORT_##name##_L) : \
++	T5_PORT_REG(idx, MPS_PORT_STAT_LB_PORT_##name##_L)))
++#define GET_STAT_COM(name) t4_read_reg64(adap, MPS_STAT_##name##_L)
++
++	p->octets           = GET_STAT(BYTES);
++	p->frames           = GET_STAT(FRAMES);
++	p->bcast_frames     = GET_STAT(BCAST);
++	p->mcast_frames     = GET_STAT(MCAST);
++	p->ucast_frames     = GET_STAT(UCAST);
++	p->error_frames     = GET_STAT(ERROR);
++
++	p->frames_64        = GET_STAT(64B);
++	p->frames_65_127    = GET_STAT(65B_127B);
++	p->frames_128_255   = GET_STAT(128B_255B);
++	p->frames_256_511   = GET_STAT(256B_511B);
++	p->frames_512_1023  = GET_STAT(512B_1023B);
++	p->frames_1024_1518 = GET_STAT(1024B_1518B);
++	p->frames_1519_max  = GET_STAT(1519B_MAX);
++	p->drop             = GET_STAT(DROP_FRAMES);
++
++	p->ovflow0 = (bgmap & 1) ? GET_STAT_COM(RX_BG_0_LB_DROP_FRAME) : 0;
++	p->ovflow1 = (bgmap & 2) ? GET_STAT_COM(RX_BG_1_LB_DROP_FRAME) : 0;
++	p->ovflow2 = (bgmap & 4) ? GET_STAT_COM(RX_BG_2_LB_DROP_FRAME) : 0;
++	p->ovflow3 = (bgmap & 8) ? GET_STAT_COM(RX_BG_3_LB_DROP_FRAME) : 0;
++	p->trunc0 = (bgmap & 1) ? GET_STAT_COM(RX_BG_0_LB_TRUNC_FRAME) : 0;
++	p->trunc1 = (bgmap & 2) ? GET_STAT_COM(RX_BG_1_LB_TRUNC_FRAME) : 0;
++	p->trunc2 = (bgmap & 4) ? GET_STAT_COM(RX_BG_2_LB_TRUNC_FRAME) : 0;
++	p->trunc3 = (bgmap & 8) ? GET_STAT_COM(RX_BG_3_LB_TRUNC_FRAME) : 0;
++
++#undef GET_STAT
++#undef GET_STAT_COM
 +}
 +
 +/**
-  *	t4_tp_get_rdma_stats - read TP's RDMA MIB counters
+  *	t4_wol_magic_enable - enable/disable magic packet WoL
   *	@adap: the adapter
-  *	@st: holds the counter values
-@@ -3842,6 +3863,28 @@ void t4_tp_get_rdma_stats(struct adapter *adap, struct tp_rdma_stats *st)
- }
- 
- /**
-+ *	t4_get_fcoe_stats - read TP's FCoE MIB counters for a port
-+ *	@adap: the adapter
-+ *	@idx: the port index
-+ *	@st: holds the counter values
-+ *
-+ *	Returns the values of TP's FCoE counters for the selected port.
-+ */
-+void t4_get_fcoe_stats(struct adapter *adap, unsigned int idx,
-+		       struct tp_fcoe_stats *st)
-+{
-+	u32 val[2];
-+
-+	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, &st->frames_ddp,
-+			 1, TP_MIB_FCOE_DDP_0_A + idx);
-+	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, &st->frames_drop,
-+			 1, TP_MIB_FCOE_DROP_0_A + idx);
-+	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, val,
-+			 2, TP_MIB_FCOE_BYTE_0_HI_A + 2 * idx);
-+	st->octets_ddp = ((u64)val[0] << 32) | val[1];
-+}
-+
-+/**
-  *	t4_get_usm_stats - read TP's non-TCP DDP MIB counters
-  *	@adap: the adapter
-  *	@st: holds the counter values
+  *	@port: the physical port index
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index d75a80e..3273a4c 100644
+index 3273a4c..af3462d 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -1436,7 +1436,12 @@
- #define TP_MIB_TCP_V6IN_ERR_0_A 0x28
- #define TP_MIB_TCP_V6OUT_RST_A	0x2c
- #define TP_MIB_OFD_ARP_DROP_A	0x36
-+#define TP_MIB_CPL_IN_REQ_0_A	0x38
-+#define TP_MIB_CPL_OUT_RSP_0_A	0x3c
- #define TP_MIB_TNL_DROP_0_A	0x44
-+#define TP_MIB_FCOE_DDP_0_A	0x48
-+#define TP_MIB_FCOE_DROP_0_A	0x4c
-+#define TP_MIB_FCOE_BYTE_0_HI_A	0x50
- #define TP_MIB_OFD_VLN_DROP_0_A	0x58
- #define TP_MIB_USM_PKTS_A	0x5c
- #define TP_MIB_RQE_DFR_PKT_A	0x64
+@@ -1605,6 +1605,7 @@
+ #define MPS_PORT_STAT_LB_PORT_1519B_MAX_L 0x520
+ #define MPS_PORT_STAT_LB_PORT_1519B_MAX_H 0x524
+ #define MPS_PORT_STAT_LB_PORT_DROP_FRAMES 0x528
++#define MPS_PORT_STAT_LB_PORT_DROP_FRAMES_L 0x528
+ #define MPS_PORT_STAT_RX_PORT_BYTES_L 0x540
+ #define MPS_PORT_STAT_RX_PORT_BYTES_H 0x544
+ #define MPS_PORT_STAT_RX_PORT_FRAMES_L 0x548
 -- 
 2.3.4
