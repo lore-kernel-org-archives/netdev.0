@@ -1,70 +1,55 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
+From: roopa <roopa@cumulusnetworks.com>
 Subject: Re: [PATCH net-next 5/5] rocker: remove support for legacy VLAN ndo
  ops
-Date: Thu, 04 Jun 2015 00:43:22 +0900
-Message-ID: <556F209A.6090304@gmail.com>
+Date: Wed, 03 Jun 2015 08:44:49 -0700
+Message-ID: <556F20F1.6050202@cumulusnetworks.com>
 References: <1433183947-13095-1-git-send-email-sfeldma@gmail.com> <1433183947-13095-6-git-send-email-sfeldma@gmail.com> <556D363A.5010005@lab.ntt.co.jp> <20150601.222442.1854333703599698362.davem@davemloft.net> <CAE4R7bBL+=-akoNLPqPae=zrYe3DH59t=8UK_T7KhcHSNaKUtw@mail.gmail.com> <556D96ED.9010309@mojatatu.com> <CAE4R7bAXA27cqBLv6MP0kak-L=1bXUoZPw7vxUyYpP=-dk=eAg@mail.gmail.com> <556DE0CD.9080000@cumulusnetworks.com> <CAE4R7bCPKcCYcHZ3WhkvjpioPhJP12Q35zRsq=t5gAO7JOZ94Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
 	David Miller <davem@davemloft.net>,
 	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
 	Netdev <netdev@vger.kernel.org>,
 	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
 	"simon.horman@netronome.com" <simon.horman@netronome.com>
-To: Scott Feldman <sfeldma@gmail.com>,
-	roopa <roopa@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:32899 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752569AbbFCPnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 11:43:31 -0400
-Received: by pdbqa5 with SMTP id qa5so10197818pdb.0
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 08:43:30 -0700 (PDT)
+Received: from mail-qk0-f176.google.com ([209.85.220.176]:36184 "EHLO
+	mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754087AbbFCPo4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 11:44:56 -0400
+Received: by qkx62 with SMTP id 62so7625180qkx.3
+        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 08:44:55 -0700 (PDT)
 In-Reply-To: <CAE4R7bCPKcCYcHZ3WhkvjpioPhJP12Q35zRsq=t5gAO7JOZ94Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15/06/03 (=E6=B0=B4) 4:01, Scott Feldman wrote:
-> On Tue, Jun 2, 2015 at 9:58 AM, roopa <roopa@cumulusnetworks.com> wro=
-te:
+On 6/2/15, 12:01 PM, Scott Feldman wrote:
+> On Tue, Jun 2, 2015 at 9:58 AM, roopa <roopa@cumulusnetworks.com> wrote:
 >> On 6/2/15, 7:30 AM, Scott Feldman wrote:
->>>
->>> On Tue, Jun 2, 2015 at 4:43 AM, Jamal Hadi Salim <jhs@mojatatu.com>=
- wrote:
->>>>
+>>> On Tue, Jun 2, 2015 at 4:43 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 >>>> On 06/02/15 03:10, Scott Feldman wrote:
 >>>>
 >>>>
->>>>> Actually, we're now consistent with bridge man page which says ma=
-ster
+>>>>> Actually, we're now consistent with bridge man page which says master
 >>>>> is the default.
 >>>>>
->>>>> Want we want, I believe, is to adjust what the man page says (and=
- the
->>>>> bridge vlan command itself), by making the default master and sel=
-f.
->>>>> The kernel and driver are fine, it's the default in the bridge co=
-mmand
->>>>> that needs adjusting.  Once we do this, we'll be back to transpar=
-ent
+>>>>> Want we want, I believe, is to adjust what the man page says (and the
+>>>>> bridge vlan command itself), by making the default master and self.
+>>>>> The kernel and driver are fine, it's the default in the bridge command
+>>>>> that needs adjusting.  Once we do this, we'll be back to transparent
 >>>>> with software-only bridge.
 >>>>>
 >>>> Question to ask when looking at something of this nature:
 >>>> Will it work with no suprises if you used today's unmodified app?
->>>> The default behavior shouldnt change and unfortunately it does her=
-e.
->>>
+>>>> The default behavior shouldnt change and unfortunately it does here.
 >>> The default behavior does change, yes, but there shouldn't be any
->>> surprises even if using today's unmodified app.  The reason why is =
-no
+>>> surprises even if using today's unmodified app.  The reason why is no
 >>> in-kernel driver is using ndo_bridge_setlink for VLAN setup.  The
 >>> three drivers that have ndo_bridge_setlink use if to set hwmode to
 >>> VEBA|VEB.  For VLAN setup, they use the (default master) bridge's
->>> ndo_bridge_setlink->ndo_vlan_rx_add_vid.  If the default changes fr=
-om
+>>> ndo_bridge_setlink->ndo_vlan_rx_add_vid.  If the default changes from
 >>> master to master|self, the bridge's
 >>> ndo_bridge_setlink->ndo_vlan_rx_add_vid is still called for those
 >>> driver's using ndo_vlan_rx_add_vid, and if they implement
@@ -78,10 +63,8 @@ om
 >>>
 >>> 2) embrace existing behavior which is consistent with man pages but
 >>> breaks command transparency for any driver implementing
->>> ndo_bridge_setlink for VLAN setup, which currently is just rocker. =
- I
->>> can see the DSA going down this path also based on another concurre=
-nt
+>>> ndo_bridge_setlink for VLAN setup, which currently is just rocker.  I
+>>> can see the DSA going down this path also based on another concurrent
 >>> thread.
 >>>
 >>> We're at option 2) right now.
@@ -109,32 +92,22 @@ nt
 >>>>
 >>>> So this is very similar to iproute2 - if nothing is set
 >>>> it defaults to self.
->>>
->>> Ha, you're giving the behavior for "bridge fdb" command, where self=
- is
+>>> Ha, you're giving the behavior for "bridge fdb" command, where self is
 >>> the default.
->>
 >>
 >> Oh...i did not realize this was the case either. Thats unfortunate.
 >>
->>>
->>> For "bridge link" and "bridge vlan", the default is master.  The us=
-er
->>> must explicitly specify "self" to act on the device side of the por=
-t.
+>>> For "bridge link" and "bridge vlan", the default is master.  The user
+>>> must explicitly specify "self" to act on the device side of the port.
 >>>
 >>> It's unfortunate the iproute2 defaults aren't consistent between
 >>> commands.  Maybe someone knows the history here and can explain.
 >>>
 >>>
->>
->> scott, this brings back the discussion you and i had over the revert=
- of my
+>> scott, this brings back the discussion you and i had over the revert of my
 >> patches.. (commit id's at the end of this email)...
->> which used to seamlessly offload to switchdev from bridge driver if =
-the port
+>> which used to seamlessly offload to switchdev from bridge driver if the port
 >> was a switch port (similar to stp state offload).
->
 > Your patch tried to do the same thing that the bridge's
 > ndo_bridge_setlink/dellink is doing which is using the handler for
 > MASTER to also set SELF stuff, when SELF was not specified.  I don't
@@ -143,18 +116,13 @@ the port
 > behavior.  The kernel should treat the two sides of the port
 > independent (that's the basic algo in rtnetlink.c handlers for
 > MASTER/SELF things).  When you start doing kernel SELF things in the
-> MASTER path, the application has lost the ability to address each sid=
-e
+> MASTER path, the application has lost the ability to address each side
 > of the port independently.
 >
->> 'self' used to exist before switchdev infra came in. My suggestion w=
-as to
->> use it where required...but not build the switchdev api on the prese=
-nce of
->> 'self'. switchdev layer should be consistent across...all fib/fdb/ne=
-igh
+>> 'self' used to exist before switchdev infra came in. My suggestion was to
+>> use it where required...but not build the switchdev api on the presence of
+>> 'self'. switchdev layer should be consistent across...all fib/fdb/neigh
 >> layers.
->
 > I don't understand why you're bringing up fib/neigh because there is
 > no master|self form for those.
 >
@@ -186,20 +154,34 @@ igh
 > calls into the member port's ndo_vlan_rx_add_vid(), which is really a
 > SELF operation because it's setting the VLAN for the device-side of
 > the port.  Setting the VLAN on the device side should have only been
-> done if SELF was specified.
+> done if SELF was specified.  Too bad it didn't work out this way; now
+> we have to live with that legacy.  Your setlink/dellink patches tried
+> to do the same thing, which is to set the SELF side of the port
+> settings when SELF was not specified.  If those patches went in, we'd
+> be stuck there as well.  Your change said if application sets MASTER
+> (or nothing), the kernel treats it as MASTER|SELF.
+I understand what you are saying.
+But, the way i see it is, master/self was the old way of doing l2 offload.
+It completely bypassed the bridge driver. It existed before switchdev.
+And I was hoping we don't carry over that notion when we are doing 
+offloads the new way.
+ie involve the bridge driver. Bridge driver owns the vlan config/stp 
+states etc and pushes it to hardware.
+We handle rollbacks, error policies from withing the bridge driver.
+This is the switchdev offload model. We started with this.
 
-Bridge's vlan_filtering is handled in master->op->foo(), not in=20
-port->op->foo().
-Can't we introduce another switchdev handler that performs MASTER=20
-operation instead of calling SELF operation?
+And, we did not want to break existing drivers/or apps and also have the 
+option of doing offloads the old way or allow going directly to the 
+switchdev driver for some attributes. So, we allowed that (and my 
+patches also made sure those were not broken).
 
-br_afspec()
-  nbp_vlan_add()
-   netdev_switch_port_vlan_add()
-    rocker->ndo_switch_port_vlan_add() <- only used for MASTER operatio=
-n
+But somewhere along the way...., with the past few commits...we are 
+designing switchdev offload apis around 'self|master' ie the old way of 
+doing things. That is my only concern.
 
-I'm wondering why SELF operation (rocker->ndo_bridge_setlink()) does=20
-what should be done in MASTER operation.
-
-Toshiaki Makita
+Also, it seems a bit inconsistent...
+- stp states are offloaded from within the bridge driver but not vlans 
+and other port config
+- I bring up fib all the time because, the switchdev offload api design 
+should be consistent with the offload api across
+rest of the subsystems
