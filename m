@@ -1,58 +1,87 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the
- RDMA-CM
-Date: Wed, 3 Jun 2015 10:14:47 -0600
-Message-ID: <20150603161447.GC12073@obsidianresearch.com>
-References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
- <1432647280.28905.107.camel@redhat.com>
- <55671309.6080303@mellanox.com>
- <1432822057.114391.26.camel@redhat.com>
- <55674077.5040707@mellanox.com>
- <20150528174337.GA10448@obsidianresearch.com>
- <1432837360.114391.35.camel@redhat.com>
- <CAJ3xEMh2T5-56rFxWVdct2uAZYW1ZrKivWfS45V-mvhAfwyGaA@mail.gmail.com>
- <1432850150.114391.56.camel@redhat.com>
- <556ED0D5.8010502@mellanox.com>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [Intel-wired-lan] [PATCH V2 1/2] pci: Add dev_flags bit to
+ access VPD through function 0
+Date: Wed, 3 Jun 2015 16:16:43 +0000
+Message-ID: <4033DF50-0126-4F69-88FA-C6AABC0CADCE@intel.com>
+References: <20150603000645.71269.26134.stgit@mdrustad-wks.jf.intel.com>
+ <20150603001011.71269.79857.stgit@mdrustad-wks.jf.intel.com>
+ <556E6667.1020000@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford@redhat.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Liran Liss <liranl@mellanox.com>,
-	Guy Shapiro <guysh@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
-	Yotam Kenneth <yotamke@mellanox.com>
-To: Haggai Eran <haggaie@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:42027 "EHLO quartz.orcorp.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754831AbbFCQOw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jun 2015 12:14:52 -0400
-Content-Disposition: inline
-In-Reply-To: <556ED0D5.8010502@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_B443E2EF-BF6E-486A-A6C8-5F41C784D5D3";
+	protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <556E6667.1020000@gmail.com>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 03, 2015 at 01:03:01PM +0300, Haggai Eran wrote:
-> > Then I'm inclined to say that we should map for namespaces using device,
-> > port, guid/gid, pkey.  And in this situation, since a unique guid/gid on
-> > any given pkey maps to a unique dhcp identifier and a unique ipv6
-> > lladdr, this becomes freely interchangeable with device, port, pkey,
-> > address mappings that this patchset was built around.
-> 
-> What if we change the namespaces patches to map (device, port, GID,
-> P_Key, IP) to netdev / namespace? That is, to use both the GID and the
-> IP address.
+--Apple-Mail=_B443E2EF-BF6E-486A-A6C8-5F41C784D5D3
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=windows-1252
 
-As I keep saying, you are not supposed to use the IP address as a key
-to find the netdev, that is the wrong way to use the Linux netdev
-model.
+> On Jun 2, 2015, at 7:28 PM, Alexander Duyck =
+<alexander.duyck@gmail.com> wrote:
+>=20
+> You can probably combine the dev->multifunction check with the =
+dev_flags check.  After all you don't need this workaround if the device =
+is not multifunction.  It might even make more sense to move the =
+multifunction check to the quirk in patch 2/2.
 
-Requiring unique GID/PKey allows the implementation to avoid this
-wrongness, which would be simplifying and more correct.
+Yes. I also realized that I really should check that tdev->vpd is not =
+NULL. There is no point in referencing it if, for whatever reason, it =
+has no VPD.
 
-That is the appeal to blocking this scenario when children are created.
+> I also believe this leaks a reference to the device.
 
-Jason
+Yes, and I was thinking that when I wrote the line, but forgot to do =
+anything about it. Good catch!
+
+> You should be calling pci_dev_put(tdev) if tdev is not NULL.  As such =
+you probably need to split up the !tdev and the rest of the checks.
+
+Yup. I will have a V3 coming. I still don't have anything to handle PFs =
+assigned to guests, but I think that would be best in a separate patch =
+set if there is need to fix that. It looks to me like that would involve =
+trapping on all config space accesses to such devices and then emulating =
+the behavior of the VPD Address/F and Data registers. It may be worth =
+seeing if anyone cares before doing anything about it. I haven't seen =
+any reports related to such a setup.
+
+Again, thank you for your comments.
+
+--
+Mark Rustad, Networking Division, Intel Corporation
+
+
+--Apple-Mail=_B443E2EF-BF6E-486A-A6C8-5F41C784D5D3
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
+
+-----BEGIN PGP SIGNATURE-----
+Comment: GPGTools - http://gpgtools.org
+
+iQIcBAEBCAAGBQJVbyhsAAoJEDwO/+eO4+5uKZYP/RTdMtrlhEh6X3JqPAMXfUQ7
+v+idF6gb2R9xmoJ+zvmoSiG+ggM7YvPi91fCee7g4YbmPJKs+yJ0lFfZgHGtV97U
+WwHehHjrYjWU1gr4vXeI/igeJj2WdCX5uiqImFss9cV0bgHG8YjkNx2JpXjGs6P2
+4SSoXg3Y/Dy2u8i89V0qg59n/ub4b6fNQLhVQrQZWe4KSh6gzgAOSKQpfPwmlBpY
+wWgvtSMmlbUVDQ4sxNxtYwTCBSUhuGOgKsND3epOUtRvZjAKNG2ji1p29D1pJ5bi
+Jc1KIQ874LO+pfPO66G/p0HOOTbJm9XRREJogHam7WMW6xbPVgO5fas55jAfjOuv
+qjQE9qwtqs62IGOtjkaKV1cc8Ryphr3sp6l/dXO/Hrq3t8bWyZ1eVuuXPEn68WDQ
+QFOcufx+qIp3WzQggn8n89Ip02DsR5IK0aJtlEoUz9vOH8lwJnHt6SxyDQgWLfXH
+cVyUg5syiL+0zKzF71E0c9w/aTdmyiK3yP2Y47+G5dWtb7CHL+ii6zejdAJRJvL4
+t9IXRXW6+sXYkVPMWYoG4QPkhZrMt1Gf89G8/anuBkJIZmOS0j9+xedfZbr8GUmH
+b2Z5bDCQi1GMRveKMvcf9khdw7xcSAngfB4fdISwAYmZPT+vGTlFytG1XJfRUF77
+DiEoFPL6MIoZ4CAM3k12
+=5hJu
+-----END PGP SIGNATURE-----
+
+--Apple-Mail=_B443E2EF-BF6E-486A-A6C8-5F41C784D5D3--
