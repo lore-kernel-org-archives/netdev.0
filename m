@@ -1,49 +1,79 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next] net: change fib behavior based on interface link status
-Date: Wed, 3 Jun 2015 12:03:53 -0700
-Message-ID: <CAE4R7bDLgHYzWC=m-R73psbyLwZh0fvL_diFyW3g1DF8eve1sw@mail.gmail.com>
-References: <1433300839-18511-1-git-send-email-gospo@cumulusnetworks.com>
- <CAE4R7bD6eZGR2k-CMUhCrYhpH7sgCHCaAZ=7u1ot1j4TQGPVgA@mail.gmail.com> <20150603182718.GK588@gospo.home.greyhouse.net>
+From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the RDMA-CM
+Date: Wed, 3 Jun 2015 22:05:34 +0300
+Message-ID: <CAJ3xEMjM53sYuEgQV3WPaN4WErk_YcojPY2zBcmq-+3W2dfD+A@mail.gmail.com>
+References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
+	<1432647280.28905.107.camel@redhat.com>
+	<55671309.6080303@mellanox.com>
+	<1432822057.114391.26.camel@redhat.com>
+	<55674077.5040707@mellanox.com>
+	<20150528174337.GA10448@obsidianresearch.com>
+	<1432837360.114391.35.camel@redhat.com>
+	<CAJ3xEMh2T5-56rFxWVdct2uAZYW1ZrKivWfS45V-mvhAfwyGaA@mail.gmail.com>
+	<1432850150.114391.56.camel@redhat.com>
+	<556ED0D5.8010502@mellanox.com>
+	<20150603161447.GC12073@obsidianresearch.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, ddutt@cumulusnetworks.com
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f179.google.com ([209.85.216.179]:34788 "EHLO
-	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932487AbbFCTEP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 15:04:15 -0400
-Received: by qcej9 with SMTP id j9so8421073qce.1
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 12:04:14 -0700 (PDT)
-In-Reply-To: <20150603182718.GK588@gospo.home.greyhouse.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150603161447.GC12073-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 3, 2015 at 11:27 AM, Andy Gospodarek
-<gospo@cumulusnetworks.com> wrote:
-> On Wed, Jun 03, 2015 at 11:15:55AM -0700, Scott Feldman wrote:
->> On Tue, Jun 2, 2015 at 8:07 PM, Andy Gospodarek
->> <gospo@cumulusnetworks.com> wrote:
->> > This feature is only enabled with the new sysctl set (default is off):
->> > net.core.kill_routes_on_linkdown = 1
+On Wed, Jun 3, 2015 at 7:14 PM, Jason Gunthorpe
+<jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org> wrote:
+> On Wed, Jun 03, 2015 at 01:03:01PM +0300, Haggai Eran wrote:
+>> > Then I'm inclined to say that we should map for namespaces using device,
+>> > port, guid/gid, pkey.  And in this situation, since a unique guid/gid on
+>> > any given pkey maps to a unique dhcp identifier and a unique ipv6
+>> > lladdr, this becomes freely interchangeable with device, port, pkey,
+>> > address mappings that this patchset was built around.
 >>
->> One more thing, sorry.  This feature is typically implemented today in
->> user-space on a per-interface basis.  The example I'm thinking of is
->> Quagga's "link-detect" directive which goes on an interface.  Should
->> this be a bool on each interface in systcl?  That would let user not
->> enable on selected interfaces.
-> That would not be my preference.
+>> What if we change the namespaces patches to map (device, port, GID,
+>> P_Key, IP) to netdev / namespace? That is, to use both the GID and the
+>> IP address.
 >
-> I'm willing to investigate the per-namespace support if Hannes would
-> like and add switchdev support for v2, but would prefer this not become
-> that granular.
+> As I keep saying, you are not supposed to use the IP address as a key
+> to find the netdev, that is the wrong way to use the Linux netdev
+> model.
+>
+> Requiring unique GID/PKey allows the implementation to avoid this
+> wrongness, which would be simplifying and more correct.
+>
+> That is the appeal to blocking this scenario when children are created.
 
+Jason,
 
-Is there a reason?  Seems you moving a feature from user space to the
-kernel, so I'm curious why you wouldn't want to mimic functionality
-that's available today.
+The IPoIB RTNL childs were added around release 3.6/7 of the upstream
+kernel and are part of the kernel UAPI. They are perfectly used in
+bunch of schemes:
 
-I like the patch/feature, BTW.  Thanks for doing this.
+1.  when static IP address assignment is used
 
--scott
+2. under PV scheme, when the guest has para-virtual Eth NIC and the
+host does routing between the back-end (e.g tap or alike) and  the
+IPoIB child. Or when the host does tunneling (vxlan) and alike and
+sends down the encapsulated packet through a host IP address assigned
+to the IPoIB child
+
+3. etc few more
+
+Indeed the DHCP story isn't working there and to get DHCP work
+something has to be done. But this issue can't serve for blocking the
+existing UAPI and introduce regression to working systems.
+
+Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
