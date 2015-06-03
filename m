@@ -1,54 +1,45 @@
-From: Julien Grall <julien.grall@citrix.com>
-Subject: [PATCH v2 2/2] net/xen-netback: Remove unused code in xenvif_rx_action
-Date: Wed, 3 Jun 2015 17:55:10 +0100
-Message-ID: <1433350510-12846-3-git-send-email-julien.grall@citrix.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2 1/2] net/xen-netfront: Correct printf
+ format in xennet_get_responses
+Date: Wed, 03 Jun 2015 10:06:36 -0700
+Message-ID: <1433351196.4861.131.camel@perches.com>
 References: <1433350510-12846-1-git-send-email-julien.grall@citrix.com>
+	<1433350510-12846-2-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ian.campbell@citrix.com>, <stefano.stabellini@eu.citrix.com>,
-	<linux-kernel@vger.kernel.org>,
-	Julien Grall <julien.grall@citrix.com>,
-	"Wei Liu" <wei.liu2@citrix.com>, <netdev@vger.kernel.org>
-To: <xen-devel@lists.xenproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1433350510-12846-1-git-send-email-julien.grall@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ian.campbell@citrix.com, netdev@vger.kernel.org,
+	stefano.stabellini@eu.citrix.com, linux-kernel@vger.kernel.org,
+	David Vrabel <david.vrabel@citrix.com>, xen-devel@lists.xenproject.org,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>
+To: Julien Grall <julien.grall@citrix.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1433350510-12846-2-git-send-email-julien.grall@citrix.com>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-The variables old_req_cons and ring_slots_used are assigned but never
-used since commit 1650d5455bd2dc6b5ee134bd6fc1a3236c266b5b "xen-netback:
-always fully coalesce guest Rx packets".
+On Wed, 2015-06-03 at 17:55 +0100, Julien Grall wrote:
+> rx->status is an int16_t, print it using %d rather than %u in order to
+> have a meaningful value when the field is negative.
+[]
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+[]
+> @@ -733,7 +733,7 @@ static int xennet_get_responses(struct netfront_queue *queue,
+>  		if (unlikely(rx->status < 0 ||
+>  			     rx->offset + rx->status > PAGE_SIZE)) {
+>  			if (net_ratelimit())
+> -				dev_warn(dev, "rx->offset: %x, size: %u\n",
+> +				dev_warn(dev, "rx->offset: %x, size: %d\n",
 
-Signed-off-by: Julien Grall <julien.grall@citrix.com>
-Acked-by: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: netdev@vger.kernel.org
+If you're going to do this, perhaps it'd be sensible to
+also change the %x to %#x or 0x%x so that people don't
+mistake offset without an [a-f] for decimal.
 
----
-    Changes in v2:
-        - Add Wei's Acked-by
----
- drivers/net/xen-netback/netback.c | 5 -----
- 1 file changed, 5 deletions(-)
-
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 0d25943..ba3ae30 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -515,14 +515,9 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
- 
- 	while (xenvif_rx_ring_slots_available(queue, XEN_NETBK_RX_SLOTS_MAX)
- 	       && (skb = xenvif_rx_dequeue(queue)) != NULL) {
--		RING_IDX old_req_cons;
--		RING_IDX ring_slots_used;
--
- 		queue->last_rx_time = jiffies;
- 
--		old_req_cons = queue->rx.req_cons;
- 		XENVIF_RX_CB(skb)->meta_slots_used = xenvif_gop_skb(skb, &npo, queue);
--		ring_slots_used = queue->rx.req_cons - old_req_cons;
- 
- 		__skb_queue_tail(&rxq, skb);
- 	}
--- 
-2.1.4
+>  					 rx->offset, rx->status);
