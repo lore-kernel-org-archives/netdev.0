@@ -1,113 +1,200 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net iproute2 v4] mpls: always set type RTN_UNICAST and scope RT_SCOPE_UNIVERSE for route add/deletes
-Date: Tue,  2 Jun 2015 17:42:47 -0700
-Message-ID: <1433292167-13364-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: davem@davemloft.net, rshearma@brocade.com, netdev@vger.kernel.org,
-	vivek@cumulusnetworks.com
-To: stephen@networkplumber.org, ebiederm@xmission.com
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [RFC 2/9] net: dsa: add basic support for VLAN operations
+Date: Tue, 2 Jun 2015 20:45:55 -0400 (EDT)
+Message-ID: <2072564647.943921.1433292355649.JavaMail.zimbra@savoirfairelinux.com>
+References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-3-git-send-email-vivien.didelot@savoirfairelinux.com> <556DC0E1.9000709@roeck-us.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	=?utf-8?Q?J=C3=A9rome?= Oufella
+	<jerome.oufella@savoirfairelinux.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>,
+	Chris Healy <cphealy@gmail.com>
+To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f53.google.com ([209.85.192.53]:33359 "EHLO
-	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751378AbbFCAm6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 20:42:58 -0400
-Received: by qgfa63 with SMTP id a63so66144680qgf.0
-        for <netdev@vger.kernel.org>; Tue, 02 Jun 2015 17:42:58 -0700 (PDT)
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:55255 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751479AbbFCAp7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 20:45:59 -0400
+In-Reply-To: <556DC0E1.9000709@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Hi Guenter,
 
-This patch fixes incorrect -EINVAL errors due to invalid
-scope and type during mpls route deletes.
+On Jun 2, 2015, at 10:42 AM, Guenter Roeck linux@roeck-us.net wrote:
+On 06/01/2015 06:27 PM, Vivien Didelot wrote:
+>> This patch adds the glue between DSA and switchdev to add and delete
+>> SWITCHDEV_OBJ_PORT_VLAN objects.
+>>
+>> This will allow the DSA switch drivers implementing the port_vlan_add
+>> and port_vlan_del functions to access the switch VLAN database through
+>> userspace commands such as "bridge vlan".
+>>
+>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>> ---
+>>   include/net/dsa.h |  7 +++++++
+>>   net/dsa/slave.c   | 61 +++++++++++++++++++++++++++++++++++++++++++++++++++++--
+>>   2 files changed, 66 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/include/net/dsa.h b/include/net/dsa.h
+>> index fbca63b..726357b 100644
+>> --- a/include/net/dsa.h
+>> +++ b/include/net/dsa.h
+>> @@ -302,6 +302,13 @@ struct dsa_switch_driver {
+>>                 const unsigned char *addr, u16 vid);
+>>      int (*fdb_getnext)(struct dsa_switch *ds, int port,
+>>                     unsigned char *addr, bool *is_static);
+>> +
+>> +    /*
+>> +     * VLAN support
+>> +     */
+>> +    int (*port_vlan_add)(struct dsa_switch *ds, int port, u16 vid,
+>> +                 u16 bridge_flags);
+>> +    int (*port_vlan_del)(struct dsa_switch *ds, int port, u16 vid);
+>>   };
+>>
+>>   void register_switch_driver(struct dsa_switch_driver *type);
+>> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+>> index cbda00a..52ba5a1 100644
+>> --- a/net/dsa/slave.c
+>> +++ b/net/dsa/slave.c
+>> @@ -363,6 +363,25 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
+>>      return ret;
+>>   }
+>>
+>> +static int dsa_slave_port_vlans_add(struct net_device *dev,
+>> +                    struct switchdev_obj_vlan *vlan)
+>> +{
+>> +    struct dsa_slave_priv *p = netdev_priv(dev);
+>> +    struct dsa_switch *ds = p->parent;
+>> +    int vid, err = 0;
+>> +
+>> +    if (!ds->drv->port_vlan_add)
+>> +        return -ENOTSUPP;
+>> +
+>> +    for (vid = vlan->vid_start; vid <= vlan->vid_end; ++vid) {
+>> +        err = ds->drv->port_vlan_add(ds, p->port, vid, vlan->flags);
+>> +        if (err)
+>> +            break;
+>> +    }
+>> +
+>> +    return err;
+>> +}
+>> +
+>>   static int dsa_slave_port_obj_add(struct net_device *dev,
+>>                    struct switchdev_obj *obj)
+>>   {
+>> @@ -378,6 +397,9 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
+>>          return 0;
+>>
+>>      switch (obj->id) {
+>> +    case SWITCHDEV_OBJ_PORT_VLAN:
+>> +        err = dsa_slave_port_vlans_add(dev, &obj->u.vlan);
+>> +        break;
+>>      default:
+>>          err = -ENOTSUPP;
+>>          break;
+>> @@ -386,12 +408,34 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
+>>      return err;
+>>   }
+>>
+>> +static int dsa_slave_port_vlans_del(struct net_device *dev,
+>> +                    struct switchdev_obj_vlan *vlan)
+>> +{
+>> +    struct dsa_slave_priv *p = netdev_priv(dev);
+>> +    struct dsa_switch *ds = p->parent;
+>> +    int vid, err = 0;
+>> +
+>> +    if (!ds->drv->port_vlan_del)
+>> +        return -ENOTSUPP;
+>> +
+>> +    for (vid = vlan->vid_start; vid <= vlan->vid_end; ++vid) {
+>> +        err = ds->drv->port_vlan_del(ds, p->port, vid);
+>> +        if (err)
+>> +            break;
+>> +    }
+>> +
+>> +    return err;
+>> +}
+>> +
+>>   static int dsa_slave_port_obj_del(struct net_device *dev,
+>>                    struct switchdev_obj *obj)
+>>   {
+>>      int err;
+>>
+>>      switch (obj->id) {
+>> +    case SWITCHDEV_OBJ_PORT_VLAN:
+>> +        err = dsa_slave_port_vlans_del(dev, &obj->u.vlan);
+>> +        break;
+>>      default:
+>>          err = -EOPNOTSUPP;
+>>          break;
+>> @@ -473,6 +517,15 @@ static netdev_tx_t dsa_slave_notag_xmit(struct sk_buff
+>> *skb,
+>>      return NETDEV_TX_OK;
+>>   }
+>>
+>> +static int dsa_slave_vlan_noop(struct net_device *dev, __be16 proto, u16 vid)
+>> +{
+>> +    /* NETIF_F_HW_VLAN_CTAG_FILTER requires ndo_vlan_rx_add_vid and
+>> +     * ndo_vlan_rx_kill_vid, otherwise the VLAN acceleration is considered
+>> +     * buggy (see net/core/dev.c).
+>> +     */
+>> +    return 0;
+>> +}
+>> +
+>>
+>>   /* ethtool operations *******************************************************/
+>>   static int
+>> @@ -734,6 +787,10 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
+>>      .ndo_fdb_dump       = dsa_slave_fdb_dump,
+>>      .ndo_do_ioctl       = dsa_slave_ioctl,
+>>      .ndo_get_iflink     = dsa_slave_get_iflink,
+>> +    .ndo_vlan_rx_add_vid    = dsa_slave_vlan_noop,
+>> +    .ndo_vlan_rx_kill_vid   = dsa_slave_vlan_noop,
+>> +    .ndo_bridge_setlink = switchdev_port_bridge_setlink,
+>> +    .ndo_bridge_dellink = switchdev_port_bridge_dellink,
+>>   };
+>>
+>>   static const struct switchdev_ops dsa_slave_switchdev_ops = {
+>> @@ -924,7 +981,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device
+>> *parent,
+>>      if (slave_dev == NULL)
+>>          return -ENOMEM;
+>>
+>> -    slave_dev->features = master->vlan_features;
+>> +    slave_dev->features = master->vlan_features | NETIF_F_VLAN_FEATURES;
+> 
+> Hi Vivien,
+> 
+> NETIF_F_VLAN_FEATURES declares that the device supports receive and transmit
+> tagging offload. We do this on transmit, by calling vlan_hwaccel_push_inside()
+> with patch 9, but not on the receive side.
+> 
+> I think you may need to add matching code on the receive side to remove
+> the VLAN tag and move it into the skb with __vlan_hwaccel_put_tag().
+> It may also be necessary to add the same code for the other tag handlers.
+> 
+> Overall I wonder if it really makes sense to add those flags. Seems to me
+> that would only make sense if the resulting code gets more efficient,
+> which at least currently is not the case. Am I missing something ?
 
-$ip -f mpls route add 100 as 200 via inet 10.1.1.2 dev swp1
+I initially added those flags because without them, bridge didn't call
+my ndo_vlan_rx_add_vid. But with the switchdev abstraction, they seem
+unrelevant.
 
-$ip -f mpls route show
-100 as to 200 via inet 10.1.1.2 dev swp1
+I just undo this change (keeping slave_dev->{vlan_,}features to
+master->vlan_features) and I am able to create VLANs through bridge.
 
-$ip -f mpls route del 100 as 200 via inet 10.1.1.2 dev swp1
-RTNETLINK answers: Invalid argument
+TBH, I'm not familiar at all with these flags. Seems like I must revert
+this feature changes.
 
-$ip -f mpls route del 100
-RTNETLINK answers: Invalid argument
-
-After patch:
-
-$ip -f mpls route show
-100 as to 200 via inet 10.1.1.2 dev swp1
-
-$ip -f mpls route del 100 as 200 via inet 10.1.1.2 dev swp1
-
-$ip -f mpls route show
-
-Always set type to RTN_UNICAST for mpls route add/deletes.
-Also to keep things consistent with kernel set scope to
-RT_SCOPE_UNIVERSE for both mpls and ipv6 routes. Both mpls and ipv6 route
-deletes ignore scope.
-
-Suggested-by: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-Signed-off-by: Vivek Venkataraman <vivek@cumulusnetworks.com>
---
-v4 move fix to iproute2
----
- ip/iproute.c |   16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
-
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 670a4c6..d0b9910 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -803,6 +803,7 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
- 	int scope_ok = 0;
- 	int table_ok = 0;
- 	int raw = 0;
-+	int type_ok = 0;
- 
- 	memset(&req, 0, sizeof(req));
- 
-@@ -1095,6 +1096,7 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
- 			    rtnl_rtntype_a2n(&type, *argv) == 0) {
- 				NEXT_ARG();
- 				req.r.rtm_type = type;
-+				type_ok = 1;
- 			}
- 
- 			if (matches(*argv, "help") == 0)
-@@ -1136,6 +1138,9 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
- 	if (nhs_ok)
- 		parse_nexthops(&req.n, &req.r, argc, argv);
- 
-+	if (req.r.rtm_family == AF_UNSPEC)
-+		req.r.rtm_family = AF_INET;
-+
- 	if (!table_ok) {
- 		if (req.r.rtm_type == RTN_LOCAL ||
- 		    req.r.rtm_type == RTN_BROADCAST ||
-@@ -1144,8 +1149,11 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
- 			req.r.rtm_table = RT_TABLE_LOCAL;
- 	}
- 	if (!scope_ok) {
--		if (req.r.rtm_type == RTN_LOCAL ||
--		    req.r.rtm_type == RTN_NAT)
-+		if (req.r.rtm_family == AF_INET6 ||
-+		    req.r.rtm_family == AF_MPLS)
-+			req.r.rtm_scope = RT_SCOPE_UNIVERSE;
-+		else if (req.r.rtm_type == RTN_LOCAL ||
-+			 req.r.rtm_type == RTN_NAT)
- 			req.r.rtm_scope = RT_SCOPE_HOST;
- 		else if (req.r.rtm_type == RTN_BROADCAST ||
- 			 req.r.rtm_type == RTN_MULTICAST ||
-@@ -1160,8 +1168,8 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
- 		}
- 	}
- 
--	if (req.r.rtm_family == AF_UNSPEC)
--		req.r.rtm_family = AF_INET;
-+	if (!type_ok && req.r.rtm_family == AF_MPLS)
-+		req.r.rtm_type = RTN_UNICAST;
- 
- 	if (rtnl_talk(&rth, &req.n, 0, 0, NULL) < 0)
- 		return -2;
--- 
-1.7.10.4
+Thanks,
+-v
