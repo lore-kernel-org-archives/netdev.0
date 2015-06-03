@@ -1,79 +1,64 @@
-From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the RDMA-CM
-Date: Wed, 3 Jun 2015 22:05:34 +0300
-Message-ID: <CAJ3xEMjM53sYuEgQV3WPaN4WErk_YcojPY2zBcmq-+3W2dfD+A@mail.gmail.com>
-References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
-	<1432647280.28905.107.camel@redhat.com>
-	<55671309.6080303@mellanox.com>
-	<1432822057.114391.26.camel@redhat.com>
-	<55674077.5040707@mellanox.com>
-	<20150528174337.GA10448@obsidianresearch.com>
-	<1432837360.114391.35.camel@redhat.com>
-	<CAJ3xEMh2T5-56rFxWVdct2uAZYW1ZrKivWfS45V-mvhAfwyGaA@mail.gmail.com>
-	<1432850150.114391.56.camel@redhat.com>
-	<556ED0D5.8010502@mellanox.com>
-	<20150603161447.GC12073@obsidianresearch.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 99411] New: Kernel panic after internet access goes down
+Date: Wed, 3 Jun 2015 12:17:41 -0700
+Message-ID: <20150603121741.2d18f583@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150603161447.GC12073-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:33918 "EHLO
+	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754139AbbFCTRl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 15:17:41 -0400
+Received: by qcej9 with SMTP id j9so8602783qce.1
+        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 12:17:40 -0700 (PDT)
+Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
+        by mx.google.com with ESMTPSA id o130sm915383qhb.25.2015.06.03.12.17.39
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 03 Jun 2015 12:17:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 3, 2015 at 7:14 PM, Jason Gunthorpe
-<jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org> wrote:
-> On Wed, Jun 03, 2015 at 01:03:01PM +0300, Haggai Eran wrote:
->> > Then I'm inclined to say that we should map for namespaces using device,
->> > port, guid/gid, pkey.  And in this situation, since a unique guid/gid on
->> > any given pkey maps to a unique dhcp identifier and a unique ipv6
->> > lladdr, this becomes freely interchangeable with device, port, pkey,
->> > address mappings that this patchset was built around.
->>
->> What if we change the namespaces patches to map (device, port, GID,
->> P_Key, IP) to netdev / namespace? That is, to use both the GID and the
->> IP address.
->
-> As I keep saying, you are not supposed to use the IP address as a key
-> to find the netdev, that is the wrong way to use the Linux netdev
-> model.
->
-> Requiring unique GID/PKey allows the implementation to avoid this
-> wrongness, which would be simplifying and more correct.
->
-> That is the appeal to blocking this scenario when children are created.
 
-Jason,
 
-The IPoIB RTNL childs were added around release 3.6/7 of the upstream
-kernel and are part of the kernel UAPI. They are perfectly used in
-bunch of schemes:
+Begin forwarded message:
 
-1.  when static IP address assignment is used
+Date: Wed, 3 Jun 2015 14:31:53 +0000
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+Subject: [Bug 99411] New: Kernel panic after internet access goes down
 
-2. under PV scheme, when the guest has para-virtual Eth NIC and the
-host does routing between the back-end (e.g tap or alike) and  the
-IPoIB child. Or when the host does tunneling (vxlan) and alike and
-sends down the encapsulated packet through a host IP address assigned
-to the IPoIB child
 
-3. etc few more
+https://bugzilla.kernel.org/show_bug.cgi?id=99411
 
-Indeed the DHCP story isn't working there and to get DHCP work
-something has to be done. But this issue can't serve for blocking the
-existing UAPI and introduce regression to working systems.
+            Bug ID: 99411
+           Summary: Kernel panic after internet access goes down
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 4.0.4-2
+          Hardware: x86-64
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: blocking
+          Priority: P1
+         Component: Other
+          Assignee: shemminger@linux-foundation.org
+          Reporter: mbarrera@gmx.com
+        Regression: No
 
-Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Created attachment 178711
+  --> https://bugzilla.kernel.org/attachment.cgi?id=178711&action=edit
+Full log for the kernel panic
+
+Sometimes during the night the internet connection is reset by the ISP, after
+some seconds Linux panics with the following:
+
+BUG: unable to handle kernel paging request at ffffffffffffffd8
+IP: [<ffffffff81093920>] kthread_data+0x10/0x20
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
