@@ -1,64 +1,65 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 99411] New: Kernel panic after internet access goes down
-Date: Wed, 3 Jun 2015 12:17:41 -0700
-Message-ID: <20150603121741.2d18f583@urahara>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the
+ RDMA-CM
+Date: Wed, 3 Jun 2015 13:53:25 -0600
+Message-ID: <20150603195325.GC7902@obsidianresearch.com>
+References: <55671309.6080303@mellanox.com>
+ <1432822057.114391.26.camel@redhat.com>
+ <55674077.5040707@mellanox.com>
+ <20150528174337.GA10448@obsidianresearch.com>
+ <1432837360.114391.35.camel@redhat.com>
+ <CAJ3xEMh2T5-56rFxWVdct2uAZYW1ZrKivWfS45V-mvhAfwyGaA@mail.gmail.com>
+ <1432850150.114391.56.camel@redhat.com>
+ <556ED0D5.8010502@mellanox.com>
+ <20150603161447.GC12073@obsidianresearch.com>
+ <CAJ3xEMjM53sYuEgQV3WPaN4WErk_YcojPY2zBcmq-+3W2dfD+A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Doug Ledford <dledford@redhat.com>,
+	Haggai Eran <haggaie@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Liran Liss <liranl@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Yotam Kenneth <yotamke@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f180.google.com ([209.85.216.180]:33918 "EHLO
-	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754139AbbFCTRl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 15:17:41 -0400
-Received: by qcej9 with SMTP id j9so8602783qce.1
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 12:17:40 -0700 (PDT)
-Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
-        by mx.google.com with ESMTPSA id o130sm915383qhb.25.2015.06.03.12.17.39
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 03 Jun 2015 12:17:40 -0700 (PDT)
+Received: from quartz.orcorp.ca ([184.70.90.242]:52610 "EHLO quartz.orcorp.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754167AbbFCTx3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jun 2015 15:53:29 -0400
+Content-Disposition: inline
+In-Reply-To: <CAJ3xEMjM53sYuEgQV3WPaN4WErk_YcojPY2zBcmq-+3W2dfD+A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jun 03, 2015 at 10:05:34PM +0300, Or Gerlitz wrote:
 
+> Indeed the DHCP story isn't working there and to get DHCP work
+> something has to be done. But this issue can't serve for blocking the
+> existing UAPI and introduce regression to working systems.
 
-Begin forwarded message:
+It is not DHCP that concerns me, it is the fact we can't combine net
+namespaces, RDMA-CM and duplicate GUID IPoIB children together without
+adding hacks to the kernel. Searching netdevs by IP is a hack.
 
-Date: Wed, 3 Jun 2015 14:31:53 +0000
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-Subject: [Bug 99411] New: Kernel panic after internet access goes down
+I'm mostly fine with it as an optional capability, similar to macvlan,
+I just don't see how to cleanly integrate it with RDMA CM and
+namespaces. And I don't see what RDMA CM is supposed to do when
+it hits this case.
 
+So, any ideas that don't involve the searching for IP hack??
 
-https://bugzilla.kernel.org/show_bug.cgi?id=99411
+[And yes, as discussed with Haggie, it is not the worst hack in the
+ world, and maybe we can live with it, but lets understand the trade
+ offs carefully]
 
-            Bug ID: 99411
-           Summary: Kernel panic after internet access goes down
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 4.0.4-2
-          Hardware: x86-64
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: blocking
-          Priority: P1
-         Component: Other
-          Assignee: shemminger@linux-foundation.org
-          Reporter: mbarrera@gmx.com
-        Regression: No
+Also, now that this has been brought up, I think you need to make a
+patch to fix the IPv6 SLAAC breakage this caused. It looks trivial to
+modify addrconf_ifid_infiniband to return error if the IPoIB child is
+sharing a guid. It was not good at all to push the child patches
+forward to 3.6/3.7 if you knew that IPv6 SLAAC was broken by them.
 
-Created attachment 178711
-  --> https://bugzilla.kernel.org/attachment.cgi?id=178711&action=edit
-Full log for the kernel panic
-
-Sometimes during the night the internet connection is reset by the ISP, after
-some seconds Linux panics with the following:
-
-BUG: unable to handle kernel paging request at ffffffffffffffd8
-IP: [<ffffffff81093920>] kthread_data+0x10/0x20
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+Jason
