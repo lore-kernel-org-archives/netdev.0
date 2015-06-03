@@ -1,65 +1,84 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the
- RDMA-CM
-Date: Wed, 3 Jun 2015 13:53:25 -0600
-Message-ID: <20150603195325.GC7902@obsidianresearch.com>
-References: <55671309.6080303@mellanox.com>
- <1432822057.114391.26.camel@redhat.com>
- <55674077.5040707@mellanox.com>
- <20150528174337.GA10448@obsidianresearch.com>
- <1432837360.114391.35.camel@redhat.com>
- <CAJ3xEMh2T5-56rFxWVdct2uAZYW1ZrKivWfS45V-mvhAfwyGaA@mail.gmail.com>
- <1432850150.114391.56.camel@redhat.com>
- <556ED0D5.8010502@mellanox.com>
- <20150603161447.GC12073@obsidianresearch.com>
- <CAJ3xEMjM53sYuEgQV3WPaN4WErk_YcojPY2zBcmq-+3W2dfD+A@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [RFC net-next 1/6] net: Checksum functions to replace 8 bytes at a time
+Date: Wed, 3 Jun 2015 12:58:17 -0700
+Message-ID: <1433361502-3478761-2-git-send-email-tom@herbertland.com>
+References: <1433361502-3478761-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford@redhat.com>,
-	Haggai Eran <haggaie@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Liran Liss <liranl@mellanox.com>,
-	Guy Shapiro <guysh@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
-	Yotam Kenneth <yotamke@mellanox.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain
+To: <davem@davemloft.net>, <agartrell@fb.com>, <maheshb@google.com>,
+	<tgraf@suug.ch>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:52610 "EHLO quartz.orcorp.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754167AbbFCTx3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jun 2015 15:53:29 -0400
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMjM53sYuEgQV3WPaN4WErk_YcojPY2zBcmq-+3W2dfD+A@mail.gmail.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:14311 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754785AbbFCT6o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 15:58:44 -0400
+Received: from pps.filterd (m0004077 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t53Jvwjk008260
+	for <netdev@vger.kernel.org>; Wed, 3 Jun 2015 12:58:43 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 1ut7h4r4gq-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 12:58:43 -0700
+Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ eeadcfa00a2a11e5861f0002c95209d8-e56dc280 for <netdev@vger.kernel.org>;	Wed,
+ 03 Jun 2015 12:58:41 -0700
+In-Reply-To: <1433361502-3478761-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 03, 2015 at 10:05:34PM +0300, Or Gerlitz wrote:
+These are convenience functions for update a checksum in ILA where we
+are overwriting the locator (first eight bytes of an ILA IPv6 address).
 
-> Indeed the DHCP story isn't working there and to get DHCP work
-> something has to be done. But this issue can't serve for blocking the
-> existing UAPI and introduce regression to working systems.
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ include/net/checksum.h |  3 +++
+ net/core/utils.c       | 19 +++++++++++++++++++
+ 2 files changed, 22 insertions(+)
 
-It is not DHCP that concerns me, it is the fact we can't combine net
-namespaces, RDMA-CM and duplicate GUID IPoIB children together without
-adding hacks to the kernel. Searching netdevs by IP is a hack.
-
-I'm mostly fine with it as an optional capability, similar to macvlan,
-I just don't see how to cleanly integrate it with RDMA CM and
-namespaces. And I don't see what RDMA CM is supposed to do when
-it hits this case.
-
-So, any ideas that don't involve the searching for IP hack??
-
-[And yes, as discussed with Haggie, it is not the worst hack in the
- world, and maybe we can live with it, but lets understand the trade
- offs carefully]
-
-Also, now that this has been brought up, I think you need to make a
-patch to fix the IPv6 SLAAC breakage this caused. It looks trivial to
-modify addrconf_ifid_infiniband to return error if the IPoIB child is
-sharing a guid. It was not good at all to push the child patches
-forward to 3.6/3.7 if you knew that IPv6 SLAAC was broken by them.
-
-Jason
+diff --git a/include/net/checksum.h b/include/net/checksum.h
+index 2d1d73c..af76b8e 100644
+--- a/include/net/checksum.h
++++ b/include/net/checksum.h
+@@ -141,6 +141,9 @@ static inline void csum_replace2(__sum16 *sum, __be16 old, __be16 new)
+ struct sk_buff;
+ void inet_proto_csum_replace4(__sum16 *sum, struct sk_buff *skb,
+ 			      __be32 from, __be32 to, int pseudohdr);
++void inet_proto_csum_replace8(__sum16 *sum, struct sk_buff *skb,
++			      const __be32 *from, const __be32 *to,
++			      int pseudohdr);
+ void inet_proto_csum_replace16(__sum16 *sum, struct sk_buff *skb,
+ 			       const __be32 *from, const __be32 *to,
+ 			       int pseudohdr);
+diff --git a/net/core/utils.c b/net/core/utils.c
+index a7732a0..79d1067 100644
+--- a/net/core/utils.c
++++ b/net/core/utils.c
+@@ -336,6 +336,25 @@ void inet_proto_csum_replace16(__sum16 *sum, struct sk_buff *skb,
+ }
+ EXPORT_SYMBOL(inet_proto_csum_replace16);
+ 
++void inet_proto_csum_replace8(__sum16 *sum, struct sk_buff *skb,
++			      const __be32 *from, const __be32 *to,
++			      int pseudohdr)
++{
++	__be32 diff[] = {
++		~from[0], ~from[1], to[0], to[1],
++	};
++	if (skb->ip_summed != CHECKSUM_PARTIAL) {
++		*sum = csum_fold(csum_partial(diff, sizeof(diff),
++				 ~csum_unfold(*sum)));
++		if (skb->ip_summed == CHECKSUM_COMPLETE && pseudohdr)
++			skb->csum = ~csum_partial(diff, sizeof(diff),
++						  ~skb->csum);
++	} else if (pseudohdr)
++		*sum = ~csum_fold(csum_partial(diff, sizeof(diff),
++				  csum_unfold(*sum)));
++}
++EXPORT_SYMBOL(inet_proto_csum_replace8);
++
+ struct __net_random_once_work {
+ 	struct work_struct work;
+ 	struct static_key *key;
+-- 
+1.8.1
