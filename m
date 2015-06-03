@@ -1,131 +1,92 @@
-From: Suravee Suthikulanit <suravee.suthikulpanit@amd.com>
-Subject: Re: [V5 PATCH 2/5] arm64 : Introduce support for ACPI _CCA object
-Date: Wed, 3 Jun 2015 09:37:09 -0500
-Message-ID: <556F1115.3080302@amd.com>
-References: <1432159758-4486-1-git-send-email-Suravee.Suthikulpanit@amd.com>
-	 <1432159758-4486-3-git-send-email-Suravee.Suthikulpanit@amd.com>
- <1432867099.24429.4.camel@deneb.redhat.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [RFC 3/9] net: dsa: mv88e6xxx: add support for VTU ops
+Date: Wed, 03 Jun 2015 07:44:03 -0700
+Message-ID: <556F12B3.7050206@roeck-us.net>
+References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-4-git-send-email-vivien.didelot@savoirfairelinux.com> <556D522E.90607@roeck-us.net> <CAE4R7bChwW1awn8V6k7bF13v15_kPF0ui3NvyV2WkqN0XuTUqw@mail.gmail.com> <556E2EC2.3020104@cumulusnetworks.com> <CAE4R7bCEqszSew4RadLoB-PcY0g74F+sLKQL42TgsfG8_89_Kg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <rjw@rjwysocki.net>, <lenb@kernel.org>, <catalin.marinas@arm.com>,
-	<will.deacon@arm.com>, <thomas.lendacky@amd.com>,
-	<herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-	<arnd@arndb.de>, <hanjun.guo@linaro.org>, <al.stone@linaro.org>,
-	<grant.likely@linaro.org>, <leo.duran@amd.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-acpi@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linaro-acpi@lists.linaro.org>, <netdev@vger.kernel.org>,
-	<linux-crypto@vger.kernel.org>, <megaraidlinux.pdl@avagotech.com>,
-	<linux-scsi@vger.kernel.org>
-To: Mark Salter <msalter@redhat.com>, <kashyap.desai@avagotech.com>,
-	<sumit.saxena@avagotech.com>, <uday.lingala@avagotech.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1432867099.24429.4.camel@deneb.redhat.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>,
+	Jerome Oufella <jerome.oufella@savoirfairelinux.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>,
+	Chris Healy <cphealy@gmail.com>
+To: Scott Feldman <sfeldma@gmail.com>,
+	nolan <nolan@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAE4R7bCEqszSew4RadLoB-PcY0g74F+sLKQL42TgsfG8_89_Kg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/28/2015 9:38 PM, Mark Salter wrote:
-> On Wed, 2015-05-20 at 17:09 -0500, Suravee Suthikulpanit wrote:
->> >Fromhttp://www.uefi.org/sites/default/files/resources/ACPI_6.0.pdf,
->> >section 6.2.17 _CCA states that ARM platforms require ACPI _CCA
->> >object to be specified for DMA-cabpable devices. Therefore, this pa=
-tch
->> >specifies ACPI_CCA_REQUIRED in arm64 Kconfig.
->> >
->> >In addition, to handle the case when _CCA is missing, arm64 would a=
-ssign
->> >dummy_dma_ops to disable DMA capability of the device.
->> >
->> >Acked-by: Catalin Marinas<catalin.marinas@arm.com>
->> >Signed-off-by: Mark Salter<msalter@redhat.com>
->> >Signed-off-by: Suravee Suthikulpanit<Suravee.Suthikulpanit@amd.com>
->> >---
->> >  arch/arm64/Kconfig                   |  1 +
->> >  arch/arm64/include/asm/dma-mapping.h | 18 ++++++-
->> >  arch/arm64/mm/dma-mapping.c          | 92 +++++++++++++++++++++++=
-+++++++++++++
->> >  3 files changed, 109 insertions(+), 2 deletions(-)
->> >
->> >diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
->> >index 4269dba..95307b4 100644
->> >--- a/arch/arm64/Kconfig
->> >+++ b/arch/arm64/Kconfig
->> >@@ -1,5 +1,6 @@
->> >  config ARM64
->> >  	def_bool y
->> >+	select ACPI_CCA_REQUIRED if ACPI
->> >  	select ACPI_GENERIC_GSI if ACPI
->> >  	select ACPI_REDUCED_HARDWARE_ONLY if ACPI
->> >  	select ARCH_HAS_ATOMIC64_DEC_IF_POSITIVE
->> >diff --git a/arch/arm64/include/asm/dma-mapping.h b/arch/arm64/incl=
-ude/asm/dma-mapping.h
->> >index 9437e3d..f0d6d0b 100644
->> >--- a/arch/arm64/include/asm/dma-mapping.h
->> >+++ b/arch/arm64/include/asm/dma-mapping.h
->> >@@ -18,6 +18,7 @@
->> >
->> >  #ifdef __KERNEL__
->> >
->> >+#include <linux/acpi.h>
->> >  #include <linux/types.h>
->> >  #include <linux/vmalloc.h>
->> >
-> ^^^ This hunk causes build issues with a couple of drivers:
+On 06/02/2015 11:53 PM, Scott Feldman wrote:
+> On Tue, Jun 2, 2015 at 3:31 PM, nolan <nolan@cumulusnetworks.com> wrote:
+>> On 06/02/2015 12:44 AM, Scott Feldman wrote:
+>>>
+>>> That brings up an interesting point about having multiple bridges with
+>>> the same vlan configured.  I struggled with that problem with rocker
+>>> also and I don't have an answer other than "don't do that".  Or,
+>>> better put, if you have multiple bridge on the same vlan, just use one
+>>> bridge for that vlan.  Otherwise, I don't know how at the device level
+>>> to partition the vlan between the bridges.  Maybe that's what Vivien
+>>> is facing also?  I can see how this works for software-only bridges,
+>>> because they should be isolated from each other and independent.  But
+>>> when offloading to a device which sees VLAN XXX global across the
+>>> entire switch, I don't see how we can preserve the bridge boundaries.
+>>
+>>
+>> Scott,
+>>
+>> I'm confused by this.  I think you're saying this config is problematic:
+>>
+>> br0: eth0.100, eth1.100
+>> br1: eth2.100, eth3.100
+>>
+>>
+>> But this works fine today.
 >
-> drivers/scsi/megaraid/megaraid_sas_fp.c:69:0: warning: "FALSE" redefi=
-ned [enabled by default]
->   #define FALSE 0
->   ^
-> In file included from include/acpi/acpi.h:58:0,
->                   from include/linux/acpi.h:37,
->                   from ./arch/arm64/include/asm/dma-mapping.h:21,
->                   from include/linux/dma-mapping.h:86,
->                   from ./arch/arm64/include/asm/pci.h:7,
->                   from include/linux/pci.h:1460,
->                   from drivers/scsi/megaraid/megaraid_sas_fp.c:37:
-> include/acpi/actypes.h:433:0: note: this is the location of the previ=
-ous definition
->   #define FALSE                           (1 =3D=3D 0)
->   ^
+> Ya, this is going to work because br0 and br1 are bridging untagged
+> traffic, but br0 and br1 have different internal VLAN ids for untagged
+> traffic, so there is no crosstalk between bridges.
 >
+> (I'm assuming since you used the ethX.100 format, you've vconfig
+> created a vlan interface on ethX and added the vlan interface to brY).
+> The vlan interface eats the vlan tag and the bridge sees untagged
+> traffic.
 >
-> In file included from include/acpi/acpi.h:58:0,
->                   from include/linux/acpi.h:37,
->                   from ./arch/arm64/include/asm/dma-mapping.h:21,
->                   from include/linux/dma-mapping.h:86,
->                   from include/scsi/scsi_cmnd.h:4,
->                   from drivers/scsi/ufs/ufshcd.h:60,
->                   from drivers/scsi/ufs/ufshcd.c:43:
-> include/acpi/actypes.h:433:41: error: expected identifier before =E2=80=
-=98(=E2=80=99 token
->   #define FALSE                           (1 =3D=3D 0)
->                                           ^
-> drivers/scsi/ufs/unipro.h:203:2: note: in expansion of macro =E2=80=98=
-=46ALSE=E2=80=99
->    FALSE =3D 0,
->    ^
+>> Could you clarify the issue you're referring to?
 >
-> This happens because the ACPI definitions of TRUE and FALSE conflict
-> with local definitions in megaraid and enum declaration in ufs.
+> I'm talking about bridging tagged traffic.  E.g.:
 >
-Mark,
+> ip link add name br0 type bridge
+> ip link add name br1 type bridge
+>
+> ip link set dev sw1p1 master br0
+> ip link set dev sw1p2 master br0
+> ip link set dev sw1p3 master br1
+> ip link set dev sw1p4 master br1
+>
+> bridge vlan add vid 100 dev sw1p1
+> bridge vlan add vid 100 dev sw1p2
+> bridge vlan add vid 100 dev sw1p3
+> bridge vlan add vid 100 dev sw1p4
+>
+> Now the ports are trunking vlan 100 and the bridge/device see tagged
+> traffic.  If the device used floods vlan 100 pkt to all ports in vlan
+> 100, it'll flood to a port outside the bridge.  Oops!  For the device
+> I'm using (rocker w/ OF-DPA) the bridging table matches on vlan ID and
+> mac_dst.  There is no prevision to isolate vlans per bridge.
+>
+> How do you solve the above case with your hardware?
+>
 
-Thanks for pointing this out. Although, I would think that the=20
-megaraid_sas_fp.c should have had the #ifndef to check before defining=20
-the TRUE and FALSE as following.
+We could use separate FIDs per vlan/bridge group, ie don't assume
+that fid == vid.
 
-#ifndef TRUE
-#define TRUE 1
-#endif
-#ifndef FALSE
-#define FALSE 0
-#endif
+A simple solution might be to just set the fid to the fid used by
+the bridge. That would not support 802.1s, though.
 
-This seems to be what other drivers are also doing. If this is okay, I=20
-can send out a fix-up patch for the megaraid driver.
-
-Thanks,
-
-Suravee
+Guenter
