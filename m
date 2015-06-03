@@ -1,92 +1,167 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [RFC 3/9] net: dsa: mv88e6xxx: add support for VTU ops
-Date: Wed, 03 Jun 2015 07:44:03 -0700
-Message-ID: <556F12B3.7050206@roeck-us.net>
-References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-4-git-send-email-vivien.didelot@savoirfairelinux.com> <556D522E.90607@roeck-us.net> <CAE4R7bChwW1awn8V6k7bF13v15_kPF0ui3NvyV2WkqN0XuTUqw@mail.gmail.com> <556E2EC2.3020104@cumulusnetworks.com> <CAE4R7bCEqszSew4RadLoB-PcY0g74F+sLKQL42TgsfG8_89_Kg@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@redhat.com>
+Subject: Re: [PATCH net-next] net: change fib behavior based on interface
+ link status
+Date: Wed, 03 Jun 2015 16:45:50 +0200
+Message-ID: <1433342750.3163.14.camel@redhat.com>
+References: <1433300839-18511-1-git-send-email-gospo@cumulusnetworks.com>
+	 <20150603135347.GA10203@neilslaptop.think-freely.org>
+	 <1433340788.3163.6.camel@redhat.com>
+	 <20150603142131.GC10203@neilslaptop.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>,
-	Jerome Oufella <jerome.oufella@savoirfairelinux.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>,
-	Chris Healy <cphealy@gmail.com>
-To: Scott Feldman <sfeldma@gmail.com>,
-	nolan <nolan@cumulusnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAE4R7bCEqszSew4RadLoB-PcY0g74F+sLKQL42TgsfG8_89_Kg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	ddutt@cumulusnetworks.com
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54578 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756359AbbFCOpz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jun 2015 10:45:55 -0400
+In-Reply-To: <20150603142131.GC10203@neilslaptop.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/02/2015 11:53 PM, Scott Feldman wrote:
-> On Tue, Jun 2, 2015 at 3:31 PM, nolan <nolan@cumulusnetworks.com> wrote:
->> On 06/02/2015 12:44 AM, Scott Feldman wrote:
->>>
->>> That brings up an interesting point about having multiple bridges with
->>> the same vlan configured.  I struggled with that problem with rocker
->>> also and I don't have an answer other than "don't do that".  Or,
->>> better put, if you have multiple bridge on the same vlan, just use one
->>> bridge for that vlan.  Otherwise, I don't know how at the device level
->>> to partition the vlan between the bridges.  Maybe that's what Vivien
->>> is facing also?  I can see how this works for software-only bridges,
->>> because they should be isolated from each other and independent.  But
->>> when offloading to a device which sees VLAN XXX global across the
->>> entire switch, I don't see how we can preserve the bridge boundaries.
->>
->>
->> Scott,
->>
->> I'm confused by this.  I think you're saying this config is problematic:
->>
->> br0: eth0.100, eth1.100
->> br1: eth2.100, eth3.100
->>
->>
->> But this works fine today.
->
-> Ya, this is going to work because br0 and br1 are bridging untagged
-> traffic, but br0 and br1 have different internal VLAN ids for untagged
-> traffic, so there is no crosstalk between bridges.
->
-> (I'm assuming since you used the ethX.100 format, you've vconfig
-> created a vlan interface on ethX and added the vlan interface to brY).
-> The vlan interface eats the vlan tag and the bridge sees untagged
-> traffic.
->
->> Could you clarify the issue you're referring to?
->
-> I'm talking about bridging tagged traffic.  E.g.:
->
-> ip link add name br0 type bridge
-> ip link add name br1 type bridge
->
-> ip link set dev sw1p1 master br0
-> ip link set dev sw1p2 master br0
-> ip link set dev sw1p3 master br1
-> ip link set dev sw1p4 master br1
->
-> bridge vlan add vid 100 dev sw1p1
-> bridge vlan add vid 100 dev sw1p2
-> bridge vlan add vid 100 dev sw1p3
-> bridge vlan add vid 100 dev sw1p4
->
-> Now the ports are trunking vlan 100 and the bridge/device see tagged
-> traffic.  If the device used floods vlan 100 pkt to all ports in vlan
-> 100, it'll flood to a port outside the bridge.  Oops!  For the device
-> I'm using (rocker w/ OF-DPA) the bridging table matches on vlan ID and
-> mac_dst.  There is no prevision to isolate vlans per bridge.
->
-> How do you solve the above case with your hardware?
->
+On Mi, 2015-06-03 at 10:21 -0400, Neil Horman wrote:
+> On Wed, Jun 03, 2015 at 04:13:08PM +0200, Hannes Frederic Sowa wrote:
+> > On Mi, 2015-06-03 at 09:53 -0400, Neil Horman wrote:
+> > > On Tue, Jun 02, 2015 at 11:07:19PM -0400, Andy Gospodarek wrote:
+> > > > This patch adds the ability to have the Linux kernel track whether or
+> > > > not a particular route should be used based on the link-status of the
+> > > > interface associated with the next-hop.
+> > > > 
+> > > > Before this patch any link-failure on an interface that was serving as a
+> > > > gateway for some systems could result in those systems being isolated
+> > > > from the rest of the network as the stack would continue to attempt to
+> > > > send frames out of an interface that is actually linked-down.  When the
+> > > > kernel is responsible for all forwarding, it should also be responsible
+> > > > for taking action when the traffic can no longer be forwarded -- there
+> > > > is no real need to outsource link-monitoring to userspace anymore.
+> > > > 
+> > > > This feature is only enabled with the new sysctl set (default is off):
+> > > > net.core.kill_routes_on_linkdown = 1
+> > > > 
+> > > > When this is set, the following behavior can be observed (interface p8p1
+> > > > is link-down):
+> > > > 
+> > > > # ip route show 
+> > > > default via 10.0.5.2 dev p9p1 
+> > > > 10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15 
+> > > > 70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1 
+> > > > 80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 dead 
+> > > > 90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 dead 
+> > > > 90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2 
+> > > > # ip route get 90.0.0.1 
+> > > > 90.0.0.1 via 70.0.0.2 dev p7p1  src 70.0.0.1 
+> > > >     cache 
+> > > > # ip route get 80.0.0.1 
+> > > > local 80.0.0.1 dev lo  src 80.0.0.1 
+> > > >     cache <local> 
+> > > > # ip route get 80.0.0.2
+> > > > 80.0.0.2 via 10.0.5.2 dev p9p1  src 10.0.5.15 
+> > > >     cache 
+> > > > 
+> > > > While the route does remain in the table (so it can be modified if
+> > > > needed rather than being wiped away as it would be if IFF_UP was
+> > > > cleared), the proper next-hop is chosen automatically when the link is
+> > > > down.  Now interface p8p1 is linked-up:
+> > > > 
+> > > > # ip route show 
+> > > > default via 10.0.5.2 dev p9p1 
+> > > > 10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15 
+> > > > 70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1 
+> > > > 80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 
+> > > > 90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 
+> > > > 90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2 
+> > > > 192.168.56.0/24 dev p2p1  proto kernel  scope link  src 192.168.56.2 
+> > > > # ip route get 90.0.0.1 
+> > > > 90.0.0.1 via 80.0.0.2 dev p8p1  src 80.0.0.1 
+> > > >     cache 
+> > > > # ip route get 80.0.0.1 
+> > > > local 80.0.0.1 dev lo  src 80.0.0.1 
+> > > >     cache <local> 
+> > > > # ip route get 80.0.0.2
+> > > > 80.0.0.2 dev p8p1  src 80.0.0.1 
+> > > >     cache 
+> > > > 
+> > > > and the output changes to what one would expect.
+> > > > 
+> > > > Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> > > > Suggested-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
+> > > > 
+> > > > ---
+> > > > Though there were some that preferred not to have a configuration option
+> > > > and to make this behavior the default when it was discussed in Ottawa
+> > > > earlier this year since "it was time to do this."  I wanted to propose
+> > > > the config option to preserve the current behavior for those that desire
+> > > > it.  I'll happily remove it if Dave and Linus approve.
+> > > > 
+> > > > An IPv6 implementation is also needed (DECnet too!), but I wanted to
+> > > > start with the IPv4 implementation to get people comfortable with the
+> > > > idea before moving forward.  If this is accepted the IPv6 implementation
+> > > > can be posted shortly.  
+> > > > 
+> > > > FWIW, we have been running this patch with the sysctl setting above and
+> > > > our customers have been happily using a backported version for IPv4 and
+> > > > IPv6 for >6 months.
+> > > > 
+> > > >  include/linux/netdevice.h      |  1 +
+> > > >  include/net/fib_rules.h        |  1 +
+> > > >  include/net/ip_fib.h           |  1 +
+> > > >  include/uapi/linux/rtnetlink.h |  1 +
+> > > >  include/uapi/linux/sysctl.h    |  1 +
+> > > >  kernel/sysctl_binary.c         |  1 +
+> > > >  net/core/dev.c                 |  2 ++
+> > > >  net/core/sysctl_net_core.c     |  7 +++++++
+> > > >  net/ipv4/fib_frontend.c        | 12 +++++++++--
+> > > >  net/ipv4/fib_rules.c           |  7 ++++++-
+> > > >  net/ipv4/fib_semantics.c       | 46 ++++++++++++++++++++++++++++++++++++------
+> > > >  net/ipv4/fib_trie.c            | 19 +++++++++++++----
+> > > >  12 files changed, 86 insertions(+), 13 deletions(-)
+> > > > 
+> > > 
+> > > Hey Andy-
+> > > 	So, the implementation looks great.  That said, a question comes up in
+> > > my mind that I can't quite resolve.  In looking at your code, and seeing how it
+> > > fit into the routing path, I came accross the function sync_fib_down_dev, which
+> > > appears to be called in response to NETDEV_DOWN events.  Its purpose from my
+> > > read is to interrogate the fib for routes that specify the device going down as
+> > > the egress device, and mark said routes as dead.  I'm guessing that I'm missing
+> > > something here, but it seems as though this patch shouldn't be needed in light
+> > > of that behavior (unless the existing code is somehow broken, or I'm confused
+> > > about its purpose).  Could it be that whats really needed here is for Network
+> > > Manager (or other user space programs ) to stop removing routes in response to
+> > > NETDEV_DOWN events so that the above kernel code can do its job?
+> > 
+> > We don't care about DEAD flag during normal fib lookup, only when
+> > considering multipath routes.
+> > 
+> 
+> I get that, but I think the question still applies.  If you have multiple routes
+> to the same destination, the sync_fib_down_dev code should still be doing the
+> job that andy's patch does, shouldn't it?  I.e. if you have two interfaces with
+> ip addresses on the same subnet, and a route for each interface, only the first
+> route in the table typically gets used, because its found first.  But if that
+> link goes down, the sync_fib_down_dev code should mark the links route as dead,
+> and subsequent lookups should use the alternate interface.  But it seems like
+> thats not happening, so I'm wondering why that is.
 
-We could use separate FIDs per vlan/bridge group, ie don't assume
-that fid == vid.
+It is a matter of implementation, I think, albeit I would prefer to not
+kill all connections during a small link loss.
 
-A simple solution might be to just set the fid to the fid used by
-the bridge. That would not support 802.1s, though.
+Given a laptop with unstable link, we would immediately kill all
+connections during packet send with this option enabled as error would
+propagate to local_error handlers (I hope this is correct, Andy?).
 
-Guenter
+If you have multiple routes to the same destination as in multipath,
+yes, this should work and I think will work.
+But as soon as you have to backtrack, this is not a semantically
+equivalent route to the destination any more, so we should not switch to
+it just because of a link event.
+
+I don't think we can change the default easily here, but I like this new
+feature.
+
+Bye,
+Hannes
