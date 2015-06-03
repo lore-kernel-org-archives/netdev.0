@@ -1,95 +1,58 @@
-From: Vivek Venkatraman <vivek@cumulusnetworks.com>
-Subject: Re: [RFC net-next 3/3] mpls: new ipmpls device for encapsulating IP
- packets as mpls
-Date: Wed, 3 Jun 2015 11:43:18 -0700
-Message-ID: <CAMs_D18-g5Ux3bQaPhX8S0+q0c6T7YBjFXUrYXQ6-s_t_YKc0w@mail.gmail.com>
-References: <1433177175-16775-1-git-send-email-rshearma@brocade.com>
-	<1433177175-16775-4-git-send-email-rshearma@brocade.com>
-	<556DD688.2020308@cumulusnetworks.com>
-	<556DDAEF.9080209@brocade.com>
-	<556DFC91.1090708@cumulusnetworks.com>
-	<556E1AD0.1010304@brocade.com>
+From: Mark D Rustad <mark.d.rustad@intel.com>
+Subject: [PATCH V3 0/2] pci: Provide a flag to access VPD through function 0
+Date: Wed, 03 Jun 2015 11:46:53 -0700
+Message-ID: <20150603184445.109080.36387.stgit@mdrustad-wks.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: roopa <roopa@cumulusnetworks.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Dinesh Dutt <ddutt@cumulusnetworks.com>
-To: Robert Shearman <rshearma@brocade.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-pci@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org
+To: bhelgaas@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:35629 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755618AbbFCSnT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 14:43:19 -0400
-Received: by igbyr2 with SMTP id yr2so120417808igb.0
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 11:43:19 -0700 (PDT)
-In-Reply-To: <556E1AD0.1010304@brocade.com>
+Received: from mga09.intel.com ([134.134.136.24]:64714 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753652AbbFCSqz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jun 2015 14:46:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 2, 2015 at 2:06 PM, Robert Shearman <rshearma@brocade.com> wrote:
-> On 02/06/15 19:57, roopa wrote:
->>
->> On 6/2/15, 9:33 AM, Robert Shearman wrote:
->>>
->>> On 02/06/15 17:15, roopa wrote:
->>>>
->>>> On 6/1/15, 9:46 AM, Robert Shearman wrote:
->>>>>
->>>>> Allow creating an mpls device for the purposes of encapsulating IP
->>>>> packets with:
->>>>>
->>>>>    ip link add type ipmpls
->>>>>
->>>>> This device defines its per-nexthop encapsulation data as a stack of
->>>>> labels, in the same format as for RTA_NEWST. It uses the encap data
->>>>> which will have been stored in the IP route to encapsulate the packet
->>>>> with that stack of labels, with the last label corresponding to a
->>>>> local label that defines how the packet will be sent out. The device
->>>>> sends packets over loopback to the local MPLS forwarding logic which
->>>>> performs all of the work.
->>>>>
->>>>>
->>>> Maybe a silly question, but when you loop the packet back, what does the
->>>> local MPLS forwarding logic
->>>> lookup with ? It probably assumes there is a mpls route with that label
->>>> and nexthop.
->>>> Will this need any internal labels (thinking same label stack different
->>>> tunnel device etc) ?
->>>
->>>
->>> Yes, it requires that local/internal labels have been allocated and
->>> label routes installed in the label table for them.
->>
->> This is our only concern.
->>>
->>>
->>> It is entirely possible to put the outgoing interface into the encap
->>> data to avoid having to allocate extra labels, but I did it this way
->>> in order to support PIC Core for MPLS-VPN routes.
->>
->>
->> hmm..., is a netdevice must in this case.., can you please elaborate on
->> this ?.
->
->
-> Yes, the ipmpls device would still be used to perform the encapsulation,
-> transitioning from the IP forwarding path to the MPLS forwarding path.
->
+Many multi-function devices provide shared registers in extended
+config space for accessing VPD. The behavior of these registers
+means that the state must be tracked and access locked correctly
+for accesses not to hang or worse. One way to meet these needs is
+to always perform the accesses through function 0, thereby using
+the state tracking and mutex that already exists.
 
-Transitioning from IP forwarding to MPLS forwarding as you have here
-will certainly facilitate PIC core when another path exists to the
-edge. But it cannot deal with PIC edge, right? Additionally, this
-approach would mean that the user's (iproute2) view would be rather
-strange - while the actual forwarding requires labels L1 and L2
-(bottom) to be pushed when forwarding to a destination, it would look
-as if labels L3 and L2 are pushed and then L3 is swapped with L1.
+To provide this behavior, add a dev_flags bit to indicate that this
+should be done. This bit can then be set for any non-zero function
+that needs to redirect such VPD access to function 0. Do not set
+this bit on the zero function or there will be an infinite recursion.
 
-A different way to achieve PIC (core and edge) without transitioning
-from IP forwarding to MPLS forwarding may be to introduce the concept
-of an alternate nexthop with something (e.g., link status) determining
-which nexthop is used.
+The second patch uses this new flag to invoke this behavior on all
+multi-function Intel Ethernet devices.
 
-> Thanks,
-> Rob
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+
+---
+Changes in V2:
+- Corrected a spelling error in a log message
+- Added checks to see that the referenced function 0 is reasonable
+Changes in V3:
+- Don't leak a device reference
+- Check that function 0 has VPD
+- Make a helper for the function 0 checks
+- Moved a multifunction check to the quirk patch
+
+---
+
+Mark D Rustad (2):
+      pci: Add dev_flags bit to access VPD through function 0
+      pci: Add VPD quirk for Intel Ethernet devices
+
+
+ drivers/pci/access.c |   61 +++++++++++++++++++++++++++++++++++++++++++++++++-
+ drivers/pci/quirks.c |    9 +++++++
+ 2 files changed, 69 insertions(+), 1 deletion(-)
+
+-- 
+Mark Rustad, Network Division, Intel Corporation
