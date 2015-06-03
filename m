@@ -1,212 +1,74 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [PATCH v2 1/2] sctp: rcu-ify addr_waitq
-Date: Wed, 3 Jun 2015 14:19:23 -0300
-Message-ID: <20150603171923.GA3402@localhost.localdomain>
-References: <20150602134851.GA15847@hmsreliant.think-freely.org>
- <660872d4d795833eca5f7e517c7e1dabbc1df02b.1433350421.git.marcelo.leitner@gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next] net: change fib behavior based on interface link status
+Date: Wed, 3 Jun 2015 10:40:26 -0700
+Message-ID: <CAE4R7bC=t4fTO8tM85REWu-237VGE2wdR3mcKnasbBybnMBmVQ@mail.gmail.com>
+References: <1433300839-18511-1-git-send-email-gospo@cumulusnetworks.com>
+ <CAE4R7bDHsoaN6spkOW5jk94wB3wkUBd-j+y3H47611CxZUT6ag@mail.gmail.com> <20150603151207.GG588@gospo.home.greyhouse.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Michio Honda <micchie@sfc.wide.ad.jp>
-To: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, ddutt@cumulusnetworks.com
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41941 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965468AbbFCRT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jun 2015 13:19:27 -0400
-Content-Disposition: inline
-In-Reply-To: <660872d4d795833eca5f7e517c7e1dabbc1df02b.1433350421.git.marcelo.leitner@gmail.com>
+Received: from mail-qc0-f181.google.com ([209.85.216.181]:36323 "EHLO
+	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754854AbbFCRkr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 13:40:47 -0400
+Received: by qcxw10 with SMTP id w10so7320082qcx.3
+        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 10:40:46 -0700 (PDT)
+In-Reply-To: <20150603151207.GG588@gospo.home.greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 03, 2015 at 01:54:01PM -0300, mleitner@redhat.com wrote:
-> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> 
-> That's needed for the next patch, so we break the lock inversion between
-> netns_sctp->addr_wq_lock and socket lock on
-> sctp_addr_wq_timeout_handler(). With this, we can traverse addr_waitq
-> without taking addr_wq_lock, taking it just for the write operations.
-> 
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> ---
-> 
-> Notes:
->     v1->v2:
->      As asked by Neil, this now reuses addr_wq_lock. And for that, also
->      rcu-ifyies addr_waitq.
-> 
->  include/net/netns/sctp.h |  2 +-
->  net/sctp/protocol.c      | 81 +++++++++++++++++++++++++++++-------------------
->  2 files changed, 50 insertions(+), 33 deletions(-)
-> 
-> diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
-> index 3573a81815ad9e0efb6ceb721eb066d3726419f0..9e53412c4ed829e8e45777a6d95406d490dbaa75 100644
-> --- a/include/net/netns/sctp.h
-> +++ b/include/net/netns/sctp.h
-> @@ -28,7 +28,7 @@ struct netns_sctp {
->  	 * It is a list of sctp_sockaddr_entry.
->  	 */
->  	struct list_head local_addr_list;
-> -	struct list_head addr_waitq;
-> +	struct list_head __rcu addr_waitq;
->  	struct timer_list addr_wq_timer;
->  	struct list_head auto_asconf_splist;
->  	spinlock_t addr_wq_lock;
-> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-> index 53b7acde9aa37bf3d4029c459421564d5270f4c0..a5089883b28195f3aef69ef35b5397322a01126f 100644
-> --- a/net/sctp/protocol.c
-> +++ b/net/sctp/protocol.c
-> @@ -593,15 +593,46 @@ static void sctp_v4_ecn_capable(struct sock *sk)
->  	INET_ECN_xmit(sk);
->  }
->  
-> +static void sctp_free_addr_wq(struct net *net)
-> +{
-> +	struct sctp_sockaddr_entry *addrw;
-> +
-> +	spin_lock_bh(&net->sctp.addr_wq_lock);
-> +	del_timer(&net->sctp.addr_wq_timer);
-> +	list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, list) {
-> +		list_del_rcu(&addrw->list);
-> +		kfree_rcu(addrw, rcu);
-> +	}
-> +	spin_unlock_bh(&net->sctp.addr_wq_lock);
-> +}
-> +
-> +/* As there is no refcnt on sctp_sockaddr_entry, we must check inside
-> + * the lock if it wasn't removed from addr_waitq already, otherwise we
-> + * could double-free it.
-> + */
-> +static void sctp_free_addr_wq_entry(struct net *net,
-> +				    struct sctp_sockaddr_entry *addrw)
-> +{
-> +	struct sctp_sockaddr_entry *temp;
-> +
-> +	spin_lock_bh(&net->sctp.addr_wq_lock);
-> +	list_for_each_entry_rcu(temp, &net->sctp.addr_waitq, list) {
-> +		if (temp == addrw) {
-> +			list_del_rcu(&addrw->list);
-> +			kfree_rcu(addrw, rcu);
+On Wed, Jun 3, 2015 at 8:12 AM, Andy Gospodarek
+<gospo@cumulusnetworks.com> wrote:
+> On Tue, Jun 02, 2015 at 10:03:23PM -0700, Scott Feldman wrote:
+>> On Tue, Jun 2, 2015 at 8:07 PM, Andy Gospodarek
+>> <gospo@cumulusnetworks.com> wrote:
+>> > This patch adds the ability to have the Linux kernel track whether or
+>> > not a particular route should be used based on the link-status of the
+>> > interface associated with the next-hop.
+>> >
+>> > Before this patch any link-failure on an interface that was serving as a
+>> > gateway for some systems could result in those systems being isolated
+>> > from the rest of the network as the stack would continue to attempt to
+>> > send frames out of an interface that is actually linked-down.  When the
+>> > kernel is responsible for all forwarding, it should also be responsible
+>> > for taking action when the traffic can no longer be forwarded -- there
+>> > is no real need to outsource link-monitoring to userspace anymore.
+>>
+>> Hi Andy, how does this work for the hardware offload case?  I'm not
+>> seeing how hardware gets updated when the software route is updated.
+>> Seems hardware isn't updated and would send frames out the downed nh
+>> interface.
+>
+> Scott, you are correct that this does not currently address the hardware
+> offload case.  If one wanted offloaded hardware to reflect this change,
+> then there needs to be either:
+>
+> - The ability to communicate the flag changes down to offload devices in
+>   the event that they want some action to take place
+>   switchdev_fib_ipv4_modify(), maybe? (Not to derail this convo too much
+>   but it will soon be time to consider what to do at the switchdev layer
+>   when route flags are modified like when the RTNH_F_OFFLOAD flag is
+>   removed by the user if they feel the route does not need to be
+>   offloaded for any reason.)
 
-Missed a break here, will issue a v3 when you review it too..
+Switchdev_fib_ipv4_add() can handle adds and mods, so you can use
+that.  Any place you're sending notification of route change, hook
+switchdev so the offload device is updated with the route change.
 
-  Marcelo
+Please include updates for switchdev for this patch v2.  I'm assuming
+you're already shipping this feature on offloaded switches, so you
+want it to work with switchdev, right?
 
-> +		}
-> +	}
-> +	spin_unlock_bh(&net->sctp.addr_wq_lock);
-> +}
-> +
->  static void sctp_addr_wq_timeout_handler(unsigned long arg)
->  {
->  	struct net *net = (struct net *)arg;
-> -	struct sctp_sockaddr_entry *addrw, *temp;
-> +	struct sctp_sockaddr_entry *addrw;
->  	struct sctp_sock *sp;
->  
-> -	spin_lock_bh(&net->sctp.addr_wq_lock);
-> -
-> -	list_for_each_entry_safe(addrw, temp, &net->sctp.addr_waitq, list) {
-> +	rcu_read_lock_bh();
-> +	list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, list) {
->  		pr_debug("%s: the first ent in wq:%p is addr:%pISc for cmd:%d at "
->  			 "entry:%p\n", __func__, &net->sctp.addr_waitq, &addrw->a.sa,
->  			 addrw->state, addrw);
-> @@ -627,7 +658,9 @@ static void sctp_addr_wq_timeout_handler(unsigned long arg)
->  
->  				timeo_val = jiffies;
->  				timeo_val += msecs_to_jiffies(SCTP_ADDRESS_TICK_DELAY);
-> +				spin_lock_bh(&net->sctp.addr_wq_lock);
->  				mod_timer(&net->sctp.addr_wq_timer, timeo_val);
-> +				spin_unlock_bh(&net->sctp.addr_wq_lock);
->  				break;
->  			}
->  		}
-> @@ -647,35 +680,20 @@ static void sctp_addr_wq_timeout_handler(unsigned long arg)
->  #if IS_ENABLED(CONFIG_IPV6)
->  free_next:
->  #endif
-> -		list_del(&addrw->list);
-> -		kfree(addrw);
-> -	}
-> -	spin_unlock_bh(&net->sctp.addr_wq_lock);
-> -}
-> -
-> -static void sctp_free_addr_wq(struct net *net)
-> -{
-> -	struct sctp_sockaddr_entry *addrw;
-> -	struct sctp_sockaddr_entry *temp;
-> -
-> -	spin_lock_bh(&net->sctp.addr_wq_lock);
-> -	del_timer(&net->sctp.addr_wq_timer);
-> -	list_for_each_entry_safe(addrw, temp, &net->sctp.addr_waitq, list) {
-> -		list_del(&addrw->list);
-> -		kfree(addrw);
-> +		sctp_free_addr_wq_entry(net, addrw);
->  	}
-> -	spin_unlock_bh(&net->sctp.addr_wq_lock);
-> +	rcu_read_unlock_bh();
->  }
->  
->  /* lookup the entry for the same address in the addr_waitq
-> - * sctp_addr_wq MUST be locked
-> + * rcu read MUST be locked
->   */
->  static struct sctp_sockaddr_entry *sctp_addr_wq_lookup(struct net *net,
->  					struct sctp_sockaddr_entry *addr)
->  {
->  	struct sctp_sockaddr_entry *addrw;
->  
-> -	list_for_each_entry(addrw, &net->sctp.addr_waitq, list) {
-> +	list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, list) {
->  		if (addrw->a.sa.sa_family != addr->a.sa.sa_family)
->  			continue;
->  		if (addrw->a.sa.sa_family == AF_INET) {
-> @@ -702,7 +720,7 @@ void sctp_addr_wq_mgmt(struct net *net, struct sctp_sockaddr_entry *addr, int cm
->  	 * new address after a couple of addition and deletion of that address
->  	 */
->  
-> -	spin_lock_bh(&net->sctp.addr_wq_lock);
-> +	rcu_read_lock_bh();
->  	/* Offsets existing events in addr_wq */
->  	addrw = sctp_addr_wq_lookup(net, addr);
->  	if (addrw) {
-> @@ -710,22 +728,21 @@ void sctp_addr_wq_mgmt(struct net *net, struct sctp_sockaddr_entry *addr, int cm
->  			pr_debug("%s: offsets existing entry for %d, addr:%pISc "
->  				 "in wq:%p\n", __func__, addrw->state, &addrw->a.sa,
->  				 &net->sctp.addr_waitq);
-> -
-> -			list_del(&addrw->list);
-> -			kfree(addrw);
-> +			sctp_free_addr_wq_entry(net, addrw);
->  		}
-> -		spin_unlock_bh(&net->sctp.addr_wq_lock);
-> +		rcu_read_unlock_bh();
->  		return;
->  	}
-> +	rcu_read_unlock_bh();
->  
->  	/* OK, we have to add the new address to the wait queue */
->  	addrw = kmemdup(addr, sizeof(struct sctp_sockaddr_entry), GFP_ATOMIC);
-> -	if (addrw == NULL) {
-> -		spin_unlock_bh(&net->sctp.addr_wq_lock);
-> +	if (!addrw)
->  		return;
-> -	}
->  	addrw->state = cmd;
-> -	list_add_tail(&addrw->list, &net->sctp.addr_waitq);
-> +
-> +	spin_lock_bh(&net->sctp.addr_wq_lock);
-> +	list_add_tail_rcu(&addrw->list, &net->sctp.addr_waitq);
->  
->  	pr_debug("%s: add new entry for cmd:%d, addr:%pISc in wq:%p\n",
->  		 __func__, addrw->state, &addrw->a.sa, &net->sctp.addr_waitq);
-> -- 
-> 2.4.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+
+> - Register a register_netdevice_notifier and take action at the
+>   switchdev layer to make sure that routes can be removed or marked as
+>   inactive when link goes down.
+
+The core code is already handling the events, so it seems better to
+call into switchdev from core code rather than having two listeners
+potentially handling the event differently.
+
+-scott
