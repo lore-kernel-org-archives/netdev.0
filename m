@@ -1,165 +1,139 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next] net: change fib behavior based on interface
- link status
-Date: Wed, 3 Jun 2015 11:02:23 -0400
-Message-ID: <20150603150223.GD10203@neilslaptop.think-freely.org>
-References: <1433300839-18511-1-git-send-email-gospo@cumulusnetworks.com>
- <20150603135347.GA10203@neilslaptop.think-freely.org>
- <1433340788.3163.6.camel@redhat.com>
- <20150603142131.GC10203@neilslaptop.think-freely.org>
- <20150603144621.GF588@gospo.home.greyhouse.net>
+From: Mark Salter <msalter@redhat.com>
+Subject: Re: [V5 PATCH 2/5] arm64 : Introduce support for ACPI _CCA object
+Date: Wed, 03 Jun 2015 11:03:09 -0400
+Message-ID: <1433343789.24429.9.camel@deneb.redhat.com>
+References: <1432159758-4486-1-git-send-email-Suravee.Suthikulpanit@amd.com>
+	 <1432159758-4486-3-git-send-email-Suravee.Suthikulpanit@amd.com>
+	 <1432867099.24429.4.camel@deneb.redhat.com> <556F1115.3080302@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Frederic Sowa <hannes@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, ddutt@cumulusnetworks.com
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kashyap.desai@avagotech.com, sumit.saxena@avagotech.com,
+	uday.lingala@avagotech.com, rjw@rjwysocki.net, lenb@kernel.org,
+	catalin.marinas@arm.com, will.deacon@arm.com,
+	thomas.lendacky@amd.com, herbert@gondor.apana.org.au,
+	davem@davemloft.net, arnd@arndb.de, hanjun.guo@linaro.org,
+	al.stone@linaro.org, grant.likely@linaro.org, leo.duran@amd.com,
+	linux-arm-kernel@lists.infradead.org, linux-acpi@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linaro-acpi@lists.linaro.org,
+	netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
+	megaraidlinux.pdl@avagotech.com, linux-scsi@vger.kernel.org
+To: Suravee Suthikulanit <suravee.suthikulpanit@amd.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56668 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964800AbbFCPCq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 11:02:46 -0400
-Content-Disposition: inline
-In-Reply-To: <20150603144621.GF588@gospo.home.greyhouse.net>
+Received: from mx1.redhat.com ([209.132.183.28]:33257 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932610AbbFCPDO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jun 2015 11:03:14 -0400
+In-Reply-To: <556F1115.3080302@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 03, 2015 at 10:46:22AM -0400, Andy Gospodarek wrote:
-> On Wed, Jun 03, 2015 at 10:21:31AM -0400, Neil Horman wrote:
-> > On Wed, Jun 03, 2015 at 04:13:08PM +0200, Hannes Frederic Sowa wrote:
-> > > On Mi, 2015-06-03 at 09:53 -0400, Neil Horman wrote:
-> > > > On Tue, Jun 02, 2015 at 11:07:19PM -0400, Andy Gospodarek wrote:
-> > > > > This patch adds the ability to have the Linux kernel track whether or
-> > > > > not a particular route should be used based on the link-status of the
-> > > > > interface associated with the next-hop.
-> > > > > 
-> > > > > Before this patch any link-failure on an interface that was serving as a
-> > > > > gateway for some systems could result in those systems being isolated
-> > > > > from the rest of the network as the stack would continue to attempt to
-> > > > > send frames out of an interface that is actually linked-down.  When the
-> > > > > kernel is responsible for all forwarding, it should also be responsible
-> > > > > for taking action when the traffic can no longer be forwarded -- there
-> > > > > is no real need to outsource link-monitoring to userspace anymore.
-> > > > > 
-> > > > > This feature is only enabled with the new sysctl set (default is off):
-> > > > > net.core.kill_routes_on_linkdown = 1
-> > > > > 
-> > > > > When this is set, the following behavior can be observed (interface p8p1
-> > > > > is link-down):
-> > > > > 
-> > > > > # ip route show 
-> > > > > default via 10.0.5.2 dev p9p1 
-> > > > > 10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15 
-> > > > > 70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1 
-> > > > > 80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 dead 
-> > > > > 90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 dead 
-> > > > > 90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2 
-> > > > > # ip route get 90.0.0.1 
-> > > > > 90.0.0.1 via 70.0.0.2 dev p7p1  src 70.0.0.1 
-> > > > >     cache 
-> > > > > # ip route get 80.0.0.1 
-> > > > > local 80.0.0.1 dev lo  src 80.0.0.1 
-> > > > >     cache <local> 
-> > > > > # ip route get 80.0.0.2
-> > > > > 80.0.0.2 via 10.0.5.2 dev p9p1  src 10.0.5.15 
-> > > > >     cache 
-> > > > > 
-> > > > > While the route does remain in the table (so it can be modified if
-> > > > > needed rather than being wiped away as it would be if IFF_UP was
-> > > > > cleared), the proper next-hop is chosen automatically when the link is
-> > > > > down.  Now interface p8p1 is linked-up:
-> > > > > 
-> > > > > # ip route show 
-> > > > > default via 10.0.5.2 dev p9p1 
-> > > > > 10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15 
-> > > > > 70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1 
-> > > > > 80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 
-> > > > > 90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 
-> > > > > 90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2 
-> > > > > 192.168.56.0/24 dev p2p1  proto kernel  scope link  src 192.168.56.2 
-> > > > > # ip route get 90.0.0.1 
-> > > > > 90.0.0.1 via 80.0.0.2 dev p8p1  src 80.0.0.1 
-> > > > >     cache 
-> > > > > # ip route get 80.0.0.1 
-> > > > > local 80.0.0.1 dev lo  src 80.0.0.1 
-> > > > >     cache <local> 
-> > > > > # ip route get 80.0.0.2
-> > > > > 80.0.0.2 dev p8p1  src 80.0.0.1 
-> > > > >     cache 
-> > > > > 
-> > > > > and the output changes to what one would expect.
-> > > > > 
-> > > > > Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-> > > > > Suggested-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
-> > > > > 
-> > > > > ---
-> > > > > Though there were some that preferred not to have a configuration option
-> > > > > and to make this behavior the default when it was discussed in Ottawa
-> > > > > earlier this year since "it was time to do this."  I wanted to propose
-> > > > > the config option to preserve the current behavior for those that desire
-> > > > > it.  I'll happily remove it if Dave and Linus approve.
-> > > > > 
-> > > > > An IPv6 implementation is also needed (DECnet too!), but I wanted to
-> > > > > start with the IPv4 implementation to get people comfortable with the
-> > > > > idea before moving forward.  If this is accepted the IPv6 implementation
-> > > > > can be posted shortly.  
-> > > > > 
-> > > > > FWIW, we have been running this patch with the sysctl setting above and
-> > > > > our customers have been happily using a backported version for IPv4 and
-> > > > > IPv6 for >6 months.
-> > > > > 
-> > > > >  include/linux/netdevice.h      |  1 +
-> > > > >  include/net/fib_rules.h        |  1 +
-> > > > >  include/net/ip_fib.h           |  1 +
-> > > > >  include/uapi/linux/rtnetlink.h |  1 +
-> > > > >  include/uapi/linux/sysctl.h    |  1 +
-> > > > >  kernel/sysctl_binary.c         |  1 +
-> > > > >  net/core/dev.c                 |  2 ++
-> > > > >  net/core/sysctl_net_core.c     |  7 +++++++
-> > > > >  net/ipv4/fib_frontend.c        | 12 +++++++++--
-> > > > >  net/ipv4/fib_rules.c           |  7 ++++++-
-> > > > >  net/ipv4/fib_semantics.c       | 46 ++++++++++++++++++++++++++++++++++++------
-> > > > >  net/ipv4/fib_trie.c            | 19 +++++++++++++----
-> > > > >  12 files changed, 86 insertions(+), 13 deletions(-)
-> > > > > 
-> > > > 
-> > > > Hey Andy-
-> > > > 	So, the implementation looks great.  That said, a question comes up in
-> > > > my mind that I can't quite resolve.  In looking at your code, and seeing how it
-> > > > fit into the routing path, I came accross the function sync_fib_down_dev, which
-> > > > appears to be called in response to NETDEV_DOWN events.  Its purpose from my
-> > > > read is to interrogate the fib for routes that specify the device going down as
-> > > > the egress device, and mark said routes as dead.  I'm guessing that I'm missing
-> > > > something here, but it seems as though this patch shouldn't be needed in light
-> > > > of that behavior (unless the existing code is somehow broken, or I'm confused
-> > > > about its purpose).  Could it be that whats really needed here is for Network
-> > > > Manager (or other user space programs ) to stop removing routes in response to
-> > > > NETDEV_DOWN events so that the above kernel code can do its job?
-> > > 
-> > > We don't care about DEAD flag during normal fib lookup, only when
-> > > considering multipath routes.
-> > > 
-> > 
-> > I get that, but I think the question still applies.  If you have multiple routes
-> > to the same destination, the sync_fib_down_dev code should still be doing the
-> > job that andy's patch does, shouldn't it?  I.e. if you have two interfaces with
-> > ip addresses on the same subnet, and a route for each interface, only the first
-> > route in the table typically gets used, because its found first.  But if that
-> > link goes down, the sync_fib_down_dev code should mark the links route as dead,
-> > and subsequent lookups should use the alternate interface.  But it seems like
-> > thats not happening, so I'm wondering why that is.
-> 
-> Neil, I think I see what you are asking, let me see if I can clarify
-> this.  The confusing part here is that NETDEV_DOWN events are done when
-> IFF_UP is cleared, not when link changes (those are NETDEV_CHANGE
-> events), but sync_fib_down_dev() is called by both with this patch.
-> 
-Ok, I can see that, but shouldn't we get IFF_UP cleared when we loose link
-anyway? I.e. if we loose link, we loose carrier, and as a result we get a
-linkwatch event that takes down the interface, no?
+On Wed, 2015-06-03 at 09:37 -0500, Suravee Suthikulanit wrote:
+> On 5/28/2015 9:38 PM, Mark Salter wrote:
+> > On Wed, 2015-05-20 at 17:09 -0500, Suravee Suthikulpanit wrote:
+> >> >Fromhttp://www.uefi.org/sites/default/files/resources/ACPI_6.0.pd=
+f,
+> >> >section 6.2.17 _CCA states that ARM platforms require ACPI _CCA
+> >> >object to be specified for DMA-cabpable devices. Therefore, this =
+patch
+> >> >specifies ACPI_CCA_REQUIRED in arm64 Kconfig.
+> >> >
+> >> >In addition, to handle the case when _CCA is missing, arm64 would=
+ assign
+> >> >dummy_dma_ops to disable DMA capability of the device.
+> >> >
+> >> >Acked-by: Catalin Marinas<catalin.marinas@arm.com>
+> >> >Signed-off-by: Mark Salter<msalter@redhat.com>
+> >> >Signed-off-by: Suravee Suthikulpanit<Suravee.Suthikulpanit@amd.co=
+m>
+> >> >---
+> >> >  arch/arm64/Kconfig                   |  1 +
+> >> >  arch/arm64/include/asm/dma-mapping.h | 18 ++++++-
+> >> >  arch/arm64/mm/dma-mapping.c          | 92 +++++++++++++++++++++=
++++++++++++++++
+> >> >  3 files changed, 109 insertions(+), 2 deletions(-)
+> >> >
+> >> >diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+> >> >index 4269dba..95307b4 100644
+> >> >--- a/arch/arm64/Kconfig
+> >> >+++ b/arch/arm64/Kconfig
+> >> >@@ -1,5 +1,6 @@
+> >> >  config ARM64
+> >> >  	def_bool y
+> >> >+	select ACPI_CCA_REQUIRED if ACPI
+> >> >  	select ACPI_GENERIC_GSI if ACPI
+> >> >  	select ACPI_REDUCED_HARDWARE_ONLY if ACPI
+> >> >  	select ARCH_HAS_ATOMIC64_DEC_IF_POSITIVE
+> >> >diff --git a/arch/arm64/include/asm/dma-mapping.h b/arch/arm64/in=
+clude/asm/dma-mapping.h
+> >> >index 9437e3d..f0d6d0b 100644
+> >> >--- a/arch/arm64/include/asm/dma-mapping.h
+> >> >+++ b/arch/arm64/include/asm/dma-mapping.h
+> >> >@@ -18,6 +18,7 @@
+> >> >
+> >> >  #ifdef __KERNEL__
+> >> >
+> >> >+#include <linux/acpi.h>
+> >> >  #include <linux/types.h>
+> >> >  #include <linux/vmalloc.h>
+> >> >
+> > ^^^ This hunk causes build issues with a couple of drivers:
+> >
+> > drivers/scsi/megaraid/megaraid_sas_fp.c:69:0: warning: "FALSE" rede=
+fined [enabled by default]
+> >   #define FALSE 0
+> >   ^
+> > In file included from include/acpi/acpi.h:58:0,
+> >                   from include/linux/acpi.h:37,
+> >                   from ./arch/arm64/include/asm/dma-mapping.h:21,
+> >                   from include/linux/dma-mapping.h:86,
+> >                   from ./arch/arm64/include/asm/pci.h:7,
+> >                   from include/linux/pci.h:1460,
+> >                   from drivers/scsi/megaraid/megaraid_sas_fp.c:37:
+> > include/acpi/actypes.h:433:0: note: this is the location of the pre=
+vious definition
+> >   #define FALSE                           (1 =3D=3D 0)
+> >   ^
+> >
+> >
+> > In file included from include/acpi/acpi.h:58:0,
+> >                   from include/linux/acpi.h:37,
+> >                   from ./arch/arm64/include/asm/dma-mapping.h:21,
+> >                   from include/linux/dma-mapping.h:86,
+> >                   from include/scsi/scsi_cmnd.h:4,
+> >                   from drivers/scsi/ufs/ufshcd.h:60,
+> >                   from drivers/scsi/ufs/ufshcd.c:43:
+> > include/acpi/actypes.h:433:41: error: expected identifier before =E2=
+=80=98(=E2=80=99 token
+> >   #define FALSE                           (1 =3D=3D 0)
+> >                                           ^
+> > drivers/scsi/ufs/unipro.h:203:2: note: in expansion of macro =E2=80=
+=98FALSE=E2=80=99
+> >    FALSE =3D 0,
+> >    ^
+> >
+> > This happens because the ACPI definitions of TRUE and FALSE conflic=
+t
+> > with local definitions in megaraid and enum declaration in ufs.
+> >
+> Mark,
+>=20
+> Thanks for pointing this out. Although, I would think that the=20
+> megaraid_sas_fp.c should have had the #ifndef to check before definin=
+g=20
+> the TRUE and FALSE as following.
+>=20
+> #ifndef TRUE
+> #define TRUE 1
+> #endif
+> #ifndef FALSE
+> #define FALSE 0
+> #endif
+>=20
+> This seems to be what other drivers are also doing. If this is okay, =
+I=20
+> can send out a fix-up patch for the megaraid driver.
+>=20
 
-> When NETDEV_DOWN events happen the DEAD_LINKDOWN flag needs to be
-> cleared so that proper cleanup happens later when flushing routes later.
-> This is why some action is needed in sync_fib_down_dev to handle this
-> new flag.
-> 
-> 
+Yeah, or #undef them if defined so megaraid defines them as desired.
+And #undef if defined would work for unipro.h as well.
