@@ -1,32 +1,31 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
+From: Hannes Frederic Sowa <hannes@redhat.com>
 Subject: Re: [PATCH net-next] net: change fib behavior based on interface
  link status
-Date: Wed, 3 Jun 2015 11:16:27 -0400
-Message-ID: <20150603151622.GH588@gospo.home.greyhouse.net>
+Date: Wed, 03 Jun 2015 17:17:15 +0200
+Message-ID: <1433344635.3163.26.camel@redhat.com>
 References: <1433300839-18511-1-git-send-email-gospo@cumulusnetworks.com>
- <20150603135347.GA10203@neilslaptop.think-freely.org>
- <1433340788.3163.6.camel@redhat.com>
- <20150603142131.GC10203@neilslaptop.think-freely.org>
- <20150603144621.GF588@gospo.home.greyhouse.net>
- <20150603150223.GD10203@neilslaptop.think-freely.org>
+	 <20150603135347.GA10203@neilslaptop.think-freely.org>
+	 <1433340788.3163.6.camel@redhat.com>
+	 <20150603142131.GC10203@neilslaptop.think-freely.org>
+	 <20150603144621.GF588@gospo.home.greyhouse.net>
+	 <20150603150223.GD10203@neilslaptop.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Frederic Sowa <hannes@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, ddutt@cumulusnetworks.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	ddutt@cumulusnetworks.com
 To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f53.google.com ([209.85.192.53]:33181 "EHLO
-	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933358AbbFCPQa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 11:16:30 -0400
-Received: by qgfa63 with SMTP id a63so5109110qgf.0
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 08:16:30 -0700 (PDT)
-Content-Disposition: inline
+Received: from mx1.redhat.com ([209.132.183.28]:51281 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932298AbbFCPRT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jun 2015 11:17:19 -0400
 In-Reply-To: <20150603150223.GD10203@neilslaptop.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 03, 2015 at 11:02:23AM -0400, Neil Horman wrote:
+On Mi, 2015-06-03 at 11:02 -0400, Neil Horman wrote:
 > On Wed, Jun 03, 2015 at 10:46:22AM -0400, Andy Gospodarek wrote:
 > > On Wed, Jun 03, 2015 at 10:21:31AM -0400, Neil Horman wrote:
 > > > On Wed, Jun 03, 2015 at 04:13:08PM +0200, Hannes Frederic Sowa wrote:
@@ -161,5 +160,16 @@ On Wed, Jun 03, 2015 at 11:02:23AM -0400, Neil Horman wrote:
 > anyway? I.e. if we loose link, we loose carrier, and as a result we get a
 > linkwatch event that takes down the interface, no?
 
-operstate is cleared by linkwatch (so 'ip link' output shows
-'NO-CARRIER' vs 'LOWER_UP'), but IFF_UP is not.  
+I consider IFF_UP and carrier related events orthogonal.
+
+Your proposal can be implemented by user space policy, of course, or
+routing protocols/daemons (which act on behalf a policy), but I don't
+want the kernel to decide that by default. If the kernel would have done
+so all the time, fine, we would have experience with that. But changing
+this behavior now seems to be problematic to me.
+
+Imaging unplugging a switch and suddenly your router sending out
+internal network traffic to the default route...
+
+Bye,
+Hannes
