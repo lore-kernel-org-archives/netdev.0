@@ -1,61 +1,58 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 03/11] netfilter: don't use module_init/exit in core IPV4
- code
-Date: Wed, 3 Jun 2015 18:04:29 +0200
-Message-ID: <20150603160429.GA3565@salvia>
-References: <1433120052-18281-1-git-send-email-paul.gortmaker@windriver.com>
- <1433120052-18281-4-git-send-email-paul.gortmaker@windriver.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the
+ RDMA-CM
+Date: Wed, 3 Jun 2015 10:14:47 -0600
+Message-ID: <20150603161447.GC12073@obsidianresearch.com>
+References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
+ <1432647280.28905.107.camel@redhat.com>
+ <55671309.6080303@mellanox.com>
+ <1432822057.114391.26.camel@redhat.com>
+ <55674077.5040707@mellanox.com>
+ <20150528174337.GA10448@obsidianresearch.com>
+ <1432837360.114391.35.camel@redhat.com>
+ <CAJ3xEMh2T5-56rFxWVdct2uAZYW1ZrKivWfS45V-mvhAfwyGaA@mail.gmail.com>
+ <1432850150.114391.56.camel@redhat.com>
+ <556ED0D5.8010502@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: Doug Ledford <dledford@redhat.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Liran Liss <liranl@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Yotam Kenneth <yotamke@mellanox.com>
+To: Haggai Eran <haggaie@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:42027 "EHLO quartz.orcorp.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754831AbbFCQOw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jun 2015 12:14:52 -0400
 Content-Disposition: inline
-In-Reply-To: <1433120052-18281-4-git-send-email-paul.gortmaker@windriver.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <556ED0D5.8010502@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 31, 2015 at 08:54:04PM -0400, Paul Gortmaker wrote:
-> The file net/ipv4/netfilter.o is created based on whether
-> CONFIG_NETFILTER is set.  However that is defined as a bool, and
-> hence this file with the core netfilter hooks will never be
-> modular.  So using module_init as an alias for __initcall can be
-> somewhat misleading.
+On Wed, Jun 03, 2015 at 01:03:01PM +0300, Haggai Eran wrote:
+> > Then I'm inclined to say that we should map for namespaces using device,
+> > port, guid/gid, pkey.  And in this situation, since a unique guid/gid on
+> > any given pkey maps to a unique dhcp identifier and a unique ipv6
+> > lladdr, this becomes freely interchangeable with device, port, pkey,
+> > address mappings that this patchset was built around.
 > 
-> Fix this up now, so that we can relocate module_init from
-> init.h into module.h in the future.  If we don't do this, we'd
-> have to add module.h to obviously non-modular code, and that
-> would be a worse thing.  Also add an inclusion of init.h, as
-> that was previously implicit here in the netfilter.c file.
-> 
-> Note that direct use of __initcall is discouraged, vs. one
-> of the priority categorized subgroups.  As __initcall gets
-> mapped onto device_initcall, our use of subsys_initcall (which
-> seems to make sense for netfilter code) will thus change this
-> registration from level 6-device to level 4-subsys (i.e. slightly
-> earlier).  However no observable impact of that small difference
-> has been observed during testing, or is expected. (i.e. the
-> location of the netfilter messages in dmesg remains unchanged
-> with respect to all the other surrounding messages.)
-> 
-> As for the module_exit, rather than replace it with __exitcall,
-> we simply remove it, since it appears only UML does anything
-> with those, and even for UML, there is no relevant cleanup
-> to be done here.
-> 
-> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: netfilter-devel@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> What if we change the namespaces patches to map (device, port, GID,
+> P_Key, IP) to netdev / namespace? That is, to use both the GID and the
+> IP address.
 
-Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+As I keep saying, you are not supposed to use the IP address as a key
+to find the netdev, that is the wrong way to use the Linux netdev
+model.
 
-Or I can integrate this into the nf-next tree if you prefer it.
+Requiring unique GID/PKey allows the implementation to avoid this
+wrongness, which would be simplifying and more correct.
 
-Thanks.
+That is the appeal to blocking this scenario when children are created.
+
+Jason
