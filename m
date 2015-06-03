@@ -1,95 +1,71 @@
-From: Shawn Bohrer <shawn.bohrer@gmail.com>
-Subject: [PATCH v2] ipv4/udp: Verify multicast group is ours in upd_v4_early_demux()
-Date: Wed,  3 Jun 2015 16:27:38 -0500
-Message-ID: <1433366858-14317-1-git-send-email-shawn.bohrer@gmail.com>
-References: <556CBC7E.2050005@cogentembedded.com>
-Cc: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
-	Alexandra.Kossovsky@oktetlabs.ru,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Oliver Graff <oliver.e.graff@gmail.com>, davem@davemloft.net,
-	sergei.shtylyov@cogentembedded.com,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:32781 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752951AbbFCV1t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 17:27:49 -0400
-Received: by obbea3 with SMTP id ea3so18647363obb.0
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 14:27:47 -0700 (PDT)
-In-Reply-To: <556CBC7E.2050005@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the
+ RDMA-CM
+Date: Wed, 3 Jun 2015 15:45:08 -0600
+Message-ID: <20150603214508.GA14968@obsidianresearch.com>
+References: <55674077.5040707@mellanox.com>
+ <20150528174337.GA10448@obsidianresearch.com>
+ <1432837360.114391.35.camel@redhat.com>
+ <CAJ3xEMh2T5-56rFxWVdct2uAZYW1ZrKivWfS45V-mvhAfwyGaA@mail.gmail.com>
+ <1432850150.114391.56.camel@redhat.com>
+ <556ED0D5.8010502@mellanox.com>
+ <20150603161447.GC12073@obsidianresearch.com>
+ <CAJ3xEMjM53sYuEgQV3WPaN4WErk_YcojPY2zBcmq-+3W2dfD+A@mail.gmail.com>
+ <20150603195325.GC7902@obsidianresearch.com>
+ <CAJ3xEMiO+hEzOJ2oJ5G-mmBeaX4ZHvUyhNSAzsrRDui6dFjvCg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAJ3xEMiO+hEzOJ2oJ5G-mmBeaX4ZHvUyhNSAzsrRDui6dFjvCg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+On Wed, Jun 03, 2015 at 11:07:37PM +0300, Or Gerlitz wrote:
+> As Haggai wrote, if we let the using IP address thing to fly up, we have
+> support for RDMA in containers using the RDMA-CM at IPoIB environments.
+> This will let people test, use, experiment, fix, interact (and even
+> production-it when static IP address assignment scheme is used).
 
-421b3885bf6d56391297844f43fb7154a6396e12 "udp: ipv4: Add udp early
-demux" introduced a regression that allowed sockets bound to INADDR_ANY
-to receive packets from multicast groups that the socket had not joined.
-For example a socket that had joined 224.168.2.9 could also receive
-packets from 225.168.2.9 despite not having joined that group if
-ip_early_demux is enabled.
+Sure, I think we all understand the goal, and you've explained some
+reasonable use cases for the child support.
 
-Fix this by calling ip_check_mc_rcu() in udp_v4_early_demux() to verify
-that the multicast packet is indeed ours.
+> Later, usage of alias GUIDs for IPoIB RTNL childs would allow to
+> remove the IP thing.
 
-Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Reported-by: Yurij M. Plotnikov <Yurij.Plotnikov@oktetlabs.ru>
----
+How do we remove it? Along with same-guid child support? What is your
+idea here?
 
-Coding style fixes.  Added braces around if branches, and inverted logic
-to avoid long lines.
+> > Also, now that this has been brought up, I think you need to make a
+> > patch to fix the IPv6 SLAAC breakage this caused. It looks trivial to
+> > modify addrconf_ifid_infiniband to return error if the IPoIB child is
+> > sharing a guid. It was not good at all to push the child patches
+> > forward to 3.6/3.7 if you knew that IPv6 SLAAC was broken by them.
+> 
+> Till the alias GUID thing is introduced, maybe we can patch
+> addrconf_ifid_infiniband to use the QPN value from the device HW
+> address to come up with unique IPv6 link local address, agree? where
+> you think we can place the 24 bits QPN?
 
- net/ipv4/udp.c | 18 +++++++++++++++---
- 1 file changed, 15 insertions(+), 3 deletions(-)
+I don't know if that is a good idea, an unstable SLAAC is not in
+spirit with the RFCs. The safest bet is to return error and disable
+SLAAC completely.
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index d10b7e0..df1b285 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -90,6 +90,7 @@
- #include <linux/socket.h>
- #include <linux/sockios.h>
- #include <linux/igmp.h>
-+#include <linux/inetdevice.h>
- #include <linux/in.h>
- #include <linux/errno.h>
- #include <linux/timer.h>
-@@ -1962,6 +1963,7 @@ void udp_v4_early_demux(struct sk_buff *skb)
- 	struct sock *sk;
- 	struct dst_entry *dst;
- 	int dif = skb->dev->ifindex;
-+	int ours;
- 
- 	/* validate the packet */
- 	if (!pskb_may_pull(skb, skb_transport_offset(skb) + sizeof(struct udphdr)))
-@@ -1971,14 +1973,24 @@ void udp_v4_early_demux(struct sk_buff *skb)
- 	uh = udp_hdr(skb);
- 
- 	if (skb->pkt_type == PACKET_BROADCAST ||
--	    skb->pkt_type == PACKET_MULTICAST)
-+	    skb->pkt_type == PACKET_MULTICAST) {
-+		struct in_device *in_dev = __in_dev_get_rcu(skb->dev);
-+
-+		if (!in_dev)
-+			return;
-+
-+		ours = ip_check_mc_rcu(in_dev, iph->daddr, iph->saddr,
-+				       iph->protocol);
-+		if (!ours)
-+			return;
- 		sk = __udp4_lib_mcast_demux_lookup(net, uh->dest, iph->daddr,
- 						   uh->source, iph->saddr, dif);
--	else if (skb->pkt_type == PACKET_HOST)
-+	} else if (skb->pkt_type == PACKET_HOST) {
- 		sk = __udp4_lib_demux_lookup(net, uh->dest, iph->daddr,
- 					     uh->source, iph->saddr, dif);
--	else
-+	} else {
- 		return;
-+	}
- 
- 	if (!sk)
- 		return;
--- 
-1.9.3
+But I'm just guessing here - I'm only feel strongly that something
+should be done to address this issue in the existing kernel.
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
