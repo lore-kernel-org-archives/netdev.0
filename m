@@ -1,49 +1,51 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [RFC 7/9] net: dsa: mv88e6352: lock CPU port from learning
- addresses
-Date: Tue, 2 Jun 2015 21:06:15 -0400 (EDT)
-Message-ID: <1317462817.952931.1433293575321.JavaMail.zimbra@savoirfairelinux.com>
-References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-8-git-send-email-vivien.didelot@savoirfairelinux.com> <556DBCA4.10203@roeck-us.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2 net-next] vlan: Add GRO support for non hardware
+ accelerated vlan
+Date: Wed, 3 Jun 2015 10:09:08 +0900
+Message-ID: <20150603010908.GE30703@verge.net.au>
+References: <1433163307-9299-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+ <1433167957.1895.4.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150601.145625.1435351866234972759.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	=?utf-8?Q?J=C3=A9rome?= Oufella
-	<jerome.oufella@savoirfairelinux.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>,
-	Chris Healy <cphealy@gmail.com>
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <556DBCA4.10203@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, makita.toshiaki@lab.ntt.co.jp,
+	kaber@trash.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:56467 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751597AbbFCBJL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 21:09:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20150601.145625.1435351866234972759.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Guenter,
+On Mon, Jun 01, 2015 at 02:56:25PM -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 01 Jun 2015 07:12:37 -0700
+> 
+> > Can we ensure offload_base contains a sensible order of expected
+> > types ?
+> 
+> This seemed easy enough to kill, so I pushed the following into net-next:
+> 
+> ====================
+> [PATCH] net: Add priority to packet_offload objects.
+> 
+> When we scan a packet for GRO processing, we want to see the most
+> common packet types in the front of the offload_base list.
+> 
+> So add a priority field so we can handle this properly.
+> 
+> IPv4/IPv6 get the highest priority with the implicit zero priority
+> field.
+> 
+> Next comes ethernet with a priority of 10, and then we have the MPLS
+> types with a priority of 15.
 
-On Jun 2, 2015, at 10:24 AM, Guenter Roeck linux@roeck-us.net wrote:
-On 06/01/2015 06:27 PM, Vivien Didelot wrote:
->> This commit disables SA learning and refreshing for the CPU port.
->>
-> 
-> Hi Vivien,
-> 
-> This patch also seems to be unrelated to the rest of the series.
-> 
-> Can you add an explanation why it is needed ?
-> 
-> With this in place, how does the CPU port SA find its way into the fdb ?
-> Do we assume that it will be configured statically ?
-> An explanation might be useful.
+FWIW I have no objections to the priority assigned to MPLS.
 
-Without this patch, I noticed the CPU port was stealing the SA of a PC
-behind a switch port. this happened when the port was a bridge member,
-as the bridge was relaying broadcast coming from one switch port to the
-other switch ports in the same vlan.
-
-Thanks,
--v
+> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Suggested-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
