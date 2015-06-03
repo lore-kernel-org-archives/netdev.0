@@ -1,61 +1,89 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] net: change fib behavior based on interface link
- status
-Date: Wed, 03 Jun 2015 22:36:16 +0200
-Message-ID: <1433363776.726957.286148073.0C5909FA@webmail.messagingengine.com>
-References: <1433300839-18511-1-git-send-email-gospo@cumulusnetworks.com>
- <CAE4R7bD6eZGR2k-CMUhCrYhpH7sgCHCaAZ=7u1ot1j4TQGPVgA@mail.gmail.com>
- <20150603182718.GK588@gospo.home.greyhouse.net>
- <1433361846.719897.286115305.0CA7D2AA@webmail.messagingengine.com>
- <20150603203406.GN588@gospo.home.greyhouse.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC 7/9] net: dsa: mv88e6352: lock CPU port from learning
+ addresses
+Date: Wed, 3 Jun 2015 22:51:12 +0200
+Message-ID: <20150603205112.GD22878@lunn.ch>
+References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1433208470-25338-8-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <556DBCA4.10203@roeck-us.net>
+ <1317462817.952931.1433293575321.JavaMail.zimbra@savoirfairelinux.com>
+ <20150603022451.GB932@roeck-us.net>
+ <CAFXsbZo7DAhbUErMfKas_KUtXMHTURgOxwz-GSr=fuAHLWToEQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, ddutt@cumulusnetworks.com
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Guenter Roeck <linux@roeck-us.net>, netdev@vger.kernel.org,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	David <davem@davemloft.net>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	=?iso-8859-1?Q?J=E9rome?= Oufella
+	<jerome.oufella@savoirfairelinux.com>,
+	kernel <kernel@savoirfairelinux.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>
+To: Chris Healy <cphealy@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:46667 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754935AbbFCUgR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 16:36:17 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 149F521CDA
-	for <netdev@vger.kernel.org>; Wed,  3 Jun 2015 16:36:16 -0400 (EDT)
-In-Reply-To: <20150603203406.GN588@gospo.home.greyhouse.net>
+Received: from vps0.lunn.ch ([178.209.37.122]:50822 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755202AbbFCU4o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jun 2015 16:56:44 -0400
+Content-Disposition: inline
+In-Reply-To: <CAFXsbZo7DAhbUErMfKas_KUtXMHTURgOxwz-GSr=fuAHLWToEQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 3, 2015, at 22:34, Andy Gospodarek wrote:
-> On Wed, Jun 03, 2015 at 10:04:06PM +0200, Hannes Frederic Sowa wrote:
-> > On Wed, Jun 3, 2015, at 20:27, Andy Gospodarek wrote:
-> > > On Wed, Jun 03, 2015 at 11:15:55AM -0700, Scott Feldman wrote:
-> > > > On Tue, Jun 2, 2015 at 8:07 PM, Andy Gospodarek
-> > > > <gospo@cumulusnetworks.com> wrote:
-> > > > > This feature is only enabled with the new sysctl set (default is off):
-> > > > > net.core.kill_routes_on_linkdown = 1
-> > > > 
-> > > > One more thing, sorry.  This feature is typically implemented today in
-> > > > user-space on a per-interface basis.  The example I'm thinking of is
-> > > > Quagga's "link-detect" directive which goes on an interface.  Should
-> > > > this be a bool on each interface in systcl?  That would let user not
-> > > > enable on selected interfaces.
-> > > That would not be my preference.
-> > > 
-> > > I'm willing to investigate the per-namespace support if Hannes would
-> > > like and add switchdev support for v2, but would prefer this not become
-> > > that granular.
-> > 
-> > Actually, this idea also came to my mind: flagging specific routes if
-> > they are eligible to suppress if the link is down.
-> I'll have to think about how this would integrate with the alternative
-> design suggestion earlier in the thread from Alex.
+On Tue, Jun 02, 2015 at 07:31:56PM -0700, Chris Healy wrote:
+> Guenter,
 > 
-> Even if I do not implement this right away it might be nice to add the
-> ability to mark routes as permanent if the user desired.
+> That's a very valid concern.  I have a configuration with a 6352 controlled
+> by a low end ARM core with a 100mbps connection on the CPU port.  This
+> switch needs to support passing multicast streams that are more than
+> 100mbps on GigE links.  (The ARM does not need to consume the multicast, it
+> just manages the switch.)
 
-If you do a per-route flag you would need a newer iproute binary in any
-case, so you could apply Alex feedback more easily. :}
+Hi Chris
 
-Bye,
-Hannes
+Thinking out load here...
+
+There are two use cases:
+
+1) Without bridging. The switch ports are seen as host interfaces.
+   Host interfaces are expected to accept packets for there own MAC
+   address and the broadcast address. Additional multicast addresses
+   can be added and the ndo_set_rx_mode() method of the driver is
+   called to get to hardware to accept these MAC addresses. DSA has an
+   implementation of ndo_set_rx_mode(), but all it does is ask the
+   kernel to do the filtering. We need to extend it to program the
+   hardware to only pass frames which match the addresses on the
+   lists.  This should be just adding some static forwarding
+   entries. Then, so long as an application on the host does not join
+   any of the multicast groups, the frames should never be passed to
+   the host.
+
+2) With bridging, things are a bit different. Interfaces in a bridge
+   are expected to be in promiscuous mode, receiving everything and
+   passing it to the bridge. With the hardware bridging support
+   Guenter added, we can off load unicast forwarding to the hardware.
+   However, we currently don't have full support for off-loading of
+   multicast. This falls into at a few different pieces:
+
+   a) Get the hardware to do a dumb flood to all ports in the bridge
+      group. However, the host is a member of the bridge, so it will
+      still get a copy of all the packets. It has to, there could be
+      members of the multicast groups on interfaces not accelerated by
+      the hardware.
+
+   b) Add limited IGMP snooping, so that the host bridge knows if it
+      needs to see multicast frames for a specific MAC address from
+      DSA interfaces or not, and program this into the hardware to
+      reduce the load on the host.
+
+   c) Add full IGMP snooping, so that the hardware no longer performs
+      dumb flooding, but only forwards out ports where there has been
+      an interest in the frames.
+
+   Until we get at least b) implemented, i would expect all multicast
+   packets to hit the host. In order to be correct in the general
+   case, they have to.
+
+   Andrew
