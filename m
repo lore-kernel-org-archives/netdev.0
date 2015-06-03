@@ -1,116 +1,65 @@
-From: Mark D Rustad <mark.d.rustad@intel.com>
-Subject: [PATCH V2 1/2] pci: Add dev_flags bit to access VPD through
- function 0
-Date: Tue, 02 Jun 2015 17:10:11 -0700
-Message-ID: <20150603001011.71269.79857.stgit@mdrustad-wks.jf.intel.com>
-References: <20150603000645.71269.26134.stgit@mdrustad-wks.jf.intel.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: How do I avoid recvmsg races with IP_RECVERR?
+Date: Wed, 03 Jun 2015 02:33:11 +0200
+Message-ID: <1433291591.3300318.285256449.713A7E1E@webmail.messagingengine.com>
+References: <CALCETrW-jkMrEjidwCTraeAaHCHA_+9eExQAz2phvn=OB8RMhQ@mail.gmail.com>
+ <1433279822.2479038.285136017.7DD69CC6@webmail.messagingengine.com>
+ <CALCETrXHLZKVuhSRdi1NvqjFbRf0-PKTt1PYPN6Dw=sXeRA4iw@mail.gmail.com>
+ <1433281373.2485127.285160441.6F17A081@webmail.messagingengine.com>
+ <1433281844.2487226.285170105.063B7084@webmail.messagingengine.com>
+ <CALCETrU3EXkxANKQYHYpB-cELeOGKAwB-8wTxX+xJ0Ms+kx4Bg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-pci@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org
-To: bhelgaas@google.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20150603000645.71269.26134.stgit@mdrustad-wks.jf.intel.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Andy Lutomirski <luto@kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:42206 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751481AbbFCAdM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 20:33:12 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id 6637720379
+	for <netdev@vger.kernel.org>; Tue,  2 Jun 2015 20:33:12 -0400 (EDT)
+In-Reply-To: <CALCETrU3EXkxANKQYHYpB-cELeOGKAwB-8wTxX+xJ0Ms+kx4Bg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a dev_flags bit, PCI_DEV_FLAGS_VPD_REF_F0, to access VPD through
-function 0 to provide VPD access on other functions. This solves
-concurrent access problems on many devices without changing the
-attributes exposed in sysfs. Never set this bit on function 0 or
-there will be an infinite recursion.
+On Wed, Jun 3, 2015, at 02:03, Andy Lutomirski wrote:
+> On Tue, Jun 2, 2015 at 2:50 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> >> My proposal would be to make the error conversion lazy:
+> >>
+> >> Keeping duplicate data is not a good idea in general: So we shouldn't
+> >> use sk->sk_err if IP_RECVERR is set at all but let sock_error just use
+> >> the sk_error_queue and extract the error code from there.
+> >>
+> >> Only if IP_RECVERR was not set, we use sk->sk_err logic.
+> >>
+> >> What do you think?
+> >
+> > I just noticed that this will probably break existing user space
+> > applications which require that icmp errors are transient even with
+> > IP_RECVERR. We can mark that with a bit in the sk_error_queue pointer
+> > and xchg the pointer, hmmm....
+> 
+> Do you mean to fix the race like this but to otherwise leave the
+> semantics
+> alone?  That would be an improvement, but it might be nice to also add
+> a non-crappy API for this, too.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
----
-Changes in V2:
-- Corrected spelling in log message
-- Added checks to see that the referenced function 0 is reasonable
----
- drivers/pci/access.c |   48 +++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 47 insertions(+), 1 deletion(-)
+Yes, keep current semantics but fix the race you reported.
 
-diff --git a/drivers/pci/access.c b/drivers/pci/access.c
-index d9b64a175990..74634d4868a2 100644
---- a/drivers/pci/access.c
-+++ b/drivers/pci/access.c
-@@ -439,6 +439,40 @@ static const struct pci_vpd_ops pci_vpd_pci22_ops = {
- 	.release = pci_vpd_pci22_release,
- };
- 
-+static ssize_t pci_vpd_f0_read(struct pci_dev *dev, loff_t pos, size_t count,
-+			       void *arg)
-+{
-+	struct pci_dev *tdev = pci_get_slot(dev->bus, PCI_SLOT(dev->devfn));
-+	ssize_t ret;
-+
-+	if (!tdev)
-+		return -ENODEV;
-+
-+	ret = pci_read_vpd(tdev, pos, count, arg);
-+	pci_dev_put(tdev);
-+	return ret;
-+}
-+
-+static ssize_t pci_vpd_f0_write(struct pci_dev *dev, loff_t pos, size_t count,
-+				const void *arg)
-+{
-+	struct pci_dev *tdev = pci_get_slot(dev->bus, PCI_SLOT(dev->devfn));
-+	ssize_t ret;
-+
-+	if (!tdev)
-+		return -ENODEV;
-+
-+	ret = pci_write_vpd(tdev, pos, count, arg);
-+	pci_dev_put(tdev);
-+	return ret;
-+}
-+
-+static const struct pci_vpd_ops pci_vpd_f0_ops = {
-+	.read = pci_vpd_f0_read,
-+	.write = pci_vpd_f0_write,
-+	.release = pci_vpd_pci22_release,
-+};
-+
- int pci_vpd_pci22_init(struct pci_dev *dev)
- {
- 	struct pci_vpd_pci22 *vpd;
-@@ -447,12 +481,24 @@ int pci_vpd_pci22_init(struct pci_dev *dev)
- 	cap = pci_find_capability(dev, PCI_CAP_ID_VPD);
- 	if (!cap)
- 		return -ENODEV;
-+	if (dev->dev_flags & PCI_DEV_FLAGS_VPD_REF_F0) {
-+		struct pci_dev *tdev;
-+
-+		tdev = pci_get_slot(dev->bus, PCI_SLOT(dev->devfn));
-+		if (!tdev || !dev->multifunction || !tdev->multifunction ||
-+		    dev->class != tdev->class || dev->vendor != tdev->vendor ||
-+		    dev->device != tdev->device)
-+			return -ENODEV;
-+	}
- 	vpd = kzalloc(sizeof(*vpd), GFP_ATOMIC);
- 	if (!vpd)
- 		return -ENOMEM;
- 
- 	vpd->base.len = PCI_VPD_PCI22_SIZE;
--	vpd->base.ops = &pci_vpd_pci22_ops;
-+	if (dev->dev_flags & PCI_DEV_FLAGS_VPD_REF_F0)
-+		vpd->base.ops = &pci_vpd_f0_ops;
-+	else
-+		vpd->base.ops = &pci_vpd_pci22_ops;
- 	mutex_init(&vpd->lock);
- 	vpd->cap = cap;
- 	vpd->busy = false;
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 353db8dc4c6e..194df6d635e6 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -180,6 +180,8 @@ enum pci_dev_flags {
- 	PCI_DEV_FLAGS_NO_BUS_RESET = (__force pci_dev_flags_t) (1 << 6),
- 	/* Do not use PM reset even if device advertises NoSoftRst- */
- 	PCI_DEV_FLAGS_NO_PM_RESET = (__force pci_dev_flags_t) (1 << 7),
-+	/* Get VPD from function 0 VPD */
-+	PCI_DEV_FLAGS_VPD_REF_F0 = (__force pci_dev_flags_t) (1 << 8),
- };
- 
- enum pci_irq_reroute_variant {
+I currently don't have good proposals for a decent API to handle this
+besides adding some ancillary cmsg data to msg_control. This still would
+not solve the problem fundamentally, as a -EFAULT/-EINVAL return value
+could also mean that msg_control should not be touched, thus we end up
+again relying on errno checking. :/ Thus checking error queue after
+receiving an error indications is my best hunch so far.
+
+Your proposal with MSG_IGNORE_ERROR seems reasonable so far for ping or
+udp, but I haven't fully grasped the TCP semantics of sk->sk_err, yet.
+
+Bye,
+Hannes
