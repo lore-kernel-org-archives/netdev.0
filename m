@@ -1,41 +1,138 @@
 From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next] net: change fib behavior based on interface link status
-Date: Tue, 2 Jun 2015 22:03:23 -0700
-Message-ID: <CAE4R7bDHsoaN6spkOW5jk94wB3wkUBd-j+y3H47611CxZUT6ag@mail.gmail.com>
-References: <1433300839-18511-1-git-send-email-gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bridge: skip fdb add if the port shouldn't learn
+Date: Tue, 2 Jun 2015 22:57:52 -0700
+Message-ID: <CAE4R7bAU=ecvBrsK2J6DQQdL0OqgX_LUCQLp8cnBP4bk4HduQg@mail.gmail.com>
+References: <1432204977-4293-1-git-send-email-nikolay@cumulusnetworks.com>
+ <20150526102809.5c3e8abc@urahara> <CABQ03vEQhdXgWk5r103Yd0CPxEWuU3i0m8ztQjtgR0NFDbEXRQ@mail.gmail.com>
+ <CAE4R7bBEn8Tvct_W0n7nR5YccEmTRByUc=-4nmvuQNqfrBFABg@mail.gmail.com>
+ <CABQ03vEbgtHLyFmRs7ffpXGkTmjX9G=RbAhWwDrj-5rKysys5g@mail.gmail.com>
+ <CAE4R7bDtY1jDcLnvEMx-y4U=SVvf867SPZc3vRjfrUYBA8W=0g@mail.gmail.com> <556DE481.5030201@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, ddutt@cumulusnetworks.com
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Wilson Kok <wkok@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
+To: roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f171.google.com ([209.85.216.171]:35262 "EHLO
-	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750736AbbFCFDo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 01:03:44 -0400
-Received: by qczw4 with SMTP id w4so44296836qcz.2
-        for <netdev@vger.kernel.org>; Tue, 02 Jun 2015 22:03:43 -0700 (PDT)
-In-Reply-To: <1433300839-18511-1-git-send-email-gospo@cumulusnetworks.com>
+Received: from mail-qc0-f179.google.com ([209.85.216.179]:34335 "EHLO
+	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751768AbbFCF6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 01:58:13 -0400
+Received: by qcej9 with SMTP id j9so26066488qce.1
+        for <netdev@vger.kernel.org>; Tue, 02 Jun 2015 22:58:12 -0700 (PDT)
+In-Reply-To: <556DE481.5030201@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 2, 2015 at 8:07 PM, Andy Gospodarek
-<gospo@cumulusnetworks.com> wrote:
-> This patch adds the ability to have the Linux kernel track whether or
-> not a particular route should be used based on the link-status of the
-> interface associated with the next-hop.
+On Tue, Jun 2, 2015 at 10:14 AM, roopa <roopa@cumulusnetworks.com> wrote:
+> On 5/27/15, 9:01 AM, Scott Feldman wrote:
+>>
+>> On Wed, May 27, 2015 at 1:35 AM, Nikolay Aleksandrov
+>> <nikolay@cumulusnetworks.com> wrote:
+>>>
+>>> On Wed, May 27, 2015 at 9:59 AM, Scott Feldman <sfeldma@gmail.com> wrote:
+>>>>
+>>>> On Wed, May 27, 2015 at 12:05 AM, Nikolay Aleksandrov
+>>>> <nikolay@cumulusnetworks.com> wrote:
+>>>>>
+>>>>> On Tue, May 26, 2015 at 7:28 PM, Stephen Hemminger
+>>>>> <stephen@networkplumber.org> wrote:
+>>>>>>
+>>>>>> On Thu, 21 May 2015 03:42:57 -0700
+>>>>>> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+>>>>>>
+>>>>>>> From: Wilson Kok <wkok@cumulusnetworks.com>
+>>>>>>>
+>>>>>>> Check in fdb_add_entry() if the source port should learn, similar
+>>>>>>> check is used in br_fdb_update.
+>>>>>>> Note that new fdb entries which are added manually or
+>>>>>>> as local ones are still permitted.
+>>>>>>> This patch has been tested by running traffic via a bridge port and
+>>>>>>> switching the port's state, also by manually adding/removing entries
+>>>>>>> from the bridge's fdb.
+>>>>>>>
+>>>>>>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+>>>>>>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>>>>>
+>>>>>> What is the problem this is trying to solve?
+>>>>>>
+>>>>>> I think user should be allowed to manually add any entry
+>>>>>> even if learning.
+>>>>>
+>>>>> Hi Stephen,
+>>>>> I have been thinking about the use case and have discussed it
+>>>>> internally with colleagues and the patch
+>>>>> author, the main problem is when there's an external software that
+>>>>> adds dynamic entries (learning) and
+>>>>> it could experience a race condition, here's a possible situation:
+>>>>> * external software learns a mac from hw, sends an add to kernel
+>>>>>   * right before that, port goes blocking (or down) and kernel flushes
+>>>>>     mac, sends notification about the state change and mac flush
+>>>>>   * right after that, kernel gets the previous add from external
+>>>>> software, it's
+>>>>>     allowed to add, and then sends an add notification
+>>>>>   * mean while, external software processes the link block/down and mac
+>>>>> flush,
+>>>>>     followed by the mac add from kernel.  At this point, external
+>>>>> software can't
+>>>>>     really know whether it's a user adding the mac intentionally or
+>>>>> it's
+>>>>>     a race.
+>>>>>
+>>>>> This issue can't really be avoided in user-space.
+>>>>> As I've noted local and static entries are still allowed, and iproute2
+>>>>> bridge utility always
+>>>>> marks the entries as static (NUD_NOARP), this only affects external
+>>>>> dynamic entries which
+>>>>> are usually sent by something that does the learning externally.
+>>>>> I'll keep digging to see if there's another way to go about this since
+>>>>> I'd like to give the user
+>>>>> full freedom. Personally I don't have strong feeling for this patch
+>>>>> and if it's not preferred then
+>>>>> I'll post a revert.
+>>>>
+>>>> So there is already a switchdev API to add/del an externally learned
+>>>> FDB entry which holds rtnl_lock and avoids these races.  I would
+>>>> suggest using that and revert this patch.
+>>>>
+>>>> See call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL) and
+>>>> the handler in br.c:br_switchdev_event().
+>>>>
+>>>> -scott
+>>>
+>>> Hmm, I'm new to the switchdev API and am possibly missing something,
+>>> but how do you suggest to use it here ?
+>>
+>> You need to call
+>> call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL) when the
+>> device learns a new mac/vlan on the port interface.
+>>
+>>> How can we differentiate between user-added entry and an externally
+>>> learned one ?
+>>
+>> Externally added ones will be marked with NTF_EXT_LEARNED set in
+>> ndm->ndm_flags in the netlink echo.  Manually added ones from the user
+>> will have ndm->ndm_state set to NUD_NOARP in the netlink echo.
+>>
+>>> Do you mean to use (for example) the NTF_EXT_LEARNED flag when adding
+>>> an entry from user-space so
+>>> the API can get called in br_fdb_add ?
+>>
+>> No.  br_fdb_add is the bridge's .ndo_fdb_add handler called when user
+>> manually adds an FDB entry using netlink RTM_NEWNEIGH.  For externally
+>> learned entries, use the internal
+>> call_switchdev_notifiers(SWITCHDEV_FDB_ADD|SWITCHDEV_FDB_DEL).
 >
-> Before this patch any link-failure on an interface that was serving as a
-> gateway for some systems could result in those systems being isolated
-> from the rest of the network as the stack would continue to attempt to
-> send frames out of an interface that is actually linked-down.  When the
-> kernel is responsible for all forwarding, it should also be responsible
-> for taking action when the traffic can no longer be forwarded -- there
-> is no real need to outsource link-monitoring to userspace anymore.
+>
+> scott, I am assuming you are ok with an external learning entity (user space
+> driver or a controller) pushing entries
+> with the NTF_EXT_LEARNED correct ?. Because NTF_EXT_LEARNED is in uapi (and
+> analogous to RTNH_F_OFFLOAD in the fib offload world IMO)
 
-Hi Andy, how does this work for the hardware offload case?  I'm not
-seeing how hardware gets updated when the software route is updated.
-Seems hardware isn't updated and would send frames out the downed nh
-interface.
-
--scott
+That seems OK.  I can see how that would remove the need for this
+patch, but still give you the control from user space daemon/listener
+to figure out what happened.
