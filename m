@@ -1,72 +1,31 @@
 From: Scott Feldman <sfeldma@gmail.com>
 Subject: Re: [PATCH net-next] net: change fib behavior based on interface link status
-Date: Wed, 3 Jun 2015 11:12:11 -0700
-Message-ID: <CAE4R7bDuCF3-_7QjdBX+KKwagjUfa_RZiebhqz+MbhrSvbYVjQ@mail.gmail.com>
+Date: Wed, 3 Jun 2015 11:15:55 -0700
+Message-ID: <CAE4R7bD6eZGR2k-CMUhCrYhpH7sgCHCaAZ=7u1ot1j4TQGPVgA@mail.gmail.com>
 References: <1433300839-18511-1-git-send-email-gospo@cumulusnetworks.com>
- <CAE4R7bDHsoaN6spkOW5jk94wB3wkUBd-j+y3H47611CxZUT6ag@mail.gmail.com>
- <20150603151207.GG588@gospo.home.greyhouse.net> <CAE4R7bC=t4fTO8tM85REWu-237VGE2wdR3mcKnasbBybnMBmVQ@mail.gmail.com>
- <20150603175725.GI588@gospo.home.greyhouse.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>, ddutt@cumulusnetworks.com
 To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f175.google.com ([209.85.216.175]:34268 "EHLO
-	mail-qc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756438AbbFCSMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 14:12:32 -0400
-Received: by qcej9 with SMTP id j9so7726239qce.1
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 11:12:31 -0700 (PDT)
-In-Reply-To: <20150603175725.GI588@gospo.home.greyhouse.net>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:33545 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933435AbbFCSQR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 14:16:17 -0400
+Received: by qgfa63 with SMTP id a63so7496884qgf.0
+        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 11:16:16 -0700 (PDT)
+In-Reply-To: <1433300839-18511-1-git-send-email-gospo@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 3, 2015 at 10:57 AM, Andy Gospodarek
+On Tue, Jun 2, 2015 at 8:07 PM, Andy Gospodarek
 <gospo@cumulusnetworks.com> wrote:
-> On Wed, Jun 03, 2015 at 10:40:26AM -0700, Scott Feldman wrote:
->> On Wed, Jun 3, 2015 at 8:12 AM, Andy Gospodarek
->> <gospo@cumulusnetworks.com> wrote:
->> > On Tue, Jun 02, 2015 at 10:03:23PM -0700, Scott Feldman wrote:
->> >> On Tue, Jun 2, 2015 at 8:07 PM, Andy Gospodarek
->> >> <gospo@cumulusnetworks.com> wrote:
->> >> > This patch adds the ability to have the Linux kernel track whether or
->> >> > not a particular route should be used based on the link-status of the
->> >> > interface associated with the next-hop.
->> >> >
->> >> > Before this patch any link-failure on an interface that was serving as a
->> >> > gateway for some systems could result in those systems being isolated
->> >> > from the rest of the network as the stack would continue to attempt to
->> >> > send frames out of an interface that is actually linked-down.  When the
->> >> > kernel is responsible for all forwarding, it should also be responsible
->> >> > for taking action when the traffic can no longer be forwarded -- there
->> >> > is no real need to outsource link-monitoring to userspace anymore.
->> >>
->> >> Hi Andy, how does this work for the hardware offload case?  I'm not
->> >> seeing how hardware gets updated when the software route is updated.
->> >> Seems hardware isn't updated and would send frames out the downed nh
->> >> interface.
->> >
->> > Scott, you are correct that this does not currently address the hardware
->> > offload case.  If one wanted offloaded hardware to reflect this change,
->> > then there needs to be either:
->> >
->> > - The ability to communicate the flag changes down to offload devices in
->> >   the event that they want some action to take place
->> >   switchdev_fib_ipv4_modify(), maybe? (Not to derail this convo too much
->> >   but it will soon be time to consider what to do at the switchdev layer
->> >   when route flags are modified like when the RTNH_F_OFFLOAD flag is
->> >   removed by the user if they feel the route does not need to be
->> >   offloaded for any reason.)
->>
->> Switchdev_fib_ipv4_add() can handle adds and mods, so you can use
->> that.  Any place you're sending notification of route change, hook
->> switchdev so the offload device is updated with the route change.
-> I should know better than to ask this, but does just the rocker
-> implementation presume this operation is an add and modify or was this
-> the implementation from the beginning.  (Forgive me for not remembering
-> earlier discussion on this.)
+> This feature is only enabled with the new sysctl set (default is off):
+> net.core.kill_routes_on_linkdown = 1
 
-The intent was add/mod, but looks like I need to update some
-documentation; I'll do that.  See fib_trie.c:fib_table_insert case for
-NLM_F_REPLACE...that's a mod case.
+One more thing, sorry.  This feature is typically implemented today in
+user-space on a per-interface basis.  The example I'm thinking of is
+Quagga's "link-detect" directive which goes on an interface.  Should
+this be a bool on each interface in systcl?  That would let user not
+enable on selected interfaces.
