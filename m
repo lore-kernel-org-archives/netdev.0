@@ -1,92 +1,82 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [RFC 8/9] net: dsa: mv88e6352: set port 802.1Q mode to Secure
-Date: Tue, 2 Jun 2015 19:45:12 -0400 (EDT)
-Message-ID: <866754493.893733.1433288712367.JavaMail.zimbra@savoirfairelinux.com>
-References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-9-git-send-email-vivien.didelot@savoirfairelinux.com> <556DBE5D.9000003@roeck-us.net>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: How do I avoid recvmsg races with IP_RECVERR?
+Date: Tue, 2 Jun 2015 17:03:40 -0700
+Message-ID: <CALCETrU3EXkxANKQYHYpB-cELeOGKAwB-8wTxX+xJ0Ms+kx4Bg@mail.gmail.com>
+References: <CALCETrW-jkMrEjidwCTraeAaHCHA_+9eExQAz2phvn=OB8RMhQ@mail.gmail.com>
+ <1433279822.2479038.285136017.7DD69CC6@webmail.messagingengine.com>
+ <CALCETrXHLZKVuhSRdi1NvqjFbRf0-PKTt1PYPN6Dw=sXeRA4iw@mail.gmail.com>
+ <1433281373.2485127.285160441.6F17A081@webmail.messagingengine.com> <1433281844.2487226.285170105.063B7084@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	=?utf-8?Q?J=C3=A9rome?= Oufella
-	<jerome.oufella@savoirfairelinux.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>,
-	Chris Healy <cphealy@gmail.com>
-To: Guenter Roeck <linux@roeck-us.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Lutomirski <luto@kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:52882 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751564AbbFBXpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 19:45:15 -0400
-In-Reply-To: <556DBE5D.9000003@roeck-us.net>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:33480 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750704AbbFCAED (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2015 20:04:03 -0400
+Received: by lbcue7 with SMTP id ue7so114673240lbc.0
+        for <netdev@vger.kernel.org>; Tue, 02 Jun 2015 17:04:01 -0700 (PDT)
+In-Reply-To: <1433281844.2487226.285170105.063B7084@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Guenter,
-
-On Jun 2, 2015, at 10:31 AM, Guenter Roeck linux@roeck-us.net wrote:
-On 06/01/2015 06:27 PM, Vivien Didelot wrote:
->> This commit changes the 802.1Q mode of each port from Disabled to
->> Secure. This enables the VLAN support, by checking the VTU entries on
->> ingress.
+On Tue, Jun 2, 2015 at 2:50 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Tue, Jun 2, 2015, at 23:42, Hannes Frederic Sowa wrote:
+>> On Tue, Jun 2, 2015, at 23:33, Andy Lutomirski wrote:
+>> > On Tue, Jun 2, 2015 at 2:17 PM, Hannes Frederic Sowa
+>> > <hannes@stressinduktion.org> wrote:
+>> > > On Tue, Jun 2, 2015, at 21:40, Andy Lutomirski wrote:
+>> >
+>> > [...]
+>> >
+>> > I do this already, which makes me think that there's a bug or another
+>> > race somewhere.  I've only seen a failure once in several years of
+>> > operation.
+>> >
+>> > The failure happened on a ping socket.  I suspect that the race is:
+>> >
+>> > ping_err: ip_icmp_error(...);
+>> >
+>> > user: recvmsg(MSG_ERRQUEUE) and dequeues the error.
+>> >
+>> > ping_err: sk_err = err;
+>> >
+>> > user: recvmsg(MSG_ERRQUEUE not set), and recvmsg sees and clears the
+>> > error via sock_error.
+>> >
+>> > user: recvmsg(MSG_ERRQUEUE), and recvmsg returns -EAGAIN.
+>> >
+>> > Now the user code thinks that it was a real (non-transient) error and
+>> > aborts.
+>> >
+>> > Shouldn't that sk->sk_err = err assignment at least use WRITE_ONCE?
 >>
->> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->> ---
->>   drivers/net/dsa/mv88e6xxx.c | 14 +++++++-------
->>   drivers/net/dsa/mv88e6xxx.h |  5 +++++
->>   2 files changed, 12 insertions(+), 7 deletions(-)
+>> Hmm, I don't think this will help.
 >>
->> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
->> index ed49bd8..35243d8 100644
->> --- a/drivers/net/dsa/mv88e6xxx.c
->> +++ b/drivers/net/dsa/mv88e6xxx.c
->> @@ -1723,13 +1723,11 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds,
->> int port)
->>              goto abort;
->>      }
+>> > Even if this race were fixed, this interface still sucks IMO.
 >>
->> -    /* Port Control 2: don't force a good FCS, set the maximum
->> -     * frame size to 10240 bytes, don't let the switch add or
->> -     * strip 802.1q tags, don't discard tagged or untagged frames
->> -     * on this port, do a destination address lookup on all
->> -     * received packets as usual, disable ARP mirroring and don't
->> -     * send a copy of all transmitted/received frames on this port
->> -     * to the CPU.
->> +    /* Port Control 2: don't force a good FCS, set the maximum frame size to
->> +     * 10240 bytes, enable secure 802.1q tags, don't discard tagged or
->> +     * untagged frames on this port, do a destination address lookup on all
->> +     * received packets as usual, disable ARP mirroring and don't send a
->> +     * copy of all transmitted/received frames on this port to the CPU.
->>       */
->>      reg = 0;
->>      if (mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds) ||
->> @@ -1751,6 +1749,8 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int
->> port)
->>              reg |= PORT_CONTROL_2_FORWARD_UNKNOWN;
->>      }
+>> Yes. :/
 >>
->> +    reg |= PORT_CONTROL_2_8021Q_SECURE;
->> +
-> 
-> Hi Vivien,
-> 
-> Unless I misunderstand the documentation, this effectively disables VLAN
-> support on non-bridge ports, especially since the ndo_ functions to add VLAN
-> entries to such ports are not implemented. Is that intentional, or am I
-> missing something ?
+>> My proposal would be to make the error conversion lazy:
+>>
+>> Keeping duplicate data is not a good idea in general: So we shouldn't
+>> use sk->sk_err if IP_RECVERR is set at all but let sock_error just use
+>> the sk_error_queue and extract the error code from there.
+>>
+>> Only if IP_RECVERR was not set, we use sk->sk_err logic.
+>>
+>> What do you think?
+>
+> I just noticed that this will probably break existing user space
+> applications which require that icmp errors are transient even with
+> IP_RECVERR. We can mark that with a bit in the sk_error_queue pointer
+> and xchg the pointer, hmmm....
 
-Indeed, I intentionaly set the port mode to Secure to work on 802.1q.
-For both cases, the Fallback mode should be enough; this mode checks the
-VTU for a valid entry, otherwise checks the port-based VLAN map.
+Do you mean to fix the race like this but to otherwise leave the semantics
+alone?  That would be an improvement, but it might be nice to also add
+a non-crappy API for this, too.
 
-Supporting port-based VLAN looks like another tricky thread.
-
-Ideally, this must be configurable. In my case I do need strict 802.1q.
-Can ethtool/iproute2 can do something about the port 802.1q mode?
-
-Thanks,
--v
+--Andy
