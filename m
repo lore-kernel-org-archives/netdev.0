@@ -1,196 +1,188 @@
 From: mleitner@redhat.com
-Subject: [PATCH v2 1/2] sctp: rcu-ify addr_waitq
-Date: Wed,  3 Jun 2015 13:54:01 -0300
-Message-ID: <660872d4d795833eca5f7e517c7e1dabbc1df02b.1433350421.git.marcelo.leitner@gmail.com>
+Subject: [PATCH v2 2/2] sctp: fix ASCONF list handling
+Date: Wed,  3 Jun 2015 13:54:02 -0300
+Message-ID: <c58185fad1dd50efe3f7ce3f8762d7a05d594bd7.1433350421.git.marcelo.leitner@gmail.com>
 References: <20150602134851.GA15847@hmsreliant.think-freely.org>
 Cc: linux-sctp@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
 	Vlad Yasevich <vyasevich@gmail.com>,
 	Michio Honda <micchie@sfc.wide.ad.jp>
 To: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32921 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60988 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756848AbbFCQy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jun 2015 12:54:29 -0400
+	id S932559AbbFCQyb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jun 2015 12:54:31 -0400
 In-Reply-To: <20150602134851.GA15847@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-That's needed for the next patch, so we break the lock inversion between
-netns_sctp->addr_wq_lock and socket lock on
-sctp_addr_wq_timeout_handler(). With this, we can traverse addr_waitq
-without taking addr_wq_lock, taking it just for the write operations.
+->auto_asconf_splist is per namespace and mangled by functions like
+sctp_setsockopt_auto_asconf() which doesn't guarantee any serialization.
 
+Also, the call to inet_sk_copy_descendant() was backuping
+->auto_asconf_list through the copy but was not honoring
+->do_auto_asconf, which could lead to list corruption if it was
+different between both sockets.
+
+This commit thus fixes the list handling by rcu-ifying it and using
+->addr_wq_lock spinlock to protect against multiple writers.
+
+Instead of taking the lock on sctp_sock_migrate() for copying and
+restoring the list values, it's preferred to avoid rewritting it by
+implementing sctp_copy_descendant().
+
+Issue was found with a test application that kept flipping sysctl
+default_auto_asconf on and off, but one could trigger it by issuing
+simultaneous setsockopt() calls on multiple sockets or by
+creating/destroying sockets fast enough. This is only triggerable
+locally.
+
+Fixes: 9f7d653b67ae ("sctp: Add Auto-ASCONF support (core).")
+Reported-by: Ji Jianwen <jiji@redhat.com>
 Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 ---
-
-Notes:
-    v1->v2:
-     As asked by Neil, this now reuses addr_wq_lock. And for that, also
-     rcu-ifyies addr_waitq.
-
- include/net/netns/sctp.h |  2 +-
- net/sctp/protocol.c      | 81 +++++++++++++++++++++++++++++-------------------
- 2 files changed, 50 insertions(+), 33 deletions(-)
+ include/net/netns/sctp.h   |  3 ++-
+ include/net/sctp/structs.h |  4 ++++
+ net/sctp/protocol.c        |  3 ++-
+ net/sctp/socket.c          | 39 ++++++++++++++++++++++++++-------------
+ 4 files changed, 34 insertions(+), 15 deletions(-)
 
 diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
-index 3573a81815ad9e0efb6ceb721eb066d3726419f0..9e53412c4ed829e8e45777a6d95406d490dbaa75 100644
+index 9e53412c4ed829e8e45777a6d95406d490dbaa75..161de47076ebee2ffce2b777a61e673e576fd982 100644
 --- a/include/net/netns/sctp.h
 +++ b/include/net/netns/sctp.h
-@@ -28,7 +28,7 @@ struct netns_sctp {
- 	 * It is a list of sctp_sockaddr_entry.
- 	 */
+@@ -30,7 +30,8 @@ struct netns_sctp {
  	struct list_head local_addr_list;
--	struct list_head addr_waitq;
-+	struct list_head __rcu addr_waitq;
+ 	struct list_head __rcu addr_waitq;
  	struct timer_list addr_wq_timer;
- 	struct list_head auto_asconf_splist;
+-	struct list_head auto_asconf_splist;
++	struct list_head __rcu auto_asconf_splist;
++	/* Lock that protects both addr_waitq and auto_asconf_splist */
  	spinlock_t addr_wq_lock;
+ 
+ 	/* Lock that protects the local_addr_list writers */
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 2bb2fcf5b11f0387c81b860ad2d3a6607da19a7d..495c87e367b3f2e8941807f56a77d2e14469bfed 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -223,6 +223,10 @@ struct sctp_sock {
+ 	atomic_t pd_mode;
+ 	/* Receive to here while partial delivery is in effect. */
+ 	struct sk_buff_head pd_lobby;
++
++	/* These must be the last fields, as they will skipped on copies,
++	 * like on accept and peeloff operations
++	 */
+ 	struct list_head auto_asconf_list;
+ 	int do_auto_asconf;
+ };
 diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 53b7acde9aa37bf3d4029c459421564d5270f4c0..a5089883b28195f3aef69ef35b5397322a01126f 100644
+index a5089883b28195f3aef69ef35b5397322a01126f..e4b24ef9340da210de0b0076f8a42080e991527e 100644
 --- a/net/sctp/protocol.c
 +++ b/net/sctp/protocol.c
-@@ -593,15 +593,46 @@ static void sctp_v4_ecn_capable(struct sock *sk)
- 	INET_ECN_xmit(sk);
- }
- 
-+static void sctp_free_addr_wq(struct net *net)
-+{
-+	struct sctp_sockaddr_entry *addrw;
-+
-+	spin_lock_bh(&net->sctp.addr_wq_lock);
-+	del_timer(&net->sctp.addr_wq_timer);
-+	list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, list) {
-+		list_del_rcu(&addrw->list);
-+		kfree_rcu(addrw, rcu);
-+	}
-+	spin_unlock_bh(&net->sctp.addr_wq_lock);
-+}
-+
-+/* As there is no refcnt on sctp_sockaddr_entry, we must check inside
-+ * the lock if it wasn't removed from addr_waitq already, otherwise we
-+ * could double-free it.
-+ */
-+static void sctp_free_addr_wq_entry(struct net *net,
-+				    struct sctp_sockaddr_entry *addrw)
-+{
-+	struct sctp_sockaddr_entry *temp;
-+
-+	spin_lock_bh(&net->sctp.addr_wq_lock);
-+	list_for_each_entry_rcu(temp, &net->sctp.addr_waitq, list) {
-+		if (temp == addrw) {
-+			list_del_rcu(&addrw->list);
-+			kfree_rcu(addrw, rcu);
-+		}
-+	}
-+	spin_unlock_bh(&net->sctp.addr_wq_lock);
-+}
-+
- static void sctp_addr_wq_timeout_handler(unsigned long arg)
- {
- 	struct net *net = (struct net *)arg;
--	struct sctp_sockaddr_entry *addrw, *temp;
-+	struct sctp_sockaddr_entry *addrw;
- 	struct sctp_sock *sp;
- 
--	spin_lock_bh(&net->sctp.addr_wq_lock);
--
--	list_for_each_entry_safe(addrw, temp, &net->sctp.addr_waitq, list) {
-+	rcu_read_lock_bh();
-+	list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, list) {
- 		pr_debug("%s: the first ent in wq:%p is addr:%pISc for cmd:%d at "
- 			 "entry:%p\n", __func__, &net->sctp.addr_waitq, &addrw->a.sa,
- 			 addrw->state, addrw);
-@@ -627,7 +658,9 @@ static void sctp_addr_wq_timeout_handler(unsigned long arg)
- 
- 				timeo_val = jiffies;
- 				timeo_val += msecs_to_jiffies(SCTP_ADDRESS_TICK_DELAY);
-+				spin_lock_bh(&net->sctp.addr_wq_lock);
- 				mod_timer(&net->sctp.addr_wq_timer, timeo_val);
-+				spin_unlock_bh(&net->sctp.addr_wq_lock);
- 				break;
+@@ -665,7 +665,8 @@ static void sctp_addr_wq_timeout_handler(unsigned long arg)
  			}
  		}
-@@ -647,35 +680,20 @@ static void sctp_addr_wq_timeout_handler(unsigned long arg)
- #if IS_ENABLED(CONFIG_IPV6)
- free_next:
  #endif
--		list_del(&addrw->list);
--		kfree(addrw);
--	}
--	spin_unlock_bh(&net->sctp.addr_wq_lock);
--}
--
--static void sctp_free_addr_wq(struct net *net)
--{
--	struct sctp_sockaddr_entry *addrw;
--	struct sctp_sockaddr_entry *temp;
--
--	spin_lock_bh(&net->sctp.addr_wq_lock);
--	del_timer(&net->sctp.addr_wq_timer);
--	list_for_each_entry_safe(addrw, temp, &net->sctp.addr_waitq, list) {
--		list_del(&addrw->list);
--		kfree(addrw);
-+		sctp_free_addr_wq_entry(net, addrw);
+-		list_for_each_entry(sp, &net->sctp.auto_asconf_splist, auto_asconf_list) {
++		list_for_each_entry_rcu(sp, &net->sctp.auto_asconf_splist,
++					auto_asconf_list) {
+ 			struct sock *sk;
+ 
+ 			sk = sctp_opt2sk(sp);
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index f09de7fac2e6acddad8b2e046dbf626e329cb674..475f84f80e5448f1f33d213dd9c3eae08365610f 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -3580,14 +3580,16 @@ static int sctp_setsockopt_auto_asconf(struct sock *sk, char __user *optval,
+ 	if ((val && sp->do_auto_asconf) || (!val && !sp->do_auto_asconf))
+ 		return 0;
+ 
++	spin_lock_bh(&sock_net(sk)->sctp.addr_wq_lock);
+ 	if (val == 0 && sp->do_auto_asconf) {
+-		list_del(&sp->auto_asconf_list);
+ 		sp->do_auto_asconf = 0;
++		list_del_rcu(&sp->auto_asconf_list);
+ 	} else if (val && !sp->do_auto_asconf) {
+-		list_add_tail(&sp->auto_asconf_list,
+-		    &sock_net(sk)->sctp.auto_asconf_splist);
+ 		sp->do_auto_asconf = 1;
++		list_add_tail_rcu(&sp->auto_asconf_list,
++				  &sock_net(sk)->sctp.auto_asconf_splist);
  	}
--	spin_unlock_bh(&net->sctp.addr_wq_lock);
-+	rcu_read_unlock_bh();
++	spin_unlock_bh(&sock_net(sk)->sctp.addr_wq_lock);
+ 	return 0;
  }
  
- /* lookup the entry for the same address in the addr_waitq
-- * sctp_addr_wq MUST be locked
-+ * rcu read MUST be locked
-  */
- static struct sctp_sockaddr_entry *sctp_addr_wq_lookup(struct net *net,
- 					struct sctp_sockaddr_entry *addr)
- {
- 	struct sctp_sockaddr_entry *addrw;
- 
--	list_for_each_entry(addrw, &net->sctp.addr_waitq, list) {
-+	list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, list) {
- 		if (addrw->a.sa.sa_family != addr->a.sa.sa_family)
- 			continue;
- 		if (addrw->a.sa.sa_family == AF_INET) {
-@@ -702,7 +720,7 @@ void sctp_addr_wq_mgmt(struct net *net, struct sctp_sockaddr_entry *addr, int cm
- 	 * new address after a couple of addition and deletion of that address
- 	 */
- 
--	spin_lock_bh(&net->sctp.addr_wq_lock);
-+	rcu_read_lock_bh();
- 	/* Offsets existing events in addr_wq */
- 	addrw = sctp_addr_wq_lookup(net, addr);
- 	if (addrw) {
-@@ -710,22 +728,21 @@ void sctp_addr_wq_mgmt(struct net *net, struct sctp_sockaddr_entry *addr, int cm
- 			pr_debug("%s: offsets existing entry for %d, addr:%pISc "
- 				 "in wq:%p\n", __func__, addrw->state, &addrw->a.sa,
- 				 &net->sctp.addr_waitq);
--
--			list_del(&addrw->list);
--			kfree(addrw);
-+			sctp_free_addr_wq_entry(net, addrw);
- 		}
--		spin_unlock_bh(&net->sctp.addr_wq_lock);
-+		rcu_read_unlock_bh();
+@@ -4122,9 +4124,11 @@ static int sctp_init_sock(struct sock *sk)
+ 	percpu_counter_inc(&sctp_sockets_allocated);
+ 	sock_prot_inuse_add(net, sk->sk_prot, 1);
+ 	if (net->sctp.default_auto_asconf) {
+-		list_add_tail(&sp->auto_asconf_list,
+-		    &net->sctp.auto_asconf_splist);
++		spin_lock_bh(&sock_net(sk)->sctp.addr_wq_lock);
+ 		sp->do_auto_asconf = 1;
++		list_add_tail_rcu(&sp->auto_asconf_list,
++				  &net->sctp.auto_asconf_splist);
++		spin_unlock_bh(&sock_net(sk)->sctp.addr_wq_lock);
+ 	} else
+ 		sp->do_auto_asconf = 0;
+ 	local_bh_enable();
+@@ -4148,8 +4152,10 @@ static void sctp_destroy_sock(struct sock *sk)
  		return;
+ 
+ 	if (sp->do_auto_asconf) {
++		spin_lock_bh(&sock_net(sk)->sctp.addr_wq_lock);
+ 		sp->do_auto_asconf = 0;
+-		list_del(&sp->auto_asconf_list);
++		list_del_rcu(&sp->auto_asconf_list);
++		spin_unlock_bh(&sock_net(sk)->sctp.addr_wq_lock);
  	}
-+	rcu_read_unlock_bh();
+ 	sctp_endpoint_free(sp->ep);
+ 	local_bh_disable();
+@@ -7195,6 +7201,19 @@ void sctp_copy_sock(struct sock *newsk, struct sock *sk,
+ 	newinet->mc_list = NULL;
+ }
  
- 	/* OK, we have to add the new address to the wait queue */
- 	addrw = kmemdup(addr, sizeof(struct sctp_sockaddr_entry), GFP_ATOMIC);
--	if (addrw == NULL) {
--		spin_unlock_bh(&net->sctp.addr_wq_lock);
-+	if (!addrw)
- 		return;
--	}
- 	addrw->state = cmd;
--	list_add_tail(&addrw->list, &net->sctp.addr_waitq);
++static inline void sctp_copy_descendant(struct sock *sk_to,
++					const struct sock *sk_from)
++{
++	int ancestor_size = sizeof(struct inet_sock) +
++			    sizeof(struct sctp_sock) -
++			    offsetof(struct sctp_sock, auto_asconf_list);
 +
-+	spin_lock_bh(&net->sctp.addr_wq_lock);
-+	list_add_tail_rcu(&addrw->list, &net->sctp.addr_waitq);
++	if (sk_from->sk_family == PF_INET6)
++		ancestor_size += sizeof(struct ipv6_pinfo);
++
++	__inet_sk_copy_descendant(sk_to, sk_from, ancestor_size);
++}
++
+ /* Populate the fields of the newsk from the oldsk and migrate the assoc
+  * and its messages to the newsk.
+  */
+@@ -7209,7 +7228,6 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
+ 	struct sk_buff *skb, *tmp;
+ 	struct sctp_ulpevent *event;
+ 	struct sctp_bind_hashbucket *head;
+-	struct list_head tmplist;
  
- 	pr_debug("%s: add new entry for cmd:%d, addr:%pISc in wq:%p\n",
- 		 __func__, addrw->state, &addrw->a.sa, &net->sctp.addr_waitq);
+ 	/* Migrate socket buffer sizes and all the socket level options to the
+ 	 * new socket.
+@@ -7217,12 +7235,7 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
+ 	newsk->sk_sndbuf = oldsk->sk_sndbuf;
+ 	newsk->sk_rcvbuf = oldsk->sk_rcvbuf;
+ 	/* Brute force copy old sctp opt. */
+-	if (oldsp->do_auto_asconf) {
+-		memcpy(&tmplist, &newsp->auto_asconf_list, sizeof(tmplist));
+-		inet_sk_copy_descendant(newsk, oldsk);
+-		memcpy(&newsp->auto_asconf_list, &tmplist, sizeof(tmplist));
+-	} else
+-		inet_sk_copy_descendant(newsk, oldsk);
++	sctp_copy_descendant(newsk, oldsk);
+ 
+ 	/* Restore the ep value that was overwritten with the above structure
+ 	 * copy.
 -- 
 2.4.1
