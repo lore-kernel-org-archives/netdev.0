@@ -1,30 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fm10k: Fix missing braces after if statement
-Date: Wed, 03 Jun 2015 23:57:51 -0700 (PDT)
-Message-ID: <20150603.235751.1703498220892447151.davem@davemloft.net>
-References: <20150604015219.2895.80478.stgit@ahduyck-vm-fedora22>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC net-next 3/6] net: Special routing hook
+Date: Thu, 04 Jun 2015 09:40:01 +0200
+Message-ID: <1433403601.1775100.286518937.543AE5E0@webmail.messagingengine.com>
+References: <1433361502-3478761-1-git-send-email-tom@herbertland.com>
+ <1433361502-3478761-4-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org
-To: alexander.h.duyck@redhat.com
+To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+	agartrell@fb.com, maheshb@google.com, tgraf@suug.ch,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44457 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751956AbbFDG5w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 02:57:52 -0400
-In-Reply-To: <20150604015219.2895.80478.stgit@ahduyck-vm-fedora22>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:55582 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752223AbbFDHkC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 03:40:02 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id CFCE420BC0
+	for <netdev@vger.kernel.org>; Thu,  4 Jun 2015 03:40:01 -0400 (EDT)
+In-Reply-To: <1433361502-3478761-4-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Date: Wed, 03 Jun 2015 18:53:17 -0700
+Hi,
 
-> While reviewing the code I noticed that one of the commits added an if
-> statement followed by a for loop, but the if statement was missing the
-> braces around the loop.  This change corrects the coding style error.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+On Wed, Jun 3, 2015, at 21:58, Tom Herbert wrote:
+> A hack to provide an ultra light weight hook to do translations.
 
-I assume that I will get this via Jeff.
+Would it be possible to use ip6_ila_input hooks in dst_entry to do those
+translations? It really seems like a hack ;)
+
+Bye,
+Hannes
