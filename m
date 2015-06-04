@@ -1,70 +1,42 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: Recurring trace from tcp_fragment()
-Date: Thu, 4 Jun 2015 13:56:29 -0700
-Message-ID: <20150604205629.GB2951343@devbig242.prn2.facebook.com>
-References: <CFCC0DCC-4080-4195-9BA9-0860D9701805@fastly.com>
- <CADVnQyngTDVYMhmQq=pjS3LrdQ+HXyizujiOkmgXxTjQ0QKH8A@mail.gmail.com>
- <5E30A40E-EC6C-4D37-AB49-04BF40EEFBFC@fastly.com>
- <CADVnQy=rwKG_ddduixcee1D4HaaSBBk=X=2Htmdow0k6Cbxhzg@mail.gmail.com>
- <904FADEB-C1EB-4384-BA47-0EB0273AFB71@fastly.com>
- <CADVnQymCSGyyOqdO2HOap+_6zsfy99-3CbgxnQTfGakRYNoteQ@mail.gmail.com>
- <55707E38.4090506@fastly.com>
- <20150604193838.GA2951343@devbig242.prn2.facebook.com>
- <5570B0B2.5080908@fastly.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: netlink: Disable insertions/removals during rehash
+Date: Thu, 04 Jun 2015 13:58:07 -0700
+Message-ID: <5570BBDF.3080309@roeck-us.net>
+References: <20150516131628.GA981@gondor.apana.org.au>	<20150516.171019.1206903516753105739.davem@davemloft.net>	<20150604162727.GA2670@roeck-us.net> <20150604.115922.1489867293287036693.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Kernel Team <kernel-team@fb.com>
-To: Grant Zhang <gzhang@fastly.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, eric.dumazet@gmail.com, tgraf@suug.ch,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:53283 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752335AbbFDU4g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 16:56:36 -0400
-Content-Disposition: inline
-In-Reply-To: <5570B0B2.5080908@fastly.com>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:37252 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752486AbbFDU6L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 16:58:11 -0400
+In-Reply-To: <20150604.115922.1489867293287036693.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 04, 2015 at 01:10:26PM -0700, Grant Zhang wrote:
-> Hi Martin,
-> 
-> Thank you! My net.ipv4.tcp_mtu_probing is 1. After turning it off,
-> the WARN_ON stack is gone.
-Thanks for confirming it.
+On 06/04/2015 11:59 AM, David Miller wrote:
+> From: Guenter Roeck <linux@roeck-us.net>
+> Date: Thu, 4 Jun 2015 09:27:27 -0700
+>
+>> sorry for bothering you - I don't see this patch in any of your trees,
+>> and it is marked as "changes requested" in patchwork. Did I look
+>> at the wrong places, do you still plan to apply the patch as-is,
+>> or do you expect some changes ?
+>>
+>> As side info, I have been trying to track down the getaddrinfo
+>> hang problem observed by others, which we see in 3.19.4 and 4.0.4.
+>
+> Changes-requested, amazingly, means that someone gave you feedback
+> and changes along with a fresh resubmission is expected of you.
+>
 
-> Could you elaborate a bit on why this setting relates to the WARN_ON
-> trace? 
-The WARN_ON is complaining about tcp_fragment() is trying to slice
-a skb which has a too-short skb->len.
+Yes, I understand. My problem is/was that your last e-mail on the subject
+suggested that you would apply the patch, while at the same time patchwork
+suggests that you expect to see changes. Sorry that I was - and still
+am - unable to correlate those two pieces of information.
 
-When doing mtu probing, it may slice the skb.  In some cases (which
-I also failed to reproduce in packetdrill), it does not
-update some related skb values and then confuse tcp_fragment()
-later on.
-
-> And what are the pros/cons for disabling mtu_probing?
-It depends on your traffic, I guess.  However, turning it off is not the
-right fix.
-
-FYI, here is the change I am trying.
-
-Thanks,
---Martin
-
-diff --git i/net/ipv4/tcp_output.c w/net/ipv4/tcp_output.c
-index acec745..e767e53 100644
---- i/net/ipv4/tcp_output.c
-+++ w/net/ipv4/tcp_output.c
-@@ -1920,6 +1920,8 @@ static int tcp_mtu_probe(struct sock *sk)
- 						   ~(TCPHDR_FIN|TCPHDR_PSH);
- 			if (!skb_shinfo(skb)->nr_frags) {
- 				skb_pull(skb, copy);
-+				if (tcp_skb_pcount(skb) > 1)
-+					tcp_set_skb_tso_segs(sk, skb, mss_now);
- 				if (skb->ip_summed != CHECKSUM_PARTIAL)
- 					skb->csum = csum_partial(skb->data,
- 								 skb->len, 0);
+Guenter
