@@ -1,134 +1,130 @@
-From: Vivek Venkatraman <vivek@cumulusnetworks.com>
-Subject: Re: [RFC net-next 3/3] mpls: new ipmpls device for encapsulating IP
- packets as mpls
-Date: Thu, 4 Jun 2015 14:38:41 -0700
-Message-ID: <CAMs_D1-jT1xNS14w9m17nJwWE8QwqvEnvoXEjwJPgxc5UgJWaw@mail.gmail.com>
-References: <1433177175-16775-1-git-send-email-rshearma@brocade.com>
-	<1433177175-16775-4-git-send-email-rshearma@brocade.com>
-	<556DD688.2020308@cumulusnetworks.com>
-	<556DDAEF.9080209@brocade.com>
-	<556DFC91.1090708@cumulusnetworks.com>
-	<556E1AD0.1010304@brocade.com>
-	<CAMs_D18-g5Ux3bQaPhX8S0+q0c6T7YBjFXUrYXQ6-s_t_YKc0w@mail.gmail.com>
-	<55709D23.2000008@brocade.com>
+From: Thomas F Herbert <thomasfherbert@gmail.com>
+Subject: Re: [PATCH net-next V10 3/4] 802.1AD: Flow handling, actions and
+ vlan parsing
+Date: Thu, 04 Jun 2015 18:00:39 -0400
+Message-ID: <5570CA87.3030909@gmail.com>
+References: <1433267444-26025-1-git-send-email-thomasfherbert@gmail.com>	<1433267444-26025-4-git-send-email-thomasfherbert@gmail.com>	<CALnjE+p8tuUFoXOFvfrp154rb80o_8XhtJ+Z8RrL1Y67kw12jw@mail.gmail.com>	<55709674.8070808@gmail.com> <CALnjE+r3C07mfEv5KsHjkVhDi0f2TYZwW+ATY=i7J=gek-YadA@mail.gmail.com>
+Reply-To: thomasfherbert@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: roopa <roopa@cumulusnetworks.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Dinesh Dutt <ddutt@cumulusnetworks.com>
-To: Robert Shearman <rshearma@brocade.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, therbert@redhat.com,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:35728 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752187AbbFDVim (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 17:38:42 -0400
-Received: by wiga1 with SMTP id a1so1773229wig.0
-        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 14:38:41 -0700 (PDT)
-In-Reply-To: <55709D23.2000008@brocade.com>
+Received: from mail-qg0-f54.google.com ([209.85.192.54]:36086 "EHLO
+	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752830AbbFDWAl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 18:00:41 -0400
+Received: by qgep100 with SMTP id p100so22361445qge.3
+        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 15:00:41 -0700 (PDT)
+In-Reply-To: <CALnjE+r3C07mfEv5KsHjkVhDi0f2TYZwW+ATY=i7J=gek-YadA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 4, 2015 at 11:46 AM, Robert Shearman <rshearma@brocade.com> wrote:
-> On 03/06/15 19:43, Vivek Venkatraman wrote:
+On 6/4/15 4:39 PM, Pravin Shelar wrote:
+> On Thu, Jun 4, 2015 at 11:18 AM, Thomas F Herbert
+> <thomasfherbert@gmail.com> wrote:
+>> On 6/4/15 1:45 PM, Pravin Shelar wrote:
+>>>
+>>> On Tue, Jun 2, 2015 at 10:50 AM, Thomas F Herbert
+>>> <thomasfherbert@gmail.com> wrote:
+>>>>
+>>>> Add support for 802.1ad including the ability to push and pop double
+>>>> tagged vlans.
+>>>>
+>>>> Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
+>>>> ---
+>>>>    net/openvswitch/flow.c | 82
+>>>> ++++++++++++++++++++++++++++++++++++++++++--------
+>>>>    net/openvswitch/flow.h |  3 ++
+>>>>    2 files changed, 73 insertions(+), 12 deletions(-)
+>>>>
+>>>> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+>>>> index 2dacc7b..9c73a2e 100644
+>>>> --- a/net/openvswitch/flow.c
+>>>> +++ b/net/openvswitch/flow.c
+>>>> @@ -298,21 +298,78 @@ static bool icmp6hdr_ok(struct sk_buff *skb)
+>>>>    static int parse_vlan(struct sk_buff *skb, struct sw_flow_key *key)
+>>>>    {
+>>>>           struct qtag_prefix {
+>>>> -               __be16 eth_type; /* ETH_P_8021Q */
+>>>> +               __be16 eth_type; /* ETH_P_8021Q  or ETH_P_8021AD */
+>>>>                   __be16 tci;
+>>>>           };
+>>>> -       struct qtag_prefix *qp;
+>>>> +       struct qtag_prefix *qp = (struct qtag_prefix *)skb->data;
+>>>>
+>>>> -       if (unlikely(skb->len < sizeof(struct qtag_prefix) +
+>>>> sizeof(__be16)))
+>>>> +       struct qinqtag_prefix {
+>>>> +               __be16 eth_type; /* ETH_P_8021Q  or ETH_P_8021AD */
+>>>> +               __be16 tci;
+>>>> +               __be16 inner_tpid; /* ETH_P_8021Q */
+>>>> +               __be16 ctci;
+>>>> +       };
+>>>> +
+>>>
+>>> ...
+>>>
+>>>>
+>>>> diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+>>>> index a076e44..fa83c61 100644
+>>>> --- a/net/openvswitch/flow.h
+>>>> +++ b/net/openvswitch/flow.h
+>>>> @@ -134,6 +134,9 @@ struct sw_flow_key {
+>>>>                   u8     src[ETH_ALEN];   /* Ethernet source address. */
+>>>>                   u8     dst[ETH_ALEN];   /* Ethernet destination address.
+>>>> */
+>>>>                   __be16 tci;             /* 0 if no VLAN,
+>>>> VLAN_TAG_PRESENT set otherwise. */
+>>>> +               __be16 ctci;            /* 0 if no CVLAN,
+>>>> VLAN_TAG_PRESENT set
+>>>> +                                        * otherwise.
+>>>> +                                        */
+>>>>                   __be16 type;            /* Ethernet frame type. */
+>>>>           } eth;
+>>>>           union {
+>>>> --
+>>>> 2.1.0
+>>>>
+>>> Currently you have restricted the datapath implementation to support
+>>> only 8021AD. We can extend this to support double tagging by adding
+>>> inner_tpid field to struct sw_flow_key. OVS netlink interface already
+>>> allows this type of configuration. So is there reason not to do it in
+>>> this series?
 >>
->> On Tue, Jun 2, 2015 at 2:06 PM, Robert Shearman <rshearma@brocade.com>
->> wrote:
->>>
->>> On 02/06/15 19:57, roopa wrote:
->>>>
->>>>
->>>> On 6/2/15, 9:33 AM, Robert Shearman wrote:
->>>>>
->>>>>
->>>>> On 02/06/15 17:15, roopa wrote:
->>>>>>
->>>>>>
->>>>>> On 6/1/15, 9:46 AM, Robert Shearman wrote:
->>>>>>>
->>>>>>>
->>>>>>> Allow creating an mpls device for the purposes of encapsulating IP
->>>>>>> packets with:
->>>>>>>
->>>>>>>     ip link add type ipmpls
->>>>>>>
->>>>>>> This device defines its per-nexthop encapsulation data as a stack of
->>>>>>> labels, in the same format as for RTA_NEWST. It uses the encap data
->>>>>>> which will have been stored in the IP route to encapsulate the packet
->>>>>>> with that stack of labels, with the last label corresponding to a
->>>>>>> local label that defines how the packet will be sent out. The device
->>>>>>> sends packets over loopback to the local MPLS forwarding logic which
->>>>>>> performs all of the work.
->>>>>>>
->>>>>>>
->>>>>> Maybe a silly question, but when you loop the packet back, what does
->>>>>> the
->>>>>> local MPLS forwarding logic
->>>>>> lookup with ? It probably assumes there is a mpls route with that
->>>>>> label
->>>>>> and nexthop.
->>>>>> Will this need any internal labels (thinking same label stack
->>>>>> different
->>>>>> tunnel device etc) ?
->>>>>
->>>>>
->>>>>
->>>>> Yes, it requires that local/internal labels have been allocated and
->>>>> label routes installed in the label table for them.
->>>>
->>>>
->>>> This is our only concern.
->>>>>
->>>>>
->>>>>
->>>>> It is entirely possible to put the outgoing interface into the encap
->>>>> data to avoid having to allocate extra labels, but I did it this way
->>>>> in order to support PIC Core for MPLS-VPN routes.
->>>>
->>>>
->>>>
->>>> hmm..., is a netdevice must in this case.., can you please elaborate on
->>>> this ?.
->>>
->>>
->>>
->>> Yes, the ipmpls device would still be used to perform the encapsulation,
->>> transitioning from the IP forwarding path to the MPLS forwarding path.
->>>
+>> Pravin, thanks for the review.
 >>
->> Transitioning from IP forwarding to MPLS forwarding as you have here
->> will certainly facilitate PIC core when another path exists to the
->> edge. But it cannot deal with PIC edge, right?
+>> In the original implementation, I thought I would make only the minimally
+>> necessary changes and I have been carrying that forward through each
+>> revision.
+>>
+>> If only one tag, tci is present that implies tpid of 0x8100, if two tags are
+>> present, both tci and ctci, that implies a tpid of 0x88a8 and this is in
+>> fact how the code works and is how it supports both 802.1q and 802.1ad. The
+>> tpid's are not strictly necessary in the flow key for both 802.1q and
+>> 802.1ad to work. OF doesn't support the ability to push and pop vlans with
+>> non valid tpid's so there's no ambiguity.
+>>
+>> Contrarily and despite my comment above, although not strictly necessary, I
+>> don't have any objection to adding the tpid and to the flow key and I can
+>> make it work either way.
+>>
+> inner_tpid is must here. We need to pass this information up to the
+> userspace when we serialize the flow-key. Otherwise we would loose
+> this information.
+Right, I understand the need for this and my code currently deduces the 
+tpid by the combination or absence of the tci and ctci.
+> I think we can add another struct to represent inner-vlan which keep
+> track of the tci and tpid.
+OK, I do think what you suggest is a better way to do it and will 
+simplify the code quite a bit. I will make the change, add the struct 
+with both the inner tci and the tpid to the struct.  I will also make 
+the corresponding change for in the user space patch. I will get code 
+and tested and submit is as V11.
 >
->
-> Right, it won't allow to PIC edge to work as is, but it could be a step
-> towards implementing PIC edge.
->
->> Additionally, this
->> approach would mean that the user's (iproute2) view would be rather
->> strange - while the actual forwarding requires labels L1 and L2
->> (bottom) to be pushed when forwarding to a destination, it would look
->> as if labels L3 and L2 are pushed and then L3 is swapped with L1.
->
->
-> Right, but a level of indirection is required somehow. The natural level of
-> indirection is the L3 nexthop, but that is more complicated and I don't know
-> if that sort of change would be welcome.
->
->> A different way to achieve PIC (core and edge) without transitioning
->> from IP forwarding to MPLS forwarding may be to introduce the concept
->> of an alternate nexthop with something (e.g., link status) determining
->> which nexthop is used.
->
->
-> I'm not sure I understand. Could you elaborate on this?
 
-Indirection on the L3 nexthop is what I meant. I agree that it would
-be more complicated. The thought was to model it like ECMP, so there
-would be a set of nexthops (2 for main and alternate), but it would be
-a protection group instead of a shared group.
 
->
-> Thanks,
-> Rob
+-- 
+Thomas F. Herbert
