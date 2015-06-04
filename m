@@ -1,73 +1,134 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: Recurring trace from tcp_fragment()
-Date: Thu, 4 Jun 2015 14:29:59 -0700
-Message-ID: <CAK6E8=d3cGxABb95wMqkuRBpo=wscvaOA5e467Ar+nG4U4PFMw@mail.gmail.com>
-References: <CFCC0DCC-4080-4195-9BA9-0860D9701805@fastly.com>
- <CADVnQyngTDVYMhmQq=pjS3LrdQ+HXyizujiOkmgXxTjQ0QKH8A@mail.gmail.com>
- <5E30A40E-EC6C-4D37-AB49-04BF40EEFBFC@fastly.com> <CADVnQy=rwKG_ddduixcee1D4HaaSBBk=X=2Htmdow0k6Cbxhzg@mail.gmail.com>
- <904FADEB-C1EB-4384-BA47-0EB0273AFB71@fastly.com> <CADVnQymCSGyyOqdO2HOap+_6zsfy99-3CbgxnQTfGakRYNoteQ@mail.gmail.com>
- <55707E38.4090506@fastly.com> <20150604193838.GA2951343@devbig242.prn2.facebook.com>
- <5570B0B2.5080908@fastly.com> <20150604205629.GB2951343@devbig242.prn2.facebook.com>
+From: Vivek Venkatraman <vivek@cumulusnetworks.com>
+Subject: Re: [RFC net-next 3/3] mpls: new ipmpls device for encapsulating IP
+ packets as mpls
+Date: Thu, 4 Jun 2015 14:38:41 -0700
+Message-ID: <CAMs_D1-jT1xNS14w9m17nJwWE8QwqvEnvoXEjwJPgxc5UgJWaw@mail.gmail.com>
+References: <1433177175-16775-1-git-send-email-rshearma@brocade.com>
+	<1433177175-16775-4-git-send-email-rshearma@brocade.com>
+	<556DD688.2020308@cumulusnetworks.com>
+	<556DDAEF.9080209@brocade.com>
+	<556DFC91.1090708@cumulusnetworks.com>
+	<556E1AD0.1010304@brocade.com>
+	<CAMs_D18-g5Ux3bQaPhX8S0+q0c6T7YBjFXUrYXQ6-s_t_YKc0w@mail.gmail.com>
+	<55709D23.2000008@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Grant Zhang <gzhang@fastly.com>, netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
+Cc: roopa <roopa@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Dinesh Dutt <ddutt@cumulusnetworks.com>
+To: Robert Shearman <rshearma@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:32992 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752187AbbFDVak (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 17:30:40 -0400
-Received: by obbea3 with SMTP id ea3so41867927obb.0
-        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 14:30:40 -0700 (PDT)
-In-Reply-To: <20150604205629.GB2951343@devbig242.prn2.facebook.com>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:35728 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752187AbbFDVim (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 17:38:42 -0400
+Received: by wiga1 with SMTP id a1so1773229wig.0
+        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 14:38:41 -0700 (PDT)
+In-Reply-To: <55709D23.2000008@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 4, 2015 at 1:56 PM, Martin KaFai Lau <kafai@fb.com> wrote:
+On Thu, Jun 4, 2015 at 11:46 AM, Robert Shearman <rshearma@brocade.com> wrote:
+> On 03/06/15 19:43, Vivek Venkatraman wrote:
+>>
+>> On Tue, Jun 2, 2015 at 2:06 PM, Robert Shearman <rshearma@brocade.com>
+>> wrote:
+>>>
+>>> On 02/06/15 19:57, roopa wrote:
+>>>>
+>>>>
+>>>> On 6/2/15, 9:33 AM, Robert Shearman wrote:
+>>>>>
+>>>>>
+>>>>> On 02/06/15 17:15, roopa wrote:
+>>>>>>
+>>>>>>
+>>>>>> On 6/1/15, 9:46 AM, Robert Shearman wrote:
+>>>>>>>
+>>>>>>>
+>>>>>>> Allow creating an mpls device for the purposes of encapsulating IP
+>>>>>>> packets with:
+>>>>>>>
+>>>>>>>     ip link add type ipmpls
+>>>>>>>
+>>>>>>> This device defines its per-nexthop encapsulation data as a stack of
+>>>>>>> labels, in the same format as for RTA_NEWST. It uses the encap data
+>>>>>>> which will have been stored in the IP route to encapsulate the packet
+>>>>>>> with that stack of labels, with the last label corresponding to a
+>>>>>>> local label that defines how the packet will be sent out. The device
+>>>>>>> sends packets over loopback to the local MPLS forwarding logic which
+>>>>>>> performs all of the work.
+>>>>>>>
+>>>>>>>
+>>>>>> Maybe a silly question, but when you loop the packet back, what does
+>>>>>> the
+>>>>>> local MPLS forwarding logic
+>>>>>> lookup with ? It probably assumes there is a mpls route with that
+>>>>>> label
+>>>>>> and nexthop.
+>>>>>> Will this need any internal labels (thinking same label stack
+>>>>>> different
+>>>>>> tunnel device etc) ?
+>>>>>
+>>>>>
+>>>>>
+>>>>> Yes, it requires that local/internal labels have been allocated and
+>>>>> label routes installed in the label table for them.
+>>>>
+>>>>
+>>>> This is our only concern.
+>>>>>
+>>>>>
+>>>>>
+>>>>> It is entirely possible to put the outgoing interface into the encap
+>>>>> data to avoid having to allocate extra labels, but I did it this way
+>>>>> in order to support PIC Core for MPLS-VPN routes.
+>>>>
+>>>>
+>>>>
+>>>> hmm..., is a netdevice must in this case.., can you please elaborate on
+>>>> this ?.
+>>>
+>>>
+>>>
+>>> Yes, the ipmpls device would still be used to perform the encapsulation,
+>>> transitioning from the IP forwarding path to the MPLS forwarding path.
+>>>
+>>
+>> Transitioning from IP forwarding to MPLS forwarding as you have here
+>> will certainly facilitate PIC core when another path exists to the
+>> edge. But it cannot deal with PIC edge, right?
 >
-> On Thu, Jun 04, 2015 at 01:10:26PM -0700, Grant Zhang wrote:
-> > Hi Martin,
-> >
-> > Thank you! My net.ipv4.tcp_mtu_probing is 1. After turning it off,
-> > the WARN_ON stack is gone.
-> Thanks for confirming it.
 >
-> > Could you elaborate a bit on why this setting relates to the WARN_ON
-> > trace?
-> The WARN_ON is complaining about tcp_fragment() is trying to slice
-> a skb which has a too-short skb->len.
+> Right, it won't allow to PIC edge to work as is, but it could be a step
+> towards implementing PIC edge.
 >
-> When doing mtu probing, it may slice the skb.  In some cases (which
-> I also failed to reproduce in packetdrill), it does not
-> update some related skb values and then confuse tcp_fragment()
-> later on.
+>> Additionally, this
+>> approach would mean that the user's (iproute2) view would be rather
+>> strange - while the actual forwarding requires labels L1 and L2
+>> (bottom) to be pushed when forwarding to a destination, it would look
+>> as if labels L3 and L2 are pushed and then L3 is swapped with L1.
 >
-> > And what are the pros/cons for disabling mtu_probing?
-> It depends on your traffic, I guess.  However, turning it off is not the
-> right fix.
-There might be two bugs. We saw the warning with mtu_probing=0. This
-would explain why Neal's fix did not work.
+>
+> Right, but a level of indirection is required somehow. The natural level of
+> indirection is the L3 nexthop, but that is more complicated and I don't know
+> if that sort of change would be welcome.
+>
+>> A different way to achieve PIC (core and edge) without transitioning
+>> from IP forwarding to MPLS forwarding may be to introduce the concept
+>> of an alternate nexthop with something (e.g., link status) determining
+>> which nexthop is used.
+>
+>
+> I'm not sure I understand. Could you elaborate on this?
 
+Indirection on the L3 nexthop is what I meant. I agree that it would
+be more complicated. The thought was to model it like ECMP, so there
+would be a set of nexthops (2 for main and alternate), but it would be
+a protection group instead of a shared group.
 
->
-> FYI, here is the change I am trying.
 >
 > Thanks,
-> --Martin
->
-> diff --git i/net/ipv4/tcp_output.c w/net/ipv4/tcp_output.c
-> index acec745..e767e53 100644
-> --- i/net/ipv4/tcp_output.c
-> +++ w/net/ipv4/tcp_output.c
-> @@ -1920,6 +1920,8 @@ static int tcp_mtu_probe(struct sock *sk)
->                                                    ~(TCPHDR_FIN|TCPHDR_PSH);
->                         if (!skb_shinfo(skb)->nr_frags) {
->                                 skb_pull(skb, copy);
-> +                               if (tcp_skb_pcount(skb) > 1)
-> +                                       tcp_set_skb_tso_segs(sk, skb, mss_now);
->                                 if (skb->ip_summed != CHECKSUM_PARTIAL)
->                                         skb->csum = csum_partial(skb->data,
->                                                                  skb->len, 0);
+> Rob
