@@ -1,74 +1,79 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: [RFC PATCH net-next] tcp: add CDG congestion control
-Date: Thu, 4 Jun 2015 09:27:10 -0700
-Message-ID: <CAA93jw7gNnr3OEJ8nJ0mj=hFOrObcatwEDVV6CXvtX28VCHO2g@mail.gmail.com>
-References: <1431894670-12609-1-git-send-email-kennetkl@ifi.uio.no>
-	<CAK6E8=eV=0YDs5VY8EfhnVH1=gEZ+X4OzZJzDZihvSOUq6ErGA@mail.gmail.com>
-	<CA++eYdsG5Jw15BNqLv6AE3LivhsDpHNjRxvx3T3qZF248z6fRQ@mail.gmail.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: netlink: Disable insertions/removals during rehash
+Date: Thu, 4 Jun 2015 09:27:27 -0700
+Message-ID: <20150604162727.GA2670@roeck-us.net>
+References: <20150514055824.GB6058@gondor.apana.org.au>
+ <20150515.130257.1322224469755323983.davem@redhat.com>
+ <20150516131628.GA981@gondor.apana.org.au>
+ <20150516.171019.1206903516753105739.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>,
-	David Hayes <davihay@ifi.uio.no>,
-	Andreas Petlund <apetlund@simula.no>
-To: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, eric.dumazet@gmail.com, tgraf@suug.ch,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:36842 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752341AbbFDQ1L convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 12:27:11 -0400
-Received: by obbqz1 with SMTP id qz1so18072374obb.3
-        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 09:27:10 -0700 (PDT)
-In-Reply-To: <CA++eYdsG5Jw15BNqLv6AE3LivhsDpHNjRxvx3T3qZF248z6fRQ@mail.gmail.com>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:57448 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752341AbbFDQ1c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 12:27:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20150516.171019.1206903516753105739.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 4, 2015 at 9:19 AM, Kenneth Klette Jonassen
-<kennetkl@ifi.uio.no> wrote:
->> why not just call tcp_init_cwnd_reduction()?
->
-> I deferred considering the ECN implications of doing so. The code to
-> start PRR was based on tcp_enter_cwr()/tcp_init_cwnd_reduction(), sav=
-e
-> that both of these functions ensure a call to tcp_ecn_queue_cwr().
->
-> The upcoming patch set instead exports tcp_enter_cwr() and calls it,
-> which sets CWR on ECN-capable connections.
->
-> Consider CDG at the sender-side. The RFC 3168 Errata says that a
-> receiver should:
-> "First, reset ECE because of CWR
-> Second, set ECE because of CE"
->
-> Thus, in "good networks", setting CWR on a CDG backoff should not
-> affect ECN signalling =E2=80=93 we still get ECE from the receiver.
+On Sat, May 16, 2015 at 05:10:19PM -0400, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Sat, 16 May 2015 21:16:28 +0800
+> 
+> > On Fri, May 15, 2015 at 01:02:57PM -0400, David Miller wrote:
+> >> From: Herbert Xu <herbert@gondor.apana.org.au>
+> >> Date: Thu, 14 May 2015 13:58:24 +0800
+> >> 
+> >> > The current rhashtable rehash code is buggy and can't deal with
+> >> > parallel insertions/removals without corrupting the hash table.
+> >> > 
+> >> > This patch disables it by partially reverting
+> >> > c5adde9468b0714a051eac7f9666f23eb10b61f7 ("netlink: eliminate
+> >> > nl_sk_hash_lock").
+> >> > 
+> >> > This patch also removes a bogus socket lock introduced by that
+> >> > very same patch.
+> >> > 
+> >> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> >> 
+> >> Herbert, if you agree with me in the other thread that the lock_sock()
+> >> or something like it has to remain, you'll need to respin this.
+> > 
+> > Actually I think this one is OK because I'm replacing it with the
+> > hash table mutex which is just like the previous global lock except
+> > that it is per-family.  As you cannot change the family on a netlink
+> > socket this should be good enough.
+> > 
+> > But the changelog message is wrong so here is an updated version.
+> > 
+> > Cheers,
+> > 
+> > ---8<---
+> > The current rhashtable rehash code is buggy and can't deal with
+> > parallel insertions/removals without corrupting the hash table.
+> > 
+> > This patch disables it by partially reverting
+> > c5adde9468b0714a051eac7f9666f23eb10b61f7 ("netlink: eliminate
+> > nl_sk_hash_lock").
+> > 
+> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Ok, I've queued this up for -stable, thanks Herbert.
+> 
+Hi David,
 
-On the AQM front I have been trying to deal with queue overload in the =
-presence
-of ECN with drop, then mark behavior. This handles the case of an unres=
-ponsive
-(lying) flow, and overload in general, on the queue side.
+sorry for bothering you - I don't see this patch in any of your trees,
+and it is marked as "changes requested" in patchwork. Did I look
+at the wrong places, do you still plan to apply the patch as-is,
+or do you expect some changes ?
 
-=2E.. however it is unclear to me how well various tcps are responding
-to the combination
-of these two signals, and finding a threshold to switch to drop + mark =
-is hard.
+As side info, I have been trying to track down the getaddrinfo
+hang problem observed by others, which we see in 3.19.4 and 4.0.4.
 
-I have certainly had cases where every incoming packet ended up marked
-CE, to not
-enough effect, fast enough.
-
-> It is conceivable that fringe scenarios of ECN in the forward path an=
-d
-> losses in the ACK path creates a situation where CDG's backoff could
-> inhibit some ECN signals from the receiver. That is, setting CWR will
-> inhibit the signalling reliability of standard ECN in TCP. But we are
-> arguably still in good faith since we have reduced the congestion
-> window by some beta.
-
-
-
---=20
-Dave T=C3=A4ht
-What will it take to vastly improve wifi for everyone?
-https://plus.google.com/u/0/explore/makewififast
+Thanks,
+Guenter
