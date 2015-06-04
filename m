@@ -1,41 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: inet_bind: check the addr_len first
-Date: Wed, 03 Jun 2015 19:38:23 -0700 (PDT)
-Message-ID: <20150603.193823.2127048807981229902.davem@davemloft.net>
-References: <1433236080-5974-1-git-send-email-kda@linux-powerpc.org>
+Subject: Re: [PATCH] ethernet: micrel: use time_after_eq
+Date: Wed, 03 Jun 2015 19:39:11 -0700 (PDT)
+Message-ID: <20150603.193911.2150548377119751337.davem@davemloft.net>
+References: <1433248552-7994-1-git-send-email-antonio.murdaca@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kda@linux-powerpc.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	joe@perches.com, julia.lawall@lip6.fr, akpm@linux-foundation.org,
+	antonio.murdaca@gmail.com
+To: antoniomurdaca@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43382 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43389 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751196AbbFDCiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 22:38:24 -0400
-In-Reply-To: <1433236080-5974-1-git-send-email-kda@linux-powerpc.org>
+	with ESMTP id S1751437AbbFDCjM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 22:39:12 -0400
+In-Reply-To: <1433248552-7994-1-git-send-email-antonio.murdaca@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Date: Tue,  2 Jun 2015 12:08:00 +0300
+From: Antonio Murdaca <antoniomurdaca@gmail.com>
+Date: Tue,  2 Jun 2015 14:35:52 +0200
 
-> Perform the address length check first, before calling
-> the the proto specific bind() function
+> use the time_after_eq macro for jiffies comparison operation
 > 
-> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+> Signed-off-by: Antonio Murdaca <antonio.murdaca@gmail.com>
 
-This doesn't fix any actual bug, doesn't improve the code in
-preparation for another change that actually benefits from
-this adjustment, and so this is really an unwanted change.
-
-This change and it's commit log message look totally arbitrary
-and opaque, even to people who have been working with this
-code and it's interfaces for decades.  That should tell you
-something.
-
-You have to let us know exactly why you are making a change, and what
-real _actual_ bug it fixes, when you want us to consider your changes
-seriously.
-
-I'm not applying this, sorry.
+Applied to net-next, thanks.
