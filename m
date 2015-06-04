@@ -1,149 +1,162 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 13/13] mlx5: Enable mutual support for IB and Ethernet
-Date: Thu,  4 Jun 2015 19:30:48 +0300
-Message-ID: <1433435448-4937-14-git-send-email-ogerlitz@mellanox.com>
-References: <1433435448-4937-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Majd Dibbiny <majd@mellanox.com>,
-	Haggai Abramonvsky <hagaya@mellanox.com>,
-	Tal Alon <talal@mellanox.com>, Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Grant Zhang <gzhang@fastly.com>
+Subject: Re: Recurring trace from tcp_fragment()
+Date: Thu, 04 Jun 2015 09:35:04 -0700
+Message-ID: <55707E38.4090506@fastly.com>
+References: <CFCC0DCC-4080-4195-9BA9-0860D9701805@fastly.com>	<CADVnQyngTDVYMhmQq=pjS3LrdQ+HXyizujiOkmgXxTjQ0QKH8A@mail.gmail.com>	<5E30A40E-EC6C-4D37-AB49-04BF40EEFBFC@fastly.com>	<CADVnQy=rwKG_ddduixcee1D4HaaSBBk=X=2Htmdow0k6Cbxhzg@mail.gmail.com>	<904FADEB-C1EB-4384-BA47-0EB0273AFB71@fastly.com> <CADVnQymCSGyyOqdO2HOap+_6zsfy99-3CbgxnQTfGakRYNoteQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------010907050705060102090401"
+Cc: Netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:47742 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932307AbbFDQbc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Jun 2015 12:31:32 -0400
-In-Reply-To: <1433435448-4937-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-qg0-f50.google.com ([209.85.192.50]:35040 "EHLO
+	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752245AbbFDQfH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 12:35:07 -0400
+Received: by qgh73 with SMTP id 73so5159910qgh.2
+        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 09:35:07 -0700 (PDT)
+In-Reply-To: <CADVnQymCSGyyOqdO2HOap+_6zsfy99-3CbgxnQTfGakRYNoteQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Haggai Abramonvsky <hagaya@mellanox.com>
+This is a multi-part message in MIME format.
+--------------010907050705060102090401
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Ethernet functionality is only available when working in ISSI > 0 mode.
+Hi Neal,
 
-Previously, the IB driver wasn't ready to work on that mode, and hence
-building both the IB driver and the Ethernet functionality in the core
-driver were disallowed by Kconfigs.
+Unfortunately with the patch we still see the same stack trace. Attached 
+is the TcpExtTCPSACKReneging with the patch, captured with 60 seconds 
+interval. Its value is incremented at an similar speed as before, about 
+30/minute.
 
-Now, once we have all the pre-steps in place, we can remove this limitation.
+If you want to collect any other data, please feel free to let me know.
 
-The last steps in the IB driver for getting that setup to work are:
-create dummy SRQ for the driver's use (until now we could use XRC_SRQ
-as SRQ and XRC_SRQ, after moving to ISSI > 0, we separate XRC SRQs from
-basic SRQs) and adapt the create QP function to be compatible with ISSI > 0.
+Thanks,
 
-Signed-off-by: Haggai Abramovsky <hagaya@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/infiniband/hw/mlx5/main.c               |   22 ++++++++++++++++++++++
- drivers/infiniband/hw/mlx5/mlx5_ib.h            |    1 +
- drivers/infiniband/hw/mlx5/qp.c                 |    3 ++-
- drivers/net/ethernet/mellanox/mlx5/core/Kconfig |    2 +-
- drivers/net/ethernet/mellanox/mlx5/core/qp.c    |    7 +++++++
- 5 files changed, 33 insertions(+), 2 deletions(-)
+Grant
 
-diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
-index f829692..d4dea86 100644
---- a/drivers/infiniband/hw/mlx5/main.c
-+++ b/drivers/infiniband/hw/mlx5/main.c
-@@ -1324,8 +1324,29 @@ static int create_dev_resources(struct mlx5_ib_resources *devr)
- 	atomic_inc(&devr->p0->usecnt);
- 	atomic_set(&devr->s0->usecnt, 0);
- 
-+	memset(&attr, 0, sizeof(attr));
-+	attr.attr.max_sge = 1;
-+	attr.attr.max_wr = 1;
-+	attr.srq_type = IB_SRQT_BASIC;
-+	devr->s1 = mlx5_ib_create_srq(devr->p0, &attr, NULL);
-+	if (IS_ERR(devr->s1)) {
-+		ret = PTR_ERR(devr->s1);
-+		goto error5;
-+	}
-+	devr->s1->device	= &dev->ib_dev;
-+	devr->s1->pd		= devr->p0;
-+	devr->s1->uobject       = NULL;
-+	devr->s1->event_handler = NULL;
-+	devr->s1->srq_context   = NULL;
-+	devr->s1->srq_type      = IB_SRQT_BASIC;
-+	devr->s1->ext.xrc.cq	= devr->c0;
-+	atomic_inc(&devr->p0->usecnt);
-+	atomic_set(&devr->s0->usecnt, 0);
-+
- 	return 0;
- 
-+error5:
-+	mlx5_ib_destroy_srq(devr->s0);
- error4:
- 	mlx5_ib_dealloc_xrcd(devr->x1);
- error3:
-@@ -1340,6 +1361,7 @@ error0:
- 
- static void destroy_dev_resources(struct mlx5_ib_resources *devr)
- {
-+	mlx5_ib_destroy_srq(devr->s1);
- 	mlx5_ib_destroy_srq(devr->s0);
- 	mlx5_ib_dealloc_xrcd(devr->x0);
- 	mlx5_ib_dealloc_xrcd(devr->x1);
-diff --git a/drivers/infiniband/hw/mlx5/mlx5_ib.h b/drivers/infiniband/hw/mlx5/mlx5_ib.h
-index f731b25..873dc35 100644
---- a/drivers/infiniband/hw/mlx5/mlx5_ib.h
-+++ b/drivers/infiniband/hw/mlx5/mlx5_ib.h
-@@ -415,6 +415,7 @@ struct mlx5_ib_resources {
- 	struct ib_xrcd	*x1;
- 	struct ib_pd	*p0;
- 	struct ib_srq	*s0;
-+	struct ib_srq	*s1;
- };
- 
- struct mlx5_ib_dev {
-diff --git a/drivers/infiniband/hw/mlx5/qp.c b/drivers/infiniband/hw/mlx5/qp.c
-index 15fd485..203c8a4 100644
---- a/drivers/infiniband/hw/mlx5/qp.c
-+++ b/drivers/infiniband/hw/mlx5/qp.c
-@@ -1012,7 +1012,8 @@ static int create_qp_common(struct mlx5_ib_dev *dev, struct ib_pd *pd,
- 			in->ctx.rq_type_srqn |= cpu_to_be32(to_msrq(init_attr->srq)->msrq.srqn);
- 		} else {
- 			in->ctx.xrcd = cpu_to_be32(to_mxrcd(devr->x1)->xrcdn);
--			in->ctx.rq_type_srqn |= cpu_to_be32(to_msrq(devr->s0)->msrq.srqn);
-+			in->ctx.rq_type_srqn |=
-+				cpu_to_be32(to_msrq(devr->s1)->msrq.srqn);
- 		}
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-index 0d7aef0..158c88c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-@@ -12,7 +12,7 @@ config MLX5_CORE
- 
- config MLX5_CORE_EN
- 	bool "Mellanox Technologies ConnectX-4 Ethernet support"
--	depends on MLX5_INFINIBAND=n && NETDEVICES && ETHERNET && PCI && MLX5_CORE
-+	depends on NETDEVICES && ETHERNET && PCI && MLX5_CORE
- 	default n
- 	---help---
- 	  Ethernet support in Mellanox Technologies ConnectX-4 NIC.
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/qp.c b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-index dc7dbf7..8b494b5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-@@ -187,10 +187,17 @@ int mlx5_core_create_qp(struct mlx5_core_dev *dev,
- 	struct mlx5_destroy_qp_mbox_in din;
- 	struct mlx5_destroy_qp_mbox_out dout;
- 	int err;
-+	void *qpc;
- 
- 	memset(&out, 0, sizeof(out));
- 	in->hdr.opcode = cpu_to_be16(MLX5_CMD_OP_CREATE_QP);
- 
-+	if (dev->issi) {
-+		qpc = MLX5_ADDR_OF(create_qp_in, in, qpc);
-+		/* 0xffffff means we ask to work with cqe version 0 */
-+		MLX5_SET(qpc, qpc, user_index, 0xffffff);
-+	}
-+
- 	err = mlx5_cmd_exec(dev, in, inlen, &out, sizeof(out));
- 	if (err) {
- 		mlx5_core_warn(dev, "ret %d\n", err);
--- 
-1.7.1
+On 5/30/15 4:08 PM, Neal Cardwell wrote:
+> On Sat, May 30, 2015 at 2:52 PM, Grant Zhang <gzhang@fastly.com> wrote:
+>> Thank you Neal. Most likely I will test the patch on Monday and report
+>> back the result.
+>>
+>> As for the TcpExtTCPSACKReneging counter, attached is the captured
+>> counter value on a 1-second interval for 10 minutes.
+>
+> OK, great. Those TcpExtTCPSACKReneging values look consistent with the
+> theory underlying the patch, so that's a good sign.
+>
+> Thanks!
+>
+> neal
+>
+
+--------------010907050705060102090401
+Content-Type: text/plain; charset=UTF-8;
+ name="reneg_patch.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="reneg_patch.txt"
+
+VGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA0ODkgICAgICAgICAgICAgICAgMC4w
+ClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgNTA0ICAgICAgICAgICAgICAgIDAu
+MApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDUyMyAgICAgICAgICAgICAgICAw
+LjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA1NDQgICAgICAgICAgICAgICAg
+MC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgNTY1ICAgICAgICAgICAgICAg
+IDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDU3MyAgICAgICAgICAgICAg
+ICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA1ODkgICAgICAgICAgICAg
+ICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgNjIxICAgICAgICAgICAg
+ICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDYzMiAgICAgICAgICAg
+ICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA2NDYgICAgICAgICAg
+ICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgNjU3ICAgICAgICAg
+ICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDY5NiAgICAgICAg
+ICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA3MjAgICAgICAg
+ICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgNzM1ICAgICAg
+ICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDc1OCAgICAg
+ICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA3ODQgICAg
+ICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgODIzICAg
+ICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDgzMyAg
+ICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA4NTcg
+ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgODgy
+ICAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDkx
+NiAgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA5
+MjUgICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAg
+OTQ3ICAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAg
+IDk2MCAgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAg
+ICAxMDExICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAg
+ICAgMTA0NCAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAg
+ICAgIDEwNzAgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAg
+ICAgICAxMDc5ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAg
+ICAgICAgMTA5NiAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAg
+ICAgICAgIDExMjIgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAg
+ICAgICAgICAxMTI3ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAg
+ICAgICAgICAgMTE2NCAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcg
+ICAgICAgICAgIDExOTcgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5n
+ICAgICAgICAgICAxMjE2ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2lu
+ZyAgICAgICAgICAgMTIzMyAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdp
+bmcgICAgICAgICAgIDEyODcgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVn
+aW5nICAgICAgICAgICAxMzE3ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5l
+Z2luZyAgICAgICAgICAgMTMzMCAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVu
+ZWdpbmcgICAgICAgICAgIDEzNDMgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1Jl
+bmVnaW5nICAgICAgICAgICAxMzY5ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tS
+ZW5lZ2luZyAgICAgICAgICAgMTM5MiAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNL
+UmVuZWdpbmcgICAgICAgICAgIDE0MTEgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FD
+S1JlbmVnaW5nICAgICAgICAgICAxNDI2ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNB
+Q0tSZW5lZ2luZyAgICAgICAgICAgMTQ3MSAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BT
+QUNLUmVuZWdpbmcgICAgICAgICAgIDE0ODIgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQ
+U0FDS1JlbmVnaW5nICAgICAgICAgICAxNTAxICAgICAgICAgICAgICAgMC4wClRjcEV4dFRD
+UFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMTU0MSAgICAgICAgICAgICAgIDAuMApUY3BFeHRU
+Q1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDE1NTggICAgICAgICAgICAgICAwLjAKVGNwRXh0
+VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAxNTc1ICAgICAgICAgICAgICAgMC4wClRjcEV4
+dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMTY1MiAgICAgICAgICAgICAgIDAuMApUY3BF
+eHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDE3MzcgICAgICAgICAgICAgICAwLjAKVGNw
+RXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAxNzY1ICAgICAgICAgICAgICAgMC4wClRj
+cEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMTc4OSAgICAgICAgICAgICAgIDAuMApU
+Y3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDE4MjMgICAgICAgICAgICAgICAwLjAK
+VGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAxODYyICAgICAgICAgICAgICAgMC4w
+ClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMTg4NyAgICAgICAgICAgICAgIDAu
+MApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDE5MDEgICAgICAgICAgICAgICAw
+LjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAxOTE5ICAgICAgICAgICAgICAg
+MC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMTk0MSAgICAgICAgICAgICAg
+IDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDE5NjIgICAgICAgICAgICAg
+ICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAxOTg5ICAgICAgICAgICAg
+ICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMjAxOSAgICAgICAgICAg
+ICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDIwNTcgICAgICAgICAg
+ICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAyMDc4ICAgICAgICAg
+ICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMjEwMCAgICAgICAg
+ICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDIxODUgICAgICAg
+ICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAyMjQ2ICAgICAg
+ICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMjI4NSAgICAg
+ICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDIzMTMgICAg
+ICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAyMzM3ICAg
+ICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMjM2MyAg
+ICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDI0MTQg
+ICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAyNTU5
+ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMjU5
+MyAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDI2
+MDcgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAy
+NzE0ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAg
+MjgzMCAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAg
+IDI5NTMgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAg
+ICAyOTg2ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAg
+ICAgMzAzMCAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAg
+ICAgIDMwNDkgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAg
+ICAgICAzMDczICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAg
+ICAgICAgMzA5NCAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAg
+ICAgICAgIDMxNDEgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAg
+ICAgICAgICAzMTk1ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAg
+ICAgICAgICAgMzI2MyAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcg
+ICAgICAgICAgIDMzMDAgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5n
+ICAgICAgICAgICAzMzQ4ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2lu
+ZyAgICAgICAgICAgMzQxMiAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdp
+bmcgICAgICAgICAgIDM0NzUgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVn
+aW5nICAgICAgICAgICAzNTIyICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5l
+Z2luZyAgICAgICAgICAgMzU4MSAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVu
+ZWdpbmcgICAgICAgICAgIDM2MjcgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1Jl
+bmVnaW5nICAgICAgICAgICAzNjc0ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tS
+ZW5lZ2luZyAgICAgICAgICAgMzczMiAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNL
+UmVuZWdpbmcgICAgICAgICAgIDM3ODUgICAgICAgICAgICAgICAwLjAK
+--------------010907050705060102090401--
