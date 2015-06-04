@@ -1,66 +1,137 @@
-From: Pavel Simerda <psimerda@redhat.com>
-Subject: Re: [PATCH iproute2] tipc: introduce TIPC configuration tool
-Date: Thu, 4 Jun 2015 06:23:35 -0400 (EDT)
-Message-ID: <1689829731.5883859.1433413415372.JavaMail.zimbra@redhat.com>
-References: <1431004056-6282-1-git-send-email-richard.alpe@ericsson.com> <20150521144340.1b112c0a@urahara>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [RFC PATCH] slub: RFC: Improving SLUB performance with 38% on
+	NO-PREEMPT
+Date: Thu, 04 Jun 2015 12:31:59 +0200
+Message-ID: <20150604103159.4744.75870.stgit@ivy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: richard alpe <richard.alpe@ericsson.com>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	linux-mm@kvack.org, netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx6-phx2.redhat.com ([209.132.183.39]:59854 "EHLO
-	mx6-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751740AbbFDKXs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 06:23:48 -0400
-In-Reply-To: <20150521144340.1b112c0a@urahara>
+Received: from mx1.redhat.com ([209.132.183.28]:57521 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751827AbbFDKca (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jun 2015 06:32:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------ Original Message -----
-> From: "Stephen Hemminger" <stephen@networkplumber.org>
-> To: "richard alpe" <richard.alpe@ericsson.com>
-> Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-> Sent: Thursday, May 21, 2015 11:43:40 PM
-> Subject: Re: [PATCH iproute2] tipc: introduce TIPC configuration tool
-> 
-> On Thu, 7 May 2015 15:07:35 +0200
-> <richard.alpe@ericsson.com> wrote:
-> 
-> > From: Richard Alpe <richard.alpe@ericsson.com>
-> > 
-> > This is the new tipc tool that utilizes the relativly new TIPC netlink API
-> > in
-> > the kernel. Introducing this tool into iproute2 has been discussed
-> > previously.
-> > 
-> > For more information about the design decisions of this tool, see the
-> > README
-> > file.
-> > 
-> > There isn't yet a manpage for the this tool. I will start to write one once
-> > I
-> > submitted this for review.
-> > 
-> > Richard Alpe (1):
-> >   tipc: add new TIPC configuration tool
-> 
-> I went ahead and merged this.
-> It does add dependency on libmnl which the distribution maintainers will have
-> to add to their stuff.
+This patch improves performance of SLUB allocator fastpath with 38% by
+avoiding the call to this_cpu_cmpxchg_double() for NO-PREEMPT kernels.
 
-Does the new dependency suggest the whole iproute2 is moving to libmnl? Or is
-there a good reason to use an external netlink library as well as an internal one?
+Reviewers please point out why this change is wrong, as such a large
+improvement should not be possible ;-)
 
-Cheers,
+My primarily motivation for this patch is to understand and
+microbenchmark the MM-layer of the kernel, due to an increasing demand
+from the networking stack.
 
-Pavel
+This "microbenchmark" is merely to demonstrate the cost of the
+instruction CMPXCHG16B (without LOCK prefix).
 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+My microbench is avail on github[1] (reused "qmempool_bench").
+
+The fastpath-reuse (alloc+free cost) (CPU E5-2695):
+ * 47 cycles(tsc) - 18.948 ns  (normal with this_cpu_cmpxchg_double)
+ * 29 cycles(tsc) - 11.791 ns  (with patch)
+
+Thus, the difference deduct the cost of CMPXCHG16B
+ * Total saved 18 cycles - 7.157ns
+ * for two CMPXCHG16B (alloc+free): per-inst saved 9 cycles - 3.579ns
+ * http://instlatx64.atw.hu/ says 9 cycles cost of CMPXCHG16B
+
+This also shows that the cost of this_cpu_cmpxchg_double() in SLUB is
+approx 38% of fast-path cost.
+
+[1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/mm/qmempool_bench.c
+
+The cunning reviewer would also like to know the cost of disabling
+interrupts, on this CPU. Here it is interesting to see how the
+save/restore variant is significantly more expensive:
+
+Cost of local IRQ toggling (CPU E5-2695):
+ *  local_irq_{disable,enable}:  7 cycles(tsc) -  2.861 ns
+ *  local_irq_{save,restore}  : 37 cycles(tsc) - 14.846 ns
+
+With the additional overhead of local_irq_{disable,enable}, there
+would still be a saving of 11 cycles (out of 47) 23%.
+---
+
+ mm/slub.c |   52 +++++++++++++++++++++++++++++++++++++++-------------
+ 1 files changed, 39 insertions(+), 13 deletions(-)
+
+diff --git a/mm/slub.c b/mm/slub.c
+index 54c0876..b31991f 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -2489,13 +2489,32 @@ redo:
+ 		 * against code executing on this cpu *not* from access by
+ 		 * other cpus.
+ 		 */
+-		if (unlikely(!this_cpu_cmpxchg_double(
+-				s->cpu_slab->freelist, s->cpu_slab->tid,
+-				object, tid,
+-				next_object, next_tid(tid)))) {
+-
+-			note_cmpxchg_failure("slab_alloc", s, tid);
+-			goto redo;
++		if (IS_ENABLED(CONFIG_PREEMPT)) {
++			if (unlikely(!this_cpu_cmpxchg_double(
++					s->cpu_slab->freelist, s->cpu_slab->tid,
++					object, tid,
++					next_object, next_tid(tid)))) {
++
++				note_cmpxchg_failure("slab_alloc", s, tid);
++				goto redo;
++			}
++		} else {
++			// HACK - On a NON-PREEMPT cmpxchg is not necessary(?)
++			__this_cpu_write(s->cpu_slab->tid, next_tid(tid));
++			__this_cpu_write(s->cpu_slab->freelist, next_object);
++		/*
++		 * Q: What happens in-case called from interrupt handler?
++		 *
++		 * If we need to disable (local) IRQs then most of the
++		 * saving is lost.  E.g. the local_irq_{save,restore}
++		 * is too costly.
++		 *
++		 * Saved (alloc+free): 18 cycles - 7.157ns
++		 *
++		 * Cost of (CPU E5-2695):
++		 *  local_irq_{disable,enable}:  7 cycles(tsc) -  2.861 ns
++		 *  local_irq_{save,restore}  : 37 cycles(tsc) - 14.846 ns
++		 */
+ 		}
+ 		prefetch_freepointer(s, next_object);
+ 		stat(s, ALLOC_FASTPATH);
+@@ -2726,14 +2745,21 @@ redo:
+ 	if (likely(page == c->page)) {
+ 		set_freepointer(s, object, c->freelist);
+ 
+-		if (unlikely(!this_cpu_cmpxchg_double(
+-				s->cpu_slab->freelist, s->cpu_slab->tid,
+-				c->freelist, tid,
+-				object, next_tid(tid)))) {
++		if (IS_ENABLED(CONFIG_PREEMPT)) {
++			if (unlikely(!this_cpu_cmpxchg_double(
++					s->cpu_slab->freelist, s->cpu_slab->tid,
++					c->freelist, tid,
++					object, next_tid(tid)))) {
+ 
+-			note_cmpxchg_failure("slab_free", s, tid);
+-			goto redo;
++				note_cmpxchg_failure("slab_free", s, tid);
++				goto redo;
++			}
++		} else {
++			// HACK - On a NON-PREEMPT cmpxchg is not necessary(?)
++			__this_cpu_write(s->cpu_slab->tid, next_tid(tid));
++			__this_cpu_write(s->cpu_slab->freelist, object);
+ 		}
++
+ 		stat(s, FREE_FASTPATH);
+ 	} else
+ 		__slab_free(s, page, x, addr);
