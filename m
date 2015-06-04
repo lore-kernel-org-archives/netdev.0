@@ -1,82 +1,65 @@
-From: Richard Alpe <richard.alpe@ericsson.com>
-Subject: Re: [PATCH iproute2] tipc: introduce TIPC
-	configuration tool
-Date: Thu, 4 Jun 2015 13:40:47 +0200
-Message-ID: <5570393F.9060401@ericsson.com>
-References: <1431004056-6282-1-git-send-email-richard.alpe@ericsson.com>
-	<20150521144340.1b112c0a@urahara>
-	<1689829731.5883859.1433413415372.JavaMail.zimbra@redhat.com>
+From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Subject: [PATCH iproute2 resend] Fix changing tunnel remote and local address
+ to any
+Date: Thu, 4 Jun 2015 09:01:18 -0300
+Message-ID: <20150604120117.GB7119@indiana.gru.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: Pavel Simerda <psimerda@redhat.com>, Stephen Hemminger
-	<stephen@networkplumber.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1689829731.5883859.1433413415372.JavaMail.zimbra@redhat.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: stephen@networkplumber.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46321 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752268AbbFDMBZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jun 2015 08:01:25 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2015-06-04 12:23, Pavel Simerda wrote:
-> ----- Original Message -----
->> From: "Stephen Hemminger" <stephen@networkplumber.org>
->> To: "richard alpe" <richard.alpe@ericsson.com>
->> Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
->> Sent: Thursday, May 21, 2015 11:43:40 PM
->> Subject: Re: [PATCH iproute2] tipc: introduce TIPC configuration tool
->>
->> On Thu, 7 May 2015 15:07:35 +0200
->> <richard.alpe@ericsson.com> wrote:
->>
->>> From: Richard Alpe <richard.alpe@ericsson.com>
->>>
->>> This is the new tipc tool that utilizes the relativly new TIPC netlink API
->>> in
->>> the kernel. Introducing this tool into iproute2 has been discussed
->>> previously.
->>>
->>> For more information about the design decisions of this tool, see the
->>> README
->>> file.
->>>
->>> There isn't yet a manpage for the this tool. I will start to write one once
->>> I
->>> submitted this for review.
->>>
->>> Richard Alpe (1):
->>>   tipc: add new TIPC configuration tool
->>
->> I went ahead and merged this.
->> It does add dependency on libmnl which the distribution maintainers will have
->> to add to their stuff.
-> 
-> Does the new dependency suggest the whole iproute2 is moving to libmnl?
-That is what I was told and the reason I wrote "tipc" based on libmnl.
+If a tunnel is created with a local address, you can't change it to any.
 
-Regards
-Richard
+ # ip tunnel add tunl1 mode ipip remote 10.16.42.37 local 10.16.42.214 ttl 64
+ # ip tunnel show tunl1
+ tunl1: ip/ip  remote 10.16.42.37  local 10.16.42.214  ttl 64
+ # ip tunnel change tunl1 local any
+ # echo $?
+ 0
+ # ip tunnel show tunl1
+ tunl1: ip/ip  remote 10.16.42.37  local 10.16.42.214  ttl 64
 
-> Or is
-> there a good reason to use an external netlink library as well as an internal one?
-> 
-> Cheers,
-> 
-> Pavel
-> 
->>
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
+It happens that parse_args zeroes ip_tunnel_parm, and when creating the
+tunnel, it is OK to leave it as is if the address is any. However, when
+changing the tunnel, the current parameters will be read from
+ip_tunnel_parm, and local and remote address won't be zeroes anymore, so
+it needs to be explicitly set to any.
 
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+---
 
-------------------------------------------------------------------------------
+Resending because it was probably lost in patchwork.
+
+---
+ ip/iptunnel.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/ip/iptunnel.c b/ip/iptunnel.c
+index be84b83..78fa988 100644
+--- a/ip/iptunnel.c
++++ b/ip/iptunnel.c
+@@ -167,10 +167,14 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
+ 			NEXT_ARG();
+ 			if (strcmp(*argv, "any"))
+ 				p->iph.daddr = get_addr32(*argv);
++			else
++				p->iph.daddr = htonl(INADDR_ANY);
+ 		} else if (strcmp(*argv, "local") == 0) {
+ 			NEXT_ARG();
+ 			if (strcmp(*argv, "any"))
+ 				p->iph.saddr = get_addr32(*argv);
++			else
++				p->iph.saddr = htonl(INADDR_ANY);
+ 		} else if (strcmp(*argv, "dev") == 0) {
+ 			NEXT_ARG();
+ 			strncpy(medium, *argv, IFNAMSIZ-1);
+-- 
+2.4.1
