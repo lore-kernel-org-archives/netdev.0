@@ -1,59 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] rocker: move netevent neigh update to
- processes context
-Date: Thu, 04 Jun 2015 01:34:09 -0700 (PDT)
-Message-ID: <20150604.013409.228829580818256337.davem@davemloft.net>
-References: <1433303008-32656-1-git-send-email-sfeldma@gmail.com>
-	<20150603.233829.1362177764562847830.davem@davemloft.net>
-	<20150604082045.GA7709@vergenet.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC net-next 2/6] net: Identfier Locator Addressing module
+Date: Thu, 4 Jun 2015 10:58:05 +0200
+Message-ID: <20150604085805.GA1454@pox.localdomain>
+References: <1433361502-3478761-1-git-send-email-tom@herbertland.com>
+ <1433361502-3478761-3-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org, jiri@resnulli.us,
-	makita.toshiaki@lab.ntt.co.jp
-To: simon.horman@netronome.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, agartrell@fb.com, maheshb@google.com,
+	netdev@vger.kernel.org
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45167 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752282AbbFDIeL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 04:34:11 -0400
-In-Reply-To: <20150604082045.GA7709@vergenet.net>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:38188 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752363AbbFDI6J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 04:58:09 -0400
+Received: by wibdt2 with SMTP id dt2so41348133wib.1
+        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 01:58:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1433361502-3478761-3-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <simon.horman@netronome.com>
-Date: Thu, 4 Jun 2015 17:20:48 +0900
+On 06/03/15 at 12:58pm, Tom Herbert wrote:
+> +static struct genl_family ila_nl_family = {
+> +	.id		= GENL_ID_GENERATE,
+> +	.hdrsize	= 0,
+> +	.name		= ILA_GENL_NAME,
+> +	.version	= ILA_GENL_VERSION,
+> +	.maxattr	= ILA_ATTR_MAX,
+> +	.netnsok	= true,
+> +};
 
-> What I was seeing is as follows:
-> 
-> 1. rocker_port_ipv4_nh() is called via switchdev_port_obj_add()
->    with trans = SWITCHDEV_TRANS_PREPARE
-> 
-> 2. rocker_port_ipv4_neigh() is called by rocker_neigh_update()
->    with trans = SWITCHDEV_TRANS_NONE.
-> 
->    The call chain goes up to arp_process() via neigh_update().
-> 
-> 3. rocker_port_ipv4_nh() is called via switchdev_port_obj_add()
->    with trans = SWITCHDEV_TRANS_COMMIT
-> 
-> #1 and #2 are guarded by rtl across those calls but
-> #2 is not guarded by rtnl.
-> 
-> Inside both rocker_port_ipv4_nh() and rocker_port_ipv4_neigh()
-> neigh_tbl_lock lock is taken but it is not held across the
-> two calls to rocker_port_ipv4_nh within a single prepare->commit transaction.
-> 
-> I can double check that the above still occurs, but I'm not aware of any
-> recent changes that would cause it not to occur any more.
+Since you have bucket locks, you might want to see if you can
+enable .parallel_ops = true to speed up the rate of map updates.
 
-Ok, thanks for explaining.
+Use of rhashtable is another obvious consideration.
 
-I still don't want this to be moved asynchronosly from the ARP neigh
-update event code path.
+> +static int ila_nl_cmd_get_mapping(struct sk_buff *skb, struct genl_info *info)
+> +{
+> +	struct net *net = genl_info_net(info);
+> +	struct ila_net *ilan = net_generic(net, ila_net_id);
+> +	struct sk_buff *msg;
+> +	struct ila_cfg cfg;
+> +	struct ila_map *ila;
+> +	int ret;
+> +
+> +	ret = parse_nl_config(info, &cfg);
+> +	if (ret)
+> +		return ret;
+> +
+> +	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+> +	if (!msg)
+> +		return -ENOMEM;
 
-And therefore I'd like folks to look into another mechanism to fix
-this.
+Since the message size is actually really small it might be worth
+to calculate it accurately here to speed up the get.
 
-If that means the prepare/commit engine is given a spinlock by the
-driver to be held across the two calls, so be it.
+> +#define ILA_HASH_TABLE_SIZE 1024
+
+Already defined at the top.
