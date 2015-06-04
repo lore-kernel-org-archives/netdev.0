@@ -1,9 +1,9 @@
 From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
 Subject: Re: [RFC PATCH net-next] tcp: add CDG congestion control
-Date: Thu, 4 Jun 2015 17:37:14 +0200
-Message-ID: <CA++eYdvtH22M-7t=-aO4mZHRuNRYBvgSXkuHYRRtPN_bjCpzVw@mail.gmail.com>
+Date: Thu, 4 Jun 2015 17:41:03 +0200
+Message-ID: <CA++eYdtEpbvJFroDCJ1uduj2EQvH1XkkmRmPkuOaQf2mMe099g@mail.gmail.com>
 References: <1431894670-12609-1-git-send-email-kennetkl@ifi.uio.no>
-	<20150518151648.6d33128c@urahara>
+	<1431913614.621.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
@@ -12,43 +12,34 @@ Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
 	Yuchung Cheng <ycheng@google.com>,
 	Andreas Petlund <apetlund@simula.no>,
 	Dave Taht <dave.taht@gmail.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:32878 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932160AbbFDPhQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 11:37:16 -0400
-Received: by wiwd19 with SMTP id d19so25688029wiw.0
-        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 08:37:15 -0700 (PDT)
-In-Reply-To: <20150518151648.6d33128c@urahara>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:34010 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752617AbbFDPlF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 11:41:05 -0400
+Received: by wibut5 with SMTP id ut5so25657391wib.1
+        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 08:41:03 -0700 (PDT)
+In-Reply-To: <1431913614.621.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2015 at 12:16 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
+>> +static  int window __read_mostly = 8;
 >
-> I am really happy to see more congestion control development.
-
-:)
-
+> This is a (readonly) module parameter, but really is a constant (if you
+> ever try to change it dynamically, bad things will happen in current
+> code)
 >
-> Module parameters make for rather ugly tuning.
-> They are ok for testing but difficult to use in real life.
+> const int window = 8;
 
-CDG's throughput-delay tradeoff is affected by the parameters window,
-backoff_beta, and backoff_factor. Most users will likely use the
-default parameters, but others might want to tune them for less
-queueing delay, more throughput, slower backoff response, etc.
+It cannot be adjusted dynamically, but we can override the initial
+window parameter when loading tcp_cdg as a module. Imho, this is a
+good enough interface when considering that tuning CDG's parameters
+are for special interest groups in the first place.
 
-window is a difficult parameter to get right when tuning; it is
-intrinsically RTT-dependent, but also influences CDG's RTT-independent
-backoff probability..  For the record, CDG as a congestion control is
-still RTT-dependent, e.g., it uses NewReno to grow cwnd.
-
-The upcoming patch renames ineffective_thresh to detect_ineff, and
-removes ineffective_hold. Grepping experiment logs, I never once saw
-the hold function kick in. A threshold of 5 is also overly
-conservative when limiting the shadow window to 2*cwnd; a threshold of
-1 is a better starting point.
-
-Thanks to Eric, Yuchung and Stephen for your feedback!
+window, backoff_factor and backoff_beta are the most important knobs
+that influence CDG's backoff behavior. We could remove window as a
+parameter (make it constant), although that would make tuning it
+rather tedious. We could also make window adjustable dynamically, but
+I opt on waiting until someone needs this functionality before adding
+the code. Or am I missing something?
