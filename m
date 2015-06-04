@@ -1,81 +1,88 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next V10 3/4] 802.1AD: Flow handling, actions and vlan parsing
-Date: Thu, 4 Jun 2015 10:45:15 -0700
-Message-ID: <CALnjE+p8tuUFoXOFvfrp154rb80o_8XhtJ+Z8RrL1Y67kw12jw@mail.gmail.com>
-References: <1433267444-26025-1-git-send-email-thomasfherbert@gmail.com>
-	<1433267444-26025-4-git-send-email-thomasfherbert@gmail.com>
+From: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next V10 3/4] 802.1AD: Flow handling,
+ actions and vlan parsing
+Date: Thu, 04 Jun 2015 14:18:28 -0400
+Message-ID: <55709674.8070808@gmail.com>
+References: <1433267444-26025-1-git-send-email-thomasfherbert@gmail.com>	<1433267444-26025-4-git-send-email-thomasfherbert@gmail.com>
+ <CALnjE+p8tuUFoXOFvfrp154rb80o_8XhtJ+Z8RrL1Y67kw12jw@mail.gmail.com>
+Reply-To: thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, therbert@redhat.com,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Thomas F Herbert <thomasfherbert@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog116.obsmtp.com ([74.125.149.240]:45540 "HELO
-	na3sys009aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752691AbbFDRpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 13:45:16 -0400
-Received: by mail-ig0-f176.google.com with SMTP id pi8so143536236igb.1
-        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 10:45:15 -0700 (PDT)
-In-Reply-To: <1433267444-26025-4-git-send-email-thomasfherbert@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CALnjE+p8tuUFoXOFvfrp154rb80o_8XhtJ+Z8RrL1Y67kw12jw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 2, 2015 at 10:50 AM, Thomas F Herbert
-<thomasfherbert@gmail.com> wrote:
-> Add support for 802.1ad including the ability to push and pop double
-> tagged vlans.
->
-> Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
-> ---
->  net/openvswitch/flow.c | 82 ++++++++++++++++++++++++++++++++++++++++++--------
->  net/openvswitch/flow.h |  3 ++
->  2 files changed, 73 insertions(+), 12 deletions(-)
->
-> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-> index 2dacc7b..9c73a2e 100644
-> --- a/net/openvswitch/flow.c
-> +++ b/net/openvswitch/flow.c
-> @@ -298,21 +298,78 @@ static bool icmp6hdr_ok(struct sk_buff *skb)
->  static int parse_vlan(struct sk_buff *skb, struct sw_flow_key *key)
->  {
->         struct qtag_prefix {
-> -               __be16 eth_type; /* ETH_P_8021Q */
-> +               __be16 eth_type; /* ETH_P_8021Q  or ETH_P_8021AD */
->                 __be16 tci;
->         };
-> -       struct qtag_prefix *qp;
-> +       struct qtag_prefix *qp = (struct qtag_prefix *)skb->data;
->
-> -       if (unlikely(skb->len < sizeof(struct qtag_prefix) + sizeof(__be16)))
-> +       struct qinqtag_prefix {
-> +               __be16 eth_type; /* ETH_P_8021Q  or ETH_P_8021AD */
-> +               __be16 tci;
-> +               __be16 inner_tpid; /* ETH_P_8021Q */
-> +               __be16 ctci;
-> +       };
-> +
-...
-
->
-> diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-> index a076e44..fa83c61 100644
-> --- a/net/openvswitch/flow.h
-> +++ b/net/openvswitch/flow.h
-> @@ -134,6 +134,9 @@ struct sw_flow_key {
->                 u8     src[ETH_ALEN];   /* Ethernet source address. */
->                 u8     dst[ETH_ALEN];   /* Ethernet destination address. */
->                 __be16 tci;             /* 0 if no VLAN, VLAN_TAG_PRESENT set otherwise. */
-> +               __be16 ctci;            /* 0 if no CVLAN, VLAN_TAG_PRESENT set
-> +                                        * otherwise.
-> +                                        */
->                 __be16 type;            /* Ethernet frame type. */
->         } eth;
->         union {
-> --
-> 2.1.0
->
-Currently you have restricted the datapath implementation to support
-only 8021AD. We can extend this to support double tagging by adding
-inner_tpid field to struct sw_flow_key. OVS netlink interface already
-allows this type of configuration. So is there reason not to do it in
-this series?
+T24gNi80LzE1IDE6NDUgUE0sIFByYXZpbiBTaGVsYXIgd3JvdGU6Cj4gT24gVHVlLCBKdW4gMiwg
+MjAxNSBhdCAxMDo1MCBBTSwgVGhvbWFzIEYgSGVyYmVydAo+IDx0aG9tYXNmaGVyYmVydEBnbWFp
+bC5jb20+IHdyb3RlOgo+PiBBZGQgc3VwcG9ydCBmb3IgODAyLjFhZCBpbmNsdWRpbmcgdGhlIGFi
+aWxpdHkgdG8gcHVzaCBhbmQgcG9wIGRvdWJsZQo+PiB0YWdnZWQgdmxhbnMuCj4+Cj4+IFNpZ25l
+ZC1vZmYtYnk6IFRob21hcyBGIEhlcmJlcnQgPHRob21hc2ZoZXJiZXJ0QGdtYWlsLmNvbT4KPj4g
+LS0tCj4+ICAgbmV0L29wZW52c3dpdGNoL2Zsb3cuYyB8IDgyICsrKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0tCj4+ICAgbmV0L29wZW52c3dpdGNoL2Zsb3cu
+aCB8ICAzICsrCj4+ICAgMiBmaWxlcyBjaGFuZ2VkLCA3MyBpbnNlcnRpb25zKCspLCAxMiBkZWxl
+dGlvbnMoLSkKPj4KPj4gZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9mbG93LmMgYi9uZXQv
+b3BlbnZzd2l0Y2gvZmxvdy5jCj4+IGluZGV4IDJkYWNjN2IuLjljNzNhMmUgMTAwNjQ0Cj4+IC0t
+LSBhL25ldC9vcGVudnN3aXRjaC9mbG93LmMKPj4gKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3cu
+Ywo+PiBAQCAtMjk4LDIxICsyOTgsNzggQEAgc3RhdGljIGJvb2wgaWNtcDZoZHJfb2soc3RydWN0
+IHNrX2J1ZmYgKnNrYikKPj4gICBzdGF0aWMgaW50IHBhcnNlX3ZsYW4oc3RydWN0IHNrX2J1ZmYg
+KnNrYiwgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXkpCj4+ICAgewo+PiAgICAgICAgICBzdHJ1Y3Qg
+cXRhZ19wcmVmaXggewo+PiAtICAgICAgICAgICAgICAgX19iZTE2IGV0aF90eXBlOyAvKiBFVEhf
+UF84MDIxUSAqLwo+PiArICAgICAgICAgICAgICAgX19iZTE2IGV0aF90eXBlOyAvKiBFVEhfUF84
+MDIxUSAgb3IgRVRIX1BfODAyMUFEICovCj4+ICAgICAgICAgICAgICAgICAgX19iZTE2IHRjaTsK
+Pj4gICAgICAgICAgfTsKPj4gLSAgICAgICBzdHJ1Y3QgcXRhZ19wcmVmaXggKnFwOwo+PiArICAg
+ICAgIHN0cnVjdCBxdGFnX3ByZWZpeCAqcXAgPSAoc3RydWN0IHF0YWdfcHJlZml4ICopc2tiLT5k
+YXRhOwo+Pgo+PiAtICAgICAgIGlmICh1bmxpa2VseShza2ItPmxlbiA8IHNpemVvZihzdHJ1Y3Qg
+cXRhZ19wcmVmaXgpICsgc2l6ZW9mKF9fYmUxNikpKQo+PiArICAgICAgIHN0cnVjdCBxaW5xdGFn
+X3ByZWZpeCB7Cj4+ICsgICAgICAgICAgICAgICBfX2JlMTYgZXRoX3R5cGU7IC8qIEVUSF9QXzgw
+MjFRICBvciBFVEhfUF84MDIxQUQgKi8KPj4gKyAgICAgICAgICAgICAgIF9fYmUxNiB0Y2k7Cj4+
+ICsgICAgICAgICAgICAgICBfX2JlMTYgaW5uZXJfdHBpZDsgLyogRVRIX1BfODAyMVEgKi8KPj4g
+KyAgICAgICAgICAgICAgIF9fYmUxNiBjdGNpOwo+PiArICAgICAgIH07Cj4+ICsKPiAuLi4KPgo+
+Pgo+PiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Zsb3cuaCBiL25ldC9vcGVudnN3aXRj
+aC9mbG93LmgKPj4gaW5kZXggYTA3NmU0NC4uZmE4M2M2MSAxMDA2NDQKPj4gLS0tIGEvbmV0L29w
+ZW52c3dpdGNoL2Zsb3cuaAo+PiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5oCj4+IEBAIC0x
+MzQsNiArMTM0LDkgQEAgc3RydWN0IHN3X2Zsb3dfa2V5IHsKPj4gICAgICAgICAgICAgICAgICB1
+OCAgICAgc3JjW0VUSF9BTEVOXTsgICAvKiBFdGhlcm5ldCBzb3VyY2UgYWRkcmVzcy4gKi8KPj4g
+ICAgICAgICAgICAgICAgICB1OCAgICAgZHN0W0VUSF9BTEVOXTsgICAvKiBFdGhlcm5ldCBkZXN0
+aW5hdGlvbiBhZGRyZXNzLiAqLwo+PiAgICAgICAgICAgICAgICAgIF9fYmUxNiB0Y2k7ICAgICAg
+ICAgICAgIC8qIDAgaWYgbm8gVkxBTiwgVkxBTl9UQUdfUFJFU0VOVCBzZXQgb3RoZXJ3aXNlLiAq
+Lwo+PiArICAgICAgICAgICAgICAgX19iZTE2IGN0Y2k7ICAgICAgICAgICAgLyogMCBpZiBubyBD
+VkxBTiwgVkxBTl9UQUdfUFJFU0VOVCBzZXQKPj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAqIG90aGVyd2lzZS4KPj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAqLwo+PiAgICAgICAgICAgICAgICAgIF9fYmUxNiB0eXBlOyAgICAgICAg
+ICAgIC8qIEV0aGVybmV0IGZyYW1lIHR5cGUuICovCj4+ICAgICAgICAgIH0gZXRoOwo+PiAgICAg
+ICAgICB1bmlvbiB7Cj4+IC0tCj4+IDIuMS4wCj4+Cj4gQ3VycmVudGx5IHlvdSBoYXZlIHJlc3Ry
+aWN0ZWQgdGhlIGRhdGFwYXRoIGltcGxlbWVudGF0aW9uIHRvIHN1cHBvcnQKPiBvbmx5IDgwMjFB
+RC4gV2UgY2FuIGV4dGVuZCB0aGlzIHRvIHN1cHBvcnQgZG91YmxlIHRhZ2dpbmcgYnkgYWRkaW5n
+Cj4gaW5uZXJfdHBpZCBmaWVsZCB0byBzdHJ1Y3Qgc3dfZmxvd19rZXkuIE9WUyBuZXRsaW5rIGlu
+dGVyZmFjZSBhbHJlYWR5Cj4gYWxsb3dzIHRoaXMgdHlwZSBvZiBjb25maWd1cmF0aW9uLiBTbyBp
+cyB0aGVyZSByZWFzb24gbm90IHRvIGRvIGl0IGluCj4gdGhpcyBzZXJpZXM/ClByYXZpbiwgdGhh
+bmtzIGZvciB0aGUgcmV2aWV3LgoKSW4gdGhlIG9yaWdpbmFsIGltcGxlbWVudGF0aW9uLCBJIHRo
+b3VnaHQgSSB3b3VsZCBtYWtlIG9ubHkgdGhlIAptaW5pbWFsbHkgbmVjZXNzYXJ5IGNoYW5nZXMg
+YW5kIEkgaGF2ZSBiZWVuIGNhcnJ5aW5nIHRoYXQgZm9yd2FyZCAKdGhyb3VnaCBlYWNoIHJldmlz
+aW9uLgoKSWYgb25seSBvbmUgdGFnLCB0Y2kgaXMgcHJlc2VudCB0aGF0IGltcGxpZXMgdHBpZCBv
+ZiAweDgxMDAsIGlmIHR3byB0YWdzIAphcmUgcHJlc2VudCwgYm90aCB0Y2kgYW5kIGN0Y2ksIHRo
+YXQgaW1wbGllcyBhIHRwaWQgb2YgMHg4OGE4IGFuZCB0aGlzIAppcyBpbiBmYWN0IGhvdyB0aGUg
+Y29kZSB3b3JrcyBhbmQgaXMgaG93IGl0IHN1cHBvcnRzIGJvdGggODAyLjFxIGFuZCAKODAyLjFh
+ZC4gVGhlIHRwaWQncyBhcmUgbm90IHN0cmljdGx5IG5lY2Vzc2FyeSBpbiB0aGUgZmxvdyBrZXkg
+Zm9yIGJvdGggCjgwMi4xcSBhbmQgODAyLjFhZCB0byB3b3JrLiBPRiBkb2Vzbid0IHN1cHBvcnQg
+dGhlIGFiaWxpdHkgdG8gcHVzaCBhbmQgCnBvcCB2bGFucyB3aXRoIG5vbiB2YWxpZCB0cGlkJ3Mg
+c28gdGhlcmUncyBubyBhbWJpZ3VpdHkuCgpDb250cmFyaWx5IGFuZCBkZXNwaXRlIG15IGNvbW1l
+bnQgYWJvdmUsIGFsdGhvdWdoIG5vdCBzdHJpY3RseSAKbmVjZXNzYXJ5LCBJIGRvbid0IGhhdmUg
+YW55IG9iamVjdGlvbiB0byBhZGRpbmcgdGhlIHRwaWQgYW5kIHRvIHRoZSBmbG93IAprZXkgYW5k
+IEkgY2FuIG1ha2UgaXQgd29yayBlaXRoZXIgd2F5LgoKLS1URkgKPgoKCi0tIApUaG9tYXMgRi4g
+SGVyYmVydApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpk
+ZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9y
+Zy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
