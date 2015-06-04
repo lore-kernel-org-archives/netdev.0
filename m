@@ -1,137 +1,86 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [RFC PATCH] slub: RFC: Improving SLUB performance with 38% on
-	NO-PREEMPT
-Date: Thu, 04 Jun 2015 12:31:59 +0200
-Message-ID: <20150604103159.4744.75870.stgit@ivy>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] sctp:Make the function sctp_assoc_lookup_laddr bool
+Date: Thu, 4 Jun 2015 06:35:03 -0400
+Message-ID: <20150604103503.GA24585@hmsreliant.think-freely.org>
+References: <1433335867-1871-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	linux-mm@kvack.org, netdev@vger.kernel.org
-To: Christoph Lameter <cl@linux.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: vyasevich@gmail.com, davem@davemloft.net,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Nicholas Krause <xerofoify@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57521 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751827AbbFDKca (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Jun 2015 06:32:30 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42498 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752929AbbFDKfZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 06:35:25 -0400
+Content-Disposition: inline
+In-Reply-To: <1433335867-1871-1-git-send-email-xerofoify@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch improves performance of SLUB allocator fastpath with 38% by
-avoiding the call to this_cpu_cmpxchg_double() for NO-PREEMPT kernels.
+On Wed, Jun 03, 2015 at 08:51:07AM -0400, Nicholas Krause wrote:
+> This makes the function sctp_assoc_lookup_laddr bool due to this
+> function only returning either one or zero as its return value.
+> 
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+> ---
+>  include/net/sctp/structs.h | 4 ++--
+>  net/sctp/associola.c       | 8 ++++----
+>  2 files changed, 6 insertions(+), 6 deletions(-)
+> 
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index 2bb2fcf..1381be9 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -1870,8 +1870,8 @@ struct sctp_transport *sctp_assoc_choose_alter_transport(
+>  void sctp_assoc_update_retran_path(struct sctp_association *);
+>  struct sctp_transport *sctp_assoc_lookup_paddr(const struct sctp_association *,
+>  					  const union sctp_addr *);
+> -int sctp_assoc_lookup_laddr(struct sctp_association *asoc,
+> -			    const union sctp_addr *laddr);
+> +bool sctp_assoc_lookup_laddr(struct sctp_association *asoc,
+> +			     const union sctp_addr *laddr);
+>  struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *,
+>  				     const union sctp_addr *address,
+>  				     const gfp_t gfp,
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index 197c3f5..69abe78 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -1572,15 +1572,15 @@ int sctp_assoc_set_bind_addr_from_cookie(struct sctp_association *asoc,
+>  }
+>  
+>  /* Lookup laddr in the bind address list of an association. */
+> -int sctp_assoc_lookup_laddr(struct sctp_association *asoc,
+> -			    const union sctp_addr *laddr)
+> +bool sctp_assoc_lookup_laddr(struct sctp_association *asoc,
+> +			     const union sctp_addr *laddr)
+>  {
+> -	int found = 0;
+> +	bool found = false;
+>  
+>  	if ((asoc->base.bind_addr.port == ntohs(laddr->v4.sin_port)) &&
+>  	    sctp_bind_addr_match(&asoc->base.bind_addr, laddr,
+>  				 sctp_sk(asoc->base.sk)))
+> -		found = 1;
+> +		found = true;
+>  
+>  	return found;
+>  }
+> -- 
+> 2.1.4
+> 
+> 
 
-Reviewers please point out why this change is wrong, as such a large
-improvement should not be possible ;-)
+If you're going to do this, you might as well also remove the conditional
+statement here entirely.  I.e. just have the function be this:
 
-My primarily motivation for this patch is to understand and
-microbenchmark the MM-layer of the kernel, due to an increasing demand
-from the networking stack.
+return (asoc->base.bind_addr.port == ntohs(laddr->v4.sin_port)) &&
+	sctp_bind_addr_match(&asoc->base.bind_addr, laddr,
+	sctp_sk(asoc->base.sk)));
 
-This "microbenchmark" is merely to demonstrate the cost of the
-instruction CMPXCHG16B (without LOCK prefix).
+You might also look into makeing it inline, though it doesn't appear in any hot
+paths so thats likely overkill
 
-My microbench is avail on github[1] (reused "qmempool_bench").
-
-The fastpath-reuse (alloc+free cost) (CPU E5-2695):
- * 47 cycles(tsc) - 18.948 ns  (normal with this_cpu_cmpxchg_double)
- * 29 cycles(tsc) - 11.791 ns  (with patch)
-
-Thus, the difference deduct the cost of CMPXCHG16B
- * Total saved 18 cycles - 7.157ns
- * for two CMPXCHG16B (alloc+free): per-inst saved 9 cycles - 3.579ns
- * http://instlatx64.atw.hu/ says 9 cycles cost of CMPXCHG16B
-
-This also shows that the cost of this_cpu_cmpxchg_double() in SLUB is
-approx 38% of fast-path cost.
-
-[1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/mm/qmempool_bench.c
-
-The cunning reviewer would also like to know the cost of disabling
-interrupts, on this CPU. Here it is interesting to see how the
-save/restore variant is significantly more expensive:
-
-Cost of local IRQ toggling (CPU E5-2695):
- *  local_irq_{disable,enable}:  7 cycles(tsc) -  2.861 ns
- *  local_irq_{save,restore}  : 37 cycles(tsc) - 14.846 ns
-
-With the additional overhead of local_irq_{disable,enable}, there
-would still be a saving of 11 cycles (out of 47) 23%.
----
-
- mm/slub.c |   52 +++++++++++++++++++++++++++++++++++++++-------------
- 1 files changed, 39 insertions(+), 13 deletions(-)
-
-diff --git a/mm/slub.c b/mm/slub.c
-index 54c0876..b31991f 100644
---- a/mm/slub.c
-+++ b/mm/slub.c
-@@ -2489,13 +2489,32 @@ redo:
- 		 * against code executing on this cpu *not* from access by
- 		 * other cpus.
- 		 */
--		if (unlikely(!this_cpu_cmpxchg_double(
--				s->cpu_slab->freelist, s->cpu_slab->tid,
--				object, tid,
--				next_object, next_tid(tid)))) {
--
--			note_cmpxchg_failure("slab_alloc", s, tid);
--			goto redo;
-+		if (IS_ENABLED(CONFIG_PREEMPT)) {
-+			if (unlikely(!this_cpu_cmpxchg_double(
-+					s->cpu_slab->freelist, s->cpu_slab->tid,
-+					object, tid,
-+					next_object, next_tid(tid)))) {
-+
-+				note_cmpxchg_failure("slab_alloc", s, tid);
-+				goto redo;
-+			}
-+		} else {
-+			// HACK - On a NON-PREEMPT cmpxchg is not necessary(?)
-+			__this_cpu_write(s->cpu_slab->tid, next_tid(tid));
-+			__this_cpu_write(s->cpu_slab->freelist, next_object);
-+		/*
-+		 * Q: What happens in-case called from interrupt handler?
-+		 *
-+		 * If we need to disable (local) IRQs then most of the
-+		 * saving is lost.  E.g. the local_irq_{save,restore}
-+		 * is too costly.
-+		 *
-+		 * Saved (alloc+free): 18 cycles - 7.157ns
-+		 *
-+		 * Cost of (CPU E5-2695):
-+		 *  local_irq_{disable,enable}:  7 cycles(tsc) -  2.861 ns
-+		 *  local_irq_{save,restore}  : 37 cycles(tsc) - 14.846 ns
-+		 */
- 		}
- 		prefetch_freepointer(s, next_object);
- 		stat(s, ALLOC_FASTPATH);
-@@ -2726,14 +2745,21 @@ redo:
- 	if (likely(page == c->page)) {
- 		set_freepointer(s, object, c->freelist);
- 
--		if (unlikely(!this_cpu_cmpxchg_double(
--				s->cpu_slab->freelist, s->cpu_slab->tid,
--				c->freelist, tid,
--				object, next_tid(tid)))) {
-+		if (IS_ENABLED(CONFIG_PREEMPT)) {
-+			if (unlikely(!this_cpu_cmpxchg_double(
-+					s->cpu_slab->freelist, s->cpu_slab->tid,
-+					c->freelist, tid,
-+					object, next_tid(tid)))) {
- 
--			note_cmpxchg_failure("slab_free", s, tid);
--			goto redo;
-+				note_cmpxchg_failure("slab_free", s, tid);
-+				goto redo;
-+			}
-+		} else {
-+			// HACK - On a NON-PREEMPT cmpxchg is not necessary(?)
-+			__this_cpu_write(s->cpu_slab->tid, next_tid(tid));
-+			__this_cpu_write(s->cpu_slab->freelist, object);
- 		}
-+
- 		stat(s, FREE_FASTPATH);
- 	} else
- 		__slab_free(s, page, x, addr);
+Neil
