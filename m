@@ -1,35 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: netlink: Disable insertions/removals during rehash
-Date: Thu, 04 Jun 2015 11:59:22 -0700 (PDT)
-Message-ID: <20150604.115922.1489867293287036693.davem@davemloft.net>
-References: <20150516131628.GA981@gondor.apana.org.au>
-	<20150516.171019.1206903516753105739.davem@davemloft.net>
-	<20150604162727.GA2670@roeck-us.net>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: Recurring trace from tcp_fragment()
+Date: Thu, 4 Jun 2015 15:34:58 -0400
+Message-ID: <CADVnQyn20JyAQqohihu5q=gfLHeQAAtn_VABMsZCvNPdQ3R+uw@mail.gmail.com>
+References: <CFCC0DCC-4080-4195-9BA9-0860D9701805@fastly.com>
+	<CADVnQyngTDVYMhmQq=pjS3LrdQ+HXyizujiOkmgXxTjQ0QKH8A@mail.gmail.com>
+	<5E30A40E-EC6C-4D37-AB49-04BF40EEFBFC@fastly.com>
+	<CADVnQy=rwKG_ddduixcee1D4HaaSBBk=X=2Htmdow0k6Cbxhzg@mail.gmail.com>
+	<904FADEB-C1EB-4384-BA47-0EB0273AFB71@fastly.com>
+	<CADVnQymCSGyyOqdO2HOap+_6zsfy99-3CbgxnQTfGakRYNoteQ@mail.gmail.com>
+	<55707E38.4090506@fastly.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, eric.dumazet@gmail.com, tgraf@suug.ch,
-	netdev@vger.kernel.org
-To: linux@roeck-us.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Grant Zhang <gzhang@fastly.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49285 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753957AbbFDS7X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 14:59:23 -0400
-In-Reply-To: <20150604162727.GA2670@roeck-us.net>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:36188 "EHLO
+	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751672AbbFDTe7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 15:34:59 -0400
+Received: by oihb142 with SMTP id b142so38414675oih.3
+        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 12:34:58 -0700 (PDT)
+In-Reply-To: <55707E38.4090506@fastly.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Thu, 4 Jun 2015 09:27:27 -0700
+On Thu, Jun 4, 2015 at 12:35 PM, Grant Zhang <gzhang@fastly.com> wrote:
+> Hi Neal,
+>
+> Unfortunately with the patch we still see the same stack trace. Attached is
+> the TcpExtTCPSACKReneging with the patch, captured with 60 seconds interval.
+> Its value is incremented at an similar speed as before, about 30/minute.
+>
+> If you want to collect any other data, please feel free to let me know.
 
-> sorry for bothering you - I don't see this patch in any of your trees,
-> and it is marked as "changes requested" in patchwork. Did I look
-> at the wrong places, do you still plan to apply the patch as-is,
-> or do you expect some changes ?
-> 
-> As side info, I have been trying to track down the getaddrinfo
-> hang problem observed by others, which we see in 3.19.4 and 4.0.4.
+OK, very interesting. Thank you so much for testing that patch. We
+will work on coming up with another patch to try to address this.
 
-Changes-requested, amazingly, means that someone gave you feedback
-and changes along with a fresh resubmission is expected of you.
+Thanks!
+
+neal
