@@ -1,57 +1,52 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net-next v2] rocker: move netevent neigh update to
- processes context
-Date: Fri, 5 Jun 2015 07:54:28 +0900
-Message-ID: <20150604225425.GA7465@verge.net.au>
-References: <1433303008-32656-1-git-send-email-sfeldma@gmail.com>
- <20150603.233829.1362177764562847830.davem@davemloft.net>
- <20150604082045.GA7709@vergenet.net>
- <CAE4R7bD1EmYm4TNrWWskTeKA6NfNsasVRTP4KxhOYvZt_9n3Ow@mail.gmail.com>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH v6 net-next 00/11] net: Increase inputs to flow_keys
+ hashing
+Date: Thu, 04 Jun 2015 15:56:25 -0700 (PDT)
+Message-ID: <20150604.155625.35211112382842879.davem@redhat.com>
+References: <1433434606-527444-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <simon.horman@netronome.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	=?utf-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:52946 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753799AbbFDWyb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 18:54:31 -0400
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bD1EmYm4TNrWWskTeKA6NfNsasVRTP4KxhOYvZt_9n3Ow@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:36640 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753746AbbFDW40 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jun 2015 18:56:26 -0400
+In-Reply-To: <1433434606-527444-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Scott,
+From: Tom Herbert <tom@herbertland.com>
+Date: Thu, 4 Jun 2015 09:16:35 -0700
 
-> Simon, just focusing on this rocker->neigh_tbl_next_index++ issue at
-> the moment, I think the change below would make _rocker_neigh_add()
-> safe to call without needing to put neigh_update into process context.
-> It works because entry is stored between PREPARE and COMMIT, so once
-> entry->index is assigned in PREPARE (under neigh_tbl_lock), it'll be
-> re-used in COMMIT, even if the NONE thread also claims it's
-> entry->index (also under neigh_tbl_lock).
+> This patch set adds new fields to the flow_keys structure and hashes
+> over these fields to get a better flow hash. In particular, these
+> patches now include hashing over the full IPv6 addresses in order
+> to defend against address spoofing that always results in the
+> same hash. The new input also includes the Ethertype, L4 protocol,
+> VLAN, flow label, GRE keyid, and MPLS entropy label.
 > 
-> I know there are other issues you and Toshiaki Makita have pointed
-> out, but let's see if we can peel the onion one layer at a time.
+> In order to increase hash inputs, we switch to using jhash2
+> which operates an an array of u32's. jhash2 operates on multiples of
+> three words. The data in the hash is constructed for that, and there
+> are are two variants for IPv4 and Ipv6 addressing. For IPv4 addresses,
+> jhash is performed over six u32's and for IPv6 it is done over twelve.
 > 
-> --- a/drivers/net/ethernet/rocker/rocker.c
-> +++ b/drivers/net/ethernet/rocker/rocker.c
-> @@ -2904,10 +2904,10 @@ static void _rocker_neigh_add(struct rocker *rocker,
->                               enum switchdev_trans trans,
->                               struct rocker_neigh_tbl_entry *entry)
->  {
-> -       entry->index = rocker->neigh_tbl_next_index;
-> +       if (trans != SWITCHDEV_TRANS_COMMIT)
-> +               entry->index = rocker->neigh_tbl_next_index++;
->         if (trans == SWITCHDEV_TRANS_PREPARE)
->                 return;
-> -       rocker->neigh_tbl_next_index++;
->         entry->ref_count++;
->         hash_add(rocker->neigh_tbl, &entry->entry,
->                  be32_to_cpu(entry->ip_addr));
+> flow_keys can store either IPv4 or IPv6 addresses (addr_proto field
+> is a selector). ipv6_addr_hash is no longer used to convert addresses
+> for setting in flow table. For legacy uses of flow keys outside of
+> flow_dissector the flow_get_u32_src and flow_get_u32_dst functions
+> have been added to get u32 representation representations of addresses
+> in flow_keys.
+> 
+> For flow lables we also eliminate the short circuit in flow_dissector
+> for non-zero flow label. The flow label is now considered additional
+> input to ports.
+> 
+> Testing: Ran netperf TCP_RR for 200 flows using IPv4 and IPv6 comparing
+> before the patches and with the patches. Did not detect any performance
+> degradation.
 
-I agree that should work.
+Series applied, thanks Tom.
