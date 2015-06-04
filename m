@@ -1,34 +1,43 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC net-next 3/6] net: Special routing hook
-Date: Thu, 04 Jun 2015 09:40:01 +0200
-Message-ID: <1433403601.1775100.286518937.543AE5E0@webmail.messagingengine.com>
-References: <1433361502-3478761-1-git-send-email-tom@herbertland.com>
- <1433361502-3478761-4-git-send-email-tom@herbertland.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] ipv4/udp: Verify multicast group is ours in
+ upd_v4_early_demux()
+Date: Thu, 04 Jun 2015 00:46:58 -0700 (PDT)
+Message-ID: <20150604.004658.541562931844276343.davem@davemloft.net>
+References: <556CBC7E.2050005@cogentembedded.com>
+	<1433366858-14317-1-git-send-email-shawn.bohrer@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-	agartrell@fb.com, maheshb@google.com, tgraf@suug.ch,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Yurij.Plotnikov@oktetlabs.ru,
+	Alexandra.Kossovsky@oktetlabs.ru, eric.dumazet@gmail.com,
+	oliver.e.graff@gmail.com, sergei.shtylyov@cogentembedded.com,
+	sbohrer@rgmadvisors.com
+To: shawn.bohrer@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:55582 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752223AbbFDHkC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 03:40:02 -0400
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id CFCE420BC0
-	for <netdev@vger.kernel.org>; Thu,  4 Jun 2015 03:40:01 -0400 (EDT)
-In-Reply-To: <1433361502-3478761-4-git-send-email-tom@herbertland.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44877 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750936AbbFDH46 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 03:56:58 -0400
+In-Reply-To: <1433366858-14317-1-git-send-email-shawn.bohrer@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Shawn Bohrer <shawn.bohrer@gmail.com>
+Date: Wed,  3 Jun 2015 16:27:38 -0500
 
-On Wed, Jun 3, 2015, at 21:58, Tom Herbert wrote:
-> A hack to provide an ultra light weight hook to do translations.
+> From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+> 
+> 421b3885bf6d56391297844f43fb7154a6396e12 "udp: ipv4: Add udp early
+> demux" introduced a regression that allowed sockets bound to INADDR_ANY
+> to receive packets from multicast groups that the socket had not joined.
+> For example a socket that had joined 224.168.2.9 could also receive
+> packets from 225.168.2.9 despite not having joined that group if
+> ip_early_demux is enabled.
+> 
+> Fix this by calling ip_check_mc_rcu() in udp_v4_early_demux() to verify
+> that the multicast packet is indeed ours.
+> 
+> Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
+> Reported-by: Yurij M. Plotnikov <Yurij.Plotnikov@oktetlabs.ru>
 
-Would it be possible to use ip6_ila_input hooks in dst_entry to do those
-translations? It really seems like a hack ;)
-
-Bye,
-Hannes
+Applied and queued up for -stable, thanks.
