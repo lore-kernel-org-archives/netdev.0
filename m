@@ -1,33 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: double default TSQ output bytes limit
-Date: Thu, 04 Jun 2015 01:09:53 -0700 (PDT)
-Message-ID: <20150604.010953.468723718124334903.davem@davemloft.net>
-References: <1433326242-4061-1-git-send-email-wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next 1/2] bpf: make programs see skb->data == L2
+ for ingress and egress
+Date: Thu, 04 Jun 2015 01:11:53 -0700 (PDT)
+Message-ID: <20150604.011153.2117612661989458005.davem@davemloft.net>
+References: <1433394431-30838-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stefano.stabellini@eu.citrix.com,
-	george.dunlap@eu.citrix.com, eric.dumazet@gmail.com
-To: wei.liu2@citrix.com
+Cc: edumazet@google.com, jhs@mojatatu.com, daniel@iogearbox.net,
+	netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44977 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44986 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753257AbbFDIJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 04:09:55 -0400
-In-Reply-To: <1433326242-4061-1-git-send-email-wei.liu2@citrix.com>
+	with ESMTP id S1752495AbbFDILy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 04:11:54 -0400
+In-Reply-To: <1433394431-30838-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Liu <wei.liu2@citrix.com>
-Date: Wed, 3 Jun 2015 11:10:42 +0100
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Wed,  3 Jun 2015 22:07:10 -0700
 
-> Xen virtual network driver has higher latency than a physical NIC.
-> Having only 128K as limit for TSQ introduced 30% regression in guest
-> throughput.
-> 
-> This patch raises the limit to 256K. This reduces the regression to 8%.
-> This buys us more time to work out a proper solution in the long run.
-> 
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> +	u32 at_ingress = G_TC_AT(skb->tc_verd) & AT_INGRESS;
 
-Applied, thanks.
+Please use a 'bool' for this.
+
+> @@ -64,6 +64,7 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+>  {
+>  	struct cls_bpf_head *head = rcu_dereference_bh(tp->root);
+>  	struct cls_bpf_prog *prog;
+> +	u32 at_ingress = G_TC_AT(skb->tc_verd) & AT_INGRESS;
+>  	int ret = -1;
+>  
+>  	if (unlikely(!skb_mac_header_was_set(skb)))
+
+Likewise.
+
+Thank you.
