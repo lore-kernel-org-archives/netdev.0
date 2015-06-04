@@ -1,98 +1,168 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [RFC 03/10] SUNRPC: abstract tcp_read_sock() in record fragment parser
-Date: Thu,  4 Jun 2015 17:45:46 +0100
-Message-ID: <1433436353-6761-4-git-send-email-stefanha@redhat.com>
+From: Stefan Hajnoczi <stefanha-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [RFC 01/10] SUNRPC: add AF_VSOCK support to addr.h
+Date: Thu,  4 Jun 2015 17:45:44 +0100
+Message-ID: <1433436353-6761-2-git-send-email-stefanha@redhat.com>
 References: <1433436353-6761-1-git-send-email-stefanha@redhat.com>
-Cc: Anna Schumaker <anna.schumaker@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	asias.hejun@gmail.com, netdev@vger.kernel.org,
-	Daniel Berrange <berrange@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stefan Hajnoczi <stefanha@redhat.com>
-To: linux-nfs@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40368 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753546AbbFDQqD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Jun 2015 12:46:03 -0400
-In-Reply-To: <1433436353-6761-1-git-send-email-stefanha@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	asias.hejun-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Berrange <berrange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Stefan Hajnoczi <stefanha-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1433436353-6761-1-git-send-email-stefanha-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Use a function pointer to abstract tcp_read_sock()-like functions.  For
-TCP this function will be tcp_read_sock().  For AF_VSOCK it will be
-vsock_read_sock().
+AF_VSOCK addresses are a Context ID (CID) and port number tuple.  The
+CID is a unique address, similar to a IP address on a local subnet.
 
-Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Extend the addr.h functions to handle AF_VSOCK addresses.
+
+Signed-off-by: Stefan Hajnoczi <stefanha-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 ---
- include/linux/sunrpc/xprtsock.h | 6 ++++++
- net/sunrpc/xprtsock.c           | 8 +++++++-
- 2 files changed, 13 insertions(+), 1 deletion(-)
+ include/linux/sunrpc/addr.h |  6 +++++
+ net/sunrpc/addr.c           | 57 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 63 insertions(+)
 
-diff --git a/include/linux/sunrpc/xprtsock.h b/include/linux/sunrpc/xprtsock.h
-index e3de7bf..3b4cd4c 100644
---- a/include/linux/sunrpc/xprtsock.h
-+++ b/include/linux/sunrpc/xprtsock.h
-@@ -9,6 +9,9 @@
+diff --git a/include/linux/sunrpc/addr.h b/include/linux/sunrpc/addr.h
+index 07d8e53..b6530de 100644
+--- a/include/linux/sunrpc/addr.h
++++ b/include/linux/sunrpc/addr.h
+@@ -10,6 +10,7 @@
+ #include <linux/socket.h>
+ #include <linux/in.h>
+ #include <linux/in6.h>
++#include <linux/vm_sockets.h>
+ #include <net/ipv6.h>
  
- #ifdef __KERNEL__
- 
-+/* TODO why does this header have no includes? */
-+#include <net/tcp.h> /* for sk_read_actor_t */
-+
- int		init_socket_xprt(void);
- void		cleanup_socket_xprt(void);
- 
-@@ -39,6 +42,9 @@ struct sock_xprt {
- 	unsigned long		stream_copied,
- 				stream_flags;
- 
-+	int			(*stream_read_sock)(struct sock *,
-+						    read_descriptor_t *,
-+						    sk_read_actor_t);
- 
- 	/*
- 	 * Connection of transports
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index c84d45e..06fde0e 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -1395,6 +1395,7 @@ static int xs_stream_data_recv(read_descriptor_t *rd_desc, struct sk_buff *skb,
- static void xs_stream_data_ready(struct sock *sk)
- {
- 	struct rpc_xprt *xprt;
-+	struct sock_xprt *transport;
- 	read_descriptor_t rd_desc;
- 	int read;
- 	unsigned long total = 0;
-@@ -1406,6 +1407,9 @@ static void xs_stream_data_ready(struct sock *sk)
- 		read = 0;
- 		goto out;
+ size_t		rpc_ntop(const struct sockaddr *, char *, const size_t);
+@@ -26,6 +27,8 @@ static inline unsigned short rpc_get_port(const struct sockaddr *sap)
+ 		return ntohs(((struct sockaddr_in *)sap)->sin_port);
+ 	case AF_INET6:
+ 		return ntohs(((struct sockaddr_in6 *)sap)->sin6_port);
++	case AF_VSOCK:
++		return ((struct sockaddr_vm *)sap)->svm_port;
  	}
-+
-+	transport = container_of(xprt, struct sock_xprt, xprt);
-+
- 	/* Any data means we had a useful conversation, so
- 	 * the we don't need to delay the next reconnect
- 	 */
-@@ -1416,7 +1420,8 @@ static void xs_stream_data_ready(struct sock *sk)
- 	rd_desc.arg.data = xprt;
- 	do {
- 		rd_desc.count = 65536;
--		read = tcp_read_sock(sk, &rd_desc, xs_stream_data_recv);
-+		read = transport->stream_read_sock(sk, &rd_desc,
-+						   xs_stream_data_recv);
- 		if (read > 0)
- 			total += read;
- 	} while (read > 0);
-@@ -1458,6 +1463,7 @@ static void xs_tcp_state_change(struct sock *sk)
- 			transport->stream_copied = 0;
- 			transport->stream_flags =
- 				STREAM_RCV_COPY_FRAGHDR | STREAM_RCV_COPY_XID;
-+			transport->stream_read_sock = tcp_read_sock;
- 			xprt->connect_cookie++;
+ 	return 0;
+ }
+@@ -40,6 +43,9 @@ static inline void rpc_set_port(struct sockaddr *sap,
+ 	case AF_INET6:
+ 		((struct sockaddr_in6 *)sap)->sin6_port = htons(port);
+ 		break;
++	case AF_VSOCK:
++		((struct sockaddr_vm *)sap)->svm_port = port;
++		break;
+ 	}
+ }
  
- 			xprt_wake_pending_tasks(xprt, -EAGAIN);
+diff --git a/net/sunrpc/addr.c b/net/sunrpc/addr.c
+index 2e0a6f9..fe6eb31 100644
+--- a/net/sunrpc/addr.c
++++ b/net/sunrpc/addr.c
+@@ -16,11 +16,14 @@
+  * RFC 4291, Section 2.2 for details on IPv6 presentation formats.
+  */
+ 
++ /* TODO register netid and uaddr with IANA? (See RFC 5665 5.1/5.2) */
++
+ #include <net/ipv6.h>
+ #include <linux/sunrpc/addr.h>
+ #include <linux/sunrpc/msg_prot.h>
+ #include <linux/slab.h>
+ #include <linux/export.h>
++#include <linux/vm_sockets.h>
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ 
+@@ -108,6 +111,26 @@ static size_t rpc_ntop6(const struct sockaddr *sap,
+ 
+ #endif	/* !IS_ENABLED(CONFIG_IPV6) */
+ 
++#if IS_ENABLED(CONFIG_VSOCKETS)
++
++static size_t rpc_ntop_vsock(const struct sockaddr *sap,
++			     char *buf, const size_t buflen)
++{
++	const struct sockaddr_vm *svm = (struct sockaddr_vm *)sap;
++
++	return snprintf(buf, buflen, "%u", svm->svm_cid);
++}
++
++#else	/* !IS_ENABLED(CONFIG_VSOCKETS) */
++
++static size_t rpc_ntop_vsock(const struct sockaddr *sap,
++			     char *buf, const size_t buflen)
++{
++	return 0;
++}
++
++#endif	/* !IS_ENABLED(CONFIG_VSOCKETS) */
++
+ static int rpc_ntop4(const struct sockaddr *sap,
+ 		     char *buf, const size_t buflen)
+ {
+@@ -132,6 +155,8 @@ size_t rpc_ntop(const struct sockaddr *sap, char *buf, const size_t buflen)
+ 		return rpc_ntop4(sap, buf, buflen);
+ 	case AF_INET6:
+ 		return rpc_ntop6(sap, buf, buflen);
++	case AF_VSOCK:
++		return rpc_ntop_vsock(sap, buf, buflen);
+ 	}
+ 
+ 	return 0;
+@@ -229,6 +254,34 @@ static size_t rpc_pton6(struct net *net, const char *buf, const size_t buflen,
+ }
+ #endif
+ 
++#if IS_ENABLED(CONFIG_VSOCKETS)
++static size_t rpc_pton_vsock(const char *buf, const size_t buflen,
++			     struct sockaddr *sap, const size_t salen)
++{
++	const size_t prefix_len = strlen("vsock:");
++	struct sockaddr_vm *svm = (struct sockaddr_vm *)sap;
++	unsigned int cid;
++
++	if (strncmp(buf, "vsock:", prefix_len) != 0 ||
++	    salen < sizeof(struct sockaddr_vm))
++		return 0;
++
++	if (kstrtouint(buf + prefix_len, 10, &cid) != 0)
++		return 0;
++
++	memset(svm, 0, sizeof(struct sockaddr_vm));
++	svm->svm_family = AF_VSOCK;
++	svm->svm_cid = cid;
++	return sizeof(struct sockaddr_vm);
++}
++#else
++static size_t rpc_pton_vsock(const char *buf, const size_t buflen,
++			     struct sockaddr *sap, const size_t salen)
++{
++	return 0;
++}
++#endif
++
+ /**
+  * rpc_pton - Construct a sockaddr in @sap
+  * @net: applicable network namespace
+@@ -249,6 +302,10 @@ size_t rpc_pton(struct net *net, const char *buf, const size_t buflen,
+ {
+ 	unsigned int i;
+ 
++	/* TODO is there a nicer way to distinguish vsock addresses? */
++	if (strncmp(buf, "vsock:", 6) == 0)
++		return rpc_pton_vsock(buf, buflen, sap, salen);
++
+ 	for (i = 0; i < buflen; i++)
+ 		if (buf[i] == ':')
+ 			return rpc_pton6(net, buf, buflen, sap, salen);
 -- 
 2.4.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
