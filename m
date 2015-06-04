@@ -1,53 +1,49 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [Intel-wired-lan] [PATCH] fm10k: Fix missing braces after if
- statement
-Date: Thu, 4 Jun 2015 23:28:09 +0000
-Message-ID: <1433460464.1500.4.camel@intel.com>
-References: <20150604015219.2895.80478.stgit@ahduyck-vm-fedora22>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH net-next 00/13] mlx5: Add Interface Step Sequence ID
+ support
+Date: Thu, 04 Jun 2015 16:41:34 -0700 (PDT)
+Message-ID: <20150604.164134.807623693924296830.davem@redhat.com>
+References: <1433435448-4937-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, majd@mellanox.com, hagaya@mellanox.com,
+	talal@mellanox.com, amirv@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:49838 "EHLO mga11.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44547 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752773AbbFDX2L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Jun 2015 19:28:11 -0400
-In-Reply-To: <20150604015219.2895.80478.stgit@ahduyck-vm-fedora22>
-Content-Language: en-US
-Content-ID: <40EDAE4BB8640C4D865CAD2CAEEC33CF@intel.com>
+	id S1752508AbbFDXlg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jun 2015 19:41:36 -0400
+In-Reply-To: <1433435448-4937-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-QWNrZWQtYnk6IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0KDQpUaGFu
-a3MgQWxleC4NCg0KUmVnYXJkcywNCkpha2UNCg0KT24gV2VkLCAyMDE1LTA2LTAzIGF0IDE4OjUz
-IC0wNzAwLCBBbGV4YW5kZXIgRHV5Y2sgd3JvdGU6DQo+IFdoaWxlIHJldmlld2luZyB0aGUgY29k
-ZSBJIG5vdGljZWQgdGhhdCBvbmUgb2YgdGhlIGNvbW1pdHMgYWRkZWQgYW4gaWYNCj4gc3RhdGVt
-ZW50IGZvbGxvd2VkIGJ5IGEgZm9yIGxvb3AsIGJ1dCB0aGUgaWYgc3RhdGVtZW50IHdhcyBtaXNz
-aW5nIHRoZQ0KPiBicmFjZXMgYXJvdW5kIHRoZSBsb29wLiAgVGhpcyBjaGFuZ2UgY29ycmVjdHMg
-dGhlIGNvZGluZyBzdHlsZSBlcnJvci4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEFsZXhhbmRlciBE
-dXljayA8YWxleGFuZGVyLmguZHV5Y2tAcmVkaGF0LmNvbT4NCj4gLS0tDQo+ICBkcml2ZXJzL25l
-dC9ldGhlcm5ldC9pbnRlbC9mbTEway9mbTEwa19ldGh0b29sLmMgfCAgICAzICsrLQ0KPiAgMSBm
-aWxlIGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQ0KPiANCj4gZGlmZiAt
-LWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2ZtMTBrL2ZtMTBrX2V0aHRvb2wuYyBi
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2ZtMTBrL2ZtMTBrX2V0aHRvb2wuYw0KPiBpbmRl
-eCA0YjlkOWY4OGFmNzAuLmE5NjcwZTAwY2YwMyAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvaW50ZWwvZm0xMGsvZm0xMGtfZXRodG9vbC5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0
-L2V0aGVybmV0L2ludGVsL2ZtMTBrL2ZtMTBrX2V0aHRvb2wuYw0KPiBAQCAtMTQzLDEyICsxNDMs
-MTMgQEAgc3RhdGljIHZvaWQgZm0xMGtfZ2V0X3N0cmluZ3Moc3RydWN0IG5ldF9kZXZpY2UgKmRl
-diwgdTMyIHN0cmluZ3NldCwgdTggKmRhdGEpDQo+ICAJCQlwICs9IEVUSF9HU1RSSU5HX0xFTjsN
-Cj4gIAkJfQ0KPiAgDQo+IC0JCWlmIChpbnRlcmZhY2UtPmh3Lm1hYy50eXBlICE9IGZtMTBrX21h
-Y192ZikNCj4gKwkJaWYgKGludGVyZmFjZS0+aHcubWFjLnR5cGUgIT0gZm0xMGtfbWFjX3ZmKSB7
-DQo+ICAJCQlmb3IgKGkgPSAwOyBpIDwgRk0xMEtfUEZfU1RBVFNfTEVOOyBpKyspIHsNCj4gIAkJ
-CQltZW1jcHkocCwgZm0xMGtfZ3N0cmluZ3NfcGZfc3RhdHNbaV0uc3RhdF9zdHJpbmcsDQo+ICAJ
-CQkJICAgICAgIEVUSF9HU1RSSU5HX0xFTik7DQo+ICAJCQkJcCArPSBFVEhfR1NUUklOR19MRU47
-DQo+ICAJCQl9DQo+ICsJCX0NCj4gIA0KPiAgCQlmb3IgKGkgPSAwOyBpIDwgaW50ZXJmYWNlLT5o
-dy5tYWMubWF4X3F1ZXVlczsgaSsrKSB7DQo+ICAJCQlzcHJpbnRmKHAsICJ0eF9xdWV1ZV8ldV9w
-YWNrZXRzIiwgaSk7DQo+IA0KPiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fXw0KPiBJbnRlbC13aXJlZC1sYW4gbWFpbGluZyBsaXN0DQo+IEludGVsLXdpcmVk
-LWxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+IGh0dHA6Ly9saXN0cy5vc3Vvc2wub3JnL21haWxtYW4v
-bGlzdGluZm8vaW50ZWwtd2lyZWQtbGFuDQoNCg==
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Thu,  4 Jun 2015 19:30:35 +0300
+
+> ISSI (Interface Step Sequence ID) defines the step sequence ID of the 
+> interface between the driver to the firmware and is incremented by 
+> steps of one. ISSI is used to enable deprecating/modifying features, 
+> command interfaces and such, while maintaining compatibility.
+> 
+> As the driver serves both ConnectIB (CIB) and ConnectX4, we carefully 
+> made sure that the IB functionality keeps running also on older CIB 
+> firmware releases that don't support ISSI. 
+> 
+> The Ethernet functionailty is available only on ConnectX4 where all 
+> firmware releases support the feature since the very basic ISSI level. 
+> So at this point no need for compatility code there.
+> 
+> As done prior to this series, when the Ethernet functionlity is enabled, 
+> during the initialization flow, the core driver performs a query of the 
+> supported ISSIs using the QUERY_ISSI command, and then, if ISSI is supported, 
+> sets the actual issi value informing the firmware on which ISSI level to run, 
+> using SET_ISSI command.
+> 
+> Previously, the IB driver wasn't ready to work on that mode, and hence
+> building both the IB driver and the Ethernet functionality in the core
+> driver were disallowed by Kconfigs, with this series, we allow users to
+> enable them both.
+
+Series applied, thanks.
