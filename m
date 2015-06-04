@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND net] openvswitch: disable LRO
-Date: Wed, 03 Jun 2015 19:40:18 -0700 (PDT)
-Message-ID: <20150603.194018.657019745002201264.davem@davemloft.net>
-References: <5d7463bdfc32deb4c0b32ba7d9abf540fc6afed8.1433248445.git.jbenc@redhat.com>
+Subject: Re: [PATCH v2] net: phy: dp83867: Add TI dp83867 phy
+Date: Wed, 03 Jun 2015 19:41:27 -0700 (PDT)
+Message-ID: <20150603.194127.344821206425642182.davem@davemloft.net>
+References: <1433255677-20293-1-git-send-email-dmurphy@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@nicira.com, fbl@sysclose.org
-To: jbenc@redhat.com
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
+To: dmurphy@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43399 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43412 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751484AbbFDCkT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 22:40:19 -0400
-In-Reply-To: <5d7463bdfc32deb4c0b32ba7d9abf540fc6afed8.1433248445.git.jbenc@redhat.com>
+	with ESMTP id S1751030AbbFDCl2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 22:41:28 -0400
+In-Reply-To: <1433255677-20293-1-git-send-email-dmurphy@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Tue,  2 Jun 2015 14:36:34 +0200
+From: Dan Murphy <dmurphy@ti.com>
+Date: Tue, 2 Jun 2015 09:34:37 -0500
 
-> Currently, openvswitch tries to disable LRO from the user space. This does
-> not work correctly when the device added is a vlan interface, though.
-> Instead of dealing with possibly complex stacked cross name space relations
-> in the user space, do the same as bridging does and call dev_disable_lro in
-> the kernel.
+> Add support for the TI dp83867 Gigabit ethernet phy
+> device.
 > 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> Acked-by: Flavio Leitner <fbl@redhat.com>
-> Acked-by: Pravin B Shelar <pshelar@nicira.com>
-> ---
-> Resending, the patch seems to be completely missing in patchwork.
+> The DP83867 is a robust, low power, fully featured
+> Physical Layer transceiver with integrated PMD
+> sublayers to support 10BASE-T, 100BASE-TX and
+> 1000BASE-T Ethernet protocols.
+> 
+> Signed-off-by: Dan Murphy <dmurphy@ti.com>
 
-Sorry about that, patchwork lost 22 hours of netdev postings and I tried to
-pick up the slack with my inbox, but... things happen :)
-
-Applied, thanks Jiri.
+Applied to net-next, thanks.
