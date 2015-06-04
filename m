@@ -1,34 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: batman-adv 20150603
-Date: Wed, 03 Jun 2015 20:23:09 -0700 (PDT)
-Message-ID: <20150603.202309.53794813653555786.davem@davemloft.net>
-References: <1433340848-1682-1-git-send-email-antonio@meshcoding.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: antonio@meshcoding.com
+From: sfeldma@gmail.com
+Subject: [PATCH net-next 0/4] switchdev: documentation updates
+Date: Wed,  3 Jun 2015 20:43:39 -0700
+Message-ID: <1433389423-58467-1-git-send-email-sfeldma@gmail.com>
+Cc: jiri@resnulli.us, gospo@cumulusnetworks.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43646 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142AbbFDDXK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 23:23:10 -0400
-In-Reply-To: <1433340848-1682-1-git-send-email-antonio@meshcoding.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34264 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751043AbbFDDln (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 23:41:43 -0400
+Received: by payr10 with SMTP id r10so20449308pay.1
+        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 20:41:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@meshcoding.com>
-Date: Wed,  3 Jun 2015 16:13:56 +0200
+From: Scott Feldman <sfeldma@gmail.com>
 
-> here you have our second batch of patches intended for net-next.
-> 
-> In this patchset you won't find any new features, but quite some code
-> cleanup work, a bunch of code style fixes and also comments corrections
-> by Markus Pargmann.
-> 
-> Moreover you have a patch from Sven Eckelmann removing an unnecessary
-> NULL check in batadv_iv_ogm_update_seqnos().
-> 
-> Please pull or let me know of any problem!
+Update the switchdev documentation to clarify that for IPV4 FIB object, the add
+op is used for both adding and modifying the FIB entry on the device.
 
-Pulled, thanks Antonio.
+I found a few other white-space and grammer issues to fix, and to clarify the
+static FDB ops.
+
+Scott Feldman (4):
+  switchdev: documentation: fix longer-than-80-char lines
+  switchdev: documentation: fix grammer error
+  switchdev: documentation: for static FDB ops, use
+    switchdev_port_fdb_xxx ops
+  switchdev: documentation: use switchdev_port_obj_xxx for IPv4 FIB
+    add/modify/delete ops
+
+ Documentation/networking/switchdev.txt |   95 +++++++++++++++++---------------
+ net/switchdev/switchdev.c              |    4 +-
+ 2 files changed, 54 insertions(+), 45 deletions(-)
+
+-- 
+1.7.10.4
