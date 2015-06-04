@@ -1,52 +1,43 @@
-From: Linhaifeng <haifeng.lin@huawei.com>
-Subject: Re: virtio-net: why not always to set avail->flags to VRING_AVAIL_F_NO_INTERRUPT
-Date: Thu, 4 Jun 2015 10:35:19 +0800
-Message-ID: <556FB967.6010103@huawei.com>
-References: <556E9F87.7030202@huawei.com> <87k2vkuvg8.fsf@rustcorp.com.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net/mlx4_core: Fix build failure introduced
+ by the EQ pool changes
+Date: Wed, 03 Jun 2015 19:36:15 -0700 (PDT)
+Message-ID: <20150603.193615.834853895798751401.davem@davemloft.net>
+References: <1433230188-29726-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <virtualization@lists.linux-foundation.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Rusty Russell <rusty@rustcorp.com.au>, <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, mpe@ellerman.id.au, amirv@mellanox.com,
+	matanb@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:27330 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751364AbbFDCfa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 22:35:30 -0400
-In-Reply-To: <87k2vkuvg8.fsf@rustcorp.com.au>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43376 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751364AbbFDCgQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 22:36:16 -0400
+In-Reply-To: <1433230188-29726-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Tue,  2 Jun 2015 10:29:48 +0300
 
+> When CONFIG_RFS_ACCEL or SMP aren't set, we fail to build, fix it.
+> 
+> Also, avoid build warning as of unused function on that setup.
+> 
+> Fixes: c66fa19c405a ('net/mlx4: Add EQ pool')
+> Reported-by: Michael Ellerman <mpe@ellerman.id.au>
+> Signed-off-by: Matan Barak <matanb@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 
-On 2015/6/4 9:13, Rusty Russell wrote:
-> Linhaifeng <haifeng.lin@huawei.com> writes:
->> Hi,
->>
->> I'm a newbie and have a question about vring_new_virtqueue function.
->>
->> Why we set avail->flags to VRING_AVAIL_F_NO_INTERRUPT when no callbacks?
->> I think we should set avail->flags to VRING_AVAIL_F_NO_INTERRUPT even if no callbacks.
-> 
-> Hi Linhaifeng,
-> 
->         Not sure I understand your question, but I'll try to answer.
-> 
-> We don't set VRING_AVAIL_F_NO_INTERRUPT if there's a callback because we
-> want that callback called.  Otherwise callback will never be used.
-> 
-> Cheers,
-> Rusty.
-> 
-> 
+Applied, but this is really silly.
 
-Hi Rusty,
+The whole reason there are backup non-SMP inline versions of
+irq_set_affinity_hint() is so that drivers don't have to crap
+up their drivers with ifdef'ery like this.
 
-Thank you for your response.
-
-I mean should we set VRING_AVAIL_F_NO_INTERRUPT when virtqueue is initialized whether there is callback or not?
-As it would be set in function virtqueue_disable_cb and virtqueue_enable_cb_prepare later.
-
-Regards,
-Haifeng
+Just make all of this code unconditional and ignore the error,
+there isn't anything you can really do if the error happens
+anyways and this allows you to just silently use the non-SMP
+variant which unconditionally returns -EINVAL.
