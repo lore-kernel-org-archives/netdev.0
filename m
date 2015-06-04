@@ -1,48 +1,29 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next] bpf: introduce bpf_clone_redirect() helper
-Date: Thu, 4 Jun 2015 09:45:13 +0300
-Message-ID: <CAJ3xEMgqw3Kj5SdBDsyr18z_n4n6BeOJLcjK2iMnaqMwuJ+tEw@mail.gmail.com>
-References: <1433286194-5246-1-git-send-email-ast@plumgrid.com>
-	<20150603.201727.1848194519762843477.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: wireless-drivers-next 2015-06-03
+Date: Wed, 03 Jun 2015 23:46:15 -0700 (PDT)
+Message-ID: <20150603.234615.1661393741259779017.davem@davemloft.net>
+References: <87bngwtv1o.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:34424 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752635AbbFDGpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 02:45:14 -0400
-Received: by oifu123 with SMTP id u123so24768724oif.1
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2015 23:45:14 -0700 (PDT)
-In-Reply-To: <20150603.201727.1848194519762843477.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87bngwtv1o.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 4, 2015 at 6:17 AM, David Miller <davem@davemloft.net> wrote:
-> From: Alexei Starovoitov <ast@plumgrid.com>
-> Date: Tue,  2 Jun 2015 16:03:14 -0700
->
->> Allow eBPF programs attached to classifier/actions to call
->> bpf_clone_redirect(skb, ifindex, flags) helper which will
->> mirror or redirect the packet by dynamic ifindex selection
->> from within the program to a target device either at ingress
->> or at egress. Can be used for various scenarios, for example,
->> to load balance skbs into veths, split parts of the traffic
->> to local taps, etc.
->>
->> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
->> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
->
-> Applied, thanks.
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Date: Wed, 03 Jun 2015 23:07:47 +0300
 
-build fails on my setup...
+> here's a pull request for 4.2. Most notable change here is a new driver
+> mt7601u for a Mediatek USB Wi-Fi device, for other driver more
+> information in the signed tag. There's a trivial conflict in iwlwifi
+> Kconfig help text but otherwise I'm not expecting any issues. But please
+> let me know if you have any problems.
 
-CC [M]  net/core/pktgen.o
-net/core/filter.c: In function 'bpf_clone_redirect':
-net/core/filter.c:1429: error: 'struct sk_buff' has no member named 'tc_verd'
-
-you use skb->tc_verd but this code snippest goes along without being
-dependent on CONFIG_NET_CLS_ACT
+Pulled, thanks for the heads up about the trivial conflict.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
