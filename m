@@ -1,116 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: bcmgenet: improve TX timeout
-Date: Thu,  4 Jun 2015 16:15:50 -0700
-Message-ID: <1433459750-14861-1-git-send-email-f.fainelli@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
-	jaedon.shin@gmail.com, pgynther@google.com
-To: netdev@vger.kernel.org
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [Intel-wired-lan] [PATCH] fm10k: Fix missing braces after if
+ statement
+Date: Thu, 4 Jun 2015 23:28:09 +0000
+Message-ID: <1433460464.1500.4.camel@intel.com>
+References: <20150604015219.2895.80478.stgit@ahduyck-vm-fedora22>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f170.google.com ([209.85.216.170]:32815 "EHLO
-	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752187AbbFDXQ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 19:16:58 -0400
-Received: by qcmi9 with SMTP id i9so24039010qcm.0
-        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 16:16:57 -0700 (PDT)
+Received: from mga11.intel.com ([192.55.52.93]:49838 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752773AbbFDX2L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jun 2015 19:28:11 -0400
+In-Reply-To: <20150604015219.2895.80478.stgit@ahduyck-vm-fedora22>
+Content-Language: en-US
+Content-ID: <40EDAE4BB8640C4D865CAD2CAEEC33CF@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dump useful ring statistics along with interrupt status, software
-maintained pointers and hardware registers to help troubleshoot TX queue
-stalls.
-
-When a timeout occurs, disable TX NAPI for the rings, dump their states
-while interrupts are disabled, re-enable interrupts, NAPI and queue flow
-control to help with the recovery.
-
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 67 ++++++++++++++++++++++++++
- 1 file changed, 67 insertions(+)
-
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 6043734ea613..b43b2cb9b830 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -2770,12 +2770,79 @@ static int bcmgenet_close(struct net_device *dev)
- 	return ret;
- }
- 
-+static void bcmgenet_dump_tx_queue(struct bcmgenet_tx_ring *ring)
-+{
-+	struct bcmgenet_priv *priv = ring->priv;
-+	u32 p_index, c_index, intsts, intmsk;
-+	struct netdev_queue *txq;
-+	unsigned int free_bds;
-+	unsigned long flags;
-+	bool txq_stopped;
-+
-+	if (!netif_msg_tx_err(priv))
-+		return;
-+
-+	txq = netdev_get_tx_queue(priv->dev, ring->queue);
-+
-+	spin_lock_irqsave(&ring->lock, flags);
-+	if (ring->index == DESC_INDEX) {
-+		intsts = ~bcmgenet_intrl2_0_readl(priv, INTRL2_CPU_MASK_STATUS);
-+		intmsk = UMAC_IRQ_TXDMA_DONE | UMAC_IRQ_TXDMA_MBDONE;
-+	} else {
-+		intsts = ~bcmgenet_intrl2_1_readl(priv, INTRL2_CPU_MASK_STATUS);
-+		intmsk = 1 << ring->index;
-+	}
-+	c_index = bcmgenet_tdma_ring_readl(priv, ring->index, TDMA_CONS_INDEX);
-+	p_index = bcmgenet_tdma_ring_readl(priv, ring->index, TDMA_PROD_INDEX);
-+	txq_stopped = netif_tx_queue_stopped(txq);
-+	free_bds = ring->free_bds;
-+	spin_unlock_irqrestore(&ring->lock, flags);
-+
-+	netif_err(priv, tx_err, priv->dev, "Ring %d queue %d status summary\n"
-+		  "TX queue status: %s, interrupts: %s\n"
-+		  "(sw)free_bds: %d (sw)size: %d\n"
-+		  "(sw)p_index: %d (hw)p_index: %d\n"
-+		  "(sw)c_index: %d (hw)c_index: %d\n"
-+		  "(sw)clean_p: %d (sw)write_p: %d\n"
-+		  "(sw)cb_ptr: %d (sw)end_ptr: %d\n",
-+		  ring->index, ring->queue,
-+		  txq_stopped ? "stopped" : "active",
-+		  intsts & intmsk ? "enabled" : "disabled",
-+		  free_bds, ring->size,
-+		  ring->prod_index, p_index & DMA_P_INDEX_MASK,
-+		  ring->c_index, c_index & DMA_C_INDEX_MASK,
-+		  ring->clean_ptr, ring->write_ptr,
-+		  ring->cb_ptr, ring->end_ptr);
-+}
-+
- static void bcmgenet_timeout(struct net_device *dev)
- {
- 	struct bcmgenet_priv *priv = netdev_priv(dev);
-+	u32 int0_enable = 0;
-+	u32 int1_enable = 0;
-+	unsigned int q;
- 
- 	netif_dbg(priv, tx_err, dev, "bcmgenet_timeout\n");
- 
-+	bcmgenet_disable_tx_napi(priv);
-+
-+	for (q = 0; q < priv->hw_params->tx_queues; q++)
-+		bcmgenet_dump_tx_queue(&priv->tx_rings[q]);
-+	bcmgenet_dump_tx_queue(&priv->tx_rings[DESC_INDEX]);
-+
-+	bcmgenet_tx_reclaim_all(dev);
-+
-+	for (q = 0; q < priv->hw_params->tx_queues; q++)
-+		int1_enable |= (1 << q);
-+
-+	int0_enable = UMAC_IRQ_TXDMA_DONE;
-+
-+	/* Re-enable TX interrupts if disabled */
-+	bcmgenet_intrl2_0_writel(priv, int0_enable, INTRL2_CPU_MASK_CLEAR);
-+	bcmgenet_intrl2_1_writel(priv, int1_enable, INTRL2_CPU_MASK_CLEAR);
-+
-+	bcmgenet_enable_tx_napi(priv);
-+
- 	dev->trans_start = jiffies;
- 
- 	dev->stats.tx_errors++;
--- 
-2.1.0
+QWNrZWQtYnk6IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0KDQpUaGFu
+a3MgQWxleC4NCg0KUmVnYXJkcywNCkpha2UNCg0KT24gV2VkLCAyMDE1LTA2LTAzIGF0IDE4OjUz
+IC0wNzAwLCBBbGV4YW5kZXIgRHV5Y2sgd3JvdGU6DQo+IFdoaWxlIHJldmlld2luZyB0aGUgY29k
+ZSBJIG5vdGljZWQgdGhhdCBvbmUgb2YgdGhlIGNvbW1pdHMgYWRkZWQgYW4gaWYNCj4gc3RhdGVt
+ZW50IGZvbGxvd2VkIGJ5IGEgZm9yIGxvb3AsIGJ1dCB0aGUgaWYgc3RhdGVtZW50IHdhcyBtaXNz
+aW5nIHRoZQ0KPiBicmFjZXMgYXJvdW5kIHRoZSBsb29wLiAgVGhpcyBjaGFuZ2UgY29ycmVjdHMg
+dGhlIGNvZGluZyBzdHlsZSBlcnJvci4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEFsZXhhbmRlciBE
+dXljayA8YWxleGFuZGVyLmguZHV5Y2tAcmVkaGF0LmNvbT4NCj4gLS0tDQo+ICBkcml2ZXJzL25l
+dC9ldGhlcm5ldC9pbnRlbC9mbTEway9mbTEwa19ldGh0b29sLmMgfCAgICAzICsrLQ0KPiAgMSBm
+aWxlIGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQ0KPiANCj4gZGlmZiAt
+LWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2ZtMTBrL2ZtMTBrX2V0aHRvb2wuYyBi
+L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2ZtMTBrL2ZtMTBrX2V0aHRvb2wuYw0KPiBpbmRl
+eCA0YjlkOWY4OGFmNzAuLmE5NjcwZTAwY2YwMyAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvaW50ZWwvZm0xMGsvZm0xMGtfZXRodG9vbC5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0
+L2V0aGVybmV0L2ludGVsL2ZtMTBrL2ZtMTBrX2V0aHRvb2wuYw0KPiBAQCAtMTQzLDEyICsxNDMs
+MTMgQEAgc3RhdGljIHZvaWQgZm0xMGtfZ2V0X3N0cmluZ3Moc3RydWN0IG5ldF9kZXZpY2UgKmRl
+diwgdTMyIHN0cmluZ3NldCwgdTggKmRhdGEpDQo+ICAJCQlwICs9IEVUSF9HU1RSSU5HX0xFTjsN
+Cj4gIAkJfQ0KPiAgDQo+IC0JCWlmIChpbnRlcmZhY2UtPmh3Lm1hYy50eXBlICE9IGZtMTBrX21h
+Y192ZikNCj4gKwkJaWYgKGludGVyZmFjZS0+aHcubWFjLnR5cGUgIT0gZm0xMGtfbWFjX3ZmKSB7
+DQo+ICAJCQlmb3IgKGkgPSAwOyBpIDwgRk0xMEtfUEZfU1RBVFNfTEVOOyBpKyspIHsNCj4gIAkJ
+CQltZW1jcHkocCwgZm0xMGtfZ3N0cmluZ3NfcGZfc3RhdHNbaV0uc3RhdF9zdHJpbmcsDQo+ICAJ
+CQkJICAgICAgIEVUSF9HU1RSSU5HX0xFTik7DQo+ICAJCQkJcCArPSBFVEhfR1NUUklOR19MRU47
+DQo+ICAJCQl9DQo+ICsJCX0NCj4gIA0KPiAgCQlmb3IgKGkgPSAwOyBpIDwgaW50ZXJmYWNlLT5o
+dy5tYWMubWF4X3F1ZXVlczsgaSsrKSB7DQo+ICAJCQlzcHJpbnRmKHAsICJ0eF9xdWV1ZV8ldV9w
+YWNrZXRzIiwgaSk7DQo+IA0KPiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fXw0KPiBJbnRlbC13aXJlZC1sYW4gbWFpbGluZyBsaXN0DQo+IEludGVsLXdpcmVk
+LWxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+IGh0dHA6Ly9saXN0cy5vc3Vvc2wub3JnL21haWxtYW4v
+bGlzdGluZm8vaW50ZWwtd2lyZWQtbGFuDQoNCg==
