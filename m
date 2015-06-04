@@ -1,162 +1,136 @@
-From: Grant Zhang <gzhang@fastly.com>
-Subject: Re: Recurring trace from tcp_fragment()
-Date: Thu, 04 Jun 2015 09:35:04 -0700
-Message-ID: <55707E38.4090506@fastly.com>
-References: <CFCC0DCC-4080-4195-9BA9-0860D9701805@fastly.com>	<CADVnQyngTDVYMhmQq=pjS3LrdQ+HXyizujiOkmgXxTjQ0QKH8A@mail.gmail.com>	<5E30A40E-EC6C-4D37-AB49-04BF40EEFBFC@fastly.com>	<CADVnQy=rwKG_ddduixcee1D4HaaSBBk=X=2Htmdow0k6Cbxhzg@mail.gmail.com>	<904FADEB-C1EB-4384-BA47-0EB0273AFB71@fastly.com> <CADVnQymCSGyyOqdO2HOap+_6zsfy99-3CbgxnQTfGakRYNoteQ@mail.gmail.com>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the
+ RDMA-CM
+Date: Thu, 4 Jun 2015 10:40:58 -0600
+Message-ID: <20150604164058.GB27699@obsidianresearch.com>
+References: <1432837360.114391.35.camel@redhat.com>
+ <CAJ3xEMh2T5-56rFxWVdct2uAZYW1ZrKivWfS45V-mvhAfwyGaA@mail.gmail.com>
+ <1432850150.114391.56.camel@redhat.com>
+ <556ED0D5.8010502@mellanox.com>
+ <20150603161447.GC12073@obsidianresearch.com>
+ <CAJ3xEMjM53sYuEgQV3WPaN4WErk_YcojPY2zBcmq-+3W2dfD+A@mail.gmail.com>
+ <20150603195325.GC7902@obsidianresearch.com>
+ <CAJ3xEMiO+hEzOJ2oJ5G-mmBeaX4ZHvUyhNSAzsrRDui6dFjvCg@mail.gmail.com>
+ <20150603234811.GA15128@obsidianresearch.com>
+ <556FEF25.80409@mellanox.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010907050705060102090401"
-Cc: Netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f50.google.com ([209.85.192.50]:35040 "EHLO
-	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752245AbbFDQfH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 12:35:07 -0400
-Received: by qgh73 with SMTP id 73so5159910qgh.2
-        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 09:35:07 -0700 (PDT)
-In-Reply-To: <CADVnQymCSGyyOqdO2HOap+_6zsfy99-3CbgxnQTfGakRYNoteQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <556FEF25.80409-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010907050705060102090401
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
+On Thu, Jun 04, 2015 at 09:24:37AM +0300, Haggai Eran wrote:
+> > The l2/l3 distinction in ipvlan is also very interesting. The L3 mode
+> > solves some of the security type issues. What do you think Haggi?
 
-Hi Neal,
+> I think some issues ipvlan is trying to solve would also affect us using
+> the alias GUIDs solution. ipvlan tries to solve among other the problem
+> of a limited MAC filter table in NICs, and avoid using promiscuous mode.
+> But the GID table is also limited, and we don't have something like
+> promiscuous mode for GIDs in InfiniBand. For large scale use of
+> containers we would need to also allow the current model.
 
-Unfortunately with the patch we still see the same stack trace. Attached 
-is the TcpExtTCPSACKReneging with the patch, captured with 60 seconds 
-interval. Its value is incremented at an similar speed as before, about 
-30/minute.
+Yes, that is certainly true.
 
-If you want to collect any other data, please feel free to let me know.
+> As for L3 mode, it does seem more restrictive, as all routing decisions
+> are done in the controlling namespace. Our current ipoib child interface
+> implementation is more like the L2 version of ipvlan.
 
-Thanks,
+The ipoib children are exactly like macvlan, because they all have
+unique LLADDRs.
 
-Grant
+It doesn't start acting like ipvlan until we reach the rdma-cm patches,
+and where we see the IP stack side act like macvlan and the rdma-cm
+side try to act like ipvlan - that is why it is so ugly/hacky,
 
-On 5/30/15 4:08 PM, Neal Cardwell wrote:
-> On Sat, May 30, 2015 at 2:52 PM, Grant Zhang <gzhang@fastly.com> wrote:
->> Thank you Neal. Most likely I will test the patch on Monday and report
->> back the result.
->>
->> As for the TcpExtTCPSACKReneging counter, attached is the captured
->> counter value on a 1-second interval for 10 minutes.
->
-> OK, great. Those TcpExtTCPSACKReneging values look consistent with the
-> theory underlying the patch, so that's a good sign.
->
-> Thanks!
->
-> neal
->
+> > Is there any chance standard things like ipvlan and macvlan could be
+> > used with rdma-cm if their master devices are IPoIB?
 
---------------010907050705060102090401
-Content-Type: text/plain; charset=UTF-8;
- name="reneg_patch.txt"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="reneg_patch.txt"
+> These standard interfaces seem very much connected with Ethernet (both
+> have an ARPHDR_ETHER-only check for their upper devices). I think
+> macvlan's functionality would be covered by adding alias GUIDs to ipoib,
+> and ipvlan L2 is covered by the current behavior. Perhaps it would be
+> beneficial to try and make ipvlan more generic so that it would work
+> over ipoib, giving us support for L3 mode.
 
-VGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA0ODkgICAgICAgICAgICAgICAgMC4w
-ClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgNTA0ICAgICAgICAgICAgICAgIDAu
-MApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDUyMyAgICAgICAgICAgICAgICAw
-LjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA1NDQgICAgICAgICAgICAgICAg
-MC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgNTY1ICAgICAgICAgICAgICAg
-IDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDU3MyAgICAgICAgICAgICAg
-ICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA1ODkgICAgICAgICAgICAg
-ICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgNjIxICAgICAgICAgICAg
-ICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDYzMiAgICAgICAgICAg
-ICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA2NDYgICAgICAgICAg
-ICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgNjU3ICAgICAgICAg
-ICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDY5NiAgICAgICAg
-ICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA3MjAgICAgICAg
-ICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgNzM1ICAgICAg
-ICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDc1OCAgICAg
-ICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA3ODQgICAg
-ICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgODIzICAg
-ICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDgzMyAg
-ICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA4NTcg
-ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgODgy
-ICAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDkx
-NiAgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICA5
-MjUgICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAg
-OTQ3ICAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAg
-IDk2MCAgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAg
-ICAxMDExICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAg
-ICAgMTA0NCAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAg
-ICAgIDEwNzAgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAg
-ICAgICAxMDc5ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAg
-ICAgICAgMTA5NiAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAg
-ICAgICAgIDExMjIgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAg
-ICAgICAgICAxMTI3ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAg
-ICAgICAgICAgMTE2NCAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcg
-ICAgICAgICAgIDExOTcgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5n
-ICAgICAgICAgICAxMjE2ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2lu
-ZyAgICAgICAgICAgMTIzMyAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdp
-bmcgICAgICAgICAgIDEyODcgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVn
-aW5nICAgICAgICAgICAxMzE3ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5l
-Z2luZyAgICAgICAgICAgMTMzMCAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVu
-ZWdpbmcgICAgICAgICAgIDEzNDMgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1Jl
-bmVnaW5nICAgICAgICAgICAxMzY5ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tS
-ZW5lZ2luZyAgICAgICAgICAgMTM5MiAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNL
-UmVuZWdpbmcgICAgICAgICAgIDE0MTEgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FD
-S1JlbmVnaW5nICAgICAgICAgICAxNDI2ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNB
-Q0tSZW5lZ2luZyAgICAgICAgICAgMTQ3MSAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BT
-QUNLUmVuZWdpbmcgICAgICAgICAgIDE0ODIgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQ
-U0FDS1JlbmVnaW5nICAgICAgICAgICAxNTAxICAgICAgICAgICAgICAgMC4wClRjcEV4dFRD
-UFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMTU0MSAgICAgICAgICAgICAgIDAuMApUY3BFeHRU
-Q1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDE1NTggICAgICAgICAgICAgICAwLjAKVGNwRXh0
-VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAxNTc1ICAgICAgICAgICAgICAgMC4wClRjcEV4
-dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMTY1MiAgICAgICAgICAgICAgIDAuMApUY3BF
-eHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDE3MzcgICAgICAgICAgICAgICAwLjAKVGNw
-RXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAxNzY1ICAgICAgICAgICAgICAgMC4wClRj
-cEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMTc4OSAgICAgICAgICAgICAgIDAuMApU
-Y3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDE4MjMgICAgICAgICAgICAgICAwLjAK
-VGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAxODYyICAgICAgICAgICAgICAgMC4w
-ClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMTg4NyAgICAgICAgICAgICAgIDAu
-MApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDE5MDEgICAgICAgICAgICAgICAw
-LjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAxOTE5ICAgICAgICAgICAgICAg
-MC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMTk0MSAgICAgICAgICAgICAg
-IDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDE5NjIgICAgICAgICAgICAg
-ICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAxOTg5ICAgICAgICAgICAg
-ICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMjAxOSAgICAgICAgICAg
-ICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDIwNTcgICAgICAgICAg
-ICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAyMDc4ICAgICAgICAg
-ICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMjEwMCAgICAgICAg
-ICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDIxODUgICAgICAg
-ICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAyMjQ2ICAgICAg
-ICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMjI4NSAgICAg
-ICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDIzMTMgICAg
-ICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAyMzM3ICAg
-ICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMjM2MyAg
-ICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDI0MTQg
-ICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAyNTU5
-ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAgMjU5
-MyAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAgIDI2
-MDcgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAgICAy
-NzE0ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAgICAg
-MjgzMCAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAgICAg
-IDI5NTMgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAgICAg
-ICAyOTg2ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAgICAg
-ICAgMzAzMCAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAgICAg
-ICAgIDMwNDkgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAgICAg
-ICAgICAzMDczICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAgICAg
-ICAgICAgMzA5NCAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcgICAg
-ICAgICAgIDMxNDEgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5nICAg
-ICAgICAgICAzMTk1ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2luZyAg
-ICAgICAgICAgMzI2MyAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdpbmcg
-ICAgICAgICAgIDMzMDAgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVnaW5n
-ICAgICAgICAgICAzMzQ4ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5lZ2lu
-ZyAgICAgICAgICAgMzQxMiAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVuZWdp
-bmcgICAgICAgICAgIDM0NzUgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1JlbmVn
-aW5nICAgICAgICAgICAzNTIyICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tSZW5l
-Z2luZyAgICAgICAgICAgMzU4MSAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNLUmVu
-ZWdpbmcgICAgICAgICAgIDM2MjcgICAgICAgICAgICAgICAwLjAKVGNwRXh0VENQU0FDS1Jl
-bmVnaW5nICAgICAgICAgICAzNjc0ICAgICAgICAgICAgICAgMC4wClRjcEV4dFRDUFNBQ0tS
-ZW5lZ2luZyAgICAgICAgICAgMzczMiAgICAgICAgICAgICAgIDAuMApUY3BFeHRUQ1BTQUNL
-UmVuZWdpbmcgICAgICAgICAgIDM3ODUgICAgICAgICAgICAgICAwLjAK
---------------010907050705060102090401--
+Yes, macvlan seems very well covered already by IPoIB child
+interfaces, and I don't see too many reasons to worry about changing
+that.
+
+ipvlan on the other hand, as you observe, is valuable for many reasons.
+
+> As for rdma-cm support, the patch I had for ipoib attempts to scan each
+> child's upper devices in order to support such topologies. We only
+> tested it with bonding, but I think it would also work with such devices.
+
+.. it is so sketchy :|
+
+Firstly: I still think the prior discussion is right, and proceeding
+along the reworking of the ingress side of rdma-cm and focusing on the
+device,guid,pkey makes 100% sense and will progress things right
+away. Every other variation seems to build on that.
+
+But when we get into bonding and the various vlan things, we loose
+encapsulation - snooping the children list to guess what the bonding
+driver is doing seems very hacky.
+
+Discussion idea: Can we actually use the netstack to process the
+RDMA-CM packets? It looks like the netstack wants a skb to do this
+mid-layer work, so rdma-cm would have to synthesize a skb for the CM
+packets and pass it through netdev to apply all the transformations
+and access the various internal states (eg from ipvlan, bonding,
+etc). rdma-cm would have to 'catch' the skb once it is done traveling
+and resume its normal processing. Very similar to your notion of using
+UDP, but without any on-the-wire change.
+
+This would fit in that same ingress spot I suggested adding the
+routing lookup, instead of routing we want the full stack to have a go
+at figuring out the final netdev.
+
+This seems the most general because it will work for all the *vlan
+type drivers, bonding, and all of the RDMA technologies. (each would
+have a slightly different way to make the skb, but same basic idea)
+
+Lots and lots of details to do that, but conceptually it seems pretty
+solid?
+
+> Yes, for RoCE our goal for the start was to support namespaces in RDMA
+> CM through macvlan devices. As long as we can update the RoCE gid table
+> correctly for macvlan and ipvlan devices, the RDMA CM implementation
+> shouldn't care where the details come from.
+
+Hurm, the gid index tagged on the QP1 packet should not be directly
+used for much on ingress. rdma-cm will have to recover the mac address
+and vlan to use that as a guide.
+
+Synchronizing the gid table and all the internal state in macvlan,
+ipvlan, bonding seems very hard, I do not envy your task :(
+
+> > Any thoughts on the idea we still need ipoib same-guid children if
+> > ipvlan is available?
+> If we port ipvlan to work over IPoIB interfaces and not just Ethernet,
+> then ipvlan L2 would provide exactly the same functionality. There onyl
+> difference I can think of is that ipvlan would use a single UD QP for
+> all devices (and in connected-mode, a single RC QP between a pair of
+> hosts), while ipoib would use a QP per child device, and multiple RC QPs
+> for such pairs.
+
+Agree with this.
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
