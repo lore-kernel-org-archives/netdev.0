@@ -1,88 +1,55 @@
-From: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next V10 3/4] 802.1AD: Flow handling,
- actions and vlan parsing
-Date: Thu, 04 Jun 2015 14:18:28 -0400
-Message-ID: <55709674.8070808@gmail.com>
-References: <1433267444-26025-1-git-send-email-thomasfherbert@gmail.com>	<1433267444-26025-4-git-send-email-thomasfherbert@gmail.com>
- <CALnjE+p8tuUFoXOFvfrp154rb80o_8XhtJ+Z8RrL1Y67kw12jw@mail.gmail.com>
-Reply-To: thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+From: nolan <nolan@cumulusnetworks.com>
+Subject: Re: [RFC 3/9] net: dsa: mv88e6xxx: add support for VTU ops
+Date: Thu, 04 Jun 2015 11:22:49 -0700
+Message-ID: <55709779.4040101@cumulusnetworks.com>
+References: <1433208470-25338-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1433208470-25338-4-git-send-email-vivien.didelot@savoirfairelinux.com> <556D522E.90607@roeck-us.net> <CAE4R7bChwW1awn8V6k7bF13v15_kPF0ui3NvyV2WkqN0XuTUqw@mail.gmail.com> <556E2EC2.3020104@cumulusnetworks.com> <CAE4R7bCEqszSew4RadLoB-PcY0g74F+sLKQL42TgsfG8_89_Kg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CALnjE+p8tuUFoXOFvfrp154rb80o_8XhtJ+Z8RrL1Y67kw12jw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>,
+	Jerome Oufella <jerome.oufella@savoirfairelinux.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>,
+	Chris Healy <cphealy@gmail.com>,
+	Wilson Kok <wkok@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAE4R7bCEqszSew4RadLoB-PcY0g74F+sLKQL42TgsfG8_89_Kg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gNi80LzE1IDE6NDUgUE0sIFByYXZpbiBTaGVsYXIgd3JvdGU6Cj4gT24gVHVlLCBKdW4gMiwg
-MjAxNSBhdCAxMDo1MCBBTSwgVGhvbWFzIEYgSGVyYmVydAo+IDx0aG9tYXNmaGVyYmVydEBnbWFp
-bC5jb20+IHdyb3RlOgo+PiBBZGQgc3VwcG9ydCBmb3IgODAyLjFhZCBpbmNsdWRpbmcgdGhlIGFi
-aWxpdHkgdG8gcHVzaCBhbmQgcG9wIGRvdWJsZQo+PiB0YWdnZWQgdmxhbnMuCj4+Cj4+IFNpZ25l
-ZC1vZmYtYnk6IFRob21hcyBGIEhlcmJlcnQgPHRob21hc2ZoZXJiZXJ0QGdtYWlsLmNvbT4KPj4g
-LS0tCj4+ICAgbmV0L29wZW52c3dpdGNoL2Zsb3cuYyB8IDgyICsrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0tCj4+ICAgbmV0L29wZW52c3dpdGNoL2Zsb3cu
-aCB8ICAzICsrCj4+ICAgMiBmaWxlcyBjaGFuZ2VkLCA3MyBpbnNlcnRpb25zKCspLCAxMiBkZWxl
-dGlvbnMoLSkKPj4KPj4gZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9mbG93LmMgYi9uZXQv
-b3BlbnZzd2l0Y2gvZmxvdy5jCj4+IGluZGV4IDJkYWNjN2IuLjljNzNhMmUgMTAwNjQ0Cj4+IC0t
-LSBhL25ldC9vcGVudnN3aXRjaC9mbG93LmMKPj4gKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3cu
-Ywo+PiBAQCAtMjk4LDIxICsyOTgsNzggQEAgc3RhdGljIGJvb2wgaWNtcDZoZHJfb2soc3RydWN0
-IHNrX2J1ZmYgKnNrYikKPj4gICBzdGF0aWMgaW50IHBhcnNlX3ZsYW4oc3RydWN0IHNrX2J1ZmYg
-KnNrYiwgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXkpCj4+ICAgewo+PiAgICAgICAgICBzdHJ1Y3Qg
-cXRhZ19wcmVmaXggewo+PiAtICAgICAgICAgICAgICAgX19iZTE2IGV0aF90eXBlOyAvKiBFVEhf
-UF84MDIxUSAqLwo+PiArICAgICAgICAgICAgICAgX19iZTE2IGV0aF90eXBlOyAvKiBFVEhfUF84
-MDIxUSAgb3IgRVRIX1BfODAyMUFEICovCj4+ICAgICAgICAgICAgICAgICAgX19iZTE2IHRjaTsK
-Pj4gICAgICAgICAgfTsKPj4gLSAgICAgICBzdHJ1Y3QgcXRhZ19wcmVmaXggKnFwOwo+PiArICAg
-ICAgIHN0cnVjdCBxdGFnX3ByZWZpeCAqcXAgPSAoc3RydWN0IHF0YWdfcHJlZml4ICopc2tiLT5k
-YXRhOwo+Pgo+PiAtICAgICAgIGlmICh1bmxpa2VseShza2ItPmxlbiA8IHNpemVvZihzdHJ1Y3Qg
-cXRhZ19wcmVmaXgpICsgc2l6ZW9mKF9fYmUxNikpKQo+PiArICAgICAgIHN0cnVjdCBxaW5xdGFn
-X3ByZWZpeCB7Cj4+ICsgICAgICAgICAgICAgICBfX2JlMTYgZXRoX3R5cGU7IC8qIEVUSF9QXzgw
-MjFRICBvciBFVEhfUF84MDIxQUQgKi8KPj4gKyAgICAgICAgICAgICAgIF9fYmUxNiB0Y2k7Cj4+
-ICsgICAgICAgICAgICAgICBfX2JlMTYgaW5uZXJfdHBpZDsgLyogRVRIX1BfODAyMVEgKi8KPj4g
-KyAgICAgICAgICAgICAgIF9fYmUxNiBjdGNpOwo+PiArICAgICAgIH07Cj4+ICsKPiAuLi4KPgo+
-Pgo+PiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Zsb3cuaCBiL25ldC9vcGVudnN3aXRj
-aC9mbG93LmgKPj4gaW5kZXggYTA3NmU0NC4uZmE4M2M2MSAxMDA2NDQKPj4gLS0tIGEvbmV0L29w
-ZW52c3dpdGNoL2Zsb3cuaAo+PiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5oCj4+IEBAIC0x
-MzQsNiArMTM0LDkgQEAgc3RydWN0IHN3X2Zsb3dfa2V5IHsKPj4gICAgICAgICAgICAgICAgICB1
-OCAgICAgc3JjW0VUSF9BTEVOXTsgICAvKiBFdGhlcm5ldCBzb3VyY2UgYWRkcmVzcy4gKi8KPj4g
-ICAgICAgICAgICAgICAgICB1OCAgICAgZHN0W0VUSF9BTEVOXTsgICAvKiBFdGhlcm5ldCBkZXN0
-aW5hdGlvbiBhZGRyZXNzLiAqLwo+PiAgICAgICAgICAgICAgICAgIF9fYmUxNiB0Y2k7ICAgICAg
-ICAgICAgIC8qIDAgaWYgbm8gVkxBTiwgVkxBTl9UQUdfUFJFU0VOVCBzZXQgb3RoZXJ3aXNlLiAq
-Lwo+PiArICAgICAgICAgICAgICAgX19iZTE2IGN0Y2k7ICAgICAgICAgICAgLyogMCBpZiBubyBD
-VkxBTiwgVkxBTl9UQUdfUFJFU0VOVCBzZXQKPj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAqIG90aGVyd2lzZS4KPj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAqLwo+PiAgICAgICAgICAgICAgICAgIF9fYmUxNiB0eXBlOyAgICAgICAg
-ICAgIC8qIEV0aGVybmV0IGZyYW1lIHR5cGUuICovCj4+ICAgICAgICAgIH0gZXRoOwo+PiAgICAg
-ICAgICB1bmlvbiB7Cj4+IC0tCj4+IDIuMS4wCj4+Cj4gQ3VycmVudGx5IHlvdSBoYXZlIHJlc3Ry
-aWN0ZWQgdGhlIGRhdGFwYXRoIGltcGxlbWVudGF0aW9uIHRvIHN1cHBvcnQKPiBvbmx5IDgwMjFB
-RC4gV2UgY2FuIGV4dGVuZCB0aGlzIHRvIHN1cHBvcnQgZG91YmxlIHRhZ2dpbmcgYnkgYWRkaW5n
-Cj4gaW5uZXJfdHBpZCBmaWVsZCB0byBzdHJ1Y3Qgc3dfZmxvd19rZXkuIE9WUyBuZXRsaW5rIGlu
-dGVyZmFjZSBhbHJlYWR5Cj4gYWxsb3dzIHRoaXMgdHlwZSBvZiBjb25maWd1cmF0aW9uLiBTbyBp
-cyB0aGVyZSByZWFzb24gbm90IHRvIGRvIGl0IGluCj4gdGhpcyBzZXJpZXM/ClByYXZpbiwgdGhh
-bmtzIGZvciB0aGUgcmV2aWV3LgoKSW4gdGhlIG9yaWdpbmFsIGltcGxlbWVudGF0aW9uLCBJIHRo
-b3VnaHQgSSB3b3VsZCBtYWtlIG9ubHkgdGhlIAptaW5pbWFsbHkgbmVjZXNzYXJ5IGNoYW5nZXMg
-YW5kIEkgaGF2ZSBiZWVuIGNhcnJ5aW5nIHRoYXQgZm9yd2FyZCAKdGhyb3VnaCBlYWNoIHJldmlz
-aW9uLgoKSWYgb25seSBvbmUgdGFnLCB0Y2kgaXMgcHJlc2VudCB0aGF0IGltcGxpZXMgdHBpZCBv
-ZiAweDgxMDAsIGlmIHR3byB0YWdzIAphcmUgcHJlc2VudCwgYm90aCB0Y2kgYW5kIGN0Y2ksIHRo
-YXQgaW1wbGllcyBhIHRwaWQgb2YgMHg4OGE4IGFuZCB0aGlzIAppcyBpbiBmYWN0IGhvdyB0aGUg
-Y29kZSB3b3JrcyBhbmQgaXMgaG93IGl0IHN1cHBvcnRzIGJvdGggODAyLjFxIGFuZCAKODAyLjFh
-ZC4gVGhlIHRwaWQncyBhcmUgbm90IHN0cmljdGx5IG5lY2Vzc2FyeSBpbiB0aGUgZmxvdyBrZXkg
-Zm9yIGJvdGggCjgwMi4xcSBhbmQgODAyLjFhZCB0byB3b3JrLiBPRiBkb2Vzbid0IHN1cHBvcnQg
-dGhlIGFiaWxpdHkgdG8gcHVzaCBhbmQgCnBvcCB2bGFucyB3aXRoIG5vbiB2YWxpZCB0cGlkJ3Mg
-c28gdGhlcmUncyBubyBhbWJpZ3VpdHkuCgpDb250cmFyaWx5IGFuZCBkZXNwaXRlIG15IGNvbW1l
-bnQgYWJvdmUsIGFsdGhvdWdoIG5vdCBzdHJpY3RseSAKbmVjZXNzYXJ5LCBJIGRvbid0IGhhdmUg
-YW55IG9iamVjdGlvbiB0byBhZGRpbmcgdGhlIHRwaWQgYW5kIHRvIHRoZSBmbG93IAprZXkgYW5k
-IEkgY2FuIG1ha2UgaXQgd29yayBlaXRoZXIgd2F5LgoKLS1URkgKPgoKCi0tIApUaG9tYXMgRi4g
-SGVyYmVydApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpk
-ZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9y
-Zy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+On 06/02/2015 11:53 PM, Scott Feldman wrote:
+> I'm talking about bridging tagged traffic.  E.g.:
+>
+> ip link add name br0 type bridge
+> ip link add name br1 type bridge
+>
+> ip link set dev sw1p1 master br0
+> ip link set dev sw1p2 master br0
+> ip link set dev sw1p3 master br1
+> ip link set dev sw1p4 master br1
+>
+> bridge vlan add vid 100 dev sw1p1
+> bridge vlan add vid 100 dev sw1p2
+> bridge vlan add vid 100 dev sw1p3
+> bridge vlan add vid 100 dev sw1p4
+>
+> Now the ports are trunking vlan 100 and the bridge/device see tagged
+> traffic.  If the device used floods vlan 100 pkt to all ports in vlan
+> 100, it'll flood to a port outside the bridge.  Oops!  For the device
+> I'm using (rocker w/ OF-DPA) the bridging table matches on vlan ID and
+> mac_dst.  There is no prevision to isolate vlans per bridge.
+>
+> How do you solve the above case with your hardware?
+
+Ah, understood, thanks for clarifying.
+
+Right now, we only support this case with vconfig-style vlans.  I don't 
+see any conceptual reason it couldn't be supported in the vlan-aware 
+bridge model as well.  The HW configuration would be essentially 
+identical to the equivalent vconfig-style config.
