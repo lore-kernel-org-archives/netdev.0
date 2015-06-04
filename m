@@ -1,52 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] rocker: move netevent neigh update to
- processes context
-Date: Wed, 03 Jun 2015 23:38:29 -0700 (PDT)
-Message-ID: <20150603.233829.1362177764562847830.davem@davemloft.net>
-References: <1433303008-32656-1-git-send-email-sfeldma@gmail.com>
+Subject: Re: [PATCH net-next 0/4] cxgb4: Adds support for various ethtool
+ stats
+Date: Wed, 03 Jun 2015 23:40:38 -0700 (PDT)
+Message-ID: <20150603.234038.2236812474206326112.davem@davemloft.net>
+References: <1433345682-5846-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us,
-	simon.horman@netronome.com, makita.toshiaki@lab.ntt.co.jp
-To: sfeldma@gmail.com
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44344 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44360 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750868AbbFDGid (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 02:38:33 -0400
-In-Reply-To: <1433303008-32656-1-git-send-email-sfeldma@gmail.com>
+	with ESMTP id S1750762AbbFDGkj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 02:40:39 -0400
+In-Reply-To: <1433345682-5846-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: sfeldma@gmail.com
-Date: Tue,  2 Jun 2015 20:43:28 -0700
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Wed,  3 Jun 2015 21:04:38 +0530
 
-> From: Scott Feldman <sfeldma@gmail.com>
+> This patch series adds the following:
+> Adds support to dump adapter specific stats in ethtool
+> Adds support to dump channel stats in ethtool
+> Adds support to dump loopback port stats in ethtool
+> Remove wake-on-lan get/set ethtool support
 > 
-> v2:
+> This patch series has been created against net-next tree and includes
+> patches on cxgb4 driver.
 > 
-> Changes based on review:
-> 
-> - David Miller <davem@davemloft.net> raise problem with system_wq not
->   preserving queue order to execution order.  To fix, use driver-private
->   ordered workqueue to preserve ordering of queued work.
-> 
-> - Jiri Pirko <jiri@resnulli.us> small change on kfree of work queue item.
-> 
-> v1:
-> 
-> In review of Simon's patchset "rocker: transaction fixes". it was noted
-> that rocker->neigh_tbl_next_index was unprotected in the call path below
-> and could race with other contexts calling rocker_port_ipv4_neigh():
+> We have included all the maintainers of respective drivers. Kindly review
+> the change and let us know in case of any review comments.
 
-How it rocker->neigh_tbl_next_index not protected?
-
-rocker->neigh_tbl_lock is _always_ held when it is accessed.
-
-This patch, therefore, looks like completely unnecessary complexity
-to me.  Furthermore, I would completely prefer if the operation stays
-completely synchronous to the call path where the neigh operation
-occurs rather than throwing it out to a workqueue.
-
-Thanks.
+Series applied, thanks.
