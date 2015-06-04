@@ -1,43 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/mlx4_core: Fix build failure introduced
- by the EQ pool changes
-Date: Wed, 03 Jun 2015 19:36:15 -0700 (PDT)
-Message-ID: <20150603.193615.834853895798751401.davem@davemloft.net>
-References: <1433230188-29726-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH] ipv4: inet_bind: check the addr_len first
+Date: Wed, 03 Jun 2015 19:38:23 -0700 (PDT)
+Message-ID: <20150603.193823.2127048807981229902.davem@davemloft.net>
+References: <1433236080-5974-1-git-send-email-kda@linux-powerpc.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mpe@ellerman.id.au, amirv@mellanox.com,
-	matanb@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: netdev@vger.kernel.org
+To: kda@linux-powerpc.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43376 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43382 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751364AbbFDCgQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 22:36:16 -0400
-In-Reply-To: <1433230188-29726-1-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S1751196AbbFDCiY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 22:38:24 -0400
+In-Reply-To: <1433236080-5974-1-git-send-email-kda@linux-powerpc.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Tue,  2 Jun 2015 10:29:48 +0300
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Date: Tue,  2 Jun 2015 12:08:00 +0300
 
-> When CONFIG_RFS_ACCEL or SMP aren't set, we fail to build, fix it.
+> Perform the address length check first, before calling
+> the the proto specific bind() function
 > 
-> Also, avoid build warning as of unused function on that setup.
-> 
-> Fixes: c66fa19c405a ('net/mlx4: Add EQ pool')
-> Reported-by: Michael Ellerman <mpe@ellerman.id.au>
-> Signed-off-by: Matan Barak <matanb@mellanox.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
 
-Applied, but this is really silly.
+This doesn't fix any actual bug, doesn't improve the code in
+preparation for another change that actually benefits from
+this adjustment, and so this is really an unwanted change.
 
-The whole reason there are backup non-SMP inline versions of
-irq_set_affinity_hint() is so that drivers don't have to crap
-up their drivers with ifdef'ery like this.
+This change and it's commit log message look totally arbitrary
+and opaque, even to people who have been working with this
+code and it's interfaces for decades.  That should tell you
+something.
 
-Just make all of this code unconditional and ignore the error,
-there isn't anything you can really do if the error happens
-anyways and this allows you to just silently use the non-SMP
-variant which unconditionally returns -EINVAL.
+You have to let us know exactly why you are making a change, and what
+real _actual_ bug it fixes, when you want us to consider your changes
+seriously.
+
+I'm not applying this, sorry.
