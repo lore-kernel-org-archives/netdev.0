@@ -1,7 +1,7 @@
 From: Markos Chandras <markos.chandras@imgtec.com>
-Subject: [PATCH 4/6] MIPS: net: BPF: Move register definition to the BPF header
-Date: Thu, 4 Jun 2015 11:56:14 +0100
-Message-ID: <1433415376-20952-5-git-send-email-markos.chandras@imgtec.com>
+Subject: [PATCH 2/6] MIPS: net: BPF: Replace RSIZE with SZREG
+Date: Thu, 4 Jun 2015 11:56:12 +0100
+Message-ID: <1433415376-20952-3-git-send-email-markos.chandras@imgtec.com>
 References: <1433415376-20952-1-git-send-email-markos.chandras@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,13 +12,17 @@ Cc: Markos Chandras <markos.chandras@imgtec.com>,
 	"Hannes Frederic Sowa" <hannes@stressinduktion.org>,
 	<linux-kernel@vger.kernel.org>
 To: <linux-mips@linux-mips.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailapp01.imgtec.com ([195.59.15.196]:58292 "EHLO
+	mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753378AbbFDK4j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 06:56:39 -0400
 In-Reply-To: <1433415376-20952-1-git-send-email-markos.chandras@imgtec.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The registers will be used by a subsequent patch introducing
-ASM helpers so move them to a common header.
+The RSZIE was used to determine the register width but MIPS
+already defines SZREG so use that instead.
 
 Cc: netdev@vger.kernel.org
 Cc: "David S. Miller" <davem@davemloft.net>
@@ -28,99 +32,120 @@ Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Cc: linux-kernel@vger.kernel.org
 Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
 ---
- arch/mips/net/bpf_jit.c | 35 -----------------------------------
- arch/mips/net/bpf_jit.h | 35 +++++++++++++++++++++++++++++++++++
- 2 files changed, 35 insertions(+), 35 deletions(-)
+ arch/mips/net/bpf_jit.c | 30 +++++++++++++++---------------
+ 1 file changed, 15 insertions(+), 15 deletions(-)
 
 diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
-index 84cd09ba230a..954df295f945 100644
+index 850b08ee3fab..56e0e8e9674d 100644
 --- a/arch/mips/net/bpf_jit.c
 +++ b/arch/mips/net/bpf_jit.c
-@@ -63,41 +63,6 @@
+@@ -20,6 +20,7 @@
+ #include <linux/string.h>
+ #include <linux/slab.h>
+ #include <linux/types.h>
++#include <asm/asm.h>
+ #include <asm/bitops.h>
+ #include <asm/cacheflush.h>
+ #include <asm/cpu-features.h>
+@@ -60,7 +61,6 @@
+  * ----------------------------------------------------
+  */
  
+-#define RSIZE	(sizeof(unsigned long))
  #define ptr typeof(unsigned long)
  
--/* ABI specific return values */
--#ifdef CONFIG_32BIT /* O32 */
--#ifdef CONFIG_CPU_LITTLE_ENDIAN
--#define r_err	MIPS_R_V1
--#define r_val	MIPS_R_V0
--#else /* CONFIG_CPU_LITTLE_ENDIAN */
--#define r_err	MIPS_R_V0
--#define r_val	MIPS_R_V1
--#endif
--#else /* N64 */
--#define r_err	MIPS_R_V0
--#define r_val	MIPS_R_V0
--#endif
--
--#define r_ret	MIPS_R_V0
--
--/*
-- * Use 2 scratch registers to avoid pipeline interlocks.
-- * There is no overhead during epilogue and prologue since
-- * any of the $s0-$s6 registers will only be preserved if
-- * they are going to actually be used.
-- */
--#define r_off		MIPS_R_S2
--#define r_A		MIPS_R_S3
--#define r_X		MIPS_R_S4
--#define r_skb		MIPS_R_S5
--#define r_M		MIPS_R_S6
--#define r_s0		MIPS_R_T4 /* scratch reg 1 */
--#define r_s1		MIPS_R_T5 /* scratch reg 2 */
--#define r_tmp_imm	MIPS_R_T6 /* No need to preserve this */
--#define r_tmp		MIPS_R_T7 /* No need to preserve this */
--#define r_zero		MIPS_R_ZERO
--#define r_sp		MIPS_R_SP
--#define r_ra		MIPS_R_RA
--
- #define SCRATCH_OFF(k)		(4 * (k))
+ /* ABI specific return values */
+@@ -576,12 +576,12 @@ static void save_bpf_jit_regs(struct jit_ctx *ctx, unsigned offset)
+ 		/* Argument save area */
+ 		if (config_enabled(CONFIG_64BIT))
+ 			/* Bottom of current frame */
+-			real_off = align_sp(offset) - RSIZE;
++			real_off = align_sp(offset) - SZREG;
+ 		else
+ 			/* Top of previous frame */
+-			real_off = align_sp(offset) + RSIZE;
++			real_off = align_sp(offset) + SZREG;
+ 		emit_store_stack_reg(MIPS_R_A0, r_sp, real_off, ctx);
+-		emit_store_stack_reg(MIPS_R_A1, r_sp, real_off + RSIZE, ctx);
++		emit_store_stack_reg(MIPS_R_A1, r_sp, real_off + SZREG, ctx);
  
- /* JIT flags */
-diff --git a/arch/mips/net/bpf_jit.h b/arch/mips/net/bpf_jit.h
-index f9b5a4d3dbf4..3afa7a6d81b3 100644
---- a/arch/mips/net/bpf_jit.h
-+++ b/arch/mips/net/bpf_jit.h
-@@ -43,4 +43,39 @@
- #define MIPS_COND_X	(0x1 << 5)
- #define MIPS_COND_K	(0x1 << 6)
+ 		real_off = 0;
+ 	}
+@@ -592,7 +592,7 @@ static void save_bpf_jit_regs(struct jit_ctx *ctx, unsigned offset)
+ 		if ((sflags >> i) & 0x1) {
+ 			emit_store_stack_reg(MIPS_R_S0 + i, r_sp, real_off,
+ 					     ctx);
+-			real_off += RSIZE;
++			real_off += SZREG;
+ 		}
+ 		i++;
+ 		tmp_flags >>= 1;
+@@ -601,13 +601,13 @@ static void save_bpf_jit_regs(struct jit_ctx *ctx, unsigned offset)
+ 	/* save return address */
+ 	if (ctx->flags & SEEN_CALL) {
+ 		emit_store_stack_reg(r_ra, r_sp, real_off, ctx);
+-		real_off += RSIZE;
++		real_off += SZREG;
+ 	}
  
-+/* ABI specific return values */
-+#ifdef CONFIG_32BIT /* O32 */
-+#ifdef CONFIG_CPU_LITTLE_ENDIAN
-+#define r_err	MIPS_R_V1
-+#define r_val	MIPS_R_V0
-+#else /* CONFIG_CPU_LITTLE_ENDIAN */
-+#define r_err	MIPS_R_V0
-+#define r_val	MIPS_R_V1
-+#endif
-+#else /* N64 */
-+#define r_err	MIPS_R_V0
-+#define r_val	MIPS_R_V0
-+#endif
-+
-+#define r_ret	MIPS_R_V0
-+
-+/*
-+ * Use 2 scratch registers to avoid pipeline interlocks.
-+ * There is no overhead during epilogue and prologue since
-+ * any of the $s0-$s6 registers will only be preserved if
-+ * they are going to actually be used.
-+ */
-+#define r_off		MIPS_R_S2
-+#define r_A		MIPS_R_S3
-+#define r_X		MIPS_R_S4
-+#define r_skb		MIPS_R_S5
-+#define r_M		MIPS_R_S6
-+#define r_s0		MIPS_R_T4 /* scratch reg 1 */
-+#define r_s1		MIPS_R_T5 /* scratch reg 2 */
-+#define r_tmp_imm	MIPS_R_T6 /* No need to preserve this */
-+#define r_tmp		MIPS_R_T7 /* No need to preserve this */
-+#define r_zero		MIPS_R_ZERO
-+#define r_sp		MIPS_R_SP
-+#define r_ra		MIPS_R_RA
-+
- #endif /* BPF_JIT_MIPS_OP_H */
+ 	/* Setup r_M leaving the alignment gap if necessary */
+ 	if (ctx->flags & SEEN_MEM) {
+-		if (real_off % (RSIZE * 2))
+-			real_off += RSIZE;
++		if (real_off % (SZREG * 2))
++			real_off += SZREG;
+ 		emit_long_instr(ctx, ADDIU, r_M, r_sp, real_off);
+ 	}
+ }
+@@ -621,12 +621,12 @@ static void restore_bpf_jit_regs(struct jit_ctx *ctx,
+ 	if (ctx->flags & SEEN_CALL) {
+ 		if (config_enabled(CONFIG_64BIT))
+ 			/* Bottom of current frame */
+-			real_off = align_sp(offset) - RSIZE;
++			real_off = align_sp(offset) - SZREG;
+ 		else
+ 			/* Top of previous frame */
+-			real_off = align_sp(offset) + RSIZE;
++			real_off = align_sp(offset) + SZREG;
+ 		emit_load_stack_reg(MIPS_R_A0, r_sp, real_off, ctx);
+-		emit_load_stack_reg(MIPS_R_A1, r_sp, real_off + RSIZE, ctx);
++		emit_load_stack_reg(MIPS_R_A1, r_sp, real_off + SZREG, ctx);
+ 
+ 		real_off = 0;
+ 	}
+@@ -638,7 +638,7 @@ static void restore_bpf_jit_regs(struct jit_ctx *ctx,
+ 		if ((sflags >> i) & 0x1) {
+ 			emit_load_stack_reg(MIPS_R_S0 + i, r_sp, real_off,
+ 					    ctx);
+-			real_off += RSIZE;
++			real_off += SZREG;
+ 		}
+ 		i++;
+ 		tmp_flags >>= 1;
+@@ -658,7 +658,7 @@ static unsigned int get_stack_depth(struct jit_ctx *ctx)
+ 
+ 
+ 	/* How may s* regs do we need to preserved? */
+-	sp_off += hweight32(ctx->flags >> SEEN_SREG_SFT) * RSIZE;
++	sp_off += hweight32(ctx->flags >> SEEN_SREG_SFT) * SZREG;
+ 
+ 	if (ctx->flags & SEEN_MEM)
+ 		sp_off += 4 * BPF_MEMWORDS; /* BPF_MEMWORDS are 32-bit */
+@@ -674,13 +674,13 @@ static unsigned int get_stack_depth(struct jit_ctx *ctx)
+ 		 * this space ourselves. We need to preserve $ra as well.
+ 		 */
+ 		sp_off += config_enabled(CONFIG_64BIT) ?
+-			(ARGS_USED_BY_JIT + 1) * RSIZE : RSIZE;
++			(ARGS_USED_BY_JIT + 1) * SZREG : SZREG;
+ 
+ 	/*
+ 	 * Subtract the bytes for the last registers since we only care about
+ 	 * the location on the stack pointer.
+ 	 */
+-	return sp_off - RSIZE;
++	return sp_off - SZREG;
+ }
+ 
+ static void build_prologue(struct jit_ctx *ctx)
 -- 
 2.4.2
