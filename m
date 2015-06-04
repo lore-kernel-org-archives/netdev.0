@@ -1,36 +1,42 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: virtio-net: why not always to set avail->flags to VRING_AVAIL_F_NO_INTERRUPT
-Date: Thu, 04 Jun 2015 10:43:43 +0930
-Message-ID: <87k2vkuvg8.fsf@rustcorp.com.au>
-References: <556E9F87.7030202@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/2] s390/bpf: fix stack allocation
+Date: Wed, 03 Jun 2015 19:32:04 -0700 (PDT)
+Message-ID: <20150603.193204.215182154047808316.davem@davemloft.net>
+References: <1433224115-28411-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: virtualization@lists.linux-foundation.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Linhaifeng <haifeng.lin@huawei.com>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: holzheu@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, daniel@iogearbox.net,
+	netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:36589 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751043AbbFDB7G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jun 2015 21:59:06 -0400
-In-Reply-To: <556E9F87.7030202@huawei.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43341 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751081AbbFDCcI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 22:32:08 -0400
+In-Reply-To: <1433224115-28411-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Linhaifeng <haifeng.lin@huawei.com> writes:
-> Hi,
->
-> I'm a newbie and have a question about vring_new_virtqueue function.
->
-> Why we set avail->flags to VRING_AVAIL_F_NO_INTERRUPT when no callbacks?
-> I think we should set avail->flags to VRING_AVAIL_F_NO_INTERRUPT even if no callbacks.
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Mon,  1 Jun 2015 22:48:34 -0700
 
-Hi Linhaifeng,
+> From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+> 
+> On s390x we have to provide 160 bytes stack space before we can call
+> the next function. From the 160 bytes that we got from the previous
+> function we only use 11 * 8 bytes and have 160 - 11 * 8 bytes left.
+> Currently for BPF we allocate additional 160 - 11 * 8 bytes for the
+> next function. This is wrong because then the next function only gets:
+> 
+>  (160 - 11 * 8) + (160 - 11 * 8) = 2 * 72 = 144 bytes
+> 
+> Fix this and allocate enough memory for the next function.
+> 
+> Fixes: 054623105728 ("s390/bpf: Add s390x eBPF JIT compiler backend")
+> Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+> Acked-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-        Not sure I understand your question, but I'll try to answer.
-
-We don't set VRING_AVAIL_F_NO_INTERRUPT if there's a callback because we
-want that callback called.  Otherwise callback will never be used.
-
-Cheers,
-Rusty.
+Applied.
