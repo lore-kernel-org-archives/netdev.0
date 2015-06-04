@@ -1,33 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: phy: dp83867: Add TI dp83867 phy
-Date: Wed, 03 Jun 2015 19:41:27 -0700 (PDT)
-Message-ID: <20150603.194127.344821206425642182.davem@davemloft.net>
-References: <1433255677-20293-1-git-send-email-dmurphy@ti.com>
+Subject: Re: [PATCH] drivers/net/ethernet/dec/tulip/uli526x.c: fix
+ misleading indentation in uli526x_timer
+Date: Wed, 03 Jun 2015 19:44:18 -0700 (PDT)
+Message-ID: <20150603.194418.1009623373928255414.davem@davemloft.net>
+References: <1433273477-52330-1-git-send-email-dmalcolm@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
-To: dmurphy@ti.com
+Cc: grundler@parisc-linux.org, netdev@vger.kernel.org
+To: dmalcolm@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43412 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43420 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751030AbbFDCl2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 22:41:28 -0400
-In-Reply-To: <1433255677-20293-1-git-send-email-dmurphy@ti.com>
+	with ESMTP id S1751428AbbFDCoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 22:44:19 -0400
+In-Reply-To: <1433273477-52330-1-git-send-email-dmalcolm@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Murphy <dmurphy@ti.com>
-Date: Tue, 2 Jun 2015 09:34:37 -0500
+From: David Malcolm <dmalcolm@redhat.com>
+Date: Tue,  2 Jun 2015 15:31:17 -0400
 
-> Add support for the TI dp83867 Gigabit ethernet phy
-> device.
+> This code in drivers/net/ethernet/dec/tulip/uli526x.c
+> function "uli526x_timer":
 > 
-> The DP83867 is a robust, low power, fully featured
-> Physical Layer transceiver with integrated PMD
-> sublayers to support 10BASE-T, 100BASE-TX and
-> 1000BASE-T Ethernet protocols.
+>   1086          } else
+>   1087                  if ((tmp_cr12 & 0x3) && db->link_failed) {
+>   [...snip...]
+>   1109                  }
+>   1110                  else if(!(tmp_cr12 & 0x3) && db->link_failed)
+>   1111                  {
+>   [...snip...]
+>   1117                  }
+>   1118                  db->init=0;
 > 
-> Signed-off-by: Dan Murphy <dmurphy@ti.com>
+> is misleadingly indented: the
+>   db->init=0
+> is indented as if part of the else clause at line 1086, but it is
+> independent of it (no braces before the "if" at line 1087).
+> 
+> This patch fixes the indentation to reflect the actual meaning of the code,
+> though is it actually meant to be part of the "else" clause?  (I'm a
+> compiler developer, not a kernel person).  It also adds spaces around
+> the assignment, to placate checkpatch.pl.
 
-Applied to net-next, thanks.
+I think the code is arranged as intended and the indentation is just wrong.
+
+Patch applied, thanks.
