@@ -1,49 +1,33 @@
-From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-Subject: Re: [RFC PATCH net-next] tcp: add CDG congestion control
-Date: Thu, 4 Jun 2015 18:19:00 +0200
-Message-ID: <CA++eYdsG5Jw15BNqLv6AE3LivhsDpHNjRxvx3T3qZF248z6fRQ@mail.gmail.com>
-References: <1431894670-12609-1-git-send-email-kennetkl@ifi.uio.no>
-	<CAK6E8=eV=0YDs5VY8EfhnVH1=gEZ+X4OzZJzDZihvSOUq6ErGA@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Networking microconf accepted - Last day early bird rate
+Date: Thu, 4 Jun 2015 18:25:20 +0200
+Message-ID: <20150604162520.GA29730@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
-	netdev <netdev@vger.kernel.org>,
-	David Hayes <davihay@ifi.uio.no>,
-	Andreas Petlund <apetlund@simula.no>,
-	Dave Taht <dave.taht@gmail.com>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: tom@herbertland.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:33014 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752856AbbFDQTB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 12:19:01 -0400
-Received: by wgez8 with SMTP id z8so37627252wge.0
-        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 09:19:00 -0700 (PDT)
-In-Reply-To: <CAK6E8=eV=0YDs5VY8EfhnVH1=gEZ+X4OzZJzDZihvSOUq6ErGA@mail.gmail.com>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:38073 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932179AbbFDQZY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 12:25:24 -0400
+Received: by wibdt2 with SMTP id dt2so55294198wib.1
+        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 09:25:22 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> why not just call tcp_init_cwnd_reduction()?
+The networking microconference has been formally accepted into the
+Linux Plumbers Aug 19-21 in Seattle. Tomorrow, June 5, is the last
+day of the early registration rate. Please register [0] if you are
+planning to attend. As in previous years, the conference has a
+maximum capacity and once reached, no further registrations will
+be accepted.
 
-I deferred considering the ECN implications of doing so. The code to
-start PRR was based on tcp_enter_cwr()/tcp_init_cwnd_reduction(), save
-that both of these functions ensure a call to tcp_ecn_queue_cwr().
+[0] http://linuxplumbersconf.org/2015/attend/
 
-The upcoming patch set instead exports tcp_enter_cwr() and calls it,
-which sets CWR on ECN-capable connections.
+Also, there is still time to request a slot for the networking
+microconference. Please edit the wiki [1] if you want to propose a
+topic for discussion.
 
-Consider CDG at the sender-side. The RFC 3168 Errata says that a
-receiver should:
-"First, reset ECE because of CWR
-Second, set ECE because of CE"
-
-Thus, in "good networks", setting CWR on a CDG backoff should not
-affect ECN signalling =E2=80=93 we still get ECE from the receiver.
-
-It is conceivable that fringe scenarios of ECN in the forward path and
-losses in the ACK path creates a situation where CDG's backoff could
-inhibit some ECN signals from the receiver. That is, setting CWR will
-inhibit the signalling reliability of standard ECN in TCP. But we are
-arguably still in good faith since we have reduced the congestion
-window by some beta.
+[1] http://wiki.linuxplumbersconf.org/2015:networking
