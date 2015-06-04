@@ -1,136 +1,98 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the
- RDMA-CM
-Date: Thu, 4 Jun 2015 10:40:58 -0600
-Message-ID: <20150604164058.GB27699@obsidianresearch.com>
-References: <1432837360.114391.35.camel@redhat.com>
- <CAJ3xEMh2T5-56rFxWVdct2uAZYW1ZrKivWfS45V-mvhAfwyGaA@mail.gmail.com>
- <1432850150.114391.56.camel@redhat.com>
- <556ED0D5.8010502@mellanox.com>
- <20150603161447.GC12073@obsidianresearch.com>
- <CAJ3xEMjM53sYuEgQV3WPaN4WErk_YcojPY2zBcmq-+3W2dfD+A@mail.gmail.com>
- <20150603195325.GC7902@obsidianresearch.com>
- <CAJ3xEMiO+hEzOJ2oJ5G-mmBeaX4ZHvUyhNSAzsrRDui6dFjvCg@mail.gmail.com>
- <20150603234811.GA15128@obsidianresearch.com>
- <556FEF25.80409@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <556FEF25.80409-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [RFC 03/10] SUNRPC: abstract tcp_read_sock() in record fragment parser
+Date: Thu,  4 Jun 2015 17:45:46 +0100
+Message-ID: <1433436353-6761-4-git-send-email-stefanha@redhat.com>
+References: <1433436353-6761-1-git-send-email-stefanha@redhat.com>
+Cc: Anna Schumaker <anna.schumaker@netapp.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	asias.hejun@gmail.com, netdev@vger.kernel.org,
+	Daniel Berrange <berrange@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stefan Hajnoczi <stefanha@redhat.com>
+To: linux-nfs@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40368 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753546AbbFDQqD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jun 2015 12:46:03 -0400
+In-Reply-To: <1433436353-6761-1-git-send-email-stefanha@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 04, 2015 at 09:24:37AM +0300, Haggai Eran wrote:
-> > The l2/l3 distinction in ipvlan is also very interesting. The L3 mode
-> > solves some of the security type issues. What do you think Haggi?
+Use a function pointer to abstract tcp_read_sock()-like functions.  For
+TCP this function will be tcp_read_sock().  For AF_VSOCK it will be
+vsock_read_sock().
 
-> I think some issues ipvlan is trying to solve would also affect us using
-> the alias GUIDs solution. ipvlan tries to solve among other the problem
-> of a limited MAC filter table in NICs, and avoid using promiscuous mode.
-> But the GID table is also limited, and we don't have something like
-> promiscuous mode for GIDs in InfiniBand. For large scale use of
-> containers we would need to also allow the current model.
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+---
+ include/linux/sunrpc/xprtsock.h | 6 ++++++
+ net/sunrpc/xprtsock.c           | 8 +++++++-
+ 2 files changed, 13 insertions(+), 1 deletion(-)
 
-Yes, that is certainly true.
-
-> As for L3 mode, it does seem more restrictive, as all routing decisions
-> are done in the controlling namespace. Our current ipoib child interface
-> implementation is more like the L2 version of ipvlan.
-
-The ipoib children are exactly like macvlan, because they all have
-unique LLADDRs.
-
-It doesn't start acting like ipvlan until we reach the rdma-cm patches,
-and where we see the IP stack side act like macvlan and the rdma-cm
-side try to act like ipvlan - that is why it is so ugly/hacky,
-
-> > Is there any chance standard things like ipvlan and macvlan could be
-> > used with rdma-cm if their master devices are IPoIB?
-
-> These standard interfaces seem very much connected with Ethernet (both
-> have an ARPHDR_ETHER-only check for their upper devices). I think
-> macvlan's functionality would be covered by adding alias GUIDs to ipoib,
-> and ipvlan L2 is covered by the current behavior. Perhaps it would be
-> beneficial to try and make ipvlan more generic so that it would work
-> over ipoib, giving us support for L3 mode.
-
-Yes, macvlan seems very well covered already by IPoIB child
-interfaces, and I don't see too many reasons to worry about changing
-that.
-
-ipvlan on the other hand, as you observe, is valuable for many reasons.
-
-> As for rdma-cm support, the patch I had for ipoib attempts to scan each
-> child's upper devices in order to support such topologies. We only
-> tested it with bonding, but I think it would also work with such devices.
-
-.. it is so sketchy :|
-
-Firstly: I still think the prior discussion is right, and proceeding
-along the reworking of the ingress side of rdma-cm and focusing on the
-device,guid,pkey makes 100% sense and will progress things right
-away. Every other variation seems to build on that.
-
-But when we get into bonding and the various vlan things, we loose
-encapsulation - snooping the children list to guess what the bonding
-driver is doing seems very hacky.
-
-Discussion idea: Can we actually use the netstack to process the
-RDMA-CM packets? It looks like the netstack wants a skb to do this
-mid-layer work, so rdma-cm would have to synthesize a skb for the CM
-packets and pass it through netdev to apply all the transformations
-and access the various internal states (eg from ipvlan, bonding,
-etc). rdma-cm would have to 'catch' the skb once it is done traveling
-and resume its normal processing. Very similar to your notion of using
-UDP, but without any on-the-wire change.
-
-This would fit in that same ingress spot I suggested adding the
-routing lookup, instead of routing we want the full stack to have a go
-at figuring out the final netdev.
-
-This seems the most general because it will work for all the *vlan
-type drivers, bonding, and all of the RDMA technologies. (each would
-have a slightly different way to make the skb, but same basic idea)
-
-Lots and lots of details to do that, but conceptually it seems pretty
-solid?
-
-> Yes, for RoCE our goal for the start was to support namespaces in RDMA
-> CM through macvlan devices. As long as we can update the RoCE gid table
-> correctly for macvlan and ipvlan devices, the RDMA CM implementation
-> shouldn't care where the details come from.
-
-Hurm, the gid index tagged on the QP1 packet should not be directly
-used for much on ingress. rdma-cm will have to recover the mac address
-and vlan to use that as a guide.
-
-Synchronizing the gid table and all the internal state in macvlan,
-ipvlan, bonding seems very hard, I do not envy your task :(
-
-> > Any thoughts on the idea we still need ipoib same-guid children if
-> > ipvlan is available?
-> If we port ipvlan to work over IPoIB interfaces and not just Ethernet,
-> then ipvlan L2 would provide exactly the same functionality. There onyl
-> difference I can think of is that ipvlan would use a single UD QP for
-> all devices (and in connected-mode, a single RC QP between a pair of
-> hosts), while ipoib would use a QP per child device, and multiple RC QPs
-> for such pairs.
-
-Agree with this.
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/sunrpc/xprtsock.h b/include/linux/sunrpc/xprtsock.h
+index e3de7bf..3b4cd4c 100644
+--- a/include/linux/sunrpc/xprtsock.h
++++ b/include/linux/sunrpc/xprtsock.h
+@@ -9,6 +9,9 @@
+ 
+ #ifdef __KERNEL__
+ 
++/* TODO why does this header have no includes? */
++#include <net/tcp.h> /* for sk_read_actor_t */
++
+ int		init_socket_xprt(void);
+ void		cleanup_socket_xprt(void);
+ 
+@@ -39,6 +42,9 @@ struct sock_xprt {
+ 	unsigned long		stream_copied,
+ 				stream_flags;
+ 
++	int			(*stream_read_sock)(struct sock *,
++						    read_descriptor_t *,
++						    sk_read_actor_t);
+ 
+ 	/*
+ 	 * Connection of transports
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index c84d45e..06fde0e 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -1395,6 +1395,7 @@ static int xs_stream_data_recv(read_descriptor_t *rd_desc, struct sk_buff *skb,
+ static void xs_stream_data_ready(struct sock *sk)
+ {
+ 	struct rpc_xprt *xprt;
++	struct sock_xprt *transport;
+ 	read_descriptor_t rd_desc;
+ 	int read;
+ 	unsigned long total = 0;
+@@ -1406,6 +1407,9 @@ static void xs_stream_data_ready(struct sock *sk)
+ 		read = 0;
+ 		goto out;
+ 	}
++
++	transport = container_of(xprt, struct sock_xprt, xprt);
++
+ 	/* Any data means we had a useful conversation, so
+ 	 * the we don't need to delay the next reconnect
+ 	 */
+@@ -1416,7 +1420,8 @@ static void xs_stream_data_ready(struct sock *sk)
+ 	rd_desc.arg.data = xprt;
+ 	do {
+ 		rd_desc.count = 65536;
+-		read = tcp_read_sock(sk, &rd_desc, xs_stream_data_recv);
++		read = transport->stream_read_sock(sk, &rd_desc,
++						   xs_stream_data_recv);
+ 		if (read > 0)
+ 			total += read;
+ 	} while (read > 0);
+@@ -1458,6 +1463,7 @@ static void xs_tcp_state_change(struct sock *sk)
+ 			transport->stream_copied = 0;
+ 			transport->stream_flags =
+ 				STREAM_RCV_COPY_FRAGHDR | STREAM_RCV_COPY_XID;
++			transport->stream_read_sock = tcp_read_sock;
+ 			xprt->connect_cookie++;
+ 
+ 			xprt_wake_pending_tasks(xprt, -EAGAIN);
+-- 
+2.4.2
