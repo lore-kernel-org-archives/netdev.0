@@ -1,35 +1,27 @@
-From: Shailendra Verma <shailendra.capricorn@gmail.com>
-Subject: [PATCH] atm:he - Do not initialise statics to 0.
-Date: Thu,  4 Jun 2015 20:11:00 +0530
-Message-ID: <1433428860-3467-1-git-send-email-shailendra.capricorn@gmail.com>
-Cc: linux-kernel@vger.kernel.org,
-	Shailendra Verma <shailendra.capricorn@gmail.com>
-To: Chas Williams <3chas3@gmail.com>,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Mr. Lopati" <info@urbanoffice.org>
+Subject: Private Placement
+Date: Thu, 04 Jun 2015 07:02:37 -0700
+Message-ID: <20150604140259.038661006@sgs-vcgw003.ocn.ad.jp>
+Reply-To: lopatit@aol.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: "Mr. Lopati" <lopatit@aol.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from b-defer0022.ocn.ad.jp ([153.128.48.72]:59925 "EHLO
+	b-defer0022.ocn.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752609AbbFDOuA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 10:50:00 -0400
+Received: from oogw0413.ocn.ad.jp (oogw0413.ocn.ad.jp [153.128.48.103])
+	by b-defer0022.ocn.ad.jp (Postfix) with ESMTP id 91AF5110412C
+	for <netdev@vger.kernel.org>; Thu,  4 Jun 2015 23:03:01 +0900 (JST)
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-According to <stdbool.h> false is always '0' and
-Static variables are initialised to 0 by GCC.
+Hello,
 
-Signed-off-by: Shailendra Verma <shailendra.capricorn@gmail.com>
----
- drivers/atm/he.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I have a proposal for you.It has to with investing in your Company. kindly get back to me with  a reconfirmation of your company name, area of specialization, address and your position in the Company. Upon your response to my private Email: lopati2100021@yandex.ru  I shall forward you comprehensive details.
 
-diff --git a/drivers/atm/he.c b/drivers/atm/he.c
-index 0237271..a8da3a5 100644
---- a/drivers/atm/he.c
-+++ b/drivers/atm/he.c
-@@ -117,7 +117,7 @@ static short nvpibits = -1;
- static short nvcibits = -1;
- static short rx_skb_reserve = 16;
- static bool irq_coalesce = true;
--static bool sdh = 0;
-+static bool sdh;
- 
- /* Read from EEPROM = 0000 0011b */
- static unsigned int readtab[] = {
--- 
-1.9.1
+Best Regard.
+Lopati T
