@@ -1,39 +1,55 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC net-next 0/3] IP imposition of per-nh MPLS encap
-Date: Thu, 04 Jun 2015 17:12:57 +0200
-Message-ID: <55706AF9.4090909@6wind.com>
-References: <1433177175-16775-1-git-send-email-rshearma@brocade.com>	<87h9qqx9n5.fsf@x220.int.ebiederm.org> <556E18BE.8060505@brocade.com>	<87d21dolyt.fsf@x220.int.ebiederm.org> <556E2B0B.4040100@brocade.com> <87a8whhg4x.fsf@x220.int.ebiederm.org>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, roopa <roopa@cumulusnetworks.com>,
-	Thomas Graf <tgraf@suug.ch>
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Robert Shearman <rshearma@brocade.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next] bpf: fix build due to missing tc_verd
+Date: Thu,  4 Jun 2015 08:33:48 -0700
+Message-ID: <1433432028-7620-1-git-send-email-ast@plumgrid.com>
+Cc: Fengguang Wu <fengguang.wu@intel.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:36586 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752108AbbFDPNA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 11:13:00 -0400
-Received: by wibdq8 with SMTP id dq8so128261749wib.1
-        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 08:12:59 -0700 (PDT)
-In-Reply-To: <87a8whhg4x.fsf@x220.int.ebiederm.org>
+Received: from mail-qk0-f172.google.com ([209.85.220.172]:35565 "EHLO
+	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751956AbbFDPeA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 11:34:00 -0400
+Received: by qkhq76 with SMTP id q76so25710424qkh.2
+        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 08:33:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 03/06/2015 00:58, Eric W. Biederman a =C3=A9crit :
-[snip]
-> On the drawing board is getting cross namespace routes so with a litt=
-le
-> luck I will only need loopback devices in most of my network namespac=
-es
-> when the dust settles.
-+1
+fix build error:
+net/core/filter.c: In function 'bpf_clone_redirect':
+net/core/filter.c:1429:18: error: 'struct sk_buff' has no member named 'tc_verd'
+  if (G_TC_AT(skb2->tc_verd) & AT_INGRESS)
 
-I've start to look at this, but I didn't have enough time right now. Bu=
-t this
-feature will be a good optimization from a scalability and memory consu=
-mption
-point of view.
+Fixes: 3896d655f4d4 ("bpf: introduce bpf_clone_redirect() helper")
+Reported-by: Or Gerlitz <gerlitz.or@gmail.com>
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+ net/core/filter.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 64c121c09655..09b2062eb5b8 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -46,7 +46,6 @@
+ #include <linux/seccomp.h>
+ #include <linux/if_vlan.h>
+ #include <linux/bpf.h>
+-#include <net/sch_generic.h>
+ 
+ /**
+  *	sk_filter - run a packet through a socket filter
+@@ -1426,8 +1425,7 @@ static u64 bpf_clone_redirect(u64 r1, u64 ifindex, u64 flags, u64 r4, u64 r5)
+ 	if (unlikely(!skb2))
+ 		return -ENOMEM;
+ 
+-	if (G_TC_AT(skb2->tc_verd) & AT_INGRESS)
+-		skb_push(skb2, skb2->mac_len);
++	skb_push(skb2, skb2->data - skb_mac_header(skb2));
+ 
+ 	if (BPF_IS_REDIRECT_INGRESS(flags))
+ 		return dev_forward_skb(dev, skb2);
+-- 
+1.7.9.5
