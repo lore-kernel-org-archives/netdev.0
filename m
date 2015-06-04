@@ -1,52 +1,41 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH v6 net-next 00/11] net: Increase inputs to flow_keys
- hashing
-Date: Thu, 04 Jun 2015 15:56:25 -0700 (PDT)
-Message-ID: <20150604.155625.35211112382842879.davem@redhat.com>
-References: <1433434606-527444-1-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tom@herbertland.com
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH] net: dsa: mv88e6xxx: Fix deadlock by double lock
+Date: Fri,  5 Jun 2015 01:10:09 +0200
+Message-ID: <1433459409-16488-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36640 "EHLO mx1.redhat.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:51530 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753746AbbFDW40 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Jun 2015 18:56:26 -0400
-In-Reply-To: <1433434606-527444-1-git-send-email-tom@herbertland.com>
+	id S1752187AbbFDXPz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jun 2015 19:15:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Thu, 4 Jun 2015 09:16:35 -0700
+ethtool -S on a DSA interface can deadlock for some switches because
+the same lock is taken twice. Use the register read function which
+expects the lock to be already held.
 
-> This patch set adds new fields to the flow_keys structure and hashes
-> over these fields to get a better flow hash. In particular, these
-> patches now include hashing over the full IPv6 addresses in order
-> to defend against address spoofing that always results in the
-> same hash. The new input also includes the Ethertype, L4 protocol,
-> VLAN, flow label, GRE keyid, and MPLS entropy label.
-> 
-> In order to increase hash inputs, we switch to using jhash2
-> which operates an an array of u32's. jhash2 operates on multiples of
-> three words. The data in the hash is constructed for that, and there
-> are are two variants for IPv4 and Ipv6 addressing. For IPv4 addresses,
-> jhash is performed over six u32's and for IPv6 it is done over twelve.
-> 
-> flow_keys can store either IPv4 or IPv6 addresses (addr_proto field
-> is a selector). ipv6_addr_hash is no longer used to convert addresses
-> for setting in flow table. For legacy uses of flow keys outside of
-> flow_dissector the flow_get_u32_src and flow_get_u32_dst functions
-> have been added to get u32 representation representations of addresses
-> in flow_keys.
-> 
-> For flow lables we also eliminate the short circuit in flow_dissector
-> for non-zero flow label. The flow label is now considered additional
-> input to ports.
-> 
-> Testing: Ran netperf TCP_RR for 200 flows using IPv4 and IPv6 comparing
-> before the patches and with the patches. Did not detect any performance
-> degradation.
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Fixes: 31888234b736 ("net: dsa: mv88e6xxx: Replace stats mutex with SMI mutex")
+---
+ drivers/net/dsa/mv88e6xxx.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Series applied, thanks Tom.
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 4f2b8b7565b0..261a0301e403 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -758,8 +758,8 @@ static void _mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
+ 		u32 high = 0;
+ 
+ 		if (s->reg >= 0x100) {
+-			ret = mv88e6xxx_reg_read(ds, REG_PORT(port),
+-						 s->reg - 0x100);
++			ret = _mv88e6xxx_reg_read(ds, REG_PORT(port),
++						  s->reg - 0x100);
+ 			if (ret < 0)
+ 				goto error;
+ 			low = ret;
+-- 
+2.1.4
