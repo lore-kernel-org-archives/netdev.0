@@ -1,42 +1,52 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: netlink: Disable insertions/removals during rehash
-Date: Thu, 04 Jun 2015 13:58:07 -0700
-Message-ID: <5570BBDF.3080309@roeck-us.net>
-References: <20150516131628.GA981@gondor.apana.org.au>	<20150516.171019.1206903516753105739.davem@davemloft.net>	<20150604162727.GA2670@roeck-us.net> <20150604.115922.1489867293287036693.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, eric.dumazet@gmail.com, tgraf@suug.ch,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Subject: [PATCH net-next 1/2] tcp: export tcp_enter_cwr()
+Date: Thu,  4 Jun 2015 23:01:42 +0200
+Message-ID: <1433451703-7516-1-git-send-email-kennetkl@ifi.uio.no>
+Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
+	Eric Dumazet <edumazet@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	David Hayes <davihay@ifi.uio.no>,
+	Andreas Petlund <apetlund@simula.no>,
+	Dave Taht <dave.taht@bufferbloat.net>,
+	Nicolas Kuhn <nicolas.kuhn@telecom-bretagne.eu>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:37252 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752486AbbFDU6L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 16:58:11 -0400
-In-Reply-To: <20150604.115922.1489867293287036693.davem@davemloft.net>
+Received: from mail-out4.uio.no ([129.240.10.15]:41122 "EHLO mail-out4.uio.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752074AbbFDVCN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jun 2015 17:02:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/04/2015 11:59 AM, David Miller wrote:
-> From: Guenter Roeck <linux@roeck-us.net>
-> Date: Thu, 4 Jun 2015 09:27:27 -0700
->
->> sorry for bothering you - I don't see this patch in any of your trees,
->> and it is marked as "changes requested" in patchwork. Did I look
->> at the wrong places, do you still plan to apply the patch as-is,
->> or do you expect some changes ?
->>
->> As side info, I have been trying to track down the getaddrinfo
->> hang problem observed by others, which we see in 3.19.4 and 4.0.4.
->
-> Changes-requested, amazingly, means that someone gave you feedback
-> and changes along with a fresh resubmission is expected of you.
->
+Upcoming tcp_cdg uses tcp_enter_cwr() to initiate PRR. Export this
+function so that CDG can be compiled as a module.
 
-Yes, I understand. My problem is/was that your last e-mail on the subject
-suggested that you would apply the patch, while at the same time patchwork
-suggests that you expect to see changes. Sorry that I was - and still
-am - unable to correlate those two pieces of information.
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: David Hayes <davihay@ifi.uio.no>
+Cc: Andreas Petlund <apetlund@simula.no>
+Cc: Dave Taht <dave.taht@bufferbloat.net>
+Cc: Nicolas Kuhn <nicolas.kuhn@telecom-bretagne.eu>
+Signed-off-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+---
+ net/ipv4/tcp_input.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Guenter
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 15c4536..d4f76ab 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2552,6 +2552,7 @@ void tcp_enter_cwr(struct sock *sk)
+ 		tcp_set_ca_state(sk, TCP_CA_CWR);
+ 	}
+ }
++EXPORT_SYMBOL(tcp_enter_cwr);
+ 
+ static void tcp_try_keep_open(struct sock *sk)
+ {
+-- 
+2.1.0
