@@ -1,117 +1,46 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next V10 3/4] 802.1AD: Flow handling, actions and vlan parsing
-Date: Thu, 4 Jun 2015 13:39:45 -0700
-Message-ID: <CALnjE+r3C07mfEv5KsHjkVhDi0f2TYZwW+ATY=i7J=gek-YadA@mail.gmail.com>
-References: <1433267444-26025-1-git-send-email-thomasfherbert@gmail.com>
-	<1433267444-26025-4-git-send-email-thomasfherbert@gmail.com>
-	<CALnjE+p8tuUFoXOFvfrp154rb80o_8XhtJ+Z8RrL1Y67kw12jw@mail.gmail.com>
-	<55709674.8070808@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: netlink: Disable insertions/removals during rehash
+Date: Thu, 04 Jun 2015 13:44:12 -0700
+Message-ID: <1433450652.1895.42.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150516131628.GA981@gondor.apana.org.au>
+	 <20150516.171019.1206903516753105739.davem@davemloft.net>
+	 <20150604162727.GA2670@roeck-us.net>
+	 <20150604.115922.1489867293287036693.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, therbert@redhat.com,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Thomas F Herbert <thomasfherbert@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux@roeck-us.net, herbert@gondor.apana.org.au, tgraf@suug.ch,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog115.obsmtp.com ([74.125.149.238]:33951 "HELO
-	na3sys009aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752969AbbFDUjq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 16:39:46 -0400
-Received: by mail-ie0-f169.google.com with SMTP id mu5so9419187ieb.1
-        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 13:39:46 -0700 (PDT)
-In-Reply-To: <55709674.8070808@gmail.com>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:34339 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752609AbbFDUoO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 16:44:14 -0400
+Received: by igbhj9 with SMTP id hj9so989713igb.1
+        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 13:44:14 -0700 (PDT)
+In-Reply-To: <20150604.115922.1489867293287036693.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 4, 2015 at 11:18 AM, Thomas F Herbert
-<thomasfherbert@gmail.com> wrote:
-> On 6/4/15 1:45 PM, Pravin Shelar wrote:
->>
->> On Tue, Jun 2, 2015 at 10:50 AM, Thomas F Herbert
->> <thomasfherbert@gmail.com> wrote:
->>>
->>> Add support for 802.1ad including the ability to push and pop double
->>> tagged vlans.
->>>
->>> Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
->>> ---
->>>   net/openvswitch/flow.c | 82
->>> ++++++++++++++++++++++++++++++++++++++++++--------
->>>   net/openvswitch/flow.h |  3 ++
->>>   2 files changed, 73 insertions(+), 12 deletions(-)
->>>
->>> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
->>> index 2dacc7b..9c73a2e 100644
->>> --- a/net/openvswitch/flow.c
->>> +++ b/net/openvswitch/flow.c
->>> @@ -298,21 +298,78 @@ static bool icmp6hdr_ok(struct sk_buff *skb)
->>>   static int parse_vlan(struct sk_buff *skb, struct sw_flow_key *key)
->>>   {
->>>          struct qtag_prefix {
->>> -               __be16 eth_type; /* ETH_P_8021Q */
->>> +               __be16 eth_type; /* ETH_P_8021Q  or ETH_P_8021AD */
->>>                  __be16 tci;
->>>          };
->>> -       struct qtag_prefix *qp;
->>> +       struct qtag_prefix *qp = (struct qtag_prefix *)skb->data;
->>>
->>> -       if (unlikely(skb->len < sizeof(struct qtag_prefix) +
->>> sizeof(__be16)))
->>> +       struct qinqtag_prefix {
->>> +               __be16 eth_type; /* ETH_P_8021Q  or ETH_P_8021AD */
->>> +               __be16 tci;
->>> +               __be16 inner_tpid; /* ETH_P_8021Q */
->>> +               __be16 ctci;
->>> +       };
->>> +
->>
->> ...
->>
->>>
->>> diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
->>> index a076e44..fa83c61 100644
->>> --- a/net/openvswitch/flow.h
->>> +++ b/net/openvswitch/flow.h
->>> @@ -134,6 +134,9 @@ struct sw_flow_key {
->>>                  u8     src[ETH_ALEN];   /* Ethernet source address. */
->>>                  u8     dst[ETH_ALEN];   /* Ethernet destination address.
->>> */
->>>                  __be16 tci;             /* 0 if no VLAN,
->>> VLAN_TAG_PRESENT set otherwise. */
->>> +               __be16 ctci;            /* 0 if no CVLAN,
->>> VLAN_TAG_PRESENT set
->>> +                                        * otherwise.
->>> +                                        */
->>>                  __be16 type;            /* Ethernet frame type. */
->>>          } eth;
->>>          union {
->>> --
->>> 2.1.0
->>>
->> Currently you have restricted the datapath implementation to support
->> only 8021AD. We can extend this to support double tagging by adding
->> inner_tpid field to struct sw_flow_key. OVS netlink interface already
->> allows this type of configuration. So is there reason not to do it in
->> this series?
->
-> Pravin, thanks for the review.
->
-> In the original implementation, I thought I would make only the minimally
-> necessary changes and I have been carrying that forward through each
-> revision.
->
-> If only one tag, tci is present that implies tpid of 0x8100, if two tags are
-> present, both tci and ctci, that implies a tpid of 0x88a8 and this is in
-> fact how the code works and is how it supports both 802.1q and 802.1ad. The
-> tpid's are not strictly necessary in the flow key for both 802.1q and
-> 802.1ad to work. OF doesn't support the ability to push and pop vlans with
-> non valid tpid's so there's no ambiguity.
->
-> Contrarily and despite my comment above, although not strictly necessary, I
-> don't have any objection to adding the tpid and to the flow key and I can
-> make it work either way.
->
-inner_tpid is must here. We need to pass this information up to the
-userspace when we serialize the flow-key. Otherwise we would loose
-this information.
-I think we can add another struct to represent inner-vlan which keep
-track of the tci and tpid.
+On Thu, 2015-06-04 at 11:59 -0700, David Miller wrote:
+> From: Guenter Roeck <linux@roeck-us.net>
+> Date: Thu, 4 Jun 2015 09:27:27 -0700
+> 
+> > sorry for bothering you - I don't see this patch in any of your trees,
+> > and it is marked as "changes requested" in patchwork. Did I look
+> > at the wrong places, do you still plan to apply the patch as-is,
+> > or do you expect some changes ?
+> > 
+> > As side info, I have been trying to track down the getaddrinfo
+> > hang problem observed by others, which we see in 3.19.4 and 4.0.4.
+> 
+> Changes-requested, amazingly, means that someone gave you feedback
+> and changes along with a fresh resubmission is expected of you.
+
+Arg.
+
+I hope Herbert can sort out this soon enough, I thought patch was
+already queued.
+
+Thanks.
