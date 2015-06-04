@@ -1,48 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: remove redundant checks
-Date: Thu, 04 Jun 2015 01:05:11 -0700 (PDT)
-Message-ID: <20150604.010511.1149657919915294597.davem@davemloft.net>
-References: <1433400561.1895.34.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next] tcp: double default TSQ output bytes limit
+Date: Thu, 04 Jun 2015 01:09:53 -0700 (PDT)
+Message-ID: <20150604.010953.468723718124334903.davem@davemloft.net>
+References: <1433326242-4061-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, stefano.stabellini@eu.citrix.com,
+	george.dunlap@eu.citrix.com, eric.dumazet@gmail.com
+To: wei.liu2@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44934 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44977 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751173AbbFDIFM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 04:05:12 -0400
-In-Reply-To: <1433400561.1895.34.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1753257AbbFDIJz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 04:09:55 -0400
+In-Reply-To: <1433326242-4061-1-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 03 Jun 2015 23:49:21 -0700
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Wed, 3 Jun 2015 11:10:42 +0100
 
-> From: Eric Dumazet  <edumazet@google.com>
+> Xen virtual network driver has higher latency than a physical NIC.
+> Having only 128K as limit for TSQ introduced 30% regression in guest
+> throughput.
 > 
-> tcp_v4_rcv() checks the following before calling tcp_v4_do_rcv():
+> This patch raises the limit to 256K. This reduces the regression to 8%.
+> This buys us more time to work out a proper solution in the long run.
 > 
-> if (th->doff < sizeof(struct tcphdr) / 4)
->     goto bad_packet;
-> if (!pskb_may_pull(skb, th->doff * 4))
->     goto discard_it;
-> 
-> So following check in tcp_v4_do_rcv() is redundant
-> and "goto csum_err;" is wrong anyway.
-> 
-> if (skb->len < tcp_hdrlen(skb) || ...)
-> 	goto csum_err;
-> 
-> A second check can be removed after no_tcp_socket label for same reason.
-> 
-> Same tests can be removed in tcp_v6_do_rcv()
-> 
-> Note : short tcp frames are not properly accounted in tcpInErrs MIB,
-> because pskb_may_pull() failure simply drops incoming skb, we might
-> fix this in a separate patch.
-> 
-> Signed-off-by: Eric Dumazet  <edumazet@google.com>
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
 
-Looks sane, applied, thanks Eric!
+Applied, thanks.
