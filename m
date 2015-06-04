@@ -1,44 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 1/2] Renesas Ethernet AVB driver proper
-Date: Wed, 03 Jun 2015 20:12:04 -0700 (PDT)
-Message-ID: <20150603.201204.761049104805679684.davem@davemloft.net>
-References: <1752433.KgeJV8aUGv@wasted.cogentembedded.com>
+Subject: Re: [PATCH net-next 2/3] net/mlx4_core: need to call close fw if
+ alloc icm is called twice
+Date: Wed, 03 Jun 2015 20:13:21 -0700 (PDT)
+Message-ID: <20150603.201321.78762441666787200.davem@davemloft.net>
+References: <1433279245-5577-1-git-send-email-clsoto@linux.vnet.ibm.com>
+	<1433279245-5577-2-git-send-email-clsoto@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
-	galak@codeaurora.org, netdev@vger.kernel.org,
-	richardcochran@gmail.com, linux-sh@vger.kernel.org,
-	mitsuhiro.kimura.kc@renesas.com
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1752433.KgeJV8aUGv@wasted.cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	brking@linux.vnet.ibm.com
+To: clsoto@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43554 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751115AbbFDDNW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2015 23:13:22 -0400
+In-Reply-To: <1433279245-5577-2-git-send-email-clsoto@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Tue, 02 Jun 2015 23:44:10 +0300
+From: clsoto@linux.vnet.ibm.com
+Date: Tue,  2 Jun 2015 16:07:24 -0500
 
-> +		/* Received network control queue */
-> +		if (ris0 & RIS0_FRF1) {
-> +			ravb_write(ndev, ~RIS0_FRF1, RIS0);
-> +			/* Timestamp of network control packets that is based
-> +			 * on IEEE802.1AS, is used time synchronization of PTP.
-> +			 * It should not be handled by NAPI scheduling, because
-> +			 * it needs to be received as soon as possible.
-> +			 */
-> +			ravb_rx(ndev, NULL, RAVB_NC);
-> +			result = IRQ_HANDLED;
-> +		}
+> From: Carol Soto <clsoto@linux.vnet.ibm.com>
+> 
+> If mlx4_enable_sriov is called by adapter without this
+> feature MLX4_DEV_CAP_FLAG2_SYS_EQS then during this path the function alloc
+> icm is called twice without freeing the structures from the first time.
+> 
+> Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
 
-Nobody else makes this distinction, all packets should be processed
-via your NAPI path.
-
-When I see people conditionally invoking netif_rx()
-vs. netif_receive_skb() in their packet receive routine, like
-conditional locking, it's a big red flag.
-
-Furthermore, you should pass the NAPI context into ravb_rx() and use
-it so that you can invoke napi_gro_receive() on all of the packets and
-therefore support GRO.
+Applied.
