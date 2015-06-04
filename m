@@ -1,45 +1,36 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [PATCH] fm10k: Fix missing braces after if statement
-Date: Wed, 03 Jun 2015 18:53:17 -0700
-Message-ID: <20150604015219.2895.80478.stgit@ahduyck-vm-fedora22>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: virtio-net: why not always to set avail->flags to VRING_AVAIL_F_NO_INTERRUPT
+Date: Thu, 04 Jun 2015 10:43:43 +0930
+Message-ID: <87k2vkuvg8.fsf@rustcorp.com.au>
+References: <556E9F87.7030202@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
-To: davem@davemloft.net, jeffrey.t.kirsher@intel.com
+Content-Type: text/plain
+Cc: virtualization@lists.linux-foundation.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Linhaifeng <haifeng.lin@huawei.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47038 "EHLO mx1.redhat.com"
+Received: from ozlabs.org ([103.22.144.67]:36589 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750761AbbFDBxS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jun 2015 21:53:18 -0400
+	id S1751043AbbFDB7G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jun 2015 21:59:06 -0400
+In-Reply-To: <556E9F87.7030202@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While reviewing the code I noticed that one of the commits added an if
-statement followed by a for loop, but the if statement was missing the
-braces around the loop.  This change corrects the coding style error.
+Linhaifeng <haifeng.lin@huawei.com> writes:
+> Hi,
+>
+> I'm a newbie and have a question about vring_new_virtqueue function.
+>
+> Why we set avail->flags to VRING_AVAIL_F_NO_INTERRUPT when no callbacks?
+> I think we should set avail->flags to VRING_AVAIL_F_NO_INTERRUPT even if no callbacks.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Hi Linhaifeng,
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-index 4b9d9f88af70..a9670e00cf03 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-@@ -143,12 +143,13 @@ static void fm10k_get_strings(struct net_device *dev, u32 stringset, u8 *data)
- 			p += ETH_GSTRING_LEN;
- 		}
- 
--		if (interface->hw.mac.type != fm10k_mac_vf)
-+		if (interface->hw.mac.type != fm10k_mac_vf) {
- 			for (i = 0; i < FM10K_PF_STATS_LEN; i++) {
- 				memcpy(p, fm10k_gstrings_pf_stats[i].stat_string,
- 				       ETH_GSTRING_LEN);
- 				p += ETH_GSTRING_LEN;
- 			}
-+		}
- 
- 		for (i = 0; i < interface->hw.mac.max_queues; i++) {
- 			sprintf(p, "tx_queue_%u_packets", i);
+        Not sure I understand your question, but I'll try to answer.
+
+We don't set VRING_AVAIL_F_NO_INTERRUPT if there's a callback because we
+want that callback called.  Otherwise callback will never be used.
+
+Cheers,
+Rusty.
