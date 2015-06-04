@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 03/13] net/mlx5_core: Enable XRCs and SRQs when using ISSI > 0
-Date: Thu,  4 Jun 2015 19:30:38 +0300
-Message-ID: <1433435448-4937-4-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 10/13] net/mlx5_core: Add more query port helpers
+Date: Thu,  4 Jun 2015 19:30:45 +0300
+Message-ID: <1433435448-4937-11-git-send-email-ogerlitz@mellanox.com>
 References: <1433435448-4937-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Majd Dibbiny <majd@mellanox.com>,
 	Haggai Abramonvsky <hagaya@mellanox.com>,
@@ -9,835 +9,145 @@ Cc: netdev@vger.kernel.org, Majd Dibbiny <majd@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:47636 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:47673 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932268AbbFDQbR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Jun 2015 12:31:17 -0400
+	id S932134AbbFDQbZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jun 2015 12:31:25 -0400
 In-Reply-To: <1433435448-4937-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Haggai Abramonvsky <hagaya@mellanox.com>
+From: Majd Dibbiny <majd@mellanox.com>
 
-When working in ISSI > 0 mode, the model exposed by the device for
-XRCs and SRQs is different. XRCs use XRC SRQs and plain SRQs are based
-on RPM (Receive Memory Pool).
+Add the following helpers:
 
-Add helper functions to create, modify, query, and arm XRC SRQs and RMPs.
+1. mlx5_query_port_proto_oper -- queries the port speed port mask
+2. mlx5_query_port_link_width_oper - queries the port link with bitmask
+3. mlx5_query_port_vl_hw_cap - queries the Virtual Lanes supported on this port
 
-Signed-off-by: Haggai Abramovsky <hagaya@mellanox.com>
+These helpers will be used from the IB driver when working in ISSI > 0 mode.
+
+Signed-off-by: Majd Dibbiny <majd@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/infiniband/hw/mlx5/srq.c                   |    2 +-
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |    4 +-
- drivers/net/ethernet/mellanox/mlx5/core/srq.c      |  444 +++++++++++++++++---
- drivers/net/ethernet/mellanox/mlx5/core/transobj.c |  154 +++++++
- drivers/net/ethernet/mellanox/mlx5/core/transobj.h |   11 +
- include/linux/mlx5/driver.h                        |    6 +-
- include/linux/mlx5/mlx5_ifc.h                      |   16 +-
- 7 files changed, 564 insertions(+), 73 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/port.c |   67 ++++++++++++++++++++++++
+ include/linux/mlx5/driver.h                    |    8 +++
+ 2 files changed, 75 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/infiniband/hw/mlx5/srq.c b/drivers/infiniband/hw/mlx5/srq.c
-index e8e8e94..e008505 100644
---- a/drivers/infiniband/hw/mlx5/srq.c
-+++ b/drivers/infiniband/hw/mlx5/srq.c
-@@ -302,7 +302,7 @@ struct ib_srq *mlx5_ib_create_srq(struct ib_pd *pd,
- 
- 	in->ctx.pd = cpu_to_be32(to_mpd(pd)->pdn);
- 	in->ctx.db_record = cpu_to_be64(srq->db.dma);
--	err = mlx5_core_create_srq(dev->mdev, &srq->msrq, in, inlen);
-+	err = mlx5_core_create_srq(dev->mdev, &srq->msrq, in, inlen, is_xrc);
- 	kvfree(in);
- 	if (err) {
- 		mlx5_ib_dbg(dev, "create SRQ failed, err %d\n", err);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index 87e9e60..07540f7 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -2,7 +2,7 @@ obj-$(CONFIG_MLX5_CORE)		+= mlx5_core.o
- 
- mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
- 		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o   \
--		mad.o
--mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o flow_table.o vport.o transobj.o \
-+		mad.o transobj.o
-+mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o flow_table.o vport.o \
- 		en_main.o en_flow_table.o en_ethtool.o en_tx.o en_rx.o \
- 		en_txrx.o
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/srq.c b/drivers/net/ethernet/mellanox/mlx5/core/srq.c
-index f9d25dc..c48f504 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/srq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/srq.c
-@@ -37,6 +37,7 @@
- #include <linux/mlx5/srq.h>
- #include <rdma/ib_verbs.h>
- #include "mlx5_core.h"
-+#include "transobj.h"
- 
- void mlx5_srq_event(struct mlx5_core_dev *dev, u32 srqn, int event_type)
- {
-@@ -62,6 +63,74 @@ void mlx5_srq_event(struct mlx5_core_dev *dev, u32 srqn, int event_type)
- 		complete(&srq->free);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index cbbce40..619d3ba 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -158,6 +158,42 @@ int mlx5_query_port_proto_admin(struct mlx5_core_dev *dev,
  }
+ EXPORT_SYMBOL_GPL(mlx5_query_port_proto_admin);
  
-+static int get_pas_size(void *srqc)
++int mlx5_query_port_link_width_oper(struct mlx5_core_dev *dev,
++				    u8 *link_width_oper, u8 local_port)
 +{
-+	u32 log_page_size = MLX5_GET(srqc, srqc, log_page_size) + 12;
-+	u32 log_srq_size  = MLX5_GET(srqc, srqc, log_srq_size);
-+	u32 log_rq_stride = MLX5_GET(srqc, srqc, log_rq_stride);
-+	u32 page_offset   = MLX5_GET(srqc, srqc, page_offset);
-+	u32 po_quanta	  = 1 << (log_page_size - 6);
-+	u32 rq_sz	  = 1 << (log_srq_size + 4 + log_rq_stride);
-+	u32 page_size	  = 1 << log_page_size;
-+	u32 rq_sz_po      = rq_sz + (page_offset * po_quanta);
-+	u32 rq_num_pas	  = (rq_sz_po + page_size - 1) / page_size;
-+
-+	return rq_num_pas * sizeof(u64);
-+}
-+
-+static void rmpc_srqc_reformat(void *srqc, void *rmpc, bool srqc_to_rmpc)
-+{
-+	void *wq = MLX5_ADDR_OF(rmpc, rmpc, wq);
-+
-+	if (srqc_to_rmpc) {
-+		switch (MLX5_GET(srqc, srqc, state)) {
-+		case MLX5_SRQC_STATE_GOOD:
-+			MLX5_SET(rmpc, rmpc, state, MLX5_RMPC_STATE_RDY);
-+			break;
-+		case MLX5_SRQC_STATE_ERROR:
-+			MLX5_SET(rmpc, rmpc, state, MLX5_RMPC_STATE_ERR);
-+			break;
-+		default:
-+			pr_warn("%s: %d: Unknown srq state = 0x%x\n", __func__,
-+				__LINE__, MLX5_GET(srqc, srqc, state));
-+			MLX5_SET(rmpc, rmpc, state, MLX5_GET(srqc, srqc, state));
-+		}
-+
-+		MLX5_SET(wq,   wq, wq_signature,  MLX5_GET(srqc,  srqc, wq_signature));
-+		MLX5_SET(wq,   wq, log_wq_pg_sz,  MLX5_GET(srqc,  srqc, log_page_size));
-+		MLX5_SET(wq,   wq, log_wq_stride, MLX5_GET(srqc,  srqc, log_rq_stride) + 4);
-+		MLX5_SET(wq,   wq, log_wq_sz,     MLX5_GET(srqc,  srqc, log_srq_size));
-+		MLX5_SET(wq,   wq, page_offset,   MLX5_GET(srqc,  srqc, page_offset));
-+		MLX5_SET(wq,   wq, lwm,           MLX5_GET(srqc,  srqc, lwm));
-+		MLX5_SET(wq,   wq, pd,            MLX5_GET(srqc,  srqc, pd));
-+		MLX5_SET64(wq, wq, dbr_addr, MLX5_GET64(srqc,	  srqc, dbr_addr));
-+	} else {
-+		switch (MLX5_GET(rmpc, rmpc, state)) {
-+		case MLX5_RMPC_STATE_RDY:
-+			MLX5_SET(srqc, srqc, state, MLX5_SRQC_STATE_GOOD);
-+			break;
-+		case MLX5_RMPC_STATE_ERR:
-+			MLX5_SET(srqc, srqc, state, MLX5_SRQC_STATE_ERROR);
-+			break;
-+		default:
-+			pr_warn("%s: %d: Unknown rmp state = 0x%x\n",
-+				__func__, __LINE__,
-+				MLX5_GET(rmpc, rmpc, state));
-+			MLX5_SET(srqc, srqc, state,
-+				 MLX5_GET(rmpc, rmpc, state));
-+		}
-+
-+		MLX5_SET(srqc,   srqc, wq_signature,   MLX5_GET(wq,   wq, wq_signature));
-+		MLX5_SET(srqc,   srqc, log_page_size,  MLX5_GET(wq,   wq, log_wq_pg_sz));
-+		MLX5_SET(srqc,   srqc, log_rq_stride,  MLX5_GET(wq,   wq, log_wq_stride) - 4);
-+		MLX5_SET(srqc,   srqc, log_srq_size,   MLX5_GET(wq,   wq, log_wq_sz));
-+		MLX5_SET(srqc,   srqc, page_offset,    MLX5_GET(wq,   wq, page_offset));
-+		MLX5_SET(srqc,   srqc, lwm,	       MLX5_GET(wq,   wq, lwm));
-+		MLX5_SET(srqc,   srqc, pd,	       MLX5_GET(wq,   wq, pd));
-+		MLX5_SET64(srqc, srqc, dbr_addr,       MLX5_GET64(wq, wq, dbr_addr));
-+	}
-+}
-+
- struct mlx5_core_srq *mlx5_core_get_srq(struct mlx5_core_dev *dev, u32 srqn)
- {
- 	struct mlx5_srq_table *table = &dev->priv.srq_table;
-@@ -79,26 +148,311 @@ struct mlx5_core_srq *mlx5_core_get_srq(struct mlx5_core_dev *dev, u32 srqn)
- }
- EXPORT_SYMBOL(mlx5_core_get_srq);
- 
--int mlx5_core_create_srq(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
--			 struct mlx5_create_srq_mbox_in *in, int inlen)
-+static int create_srq_cmd(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
-+			  struct mlx5_create_srq_mbox_in *in, int inlen)
- {
- 	struct mlx5_create_srq_mbox_out out;
--	struct mlx5_srq_table *table = &dev->priv.srq_table;
--	struct mlx5_destroy_srq_mbox_in din;
--	struct mlx5_destroy_srq_mbox_out dout;
- 	int err;
- 
- 	memset(&out, 0, sizeof(out));
-+
- 	in->hdr.opcode = cpu_to_be16(MLX5_CMD_OP_CREATE_SRQ);
--	err = mlx5_cmd_exec(dev, in, inlen, &out, sizeof(out));
--	if (err)
--		return err;
- 
--	if (out.hdr.status)
--		return mlx5_cmd_status_to_err(&out.hdr);
-+	err = mlx5_cmd_exec_check_status(dev, (u32 *)in, inlen, (u32 *)(&out),
-+					 sizeof(out));
- 
- 	srq->srqn = be32_to_cpu(out.srqn) & 0xffffff;
- 
-+	return err;
-+}
-+
-+static int destroy_srq_cmd(struct mlx5_core_dev *dev,
-+			   struct mlx5_core_srq *srq)
-+{
-+	struct mlx5_destroy_srq_mbox_in in;
-+	struct mlx5_destroy_srq_mbox_out out;
-+
-+	memset(&in, 0, sizeof(in));
-+	memset(&out, 0, sizeof(out));
-+	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DESTROY_SRQ);
-+	in.srqn = cpu_to_be32(srq->srqn);
-+
-+	return mlx5_cmd_exec_check_status(dev, (u32 *)(&in), sizeof(in),
-+					  (u32 *)(&out), sizeof(out));
-+}
-+
-+static int arm_srq_cmd(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
-+		       u16 lwm, int is_srq)
-+{
-+	struct mlx5_arm_srq_mbox_in	in;
-+	struct mlx5_arm_srq_mbox_out	out;
-+
-+	memset(&in, 0, sizeof(in));
-+	memset(&out, 0, sizeof(out));
-+
-+	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_ARM_RQ);
-+	in.hdr.opmod = cpu_to_be16(!!is_srq);
-+	in.srqn = cpu_to_be32(srq->srqn);
-+	in.lwm = cpu_to_be16(lwm);
-+
-+	return mlx5_cmd_exec_check_status(dev, (u32 *)(&in),
-+					  sizeof(in), (u32 *)(&out),
-+					  sizeof(out));
-+}
-+
-+static int query_srq_cmd(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
-+			 struct mlx5_query_srq_mbox_out *out)
-+{
-+	struct mlx5_query_srq_mbox_in in;
-+
-+	memset(&in, 0, sizeof(in));
-+
-+	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_QUERY_SRQ);
-+	in.srqn = cpu_to_be32(srq->srqn);
-+
-+	return mlx5_cmd_exec_check_status(dev, (u32 *)(&in), sizeof(in),
-+					  (u32 *)out, sizeof(*out));
-+}
-+
-+static int create_xrc_srq_cmd(struct mlx5_core_dev *dev,
-+			      struct mlx5_core_srq *srq,
-+			      struct mlx5_create_srq_mbox_in *in,
-+			      int srq_inlen)
-+{
-+	u32 create_out[MLX5_ST_SZ_DW(create_xrc_srq_out)];
-+	void *create_in;
-+	void *srqc;
-+	void *xrc_srqc;
-+	void *pas;
-+	int pas_size;
-+	int inlen;
++	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
 +	int err;
 +
-+	srqc	  = MLX5_ADDR_OF(create_srq_in, in, srq_context_entry);
-+	pas_size  = get_pas_size(srqc);
-+	inlen	  = MLX5_ST_SZ_BYTES(create_xrc_srq_in) + pas_size;
-+	create_in = mlx5_vzalloc(inlen);
-+	if (!create_in)
-+		return -ENOMEM;
-+
-+	xrc_srqc = MLX5_ADDR_OF(create_xrc_srq_in, create_in,
-+				xrc_srq_context_entry);
-+	pas	 = MLX5_ADDR_OF(create_xrc_srq_in, create_in, pas);
-+
-+	memcpy(xrc_srqc, srqc, MLX5_ST_SZ_BYTES(srqc));
-+	memcpy(pas, in->pas, pas_size);
-+	/* 0xffffff means we ask to work with cqe version 0 */
-+	MLX5_SET(xrc_srqc,	    xrc_srqc,  user_index, 0xffffff);
-+	MLX5_SET(create_xrc_srq_in, create_in, opcode,
-+		 MLX5_CMD_OP_CREATE_XRC_SRQ);
-+
-+	memset(create_out, 0, sizeof(create_out));
-+	err = mlx5_cmd_exec_check_status(dev, create_in, inlen, create_out,
-+					 sizeof(create_out));
-+	if (err)
-+		goto out;
-+
-+	srq->srqn = MLX5_GET(create_xrc_srq_out, create_out, xrc_srqn);
-+out:
-+	kvfree(create_in);
-+	return err;
-+}
-+
-+static int destroy_xrc_srq_cmd(struct mlx5_core_dev *dev,
-+			       struct mlx5_core_srq *srq)
-+{
-+	u32 xrcsrq_in[MLX5_ST_SZ_DW(destroy_xrc_srq_in)];
-+	u32 xrcsrq_out[MLX5_ST_SZ_DW(destroy_xrc_srq_out)];
-+
-+	memset(xrcsrq_in, 0, sizeof(xrcsrq_in));
-+	memset(xrcsrq_out, 0, sizeof(xrcsrq_out));
-+
-+	MLX5_SET(destroy_xrc_srq_in, xrcsrq_in, opcode,
-+		 MLX5_CMD_OP_DESTROY_XRC_SRQ);
-+	MLX5_SET(destroy_xrc_srq_in, xrcsrq_in, xrc_srqn, srq->srqn);
-+
-+	return mlx5_cmd_exec_check_status(dev, xrcsrq_in, sizeof(xrcsrq_in),
-+					  xrcsrq_out, sizeof(xrcsrq_out));
-+}
-+
-+static int arm_xrc_srq_cmd(struct mlx5_core_dev *dev,
-+			   struct mlx5_core_srq *srq, u16 lwm)
-+{
-+	u32 xrcsrq_in[MLX5_ST_SZ_DW(arm_xrc_srq_in)];
-+	u32 xrcsrq_out[MLX5_ST_SZ_DW(arm_xrc_srq_out)];
-+
-+	memset(xrcsrq_in, 0, sizeof(xrcsrq_in));
-+	memset(xrcsrq_out, 0, sizeof(xrcsrq_out));
-+
-+	MLX5_SET(arm_xrc_srq_in, xrcsrq_in, opcode,   MLX5_CMD_OP_ARM_XRC_SRQ);
-+	MLX5_SET(arm_xrc_srq_in, xrcsrq_in, op_mod,   MLX5_ARM_XRC_SRQ_IN_OP_MOD_XRC_SRQ);
-+	MLX5_SET(arm_xrc_srq_in, xrcsrq_in, xrc_srqn, srq->srqn);
-+	MLX5_SET(arm_xrc_srq_in, xrcsrq_in, lwm,      lwm);
-+
-+	return  mlx5_cmd_exec_check_status(dev, xrcsrq_in, sizeof(xrcsrq_in),
-+					   xrcsrq_out, sizeof(xrcsrq_out));
-+}
-+
-+static int query_xrc_srq_cmd(struct mlx5_core_dev *dev,
-+			     struct mlx5_core_srq *srq,
-+			     struct mlx5_query_srq_mbox_out *out)
-+{
-+	u32 xrcsrq_in[MLX5_ST_SZ_DW(query_xrc_srq_in)];
-+	u32 *xrcsrq_out;
-+	void *srqc;
-+	void *xrc_srqc;
-+	int err;
-+
-+	xrcsrq_out = mlx5_vzalloc(MLX5_ST_SZ_BYTES(query_xrc_srq_out));
-+	if (!xrcsrq_out)
-+		return -ENOMEM;
-+	memset(xrcsrq_in, 0, sizeof(xrcsrq_in));
-+
-+	MLX5_SET(query_xrc_srq_in, xrcsrq_in, opcode,
-+		 MLX5_CMD_OP_QUERY_XRC_SRQ);
-+	MLX5_SET(query_xrc_srq_in, xrcsrq_in, xrc_srqn, srq->srqn);
-+	err =  mlx5_cmd_exec_check_status(dev, xrcsrq_in, sizeof(xrcsrq_in),
-+					  xrcsrq_out,
-+					  MLX5_ST_SZ_BYTES(query_xrc_srq_out));
-+	if (err)
-+		goto out;
-+
-+	xrc_srqc = MLX5_ADDR_OF(query_xrc_srq_out, xrcsrq_out,
-+				xrc_srq_context_entry);
-+	srqc = MLX5_ADDR_OF(query_srq_out, out, srq_context_entry);
-+	memcpy(srqc, xrc_srqc, MLX5_ST_SZ_BYTES(srqc));
-+
-+out:
-+	kvfree(xrcsrq_out);
-+	return err;
-+}
-+
-+static int create_rmp_cmd(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
-+			  struct mlx5_create_srq_mbox_in *in, int srq_inlen)
-+{
-+	void *create_in;
-+	void *rmpc;
-+	void *srqc;
-+	int pas_size;
-+	int inlen;
-+	int err;
-+
-+	srqc = MLX5_ADDR_OF(create_srq_in, in, srq_context_entry);
-+	pas_size = get_pas_size(srqc);
-+	inlen = MLX5_ST_SZ_BYTES(create_rmp_in) + pas_size;
-+	create_in = mlx5_vzalloc(inlen);
-+	if (!create_in)
-+		return -ENOMEM;
-+
-+	rmpc = MLX5_ADDR_OF(create_rmp_in, create_in, ctx);
-+
-+	memcpy(MLX5_ADDR_OF(rmpc, rmpc, wq.pas), in->pas, pas_size);
-+	rmpc_srqc_reformat(srqc, rmpc, true);
-+
-+	err = mlx5_core_create_rmp(dev, create_in, inlen, &srq->srqn);
-+
-+	kvfree(create_in);
-+	return err;
-+}
-+
-+static int destroy_rmp_cmd(struct mlx5_core_dev *dev,
-+			   struct mlx5_core_srq *srq)
-+{
-+	return mlx5_core_destroy_rmp(dev, srq->srqn);
-+}
-+
-+static int arm_rmp_cmd(struct mlx5_core_dev *dev,
-+		       struct mlx5_core_srq *srq,
-+		       u16 lwm)
-+{
-+	void *in;
-+	void *rmpc;
-+	void *wq;
-+	void *bitmask;
-+	int err;
-+
-+	in = mlx5_vzalloc(MLX5_ST_SZ_BYTES(modify_rmp_in));
-+	if (!in)
-+		return -ENOMEM;
-+
-+	rmpc =	  MLX5_ADDR_OF(modify_rmp_in,   in,   ctx);
-+	bitmask = MLX5_ADDR_OF(modify_rmp_in,   in,   bitmask);
-+	wq   =	  MLX5_ADDR_OF(rmpc,	        rmpc, wq);
-+
-+	MLX5_SET(modify_rmp_in, in,	 rmp_state, MLX5_RMPC_STATE_RDY);
-+	MLX5_SET(modify_rmp_in, in,	 rmpn,      srq->srqn);
-+	MLX5_SET(wq,		wq,	 lwm,	    lwm);
-+	MLX5_SET(rmp_bitmask,	bitmask, lwm,	    1);
-+	MLX5_SET(rmpc, rmpc, state, MLX5_RMPC_STATE_RDY);
-+
-+	err = mlx5_core_modify_rmp(dev, in, MLX5_ST_SZ_BYTES(modify_rmp_in));
-+
-+	kvfree(in);
-+	return err;
-+}
-+
-+static int query_rmp_cmd(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
-+			 struct mlx5_query_srq_mbox_out *out)
-+{
-+	u32 *rmp_out;
-+	void *rmpc;
-+	void *srqc;
-+	int err;
-+
-+	rmp_out =  mlx5_vzalloc(MLX5_ST_SZ_BYTES(query_rmp_out));
-+	if (!rmp_out)
-+		return -ENOMEM;
-+
-+	err = mlx5_core_query_rmp(dev, srq->srqn, rmp_out);
-+	if (err)
-+		goto out;
-+
-+	srqc = MLX5_ADDR_OF(query_srq_out, out,	    srq_context_entry);
-+	rmpc = MLX5_ADDR_OF(query_rmp_out, rmp_out, rmp_context);
-+	rmpc_srqc_reformat(srqc, rmpc, false);
-+
-+out:
-+	kvfree(rmp_out);
-+	return err;
-+}
-+
-+static int create_srq_split(struct mlx5_core_dev *dev,
-+			    struct mlx5_core_srq *srq,
-+			    struct mlx5_create_srq_mbox_in *in,
-+			    int inlen, int is_xrc)
-+{
-+	if (!dev->issi)
-+		return create_srq_cmd(dev, srq, in, inlen);
-+	else if (srq->common.res == MLX5_RES_XSRQ)
-+		return create_xrc_srq_cmd(dev, srq, in, inlen);
-+	else
-+		return create_rmp_cmd(dev, srq, in, inlen);
-+}
-+
-+static int destroy_srq_split(struct mlx5_core_dev *dev,
-+			     struct mlx5_core_srq *srq)
-+{
-+	if (!dev->issi)
-+		return destroy_srq_cmd(dev, srq);
-+	else if (srq->common.res == MLX5_RES_XSRQ)
-+		return destroy_xrc_srq_cmd(dev, srq);
-+	else
-+		return destroy_rmp_cmd(dev, srq);
-+}
-+
-+int mlx5_core_create_srq(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
-+			 struct mlx5_create_srq_mbox_in *in, int inlen,
-+			 int is_xrc)
-+{
-+	int err;
-+	struct mlx5_srq_table *table = &dev->priv.srq_table;
-+
-+	srq->common.res = is_xrc ? MLX5_RES_XSRQ : MLX5_RES_SRQ;
-+
-+	err = create_srq_split(dev, srq, in, inlen, is_xrc);
++	err = mlx5_query_port_ptys(dev, out, sizeof(out), MLX5_PTYS_IB, local_port);
 +	if (err)
 +		return err;
 +
- 	atomic_set(&srq->refcount, 1);
- 	init_completion(&srq->free);
- 
-@@ -107,25 +461,20 @@ int mlx5_core_create_srq(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
- 	spin_unlock_irq(&table->lock);
- 	if (err) {
- 		mlx5_core_warn(dev, "err %d, srqn 0x%x\n", err, srq->srqn);
--		goto err_cmd;
-+		goto err_destroy_srq_split;
- 	}
- 
- 	return 0;
- 
--err_cmd:
--	memset(&din, 0, sizeof(din));
--	memset(&dout, 0, sizeof(dout));
--	din.srqn = cpu_to_be32(srq->srqn);
--	din.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DESTROY_SRQ);
--	mlx5_cmd_exec(dev, &din, sizeof(din), &dout, sizeof(dout));
-+err_destroy_srq_split:
-+	destroy_srq_split(dev, srq);
++	*link_width_oper = MLX5_GET(ptys_reg, out, ib_link_width_oper);
 +
- 	return err;
- }
- EXPORT_SYMBOL(mlx5_core_create_srq);
- 
- int mlx5_core_destroy_srq(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq)
- {
--	struct mlx5_destroy_srq_mbox_in in;
--	struct mlx5_destroy_srq_mbox_out out;
- 	struct mlx5_srq_table *table = &dev->priv.srq_table;
- 	struct mlx5_core_srq *tmp;
- 	int err;
-@@ -142,17 +491,10 @@ int mlx5_core_destroy_srq(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq)
- 		return -EINVAL;
- 	}
- 
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DESTROY_SRQ);
--	in.srqn = cpu_to_be32(srq->srqn);
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
-+	err = destroy_srq_split(dev, srq);
- 	if (err)
- 		return err;
- 
--	if (out.hdr.status)
--		return mlx5_cmd_status_to_err(&out.hdr);
--
- 	if (atomic_dec_and_test(&srq->refcount))
- 		complete(&srq->free);
- 	wait_for_completion(&srq->free);
-@@ -164,48 +506,24 @@ EXPORT_SYMBOL(mlx5_core_destroy_srq);
- int mlx5_core_query_srq(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
- 			struct mlx5_query_srq_mbox_out *out)
- {
--	struct mlx5_query_srq_mbox_in in;
--	int err;
--
--	memset(&in, 0, sizeof(in));
--	memset(out, 0, sizeof(*out));
--
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_QUERY_SRQ);
--	in.srqn = cpu_to_be32(srq->srqn);
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), out, sizeof(*out));
--	if (err)
--		return err;
--
--	if (out->hdr.status)
--		return mlx5_cmd_status_to_err(&out->hdr);
--
--	return err;
-+	if (!dev->issi)
-+		return query_srq_cmd(dev, srq, out);
-+	else if (srq->common.res == MLX5_RES_XSRQ)
-+		return query_xrc_srq_cmd(dev, srq, out);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(mlx5_query_port_link_width_oper);
++
++int mlx5_query_port_proto_oper(struct mlx5_core_dev *dev,
++			       u8 *proto_oper, int proto_mask,
++			       u8 local_port)
++{
++	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
++	int err;
++
++	err = mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask, local_port);
++	if (err)
++		return err;
++
++	if (proto_mask == MLX5_PTYS_EN)
++		*proto_oper = MLX5_GET(ptys_reg, out, eth_proto_oper);
 +	else
-+		return query_rmp_cmd(dev, srq, out);
- }
- EXPORT_SYMBOL(mlx5_core_query_srq);
- 
- int mlx5_core_arm_srq(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
- 		      u16 lwm, int is_srq)
++		*proto_oper = MLX5_GET(ptys_reg, out, ib_proto_oper);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(mlx5_query_port_proto_oper);
++
+ int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
+ 			int proto_mask)
  {
--	struct mlx5_arm_srq_mbox_in	in;
--	struct mlx5_arm_srq_mbox_out	out;
--	int err;
--
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_ARM_RQ);
--	in.hdr.opmod = cpu_to_be16(!!is_srq);
--	in.srqn = cpu_to_be32(srq->srqn);
--	in.lwm = cpu_to_be16(lwm);
--
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
--	if (err)
--		return err;
--
--	if (out.hdr.status)
--		return mlx5_cmd_status_to_err(&out.hdr);
--
--	return err;
-+	if (!dev->issi)
-+		return arm_srq_cmd(dev, srq, lwm, is_srq);
-+	else if (srq->common.res == MLX5_RES_XSRQ)
-+		return arm_xrc_srq_cmd(dev, srq, lwm);
-+	else
-+		return arm_rmp_cmd(dev, srq, lwm);
+@@ -267,3 +303,34 @@ int mlx5_query_port_oper_mtu(struct mlx5_core_dev *dev, int *oper_mtu,
+ 	return mlx5_query_port_mtu(dev, NULL, NULL, oper_mtu, local_port);
  }
- EXPORT_SYMBOL(mlx5_core_arm_srq);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/transobj.c b/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
-index d918816..7a12028 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
-@@ -169,3 +169,157 @@ void mlx5_core_destroy_tis(struct mlx5_core_dev *dev, u32 tisn)
- 
- 	mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, sizeof(out));
- }
+ EXPORT_SYMBOL_GPL(mlx5_query_port_oper_mtu);
 +
-+int mlx5_core_create_rmp(struct mlx5_core_dev *dev, u32 *in, int inlen,
-+			 u32 *rmpn)
++static int mlx5_query_port_pvlc(struct mlx5_core_dev *dev, u32 *pvlc,
++				int pvlc_size,  u8 local_port)
 +{
-+	u32 out[MLX5_ST_SZ_DW(create_rmp_out)];
-+	int err;
-+
-+	MLX5_SET(create_rmp_in, in, opcode, MLX5_CMD_OP_CREATE_RMP);
-+
-+	memset(out, 0, sizeof(out));
-+	err = mlx5_cmd_exec_check_status(dev, in, inlen, out, sizeof(out));
-+	if (!err)
-+		*rmpn = MLX5_GET(create_rmp_out, out, rmpn);
-+
-+	return err;
-+}
-+
-+int mlx5_core_modify_rmp(struct mlx5_core_dev *dev, u32 *in, int inlen)
-+{
-+	u32 out[MLX5_ST_SZ_DW(modify_rmp_out)];
-+
-+	MLX5_SET(modify_rmp_in, in, opcode, MLX5_CMD_OP_MODIFY_RMP);
-+
-+	memset(out, 0, sizeof(out));
-+	return mlx5_cmd_exec_check_status(dev, in, inlen, out, sizeof(out));
-+}
-+
-+int mlx5_core_destroy_rmp(struct mlx5_core_dev *dev, u32 rmpn)
-+{
-+	u32 in[MLX5_ST_SZ_DW(destroy_rmp_in)];
-+	u32 out[MLX5_ST_SZ_DW(destroy_rmp_out)];
-+
-+	memset(in, 0, sizeof(in));
-+
-+	MLX5_SET(destroy_rmp_in, in, opcode, MLX5_CMD_OP_DESTROY_RMP);
-+	MLX5_SET(destroy_rmp_in, in, rmpn, rmpn);
-+
-+	return mlx5_cmd_exec_check_status(dev, in, sizeof(in), out,
-+					  sizeof(out));
-+}
-+
-+int mlx5_core_query_rmp(struct mlx5_core_dev *dev, u32 rmpn, u32 *out)
-+{
-+	u32 in[MLX5_ST_SZ_DW(query_rmp_in)];
-+	int outlen = MLX5_ST_SZ_BYTES(query_rmp_out);
-+
-+	memset(in, 0, sizeof(in));
-+	MLX5_SET(query_rmp_in, in, opcode, MLX5_CMD_OP_QUERY_RMP);
-+	MLX5_SET(query_rmp_in, in, rmpn,   rmpn);
-+
-+	return mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, outlen);
-+}
-+
-+int mlx5_core_arm_rmp(struct mlx5_core_dev *dev, u32 rmpn, u16 lwm)
-+{
-+	void *in;
-+	void *rmpc;
-+	void *wq;
-+	void *bitmask;
-+	int  err;
-+
-+	in = mlx5_vzalloc(MLX5_ST_SZ_BYTES(modify_rmp_in));
-+	if (!in)
-+		return -ENOMEM;
-+
-+	rmpc    = MLX5_ADDR_OF(modify_rmp_in,   in,   ctx);
-+	bitmask = MLX5_ADDR_OF(modify_rmp_in,   in,   bitmask);
-+	wq      = MLX5_ADDR_OF(rmpc,	        rmpc, wq);
-+
-+	MLX5_SET(modify_rmp_in, in,	 rmp_state, MLX5_RMPC_STATE_RDY);
-+	MLX5_SET(modify_rmp_in, in,	 rmpn,      rmpn);
-+	MLX5_SET(wq,		wq,	 lwm,	    lwm);
-+	MLX5_SET(rmp_bitmask,	bitmask, lwm,	    1);
-+	MLX5_SET(rmpc,		rmpc,	 state,	    MLX5_RMPC_STATE_RDY);
-+
-+	err =  mlx5_core_modify_rmp(dev, in, MLX5_ST_SZ_BYTES(modify_rmp_in));
-+
-+	kvfree(in);
-+
-+	return err;
-+}
-+
-+int mlx5_core_create_xsrq(struct mlx5_core_dev *dev, u32 *in, int inlen,
-+			  u32 *xsrqn)
-+{
-+	u32 out[MLX5_ST_SZ_DW(create_xrc_srq_out)];
-+	int err;
-+
-+	MLX5_SET(create_xrc_srq_in, in, opcode,     MLX5_CMD_OP_CREATE_XRC_SRQ);
-+
-+	memset(out, 0, sizeof(out));
-+	err = mlx5_cmd_exec_check_status(dev, in, inlen, out, sizeof(out));
-+	if (!err)
-+		*xsrqn = MLX5_GET(create_xrc_srq_out, out, xrc_srqn);
-+
-+	return err;
-+}
-+
-+int mlx5_core_destroy_xsrq(struct mlx5_core_dev *dev, u32 xsrqn)
-+{
-+	u32 in[MLX5_ST_SZ_DW(destroy_xrc_srq_in)];
-+	u32 out[MLX5_ST_SZ_DW(destroy_xrc_srq_out)];
-+
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
-+
-+	MLX5_SET(destroy_xrc_srq_in, in, opcode,   MLX5_CMD_OP_DESTROY_XRC_SRQ);
-+	MLX5_SET(destroy_xrc_srq_in, in, xrc_srqn, xsrqn);
-+
-+	return mlx5_cmd_exec_check_status(dev, in, sizeof(in), out,
-+					  sizeof(out));
-+}
-+
-+int mlx5_core_query_xsrq(struct mlx5_core_dev *dev, u32 xsrqn, u32 *out)
-+{
-+	u32 in[MLX5_ST_SZ_DW(query_xrc_srq_in)];
-+	void *srqc;
-+	void *xrc_srqc;
++	u32 in[MLX5_ST_SZ_DW(pvlc_reg)];
 +	int err;
 +
 +	memset(in, 0, sizeof(in));
-+	MLX5_SET(query_xrc_srq_in, in, opcode,   MLX5_CMD_OP_QUERY_XRC_SRQ);
-+	MLX5_SET(query_xrc_srq_in, in, xrc_srqn, xsrqn);
++	MLX5_SET(ptys_reg, in, local_port, local_port);
 +
-+	err =  mlx5_cmd_exec_check_status(dev, in, sizeof(in),
-+					  out,
-+					  MLX5_ST_SZ_BYTES(query_xrc_srq_out));
-+	if (!err) {
-+		xrc_srqc = MLX5_ADDR_OF(query_xrc_srq_out, out,
-+					xrc_srq_context_entry);
-+		srqc = MLX5_ADDR_OF(query_srq_out, out, srq_context_entry);
-+		memcpy(srqc, xrc_srqc, MLX5_ST_SZ_BYTES(srqc));
-+	}
++	err = mlx5_core_access_reg(dev, in, sizeof(in), pvlc,
++				   pvlc_size, MLX5_REG_PVLC, 0, 0);
 +
 +	return err;
 +}
 +
-+int mlx5_core_arm_xsrq(struct mlx5_core_dev *dev, u32 xsrqn, u16 lwm)
++int mlx5_query_port_vl_hw_cap(struct mlx5_core_dev *dev,
++			      u8 *vl_hw_cap, u8 local_port)
 +{
-+	u32 in[MLX5_ST_SZ_DW(arm_xrc_srq_in)];
-+	u32 out[MLX5_ST_SZ_DW(arm_xrc_srq_out)];
++	u32 out[MLX5_ST_SZ_DW(pvlc_reg)];
++	int err;
 +
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
++	err = mlx5_query_port_pvlc(dev, out, sizeof(out), local_port);
++	if (err)
++		return err;
 +
-+	MLX5_SET(arm_xrc_srq_in, in, opcode,   MLX5_CMD_OP_ARM_XRC_SRQ);
-+	MLX5_SET(arm_xrc_srq_in, in, xrc_srqn, xsrqn);
-+	MLX5_SET(arm_xrc_srq_in, in, lwm,      lwm);
-+	MLX5_SET(arm_xrc_srq_in, in, op_mod,
-+		 MLX5_ARM_XRC_SRQ_IN_OP_MOD_XRC_SRQ);
++	*vl_hw_cap = MLX5_GET(pvlc_reg, out, vl_hw_cap);
 +
-+	return  mlx5_cmd_exec_check_status(dev, in, sizeof(in), out,
-+					   sizeof(out));
++	return 0;
 +}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/transobj.h b/drivers/net/ethernet/mellanox/mlx5/core/transobj.h
-index b71d77f..90322c1 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/transobj.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/transobj.h
-@@ -47,5 +47,16 @@ void mlx5_core_destroy_tir(struct mlx5_core_dev *dev, u32 tirn);
- int mlx5_core_create_tis(struct mlx5_core_dev *dev, u32 *in, int inlen,
- 			 u32 *tisn);
- void mlx5_core_destroy_tis(struct mlx5_core_dev *dev, u32 tisn);
-+int mlx5_core_create_rmp(struct mlx5_core_dev *dev, u32 *in, int inlen,
-+			 u32 *rmpn);
-+int mlx5_core_modify_rmp(struct mlx5_core_dev *dev, u32 *in, int inlen);
-+int mlx5_core_destroy_rmp(struct mlx5_core_dev *dev, u32 rmpn);
-+int mlx5_core_query_rmp(struct mlx5_core_dev *dev, u32 rmpn, u32 *out);
-+int mlx5_core_arm_rmp(struct mlx5_core_dev *dev, u32 rmpn, u16 lwm);
-+int mlx5_core_create_xsrq(struct mlx5_core_dev *dev, u32 *in, int inlen,
-+			  u32 *rmpn);
-+int mlx5_core_destroy_xsrq(struct mlx5_core_dev *dev, u32 rmpn);
-+int mlx5_core_query_xsrq(struct mlx5_core_dev *dev, u32 rmpn, u32 *out);
-+int mlx5_core_arm_xsrq(struct mlx5_core_dev *dev, u32 rmpn, u16 lwm);
- 
- #endif /* __TRANSOBJ_H__ */
++EXPORT_SYMBOL_GPL(mlx5_query_port_vl_hw_cap);
 diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 7fa26f0..ba9f212 100644
+index e4b814f..6093bde 100644
 --- a/include/linux/mlx5/driver.h
 +++ b/include/linux/mlx5/driver.h
-@@ -339,6 +339,8 @@ struct mlx5_core_mr {
+@@ -107,6 +107,7 @@ enum {
+ 	MLX5_REG_PUDE		 = 0x5009,
+ 	MLX5_REG_PMPE		 = 0x5010,
+ 	MLX5_REG_PELC		 = 0x500e,
++	MLX5_REG_PVLC		 = 0x500f,
+ 	MLX5_REG_PMLP		 = 0, /* TBD */
+ 	MLX5_REG_NODE_DESC	 = 0x6001,
+ 	MLX5_REG_HOST_ENDIANNESS = 0x7004,
+@@ -744,6 +745,11 @@ int mlx5_query_port_proto_cap(struct mlx5_core_dev *dev,
+ 			      u32 *proto_cap, int proto_mask);
+ int mlx5_query_port_proto_admin(struct mlx5_core_dev *dev,
+ 				u32 *proto_admin, int proto_mask);
++int mlx5_query_port_link_width_oper(struct mlx5_core_dev *dev,
++				    u8 *link_width_oper, u8 local_port);
++int mlx5_query_port_proto_oper(struct mlx5_core_dev *dev,
++			       u8 *proto_oper, int proto_mask,
++			       u8 local_port);
+ int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
+ 			int proto_mask);
+ int mlx5_set_port_status(struct mlx5_core_dev *dev,
+@@ -755,6 +761,8 @@ int mlx5_query_port_max_mtu(struct mlx5_core_dev *dev, int *max_mtu,
+ 			    u8 local_port);
+ int mlx5_query_port_oper_mtu(struct mlx5_core_dev *dev, int *oper_mtu,
+ 			     u8 local_port);
++int mlx5_query_port_vl_hw_cap(struct mlx5_core_dev *dev,
++			      u8 *vl_hw_cap, u8 local_port);
  
- enum mlx5_res_type {
- 	MLX5_RES_QP,
-+	MLX5_RES_SRQ,
-+	MLX5_RES_XSRQ,
- };
- 
- struct mlx5_core_rsc_common {
-@@ -348,6 +350,7 @@ struct mlx5_core_rsc_common {
- };
- 
- struct mlx5_core_srq {
-+	struct mlx5_core_rsc_common	common; /* must be first */
- 	u32		srqn;
- 	int		max;
- 	int		max_gs;
-@@ -640,7 +643,8 @@ struct mlx5_cmd_mailbox *mlx5_alloc_cmd_mailbox_chain(struct mlx5_core_dev *dev,
- void mlx5_free_cmd_mailbox_chain(struct mlx5_core_dev *dev,
- 				 struct mlx5_cmd_mailbox *head);
- int mlx5_core_create_srq(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
--			 struct mlx5_create_srq_mbox_in *in, int inlen);
-+			 struct mlx5_create_srq_mbox_in *in, int inlen,
-+			 int is_xrc);
- int mlx5_core_destroy_srq(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq);
- int mlx5_core_query_srq(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
- 			struct mlx5_query_srq_mbox_out *out);
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index b27e9f6..dbe2b32 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -2022,12 +2022,9 @@ struct mlx5_ifc_srqc_bits {
- 
- 	u8         reserved_9[0x40];
- 
--	u8         db_record_addr_h[0x20];
--
--	u8         db_record_addr_l[0x1e];
--	u8         reserved_10[0x2];
-+	u8         dbr_addr[0x40];
- 
--	u8         reserved_11[0x80];
-+	u8         reserved_10[0x80];
- };
- 
- enum {
-@@ -4167,6 +4164,13 @@ struct mlx5_ifc_modify_rmp_out_bits {
- 	u8         reserved_1[0x40];
- };
- 
-+struct mlx5_ifc_rmp_bitmask_bits {
-+	u8	   reserved[0x20];
-+
-+	u8         reserved1[0x1f];
-+	u8         lwm[0x1];
-+};
-+
- struct mlx5_ifc_modify_rmp_in_bits {
- 	u8         opcode[0x10];
- 	u8         reserved_0[0x10];
-@@ -4180,7 +4184,7 @@ struct mlx5_ifc_modify_rmp_in_bits {
- 
- 	u8         reserved_3[0x20];
- 
--	u8         modify_bitmask[0x40];
-+	struct mlx5_ifc_rmp_bitmask_bits bitmask;
- 
- 	u8         reserved_4[0x40];
- 
+ int mlx5_debug_eq_add(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
+ void mlx5_debug_eq_remove(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
 -- 
 1.7.1
