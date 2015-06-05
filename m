@@ -1,207 +1,120 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 6/6] cxgb4: Use FW LDST cmd to access TP_PIO_{ADDR,DATA} register first
-Date: Fri,  5 Jun 2015 14:24:52 +0530
-Message-ID: <1433494492-7638-7-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 2/6] cxgb4: Add sge ec context flush service
+Date: Fri,  5 Jun 2015 14:24:48 +0530
+Message-ID: <1433494492-7638-3-git-send-email-hariprasad@chelsio.com>
 References: <1433494492-7638-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:15242 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:26260 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753796AbbFEDlv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 23:41:51 -0400
+	by vger.kernel.org with ESMTP id S932123AbbFEDlm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 23:41:42 -0400
 In-Reply-To: <1433494492-7638-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The TP_PIO_{ADDR,DATA} registers are are in conflict with the firmware's
-use of these registers. Added a routine to access it through FW LDST
-cmd.
-Access all TP_PIO_{ADDR,DATA} register access through new routine if FW
-is alive. If firmware is dead, than fall back to indirect access.
+Add function to flush the sge ec context cache, and utilize
+this new function in the driver
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   2 +-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 102 +++++++++++++++++++-----
- 2 files changed, 83 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  5 +----
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 26 +++++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  6 +++++-
+ 4 files changed, 33 insertions(+), 5 deletions(-)
 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 93e6cbc..1043d7a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -1410,6 +1410,7 @@ int t4_ctrl_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
+ 		    unsigned int vf, unsigned int eqid);
+ int t4_ofld_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
+ 		    unsigned int vf, unsigned int eqid);
++int t4_sge_ctxt_flush(struct adapter *adap, unsigned int mbox);
+ int t4_handle_fw_rpl(struct adapter *adap, const __be64 *rpl);
+ void t4_db_full(struct adapter *adapter);
+ void t4_db_dropped(struct adapter *adapter);
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 3897e28..0e27f22 100644
+index e6abdb7..3ca7e24 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4068,8 +4068,8 @@ static int adap_init0(struct adapter *adap)
- 			     adap->params.b_wnd);
- 	}
- 	t4_init_sge_params(adap);
--	t4_init_tp_params(adap);
- 	adap->flags |= FW_OK;
-+	t4_init_tp_params(adap);
- 	return 0;
+@@ -2007,11 +2007,8 @@ EXPORT_SYMBOL(cxgb4_iscsi_init);
+ int cxgb4_flush_eq_cache(struct net_device *dev)
+ {
+ 	struct adapter *adap = netdev2adap(dev);
+-	int ret;
  
- 	/*
+-	ret = t4_fwaddrspace_write(adap, adap->mbox,
+-				   0xe1000000 + SGE_CTXT_CMD_A, 0x20000000);
+-	return ret;
++	return t4_sge_ctxt_flush(adap, adap->mbox);
+ }
+ EXPORT_SYMBOL(cxgb4_flush_eq_cache);
+ 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index efd0aa1..b411098 100644
+index 3a56254..e24f650 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -3633,6 +3633,40 @@ int t4_read_rss(struct adapter *adapter, u16 *map)
+@@ -4530,6 +4530,32 @@ void t4_sge_decode_idma_state(struct adapter *adapter, int state)
  }
  
  /**
-+ *	t4_fw_tp_pio_rw - Access TP PIO through LDST
-+ *	@adap: the adapter
-+ *	@vals: where the indirect register values are stored/written
-+ *	@nregs: how many indirect registers to read/write
-+ *	@start_idx: index of first indirect register to read/write
-+ *	@rw: Read (1) or Write (0)
++ *      t4_sge_ctxt_flush - flush the SGE context cache
++ *      @adap: the adapter
++ *      @mbox: mailbox to use for the FW command
 + *
-+ *	Access TP PIO registers through LDST
++ *      Issues a FW command through the given mailbox to flush the
++ *      SGE context cache.
 + */
-+static void t4_fw_tp_pio_rw(struct adapter *adap, u32 *vals, unsigned int nregs,
-+			    unsigned int start_index, unsigned int rw)
++int t4_sge_ctxt_flush(struct adapter *adap, unsigned int mbox)
 +{
-+	int ret, i;
-+	int cmd = FW_LDST_ADDRSPC_TP_PIO;
++	int ret;
++	u32 ldst_addrspace;
 +	struct fw_ldst_cmd c;
 +
-+	for (i = 0 ; i < nregs; i++) {
-+		memset(&c, 0, sizeof(c));
-+		c.op_to_addrspace = cpu_to_be32(FW_CMD_OP_V(FW_LDST_CMD) |
-+						FW_CMD_REQUEST_F |
-+						(rw ? FW_CMD_READ_F :
-+						      FW_CMD_WRITE_F) |
-+						FW_LDST_CMD_ADDRSPACE_V(cmd));
-+		c.cycles_to_len16 = cpu_to_be32(FW_LEN16(c));
++	memset(&c, 0, sizeof(c));
++	ldst_addrspace = FW_LDST_CMD_ADDRSPACE_V(FW_LDST_ADDRSPC_SGE_EGRC);
++	c.op_to_addrspace = cpu_to_be32(FW_CMD_OP_V(FW_LDST_CMD) |
++					FW_CMD_REQUEST_F | FW_CMD_READ_F |
++					ldst_addrspace);
++	c.cycles_to_len16 = cpu_to_be32(FW_LEN16(c));
++	c.u.idctxt.msg_ctxtflush = cpu_to_be32(FW_LDST_CMD_CTXTFLUSH_F);
 +
-+		c.u.addrval.addr = cpu_to_be32(start_index + i);
-+		c.u.addrval.val  = rw ? 0 : cpu_to_be32(vals[i]);
-+		ret = t4_wr_mbox(adap, adap->mbox, &c, sizeof(c), &c);
-+		if (!ret && rw)
-+			vals[i] = be32_to_cpu(c.u.addrval.val);
-+	}
++	ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
++	return ret;
 +}
 +
 +/**
-  *	t4_read_rss_key - read the global RSS key
-  *	@adap: the adapter
-  *	@key: 10-entry array holding the 320-bit RSS key
-@@ -3641,8 +3675,11 @@ int t4_read_rss(struct adapter *adapter, u16 *map)
-  */
- void t4_read_rss_key(struct adapter *adap, u32 *key)
- {
--	t4_read_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A, key, 10,
--			 TP_RSS_SECRET_KEY0_A);
-+	if (adap->flags & FW_OK)
-+		t4_fw_tp_pio_rw(adap, key, 10, TP_RSS_SECRET_KEY0_A, 1);
-+	else
-+		t4_read_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A, key, 10,
-+				 TP_RSS_SECRET_KEY0_A);
- }
+  *      t4_fw_hello - establish communication with FW
+  *      @adap: the adapter
+  *      @mbox: mailbox to use for the FW command
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index aceb1e8..ab46746 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -772,7 +772,7 @@ struct fw_ldst_cmd {
+ 		} addrval;
+ 		struct fw_ldst_idctxt {
+ 			__be32 physid;
+-			__be32 msg_pkd;
++			__be32 msg_ctxtflush;
+ 			__be32 ctxt_data7;
+ 			__be32 ctxt_data6;
+ 			__be32 ctxt_data5;
+@@ -834,6 +834,10 @@ struct fw_ldst_cmd {
+ #define FW_LDST_CMD_MSG_S       31
+ #define FW_LDST_CMD_MSG_V(x)	((x) << FW_LDST_CMD_MSG_S)
  
- /**
-@@ -3668,8 +3705,11 @@ void t4_write_rss_key(struct adapter *adap, const u32 *key, int idx)
- 	    (vrt & KEYEXTEND_F) && (KEYMODE_G(vrt) == 3))
- 		rss_key_addr_cnt = 32;
++#define FW_LDST_CMD_CTXTFLUSH_S		30
++#define FW_LDST_CMD_CTXTFLUSH_V(x)	((x) << FW_LDST_CMD_CTXTFLUSH_S)
++#define FW_LDST_CMD_CTXTFLUSH_F		FW_LDST_CMD_CTXTFLUSH_V(1U)
++
+ #define FW_LDST_CMD_PADDR_S     8
+ #define FW_LDST_CMD_PADDR_V(x)	((x) << FW_LDST_CMD_PADDR_S)
  
--	t4_write_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A, key, 10,
--			  TP_RSS_SECRET_KEY0_A);
-+	if (adap->flags & FW_OK)
-+		t4_fw_tp_pio_rw(adap, (void *)key, 10, TP_RSS_SECRET_KEY0_A, 0);
-+	else
-+		t4_write_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A, key, 10,
-+				  TP_RSS_SECRET_KEY0_A);
- 
- 	if (idx >= 0 && idx < rss_key_addr_cnt) {
- 		if (rss_key_addr_cnt > 16)
-@@ -3694,8 +3734,12 @@ void t4_write_rss_key(struct adapter *adap, const u32 *key, int idx)
- void t4_read_rss_pf_config(struct adapter *adapter, unsigned int index,
- 			   u32 *valp)
- {
--	t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
--			 valp, 1, TP_RSS_PF0_CONFIG_A + index);
-+	if (adapter->flags & FW_OK)
-+		t4_fw_tp_pio_rw(adapter, valp, 1,
-+				TP_RSS_PF0_CONFIG_A + index, 1);
-+	else
-+		t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
-+				 valp, 1, TP_RSS_PF0_CONFIG_A + index);
- }
- 
- /**
-@@ -3730,10 +3774,15 @@ void t4_read_rss_vf_config(struct adapter *adapter, unsigned int index,
- 
- 	/* Grab the VFL/VFH values ...
- 	 */
--	t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
--			 vfl, 1, TP_RSS_VFL_CONFIG_A);
--	t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
--			 vfh, 1, TP_RSS_VFH_CONFIG_A);
-+	if (adapter->flags & FW_OK) {
-+		t4_fw_tp_pio_rw(adapter, vfl, 1, TP_RSS_VFL_CONFIG_A, 1);
-+		t4_fw_tp_pio_rw(adapter, vfh, 1, TP_RSS_VFH_CONFIG_A, 1);
-+	} else {
-+		t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
-+				 vfl, 1, TP_RSS_VFL_CONFIG_A);
-+		t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
-+				 vfh, 1, TP_RSS_VFH_CONFIG_A);
-+	}
- }
- 
- /**
-@@ -3746,8 +3795,11 @@ u32 t4_read_rss_pf_map(struct adapter *adapter)
- {
- 	u32 pfmap;
- 
--	t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
--			 &pfmap, 1, TP_RSS_PF_MAP_A);
-+	if (adapter->flags & FW_OK)
-+		t4_fw_tp_pio_rw(adapter, &pfmap, 1, TP_RSS_PF_MAP_A, 1);
-+	else
-+		t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
-+				 &pfmap, 1, TP_RSS_PF_MAP_A);
- 	return pfmap;
- }
- 
-@@ -3761,8 +3813,11 @@ u32 t4_read_rss_pf_mask(struct adapter *adapter)
- {
- 	u32 pfmask;
- 
--	t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
--			 &pfmask, 1, TP_RSS_PF_MSK_A);
-+	if (adapter->flags & FW_OK)
-+		t4_fw_tp_pio_rw(adapter, &pfmask, 1, TP_RSS_PF_MSK_A, 1);
-+	else
-+		t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
-+				 &pfmask, 1, TP_RSS_PF_MSK_A);
- 	return pfmask;
- }
- 
-@@ -6137,12 +6192,19 @@ int t4_init_tp_params(struct adapter *adap)
- 	/* Cache the adapter's Compressed Filter Mode and global Incress
- 	 * Configuration.
- 	 */
--	t4_read_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A,
--			 &adap->params.tp.vlan_pri_map, 1,
--			 TP_VLAN_PRI_MAP_A);
--	t4_read_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A,
--			 &adap->params.tp.ingress_config, 1,
--			 TP_INGRESS_CONFIG_A);
-+	if (adap->flags & FW_OK) {
-+		t4_fw_tp_pio_rw(adap, &adap->params.tp.vlan_pri_map, 1,
-+				TP_VLAN_PRI_MAP_A, 1);
-+		t4_fw_tp_pio_rw(adap, &adap->params.tp.ingress_config, 1,
-+				TP_INGRESS_CONFIG_A, 1);
-+	} else {
-+		t4_read_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A,
-+				 &adap->params.tp.vlan_pri_map, 1,
-+				 TP_VLAN_PRI_MAP_A);
-+		t4_read_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A,
-+				 &adap->params.tp.ingress_config, 1,
-+				 TP_INGRESS_CONFIG_A);
-+	}
- 
- 	/* Now that we have TP_VLAN_PRI_MAP cached, we can calculate the field
- 	 * shift positions of several elements of the Compressed Filter Tuple
 -- 
 2.3.4
