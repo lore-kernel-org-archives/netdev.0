@@ -1,36 +1,34 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH WIP RFC 0/3] mpls: support for ler
-Date: Fri, 5 Jun 2015 15:31:48 +0100
-Message-ID: <5571B2D4.2040807@brocade.com>
-References: <1433341306-29288-1-git-send-email-roopa@cumulusnetworks.com> <20150605091441.GA11896@pox.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <ebiederm@xmission.com>, <netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:36916 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932313AbbFEOcD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2015 10:32:03 -0400
-In-Reply-To: <20150605091441.GA11896@pox.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antonio Murdaca <antonio.murdaca@gmail.com>
+Subject: [PATCH] ethernet: micrel: use time_after_eq macro
+Date: Fri,  5 Jun 2015 16:37:43 +0200
+Message-ID: <1433515063-18284-1-git-send-email-antonio.murdaca@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	joe@perches.com, julia.lawall@lip6.fr, akpm@linux-foundation.org,
+	Antonio Murdaca <antonio.murdaca@gmail.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/06/15 10:14, Thomas Graf wrote:
-> As I mentioned to Robert, the new RTA_ENCAP should be a list of
-> Netlink attributes from the beginning to make it extendible without
-> ever breaking user ABI.
+use time_after_eq macro for time comparison
 
-Just to be clear in both of our approaches, the contents of the 
-RTA_ENCAP data is interpreted by the encap owner. Therefore, if the mpls 
-encap doesn't consist of nested attributes then it doesn't preculde 
-vxlan, for example, consisting of nested attributes.
+Signed-off-by: Antonio Murdaca <antonio.murdaca@gmail.com>
+---
+ drivers/net/ethernet/micrel/ksz884x.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I do agree though that the netlink format for specifying mpls encap 
-should support nested attributes from day 1 to allow it to be extended 
-without breaking the ABI.
-
-Thanks,
-Rob
+diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
+index 48d2aec..9bce30c 100644
+--- a/drivers/net/ethernet/micrel/ksz884x.c
++++ b/drivers/net/ethernet/micrel/ksz884x.c
+@@ -6689,7 +6689,7 @@ static void mib_monitor(unsigned long ptr)
+ 
+ 	/* This is used to verify Wake-on-LAN is working. */
+ 	if (hw_priv->pme_wait) {
+-		if (hw_priv->pme_wait <= jiffies) {
++		if (time_after_eq(jiffies, hw_priv->pme_wait)) {
+ 			hw_clr_wol_pme_status(&hw_priv->hw);
+ 			hw_priv->pme_wait = 0;
+ 		}
+-- 
+2.4.2
