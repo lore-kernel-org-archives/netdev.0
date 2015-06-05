@@ -1,96 +1,58 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [RFC PATCH net] tcp: Update pcount after skb_pull() during mtu probing
-Date: Fri, 5 Jun 2015 09:53:51 -0700
-Message-ID: <CANn89iLd1bqCOxbALcDNzi--Hn8A970HmvM2__ryzjwSbOwZ6Q@mail.gmail.com>
-References: <1433521014-2465771-1-git-send-email-kafai@fb.com>
+From: Antonio Murdaca <antoniomurdaca@gmail.com>
+Subject: Re: [PATCH] ethernet: micrel: use time_after_eq macro
+Date: Fri, 5 Jun 2015 18:54:13 +0200
+Message-ID: <CAA7r0fokoEnp9wb9taegXbXsUYiHtQj44naTnw2A7WZfxQWJ5Q@mail.gmail.com>
+References: <1433514627-16845-1-git-send-email-antonio.murdaca@gmail.com>
+	<alpine.DEB.2.10.1506051745370.2388@hadrien>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Martin KaFai Lau <kafai@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:32993 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752799AbbFEQxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2015 12:53:52 -0400
-Received: by igbpi8 with SMTP id pi8so19727422igb.0
-        for <netdev@vger.kernel.org>; Fri, 05 Jun 2015 09:53:52 -0700 (PDT)
-In-Reply-To: <1433521014-2465771-1-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Antonio Murdaca <antonio.murdaca@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	joe@perches.com, akpm@linux-foundation.org
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.10.1506051745370.2388@hadrien>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 5, 2015 at 9:16 AM, Martin KaFai Lau <kafai@fb.com> wrote:
-> The problem is caught by this WARN_ON(len > skb->len) in tcp_fragment():
->
-> [<ffffffff810510ca>] warn_slowpath_null+0x1a/0x20
-> [<ffffffff8160ec90>] tcp_fragment+0x2a0/0x2b0
-> [<ffffffff81604e06>] tcp_mark_head_lost+0x196/0x230
-> [<ffffffff8160585d>] tcp_update_scoreboard+0x4d/0x80
-> [<ffffffff8160a9ac>] tcp_fastretrans_alert+0x6ac/0xa90
-> [<ffffffff8160b834>] tcp_ack+0x9d4/0x10e0
-> [<ffffffff8160c699>] tcp_rcv_established+0x309/0x7e0
->
-> The WARN_ON pointed out that tcp_skb_pcount (i.e.
-> TCP_SKB_CB(skb)->tcp_gso_segs) and skb->len is inconsistent.
->
-> The WARN_ON stack goes away after setting net.ipv4.tcp_mtu_probing to 0.
->
-> This patch is to set the pcount after skb_pull() was called
-> in tcp_mtu_probe().
->
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> Reported-by: Grant Zhang <gzhang@fastly.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> ---
->  net/ipv4/tcp_output.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index a369e8a..6c95c28 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -1984,8 +1984,9 @@ static int tcp_mtu_probe(struct sock *sk)
->                                                                  skb->len, 0);
->                         } else {
->                                 __pskb_trim_head(skb, copy);
-> -                               tcp_set_skb_tso_segs(sk, skb, mss_now);
->                         }
-> +                       tcp_set_skb_tso_segs(sk, skb, mss_now);
-> +
->                         TCP_SKB_CB(skb)->seq += copy;
->                 }
->
->
+I'll use that then and resubmit this patch
 
-Sounds good, although I would simply get rid of all this complexity in
-this very unlikely path.
+Thanks
 
-Would you instead try the following ?
+2015-06-05 17:45 GMT+02:00 Julia Lawall <julia.lawall@lip6.fr>:
+> On Fri, 5 Jun 2015, Antonio Murdaca wrote:
+>
+>> use time_after_eq macro for time comparison
+>>
+>> Signed-off-by: Antonio Murdaca <antonio.murdaca@gmail.com>
+>> ---
+>>  drivers/net/ethernet/micrel/ksz884x.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
+>> index 48d2aec..9bce30c 100644
+>> --- a/drivers/net/ethernet/micrel/ksz884x.c
+>> +++ b/drivers/net/ethernet/micrel/ksz884x.c
+>> @@ -6689,7 +6689,7 @@ static void mib_monitor(unsigned long ptr)
+>>
+>>       /* This is used to verify Wake-on-LAN is working. */
+>>       if (hw_priv->pme_wait) {
+>> -             if (hw_priv->pme_wait <= jiffies) {
+>> +             if (time_after_eq(jiffies, hw_priv->pme_wait)) {
+>
+> There is also time_is_before_eq_jiffies.
+>
+> julia
+>
+>>                       hw_clr_wol_pme_status(&hw_priv->hw);
+>>                       hw_priv->pme_wait = 0;
+>>               }
+>> --
+>> 2.4.2
+>>
+>>
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index eeb59befaf06867b00e1dd6ded7742b2f0bcd821..41ef2c96b2e810e289d6d773e4be09c493b99c09
-100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1987,16 +1987,7 @@ static int tcp_mtu_probe(struct sock *sk)
-                } else {
-                        TCP_SKB_CB(nskb)->tcp_flags |=
-TCP_SKB_CB(skb)->tcp_flags &
-                                                   ~(TCPHDR_FIN|TCPHDR_PSH);
--                       if (!skb_shinfo(skb)->nr_frags) {
--                               skb_pull(skb, copy);
--                               if (skb->ip_summed != CHECKSUM_PARTIAL)
--                                       skb->csum = csum_partial(skb->data,
--                                                                skb->len, 0);
--                       } else {
--                               __pskb_trim_head(skb, copy);
--                               tcp_set_skb_tso_segs(sk, skb, mss_now);
--                       }
--                       TCP_SKB_CB(skb)->seq += copy;
-+                       tcp_trim_head(sk, skb, copy);
-                }
 
-                len += copy;
+
+-- 
+Antonio Murdaca
