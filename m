@@ -1,53 +1,35 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [RFC PATCH net] tcp: Update pcount after skb_pull() during mtu
- probing
-Date: Fri, 5 Jun 2015 11:02:55 -0700
-Message-ID: <20150605180254.GC2951343@devbig242.prn2.facebook.com>
-References: <1433521014-2465771-1-git-send-email-kafai@fb.com>
- <CANn89iLd1bqCOxbALcDNzi--Hn8A970HmvM2__ryzjwSbOwZ6Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:31945 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751765AbbFESDG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2015 14:03:06 -0400
-Content-Disposition: inline
-In-Reply-To: <CANn89iLd1bqCOxbALcDNzi--Hn8A970HmvM2__ryzjwSbOwZ6Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] fddi: print an address with %p format specifier rather than %x
+Date: Fri,  5 Jun 2015 19:19:11 +0100
+Message-ID: <1433528351-31778-1-git-send-email-colin.king@canonical.com>
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 05, 2015 at 09:53:51AM -0700, Eric Dumazet wrote:
-> Sounds good, although I would simply get rid of all this complexity in
-> this very unlikely path.
-> 
-> Would you instead try the following ?
-> 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index eeb59befaf06867b00e1dd6ded7742b2f0bcd821..41ef2c96b2e810e289d6d773e4be09c493b99c09
-> 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -1987,16 +1987,7 @@ static int tcp_mtu_probe(struct sock *sk)
->                 } else {
->                         TCP_SKB_CB(nskb)->tcp_flags |=
-> TCP_SKB_CB(skb)->tcp_flags &
->                                                    ~(TCPHDR_FIN|TCPHDR_PSH);
-> -                       if (!skb_shinfo(skb)->nr_frags) {
-> -                               skb_pull(skb, copy);
-> -                               if (skb->ip_summed != CHECKSUM_PARTIAL)
-> -                                       skb->csum = csum_partial(skb->data,
-> -                                                                skb->len, 0);
-> -                       } else {
-> -                               __pskb_trim_head(skb, copy);
-> -                               tcp_set_skb_tso_segs(sk, skb, mss_now);
-> -                       }
-> -                       TCP_SKB_CB(skb)->seq += copy;
-> +                       tcp_trim_head(sk, skb, copy);
-tcp_trim_head() does not take the mss_now.
-Is it fine to have mss_now <= tcp_skb_mss(skb)? or we can depend on
-the tcp_init_tso_segs() in the tcp_write_xmit() to take care of it?
+From: Colin Ian King <colin.king@canonical.com>
+
+The debug is printing the struct smt_header * address using
+the %x format specifier. Fix it to use %p instead.
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/fddi/skfp/srf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/fddi/skfp/srf.c b/drivers/net/fddi/skfp/srf.c
+index cc27dea..9956680 100644
+--- a/drivers/net/fddi/skfp/srf.c
++++ b/drivers/net/fddi/skfp/srf.c
+@@ -414,7 +414,7 @@ static void smt_send_srf(struct s_smc *smc)
+ 	smt->smt_len = SMT_MAX_INFO_LEN - pcon.pc_len ;
+ 	mb->sm_len = smt->smt_len + sizeof(struct smt_header) ;
+ 
+-	DB_SMT("SRF: sending SRF at %x, len %d\n",smt,mb->sm_len) ;
++	DB_SMT("SRF: sending SRF at %p, len %d\n",smt,mb->sm_len) ;
+ 	DB_SMT("SRF: state SR%d Threshold %d\n",
+ 		smc->srf.sr_state,smc->srf.SRThreshold/TICKS_PER_SECOND) ;
+ #ifdef	DEBUG
+-- 
+2.1.4
