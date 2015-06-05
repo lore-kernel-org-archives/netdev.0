@@ -1,29 +1,23 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: Simplify and make the function
- sctp_assoc_lookup_laddr bool
-Date: Fri, 5 Jun 2015 15:16:10 -0400
-Message-ID: <20150605191610.GC29877@hmsreliant.think-freely.org>
-References: <1433526062-2364-1-git-send-email-xerofoify@gmail.com>
+From: Jaeden Amero <jaeden.amero@ni.com>
+Subject: Re: [PATCH 2/2] net/phy: micrel: Center FLP timing at 16ms
+Date: Fri, 05 Jun 2015 14:41:48 -0500
+Message-ID: <5571FB7C.7030304@ni.com>
+References: <1433527047-28686-1-git-send-email-jaeden.amero@ni.com> <1433527047-28686-2-git-send-email-jaeden.amero@ni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vyasevich@gmail.com, davem@davemloft.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Nicholas Krause <xerofoify@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1433526062-2364-1-git-send-email-xerofoify@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from skprod3.natinst.com ([130.164.80.24]:60443 "EHLO ni.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751742AbbFETlt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Jun 2015 15:41:49 -0400
+In-Reply-To: <1433527047-28686-2-git-send-email-jaeden.amero@ni.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 05, 2015 at 01:41:02PM -0400, Nicholas Krause wrote:
-> This makes the function sctp_assoc_lookup_laddr bool due to it
-> only returning either one or zero as its return value. Further
-> more this function can we simplified to return the if statement
-> as part of this function directly and thus remove the no longer
-> required if statement due to this function now being declared
-> as bool.
-> 
-> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+Please disregard this patch set. I'll post a second version.
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Cheers,
+Jaeden
