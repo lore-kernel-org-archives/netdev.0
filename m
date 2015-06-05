@@ -1,36 +1,34 @@
-From: Tadeusz Struk <tadeusz.struk@intel.com>
-Subject: Re: [v2 PATCH 5/13] crypto: testmgr - Switch to new AEAD interface
-Date: Fri, 05 Jun 2015 15:10:00 -0700
-Message-ID: <55721E38.2060801@intel.com>
-References: <20150522082708.GA3507@gondor.apana.org.au> <E1YviM1-0000xu-GV@gondolin.me.apana.org.au> <5570CDF7.4090308@intel.com> <20150605035747.GC527@gondor.apana.org.au>
+From: chase amalia <amalia.chase5@gmail.com>
+Subject: Mrs Chase Amalia.
+Date: Fri, 5 Jun 2015 22:13:57 +0000
+Message-ID: <CALrXqN-qpDg+p=wRnfwy35YknyBJ+c+R1pQqEMEOzefAhJwJwQ@mail.gmail.com>
+Reply-To: chaseamali@outlook.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Stephan Mueller <smueller@chronox.de>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:24408 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750869AbbFEWJy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Jun 2015 18:09:54 -0400
-In-Reply-To: <20150605035747.GC527@gondor.apana.org.au>
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:33943 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751028AbbFEWN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2015 18:13:58 -0400
+Received: by wgv5 with SMTP id 5so66186730wgv.1
+        for <netdev@vger.kernel.org>; Fri, 05 Jun 2015 15:13:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/04/2015 08:57 PM, Herbert Xu wrote:
-> Existing AEAD implementations should be completely unaware of
-> the new interface because we recreate the old req->assoc in the
-> crypto API.
+Dearest one in the lord,
 
-Yes, assuming that one is using req->assoclen not only req->assoc ;)
+I am Mrs Amalia Chase,Am sorry to come into your privacy. I want to
+hand over this noble project to you with trust. i have been diagnosed
+with Esophageal cancer .It has defied all forms of medical treatment,
+and Right now, I have only about a few months to live and I want you
+to Distribute my funds six million usd($6 million usd) to charities
+home as my promise to God.
 
-> 
-> However, if you are creating a new AEAD implementation then yes
-> you should stop using req->assoc and fetch it from req->src instead.
+I have set aside 40% for you and your family. I will give you more
+details on how to get the money reply me directly to my private email
+here (chaseamali@outlook.com) for more details.
 
-When do you expect the assoc will be removed?
+yours truly
+
+Mrs Chase Amalia.
