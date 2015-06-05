@@ -1,41 +1,96 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net] amd-xgbe: Use disable_irq_nosync from within timer
- function
-Date: Fri, 5 Jun 2015 16:02:26 -0500
-Message-ID: <20150605210226.14842.17410.stgit@tlendack-t1.amdoffice.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2 3/3] net/phy: micrel: Center FLP timing at 16ms
+Date: Sat, 06 Jun 2015 00:09:59 +0300
+Message-ID: <55721027.6030509@cogentembedded.com>
+References: <1433534130-16323-1-git-send-email-jaeden.amero@ni.com> <1433534130-16323-4-git-send-email-jaeden.amero@ni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0114.outbound.protection.outlook.com ([157.56.111.114]:11136
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751556AbbFEVCb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Jun 2015 17:02:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Jaeden Amero <jaeden.amero@ni.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1433534130-16323-4-git-send-email-jaeden.amero@ni.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since the Tx timer function runs in softirq context the driver needs
-to call disable_irq_nosync instead of a disable_irq.
+Hello.
 
-Reported-by: Josh Stone <jistone@redhat.com>
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On 06/05/2015 10:55 PM, Jaeden Amero wrote:
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index db84ddc..9fd6c69 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -423,7 +423,7 @@ static void xgbe_tx_timer(unsigned long data)
- 	if (napi_schedule_prep(napi)) {
- 		/* Disable Tx and Rx interrupts */
- 		if (pdata->per_channel_irq)
--			disable_irq(channel->dma_irq);
-+			disable_irq_nosync(channel->dma_irq);
- 		else
- 			xgbe_disable_rx_tx_ints(pdata);
- 
+> Link failures have been observed when using the KSZ9031 with HP 1810-=
+8G
+> and HP 1910-8G network switches. Center the FLP timing at 16ms to hel=
+p
+> avoid intermittent link failures.
+
+>  From the KSZ9031RNX and KSZ9031MNX data sheets revision 2.2, section
+> "Auto-Negotiation Timing":
+> 	The KSZ9031[RNX or MNX] Fast Link Pulse (FLP) burst-to-burst
+> 	transmit timing for Auto-Negotiation defaults to 8ms. IEEE 802.3
+> 	Standard specifies this timing to be 16ms +/-8ms. Some PHY link
+> 	partners need to receive the FLP with 16ms centered timing;
+> 	otherwise, there can be intermittent link failures and long
+> 	link-up times.
+
+> 	After KSZ9031[RNX or MNX] power-up/reset, program the following
+> 	register sequence to set the FLP timing to 16ms
+
+> 	Write Register Dh =3D 0x0000 // Set up register address for MMD =E2=80=
+=93 Device Address 0h
+> 	Write Register Eh =3D 0x0004 // Select Register 4h of MMD =E2=80=93 =
+Device Address 0h
+> 	Write Register Dh =3D 0x4000 // Select register data for MMD =E2=80=93=
+ Device Address 0h, Register 4h
+> 	Write Register Eh =3D 0x0006 // Write value 0x0006 to MMD =E2=80=93 =
+Device Address 0h, Register 4h
+> 	Write Register Dh =3D 0x0000 // Set up register address for MMD =E2=80=
+=93 Device Address 0h
+> 	Write Register Eh =3D 0x0003 // Select Register 3h of MMD =E2=80=93 =
+Device Address 0h
+> 	Write Register Dh =3D 0x4000 // Select register data for MMD =E2=80=93=
+ Device Address 0h, Register 3h
+> 	Write Register Eh =3D 0x1A80 // Write value 0x1A80 to MMD =E2=80=93 =
+Device Address 0h, Register 3h
+> 	Write Register 0h, Bit [9] =3D 1 // Restart Auto-Negotiation
+
+> Signed-off-by: Jaeden Amero <jaeden.amero@ni.com>
+> ---
+>   drivers/net/phy/micrel.c | 26 +++++++++++++++++++++++++-
+>   1 file changed, 25 insertions(+), 1 deletion(-)
+
+> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+> index f23765e..e156e36 100644
+> --- a/drivers/net/phy/micrel.c
+> +++ b/drivers/net/phy/micrel.c
+[...]
+> @@ -441,6 +461,7 @@ static int ksz9031_config_init(struct phy_device =
+*phydev)
+>   		"txd2-skew-ps", "txd3-skew-ps"
+>   	};
+>   	static const char *control_skews[2] =3D {"txen-skew-ps", "rxdv-ske=
+w-ps"};
+> +	int result;
+
+    You hardly need this variable...
+
+>
+>   	if (!of_node && dev->parent->of_node)
+>   		of_node =3D dev->parent->of_node;
+> @@ -462,7 +483,10 @@ static int ksz9031_config_init(struct phy_device=
+ *phydev)
+>   				MII_KSZ9031RN_TX_DATA_PAD_SKEW, 4,
+>   				tx_data_skews, 4);
+>   	}
+> -	return 0;
+> +
+> +	result =3D ksz9031_center_flp_timing(phydev);
+> +
+> +	return result;
+
+    Why not just return directly?
+
+[...]
+
+WBR, Sergei
