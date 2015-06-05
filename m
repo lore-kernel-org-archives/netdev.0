@@ -1,33 +1,50 @@
 From: Markos Chandras <Markos.Chandras@imgtec.com>
 Subject: Re: [PATCH 0/6] MIPS/BPF fixes for 4.3
-Date: Fri, 5 Jun 2015 09:24:20 +0100
-Message-ID: <55715CB4.6020509@imgtec.com>
-References: <1433415376-20952-1-git-send-email-markos.chandras@imgtec.com> <20150604.114021.2198304591433879318.davem@davemloft.net>
+Date: Fri, 5 Jun 2015 09:26:51 +0100
+Message-ID: <55715D4B.9020703@imgtec.com>
+References: <1433415376-20952-1-git-send-email-markos.chandras@imgtec.com> <557081A6.5010407@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-mips@linux-mips.org>, <netdev@vger.kernel.org>,
-	<ast@plumgrid.com>, <dborkman@redhat.com>,
-	<hannes@stressinduktion.org>, <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	"Daniel Borkmann" <dborkman@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	<linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>, <linux-mips@linux-mips.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150604.114021.2198304591433879318.davem@davemloft.net>
+In-Reply-To: <557081A6.5010407@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/04/2015 07:40 PM, David Miller wrote:
+On 06/04/2015 05:49 PM, Alexei Starovoitov wrote:
+> On 6/4/15 3:56 AM, Markos Chandras wrote:
+>> Here are some fixes for MIPS/BPF. The first 5 patches do some cleanup
+>> and lay the groundwork for the final one which introduces assembly
+>> helpers
+>> for MIPS and MIPS64. The goal is to speed up certain operations that do
+>> not need to go through the common C functions. This also makes the
+>> test_bpf
+>> testsuite happy with all 60 tests passing. This is based in 4.1-rc6.
 > 
-> I think your Subject meant to say "fixes for 4.2" right?
-> 
-> Because we're currently finishing up 4.1.x and the next merge
-> window will be for 4.2.x
-> 
-Hi David,
+> looks like these patches actually fix two real bugs, right?
+> If so, I think you probably want them in 'net' tree ?
 
-Ralf only accepts patches for MIPS 4.2 that have been posted before
-4.1-rc5. This is posted nearly before 4.1-rc7 so it's likely to go to
-4.3 based on Ralf's policy. Unless of course he wants to merge that to
-4.2 which would be nice of course.
+I was thinking to have them in the MIPS tree to be honest. The original
+MIPS/BPF went via the MIPS tree as well. It also makes it easier for me
+to work with Ralf on minor fixes, merge conflicts etc.
+
+> 
+> Different arch maintainers take different stance towards bpf jit
+> changes. x86, arm and s390 are ok with them going through Dave's trees,
+> since often there are dependencies on bpf core parts.
+> So please state clearly what tree you want these patches to go in.
+> 
+> btw, in the net-next tree bpf testsuite has 246 tests and the last
+> ten are very stressful for JITs.
+
+Interesting. Thanks. I will rebase my tree shortly after 4.2-rc1 then
+and run the testsuite again. I will post a v2 if I spot more problems
+with it.
 
 -- 
 markos
