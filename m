@@ -1,65 +1,71 @@
-From: Julien Grall <julien.grall@citrix.com>
-Subject: Re: [Xen-devel] [PATCH v2 1/2] net/xen-netfront: Correct printf format
- in xennet_get_responses
-Date: Fri, 5 Jun 2015 13:34:26 +0100
-Message-ID: <55719752.2070909@citrix.com>
-References: <1433350510-12846-1-git-send-email-julien.grall@citrix.com>
-	 <1433350510-12846-2-git-send-email-julien.grall@citrix.com>
-	 <1433351196.4861.131.camel@perches.com> <5570484C.8040201@citrix.com>
-	 <557048B1.9070805@citrix.com> <55704A02.9010001@citrix.com>
- <1433435132.4861.184.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: David Vrabel <david.vrabel@citrix.com>, <ian.campbell@citrix.com>,
-	<netdev@vger.kernel.org>, <stefano.stabellini@eu.citrix.com>,
-	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	"Boris Ostrovsky" <boris.ostrovsky@oracle.com>
-To: Joe Perches <joe@perches.com>
+From: Jonas Jensen <jonas.jensen@gmail.com>
+Subject: [PATCH] net: moxa: fix TX overrun memory leak
+Date: Fri,  5 Jun 2015 15:46:18 +0200
+Message-ID: <1433511978-17666-1-git-send-email-jonas.jensen@gmail.com>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	Jonas Jensen <jonas.jensen@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1433435132.4861.184.camel@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/06/15 17:25, Joe Perches wrote:
-> On Thu, 2015-06-04 at 13:52 +0100, Julien Grall wrote:
->> On 04/06/15 13:46, David Vrabel wrote:
->>> On 04/06/15 13:45, Julien Grall wrote:
->>>> On 03/06/15 18:06, Joe Perches wrote:
->>>>> On Wed, 2015-06-03 at 17:55 +0100, Julien Grall wrote:
->>>>>> rx->status is an int16_t, print it using %d rather than %u in order to
->>>>>> have a meaningful value when the field is negative.
->>>>> []
->>>>>> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
->>>>> []
->>>>>> @@ -733,7 +733,7 @@ static int xennet_get_responses(struct netfront_queue *queue,
->>>>>>  		if (unlikely(rx->status < 0 ||
->>>>>>  			     rx->offset + rx->status > PAGE_SIZE)) {
->>>>>>  			if (net_ratelimit())
->>>>>> -				dev_warn(dev, "rx->offset: %x, size: %u\n",
->>>>>> +				dev_warn(dev, "rx->offset: %x, size: %d\n",
->>>>>
->>>>> If you're going to do this, perhaps it'd be sensible to
->>>>> also change the %x to %#x or 0x%x so that people don't
->>>>> mistake offset without an [a-f] for decimal.
->>>>
->>>> Good idea. I will resend a version of this series.
->>>>
->>>> David, can I keep you Reviewed-by for this change?#
->>>
->>> Can you make the offset %d instead?
-> 
-> If you do, please change similar uses in
-> drivers/net/xen-netback/ in the same patch.
+moxart_mac_start_xmit() doesn't care where tx_tail is, tx_head can
+catch and pass tx_tail, which is bad because moxart_tx_finished()
+isn't guaranteed to catch up on freeing resources from tx_tail.
 
-The format is not really consistent accross the 2 drivers and even
-within the same driver (see pending_idx which is some times print with
-%x and %d).
+Add a check in moxart_mac_start_xmit(), exit to make sure tx_head
+never passes tx_tail.
 
-Anyway, ss it's a different drivers and maintainers I will prefer to
-send a separate patch for this.
+Move tx_head and place tx_tail within spinlock, avoiding read-write
+race that could happen when interrupts hit at the wrong moment.
 
-Regards,
+Addresses https://bugzilla.kernel.org/show_bug.cgi?id=99451
 
+Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
+---
+
+Notes:
+    Applies to next-20150604
+
+ drivers/net/ethernet/moxa/moxart_ether.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
+index becbb5f..e0af86c 100644
+--- a/drivers/net/ethernet/moxa/moxart_ether.c
++++ b/drivers/net/ethernet/moxa/moxart_ether.c
+@@ -25,6 +25,7 @@
+ #include <linux/of_irq.h>
+ #include <linux/crc32.h>
+ #include <linux/crc32c.h>
++#include <linux/circ_buf.h>
+ 
+ #include "moxart_ether.h"
+ 
+@@ -312,13 +313,22 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	struct moxart_mac_priv_t *priv = netdev_priv(ndev);
+ 	void __iomem *desc;
+ 	unsigned int len;
+-	unsigned int tx_head = priv->tx_head;
++	unsigned int tx_head, tx_tail;
+ 	u32 txdes1;
+ 	int ret = NETDEV_TX_BUSY;
+ 
++	spin_lock_irq(&priv->txlock);
++
++	tx_head = priv->tx_head;
++	tx_tail = priv->tx_tail;
++
+ 	desc = priv->tx_desc_base + (TX_REG_DESC_SIZE * tx_head);
+ 
+-	spin_lock_irq(&priv->txlock);
++	if (CIRC_SPACE(tx_head, tx_tail, TX_DESC_NUM) == 0) {
++		priv->stats.tx_dropped++;
++		goto out_unlock;
++	}
++
+ 	if (readl(desc + TX_REG_OFFSET_DESC0) & TX_DESC0_DMA_OWN) {
+ 		net_dbg_ratelimited("no TX space for packet\n");
+ 		priv->stats.tx_dropped++;
 -- 
-Julien Grall
+1.8.2.1
