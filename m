@@ -1,34 +1,74 @@
-From: chase amalia <amalia.chase5@gmail.com>
-Subject: Mrs Chase Amalia.
-Date: Fri, 5 Jun 2015 22:13:57 +0000
-Message-ID: <CALrXqN-qpDg+p=wRnfwy35YknyBJ+c+R1pQqEMEOzefAhJwJwQ@mail.gmail.com>
-Reply-To: chaseamali@outlook.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:33943 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751028AbbFEWN6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2015 18:13:58 -0400
-Received: by wgv5 with SMTP id 5so66186730wgv.1
-        for <netdev@vger.kernel.org>; Fri, 05 Jun 2015 15:13:57 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH] net/bonding: fix propagation of user-specified bond MAC
+Date: Fri,  5 Jun 2015 18:24:07 -0400
+Message-ID: <1433543047-34803-1-git-send-email-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	netdev@vger.kernel.org (open list:BONDING DRIVER)
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dearest one in the lord,
+Its possible for users to specify their own MAC address for a bonded link,
+and this used to work, until sometime in 2013...
 
-I am Mrs Amalia Chase,Am sorry to come into your privacy. I want to
-hand over this noble project to you with trust. i have been diagnosed
-with Esophageal cancer .It has defied all forms of medical treatment,
-and Right now, I have only about a few months to live and I want you
-to Distribute my funds six million usd($6 million usd) to charities
-home as my promise to God.
+First, commit 409cc1f8a changed a condition to set the bond's mac to a
+slave device's, dropping the is_zero_ether_addr() check in favor of using
+bond->dev_addr_from_first.
 
-I have set aside 40% for you and your family. I will give you more
-details on how to get the money reply me directly to my private email
-here (chaseamali@outlook.com) for more details.
+Next, commit 6c8c4e4c2 added a bond->slave_cnt == 0 condition.
 
-yours truly
+Then, commit 97a1e6396 removed dev_addr_from_first and keyed off of
+bond->dev->addr_assign_type.
 
-Mrs Chase Amalia.
+The other contitional in the check to call bond_set_dev_addr() has gone
+ through some permutations, finally landing at the following check:
+
+	if (!bond_has_slaves(bond) &&
+	    bond->dev->addr_assign_type == NET_ADDR_RANDOM)
+		bond_set_dev_addr(bond->dev, slave_dev);
+
+When the bond is initially brought up, with no active slaves, it gets
+assigned a random address, and addr_assign_type is set to NET_ADDR_RANDOM.
+Next up though, the user can provide their own MAC, which ultimately calls
+bond_set_mac_address(). However, because addr_assign_type isn't touched,
+the above conditions are still met, and the slave's MAC overwrites the
+user-provided MAC.
+
+The simple fix is to set addr_assign_type = NET_ADDR_SET at the tail end
+of bond_set_mac_address() doing its thing, and user-specified MAC
+addresses no longer get overwritten.
+
+Nb: this is slightly tricky to test on current Fedora, as nmcli seems to
+be braindead when it comes to setting a MAC address for a bond. I can do a
+"nmcli con edit bond0", set ethernet.mac-address "xx:yy:zz:aa:bb:cc", but
+it doesn't ever seem to do anything, and it doesn't persist to the next
+boot. Manual tinkering was required to verify the issue and the fix using
+ip link set commands.
+
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Veaceslav Falico <vfalico@gmail.com>
+CC: Andy Gospodarek <gospo@cumulusnetworks.com>
+CC: netdev@vger.kernel.org (open list:BONDING DRIVER)
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ drivers/net/bonding/bond_main.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 19eb990..2aa5b5f 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3544,6 +3544,7 @@ static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
+ 
+ 	/* success */
+ 	memcpy(bond_dev->dev_addr, sa->sa_data, bond_dev->addr_len);
++	bond_dev->addr_assign_type = NET_ADDR_SET;
+ 	return 0;
+ 
+ unwind:
+-- 
+1.8.3.1
