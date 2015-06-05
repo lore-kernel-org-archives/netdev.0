@@ -1,77 +1,67 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v2] rocker: move netevent neigh update to
- processes context
-Date: Thu, 4 Jun 2015 18:33:10 -0700
-Message-ID: <CAE4R7bBfHeK8U_8-QWoVoaVAGT6ObemaKdGOon_nyO8gooyU4A@mail.gmail.com>
-References: <1433303008-32656-1-git-send-email-sfeldma@gmail.com>
- <20150603.233829.1362177764562847830.davem@davemloft.net> <20150604082045.GA7709@vergenet.net>
- <CAE4R7bD1EmYm4TNrWWskTeKA6NfNsasVRTP4KxhOYvZt_9n3Ow@mail.gmail.com> <20150604225425.GA7465@verge.net.au>
+From: kbuild test robot <fengguang.wu@intel.com>
+Subject: [net-next:master 1211/1214]
+ drivers/infiniband/hw/mlx5/main.c:118:69: sparse: incorrect type in argument
+ 2 (different base types)
+Date: Fri, 5 Jun 2015 10:06:02 +0800
+Message-ID: <201506051038.z3APMCg6%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Simon Horman <simon.horman@netronome.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	netdev@vger.kernel.org
+To: Majd Dibbiny <majd@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:33386 "EHLO
-	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752230AbbFEBdb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 21:33:31 -0400
-Received: by oiww2 with SMTP id w2so43831257oiw.0
-        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 18:33:31 -0700 (PDT)
-In-Reply-To: <20150604225425.GA7465@verge.net.au>
+Received: from mga03.intel.com ([134.134.136.65]:60703 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752282AbbFECGw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jun 2015 22:06:52 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 4, 2015 at 3:54 PM, Simon Horman <horms@verge.net.au> wrote:
-> Hi Scott,
->
->> Simon, just focusing on this rocker->neigh_tbl_next_index++ issue at
->> the moment, I think the change below would make _rocker_neigh_add()
->> safe to call without needing to put neigh_update into process context.
->> It works because entry is stored between PREPARE and COMMIT, so once
->> entry->index is assigned in PREPARE (under neigh_tbl_lock), it'll be
->> re-used in COMMIT, even if the NONE thread also claims it's
->> entry->index (also under neigh_tbl_lock).
->>
->> I know there are other issues you and Toshiaki Makita have pointed
->> out, but let's see if we can peel the onion one layer at a time.
->>
->> --- a/drivers/net/ethernet/rocker/rocker.c
->> +++ b/drivers/net/ethernet/rocker/rocker.c
->> @@ -2904,10 +2904,10 @@ static void _rocker_neigh_add(struct rocker *rocker,
->>                               enum switchdev_trans trans,
->>                               struct rocker_neigh_tbl_entry *entry)
->>  {
->> -       entry->index = rocker->neigh_tbl_next_index;
->> +       if (trans != SWITCHDEV_TRANS_COMMIT)
->> +               entry->index = rocker->neigh_tbl_next_index++;
->>         if (trans == SWITCHDEV_TRANS_PREPARE)
->>                 return;
->> -       rocker->neigh_tbl_next_index++;
->>         entry->ref_count++;
->>         hash_add(rocker->neigh_tbl, &entry->entry,
->>                  be32_to_cpu(entry->ip_addr));
->
-> I agree that should work.
+tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+head:   bb62f791f922254dc1847d3d0b77c9b066d5280b
+commit: 1b5daf11b015123108686a9060ee6de705a03e76 [1211/1214] IB/mlx5: Avoid using the MAD_IFC command under ISSI > 0 mode
+reproduce:
+  # apt-get install sparse
+  git checkout 1b5daf11b015123108686a9060ee6de705a03e76
+  make ARCH=x86_64 allmodconfig
+  make C=1 CF=-D__CHECK_ENDIAN__
 
-I've been running it today with no problems.  So I'm preparing a new
-patch that changes direction here, to address David's concern about
-switching neigh event context.  Details:
 
-1) Above little patch addresses the race issue with neigh_tbl_next_index
+sparse warnings: (new ones prefixed by >>)
 
-2) Keep neigh update event in event context and bring back a couple of
-items I removed in the Spring Cleanup series:
+>> drivers/infiniband/hw/mlx5/main.c:118:69: sparse: incorrect type in argument 2 (different base types)
+   drivers/infiniband/hw/mlx5/main.c:118:69:    expected restricted __be64 [usertype] *sys_image_guid
+   drivers/infiniband/hw/mlx5/main.c:118:69:    got unsigned long long *<noident>
 
-   a) use ROCKER_OP_FLAG_NOWAIT to mark contexts that can't sleep
-   b) if nowait, mem allocations use GFP_ATOMIC
-   c) if nowait, cmd to device is issued, but we will not sleep to
-wait for response from device; just hit-and-run
+vim +118 drivers/infiniband/hw/mlx5/main.c
 
-I was probably too aggressive with Spring Cleanup thinking we could
-swing all device accesses to process context.
+   102	}
+   103	
+   104	static int mlx5_query_system_image_guid(struct ib_device *ibdev,
+   105						__be64 *sys_image_guid)
+   106	{
+   107		struct mlx5_ib_dev *dev = to_mdev(ibdev);
+   108		struct mlx5_core_dev *mdev = dev->mdev;
+   109		u64 tmp;
+   110		int err;
+   111	
+   112		switch (mlx5_get_vport_access_method(ibdev)) {
+   113		case MLX5_VPORT_ACCESS_METHOD_MAD:
+   114			return mlx5_query_mad_ifc_system_image_guid(ibdev,
+   115								    sys_image_guid);
+   116	
+   117		case MLX5_VPORT_ACCESS_METHOD_HCA:
+ > 118			err = mlx5_query_hca_vport_system_image_guid(mdev, &tmp);
+   119			if (!err)
+   120				*sys_image_guid = cpu_to_be64(tmp);
+   121			return err;
+   122	
+   123		default:
+   124			return -EINVAL;
+   125		}
+   126	}
 
-Thanks to all for the testing/review/feedback/patience.
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+http://lists.01.org/mailman/listinfo/kbuild                 Intel Corporation
