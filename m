@@ -1,187 +1,92 @@
-From: mleitner@redhat.com
-Subject: [PATCH v3 1/2] sctp: rcu-ify addr_waitq
-Date: Fri,  5 Jun 2015 14:08:05 -0300
-Message-ID: <9ebea428aa10e30e4b6c92aa95c56fc5cbc9cd98.1433524062.git.marcelo.leitner@gmail.com>
-References: <20150604142710.GD24585@hmsreliant.think-freely.org>
-Cc: linux-sctp@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Michio Honda <micchie@sfc.wide.ad.jp>
-To: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [PATCH] sctp:Make the function sctp_assoc_lookup_laddr bool
+Date: Fri, 5 Jun 2015 14:16:25 -0300
+Message-ID: <20150605171625.GB3402@localhost.localdomain>
+References: <1433335867-1871-1-git-send-email-xerofoify@gmail.com>
+ <20150604103503.GA24585@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicholas Krause <xerofoify@gmail.com>, vyasevich@gmail.com,
+	davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56866 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52001 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751717AbbFERIP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Jun 2015 13:08:15 -0400
-In-Reply-To: <20150604142710.GD24585@hmsreliant.think-freely.org>
+	id S1752066AbbFERQ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Jun 2015 13:16:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20150604103503.GA24585@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+On Thu, Jun 04, 2015 at 06:35:03AM -0400, Neil Horman wrote:
+> On Wed, Jun 03, 2015 at 08:51:07AM -0400, Nicholas Krause wrote:
+> > This makes the function sctp_assoc_lookup_laddr bool due to this
+> > function only returning either one or zero as its return value.
+> > 
+> > Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+> > ---
+> >  include/net/sctp/structs.h | 4 ++--
+> >  net/sctp/associola.c       | 8 ++++----
+> >  2 files changed, 6 insertions(+), 6 deletions(-)
+> > 
+> > diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> > index 2bb2fcf..1381be9 100644
+> > --- a/include/net/sctp/structs.h
+> > +++ b/include/net/sctp/structs.h
+> > @@ -1870,8 +1870,8 @@ struct sctp_transport *sctp_assoc_choose_alter_transport(
+> >  void sctp_assoc_update_retran_path(struct sctp_association *);
+> >  struct sctp_transport *sctp_assoc_lookup_paddr(const struct sctp_association *,
+> >  					  const union sctp_addr *);
+> > -int sctp_assoc_lookup_laddr(struct sctp_association *asoc,
+> > -			    const union sctp_addr *laddr);
+> > +bool sctp_assoc_lookup_laddr(struct sctp_association *asoc,
+> > +			     const union sctp_addr *laddr);
+> >  struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *,
+> >  				     const union sctp_addr *address,
+> >  				     const gfp_t gfp,
+> > diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> > index 197c3f5..69abe78 100644
+> > --- a/net/sctp/associola.c
+> > +++ b/net/sctp/associola.c
+> > @@ -1572,15 +1572,15 @@ int sctp_assoc_set_bind_addr_from_cookie(struct sctp_association *asoc,
+> >  }
+> >  
+> >  /* Lookup laddr in the bind address list of an association. */
+> > -int sctp_assoc_lookup_laddr(struct sctp_association *asoc,
+> > -			    const union sctp_addr *laddr)
+> > +bool sctp_assoc_lookup_laddr(struct sctp_association *asoc,
+> > +			     const union sctp_addr *laddr)
+> >  {
+> > -	int found = 0;
+> > +	bool found = false;
+> >  
+> >  	if ((asoc->base.bind_addr.port == ntohs(laddr->v4.sin_port)) &&
+> >  	    sctp_bind_addr_match(&asoc->base.bind_addr, laddr,
+> >  				 sctp_sk(asoc->base.sk)))
+> > -		found = 1;
+> > +		found = true;
+> >  
+> >  	return found;
+> >  }
+> > -- 
+> > 2.1.4
+> > 
+> > 
+> 
+> If you're going to do this, you might as well also remove the conditional
+> statement here entirely.  I.e. just have the function be this:
+> 
+> return (asoc->base.bind_addr.port == ntohs(laddr->v4.sin_port)) &&
+> 	sctp_bind_addr_match(&asoc->base.bind_addr, laddr,
+> 	sctp_sk(asoc->base.sk)));
+> 
+> You might also look into makeing it inline, though it doesn't appear in any hot
+> paths so thats likely overkill
 
-That's needed for the next patch, so we break the lock inversion between
-netns_sctp->addr_wq_lock and socket lock on
-sctp_addr_wq_timeout_handler(). With this, we can traverse addr_waitq
-without taking addr_wq_lock, taking it just for the write operations.
++1
+just in case you cut&paste, be careful that the 3rd line should start
+right after the ( in the 2nd line. (Like it was before)
 
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
-
-Notes:
-    v2->v3:
-      placed break statement on sctp_free_addr_wq_entry()
-      removed unnecessary spin_lock noticed by Neil
-
- include/net/netns/sctp.h |  2 +-
- net/sctp/protocol.c      | 80 +++++++++++++++++++++++++++++-------------------
- 2 files changed, 49 insertions(+), 33 deletions(-)
-
-diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
-index 3573a81815ad9e0efb6ceb721eb066d3726419f0..9e53412c4ed829e8e45777a6d95406d490dbaa75 100644
---- a/include/net/netns/sctp.h
-+++ b/include/net/netns/sctp.h
-@@ -28,7 +28,7 @@ struct netns_sctp {
- 	 * It is a list of sctp_sockaddr_entry.
- 	 */
- 	struct list_head local_addr_list;
--	struct list_head addr_waitq;
-+	struct list_head __rcu addr_waitq;
- 	struct timer_list addr_wq_timer;
- 	struct list_head auto_asconf_splist;
- 	spinlock_t addr_wq_lock;
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 53b7acde9aa37bf3d4029c459421564d5270f4c0..9954fb8c9a9455d5ad7a627e2d7f9a1fef861fc2 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -593,15 +593,47 @@ static void sctp_v4_ecn_capable(struct sock *sk)
- 	INET_ECN_xmit(sk);
- }
- 
-+static void sctp_free_addr_wq(struct net *net)
-+{
-+	struct sctp_sockaddr_entry *addrw;
-+
-+	spin_lock_bh(&net->sctp.addr_wq_lock);
-+	del_timer(&net->sctp.addr_wq_timer);
-+	list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, list) {
-+		list_del_rcu(&addrw->list);
-+		kfree_rcu(addrw, rcu);
-+	}
-+	spin_unlock_bh(&net->sctp.addr_wq_lock);
-+}
-+
-+/* As there is no refcnt on sctp_sockaddr_entry, we must check inside
-+ * the lock if it wasn't removed from addr_waitq already, otherwise we
-+ * could double-free it.
-+ */
-+static void sctp_free_addr_wq_entry(struct net *net,
-+				    struct sctp_sockaddr_entry *addrw)
-+{
-+	struct sctp_sockaddr_entry *temp;
-+
-+	spin_lock_bh(&net->sctp.addr_wq_lock);
-+	list_for_each_entry_rcu(temp, &net->sctp.addr_waitq, list) {
-+		if (temp == addrw) {
-+			list_del_rcu(&addrw->list);
-+			kfree_rcu(addrw, rcu);
-+			break;
-+		}
-+	}
-+	spin_unlock_bh(&net->sctp.addr_wq_lock);
-+}
-+
- static void sctp_addr_wq_timeout_handler(unsigned long arg)
- {
- 	struct net *net = (struct net *)arg;
--	struct sctp_sockaddr_entry *addrw, *temp;
-+	struct sctp_sockaddr_entry *addrw;
- 	struct sctp_sock *sp;
- 
--	spin_lock_bh(&net->sctp.addr_wq_lock);
--
--	list_for_each_entry_safe(addrw, temp, &net->sctp.addr_waitq, list) {
-+	rcu_read_lock_bh();
-+	list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, list) {
- 		pr_debug("%s: the first ent in wq:%p is addr:%pISc for cmd:%d at "
- 			 "entry:%p\n", __func__, &net->sctp.addr_waitq, &addrw->a.sa,
- 			 addrw->state, addrw);
-@@ -647,35 +679,20 @@ static void sctp_addr_wq_timeout_handler(unsigned long arg)
- #if IS_ENABLED(CONFIG_IPV6)
- free_next:
- #endif
--		list_del(&addrw->list);
--		kfree(addrw);
--	}
--	spin_unlock_bh(&net->sctp.addr_wq_lock);
--}
--
--static void sctp_free_addr_wq(struct net *net)
--{
--	struct sctp_sockaddr_entry *addrw;
--	struct sctp_sockaddr_entry *temp;
--
--	spin_lock_bh(&net->sctp.addr_wq_lock);
--	del_timer(&net->sctp.addr_wq_timer);
--	list_for_each_entry_safe(addrw, temp, &net->sctp.addr_waitq, list) {
--		list_del(&addrw->list);
--		kfree(addrw);
-+		sctp_free_addr_wq_entry(net, addrw);
- 	}
--	spin_unlock_bh(&net->sctp.addr_wq_lock);
-+	rcu_read_unlock_bh();
- }
- 
- /* lookup the entry for the same address in the addr_waitq
-- * sctp_addr_wq MUST be locked
-+ * rcu read MUST be locked
-  */
- static struct sctp_sockaddr_entry *sctp_addr_wq_lookup(struct net *net,
- 					struct sctp_sockaddr_entry *addr)
- {
- 	struct sctp_sockaddr_entry *addrw;
- 
--	list_for_each_entry(addrw, &net->sctp.addr_waitq, list) {
-+	list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, list) {
- 		if (addrw->a.sa.sa_family != addr->a.sa.sa_family)
- 			continue;
- 		if (addrw->a.sa.sa_family == AF_INET) {
-@@ -702,7 +719,7 @@ void sctp_addr_wq_mgmt(struct net *net, struct sctp_sockaddr_entry *addr, int cm
- 	 * new address after a couple of addition and deletion of that address
- 	 */
- 
--	spin_lock_bh(&net->sctp.addr_wq_lock);
-+	rcu_read_lock_bh();
- 	/* Offsets existing events in addr_wq */
- 	addrw = sctp_addr_wq_lookup(net, addr);
- 	if (addrw) {
-@@ -710,22 +727,21 @@ void sctp_addr_wq_mgmt(struct net *net, struct sctp_sockaddr_entry *addr, int cm
- 			pr_debug("%s: offsets existing entry for %d, addr:%pISc "
- 				 "in wq:%p\n", __func__, addrw->state, &addrw->a.sa,
- 				 &net->sctp.addr_waitq);
--
--			list_del(&addrw->list);
--			kfree(addrw);
-+			sctp_free_addr_wq_entry(net, addrw);
- 		}
--		spin_unlock_bh(&net->sctp.addr_wq_lock);
-+		rcu_read_unlock_bh();
- 		return;
- 	}
-+	rcu_read_unlock_bh();
- 
- 	/* OK, we have to add the new address to the wait queue */
- 	addrw = kmemdup(addr, sizeof(struct sctp_sockaddr_entry), GFP_ATOMIC);
--	if (addrw == NULL) {
--		spin_unlock_bh(&net->sctp.addr_wq_lock);
-+	if (!addrw)
- 		return;
--	}
- 	addrw->state = cmd;
--	list_add_tail(&addrw->list, &net->sctp.addr_waitq);
-+
-+	spin_lock_bh(&net->sctp.addr_wq_lock);
-+	list_add_tail_rcu(&addrw->list, &net->sctp.addr_waitq);
- 
- 	pr_debug("%s: add new entry for cmd:%d, addr:%pISc in wq:%p\n",
- 		 __func__, addrw->state, &addrw->a.sa, &net->sctp.addr_waitq);
--- 
-2.4.1
+  Marcelo
