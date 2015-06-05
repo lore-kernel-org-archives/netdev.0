@@ -1,79 +1,65 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf-next] net: ip_fragment: remove BRIDGE_NETFILTER mtu special handling
-Date: Fri,  5 Jun 2015 13:28:38 +0200
-Message-ID: <1433503718-16514-1-git-send-email-fw@strlen.de>
-Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
-To: <netfilter-devel@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Julien Grall <julien.grall@citrix.com>
+Subject: Re: [Xen-devel] [PATCH v2 1/2] net/xen-netfront: Correct printf format
+ in xennet_get_responses
+Date: Fri, 5 Jun 2015 13:34:26 +0100
+Message-ID: <55719752.2070909@citrix.com>
+References: <1433350510-12846-1-git-send-email-julien.grall@citrix.com>
+	 <1433350510-12846-2-git-send-email-julien.grall@citrix.com>
+	 <1433351196.4861.131.camel@perches.com> <5570484C.8040201@citrix.com>
+	 <557048B1.9070805@citrix.com> <55704A02.9010001@citrix.com>
+ <1433435132.4861.184.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: David Vrabel <david.vrabel@citrix.com>, <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <stefano.stabellini@eu.citrix.com>,
+	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
+	"Boris Ostrovsky" <boris.ostrovsky@oracle.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1433435132.4861.184.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-since commit d6b915e29f4adea9
-("ip_fragment: don't forward defragmented DF packet") the largest
-fragment size is available in the IPCB.
+On 04/06/15 17:25, Joe Perches wrote:
+> On Thu, 2015-06-04 at 13:52 +0100, Julien Grall wrote:
+>> On 04/06/15 13:46, David Vrabel wrote:
+>>> On 04/06/15 13:45, Julien Grall wrote:
+>>>> On 03/06/15 18:06, Joe Perches wrote:
+>>>>> On Wed, 2015-06-03 at 17:55 +0100, Julien Grall wrote:
+>>>>>> rx->status is an int16_t, print it using %d rather than %u in order to
+>>>>>> have a meaningful value when the field is negative.
+>>>>> []
+>>>>>> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+>>>>> []
+>>>>>> @@ -733,7 +733,7 @@ static int xennet_get_responses(struct netfront_queue *queue,
+>>>>>>  		if (unlikely(rx->status < 0 ||
+>>>>>>  			     rx->offset + rx->status > PAGE_SIZE)) {
+>>>>>>  			if (net_ratelimit())
+>>>>>> -				dev_warn(dev, "rx->offset: %x, size: %u\n",
+>>>>>> +				dev_warn(dev, "rx->offset: %x, size: %d\n",
+>>>>>
+>>>>> If you're going to do this, perhaps it'd be sensible to
+>>>>> also change the %x to %#x or 0x%x so that people don't
+>>>>> mistake offset without an [a-f] for decimal.
+>>>>
+>>>> Good idea. I will resend a version of this series.
+>>>>
+>>>> David, can I keep you Reviewed-by for this change?#
+>>>
+>>> Can you make the offset %d instead?
+> 
+> If you do, please change similar uses in
+> drivers/net/xen-netback/ in the same patch.
 
-Therefore we no longer need to care about 'encapsulation'
-overhead of stripped PPPOE/VLAN headers since ip_do_fragment
-doesn't use device mtu in such cases.
+The format is not really consistent accross the 2 drivers and even
+within the same driver (see pending_idx which is some times print with
+%x and %d).
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- include/linux/netfilter_bridge.h | 7 -------
- net/bridge/br_netfilter.c        | 7 +++++++
- net/ipv4/ip_output.c             | 4 ----
- 3 files changed, 7 insertions(+), 11 deletions(-)
+Anyway, ss it's a different drivers and maintainers I will prefer to
+send a separate patch for this.
 
-diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
-index f2fdb5a..6d80fc6 100644
---- a/include/linux/netfilter_bridge.h
-+++ b/include/linux/netfilter_bridge.h
-@@ -20,13 +20,6 @@ enum nf_br_hook_priorities {
- #define BRNF_BRIDGED_DNAT		0x02
- #define BRNF_NF_BRIDGE_PREROUTING	0x08
- 
--static inline unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
--{
--	if (skb->nf_bridge->orig_proto == BRNF_PROTO_PPPOE)
--		return PPPOE_SES_HLEN;
--	return 0;
--}
--
- int br_handle_frame_finish(struct sock *sk, struct sk_buff *skb);
- 
- static inline void br_drop_fake_rtable(struct sk_buff *skb)
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 0d9ad4a..a6677fa 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -870,6 +870,13 @@ static int br_nf_ip_fragment(struct sock *sk, struct sk_buff *skb,
- 	return ip_do_fragment(sk, skb, output);
- }
- 
-+static unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
-+{
-+	if (skb->nf_bridge->orig_proto == BRNF_PROTO_PPPOE)
-+		return PPPOE_SES_HLEN;
-+	return 0;
-+}
-+
- static int br_nf_dev_queue_xmit(struct sock *sk, struct sk_buff *skb)
- {
- 	int ret;
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index f5f5ef1..19d7e43 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -549,10 +549,6 @@ int ip_do_fragment(struct sock *sk, struct sk_buff *skb,
- 
- 	hlen = iph->ihl * 4;
- 	mtu = mtu - hlen;	/* Size of data space */
--#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
--	if (skb->nf_bridge)
--		mtu -= nf_bridge_mtu_reduction(skb);
--#endif
- 	IPCB(skb)->flags |= IPSKB_FRAG_COMPLETE;
- 
- 	/* When frag_list is given, use it. First, check its validity:
+Regards,
+
 -- 
-2.0.5
-
+Julien Grall
