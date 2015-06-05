@@ -1,92 +1,69 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [PATCH] sctp:Make the function sctp_assoc_lookup_laddr bool
-Date: Fri, 5 Jun 2015 14:16:25 -0300
-Message-ID: <20150605171625.GB3402@localhost.localdomain>
-References: <1433335867-1871-1-git-send-email-xerofoify@gmail.com>
- <20150604103503.GA24585@hmsreliant.think-freely.org>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: [PATCH net] ipv6: fix possible use after free of dev stats
+Date: Fri, 5 Jun 2015 18:51:54 +0100
+Message-ID: <1433526714-18770-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicholas Krause <xerofoify@gmail.com>, vyasevich@gmail.com,
-	davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Robert Shearman <rshearma@brocade.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52001 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752066AbbFERQ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Jun 2015 13:16:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20150604103503.GA24585@hmsreliant.think-freely.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:31728 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752050AbbFERxB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2015 13:53:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 04, 2015 at 06:35:03AM -0400, Neil Horman wrote:
-> On Wed, Jun 03, 2015 at 08:51:07AM -0400, Nicholas Krause wrote:
-> > This makes the function sctp_assoc_lookup_laddr bool due to this
-> > function only returning either one or zero as its return value.
-> > 
-> > Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
-> > ---
-> >  include/net/sctp/structs.h | 4 ++--
-> >  net/sctp/associola.c       | 8 ++++----
-> >  2 files changed, 6 insertions(+), 6 deletions(-)
-> > 
-> > diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> > index 2bb2fcf..1381be9 100644
-> > --- a/include/net/sctp/structs.h
-> > +++ b/include/net/sctp/structs.h
-> > @@ -1870,8 +1870,8 @@ struct sctp_transport *sctp_assoc_choose_alter_transport(
-> >  void sctp_assoc_update_retran_path(struct sctp_association *);
-> >  struct sctp_transport *sctp_assoc_lookup_paddr(const struct sctp_association *,
-> >  					  const union sctp_addr *);
-> > -int sctp_assoc_lookup_laddr(struct sctp_association *asoc,
-> > -			    const union sctp_addr *laddr);
-> > +bool sctp_assoc_lookup_laddr(struct sctp_association *asoc,
-> > +			     const union sctp_addr *laddr);
-> >  struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *,
-> >  				     const union sctp_addr *address,
-> >  				     const gfp_t gfp,
-> > diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> > index 197c3f5..69abe78 100644
-> > --- a/net/sctp/associola.c
-> > +++ b/net/sctp/associola.c
-> > @@ -1572,15 +1572,15 @@ int sctp_assoc_set_bind_addr_from_cookie(struct sctp_association *asoc,
-> >  }
-> >  
-> >  /* Lookup laddr in the bind address list of an association. */
-> > -int sctp_assoc_lookup_laddr(struct sctp_association *asoc,
-> > -			    const union sctp_addr *laddr)
-> > +bool sctp_assoc_lookup_laddr(struct sctp_association *asoc,
-> > +			     const union sctp_addr *laddr)
-> >  {
-> > -	int found = 0;
-> > +	bool found = false;
-> >  
-> >  	if ((asoc->base.bind_addr.port == ntohs(laddr->v4.sin_port)) &&
-> >  	    sctp_bind_addr_match(&asoc->base.bind_addr, laddr,
-> >  				 sctp_sk(asoc->base.sk)))
-> > -		found = 1;
-> > +		found = true;
-> >  
-> >  	return found;
-> >  }
-> > -- 
-> > 2.1.4
-> > 
-> > 
-> 
-> If you're going to do this, you might as well also remove the conditional
-> statement here entirely.  I.e. just have the function be this:
-> 
-> return (asoc->base.bind_addr.port == ntohs(laddr->v4.sin_port)) &&
-> 	sctp_bind_addr_match(&asoc->base.bind_addr, laddr,
-> 	sctp_sk(asoc->base.sk)));
-> 
-> You might also look into makeing it inline, though it doesn't appear in any hot
-> paths so thats likely overkill
+The memory pointed to by idev->stats.icmpv6msgdev,
+idev->stats.icmpv6dev and idev->stats.ipv6 can each be used in an RCU
+read context without taking a reference on idev. For example, through
+IP6_*_STATS_* calls in ip6_rcv. These memory blocks are freed without
+waiting for an RCU grace period to elapse. This could lead to the
+memory being written to after it has been freed.
 
-+1
-just in case you cut&paste, be careful that the 3rd line should start
-right after the ( in the 2nd line. (Like it was before)
+Fix this by using call_rcu to free the memory used for stats, as well
+as idev after an RCU grace period has elapsed.
 
-  Marcelo
+Signed-off-by: Robert Shearman <rshearma@brocade.com>
+---
+I have no evidence of this causing any problems in reality - this
+issue was found by inspection.
+
+ net/ipv6/addrconf_core.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
+index d873ceea86e6..ca09bf49ac68 100644
+--- a/net/ipv6/addrconf_core.c
++++ b/net/ipv6/addrconf_core.c
+@@ -133,6 +133,14 @@ static void snmp6_free_dev(struct inet6_dev *idev)
+ 	free_percpu(idev->stats.ipv6);
+ }
+ 
++static void in6_dev_finish_destroy_rcu(struct rcu_head *head)
++{
++	struct inet6_dev *idev = container_of(head, struct inet6_dev, rcu);
++
++	snmp6_free_dev(idev);
++	kfree(idev);
++}
++
+ /* Nobody refers to this device, we may destroy it. */
+ 
+ void in6_dev_finish_destroy(struct inet6_dev *idev)
+@@ -151,7 +159,6 @@ void in6_dev_finish_destroy(struct inet6_dev *idev)
+ 		pr_warn("Freeing alive inet6 device %p\n", idev);
+ 		return;
+ 	}
+-	snmp6_free_dev(idev);
+-	kfree_rcu(idev, rcu);
++	call_rcu(&idev->rcu, in6_dev_finish_destroy_rcu);
+ }
+ EXPORT_SYMBOL(in6_dev_finish_destroy);
+-- 
+2.1.4
