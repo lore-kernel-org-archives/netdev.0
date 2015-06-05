@@ -1,7 +1,7 @@
 From: Antonio Murdaca <antonio.murdaca@gmail.com>
 Subject: [PATCH] ethernet: micrel: use time_after_eq macro
-Date: Fri,  5 Jun 2015 16:37:43 +0200
-Message-ID: <1433515063-18284-1-git-send-email-antonio.murdaca@gmail.com>
+Date: Fri,  5 Jun 2015 16:30:27 +0200
+Message-ID: <1433514627-16845-1-git-send-email-antonio.murdaca@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	joe@perches.com, julia.lawall@lip6.fr, akpm@linux-foundation.org,
 	Antonio Murdaca <antonio.murdaca@gmail.com>
