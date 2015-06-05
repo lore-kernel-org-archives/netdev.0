@@ -1,59 +1,54 @@
-From: Fugang Duan <B38611@freescale.com>
-Subject: [PATCH net-next 1/1] net: fec: ptp: correct the ENET_ATCOR value
-Date: Fri, 5 Jun 2015 17:22:08 +0800
-Message-ID: <1433496128-3102-1-git-send-email-B38611@freescale.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v2 net-next 1/2] bpf: make programs see skb->data == L2
+ for ingress and egress
+Date: Fri, 05 Jun 2015 06:03:15 -0400
+Message-ID: <557173E3.5020807@mojatatu.com>
+References: <1433437914-15808-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <B20596@freescale.com>,
-	<b38611@freescale.com>
-To: <richardcochran@gmail.com>, <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0114.outbound.protection.outlook.com ([157.56.110.114]:58176
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751669AbbFEJYm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Jun 2015 05:24:42 -0400
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:32896 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932123AbbFEKDX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2015 06:03:23 -0400
+Received: by iebgx4 with SMTP id gx4so54374133ieb.0
+        for <netdev@vger.kernel.org>; Fri, 05 Jun 2015 03:03:23 -0700 (PDT)
+In-Reply-To: <1433437914-15808-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan <b38611@freescale.com>
+On 06/04/15 13:11, Alexei Starovoitov wrote:
+> eBPF programs attached to ingress and egress qdiscs see inconsistent skb->data.
+> For ingress L2 header is already pulled, whereas for egress it's present.
+> This is known to program writers which are currently forced to use
+> BPF_LL_OFF workaround.
+> Since programs don't change skb internal pointers it is safe to do
+> pull/push right around invocation of the program and earlier taps and
+> later pt->func() will not be affected.
+> Multiple taps via packet_rcv(), tpacket_rcv() are doing the same trick
+> around run_filter/BPF_PROG_RUN even if skb_shared.
+>
+> This fix finally allows programs to use optimized LD_ABS/IND instructions
+> without BPF_LL_OFF for higher performance.
+> tc ingress + cls_bpf + samples/bpf/tcbpf1_kern.o
+>         w/o JIT   w/JIT
+> before  20.5     23.6 Mpps
+> after   21.8     26.6 Mpps
+>
+> Old programs with BPF_LL_OFF will still work as-is.
+>
+> We can now undo most of the earlier workaround commit:
+> a166151cbe33 ("bpf: fix bpf helpers to use skb->mac_header relative offsets")
+>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
 
-The current driver adjust freq formula is:
-fe * diff = ppb * pc
-Note:
-  fe: ENET ref clock frequency in Hz
-  diff = inc_corr - inc: difference between default increment and correction increment
-  ppb: parts per billion adjustment from base
-  pc: correction period (in number of fe clock cycles)
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-The correction increment will be used after N cycles of regular increments,
-not every N cycles (with N being the correction period). For example, set ENET_ATCOR=4,
-INC=8, INC_CORR=9, there will be 4 increments of 8 (ENET_ATINC[INC]) , followed by 1
-increment of 9 (ENET_ATINC[INC_CORR]).
-
-So, the correct formula is:
-	fe * diff = ppb * (pc + 1)
-
-For ENET_ATCOR, a value 0 disables the correction counter and no corrections occur.
-So base on the origin formula, set pc = pc > 1 ? pc - 1 : pc.
-
-Signed-off-by: Fugang Duan <B38611@freescale.com>
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
----
- drivers/net/ethernet/freescale/fec_ptp.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
-index 2daf42e..9eb81fa 100644
---- a/drivers/net/ethernet/freescale/fec_ptp.c
-+++ b/drivers/net/ethernet/freescale/fec_ptp.c
-@@ -353,6 +353,7 @@ static int fec_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
- 	tmp = readl(fep->hwp + FEC_ATIME_INC) & FEC_T_INC_MASK;
- 	tmp |= corr_ns << FEC_T_INC_CORR_OFFSET;
- 	writel(tmp, fep->hwp + FEC_ATIME_INC);
-+	corr_period = corr_period > 1 ? corr_period - 1 : corr_period;
- 	writel(corr_period, fep->hwp + FEC_ATIME_CORR);
- 	/* dummy read to update the timer. */
- 	timecounter_read(&fep->tc);
--- 
-1.7.8
+cheers,
+jamal
