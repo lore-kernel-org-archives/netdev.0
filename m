@@ -1,63 +1,74 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [Xen-devel] [PATCH v2 1/2] net/xen-netfront: Correct printf
- format in xennet_get_responses
-Date: Fri, 05 Jun 2015 08:49:00 -0700
-Message-ID: <1433519340.2658.51.camel@perches.com>
-References: <1433350510-12846-1-git-send-email-julien.grall@citrix.com>
-	 <1433350510-12846-2-git-send-email-julien.grall@citrix.com>
-	 <1433351196.4861.131.camel@perches.com> <5570484C.8040201@citrix.com>
-	 <557048B1.9070805@citrix.com> <55704A02.9010001@citrix.com>
-	 <1433435132.4861.184.camel@perches.com> <55719752.2070909@citrix.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [RFC PATCH net] tcp: Update pcount after skb_pull() during mtu probing
+Date: Fri, 5 Jun 2015 09:16:54 -0700
+Message-ID: <1433521014-2465771-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Vrabel <david.vrabel@citrix.com>, ian.campbell@citrix.com,
-	netdev@vger.kernel.org, stefano.stabellini@eu.citrix.com,
-	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>
-To: Julien Grall <julien.grall@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55719752.2070909@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Kernel Team <kernel-team@fb.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:9409 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751376AbbFEQQ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2015 12:16:57 -0400
+Received: from pps.filterd (m0004060 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t55GFl9A027086
+	for <netdev@vger.kernel.org>; Fri, 5 Jun 2015 09:16:56 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 1uubf1rta4-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 05 Jun 2015 09:16:56 -0700
+Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
+ mx-out.facebook.com (10.212.232.63) with ESMTP	id
+ 4825c6540b9e11e592b70002c992ebde-6d4d52a0 for <netdev@vger.kernel.org>;	Fri,
+ 05 Jun 2015 09:16:54 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-06-05 at 13:34 +0100, Julien Grall wrote:
-> On 04/06/15 17:25, Joe Perches wrote:
-> > On Thu, 2015-06-04 at 13:52 +0100, Julien Grall wrote:
-> >> On 04/06/15 13:46, David Vrabel wrote:
-> >>> On 04/06/15 13:45, Julien Grall wrote:
-> >>>> On 03/06/15 18:06, Joe Perches wrote:
-> >>>>> On Wed, 2015-06-03 at 17:55 +0100, Julien Grall wrote:
-> >>>>>> rx->status is an int16_t, print it using %d rather than %u in order to
-> >>>>>> have a meaningful value when the field is negative.
-> >>>>> []
-> >>>>>> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> >>>>> []
-> >>>>>> @@ -733,7 +733,7 @@ static int xennet_get_responses(struct netfront_queue *queue,
-> >>>>>>  		if (unlikely(rx->status < 0 ||
-> >>>>>>  			     rx->offset + rx->status > PAGE_SIZE)) {
-> >>>>>>  			if (net_ratelimit())
-> >>>>>> -				dev_warn(dev, "rx->offset: %x, size: %u\n",
-> >>>>>> +				dev_warn(dev, "rx->offset: %x, size: %d\n",
-> >>>>>
-> >>>>> If you're going to do this, perhaps it'd be sensible to
-> >>>>> also change the %x to %#x or 0x%x so that people don't
-> >>>>> mistake offset without an [a-f] for decimal.
-> >>>>
-> >>>> Good idea. I will resend a version of this series.
-> >>>>
-> >>>> David, can I keep you Reviewed-by for this change?#
-> >>>
-> >>> Can you make the offset %d instead?
-> > 
-> > If you do, please change similar uses in
-> > drivers/net/xen-netback/ in the same patch.
-> 
-> The format is not really consistent accross the 2 drivers and even
-> within the same driver (see pending_idx which is some times print with
-> %x and %d).
-> 
-> Anyway, ss it's a different drivers and maintainers I will prefer to
-> send a separate patch for this.
+The problem is caught by this WARN_ON(len > skb->len) in tcp_fragment():
 
-It's all xen to me, but thanks.
+[<ffffffff810510ca>] warn_slowpath_null+0x1a/0x20
+[<ffffffff8160ec90>] tcp_fragment+0x2a0/0x2b0
+[<ffffffff81604e06>] tcp_mark_head_lost+0x196/0x230
+[<ffffffff8160585d>] tcp_update_scoreboard+0x4d/0x80
+[<ffffffff8160a9ac>] tcp_fastretrans_alert+0x6ac/0xa90
+[<ffffffff8160b834>] tcp_ack+0x9d4/0x10e0
+[<ffffffff8160c699>] tcp_rcv_established+0x309/0x7e0
+
+The WARN_ON pointed out that tcp_skb_pcount (i.e.
+TCP_SKB_CB(skb)->tcp_gso_segs) and skb->len is inconsistent.
+
+The WARN_ON stack goes away after setting net.ipv4.tcp_mtu_probing to 0.
+
+This patch is to set the pcount after skb_pull() was called
+in tcp_mtu_probe().
+
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Reported-by: Grant Zhang <gzhang@fastly.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_output.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index a369e8a..6c95c28 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1984,8 +1984,9 @@ static int tcp_mtu_probe(struct sock *sk)
+ 								 skb->len, 0);
+ 			} else {
+ 				__pskb_trim_head(skb, copy);
+-				tcp_set_skb_tso_segs(sk, skb, mss_now);
+ 			}
++			tcp_set_skb_tso_segs(sk, skb, mss_now);
++
+ 			TCP_SKB_CB(skb)->seq += copy;
+ 		}
+ 
+-- 
+1.8.1
