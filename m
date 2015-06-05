@@ -1,67 +1,119 @@
-From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [net-next:master 1206/1214]
- drivers/net/ethernet/mellanox/mlx5/core/vport.c:321:33: sparse: incorrect
- type in assignment (different base types)
-Date: Fri, 5 Jun 2015 09:08:05 +0800
-Message-ID: <201506050903.YTbzD1YY%fengguang.wu@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: get_cookie_sock() consolidation
+Date: Thu, 04 Jun 2015 18:30:43 -0700
+Message-ID: <1433467843.1895.47.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	netdev@vger.kernel.org
-To: Majd Dibbiny <majd@mellanox.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:60537 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752187AbbFEBIw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Jun 2015 21:08:52 -0400
-Content-Disposition: inline
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:34848 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752374AbbFEBap (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 21:30:45 -0400
+Received: by igbzc4 with SMTP id zc4so4738797igb.0
+        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 18:30:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-head:   bb62f791f922254dc1847d3d0b77c9b066d5280b
-commit: 707c4602cda6624940761b66a4119f1909492385 [1206/1214] net/mlx5_core: Add new query HCA vport commands
-reproduce:
-  # apt-get install sparse
-  git checkout 707c4602cda6624940761b66a4119f1909492385
-  make ARCH=x86_64 allmodconfig
-  make C=1 CF=-D__CHECK_ENDIAN__
+From: Eric Dumazet <edumazet@google.com>
 
+IPv4 and IPv6 share same implementation of get_cookie_sock(),
+and there is no point inlining it.
 
-sparse warnings: (new ones prefixed by >>)
+We add tcp_ prefix to the common helper name and export it.
 
->> drivers/net/ethernet/mellanox/mlx5/core/vport.c:321:33: sparse: incorrect type in assignment (different base types)
-   drivers/net/ethernet/mellanox/mlx5/core/vport.c:321:33:    expected restricted __be64 [usertype] <noident>
-   drivers/net/ethernet/mellanox/mlx5/core/vport.c:321:33:    got unsigned long long [unsigned] [usertype] sys_image_guid
-
-vim +321 drivers/net/ethernet/mellanox/mlx5/core/vport.c
-
-   305		return err;
-   306	}
-   307	EXPORT_SYMBOL_GPL(mlx5_query_hca_vport_context);
-   308	
-   309	int mlx5_query_hca_vport_system_image_guid(struct mlx5_core_dev *dev,
-   310						   __be64 *sys_image_guid)
-   311	{
-   312		struct mlx5_hca_vport_context *rep;
-   313		int err;
-   314	
-   315		rep = kzalloc(sizeof(*rep), GFP_KERNEL);
-   316		if (!rep)
-   317			return -ENOMEM;
-   318	
-   319		err = mlx5_query_hca_vport_context(dev, 0, 1, 0, rep);
-   320		if (!err)
- > 321			*sys_image_guid = rep->sys_image_guid;
-   322	
-   323		kfree(rep);
-   324		return err;
-   325	}
-   326	EXPORT_SYMBOL_GPL(mlx5_query_hca_vport_system_image_guid);
-   327	
-   328	int mlx5_query_hca_vport_node_guid(struct mlx5_core_dev *dev,
-   329					   u64 *node_guid)
-
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
-0-DAY kernel test infrastructure                Open Source Technology Center
-http://lists.01.org/mailman/listinfo/kbuild                 Intel Corporation
+ include/net/tcp.h     |    3 +++
+ net/ipv4/syncookies.c |   10 +++++-----
+ net/ipv6/syncookies.c |   19 +------------------
+ 3 files changed, 9 insertions(+), 23 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 2bb2bad21d5c2e0d1b079e7bcf19e192bc126637..978cebedd3fc5c5e12bcfe46e4835c480e53a1be 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -469,6 +469,9 @@ int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size);
+ void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb);
+ 
+ /* From syncookies.c */
++struct sock *tcp_get_cookie_sock(struct sock *sk, struct sk_buff *skb,
++				 struct request_sock *req,
++				 struct dst_entry *dst);
+ int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
+ 		      u32 cookie);
+ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb);
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index df849e5a10f1d7f41fb3353a26356ede81f56f72..d70b1f603692554664c478ebb597ba73958ebd9a 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -219,9 +219,9 @@ int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
+ }
+ EXPORT_SYMBOL_GPL(__cookie_v4_check);
+ 
+-static struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+-				    struct request_sock *req,
+-				    struct dst_entry *dst)
++struct sock *tcp_get_cookie_sock(struct sock *sk, struct sk_buff *skb,
++				 struct request_sock *req,
++				 struct dst_entry *dst)
+ {
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct sock *child;
+@@ -235,7 +235,7 @@ static struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+ 	}
+ 	return child;
+ }
+-
++EXPORT_SYMBOL(tcp_get_cookie_sock);
+ 
+ /*
+  * when syncookies are in effect and tcp timestamps are enabled we stored
+@@ -391,7 +391,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+ 	ireq->rcv_wscale  = rcv_wscale;
+ 	ireq->ecn_ok = cookie_ecn_ok(&tcp_opt, sock_net(sk), &rt->dst);
+ 
+-	ret = get_cookie_sock(sk, skb, req, &rt->dst);
++	ret = tcp_get_cookie_sock(sk, skb, req, &rt->dst);
+ 	/* ip_queue_xmit() depends on our flow being setup
+ 	 * Normal sockets get it right from inet_csk_route_child_sock()
+ 	 */
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index 21bc2eb53c57bce6dd0a1073bc77766eabf9ac5f..0909f4e0d53c200f6643883df29682bca8e86fbb 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -41,23 +41,6 @@ static __u16 const msstab[] = {
+ 	9000 - 60,
+ };
+ 
+-static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+-					   struct request_sock *req,
+-					   struct dst_entry *dst)
+-{
+-	struct inet_connection_sock *icsk = inet_csk(sk);
+-	struct sock *child;
+-
+-	child = icsk->icsk_af_ops->syn_recv_sock(sk, skb, req, dst);
+-	if (child) {
+-		atomic_set(&req->rsk_refcnt, 1);
+-		inet_csk_reqsk_queue_add(sk, req, child);
+-	} else {
+-		reqsk_free(req);
+-	}
+-	return child;
+-}
+-
+ static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS],
+ 		      ipv6_cookie_scratch);
+ 
+@@ -264,7 +247,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 	ireq->rcv_wscale = rcv_wscale;
+ 	ireq->ecn_ok = cookie_ecn_ok(&tcp_opt, sock_net(sk), dst);
+ 
+-	ret = get_cookie_sock(sk, skb, req, dst);
++	ret = tcp_get_cookie_sock(sk, skb, req, dst);
+ out:
+ 	return ret;
+ out_free:
