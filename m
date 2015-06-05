@@ -1,119 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: get_cookie_sock() consolidation
-Date: Thu, 04 Jun 2015 18:30:43 -0700
-Message-ID: <1433467843.1895.47.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v2] rocker: move netevent neigh update to
+ processes context
+Date: Thu, 4 Jun 2015 18:33:10 -0700
+Message-ID: <CAE4R7bBfHeK8U_8-QWoVoaVAGT6ObemaKdGOon_nyO8gooyU4A@mail.gmail.com>
+References: <1433303008-32656-1-git-send-email-sfeldma@gmail.com>
+ <20150603.233829.1362177764562847830.davem@davemloft.net> <20150604082045.GA7709@vergenet.net>
+ <CAE4R7bD1EmYm4TNrWWskTeKA6NfNsasVRTP4KxhOYvZt_9n3Ow@mail.gmail.com> <20150604225425.GA7465@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Simon Horman <simon.horman@netronome.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:34848 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752374AbbFEBap (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 21:30:45 -0400
-Received: by igbzc4 with SMTP id zc4so4738797igb.0
-        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 18:30:45 -0700 (PDT)
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:33386 "EHLO
+	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752230AbbFEBdb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2015 21:33:31 -0400
+Received: by oiww2 with SMTP id w2so43831257oiw.0
+        for <netdev@vger.kernel.org>; Thu, 04 Jun 2015 18:33:31 -0700 (PDT)
+In-Reply-To: <20150604225425.GA7465@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, Jun 4, 2015 at 3:54 PM, Simon Horman <horms@verge.net.au> wrote:
+> Hi Scott,
+>
+>> Simon, just focusing on this rocker->neigh_tbl_next_index++ issue at
+>> the moment, I think the change below would make _rocker_neigh_add()
+>> safe to call without needing to put neigh_update into process context.
+>> It works because entry is stored between PREPARE and COMMIT, so once
+>> entry->index is assigned in PREPARE (under neigh_tbl_lock), it'll be
+>> re-used in COMMIT, even if the NONE thread also claims it's
+>> entry->index (also under neigh_tbl_lock).
+>>
+>> I know there are other issues you and Toshiaki Makita have pointed
+>> out, but let's see if we can peel the onion one layer at a time.
+>>
+>> --- a/drivers/net/ethernet/rocker/rocker.c
+>> +++ b/drivers/net/ethernet/rocker/rocker.c
+>> @@ -2904,10 +2904,10 @@ static void _rocker_neigh_add(struct rocker *rocker,
+>>                               enum switchdev_trans trans,
+>>                               struct rocker_neigh_tbl_entry *entry)
+>>  {
+>> -       entry->index = rocker->neigh_tbl_next_index;
+>> +       if (trans != SWITCHDEV_TRANS_COMMIT)
+>> +               entry->index = rocker->neigh_tbl_next_index++;
+>>         if (trans == SWITCHDEV_TRANS_PREPARE)
+>>                 return;
+>> -       rocker->neigh_tbl_next_index++;
+>>         entry->ref_count++;
+>>         hash_add(rocker->neigh_tbl, &entry->entry,
+>>                  be32_to_cpu(entry->ip_addr));
+>
+> I agree that should work.
 
-IPv4 and IPv6 share same implementation of get_cookie_sock(),
-and there is no point inlining it.
+I've been running it today with no problems.  So I'm preparing a new
+patch that changes direction here, to address David's concern about
+switching neigh event context.  Details:
 
-We add tcp_ prefix to the common helper name and export it.
+1) Above little patch addresses the race issue with neigh_tbl_next_index
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/net/tcp.h     |    3 +++
- net/ipv4/syncookies.c |   10 +++++-----
- net/ipv6/syncookies.c |   19 +------------------
- 3 files changed, 9 insertions(+), 23 deletions(-)
+2) Keep neigh update event in event context and bring back a couple of
+items I removed in the Spring Cleanup series:
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 2bb2bad21d5c2e0d1b079e7bcf19e192bc126637..978cebedd3fc5c5e12bcfe46e4835c480e53a1be 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -469,6 +469,9 @@ int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size);
- void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb);
- 
- /* From syncookies.c */
-+struct sock *tcp_get_cookie_sock(struct sock *sk, struct sk_buff *skb,
-+				 struct request_sock *req,
-+				 struct dst_entry *dst);
- int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
- 		      u32 cookie);
- struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb);
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index df849e5a10f1d7f41fb3353a26356ede81f56f72..d70b1f603692554664c478ebb597ba73958ebd9a 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -219,9 +219,9 @@ int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
- }
- EXPORT_SYMBOL_GPL(__cookie_v4_check);
- 
--static struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
--				    struct request_sock *req,
--				    struct dst_entry *dst)
-+struct sock *tcp_get_cookie_sock(struct sock *sk, struct sk_buff *skb,
-+				 struct request_sock *req,
-+				 struct dst_entry *dst)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct sock *child;
-@@ -235,7 +235,7 @@ static struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
- 	}
- 	return child;
- }
--
-+EXPORT_SYMBOL(tcp_get_cookie_sock);
- 
- /*
-  * when syncookies are in effect and tcp timestamps are enabled we stored
-@@ -391,7 +391,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
- 	ireq->rcv_wscale  = rcv_wscale;
- 	ireq->ecn_ok = cookie_ecn_ok(&tcp_opt, sock_net(sk), &rt->dst);
- 
--	ret = get_cookie_sock(sk, skb, req, &rt->dst);
-+	ret = tcp_get_cookie_sock(sk, skb, req, &rt->dst);
- 	/* ip_queue_xmit() depends on our flow being setup
- 	 * Normal sockets get it right from inet_csk_route_child_sock()
- 	 */
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index 21bc2eb53c57bce6dd0a1073bc77766eabf9ac5f..0909f4e0d53c200f6643883df29682bca8e86fbb 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -41,23 +41,6 @@ static __u16 const msstab[] = {
- 	9000 - 60,
- };
- 
--static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
--					   struct request_sock *req,
--					   struct dst_entry *dst)
--{
--	struct inet_connection_sock *icsk = inet_csk(sk);
--	struct sock *child;
--
--	child = icsk->icsk_af_ops->syn_recv_sock(sk, skb, req, dst);
--	if (child) {
--		atomic_set(&req->rsk_refcnt, 1);
--		inet_csk_reqsk_queue_add(sk, req, child);
--	} else {
--		reqsk_free(req);
--	}
--	return child;
--}
--
- static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS],
- 		      ipv6_cookie_scratch);
- 
-@@ -264,7 +247,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 	ireq->rcv_wscale = rcv_wscale;
- 	ireq->ecn_ok = cookie_ecn_ok(&tcp_opt, sock_net(sk), dst);
- 
--	ret = get_cookie_sock(sk, skb, req, dst);
-+	ret = tcp_get_cookie_sock(sk, skb, req, dst);
- out:
- 	return ret;
- out_free:
+   a) use ROCKER_OP_FLAG_NOWAIT to mark contexts that can't sleep
+   b) if nowait, mem allocations use GFP_ATOMIC
+   c) if nowait, cmd to device is issued, but we will not sleep to
+wait for response from device; just hit-and-run
+
+I was probably too aggressive with Spring Cleanup thinking we could
+swing all device accesses to process context.
+
+Thanks to all for the testing/review/feedback/patience.
