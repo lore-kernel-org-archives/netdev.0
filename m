@@ -1,86 +1,105 @@
 From: Jaeden Amero <jaeden.amero@ni.com>
-Subject: [PATCH v4 3/3] net/phy: micrel: Center FLP timing at 16ms
-Date: Fri, 5 Jun 2015 18:00:26 -0500
-Message-ID: <1433545226-18324-4-git-send-email-jaeden.amero@ni.com>
+Subject: [PATCH v4 1/3] net/phy: micrel: Be more const correct
+Date: Fri, 5 Jun 2015 18:00:24 -0500
+Message-ID: <1433545226-18324-2-git-send-email-jaeden.amero@ni.com>
 References: <1433545226-18324-1-git-send-email-jaeden.amero@ni.com>
 Cc: Jaeden Amero <jaeden.amero@ni.com>
 To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from skprod2.natinst.com ([130.164.80.23]:41162 "EHLO ni.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752593AbbFEXAq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Jun 2015 19:00:46 -0400
 In-Reply-To: <1433545226-18324-1-git-send-email-jaeden.amero@ni.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Link failures have been observed when using the KSZ9031 with HP 1810-8G
-and HP 1910-8G network switches. Center the FLP timing at 16ms to help
-avoid intermittent link failures.
+In a few places in this driver, we weren't using const where we could
+have. Use const more.
 
->From the KSZ9031RNX and KSZ9031MNX data sheets revision 2.2, section
-"Auto-Negotiation Timing":
-	The KSZ9031[RNX or MNX] Fast Link Pulse (FLP) burst-to-burst
-	transmit timing for Auto-Negotiation defaults to 8ms. IEEE 802.3
-	Standard specifies this timing to be 16ms +/-8ms. Some PHY link
-	partners need to receive the FLP with 16ms centered timing;
-	otherwise, there can be intermittent link failures and long
-	link-up times.
-
-The PHY data sheet recommends configuring the FLP burst registers after
-power-up/reset and immediately thereafter restarting auto-negotiation, so
-we center the FLP timing at 16ms and then restart auto-negotiation in the
-config_init for KSZ9031.
+In addition, change the arrays of strings in ksz9031_config_init() to be
+not only const, but also static.
 
 Signed-off-by: Jaeden Amero <jaeden.amero@ni.com>
 ---
- drivers/net/phy/micrel.c | 23 ++++++++++++++++++++++-
- 1 file changed, 22 insertions(+), 1 deletion(-)
+ drivers/net/phy/micrel.c | 29 +++++++++++++++--------------
+ 1 file changed, 15 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index f23765e..499185e 100644
+index ebdc357..59cc5d4 100644
 --- a/drivers/net/phy/micrel.c
 +++ b/drivers/net/phy/micrel.c
-@@ -366,6 +366,10 @@ static int ksz9021_config_init(struct phy_device *phydev)
- #define KSZ9031_PS_TO_REG		60
- 
- /* Extended registers */
-+/* MMD Address 0x0 */
-+#define MII_KSZ9031RN_FLP_BURST_TX_LO	3
-+#define MII_KSZ9031RN_FLP_BURST_TX_HI	4
-+
- /* MMD Address 0x2 */
- #define MII_KSZ9031RN_CONTROL_PAD_SKEW	4
- #define MII_KSZ9031RN_RX_DATA_PAD_SKEW	5
-@@ -427,6 +431,22 @@ static int ksz9031_of_load_skew_values(struct phy_device *phydev,
- 	return ksz9031_extended_write(phydev, OP_DATA, 2, reg, newval);
+@@ -288,9 +288,10 @@ static int kszphy_config_init(struct phy_device *phydev)
  }
  
-+static int ksz9031_center_flp_timing(struct phy_device *phydev)
-+{
-+	int result;
-+
-+	/* Center KSZ9031RNX FLP timing at 16ms. */
-+	result = ksz9031_extended_write(phydev, OP_DATA, 0,
-+					MII_KSZ9031RN_FLP_BURST_TX_HI, 0x0006);
-+	result = ksz9031_extended_write(phydev, OP_DATA, 0,
-+					MII_KSZ9031RN_FLP_BURST_TX_LO, 0x1A80);
-+
-+	if (result)
-+		return result;
-+
-+	return genphy_restart_aneg(phydev);
-+}
-+
+ static int ksz9021_load_values_from_of(struct phy_device *phydev,
+-				       struct device_node *of_node, u16 reg,
+-				       char *field1, char *field2,
+-				       char *field3, char *field4)
++				       const struct device_node *of_node,
++				       u16 reg,
++				       const char *field1, const char *field2,
++				       const char *field3, const char *field4)
+ {
+ 	int val1 = -1;
+ 	int val2 = -2;
+@@ -336,8 +337,8 @@ static int ksz9021_load_values_from_of(struct phy_device *phydev,
+ 
+ static int ksz9021_config_init(struct phy_device *phydev)
+ {
+-	struct device *dev = &phydev->dev;
+-	struct device_node *of_node = dev->of_node;
++	const struct device *dev = &phydev->dev;
++	const struct device_node *of_node = dev->of_node;
+ 
+ 	if (!of_node && dev->parent->of_node)
+ 		of_node = dev->parent->of_node;
+@@ -389,9 +390,9 @@ static int ksz9031_extended_read(struct phy_device *phydev,
+ }
+ 
+ static int ksz9031_of_load_skew_values(struct phy_device *phydev,
+-				       struct device_node *of_node,
++				       const struct device_node *of_node,
+ 				       u16 reg, size_t field_sz,
+-				       char *field[], u8 numfields)
++				       const char *field[], u8 numfields)
+ {
+ 	int val[4] = {-1, -2, -3, -4};
+ 	int matches = 0;
+@@ -427,18 +428,18 @@ static int ksz9031_of_load_skew_values(struct phy_device *phydev,
+ 
  static int ksz9031_config_init(struct phy_device *phydev)
  {
- 	const struct device *dev = &phydev->dev;
-@@ -462,7 +482,8 @@ static int ksz9031_config_init(struct phy_device *phydev)
- 				MII_KSZ9031RN_TX_DATA_PAD_SKEW, 4,
- 				tx_data_skews, 4);
- 	}
--	return 0;
-+
-+	return ksz9031_center_flp_timing(phydev);
- }
+-	struct device *dev = &phydev->dev;
+-	struct device_node *of_node = dev->of_node;
+-	char *clk_skews[2] = {"rxc-skew-ps", "txc-skew-ps"};
+-	char *rx_data_skews[4] = {
++	const struct device *dev = &phydev->dev;
++	const struct device_node *of_node = dev->of_node;
++	static const char *clk_skews[2] = {"rxc-skew-ps", "txc-skew-ps"};
++	static const char *rx_data_skews[4] = {
+ 		"rxd0-skew-ps", "rxd1-skew-ps",
+ 		"rxd2-skew-ps", "rxd3-skew-ps"
+ 	};
+-	char *tx_data_skews[4] = {
++	static const char *tx_data_skews[4] = {
+ 		"txd0-skew-ps", "txd1-skew-ps",
+ 		"txd2-skew-ps", "txd3-skew-ps"
+ 	};
+-	char *control_skews[2] = {"txen-skew-ps", "rxdv-skew-ps"};
++	static const char *control_skews[2] = {"txen-skew-ps", "rxdv-skew-ps"};
  
- #define KSZ8873MLL_GLOBAL_CONTROL_4	0x06
+ 	if (!of_node && dev->parent->of_node)
+ 		of_node = dev->parent->of_node;
+@@ -519,7 +520,7 @@ ksz9021_wr_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
+ static int kszphy_probe(struct phy_device *phydev)
+ {
+ 	const struct kszphy_type *type = phydev->drv->driver_data;
+-	struct device_node *np = phydev->dev.of_node;
++	const struct device_node *np = phydev->dev.of_node;
+ 	struct kszphy_priv *priv;
+ 	struct clk *clk;
+ 	int ret;
 -- 
 2.1.4
