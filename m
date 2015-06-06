@@ -1,96 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v2] tcp: Force updating pcount after skb_pull()
- during mtu probing
-Date: Fri, 05 Jun 2015 18:11:33 -0700
-Message-ID: <1433553093.1895.70.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1433551592-3596877-1-git-send-email-kafai@fb.com>
+From: Vaishali Thakkar <vthakkar1994@gmail.com>
+Subject: [PATCH] isdn/hisax: Convert use of __constant_cpu_to_le16 to
+ cpu_to_le16
+Date: Sat, 6 Jun 2015 06:44:00 +0530
+Message-ID: <20150606011400.GA10287@vaishali-Ideapad-Z570>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>,
-	Grant Zhang <gzhang@fastly.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Martin KaFai Lau <kafai@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:35132 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751042AbbFFBLf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2015 21:11:35 -0400
-Received: by igbzc4 with SMTP id zc4so28090422igb.0
-        for <netdev@vger.kernel.org>; Fri, 05 Jun 2015 18:11:35 -0700 (PDT)
-In-Reply-To: <1433551592-3596877-1-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Karsten Keil <isdn@linux-pingi.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-06-05 at 17:46 -0700, Martin KaFai Lau wrote:
-> The problem is caught by this WARN_ON(len > skb->len) in tcp_fragment():
-> 
-> [<ffffffff810510ca>] warn_slowpath_null+0x1a/0x20
-> [<ffffffff8160ec90>] tcp_fragment+0x2a0/0x2b0
-> [<ffffffff81604e06>] tcp_mark_head_lost+0x196/0x230
-> [<ffffffff8160585d>] tcp_update_scoreboard+0x4d/0x80
-> [<ffffffff8160a9ac>] tcp_fastretrans_alert+0x6ac/0xa90
-> [<ffffffff8160b834>] tcp_ack+0x9d4/0x10e0
-> [<ffffffff8160c699>] tcp_rcv_established+0x309/0x7e0
-> 
-> The WARN_ON pointed out that tcp_skb_pcount (i.e.
-> TCP_SKB_CB(skb)->tcp_gso_segs) and skb->len is inconsistent.
-> 
-> The WARN_ON stack goes away after setting net.ipv4.tcp_mtu_probing to 0.
-> 
-> v2
-> - Replace the skb slicing codes by the existing tcp_trim_head(),
->   suggested by Eric Dumazet.
-> 
-> v1
-> - Call tcp_set_skb_tso_segs() for all slicing cases.
-> 
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> Reported-by: Grant Zhang <gzhang@fastly.com>
-> Cc: Grant Zhang <gzhang@fastly.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> ---
->  net/ipv4/tcp_output.c | 12 ++----------
->  1 file changed, 2 insertions(+), 10 deletions(-)
-> 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index a369e8a..4ae4f0c 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -1977,16 +1977,8 @@ static int tcp_mtu_probe(struct sock *sk)
->  		} else {
->  			TCP_SKB_CB(nskb)->tcp_flags |= TCP_SKB_CB(skb)->tcp_flags &
->  						   ~(TCPHDR_FIN|TCPHDR_PSH);
-> -			if (!skb_shinfo(skb)->nr_frags) {
-> -				skb_pull(skb, copy);
-> -				if (skb->ip_summed != CHECKSUM_PARTIAL)
-> -					skb->csum = csum_partial(skb->data,
-> -								 skb->len, 0);
-> -			} else {
-> -				__pskb_trim_head(skb, copy);
-> -				tcp_set_skb_tso_segs(sk, skb, mss_now);
-> -			}
-> -			TCP_SKB_CB(skb)->seq += copy;
-> +			tcp_skb_pcount_set(skb, 0);
-> +			tcp_trim_head(sk, skb, copy);
->  		}
->  
->  		len += copy;
+In big endian cases, macro cpu_to_le16 unfolds to __swab16 which
+provides special case for constants. In little endian cases,
+__constant_cpu_to_le16 and cpu_to_le16 expand directly to the
+same expression. So, replace __constant_cpu_to_le16 with
+cpu_to_le16 with the goal of getting rid of the definition of
+__constant_cpu_to_le16 completely.
 
+The semantic patch that performs this transformation is as follows:
 
-I think the invariant should be that if a packet had been never sent,
-its pcount should be already 0.
+@@expression x;@@
 
-(cleared in do_tcp_sendpages() and tcp_sendmsg() : it seems we hacked
-these functions already in the past :( )
+- __constant_cpu_to_le16(x)
++ cpu_to_le16(x)
 
-So we might need to track places where we violate this rule, then get
-rid of the tcp_skb_pcount_set(skb, 0); done in do_tcp_sendpages() and
-tcp_sendmsg().
+Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
+---
+ drivers/isdn/hisax/st5481_usb.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Here, trimming a packet that was never sent (by definition) should not
-force pcount to 0, it should already be the case.
+diff --git a/drivers/isdn/hisax/st5481_usb.c b/drivers/isdn/hisax/st5481_usb.c
+index ead0a4f..a0fdbc0 100644
+--- a/drivers/isdn/hisax/st5481_usb.c
++++ b/drivers/isdn/hisax/st5481_usb.c
+@@ -267,8 +267,8 @@ int st5481_setup_usb(struct st5481_adapter *adapter)
+ 	}
+ 
+ 	// The descriptor is wrong for some early samples of the ST5481 chip
+-	altsetting->endpoint[3].desc.wMaxPacketSize = __constant_cpu_to_le16(32);
+-	altsetting->endpoint[4].desc.wMaxPacketSize = __constant_cpu_to_le16(32);
++	altsetting->endpoint[3].desc.wMaxPacketSize = cpu_to_le16(32);
++	altsetting->endpoint[4].desc.wMaxPacketSize = cpu_to_le16(32);
+ 
+ 	// Use alternative setting 3 on interface 0 to have 2B+D
+ 	if ((status = usb_set_interface(dev, 0, 3)) < 0) {
+-- 
+1.9.1
