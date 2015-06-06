@@ -1,36 +1,33 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH] rhashtable: add missing import <linux/export.h>
-Date: Sat,  6 Jun 2015 22:07:23 +0200
-Message-ID: <1433621243-30976-1-git-send-email-hauke@hauke-m.de>
-Cc: netdev@vger.kernel.org, Hauke Mehrtens <hauke@hauke-m.de>
-To: tgraf@suug.ch, davem@davemloft.net
+From: "David" <david@ikubox.com>
+Subject: New Satellite Receiver
+Date: Sun, 7 Jun 2015 04:11:42 +0800
+Message-ID: <201506070411429194455@a.dolecat.com>
+Reply-To: sbv111@aliyun.com
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="GB2312"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hauke-m.de ([5.39.93.123]:37123 "EHLO hauke-m.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752893AbbFFUHp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Jun 2015 16:07:45 -0400
+Received: from [172.246.160.184] ([172.246.160.184]:39420 "EHLO a.dolecat.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S932473AbbFFUSx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Jun 2015 16:18:53 -0400
+Received: from effgg (unknown [183.16.194.76])
+	by a.dolecat.com (Postfix) with ESMTPA id 9C0BD302199
+	for <netdev@vger.kernel.org>; Sat,  6 Jun 2015 16:11:14 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rhashtable uses EXPORT_SYMBOL_GPL() without importing linux/export.h
-directly it is only imported indirectly through some other includes.
-
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
----
- lib/rhashtable.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index b28df40..1b70b49 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -25,6 +25,7 @@
- #include <linux/random.h>
- #include <linux/rhashtable.h>
- #include <linux/err.h>
-+#include <linux/export.h>
- 
- #define HASH_DEFAULT_SIZE	64UL
- #define HASH_MIN_SIZE		4U
--- 
-2.1.4
+RGVhciBDdXN0b21lciwNCg0KSG93IGFyZSB5b3UgISAgDQpJJ2QgbGlrZSB0byBpbnRyb2R1Y2Ug
+b3VyIG5ldyBzYXRlbGxpdGUgcmVjZWl2ZXIgdG8geW91IDoNCg0KMS4gWDEgLSBEVkItUzIgU2lu
+Z2xlIFR1bmVyK1JKNDUgTEFOK0NBK1N1cHBvcnQgV0lGSSBEb25nbGUrRG9sYnkrQUxJMzUxMQ0K
+Rk9CIFByaWNlIFVTRDIzLjUgDQoNCjIuIFgyIC0gRFZCLVMyK1MyIFR3aW4gVHVuZXIrUko0NSBM
+QU4rQ0ErU3VwcG9ydCBXSUZJIERvbmdsZStEb2xieStBTEkzNTE2DQpGT0IgUHJpY2UgVVNEMjcu
+NSANCg0KMy4gWDMgLSBEVkItUzIrVDIgQ29tYm8rUko0NSBMQU4rQ0ErU3VwcG9ydCBXSUZJIERv
+bmdsZStEb2xieStBTEkzNTE2DQpGT0IgUHJpY2UgVVNEMjguNSANCg0KTU9RIC0gNTAwcGNzLCBh
+bmQgcHJpY2UgY2FuIGJlIG5lZ290aWF0ZSBiYXNlZCBvbiBvcmRlciBxdWFudGl0eQ0KDQpJIHdp
+bGwgc2VuZCB5b3UgaGFyZHdhcmUvc29mdHdhcmUgZmVhdHVyZXMgYW5kIG91ciBjb21wYW55IHBy
+b2ZpbGUgaWYgeW91IGludGVyZXN0ICANCg0KTG9vayBmb3J3YXJkIHRvIGhlYXJpbmcgZnJvbSB5
+b3UgLi4NCkFuZCB3aXNoIHlvdSBhbGwgdGhlIGJlc3QgIQ0KDQpDaW5keSANClRlbDorODYtNzU1
+LTk4NjI1NDMx
