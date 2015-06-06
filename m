@@ -1,76 +1,56 @@
 From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [PATCH] wan: dscc4:  use msecs_to_jiffies for conversions
-Date: Sat,  6 Jun 2015 10:41:06 +0200
-Message-ID: <1433580066-1237-1-git-send-email-hofrat@osadl.org>
+Subject: [PATCH] wan: dscc4: fix build warning Wunused-but-set-variable
+Date: Sat,  6 Jun 2015 10:41:17 +0200
+Message-ID: <1433580077-1271-1-git-send-email-hofrat@osadl.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Nicholas Mc Guire <hofrat@osadl.org>
 To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.osadl.org ([62.245.132.105]:33591 "EHLO www.osadl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751153AbbFFItM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Jun 2015 04:49:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-API compliance scanning with coccinelle flagged:
-./drivers/net/wan/dscc4.c:1036:1-33:
-        WARNING: timeout (10) seems HZ dependent
-./drivers/net/wan/dscc4.c:554:2-34:
-        WARNING: timeout (10) seems HZ dependent
-./drivers/net/wan/dscc4.c:599:2-34:
-        WARNING: timeout (10) seems HZ dependent
+Fix:
+drivers/net/wan/dscc4.c: In function 'dscc4_open':
+drivers/net/wan/dscc4.c:1049:25: warning: variable 'ppriv' set but not used
+[-Wunused-but-set-variable]
 
-Numeric constants passed to schedule_timeout_*() make the effective
-timeout HZ dependent which does not seem to be the intent here.
-Fixed up by converting the constant to jiffies with msecs_to_jiffies()
+This has been in there unused since 1da177e4c3f (Linux-2.6.12-rc2) simply
+remove it.
 
 Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
 ---
 
-As the intended timeout is not documented and msecs_to_jiffies(10) may
-be a factor 10 off from constant 10, this needs to be checked by 
-someone that knows the details of this driver, in any case it should
-be passed in a HZ independent way.
+Was not able to trace when this got put in and why - but if nobody noticed
+this within 10 years it probably really is dead code.
 
 Patch was compile tested with x86_64_defconfig + CONFIG_WAN=y
 CONFIG_HDLC=m, CONFIG_DSCC4=m
 
 Patch is against 4.1-rc6 (localversion-next is -next-20150605)
 
- drivers/net/wan/dscc4.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/wan/dscc4.c |    3 ---
+ 1 file changed, 0 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
 index 0822356..2ce5249 100644
 --- a/drivers/net/wan/dscc4.c
 +++ b/drivers/net/wan/dscc4.c
-@@ -551,7 +551,7 @@ static int dscc4_wait_ack_cec(struct dscc4_dev_priv *dpriv,
- 			       msg, i);
- 			goto done;
- 		}
--		schedule_timeout_uninterruptible(10);
-+		schedule_timeout_uninterruptible(msecs_to_jiffies(10));
- 		rmb();
- 	} while (++i > 0);
- 	netdev_err(dev, "%s timeout\n", msg);
-@@ -596,7 +596,7 @@ static inline int dscc4_xpr_ack(struct dscc4_dev_priv *dpriv)
- 		    (dpriv->iqtx[cur] & cpu_to_le32(Xpr)))
- 			break;
- 		smp_rmb();
--		schedule_timeout_uninterruptible(10);
-+		schedule_timeout_uninterruptible(msecs_to_jiffies(10));
- 	} while (++i > 0);
+@@ -1046,7 +1046,6 @@ static void dscc4_pci_reset(struct pci_dev *pdev, void __iomem *ioaddr)
+ static int dscc4_open(struct net_device *dev)
+ {
+ 	struct dscc4_dev_priv *dpriv = dscc4_priv(dev);
+-	struct dscc4_pci_priv *ppriv;
+ 	int ret = -EAGAIN;
  
- 	return (i >= 0 ) ? i : -EAGAIN;
-@@ -1033,7 +1033,7 @@ static void dscc4_pci_reset(struct pci_dev *pdev, void __iomem *ioaddr)
- 	/* Flush posted writes */
- 	readl(ioaddr + GSTAR);
+ 	if ((dscc4_loopback_check(dpriv) < 0))
+@@ -1055,8 +1054,6 @@ static int dscc4_open(struct net_device *dev)
+ 	if ((ret = hdlc_open(dev)))
+ 		goto err;
  
--	schedule_timeout_uninterruptible(10);
-+	schedule_timeout_uninterruptible(msecs_to_jiffies(10));
- 
- 	for (i = 0; i < 16; i++)
- 		pci_write_config_dword(pdev, i << 2, dscc4_pci_config_store[i]);
+-	ppriv = dpriv->pci_priv;
+-
+ 	/*
+ 	 * Due to various bugs, there is no way to reliably reset a
+ 	 * specific port (manufacturer's dependent special PCI #RST wiring
 -- 
 1.7.10.4
