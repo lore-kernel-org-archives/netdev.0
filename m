@@ -1,71 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH net] tcp: Update pcount after skb_pull() during mtu
- probing
-Date: Fri, 05 Jun 2015 16:45:04 -0700
-Message-ID: <1433547904.1895.66.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1433521014-2465771-1-git-send-email-kafai@fb.com>
-	 <CANn89iLd1bqCOxbALcDNzi--Hn8A970HmvM2__ryzjwSbOwZ6Q@mail.gmail.com>
-	 <20150605180254.GC2951343@devbig242.prn2.facebook.com>
-	 <1433539435.1895.60.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150605230206.GD2951343@devbig242.prn2.facebook.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH net v2] tcp: Force updating pcount after skb_pull() during mtu probing
+Date: Fri, 5 Jun 2015 17:46:32 -0700
+Message-ID: <1433551592-3596877-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>,
+Content-Type: text/plain
+Cc: Kernel Team <kernel-team@fb.com>, Grant Zhang <gzhang@fastly.com>,
+	Eric Dumazet <edumazet@google.com>,
 	Neal Cardwell <ncardwell@google.com>,
 	Yuchung Cheng <ycheng@google.com>
-To: Martin KaFai Lau <kafai@fb.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:36966 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751376AbbFEXpJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2015 19:45:09 -0400
-Received: by igbsb11 with SMTP id sb11so25649939igb.0
-        for <netdev@vger.kernel.org>; Fri, 05 Jun 2015 16:45:09 -0700 (PDT)
-In-Reply-To: <20150605230206.GD2951343@devbig242.prn2.facebook.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:45339 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751948AbbFFAqh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2015 20:46:37 -0400
+Received: from pps.filterd (m0004077 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t560iAtq013691
+	for <netdev@vger.kernel.org>; Fri, 5 Jun 2015 17:46:36 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 1uuns1043g-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 05 Jun 2015 17:46:36 -0700
+Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
+ mx-out.facebook.com (10.223.100.97) with ESMTP	id
+ 7a58cbb60be511e5ab8d24be0593f280-f82da2a0 for <netdev@vger.kernel.org>;	Fri,
+ 05 Jun 2015 17:46:33 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-06-05 at 16:02 -0700, Martin KaFai Lau wrote:
-> On Fri, Jun 05, 2015 at 02:23:55PM -0700, Eric Dumazet wrote:
-> > On Fri, 2015-06-05 at 11:02 -0700, Martin KaFai Lau wrote:
-> > 
-> > > tcp_trim_head() does not take the mss_now.
-> > > Is it fine to have mss_now <= tcp_skb_mss(skb)? or we can depend on
-> > > the tcp_init_tso_segs() in the tcp_write_xmit() to take care of it?
-> > 
-> > It should be fine : packets not yet sent have tcp_skb_pcount()==0,
-> > so that tcp_init_tso_segs() can do the computation at the right time.
-> hmm.... From tcp_write_xmit(), tcp_init_tso_segs() makes tcp_skb_pcount(skb) > 0
-> but it may not be sent out immediately (like failing tcp_cwnd_test()).  Later,
-> this skb is considered for tcp_mtu_probe(), sliced and forgot to update the
-> pcount, I think.
+The problem is caught by this WARN_ON(len > skb->len) in tcp_fragment():
 
-Then clear pcount at this point, if this is a requirement.
+[<ffffffff810510ca>] warn_slowpath_null+0x1a/0x20
+[<ffffffff8160ec90>] tcp_fragment+0x2a0/0x2b0
+[<ffffffff81604e06>] tcp_mark_head_lost+0x196/0x230
+[<ffffffff8160585d>] tcp_update_scoreboard+0x4d/0x80
+[<ffffffff8160a9ac>] tcp_fastretrans_alert+0x6ac/0xa90
+[<ffffffff8160b834>] tcp_ack+0x9d4/0x10e0
+[<ffffffff8160c699>] tcp_rcv_established+0x309/0x7e0
 
-Or else the test on !tso_segs seems quite lazy to me.
+The WARN_ON pointed out that tcp_skb_pcount (i.e.
+TCP_SKB_CB(skb)->tcp_gso_segs) and skb->len is inconsistent.
 
-> 
-> I am probably missing something.  Hence, I have a side question
-> in tcp_init_tso_segs(),  should pcount be also recalculated if
-> (tso_segs == 1 && mss_now < skb->len)?  Like this:
-> 
-> diff --git i/net/ipv4/tcp_output.c w/net/ipv4/tcp_output.c
-> index a369e8a..15d1c44 100644
-> --- i/net/ipv4/tcp_output.c
-> +++ w/net/ipv4/tcp_output.c
-> @@ -1624,7 +1624,8 @@ static int tcp_init_tso_segs(const struct sock *sk, struct sk_buff *skb,
->  {
->  	int tso_segs = tcp_skb_pcount(skb);
-> 
-> -	if (!tso_segs || (tso_segs > 1 && tcp_skb_mss(skb) != mss_now)) {
-> +	if (!tso_segs || (tso_segs > 1 && tcp_skb_mss(skb) != mss_now) ||
-> +	    (tso_segs == 1 && mss_now < skb->len)) {
->  		tcp_set_skb_tso_segs(sk, skb, mss_now);
->  		tso_segs = tcp_skb_pcount(skb);
->  	}
+The WARN_ON stack goes away after setting net.ipv4.tcp_mtu_probing to 0.
 
+v2
+- Replace the skb slicing codes by the existing tcp_trim_head(),
+  suggested by Eric Dumazet.
 
-See above. Lets keep fast path as fast as possible ;)
+v1
+- Call tcp_set_skb_tso_segs() for all slicing cases.
+
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Reported-by: Grant Zhang <gzhang@fastly.com>
+Cc: Grant Zhang <gzhang@fastly.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_output.c | 12 ++----------
+ 1 file changed, 2 insertions(+), 10 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index a369e8a..4ae4f0c 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1977,16 +1977,8 @@ static int tcp_mtu_probe(struct sock *sk)
+ 		} else {
+ 			TCP_SKB_CB(nskb)->tcp_flags |= TCP_SKB_CB(skb)->tcp_flags &
+ 						   ~(TCPHDR_FIN|TCPHDR_PSH);
+-			if (!skb_shinfo(skb)->nr_frags) {
+-				skb_pull(skb, copy);
+-				if (skb->ip_summed != CHECKSUM_PARTIAL)
+-					skb->csum = csum_partial(skb->data,
+-								 skb->len, 0);
+-			} else {
+-				__pskb_trim_head(skb, copy);
+-				tcp_set_skb_tso_segs(sk, skb, mss_now);
+-			}
+-			TCP_SKB_CB(skb)->seq += copy;
++			tcp_skb_pcount_set(skb, 0);
++			tcp_trim_head(sk, skb, copy);
+ 		}
+ 
+ 		len += copy;
+-- 
+1.8.1
