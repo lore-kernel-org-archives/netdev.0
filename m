@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net 0/3][pull request] Intel Wired LAN Driver Updates
- 2015-06-04
-Date: Fri, 05 Jun 2015 21:17:53 -0700 (PDT)
-Message-ID: <20150605.211753.1799384901949366986.davem@davemloft.net>
-References: <1433474824-5414-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 0/6] Free VI, flush sge ec and some other
+ misc. fixes
+Date: Fri, 05 Jun 2015 21:27:06 -0700 (PDT)
+Message-ID: <20150605.212706.547223768540619447.davem@davemloft.net>
+References: <1433494492-7638-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, john.ronciak@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60391 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60424 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750746AbbFFEGq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Jun 2015 00:06:46 -0400
-In-Reply-To: <1433474824-5414-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1750767AbbFFEPy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Jun 2015 00:15:54 -0400
+In-Reply-To: <1433494492-7638-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu,  4 Jun 2015 20:27:01 -0700
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Fri,  5 Jun 2015 14:24:46 +0530
 
-> This series contains updates to i40e and i40evf.
+> This patch series adds the following.
+> Free VI interface during remove, flush SGE ec routine, rename
+> t4_link_start to t4_link_l1cfg since it only does l1 configuration, set
+> mac addr from when we can't contact firmware for debug purpose, set pcie
+> completion timeout and use fw interface to access TP_PIO_XXX registers
 > 
-> Anjali provides three fixes, first to resolve a Tx queue hang if mixed
-> size frags are passed to the driver while using TSO.  There was a corner
-> case where we needed to linearize but we were not.  Next fixes a bug in
-> the default configuration which prevented a software bridge loaded on the
-> PF interface from working correctly because broadcast packets are
-> incorrectly looped back.  Lastly fixes an NPAR bug when SRIOV is enabled,
-> where we need to be in VEB mode, not VEPA mode at probe.
+> This patch series has been created against net-next tree and includes
+> patches on cxgb4 driver.
+> 
+> We have included all the maintainers of respective drivers. Kindly review
+> the change and let us know in case of any review comments.
 
-Pulled, thanks Jeff.
+Series applied, thanks.
