@@ -1,55 +1,51 @@
-From: Toan Pham <tpham3783@gmail.com>
-Subject: Re: kmalloc panic
-Date: Sat, 6 Jun 2015 19:10:19 -0400
-Message-ID: <CAGNmLEP0o9bnGEh-P=AVxUp-_rh9pO-zOiwUq_HboptRQ60dTA@mail.gmail.com>
-References: <5565CAA1.9070409@redpinesignals.com>
-	<CAM_iQpUGLW44vzkN-5TJ9ww3RSz=2sRMnm7GKP6V0N9WGszRZQ@mail.gmail.com>
-	<1432803793.2459.2.camel@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	pavani <pavani.muthyala@redpinesignals.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-wireless@vger.kernel.org,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH] ssb: fix handling of ssb_pmu_get_alp_clock()
+Date: Sun,  7 Jun 2015 01:52:51 +0200
+Message-ID: <1433634771-23438-1-git-send-email-hauke@hauke-m.de>
+Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: m@bues.ch, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:33877 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752652AbbFFXKU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Jun 2015 19:10:20 -0400
-In-Reply-To: <1432803793.2459.2.camel@sipsolutions.net>
+Received: from hauke-m.de ([5.39.93.123]:37205 "EHLO hauke-m.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753014AbbFFXw6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Jun 2015 19:52:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am experiencing a similar issue on another system (at91sam9n12) that
-uses Redpine Signal Wireless Driver 1.1.0.  I do not know the root
-cause yet,  but it may be related to the Redpine Signals driver.  Will
-update this mailing list if the problem is with the redpine driver.
-thanks
+Dan Carpenter reported missing brackets which resulted in reading a
+wrong crystalfreq value. I also noticed that the result of this
+function is ignored.
 
-On Thu, May 28, 2015 at 5:03 AM, Johannes Berg
-<johannes@sipsolutions.net> wrote:
-> On Wed, 2015-05-27 at 22:15 -0700, Cong Wang wrote:
->
->> > rsi_client: module license 'Proprietary' taints kernel.
->> > Disabling lock debugging due to kernel taint
->> > RSI_Init called and registering the client driver
->
-> If this is what I think it is - the redpine signals wifi driver, then I
-> have no interest in this bug report whatsoever.
->
-> Please tell us
->  * the exact kernel version, best with local patches
->  * the wifi driver used
->
->> > INFO: Allocated in 0x10100100 age=2669517238 cpu=16842820 pid=335563024
->
-> and what function this really was (0x10100100 isn't really useful).
->
-> johannes
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Reported-By: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+---
+ drivers/ssb/driver_chipcommon_pmu.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/ssb/driver_chipcommon_pmu.c b/drivers/ssb/driver_chipcommon_pmu.c
+index 0942841..c5352ea 100644
+--- a/drivers/ssb/driver_chipcommon_pmu.c
++++ b/drivers/ssb/driver_chipcommon_pmu.c
+@@ -621,8 +621,8 @@ static u32 ssb_pmu_get_alp_clock_clk0(struct ssb_chipcommon *cc)
+ 	u32 crystalfreq;
+ 	const struct pmu0_plltab_entry *e = NULL;
+ 
+-	crystalfreq = chipco_read32(cc, SSB_CHIPCO_PMU_CTL) &
+-		      SSB_CHIPCO_PMU_CTL_XTALFREQ >> SSB_CHIPCO_PMU_CTL_XTALFREQ_SHIFT;
++	crystalfreq = (chipco_read32(cc, SSB_CHIPCO_PMU_CTL) &
++		       SSB_CHIPCO_PMU_CTL_XTALFREQ)  >> SSB_CHIPCO_PMU_CTL_XTALFREQ_SHIFT;
+ 	e = pmu0_plltab_find_entry(crystalfreq);
+ 	BUG_ON(!e);
+ 	return e->freq * 1000;
+@@ -634,7 +634,7 @@ u32 ssb_pmu_get_alp_clock(struct ssb_chipcommon *cc)
+ 
+ 	switch (bus->chip_id) {
+ 	case 0x5354:
+-		ssb_pmu_get_alp_clock_clk0(cc);
++		return ssb_pmu_get_alp_clock_clk0(cc);
+ 	default:
+ 		ssb_err("ERROR: PMU alp clock unknown for device %04X\n",
+ 			bus->chip_id);
+-- 
+2.1.4
