@@ -1,49 +1,76 @@
-From: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Subject: Re: [PATCH] net: rose: Use mod_timer
-Date: Sat, 6 Jun 2015 10:02:30 +0200
-Message-ID: <20150606080230.GB16240@linux-mips.org>
-References: <20150606042234.GA15542@vaishali-Ideapad-Z570>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Julia Lawall <julia.lawall@lip6.fr>
-To: Vaishali Thakkar <vthakkar1994@gmail.com>
-Return-path: <linux-hams-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150606042234.GA15542@vaishali-Ideapad-Z570>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH] wan: dscc4:  use msecs_to_jiffies for conversions
+Date: Sat,  6 Jun 2015 10:41:06 +0200
+Message-ID: <1433580066-1237-1-git-send-email-hofrat@osadl.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicholas Mc Guire <hofrat@osadl.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.osadl.org ([62.245.132.105]:33591 "EHLO www.osadl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751153AbbFFItM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Jun 2015 04:49:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Vaishali,
+API compliance scanning with coccinelle flagged:
+./drivers/net/wan/dscc4.c:1036:1-33:
+        WARNING: timeout (10) seems HZ dependent
+./drivers/net/wan/dscc4.c:554:2-34:
+        WARNING: timeout (10) seems HZ dependent
+./drivers/net/wan/dscc4.c:599:2-34:
+        WARNING: timeout (10) seems HZ dependent
 
-On Sat, Jun 06, 2015 at 09:52:34AM +0530, Vaishali Thakkar wrote:
+Numeric constants passed to schedule_timeout_*() make the effective
+timeout HZ dependent which does not seem to be the intent here.
+Fixed up by converting the constant to jiffies with msecs_to_jiffies()
 
-> Use mod_timer instead of del_timer followed by add_timer to update
-> the expire field of the active timer.
-> 
-> The semantic patch that performs this transformation is as follows:
-> 
-> @change@
-> expression e1, e2, e3, e4;
-> @@
-> 
-> - del_timer(&e1);
-> ... when != e1 = e3
-> - e1.expires = e2;
-> ... when != e1 = e4
-> - add_timer (&e1);
-> + mod_timer (&e1, e2);
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+---
 
-This isn't quite right.  All the instances of this pattern in the ROSE
-stack also modify the timer's data and function fields which if the timer
-is still running and expiring while being fiddled with, might result in
-a race condition, that is the old function but new data field being used
-in combination or something like that.
+As the intended timeout is not documented and msecs_to_jiffies(10) may
+be a factor 10 off from constant 10, this needs to be checked by 
+someone that knows the details of this driver, in any case it should
+be passed in a HZ independent way.
 
-For some of the timers (maybe all?) it should be possible to proof that
-always the same values for data and function are being used.  These
-initializations could then be used elsewhere and the code could then
-indeed be switched to mod_timer.
+Patch was compile tested with x86_64_defconfig + CONFIG_WAN=y
+CONFIG_HDLC=m, CONFIG_DSCC4=m
 
-  Ralf
+Patch is against 4.1-rc6 (localversion-next is -next-20150605)
+
+ drivers/net/wan/dscc4.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
+index 0822356..2ce5249 100644
+--- a/drivers/net/wan/dscc4.c
++++ b/drivers/net/wan/dscc4.c
+@@ -551,7 +551,7 @@ static int dscc4_wait_ack_cec(struct dscc4_dev_priv *dpriv,
+ 			       msg, i);
+ 			goto done;
+ 		}
+-		schedule_timeout_uninterruptible(10);
++		schedule_timeout_uninterruptible(msecs_to_jiffies(10));
+ 		rmb();
+ 	} while (++i > 0);
+ 	netdev_err(dev, "%s timeout\n", msg);
+@@ -596,7 +596,7 @@ static inline int dscc4_xpr_ack(struct dscc4_dev_priv *dpriv)
+ 		    (dpriv->iqtx[cur] & cpu_to_le32(Xpr)))
+ 			break;
+ 		smp_rmb();
+-		schedule_timeout_uninterruptible(10);
++		schedule_timeout_uninterruptible(msecs_to_jiffies(10));
+ 	} while (++i > 0);
+ 
+ 	return (i >= 0 ) ? i : -EAGAIN;
+@@ -1033,7 +1033,7 @@ static void dscc4_pci_reset(struct pci_dev *pdev, void __iomem *ioaddr)
+ 	/* Flush posted writes */
+ 	readl(ioaddr + GSTAR);
+ 
+-	schedule_timeout_uninterruptible(10);
++	schedule_timeout_uninterruptible(msecs_to_jiffies(10));
+ 
+ 	for (i = 0; i < 16; i++)
+ 		pci_write_config_dword(pdev, i << 2, dscc4_pci_config_store[i]);
+-- 
+1.7.10.4
