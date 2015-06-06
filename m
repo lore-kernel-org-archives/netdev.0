@@ -1,173 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] inet: add IP_BIND_ADDRESS_NO_PORT to overcome
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH net-next] inet: add IP_BIND_ADDRESS_NO_PORT to overcome
  bind(0) limitations
-Date: Sat, 06 Jun 2015 08:53:05 -0700
-Message-ID: <1433605985.1895.84.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Sat, 6 Jun 2015 18:38:24 +0200
+Message-ID: <CAHo-OowXiXLEc-7TJKUfK2gZespVPN1S8ZN+h4JBHL_8wRw-4g@mail.gmail.com>
+References: <1433605985.1895.84.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Kerrisk <mtk.manpages@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f193.google.com ([209.85.213.193]:34400 "EHLO
-	mail-ig0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752537AbbFFPxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Jun 2015 11:53:08 -0400
-Received: by igdh15 with SMTP id h15so2370972igd.1
-        for <netdev@vger.kernel.org>; Sat, 06 Jun 2015 08:53:07 -0700 (PDT)
+Received: from mail-la0-f48.google.com ([209.85.215.48]:35055 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751728AbbFFQiZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Jun 2015 12:38:25 -0400
+Received: by labko7 with SMTP id ko7so71934233lab.2
+        for <netdev@vger.kernel.org>; Sat, 06 Jun 2015 09:38:24 -0700 (PDT)
+In-Reply-To: <1433605985.1895.84.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hmm, I certainly like this.
 
-When an application needs to force a source IP on an active TCP socket
-it has to use bind(IP, port=x).
+So IMHO this is indeed much better than a sysctl to select a magic
+port to ignore during a bind call (previous internal patchset),
+although it does use up one more bit per socket (and one more syscall
+per connect).
 
-As most applications do not want to deal with already used ports, x is
-often set to 0, meaning the kernel is in charge to find an available
-port.
-But kernel does not know yet if this socket is going to be a listener or
-be connected.
-It has very limited choices (no full knowledge of final 4-tuple for a
-connect())
-
-With limited ephemeral port range (about 32K ports), it is very easy to
-fill the space.
-
-This patch adds a new SOL_IP socket option, asking kernel to ignore
-the 0 port provided by application in bind(IP, port=0) and only
-remember the given IP address.
-
-The port will be automatically chosen at connect() time, in a way
-that allows sharing a source port as long as the 4-tuples are unique.
-
-This new feature is available for both IPv4 and IPv6.
-
-Tested:
-
-Wrote a test program and checked its behavior.
-
-strace(1) shows sequences of bind(IP=127.0.0.2, port=0) followed by
-connect().
-Also getsockname() show that the port is still 0 right after bind()
-but properly allocated after connect().
-
-socket(PF_INET, SOCK_STREAM, IPPROTO_IP) = 5
-setsockopt(5, SOL_IP, IP_BIND_ADDRESS_NO_PORT, [1], 4) = 0
-bind(5, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("127.0.0.2")}, 16) = 0
-getsockname(5, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("127.0.0.2")}, [16]) = 0
-connect(5, {sa_family=AF_INET, sin_port=htons(53174), sin_addr=inet_addr("127.0.0.3")}, 16) = 0
-getsockname(5, {sa_family=AF_INET, sin_port=htons(38050), sin_addr=inet_addr("127.0.0.2")}, [16]) = 0
-
-socket(PF_INET, SOCK_STREAM, IPPROTO_IP) = 6
-setsockopt(6, SOL_IP, IP_BIND_ADDRESS_NO_PORT, [1], 4) = 0
-bind(6, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("127.0.0.2")}, 16) = 0
-getsockname(6, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("127.0.0.2")}, [16]) = 0
-connect(6, {sa_family=AF_INET, sin_port=htons(53174), sin_addr=inet_addr("127.0.0.4")}, 16) = 0
-getsockname(6, {sa_family=AF_INET, sin_port=htons(35032), sin_addr=inet_addr("127.0.0.2")}, [16]) = 0
-
-I was able to bind()/connect() a million concurrent sockets, instead of
-~32000 before patch.
-
-lpaa23:~# ulimit -n 1000010
-lpaa23:~# ./bind --connect --num-flows=1000000 &
-1000000 sockets
-
-lpaa23:~# grep TCP /proc/net/sockstat
-TCP: inuse 2000063 orphan 0 tw 47 alloc 2000157 mem 66
-
-Check that a given source port is indeed used by many different
-connections :
-
-lpaa23:~# ss -t src :40000 | head -10
-State      Recv-Q Send-Q   Local Address:Port          Peer Address:Port
-ESTAB      0      0           127.0.0.2:40000         127.0.202.33:44983
-ESTAB      0      0           127.0.0.2:40000         127.2.27.240:44983
-ESTAB      0      0           127.0.0.2:40000           127.2.98.5:44983
-ESTAB      0      0           127.0.0.2:40000        127.0.124.196:44983
-ESTAB      0      0           127.0.0.2:40000         127.2.139.38:44983
-ESTAB      0      0           127.0.0.2:40000          127.1.59.80:44983
-ESTAB      0      0           127.0.0.2:40000          127.3.6.228:44983
-ESTAB      0      0           127.0.0.2:40000          127.0.38.53:44983
-ESTAB      0      0           127.0.0.2:40000         127.1.197.10:44983
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/inet_sock.h |    1 +
- include/uapi/linux/in.h |    1 +
- net/ipv4/af_inet.c      |    3 ++-
- net/ipv4/ip_sockglue.c  |    7 +++++++
- 4 files changed, 11 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index b6c3737da4e9..47eb67b08abd 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -187,6 +187,7 @@ struct inet_sock {
- 				transparent:1,
- 				mc_all:1,
- 				nodefrag:1;
-+	__u8			bind_address_no_port:1;
- 	__u8			rcv_tos;
- 	__u8			convert_csum;
- 	int			uc_index;
-diff --git a/include/uapi/linux/in.h b/include/uapi/linux/in.h
-index 641338bef651..83d6236a2f08 100644
---- a/include/uapi/linux/in.h
-+++ b/include/uapi/linux/in.h
-@@ -112,6 +112,7 @@ struct in_addr {
- #define IP_MINTTL       21
- #define IP_NODEFRAG     22
- #define IP_CHECKSUM	23
-+#define IP_BIND_ADDRESS_NO_PORT	24
- 
- /* IP_MTU_DISCOVER values */
- #define IP_PMTUDISC_DONT		0	/* Never send DF frames */
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 6ad0f7a711c9..cc858ef44451 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -488,7 +488,8 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 		inet->inet_saddr = 0;  /* Use device */
- 
- 	/* Make sure we are allowed to bind here. */
--	if (sk->sk_prot->get_port(sk, snum)) {
-+	if ((snum || !inet->bind_address_no_port) &&
-+	    sk->sk_prot->get_port(sk, snum)) {
- 		inet->inet_saddr = inet->inet_rcv_saddr = 0;
- 		err = -EADDRINUSE;
- 		goto out_release_sock;
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 7cfb0893f263..04ae2992a5cd 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -582,6 +582,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- 	case IP_TRANSPARENT:
- 	case IP_MINTTL:
- 	case IP_NODEFRAG:
-+	case IP_BIND_ADDRESS_NO_PORT:
- 	case IP_UNICAST_IF:
- 	case IP_MULTICAST_TTL:
- 	case IP_MULTICAST_ALL:
-@@ -732,6 +733,9 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- 		}
- 		inet->nodefrag = val ? 1 : 0;
- 		break;
-+	case IP_BIND_ADDRESS_NO_PORT:
-+		inet->bind_address_no_port = val ? 1 : 0;
-+		break;
- 	case IP_MTU_DISCOVER:
- 		if (val < IP_PMTUDISC_DONT || val > IP_PMTUDISC_OMIT)
- 			goto e_inval;
-@@ -1324,6 +1328,9 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
- 	case IP_NODEFRAG:
- 		val = inet->nodefrag;
- 		break;
-+	case IP_BIND_ADDRESS_NO_PORT:
-+		val = inet->bind_address_no_port;
-+		break;
- 	case IP_MTU_DISCOVER:
- 		val = inet->pmtudisc;
- 		break;
+Thinking about this some more, I think it might be possible to make
+this behaviour automatic in certain cases.
+
+The new socket bit has 2 different meanings, depending on whether a
+port is already allocated or not.
+  if a port is not yet allocated, it governs whether bind(port=0) will
+allocate a port.
+  if a port is already allocated, it flags whether it was autoallocated
+(obviously could also just use 2 bits instead of 1)
+
+bind(with port=0)
+  if the flag is set, doesn't select a port [ie. this patch]
+  if the flag wasn't set, selects a port, sets the flag
+
+getsockname()
+  if a port has been selected and the flag is set, clears the flag
+  [we've now revealed the port to userspace so can no longer change it]
+
+connect()
+  if a port has already been selected and the flag is (still) set,
+release the port
+  [side note: in order to prevent spurious failures it's possible you
+would have to release the port after allocating the new 4-tuple, so
+that if that fails, you can still use the pre-allocated port]
+
+[perhaps after successful connect() or listen() the flag should always
+be clear(ed)]
+
+End result:
+  bind(port=0) connect() without an interleaved getsockname() gets
+this ephemeral-port-saving behaviour without userspace changes.
+
+Obviously this is a fair bit of jumping through hoops - but it does
+have the benefit of improving ephemeral port use even for unmodified
+applications.
+
+---
+
+Less well thought out musings, maybe untenable:
+
+Or perhaps the already existing SOCK_BINDPORT_LOCK could be abused somehow...
+The setsockopt could set (and clear) that flag instead of the new bit?
+Obviously the setsockopt would only allow changing the flag if port is
+still unallocated.
+And in bind() that flag being set would prevent automatic allocation
+of a port if port=0 was asked for?
+
+Not sure if saving a bit in the socket is worth these additional extra hoops.
