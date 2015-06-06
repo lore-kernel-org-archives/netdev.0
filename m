@@ -1,64 +1,173 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net v2] bridge: disable softirqs around br_fdb_update to avoid lockup
-Date: Sat,  6 Jun 2015 06:49:00 -0700
-Message-ID: <1433598540-13814-1-git-send-email-nikolay@cumulusnetworks.com>
-References: <1433490777-22880-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: wkok@cumulusnetworks.com, davem@davemloft.net,
-	stephen@networkplumber.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] inet: add IP_BIND_ADDRESS_NO_PORT to overcome
+ bind(0) limitations
+Date: Sat, 06 Jun 2015 08:53:05 -0700
+Message-ID: <1433605985.1895.84.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f179.google.com ([209.85.216.179]:34775 "EHLO
-	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932463AbbFFNtK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Jun 2015 09:49:10 -0400
-Received: by qcej9 with SMTP id j9so38611371qce.1
-        for <netdev@vger.kernel.org>; Sat, 06 Jun 2015 06:49:09 -0700 (PDT)
-In-Reply-To: <1433490777-22880-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from mail-ig0-f193.google.com ([209.85.213.193]:34400 "EHLO
+	mail-ig0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752537AbbFFPxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Jun 2015 11:53:08 -0400
+Received: by igdh15 with SMTP id h15so2370972igd.1
+        for <netdev@vger.kernel.org>; Sat, 06 Jun 2015 08:53:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-br_fdb_update() can be called in process context in the following way:
-br_fdb_add() -> __br_fdb_add() -> br_fdb_update() (if NTF_USE flag is set)
-so we need to disable softirqs because there are softirq users of the
-hash_lock. One easy way to reproduce this is to modify the bridge utility
-to set NTF_USE, enable stp and then set maxageing to a low value so
-br_fdb_cleanup() is called frequently and then just add new entries in
-a loop. This happens because br_fdb_cleanup() is called from timer/softirq
-context. The spin locks in br_fdb_update were _bh before commit f8ae737deea1
-("[BRIDGE]: forwarding remove unneeded preempt and bh diasables")
-and at the time that commit was correct because br_fdb_update() couldn't be
-called from process context, but that changed after commit:
-292d1398983f ("bridge: add NTF_USE support")
-Using local_bh_disable/enable around br_fdb_update() allows us to keep
-using the spin_lock/unlock in br_fdb_update for the fast-path.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Fixes: 292d1398983f ("bridge: add NTF_USE support")
+When an application needs to force a source IP on an active TCP socket
+it has to use bind(IP, port=x).
+
+As most applications do not want to deal with already used ports, x is
+often set to 0, meaning the kernel is in charge to find an available
+port.
+But kernel does not know yet if this socket is going to be a listener or
+be connected.
+It has very limited choices (no full knowledge of final 4-tuple for a
+connect())
+
+With limited ephemeral port range (about 32K ports), it is very easy to
+fill the space.
+
+This patch adds a new SOL_IP socket option, asking kernel to ignore
+the 0 port provided by application in bind(IP, port=0) and only
+remember the given IP address.
+
+The port will be automatically chosen at connect() time, in a way
+that allows sharing a source port as long as the 4-tuples are unique.
+
+This new feature is available for both IPv4 and IPv6.
+
+Tested:
+
+Wrote a test program and checked its behavior.
+
+strace(1) shows sequences of bind(IP=127.0.0.2, port=0) followed by
+connect().
+Also getsockname() show that the port is still 0 right after bind()
+but properly allocated after connect().
+
+socket(PF_INET, SOCK_STREAM, IPPROTO_IP) = 5
+setsockopt(5, SOL_IP, IP_BIND_ADDRESS_NO_PORT, [1], 4) = 0
+bind(5, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("127.0.0.2")}, 16) = 0
+getsockname(5, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("127.0.0.2")}, [16]) = 0
+connect(5, {sa_family=AF_INET, sin_port=htons(53174), sin_addr=inet_addr("127.0.0.3")}, 16) = 0
+getsockname(5, {sa_family=AF_INET, sin_port=htons(38050), sin_addr=inet_addr("127.0.0.2")}, [16]) = 0
+
+socket(PF_INET, SOCK_STREAM, IPPROTO_IP) = 6
+setsockopt(6, SOL_IP, IP_BIND_ADDRESS_NO_PORT, [1], 4) = 0
+bind(6, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("127.0.0.2")}, 16) = 0
+getsockname(6, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("127.0.0.2")}, [16]) = 0
+connect(6, {sa_family=AF_INET, sin_port=htons(53174), sin_addr=inet_addr("127.0.0.4")}, 16) = 0
+getsockname(6, {sa_family=AF_INET, sin_port=htons(35032), sin_addr=inet_addr("127.0.0.2")}, [16]) = 0
+
+I was able to bind()/connect() a million concurrent sockets, instead of
+~32000 before patch.
+
+lpaa23:~# ulimit -n 1000010
+lpaa23:~# ./bind --connect --num-flows=1000000 &
+1000000 sockets
+
+lpaa23:~# grep TCP /proc/net/sockstat
+TCP: inuse 2000063 orphan 0 tw 47 alloc 2000157 mem 66
+
+Check that a given source port is indeed used by many different
+connections :
+
+lpaa23:~# ss -t src :40000 | head -10
+State      Recv-Q Send-Q   Local Address:Port          Peer Address:Port
+ESTAB      0      0           127.0.0.2:40000         127.0.202.33:44983
+ESTAB      0      0           127.0.0.2:40000         127.2.27.240:44983
+ESTAB      0      0           127.0.0.2:40000           127.2.98.5:44983
+ESTAB      0      0           127.0.0.2:40000        127.0.124.196:44983
+ESTAB      0      0           127.0.0.2:40000         127.2.139.38:44983
+ESTAB      0      0           127.0.0.2:40000          127.1.59.80:44983
+ESTAB      0      0           127.0.0.2:40000          127.3.6.228:44983
+ESTAB      0      0           127.0.0.2:40000          127.0.38.53:44983
+ESTAB      0      0           127.0.0.2:40000         127.1.197.10:44983
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
-v2: new patch, uses local_bh_disable/enable instead of _bh variant
-    of spinlocks to keep the fast-path optimization. Please drop
-    "bridge: use _bh spinlock variant for br_fdb_update to avoid lockup"
-    in favor of this one.
+ include/net/inet_sock.h |    1 +
+ include/uapi/linux/in.h |    1 +
+ net/ipv4/af_inet.c      |    3 ++-
+ net/ipv4/ip_sockglue.c  |    7 +++++++
+ 4 files changed, 11 insertions(+), 1 deletion(-)
 
- net/bridge/br_fdb.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index e0670d7054f9..659fb96672e4 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -796,9 +796,11 @@ static int __br_fdb_add(struct ndmsg *ndm, struct net_bridge_port *p,
- 	int err = 0;
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index b6c3737da4e9..47eb67b08abd 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -187,6 +187,7 @@ struct inet_sock {
+ 				transparent:1,
+ 				mc_all:1,
+ 				nodefrag:1;
++	__u8			bind_address_no_port:1;
+ 	__u8			rcv_tos;
+ 	__u8			convert_csum;
+ 	int			uc_index;
+diff --git a/include/uapi/linux/in.h b/include/uapi/linux/in.h
+index 641338bef651..83d6236a2f08 100644
+--- a/include/uapi/linux/in.h
++++ b/include/uapi/linux/in.h
+@@ -112,6 +112,7 @@ struct in_addr {
+ #define IP_MINTTL       21
+ #define IP_NODEFRAG     22
+ #define IP_CHECKSUM	23
++#define IP_BIND_ADDRESS_NO_PORT	24
  
- 	if (ndm->ndm_flags & NTF_USE) {
-+		local_bh_disable();
- 		rcu_read_lock();
- 		br_fdb_update(p->br, p, addr, vid, true);
- 		rcu_read_unlock();
-+		local_bh_enable();
- 	} else {
- 		spin_lock_bh(&p->br->hash_lock);
- 		err = fdb_add_entry(p, addr, ndm->ndm_state,
--- 
-1.7.10.4
+ /* IP_MTU_DISCOVER values */
+ #define IP_PMTUDISC_DONT		0	/* Never send DF frames */
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 6ad0f7a711c9..cc858ef44451 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -488,7 +488,8 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 		inet->inet_saddr = 0;  /* Use device */
+ 
+ 	/* Make sure we are allowed to bind here. */
+-	if (sk->sk_prot->get_port(sk, snum)) {
++	if ((snum || !inet->bind_address_no_port) &&
++	    sk->sk_prot->get_port(sk, snum)) {
+ 		inet->inet_saddr = inet->inet_rcv_saddr = 0;
+ 		err = -EADDRINUSE;
+ 		goto out_release_sock;
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 7cfb0893f263..04ae2992a5cd 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -582,6 +582,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ 	case IP_TRANSPARENT:
+ 	case IP_MINTTL:
+ 	case IP_NODEFRAG:
++	case IP_BIND_ADDRESS_NO_PORT:
+ 	case IP_UNICAST_IF:
+ 	case IP_MULTICAST_TTL:
+ 	case IP_MULTICAST_ALL:
+@@ -732,6 +733,9 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ 		}
+ 		inet->nodefrag = val ? 1 : 0;
+ 		break;
++	case IP_BIND_ADDRESS_NO_PORT:
++		inet->bind_address_no_port = val ? 1 : 0;
++		break;
+ 	case IP_MTU_DISCOVER:
+ 		if (val < IP_PMTUDISC_DONT || val > IP_PMTUDISC_OMIT)
+ 			goto e_inval;
+@@ -1324,6 +1328,9 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+ 	case IP_NODEFRAG:
+ 		val = inet->nodefrag;
+ 		break;
++	case IP_BIND_ADDRESS_NO_PORT:
++		val = inet->bind_address_no_port;
++		break;
+ 	case IP_MTU_DISCOVER:
+ 		val = inet->pmtudisc;
+ 		break;
