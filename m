@@ -1,56 +1,100 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] inet: add IP_BIND_ADDRESS_NO_PORT to
- overcome bind(0) limitations
-Date: Sat, 06 Jun 2015 23:57:33 -0700 (PDT)
-Message-ID: <20150606.235733.812264566485784834.davem@davemloft.net>
-References: <1433605985.1895.84.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CADVnQy=qbyTUdCPvDv8UbcuXJAsNhQVSiJCo83e9k8s8OWOF8w@mail.gmail.com>
-	<1433650677.29864.26.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
+Subject: Re: [PATCH] ssb: fix handling of ssb_pmu_get_alp_clock()
+Date: Sun, 7 Jun 2015 09:02:23 +0200
+Message-ID: <20150607090223.13463c73@wiggum>
+References: <1433634771-23438-1-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com, netdev@vger.kernel.org,
-	mtk.manpages@gmail.com, maze@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39307 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750984AbbFGG5g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 02:57:36 -0400
-In-Reply-To: <1433650677.29864.26.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/glfxgCzexqhwEL5L.MzVfw9"; protocol="application/pgp-signature"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        linux-mips@linux-mips.org
+To: Hauke Mehrtens <hauke@hauke-m.de>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <1433634771-23438-1-git-send-email-hauke@hauke-m.de>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 06 Jun 2015 21:17:57 -0700
+--Sig_/glfxgCzexqhwEL5L.MzVfw9
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> When an application needs to force a source IP on an active TCP socket
-> it has to use bind(IP, port=x).
-> 
-> As most applications do not want to deal with already used ports, x is
-> often set to 0, meaning the kernel is in charge to find an available
-> port.
-> But kernel does not know yet if this socket is going to be a listener or
-> be connected.
-> It has very limited choices (no full knowledge of final 4-tuple for a
-> connect())
-> 
-> With limited ephemeral port range (about 32K ports), it is very easy to
-> fill the space.
-> 
-> This patch adds a new SOL_IP socket option, asking kernel to ignore
-> the 0 port provided by application in bind(IP, port=0) and only
-> remember the given IP address.
-> 
-> The port will be automatically chosen at connect() time, in a way
-> that allows sharing a source port as long as the 4-tuples are unique.
-> 
-> This new feature is available for both IPv4 and IPv6 (Thanks Neal)
-> 
-> Tested:
- ...
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+On Sun,  7 Jun 2015 01:52:51 +0200
+Hauke Mehrtens <hauke@hauke-m.de> wrote:
 
-Looks good, applied, thanks Eric.
+> Dan Carpenter reported missing brackets which resulted in reading a
+> wrong crystalfreq value. I also noticed that the result of this
+> function is ignored.
+>=20
+> Reported-By: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> ---
+>  drivers/ssb/driver_chipcommon_pmu.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/drivers/ssb/driver_chipcommon_pmu.c b/drivers/ssb/driver_chi=
+pcommon_pmu.c
+> index 0942841..c5352ea 100644
+> --- a/drivers/ssb/driver_chipcommon_pmu.c
+> +++ b/drivers/ssb/driver_chipcommon_pmu.c
+> @@ -621,8 +621,8 @@ static u32 ssb_pmu_get_alp_clock_clk0(struct ssb_chip=
+common *cc)
+>  	u32 crystalfreq;
+>  	const struct pmu0_plltab_entry *e =3D NULL;
+> =20
+> -	crystalfreq =3D chipco_read32(cc, SSB_CHIPCO_PMU_CTL) &
+> -		      SSB_CHIPCO_PMU_CTL_XTALFREQ >> SSB_CHIPCO_PMU_CTL_XTALFREQ_SHIFT;
+> +	crystalfreq =3D (chipco_read32(cc, SSB_CHIPCO_PMU_CTL) &
+> +		       SSB_CHIPCO_PMU_CTL_XTALFREQ)  >> SSB_CHIPCO_PMU_CTL_XTALFREQ_SH=
+IFT;
+>  	e =3D pmu0_plltab_find_entry(crystalfreq);
+>  	BUG_ON(!e);
+>  	return e->freq * 1000;
+> @@ -634,7 +634,7 @@ u32 ssb_pmu_get_alp_clock(struct ssb_chipcommon *cc)
+> =20
+>  	switch (bus->chip_id) {
+>  	case 0x5354:
+> -		ssb_pmu_get_alp_clock_clk0(cc);
+> +		return ssb_pmu_get_alp_clock_clk0(cc);
+>  	default:
+>  		ssb_err("ERROR: PMU alp clock unknown for device %04X\n",
+>  			bus->chip_id);
+
+Looks good.
+Signed-off-by: Michael Buesch <m@bues.ch>
+
+Can some MIPS people take this, please?
+
+--=20
+Michael
+
+--Sig_/glfxgCzexqhwEL5L.MzVfw9
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJVc+yCAAoJEPUyvh2QjYsOKrIQALY/QqdiiTFsFGjhIF7ALwRD
+9rH2+Nh7FemGIDylyInaDwfAadXJYfDK9HkrAM+EXAszOYlmpp8JGFYoIkVsN2mO
+UPg5KgZFOzz8jhPIHmGorSf/naw1rrqZTMslSrxzW9bHcbrKHa1ZXghGGWfKFToD
+4zykoFD1h3OoE1I0bLOaR+t9vb1pCbFEY5Z4jFwEWajQmxqI9DREd6cyUFUMjGIQ
+5emPmc7mcz3JxpAD8Tkef8YSpvCH/1B5roVf4Fu0UgRcAh89wxGEu0p9uj+ZO/TC
+HmSdL8YTROVxH+WCN/IteUSh55zD9DA7mKaCOSgQDS/prHg29XNfDagIz7E+D/Pt
+yFQslDQBkR6Ww5xadwMp+hw+GLchRA8WCsaqMR6SK+e+ctd2zirhIxVqA5IvNx99
+idCMNlvDfrIvMAlF0Xs14RlIyE+p4uebzBIMGi5P3h34tsVkoDpDdzS1j0JWP+ME
+rLJ1VxCo4KbaJdXUp0MS1jXT4bOMJP0I9Qoanit/yTqO2cNFakr5bPy+Cac6V+dJ
+K4HIQflzpCzCrbXXaN2z7uDFliaHn6sYatDTwgJvXfKWHL9lf0HaAYmtIWrd8aCH
+njyKR2SiG805eSWl1ee357W6GcO0eZwf247vsWDvujESGUllYEXL0wCjxwqjGN2v
+gDVzaKJgO+sbs5vRSUCB
+=WgCq
+-----END PGP SIGNATURE-----
+
+--Sig_/glfxgCzexqhwEL5L.MzVfw9--
