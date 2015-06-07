@@ -1,30 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] amd-xgbe: Use disable_irq_nosync from within timer
- function
-Date: Sun, 07 Jun 2015 00:21:22 -0700 (PDT)
-Message-ID: <20150607.002122.40550681555624508.davem@davemloft.net>
-References: <20150605210226.14842.17410.stgit@tlendack-t1.amdoffice.net>
+Subject: Re: [PATCH] fddi: print an address with %p format specifier rather
+ than %x
+Date: Sun, 07 Jun 2015 00:32:32 -0700 (PDT)
+Message-ID: <20150607.003232.1338073717948581199.davem@davemloft.net>
+References: <1433528351-31778-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39433 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751155AbbFGHVX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 03:21:23 -0400
-In-Reply-To: <20150605210226.14842.17410.stgit@tlendack-t1.amdoffice.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1433528351-31778-1-git-send-email-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Fri, 5 Jun 2015 16:02:26 -0500
+From: Colin King <colin.king@canonical.com>
+Date: Fri,  5 Jun 2015 19:19:11 +0100
 
-> Since the Tx timer function runs in softirq context the driver needs
-> to call disable_irq_nosync instead of a disable_irq.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Reported-by: Josh Stone <jistone@redhat.com>
-> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+> The debug is printing the struct smt_header * address using
+> the %x format specifier. Fix it to use %p instead.
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Applied, thanks Tom.
+Applied, thanks.
