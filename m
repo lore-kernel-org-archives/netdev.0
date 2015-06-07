@@ -1,32 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: get_cookie_sock() consolidation
-Date: Sun, 07 Jun 2015 15:20:03 -0700 (PDT)
-Message-ID: <20150607.152003.518071476299629494.davem@davemloft.net>
-References: <1433467843.1895.47.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH] net: ll_temac: Remove sparse warnings
+Date: Sun, 07 Jun 2015 15:21:04 -0700 (PDT)
+Message-ID: <20150607.152104.1816869275923133948.davem@davemloft.net>
+References: <343ee9fccc37629414209d4c05077eb52aed8ed2.1433494150.git.michal.simek@xilinx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48040 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751726AbbFGWUD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 18:20:03 -0400
-In-Reply-To: <1433467843.1895.47.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, monstr@monstr.eu,
+	soren.brinkmann@xilinx.com, fabf@skynet.be,
+	manuel.schoelling@gmx.de, julia.lawall@lip6.fr,
+	netdev@vger.kernel.org, elfring@users.sourceforge.net,
+	subbaraya.sundeep.bhatta@xilinx.com,
+	linux-arm-kernel@lists.infradead.org
+To: michal.simek@xilinx.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <343ee9fccc37629414209d4c05077eb52aed8ed2.1433494150.git.michal.simek@xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 04 Jun 2015 18:30:43 -0700
+From: Michal Simek <michal.simek@xilinx.com>
+Date: Fri,  5 Jun 2015 10:49:17 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> Remove sparse warnings:
+> drivers/net/ethernet/xilinx/ll_temac_main.c:65:16: warning: cast removes
+> address space of expression
+> drivers/net/ethernet/xilinx/ll_temac_main.c:70:9: warning: cast removes
+> address space of expression
+> drivers/net/ethernet/xilinx/ll_temac_main.c:127:16: warning: cast
+> removes address space of expression
+> drivers/net/ethernet/xilinx/ll_temac_main.c:137:9: warning: cast removes
+> address space of expression
+> drivers/net/ethernet/xilinx/ll_temac_main.c:409:3: warning: symbol
+> 'temac_options' was not declared. Should it be static?
+> drivers/net/ethernet/xilinx/ll_temac_main.c:590:6: warning: symbol
+> 'temac_adjust_link' was not declared. Should it be static?
 > 
-> IPv4 and IPv6 share same implementation of get_cookie_sock(),
-> and there is no point inlining it.
-> 
-> We add tcp_ prefix to the common helper name and export it.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
 
-Applied, thanks Eric.
+Applied, thank you.
