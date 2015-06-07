@@ -1,46 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cosa: use msecs_to_jiffies for conversions
-Date: Sun, 07 Jun 2015 00:18:00 -0700 (PDT)
-Message-ID: <20150607.001800.854104281240414676.davem@davemloft.net>
-References: <1433577111-7404-1-git-send-email-hofrat@osadl.org>
+Subject: Re: [PATCH net] amd-xgbe: Use disable_irq_nosync from within timer
+ function
+Date: Sun, 07 Jun 2015 00:21:22 -0700 (PDT)
+Message-ID: <20150607.002122.40550681555624508.davem@davemloft.net>
+References: <20150605210226.14842.17410.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kas@fi.muni.cz, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hofrat@osadl.org
+Cc: netdev@vger.kernel.org
+To: thomas.lendacky@amd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39410 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39433 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751423AbbFGHSB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 03:18:01 -0400
-In-Reply-To: <1433577111-7404-1-git-send-email-hofrat@osadl.org>
+	with ESMTP id S1751155AbbFGHVX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 03:21:23 -0400
+In-Reply-To: <20150605210226.14842.17410.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Date: Sat,  6 Jun 2015 09:51:51 +0200
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Fri, 5 Jun 2015 16:02:26 -0500
 
-> @@ -517,7 +517,7 @@ static int cosa_probe(int base, int irq, int dma)
->  		 */
->  		set_current_state(TASK_INTERRUPTIBLE);
->  		cosa_putstatus(cosa, SR_TX_INT_ENA);
-> -		schedule_timeout(30);
-> +		schedule_timeout(msecs_to_jiffies(300));
->  		irq = probe_irq_off(irqs);
->  		/* Disable all IRQs from the card */
->  		cosa_putstatus(cosa, 0);
+> Since the Tx timer function runs in softirq context the driver needs
+> to call disable_irq_nosync instead of a disable_irq.
+> 
+> Reported-by: Josh Stone <jistone@redhat.com>
+> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 
-You are making these transformations completely inconsistently.
-
-You're converting it to msecs in some patches and here you are doing
-something else.
-
-Please do _all_ of these transformations consistently and in a way
-that minimizes the chances of breaking things.
-
-And the only way to do that is to strictly convert these cases to
-whatever it works out to when HZ=100 since that is strictly the
-environment all of this old code was written in.
-
-Thank you.
+Applied, thanks Tom.
