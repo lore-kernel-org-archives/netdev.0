@@ -1,78 +1,88 @@
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [PATCH V2] wan: dscc4:  use msecs_to_jiffies for conversions
-Date: Sun,  7 Jun 2015 12:35:46 +0200
-Message-ID: <1433673346-22183-1-git-send-email-hofrat@osadl.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nicholas Mc Guire <hofrat@osadl.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [RFC PATCH 03/13] xen-netback: implement TX persistent grants
+Date: Sun, 7 Jun 2015 13:04:23 +0100
+Message-ID: <20150607120423.GV29102@zion.uk.xensource.com>
+References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
+ <1431451117-70051-4-git-send-email-joao.martins@neclab.eu>
+ <20150519152342.GB26335@zion.uk.xensource.com>
+ <30CF0FF9-3B1D-48AF-AFB4-73E20C404357@neclab.eu>
+ <20150602145359.GP19403@zion.uk.xensource.com>
+ <B1B43019-3C94-4FBA-9139-7683FEC2901E@neclab.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
+	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
+	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Joao Martins <Joao.Martins@neclab.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.osadl.org ([62.245.132.105]:40177 "EHLO www.osadl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751423AbbFGKnz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Jun 2015 06:43:55 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:65033 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752670AbbFGME0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 08:04:26 -0400
+Content-Disposition: inline
+In-Reply-To: <B1B43019-3C94-4FBA-9139-7683FEC2901E@neclab.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-API compliance scanning with coccinelle flagged:
-./drivers/net/wan/dscc4.c:1036:1-33:
-        WARNING: timeout (10) seems HZ dependent
-./drivers/net/wan/dscc4.c:554:2-34:
-        WARNING: timeout (10) seems HZ dependent
-./drivers/net/wan/dscc4.c:599:2-34:
-        WARNING: timeout (10) seems HZ dependent
+On Wed, Jun 03, 2015 at 05:07:59PM +0000, Joao Martins wrote:
+[...]
+> >=20
+> > How much harder would it be to ref-count inflight grants? Would tha=
+t
+> > simplify or perplex things? I'm just asking, not suggesting you sho=
+uld
+> > choose ref-counting over current scheme.
+> >=20
+> > In principle I favour simple code path over optimisation for every
+> > possible corner case.
+>=20
+> ref-counting the persistent grants would mean eliminating the check f=
+or
+> EBUSY on xenvif_pgrant_new, but though it isn=E2=80=99t that much of =
+a simplification.
+>=20
 
-Numeric constants passed to schedule_timeout_*() make the effective
-timeout HZ dependent which does not seem to be the intent here.
-Fixed up by converting the constant to jiffies with msecs_to_jiffies(),
-passing 100ms (assuming HZ==100 in the original code).
+Right.
 
-Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
----
+> What would simplify a lot is if I grant map when we don=E2=80=99t get=
+ a persistent_gnt
+> in xenvif_pgrant_new() and add it to the tree there instead of doing =
+on xenvif_tx_check_gop.
+> Since this happens only once for persistent grants (and up to ring si=
+ze), I believe it
+> wouldn't hurt performance.
+>=20
 
-V2: As the intended timeout is not documented and msecs_to_jiffies(10) may
-    be a factor 10 off from constant 10, the value is transformed assuming
-    HZ=100 to be on the safe side as suggested by David Miller
-    <davem@davemloft.net> to minimize the probability of breaking this 
-    old code.
+Yeah. Mapping page inside xenvif_tx_check_gop doesn't sound nice.
 
-Patch was compile tested with x86_64_defconfig + CONFIG_WAN=y
-CONFIG_HDLC=m, CONFIG_DSCC4=m
+> This way we would remove a lot of the checks in xenvif_tx_check_gop a=
+nd
+> hopefully leaving those parts (almost) intact mainly to be used for g=
+rant
+> map/unmap case. The reason I didn=E2=80=99t do it because I wanted to=
+ reuse the
+> grant map code and thought that preference was given towards batching=
+ the
+> grant maps. But it looks that it definitely makes things more complic=
+ated
+> and adds more corner cases.
+>=20
+> The same goes for the RX case where this change would remove a lot of=
+ the code
+> for adding the grant maps (thus sharing a lot from the TX part) besid=
+es removing the
+> mixed initial grant copy + map. What do you think?
+>=20
 
-Patch is against 4.1-rc6 (localversion-next is -next-20150605)
+I couldn't really comment until I see the code. But in principle I thin=
+k
+this is a step towards the right direction.
 
- drivers/net/wan/dscc4.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Wei.
 
-diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
-index 0822356..2ce5249 100644
---- a/drivers/net/wan/dscc4.c
-+++ b/drivers/net/wan/dscc4.c
-@@ -551,7 +551,7 @@ static int dscc4_wait_ack_cec(struct dscc4_dev_priv *dpriv,
- 			       msg, i);
- 			goto done;
- 		}
--		schedule_timeout_uninterruptible(10);
-+		schedule_timeout_uninterruptible(msecs_to_jiffies(100));
- 		rmb();
- 	} while (++i > 0);
- 	netdev_err(dev, "%s timeout\n", msg);
-@@ -596,7 +596,7 @@ static inline int dscc4_xpr_ack(struct dscc4_dev_priv *dpriv)
- 		    (dpriv->iqtx[cur] & cpu_to_le32(Xpr)))
- 			break;
- 		smp_rmb();
--		schedule_timeout_uninterruptible(10);
-+		schedule_timeout_uninterruptible(msecs_to_jiffies(100));
- 	} while (++i > 0);
- 
- 	return (i >= 0 ) ? i : -EAGAIN;
-@@ -1033,7 +1033,7 @@ static void dscc4_pci_reset(struct pci_dev *pdev, void __iomem *ioaddr)
- 	/* Flush posted writes */
- 	readl(ioaddr + GSTAR);
- 
--	schedule_timeout_uninterruptible(10);
-+	schedule_timeout_uninterruptible(msecs_to_jiffies(100));
- 
- 	for (i = 0; i < 16; i++)
- 		pci_write_config_dword(pdev, i << 2, dscc4_pci_config_store[i]);
--- 
-1.7.10.4
+> Joao
