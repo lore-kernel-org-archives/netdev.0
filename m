@@ -1,40 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [v2 PATCH 5/13] crypto: testmgr - Switch to new AEAD interface
-Date: Sun, 7 Jun 2015 15:06:43 +0800
-Message-ID: <20150607070643.GA19281@gondor.apana.org.au>
-References: <20150522082708.GA3507@gondor.apana.org.au>
- <E1YviM1-0000xu-GV@gondolin.me.apana.org.au>
- <5570CDF7.4090308@intel.com>
- <20150605035747.GC527@gondor.apana.org.au>
- <55721E38.2060801@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] b44: call netif_napi_del()
+Date: Sun, 07 Jun 2015 00:09:43 -0700 (PDT)
+Message-ID: <20150607.000943.2029769037357916514.davem@davemloft.net>
+References: <1433625766-12319-1-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Stephan Mueller <smueller@chronox.de>
-To: Tadeusz Struk <tadeusz.struk@intel.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <55721E38.2060801@intel.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: zambrano@broadcom.com, netdev@vger.kernel.org
+To: hauke@hauke-m.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39359 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750920AbbFGHJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 03:09:44 -0400
+In-Reply-To: <1433625766-12319-1-git-send-email-hauke@hauke-m.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 05, 2015 at 03:10:00PM -0700, Tadeusz Struk wrote:
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Date: Sat,  6 Jun 2015 23:22:46 +0200
+
+> When the driver gets unregistered a call to netif_napi_del() was
+> missing.
 > 
-> Yes, assuming that one is using req->assoclen not only req->assoc ;)
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 
-You're quite right.  I found two more drivers that need to be fixed
-before this goes mainline.
+This patch is incomplete.
 
-> When do you expect the assoc will be removed?
+All of that failure paths in b44_init_one() after the netif_napi_add()
+call have the same exact bug.
 
-It will be removed once every single driver has been converted.
+Please fix those too and resubmit.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks.
