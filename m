@@ -1,44 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bridge: use _bh spinlock variant for br_fdb_update
- to avoid lockup
-Date: Sun, 07 Jun 2015 15:25:33 -0700 (PDT)
-Message-ID: <20150607.152533.2289459673577045224.davem@davemloft.net>
-References: <1433490777-22880-1-git-send-email-nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/1] net: fec: ptp: correct the ENET_ATCOR
+ value
+Date: Sun, 07 Jun 2015 15:31:04 -0700 (PDT)
+Message-ID: <20150607.153104.632430918032409604.davem@davemloft.net>
+References: <1433496128-3102-1-git-send-email-B38611@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wkok@cumulusnetworks.com,
-	stephen@networkplumber.org
-To: nikolay@cumulusnetworks.com
+Cc: richardcochran@gmail.com, netdev@vger.kernel.org,
+	B20596@freescale.com
+To: B38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48085 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48114 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751043AbbFGWZe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 18:25:34 -0400
-In-Reply-To: <1433490777-22880-1-git-send-email-nikolay@cumulusnetworks.com>
+	with ESMTP id S1751043AbbFGWbF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 18:31:05 -0400
+In-Reply-To: <1433496128-3102-1-git-send-email-B38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Fri,  5 Jun 2015 00:52:57 -0700
+From: Fugang Duan <B38611@freescale.com>
+Date: Fri, 5 Jun 2015 17:22:08 +0800
 
-> From: Wilson Kok <wkok@cumulusnetworks.com>
+> From: Fugang Duan <b38611@freescale.com>
 > 
-> br_fdb_update() can be called in process context in the following way:
-> br_fdb_add() -> __br_fdb_add() -> br_fdb_update() (if NTF_USE flag is set)
-> so we need to use spin_lock_bh because there are softirq users of the
-> hash_lock. One easy way to reproduce this is to modify the bridge utility
-> to set NTF_USE, enable stp and then set maxageing to a low value so
-> br_fdb_cleanup() is called frequently and then just add new entries in
-> a loop. This happens because br_fdb_cleanup() is called from timer/softirq
-> context. These locks were _bh before commit f8ae737deea1
-> ("[BRIDGE]: forwarding remove unneeded preempt and bh diasables")
-> and at the time that commit was correct because br_fdb_update() couldn't be
-> called from process context, but that changed after commit:
-> 292d1398983f ("bridge: add NTF_USE support")
+> The current driver adjust freq formula is:
+> fe * diff = ppb * pc
+> Note:
+>   fe: ENET ref clock frequency in Hz
+>   diff = inc_corr - inc: difference between default increment and correction increment
+>   ppb: parts per billion adjustment from base
+>   pc: correction period (in number of fe clock cycles)
 > 
-> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Fixes: 292d1398983f ("bridge: add NTF_USE support")
+> The correction increment will be used after N cycles of regular increments,
+> not every N cycles (with N being the correction period). For example, set ENET_ATCOR=4,
+> INC=8, INC_CORR=9, there will be 4 increments of 8 (ENET_ATINC[INC]) , followed by 1
+> increment of 9 (ENET_ATINC[INC_CORR]).
+> 
+> So, the correct formula is:
+> 	fe * diff = ppb * (pc + 1)
+> 
+> For ENET_ATCOR, a value 0 disables the correction counter and no corrections occur.
+> So base on the origin formula, set pc = pc > 1 ? pc - 1 : pc.
+> 
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
+> Signed-off-by: Frank Li <Frank.Li@freescale.com>
 
-Applied and queued up for -stable, thanks Nik.
+Applied, thank you.
