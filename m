@@ -1,74 +1,56 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH] fib_trie: Fix potential null pointer dereference
-Date: Sun, 7 Jun 2015 08:36:45 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1506070835310.2108@localhost6.localdomain6>
-References: <1433590553-4672-1-git-send-email-firogm@gmail.com> <1433592304.1895.73.camel@edumazet-glaptop2.roam.corp.google.com> <20150607060129.GA9265@firo>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] inet: add IP_BIND_ADDRESS_NO_PORT to
+ overcome bind(0) limitations
+Date: Sat, 06 Jun 2015 23:57:33 -0700 (PDT)
+Message-ID: <20150606.235733.812264566485784834.davem@davemloft.net>
+References: <1433605985.1895.84.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CADVnQy=qbyTUdCPvDv8UbcuXJAsNhQVSiJCo83e9k8s8OWOF8w@mail.gmail.com>
+	<1433650677.29864.26.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Firo Yang <firogm@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ncardwell@google.com, netdev@vger.kernel.org,
+	mtk.manpages@gmail.com, maze@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:59478 "EHLO
-	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750804AbbFGGgz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 02:36:55 -0400
-In-Reply-To: <20150607060129.GA9265@firo>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39307 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750984AbbFGG5g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 02:57:36 -0400
+In-Reply-To: <1433650677.29864.26.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 06 Jun 2015 21:17:57 -0700
 
-
-On Sun, 7 Jun 2015, Firo Yang wrote:
-
-> On Sat, Jun 06, 2015 at 05:05:04AM -0700, Eric Dumazet wrote:
-> >On Sat, 2015-06-06 at 19:35 +0800, Firo Yang wrote:
-> >> A smatch warning.
-> >> When kmem_cache_alloc() failed to alloc memory, a null pointer
-> >> will be returned. Redeference null pointer will generate
-> >
-> >
-> >Dereferencing a null pointer will crash.
-> >
-> >> an unnecessary oops. So, use it after check.
-> >> 
-> >> Signed-off-by: Firo Yang <firogm@gmail.com>
-> >> ---
-> >>  net/ipv4/fib_trie.c | 3 ++-
-> >>  1 file changed, 2 insertions(+), 1 deletion(-)
-> >> 
-> >> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-> >> index 01bce15..34094c7 100644
-> >> --- a/net/ipv4/fib_trie.c
-> >> +++ b/net/ipv4/fib_trie.c
-> >> @@ -326,12 +326,13 @@ static inline void empty_child_dec(struct key_vector *n)
-> >>  static struct key_vector *leaf_new(t_key key, struct fib_alias *fa)
-> >>  {
-> >>  	struct tnode *kv = kmem_cache_alloc(trie_leaf_kmem, GFP_KERNEL);
-> >> -	struct key_vector *l = kv->kv;
-> >> +	struct key_vector *l;
-> >>  
-> >>  	if (!kv)
-> >>  		return NULL;
-> >>  
-> >>  	/* initialize key vector */
-> >> +	l = kv->kv;
-> >>  	l->key = key;
-> >>  	l->pos = 0;
-> >>  	l->bits = 0;
-> >
-> >Fixes: dc35dbeda3e0 ("fib_trie: Add tnode struct as a container for fields not needed in key_vector")
-> >Acked-by: Eric Dumazet <edumazet@google.com>
-> >
-> >Thanks.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Hi Eric,
-> Please discard this useless patch figured out by Alexander Duyck. 
-> I will send a patch to Smatch for eliminating the negative warning.
+> When an application needs to force a source IP on an active TCP socket
+> it has to use bind(IP, port=x).
+> 
+> As most applications do not want to deal with already used ports, x is
+> often set to 0, meaning the kernel is in charge to find an available
+> port.
+> But kernel does not know yet if this socket is going to be a listener or
+> be connected.
+> It has very limited choices (no full knowledge of final 4-tuple for a
+> connect())
+> 
+> With limited ephemeral port range (about 32K ports), it is very easy to
+> fill the space.
+> 
+> This patch adds a new SOL_IP socket option, asking kernel to ignore
+> the 0 port provided by application in bind(IP, port=0) and only
+> remember the given IP address.
+> 
+> The port will be automatically chosen at connect() time, in a way
+> that allows sharing a source port as long as the 4-tuples are unique.
+> 
+> This new feature is available for both IPv4 and IPv6 (Thanks Neal)
+> 
+> Tested:
+ ...
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-I think that many people would make the same mistake when looking at the 
-code.  The change doesn't seem to hurt anything?
-
-julia
+Looks good, applied, thanks Eric.
