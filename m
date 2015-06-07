@@ -1,31 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: remove redundant checks II
-Date: Sun, 07 Jun 2015 01:55:24 -0700 (PDT)
-Message-ID: <20150607.015524.881752024890602181.davem@davemloft.net>
-References: <1433400561.1895.34.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1433430072.1895.40.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v3 1/2] net/xen-netfront: Correct printf format in
+ xennet_get_responses
+Date: Sun, 07 Jun 2015 02:00:05 -0700 (PDT)
+Message-ID: <20150607.020005.1921032930953172020.davem@davemloft.net>
+References: <1433432114-22198-1-git-send-email-julien.grall@citrix.com>
+	<1433432114-22198-2-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39851 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751004AbbFGIz2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 04:55:28 -0400
-In-Reply-To: <1433430072.1895.40.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xen-devel@lists.xenproject.org, linux-kernel@vger.kernel.org,
+	david.vrabel@citrix.com, konrad.wilk@oracle.com,
+	boris.ostrovsky@oracle.com, netdev@vger.kernel.org
+To: julien.grall@citrix.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1433432114-22198-2-git-send-email-julien.grall@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 04 Jun 2015 08:01:12 -0700
+From: Julien Grall <julien.grall@citrix.com>
+Date: Thu, 4 Jun 2015 16:35:13 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> rx->status is an int16_t, print it using %d rather than %u in order to
+> have a meaningful value when the field is negative.
 > 
-> For same reasons than in commit 12e25e1041d0 ("tcp: remove redundant
-> checks"), we can remove redundant checks done for timewait sockets.
+> Also use %d rather than %x for rx->offset.
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Julien Grall <julien.grall@citrix.com>
+> Reviewed-by: David Vrabel <david.vrabel@citrix.com>
+> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+> Cc: netdev@vger.kernel.org
+> 
+> ---
+>     Changes in v3:
+>         - Use %d for the rx-offset too.
 
-Applied, thanks Eric.
+This change in v3 is wrong, 'rx->offset' is unsigned therefore %u is
+the correct format string to use.
