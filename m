@@ -1,41 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn/hisax: Convert use of __constant_cpu_to_le16 to
- cpu_to_le16
-Date: Sun, 07 Jun 2015 19:42:27 -0700 (PDT)
-Message-ID: <20150607.194227.1322778749534777731.davem@davemloft.net>
-References: <20150606011400.GA10287@vaishali-Ideapad-Z570>
+Subject: Re: [PATCH net v2] bridge: disable softirqs around br_fdb_update
+ to avoid lockup
+Date: Sun, 07 Jun 2015 19:45:12 -0700 (PDT)
+Message-ID: <20150607.194512.2301839969251363199.davem@davemloft.net>
+References: <1433490777-22880-1-git-send-email-nikolay@cumulusnetworks.com>
+	<1433598540-13814-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr
-To: vthakkar1994@gmail.com
+Cc: netdev@vger.kernel.org, wkok@cumulusnetworks.com,
+	stephen@networkplumber.org
+To: nikolay@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49457 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49464 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751332AbbFHCm2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 22:42:28 -0400
-In-Reply-To: <20150606011400.GA10287@vaishali-Ideapad-Z570>
+	with ESMTP id S1751081AbbFHCpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 22:45:13 -0400
+In-Reply-To: <1433598540-13814-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vaishali Thakkar <vthakkar1994@gmail.com>
-Date: Sat, 6 Jun 2015 06:44:00 +0530
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Sat,  6 Jun 2015 06:49:00 -0700
 
-> In big endian cases, macro cpu_to_le16 unfolds to __swab16 which
-> provides special case for constants. In little endian cases,
-> __constant_cpu_to_le16 and cpu_to_le16 expand directly to the
-> same expression. So, replace __constant_cpu_to_le16 with
-> cpu_to_le16 with the goal of getting rid of the definition of
-> __constant_cpu_to_le16 completely.
+> br_fdb_update() can be called in process context in the following way:
+> br_fdb_add() -> __br_fdb_add() -> br_fdb_update() (if NTF_USE flag is set)
+> so we need to disable softirqs because there are softirq users of the
+> hash_lock. One easy way to reproduce this is to modify the bridge utility
+> to set NTF_USE, enable stp and then set maxageing to a low value so
+> br_fdb_cleanup() is called frequently and then just add new entries in
+> a loop. This happens because br_fdb_cleanup() is called from timer/softirq
+> context. The spin locks in br_fdb_update were _bh before commit f8ae737deea1
+> ("[BRIDGE]: forwarding remove unneeded preempt and bh diasables")
+> and at the time that commit was correct because br_fdb_update() couldn't be
+> called from process context, but that changed after commit:
+> 292d1398983f ("bridge: add NTF_USE support")
+> Using local_bh_disable/enable around br_fdb_update() allows us to keep
+> using the spin_lock/unlock in br_fdb_update for the fast-path.
 > 
-> The semantic patch that performs this transformation is as follows:
-> 
-> @@expression x;@@
-> 
-> - __constant_cpu_to_le16(x)
-> + cpu_to_le16(x)
-> 
-> Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Fixes: 292d1398983f ("bridge: add NTF_USE support")
+> ---
+> v2: new patch, uses local_bh_disable/enable instead of _bh variant
+>     of spinlocks to keep the fast-path optimization. Please drop
+>     "bridge: use _bh spinlock variant for br_fdb_update to avoid lockup"
+>     in favor of this one.
 
-Applied, thanks.
+Ok, I accidently applied v1, so I reverted that and applied and queued
+this one instead for -stable.
+
+Thanks.
