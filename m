@@ -1,60 +1,74 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] net: replace last open coded skb_orphan_frags
- with function call
-Date: Mon, 8 Jun 2015 17:54:31 +0200
-Message-ID: <20150608175416-mutt-send-email-mst@redhat.com>
-References: <1433778788-16971-1-git-send-email-willemb@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Willem de Bruijn <willemb@google.com>
+From: Josh Hunt <johunt@akamai.com>
+Subject: [PATCH v3] ipv6: Fix protocol resubmission
+Date: Mon,  8 Jun 2015 12:00:59 -0400
+Message-ID: <1433779259-14328-1-git-send-email-johunt@akamai.com>
+Cc: sergei.shtylyov@cogentembedded.com, tom@herbertland.com,
+	Josh Hunt <johunt@akamai.com>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43427 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752052AbbFHPye (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jun 2015 11:54:34 -0400
-Content-Disposition: inline
-In-Reply-To: <1433778788-16971-1-git-send-email-willemb@google.com>
+Received: from prod-mail-xrelay07.akamai.com ([72.246.2.115]:59596 "EHLO
+	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753269AbbFHQBD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 12:01:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 08, 2015 at 11:53:08AM -0400, Willem de Bruijn wrote:
-> From: Willem de Bruijn <willemb@google.com>
-> 
-> Commit 70008aa50e92 ("skbuff: convert to skb_orphan_frags") replaced
-> open coded tests of SKBTX_DEV_ZEROCOPY and skb_copy_ubufs with calls
-> to helper function skb_orphan_frags. Apply that to the last remaining
-> open coded site.
-> 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
+UDP encapsulation is broken on IPv6. This is because the logic to resubmit
+the nexthdr is inverted, checking for a ret value > 0 instead of < 0. Also,
+the resubmit label is in the wrong position since we already get the
+nexthdr value when performing decapsulation. In addition the skb pull is no
+longer necessary either.
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+This changes the return value check to look for < 0, using it for the
+nexthdr on the next iteration, and moves the resubmit label to the proper
+location.
 
-> ---
->  net/core/dev.c | 11 ++---------
->  1 file changed, 2 insertions(+), 9 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 0602e91..6778a99 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1723,15 +1723,8 @@ EXPORT_SYMBOL_GPL(is_skb_forwardable);
->  
->  int __dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
->  {
-> -	if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
-> -		if (skb_copy_ubufs(skb, GFP_ATOMIC)) {
-> -			atomic_long_inc(&dev->rx_dropped);
-> -			kfree_skb(skb);
-> -			return NET_RX_DROP;
-> -		}
-> -	}
-> -
-> -	if (unlikely(!is_skb_forwardable(dev, skb))) {
-> +	if (skb_orphan_frags(skb, GFP_ATOMIC) ||
-> +	    unlikely(!is_skb_forwardable(dev, skb))) {
->  		atomic_long_inc(&dev->rx_dropped);
->  		kfree_skb(skb);
->  		return NET_RX_DROP;
-> -- 
-> 2.2.0.rc0.207.ga3a616c
+With these changes the v6 code now matches what we do in the v4 ip input
+code wrt resubmitting when decapsulating.
+
+Signed-off-by: Josh Hunt <johunt@akamai.com>
+---
+
+v3: Fix formatting issues found by Sergei Shtylyov
+v2: Use returned nexthdr value
+
+ net/ipv6/ip6_input.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index f2e464e..41a73da 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -212,13 +212,13 @@ static int ip6_input_finish(struct sock *sk, struct sk_buff *skb)
+ 	 */
+ 
+ 	rcu_read_lock();
+-resubmit:
+ 	idev = ip6_dst_idev(skb_dst(skb));
+ 	if (!pskb_pull(skb, skb_transport_offset(skb)))
+ 		goto discard;
+ 	nhoff = IP6CB(skb)->nhoff;
+ 	nexthdr = skb_network_header(skb)[nhoff];
+ 
++resubmit:
+ 	raw = raw6_local_deliver(skb, nexthdr);
+ 	ipprot = rcu_dereference(inet6_protos[nexthdr]);
+ 	if (ipprot) {
+@@ -246,10 +246,12 @@ resubmit:
+ 			goto discard;
+ 
+ 		ret = ipprot->handler(skb);
+-		if (ret > 0)
++		if (ret < 0) {
++			nexthdr = -ret;
+ 			goto resubmit;
+-		else if (ret == 0)
++		} else if (ret == 0) {
+ 			IP6_INC_STATS_BH(net, idev, IPSTATS_MIB_INDELIVERS);
++		}
+ 	} else {
+ 		if (!raw) {
+ 			if (xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb)) {
+-- 
+1.7.9.5
