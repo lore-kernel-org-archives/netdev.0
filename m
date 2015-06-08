@@ -1,56 +1,38 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v5 1/2] Renesas Ethernet AVB driver proper
-Date: Tue, 09 Jun 2015 00:44:16 +0300
-Message-ID: <55760CB0.1020503@cogentembedded.com>
-References: <1752433.KgeJV8aUGv@wasted.cogentembedded.com> <20150603.201204.761049104805679684.davem@davemloft.net>
+From: Samuel Ortiz <sameo@linux.intel.com>
+Subject: Re: [PATCH] NFC: nci: hci: Fix releasing uninitialized skbs
+Date: Mon, 8 Jun 2015 23:49:23 +0200
+Message-ID: <20150608214923.GH5089@ribalta.mp.intel.com>
+References: <1433119485.2984.36.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
-	galak@codeaurora.org, netdev@vger.kernel.org,
-	richardcochran@gmail.com, linux-sh@vger.kernel.org,
-	mitsuhiro.kimura.kc@renesas.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20150603.201204.761049104805679684.davem@davemloft.net>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1433119485.2984.36.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi Joe,
 
-On 06/04/2015 06:12 AM, David Miller wrote:
+On Sun, May 31, 2015 at 05:44:45PM -0700, Joe Perches wrote:
+> Several of these goto exit; uses should be direct returns
+> as skb is not yet initialized by nci_hci_get_param().
+> 
+> Miscellanea:
+> 
+> o Use !memcmp instead of memcmp() == 0
+> o Remove unnecessary goto from if () {... goto exit;} else {...} exit:
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  net/nfc/nci/hci.c | 11 +++--------
+>  1 file changed, 3 insertions(+), 8 deletions(-)
+Applied to nfc-next, thanks.
 
->> +		/* Received network control queue */
->> +		if (ris0 & RIS0_FRF1) {
->> +			ravb_write(ndev, ~RIS0_FRF1, RIS0);
->> +			/* Timestamp of network control packets that is based
->> +			 * on IEEE802.1AS, is used time synchronization of PTP.
->> +			 * It should not be handled by NAPI scheduling, because
->> +			 * it needs to be received as soon as possible.
->> +			 */
->> +			ravb_rx(ndev, NULL, RAVB_NC);
->> +			result = IRQ_HANDLED;
->> +		}
-
-> Nobody else makes this distinction, all packets should be processed
-> via your NAPI path.
-
-    I see.
-
-> When I see people conditionally invoking netif_rx()
-> vs. netif_receive_skb() in their packet receive routine, like
-> conditional locking, it's a big red flag.
-
-> Furthermore, you should pass the NAPI context into ravb_rx() and use
-
-    I guess I should have one NAPI context per RX queue?
-
-> it so that you can invoke napi_gro_receive() on all of the packets and
-> therefore support GRO.
-
-    Hmm, I don't think I have a hardware support for generic RX offload...
-I'm still unsure what it is anyway -- is it used for IP packet defragmentation?
-
-WBR, Sergei
-
+Cheers,
+Samuel.
