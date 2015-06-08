@@ -1,32 +1,70 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [RFC PATCH] slub: RFC: Improving SLUB performance with 38% on
- NO-PREEMPT
-Date: Mon, 8 Jun 2015 04:39:38 -0500 (CDT)
-Message-ID: <alpine.DEB.2.11.1506080438570.10781@east.gentwo.org>
-References: <20150604103159.4744.75870.stgit@ivy> <1433471877.1895.51.camel@edumazet-glaptop2.roam.corp.google.com> <20150608112359.04a3750e@redhat.com>
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-    Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-    Alexander Duyck <alexander.duyck@gmail.com>, linux-mm@kvack.org,
-    netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20150608112359.04a3750e@redhat.com>
-Sender: owner-linux-mm@kvack.org
+From: Firo Yang <firogm@gmail.com>
+Subject: Re: [PATCH v3] ARM: pxa: ssp: remove unnessary free for devm_xxx
+Date: Mon, 8 Jun 2015 17:42:53 +0800
+Message-ID: <20150608094253.GA32148@firo>
+References: <1433756230-31956-1-git-send-email-firogm@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: alexander.duyck@gmail.com, eric.dumazet@gmail.com, wharms@bfs.de,
+	julia.lawall@lip6.fr, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1433756230-31956-1-git-send-email-firogm@gmail.com>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 8 Jun 2015, Jesper Dangaard Brouer wrote:
+Sorry, please, ignore this patch.
+I send it to the wrong receiver.
 
-> My real question is if disabling local interrupts is enough to avoid this?
+On Mon, Jun 08, 2015 at 05:37:10PM +0800, Firo Yang wrote:
+>A Coccinelle warning.
+>It's not necessary to free memory allocated with devm_xxx
+>and using these free functions maybe lead to a double free that
+>will corrupt the resource subsys. So, I just remove them.
+>
+>Signed-off-by: Firo Yang <firogm@gmail.com>
+>---
+>In "[PATCH] ARM: pxa: ssp: remove unnessary free for devm_xxx", 
+>I forgot to remove an unused variable struct resource *res.
+>
+> arch/arm/plat-pxa/ssp.c | 9 ---------
+> 1 file changed, 9 deletions(-)
+>
+>diff --git a/arch/arm/plat-pxa/ssp.c b/arch/arm/plat-pxa/ssp.c
+>index ad9529c..2b92a3b 100644
+>--- a/arch/arm/plat-pxa/ssp.c
+>+++ b/arch/arm/plat-pxa/ssp.c
+>@@ -232,25 +232,16 @@ static int pxa_ssp_probe(struct platform_device *pdev)
+> 
+> static int pxa_ssp_remove(struct platform_device *pdev)
+> {
+>-	struct resource *res;
+> 	struct ssp_device *ssp;
+> 
+> 	ssp = platform_get_drvdata(pdev);
+> 	if (ssp == NULL)
+> 		return -ENODEV;
+> 
+>-	iounmap(ssp->mmio_base);
+>-
+>-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>-	release_mem_region(res->start, resource_size(res));
+>-
+>-	clk_put(ssp->clk);
+>-
+> 	mutex_lock(&ssp_lock);
+> 	list_del(&ssp->node);
+> 	mutex_unlock(&ssp_lock);
+> 
+>-	kfree(ssp);
+> 	return 0;
+> }
+> 
+>-- 
+>2.4.2
+>
 
-Yes the initial release of slub used interrupt disable in the fast paths.
-
-> And, does local irq disabling also stop preemption?
-
-Of course.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-- 
