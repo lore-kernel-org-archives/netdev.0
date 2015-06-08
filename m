@@ -1,50 +1,58 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH iproute2 resend] Fix changing tunnel remote and local
- address to any
-Date: Mon, 08 Jun 2015 10:51:51 +0200
-Message-ID: <557557A7.5010004@6wind.com>
-References: <20150604120117.GB7119@indiana.gru.redhat.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH] slub: RFC: Improving SLUB performance with 38% on
+ NO-PREEMPT
+Date: Mon, 8 Jun 2015 11:23:59 +0200
+Message-ID: <20150608112359.04a3750e@redhat.com>
+References: <20150604103159.4744.75870.stgit@ivy>
+	<1433471877.1895.51.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: stephen@networkplumber.org
-To: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:34005 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752208AbbFHIvy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 04:51:54 -0400
-Received: by wibut5 with SMTP id ut5so78289458wib.1
-        for <netdev@vger.kernel.org>; Mon, 08 Jun 2015 01:51:53 -0700 (PDT)
-In-Reply-To: <20150604120117.GB7119@indiana.gru.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Lameter <cl@linux.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>, linux-mm@kvack.org,
+        netdev@vger.kernel.org, brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1433471877.1895.51.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Le 04/06/2015 14:01, Thadeu Lima de Souza Cascardo a =E9crit :
-> If a tunnel is created with a local address, you can't change it to a=
-ny.
->
->   # ip tunnel add tunl1 mode ipip remote 10.16.42.37 local 10.16.42.2=
-14 ttl 64
->   # ip tunnel show tunl1
->   tunl1: ip/ip  remote 10.16.42.37  local 10.16.42.214  ttl 64
->   # ip tunnel change tunl1 local any
->   # echo $?
->   0
->   # ip tunnel show tunl1
->   tunl1: ip/ip  remote 10.16.42.37  local 10.16.42.214  ttl 64
->
-> It happens that parse_args zeroes ip_tunnel_parm, and when creating t=
-he
-> tunnel, it is OK to leave it as is if the address is any. However, wh=
-en
-> changing the tunnel, the current parameters will be read from
-> ip_tunnel_parm, and local and remote address won't be zeroes anymore,=
- so
-> it needs to be explicitly set to any.
->
-> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
-Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+On Thu, 04 Jun 2015 19:37:57 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> On Thu, 2015-06-04 at 12:31 +0200, Jesper Dangaard Brouer wrote:
+> > This patch improves performance of SLUB allocator fastpath with 38% by
+> > avoiding the call to this_cpu_cmpxchg_double() for NO-PREEMPT kernels.
+> > 
+> > Reviewers please point out why this change is wrong, as such a large
+> > improvement should not be possible ;-)
+> 
+> I am not sure if anyone already answered, but the cmpxchg_double()
+> is needed to avoid the ABA problem.
+> 
+> This is the whole point using tid _and_ freelist
+> 
+> Preemption is not the only thing that could happen here, think of
+> interrupts.
+
+Yes, I sort of already knew this.
+
+My real question is if disabling local interrupts is enough to avoid this?
+
+And, does local irq disabling also stop preemption?
+
+Questions relate to this patch:
+ http://ozlabs.org/~akpm/mmots/broken-out/slub-bulk-alloc-extract-objects-from-the-per-cpu-slab.patch
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
