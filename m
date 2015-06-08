@@ -1,51 +1,56 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] virtio: (yet another) last-minute fix for 4.1
-Date: Mon, 8 Jun 2015 23:13:21 +0200
-Message-ID: <20150608231321-mutt-send-email-mst@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v5 1/2] Renesas Ethernet AVB driver proper
+Date: Tue, 09 Jun 2015 00:44:16 +0300
+Message-ID: <55760CB0.1020503@cogentembedded.com>
+References: <1752433.KgeJV8aUGv@wasted.cogentembedded.com> <20150603.201204.761049104805679684.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, jiang.liu@linux.intel.com
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
+	galak@codeaurora.org, netdev@vger.kernel.org,
+	richardcochran@gmail.com, linux-sh@vger.kernel.org,
+	mitsuhiro.kimura.kc@renesas.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20150603.201204.761049104805679684.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following changes since commit 8a7b19d8b542b87bccc3eaaf81dcc90a5ca48aea:
+Hello.
 
-  include/uapi/linux/virtio_balloon.h: include linux/virtio_types.h (2015-06-01 15:46:54 +0200)
+On 06/04/2015 06:12 AM, David Miller wrote:
 
-are available in the git repository at:
+>> +		/* Received network control queue */
+>> +		if (ris0 & RIS0_FRF1) {
+>> +			ravb_write(ndev, ~RIS0_FRF1, RIS0);
+>> +			/* Timestamp of network control packets that is based
+>> +			 * on IEEE802.1AS, is used time synchronization of PTP.
+>> +			 * It should not be handled by NAPI scheduling, because
+>> +			 * it needs to be received as soon as possible.
+>> +			 */
+>> +			ravb_rx(ndev, NULL, RAVB_NC);
+>> +			result = IRQ_HANDLED;
+>> +		}
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+> Nobody else makes this distinction, all packets should be processed
+> via your NAPI path.
 
-for you to fetch changes up to 210d150e1f5da506875e376422ba31ead2d49621:
+    I see.
 
-  virtio_pci: Clear stale cpumask when setting irq affinity (2015-06-04 14:47:49 +0200)
+> When I see people conditionally invoking netif_rx()
+> vs. netif_receive_skb() in their packet receive routine, like
+> conditional locking, it's a big red flag.
 
-----------------------------------------------------------------
-virtio: last-minute fix for 4.1
+> Furthermore, you should pass the NAPI context into ravb_rx() and use
 
-This fixes a minor issue affecting multiqueue virtio net
-when user keeps changing the number of active queues
-and CPUs are added and removed by hotplug.
+    I guess I should have one NAPI context per RX queue?
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> it so that you can invoke napi_gro_receive() on all of the packets and
+> therefore support GRO.
 
-----------------------------------------------------------------
-Jiang Liu (1):
-      virtio_pci: Clear stale cpumask when setting irq affinity
+    Hmm, I don't think I have a hardware support for generic RX offload...
+I'm still unsure what it is anyway -- is it used for IP packet defragmentation?
 
- drivers/virtio/virtio_pci_common.c | 1 +
- 1 file changed, 1 insertion(+)
+WBR, Sergei
+
