@@ -1,7 +1,8 @@
 From: Shrijeet Mukherjee <shm@cumulusnetworks.com>
-Subject: [RFC net-next 0/3] Proposal for VRF-lite
-Date: Mon,  8 Jun 2015 11:35:31 -0700
-Message-ID: <cover.1433561681.git.shm@cumulusnetworks.com>
+Subject: [RFC net-next 2/3] VRF driver and needed infrastructure
+Date: Mon,  8 Jun 2015 11:35:33 -0700
+Message-ID: <dafc9b784df4cb52691f7dce0f280fc1b2b14532.1433561681.git.shm@cumulusnetworks.com>
+References: <cover.1433561681.git.shm@cumulusnetworks.com>
 Cc: roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
 	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com,
 	Shrijeet Mukherjee <shm@cumulusnetworks.com>
@@ -10,223 +11,59 @@ To: hannes@stressinduktion.org, nicolas.dichtel@6wind.com,
 	davem@davemloft.net, stephen@networkplumber.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:33261 "EHLO
-	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752405AbbFHSfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 14:35:52 -0400
-Received: by qkhg32 with SMTP id g32so82489556qkh.0
-        for <netdev@vger.kernel.org>; Mon, 08 Jun 2015 11:35:51 -0700 (PDT)
+Received: from mail-qg0-f52.google.com ([209.85.192.52]:34776 "EHLO
+	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752643AbbFHSf6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 14:35:58 -0400
+Received: by qgf75 with SMTP id 75so49191890qgf.1
+        for <netdev@vger.kernel.org>; Mon, 08 Jun 2015 11:35:57 -0700 (PDT)
+In-Reply-To: <cover.1433561681.git.shm@cumulusnetworks.com>
+In-Reply-To: <cover.1433561681.git.shm@cumulusnetworks.com>
+References: <cover.1433561681.git.shm@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shrijeet Mukherjee <shm@cumulusnetworks.com>
 
-In the context of internet scale routing a requirement that always
-comes up is the need to partition the available routing tables into
-disjoint routing planes. A specific use case is the multi-tenancy
-problem where each tenant has their own unique routing tables and in
-the very least need different default gateways.
+This driver borrows heavily from IPvlan and teaming drivers.
 
-This is an attempt to build the ability to create virtual router
-domains aka VRF's (VRF-lite to be specific) in the linux packet
-forwarding stack. The main observation is that through the use of
-rules and socket binding to interfaces, all the facilities that we
-need are already present in the infrastructure. What is missing is a
-handle that identifies a routing domain and can be used to gather
-applicable rules/tables and uniqify neighbor selection. The scheme
-used needs to preserves the notions of ECMP, and general routing
-principles.
+Routing domains (VRF-lite) are created by instantiating a device
+and enslaving all routed interfaces that participate in the domain.
+As part of the enslavement, all local routes pointing to enslaved
+devices are re-pointed to the vrf device, thus forcing outgoing
+sockets to bind to the vrf to function.
 
-This driver is a cross between functionality that the IPVLAN driver
-and the Team drivers provide where a device is created and packets
-into/out of the routing domain are shuttled through this device. The
-device is then used as a handle to identify the applicable rules. The
-VRF device is thus the layer3 equivalent of a vlan device.
+Standard FIB rules can then bind the VRF device to tables and regular
+fib rule processing is followed.
 
-The very important point to note is that this is only a Layer3 concept
-so LLDP like tools do not need to be run in each VRF, processes can
-run in unaware mode or select a VRF to be talking through. Also the
-behavioral model is a generalized application of the familiar VRF-Lite
-model with some performance paths that need optimization. (Specifically
-the output route selector that Roopa, Robert, Thomas and EricB are
-currently discussing on the MPLS thread)
+Routed traffic through the box, is fwded by using the VRF device as
+the IIF and following the IIF rule to a table which is mated with
+the VRF.
 
-High Level points
+Locally originated traffic is directed at the VRF device using
+SO_BINDTODEVICE or cmsg headers. This in turn drops the packet into
+the xmit function of the vrf driver, which then completes the ip lookup
+and output.
 
-1. Simple overlay driver (minimal changes to current stack)
-   * uses the existing fib tables and fib rules infrastructure
-2. Modelled closely after the ipvlan driver
-3. Uses current API and infrastructure.
-   * Applications can use SO_BINDTODEVICE or cmsg device indentifiers
-     to pick VRF (ping, traceroute just work)
-   * Standard IP Rules work, and since they are aggregated against the
-     device, scale is manageable
-4. Completely orthogonal to Namespaces and only provides separation in
-   the routing plane (and ARP)
-5. Debugging is built-in as tcpdump and counters on the VRF device
-   works as is.
+This solution is completely orthogonal to namespaces and allow the L3
+equivalent of vlans to exist allowing the routing space to be
+partitioned.
 
-                                                 N2
-           N1 (all configs here)          +---------------+
-    +--------------+                      |               |
-    |swp1 :10.0.1.1+----------------------+swp1 :10.0.1.2 |
-    |              |                      |               |
-    |swp2 :10.0.2.1+----------------------+swp2 :10.0.2.2 |
-    |              |                      +---------------+
-    | VRF 0        |
-    | table 5      |
-    |              |
-    +---------------+
-    |              |
-    | VRF 1        |                             N3
-    | table 6      |                      +---------------+
-    |              |                      |               |
-    |swp3 :10.0.2.1+----------------------+swp1 :10.0.2.2 |
-    |              |                      |               |
-    |swp4 :10.0.3.1+----------------------+swp2 :10.0.3.2 |
-    +--------------+                      +---------------+
+Example use is
+   ip link add vrf0 type vrf table 5
+   ip link set eth1 master vrf0
+   ip link set vrf0 up
 
+   ip rule add iif vrf0 table 5
+   ip rule add oif vrf0 table 5
 
-Given the topology above, the setup needed to get the basic VRF
-functions working would be
+TODO:
+This changeset is for IPv4 only
+Connected route management can be made much better, but is deferred to
+user space for now.
 
-# Create the VRF devices
-ip link add vrf0 type vrf table 5
-ip link add vrf1 type vrf table 6
-
-# Enslave the routing member interfaces
-ip link set swp1 master vrf0
-ip link set swp2 master vrf0
-ip link set swp3 master vrf1
-ip link set swp4 master vrf1
-
-ip link set vrf0 up
-ip link set vrf1 up
-
-# move the connected routes from the main table to the 
-# correct table
-
-# move vrf0 connected routes from main to table 5
-ip route del 10.0.1.0/24
-ip route del 10.0.2.0/24
-ip route add 10.0.1.0/24 dev swp1 table 5
-ip route add 10.0.2.0/24 dev swp2 table 5
-
-# move vrf1 connected routes from main to table 6
-ip route del 10.0.2.0/24
-ip route del 10.0.3.0/24
-ip route add 10.0.3.0/24 dev swp4 table 6
-ip route add 10.0.2.0/24 dev swp3 table 6
-
-# Install the lookup rules that map table to VRF domain
-ip rule add pref 200 oif vrf0 lookup 5
-ip rule add pref 200 iif vrf0 lookup 5
-ip rule add pref 200 oif vrf1 lookup 6
-ip rule add pref 200 iif vrf1 lookup 6
-
-# ping using VRF0 is simply
-ping -I vrf0 -I <optional-src-addr> 10.0.1.2
-
-# tcp/udp applications specify the interface using SO_BINDTODEVICE or
-cmsg hdr pointing to the desired vrf device.
-
-
-Design Highlights
-
-1. RX path
-
-The Basic action here is that for IP traffic (arp_rcv, icmp_rcv and
-ip_rcv) we check the incoming interface to see if it is enslaved. If
-enslaved, then the master device is used as the device for all lookups
-allowing the routing table for the lookup to be selected by the IIF
-rule
-
-1.a Forwarded Traffic
-
-In ip_route_input_slow we move the IIF to be that of the master
-device. This causes the IIF rule that maps to the VRF device to be
-applied forcing the packet to be looked up by the table that is
-associated with that device. For forwarded traffic the VRF device
-provides a convenient hook to group the forwarding action for a group
-of inbound ports.
-
-1.b Locally terminated traffic
-
-Packets are checked in arp_rcv, icmp_rcv and ip_rcv and the IIF is
-moved to the VRF device if the current IIF is enslaved. for LOCAL
-traffic this has two implications.
-
-We need the LOCAL table entries in the actual VRF device's routing
-table as well, and if that is present then we will match in the flow
-hashes using the device which the socket is bound to. Since using
-VRF's requires the socket to bind to an interface (netdev) that is
-what receive hash is going to resolve to.  all incoming frames
-destined to LOCAL will need to have it's iff changed
-
-2. TX path
-
-2.a Locally originated traffic
-
-The Basic point is here the oif override option that already exists in
-the linux kernel. Currently if the destination device exists (and thus
-is local), the flow_output_key functions generate a route to send the
-pkt towards the device. Leveraging that scheme (this can be
-optimized), we send the outbound pkts directly to the VRF device's
-xmit function. Since we can only specify one interface there is no
-concerns over ECMP, or missing pkts. Once the packet lands, the xmit
-function marks the pkt so that it hits the OIF rule for that VRF
-device and the proper table lookup happens and the pkt is sent along
-by normal fwding actions. The only change needed in the stack (with no
-added cost) is to check a FL4 flag that indicates it was originated by
-the VRF driver and the oif hint is to be ignored
-
-2.b Overlapping neighbor entries
-
-Since the outgoing packet (socket) needs to specify the VRF domain and
-we reject fwding through a device that is not enslaved, by picking the
-VRF device we decide which path the packet will go through.
-
-Considerations
-
-ARP
-
-The LOCAL table here is a pain, and needs to be melded into the main
-table that will require special handling of ARP. ARP replies are sent
-to the generic stack, and need to be accepted by hitting a LOCAL
-route. If the LOCAL route is in a VRF table, then ARP replies miss
-classification and end up being fwded through to the default route. If
-the ARP replies are redirected to be seen as received on the VRF
-device then the ARP entry is registered against the VRF device and
-final forwarding using physical ports will not complete. Currently
-enslaving will install the "local" route into the table associated
-with the VRF device. Un-enslave will put the local route back into
-LOCAL table. Hannes has a plan to work this into a per VRF local table
-concept. Update : fixed this with a specific change into the arp stack
-
-Route Leaking and Policy Routing
-
-Policy Routing needs standard rule precedence and using fw_mark to
-selective apply policies just work.  Route Leaking is an interesting
-angle. Since the Nexthops used in the final forwarding step all belong
-to the same namespace, there is no restriction on which Nexthop can be
-used in which table. The route lookup in the context of the VRF table
-enforces that it does not forward through non-slave interfaces, so
-that it does not accidentally leak.
-However since we are using the standard fib rules on a mismatch in the
-route table that a VRF is pointing to, an attempt will be made to fwd
-the packet from the next routing table (in the example shown above it
-will end up on the default route of the main table)
-
-Connected route management is still a little fragile ..
-
-Bug-Fixes,Ideas from Hannes, David Ahern, Roopa Prabhu, Jon Toppins
-                     Jamal
-
-Shrijeet Mukherjee (3):
-  Symbol preparation for VRF driver
-  VRF driver and needed infrastructure
-  rcv path changes for vrf traffic
-
+Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
+---
  drivers/net/Kconfig          |    6 +
  drivers/net/Makefile         |    1 +
  drivers/net/vrf.c            |  654 ++++++++++++++++++++++++++++++++++++++++++
@@ -234,13 +71,811 @@ Shrijeet Mukherjee (3):
  include/net/flow.h           |    1 +
  include/net/vrf.h            |   19 ++
  include/uapi/linux/if_link.h |    9 +
- net/ipv4/fib_frontend.c      |   15 +-
- net/ipv4/fib_trie.c          |    9 +-
- net/ipv4/icmp.c              |    6 +
- net/ipv4/route.c             |    3 +-
- 11 files changed, 727 insertions(+), 6 deletions(-)
+ 7 files changed, 700 insertions(+)
  create mode 100644 drivers/net/vrf.c
  create mode 100644 include/net/vrf.h
 
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 019fcef..27a333c 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -283,6 +283,12 @@ config NLMON
+ 	  diagnostics, etc. This is mostly intended for developers or support
+ 	  to debug netlink issues. If unsure, say N.
+ 
++config NET_VRF
++	tristate "Virtual Routing and Forwarding (Lite)"
++	---help---
++          This option enables the support for mapping interfaces into VRF's. The
++          support enables VRF devices
++
+ endif # NET_CORE
+ 
+ config SUNGEM_PHY
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index c12cb22..ca16dd6 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -25,6 +25,7 @@ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+ obj-$(CONFIG_VXLAN) += vxlan.o
+ obj-$(CONFIG_GENEVE) += geneve.o
+ obj-$(CONFIG_NLMON) += nlmon.o
++obj-$(CONFIG_NET_VRF) += vrf.o
+ 
+ #
+ # Networking Drivers
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+new file mode 100644
+index 0000000..08b3e79
+--- /dev/null
++++ b/drivers/net/vrf.c
+@@ -0,0 +1,654 @@
++/*
++ * vrf.c: device driver to encapsulate a VRF space
++ *
++ * Copyright (c) 2015 Cumulus Networks
++ *
++ * Based on dummy, team and ipvlan drivers
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/ip.h>
++#include <linux/init.h>
++#include <linux/moduleparam.h>
++#include <linux/rtnetlink.h>
++#include <net/rtnetlink.h>
++#include <net/arp.h>
++#include <linux/u64_stats_sync.h>
++#include <linux/hashtable.h>
++
++#include <linux/inetdevice.h>
++#include <net/ip.h>
++#include <net/ip_fib.h>
++#include <net/ip6_route.h>
++#include <net/rtnetlink.h>
++#include <net/route.h>
++#include <net/addrconf.h>
++#include <net/vrf.h>
++
++#define DRV_NAME	"vrf"
++#define DRV_VERSION	"1.0"
++
++#define vrf_is_slave(dev)   ((dev->flags & IFF_SLAVE) == IFF_SLAVE)
++#define vrf_is_master(dev)  ((dev->flags & IFF_MASTER) == IFF_MASTER)
++
++#define vrf_master_get_rcu(dev) \
++	((struct net_device *)rcu_dereference(dev->rx_handler_data))
++
++struct pcpu_dstats {
++	u64			tx_pkts;
++	u64			tx_bytes;
++	u64			tx_drps;
++	u64			rx_pkts;
++	u64			rx_bytes;
++	struct u64_stats_sync	syncp;
++};
++
++struct slave {
++	struct list_head	list;
++	struct net_device	*dev;
++	long			priority;
++};
++
++struct slave_queue {
++	spinlock_t		lock; /* lock for slave insert/delete */
++	struct list_head	all_slaves;
++	int			num_slaves;
++	struct net_device	*master_dev;
++};
++
++struct net_vrf {
++	struct slave_queue	queue;
++	struct fib_table        *tb;
++	u32                     tb_id;
++};
++
++static int is_ip_rx_frame(struct sk_buff *skb)
++{
++	switch (skb->protocol) {
++	case htons(ETH_P_IP):
++	case htons(ETH_P_IPV6):
++		return 1;
++	}
++	return 0;
++}
++
++/* note: already called with rcu_read_lock */
++static rx_handler_result_t vrf_handle_frame(struct sk_buff **pskb)
++{
++	struct sk_buff *skb = *pskb;
++
++	if (is_ip_rx_frame(skb)) {
++		struct net_device *dev = vrf_master_get_rcu(skb->dev);
++		struct pcpu_dstats *dstats = this_cpu_ptr(dev->dstats);
++
++		u64_stats_update_begin(&dstats->syncp);
++		dstats->rx_pkts++;
++		dstats->rx_bytes += skb->len;
++		u64_stats_update_end(&dstats->syncp);
++	}
++	return RX_HANDLER_PASS;
++}
++
++static struct rtnl_link_stats64 *vrf_get_stats64(
++	struct net_device *dev, struct rtnl_link_stats64 *stats)
++{
++	int i;
++
++	for_each_possible_cpu(i) {
++		const struct pcpu_dstats *dstats;
++		u64 tbytes, tpkts, tdrops, rbytes, rpkts;
++		unsigned int start;
++
++		dstats = per_cpu_ptr(dev->dstats, i);
++		do {
++			start = u64_stats_fetch_begin_irq(&dstats->syncp);
++			tbytes = dstats->tx_bytes;
++			tpkts = dstats->tx_pkts;
++			tdrops = dstats->tx_drps;
++			rbytes = dstats->rx_bytes;
++			rpkts = dstats->rx_pkts;
++		} while (u64_stats_fetch_retry_irq(&dstats->syncp, start));
++		stats->tx_bytes += tbytes;
++		stats->tx_packets += tpkts;
++		stats->tx_dropped += tdrops;
++		stats->rx_bytes += rbytes;
++		stats->rx_packets += rpkts;
++	}
++	return stats;
++}
++
++static netdev_tx_t vrf_process_v6_outbound(struct sk_buff *skb,
++					   struct net_device *dev)
++{
++	return 0;
++}
++
++static int _vrf_send_v4_prep(struct sk_buff *skb, struct flowi4 *fl4,
++			     struct net_device *vrf_dev)
++{
++	struct rtable *rt;
++	struct net_device *dev = skb->dev;
++
++	rt = ip_route_output_flow(dev_net(dev), fl4, NULL);
++
++	if (IS_ERR(rt))
++		goto err;
++
++	if ((rt->rt_type != RTN_UNICAST && rt->rt_type != RTN_LOCAL) ||
++	    !rt->dst.dev->vrf_ptr) {
++		ip_rt_put(rt);
++		goto err;
++	}
++
++	/* prevent slave cross reference */
++	if (rt->dst.dev->vrf_ptr->ifindex != vrf_dev->ifindex) {
++		ip_rt_put(rt);
++		goto err;
++	}
++
++	skb_dst_drop(skb);
++	skb_dst_set(skb, &rt->dst);
++
++	return 0;
++err:
++	return 1;
++}
++
++static netdev_tx_t vrf_process_v4_outbound(struct sk_buff *skb,
++					   struct net_device *vrf_dev)
++{
++	struct iphdr *ip4h = ip_hdr(skb);
++	int ret = NET_XMIT_DROP;
++	struct net_device *dev = skb->dev;
++	struct flowi4 fl4 = {
++		/* needed to match OIF rule */
++		.flowi4_oif = vrf_dev->ifindex,
++		.flowi4_iif = LOOPBACK_IFINDEX,
++		.flowi4_tos = RT_TOS(ip4h->tos),
++		.flowi4_flags = FLOWI_FLAG_ANYSRC | FLOWI_FLAG_VRFSRC,
++		.daddr = ip4h->daddr,
++		.saddr = 0,
++	};
++
++	if (_vrf_send_v4_prep(skb, &fl4, vrf_dev))
++		goto err;
++
++	dev = skb_dst(skb)->dev;
++	ip4h->saddr = inet_select_addr(dev, 0, RT_SCOPE_LINK);
++	ret = ip_local_out(skb);
++
++	if (unlikely(net_xmit_eval(ret)))
++		vrf_dev->stats.tx_errors++;
++	else
++		ret = NET_XMIT_SUCCESS;
++
++	goto out;
++err:
++	vrf_dev->stats.tx_errors++;
++	kfree_skb(skb);
++out:
++	return ret;
++}
++
++static netdev_tx_t is_ip_tx_frame(struct sk_buff *skb, struct net_device *dev)
++{
++	/* the frames we recv have full L2 headers, strip */
++	if (skb_mac_header_was_set(skb)) {
++		skb_pull(skb, sizeof(struct ethhdr));
++		skb->mac_header = (typeof(skb->mac_header))~0U;
++		skb_reset_network_header(skb);
++	}
++
++	switch (skb->protocol) {
++	case htons(ETH_P_IP):
++		return vrf_process_v4_outbound(skb, dev);
++	case htons(ETH_P_IPV6):
++		return vrf_process_v6_outbound(skb, dev);
++	default:
++		return NET_XMIT_DROP;
++	}
++}
++
++static netdev_tx_t vrf_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	netdev_tx_t ret = is_ip_tx_frame(skb, dev);
++
++	if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
++		struct pcpu_dstats *dstats = this_cpu_ptr(dev->dstats);
++
++		u64_stats_update_begin(&dstats->syncp);
++		dstats->tx_pkts++;
++		dstats->tx_bytes += skb->len;
++		u64_stats_update_end(&dstats->syncp);
++	} else {
++		this_cpu_inc(dev->dstats->tx_drps);
++	}
++
++	return ret;
++}
++
++int vrf_output(struct sock *sk, struct sk_buff *skb)
++{
++	struct net_device *dev = skb_dst(skb)->dev;
++
++	return vrf_xmit(skb, dev);
++}
++
++/**************************** device handling ********************/
++
++/* queue->lock must be held */
++static struct slave *__vrf_find_slave_dev(struct slave_queue *queue,
++					  struct net_device *dev)
++{
++	struct list_head *this, *head;
++
++	head = &queue->all_slaves;
++	list_for_each(this, head) {
++		struct slave *slave = list_entry(this, struct slave, list);
++
++		if (slave->dev == dev)
++			return slave;
++	}
++
++	return NULL;
++}
++
++static void vrf_kill_one_slave(struct slave_queue *queue, struct slave *slave)
++{
++	list_del(&slave->list);
++	queue->num_slaves--;
++	slave->dev->flags &= ~IFF_SLAVE;
++	netdev_rx_handler_unregister(slave->dev);
++	kfree(slave->dev->vrf_ptr);
++	slave->dev->vrf_ptr = NULL;
++	dev_put(slave->dev);
++	kfree(slave);
++}
++
++/* queue->lock must be held */
++static int __vrf_insert_slave(struct slave_queue *queue, struct slave *slave,
++			      struct net_device *master)
++{
++	struct net_vrf *vrf = netdev_priv(master);
++	struct slave *duplicate_slave = NULL;
++	int master_ifindex = master->ifindex;
++	int err = 0;
++
++	duplicate_slave = __vrf_find_slave_dev(queue, slave->dev);
++	if (duplicate_slave)
++		vrf_kill_one_slave(queue, duplicate_slave);
++
++	dev_hold(slave->dev);
++	list_add(&slave->list, &queue->all_slaves);
++	queue->num_slaves++;
++	slave->dev->flags |= IFF_SLAVE;
++
++	slave->dev->vrf_ptr = kmalloc(sizeof(*slave->dev->vrf_ptr), GFP_KERNEL);
++	if (!slave->dev->vrf_ptr)
++		return -ENODEV;
++	slave->dev->vrf_ptr->ifindex = master_ifindex;
++	slave->dev->vrf_ptr->tb_id = vrf->tb_id;
++
++	/* register the packet handler for slave ports */
++	err = netdev_rx_handler_register(slave->dev, vrf_handle_frame,
++					 (void *)master);
++	if (err) {
++		netdev_err(slave->dev,
++			   "Device %s failed to register rx_handler\n",
++			   slave->dev->name);
++		return err;
++	}
++
++	return 0;
++}
++
++static void vrf_fib_magic(int cmd, int type, __be32 dst, int dst_len,
++			  struct in_ifaddr *ifa, struct net_device *vrf_dev)
++{
++	struct net_vrf *vrf = netdev_priv(vrf_dev);
++	struct net *net = dev_net(ifa->ifa_dev->dev);
++	struct net *vrf_net = dev_net(vrf_dev);
++	struct fib_table *tb, *lc_tb;
++	struct fib_config cfg = {
++		.fc_protocol = RTPROT_KERNEL,
++		.fc_type = type,
++		.fc_dst = dst,
++		.fc_dst_len = dst_len,
++		.fc_prefsrc = ifa->ifa_local,
++		.fc_nlflags = NLM_F_CREATE | NLM_F_APPEND,
++		.fc_nlinfo = {
++			.nl_net = net,
++		},
++	};
++
++	lc_tb = fib_new_table(dev_net(vrf_dev), RT_TABLE_LOCAL);
++	tb = vrf->tb;
++	if (!tb || !lc_tb)
++		return;
++
++	if (net != vrf_net)
++		return;
++
++	if (type != RTN_LOCAL)
++		cfg.fc_scope = RT_SCOPE_LINK;
++	else
++		cfg.fc_scope = RT_SCOPE_HOST;
++
++	if (cmd == RTM_NEWROUTE) {
++		cfg.fc_table = lc_tb->tb_id;
++		cfg.fc_oif = ifa->ifa_dev->dev->ifindex;
++		fib_table_delete(lc_tb, &cfg);
++		cfg.fc_table = tb->tb_id;
++		cfg.fc_oif = vrf_dev->ifindex;
++		fib_table_insert(tb, &cfg);
++	} else {
++		cfg.fc_table = tb->tb_id;
++		cfg.fc_oif = vrf_dev->ifindex;
++		fib_table_delete(tb, &cfg);
++		cfg.fc_table = lc_tb->tb_id;
++		cfg.fc_oif = ifa->ifa_dev->dev->ifindex;
++		fib_table_insert(lc_tb, &cfg);
++	}
++}
++
++static void vrf_move_local_routes(int cmd, struct net_device *dev,
++				  struct net_device *port_dev)
++{
++	struct in_device *in_dev = __in_dev_get_rcu(port_dev);
++
++	if (!in_dev)
++		return;
++
++	for_ifa(in_dev) {
++		__be32 addr;
++
++		addr = ifa->ifa_local;
++		vrf_fib_magic(cmd, RTN_LOCAL, addr, 32, ifa, dev);
++	} endfor_ifa(in_dev);
++}
++
++static int vrf_inetaddr_event(struct notifier_block *this, unsigned long event,
++			      void *ptr)
++{
++	struct in_ifaddr *ifa = (struct in_ifaddr *)ptr;
++	struct net_device *port_dev = ifa->ifa_dev->dev;
++	struct net *net = dev_net(port_dev);
++	int master = 0;
++
++	if (port_dev->vrf_ptr)
++		master = port_dev->vrf_ptr->ifindex;
++
++	if (master) {
++		struct net_device *dev = dev_get_by_index(net, master);
++
++		switch (event) {
++		case NETDEV_UP:
++			vrf_move_local_routes(RTM_NEWROUTE, dev, port_dev);
++			break;
++		case NETDEV_DOWN:
++			vrf_move_local_routes(RTM_DELROUTE, dev, port_dev);
++			break;
++		}
++	}
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block vrf_inetaddr_notifier = {
++	.notifier_call = vrf_inetaddr_event,
++};
++
++/* netlink lock is assumed here */
++static int vrf_add_slave(struct net_device *dev,
++			 struct net_device *port_dev)
++{
++	if (!dev || !port_dev)
++		return -ENODEV;
++
++	if (dev_net(dev) != dev_net(port_dev))
++		return -ENODEV;
++
++	if (!vrf_is_master(port_dev) && !vrf_is_slave(port_dev)) {
++		struct slave *s = kmalloc(sizeof(*s), GFP_KERNEL);
++		struct net_vrf *vrf = netdev_priv(dev);
++		int ret;
++
++		if (!s)
++			return -ENOMEM;
++
++		memset(s, 0, sizeof(*s));
++		s->dev = port_dev;
++
++		spin_lock_bh(&vrf->queue.lock);
++		ret = __vrf_insert_slave(&vrf->queue, s, dev);
++		if (ret)
++			kfree(s);
++
++		spin_unlock_bh(&vrf->queue.lock);
++
++		vrf_move_local_routes(RTM_NEWROUTE, dev, port_dev);
++		ret = netdev_master_upper_dev_link(port_dev, dev);
++		return ret;
++	}
++
++	return -EINVAL;
++}
++
++static int vrf_del_slave(struct net_device *dev,
++			 struct net_device *port_dev)
++{
++	struct net_vrf *vrf = netdev_priv(dev);
++	struct slave_queue *queue = &vrf->queue;
++	struct slave *slave = __vrf_find_slave_dev(queue, port_dev);
++
++	if (!slave)
++		return -EINVAL;
++
++	vrf_kill_one_slave(queue, slave);
++	vrf_move_local_routes(RTM_DELROUTE, dev, port_dev);
++	netdev_upper_dev_unlink(port_dev, dev);
++
++	return 0;
++}
++
++static int vrf_dev_init(struct net_device *dev)
++{
++	struct net_vrf *vrf = netdev_priv(dev);
++
++	spin_lock_init(&vrf->queue.lock);
++	INIT_LIST_HEAD(&vrf->queue.all_slaves);
++	vrf->queue.master_dev = dev;
++
++	dev->dstats = netdev_alloc_pcpu_stats(struct pcpu_dstats);
++	dev->flags  =  IFF_MASTER | IFF_NOARP;
++	if (!dev->dstats)
++		return -ENOMEM;
++
++	return 0;
++}
++
++static void vrf_dev_uninit(struct net_device *dev)
++{
++	free_percpu(dev->dstats);
++}
++
++static int vrf_dev_close(struct net_device *dev)
++{
++	struct net_vrf *vrf = netdev_priv(dev);
++	struct slave_queue *queue = &vrf->queue;
++	struct list_head *this, *head;
++
++	head = &queue->all_slaves;
++	list_for_each(this, head) {
++		struct slave *slave = list_entry(this, struct slave, list);
++
++		slave->dev->vrf_ptr->ifindex = 0;
++		slave->dev->vrf_ptr->tb_id = 0;
++	}
++
++	if (dev->flags & IFF_MASTER)
++		dev->flags &= ~IFF_UP;
++/* XXX does the table not need a free
++ * fib_table_delete(vrf->tb, cfg);
++ */
++	return 0;
++}
++
++static int vrf_dev_open(struct net_device *dev)
++{
++	struct net_vrf *vrf = netdev_priv(dev);
++	struct slave_queue *queue = &vrf->queue;
++	struct list_head *this, *head;
++	int err = 0;
++
++	head = &queue->all_slaves;
++	list_for_each(this, head) {
++		struct slave *slave = list_entry(this, struct slave, list);
++
++		slave->dev->vrf_ptr->ifindex = dev->ifindex;
++		slave->dev->vrf_ptr->tb_id = vrf->tb_id;
++	}
++
++	if (dev->flags & IFF_MASTER)
++		dev->flags |= IFF_UP;
++
++	if (!vrf->tb)
++		return -EINVAL;
++
++	return err;
++}
++
++static int vrf_neigh_create(struct neighbour *n)
++{
++	n->nud_state = NUD_REACHABLE;
++	n->dead      = 0;
++
++	return 0;
++}
++
++static const struct net_device_ops vrf_netdev_ops = {
++	.ndo_init		= vrf_dev_init,
++	.ndo_uninit		= vrf_dev_uninit,
++	.ndo_open		= vrf_dev_open,
++	.ndo_stop               = vrf_dev_close,
++	.ndo_start_xmit		= vrf_xmit,
++	.ndo_get_stats64	= vrf_get_stats64,
++	.ndo_add_slave          = vrf_add_slave,
++	.ndo_del_slave          = vrf_del_slave,
++	.ndo_neigh_construct    = vrf_neigh_create,
++};
++
++static void vrf_get_drvinfo(struct net_device *dev,
++			    struct ethtool_drvinfo *info)
++{
++	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
++	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
++}
++
++static const struct ethtool_ops vrf_ethtool_ops = {
++	.get_drvinfo            = vrf_get_drvinfo,
++};
++
++static void vrf_setup(struct net_device *dev)
++{
++	ether_setup(dev);
++
++	/* Initialize the device structure. */
++	dev->netdev_ops = &vrf_netdev_ops;
++	dev->ethtool_ops = &vrf_ethtool_ops;
++	dev->destructor = free_netdev;
++
++	/* Fill in device structure with ethernet-generic values. */
++	dev->tx_queue_len = 0;
++	eth_hw_addr_random(dev);
++}
++
++static int vrf_validate(struct nlattr *tb[], struct nlattr *data[])
++{
++	if (tb[IFLA_ADDRESS]) {
++		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN)
++			return -EINVAL;
++		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
++			return -EADDRNOTAVAIL;
++	}
++	return 0;
++}
++
++static int vrf_newlink(struct net *src_net, struct net_device *dev,
++		       struct nlattr *tb[], struct nlattr *data[])
++{
++	int err;
++	struct net_vrf *vrf = netdev_priv(dev);
++
++	if (data && data[IFLA_VRF_TABLE]) {
++		vrf->tb_id = nla_get_u32(data[IFLA_VRF_TABLE]);
++		/* reserve a table for this VRF device */
++		vrf->tb = fib_new_table(dev_net(dev), vrf->tb_id);
++		if (!vrf->tb)
++			return -ERANGE;
++
++		dev->priv_flags |= IFF_VRF_MASTER;
++		err = register_netdevice(dev);
++		if (err) {
++			free_netdev(dev);
++			return -ENODEV;
++		}
++	}
++	return 0;
++}
++
++static void vrf_dellink(struct net_device *dev, struct list_head *head)
++{
++	/* Need to free the table ? */
++	unregister_netdev(dev);
++}
++
++static const struct nla_policy vrf_nl_policy[IFLA_VRF_MAX + 1] = {
++	[IFLA_VRF_TABLE] = { .type = NLA_U32 },
++};
++
++static struct rtnl_link_ops vrf_link_ops __read_mostly = {
++	.kind		= DRV_NAME,
++	.priv_size      = sizeof(struct net_vrf),
++	.policy         = vrf_nl_policy,
++	.newlink        = vrf_newlink,
++	.dellink        = vrf_dellink,
++	.setup		= vrf_setup,
++	.validate	= vrf_validate,
++	.maxtype        = IFLA_VRF_MAX,
++};
++
++static int __init vrf_init_module(void)
++{
++	int err = 0;
++
++	rtnl_lock();
++	err = __rtnl_link_register(&vrf_link_ops);
++	if (err < 0)
++		goto out;
++
++	register_inetaddr_notifier(&vrf_inetaddr_notifier);
++
++out:
++	rtnl_unlock();
++	return err;
++}
++
++static void __exit vrf_cleanup_module(void)
++{
++	unregister_inetaddr_notifier(&vrf_inetaddr_notifier);
++	rtnl_link_unregister(&vrf_link_ops);
++}
++
++module_init(vrf_init_module);
++module_exit(vrf_cleanup_module);
++MODULE_LICENSE("GPL");
++MODULE_ALIAS_RTNL_LINK(DRV_NAME);
++MODULE_VERSION(DRV_VERSION);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 51f8d2f..29febf3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -51,6 +51,7 @@
+ #include <linux/neighbour.h>
+ #include <uapi/linux/netdevice.h>
+ #include <uapi/linux/if_bonding.h>
++#include <net/vrf.h>
+ 
+ struct netpoll_info;
+ struct device;
+@@ -1270,6 +1271,7 @@ enum netdev_priv_flags {
+ 	IFF_XMIT_DST_RELEASE_PERM	= 1<<22,
+ 	IFF_IPVLAN_MASTER		= 1<<23,
+ 	IFF_IPVLAN_SLAVE		= 1<<24,
++	IFF_VRF_MASTER		        = 1<<25,
+ };
+ 
+ #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
+@@ -1297,6 +1299,7 @@ enum netdev_priv_flags {
+ #define IFF_XMIT_DST_RELEASE_PERM	IFF_XMIT_DST_RELEASE_PERM
+ #define IFF_IPVLAN_MASTER		IFF_IPVLAN_MASTER
+ #define IFF_IPVLAN_SLAVE		IFF_IPVLAN_SLAVE
++#define IFF_VRF_MASTER		        IFF_VRF_MASTER
+ 
+ /**
+  *	struct net_device - The DEVICE structure.
+@@ -1413,6 +1416,7 @@ enum netdev_priv_flags {
+  *	@dn_ptr:	DECnet specific data
+  *	@ip6_ptr:	IPv6 specific data
+  *	@ax25_ptr:	AX.25 specific data
++ *	@vrf_ptr:	VRF specific data
+  *	@ieee80211_ptr:	IEEE 802.11 specific data, assign before registering
+  *
+  *	@last_rx:	Time of last Rx
+@@ -1625,6 +1629,7 @@ struct net_device {
+ 	struct dn_dev __rcu     *dn_ptr;
+ 	struct inet6_dev __rcu	*ip6_ptr;
+ 	void			*ax25_ptr;
++	struct net_vrf_dev      *vrf_ptr;
+ 	struct wireless_dev	*ieee80211_ptr;
+ 	struct wpan_dev		*ieee802154_ptr;
+ #if IS_ENABLED(CONFIG_MPLS_ROUTING)
+@@ -3776,6 +3781,11 @@ static inline bool netif_supports_nofcs(struct net_device *dev)
+ 	return dev->priv_flags & IFF_SUPP_NOFCS;
+ }
+ 
++static inline bool netif_is_vrf(struct net_device *dev)
++{
++	return dev->priv_flags & IFF_VRF_MASTER;
++}
++
+ /* This device needs to keep skb dst for qdisc enqueue or ndo_start_xmit() */
+ static inline void netif_keep_dst(struct net_device *dev)
+ {
+diff --git a/include/net/flow.h b/include/net/flow.h
+index 8109a15..69aaa99 100644
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -29,6 +29,7 @@ struct flowi_common {
+ 	__u8	flowic_flags;
+ #define FLOWI_FLAG_ANYSRC		0x01
+ #define FLOWI_FLAG_KNOWN_NH		0x02
++#define FLOWI_FLAG_VRFSRC		0x04
+ 	__u32	flowic_secid;
+ };
+ 
+diff --git a/include/net/vrf.h b/include/net/vrf.h
+new file mode 100644
+index 0000000..11d7dbf8
+--- /dev/null
++++ b/include/net/vrf.h
+@@ -0,0 +1,19 @@
++/*
++ * include/net/net_vrf.h - adds vrf dev structure definitions
++ * Copyright (c) 2015 Cumulus Networks
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef __LINUX_NET_VRF_H
++#define __LINUX_NET_VRF_H
++
++struct net_vrf_dev {
++	int                     ifindex; /* ifindex of master dev */
++	u32                     tb_id;
++};
++
++#endif /* __LINUX_NET_VRF_H */
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index afccc93..b98a443 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -339,6 +339,15 @@ enum macvlan_macaddr_mode {
+ 
+ #define MACVLAN_FLAG_NOPROMISC	1
+ 
++/* VRF section */
++enum {
++	IFLA_VRF_UNSPEC,
++	IFLA_VRF_TABLE,
++	__IFLA_VRF_MAX
++};
++
++#define IFLA_VRF_MAX (__IFLA_VRF_MAX - 1)
++
+ /* IPVLAN section */
+ enum {
+ 	IFLA_IPVLAN_UNSPEC,
 -- 
 1.7.10.4
