@@ -1,36 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: fix possible use after free of dev stats
-Date: Mon, 08 Jun 2015 12:15:34 -0700 (PDT)
-Message-ID: <20150608.121534.1373441017651672686.davem@davemloft.net>
-References: <1433526714-18770-1-git-send-email-rshearma@brocade.com>
+Subject: Re: [PATCH v3] ipv6: Fix protocol resubmission
+Date: Mon, 08 Jun 2015 12:16:01 -0700 (PDT)
+Message-ID: <20150608.121601.1357405469784892473.davem@davemloft.net>
+References: <1433779259-14328-1-git-send-email-johunt@akamai.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: rshearma@brocade.com
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	sergei.shtylyov@cogentembedded.com, tom@herbertland.com
+To: johunt@akamai.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58999 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59013 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751317AbbFHTPn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 15:15:43 -0400
-In-Reply-To: <1433526714-18770-1-git-send-email-rshearma@brocade.com>
+	with ESMTP id S1752594AbbFHTQC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 15:16:02 -0400
+In-Reply-To: <1433779259-14328-1-git-send-email-johunt@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Robert Shearman <rshearma@brocade.com>
-Date: Fri, 5 Jun 2015 18:51:54 +0100
+From: Josh Hunt <johunt@akamai.com>
+Date: Mon,  8 Jun 2015 12:00:59 -0400
 
-> The memory pointed to by idev->stats.icmpv6msgdev,
-> idev->stats.icmpv6dev and idev->stats.ipv6 can each be used in an RCU
-> read context without taking a reference on idev. For example, through
-> IP6_*_STATS_* calls in ip6_rcv. These memory blocks are freed without
-> waiting for an RCU grace period to elapse. This could lead to the
-> memory being written to after it has been freed.
+> UDP encapsulation is broken on IPv6. This is because the logic to resubmit
+> the nexthdr is inverted, checking for a ret value > 0 instead of < 0. Also,
+> the resubmit label is in the wrong position since we already get the
+> nexthdr value when performing decapsulation. In addition the skb pull is no
+> longer necessary either.
 > 
-> Fix this by using call_rcu to free the memory used for stats, as well
-> as idev after an RCU grace period has elapsed.
+> This changes the return value check to look for < 0, using it for the
+> nexthdr on the next iteration, and moves the resubmit label to the proper
+> location.
 > 
-> Signed-off-by: Robert Shearman <rshearma@brocade.com>
+> With these changes the v6 code now matches what we do in the v4 ip input
+> code wrt resubmitting when decapsulating.
+> 
+> Signed-off-by: Josh Hunt <johunt@akamai.com>
 
 Applied.
