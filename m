@@ -1,38 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: bcmgenet: power on MII block for all MII modes
-Date: Mon, 08 Jun 2015 12:16:11 -0700 (PDT)
-Message-ID: <20150608.121611.1763355481306454170.davem@davemloft.net>
-References: <1433785677-3817-1-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pgynther@google.com, jaedon.shin@gmail.com
-To: f.fainelli@gmail.com
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH] atm: use msecs_to_jiffies for conversions
+Date: Mon,  8 Jun 2015 21:16:28 +0200
+Message-ID: <1433790988-14635-1-git-send-email-hofrat@osadl.org>
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
+To: Chas Williams <3chas3@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59028 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752643AbbFHTQL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 15:16:11 -0400
-In-Reply-To: <1433785677-3817-1-git-send-email-f.fainelli@gmail.com>
+Received: from www.osadl.org ([62.245.132.105]:50144 "EHLO www.osadl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751955AbbFHTYp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Jun 2015 15:24:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Mon,  8 Jun 2015 10:47:57 -0700
+API compliance scanning with coccinelle flagged:
+./drivers/atm/iphase.c:2621:4-20:
+        WARNING: timeout (50) seems HZ dependent
 
-> The RGMII block is currently only powered on when using RGMII or
-> RGMII_NO_ID, which is not correct when using the GENET interface in MII
-> or Reverse MII modes. We always need to power on the RGMII interface for
-> this block to properly work, regardless of the MII mode in which we
-> operate.
-> 
-> Fixes: aa09677cba423 ("net: bcmgenet: add MDIO routines")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
-> David,
-> 
-> I am targetting "net" here since this is a bug fix, however, we have few
-> people using MII or Reverse MII with GENET, such that there is no need to
-> queue this for -stable unless you want to.
+Numeric constants passed to schedule_timeout() make the effective
+timeout HZ dependent which does not seem intended.
+Fixed up by converting the constant to jiffies with msecs_to_jiffies()
+As this driver was introduced in the early 2.3 series it is most 
+likely assuming HZ=100 so the constant 50 is converted to 500ms.
 
-Ok, applied, thanks Florian.
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+---
+
+Patch was compile tested with i386_defconfig + CONFIG_ATM=y,
+CONFIG_ATM_IA=m
+
+Patch is against 4.1-rc6 (localversion-next is -next-20150605)
+
+ drivers/atm/iphase.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
+index 924f8e2..65e6590 100644
+--- a/drivers/atm/iphase.c
++++ b/drivers/atm/iphase.c
+@@ -2618,7 +2618,7 @@ static void ia_close(struct atm_vcc *vcc)
+         if (vcc->qos.txtp.traffic_class != ATM_NONE) {
+            iadev->close_pending++;
+ 	   prepare_to_wait(&iadev->timeout_wait, &wait, TASK_UNINTERRUPTIBLE);
+-	   schedule_timeout(50);
++	   schedule_timeout(msecs_to_jiffies(500));
+ 	   finish_wait(&iadev->timeout_wait, &wait);
+            spin_lock_irqsave(&iadev->tx_lock, flags); 
+            while((skb = skb_dequeue(&iadev->tx_backlog))) {
+-- 
+1.7.10.4
