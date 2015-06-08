@@ -1,99 +1,107 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net v2] tcp: Force updating pcount after skb_pull()
- during mtu probing
-Date: Mon, 8 Jun 2015 10:58:33 -0700
-Message-ID: <20150608175833.GB390474@devbig242.prn2.facebook.com>
-References: <1433551592-3596877-1-git-send-email-kafai@fb.com>
- <1433553093.1895.70.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2] net: phy: dp83867: Add TI dp83867 phy
+Date: Mon, 08 Jun 2015 11:03:49 -0700
+Message-ID: <5575D905.6050307@gmail.com>
+References: <1433255677-20293-1-git-send-email-dmurphy@ti.com> <556FBC3E.8050803@gmail.com> <5575A10B.8080701@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>,
-	Grant Zhang <gzhang@fastly.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Dan Murphy <dmurphy@ti.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:60753 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751627AbbFHR6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 13:58:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1433553093.1895.70.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-qc0-f172.google.com ([209.85.216.172]:34654 "EHLO
+	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752533AbbFHSEx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 14:04:53 -0400
+Received: by qcej9 with SMTP id j9so53451358qce.1
+        for <netdev@vger.kernel.org>; Mon, 08 Jun 2015 11:04:53 -0700 (PDT)
+In-Reply-To: <5575A10B.8080701@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 05, 2015 at 06:11:33PM -0700, Eric Dumazet wrote:
-> On Fri, 2015-06-05 at 17:46 -0700, Martin KaFai Lau wrote:
-> > The problem is caught by this WARN_ON(len > skb->len) in tcp_fragment():
-> > 
-> > [<ffffffff810510ca>] warn_slowpath_null+0x1a/0x20
-> > [<ffffffff8160ec90>] tcp_fragment+0x2a0/0x2b0
-> > [<ffffffff81604e06>] tcp_mark_head_lost+0x196/0x230
-> > [<ffffffff8160585d>] tcp_update_scoreboard+0x4d/0x80
-> > [<ffffffff8160a9ac>] tcp_fastretrans_alert+0x6ac/0xa90
-> > [<ffffffff8160b834>] tcp_ack+0x9d4/0x10e0
-> > [<ffffffff8160c699>] tcp_rcv_established+0x309/0x7e0
-> > 
-> > The WARN_ON pointed out that tcp_skb_pcount (i.e.
-> > TCP_SKB_CB(skb)->tcp_gso_segs) and skb->len is inconsistent.
-> > 
-> > The WARN_ON stack goes away after setting net.ipv4.tcp_mtu_probing to 0.
-> > 
-> > v2
-> > - Replace the skb slicing codes by the existing tcp_trim_head(),
-> >   suggested by Eric Dumazet.
-> > 
-> > v1
-> > - Call tcp_set_skb_tso_segs() for all slicing cases.
-> > 
-> > Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> > Reported-by: Grant Zhang <gzhang@fastly.com>
-> > Cc: Grant Zhang <gzhang@fastly.com>
-> > Cc: Eric Dumazet <edumazet@google.com>
-> > Cc: Neal Cardwell <ncardwell@google.com>
-> > Cc: Yuchung Cheng <ycheng@google.com>
-> > ---
-> >  net/ipv4/tcp_output.c | 12 ++----------
-> >  1 file changed, 2 insertions(+), 10 deletions(-)
-> > 
-> > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> > index a369e8a..4ae4f0c 100644
-> > --- a/net/ipv4/tcp_output.c
-> > +++ b/net/ipv4/tcp_output.c
-> > @@ -1977,16 +1977,8 @@ static int tcp_mtu_probe(struct sock *sk)
-> >  		} else {
-> >  			TCP_SKB_CB(nskb)->tcp_flags |= TCP_SKB_CB(skb)->tcp_flags &
-> >  						   ~(TCPHDR_FIN|TCPHDR_PSH);
-> > -			if (!skb_shinfo(skb)->nr_frags) {
-> > -				skb_pull(skb, copy);
-> > -				if (skb->ip_summed != CHECKSUM_PARTIAL)
-> > -					skb->csum = csum_partial(skb->data,
-> > -								 skb->len, 0);
-> > -			} else {
-> > -				__pskb_trim_head(skb, copy);
-> > -				tcp_set_skb_tso_segs(sk, skb, mss_now);
-> > -			}
-> > -			TCP_SKB_CB(skb)->seq += copy;
-> > +			tcp_skb_pcount_set(skb, 0);
-> > +			tcp_trim_head(sk, skb, copy);
-> >  		}
-> >  
-> >  		len += copy;
-> 
-> 
-> I think the invariant should be that if a packet had been never sent,
-> its pcount should be already 0.
-> 
-> (cleared in do_tcp_sendpages() and tcp_sendmsg() : it seems we hacked
-> these functions already in the past :( )
-> 
-> So we might need to track places where we violate this rule, then get
-> rid of the tcp_skb_pcount_set(skb, 0); done in do_tcp_sendpages() and
-> tcp_sendmsg().
-> 
-> Here, trimming a packet that was never sent (by definition) should not
-> force pcount to 0, it should already be the case.
-It seems the invariant does not hold at this point also.
-Should the invariant fix be something for net-next? or Would you like
-to post a patch for it?
+On 08/06/15 07:04, Dan Murphy wrote:
+> Florian
+>=20
+> Thanks for the re-review
+>=20
+> On 06/03/2015 09:47 PM, Florian Fainelli wrote:
+>> Le 06/02/15 07:34, Dan Murphy a =C3=A9crit :
+>>> Add support for the TI dp83867 Gigabit ethernet phy
+>>> device.
+>>>
+>>> The DP83867 is a robust, low power, fully featured
+>>> Physical Layer transceiver with integrated PMD
+>>> sublayers to support 10BASE-T, 100BASE-TX and
+>>> 1000BASE-T Ethernet protocols.
+>> Sorry for the late feedback, since this is a new driver, things outl=
+ine
+>> below can still be submitted as incremental fixes.
+>>
+>> [snip]
+>>
+>>> +Required properties:
+>>> +	- reg - The ID number for the phy, usually a small integer
+>>> +	- ti,rx_int_delay - RGMII Recieve Clock Delay - see dt-bindings/n=
+et/ti-dp83867.h
+>>> +		for applicable values
+>>> +	- ti,tx_int_delay - RGMII Transmit Clock Delay - see dt-bindings/=
+net/ti-dp83867.h
+>>> +		for applicable values
+>>> +	- ti,fifo_depth - Transmitt FIFO depth- see dt-bindings/net/ti-dp=
+83867.h
+>>> +		for applicable values
+>> We typically use "-" to separate words in DT properties, not "_". I =
+am
+>> not sure about the required nature of these 3 proprietary/specific
+>> properties, cannot there be good reset defaults from the HW in any c=
+ase?
+>=20
+> Yes you are correct I will modify as an incremental fix.
+>=20
+> The hardware is defaulted to an internal delay of 2 ns.  This value n=
+eeds to be adjusted
+> per product based on trace length.  I would anticipate the DT propert=
+ies to grow a little as the
+> part gets used more.
+
+Ok, that makes sense then.
+
+>=20
+>> You might want to add a reference to net/phy.txt for the remaiming D=
+T
+>> properties.
+>>
+>> [snip]
+>>
+>>> +
+>>> +	if (phy_interface_is_rgmii(phydev)) {
+>>> +		ret =3D phy_write(phydev, MII_DP83867_PHYCTRL,
+>>> +			(dp83867->fifo_depth << DP83867_PHYCR_FIFO_DEPTH_SHIFT));
+>>> +		if (ret)
+>>> +			return ret;
+>>> +	}
+>>> +
+>>> +	if ((phydev->interface >=3D PHY_INTERFACE_MODE_RGMII_ID) ||
+>>> +	    (phydev->interface <=3D PHY_INTERFACE_MODE_RGMII_RXID)) {
+>> This one has not been converted to use the phy_interface_is_rgmii()
+>> helper, but in fact, once you do that, you could probably just add a=
+n
+>> early check for this condition, return, and reduce the indentation f=
+or
+>> the normal case/RGMII, and eliminate two redundant condition checks.
+>=20
+> This check is different then the generic RGMII check.  I am checking =
+to see if the interface has the internal
+> delay flag set.  The RGMII check is to broad.  Maybe I can add a help=
+er for this
+> if it makes sense thoughts?  Maybe a phy_interface_has_rgmii_int_dela=
+y API just to enter this check.
+
+Oh, I misread the range check. I do not think this deserves a helper
+function for now, since that seems to be pretty unique and localized to
+your driver for now, but if we have more than one users, factoring
+things out would definitively make sense then.
+
+Thanks.
+--=20
+=46lorian
