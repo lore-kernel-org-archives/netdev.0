@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] b44: call netif_napi_del()
-Date: Sun, 07 Jun 2015 19:45:46 -0700 (PDT)
-Message-ID: <20150607.194546.390123172004131981.davem@davemloft.net>
-References: <1433679108-20923-1-git-send-email-hauke@hauke-m.de>
+Subject: Re: [PATCH net-next] net/mlx5_core: Fix static checker warnings
+ around system guid query flow
+Date: Sun, 07 Jun 2015 20:11:29 -0700 (PDT)
+Message-ID: <20150607.201129.1205716654451743322.davem@davemloft.net>
+References: <1433681063-7472-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zambrano@broadcom.com, netdev@vger.kernel.org
-To: hauke@hauke-m.de
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, majd@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49476 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49652 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750762AbbFHCpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 22:45:47 -0400
-In-Reply-To: <1433679108-20923-1-git-send-email-hauke@hauke-m.de>
+	with ESMTP id S1751253AbbFHDSJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 23:18:09 -0400
+In-Reply-To: <1433681063-7472-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Date: Sun,  7 Jun 2015 14:11:48 +0200
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Sun,  7 Jun 2015 15:44:23 +0300
 
-> When the driver gets unregistered a call to netif_napi_del() was
-> missing, this all was also missing in the error paths of
-> b44_init_one().
+> From: Majd Dibbiny <majd@mellanox.com>
 > 
-> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
-> ---
+> Fix static checker warnings in the flow of system guid query.
 > 
-> changes since v1:
->  * netif_napi_del() is now also called in b44_init_one() error paths.
+> Fixes: 707c4602cda6 ('net/mlx5_core: Add new query HCA vport commands')
+> Signed-off-by: Majd Dibbiny <majd@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 
-Applied, thank you.
+Applied, thanks.
