@@ -1,43 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fib_trie: coding style: Use pointer after check
-Date: Sun, 07 Jun 2015 23:46:31 -0700 (PDT)
-Message-ID: <20150607.234631.405943391269310676.davem@davemloft.net>
-References: <1433735691-7922-1-git-send-email-firogm@gmail.com>
+Subject: Re: [PATCH v4 0/3] net/phy: micrel: Center FLP timing at 16ms
+Date: Mon, 08 Jun 2015 00:51:30 -0700 (PDT)
+Message-ID: <20150608.005130.742724237263501733.davem@davemloft.net>
+References: <1433545226-18324-1-git-send-email-jaeden.amero@ni.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexander.duyck@gmail.com, eric.dumazet@gmail.com, wharms@bfs.de,
-	julia.lawall@lip6.fr, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org
-To: firogm@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51136 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751824AbbFHGqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 02:46:33 -0400
-In-Reply-To: <1433735691-7922-1-git-send-email-firogm@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jaeden.amero@ni.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1433545226-18324-1-git-send-email-jaeden.amero@ni.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Firo Yang <firogm@gmail.com>
-Date: Mon,  8 Jun 2015 11:54:51 +0800
+From: Jaeden Amero <jaeden.amero@ni.com>
+Date: Fri, 5 Jun 2015 18:00:23 -0500
 
-> As Alexander Duyck pointed out that:
-> struct tnode {
->         ...
->         struct key_vector kv[1];
-> }
-> The kv[1] member of struct tnode is an arry that refernced by
-> a null pointer will not crash the system, like this:
-> struct tnode *p = NULL;
-> struct key_vector *kv = p->kv;
-> As such p->kv doesn't actually dereference anything, it is simply a
-> means for getting the offset to the array from the pointer p.
+> In v2, we add an additional cleanup commit to make an array of strings
+> static const and to improve const correctness generally. We also no longer
+> unnecessarily initialize the result variable in
+> ksz9031_center_flp_timing().
 > 
-> This patch make the code more regular to avoid making people feel
-> odd when they look at the code.
+> In v3, we remove the unnecessary result variable from ksz9031_config_init()
+> introduced by a previous version of "net/phy: micrel: Center FLP timing at
+> 16ms".
 > 
-> Signed-off-by: Firo Yang <firogm@gmail.com>
+> In v4, we modify the commit message of "net/phy: micrel: Center FLP timing
+> at 16ms" to replace the awkward quotation of the data sheet's programming
+> procedure with an explanation of why we program the FLP burst registers and
+> restart auto-negotiation where we do (config_init).
 
-Applied.
+Series applied to net-next, thanks.
