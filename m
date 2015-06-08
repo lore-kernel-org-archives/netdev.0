@@ -1,76 +1,96 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC net-next 2/3] VRF driver and needed infrastructure
-Date: Mon, 08 Jun 2015 22:17:02 +0200
-Message-ID: <1433794622.4616.11.camel@stressinduktion.org>
+From: Shrijeet Mukherjee <shm@cumulusnetworks.com>
+Subject: Re: [RFC net-next 3/3] rcv path changes for vrf traffic
+Date: Mon, 8 Jun 2015 13:22:18 -0700
+Message-ID: <CAJmoNQG7vfuQAnZKN4+=NO7VQywC1=eXnumj2yG14KK5HS+TZw@mail.gmail.com>
 References: <cover.1433561681.git.shm@cumulusnetworks.com>
-	 <dafc9b784df4cb52691f7dce0f280fc1b2b14532.1433561681.git.shm@cumulusnetworks.com>
+	<87eae7a7a03708bda5560a5ea43b0fcac705c80d.1433561681.git.shm@cumulusnetworks.com>
+	<1433793517.4616.4.camel@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, dsahern@gmail.com,
-	ebiederm@xmission.com, hadi@mojatatu.com, davem@davemloft.net,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
-	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com
-To: Shrijeet Mukherjee <shm@cumulusnetworks.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	David Ahern <dsahern@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Jamal Hadi Salim <hadi@mojatatu.com>,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jon Toppins <jtoppins@cumulusnetworks.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:56174 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753587AbbFHURL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 16:17:11 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 9D191207BC
-	for <netdev@vger.kernel.org>; Mon,  8 Jun 2015 16:17:10 -0400 (EDT)
-In-Reply-To: <dafc9b784df4cb52691f7dce0f280fc1b2b14532.1433561681.git.shm@cumulusnetworks.com>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:35961 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753417AbbFHUWT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 16:22:19 -0400
+Received: by wgbgq6 with SMTP id gq6so112145499wgb.3
+        for <netdev@vger.kernel.org>; Mon, 08 Jun 2015 13:22:18 -0700 (PDT)
+In-Reply-To: <1433793517.4616.4.camel@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Mon, Jun 8, 2015 at 12:58 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hi Shrijeet,
+>
+> From an architectural level I think the output path looks good. For the
+> input path I would also to propose my (I think) more flexible solution:
+>
+> For rx layer I want to also propose my try:
+>
+> [PATCH net-next RFC] net: ipv4: arp: strong end system model semantics by per-interface local table override
+>
+> By allowing to direct routing table lookups to a specific table based
+> on the incoming interface for IPv4 and ARP, we start to behave like a
+> strong end host system without tweaking arp_* sysctl settings.
+>
+> The main motivation behind this patch was input and forwarding support
+> in a VRF like model. Maybe it also helps for hardware offloading by
+> allowing reducing rule complexity.
+>
+> An example:
+>
+> $ ip rule flush
+> $ ip rule del
+> $ ip rule del
+> $ ip rule add inherit-table
+> 0:      from all inherit-table
+>
+> This by default still uses RT_TABLE_LOCAL until we set up per interface
+> route tables:
+>
+> $ ip link set dev enp0s25 ipv4-rt-table-id 100
+> $ ip -d link ls dev enp0s25
+> 2: enp0s25: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP mode DEFAULT group default qlen 1000
+>     link/ether e4:7f:b2:1b:4c:61 brd ff:ff:ff:ff:ff:ff promiscuity 0 ipv4-rt-table-id 100 addrgenmode none
+>
+> This let's incoming and arp requests use routing table 100. The system
+> will stop responding to arp requests as we don't have any entries in
+> this routing table.
 
-On Mo, 2015-06-08 at 11:35 -0700, Shrijeet Mukherjee wrote:
-> From: Shrijeet Mukherjee <shm@cumulusnetworks.com>
-> 
-> This driver borrows heavily from IPvlan and teaming drivers.
-> 
-> Routing domains (VRF-lite) are created by instantiating a device
-> and enslaving all routed interfaces that participate in the domain.
-> As part of the enslavement, all local routes pointing to enslaved
-> devices are re-pointed to the vrf device, thus forcing outgoing
-> sockets to bind to the vrf to function.
-> 
-> Standard FIB rules can then bind the VRF device to tables and regular
-> fib rule processing is followed.
-> 
-> Routed traffic through the box, is fwded by using the VRF device as
-> the IIF and following the IIF rule to a table which is mated with
-> the VRF.
-> 
-> Locally originated traffic is directed at the VRF device using
-> SO_BINDTODEVICE or cmsg headers. This in turn drops the packet into
-> the xmit function of the vrf driver, which then completes the ip lookup
-> and output.
-> 
-> This solution is completely orthogonal to namespaces and allow the L3
-> equivalent of vlans to exist allowing the routing space to be
-> partitioned.
-> 
-> Example use is
->    ip link add vrf0 type vrf table 5
->    ip link set eth1 master vrf0
->    ip link set vrf0 up
-> 
->    ip rule add iif vrf0 table 5
->    ip rule add oif vrf0 table 5
-> 
-> TODO:
-> This changeset is for IPv4 only
-> Connected route management can be made much better, but is deferred to
-> user space for now.
 
-One thing that got lost is that we should prohibit user space applications
-to bind to devices which are vrf interfaces without having CAP_NET_ADMIN
-capability, so user space programs can be in future restricted to a specific
-VRF.
+I like this model in general, as it addresses the issue that I have
+not addressed around connected routes.
 
-Bye,
-Hannes
+This would force local and directly connected host routes to be learnt
+into the correct table.
+
+It does bring the question up then.
+
+1. The driver already knows the vrf device to table map
+2. If the device also knows the final device to table map
+
+then do we need to use fib_rules and just lookup the table directly.
+It does make the configuration a little longer since each component
+device now needs configuration when you add/del a member from a vrf.
+
+If people generally agree and we want to skip the fib_rule lookup,
+then I can make it such that enslaving already takes the dev-table id
+as well, and then the process of enslaving in the nominal VRF case
+becomes
+
+ip link add vrf-dev type vrf table foo ipv4-rt-table-id bar
+ip link set eth2 master vrf-dev
+
+Does that work ?
