@@ -1,196 +1,99 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v3 1/2] sctp: rcu-ify addr_waitq
-Date: Mon, 8 Jun 2015 09:58:18 -0400
-Message-ID: <20150608135818.GD7616@hmsreliant.think-freely.org>
-References: <20150604142710.GD24585@hmsreliant.think-freely.org>
- <9ebea428aa10e30e4b6c92aa95c56fc5cbc9cd98.1433524062.git.marcelo.leitner@gmail.com>
+From: Dan Murphy <dmurphy@ti.com>
+Subject: Re: [PATCH v2] net: phy: dp83867: Add TI dp83867 phy
+Date: Mon, 8 Jun 2015 09:04:59 -0500
+Message-ID: <5575A10B.8080701@ti.com>
+References: <1433255677-20293-1-git-send-email-dmurphy@ti.com> <556FBC3E.8050803@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Michio Honda <micchie@sfc.wide.ad.jp>
-To: mleitner@redhat.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Florian Fainelli <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:32842 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753235AbbFHN6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 09:58:37 -0400
-Content-Disposition: inline
-In-Reply-To: <9ebea428aa10e30e4b6c92aa95c56fc5cbc9cd98.1433524062.git.marcelo.leitner@gmail.com>
+Received: from comal.ext.ti.com ([198.47.26.152]:40562 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751459AbbFHOE5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Jun 2015 10:04:57 -0400
+In-Reply-To: <556FBC3E.8050803@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 05, 2015 at 02:08:05PM -0300, mleitner@redhat.com wrote:
-> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> 
-> That's needed for the next patch, so we break the lock inversion between
-> netns_sctp->addr_wq_lock and socket lock on
-> sctp_addr_wq_timeout_handler(). With this, we can traverse addr_waitq
-> without taking addr_wq_lock, taking it just for the write operations.
-> 
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> ---
-> 
-> Notes:
->     v2->v3:
->       placed break statement on sctp_free_addr_wq_entry()
->       removed unnecessary spin_lock noticed by Neil
-> 
->  include/net/netns/sctp.h |  2 +-
->  net/sctp/protocol.c      | 80 +++++++++++++++++++++++++++++-------------------
->  2 files changed, 49 insertions(+), 33 deletions(-)
-> 
-> diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
-> index 3573a81815ad9e0efb6ceb721eb066d3726419f0..9e53412c4ed829e8e45777a6d95406d490dbaa75 100644
-> --- a/include/net/netns/sctp.h
-> +++ b/include/net/netns/sctp.h
-> @@ -28,7 +28,7 @@ struct netns_sctp {
->  	 * It is a list of sctp_sockaddr_entry.
->  	 */
->  	struct list_head local_addr_list;
-> -	struct list_head addr_waitq;
-> +	struct list_head __rcu addr_waitq;
->  	struct timer_list addr_wq_timer;
->  	struct list_head auto_asconf_splist;
->  	spinlock_t addr_wq_lock;
-> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-> index 53b7acde9aa37bf3d4029c459421564d5270f4c0..9954fb8c9a9455d5ad7a627e2d7f9a1fef861fc2 100644
-> --- a/net/sctp/protocol.c
-> +++ b/net/sctp/protocol.c
-> @@ -593,15 +593,47 @@ static void sctp_v4_ecn_capable(struct sock *sk)
->  	INET_ECN_xmit(sk);
->  }
->  
-> +static void sctp_free_addr_wq(struct net *net)
-> +{
-> +	struct sctp_sockaddr_entry *addrw;
-> +
-> +	spin_lock_bh(&net->sctp.addr_wq_lock);
-> +	del_timer(&net->sctp.addr_wq_timer);
-> +	list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, list) {
-> +		list_del_rcu(&addrw->list);
-> +		kfree_rcu(addrw, rcu);
-> +	}
-> +	spin_unlock_bh(&net->sctp.addr_wq_lock);
-> +}
-> +
-> +/* As there is no refcnt on sctp_sockaddr_entry, we must check inside
-> + * the lock if it wasn't removed from addr_waitq already, otherwise we
-> + * could double-free it.
-> + */
-> +static void sctp_free_addr_wq_entry(struct net *net,
-> +				    struct sctp_sockaddr_entry *addrw)
-> +{
-> +	struct sctp_sockaddr_entry *temp;
-> +
-> +	spin_lock_bh(&net->sctp.addr_wq_lock);
-> +	list_for_each_entry_rcu(temp, &net->sctp.addr_waitq, list) {
-> +		if (temp == addrw) {
-> +			list_del_rcu(&addrw->list);
-> +			kfree_rcu(addrw, rcu);
-> +			break;
-> +		}
-> +	}
-> +	spin_unlock_bh(&net->sctp.addr_wq_lock);
-> +}
-> +
->  static void sctp_addr_wq_timeout_handler(unsigned long arg)
->  {
->  	struct net *net = (struct net *)arg;
-> -	struct sctp_sockaddr_entry *addrw, *temp;
-> +	struct sctp_sockaddr_entry *addrw;
->  	struct sctp_sock *sp;
->  
-> -	spin_lock_bh(&net->sctp.addr_wq_lock);
-> -
-> -	list_for_each_entry_safe(addrw, temp, &net->sctp.addr_waitq, list) {
-> +	rcu_read_lock_bh();
-> +	list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, list) {
->  		pr_debug("%s: the first ent in wq:%p is addr:%pISc for cmd:%d at "
->  			 "entry:%p\n", __func__, &net->sctp.addr_waitq, &addrw->a.sa,
->  			 addrw->state, addrw);
-> @@ -647,35 +679,20 @@ static void sctp_addr_wq_timeout_handler(unsigned long arg)
->  #if IS_ENABLED(CONFIG_IPV6)
->  free_next:
->  #endif
-> -		list_del(&addrw->list);
-> -		kfree(addrw);
-> -	}
-> -	spin_unlock_bh(&net->sctp.addr_wq_lock);
-> -}
-> -
-> -static void sctp_free_addr_wq(struct net *net)
-> -{
-> -	struct sctp_sockaddr_entry *addrw;
-> -	struct sctp_sockaddr_entry *temp;
-> -
-> -	spin_lock_bh(&net->sctp.addr_wq_lock);
-> -	del_timer(&net->sctp.addr_wq_timer);
-> -	list_for_each_entry_safe(addrw, temp, &net->sctp.addr_waitq, list) {
-> -		list_del(&addrw->list);
-> -		kfree(addrw);
-> +		sctp_free_addr_wq_entry(net, addrw);
->  	}
-> -	spin_unlock_bh(&net->sctp.addr_wq_lock);
-> +	rcu_read_unlock_bh();
->  }
->  
->  /* lookup the entry for the same address in the addr_waitq
-> - * sctp_addr_wq MUST be locked
-> + * rcu read MUST be locked
->   */
->  static struct sctp_sockaddr_entry *sctp_addr_wq_lookup(struct net *net,
->  					struct sctp_sockaddr_entry *addr)
->  {
->  	struct sctp_sockaddr_entry *addrw;
->  
-> -	list_for_each_entry(addrw, &net->sctp.addr_waitq, list) {
-> +	list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, list) {
->  		if (addrw->a.sa.sa_family != addr->a.sa.sa_family)
->  			continue;
->  		if (addrw->a.sa.sa_family == AF_INET) {
-> @@ -702,7 +719,7 @@ void sctp_addr_wq_mgmt(struct net *net, struct sctp_sockaddr_entry *addr, int cm
->  	 * new address after a couple of addition and deletion of that address
->  	 */
->  
-> -	spin_lock_bh(&net->sctp.addr_wq_lock);
-> +	rcu_read_lock_bh();
->  	/* Offsets existing events in addr_wq */
->  	addrw = sctp_addr_wq_lookup(net, addr);
->  	if (addrw) {
-> @@ -710,22 +727,21 @@ void sctp_addr_wq_mgmt(struct net *net, struct sctp_sockaddr_entry *addr, int cm
->  			pr_debug("%s: offsets existing entry for %d, addr:%pISc "
->  				 "in wq:%p\n", __func__, addrw->state, &addrw->a.sa,
->  				 &net->sctp.addr_waitq);
-> -
-> -			list_del(&addrw->list);
-> -			kfree(addrw);
-> +			sctp_free_addr_wq_entry(net, addrw);
->  		}
-> -		spin_unlock_bh(&net->sctp.addr_wq_lock);
-> +		rcu_read_unlock_bh();
->  		return;
->  	}
-> +	rcu_read_unlock_bh();
->  
->  	/* OK, we have to add the new address to the wait queue */
->  	addrw = kmemdup(addr, sizeof(struct sctp_sockaddr_entry), GFP_ATOMIC);
-> -	if (addrw == NULL) {
-> -		spin_unlock_bh(&net->sctp.addr_wq_lock);
-> +	if (!addrw)
->  		return;
-> -	}
->  	addrw->state = cmd;
-> -	list_add_tail(&addrw->list, &net->sctp.addr_waitq);
-> +
-> +	spin_lock_bh(&net->sctp.addr_wq_lock);
-> +	list_add_tail_rcu(&addrw->list, &net->sctp.addr_waitq);
->  
->  	pr_debug("%s: add new entry for cmd:%d, addr:%pISc in wq:%p\n",
->  		 __func__, addrw->state, &addrw->a.sa, &net->sctp.addr_waitq);
-> -- 
-> 2.4.1
-> 
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+=46lorian
+
+Thanks for the re-review
+
+On 06/03/2015 09:47 PM, Florian Fainelli wrote:
+> Le 06/02/15 07:34, Dan Murphy a =C3=A9crit :
+>> Add support for the TI dp83867 Gigabit ethernet phy
+>> device.
+>>
+>> The DP83867 is a robust, low power, fully featured
+>> Physical Layer transceiver with integrated PMD
+>> sublayers to support 10BASE-T, 100BASE-TX and
+>> 1000BASE-T Ethernet protocols.
+> Sorry for the late feedback, since this is a new driver, things outli=
+ne
+> below can still be submitted as incremental fixes.
+>
+> [snip]
+>
+>> +Required properties:
+>> +	- reg - The ID number for the phy, usually a small integer
+>> +	- ti,rx_int_delay - RGMII Recieve Clock Delay - see dt-bindings/ne=
+t/ti-dp83867.h
+>> +		for applicable values
+>> +	- ti,tx_int_delay - RGMII Transmit Clock Delay - see dt-bindings/n=
+et/ti-dp83867.h
+>> +		for applicable values
+>> +	- ti,fifo_depth - Transmitt FIFO depth- see dt-bindings/net/ti-dp8=
+3867.h
+>> +		for applicable values
+> We typically use "-" to separate words in DT properties, not "_". I a=
+m
+> not sure about the required nature of these 3 proprietary/specific
+> properties, cannot there be good reset defaults from the HW in any ca=
+se?
+
+Yes you are correct I will modify as an incremental fix.
+
+The hardware is defaulted to an internal delay of 2 ns.  This value nee=
+ds to be adjusted
+per product based on trace length.  I would anticipate the DT propertie=
+s to grow a little as the
+part gets used more.
+
+> You might want to add a reference to net/phy.txt for the remaiming DT
+> properties.
+>
+> [snip]
+>
+>> +
+>> +	if (phy_interface_is_rgmii(phydev)) {
+>> +		ret =3D phy_write(phydev, MII_DP83867_PHYCTRL,
+>> +			(dp83867->fifo_depth << DP83867_PHYCR_FIFO_DEPTH_SHIFT));
+>> +		if (ret)
+>> +			return ret;
+>> +	}
+>> +
+>> +	if ((phydev->interface >=3D PHY_INTERFACE_MODE_RGMII_ID) ||
+>> +	    (phydev->interface <=3D PHY_INTERFACE_MODE_RGMII_RXID)) {
+> This one has not been converted to use the phy_interface_is_rgmii()
+> helper, but in fact, once you do that, you could probably just add an
+> early check for this condition, return, and reduce the indentation fo=
+r
+> the normal case/RGMII, and eliminate two redundant condition checks.
+
+This check is different then the generic RGMII check.  I am checking to=
+ see if the interface has the internal
+delay flag set.  The RGMII check is to broad.  Maybe I can add a helper=
+ for this
+if it makes sense thoughts?  Maybe a phy_interface_has_rgmii_int_delay =
+API just to enter this check.
+
+Dan
+
+> Thanks!
+
+
+--=20
+------------------
+Dan Murphy
