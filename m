@@ -1,52 +1,39 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: phy: bcm7xxx: update workaround to fix 100BaseT corner cases
-Date: Mon,  8 Jun 2015 11:05:20 -0700
-Message-ID: <1433786720-5920-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v2] tcp: Force updating pcount after skb_pull()
+ during mtu probing
+Date: Mon, 08 Jun 2015 11:11:13 -0700
+Message-ID: <1433787073.29864.54.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1433551592-3596877-1-git-send-email-kafai@fb.com>
+	 <1433553093.1895.70.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150608175833.GB390474@devbig242.prn2.facebook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>,
+	Grant Zhang <gzhang@fastly.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f178.google.com ([209.85.220.178]:36557 "EHLO
-	mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752408AbbFHSG1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 14:06:27 -0400
-Received: by qkx62 with SMTP id 62so81972431qkx.3
-        for <netdev@vger.kernel.org>; Mon, 08 Jun 2015 11:06:26 -0700 (PDT)
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:37003 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751888AbbFHSLQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 14:11:16 -0400
+Received: by igbsb11 with SMTP id sb11so63231008igb.0
+        for <netdev@vger.kernel.org>; Mon, 08 Jun 2015 11:11:16 -0700 (PDT)
+In-Reply-To: <20150608175833.GB390474@devbig242.prn2.facebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update the AFE_TX_CONFIG value to solve marginal rise/fall issues
-observed when the link is operating in 100BaseT. This workaround applies
-to GPHY revisions D0, E0 and newer.
+On Mon, 2015-06-08 at 10:58 -0700, Martin KaFai Lau wrote:
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/bcm7xxx.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+> It seems the invariant does not hold at this point also.
+> Should the invariant fix be something for net-next? or Would you like
+> to post a patch for it?
 
-diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
-index b5dc59de094e..4dea85bfc545 100644
---- a/drivers/net/phy/bcm7xxx.c
-+++ b/drivers/net/phy/bcm7xxx.c
-@@ -136,8 +136,8 @@ static int bcm7xxx_28nm_d0_afe_config_init(struct phy_device *phydev)
- 	/* AFE_RX_LP_COUNTER, set RX bandwidth to maximum */
- 	phy_write_misc(phydev, AFE_RX_LP_COUNTER, 0x7fc0);
- 
--	/* AFE_TX_CONFIG, set 1000BT Cfeed=110 for all ports */
--	phy_write_misc(phydev, AFE_TX_CONFIG, 0x0061);
-+	/* AFE_TX_CONFIG, set 100BT Cfeed=011 to improve rise/fall time */
-+	phy_write_misc(phydev, AFE_TX_CONFIG, 0x431);
- 
- 	/* AFE_VDCA_ICTRL_0, set Iq=1101 instead of 0111 for AB symmetry */
- 	phy_write_misc(phydev, AFE_VDCA_ICTRL_0, 0xa7da);
-@@ -167,6 +167,9 @@ static int bcm7xxx_28nm_e0_plus_afe_config_init(struct phy_device *phydev)
- 	/* AFE_RXCONFIG_1, provide more margin for INL/DNL measurement */
- 	phy_write_misc(phydev, AFE_RXCONFIG_1, 0x9b2f);
- 
-+	/* AFE_TX_CONFIG, set 100BT Cfeed=011 to improve rise/fall time */
-+	phy_write_misc(phydev, AFE_TX_CONFIG, 0x431);
-+
- 	/* AFE_VDCA_ICTRL_0, set Iq=1101 instead of 0111 for AB symmetry */
- 	phy_write_misc(phydev, AFE_VDCA_ICTRL_0, 0xa7da);
- 
--- 
-2.1.0
+This patch definitely can target net-next, it is not a new regression.
+
+Once fully tested, we can ask David to submit a stable version later.
+
+Yes, I can provide a v3, probably at the end of today.
