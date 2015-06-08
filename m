@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] mpls: fix possible use after free of device
-Date: Sun, 07 Jun 2015 19:37:43 -0700 (PDT)
-Message-ID: <20150607.193743.1723043986420490845.davem@davemloft.net>
-References: <1433526885-18861-1-git-send-email-rshearma@brocade.com>
+Subject: Re: [PATCH] isdn/hisax: Convert use of __constant_cpu_to_le16 to
+ cpu_to_le16
+Date: Sun, 07 Jun 2015 19:42:27 -0700 (PDT)
+Message-ID: <20150607.194227.1322778749534777731.davem@davemloft.net>
+References: <20150606011400.GA10287@vaishali-Ideapad-Z570>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com,
-	roopa@cumulusnetworks.com
-To: rshearma@brocade.com
+Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr
+To: vthakkar1994@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49430 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49457 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751350AbbFHCho (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 22:37:44 -0400
-In-Reply-To: <1433526885-18861-1-git-send-email-rshearma@brocade.com>
+	with ESMTP id S1751332AbbFHCm2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2015 22:42:28 -0400
+In-Reply-To: <20150606011400.GA10287@vaishali-Ideapad-Z570>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Robert Shearman <rshearma@brocade.com>
-Date: Fri, 5 Jun 2015 18:54:45 +0100
+From: Vaishali Thakkar <vthakkar1994@gmail.com>
+Date: Sat, 6 Jun 2015 06:44:00 +0530
 
-> The mpls device is used in an RCU read context without a lock being
-> held. As the memory is freed without waiting for the RCU grace period
-> to elapse, the freed memory could still be in use.
+> In big endian cases, macro cpu_to_le16 unfolds to __swab16 which
+> provides special case for constants. In little endian cases,
+> __constant_cpu_to_le16 and cpu_to_le16 expand directly to the
+> same expression. So, replace __constant_cpu_to_le16 with
+> cpu_to_le16 with the goal of getting rid of the definition of
+> __constant_cpu_to_le16 completely.
 > 
-> Address this by using kfree_rcu to free the memory for the mpls device
-> after the RCU grace period has elapsed.
+> The semantic patch that performs this transformation is as follows:
 > 
-> Fixes: 03c57747a702 ("mpls: Per-device MPLS state")
-> Signed-off-by: Robert Shearman <rshearma@brocade.com>
+> @@expression x;@@
+> 
+> - __constant_cpu_to_le16(x)
+> + cpu_to_le16(x)
+> 
+> Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
 
 Applied, thanks.
