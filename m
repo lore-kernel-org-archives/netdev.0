@@ -1,83 +1,111 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: [RFC PATCH] cdc_ncm: support moving the NDP part of the frame
- to the end of NCM package
-Date: Tue, 09 Jun 2015 12:38:59 +0200
-Message-ID: <1433846339.28343.9.camel@suse.com>
-References: <1433760296-18543-1-git-send-email-mrkiko.rs@gmail.com>
-	 <1433760803.8770.16.camel@suse.com>
-	 <alpine.LNX.2.20.1506090933410.2290@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Enrico Mioso <mrkiko.rs@gmail.com>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: pull request: batman-adv 20150609
+Date: Tue,  9 Jun 2015 12:50:13 +0200
+Message-ID: <1433847020-1427-1-git-send-email-antonio@meshcoding.com>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:45848 "EHLO mx2.suse.de"
+Received: from s1.neomailbox.net ([5.148.176.57]:36552 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750805AbbFIKjy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jun 2015 06:39:54 -0400
-In-Reply-To: <alpine.LNX.2.20.1506090933410.2290@localhost.localdomain>
+	id S1751025AbbFIKwX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jun 2015 06:52:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-06-09 at 09:46 +0200, Enrico Mioso wrote:
+Hello David,
 
-> ==Not another parameter please. If the alternate frames are processed as
-> ==well as the current frames, all is well and we can generally produces
-> ==such frames. If not, we want a black list.
-> 
-> I would agree on this point: and I was exploring different alternatives also, 
-> such as having this option settable when invoking cdc_ncm_bind_common from
-> huawei_cdc_ncm for example. Unfortunately, I don't feel confident we could do 
-> that.
+this is our last batch of patches intended for net-next.
 
-Using a module parameter is simply wrong. A system can be connected to
-multiple devices (in turn). As a minimum the feature must be per device.
+You have 4 patches from Sven Eckelmann, most notably: 1/7 changes
+our hash implementation to use the Jenkins one provided by the kernel;
+4/7 reorganizes the way we include headers so that each .c file has
+all it requires without relying on any fancy including order.
 
-> First of all: this driver supports more devices than Huawei ones, so I feel we 
-> have chances to break them modifying the frame structure.
+Then there are three patches from me: 2/7 is slightly changing the
+macros we use to handle sysfs files to make them more flexible for
+future uses; 3/7 is extending the "routing protocol API" so that new
+implementations can have more control over
+the neigh_node internal structures; 7/7 ensures that all the per-VLAN
+internal structures are updated when the MAC address is changed by the
+user.
 
-In theory we must never break or impede compliant devices for
-uncompliant devices. Yet I doubt we can break any device doing what
-Windows does.
-Does it have a standard NCM driver that works with Huawei devices?
+Please pull if everything is fine!
 
-> Even more complicated is the fact that huawei NCM devices are not easily 
-> distinguishable one another from the driver perspective. Some heuristics may be 
-> put in place probably, but I don't have access to old enough NCM devices to 
-> know best.
-> The Huawei vendor driver put NDPs at end of frame - and does so for all devices 
-> in my opinion, but I can't be really sure about that.
+Thanks a lot,
+	Antonio
 
-Doesn't it have a list of supported devices?
+The following changes since commit d691f9e8d4405c334aa10d556e73c8bf44cb0e01:
 
-> Not now. Anyway I can change this as desired. Would something like a sysfs knob 
-> be preferable? User-space surely has a good chance to tell us what to do here.
+  bpf: allow programs to write to certain skb fields (2015-06-07 02:01:33 -0700)
 
-Not really. The answer will come from a list. The question is just
-whether easier updates are worth splitting up the fix.
+are available in the git repository at:
 
-> ==> --- a/include/linux/usb/cdc_ncm.h
-> ==> +++ b/include/linux/usb/cdc_ncm.h
-> ==> @@ -93,6 +93,7 @@ struct cdc_ncm_ctx {
-> ==>  	const struct usb_cdc_mbim_desc *mbim_desc;
-> ==>  	const struct usb_cdc_mbim_extended_desc *mbim_extended_desc;
-> ==>  	const struct usb_cdc_ether_desc *ether_desc;
-> ==> +	struct usb_cdc_ncm_ndp16 *delayed_ndp;
-> ==
-> ==What prevents you from embedding this in the structure?
-> ==
-> ==	Regards
-> ==		Oliver
-> ==
-> ==
-> ==
-> Sorry - I think I didn't understand your ocmment here. Still, I am open to any 
-> suggestion.
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
 
-Why don't you put "struct usb_cdc_ncm_ndp16 delayed_ndp" as opposed to a
-pointer to it into struct cdc_ncm_ctx. You never need more than one at a
-time.
+for you to fetch changes up to 94d1dd87316fdb7a403a2750e13ec839fd2fadea:
 
-	Regards
-		Oliver
+  batman-adv: change the MAC of each VLAN upon ndo_set_mac_address (2015-06-07 17:07:20 +0200)
+
+----------------------------------------------------------------
+Included changes:
+- use common Jenkins hash instead of private implementation
+- extend internal routing API
+- properly re-arrange header files inclusion
+- clarify precedence between '&' and '?'
+- remove unused ethhdr variable in batadv_gw_dhcp_recipient_get()
+- ensure per-VLAN structs are updated upon MAC change
+
+----------------------------------------------------------------
+Antonio Quartulli (3):
+      batman-adv: split name from variable for uint mesh attributes
+      batman-adv: add bat_neigh_free API
+      batman-adv: change the MAC of each VLAN upon ndo_set_mac_address
+
+Sven Eckelmann (4):
+      batman-adv: Use common Jenkins Hash implementation
+      batman-adv: Add required includes to all files
+      batman-adv: Clarify calculation precedence for '&' and '?'
+      batman-adv: Remove unused post-VLAN ethhdr in batadv_gw_dhcp_recipient_get
+
+ net/batman-adv/bat_iv_ogm.c            | 44 ++++++++++++++---
+ net/batman-adv/bitarray.c              |  4 +-
+ net/batman-adv/bitarray.h              |  6 +++
+ net/batman-adv/bridge_loop_avoidance.c | 54 +++++++++++++--------
+ net/batman-adv/bridge_loop_avoidance.h | 10 ++++
+ net/batman-adv/debugfs.c               | 37 +++++++++++---
+ net/batman-adv/debugfs.h               |  7 +++
+ net/batman-adv/distributed-arp-table.c | 45 ++++++++++++++---
+ net/batman-adv/distributed-arp-table.h | 13 +++--
+ net/batman-adv/fragmentation.c         | 22 +++++++--
+ net/batman-adv/fragmentation.h         |  9 ++++
+ net/batman-adv/gateway_client.c        | 39 ++++++++++-----
+ net/batman-adv/gateway_client.h        |  8 +++
+ net/batman-adv/gateway_common.c        | 11 ++++-
+ net/batman-adv/gateway_common.h        |  7 +++
+ net/batman-adv/hard-interface.c        | 38 ++++++++++-----
+ net/batman-adv/hard-interface.h        | 11 +++++
+ net/batman-adv/hash.c                  |  6 ++-
+ net/batman-adv/hash.h                  | 31 ++++--------
+ net/batman-adv/icmp_socket.c           | 33 +++++++++++--
+ net/batman-adv/icmp_socket.h           |  7 +++
+ net/batman-adv/main.c                  | 56 ++++++++++++++-------
+ net/batman-adv/main.h                  | 30 ++++++------
+ net/batman-adv/multicast.c             | 29 +++++++++--
+ net/batman-adv/multicast.h             |  6 +++
+ net/batman-adv/network-coding.c        | 47 +++++++++++++-----
+ net/batman-adv/network-coding.h        | 13 +++++
+ net/batman-adv/originator.c            | 34 ++++++++++---
+ net/batman-adv/originator.h            | 26 +++++-----
+ net/batman-adv/packet.h                |  3 ++
+ net/batman-adv/routing.c               | 36 ++++++++++----
+ net/batman-adv/routing.h               | 10 ++++
+ net/batman-adv/send.c                  | 36 ++++++++++----
+ net/batman-adv/send.h                  | 13 +++++
+ net/batman-adv/soft-interface.c        | 66 ++++++++++++++++++-------
+ net/batman-adv/soft-interface.h        | 11 +++++
+ net/batman-adv/sysfs.c                 | 60 +++++++++++++++--------
+ net/batman-adv/sysfs.h                 | 10 ++++
+ net/batman-adv/translation-table.c     | 89 +++++++++++++++++++++-------------
+ net/batman-adv/translation-table.h     |  9 ++++
+ net/batman-adv/types.h                 | 22 ++++++++-
+ 41 files changed, 784 insertions(+), 264 deletions(-)
