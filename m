@@ -1,54 +1,68 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC net-next 0/3] Proposal for VRF-lite
-Date: Tue, 09 Jun 2015 16:55:38 +0200
-Message-ID: <5576FE6A.7000703@6wind.com>
-References: <cover.1433561681.git.shm@cumulusnetworks.com> <5576AAD2.8010405@6wind.com> <5576F652.4090903@gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net] bridge: fix multicast router rlist endless loop
+Date: Tue, 9 Jun 2015 23:12:50 +0800
+Message-ID: <20150609151250.GA15284@gondor.apana.org.au>
+References: <1433842349-28089-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
-	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com
-To: David Ahern <dsahern@gmail.com>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	hannes@stressinduktion.org, ebiederm@xmission.com,
-	hadi@mojatatu.com, davem@davemloft.net, stephen@networkplumber.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	stephen@networkplumber.org,
+	Nikolay Aleksandrov <razor@blackwall.org>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:34184 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753059AbbFIOzm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2015 10:55:42 -0400
-Received: by wgv5 with SMTP id 5so15724166wgv.1
-        for <netdev@vger.kernel.org>; Tue, 09 Jun 2015 07:55:40 -0700 (PDT)
-In-Reply-To: <5576F652.4090903@gmail.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:52684 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753167AbbFIPM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2015 11:12:56 -0400
+Content-Disposition: inline
+In-Reply-To: <1433842349-28089-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 09/06/2015 16:21, David Ahern a =C3=A9crit :
-> Hi Nicolas:
->
-> On 6/9/15 2:58 AM, Nicolas Dichtel wrote:
->> I'm not really in favor of the name 'vrf'. This term is very
->> controversial and
->> having a consensus of what is/contains a 'vrf' is quite impossible.
->> There was already a lot of discussions about this topic on quagga ml
->> that show
->> that everybody has a different opinion about this term ;-)
->
-> Are you referring to this thread?
-> https://lists.quagga.net/pipermail/quagga-dev/2014-November/011795.ht=
-ml
-No, there were recent discussions on quagga about that subject. Here is=
- some
-non-exhaustive pointers:
-https://lists.quagga.net/pipermail/quagga-dev/2015-May/012581.html
-https://lists.quagga.net/pipermail/quagga-dev/2015-May/012630.html
-https://lists.quagga.net/pipermail/quagga-dev/2015-June/012715.html
+On Tue, Jun 09, 2015 at 02:32:28AM -0700, Nikolay Aleksandrov wrote:
+> From: Nikolay Aleksandrov <razor@blackwall.org>
+> 
+> Since the addition of sysfs multicast router support if one set
+> multicast_router to "2" more than once, then the port would be added to the
+> hlist every time and could end up linking to itself and thus causing an
+> endless loop for rlist walkers.
+> So to reproduce just do:
+> echo 2 > multicast_router; echo 2 > multicast_router;
+> in a bridge port and let some igmp traffic flow, for me it hangs up
+> in br_multicast_flood().
+> Fix this by removing the "val < 2" check, and just do the hlist_del
+> always.
+> We can remove the "!hlist_unhashed" check because it's already done by
+> hlist_del_init_rcu(), in fact this can also be done for
+> br_multicast_disable_port() but that is net-next material.
+> The reason this didn't happen before the addition of multicast_router
+> sysfs entries is because there's a !hlist_unhashed check that prevents
+> it.
+> 
+> Signed-off-by: Nikolay Aleksandrov <razor@blackwall.org>
+> Fixes: 0909e11758bd ("bridge: Add multicast_router sysfs entries")
 
-Note the last pointer also explains why it was called MRF by Cumulus.
+Good catch!
 
+> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+> index 22fd0419b314..ecdd13512320 100644
+> --- a/net/bridge/br_multicast.c
+> +++ b/net/bridge/br_multicast.c
+> @@ -1993,8 +1993,7 @@ int br_multicast_set_port_router(struct net_bridge_port *p, unsigned long val)
+>  		p->multicast_router = val;
+>  		err = 0;
+>  
+> -		if (val < 2 && !hlist_unhashed(&p->rlist))
+> -			hlist_del_init_rcu(&p->rlist);
+> +		hlist_del_init_rcu(&p->rlist);
 
-Regards,
-Nicolas
+This should work but removing it and readding seems strange.
+
+How about moving the hlist_unhashed test that's currently in
+br_multicast_mark_router into br_multicast_add_router instead?
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
