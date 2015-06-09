@@ -1,48 +1,55 @@
-From: Ilya Dryomov <idryomov@gmail.com>
-Subject: Re: [PATCH] crush:Make the function crush_ln static
-Date: Tue, 9 Jun 2015 11:00:10 +0300
-Message-ID: <CAOi1vP_G6eVwRW4coey4-gUEx3Y2k-pnDfJxMk6Va+C0aTLG-w@mail.gmail.com>
-References: <1433803863-9241-1-git-send-email-xerofoify@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [RFC net-next 0/3] Proposal for VRF-lite
+Date: Tue, 09 Jun 2015 10:58:58 +0200
+Message-ID: <5576AAD2.8010405@6wind.com>
+References: <cover.1433561681.git.shm@cumulusnetworks.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Yan, Zheng" <zyan@redhat.com>, Sage Weil <sage@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ceph Development <ceph-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Nicholas Krause <xerofoify@gmail.com>
-Return-path: <ceph-devel-owner@vger.kernel.org>
-In-Reply-To: <1433803863-9241-1-git-send-email-xerofoify@gmail.com>
-Sender: ceph-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
+	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com
+To: Shrijeet Mukherjee <shm@cumulusnetworks.com>,
+	hannes@stressinduktion.org, dsahern@gmail.com,
+	ebiederm@xmission.com, hadi@mojatatu.com, davem@davemloft.net,
+	stephen@networkplumber.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:35571 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751025AbbFII7C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2015 04:59:02 -0400
+Received: by wiga1 with SMTP id a1so9222093wig.0
+        for <netdev@vger.kernel.org>; Tue, 09 Jun 2015 01:59:01 -0700 (PDT)
+In-Reply-To: <cover.1433561681.git.shm@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 9, 2015 at 1:51 AM, Nicholas Krause <xerofoify@gmail.com> wrote:
-> This makes the function, crush_ln static now due to having
-> only one caller in its own definition and declaration file
-> of mapper.c
+Le 08/06/2015 20:35, Shrijeet Mukherjee a =C3=A9crit :
+> From: Shrijeet Mukherjee <shm@cumulusnetworks.com>
 >
-> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
-> ---
->  net/ceph/crush/mapper.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> In the context of internet scale routing a requirement that always
+> comes up is the need to partition the available routing tables into
+> disjoint routing planes. A specific use case is the multi-tenancy
+> problem where each tenant has their own unique routing tables and in
+> the very least need different default gateways.
 >
-> diff --git a/net/ceph/crush/mapper.c b/net/ceph/crush/mapper.c
-> index 5b47736..86778d4 100644
-> --- a/net/ceph/crush/mapper.c
-> +++ b/net/ceph/crush/mapper.c
-> @@ -239,7 +239,7 @@ static int bucket_straw_choose(struct crush_bucket_straw *bucket,
->  }
->
->  // compute 2^44*log2(input+1)
-> -uint64_t crush_ln(unsigned xin)
-> +static uint64_t crush_ln(unsigned xin)
->  {
->      unsigned x=xin, x1;
->      int iexpon, index1, index2;
+> This is an attempt to build the ability to create virtual router
+> domains aka VRF's (VRF-lite to be specific) in the linux packet
+> forwarding stack. The main observation is that through the use of
+[snip]
+>   drivers/net/vrf.c            |  654 +++++++++++++++++++++++++++++++=
++++++++++++
 
-This is tied up with a bunch of style cleanups, I'll apply it after
-they are sorted out.
+I'm not really in favor of the name 'vrf'. This term is very controvers=
+ial and
+having a consensus of what is/contains a 'vrf' is quite impossible.
+There was already a lot of discussions about this topic on quagga ml th=
+at show
+that everybody has a different opinion about this term ;-)
 
-Thanks,
+I know you call this 'MRF' internally, why not using this name instead?
 
-                Ilya
+
+Regards,
+Nicolas
