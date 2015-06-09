@@ -1,1159 +1,202 @@
-From: Praveen Madhavan <praveenm@chelsio.com>
-Subject: [PATCH 3/3] csiostor:Adds debugfs support.
-Date: Tue,  9 Jun 2015 18:44:46 +0530
-Message-ID: <1433855686-15768-4-git-send-email-praveenm@chelsio.com>
-References: <1433855686-15768-1-git-send-email-praveenm@chelsio.com>
-Cc: davem@davemloft.net, JBottomley@parallels.com,
-	hariprasad@chelsio.com, praveenm@chelsio.com, varun@chelsio.com,
-	rajesh.kumar@chelsio.com
-To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: Problem with patch "make nlmsg_end() and genlmsg_end() void"
+Date: Tue, 09 Jun 2015 14:34:24 +0100
+Message-ID: <1433856864.19447.25.camel@infradead.org>
+References: <E586D25A-9DAF-4535-A282-120F0C6EAE19@holtmann.org>
+	 <CAE4R7bCWSM+SyDR830N1GmukyaMYE_DT0fd4L_x6Py5PEqMe_A@mail.gmail.com>
+	 <01A82AB9-6ABD-4AD0-9CBC-628091569DB0@holtmann.org>
+	 <20150118.233722.226468667930444145.davem@davemloft.net>
+	 <1428494602.9010.11.camel@infradead.org>
+	 <1428498482.2809.10.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
+	boundary="=-vKnnpEgphuaQt2TKu1BK"
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	marcel@holtmann.org, sfeldma@gmail.com, netdev@vger.kernel.org,
+	teg@jklm.no
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:4092 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932341AbbFINPV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2015 09:15:21 -0400
-In-Reply-To: <1433855686-15768-1-git-send-email-praveenm@chelsio.com>
+Received: from casper.infradead.org ([85.118.1.10]:50891 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753080AbbFINe3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2015 09:34:29 -0400
+In-Reply-To: <1428498482.2809.10.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds debugfs support to dump adapter log, adapter queues,
-and fcoe DDP stats.
 
-Signed-off-by: Praveen Madhavan <praveenm@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |    1 +
- drivers/scsi/csiostor/Makefile               |    2 +-
- drivers/scsi/csiostor/csio_debugfs.c         | 1100 ++++++++++++++++++++++++++
- 3 files changed, 1102 insertions(+), 1 deletion(-)
- create mode 100644 drivers/scsi/csiostor/csio_debugfs.c
+--=-vKnnpEgphuaQt2TKu1BK
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index af3462d..cb8b161 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -1442,6 +1442,7 @@
- #define TP_MIB_FCOE_DDP_0_A	0x48
- #define TP_MIB_FCOE_DROP_0_A	0x4c
- #define TP_MIB_FCOE_BYTE_0_HI_A	0x50
-+#define TP_MIB_FCOE_BYTE_0_LO_A 0x51
- #define TP_MIB_OFD_VLN_DROP_0_A	0x58
- #define TP_MIB_USM_PKTS_A	0x5c
- #define TP_MIB_RQE_DFR_PKT_A	0x64
-diff --git a/drivers/scsi/csiostor/Makefile b/drivers/scsi/csiostor/Makefile
-index 3681a3f..7799537 100644
---- a/drivers/scsi/csiostor/Makefile
-+++ b/drivers/scsi/csiostor/Makefile
-@@ -9,4 +9,4 @@ obj-$(CONFIG_SCSI_CHELSIO_FCOE) += csiostor.o
- 
- csiostor-objs := csio_attr.o csio_init.o csio_lnode.o csio_scsi.o \
- 		csio_hw.o csio_hw_t5.o csio_isr.o \
--		csio_mb.o csio_rnode.o csio_wr.o
-+		csio_mb.o csio_rnode.o csio_wr.o csio_debugfs.o
-diff --git a/drivers/scsi/csiostor/csio_debugfs.c b/drivers/scsi/csiostor/csio_debugfs.c
-new file mode 100644
-index 0000000..1ed6235
---- /dev/null
-+++ b/drivers/scsi/csiostor/csio_debugfs.c
-@@ -0,0 +1,1100 @@
-+/*
-+ * This file is part of the Chelsio FCoE driver for Linux.
-+ *
-+ * Copyright (c) 2008-2015 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/pci.h>
-+#include <linux/aer.h>
-+#include <linux/mm.h>
-+#include <linux/notifier.h>
-+#include <linux/kdebug.h>
-+#include <linux/seq_file.h>
-+#include <linux/debugfs.h>
-+#include <linux/string.h>
-+#include <linux/export.h>
-+#include <linux/delay.h>
-+
-+#include "t4fw_api.h"
-+#include "csio_init.h"
-+#include "csio_defs.h"
-+#include "csio_hw.h"
-+
-+static struct dentry *csio_debugfs_root;
-+
-+#define DEFINE_SIMPLE_DEBUGFS_FILE(name) \
-+static int name##_open(struct inode *inode, struct file *file) \
-+{ \
-+	return single_open(file, name##_show, inode->i_private); \
-+} \
-+static const struct file_operations name##_fops = { \
-+	.owner   = THIS_MODULE, \
-+	.open    = name##_open, \
-+	.read    = seq_read, \
-+	.llseek  = seq_lseek, \
-+	.release = single_release \
-+}
-+
-+struct csio_debugfs_entry {
-+	const char *name;
-+	const struct file_operations *ops;
-+	umode_t mode;
-+	unsigned char data;
-+};
-+
-+struct seq_tab {
-+	int (*show)(struct seq_file *seq, void *v, int idx);
-+	unsigned int rows;        /* # of entries */
-+	unsigned char width;      /* size in bytes of each entry */
-+	unsigned char skip_first; /* whether the first line is a header */
-+	char data[0];             /* the table data */
-+};
-+
-+struct tp_fcoe_stats {
-+	uint32_t frames_ddp;
-+	uint32_t frames_drop;
-+	uint64_t octets_ddp;
-+};
-+
-+/*
-+ * Information gathered by Device Log Open routine for the display routine.
-+ */
-+struct devlog_info {
-+	unsigned int nentries;		/* number of entries in log[] */
-+	unsigned int first;		/* first [temporal] entry in log[] */
-+	struct fw_devlog_e log[0];	/* Firmware Device Log */
-+};
-+
-+/*
-+ * Firmware Device Log dump.
-+ */
-+static const char * const devlog_level_strings[] = {
-+	[FW_DEVLOG_LEVEL_EMERG]		= "EMERG",
-+	[FW_DEVLOG_LEVEL_CRIT]		= "CRIT",
-+	[FW_DEVLOG_LEVEL_ERR]		= "ERR",
-+	[FW_DEVLOG_LEVEL_NOTICE]	= "NOTICE",
-+	[FW_DEVLOG_LEVEL_INFO]		= "INFO",
-+	[FW_DEVLOG_LEVEL_DEBUG]		= "DEBUG"
-+};
-+
-+static const char * const devlog_facility_strings[] = {
-+	[FW_DEVLOG_FACILITY_CORE]	= "CORE",
-+	[FW_DEVLOG_FACILITY_SCHED]	= "SCHED",
-+	[FW_DEVLOG_FACILITY_TIMER]	= "TIMER",
-+	[FW_DEVLOG_FACILITY_RES]	= "RES",
-+	[FW_DEVLOG_FACILITY_HW]		= "HW",
-+	[FW_DEVLOG_FACILITY_FLR]	= "FLR",
-+	[FW_DEVLOG_FACILITY_DMAQ]	= "DMAQ",
-+	[FW_DEVLOG_FACILITY_PHY]	= "PHY",
-+	[FW_DEVLOG_FACILITY_MAC]	= "MAC",
-+	[FW_DEVLOG_FACILITY_PORT]	= "PORT",
-+	[FW_DEVLOG_FACILITY_VI]		= "VI",
-+	[FW_DEVLOG_FACILITY_FILTER]	= "FILTER",
-+	[FW_DEVLOG_FACILITY_ACL]	= "ACL",
-+	[FW_DEVLOG_FACILITY_TM]		= "TM",
-+	[FW_DEVLOG_FACILITY_QFC]	= "QFC",
-+	[FW_DEVLOG_FACILITY_DCB]	= "DCB",
-+	[FW_DEVLOG_FACILITY_ETH]	= "ETH",
-+	[FW_DEVLOG_FACILITY_OFLD]	= "OFLD",
-+	[FW_DEVLOG_FACILITY_RI]		= "RI",
-+	[FW_DEVLOG_FACILITY_ISCSI]	= "ISCSI",
-+	[FW_DEVLOG_FACILITY_FCOE]	= "FCOE",
-+	[FW_DEVLOG_FACILITY_FOISCSI]	= "FOISCSI",
-+	[FW_DEVLOG_FACILITY_FOFCOE]	= "FOFCOE"
-+};
-+
-+/* generic seq_file support for showing a table of size rows x width. */
-+static void *seq_tab_get_idx(struct seq_tab *tb, loff_t pos)
-+{
-+	pos -= tb->skip_first;
-+	return pos >= tb->rows ? NULL : &tb->data[pos * tb->width];
-+}
-+
-+static void *seq_tab_start(struct seq_file *seq, loff_t *pos)
-+{
-+	struct seq_tab *tb = seq->private;
-+
-+	if (tb->skip_first && *pos == 0)
-+		return SEQ_START_TOKEN;
-+
-+	return seq_tab_get_idx(tb, *pos);
-+}
-+
-+static void *seq_tab_next(struct seq_file *seq, void *v, loff_t *pos)
-+{
-+	v = seq_tab_get_idx(seq->private, *pos + 1);
-+	if (v)
-+		++*pos;
-+	return v;
-+}
-+
-+static void seq_tab_stop(struct seq_file *seq, void *v)
-+{
-+}
-+
-+static int seq_tab_show(struct seq_file *seq, void *v)
-+{
-+	const struct seq_tab *tb = seq->private;
-+
-+	return tb->show(seq, v, ((char *)v - tb->data) / tb->width);
-+}
-+
-+static const struct seq_operations seq_tab_ops = {
-+	.start = seq_tab_start,
-+	.next  = seq_tab_next,
-+	.stop  = seq_tab_stop,
-+	.show  = seq_tab_show
-+};
-+
-+static struct seq_tab *seq_open_tab(struct file *f, unsigned int rows,
-+			     unsigned int width, unsigned int have_header,
-+			     int (*show)(struct seq_file *seq, void *v, int i))
-+{
-+	struct seq_tab *p;
-+
-+	p = __seq_open_private(f, &seq_tab_ops, sizeof(*p) + rows * width);
-+	if (p) {
-+		p->show = show;
-+		p->rows = rows;
-+		p->width = width;
-+		p->skip_first = have_header != 0;
-+	}
-+	return p;
-+}
-+
-+/*
-+ * Trim the size of a seq_tab to the supplied number of rows.  The operation is
-+ * irreversible.
-+ */
-+static int seq_tab_trim(struct seq_tab *p, unsigned int new_rows)
-+{
-+	if (new_rows > p->rows)
-+		return -EINVAL;
-+	p->rows = new_rows;
-+		return 0;
-+}
-+
-+static inline int csio_hw_wait_op_done(struct csio_hw *hw, int reg,
-+		uint32_t mask, int polarity, int attempts, int delay)
-+{
-+	return csio_hw_wait_op_done_val(hw, reg, mask, polarity, attempts,
-+					delay, NULL);
-+}
-+
-+/**
-+ *	csio_hw_read_indirect - read indirectly addressed registers
-+ *	@hw: the adapter
-+ *	@addr_reg: register holding the indirect address
-+ *	@data_reg: register holding the value of the indirect register
-+ *	@vals: where the read register values are stored
-+ *	@nregs: how many indirect registers to read
-+ *	@start_idx: index of first indirect register to read
-+ *
-+ *	Reads registers that are accessed indirectly through an address/data
-+ *	register pair.
-+ */
-+static void csio_hw_read_indirect(struct csio_hw *hw, unsigned int addr_reg,
-+			     unsigned int data_reg, uint32_t *vals,
-+			     unsigned int nregs, unsigned int start_idx)
-+{
-+	while (nregs--) {
-+		csio_wr_reg32(hw, start_idx, addr_reg);
-+		*vals++ = csio_rd_reg32(hw, data_reg);
-+		start_idx++;
-+	}
-+}
-+
-+/**
-+ *	csio_hw_mem_read - read EDC 0, EDC 1 or MC into buffer
-+ *	@hw: the HW module
-+ *	@mtype: memory type: MEM_EDC0, MEM_EDC1 or MEM_MC
-+ *	@addr: address within indicated memory type
-+ *	@len: amount of memory to read
-+ *	@buf: host memory buffer
-+ *
-+ *	Reads an [almost] arbitrary memory region in the firmware: the
-+ *	firmware memory address, length and host buffer must be aligned on
-+ *	32-bit boudaries.  The memory is returned as a raw byte sequence from
-+ *	the firmware's memory.  If this memory contains data structures which
-+ *	contain multi-byte integers, it's the callers responsibility to
-+ *	perform appropriate byte order conversions.
-+ */
-+static int
-+csio_hw_mem_read(struct csio_hw *hw, int mtype, uint32_t addr, uint32_t len,
-+		uint32_t *buf)
-+{
-+	uint32_t pos, start, end, offset;
-+	int ret;
-+
-+	/*
-+	 * Argument sanity checks ...
-+	 */
-+	if ((addr & 0x3) || (len & 0x3))
-+		return -EINVAL;
-+
-+	/*
-+	 * The underlaying EDC/MC read routines read 64 bytes at a time so we
-+	 * need to round down the start and round up the end.  We'll start
-+	 * copying out of the first line at (addr - start) a word at a time.
-+	 */
-+	start = addr & ~(64-1);
-+	end = (addr + len + 64-1) & ~(64-1);
-+	offset = (addr - start)/sizeof(__be32);
-+
-+	for (pos = start; pos < end; pos += 64, offset = 0) {
-+		uint32_t data[16];
-+
-+		/*
-+		 * Read the chip's memory block and bail if there's an error.
-+		 */
-+		if (mtype == MEM_MC) {
-+			ret = hw->chip_ops->chip_mc_read(hw, 0, pos,
-+						(__be32 *)data, NULL);
-+		} else {
-+			ret = hw->chip_ops->chip_edc_read(hw, mtype, pos,
-+						(__be32 *)data, NULL);
-+		}
-+
-+		if (ret)
-+			return ret;
-+
-+		/*
-+		 * Copy the data into the caller's memory buffer.
-+		 */
-+		while (offset < 16 && len > 0) {
-+			*buf++ = data[offset++];
-+			len -= sizeof(uint32_t);
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+ *	csio_hw_read_cimq_cfg - read CIM queue configuration
-+ *	@hw: the adapter
-+ *	@base: holds the queue base addresses in bytes
-+ *	@size: holds the queue sizes in bytes
-+ *	@thres: holds the queue full thresholds in bytes
-+ *
-+ *	Returns the current configuration of the CIM queues, starting with
-+ *	the IBQs, then the OBQs.
-+ */
-+static void csio_hw_read_cimq_cfg(struct csio_hw *hw, uint16_t *base,
-+				uint16_t *size,	uint16_t *thres)
-+{
-+	unsigned int i, v;
-+	int cim_num_obq = CIM_NUM_OBQ_T5;
-+
-+	for (i = 0; i < CIM_NUM_IBQ; i++) {
-+		csio_wr_reg32(hw, IBQSELECT_F | QUENUMSELECT_V(i),
-+				CIM_QUEUE_CONFIG_REF_A);
-+		v = csio_rd_reg32(hw, CIM_QUEUE_CONFIG_CTRL_A);
-+		/* value is in 256-byte units */
-+		*base++ = CIMQBASE_G(v) * 256;
-+		*size++ = CIMQSIZE_G(v) * 256;
-+		*thres++ = QUEFULLTHRSH_G(v) * 8; /* 8-byte unit */
-+	}
-+	for (i = 0; i < cim_num_obq; i++) {
-+		csio_wr_reg32(hw, OBQSELECT_F | QUENUMSELECT_V(i),
-+				CIM_QUEUE_CONFIG_REF_A);
-+		v = csio_rd_reg32(hw, CIM_QUEUE_CONFIG_CTRL_A);
-+		/* value is in 256-byte units */
-+		*base++ = CIMQBASE_G(v) * 256;
-+		*size++ = CIMQSIZE_G(v) * 256;
-+	}
-+}
-+
-+/**
-+ *	csio_hw_read_cim_ibq - read the contents of a CIM inbound queue
-+ *	@hw: the adapter
-+ *	@qid: the queue index
-+ *	@data: where to store the queue contents
-+ *	@n: capacity of @data in 32-bit words
-+ *
-+ *	Reads the contents of the selected CIM queue starting at address 0 up
-+ *	to the capacity of @data.  @n must be a multiple of 4.  Returns < 0 on
-+ *	error and the number of 32-bit words actually read on success.
-+ */
-+static int csio_hw_read_cim_ibq(struct csio_hw *hw, unsigned int qid,
-+				uint32_t *data, size_t n)
-+{
-+	int i, err, attempts;
-+	unsigned int addr;
-+	const unsigned int nwords = CIM_IBQ_SIZE * 4;
-+
-+	if (qid > 5 || (n & 3))
-+		return -EINVAL;
-+
-+	addr = qid * nwords;
-+	if (n > nwords)
-+		n = nwords;
-+
-+	/* It might take 3-10ms before the IBQ debug read access is allowed.
-+	 * Wait for 1 Sec with a delay of 1 usec.
-+	 */
-+	attempts = 1000000;
-+
-+	for (i = 0; i < n; i++, addr++) {
-+		csio_wr_reg32(hw, IBQDBGADDR_V(addr) | IBQDBGEN_F,
-+				CIM_IBQ_DBG_CFG_A);
-+		err = csio_hw_wait_op_done(hw, CIM_IBQ_DBG_CFG_A, IBQDBGBUSY_F,
-+					0, attempts, 1);
-+		if (err)
-+			return err;
-+		*data++ = csio_rd_reg32(hw, CIM_IBQ_DBG_DATA_A);
-+	}
-+	csio_wr_reg32(hw, 0, CIM_IBQ_DBG_CFG_A);
-+	return i;
-+}
-+
-+/**
-+ *	csio_hw_read_cim_obq - read the contents of a CIM outbound queue
-+ *	@hw: the adapter
-+ *	@qid: the queue index
-+ *	@data: where to store the queue contents
-+ *	@n: capacity of @data in 32-bit words
-+ *
-+ *	Reads the contents of the selected CIM queue starting at address 0 up
-+ *	to the capacity of @data.  @n must be a multiple of 4.  Returns < 0 on
-+ *	error and the number of 32-bit words actually read on success.
-+ */
-+static int csio_hw_read_cim_obq(struct csio_hw *hw, unsigned int qid,
-+				uint32_t *data, size_t n)
-+{
-+	int i, err;
-+	unsigned int addr, v, nwords;
-+	int cim_num_obq = CIM_NUM_OBQ_T5;
-+
-+	if ((qid > (cim_num_obq - 1)) || (n & 3))
-+		return -EINVAL;
-+
-+	csio_wr_reg32(hw, OBQSELECT_F | QUENUMSELECT_V(qid),
-+			CIM_QUEUE_CONFIG_REF_A);
-+	v = csio_rd_reg32(hw, CIM_QUEUE_CONFIG_CTRL_A);
-+
-+	addr = CIMQBASE_G(v) * 64;    /* muliple of 256 -> muliple of 4 */
-+	nwords = CIMQSIZE_G(v) * 64;  /* same */
-+	if (n > nwords)
-+		n = nwords;
-+
-+	for (i = 0; i < n; i++, addr++) {
-+		csio_wr_reg32(hw, OBQDBGADDR_V(addr) | OBQDBGEN_F,
-+				CIM_OBQ_DBG_CFG_A);
-+		err = csio_hw_wait_op_done(hw, CIM_OBQ_DBG_CFG_A, OBQDBGBUSY_F,
-+					0, 2, 1);
-+		if (err)
-+			return err;
-+		*data++ = csio_rd_reg32(hw, CIM_OBQ_DBG_DATA_A);
-+	}
-+	csio_wr_reg32(hw, 0, CIM_OBQ_DBG_CFG_A);
-+	return i;
-+}
-+
-+/**
-+ *	csio_hw_cim_read - read a block from CIM internal address space
-+ *	@hw: the adapter
-+ *	@addr: the start address within the CIM address space
-+ *	@n: number of words to read
-+ *	@valp: where to store the result
-+ *
-+ *	Reads a block of 4-byte words from the CIM intenal address space.
-+ */
-+static int csio_hw_cim_read(struct csio_hw *hw, unsigned int addr,
-+			unsigned int n, unsigned int *valp)
-+{
-+	int ret = 0;
-+
-+	if (csio_rd_reg32(hw, CIM_HOST_ACC_CTRL_A) & HOSTBUSY_F)
-+		return -EBUSY;
-+
-+	for ( ; !ret && n--; addr += 4) {
-+		csio_wr_reg32(hw, addr, CIM_HOST_ACC_CTRL_A);
-+		ret = csio_hw_wait_op_done(hw, CIM_HOST_ACC_CTRL_A, HOSTBUSY_F,
-+					0, 5, 2);
-+
-+		if (!ret)
-+			*valp++ = csio_rd_reg32(hw, CIM_HOST_ACC_DATA_A);
-+	}
-+
-+	return ret;
-+}
-+
-+/**
-+ *	csio_hw_cim_write - write a block into CIM internal address space
-+ *	@hw: the adapter
-+ *	@addr: the start address within the CIM address space
-+ *	@n: number of words to write
-+ *	@valp: set of values to write
-+ *
-+ *	Writes a block of 4-byte words into the CIM intenal address space.
-+ */
-+static int csio_hw_cim_write(struct csio_hw *hw, unsigned int addr,
-+			unsigned int n, const unsigned int *valp)
-+{
-+	int ret = 0;
-+
-+	if (csio_rd_reg32(hw, CIM_HOST_ACC_CTRL_A) & HOSTBUSY_F)
-+		return -EBUSY;
-+
-+	for ( ; !ret && n--; addr += 4) {
-+		csio_wr_reg32(hw, *valp++, CIM_HOST_ACC_DATA_A);
-+		csio_wr_reg32(hw, addr | HOSTWRITE_F, CIM_HOST_ACC_CTRL_A);
-+		ret = csio_hw_wait_op_done(hw, CIM_HOST_ACC_CTRL_A, HOSTBUSY_F,
-+				      0, 5, 2);
-+	}
-+	return ret;
-+}
-+
-+static int csio_hw_cim_write1(struct csio_hw *hw, unsigned int addr,
-+			 unsigned int val)
-+{
-+	return csio_hw_cim_write(hw, addr, 1, &val);
-+}
-+
-+/**
-+ *	csio_hw_cim_read_la - read CIM LA capture buffer
-+ *	@hw: the adapter
-+ *	@la_buf: where to store the LA data
-+ *	@wrptr: the HW write pointer within the capture buffer
-+ *
-+ *	Reads the contents of the CIM LA buffer with the most recent entry at
-+ *	the end	of the returned data and with the entry at @wrptr first.
-+ *	We try to leave the LA in the running state we find it in.
-+ */
-+static int csio_hw_cim_read_la(struct csio_hw *hw, uint32_t *la_buf,
-+			unsigned int *wrptr)
-+{
-+	int i, ret;
-+	unsigned int cfg, val, idx;
-+
-+	ret = csio_hw_cim_read(hw, UP_UP_DBG_LA_CFG_A, 1, &cfg);
-+	if (ret)
-+		return ret;
-+
-+	if (cfg & UPDBGLAEN_F) {	/* LA is running, freeze it */
-+		ret = csio_hw_cim_write1(hw, UP_UP_DBG_LA_CFG_A, 0);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	ret = csio_hw_cim_read(hw, UP_UP_DBG_LA_CFG_A, 1, &val);
-+	if (ret)
-+		goto restart;
-+
-+	idx = UPDBGLAWRPTR_G(val);
-+	if (wrptr)
-+		*wrptr = idx;
-+
-+	for (i = 0; i < hw->params.cim_la_size; i++) {
-+		ret = csio_hw_cim_write1(hw, UP_UP_DBG_LA_CFG_A,
-+				    UPDBGLARDPTR_V(idx) | UPDBGLARDEN_F);
-+		if (ret)
-+			break;
-+		ret = csio_hw_cim_read(hw, UP_UP_DBG_LA_CFG_A, 1, &val);
-+		if (ret)
-+			break;
-+		if (val & UPDBGLARDEN_F) {
-+			ret = -ETIMEDOUT;
-+			break;
-+		}
-+		ret = csio_hw_cim_read(hw, UP_UP_DBG_LA_DATA_A, 1, &la_buf[i]);
-+		if (ret)
-+			break;
-+		idx = (idx + 1) & UPDBGLARDPTR_M;
-+	}
-+restart:
-+	if (cfg & UPDBGLAEN_F) {
-+		int r = csio_hw_cim_write1(hw, UP_UP_DBG_LA_CFG_A,
-+				      cfg & ~UPDBGLARDEN_F);
-+		if (!ret)
-+			ret = r;
-+	}
-+	return ret;
-+}
-+
-+static int cim_la_show(struct seq_file *seq, void *v, int idx)
-+{
-+	if (v == SEQ_START_TOKEN)
-+		seq_puts(seq, "Status   Data      PC     LS0Stat  LS0Addr "
-+			"            LS0Data\n");
-+	else {
-+		const uint32_t *p = v;
-+
-+		seq_printf(seq,
-+			"  %02x  %x%07x %x%07x  %08x %08x %08x%08x%08x%08x\n",
-+			(p[0] >> 4) & 0xff, p[0] & 0xf, p[1] >> 4,
-+			p[1] & 0xf, p[2] >> 4, p[2] & 0xf, p[3], p[4], p[5],
-+			p[6], p[7]);
-+	}
-+	return 0;
-+}
-+
-+static int cim_la_show_3in1(struct seq_file *seq, void *v, int idx)
-+{
-+	if (v == SEQ_START_TOKEN) {
-+		seq_puts(seq, "Status   Data      PC\n");
-+	} else {
-+		const uint32_t *p = v;
-+
-+		seq_printf(seq, "  %02x   %08x %08x\n", p[5] & 0xff, p[6],
-+			p[7]);
-+		seq_printf(seq, "  %02x   %02x%06x %02x%06x\n",
-+			(p[3] >> 8) & 0xff, p[3] & 0xff, p[4] >> 8,
-+			p[4] & 0xff, p[5] >> 8);
-+		seq_printf(seq, "  %02x   %x%07x %x%07x\n", (p[0] >> 4) & 0xff,
-+			p[0] & 0xf, p[1] >> 4, p[1] & 0xf, p[2] >> 4);
-+	}
-+	return 0;
-+}
-+
-+static int cim_la_open(struct inode *inode, struct file *file)
-+{
-+	int ret;
-+	unsigned int cfg;
-+	struct seq_tab *p;
-+	struct csio_hw *hw = inode->i_private;
-+
-+	ret = csio_hw_cim_read(hw, UP_UP_DBG_LA_CFG_A, 1, &cfg);
-+	if (ret)
-+		return ret;
-+
-+	p = seq_open_tab(file, hw->params.cim_la_size / 8, 8 * sizeof(uint32_t),
-+		1, cfg & UPDBGLACAPTPCONLY_F ? cim_la_show_3in1 : cim_la_show);
-+	if (!p)
-+		return -ENOMEM;
-+
-+	ret = csio_hw_cim_read_la(hw, (uint32_t *)p->data, NULL);
-+	if (ret)
-+		seq_release_private(inode, file);
-+	return ret;
-+}
-+
-+static const struct file_operations cim_la_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = cim_la_open,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.release = seq_release_private
-+};
-+
-+static int cim_qcfg_show(struct seq_file *seq, void *v)
-+{
-+	static const char * const qname[] = {
-+		"TP0", "TP1", "ULP", "SGE0", "SGE1", "NC-SI",
-+		"ULP0", "ULP1", "ULP2", "ULP3", "SGE", "NC-SI",
-+		"SGE0-RX", "SGE1-RX"
-+	};
-+
-+	int i;
-+	struct csio_hw *hw = seq->private;
-+	uint16_t base[CIM_NUM_IBQ + CIM_NUM_OBQ_T5];
-+	uint16_t size[CIM_NUM_IBQ + CIM_NUM_OBQ_T5];
-+	uint32_t stat[(4 * (CIM_NUM_IBQ + CIM_NUM_OBQ_T5))];
-+	uint16_t thres[CIM_NUM_IBQ];
-+	uint32_t obq_wr_t5[2 * CIM_NUM_OBQ_T5], *wr;
-+	uint32_t *p = stat;
-+	int cim_num_obq = CIM_NUM_OBQ_T5;
-+
-+	i = csio_hw_cim_read(hw, UP_IBQ_0_SHADOW_RDADDR_A, ARRAY_SIZE(stat),
-+				stat);
-+	if (!i) {
-+		i = csio_hw_cim_read(hw, UP_OBQ_0_SHADOW_REALADDR_A,
-+				ARRAY_SIZE(obq_wr_t5), obq_wr_t5);
-+		wr = obq_wr_t5;
-+	}
-+	if (i)
-+		return i;
-+
-+	csio_hw_read_cimq_cfg(hw, base, size, thres);
-+
-+	seq_printf(seq,
-+		   "  Queue  Base  Size Thres  RdPtr WrPtr  SOP  EOP Avail\n");
-+	for (i = 0; i < CIM_NUM_IBQ; i++, p += 4)
-+		seq_printf(seq, "%7s %5x %5u %5u %6x  %4x %4u %4u %5u\n",
-+			   qname[i], base[i], size[i], thres[i],
-+			   IBQRDADDR_G(p[0]), IBQWRADDR_G(p[1]),
-+			   QUESOPCNT_G(p[3]), QUEEOPCNT_G(p[3]),
-+			   QUEREMFLITS_G(p[2]) * 16);
-+	for ( ; i < CIM_NUM_IBQ + cim_num_obq; i++, p += 4, wr += 2)
-+		seq_printf(seq, "%7s %5x %5u %12x  %4x %4u %4u %5u\n",
-+			   qname[i], base[i], size[i],
-+			   QUERDADDR_G(p[0]) & 0x3fff, wr[0] - base[i],
-+			   QUESOPCNT_G(p[3]), QUEEOPCNT_G(p[3]),
-+			   QUEREMFLITS_G(p[2]) * 16);
-+	return 0;
-+}
-+
-+DEFINE_SIMPLE_DEBUGFS_FILE(cim_qcfg);
-+
-+static int cimq_show(struct seq_file *seq, void *v, int idx)
-+{
-+	const uint32_t *p = v;
-+
-+	seq_printf(seq, "%#06x: %08x %08x %08x %08x\n", idx * 16, p[0], p[1],
-+		   p[2], p[3]);
-+	return 0;
-+}
-+
-+static int cim_ibq_open(struct inode *inode, struct file *file)
-+{
-+	int ret;
-+	struct seq_tab *p;
-+	unsigned int qid = (uintptr_t)inode->i_private & 7;
-+	struct csio_hw *hw = inode->i_private - qid;
-+
-+	p = seq_open_tab(file, CIM_IBQ_SIZE, 4 * sizeof(uint32_t),
-+			0, cimq_show);
-+	if (!p)
-+		return -ENOMEM;
-+
-+	ret = csio_hw_read_cim_ibq(hw, qid, (uint32_t *)p->data,
-+			CIM_IBQ_SIZE * 4);
-+	if (ret < 0)
-+		seq_release_private(inode, file);
-+	else
-+		ret = 0;
-+	return ret;
-+}
-+
-+static const struct file_operations cim_ibq_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = cim_ibq_open,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.release = seq_release_private
-+};
-+
-+static int cim_obq_open(struct inode *inode, struct file *file)
-+{
-+	int ret;
-+	struct seq_tab *p;
-+	unsigned int qid = (uintptr_t)inode->i_private & 7;
-+	struct csio_hw *hw = inode->i_private - qid;
-+
-+	p = seq_open_tab(file, 6 * CIM_OBQ_SIZE, 4 * sizeof(uint32_t),
-+			0, cimq_show);
-+	if (!p)
-+		return -ENOMEM;
-+
-+	ret = csio_hw_read_cim_obq(hw, qid, (uint32_t *)p->data,
-+			6 * CIM_OBQ_SIZE * 4);
-+	if (ret < 0) {
-+		seq_release_private(inode, file);
-+	} else {
-+		seq_tab_trim(p, ret / 4);
-+		ret = 0;
-+	}
-+	return ret;
-+}
-+
-+static const struct file_operations cim_obq_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = cim_obq_open,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.release = seq_release_private
-+};
-+
-+/**
-+ *      csio_hw_get_fcoe_stats - read TP's FCoE MIB counters for a port
-+ *      @adap: the adapter
-+ *      @idx: the port index
-+ *      @st: holds the counter values
-+ *
-+ *      Returns the values of TP's FCoE counters for the selected port.
-+ */
-+static void csio_hw_get_fcoe_stats(struct csio_hw *hw, unsigned int idx,
-+				struct tp_fcoe_stats *st)
-+{
-+	uint32_t val[2];
-+
-+	csio_hw_read_indirect(hw, TP_MIB_INDEX_A, TP_MIB_DATA_A,
-+			&st->frames_ddp, 1, TP_MIB_FCOE_DDP_0_A + idx);
-+	csio_hw_read_indirect(hw, TP_MIB_INDEX_A, TP_MIB_DATA_A,
-+			&st->frames_drop, 1, TP_MIB_FCOE_DROP_0_A + idx);
-+	csio_hw_read_indirect(hw, TP_MIB_INDEX_A, TP_MIB_DATA_A, val,
-+			2, TP_MIB_FCOE_BYTE_0_HI_A + 2 * idx);
-+	st->octets_ddp = ((uint64_t)val[0] << 32) | val[1];
-+}
-+
-+static int fcoe_stats_show(struct seq_file *seq, void *v)
-+{
-+	struct tp_fcoe_stats stats[4];
-+	struct csio_hw *hw = seq->private;
-+
-+	spin_lock(&hw->stats_lock);
-+	csio_hw_get_fcoe_stats(hw, 0, &stats[0]);
-+	csio_hw_get_fcoe_stats(hw, 1, &stats[1]);
-+	csio_hw_get_fcoe_stats(hw, 2, &stats[2]);
-+	csio_hw_get_fcoe_stats(hw, 3, &stats[3]);
-+	spin_unlock(&hw->stats_lock);
-+
-+	seq_puts(seq, "                   channel 0        "
-+		"channel 1        channel 2        channel 3\n");
-+	seq_printf(seq, "octetsDDP:  %16llu %16llu %16llu %16llu\n",
-+			stats[0].octets_ddp, stats[1].octets_ddp,
-+			stats[2].octets_ddp, stats[3].octets_ddp);
-+	seq_printf(seq, "framesDDP:  %16u %16u %16u %16u\n",
-+			stats[0].frames_ddp, stats[1].frames_ddp,
-+			stats[2].frames_ddp, stats[3].frames_ddp);
-+	seq_printf(seq, "framesDrop: %16u %16u %16u %16u\n",
-+			stats[0].frames_drop, stats[1].frames_drop,
-+			stats[2].frames_drop, stats[3].frames_drop);
-+	return 0;
-+}
-+
-+DEFINE_SIMPLE_DEBUGFS_FILE(fcoe_stats);
-+
-+/*
-+ * Sequential File Operations for Device Log.
-+ */
-+static inline void *devlog_get_idx(struct devlog_info *dinfo, loff_t pos)
-+{
-+	if (pos > dinfo->nentries)
-+		return NULL;
-+
-+	return (void *)(uintptr_t)(pos + 1);
-+}
-+
-+static void *devlog_start(struct seq_file *seq, loff_t *pos)
-+{
-+	struct devlog_info *dinfo = seq->private;
-+
-+	return (*pos
-+		? devlog_get_idx(dinfo, *pos)
-+		: SEQ_START_TOKEN);
-+}
-+
-+static void *devlog_next(struct seq_file *seq, void *v, loff_t *pos)
-+{
-+	struct devlog_info *dinfo = seq->private;
-+
-+	(*pos)++;
-+	return devlog_get_idx(dinfo, *pos);
-+}
-+
-+static void devlog_stop(struct seq_file *seq, void *v)
-+{
-+}
-+
-+static int devlog_show(struct seq_file *seq, void *v)
-+{
-+	if (v == SEQ_START_TOKEN)
-+		seq_printf(seq, "%10s  %15s  %8s  %8s  %s\n",
-+			   "Seq#", "Tstamp", "Level", "Facility", "Message");
-+	else {
-+		struct devlog_info *dinfo = seq->private;
-+		int fidx = (uintptr_t)v - 2;
-+		unsigned long index;
-+		struct fw_devlog_e *e;
-+
-+		/*
-+		 * Get a pointer to the log entry to display.  Skip unused log
-+		 * entries.
-+		 */
-+		index = dinfo->first + fidx;
-+		if (index >= dinfo->nentries)
-+			index -= dinfo->nentries;
-+		e = &dinfo->log[index];
-+		if (e->timestamp == 0)
-+			return 0;
-+
-+		/*
-+		 * Print the message.  This depends on the firmware using
-+		 * exactly the same formating strings as the kernel so we may
-+		 * eventually have to put a format interpreter in here ...
-+		 */
-+		seq_printf(seq, "%10d  %15llu  %8s  %8s  ",
-+			   e->seqno, e->timestamp,
-+			   (e->level < ARRAY_SIZE(devlog_level_strings)
-+			    ? devlog_level_strings[e->level]
-+			    : "UNKNOWN"),
-+			   (e->facility < ARRAY_SIZE(devlog_facility_strings)
-+			    ? devlog_facility_strings[e->facility]
-+			    : "UNKNOWN"));
-+		seq_printf(seq, e->fmt, e->params[0], e->params[1],
-+			   e->params[2], e->params[3], e->params[4],
-+			   e->params[5], e->params[6], e->params[7]);
-+	}
-+
-+	return 0;
-+}
-+
-+static const struct seq_operations devlog_seq_ops = {
-+	.start = devlog_start,
-+	.next  = devlog_next,
-+	.stop  = devlog_stop,
-+	.show  = devlog_show
-+};
-+
-+/*
-+ * Set up for reading the firmware's device log.  We read the entire log here
-+ * and then display it incrementally in devlog_show().
-+ */
-+static int devlog_open(struct inode *inode, struct file *file)
-+{
-+	struct csio_hw *hw = inode->i_private;
-+	struct devlog_params *dparams = &hw->devlog;
-+	struct devlog_info *dinfo;
-+	unsigned int index;
-+	u32 fseqno;
-+	int ret;
-+
-+	/*
-+	 * If we don't know where the log is we can't do anything.
-+	 */
-+	if (dparams->start == 0)
-+		return -ENXIO;
-+
-+	/*
-+	 * Allocate the space to read in the firmware's device log and set up
-+	 * for the iterated call to our display function.
-+	 */
-+	dinfo = __seq_open_private(file, &devlog_seq_ops,
-+				   sizeof(*dinfo) + dparams->size);
-+	if (dinfo == NULL)
-+		return -ENOMEM;
-+
-+	/*
-+	 * Record the basic log buffer information and read in the raw log.
-+	 */
-+	dinfo->nentries = (dparams->size / sizeof(struct fw_devlog_e));
-+	dinfo->first = 0;
-+	ret = csio_hw_mem_read(hw, dparams->memtype, dparams->start,
-+			  dparams->size, (unsigned int *)dinfo->log);
-+	if (ret < 0) {
-+		seq_release_private(inode, file);
-+		return ret;
-+	}
-+
-+	/*
-+	 * Translate log multi-byte integral elements into host native format
-+	 * and determine where the first entry in the log is.
-+	 */
-+	for (fseqno = ~((u32)0), index = 0; index < dinfo->nentries; index++) {
-+		struct fw_devlog_e *e = &dinfo->log[index];
-+		int i;
-+		__u32 seqno;
-+
-+		if (e->timestamp == 0)
-+			continue;
-+
-+		e->timestamp = (__force __be64)be64_to_cpu(e->timestamp);
-+		seqno = be32_to_cpu(e->seqno);
-+		for (i = 0; i < 8; i++)
-+			e->params[i] =
-+				(__force __be32)be32_to_cpu(e->params[i]);
-+
-+		if (seqno < fseqno) {
-+			fseqno = seqno;
-+			dinfo->first = index;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static const struct file_operations devlog_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = devlog_open,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.release = seq_release_private
-+};
-+
-+static ssize_t
-+csio_mem_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
-+{
-+	loff_t pos = *ppos;
-+	loff_t avail = file_inode(file)->i_size;
-+	unsigned int mem = (uintptr_t)file->private_data & 3;
-+	struct csio_hw *hw = file->private_data - mem;
-+
-+	if (pos < 0)
-+		return -EINVAL;
-+	if (pos >= avail)
-+		return 0;
-+	if (count > avail - pos)
-+		count = avail - pos;
-+
-+	while (count) {
-+		size_t len;
-+		int ret, ofst;
-+		__be32 data[16];
-+
-+		if (mem == MEM_MC)
-+			ret = hw->chip_ops->chip_mc_read(hw, 0, pos,
-+							 data, NULL);
-+		else
-+			ret = hw->chip_ops->chip_edc_read(hw, mem, pos,
-+							  data, NULL);
-+		if (ret)
-+			return ret;
-+
-+		ofst = pos % sizeof(data);
-+		len = min(count, sizeof(data) - ofst);
-+		if (copy_to_user(buf, (u8 *)data + ofst, len))
-+			return -EFAULT;
-+
-+		buf += len;
-+		pos += len;
-+		count -= len;
-+	}
-+	count = pos - *ppos;
-+	*ppos = pos;
-+	return count;
-+}
-+
-+static const struct file_operations csio_mem_debugfs_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = simple_open,
-+	.read    = csio_mem_read,
-+	.llseek  = default_llseek,
-+};
-+
-+static void
-+csio_crt_debugfs_file(struct csio_hw *hw, struct csio_debugfs_entry entry)
-+{
-+	debugfs_create_file_size(entry.name, entry.mode, hw->debugfs_root,
-+			(void *)hw + entry.data, entry.ops, (5 << 20));
-+}
-+
-+static void
-+csio_add_debugfs_files(struct csio_hw *hw)
-+{
-+	int i;
-+
-+	static struct csio_debugfs_entry csio_debugfs_files[] = {
-+		{ "cim_la", &cim_la_fops, S_IRUSR, 0 },
-+		{ "cim_qcfg", &cim_qcfg_fops, S_IRUSR, 0 },
-+		{ "devlog", &devlog_fops, S_IRUSR, 0 },
-+		{ "ibq_tp0",  &cim_ibq_fops, S_IRUSR, 0 },
-+		{ "ibq_tp1",  &cim_ibq_fops, S_IRUSR, 1 },
-+		{ "ibq_ulp",  &cim_ibq_fops, S_IRUSR, 2 },
-+		{ "ibq_sge0", &cim_ibq_fops, S_IRUSR, 3 },
-+		{ "ibq_sge1", &cim_ibq_fops, S_IRUSR, 4 },
-+		{ "ibq_ncsi", &cim_ibq_fops, S_IRUSR, 5 },
-+		{ "obq_ulp0", &cim_obq_fops, S_IRUSR, 0 },
-+		{ "obq_ulp1", &cim_obq_fops, S_IRUSR, 1 },
-+		{ "obq_ulp2", &cim_obq_fops, S_IRUSR, 2 },
-+		{ "obq_ulp3", &cim_obq_fops, S_IRUSR, 3 },
-+		{ "obq_sge",  &cim_obq_fops, S_IRUSR, 4 },
-+		{ "obq_ncsi", &cim_obq_fops, S_IRUSR, 5 },
-+		{ "obq_sge_rx_q0", &cim_obq_fops, S_IRUSR, 6 },
-+		{ "obq_sge_rx_q1", &cim_obq_fops, S_IRUSR, 7 },
-+		{ "fcoe_stats", &fcoe_stats_fops, S_IRUSR, 0 },
-+	};
-+
-+	for (i = 0; i < ARRAY_SIZE(csio_debugfs_files); i++)
-+		csio_crt_debugfs_file(hw, csio_debugfs_files[i]);
-+}
-+
-+void csio_add_debugfs_mem(struct csio_hw *hw, const char *name,
-+				 unsigned int idx, unsigned int size_mb)
-+{
-+	debugfs_create_file_size(name, S_IRUSR, hw->debugfs_root,
-+				 (void *)hw + idx, &csio_mem_debugfs_fops,
-+				 size_mb << 20);
-+}
-+
-+static int csio_setup_debugfs(struct csio_hw *hw)
-+{
-+	int i;
-+
-+	if (IS_ERR_OR_NULL(hw->debugfs_root))
-+		return -1;
-+
-+	/* debugfs support is best effort */
-+	csio_add_debugfs_files(hw);
-+
-+	i = csio_rd_reg32(hw, MA_TARGET_MEM_ENABLE_A);
-+	if (i & EDRAM0_ENABLE_F)
-+		csio_add_debugfs_mem(hw, "edc0", MEM_EDC0, 5);
-+	if (i & EDRAM1_ENABLE_F)
-+		csio_add_debugfs_mem(hw, "edc1", MEM_EDC1, 5);
-+
-+	hw->chip_ops->chip_dfs_create_ext_mem(hw);
-+	return 0;
-+}
-+
-+/*
-+ * csio_dfs_create - Creates and sets up per-hw debugfs.
-+ *
-+ */
-+int
-+csio_dfs_create(struct csio_hw *hw)
-+{
-+	if (csio_debugfs_root) {
-+		hw->debugfs_root = debugfs_create_dir(pci_name(hw->pdev),
-+							csio_debugfs_root);
-+		csio_setup_debugfs(hw);
-+	}
-+
-+	return 0;
-+}
-+
-+/*
-+ * csio_dfs_destroy - Destroys per-hw debugfs.
-+ */
-+int
-+csio_dfs_destroy(struct csio_hw *hw)
-+{
-+	debugfs_remove_recursive(hw->debugfs_root);
-+
-+	return 0;
-+}
-+
-+/*
-+ * csio_dfs_init - Debug filesystem initialization for the module.
-+ *
-+ */
-+int
-+csio_dfs_init(void)
-+{
-+	csio_debugfs_root = debugfs_create_dir(KBUILD_MODNAME, NULL);
-+	if (!csio_debugfs_root)
-+		pr_warn("Could not create debugfs entry, continuing\n");
-+
-+	return 0;
-+}
-+
-+/*
-+ * csio_dfs_exit - debugfs cleanup for the module.
-+ */
-+void
-+csio_dfs_exit(void)
-+{
-+	debugfs_remove(csio_debugfs_root);
-+}
--- 
-2.0.2
+On Wed, 2015-04-08 at 15:08 +0200, Johannes Berg wrote:
+> On Wed, 2015-04-08 at 13:03 +0100, David Woodhouse wrote:
+>=20
+> > I'm not sure if this is entirely fixed. In Fedora 22 (4.0.0-rc5-git4)
+> > I'm occasionally seeing glibc deadlock in __check_pf() on a netlink
+> > recvmsg(), here:
+> > https://sourceware.org/git/?p=3Dglibc.git;a=3Dblob;f=3Dsysdeps/unix/sys=
+v/linux/check_pf.c;h=3D162606d7;hb=3Dglibc-2.21#l166
+> >=20
+> > As I understand it, this shouldn't happen. Even if messages are
+> > dropped (which surely shouldn't happen as often as I'm seeing this),
+> > glibc should get ENOBUFS from the recvmsg() call.
+> >=20
+> > https://bugzilla.redhat.com/show_bug.cgi?id=3D1209433
+> >=20
+> > I haven't bisected and proved that it *was* this commit which
+> > introduced the problem, as it only happens after a day or two of
+> > running Evolution and I haven't managed to trigger it more reliably.
+>=20
+> I don't see the connection to this change.
+>=20
+> The issue with my patch was that some code for NLM_F_DUMP would have
+> this pattern:
+>=20
+>  int fill_function(...)
+>  {
+>     ...
+>     return nlmsg_end(...);
+>  }
+>=20
+>  loop (...) {
+>    if (fill_function() <=3D 0)
+>      break; /* continue in next dump */
+>  }
+>=20
+> and that all had to be converted to be just "< 0" now.
+>=20
+> Additionally, the failure mode of this was the process running out of
+> memory due to receiving the same results over and over again - does that
+> happen for you? It seems it was stuck in recvmsg(), but that may just be
+> a side effect of happening to interrupt at that point?
+>=20
+
+I don't think the problem was introduced by your change. At=20
+https://github.com/nahi/httpclient/issues/232 it seems to have been
+observed even in November of last year.
+
+I've added some debugging, and it seems that when it deadlocks, glibc
+doesn't get *any* response to its RTM_GETADDR request. I know we'd get
+ENOBUFS is a *response* was dropped... but what about when the request
+itself is dropped? Does userspace get any hint of that? Is this purely
+a glibc bug, for assuming its request got delivered and unconditionally
+waiting for a response?
+
+I don't know why it suddenly started happening to me in the 4.0 kernel
+when I'd never seen it before, but it's still happening. I've put a
+poll() in the glibc code (referenced above), and made it fail after a 5
+-second timeout. That will at least prevent me from throwing my
+computer out the window for the time being...
+
+--=20
+dwmw2
+
+--=-vKnnpEgphuaQt2TKu1BK
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISjjCCBicw
+ggUPoAMCAQICAw3vNzANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
+YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
+ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
+MB4XDTE1MDUwNTA5NDM0MVoXDTE2MDUwNTA5NTMzNlowQjEcMBoGA1UEAwwTZHdtdzJAaW5mcmFk
+ZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAMkbm9kPbx1j/X4RVyf/pPKSYwelcco69TvnQQbKM8m8xkWjXJI1
+jpJ1jMaGUZGFToINMSZi7lZawUozudWbXSKy1SikENSTJHffsdRAIlsp+hR8vWvjsKUry6sEdqPG
+doa5RY7+N4WRusWZDYW/RRWE6i9EL9qV86CVPYqw22UBOUw4/j/HVGCV6TSB8yE5iEwhk/hUuzRr
+FZm1MJMR7mCS7BCR8Lr5jFY61lWpBiXNXIxLZCvDc26KR5L5tYX43iUVO3fzES1GRVoYnxxk2tmz
+fcsZG5vK+Trc9L8OZJfkYrEHH3+Iw41MQ0w/djVtYr1+HYldx0QmYXAtnhIj+UMCAwEAAaOCAtkw
+ggLVMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcD
+BDAdBgNVHQ4EFgQUszC96C3w5/2+d+atSr0IpT26YI4wHwYDVR0jBBgwFoAUU3Ltkpzg2ssBXHx+
+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9yZzCCAUwGA1UdIASCAUMwggE/
+MIIBOwYLKwYBBAGBtTcBAgMwggEqMC4GCCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNv
+bS9wb2xpY3kucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1
+dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGluZyB0byB0
+aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUgU3RhcnRDb20gQ0EgcG9s
+aWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9zZSBpbiBjb21wbGlhbmNl
+IG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjA2BgNVHR8ELzAtMCugKaAnhiVodHRw
+Oi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkGCCsG
+AQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2EwQgYI
+KwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xpZW50
+LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQEF
+BQADggEBAHMQmxHHodpS85X8HRyxhvfkys7r+taCNOaNU9cxQu/cZ/6k5nS2qGNMzZ6jb7ueY/V7
+7p+4DW/9ZWODDTf4Fz00mh5SSVc20Bz7t+hhxwHd62PZgENh5i76Qq2tw48U8AsYo5damHby1epf
+neZafLpUkLLO7AGBJIiRVTevdvyXQ0qnixOmKMWyvrhSNGuVIKVdeqLP+102Dwf+dpFyw+j1hz28
+jEEKpHa+NR1b2kXuSPi/rMGhexwlJOh4tK8KQ6Ryr0rIN//NSbOgbyYZrzc/ZUWX9V5OA84ChFb2
+vkFl0OcYrttp/rhDBLITwffPxSZeoBh9H7zYzkbCXKL3BUIwggYnMIIFD6ADAgECAgMN7zcwDQYJ
+KoZIhvcNAQEFBQAwgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSswKQYD
+VQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFydENv
+bSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTAeFw0xNTA1MDUwOTQzNDFa
+Fw0xNjA1MDUwOTUzMzZaMEIxHDAaBgNVBAMME2R3bXcyQGluZnJhZGVhZC5vcmcxIjAgBgkqhkiG
+9w0BCQEWE2R3bXcyQGluZnJhZGVhZC5vcmcwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB
+AQDJG5vZD28dY/1+EVcn/6TykmMHpXHKOvU750EGyjPJvMZFo1ySNY6SdYzGhlGRhU6CDTEmYu5W
+WsFKM7nVm10istUopBDUkyR337HUQCJbKfoUfL1r47ClK8urBHajxnaGuUWO/jeFkbrFmQ2Fv0UV
+hOovRC/alfOglT2KsNtlATlMOP4/x1Rglek0gfMhOYhMIZP4VLs0axWZtTCTEe5gkuwQkfC6+YxW
+OtZVqQYlzVyMS2Qrw3NuikeS+bWF+N4lFTt38xEtRkVaGJ8cZNrZs33LGRubyvk63PS/DmSX5GKx
+Bx9/iMONTENMP3Y1bWK9fh2JXcdEJmFwLZ4SI/lDAgMBAAGjggLZMIIC1TAJBgNVHRMEAjAAMAsG
+A1UdDwQEAwIEsDAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwQwHQYDVR0OBBYEFLMwvegt
+8Of9vnfmrUq9CKU9umCOMB8GA1UdIwQYMBaAFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB4GA1UdEQQX
+MBWBE2R3bXcyQGluZnJhZGVhZC5vcmcwggFMBgNVHSAEggFDMIIBPzCCATsGCysGAQQBgbU3AQID
+MIIBKjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjCB9wYI
+KwYBBQUHAgIwgeowJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBARqBvlRo
+aXMgY2VydGlmaWNhdGUgd2FzIGlzc3VlZCBhY2NvcmRpbmcgdG8gdGhlIENsYXNzIDEgVmFsaWRh
+dGlvbiByZXF1aXJlbWVudHMgb2YgdGhlIFN0YXJ0Q29tIENBIHBvbGljeSwgcmVsaWFuY2Ugb25s
+eSBmb3IgdGhlIGludGVuZGVkIHB1cnBvc2UgaW4gY29tcGxpYW5jZSBvZiB0aGUgcmVseWluZyBw
+YXJ0eSBvYmxpZ2F0aW9ucy4wNgYDVR0fBC8wLTAroCmgJ4YlaHR0cDovL2NybC5zdGFydHNzbC5j
+b20vY3J0dTEtY3JsLmNybDCBjgYIKwYBBQUHAQEEgYEwfzA5BggrBgEFBQcwAYYtaHR0cDovL29j
+c3Auc3RhcnRzc2wuY29tL3N1Yi9jbGFzczEvY2xpZW50L2NhMEIGCCsGAQUFBzAChjZodHRwOi8v
+YWlhLnN0YXJ0c3NsLmNvbS9jZXJ0cy9zdWIuY2xhc3MxLmNsaWVudC5jYS5jcnQwIwYDVR0SBBww
+GoYYaHR0cDovL3d3dy5zdGFydHNzbC5jb20vMA0GCSqGSIb3DQEBBQUAA4IBAQBzEJsRx6HaUvOV
+/B0csYb35MrO6/rWgjTmjVPXMULv3Gf+pOZ0tqhjTM2eo2+7nmP1e+6fuA1v/WVjgw03+Bc9NJoe
+UklXNtAc+7foYccB3etj2YBDYeYu+kKtrcOPFPALGKOXWph28tXqX53mWny6VJCyzuwBgSSIkVU3
+r3b8l0NKp4sTpijFsr64UjRrlSClXXqiz/tdNg8H/naRcsPo9Yc9vIxBCqR2vjUdW9pF7kj4v6zB
+oXscJSToeLSvCkOkcq9KyDf/zUmzoG8mGa83P2VFl/VeTgPOAoRW9r5BZdDnGK7baf64QwSyE8H3
+z8UmXqAYfR+82M5Gwlyi9wVCMIIGNDCCBBygAwIBAgIBHjANBgkqhkiG9w0BAQUFADB9MQswCQYD
+VQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwg
+Q2VydGlmaWNhdGUgU2lnbmluZzEpMCcGA1UEAxMgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRo
+b3JpdHkwHhcNMDcxMDI0MjEwMTU1WhcNMTcxMDI0MjEwMTU1WjCBjDELMAkGA1UEBhMCSUwxFjAU
+BgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRl
+IFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUg
+Q2xpZW50IENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxwmDzM4t2BqxKaQuE6uW
+vooyg4ymiEGWVUet1G8SD+rqvyNH4QrvnEIaFHxOhESip7vMz39ScLpNLbL1QpOlPW/tFIzNHS3q
+d2XRNYG5Sv9RcGE+T4qbLtsjjJbi6sL7Ls/f/X9ftTyhxvxWkf8KW37iKrueKsxw2HqolH7GM6FX
+5UfNAwAu4ZifkpmZzU1slBhyWwaQPEPPZRsWoTb7q8hmgv6Nv3Hg9rmA1/VPBIOQ6SKRkHXG0Hhm
+q1dOFoAFI411+a/9nWm5rcVjGcIWZ2v/43Yksq60jExipA4l5uv9/+Hm33mbgmCszdj/Dthf13tg
+Av2O83hLJ0exTqfrlwIDAQABo4IBrTCCAakwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMC
+AQYwHQYDVR0OBBYEFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB8GA1UdIwQYMBaAFE4L7xqkQFulF2mH
+MMo0aEPQQa7yMGYGCCsGAQUFBwEBBFowWDAnBggrBgEFBQcwAYYbaHR0cDovL29jc3Auc3RhcnRz
+c2wuY29tL2NhMC0GCCsGAQUFBzAChiFodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9zZnNjYS5jcnQw
+WwYDVR0fBFQwUjAnoCWgI4YhaHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3JsMCegJaAj
+hiFodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9zZnNjYS5jcmwwgYAGA1UdIAR5MHcwdQYLKwYBBAGB
+tTcBAgEwZjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjA0
+BggrBgEFBQcCARYoaHR0cDovL3d3dy5zdGFydHNzbC5jb20vaW50ZXJtZWRpYXRlLnBkZjANBgkq
+hkiG9w0BAQUFAAOCAgEACoMIfXirLAZcuGOMXq4cuSN3TaFx2H2GvD5VSy/6rV55BYHbWNaPeQn3
+oBSU8KgQZn/Kck1JxbLpAxVCNtsxeW1R87ifhsYZ0qjdrA9anrW2MAWCtosmAOT4OxK9QPoSjCMx
+M3HbkZCDJgnlE8jMopH21BbyAYr7b5EfGRQJNtgWcvqSXwKHnTutR08+Kkn0KAkXCzeQNLeA5LlY
+UzFyM7kPAp8pIRMQ+seHunmyG642S2+y/qHEdMuGIwpfz3eDF1PdctL04qYK/zu+Qg1Bw0RwgigV
+Zs/0c5HP2/e9DBHh7eSwtzYlk4AUr6yxLlcwSjOfOmKEQ/Q8tzh0IFiNu9IPuTGAPBn4CPxD0+Ru
+8T2wg8/s43R/PT3kd1OEqOJUl7q+h+r6fpvU0Fzxd2tC8Ga6fDEPme+1Nbi+03pVjuZQKbGwKJ66
+gEn06WqaxVZC+J8hh/jR0k9mST1iAZPNYulcNJ8tKmVtjYsv0L1TSm2+NwON58tO+pIVzu3DWwSE
+XSf+qkDavQam+QtEOZxLBXI++aMUEapSn+k3Lxm48ZCYfAWLb/Xj7F5JQMbZvCexglAbYR0kIHqW
+5DnsYSdMD/IplJMojx0NBrxJ3fN9dvX2Y6BIXRsF1du4qESm4/3CKuyUV7p9DW3mPlHTGLvYxnyK
+Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
+YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
+ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
+AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
+CQUxDxcNMTUwNjA5MTMzNDI0WjAjBgkqhkiG9w0BCQQxFgQU1KM4Lb6qV9kuHmmafEuSAhv3xKQw
+gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
+ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
+L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
+CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
+LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
+U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
+hkiG9w0BAQEFAASCAQBuEiMgeBYxWl+rYF/ciWnyrnsiOh1J3z8k424pfk6ql+lQWnD/5MAyipXd
+uvAceRefWRHViRCQYklhszjrQQcwPelpODffBMPGu9k1Roe/RmCaCrgwaWQ4Hd6rlkF4MiwGdbHp
+bRg/o1CjqBci42jWodgF37lSX1vDRvMh6Y/ysVpZTyh7ufD4Bhhtdb1ZDLbjlZjgpCxBQgBdoGgy
+Ei8enAuRd+WOYOv2LA823peNCxABSyTRqhlIuitdaqnVN9xC7j+7bZuKdDKOERsuWkpOXOngPSwp
+ccfhWcRzqelmaJOPVpqZKSyWKE3wntkqvwp0piO0z53dfu1p0CegpTY9AAAAAAAA
+
+
+--=-vKnnpEgphuaQt2TKu1BK--
