@@ -1,68 +1,71 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net] bridge: fix multicast router rlist endless loop
-Date: Tue, 9 Jun 2015 23:12:50 +0800
-Message-ID: <20150609151250.GA15284@gondor.apana.org.au>
-References: <1433842349-28089-1-git-send-email-nikolay@cumulusnetworks.com>
+From: <erik.hugne@ericsson.com>
+Subject: [PATCH] tipc: disconnect socket directly after
+	probe failure
+Date: Tue, 9 Jun 2015 17:27:12 +0200
+Message-ID: <1433863632-12699-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	stephen@networkplumber.org,
-	Nikolay Aleksandrov <razor@blackwall.org>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:52684 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753167AbbFIPM4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2015 11:12:56 -0400
-Content-Disposition: inline
-In-Reply-To: <1433842349-28089-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: tipc-discussion@lists.sourceforge.net
+To: <netdev@vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 09, 2015 at 02:32:28AM -0700, Nikolay Aleksandrov wrote:
-> From: Nikolay Aleksandrov <razor@blackwall.org>
-> 
-> Since the addition of sysfs multicast router support if one set
-> multicast_router to "2" more than once, then the port would be added to the
-> hlist every time and could end up linking to itself and thus causing an
-> endless loop for rlist walkers.
-> So to reproduce just do:
-> echo 2 > multicast_router; echo 2 > multicast_router;
-> in a bridge port and let some igmp traffic flow, for me it hangs up
-> in br_multicast_flood().
-> Fix this by removing the "val < 2" check, and just do the hlist_del
-> always.
-> We can remove the "!hlist_unhashed" check because it's already done by
-> hlist_del_init_rcu(), in fact this can also be done for
-> br_multicast_disable_port() but that is net-next material.
-> The reason this didn't happen before the addition of multicast_router
-> sysfs entries is because there's a !hlist_unhashed check that prevents
-> it.
-> 
-> Signed-off-by: Nikolay Aleksandrov <razor@blackwall.org>
-> Fixes: 0909e11758bd ("bridge: Add multicast_router sysfs entries")
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-Good catch!
+If the TIPC connection timer expires in a probing state, a
+self abort message is supposed to be generated and delivered
+to the local socket. This is currently broken, and the abort
+message is actually sent out to the peer node with invalid
+addressing information. This will cause the link to enter
+a constant retransmission state and eventually reset.
+We fix this by removing the self-abort message creation and
+tear down connection immediately instead.
 
-> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-> index 22fd0419b314..ecdd13512320 100644
-> --- a/net/bridge/br_multicast.c
-> +++ b/net/bridge/br_multicast.c
-> @@ -1993,8 +1993,7 @@ int br_multicast_set_port_router(struct net_bridge_port *p, unsigned long val)
->  		p->multicast_router = val;
->  		err = 0;
->  
-> -		if (val < 2 && !hlist_unhashed(&p->rlist))
-> -			hlist_del_init_rcu(&p->rlist);
-> +		hlist_del_init_rcu(&p->rlist);
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/socket.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
 
-This should work but removing it and readding seems strange.
-
-How about moving the hlist_unhashed test that's currently in
-br_multicast_mark_router into br_multicast_add_router instead?
-
-Thanks,
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 30ea82a..46b6ed5 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -2140,11 +2140,17 @@ static void tipc_sk_timeout(unsigned long data)
+ 	peer_node = tsk_peer_node(tsk);
+ 
+ 	if (tsk->probing_state == TIPC_CONN_PROBING) {
+-		/* Previous probe not answered -> self abort */
+-		skb = tipc_msg_create(TIPC_CRITICAL_IMPORTANCE,
+-				      TIPC_CONN_MSG, SHORT_H_SIZE, 0,
+-				      own_node, peer_node, tsk->portid,
+-				      peer_port, TIPC_ERR_NO_PORT);
++		if (!sock_owned_by_user(sk)) {
++			sk->sk_socket->state = SS_DISCONNECTING;
++			tsk->connected = 0;
++			tipc_node_remove_conn(sock_net(sk), tsk_peer_node(tsk),
++					      tsk_peer_port(tsk));
++			sk->sk_state_change(sk);
++		} else {
++			/* Try again later */
++			sk_reset_timer(sk, &sk->sk_timer, (HZ / 20));
++		}
++
+ 	} else {
+ 		skb = tipc_msg_create(CONN_MANAGER, CONN_PROBE,
+ 				      INT_H_SIZE, 0, peer_node, own_node,
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.1.4
+
+
+------------------------------------------------------------------------------
