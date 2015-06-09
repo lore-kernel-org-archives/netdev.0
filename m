@@ -1,36 +1,60 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH] ssb: fix handling of ssb_pmu_get_alp_clock()
-Date: Tue, 9 Jun 2015 09:04:42 +0200
-Message-ID: <20150609070442.GA2753@linux-mips.org>
-References: <1433634771-23438-1-git-send-email-hauke@hauke-m.de>
- <20150607090223.13463c73@wiggum>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v2] can: mcp251x: not correct register address
+Date: Tue, 9 Jun 2015 09:18:52 +0200
+Message-ID: <5576935C.7010905@pengutronix.de>
+References: <55698621.7070309@nkgroup.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hauke Mehrtens <hauke@hauke-m.de>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-mips@linux-mips.org
-To: Michael =?iso-8859-1?Q?B=FCsch?= <m@bues.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([148.251.95.138]:43126 "EHLO
-	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932175AbbFIHEz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2015 03:04:55 -0400
-Received: from localhost.localdomain ([127.0.0.1]:37389 "EHLO linux-mips.org"
-        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
-        id S27008433AbbFIHExv0uPX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 9 Jun 2015 09:04:53 +0200
-Content-Disposition: inline
-In-Reply-To: <20150607090223.13463c73@wiggum>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="lpVWHXV36Lsbp1MjGRmEoa1xGIvc35GT5"
+Cc: moorray3@wp.pl, himangi774@gmail.com, netdev@vger.kernel.org
+To: Tomas Krcka <tomas.krcka@nkgroup.cz>, linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <55698621.7070309@nkgroup.cz>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 07, 2015 at 09:02:23AM +0200, Michael B=FCsch wrote:
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--lpVWHXV36Lsbp1MjGRmEoa1xGIvc35GT5
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-> Signed-off-by: Michael Buesch <m@bues.ch>
+On 05/30/2015 11:42 AM, Tomas Krcka wrote:
+> v2: fix of corrupted patch
 >=20
-> Can some MIPS people take this, please?
+> This patch corrects addresses of acceptance filters.
+> These registers are not in use, but values should be correct.
+> Tested with MCP2515 and am3352 and also checked datasheets for MCP2515
+> and MCP2510.
+>=20
+> Signed-off-by: Tomas Krcka <tomas.krcka@nkgroup.cz>=20
 
-Will do, as usual.  Unfortunately this missed my last pull request so
-it's going to Linus by the end of the week.
+Applied to can-next.
 
-  Ralf
+Thanks,
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--lpVWHXV36Lsbp1MjGRmEoa1xGIvc35GT5
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJVdpNcAAoJEP5prqPJtc/HKXwIAKhgSa5bDG5dzULw0msJjyte
+ydikEx9dm2qA+o2taIT2o9NYaMn81pGPI83A/sTUCIvviU/CepioGiJSr/now5lh
+BLBDjyLFl85wmOn7N76/9NUmpInJRtW02euXORNDfKHQKW+trdCyVQvcYpbAeoL1
+YUZpn8aI3Hd9VmYKb9WAYgWLrXXtaMfiPxfl2AxT0iDboGuzFWsX610Ixcf1Go9F
+gDY8xjwmKY7pd9UNe8KaN1vEKlqfJHpa6p1mbUV9/4SRqHAgz2FXTS9rmQFdtf/H
+e6JzqONC4Q+QWmbHz/VFeIwKkswLQDpW+Eu2Ayyw8w74Z/cesdsm2fL5SWQCjGY=
+=Z0Tg
+-----END PGP SIGNATURE-----
+
+--lpVWHXV36Lsbp1MjGRmEoa1xGIvc35GT5--
