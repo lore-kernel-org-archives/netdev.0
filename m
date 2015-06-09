@@ -1,59 +1,107 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net] bridge: fix multicast router rlist endless loop
-Date: Tue,  9 Jun 2015 02:32:28 -0700
-Message-ID: <1433842349-28089-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-	herbert@gondor.apana.org.au,
-	Nikolay Aleksandrov <razor@blackwall.org>
-To: netdev@vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC net-next 0/3] Proposal for VRF-lite
+Date: Tue, 9 Jun 2015 12:15:50 +0200
+Message-ID: <20150609101550.GA10411@pox.localdomain>
+References: <cover.1433561681.git.shm@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: hannes@stressinduktion.org, nicolas.dichtel@6wind.com,
+	dsahern@gmail.com, ebiederm@xmission.com, hadi@mojatatu.com,
+	davem@davemloft.net, stephen@networkplumber.org,
+	netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
+	nikolay@cumulusnetworks.com
+To: Shrijeet Mukherjee <shm@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f170.google.com ([209.85.220.170]:35489 "EHLO
-	mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932538AbbFIJcm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2015 05:32:42 -0400
-Received: by qkhq76 with SMTP id q76so6227509qkh.2
-        for <netdev@vger.kernel.org>; Tue, 09 Jun 2015 02:32:41 -0700 (PDT)
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:35329 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753136AbbFIKPy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2015 06:15:54 -0400
+Received: by wiga1 with SMTP id a1so11428158wig.0
+        for <netdev@vger.kernel.org>; Tue, 09 Jun 2015 03:15:52 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <cover.1433561681.git.shm@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <razor@blackwall.org>
+On 06/08/15 at 11:35am, Shrijeet Mukherjee wrote:
+[...]
+> model with some performance paths that need optimization. (Specifically
+> the output route selector that Roopa, Robert, Thomas and EricB are
+> currently discussing on the MPLS thread)
 
-Since the addition of sysfs multicast router support if one set
-multicast_router to "2" more than once, then the port would be added to the
-hlist every time and could end up linking to itself and thus causing an
-endless loop for rlist walkers.
-So to reproduce just do:
-echo 2 > multicast_router; echo 2 > multicast_router;
-in a bridge port and let some igmp traffic flow, for me it hangs up
-in br_multicast_flood().
-Fix this by removing the "val < 2" check, and just do the hlist_del
-always.
-We can remove the "!hlist_unhashed" check because it's already done by
-hlist_del_init_rcu(), in fact this can also be done for
-br_multicast_disable_port() but that is net-next material.
-The reason this didn't happen before the addition of multicast_router
-sysfs entries is because there's a !hlist_unhashed check that prevents
-it.
+Thanks for posting these patches just in time. This explains how
+you intent to deploy Roopa's patches in a scalable manner.
 
-Signed-off-by: Nikolay Aleksandrov <razor@blackwall.org>
-Fixes: 0909e11758bd ("bridge: Add multicast_router sysfs entries")
----
- net/bridge/br_multicast.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+> High Level points
+> 
+> 1. Simple overlay driver (minimal changes to current stack)
+>    * uses the existing fib tables and fib rules infrastructure
+> 2. Modelled closely after the ipvlan driver
+> 3. Uses current API and infrastructure.
+>    * Applications can use SO_BINDTODEVICE or cmsg device indentifiers
+>      to pick VRF (ping, traceroute just work)
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 22fd0419b314..ecdd13512320 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1993,8 +1993,7 @@ int br_multicast_set_port_router(struct net_bridge_port *p, unsigned long val)
- 		p->multicast_router = val;
- 		err = 0;
- 
--		if (val < 2 && !hlist_unhashed(&p->rlist))
--			hlist_del_init_rcu(&p->rlist);
-+		hlist_del_init_rcu(&p->rlist);
- 
- 		if (val == 1)
- 			break;
--- 
-2.1.0
+I like the aspect of reusing existing user interfaces. We might
+need to introduce a more fine grained capability than CAP_NET_RAW
+to give containers the privileges to bind to a VRF without
+allowing them to inject raw frames.
+
+Given I understand this correctly: If my intent was to run a
+process in multiple VRFs, then I would need to run that process
+in the host network namespace which contains the VRF devices
+which would also contain the physical devices. While I might want
+to grant my process the ability to bind to VRFs, I may not want
+to give it the privileges to bind to any device. So we could
+consider introducing CAP_NET_VRF which would allow to bind to
+VRF devices.
+
+>    * Standard IP Rules work, and since they are aggregated against the
+>      device, scale is manageable
+> 4. Completely orthogonal to Namespaces and only provides separation in
+>    the routing plane (and ARP)
+> 5. Debugging is built-in as tcpdump and counters on the VRF device
+>    works as is.
+> 
+>                                                  N2
+>            N1 (all configs here)          +---------------+
+>     +--------------+                      |               |
+>     |swp1 :10.0.1.1+----------------------+swp1 :10.0.1.2 |
+>     |              |                      |               |
+>     |swp2 :10.0.2.1+----------------------+swp2 :10.0.2.2 |
+>     |              |                      +---------------+
+>     | VRF 0        |
+>     | table 5      |
+>     |              |
+>     +---------------+
+>     |              |
+>     | VRF 1        |                             N3
+>     | table 6      |                      +---------------+
+>     |              |                      |               |
+>     |swp3 :10.0.2.1+----------------------+swp1 :10.0.2.2 |
+>     |              |                      |               |
+>     |swp4 :10.0.3.1+----------------------+swp2 :10.0.3.2 |
+>     +--------------+                      +---------------+
+
+Do I understand this correctly that swp* represent veth pairs?
+Why do you have distinct addresses on each peer of the pair?
+Are the addresses in N2 and N3 considered private and NATed?
+
+[...]
+
+> # Install the lookup rules that map table to VRF domain
+> ip rule add pref 200 oif vrf0 lookup 5
+> ip rule add pref 200 iif vrf0 lookup 5
+> ip rule add pref 200 oif vrf1 lookup 6
+> ip rule add pref 200 iif vrf1 lookup 6
+
+I think this is a good start but we all know the scalability
+constraints of this. Depending on the number of L3 domains,
+an eBPF classifier utilizing a map to translate origin to
+routing table and vice versa might address the scale requirement
+long term.
+
+[...]
+
+I will comment on the implementation specifics once I have a
+good understanding of your desired end state looks like.
