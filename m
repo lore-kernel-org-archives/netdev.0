@@ -1,90 +1,63 @@
-From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next] net/ethtool: Add current supported tunable options
-Date: Tue,  9 Jun 2015 18:29:54 +0300
-Message-ID: <1433863794-40982-1-git-send-email-hadarh@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>, _govind@gmx.com,
-	Hadar Hen Zion <hadarh@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [PATCH v3 2/2] sctp: fix ASCONF list handling
+Date: Tue, 9 Jun 2015 12:37:21 -0300
+Message-ID: <20150609153721.GF4049@localhost.localdomain>
+References: <20150604142710.GD24585@hmsreliant.think-freely.org>
+ <b319ab74178e7f186081db90cc24c229127e42ad.1433524062.git.marcelo.leitner@gmail.com>
+ <1433794190.4616.8.camel@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Michio Honda <micchie@sfc.wide.ad.jp>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:57569 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751158AbbFIPbD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jun 2015 11:31:03 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:40883 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751998AbbFIPh0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jun 2015 11:37:26 -0400
+Content-Disposition: inline
+In-Reply-To: <1433794190.4616.8.camel@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add strings array of the current supported tunable options.
+On Mon, Jun 08, 2015 at 10:09:50PM +0200, Hannes Frederic Sowa wrote:
+> On Fr, 2015-06-05 at 14:08 -0300, mleitner@redhat.com wrote:
+> >       if (sp->do_auto_asconf) {
+> > +             spin_lock_bh(&sock_net(sk)->sctp.addr_wq_lock);
+> >               sp->do_auto_asconf = 0;
+> > -             list_del(&sp->auto_asconf_list);
+> > +             list_del_rcu(&sp->auto_asconf_list);
+> > +             spin_unlock_bh(&sock_net(sk)->sctp.addr_wq_lock);
+> >       }
+> 
+> This also looks a bit unsafe to me:
+> 
+> My proposal would be to sock_hold/sock_put the sockets when pushing them
+> onto the auto_asconf_list and defer the modifications on the list until
+                                ^^^^^^^^^^^^--- you lost me here
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Reviewed-by: Amir Vadai <amirv@mellanox.com>
----
- include/uapi/linux/ethtool.h |  6 ++++++
- net/core/ethtool.c           | 12 ++++++++++++
- 2 files changed, 18 insertions(+)
+> we don't need to hold socket lock anymore (in syscalls we do have a reference
+> anyway).
 
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 0594933..90e4bff 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -215,6 +215,11 @@ enum tunable_id {
- 	ETHTOOL_ID_UNSPEC,
- 	ETHTOOL_RX_COPYBREAK,
- 	ETHTOOL_TX_COPYBREAK,
-+	/*
-+	 * Add your fresh new tubale attribute above and remember to update
-+	 * tunable_strings[] in net/core/ethtool.c
-+	 */
-+	ETHTOOL_TUNABLE_COUNT,
- };
- 
- enum tunable_type_id {
-@@ -545,6 +550,7 @@ enum ethtool_stringset {
- 	ETH_SS_NTUPLE_FILTERS,
- 	ETH_SS_FEATURES,
- 	ETH_SS_RSS_HASH_FUNCS,
-+	ETH_SS_TUNABLES,
- };
- 
- /**
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index eb0c3ac..13bbb47 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -106,6 +106,13 @@ rss_hash_func_strings[ETH_RSS_HASH_FUNCS_COUNT][ETH_GSTRING_LEN] = {
- 	[ETH_RSS_HASH_XOR_BIT] =	"xor",
- };
- 
-+static const char
-+tunable_strings[ETHTOOL_TUNABLE_COUNT][ETH_GSTRING_LEN] = {
-+	[ETHTOOL_ID_UNSPEC]     = "Unspec",
-+	[ETHTOOL_RX_COPYBREAK]	= "rx-copybreak",
-+	[ETHTOOL_TX_COPYBREAK]	= "tx-copybreak",
-+};
-+
- static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
- {
- 	struct ethtool_gfeatures cmd = {
-@@ -194,6 +201,9 @@ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
- 	if (sset == ETH_SS_RSS_HASH_FUNCS)
- 		return ARRAY_SIZE(rss_hash_func_strings);
- 
-+	if (sset == ETH_SS_TUNABLES)
-+		return ARRAY_SIZE(tunable_strings);
-+
- 	if (ops->get_sset_count && ops->get_strings)
- 		return ops->get_sset_count(dev, sset);
- 	else
-@@ -211,6 +221,8 @@ static void __ethtool_get_strings(struct net_device *dev,
- 	else if (stringset == ETH_SS_RSS_HASH_FUNCS)
- 		memcpy(data, rss_hash_func_strings,
- 		       sizeof(rss_hash_func_strings));
-+	else if (stringset == ETH_SS_TUNABLES)
-+		memcpy(data, tunable_strings, sizeof(tunable_strings));
- 	else
- 		/* ops->get_strings is valid because checked earlier */
- 		ops->get_strings(dev, stringset, data);
--- 
-1.8.3.1
+Yup.. seems we have a use-after-free with this rcu usage on
+auto_asconf_splist, because if the socket was destroyed by the time the
+timeout handler is running, it may still see that socket and thus we
+would need two additional procedures a) to take a sock_hold() when it is
+inserted on that list, and release it via call_rcu() and b) to know how
+to identify such dead sockets, most likely just by checking
+sp->do_auto_asconf, and skip from acting on them.
+
+Neil, WDYT?
+
+> addr_wq_lock then is only used either without lock_sock at all or only
+> in order addr_wq_lock -> lock_sock, which does not cause any locking
+> ordering issues.
+
+No because we have to update this list on sctp_destroy_sock(), which is
+called with lock_sock() held. If we add the precautions above, I think
+it will be fine.
+
+Thanks,
+Marcelo
