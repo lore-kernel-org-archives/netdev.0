@@ -1,127 +1,107 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Mon, 08 Jun 2015 17:33:08 -0700 (PDT)
-Message-ID: <20150608.173308.1510279540043938154.davem@davemloft.net>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [RFC net-next 3/3] rcv path changes for vrf traffic
+Date: Mon, 08 Jun 2015 18:36:03 -0600
+Message-ID: <557634F3.4070700@gmail.com>
+References: <cover.1433561681.git.shm@cumulusnetworks.com>	 <87eae7a7a03708bda5560a5ea43b0fcac705c80d.1433561681.git.shm@cumulusnetworks.com> <1433793517.4616.4.camel@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: nicolas.dichtel@6wind.com, ebiederm@xmission.com,
+	hadi@mojatatu.com, davem@davemloft.net, stephen@networkplumber.org,
+	netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
+	nikolay@cumulusnetworks.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33510 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753094AbbFIAdK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 20:33:10 -0400
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:35930 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751956AbbFIAgO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2015 20:36:14 -0400
+Received: by ieclw1 with SMTP id lw1so4527698iec.3
+        for <netdev@vger.kernel.org>; Mon, 08 Jun 2015 17:36:13 -0700 (PDT)
+In-Reply-To: <1433793517.4616.4.camel@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 6/8/15 1:58 PM, Hannes Frederic Sowa wrote:
+> Hi Shrijeet,
+>
+> On Mo, 2015-06-08 at 11:35 -0700, Shrijeet Mukherjee wrote:
+>> From: Shrijeet Mukherjee <shm@cumulusnetworks.com>
+>>
+>> Incoming frames for IP protocol stacks need the IIF to be changed
+>> from the actual interface to the VRF device. This allows the IIF
+>> rule to be used to select tables (or do regular PBR)
+>>
+>> This change selects the iif to be the VRF device if it exists and
+>> the incoming iif is enslaved to the VRF device.
+>>
+>> Since VRF aware sockets are always bound to the VRF device this
+>> system allows return traffic to find the socket of origin.
+>>
+>> changes are in the arp_rcv, icmp_rcv and ip_rcv paths
+>>
+>> Question : I did not wrap the rcv modifications, in CONFIG_NET_VRF
+>> as it would create code variations and the vrf_ptr check is there
+>> I can make that whole thing modular.
+>
+>  From an architectural level I think the output path looks good. For the
+> input path I would also to propose my (I think) more flexible solution:
+>
 
-1) Fix stack allocation in s390 BPF JIT, from Michael Holzheu.
+Something is still not right on the output path. e.g., I see the wrong 
+source address showing up on ping -I vrf0:
 
-2) Disable LRO on openvswitch paths, from Jiri Benc.
+# ping -I vrf0 1.1.1.254
+ping: Warning: source address might be selected on device other than vrf0.
+PING 1.1.1.254 (1.1.1.254) from 172.16.1.52 vrf0: 56(84) bytes of data.
+64 bytes from 1.1.1.254: icmp_seq=1 ttl=64 time=0.215 ms
+...
 
-3) UDP early demux doesn't handle multicast group membership
-   properly, fix from Shawn Bohrer.
+The reason is because the datagram connect function fails to look up the 
+outbound route in the vrf and falls back to the main table. (As an aside 
+the fallback to other tables is something that should not be happening 
+for VRFs; you want to use the table specific to the VRF.)
 
-4) Fix TX queue hang due to incorrect handling of mixed sized fragments
-   and linearlization in i40e driver, from Anjali Singhai Jain.
+The route lookup fails because it passes in oif = vrf device (this VRF 
+design relies on bind to device which sets oif in the flow). That is 
+good for selecting the table to use for the lookups, but not good for 
+selecting the route within the table.
 
-5) Cannot use disable_irq() in timer handler of AMD xgbe driver, from
-   Thomas Lendacky.
+This is one way to fix the connect problem:
 
-6) b2net driver improperly assumes pci_alloc_consistent() gives zero'd
-   out memory, use dma_zalloc_coherent().  From Sriharsha Basavapatna.
+diff --git a/include/net/route.h b/include/net/route.h
+index fe22d03afb6a..a18798caec25 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -245,11 +245,18 @@ static inline void ip_route_connect_init(struct 
+flowi4 *fl4, __be32 dst, __be32
+                      __be16 sport, __be16 dport,
+                      struct sock *sk)
+  {
++   struct net_device *dev = dev_get_by_index(sock_net(sk), oif);
+     __u8 flow_flags = 0;
 
-7) Fix use-after-free in MPLS and ipv6, from Robert Shearman.
+     if (inet_sk(sk)->transparent)
+         flow_flags |= FLOWI_FLAG_ANYSRC;
 
-8) Missing neif_napi_del() calls in cleanup paths of b44 driver, from
-   Hauke Mehrtens.
++   if (dev) {
++       if (netif_is_vrf(dev))
++           flow_flags |= FLOWI_FLAG_VRFSRC;
++       dev_put(dev);
++   }
++
+     flowi4_init_output(fl4, oif, sk->sk_mark, tos, RT_SCOPE_UNIVERSE,
+                protocol, flow_flags, dst, src, dport, sport);
+  }
 
-Please pull, thanks a lot!
 
-The following changes since commit c46a024ea5eb0165114dbbc8c82c29b7bcf66e71:
+which essentially tells fib_table_lookup to drop the OIF comparison 
+after selecting the table per this change made in the patch Shrijeet posted:
 
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2015-06-01 20:51:18 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net 
-
-for you to fetch changes up to bbbf2df0039d31c6a0a9708ce4fe220a54bd5379:
-
-  net: replace last open coded skb_orphan_frags with function call (2015-06-08 12:15:13 -0700)
-
-----------------------------------------------------------------
-Anjali Singhai Jain (3):
-      i40e/i40evf: Fix mixed size frags and linearization
-      i40e: start up in VEPA mode by default
-      i40e: Make sure to be in VEB mode if SRIOV is enabled at probe
-
-David S. Miller (2):
-      Merge branch 'master' of git://git.kernel.org/.../jkirsher/net-queue
-      Revert "bridge: use _bh spinlock variant for br_fdb_update to avoid lockup"
-
-Florian Fainelli (1):
-      net: bcmgenet: power on MII block for all MII modes
-
-Hauke Mehrtens (2):
-      rhashtable: add missing import <linux/export.h>
-      b44: call netif_napi_del()
-
-Jiri Benc (1):
-      openvswitch: disable LRO
-
-Josh Hunt (1):
-      ipv6: Fix protocol resubmission
-
-Lendacky, Thomas (1):
-      amd-xgbe: Use disable_irq_nosync from within timer function
-
-Michael Holzheu (2):
-      s390/bpf: fix stack allocation
-      s390/bpf: fix bpf frame pointer setup
-
-Nikolay Aleksandrov (1):
-      bridge: disable softirqs around br_fdb_update to avoid lockup
-
-Robert Shearman (2):
-      mpls: fix possible use after free of device
-      ipv6: fix possible use after free of dev stats
-
-Shawn Bohrer (1):
-      ipv4/udp: Verify multicast group is ours in upd_v4_early_demux()
-
-Sriharsha Basavapatna (1):
-      be2net: Replace dma/pci_alloc_coherent() calls with dma_zalloc_coherent()
-
-Willem de Bruijn (1):
-      net: replace last open coded skb_orphan_frags with function call
-
-Wilson Kok (1):
-      bridge: use _bh spinlock variant for br_fdb_update to avoid lockup
-
- arch/s390/net/bpf_jit.h                            |  4 +++-
- arch/s390/net/bpf_jit_comp.c                       | 11 ++++++----
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |  2 +-
- drivers/net/ethernet/broadcom/b44.c                |  2 ++
- drivers/net/ethernet/broadcom/genet/bcmmii.c       | 12 ++++++++---
- drivers/net/ethernet/emulex/benet/be_cmds.c        | 87 ++++++++++++++++++++++++++++++++++++++++++++---------------------------------
- drivers/net/ethernet/emulex/benet/be_ethtool.c     | 18 +++++++++-------
- drivers/net/ethernet/emulex/benet/be_main.c        | 15 +++++++-------
- drivers/net/ethernet/intel/i40e/i40e.h             |  1 +
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |  9 ++++++++
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 35 +++++++++++++++++++++++++++----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 25 +++++++++-------------
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 10 ++++++++-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 25 +++++++++-------------
- lib/rhashtable.c                                   |  1 +
- net/bridge/br_fdb.c                                |  2 ++
- net/core/dev.c                                     | 11 ++--------
- net/ipv4/udp.c                                     | 18 +++++++++++++---
- net/ipv6/addrconf_core.c                           | 11 ++++++++--
- net/ipv6/ip6_input.c                               |  8 ++++---
- net/mpls/af_mpls.c                                 |  2 +-
- net/mpls/internal.h                                |  1 +
- net/openvswitch/vport-netdev.c                     |  1 +
- 23 files changed, 196 insertions(+), 115 deletions(-)
+                         if (!(flp->flowi4_flags & FLOWI_FLAG_VRFSRC)) {
+                                 if (flp->flowi4_oif &&
+                                     flp->flowi4_oif != nh->nh_oif)
+                                         continue;
+                         }
