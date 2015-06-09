@@ -1,45 +1,59 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC net-next 2/3] VRF driver and needed infrastructure
-Date: Tue, 09 Jun 2015 11:19:47 +0200
-Message-ID: <5576AFB3.8060607@6wind.com>
-References: <cover.1433561681.git.shm@cumulusnetworks.com> <dafc9b784df4cb52691f7dce0f280fc1b2b14532.1433561681.git.shm@cumulusnetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
-	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com
-To: Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	hannes@stressinduktion.org, dsahern@gmail.com,
-	ebiederm@xmission.com, hadi@mojatatu.com, davem@davemloft.net,
-	stephen@networkplumber.org, netdev@vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net] bridge: fix multicast router rlist endless loop
+Date: Tue,  9 Jun 2015 02:32:28 -0700
+Message-ID: <1433842349-28089-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+	herbert@gondor.apana.org.au,
+	Nikolay Aleksandrov <razor@blackwall.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:38156 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753787AbbFIJTu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2015 05:19:50 -0400
-Received: by wibdq8 with SMTP id dq8so9561869wib.1
-        for <netdev@vger.kernel.org>; Tue, 09 Jun 2015 02:19:49 -0700 (PDT)
-In-Reply-To: <dafc9b784df4cb52691f7dce0f280fc1b2b14532.1433561681.git.shm@cumulusnetworks.com>
+Received: from mail-qk0-f170.google.com ([209.85.220.170]:35489 "EHLO
+	mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932538AbbFIJcm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2015 05:32:42 -0400
+Received: by qkhq76 with SMTP id q76so6227509qkh.2
+        for <netdev@vger.kernel.org>; Tue, 09 Jun 2015 02:32:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 08/06/2015 20:35, Shrijeet Mukherjee a =C3=A9crit :
-> From: Shrijeet Mukherjee <shm@cumulusnetworks.com>
-[snip]
-> --- /dev/null
-> +++ b/drivers/net/vrf.c
-[snip]
-> +
-> +static struct rtnl_link_ops vrf_link_ops __read_mostly =3D {
-> +	.kind		=3D DRV_NAME,
-> +	.priv_size      =3D sizeof(struct net_vrf),
-> +	.policy         =3D vrf_nl_policy,
-> +	.newlink        =3D vrf_newlink,
-> +	.dellink        =3D vrf_dellink,
-> +	.setup		=3D vrf_setup,
-> +	.validate	=3D vrf_validate,
-> +	.maxtype        =3D IFLA_VRF_MAX,
-> +};
-It would be good to also have a .fill_info callback.
+From: Nikolay Aleksandrov <razor@blackwall.org>
+
+Since the addition of sysfs multicast router support if one set
+multicast_router to "2" more than once, then the port would be added to the
+hlist every time and could end up linking to itself and thus causing an
+endless loop for rlist walkers.
+So to reproduce just do:
+echo 2 > multicast_router; echo 2 > multicast_router;
+in a bridge port and let some igmp traffic flow, for me it hangs up
+in br_multicast_flood().
+Fix this by removing the "val < 2" check, and just do the hlist_del
+always.
+We can remove the "!hlist_unhashed" check because it's already done by
+hlist_del_init_rcu(), in fact this can also be done for
+br_multicast_disable_port() but that is net-next material.
+The reason this didn't happen before the addition of multicast_router
+sysfs entries is because there's a !hlist_unhashed check that prevents
+it.
+
+Signed-off-by: Nikolay Aleksandrov <razor@blackwall.org>
+Fixes: 0909e11758bd ("bridge: Add multicast_router sysfs entries")
+---
+ net/bridge/br_multicast.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 22fd0419b314..ecdd13512320 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1993,8 +1993,7 @@ int br_multicast_set_port_router(struct net_bridge_port *p, unsigned long val)
+ 		p->multicast_router = val;
+ 		err = 0;
+ 
+-		if (val < 2 && !hlist_unhashed(&p->rlist))
+-			hlist_del_init_rcu(&p->rlist);
++		hlist_del_init_rcu(&p->rlist);
+ 
+ 		if (val == 1)
+ 			break;
+-- 
+2.1.0
