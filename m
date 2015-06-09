@@ -1,71 +1,90 @@
-From: <erik.hugne@ericsson.com>
-Subject: [PATCH] tipc: disconnect socket directly after
-	probe failure
-Date: Tue, 9 Jun 2015 17:27:12 +0200
-Message-ID: <1433863632-12699-1-git-send-email-erik.hugne@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: tipc-discussion@lists.sourceforge.net
-To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Hadar Hen Zion <hadarh@mellanox.com>
+Subject: [PATCH net-next] net/ethtool: Add current supported tunable options
+Date: Tue,  9 Jun 2015 18:29:54 +0300
+Message-ID: <1433863794-40982-1-git-send-email-hadarh@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>, _govind@gmx.com,
+	Hadar Hen Zion <hadarh@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:57569 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751158AbbFIPbD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jun 2015 11:31:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+Add strings array of the current supported tunable options.
 
-If the TIPC connection timer expires in a probing state, a
-self abort message is supposed to be generated and delivered
-to the local socket. This is currently broken, and the abort
-message is actually sent out to the peer node with invalid
-addressing information. This will cause the link to enter
-a constant retransmission state and eventually reset.
-We fix this by removing the self-abort message creation and
-tear down connection immediately instead.
-
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Reviewed-by: Amir Vadai <amirv@mellanox.com>
 ---
- net/tipc/socket.c | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
+ include/uapi/linux/ethtool.h |  6 ++++++
+ net/core/ethtool.c           | 12 ++++++++++++
+ 2 files changed, 18 insertions(+)
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 30ea82a..46b6ed5 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -2140,11 +2140,17 @@ static void tipc_sk_timeout(unsigned long data)
- 	peer_node = tsk_peer_node(tsk);
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 0594933..90e4bff 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -215,6 +215,11 @@ enum tunable_id {
+ 	ETHTOOL_ID_UNSPEC,
+ 	ETHTOOL_RX_COPYBREAK,
+ 	ETHTOOL_TX_COPYBREAK,
++	/*
++	 * Add your fresh new tubale attribute above and remember to update
++	 * tunable_strings[] in net/core/ethtool.c
++	 */
++	ETHTOOL_TUNABLE_COUNT,
+ };
  
- 	if (tsk->probing_state == TIPC_CONN_PROBING) {
--		/* Previous probe not answered -> self abort */
--		skb = tipc_msg_create(TIPC_CRITICAL_IMPORTANCE,
--				      TIPC_CONN_MSG, SHORT_H_SIZE, 0,
--				      own_node, peer_node, tsk->portid,
--				      peer_port, TIPC_ERR_NO_PORT);
-+		if (!sock_owned_by_user(sk)) {
-+			sk->sk_socket->state = SS_DISCONNECTING;
-+			tsk->connected = 0;
-+			tipc_node_remove_conn(sock_net(sk), tsk_peer_node(tsk),
-+					      tsk_peer_port(tsk));
-+			sk->sk_state_change(sk);
-+		} else {
-+			/* Try again later */
-+			sk_reset_timer(sk, &sk->sk_timer, (HZ / 20));
-+		}
+ enum tunable_type_id {
+@@ -545,6 +550,7 @@ enum ethtool_stringset {
+ 	ETH_SS_NTUPLE_FILTERS,
+ 	ETH_SS_FEATURES,
+ 	ETH_SS_RSS_HASH_FUNCS,
++	ETH_SS_TUNABLES,
+ };
+ 
+ /**
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index eb0c3ac..13bbb47 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -106,6 +106,13 @@ rss_hash_func_strings[ETH_RSS_HASH_FUNCS_COUNT][ETH_GSTRING_LEN] = {
+ 	[ETH_RSS_HASH_XOR_BIT] =	"xor",
+ };
+ 
++static const char
++tunable_strings[ETHTOOL_TUNABLE_COUNT][ETH_GSTRING_LEN] = {
++	[ETHTOOL_ID_UNSPEC]     = "Unspec",
++	[ETHTOOL_RX_COPYBREAK]	= "rx-copybreak",
++	[ETHTOOL_TX_COPYBREAK]	= "tx-copybreak",
++};
 +
- 	} else {
- 		skb = tipc_msg_create(CONN_MANAGER, CONN_PROBE,
- 				      INT_H_SIZE, 0, peer_node, own_node,
+ static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_gfeatures cmd = {
+@@ -194,6 +201,9 @@ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
+ 	if (sset == ETH_SS_RSS_HASH_FUNCS)
+ 		return ARRAY_SIZE(rss_hash_func_strings);
+ 
++	if (sset == ETH_SS_TUNABLES)
++		return ARRAY_SIZE(tunable_strings);
++
+ 	if (ops->get_sset_count && ops->get_strings)
+ 		return ops->get_sset_count(dev, sset);
+ 	else
+@@ -211,6 +221,8 @@ static void __ethtool_get_strings(struct net_device *dev,
+ 	else if (stringset == ETH_SS_RSS_HASH_FUNCS)
+ 		memcpy(data, rss_hash_func_strings,
+ 		       sizeof(rss_hash_func_strings));
++	else if (stringset == ETH_SS_TUNABLES)
++		memcpy(data, tunable_strings, sizeof(tunable_strings));
+ 	else
+ 		/* ops->get_strings is valid because checked earlier */
+ 		ops->get_strings(dev, stringset, data);
 -- 
-2.1.4
-
-
-------------------------------------------------------------------------------
+1.8.3.1
