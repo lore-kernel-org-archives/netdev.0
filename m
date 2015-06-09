@@ -1,62 +1,57 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Weird DHCP related problems with net-next
-Date: Tue, 09 Jun 2015 13:31:31 -0700
-Message-ID: <55774D23.1010508@gmail.com>
-References: <5577367A.50901@gmail.com> <20150609192242.GD16778@lunn.ch>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 4.1] cfg80211: wext: clear sinfo struct before calling
+ driver
+Date: Tue, 09 Jun 2015 13:54:42 -0700 (PDT)
+Message-ID: <20150609.135442.1357702617373015039.davem@davemloft.net>
+References: <1433878544-10749-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f170.google.com ([209.85.220.170]:35345 "EHLO
-	mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753813AbbFIUcg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2015 16:32:36 -0400
-Received: by qkhq76 with SMTP id q76so15037284qkh.2
-        for <netdev@vger.kernel.org>; Tue, 09 Jun 2015 13:32:35 -0700 (PDT)
-In-Reply-To: <20150609192242.GD16778@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	gerrit-VsoRXqaLlyfQzY9nttDBhA@public.gmane.org, alexkaltsas-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1433878544-10749-1-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Tue,  9 Jun 2015 21:35:44 +0200
 
-On 09/06/15 12:22, Andrew Lunn wrote:
-> On Tue, Jun 09, 2015 at 11:54:50AM -0700, Florian Fainelli wrote:
->> Hi,
->>
->> I am observing a strange problem on net-next (not observed with net,
->> bisection in progress) where the initial DHCP configuration using
->> busybox's udhcpc is able to configure the local interface address and
->> DNS serer, but not the default gateway. Restarting udhcpc a second time
->> does not exhibit this problem.
+> From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 > 
-> Hi Florian
+> Until recently, mac80211 overwrote all the statistics it could
+> provide when getting called, but it now relies on the struct
+> having been zeroed by the caller. This was always the case in
+> nl80211, but wext used a static struct which could even cause
+> values from one device leak to another.
 > 
-> I've seen something similar, but different, again with DSA involved,
-> on a WiFi Access point. I have debian, and i'm using isc dhcp. It gets
-> an address, sets the address on the interface, but does not add the
-> interface route to the routing table. Not sure about default route, i
-> would have to go check that.
+> Using a static struct is OK (as even documented in a comment)
+> since the whole usage of this function and its return value is
+> always locked under RTNL. Not clearing the struct for calling
+> the driver has always been wrong though, since drivers were
+> free to only fill values they could report, so calling this
+> for one device and then for another would always have leaked
+> values from one to the other.
+> 
+> Fix this by initializing the structure in question before the
+> driver method call.
+> 
+> This fixes https://bugzilla.kernel.org/show_bug.cgi?id=99691
+> 
+> Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Reported-by: Gerrit Renker <gerrit-VsoRXqaLlyfQzY9nttDBhA@public.gmane.org>
+> Reported-by: Alexander Kaltsas <alexkaltsas-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> ---
+> Dave, would you mind applying this patch directly? It seems a
+> bit pointless to send a pull request for a single patch again.
 
-Interesting, did you also observe this with 'net', or just with 'net-next'?
+Sure, I'll do that right now.
 
-Contrary to what I reported above, this is only an issue with
-SYSTEMPORT/DSA/SF2, I could not reproduce this GENET or the Asix driver,
-I was just conflating two different systems here.
-
-My bisection seems to point at this commit:
-
-58c2cb16b116d7feace621bd6b647bbabacfa225 ("switchdev: convert
-fib_ipv4_add/del over to switchdev_port_obj_add/del")
-
-And indeed, hacking a bit the kernel to remove the SWITCHDEV/DSA
-dependencies to leave just DSA makes thing work again.
-
-Scott, Jiri, any clues? I can instrument the kernel a bit more to help
-find what is the problem here. Note that I am observing this on ARM
-(Andrew probably is as well), where uninitialized stack variables are
-potentially garbage.
--- 
-Florian
+Thanks Johannes.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
