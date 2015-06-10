@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 08/13] IB/mlx4: Add RoCE/IB dedicated counters
-Date: Wed, 10 Jun 2015 17:59:33 +0300
-Message-ID: <1433948378-17570-9-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 07/13] net/mlx4_core: Allocate default counter per port
+Date: Wed, 10 Jun 2015 17:59:32 +0300
+Message-ID: <1433948378-17570-8-git-send-email-ogerlitz@mellanox.com>
 References: <1433948378-17570-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,175 +10,248 @@ Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:38060 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:38063 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933134AbbFJPBO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Jun 2015 11:01:14 -0400
+	id S933140AbbFJPBP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jun 2015 11:01:15 -0400
 In-Reply-To: <1433948378-17570-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eran Ben Elisha <eranbe@mellanox.com>
 
-This is an infrastructure step to attach all the QPs opened from the
-IB driver to a counter in order to collect VF stats from the PF using
-those counters.
+Default counter per port will be allocated at the mlx4 core driver load.
 
-If the port's type is Ethernet, the counter policy demands two counters
-per port (one for RoCE and one for Ethernet). The port default counter
-(allocated in mlx4_core) is used for the Ethernet netdev QPs and we
-allocate another counter for RoCE.
-
-If the port's traffic is Infiniband, the counter policy demands
-one counter per port, so it can use the port's default counter.
-
-Also, Add 'allocated' flag for each counter in order to clean it at
-unload.
+Every QP opened by the Ethernet driver will be attached to the port's default
+counter.  This is an infrastructure step to collect VF statistics from the PF.
 
 Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/infiniband/hw/mlx4/mad.c     |    2 +-
- drivers/infiniband/hw/mlx4/main.c    |   43 +++++++++++++++++++++++----------
- drivers/infiniband/hw/mlx4/mlx4_ib.h |    7 ++++-
- drivers/infiniband/hw/mlx4/qp.c      |    4 +-
- 4 files changed, 39 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |    5 ++
+ drivers/net/ethernet/mellanox/mlx4/en_resources.c |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c         |   71 ++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h         |    1 +
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |    1 +
+ include/linux/mlx4/device.h                       |    1 +
+ 6 files changed, 77 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/infiniband/hw/mlx4/mad.c b/drivers/infiniband/hw/mlx4/mad.c
-index ad6a881..74ca13f 100644
---- a/drivers/infiniband/hw/mlx4/mad.c
-+++ b/drivers/infiniband/hw/mlx4/mad.c
-@@ -831,7 +831,7 @@ static int iboe_process_mad(struct ib_device *ibdev, int mad_flags, u8 port_num,
- 	struct mlx4_cmd_mailbox *mailbox;
- 	struct mlx4_ib_dev *dev = to_mdev(ibdev);
- 	int err;
--	u32 inmod = dev->counters[port_num - 1] & 0xffff;
-+	u32 inmod = dev->counters[port_num - 1].index & 0xffff;
- 	u8 mode;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 98efb58..048fca0 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1597,6 +1597,9 @@ int mlx4_en_start_port(struct net_device *dev)
+ 	}
+ 	mdev->mac_removed[priv->port] = 0;
  
- 	if (in_mad->mad_hdr.mgmt_class != IB_MGMT_CLASS_PERF_MGMT)
-diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
-index 024b0f7..b6bd217 100644
---- a/drivers/infiniband/hw/mlx4/main.c
-+++ b/drivers/infiniband/hw/mlx4/main.c
-@@ -2098,6 +2098,8 @@ static void *mlx4_ib_add(struct mlx4_dev *dev)
- 	struct mlx4_ib_iboe *iboe;
- 	int ib_num_ports = 0;
- 	int num_req_counters;
-+	int allocated;
++	priv->counter_index =
++			mlx4_get_default_counter_index(mdev->dev, priv->port);
++
+ 	err = mlx4_en_config_rss_steer(priv);
+ 	if (err) {
+ 		en_err(priv, "Failed configuring rss steering\n");
+@@ -1755,6 +1758,7 @@ void mlx4_en_stop_port(struct net_device *dev, int detach)
+ 
+ 	/* Set port as not active */
+ 	priv->port_up = false;
++	priv->counter_index = MLX4_SINK_COUNTER_INDEX(mdev->dev);
+ 
+ 	/* Promsicuous mode */
+ 	if (mdev->dev->caps.steering_mode ==
+@@ -2778,6 +2782,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 
+ 	priv = netdev_priv(dev);
+ 	memset(priv, 0, sizeof(struct mlx4_en_priv));
++	priv->counter_index = MLX4_SINK_COUNTER_INDEX(mdev->dev);
+ 	spin_lock_init(&priv->stats_lock);
+ 	INIT_WORK(&priv->rx_mode_task, mlx4_en_do_set_rx_mode);
+ 	INIT_WORK(&priv->watchdog_task, mlx4_en_restart);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_resources.c b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
+index 97bcb91..e482fa1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_resources.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
+@@ -66,7 +66,7 @@ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
+ 		context->pri_path.sched_queue |= user_prio << 3;
+ 		context->pri_path.feup = MLX4_FEUP_FORCE_ETH_UP;
+ 	}
+-	context->pri_path.counter_index = MLX4_SINK_COUNTER_INDEX(mdev->dev);
++	context->pri_path.counter_index = priv->counter_index;
+ 	context->cqn_send = cpu_to_be32(cqn);
+ 	context->cqn_recv = cpu_to_be32(cqn);
+ 	context->db_rec_addr = cpu_to_be64(priv->res.db.dma << 2);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index c3fe49e..3d0de27 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -2219,6 +2219,47 @@ static void mlx4_cleanup_counters_table(struct mlx4_dev *dev)
+ 	mlx4_bitmap_cleanup(&mlx4_priv(dev)->counters_bitmap);
+ }
+ 
++static void mlx4_cleanup_default_counters(struct mlx4_dev *dev)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	int port;
++
++	for (port = 0; port < dev->caps.num_ports; port++)
++		if (priv->def_counter[port] != -1)
++			mlx4_counter_free(dev,  priv->def_counter[port]);
++}
++
++static int mlx4_allocate_default_counters(struct mlx4_dev *dev)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	int port, err = 0;
++	u32 idx;
++
++	for (port = 0; port < dev->caps.num_ports; port++)
++		priv->def_counter[port] = -1;
++
++	for (port = 0; port < dev->caps.num_ports; port++) {
++		err = mlx4_counter_alloc(dev, &idx);
++
++		if (!err || err == -ENOSPC) {
++			priv->def_counter[port] = idx;
++		} else if (err == -ENOENT) {
++			err = 0;
++			continue;
++		} else {
++			mlx4_err(dev, "%s: failed to allocate default counter port %d err %d\n",
++				 __func__, port + 1, err);
++			mlx4_cleanup_default_counters(dev);
++			return err;
++		}
++
++		mlx4_dbg(dev, "%s: default counter index %d for port %d\n",
++			 __func__, priv->def_counter[port], port + 1);
++	}
++
++	return err;
++}
++
+ int __mlx4_counter_alloc(struct mlx4_dev *dev, u32 *idx)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+@@ -2227,8 +2268,10 @@ int __mlx4_counter_alloc(struct mlx4_dev *dev, u32 *idx)
+ 		return -ENOENT;
+ 
+ 	*idx = mlx4_bitmap_alloc(&priv->counters_bitmap);
+-	if (*idx == -1)
+-		return -ENOMEM;
++	if (*idx == -1) {
++		*idx = MLX4_SINK_COUNTER_INDEX(dev);
++		return -ENOSPC;
++	}
+ 
+ 	return 0;
+ }
+@@ -2275,6 +2318,9 @@ void __mlx4_counter_free(struct mlx4_dev *dev, u32 idx)
+ 	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_COUNTERS))
+ 		return;
+ 
++	if (idx == MLX4_SINK_COUNTER_INDEX(dev))
++		return;
++
+ 	__mlx4_clear_if_stat(dev, idx);
+ 
+ 	mlx4_bitmap_free(&mlx4_priv(dev)->counters_bitmap, idx, MLX4_USE_RR);
+@@ -2296,6 +2342,14 @@ void mlx4_counter_free(struct mlx4_dev *dev, u32 idx)
+ }
+ EXPORT_SYMBOL_GPL(mlx4_counter_free);
+ 
++int mlx4_get_default_counter_index(struct mlx4_dev *dev, int port)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++
++	return priv->def_counter[port - 1];
++}
++EXPORT_SYMBOL_GPL(mlx4_get_default_counter_index);
++
+ void mlx4_set_admin_guid(struct mlx4_dev *dev, __be64 guid, int entry, int port)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+@@ -2439,6 +2493,12 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
+ 		}
+ 	}
+ 
++	err = mlx4_allocate_default_counters(dev);
++	if (err) {
++		mlx4_err(dev, "Failed to allocate default counters, aborting\n");
++		goto err_counters_table_free;
++	}
++
+ 	if (!mlx4_is_slave(dev)) {
+ 		for (port = 1; port <= dev->caps.num_ports; port++) {
+ 			ib_port_default_caps = 0;
+@@ -2470,13 +2530,16 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
+ 			if (err) {
+ 				mlx4_err(dev, "Failed to set port %d, aborting\n",
+ 					 port);
+-				goto err_counters_table_free;
++				goto err_default_countes_free;
+ 			}
+ 		}
+ 	}
+ 
+ 	return 0;
+ 
++err_default_countes_free:
++	mlx4_cleanup_default_counters(dev);
++
+ err_counters_table_free:
+ 	if (!mlx4_is_slave(dev))
+ 		mlx4_cleanup_counters_table(dev);
+@@ -3210,6 +3273,7 @@ err_port:
+ 	for (--port; port >= 1; --port)
+ 		mlx4_cleanup_port_info(&priv->port[port]);
+ 
++	mlx4_cleanup_default_counters(dev);
+ 	if (!mlx4_is_slave(dev))
+ 		mlx4_cleanup_counters_table(dev);
+ 	mlx4_cleanup_qp_table(dev);
+@@ -3509,6 +3573,7 @@ static void mlx4_unload_one(struct pci_dev *pdev)
+ 		mlx4_free_resource_tracker(dev,
+ 					   RES_TR_FREE_SLAVES_ONLY);
+ 
++	mlx4_cleanup_default_counters(dev);
+ 	if (!mlx4_is_slave(dev))
+ 		mlx4_cleanup_counters_table(dev);
+ 	mlx4_cleanup_qp_table(dev);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index 8d2d359..e9e94bc 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -876,6 +876,7 @@ struct mlx4_priv {
+ 	struct mlx4_qp_table	qp_table;
+ 	struct mlx4_mcg_table	mcg_table;
+ 	struct mlx4_bitmap	counters_bitmap;
++	int			def_counter[MLX4_MAX_PORTS];
+ 
+ 	struct mlx4_catas_err	catas_err;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index edd8fd6..f6c3e12 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -582,6 +582,7 @@ struct mlx4_en_priv {
+ 	int base_tx_qpn;
+ 	struct hlist_head mac_hash[MLX4_EN_MAC_HASH_SIZE];
+ 	struct hwtstamp_config hwtstamp_config;
 +	u32 counter_index;
  
- 	pr_info_once("%s", mlx4_ib_version);
+ #ifdef CONFIG_MLX4_EN_DCB
+ 	struct ieee_ets ets;
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 312c504..4820080 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -1348,6 +1348,7 @@ int mlx4_wol_write(struct mlx4_dev *dev, u64 config, int port);
  
-@@ -2263,19 +2265,31 @@ static void *mlx4_ib_add(struct mlx4_dev *dev)
- 	num_req_counters = mlx4_is_bonded(dev) ? 1 : ibdev->num_ports;
- 	for (i = 0; i < num_req_counters; ++i) {
- 		mutex_init(&ibdev->qp1_proxy_lock[i]);
-+		allocated = 0;
- 		if (mlx4_ib_port_link_layer(&ibdev->ib_dev, i + 1) ==
- 						IB_LINK_LAYER_ETHERNET) {
--			err = mlx4_counter_alloc(ibdev->dev, &ibdev->counters[i]);
-+			err = mlx4_counter_alloc(ibdev->dev, &counter_index);
-+			/* if failed to allocate a new counter, use default */
- 			if (err)
--				ibdev->counters[i] = -1;
--		} else {
--			ibdev->counters[i] = -1;
-+				counter_index =
-+					mlx4_get_default_counter_index(dev,
-+								       i + 1);
-+			else
-+				allocated = 1;
-+		} else { /* IB_LINK_LAYER_INFINIBAND use the default counter */
-+			counter_index = mlx4_get_default_counter_index(dev,
-+								       i + 1);
- 		}
-+		ibdev->counters[i].index = counter_index;
-+		ibdev->counters[i].allocated = allocated;
-+		pr_info("counter index %d for port %d allocated %d\n",
-+			counter_index, i + 1, allocated);
- 	}
- 	if (mlx4_is_bonded(dev))
--		for (i = 1; i < ibdev->num_ports ; ++i)
--			ibdev->counters[i] = ibdev->counters[0];
--
-+		for (i = 1; i < ibdev->num_ports ; ++i) {
-+			ibdev->counters[i].index = ibdev->counters[0].index;
-+			ibdev->counters[i].allocated = 0;
-+		}
+ int mlx4_counter_alloc(struct mlx4_dev *dev, u32 *idx);
+ void mlx4_counter_free(struct mlx4_dev *dev, u32 idx);
++int mlx4_get_default_counter_index(struct mlx4_dev *dev, int port);
  
- 	mlx4_foreach_port(i, dev, MLX4_PORT_TYPE_IB)
- 		ib_num_ports++;
-@@ -2415,10 +2429,12 @@ err_steer_qp_release:
- 		mlx4_qp_release_range(dev, ibdev->steer_qpn_base,
- 				      ibdev->steer_qpn_count);
- err_counter:
--	for (; i; --i)
--		if (ibdev->counters[i - 1] != -1)
--			mlx4_counter_free(ibdev->dev, ibdev->counters[i - 1]);
--
-+	for (i = 0; i < ibdev->num_ports; ++i) {
-+		if (ibdev->counters[i].index != -1 &&
-+		    ibdev->counters[i].allocated)
-+			mlx4_counter_free(ibdev->dev,
-+					  ibdev->counters[i].index);
-+	}
- err_map:
- 	iounmap(ibdev->uar_map);
- 
-@@ -2535,8 +2551,9 @@ static void mlx4_ib_remove(struct mlx4_dev *dev, void *ibdev_ptr)
- 
- 	iounmap(ibdev->uar_map);
- 	for (p = 0; p < ibdev->num_ports; ++p)
--		if (ibdev->counters[p] != -1)
--			mlx4_counter_free(ibdev->dev, ibdev->counters[p]);
-+		if (ibdev->counters[p].index != -1 &&
-+		    ibdev->counters[p].allocated)
-+			mlx4_counter_free(ibdev->dev, ibdev->counters[p].index);
- 	mlx4_foreach_port(p, dev, MLX4_PORT_TYPE_IB)
- 		mlx4_CLOSE_PORT(dev, p);
- 
-diff --git a/drivers/infiniband/hw/mlx4/mlx4_ib.h b/drivers/infiniband/hw/mlx4/mlx4_ib.h
-index ef80e6c..b3912d1 100644
---- a/drivers/infiniband/hw/mlx4/mlx4_ib.h
-+++ b/drivers/infiniband/hw/mlx4/mlx4_ib.h
-@@ -503,6 +503,11 @@ struct mlx4_ib_iov_port {
- 	struct mlx4_ib_iov_sysfs_attr mcg_dentry;
- };
- 
-+struct counter_index {
-+	u32		index;
-+	u8		allocated;
-+};
-+
- struct mlx4_ib_dev {
- 	struct ib_device	ib_dev;
- 	struct mlx4_dev	       *dev;
-@@ -521,7 +526,7 @@ struct mlx4_ib_dev {
- 	struct mutex		cap_mask_mutex;
- 	bool			ib_active;
- 	struct mlx4_ib_iboe	iboe;
--	int			counters[MLX4_MAX_PORTS];
-+	struct counter_index    counters[MLX4_MAX_PORTS];
- 	int		       *eq_table;
- 	struct kobject	       *iov_parent;
- 	struct kobject	       *ports_parent;
-diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
-index c7d916f..c5a3a5f 100644
---- a/drivers/infiniband/hw/mlx4/qp.c
-+++ b/drivers/infiniband/hw/mlx4/qp.c
-@@ -1539,9 +1539,9 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
- 	}
- 
- 	if (cur_state == IB_QPS_INIT && new_state == IB_QPS_RTR) {
--		if (dev->counters[qp->port - 1] != -1) {
-+		if (dev->counters[qp->port - 1].index != -1) {
- 			context->pri_path.counter_index =
--						dev->counters[qp->port - 1];
-+					dev->counters[qp->port - 1].index;
- 			optpar |= MLX4_QP_OPTPAR_COUNTER_INDEX;
- 		} else
- 			context->pri_path.counter_index =
+ void mlx4_set_admin_guid(struct mlx4_dev *dev, __be64 guid, int entry,
+ 			 int port);
 -- 
 1.7.1
