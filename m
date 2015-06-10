@@ -1,78 +1,58 @@
-From: Keng Soon Cheah <keng.soon.cheah@ni.com>
-Subject: Re: [PATCH RFC] net: phy: Introduced the PHY_AN_PENDING state
-Date: Wed, 10 Jun 2015 15:09:21 +0800
-Message-ID: <20150610070921.GA11225@pendev.apac.corp.natinst.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH WIP RFC 0/3] mpls: support for ler
+Date: Wed, 10 Jun 2015 00:13:11 -0700
+Message-ID: <5577E387.4030206@cumulusnetworks.com>
+References: <1433341306-29288-1-git-send-email-roopa@cumulusnetworks.com> <20150605091441.GA11896@pox.localdomain> <5571AF28.8000009@cumulusnetworks.com> <5571BF90.2070304@brocade.com> <557260E0.9060500@cumulusnetworks.com> <20150608123302.GA3634@pox.localdomain> <5575B207.4040900@cumulusnetworks.com> <20150608225843.GA4602@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Robert Shearman <rshearma@brocade.com>, ebiederm@xmission.com,
+	netdev@vger.kernel.org,
+	Vivek Venkatraman <vivek@cumulusnetworks.com>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f170.google.com ([209.85.220.170]:34405 "EHLO
+	mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753191AbbFJHNN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 03:13:13 -0400
+Received: by qkoo18 with SMTP id o18so21144774qko.1
+        for <netdev@vger.kernel.org>; Wed, 10 Jun 2015 00:13:12 -0700 (PDT)
+In-Reply-To: <20150608225843.GA4602@pox.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Resending as I didn't reply all.
+On 6/8/15, 3:58 PM, Thomas Graf wrote:
+> I'll immediately ACK any series that supports both models and rebase
+> my patches on top of it. I think we are on the right track overall.
+>
+>> I am trying to get my code on github to collaborate better. Stay tuned
+>> (hopefully end of day today).
+>
+Robert/Thomas, All my changes are in the below repo under the 'mpls' branch.
+https://github.com/CumulusNetworks/net-next
+https://github.com/CumulusNetworks/iproute2
 
-On Tue, Jun 09, 2015 at 10:17:59PM -0700, Florian Fainelli wrote:
-> 
-> The typical way to work around these problems are to fix them at the PHY
-> driver level, see below.
-> 
+The last iproute2 commit has a sample usage.
 
-My first attempt of work around is to target on the PHY driver but I
-couldn't figure out a good way in doing that because
+The commits pushed to this tree do not contain support for the following 
+yet (but working on it):
+a) tunnel routes to work with tunnel RTA_OIF and a non-tunnel RTA_OIF:
+The current commits in the tree assume a non-tunnel RTA_OIF.
+If the tunnel driver has registered a dst_output func,  dst_output
+is set to the tunnel dst output handler in the receive route lookup path 
+which in turn does the encap
+and xmits. Thomas had last suggested using a flag to skip the dst output 
+handler re-direction
+for cases where RTA_OIF is a special tunnel netdev and the tunnel driver 
+xmit function
+can do the encap. My current thinking is to pass the oif to the encap 
+parse handler and the handler can set the flag on the tunnel state. And 
+this flag can then be used to skip the dst_output re-direction.
+This change should be trivial will fix it soon.
 
-1. We use RT kernel. The jitter performance is very sensitive to the time
-we spend in the kernel. Hence polling for auto-negotiation to complete
-before starting a new one could hurt the system performance. Moreover,
-I've seen the PHY takes up to 11s to complete auto-negotiation.
+b) make RTA_OIF optional and do a fib lookup.
 
-2. Ruling out status polling mean I have to switch to use some work
-scheduling mechanism to let the PHY driver come back and check the
-auto-negotiation status (which is what the state machine is doing now)
-but this seem to even complicate the solution because the PHY state machine
-has moved to PHY_AN state at the same time, but the auto-negotiation has
-not really been fired yet. There are more conditions that need to be
-consider to sync the PHY driver and the PHY state machine after the
-previous auto-negotiation finish.
+keep your suggestions/feedback coming...
 
-It looks like a dead end to me for continuing down the path of modifying
-PHY driver. Do let me know if you have better idea to achieve the same
-objective.
-
-> 
-> That sounds like a bug in the PHY state machine and/or the PHY driver if
-> you are allowed to restart auto-negotiation while one is pending. Now
-> that the PHY state machine has debug prints built-in, could you capture
-> a trace of this failing case?
-> 
-> Is this observed with the generic PHY driver or a custom PHY driver?
-> 
-
-It's not really a problem in the state machine or PHY driver. A very common
-scenario for an auto-negotiation to start before previous complete is at
-system boot up where the previous auto-negotiation, either triggered by
-hardware (because PHY come out from reset and auto-negotiate by itself)
-or software (U-Boot triggering PHY software reset).
-
-The other scenario that I'm able to induce the same effect is by doing
-mii-tool -r in Linux.
-
-> As usual with state machines, introducing a new state needs to be
-> carefully done in order to make sure that all transitions are correct,
-> so far I would rather work on finding the root cause/extending the
-> timeout and/or making it configurable on a PHY-driver basis rather than
-> having this additional state which is more error prone.
-> 
-
-I agree that introducing changes to the state machine will need careful
-review and it's my last option within the constraint I have. I tried to
-serialize the PHY_AN_PENDING and PHY_AN state to minimize the disruption
-introduced to the state machine. There is only one entry to the
-PHY_AN_PENDING state (via phy_start_aneg) and there is only one exit point
-to continue with PHY_AN. The state machine would otherwise identical with
-the original state machine.
-Should the PHY drop to any state other than PHY_AN_PENDING, they will
-always transition their state as usual.
-Should the PHY state machine requires an auto-negotiation, it will always
-enter PHY_AN_PENDING and always continue with PHY_AN as usual.
+thanks,
+Roopa
