@@ -1,54 +1,60 @@
 From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: Weird DHCP related problems with net-next
-Date: Wed, 10 Jun 2015 14:44:00 -0700
-Message-ID: <CAE4R7bB_J6eJ2CiLLHUkuhmGMPLA4dmhv_8kZeZjkLz5=tsQBg@mail.gmail.com>
-References: <5577367A.50901@gmail.com> <20150609192242.GD16778@lunn.ch>
- <55774D23.1010508@gmail.com> <557780FF.1080606@gmail.com>
+Subject: Re: [PATCH net-next] switchdev: fix BUG when port driver doesn't
+ support set attr op
+Date: Wed, 10 Jun 2015 14:47:52 -0700
+Message-ID: <CAE4R7bD2RLa9D1_JnGr4RUMYHWMa-kQab=1ihN3YMkJgLqFViw@mail.gmail.com>
+References: <1433969762-22406-1-git-send-email-sfeldma@gmail.com> <5578AB3C.5020206@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Lunn <andrew@lunn.ch>, Netdev <netdev@vger.kernel.org>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"David S. Miller" <davem@davemloft.net>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Brenden Blanco <bblanco@plumgrid.com>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:36802 "EHLO
-	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751206AbbFJVoV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 17:44:21 -0400
-Received: by qkx62 with SMTP id 62so31823097qkx.3
-        for <netdev@vger.kernel.org>; Wed, 10 Jun 2015 14:44:20 -0700 (PDT)
-In-Reply-To: <557780FF.1080606@gmail.com>
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:32846 "EHLO
+	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751479AbbFJVsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 17:48:13 -0400
+Received: by qkhg32 with SMTP id g32so31982256qkh.0
+        for <netdev@vger.kernel.org>; Wed, 10 Jun 2015 14:48:12 -0700 (PDT)
+In-Reply-To: <5578AB3C.5020206@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 9, 2015 at 5:12 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+On Wed, Jun 10, 2015 at 2:25 PM, David Ahern <dsahern@gmail.com> wrote:
+> On 6/10/15 2:56 PM, sfeldma@gmail.com wrote:
+>>
+>> From: Scott Feldman <sfeldma@gmail.com>
+>>
+>> Fix a BUG() where CONFIG_NET_SWITCHDEV is set but the driver for a bridged
+>> port does not support switchdec_port_attr_set op.  Don't BUG() if
+>> -EOPNOTSUPP is returned.
+>>
+>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>> Reported-by: Brenden Blanco <bblanco@plumgrid.com>
+>> ---
+>>   net/switchdev/switchdev.c |    2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>> index e008057..99bced4 100644
+>> --- a/net/switchdev/switchdev.c
+>> +++ b/net/switchdev/switchdev.c
+>> @@ -103,7 +103,7 @@ static void switchdev_port_attr_set_work(struct
+>> work_struct *work)
+>>
+>>         rtnl_lock();
+>>         err = switchdev_port_attr_set(asw->dev, &asw->attr);
+>> -       BUG_ON(err);
+>> +       BUG_ON(err && err != -EOPNOTSUPP);
+>>         rtnl_unlock();
+>>
+>>         dev_put(asw->dev);
+>>
+>
+> Should that be WARN_ON instead of BUG_ON?
 
-
-> I see the problem now, DSA does not implement a port_obj_add callback,
-> so when net/ipv4/fib_trie.c::switchdev_fib_ipv4_add() gets to call
-> switchdev_port_obj_add, we return -EOPNOTSUPP, and take the error path
-> in fib_table_insert thus not inserting the route for this interface.
-
-Yup, that's the problem.
-
-> Now when I restart the DHCP client, we end-up inserting the default
-> route which is correct, still figuring out what is different here,
-> probably the deletion of the routes by the DHCP client script first is
-> the different condition.
-
-After the first failure, ipv4.fib_offload_disabled is set, so the next
-time switchdev_fib_ipv4_add() just returns 0 and the route is
-installed.  That explains the one-off behavior.
-
-> At any rate, since switchdev_fib_ipv4_add() returns something that make
-> us take an error path in the fib_trie, something like this seems to fix
-> it for me but I am not well versed enough into the IPv4 routing code to
-> be 100% confident this is the right fix. Also, there are other callers
-> of switchdev_port_obj_add() but a quick look seems to make them safe as
-> they are only called for "offloading" capable hardware.
-
-Your fix looks good to me.  The other users of
-switchdev_port_obj_add() want to return -EOPNOTSUPP to user, so it's
-just this one case for IPv4 fib insert/del where we'll want to treat
-no support silently.  Are you going to resend as patch for net-next,
-or should I?
+I think I had it as WARN when we were working on the initial patches,
+but we changed it to BUG_ON because we should only get an error here
+if the driver screwed something up between PREPARE phase and COMMIT
+phase, so it should be considered a driver bug which needs fixing.
