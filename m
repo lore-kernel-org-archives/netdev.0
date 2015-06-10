@@ -1,52 +1,78 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: [PATCH iproute2 3/3 v2] add support to print 'linkdown' nexthop flag
-Date: Wed, 10 Jun 2015 02:47:21 -0400
-Message-ID: <1433918841-15576-4-git-send-email-gospo@cumulusnetworks.com>
-References: <1433918841-15576-1-git-send-email-gospo@cumulusnetworks.com>
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	ddutt@cumulusnetworks.com, sfeldma@gmail.com,
-	alexander.duyck@gmail.com, hannes@stressinduktion.org,
-	stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:32819 "EHLO
-	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933288AbbFJGsu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 02:48:50 -0400
-Received: by oiha141 with SMTP id a141so26256417oih.0
-        for <netdev@vger.kernel.org>; Tue, 09 Jun 2015 23:48:49 -0700 (PDT)
-In-Reply-To: <1433918841-15576-1-git-send-email-gospo@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Keng Soon Cheah <keng.soon.cheah@ni.com>
+Subject: Re: [PATCH RFC] net: phy: Introduced the PHY_AN_PENDING state
+Date: Wed, 10 Jun 2015 15:09:21 +0800
+Message-ID: <20150610070921.GA11225@pendev.apac.corp.natinst.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Andy Gospodaerk <gospo@cumulusnetworks.com>
-Signed-off-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
+Resending as I didn't reply all.
 
----
- ip/iproute.c | 4 ++++
- 1 file changed, 4 insertions(+)
+On Tue, Jun 09, 2015 at 10:17:59PM -0700, Florian Fainelli wrote:
+> 
+> The typical way to work around these problems are to fix them at the PHY
+> driver level, see below.
+> 
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 3795baf..3369c49 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -451,6 +451,8 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 		fprintf(fp, "offload ");
- 	if (r->rtm_flags & RTM_F_NOTIFY)
- 		fprintf(fp, "notify ");
-+	if (r->rtm_flags & RTNH_F_LINKDOWN)
-+		fprintf(fp, "linkdown ");
- 	if (tb[RTA_MARK]) {
- 		unsigned int mark = *(unsigned int*)RTA_DATA(tb[RTA_MARK]);
- 		if (mark) {
-@@ -670,6 +672,8 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 				fprintf(fp, " onlink");
- 			if (nh->rtnh_flags & RTNH_F_PERVASIVE)
- 				fprintf(fp, " pervasive");
-+			if (nh->rtnh_flags & RTNH_F_LINKDOWN)
-+				fprintf(fp, " linkdown");
- 			len -= NLMSG_ALIGN(nh->rtnh_len);
- 			nh = RTNH_NEXT(nh);
- 		}
--- 
-1.9.3
+My first attempt of work around is to target on the PHY driver but I
+couldn't figure out a good way in doing that because
+
+1. We use RT kernel. The jitter performance is very sensitive to the time
+we spend in the kernel. Hence polling for auto-negotiation to complete
+before starting a new one could hurt the system performance. Moreover,
+I've seen the PHY takes up to 11s to complete auto-negotiation.
+
+2. Ruling out status polling mean I have to switch to use some work
+scheduling mechanism to let the PHY driver come back and check the
+auto-negotiation status (which is what the state machine is doing now)
+but this seem to even complicate the solution because the PHY state machine
+has moved to PHY_AN state at the same time, but the auto-negotiation has
+not really been fired yet. There are more conditions that need to be
+consider to sync the PHY driver and the PHY state machine after the
+previous auto-negotiation finish.
+
+It looks like a dead end to me for continuing down the path of modifying
+PHY driver. Do let me know if you have better idea to achieve the same
+objective.
+
+> 
+> That sounds like a bug in the PHY state machine and/or the PHY driver if
+> you are allowed to restart auto-negotiation while one is pending. Now
+> that the PHY state machine has debug prints built-in, could you capture
+> a trace of this failing case?
+> 
+> Is this observed with the generic PHY driver or a custom PHY driver?
+> 
+
+It's not really a problem in the state machine or PHY driver. A very common
+scenario for an auto-negotiation to start before previous complete is at
+system boot up where the previous auto-negotiation, either triggered by
+hardware (because PHY come out from reset and auto-negotiate by itself)
+or software (U-Boot triggering PHY software reset).
+
+The other scenario that I'm able to induce the same effect is by doing
+mii-tool -r in Linux.
+
+> As usual with state machines, introducing a new state needs to be
+> carefully done in order to make sure that all transitions are correct,
+> so far I would rather work on finding the root cause/extending the
+> timeout and/or making it configurable on a PHY-driver basis rather than
+> having this additional state which is more error prone.
+> 
+
+I agree that introducing changes to the state machine will need careful
+review and it's my last option within the constraint I have. I tried to
+serialize the PHY_AN_PENDING and PHY_AN state to minimize the disruption
+introduced to the state machine. There is only one entry to the
+PHY_AN_PENDING state (via phy_start_aneg) and there is only one exit point
+to continue with PHY_AN. The state machine would otherwise identical with
+the original state machine.
+Should the PHY drop to any state other than PHY_AN_PENDING, they will
+always transition their state as usual.
+Should the PHY state machine requires an auto-negotiation, it will always
+enter PHY_AN_PENDING and always continue with PHY_AN as usual.
