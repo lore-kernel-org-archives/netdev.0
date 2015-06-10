@@ -1,49 +1,49 @@
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 linux-next] net/mlx4: use swap() in mlx4_init_qp_table()
-Date: Wed, 10 Jun 2015 18:33:06 +0200
-Message-ID: <1433953986-24573-1-git-send-email-fabf@skynet.be>
-Cc: Julia Lawall <Julia.Lawall@lip6.fr>,
-	Fabian Frederick <fabf@skynet.be>, netdev@vger.kernel.org
+Subject: [PATCH 1/1 linux-next] net: fs_enet: use swap() in fs_enet_rx_napi()
+Date: Wed, 10 Jun 2015 18:33:19 +0200
+Message-ID: <1433953999-24740-1-git-send-email-fabf@skynet.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, Fabian Frederick <fabf@skynet.be>,
+ Julia Lawall <Julia.Lawall@lip6.fr>, Vitaly Bordug <vbordug@ru.mvista.com>,
+ linuxppc-dev@lists.ozlabs.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Use kernel.h macro definition.
-
-Thanks to Julia Lawall for Coccinelle scripting support.
-
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- drivers/net/ethernet/mellanox/mlx4/qp.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
-index b75214a..2026863 100644
---- a/drivers/net/ethernet/mellanox/mlx4/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
-@@ -749,7 +749,7 @@ int mlx4_init_qp_table(struct mlx4_dev *dev)
- 
- 	{
- 		int sort[MLX4_NUM_QP_REGION];
--		int i, j, tmp;
-+		int i, j;
- 		int last_base = dev->caps.num_qps;
- 
- 		for (i = 1; i < MLX4_NUM_QP_REGION; ++i)
-@@ -758,11 +758,8 @@ int mlx4_init_qp_table(struct mlx4_dev *dev)
- 		for (i = MLX4_NUM_QP_REGION; i > MLX4_QP_REGION_BOTTOM; --i) {
- 			for (j = MLX4_QP_REGION_BOTTOM + 2; j < i; ++j) {
- 				if (dev->caps.reserved_qps_cnt[sort[j]] >
--				    dev->caps.reserved_qps_cnt[sort[j - 1]]) {
--					tmp             = sort[j];
--					sort[j]         = sort[j - 1];
--					sort[j - 1]     = tmp;
--				}
-+				    dev->caps.reserved_qps_cnt[sort[j - 1]])
-+					swap(sort[j], sort[j - 1]);
- 			}
- 		}
- 
--- 
-2.4.2
+VXNlIGtlcm5lbC5oIG1hY3JvIGRlZmluaXRpb24uCgpUaGFua3MgdG8gSnVsaWEgTGF3YWxsIGZv
+ciBDb2NjaW5lbGxlIHNjcmlwdGluZyBzdXBwb3J0LgoKU2lnbmVkLW9mZi1ieTogRmFiaWFuIEZy
+ZWRlcmljayA8ZmFiZkBza3luZXQuYmU+Ci0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNj
+YWxlL2ZzX2VuZXQvZnNfZW5ldC1tYWluLmMgfCA3ICsrLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCAy
+IGluc2VydGlvbnMoKyksIDUgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvZnJlZXNjYWxlL2ZzX2VuZXQvZnNfZW5ldC1tYWluLmMgYi9kcml2ZXJzL25ldC9l
+dGhlcm5ldC9mcmVlc2NhbGUvZnNfZW5ldC9mc19lbmV0LW1haW4uYwppbmRleCA5YjM2MzllLi5j
+NWYyOTlkIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZnNfZW5l
+dC9mc19lbmV0LW1haW4uYworKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZnNf
+ZW5ldC9mc19lbmV0LW1haW4uYwpAQCAtODYsNyArODYsNyBAQCBzdGF0aWMgaW50IGZzX2VuZXRf
+cnhfbmFwaShzdHJ1Y3QgbmFwaV9zdHJ1Y3QgKm5hcGksIGludCBidWRnZXQpCiAJc3RydWN0IG5l
+dF9kZXZpY2UgKmRldiA9IGZlcC0+bmRldjsKIAljb25zdCBzdHJ1Y3QgZnNfcGxhdGZvcm1faW5m
+byAqZnBpID0gZmVwLT5mcGk7CiAJY2JkX3QgX19pb21lbSAqYmRwOwotCXN0cnVjdCBza19idWZm
+ICpza2IsICpza2JuLCAqc2tidDsKKwlzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCAqc2tibjsKIAlpbnQg
+cmVjZWl2ZWQgPSAwOwogCXUxNiBwa3RfbGVuLCBzYzsKIAlpbnQgY3VyaWR4OwpAQCAtMTYxLDEw
+ICsxNjEsNyBAQCBzdGF0aWMgaW50IGZzX2VuZXRfcnhfbmFwaShzdHJ1Y3QgbmFwaV9zdHJ1Y3Qg
+Km5hcGksIGludCBidWRnZXQpCiAJCQkJCXNrYl9yZXNlcnZlKHNrYm4sIDIpOwkvKiBhbGlnbiBJ
+UCBoZWFkZXIgKi8KIAkJCQkJc2tiX2NvcHlfZnJvbV9saW5lYXJfZGF0YShza2IsCiAJCQkJCQkg
+ICAgICBza2JuLT5kYXRhLCBwa3RfbGVuKTsKLQkJCQkJLyogc3dhcCAqLwotCQkJCQlza2J0ID0g
+c2tiOwotCQkJCQlza2IgPSBza2JuOwotCQkJCQlza2JuID0gc2tidDsKKwkJCQkJc3dhcChza2Is
+IHNrYm4pOwogCQkJCX0KIAkJCX0gZWxzZSB7CiAJCQkJc2tibiA9IG5ldGRldl9hbGxvY19za2Io
+ZGV2LCBFTkVUX1JYX0ZSU0laRSk7Ci0tIAoyLjQuMgoKX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBw
+Yy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8v
+bGludXhwcGMtZGV2
