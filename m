@@ -1,57 +1,44 @@
-From: Vaishali Thakkar <vthakkar1994@gmail.com>
-Subject: [PATCH] atm: idt77105: Use setup_timer
-Date: Wed, 10 Jun 2015 11:10:05 +0530
-Message-ID: <20150610054005.GA12228@vaishali-Ideapad-Z570>
+From: Jianhua Xie <Jianhua.Xie@freescale.com>
+Subject: RE: [RFC,v3 02/10] dpaa_eth: add support for DPAA Ethernet
+Date: Wed, 10 Jun 2015 06:00:17 +0000
+Message-ID: <DM2PR0301MB086380B3D89425345562F384F3BD0@DM2PR0301MB0863.namprd03.prod.outlook.com>
+References: <1430319405-31280-1-git-send-email-madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr
-To: Chas Williams <3chas3@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Madalin-Cristian Bucur <madalin.bucur@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <1430319405-31280-1-git-send-email-madalin.bucur@freescale.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use the timer API function setup_timer instead of structure field
-assignments to initialize a timer.
-
-A simplified version of the Coccinelle semantic patch that performs
-this transformation is as follows:
-
-@change@
-expression e1, e2, a;
-@@
-
--init_timer(&e1);
-+setup_timer(&e1, a, 0UL);
-... when != a = e2
--e1.function = a;
-
-Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
----
- drivers/atm/idt77105.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/atm/idt77105.c b/drivers/atm/idt77105.c
-index 909c95b..feb023d 100644
---- a/drivers/atm/idt77105.c
-+++ b/drivers/atm/idt77105.c
-@@ -306,14 +306,12 @@ static int idt77105_start(struct atm_dev *dev)
- 	if (start_timer) {
- 		start_timer = 0;
-                 
--		init_timer(&stats_timer);
-+		setup_timer(&stats_timer, idt77105_stats_timer_func, 0UL);
- 		stats_timer.expires = jiffies+IDT77105_STATS_TIMER_PERIOD;
--		stats_timer.function = idt77105_stats_timer_func;
- 		add_timer(&stats_timer);
-                 
--		init_timer(&restart_timer);
-+		setup_timer(&restart_timer, idt77105_restart_timer_func, 0UL);
- 		restart_timer.expires = jiffies+IDT77105_RESTART_TIMER_PERIOD;
--		restart_timer.function = idt77105_restart_timer_func;
- 		add_timer(&restart_timer);
- 	}
- 	spin_unlock_irqrestore(&idt77105_priv_lock, flags);
--- 
-1.9.1
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogTGludXhwcGMtZGV2IFtt
+YWlsdG86bGludXhwcGMtZGV2LQ0KPiBib3VuY2VzK2ppYW5odWEueGllPWZyZWVzY2FsZS5jb21A
+bGlzdHMub3psYWJzLm9yZ10gT24gQmVoYWxmIE9mIE1hZGFsaW4NCj4gQnVjdXINCj4gU2VudDog
+V2VkbmVzZGF5LCBBcHJpbCAyOSwgMjAxNSAxMDo1NyBQTQ0KPiBUbzogbmV0ZGV2QHZnZXIua2Vy
+bmVsLm9yZzsgbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcNCj4gQ2M6IGxpbnV4LWtlcm5l
+bEB2Z2VyLmtlcm5lbC5vcmc7IEJ1Y3VyIE1hZGFsaW4tQ3Jpc3RpYW4tQjMyNzE2DQo+IFN1Ympl
+Y3Q6IFtSRkMsdjMgMDIvMTBdIGRwYWFfZXRoOiBhZGQgc3VwcG9ydCBmb3IgRFBBQSBFdGhlcm5l
+dA0KPiANCj4gVGhpcyBpbnRyb2R1Y2VzIHRoZSBGcmVlc2NhbGUgRGF0YSBQYXRoIEFjY2VsZXJh
+dGlvbiBBcmNoaXRlY3R1cmUNCj4gKERQQUEpIEV0aGVybmV0IGRyaXZlciAoZHBhYV9ldGgpIHRo
+YXQgYnVpbGRzIHVwb24gdGhlIERQQUEgUU1hbiwNCj4gQk1hbiwgUEFNVSBhbmQgRk1hbiBkcml2
+ZXJzIHRvIGRlbGl2ZXIgRXRoZXJuZXQgY29ubmVjdGl2aXR5IG9uDQo+IHRoZSBGcmVlc2NhbGUg
+RFBBQSBRb3JJUSBwbGF0Zm9ybXMuDQo+IA0KU25pcC4uLi4uLg0KDQo+ICsNCj4gKwlpZiAodW5s
+aWtlbHkoZHBhX3htaXQocHJpdiwgcGVyY3B1X3N0YXRzLCBxdWV1ZV9tYXBwaW5nLCAmZmQpIDwg
+MCkpDQo+ICsJCWdvdG8geG1pdF9mYWlsZWQ7DQo+ICsNCj4gKwluZXRfZGV2LT50cmFuc19zdGFy
+dCA9IGppZmZpZXM7DQoNCkl0IGlzIHByb2JhYmx5IGJldHRlciB0byB1c2UgbmV0ZGV2X3F1ZXVl
+LT50cmFuc19zdGFydCB0byBpbnN0ZWFkIG9mIG5ldF9kZXYtPnRyYW5zX3N0YXJ0IG9uIFNNUC4N
+Cg0KQmVzdCBSZWdhcmRzLA0KSmlhbmh1YQ0KDQo+ICsJcmV0dXJuIE5FVERFVl9UWF9PSzsNCj4g
+Kw0KPiAreG1pdF9mYWlsZWQ6DQo+ICsJaWYgKGZkLmNtZCAmIEZNX0ZEX0NNRF9GQ08pIHsNCj4g
+KwkJKCpjb3VudHB0ciktLTsNCj4gKwkJZHBhX2ZkX3JlbGVhc2UobmV0X2RldiwgJmZkKTsNCj4g
+KwkJcGVyY3B1X3N0YXRzLT50eF9lcnJvcnMrKzsNCj4gKwkJcmV0dXJuIE5FVERFVl9UWF9PSzsN
+Cj4gKwl9DQo+ICsJX2RwYV9jbGVhbnVwX3R4X2ZkKHByaXYsICZmZCk7DQo+ICsJcGVyY3B1X3N0
+YXRzLT50eF9lcnJvcnMrKzsNCj4gKwlkZXZfa2ZyZWVfc2tiKHNrYik7DQo+ICsJcmV0dXJuIE5F
+VERFVl9UWF9PSzsNCj4gK30NCj4gLS0NCj4gMS43LjExLjcNCj4gDQo+IF9fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fDQo+IExpbnV4cHBjLWRldiBtYWlsaW5n
+IGxpc3QNCj4gTGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcNCj4gaHR0cHM6Ly9saXN0cy5v
+emxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg0K
