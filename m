@@ -1,7 +1,8 @@
 From: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Subject: [V6 PATCH 0/7] ACPI: Introduce support for _CCA object
-Date: Wed, 10 Jun 2015 11:08:51 -0500
-Message-ID: <1433952538-22455-1-git-send-email-Suravee.Suthikulpanit@amd.com>
+Subject: [V6 PATCH 1/7] ACPI / scan: Parse _CCA and setup device coherency
+Date: Wed, 10 Jun 2015 11:08:52 -0500
+Message-ID: <1433952538-22455-2-git-send-email-Suravee.Suthikulpanit@amd.com>
+References: <1433952538-22455-1-git-send-email-Suravee.Suthikulpanit@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <msalter@redhat.com>, <hanjun.guo@linaro.org>,
@@ -18,120 +19,221 @@ To: <rjw@rjwysocki.net>, <lenb@kernel.org>, <catalin.marinas@arm.com>,
 	<sumit.saxena@avagotech.com>, <uday.lingala@avagotech.com>,
 	<vinholikatti@gmail.com>
 Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1433952538-22455-1-git-send-email-Suravee.Suthikulpanit@amd.com>
 Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch series introduce support for _CCA object, which is currently
-used mainly by ARM64 platform to specify DMA coherency attribute for
-devices when booting with ACPI.
+This patch implements support for ACPI _CCA object, which is introduced in
+ACPIv5.1, can be used for specifying device DMA coherency attribute.
 
-A copy of ACPIv6 can be found here:
-    http://www.uefi.org/sites/default/files/resources/ACPI_6.0.pdf
+The parsing logic traverses device namespace to parse coherency
+information, and stores it in acpi_device_flags. Then uses it to call
+arch_setup_dma_ops() when creating each device enumerated in DSDT
+during ACPI scan.
 
-This patch also introduces a new APIS:
-    1. acpi_check_dma() as part of ACPI API.
-    2. device_dma_is_coherent() as part of unified device property API.
+This patch also introduces acpi_dma_is_coherent(), which provides
+an interface for device drivers to check the coherency information
+similarly to the of_dma_is_coherent().
 
-This simplifies the logic in device drivers to determine device coherency
-attribute regardless of booting with DT vs ACPI.
+Signed-off-by: Mark Salter <msalter@redhat.com>
+Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
+---
+ drivers/acpi/Kconfig         |  3 +++
+ drivers/acpi/acpi_platform.c |  2 +-
+ drivers/acpi/glue.c          |  5 +++++
+ drivers/acpi/scan.c          | 35 +++++++++++++++++++++++++++++++++++
+ include/acpi/acpi_bus.h      | 37 ++++++++++++++++++++++++++++++++++++-
+ include/linux/acpi.h         |  5 +++++
+ 6 files changed, 85 insertions(+), 2 deletions(-)
 
-This has been tested on AMD-Seattle platform, which implements _CCA 
-object as described in the AMD Opteron A1100 Series Processor ACPI Porting Guide:
-
-http://amd-dev.wpengine.netdna-cdn.com/wordpress/media/2012/10/Seattle_ACPI_Guide.pdf
-
-Changes from V5 (https://lkml.org/lkml/2015/5/20/1033):
-    * Fix build error in the megaraid and ufs driver
-      (reported by Mark Salter)
-
-Changes from V4 (https://lkml.org/lkml/2015/5/15/669):
-    * Patch1:
-      - Move the arch_setup_dma_ops() call from acpi_create_platform_device()
-        to acpi_bind_one() to support other bus types (per Rafael).
-      - Rename acpi_device_flags.is_coherent to acpi_device_flags.coherent_dma.
-        (per Rafael)
-      - Refactor acpi_dma_is_supported() and acpi_dma_is_coherent() to
-        acpi_check_dma() to simplify the new interface.
-      - Only support _CCA=1 for now. See acpi_check_dma() (per Arnd and Catalin)
-    * Patch2:
-      - Add acked-by Catalin.
-    * Patch3:
-      - Use ACPI_COMPANION() instead of acpi_node().
-      - Remove has_acpi_companion() check since already done by acpi_node().
-        (per Will)
-    * Remove the patch "Generic function for setting up PCI device DMA coherency"
-      introduced in V4. (per Bjorn)
-
-Changes from V3 (https://lkml.org/lkml/2015/5/7/1004):
-    * Remove ARCH64_SUPPORT_ACPI_CCA_ZERO and just use CONFIG_ARM64.
-      (per Catalin and Rafael)
-    * Do not need to call arch_setup_dma_ops() for acpi_device->dev.
-      (per Rafael)
-    * [3/6] (New) We also need to call arch_setup_dma_ops() for pci
-      devices and check the CCA of the host bridge. Similar logic
-      exists for OF. So, I refactor of_pci_dma_configure() to
-      the more generic version pci_dma_configure(), and add support
-      for ACPI.
-
-Changes from V2 (https://lkml.org/lkml/2015/5/5/510):
-    * Reword ACPI_MUST_HAVE_CCA to ACPI_CCA_REQUIRED (per Rafael)
-    * Reword ACPI_SUPPORT_CCA_ZERO to ARCH64_SUPPORT_ACPI_CCA_ZERO
-      (per Rafael and Arnd)
-    * Misc code styling clean up (per Rafael)
-    * Only print missing _CCA warning message in debug mode.
-    * Refactor logic in acpi_setup_device_dma() into
-      if acpi_dma_is_supported() then call arch_setup_dma_ops().
-    * Do not allocate device dma_mask if !acpi_dma_is_supported()
-      (per Arnd).
-    * Re-use the dummy functions with the same signature.
-
-Changes from V1 (https://lkml.org/lkml/2015/4/29/290):
-    * Remove supports for 32-bit ARM since doesn't currently
-      supporting ACPI (Per Catalin suggestions.)
-    * Do not call arch_setup_dma_ops() and when _CCA is missing.
-      (per Arnd suggestion)
-    * Add CONFIG_ACPI_SUPPORT_CCA_ZERO kernel config flag to
-      allow architectures to specify the behavior when _CCA=0.
-    * Add dummy_dma_ops for ARM64 (per Catalin suggestions).
-    * Fixed build error when ACPI is not configured by defining
-      acpi_dma_is_coherent() for when CONFIG_ACPI is not set.
-    * Introduce device_dma_is_coherent().
-    * Use device_dma_is_coherent in crypto/ccp and amd-xgbe driver.
-
-Changes from RFC: (https://lkml.org/lkml/2015/4/1/389)
-    * New logic for deriving and propagating coherent attribute from
-      parent devices. (by Mark)
-    * Introducing acpi_dma_is_coherent() API (Per Tom suggestion)
-    * Introducing CONFIG_ACPI_MUST_HAVE_CCA kernel configuration.
-    * Rebased to linux-4.1-rc1
-
-Suravee Suthikulpanit (7):
-  ACPI / scan: Parse _CCA and setup device coherency
-  arm64 : Introduce support for ACPI _CCA object
-  device property: Introduces device_dma_is_coherent()
-  crypto: ccp - Unify coherency checking logic with
-    device_dma_is_coherent()
-  amd-xgbe: Unify coherency checking logic with device_dma_is_coherent()
-  megaraid_sas: fix TRUE and FALSE re-define build error
-  ufs: fix TRUE and FALSE re-define build error
-
- arch/arm64/Kconfig                        |  1 +
- arch/arm64/include/asm/dma-mapping.h      | 18 +++++-
- arch/arm64/mm/dma-mapping.c               | 92 +++++++++++++++++++++++++++++++
- drivers/acpi/Kconfig                      |  3 +
- drivers/acpi/acpi_platform.c              |  2 +-
- drivers/acpi/glue.c                       |  5 ++
- drivers/acpi/scan.c                       | 35 ++++++++++++
- drivers/base/property.c                   | 14 +++++
- drivers/crypto/ccp/ccp-platform.c         | 60 +-------------------
- drivers/net/ethernet/amd/xgbe/xgbe-main.c | 27 +--------
- drivers/scsi/megaraid/megaraid_sas_fp.c   |  8 +++
- drivers/scsi/ufs/unipro.h                 |  8 +++
- include/acpi/acpi_bus.h                   | 37 ++++++++++++-
- include/linux/acpi.h                      |  5 ++
- include/linux/property.h                  |  2 +
- 15 files changed, 228 insertions(+), 89 deletions(-)
-
+diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
+index ab2cbb5..212735f 100644
+--- a/drivers/acpi/Kconfig
++++ b/drivers/acpi/Kconfig
+@@ -54,6 +54,9 @@ config ACPI_GENERIC_GSI
+ config ACPI_SYSTEM_POWER_STATES_SUPPORT
+ 	bool
+ 
++config ACPI_CCA_REQUIRED
++	bool
++
+ config ACPI_SLEEP
+ 	bool
+ 	depends on SUSPEND || HIBERNATION
+diff --git a/drivers/acpi/acpi_platform.c b/drivers/acpi/acpi_platform.c
+index 4bf7559..06a67d5 100644
+--- a/drivers/acpi/acpi_platform.c
++++ b/drivers/acpi/acpi_platform.c
+@@ -103,7 +103,7 @@ struct platform_device *acpi_create_platform_device(struct acpi_device *adev)
+ 	pdevinfo.res = resources;
+ 	pdevinfo.num_res = count;
+ 	pdevinfo.fwnode = acpi_fwnode_handle(adev);
+-	pdevinfo.dma_mask = DMA_BIT_MASK(32);
++	pdevinfo.dma_mask = acpi_check_dma(adev, NULL) ? DMA_BIT_MASK(32) : 0;
+ 	pdev = platform_device_register_full(&pdevinfo);
+ 	if (IS_ERR(pdev))
+ 		dev_err(&adev->dev, "platform device creation failed: %ld\n",
+diff --git a/drivers/acpi/glue.c b/drivers/acpi/glue.c
+index 39c485b..b9657af 100644
+--- a/drivers/acpi/glue.c
++++ b/drivers/acpi/glue.c
+@@ -13,6 +13,7 @@
+ #include <linux/slab.h>
+ #include <linux/rwsem.h>
+ #include <linux/acpi.h>
++#include <linux/dma-mapping.h>
+ 
+ #include "internal.h"
+ 
+@@ -167,6 +168,7 @@ int acpi_bind_one(struct device *dev, struct acpi_device *acpi_dev)
+ 	struct list_head *physnode_list;
+ 	unsigned int node_id;
+ 	int retval = -EINVAL;
++	bool coherent;
+ 
+ 	if (has_acpi_companion(dev)) {
+ 		if (acpi_dev) {
+@@ -223,6 +225,9 @@ int acpi_bind_one(struct device *dev, struct acpi_device *acpi_dev)
+ 	if (!has_acpi_companion(dev))
+ 		ACPI_COMPANION_SET(dev, acpi_dev);
+ 
++	if (acpi_check_dma(acpi_dev, &coherent))
++		arch_setup_dma_ops(dev, 0, 0, NULL, coherent);
++
+ 	acpi_physnode_link_name(physical_node_name, node_id);
+ 	retval = sysfs_create_link(&acpi_dev->dev.kobj, &dev->kobj,
+ 				   physical_node_name);
+diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
+index 849b699..fdedb63 100644
+--- a/drivers/acpi/scan.c
++++ b/drivers/acpi/scan.c
+@@ -11,6 +11,7 @@
+ #include <linux/kthread.h>
+ #include <linux/dmi.h>
+ #include <linux/nls.h>
++#include <linux/dma-mapping.h>
+ 
+ #include <asm/pgtable.h>
+ 
+@@ -2137,6 +2138,39 @@ void acpi_free_pnp_ids(struct acpi_device_pnp *pnp)
+ 	kfree(pnp->unique_id);
+ }
+ 
++static void acpi_init_coherency(struct acpi_device *adev)
++{
++	unsigned long long cca = 0;
++	acpi_status status;
++	struct acpi_device *parent = adev->parent;
++
++	if (parent && parent->flags.cca_seen) {
++		/*
++		 * From ACPI spec, OSPM will ignore _CCA if an ancestor
++		 * already saw one.
++		 */
++		adev->flags.cca_seen = 1;
++		cca = parent->flags.coherent_dma;
++	} else {
++		status = acpi_evaluate_integer(adev->handle, "_CCA",
++					       NULL, &cca);
++		if (ACPI_SUCCESS(status))
++			adev->flags.cca_seen = 1;
++		else if (!IS_ENABLED(CONFIG_ACPI_CCA_REQUIRED))
++			/*
++			 * If architecture does not specify that _CCA is
++			 * required for DMA-able devices (e.g. x86),
++			 * we default to _CCA=1.
++			 */
++			cca = 1;
++		else
++			acpi_handle_debug(adev->handle,
++					  "ACPI device is missing _CCA.\n");
++	}
++
++	adev->flags.coherent_dma = cca;
++}
++
+ void acpi_init_device_object(struct acpi_device *device, acpi_handle handle,
+ 			     int type, unsigned long long sta)
+ {
+@@ -2155,6 +2189,7 @@ void acpi_init_device_object(struct acpi_device *device, acpi_handle handle,
+ 	device->flags.visited = false;
+ 	device_initialize(&device->dev);
+ 	dev_set_uevent_suppress(&device->dev, true);
++	acpi_init_coherency(device);
+ }
+ 
+ void acpi_device_add_finalize(struct acpi_device *device)
+diff --git a/include/acpi/acpi_bus.h b/include/acpi/acpi_bus.h
+index 8de4fa9..cbd1b57 100644
+--- a/include/acpi/acpi_bus.h
++++ b/include/acpi/acpi_bus.h
+@@ -208,7 +208,9 @@ struct acpi_device_flags {
+ 	u32 visited:1;
+ 	u32 hotplug_notify:1;
+ 	u32 is_dock_station:1;
+-	u32 reserved:23;
++	u32 coherent_dma:1;
++	u32 cca_seen:1;
++	u32 reserved:21;
+ };
+ 
+ /* File System */
+@@ -380,6 +382,39 @@ struct acpi_device {
+ 	void (*remove)(struct acpi_device *);
+ };
+ 
++static inline bool acpi_check_dma(struct acpi_device *adev, bool *coherent)
++{
++	bool ret = false;
++
++	if (!adev)
++		return ret;
++
++	/**
++	 * Currently, we only support _CCA=1 (i.e. coherent_dma=1)
++	 * This should be equivalent to specifyig dma-coherent for
++	 * a device in OF.
++	 *
++	 * For the case when _CCA=0 (i.e. coherent_dma=0 && cca_seen=1),
++	 * There are two cases:
++	 * case 1. Do not support and disable DMA.
++	 * case 2. Support but rely on arch-specific cache maintenance for
++	 *         non-coherence DMA operations.
++	 * Currently, we implement case 1 above.
++	 *
++	 * For the case when _CCA is missing (i.e. cca_seen=0) and
++	 * platform specifies ACPI_CCA_REQUIRED, we do not support DMA,
++	 * and fallback to arch-specific default handling.
++	 *
++	 * See acpi_init_coherency() for more info.
++	 */
++	if (adev->flags.coherent_dma) {
++		ret = true;
++		if (coherent)
++			*coherent = adev->flags.coherent_dma;
++	}
++	return ret;
++}
++
+ static inline bool is_acpi_node(struct fwnode_handle *fwnode)
+ {
+ 	return fwnode && fwnode->type == FWNODE_ACPI;
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index b10c4a6..30c81ac 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -583,6 +583,11 @@ static inline int acpi_device_modalias(struct device *dev,
+ 	return -ENODEV;
+ }
+ 
++static inline bool acpi_check_dma(struct acpi_device *adev, bool *coherent)
++{
++	return false;
++}
++
+ #define ACPI_PTR(_ptr)	(NULL)
+ 
+ #endif	/* !CONFIG_ACPI */
 -- 
 2.1.0
 
