@@ -1,7 +1,8 @@
 From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: [PATCH 3.10.y 0/2] ipv6: avoid soft lockups in fib6_run_gc()
-Date: Wed, 10 Jun 2015 13:40:42 +0300
-Message-ID: <20150610103926.3791.22866.stgit@buzz>
+Subject: [PATCH 3.10.y 1/2] ipv6: prevent fib6_run_gc() contention
+Date: Wed, 10 Jun 2015 13:40:43 +0300
+Message-ID: <20150610104043.3791.92411.stgit@buzz>
+References: <20150610103926.3791.22866.stgit@buzz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -9,80 +10,141 @@ Cc: Michal Kubecek <mkubecek@suse.cz>, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>
 To: stable@vger.kernel.org
 Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20150610103926.3791.22866.stgit@buzz>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Two patches from 3.11 which are missing in 3.10.y
+=46rom: Michal Kube=C4=8Dek <mkubecek@suse.cz>
 
-I've just seen livelock in 3.10.69+ where all cpus are stuck in fib6_ru=
-n_gc()
+commit 2ac3ac8f86f2fe065d746d9a9abaca867adec577 upstream
 
-<4>[2919865.977745] Call Trace:
-<4>[2919865.977748]  <IRQ>=20
-<4>[2919865.977754]  [<ffffffff8163b87e>] _raw_spin_lock_bh+0x1e/0x30
-<4>[2919865.977759]  [<ffffffff815e4018>] fib6_run_gc+0x28/0x100
-<4>[2919865.977762]  [<ffffffff815dc64b>] ip6_dst_gc+0xcb/0x110
-<4>[2919865.977767]  [<ffffffff8153ead3>] dst_alloc+0x163/0x180
-<4>[2919865.977770]  [<ffffffff815ddce4>] ip6_rt_copy+0x44/0x350
-<4>[2919865.977773]  [<ffffffff815debc7>] ip6_pol_route.isra.46+0x347/0=
-x460
-<4>[2919865.977776]  [<ffffffff815ded3a>] ip6_pol_route_output+0x2a/0x3=
-0
-<4>[2919865.977781]  [<ffffffff81605061>] fib6_rule_action+0xd1/0x200
-<4>[2919865.977783]  [<ffffffff815ded10>] ? ip6_pol_route_input+0x30/0x=
-30
-<4>[2919865.977788]  [<ffffffff81556b9d>] ? pfifo_fast_enqueue+0x8d/0xa=
-0
-<4>[2919865.977791]  [<ffffffff815513e5>] fib_rules_lookup+0xd5/0x150
-<4>[2919865.977795]  [<ffffffff81605344>] fib6_rule_lookup+0x44/0x80
-<4>[2919865.977797]  [<ffffffff815ded10>] ? ip6_pol_route_input+0x30/0x=
-30
-<4>[2919865.977800]  [<ffffffff815dce93>] ip6_route_output+0x73/0xb0
-<4>[2919865.977804]  [<ffffffff815cf4fb>] ip6_dst_lookup_tail+0xdb/0xf0
-<4>[2919865.977807]  [<ffffffff815cf6ed>] ip6_dst_lookup_flow+0x3d/0xa0
-<4>[2919865.977811]  [<ffffffff815fe4b0>] inet6_csk_route_socket+0x160/=
-0x200
-<4>[2919865.977814]  [<ffffffff815fe622>] inet6_csk_xmit+0x42/0xd0
-<4>[2919865.977819]  [<ffffffff81588e6b>] tcp_transmit_skb+0x42b/0x8a0
-<4>[2919865.977823]  [<ffffffff81589376>] tcp_xmit_probe_skb+0x96/0xb0
-<4>[2919865.977826]  [<ffffffff8158bce9>] tcp_write_wakeup+0x59/0x180
-<4>[2919865.977830]  [<ffffffff8158c298>] tcp_keepalive_timer+0x178/0x2=
-60
-<4>[2919865.977833]  [<ffffffff8158cee6>] ? tcp_write_timer+0x46/0x80
-<4>[2919865.977836]  [<ffffffff8158c120>] ? tcp_out_of_resources+0xc0/0=
-xc0
-<4>[2919865.977840]  [<ffffffff81064576>] call_timer_fn+0x46/0x160
-<4>[2919865.977842]  [<ffffffff8106517c>] ? cascade+0x7c/0xa0
-<4>[2919865.977845]  [<ffffffff81065e0d>] run_timer_softirq+0x25d/0x290
-<4>[2919865.977849]  [<ffffffff813104a4>] ? timerqueue_add+0x64/0xb0
-<4>[2919865.977852]  [<ffffffff8158c120>] ? tcp_out_of_resources+0xc0/0=
-xc0
-<4>[2919865.977858]  [<ffffffff8109ba74>] ? ktime_get+0x54/0xe0
-<4>[2919865.977861]  [<ffffffff8105df58>] __do_softirq+0xd8/0x270
-<4>[2919865.977865]  [<ffffffff810a3b04>] ? tick_program_event+0x24/0x3=
-0
-<4>[2919865.977870]  [<ffffffff8107f385>] ? hrtimer_interrupt+0x185/0x2=
-70
-<4>[2919865.977874]  [<ffffffff8164581c>] call_softirq+0x1c/0x30
-<4>[2919865.977878]  [<ffffffff810154d5>] do_softirq+0x65/0xa0
-<4>[2919865.977881]  [<ffffffff8105e24e>] irq_exit+0x8e/0xb0
-<4>[2919865.977884]  [<ffffffff8164619e>] smp_apic_timer_interrupt+0x6e=
-/0x99
-<4>[2919865.977887]  [<ffffffff8164505d>] apic_timer_interrupt+0x6d/0x8=
-0
+On a high-traffic router with many processors and many IPv6 dst
+entries, soft lockup in fib6_run_gc() can occur when number of
+entries reaches gc_thresh.
 
+This happens because fib6_run_gc() uses fib6_gc_lock to allow
+only one thread to run the garbage collector but ip6_dst_gc()
+doesn't update net->ipv6.ip6_rt_last_gc until fib6_run_gc()
+returns. On a system with many entries, this can take some time
+so that in the meantime, other threads pass the tests in
+ip6_dst_gc() (ip6_rt_last_gc is still not updated) and wait for
+the lock. They then have to run the garbage collector one after
+another which blocks them for quite long.
+
+Resolve this by replacing special value ~0UL of expire parameter
+to fib6_run_gc() by explicit "force" parameter to choose between
+spin_lock_bh() and spin_trylock_bh() and call fib6_run_gc() with
+force=3Dfalse if gc_thresh is reached but not max_size.
+
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
-
-Michal Kube=C4=8Dek (2):
-      ipv6: prevent fib6_run_gc() contention
-      ipv6: update ip6_rt_last_gc every time GC is run
-
-
  include/net/ip6_fib.h |    2 +-
- net/ipv6/ip6_fib.c    |   25 +++++++++++++------------
+ net/ipv6/ip6_fib.c    |   19 ++++++++-----------
  net/ipv6/ndisc.c      |    4 ++--
- net/ipv6/route.c      |    8 +++-----
- 4 files changed, 19 insertions(+), 20 deletions(-)
+ net/ipv6/route.c      |    4 ++--
+ 4 files changed, 13 insertions(+), 16 deletions(-)
 
---
-Konstantin
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index 665e0cee59bd..5e661a979694 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -301,7 +301,7 @@ extern void			inet6_rt_notify(int event, struct rt6=
+_info *rt,
+ 						struct nl_info *info);
+=20
+ extern void			fib6_run_gc(unsigned long expires,
+-					    struct net *net);
++					    struct net *net, bool force);
+=20
+ extern void			fib6_gc_cleanup(void);
+=20
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index ceeb9458bb60..0b5e9086322d 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -1648,19 +1648,16 @@ static int fib6_age(struct rt6_info *rt, void *=
+arg)
+=20
+ static DEFINE_SPINLOCK(fib6_gc_lock);
+=20
+-void fib6_run_gc(unsigned long expires, struct net *net)
++void fib6_run_gc(unsigned long expires, struct net *net, bool force)
+ {
+-	if (expires !=3D ~0UL) {
++	if (force) {
+ 		spin_lock_bh(&fib6_gc_lock);
+-		gc_args.timeout =3D expires ? (int)expires :
+-			net->ipv6.sysctl.ip6_rt_gc_interval;
+-	} else {
+-		if (!spin_trylock_bh(&fib6_gc_lock)) {
+-			mod_timer(&net->ipv6.ip6_fib_timer, jiffies + HZ);
+-			return;
+-		}
+-		gc_args.timeout =3D net->ipv6.sysctl.ip6_rt_gc_interval;
++	} else if (!spin_trylock_bh(&fib6_gc_lock)) {
++		mod_timer(&net->ipv6.ip6_fib_timer, jiffies + HZ);
++		return;
+ 	}
++	gc_args.timeout =3D expires ? (int)expires :
++			  net->ipv6.sysctl.ip6_rt_gc_interval;
+=20
+ 	gc_args.more =3D icmp6_dst_gc();
+=20
+@@ -1677,7 +1674,7 @@ void fib6_run_gc(unsigned long expires, struct ne=
+t *net)
+=20
+ static void fib6_gc_timer_cb(unsigned long arg)
+ {
+-	fib6_run_gc(0, (struct net *)arg);
++	fib6_run_gc(0, (struct net *)arg, true);
+ }
+=20
+ static int __net_init fib6_net_init(struct net *net)
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 05f361338c2e..deedf7ddbc6e 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1584,7 +1584,7 @@ static int ndisc_netdev_event(struct notifier_blo=
+ck *this, unsigned long event,
+ 	switch (event) {
+ 	case NETDEV_CHANGEADDR:
+ 		neigh_changeaddr(&nd_tbl, dev);
+-		fib6_run_gc(~0UL, net);
++		fib6_run_gc(0, net, false);
+ 		idev =3D in6_dev_get(dev);
+ 		if (!idev)
+ 			break;
+@@ -1594,7 +1594,7 @@ static int ndisc_netdev_event(struct notifier_blo=
+ck *this, unsigned long event,
+ 		break;
+ 	case NETDEV_DOWN:
+ 		neigh_ifdown(&nd_tbl, dev);
+-		fib6_run_gc(~0UL, net);
++		fib6_run_gc(0, net, false);
+ 		break;
+ 	case NETDEV_NOTIFY_PEERS:
+ 		ndisc_send_unsol_na(dev);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index d94d224f7e68..bd83c90f970c 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1349,7 +1349,7 @@ static int ip6_dst_gc(struct dst_ops *ops)
+ 		goto out;
+=20
+ 	net->ipv6.ip6_rt_gc_expire++;
+-	fib6_run_gc(net->ipv6.ip6_rt_gc_expire, net);
++	fib6_run_gc(net->ipv6.ip6_rt_gc_expire, net, entries > rt_max_size);
+ 	net->ipv6.ip6_rt_last_gc =3D now;
+ 	entries =3D dst_entries_get_slow(ops);
+ 	if (entries < ops->gc_thresh)
+@@ -2849,7 +2849,7 @@ int ipv6_sysctl_rtcache_flush(ctl_table *ctl, int=
+ write,
+ 	net =3D (struct net *)ctl->extra1;
+ 	delay =3D net->ipv6.sysctl.flush_delay;
+ 	proc_dointvec(ctl, write, buffer, lenp, ppos);
+-	fib6_run_gc(delay <=3D 0 ? ~0UL : (unsigned long)delay, net);
++	fib6_run_gc(delay <=3D 0 ? 0 : (unsigned long)delay, net, delay > 0);
+ 	return 0;
+ }
+=20
