@@ -1,77 +1,205 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH v3] ipv6: Fix protocol resubmission
-Date: Wed, 10 Jun 2015 13:53:30 +0900
-Message-ID: <5577C2CA.2070702@miraclelinux.com>
-References: <1433779259-14328-1-git-send-email-johunt@akamai.com>	<20150608.121601.1357405469784892473.davem@davemloft.net> <m2mw08kx7b.wl@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH RFC] net: phy: Introduced the PHY_AN_PENDING state
+Date: Tue, 09 Jun 2015 22:17:59 -0700
+Message-ID: <5577C887.2030604@gmail.com>
+References: <20150610043635.GA6430@pendev.apac.corp.natinst.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com, johunt@akamai.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	sergei.shtylyov@cogentembedded.com, tom@herbertland.com
-To: Hajime Tazaki <thehajime@gmail.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og108.obsmtp.com ([64.18.2.169]:42457 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752619AbbFJExf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 00:53:35 -0400
-Received: by mail-pa0-f48.google.com with SMTP id qy3so26727690pab.3
-        for <netdev@vger.kernel.org>; Tue, 09 Jun 2015 21:53:35 -0700 (PDT)
-In-Reply-To: <m2mw08kx7b.wl@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Keng Soon Cheah <keng.soon.cheah@ni.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150610043635.GA6430@pendev.apac.corp.natinst.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Le 06/09/15 21:36, Keng Soon Cheah a =C3=A9crit :
+> The PHY_AN_PENDING state is put as a gate to enter the PHY_AN state
+> where it will wait for any uncomplete auto-negotiation session to
+> finish before starting a new one.
+>=20
+> This extra state could be used to workaround some auto-negotation
+> issues from certain vendors.
 
-Hajime Tazaki wrote:
-> 
-> Hello Josh, Dave,
-> 
-> my mobile ipv6 test on libos failed with this commit.
-> 
-> This commit makes a destination option header handling (i.e.,
-> ipprot->handler == ipv6_destopt_rcv) failed since
-> ipv6_destopt_rcv() seems to return a positive value to
-> indicate to goto resubmission label.
-> 
-> I will look for more detail.
+The typical way to work around these problems are to fix them at the PH=
+Y
+driver level, see below.
 
-I think we should look into other protocol handlers as well...
+>=20
+> an_pending_timeout module parameter is used to enable the AN_PENDING
+> transition state. Set it to 0 to disable AN_PENDING state transition,
+> set it to any non-zero value to specify the timeout period for
+> PHY_AN_PENDING state in second. The default value is 0.
+>=20
+> an_pending_guard module parameter serves as a guard band to delay
+> the auto-negotiation firing after the previous auto-negotiation
+> finish.
+>=20
+> Signed-off-by: Keng Soon Cheah <keng.soon.cheah@ni.com>
+>=20
+> Conflicts:
+>=20
+> 	drivers/net/phy/phy.c
+> ---
+> We observed failure in the ethernet link operation when our board pai=
+rs
+> with some network switch model. The problem happens when an
+> auto-negotiation is started around the time the previous auto-negotia=
+tion
+> complete. We believe this might be an interoperatibility issue betwee=
+n
+> the PHYs but we need a short-term solution in software to workaround =
+the
+> issue.
+>=20
+> We found that we are able to avoid from hitting the problem by waitin=
+g any
+> pending auto-negotiation to complete before starting a new one and th=
+is
+> patch is designed to serve the purpose.
 
---yoshfuji
+That sounds like a bug in the PHY state machine and/or the PHY driver i=
+f
+you are allowed to restart auto-negotiation while one is pending. Now
+that the PHY state machine has debug prints built-in, could you capture
+a trace of this failing case?
 
-> 
-> -- Hajime
-> 
-> At Mon, 08 Jun 2015 12:16:01 -0700 (PDT),
-> David Miller wrote:
->>
->> From: Josh Hunt <johunt@akamai.com>
->> Date: Mon,  8 Jun 2015 12:00:59 -0400
->>
->>> UDP encapsulation is broken on IPv6. This is because the logic to resubmit
->>> the nexthdr is inverted, checking for a ret value > 0 instead of < 0. Also,
->>> the resubmit label is in the wrong position since we already get the
->>> nexthdr value when performing decapsulation. In addition the skb pull is no
->>> longer necessary either.
->>>
->>> This changes the return value check to look for < 0, using it for the
->>> nexthdr on the next iteration, and moves the resubmit label to the proper
->>> location.
->>>
->>> With these changes the v6 code now matches what we do in the v4 ip input
->>> code wrt resubmitting when decapsulating.
->>>
->>> Signed-off-by: Josh Hunt <johunt@akamai.com>
->>
->> Applied.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Is this observed with the generic PHY driver or a custom PHY driver?
 
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+>=20
+> A PHY_AN_PENDING state is introduced and it will act as a gate to ent=
+er
+> the PHY_AN state. This state will check for auto-negotiation completi=
+on
+> or timeout after an_pending_timeout period, then it will wait for
+> an_pending_guard before triggering another auto-negotiation.
+>=20
+> The following diagram shows the timing diagram
+>=20
+>=20
+>            an_pending_timeout           an_pending_guard
+>    V                                                       V auto-neg=
+o
+>    |--------------------------------->|....................|
+>                                       ^
+>                        auto-negotiation complete/timeout
+>=20
+> We do not have plan to submit this patch upstream (unless the communi=
+ty
+> feels this patch is useful in general) but we would like to seek for
+> feedback or advice if this patch could introduce new problems.
+
+As usual with state machines, introducing a new state needs to be
+carefully done in order to make sure that all transitions are correct,
+so far I would rather work on finding the root cause/extending the
+timeout and/or making it configurable on a PHY-driver basis rather than
+having this additional state which is more error prone.
+
+Thanks!
+
+>=20
+> ---
+>  drivers/net/phy/phy.c |   44 +++++++++++++++++++++++++++++++++++++++=
+++++-
+>  include/linux/phy.h   |    3 ++-
+>  2 files changed, 45 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index b2197b5..35e6484 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -38,6 +38,16 @@
+> =20
+>  #include <asm/irq.h>
+> =20
+> +static unsigned int an_pending_timeout;
+> +module_param(an_pending_timeout, uint, 0644);
+> +MODULE_PARM_DESC(an_pending_timeout,
+> +	"Timeout period for PHY_AN_PENDING state in second. 0 to disable PH=
+Y_AN_PENDING state (default)");
+> +
+> +static unsigned int an_pending_guard;
+> +module_param(an_pending_guard, uint, 0644);
+> +MODULE_PARM_DESC(an_pending_guard,
+> +	"Guard band period before firing auto-negotiation from PHY_AN_PENDI=
+NG state in second. Default to 0");
+> +
+>  static const char *phy_speed_to_str(int speed)
+>  {
+>  	switch (speed) {
+> @@ -82,7 +92,6 @@ static const char *phy_state_to_str(enum phy_state =
+st)
+>  	return NULL;
+>  }
+> =20
+> -
+>  /**
+>   * phy_print_status - Convenience function to print out the current =
+phy status
+>   * @phydev: the phy_device struct
+> @@ -485,6 +494,18 @@ int phy_start_aneg(struct phy_device *phydev)
+> =20
+>  	/* Invalidate LP advertising flags */
+>  	phydev->lp_advertising =3D 0;
+> +	if (an_pending_timeout) {
+> +		switch (phydev->state) {
+> +		case PHY_AN_PENDING:
+> +		case PHY_HALTED:
+> +			break;
+> +		default:
+> +			phydev->state =3D PHY_AN_PENDING;
+> +			phydev->link_timeout =3D an_pending_timeout;
+> +			goto out_unlock;
+> +		}
+> +
+> +	}
+> =20
+>  	err =3D phydev->drv->config_aneg(phydev);
+>  	if (err < 0)
+> @@ -831,6 +852,27 @@ void phy_state_machine(struct work_struct *work)
+>  		phydev->link_timeout =3D PHY_AN_TIMEOUT;
+> =20
+>  		break;
+> +	case PHY_AN_PENDING:
+> +		/* Check if negotiation is done.  Break if there's an error */
+> +		err =3D phy_aneg_done(phydev);
+> +		if (err < 0)
+> +			break;
+> +
+> +		/* If AN is done, we'll proceed with the real aneg triggering */
+> +		if (err > 0) {
+> +			if (phydev->link_timeout > 0)
+> +				phydev->link_timeout =3D -(an_pending_guard);
+> +			else if (phydev->link_timeout < 0)
+> +				phydev->link_timeout++;
+> +		} else
+> +			phydev->link_timeout--;
+> +
+> +		if (0 =3D=3D phydev->link_timeout) {
+> +			needs_aneg =3D true;
+> +
+> +			phydev->link_timeout =3D PHY_AN_TIMEOUT;
+> +		}
+> +		break;
+>  	case PHY_AN:
+>  		err =3D phy_read_status(phydev);
+>  		if (err < 0)
+> diff --git a/include/linux/phy.h b/include/linux/phy.h
+> index a26c3f8..a63afdc 100644
+> --- a/include/linux/phy.h
+> +++ b/include/linux/phy.h
+> @@ -308,7 +308,8 @@ enum phy_state {
+>  	PHY_FORCING,
+>  	PHY_CHANGELINK,
+>  	PHY_HALTED,
+> -	PHY_RESUMING
+> +	PHY_RESUMING,
+> +	PHY_AN_PENDING
+>  };
+> =20
+>  /**
+>=20
+
+
+--=20
+=46lorian
