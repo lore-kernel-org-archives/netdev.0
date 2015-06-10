@@ -1,80 +1,48 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH 1/1 linux-next] ath5k: use swap() in
- ath5k_hw_get_median_noise_floor()
-Date: Wed, 10 Jun 2015 22:29:18 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1506102228560.1986@localhost6.localdomain6>
-References: <1433954015-24872-1-git-send-email-fabf@skynet.be> <1433965966.32331.25.camel@perches.com> <1121998377.24127.1433966378845.open-xchange@webmail.nmp.proximus.be>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 19/19] bna: use netdev_* and dev_* instead of
+ printk and pr_*
+Date: Wed, 10 Jun 2015 13:29:50 -0700
+Message-ID: <1433968190.32331.32.camel@perches.com>
+References: <1433954605-22813-1-git-send-email-ivecera@redhat.com>
+	 <1433954605-22813-20-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-224748411-1433968160=:1986"
-Cc: Joe Perches <joe@perches.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	linux-wireless@vger.kernel.org, Jiri Slaby <jirislaby@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Kalle Valo <kvalo@codeaurora.org>
-To: Fabian Frederick <fabf@skynet.be>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rasesh.mody@qlogic.com
+To: Ivan Vecera <ivecera@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:33320 "EHLO
-	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754386AbbFJU3V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 16:29:21 -0400
-In-Reply-To: <1121998377.24127.1433966378845.open-xchange@webmail.nmp.proximus.be>
+Received: from smtprelay0216.hostedemail.com ([216.40.44.216]:33646 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932939AbbFJU3x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 16:29:53 -0400
+In-Reply-To: <1433954605-22813-20-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Wed, 2015-06-10 at 18:43 +0200, Ivan Vecera wrote:
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
---8323328-224748411-1433968160=:1986
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
+There should be some indication a few messages have
+been deleted in the commit log and a reason why too.
 
+> diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+[]
+> @@ -965,10 +964,6 @@ bnad_cb_ethport_link_status(struct bnad *bnad,
+>  						/*
+>  						 * Force an immediate
+>  						 * Transmit Schedule */
+> -						printk(KERN_INFO "bna: %s %d "
+> -						      "TXQ_STARTED\n",
+> -						       bnad->netdev->name,
+> -						       txq_id);
 
+[]
 
-On Wed, 10 Jun 2015, Fabian Frederick wrote:
+> @@ -1057,8 +1051,6 @@ bnad_cb_tx_stall(struct bnad *bnad, struct bna_tx *tx)
+>  		txq_id = tcb->id;
+>  		clear_bit(BNAD_TXQ_TX_STARTED, &tcb->flags);
+>  		netif_stop_subqueue(bnad->netdev, txq_id);
+> -		printk(KERN_INFO "bna: %s %d TXQ_STOPPED\n",
+> -			bnad->netdev->name, txq_id);
 
-> 
-> 
-> > On 10 June 2015 at 21:52 Joe Perches <joe@perches.com> wrote:
-> >
-> >
-> > On Wed, 2015-06-10 at 18:33 +0200, Fabian Frederick wrote:
-> > > Use kernel.h macro definition.
-> > >
-> > > Thanks to Julia Lawall for Coccinelle scripting support.
-> > []
-> > > diff --git a/drivers/net/wireless/ath/ath5k/phy.c
-> > > b/drivers/net/wireless/ath/ath5k/phy.c
-> > []
-> > > @@ -1566,17 +1566,13 @@ static s16
-> > >  ath5k_hw_get_median_noise_floor(struct ath5k_hw *ah)
-> > >  {
-> > >     s16 sort[ATH5K_NF_CAL_HIST_MAX];
-> > > -   s16 tmp;
-> > >     int i, j;
-> > > 
-> > >     memcpy(sort, ah->ah_nfcal_hist.nfval, sizeof(sort));
-> > >     for (i = 0; i < ATH5K_NF_CAL_HIST_MAX - 1; i++) {
-> > >             for (j = 1; j < ATH5K_NF_CAL_HIST_MAX - i; j++) {
-> > > -                   if (sort[j] > sort[j - 1]) {
-> > > -                           tmp = sort[j];
-> > > -                           sort[j] = sort[j - 1];
-> > > -                           sort[j - 1] = tmp;
-> > > -                   }
-> > > +                   if (sort[j] > sort[j - 1])
-> > > +                           swap(sort[j], sort[j]);
-> >
-> > swap(a, a) doesn't look useful.
-> Thanks a lot Joe, I'll fix this one :)
-
-How did it come out like that?
-
-julia
-
-> 
-> Regards,
-> Fabian
-> >
-> >
-> 
---8323328-224748411-1433968160=:1986--
+etc...
