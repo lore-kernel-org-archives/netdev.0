@@ -1,67 +1,92 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Subject: Re: [PATCH] iwlwifi:dvm:Return false if resume command data is not
- same size as received packet for the function iwl_resume_status_fn
-Date: Wed, 10 Jun 2015 17:10:09 +0000
-Message-ID: <1433956209.20602.5.camel@intel.com>
-References: <1433954031-7176-1-git-send-email-xerofoify@gmail.com>
-	 <1433955045.20602.2.camel@intel.com>
-	 <D665C857-C846-422A-A3D9-A9314B000CD6@gmail.com>
+From: Geoff Levand <geoff@infradead.org>
+Subject: [PATCH] net/ps3_gelic: Fix build error with DEBUG
+Date: Wed, 10 Jun 2015 10:19:48 -0700
+Message-ID: <1433956788.4524.15.camel@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Spinadel, David" <david.spinadel@intel.com>,
-	"ilw@linux.intel.com" <ilw@linux.intel.com>,
-	"Coelho, Luciano" <luciano.coelho@intel.com>,
-	"eliad@wizery.com" <eliad@wizery.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
-To: "xerofoify@gmail.com" <xerofoify@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <D665C857-C846-422A-A3D9-A9314B000CD6@gmail.com>
-Content-Language: en-US
-Content-ID: <CF0315BD9B33A841A67D3FB5F5E86FAC@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	cbe-oss-dev@lists.ozlabs.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([198.137.202.9]:34311 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964913AbbFJRTv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 13:19:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDE1LTA2LTEwIGF0IDEyOjU4IC0wNDAwLCBOaWNob2xhcyBLcmF1c2Ugd3JvdGU6
-DQo+IA0KPiBPbiBKdW5lIDEwLCAyMDE1IDEyOjUwOjQ1IFBNIEVEVCwgIkdydW1iYWNoLCBFbW1h
-bnVlbCIgPGVtbWFudWVsLmdydW1iYWNoQGludGVsLmNvbT4gd3JvdGU6DQo+ID5PbiBXZWQsIDIw
-MTUtMDYtMTAgYXQgMTI6MzMgLTA0MDAsIE5pY2hvbGFzIEtyYXVzZSB3cm90ZToNCj4gPj4gVGhp
-cyBtYWtlcyB0aGUgZnVuY3Rpb24gaXdsX3Jlc3VtZV9zdGF0dXNfZm4gcmV0dXJuIGZhbHNlIG5v
-dyBpZg0KPiA+PiB0aGUgcmVjZWl2ZWQgcGFja2V0IG9mIHR5cGUgaXdsX3J4X3BhY2tldCBpcyBu
-b3QgdGhlIHNhbWUgc2l6ZQ0KPiA+PiBhcyB0aGUgc3RydWN0dXJlIHBvaW50ZXIsIGl3bF9yZXN1
-bWVfZGF0YSdzIGNtZCBlbGVtZW50IGluIG9yZGVyDQo+ID4+IHRvIHNpZ25hbCBjYWxsZXJzIGFi
-b3V0IHRoaXMgZXJyb3IgYW5kIGFsbG93IHRoZW0gdG8gaGFuZGxlIGl0DQo+ID4+IG9jY3VycmVu
-dGx5Lg0KPiA+PiANCj4gPg0KPiA+SG0uLi4gRGlkIHlvdSBhY3R1YWxseSBoaXQgdGhpcyBpZj8N
-Cj4gPkkgYW0gbm90IHN1cmUgSSByZWFsbHkgd2FudCB0byB3YWl0IGhlcmUgKHdoaWNoIGlzIHdo
-YXQgd2lsbCBoYXBwZW4gaWYNCj4gPnlvdSByZXR1cm4gZmFsc2UpIHdoZW4gd2UgZ2V0IGFuIHVu
-ZXhwZWN0ZWQgbGVuZ3RoPyBJIGRvIG5vdCBleHBlY3QNCj4gPmFueXRoaW5nIGJlc2lkZXMgdGhl
-IHJlc3BvbnNlIEkgYW0gd2FpdGluZyBmb3Igc2luY2UgdGhlIGZpcm13YXJlIGlzDQo+ID5oYW5k
-bGluZyB0aGUgR0VUX1NUQVRVUyAqb25seSogLSBpdCBqdXN0IGNhbWUgYmFjayBmcm9tIFdvV0xB
-Ti4gQm90dG9tDQo+ID5saW5lLCB0aGlzIGlzIHJlYWxseSBhbiBlcnJvciBwYXRoIGFuZCBJIHBy
-ZWZlciB0byBleGl0IGFuZCBub3Qgd2FpdA0KPiA+Zm9yDQo+ID50aGUgdGltZW91dCBpbiB0aGF0
-IGNhc2UuDQo+ID5CdXQgSSBtaWdodCBiZSBtaXNzaW5nIHNvbWV0aGluZz8NCj4gPg0KPiBXaHkg
-bm90IHdhaXQgZm9yIHRoZSB0aW1lIG91dD8gIFNlZW1zIHRoZXJlIGlzIG5vIHJlYXNvbiBub3Qg
-dG8gYW5kIGluIHRoYXQgY2FzZQ0KPiBpZiB0aGUgZmlybXdhcmUgaGFuZGxlcyB0aGlzDQoNCkkg
-ZG91YnQgaXQgd2lsbC4gVGhpcyBnb2VzIGJhY2sgdG8gbXkgb3JpZ2luYWwgcXVlc3Rpb246IGRp
-ZCB5b3UgcmVhbGx5DQpoaXQgdGhpcyBwYXRoPyBEb2VzIHRoZSBwYXRjaCBzb2x2ZXMgYSByZWFs
-IGJ1ZyB5b3UgZmFjZWQ/DQoNCj4gd2h5IGlzIHRoZSBpZiBzdGF0ZW1lbnQgc3RpbGwgaGVyZS4g
-DQoNClRvIGdldCBhIGRlYnVnIHByaW50PyA6KQ0KDQo+IE5pY2sgDQo+ID4+IFNpZ25lZC1vZmYt
-Ynk6IE5pY2hvbGFzIEtyYXVzZSA8eGVyb2ZvaWZ5QGdtYWlsLmNvbT4NCj4gPj4gLS0tDQo+ID4+
-ICBkcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL2R2bS9tYWM4MDIxMS5jIHwgMiArLQ0KPiA+
-PiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pDQo+ID4+IA0K
-PiA+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9kdm0vbWFjODAy
-MTEuYw0KPiA+Yi9kcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL2R2bS9tYWM4MDIxMS5jDQo+
-ID4+IGluZGV4IDVhYmQ2MmUuLjIxZTgwOGMgMTAwNjQ0DQo+ID4+IC0tLSBhL2RyaXZlcnMvbmV0
-L3dpcmVsZXNzL2l3bHdpZmkvZHZtL21hYzgwMjExLmMNCj4gPj4gKysrIGIvZHJpdmVycy9uZXQv
-d2lyZWxlc3MvaXdsd2lmaS9kdm0vbWFjODAyMTEuYw0KPiA+PiBAQCAtNDA5LDcgKzQwOSw3IEBA
-IHN0YXRpYyBib29sIGl3bF9yZXN1bWVfc3RhdHVzX2ZuKHN0cnVjdA0KPiA+aXdsX25vdGlmX3dh
-aXRfZGF0YSAqbm90aWZfd2FpdCwNCj4gPj4gIA0KPiA+PiAgCWlmIChpd2xfcnhfcGFja2V0X3Bh
-eWxvYWRfbGVuKHBrdCkgIT0gc2l6ZW9mKCpyZXN1bWVfZGF0YS0+Y21kKSkgew0KPiA+PiAgCQlJ
-V0xfRVJSKHByaXYsICJyeCB3cm9uZyBzaXplIGRhdGFcbiIpOw0KPiA+PiAtCQlyZXR1cm4gdHJ1
-ZTsNCj4gPj4gKwkJcmV0dXJuIGZhbHNlOw0KPiA+PiAgCX0NCj4gPj4gIAltZW1jcHkocmVzdW1l
-X2RhdGEtPmNtZCwgcGt0LT5kYXRhLCBzaXplb2YoKnJlc3VtZV9kYXRhLT5jbWQpKTsNCj4gPj4g
-IAlyZXN1bWVfZGF0YS0+dmFsaWQgPSB0cnVlOw0KPiANCg0K
+When the DEBUG preprocessor macro is defined the ps3_gelic_net driver build
+fails due to an undeclared routine gelic_descr_get_status().  This problem
+was introduced during the code cleanup of commit
+6b0c21cede22be1f68f0a632c0ca38008ce1abe7 (net: Fix p3_gelic_net sparse warnings),
+which re-arranged the ordering of some of the gelic routines.
+
+This change just moves the gelic_descr_get_status() routine up in the
+ps3_gelic_net.c source file. There is no functional change.
+
+Fixes build errors like these:
+
+  drivers/net/ethernet/toshiba/ps3_gelic_net.c: error: implicit declaration of function gelic_descr_get_status
+
+Signed-off-by: Geoff Levand <geoff@infradead.org>
+---
+Dave, please apply.
+
+-Geoff
+
+The following changes since commit d4a4f75cd8f29cd9464a5a32e9224a91571d6649:
+
+  Linux 4.1-rc7 (2015-06-07 20:23:50 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/geoff/ps3-linux.git for-merge-1
+
+ drivers/net/ethernet/toshiba/ps3_gelic_net.c | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/toshiba/ps3_gelic_net.c b/drivers/net/ethernet/toshiba/ps3_gelic_net.c
+index ac62a5e..79f0ec4 100644
+--- a/drivers/net/ethernet/toshiba/ps3_gelic_net.c
++++ b/drivers/net/ethernet/toshiba/ps3_gelic_net.c
+@@ -102,6 +102,18 @@ static void gelic_card_get_ether_port_status(struct gelic_card *card,
+ 	}
+ }
+ 
++/**
++ * gelic_descr_get_status -- returns the status of a descriptor
++ * @descr: descriptor to look at
++ *
++ * returns the status as in the dmac_cmd_status field of the descriptor
++ */
++static enum gelic_descr_dma_status
++gelic_descr_get_status(struct gelic_descr *descr)
++{
++	return be32_to_cpu(descr->dmac_cmd_status) & GELIC_DESCR_DMA_STAT_MASK;
++}
++
+ static int gelic_card_set_link_mode(struct gelic_card *card, int mode)
+ {
+ 	int status;
+@@ -278,18 +290,6 @@ void gelic_card_down(struct gelic_card *card)
+ }
+ 
+ /**
+- * gelic_descr_get_status -- returns the status of a descriptor
+- * @descr: descriptor to look at
+- *
+- * returns the status as in the dmac_cmd_status field of the descriptor
+- */
+-static enum gelic_descr_dma_status
+-gelic_descr_get_status(struct gelic_descr *descr)
+-{
+-	return be32_to_cpu(descr->dmac_cmd_status) & GELIC_DESCR_DMA_STAT_MASK;
+-}
+-
+-/**
+  * gelic_card_free_chain - free descriptor chain
+  * @card: card structure
+  * @descr_in: address of desc
+-- 
+2.1.0
