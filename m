@@ -1,14 +1,10 @@
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 linux-next] ath5k: use swap() in ath5k_hw_get_median_noise_floor()
-Date: Wed, 10 Jun 2015 18:33:34 +0200
-Message-ID: <1433954015-24872-1-git-send-email-fabf@skynet.be>
+Subject: [PATCH 1/1 linux-next] vxge: use swap() in vxge_hw_channel_dtr_alloc()
+Date: Wed, 10 Jun 2015 18:33:26 +0200
+Message-ID: <1433954006-24799-1-git-send-email-fabf@skynet.be>
 Cc: Julia Lawall <Julia.Lawall@lip6.fr>,
 	Fabian Frederick <fabf@skynet.be>,
-	Jiri Slaby <jirislaby@gmail.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+	Jon Mason <jdmason@kudzu.us>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -20,32 +16,33 @@ Thanks to Julia Lawall for Coccinelle scripting support.
 
 Signed-off-by: Fabian Frederick <fabf@skynet.be>
 ---
- drivers/net/wireless/ath/ath5k/phy.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/neterion/vxge/vxge-traffic.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath5k/phy.c b/drivers/net/wireless/ath/ath5k/phy.c
-index 0fce1c7..ef108a3 100644
---- a/drivers/net/wireless/ath/ath5k/phy.c
-+++ b/drivers/net/wireless/ath/ath5k/phy.c
-@@ -1566,17 +1566,13 @@ static s16
- ath5k_hw_get_median_noise_floor(struct ath5k_hw *ah)
+diff --git a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
+index 9e1aaa7..5f630a2 100644
+--- a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
++++ b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
+@@ -1004,8 +1004,6 @@ void vxge_hw_device_clear_tx_rx(struct __vxge_hw_device *hldev)
+ static enum vxge_hw_status
+ vxge_hw_channel_dtr_alloc(struct __vxge_hw_channel *channel, void **dtrh)
  {
- 	s16 sort[ATH5K_NF_CAL_HIST_MAX];
--	s16 tmp;
- 	int i, j;
+-	void **tmp_arr;
+-
+ 	if (channel->reserve_ptr - channel->reserve_top > 0) {
+ _alloc_after_swap:
+ 		*dtrh =	channel->reserve_arr[--channel->reserve_ptr];
+@@ -1020,10 +1018,7 @@ _alloc_after_swap:
+ 	 * i.e.	no additional lock need	to be done when	we free	a resource */
  
- 	memcpy(sort, ah->ah_nfcal_hist.nfval, sizeof(sort));
- 	for (i = 0; i < ATH5K_NF_CAL_HIST_MAX - 1; i++) {
- 		for (j = 1; j < ATH5K_NF_CAL_HIST_MAX - i; j++) {
--			if (sort[j] > sort[j - 1]) {
--				tmp = sort[j];
--				sort[j] = sort[j - 1];
--				sort[j - 1] = tmp;
--			}
-+			if (sort[j] > sort[j - 1])
-+				swap(sort[j], sort[j]);
- 		}
- 	}
- 	for (i = 0; i < ATH5K_NF_CAL_HIST_MAX; i++) {
+ 	if (channel->length - channel->free_ptr > 0) {
+-
+-		tmp_arr	= channel->reserve_arr;
+-		channel->reserve_arr = channel->free_arr;
+-		channel->free_arr = tmp_arr;
++		swap(channel->reserve_arr, channel->free_arr);
+ 		channel->reserve_ptr = channel->length;
+ 		channel->reserve_top = channel->free_ptr;
+ 		channel->free_ptr = channel->length;
 -- 
 2.4.2
