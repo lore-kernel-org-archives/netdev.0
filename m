@@ -1,50 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC,v3 02/10] dpaa_eth: add support for DPAA Ethernet
-Date: Wed, 10 Jun 2015 10:56:01 -0700
-Message-ID: <1433958961.27504.15.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430319405-31280-1-git-send-email-madalin.bucur@freescale.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 01/19] bna: use ether_addr_copy instead of
+ memcpy
+Date: Wed, 10 Jun 2015 10:57:13 -0700
+Message-ID: <1433959033.32331.16.camel@perches.com>
+References: <1433954605-22813-1-git-send-email-ivecera@redhat.com>
+	 <1433954605-22813-2-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org
-To: madalin.bucur@freescale.com
+Cc: netdev@vger.kernel.org, rasesh.mody@qlogic.com
+To: Ivan Vecera <ivecera@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:33726 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754088AbbFJR4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 13:56:05 -0400
-In-Reply-To: <1430319405-31280-1-git-send-email-madalin.bucur@freescale.com>
+Received: from smtprelay0027.hostedemail.com ([216.40.44.27]:35477 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754314AbbFJR5Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 13:57:16 -0400
+In-Reply-To: <1433954605-22813-2-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-04-29 at 17:56 +0300, Madalin Bucur wrote:
-> This introduces the Freescale Data Path Acceleration Architecture
-> (DPAA) Ethernet driver (dpaa_eth) that builds upon the DPAA QMan,
-> BMan, PAMU and FMan drivers to deliver Ethernet connectivity on
-> the Freescale DPAA QorIQ platforms.
-...
+On Wed, 2015-06-10 at 18:43 +0200, Ivan Vecera wrote:
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-> +	/* We're going to store the skb backpointer at the beginning
-> +	 * of the data buffer, so we need a privately owned skb
-> +	 */
-> +
-> +	/* Code borrowed from skb_unshare(). */
-> +	if (skb_cloned(skb)) {
-> +		struct sk_buff *nskb = skb_copy(skb, GFP_ATOMIC);
-> +
-> +		/* Finally, create a contig FD from this skb */
-> +		skb_to_contig_fd(priv, skb, &fd, countptr, &offset);
-> +
-> +		kfree_skb(skb);
-> +		skb = nskb;
-> +		/* skb_copy() has now linearized the skbuff. */
-> +	}
-> +
+Have you verified that all of these are __aligned(2)?
 
-You know that TCP packets are clones, right ?
-This code is killing performance.
+I haven't, but you should verify that you have in the
+commit log.
 
-TCP allows the headers part being modified by a driver if needed.
+btw: this use looks odd to me:
 
-You should use skb_header_cloned() instead.
+static int
+bnad_set_mac_address(struct net_device *netdev, void *mac_addr)
+{
+	int err;
+	struct bnad *bnad = netdev_priv(netdev);
+	struct sockaddr *sa = (struct sockaddr *)mac_addr;
+	unsigned long flags;
+
+	spin_lock_irqsave(&bnad->bna_lock, flags);
+
+	err = bnad_mac_addr_set_locked(bnad, sa->sa_data);
+
+as it casts what seems to be a mac address to a
+sockaddr and uses a different offset for sa->sa_data
+than the mac_addr passed.
+
+and the mac_addr as it's void doesn't need a cast.
