@@ -1,62 +1,182 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH 00/12] Freescale DPAA FMan
-Date: Wed, 10 Jun 2015 13:52:12 -0500
-Message-ID: <1433962332.2477.118.camel@freescale.com>
-References: <1433949712-5648-1-git-send-email-madalin.bucur@freescale.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v3 1/2] sctp: rcu-ify addr_waitq
+Date: Wed, 10 Jun 2015 15:14:18 -0400
+Message-ID: <20150610191418.GA19556@hmsreliant.think-freely.org>
+References: <20150604142710.GD24585@hmsreliant.think-freely.org>
+ <9ebea428aa10e30e4b6c92aa95c56fc5cbc9cd98.1433524062.git.marcelo.leitner@gmail.com>
+ <1433774798.3152487.289784457.4E5FCE86@webmail.messagingengine.com>
+ <1433775558.3155807.289796417.0EFF401F@webmail.messagingengine.com>
+ <20150608151955.GE7616@hmsreliant.think-freely.org>
+ <1433777825.13489.16.camel@stressinduktion.org>
+ <20150609113638.GA27870@hmsreliant.think-freely.org>
+ <20150609193259.GA4062@localhost.localdomain>
+ <20150610133142.GB4062@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
- linux-kernel@vger.kernel.org, "Igal.Liberman" <igal.liberman@freescale.com>
-To: <madalin.bucur@freescale.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1433949712-5648-1-git-send-email-madalin.bucur@freescale.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Michio Honda <micchie@sfc.wide.ad.jp>
+To: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:46745 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754387AbbFJTOh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 15:14:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20150610133142.GB4062@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDE1LTA2LTEwIGF0IDE4OjIxICswMzAwLCBNYWRhbGluIEJ1Y3VyIHdyb3RlOgo+
-IFRoZSBGcmVlc2NhbGUgRGF0YSBQYXRoIEFjY2VsZXJhdGlvbiBBcmNoaXRlY3R1cmUgKERQQUEp
-Cj4gaXMgYSBzZXQgb2YgaGFyZHdhcmUgY29tcG9uZW50cyBvbiBzcGVjaWZpYyBRb3JJUSBtdWx0
-aWNvcmUKPiBwcm9jZXNzb3JzLiBUaGlzIGFyY2hpdGVjdHVyZSBwcm92aWRlcyB0aGUgaW5mcmFz
-dHJ1Y3R1cmUgdG8KPiBzdXBwb3J0IHNpbXBsaWZpZWQgc2hhcmluZyBvZiBuZXR3b3JraW5nIGlu
-dGVyZmFjZXMgYW5kCj4gYWNjZWxlcmF0b3JzIGJ5IG11bHRpcGxlIENQVSBjb3JlcyBhbmQgdGhl
-IGFjY2VsZXJhdG9ycy4KPiAKPiBPbmUgb2YgdGhlIERQQUEgYWNjZWxlcmF0b3JzIGlzIHRoZSBG
-cmFtZSBNYW5hZ2VyIChGTWFuKQo+IHdoaWNoIGNvbnRhaW5zIGEgc2VyaWVzIG9mIGhhcmR3YXJl
-IGJsb2NrczogcG9ydHMsIEV0aGVybmV0Cj4gTUFDcywgYSBtdWx0aSB1c2VyIFJBTSAoTVVSQU0p
-IGFuZCBTdG9yYWdlIFByb2ZpbGUgKFNQKS4KPiAKPiBUaGlzIHBhdGNoIHNldCBpbnRyb2R1Y2Vk
-IHRoZSBGTWFuIGRyaXZlciBjb2RlIHRoYXQgY29uZmlndXJlcwo+IGFuZCBpbml0aWFsaXplcyB0
-aGUgRk1hbiBoYXJkd2FyZSBibG9ja3MsIG9mZmVyaW5nIHN1cHBvcnQgZm9yCj4gdGhyZWUgZGlm
-ZmVyZW50IHR5cGVzIG9mIE1BQ3MgKERUU0VDLCBUR0VDLCBNRU1BQykuCj4gCj4gVGhlIGZpcnN0
-IDYgcGF0Y2hlcyBwcmVzZW50IHRoZSBGTWFuIEZvdW5kYXRpb24gTGlicmFyaWVzIChGTElCcyku
-Cj4gVGhlIEZNYW4gZHJpdmVycyBtYWtlIHVzZSBvZiB0aGUgYmFzaWMgQVBJIHRoZSBGTWFuIEZM
-aWIgcHJvdmlkZXMKPiB0byBjb25maWd1cmUgYW5kIGNvbnRyb2wgdGhlIEZNYW4gaGFyZHdhcmUu
-IFRoZSByZW1haW5pbmcgcGF0Y2hlcwo+IHByZXNlbnQgdGhlIHJlcXVpcmVkIEZNYW4gaGFyZHdh
-cmUgbW9kdWxlIGRyaXZlcnMuCj4gCj4gVGhlIGRyaXZlciBzdHJ1Y3R1cmUgYW5kIGEgaGludCBv
-biBmaWxlIG5hbWluZzoKPiAgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KPiA+ICAg
-ICAgRk1hbiBNQUMgZHJpdmVyICAgICAgICAgICB8ICAgIG1hYyogZmlsZXMKPiAgLS0tLS0tIC0t
-LS0tLSAtLS0tLSAtLS0tLS0tIC0tLS0KPiA+IEZNYW4gfCBQb3J0IHwgTUFDIHwgTVVSQU0gfCBT
-UCB8ICAgIGZtXyogZmlsZXMKPiAgLS0tLS0tIC0tLS0tLSAtLS0tLSAtLS0tLS0tIC0tLS0KPiA6
-ICAgICAgOiBGTGliIDogICAgIDogICAgICAgICAgICAgICAgIGZtYW5fKiBmaWxlcwo+ICAtLS0t
-LS0tLS0tLS0tLS0tLS0tCj4gCj4gVGhpcyBzdWJtaXNzaW9uIGlzIGJhc2VkIG9uIHRoZSBwcmlv
-ciBGcmVlc2NhbGUgRFBBQSBGTWFuIFYzLFJGQwo+IHN1Ym1pc3Npb24uIFNldmVyYWwgaXNzdWVz
-IGFkZHJlc3NlcyBpbiB0aGlzIHN1Ym1pc3Npb246Cj4gICAgICAgLSBSZWR1Y2VkIE1BQyBsYXll
-cmluZyBhbmQgY29tcGxleGl0eQo+ICAgICAgIC0gUmVkdWNlZCBjb2RlIGJhc2UKPiAgICAgICAt
-IFQxMDI0L1QyMDgwIDEwRyBiZXN0IGVmZm9ydCBzdXBwb3J0CgpIb3cgaXMgdGhpcyBkaWZmZXJl
-bnQgZnJvbSB0aGUgcGF0Y2hzZXQgSWdhbCBwb3N0ZWQgNyBob3VycyBlYXJsaWVyPwoKUGxlYXNl
-IGRvbid0IHVzZSB0aGUgY2hhaW5lZCByZXBseSBvcHRpb24gaW4gZ2l0IHNlbmQtZW1haWwgKGFu
-ZCB0aGUgCnBhdGNoZXMgYXJlIGluIHRoZSB3cm9uZyBvcmRlciwgd2hpY2ggbWFrZXMgdGhlIGNo
-YWluZWQgcmVwbHkgCmVzcGVjaWFsbHkgYmFkKS4KCkkgZG9uJ3Qgc2VlIGFueSBtZW50aW9uIG9m
-IGEgZGVwZW5kZW5jeSBvbiB0aGUgcWJtYW4gcGF0Y2hlcy4KV2hlcmUgaXMgdGhlIGFjdHVhbCBl
-dGhlcm5ldCBkcml2ZXIgLS0gdGhlIHBhcnQgdGhhdCBzZW5kcyBhbmQgCnJlY2VpdmVzIHBhY2tl
-dHM/CgotU2NvdHQKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5v
-cmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
+On Wed, Jun 10, 2015 at 10:31:42AM -0300, Marcelo Ricardo Leitner wrote:
+> On Tue, Jun 09, 2015 at 04:32:59PM -0300, Marcelo Ricardo Leitner wrote:
+> > On Tue, Jun 09, 2015 at 07:36:38AM -0400, Neil Horman wrote:
+> > > On Mon, Jun 08, 2015 at 05:37:05PM +0200, Hannes Frederic Sowa wrote:
+> > > > On Mo, 2015-06-08 at 11:19 -0400, Neil Horman wrote:
+> > > > > On Mon, Jun 08, 2015 at 04:59:18PM +0200, Hannes Frederic Sowa wrote:
+> > > > > > On Mon, Jun 8, 2015, at 16:46, Hannes Frederic Sowa wrote:
+> > > > > > > Hi Marcelo,
+> > > > > > > 
+> > > > > > > a few hints on rcuification, sorry I reviewed the code so late:
+> > > > > > > 
+> > > > > > > On Fri, Jun 5, 2015, at 19:08, mleitner@redhat.com wrote:
+> > > > > > > > From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> > > > > > > > 
+> > > > > > > > That's needed for the next patch, so we break the lock 
+> > > > > > > > inversion between
+> > > > > > > > netns_sctp->addr_wq_lock and socket lock on
+> > > > > > > > sctp_addr_wq_timeout_handler(). With this, we can traverse 
+> > > > > > > > addr_waitq
+> > > > > > > > without taking addr_wq_lock, taking it just for the write 
+> > > > > > > > operations.
+> > > > > > > > 
+> > > > > > > > Signed-off-by: Marcelo Ricardo Leitner <
+> > > > > > > > marcelo.leitner@gmail.com>
+> > > > > > > > ---
+> > > > > > > > 
+> > > > > > > > Notes:
+> > > > > > > >     v2->v3:
+> > > > > > > >       placed break statement on sctp_free_addr_wq_entry()
+> > > > > > > >       removed unnecessary spin_lock noticed by Neil
+> > > > > > > > 
+> > > > > > > >  include/net/netns/sctp.h |  2 +-
+> > > > > > > >  net/sctp/protocol.c      | 80
+> > > > > > > >  +++++++++++++++++++++++++++++-------------------
+> > > > > > > >  2 files changed, 49 insertions(+), 33 deletions(-)
+> > > > > > > > 
+> > > > > > > > diff --git a/include/net/netns/sctp.h 
+> > > > > > > > b/include/net/netns/sctp.h
+> > > > > > > > index
+> > > > > > > > 3573a81815ad9e0efb6ceb721eb066d3726419f0..9e53412c4ed829e8e4577
+> > > > > > > > 7a6d95406d490dbaa75
+> > > > > > > > 100644
+> > > > > > > > --- a/include/net/netns/sctp.h
+> > > > > > > > +++ b/include/net/netns/sctp.h
+> > > > > > > > @@ -28,7 +28,7 @@ struct netns_sctp {
+> > > > > > > >          * It is a list of sctp_sockaddr_entry.
+> > > > > > > >          */
+> > > > > > > >         struct list_head local_addr_list;
+> > > > > > > > -       struct list_head addr_waitq;
+> > > > > > > > +       struct list_head __rcu addr_waitq;
+> > > > > > > >         struct timer_list addr_wq_timer;
+> > > > > > > >         struct list_head auto_asconf_splist;
+> > > > > > > >         spinlock_t addr_wq_lock;
+> > > > > > > > diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+> > > > > > > > index
+> > > > > > > > 53b7acde9aa37bf3d4029c459421564d5270f4c0..9954fb8c9a9455d5ad7a6
+> > > > > > > > 27e2d7f9a1fef861fc2
+> > > > > > > > 100644
+> > > > > > > > --- a/net/sctp/protocol.c
+> > > > > > > > +++ b/net/sctp/protocol.c
+> > > > > > > > @@ -593,15 +593,47 @@ static void sctp_v4_ecn_capable(struct 
+> > > > > > > > sock *sk)
+> > > > > > > >         INET_ECN_xmit(sk);
+> > > > > > > >  }
+> > > > > > > >  
+> > > > > > > > +static void sctp_free_addr_wq(struct net *net)
+> > > > > > > > +{
+> > > > > > > > +       struct sctp_sockaddr_entry *addrw;
+> > > > > > > > +
+> > > > > > > > +       spin_lock_bh(&net->sctp.addr_wq_lock);
+> > > > > > > 
+> > > > > > > Instead of holding spin_lock_bh you need to hold 
+> > > > > > > rcu_read_lock_bh, so
+> > > > > > > kfree_rcu does not call free function at once (in theory ;) ).
+> > > > > > > 
+> > > > > > > > +       del_timer(&net->sctp.addr_wq_timer);
+> > > > > > > > +       list_for_each_entry_rcu(addrw, &net->sctp.addr_waitq, 
+> > > > > > > > list) {
+> > > > > > > > +               list_del_rcu(&addrw->list);
+> > > > > > > > +               kfree_rcu(addrw, rcu);
+> > > > > > > > +       }
+> > > > > > > > +       spin_unlock_bh(&net->sctp.addr_wq_lock);
+> > > > > > > > +}
+> > > > > > > > +
+> > > > > > > > +/* As there is no refcnt on sctp_sockaddr_entry, we must check 
+> > > > > > > > inside
+> > > > > > > > + * the lock if it wasn't removed from addr_waitq already, 
+> > > > > > > > otherwise we
+> > > > > > > > + * could double-free it.
+> > > > > > > > + */
+> > > > > > > > +static void sctp_free_addr_wq_entry(struct net *net,
+> > > > > > > > +                                   struct sctp_sockaddr_entry 
+> > > > > > > > *addrw)
+> > > > > > > > +{
+> > > > > > > > +       struct sctp_sockaddr_entry *temp;
+> > > > > > > > +
+> > > > > > > > +       spin_lock_bh(&net->sctp.addr_wq_lock);
+> > > > > > > 
+> > > > > > > I don't think this spin_lock operation is needed. The del_timer
+> > > > > > > functions do synchronize themselves.
+> > > > > > > 
+> > > > > > 
+> > > > > > Sorry, those above two locks are needed, they are not implied by 
+> > > > > > other
+> > > > > > locks.
+> > > > > > 
+> > > > > What makes you say that? Multiple contexts can issue mod_timer calls 
+> > > > > on the
+> > > > > same timer safely no, because of the internal locking?
+> > > > 
+> > > > That's true for timer handling but not to protect net->sctp.addr_waitq
+> > > > list (Marcelo just explained it to me off-list). Looking at the patch
+> > > > only in patchworks lost quite a lot of context you were already
+> > > > discussing. ;)
+> > > > 
+> > > I can imagine :)
+> > > 
+> > > > We are currently checking if the double iteration can be avoided by
+> > > > splicing addr_waitq on the local stack while holding the spin_lock and
+> > > > later on notifying the sockets.
+> > > > 
+> > > As we discussed, this I think would make a good alternate approach.
+> > 
+> > I was experimenting on this but this would introduce another complex
+> > logic instead, as not all elements are pruned from net->sctp.addr_waitq
+> > at sctp_addr_wq_timeout_handler(), mainly ipv6 addresses in DAD state
+> > (which I believe that break statement is misplaced and should be a
+> > continue instead, I'll check on this later)
+> > 
+> > That means we would have to do the splice, process the loop, merge the
+> > remaining elements with the new net->sctp.addr_waitq that was possibly
+> > was built meanwhile and then squash oppositve events (logic currently in
+> > sctp_addr_wq_mgmt() ), otherwise we could be issuing spurious events.
+> > 
+> > But it will probably do more harm than good as the double search will
+> > usually hit the first list element on this 2nd search, unless the
+> > element we are trying to remove was already removed from it (which is
+> > rare, it's when user add and remove addresses too fast) or some other
+> > address was skipped (DAD addresses).
+> 
+> Better thinking.. actually it may be the way to go. If we rcu-cify
+> addr_waitq like that and if the user manage to add an address and remove
+> it while the timeout handler is running, the system may emit just the
+> address add and not the remove, while if we splice the list, this won't
+> happen. 
+> 
+>   Marcelo
+> 
+> 
+Thats a good point.  Seems like a list splice makes more sense here.
+Neil
