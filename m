@@ -1,62 +1,54 @@
-From: Gustavo Zacarias <gustavo@zacarias.com.ar>
-Subject: [PATCH net-next] net: phy: davicom: add IDs for DM9161B and C variants
-Date: Wed, 10 Jun 2015 13:48:20 -0300
-Message-ID: <1433954900-25419-1-git-send-email-gustavo@zacarias.com.ar>
-Cc: Gustavo Zacarias <gustavo@zacarias.com.ar>
+From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Subject: [PATCH v3 net-next 1/2] tcp: export tcp_enter_cwr()
+Date: Wed, 10 Jun 2015 19:08:16 +0200
+Message-ID: <1433956097-6186-1-git-send-email-kennetkl@ifi.uio.no>
+Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
+	Eric Dumazet <edumazet@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	David Hayes <davihay@ifi.uio.no>,
+	Andreas Petlund <apetlund@simula.no>,
+	Dave Taht <dave.taht@bufferbloat.net>,
+	Nicolas Kuhn <nicolas.kuhn@telecom-bretagne.eu>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.zacarias.com.ar ([176.9.42.171]:46311 "EHLO
-	www.zacarias.com.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965511AbbFJQxe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 12:53:34 -0400
+Received: from mail-out4.uio.no ([129.240.10.15]:55059 "EHLO mail-out4.uio.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752256AbbFJRIY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jun 2015 13:08:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add PHY IDs for Davicom DM9161B and DM9161C variants.
-Tested with a DM9161C on a custom Atmel-based SAM9X25 board in RMII
-mode.
+Upcoming tcp_cdg uses tcp_enter_cwr() to initiate PRR. Export this
+function so that CDG can be compiled as a module.
 
-The DM9161B uses the same model id with just the LSB bit of the version
-id changing (which is masked out).
-
-For all intents and purposes they're the same as the DM9161A with an
-added GPSI mode and better fabrication process.
-
-Signed-off-by: Gustavo Zacarias <gustavo@zacarias.com.ar>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: David Hayes <davihay@ifi.uio.no>
+Cc: Andreas Petlund <apetlund@simula.no>
+Cc: Dave Taht <dave.taht@bufferbloat.net>
+Cc: Nicolas Kuhn <nicolas.kuhn@telecom-bretagne.eu>
+Signed-off-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
 ---
- drivers/net/phy/davicom.c | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+V3: rebase
+---
+ net/ipv4/tcp_input.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/phy/davicom.c b/drivers/net/phy/davicom.c
-index 0d16c7d..2a32870 100644
---- a/drivers/net/phy/davicom.c
-+++ b/drivers/net/phy/davicom.c
-@@ -158,6 +158,18 @@ static struct phy_driver dm91xx_driver[] = {
- 	.config_intr	= dm9161_config_intr,
- 	.driver		= { .owner = THIS_MODULE,},
- }, {
-+	.phy_id		= 0x0181b8b0,
-+	.name		= "Davicom DM9161B/C",
-+	.phy_id_mask	= 0x0ffffff0,
-+	.features	= PHY_BASIC_FEATURES,
-+	.flags		= PHY_HAS_INTERRUPT,
-+	.config_init	= dm9161_config_init,
-+	.config_aneg	= dm9161_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.ack_interrupt	= dm9161_ack_interrupt,
-+	.config_intr	= dm9161_config_intr,
-+	.driver		= { .owner = THIS_MODULE,},
-+}, {
- 	.phy_id		= 0x0181b8a0,
- 	.name		= "Davicom DM9161A",
- 	.phy_id_mask	= 0x0ffffff0,
-@@ -186,6 +198,7 @@ module_phy_driver(dm91xx_driver);
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 15c4536..d4f76ab 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2552,6 +2552,7 @@ void tcp_enter_cwr(struct sock *sk)
+ 		tcp_set_ca_state(sk, TCP_CA_CWR);
+ 	}
+ }
++EXPORT_SYMBOL(tcp_enter_cwr);
  
- static struct mdio_device_id __maybe_unused davicom_tbl[] = {
- 	{ 0x0181b880, 0x0ffffff0 },
-+	{ 0x0181b8b0, 0x0ffffff0 },
- 	{ 0x0181b8a0, 0x0ffffff0 },
- 	{ 0x00181b80, 0x0ffffff0 },
- 	{ }
+ static void tcp_try_keep_open(struct sock *sk)
+ {
 -- 
-2.3.6
+2.1.0
