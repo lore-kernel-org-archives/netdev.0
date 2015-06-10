@@ -1,116 +1,504 @@
-From: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Subject: [V6 PATCH 4/7] crypto: ccp - Unify coherency checking logic with device_dma_is_coherent()
-Date: Wed, 10 Jun 2015 11:08:55 -0500
-Message-ID: <1433952538-22455-5-git-send-email-Suravee.Suthikulpanit@amd.com>
-References: <1433952538-22455-1-git-send-email-Suravee.Suthikulpanit@amd.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [PATCH net-next 2/3 v2] net: ipv4 sysctl option to ignore routes
+ when nexthop link is down
+Date: Wed, 10 Jun 2015 09:17:19 -0700
+Message-ID: <5578630F.9070602@redhat.com>
+References: <1433918841-15576-1-git-send-email-gospo@cumulusnetworks.com> <1433918841-15576-3-git-send-email-gospo@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <msalter@redhat.com>, <hanjun.guo@linaro.org>,
-	<al.stone@linaro.org>, <grant.likely@linaro.org>,
-	<leo.duran@amd.com>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-acpi@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linaro-acpi@lists.linaro.org>, <netdev@vger.kernel.org>,
-	<linux-crypto@vger.kernel.org>,
-	"Suravee Suthikulpanit" <Suravee.Suthikulpanit@amd.com>
-To: <rjw@rjwysocki.net>, <lenb@kernel.org>, <catalin.marinas@arm.com>,
-	<will.deacon@arm.com>, <thomas.lendacky@amd.com>,
-	<herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-	<arnd@arndb.de>, <kashyap.desai@avagotech.com>,
-	<sumit.saxena@avagotech.com>, <uday.lingala@avagotech.com>,
-	<vinholikatti@gmail.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1433952538-22455-1-git-send-email-Suravee.Suthikulpanit@amd.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Andy Gospodarek <gospo@cumulusnetworks.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	ddutt@cumulusnetworks.com, sfeldma@gmail.com,
+	alexander.duyck@gmail.com, hannes@stressinduktion.org,
+	stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48080 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933591AbbFJQRV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jun 2015 12:17:21 -0400
+In-Reply-To: <1433918841-15576-3-git-send-email-gospo@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently, the driver has separate logic to determine device coherency
-for DT vs ACPI.  This patch simplifies the code with a call to
-device_dma_is_coherent().
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
-Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
----
- drivers/crypto/ccp/ccp-platform.c | 60 +--------------------------------------
- 1 file changed, 1 insertion(+), 59 deletions(-)
 
-diff --git a/drivers/crypto/ccp/ccp-platform.c b/drivers/crypto/ccp/ccp-platform.c
-index b1c20b2..e446781 100644
---- a/drivers/crypto/ccp/ccp-platform.c
-+++ b/drivers/crypto/ccp/ccp-platform.c
-@@ -90,58 +90,6 @@ static struct resource *ccp_find_mmio_area(struct ccp_device *ccp)
- 	return NULL;
- }
- 
--#ifdef CONFIG_ACPI
--static int ccp_acpi_support(struct ccp_device *ccp)
--{
--	struct ccp_platform *ccp_platform = ccp->dev_specific;
--	struct acpi_device *adev = ACPI_COMPANION(ccp->dev);
--	acpi_handle handle;
--	acpi_status status;
--	unsigned long long data;
--	int cca;
--
--	/* Retrieve the device cache coherency value */
--	handle = adev->handle;
--	do {
--		status = acpi_evaluate_integer(handle, "_CCA", NULL, &data);
--		if (!ACPI_FAILURE(status)) {
--			cca = data;
--			break;
--		}
--	} while (!ACPI_FAILURE(status));
--
--	if (ACPI_FAILURE(status)) {
--		dev_err(ccp->dev, "error obtaining acpi coherency value\n");
--		return -EINVAL;
--	}
--
--	ccp_platform->coherent = !!cca;
--
--	return 0;
--}
--#else	/* CONFIG_ACPI */
--static int ccp_acpi_support(struct ccp_device *ccp)
--{
--	return -EINVAL;
--}
--#endif
--
--#ifdef CONFIG_OF
--static int ccp_of_support(struct ccp_device *ccp)
--{
--	struct ccp_platform *ccp_platform = ccp->dev_specific;
--
--	ccp_platform->coherent = of_dma_is_coherent(ccp->dev->of_node);
--
--	return 0;
--}
--#else
--static int ccp_of_support(struct ccp_device *ccp)
--{
--	return -EINVAL;
--}
--#endif
--
- static int ccp_platform_probe(struct platform_device *pdev)
- {
- 	struct ccp_device *ccp;
-@@ -182,13 +130,7 @@ static int ccp_platform_probe(struct platform_device *pdev)
- 		goto e_err;
- 	}
- 
--	if (ccp_platform->use_acpi)
--		ret = ccp_acpi_support(ccp);
--	else
--		ret = ccp_of_support(ccp);
--	if (ret)
--		goto e_err;
--
-+	ccp_platform->coherent = device_dma_is_coherent(ccp->dev);
- 	if (ccp_platform->coherent)
- 		ccp->axcache = CACHE_WB_NO_ALLOC;
- 	else
--- 
-2.1.0
+On 06/09/2015 11:47 PM, Andy Gospodarek wrote:
+> This feature is only enabled with the new per-interface or ipv4 global
+> sysctls called 'ignore_routes_with_linkdown'.
+>
+> net.ipv4.conf.all.ignore_routes_with_linkdown = 0
+> net.ipv4.conf.default.ignore_routes_with_linkdown = 0
+> net.ipv4.conf.lo.ignore_routes_with_linkdown = 0
+> ...
+>
+> When the above sysctls are set, will report to userspace that a route is
+> dead and will no longer resolve to this nexthop when performing a fib
+> lookup.  This will signal to userspace that the route will not be
+> selected.  The signalling of a RTNH_F_DEAD is only passed to userspace
+> if the sysctl is enabled and link is down.  This was done as without it the
+> netlink listeners would have no idea whether or not a nexthop would be
+> selected.   The kernel only sets RTNH_F_DEAD internally if the inteface has
+> IFF_UP cleared.
+>
+> With the new sysctl set, the following behavior can be observed
+> (interface p8p1 is link-down):
+>
+> # ip route show
+> default via 10.0.5.2 dev p9p1
+> 10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15
+> 70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1
+> 80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 dead linkdown
+> 90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 dead linkdown
+> 90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2
+> # ip route get 90.0.0.1
+> 90.0.0.1 via 70.0.0.2 dev p7p1  src 70.0.0.1
+>      cache
+> # ip route get 80.0.0.1
+> local 80.0.0.1 dev lo  src 80.0.0.1
+>      cache <local>
+> # ip route get 80.0.0.2
+> 80.0.0.2 via 10.0.5.2 dev p9p1  src 10.0.5.15
+>      cache
+>
+> While the route does remain in the table (so it can be modified if
+> needed rather than being wiped away as it would be if IFF_UP was
+> cleared), the proper next-hop is chosen automatically when the link is
+> down.  Now interface p8p1 is linked-up:
+>
+> # ip route show
+> default via 10.0.5.2 dev p9p1
+> 10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15
+> 70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1
+> 80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1
+> 90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1
+> 90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2
+> 192.168.56.0/24 dev p2p1  proto kernel  scope link  src 192.168.56.2
+> # ip route get 90.0.0.1
+> 90.0.0.1 via 80.0.0.2 dev p8p1  src 80.0.0.1
+>      cache
+> # ip route get 80.0.0.1
+> local 80.0.0.1 dev lo  src 80.0.0.1
+>      cache <local>
+> # ip route get 80.0.0.2
+> 80.0.0.2 dev p8p1  src 80.0.0.1
+>      cache
+>
+> and the output changes to what one would expect.
+>
+> If the sysctl is not set, the following output would be expected when
+> p8p1 is down:
+>
+> # ip route show
+> default via 10.0.5.2 dev p9p1
+> 10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15
+> 70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1
+> 80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 linkdown
+> 90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 linkdown
+> 90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2
+>
+> Since the dead flag does not appear, there should be no expectation that
+> the kernel would skip using this route due to link being down.
+>
+> v2: Split kernel changes into 2 patches, this actually makes a
+> behavioral change if the sysctl is set.  Also took suggestion from Alex
+> to simplify code by only checking sysctl during fib lookup and
+> suggestion from Scott to add a per-interface sysctl.
+>
+> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Signed-off-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
+> ---
+>   include/linux/inetdevice.h        |  3 +++
+>   include/net/fib_rules.h           |  3 ++-
+>   include/net/ip_fib.h              | 17 ++++++++++-------
+>   include/uapi/linux/ip.h           |  1 +
+>   include/uapi/linux/sysctl.h       |  1 +
+>   kernel/sysctl_binary.c            |  1 +
+>   net/ipv4/devinet.c                |  2 ++
+>   net/ipv4/fib_frontend.c           |  6 +++---
+>   net/ipv4/fib_rules.c              |  5 +++--
+>   net/ipv4/fib_semantics.c          | 28 ++++++++++++++++++++++------
+>   net/ipv4/fib_trie.c               |  7 +++++++
+>   net/ipv4/netfilter/ipt_rpfilter.c |  2 +-
+>   net/ipv4/route.c                  | 10 +++++-----
+>   13 files changed, 61 insertions(+), 25 deletions(-)
+>
+> diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+> index 0a21fbe..a4328ce 100644
+> --- a/include/linux/inetdevice.h
+> +++ b/include/linux/inetdevice.h
+> @@ -120,6 +120,9 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
+>   	 || (!IN_DEV_FORWARD(in_dev) && \
+>   	  IN_DEV_ORCONF((in_dev), ACCEPT_REDIRECTS)))
+>
+> +#define IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) \
+> +	IN_DEV_CONF_GET((in_dev), IGNORE_ROUTES_WITH_LINKDOWN)
+> +
+>   #define IN_DEV_ARPFILTER(in_dev)	IN_DEV_ORCONF((in_dev), ARPFILTER)
+>   #define IN_DEV_ARP_ACCEPT(in_dev)	IN_DEV_ORCONF((in_dev), ARP_ACCEPT)
+>   #define IN_DEV_ARP_ANNOUNCE(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_ANNOUNCE)
+> diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+> index 6d67383..903a55e 100644
+> --- a/include/net/fib_rules.h
+> +++ b/include/net/fib_rules.h
+> @@ -36,7 +36,8 @@ struct fib_lookup_arg {
+>   	void			*result;
+>   	struct fib_rule		*rule;
+>   	int			flags;
+> -#define FIB_LOOKUP_NOREF	1
+> +#define FIB_LOOKUP_NOREF		1
+> +#define FIB_LOOKUP_IGNORE_LINKSTATE	2
+>   };
+>
+>   struct fib_rules_ops {
+> diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+> index d1de1b7..854d790 100644
+> --- a/include/net/ip_fib.h
+> +++ b/include/net/ip_fib.h
+> @@ -226,7 +226,7 @@ static inline struct fib_table *fib_new_table(struct net *net, u32 id)
+>   }
+>
+>   static inline int fib_lookup(struct net *net, const struct flowi4 *flp,
+> -			     struct fib_result *res)
+> +			     struct fib_result *res, unsigned int flags)
+>   {
+>   	struct fib_table *tb;
+>   	int err = -ENETUNREACH;
+> @@ -234,7 +234,7 @@ static inline int fib_lookup(struct net *net, const struct flowi4 *flp,
+>   	rcu_read_lock();
+>
+>   	tb = fib_get_table(net, RT_TABLE_MAIN);
+> -	if (tb && !fib_table_lookup(tb, flp, res, FIB_LOOKUP_NOREF))
+> +	if (tb && !fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF))
+>   		err = 0;
+>
+>   	rcu_read_unlock();
+> @@ -249,16 +249,17 @@ void __net_exit fib4_rules_exit(struct net *net);
+>   struct fib_table *fib_new_table(struct net *net, u32 id);
+>   struct fib_table *fib_get_table(struct net *net, u32 id);
+>
+> -int __fib_lookup(struct net *net, struct flowi4 *flp, struct fib_result *res);
+> +int __fib_lookup(struct net *net, struct flowi4 *flp,
+> +		 struct fib_result *res, unsigned int flags);
+>
+>   static inline int fib_lookup(struct net *net, struct flowi4 *flp,
+> -			     struct fib_result *res)
+> +			     struct fib_result *res, unsigned int flags)
+>   {
+>   	struct fib_table *tb;
+>   	int err;
+>
+>   	if (net->ipv4.fib_has_custom_rules)
+> -		return __fib_lookup(net, flp, res);
+> +		return __fib_lookup(net, flp, res, flags | FIB_LOOKUP_NOREF);
+>
+>   	rcu_read_lock();
+>
+> @@ -266,11 +267,13 @@ static inline int fib_lookup(struct net *net, struct flowi4 *flp,
+>
+>   	for (err = 0; !err; err = -ENETUNREACH) {
+>   		tb = rcu_dereference_rtnl(net->ipv4.fib_main);
+> -		if (tb && !fib_table_lookup(tb, flp, res, FIB_LOOKUP_NOREF))
+> +		if (tb && !fib_table_lookup(tb, flp, res,
+> +					    flags | FIB_LOOKUP_NOREF))
+>   			break;
+>
+>   		tb = rcu_dereference_rtnl(net->ipv4.fib_default);
+> -		if (tb && !fib_table_lookup(tb, flp, res, FIB_LOOKUP_NOREF))
+> +		if (tb && !fib_table_lookup(tb, flp, res,
+> +					    flags | FIB_LOOKUP_NOREF))
+>   			break;
+>   	}
+>
 
+Instead of 3 lines w/ flags | FIB_LOOKUP_NOREF you could probably just 
+do a flags |= FIB_LOOKUP_NOREF once and save yourself some trouble.
+
+> diff --git a/include/uapi/linux/ip.h b/include/uapi/linux/ip.h
+> index 4119594..08f894d 100644
+> --- a/include/uapi/linux/ip.h
+> +++ b/include/uapi/linux/ip.h
+> @@ -164,6 +164,7 @@ enum
+>   	IPV4_DEVCONF_ROUTE_LOCALNET,
+>   	IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL,
+>   	IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL,
+> +	IPV4_DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN,
+>   	__IPV4_DEVCONF_MAX
+>   };
+>
+> diff --git a/include/uapi/linux/sysctl.h b/include/uapi/linux/sysctl.h
+> index 0956373..62fda94 100644
+> --- a/include/uapi/linux/sysctl.h
+> +++ b/include/uapi/linux/sysctl.h
+> @@ -482,6 +482,7 @@ enum
+>   	NET_IPV4_CONF_PROMOTE_SECONDARIES=20,
+>   	NET_IPV4_CONF_ARP_ACCEPT=21,
+>   	NET_IPV4_CONF_ARP_NOTIFY=22,
+> +	NET_IPV4_CONF_IGNORE_ROUTES_WITH_LINKDOWN=23,
+>   };
+>
+>   /* /proc/sys/net/ipv4/netfilter */
+> diff --git a/kernel/sysctl_binary.c b/kernel/sysctl_binary.c
+> index 7e7746a..c9d0a0e 100644
+> --- a/kernel/sysctl_binary.c
+> +++ b/kernel/sysctl_binary.c
+> @@ -253,6 +253,7 @@ static const struct bin_table bin_net_ipv4_conf_vars_table[] = {
+>   	{ CTL_INT,	NET_IPV4_CONF_NOPOLICY,			"disable_policy" },
+>   	{ CTL_INT,	NET_IPV4_CONF_FORCE_IGMP_VERSION,	"force_igmp_version" },
+>   	{ CTL_INT,	NET_IPV4_CONF_PROMOTE_SECONDARIES,	"promote_secondaries" },
+> +	{ CTL_INT,	NET_IPV4_CONF_IGNORE_ROUTES_WITH_LINKDOWN,	"ignore_routes_with_linkdown" },
+>   	{}
+>   };
+>
+> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> index 419d23c..7498716 100644
+> --- a/net/ipv4/devinet.c
+> +++ b/net/ipv4/devinet.c
+> @@ -2169,6 +2169,8 @@ static struct devinet_sysctl_table {
+>   					"igmpv2_unsolicited_report_interval"),
+>   		DEVINET_SYSCTL_RW_ENTRY(IGMPV3_UNSOLICITED_REPORT_INTERVAL,
+>   					"igmpv3_unsolicited_report_interval"),
+> +		DEVINET_SYSCTL_RW_ENTRY(IGNORE_ROUTES_WITH_LINKDOWN,
+> +					"ignore_routes_with_linkdown"),
+>
+>   		DEVINET_SYSCTL_FLUSHING_ENTRY(NOXFRM, "disable_xfrm"),
+>   		DEVINET_SYSCTL_FLUSHING_ENTRY(NOPOLICY, "disable_policy"),
+> diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+> index 1e4c646..ead31c6 100644
+> --- a/net/ipv4/fib_frontend.c
+> +++ b/net/ipv4/fib_frontend.c
+> @@ -280,7 +280,7 @@ __be32 fib_compute_spec_dst(struct sk_buff *skb)
+>   		fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
+>   		fl4.flowi4_scope = scope;
+>   		fl4.flowi4_mark = IN_DEV_SRC_VMARK(in_dev) ? skb->mark : 0;
+> -		if (!fib_lookup(net, &fl4, &res))
+> +		if (!fib_lookup(net, &fl4, &res, 0))
+>   			return FIB_RES_PREFSRC(net, res);
+>   	} else {
+>   		scope = RT_SCOPE_LINK;
+> @@ -319,7 +319,7 @@ static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
+>   	fl4.flowi4_mark = IN_DEV_SRC_VMARK(idev) ? skb->mark : 0;
+>
+>   	net = dev_net(dev);
+> -	if (fib_lookup(net, &fl4, &res))
+> +	if (fib_lookup(net, &fl4, &res, 0))
+>   		goto last_resort;
+>   	if (res.type != RTN_UNICAST &&
+>   	    (res.type != RTN_LOCAL || !IN_DEV_ACCEPT_LOCAL(idev)))
+> @@ -354,7 +354,7 @@ static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
+>   	fl4.flowi4_oif = dev->ifindex;
+>
+>   	ret = 0;
+> -	if (fib_lookup(net, &fl4, &res) == 0) {
+> +	if (fib_lookup(net, &fl4, &res, 0) == 0) {
+>   		if (res.type == RTN_UNICAST)
+>   			ret = FIB_RES_NH(res).nh_scope >= RT_SCOPE_HOST;
+>   	}
+
+The code for validating a source could probably ignore the LINKDOWN 
+message.  Otherwise we run the risk of a link flapping and confusing the 
+source since the link is down but any Rx packets in the rings are being 
+flushed.
+
+> diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+> index 5615198..18123d5 100644
+> --- a/net/ipv4/fib_rules.c
+> +++ b/net/ipv4/fib_rules.c
+> @@ -47,11 +47,12 @@ struct fib4_rule {
+>   #endif
+>   };
+>
+> -int __fib_lookup(struct net *net, struct flowi4 *flp, struct fib_result *res)
+> +int __fib_lookup(struct net *net, struct flowi4 *flp,
+> +		 struct fib_result *res, unsigned int flags)
+>   {
+>   	struct fib_lookup_arg arg = {
+>   		.result = res,
+> -		.flags = FIB_LOOKUP_NOREF,
+> +		.flags = flags,
+>   	};
+>   	int err;
+>
+> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+> index 776e029..4dd709f 100644
+> --- a/net/ipv4/fib_semantics.c
+> +++ b/net/ipv4/fib_semantics.c
+> @@ -623,7 +623,8 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
+>   			/* It is not necessary, but requires a bit of thinking */
+>   			if (fl4.flowi4_scope < RT_SCOPE_LINK)
+>   				fl4.flowi4_scope = RT_SCOPE_LINK;
+> -			err = fib_lookup(net, &fl4, &res);
+> +			err = fib_lookup(net, &fl4, &res,
+> +					 FIB_LOOKUP_IGNORE_LINKSTATE);
+>   			if (err) {
+>   				rcu_read_unlock();
+>   				return err;
+> @@ -1035,12 +1036,16 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
+>   	    nla_put_in_addr(skb, RTA_PREFSRC, fi->fib_prefsrc))
+>   		goto nla_put_failure;
+>   	if (fi->fib_nhs == 1) {
+> +		struct in_device *in_dev = __in_dev_get_rcu(fi->fib_nh->nh_dev);
+>   		if (fi->fib_nh->nh_gw &&
+>   		    nla_put_in_addr(skb, RTA_GATEWAY, fi->fib_nh->nh_gw))
+>   			goto nla_put_failure;
+>   		if (fi->fib_nh->nh_oif &&
+>   		    nla_put_u32(skb, RTA_OIF, fi->fib_nh->nh_oif))
+>   			goto nla_put_failure;
+> +		if (in_dev && IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
+> +		    fi->fib_nh->nh_flags & RTNH_F_LINKDOWN)
+> +			rtm->rtm_flags |= RTNH_F_DEAD;
+>   #ifdef CONFIG_IP_ROUTE_CLASSID
+>   		if (fi->fib_nh[0].nh_tclassid &&
+>   		    nla_put_u32(skb, RTA_FLOW, fi->fib_nh[0].nh_tclassid))
+> @@ -1057,11 +1062,16 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
+>   			goto nla_put_failure;
+>
+>   		for_nexthops(fi) {
+> +			struct in_device *in_dev = __in_dev_get_rcu(nh->nh_dev);
+>   			rtnh = nla_reserve_nohdr(skb, sizeof(*rtnh));
+>   			if (!rtnh)
+>   				goto nla_put_failure;
+>
+> -			rtnh->rtnh_flags = nh->nh_flags & 0xFF;
+> +			if (in_dev && IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
+> +			    nh->nh_flags & RTNH_F_LINKDOWN)
+> +				rtnh->rtnh_flags = (nh->nh_flags | RTNH_F_DEAD) & 0xFF;
+> +			else
+> +				rtnh->rtnh_flags = nh->nh_flags & 0xFF;
+>   			rtnh->rtnh_hops = nh->nh_weight - 1;
+>   			rtnh->rtnh_ifindex = nh->nh_oif;
+>
+
+Why not just split this if into two seperate statments? One taking care 
+of the first setting of rtnh_flags and then a second one ORing in the 
+RTNH_F_DEAD.
+
+> @@ -1306,16 +1316,22 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
+>   void fib_select_multipath(struct fib_result *res)
+>   {
+>   	struct fib_info *fi = res->fi;
+> +	struct in_device *in_dev;
+>   	int w;
+>
+>   	spin_lock_bh(&fib_multipath_lock);
+>   	if (fi->fib_power <= 0) {
+>   		int power = 0;
+>   		change_nexthops(fi) {
+> -			if (!(nexthop_nh->nh_flags & RTNH_F_DEAD)) {
+> -				power += nexthop_nh->nh_weight;
+> -				nexthop_nh->nh_power = nexthop_nh->nh_weight;
+> -			}
+> +			in_dev = __in_dev_get_rcu(nexthop_nh->nh_dev);
+> +			if (nexthop_nh->nh_flags & RTNH_F_DEAD)
+> +				continue;
+> +			if (in_dev &&
+> +			    IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
+> +			    nexthop_nh->nh_flags & RTNH_F_LINKDOWN)
+> +				continue;
+> +			power += nexthop_nh->nh_weight;
+> +			nexthop_nh->nh_power = nexthop_nh->nh_weight;
+>   		} endfor_nexthops(fi);
+>   		fi->fib_power = power;
+>   		if (power <= 0) {
+> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+> index 3c699c4..f75ca20 100644
+> --- a/net/ipv4/fib_trie.c
+> +++ b/net/ipv4/fib_trie.c
+> @@ -1407,11 +1407,18 @@ found:
+>   		}
+>   		if (fi->fib_flags & RTNH_F_DEAD)
+>   			continue;
+> +
+>   		for (nhsel = 0; nhsel < fi->fib_nhs; nhsel++) {
+>   			const struct fib_nh *nh = &fi->fib_nh[nhsel];
+> +			struct in_device *in_dev = __in_dev_get_rcu(nh->nh_dev);
+>
+>   			if (nh->nh_flags & RTNH_F_DEAD)
+>   				continue;
+> +			if (in_dev &&
+> +			    IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
+> +			    nh->nh_flags & RTNH_F_LINKDOWN &&
+> +			    !(fib_flags & FIB_LOOKUP_IGNORE_LINKSTATE))
+> +				continue;
+>   			if (flp->flowi4_oif && flp->flowi4_oif != nh->nh_oif)
+>   				continue;
+>
+
+The order of checks should be:
+	1.  (nh->nh_flags & RTNH_F_LINKDOWN)
+	2.  !(fib_flags & FIB_LOOKUP_IGNORE_LINKSTATE)
+	3.  in_dev
+	4. IGNORE_ROUTES_WITH_LINKDOWN
+
+That way we don't waste time checking the in_dev if the link isn't 
+reported as being down.  Also I would probably move the whole block 
+inside an if statement based off of the first 2 checks since nothing 
+else is making use of in_dev.
+
+> diff --git a/net/ipv4/netfilter/ipt_rpfilter.c b/net/ipv4/netfilter/ipt_rpfilter.c
+> index 4bfaedf..250c633 100644
+> --- a/net/ipv4/netfilter/ipt_rpfilter.c
+> +++ b/net/ipv4/netfilter/ipt_rpfilter.c
+> @@ -40,7 +40,7 @@ static bool rpfilter_lookup_reverse(struct flowi4 *fl4,
+>   	struct net *net = dev_net(dev);
+>   	int ret __maybe_unused;
+>
+> -	if (fib_lookup(net, fl4, &res))
+> +	if (fib_lookup(net, fl4, &res, 0))
+>   		return false;
+>
+>   	if (res.type != RTN_UNICAST) {
+
+Any rpfilter stuff can probably ignore the linkdown check since it is 
+possible that a driver could be flushing data just after a link went down.
+
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index f605598..d0362a2 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -747,7 +747,7 @@ static void __ip_do_redirect(struct rtable *rt, struct sk_buff *skb, struct flow
+>   		if (!(n->nud_state & NUD_VALID)) {
+>   			neigh_event_send(n, NULL);
+>   		} else {
+> -			if (fib_lookup(net, fl4, &res) == 0) {
+> +			if (fib_lookup(net, fl4, &res, 0) == 0) {
+>   				struct fib_nh *nh = &FIB_RES_NH(res);
+>
+>   				update_or_create_fnhe(nh, fl4->daddr, new_gw,
+> @@ -975,7 +975,7 @@ static void __ip_rt_update_pmtu(struct rtable *rt, struct flowi4 *fl4, u32 mtu)
+>   		return;
+>
+>   	rcu_read_lock();
+> -	if (fib_lookup(dev_net(dst->dev), fl4, &res) == 0) {
+> +	if (fib_lookup(dev_net(dst->dev), fl4, &res, 0) == 0) {
+>   		struct fib_nh *nh = &FIB_RES_NH(res);
+>
+>   		update_or_create_fnhe(nh, fl4->daddr, 0, mtu,
+> @@ -1186,7 +1186,7 @@ void ip_rt_get_source(u8 *addr, struct sk_buff *skb, struct rtable *rt)
+>   		fl4.flowi4_mark = skb->mark;
+>
+>   		rcu_read_lock();
+> -		if (fib_lookup(dev_net(rt->dst.dev), &fl4, &res) == 0)
+> +		if (fib_lookup(dev_net(rt->dst.dev), &fl4, &res, 0) == 0)
+>   			src = FIB_RES_PREFSRC(dev_net(rt->dst.dev), res);
+>   		else
+>   			src = inet_select_addr(rt->dst.dev,
+> @@ -1716,7 +1716,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+>   	fl4.flowi4_scope = RT_SCOPE_UNIVERSE;
+>   	fl4.daddr = daddr;
+>   	fl4.saddr = saddr;
+> -	err = fib_lookup(net, &fl4, &res);
+> +	err = fib_lookup(net, &fl4, &res, 0);
+>   	if (err != 0) {
+>   		if (!IN_DEV_FORWARD(in_dev))
+>   			err = -EHOSTUNREACH;
+> @@ -2123,7 +2123,7 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
+>   		goto make_route;
+>   	}
+>
+> -	if (fib_lookup(net, fl4, &res)) {
+> +	if (fib_lookup(net, fl4, &res, 0)) {
+>   		res.fi = NULL;
+>   		res.table = NULL;
+>   		if (fl4->flowi4_oif) {
+>
