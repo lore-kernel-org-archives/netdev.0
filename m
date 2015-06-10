@@ -1,61 +1,108 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 00/13] mlx4 driver update (+ new VF ndo)
-Date: Wed, 10 Jun 2015 17:59:25 +0300
-Message-ID: <1433948378-17570-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 04/13] net/mlx4_core: Remove counters table allocation from VF flow
+Date: Wed, 10 Jun 2015 17:59:29 +0300
+Message-ID: <1433948378-17570-5-git-send-email-ogerlitz@mellanox.com>
+References: <1433948378-17570-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:37755 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:37807 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933489AbbFJPAH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Jun 2015 11:00:07 -0400
+	id S933140AbbFJPAZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jun 2015 11:00:25 -0400
+In-Reply-To: <1433948378-17570-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Eran Ben Elisha <eranbe@mellanox.com>
 
-This series from Eran and Hadar is further dealing with traffic 
-counters in the mlx4 driver, this time mostly around SRIOV.
+Since virtual functions get their counters indices allocation from the PF,
+allocate counters indices bitmap only in case the function isn't virtual.
 
-We added a new ndo to read the VF counters through the PF netdev 
-netlink infrastructure plus mlx4 implementation for that ndo.
+Also, check that the device has counters to allocate before creating the
+indices bitmap table.
 
-Or.
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c |   25 ++++++++++++++++++-------
+ 1 files changed, 18 insertions(+), 7 deletions(-)
 
-Eran Ben Elisha (13):
-  net/mlx4_core: Check before cleaning counters bitmap
-  net/mlx4_core: Reset counters data when freed
-  net/mlx4_core: Add sink counter
-  net/mlx4_core: Remove counters table allocation from VF flow
-  net/mlx4_core: Adjust counter grant policy in the resource tracker
-  net/mlx4_core: Add port attribute when tracking counters
-  net/mlx4_core: Allocate default counter per port
-  IB/mlx4: Add RoCE/IB dedicated counters
-  IB/mlx4: Set VF to read from QP counters
-  net/mlx4_core: Add helper to query counters
-  net/mlx4_en: Show PF own statistics via ethtool
-  net/core: Add reading VF statistics through the PF netdevice
-  net/mlx4_en: Support ndo_get_vf_stats
-
- drivers/infiniband/hw/mlx4/mad.c                   |   38 ++---
- drivers/infiniband/hw/mlx4/main.c                  |   43 ++++--
- drivers/infiniband/hw/mlx4/mlx4_ib.h               |    7 +-
- drivers/infiniband/hw/mlx4/qp.c                    |    7 +-
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |   86 ++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |   17 ++
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   23 +++-
- drivers/net/ethernet/mellanox/mlx4/en_port.c       |   24 +++-
- drivers/net/ethernet/mellanox/mlx4/en_resources.c  |    2 +-
- drivers/net/ethernet/mellanox/mlx4/main.c          |  134 ++++++++++++++--
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    5 +
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h       |    2 +
- drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h    |   11 +-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  173 +++++++++++++++++++-
- include/linux/mlx4/cmd.h                           |    6 +
- include/linux/mlx4/device.h                        |   10 +
- include/linux/netdevice.h                          |    4 +
- include/uapi/linux/if_link.h                       |   11 ++
- net/core/rtnetlink.c                               |   12 +-
- 19 files changed, 545 insertions(+), 70 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 9c1b8b0..c3fe49e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -2198,6 +2198,9 @@ static int mlx4_init_counters_table(struct mlx4_dev *dev)
+ 	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_COUNTERS))
+ 		return -ENOENT;
+ 
++	if (!dev->caps.max_counters)
++		return -ENOSPC;
++
+ 	nent_pow2 = roundup_pow_of_two(dev->caps.max_counters);
+ 	/* reserve last counter index for sink counter */
+ 	return mlx4_bitmap_init(&priv->counters_bitmap, nent_pow2,
+@@ -2210,6 +2213,9 @@ static void mlx4_cleanup_counters_table(struct mlx4_dev *dev)
+ 	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_COUNTERS))
+ 		return;
+ 
++	if (!dev->caps.max_counters)
++		return;
++
+ 	mlx4_bitmap_cleanup(&mlx4_priv(dev)->counters_bitmap);
+ }
+ 
+@@ -2425,10 +2431,12 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
+ 		goto err_srq_table_free;
+ 	}
+ 
+-	err = mlx4_init_counters_table(dev);
+-	if (err && err != -ENOENT) {
+-		mlx4_err(dev, "Failed to initialize counters table, aborting\n");
+-		goto err_qp_table_free;
++	if (!mlx4_is_slave(dev)) {
++		err = mlx4_init_counters_table(dev);
++		if (err && err != -ENOENT) {
++			mlx4_err(dev, "Failed to initialize counters table, aborting\n");
++			goto err_qp_table_free;
++		}
+ 	}
+ 
+ 	if (!mlx4_is_slave(dev)) {
+@@ -2470,7 +2478,8 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
+ 	return 0;
+ 
+ err_counters_table_free:
+-	mlx4_cleanup_counters_table(dev);
++	if (!mlx4_is_slave(dev))
++		mlx4_cleanup_counters_table(dev);
+ 
+ err_qp_table_free:
+ 	mlx4_cleanup_qp_table(dev);
+@@ -3201,7 +3210,8 @@ err_port:
+ 	for (--port; port >= 1; --port)
+ 		mlx4_cleanup_port_info(&priv->port[port]);
+ 
+-	mlx4_cleanup_counters_table(dev);
++	if (!mlx4_is_slave(dev))
++		mlx4_cleanup_counters_table(dev);
+ 	mlx4_cleanup_qp_table(dev);
+ 	mlx4_cleanup_srq_table(dev);
+ 	mlx4_cleanup_cq_table(dev);
+@@ -3499,7 +3509,8 @@ static void mlx4_unload_one(struct pci_dev *pdev)
+ 		mlx4_free_resource_tracker(dev,
+ 					   RES_TR_FREE_SLAVES_ONLY);
+ 
+-	mlx4_cleanup_counters_table(dev);
++	if (!mlx4_is_slave(dev))
++		mlx4_cleanup_counters_table(dev);
+ 	mlx4_cleanup_qp_table(dev);
+ 	mlx4_cleanup_srq_table(dev);
+ 	mlx4_cleanup_cq_table(dev);
+-- 
+1.7.1
