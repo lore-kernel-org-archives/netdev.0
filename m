@@ -1,7 +1,7 @@
 From: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Subject: [V6 PATCH 7/7] ufs: fix TRUE and FALSE re-define build error
-Date: Wed, 10 Jun 2015 11:08:58 -0500
-Message-ID: <1433952538-22455-8-git-send-email-Suravee.Suthikulpanit@amd.com>
+Subject: [V6 PATCH 5/7] amd-xgbe: Unify coherency checking logic with device_dma_is_coherent()
+Date: Wed, 10 Jun 2015 11:08:56 -0500
+Message-ID: <1433952538-22455-6-git-send-email-Suravee.Suthikulpanit@amd.com>
 References: <1433952538-22455-1-git-send-email-Suravee.Suthikulpanit@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -18,35 +18,86 @@ To: <rjw@rjwysocki.net>, <lenb@kernel.org>, <catalin.marinas@arm.com>,
 	<arnd@arndb.de>, <kashyap.desai@avagotech.com>,
 	<sumit.saxena@avagotech.com>, <uday.lingala@avagotech.com>,
 	<vinholikatti@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0106.outbound.protection.outlook.com ([65.55.169.106]:2465
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S966662AbbFJQJM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jun 2015 12:09:12 -0400
 In-Reply-To: <1433952538-22455-1-git-send-email-Suravee.Suthikulpanit@amd.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Currently, amd-xgbe driver has separate logic to determine device
+coherency for DT vs. ACPI. This patch simplifies the code with
+a call to device_dma_is_coherent().
+
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Cc: Vinayak Holikatti <vinholikatti@gmail.com>
 ---
- drivers/scsi/ufs/unipro.h | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c | 27 +--------------------------
+ 1 file changed, 1 insertion(+), 26 deletions(-)
 
-diff --git a/drivers/scsi/ufs/unipro.h b/drivers/scsi/ufs/unipro.h
-index 3fc3e21..816a8a4 100644
---- a/drivers/scsi/ufs/unipro.h
-+++ b/drivers/scsi/ufs/unipro.h
-@@ -198,6 +198,14 @@ enum ufs_hs_gear_tag {
- #define T_TC0TXMAXSDUSIZE	0x4060
- #define T_TC1TXMAXSDUSIZE	0x4061
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+index 7149053..6d2c702 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+@@ -168,13 +168,8 @@ static void xgbe_init_all_fptrs(struct xgbe_prv_data *pdata)
+ #ifdef CONFIG_ACPI
+ static int xgbe_acpi_support(struct xgbe_prv_data *pdata)
+ {
+-	struct acpi_device *adev = pdata->adev;
+ 	struct device *dev = pdata->dev;
+ 	u32 property;
+-	acpi_handle handle;
+-	acpi_status status;
+-	unsigned long long data;
+-	int cca;
+ 	int ret;
  
-+#ifdef FALSE
-+#undef FALSE
-+#endif
-+
-+#ifdef TRUE
-+#undef TRUE
-+#endif
-+
- /* Boolean attribute values */
- enum {
- 	FALSE = 0,
+ 	/* Obtain the system clock setting */
+@@ -195,24 +190,6 @@ static int xgbe_acpi_support(struct xgbe_prv_data *pdata)
+ 	}
+ 	pdata->ptpclk_rate = property;
+ 
+-	/* Retrieve the device cache coherency value */
+-	handle = adev->handle;
+-	do {
+-		status = acpi_evaluate_integer(handle, "_CCA", NULL, &data);
+-		if (!ACPI_FAILURE(status)) {
+-			cca = data;
+-			break;
+-		}
+-
+-		status = acpi_get_parent(handle, &handle);
+-	} while (!ACPI_FAILURE(status));
+-
+-	if (ACPI_FAILURE(status)) {
+-		dev_err(dev, "error obtaining acpi coherency value\n");
+-		return -EINVAL;
+-	}
+-	pdata->coherent = !!cca;
+-
+ 	return 0;
+ }
+ #else   /* CONFIG_ACPI */
+@@ -243,9 +220,6 @@ static int xgbe_of_support(struct xgbe_prv_data *pdata)
+ 	}
+ 	pdata->ptpclk_rate = clk_get_rate(pdata->ptpclk);
+ 
+-	/* Retrieve the device cache coherency value */
+-	pdata->coherent = of_dma_is_coherent(dev->of_node);
+-
+ 	return 0;
+ }
+ #else   /* CONFIG_OF */
+@@ -364,6 +338,7 @@ static int xgbe_probe(struct platform_device *pdev)
+ 		goto err_io;
+ 
+ 	/* Set the DMA coherency values */
++	pdata->coherent = device_dma_is_coherent(pdata->dev);
+ 	if (pdata->coherent) {
+ 		pdata->axdomain = XGBE_DMA_OS_AXDOMAIN;
+ 		pdata->arcache = XGBE_DMA_OS_ARCACHE;
 -- 
 2.1.0
