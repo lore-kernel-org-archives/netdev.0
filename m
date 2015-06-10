@@ -1,39 +1,37 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: pull-request: mac80211-next 2015-06-10
-Date: Wed, 10 Jun 2015 16:07:08 +0200
-Message-ID: <1433945228.3145.11.camel@sipsolutions.net>
-References: <1433941752.3145.10.camel@sipsolutions.net>
-	 (sfid-20150610_150922_643165_9D6C6EF2)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC,v3 02/10] dpaa_eth: add support for DPAA Ethernet
+Date: Wed, 10 Jun 2015 07:44:12 -0700
+Message-ID: <1433947452.27504.9.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1430319405-31280-1-git-send-email-madalin.bucur@freescale.com>
+	 <DM2PR0301MB086380B3D89425345562F384F3BD0@DM2PR0301MB0863.namprd03.prod.outlook.com>
+	 <BL2PR03MB545CA85B1FE886FCD07DE26E6BD0@BL2PR03MB545.namprd03.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Jianhua Xie <Jianhua.Xie@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+To: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:58545 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965153AbbFJOHL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Jun 2015 10:07:11 -0400
-In-Reply-To: <1433941752.3145.10.camel@sipsolutions.net> (sfid-20150610_150922_643165_9D6C6EF2)
+Received: from mail-qk0-f172.google.com ([209.85.220.172]:33695 "EHLO
+	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754082AbbFJOoQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 10:44:16 -0400
+In-Reply-To: <BL2PR03MB545CA85B1FE886FCD07DE26E6BD0@BL2PR03MB545.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-06-10 at 15:09 +0200, Johannes Berg wrote:
+On Wed, 2015-06-10 at 07:38 +0000, Madalin-Cristian Bucur wrote:
+> Hi Eric,
+> 
+> Can you please tell us if this change would be for the better?
+> 
+> I was about to say yes to this request but checked and no other Ethernet driver seems to use the queue trans_start.
+> I was able to find your patch "net: tx scalability works : trans_start" [ http://patchwork.ozlabs.org/patch/27104/ ] but did not find more about this topic.
+>  
 
-> The following changes since commit c3eee1fb1d308564ada5f7ea57bc51efc6130b37:
-> 
->   Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge (2015-06-09 20:23:52 -0700)
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git tags/mac80211-next-for-davem-2015-06-10
-> 
-> for you to fetch changes up to 5df03344c5639fdd848cb87553956df7276a8645:
-> 
->   mac80211: convert HW flags to unsigned long bitmap (2015-06-10 13:48:42 +0200)
+Drivers no longer have to worry about updating trans_start themselves.
+Core networking stack handles this.
 
-Oops, fixed a stupid bug in there so that's now commit
-30686bf7f5b3c30831761e188a6e3cb33580fa48. Sorry about that.
-
-johannes
+Check txq_trans_update() done from netdev_start_xmit()
