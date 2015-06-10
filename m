@@ -1,43 +1,36 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next] switchdev: fix BUG when port driver doesn't support set attr op
-Date: Wed, 10 Jun 2015 13:56:02 -0700
-Message-ID: <1433969762-22406-1-git-send-email-sfeldma@gmail.com>
-Cc: jiri@resnulli.us, bblanco@plumgrid.com
-To: netdev@vger.kernel.org
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] switchdev: fix BUG when port driver doesn't
+ support set attr op
+Date: Wed, 10 Jun 2015 17:13:43 -0400
+Message-ID: <20150610211342.GT588@gospo.home.greyhouse.net>
+References: <1433969762-22406-1-git-send-email-sfeldma@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, bblanco@plumgrid.com
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:35746 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965196AbbFJUy6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 16:54:58 -0400
-Received: by pacyx8 with SMTP id yx8so41388941pac.2
-        for <netdev@vger.kernel.org>; Wed, 10 Jun 2015 13:54:57 -0700 (PDT)
+Received: from mail-qg0-f52.google.com ([209.85.192.52]:35455 "EHLO
+	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752390AbbFJVNr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 17:13:47 -0400
+Received: by qgg3 with SMTP id 3so20554752qgg.2
+        for <netdev@vger.kernel.org>; Wed, 10 Jun 2015 14:13:46 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1433969762-22406-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
+On Wed, Jun 10, 2015 at 01:56:02PM -0700, sfeldma@gmail.com wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
+> 
+> Fix a BUG() where CONFIG_NET_SWITCHDEV is set but the driver for a bridged
+> port does not support switchdec_port_attr_set op.  Don't BUG() if
+> -EOPNOTSUPP is returned.
+> 
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> Reported-by: Brenden Blanco <bblanco@plumgrid.com>
 
-Fix a BUG() where CONFIG_NET_SWITCHDEV is set but the driver for a bridged
-port does not support switchdec_port_attr_set op.  Don't BUG() if
--EOPNOTSUPP is returned.
+Looks good since -EOPNOTSUPP seems to be the safe failure case when
+switchdev is enabled or not.
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-Reported-by: Brenden Blanco <bblanco@plumgrid.com>
----
- net/switchdev/switchdev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index e008057..99bced4 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -103,7 +103,7 @@ static void switchdev_port_attr_set_work(struct work_struct *work)
- 
- 	rtnl_lock();
- 	err = switchdev_port_attr_set(asw->dev, &asw->attr);
--	BUG_ON(err);
-+	BUG_ON(err && err != -EOPNOTSUPP);
- 	rtnl_unlock();
- 
- 	dev_put(asw->dev);
--- 
-1.7.10.4
+Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
