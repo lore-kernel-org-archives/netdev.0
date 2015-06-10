@@ -1,7 +1,7 @@
 From: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Subject: [V6 PATCH 3/7] device property: Introduces device_dma_is_coherent()
-Date: Wed, 10 Jun 2015 11:08:54 -0500
-Message-ID: <1433952538-22455-4-git-send-email-Suravee.Suthikulpanit@amd.com>
+Subject: [V6 PATCH 6/7] megaraid_sas: fix TRUE and FALSE re-define build error
+Date: Wed, 10 Jun 2015 11:08:57 -0500
+Message-ID: <1433952538-22455-7-git-send-email-Suravee.Suthikulpanit@amd.com>
 References: <1433952538-22455-1-git-send-email-Suravee.Suthikulpanit@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -18,64 +18,39 @@ To: <rjw@rjwysocki.net>, <lenb@kernel.org>, <catalin.marinas@arm.com>,
 	<arnd@arndb.de>, <kashyap.desai@avagotech.com>,
 	<sumit.saxena@avagotech.com>, <uday.lingala@avagotech.com>,
 	<vinholikatti@gmail.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
 In-Reply-To: <1433952538-22455-1-git-send-email-Suravee.Suthikulpanit@amd.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently, device drivers, which support both OF and ACPI,
-need to call two separate APIs, of_dma_is_coherent() and
-acpi_dma_is_coherent()) to determine device coherency attribute.
-
-This patch simplifies this process by introducing a new device
-property API, device_dma_is_coherent(), which calls the appropriate
-interface based on the booting architecture.
-
 Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
+Cc: Kashyap Desai <kashyap.desai@avagotech.com>
+Cc: Sumit Saxena <sumit.saxena@avagotech.com>
+Cc: Uday Lingala <uday.lingala@avagotech.com>
 ---
- drivers/base/property.c  | 14 ++++++++++++++
- include/linux/property.h |  2 ++
- 2 files changed, 16 insertions(+)
+ drivers/scsi/megaraid/megaraid_sas_fp.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/drivers/base/property.c b/drivers/base/property.c
-index 1d0b116..e645852 100644
---- a/drivers/base/property.c
-+++ b/drivers/base/property.c
-@@ -14,6 +14,7 @@
- #include <linux/export.h>
- #include <linux/kernel.h>
- #include <linux/of.h>
-+#include <linux/of_address.h>
- #include <linux/property.h>
+diff --git a/drivers/scsi/megaraid/megaraid_sas_fp.c b/drivers/scsi/megaraid/megaraid_sas_fp.c
+index 4f72287..e8b7a69 100644
+--- a/drivers/scsi/megaraid/megaraid_sas_fp.c
++++ b/drivers/scsi/megaraid/megaraid_sas_fp.c
+@@ -66,7 +66,15 @@ MODULE_PARM_DESC(lb_pending_cmds, "Change raid-1 load balancing outstanding "
  
- /**
-@@ -519,3 +520,16 @@ unsigned int device_get_child_node_count(struct device *dev)
- 	return count;
- }
- EXPORT_SYMBOL_GPL(device_get_child_node_count);
+ #define ABS_DIFF(a, b)   (((a) > (b)) ? ((a) - (b)) : ((b) - (a)))
+ #define MR_LD_STATE_OPTIMAL 3
 +
-+bool device_dma_is_coherent(struct device *dev)
-+{
-+	bool coherent = false;
++#ifdef FALSE
++#undef FALSE
++#endif
+ #define FALSE 0
 +
-+	if (IS_ENABLED(CONFIG_OF) && dev->of_node)
-+		coherent = of_dma_is_coherent(dev->of_node);
-+	else
-+		acpi_check_dma(ACPI_COMPANION(dev), &coherent);
-+
-+	return coherent;
-+}
-+EXPORT_SYMBOL_GPL(device_dma_is_coherent);
-diff --git a/include/linux/property.h b/include/linux/property.h
-index de8bdf4..76ebde9 100644
---- a/include/linux/property.h
-+++ b/include/linux/property.h
-@@ -164,4 +164,6 @@ struct property_set {
++#ifdef TRUE
++#undef TRUE
++#endif
+ #define TRUE 1
  
- void device_add_property_set(struct device *dev, struct property_set *pset);
- 
-+bool device_dma_is_coherent(struct device *dev);
-+
- #endif /* _LINUX_PROPERTY_H_ */
+ #define SPAN_DEBUG 0
 -- 
 2.1.0
+
