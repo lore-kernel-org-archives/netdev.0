@@ -1,49 +1,51 @@
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 linux-next] net: fs_enet: use swap() in fs_enet_rx_napi()
-Date: Wed, 10 Jun 2015 18:33:19 +0200
-Message-ID: <1433953999-24740-1-git-send-email-fabf@skynet.be>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, Fabian Frederick <fabf@skynet.be>,
- Julia Lawall <Julia.Lawall@lip6.fr>, Vitaly Bordug <vbordug@ru.mvista.com>,
- linuxppc-dev@lists.ozlabs.org
+Subject: [PATCH 1/1 linux-next] ath5k: use swap() in ath5k_hw_get_median_noise_floor()
+Date: Wed, 10 Jun 2015 18:33:34 +0200
+Message-ID: <1433954015-24872-1-git-send-email-fabf@skynet.be>
+Cc: Julia Lawall <Julia.Lawall@lip6.fr>,
+	Fabian Frederick <fabf@skynet.be>,
+	Jiri Slaby <jirislaby@gmail.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-VXNlIGtlcm5lbC5oIG1hY3JvIGRlZmluaXRpb24uCgpUaGFua3MgdG8gSnVsaWEgTGF3YWxsIGZv
-ciBDb2NjaW5lbGxlIHNjcmlwdGluZyBzdXBwb3J0LgoKU2lnbmVkLW9mZi1ieTogRmFiaWFuIEZy
-ZWRlcmljayA8ZmFiZkBza3luZXQuYmU+Ci0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNj
-YWxlL2ZzX2VuZXQvZnNfZW5ldC1tYWluLmMgfCA3ICsrLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCAy
-IGluc2VydGlvbnMoKyksIDUgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvZnJlZXNjYWxlL2ZzX2VuZXQvZnNfZW5ldC1tYWluLmMgYi9kcml2ZXJzL25ldC9l
-dGhlcm5ldC9mcmVlc2NhbGUvZnNfZW5ldC9mc19lbmV0LW1haW4uYwppbmRleCA5YjM2MzllLi5j
-NWYyOTlkIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZnNfZW5l
-dC9mc19lbmV0LW1haW4uYworKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZnNf
-ZW5ldC9mc19lbmV0LW1haW4uYwpAQCAtODYsNyArODYsNyBAQCBzdGF0aWMgaW50IGZzX2VuZXRf
-cnhfbmFwaShzdHJ1Y3QgbmFwaV9zdHJ1Y3QgKm5hcGksIGludCBidWRnZXQpCiAJc3RydWN0IG5l
-dF9kZXZpY2UgKmRldiA9IGZlcC0+bmRldjsKIAljb25zdCBzdHJ1Y3QgZnNfcGxhdGZvcm1faW5m
-byAqZnBpID0gZmVwLT5mcGk7CiAJY2JkX3QgX19pb21lbSAqYmRwOwotCXN0cnVjdCBza19idWZm
-ICpza2IsICpza2JuLCAqc2tidDsKKwlzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCAqc2tibjsKIAlpbnQg
-cmVjZWl2ZWQgPSAwOwogCXUxNiBwa3RfbGVuLCBzYzsKIAlpbnQgY3VyaWR4OwpAQCAtMTYxLDEw
-ICsxNjEsNyBAQCBzdGF0aWMgaW50IGZzX2VuZXRfcnhfbmFwaShzdHJ1Y3QgbmFwaV9zdHJ1Y3Qg
-Km5hcGksIGludCBidWRnZXQpCiAJCQkJCXNrYl9yZXNlcnZlKHNrYm4sIDIpOwkvKiBhbGlnbiBJ
-UCBoZWFkZXIgKi8KIAkJCQkJc2tiX2NvcHlfZnJvbV9saW5lYXJfZGF0YShza2IsCiAJCQkJCQkg
-ICAgICBza2JuLT5kYXRhLCBwa3RfbGVuKTsKLQkJCQkJLyogc3dhcCAqLwotCQkJCQlza2J0ID0g
-c2tiOwotCQkJCQlza2IgPSBza2JuOwotCQkJCQlza2JuID0gc2tidDsKKwkJCQkJc3dhcChza2Is
-IHNrYm4pOwogCQkJCX0KIAkJCX0gZWxzZSB7CiAJCQkJc2tibiA9IG5ldGRldl9hbGxvY19za2Io
-ZGV2LCBFTkVUX1JYX0ZSU0laRSk7Ci0tIAoyLjQuMgoKX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBw
-Yy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8v
-bGludXhwcGMtZGV2
+Use kernel.h macro definition.
+
+Thanks to Julia Lawall for Coccinelle scripting support.
+
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ drivers/net/wireless/ath/ath5k/phy.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath5k/phy.c b/drivers/net/wireless/ath/ath5k/phy.c
+index 0fce1c7..ef108a3 100644
+--- a/drivers/net/wireless/ath/ath5k/phy.c
++++ b/drivers/net/wireless/ath/ath5k/phy.c
+@@ -1566,17 +1566,13 @@ static s16
+ ath5k_hw_get_median_noise_floor(struct ath5k_hw *ah)
+ {
+ 	s16 sort[ATH5K_NF_CAL_HIST_MAX];
+-	s16 tmp;
+ 	int i, j;
+ 
+ 	memcpy(sort, ah->ah_nfcal_hist.nfval, sizeof(sort));
+ 	for (i = 0; i < ATH5K_NF_CAL_HIST_MAX - 1; i++) {
+ 		for (j = 1; j < ATH5K_NF_CAL_HIST_MAX - i; j++) {
+-			if (sort[j] > sort[j - 1]) {
+-				tmp = sort[j];
+-				sort[j] = sort[j - 1];
+-				sort[j - 1] = tmp;
+-			}
++			if (sort[j] > sort[j - 1])
++				swap(sort[j], sort[j]);
+ 		}
+ 	}
+ 	for (i = 0; i < ATH5K_NF_CAL_HIST_MAX; i++) {
+-- 
+2.4.2
