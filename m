@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/18] ixgbe: add support for interrupts from X550 external PHY
-Date: Tue,  9 Jun 2015 18:10:20 -0700
-Message-ID: <1433898629-76729-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/18] ixgbe: fix X550 devices init flow
+Date: Tue,  9 Jun 2015 18:10:23 -0700
+Message-ID: <1433898629-76729-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1433898629-76729-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,108 +10,119 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:59836 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933156AbbFJBKt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jun 2015 21:10:49 -0400
+	id S1754139AbbFJBKu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jun 2015 21:10:50 -0400
 In-Reply-To: <1433898629-76729-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Don Skidmore <donald.c.skidmore@intel.com>
 
-This patch adds support for receiving interrupts from a external copper
-PHY for the X550 part.  This includes enabling, detection as well as
-re-enablement.
+Reviewing the X550 copper init flow with the Si team resulted in a
+new simplified flow.  We no longer wait for the PHY FW initialization
+complete bit to be set as this bit is only set once by the PHY at power
+on and then cleared on the first read. So only the first instance of
+running SW (or possibly MAC FW) needs to initialize the PHY.
+
+The PHY initialization has been simplified and now only requires that
+the PHY FW be un-stalled
+low-power mode or enabled the transceiver
 
 Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 32 +++++++++++++++++++++++++++
- 2 files changed, 33 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 68 ++++++++-------------------
+ 1 file changed, 19 insertions(+), 49 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 636f9e3..ac3ac2a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -643,6 +643,7 @@ struct ixgbe_adapter {
- #define IXGBE_FLAG2_RSS_FIELD_IPV4_UDP		(u32)(1 << 8)
- #define IXGBE_FLAG2_RSS_FIELD_IPV6_UDP		(u32)(1 << 9)
- #define IXGBE_FLAG2_PTP_PPS_ENABLED		(u32)(1 << 10)
-+#define IXGBE_FLAG2_PHY_INTERRUPT		(u32)(1 << 11)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index a48134e..ef3d686 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -1516,65 +1516,35 @@ static s32 ixgbe_init_ext_t_x550em(struct ixgbe_hw *hw)
+ {
+ 	s32 status;
+ 	u16 reg;
+-	u32 retries = 2;
  
- 	/* Tx fast path data */
- 	int num_tx_queues;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 30adfb8..1c3477a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -2388,6 +2388,8 @@ static void ixgbe_check_overtemp_subtask(struct ixgbe_adapter *adapter)
+-	do {
+-		/* decrement retries counter and exit if we hit 0 */
+-		if (retries < 1) {
+-			hw_dbg(hw, "External PHY not yet finished resetting.");
+-			return IXGBE_ERR_PHY;
+-		}
+-		retries--;
+-
+-		status = hw->phy.ops.read_reg(hw,
+-					      IXGBE_MDIO_TX_VENDOR_ALARMS_3,
+-					      IXGBE_MDIO_PMA_PMD_DEV_TYPE,
+-					      &reg);
+-		if (status)
+-			return status;
+-
+-		/* Verify PHY FW reset has completed */
+-	} while ((reg & IXGBE_MDIO_TX_VENDOR_ALARMS_3_RST_MASK) != 1);
+-
+-	/* Set port to low power mode */
+-	status = hw->phy.ops.read_reg(hw,
+-				      IXGBE_MDIO_VENDOR_SPECIFIC_1_CONTROL,
+-				      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
+-				      &reg);
+-	if (status)
+-		return status;
+-
+-	/* Enable the transmitter */
+ 	status = hw->phy.ops.read_reg(hw,
+-				      IXGBE_MDIO_PMD_STD_TX_DISABLE_CNTR,
++				      IXGBE_MDIO_TX_VENDOR_ALARMS_3,
+ 				      IXGBE_MDIO_PMA_PMD_DEV_TYPE,
+ 				      &reg);
+ 	if (status)
+ 		return status;
  
- 		break;
- 	default:
-+		if (adapter->hw.mac.type >= ixgbe_mac_X540)
-+			return;
- 		if (!(eicr & IXGBE_EICR_GPI_SDP0(hw)))
- 			return;
- 		break;
-@@ -2572,6 +2574,8 @@ static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter, bool queues,
- 	case ixgbe_mac_X540:
- 	case ixgbe_mac_X550:
- 	case ixgbe_mac_X550EM_x:
-+		if (adapter->hw.phy.type == ixgbe_phy_x550em_ext_t)
-+			mask |= IXGBE_EICR_GPI_SDP0_X540;
- 		mask |= IXGBE_EIMS_ECC;
- 		mask |= IXGBE_EIMS_MAILBOX;
- 		break;
-@@ -2626,6 +2630,13 @@ static irqreturn_t ixgbe_msix_other(int irq, void *data)
- 	case ixgbe_mac_X540:
- 	case ixgbe_mac_X550:
- 	case ixgbe_mac_X550EM_x:
-+		if (hw->phy.type == ixgbe_phy_x550em_ext_t &&
-+		    (eicr & IXGBE_EICR_GPI_SDP0_X540)) {
-+			adapter->flags2 |= IXGBE_FLAG2_PHY_INTERRUPT;
-+			ixgbe_service_event_schedule(adapter);
-+			IXGBE_WRITE_REG(hw, IXGBE_EICR,
-+					IXGBE_EICR_GPI_SDP0_X540);
-+		}
- 		if (eicr & IXGBE_EICR_ECC) {
- 			e_info(link, "Received ECC Err, initiating reset\n");
- 			adapter->flags2 |= IXGBE_FLAG2_RESET_REQUESTED;
-@@ -6733,6 +6744,26 @@ static void ixgbe_service_timer(unsigned long data)
- 	ixgbe_service_event_schedule(adapter);
+-	reg &= ~IXGBE_MDIO_PMD_GLOBAL_TX_DISABLE;
+-
+-	status = hw->phy.ops.write_reg(hw,
+-				       IXGBE_MDIO_PMD_STD_TX_DISABLE_CNTR,
+-				       IXGBE_MDIO_PMA_PMD_DEV_TYPE,
+-				       reg);
+-	if (status)
+-		return status;
++	/* If PHY FW reset completed bit is set then this is the first
++	 * SW instance after a power on so the PHY FW must be un-stalled.
++	 */
++	if (reg & IXGBE_MDIO_TX_VENDOR_ALARMS_3_RST_MASK) {
++		status = hw->phy.ops.read_reg(hw,
++					IXGBE_MDIO_GLOBAL_RES_PR_10,
++					IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
++					&reg);
++		if (status)
++			return status;
+ 
+-	/* Un-stall the PHY FW */
+-	status = hw->phy.ops.read_reg(hw,
+-				      IXGBE_MDIO_GLOBAL_RES_PR_10,
+-				      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
+-				      &reg);
+-	if (status)
+-		return status;
++		reg &= ~IXGBE_MDIO_POWER_UP_STALL;
+ 
+-	reg &= ~IXGBE_MDIO_POWER_UP_STALL;
++		status = hw->phy.ops.write_reg(hw,
++					IXGBE_MDIO_GLOBAL_RES_PR_10,
++					IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
++					reg);
++		if (status)
++			return status;
++	}
+ 
+-	status = hw->phy.ops.write_reg(hw,
+-				       IXGBE_MDIO_GLOBAL_RES_PR_10,
+-				       IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
+-				       reg);
+ 	return status;
  }
  
-+static void ixgbe_phy_interrupt_subtask(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 status;
-+
-+	if (!(adapter->flags2 & IXGBE_FLAG2_PHY_INTERRUPT))
-+		return;
-+
-+	adapter->flags2 &= ~IXGBE_FLAG2_PHY_INTERRUPT;
-+
-+	if (!hw->phy.ops.handle_lasi)
-+		return;
-+
-+	status = hw->phy.ops.handle_lasi(&adapter->hw);
-+	if (status != IXGBE_ERR_OVERTEMP)
-+		return;
-+
-+	e_crit(drv, "%s\n", ixgbe_overheat_msg);
-+}
-+
- static void ixgbe_reset_subtask(struct ixgbe_adapter *adapter)
- {
- 	if (!(adapter->flags2 & IXGBE_FLAG2_RESET_REQUESTED))
-@@ -6774,6 +6805,7 @@ static void ixgbe_service_task(struct work_struct *work)
- 		return;
- 	}
- 	ixgbe_reset_subtask(adapter);
-+	ixgbe_phy_interrupt_subtask(adapter);
- 	ixgbe_sfp_detection_subtask(adapter);
- 	ixgbe_sfp_link_config_subtask(adapter);
- 	ixgbe_check_overtemp_subtask(adapter);
 -- 
 2.4.2
