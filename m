@@ -1,25 +1,65 @@
-From: Colin & Chris Weir <mpalma@amnet.com.ni>
-Subject: DONATION OF $ 1.5 MILLION DOLLARS!!!
-Date: Wed, 10 Jun 2015 01:04:41 -0600 (CST)
-Message-ID: <1578166044.49184.1433919881786.JavaMail.zimbra@amnet.com.ni>
-Reply-To: Colin & Chris Weir <colin_chrisweir33@qq.com>
+From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Subject: RE: [RFC,v3 02/10] dpaa_eth: add support for DPAA Ethernet
+Date: Wed, 10 Jun 2015 07:38:06 +0000
+Message-ID: <BL2PR03MB545CA85B1FE886FCD07DE26E6BD0@BL2PR03MB545.namprd03.prod.outlook.com>
+References: <1430319405-31280-1-git-send-email-madalin.bucur@freescale.com>
+ <DM2PR0301MB086380B3D89425345562F384F3BD0@DM2PR0301MB0863.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Jianhua Xie <Jianhua.Xie@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tigobusiness.com.ni ([165.98.132.14]:36432 "EHLO
-	ni01.newcom.com.ni" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932682AbbFJHhp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 03:37:45 -0400
+Received: from mail-bl2on0106.outbound.protection.outlook.com ([65.55.169.106]:21152
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932708AbbFJHiK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jun 2015 03:38:10 -0400
+In-Reply-To: <DM2PR0301MB086380B3D89425345562F384F3BD0@DM2PR0301MB0863.namprd03.prod.outlook.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-My wife and I have awarded you with a donation of $ 1.5 million Dollars from part of our Jackpot Lottery of 161,653,000 Million Pounds, send your name,address, phone for claims.
-
-View http://www.bbc.co.uk/news/uk-scotland-glasgow-west-18801698
-
-We await your earliest response and God Bless you.
-
-Best of luck.
-Colin & Chris Weir
+SGkgRXJpYywNCg0KQ2FuIHlvdSBwbGVhc2UgdGVsbCB1cyBpZiB0aGlzIGNoYW5nZSB3b3VsZCBi
+ZSBmb3IgdGhlIGJldHRlcj8NCg0KSSB3YXMgYWJvdXQgdG8gc2F5IHllcyB0byB0aGlzIHJlcXVl
+c3QgYnV0IGNoZWNrZWQgYW5kIG5vIG90aGVyIEV0aGVybmV0IGRyaXZlciBzZWVtcyB0byB1c2Ug
+dGhlIHF1ZXVlIHRyYW5zX3N0YXJ0Lg0KSSB3YXMgYWJsZSB0byBmaW5kIHlvdXIgcGF0Y2ggIm5l
+dDogdHggc2NhbGFiaWxpdHkgd29ya3MgOiB0cmFuc19zdGFydCIgWyBodHRwOi8vcGF0Y2h3b3Jr
+Lm96bGFicy5vcmcvcGF0Y2gvMjcxMDQvIF0gYnV0IGRpZCBub3QgZmluZCBtb3JlIGFib3V0IHRo
+aXMgdG9waWMuDQogDQpUaGFuayB5b3UsDQpNYWRhbGluDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNz
+YWdlLS0tLS0NCj4gRnJvbTogWGllIEppYW5odWEtQjI5NDA4DQo+IFNlbnQ6IFdlZG5lc2RheSwg
+SnVuZSAxMCwgMjAxNSA5OjAwIEFNDQo+IFRvOiBCdWN1ciBNYWRhbGluLUNyaXN0aWFuLUIzMjcx
+NjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXhwcGMtDQo+IGRldkBsaXN0cy5vemxhYnMu
+b3JnDQo+IENjOiBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJFOiBb
+UkZDLHYzIDAyLzEwXSBkcGFhX2V0aDogYWRkIHN1cHBvcnQgZm9yIERQQUEgRXRoZXJuZXQNCj4g
+DQo+IA0KPiANCj4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+IEZyb206IExpbnV4
+cHBjLWRldiBbbWFpbHRvOmxpbnV4cHBjLWRldi0NCj4gPiBib3VuY2VzK2ppYW5odWEueGllPWZy
+ZWVzY2FsZS5jb21AbGlzdHMub3psYWJzLm9yZ10gT24gQmVoYWxmIE9mDQo+IE1hZGFsaW4NCj4g
+PiBCdWN1cg0KPiA+IFNlbnQ6IFdlZG5lc2RheSwgQXByaWwgMjksIDIwMTUgMTA6NTcgUE0NCj4g
+PiBUbzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5v
+cmcNCj4gPiBDYzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgQnVjdXIgTWFkYWxpbi1D
+cmlzdGlhbi1CMzI3MTYNCj4gPiBTdWJqZWN0OiBbUkZDLHYzIDAyLzEwXSBkcGFhX2V0aDogYWRk
+IHN1cHBvcnQgZm9yIERQQUEgRXRoZXJuZXQNCj4gPg0KPiA+IFRoaXMgaW50cm9kdWNlcyB0aGUg
+RnJlZXNjYWxlIERhdGEgUGF0aCBBY2NlbGVyYXRpb24gQXJjaGl0ZWN0dXJlDQo+ID4gKERQQUEp
+IEV0aGVybmV0IGRyaXZlciAoZHBhYV9ldGgpIHRoYXQgYnVpbGRzIHVwb24gdGhlIERQQUEgUU1h
+biwNCj4gPiBCTWFuLCBQQU1VIGFuZCBGTWFuIGRyaXZlcnMgdG8gZGVsaXZlciBFdGhlcm5ldCBj
+b25uZWN0aXZpdHkgb24NCj4gPiB0aGUgRnJlZXNjYWxlIERQQUEgUW9ySVEgcGxhdGZvcm1zLg0K
+PiA+DQo+IFNuaXAuLi4uLi4NCj4gDQo+ID4gKw0KPiA+ICsJaWYgKHVubGlrZWx5KGRwYV94bWl0
+KHByaXYsIHBlcmNwdV9zdGF0cywgcXVldWVfbWFwcGluZywgJmZkKSA8IDApKQ0KPiA+ICsJCWdv
+dG8geG1pdF9mYWlsZWQ7DQo+ID4gKw0KPiA+ICsJbmV0X2Rldi0+dHJhbnNfc3RhcnQgPSBqaWZm
+aWVzOw0KPiANCj4gSXQgaXMgcHJvYmFibHkgYmV0dGVyIHRvIHVzZSBuZXRkZXZfcXVldWUtPnRy
+YW5zX3N0YXJ0IHRvIGluc3RlYWQgb2YNCj4gbmV0X2Rldi0+dHJhbnNfc3RhcnQgb24gU01QLg0K
+PiANCj4gQmVzdCBSZWdhcmRzLA0KPiBKaWFuaHVhDQo+IA0KPiA+ICsJcmV0dXJuIE5FVERFVl9U
+WF9PSzsNCj4gPiArDQo+ID4gK3htaXRfZmFpbGVkOg0KPiA+ICsJaWYgKGZkLmNtZCAmIEZNX0ZE
+X0NNRF9GQ08pIHsNCj4gPiArCQkoKmNvdW50cHRyKS0tOw0KPiA+ICsJCWRwYV9mZF9yZWxlYXNl
+KG5ldF9kZXYsICZmZCk7DQo+ID4gKwkJcGVyY3B1X3N0YXRzLT50eF9lcnJvcnMrKzsNCj4gPiAr
+CQlyZXR1cm4gTkVUREVWX1RYX09LOw0KPiA+ICsJfQ0KPiA+ICsJX2RwYV9jbGVhbnVwX3R4X2Zk
+KHByaXYsICZmZCk7DQo+ID4gKwlwZXJjcHVfc3RhdHMtPnR4X2Vycm9ycysrOw0KPiA+ICsJZGV2
+X2tmcmVlX3NrYihza2IpOw0KPiA+ICsJcmV0dXJuIE5FVERFVl9UWF9PSzsNCj4gPiArfQ0KPiA+
+IC0tDQo+ID4gMS43LjExLjcNCj4gPg0KPiA+IF9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fDQo+ID4gTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdA0KPiA+IExp
+bnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnDQo+ID4gaHR0cHM6Ly9saXN0cy5vemxhYnMub3Jn
+L2xpc3RpbmZvL2xpbnV4cHBjLWRldg0K
