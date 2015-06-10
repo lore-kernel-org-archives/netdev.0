@@ -1,95 +1,70 @@
-From: Alexander Popov <alex.popov@linux.com>
-Subject: [PATCH 1/1] net: fs_enet: Disable NETIF_F_SG feature for Freescale MPC5121
-Date: Wed, 10 Jun 2015 02:57:42 +0300
-Message-ID: <1433894262-28900-1-git-send-email-alex.popov@linux.com>
-To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-	Vitaly Bordug <vbordug@ru.mvista.com>,
-	Leroy Christophe <christophe.leroy@c-s.fr>,
-	Alexander Popov <alex.popov@linux.com>,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 99711] New: AX25 ROSE module fails to unload
+Date: Tue, 9 Jun 2015 17:04:13 -0700
+Message-ID: <20150609170413.1b99f6fa@urahara>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f170.google.com ([209.85.216.170]:32904 "EHLO
+	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754067AbbFJAEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2015 20:04:10 -0400
+Received: by qcnj1 with SMTP id j1so11926752qcn.0
+        for <netdev@vger.kernel.org>; Tue, 09 Jun 2015 17:04:10 -0700 (PDT)
+Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
+        by mx.google.com with ESMTPSA id 79sm3411199qkz.30.2015.06.09.17.04.09
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Tue, 09 Jun 2015 17:04:09 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 4fc9b87bae25 ("net: fs_enet: Implement NETIF_F_SG feature")
-brings a trouble to Freescale MPC512x: a kernel oops happens
-during sending non-linear sk_buff with .data not aligned by 4.
 
-Log quotation:
 
-Unable to handle kernel paging request for data at address 0xd067c000
-Faulting instruction address: 0xc000cd44
-Oops: Kernel access of bad area, sig: 11 [#1]
-MPC512x generic
-Modules linked in:
-CPU: 0 PID: 983 Comm: kworker/0:1H Not tainted 4.1.0-rc7-00047-g5879ae5 #1
-Workqueue: rpciod rpc_async_schedule
-task: cf3415b0 ti: cf330000 task.ti: cf330000
-NIP: c000cd44 LR: c000c720 CTR: 0000020d
-REGS: cf331ac0 TRAP: 0300   Not tainted  (4.1.0-rc7-00047-g5879ae5)
-MSR: 00009032 <EE,ME,IR,DR,RI>  CR: 42004082  XER: 00000000
-DAR: d067c000 DSISR: 20000000
-GPR00: c0279d70 cf331b70 cf3415b0 d067c000 0000020d 0000001f 00000001 00000001
-GPR08: 00000000 d067c000 d068019e 00013b36 82002082 00000000 c002e46c cf3405e0
-GPR16: c044cb10 c04b0000 cf331c48 00000000 00000001 fde03164 00000000 0000000c
-GPR24: 00000030 0000419e cf99d6e0 0000000c 00000001 cf873210 00002f99 00000000
-NIP [c000cd44] clean_dcache_range+0x1c/0x30
-LR [c000c720] dma_direct_map_page+0x40/0x94
-Call Trace:
-[cf331b70] [cf99db60] 0xcf99db60 (unreliable)
-[cf331b90] [c0279d70] fs_enet_start_xmit+0x1c8/0x42c
-[cf331bd0] [c02ff660] dev_hard_start_xmit+0x2dc/0x3d4
-[cf331c40] [c0319bb0] sch_direct_xmit+0xcc/0x1cc
-[cf331c70] [c02ff910] __dev_queue_xmit+0x1b8/0x47c
-[cf331ca0] [c032a338] ip_finish_output+0x1fc/0x9a8
-[cf331ce0] [c032c26c] ip_send_skb+0x1c/0xa4
-[cf331cf0] [c035107c] udp_send_skb+0xe4/0x2e8
-[cf331d10] [c03512b8] udp_push_pending_frames+0x38/0x84
-[cf331d20] [c0353708] udp_sendpage+0x134/0x174
-[cf331d70] [c0384f24] xs_sendpages+0x21c/0x250
-[cf331db0] [c038520c] xs_udp_send_request+0x50/0xf8
-[cf331de0] [c0382e58] xprt_transmit+0x64/0x280
-[cf331e20] [c03800cc] call_transmit+0x168/0x234
-[cf331e40] [c0387868] __rpc_execute+0x88/0x2b0
-[cf331e80] [c00296f8] process_one_work+0x124/0x2fc
-[cf331ea0] [c0029a00] worker_thread+0x130/0x480
-[cf331ef0] [c002e528] kthread+0xbc/0xd0
-[cf331f40] [c000e4a8] ret_from_kernel_thread+0x5c/0x64
-Instruction dump:
-7c70faa6 60630800 7c70fba6 4c00012c 4e800020 38a0001f 7c632878 7c832050
-7c842a14 5484d97f 4d820020 7c8903a6 <7c00186c> 38630020 4200fff8 7c0004ac
----[ end trace 08fef9a8ee013f63 ]---
+Begin forwarded message:
 
-The reason:
+Date: Tue, 9 Jun 2015 11:58:56 +0000
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+Subject: [Bug 99711] New: AX25 ROSE module fails to unload
 
-MPC5121 FEC requires 4-byte alignment for TX data buffer and calls
-tx_skb_align_workaround() for copying sk_buff with not aligned .data to a new
-sk_buff with aligned one. But tx_skb_align_workaround() uses
-skb_copy_from_linear_data() which doesn't work well for non-linear sk_buff:
-a new sk_buff has non-zero nr_frags and zero .data_len.
 
-So disabling NETIF_F_SG for Freescale MPC5121 might be better than handling
-improper alignment for sk_buff.data and all the fragments.
+https://bugzilla.kernel.org/show_bug.cgi?id=99711
 
-Signed-off-by: Alexander Popov <alex.popov@linux.com>
----
- drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c | 2 ++
- 1 file changed, 2 insertions(+)
+            Bug ID: 99711
+           Summary: AX25 ROSE module fails to unload
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 2.6,3.x,4.x
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+          Assignee: shemminger@linux-foundation.org
+          Reporter: richard@rns-stearn.demon.co.uk
+        Regression: No
 
-diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-index 9b3639e..1450477 100644
---- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-@@ -1040,7 +1040,9 @@ static int fs_enet_probe(struct platform_device *ofdev)
- 
- 	netif_carrier_off(ndev);
- 
-+#ifndef CONFIG_FS_ENET_MPC5121_FEC
- 	ndev->features |= NETIF_F_SG;
-+#endif
- 
- 	ret = register_netdev(ndev);
- 	if (ret)
+Created attachment 179241
+  --> https://bugzilla.kernel.org/attachment.cgi?id=179241&action=edit
+Adding usage count and socket locking to ROSE module.
+
+The ROSE kernel module fails to unload as the usage count is non-zero.
+
+To reproduce:
+  Requires AX25 and ROSE modules to be built
+  AX25 library, tools and applications to be installed
+  Configure a ROSE interface
+  Send at least one packet over the interface
+  Tear down the ROSE link
+  The ROSE module will fail to unload with a random number in the device usage
+count.
+  Requires a reboot to remove the module.
+
 -- 
-1.9.1
+You are receiving this mail because:
+You are the assignee for the bug.
