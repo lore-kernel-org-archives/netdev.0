@@ -1,58 +1,62 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] iwlwifi:dvm:Return false if resume command data is not
- same size as received packet for the function iwl_resume_status_fn
-Date: Wed, 10 Jun 2015 16:50:45 +0000
-Message-ID: <1433955045.20602.2.camel@intel.com>
-References: <1433954031-7176-1-git-send-email-xerofoify@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Spinadel, David" <david.spinadel-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Coelho, Luciano" <luciano.coelho-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"eliad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org" <eliad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
-	"Berg, Johannes" <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1433954031-7176-1-git-send-email-xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Content-Language: en-US
-Content-ID: <FF53C61BBABE8C41A6C7E4B9375D3EA7-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Gustavo Zacarias <gustavo@zacarias.com.ar>
+Subject: [PATCH net-next] net: phy: davicom: add IDs for DM9161B and C variants
+Date: Wed, 10 Jun 2015 13:48:20 -0300
+Message-ID: <1433954900-25419-1-git-send-email-gustavo@zacarias.com.ar>
+Cc: Gustavo Zacarias <gustavo@zacarias.com.ar>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.zacarias.com.ar ([176.9.42.171]:46311 "EHLO
+	www.zacarias.com.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965511AbbFJQxe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 12:53:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDE1LTA2LTEwIGF0IDEyOjMzIC0wNDAwLCBOaWNob2xhcyBLcmF1c2Ugd3JvdGU6
-DQo+IFRoaXMgbWFrZXMgdGhlIGZ1bmN0aW9uIGl3bF9yZXN1bWVfc3RhdHVzX2ZuIHJldHVybiBm
-YWxzZSBub3cgaWYNCj4gdGhlIHJlY2VpdmVkIHBhY2tldCBvZiB0eXBlIGl3bF9yeF9wYWNrZXQg
-aXMgbm90IHRoZSBzYW1lIHNpemUNCj4gYXMgdGhlIHN0cnVjdHVyZSBwb2ludGVyLCBpd2xfcmVz
-dW1lX2RhdGEncyBjbWQgZWxlbWVudCBpbiBvcmRlcg0KPiB0byBzaWduYWwgY2FsbGVycyBhYm91
-dCB0aGlzIGVycm9yIGFuZCBhbGxvdyB0aGVtIHRvIGhhbmRsZSBpdA0KPiBvY2N1cnJlbnRseS4N
-Cj4gDQoNCkhtLi4uIERpZCB5b3UgYWN0dWFsbHkgaGl0IHRoaXMgaWY/DQpJIGFtIG5vdCBzdXJl
-IEkgcmVhbGx5IHdhbnQgdG8gd2FpdCBoZXJlICh3aGljaCBpcyB3aGF0IHdpbGwgaGFwcGVuIGlm
-DQp5b3UgcmV0dXJuIGZhbHNlKSB3aGVuIHdlIGdldCBhbiB1bmV4cGVjdGVkIGxlbmd0aD8gSSBk
-byBub3QgZXhwZWN0DQphbnl0aGluZyBiZXNpZGVzIHRoZSByZXNwb25zZSBJIGFtIHdhaXRpbmcg
-Zm9yIHNpbmNlIHRoZSBmaXJtd2FyZSBpcw0KaGFuZGxpbmcgdGhlIEdFVF9TVEFUVVMgKm9ubHkq
-IC0gaXQganVzdCBjYW1lIGJhY2sgZnJvbSBXb1dMQU4uIEJvdHRvbQ0KbGluZSwgdGhpcyBpcyBy
-ZWFsbHkgYW4gZXJyb3IgcGF0aCBhbmQgSSBwcmVmZXIgdG8gZXhpdCBhbmQgbm90IHdhaXQgZm9y
-DQp0aGUgdGltZW91dCBpbiB0aGF0IGNhc2UuDQpCdXQgSSBtaWdodCBiZSBtaXNzaW5nIHNvbWV0
-aGluZz8NCg0KPiBTaWduZWQtb2ZmLWJ5OiBOaWNob2xhcyBLcmF1c2UgPHhlcm9mb2lmeUBnbWFp
-bC5jb20+DQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9kdm0vbWFjODAy
-MTEuYyB8IDIgKy0NCj4gIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlv
-bigtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2l3bHdpZmkvZHZt
-L21hYzgwMjExLmMgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL2R2bS9tYWM4MDIxMS5j
-DQo+IGluZGV4IDVhYmQ2MmUuLjIxZTgwOGMgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L3dp
-cmVsZXNzL2l3bHdpZmkvZHZtL21hYzgwMjExLmMNCj4gKysrIGIvZHJpdmVycy9uZXQvd2lyZWxl
-c3MvaXdsd2lmaS9kdm0vbWFjODAyMTEuYw0KPiBAQCAtNDA5LDcgKzQwOSw3IEBAIHN0YXRpYyBi
-b29sIGl3bF9yZXN1bWVfc3RhdHVzX2ZuKHN0cnVjdCBpd2xfbm90aWZfd2FpdF9kYXRhICpub3Rp
-Zl93YWl0LA0KPiAgDQo+ICAJaWYgKGl3bF9yeF9wYWNrZXRfcGF5bG9hZF9sZW4ocGt0KSAhPSBz
-aXplb2YoKnJlc3VtZV9kYXRhLT5jbWQpKSB7DQo+ICAJCUlXTF9FUlIocHJpdiwgInJ4IHdyb25n
-IHNpemUgZGF0YVxuIik7DQo+IC0JCXJldHVybiB0cnVlOw0KPiArCQlyZXR1cm4gZmFsc2U7DQo+
-ICAJfQ0KPiAgCW1lbWNweShyZXN1bWVfZGF0YS0+Y21kLCBwa3QtPmRhdGEsIHNpemVvZigqcmVz
-dW1lX2RhdGEtPmNtZCkpOw0KPiAgCXJlc3VtZV9kYXRhLT52YWxpZCA9IHRydWU7DQoNCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Add PHY IDs for Davicom DM9161B and DM9161C variants.
+Tested with a DM9161C on a custom Atmel-based SAM9X25 board in RMII
+mode.
+
+The DM9161B uses the same model id with just the LSB bit of the version
+id changing (which is masked out).
+
+For all intents and purposes they're the same as the DM9161A with an
+added GPSI mode and better fabrication process.
+
+Signed-off-by: Gustavo Zacarias <gustavo@zacarias.com.ar>
+---
+ drivers/net/phy/davicom.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/drivers/net/phy/davicom.c b/drivers/net/phy/davicom.c
+index 0d16c7d..2a32870 100644
+--- a/drivers/net/phy/davicom.c
++++ b/drivers/net/phy/davicom.c
+@@ -158,6 +158,18 @@ static struct phy_driver dm91xx_driver[] = {
+ 	.config_intr	= dm9161_config_intr,
+ 	.driver		= { .owner = THIS_MODULE,},
+ }, {
++	.phy_id		= 0x0181b8b0,
++	.name		= "Davicom DM9161B/C",
++	.phy_id_mask	= 0x0ffffff0,
++	.features	= PHY_BASIC_FEATURES,
++	.flags		= PHY_HAS_INTERRUPT,
++	.config_init	= dm9161_config_init,
++	.config_aneg	= dm9161_config_aneg,
++	.read_status	= genphy_read_status,
++	.ack_interrupt	= dm9161_ack_interrupt,
++	.config_intr	= dm9161_config_intr,
++	.driver		= { .owner = THIS_MODULE,},
++}, {
+ 	.phy_id		= 0x0181b8a0,
+ 	.name		= "Davicom DM9161A",
+ 	.phy_id_mask	= 0x0ffffff0,
+@@ -186,6 +198,7 @@ module_phy_driver(dm91xx_driver);
+ 
+ static struct mdio_device_id __maybe_unused davicom_tbl[] = {
+ 	{ 0x0181b880, 0x0ffffff0 },
++	{ 0x0181b8b0, 0x0ffffff0 },
+ 	{ 0x0181b8a0, 0x0ffffff0 },
+ 	{ 0x00181b80, 0x0ffffff0 },
+ 	{ }
+-- 
+2.3.6
