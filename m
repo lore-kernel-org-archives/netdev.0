@@ -1,66 +1,62 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/18][pull request] Intel Wired LAN Driver Updates 2015-06-09
-Date: Tue,  9 Jun 2015 18:10:11 -0700
-Message-ID: <1433898629-76729-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 02/18] ixgbe: add support for WoL and autoneg FC for some X550 devices
+Date: Tue,  9 Jun 2015 18:10:13 -0700
+Message-ID: <1433898629-76729-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1433898629-76729-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:59836 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932532AbbFJBKb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jun 2015 21:10:31 -0400
+	id S1753914AbbFJBKc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jun 2015 21:10:32 -0400
+In-Reply-To: <1433898629-76729-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe only.
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-The series adds additional support for x550 support, such as WoL and
-auto-negotiation of flow control.  Adds new PHY support (external PHY)
-for x550, as well as the new methods/functions needed to support the new
-PHY's.  Fixed a bug found in code inspection, where a check was missed
-when clearing counters for x550.  Also fixed the init code flow for copper
-x550 devices.
+These Device ID could support both WoL and autoneg flow control. In
+the case of WoL this is indicated by the eeprom.  This patch enables
+these devices this support.
 
-The following are changes since commit 6651ee070b3124fe9b9db383e3a895a0e4aded65:
-  s390/bpf: implement bpf_tail_call() helper
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 2 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 4 ++++
+ 2 files changed, 6 insertions(+)
 
-Don Skidmore (18):
-  ixgbe: add array of MAC type dependent values
-  ixgbe: add support for WoL and autoneg FC for some X550 devices
-  ixgbe: add define for X557 PHY ID
-  ixgbe: Add a PHY power state method
-  ixgbe: Restore ESDP settings after MAC reset
-  ixgbe: add X550 support for external PHY and forced 1G/10G support
-  ixgbe: Add reset for X550 device
-  ixgbe: Add const string for overheat message
-  ixgbe: add support for interrupts from X550 external PHY
-  ixgbe: fix issue with sfp events with new X550 devices
-  ixgbe: fix bug in not clearing counters for X550 devices
-  ixgbe: fix X550 devices init flow
-  ixgbe: fix X550 PHY function pointers
-  ixgbe: Add support for another X550 device.
-  ixgbe: add link check for X550 copper
-  ixgbe: Set lan_id before using I2C
-  ixgbe: fix X550 default set_phy_power method
-  ixgbe: Remember to write ixfi changes after modifying
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |   3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |   7 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  |  63 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  |   2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   7 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 154 +++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |  87 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h     |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    | 272 ++++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c    |  42 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c    | 810 ++++++++++++++++-------
- 12 files changed, 1044 insertions(+), 405 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 13a6fe05..21e5ae3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -96,6 +96,8 @@ bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
+ 		case IXGBE_DEV_ID_82599_T3_LOM:
+ 		case IXGBE_DEV_ID_X540T:
+ 		case IXGBE_DEV_ID_X540T1:
++		case IXGBE_DEV_ID_X550T:
++		case IXGBE_DEV_ID_X550EM_X_10G_T:
+ 			supported = true;
+ 			break;
+ 		default:
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index fb2ccc3..58998d5 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -8295,6 +8295,10 @@ int ixgbe_wol_supported(struct ixgbe_adapter *adapter, u16 device_id,
+ 		break;
+ 	case IXGBE_DEV_ID_X540T:
+ 	case IXGBE_DEV_ID_X540T1:
++	case IXGBE_DEV_ID_X550T:
++	case IXGBE_DEV_ID_X550EM_X_KX4:
++	case IXGBE_DEV_ID_X550EM_X_KR:
++	case IXGBE_DEV_ID_X550EM_X_10G_T:
+ 		/* check eeprom to see if enabled wol */
+ 		if ((wol_cap == IXGBE_DEVICE_CAPS_WOL_PORT0_1) ||
+ 		    ((wol_cap == IXGBE_DEVICE_CAPS_WOL_PORT0) &&
 -- 
 2.4.2
