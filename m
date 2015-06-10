@@ -1,48 +1,90 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 01/19] bna: use ether_addr_copy instead of
- memcpy
-Date: Wed, 10 Jun 2015 10:57:13 -0700
-Message-ID: <1433959033.32331.16.camel@perches.com>
-References: <1433954605-22813-1-git-send-email-ivecera@redhat.com>
-	 <1433954605-22813-2-git-send-email-ivecera@redhat.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [RFC 00/10] NFS: add AF_VSOCK support to NFS client
+Date: Wed, 10 Jun 2015 14:09:26 -0400
+Message-ID: <20150610180926.GC8922@fieldses.org>
+References: <1433436353-6761-1-git-send-email-stefanha@redhat.com>
+ <20150608210247.GB27887@fieldses.org>
+ <20150610164315.GD17294@stefanha-thinkpad.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rasesh.mody@qlogic.com
-To: Ivan Vecera <ivecera@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-nfs@vger.kernel.org,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	asias.hejun@gmail.com, netdev@vger.kernel.org,
+	Daniel Berrange <berrange@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Stefan Hajnoczi <stefanha@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0027.hostedemail.com ([216.40.44.27]:35477 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754314AbbFJR5Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 13:57:16 -0400
-In-Reply-To: <1433954605-22813-2-git-send-email-ivecera@redhat.com>
+Received: from fieldses.org ([173.255.197.46]:42334 "EHLO fieldses.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754422AbbFJSJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jun 2015 14:09:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20150610164315.GD17294@stefanha-thinkpad.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-06-10 at 18:43 +0200, Ivan Vecera wrote:
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+On Wed, Jun 10, 2015 at 05:43:15PM +0100, Stefan Hajnoczi wrote:
+> On Mon, Jun 08, 2015 at 05:02:47PM -0400, J. Bruce Fields wrote:
+> > On Thu, Jun 04, 2015 at 05:45:43PM +0100, Stefan Hajnoczi wrote:
+> > > The approach in this series
+> > > ---------------------------
+> > > AF_VSOCK stream sockets can be used for NFSv4.1 much in the same way as TCP.
+> > > RFC 1831 record fragments divide messages since SOCK_STREAM semantics are
+> > > present.  The backchannel shares the connection just like the default TCP
+> > > configuration.
+> > 
+> > So the NFSv4 backchannel isn't handled for now, I assume.
+> 
+> Right, I did not touch nfs4_callback_up_net(), only
+> nfs41_callback_up_net().
+> 
+> If I'm reading the code right NFSv4 uses a separate listen port for the
+> backchannel instead of sharing the client's socket?
 
-Have you verified that all of these are __aligned(2)?
+Right.
 
-I haven't, but you should verify that you have in the
-commit log.
+> This is possible to implement with AF_VSOCK but I have only tested
+> NFSv4.1 so far.  Should I go ahead and do this?
 
-btw: this use looks odd to me:
+Personally I'd make it a lower priority--I don't see why you can't make
+4.1 a requirement for the new transport--but I'd be curious what others
+have to say.
 
-static int
-bnad_set_mac_address(struct net_device *netdev, void *mac_addr)
-{
-	int err;
-	struct bnad *bnad = netdev_priv(netdev);
-	struct sockaddr *sa = (struct sockaddr *)mac_addr;
-	unsigned long flags;
+> > And I guess
+> > NFSv2/v3 is out too thanks to rpcbind?  Which maybe is fine.
+> 
+> Yes, I ignored rpcbind and didn't test NFSv2/v3.
+> 
+> > Do we need an IETF draft or similar to document how NFS should work over
+> > AF_VSOCK?
+> 
+> I am not familiar with the standards process but I came across a few
+> places where it makes sense to have a standard:
+> 
+>  * SUNRPC netid for AF_VSOCK (currently "tcp", "udp", and others exist)
+>  * The uaddr string format ("vsock:...")
 
-	spin_lock_irqsave(&bnad->bna_lock, flags);
+Off the top of my head I can't remember where else that's used in the
+protocol other than in setting up the 4.0 callback connection (and in
+rpcbind).
 
-	err = bnad_mac_addr_set_locked(bnad, sa->sa_data);
+>  * Use of RFC 1831 record fragments (just like TCP) over AF_VSOCK
+>    SOCK_STREAM sockets
 
-as it casts what seems to be a mac address to a
-sockaddr and uses a different offset for sa->sa_data
-than the mac_addr passed.
+As far as I can tell, 1831 claims to be independent of any transport
+protocol details: "The RPC protocol can be implemented on several
+different transport protocols.  The RPC protocol does not care how a
+message is passed from one process to another, but only with
+specification and interpretation of messages."  And: "When RPC messages
+are passed on top of a byte stream transport protocol (like TCP)"....
+So perhaps there's nothing more to say here.
 
-and the mac_addr as it's void doesn't need a cast.
+> These are all at the SUNRPC level rather than at the NFS protocol level.
+> 
+> Any idea who I need to talk to?
+
+Anyay, if there is anything to be worked out, nfsv4@ietf.org is the
+place to go.
+
+--b.
