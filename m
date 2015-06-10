@@ -1,94 +1,204 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/18] ixgbe: Add support for another X550 device.
-Date: Tue,  9 Jun 2015 18:10:25 -0700
-Message-ID: <1433898629-76729-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/18] ixgbe: Add a PHY power state method
+Date: Tue,  9 Jun 2015 18:10:15 -0700
+Message-ID: <1433898629-76729-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1433898629-76729-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:56324 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:10750 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933172AbbFJBKw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jun 2015 21:10:52 -0400
+	id S1754135AbbFJBKf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jun 2015 21:10:35 -0400
 In-Reply-To: <1433898629-76729-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Don Skidmore <donald.c.skidmore@intel.com>
 
-This patch adds support for another 10baseT X550 device.
+This new method will control the PHY power state.  You pass in the
+state you wish to change to (ether on or off).  For cases where this
+method is not used the current PHY power state behavior is maintained.
 
 Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c  | 1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h | 1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 7 +++++++
- 4 files changed, 10 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 15 ++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c   | 33 ++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h   |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |  3 +++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c  |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c  |  1 +
+ 7 files changed, 55 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index 3f63065..65db69b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -1225,7 +1225,7 @@ static struct ixgbe_phy_operations phy_ops_82598 = {
+ 	.setup_link_speed	= &ixgbe_setup_phy_link_speed_generic,
+ 	.read_i2c_sff8472	= &ixgbe_read_i2c_sff8472_82598,
+ 	.read_i2c_eeprom	= &ixgbe_read_i2c_eeprom_82598,
+-	.check_overtemp   = &ixgbe_tn_check_overtemp,
++	.check_overtemp		= &ixgbe_tn_check_overtemp,
+ };
+ 
+ struct ixgbe_info ixgbe_82598_info = {
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 4b681c4..3bf2f3c 100644
+index 58998d5..1b2bdbf 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -133,6 +133,7 @@ static const struct pci_device_id ixgbe_pci_tbl[] = {
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550T), board_X550},
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_X_KX4), board_X550EM_x},
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_X_KR), board_X550EM_x},
-+	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_X_10G_T), board_X550EM_x},
- 	/* required last entry */
- 	{0, }
- };
+@@ -4877,6 +4877,9 @@ static void ixgbe_up_complete(struct ixgbe_adapter *adapter)
+ 	if (hw->mac.ops.enable_tx_laser)
+ 		hw->mac.ops.enable_tx_laser(hw);
+ 
++	if (hw->phy.ops.set_phy_power)
++		hw->phy.ops.set_phy_power(hw, true);
++
+ 	smp_mb__before_atomic();
+ 	clear_bit(__IXGBE_DOWN, &adapter->state);
+ 	ixgbe_napi_enable_all(adapter);
+@@ -4996,6 +4999,13 @@ void ixgbe_reset(struct ixgbe_adapter *adapter)
+ 
+ 	if (test_bit(__IXGBE_PTP_RUNNING, &adapter->state))
+ 		ixgbe_ptp_reset(adapter);
++
++	if (hw->phy.ops.set_phy_power) {
++		if (!netif_running(adapter->netdev) && !adapter->wol)
++			hw->phy.ops.set_phy_power(hw, false);
++		else
++			hw->phy.ops.set_phy_power(hw, true);
++	}
+ }
+ 
+ /**
+@@ -5676,6 +5686,7 @@ static int ixgbe_change_mtu(struct net_device *netdev, int new_mtu)
+ static int ixgbe_open(struct net_device *netdev)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	struct ixgbe_hw *hw = &adapter->hw;
+ 	int err, queues;
+ 
+ 	/* disallow open during test */
+@@ -5733,6 +5744,8 @@ err_set_queues:
+ 	ixgbe_free_irq(adapter);
+ err_req_irq:
+ 	ixgbe_free_all_rx_resources(adapter);
++	if (hw->phy.ops.set_phy_power && !adapter->wol)
++		hw->phy.ops.set_phy_power(&adapter->hw, false);
+ err_setup_rx:
+ 	ixgbe_free_all_tx_resources(adapter);
+ err_setup_tx:
+@@ -5893,6 +5906,8 @@ static int __ixgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
+ 	}
+ 
+ 	*enable_wake = !!wufc;
++	if (hw->phy.ops.set_phy_power && !*enable_wake)
++		hw->phy.ops.set_phy_power(hw, false);
+ 
+ 	ixgbe_release_hw_control(adapter);
+ 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index 22646c3..ac6c0af 100644
+index 47ac0bc..22646c3 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -347,6 +347,7 @@ static enum ixgbe_phy_type ixgbe_get_phy_type_from_id(u32 phy_id)
- 	case TN1010_PHY_ID:
- 		phy_type = ixgbe_phy_tn;
- 		break;
-+	case X550_PHY_ID:
- 	case X540_PHY_ID:
- 		phy_type = ixgbe_phy_aq;
- 		break;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index b9eee32..b6f424f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -1353,6 +1353,7 @@ struct ixgbe_thermal_sensor_data {
- #define TN1010_PHY_ID    0x00A19410
- #define TNX_FW_REV       0xB
- #define X540_PHY_ID      0x01540200
-+#define X550_PHY_ID      0x01540220
- #define X557_PHY_ID      0x01540240
- #define QT2022_PHY_ID    0x0043A400
- #define ATH_PHY_ID       0x03429050
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index fee3d07..886bef5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -1561,6 +1561,7 @@ static s32 ixgbe_reset_hw_X550em(struct ixgbe_hw *hw)
- 	s32 status;
- 	u32 ctrl = 0;
- 	u32 i;
-+	u32 hlreg0;
- 	bool link_up = false;
+@@ -2140,3 +2140,36 @@ s32 ixgbe_tn_check_overtemp(struct ixgbe_hw *hw)
  
- 	/* Call adapter stop to disable Tx/Rx and clear interrupts */
-@@ -1645,6 +1646,12 @@ mac_reset_top:
- 	hw->mac.num_rar_entries = 128;
- 	hw->mac.ops.init_rx_addrs(hw);
- 
-+	if (hw->device_id == IXGBE_DEV_ID_X550EM_X_10G_T) {
-+		hlreg0 = IXGBE_READ_REG(hw, IXGBE_HLREG0);
-+		hlreg0 &= ~IXGBE_HLREG0_MDCSPD;
-+		IXGBE_WRITE_REG(hw, IXGBE_HLREG0, hlreg0);
+ 	return IXGBE_ERR_OVERTEMP;
+ }
++
++/** ixgbe_set_copper_phy_power - Control power for copper phy
++ *  @hw: pointer to hardware structure
++ *  @on: true for on, false for off
++ **/
++s32 ixgbe_set_copper_phy_power(struct ixgbe_hw *hw, bool on)
++{
++	u32 status;
++	u16 reg;
++
++	/* Bail if we don't have copper phy */
++	if (hw->mac.ops.get_media_type(hw) != ixgbe_media_type_copper)
++		return 0;
++
++	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_VENDOR_SPECIFIC_1_CONTROL,
++				      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
++				      &reg);
++	if (status)
++		return status;
++
++	if (on) {
++		reg &= ~IXGBE_MDIO_PHY_SET_LOW_POWER_MODE;
++	} else {
++		if (ixgbe_check_reset_blocked(hw))
++			return 0;
++		reg |= IXGBE_MDIO_PHY_SET_LOW_POWER_MODE;
 +	}
 +
- 	if (hw->device_id == IXGBE_DEV_ID_X550EM_X_SFP)
- 		ixgbe_setup_mux_ctl(hw);
++	status = hw->phy.ops.write_reg(hw, IXGBE_MDIO_VENDOR_SPECIFIC_1_CONTROL,
++				       IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
++				       reg);
++	return status;
++}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+index 4346438..e45988c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+@@ -145,6 +145,7 @@ s32 ixgbe_get_phy_firmware_version_generic(struct ixgbe_hw *hw,
+ 					   u16 *firmware_version);
  
+ s32 ixgbe_reset_phy_nl(struct ixgbe_hw *hw);
++s32 ixgbe_set_copper_phy_power(struct ixgbe_hw *hw, bool on);
+ s32 ixgbe_identify_module_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_get_sfp_init_sequence_offsets(struct ixgbe_hw *hw,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 560a2b4..77d1118 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -1309,6 +1309,8 @@ struct ixgbe_thermal_sensor_data {
+ #define IXGBE_MDIO_AUTO_NEG_LP		0x13 /* AUTO_NEG LP Status Reg */
+ #define IXGBE_MDIO_AUTO_NEG_EEE_ADVT	0x3C /* AUTO_NEG EEE Advt Reg */
+ 
++#define IXGBE_MDIO_PHY_SET_LOW_POWER_MODE	 0x0800 /* Set low power mode */
++
+ #define IXGBE_MDIO_TX_VENDOR_ALARMS_3	0xCC02 /* Vendor Alarms 3 Reg */
+ #define IXGBE_MDIO_TX_VENDOR_ALARMS_3_RST_MASK 0x3 /* PHY Reset Complete Mask */
+ #define IXGBE_MDIO_GLOBAL_RES_PR_10 0xC479 /* Global Resv Provisioning 10 Reg */
+@@ -3277,6 +3279,7 @@ struct ixgbe_phy_operations {
+ 	s32 (*read_i2c_combined)(struct ixgbe_hw *, u8 addr, u16 reg, u16 *val);
+ 	s32 (*write_i2c_combined)(struct ixgbe_hw *, u8 addr, u16 reg, u16 val);
+ 	s32 (*check_overtemp)(struct ixgbe_hw *);
++	s32 (*set_phy_power)(struct ixgbe_hw *, bool on);
+ };
+ 
+ struct ixgbe_eeprom_info {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+index 12ce50d..032a587 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+@@ -850,6 +850,7 @@ static struct ixgbe_phy_operations phy_ops_X540 = {
+ 	.read_i2c_eeprom        = &ixgbe_read_i2c_eeprom_generic,
+ 	.write_i2c_eeprom       = &ixgbe_write_i2c_eeprom_generic,
+ 	.check_overtemp         = &ixgbe_tn_check_overtemp,
++	.set_phy_power          = &ixgbe_set_copper_phy_power,
+ 	.get_firmware_version   = &ixgbe_get_phy_firmware_version_generic,
+ };
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index aaf5d1a..f78cac8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -1530,6 +1530,7 @@ static struct ixgbe_phy_operations phy_ops_X550 = {
+ 	.setup_link		= &ixgbe_setup_phy_link_generic,
+ 	.read_i2c_combined	= &ixgbe_read_i2c_combined_generic,
+ 	.write_i2c_combined	= &ixgbe_write_i2c_combined_generic,
++	.set_phy_power		= &ixgbe_set_copper_phy_power,
+ };
+ 
+ static struct ixgbe_phy_operations phy_ops_X550EM_x = {
 -- 
 2.4.2
