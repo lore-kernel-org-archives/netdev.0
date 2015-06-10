@@ -1,110 +1,160 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: [PATCH net-next] net/unix: support SCM_SECURITY for stream sockets
-Date: Wed, 10 Jun 2015 08:44:59 -0400
-Message-ID: <1433940299-6207-1-git-send-email-sds@tycho.nsa.gov>
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	paul@paul-moore.com, Stephen Smalley <sds@tycho.nsa.gov>
-To: davem@davemloft.net
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Sender: linux-security-module-owner@vger.kernel.org
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: pull-request: mac80211-next 2015-06-10
+Date: Wed, 10 Jun 2015 15:09:12 +0200
+Message-ID: <1433941752.3145.10.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-SCM_SECURITY was originally only implemented for datagram sockets,
-not for stream sockets.  However, SCM_CREDENTIALS is supported on
-Unix stream sockets.  For consistency, implement Unix stream support
-for SCM_SECURITY as well.  Also clean up the existing code and get
-rid of the superfluous UNIXSID macro.
+Hi Dave,
 
-Motivated by https://bugzilla.redhat.com/show_bug.cgi?id=1224211,
-where systemd was using SCM_CREDENTIALS and assumed wrongly that
-SCM_SECURITY was also supported on Unix stream sockets.
+For -next, I have another set of changes, mostly small fixes for there
+and a few cleanups. Kalle and I also decided to put in a big API change
+that I'd been planning for a while and that required modifying all the
+drivers, for that I pulled in your net-next tree before (re-)applying
+that patch. Therefore, you shouldn't run into any conflicts now; without
+that at least the new mediatek driver wouldn't have built.
 
-Signed-off-by: Stephen Smalley <sds@tycho.nsa.gov>
-Acked-by: Paul Moore <paul@paul-moore.com>
----
- include/net/af_unix.h |  1 -
- net/unix/af_unix.c    | 20 ++++++++++++++++----
- 2 files changed, 16 insertions(+), 5 deletions(-)
+Let me know if there are any issues.
 
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index a175ba4..4a167b3 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -39,7 +39,6 @@ struct unix_skb_parms {
- };
- 
- #define UNIXCB(skb) 	(*(struct unix_skb_parms *)&((skb)->cb))
--#define UNIXSID(skb)	(&UNIXCB((skb)).secid)
- 
- #define unix_state_lock(s)	spin_lock(&unix_sk(s)->lock)
- #define unix_state_unlock(s)	spin_unlock(&unix_sk(s)->lock)
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index f25e167..03ee4d3 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -140,12 +140,17 @@ static struct hlist_head *unix_sockets_unbound(void *addr)
- #ifdef CONFIG_SECURITY_NETWORK
- static void unix_get_secdata(struct scm_cookie *scm, struct sk_buff *skb)
- {
--	memcpy(UNIXSID(skb), &scm->secid, sizeof(u32));
-+	UNIXCB(skb).secid = scm->secid;
- }
- 
- static inline void unix_set_secdata(struct scm_cookie *scm, struct sk_buff *skb)
- {
--	scm->secid = *UNIXSID(skb);
-+	scm->secid = UNIXCB(skb).secid;
-+}
-+
-+static inline bool unix_secdata_eq(struct scm_cookie *scm, struct sk_buff *skb)
-+{
-+	return (scm->secid == UNIXCB(skb).secid);
- }
- #else
- static inline void unix_get_secdata(struct scm_cookie *scm, struct sk_buff *skb)
-@@ -153,6 +158,11 @@ static inline void unix_get_secdata(struct scm_cookie *scm, struct sk_buff *skb)
- 
- static inline void unix_set_secdata(struct scm_cookie *scm, struct sk_buff *skb)
- { }
-+
-+static inline bool unix_secdata_eq(struct scm_cookie *scm, struct sk_buff *skb)
-+{
-+	return true;
-+}
- #endif /* CONFIG_SECURITY_NETWORK */
- 
- /*
-@@ -1414,6 +1424,7 @@ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool sen
- 	UNIXCB(skb).uid = scm->creds.uid;
- 	UNIXCB(skb).gid = scm->creds.gid;
- 	UNIXCB(skb).fp = NULL;
-+	unix_get_secdata(scm, skb);
- 	if (scm->fp && send_fds)
- 		err = unix_attach_fds(scm, skb);
- 
-@@ -1509,7 +1520,6 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
- 	if (err < 0)
- 		goto out_free;
- 	max_level = err + 1;
--	unix_get_secdata(&scm, skb);
- 
- 	skb_put(skb, len - data_len);
- 	skb->data_len = data_len;
-@@ -2118,11 +2128,13 @@ unlock:
- 			/* Never glue messages from different writers */
- 			if ((UNIXCB(skb).pid  != scm.pid) ||
- 			    !uid_eq(UNIXCB(skb).uid, scm.creds.uid) ||
--			    !gid_eq(UNIXCB(skb).gid, scm.creds.gid))
-+			    !gid_eq(UNIXCB(skb).gid, scm.creds.gid) ||
-+			    !unix_secdata_eq(&scm, skb))
- 				break;
- 		} else if (test_bit(SOCK_PASSCRED, &sock->flags)) {
- 			/* Copy credentials */
- 			scm_set_cred(&scm, UNIXCB(skb).pid, UNIXCB(skb).uid, UNIXCB(skb).gid);
-+			unix_set_secdata(&scm, skb);
- 			check_creds = true;
- 		}
- 
--- 
-2.1.0
+Thanks,
+johannes
 
+The following changes since commit c3eee1fb1d308564ada5f7ea57bc51efc6130b37:
+
+  Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge (2015-06-09 20:23:52 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git tags/mac80211-next-for-davem-2015-06-10
+
+for you to fetch changes up to 5df03344c5639fdd848cb87553956df7276a8645:
+
+  mac80211: convert HW flags to unsigned long bitmap (2015-06-10 13:48:42 +0200)
+
+----------------------------------------------------------------
+For this round we mostly have fixes:
+ * mesh fixes from Alexis Green and Chun-Yeow Yeoh,
+ * a documentation fix from Jakub Kicinski,
+ * a missing channel release (from Michal Kazior),
+ * a fix for a signal strength reporting bug (from Sara Sharon),
+ * handle deauth while associating (myself),
+ * don't report mangled TX SKB back to userspace for status (myself),
+ * handle aggregation session timeouts properly in fast-xmit (myself)
+
+However, there are also a few cleanups and one big change that
+affects all drivers (and that required me to pull in your tree)
+to change the mac80211 HW flags to use an unsigned long bitmap
+so that we can extend them more easily - we're running out of
+flags even with a cleanup to remove the two unused ones.
+
+----------------------------------------------------------------
+Alexis Green (3):
+      mac80211: Fix incorrectly named last_hop_metric variable in mesh_rx_path_sel_frame
+      mac80211: Always check rates and capabilities in mesh mode
+      mac80211: Fix a case of incorrect metric used when forwarding a PREQ
+
+Chun-Yeow Yeoh (1):
+      mac80211: fix the beacon csa counter for mesh and ibss
+
+Jakub Kicinski (1):
+      mac80211: remove obsolete sentence from documentation
+
+Johannes Berg (9):
+      mac80211: act upon and report deauth while associating
+      mac80211: move TX PN to public part of key struct
+      mac80211: copy nl80211 mgmt TX SKB for status
+      mac80211: stop using pointers as userspace cookies
+      mac80211: remove short slot/short preamble incapable flags
+      mac80211: rename single hw-scan flag to follow naming convention
+      mac80211: handle aggregation session timeout on fast-xmit path
+      Merge remote-tracking branch 'net-next/master' into mac80211-next
+      mac80211: convert HW flags to unsigned long bitmap
+
+Michal Kazior (1):
+      mac80211: release channel on auth failure
+
+Sara Sharon (1):
+      mac80211: ignore invalid scan RSSI values
+
+ drivers/net/wireless/adm8211.c                     |   8 +-
+ drivers/net/wireless/at76c50x-usb.c                |   4 +-
+ drivers/net/wireless/ath/ar5523/ar5523.c           |   6 +-
+ drivers/net/wireless/ath/ath10k/mac.c              |  34 ++--
+ drivers/net/wireless/ath/ath5k/base.c              |  12 +-
+ drivers/net/wireless/ath/ath9k/htc_drv_init.c      |  20 +--
+ drivers/net/wireless/ath/ath9k/init.c              |  24 +--
+ drivers/net/wireless/ath/carl9170/fw.c             |   2 +-
+ drivers/net/wireless/ath/carl9170/main.c           |  20 +--
+ drivers/net/wireless/ath/wcn36xx/main.c            |  12 +-
+ drivers/net/wireless/ath/wcn36xx/smd.c             |   4 +-
+ drivers/net/wireless/b43/main.c                    |   4 +-
+ drivers/net/wireless/b43legacy/main.c              |   5 +-
+ .../net/wireless/brcm80211/brcmsmac/mac80211_if.c  |   7 +-
+ drivers/net/wireless/cw1200/main.c                 |  16 +-
+ drivers/net/wireless/iwlegacy/3945-mac.c           |   6 +-
+ drivers/net/wireless/iwlegacy/4965-mac.c           |  12 +-
+ drivers/net/wireless/iwlwifi/dvm/mac80211.c        |  26 +--
+ drivers/net/wireless/iwlwifi/mvm/mac-ctxt.c        |   4 +-
+ drivers/net/wireless/iwlwifi/mvm/mac80211.c        |  32 ++--
+ drivers/net/wireless/libertas_tf/main.c            |   2 +-
+ drivers/net/wireless/mac80211_hwsim.c              |  26 +--
+ drivers/net/wireless/mediatek/mt7601u/init.c       |  10 +-
+ drivers/net/wireless/mwl8k.c                       |   9 +-
+ drivers/net/wireless/p54/main.c                    |  12 +-
+ drivers/net/wireless/rsi/rsi_91x_mac80211.c        |   7 +-
+ drivers/net/wireless/rt2x00/rt2400pci.c            |   8 +-
+ drivers/net/wireless/rt2x00/rt2500pci.c            |   8 +-
+ drivers/net/wireless/rt2x00/rt2500usb.c            |   9 +-
+ drivers/net/wireless/rt2x00/rt2800lib.c            |  16 +-
+ drivers/net/wireless/rt2x00/rt61pci.c              |   9 +-
+ drivers/net/wireless/rt2x00/rt73usb.c              |   9 +-
+ drivers/net/wireless/rtl818x/rtl8180/dev.c         |   9 +-
+ drivers/net/wireless/rtl818x/rtl8187/dev.c         |   6 +-
+ drivers/net/wireless/rtlwifi/base.c                |  22 ++-
+ drivers/net/wireless/ti/wl1251/main.c              |   3 +-
+ drivers/net/wireless/ti/wlcore/main.c              |  26 +--
+ drivers/net/wireless/zd1211rw/zd_mac.c             |   8 +-
+ drivers/staging/vt6655/device_main.c               |   8 +-
+ drivers/staging/vt6656/main_usb.c                  |   8 +-
+ include/net/mac80211.h                             | 106 ++++++------
+ net/mac80211/agg-tx.c                              |   4 +-
+ net/mac80211/cfg.c                                 | 178 ++++++++++++---------
+ net/mac80211/debugfs.c                             | 103 ++++++------
+ net/mac80211/debugfs_key.c                         |  17 +-
+ net/mac80211/driver-ops.h                          |   2 +-
+ net/mac80211/ibss.c                                |   1 +
+ net/mac80211/iface.c                               |  10 +-
+ net/mac80211/key.c                                 |  84 +++-------
+ net/mac80211/key.h                                 |   4 -
+ net/mac80211/main.c                                |  14 +-
+ net/mac80211/mesh.c                                |   1 +
+ net/mac80211/mesh_hwmp.c                           |  35 ++--
+ net/mac80211/mesh_plink.c                          |   7 +-
+ net/mac80211/mlme.c                                | 164 ++++++++++---------
+ net/mac80211/offchannel.c                          |   2 +-
+ net/mac80211/pm.c                                  |   4 +-
+ net/mac80211/rate.c                                |   6 +-
+ net/mac80211/rc80211_minstrel_ht.c                 |   2 +-
+ net/mac80211/rx.c                                  |  26 +--
+ net/mac80211/scan.c                                |  18 ++-
+ net/mac80211/sta_info.c                            |  14 +-
+ net/mac80211/sta_info.h                            |   3 +
+ net/mac80211/status.c                              | 135 +++++++++-------
+ net/mac80211/tdls.c                                |  19 +--
+ net/mac80211/tx.c                                  |  53 +++---
+ net/mac80211/util.c                                |   6 +-
+ net/mac80211/wpa.c                                 |  10 +-
+ 68 files changed, 758 insertions(+), 743 deletions(-)
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
