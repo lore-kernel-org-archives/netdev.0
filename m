@@ -1,27 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] mlx5 Ethernet driver update - Jun 11 2015
-Date: Thu, 11 Jun 2015 15:55:39 -0700 (PDT)
-Message-ID: <20150611.155539.576064655243712439.davem@davemloft.net>
-References: <1434023253-24362-1-git-send-email-ogerlitz@mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] net: use atomic allocation for order-3 page allocation
+Date: Thu, 11 Jun 2015 15:55:55 -0700
+Message-ID: <1434063355.27504.62.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <71a20cf185c485fa23d9347bd846a6f4e9753405.1434053941.git.shli@fb.com>
+	 <1434055687.27504.51.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5579FABE.4050505@fb.com>
+	 <1434057733.27504.52.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <557A0949.3020705@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com, talal@mellanox.com,
-	achiad@mellanox.com
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36976 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752975AbbFKWzl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 18:55:41 -0400
-In-Reply-To: <1434023253-24362-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Shaohua Li <shli@fb.com>, netdev@vger.kernel.org, davem@davemloft.net,
+	Kernel-team@fb.com, Eric Dumazet <edumazet@google.com>, David Rientjes
+	 <rientjes@google.com>, linux-mm@kvack.org
+To: Chris Mason <clm@fb.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <557A0949.3020705@fb.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu, 11 Jun 2015 14:47:26 +0300
+On Thu, 2015-06-11 at 18:18 -0400, Chris Mason wrote:
 
-> This series from Saeed, Achiad and Gal contains few fixes
-> to the recently introduced mlx5 Ethernet functionality.
+> But, is there any fallback to a single page allocation somewhere else?
+> If this is the only way to get memory, we might want to add a single
+> alloc_page path that won't trigger compaction but is at least able to
+> wait for kswapd to make progress.
 
-Series applied, thank you.
+Sure, there is a fallback to order-0 in both skb_page_frag_refill() and
+alloc_skb_with_frags() 
+
+They also use __GFP_NOWARN | __GFP_NORETRY
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
