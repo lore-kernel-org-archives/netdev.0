@@ -1,72 +1,44 @@
-From: Mazhar Rana <ranamazharp@gmail.com>
-Subject: [PATCH iproute2] mroute: "ip mroute show" not working when "to" and/or "from" is given
-Date: Thu, 11 Jun 2015 21:37:36 +0530
-Message-ID: <1434038856-18054-1-git-send-email-ranamazharp@gmail.com>
-Cc: Mazhar Rana <ranamazharp@gmail.com>
-To: netdev@vger.kernel.org, stephen@networkplumber.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 0/5] tcp: defer shinfo->gso_size|type settings
+Date: Thu, 11 Jun 2015 09:15:14 -0700
+Message-ID: <1434039319-31309-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Eric Dumazet <edumazet@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:34857 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752358AbbFKQI2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 12:08:28 -0400
-Received: by pabli10 with SMTP id li10so2389206pab.2
-        for <netdev@vger.kernel.org>; Thu, 11 Jun 2015 09:08:28 -0700 (PDT)
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:33352 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752831AbbFKQPZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 12:15:25 -0400
+Received: by iebgx4 with SMTP id gx4so8569805ieb.0
+        for <netdev@vger.kernel.org>; Thu, 11 Jun 2015 09:15:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The command "ip mroute show" is not showing routes when "to" and/or "from"
-filter is applied.
+We put shinfo->gso_segs in TCP_SKB_CB(skb) a while back for performance
+reasons.
 
-root@mazhar:~# ip mroute show
-(10.202.30.101, 235.1.2.3)       Iif: eth0       Oifs: eth1
+This was in commit cd7d8498c9a5 ("tcp: change tcp_skb_pcount() location")
 
-But When I applied filter, it does not show anything.
+This patch series complete the job for gso_size and gso_type, so that
+we do not bring 2 extra cache lines in tcp write xmit fast path,
+and making tcp_init_tso_segs() simpler and faster.
 
-root@mazhar:~# ip mroute show 235.1.2.3 from 10.202.30.101
-root@mazhar:~#
+Eric Dumazet (5):
+  tcp: reserve tcp_skb_mss() to tcp stack
+  tcp: fill shinfo->gso_type at last moment
+  tcp: tcp_set_skb_tso_segs() no longer need struct sock parameter
+  tcp: fill shinfo->gso_size at last moment
+  tcp: remove obsolete check in tcp_set_skb_tso_segs()
 
-Signed-off-by: Mazhar Rana <ranamazharp@gmail.com>
----
- ip/ipmroute.c | 26 ++++++++++++++++++--------
- 1 file changed, 18 insertions(+), 8 deletions(-)
+ include/net/tcp.h      | 13 ++++++++-----
+ net/ipv4/tcp_input.c   | 14 +++++---------
+ net/ipv4/tcp_offload.c |  4 ++--
+ net/ipv4/tcp_output.c  | 49 +++++++++++++++++++------------------------------
+ 4 files changed, 34 insertions(+), 46 deletions(-)
 
-diff --git a/ip/ipmroute.c b/ip/ipmroute.c
-index 125a13f..fffa9e2 100644
---- a/ip/ipmroute.c
-+++ b/ip/ipmroute.c
-@@ -97,15 +97,25 @@ int print_mroute(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	if (filter.af && filter.af != r->rtm_family)
- 		return 0;
- 
--	if (tb[RTA_DST] &&
--	    filter.mdst.bitlen > 0 &&
--	    inet_addr_match(RTA_DATA(tb[RTA_DST]), &filter.mdst, filter.mdst.bitlen))
--		return 0;
-+	if (tb[RTA_DST] && filter.mdst.bitlen > 0) {
-+		inet_prefix dst;
-+
-+		memset(&dst, 0, sizeof(dst));
-+		dst.family = r->rtm_family;
-+		memcpy(&dst.data, RTA_DATA(tb[RTA_DST]), RTA_PAYLOAD(tb[RTA_DST]));
-+		if (inet_addr_match(&dst, &filter.mdst, filter.mdst.bitlen))
-+			return 0;
-+	}
- 
--	if (tb[RTA_SRC] &&
--	    filter.msrc.bitlen > 0 &&
--	    inet_addr_match(RTA_DATA(tb[RTA_SRC]), &filter.msrc, filter.msrc.bitlen))
--		return 0;
-+	if (tb[RTA_SRC] && filter.msrc.bitlen > 0) {
-+		inet_prefix src;
-+
-+		memset(&src, 0, sizeof(src));
-+		src.family = r->rtm_family;
-+		memcpy(&src.data, RTA_DATA(tb[RTA_SRC]), RTA_PAYLOAD(tb[RTA_SRC]));
-+		if (inet_addr_match(&src, &filter.msrc, filter.msrc.bitlen))
-+			return 0;
-+	}
- 
- 	family = r->rtm_family == RTNL_FAMILY_IPMR ? AF_INET : AF_INET6;
- 
 -- 
-1.9.1
+2.2.0.rc0.207.ga3a616c
