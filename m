@@ -1,31 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: igb: fix the start time for periodic output
- signals
-Date: Thu, 11 Jun 2015 15:56:27 -0700 (PDT)
-Message-ID: <20150611.155627.1888601708793677012.davem@davemloft.net>
-References: <1434027090-26866-1-git-send-email-richardcochran@gmail.com>
-	<20150611125310.GA26906@localhost.localdomain>
+Subject: Re: [PATCH net-next v2 00/19] bna: clean-up
+Date: Thu, 11 Jun 2015 15:57:32 -0700 (PDT)
+Message-ID: <20150611.155732.1216295266838805732.davem@davemloft.net>
+References: <1434030751-28835-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jacob.e.keller@intel.com,
-	jeffrey.t.kirsher@intel.com, matthew.vick@intel.com
-To: richardcochran@gmail.com
+Cc: netdev@vger.kernel.org, rasesh.mody@qlogic.com, joe@perches.com
+To: ivecera@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36984 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37004 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754598AbbFKW42 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 18:56:28 -0400
-In-Reply-To: <20150611125310.GA26906@localhost.localdomain>
+	with ESMTP id S1751731AbbFKW5d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 18:57:33 -0400
+In-Reply-To: <1434030751-28835-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Thu, 11 Jun 2015 14:53:10 +0200
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Thu, 11 Jun 2015 15:52:12 +0200
 
-> On Thu, Jun 11, 2015 at 02:51:30PM +0200, Richard Cochran wrote:
->> This patch fixes the issue by programming the registers correctly.
+> The patches clean the bna driver.
 > 
-> Please also consider this for stable.
+> v2: changes & comments requested by Joe
 
-Jeff, do you want me to integrate this directly?
+Series applied, thanks Ivan.
