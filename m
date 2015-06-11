@@ -1,80 +1,57 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: /net/mpls/conf/ethX//input duplicate entry
-Date: Thu, 11 Jun 2015 13:55:48 +0100
-Message-ID: <55798554.7020102@brocade.com>
-References: <CAE4R7bDhQ3speftJsggqV5Ruh-n0+n_9KR=i0DQYW-NrsUNKZw@mail.gmail.com> <5578B318.1050808@cumulusnetworks.com> <CAE4R7bBhz_k4a+FectxmjAKHjzAGhd0qihndURCr05fwM2yDRQ@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v6 2/2] Renesas Ethernet AVB PTP clock driver
+Date: Thu, 11 Jun 2015 15:58:26 +0300
+Message-ID: <557985F2.9010900@cogentembedded.com>
+References: <2950738.iaDWZVkjG3@wasted.cogentembedded.com>	<20150611.001455.377939359927165224.davem@davemloft.net> <20150611.002425.1698330124707614277.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	"ebiederm@xmission.com" <ebiederm@xmission.com>
-To: Scott Feldman <sfeldma@gmail.com>,
-	roopa <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:35885 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933618AbbFKM4t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 08:56:49 -0400
-In-Reply-To: <CAE4R7bBhz_k4a+FectxmjAKHjzAGhd0qihndURCr05fwM2yDRQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, richardcochran@gmail.com,
+	linux-sh@vger.kernel.org, masaru.nagai.vx@renesas.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20150611.002425.1698330124707614277.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/06/15 00:23, Scott Feldman wrote:
-> On Wed, Jun 10, 2015 at 2:58 PM, roopa <roopa@cumulusnetworks.com> wrote:
->> On 6/10/15, 1:43 PM, Scott Feldman wrote:
->>>
->>> I'm getting this dump_stack when reloading rocker driver.  Did some
->>> sysctl MPLS nodes not get cleaned up on NETDEV_UNREGISTER?
->>>
->>> Steps to repro: load rocker (on system) with rocker device, rmmod
->>> rocker, and then modprobe rocker.  I doubt this is specific to rocker:
->>> and re-registration of a netdev should hit it. I am using UDEV rules
->>> to rename kernel's ethX to a different name.  Maybe that's what
->>> tripped it up?
->>>
->> On a quick look, wondering if this is because mpls driver does not seem to
->> do a unregister and re-register sysctl
->> on device name change.
+Hello.
 
-Mea culpa. Thanks for looking at this.
+On 6/11/2015 10:24 AM, David Miller wrote:
 
->>
->> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
->> index 7b3f732..ec21a5d 100644
->> --- a/net/mpls/af_mpls.c
->> +++ b/net/mpls/af_mpls.c
->> @@ -564,6 +564,14 @@ static int mpls_dev_notify(struct notifier_block *this,
->> unsigned long event,
->>          case NETDEV_UNREGISTER:
->>                  mpls_ifdown(dev);
->>                  break;
->> +       case NETDEV_CHANGENAME:
->> +               mpls_ifdown(dev);
->> +               if ((dev->type == ARPHRD_ETHER) ||
->> +                   (dev->type == ARPHRD_LOOPBACK)) {
->> +                       mdev = mpls_add_dev(dev);
->> +                       if (IS_ERR(mdev))
->> +                               return notifier_from_errno(PTR_ERR(mdev));
->> +               }
->>          }
->>          return NOTIFY_OK;
->>   }
->
-> Roopa, I tested this patch and problem goes away.  (It's missing a
-> break statement, BTW).  I didn't look into the correctness of the
-> patch, but at first glance it seems liek the right thing to do.  Maybe
-> breaking out the renaming portions into sub-functions could keep the
-> work done in NETDEV_CHANGENAME to a minimum.
+>>> Ethernet AVB device includes the gPTP  timer, so we can implement a PTP clock
+>>> driver.  We're doing that in a separate file, with  the main Ethernet driver
+>>> calling the PTP driver's [de]initialization and interrupt handler functions.
+>>> Unfortunately, the clock seems tightly coupled with the AVB-DMAC, so when that
+>>> one leaves the operation mode, we have to unregister the PTP clock... :-(
 
-I agree that breaking out the sysctl registration/unregistration is a 
-good idea to not have to do more work than is necessary, and to avoid 
-unintended consequences (like routes using the interface being made 
-unusable).
+>>> Based on the original patches by Masaru Nagai.
 
->
-> Are you sending official fix?
+>>> Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com>
+>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Roopa, let me know if you'd like me to carry this forward.
+>> Applied.
 
-Thanks,
-Rob
+    Thank you!
+
+> I had to fix up this patch because:
+
+> obj-$(CONFIG_RAVB) += ravb_main.o ravb_ptp.o
+
+> Doesn't do what you want it to for the modular case.
+
+    Oh, crap, I forgot to test the modular build after splitting the driver 
+again into separate files. Sorry about that... :-<
+
+> You instead need to say something like:
+
+> ravb-objs := ravb_main.o ravb_ptp.o
+
+> obj-$(CONFIG_RAVB) += ravb.o
+
+> and that's how I fixed up this commit before pushing it out.
+
+    And the code base I was using as a reference had this issue fixed quite 
+similarly...
+
+WBR, Sergei
+
