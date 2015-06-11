@@ -1,27 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1 linux-next] net/mlx4_core: use swap() in
- mlx4_make_profile()
-Date: Thu, 11 Jun 2015 15:21:59 -0700 (PDT)
-Message-ID: <20150611.152159.1060994324931897233.davem@davemloft.net>
-References: <1433953993-24623-1-git-send-email-fabf@skynet.be>
+Subject: Re: [PATCH next v0] bonding: Display LACP info only to
+ CAP_SYS_ADMIN capable user
+Date: Thu, 11 Jun 2015 15:22:57 -0700 (PDT)
+Message-ID: <20150611.152257.1284649637451689093.davem@davemloft.net>
+References: <1433981996-6010-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Julia.Lawall@lip6.fr,
-	netdev@vger.kernel.org
-To: fabf@skynet.be
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1433953993-24623-1-git-send-email-fabf@skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
+	nikolay@redhat.com, netdev@vger.kernel.org, edumazet@google.com,
+	maze@google.com
+To: maheshb@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36791 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752507AbbFKWW6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 18:22:58 -0400
+In-Reply-To: <1433981996-6010-1-git-send-email-maheshb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Fabian Frederick <fabf@skynet.be>
-Date: Wed, 10 Jun 2015 18:33:13 +0200
+From: Mahesh Bandewar <maheshb@google.com>
+Date: Wed, 10 Jun 2015 17:19:56 -0700
 
-> Use kernel.h macro definition.
+> Actor and Partner details can be accessed via proc-fs and sys-fs
+> entries. These interfaces are world readable at this moment. The
+> earlier patch-series made the LACP communication secure to avoid
+> nuisance attack from within the same L2 domain but it did not
+> prevent "someone unprivileged" looking at that information on host
+> and perform the same act.
 > 
-> Thanks to Julia Lawall for Coccinelle scripting support.
+> This patch essentially avoids spitting those entries if the user
+> in question does not have enough privileges.
 > 
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 
-Applied.
+I agree with Stephen Hemminger in that you should probably be using
+CAP_NET_ADMIN here.
