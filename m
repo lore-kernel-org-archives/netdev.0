@@ -1,39 +1,74 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next 1/3 v3] net: track link-status of ipv4 nexthops
-Date: Wed, 10 Jun 2015 23:07:28 -0700
-Message-ID: <CAE4R7bAnPDA_S=tjaM-qLbb4ZM0_FcTPQH6jC7_Mgmc==1c6wA@mail.gmail.com>
-References: <1433990233-958-1-git-send-email-gospo@cumulusnetworks.com> <1433990233-958-2-git-send-email-gospo@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, ddutt@cumulusnetworks.com,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f50.google.com ([209.85.192.50]:33349 "EHLO
-	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750710AbbFKGHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 02:07:49 -0400
-Received: by qgfa66 with SMTP id a66so22436258qgf.0
-        for <netdev@vger.kernel.org>; Wed, 10 Jun 2015 23:07:49 -0700 (PDT)
-In-Reply-To: <1433990233-958-2-git-send-email-gospo@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] batman-adv:Make the function
+	batadv_is_my_mac bool
+Date: Wed, 10 Jun 2015 22:25:33 -0400
+Message-ID: <1433989533-30587-1-git-send-email-xerofoify@gmail.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 10, 2015 at 7:37 PM, Andy Gospodarek
-<gospo@cumulusnetworks.com> wrote:
-> Add a fib flag called RTNH_F_LINKDOWN to any ipv4 nexthops that are
-> reachable via an interface where carrier is off.  No action is taken,
-> but additional flags are passed to userspace to indicate carrier status.
+This makes the function batadv_is_my_mac bool now due
+to this particular function only returning either one
+or zero as its return value.
 
-Andy, it seems now RTNH_F_LINKDOWN and RTNH_F_DEAD are very similar
-and I'm wondering if this could be done without introducing a new flag
-and just use RTNH_F_DEAD.  The link change event would set RTNH_F_DEAD
-on nh on dev link down, and clear on link up.  The sysctl knob would
-be something like "nexthop_dead_on_linkdown", default off.  So
-basically expanding the ways RTNH_F_DEAD can be set.  That would
-simplify the patch set quite a bit and require no changes to iproute2.
+Signed-off-by: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/batman-adv/main.c | 6 +++---
+ net/batman-adv/main.h | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
--scott
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index 12fc77b..47051d1 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -210,7 +210,7 @@ void batadv_mesh_free(struct net_device *soft_iface)
+  * @bat_priv: the bat priv with all the soft interface information
+  * @addr: the address to check
+  */
+-int batadv_is_my_mac(struct batadv_priv *bat_priv, const uint8_t *addr)
++bool batadv_is_my_mac(struct batadv_priv *bat_priv, const uint8_t *addr)
+ {
+ 	const struct batadv_hard_iface *hard_iface;
+ 
+@@ -224,11 +224,11 @@ int batadv_is_my_mac(struct batadv_priv *bat_priv, const uint8_t *addr)
+ 
+ 		if (batadv_compare_eth(hard_iface->net_dev->dev_addr, addr)) {
+ 			rcu_read_unlock();
+-			return 1;
++			return true;
+ 		}
+ 	}
+ 	rcu_read_unlock();
+-	return 0;
++	return false;
+ }
+ 
+ /**
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index 4d23188..8f6e256 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -195,7 +195,7 @@ extern struct workqueue_struct *batadv_event_workqueue;
+ 
+ int batadv_mesh_init(struct net_device *soft_iface);
+ void batadv_mesh_free(struct net_device *soft_iface);
+-int batadv_is_my_mac(struct batadv_priv *bat_priv, const uint8_t *addr);
++bool batadv_is_my_mac(struct batadv_priv *bat_priv, const uint8_t *addr);
+ struct batadv_hard_iface *
+ batadv_seq_print_text_primary_if_get(struct seq_file *seq);
+ int batadv_max_header_len(void);
+-- 
+2.1.4
