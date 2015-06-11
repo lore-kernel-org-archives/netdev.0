@@ -1,81 +1,56 @@
-From: Dinesh Dutt <ddutt@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 1/3 v3] net: track link-status of ipv4 nexthops
-Date: Thu, 11 Jun 2015 09:53:15 -0700
-Message-ID: <CABg5FUUns7n1h0JCrvwFPd_1AHg0jGH5FH6xwj1msBqE=wpMjg@mail.gmail.com>
-References: <1433990233-958-1-git-send-email-gospo@cumulusnetworks.com>
- <1433990233-958-2-git-send-email-gospo@cumulusnetworks.com>
- <CAE4R7bAnPDA_S=tjaM-qLbb4ZM0_FcTPQH6jC7_Mgmc==1c6wA@mail.gmail.com>
- <20150611112313.GA588@gospo.home.greyhouse.net> <5579A04E.2060400@redhat.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH net] net: igb: fix the start time for periodic output
+ signals
+Date: Thu, 11 Jun 2015 17:05:59 +0000
+Message-ID: <1434042359.24995.4.camel@intel.com>
+References: <1434027090-26866-1-git-send-email-richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>
+To: "richardcochran@gmail.com" <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f53.google.com ([209.85.213.53]:36263 "EHLO
-	mail-yh0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751334AbbFKQxg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 12:53:36 -0400
-Received: by yhan67 with SMTP id n67so4555223yha.3
-        for <netdev@vger.kernel.org>; Thu, 11 Jun 2015 09:53:36 -0700 (PDT)
-In-Reply-To: <5579A04E.2060400@redhat.com>
+Received: from mga14.intel.com ([192.55.52.115]:54468 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752265AbbFKRGC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2015 13:06:02 -0400
+In-Reply-To: <1434027090-26866-1-git-send-email-richardcochran@gmail.com>
+Content-Language: en-US
+Content-ID: <41DF865B1329CF4A9EAC72E6F807BC54@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yes, this is what I liked about the 2 flag solution too compared to
-the original.
-
-Dinesh
-
-On Thu, Jun 11, 2015 at 7:50 AM, Alexander Duyck
-<alexander.h.duyck@redhat.com> wrote:
->
->
-> On 06/11/2015 04:23 AM, Andy Gospodarek wrote:
->>
->> On Wed, Jun 10, 2015 at 11:07:28PM -0700, Scott Feldman wrote:
->>>
->>> On Wed, Jun 10, 2015 at 7:37 PM, Andy Gospodarek
->>> <gospo@cumulusnetworks.com> wrote:
->>>>
->>>> Add a fib flag called RTNH_F_LINKDOWN to any ipv4 nexthops that are
->>>> reachable via an interface where carrier is off.  No action is taken,
->>>> but additional flags are passed to userspace to indicate carrier status.
->>>
->>> Andy, it seems now RTNH_F_LINKDOWN and RTNH_F_DEAD are very similar
->>> and I'm wondering if this could be done without introducing a new flag
->>> and just use RTNH_F_DEAD.  The link change event would set RTNH_F_DEAD
->>> on nh on dev link down, and clear on link up.  The sysctl knob would
->>> be something like "nexthop_dead_on_linkdown", default off.  So
->>> basically expanding the ways RTNH_F_DEAD can be set.  That would
->>> simplify the patch set quite a bit and require no changes to iproute2.
->>>
->> You are absolutely correct that what you describe would be less churn to
->> userspace.  From a functionality standpoint that is close to what was
->> originally proposed, but Alex specifically did not like the behavioral
->> change to what having RTNH_F_DEAD set (at least that was what I
->> understood).
->>
->> That was what made me make the move to add this additional flag that was
->> exported to userspace, so it was possible to differentiate the old dead
->> routes/nexthop functionality from those that were not going to be dead
->> due to link being down.
->>   this point I think I prefer the additional data provided by the new
->> flag exported to userspace.
->
->
-> I preferred the 2 flag solution as the original solution still required 2
-> flags, it just only exposed 1 to user-space.  As a result it was much more
-> error prone since it was fairly easy to get into a confused state about why
-> the link was dead.
->
-> With the 2 flag solution it becomes much easier to sort out why the route is
-> not functional and it is much easier to isolate for things like the sysctl
-> which only disables the use of LINKDOWN and not DEAD.
->
-> - Alex
+UmV2aWV3ZWQtYnk6IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0KDQpU
+aGFua3MgUmljaGFyZCEgRWFzeSBkZXRhaWwgdG8gbWlzcy4NCg0KUmVnYXJkcywNCkpha2UNCg0K
+T24gVGh1LCAyMDE1LTA2LTExIGF0IDE0OjUxICswMjAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
+DQo+IFdoZW4gcHJvZ3JhbW1pbmcgdGhlIHN0YXJ0IG9mIGEgcGVyaW9kaWMgb3V0cHV0LCB0aGUg
+Y29kZSB3cm9uZ2x5IA0KPiBwbGFjZXMNCj4gdGhlIHNlY29uZHMgdmFsdWUgaW50byB0aGUgImxv
+dyIgcmVnaXN0ZXIgYW5kIHRoZSBuYW5vc2Vjb25kcyBpbnRvIA0KPiB0aGUNCj4gImhpZ2giIHJl
+Z2lzdGVyLiAgRXZlbiB0aG91Z2ggdGhpcyBpcyBiYWNrd2FyZHMsIGl0IHNsaXBwZWQgdGhyb3Vn
+aCANCj4gbXkNCj4gdGVzdGluZywgYmVjYXVzZSB0aGUgcmUtYXJtaW5nIGNvZGUgaW4gdGhlIGlu
+dGVycnVwdCBzZXJ2aWNlIHJvdXRpbmUgDQo+IGlzDQo+IGNvcnJlY3QsIGFuZCB0aGUgc2lnbmFs
+IGRvZXMgYXBwZWFyIHN0YXJ0aW5nIHdpdGggdGhlIHNlY29uZCBlZGdlLg0KPiANCj4gVGhpcyBw
+YXRjaCBmaXhlcyB0aGUgaXNzdWUgYnkgcHJvZ3JhbW1pbmcgdGhlIHJlZ2lzdGVycyBjb3JyZWN0
+bHkuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBSaWNoYXJkIENvY2hyYW4gPHJpY2hhcmRjb2NocmFu
+QGdtYWlsLmNvbT4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdi
+X3B0cC5jIHwgNCArKy0tDQo+ICAxIGZpbGUgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspLCAyIGRl
+bGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2lnYi9pZ2JfcHRwLmMgDQo+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9w
+dHAuYw0KPiBpbmRleCBlM2I5YjYzLi5jM2E5MzkyYyAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9wdHAuYw0KPiArKysgYi9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9pbnRlbC9pZ2IvaWdiX3B0cC5jDQo+IEBAIC01MzgsOCArNTM4LDggQEAgc3RhdGljIGlu
+dCBpZ2JfcHRwX2ZlYXR1cmVfZW5hYmxlX2kyMTAoc3RydWN0IA0KPiBwdHBfY2xvY2tfaW5mbyAq
+cHRwLA0KPiAgICAgICAgICAgICAgICAgICAgICAgaWdiLT5wZXJvdXRbaV0uc3RhcnQudHZfbnNl
+YyA9IHJxDQo+IC0+cGVyb3V0LnN0YXJ0Lm5zZWM7DQo+ICAgICAgICAgICAgICAgICAgICAgICBp
+Z2ItPnBlcm91dFtpXS5wZXJpb2QudHZfc2VjID0gdHMudHZfc2VjOw0KPiAgICAgICAgICAgICAg
+ICAgICAgICAgaWdiLT5wZXJvdXRbaV0ucGVyaW9kLnR2X25zZWMgPSB0cy50dl9uc2VjOw0KPiAt
+ICAgICAgICAgICAgICAgICAgICAgd3IzMih0cmd0dGltbCwgcnEtPnBlcm91dC5zdGFydC5zZWMp
+Ow0KPiAtICAgICAgICAgICAgICAgICAgICAgd3IzMih0cmd0dGltaCwgcnEtPnBlcm91dC5zdGFy
+dC5uc2VjKTsNCj4gKyAgICAgICAgICAgICAgICAgICAgIHdyMzIodHJndHRpbWgsIHJxLT5wZXJv
+dXQuc3RhcnQuc2VjKTsNCj4gKyAgICAgICAgICAgICAgICAgICAgIHdyMzIodHJndHRpbWwsIHJx
+LT5wZXJvdXQuc3RhcnQubnNlYyk7DQo+ICAgICAgICAgICAgICAgICAgICAgICB0c2F1eGMgfD0g
+dHNhdXhjX21hc2s7DQo+ICAgICAgICAgICAgICAgICAgICAgICB0c2ltIHw9IHRzaW1fbWFzazsN
+Cj4gICAgICAgICAgICAgICB9IGVsc2Ugew==
