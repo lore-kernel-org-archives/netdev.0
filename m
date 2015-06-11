@@ -1,38 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 3/3] enic: fix memory leak in rq_clean
-Date: Wed, 10 Jun 2015 23:43:22 -0700 (PDT)
-Message-ID: <20150610.234322.1344906421619743139.davem@davemloft.net>
-References: <1434003776-31840-1-git-send-email-_govind@gmx.com>
-	<1434003776-31840-3-git-send-email-_govind@gmx.com>
+Subject: Re: [PATCH net-next] switchdev: fix handling for drivers not
+ supporting IPv4 fib add/del ops
+Date: Wed, 10 Jun 2015 23:56:49 -0700 (PDT)
+Message-ID: <20150610.235649.1747681763810479422.davem@davemloft.net>
+References: <1433981089-51216-1-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
-To: _govind@gmx.com
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, f.fainelli@gmail.com,
+	andrew@lunn.ch
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58504 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58579 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751101AbbFKGnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 02:43:23 -0400
-In-Reply-To: <1434003776-31840-3-git-send-email-_govind@gmx.com>
+	with ESMTP id S1750819AbbFKG4u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 02:56:50 -0400
+In-Reply-To: <1433981089-51216-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Date: Thu, 11 Jun 2015 11:52:56 +0530
+From: sfeldma@gmail.com
+Date: Wed, 10 Jun 2015 17:04:49 -0700
 
-> When incoming packet qualifies for rx_copybreak, we copy the data to newly
-> allocated skb. We do not free/unmap the original buffer. At this point driver
-> assumes this buffer is unallocated. When enic_rq_alloc_buf() is called for
-> buffer allocation, it checks if buf->os_buf is NULL. If its not NULL that means
-> buffer can be re-used.
+> From: Scott Feldman <sfeldma@gmail.com>
 > 
-> When vnic_rq_clean() is called for freeing all rq buffers, and if the
-> rx_copybreak reused buffer falls outside the used desc, we do not free the
-> buffer. The following trace is observer when dma-debug is enabled.
+> If CONFIG_NET_SWITCHDEV is enabled, but port driver does not implement
+> support for IPv4 FIB add/del ops, don't fail route add/del offload
+> operations.  Route adds will not be marked as OFFLOAD.  Routes will be
+> installed in the kernel FIB, as usual.
 > 
-> Fix is to walk through complete ring and clean if buffer is present.
- ...
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+> This was report/fixed by Florian when testing DSA driver with net-next on
+> devices with L2 offload support but no L3 offload support. What he reported
+> was an initial route installed from DHCP client would fail (route not
+> installed to kernel FIB).  This was triggering the setting of
+> ipv4.fib_offload_disabled, which would disable route offloading after the
+> first failure.  So subsequent attempts to install the route would succeed.
+> 
+> There is follow-on work/discussion to address the handling of route install
+> failures, but for now, let's differentiate between no support and failed
+> support.
+> 
+> Reported-by: Florian Fainelli <f.fainelli@gmail.com>
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 
-Applied.
+Applied, thanks everyone.
