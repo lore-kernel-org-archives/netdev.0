@@ -1,92 +1,54 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 08/12] fsl/fman: Add Frame Manager support
-Date: Thu, 11 Jun 2015 11:37:49 +0200
-Message-ID: <1434015469.2271.83.camel@x220>
-References: <1433949712-5648-1-git-send-email-madalin.bucur@freescale.com>
-	 <1433949712-5648-2-git-send-email-madalin.bucur@freescale.com>
-	 <1433949712-5648-3-git-send-email-madalin.bucur@freescale.com>
-	 <1433949712-5648-4-git-send-email-madalin.bucur@freescale.com>
-	 <1434012956.2271.58.camel@x220>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [PATCH net-next 19/19] bna: use netdev_* and dev_* instead of
+ printk and pr_*
+Date: Thu, 11 Jun 2015 11:43:08 +0200
+Message-ID: <5579582C.1050400@redhat.com>
+References: <1433954605-22813-1-git-send-email-ivecera@redhat.com>	 <1433954605-22813-20-git-send-email-ivecera@redhat.com> <1433968190.32331.32.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, scottwood@freescale.com,
-	Igal Liberman <Igal.Liberman@freescale.com>
-To: madalin.bucur@freescale.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1434012956.2271.58.camel@x220>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, rasesh.mody@qlogic.com
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33593 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751404AbbFKJml (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2015 05:42:41 -0400
+In-Reply-To: <1433968190.32331.32.camel@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-So I couldn't help having yet another look at the code, just to drive
-home my point.
+On 06/10/2015 10:29 PM, Joe Perches wrote:
+> On Wed, 2015-06-10 at 18:43 +0200, Ivan Vecera wrote:
+>> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+>
+> There should be some indication a few messages have
+> been deleted in the commit log and a reason why too.
+>
+>> diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+> []
+>> @@ -965,10 +964,6 @@ bnad_cb_ethport_link_status(struct bnad *bnad,
+>>   						/*
+>>   						 * Force an immediate
+>>   						 * Transmit Schedule */
+>> -						printk(KERN_INFO "bna: %s %d "
+>> -						      "TXQ_STARTED\n",
+>> -						       bnad->netdev->name,
+>> -						       txq_id);
+>
+> []
+>
+>> @@ -1057,8 +1051,6 @@ bnad_cb_tx_stall(struct bnad *bnad, struct bna_tx *tx)
+>>   		txq_id = tcb->id;
+>>   		clear_bit(BNAD_TXQ_TX_STARTED, &tcb->flags);
+>>   		netif_stop_subqueue(bnad->netdev, txq_id);
+>> -		printk(KERN_INFO "bna: %s %d TXQ_STOPPED\n",
+>> -			bnad->netdev->name, txq_id);
+>
+> etc...
+>
+I'm sorry I have removed them as logging noise. IMHO it is not necessary 
+to log when .probe() and .remove() are called or when TxQ is started or 
+stopped.
 
-On Thu, 2015-06-11 at 10:55 +0200, Paul Bolle wrote:
-> > +void *fm_drv_init(void)
-> 
-> static.
-> 
-> > +{
-> > +	memset(&fm_drvs, 0, sizeof(fm_drvs));
-
-fm_drvs is an external variable. It is guaranteed to be zero, isn't it?
-
-> > +	mutex_init(&fm_drv_mutex);
-> > +
-> > +	/* Register to the DTB for basic FM API */
-> > +	platform_driver_register(&fm_driver);
-> > +
-> > +	return &fm_drvs;
-
-You're returning a pointer to external variable. How's that useful?
-
-And note this is the last time we'll ever see fm_drvs. So I think that
-all this variable does for the code is getting initialized to zero,
-twice.
-
-> > +}
-> > +
-> > +int fm_drv_free(void *p_fm_drv)
-> 
-> static.
-> 
-> > +{
-> > +	platform_driver_unregister(&fm_driver);
-> > +	mutex_destroy(&fm_drv_mutex);
-> > +
-> > +	return 0;
-
-This function has one caller, which doesn't check the return value. So
-this should be a function returning void. Of course, a wrapper of two
-lines called only once means you should actually not put this into a
-separate function.
-
-> > +}
-
-> > +static void *p_fm_drv;
-> 
-> > +static int __init __cold fm_load(void)
-> > +{
-> > +	p_fm_drv = fm_drv_init();
-> > +	if (!p_fm_drv) {
-
-fm_drv_init() returns a pointer to an external variable. So how can this
-happen?
-
-> > +		pr_err("Failed to init FM wrapper!\n");
-> > +		return -ENODEV;
-> > +	}
-> > +
-> > +	pr_info("Freescale FM module\n");
-> > +	return 0;
-> > +}
-
-This is all rather basic. It must be, otherwise I wouldn't spot it.
-
-So I keep spotting these basic oddities, with every cup of coffee I
-treat myself to while reading through this, wherever I look. By now I'm
-sure there's no need for the netdev people to look at this, not yet. 
-
-
-Paul Bolle
+Ivan
