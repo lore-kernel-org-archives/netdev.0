@@ -1,115 +1,92 @@
 From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net-next v2 08/19] bna: remove oper_state_cbfn from struct bna_rxf
-Date: Thu, 11 Jun 2015 15:52:20 +0200
-Message-ID: <1434030751-28835-9-git-send-email-ivecera@redhat.com>
+Subject: [PATCH net-next v2 07/19] bna: remove pause_cbfn from struct bna_enet
+Date: Thu, 11 Jun 2015 15:52:19 +0200
+Message-ID: <1434030751-28835-8-git-send-email-ivecera@redhat.com>
 References: <1434030751-28835-1-git-send-email-ivecera@redhat.com>
 Cc: rasesh.mody@qlogic.com, joe@perches.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58127 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46598 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754662AbbFKNwP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2015 09:52:15 -0400
+	id S1751205AbbFKNwO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2015 09:52:14 -0400
 In-Reply-To: <1434030751-28835-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 ---
- drivers/net/ethernet/brocade/bna/bna.h       | 15 ---------------
- drivers/net/ethernet/brocade/bna/bna_tx_rx.c |  6 ------
- drivers/net/ethernet/brocade/bna/bna_types.h |  4 ----
- 3 files changed, 25 deletions(-)
+ drivers/net/ethernet/brocade/bna/bna_enet.c  | 15 ---------------
+ drivers/net/ethernet/brocade/bna/bna_types.h |  3 ---
+ 2 files changed, 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bna.h b/drivers/net/ethernet/brocade/bna/bna.h
-index 0962e54..4f16ee2 100644
---- a/drivers/net/ethernet/brocade/bna/bna.h
-+++ b/drivers/net/ethernet/brocade/bna/bna.h
-@@ -119,21 +119,6 @@ do {									\
+diff --git a/drivers/net/ethernet/brocade/bna/bna_enet.c b/drivers/net/ethernet/brocade/bna/bna_enet.c
+index b8de17b..dc9f73b 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_enet.c
++++ b/drivers/net/ethernet/brocade/bna/bna_enet.c
+@@ -884,16 +884,6 @@ do {									\
  	}								\
  } while (0)
  
--#define	call_rxf_pause_cbfn(rxf)					\
+-#define call_enet_pause_cbfn(enet)					\
 -do {									\
--	if ((rxf)->oper_state_cbfn) {					\
--		void (*cbfn)(struct bnad *, struct bna_rx *);	\
--		struct bnad *cbarg;					\
--		cbfn = (rxf)->oper_state_cbfn;				\
--		cbarg = (rxf)->oper_state_cbarg;			\
--		(rxf)->oper_state_cbfn = NULL;				\
--		(rxf)->oper_state_cbarg = NULL;				\
--		cbfn(cbarg, rxf->rx);					\
+-	if ((enet)->pause_cbfn) {					\
+-		void (*cbfn)(struct bnad *);				\
+-		cbfn = (enet)->pause_cbfn;				\
+-		(enet)->pause_cbfn = NULL;				\
+-		cbfn((enet)->bna->bnad);				\
 -	}								\
 -} while (0)
 -
--#define	call_rxf_resume_cbfn(rxf) call_rxf_pause_cbfn(rxf)
+ #define call_enet_mtu_cbfn(enet)					\
+ do {									\
+ 	if ((enet)->mtu_cbfn) {						\
+@@ -925,7 +915,6 @@ bfa_fsm_state_decl(bna_enet, chld_stop_wait, struct bna_enet,
+ static void
+ bna_enet_sm_stopped_entry(struct bna_enet *enet)
+ {
+-	call_enet_pause_cbfn(enet);
+ 	call_enet_mtu_cbfn(enet);
+ 	call_enet_stop_cbfn(enet);
+ }
+@@ -947,7 +936,6 @@ bna_enet_sm_stopped(struct bna_enet *enet, enum bna_enet_event event)
+ 		break;
+ 
+ 	case ENET_E_PAUSE_CFG:
+-		call_enet_pause_cbfn(enet);
+ 		break;
+ 
+ 	case ENET_E_MTU_CFG:
+@@ -1039,7 +1027,6 @@ bna_enet_sm_started_entry(struct bna_enet *enet)
+ 	 * NOTE: Do not call bna_enet_chld_start() here, since it will be
+ 	 * inadvertently called during cfg_wait->started transition as well
+ 	 */
+-	call_enet_pause_cbfn(enet);
+ 	call_enet_mtu_cbfn(enet);
+ }
+ 
+@@ -1211,8 +1198,6 @@ bna_enet_init(struct bna_enet *enet, struct bna *bna)
+ 	enet->stop_cbfn = NULL;
+ 	enet->stop_cbarg = NULL;
+ 
+-	enet->pause_cbfn = NULL;
 -
- #define is_xxx_enable(mode, bitmask, xxx) ((bitmask & xxx) && (mode & xxx))
+ 	enet->mtu_cbfn = NULL;
  
- #define is_xxx_disable(mode, bitmask, xxx) ((bitmask & xxx) && !(mode & xxx))
-diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-index 16d36df..27f75d7 100644
---- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-+++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-@@ -103,12 +103,10 @@ bna_rxf_sm_stopped(struct bna_rxf *rxf, enum bna_rxf_event event)
- 
- 	case RXF_E_PAUSE:
- 		rxf->flags |= BNA_RXF_F_PAUSED;
--		call_rxf_pause_cbfn(rxf);
- 		break;
- 
- 	case RXF_E_RESUME:
- 		rxf->flags &= ~BNA_RXF_F_PAUSED;
--		call_rxf_resume_cbfn(rxf);
- 		break;
- 
- 	default:
-@@ -119,7 +117,6 @@ bna_rxf_sm_stopped(struct bna_rxf *rxf, enum bna_rxf_event event)
- static void
- bna_rxf_sm_paused_entry(struct bna_rxf *rxf)
- {
--	call_rxf_pause_cbfn(rxf);
- }
- 
- static void
-@@ -166,7 +163,6 @@ bna_rxf_sm_cfg_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
- 		bna_rxf_cfg_reset(rxf);
- 		call_rxf_start_cbfn(rxf);
- 		call_rxf_cam_fltr_cbfn(rxf);
--		call_rxf_resume_cbfn(rxf);
- 		bfa_fsm_set_state(rxf, bna_rxf_sm_stopped);
- 		break;
- 
-@@ -197,7 +193,6 @@ bna_rxf_sm_started_entry(struct bna_rxf *rxf)
- {
- 	call_rxf_start_cbfn(rxf);
- 	call_rxf_cam_fltr_cbfn(rxf);
--	call_rxf_resume_cbfn(rxf);
- }
- 
- static void
-@@ -238,7 +233,6 @@ bna_rxf_sm_fltr_clr_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
- 	switch (event) {
- 	case RXF_E_FAIL:
- 		bna_rxf_cfg_reset(rxf);
--		call_rxf_pause_cbfn(rxf);
- 		bfa_fsm_set_state(rxf, bna_rxf_sm_stopped);
- 		break;
- 
+ 	bfa_fsm_set_state(enet, bna_enet_sm_stopped);
 diff --git a/drivers/net/ethernet/brocade/bna/bna_types.h b/drivers/net/ethernet/brocade/bna/bna_types.h
-index a50ee99..96a02f2 100644
+index d0a7a56..a50ee99 100644
 --- a/drivers/net/ethernet/brocade/bna/bna_types.h
 +++ b/drivers/net/ethernet/brocade/bna/bna_types.h
-@@ -739,10 +739,6 @@ struct bna_rxf {
- 	void (*stop_cbfn) (struct bna_rx *rx);
- 	struct bna_rx *stop_cbarg;
+@@ -362,9 +362,6 @@ struct bna_enet {
+ 	void (*stop_cbfn)(void *);
+ 	void			*stop_cbarg;
  
--	/* callback for bna_rx_receive_pause() / bna_rx_receive_resume() */
--	void (*oper_state_cbfn) (struct bnad *bnad, struct bna_rx *rx);
--	struct bnad *oper_state_cbarg;
+-	/* Callback for bna_enet_pause_config() */
+-	void (*pause_cbfn)(struct bnad *);
 -
- 	/**
- 	 * callback for:
- 	 *	bna_rxf_ucast_set()
+ 	/* Callback for bna_enet_mtu_set() */
+ 	void (*mtu_cbfn)(struct bnad *);
+ 
 -- 
 2.3.6
