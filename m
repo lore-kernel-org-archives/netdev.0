@@ -1,41 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: mac80211-next 2015-06-10
-Date: Wed, 10 Jun 2015 22:50:16 -0700 (PDT)
-Message-ID: <20150610.225016.2176334323311549412.davem@davemloft.net>
-References: <1433941752.3145.10.camel@sipsolutions.net>
-	<1433945228.3145.11.camel@sipsolutions.net>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: Re: [PATCH] batman-adv:Make the function batadv_is_my_mac bool
+Date: Thu, 11 Jun 2015 07:53:04 +0200
+Message-ID: <55792240.7040301@meshcoding.com>
+References: <1433989533-30587-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="9gTnF6mtLX9dRp5O2QxwJwliO85mJSd85"
+Cc: mareklindner@neomailbox.ch, sw@simonwunderlich.de,
+	davem@davemloft.net, b.a.t.m.a.n@lists.open-mesh.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicholas Krause <xerofoify@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58211 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751036AbbFKFuQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 01:50:16 -0400
-In-Reply-To: <1433945228.3145.11.camel@sipsolutions.net>
+Received: from s1.neomailbox.net ([5.148.176.57]:26472 "EHLO s1.neomailbox.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750927AbbFKFzM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2015 01:55:12 -0400
+In-Reply-To: <1433989533-30587-1-git-send-email-xerofoify@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Wed, 10 Jun 2015 16:07:08 +0200
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--9gTnF6mtLX9dRp5O2QxwJwliO85mJSd85
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-> On Wed, 2015-06-10 at 15:09 +0200, Johannes Berg wrote:
-> 
->> The following changes since commit c3eee1fb1d308564ada5f7ea57bc51efc6130b37:
->> 
->>   Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge (2015-06-09 20:23:52 -0700)
->> 
->> are available in the git repository at:
->> 
->>   git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git tags/mac80211-next-for-davem-2015-06-10
->> 
->> for you to fetch changes up to 5df03344c5639fdd848cb87553956df7276a8645:
->> 
->>   mac80211: convert HW flags to unsigned long bitmap (2015-06-10 13:48:42 +0200)
-> 
-> Oops, fixed a stupid bug in there so that's now commit
-> 30686bf7f5b3c30831761e188a6e3cb33580fa48. Sorry about that.
+Nicholas,
 
-Pulled, thanks Johannes.
+On 11/06/15 04:25, Nicholas Krause wrote:
+> This makes the function batadv_is_my_mac bool now due
+> to this particular function only returning either one
+> or zero as its return value.
+>=20
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+
+NAK.
+
+we already have ("batman-adv: main, Convert is_my_mac() to bool") in
+net-next that does exactly the same. I guess you did not pull the latest
+changes before writing this patch?
+
+Cheers,
+
+
+--=20
+Antonio Quartulli
+
+
+--9gTnF6mtLX9dRp5O2QxwJwliO85mJSd85
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJVeSJEAAoJEOb/4TMchkvfmqUP/183aLW7L69kngRDMdeXoR+O
+kIghnYAnakndcpKLtABMDtscmvKcRMmc2XHqgUeooKMYmoGO4YBwKtb6RhXL2KM1
+cClVc4TFXaEktD8yQZsfYwiRrdHAuc6cpNtrsFKiEx+3NokZe8OArQg/UGTaqmQf
+8wI0J+4BXzCeX2ayHzEZhBJajKz9cBZb4724uT8trNgI76ThlSnXNpCbBifoUTIk
+SqM6uf6FasXjaK/ocPzYqHm6bbEebaL2PsNXvdnC7oyTEGS1EiYcjJvfnRhcK/Kr
+0I9fcSqoM0jhPwHZNLxbrQlkcMMTXy8aa4kS9A7Biwn8CVyKyHIuPPiEtEj/7Z2N
+s8h0/yBTMknnGoAq0yqS5lvlNfoZ5FoNNyNNVTdbTQtNu3qp8LnadPwGRF2Ok1/U
+ynYoKwpSqKK8Hoyu/tjct15+6ij0RpAZmq8tXvDIHpNpXnPU2duHfmx0bRvxg+eX
+L19KNtifRlfKX5M/YO/H5HxENw3o48TMGQC4DB3mCi1695qM41B5cQl1a1NYNRHu
+VDp1/fH8AzaLhe5DXfOghL8L9JwHFKjjVU3fjuajp/EBjler5Q5H/B3uNxNuYfAz
+PBENuFaQG0TycNR2++v+2GofhAtriyMZRStBG6Ucb+cpwNK6oMPp0wU74hz+1v/K
+TmtEZZ/hNkm3BYXvO3Wq
+=sBDq
+-----END PGP SIGNATURE-----
+
+--9gTnF6mtLX9dRp5O2QxwJwliO85mJSd85--
