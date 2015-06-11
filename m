@@ -1,42 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Problem with patch "make nlmsg_end() and genlmsg_end() void"
-Date: Thu, 11 Jun 2015 00:16:07 -0700 (PDT)
-Message-ID: <20150611.001607.1734541690877787503.davem@davemloft.net>
-References: <1433856864.19447.25.camel@infradead.org>
-	<1433897347.27504.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1433982688.3907.7.camel@infradead.org>
+Subject: Re: [PATCH v6 2/2] Renesas Ethernet AVB PTP clock driver
+Date: Thu, 11 Jun 2015 00:24:25 -0700 (PDT)
+Message-ID: <20150611.002425.1698330124707614277.davem@davemloft.net>
+References: <2950738.iaDWZVkjG3@wasted.cogentembedded.com>
+	<20150611.001455.377939359927165224.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, johannes@sipsolutions.net,
-	torvalds@linux-foundation.org, marcel@holtmann.org,
-	sfeldma@gmail.com, netdev@vger.kernel.org, teg@jklm.no
-To: dwmw2@infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58730 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751080AbbFKHQI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 03:16:08 -0400
-In-Reply-To: <1433982688.3907.7.camel@infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, richardcochran@gmail.com,
+	linux-sh@vger.kernel.org, masaru.nagai.vx@renesas.com
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20150611.001455.377939359927165224.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Thu, 11 Jun 2015 01:31:28 +0100
+From: David Miller <davem@davemloft.net>
+Date: Thu, 11 Jun 2015 00:14:55 -0700 (PDT)
 
-> On Tue, 2015-06-09 at 17:49 -0700, Eric Dumazet wrote:
->> > I've added some debugging, and it seems that when it deadlocks, glibc
->> > doesn't get *any* response to its RTM_GETADDR request. I know we'd get
->> > ENOBUFS is a *response* was dropped... but what about when the request
->> > itself is dropped? ... 
->> 
->> Please check that this patch fixes your issue :
->> 
->> http://patchwork.ozlabs.org/patch/473041/
+> From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Date: Thu, 11 Jun 2015 01:02:30 +0300
 > 
-> Looks likely; thanks. I'm running with that patch now. I haven't been
-> able to quickly reproduce the problem on demand, but it usually happens
-> within a day or two. So it'll be a few days at least before I call it a
-> success.
+>> Ethernet AVB device includes the gPTP  timer, so we can implement a PTP clock
+>> driver.  We're doing that in a separate file, with  the main Ethernet driver
+>> calling the PTP driver's [de]initialization and interrupt handler functions.
+>> Unfortunately, the clock seems tightly coupled with the AVB-DMAC, so when that
+>> one leaves the operation mode, we have to unregister the PTP clock... :-(
+>> 
+>> Based on the original patches by Masaru Nagai.
+>> 
+>> Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> 
+> Applied.
 
-Yeah, and I just sent that to -stable just over a day ago.
+I had to fix up this patch because:
+
+obj-$(CONFIG_RAVB) += ravb_main.o ravb_ptp.o
+
+Doesn't do what you want it to for the modular case.
+
+You instead need to say something like:
+
+ravb-objs := ravb_main.o ravb_ptp.o
+
+obj-$(CONFIG_RAVB) += ravb.o
+
+and that's how I fixed up this commit before pushing it out.
+
