@@ -1,51 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC v2] net: use atomic allocation for order-3 page allocation
-Date: Thu, 11 Jun 2015 16:38:22 -0700
-Message-ID: <1434065902.27504.64.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <71a20cf185c485fa23d9347bd846a6f4e9753405.1434053941.git.shli@fb.com>
-	 <1434063184.27504.60.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150611233235.GA667489@devbig257.prn2.facebook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] tcp: defer shinfo->gso_size|type settings
+Date: Thu, 11 Jun 2015 16:45:02 -0700 (PDT)
+Message-ID: <20150611.164502.578119775073363894.davem@davemloft.net>
+References: <1434039319-31309-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, Kernel-team@fb.com,
- clm@fb.com,  linux-mm@kvack.org, dbavatar@gmail.com, Eric Dumazet
- <edumazet@google.com>
-To: Shaohua Li <shli@fb.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20150611233235.GA667489@devbig257.prn2.facebook.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com,
+	edumazet@gmail.com
+To: edumazet@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37336 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751850AbbFKXpE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 19:45:04 -0400
+In-Reply-To: <1434039319-31309-1-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-06-11 at 16:32 -0700, Shaohua Li wrote:
+From: Eric Dumazet <edumazet@google.com>
+Date: Thu, 11 Jun 2015 09:15:14 -0700
 
+> We put shinfo->gso_segs in TCP_SKB_CB(skb) a while back for performance
+> reasons.
 > 
-> Ok, looks similar, added. Didn't trigger this one though.
+> This was in commit cd7d8498c9a5 ("tcp: change tcp_skb_pcount() location")
+> 
+> This patch series complete the job for gso_size and gso_type, so that
+> we do not bring 2 extra cache lines in tcp write xmit fast path,
+> and making tcp_init_tso_segs() simpler and faster.
 
-Probably because you do not use af_unix with big enough messages.
-
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 3cfff2a..9856c7a 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -4398,7 +4398,9 @@ struct sk_buff *alloc_skb_with_frags(unsigned long header_len,
->  
->  		while (order) {
->  			if (npages >= 1 << order) {
-> -				page = alloc_pages(gfp_mask |
-
-Here, order is > 0 (Look at while (order) right above) 
-
-> +				gfp_t gfp = order > 0 ?
-> +					gfp_mask & ~__GFP_WAIT : gfp_mask;
-> +				page = alloc_pages(gfp |
->  						   __GFP_COMP |
->  						   __GFP_NOWARN |
-
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Series applied, however long term I worry that using a u16 will not
+work with TSO'd ipv6 jumbograms.
