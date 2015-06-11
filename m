@@ -1,63 +1,135 @@
 From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net-next v2 13/19] bna: correct comparisons/assignments to bool
-Date: Thu, 11 Jun 2015 15:52:25 +0200
-Message-ID: <1434030751-28835-14-git-send-email-ivecera@redhat.com>
+Subject: [PATCH net-next v2 12/19] bna: remove TX_E_PRIO_CHANGE event and BNA_TX_F_PRIO_CHANGED flag
+Date: Thu, 11 Jun 2015 15:52:24 +0200
+Message-ID: <1434030751-28835-13-git-send-email-ivecera@redhat.com>
 References: <1434030751-28835-1-git-send-email-ivecera@redhat.com>
 Cc: rasesh.mody@qlogic.com, joe@perches.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46647 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:58164 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754674AbbFKNwW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2015 09:52:22 -0400
+	id S1754670AbbFKNwV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2015 09:52:21 -0400
 In-Reply-To: <1434030751-28835-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+TX_E_PRIO_CHANGE event is never sent for bna_tx so it doesn't need to be
+handled. After this change bna_tx->flags cannot contain
+BNA_TX_F_PRIO_CHANGED flag and it can be also eliminated.
+
 Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 ---
- drivers/net/ethernet/brocade/bna/bfa_ioc.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c | 22 ++++------------------
+ drivers/net/ethernet/brocade/bna/bna_types.h |  1 -
+ 2 files changed, 4 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.c b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
-index 29e0428..52fc439 100644
---- a/drivers/net/ethernet/brocade/bna/bfa_ioc.c
-+++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
-@@ -1373,7 +1373,7 @@ static enum bfi_ioc_img_ver_cmp
- bfa_ioc_fw_ver_patch_cmp(struct bfi_ioc_image_hdr *base_fwhdr,
- 			 struct bfi_ioc_image_hdr *fwhdr_to_cmp)
+diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+index 896aa82..54ad169 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
++++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+@@ -2901,7 +2901,6 @@ enum bna_tx_event {
+ 	TX_E_FAIL			= 3,
+ 	TX_E_STARTED			= 4,
+ 	TX_E_STOPPED			= 5,
+-	TX_E_PRIO_CHANGE		= 6,
+ 	TX_E_CLEANUP_DONE		= 7,
+ 	TX_E_BW_UPDATE			= 8,
+ };
+@@ -2942,9 +2941,6 @@ bna_tx_sm_stopped(struct bna_tx *tx, enum bna_tx_event event)
+ 		/* No-op */
+ 		break;
+ 
+-	case TX_E_PRIO_CHANGE:
+-		break;
+-
+ 	case TX_E_BW_UPDATE:
+ 		/* No-op */
+ 		break;
+@@ -2965,28 +2961,23 @@ bna_tx_sm_start_wait(struct bna_tx *tx, enum bna_tx_event event)
  {
--	if (bfa_ioc_fw_ver_compatible(base_fwhdr, fwhdr_to_cmp) == false)
-+	if (!bfa_ioc_fw_ver_compatible(base_fwhdr, fwhdr_to_cmp))
- 		return BFI_IOC_IMG_VER_INCOMP;
+ 	switch (event) {
+ 	case TX_E_STOP:
+-		tx->flags &= ~(BNA_TX_F_PRIO_CHANGED | BNA_TX_F_BW_UPDATED);
++		tx->flags &= ~BNA_TX_F_BW_UPDATED;
+ 		bfa_fsm_set_state(tx, bna_tx_sm_stop_wait);
+ 		break;
  
- 	if (fwhdr_to_cmp->fwver.patch > base_fwhdr->fwver.patch)
-@@ -1384,7 +1384,7 @@ bfa_ioc_fw_ver_patch_cmp(struct bfi_ioc_image_hdr *base_fwhdr,
- 	/* GA takes priority over internal builds of the same patch stream.
- 	 * At this point major minor maint and patch numbers are same.
- 	 */
--	if (fwhdr_is_ga(base_fwhdr) == true)
-+	if (fwhdr_is_ga(base_fwhdr))
- 		if (fwhdr_is_ga(fwhdr_to_cmp))
- 			return BFI_IOC_IMG_VER_SAME;
- 		else
-@@ -2209,7 +2209,7 @@ bfa_nw_ioc_smem_read(struct bfa_ioc *ioc, void *tbuf, u32 soff, u32 sz)
- 	/*
- 	 *  Hold semaphore to serialize pll init and fwtrc.
- 	*/
--	if (bfa_nw_ioc_sem_get(ioc->ioc_regs.ioc_init_sem_reg) == 0)
-+	if (!bfa_nw_ioc_sem_get(ioc->ioc_regs.ioc_init_sem_reg))
- 		return 1;
+ 	case TX_E_FAIL:
+-		tx->flags &= ~(BNA_TX_F_PRIO_CHANGED | BNA_TX_F_BW_UPDATED);
++		tx->flags &= ~BNA_TX_F_BW_UPDATED;
+ 		bfa_fsm_set_state(tx, bna_tx_sm_stopped);
+ 		break;
  
- 	writel(pgnum, ioc->ioc_regs.host_page_num_fn);
-@@ -2264,7 +2264,7 @@ bfa_nw_ioc_debug_save_ftrc(struct bfa_ioc *ioc)
- 	int tlen;
+ 	case TX_E_STARTED:
+-		if (tx->flags & (BNA_TX_F_PRIO_CHANGED | BNA_TX_F_BW_UPDATED)) {
+-			tx->flags &= ~(BNA_TX_F_PRIO_CHANGED |
+-				BNA_TX_F_BW_UPDATED);
++		if (tx->flags & BNA_TX_F_BW_UPDATED) {
++			tx->flags &= ~BNA_TX_F_BW_UPDATED;
+ 			bfa_fsm_set_state(tx, bna_tx_sm_prio_stop_wait);
+ 		} else
+ 			bfa_fsm_set_state(tx, bna_tx_sm_started);
+ 		break;
  
- 	if (ioc->dbg_fwsave_once) {
--		ioc->dbg_fwsave_once = 0;
-+		ioc->dbg_fwsave_once = false;
- 		if (ioc->dbg_fwsave_len) {
- 			tlen = ioc->dbg_fwsave_len;
- 			bfa_nw_ioc_debug_fwtrc(ioc, ioc->dbg_fwsave, &tlen);
+-	case TX_E_PRIO_CHANGE:
+-		tx->flags |=  BNA_TX_F_PRIO_CHANGED;
+-		break;
+-
+ 	case TX_E_BW_UPDATE:
+ 		tx->flags |= BNA_TX_F_BW_UPDATED;
+ 		break;
+@@ -3028,7 +3019,6 @@ bna_tx_sm_started(struct bna_tx *tx, enum bna_tx_event event)
+ 		tx->tx_cleanup_cbfn(tx->bna->bnad, tx);
+ 		break;
+ 
+-	case TX_E_PRIO_CHANGE:
+ 	case TX_E_BW_UPDATE:
+ 		bfa_fsm_set_state(tx, bna_tx_sm_prio_stop_wait);
+ 		break;
+@@ -3061,7 +3051,6 @@ bna_tx_sm_stop_wait(struct bna_tx *tx, enum bna_tx_event event)
+ 		bna_tx_enet_stop(tx);
+ 		break;
+ 
+-	case TX_E_PRIO_CHANGE:
+ 	case TX_E_BW_UPDATE:
+ 		/* No-op */
+ 		break;
+@@ -3081,7 +3070,6 @@ bna_tx_sm_cleanup_wait(struct bna_tx *tx, enum bna_tx_event event)
+ {
+ 	switch (event) {
+ 	case TX_E_FAIL:
+-	case TX_E_PRIO_CHANGE:
+ 	case TX_E_BW_UPDATE:
+ 		/* No-op */
+ 		break;
+@@ -3119,7 +3107,6 @@ bna_tx_sm_prio_stop_wait(struct bna_tx *tx, enum bna_tx_event event)
+ 		bfa_fsm_set_state(tx, bna_tx_sm_prio_cleanup_wait);
+ 		break;
+ 
+-	case TX_E_PRIO_CHANGE:
+ 	case TX_E_BW_UPDATE:
+ 		/* No-op */
+ 		break;
+@@ -3147,7 +3134,6 @@ bna_tx_sm_prio_cleanup_wait(struct bna_tx *tx, enum bna_tx_event event)
+ 		bfa_fsm_set_state(tx, bna_tx_sm_failed);
+ 		break;
+ 
+-	case TX_E_PRIO_CHANGE:
+ 	case TX_E_BW_UPDATE:
+ 		/* No-op */
+ 		break;
+diff --git a/drivers/net/ethernet/brocade/bna/bna_types.h b/drivers/net/ethernet/brocade/bna/bna_types.h
+index 134abf7..e0e797f 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_types.h
++++ b/drivers/net/ethernet/brocade/bna/bna_types.h
+@@ -135,7 +135,6 @@ enum bna_tx_type {
+ enum bna_tx_flags {
+ 	BNA_TX_F_ENET_STARTED	= 1,
+ 	BNA_TX_F_ENABLED	= 2,
+-	BNA_TX_F_PRIO_CHANGED	= 4,
+ 	BNA_TX_F_BW_UPDATED	= 8,
+ };
+ 
 -- 
 2.3.6
