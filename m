@@ -1,45 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Subject: Re: [PATCH net] net: igb: fix the start time for periodic output
  signals
-Date: Thu, 11 Jun 2015 15:58:30 -0700
-Message-ID: <1434063510.3530.10.camel@intel.com>
+Date: Thu, 11 Jun 2015 15:59:05 -0700
+Message-ID: <1434063545.3530.11.camel@intel.com>
 References: <1434027090-26866-1-git-send-email-richardcochran@gmail.com>
-	 <20150611125310.GA26906@localhost.localdomain>
-	 <20150611.155627.1888601708793677012.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-4ZeFYi6e+eHgy9S05L/O"
-Cc: richardcochran@gmail.com, netdev@vger.kernel.org,
-	jacob.e.keller@intel.com, matthew.vick@intel.com
-To: David Miller <davem@davemloft.net>
+	protocol="application/pgp-signature"; boundary="=-stsQaRcQHHhNfTpacGzy"
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:37311 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:62957 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752219AbbFKW6c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2015 18:58:32 -0400
-In-Reply-To: <20150611.155627.1888601708793677012.davem@davemloft.net>
+	id S1752219AbbFKW7H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2015 18:59:07 -0400
+In-Reply-To: <1434027090-26866-1-git-send-email-richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-4ZeFYi6e+eHgy9S05L/O
+--=-stsQaRcQHHhNfTpacGzy
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2015-06-11 at 15:56 -0700, David Miller wrote:
-> From: Richard Cochran <richardcochran@gmail.com>
-> Date: Thu, 11 Jun 2015 14:53:10 +0200
+On Thu, 2015-06-11 at 14:51 +0200, Richard Cochran wrote:
+> When programming the start of a periodic output, the code wrongly
+> places
+> the seconds value into the "low" register and the nanoseconds into the
+> "high" register.  Even though this is backwards, it slipped through my
+> testing, because the re-arming code in the interrupt service routine
+> is
+> correct, and the signal does appear starting with the second edge.
 >=20
-> > On Thu, Jun 11, 2015 at 02:51:30PM +0200, Richard Cochran wrote:
-> >> This patch fixes the issue by programming the registers correctly.
-> >=20
-> > Please also consider this for stable.
+> This patch fixes the issue by programming the registers correctly.
 >=20
-> Jeff, do you want me to integrate this directly?
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 
-Yes please.  I was just about to send email asking that.
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
---=-4ZeFYi6e+eHgy9S05L/O
+--=-stsQaRcQHHhNfTpacGzy
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -47,19 +48,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJVehKWAAoJEOVv75VaS+3OsFEP/3atcThSmLQMQ5co3YmdVAVi
-e/ov+O//vPmI9JhBuzkiNsgWp09/sIoYAPBskx0b4MP7T4+BLOy9+MEG9ix8yp3w
-AYiccWLf9IdEB5ovE6VzY9/gZIRpgl2JpaFc4Q5nipWIMMxZF32m5GYTd9BBRiGN
-YFL3jLHitlvwIKFqTfJO8COsWglEAFuDh6tiBAatKeiTxfVjhUTI8sDKj2//Ojm6
-bJXJKNmXeHBFHi7D9mNlnKUsXZz6xjkXblPGTw+QvtLlHXaGSKCyOgh9/wwV0uJi
-rNu0WhuPwUbH0XodFgoZfRpKaHA5/laWmdW78Rj0BZNJkB+7Zkp/EX/UoQX4vxcZ
-JjtK3eg5ZIsTFKE8Zv6PTwKyTL4Qqvp5XI3CDLzcxQqaBRTOy6LXoYtQfPx6q2FV
-F3/GPYdF2EzeVVdWOpvFwXVg8F/9EU18WMrGTkMy1BVeTsw5MuMRrmzBsD9MCIEs
-8c9oogQ+p6NIHZZG8YlA7ecVQp8HOAzRl5inNQx9MAIVBlGTuWY0VwHG4PYoVA+6
-S2k114jtyyzKtG8Wujh/6S9YyjQyX+ajNQ9UT/n71npzNIeyMY+4wtUOyOjcef6v
-96+0NoVORp2cG38SL1sV2gr9oliYloNwPPyJdFdJxgc85GKZdKPRyIFe5vkax8Od
-cDHCMtHK8B+DR3aTfz61
-=rGSn
+iQIcBAABCgAGBQJVehK5AAoJEOVv75VaS+3OaQ4P/2noDle5dXV6xb6Sg098BDaP
+GF9uSb0qIyCb9QMRZKOyqDYmk+1S6OBT6aaDlxVCznyKBLznTYaE5DkLRuzI6FFZ
+6WFB2NPiPHpvHuJEMKfarjcIdSnLw+RuN+9AI57Oe4RHJKnyBWjsn3ftLwJ4cBMQ
+vqBcNLgD2F8+kxoMwAMdKrFU+KDaYBieK9zgCxaFtUGQ0+wtnhUr4uARI3QMSswN
++PjAW981DWsYRH2dBsx3WquAlJvqnIDMCUsZrWt93U5XvKdrvXLHWZh3Dx3xCl+T
+BvRalRIxkCz1D1hoj/NXMCx6QiNpWq4KHx7FbBz7H/ODv8GG2mRzbwRgNyT6Ct2O
+jvl3TTeL4BhRAdDUPsr9VEIMUD/Z94nwspjtMeMzeTQJYh+qBjaimn/CGmg+vxxh
+p4xcbgt5WGm68qmoLVJvm+4yIO1hSg4JA/qn8KB90YXAGT/dhCLp4j8oVIepbGUi
+CZpSIAJIZ2fj//mJ7A/SfpTzo6OatKbIVF11+vUu2yQOgjNTXd50sWhlsohVukOT
+lyF2Lhep4EPD54afL3nXm4qwT+O6nWu+9IZYqXylFMdrDZ1SmVgiZiVKGOYxfLEH
++sRYML1GXN7uC686ZimSrJWmjtWEGU8j4QQbiG4FqUa1kRWT4FBj5pP9RjOqBJ+w
+W1UhMHeEKEoJ5/ujp/7d
+=aVRQ
 -----END PGP SIGNATURE-----
 
---=-4ZeFYi6e+eHgy9S05L/O--
+--=-stsQaRcQHHhNfTpacGzy--
