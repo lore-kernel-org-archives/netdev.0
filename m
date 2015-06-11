@@ -1,51 +1,45 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 4/5] bgmac: Utilize BRCM_PSEUDO_PHY_ADDR
-Date: Wed, 10 Jun 2015 18:08:00 -0700
-Message-ID: <1433984881-28781-5-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 2/5] net: phy: broadcom: define Broadcom pseudo-PHY address in brcmphy.h
+Date: Wed, 10 Jun 2015 18:07:58 -0700
+Message-ID: <1433984881-28781-3-git-send-email-f.fainelli@gmail.com>
 References: <1433984881-28781-1-git-send-email-f.fainelli@gmail.com>
 Cc: Florian Fainelli <f.fainelli@gmail.com>, hauke@hauke-m.de,
 	zajec5@gmail.com, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:33896 "EHLO
-	mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751822AbbFKBJQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 21:09:16 -0400
-Received: by qkoo18 with SMTP id o18so33927294qko.1
-        for <netdev@vger.kernel.org>; Wed, 10 Jun 2015 18:09:16 -0700 (PDT)
+Received: from mail-qg0-f53.google.com ([209.85.192.53]:36238 "EHLO
+	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751933AbbFKBJN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 21:09:13 -0400
+Received: by qgep100 with SMTP id p100so21702495qge.3
+        for <netdev@vger.kernel.org>; Wed, 10 Jun 2015 18:09:13 -0700 (PDT)
 In-Reply-To: <1433984881-28781-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-What BGMAC defines as BGMAC_PHY_NOREGS is in fact the Broadcom Ethernet
-switches' pseudo-PHY address (30), utilize the newly introduced constant
-from brcmphy.h
+Define the pseudo-PHY address (30) which is used by all Broadcom
+Ethernet switches in a shared header file.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/broadcom/bgmac.h | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ include/linux/brcmphy.h | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
-index db27febbb215..4fbb093e0d84 100644
---- a/drivers/net/ethernet/broadcom/bgmac.h
-+++ b/drivers/net/ethernet/broadcom/bgmac.h
-@@ -13,6 +13,7 @@
- 	dev_dbg(&(bgmac)->core->dev, fmt, ##__VA_ARGS__)
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index abb6106f839d..697ca7795bd9 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -3,6 +3,11 @@
  
- #include <linux/bcma/bcma.h>
-+#include <linux/brcmphy.h>
- #include <linux/netdevice.h>
+ #include <linux/phy.h>
  
- #define BGMAC_DEV_CTL				0x000
-@@ -349,7 +350,7 @@
- #define BGMAC_DESC_CTL0_SOF			0x80000000	/* Start of frame */
- #define BGMAC_DESC_CTL1_LEN			0x00001FFF
- 
--#define BGMAC_PHY_NOREGS			0x1E
-+#define BGMAC_PHY_NOREGS			BRCM_PSEUDO_PHY_ADDR
- #define BGMAC_PHY_MASK				0x1F
- 
- #define BGMAC_MAX_TX_RINGS			4
++/* All Broadcom Ethernet switches have a pseudo-PHY at address 30 which is used
++ * to configure the switch internal registers via MDIO accesses.
++ */
++#define BRCM_PSEUDO_PHY_ADDR           30
++
+ #define PHY_ID_BCM50610			0x0143bd60
+ #define PHY_ID_BCM50610M		0x0143bd70
+ #define PHY_ID_BCM5241			0x0143bc30
 -- 
 2.1.0
