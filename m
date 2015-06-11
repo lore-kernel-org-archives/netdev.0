@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/unix: support SCM_SECURITY for stream
- sockets
-Date: Wed, 10 Jun 2015 22:49:34 -0700 (PDT)
-Message-ID: <20150610.224934.759313464983844581.davem@davemloft.net>
-References: <1433940299-6207-1-git-send-email-sds@tycho.nsa.gov>
+Subject: Re: pull-request: mac80211-next 2015-06-10
+Date: Wed, 10 Jun 2015 22:50:16 -0700 (PDT)
+Message-ID: <20150610.225016.2176334323311549412.davem@davemloft.net>
+References: <1433941752.3145.10.camel@sipsolutions.net>
+	<1433945228.3145.11.camel@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	paul@paul-moore.com
-To: sds@tycho.nsa.gov
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1433940299-6207-1-git-send-email-sds@tycho.nsa.gov>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58211 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751036AbbFKFuQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 01:50:16 -0400
+In-Reply-To: <1433945228.3145.11.camel@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Date: Wed, 10 Jun 2015 08:44:59 -0400
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Wed, 10 Jun 2015 16:07:08 +0200
 
-> SCM_SECURITY was originally only implemented for datagram sockets,
-> not for stream sockets.  However, SCM_CREDENTIALS is supported on
-> Unix stream sockets.  For consistency, implement Unix stream support
-> for SCM_SECURITY as well.  Also clean up the existing code and get
-> rid of the superfluous UNIXSID macro.
+> On Wed, 2015-06-10 at 15:09 +0200, Johannes Berg wrote:
 > 
-> Motivated by https://bugzilla.redhat.com/show_bug.cgi?id=1224211,
-> where systemd was using SCM_CREDENTIALS and assumed wrongly that
-> SCM_SECURITY was also supported on Unix stream sockets.
+>> The following changes since commit c3eee1fb1d308564ada5f7ea57bc51efc6130b37:
+>> 
+>>   Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge (2015-06-09 20:23:52 -0700)
+>> 
+>> are available in the git repository at:
+>> 
+>>   git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git tags/mac80211-next-for-davem-2015-06-10
+>> 
+>> for you to fetch changes up to 5df03344c5639fdd848cb87553956df7276a8645:
+>> 
+>>   mac80211: convert HW flags to unsigned long bitmap (2015-06-10 13:48:42 +0200)
 > 
-> Signed-off-by: Stephen Smalley <sds@tycho.nsa.gov>
-> Acked-by: Paul Moore <paul@paul-moore.com>
+> Oops, fixed a stupid bug in there so that's now commit
+> 30686bf7f5b3c30831761e188a6e3cb33580fa48. Sorry about that.
 
-Applied, thank you.
+Pulled, thanks Johannes.
