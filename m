@@ -1,311 +1,367 @@
 From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net-next v2 06/19] bna: remove unused cbfn parameter
-Date: Thu, 11 Jun 2015 15:52:18 +0200
-Message-ID: <1434030751-28835-7-git-send-email-ivecera@redhat.com>
+Subject: [PATCH net-next v2 05/19] bna: use BIT(x) instead of (1 << x)
+Date: Thu, 11 Jun 2015 15:52:17 +0200
+Message-ID: <1434030751-28835-6-git-send-email-ivecera@redhat.com>
 References: <1434030751-28835-1-git-send-email-ivecera@redhat.com>
 Cc: rasesh.mody@qlogic.com, joe@perches.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50000 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54053 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754629AbbFKNwN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2015 09:52:13 -0400
+	id S1754596AbbFKNwL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2015 09:52:11 -0400
 In-Reply-To: <1434030751-28835-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-removed:
-bna_rx_ucast_add
-bna_rx_ucast_del
-
-simplified:
-bna_enet_pause_config
-bna_rx_mcast_delall
-bna_rx_mcast_listset
-bna_rx_mode_set
-bna_rx_ucast_listset
-bna_rx_ucast_set
-
 Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 ---
- drivers/net/ethernet/brocade/bna/bna.h          | 24 +++++------------
- drivers/net/ethernet/brocade/bna/bna_enet.c     |  5 +---
- drivers/net/ethernet/brocade/bna/bna_tx_rx.c    | 35 +++++++------------------
- drivers/net/ethernet/brocade/bna/bnad.c         | 18 ++++++-------
- drivers/net/ethernet/brocade/bna/bnad_ethtool.c |  2 +-
- 5 files changed, 25 insertions(+), 59 deletions(-)
+ .../net/ethernet/brocade/bna/bfa_defs_mfg_comm.h   |  2 +-
+ drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c      |  2 +-
+ drivers/net/ethernet/brocade/bna/bfi_enet.h        | 66 ++++++++++----------
+ drivers/net/ethernet/brocade/bna/bna_enet.c        |  4 +-
+ drivers/net/ethernet/brocade/bna/bna_hw_defs.h     | 70 +++++++++++-----------
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c       | 22 +++----
+ 6 files changed, 83 insertions(+), 83 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bna.h b/drivers/net/ethernet/brocade/bna/bna.h
-index 130010d..0962e54 100644
---- a/drivers/net/ethernet/brocade/bna/bna.h
-+++ b/drivers/net/ethernet/brocade/bna/bna.h
-@@ -386,30 +386,19 @@ void bna_rx_coalescing_timeo_set(struct bna_rx *rx, int coalescing_timeo);
- void bna_rx_dim_reconfig(struct bna *bna, const u32 vector[][BNA_BIAS_T_MAX]);
- void bna_rx_dim_update(struct bna_ccb *ccb);
- enum bna_cb_status
--bna_rx_ucast_set(struct bna_rx *rx, u8 *ucmac,
--		 void (*cbfn)(struct bnad *, struct bna_rx *));
--enum bna_cb_status
--bna_rx_ucast_add(struct bna_rx *rx, u8* ucmac,
--		 void (*cbfn)(struct bnad *, struct bna_rx *));
--enum bna_cb_status
--bna_rx_ucast_del(struct bna_rx *rx, u8 *ucmac,
--		 void (*cbfn)(struct bnad *, struct bna_rx *));
-+bna_rx_ucast_set(struct bna_rx *rx, u8 *ucmac);
- enum bna_cb_status
--bna_rx_ucast_listset(struct bna_rx *rx, int count, u8 *uclist,
--		     void (*cbfn)(struct bnad *, struct bna_rx *));
-+bna_rx_ucast_listset(struct bna_rx *rx, int count, u8 *uclist);
- enum bna_cb_status
- bna_rx_mcast_add(struct bna_rx *rx, u8 *mcmac,
- 		 void (*cbfn)(struct bnad *, struct bna_rx *));
- enum bna_cb_status
--bna_rx_mcast_listset(struct bna_rx *rx, int count, u8 *mcmac,
--		     void (*cbfn)(struct bnad *, struct bna_rx *));
-+bna_rx_mcast_listset(struct bna_rx *rx, int count, u8 *mcmac);
- void
--bna_rx_mcast_delall(struct bna_rx *rx,
--		    void (*cbfn)(struct bnad *, struct bna_rx *));
-+bna_rx_mcast_delall(struct bna_rx *rx);
- enum bna_cb_status
- bna_rx_mode_set(struct bna_rx *rx, enum bna_rxmode rxmode,
--		enum bna_rxmode bitmask,
--		void (*cbfn)(struct bnad *, struct bna_rx *));
-+		enum bna_rxmode bitmask);
- void bna_rx_vlan_add(struct bna_rx *rx, int vlan_id);
- void bna_rx_vlan_del(struct bna_rx *rx, int vlan_id);
- void bna_rx_vlanfilter_enable(struct bna_rx *rx);
-@@ -429,8 +418,7 @@ void bna_enet_enable(struct bna_enet *enet);
- void bna_enet_disable(struct bna_enet *enet, enum bna_cleanup_type type,
- 		      void (*cbfn)(void *));
- void bna_enet_pause_config(struct bna_enet *enet,
--			   struct bna_pause_config *pause_config,
--			   void (*cbfn)(struct bnad *));
-+			   struct bna_pause_config *pause_config);
- void bna_enet_mtu_set(struct bna_enet *enet, int mtu,
- 		      void (*cbfn)(struct bnad *));
- void bna_enet_perm_mac_get(struct bna_enet *enet, u8 *mac);
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h b/drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h
+index 679a503..16090fd 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h
++++ b/drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h
+@@ -75,7 +75,7 @@ enum {
+ 	CB_GPIO_FC4P2   = (4),		/*!< 4G 2port FC card		*/
+ 	CB_GPIO_FC4P1   = (5),		/*!< 4G 1port FC card		*/
+ 	CB_GPIO_DFLY    = (6),		/*!< 8G 2port FC mezzanine card	*/
+-	CB_GPIO_PROTO   = (1 << 7)	/*!< 8G 2port FC prototypes	*/
++	CB_GPIO_PROTO   = BIT(7)	/*!< 8G 2port FC prototypes	*/
+ };
+ 
+ #define bfa_mfg_adapter_prop_init_gpio(gpio, card_type, prop)	\
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+index 2e72445..4247d8a 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+@@ -24,7 +24,7 @@
+ #include "bfa_defs.h"
+ 
+ #define bfa_ioc_ct_sync_pos(__ioc)	\
+-		((u32) (1 << bfa_ioc_pcifn(__ioc)))
++		((u32)BIT(bfa_ioc_pcifn(__ioc)))
+ #define BFA_IOC_SYNC_REQD_SH		16
+ #define bfa_ioc_ct_get_sync_ackd(__val) (__val & 0x0000ffff)
+ #define bfa_ioc_ct_clear_sync_ackd(__val) (__val & 0xffff0000)
+diff --git a/drivers/net/ethernet/brocade/bna/bfi_enet.h b/drivers/net/ethernet/brocade/bna/bfi_enet.h
+index fad3a12..d7be7ea8 100644
+--- a/drivers/net/ethernet/brocade/bna/bfi_enet.h
++++ b/drivers/net/ethernet/brocade/bna/bfi_enet.h
+@@ -68,13 +68,13 @@ union bfi_addr_be_u {
+ #define BFI_ENET_TXQ_WI_EXTENSION	(0x104)	/* Extension WI */
+ 
+ /* TxQ Entry Control Flags */
+-#define BFI_ENET_TXQ_WI_CF_FCOE_CRC	(1 << 8)
+-#define BFI_ENET_TXQ_WI_CF_IPID_MODE	(1 << 5)
+-#define BFI_ENET_TXQ_WI_CF_INS_PRIO	(1 << 4)
+-#define BFI_ENET_TXQ_WI_CF_INS_VLAN	(1 << 3)
+-#define BFI_ENET_TXQ_WI_CF_UDP_CKSUM	(1 << 2)
+-#define BFI_ENET_TXQ_WI_CF_TCP_CKSUM	(1 << 1)
+-#define BFI_ENET_TXQ_WI_CF_IP_CKSUM	(1 << 0)
++#define BFI_ENET_TXQ_WI_CF_FCOE_CRC	BIT(8)
++#define BFI_ENET_TXQ_WI_CF_IPID_MODE	BIT(5)
++#define BFI_ENET_TXQ_WI_CF_INS_PRIO	BIT(4)
++#define BFI_ENET_TXQ_WI_CF_INS_VLAN	BIT(3)
++#define BFI_ENET_TXQ_WI_CF_UDP_CKSUM	BIT(2)
++#define BFI_ENET_TXQ_WI_CF_TCP_CKSUM	BIT(1)
++#define BFI_ENET_TXQ_WI_CF_IP_CKSUM	BIT(0)
+ 
+ struct bfi_enet_txq_wi_base {
+ 	u8			reserved;
+@@ -122,32 +122,32 @@ struct bfi_enet_rxq_entry {
+ 
+ /*   R X   C O M P L E T I O N   Q U E U E   D E F I N E S   */
+ /* CQ Entry Flags */
+-#define	BFI_ENET_CQ_EF_MAC_ERROR	(1 <<  0)
+-#define	BFI_ENET_CQ_EF_FCS_ERROR	(1 <<  1)
+-#define	BFI_ENET_CQ_EF_TOO_LONG		(1 <<  2)
+-#define	BFI_ENET_CQ_EF_FC_CRC_OK	(1 <<  3)
++#define BFI_ENET_CQ_EF_MAC_ERROR	BIT(0)
++#define BFI_ENET_CQ_EF_FCS_ERROR	BIT(1)
++#define BFI_ENET_CQ_EF_TOO_LONG		BIT(2)
++#define BFI_ENET_CQ_EF_FC_CRC_OK	BIT(3)
+ 
+-#define	BFI_ENET_CQ_EF_RSVD1		(1 <<  4)
+-#define	BFI_ENET_CQ_EF_L4_CKSUM_OK	(1 <<  5)
+-#define	BFI_ENET_CQ_EF_L3_CKSUM_OK	(1 <<  6)
+-#define	BFI_ENET_CQ_EF_HDS_HEADER	(1 <<  7)
++#define BFI_ENET_CQ_EF_RSVD1		BIT(4)
++#define BFI_ENET_CQ_EF_L4_CKSUM_OK	BIT(5)
++#define BFI_ENET_CQ_EF_L3_CKSUM_OK	BIT(6)
++#define BFI_ENET_CQ_EF_HDS_HEADER	BIT(7)
+ 
+-#define	BFI_ENET_CQ_EF_UDP		(1 <<  8)
+-#define	BFI_ENET_CQ_EF_TCP		(1 <<  9)
+-#define	BFI_ENET_CQ_EF_IP_OPTIONS	(1 << 10)
+-#define	BFI_ENET_CQ_EF_IPV6		(1 << 11)
++#define BFI_ENET_CQ_EF_UDP		BIT(8)
++#define BFI_ENET_CQ_EF_TCP		BIT(9)
++#define BFI_ENET_CQ_EF_IP_OPTIONS	BIT(10)
++#define BFI_ENET_CQ_EF_IPV6		BIT(11)
+ 
+-#define	BFI_ENET_CQ_EF_IPV4		(1 << 12)
+-#define	BFI_ENET_CQ_EF_VLAN		(1 << 13)
+-#define	BFI_ENET_CQ_EF_RSS		(1 << 14)
+-#define	BFI_ENET_CQ_EF_RSVD2		(1 << 15)
++#define BFI_ENET_CQ_EF_IPV4		BIT(12)
++#define BFI_ENET_CQ_EF_VLAN		BIT(13)
++#define BFI_ENET_CQ_EF_RSS		BIT(14)
++#define BFI_ENET_CQ_EF_RSVD2		BIT(15)
+ 
+-#define	BFI_ENET_CQ_EF_MCAST_MATCH	(1 << 16)
+-#define	BFI_ENET_CQ_EF_MCAST		(1 << 17)
+-#define BFI_ENET_CQ_EF_BCAST		(1 << 18)
+-#define	BFI_ENET_CQ_EF_REMOTE		(1 << 19)
++#define BFI_ENET_CQ_EF_MCAST_MATCH	BIT(16)
++#define BFI_ENET_CQ_EF_MCAST		BIT(17)
++#define BFI_ENET_CQ_EF_BCAST		BIT(18)
++#define BFI_ENET_CQ_EF_REMOTE		BIT(19)
+ 
+-#define	BFI_ENET_CQ_EF_LOCAL		(1 << 20)
++#define BFI_ENET_CQ_EF_LOCAL		BIT(20)
+ 
+ /* CQ Entry Structure */
+ struct bfi_enet_cq_entry {
+@@ -672,11 +672,11 @@ struct bfi_enet_stats_req {
+ } __packed;
+ 
+ /* defines for "stats_mask" above. */
+-#define BFI_ENET_STATS_MAC    (1 << 0)    /* !< MAC Statistics */
+-#define BFI_ENET_STATS_BPC    (1 << 1)    /* !< Pause Stats from BPC */
+-#define BFI_ENET_STATS_RAD    (1 << 2)    /* !< Rx Admission Statistics */
+-#define BFI_ENET_STATS_RX_FC  (1 << 3)    /* !< Rx FC Stats from RxA */
+-#define BFI_ENET_STATS_TX_FC  (1 << 4)    /* !< Tx FC Stats from TxA */
++#define BFI_ENET_STATS_MAC    BIT(0)    /* !< MAC Statistics */
++#define BFI_ENET_STATS_BPC    BIT(1)    /* !< Pause Stats from BPC */
++#define BFI_ENET_STATS_RAD    BIT(2)    /* !< Rx Admission Statistics */
++#define BFI_ENET_STATS_RX_FC  BIT(3)    /* !< Rx FC Stats from RxA */
++#define BFI_ENET_STATS_TX_FC  BIT(4)    /* !< Tx FC Stats from TxA */
+ 
+ #define BFI_ENET_STATS_ALL    0x1f
+ 
 diff --git a/drivers/net/ethernet/brocade/bna/bna_enet.c b/drivers/net/ethernet/brocade/bna/bna_enet.c
-index 54902ce..b8de17b 100644
+index 5a1e6b5..54902ce 100644
 --- a/drivers/net/ethernet/brocade/bna/bna_enet.c
 +++ b/drivers/net/ethernet/brocade/bna/bna_enet.c
-@@ -1308,13 +1308,10 @@ bna_enet_disable(struct bna_enet *enet, enum bna_cleanup_type type,
+@@ -207,7 +207,7 @@ bna_bfi_stats_get_rsp(struct bna *bna, struct bfi_msgq_mhdr *msghdr)
+ 	for (i = 0; i < BFI_ENET_CFG_MAX; i++) {
+ 		stats_dst = (u64 *)&(bna->stats.hw_stats.rxf_stats[i]);
+ 		memset(stats_dst, 0, sizeof(struct bfi_enet_stats_rxf));
+-		if (rx_enet_mask & ((u32)(1 << i))) {
++		if (rx_enet_mask & ((u32)BIT(i))) {
+ 			int k;
+ 			count = sizeof(struct bfi_enet_stats_rxf) /
+ 				sizeof(u64);
+@@ -222,7 +222,7 @@ bna_bfi_stats_get_rsp(struct bna *bna, struct bfi_msgq_mhdr *msghdr)
+ 	for (i = 0; i < BFI_ENET_CFG_MAX; i++) {
+ 		stats_dst = (u64 *)&(bna->stats.hw_stats.txf_stats[i]);
+ 		memset(stats_dst, 0, sizeof(struct bfi_enet_stats_txf));
+-		if (tx_enet_mask & ((u32)(1 << i))) {
++		if (tx_enet_mask & ((u32)BIT(i))) {
+ 			int k;
+ 			count = sizeof(struct bfi_enet_stats_txf) /
+ 				sizeof(u64);
+diff --git a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+index 174af0e..52b45c9 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
++++ b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+@@ -213,7 +213,7 @@ do {									\
+  * 15 bits (32K) should  be large enough to accumulate, anyways, and the max.
+  * acked events to h/w can be (32K + max poll weight) (currently 64).
+  */
+-#define	BNA_IB_MAX_ACK_EVENTS		(1 << 15)
++#define BNA_IB_MAX_ACK_EVENTS		BIT(15)
  
- void
- bna_enet_pause_config(struct bna_enet *enet,
--		      struct bna_pause_config *pause_config,
--		      void (*cbfn)(struct bnad *))
-+		      struct bna_pause_config *pause_config)
- {
- 	enet->pause_config = *pause_config;
+ /* These macros build the data portion of the TxQ/RxQ doorbell */
+ #define BNA_DOORBELL_Q_PRD_IDX(_pi)	(0x80000000 | (_pi))
+@@ -282,13 +282,13 @@ do {									\
+ #define BNA_TXQ_WI_EXTENSION		(0x104)	/* Extension WI */
  
--	enet->pause_cbfn = cbfn;
+ /* TxQ Entry Control Flags */
+-#define BNA_TXQ_WI_CF_FCOE_CRC		(1 << 8)
+-#define BNA_TXQ_WI_CF_IPID_MODE		(1 << 5)
+-#define BNA_TXQ_WI_CF_INS_PRIO		(1 << 4)
+-#define BNA_TXQ_WI_CF_INS_VLAN		(1 << 3)
+-#define BNA_TXQ_WI_CF_UDP_CKSUM		(1 << 2)
+-#define BNA_TXQ_WI_CF_TCP_CKSUM		(1 << 1)
+-#define BNA_TXQ_WI_CF_IP_CKSUM		(1 << 0)
++#define BNA_TXQ_WI_CF_FCOE_CRC		BIT(8)
++#define BNA_TXQ_WI_CF_IPID_MODE		BIT(5)
++#define BNA_TXQ_WI_CF_INS_PRIO		BIT(4)
++#define BNA_TXQ_WI_CF_INS_VLAN		BIT(3)
++#define BNA_TXQ_WI_CF_UDP_CKSUM		BIT(2)
++#define BNA_TXQ_WI_CF_TCP_CKSUM		BIT(1)
++#define BNA_TXQ_WI_CF_IP_CKSUM		BIT(0)
+ 
+ #define BNA_TXQ_WI_L4_HDR_N_OFFSET(_hdr_size, _offset) \
+ 		(((_hdr_size) << 10) | ((_offset) & 0x3FF))
+@@ -297,36 +297,36 @@ do {									\
+  * Completion Q defines
+  */
+ /* CQ Entry Flags */
+-#define	BNA_CQ_EF_MAC_ERROR	(1 <<  0)
+-#define	BNA_CQ_EF_FCS_ERROR	(1 <<  1)
+-#define	BNA_CQ_EF_TOO_LONG	(1 <<  2)
+-#define	BNA_CQ_EF_FC_CRC_OK	(1 <<  3)
 -
- 	bfa_fsm_send_event(enet, ENET_E_PAUSE_CFG);
- }
+-#define	BNA_CQ_EF_RSVD1		(1 <<  4)
+-#define	BNA_CQ_EF_L4_CKSUM_OK	(1 <<  5)
+-#define	BNA_CQ_EF_L3_CKSUM_OK	(1 <<  6)
+-#define	BNA_CQ_EF_HDS_HEADER	(1 <<  7)
+-
+-#define	BNA_CQ_EF_UDP		(1 <<  8)
+-#define	BNA_CQ_EF_TCP		(1 <<  9)
+-#define	BNA_CQ_EF_IP_OPTIONS	(1 << 10)
+-#define	BNA_CQ_EF_IPV6		(1 << 11)
+-
+-#define	BNA_CQ_EF_IPV4		(1 << 12)
+-#define	BNA_CQ_EF_VLAN		(1 << 13)
+-#define	BNA_CQ_EF_RSS		(1 << 14)
+-#define	BNA_CQ_EF_RSVD2		(1 << 15)
+-
+-#define	BNA_CQ_EF_MCAST_MATCH   (1 << 16)
+-#define	BNA_CQ_EF_MCAST		(1 << 17)
+-#define BNA_CQ_EF_BCAST		(1 << 18)
+-#define	BNA_CQ_EF_REMOTE	(1 << 19)
+-
+-#define	BNA_CQ_EF_LOCAL		(1 << 20)
++#define BNA_CQ_EF_MAC_ERROR	BIT(0)
++#define BNA_CQ_EF_FCS_ERROR	BIT(1)
++#define BNA_CQ_EF_TOO_LONG	BIT(2)
++#define BNA_CQ_EF_FC_CRC_OK	BIT(3)
++
++#define BNA_CQ_EF_RSVD1		BIT(4)
++#define BNA_CQ_EF_L4_CKSUM_OK	BIT(5)
++#define BNA_CQ_EF_L3_CKSUM_OK	BIT(6)
++#define BNA_CQ_EF_HDS_HEADER	BIT(7)
++
++#define BNA_CQ_EF_UDP		BIT(8)
++#define BNA_CQ_EF_TCP		BIT(9)
++#define BNA_CQ_EF_IP_OPTIONS	BIT(10)
++#define BNA_CQ_EF_IPV6		BIT(11)
++
++#define BNA_CQ_EF_IPV4		BIT(12)
++#define BNA_CQ_EF_VLAN		BIT(13)
++#define BNA_CQ_EF_RSS		BIT(14)
++#define BNA_CQ_EF_RSVD2		BIT(15)
++
++#define BNA_CQ_EF_MCAST_MATCH   BIT(16)
++#define BNA_CQ_EF_MCAST		BIT(17)
++#define BNA_CQ_EF_BCAST		BIT(18)
++#define BNA_CQ_EF_REMOTE	BIT(19)
++
++#define BNA_CQ_EF_LOCAL		BIT(20)
+ /* CAT2 ASIC does not use bit 21 as per the SPEC.
+  * Bit 31 is set in every end of frame completion
+  */
+-#define BNA_CQ_EF_EOP		(1 << 31)
++#define BNA_CQ_EF_EOP		BIT(31)
+ 
+ /* Data structures */
  
 diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-index 2c85f72..16d36df 100644
+index e13f8c9..2c85f72 100644
 --- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
 +++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-@@ -863,8 +863,7 @@ bna_rxf_fail(struct bna_rxf *rxf)
- }
- 
- enum bna_cb_status
--bna_rx_ucast_set(struct bna_rx *rx, u8 *ucmac,
--		 void (*cbfn)(struct bnad *, struct bna_rx *))
-+bna_rx_ucast_set(struct bna_rx *rx, u8 *ucmac)
- {
- 	struct bna_rxf *rxf = &rx->rxf;
- 
-@@ -878,7 +877,7 @@ bna_rx_ucast_set(struct bna_rx *rx, u8 *ucmac,
- 
- 	ether_addr_copy(rxf->ucast_pending_mac->addr, ucmac);
- 	rxf->ucast_pending_set = 1;
--	rxf->cam_fltr_cbfn = cbfn;
-+	rxf->cam_fltr_cbfn = NULL;
- 	rxf->cam_fltr_cbarg = rx->bna->bnad;
- 
- 	bfa_fsm_send_event(rxf, RXF_E_CONFIG);
-@@ -917,8 +916,7 @@ bna_rx_mcast_add(struct bna_rx *rx, u8 *addr,
- }
- 
- enum bna_cb_status
--bna_rx_ucast_listset(struct bna_rx *rx, int count, u8 *uclist,
--		     void (*cbfn)(struct bnad *, struct bna_rx *))
-+bna_rx_ucast_listset(struct bna_rx *rx, int count, u8 *uclist)
- {
- 	struct bna_ucam_mod *ucam_mod = &rx->bna->ucam_mod;
- 	struct bna_rxf *rxf = &rx->rxf;
-@@ -968,8 +966,6 @@ bna_rx_ucast_listset(struct bna_rx *rx, int count, u8 *uclist,
- 		list_add_tail(&mac->qe, &rxf->ucast_pending_add_q);
+@@ -566,7 +566,7 @@ bna_rxf_vlan_cfg_apply(struct bna_rxf *rxf)
+ 			block_idx++;
+ 			vlan_pending_bitmask >>= 1;
+ 		}
+-		rxf->vlan_pending_bitmask &= ~(1 << block_idx);
++		rxf->vlan_pending_bitmask &= ~BIT(block_idx);
+ 		bna_bfi_rx_vlan_filter_set(rxf, block_idx);
+ 		return 1;
  	}
- 
--	rxf->cam_fltr_cbfn = cbfn;
--	rxf->cam_fltr_cbarg = rx->bna->bnad;
- 	bfa_fsm_send_event(rxf, RXF_E_CONFIG);
- 
- 	return BNA_CB_SUCCESS;
-@@ -986,8 +982,7 @@ err_return:
- }
- 
- enum bna_cb_status
--bna_rx_mcast_listset(struct bna_rx *rx, int count, u8 *mclist,
--		     void (*cbfn)(struct bnad *, struct bna_rx *))
-+bna_rx_mcast_listset(struct bna_rx *rx, int count, u8 *mclist)
- {
- 	struct bna_mcam_mod *mcam_mod = &rx->bna->mcam_mod;
- 	struct bna_rxf *rxf = &rx->rxf;
-@@ -1040,8 +1035,6 @@ bna_rx_mcast_listset(struct bna_rx *rx, int count, u8 *mclist,
- 		list_add_tail(&mac->qe, &rxf->mcast_pending_add_q);
- 	}
- 
--	rxf->cam_fltr_cbfn = cbfn;
--	rxf->cam_fltr_cbarg = rx->bna->bnad;
- 	bfa_fsm_send_event(rxf, RXF_E_CONFIG);
- 
- 	return BNA_CB_SUCCESS;
-@@ -1058,8 +1051,7 @@ err_return:
- }
- 
- void
--bna_rx_mcast_delall(struct bna_rx *rx,
--		    void (*cbfn)(struct bnad *, struct bna_rx *))
-+bna_rx_mcast_delall(struct bna_rx *rx)
+@@ -1105,12 +1105,12 @@ bna_rx_vlan_add(struct bna_rx *rx, int vlan_id)
  {
  	struct bna_rxf *rxf = &rx->rxf;
- 	struct list_head *qe;
-@@ -1089,15 +1081,8 @@ bna_rx_mcast_delall(struct bna_rx *rx,
- 		need_hw_config = 1;
- 	}
+ 	int index = (vlan_id >> BFI_VLAN_WORD_SHIFT);
+-	int bit = (1 << (vlan_id & BFI_VLAN_WORD_MASK));
++	int bit = BIT((vlan_id & BFI_VLAN_WORD_MASK));
+ 	int group_id = (vlan_id >> BFI_VLAN_BLOCK_SHIFT);
  
--	if (need_hw_config) {
--		rxf->cam_fltr_cbfn = cbfn;
--		rxf->cam_fltr_cbarg = rx->bna->bnad;
-+	if (need_hw_config)
+ 	rxf->vlan_filter_table[index] |= bit;
+ 	if (rxf->vlan_filter_status == BNA_STATUS_T_ENABLED) {
+-		rxf->vlan_pending_bitmask |= (1 << group_id);
++		rxf->vlan_pending_bitmask |= BIT(group_id);
  		bfa_fsm_send_event(rxf, RXF_E_CONFIG);
--		return;
--	}
--
--	if (cbfn)
--		(*cbfn)(rx->bna->bnad, rx);
+ 	}
  }
- 
- void
-@@ -2843,8 +2828,7 @@ bna_rx_vlan_strip_disable(struct bna_rx *rx)
- 
- enum bna_cb_status
- bna_rx_mode_set(struct bna_rx *rx, enum bna_rxmode new_mode,
--		enum bna_rxmode bitmask,
--		void (*cbfn)(struct bnad *, struct bna_rx *))
-+		enum bna_rxmode bitmask)
+@@ -1120,12 +1120,12 @@ bna_rx_vlan_del(struct bna_rx *rx, int vlan_id)
  {
  	struct bna_rxf *rxf = &rx->rxf;
- 	int need_hw_config = 0;
-@@ -2899,11 +2883,10 @@ bna_rx_mode_set(struct bna_rx *rx, enum bna_rxmode new_mode,
- 	/* Trigger h/w if needed */
+ 	int index = (vlan_id >> BFI_VLAN_WORD_SHIFT);
+-	int bit = (1 << (vlan_id & BFI_VLAN_WORD_MASK));
++	int bit = BIT((vlan_id & BFI_VLAN_WORD_MASK));
+ 	int group_id = (vlan_id >> BFI_VLAN_BLOCK_SHIFT);
  
- 	if (need_hw_config) {
--		rxf->cam_fltr_cbfn = cbfn;
-+		rxf->cam_fltr_cbfn = NULL;
- 		rxf->cam_fltr_cbarg = rx->bna->bnad;
+ 	rxf->vlan_filter_table[index] &= ~bit;
+ 	if (rxf->vlan_filter_status == BNA_STATUS_T_ENABLED) {
+-		rxf->vlan_pending_bitmask |= (1 << group_id);
++		rxf->vlan_pending_bitmask |= BIT(group_id);
  		bfa_fsm_send_event(rxf, RXF_E_CONFIG);
--	} else if (cbfn)
--		(*cbfn)(rx->bna->bnad, rx);
-+	}
+ 	}
+ }
+@@ -2619,7 +2619,7 @@ bna_rx_create(struct bna *bna, struct bnad *bnad,
+ 		if (intr_info->intr_type == BNA_INTR_T_MSIX)
+ 			rxp->cq.ib.intr_vector = rxp->vector;
+ 		else
+-			rxp->cq.ib.intr_vector = (1 << rxp->vector);
++			rxp->cq.ib.intr_vector = BIT(rxp->vector);
+ 		rxp->cq.ib.coalescing_timeo = rx_cfg->coalescing_timeo;
+ 		rxp->cq.ib.interpkt_count = BFI_RX_INTERPKT_COUNT;
+ 		rxp->cq.ib.interpkt_timeo = BFI_RX_INTERPKT_TIMEO;
+@@ -2724,7 +2724,7 @@ bna_rx_create(struct bna *bna, struct bnad *bnad,
  
- 	return BNA_CB_SUCCESS;
+ 	bfa_fsm_set_state(rx, bna_rx_sm_stopped);
  
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 6e871a7..0f833e4 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -2349,7 +2349,7 @@ bnad_mac_addr_set_locked(struct bnad *bnad, u8 *mac_addr)
- 	if (!bnad->rx_info[0].rx)
- 		return 0;
+-	rx_mod->rid_mask |= (1 << rx->rid);
++	rx_mod->rid_mask |= BIT(rx->rid);
  
--	ret = bna_rx_ucast_set(bnad->rx_info[0].rx, mac_addr, NULL);
-+	ret = bna_rx_ucast_set(bnad->rx_info[0].rx, mac_addr);
- 	if (ret != BNA_CB_SUCCESS)
- 		return -EADDRNOTAVAIL;
- 
-@@ -2754,7 +2754,7 @@ bnad_open(struct net_device *netdev)
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	bna_enet_mtu_set(&bnad->bna.enet,
- 			 BNAD_FRAME_SIZE(bnad->netdev->mtu), NULL);
--	bna_enet_pause_config(&bnad->bna.enet, &pause_config, NULL);
-+	bna_enet_pause_config(&bnad->bna.enet, &pause_config);
- 	bna_enet_enable(&bnad->bna.enet);
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
- 
-@@ -3128,7 +3128,7 @@ bnad_set_rx_ucast_fltr(struct bnad *bnad)
- 	int entry;
- 
- 	if (netdev_uc_empty(bnad->netdev)) {
--		bna_rx_ucast_listset(bnad->rx_info[0].rx, 0, NULL, NULL);
-+		bna_rx_ucast_listset(bnad->rx_info[0].rx, 0, NULL);
- 		return;
+ 	return rx;
+ }
+@@ -2776,7 +2776,7 @@ bna_rx_destroy(struct bna_rx *rx)
+ 		}
  	}
  
-@@ -3145,8 +3145,7 @@ bnad_set_rx_ucast_fltr(struct bnad *bnad)
- 		entry++;
+-	rx_mod->rid_mask &= ~(1 << rx->rid);
++	rx_mod->rid_mask &= ~BIT(rx->rid);
+ 
+ 	rx->bna = NULL;
+ 	rx->priv = NULL;
+@@ -3778,7 +3778,7 @@ bna_tx_create(struct bna *bna, struct bnad *bnad,
+ 					intr_info->idl[0].vector :
+ 					intr_info->idl[i].vector;
+ 		if (intr_info->intr_type == BNA_INTR_T_INTX)
+-			txq->ib.intr_vector = (1 <<  txq->ib.intr_vector);
++			txq->ib.intr_vector = BIT(txq->ib.intr_vector);
+ 		txq->ib.coalescing_timeo = tx_cfg->coalescing_timeo;
+ 		txq->ib.interpkt_timeo = BFI_TX_INTERPKT_TIMEO;
+ 		txq->ib.interpkt_count = BFI_TX_INTERPKT_COUNT;
+@@ -3820,7 +3820,7 @@ bna_tx_create(struct bna *bna, struct bnad *bnad,
+ 
+ 	bfa_fsm_set_state(tx, bna_tx_sm_stopped);
+ 
+-	tx_mod->rid_mask |= (1 << tx->rid);
++	tx_mod->rid_mask |= BIT(tx->rid);
+ 
+ 	return tx;
+ 
+@@ -3841,7 +3841,7 @@ bna_tx_destroy(struct bna_tx *tx)
+ 			(tx->tcb_destroy_cbfn)(tx->bna->bnad, txq->tcb);
  	}
  
--	ret = bna_rx_ucast_listset(bnad->rx_info[0].rx, entry,
--			mac_list, NULL);
-+	ret = bna_rx_ucast_listset(bnad->rx_info[0].rx, entry, mac_list);
- 	kfree(mac_list);
- 
- 	if (ret != BNA_CB_SUCCESS)
-@@ -3157,7 +3156,7 @@ bnad_set_rx_ucast_fltr(struct bnad *bnad)
- 	/* ucast packets not in UCAM are routed to default function */
- mode_default:
- 	bnad->cfg_flags |= BNAD_CF_DEFAULT;
--	bna_rx_ucast_listset(bnad->rx_info[0].rx, 0, NULL, NULL);
-+	bna_rx_ucast_listset(bnad->rx_info[0].rx, 0, NULL);
+-	tx->bna->tx_mod.rid_mask &= ~(1 << tx->rid);
++	tx->bna->tx_mod.rid_mask &= ~BIT(tx->rid);
+ 	bna_tx_free(tx);
  }
  
- static void
-@@ -3186,8 +3185,7 @@ bnad_set_rx_mcast_fltr(struct bnad *bnad)
- 
- 	/* copy rest of the MCAST addresses */
- 	bnad_netdev_mc_list_get(netdev, mac_list);
--	ret = bna_rx_mcast_listset(bnad->rx_info[0].rx, mc_count + 1,
--			mac_list, NULL);
-+	ret = bna_rx_mcast_listset(bnad->rx_info[0].rx, mc_count + 1, mac_list);
- 	kfree(mac_list);
- 
- 	if (ret != BNA_CB_SUCCESS)
-@@ -3197,7 +3195,7 @@ bnad_set_rx_mcast_fltr(struct bnad *bnad)
- 
- mode_allmulti:
- 	bnad->cfg_flags |= BNAD_CF_ALLMULTI;
--	bna_rx_mcast_delall(bnad->rx_info[0].rx, NULL);
-+	bna_rx_mcast_delall(bnad->rx_info[0].rx);
- }
- 
- void
-@@ -3236,7 +3234,7 @@ bnad_set_rx_mode(struct net_device *netdev)
- 
- 	mode_mask = BNA_RXMODE_PROMISC | BNA_RXMODE_DEFAULT |
- 			BNA_RXMODE_ALLMULTI;
--	bna_rx_mode_set(bnad->rx_info[0].rx, new_mode, mode_mask, NULL);
-+	bna_rx_mode_set(bnad->rx_info[0].rx, new_mode, mode_mask);
- 
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
- }
-diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-index ade251b..088062a 100644
---- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-@@ -533,7 +533,7 @@ bnad_set_pauseparam(struct net_device *netdev,
- 		pause_config.rx_pause = pauseparam->rx_pause;
- 		pause_config.tx_pause = pauseparam->tx_pause;
- 		spin_lock_irqsave(&bnad->bna_lock, flags);
--		bna_enet_pause_config(&bnad->bna.enet, &pause_config, NULL);
-+		bna_enet_pause_config(&bnad->bna.enet, &pause_config);
- 		spin_unlock_irqrestore(&bnad->bna_lock, flags);
- 	}
- 	mutex_unlock(&bnad->conf_mutex);
 -- 
 2.3.6
