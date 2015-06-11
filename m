@@ -1,56 +1,59 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [PATCH net] net: igb: fix the start time for periodic output
- signals
-Date: Thu, 11 Jun 2015 17:05:59 +0000
-Message-ID: <1434042359.24995.4.camel@intel.com>
-References: <1434027090-26866-1-git-send-email-richardcochran@gmail.com>
+From: Brenden Blanco <bblanco@plumgrid.com>
+Subject: Re: [PATCH net-next v2] switchdev: fix BUG when port driver doesn't
+ support set attr op
+Date: Thu, 11 Jun 2015 10:15:16 -0700
+Message-ID: <CAMUH3-WfUghz=yGcRBemz=we23w=cBK8R=7S=d9Xy6mjELKrAg@mail.gmail.com>
+References: <1434035941-13665-1-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>
-To: "richardcochran@gmail.com" <richardcochran@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, jiri@resnulli.us
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:54468 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752265AbbFKRGC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2015 13:06:02 -0400
-In-Reply-To: <1434027090-26866-1-git-send-email-richardcochran@gmail.com>
-Content-Language: en-US
-Content-ID: <41DF865B1329CF4A9EAC72E6F807BC54@intel.com>
+Received: from mail-yh0-f51.google.com ([209.85.213.51]:33872 "EHLO
+	mail-yh0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752608AbbFKRPh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 13:15:37 -0400
+Received: by yhid80 with SMTP id d80so4800257yhi.1
+        for <netdev@vger.kernel.org>; Thu, 11 Jun 2015 10:15:37 -0700 (PDT)
+In-Reply-To: <1434035941-13665-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UmV2aWV3ZWQtYnk6IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0KDQpU
-aGFua3MgUmljaGFyZCEgRWFzeSBkZXRhaWwgdG8gbWlzcy4NCg0KUmVnYXJkcywNCkpha2UNCg0K
-T24gVGh1LCAyMDE1LTA2LTExIGF0IDE0OjUxICswMjAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
-DQo+IFdoZW4gcHJvZ3JhbW1pbmcgdGhlIHN0YXJ0IG9mIGEgcGVyaW9kaWMgb3V0cHV0LCB0aGUg
-Y29kZSB3cm9uZ2x5IA0KPiBwbGFjZXMNCj4gdGhlIHNlY29uZHMgdmFsdWUgaW50byB0aGUgImxv
-dyIgcmVnaXN0ZXIgYW5kIHRoZSBuYW5vc2Vjb25kcyBpbnRvIA0KPiB0aGUNCj4gImhpZ2giIHJl
-Z2lzdGVyLiAgRXZlbiB0aG91Z2ggdGhpcyBpcyBiYWNrd2FyZHMsIGl0IHNsaXBwZWQgdGhyb3Vn
-aCANCj4gbXkNCj4gdGVzdGluZywgYmVjYXVzZSB0aGUgcmUtYXJtaW5nIGNvZGUgaW4gdGhlIGlu
-dGVycnVwdCBzZXJ2aWNlIHJvdXRpbmUgDQo+IGlzDQo+IGNvcnJlY3QsIGFuZCB0aGUgc2lnbmFs
-IGRvZXMgYXBwZWFyIHN0YXJ0aW5nIHdpdGggdGhlIHNlY29uZCBlZGdlLg0KPiANCj4gVGhpcyBw
-YXRjaCBmaXhlcyB0aGUgaXNzdWUgYnkgcHJvZ3JhbW1pbmcgdGhlIHJlZ2lzdGVycyBjb3JyZWN0
-bHkuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBSaWNoYXJkIENvY2hyYW4gPHJpY2hhcmRjb2NocmFu
-QGdtYWlsLmNvbT4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdi
-X3B0cC5jIHwgNCArKy0tDQo+ICAxIGZpbGUgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspLCAyIGRl
-bGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
-L2lnYi9pZ2JfcHRwLmMgDQo+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9w
-dHAuYw0KPiBpbmRleCBlM2I5YjYzLi5jM2E5MzkyYyAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9wdHAuYw0KPiArKysgYi9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9pbnRlbC9pZ2IvaWdiX3B0cC5jDQo+IEBAIC01MzgsOCArNTM4LDggQEAgc3RhdGljIGlu
-dCBpZ2JfcHRwX2ZlYXR1cmVfZW5hYmxlX2kyMTAoc3RydWN0IA0KPiBwdHBfY2xvY2tfaW5mbyAq
-cHRwLA0KPiAgICAgICAgICAgICAgICAgICAgICAgaWdiLT5wZXJvdXRbaV0uc3RhcnQudHZfbnNl
-YyA9IHJxDQo+IC0+cGVyb3V0LnN0YXJ0Lm5zZWM7DQo+ICAgICAgICAgICAgICAgICAgICAgICBp
-Z2ItPnBlcm91dFtpXS5wZXJpb2QudHZfc2VjID0gdHMudHZfc2VjOw0KPiAgICAgICAgICAgICAg
-ICAgICAgICAgaWdiLT5wZXJvdXRbaV0ucGVyaW9kLnR2X25zZWMgPSB0cy50dl9uc2VjOw0KPiAt
-ICAgICAgICAgICAgICAgICAgICAgd3IzMih0cmd0dGltbCwgcnEtPnBlcm91dC5zdGFydC5zZWMp
-Ow0KPiAtICAgICAgICAgICAgICAgICAgICAgd3IzMih0cmd0dGltaCwgcnEtPnBlcm91dC5zdGFy
-dC5uc2VjKTsNCj4gKyAgICAgICAgICAgICAgICAgICAgIHdyMzIodHJndHRpbWgsIHJxLT5wZXJv
-dXQuc3RhcnQuc2VjKTsNCj4gKyAgICAgICAgICAgICAgICAgICAgIHdyMzIodHJndHRpbWwsIHJx
-LT5wZXJvdXQuc3RhcnQubnNlYyk7DQo+ICAgICAgICAgICAgICAgICAgICAgICB0c2F1eGMgfD0g
-dHNhdXhjX21hc2s7DQo+ICAgICAgICAgICAgICAgICAgICAgICB0c2ltIHw9IHRzaW1fbWFzazsN
-Cj4gICAgICAgICAgICAgICB9IGVsc2Ugew==
+On Thu, Jun 11, 2015 at 8:19 AM,  <sfeldma@gmail.com> wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
+>
+> Fix a BUG_ON() where CONFIG_NET_SWITCHDEV is set but the driver for a
+> bridged port does not support switchdev_port_attr_set op.  Don't BUG_ON()
+> if -EOPNOTSUPP is returned.
+>
+> Also change BUG_ON() to netdev_err since this is a normal error path and
+> does not warrant the use of BUG_ON(), which is reserved for unrecoverable
+> errs.
+>
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> Reported-by: Brenden Blanco <bblanco@plumgrid.com>
+> ---
+>  net/switchdev/switchdev.c |    4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+> index e008057..ecd1b3f 100644
+> --- a/net/switchdev/switchdev.c
+> +++ b/net/switchdev/switchdev.c
+> @@ -103,7 +103,9 @@ static void switchdev_port_attr_set_work(struct work_struct *work)
+>
+>         rtnl_lock();
+>         err = switchdev_port_attr_set(asw->dev, &asw->attr);
+> -       BUG_ON(err);
+> +       if (err && err != -EOPNOTSUPP)
+> +               netdev_err(asw->dev, "failed (err=%d) to set attribute (id=%d)\n",
+> +                          err, asw->attr.id);
+>         rtnl_unlock();
+>
+>         dev_put(asw->dev);
+> --
+> 1.7.10.4
+>
+
+I just tried this patch against the original test case, and this one
+works well for me. Thanks!
