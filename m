@@ -1,72 +1,91 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net 1/3] enic: unlock napi busy poll before unmasking intr
-Date: Thu, 11 Jun 2015 11:52:54 +0530
-Message-ID: <1434003776-31840-1-git-send-email-_govind@gmx.com>
+Subject: [PATCH net 2/3] enic: check return value for stat dump
+Date: Thu, 11 Jun 2015 11:52:55 +0530
+Message-ID: <1434003776-31840-2-git-send-email-_govind@gmx.com>
+References: <1434003776-31840-1-git-send-email-_govind@gmx.com>
 Cc: ssujith@cisco.com, benve@cisco.com,
 	Govindarajulu Varadarajan <_govind@gmx.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:64985 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.15.19]:60419 "EHLO mout.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750872AbbFKGX1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2015 02:23:27 -0400
+	id S1750891AbbFKGXg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2015 02:23:36 -0400
+In-Reply-To: <1434003776-31840-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a small window between vnic_intr_unmask() and enic_poll_unlock_napi().
-In this window if an irq occurs and napi is scheduled on different cpu, it tries
-to acquire enic_poll_lock_napi() and hits the following WARN_ON message.
+We do not check the return value of enic_dev_stats_dump(). If allocation
+fails, we will hit NULL pointer reference.
 
-Fix is to unlock napi_poll before unmasking the interrupt.
-
-[  781.121746] ------------[ cut here ]------------
-[  781.121789] WARNING: CPU: 1 PID: 0 at drivers/net/ethernet/cisco/enic/vnic_rq.h:228 enic_poll_msix_rq+0x36a/0x3c0 [enic]()
-[  781.121834] Modules linked in: nfsv3 nfs_acl rpcsec_gss_krb5 auth_rpcgss oid_registry nfsv4 dns_resolver coretemp intel_rapl iosf_mbi x86_pkg_temp_thermal intel_powerclamp kvm_intel kvm crct10dif_pclmul crc32_pclmul ghash_clmulni_intel aesni_intel mgag200 ttm drm_kms_helper joydev aes_x86_64 lrw drm gf128mul mousedev glue_helper sb_edac ablk_helper iTCO_wdt iTCO_vendor_support evdev ipmi_si syscopyarea sysfillrect sysimgblt i2c_algo_bit i2c_core edac_core lpc_ich mac_hid cryptd pcspkr ipmi_msghandler shpchp tpm_tis acpi_power_meter tpm wmi processor hwmon button ac sch_fq_codel nfs lockd grace sunrpc fscache hid_generic usbhid hid ehci_pci ehci_hcd sd_mod megaraid_sas usbcore scsi_mod usb_common enic crc32c_generic crc32c_intel btrfs xor raid6_pq ext4 crc16 mbcache jbd2
-[  781.122176] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 4.1.0-rc6-ARCH-00040-gc46a024-dirty #106
-[  781.122210] Hardware name: Cisco Systems Inc UCSB-B200-M4/UCSB-B200-M4, BIOS B200M4.2.2.2.23.061220140128 06/12/2014
-[  781.122252]  0000000000000000 bddbbc9d655ec96e ffff880277e43da8 ffffffff81583fe8
-[  781.122286]  0000000000000000 0000000000000000 ffff880277e43de8 ffffffff8107acfa
-[  781.122319]  ffff880272c01000 ffff880273f18000 ffff880273f1a100 0000000000000000
-[  781.122352] Call Trace:
-[  781.122364]  <IRQ>  [<ffffffff81583fe8>] dump_stack+0x4f/0x7b
-[  781.122399]  [<ffffffff8107acfa>] warn_slowpath_common+0x8a/0xc0
-[  781.122425]  [<ffffffff8107ae2a>] warn_slowpath_null+0x1a/0x20
-[  781.122455]  [<ffffffffa01fa9ca>] enic_poll_msix_rq+0x36a/0x3c0 [enic]
-[  781.122487]  [<ffffffff8148525a>] net_rx_action+0x22a/0x370
-[  781.122512]  [<ffffffff8107ed3d>] __do_softirq+0xed/0x2d0
-[  781.122537]  [<ffffffff8107f06e>] irq_exit+0x7e/0xa0
-[  781.122560]  [<ffffffff8158c424>] do_IRQ+0x64/0x100
-[  781.122582]  [<ffffffff8158a42e>] common_interrupt+0x6e/0x6e
-[  781.122605]  <EOI>  [<ffffffff810bd331>] ? cpu_startup_entry+0x121/0x480
-[  781.122638]  [<ffffffff810bd2fc>] ? cpu_startup_entry+0xec/0x480
-[  781.122667]  [<ffffffff810f2ed3>] ? clockevents_register_device+0x113/0x1f0
-[  781.122698]  [<ffffffff81050ab6>] start_secondary+0x196/0x1e0
-[  781.122723] ---[ end trace cec2e9dd3af7b9db ]---
+Return only if memory allocation fails. For other failures, we return the
+previously recorded values.
 
 Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 ---
- drivers/net/ethernet/cisco/enic/enic_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c | 20 +++++++++++++++++---
+ drivers/net/ethernet/cisco/enic/enic_main.c    |  9 ++++++++-
+ 2 files changed, 25 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+index 28d9ca6..68d47b1 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
++++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+@@ -131,8 +131,15 @@ static void enic_get_drvinfo(struct net_device *netdev,
+ {
+ 	struct enic *enic = netdev_priv(netdev);
+ 	struct vnic_devcmd_fw_info *fw_info;
++	int err;
+ 
+-	enic_dev_fw_info(enic, &fw_info);
++	err = enic_dev_fw_info(enic, &fw_info);
++	/* return only when pci_zalloc_consistent fails in vnic_dev_fw_info
++	 * For other failures, like devcmd failure, we return previously
++	 * recorded info.
++	 */
++	if (err == -ENOMEM)
++		return;
+ 
+ 	strlcpy(drvinfo->driver, DRV_NAME, sizeof(drvinfo->driver));
+ 	strlcpy(drvinfo->version, DRV_VERSION, sizeof(drvinfo->version));
+@@ -181,8 +188,15 @@ static void enic_get_ethtool_stats(struct net_device *netdev,
+ 	struct enic *enic = netdev_priv(netdev);
+ 	struct vnic_stats *vstats;
+ 	unsigned int i;
+-
+-	enic_dev_stats_dump(enic, &vstats);
++	int err;
++
++	err = enic_dev_stats_dump(enic, &vstats);
++	/* return only when pci_zalloc_consistent fails in vnic_dev_stats_dump
++	 * For other failures, like devcmd failure, we return previously
++	 * recorded stats.
++	 */
++	if (err == -ENOMEM)
++		return;
+ 
+ 	for (i = 0; i < enic_n_tx_stats; i++)
+ 		*(data++) = ((u64 *)&vstats->tx)[enic_tx_stats[i].index];
 diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 204bd182..0e5a01d 100644
+index 0e5a01d..eadae1b 100644
 --- a/drivers/net/ethernet/cisco/enic/enic_main.c
 +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -1407,6 +1407,7 @@ static int enic_poll_msix_rq(struct napi_struct *napi, int budget)
- 		 */
- 		enic_calc_int_moderation(enic, &enic->rq[rq]);
+@@ -615,8 +615,15 @@ static struct rtnl_link_stats64 *enic_get_stats(struct net_device *netdev,
+ {
+ 	struct enic *enic = netdev_priv(netdev);
+ 	struct vnic_stats *stats;
++	int err;
  
-+	enic_poll_unlock_napi(&enic->rq[rq]);
- 	if (work_done < work_to_do) {
+-	enic_dev_stats_dump(enic, &stats);
++	err = enic_dev_stats_dump(enic, &stats);
++	/* return only when pci_zalloc_consistent fails in vnic_dev_stats_dump
++	 * For other failures, like devcmd failure, we return previously
++	 * recorded stats.
++	 */
++	if (err == -ENOMEM)
++		return net_stats;
  
- 		/* Some work done, but not enough to stay in polling,
-@@ -1418,7 +1419,6 @@ static int enic_poll_msix_rq(struct napi_struct *napi, int budget)
- 			enic_set_int_moderation(enic, &enic->rq[rq]);
- 		vnic_intr_unmask(&enic->intr[intr]);
- 	}
--	enic_poll_unlock_napi(&enic->rq[rq]);
- 
- 	return work_done;
- }
+ 	net_stats->tx_packets = stats->tx.tx_frames_ok;
+ 	net_stats->tx_bytes = stats->tx.tx_bytes_ok;
 -- 
 2.4.2
