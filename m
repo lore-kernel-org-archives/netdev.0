@@ -1,93 +1,36 @@
-From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next V1] net/ethtool: Add current supported tunable options
-Date: Thu, 11 Jun 2015 10:28:16 +0300
-Message-ID: <1434007696-59156-1-git-send-email-hadarh@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>, _govind@gmx.com,
-	Hadar Hen Zion <hadarh@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: phy: davicom: add IDs for DM9161B and C
+ variants
+Date: Thu, 11 Jun 2015 00:29:26 -0700 (PDT)
+Message-ID: <20150611.002926.884088890121725599.davem@davemloft.net>
+References: <1433954900-25419-1-git-send-email-gustavo@zacarias.com.ar>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: gustavo@zacarias.com.ar
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:50408 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751404AbbFKH30 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2015 03:29:26 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:58808 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751799AbbFKH31 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 03:29:27 -0400
+In-Reply-To: <1433954900-25419-1-git-send-email-gustavo@zacarias.com.ar>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add strings array of the current supported tunable options.
+From: Gustavo Zacarias <gustavo@zacarias.com.ar>
+Date: Wed, 10 Jun 2015 13:48:20 -0300
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Reviewed-by: Amir Vadai <amirv@mellanox.com>
----
-Changes from V0:
-- s/ETHTOOL_TUNABLE_COUNT/__ETHTOOL_TUNABLE_COUNT/
+> Add PHY IDs for Davicom DM9161B and DM9161C variants.
+> Tested with a DM9161C on a custom Atmel-based SAM9X25 board in RMII
+> mode.
+> 
+> The DM9161B uses the same model id with just the LSB bit of the version
+> id changing (which is masked out).
+> 
+> For all intents and purposes they're the same as the DM9161A with an
+> added GPSI mode and better fabrication process.
+> 
+> Signed-off-by: Gustavo Zacarias <gustavo@zacarias.com.ar>
 
- include/uapi/linux/ethtool.h |  6 ++++++
- net/core/ethtool.c           | 12 ++++++++++++
- 2 files changed, 18 insertions(+)
-
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 0594933..cd67aec 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -215,6 +215,11 @@ enum tunable_id {
- 	ETHTOOL_ID_UNSPEC,
- 	ETHTOOL_RX_COPYBREAK,
- 	ETHTOOL_TX_COPYBREAK,
-+	/*
-+	 * Add your fresh new tubale attribute above and remember to update
-+	 * tunable_strings[] in net/core/ethtool.c
-+	 */
-+	__ETHTOOL_TUNABLE_COUNT,
- };
- 
- enum tunable_type_id {
-@@ -545,6 +550,7 @@ enum ethtool_stringset {
- 	ETH_SS_NTUPLE_FILTERS,
- 	ETH_SS_FEATURES,
- 	ETH_SS_RSS_HASH_FUNCS,
-+	ETH_SS_TUNABLES,
- };
- 
- /**
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index eb0c3ac..b495ab1 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -106,6 +106,13 @@ rss_hash_func_strings[ETH_RSS_HASH_FUNCS_COUNT][ETH_GSTRING_LEN] = {
- 	[ETH_RSS_HASH_XOR_BIT] =	"xor",
- };
- 
-+static const char
-+tunable_strings[__ETHTOOL_TUNABLE_COUNT][ETH_GSTRING_LEN] = {
-+	[ETHTOOL_ID_UNSPEC]     = "Unspec",
-+	[ETHTOOL_RX_COPYBREAK]	= "rx-copybreak",
-+	[ETHTOOL_TX_COPYBREAK]	= "tx-copybreak",
-+};
-+
- static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
- {
- 	struct ethtool_gfeatures cmd = {
-@@ -194,6 +201,9 @@ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
- 	if (sset == ETH_SS_RSS_HASH_FUNCS)
- 		return ARRAY_SIZE(rss_hash_func_strings);
- 
-+	if (sset == ETH_SS_TUNABLES)
-+		return ARRAY_SIZE(tunable_strings);
-+
- 	if (ops->get_sset_count && ops->get_strings)
- 		return ops->get_sset_count(dev, sset);
- 	else
-@@ -211,6 +221,8 @@ static void __ethtool_get_strings(struct net_device *dev,
- 	else if (stringset == ETH_SS_RSS_HASH_FUNCS)
- 		memcpy(data, rss_hash_func_strings,
- 		       sizeof(rss_hash_func_strings));
-+	else if (stringset == ETH_SS_TUNABLES)
-+		memcpy(data, tunable_strings, sizeof(tunable_strings));
- 	else
- 		/* ops->get_strings is valid because checked earlier */
- 		ops->get_strings(dev, stringset, data);
--- 
-1.8.3.1
+Applied, thanks.
