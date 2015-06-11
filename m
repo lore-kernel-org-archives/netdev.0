@@ -1,32 +1,80 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net] net: igb: fix the start time for periodic output
- signals
-Date: Thu, 11 Jun 2015 14:53:10 +0200
-Message-ID: <20150611125310.GA26906@localhost.localdomain>
-References: <1434027090-26866-1-git-send-email-richardcochran@gmail.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: /net/mpls/conf/ethX//input duplicate entry
+Date: Thu, 11 Jun 2015 13:55:48 +0100
+Message-ID: <55798554.7020102@brocade.com>
+References: <CAE4R7bDhQ3speftJsggqV5Ruh-n0+n_9KR=i0DQYW-NrsUNKZw@mail.gmail.com> <5578B318.1050808@cumulusnetworks.com> <CAE4R7bBhz_k4a+FectxmjAKHjzAGhd0qihndURCr05fwM2yDRQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Matthew Vick <matthew.vick@intel.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	"ebiederm@xmission.com" <ebiederm@xmission.com>
+To: Scott Feldman <sfeldma@gmail.com>,
+	roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:35900 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751906AbbFKMxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 08:53:15 -0400
-Received: by wigg3 with SMTP id g3so74737929wig.1
-        for <netdev@vger.kernel.org>; Thu, 11 Jun 2015 05:53:14 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1434027090-26866-1-git-send-email-richardcochran@gmail.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:35885 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933618AbbFKM4t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 08:56:49 -0400
+In-Reply-To: <CAE4R7bBhz_k4a+FectxmjAKHjzAGhd0qihndURCr05fwM2yDRQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 11, 2015 at 02:51:30PM +0200, Richard Cochran wrote:
-> This patch fixes the issue by programming the registers correctly.
+On 11/06/15 00:23, Scott Feldman wrote:
+> On Wed, Jun 10, 2015 at 2:58 PM, roopa <roopa@cumulusnetworks.com> wrote:
+>> On 6/10/15, 1:43 PM, Scott Feldman wrote:
+>>>
+>>> I'm getting this dump_stack when reloading rocker driver.  Did some
+>>> sysctl MPLS nodes not get cleaned up on NETDEV_UNREGISTER?
+>>>
+>>> Steps to repro: load rocker (on system) with rocker device, rmmod
+>>> rocker, and then modprobe rocker.  I doubt this is specific to rocker:
+>>> and re-registration of a netdev should hit it. I am using UDEV rules
+>>> to rename kernel's ethX to a different name.  Maybe that's what
+>>> tripped it up?
+>>>
+>> On a quick look, wondering if this is because mpls driver does not seem to
+>> do a unregister and re-register sysctl
+>> on device name change.
 
-Please also consider this for stable.
+Mea culpa. Thanks for looking at this.
+
+>>
+>> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+>> index 7b3f732..ec21a5d 100644
+>> --- a/net/mpls/af_mpls.c
+>> +++ b/net/mpls/af_mpls.c
+>> @@ -564,6 +564,14 @@ static int mpls_dev_notify(struct notifier_block *this,
+>> unsigned long event,
+>>          case NETDEV_UNREGISTER:
+>>                  mpls_ifdown(dev);
+>>                  break;
+>> +       case NETDEV_CHANGENAME:
+>> +               mpls_ifdown(dev);
+>> +               if ((dev->type == ARPHRD_ETHER) ||
+>> +                   (dev->type == ARPHRD_LOOPBACK)) {
+>> +                       mdev = mpls_add_dev(dev);
+>> +                       if (IS_ERR(mdev))
+>> +                               return notifier_from_errno(PTR_ERR(mdev));
+>> +               }
+>>          }
+>>          return NOTIFY_OK;
+>>   }
+>
+> Roopa, I tested this patch and problem goes away.  (It's missing a
+> break statement, BTW).  I didn't look into the correctness of the
+> patch, but at first glance it seems liek the right thing to do.  Maybe
+> breaking out the renaming portions into sub-functions could keep the
+> work done in NETDEV_CHANGENAME to a minimum.
+
+I agree that breaking out the sysctl registration/unregistration is a 
+good idea to not have to do more work than is necessary, and to avoid 
+unintended consequences (like routes using the interface being made 
+unusable).
+
+>
+> Are you sending official fix?
+
+Roopa, let me know if you'd like me to carry this forward.
 
 Thanks,
-Richard
+Rob
