@@ -1,68 +1,49 @@
-From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH ethtool V3 2/2] ethtool.8.in: Add man page for tunable copybreak
-Date: Thu, 11 Jun 2015 15:15:28 +0300
-Message-ID: <1434024928-33177-3-git-send-email-hadarh@mellanox.com>
-References: <1434024928-33177-1-git-send-email-hadarh@mellanox.com>
-Cc: netdev@vger.kernel.org, _govind@gmx.com,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>
-To: Ben Hutchings <ben@decadent.org.uk>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH net] net: igb: fix the start time for periodic output signals
+Date: Thu, 11 Jun 2015 14:51:30 +0200
+Message-ID: <1434027090-26866-1-git-send-email-richardcochran@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:49594 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753016AbbFKMQO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2015 08:16:14 -0400
-In-Reply-To: <1434024928-33177-1-git-send-email-hadarh@mellanox.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:35726 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752411AbbFKMvf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 08:51:35 -0400
+Received: by wiga1 with SMTP id a1so74686874wig.0
+        for <netdev@vger.kernel.org>; Thu, 11 Jun 2015 05:51:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Govindarajulu Varadarajan <_govind@gmx.com>
+When programming the start of a periodic output, the code wrongly places
+the seconds value into the "low" register and the nanoseconds into the
+"high" register.  Even though this is backwards, it slipped through my
+testing, because the re-arming code in the interrupt service routine is
+correct, and the signal does appear starting with the second edge.
 
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+This patch fixes the issue by programming the registers correctly.
+
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- ethtool.8.in | 20 ++++++++++++++++++++
- 1 file changed, 20 insertions(+)
+ drivers/net/ethernet/intel/igb/igb_ptp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/ethtool.8.in b/ethtool.8.in
-index ae56293..eae630e 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -176,6 +176,14 @@ ethtool \- query or control network driver and hardware settings
- .BN rx\-jumbo
- .BN tx
- .HP
-+.B ethtool \-b|\-\-show\-tunable
-+.I devname
-+.HP
-+.B ethtool \-B|\-\-set\-tunable
-+.I devname
-+.BN rx-copybreak
-+.BN tx-copybreak
-+.HP
- .B ethtool \-i|\-\-driver
- .I devname
- .HP
-@@ -399,6 +407,18 @@ Changes the number of ring entries for the Rx Jumbo ring.
- .BI tx \ N
- Changes the number of ring entries for the Tx ring.
- .TP
-+.B \-b|\-\-show\-tunable
-+Get device tunable values
-+.TP
-+.B \-B|\-\-set\-tunable
-+Set device tunable values
-+.TP
-+.BI rx-copybreak \ N
-+Change rx_copybreak
-+.TP
-+.BI tx-copybreak \ N
-+Change tx_copybreak
-+.TP
- .B \-i \-\-driver
- Queries the specified network device for associated driver information.
- .TP
+diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
+index e3b9b63..c3a9392c 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ptp.c
++++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
+@@ -538,8 +538,8 @@ static int igb_ptp_feature_enable_i210(struct ptp_clock_info *ptp,
+ 			igb->perout[i].start.tv_nsec = rq->perout.start.nsec;
+ 			igb->perout[i].period.tv_sec = ts.tv_sec;
+ 			igb->perout[i].period.tv_nsec = ts.tv_nsec;
+-			wr32(trgttiml, rq->perout.start.sec);
+-			wr32(trgttimh, rq->perout.start.nsec);
++			wr32(trgttimh, rq->perout.start.sec);
++			wr32(trgttiml, rq->perout.start.nsec);
+ 			tsauxc |= tsauxc_mask;
+ 			tsim |= tsim_mask;
+ 		} else {
 -- 
-1.8.3.1
+2.1.4
