@@ -1,39 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v8] Add support of Cavium Liquidio ethernet
- adapters
-Date: Wed, 10 Jun 2015 22:45:40 -0700 (PDT)
-Message-ID: <20150610.224540.1200146585784467644.davem@davemloft.net>
-References: <20150427.132242.1898729531212160949.davem@davemloft.net>
-	<1433898923-7350-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: Re: [PATCH] atm: idt77105: Use setup_timer
+Date: Wed, 10 Jun 2015 22:46:47 -0700 (PDT)
+Message-ID: <20150610.224647.1544829601803967624.davem@davemloft.net>
+References: <20150610054005.GA12228@vaishali-Ideapad-Z570>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, derek.chickles@caviumnetworks.com,
-	satananda.burla@caviumnetworks.com,
-	felix.manlunas@caviumnetworks.com,
-	Robert.Richter@caviumnetworks.com,
-	Aleksey.Makarov@caviumnetworks.com,
-	raghu.vatsavayi@caviumnetworks.com
-To: rvatsavayi@caviumnetworks.com
+Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	julia.lawall@lip6.fr
+To: vthakkar1994@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58170 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58177 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751370AbbFKFpo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 01:45:44 -0400
-In-Reply-To: <1433898923-7350-1-git-send-email-rvatsavayi@caviumnetworks.com>
+	with ESMTP id S1751346AbbFKFqr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 01:46:47 -0400
+In-Reply-To: <20150610054005.GA12228@vaishali-Ideapad-Z570>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Date: Tue, 9 Jun 2015 18:15:23 -0700
+From: Vaishali Thakkar <vthakkar1994@gmail.com>
+Date: Wed, 10 Jun 2015 11:10:05 +0530
 
-> Following patch V8 adds support for Cavium Liquidio pci express
-> based 10Gig ethernet adapters.
-> 1) Consolidated all debug macros to either call dev_* or
->    netdev_* macros directly, feedback from previous patch.
-> 2) Changed soft commands to avoid crash when running
->    in interrupt context.
-> 3) Fixed link status not reflecting correct status when NetworkManager
->    is running. Added MODULE_FIRMWARE declarations.
+> Use the timer API function setup_timer instead of structure field
+> assignments to initialize a timer.
+> 
+> A simplified version of the Coccinelle semantic patch that performs
+> this transformation is as follows:
+> 
+> @change@
+> expression e1, e2, a;
+> @@
+> 
+> -init_timer(&e1);
+> +setup_timer(&e1, a, 0UL);
+> ... when != a = e2
+> -e1.function = a;
+> 
+> Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
 
-Applied, thank you.
+Applied to net-next, thanks.
