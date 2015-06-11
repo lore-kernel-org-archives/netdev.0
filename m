@@ -1,42 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bridge: make br_fdb_delete also check if the
- port matches
-Date: Wed, 10 Jun 2015 21:58:32 -0700 (PDT)
-Message-ID: <20150610.215832.1573210091736777397.davem@davemloft.net>
-References: <1433846053-16390-1-git-send-email-nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH 1/1] bna: remove obsolete use of EXTRA_CFLAGS
+Date: Wed, 10 Jun 2015 21:59:12 -0700 (PDT)
+Message-ID: <20150610.215912.592540288315859289.davem@davemloft.net>
+References: <1433852683-1938-1-git-send-email-jslaby@suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: nikolay@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57822 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750825AbbFKE6d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 00:58:33 -0400
-In-Reply-To: <1433846053-16390-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rasesh.mody@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jslaby@suse.cz
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1433852683-1938-1-git-send-email-jslaby@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Tue,  9 Jun 2015 03:34:13 -0700
+From: Jiri Slaby <jslaby@suse.cz>
+Date: Tue,  9 Jun 2015 14:24:43 +0200
 
-> Before this patch the user-specified bridge port was ignored when
-> deleting an fdb entry and thus one could delete an entry that belonged
-> to any port.
-> Example (eth0 and eth1 are br0 ports):
-> bridge fdb add 00:11:22:33:44:55 dev eth0 master
-> bridge fdb del 00:11:22:33:44:55 dev eth1 master
-> (succeeds)
+> EXTRA_CFLAGS should be used on the command line only.
 > 
-> after the patch:
-> bridge fdb add 00:11:22:33:44:55 dev eth0 master
-> bridge fdb del 00:11:22:33:44:55 dev eth1 master
-> RTNETLINK answers: No such file or directory
+> Since EXTRA_CFLAGS here add only a non-existant path to compiler
+> include paths (by -I), remove EXTRA_CFLAGS completely.
 > 
-> Based on a patch by Wilson Kok.
-> 
-> Reported-by: Wilson Kok <wkok@cumulusnetworks.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
 
-Applied, thanks.
+Applied to net-next, thanks.
