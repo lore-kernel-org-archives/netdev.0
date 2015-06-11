@@ -1,79 +1,75 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 2/3 v3] net: ipv4 sysctl option to ignore routes
- when nexthop link is down
-Date: Thu, 11 Jun 2015 15:35:55 -0400
-Message-ID: <20150611193554.GC588@gospo.home.greyhouse.net>
-References: <5578F92B.8060604@miraclelinux.com>
- <CAE4R7bCXehOuybGyDMHmzEHw_4X7d3G345EXYCyMCrC7c4oe8g@mail.gmail.com>
- <20150611033621.GZ588@gospo.home.greyhouse.net>
- <20150610.213246.909418500696941374.davem@davemloft.net>
+From: Dave Jones <davej@codemonkey.org.uk>
+Subject: Re: ssh connections hanging on 4.1rc7
+Date: Thu, 11 Jun 2015 15:39:28 -0400
+Message-ID: <20150611193928.GA20774@codemonkey.org.uk>
+References: <20150611174618.GA30268@codemonkey.org.uk>
+ <1434047061.27504.40.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: sfeldma@gmail.com, hideaki.yoshifuji@miraclelinux.com,
-	netdev@vger.kernel.org, ddutt@cumulusnetworks.com,
-	alexander.duyck@gmail.com, hannes@stressinduktion.org,
-	stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f179.google.com ([209.85.220.179]:35779 "EHLO
-	mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751567AbbFKTf6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 15:35:58 -0400
-Received: by qkhq76 with SMTP id q76so7506894qkh.2
-        for <netdev@vger.kernel.org>; Thu, 11 Jun 2015 12:35:58 -0700 (PDT)
+Received: from arcturus.aphlor.org ([188.246.204.175]:32810 "EHLO
+	arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751218AbbFKTjh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 15:39:37 -0400
 Content-Disposition: inline
-In-Reply-To: <20150610.213246.909418500696941374.davem@davemloft.net>
+In-Reply-To: <1434047061.27504.40.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 10, 2015 at 09:32:46PM -0700, David Miller wrote:
-> From: Andy Gospodarek <gospo@cumulusnetworks.com>
-> Date: Wed, 10 Jun 2015 23:36:21 -0400
-> 
-> > On Wed, Jun 10, 2015 at 08:00:14PM -0700, Scott Feldman wrote:
-> >> On Wed, Jun 10, 2015 at 7:57 PM, YOSHIFUJI Hideaki
-> >> <hideaki.yoshifuji@miraclelinux.com> wrote:
-> >> > Hi,
-> >> >
-> >> > Andy Gospodarek wrote:
-> >> >> This feature is only enabled with the new per-interface or ipv4 global
-> >> >> sysctls called 'ignore_routes_with_linkdown'.
-> >> >>
-> >> >> net.ipv4.conf.all.ignore_routes_with_linkdown = 0
-> >> >> net.ipv4.conf.default.ignore_routes_with_linkdown = 0
-> >> >> net.ipv4.conf.lo.ignore_routes_with_linkdown = 0
-> >> > :
-> >> >> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-> >> >> Signed-off-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
-> >> >> ---
-> >> > :
-> >> >> diff --git a/kernel/sysctl_binary.c b/kernel/sysctl_binary.c
-> >> >> index 7e7746a..c9d0a0e 100644
-> >> >> --- a/kernel/sysctl_binary.c
-> >> >> +++ b/kernel/sysctl_binary.c
-> >> >> @@ -253,6 +253,7 @@ static const struct bin_table bin_net_ipv4_conf_vars_table[] = {
-> >> >>       { CTL_INT,      NET_IPV4_CONF_NOPOLICY,                 "disable_policy" },
-> >> >>       { CTL_INT,      NET_IPV4_CONF_FORCE_IGMP_VERSION,       "force_igmp_version" },
-> >> >>       { CTL_INT,      NET_IPV4_CONF_PROMOTE_SECONDARIES,      "promote_secondaries" },
-> >> >> +     { CTL_INT,      NET_IPV4_CONF_IGNORE_ROUTES_WITH_LINKDOWN,      "ignore_routes_with_linkdown" },
-> >> >>       {}
-> >> >>  };
-> >> >>
-> >> >
-> >> > Please do not add new binary sysctl knob. Thank you.
-> >> 
-> >> Reason?
-> > 
-> > I'll echo Scott's request here.  I realize than an abundance of them is
-> > bad, but (to me) this one seems useful.  Unless of course we want to
-> > make this proposed behavior the default.  :-)
-> 
-> Kernel wide, new binary sysctl's are verboten.
-> 
-> Everyone should be accessing sysctls via their name.
-> 
-> You have to remove this.
-> 
+On Thu, Jun 11, 2015 at 11:24:21AM -0700, Eric Dumazet wrote:
+ 
+ > > Just hit this weird problem where I can ssh into a machine once,
+ > > then after logging out, subsequent ssh connections hang.
+ >  
+ > Your tcpdumps look one way only.
 
-No problem, the code as-is works just fine without, so I'll submit a v4
-with this line removed.
+ok hit it again, so let's try again...
+
+client side:
+
+15:34:10.184012 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [.], ack 1505519347, win 229, options [nop,nop,TS val 84312472 ecr 26272557], length 0
+15:34:10.210704 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [.], ack 33, win 229, options [nop,nop,TS val 84312499 ecr 26272584], length 0
+15:34:10.218178 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [P.], seq 2000:2048, ack 985, win 243, options [nop,nop,TS val 84312506 ecr 26272587], length 48
+15:34:10.248332 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [P.], seq 2048:2064, ack 1265, win 258, options [nop,nop,TS val 84312536 ecr 26272614], length 16
+15:34:10.288172 IP gelk.kernelslacker.org.ssh > wopr.kernelslacker.org.44268: Flags [.], ack 2064, win 257, options [nop,nop,TS val 26272662 ecr 84312536], length 0
+15:34:10.328516 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [.], ack 1309, win 258, options [nop,nop,TS val 84312617 ecr 26272662], length 0
+<ctrl-c>
+15:34:27.693304 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [.], ack 1310, win 258, options [nop,nop,TS val 84329981 ecr 26290067], length 0
+
+server side:
+
+15:34:10.188611 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [S], seq 2139969123, win 29200, options [mss 1460,sackOK,TS val 84312472 ecr 0,nop,wscale 7], length 0
+15:34:10.188777 IP gelk.kernelslacker.org.ssh > wopr.kernelslacker.org.44268: Flags [S.], seq 1505519346, ack 2139969124, win 28960, options [mss 1460,sackOK,TS val 26272557 ecr 84312472,nop,wscale 7], length 0
+15:34:10.189033 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [.], ack 1, win 229, options [nop,nop,TS val 84312472 ecr 26272557], length 0
+15:34:10.189534 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [P.], seq 1:33, ack 1, win 229, options [nop,nop,TS val 84312473 ecr 26272557], length 32
+15:34:10.189636 IP gelk.kernelslacker.org.ssh > wopr.kernelslacker.org.44268: Flags [.], ack 33, win 227, options [nop,nop,TS val 26272558 ecr 84312473], length 0
+15:34:10.215507 IP gelk.kernelslacker.org.ssh > wopr.kernelslacker.org.44268: Flags [P.], seq 1:33, ack 33, win 227, options [nop,nop,TS val 26272584 ecr 84312473], length 32
+15:34:10.215700 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [.], ack 33, win 229, options [nop,nop,TS val 84312499 ecr 26272584], length 0
+15:34:10.216834 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [P.], seq 33:2001, ack 33, win 229, options [nop,nop,TS val 84312500 ecr 26272584], length 1968
+15:34:10.216938 IP gelk.kernelslacker.org.ssh > wopr.kernelslacker.org.44268: Flags [.], ack 2001, win 257, options [nop,nop,TS val 26272585 ecr 84312500], length 0
+15:34:10.218280 IP gelk.kernelslacker.org.ssh > wopr.kernelslacker.org.44268: Flags [P.], seq 33:985, ack 2001, win 257, options [nop,nop,TS val 26272587 ecr 84312500], length 952
+15:34:10.223192 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [P.], seq 2001:2049, ack 985, win 243, options [nop,nop,TS val 84312506 ecr 26272587], length 48
+15:34:10.245469 IP gelk.kernelslacker.org.ssh > wopr.kernelslacker.org.44268: Flags [P.], seq 985:1265, ack 2049, win 257, options [nop,nop,TS val 26272614 ecr 84312506], length 280
+15:34:10.253331 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [P.], seq 2049:2065, ack 1265, win 258, options [nop,nop,TS val 84312536 ecr 26272614], length 16
+15:34:10.293038 IP gelk.kernelslacker.org.ssh > wopr.kernelslacker.org.44268: Flags [.], ack 2065, win 257, options [nop,nop,TS val 26272662 ecr 84312536], length 0
+15:34:10.293210 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [P.], seq 2065:2109, ack 1265, win 258, options [nop,nop,TS val 84312576 ecr 26272662], length 44
+15:34:10.293313 IP gelk.kernelslacker.org.ssh > wopr.kernelslacker.org.44268: Flags [.], ack 2109, win 257, options [nop,nop,TS val 26272662 ecr 84312576], length 0
+15:34:10.293487 IP gelk.kernelslacker.org.ssh > wopr.kernelslacker.org.44268: Flags [P.], seq 1265:1309, ack 2109, win 257, options [nop,nop,TS val 26272662 ecr 84312576], length 44
+15:34:10.333528 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [.], ack 1309, win 258, options [nop,nop,TS val 84312617 ecr 26272662], length 0
+<ctrl-c>
+15:34:27.693322 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [F.], seq 2109, ack 1309, win 258, options [nop,nop,TS val 84329976 ecr 26272662], length 0
+15:34:27.698094 IP gelk.kernelslacker.org.ssh > wopr.kernelslacker.org.44268: Flags [F.], seq 1309, ack 2110, win 257, options [nop,nop,TS val 26290067 ecr 84329976], length 0
+15:34:27.698293 IP wopr.kernelslacker.org.44268 > gelk.kernelslacker.org.ssh: Flags [.], ack 1310, win 258, options [nop,nop,TS val 84329981 ecr 26290067], length 0
+
+
+ > Could this be some routing or mtu problem ?
+
+Same mtu on both, no fancy routing. Both on same 192.168.42.x subnet
+plugged into the same dumb 1Gb switch
+
+The only unusual thing is that the client side is running bonding (bond-mode 0)
+I'll take that out of the equation to rule it out when I get home.
+
+	Dave
