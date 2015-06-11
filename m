@@ -1,57 +1,58 @@
-From: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] batman-adv:Make the function
-	batadv_is_my_mac bool
-Date: Thu, 11 Jun 2015 09:17:40 -0400
-Message-ID: <F9973545-FC13-4CDA-BF9E-F802B4876697@gmail.com>
-References: <1433989533-30587-1-git-send-email-xerofoify@gmail.com>
- <55792240.7040301@meshcoding.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [PATCH net-next 01/19] bna: use ether_addr_copy instead of memcpy
+Date: Thu, 11 Jun 2015 15:31:11 +0200
+Message-ID: <55798D9F.8020309@redhat.com>
+References: <1433954605-22813-1-git-send-email-ivecera@redhat.com>	 <1433954605-22813-2-git-send-email-ivecera@redhat.com> <1433959033.32331.16.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <55792240.7040301-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rasesh.mody@qlogic.com
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38425 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752497AbbFKNao (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2015 09:30:44 -0400
+In-Reply-To: <1433959033.32331.16.camel@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 06/10/2015 07:57 PM, Joe Perches wrote:
+> On Wed, 2015-06-10 at 18:43 +0200, Ivan Vecera wrote:
+>> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+>
+> Have you verified that all of these are __aligned(2)?
+>
+> I haven't, but you should verify that you have in the
+> commit log.
+I have checked an alignment of all instances and they are all aligned 
+properly... An exception is global variable bnad_bcast_addr, its 
+alignment is 1 according __alignof__ but according generated assembly it 
+is aligned to 2. Anyway I'm going to put __aligned directive for sure.
 
+> btw: this use looks odd to me:
+>
+> static int
+> bnad_set_mac_address(struct net_device *netdev, void *mac_addr)
+> {
+> 	int err;
+> 	struct bnad *bnad = netdev_priv(netdev);
+> 	struct sockaddr *sa = (struct sockaddr *)mac_addr;
+> 	unsigned long flags;
+>
+> 	spin_lock_irqsave(&bnad->bna_lock, flags);
+>
+> 	err = bnad_mac_addr_set_locked(bnad, sa->sa_data);
+>
+> as it casts what seems to be a mac address to a
+> sockaddr and uses a different offset for sa->sa_data
+> than the mac_addr passed.
+>
+> and the mac_addr as it's void doesn't need a cast.
+No, bnad_set_mac_address() is an implementation of 
+.ndo_set_mac_address() and this is called with pointer to struct 
+sockaddr. The mac_addr name is a little bit confusing.
 
-On June 11, 2015 1:53:04 AM EDT, Antonio Quartulli <antonio-x4xJYDvStAiDeErcrpiq8g@public.gmane.org=
-m> wrote:
->Nicholas,
->
->On 11/06/15 04:25, Nicholas Krause wrote:
->> This makes the function batadv_is_my_mac bool now due
->> to this particular function only returning either one
->> or zero as its return value.
->>=20
->> Signed-off-by: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->
->NAK.
->
->we already have ("batman-adv: main, Convert is_my_mac() to bool") in
->net-next that does exactly the same. I guess you did not pull the
->latest
->changes before writing this patch?
->
->Cheers,
-I was basing this patch off Linux's tree,=20
-that's why.=20
-Nick=20
+Will post v2.
 
---=20
-Sent from my Android device with K-9 Mail. Please excuse my brevity.
+Ivan
