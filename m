@@ -1,50 +1,48 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [patch -next] net/mlx5_core: fix an error code
-Date: Thu, 11 Jun 2015 14:28:27 +0300
-Message-ID: <CAJ3xEMi4ZgFTG9OLNgN=81g56QWK-GCF790d3v=9rWHhMmqLvQ@mail.gmail.com>
-References: <20150611085001.GB27393@mwanda>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: isdn: pcbit: another off-by-one issue?
+Date: Thu, 11 Jun 2015 13:44:20 +0200
+Message-ID: <1434023060.2271.105.camel@x220>
+References: <87381zqr4y.fsf@rasmusvillemoes.dk>
+	 <20150611075852.GE11734@mwanda> <87mw06egrg.fsf@rasmusvillemoes.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eli Cohen <eli@mellanox.com>, Amir Vadai <amirv@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	linux-kernel@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
+	netdev@vger.kernel.org
+To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f196.google.com ([209.85.214.196]:35232 "EHLO
-	mail-ob0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753029AbbFKL22 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 07:28:28 -0400
-In-Reply-To: <20150611085001.GB27393@mwanda>
+Received: from lb1-smtp-cloud3.xs4all.net ([194.109.24.22]:60992 "EHLO
+	lb1-smtp-cloud3.xs4all.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752064AbbFKLoZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 07:44:25 -0400
+In-Reply-To: <87mw06egrg.fsf@rasmusvillemoes.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 11, 2015 at 11:50 AM, Dan Carpenter
-<dan.carpenter@oracle.com> wrote:
-> We return success if mlx5e_alloc_sq_db() fails but we should return an
-> error code.
->
-> Fixes: f62b8bb8f2d3 ('net/mlx5: Extend mlx5_core to support ConnectX-4 Ethernet functionality')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> index 7348c51..075e517 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> @@ -525,7 +525,8 @@ static int mlx5e_create_sq(struct mlx5e_channel *c,
->         sq->uar_map     = sq->uar.map;
->         sq->bf_buf_size = (1 << MLX5_CAP_GEN(mdev, log_bf_reg_size)) / 2;
->
-> -       if (mlx5e_alloc_sq_db(sq, cpu_to_node(c->cpu)))
-> +       err = mlx5e_alloc_sq_db(sq, cpu_to_node(c->cpu));
-> +       if (err)
->                 goto err_sq_wq_destroy;
->
->         sq->txq = netdev_get_tx_queue(priv->netdev,
+On Thu, 2015-06-11 at 11:28 +0200, Rasmus Villemoes wrote:
+> Since nobody seems to have been hit by this ever, I wonder whether it's
+> stable@ material. It probably doesn't make sense to fix this without
+> also backporting 7bcc6738eef.
 
-Dan, nice catch, the team here just handed me the same fix, but you
-submitted 1st...
+I'm guessing nobody is using this anymore. I would be really surprised
+if anyone is. Let's test my idea. Hands up anyone that has:
+- a PCBIT ISDN-card ("manufactured in Portugal by Octal", according to
+  its Kconfig entry);
+- a working X86 machine with ISA;
+- a working ISDN line;
+- and, say, an ISP picking up the stuff you send down that ISDN line
+  at the other end;
+- and cares how 2.6.32 (and higher) runs that setup.
 
-Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
+[Crickets.]
+
+Besides, it is, apparently, an I4L driver. (Though there's a CAPI part
+too. I need to check how that fits into the picture.) I4L is deprecated
+for ten years now (or is it even longer?).
+
+Perhaps pcbit, and the other I4L drivers, should be (finally) tossed
+out? That was discussed last year too, but nothing really was decided.
+
+
+Paul Bolle
