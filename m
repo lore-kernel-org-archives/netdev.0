@@ -1,167 +1,79 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next] bridge: use either ndo VLAN ops or switchdev
- VLAN ops to install MASTER vlans
-Date: Thu, 11 Jun 2015 12:18:26 -0700
-Message-ID: <CAE4R7bAWY+VMHHR=9ko5_z+6yfx1eawuc9NOZfZTuSsPYRzNkQ@mail.gmail.com>
-References: <1434050122-26405-1-git-send-email-sfeldma@gmail.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 2/3 v3] net: ipv4 sysctl option to ignore routes
+ when nexthop link is down
+Date: Thu, 11 Jun 2015 15:35:55 -0400
+Message-ID: <20150611193554.GC588@gospo.home.greyhouse.net>
+References: <5578F92B.8060604@miraclelinux.com>
+ <CAE4R7bCXehOuybGyDMHmzEHw_4X7d3G345EXYCyMCrC7c4oe8g@mail.gmail.com>
+ <20150611033621.GZ588@gospo.home.greyhouse.net>
+ <20150610.213246.909418500696941374.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, hideaki.yoshifuji@miraclelinux.com,
+	netdev@vger.kernel.org, ddutt@cumulusnetworks.com,
+	alexander.duyck@gmail.com, hannes@stressinduktion.org,
+	stephen@networkplumber.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f181.google.com ([209.85.220.181]:36495 "EHLO
-	mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755126AbbFKTSr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 15:18:47 -0400
-Received: by qkx62 with SMTP id 62so7312819qkx.3
-        for <netdev@vger.kernel.org>; Thu, 11 Jun 2015 12:18:47 -0700 (PDT)
-In-Reply-To: <1434050122-26405-1-git-send-email-sfeldma@gmail.com>
+Received: from mail-qk0-f179.google.com ([209.85.220.179]:35779 "EHLO
+	mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751567AbbFKTf6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 15:35:58 -0400
+Received: by qkhq76 with SMTP id q76so7506894qkh.2
+        for <netdev@vger.kernel.org>; Thu, 11 Jun 2015 12:35:58 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150610.213246.909418500696941374.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Drats, sorry Stephen, forgot to add you.
+On Wed, Jun 10, 2015 at 09:32:46PM -0700, David Miller wrote:
+> From: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Date: Wed, 10 Jun 2015 23:36:21 -0400
+> 
+> > On Wed, Jun 10, 2015 at 08:00:14PM -0700, Scott Feldman wrote:
+> >> On Wed, Jun 10, 2015 at 7:57 PM, YOSHIFUJI Hideaki
+> >> <hideaki.yoshifuji@miraclelinux.com> wrote:
+> >> > Hi,
+> >> >
+> >> > Andy Gospodarek wrote:
+> >> >> This feature is only enabled with the new per-interface or ipv4 global
+> >> >> sysctls called 'ignore_routes_with_linkdown'.
+> >> >>
+> >> >> net.ipv4.conf.all.ignore_routes_with_linkdown = 0
+> >> >> net.ipv4.conf.default.ignore_routes_with_linkdown = 0
+> >> >> net.ipv4.conf.lo.ignore_routes_with_linkdown = 0
+> >> > :
+> >> >> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> >> >> Signed-off-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
+> >> >> ---
+> >> > :
+> >> >> diff --git a/kernel/sysctl_binary.c b/kernel/sysctl_binary.c
+> >> >> index 7e7746a..c9d0a0e 100644
+> >> >> --- a/kernel/sysctl_binary.c
+> >> >> +++ b/kernel/sysctl_binary.c
+> >> >> @@ -253,6 +253,7 @@ static const struct bin_table bin_net_ipv4_conf_vars_table[] = {
+> >> >>       { CTL_INT,      NET_IPV4_CONF_NOPOLICY,                 "disable_policy" },
+> >> >>       { CTL_INT,      NET_IPV4_CONF_FORCE_IGMP_VERSION,       "force_igmp_version" },
+> >> >>       { CTL_INT,      NET_IPV4_CONF_PROMOTE_SECONDARIES,      "promote_secondaries" },
+> >> >> +     { CTL_INT,      NET_IPV4_CONF_IGNORE_ROUTES_WITH_LINKDOWN,      "ignore_routes_with_linkdown" },
+> >> >>       {}
+> >> >>  };
+> >> >>
+> >> >
+> >> > Please do not add new binary sysctl knob. Thank you.
+> >> 
+> >> Reason?
+> > 
+> > I'll echo Scott's request here.  I realize than an abundance of them is
+> > bad, but (to me) this one seems useful.  Unless of course we want to
+> > make this proposed behavior the default.  :-)
+> 
+> Kernel wide, new binary sysctl's are verboten.
+> 
+> Everyone should be accessing sysctls via their name.
+> 
+> You have to remove this.
+> 
 
-On Thu, Jun 11, 2015 at 12:15 PM,  <sfeldma@gmail.com> wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
->
-> To maintain backward compatibility with the existing iproute2 "bridge vlan"
-> command, let bridge's setlink/dellink handler call into either the port
-> driver's 8021q ndo ops or the port driver's bridge_setlink/dellink ops.
->
-> This allows port driver to choose 8021q ops or the newer
-> bridge_setlink/dellink ops when implementing VLAN add/del filtering on the
-> device.  The iproute "bridge vlan" command does not need to be modified.
->
-> To summarize using the "bridge vlan" command examples, we have:
->
-> 1) bridge vlan add|del vid VID dev DEV
->
-> Here iproute2 sets MASTER flag.  Bridge's bridge_setlink/dellink is called.
-> Vlan is set on bridge for port.  If port driver implements ndo 8021q ops,
-> call those to port driver can install vlan filter on device.  Otherwise, if
-> port driver implements bridge_setlink/dellink ops, call those to install
-> vlan filter to device.  This option only works if port is bridged.
->
-> 2) bridge vlan add|del vid VID dev DEV master
->
-> Same as 1)
->
-> 3) bridge vlan add|del vid VID dev DEV self
->
-> Bridge's bridge_setlink/dellink isn't called.  Port driver's
-> bridge_setlink/dellink is called, if implemented.  This option works if
-> port is bridged or not.  If port is not bridged, a VLAN can still be
-> added/deleted to device filter using this variant.
->
-> 4) bridge vlan add|del vid VID dev DEV master self
->
-> This is a combination of 1) and 3), but will only work if port is bridged.
->
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-> ---
->  net/bridge/br_vlan.c |   56 ++++++++++++++++++++++++++++++++++++++++++++++++--
->  1 file changed, 54 insertions(+), 2 deletions(-)
->
-> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-> index 13013fe..a7cfa58 100644
-> --- a/net/bridge/br_vlan.c
-> +++ b/net/bridge/br_vlan.c
-> @@ -2,6 +2,7 @@
->  #include <linux/netdevice.h>
->  #include <linux/rtnetlink.h>
->  #include <linux/slab.h>
-> +#include <net/switchdev.h>
->
->  #include "br_private.h"
->
-> @@ -36,6 +37,35 @@ static void __vlan_add_flags(struct net_port_vlans *v, u16 vid, u16 flags)
->                 clear_bit(vid, v->untagged_bitmap);
->  }
->
-> +static int __vlan_vid_add(struct net_device *dev, struct net_bridge *br,
-> +                         u16 vid, u16 flags)
-> +{
-> +       const struct net_device_ops *ops = dev->netdev_ops;
-> +       struct switchdev_obj vlan_obj = {
-> +               .id = SWITCHDEV_OBJ_PORT_VLAN,
-> +               .u.vlan = {
-> +                       .flags = flags,
-> +                       .vid_start = vid,
-> +                       .vid_end = vid,
-> +               },
-> +       };
-> +       int err;
-> +
-> +       /* If driver uses VLAN ndo ops, use 8021q to install vid
-> +        * on device, otherwise try switchdev ops to install vid.
-> +        */
-> +
-> +       if (ops->ndo_vlan_rx_add_vid) {
-> +               err = vlan_vid_add(dev, br->vlan_proto, vid);
-> +       } else {
-> +               err = switchdev_port_obj_add(dev, &vlan_obj);
-> +               if (err == -EOPNOTSUPP)
-> +                       err = 0;
-> +       }
-> +
-> +       return err;
-> +}
-> +
->  static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
->  {
->         struct net_bridge_port *p = NULL;
-> @@ -62,7 +92,7 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
->                  * This ensures tagged traffic enters the bridge when
->                  * promiscuous mode is disabled by br_manage_promisc().
->                  */
-> -               err = vlan_vid_add(dev, br->vlan_proto, vid);
-> +               err = __vlan_vid_add(dev, br, vid, flags);
->                 if (err)
->                         return err;
->         }
-> @@ -86,6 +116,28 @@ out_filt:
->         return err;
->  }
->
-> +static void __vlan_vid_del(struct net_device *dev, struct net_bridge *br,
-> +                          u16 vid)
-> +{
-> +       const struct net_device_ops *ops = dev->netdev_ops;
-> +       struct switchdev_obj vlan_obj = {
-> +               .id = SWITCHDEV_OBJ_PORT_VLAN,
-> +               .u.vlan = {
-> +                       .vid_start = vid,
-> +                       .vid_end = vid,
-> +               },
-> +       };
-> +
-> +       /* If driver uses VLAN ndo ops, use 8021q to delete vid
-> +        * on device, otherwise try switchdev ops to delete vid.
-> +        */
-> +
-> +       if (ops->ndo_vlan_rx_kill_vid)
-> +               vlan_vid_del(dev, br->vlan_proto, vid);
-> +       else
-> +               switchdev_port_obj_del(dev, &vlan_obj);
-> +}
-> +
->  static int __vlan_del(struct net_port_vlans *v, u16 vid)
->  {
->         if (!test_bit(vid, v->vlan_bitmap))
-> @@ -96,7 +148,7 @@ static int __vlan_del(struct net_port_vlans *v, u16 vid)
->
->         if (v->port_idx) {
->                 struct net_bridge_port *p = v->parent.port;
-> -               vlan_vid_del(p->dev, p->br->vlan_proto, vid);
-> +               __vlan_vid_del(p->dev, p->br, vid);
->         }
->
->         clear_bit(vid, v->vlan_bitmap);
-> --
-> 1.7.10.4
->
+No problem, the code as-is works just fine without, so I'll submit a v4
+with this line removed.
