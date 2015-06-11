@@ -1,53 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/ethtool: Add current supported tunable
- options
-Date: Wed, 10 Jun 2015 22:07:25 -0700 (PDT)
-Message-ID: <20150610.220725.1836894008272332422.davem@davemloft.net>
-References: <1433863794-40982-1-git-send-email-hadarh@mellanox.com>
+Subject: Re: [PATCH net v2] bridge: fix multicast router rlist endless loop
+Date: Wed, 10 Jun 2015 22:08:47 -0700 (PDT)
+Message-ID: <20150610.220847.2245026709731181581.davem@davemloft.net>
+References: <1433842349-28089-1-git-send-email-nikolay@cumulusnetworks.com>
+	<1433870637-15844-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, netdev@vger.kernel.org, amirv@mellanox.com,
-	ogerlitz@mellanox.com, talal@mellanox.com, _govind@gmx.com
-To: hadarh@mellanox.com
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	herbert@gondor.apana.org.au, razor@blackwall.org
+To: nikolay@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57883 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57892 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750856AbbFKFH0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 01:07:26 -0400
-In-Reply-To: <1433863794-40982-1-git-send-email-hadarh@mellanox.com>
+	with ESMTP id S1751067AbbFKFIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 01:08:48 -0400
+In-Reply-To: <1433870637-15844-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
-Date: Tue,  9 Jun 2015 18:29:54 +0300
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Tue,  9 Jun 2015 10:23:57 -0700
 
-> Add strings array of the current supported tunable options.
+> From: Nikolay Aleksandrov <razor@blackwall.org>
 > 
-> Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-> Reviewed-by: Amir Vadai <amirv@mellanox.com>
+> Since the addition of sysfs multicast router support if one set
+> multicast_router to "2" more than once, then the port would be added to
+> the hlist every time and could end up linking to itself and thus causing an
+> endless loop for rlist walkers.
+> So to reproduce just do:
+> echo 2 > multicast_router; echo 2 > multicast_router;
+> in a bridge port and let some igmp traffic flow, for me it hangs up
+> in br_multicast_flood().
+> Fix this by adding a check in br_multicast_add_router() if the port is
+> already linked.
+> The reason this didn't happen before the addition of multicast_router
+> sysfs entries is because there's a !hlist_unhashed check that prevents
+> it.
+> 
+> Signed-off-by: Nikolay Aleksandrov <razor@blackwall.org>
+> Fixes: 0909e11758bd ("bridge: Add multicast_router sysfs entries")
 > ---
->  include/uapi/linux/ethtool.h |  6 ++++++
->  net/core/ethtool.c           | 12 ++++++++++++
->  2 files changed, 18 insertions(+)
-> 
-> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-> index 0594933..90e4bff 100644
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
-> @@ -215,6 +215,11 @@ enum tunable_id {
->  	ETHTOOL_ID_UNSPEC,
->  	ETHTOOL_RX_COPYBREAK,
->  	ETHTOOL_TX_COPYBREAK,
-> +	/*
-> +	 * Add your fresh new tubale attribute above and remember to update
-> +	 * tunable_strings[] in net/core/ethtool.c
-> +	 */
-> +	ETHTOOL_TUNABLE_COUNT,
->  };
->  
->  enum tunable_type_id {
+> v2: implement Herbert's suggestion and add the check to
+>     br_multicast_add_router instead of changing the sysfs caller.
 
-Please put two leading underscores in the name of this enumeration
-to make it clear that it is an implementation internal value that
-users should not try to use.  F.e. __ETHTOOL_TUNABLE_COUNT
+Applied and queued up for -stable, thanks.
