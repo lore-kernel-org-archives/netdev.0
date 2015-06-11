@@ -1,97 +1,37 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net 3/3] enic: fix memory leak in rq_clean
-Date: Thu, 11 Jun 2015 11:52:56 +0530
-Message-ID: <1434003776-31840-3-git-send-email-_govind@gmx.com>
-References: <1434003776-31840-1-git-send-email-_govind@gmx.com>
-Cc: ssujith@cisco.com, benve@cisco.com,
-	Govindarajulu Varadarajan <_govind@gmx.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: tcp: dctcp_update_alpha() fixes.
+Date: Wed, 10 Jun 2015 23:28:49 -0700 (PDT)
+Message-ID: <20150610.232849.1817792758322372959.davem@davemloft.net>
+References: <1433999477.27504.29.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net, fw@strlen.de
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:64865 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751036AbbFKGXl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2015 02:23:41 -0400
-In-Reply-To: <1434003776-31840-1-git-send-email-_govind@gmx.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58420 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750710AbbFKG3F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 02:29:05 -0400
+In-Reply-To: <1433999477.27504.29.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When incoming packet qualifies for rx_copybreak, we copy the data to newly
-allocated skb. We do not free/unmap the original buffer. At this point driver
-assumes this buffer is unallocated. When enic_rq_alloc_buf() is called for
-buffer allocation, it checks if buf->os_buf is NULL. If its not NULL that means
-buffer can be re-used.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 10 Jun 2015 22:11:17 -0700
 
-When vnic_rq_clean() is called for freeing all rq buffers, and if the
-rx_copybreak reused buffer falls outside the used desc, we do not free the
-buffer. The following trace is observer when dma-debug is enabled.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> dctcp_alpha can be read by from dctcp_get_info() without
+> synchro, so use WRITE_ONCE() to prevent compiler from using
+> dctcp_alpha as a temporary variable.
+> 
+> Also, playing with small dctcp_shift_g (like 1), can expose
+> an overflow with 32bit values shifted 9 times before divide.
+> 
+> Use an u64 field to avoid this problem, and perform the divide
+> only if acked_bytes_ecn is not zero.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Fix is to walk through complete ring and clean if buffer is present.
-
-[   40.555386] ------------[ cut here ]------------
-[   40.555396] WARNING: CPU: 0 PID: 491 at lib/dma-debug.c:971 dma_debug_device_change+0x188/0x1f0()
-[   40.555400] pci 0000:06:00.0: DMA-API: device driver has pending DMA allocations while released from device [count=4]
-               One of leaked entries details: [device address=0x00000000ff4cc040] [size=9018 bytes] [mapped with DMA_FROM_DEVICE] [mapped as single]
-[   40.555402] Modules linked in: nfsv3 nfs_acl rpcsec_gss_krb5 auth_rpcgss oid_registry nfsv4 dns_resolver coretemp intel_rapl iosf_mbi x86_pkg_temp_thermal intel_powerclamp kvm_intel kvm crct10dif_pclmul crc32_pclmul ghash_clmulni_intel aesni_intel aes_x86_64 lrw joydev mousedev gf128mul hid_generic glue_helper mgag200 usbhid ttm hid drm_kms_helper drm ablk_helper syscopyarea sysfillrect sysimgblt i2c_algo_bit i2c_core iTCO_wdt cryptd mac_hid evdev pcspkr sb_edac edac_core tpm_tis iTCO_vendor_support ipmi_si wmi tpm ipmi_msghandler shpchp lpc_ich processor acpi_power_meter hwmon button ac sch_fq_codel nfs lockd grace sunrpc fscache sd_mod ehci_pci ehci_hcd megaraid_sas usbcore scsi_mod usb_common enic(-) crc32c_generic crc32c_intel btrfs xor raid6_pq ext4 crc16 mbcache jbd2
-[   40.555467] CPU: 0 PID: 491 Comm: rmmod Not tainted 4.1.0-rc7-ARCH-01305-gf59b71f #118
-[   40.555469] Hardware name: Cisco Systems Inc UCSB-B200-M4/UCSB-B200-M4, BIOS B200M4.2.2.2.23.061220140128 06/12/2014
-[   40.555471]  0000000000000000 00000000e2f8a5b7 ffff880275f8bc48 ffffffff8158d6f0
-[   40.555474]  0000000000000000 ffff880275f8bca0 ffff880275f8bc88 ffffffff8107b04a
-[   40.555477]  ffff8802734e0000 0000000000000004 ffff8804763fb3c0 ffff88027600b650
-[   40.555480] Call Trace:
-[   40.555488]  [<ffffffff8158d6f0>] dump_stack+0x4f/0x7b
-[   40.555492]  [<ffffffff8107b04a>] warn_slowpath_common+0x8a/0xc0
-[   40.555494]  [<ffffffff8107b0d5>] warn_slowpath_fmt+0x55/0x70
-[   40.555498]  [<ffffffff812fa408>] dma_debug_device_change+0x188/0x1f0
-[   40.555503]  [<ffffffff8109aaef>] notifier_call_chain+0x4f/0x80
-[   40.555506]  [<ffffffff8109aecb>] __blocking_notifier_call_chain+0x4b/0x70
-[   40.555510]  [<ffffffff8109af06>] blocking_notifier_call_chain+0x16/0x20
-[   40.555514]  [<ffffffff813f8066>] __device_release_driver+0xf6/0x120
-[   40.555518]  [<ffffffff813f8b08>] driver_detach+0xc8/0xd0
-[   40.555523]  [<ffffffff813f7c59>] bus_remove_driver+0x59/0xe0
-[   40.555527]  [<ffffffff813f93a0>] driver_unregister+0x30/0x70
-[   40.555534]  [<ffffffff8131532d>] pci_unregister_driver+0x2d/0xa0
-[   40.555542]  [<ffffffffa0200ec2>] enic_cleanup_module+0x10/0x14e [enic]
-[   40.555547]  [<ffffffff8110158f>] SyS_delete_module+0x1cf/0x280
-[   40.555551]  [<ffffffff811e284e>] ? ____fput+0xe/0x10
-[   40.555554]  [<ffffffff810980ec>] ? task_work_run+0xbc/0xf0
-[   40.555558]  [<ffffffff815930ee>] system_call_fastpath+0x12/0x71
-[   40.555561] ---[ end trace 4988cadc77c2b236 ]---
-[   40.555562] Mapped at:
-[   40.555563]  [<ffffffff812fa865>] debug_dma_map_page+0x95/0x150
-[   40.555566]  [<ffffffffa01f4a88>] enic_rq_alloc_buf+0x1b8/0x360 [enic]
-[   40.555570]  [<ffffffffa01f7658>] enic_open+0xf8/0x820 [enic]
-[   40.555574]  [<ffffffff8148d50e>] __dev_open+0xce/0x150
-[   40.555579]  [<ffffffff8148d851>] __dev_change_flags+0xa1/0x170
-
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
----
- drivers/net/ethernet/cisco/enic/vnic_rq.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_rq.c b/drivers/net/ethernet/cisco/enic/vnic_rq.c
-index 36a2ed6..c4b2183 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_rq.c
-+++ b/drivers/net/ethernet/cisco/enic/vnic_rq.c
-@@ -188,16 +188,15 @@ void vnic_rq_clean(struct vnic_rq *rq,
- 	struct vnic_rq_buf *buf;
- 	u32 fetch_index;
- 	unsigned int count = rq->ring.desc_count;
-+	int i;
- 
- 	buf = rq->to_clean;
- 
--	while (vnic_rq_desc_used(rq) > 0) {
--
-+	for (i = 0; i < rq->ring.desc_count; i++) {
- 		(*buf_clean)(rq, buf);
--
--		buf = rq->to_clean = buf->next;
--		rq->ring.desc_avail++;
-+		buf = buf->next;
- 	}
-+	rq->ring.desc_avail = rq->ring.desc_count - 1;
- 
- 	/* Use current fetch_index as the ring starting point */
- 	fetch_index = ioread32(&rq->ctrl->fetch_index);
--- 
-2.4.2
+This looks fine, applied, thanks Eric.
