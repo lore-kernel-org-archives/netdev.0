@@ -1,8 +1,12 @@
 From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next 1/3 v3] net: track link-status of ipv4 nexthops
-Date: Wed, 10 Jun 2015 19:53:59 -0700
-Message-ID: <CAE4R7bC=bKhMDVc9JT7YeFFDAi8Hn8GySd_b5Oa2uQ=bnbi8_A@mail.gmail.com>
-References: <1433990233-958-1-git-send-email-gospo@cumulusnetworks.com> <1433990233-958-2-git-send-email-gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 2/3 v2] net: ipv4 sysctl option to ignore routes
+ when nexthop link is down
+Date: Wed, 10 Jun 2015 19:57:14 -0700
+Message-ID: <CAE4R7bCTHsjpmHe3BUDARN=b02j5bWwx9bH6mSN3Of7BFpjgEQ@mail.gmail.com>
+References: <1433918841-15576-1-git-send-email-gospo@cumulusnetworks.com>
+ <1433918841-15576-3-git-send-email-gospo@cumulusnetworks.com>
+ <CAE4R7bCy1bZ1A7tUNOA9H2GqwZhjWSqtjzs=GLxUUyNT_3+=gA@mail.gmail.com>
+ <CAE4R7bAgBMjeQHpZv8_-h9RnLg2vVLwn537jEKmVQ-A=aY50QQ@mail.gmail.com> <20150611022309.GU588@gospo.home.greyhouse.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Netdev <netdev@vger.kernel.org>,
@@ -12,66 +16,54 @@ Cc: Netdev <netdev@vger.kernel.org>,
 	"stephen@networkplumber.org" <stephen@networkplumber.org>
 To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f180.google.com ([209.85.216.180]:36155 "EHLO
-	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751684AbbFKCyU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 22:54:20 -0400
-Received: by qcjl8 with SMTP id l8so4627336qcj.3
-        for <netdev@vger.kernel.org>; Wed, 10 Jun 2015 19:54:19 -0700 (PDT)
-In-Reply-To: <1433990233-958-2-git-send-email-gospo@cumulusnetworks.com>
+Received: from mail-qk0-f174.google.com ([209.85.220.174]:34954 "EHLO
+	mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751306AbbFKC5f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 22:57:35 -0400
+Received: by qkhq76 with SMTP id q76so34526617qkh.2
+        for <netdev@vger.kernel.org>; Wed, 10 Jun 2015 19:57:34 -0700 (PDT)
+In-Reply-To: <20150611022309.GU588@gospo.home.greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 10, 2015 at 7:37 PM, Andy Gospodarek
+On Wed, Jun 10, 2015 at 7:23 PM, Andy Gospodarek
 <gospo@cumulusnetworks.com> wrote:
+> On Wed, Jun 10, 2015 at 07:18:59PM -0700, Scott Feldman wrote:
+>> On Wed, Jun 10, 2015 at 7:12 PM, Scott Feldman <sfeldma@gmail.com> wrote:
+>> > On Tue, Jun 9, 2015 at 11:47 PM, Andy Gospodarek
+>> > <gospo@cumulusnetworks.com> wrote:
+>> >
+>> >>  /* /proc/sys/net/ipv4/netfilter */
+>> >> diff --git a/kernel/sysctl_binary.c b/kernel/sysctl_binary.c
+>> >> index 7e7746a..c9d0a0e 100644
+>> >> --- a/kernel/sysctl_binary.c
+>> >> +++ b/kernel/sysctl_binary.c
+>> >> @@ -253,6 +253,7 @@ static const struct bin_table bin_net_ipv4_conf_vars_table[] = {
+>> >>         { CTL_INT,      NET_IPV4_CONF_NOPOLICY,                 "disable_policy" },
+>> >>         { CTL_INT,      NET_IPV4_CONF_FORCE_IGMP_VERSION,       "force_igmp_version" },
+>> >>         { CTL_INT,      NET_IPV4_CONF_PROMOTE_SECONDARIES,      "promote_secondaries" },
+>> >> +       { CTL_INT,      NET_IPV4_CONF_IGNORE_ROUTES_WITH_LINKDOWN,      "ignore_routes_with_linkdown" },
+>> >
+>> > Would "route_ignore_linkdown_nexthops" be a more accurate name?  The
+>> > patch marks link-downed nexthops to be ignored, not the route,
+>> > correct?
+>> >
+>> > s/NET_IPV4_CONF_IGNORE_ROUTES_WITH_LINKDOWN/NET_IPV4_CONF_ROUTE_IGNORE_LINKDOWN_NEXTHOPS
+>>
+>> Something like that.  Not sure I like my suggestion.  If dev is
+>> nexthop dev in route, and dev is link down, exclude nexthop in route
+>> lookup.
+>
+> I actually played around with a bunch of different names and this was as
+> short as I could get it while still conveying the point.  I'm getting
+> ready to submit v3, so speak now if you really do hate the name proposed
+> in v2.
+>
+>> route_exclude_if_linkdown_nexthop_dev?
+>
+> Not bad, but you see what I mean about it being a mouthful.  :)
 
-> @@ -1129,7 +1142,15 @@ int fib_sync_down_dev(struct net_device *dev, int force)
->                                 dead++;
->                         else if (nexthop_nh->nh_dev == dev &&
->                                  nexthop_nh->nh_scope != scope) {
-> -                               nexthop_nh->nh_flags |= RTNH_F_DEAD;
-> +                               switch (event) {
-> +                               case NETDEV_DOWN:
-> +                               case NETDEV_UNREGISTER:
-> +                                       nexthop_nh->nh_flags |= RTNH_F_DEAD;
-> +                                       /* fall through */
-> +                               case NETDEV_CHANGE:
-> +                                       nexthop_nh->nh_flags |= RTNH_F_LINKDOWN;
-> +                                       break;
-> +                               }
->  #ifdef CONFIG_IP_ROUTE_MULTIPATH
->                                 spin_lock_bh(&fib_multipath_lock);
->                                 fi->fib_power -= nexthop_nh->nh_power;
-> @@ -1139,14 +1160,22 @@ int fib_sync_down_dev(struct net_device *dev, int force)
->                                 dead++;
->                         }
->  #ifdef CONFIG_IP_ROUTE_MULTIPATH
-> -                       if (force > 1 && nexthop_nh->nh_dev == dev) {
-> +                       if (event == NETDEV_UNREGISTER && nexthop_nh->nh_dev == dev) {
->                                 dead = fi->fib_nhs;
->                                 break;
->                         }
->  #endif
->                 } endfor_nexthops(fi)
->                 if (dead == fi->fib_nhs) {
-> -                       fi->fib_flags |= RTNH_F_DEAD;
-> +                       switch (event) {
-> +                       case NETDEV_DOWN:
-> +                       case NETDEV_UNREGISTER:
-> +                               fi->fib_flags |= RTNH_F_DEAD;
-> +                               /* fall through */
-> +                       case NETDEV_CHANGE:
-> +                               fi->fib_flags |= RTNH_F_LINKDOWN;
-
-RTNH_F_LINKDOWN is to mark linkdown nexthop devs....why is the route
-fi being marked RTNH_F_LINKDOWN?
-
-The RTNH_F_LINKDOWN comment says:
-
-#define RTNH_F_LINKDOWN                16      /* carrier-down on nexthop */
-
-It's a per-nh flag, not per-route flag, correct?
-
-Can you show an ECMP example with only a subset of the nexthops dev
-linkdowned?  Show the ip route output after going thru some link
-down/up events on some of the nexthops devs.
+I think I'd rather see clarity over brevity in this case.  The current
+name makes the attr sound like a route property but it's really a prop
+of the dev when the dev is a nexthop in a route and the dev link is
+down.
