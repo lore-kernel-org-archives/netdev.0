@@ -1,45 +1,83 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH next v0] bonding: Display LACP info only to
- CAP_SYS_ADMIN capable user
-Date: Thu, 11 Jun 2015 14:09:35 -0700
-Message-ID: <20150611140935.6533fb7c@urahara>
-References: <1433981996-6010-1-git-send-email-maheshb@google.com>
+From: Chris Mason <clm@fb.com>
+Subject: Re: [RFC] net: use atomic allocation for order-3 page allocation
+Date: Thu, 11 Jun 2015 17:16:46 -0400
+Message-ID: <5579FABE.4050505@fb.com>
+References: <71a20cf185c485fa23d9347bd846a6f4e9753405.1434053941.git.shli@fb.com> <1434055687.27504.51.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<Kernel-team@fb.com>, Eric Dumazet <edumazet@google.com>,
+	David Rientjes <rientjes@google.com>, <linux-mm@kvack.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>, Shaohua Li <shli@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f45.google.com ([209.85.192.45]:34126 "EHLO
-	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752554AbbFKVJh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 17:09:37 -0400
-Received: by qgf75 with SMTP id 75so5768071qgf.1
-        for <netdev@vger.kernel.org>; Thu, 11 Jun 2015 14:09:37 -0700 (PDT)
-In-Reply-To: <1433981996-6010-1-git-send-email-maheshb@google.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:8195 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751385AbbFKVQ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 17:16:56 -0400
+In-Reply-To: <1434055687.27504.51.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 10 Jun 2015 17:19:56 -0700
-Mahesh Bandewar <maheshb@google.com> wrote:
-
-> Actor and Partner details can be accessed via proc-fs and sys-fs
-> entries. These interfaces are world readable at this moment. The
-> earlier patch-series made the LACP communication secure to avoid
-> nuisance attack from within the same L2 domain but it did not
-> prevent "someone unprivileged" looking at that information on host
-> and perform the same act.
+On 06/11/2015 04:48 PM, Eric Dumazet wrote:
+> On Thu, 2015-06-11 at 13:24 -0700, Shaohua Li wrote:
+>> We saw excessive memory compaction triggered by skb_page_frag_refill.
+>> This causes performance issues. Commit 5640f7685831e0 introduces the
+>> order-3 allocation to improve performance. But memory compaction has
+>> high overhead. The benefit of order-3 allocation can't compensate the
+>> overhead of memory compaction.
+>>
+>> This patch makes the order-3 page allocation atomic. If there is no
+>> memory pressure and memory isn't fragmented, the alloction will still
+>> success, so we don't sacrifice the order-3 benefit here. If the atomic
+>> allocation fails, compaction will not be triggered and we will fallback
+>> to order-0 immediately.
+>>
+>> The mellanox driver does similar thing, if this is accepted, we must fix
+>> the driver too.
+>>
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Signed-off-by: Shaohua Li <shli@fb.com>
+>> ---
+>>  net/core/sock.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/core/sock.c b/net/core/sock.c
+>> index 292f422..e9855a4 100644
+>> --- a/net/core/sock.c
+>> +++ b/net/core/sock.c
+>> @@ -1883,7 +1883,7 @@ bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t gfp)
+>>  
+>>  	pfrag->offset = 0;
+>>  	if (SKB_FRAG_PAGE_ORDER) {
+>> -		pfrag->page = alloc_pages(gfp | __GFP_COMP |
+>> +		pfrag->page = alloc_pages((gfp & ~__GFP_WAIT) | __GFP_COMP |
+>>  					  __GFP_NOWARN | __GFP_NORETRY,
+>>  					  SKB_FRAG_PAGE_ORDER);
+>>  		if (likely(pfrag->page)) {
 > 
-> This patch essentially avoids spitting those entries if the user
-> in question does not have enough privileges.
+> This is not a specific networking issue, but mm one.
 > 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> You really need to start a discussion with mm experts.
+> 
+> Your changelog does not exactly explains what _is_ the problem.
+> 
+> If the problem lies in mm layer, it might be time to fix it, instead of
+> work around the bug by never triggering it from this particular point,
+> which is a safe point where a process is willing to wait a bit.
+> 
+> Memory compaction is either working as intending, or not.
+> 
+> If we enabled it but never run it because it hurts, what is the point
+> enabling it ?
 
-I would think you want CAP_NET_ADMIN for this?
+networking is asking for 32KB, and the MM layer is doing what it can to
+provide it.  Are the gains from getting 32KB contig bigger than the cost
+of moving pages around if the MM has to actually go into compaction?
+Should we start disk IO to give back 32KB contig?
+
+I think we want to tell the MM to compact in the background and give
+networking 32KB if it happens to have it available.  If not, fall back
+to smaller allocations without doing anything expensive.
+
+-chris
