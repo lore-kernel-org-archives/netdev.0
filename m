@@ -1,85 +1,72 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] switchdev: fix BUG when port driver doesn't
- support set attr op
-Date: Thu, 11 Jun 2015 08:16:19 +0200
-Message-ID: <20150611061619.GA2121@nanopsycho.orion>
-References: <1433969762-22406-1-git-send-email-sfeldma@gmail.com>
- <5578AB3C.5020206@gmail.com>
- <CAE4R7bD2RLa9D1_JnGr4RUMYHWMa-kQab=1ihN3YMkJgLqFViw@mail.gmail.com>
- <CAE4R7bBhvfbX2wUoensSBpVsOzaaHw_ZFtiu+woj45_sziOS6g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Ahern <dsahern@gmail.com>, Netdev <netdev@vger.kernel.org>,
-	Brenden Blanco <bblanco@plumgrid.com>
-To: Scott Feldman <sfeldma@gmail.com>
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH net 1/3] enic: unlock napi busy poll before unmasking intr
+Date: Thu, 11 Jun 2015 11:52:54 +0530
+Message-ID: <1434003776-31840-1-git-send-email-_govind@gmx.com>
+Cc: ssujith@cisco.com, benve@cisco.com,
+	Govindarajulu Varadarajan <_govind@gmx.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:36734 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750889AbbFKGQX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 02:16:23 -0400
-Received: by wgbgq6 with SMTP id gq6so48550158wgb.3
-        for <netdev@vger.kernel.org>; Wed, 10 Jun 2015 23:16:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bBhvfbX2wUoensSBpVsOzaaHw_ZFtiu+woj45_sziOS6g@mail.gmail.com>
+Received: from mout.gmx.net ([212.227.15.18]:64985 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750872AbbFKGX1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2015 02:23:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jun 11, 2015 at 12:00:47AM CEST, sfeldma@gmail.com wrote:
->On Wed, Jun 10, 2015 at 2:47 PM, Scott Feldman <sfeldma@gmail.com> wrote:
->> On Wed, Jun 10, 2015 at 2:25 PM, David Ahern <dsahern@gmail.com> wrote:
->>> On 6/10/15 2:56 PM, sfeldma@gmail.com wrote:
->>>>
->>>> From: Scott Feldman <sfeldma@gmail.com>
->>>>
->>>> Fix a BUG() where CONFIG_NET_SWITCHDEV is set but the driver for a bridged
->>>> port does not support switchdec_port_attr_set op.  Don't BUG() if
->>>> -EOPNOTSUPP is returned.
->>>>
->>>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>>> Reported-by: Brenden Blanco <bblanco@plumgrid.com>
->>>> ---
->>>>   net/switchdev/switchdev.c |    2 +-
->>>>   1 file changed, 1 insertion(+), 1 deletion(-)
->>>>
->>>> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->>>> index e008057..99bced4 100644
->>>> --- a/net/switchdev/switchdev.c
->>>> +++ b/net/switchdev/switchdev.c
->>>> @@ -103,7 +103,7 @@ static void switchdev_port_attr_set_work(struct
->>>> work_struct *work)
->>>>
->>>>         rtnl_lock();
->>>>         err = switchdev_port_attr_set(asw->dev, &asw->attr);
->>>> -       BUG_ON(err);
->>>> +       BUG_ON(err && err != -EOPNOTSUPP);
->>>>         rtnl_unlock();
->>>>
->>>>         dev_put(asw->dev);
->>>>
->>>
->>> Should that be WARN_ON instead of BUG_ON?
->>
->> I think I had it as WARN when we were working on the initial patches,
->> but we changed it to BUG_ON because we should only get an error here
->> if the driver screwed something up between PREPARE phase and COMMIT
->> phase, so it should be considered a driver bug which needs fixing.
->
->Actually, ignore what I said above.  I was confusing this BUG_ON with
->the one in switchdev_port_attr_set().  Perhaps this BUG_ON() you're
->commenting on should be WARN().  A driver could return an err in
->PREPARE phase and that shouldn't be a BUG_ON situation; seems WARN
->would be better.   It the case where the driver returns an err in
->COMMIT phase but didn't return an err in PREPARE phase we want to
->BUG_ON().  Maybe that case doesn't justify BUG_ON either, based on the
->link you posted.
->
->Jiri, IIRC, you suggested the BUG_ON().  Does it still sound right
->based on the point David is raising?
+There is a small window between vnic_intr_unmask() and enic_poll_unlock_napi().
+In this window if an irq occurs and napi is scheduled on different cpu, it tries
+to acquire enic_poll_lock_napi() and hits the following WARN_ON message.
 
-Hmm, looking at code of switchdev_port_attr_set. In case that fails in
-prepare state (which can easily happen for example due to -ENOMEM) this
-BUG_ON is hit as well. That is not right. I think we should change it
-just to warning. Also I think that prink (or a flavour) is more suitable
-here than WARN.
+Fix is to unlock napi_poll before unmasking the interrupt.
 
-Btw, why switchdev_port_obj_add has WARN and not BUG ?
+[  781.121746] ------------[ cut here ]------------
+[  781.121789] WARNING: CPU: 1 PID: 0 at drivers/net/ethernet/cisco/enic/vnic_rq.h:228 enic_poll_msix_rq+0x36a/0x3c0 [enic]()
+[  781.121834] Modules linked in: nfsv3 nfs_acl rpcsec_gss_krb5 auth_rpcgss oid_registry nfsv4 dns_resolver coretemp intel_rapl iosf_mbi x86_pkg_temp_thermal intel_powerclamp kvm_intel kvm crct10dif_pclmul crc32_pclmul ghash_clmulni_intel aesni_intel mgag200 ttm drm_kms_helper joydev aes_x86_64 lrw drm gf128mul mousedev glue_helper sb_edac ablk_helper iTCO_wdt iTCO_vendor_support evdev ipmi_si syscopyarea sysfillrect sysimgblt i2c_algo_bit i2c_core edac_core lpc_ich mac_hid cryptd pcspkr ipmi_msghandler shpchp tpm_tis acpi_power_meter tpm wmi processor hwmon button ac sch_fq_codel nfs lockd grace sunrpc fscache hid_generic usbhid hid ehci_pci ehci_hcd sd_mod megaraid_sas usbcore scsi_mod usb_common enic crc32c_generic crc32c_intel btrfs xor raid6_pq ext4 crc16 mbcache jbd2
+[  781.122176] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 4.1.0-rc6-ARCH-00040-gc46a024-dirty #106
+[  781.122210] Hardware name: Cisco Systems Inc UCSB-B200-M4/UCSB-B200-M4, BIOS B200M4.2.2.2.23.061220140128 06/12/2014
+[  781.122252]  0000000000000000 bddbbc9d655ec96e ffff880277e43da8 ffffffff81583fe8
+[  781.122286]  0000000000000000 0000000000000000 ffff880277e43de8 ffffffff8107acfa
+[  781.122319]  ffff880272c01000 ffff880273f18000 ffff880273f1a100 0000000000000000
+[  781.122352] Call Trace:
+[  781.122364]  <IRQ>  [<ffffffff81583fe8>] dump_stack+0x4f/0x7b
+[  781.122399]  [<ffffffff8107acfa>] warn_slowpath_common+0x8a/0xc0
+[  781.122425]  [<ffffffff8107ae2a>] warn_slowpath_null+0x1a/0x20
+[  781.122455]  [<ffffffffa01fa9ca>] enic_poll_msix_rq+0x36a/0x3c0 [enic]
+[  781.122487]  [<ffffffff8148525a>] net_rx_action+0x22a/0x370
+[  781.122512]  [<ffffffff8107ed3d>] __do_softirq+0xed/0x2d0
+[  781.122537]  [<ffffffff8107f06e>] irq_exit+0x7e/0xa0
+[  781.122560]  [<ffffffff8158c424>] do_IRQ+0x64/0x100
+[  781.122582]  [<ffffffff8158a42e>] common_interrupt+0x6e/0x6e
+[  781.122605]  <EOI>  [<ffffffff810bd331>] ? cpu_startup_entry+0x121/0x480
+[  781.122638]  [<ffffffff810bd2fc>] ? cpu_startup_entry+0xec/0x480
+[  781.122667]  [<ffffffff810f2ed3>] ? clockevents_register_device+0x113/0x1f0
+[  781.122698]  [<ffffffff81050ab6>] start_secondary+0x196/0x1e0
+[  781.122723] ---[ end trace cec2e9dd3af7b9db ]---
+
+Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+---
+ drivers/net/ethernet/cisco/enic/enic_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 204bd182..0e5a01d 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -1407,6 +1407,7 @@ static int enic_poll_msix_rq(struct napi_struct *napi, int budget)
+ 		 */
+ 		enic_calc_int_moderation(enic, &enic->rq[rq]);
+ 
++	enic_poll_unlock_napi(&enic->rq[rq]);
+ 	if (work_done < work_to_do) {
+ 
+ 		/* Some work done, but not enough to stay in polling,
+@@ -1418,7 +1419,6 @@ static int enic_poll_msix_rq(struct napi_struct *napi, int budget)
+ 			enic_set_int_moderation(enic, &enic->rq[rq]);
+ 		vnic_intr_unmask(&enic->intr[intr]);
+ 	}
+-	enic_poll_unlock_napi(&enic->rq[rq]);
+ 
+ 	return work_done;
+ }
+-- 
+2.4.2
