@@ -1,46 +1,30 @@
-From: Josh Hunt <johunt@akamai.com>
-Subject: Re: [PATCH v3] ipv6: Fix protocol resubmission
-Date: Thu, 11 Jun 2015 10:32:42 -0500
-Message-ID: <5579AA1A.80505@akamai.com>
-References: <1433779259-14328-1-git-send-email-johunt@akamai.com>	<20150608.121601.1357405469784892473.davem@davemloft.net>	<m2mw08kx7b.wl@gmail.com>	<55783A1B.3070207@akamai.com>	<557854BB.1090605@linux-ipv6.org>	<5578B2C5.7080202@akamai.com> <m2eglil7ja.wl@gmail.com>
+From: Evgeniy Polyakov <zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org>
+Subject: Re: [PATCH] cn_proc: Flag termination of the last thread in the process
+Date: Thu, 11 Jun 2015 18:26:07 +0300
+Message-ID: <1052831434036367@web13o.yandex.ru>
+References: <1432929029-2205-1-git-send-email-sfzhi@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, kaber@trash.net, netdev@vger.kernel.org,
-	sergei.shtylyov@cogentembedded.com, tom@herbertland.com
-To: Hajime Tazaki <thehajime@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay02.akamai.com ([72.246.2.14]:58198 "EHLO
-	prod-mail-xrelay02.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750750AbbFKPcr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 11:32:47 -0400
-In-Reply-To: <m2eglil7ja.wl@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Sergei Zhirikov <sfzhi-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1432929029-2205-1-git-send-email-sfzhi-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 06/11/2015 08:05 AM, Hajime Tazaki wrote:
->
-> At Wed, 10 Jun 2015 16:57:25 -0500,
-> Josh Hunt wrote:
->
->> Dave
->>
->> Can you please revert this change?
->>
->> commit 0243508edd317ff1fa63b495643a7c192fbfcd92
->> Author: Josh Hunt <johunt@akamai.com>
->> Date:   Mon Jun 8 12:00:59 2015 -0400
->>
->>       ipv6: Fix protocol resubmission
->>
->> Let me know if you need a patch to do this and I will submit something.
->>
->> I will fix the original issue in the UDP code in another patch.
->
-> feel free to Cc me if you would like me to test the new patch.
+Hi Sergei
 
-I will definitely take you up on that :)
+29.05.2015, 22:50, "Sergei Zhirikov" <sfzhi-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>:
+> There is no easy and reliable way for userspace to get notified
+> of a process termination. The process connector sends out "exit"
+> events upon termination of each thread, but it is not trivial for
+> userspace to tell whether the just-terminated thread was the last
+> one in the process.
+>
+> With this change a flag will be set in struct cn_proc for the exit
+> event of the last thread in the process.
 
-Thanks
-Josh
+I have no objection against this patch, but it should really go through cn_proc maintainer.
+Feel free to add my Acked-by.
