@@ -1,53 +1,31 @@
-From: Chris Mason <clm@fb.com>
-Subject: Re: [RFC] net: use atomic allocation for order-3 page allocation
-Date: Thu, 11 Jun 2015 18:18:49 -0400
-Message-ID: <557A0949.3020705@fb.com>
-References: <71a20cf185c485fa23d9347bd846a6f4e9753405.1434053941.git.shli@fb.com>	 <1434055687.27504.51.camel@edumazet-glaptop2.roam.corp.google.com>	 <5579FABE.4050505@fb.com> <1434057733.27504.52.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1 linux-next] net/mlx4: use swap() in
+ mlx4_init_qp_table()
+Date: Thu, 11 Jun 2015 15:21:11 -0700 (PDT)
+Message-ID: <20150611.152111.695744254809943489.davem@davemloft.net>
+References: <1433953986-24573-1-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Shaohua Li <shli@fb.com>, <netdev@vger.kernel.org>, <davem@davemloft.net>,
-        <Kernel-team@fb.com>, Eric Dumazet <edumazet@google.com>,
-        David Rientjes
-	<rientjes@google.com>, <linux-mm@kvack.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1434057733.27504.52.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, Julia.Lawall@lip6.fr,
+	netdev@vger.kernel.org
+To: fabf@skynet.be
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36745 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750834AbbFKWVM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 18:21:12 -0400
+In-Reply-To: <1433953986-24573-1-git-send-email-fabf@skynet.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/11/2015 05:22 PM, Eric Dumazet wrote:
-> On Thu, 2015-06-11 at 17:16 -0400, Chris Mason wrote:
->> On 06/11/2015 04:48 PM, Eric Dumazet wrote:
+From: Fabian Frederick <fabf@skynet.be>
+Date: Wed, 10 Jun 2015 18:33:06 +0200
 
->>
->> networking is asking for 32KB, and the MM layer is doing what it can to
->> provide it.  Are the gains from getting 32KB contig bigger than the cost
->> of moving pages around if the MM has to actually go into compaction?
->> Should we start disk IO to give back 32KB contig?
->>
->> I think we want to tell the MM to compact in the background and give
->> networking 32KB if it happens to have it available.  If not, fall back
->> to smaller allocations without doing anything expensive.
+> Use kernel.h macro definition.
 > 
-> Exactly my point. (And I mentioned this about 4 months ago)
+> Thanks to Julia Lawall for Coccinelle scripting support.
+> 
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
 
-Sorry, reading this again I wasn't very clear.  I agree with Shaohua's
-patch because it is telling the allocator that we don't want to wait for
-reclaim or compaction to find contiguous pages.
-
-But, is there any fallback to a single page allocation somewhere else?
-If this is the only way to get memory, we might want to add a single
-alloc_page path that won't trigger compaction but is at least able to
-wait for kswapd to make progress.
-
--chris
-
-
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Applied.
