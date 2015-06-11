@@ -1,42 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atm: idt77105: Use setup_timer
-Date: Wed, 10 Jun 2015 22:46:47 -0700 (PDT)
-Message-ID: <20150610.224647.1544829601803967624.davem@davemloft.net>
-References: <20150610054005.GA12228@vaishali-Ideapad-Z570>
+Subject: Re: [PATCH net-next] net/unix: support SCM_SECURITY for stream
+ sockets
+Date: Wed, 10 Jun 2015 22:49:34 -0700 (PDT)
+Message-ID: <20150610.224934.759313464983844581.davem@davemloft.net>
+References: <1433940299-6207-1-git-send-email-sds@tycho.nsa.gov>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	julia.lawall@lip6.fr
-To: vthakkar1994@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58177 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751346AbbFKFqr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 01:46:47 -0400
-In-Reply-To: <20150610054005.GA12228@vaishali-Ideapad-Z570>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	paul@paul-moore.com
+To: sds@tycho.nsa.gov
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1433940299-6207-1-git-send-email-sds@tycho.nsa.gov>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vaishali Thakkar <vthakkar1994@gmail.com>
-Date: Wed, 10 Jun 2015 11:10:05 +0530
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Date: Wed, 10 Jun 2015 08:44:59 -0400
 
-> Use the timer API function setup_timer instead of structure field
-> assignments to initialize a timer.
+> SCM_SECURITY was originally only implemented for datagram sockets,
+> not for stream sockets.  However, SCM_CREDENTIALS is supported on
+> Unix stream sockets.  For consistency, implement Unix stream support
+> for SCM_SECURITY as well.  Also clean up the existing code and get
+> rid of the superfluous UNIXSID macro.
 > 
-> A simplified version of the Coccinelle semantic patch that performs
-> this transformation is as follows:
+> Motivated by https://bugzilla.redhat.com/show_bug.cgi?id=1224211,
+> where systemd was using SCM_CREDENTIALS and assumed wrongly that
+> SCM_SECURITY was also supported on Unix stream sockets.
 > 
-> @change@
-> expression e1, e2, a;
-> @@
-> 
-> -init_timer(&e1);
-> +setup_timer(&e1, a, 0UL);
-> ... when != a = e2
-> -e1.function = a;
-> 
-> Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
+> Signed-off-by: Stephen Smalley <sds@tycho.nsa.gov>
+> Acked-by: Paul Moore <paul@paul-moore.com>
 
-Applied to net-next, thanks.
+Applied, thank you.
