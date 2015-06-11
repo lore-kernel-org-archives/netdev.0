@@ -1,97 +1,56 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] switchdev: fix BUG when port driver doesn't
- support set attr op
-Date: Thu, 11 Jun 2015 17:34:31 +0200
-Message-ID: <20150611153430.GA2302@nanopsycho.orion>
-References: <1433969762-22406-1-git-send-email-sfeldma@gmail.com>
- <5578AB3C.5020206@gmail.com>
- <CAE4R7bD2RLa9D1_JnGr4RUMYHWMa-kQab=1ihN3YMkJgLqFViw@mail.gmail.com>
- <CAE4R7bBhvfbX2wUoensSBpVsOzaaHw_ZFtiu+woj45_sziOS6g@mail.gmail.com>
- <20150611061619.GA2121@nanopsycho.orion>
- <CAE4R7bBXSMbh4sH+r83H3pDSrhqgvkT4bVfA2t1wEURWUVWzxQ@mail.gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next 0/3 v3] changes to make ipv4 routing table aware
+ of next-hop link status
+Date: Thu, 11 Jun 2015 08:44:55 -0700
+Message-ID: <CAE4R7bC6ETRRdkm02V8gcnAEmp=Te+jczSqX9nsOPGs13_jtGA@mail.gmail.com>
+References: <1433990233-958-1-git-send-email-gospo@cumulusnetworks.com>
+ <CAE4R7bChX1AtwoeC12ei1hr-3CJnZwPig8YXKpvAuhHSRyVYLg@mail.gmail.com> <20150611031916.GW588@gospo.home.greyhouse.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Ahern <dsahern@gmail.com>, Netdev <netdev@vger.kernel.org>,
-	Brenden Blanco <bblanco@plumgrid.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, ddutt@cumulusnetworks.com,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:34014 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750750AbbFKPee (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 11:34:34 -0400
-Received: by wgv5 with SMTP id 5so7448720wgv.1
-        for <netdev@vger.kernel.org>; Thu, 11 Jun 2015 08:34:33 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bBXSMbh4sH+r83H3pDSrhqgvkT4bVfA2t1wEURWUVWzxQ@mail.gmail.com>
+Received: from mail-qk0-f177.google.com ([209.85.220.177]:33177 "EHLO
+	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751159AbbFKPpQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 11:45:16 -0400
+Received: by qkhg32 with SMTP id g32so4816977qkh.0
+        for <netdev@vger.kernel.org>; Thu, 11 Jun 2015 08:45:15 -0700 (PDT)
+In-Reply-To: <20150611031916.GW588@gospo.home.greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jun 11, 2015 at 05:03:21PM CEST, sfeldma@gmail.com wrote:
->On Wed, Jun 10, 2015 at 11:16 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Thu, Jun 11, 2015 at 12:00:47AM CEST, sfeldma@gmail.com wrote:
->>>On Wed, Jun 10, 2015 at 2:47 PM, Scott Feldman <sfeldma@gmail.com> wrote:
->>>> On Wed, Jun 10, 2015 at 2:25 PM, David Ahern <dsahern@gmail.com> wrote:
->>>>> On 6/10/15 2:56 PM, sfeldma@gmail.com wrote:
->>>>>>
->>>>>> From: Scott Feldman <sfeldma@gmail.com>
->>>>>>
->>>>>> Fix a BUG() where CONFIG_NET_SWITCHDEV is set but the driver for a bridged
->>>>>> port does not support switchdec_port_attr_set op.  Don't BUG() if
->>>>>> -EOPNOTSUPP is returned.
->>>>>>
->>>>>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>>>>> Reported-by: Brenden Blanco <bblanco@plumgrid.com>
->>>>>> ---
->>>>>>   net/switchdev/switchdev.c |    2 +-
->>>>>>   1 file changed, 1 insertion(+), 1 deletion(-)
->>>>>>
->>>>>> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->>>>>> index e008057..99bced4 100644
->>>>>> --- a/net/switchdev/switchdev.c
->>>>>> +++ b/net/switchdev/switchdev.c
->>>>>> @@ -103,7 +103,7 @@ static void switchdev_port_attr_set_work(struct
->>>>>> work_struct *work)
->>>>>>
->>>>>>         rtnl_lock();
->>>>>>         err = switchdev_port_attr_set(asw->dev, &asw->attr);
->>>>>> -       BUG_ON(err);
->>>>>> +       BUG_ON(err && err != -EOPNOTSUPP);
->>>>>>         rtnl_unlock();
->>>>>>
->>>>>>         dev_put(asw->dev);
->>>>>>
->>>>>
->>>>> Should that be WARN_ON instead of BUG_ON?
->>>>
->>>> I think I had it as WARN when we were working on the initial patches,
->>>> but we changed it to BUG_ON because we should only get an error here
->>>> if the driver screwed something up between PREPARE phase and COMMIT
->>>> phase, so it should be considered a driver bug which needs fixing.
->>>
->>>Actually, ignore what I said above.  I was confusing this BUG_ON with
->>>the one in switchdev_port_attr_set().  Perhaps this BUG_ON() you're
->>>commenting on should be WARN().  A driver could return an err in
->>>PREPARE phase and that shouldn't be a BUG_ON situation; seems WARN
->>>would be better.   It the case where the driver returns an err in
->>>COMMIT phase but didn't return an err in PREPARE phase we want to
->>>BUG_ON().  Maybe that case doesn't justify BUG_ON either, based on the
->>>link you posted.
->>>
->>>Jiri, IIRC, you suggested the BUG_ON().  Does it still sound right
->>>based on the point David is raising?
+On Wed, Jun 10, 2015 at 8:19 PM, Andy Gospodarek
+<gospo@cumulusnetworks.com> wrote:
+> On Wed, Jun 10, 2015 at 08:07:10PM -0700, Scott Feldman wrote:
+>> On Wed, Jun 10, 2015 at 7:37 PM, Andy Gospodarek
+>> <gospo@cumulusnetworks.com> wrote:
 >>
->> Hmm, looking at code of switchdev_port_attr_set. In case that fails in
->> prepare state (which can easily happen for example due to -ENOMEM) this
->> BUG_ON is hit as well. That is not right. I think we should change it
->> just to warning. Also I think that prink (or a flavour) is more suitable
->> here than WARN.
+>> > There was also a request for switchdev support for this, but that will be
+>> > posted as a followup as switchdev does not currently handle dead
+>> > next-hops in a multi-path case and I felt that infra needed to be added
+>> > first.
+>>
+>> That's not true.  switchdev_fib_ipv4_add() passes *fi and all of the
+>> nexthops for the route are hanging off of that, including the
+>> nh->flags where you're setting LINKDOWN.  Multipath is not different
+>> than singlepath in that regard.  Same API for both.
 >
->Thanks, I'll change it to netdev_err.
+> The API is the same, but I did not see a path that would take a
+> multipath route and update the dead nexthops when an interface is taken
+> down with switchdev or rocker today.
 >
->> Btw, why switchdev_port_obj_add has WARN and not BUG ?
->
->Not sure.  We should be consistent. WARN seems better for both
->obj_add/attr_set than BUG, given the link David Ahern posted.  Do you
->agree?
+> I could be wrong (and I will test again), but create a multipath route
+> with nexthops on swp1 and swp2 and then call 'ip link set swp1 down' and
+> let me know if you see rocker's ECMP routes get updated so only the
+> nexthop on swp2 will be used.
 
-Okay. Sounds reasonable.
+I don't have ecmp support in rocker yet, but switchdev should be ready
+for ecmp.  I tried the test you suggest and switchdev is calling into
+the driver with updates to the routes with nhs marked DEAD.  So maybe
+your patchset is switchdev-ready?  I'd have to apply your patch to
+test. I'll wait for your v4 to address sysctl naming.
