@@ -1,56 +1,72 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next 0/3 v3] changes to make ipv4 routing table aware
- of next-hop link status
-Date: Thu, 11 Jun 2015 08:44:55 -0700
-Message-ID: <CAE4R7bC6ETRRdkm02V8gcnAEmp=Te+jczSqX9nsOPGs13_jtGA@mail.gmail.com>
-References: <1433990233-958-1-git-send-email-gospo@cumulusnetworks.com>
- <CAE4R7bChX1AtwoeC12ei1hr-3CJnZwPig8YXKpvAuhHSRyVYLg@mail.gmail.com> <20150611031916.GW588@gospo.home.greyhouse.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, ddutt@cumulusnetworks.com,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+From: Mazhar Rana <ranamazharp@gmail.com>
+Subject: [PATCH iproute2] mroute: "ip mroute show" not working when "to" and/or "from" is given
+Date: Thu, 11 Jun 2015 21:37:36 +0530
+Message-ID: <1434038856-18054-1-git-send-email-ranamazharp@gmail.com>
+Cc: Mazhar Rana <ranamazharp@gmail.com>
+To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:33177 "EHLO
-	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751159AbbFKPpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 11:45:16 -0400
-Received: by qkhg32 with SMTP id g32so4816977qkh.0
-        for <netdev@vger.kernel.org>; Thu, 11 Jun 2015 08:45:15 -0700 (PDT)
-In-Reply-To: <20150611031916.GW588@gospo.home.greyhouse.net>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:34857 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752358AbbFKQI2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 12:08:28 -0400
+Received: by pabli10 with SMTP id li10so2389206pab.2
+        for <netdev@vger.kernel.org>; Thu, 11 Jun 2015 09:08:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 10, 2015 at 8:19 PM, Andy Gospodarek
-<gospo@cumulusnetworks.com> wrote:
-> On Wed, Jun 10, 2015 at 08:07:10PM -0700, Scott Feldman wrote:
->> On Wed, Jun 10, 2015 at 7:37 PM, Andy Gospodarek
->> <gospo@cumulusnetworks.com> wrote:
->>
->> > There was also a request for switchdev support for this, but that will be
->> > posted as a followup as switchdev does not currently handle dead
->> > next-hops in a multi-path case and I felt that infra needed to be added
->> > first.
->>
->> That's not true.  switchdev_fib_ipv4_add() passes *fi and all of the
->> nexthops for the route are hanging off of that, including the
->> nh->flags where you're setting LINKDOWN.  Multipath is not different
->> than singlepath in that regard.  Same API for both.
->
-> The API is the same, but I did not see a path that would take a
-> multipath route and update the dead nexthops when an interface is taken
-> down with switchdev or rocker today.
->
-> I could be wrong (and I will test again), but create a multipath route
-> with nexthops on swp1 and swp2 and then call 'ip link set swp1 down' and
-> let me know if you see rocker's ECMP routes get updated so only the
-> nexthop on swp2 will be used.
+The command "ip mroute show" is not showing routes when "to" and/or "from"
+filter is applied.
 
-I don't have ecmp support in rocker yet, but switchdev should be ready
-for ecmp.  I tried the test you suggest and switchdev is calling into
-the driver with updates to the routes with nhs marked DEAD.  So maybe
-your patchset is switchdev-ready?  I'd have to apply your patch to
-test. I'll wait for your v4 to address sysctl naming.
+root@mazhar:~# ip mroute show
+(10.202.30.101, 235.1.2.3)       Iif: eth0       Oifs: eth1
+
+But When I applied filter, it does not show anything.
+
+root@mazhar:~# ip mroute show 235.1.2.3 from 10.202.30.101
+root@mazhar:~#
+
+Signed-off-by: Mazhar Rana <ranamazharp@gmail.com>
+---
+ ip/ipmroute.c | 26 ++++++++++++++++++--------
+ 1 file changed, 18 insertions(+), 8 deletions(-)
+
+diff --git a/ip/ipmroute.c b/ip/ipmroute.c
+index 125a13f..fffa9e2 100644
+--- a/ip/ipmroute.c
++++ b/ip/ipmroute.c
+@@ -97,15 +97,25 @@ int print_mroute(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 	if (filter.af && filter.af != r->rtm_family)
+ 		return 0;
+ 
+-	if (tb[RTA_DST] &&
+-	    filter.mdst.bitlen > 0 &&
+-	    inet_addr_match(RTA_DATA(tb[RTA_DST]), &filter.mdst, filter.mdst.bitlen))
+-		return 0;
++	if (tb[RTA_DST] && filter.mdst.bitlen > 0) {
++		inet_prefix dst;
++
++		memset(&dst, 0, sizeof(dst));
++		dst.family = r->rtm_family;
++		memcpy(&dst.data, RTA_DATA(tb[RTA_DST]), RTA_PAYLOAD(tb[RTA_DST]));
++		if (inet_addr_match(&dst, &filter.mdst, filter.mdst.bitlen))
++			return 0;
++	}
+ 
+-	if (tb[RTA_SRC] &&
+-	    filter.msrc.bitlen > 0 &&
+-	    inet_addr_match(RTA_DATA(tb[RTA_SRC]), &filter.msrc, filter.msrc.bitlen))
+-		return 0;
++	if (tb[RTA_SRC] && filter.msrc.bitlen > 0) {
++		inet_prefix src;
++
++		memset(&src, 0, sizeof(src));
++		src.family = r->rtm_family;
++		memcpy(&src.data, RTA_DATA(tb[RTA_SRC]), RTA_PAYLOAD(tb[RTA_SRC]));
++		if (inet_addr_match(&src, &filter.msrc, filter.msrc.bitlen))
++			return 0;
++	}
+ 
+ 	family = r->rtm_family == RTNL_FAMILY_IPMR ? AF_INET : AF_INET6;
+ 
+-- 
+1.9.1
