@@ -1,63 +1,156 @@
 From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 2/3 v2] net: ipv4 sysctl option to ignore routes
- when nexthop link is down
-Date: Wed, 10 Jun 2015 22:23:09 -0400
-Message-ID: <20150611022309.GU588@gospo.home.greyhouse.net>
-References: <1433918841-15576-1-git-send-email-gospo@cumulusnetworks.com>
- <1433918841-15576-3-git-send-email-gospo@cumulusnetworks.com>
- <CAE4R7bCy1bZ1A7tUNOA9H2GqwZhjWSqtjzs=GLxUUyNT_3+=gA@mail.gmail.com>
- <CAE4R7bAgBMjeQHpZv8_-h9RnLg2vVLwn537jEKmVQ-A=aY50QQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, ddutt@cumulusnetworks.com,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Scott Feldman <sfeldma@gmail.com>
+Subject: [PATCH net-next 0/3 v3] changes to make ipv4 routing table aware of next-hop link status
+Date: Wed, 10 Jun 2015 22:37:10 -0400
+Message-ID: <1433990233-958-1-git-send-email-gospo@cumulusnetworks.com>
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	ddutt@cumulusnetworks.com, sfeldma@gmail.com,
+	alexander.duyck@gmail.com, hannes@stressinduktion.org,
+	stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f45.google.com ([209.85.192.45]:36253 "EHLO
-	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751404AbbFKCXM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 22:23:12 -0400
-Received: by qgep100 with SMTP id p100so21939378qge.3
-        for <netdev@vger.kernel.org>; Wed, 10 Jun 2015 19:23:12 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bAgBMjeQHpZv8_-h9RnLg2vVLwn537jEKmVQ-A=aY50QQ@mail.gmail.com>
+Received: from mail-qk0-f174.google.com ([209.85.220.174]:36663 "EHLO
+	mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750976AbbFKChQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2015 22:37:16 -0400
+Received: by qkx62 with SMTP id 62so34329950qkx.3
+        for <netdev@vger.kernel.org>; Wed, 10 Jun 2015 19:37:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 10, 2015 at 07:18:59PM -0700, Scott Feldman wrote:
-> On Wed, Jun 10, 2015 at 7:12 PM, Scott Feldman <sfeldma@gmail.com> wrote:
-> > On Tue, Jun 9, 2015 at 11:47 PM, Andy Gospodarek
-> > <gospo@cumulusnetworks.com> wrote:
-> >
-> >>  /* /proc/sys/net/ipv4/netfilter */
-> >> diff --git a/kernel/sysctl_binary.c b/kernel/sysctl_binary.c
-> >> index 7e7746a..c9d0a0e 100644
-> >> --- a/kernel/sysctl_binary.c
-> >> +++ b/kernel/sysctl_binary.c
-> >> @@ -253,6 +253,7 @@ static const struct bin_table bin_net_ipv4_conf_vars_table[] = {
-> >>         { CTL_INT,      NET_IPV4_CONF_NOPOLICY,                 "disable_policy" },
-> >>         { CTL_INT,      NET_IPV4_CONF_FORCE_IGMP_VERSION,       "force_igmp_version" },
-> >>         { CTL_INT,      NET_IPV4_CONF_PROMOTE_SECONDARIES,      "promote_secondaries" },
-> >> +       { CTL_INT,      NET_IPV4_CONF_IGNORE_ROUTES_WITH_LINKDOWN,      "ignore_routes_with_linkdown" },
-> >
-> > Would "route_ignore_linkdown_nexthops" be a more accurate name?  The
-> > patch marks link-downed nexthops to be ignored, not the route,
-> > correct?
-> >
-> > s/NET_IPV4_CONF_IGNORE_ROUTES_WITH_LINKDOWN/NET_IPV4_CONF_ROUTE_IGNORE_LINKDOWN_NEXTHOPS
-> 
-> Something like that.  Not sure I like my suggestion.  If dev is
-> nexthop dev in route, and dev is link down, exclude nexthop in route
-> lookup.
+This series adds the ability to have the Linux kernel track whether or
+not a particular route should be used based on the link-status of the
+interface associated with the next-hop.
 
-I actually played around with a bunch of different names and this was as
-short as I could get it while still conveying the point.  I'm getting
-ready to submit v3, so speak now if you really do hate the name proposed
-in v2.
+Before this patch any link-failure on an interface that was serving as a
+gateway for some systems could result in those systems being isolated
+from the rest of the network as the stack would continue to attempt to
+send frames out of an interface that is actually linked-down.  When the
+kernel is responsible for all forwarding, it should also be responsible
+for taking action when the traffic can no longer be forwarded -- there
+is no real need to outsource link-monitoring to userspace anymore.
 
-> route_exclude_if_linkdown_nexthop_dev?
+This feature is only enabled with the new per-interface or ipv4 global
+sysctls called 'ignore_routes_with_linkdown'.
 
-Not bad, but you see what I mean about it being a mouthful.  :)
+net.ipv4.conf.all.ignore_routes_with_linkdown = 0
+net.ipv4.conf.default.ignore_routes_with_linkdown = 0
+net.ipv4.conf.lo.ignore_routes_with_linkdown = 0
+...
+
+When the above sysctls are set, the kernel will not only report to
+userspace that the link is down, but it will also report to userspace
+that a route is dead.  This will signal to userspace that the route will
+not be selected.
+
+With the new sysctls set, the following behavior can be observed
+(interface p8p1 is link-down):
+
+# ip route show 
+default via 10.0.5.2 dev p9p1 
+10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15 
+70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1 
+80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 dead linkdown
+90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 dead linkdown
+90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2 
+# ip route get 90.0.0.1 
+90.0.0.1 via 70.0.0.2 dev p7p1  src 70.0.0.1 
+    cache 
+# ip route get 80.0.0.1 
+local 80.0.0.1 dev lo  src 80.0.0.1 
+    cache <local> 
+# ip route get 80.0.0.2
+80.0.0.2 via 10.0.5.2 dev p9p1  src 10.0.5.15 
+    cache 
+
+While the route does remain in the table (so it can be modified if
+needed rather than being wiped away as it would be if IFF_UP was
+cleared), the proper next-hop is chosen automatically when the link is
+down.  Now interface p8p1 is linked-up:
+
+# ip route show 
+default via 10.0.5.2 dev p9p1 
+10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15 
+70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1 
+80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 
+90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 
+90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2 
+192.168.56.0/24 dev p2p1  proto kernel  scope link  src 192.168.56.2 
+# ip route get 90.0.0.1 
+90.0.0.1 via 80.0.0.2 dev p8p1  src 80.0.0.1 
+    cache 
+# ip route get 80.0.0.1 
+local 80.0.0.1 dev lo  src 80.0.0.1 
+    cache <local> 
+# ip route get 80.0.0.2
+80.0.0.2 dev p8p1  src 80.0.0.1 
+    cache 
+
+and the output changes to what one would expect.
+
+If the global or interface sysctl is not set, the following output would be
+expected when p8p1 is down:
+
+# ip route show 
+default via 10.0.5.2 dev p9p1 
+10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15 
+70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1 
+80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 linkdown
+90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 linkdown
+90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2 
+
+If the dead flag does not appear there should be no expectation that the
+kernel would skip using this route due to link being down.
+
+v2: Split kernel changes into 2 patches: first to add linkdown flag and
+second to add new sysctl settings.  Also took suggestion from Alex to
+simplify code by only checking sysctl during fib lookup and suggestion
+from Scott to add a per-interface sysctl.  Added iproute2 patch to
+recognize and print linkdown flag.
+
+v3: Code cleanups along with reverse-path checks suggested by Alex and
+small fixes related to problems found when multipath was disabled.
+
+Though there were some that preferred not to have a configuration option
+and to make this behavior the default when it was discussed in Ottawa
+earlier this year since "it was time to do this."  I wanted to propose
+the config option to preserve the current behavior for those that desire
+it.  I'll happily remove it if Dave and Linus approve.
+
+An IPv6 implementation is also needed (DECnet too!), but I wanted to start with
+the IPv4 implementation to get people comfortable with the idea before moving
+forward.  If this is accepted the IPv6 implementation can be posted shortly.
+
+There was also a request for switchdev support for this, but that will be
+posted as a followup as switchdev does not currently handle dead
+next-hops in a multi-path case and I felt that infra needed to be added
+first.
+
+FWIW, we have been running the original version of this series with a
+global sysctl and our customers have been happily using a backported
+version for IPv4 and IPv6 for >6 months.
+
+Andy Gospodarek (3):
+  net: track link-status of ipv4 nexthops
+  net: ipv4 sysctl option to ignore routes when nexthop link is down
+  iproute2: add support to print 'linkdown' nexthop flag
+
+ include/linux/inetdevice.h        |   3 +
+ include/net/fib_rules.h           |   3 +-
+ include/net/ip_fib.h              |  21 ++++---
+ include/uapi/linux/ip.h           |   1 +
+ include/uapi/linux/rtnetlink.h    |   3 +
+ include/uapi/linux/sysctl.h       |   1 +
+ kernel/sysctl_binary.c            |   1 +
+ net/ipv4/devinet.c                |   2 +
+ net/ipv4/fib_frontend.c           |  28 +++++----
+ net/ipv4/fib_lookup.h             |   2 +-
+ net/ipv4/fib_rules.c              |   5 +-
+ net/ipv4/fib_semantics.c          | 123 ++++++++++++++++++++++++++++++++------
+ net/ipv4/fib_trie.c               |  11 +++-
+ net/ipv4/netfilter/ipt_rpfilter.c |   2 +-
+ net/ipv4/route.c                  |  10 ++--
+ ip/iproute.c                      |   4 ++
+ 15 files changed, 170 insertions(+), 50 deletions(-)
+
+-- 
+1.9.3
