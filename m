@@ -1,37 +1,94 @@
-From: ADMIN <l.caramazza@santobonopausilipon.it>
-Subject: Amministratore di sistema
-Date: Thu, 11 Jun 2015 15:24:52 +0200
-Message-ID: <20150611152452.13305cb41qxdqeck@webmail.santobonopausilipon.it>
-Reply-To: 2272861322@qq.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH] net: Add sock_common_listen for TCP and DCCP
+Date: Thu, 11 Jun 2015 07:25:43 -0700
+Message-ID: <1434032743.27504.38.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1434020703-7614-1-git-send-email-firogm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.santobonopausilipon.it ([5.97.192.70]:33195 "EHLO
-	webmail.santobonopausilipon.it" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932070AbbFKOLd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2015 10:11:33 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, gerrit@erg.abdn.ac.uk,
+	yoshfuji@linux-ipv6.org, jmorris@namei.org, kuznet@ms2.inr.ac.ru,
+	herbert@gondor.apana.org.au, ast@plumgrid.com, dborkman@redhat.com,
+	ebiederm@xmission.com, dan.carpenter@oracle.com,
+	Julia.Lawall@lip6.fr, kernel-janitors@vger.kernel.org
+To: Firo Yang <firogm@gmail.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1434020703-7614-1-git-send-email-firogm@gmail.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Thu, 2015-06-11 at 19:05 +0800, Firo Yang wrote:
+> Code refactoring:
+> 1. Move the common code of inet_listen() and inet_dccp_listen() to
+> sock_common_listen().
+> Add new state SOCK_LISTEN and SOCK_CLOSE for sock_common_listen().
+> 
+> 2. Modify and rename inet_listen() to tcp_listen().
+> 
+> 3. Modify and rename inet_dccp_listen() to dccp_listen().
+> 
+> 4. Add new callback pointer listen in struct proto for
+> tcp_listen() and dccp_listen().
+> 
+> This patch makes codes more modularized and removes redudant codes.
+> 
+> Signed-off-by: Firo Yang <firogm@gmail.com>
+> ---
+> I test it on my x86 pc.
+> 
+>  include/net/sock.h  | 18 ++++++++++++++++
+>  include/net/tcp.h   |  1 +
+>  net/core/sock.c     | 36 +++++++++++++++++++++++++++++++
+>  net/dccp/dccp.h     |  2 +-
+>  net/dccp/ipv4.c     |  4 ++--
+>  net/dccp/ipv6.c     |  3 ++-
+>  net/dccp/proto.c    | 62 ++++++++++++++++-------------------------------------
+>  net/ipv4/af_inet.c  | 58 +------------------------------------------------
+>  net/ipv4/tcp.c      | 35 ++++++++++++++++++++++++++++++
+>  net/ipv4/tcp_ipv4.c |  1 +
+>  net/ipv6/af_inet6.c |  2 +-
+>  net/ipv6/tcp_ipv6.c |  1 +
+>  12 files changed, 118 insertions(+), 105 deletions(-)
+> 
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 26c1c31..5adc7f4 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -934,6 +934,7 @@ struct proto {
+>  	int			(*connect)(struct sock *sk,
+>  					struct sockaddr *uaddr,
+>  					int addr_len);
+> +	int			(*listen)(struct sock *sk, int backlog);
+>  	int			(*disconnect)(struct sock *sk, int flags);
+>  
+>  	struct sock *		(*accept)(struct sock *sk, int flags, int *err);
+> @@ -1349,6 +1350,21 @@ void sk_prot_clear_portaddr_nulls(struct sock *sk, int size);
+>  #define SOCK_BINDADDR_LOCK	4
+>  #define SOCK_BINDPORT_LOCK	8
+>  
+> +/*
+> + * Sock common state
+> + * These values must be enqual to correspondent TCP state
+> + * and DCCP state.
+> + */
+> +enum {
+> +	SOCK_CLOSE	= TCP_CLOSE,
+> +	SOCK_LISTEN	= TCP_LISTEN
+> +};
+> +
+> +enum {
+> +	SOCKF_CLOSE	= TCPF_CLOSE,
+> +	SOCKF_LISTEN	= TCPF_LISTEN,
+> +};
+> +
+
+You know, TCP_CLOSE and TCP_LISTEN are really legacy states for
+sk_state, this is not going to change anytime soon.
+
+
+I prefer to keep using TCP_xxxx names and not adding aliases.
+
+Otherwise your patch looks fine to me, thanks.
 
 
 
-  Cassetta postale ha superato il limite diarchiviazione, che di 20 GB
-come stabilitodall'amministratore, si sta attualmenteeseguendo su 20,9 GB,
-non sarai in grado diinviare o ricevere messaggi di nuovi finch non
-siri-convalida la tua casella di posta. Perriconvalidare la tua casella di
-posta, Inserisci einviare a noi tuoi dettagli qui sotto per verificaree
-aggiornare il tuo account:
-
-(1) Posta elettronica:
-(2) Nome:
-(3) Password:
-(4) Email alternativo:
-
-Grazie
-Amministratore di sistema
