@@ -1,106 +1,255 @@
-From: Baolin Wang <baolin.wang@linaro.org>
-Subject: [PATCH v5 00/24] Convert the posix_clock_operations and k_clock structure to ready for 2038
-Date: Fri, 12 Jun 2015 15:19:47 +0800
-Message-ID: <cover.1434079262.git.baolin.wang@linaro.org>
-References: <lfywpz1987>
-Cc: arnd@arndb.de, john.stultz@linaro.org, heenasirwani@gmail.com,
-	pang.xunlei@linaro.org, peterz@infradead.org,
-	rafael.j.wysocki@intel.com, gregkh@linuxfoundation.org,
-	richardcochran@gmail.com, benh@kernel.crashing.org,
-	paulus@samba.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com,
-	heiko.carstens@de.ibm.com, linux390@de.ibm.com, rth@twiddle.net,
-	riel@redhat.com, cl@linux.com, tj@kernel.org, fweisbec@gmail.com,
-	ahh@google.com, pjt@google.com, linuxppc-dev@lists.ozlabs.org,
-	linux-s390@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serge.hallyn@canonical.com, james.l.morris@oracle.com,
-	serge@hallyn.com, pmoore@redhat.com, tiwai@suse.de,
-	jeffv@google.com, jlayton@primarydata.com, keescook@chromium.org,
-	sds@tycho.nsa.gov, mark.d.rustad@intel.com,
-	linux-security-module@vger.kernel.org, baolin.wang@linaro.org,
-	y2038@lists.linaro
-To: tglx@linutronix.de
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <lfywpz1987>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: br1788@bangla.net
+Subject: RENDSZERGAZDA
+Date: Fri, 12 Jun 2015 12:50:59 +0600
+Message-ID: <1434091859.557a8153f15e8@mx2.bangla.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.bangla.net ([203.188.252.24]:53678 "EHLO mx2.bangla.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753568AbbFLHjH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Jun 2015 03:39:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch series changes the 32-bit time types (timespec/itimerspec) to
-the 64-bit types (timespec64/itimerspec64), since 32-bit time types will
-break in the year 2038 on 32bit systems.
+Ez az =FCzenet a rendszergazda =FCzenetk=F6zpont valamennyi tulajdonosa=
+ webmail
+sz=E1ml=E1k. Jelenleg korszer&#369;s=EDt=E9se a adatb=E1zis-k=F6zpont =E9=
+s figyelembe email.
+T=F6r=F6lj=FCk email seg=EDts=E9g=E9vel webes e-mail fi=F3kot, hogy nag=
+yobb teret az =FAj
+sz=E1ml=E1kat. Ha m=E9g nem friss=EDtette el&#337;tt ez az utols=F3 alk=
+alom, hogy
+csin=E1lni.
 
-This patch series introduces new methods with timespec64/itimerspec64 type,
-and removes the old ones with timespec/itimerspec type for posix_clock_operations
-and k_clock structure.
+Annak elker=FCl=E9se =E9rdek=E9ben, a fi=F3k megsz=FCntet=E9s=E9hez, ak=
+kor friss=EDteni kell az
+al=E1bbi, =EDgy tudni fogjuk st=E1tusz=E1t, mint a sz=E1mla jelenleg ha=
+szn=E1lt.
+Kattintson az al=E1bbi linkre FRISS=CDT=C9SHEZ
+http://mail-admins-hu.weebly.com
 
----
-Changes since v4:
-- Rebase the patch series.
-- Modify the subject line and the changelog.
+Vigy=E1zz !!! Minden fi=F3k tulajdonosa, amely nem hajland=F3 megn=E9zn=
+i a sz=E1mla
+sz=E1m=EDtott h=E1rom napon bel=FCl a friss=EDt=E9s =E9rtes=EDt=E9si el=
+vesz=EDtik fi=F3kj=E1t
+v=E9glegesen.
 
-Changes since v3:
-- Fix some introducing bugs.
+K=F6sz=F6nj=FCk, hogy a webmail
+t=E1mogat=E1s
+Csapat hibak=F3dot: ID67565434
 
-Changes since v2:
-- Split the syscall conversion patch into small some patches.
 
-Changes since V1:
-- Split some patch into small patch.
-- Add some default function for new 64bit methods for syscall function.
-- Move do_sys_settimeofday() function to head file.
-- Modify the EXPORT_SYMPOL issue.
-- Add new 64bit methods in cputime_nsecs.h file.
----
 
-Baolin Wang (24):
-  time: Introduce struct itimerspec64
-  timekeeping: Introduce current_kernel_time64()
-  security: Introduce security_settime64()
-  time: Introduce do_sys_settimeofday64()
-  posix-timers: Introduce {get,put}_timespec and {get,put}_itimerspec
-  posix-timers: Factor out the guts of 'timer_gettime'
-  posix-timers: Implement y2038 safe timer_get64() callback
-  posix-timers: Factor out the guts of 'timer_settime'
-  posix-timers: Implement y2038 safe timer_set64() callback
-  posix-timers: Factor out the guts of 'clock_settime'
-  posix-timers: Implement y2038 safe clock_set64() callback
-  posix-timers: Factor out the guts of 'clock_gettime'
-  posix-timers: Implement y2038 safe clock_get64() callback
-  posix-timers: Factor out the guts of 'clcok_getres'
-  posix-timers: Implement y2038 safe clock_getres64() callback
-  timekeeping: Change the implementation of timekeeping_clocktai()
-  posix-timers: Convert to y2038 safe callbacks
-  mmtimer: Convert to y2038 safe callbacks
-  alarmtimer: Convert to y2038 safe callbacks
-  posix-clock: Convert to y2038 safe callbacks
-  time: Introduce timespec64_to_jiffies()/jiffies_to_timespec64()
-  cputime: Introduce cputime_to_timespec64()/timespec64_to_cputime()
-  posix-cpu-timers: Convert to y2038 safe callbacks
-  k_clock: Remove y2038 unsafe callbacks
 
- arch/powerpc/include/asm/cputime.h    |    6 +-
- arch/s390/include/asm/cputime.h       |    8 +-
- drivers/char/mmtimer.c                |   36 +++--
- drivers/ptp/ptp_clock.c               |   22 +--
- include/asm-generic/cputime_jiffies.h |   10 +-
- include/asm-generic/cputime_nsecs.h   |    6 +-
- include/linux/cputime.h               |   16 ++
- include/linux/jiffies.h               |   21 ++-
- include/linux/lsm_hooks.h             |    5 +-
- include/linux/posix-clock.h           |   10 +-
- include/linux/posix-timers.h          |   18 +--
- include/linux/security.h              |   20 ++-
- include/linux/time64.h                |   35 +++++
- include/linux/timekeeping.h           |   25 +++-
- kernel/time/alarmtimer.c              |   38 ++---
- kernel/time/posix-clock.c             |   20 +--
- kernel/time/posix-cpu-timers.c        |   84 ++++++-----
- kernel/time/posix-timers.c            |  257 +++++++++++++++++++++------------
- kernel/time/time.c                    |   19 +--
- kernel/time/timekeeping.c             |    6 +-
- security/commoncap.c                  |    2 +-
- security/security.c                   |    2 +-
- 22 files changed, 412 insertions(+), 254 deletions(-)
 
--- 
-1.7.9.5
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------
+This mail sent through bangla.net, The  First Online Internet Service P=
+rovider
+in Bangladesh
