@@ -1,81 +1,70 @@
-From: Sumit Saxena <sumit.saxena@avagotech.com>
-Subject: RE: [V6 PATCH 6/7] megaraid_sas: fix TRUE and FALSE re-define build error
-Date: Fri, 12 Jun 2015 13:45:45 +0530
-Message-ID: <dc59149b1904c1164abfcc567741c4e6@mail.gmail.com>
-References: <1433952538-22455-1-git-send-email-Suravee.Suthikulpanit@amd.com> <1433952538-22455-7-git-send-email-Suravee.Suthikulpanit@amd.com>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: Re: [RFC] net: use atomic allocation for order-3 page allocation
+Date: Fri, 12 Jun 2015 11:25:30 +0200
+Message-ID: <557AA58A.2060207@suse.cz>
+References: <71a20cf185c485fa23d9347bd846a6f4e9753405.1434053941.git.shli@fb.com>	<1434055687.27504.51.camel@edumazet-glaptop2.roam.corp.google.com>	<5579FABE.4050505@fb.com> <CAATkVEw93KaUQuNJY9hxA+q2dxPb2AAxicojkjDfXDZU5VGxtg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: msalter@redhat.com, hanjun.guo@linaro.org, al.stone@linaro.org,
-	grant.likely@linaro.org, leo.duran@amd.com,
-	linux-arm-kernel@lists.infradead.org, linux-acpi@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linaro-acpi@lists.linaro.org,
-	netdev@vger.kernel.org, linux-crypto@vger.kernel.org
-To: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
-	rjw@rjwysocki.net, lenb@kernel.org, catalin.marinas@arm.com,
-	will.deacon@arm.com, thomas.lendacky@amd.com,
-	herbert@gondor.apana.org.au, davem@davemloft.net, arnd@arndb.de,
-	Kashyap Desai <kashyap.desai@avagotech.com>,
-	Uday Lingala <uday.lingala@avagotech.com>,
-	vinholikatti@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:36014 "EHLO
-	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752918AbbFLIPs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2015 04:15:48 -0400
-Received: by qkx62 with SMTP id 62so14113168qkx.3
-        for <netdev@vger.kernel.org>; Fri, 12 Jun 2015 01:15:48 -0700 (PDT)
-In-Reply-To: <1433952538-22455-7-git-send-email-Suravee.Suthikulpanit@amd.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, Shaohua Li <shli@fb.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "davem@davemloft.net" <davem@davemloft.net>, Kernel-team@fb.com,
+ Eric Dumazet <edumazet@google.com>,
+ David Rientjes <rientjes@google.com>, linux-mm@kvack.org,
+ Joshua Hunt <johunt@akamai.com>,
+ "Banerjee, Debabrata" <dbanerje@akamai.com>
+To: Debabrata Banerjee <dbavatar@gmail.com>, Chris Mason <clm@fb.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CAATkVEw93KaUQuNJY9hxA+q2dxPb2AAxicojkjDfXDZU5VGxtg@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: Suravee Suthikulpanit [mailto:Suravee.Suthikulpanit@amd.com]
->Sent: Wednesday, June 10, 2015 9:39 PM
->To: rjw@rjwysocki.net; lenb@kernel.org; catalin.marinas@arm.com;
->will.deacon@arm.com; thomas.lendacky@amd.com;
->herbert@gondor.apana.org.au; davem@davemloft.net; arnd@arndb.de;
->kashyap.desai@avagotech.com; sumit.saxena@avagotech.com;
->uday.lingala@avagotech.com; vinholikatti@gmail.com
->Cc: msalter@redhat.com; hanjun.guo@linaro.org; al.stone@linaro.org;
->grant.likely@linaro.org; leo.duran@amd.com; linux-arm-
->kernel@lists.infradead.org; linux-acpi@vger.kernel.org; linux-
->kernel@vger.kernel.org; linaro-acpi@lists.linaro.org;
-netdev@vger.kernel.org;
->linux-crypto@vger.kernel.org; Suravee Suthikulpanit
->Subject: [V6 PATCH 6/7] megaraid_sas: fix TRUE and FALSE re-define build
->error
->
->Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
->Cc: Kashyap Desai <kashyap.desai@avagotech.com>
->Cc: Sumit Saxena <sumit.saxena@avagotech.com>
->Cc: Uday Lingala <uday.lingala@avagotech.com>
->---
-> drivers/scsi/megaraid/megaraid_sas_fp.c | 8 ++++++++
-> 1 file changed, 8 insertions(+)
->
->diff --git a/drivers/scsi/megaraid/megaraid_sas_fp.c
->b/drivers/scsi/megaraid/megaraid_sas_fp.c
->index 4f72287..e8b7a69 100644
->--- a/drivers/scsi/megaraid/megaraid_sas_fp.c
->+++ b/drivers/scsi/megaraid/megaraid_sas_fp.c
->@@ -66,7 +66,15 @@ MODULE_PARM_DESC(lb_pending_cmds, "Change
->raid-1 load balancing outstanding "
->
-> #define ABS_DIFF(a, b)   (((a) > (b)) ? ((a) - (b)) : ((b) - (a)))
-> #define MR_LD_STATE_OPTIMAL 3
->+
->+#ifdef FALSE
->+#undef FALSE
->+#endif
-> #define FALSE 0
->+
->+#ifdef TRUE
->+#undef TRUE
->+#endif
-> #define TRUE 1
->
-> #define SPAN_DEBUG 0
-Acked-by: Sumit Saxena <sumit.saxena@avagotech.com>
+On 06/11/2015 11:35 PM, Debabrata Banerjee wrote:
+> There is no "background" it doesn't matter if this activity happens
+> synchronously or asynchronously, unless you're sensitive to the
+> latency on that single operation. If you're driving all your cpu's and
+> memory hard then this is work that still takes resources. If there's a
+> kernel thread with compaction running, then obviously your process is
+> not.
 
->--
->2.1.0
+Well that of course depends on the CPU utilization of "your process".
+
+> Your patch should help in that not every atomic allocation failure
+> should mean yet another run at compaction/reclaim.
+
+If you don't want to wake up kswapd, add also __GFP_NO_KSWAPD flag. 
+Additionally, gfp_to_alloc_flags() will stop treating such allocation as 
+atomic - it allows atomic allocations to bypass cpusets and lowers the 
+watermark by 1/4 (unless there's also __GFP_NOMEMALLOC). It might 
+actually make sense to add __GFP_NO_KSWAPD for an allocation like this 
+one that has a simple order-0 fallback.
+
+Vlastimil
+
+
+> -Deb
+>
+> On Thu, Jun 11, 2015 at 5:16 PM, Chris Mason <clm@fb.com> wrote:
+>
+>> networking is asking for 32KB, and the MM layer is doing what it can to
+>> provide it.  Are the gains from getting 32KB contig bigger than the cost
+>> of moving pages around if the MM has to actually go into compaction?
+>> Should we start disk IO to give back 32KB contig?
+>>
+>> I think we want to tell the MM to compact in the background and give
+>> networking 32KB if it happens to have it available.  If not, fall back
+>> to smaller allocations without doing anything expensive.
+>>
+>
+> --
+> To unsubscribe, send a message with 'unsubscribe linux-mm' in
+> the body to majordomo@kvack.org.  For more info on Linux MM,
+> see: http://www.linux-mm.org/ .
+> Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+>
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
