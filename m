@@ -1,87 +1,106 @@
-From: Chen Weilong <chenweilong@huawei.com>
-Subject: [PATCH 3.4] ipv6: add check for blackhole or prohibited entry in rt6_redirect
-Date: Fri, 12 Jun 2015 14:05:02 +0800
-Message-ID: <1434089102-6732-1-git-send-email-chenweilong@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: <lizefan@huawei.com>, <davem@davemloft.net>,
-	<kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Baolin Wang <baolin.wang@linaro.org>
+Subject: [PATCH v5 00/24] Convert the posix_clock_operations and k_clock structure to ready for 2038
+Date: Fri, 12 Jun 2015 15:19:47 +0800
+Message-ID: <cover.1434079262.git.baolin.wang@linaro.org>
+References: <lfywpz1987>
+Cc: arnd@arndb.de, john.stultz@linaro.org, heenasirwani@gmail.com,
+	pang.xunlei@linaro.org, peterz@infradead.org,
+	rafael.j.wysocki@intel.com, gregkh@linuxfoundation.org,
+	richardcochran@gmail.com, benh@kernel.crashing.org,
+	paulus@samba.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, linux390@de.ibm.com, rth@twiddle.net,
+	riel@redhat.com, cl@linux.com, tj@kernel.org, fweisbec@gmail.com,
+	ahh@google.com, pjt@google.com, linuxppc-dev@lists.ozlabs.org,
+	linux-s390@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serge.hallyn@canonical.com, james.l.morris@oracle.com,
+	serge@hallyn.com, pmoore@redhat.com, tiwai@suse.de,
+	jeffv@google.com, jlayton@primarydata.com, keescook@chromium.org,
+	sds@tycho.nsa.gov, mark.d.rustad@intel.com,
+	linux-security-module@vger.kernel.org, baolin.wang@linaro.org,
+	y2038@lists.linaro
+To: tglx@linutronix.de
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <lfywpz1987>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Weilong Chen <chenweilong@huawei.com>
+This patch series changes the 32-bit time types (timespec/itimerspec) to
+the 64-bit types (timespec64/itimerspec64), since 32-bit time types will
+break in the year 2038 on 32bit systems.
 
-There's a check for ip6_null_entry, but it's not enough if the config
-CONFIG_IPV6_MULTIPLE_TABLES is selected. Blackhole or prohibited entries
-should also be ignored.
+This patch series introduces new methods with timespec64/itimerspec64 type,
+and removes the old ones with timespec/itimerspec type for posix_clock_operations
+and k_clock structure.
 
-This path is for kernel before v3.6, as there's a commit b94f1c0
-use icmpv6_notify() instead of rt6_redirect() and rt6_redirect has
-been deleted.
-
-The oops as follow:
-    [exception RIP: do_raw_write_lock+12]
-    RIP: ffffffff8122c42c  RSP: ffff880666e45820  RFLAGS: 00010282
-    RAX: ffff8801207bffd8  RBX: 0000000000000018  RCX: 0000000000000000
-    RDX: 0000000000000000  RSI: ffff880666e45898  RDI: 0000000000000018
-    RBP: ffff880666e45830   R8: 000000000000001e   R9: 0000000006000000
-    R10: ffff88011796b8a0  R11: 0000000000000004  R12: ffff88010391ed00
-    R13: 0000000000000000  R14: ffff880666e45898  R15: ffff88011796b890
-    ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018
-    [ffff880666e45838] _raw_write_lock_bh at ffffffff81450b39
-    [ffff880666e45858] __ip6_ins_rt at ffffffff813ed8c1
-    [ffff880666e45888] ip6_ins_rt at ffffffff813eef58
-    [ffff880666e458b8] rt6_redirect at ffffffff813f0b84
-    [ffff880666e45958] ndisc_rcv at ffffffff813f95d8
-    [ffff880666e45a08] icmpv6_rcv at ffffffff814000e8
-    [ffff880666e45ae8] ip6_input_finish at ffffffff813e43bb
-    [ffff880666e45b38] ip6_input at ffffffff813e4b08
-    [ffff880666e45b68] ipv6_rcv at ffffffff813e4969
-    [ffff880666e45bc8] __netif_receive_skb at ffffffff8135158a
-    [ffff880666e45c38] dev_gro_receive at ffffffff81351cb0
-    [ffff880666e45c78] napi_gro_receive at ffffffff81351fc5
-    [ffff880666e45cb8] tg3_rx at ffffffffa0bfb354 [tg]
-    [ffff880666e45d88] tg3_poll_work at ffffffffa0c07857 [tg]
-    [ffff880666e45e18] tg3_poll_msix at ffffffffa0c07d1b [tg]
-    [ffff880666e45e68] net_rx_action at ffffffff81352219
-    [ffff880666e45ec8] __do_softirq at ffffffff8103e5a1
-    [ffff880666e45f38] call_softirq at ffffffff81459c4c
-    [ffff880666e45f50] do_softirq at ffffffff8100413d
-    [ffff880666e45f80] do_IRQ at ffffffff81003cce
-This happened when ip6_route_redirect found a rt which was set
-blackhole, the rt had a NULL rt6i_table argument which is accessed by
-__ip6_ins_rt() when trying to lock rt6i_table->tb6_lock caused a BUG:
-"BUG: unable to handle kernel NULL pointer"
-
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
 ---
- net/ipv6/route.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+Changes since v4:
+- Rebase the patch series.
+- Modify the subject line and the changelog.
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c8643a3..c604751 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1661,6 +1661,17 @@ void rt6_redirect(const struct in6_addr *dest, const struct in6_addr *src,
- 		goto out;
- 	}
- 
-+#ifdef CONFIG_IPV6_MULTIPLE_TABLES
-+	if (rt == net->ipv6.ip6_blk_hole_entry ||
-+	    rt == net->ipv6.ip6_prohibit_entry) {
-+		if (net_ratelimit())
-+			printk(KERN_DEBUG "rt6_redirect: source isn't a valid" \
-+			       " nexthop for redirect target " \
-+			       "(blackhole or prohibited)\n");
-+		goto out;
-+	}
-+#endif
-+
- 	/*
- 	 *	We have finally decided to accept it.
- 	 */
+Changes since v3:
+- Fix some introducing bugs.
+
+Changes since v2:
+- Split the syscall conversion patch into small some patches.
+
+Changes since V1:
+- Split some patch into small patch.
+- Add some default function for new 64bit methods for syscall function.
+- Move do_sys_settimeofday() function to head file.
+- Modify the EXPORT_SYMPOL issue.
+- Add new 64bit methods in cputime_nsecs.h file.
+---
+
+Baolin Wang (24):
+  time: Introduce struct itimerspec64
+  timekeeping: Introduce current_kernel_time64()
+  security: Introduce security_settime64()
+  time: Introduce do_sys_settimeofday64()
+  posix-timers: Introduce {get,put}_timespec and {get,put}_itimerspec
+  posix-timers: Factor out the guts of 'timer_gettime'
+  posix-timers: Implement y2038 safe timer_get64() callback
+  posix-timers: Factor out the guts of 'timer_settime'
+  posix-timers: Implement y2038 safe timer_set64() callback
+  posix-timers: Factor out the guts of 'clock_settime'
+  posix-timers: Implement y2038 safe clock_set64() callback
+  posix-timers: Factor out the guts of 'clock_gettime'
+  posix-timers: Implement y2038 safe clock_get64() callback
+  posix-timers: Factor out the guts of 'clcok_getres'
+  posix-timers: Implement y2038 safe clock_getres64() callback
+  timekeeping: Change the implementation of timekeeping_clocktai()
+  posix-timers: Convert to y2038 safe callbacks
+  mmtimer: Convert to y2038 safe callbacks
+  alarmtimer: Convert to y2038 safe callbacks
+  posix-clock: Convert to y2038 safe callbacks
+  time: Introduce timespec64_to_jiffies()/jiffies_to_timespec64()
+  cputime: Introduce cputime_to_timespec64()/timespec64_to_cputime()
+  posix-cpu-timers: Convert to y2038 safe callbacks
+  k_clock: Remove y2038 unsafe callbacks
+
+ arch/powerpc/include/asm/cputime.h    |    6 +-
+ arch/s390/include/asm/cputime.h       |    8 +-
+ drivers/char/mmtimer.c                |   36 +++--
+ drivers/ptp/ptp_clock.c               |   22 +--
+ include/asm-generic/cputime_jiffies.h |   10 +-
+ include/asm-generic/cputime_nsecs.h   |    6 +-
+ include/linux/cputime.h               |   16 ++
+ include/linux/jiffies.h               |   21 ++-
+ include/linux/lsm_hooks.h             |    5 +-
+ include/linux/posix-clock.h           |   10 +-
+ include/linux/posix-timers.h          |   18 +--
+ include/linux/security.h              |   20 ++-
+ include/linux/time64.h                |   35 +++++
+ include/linux/timekeeping.h           |   25 +++-
+ kernel/time/alarmtimer.c              |   38 ++---
+ kernel/time/posix-clock.c             |   20 +--
+ kernel/time/posix-cpu-timers.c        |   84 ++++++-----
+ kernel/time/posix-timers.c            |  257 +++++++++++++++++++++------------
+ kernel/time/time.c                    |   19 +--
+ kernel/time/timekeeping.c             |    6 +-
+ security/commoncap.c                  |    2 +-
+ security/security.c                   |    2 +-
+ 22 files changed, 412 insertions(+), 254 deletions(-)
+
 -- 
-1.7.12
+1.7.9.5
