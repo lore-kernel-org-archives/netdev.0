@@ -1,102 +1,97 @@
-From: Firo Yang <firogm@gmail.com>
-Subject: Re: [RFC PATCH] net: Add sock_common_listen for TCP and DCCP
-Date: Fri, 12 Jun 2015 10:12:18 +0800
-Message-ID: <20150612021218.GA3930@firo>
-References: <1434020703-7614-1-git-send-email-firogm@gmail.com>
- <1434032743.27504.38.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Subject: next-20150610 - repeated hangs at e1000e_phc_gettime+0x2e/0x60
+Date: Thu, 11 Jun 2015 22:57:48 -0400
+Message-ID: <21937.1434077868@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, gerrit@erg.abdn.ac.uk,
-	yoshfuji@linux-ipv6.org, jmorris@namei.org, kuznet@ms2.inr.ac.ru,
-	herbert@gondor.apana.org.au, ast@plumgrid.com, dborkman@redhat.com,
-	ebiederm@xmission.com, dan.carpenter@oracle.com,
-	Julia.Lawall@lip6.fr, kernel-janitors@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1434032743.27504.38.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: multipart/signed; boundary="==_Exmh_1434077868_2146P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 11, 2015 at 07:25:43AM -0700, Eric Dumazet wrote:
->On Thu, 2015-06-11 at 19:05 +0800, Firo Yang wrote:
->> Code refactoring:
->> 1. Move the common code of inet_listen() and inet_dccp_listen() to
->> sock_common_listen().
->> Add new state SOCK_LISTEN and SOCK_CLOSE for sock_common_listen().
->> 
->> 2. Modify and rename inet_listen() to tcp_listen().
->> 
->> 3. Modify and rename inet_dccp_listen() to dccp_listen().
->> 
->> 4. Add new callback pointer listen in struct proto for
->> tcp_listen() and dccp_listen().
->> 
->> This patch makes codes more modularized and removes redudant codes.
->> 
->> Signed-off-by: Firo Yang <firogm@gmail.com>
->> ---
->> I test it on my x86 pc.
->> 
->>  include/net/sock.h  | 18 ++++++++++++++++
->>  include/net/tcp.h   |  1 +
->>  net/core/sock.c     | 36 +++++++++++++++++++++++++++++++
->>  net/dccp/dccp.h     |  2 +-
->>  net/dccp/ipv4.c     |  4 ++--
->>  net/dccp/ipv6.c     |  3 ++-
->>  net/dccp/proto.c    | 62 ++++++++++++++++-------------------------------------
->>  net/ipv4/af_inet.c  | 58 +------------------------------------------------
->>  net/ipv4/tcp.c      | 35 ++++++++++++++++++++++++++++++
->>  net/ipv4/tcp_ipv4.c |  1 +
->>  net/ipv6/af_inet6.c |  2 +-
->>  net/ipv6/tcp_ipv6.c |  1 +
->>  12 files changed, 118 insertions(+), 105 deletions(-)
->> 
->> diff --git a/include/net/sock.h b/include/net/sock.h
->> index 26c1c31..5adc7f4 100644
->> --- a/include/net/sock.h
->> +++ b/include/net/sock.h
->> @@ -934,6 +934,7 @@ struct proto {
->>  	int			(*connect)(struct sock *sk,
->>  					struct sockaddr *uaddr,
->>  					int addr_len);
->> +	int			(*listen)(struct sock *sk, int backlog);
->>  	int			(*disconnect)(struct sock *sk, int flags);
->>  
->>  	struct sock *		(*accept)(struct sock *sk, int flags, int *err);
->> @@ -1349,6 +1350,21 @@ void sk_prot_clear_portaddr_nulls(struct sock *sk, int size);
->>  #define SOCK_BINDADDR_LOCK	4
->>  #define SOCK_BINDPORT_LOCK	8
->>  
->> +/*
->> + * Sock common state
->> + * These values must be enqual to correspondent TCP state
->> + * and DCCP state.
->> + */
->> +enum {
->> +	SOCK_CLOSE	= TCP_CLOSE,
->> +	SOCK_LISTEN	= TCP_LISTEN
->> +};
->> +
->> +enum {
->> +	SOCKF_CLOSE	= TCPF_CLOSE,
->> +	SOCKF_LISTEN	= TCPF_LISTEN,
->> +};
->> +
->
->You know, TCP_CLOSE and TCP_LISTEN are really legacy states for
->sk_state, this is not going to change anytime soon.
->
->
->I prefer to keep using TCP_xxxx names and not adding aliases.
+--==_Exmh_1434077868_2146P
+Content-Type: text/plain; charset=us-ascii
 
-Many thanks, Eric. I will update the patch.
+I'm seeing repeated hard lockups on my Dell Latitude E6530.
+Helpful info:
 
-Firo
->
->Otherwise your patch looks fine to me, thanks.
->
->
->
+0) next-20150603 works, so the problem landed in linux-next in the last week.
 
--- 
+1) All 3 times happened while I was at home, using wireless, so
+the interface didn't have link and was ifconfig'ed down.
+
+2) Remarkably similar times for it to blow up:
+
+[14513.365378] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 1
+[14482.271716] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 3
+[14479.906820] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 0
+
+(I suspect the offsets were caused by differences in how long it took me
+to correctly enter the cryptLUKS passphrase for my encrypted root filesystem)
+
+Oddly enough, I don't see any patches to the e1000e driver in quite some
+time... but that's where it keeps locking up.
+
+This ringing any bells?
+
+All 3 traces look like:
+
+[14479.906908] Call Trace:
+[14479.906914]  <NMI>  [<ffffffffba94db16>] dump_stack+0x50/0xa8
+[14479.906930]  [<ffffffffba948bb9>] panic+0xcd/0x1e4
+[14479.906940]  [<ffffffffba166a60>] ? perf_event_task_disable+0xc0/0xc0
+[14479.906952]  [<ffffffffba125d8b>] watchdog_overflow_callback+0x9b/0xa0
+[14479.906959]  [<ffffffffba16a684>] __perf_event_overflow+0xc4/0x1f0
+[14479.906968]  [<ffffffffba16b3a4>] perf_event_overflow+0x14/0x20
+[14479.906976]  [<ffffffffba022271>] intel_pmu_handle_irq+0x1e1/0x430
+[14479.906990]  [<ffffffffba01a0f6>] perf_event_nmi_handler+0x26/0x40
+[14479.906999]  [<ffffffffba0085b3>] nmi_handle+0x103/0x340
+[14479.907005]  [<ffffffffba0084b5>] ? nmi_handle+0x5/0x340
+[14479.907017]  [<ffffffffba008a53>] default_do_nmi+0xc3/0x120
+[14479.907032]  [<ffffffffba008b98>] do_nmi+0xe8/0x130
+[14479.907044]  [<ffffffffba95c9a8>] end_repeat_nmi+0x1e/0x2e
+[14479.907055]  [<ffffffffba529886>] ? e1000e_cyclecounter_read+0x16/0xc0
+[14479.907061]  [<ffffffffba529886>] ? e1000e_cyclecounter_read+0x16/0xc0
+[14479.907069]  [<ffffffffba529886>] ? e1000e_cyclecounter_read+0x16/0xc0
+[14479.907075]  <<EOE>>  [<ffffffffba0e9529>] timecounter_read+0x19/0x60
+[14479.907088]  [<ffffffffba53687e>] e1000e_phc_gettime+0x2e/0x60
+[14479.907098]  [<ffffffffba536a31>] e1000e_systim_overflow_work+0x31/0x70
+[14479.907105]  [<ffffffffba07ad19>] process_one_work+0x3c9/0x980
+[14479.907115]  [<ffffffffba07ac62>] ? process_one_work+0x312/0x980
+[14479.907125]  [<ffffffffba07b348>] ? worker_thread+0x78/0x760
+[14479.907134]  [<ffffffffba07b59c>] worker_thread+0x2cc/0x760
+[14479.907144]  [<ffffffffba07b2d0>] ? process_one_work+0x980/0x980
+[14479.907154]  [<ffffffffba082a5e>] kthread+0xfe/0x120
+[14479.907163]  [<ffffffffba08ca50>] ? finish_task_switch+0x50/0x1c0
+[14479.907173]  [<ffffffffba082960>] ? kthread_create_on_node+0x270/0x270
+[14479.907179]  [<ffffffffba95ae4f>] ret_from_fork+0x3f/0x70
+[14479.907188]  [<ffffffffba082960>] ? kthread_create_on_node+0x270/0x270
+[14479.907243] Kernel Offset: 0x39000000 from 0xffffffff81000000 (relocation range:
+
+--==_Exmh_1434077868_2146P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBVXpKrAdmEQWDXROgAQLZfBAAsgwuCRCKl3ajEurGrkIIQ6Hikp5fIRPF
+NUOMZU0Gv69gQ/v6XTqFSsKA6QVCnd9DyXxCsdh6mWLe1I4TCH45Y93rrtW3WBx7
+He272NBFw3U7x03EDYYgTBsb1NAk3d2n/33/d/0ImfHMfXtSoA+DAVCnNKhvLnP6
+bEcDkOjUEsXkRbUB0fwGeSAgew2ruzaujl/QL+/ocX0Y6aqoznLLrhWW4KXypbfV
+g0/F7cIN5NaVjA+JPN6T7JIRdHmIZnofK0cJmFVeX+i+V9ZKH9hfk8gbCGzhMxfT
+jgAqzu3PZaiF5a44r2PN2gNfdVhPTp/eVMnKGVexEiTOejmUe9rXYYKkiaR8Gf32
+tXqf+cxOkJ2KhOgZSBsCT1z0gmxFQ0fPt0VFSHmxHUlzs83jvKUPUE4we9avKFy9
+UJS1rDpYmJ/iarYzXrvu9E8ogrrAAJ5Q63eQpkv1k+AwvjPrvci6eRs+KTYIFM3f
+SFsReLJR+XEbv7weBK6LVDPPntZgPmVWzLVVthBkwSQO+RlVGdZfFvm2agwTvwL1
+tcSVhD4SgavsCZuLCMzC3M4Blvc1PTTKJ5h/CFA8G5Z0wBX0fxf8DgH5Sx2rNWYN
+OseXc7TgFR+gc2fEZHn1HqD73BCbMLGlfvBVKZKSgpKapyOGdYHAkFcC0eYR/8uR
+70v9zZBzx1A=
+=/eTy
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1434077868_2146P--
