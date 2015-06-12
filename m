@@ -1,74 +1,58 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 2/2] flow_dissector: add support for dst, hop-by-hop and routing ext hdrs
-Date: Fri, 12 Jun 2015 09:01:06 -0700
-Message-ID: <1434124866-3881537-3-git-send-email-tom@herbertland.com>
-References: <1434124866-3881537-1-git-send-email-tom@herbertland.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH WIP RFC 0/3] mpls: support for ler
+Date: Fri, 12 Jun 2015 09:15:53 -0700
+Message-ID: <557B05B9.6030003@cumulusnetworks.com>
+References: <1433341306-29288-1-git-send-email-roopa@cumulusnetworks.com> <20150605091441.GA11896@pox.localdomain> <5571AF28.8000009@cumulusnetworks.com> <5571BF90.2070304@brocade.com> <557260E0.9060500@cumulusnetworks.com> <20150608123302.GA3634@pox.localdomain> <5575B207.4040900@cumulusnetworks.com> <20150608225843.GA4602@pox.localdomain> <5577E387.4030206@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Robert Shearman <rshearma@brocade.com>, ebiederm@xmission.com,
+	netdev@vger.kernel.org,
+	Vivek Venkatraman <vivek@cumulusnetworks.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:12614 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750856AbbFLQB3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2015 12:01:29 -0400
-Received: from pps.filterd (m0004003 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t5CFxjXj013410
-	for <netdev@vger.kernel.org>; Fri, 12 Jun 2015 09:01:28 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1v01n586td-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 12 Jun 2015 09:01:28 -0700
-Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.223.101.97) with ESMTP	id
- 47b91e40111c11e5a6a724be0595f910-c74d82a0 for <netdev@vger.kernel.org>;	Fri,
- 12 Jun 2015 09:01:26 -0700
-In-Reply-To: <1434124866-3881537-1-git-send-email-tom@herbertland.com>
+Received: from mail-qg0-f45.google.com ([209.85.192.45]:33180 "EHLO
+	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755264AbbFLQP4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2015 12:15:56 -0400
+Received: by qgfa66 with SMTP id a66so12992760qgf.0
+        for <netdev@vger.kernel.org>; Fri, 12 Jun 2015 09:15:56 -0700 (PDT)
+In-Reply-To: <5577E387.4030206@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If dst, hop-by-hop or routing extension headers are present determine
-length of the options and skip over them in flow dissection.
+On 6/10/15, 12:13 AM, roopa wrote:
+> Robert/Thomas, All my changes are in the below repo under the 'mpls' 
+> branch.
+> https://github.com/CumulusNetworks/net-next
+> https://github.com/CumulusNetworks/iproute2
+>
+> The last iproute2 commit has a sample usage.
+>
+> The commits pushed to this tree do not contain support for the 
+> following yet (but working on it):
+> a) tunnel routes to work with tunnel RTA_OIF and a non-tunnel RTA_OIF:
+> The current commits in the tree assume a non-tunnel RTA_OIF.
+> If the tunnel driver has registered a dst_output func,  dst_output
+> is set to the tunnel dst output handler in the receive route lookup 
+> path which in turn does the encap
+> and xmits. Thomas had last suggested using a flag to skip the dst 
+> output handler re-direction
+> for cases where RTA_OIF is a special tunnel netdev and the tunnel 
+> driver xmit function
+> can do the encap. My current thinking is to pass the oif to the encap 
+> parse handler and the handler can set the flag on the tunnel state. 
+> And this flag can then be used to skip the dst_output re-direction.
+> This change should be trivial will fix it soon.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- net/core/flow_dissector.c | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+I have pushed this change to my github tree.
+>
+> b) make RTA_OIF optional and do a fib lookup.
+>
+thinking about this some more, RTA_OIF is already optional. And 
+net/ipv4/fib_semantics.c:fib_check_nh will lookup the dev if not 
+specified. Wouldn't that be enough ?. (unless i have misunderstood 
+something here)
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 1818cdc..22e4dff 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -327,6 +327,7 @@ mpls:
- 		return false;
- 	}
- 
-+ip_proto_again:
- 	switch (ip_proto) {
- 	case IPPROTO_GRE: {
- 		struct gre_hdr {
-@@ -383,6 +384,22 @@ mpls:
- 		}
- 		goto again;
- 	}
-+	case NEXTHDR_HOP:
-+	case NEXTHDR_ROUTING:
-+	case NEXTHDR_DEST: {
-+		u8 _opthdr[2], *opthdr;
-+
-+		if (proto != htons(ETH_P_IPV6))
-+			break;
-+
-+		opthdr = __skb_header_pointer(skb, nhoff, sizeof(_opthdr),
-+					      data, hlen, &_opthdr);
-+
-+		ip_proto = _opthdr[0];
-+		nhoff += (_opthdr[1] + 1) << 3;
-+
-+		goto ip_proto_again;
-+	}
- 	case IPPROTO_IPIP:
- 		proto = htons(ETH_P_IP);
- 		goto ip;
--- 
-1.8.1
+thanks,
+Roopa
