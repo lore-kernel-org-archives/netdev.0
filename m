@@ -1,97 +1,63 @@
-From: David Herrmann <dh.herrmann@gmail.com>
-Subject: [PATCH] netlink: add API to retrieve all group memberships
-Date: Fri, 12 Jun 2015 18:15:38 +0200
-Message-ID: <1434125738-1990-1-git-send-email-dh.herrmann@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-kernel@vger.kernel.org,
-	David Herrmann <dh.herrmann@gmail.com>
-To: netdev@vger.kernel.org
+From: Shaohua Li <shli@fb.com>
+Subject: [PATCH] mlx4_en: don't wait for high order page allocation
+Date: Fri, 12 Jun 2015 09:50:59 -0700
+Message-ID: <7ea4f87114ef1b52e49dd90b2a32a6cde834d943.1434127734.git.shli@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <Kernel-team@fb.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:33748 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755323AbbFLQQR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2015 12:16:17 -0400
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:50117 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753520AbbFLQvC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2015 12:51:02 -0400
+Received: from pps.filterd (m0044008 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t5CGk10L019173
+	for <netdev@vger.kernel.org>; Fri, 12 Jun 2015 09:51:02 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 1v02yp01m8-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 12 Jun 2015 09:51:02 -0700
+Received: from facebook.com (2401:db00:20:7003:face:0:4d:0)	by
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ 34711df4112311e5a6de0002c9521c9e-3b1d82a0 for <netdev@vger.kernel.org>;	Fri,
+ 12 Jun 2015 09:51:00 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds getsockopt(SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS) to
-retrieve all groups a socket is a member of. Currently, we have to use
-getsockname() and look at the nl.nl_groups bitmask. However, this mask is
-limited to 32 groups. Hence, similar to NETLINK_ADD_MEMBERSHIP and
-NETLINK_DROP_MEMBERSHIP, this adds a separate sockopt to manager higher
-groups IDs than 32.
+High order page allocation can cause direct memory compaction and harm
+performance. The patch makes the high order page allocation don't wait,
+so not trigger direct memory compaction with memory pressure. More
+details can be found in a similar patch for net core:
+http://marc.info/?l=linux-mm&m=143406665720428&w=2
 
-This new NETLINK_LIST_MEMBERSHIPS option takes a pointer to __u32 and the
-size of the array. The array is filled with the full membership-set of the
-socket, and the required array size is returned in optlen. Hence,
-user-space can retry with a properly sized array in case it was too small.
-
-Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
+Cc: Amir Vadai <amirv@mellanox.com>
+Cc: Ido Shamay <idos@mellanox.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Shaohua Li <shli@fb.com>
 ---
- include/uapi/linux/netlink.h | 15 ++++++++-------
- net/netlink/af_netlink.c     | 22 ++++++++++++++++++++++
- 2 files changed, 30 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
-index 1a85940..e38094f 100644
---- a/include/uapi/linux/netlink.h
-+++ b/include/uapi/linux/netlink.h
-@@ -101,13 +101,14 @@ struct nlmsgerr {
- 	struct nlmsghdr msg;
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 2a77a6b..9bc4143 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -60,8 +60,11 @@ static int mlx4_alloc_pages(struct mlx4_en_priv *priv,
+ 	for (order = MLX4_EN_ALLOC_PREFER_ORDER; ;) {
+ 		gfp_t gfp = _gfp;
  
--#define NETLINK_ADD_MEMBERSHIP	1
--#define NETLINK_DROP_MEMBERSHIP	2
--#define NETLINK_PKTINFO		3
--#define NETLINK_BROADCAST_ERROR	4
--#define NETLINK_NO_ENOBUFS	5
--#define NETLINK_RX_RING		6
--#define NETLINK_TX_RING		7
-+#define NETLINK_ADD_MEMBERSHIP		1
-+#define NETLINK_DROP_MEMBERSHIP		2
-+#define NETLINK_PKTINFO			3
-+#define NETLINK_BROADCAST_ERROR		4
-+#define NETLINK_NO_ENOBUFS		5
-+#define NETLINK_RX_RING			6
-+#define NETLINK_TX_RING			7
-+#define NETLINK_LIST_MEMBERSHIPS	8
- 
- struct nl_pktinfo {
- 	__u32	group;
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index bf6e766..b84dbe7 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2254,6 +2254,28 @@ static int netlink_getsockopt(struct socket *sock, int level, int optname,
- 			return -EFAULT;
- 		err = 0;
- 		break;
-+	case NETLINK_LIST_MEMBERSHIPS: {
-+		int pos, idx, shift;
-+
-+		err = 0;
-+		netlink_table_grab();
-+		for (pos = 0; pos * 8 < nlk->ngroups; pos += sizeof(u32)) {
-+			if (len - pos < sizeof(u32))
-+				break;
-+
-+			idx = pos / sizeof(unsigned long);
-+			shift = (pos % sizeof(unsigned long)) * 8;
-+			if (put_user((u32)(nlk->groups[idx] >> shift),
-+				     (u32 __user *)(optval + pos))) {
-+				err = -EFAULT;
-+				break;
-+			}
+-		if (order)
++		if (order) {
++			if ((PAGE_SIZE << (order - 1)) >= frag_info->frag_size)
++				gfp &= ~__GFP_WAIT;
+ 			gfp |= __GFP_COMP | __GFP_NOWARN;
 +		}
-+		if (put_user(ALIGN(nlk->ngroups / 8, sizeof(u32)), optlen))
-+			err = -EFAULT;
-+		netlink_table_ungrab();
-+		break;
-+	}
- 	default:
- 		err = -ENOPROTOOPT;
- 	}
+ 		page = alloc_pages(gfp, order);
+ 		if (likely(page))
+ 			break;
 -- 
-2.4.2
+1.8.1
