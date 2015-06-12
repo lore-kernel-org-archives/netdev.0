@@ -1,97 +1,108 @@
-From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Subject: next-20150610 - repeated hangs at e1000e_phc_gettime+0x2e/0x60
-Date: Thu, 11 Jun 2015 22:57:48 -0400
-Message-ID: <21937.1434077868@turing-police.cc.vt.edu>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: [REGRESSION] NFS is creating a hidden port (left over from
+ xs_bind() )
+Date: Thu, 11 Jun 2015 23:49:29 -0400
+Message-ID: <20150611234929.7b48d314@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1434077868_2146P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Anna Schumaker <anna.schumaker@netapp.com>,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Trond Myklebust <trond.myklebust@primarydata.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1434077868_2146P
-Content-Type: text/plain; charset=us-ascii
 
-I'm seeing repeated hard lockups on my Dell Latitude E6530.
-Helpful info:
+I recently upgraded my main server to 4.0.4 from 3.19.5 and rkhunter
+started reporting a hidden port on my box.
 
-0) next-20150603 works, so the problem landed in linux-next in the last week.
+Running unhide-tcp I see this:
 
-1) All 3 times happened while I was at home, using wireless, so
-the interface didn't have link and was ifconfig'ed down.
+# unhide-tcp=20
+Unhide-tcp 20121229
+Copyright =C2=A9 2012 Yago Jesus & Patrick Gouin
+License GPLv3+ : GNU GPL version 3 or later
+http://www.unhide-forensics.info
+Used options:=20
+[*]Starting TCP checking
 
-2) Remarkably similar times for it to blow up:
+=46ound Hidden port that not appears in ss: 946
+[*]Starting UDP checking
 
-[14513.365378] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 1
-[14482.271716] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 3
-[14479.906820] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 0
+This scared the hell out of me as I'm thinking that I have got some kin=
+d
+of NSA backdoor hooked into my server and it is monitoring my plans to
+smuggle Kinder =C3=9Cberraschung into the USA from Germany. I panicked!
 
-(I suspect the offsets were caused by differences in how long it took me
-to correctly enter the cryptLUKS passphrase for my encrypted root filesystem)
+Well, I wasted the day writing modules to first look at all the sockets
+opened by all processes (via their file descriptors) and posted their
+port numbers.
 
-Oddly enough, I don't see any patches to the e1000e driver in quite some
-time... but that's where it keeps locking up.
+  http://rostedt.homelinux.com/private/tasklist.c
 
-This ringing any bells?
+But this port wasn't there either.
 
-All 3 traces look like:
+Then I decided to look at the ports in tcp_hashinfo.
 
-[14479.906908] Call Trace:
-[14479.906914]  <NMI>  [<ffffffffba94db16>] dump_stack+0x50/0xa8
-[14479.906930]  [<ffffffffba948bb9>] panic+0xcd/0x1e4
-[14479.906940]  [<ffffffffba166a60>] ? perf_event_task_disable+0xc0/0xc0
-[14479.906952]  [<ffffffffba125d8b>] watchdog_overflow_callback+0x9b/0xa0
-[14479.906959]  [<ffffffffba16a684>] __perf_event_overflow+0xc4/0x1f0
-[14479.906968]  [<ffffffffba16b3a4>] perf_event_overflow+0x14/0x20
-[14479.906976]  [<ffffffffba022271>] intel_pmu_handle_irq+0x1e1/0x430
-[14479.906990]  [<ffffffffba01a0f6>] perf_event_nmi_handler+0x26/0x40
-[14479.906999]  [<ffffffffba0085b3>] nmi_handle+0x103/0x340
-[14479.907005]  [<ffffffffba0084b5>] ? nmi_handle+0x5/0x340
-[14479.907017]  [<ffffffffba008a53>] default_do_nmi+0xc3/0x120
-[14479.907032]  [<ffffffffba008b98>] do_nmi+0xe8/0x130
-[14479.907044]  [<ffffffffba95c9a8>] end_repeat_nmi+0x1e/0x2e
-[14479.907055]  [<ffffffffba529886>] ? e1000e_cyclecounter_read+0x16/0xc0
-[14479.907061]  [<ffffffffba529886>] ? e1000e_cyclecounter_read+0x16/0xc0
-[14479.907069]  [<ffffffffba529886>] ? e1000e_cyclecounter_read+0x16/0xc0
-[14479.907075]  <<EOE>>  [<ffffffffba0e9529>] timecounter_read+0x19/0x60
-[14479.907088]  [<ffffffffba53687e>] e1000e_phc_gettime+0x2e/0x60
-[14479.907098]  [<ffffffffba536a31>] e1000e_systim_overflow_work+0x31/0x70
-[14479.907105]  [<ffffffffba07ad19>] process_one_work+0x3c9/0x980
-[14479.907115]  [<ffffffffba07ac62>] ? process_one_work+0x312/0x980
-[14479.907125]  [<ffffffffba07b348>] ? worker_thread+0x78/0x760
-[14479.907134]  [<ffffffffba07b59c>] worker_thread+0x2cc/0x760
-[14479.907144]  [<ffffffffba07b2d0>] ? process_one_work+0x980/0x980
-[14479.907154]  [<ffffffffba082a5e>] kthread+0xfe/0x120
-[14479.907163]  [<ffffffffba08ca50>] ? finish_task_switch+0x50/0x1c0
-[14479.907173]  [<ffffffffba082960>] ? kthread_create_on_node+0x270/0x270
-[14479.907179]  [<ffffffffba95ae4f>] ret_from_fork+0x3f/0x70
-[14479.907188]  [<ffffffffba082960>] ? kthread_create_on_node+0x270/0x270
-[14479.907243] Kernel Offset: 0x39000000 from 0xffffffff81000000 (relocation range:
+  http://rostedt.homelinux.com/private/portlist.c
 
---==_Exmh_1434077868_2146P
-Content-Type: application/pgp-signature
+This found the port but no file was connected to it, and worse yet,
+when I first ran it without using probe_kernel_read(), it crashed my
+kernel, because sk->sk_socket pointed to a freed socket!
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Exmh version 2.5 07/13/2001
+Note, each boot, the hidden port is different.
 
-iQIVAwUBVXpKrAdmEQWDXROgAQLZfBAAsgwuCRCKl3ajEurGrkIIQ6Hikp5fIRPF
-NUOMZU0Gv69gQ/v6XTqFSsKA6QVCnd9DyXxCsdh6mWLe1I4TCH45Y93rrtW3WBx7
-He272NBFw3U7x03EDYYgTBsb1NAk3d2n/33/d/0ImfHMfXtSoA+DAVCnNKhvLnP6
-bEcDkOjUEsXkRbUB0fwGeSAgew2ruzaujl/QL+/ocX0Y6aqoznLLrhWW4KXypbfV
-g0/F7cIN5NaVjA+JPN6T7JIRdHmIZnofK0cJmFVeX+i+V9ZKH9hfk8gbCGzhMxfT
-jgAqzu3PZaiF5a44r2PN2gNfdVhPTp/eVMnKGVexEiTOejmUe9rXYYKkiaR8Gf32
-tXqf+cxOkJ2KhOgZSBsCT1z0gmxFQ0fPt0VFSHmxHUlzs83jvKUPUE4we9avKFy9
-UJS1rDpYmJ/iarYzXrvu9E8ogrrAAJ5Q63eQpkv1k+AwvjPrvci6eRs+KTYIFM3f
-SFsReLJR+XEbv7weBK6LVDPPntZgPmVWzLVVthBkwSQO+RlVGdZfFvm2agwTvwL1
-tcSVhD4SgavsCZuLCMzC3M4Blvc1PTTKJ5h/CFA8G5Z0wBX0fxf8DgH5Sx2rNWYN
-OseXc7TgFR+gc2fEZHn1HqD73BCbMLGlfvBVKZKSgpKapyOGdYHAkFcC0eYR/8uR
-70v9zZBzx1A=
-=/eTy
------END PGP SIGNATURE-----
+=46inally, I decided to bring in the big guns, and inserted a
+trace_printk() into the bind logic, to see if I could find the culprit.
+After fiddling with it a few times, I found a suspect:
 
---==_Exmh_1434077868_2146P--
+   kworker/3:1H-123   [003] ..s.    96.696213: inet_bind_hash: add 946
+
+Bah, it's a kernel thread doing it, via a work queue. I then added a
+trace_dump_stack() to find what was calling this, and here it is:
+
+    kworker/3:1H-123   [003] ..s.    96.696222: <stack trace>
+ =3D> inet_csk_get_port
+ =3D> inet_addr_type
+ =3D> inet_bind
+ =3D> xs_bind
+ =3D> sock_setsockopt
+ =3D> __sock_create
+ =3D> xs_create_sock.isra.18
+ =3D> xs_tcp_setup_socket
+ =3D> process_one_work
+ =3D> worker_thread
+ =3D> worker_thread
+ =3D> kthread
+ =3D> kthread
+ =3D> ret_from_fork
+ =3D> kthread
+
+I rebooted, and examined what happens. I see the kworker binding that
+port, and all seems well:
+
+# netstat -tapn |grep 946
+tcp        0      0 192.168.23.9:946        192.168.23.22:55201     EST=
+ABLISHED -              =20
+
+But waiting for a bit, the connection goes into a TIME_WAIT, and then
+it just disappears. But the bind to the port does not get released, and
+that port is from then on, taken.
+
+This never happened with my 3.19 kernels. I would bisect it but this is
+happening on my main server box which I usually only reboot every other
+month doing upgrades. It causes too much disturbance for myself (and my
+family) as when this box is offline, basically the rest of my machines
+are too.
+
+I figured this may be enough information to see if you can fix it.
+Otherwise I can try to do the bisect, but that's not going to happen
+any time soon. I may just go back to 3.19 for now, such that rkhunter
+stops complaining about the hidden port.
+
+If you need anymore information, let me know.
+
+-- Steve
