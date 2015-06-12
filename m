@@ -1,58 +1,41 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: next-20150610 - repeated hangs at e1000e_phc_gettime+0x2e/0x60
-Date: Fri, 12 Jun 2015 17:34:25 -0400
-Message-ID: <30284.1434144865@turing-police.cc.vt.edu>
-References: <21937.1434077868@turing-police.cc.vt.edu>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1434144865_10236P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: Your message of "Thu, 11 Jun 2015 22:57:48 -0400."
-             <21937.1434077868@turing-police.cc.vt.edu>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net-next 0/3] bpf: share helpers between tracing and networking
+Date: Fri, 12 Jun 2015 14:40:23 -0700
+Message-ID: <1434145226-17892-1-git-send-email-ast@plumgrid.com>
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Wang Nan <wangnan0-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1434144865_10236P
-Content-Type: text/plain; charset=us-ascii
+Introduce new helpers to access 'struct task_struct'->pid, tgid, uid, gid, comm
+fields in tracing and networking.
 
-On Thu, 11 Jun 2015 22:57:48 -0400, Valdis Kletnieks said:
+Share bpf_trace_printk() and bpf_get_smp_processor_id() helpers between
+tracing and networking.
 
-> 0) next-20150603 works, so the problem landed in linux-next in the last week.
->
-> 1) All 3 times happened while I was at home, using wireless, so
-> the interface didn't have link and was ifconfig'ed down.
+Alexei Starovoitov (3):
+  bpf: introduce current->pid, tgid, uid, gid, comm accessors
+  bpf: allow networking programs to use bpf_trace_printk() for
+    debugging
+  bpf: let kprobe programs use bpf_get_smp_processor_id() helper
 
-All 3 crashes happened at almost exactly 4 hours of uptime, but here
-in my office I'm now at 6 hours on the same kernel while running with
-the interface plugging in and doing traffic.
+ include/linux/bpf.h        |    4 +++
+ include/uapi/linux/bpf.h   |   19 +++++++++++++
+ kernel/bpf/core.c          |    7 +++++
+ kernel/bpf/helpers.c       |   58 ++++++++++++++++++++++++++++++++++++++
+ kernel/trace/bpf_trace.c   |   28 ++++++++++++------
+ net/core/filter.c          |    8 ++++++
+ samples/bpf/bpf_helpers.h  |    6 ++++
+ samples/bpf/tracex2_kern.c |   24 ++++++++++++----
+ samples/bpf/tracex2_user.c |   67 ++++++++++++++++++++++++++++++++++++++------
+ 9 files changed, 199 insertions(+), 22 deletions(-)
 
-I have a fighting chance of mostly finishing a bisect over the weekend,
-I'll let you know where that leads.
-
---==_Exmh_1434144865_10236P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Exmh version 2.5 07/13/2001
-
-iQIVAwUBVXtQYQdmEQWDXROgAQLZbhAAvMvncNYfVz6MULpe87yMKiRUD7Mn94Oi
-IvuyWKmh6+noz/7DaUXE2kdOc51rviJhVmishTXUctGwFH9O/OT/EStwjF8QEtMD
-UoXjZNFLFuPuuPDsnANGWJx8eCYBjgeWpK1CsYCG53AE1/tUyQJHK8b6QVKi6YKI
-9nyxhxfZOJCAQUrtkzcXjNQ7g+AVNGPhSlIWxFODoaxSWbecZVYxq5zrQZ4CervP
-8PAQ0QB8iw3VKKRJfQY2mPwJ7Q2N7geDaOLe2CVZmDShpOCN/TKYQ1Xsl7yy031t
-aizzzXz2e08ngF3Xcf/pJ6TV0q+aR2by//xjxNHfYrjq5rJVsM6rIx+lpYTbhGNN
-qJ9NRvkH+jn/1pNnFq7S5kEsMiGsCASW+rcydjl/inKEzkKOlx7JKF6bSO3O9zMV
-SnEyg5HZRiY+4u8ojpZ25YrTYwvuLmZ4drQgvTVuOJiWrOlWOSRe+YEDHwl928GQ
-PW81KPjos2g0yPwuHihSLnID9mVNfLrbnbiHgBVk6LZUOPoHMniSjSZ0hyxPtrZe
-UZumkfgQWetqsRBpzPAtlFxeaZUFJmABIRTA5tW00s9uh02KmixcBlX572A0pMXT
-NlsztDqwVh9LnyWmXIor1xIMuOEaphCEwIipE4lU/Hnvp1pE2x5bY3mXY1bh7QtZ
-bcJTcfmFhT4=
-=DGpF
------END PGP SIGNATURE-----
-
---==_Exmh_1434144865_10236P--
+-- 
+1.7.9.5
