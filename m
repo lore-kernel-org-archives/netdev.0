@@ -1,69 +1,36 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC net-next 0/3] Proposal for VRF-lite
-Date: Fri, 12 Jun 2015 11:46:59 +0200
-Message-ID: <20150612094659.GB5289@pox.localdomain>
-References: <cover.1433561681.git.shm@cumulusnetworks.com>
- <20150609101550.GA10411@pox.localdomain>
- <CAJmoNQHRTJwdMjziQiPBX07sZKrYd3Z1ASNi1xQZdgJ1Vs6bGg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	David Ahern <dsahern@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Jamal Hadi Salim <hadi@mojatatu.com>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jon Toppins <jtoppins@cumulusnetworks.com>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Shrijeet Mukherjee <shm@cumulusnetworks.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH -next] net: ipv4: un-inline ip_finish_output2
+Date: Fri, 12 Jun 2015 12:12:22 +0200
+Message-ID: <1434103942-20176-1-git-send-email-fw@strlen.de>
+Cc: eric.dumazet@gmail.com, Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:33645 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752211AbbFLJrC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2015 05:47:02 -0400
-Received: by wgez8 with SMTP id z8so20806043wge.0
-        for <netdev@vger.kernel.org>; Fri, 12 Jun 2015 02:47:01 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJmoNQHRTJwdMjziQiPBX07sZKrYd3Z1ASNi1xQZdgJ1Vs6bGg@mail.gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:52773 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752484AbbFLKMa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2015 06:12:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/10/15 at 01:43pm, Shrijeet Mukherjee wrote:
-> On Tue, Jun 9, 2015 at 3:15 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> > Do I understand this correctly that swp* represent veth pairs?
-> > Why do you have distinct addresses on each peer of the pair?
-> > Are the addresses in N2 and N3 considered private and NATed?
-> >
-> > [...]
-> >
-> >
-> ???These are physical boxes in the picture not veth pairs or NAT's :)???
+     text    data     bss     dec     hex filename
+old: 16527      44       0   16571    40bb net/ipv4/ip_output.o
+new: 14935      44       0   14979    3a83 net/ipv4/ip_output.o
 
-I see. So if I translate this to a virtual world with veths where
-the guest facing peer is in its own netns, the host facing veth
-peer would get attached to a vrf device and we should be good.
-
-> ???Are you worried about ip rule scale ? this reduces the scale to number of
-> L3 domains, which should be not that large. I do think we need to speed up
-> rule lookup from the linear walk we have right now.
-
-I definitely have more L3 domains than what a linear search can
-handle.
-
-> A generic classifier seems like a bigger hammer, but if that is the way to
-> replace rules it is a worthy concept.
-> 
-> That said, the patches from Hannes et al, will make it such that the table
-> lookup maybe from the driver directly and thus will skip past the fib rule
-> lookup.
-
-The approach from Hannes definitely works for the physical world
-but is undesirable for overlays, logical or encapsulations, where
-we want to avoid maintaining a net_device for every virtual network.
-
-As I said, I think this is something that can be resolved later on
-with a programmable classifier.
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index f5f5ef1..55f3c2e 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -172,7 +172,7 @@ int ip_build_and_send_pkt(struct sk_buff *skb, struct sock *sk,
+ }
+ EXPORT_SYMBOL_GPL(ip_build_and_send_pkt);
+ 
+-static inline int ip_finish_output2(struct sock *sk, struct sk_buff *skb)
++static int ip_finish_output2(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	struct rtable *rt = (struct rtable *)dst;
+-- 
+2.0.5
