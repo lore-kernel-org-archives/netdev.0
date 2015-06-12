@@ -1,27 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] flow_dissector: Fix MPLS parsing and add
- ext hdr support
-Date: Fri, 12 Jun 2015 14:24:48 -0700 (PDT)
-Message-ID: <20150612.142448.1538239964507136715.davem@davemloft.net>
-References: <1434124866-3881537-1-git-send-email-tom@herbertland.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: next-20150610 - repeated hangs at e1000e_phc_gettime+0x2e/0x60
+Date: Fri, 12 Jun 2015 17:34:25 -0400
+Message-ID: <30284.1434144865@turing-police.cc.vt.edu>
+References: <21937.1434077868@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed; boundary="==_Exmh_1434144865_10236P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com
-To: tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47484 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751512AbbFLVYt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2015 17:24:49 -0400
-In-Reply-To: <1434124866-3881537-1-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: Your message of "Thu, 11 Jun 2015 22:57:48 -0400."
+             <21937.1434077868@turing-police.cc.vt.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Fri, 12 Jun 2015 09:01:04 -0700
+--==_Exmh_1434144865_10236P
+Content-Type: text/plain; charset=us-ascii
 
-> Need to shift label. Added parsing of dst, hop-by-hop, and routing
-> extension headers.
+On Thu, 11 Jun 2015 22:57:48 -0400, Valdis Kletnieks said:
 
-Series applied, thanks Tom.
+> 0) next-20150603 works, so the problem landed in linux-next in the last week.
+>
+> 1) All 3 times happened while I was at home, using wireless, so
+> the interface didn't have link and was ifconfig'ed down.
+
+All 3 crashes happened at almost exactly 4 hours of uptime, but here
+in my office I'm now at 6 hours on the same kernel while running with
+the interface plugging in and doing traffic.
+
+I have a fighting chance of mostly finishing a bisect over the weekend,
+I'll let you know where that leads.
+
+--==_Exmh_1434144865_10236P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBVXtQYQdmEQWDXROgAQLZbhAAvMvncNYfVz6MULpe87yMKiRUD7Mn94Oi
+IvuyWKmh6+noz/7DaUXE2kdOc51rviJhVmishTXUctGwFH9O/OT/EStwjF8QEtMD
+UoXjZNFLFuPuuPDsnANGWJx8eCYBjgeWpK1CsYCG53AE1/tUyQJHK8b6QVKi6YKI
+9nyxhxfZOJCAQUrtkzcXjNQ7g+AVNGPhSlIWxFODoaxSWbecZVYxq5zrQZ4CervP
+8PAQ0QB8iw3VKKRJfQY2mPwJ7Q2N7geDaOLe2CVZmDShpOCN/TKYQ1Xsl7yy031t
+aizzzXz2e08ngF3Xcf/pJ6TV0q+aR2by//xjxNHfYrjq5rJVsM6rIx+lpYTbhGNN
+qJ9NRvkH+jn/1pNnFq7S5kEsMiGsCASW+rcydjl/inKEzkKOlx7JKF6bSO3O9zMV
+SnEyg5HZRiY+4u8ojpZ25YrTYwvuLmZ4drQgvTVuOJiWrOlWOSRe+YEDHwl928GQ
+PW81KPjos2g0yPwuHihSLnID9mVNfLrbnbiHgBVk6LZUOPoHMniSjSZ0hyxPtrZe
+UZumkfgQWetqsRBpzPAtlFxeaZUFJmABIRTA5tW00s9uh02KmixcBlX572A0pMXT
+NlsztDqwVh9LnyWmXIor1xIMuOEaphCEwIipE4lU/Hnvp1pE2x5bY3mXY1bh7QtZ
+bcJTcfmFhT4=
+=DGpF
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1434144865_10236P--
