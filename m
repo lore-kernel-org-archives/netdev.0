@@ -1,29 +1,20 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: tcp_v6_connect() cleanup
-Date: Fri, 12 Jun 2015 21:59:45 -0700 (PDT)
-Message-ID: <20150612.215945.1289904128032581930.davem@davemloft.net>
-References: <1434162843.27504.114.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Meutia Arinta Kusprameswari <meutia.kusprameswari@student.tue.nl>
+Subject: work with
+Date: Sat, 13 Jun 2015 06:38:18 +0000
+Message-ID: <C45E59468159F14D8CE81613E7A98D6504BA04E4@XSERVER22A.campus.tue.nl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49644 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751005AbbFME7p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Jun 2015 00:59:45 -0400
-In-Reply-To: <1434162843.27504.114.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from xedge2.campus.tue.nl ([131.155.6.117]:30652 "EHLO
+	XEDGE2.campus.tue.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751147AbbFMGiX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Jun 2015 02:38:23 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 12 Jun 2015 19:34:03 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Remove dead code from tcp_v6_connect()
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Also applied, thanks.
+My name is Gatan Magsino, I work with Mediterranean Bank in Malta. Can i trust you with a business worth 8.3 million USD? Please reply ONLY to my private email: magsinoga@yahoo.com.hk for more information.
