@@ -1,98 +1,72 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] flow_dissector: fix ipv6 dst, hop-by-hop and
- routing ext hdrs
-Date: Fri, 12 Jun 2015 19:40:45 -0700
-Message-ID: <CALx6S37kuCvRCS2UfzLQ5hV_88XNEvbo8F4r0_-CQ_Dki1z1Sg@mail.gmail.com>
-References: <1434124866-3881537-1-git-send-email-tom@herbertland.com>
-	<1434124866-3881537-3-git-send-email-tom@herbertland.com>
-	<20150613012752.GA9895@Alexeis-MacBook-Pro.local>
-	<1434159454.27504.101.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150613015004.GA9918@Alexeis-MacBook-Pro.local>
-	<1434161476.27504.105.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150613021534.GA9942@Alexeis-MacBook-Pro.local>
-	<1434162692.27504.111.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: make u64_stats_init() a function
+Date: Fri, 12 Jun 2015 19:44:48 -0700
+Message-ID: <1434163488.27504.122.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	dan.carpenter@oracle.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:35136 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755802AbbFMCkq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2015 22:40:46 -0400
-Received: by iesa3 with SMTP id a3so34082594ies.2
-        for <netdev@vger.kernel.org>; Fri, 12 Jun 2015 19:40:45 -0700 (PDT)
-In-Reply-To: <1434162692.27504.111.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35667 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753310AbbFMCou (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2015 22:44:50 -0400
+Received: by pacyx8 with SMTP id yx8so31792937pac.2
+        for <netdev@vger.kernel.org>; Fri, 12 Jun 2015 19:44:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 12, 2015 at 7:31 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> __skb_header_pointer() returns a pointer that must be checked.
->
-> Fixes infinite loop reported by Alexei, and add __must_check to
-> catch these errors earlier.
->
-> Fixes: 6a74fcf426f5 ("flow_dissector: add support for dst, hop-by-hop and routing ext hdrs")
-> Reported-by: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-> Tested-by: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  include/linux/skbuff.h    |    9 +++++----
->  net/core/flow_dissector.c |    6 ++++--
->  2 files changed, 9 insertions(+), 6 deletions(-)
->
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index cc612fc0a8943ec853b92e6b3516b0e5582299e2..a7acc92aa6685d7006077510697e3d9481b02588 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2743,8 +2743,9 @@ __wsum __skb_checksum(const struct sk_buff *skb, int offset, int len,
->  __wsum skb_checksum(const struct sk_buff *skb, int offset, int len,
->                     __wsum csum);
->
-> -static inline void *__skb_header_pointer(const struct sk_buff *skb, int offset,
-> -                                        int len, void *data, int hlen, void *buffer)
-> +static inline void * __must_check
-> +__skb_header_pointer(const struct sk_buff *skb, int offset,
-> +                    int len, void *data, int hlen, void *buffer)
->  {
->         if (hlen - offset >= len)
->                 return data + offset;
-> @@ -2756,8 +2757,8 @@ static inline void *__skb_header_pointer(const struct sk_buff *skb, int offset,
->         return buffer;
->  }
->
-> -static inline void *skb_header_pointer(const struct sk_buff *skb, int offset,
-> -                                      int len, void *buffer)
-> +static inline void * __must_check
-> +skb_header_pointer(const struct sk_buff *skb, int offset, int len, void *buffer)
->  {
->         return __skb_header_pointer(skb, offset, len, skb->data,
->                                     skb_headlen(skb), buffer);
-> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> index 22e4dffa0c8b3b9a20a7324eae1627313e14ce30..476e5dda59e19822dba98a931369ff2666c59c0d 100644
-> --- a/net/core/flow_dissector.c
-> +++ b/net/core/flow_dissector.c
-> @@ -394,9 +394,11 @@ ip_proto_again:
->
->                 opthdr = __skb_header_pointer(skb, nhoff, sizeof(_opthdr),
->                                               data, hlen, &_opthdr);
-> +               if (!opthdr)
-> +                       return false;
->
-> -               ip_proto = _opthdr[0];
-> -               nhoff += (_opthdr[1] + 1) << 3;
-> +               ip_proto = opthdr[0];
-> +               nhoff += (opthdr[1] + 1) << 3;
->
->                 goto ip_proto_again;
->         }
->
->
+=46rom: Eric Dumazet <edumazet@google.com>
 
-Acked-by: Tom Herbert <tom@herbertland.com>
+Using a function instead of a macro is cleaner and remove
+following W=3D1 warnings (extract)
+
+In file included from net/ipv6/ip6_vti.c:29:0:
+net/ipv6/ip6_vti.c: In function =E2=80=98vti6_dev_init_gen=E2=80=99:
+include/linux/netdevice.h:2029:18: warning: variable =E2=80=98stat=E2=80=
+=99 set but not
+used [-Wunused-but-set-variable]
+    typeof(type) *stat;   \
+                  ^
+net/ipv6/ip6_vti.c:862:16: note: in expansion of macro
+=E2=80=98netdev_alloc_pcpu_stats=E2=80=99
+  dev->tstats =3D netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
+                ^
+  CC [M]  net/ipv6/sit.o
+In file included from net/ipv6/sit.c:30:0:
+net/ipv6/sit.c: In function =E2=80=98ipip6_tunnel_init=E2=80=99:
+include/linux/netdevice.h:2029:18: warning: variable =E2=80=98stat=E2=80=
+=99 set but not
+used [-Wunused-but-set-variable]
+    typeof(type) *stat;   \
+                  ^
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/linux/u64_stats_sync.h |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/u64_stats_sync.h b/include/linux/u64_stats_s=
+ync.h
+index 4b4439e75f45f8e915f0ffb6b855be5f1113a04f..df89c9bcba7db8dbde3bbf2=
+b99f9af6ed562b112 100644
+--- a/include/linux/u64_stats_sync.h
++++ b/include/linux/u64_stats_sync.h
+@@ -68,11 +68,12 @@ struct u64_stats_sync {
+ };
+=20
+=20
++static inline void u64_stats_init(struct u64_stats_sync *syncp)
++{
+ #if BITS_PER_LONG =3D=3D 32 && defined(CONFIG_SMP)
+-# define u64_stats_init(syncp)	seqcount_init(syncp.seq)
+-#else
+-# define u64_stats_init(syncp)	do { } while (0)
++	seqcount_init(&syncp->seq);
+ #endif
++}
+=20
+ static inline void u64_stats_update_begin(struct u64_stats_sync *syncp=
+)
+ {
