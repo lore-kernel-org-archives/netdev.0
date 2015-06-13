@@ -1,35 +1,38 @@
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [BUG ?] irda: via-ircc: condition with no effect
-Date: Sat, 13 Jun 2015 12:47:13 +0200
-Message-ID: <1434192433-5934-1-git-send-email-hofrat@osadl.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Samuel Ortiz <samuel@sortiz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Bill William And Andrea Groner" <info@charity.com>
+Subject: Dear Sir/Madam
+Date: Sat, 13 Jun 2015 03:37:27 +0300
+Message-ID: <cd652b618cebe5aee37031cfeb3383f5.squirrel@geology.uaic.ro>
+Reply-To: b.a.groner@foxmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from geologie-c-130.geo.uaic.ro ([85.122.20.130]:57408 "EHLO
+	geologie-c-130.geo.uaic.ro" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751127AbbFMK6y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Jun 2015 06:58:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicholas Mc Guire <hofrat@osadl.org>                                      
 
-scanning for trivial bug-patters with coccinelle spatches returned:
-./drivers/net/irda/via-ircc.c:598
-	WARNING: condition with no effect (if branch == else)
 
-This code was added prior to the transition to git (Linux-2.6.12-rc2) so
-I was not really able to track back what the intent was.
 
-drivers/net/irda/via-ircc.c - line numbers from 4.1-rc7
-598                 if (IsSIROn(iobase)) {  //sir
-599                         EnGPIOtoRX2(iobase, OFF);                          
-600                         WriteGIO(iobase, OFF);
-601                         EnRX2(iobase, OFF);     //sir to rx2
-602                 } else {        // fir mir
-603                         EnGPIOtoRX2(iobase, OFF);
-604                         WriteGIO(iobase, OFF);
-605                         EnRX2(iobase, OFF);     //fir to rx
-606                 }
+Dear Sir/Madam,
 
-Given the comments that indicate that the if/else case actually are
-different this may be a bug - if not the comments might need fixing.
+I saw your email address during the course of my  research today. My name
+is Bill William Groner my wife and I won a Jackpot Lottery of $50 Million
+Dollars in December 2013, we are donating the sum of $1 million Dollars to
+6 lucky individual all over the world as part of our charity project and
+if you received this email then you are one of the luck recipients and all
+you have to do is get back to us with your details so we can forward it
+directly to the payout bank.
 
-thx!
-hofrat
+You can verify this by visiting the web pages below.
+
+http://www.huffingtonpost.ca/2014/07/22/50-million-edmonton-lotto_n_5610890.html
+
+http://cnews.canoe.ca/CNEWS/Canada/2014/07/21/21823476.html
+
+Good luck,
+Bill William And Andrea Groner.
