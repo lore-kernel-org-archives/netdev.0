@@ -1,72 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: make u64_stats_init() a function
-Date: Fri, 12 Jun 2015 19:44:48 -0700
-Message-ID: <1434163488.27504.122.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35667 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753310AbbFMCou (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2015 22:44:50 -0400
-Received: by pacyx8 with SMTP id yx8so31792937pac.2
-        for <netdev@vger.kernel.org>; Fri, 12 Jun 2015 19:44:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] batman-adv:Make the function
+	batadv_softif_is_valid bool
+Date: Fri, 12 Jun 2015 23:37:14 -0400
+Message-ID: <1434166634-11050-1-git-send-email-xerofoify@gmail.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <edumazet@google.com>
+This makes the function batadv_softif_is_valid bool
+due to this particular function only returning either
+one or zero aas it s return value.
 
-Using a function instead of a macro is cleaner and remove
-following W=3D1 warnings (extract)
-
-In file included from net/ipv6/ip6_vti.c:29:0:
-net/ipv6/ip6_vti.c: In function =E2=80=98vti6_dev_init_gen=E2=80=99:
-include/linux/netdevice.h:2029:18: warning: variable =E2=80=98stat=E2=80=
-=99 set but not
-used [-Wunused-but-set-variable]
-    typeof(type) *stat;   \
-                  ^
-net/ipv6/ip6_vti.c:862:16: note: in expansion of macro
-=E2=80=98netdev_alloc_pcpu_stats=E2=80=99
-  dev->tstats =3D netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
-                ^
-  CC [M]  net/ipv6/sit.o
-In file included from net/ipv6/sit.c:30:0:
-net/ipv6/sit.c: In function =E2=80=98ipip6_tunnel_init=E2=80=99:
-include/linux/netdevice.h:2029:18: warning: variable =E2=80=98stat=E2=80=
-=99 set but not
-used [-Wunused-but-set-variable]
-    typeof(type) *stat;   \
-                  ^
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- include/linux/u64_stats_sync.h |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ net/batman-adv/soft-interface.c | 6 +++---
+ net/batman-adv/soft-interface.h | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/u64_stats_sync.h b/include/linux/u64_stats_s=
-ync.h
-index 4b4439e75f45f8e915f0ffb6b855be5f1113a04f..df89c9bcba7db8dbde3bbf2=
-b99f9af6ed562b112 100644
---- a/include/linux/u64_stats_sync.h
-+++ b/include/linux/u64_stats_sync.h
-@@ -68,11 +68,12 @@ struct u64_stats_sync {
- };
-=20
-=20
-+static inline void u64_stats_init(struct u64_stats_sync *syncp)
-+{
- #if BITS_PER_LONG =3D=3D 32 && defined(CONFIG_SMP)
--# define u64_stats_init(syncp)	seqcount_init(syncp.seq)
--#else
--# define u64_stats_init(syncp)	do { } while (0)
-+	seqcount_init(&syncp->seq);
- #endif
-+}
-=20
- static inline void u64_stats_update_begin(struct u64_stats_sync *syncp=
-)
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 5ec31d7..dc683c8 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -974,12 +974,12 @@ static void batadv_softif_destroy_netlink(struct net_device *soft_iface,
+ 	unregister_netdevice_queue(soft_iface, head);
+ }
+ 
+-int batadv_softif_is_valid(const struct net_device *net_dev)
++bool batadv_softif_is_valid(const struct net_device *net_dev)
  {
+ 	if (net_dev->netdev_ops->ndo_start_xmit == batadv_interface_tx)
+-		return 1;
++		return true;
+ 
+-	return 0;
++	return false;
+ }
+ 
+ struct rtnl_link_ops batadv_link_ops __read_mostly = {
+diff --git a/net/batman-adv/soft-interface.h b/net/batman-adv/soft-interface.h
+index dbab22f..48a7aa4 100644
+--- a/net/batman-adv/soft-interface.h
++++ b/net/batman-adv/soft-interface.h
+@@ -24,7 +24,7 @@ void batadv_interface_rx(struct net_device *soft_iface,
+ 			 int hdr_size, struct batadv_orig_node *orig_node);
+ struct net_device *batadv_softif_create(const char *name);
+ void batadv_softif_destroy_sysfs(struct net_device *soft_iface);
+-int batadv_softif_is_valid(const struct net_device *net_dev);
++bool batadv_softif_is_valid(const struct net_device *net_dev);
+ extern struct rtnl_link_ops batadv_link_ops;
+ int batadv_softif_create_vlan(struct batadv_priv *bat_priv, unsigned short vid);
+ void batadv_softif_vlan_free_ref(struct batadv_softif_vlan *softif_vlan);
+-- 
+2.1.4
