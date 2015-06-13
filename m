@@ -1,47 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] bpf: BPF based latency tracing
-Date: Tue, 23 Jun 2015 06:10:31 -0700 (PDT)
-Message-ID: <20150623.061031.2284937918219178217.davem@davemloft.net>
-References: <1434722444-10200-1-git-send-email-daniel.wagner@bmw-carit.de>
-	<5584B9A5.9030602@plumgrid.com>
+From: "Herr Martins D Weber" <test@fumeilaistone.cn>
+Subject: Lieber Freund!!!
+Date: Sat, 13 Jun 2015 05:36:08 -0700
+Message-ID: <5FD2B6C3-2A8D-40AC-8ACF-005595741466@fumeilaistone.cn>
+Reply-To: <martinsdweber@aim.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel.wagner@bmw-carit.de, daniel@iogearbox.net, mingo@kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: ast@plumgrid.com
+Content-Type: text/plain; charset=Windows-1251
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33284 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753565AbbFWM6q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 08:58:46 -0400
-In-Reply-To: <5584B9A5.9030602@plumgrid.com>
+Received: from [115.29.104.60] ([115.29.104.60]:53586 "HELO fumeilaistone.cn"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+	id S932740AbbFWNAj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 09:00:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Fri, 19 Jun 2015 17:53:57 -0700
+Lieber Freund!!!
 
-> On 6/19/15 7:00 AM, Daniel Wagner wrote:
->> BPF offers another way to generate latency histograms. We attach
->> kprobes at trace_preempt_off and trace_preempt_on and calculate the
->> time it takes to from seeing the off/on transition.
-> ...
->> Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
-> ...
->> With the rebase on net-next no additinal patches are needed and this
->> thing here runs fine.
-> ...
->> samples/bpf/Makefile       |   4 ++
->>   samples/bpf/lathist_kern.c | 99
->>   +++++++++++++++++++++++++++++++++++++++++++
->>   samples/bpf/lathist_user.c | 103
->>   +++++++++++++++++++++++++++++++++++++++++++++
->>   3 files changed, 206 insertions(+)
->>   create mode 100644 samples/bpf/lathist_kern.c
->>   create mode 100644 samples/bpf/lathist_user.c
-> 
-> Thanks. That's a useful example.
-> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+Ich vermute das diese E-Mail eine ?berraschung f?r Sie sein wird, aber =
+es ist wahr.Ich bin bei einer routinen ?berpr?fung in meiner Bank (Stan=
+dardBank PLC von S?d Afrika) wo ich arbeite, auf einem Konto gesto?en, =
+was nicht in anspruch genommen worden ist, wo derzeit USD$18.5M (Achtze=
+hn Million, F?nf Hundert Tausend, US Dollar)  gutgeschrieben sind.Diese=
+s Konto geh?rte Herrn Manfred Becker, der ein Kunde in unsere Bank war,=
+ der leider verstorben ist. Herrn Manfred Becker war ein geb?rtiger Deu=
+tscher.
 
-Applied, thanks.
+Damit es mir m?glich ist dieses Geld $18,500,000 inanspruch zunehmen,be=
+n?tige ich die zusammenarbeit eines Ausl?ndischen Partners wie Sie,den =
+ich als Verwandter und Erbe des verstorbenen Herrn Manfred Becker vorst=
+ellen kann,damit wir das Geld inanspruch nehmen k?nnen. F?r diese Unter=
+st?tzung erhalten Sie 30% der Erbschaftsumme und die restlichen 70% tei=
+le ich mirmit meinen zwei Arbeitskollegen, die mich bei dieser Transakt=
+ion ebenfalls unterst?tzen.
+
+
+Wenn Sie interessiert sind, k?nnen Sie mir bitte eine E-Mail schicken, =
+damit ich Ihnen mehr Details zukommen lassen kann. N.B.BITTE SENDEN SIE=
+ MIR Martins D Weber ANTWORT ZU durch mein E-mail: ( martinsdweber@aim.=
+com ) f?R VERTRAULICHEN GRUND. Schicken Sie keine POST ZU MEINEM B?RO-E=
+-MAIL.(martinsdweber@aim.com )
+
+
+If you understand english,please  kindly reply with english ( martinsdw=
+eber@aim.com )
+
+Mit freundlichen Gr=FC=DFen
+
+Herr Martins D Weber
+
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
