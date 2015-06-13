@@ -1,164 +1,105 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next v2] bridge: use either ndo VLAN ops or switchdev VLAN ops to install MASTER vlans
-Date: Fri, 12 Jun 2015 17:39:50 -0700
-Message-ID: <1434155990-45616-1-git-send-email-sfeldma@gmail.com>
-Cc: jiri@resnulli.us, makita.toshiaki@lab.ntt.co.jp,
-	roopa@cumulusnetworks.com, jhs@mojatatu.com,
-	simon.horman@netronome.com, stephen@networkplumber.org
+From: Kevin <kevin.padoa@gmail.com>
+Subject: Re: Fw: [Bug 98781] New: WWAN: TX bytes counter shows very huge impossible value
+Date: Sat, 13 Jun 2015 00:28:58 +0000 (UTC)
+Message-ID: <loom.20150613T021828-603@post.gmane.org>
+References: <20150526083857.78cb053b@urahara>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34831 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753559AbbFMAiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2015 20:38:24 -0400
-Received: by pacyx8 with SMTP id yx8so30727328pac.2
-        for <netdev@vger.kernel.org>; Fri, 12 Jun 2015 17:38:23 -0700 (PDT)
+Received: from plane.gmane.org ([80.91.229.3]:36340 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753721AbbFMAkG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Jun 2015 20:40:06 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Z3ZUS-0001Yw-DA
+	for netdev@vger.kernel.org; Sat, 13 Jun 2015 02:40:04 +0200
+Received: from 8ta-150-225-132.telkomadsl.co.za ([41.150.225.132])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 13 Jun 2015 02:40:04 +0200
+Received: from kevin.padoa by 8ta-150-225-132.telkomadsl.co.za with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 13 Jun 2015 02:40:04 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
+Stephen Hemminger <stephen <at> networkplumber.org> writes:
 
-v2:
+> 
+> 
+> Begin forwarded message:
+> 
+> Date: Sat, 23 May 2015 16:54:50 +0000
+> From: "bugzilla-daemon <at> bugzilla.kernel.org" <bugzilla-daemon <at>
+bugzilla.kernel.org>
+> To: "shemminger <at> linux-foundation.org" <shemminger <at>
+linux-foundation.org>
+> Subject: [Bug 98781] New: WWAN: TX bytes counter shows very huge
+impossible value
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=98781
+> 
+>             Bug ID: 98781
+>            Summary: WWAN: TX bytes counter shows very huge impossible
+>                     value
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 4.0.x
+>           Hardware: Intel
+>                 OS: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>           Assignee: shemminger <at> linux-foundation.org
+>           Reporter: mm <at> superbash.de
+>         Regression: No
+> 
+> Since version 4.0.x the TX bytes counter of the WWAN module shows a weird
+> value.
+> 
+> Example:
+> 
+> $ > ifconfig wwan
+> 
+> wwan0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+>         inet xxx.xxx.xxx.xxx  netmask 255.255.255.252  broadcast
+> xxx.xxx.xxx.xxx
+>         inet6 xxxx::xxxx:xxxx:xxxx:xxxx  prefixlen 64  scopeid 0x20<link>
+>         ether xx:xx:xx:xx:xx:xx  txqueuelen 1000  (Ethernet)
+>         RX packets 19036  bytes 19190321 (18.3 MiB)
+>         RX errors 0  dropped 0  overruns 0  frame 0
+>         TX packets 15874  bytes 43228847574631 (39.3 TiB)
+>         TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+> 
+> 39.3 TiB - wow, absolutely not true
+> 
+> The WWAN is used as bridge to my internet provider (LTE usb stick)
+> 
+> I use the counter to control the traffic. It's only the TX counter, the RX
+> works ok.
+> 
+I have exactly the same issue, exhibited when upgrading (n-1) kernel on
+Ubuntu Vivid 15.04 from 3.17.x:
 
-Move struct switchdev_obj automatics to inner scope where there used.
+Linux uranis 3.19.0-20-generic #20-Ubuntu SMP Fri May 29 10:10:47 UTC 2015
+x86_64 x86_64 x86_64 GNU/Linux
 
-v1:
+wwan0     Link encap:Ethernet  HWaddr 26:03:a9:e3:88:2e  
+          inet addr:41.150.225.132  Bcast:41.150.225.135  Mask:255.255.255.248
+          inet6 addr: fe80::2403:a9ff:fee3:882e/64 Scope:Link
+          UP BROADCAST RUNNING NOARP MULTICAST  MTU:1500  Metric:1
+          RX packets:3366 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:3497 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:1459963 (1.4 MB)  TX bytes:15019500985395 (15.0 TB)
 
-To maintain backward compatibility with the existing iproute2 "bridge vlan"
-command, let bridge's setlink/dellink handler call into either the port
-driver's 8021q ndo ops or the port driver's bridge_setlink/dellink ops.
+Kernel internal or module (driver) bug, shows up everywhere including
+'system monitor'. This problem has come up a few years back and was solved,
+but seems to be back again...
 
-This allows port driver to choose 8021q ops or the newer
-bridge_setlink/dellink ops when implementing VLAN add/del filtering on the
-device.  The iproute "bridge vlan" command does not need to be modified.
-
-To summarize using the "bridge vlan" command examples, we have:
-
-1) bridge vlan add|del vid VID dev DEV
-
-Here iproute2 sets MASTER flag.  Bridge's bridge_setlink/dellink is called.
-Vlan is set on bridge for port.  If port driver implements ndo 8021q ops,
-call those to port driver can install vlan filter on device.  Otherwise, if
-port driver implements bridge_setlink/dellink ops, call those to install
-vlan filter to device.  This option only works if port is bridged.
-
-2) bridge vlan add|del vid VID dev DEV master
-
-Same as 1)
-
-3) bridge vlan add|del vid VID dev DEV self
-
-Bridge's bridge_setlink/dellink isn't called.  Port driver's
-bridge_setlink/dellink is called, if implemented.  This option works if
-port is bridged or not.  If port is not bridged, a VLAN can still be
-added/deleted to device filter using this variant.
-
-4) bridge vlan add|del vid VID dev DEV master self
-
-This is a combination of 1) and 3), but will only work if port is bridged.
-
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
----
- net/bridge/br_vlan.c |   59 ++++++++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 57 insertions(+), 2 deletions(-)
-
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 13013fe..17fc358 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -2,6 +2,7 @@
- #include <linux/netdevice.h>
- #include <linux/rtnetlink.h>
- #include <linux/slab.h>
-+#include <net/switchdev.h>
- 
- #include "br_private.h"
- 
-@@ -36,6 +37,36 @@ static void __vlan_add_flags(struct net_port_vlans *v, u16 vid, u16 flags)
- 		clear_bit(vid, v->untagged_bitmap);
- }
- 
-+static int __vlan_vid_add(struct net_device *dev, struct net_bridge *br,
-+			  u16 vid, u16 flags)
-+{
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+	int err;
-+
-+	/* If driver uses VLAN ndo ops, use 8021q to install vid
-+	 * on device, otherwise try switchdev ops to install vid.
-+	 */
-+
-+	if (ops->ndo_vlan_rx_add_vid) {
-+		err = vlan_vid_add(dev, br->vlan_proto, vid);
-+	} else {
-+		struct switchdev_obj vlan_obj = {
-+			.id = SWITCHDEV_OBJ_PORT_VLAN,
-+			.u.vlan = {
-+				.flags = flags,
-+				.vid_start = vid,
-+				.vid_end = vid,
-+			},
-+		};
-+
-+		err = switchdev_port_obj_add(dev, &vlan_obj);
-+		if (err == -EOPNOTSUPP)
-+			err = 0;
-+	}
-+
-+	return err;
-+}
-+
- static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
- {
- 	struct net_bridge_port *p = NULL;
-@@ -62,7 +93,7 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
- 		 * This ensures tagged traffic enters the bridge when
- 		 * promiscuous mode is disabled by br_manage_promisc().
- 		 */
--		err = vlan_vid_add(dev, br->vlan_proto, vid);
-+		err = __vlan_vid_add(dev, br, vid, flags);
- 		if (err)
- 			return err;
- 	}
-@@ -86,6 +117,30 @@ out_filt:
- 	return err;
- }
- 
-+static void __vlan_vid_del(struct net_device *dev, struct net_bridge *br,
-+			   u16 vid)
-+{
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+
-+	/* If driver uses VLAN ndo ops, use 8021q to delete vid
-+	 * on device, otherwise try switchdev ops to delete vid.
-+	 */
-+
-+	if (ops->ndo_vlan_rx_kill_vid) {
-+		vlan_vid_del(dev, br->vlan_proto, vid);
-+	} else {
-+		struct switchdev_obj vlan_obj = {
-+			.id = SWITCHDEV_OBJ_PORT_VLAN,
-+			.u.vlan = {
-+				.vid_start = vid,
-+				.vid_end = vid,
-+			},
-+		};
-+
-+		switchdev_port_obj_del(dev, &vlan_obj);
-+	}
-+}
-+
- static int __vlan_del(struct net_port_vlans *v, u16 vid)
- {
- 	if (!test_bit(vid, v->vlan_bitmap))
-@@ -96,7 +151,7 @@ static int __vlan_del(struct net_port_vlans *v, u16 vid)
- 
- 	if (v->port_idx) {
- 		struct net_bridge_port *p = v->parent.port;
--		vlan_vid_del(p->dev, p->br->vlan_proto, vid);
-+		__vlan_vid_del(p->dev, p->br, vid);
- 	}
- 
- 	clear_bit(vid, v->vlan_bitmap);
--- 
-1.7.10.4
+Any ideas on fix ?
