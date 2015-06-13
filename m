@@ -1,48 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: tcp_v6_connect() cleanup
-Date: Fri, 12 Jun 2015 19:34:03 -0700
-Message-ID: <1434162843.27504.114.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35249 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751104AbbFMCeF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2015 22:34:05 -0400
-Received: by pacyx8 with SMTP id yx8so31692515pac.2
-        for <netdev@vger.kernel.org>; Fri, 12 Jun 2015 19:34:04 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v2 net-next 0/3] bpf: share helpers between tracing and networking
+Date: Fri, 12 Jun 2015 19:39:11 -0700
+Message-ID: <1434163154-5218-1-git-send-email-ast@plumgrid.com>
+Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Wang Nan <wangnan0-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+v1->v2: switched to init_user_ns from current_user_ns as suggested by Andy
 
-Remove dead code from tcp_v6_connect()
+Introduce new helpers to access 'struct task_struct'->pid, tgid, uid, gid, comm
+fields in tracing and networking.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv6/tcp_ipv6.c |    2 --
- 1 file changed, 2 deletions(-)
+Share bpf_trace_printk() and bpf_get_smp_processor_id() helpers between
+tracing and networking.
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 45a7176ed460681558808439f20e1622423f4c32..6748c4277affad71cd721e3a985af10c31c047ad 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -120,7 +120,6 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct in6_addr *saddr = NULL, *final_p, final;
--	struct rt6_info *rt;
- 	struct flowi6 fl6;
- 	struct dst_entry *dst;
- 	int addr_type;
-@@ -258,7 +257,6 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	sk->sk_gso_type = SKB_GSO_TCPV6;
- 	__ip6_dst_store(sk, dst, NULL, NULL);
- 
--	rt = (struct rt6_info *) dst;
- 	if (tcp_death_row.sysctl_tw_recycle &&
- 	    !tp->rx_opt.ts_recent_stamp &&
- 	    ipv6_addr_equal(&fl6.daddr, &sk->sk_v6_daddr))
+Alexei Starovoitov (3):
+  bpf: introduce current->pid, tgid, uid, gid, comm accessors
+  bpf: allow networking programs to use bpf_trace_printk() for
+    debugging
+  bpf: let kprobe programs use bpf_get_smp_processor_id() helper
+
+ include/linux/bpf.h        |    4 +++
+ include/uapi/linux/bpf.h   |   19 +++++++++++++
+ kernel/bpf/core.c          |    7 +++++
+ kernel/bpf/helpers.c       |   58 ++++++++++++++++++++++++++++++++++++++
+ kernel/trace/bpf_trace.c   |   28 ++++++++++++------
+ net/core/filter.c          |    8 ++++++
+ samples/bpf/bpf_helpers.h  |    6 ++++
+ samples/bpf/tracex2_kern.c |   24 ++++++++++++----
+ samples/bpf/tracex2_user.c |   67 ++++++++++++++++++++++++++++++++++++++------
+ 9 files changed, 199 insertions(+), 22 deletions(-)
+
+-- 
+1.7.9.5
