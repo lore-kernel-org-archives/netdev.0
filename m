@@ -1,60 +1,46 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] Increase limit of macvtap queues
-Date: Sun, 14 Jun 2015 10:42:40 +0200
-Message-ID: <20150614103209-mutt-send-email-mst@redhat.com>
-References: <1434115828-9461-1-git-send-email-pagupta@redhat.com>
+From: Ulrich Gemkow <ulrich.gemkow@ikr.uni-stuttgart.de>
+Subject: displayed name changed in ip link show for bridge- and other interfaces
+Date: Sun, 14 Jun 2015 12:00:18 +0200
+Message-ID: <201506141200.20435.ulrich.gemkow@ikr.uni-stuttgart.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kaber@trash.net, davem@davemloft.net, jasowang@redhat.com,
-	vyasevic@redhat.com, bhutchings@solarflare.com,
-	therbert@google.com, viro@zeniv.linux.org.uk
-To: Pankaj Gupta <pagupta@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailsrv.ikr.uni-stuttgart.de ([129.69.170.2]:58291 "EHLO
+	mailsrv.ikr.uni-stuttgart.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751064AbbFNKHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jun 2015 06:07:20 -0400
+Received: from netsrv1.ikr.uni-stuttgart.de (netsrv1-c [10.11.12.12])
+	by mailsrv.ikr.uni-stuttgart.de (Postfix) with ESMTP id AB83A601EE
+	for <netdev@vger.kernel.org>; Sun, 14 Jun 2015 12:00:20 +0200 (CEST)
+Received: from ikr.uni-stuttgart.de (pc041 [10.21.21.41])
+	by netsrv1.ikr.uni-stuttgart.de (Postfix) with SMTP id 9214060078
+	for <netdev@vger.kernel.org>; Sun, 14 Jun 2015 12:00:20 +0200 (CEST)
 Content-Disposition: inline
-In-Reply-To: <1434115828-9461-1-git-send-email-pagupta@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 12, 2015 at 07:00:28PM +0530, Pankaj Gupta wrote:
-> Macvtap should be compatible with tuntap for maximum number
-> of queues. '1059590254fa9dce9cafc4f07d1103dbec415e76' removes
-> the limitation and increases number of queues in tuntap.
-> Now, Its safe to increase number of queues in Macvtap as well.
-> 
-> Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
+Hello,
 
-It's a good idea, but this might be a problem:
+between Linux 4.0.5 and 4.1-rc7 the name as shown by "ip link show"
+of bridge interfaces (and at least the dummy interface) changed from 
+(i.e.) br1 to br1@NONE.
 
-static void macvtap_del_queues(struct net_device *dev)
-{
-        struct macvlan_dev *vlan = netdev_priv(dev);
-        struct macvtap_queue *q, *tmp, *qlist[MAX_MACVTAP_QUEUES];
+This breaks (at least for me :-) userspace (ip link show parsing
+scripts). It is easy to solve, so not a big problem. I am using
+Ubuntu 14.04.
 
-...
-}
+Is this user visible change intended?
 
-by itself, this will use 2K on stack, which seems too much.
+Thank you and best regards
 
-You need to rework this function to use a linked list + list_move
-instead of an array + list_del_init.
+Ulrich
 
-> ---
->  include/linux/if_macvlan.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-> index 6f6929e..a4ccc31 100644
-> --- a/include/linux/if_macvlan.h
-> +++ b/include/linux/if_macvlan.h
-> @@ -29,7 +29,7 @@ struct macvtap_queue;
->   * Maximum times a macvtap device can be opened. This can be used to
->   * configure the number of receive queue, e.g. for multiqueue virtio.
->   */
-> -#define MAX_MACVTAP_QUEUES     16
-> +#define MAX_MACVTAP_QUEUES     256
-> 
->  #define MACVLAN_MC_FILTER_BITS 8
->  #define MACVLAN_MC_FILTER_SZ   (1 << MACVLAN_MC_FILTER_BITS)
-> --
-> 1.7.1
+-- 
+|-----------------------------------------------------------------------
+| Ulrich Gemkow
+| University of Stuttgart, Germany
+| Institute of Communication Networks and Computer Engineering (IKR)
+|-----------------------------------------------------------------------
