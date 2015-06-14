@@ -1,57 +1,53 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: fec: Ensure clocks are enabled while using mdio bus
-Date: Sun, 14 Jun 2015 16:41:18 +0200
-Message-ID: <20150614144118.GA7800@lunn.ch>
-References: <1434123545-13549-1-git-send-email-andrew@lunn.ch>
- <BLUPR03MB373E1D5EADCB4753C8D0F15F5B90@BLUPR03MB373.namprd03.prod.outlook.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [BUG ?] rtlwifi: rtl8723be: condition with no effect
+Date: Sun, 14 Jun 2015 10:17:29 -0500
+Message-ID: <557D9B09.7020100@lwfinger.net>
+References: <1434192211-5855-1-git-send-email-hofrat@osadl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Cory Tusar <cory.tusar@pid1solutions.com>,
-	netdev <netdev@vger.kernel.org>
-To: Duan Andy <fugang.duan@freescale.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Randy Dunlap <rdunlap@infradead.org>,
+	Masanari Iida <standby24x7@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Nicholas Mc Guire <hofrat@osadl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55793 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751524AbbFNOrF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Jun 2015 10:47:05 -0400
-Content-Disposition: inline
-In-Reply-To: <BLUPR03MB373E1D5EADCB4753C8D0F15F5B90@BLUPR03MB373.namprd03.prod.outlook.com>
+Received: from mail-oi0-f53.google.com ([209.85.218.53]:35812 "EHLO
+	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752091AbbFNPRd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jun 2015 11:17:33 -0400
+In-Reply-To: <1434192211-5855-1-git-send-email-hofrat@osadl.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 14, 2015 at 08:07:12AM +0000, Duan Andy wrote:
-> From: Andrew Lunn <andrew@lunn.ch> Sent: Friday, June 12, 2015 11:39 PM
-> > To: David Miller
-> > Cc: Duan Fugang-B38611; Cory Tusar; netdev; Andrew Lunn
-> > Subject: [PATCH] net: fec: Ensure clocks are enabled while using mdio bus
-> > 
-> > When a switch is attached to the mdio bus, the mdio bus can be used while
-> > the interface is not open. If the clocks are not enabled, MDIO
-> > reads/writes will simply time out. So enable the clocks before starting a
-> > transaction, and disable them afterwards. The CCF performs reference
-> > counting so the clocks will only be disabled if there are no other users.
-> > 
-> > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> > ---
-> 
-> NAK the patch.
+On 06/13/2015 05:43 AM, Nicholas Mc Guire wrote:
+> From: Nicholas Mc Guire <hofrat@osadl.org>
+>
+> scanning for trivial bug-patters with coccinelle spatches returned:
+> ./drivers/net/wireless/rtlwifi/rtl8723be/dm.c:886
+> 	WARNING: condition with no effect (if branch == else)
+>
+> Added in 'commit a619d1abe20c ("rtlwifi: rtl8723be: Add new driver")'
+>
+> drivers/net/wireless/rtlwifi/rtl8723be/dm.c - line numbers from 4.1-rc7
+> 886         if (thermalvalue > rtlefuse->eeprom_thermalmeter)
+> 887                 rtl8723be_dm_tx_power_track_set_power(hw, BBSWING, 0,
+> 888						 	index_for_channel);
+> 889         else
+> 890                 rtl8723be_dm_tx_power_track_set_power(hw, BBSWING, 0,
+> 891							index_for_channel);
+>
+> Can't figure out what the intent of this condition is but it currently has
+> no effect as if == else and this most likely is not the intent.
 
-> i.MX series MDIO bus is a part of ENET controller. If the eth
-> interface is not open, all clocks including MDIO bus clock are not
-> enabled for power saving.
+I do not know what the correct code should be here, but I will contact the 
+Realtek engineers and get their interpretation. In the meantime, please do not 
+change this code.
 
-Where do you see a power saving regression in this code? It is not as
-if i just unconditionally turn the clocks on. As the comment says, at
-the start of an MDIO transaction, the clocks are enabled. At the end
-of a transaction, they are disabled again. If you don't have a switch
-connected, there will be no transactions, hence no change to power
-savings.
+Thanks,
 
-> In general, if you want to use mdio bus net interface must be
-> running status.
-
-This is not true for a number of Ethernet devices. All those currently
-used with DSA allow MDIO transactions at any time.
-
-     Andrew
+Larry
