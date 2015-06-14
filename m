@@ -1,9 +1,9 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [RFC PATCH net-next 2/4] switchdev: add fwd_mark generator helper
-Date: Sun, 14 Jun 2015 08:56:02 +0200
-Message-ID: <20150614065601.GB2105@nanopsycho.orion>
+Subject: Re: [RFC PATCH net-next 3/4] rocker: add fwd_mark support
+Date: Sun, 14 Jun 2015 09:02:56 +0200
+Message-ID: <20150614070256.GC2105@nanopsycho.orion>
 References: <1434218670-43821-1-git-send-email-sfeldma@gmail.com>
- <1434218670-43821-3-git-send-email-sfeldma@gmail.com>
+ <1434218670-43821-4-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, simon.horman@netronome.com,
@@ -13,111 +13,122 @@ Cc: netdev@vger.kernel.org, simon.horman@netronome.com,
 	stephen@networkplumber.org
 To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:35955 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751342AbbFNG4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jun 2015 02:56:05 -0400
-Received: by wgzl5 with SMTP id l5so22519811wgz.3
-        for <netdev@vger.kernel.org>; Sat, 13 Jun 2015 23:56:04 -0700 (PDT)
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:38416 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752034AbbFNHC7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jun 2015 03:02:59 -0400
+Received: by wibdq8 with SMTP id dq8so48704048wib.1
+        for <netdev@vger.kernel.org>; Sun, 14 Jun 2015 00:02:58 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1434218670-43821-3-git-send-email-sfeldma@gmail.com>
+In-Reply-To: <1434218670-43821-4-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Jun 13, 2015 at 08:04:28PM CEST, sfeldma@gmail.com wrote:
+Sat, Jun 13, 2015 at 08:04:29PM CEST, sfeldma@gmail.com wrote:
 >From: Scott Feldman <sfeldma@gmail.com>
 >
->skb->fwd_mark and dev->fwd_mark are 32-bit and should be unique for device
->and maybe even unique for a sub-set of ports within device, so add
->switchdev helper function to generate unique marks based on driver-supplied
->key.  Typically, the driver would use device switch ID for key, and maybe
->additional fields in key for grouped ports such as bridge ifindex.  The key
->can be of arbitrary length.
+>If device flags ingress packet as "fwd offload", mark the skb->fwd_mark
+>using the ingress port's dev->fwd_mark.  This will be the hint to the
+>kernel that this packet has already been forwarded by device to egress
+>ports matching skb->fwd_mark.
 >
->The generator uses a global hash table to store fwd_marks hashed by key.
+>For rocker, derive port dev->fwd_mark based on device switch ID.  If port
+>is bridged, include the bridge's ifindex in the key for deriving
+>dev->fwd_mark.
 >
 >Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 >---
-> include/net/switchdev.h   |    6 ++++
-> net/switchdev/switchdev.c |   72 +++++++++++++++++++++++++++++++++++++++++++++
-> 2 files changed, 78 insertions(+)
+> drivers/net/ethernet/rocker/rocker.c |   24 ++++++++++++++++++++++++
+> drivers/net/ethernet/rocker/rocker.h |    1 +
+> 2 files changed, 25 insertions(+)
 >
->diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->index 437f8fe..6eaceee 100644
->--- a/include/net/switchdev.h
->+++ b/include/net/switchdev.h
->@@ -157,6 +157,7 @@ int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
-> int switchdev_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
-> 			    struct net_device *dev,
-> 			    struct net_device *filter_dev, int idx);
->+u32 switchdev_mark_get(void *key, size_t key_len);
+>diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+>index a06b93d..81407d8 100644
+>--- a/drivers/net/ethernet/rocker/rocker.c
+>+++ b/drivers/net/ethernet/rocker/rocker.c
+>@@ -4701,6 +4701,7 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
+> 	const struct rocker_tlv *attrs[ROCKER_TLV_RX_MAX + 1];
+> 	struct sk_buff *skb = rocker_desc_cookie_ptr_get(desc_info);
+> 	size_t rx_len;
+>+	u16 rx_flags = 0;
 > 
-> #else
+> 	if (!skb)
+> 		return -ENOENT;
+>@@ -4708,6 +4709,8 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
+> 	rocker_tlv_parse_desc(attrs, ROCKER_TLV_RX_MAX, desc_info);
+> 	if (!attrs[ROCKER_TLV_RX_FRAG_LEN])
+> 		return -EINVAL;
+>+	if (attrs[ROCKER_TLV_RX_FLAGS])
+>+		rx_flags = rocker_tlv_get_u16(attrs[ROCKER_TLV_RX_FLAGS]);
 > 
->@@ -271,6 +272,11 @@ static inline int switchdev_port_fdb_dump(struct sk_buff *skb,
-> 	return -EOPNOTSUPP;
+> 	rocker_dma_rx_ring_skb_unmap(rocker, attrs);
+> 
+>@@ -4715,6 +4718,9 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
+> 	skb_put(skb, rx_len);
+> 	skb->protocol = eth_type_trans(skb, rocker_port->dev);
+> 
+>+	if (rx_flags & ROCKER_RX_FLAGS_FWD_OFFLOAD)
+
+Nasty :) I'm not sure that this can be easily done for real hw. But
+anyway, that is a driver problem.
+
+
+>+		skb->fwd_mark = rocker_port->dev->fwd_mark;
+>+
+> 	rocker_port->dev->stats.rx_packets++;
+> 	rocker_port->dev->stats.rx_bytes += skb->len;
+> 
+>@@ -4814,6 +4820,21 @@ static void rocker_port_dev_addr_init(struct rocker_port *rocker_port)
+> 	}
 > }
 > 
->+static inline u32 switchdev_mark_get(void *key, size_t key_len)
+>+static void rocker_port_fwd_mark_set(struct rocker_port *rocker_port)
 >+{
->+	return 0;
+>+	struct rocker *rocker = rocker_port->rocker;
+>+	struct {
+>+		u64 hw_id;
+>+		int ifindex;
+>+	} key = {
+>+		.hw_id = rocker->hw.id,
+>+		.ifindex = rocker_port_is_bridged(rocker_port) ?
+>+			   rocker_port->bridge_dev->ifindex : 0,
+>+	};
+>+
+>+	rocker_port->dev->fwd_mark = switchdev_mark_get(&key, sizeof(key));
 >+}
 >+
-> #endif
+> static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+> {
+> 	const struct pci_dev *pdev = rocker->pdev;
+>@@ -4832,6 +4853,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+> 	rocker_port->pport = port_number + 1;
+> 	rocker_port->brport_flags = BR_LEARNING | BR_LEARNING_SYNC;
+> 	INIT_LIST_HEAD(&rocker_port->trans_mem);
+>+	rocker_port_fwd_mark_set(rocker_port);
 > 
-> #endif /* _LINUX_SWITCHDEV_H_ */
->diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->index a5d0f8e..9ca37b3 100644
->--- a/net/switchdev/switchdev.c
->+++ b/net/switchdev/switchdev.c
->@@ -16,6 +16,8 @@
-> #include <linux/notifier.h>
-> #include <linux/netdevice.h>
-> #include <linux/if_bridge.h>
->+#include <linux/hashtable.h>
->+#include <linux/crc32.h>
-> #include <net/ip_fib.h>
-> #include <net/switchdev.h>
+> 	rocker_port_dev_addr_init(rocker_port);
+> 	dev->netdev_ops = &rocker_port_netdev_ops;
+>@@ -5131,6 +5153,7 @@ static int rocker_port_bridge_join(struct rocker_port *rocker_port,
+> 		rocker_port_internal_vlan_id_get(rocker_port, bridge->ifindex);
 > 
->@@ -924,3 +926,73 @@ void switchdev_fib_ipv4_abort(struct fib_info *fi)
-> 	fi->fib_net->ipv4.fib_offload_disabled = true;
-> }
-> EXPORT_SYMBOL_GPL(switchdev_fib_ipv4_abort);
->+
->+#define SWITCHDEV_MARK_HT_BITS	5
->+static DEFINE_HASHTABLE(switchdev_mark_ht, SWITCHDEV_MARK_HT_BITS);
->+static DEFINE_SPINLOCK(switchdev_mark_lock);
->+static u32 switchdev_mark_next = 1;
->+
->+/**
->+ *	switchdev_mark_get - Generate a unique mark for key
->+ *
->+ *	@key: key used to generate mark
->+ *	@key_len: length of key in bytes
->+ *
->+ *	Returns unqiue 32-bit mark for given key, or 0 if error.
-                ^^^^^^
-		typo.
+> 	rocker_port->bridge_dev = bridge;
+>+	rocker_port_fwd_mark_set(rocker_port);
+> 
+> 	return rocker_port_vlan_add(rocker_port, SWITCHDEV_TRANS_NONE,
+> 				    untagged_vid, 0);
+>@@ -5152,6 +5175,7 @@ static int rocker_port_bridge_leave(struct rocker_port *rocker_port)
+> 						 rocker_port->dev->ifindex);
+> 
+> 	rocker_port->bridge_dev = NULL;
+>+	rocker_port_fwd_mark_set(rocker_port);
 
 
->+ *	A small global hash table stores the marks for each key.
->+ *	The length of the key and key contents are arbitrary.
->+ *	The marks can be used, for example, to skb->fwd_mark a pkt
->+ *	to associate the skb with a key.
->+ */
->+u32 switchdev_mark_get(void *key, size_t key_len)
->+{
->+	struct switchdev_mark_ht_entry {
->+		struct hlist_node entry;
->+		void *key;
->+		size_t key_len;
->+		u32 key_crc32;
->+		u32 mark;
->+	} *entry;
->+	u32 key_crc32 = crc32(~0, key, key_len);
->+	u32 mark = 0;
->+	unsigned long flags;
->+
->+	spin_lock_irqsave(&switchdev_mark_lock, flags);
+Hmm, wouldn't it make sense to move fwd_mark setting from drivers to
+switchdev core? This will look the same for all drivers, so I think it
+should be in common swithdev core, always generated according to "switch id".
 
-I fail to see why _irqsave variant is needed here.
+So all what driver needs to do is to call some helper like:
+static inline void switchdev_skb_fwd_mark(struct sk_buff *skb,
+					  struct net_device *dev) {
+	skb->fwd_mark = dev->fwd_mark;
+}
