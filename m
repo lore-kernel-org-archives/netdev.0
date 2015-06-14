@@ -1,63 +1,57 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] net/mlx4_core: Disable Granular QoS per VF under IB/Eth VPI configuration
-Date: Sun, 14 Jun 2015 17:13:06 +0300
-Message-ID: <1434291186-24953-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
-	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Ido Shamay <idos@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: fec: Ensure clocks are enabled while using mdio bus
+Date: Sun, 14 Jun 2015 16:41:18 +0200
+Message-ID: <20150614144118.GA7800@lunn.ch>
+References: <1434123545-13549-1-git-send-email-andrew@lunn.ch>
+ <BLUPR03MB373E1D5EADCB4753C8D0F15F5B90@BLUPR03MB373.namprd03.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Cory Tusar <cory.tusar@pid1solutions.com>,
+	netdev <netdev@vger.kernel.org>
+To: Duan Andy <fugang.duan@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:35292 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751417AbbFNONa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Jun 2015 10:13:30 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:55793 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751524AbbFNOrF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Jun 2015 10:47:05 -0400
+Content-Disposition: inline
+In-Reply-To: <BLUPR03MB373E1D5EADCB4753C8D0F15F5B90@BLUPR03MB373.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Due to firmware bug, under VPI configuration when port1 = IB and
-port2 = Eth, Granular QoS per VF isn't working properly. More over,
-the whole QP0/QP1 Para-Virtualization in the mlx4 IB driver is
-broken on that config.
+On Sun, Jun 14, 2015 at 08:07:12AM +0000, Duan Andy wrote:
+> From: Andrew Lunn <andrew@lunn.ch> Sent: Friday, June 12, 2015 11:39 PM
+> > To: David Miller
+> > Cc: Duan Fugang-B38611; Cory Tusar; netdev; Andrew Lunn
+> > Subject: [PATCH] net: fec: Ensure clocks are enabled while using mdio bus
+> > 
+> > When a switch is attached to the mdio bus, the mdio bus can be used while
+> > the interface is not open. If the clocks are not enabled, MDIO
+> > reads/writes will simply time out. So enable the clocks before starting a
+> > transaction, and disable them afterwards. The CCF performs reference
+> > counting so the clocks will only be disabled if there are no other users.
+> > 
+> > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> > ---
+> 
+> NAK the patch.
 
-Hence, we must disable Granular QoS per VF under that configuration
-till a fix is introduced. Once that happens, a new device capability
-will be used to mark the feature support on that specific configuration.
+> i.MX series MDIO bus is a part of ENET controller. If the eth
+> interface is not open, all clocks including MDIO bus clock are not
+> enabled for power saving.
 
-Reported-by: Doug Ledford <dledford@redhat.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
+Where do you see a power saving regression in this code? It is not as
+if i just unconditionally turn the clocks on. As the comment says, at
+the start of an MDIO transaction, the clocks are enabled. At the end
+of a transaction, they are disabled again. If you don't have a switch
+connected, there will be no transactions, hence no change to power
+savings.
 
-Hi Dave, 
+> In general, if you want to use mdio bus net interface must be
+> running status.
 
-This FW bug comes into play only on 4.1-rc1 and onward, so 
-no need for -stable here, also I didn't put a Fixes: tag since 
-the bug isn't in the driver commit itself.
+This is not true for a number of Ethernet devices. All those currently
+used with DSA allow MDIO transactions at any time.
 
-Or.
-
- drivers/net/ethernet/mellanox/mlx4/main.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index ced5eca..68b5a55 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -479,6 +479,14 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 		}
- 	}
- 
-+	if (mlx4_is_master(dev) && (dev->caps.num_ports == 2) &&
-+	    (port_type_array[0] == MLX4_PORT_TYPE_IB) &&
-+	    (port_type_array[1] == MLX4_PORT_TYPE_ETH)) {
-+		mlx4_warn(dev,
-+			  "Granular QoS per VF not supported with IB/Eth configuration\n");
-+		dev->caps.flags2 &= ~MLX4_DEV_CAP_FLAG2_QOS_VPP;
-+	}
-+
- 	dev->caps.max_counters = 1 << ilog2(dev_cap->max_counters);
- 
- 	dev->caps.reserved_qps_cnt[MLX4_QP_REGION_FW] = dev_cap->reserved_qps;
--- 
-1.7.1
+     Andrew
