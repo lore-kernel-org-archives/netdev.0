@@ -1,55 +1,66 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next] bridge: del external_learned fdbs from device on
- flush or ageout
-Date: Sun, 14 Jun 2015 16:19:57 -0700
-Message-ID: <CAE4R7bBCLchGyTY9Zdexd9BE+33Tqua0CY9K75iRc6sOrMYwFg@mail.gmail.com>
-References: <1434306791-43364-1-git-send-email-sfeldma@gmail.com> <CAKoUArkKtWyRyDHc2R03xk5TixMKOG+66_prPrycs2rU0wYpJA@mail.gmail.com>
+From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Fwd: [PATCH] net:usb:cdc_ncm: fix that tag Huawei devices as wwan
+Date: Sun, 14 Jun 2015 13:51:46 -1000
+Message-ID: <CA+55aFz3S3nR_aDMMS1vcayyEqJCBL5tgoYAfDE2WGyM3Vcrww@mail.gmail.com>
+References: <SNT147-W99A0E937260823EBAA1FFB3B90@phx.gbl>
 Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=047d7b3a9c122d67060518830661
+Cc: USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	=?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <SNT147-W99A0E937260823EBAA1FFB3B90-MsuGFMq8XAE@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+--047d7b3a9c122d67060518830661
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Rami Rosen <roszenrami@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:33156 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752093AbbFNXUS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jun 2015 19:20:18 -0400
-Received: by qged89 with SMTP id d89so2328500qge.0
-        for <netdev@vger.kernel.org>; Sun, 14 Jun 2015 16:20:17 -0700 (PDT)
-In-Reply-To: <CAKoUArkKtWyRyDHc2R03xk5TixMKOG+66_prPrycs2rU0wYpJA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Sun, Jun 14, 2015 at 3:14 PM, Rami Rosen <roszenrami@gmail.com> wrote:
-> Hi,
->
-> You mention bridge doing ageing vs. device doing
-> ageing. AFAIK, there is no way to prevent a bridge from doing aging by
-> a sysfs entry. Do you think that preventing bridge aging via sysfs is
-> needed?
+Hmm. Oliver is marked as the maintainer of the USB CDC code, but
+others have touched it more recently. So I'm just wildly adding people
+to the cc to comment on this patch and maybe apply it.
+Oliver/David/Ben/Bj=C3=B8rn?
 
-The topic has been discussed before, but not at the patch level, yet,
-AFIAK.  I had this XXX comment in
-Documentation/networking/switchdev.txt:
+                Linus
 
-     XXX: how to turn off ageing in kernel on a per-port basis or
-otherwise prevent the kernel from ageing out the FDB entry?
 
-I think the preference would be to use netlink over sysfs.  If we made
-this a per-port flag, we could add bool IFLA_BRPORT_AGEING flag (and
-BR_AGEING) for IFLA_PROTINFO.
+---------- Forwarded message ----------
+From: xiaomao <xiaomao0213-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>
+Date: Sun, Jun 14, 2015 at 1:18 PM
+Subject: [PATCH] net:usb:cdc_ncm: fix that tag Huawei devices as wwan
 
-There is also the need to push the bridge's ageing timeout value down
-to the device.  This could be done with switchdev attr, e.g.
-SWITCHDEV_ATTR_AGEING_TIMEOUT.  (Maybe there is already netlink
-plumbing to do this...need to check).
 
-Are you going to work on it?  ;)
+Form: Qianni Mamaqianni-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
 
--scott
+Huawei devices is the gereric CDC_NCM devices, but not is WWAN
+devices. In the patch, we deleted the code about tagging Huawei
+devices as WWAN.
+---
+
+Signed-off-by:Qianni Mamaqianni-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+
+--047d7b3a9c122d67060518830661
+Content-Type: text/plain; charset=US-ASCII; name=patch
+Content-Disposition: attachment; filename=patch
+Content-Transfer-Encoding: base64
+X-Attachment-Id: 539ff6d7bd437803_0.1
+
+LS0tIGxpbnV4LTMuMTkvZHJpdmVycy9uZXQvdXNiL2NkY19uY20uYy5vcmlnCTIwMTUtMDYtMTUg
+MDE6Mjk6NTIuMzU0MjM4MDc5ICswODAwCisrKyBsaW51eC0zLjE5L2RyaXZlcnMvbmV0L3VzYi9j
+ZGNfbmNtLmMJMjAxNS0wNi0xNSAwMTozMTowNC4wNzQyMzYyNDYgKzA4MDAKQEAgLTE1NzMsMTIg
+KzE1NzMsMTIgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCB1c2JfZGV2aWNlX2lkIGNkY19kZQogCX0s
+CiAKIAkvKiB0YWcgSHVhd2VpIGRldmljZXMgYXMgd3dhbiAqLwotCXsgVVNCX1ZFTkRPUl9BTkRf
+SU5URVJGQUNFX0lORk8oMHgxMmQxLAorCS8qeyBVU0JfVkVORE9SX0FORF9JTlRFUkZBQ0VfSU5G
+TygweDEyZDEsCiAJCQkJCVVTQl9DTEFTU19DT01NLAogCQkJCQlVU0JfQ0RDX1NVQkNMQVNTX05D
+TSwKIAkJCQkJVVNCX0NEQ19QUk9UT19OT05FKSwKIAkgIC5kcml2ZXJfaW5mbyA9ICh1bnNpZ25l
+ZCBsb25nKSZ3d2FuX2luZm8sCi0JfSwKKwl9LCovCiAKIAkvKiBJbmZpbmVvbihub3cgSW50ZWwp
+IEhTUEEgTW9kZW0gcGxhdGZvcm0gKi8KIAl7IFVTQl9ERVZJQ0VfQU5EX0lOVEVSRkFDRV9JTkZP
+KDB4MTUxOSwgMHgwNDQzLAo=
+--047d7b3a9c122d67060518830661--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
