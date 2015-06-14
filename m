@@ -1,119 +1,60 @@
-From: Duan Andy <fugang.duan@freescale.com>
-Subject: RE: [PATCH] net: fec: Ensure clocks are enabled while using mdio bus
-Date: Sun, 14 Jun 2015 08:07:12 +0000
-Message-ID: <BLUPR03MB373E1D5EADCB4753C8D0F15F5B90@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <1434123545-13549-1-git-send-email-andrew@lunn.ch>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] Increase limit of macvtap queues
+Date: Sun, 14 Jun 2015 10:42:40 +0200
+Message-ID: <20150614103209-mutt-send-email-mst@redhat.com>
+References: <1434115828-9461-1-git-send-email-pagupta@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Cory Tusar <cory.tusar@pid1solutions.com>,
-	netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0147.outbound.protection.outlook.com ([157.56.111.147]:42720
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753199AbbFNIV2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jun 2015 04:21:28 -0400
-In-Reply-To: <1434123545-13549-1-git-send-email-andrew@lunn.ch>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kaber@trash.net, davem@davemloft.net, jasowang@redhat.com,
+	vyasevic@redhat.com, bhutchings@solarflare.com,
+	therbert@google.com, viro@zeniv.linux.org.uk
+To: Pankaj Gupta <pagupta@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1434115828-9461-1-git-send-email-pagupta@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew@lunn.ch> Sent: Friday, June 12, 2015 11:39 PM
-> To: David Miller
-> Cc: Duan Fugang-B38611; Cory Tusar; netdev; Andrew Lunn
-> Subject: [PATCH] net: fec: Ensure clocks are enabled while using mdio bus
+On Fri, Jun 12, 2015 at 07:00:28PM +0530, Pankaj Gupta wrote:
+> Macvtap should be compatible with tuntap for maximum number
+> of queues. '1059590254fa9dce9cafc4f07d1103dbec415e76' removes
+> the limitation and increases number of queues in tuntap.
+> Now, Its safe to increase number of queues in Macvtap as well.
 > 
-> When a switch is attached to the mdio bus, the mdio bus can be used while
-> the interface is not open. If the clocks are not enabled, MDIO
-> reads/writes will simply time out. So enable the clocks before starting a
-> transaction, and disable them afterwards. The CCF performs reference
-> counting so the clocks will only be disabled if there are no other users.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
+
+It's a good idea, but this might be a problem:
+
+static void macvtap_del_queues(struct net_device *dev)
+{
+        struct macvlan_dev *vlan = netdev_priv(dev);
+        struct macvtap_queue *q, *tmp, *qlist[MAX_MACVTAP_QUEUES];
+
+...
+}
+
+by itself, this will use 2K on stack, which seems too much.
+
+You need to rework this function to use a linked list + list_move
+instead of an array + list_del_init.
+
 > ---
-
-NAK the patch.
-
-i.MX series MDIO bus is a part of ENET controller. If the eth interface is not open, all clocks including MDIO bus clock are not enabled for power saving.
-In general, if you want to use mdio bus net interface must be running status.
-
->  drivers/net/ethernet/freescale/fec_main.c | 21 +++++++++++++++++++--
->  1 file changed, 19 insertions(+), 2 deletions(-)
+>  include/linux/if_macvlan.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> b/drivers/net/ethernet/freescale/fec_main.c
-> index bf4cf3fbb5f2..122186b90cdb 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -65,6 +65,7 @@
+> diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
+> index 6f6929e..a4ccc31 100644
+> --- a/include/linux/if_macvlan.h
+> +++ b/include/linux/if_macvlan.h
+> @@ -29,7 +29,7 @@ struct macvtap_queue;
+>   * Maximum times a macvtap device can be opened. This can be used to
+>   * configure the number of receive queue, e.g. for multiqueue virtio.
+>   */
+> -#define MAX_MACVTAP_QUEUES     16
+> +#define MAX_MACVTAP_QUEUES     256
 > 
->  static void set_multicast_list(struct net_device *ndev);  static void
-> fec_enet_itr_coal_init(struct net_device *ndev);
-> +static int fec_enet_clk_enable(struct net_device *ndev, bool enable);
-> 
->  #define DRIVER_NAME	"fec"
-> 
-> @@ -1764,6 +1765,11 @@ static int fec_enet_mdio_read(struct mii_bus *bus,
-> int mii_id, int regnum)  {
->  	struct fec_enet_private *fep = bus->priv;
->  	unsigned long time_left;
-> +	int ret;
-> +
-> +	ret = fec_enet_clk_enable(fep->netdev, true);
-> +	if (ret)
-> +		return 0xffff;
-> 
->  	fep->mii_timeout = 0;
->  	init_completion(&fep->mdio_done);
-> @@ -1779,11 +1785,14 @@ static int fec_enet_mdio_read(struct mii_bus *bus,
-> int mii_id, int regnum)
->  	if (time_left == 0) {
->  		fep->mii_timeout = 1;
->  		netdev_err(fep->netdev, "MDIO read timeout\n");
-> +		fec_enet_clk_enable(fep->netdev, false);
->  		return -ETIMEDOUT;
->  	}
-> 
-> -	/* return value */
-> -	return FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
-> +	ret = FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
-> +	fec_enet_clk_enable(fep->netdev, false);
-> +
-> +	return ret;
->  }
-> 
->  static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int
-> regnum, @@ -1791,10 +1800,15 @@ static int fec_enet_mdio_write(struct
-> mii_bus *bus, int mii_id, int regnum,  {
->  	struct fec_enet_private *fep = bus->priv;
->  	unsigned long time_left;
-> +	int ret;
-> 
->  	fep->mii_timeout = 0;
->  	init_completion(&fep->mdio_done);
-> 
-> +	ret = fec_enet_clk_enable(fep->netdev, true);
-> +	if (ret)
-> +		netdev_err(fep->netdev, "Unable to enable clks\n");
-> +
->  	/* start a write op */
->  	writel(FEC_MMFR_ST | FEC_MMFR_OP_WRITE |
->  		FEC_MMFR_PA(mii_id) | FEC_MMFR_RA(regnum) | @@ -1807,9
-> +1821,12 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int
-> mii_id, int regnum,
->  	if (time_left == 0) {
->  		fep->mii_timeout = 1;
->  		netdev_err(fep->netdev, "MDIO write timeout\n");
-> +		fec_enet_clk_enable(fep->netdev, false);
->  		return -ETIMEDOUT;
->  	}
-> 
-> +	fec_enet_clk_enable(fep->netdev, false);
-> +
->  	return 0;
->  }
-> 
+>  #define MACVLAN_MC_FILTER_BITS 8
+>  #define MACVLAN_MC_FILTER_SZ   (1 << MACVLAN_MC_FILTER_BITS)
 > --
-> 2.1.4
+> 1.7.1
