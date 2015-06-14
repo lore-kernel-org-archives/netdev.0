@@ -1,150 +1,123 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [RFC PATCH net-next 3/4] rocker: add fwd_mark support
-Date: Sun, 14 Jun 2015 11:00:11 -0700
-Message-ID: <CAE4R7bDXA6s2GTh=XZ9KsbLEA7crb3anbUaEv1em7EzDOEj5kw@mail.gmail.com>
-References: <1434218670-43821-1-git-send-email-sfeldma@gmail.com>
- <1434218670-43821-4-git-send-email-sfeldma@gmail.com> <20150614070256.GC2105@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	davidch <davidch@broadcom.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Jiri Pirko <jiri@resnulli.us>
+From: sfeldma@gmail.com
+Subject: [PATCH net-next] bridge: del external_learned fdbs from device on flush or ageout
+Date: Sun, 14 Jun 2015 11:33:11 -0700
+Message-ID: <1434306791-43364-1-git-send-email-sfeldma@gmail.com>
+Cc: jiri@resnulli.us, roopa@cumulusnetworks.com,
+	john.r.fastabend@intel.com, andrew@lunn.ch, f.fainelli@gmail.com,
+	linux@roeck-us.net, stephen@networkplumber.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f171.google.com ([209.85.220.171]:33150 "EHLO
-	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752013AbbFNSAc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jun 2015 14:00:32 -0400
-Received: by qkhg32 with SMTP id g32so43127617qkh.0
-        for <netdev@vger.kernel.org>; Sun, 14 Jun 2015 11:00:31 -0700 (PDT)
-In-Reply-To: <20150614070256.GC2105@nanopsycho.orion>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:37100 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752013AbbFNSbd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jun 2015 14:31:33 -0400
+Received: by igbsb11 with SMTP id sb11so37486478igb.0
+        for <netdev@vger.kernel.org>; Sun, 14 Jun 2015 11:31:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 14, 2015 at 12:02 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Sat, Jun 13, 2015 at 08:04:29PM CEST, sfeldma@gmail.com wrote:
->>From: Scott Feldman <sfeldma@gmail.com>
->>
->>If device flags ingress packet as "fwd offload", mark the skb->fwd_mark
->>using the ingress port's dev->fwd_mark.  This will be the hint to the
->>kernel that this packet has already been forwarded by device to egress
->>ports matching skb->fwd_mark.
->>
->>For rocker, derive port dev->fwd_mark based on device switch ID.  If port
->>is bridged, include the bridge's ifindex in the key for deriving
->>dev->fwd_mark.
->>
->>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>---
->> drivers/net/ethernet/rocker/rocker.c |   24 ++++++++++++++++++++++++
->> drivers/net/ethernet/rocker/rocker.h |    1 +
->> 2 files changed, 25 insertions(+)
->>
->>diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
->>index a06b93d..81407d8 100644
->>--- a/drivers/net/ethernet/rocker/rocker.c
->>+++ b/drivers/net/ethernet/rocker/rocker.c
->>@@ -4701,6 +4701,7 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
->>       const struct rocker_tlv *attrs[ROCKER_TLV_RX_MAX + 1];
->>       struct sk_buff *skb = rocker_desc_cookie_ptr_get(desc_info);
->>       size_t rx_len;
->>+      u16 rx_flags = 0;
->>
->>       if (!skb)
->>               return -ENOENT;
->>@@ -4708,6 +4709,8 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
->>       rocker_tlv_parse_desc(attrs, ROCKER_TLV_RX_MAX, desc_info);
->>       if (!attrs[ROCKER_TLV_RX_FRAG_LEN])
->>               return -EINVAL;
->>+      if (attrs[ROCKER_TLV_RX_FLAGS])
->>+              rx_flags = rocker_tlv_get_u16(attrs[ROCKER_TLV_RX_FLAGS]);
->>
->>       rocker_dma_rx_ring_skb_unmap(rocker, attrs);
->>
->>@@ -4715,6 +4718,9 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
->>       skb_put(skb, rx_len);
->>       skb->protocol = eth_type_trans(skb, rocker_port->dev);
->>
->>+      if (rx_flags & ROCKER_RX_FLAGS_FWD_OFFLOAD)
->
-> Nasty :) I'm not sure that this can be easily done for real hw. But
-> anyway, that is a driver problem.
+From: Scott Feldman <sfeldma@gmail.com>
 
-Why is this nasty?
+We need to delete from offload the device externally learnded fdbs when any
+one of these events happen:
 
-Some real HW can do it, some can't.  Some that can go into detail of
-the nature of the fwd.  Rocker can do it because we know when we copy
-a pkt to the CPU port that's also been forwarded.
+1) Bridge ages out fdb.  (When bridge is doing ageing vs. device doing
+ageing.  If device is doing ageing, it would send SWITCHDEV_FDB_DEL
+directly).
 
->
->>+              skb->fwd_mark = rocker_port->dev->fwd_mark;
->>+
->>       rocker_port->dev->stats.rx_packets++;
->>       rocker_port->dev->stats.rx_bytes += skb->len;
->>
->>@@ -4814,6 +4820,21 @@ static void rocker_port_dev_addr_init(struct rocker_port *rocker_port)
->>       }
->> }
->>
->>+static void rocker_port_fwd_mark_set(struct rocker_port *rocker_port)
->>+{
->>+      struct rocker *rocker = rocker_port->rocker;
->>+      struct {
->>+              u64 hw_id;
->>+              int ifindex;
->>+      } key = {
->>+              .hw_id = rocker->hw.id,
->>+              .ifindex = rocker_port_is_bridged(rocker_port) ?
->>+                         rocker_port->bridge_dev->ifindex : 0,
->>+      };
->>+
->>+      rocker_port->dev->fwd_mark = switchdev_mark_get(&key, sizeof(key));
->>+}
->>+
->> static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
->> {
->>       const struct pci_dev *pdev = rocker->pdev;
->>@@ -4832,6 +4853,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
->>       rocker_port->pport = port_number + 1;
->>       rocker_port->brport_flags = BR_LEARNING | BR_LEARNING_SYNC;
->>       INIT_LIST_HEAD(&rocker_port->trans_mem);
->>+      rocker_port_fwd_mark_set(rocker_port);
->>
->>       rocker_port_dev_addr_init(rocker_port);
->>       dev->netdev_ops = &rocker_port_netdev_ops;
->>@@ -5131,6 +5153,7 @@ static int rocker_port_bridge_join(struct rocker_port *rocker_port,
->>               rocker_port_internal_vlan_id_get(rocker_port, bridge->ifindex);
->>
->>       rocker_port->bridge_dev = bridge;
->>+      rocker_port_fwd_mark_set(rocker_port);
->>
->>       return rocker_port_vlan_add(rocker_port, SWITCHDEV_TRANS_NONE,
->>                                   untagged_vid, 0);
->>@@ -5152,6 +5175,7 @@ static int rocker_port_bridge_leave(struct rocker_port *rocker_port)
->>                                                rocker_port->dev->ifindex);
->>
->>       rocker_port->bridge_dev = NULL;
->>+      rocker_port_fwd_mark_set(rocker_port);
->
->
-> Hmm, wouldn't it make sense to move fwd_mark setting from drivers to
-> switchdev core? This will look the same for all drivers, so I think it
-> should be in common swithdev core, always generated according to "switch id".
+2) STP state change flushes fdbs on port.
 
-This is setting the fwd_mark on the port during init, not the skb
-during run-time.
+3) User uses sysfs interface to flush fdbs from bridge or bridge port:
 
-> So all what driver needs to do is to call some helper like:
-> static inline void switchdev_skb_fwd_mark(struct sk_buff *skb,
->                                           struct net_device *dev) {
->         skb->fwd_mark = dev->fwd_mark;
-> }
->
->
+	echo 1 >/sys/class/net/BR_DEV/bridge/flush
+	echo 1 >/sys/class/net/BR_PORT/brport/flush
+
+4) Offload driver send event SWITCHDEV_FDB_DEL to delete fdb entry.
+
+For rocker, we can now get called to delete fdb entry in wait and nowait
+contexts, so set NOWAIT flag when deleting fdb entry.
+
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+---
+ Documentation/networking/switchdev.txt |   11 ++---------
+ drivers/net/ethernet/rocker/rocker.c   |    2 +-
+ net/bridge/br_fdb.c                    |   17 +++++++++++++++++
+ 3 files changed, 20 insertions(+), 10 deletions(-)
+
+diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
+index 4a94ebc..e460007 100644
+--- a/Documentation/networking/switchdev.txt
++++ b/Documentation/networking/switchdev.txt
+@@ -251,15 +251,8 @@ out stale FDB entries.  To keep an FDB entry "alive", the driver should refresh
+ the FDB entry by calling call_switchdev_notifiers(SWITCHDEV_FDB_ADD, ...).  The
+ notification will reset the FDB entry's last-used time to now.  The driver
+ should rate limit refresh notifications, for example, no more than once a
+-second.  If the FDB entry expires, ndo_fdb_del is called to remove entry from
+-the device.  XXX: this last part isn't currently correct: ndo_fdb_del isn't
+-called, so the stale entry remains in device...this need to get fixed.
+-
+-FDB Flush
+-^^^^^^^^^
+-
+-XXX: Unimplemented.  Need to support FDB flush by bridge driver for port and
+-remove both static and learned FDB entries.
++second.  If the FDB entry expires, fdb_delete is called to remove entry from
++the device.
+ 
+ STP State Change on Port
+ ^^^^^^^^^^^^^^^^^^^^^^^^
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 3aa6caf..22d68c1 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -4392,7 +4392,7 @@ static int rocker_port_fdb_del(struct rocker_port *rocker_port,
+ 			       const struct switchdev_obj_fdb *fdb)
+ {
+ 	__be16 vlan_id = rocker_port_vid_to_vlan(rocker_port, fdb->vid, NULL);
+-	int flags = ROCKER_OP_FLAG_REMOVE;
++	int flags = ROCKER_OP_FLAG_NOWAIT | ROCKER_OP_FLAG_REMOVE;
+ 
+ 	if (!rocker_port_is_bridged(rocker_port))
+ 		return -EINVAL;
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 13949a7..be84b7e 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -24,6 +24,7 @@
+ #include <linux/atomic.h>
+ #include <asm/unaligned.h>
+ #include <linux/if_vlan.h>
++#include <net/switchdev.h>
+ #include "br_private.h"
+ 
+ static struct kmem_cache *br_fdb_cache __read_mostly;
+@@ -130,11 +131,27 @@ static void fdb_del_hw_addr(struct net_bridge *br, const unsigned char *addr)
+ 	}
+ }
+ 
++static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
++{
++	struct switchdev_obj obj = {
++		.id = SWITCHDEV_OBJ_PORT_FDB,
++		.u.fdb = {
++			.addr = f->addr.addr,
++			.vid = f->vlan_id,
++		},
++	};
++
++	switchdev_port_obj_del(f->dst->dev, &obj);
++}
++
+ static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
+ {
+ 	if (f->is_static)
+ 		fdb_del_hw_addr(br, f->addr.addr);
+ 
++	if (f->added_by_external_learn)
++		fdb_del_external_learn(f);
++
+ 	hlist_del_rcu(&f->hlist);
+ 	fdb_notify(br, f, RTM_DELNEIGH);
+ 	call_rcu(&f->rcu, fdb_rcu_free);
+-- 
+1.7.10.4
