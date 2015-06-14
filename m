@@ -1,9 +1,9 @@
 From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [RFC PATCH net-next 2/4] switchdev: add fwd_mark generator helper
-Date: Sun, 14 Jun 2015 10:50:13 -0700
-Message-ID: <CAE4R7bA_N0YtoNEWrX7kO=PA3nWNc-nGL0Bcyt_1SmeX9PZs_g@mail.gmail.com>
+Subject: Re: [RFC PATCH net-next 3/4] rocker: add fwd_mark support
+Date: Sun, 14 Jun 2015 11:00:11 -0700
+Message-ID: <CAE4R7bDXA6s2GTh=XZ9KsbLEA7crb3anbUaEv1em7EzDOEj5kw@mail.gmail.com>
 References: <1434218670-43821-1-git-send-email-sfeldma@gmail.com>
- <1434218670-43821-3-git-send-email-sfeldma@gmail.com> <20150614065601.GB2105@nanopsycho.orion>
+ <1434218670-43821-4-git-send-email-sfeldma@gmail.com> <20150614070256.GC2105@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Netdev <netdev@vger.kernel.org>,
@@ -18,49 +18,133 @@ Cc: Netdev <netdev@vger.kernel.org>,
 	"stephen@networkplumber.org" <stephen@networkplumber.org>
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f175.google.com ([209.85.220.175]:33489 "EHLO
-	mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751570AbbFNRue (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jun 2015 13:50:34 -0400
-Received: by qkhg32 with SMTP id g32so43049181qkh.0
-        for <netdev@vger.kernel.org>; Sun, 14 Jun 2015 10:50:33 -0700 (PDT)
-In-Reply-To: <20150614065601.GB2105@nanopsycho.orion>
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:33150 "EHLO
+	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752013AbbFNSAc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jun 2015 14:00:32 -0400
+Received: by qkhg32 with SMTP id g32so43127617qkh.0
+        for <netdev@vger.kernel.org>; Sun, 14 Jun 2015 11:00:31 -0700 (PDT)
+In-Reply-To: <20150614070256.GC2105@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 13, 2015 at 11:56 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Sat, Jun 13, 2015 at 08:04:28PM CEST, sfeldma@gmail.com wrote:
+On Sun, Jun 14, 2015 at 12:02 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Sat, Jun 13, 2015 at 08:04:29PM CEST, sfeldma@gmail.com wrote:
 >>From: Scott Feldman <sfeldma@gmail.com>
 >>
->>skb->fwd_mark and dev->fwd_mark are 32-bit and should be unique for device
->>and maybe even unique for a sub-set of ports within device, so add
->>switchdev helper function to generate unique marks based on driver-supplied
->>key.  Typically, the driver would use device switch ID for key, and maybe
->>additional fields in key for grouped ports such as bridge ifindex.  The key
->>can be of arbitrary length.
+>>If device flags ingress packet as "fwd offload", mark the skb->fwd_mark
+>>using the ingress port's dev->fwd_mark.  This will be the hint to the
+>>kernel that this packet has already been forwarded by device to egress
+>>ports matching skb->fwd_mark.
 >>
->>The generator uses a global hash table to store fwd_marks hashed by key.
+>>For rocker, derive port dev->fwd_mark based on device switch ID.  If port
+>>is bridged, include the bridge's ifindex in the key for deriving
+>>dev->fwd_mark.
 >>
 >>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-
-<snip>
-
->>+u32 switchdev_mark_get(void *key, size_t key_len)
->>+{
->>+      struct switchdev_mark_ht_entry {
->>+              struct hlist_node entry;
->>+              void *key;
->>+              size_t key_len;
->>+              u32 key_crc32;
->>+              u32 mark;
->>+      } *entry;
->>+      u32 key_crc32 = crc32(~0, key, key_len);
->>+      u32 mark = 0;
->>+      unsigned long flags;
->>+
->>+      spin_lock_irqsave(&switchdev_mark_lock, flags);
+>>---
+>> drivers/net/ethernet/rocker/rocker.c |   24 ++++++++++++++++++++++++
+>> drivers/net/ethernet/rocker/rocker.h |    1 +
+>> 2 files changed, 25 insertions(+)
+>>
+>>diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+>>index a06b93d..81407d8 100644
+>>--- a/drivers/net/ethernet/rocker/rocker.c
+>>+++ b/drivers/net/ethernet/rocker/rocker.c
+>>@@ -4701,6 +4701,7 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
+>>       const struct rocker_tlv *attrs[ROCKER_TLV_RX_MAX + 1];
+>>       struct sk_buff *skb = rocker_desc_cookie_ptr_get(desc_info);
+>>       size_t rx_len;
+>>+      u16 rx_flags = 0;
+>>
+>>       if (!skb)
+>>               return -ENOENT;
+>>@@ -4708,6 +4709,8 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
+>>       rocker_tlv_parse_desc(attrs, ROCKER_TLV_RX_MAX, desc_info);
+>>       if (!attrs[ROCKER_TLV_RX_FRAG_LEN])
+>>               return -EINVAL;
+>>+      if (attrs[ROCKER_TLV_RX_FLAGS])
+>>+              rx_flags = rocker_tlv_get_u16(attrs[ROCKER_TLV_RX_FLAGS]);
+>>
+>>       rocker_dma_rx_ring_skb_unmap(rocker, attrs);
+>>
+>>@@ -4715,6 +4718,9 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
+>>       skb_put(skb, rx_len);
+>>       skb->protocol = eth_type_trans(skb, rocker_port->dev);
+>>
+>>+      if (rx_flags & ROCKER_RX_FLAGS_FWD_OFFLOAD)
 >
-> I fail to see why _irqsave variant is needed here.
+> Nasty :) I'm not sure that this can be easily done for real hw. But
+> anyway, that is a driver problem.
 
-I don't know what context caller is in, so using most conservative
-spinlock.  Is there a better way?
+Why is this nasty?
+
+Some real HW can do it, some can't.  Some that can go into detail of
+the nature of the fwd.  Rocker can do it because we know when we copy
+a pkt to the CPU port that's also been forwarded.
+
+>
+>>+              skb->fwd_mark = rocker_port->dev->fwd_mark;
+>>+
+>>       rocker_port->dev->stats.rx_packets++;
+>>       rocker_port->dev->stats.rx_bytes += skb->len;
+>>
+>>@@ -4814,6 +4820,21 @@ static void rocker_port_dev_addr_init(struct rocker_port *rocker_port)
+>>       }
+>> }
+>>
+>>+static void rocker_port_fwd_mark_set(struct rocker_port *rocker_port)
+>>+{
+>>+      struct rocker *rocker = rocker_port->rocker;
+>>+      struct {
+>>+              u64 hw_id;
+>>+              int ifindex;
+>>+      } key = {
+>>+              .hw_id = rocker->hw.id,
+>>+              .ifindex = rocker_port_is_bridged(rocker_port) ?
+>>+                         rocker_port->bridge_dev->ifindex : 0,
+>>+      };
+>>+
+>>+      rocker_port->dev->fwd_mark = switchdev_mark_get(&key, sizeof(key));
+>>+}
+>>+
+>> static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+>> {
+>>       const struct pci_dev *pdev = rocker->pdev;
+>>@@ -4832,6 +4853,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+>>       rocker_port->pport = port_number + 1;
+>>       rocker_port->brport_flags = BR_LEARNING | BR_LEARNING_SYNC;
+>>       INIT_LIST_HEAD(&rocker_port->trans_mem);
+>>+      rocker_port_fwd_mark_set(rocker_port);
+>>
+>>       rocker_port_dev_addr_init(rocker_port);
+>>       dev->netdev_ops = &rocker_port_netdev_ops;
+>>@@ -5131,6 +5153,7 @@ static int rocker_port_bridge_join(struct rocker_port *rocker_port,
+>>               rocker_port_internal_vlan_id_get(rocker_port, bridge->ifindex);
+>>
+>>       rocker_port->bridge_dev = bridge;
+>>+      rocker_port_fwd_mark_set(rocker_port);
+>>
+>>       return rocker_port_vlan_add(rocker_port, SWITCHDEV_TRANS_NONE,
+>>                                   untagged_vid, 0);
+>>@@ -5152,6 +5175,7 @@ static int rocker_port_bridge_leave(struct rocker_port *rocker_port)
+>>                                                rocker_port->dev->ifindex);
+>>
+>>       rocker_port->bridge_dev = NULL;
+>>+      rocker_port_fwd_mark_set(rocker_port);
+>
+>
+> Hmm, wouldn't it make sense to move fwd_mark setting from drivers to
+> switchdev core? This will look the same for all drivers, so I think it
+> should be in common swithdev core, always generated according to "switch id".
+
+This is setting the fwd_mark on the port during init, not the skb
+during run-time.
+
+> So all what driver needs to do is to call some helper like:
+> static inline void switchdev_skb_fwd_mark(struct sk_buff *skb,
+>                                           struct net_device *dev) {
+>         skb->fwd_mark = dev->fwd_mark;
+> }
+>
+>
