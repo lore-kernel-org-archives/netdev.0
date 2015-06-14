@@ -1,46 +1,38 @@
-From: Ulrich Gemkow <ulrich.gemkow@ikr.uni-stuttgart.de>
-Subject: displayed name changed in ip link show for bridge- and other interfaces
-Date: Sun, 14 Jun 2015 12:00:18 +0200
-Message-ID: <201506141200.20435.ulrich.gemkow@ikr.uni-stuttgart.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net-next 0/2] bonding: extend the 3ad exported attributes
+Date: Sun, 14 Jun 2015 16:36:33 +0300
+Message-ID: <1434288995-25457-1-git-send-email-razor@blackwall.org>
+Cc: davem@davemloft.net, gospo@cumulusnetworks.com,
+	j.vosburgh@gmail.com, vfalico@gmail.com,
+	Nikolay Aleksandrov <razor@blackwall.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailsrv.ikr.uni-stuttgart.de ([129.69.170.2]:58291 "EHLO
-	mailsrv.ikr.uni-stuttgart.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751064AbbFNKHU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jun 2015 06:07:20 -0400
-Received: from netsrv1.ikr.uni-stuttgart.de (netsrv1-c [10.11.12.12])
-	by mailsrv.ikr.uni-stuttgart.de (Postfix) with ESMTP id AB83A601EE
-	for <netdev@vger.kernel.org>; Sun, 14 Jun 2015 12:00:20 +0200 (CEST)
-Received: from ikr.uni-stuttgart.de (pc041 [10.21.21.41])
-	by netsrv1.ikr.uni-stuttgart.de (Postfix) with SMTP id 9214060078
-	for <netdev@vger.kernel.org>; Sun, 14 Jun 2015 12:00:20 +0200 (CEST)
-Content-Disposition: inline
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:33220 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751342AbbFNNgp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jun 2015 09:36:45 -0400
+Received: by wiwd19 with SMTP id d19so53305606wiw.0
+        for <netdev@vger.kernel.org>; Sun, 14 Jun 2015 06:36:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hi,
+These are two small patches that export actor_oper_port_state and
+partner_oper_port_state via netlink and sysfs, until now they were only
+exported via bond's proc entry. If this set gets accepted I have an iproute2
+patch prepared that will export them with which I tested these changes.
 
-between Linux 4.0.5 and 4.1-rc7 the name as shown by "ip link show"
-of bridge interfaces (and at least the dummy interface) changed from 
-(i.e.) br1 to br1@NONE.
+Best regards,
+ Nikolay Aleksandrov
 
-This breaks (at least for me :-) userspace (ip link show parsing
-scripts). It is easy to solve, so not a big problem. I am using
-Ubuntu 14.04.
+Nikolay Aleksandrov (2):
+  bonding: export slave's actor_oper_port_state via sysfs and netlink
+  bonding: export slave's partner_oper_port_state via sysfs and netlink
 
-Is this user visible change intended?
-
-Thank you and best regards
-
-Ulrich
+ drivers/net/bonding/bond_netlink.c     | 15 ++++++++++++++-
+ drivers/net/bonding/bond_sysfs_slave.c | 32 ++++++++++++++++++++++++++++++++
+ include/uapi/linux/if_link.h           |  2 ++
+ 3 files changed, 48 insertions(+), 1 deletion(-)
 
 -- 
-|-----------------------------------------------------------------------
-| Ulrich Gemkow
-| University of Stuttgart, Germany
-| Institute of Communication Networks and Computer Engineering (IKR)
-|-----------------------------------------------------------------------
+2.4.3
