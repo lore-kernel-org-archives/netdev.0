@@ -1,316 +1,304 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 23/32] netfilter: ipset: Prepare the ipset core to use RCU at set level
-Date: Mon, 15 Jun 2015 23:26:20 +0200
-Message-ID: <1434403589-24796-24-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 30/32] netfilter: nf_tables: attach net_device to basechain
+Date: Mon, 15 Jun 2015 23:26:27 +0200
+Message-ID: <1434403589-24796-31-git-send-email-pablo@netfilter.org>
 References: <1434403589-24796-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:58861 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932188AbbFOVVl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2015 17:21:41 -0400
 In-Reply-To: <1434403589-24796-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+The device is part of the hook configuration, so instead of a global
+configuration per table, set it to each of the basechain that we create.
 
-Replace rwlock_t with spinlock_t in "struct ip_set" and change the locking
-accordingly. Convert the comment extension into an rcu-avare object. Also,
-simplify the timeout routines.
+This patch reworks ebddf1a8d78a ("netfilter: nf_tables: allow to bind table to
+net_device").
 
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Note that this adds a dev_name field in the nft_base_chain structure which is
+required the netdev notification subscription that follows up in a patch to
+handle gone net_devices.
+
+Suggested-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter/ipset/ip_set.h         |    9 +++--
- include/linux/netfilter/ipset/ip_set_comment.h |   38 ++++++++++++++------
- include/linux/netfilter/ipset/ip_set_timeout.h |   25 ++++++--------
- net/netfilter/ipset/ip_set_core.c              |   44 ++++++++++++------------
- 4 files changed, 66 insertions(+), 50 deletions(-)
+ include/net/netfilter/nf_tables.h        |    4 +-
+ include/uapi/linux/netfilter/nf_tables.h |    4 +-
+ net/netfilter/nf_tables_api.c            |   79 ++++++++++++++++--------------
+ 3 files changed, 46 insertions(+), 41 deletions(-)
 
-diff --git a/include/linux/netfilter/ipset/ip_set.h b/include/linux/netfilter/ipset/ip_set.h
-index 5674b6a..19b4969 100644
---- a/include/linux/netfilter/ipset/ip_set.h
-+++ b/include/linux/netfilter/ipset/ip_set.h
-@@ -108,8 +108,13 @@ struct ip_set_counter {
- 	atomic64_t packets;
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index 3d6f48c..09d6f8d 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -791,6 +791,7 @@ struct nft_stats {
+  *	@policy: default policy
+  *	@stats: per-cpu chain stats
+  *	@chain: the chain
++ *	@dev_name: device name that this base chain is attached to (if any)
+  */
+ struct nft_base_chain {
+ 	struct nf_hook_ops		ops[NFT_HOOK_OPS_MAX];
+@@ -799,6 +800,7 @@ struct nft_base_chain {
+ 	u8				policy;
+ 	struct nft_stats __percpu	*stats;
+ 	struct nft_chain		chain;
++	char 				dev_name[IFNAMSIZ];
  };
  
-+struct ip_set_comment_rcu {
-+	struct rcu_head rcu;
-+	char str[0];
-+};
-+
- struct ip_set_comment {
--	char *str;
-+	struct ip_set_comment_rcu __rcu *c;
+ static inline struct nft_base_chain *nft_base_chain(const struct nft_chain *chain)
+@@ -819,7 +821,6 @@ unsigned int nft_do_chain(struct nft_pktinfo *pkt,
+  *	@use: number of chain references to this table
+  *	@flags: table flag (see enum nft_table_flags)
+  *	@name: name of the table
+- *	@dev: this table is bound to this device (if any)
+  */
+ struct nft_table {
+ 	struct list_head		list;
+@@ -829,7 +830,6 @@ struct nft_table {
+ 	u32				use;
+ 	u16				flags;
+ 	char				name[NFT_TABLE_MAXNAMELEN];
+-	struct net_device		*dev;
  };
  
- struct ip_set_skbinfo {
-@@ -226,7 +231,7 @@ struct ip_set {
- 	/* The name of the set */
- 	char name[IPSET_MAXNAMELEN];
- 	/* Lock protecting the set data */
--	rwlock_t lock;
-+	spinlock_t lock;
- 	/* References to the set */
- 	u32 ref;
- 	/* The core set type */
-diff --git a/include/linux/netfilter/ipset/ip_set_comment.h b/include/linux/netfilter/ipset/ip_set_comment.h
-index 21217ea..8d02485 100644
---- a/include/linux/netfilter/ipset/ip_set_comment.h
-+++ b/include/linux/netfilter/ipset/ip_set_comment.h
-@@ -16,41 +16,57 @@ ip_set_comment_uget(struct nlattr *tb)
- 	return nla_data(tb);
- }
+ enum nft_af_flags {
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index 89a671e..a99e6a9 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -122,11 +122,13 @@ enum nft_list_attributes {
+  *
+  * @NFTA_HOOK_HOOKNUM: netfilter hook number (NLA_U32)
+  * @NFTA_HOOK_PRIORITY: netfilter hook priority (NLA_U32)
++ * @NFTA_HOOK_DEV: netdevice name (NLA_STRING)
+  */
+ enum nft_hook_attributes {
+ 	NFTA_HOOK_UNSPEC,
+ 	NFTA_HOOK_HOOKNUM,
+ 	NFTA_HOOK_PRIORITY,
++	NFTA_HOOK_DEV,
+ 	__NFTA_HOOK_MAX
+ };
+ #define NFTA_HOOK_MAX		(__NFTA_HOOK_MAX - 1)
+@@ -146,14 +148,12 @@ enum nft_table_flags {
+  * @NFTA_TABLE_NAME: name of the table (NLA_STRING)
+  * @NFTA_TABLE_FLAGS: bitmask of enum nft_table_flags (NLA_U32)
+  * @NFTA_TABLE_USE: number of chains in this table (NLA_U32)
+- * @NFTA_TABLE_DEV: net device name (NLA_STRING)
+  */
+ enum nft_table_attributes {
+ 	NFTA_TABLE_UNSPEC,
+ 	NFTA_TABLE_NAME,
+ 	NFTA_TABLE_FLAGS,
+ 	NFTA_TABLE_USE,
+-	NFTA_TABLE_DEV,
+ 	__NFTA_TABLE_MAX
+ };
+ #define NFTA_TABLE_MAX		(__NFTA_TABLE_MAX - 1)
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 4528f12..900c81a 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -399,8 +399,6 @@ static const struct nla_policy nft_table_policy[NFTA_TABLE_MAX + 1] = {
+ 	[NFTA_TABLE_NAME]	= { .type = NLA_STRING,
+ 				    .len = NFT_TABLE_MAXNAMELEN - 1 },
+ 	[NFTA_TABLE_FLAGS]	= { .type = NLA_U32 },
+-	[NFTA_TABLE_DEV]	= { .type = NLA_STRING,
+-				    .len = IFNAMSIZ - 1 },
+ };
  
-+/* Called from uadd only, protected by the set spinlock.
-+ * The kadt functions don't use the comment extensions in any way.
-+ */
- static inline void
- ip_set_init_comment(struct ip_set_comment *comment,
- 		    const struct ip_set_ext *ext)
- {
-+	struct ip_set_comment_rcu *c = rcu_dereference_protected(comment->c, 1);
- 	size_t len = ext->comment ? strlen(ext->comment) : 0;
+ static int nf_tables_fill_table_info(struct sk_buff *skb, struct net *net,
+@@ -425,10 +423,6 @@ static int nf_tables_fill_table_info(struct sk_buff *skb, struct net *net,
+ 	    nla_put_be32(skb, NFTA_TABLE_USE, htonl(table->use)))
+ 		goto nla_put_failure;
  
--	if (unlikely(comment->str)) {
--		kfree(comment->str);
--		comment->str = NULL;
-+	if (unlikely(c)) {
-+		kfree_rcu(c, rcu);
-+		rcu_assign_pointer(comment->c, NULL);
- 	}
- 	if (!len)
- 		return;
- 	if (unlikely(len > IPSET_MAX_COMMENT_SIZE))
- 		len = IPSET_MAX_COMMENT_SIZE;
--	comment->str = kzalloc(len + 1, GFP_ATOMIC);
--	if (unlikely(!comment->str))
-+	c = kzalloc(sizeof(*c) + len + 1, GFP_ATOMIC);
-+	if (unlikely(!c))
- 		return;
--	strlcpy(comment->str, ext->comment, len + 1);
-+	strlcpy(c->str, ext->comment, len + 1);
-+	rcu_assign_pointer(comment->c, c);
- }
- 
-+/* Used only when dumping a set, protected by rcu_read_lock_bh() */
- static inline int
- ip_set_put_comment(struct sk_buff *skb, struct ip_set_comment *comment)
- {
--	if (!comment->str)
-+	struct ip_set_comment_rcu *c = rcu_dereference_bh(comment->c);
-+
-+	if (!c)
- 		return 0;
--	return nla_put_string(skb, IPSET_ATTR_COMMENT, comment->str);
-+	return nla_put_string(skb, IPSET_ATTR_COMMENT, c->str);
- }
- 
-+/* Called from uadd/udel, flush or the garbage collectors protected
-+ * by the set spinlock.
-+ * Called when the set is destroyed and when there can't be any user
-+ * of the set data anymore.
-+ */
- static inline void
- ip_set_comment_free(struct ip_set_comment *comment)
- {
--	if (unlikely(!comment->str))
-+	struct ip_set_comment_rcu *c;
-+
-+	c = rcu_dereference_protected(comment->c, 1);
-+	if (unlikely(!c))
- 		return;
--	kfree(comment->str);
--	comment->str = NULL;
-+	kfree_rcu(c, rcu);
-+	rcu_assign_pointer(comment->c, NULL);
- }
- 
- #endif
-diff --git a/include/linux/netfilter/ipset/ip_set_timeout.h b/include/linux/netfilter/ipset/ip_set_timeout.h
-index 3c8842b..1d6a935 100644
---- a/include/linux/netfilter/ipset/ip_set_timeout.h
-+++ b/include/linux/netfilter/ipset/ip_set_timeout.h
-@@ -40,31 +40,26 @@ ip_set_timeout_uget(struct nlattr *tb)
- }
- 
- static inline bool
--ip_set_timeout_test(unsigned long timeout)
-+ip_set_timeout_expired(unsigned long *t)
- {
--	return timeout == IPSET_ELEM_PERMANENT ||
--	       time_is_after_jiffies(timeout);
--}
+-	if (table->dev &&
+-	    nla_put_string(skb, NFTA_TABLE_DEV, table->dev->name))
+-		goto nla_put_failure;
 -
--static inline bool
--ip_set_timeout_expired(unsigned long *timeout)
--{
--	return *timeout != IPSET_ELEM_PERMANENT &&
--	       time_is_before_jiffies(*timeout);
-+	return *t != IPSET_ELEM_PERMANENT && time_is_before_jiffies(*t);
- }
+ 	nlmsg_end(skb, nlh);
+ 	return 0;
  
- static inline void
--ip_set_timeout_set(unsigned long *timeout, u32 t)
-+ip_set_timeout_set(unsigned long *timeout, u32 value)
- {
--	if (!t) {
-+	unsigned long t;
-+
-+	if (!value) {
- 		*timeout = IPSET_ELEM_PERMANENT;
- 		return;
- 	}
- 
--	*timeout = msecs_to_jiffies(t * MSEC_PER_SEC) + jiffies;
--	if (*timeout == IPSET_ELEM_PERMANENT)
-+	t = msecs_to_jiffies(value * MSEC_PER_SEC) + jiffies;
-+	if (t == IPSET_ELEM_PERMANENT)
- 		/* Bingo! :-) */
--		(*timeout)--;
-+		t--;
-+	*timeout = t;
- }
- 
- static inline u32
-diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
-index 87b4182..2b21a19 100644
---- a/net/netfilter/ipset/ip_set_core.c
-+++ b/net/netfilter/ipset/ip_set_core.c
-@@ -209,15 +209,15 @@ ip_set_type_register(struct ip_set_type *type)
- 		pr_warn("ip_set type %s, family %s with revision min %u already registered!\n",
- 			type->name, family_name(type->family),
- 			type->revision_min);
--		ret = -EINVAL;
--		goto unlock;
-+		ip_set_type_unlock();
-+		return -EINVAL;
- 	}
- 	list_add_rcu(&type->list, &ip_set_type_list);
- 	pr_debug("type %s, family %s, revision %u:%u registered.\n",
- 		 type->name, family_name(type->family),
- 		 type->revision_min, type->revision_max);
--unlock:
- 	ip_set_type_unlock();
-+
- 	return ret;
- }
- EXPORT_SYMBOL_GPL(ip_set_type_register);
-@@ -231,12 +231,12 @@ ip_set_type_unregister(struct ip_set_type *type)
- 		pr_warn("ip_set type %s, family %s with revision min %u not registered\n",
- 			type->name, family_name(type->family),
- 			type->revision_min);
--		goto unlock;
-+		ip_set_type_unlock();
-+		return;
- 	}
- 	list_del_rcu(&type->list);
- 	pr_debug("type %s, family %s with revision min %u unregistered.\n",
- 		 type->name, family_name(type->family), type->revision_min);
--unlock:
- 	ip_set_type_unlock();
- 
- 	synchronize_rcu();
-@@ -531,16 +531,16 @@ ip_set_test(ip_set_id_t index, const struct sk_buff *skb,
- 	    !(opt->family == set->family || set->family == NFPROTO_UNSPEC))
+@@ -614,11 +608,6 @@ static int nf_tables_updtable(struct nft_ctx *ctx)
+ 	if (flags == ctx->table->flags)
  		return 0;
  
--	read_lock_bh(&set->lock);
-+	rcu_read_lock_bh();
- 	ret = set->variant->kadt(set, skb, par, IPSET_TEST, opt);
--	read_unlock_bh(&set->lock);
-+	rcu_read_unlock_bh();
+-	if ((ctx->afi->flags & NFT_AF_NEEDS_DEV) &&
+-	    ctx->nla[NFTA_TABLE_DEV] &&
+-	    nla_strcmp(ctx->nla[NFTA_TABLE_DEV], ctx->table->dev->name))
+-		return -EOPNOTSUPP;
+-
+ 	trans = nft_trans_alloc(ctx, NFT_MSG_NEWTABLE,
+ 				sizeof(struct nft_trans_table));
+ 	if (trans == NULL)
+@@ -656,7 +645,6 @@ static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
+ 	struct nft_table *table;
+ 	struct net *net = sock_net(skb->sk);
+ 	int family = nfmsg->nfgen_family;
+-	struct net_device *dev = NULL;
+ 	u32 flags = 0;
+ 	struct nft_ctx ctx;
+ 	int err;
+@@ -691,20 +679,6 @@ static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
+ 			return -EINVAL;
+ 	}
  
- 	if (ret == -EAGAIN) {
- 		/* Type requests element to be completed */
- 		pr_debug("element must be completed, ADD is triggered\n");
--		write_lock_bh(&set->lock);
-+		spin_lock_bh(&set->lock);
- 		set->variant->kadt(set, skb, par, IPSET_ADD, opt);
--		write_unlock_bh(&set->lock);
-+		spin_unlock_bh(&set->lock);
- 		ret = 1;
- 	} else {
- 		/* --return-nomatch: invert matched element */
-@@ -570,9 +570,9 @@ ip_set_add(ip_set_id_t index, const struct sk_buff *skb,
- 	    !(opt->family == set->family || set->family == NFPROTO_UNSPEC))
- 		return -IPSET_ERR_TYPE_MISMATCH;
+-	if (afi->flags & NFT_AF_NEEDS_DEV) {
+-		char ifname[IFNAMSIZ];
+-
+-		if (!nla[NFTA_TABLE_DEV])
+-			return -EOPNOTSUPP;
+-
+-		nla_strlcpy(ifname, nla[NFTA_TABLE_DEV], IFNAMSIZ);
+-		dev = dev_get_by_name(net, ifname);
+-		if (!dev)
+-			return -ENOENT;
+-	} else if (nla[NFTA_TABLE_DEV]) {
+-		return -EOPNOTSUPP;
+-	}
+-
+ 	err = -EAFNOSUPPORT;
+ 	if (!try_module_get(afi->owner))
+ 		goto err1;
+@@ -718,7 +692,6 @@ static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
+ 	INIT_LIST_HEAD(&table->chains);
+ 	INIT_LIST_HEAD(&table->sets);
+ 	table->flags = flags;
+-	table->dev   = dev;
  
--	write_lock_bh(&set->lock);
-+	spin_lock_bh(&set->lock);
- 	ret = set->variant->kadt(set, skb, par, IPSET_ADD, opt);
--	write_unlock_bh(&set->lock);
-+	spin_unlock_bh(&set->lock);
- 
- 	return ret;
+ 	nft_ctx_init(&ctx, skb, nlh, afi, table, NULL, nla);
+ 	err = nft_trans_table_add(&ctx, NFT_MSG_NEWTABLE);
+@@ -732,9 +705,6 @@ err3:
+ err2:
+ 	module_put(afi->owner);
+ err1:
+-	if (dev != NULL)
+-		dev_put(dev);
+-
+ 	return err;
  }
-@@ -593,9 +593,9 @@ ip_set_del(ip_set_id_t index, const struct sk_buff *skb,
- 	    !(opt->family == set->family || set->family == NFPROTO_UNSPEC))
- 		return -IPSET_ERR_TYPE_MISMATCH;
  
--	write_lock_bh(&set->lock);
-+	spin_lock_bh(&set->lock);
- 	ret = set->variant->kadt(set, skb, par, IPSET_DEL, opt);
--	write_unlock_bh(&set->lock);
-+	spin_unlock_bh(&set->lock);
- 
- 	return ret;
- }
-@@ -880,7 +880,7 @@ ip_set_create(struct sock *ctnl, struct sk_buff *skb,
- 	set = kzalloc(sizeof(struct ip_set), GFP_KERNEL);
- 	if (!set)
- 		return -ENOMEM;
--	rwlock_init(&set->lock);
-+	spin_lock_init(&set->lock);
- 	strlcpy(set->name, name, IPSET_MAXNAMELEN);
- 	set->family = family;
- 	set->revision = revision;
-@@ -1062,9 +1062,9 @@ ip_set_flush_set(struct ip_set *set)
+@@ -838,9 +808,6 @@ static void nf_tables_table_destroy(struct nft_ctx *ctx)
  {
- 	pr_debug("set: %s\n",  set->name);
+ 	BUG_ON(ctx->table->use > 0);
  
--	write_lock_bh(&set->lock);
-+	spin_lock_bh(&set->lock);
- 	set->variant->flush(set);
--	write_unlock_bh(&set->lock);
-+	spin_unlock_bh(&set->lock);
+-	if (ctx->table->dev)
+-		dev_put(ctx->table->dev);
+-
+ 	kfree(ctx->table);
+ 	module_put(ctx->afi->owner);
  }
+@@ -916,6 +883,8 @@ static const struct nla_policy nft_chain_policy[NFTA_CHAIN_MAX + 1] = {
+ static const struct nla_policy nft_hook_policy[NFTA_HOOK_MAX + 1] = {
+ 	[NFTA_HOOK_HOOKNUM]	= { .type = NLA_U32 },
+ 	[NFTA_HOOK_PRIORITY]	= { .type = NLA_U32 },
++	[NFTA_HOOK_DEV]		= { .type = NLA_STRING,
++				    .len = IFNAMSIZ - 1 },
+ };
  
- static int
-@@ -1377,9 +1377,9 @@ dump_last:
- 				set->variant->uref(set, cb, true);
- 			/* Fall through and add elements */
- 		default:
--			read_lock_bh(&set->lock);
-+			rcu_read_lock_bh();
- 			ret = set->variant->list(set, skb, cb);
--			read_unlock_bh(&set->lock);
-+			rcu_read_unlock_bh();
- 			if (!cb->args[IPSET_CB_ARG0])
- 				/* Set is done, proceed with next one */
- 				goto next_set;
-@@ -1462,9 +1462,9 @@ call_ad(struct sock *ctnl, struct sk_buff *skb, struct ip_set *set,
- 	bool eexist = flags & IPSET_FLAG_EXIST, retried = false;
+ static int nft_dump_stats(struct sk_buff *skb, struct nft_stats __percpu *stats)
+@@ -989,6 +958,9 @@ static int nf_tables_fill_chain_info(struct sk_buff *skb, struct net *net,
+ 			goto nla_put_failure;
+ 		if (nla_put_be32(skb, NFTA_HOOK_PRIORITY, htonl(ops->priority)))
+ 			goto nla_put_failure;
++		if (basechain->dev_name[0] &&
++		    nla_put_string(skb, NFTA_HOOK_DEV, basechain->dev_name))
++			goto nla_put_failure;
+ 		nla_nest_end(skb, nest);
  
- 	do {
--		write_lock_bh(&set->lock);
-+		spin_lock_bh(&set->lock);
- 		ret = set->variant->uadt(set, tb, adt, &lineno, flags, retried);
--		write_unlock_bh(&set->lock);
-+		spin_unlock_bh(&set->lock);
- 		retried = true;
- 	} while (ret == -EAGAIN &&
- 		 set->variant->resize &&
-@@ -1644,9 +1644,9 @@ ip_set_utest(struct sock *ctnl, struct sk_buff *skb,
- 			     set->type->adt_policy))
- 		return -IPSET_ERR_PROTOCOL;
+ 		if (nla_put_be32(skb, NFTA_CHAIN_POLICY,
+@@ -1200,9 +1172,13 @@ static void nf_tables_chain_destroy(struct nft_chain *chain)
+ 	BUG_ON(chain->use > 0);
  
--	read_lock_bh(&set->lock);
-+	rcu_read_lock_bh();
- 	ret = set->variant->uadt(set, tb, IPSET_TEST, NULL, 0, 0);
--	read_unlock_bh(&set->lock);
-+	rcu_read_unlock_bh();
- 	/* Userspace can't trigger element to be re-added */
- 	if (ret == -EAGAIN)
- 		ret = 1;
+ 	if (chain->flags & NFT_BASE_CHAIN) {
+-		module_put(nft_base_chain(chain)->type->owner);
+-		free_percpu(nft_base_chain(chain)->stats);
+-		kfree(nft_base_chain(chain));
++		struct nft_base_chain *basechain = nft_base_chain(chain);
++
++		module_put(basechain->type->owner);
++		free_percpu(basechain->stats);
++		if (basechain->ops[0].dev != NULL)
++			dev_put(basechain->ops[0].dev);
++		kfree(basechain);
+ 	} else {
+ 		kfree(chain);
+ 	}
+@@ -1221,6 +1197,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+ 	struct nlattr *ha[NFTA_HOOK_MAX + 1];
+ 	struct net *net = sock_net(skb->sk);
+ 	int family = nfmsg->nfgen_family;
++	struct net_device *dev = NULL;
+ 	u8 policy = NF_ACCEPT;
+ 	u64 handle = 0;
+ 	unsigned int i;
+@@ -1360,17 +1337,43 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+ 			return -ENOENT;
+ 		hookfn = type->hooks[hooknum];
+ 
++		if (afi->flags & NFT_AF_NEEDS_DEV) {
++			char ifname[IFNAMSIZ];
++
++			if (!ha[NFTA_HOOK_DEV]) {
++				module_put(type->owner);
++				return -EOPNOTSUPP;
++			}
++
++			nla_strlcpy(ifname, ha[NFTA_HOOK_DEV], IFNAMSIZ);
++			dev = dev_get_by_name(net, ifname);
++			if (!dev) {
++				module_put(type->owner);
++				return -ENOENT;
++			}
++		} else if (ha[NFTA_HOOK_DEV]) {
++			module_put(type->owner);
++			return -EOPNOTSUPP;
++		}
++
+ 		basechain = kzalloc(sizeof(*basechain), GFP_KERNEL);
+ 		if (basechain == NULL) {
+ 			module_put(type->owner);
++			if (dev != NULL)
++				dev_put(dev);
+ 			return -ENOMEM;
+ 		}
+ 
++		if (dev != NULL)
++			strncpy(basechain->dev_name, dev->name, IFNAMSIZ);
++
+ 		if (nla[NFTA_CHAIN_COUNTERS]) {
+ 			stats = nft_stats_alloc(nla[NFTA_CHAIN_COUNTERS]);
+ 			if (IS_ERR(stats)) {
+ 				module_put(type->owner);
+ 				kfree(basechain);
++				if (dev != NULL)
++					dev_put(dev);
+ 				return PTR_ERR(stats);
+ 			}
+ 			basechain->stats = stats;
+@@ -1379,6 +1382,8 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+ 			if (stats == NULL) {
+ 				module_put(type->owner);
+ 				kfree(basechain);
++				if (dev != NULL)
++					dev_put(dev);
+ 				return -ENOMEM;
+ 			}
+ 			rcu_assign_pointer(basechain->stats, stats);
+@@ -1396,7 +1401,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+ 			ops->priority	= priority;
+ 			ops->priv	= chain;
+ 			ops->hook	= afi->hooks[ops->hooknum];
+-			ops->dev	= table->dev;
++			ops->dev	= dev;
+ 			if (hookfn)
+ 				ops->hook = hookfn;
+ 			if (afi->hook_ops_init)
 -- 
 1.7.10.4
-
