@@ -1,49 +1,50 @@
-From: subashab@codeaurora.org
-Subject: [PATCH] rps: Handle double list_add at __napi_schedule
-Date: Mon, 15 Jun 2015 21:46:38 -0000
-Message-ID: <21d3b5e617ed44d217ce7f82e9fafa06.squirrel@www.codeaurora.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: Add sock_common_listen for TCP and DCCP
+Date: Mon, 15 Jun 2015 14:54:46 -0700 (PDT)
+Message-ID: <20150615.145446.1566874356874515092.davem@davemloft.net>
+References: <1434085077-4938-1-git-send-email-firogm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:55937 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751809AbbFOVqj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 17:46:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, gerrit@erg.abdn.ac.uk,
+	yoshfuji@linux-ipv6.org, jmorris@namei.org, kuznet@ms2.inr.ac.ru,
+	herbert@gondor.apana.org.au, ast@plumgrid.com,
+	ebiederm@xmission.com, dan.carpenter@oracle.com,
+	Julia.Lawall@lip6.fr, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: firogm@gmail.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1434085077-4938-1-git-send-email-firogm@gmail.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When NAPI_STATE_SCHED state is not set, enqueue_to_backlog()
-will queue an IPI and add the backlog queue to the poll list. A packet
-added by RPS onto the core could also add the NAPI backlog struct to the
-poll list. This double addition to the list causes a crash -
+From: Firo Yang <firogm@gmail.com>
+Date: Fri, 12 Jun 2015 12:57:57 +0800
 
-2920.540304:   <2> list_add double add: new=ffffffc076ed2930,
-prev=ffffffc076ed2930, next=ffffffc076ed2850.
-   [<ffffffc000460dd4>] __list_add+0xcc/0xf0
-2921.064962:   <2> [<ffffffc000b44880>] rps_trigger_softirq+0x1c/0x40
-2921.070779:   <2> [<ffffffc000284a14>]
-generic_smp_call_function_single_interrupt+0xe8/0x12c
-2921.078678:   <2> [<ffffffc00020d9ac>] handle_IPI+0x8c/0x1ec
-2921.083796:   <2> [<ffffffc000200714>] gic_handle_irq+0x94/0xb0
+> Code refactoring:
+> 1. Move the common code of inet_listen() and inet_dccp_listen() to
+> sock_common_listen().
+> 
+> 2. Modify and rename inet_listen() to tcp_listen().
+> 
+> 3. Modify and rename inet_dccp_listen() to dccp_listen().
+> 
+> 4. Add new callback pointer listen in struct proto for
+> tcp_listen() and dccp_listen().
+> 
+> This patch makes codes more modularized and removes redudant codes.
+> 
+> Signed-off-by: Firo Yang <firogm@gmail.com>
+> ---
+> v2: 
+> In according to the advices of Eric Dumazet, sock_common_listen() keep 
+> using TCP_xxx state instead of introducing new aliases.
+> 
+> Test info:
+> I test it on my x86 PC.
 
-Fix this race for double addition to list by checking the NAPI state.
+I don't think this is worthwhile, sorry.
 
-Acked-by: Sharat Masetty <smasetty@qti.qualcomm.com>
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6f561de..57d6d39 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3225,7 +3225,8 @@ static void rps_trigger_softirq(void *data)
- {
-        struct softnet_data *sd = data;
-
--       ____napi_schedule(sd, &sd->backlog);
-+       if (!test_bit(NAPI_STATE_SCHED, &sd->backlog.state))
-+               ____napi_schedule(sd, &sd->backlog);
-        sd->received_rps++;
- }
+Instead of having two straight line copies of a piece of logic, we now
+have three functions and a new callback.  I'd rather have a single
+duplicate copy of a function than all of that.
