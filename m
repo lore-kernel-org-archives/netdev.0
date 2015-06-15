@@ -1,73 +1,71 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [RFC PATCH net-next 2/4] switchdev: add fwd_mark generator helper
-Date: Mon, 15 Jun 2015 06:52:47 -0700
-Message-ID: <CAE4R7bCABXELpMjqL1x1qyRy11JGmtMGZ6-Yo_5hXbWuFFF8_Q@mail.gmail.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next 0/4] switchdev: avoid duplicate packet forwarding
+Date: Mon, 15 Jun 2015 06:54:10 -0700
+Message-ID: <557ED902.90500@cumulusnetworks.com>
 References: <1434218670-43821-1-git-send-email-sfeldma@gmail.com>
- <1434218670-43821-3-git-send-email-sfeldma@gmail.com> <20150614065601.GB2105@nanopsycho.orion>
- <CAE4R7bA_N0YtoNEWrX7kO=PA3nWNc-nGL0Bcyt_1SmeX9PZs_g@mail.gmail.com> <20150615054638.GB2179@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	davidch <davidch@broadcom.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	simon.horman@netronome.com, ronen.arad@intel.com,
+	john.r.fastabend@intel.com, andrew@lunn.ch, f.fainelli@gmail.com,
+	linux@roeck-us.net, davidch@broadcom.com,
+	stephen@networkplumber.org
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f169.google.com ([209.85.220.169]:34791 "EHLO
-	mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753971AbbFONxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 09:53:08 -0400
-Received: by qkdm188 with SMTP id m188so32665524qkd.1
-        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 06:53:07 -0700 (PDT)
-In-Reply-To: <20150615054638.GB2179@nanopsycho.orion>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35478 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751940AbbFONyM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 09:54:12 -0400
+Received: by pacyx8 with SMTP id yx8so66208169pac.2
+        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 06:54:11 -0700 (PDT)
+In-Reply-To: <1434218670-43821-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 14, 2015 at 10:46 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Sun, Jun 14, 2015 at 07:50:13PM CEST, sfeldma@gmail.com wrote:
->>On Sat, Jun 13, 2015 at 11:56 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>> Sat, Jun 13, 2015 at 08:04:28PM CEST, sfeldma@gmail.com wrote:
->>>>From: Scott Feldman <sfeldma@gmail.com>
->>>>
->>>>skb->fwd_mark and dev->fwd_mark are 32-bit and should be unique for device
->>>>and maybe even unique for a sub-set of ports within device, so add
->>>>switchdev helper function to generate unique marks based on driver-supplied
->>>>key.  Typically, the driver would use device switch ID for key, and maybe
->>>>additional fields in key for grouped ports such as bridge ifindex.  The key
->>>>can be of arbitrary length.
->>>>
->>>>The generator uses a global hash table to store fwd_marks hashed by key.
->>>>
->>>>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>
->><snip>
->>
->>>>+u32 switchdev_mark_get(void *key, size_t key_len)
->>>>+{
->>>>+      struct switchdev_mark_ht_entry {
->>>>+              struct hlist_node entry;
->>>>+              void *key;
->>>>+              size_t key_len;
->>>>+              u32 key_crc32;
->>>>+              u32 mark;
->>>>+      } *entry;
->>>>+      u32 key_crc32 = crc32(~0, key, key_len);
->>>>+      u32 mark = 0;
->>>>+      unsigned long flags;
->>>>+
->>>>+      spin_lock_irqsave(&switchdev_mark_lock, flags);
->>>
->>> I fail to see why _irqsave variant is needed here.
->>
->>I don't know what context caller is in, so using most conservative
->>spinlock.  Is there a better way?
+On 6/13/15, 11:04 AM, sfeldma@gmail.com wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
 >
-> I don't see why would someone call this from irq.
-
-Ok, good point, I'll adjust to spin_lock.
+> (RFC because we're at rc7+ now)
+>
+> With switchdev support for offloading L2/L3 forwarding data path to a
+> switch device, we have a general problem where both the device and the
+> kernel may forward the packet, resulting in duplicate packets on the wire.
+> Anytime a packet is forwarded by the device and a copy is sent to the CPU,
+> there is potential for duplicate forwarding, as the kernel may also do a
+> forwarding lookup and send the packet on the wire.
+>
+> The specific problem this patch series is interested in solving is avoiding
+> duplicate packets on bridged ports.  There was a previous RFC from Roopa
+> (http://marc.info/?l=linux-netdev&m=142687073314252&w=2) to address this
+> problem, but didn't solve the problem of mixed ports in the bridge from
+> different devices; there was no way to exclude some ports from forwarding
+> and include others.  This RFC solves that problem by tagging the ingressing
+> packet with a unique mark, and then comparing the packet mark with the
+> egress port mark, and skip forwarding when there is a match.  For the mixed
+> ports bridge case, only those ports with matching marks are skipped.
+>
+> The switchdev port driver must do two things:
+>
+> 1) Generate a fwd_mark for each switch port, using some unique key of the
+>     switch device (and optionally port).  This is a one-time operation done
+>     when port's netdev is setup.
+>
+> 2) On packet ingress from port, mark the skb with the ingress port's
+>     fwd_mark.  If the device supports it, it's useful to only mark skbs
+>     which were already forwarded by the device.  If the device does not
+>     support such indication, all skbs can be marked, even if they're
+>     local dst.
+>
+> Two new 32-bit fields are added to struct sk_buff and struct netdevice to
+> hold the fwd_mark.  I've wrapped these with CONFIG_NET_SWITCHDEV for now. I
+> tried using skb->mark for this purpose, but ebtables can overwrite the
+> skb->mark before the bridge gets it, so that will not work.
+>
+> In general, this fwd_mark can be used for any case where a packet is
+> forwarded by the device and a copy is sent to the CPU, to avoid the kernel
+> re-forwarding the packet.  sFlow is another use-case that comes to mind,
+> but I haven't explored the details.
+>
+>
+scott, nicely done!. I like the patch series. Thanks.
