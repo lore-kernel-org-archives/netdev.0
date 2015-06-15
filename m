@@ -1,39 +1,109 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: displayed name changed in ip link show for bridge- and other
- interfaces
-Date: Mon, 15 Jun 2015 08:54:10 -0700
-Message-ID: <20150615085410.6628b5bb@urahara>
-References: <201506141200.20435.ulrich.gemkow@ikr.uni-stuttgart.de>
-	<557DCD0A.5040500@hartkopp.net>
-	<557DD20E.4080005@hartkopp.net>
-	<557E7D89.30301@6wind.com>
-	<557E9728.7080208@6wind.com>
+From: Simon Guinot <simon.guinot@sequanux.org>
+Subject: Re: [PATCH 1/2] net: mvneta: introduce tx_csum_limit property
+Date: Mon, 15 Jun 2015 17:54:41 +0200
+Message-ID: <20150615155440.GS4853@kw.sim.vm.gnt>
+References: <1434378443-23029-1-git-send-email-simon.guinot@sequanux.org>
+ <1434378443-23029-2-git-send-email-simon.guinot@sequanux.org>
+ <20150615164952.4f2f4dab@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Ulrich Gemkow <ulrich.gemkow@ikr.uni-stuttgart.de>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:34428 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755826AbbFOPyH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 11:54:07 -0400
-Received: by pdbki1 with SMTP id ki1so75756460pdb.1
-        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 08:54:07 -0700 (PDT)
-In-Reply-To: <557E9728.7080208@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Mon, 15 Jun 2015 11:13:12 +0200
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
-
-> Theoretically, virtual interfaces should advertise an IFLA_LINK to 0.
-> I don't know what is the best fix:
->   - patching iproute2 to avoid this '@NONE'
->   - patching the kernel (see below).
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="0lx/R+CYDdR/AN/7"
+Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	stable@vger.kernel.org
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150615164952.4f2f4dab@free-electrons.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-Sorry this is an ABI change. The kernel has to go back
-to doing the same thing as before.
+--0lx/R+CYDdR/AN/7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, Jun 15, 2015 at 04:49:52PM +0200, Thomas Petazzoni wrote:
+> Dear Simon Guinot,
+>=20
+> On Mon, 15 Jun 2015 16:27:22 +0200, Simon Guinot wrote:
+> > This patch introduces the tx_csum_limit DT property. This allows to
+> > configure the maximum frame size for which the Ethernet controller is
+> > able to perform TCP/IP checksumming. If MTU is set to a value greater
+> > than tx_csum_limit, then the features NETIF_F_IP_CSUM and NETIF_F_TSO
+> > are disabled.
+> >=20
+> > Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
+> > Cc: <stable@vger.kernel.org> # v3.8+
+> > ---
+> >  .../bindings/net/marvell-armada-370-neta.txt       |  3 +++
+> >  drivers/net/ethernet/marvell/mvneta.c              | 25 ++++++++++++++=
++++++++-
+> >  2 files changed, 27 insertions(+), 1 deletion(-)
+> >=20
+> > diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-n=
+eta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+> > index 750d577e8083..db48c83ff0f5 100644
+> > --- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+> > +++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+> > @@ -8,6 +8,9 @@ Required properties:
+> >  - phy-mode: See ethernet.txt file in the same directory
+> >  - clocks: a pointer to the reference clock for this device.
+> > =20
+> > +Optional properties:
+> > +- tx_csum_limit: max tx packet size for hardware checksum.
+>=20
+> To be honest, I'd prefer to have a different compatible string to
+> identify the two different versions of the hardware block.
+>=20
+> The current armada-370-neta would limit the HW checksumming features to
+> packets smaller than 1600 bytes, while a new armada-xp-neta would not
+> have this limit.
+
+This was also my first idea. But by doing this, we take the risk of
+losing the HW checksumming feature with jumbo frames on some currently
+working Armada XP setups. This may happen for example if a user is able
+to update the kernel but not the on-board DTB. In order to fix a feature
+on a SoC, we are breaking the DTB-kernel compatibility for the very same
+feature on an another SoC. I am not sure it is OK.
+
+Are you comfortable with that ?
+
+By adding a new optional property, at least we ensure that the things
+will still work the same way with Armada-XP SoCs (for every DTB-Linux
+combination).
+
+Please, let me know if you still want to introduce a compatible string
+for Armada-XP.
+
+Simon
+
+>=20
+> Yet another case where we should have used "armada-<soc>-neta",
+> "armada-370-neta" in the .dtsi files for each SoC so that such
+> modification do not require changing the Device Trees.
+>=20
+> Best regards,
+>=20
+> Thomas
+> --=20
+> Thomas Petazzoni, CTO, Free Electrons
+> Embedded Linux, Kernel and Android engineering
+> http://free-electrons.com
+
+--0lx/R+CYDdR/AN/7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlV+9UAACgkQgtp0PDeOcDqOCACcDbj0319cbpJQhvPY66TzhFMI
+1dQAnRf8vq91e0TksbhYk7eIjCY9W7X7
+=esR2
+-----END PGP SIGNATURE-----
+
+--0lx/R+CYDdR/AN/7--
