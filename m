@@ -1,69 +1,70 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH 1/2] net: mvneta: introduce tx_csum_limit property
-Date: Mon, 15 Jun 2015 16:49:52 +0200
-Message-ID: <20150615164952.4f2f4dab@free-electrons.com>
-References: <1434378443-23029-1-git-send-email-simon.guinot@sequanux.org>
-	<1434378443-23029-2-git-send-email-simon.guinot@sequanux.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	<stable@vger.kernel.org>
-To: Simon Guinot <simon.guinot@sequanux.org>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 00/13] mlx4 driver update (+ new VF ndo)
+Date: Mon, 15 Jun 2015 17:58:55 +0300
+Message-ID: <1434380348-19005-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:38050 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753288AbbFOOt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 10:49:59 -0400
-In-Reply-To: <1434378443-23029-2-git-send-email-simon.guinot@sequanux.org>
+Received: from [193.47.165.129] ([193.47.165.129]:44937 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755846AbbFOO7i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2015 10:59:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Simon Guinot,
+Hi Dave,
 
-On Mon, 15 Jun 2015 16:27:22 +0200, Simon Guinot wrote:
-> This patch introduces the tx_csum_limit DT property. This allows to
-> configure the maximum frame size for which the Ethernet controller is
-> able to perform TCP/IP checksumming. If MTU is set to a value greater
-> than tx_csum_limit, then the features NETIF_F_IP_CSUM and NETIF_F_TSO
-> are disabled.
-> 
-> Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
-> Cc: <stable@vger.kernel.org> # v3.8+
-> ---
->  .../bindings/net/marvell-armada-370-neta.txt       |  3 +++
->  drivers/net/ethernet/marvell/mvneta.c              | 25 +++++++++++++++++++++-
->  2 files changed, 27 insertions(+), 1 deletion(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-> index 750d577e8083..db48c83ff0f5 100644
-> --- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-> +++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-> @@ -8,6 +8,9 @@ Required properties:
->  - phy-mode: See ethernet.txt file in the same directory
->  - clocks: a pointer to the reference clock for this device.
->  
-> +Optional properties:
-> +- tx_csum_limit: max tx packet size for hardware checksum.
+This series from Eran and Hadar is further dealing with traffic 
+counters in the mlx4 driver, this time mostly around SRIOV.
 
-To be honest, I'd prefer to have a different compatible string to
-identify the two different versions of the hardware block.
+We added a new ndo to read the VF counters through the PF netdev 
+netlink infrastructure plus mlx4 implementation for that ndo.
 
-The current armada-370-neta would limit the HW checksumming features to
-packets smaller than 1600 bytes, while a new armada-xp-neta would not
-have this limit.
+Or.
 
-Yet another case where we should have used "armada-<soc>-neta",
-"armada-370-neta" in the .dtsi files for each SoC so that such
-modification do not require changing the Device Trees.
+changes from V0:
+  - applied feedback from John to use nested netlink encoding
+    for the VF counters so we can extend it later
+  - add handling of single ported VFs in the mlx4_en driver new ndo
+  - avoid chopping the FW counters from 64 to 32 bits in mlx4_en PF flow
 
-Best regards,
+Eran Ben Elisha (13):
+  net/mlx4_core: Check before cleaning counters bitmap
+  net/mlx4_core: Reset counters data when freed
+  net/mlx4_core: Add sink counter
+  net/mlx4_core: Remove counters table allocation from VF flow
+  net/mlx4_core: Adjust counter grant policy in the resource tracker
+  net/mlx4_core: Add port attribute when tracking counters
+  net/mlx4_core: Allocate default counter per port
+  IB/mlx4: Add RoCE/IB dedicated counters
+  IB/mlx4: Set VF to read from QP counters
+  net/mlx4_core: Add helper to query counters
+  net/mlx4_en: Show PF own statistics via ethtool
+  net/core: Add reading VF statistics through the PF netdevice
+  net/mlx4_en: Support ndo_get_vf_stats
 
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+ drivers/infiniband/hw/mlx4/mad.c                   |   38 ++---
+ drivers/infiniband/hw/mlx4/main.c                  |   43 ++++--
+ drivers/infiniband/hw/mlx4/mlx4_ib.h               |    7 +-
+ drivers/infiniband/hw/mlx4/qp.c                    |    7 +-
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |   87 ++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |   17 ++
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   23 +++-
+ drivers/net/ethernet/mellanox/mlx4/en_port.c       |   15 ++-
+ drivers/net/ethernet/mellanox/mlx4/en_resources.c  |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c          |  134 ++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    5 +
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h       |    2 +
+ drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h    |   11 +-
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  173 +++++++++++++++++++-
+ include/linux/if_link.h                            |    9 +
+ include/linux/mlx4/cmd.h                           |    6 +
+ include/linux/mlx4/device.h                        |   10 +
+ include/linux/netdevice.h                          |    4 +
+ include/uapi/linux/if_link.h                       |   13 ++
+ net/core/rtnetlink.c                               |   51 ++++++-
+ 20 files changed, 587 insertions(+), 70 deletions(-)
