@@ -1,41 +1,63 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH 1/7] slab: infrastructure for bulk object allocation and
- freeing
-Date: Mon, 15 Jun 2015 11:50:18 -0500 (CDT)
-Message-ID: <alpine.DEB.2.11.1506151148160.20941@east.gentwo.org>
-References: <20150615155053.18824.617.stgit@devil> <20150615155156.18824.35187.stgit@devil> <557F013F.5080104@gmail.com>
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, linux-mm@kvack.org,
-    Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <557F013F.5080104@gmail.com>
-Sender: owner-linux-mm@kvack.org
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH] ethernet/sfc: mark state UNINIT after unregister
+Date: Mon, 15 Jun 2015 12:58:39 -0400
+Message-ID: <557F043F.5020908@redhat.com>
+References: <1434135061-42521-1-git-send-email-jarod@redhat.com> <557ED7DE.7080407@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	netdev@vger.kernel.org
+To: Edward Cree <ecree@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <557ED7DE.7080407@solarflare.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Jun 2015, Alexander Duyck wrote:
+On 6/15/2015 9:49 AM, Edward Cree wrote:
+> On 12/06/15 19:51, Jarod Wilson wrote:
+>> Without this change, modprobe -r sfc hits the BUG_ON() in
+>> efx_pci_remove_main(). Best as I can tell, this was just an oversight,
+>> efx->state gets set to STATE_UNINIT in the error path of
+>> efx_register_netdev() just after unregister_netdevice(), and the same
+>> should happen in efx_unregister_netdev() after its unregister_netdevice()
+>> call. Now I can load and unload no problem.
+>>
+>> CC: Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+>> CC: netdev@vger.kernel.org
+>> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+>> ---
+>>   drivers/net/ethernet/sfc/efx.c | 1 +
+>>   1 file changed, 1 insertion(+)
+>>
+>> diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+>> index 0c42ed9..f3eaade 100644
+>> --- a/drivers/net/ethernet/sfc/efx.c
+>> +++ b/drivers/net/ethernet/sfc/efx.c
+>> @@ -2448,6 +2448,7 @@ static void efx_unregister_netdev(struct efx_nic *efx)
+>>   #endif
+>>                device_remove_file(&efx->pci_dev->dev, &dev_attr_phy_type);
+>>                unregister_netdev(efx->net_dev);
+>> +             efx->state = STATE_UNINIT;
+>>        }
+>>   }
+>>
+> This isn't quite the right place, efx->state changes are supposed to be serialised by the RTNL lock.
+> Our out-of-tree driver has this in efx_pci_remove, just after the efx_disable_interrupts(efx) call and before rtnl_unlock() (see patch below).  I'd suggest that's the change we should make, but I haven't tested it yet.
+>
+> For reference, the "oversight" was in my e7fef9b45ae188066bb6eb3dde8310d33c2f7d5e "sfc: add sysfs entry to control MCDI tracing" which accidentally took our out-of-tree version of efx_unregister_netdev().  Before that the code was as in Jarod's patch.
 
-> So I can see the motivation behind bulk allocation, but I cannot see the
-> motivation behind bulk freeing.  In the case of freeing the likelihood of the
-> memory regions all belonging to the same page just isn't as high.
+Ah, I did notice the rtnl_lock calls before some other occasions where 
+state was set, but was thinking the lock might not be necessary if we're 
+that far along the teardown path with the netdev already unregistered. 
+You know the code far better than I do though, and your version works 
+just fine here too.
 
-The likelyhood is high if the object are allocated in batch as well. In
-that case SLUB ensures that all objects from the same page are first
-allocated.
+Feel free to add this (along with your signed-off-by, of course):
 
-> I don't really see the reason why you should be populating arrays. SLUB uses a
-> linked list and I don't see this implemented for SLOB or SLAB so maybe you
-> should look at making this into a linked list. Also as I stated in the other
-> comment maybe you should not do bulk allocation if you don't support it in
-> SLAB/SLOB and instead change this so that you return a count indicating that
-> only 1 value was allocated in this pass.
+Reviewed-by: Jarod Wilson <jarod@redhat.com>
 
-It is extremely easy to just take the linked list off a page or a per cpu
-structure. Basically we would have constant cycle count for taking N
-objects available in a slab page.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-- 
+Jarod Wilson
+jarod@redhat.com
