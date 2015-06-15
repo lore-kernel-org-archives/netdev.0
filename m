@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 13/13] net/mlx4_en: Support ndo_get_vf_stats
-Date: Mon, 15 Jun 2015 17:59:08 +0300
-Message-ID: <1434380348-19005-14-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 08/13] IB/mlx4: Add RoCE/IB dedicated counters
+Date: Mon, 15 Jun 2015 17:59:03 +0300
+Message-ID: <1434380348-19005-9-git-send-email-ogerlitz@mellanox.com>
 References: <1434380348-19005-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,200 +10,175 @@ Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:44965 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:45011 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755867AbbFOO7o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jun 2015 10:59:44 -0400
+	id S1755921AbbFOO7x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2015 10:59:53 -0400
 In-Reply-To: <1434380348-19005-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eran Ben Elisha <eranbe@mellanox.com>
 
-Implement the ndo to gather VF statistics through the PF.
+This is an infrastructure step to attach all the QPs opened from the
+IB driver to a counter in order to collect VF stats from the PF using
+those counters.
 
-All counters related to this VF are stored in a per slave
-list, run over the slave's list and collect all statistics.
+If the port's type is Ethernet, the counter policy demands two counters
+per port (one for RoCE and one for Ethernet). The port default counter
+(allocated in mlx4_core) is used for the Ethernet netdev QPs and we
+allocate another counter for RoCE.
+
+If the port's traffic is Infiniband, the counter policy demands
+one counter per port, so it can use the port's default counter.
+
+Also, Add 'allocated' flag for each counter in order to clean it at
+unload.
 
 Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |   30 ++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   10 ++++
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    2 +
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   48 ++++++++++++++++++++
- include/linux/mlx4/cmd.h                           |    3 +
- 5 files changed, 93 insertions(+), 0 deletions(-)
+ drivers/infiniband/hw/mlx4/mad.c     |    2 +-
+ drivers/infiniband/hw/mlx4/main.c    |   43 +++++++++++++++++++++++----------
+ drivers/infiniband/hw/mlx4/mlx4_ib.h |    7 ++++-
+ drivers/infiniband/hw/mlx4/qp.c      |    4 +-
+ 4 files changed, 39 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 44b8f77..8204013 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -3223,6 +3223,36 @@ if_stat_out:
- }
- EXPORT_SYMBOL_GPL(mlx4_get_counter_stats);
+diff --git a/drivers/infiniband/hw/mlx4/mad.c b/drivers/infiniband/hw/mlx4/mad.c
+index ad6a881..74ca13f 100644
+--- a/drivers/infiniband/hw/mlx4/mad.c
++++ b/drivers/infiniband/hw/mlx4/mad.c
+@@ -831,7 +831,7 @@ static int iboe_process_mad(struct ib_device *ibdev, int mad_flags, u8 port_num,
+ 	struct mlx4_cmd_mailbox *mailbox;
+ 	struct mlx4_ib_dev *dev = to_mdev(ibdev);
+ 	int err;
+-	u32 inmod = dev->counters[port_num - 1] & 0xffff;
++	u32 inmod = dev->counters[port_num - 1].index & 0xffff;
+ 	u8 mode;
  
-+int mlx4_get_vf_stats(struct mlx4_dev *dev, int port, int vf_idx,
-+		      struct ifla_vf_stats *vf_stats)
-+{
-+	struct mlx4_counter tmp_vf_stats;
-+	int slave;
-+	int err = 0;
-+
-+	if (!vf_stats)
-+		return -EINVAL;
-+
-+	if (!mlx4_is_master(dev))
-+		return -EPROTONOSUPPORT;
-+
-+	slave = mlx4_get_slave_indx(dev, vf_idx);
-+	if (slave < 0)
-+		return -EINVAL;
-+
-+	port = mlx4_slaves_closest_port(dev, slave, port);
-+	err = mlx4_calc_vf_counters(dev, slave, port, &tmp_vf_stats);
-+	if (!err && tmp_vf_stats.counter_mode == 0) {
-+		vf_stats->rx_packets = be64_to_cpu(tmp_vf_stats.rx_frames);
-+		vf_stats->tx_packets = be64_to_cpu(tmp_vf_stats.tx_frames);
-+		vf_stats->rx_bytes = be64_to_cpu(tmp_vf_stats.rx_bytes);
-+		vf_stats->tx_bytes = be64_to_cpu(tmp_vf_stats.tx_bytes);
-+	}
-+
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(mlx4_get_vf_stats);
-+
- int mlx4_vf_smi_enabled(struct mlx4_dev *dev, int slave, int port)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index f9142f2..77179d7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2292,6 +2292,15 @@ static int mlx4_en_set_vf_link_state(struct net_device *dev, int vf, int link_st
- 	return mlx4_set_vf_link_state(mdev->dev, en_priv->port, vf, link_state);
- }
+ 	if (in_mad->mad_hdr.mgmt_class != IB_MGMT_CLASS_PERF_MGMT)
+diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
+index 024b0f7..b6bd217 100644
+--- a/drivers/infiniband/hw/mlx4/main.c
++++ b/drivers/infiniband/hw/mlx4/main.c
+@@ -2098,6 +2098,8 @@ static void *mlx4_ib_add(struct mlx4_dev *dev)
+ 	struct mlx4_ib_iboe *iboe;
+ 	int ib_num_ports = 0;
+ 	int num_req_counters;
++	int allocated;
++	u32 counter_index;
  
-+static int mlx4_en_get_vf_stats(struct net_device *dev, int vf,
-+				struct ifla_vf_stats *vf_stats)
-+{
-+	struct mlx4_en_priv *en_priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = en_priv->mdev;
-+
-+	return mlx4_get_vf_stats(mdev->dev, en_priv->port, vf, vf_stats);
-+}
-+
- #define PORT_ID_BYTE_LEN 8
- static int mlx4_en_get_phys_port_id(struct net_device *dev,
- 				    struct netdev_phys_item_id *ppid)
-@@ -2489,6 +2498,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
- 	.ndo_set_vf_rate	= mlx4_en_set_vf_rate,
- 	.ndo_set_vf_spoofchk	= mlx4_en_set_vf_spoofchk,
- 	.ndo_set_vf_link_state	= mlx4_en_set_vf_link_state,
-+	.ndo_get_vf_stats       = mlx4_en_get_vf_stats,
- 	.ndo_get_vf_config	= mlx4_en_get_vf_config,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= mlx4_en_netpoll,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index e9e94bc..a092c5c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -1010,6 +1010,8 @@ int __mlx4_write_mtt(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
- 		     int start_index, int npages, u64 *page_list);
- int __mlx4_counter_alloc(struct mlx4_dev *dev, u32 *idx);
- void __mlx4_counter_free(struct mlx4_dev *dev, u32 idx);
-+int mlx4_calc_vf_counters(struct mlx4_dev *dev, int slave, int port,
-+			  struct mlx4_counter *data);
- int __mlx4_xrcd_alloc(struct mlx4_dev *dev, u32 *xrcdn);
- void __mlx4_xrcd_free(struct mlx4_dev *dev, u32 xrcdn);
+ 	pr_info_once("%s", mlx4_ib_version);
  
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 73db584..731423c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -46,6 +46,7 @@
- 
- #include "mlx4.h"
- #include "fw.h"
-+#include "mlx4_stats.h"
- 
- #define MLX4_MAC_VALID		(1ull << 63)
- #define MLX4_PF_COUNTERS_PER_PORT	2
-@@ -1147,6 +1148,53 @@ static struct res_common *alloc_tr(u64 id, enum mlx4_resource type, int slave,
- 	return ret;
- }
- 
-+int mlx4_calc_vf_counters(struct mlx4_dev *dev, int slave, int port,
-+			  struct mlx4_counter *data)
-+{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_resource_tracker *tracker = &priv->mfunc.master.res_tracker;
-+	struct res_common *tmp;
-+	struct res_counter *counter;
-+	int *counters_arr;
-+	int i = 0, err = 0;
-+
-+	memset(data, 0, sizeof(*data));
-+
-+	counters_arr = kmalloc_array(dev->caps.max_counters,
-+				     sizeof(*counters_arr), GFP_KERNEL);
-+	if (!counters_arr)
-+		return -ENOMEM;
-+
-+	spin_lock_irq(mlx4_tlock(dev));
-+	list_for_each_entry(tmp,
-+			    &tracker->slave_list[slave].res_list[RES_COUNTER],
-+			    list) {
-+		counter = container_of(tmp, struct res_counter, com);
-+		if (counter->port == port) {
-+			counters_arr[i] = (int)tmp->res_id;
-+			i++;
+@@ -2263,19 +2265,31 @@ static void *mlx4_ib_add(struct mlx4_dev *dev)
+ 	num_req_counters = mlx4_is_bonded(dev) ? 1 : ibdev->num_ports;
+ 	for (i = 0; i < num_req_counters; ++i) {
+ 		mutex_init(&ibdev->qp1_proxy_lock[i]);
++		allocated = 0;
+ 		if (mlx4_ib_port_link_layer(&ibdev->ib_dev, i + 1) ==
+ 						IB_LINK_LAYER_ETHERNET) {
+-			err = mlx4_counter_alloc(ibdev->dev, &ibdev->counters[i]);
++			err = mlx4_counter_alloc(ibdev->dev, &counter_index);
++			/* if failed to allocate a new counter, use default */
+ 			if (err)
+-				ibdev->counters[i] = -1;
+-		} else {
+-			ibdev->counters[i] = -1;
++				counter_index =
++					mlx4_get_default_counter_index(dev,
++								       i + 1);
++			else
++				allocated = 1;
++		} else { /* IB_LINK_LAYER_INFINIBAND use the default counter */
++			counter_index = mlx4_get_default_counter_index(dev,
++								       i + 1);
+ 		}
++		ibdev->counters[i].index = counter_index;
++		ibdev->counters[i].allocated = allocated;
++		pr_info("counter index %d for port %d allocated %d\n",
++			counter_index, i + 1, allocated);
+ 	}
+ 	if (mlx4_is_bonded(dev))
+-		for (i = 1; i < ibdev->num_ports ; ++i)
+-			ibdev->counters[i] = ibdev->counters[0];
+-
++		for (i = 1; i < ibdev->num_ports ; ++i) {
++			ibdev->counters[i].index = ibdev->counters[0].index;
++			ibdev->counters[i].allocated = 0;
 +		}
-+	}
-+	spin_unlock_irq(mlx4_tlock(dev));
-+	counters_arr[i] = -1;
-+
-+	i = 0;
-+
-+	while (counters_arr[i] != -1) {
-+		err = mlx4_get_counter_stats(dev, counters_arr[i], data,
-+					     0);
-+		if (err) {
-+			memset(data, 0, sizeof(*data));
-+			goto table_changed;
-+		}
-+		i++;
-+	}
-+
-+table_changed:
-+	kfree(counters_arr);
-+	return 0;
-+}
-+
- static int add_res_range(struct mlx4_dev *dev, int slave, u64 base, int count,
- 			 enum mlx4_resource type, int extra)
- {
-diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
-index 5dffc86..58391f2 100644
---- a/include/linux/mlx4/cmd.h
-+++ b/include/linux/mlx4/cmd.h
-@@ -36,6 +36,7 @@
- #include <linux/dma-mapping.h>
- #include <linux/if_link.h>
- #include <linux/mlx4/device.h>
-+#include <linux/netdevice.h>
  
- enum {
- 	/* initialization and general commands */
-@@ -303,6 +304,8 @@ void mlx4_free_cmd_mailbox(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbo
+ 	mlx4_foreach_port(i, dev, MLX4_PORT_TYPE_IB)
+ 		ib_num_ports++;
+@@ -2415,10 +2429,12 @@ err_steer_qp_release:
+ 		mlx4_qp_release_range(dev, ibdev->steer_qpn_base,
+ 				      ibdev->steer_qpn_count);
+ err_counter:
+-	for (; i; --i)
+-		if (ibdev->counters[i - 1] != -1)
+-			mlx4_counter_free(ibdev->dev, ibdev->counters[i - 1]);
+-
++	for (i = 0; i < ibdev->num_ports; ++i) {
++		if (ibdev->counters[i].index != -1 &&
++		    ibdev->counters[i].allocated)
++			mlx4_counter_free(ibdev->dev,
++					  ibdev->counters[i].index);
++	}
+ err_map:
+ 	iounmap(ibdev->uar_map);
  
- int mlx4_get_counter_stats(struct mlx4_dev *dev, int counter_index,
- 			   struct mlx4_counter *counter_stats, int reset);
-+int mlx4_get_vf_stats(struct mlx4_dev *dev, int port, int vf_idx,
-+		      struct ifla_vf_stats *vf_stats);
- u32 mlx4_comm_get_version(void);
- int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac);
- int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos);
+@@ -2535,8 +2551,9 @@ static void mlx4_ib_remove(struct mlx4_dev *dev, void *ibdev_ptr)
+ 
+ 	iounmap(ibdev->uar_map);
+ 	for (p = 0; p < ibdev->num_ports; ++p)
+-		if (ibdev->counters[p] != -1)
+-			mlx4_counter_free(ibdev->dev, ibdev->counters[p]);
++		if (ibdev->counters[p].index != -1 &&
++		    ibdev->counters[p].allocated)
++			mlx4_counter_free(ibdev->dev, ibdev->counters[p].index);
+ 	mlx4_foreach_port(p, dev, MLX4_PORT_TYPE_IB)
+ 		mlx4_CLOSE_PORT(dev, p);
+ 
+diff --git a/drivers/infiniband/hw/mlx4/mlx4_ib.h b/drivers/infiniband/hw/mlx4/mlx4_ib.h
+index ef80e6c..b3912d1 100644
+--- a/drivers/infiniband/hw/mlx4/mlx4_ib.h
++++ b/drivers/infiniband/hw/mlx4/mlx4_ib.h
+@@ -503,6 +503,11 @@ struct mlx4_ib_iov_port {
+ 	struct mlx4_ib_iov_sysfs_attr mcg_dentry;
+ };
+ 
++struct counter_index {
++	u32		index;
++	u8		allocated;
++};
++
+ struct mlx4_ib_dev {
+ 	struct ib_device	ib_dev;
+ 	struct mlx4_dev	       *dev;
+@@ -521,7 +526,7 @@ struct mlx4_ib_dev {
+ 	struct mutex		cap_mask_mutex;
+ 	bool			ib_active;
+ 	struct mlx4_ib_iboe	iboe;
+-	int			counters[MLX4_MAX_PORTS];
++	struct counter_index    counters[MLX4_MAX_PORTS];
+ 	int		       *eq_table;
+ 	struct kobject	       *iov_parent;
+ 	struct kobject	       *ports_parent;
+diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
+index c7d916f..c5a3a5f 100644
+--- a/drivers/infiniband/hw/mlx4/qp.c
++++ b/drivers/infiniband/hw/mlx4/qp.c
+@@ -1539,9 +1539,9 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
+ 	}
+ 
+ 	if (cur_state == IB_QPS_INIT && new_state == IB_QPS_RTR) {
+-		if (dev->counters[qp->port - 1] != -1) {
++		if (dev->counters[qp->port - 1].index != -1) {
+ 			context->pri_path.counter_index =
+-						dev->counters[qp->port - 1];
++					dev->counters[qp->port - 1].index;
+ 			optpar |= MLX4_QP_OPTPAR_COUNTER_INDEX;
+ 		} else
+ 			context->pri_path.counter_index =
 -- 
 1.7.1
