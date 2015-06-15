@@ -1,41 +1,317 @@
-From: Maninder Singh <maninder1.s@samsung.com>
-Subject: [PATCH 1/1] net: replace if()/BUG with BUG_ON()
-Date: Mon, 15 Jun 2015 10:35:05 +0530
-Message-ID: <"000201d0a728$e1928230$a4b78690$@s"@samsung.com>
+From: br1788@bangla.net
+Subject: RENDSZERGAZDA
+Date: Mon, 15 Jun 2015 10:58:38 +0600
+Message-ID: <1434344318.557e5b7e27d0f__19686.5462967709$1434344922$gmane$org@mx2.bangla.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, willemb@google.com, dborkman@redhat.com,
-	al.drozdov@gmail.com, viro@zeniv.linux.org.uk,
-	eyal.birger@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-language: en-us
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.bangla.net ([203.188.252.24]:49944 "EHLO mx2.bangla.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752093AbbFOFIX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2015 01:08:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use BUG_ON(condition) instead of if(condition)/BUG()
+Ez az =FCzenet a rendszergazda =FCzenetk=F6zpont valamennyi tulajdonosa=
+ webmail
+sz=E1ml=E1k. Jelenleg korszer&#369;s=EDt=E9se a adatb=E1zis-k=F6zpont =E9=
+s figyelembe email.
+T=F6r=F6lj=FCk email seg=EDts=E9g=E9vel webes e-mail fi=F3kot, hogy nag=
+yobb teret az =FAj
+sz=E1ml=E1kat. Ha m=E9g nem friss=EDtette el&#337;tt ez az utols=F3 alk=
+alom, hogy
+csin=E1lni.
 
-Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
-Reviewed-by: Akhilesh Kumar <akhilesh.k@samsung.com>
----
- net/packet/af_packet.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+Annak elker=FCl=E9se =E9rdek=E9ben, a fi=F3k megsz=FCntet=E9s=E9hez, ak=
+kor friss=EDteni kell az
+al=E1bbi, =EDgy tudni fogjuk st=E1tusz=E1t, mint a sz=E1mla jelenleg ha=
+szn=E1lt.
+Kattintson az al=E1bbi linkre FRISS=CDT=C9SHEZ
+http://hu-admini-mail.weebly.com
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index b5989c6..c91d405 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -547,8 +547,7 @@ static void prb_setup_retire_blk_timer(struct
-packet_sock *po, int tx_ring)
- {
- 	struct tpacket_kbdq_core *pkc;
- 
--	if (tx_ring)
--		BUG();
-+	BUG_ON(tx_ring);
- 
- 	pkc = tx_ring ? GET_PBDQC_FROM_RB(&po->tx_ring) :
- 			GET_PBDQC_FROM_RB(&po->rx_ring);
--- 
-1.7.1
+Vigy=E1zz !!! Minden fi=F3k tulajdonosa, amely nem hajland=F3 megn=E9zn=
+i a sz=E1mla
+sz=E1m=EDtott h=E1rom napon bel=FCl a friss=EDt=E9s =E9rtes=EDt=E9si el=
+vesz=EDtik fi=F3kj=E1t
+v=E9glegesen.
+
+K=F6sz=F6nj=FCk, hogy a webmail
+t=E1mogat=E1s
+Csapat hibak=F3dot: ID67565434
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------
+This mail sent through bangla.net, The  First Online Internet Service P=
+rovider
+in Bangladesh
