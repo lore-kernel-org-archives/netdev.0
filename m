@@ -1,63 +1,81 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: [PATCH 3/3] ixgbe: ping to reset on changing trust status
-Date: Mon, 15 Jun 2015 10:48:57 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05EDEFDD@BPXM14GP.gisp.nec.co.jp>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH] net:usb:cdc_ncm: fix that tag Huawei devices as wwan
+Date: Mon, 15 Jun 2015 13:09:13 +0200
+Message-ID: <87a8w1kz3a.fsf@nemi.mork.no>
+References: <SNT147-W99A0E937260823EBAA1FFB3B90@phx.gbl>
+	<CA+55aFz3S3nR_aDMMS1vcayyEqJCBL5tgoYAfDE2WGyM3Vcrww@mail.gmail.com>
+	<87ioapl55s.fsf@nemi.mork.no>
+	<30508675-5839-4E65-975A-4CFC5B1C5E24@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	"David Miller" <davem@davemloft.net>,
-	Edward Cree <ecree@solarflare.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([210.143.35.52]:42111 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754570AbbFOKwA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 06:52:00 -0400
-Content-Language: ja-JP
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>,
+	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	xiaomao <xiaomao0213-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <30508675-5839-4E65-975A-4CFC5B1C5E24-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org> (Marcel
+	Holtmann's message of "Mon, 15 Jun 2015 12:22:27 +0200")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb20+DQoNClNl
-bmQgYSBwaW5nIHRvIHJlc2V0IFZGIG9uIGNoYW5naW5nIHRoZSBzdGF0dXMgb2YgdHJ1c3Rpbmcu
-DQpWRiBkcml2ZXIgd2lsbCByZWNvbmZpZ3VyZSBpdHMgZmVhdHVyZXMgb24gcmVzZXQuDQoNClNp
-Z25lZC1vZmYtYnk6IEhpcm9zaGkgU2hpbWFtb3RvIDxoLXNoaW1hbW90b0BjdC5qcC5uZWMuY29t
-Pg0KLS0tDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfc3Jpb3YuYyB8
-IDI1ICsrKysrKysrKysrKysrKysrLS0tLS0tLS0NCiAxIGZpbGUgY2hhbmdlZCwgMTcgaW5zZXJ0
-aW9ucygrKSwgOCBkZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3NyaW92LmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
-bC9peGdiZS9peGdiZV9zcmlvdi5jDQppbmRleCA1ZWIzMTA4Li43YmI5OTI2IDEwMDY0NA0KLS0t
-IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfc3Jpb3YuYw0KKysrIGIv
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfc3Jpb3YuYw0KQEAgLTEyMTIs
-MTggKzEyMTIsMjMgQEAgdm9pZCBpeGdiZV9kaXNhYmxlX3R4X3J4KHN0cnVjdCBpeGdiZV9hZGFw
-dGVyICphZGFwdGVyKQ0KIAlJWEdCRV9XUklURV9SRUcoaHcsIElYR0JFX1ZGUkUoMSksIDApOw0K
-IH0NCiANCi12b2lkIGl4Z2JlX3BpbmdfYWxsX3ZmcyhzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRh
-cHRlcikNCitzdGF0aWMgdm9pZCBpeGdiZV9waW5nX3ZmKHN0cnVjdCBpeGdiZV9hZGFwdGVyICph
-ZGFwdGVyLCBpbnQgdmYpDQogew0KIAlzdHJ1Y3QgaXhnYmVfaHcgKmh3ID0gJmFkYXB0ZXItPmh3
-Ow0KIAl1MzIgcGluZzsNCisNCisJcGluZyA9IElYR0JFX1BGX0NPTlRST0xfTVNHOw0KKwlpZiAo
-YWRhcHRlci0+dmZpbmZvW3ZmXS5jbGVhcl90b19zZW5kKQ0KKwkJcGluZyB8PSBJWEdCRV9WVF9N
-U0dUWVBFX0NUUzsNCisJaXhnYmVfd3JpdGVfbWJ4KGh3LCAmcGluZywgMSwgdmYpOw0KK30NCisN
-Cit2b2lkIGl4Z2JlX3BpbmdfYWxsX3ZmcyhzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlcikN
-Cit7DQogCWludCBpOw0KIA0KLQlmb3IgKGkgPSAwIDsgaSA8IGFkYXB0ZXItPm51bV92ZnM7IGkr
-Kykgew0KLQkJcGluZyA9IElYR0JFX1BGX0NPTlRST0xfTVNHOw0KLQkJaWYgKGFkYXB0ZXItPnZm
-aW5mb1tpXS5jbGVhcl90b19zZW5kKQ0KLQkJCXBpbmcgfD0gSVhHQkVfVlRfTVNHVFlQRV9DVFM7
-DQotCQlpeGdiZV93cml0ZV9tYngoaHcsICZwaW5nLCAxLCBpKTsNCi0JfQ0KKwlmb3IgKGkgPSAw
-IDsgaSA8IGFkYXB0ZXItPm51bV92ZnM7IGkrKykNCisJCWl4Z2JlX3BpbmdfdmYoYWRhcHRlciwg
-aSk7DQogfQ0KIA0KIGludCBpeGdiZV9uZG9fc2V0X3ZmX21hYyhzdHJ1Y3QgbmV0X2RldmljZSAq
-bmV0ZGV2LCBpbnQgdmYsIHU4ICptYWMpDQpAQCAtMTUxNyw3ICsxNTIyLDExIEBAIGludCBpeGdi
-ZV9uZG9fc2V0X3ZmX3RydXN0KHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYsIGludCB2ZiwgYm9v
-bCBzZXR0aW5nKQ0KIA0KIAlhZGFwdGVyLT52ZmluZm9bdmZdLnRydXN0ZWQgPSBzZXR0aW5nOw0K
-IA0KLQkvKiBUT0RPOiByZXNldCB0byByZWNvbmZpZ3VyZSBmZWF0dXJlcyAqLw0KKwkvKiByZXNl
-dCBWRiB0byByZWNvbmZpZ3VyZSBmZWF0dXJlcyAqLw0KKwlhZGFwdGVyLT52ZmluZm9bdmZdLmNs
-ZWFyX3RvX3NlbmQgPSBmYWxzZTsNCisJaXhnYmVfcGluZ192ZihhZGFwdGVyLCB2Zik7DQorDQor
-CWVfaW5mbyhkcnYsICJWRiAldSBpcyAlc3RydXN0ZWRcbiIsIHZmLCBzZXR0aW5nID8gIiIgOiAi
-bm90ICIpOw0KIA0KIAlyZXR1cm4gMDsNCiB9DQotLSANCjEuOC4zLjENCg0K
+Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org> writes:
+
+> we introduced DEVTYPE in uevent a long time ago. That is what
+> userspace should be using and not second guessing on interface names.
+
+Yes, sorry for confusing this by mentioning the device name.  This is
+really about DEVTYPE.
+
+usbnet minidrivers use FLAG_WWAN to set both the 'wwanX' device name an=
+d
+DEVTYPE=3Dwwan. The question here is whether or not to set that flag fo=
+r
+Huawei NCM devices.  We can discuss that in the DEVTYPE context if you
+prefer.
+
+> Why is userspace trying to hack around the kernel anyway.
+
+Because you can never expect DEVTYPE to be 100% correct. There isn't a
+one-to-one relationship between USB classes and DEVTYPE. So we use a
+default DEVTYPE and exception lists in class drivers like cdc_ether and
+cdc_ncm.  These exception lists will always be incomplete, like any suc=
+h
+whitelist/blacklist.
+
+I believe we have discussed this before, and my opinion on DEVTYPE is
+still that it is a best effort thing which we would have been better of=
+f
+without.  But it's too late to do anything about that.  Userspace has t=
+o
+deal with it.  The kernel provides a hint.  The hint cannot be trusted.
+
+> This never
+> really goes well unless the kernel exposes clear information to
+> identify devices. If there are some weird devices, then work this out
+> in the kernel and have DEVTYPE identity them correctly.
+
+How?  These devices share device IDs. We do not touch their management
+interfaces from the kernel.  We depend on being able to classify device
+types based on USB descriptors. How can we identify which device is wwa=
+n
+and which is not if the descriptors are identical down to the device ID=
+?
+
+It is tempting to say that Huawei knows best for their own devices, if
+you all find the change acceptable.  I most certainly don't know better
+than they do. I would have loved to travel back in time and never submi=
+t
+that patch...
+
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
