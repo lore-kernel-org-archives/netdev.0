@@ -1,61 +1,40 @@
-From: Simon Guinot <simon.guinot@sequanux.org>
-Subject: [PATCH 2/2] ARM: mvebu: disable IP checksum with jumbo frames for
- Armada 370
-Date: Mon, 15 Jun 2015 16:27:23 +0200
-Message-ID: <1434378443-23029-3-git-send-email-simon.guinot@sequanux.org>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH 1/2] net: mvneta: introduce tx_csum_limit property
+Date: Mon, 15 Jun 2015 15:36:01 +0100
+Message-ID: <20150615143601.GM7557@n2100.arm.linux.org.uk>
 References: <1434378443-23029-1-git-send-email-simon.guinot@sequanux.org>
+ <1434378443-23029-2-git-send-email-simon.guinot@sequanux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1434378443-23029-1-git-send-email-simon.guinot@sequanux.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	netdev@vger.kernel.org, stable@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Simon Guinot <simon.guinot@sequanux.org>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1434378443-23029-2-git-send-email-simon.guinot@sequanux.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Ethernet controller found in Armada 370 SoCs don't support TCP/IP
-checksumming with frames largest than 1600 Bytes.
+On Mon, Jun 15, 2015 at 04:27:22PM +0200, Simon Guinot wrote:
+> This patch introduces the tx_csum_limit DT property. This allows to
+> configure the maximum frame size for which the Ethernet controller is
+> able to perform TCP/IP checksumming. If MTU is set to a value greater
+> than tx_csum_limit, then the features NETIF_F_IP_CSUM and NETIF_F_TSO
+> are disabled.
+> 
+> Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
+> Cc: <stable@vger.kernel.org> # v3.8+
 
-This patch sets accordingly the tx_csum_limit property in Ethernet nodes
-for Armada 370.
+Sorry, I just tripped over this.  This looks like a patch adding a new
+_feature_ to this ethernet driver.  It isn't a regression fix, and it
+isn't a bug fix.  Why are you wanting to get it into stable kernels,
+which are supposed to only have bug and regression fixes applied?
 
-Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
-Cc: <stable@vger.kernel.org> # v3.8+
----
- arch/arm/boot/dts/armada-370.dtsi | 8 ++++++++
- 1 file changed, 8 insertions(+)
-
-diff --git a/arch/arm/boot/dts/armada-370.dtsi b/arch/arm/boot/dts/armada-370.dtsi
-index 00b50db57c9c..046489df351d 100644
---- a/arch/arm/boot/dts/armada-370.dtsi
-+++ b/arch/arm/boot/dts/armada-370.dtsi
-@@ -307,6 +307,14 @@
- 					dmacap,memset;
- 				};
- 			};
-+
-+			ethernet@70000 {
-+				tx_csum_limit = <1600>;
-+			};
-+
-+			ethernet@74000 {
-+				tx_csum_limit = <1600>;
-+			};
- 		};
- 	};
- };
 -- 
-2.1.4
+FTTC broadband for 0.8mile line: currently at 10.5Mbps down 400kbps up
+according to speedtest.net.
