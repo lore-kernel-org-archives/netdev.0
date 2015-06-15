@@ -1,75 +1,39 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH 7/7] slub: initial bulk free implementation
-Date: Mon, 15 Jun 2015 17:52:56 +0200
-Message-ID: <20150615155256.18824.42651.stgit@devil>
-References: <20150615155053.18824.617.stgit@devil>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: displayed name changed in ip link show for bridge- and other
+ interfaces
+Date: Mon, 15 Jun 2015 08:54:10 -0700
+Message-ID: <20150615085410.6628b5bb@urahara>
+References: <201506141200.20435.ulrich.gemkow@ikr.uni-stuttgart.de>
+	<557DCD0A.5040500@hartkopp.net>
+	<557DD20E.4080005@hartkopp.net>
+	<557E7D89.30301@6wind.com>
+	<557E9728.7080208@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: linux-mm@kvack.org, Christoph Lameter <cl@linux.com>,
-	Andrew Morton <akpm@linux-foundation.org>
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+	Ulrich Gemkow <ulrich.gemkow@ikr.uni-stuttgart.de>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54479 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755796AbbFOPxB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jun 2015 11:53:01 -0400
-In-Reply-To: <20150615155053.18824.617.stgit@devil>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:34428 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755826AbbFOPyH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 11:54:07 -0400
+Received: by pdbki1 with SMTP id ki1so75756460pdb.1
+        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 08:54:07 -0700 (PDT)
+In-Reply-To: <557E9728.7080208@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This implements SLUB specific kmem_cache_free_bulk().  SLUB allocator
-now both have bulk alloc and free implemented.
+On Mon, 15 Jun 2015 11:13:12 +0200
+Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
 
-Play nice and reenable local IRQs while calling slowpath.
+> Theoretically, virtual interfaces should advertise an IFLA_LINK to 0.
+> I don't know what is the best fix:
+>   - patching iproute2 to avoid this '@NONE'
+>   - patching the kernel (see below).
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
- mm/slub.c |   32 +++++++++++++++++++++++++++++++-
- 1 file changed, 31 insertions(+), 1 deletion(-)
 
-diff --git a/mm/slub.c b/mm/slub.c
-index 98d0e6f73ec1..cc4f870677bb 100644
---- a/mm/slub.c
-+++ b/mm/slub.c
-@@ -2752,7 +2752,37 @@ EXPORT_SYMBOL(kmem_cache_free);
- 
- void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
- {
--	__kmem_cache_free_bulk(s, size, p);
-+	struct kmem_cache_cpu *c;
-+	struct page *page;
-+	int i;
-+
-+	local_irq_disable();
-+	c = this_cpu_ptr(s->cpu_slab);
-+
-+	for (i = 0; i < size; i++) {
-+		void *object = p[i];
-+
-+		if (unlikely(!object))
-+			continue; // HOW ABOUT BUG_ON()???
-+
-+		page = virt_to_head_page(object);
-+		BUG_ON(s != page->slab_cache); /* Check if valid slab page */
-+
-+		if (c->page == page) {
-+			/* Fastpath: local CPU free */
-+			set_freepointer(s, object, c->freelist);
-+			c->freelist = object;
-+		} else {
-+			c->tid = next_tid(c->tid);
-+			local_irq_enable();
-+			/* Slowpath: overhead locked cmpxchg_double_slab */
-+			__slab_free(s, page, object, _RET_IP_);
-+			local_irq_disable();
-+			c = this_cpu_ptr(s->cpu_slab);
-+		}
-+	}
-+	c->tid = next_tid(c->tid);
-+	local_irq_enable();
- }
- EXPORT_SYMBOL(kmem_cache_free_bulk);
- 
+Sorry this is an ABI change. The kernel has to go back
+to doing the same thing as before.
