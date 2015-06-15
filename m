@@ -1,7 +1,7 @@
 From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 09/11] IB/cma: validate routing of incoming requests
-Date: Mon, 15 Jun 2015 11:47:14 +0300
-Message-ID: <1434358036-15526-10-git-send-email-haggaie@mellanox.com>
+Subject: [PATCH 10/11] IB/cma: Share ib_cm_ids between rdma_cm_ids
+Date: Mon, 15 Jun 2015 11:47:15 +0300
+Message-ID: <1434358036-15526-11-git-send-email-haggaie@mellanox.com>
 References: <1434358036-15526-1-git-send-email-haggaie@mellanox.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
@@ -16,146 +16,103 @@ In-Reply-To: <1434358036-15526-1-git-send-email-haggaie-VPRAkNaXOzVWk0Htik3J/w@p
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Pass incoming request parameters through the relevant IPv4/IPv6 routing
-tables and make sure the network stack is configured to handle such
-requests.
+Use ib_cm_id_create_and_listen to create listening IB CM IDs or share
+existing ones if needed. When given a request on a specific CM ID, the code
+now matches the request to the RDMA CM ID based on the request parameters,
+so it no longer needs to rely on the ib_cm's private data matching
+capabilities.
 
 Signed-off-by: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/infiniband/core/cma.c | 100 ++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 97 insertions(+), 3 deletions(-)
+ drivers/infiniband/core/cma.c | 60 ++++---------------------------------------
+ 1 file changed, 5 insertions(+), 55 deletions(-)
 
 diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index a43bbd57400c..74e562ec5b93 100644
+index 74e562ec5b93..c6d5fa7ab64a 100644
 --- a/drivers/infiniband/core/cma.c
 +++ b/drivers/infiniband/core/cma.c
-@@ -46,6 +46,8 @@
- 
- #include <net/tcp.h>
- #include <net/ipv6.h>
-+#include <net/ip_fib.h>
-+#include <net/ip6_route.h>
- 
- #include <rdma/rdma_cm.h>
- #include <rdma/rdma_cm_ib.h>
-@@ -1062,15 +1064,102 @@ static int cma_save_req_info(const struct ib_cm_event *ib_event,
- 	return 0;
+@@ -1722,42 +1722,6 @@ __be64 rdma_get_service_id(struct rdma_cm_id *id, struct sockaddr *addr)
  }
+ EXPORT_SYMBOL(rdma_get_service_id);
  
-+static bool validate_ipv4_net_dev(struct net_device *net_dev,
-+				  const struct sockaddr_in *dst_addr,
-+				  const struct sockaddr_in *src_addr)
-+{
-+	struct in_device *in_dev = in_dev_get(net_dev);
-+	__be32 daddr = dst_addr->sin_addr.s_addr,
-+	       saddr = src_addr->sin_addr.s_addr;
-+	struct fib_result res;
-+	struct flowi4 fl4;
-+	int err;
-+	bool ret = false;
-+
-+	if (!in_dev)
-+		return false;
-+
-+	if (ipv4_is_multicast(saddr) || ipv4_is_lbcast(saddr) ||
-+	    ipv4_is_lbcast(daddr) || ipv4_is_zeronet(saddr) ||
-+	    ipv4_is_zeronet(daddr) || ipv4_is_loopback(daddr) ||
-+	    ipv4_is_loopback(saddr))
-+		goto out;
-+
-+	memset(&fl4, 0, sizeof(fl4));
-+	fl4.flowi4_iif = net_dev->ifindex;
-+	fl4.daddr = daddr;
-+	fl4.saddr = saddr;
-+	err = fib_lookup(dev_net(net_dev), &fl4, &res);
-+	if (err)
-+		goto out;
-+
-+	if (res.fi->fib_dev != net_dev)
-+		goto out;
-+
-+	ret = true;
-+out:
-+	in_dev_put(in_dev);
-+	return ret;
-+}
-+
-+static bool validate_ipv6_net_dev(struct net_device *net_dev,
-+				  const struct sockaddr_in6 *dst_addr,
-+				  const struct sockaddr_in6 *src_addr)
-+{
-+#if IS_ENABLED(CONFIG_IPV6)
-+	const int strict = ipv6_addr_type(&dst_addr->sin6_addr) &
-+			   IPV6_ADDR_LINKLOCAL;
-+	struct rt6_info *rt = rt6_lookup(dev_net(net_dev), &dst_addr->sin6_addr,
-+					 &src_addr->sin6_addr, net_dev->ifindex,
-+					 strict);
-+	bool ret;
-+
-+	if (!rt)
-+		return false;
-+
-+	ret = rt->rt6i_idev->dev == net_dev;
-+	ip6_rt_put(rt);
-+
-+	return ret;
-+#else
-+	return false;
-+#endif
-+}
-+
-+static bool validate_net_dev(struct net_device *net_dev,
-+			     const struct sockaddr *daddr,
-+			     const struct sockaddr *saddr)
-+{
-+	const struct sockaddr_in *daddr4 = (const struct sockaddr_in *)daddr;
-+	const struct sockaddr_in *saddr4 = (const struct sockaddr_in *)saddr;
-+	const struct sockaddr_in6 *daddr6 = (const struct sockaddr_in6 *)daddr;
-+	const struct sockaddr_in6 *saddr6 = (const struct sockaddr_in6 *)saddr;
-+
-+	switch (daddr->sa_family) {
-+	case AF_INET:
-+		return saddr->sa_family == AF_INET &&
-+		       validate_ipv4_net_dev(net_dev, daddr4, saddr4);
-+
-+	case AF_INET6:
-+		return saddr->sa_family == AF_INET6 &&
-+		       validate_ipv6_net_dev(net_dev, daddr6, saddr6);
-+
-+	default:
-+		return false;
-+	}
-+}
-+
- static struct net_device *cma_get_net_dev(struct ib_cm_event *ib_event,
- 					  const struct cma_req_info *req)
+-static void cma_set_compare_data(enum rdma_port_space ps, struct sockaddr *addr,
+-				 struct ib_cm_compare_data *compare)
+-{
+-	struct cma_hdr *cma_data, *cma_mask;
+-	__be32 ip4_addr;
+-	struct in6_addr ip6_addr;
+-
+-	memset(compare, 0, sizeof *compare);
+-	cma_data = (void *) compare->data;
+-	cma_mask = (void *) compare->mask;
+-
+-	switch (addr->sa_family) {
+-	case AF_INET:
+-		ip4_addr = ((struct sockaddr_in *) addr)->sin_addr.s_addr;
+-		cma_set_ip_ver(cma_data, 4);
+-		cma_set_ip_ver(cma_mask, 0xF);
+-		if (!cma_any_addr(addr)) {
+-			cma_data->dst_addr.ip4.addr = ip4_addr;
+-			cma_mask->dst_addr.ip4.addr = htonl(~0);
+-		}
+-		break;
+-	case AF_INET6:
+-		ip6_addr = ((struct sockaddr_in6 *) addr)->sin6_addr;
+-		cma_set_ip_ver(cma_data, 6);
+-		cma_set_ip_ver(cma_mask, 0xF);
+-		if (!cma_any_addr(addr)) {
+-			cma_data->dst_addr.ip6 = ip6_addr;
+-			memset(&cma_mask->dst_addr.ip6, 0xFF,
+-			       sizeof cma_mask->dst_addr.ip6);
+-		}
+-		break;
+-	default:
+-		break;
+-	}
+-}
+-
+ static int cma_iw_handler(struct iw_cm_id *iw_id, struct iw_cm_event *iw_event)
  {
--	struct sockaddr_storage listen_addr_storage;
--	struct sockaddr *listen_addr = (struct sockaddr *)&listen_addr_storage;
-+	struct sockaddr_storage listen_addr_storage, src_addr_storage;
-+	struct sockaddr *listen_addr = (struct sockaddr *)&listen_addr_storage,
-+			*src_addr = (struct sockaddr *)&src_addr_storage;
- 	struct net_device *net_dev;
- 	int err;
+ 	struct rdma_id_private *id_priv = iw_id->context;
+@@ -1911,33 +1875,19 @@ out:
  
--	err = cma_save_ip_info(listen_addr, NULL, ib_event, req->service_id);
-+	err = cma_save_ip_info(listen_addr, src_addr, ib_event,
-+			       req->service_id);
- 	if (err)
- 		return ERR_PTR(err);
+ static int cma_ib_listen(struct rdma_id_private *id_priv)
+ {
+-	struct ib_cm_compare_data compare_data;
+ 	struct sockaddr *addr;
+ 	struct ib_cm_id	*id;
+ 	__be64 svc_id;
+-	int ret;
  
-@@ -1079,6 +1168,11 @@ static struct net_device *cma_get_net_dev(struct ib_cm_event *ib_event,
- 	if (!net_dev)
- 		return ERR_PTR(-ENODEV);
+-	id = ib_create_cm_id(id_priv->id.device, cma_req_handler, id_priv);
++	addr = cma_src_addr(id_priv);
++	svc_id = rdma_get_service_id(&id_priv->id, addr);
++	id = ib_cm_id_create_and_listen(id_priv->id.device, cma_req_handler,
++					svc_id, 0);
+ 	if (IS_ERR(id))
+ 		return PTR_ERR(id);
+-
+ 	id_priv->cm_id.ib = id;
  
-+	if (!validate_net_dev(net_dev, listen_addr, src_addr)) {
-+		dev_put(net_dev);
-+		return ERR_PTR(-EHOSTUNREACH);
-+	}
-+
- 	return net_dev;
+-	addr = cma_src_addr(id_priv);
+-	svc_id = rdma_get_service_id(&id_priv->id, addr);
+-	if (cma_any_addr(addr) && !id_priv->afonly)
+-		ret = ib_cm_listen(id_priv->cm_id.ib, svc_id, 0, NULL);
+-	else {
+-		cma_set_compare_data(id_priv->id.ps, addr, &compare_data);
+-		ret = ib_cm_listen(id_priv->cm_id.ib, svc_id, 0, &compare_data);
+-	}
+-
+-	if (ret) {
+-		ib_destroy_cm_id(id_priv->cm_id.ib);
+-		id_priv->cm_id.ib = NULL;
+-	}
+-
+-	return ret;
++	return 0;
  }
  
+ static int cma_iw_listen(struct rdma_id_private *id_priv, int backlog)
 -- 
 1.7.11.2
 
