@@ -1,59 +1,80 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [PATCH net-next 0/3] Socket destruction events via netlink
- sock_diag
-Date: Mon, 15 Jun 2015 14:20:25 -0300
-Message-ID: <20150615172025.GV4049@localhost.localdomain>
-References: <1434381980-20588-1-git-send-email-kraig@google.com>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH 02/11] IB/ipoib: Return IPoIB devices matching connection
+ parameters
+Date: Mon, 15 Jun 2015 11:22:10 -0600
+Message-ID: <20150615172210.GB14982@obsidianresearch.com>
+References: <1434358036-15526-1-git-send-email-haggaie@mellanox.com>
+ <1434358036-15526-3-git-send-email-haggaie@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-	stephen@networkplumber.org, davem@davemloft.net,
-	ebiederm@xmission.net, tgraf@suug.ch, xemul@openvz.org
-To: Craig Gallek <kraig@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59586 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755451AbbFORU3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jun 2015 13:20:29 -0400
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1434381980-20588-1-git-send-email-kraig@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1434358036-15526-3-git-send-email-haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 15, 2015 at 11:26:17AM -0400, Craig Gallek wrote:
-> This series extends the netlink sock_diag interface to broadcast
-> socket information as they are being destroyed.  The current
-> interface is poll based and can not be used to retreive information
-> about sockets that are destroyed between poll intervals.
-> 
-> Only inet sockets are broadcast in this implementation, but other
-> families could easily be added as needed in the future.
-> 
-> If this patch set is accepted, a follow-up patch to the ss utility
-> in the iproute2 suite will also be submitted.
-> 
-> Craig Gallek (3):
->   sock_diag: define destruction multicast groups
->   sock_diag: specify info_size per inet protocol
->   sock_diag: implement a get_info handler for inet
-> 
->  include/linux/inet_diag.h      |  1 +
->  include/linux/sock_diag.h      | 42 +++++++++++++++++++++
->  include/net/sock.h             |  1 +
->  include/uapi/linux/inet_diag.h |  3 +-
->  include/uapi/linux/sock_diag.h | 10 +++++
->  net/core/sock.c                | 11 +++++-
->  net/core/sock_diag.c           | 85 ++++++++++++++++++++++++++++++++++++++++++
->  net/dccp/diag.c                |  1 +
->  net/ipv4/inet_diag.c           | 50 ++++++++++++++++++++++++-
->  net/ipv4/tcp.c                 |  4 +-
->  net/ipv4/tcp_diag.c            |  6 ++-
->  net/ipv4/udp_diag.c            |  2 +
->  12 files changed, 209 insertions(+), 7 deletions(-)
-> 
-> -- 
-> 2.2.0.rc0.207.ga3a616c
-> 
+On Mon, Jun 15, 2015 at 11:47:07AM +0300, Haggai Eran wrote:
 
-Looks good to me, thanks Craig.
-Reviewed-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> +/* Called with an RCU read lock taken */
+
+Add _rcu to the name? That is the standard convention.
+
+> +/* returns an IPoIB netdev on top a given ipoib device matching a pkey_index
+> + * and address, if one exists. */
+> +static struct net_device *ipoib_match_gid_pkey_addr(struct ipoib_dev_priv *priv,
+> +						    const union ib_gid *gid,
+> +						    u16 pkey_index,
+> +						    const struct sockaddr *addr)
+> +{
+> +	struct ipoib_dev_priv *child_priv;
+> +	struct net_device *net_dev = NULL;
+> +
+> +	if (priv->pkey_index == pkey_index &&
+> +	    (!gid || !memcmp(gid, &priv->local_gid, sizeof(*gid)))) {
+> +		net_dev = ipoib_get_net_dev_match_addr(addr, priv->dev);
+> +		if (net_dev)
+> +			return net_dev;
+
+As I said already, this should not even look at the sockaddr unless
+there are multiple possible hits on the other parameters, and there
+should be a comment explaining the sockaddr is only a hack to make up
+for having an incomplete LLADDR.
+
+That way people not using same guid children do not get incorrect
+functionality..
+
+> +static struct net_device *ipoib_get_net_dev_by_params(
+> +		struct ib_device *dev, u8 port, u16 pkey,
+> +		const union ib_gid *gid, const struct sockaddr *addr)
+
+[..]
+
+> +	ret = ib_find_cached_pkey(dev, port, pkey, &pkey_index);
+> +	if (ret)
+> +		return NULL;
+> +
+> +	if (!rdma_protocol_ib(dev, port))
+> +		return NULL;
+
+This if should be first I'd think.
+
+
+> +	dev_list = ib_get_client_data(dev, &ipoib_client);
+> +	if (!dev_list)
+> +		return NULL;
+
+Is the locking OK here? This access protected by lists_rwsem -
+but for instance ib_unregister_device holds only the device_mutex when
+calling client->remove, which kfree's dev_list. Looks wrong to me.
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
