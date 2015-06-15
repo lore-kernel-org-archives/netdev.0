@@ -1,70 +1,83 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] net: fix search limit handling in skb_find_text()
-Date: Mon, 15 Jun 2015 19:06:39 +0200
-Message-ID: <20150615170639.GA21117@salvia>
-References: <1434359518-16897-1-git-send-email-khimov@altell.ru>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH 7/7] slub: initial bulk free implementation
+Date: Mon, 15 Jun 2015 10:04:17 -0700
+Message-ID: <557F0591.5080704@gmail.com>
+References: <20150615155053.18824.617.stgit@devil> <20150615155256.18824.42651.stgit@devil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, roman@khimov.ru,
-	Phil Oester <kernel@linuxace.com>, Thomas Graf <tgraf@suug.ch>
-To: Roman I Khimov <khimov@altell.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:53261 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750734AbbFORBe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jun 2015 13:01:34 -0400
-Content-Disposition: inline
-In-Reply-To: <1434359518-16897-1-git-send-email-khimov@altell.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>, linux-mm@kvack.org,
+ Christoph Lameter <cl@linux.com>,
+ Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20150615155256.18824.42651.stgit@devil>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Cc'ing Thomas.
-
-On Mon, Jun 15, 2015 at 12:11:58PM +0300, Roman I Khimov wrote:
-> Suppose that we're trying to use an xt_string netfilter module to match a
-> string in a specially crafted packet that has "a nice string" starting at
-> offset 28.
-> 
-> It could be done in iptables like this:
-> 
-> -A some_chain -m string --string "a nice string" --algo bm --from 28 --to 38 -j DROP
-> 
-> And it would work as expected. Now changing that to
-> 
-> -A some_chain -m string --string "a nice string" --algo bm --from 29 --to 38 -j DROP
-> 
-> breaks the match, as expected. But, if we try to make
-> 
-> -A some_chain -m string --string "a nice string" --algo bm --from 20 --to 28 -j DROP
+On 06/15/2015 08:52 AM, Jesper Dangaard Brouer wrote:
+> This implements SLUB specific kmem_cache_free_bulk().  SLUB allocator
+> now both have bulk alloc and free implemented.
 >
-> then it suddenly works again! So the 'to' parameter seems to be inclusive, not
-> working as an offset after which no search should be done. OK, now if we try:
-> 
-> -A some_chain -m string --string "a nice string" --algo bm --from 28 --to 28 -j DROP
-
-Can you reproduce the same behaviour with the km algo?
-
-> it doesn't work. So, for the case of equal 'from' and 'to' it's treated in a
-> different way.
+> Play nice and reenable local IRQs while calling slowpath.
 >
-> The first behaviour (matching at 'to' offset) comes from skb_find_text()
-> comparison. The second one (not matching if 'from' and 'to' are equal) comes
-> from skb_seq_read() check for (abs_offset >= st->upper_offset).
-> 
-> I think that the way skb_find_text() handles 'to' is wrong and should be fixed
-> so that we always have predictable behaviour -- only match before 'to' offset.
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> ---
+>   mm/slub.c |   32 +++++++++++++++++++++++++++++++-
+>   1 file changed, 31 insertions(+), 1 deletion(-)
 >
-> There are currently only five usages of skb_find_text() in the kernel and it
-> looks to me that none of them expect to match something at the 'to' offset,
-> so probably this change is safe.
+> diff --git a/mm/slub.c b/mm/slub.c
+> index 98d0e6f73ec1..cc4f870677bb 100644
+> --- a/mm/slub.c
+> +++ b/mm/slub.c
+> @@ -2752,7 +2752,37 @@ EXPORT_SYMBOL(kmem_cache_free);
+>   
+>   void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
+>   {
+> -	__kmem_cache_free_bulk(s, size, p);
+> +	struct kmem_cache_cpu *c;
+> +	struct page *page;
+> +	int i;
+> +
+> +	local_irq_disable();
+> +	c = this_cpu_ptr(s->cpu_slab);
+> +
+> +	for (i = 0; i < size; i++) {
+> +		void *object = p[i];
+> +
+> +		if (unlikely(!object))
+> +			continue; // HOW ABOUT BUG_ON()???
+> +
+> +		page = virt_to_head_page(object);
+> +		BUG_ON(s != page->slab_cache); /* Check if valid slab page */
+> +
+> +		if (c->page == page) {
+> +			/* Fastpath: local CPU free */
+> +			set_freepointer(s, object, c->freelist);
+> +			c->freelist = object;
+> +		} else {
+> +			c->tid = next_tid(c->tid);
+> +			local_irq_enable();
+> +			/* Slowpath: overhead locked cmpxchg_double_slab */
+> +			__slab_free(s, page, object, _RET_IP_);
+> +			local_irq_disable();
+> +			c = this_cpu_ptr(s->cpu_slab);
+> +		}
+> +	}
+> +	c->tid = next_tid(c->tid);
+> +	local_irq_enable();
+>   }
+>   EXPORT_SYMBOL(kmem_cache_free_bulk);
 
-So both 'from' and 'to' are inclusive which seems consistent to me. If
-you make 'to' non-inclusive, then that will change the third example
-above, right? That will break existing setups for people that are
-relying on this behaviour. This has been exposed in this way for long
-time, so we should avoid that breakage.
+So if the idea is to batch the freeing maybe you should look at doing 
+the freeing in two passes.  The first would be to free all those buffers 
+that share their page with the percpu slab.  Then you could just free 
+everything else in the second pass after you have re-enabled IRQs.
 
-I would suggest you fix the --from X --to Y where X == Y which is not
-doing what people would expect.
+- Alex
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
