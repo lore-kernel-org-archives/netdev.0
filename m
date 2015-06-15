@@ -1,66 +1,91 @@
-From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Fwd: [PATCH] net:usb:cdc_ncm: fix that tag Huawei devices as wwan
-Date: Sun, 14 Jun 2015 13:51:46 -1000
-Message-ID: <CA+55aFz3S3nR_aDMMS1vcayyEqJCBL5tgoYAfDE2WGyM3Vcrww@mail.gmail.com>
-References: <SNT147-W99A0E937260823EBAA1FFB3B90@phx.gbl>
+From: Duan Andy <fugang.duan@freescale.com>
+Subject: RE: [PATCH] net: fec: Ensure clocks are enabled while using mdio bus
+Date: Mon, 15 Jun 2015 01:43:39 +0000
+Message-ID: <BLUPR03MB373121D2B0C2168C5193A2EF5B80@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1434123545-13549-1-git-send-email-andrew@lunn.ch>
+ <BLUPR03MB373E1D5EADCB4753C8D0F15F5B90@BLUPR03MB373.namprd03.prod.outlook.com>
+ <20150614144118.GA7800@lunn.ch> <557DD698.3020300@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=047d7b3a9c122d67060518830661
-Cc: USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	=?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <SNT147-W99A0E937260823EBAA1FFB3B90-MsuGFMq8XAE@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
---047d7b3a9c122d67060518830661
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-Hmm. Oliver is marked as the maintainer of the USB CDC code, but
-others have touched it more recently. So I'm just wildly adding people
-to the cc to comment on this patch and maybe apply it.
-Oliver/David/Ben/Bj=C3=B8rn?
-
-                Linus
-
-
----------- Forwarded message ----------
-From: xiaomao <xiaomao0213-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>
-Date: Sun, Jun 14, 2015 at 1:18 PM
-Subject: [PATCH] net:usb:cdc_ncm: fix that tag Huawei devices as wwan
-
-
-Form: Qianni Mamaqianni-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-
-Huawei devices is the gereric CDC_NCM devices, but not is WWAN
-devices. In the patch, we deleted the code about tagging Huawei
-devices as WWAN.
----
-
-Signed-off-by:Qianni Mamaqianni-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-
---047d7b3a9c122d67060518830661
-Content-Type: text/plain; charset=US-ASCII; name=patch
-Content-Disposition: attachment; filename=patch
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-X-Attachment-Id: 539ff6d7bd437803_0.1
+Cc: David Miller <davem@davemloft.net>,
+	Cory Tusar <cory.tusar@pid1solutions.com>,
+	netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0141.outbound.protection.outlook.com ([157.56.110.141]:14144
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752326AbbFOB7V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Jun 2015 21:59:21 -0400
+In-Reply-To: <557DD698.3020300@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-LS0tIGxpbnV4LTMuMTkvZHJpdmVycy9uZXQvdXNiL2NkY19uY20uYy5vcmlnCTIwMTUtMDYtMTUg
-MDE6Mjk6NTIuMzU0MjM4MDc5ICswODAwCisrKyBsaW51eC0zLjE5L2RyaXZlcnMvbmV0L3VzYi9j
-ZGNfbmNtLmMJMjAxNS0wNi0xNSAwMTozMTowNC4wNzQyMzYyNDYgKzA4MDAKQEAgLTE1NzMsMTIg
-KzE1NzMsMTIgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCB1c2JfZGV2aWNlX2lkIGNkY19kZQogCX0s
-CiAKIAkvKiB0YWcgSHVhd2VpIGRldmljZXMgYXMgd3dhbiAqLwotCXsgVVNCX1ZFTkRPUl9BTkRf
-SU5URVJGQUNFX0lORk8oMHgxMmQxLAorCS8qeyBVU0JfVkVORE9SX0FORF9JTlRFUkZBQ0VfSU5G
-TygweDEyZDEsCiAJCQkJCVVTQl9DTEFTU19DT01NLAogCQkJCQlVU0JfQ0RDX1NVQkNMQVNTX05D
-TSwKIAkJCQkJVVNCX0NEQ19QUk9UT19OT05FKSwKIAkgIC5kcml2ZXJfaW5mbyA9ICh1bnNpZ25l
-ZCBsb25nKSZ3d2FuX2luZm8sCi0JfSwKKwl9LCovCiAKIAkvKiBJbmZpbmVvbihub3cgSW50ZWwp
-IEhTUEEgTW9kZW0gcGxhdGZvcm0gKi8KIAl7IFVTQl9ERVZJQ0VfQU5EX0lOVEVSRkFDRV9JTkZP
-KDB4MTUxOSwgMHgwNDQzLAo=
---047d7b3a9c122d67060518830661--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+RnJvbTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+IFNlbnQ6IE1vbmRh
+eSwgSnVuZSAxNSwgMjAxNSAzOjMyIEFNDQo+IFRvOiBBbmRyZXcgTHVubjsgRHVhbiBGdWdhbmct
+QjM4NjExDQo+IENjOiBEYXZpZCBNaWxsZXI7IENvcnkgVHVzYXI7IG5ldGRldg0KPiBTdWJqZWN0
+OiBSZTogW1BBVENIXSBuZXQ6IGZlYzogRW5zdXJlIGNsb2NrcyBhcmUgZW5hYmxlZCB3aGlsZSB1
+c2luZyBtZGlvDQo+IGJ1cw0KPiANCj4gTGUgMDYvMTQvMTUgMDc6NDEsIEFuZHJldyBMdW5uIGEg
+w6ljcml0IDoNCj4gPiBPbiBTdW4sIEp1biAxNCwgMjAxNSBhdCAwODowNzoxMkFNICswMDAwLCBE
+dWFuIEFuZHkgd3JvdGU6DQo+ID4+IEZyb206IEFuZHJldyBMdW5uIDxhbmRyZXdAbHVubi5jaD4g
+U2VudDogRnJpZGF5LCBKdW5lIDEyLCAyMDE1IDExOjM5DQo+ID4+IFBNDQo+ID4+PiBUbzogRGF2
+aWQgTWlsbGVyDQo+ID4+PiBDYzogRHVhbiBGdWdhbmctQjM4NjExOyBDb3J5IFR1c2FyOyBuZXRk
+ZXY7IEFuZHJldyBMdW5uDQo+ID4+PiBTdWJqZWN0OiBbUEFUQ0hdIG5ldDogZmVjOiBFbnN1cmUg
+Y2xvY2tzIGFyZSBlbmFibGVkIHdoaWxlIHVzaW5nDQo+ID4+PiBtZGlvIGJ1cw0KPiA+Pj4NCj4g
+Pj4+IFdoZW4gYSBzd2l0Y2ggaXMgYXR0YWNoZWQgdG8gdGhlIG1kaW8gYnVzLCB0aGUgbWRpbyBi
+dXMgY2FuIGJlIHVzZWQNCj4gPj4+IHdoaWxlIHRoZSBpbnRlcmZhY2UgaXMgbm90IG9wZW4uIElm
+IHRoZSBjbG9ja3MgYXJlIG5vdCBlbmFibGVkLCBNRElPDQo+ID4+PiByZWFkcy93cml0ZXMgd2ls
+bCBzaW1wbHkgdGltZSBvdXQuIFNvIGVuYWJsZSB0aGUgY2xvY2tzIGJlZm9yZQ0KPiA+Pj4gc3Rh
+cnRpbmcgYSB0cmFuc2FjdGlvbiwgYW5kIGRpc2FibGUgdGhlbSBhZnRlcndhcmRzLiBUaGUgQ0NG
+DQo+ID4+PiBwZXJmb3JtcyByZWZlcmVuY2UgY291bnRpbmcgc28gdGhlIGNsb2NrcyB3aWxsIG9u
+bHkgYmUgZGlzYWJsZWQgaWYNCj4gdGhlcmUgYXJlIG5vIG90aGVyIHVzZXJzLg0KPiA+Pj4NCj4g
+Pj4+IFNpZ25lZC1vZmYtYnk6IEFuZHJldyBMdW5uIDxhbmRyZXdAbHVubi5jaD4NCj4gPj4+IC0t
+LQ0KPiA+Pg0KPiA+PiBOQUsgdGhlIHBhdGNoLg0KPiA+DQo+ID4+IGkuTVggc2VyaWVzIE1ESU8g
+YnVzIGlzIGEgcGFydCBvZiBFTkVUIGNvbnRyb2xsZXIuIElmIHRoZSBldGgNCj4gPj4gaW50ZXJm
+YWNlIGlzIG5vdCBvcGVuLCBhbGwgY2xvY2tzIGluY2x1ZGluZyBNRElPIGJ1cyBjbG9jayBhcmUg
+bm90DQo+ID4+IGVuYWJsZWQgZm9yIHBvd2VyIHNhdmluZy4NCj4gDQo+IFdoaWNoIGlzIGZpbmUs
+IGJ1dCBpcyBhbiBhc3N1bXB0aW9uIHlvdSBjYW4gb25seSBtYWtlIHdoZW4geW91ciBFTkVUDQo+
+IGNvbnRyb2xsZXIgaXMgY29ubmVjdGVkIHRvIGFuIEV0aGVybmV0IFBIWSwgd2l0aCBhIHN3aXRj
+aCwgdGhpbmdzIGdldCBhDQo+IGxpdHRsZSBkaWZmZXJlbnQgc2VlIGJlbG93Lg0KPiANCj4gPg0K
+PiA+IFdoZXJlIGRvIHlvdSBzZWUgYSBwb3dlciBzYXZpbmcgcmVncmVzc2lvbiBpbiB0aGlzIGNv
+ZGU/IEl0IGlzIG5vdCBhcw0KPiA+IGlmIGkganVzdCB1bmNvbmRpdGlvbmFsbHkgdHVybiB0aGUg
+Y2xvY2tzIG9uLiBBcyB0aGUgY29tbWVudCBzYXlzLCBhdA0KPiA+IHRoZSBzdGFydCBvZiBhbiBN
+RElPIHRyYW5zYWN0aW9uLCB0aGUgY2xvY2tzIGFyZSBlbmFibGVkLiBBdCB0aGUgZW5kDQo+ID4g
+b2YgYSB0cmFuc2FjdGlvbiwgdGhleSBhcmUgZGlzYWJsZWQgYWdhaW4uIElmIHlvdSBkb24ndCBo
+YXZlIGEgc3dpdGNoDQo+ID4gY29ubmVjdGVkLCB0aGVyZSB3aWxsIGJlIG5vIHRyYW5zYWN0aW9u
+cywgaGVuY2Ugbm8gY2hhbmdlIHRvIHBvd2VyDQo+ID4gc2F2aW5ncy4NCj4gPg0KPiA+PiBJbiBn
+ZW5lcmFsLCBpZiB5b3Ugd2FudCB0byB1c2UgbWRpbyBidXMgbmV0IGludGVyZmFjZSBtdXN0IGJl
+IHJ1bm5pbmcNCj4gPj4gc3RhdHVzLg0KPiA+DQo+ID4gVGhpcyBpcyBub3QgdHJ1ZSBmb3IgYSBu
+dW1iZXIgb2YgRXRoZXJuZXQgZGV2aWNlcy4gQWxsIHRob3NlIGN1cnJlbnRseQ0KPiA+IHVzZWQg
+d2l0aCBEU0EgYWxsb3cgTURJTyB0cmFuc2FjdGlvbnMgYXQgYW55IHRpbWUuDQo+IA0KQXMgSSBz
+YWlkLCB0aGUgTURJTyBidXMgaXMganVzdCBvbmUgZnVuY3Rpb24gb2YgRU5FVCBjb250cm9sbGVy
+LCBub3QgZGVwZW5kZW50IEhXL0lQLg0KDQoNCj4gUmlnaHQsIHRoZSB0eXBpY2FsIHNlcXVlbmNl
+IGxvb2tzIGxpa2UgdGhpczoNCj4gDQo+IC0gZXRoZXJuZXQgZGV2aWNlIGlzIHByb2JlZCBhbmQg
+cmVnaXN0ZXJlZCBmaXJzdCwgZm9yIHBvd2VyIHNhdmluZ3MNCj4gcHVycG9zZXMsIHRoZSBwcm9i
+ZSBmdW5jdGlvbiBtaWdodCB0dXJuIG9mZiBjbG9ja3Mgc2luY2Ugd2UgZG8gbm90IGtub3cNCj4g
+d2hldGhlciB0aGUgaW50ZXJmYWNlIHdpbGwgYmUgdXNlZCBhdCBhbGwsIHNvIHVudGlsIG5kb19v
+cGVuIGlzIGNhbGxlZCwNCj4gc3VjaCBjbG9ja3MgY2FuIGJlIGRpc2FibGVkDQo+IA0KPiAtIERT
+QSBpcyBwcm9iZWQgc2Vjb25kLCBhbmQgcHJvYmVzIHRoZSBzd2l0Y2hlcyB1c2luZyBNRElPIGJ1
+cyBhY2Nlc3NlcywNCj4gYW5kIGlmIGEgc3dpdGNoIGlzIGZvdW5kLCB3aWxsIGNvbmZpZ3VyZSBp
+dCB2aWEgTURJTyBidXMgcmVhZHMvd3JpdGVzLCBieQ0KPiB0aGVuLCB0aGUgbmV0d29yayBpbnRl
+cmZhY2UgaXMgZ3VhcmFudGVlZCB0byBiZSBkb3duDQo+IA0KPiAtIGxhc3QsIHlvdSBjb3VsZCBk
+aXNhYmxlIHRoZSBwYXJlbnQgbmV0d29yayBkZXZpY2UsIGJ1dCBzdGlsbCBpc3N1ZSBNRElPDQo+
+IHJlYWRzL3dyaXRlcyB0b3dhcmRzIHRoZSBzd2l0Y2ggdG8gY29sbGVjdCBzdGF0aXN0aWNzLCBt
+YWtlIGl0IHJ1biBpbiBhbg0KPiB1bm1hbmFnZWQgbW9kZSB3aXRoIHRoZSBDUFUgaW50ZXJmYWNl
+IGRvd24vcG93ZXJlZCBvZmYNCj4gDQo+IFNpbmNlIGNsb2NrcyBhcmUgcmVmZXJlbmNlIGNvdW50
+ZWQsIEkgcmVhbGx5IGRvIG5vdCBzZWUgbXVjaCBwcm9ibGVtIHdpdGgNCj4gQW5kcmV3J3MgYXBw
+cm9hY2ggaGVyZS4NCj4gDQo+IElmIHlvdSBhcmUgcnVubmluZyB3aXRob3V0IGEgc3dpdGNoIGFu
+ZCBqdXN0IGEgUEhZLCB5b3Ugd2lsbCBnZXQgYW4NCj4gb2NjYXNpb25hbCBjbG9jayByZWZlcmVu
+Y2UgY291bnQgPiAxIGR1cmluZyBNRElPIHJlYWRzL3dyaXRlcywgYW5kIHBhc3QNCj4geW91ciBu
+ZG9fY2xvc2UoKSBpZiB0aGUgY2xvY2sgcmVmZXJlbmNlIGNvdW50IGlzIDEsIGFrYSBzdGlsbCB0
+dXJuZWQgb24sDQo+IHRoZW4gdGhhdCBtZWFucyB5b3UgYXJlIG5vdCB1c2luZyB0aGUgUEhZIGxp
+YnJhcnkgcHJvcGVybHkgYW5kIHlvdSBoYXZlDQo+IGRhbmdsaW5nIE1ESU8gYWNjZXNzZXMuDQo+
+IC0tDQo+IEZsb3JpYW4NCg0KVGhhbmtzIGZvciB5b3VyIGRldGFpbCBleHBsYWluIHdoeSBkbyB5
+b3Ugd2FudCB0aGUgY2hhbmdlLg0KDQpJZiBzbywgaXQganVzdCBuZWVkIHRvIGVuYWJsZSBFTkVU
+IGlwZyBjbG9jayBmb3IgeW91ciBjYXNlcywgbm90IGFsbCBlbmV0IGNsb2Nrcy4NCklwZyBjbG9j
+ayBpcyBmb3IgTURJTyBidXMgcmVhZC93cml0ZSwgZm9yIEVORVQgcmVnaXN0ZXJzIGFjY2Vzc2lu
+Zy4gKGZlcC0+Y2xrX2lwZykNCg0KV2hpY2ggc3dpdGNoIHBoeSBkbyB5b3UgdXNlID8gSSB0cmll
+ZCBCQ001NDIyMCBzd2l0Y2ggb24gdGhlIGRyaXZlciB0aGF0IHdvcmtzIGZpbmUuDQo=
