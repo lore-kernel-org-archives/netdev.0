@@ -1,26 +1,58 @@
-From: =?gb2312?B?yerP/ru2?= <sxhlinux@163.com>
-Subject: Questions about 'ip link set DEV_NAME name DEV_NEWNAME'
-Date: Mon, 15 Jun 2015 21:25:30 +0800
-Message-ID: <006101d0a76e$c2e800d0$48b80270$@163.com>
+From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Subject: RE: [RFC,v3 02/10] dpaa_eth: add support for DPAA Ethernet
+Date: Mon, 15 Jun 2015 13:40:46 +0000
+Message-ID: <BL2PR03MB54503B16A47056DBA9653C0E6B80@BL2PR03MB545.namprd03.prod.outlook.com>
+References: <1430319405-31280-1-git-send-email-madalin.bucur@freescale.com>
+ <1433958961.27504.15.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m50-132.163.com ([123.125.50.132]:41751 "EHLO m50-132.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754074AbbFONZ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jun 2015 09:25:29 -0400
-Content-Language: zh-cn
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1433958961.27504.15.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I'm using command 'ip link set ge0/0 name ge5/1' to rename interface name
-from ge0/0 to ge5/0. when command complete, command 'ifconfig' and 'cat
-/proc/net/dev ' both can output information of ge5/0,however command 'ls
-/sys/class/net/' output "ls: /sys/class/net/ge5/0: No such file or
-directory".
-     There is no udev in my device, until to now command 'ip link' is the
-only way to change interface name. 
-     Anyone know solution to my problem, please give me some advice, thanks!
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiANCj4gT24gV2VkLCAyMDE1LTA0LTI5IGF0IDE3
+OjU2ICswMzAwLCBNYWRhbGluIEJ1Y3VyIHdyb3RlOg0KPiA+IFRoaXMgaW50cm9kdWNlcyB0aGUg
+RnJlZXNjYWxlIERhdGEgUGF0aCBBY2NlbGVyYXRpb24gQXJjaGl0ZWN0dXJlDQo+ID4gKERQQUEp
+IEV0aGVybmV0IGRyaXZlciAoZHBhYV9ldGgpIHRoYXQgYnVpbGRzIHVwb24gdGhlIERQQUEgUU1h
+biwNCj4gPiBCTWFuLCBQQU1VIGFuZCBGTWFuIGRyaXZlcnMgdG8gZGVsaXZlciBFdGhlcm5ldCBj
+b25uZWN0aXZpdHkgb24NCj4gPiB0aGUgRnJlZXNjYWxlIERQQUEgUW9ySVEgcGxhdGZvcm1zLg0K
+PiAuLi4NCj4gDQo+ID4gKwkvKiBXZSdyZSBnb2luZyB0byBzdG9yZSB0aGUgc2tiIGJhY2twb2lu
+dGVyIGF0IHRoZSBiZWdpbm5pbmcNCj4gPiArCSAqIG9mIHRoZSBkYXRhIGJ1ZmZlciwgc28gd2Ug
+bmVlZCBhIHByaXZhdGVseSBvd25lZCBza2INCj4gPiArCSAqLw0KPiA+ICsNCj4gPiArCS8qIENv
+ZGUgYm9ycm93ZWQgZnJvbSBza2JfdW5zaGFyZSgpLiAqLw0KPiA+ICsJaWYgKHNrYl9jbG9uZWQo
+c2tiKSkgew0KPiA+ICsJCXN0cnVjdCBza19idWZmICpuc2tiID0gc2tiX2NvcHkoc2tiLCBHRlBf
+QVRPTUlDKTsNCj4gPiArDQo+ID4gKwkJLyogRmluYWxseSwgY3JlYXRlIGEgY29udGlnIEZEIGZy
+b20gdGhpcyBza2IgKi8NCj4gPiArCQlza2JfdG9fY29udGlnX2ZkKHByaXYsIHNrYiwgJmZkLCBj
+b3VudHB0ciwgJm9mZnNldCk7DQo+ID4gKw0KPiA+ICsJCWtmcmVlX3NrYihza2IpOw0KPiA+ICsJ
+CXNrYiA9IG5za2I7DQo+ID4gKwkJLyogc2tiX2NvcHkoKSBoYXMgbm93IGxpbmVhcml6ZWQgdGhl
+IHNrYnVmZi4gKi8NCj4gPiArCX0NCj4gPiArDQo+IA0KPiBZb3Uga25vdyB0aGF0IFRDUCBwYWNr
+ZXRzIGFyZSBjbG9uZXMsIHJpZ2h0ID8NCj4gVGhpcyBjb2RlIGlzIGtpbGxpbmcgcGVyZm9ybWFu
+Y2UuDQo+IA0KPiBUQ1AgYWxsb3dzIHRoZSBoZWFkZXJzIHBhcnQgYmVpbmcgbW9kaWZpZWQgYnkg
+YSBkcml2ZXIgaWYgbmVlZGVkLg0KPiANCj4gWW91IHNob3VsZCB1c2Ugc2tiX2hlYWRlcl9jbG9u
+ZWQoKSBpbnN0ZWFkLg0KDQpUaGFuayB5b3UsIEknbGwgYWRkcmVzcyB0aGlzLiBJIHBsYW4gdG8g
+ZG8gc29tZXRoaW5nIGxpa2UgdGhpczoNCg0KKyAgICAgICBpZiAoIW5vbmxpbmVhcikgew0KKyAg
+ICAgICAgICAgICAgIC8qIFdlJ3JlIGdvaW5nIHRvIHN0b3JlIHRoZSBza2IgYmFja3BvaW50ZXIg
+YXQgdGhlIGJlZ2lubmluZw0KKyAgICAgICAgICAgICAgICAqIG9mIHRoZSBkYXRhIGJ1ZmZlciwg
+c28gd2UgbmVlZCBhIHByaXZhdGVseSBvd25lZCBza2INCisgICAgICAgICAgICAgICAgKi8NCisN
+CisgICAgICAgICAgICAgICAvKiBtYWtlIHN1cmUgc2tiIGlzIG5vdCBzaGFyZWQsIHNrYl9jb3df
+aGVhZCgpIGFzc3VtZXMgaXQncyBub3QgKi8NCisgICAgICAgICAgICAgICBza2IgPSBza2Jfc2hh
+cmVfY2hlY2soc2tiLCBHRlBfQVRPTUlDKTsNCisgICAgICAgICAgICAgICBpZiAoIXNrYikNCisg
+ICAgICAgICAgICAgICAgICAgICAgIGdvdG8gZW5vbWVtOw0KKw0KKyAgICAgICAgICAgICAgIC8q
+IHZlcmlmeSB0aGUgc2tiIGhlYWQgaXMgbm90IGNsb25lZCAqLw0KKyAgICAgICAgICAgICAgIGlm
+IChza2JfY293X2hlYWQoc2tiLCBwcml2LT50eF9oZWFkcm9vbSkpDQorICAgICAgICAgICAgICAg
+ICAgICAgICBnb3RvIGVub21lbTsNCisNCisgICAgICAgICAgICAgICBub25saW5lYXIgPSBza2Jf
+aXNfbm9ubGluZWFyKHNrYik7DQorICAgICAgIH0NCg0KYnV0IEknbSBub3Qgc3VyZSB0aGUgc2ti
+X3NoYXJlX2NoZWNrKCkgaXMgcmVxdWlyZWQgb24gdHguDQpJJ20gYWxzbyBhIGJpdCBwdXp6bGVk
+IGJ5IHRoZSBhbGlhc2luZyBiZXR3ZWVuIHNoYXJlZCBhbmQgY2xvbmVkIHRlcm1zDQooaS5lLiBz
+a2JfdW5zaGFyZSgpIGNvdWxkIGJlIG5hbWVkIHNvbWV0aGluZyBsaWtlIHNrYl91bmNsb25lKCk7
+DQogdGhlIHNrYl9zaGFyZV9jaGVjaygpIG5vdCBvbmx5IGNoZWNrcyBidXQgYWxzbyB1bnNoYXJl
+cyBhbiBza2Igc28NCiB0aGUgYWxyZWFkeSB0YWtlbiBza2JfdW5zaGFyZSgpIG5hbWUgd291bGQg
+cHJvYmFibHkgZml0IHRvbykuDQoNCk1hZGFsaW4NCg==
