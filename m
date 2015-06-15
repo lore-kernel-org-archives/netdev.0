@@ -1,67 +1,41 @@
-From: punnaiah choudary kalluri <punnaia@xilinx.com>
-Subject: Re: Support for Ethernet Phy interfaced through i2c bus
-Date: Mon, 15 Jun 2015 17:17:22 +0530
-Message-ID: <CAGnW=BYMCXAu8f6TgiXCPB11ufKrKdt5wH0VhUH1x8oYkvtZ9g@mail.gmail.com>
-References: <CAGnW=BakaGvnZREG2qTT91dhvitHjpc-ts6b+xhh+OU_KPN-uw@mail.gmail.com>
+From: Andrea Parri <parri.andrea@gmail.com>
+Subject: [PATCH] pkt_sched: sch_qfq: remove redundant -if- control statement
+Date: Mon, 15 Jun 2015 14:20:01 +0200
+Message-ID: <20150615122001.GA5600@andrea>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Punnaiah Choudary <kpc528@gmail.com>,
-	punnaiah choudary kalluri <kalluripunnaiahchoudary@gmail.com>,
-	appanad@xilinx.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: paolo.valente@unimore.it, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jhs@mojatatu.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:36016 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754198AbbFOLrX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 07:47:23 -0400
-Received: by pdjm12 with SMTP id m12so71275270pdj.3
-        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 04:47:23 -0700 (PDT)
-In-Reply-To: <CAGnW=BakaGvnZREG2qTT91dhvitHjpc-ts6b+xhh+OU_KPN-uw@mail.gmail.com>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:33728 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753292AbbFOMUK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 08:20:10 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Any inputs on this ?
 
-Regards,
-Punnaiah
+The control !hlist_unhashed() in qfq_destroy_agg() is unnecessary
+because already performed in hlist_del_init(), so remove it.
 
-On Tue, May 26, 2015 at 9:23 PM, punnaiah choudary kalluri
-<punnaia@xilinx.com> wrote:
-> Hi,
->
-> I have a design for adding the sgmii support to the Ethernet mac.
-> The Ethernet mac is interfaced to the SGMII core and the mdio interface
-> from the mac is connected to the sgmii core for querying the link status
-> and autonegotaiation status.
-> The external phy is connected to the i2c bus and it is accessed through
-> i2c controller.
->
-> I have tested this design with out registering phy framework and configured
-> the external phy using the i2c lib and modified the Ethernet driver to include
-> code for accessing the sgmii core using the mdio interface.
->
-> Now i am looking for a solution to implement the following requirement using the
-> existing phy framework. But it looks the current phy framework is using only
-> the mdio bus.
->
-> Could some one suggest the better approach or solution for
-> implementing the below
-> requirement.
->
->
->     --------
->    |        |   I2C
->    | I2c   |----------------
->    | ctrl|   |               |
->     ---------                |
->     ----------               |                                  -----------
->    |          |              -------------------------------- |           |
->    | MAC  |                                               |           |
->    |          |    MDIO     ------------     TX/RX   |   PHY |
->    |          |---------------- |            |---------------- |           |
->    |          | GMII         | SGMII |                 |           |
->    |          | --------------- |            |                  -----------
->     ----------                  |            |
->                                  ----------
-> Regards,
-> Punnaiah
+Signed-off-by: Andrea Parri <parri.andrea@gmail.com>
+---
+ net/sched/sch_qfq.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+index 3ec7e88..b8d73bc 100644
+--- a/net/sched/sch_qfq.c
++++ b/net/sched/sch_qfq.c
+@@ -339,8 +339,7 @@ static struct qfq_aggregate *qfq_choose_next_agg(struct qfq_sched *);
+ 
+ static void qfq_destroy_agg(struct qfq_sched *q, struct qfq_aggregate *agg)
+ {
+-       if (!hlist_unhashed(&agg->nonfull_next))
+-               hlist_del_init(&agg->nonfull_next);
++       hlist_del_init(&agg->nonfull_next);
+        q->wsum -= agg->class_weight;
+        if (q->wsum != 0)
+                q->iwsum = ONE_FP / q->wsum;
