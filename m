@@ -1,96 +1,131 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] net:usb:cdc_ncm: fix that tag Huawei devices as wwan
-Date: Mon, 15 Jun 2015 12:22:27 +0200
-Message-ID: <30508675-5839-4E65-975A-4CFC5B1C5E24@holtmann.org>
-References: <SNT147-W99A0E937260823EBAA1FFB3B90@phx.gbl> <CA+55aFz3S3nR_aDMMS1vcayyEqJCBL5tgoYAfDE2WGyM3Vcrww@mail.gmail.com> <87ioapl55s.fsf@nemi.mork.no>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Aleksander Morgado <aleksander@aleksander.es>,
-	Dan Williams <dcbw@redhat.com>,
-	Oliver Neukum <oliver@neukum.org>,
-	Ben Hutchings <ben.hutchings@codethink.co.uk>,
-	USB list <linux-usb@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	xiaomao <xiaomao0213@hotmail.com>
-To: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: RE: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
+Date: Mon, 15 Jun 2015 10:39:37 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05EDEF30@BPXM14GP.gisp.nec.co.jp>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FB5E4@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB3B4A@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FBBEC@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4EE6@BPXM14GP.gisp.nec.co.jp>
+ <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com>
+ <F6FB0E698C9B3143BDF729DF22286646912FC2E3@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB8A65@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912FDC17@ORSMSX110.amr.corp.intel.com>
+ <C5551D9AAB213A418B7FD5E4A6F30A07892FC8C7@ORSMSX108.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05EB9DA7@BPXM14GP.gisp.nec.co.jp>
+ <C5551D9AAB213A418B7FD5E4A6F30A07892FCD87@ORSMSX108.amr.corp.intel.com>
+ <F6FB0E698C9B3143BDF729DF22286646912FE19D@ORSMSX110.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	"David Miller" <davem@davemloft.net>,
+	Edward Cree <ecree@solarflare.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:33656 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753425AbbFOKWc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 06:22:32 -0400
-In-Reply-To: <87ioapl55s.fsf@nemi.mork.no>
+Received: from TYO202.gate.nec.co.jp ([210.143.35.52]:41436 "EHLO
+	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753374AbbFOKpH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 06:45:07 -0400
+In-Reply-To: <F6FB0E698C9B3143BDF729DF22286646912FE19D@ORSMSX110.amr.corp.intel.com>
+Content-Language: ja-JP
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Bjorn,
-
->> Hmm. Oliver is marked as the maintainer of the USB CDC code, but
->> others have touched it more recently. So I'm just wildly adding peop=
-le
->> to the cc to comment on this patch and maybe apply it.
->> Oliver/David/Ben/Bj=C3=B8rn?
->=20
-> Adding Aleksander and Dan, too.  The 'wwanX' vs 'usbX' distinction is=
- a
-> hint for userspace and nothing more. We try our best to make this hin=
-t
-> as precise as possible, but there has never been any guarantee that i=
-t
-> is 100% correct.  So userspace will have to deal with hints being wro=
-ng.
-> This has been discussed before:
-> http://lists.freedesktop.org/archives/modemmanager-devel/2014-April/0=
-01068.html
->=20
-> What makes the Huawei NCM devices special is that the same ID is reus=
-ed
-> for both types of devices, making it impossible to achieve perfect
-> hinting by adding exceptions to the generic rule.  We can choose betw=
-een
-> wrong towards 'wwanX' or wrong towards 'usbX'.  But the hint WILL be
-> wrong in some cases no matter what we do.
->=20
-> The 12d1:1506 device ID is a perfect example.  Here's a report of a
-> Huawei E5776 which should be used as a plain 'usbX' NCM device:
-> http://lists.freedesktop.org/archives/modemmanager-devel/2014-April/0=
-01040.html
-> And here's a report of a Huawei E3276 which needs wwan management and
-> therefore should be hinted as a 'wwanX' NCM device:
-> http://www.dd-wrt.com/phpBB2/viewtopic.php?p=3D764920
->=20
-> So which of the two wrongs should we choose?
->=20
-> Huawei wanting this changed is a strong argument for the 'usbX'
-> direction, of course.  But this will be a user visible change which i=
-s
-> likely to break currently working devices until userspace adapts.  An=
-d
-> that will normally trump almost any other argument.  I don't think we
-> can change this now.  I sincerely apologise about having added the
-> generic rule in the first place, but I don't see how I can go back an=
-d
-> change that.
->=20
-> I believe we have to follow the path of least surprise: Keeping what =
-we
-> have.
->=20
-> But we should definitely work with userspace to ensure that a wrongly
-> flagged 'wwanX' device is usable without any wwan management.
-> Preferably without the user really noticing anything different (excep=
-t
-> possibly the device name).
-
-we introduced DEVTYPE in uevent a long time ago. That is what userspace=
- should be using and not second guessing on interface names.
-
-Why is userspace trying to hack around the kernel anyway. This never re=
-ally goes well unless the kernel exposes clear information to identify =
-devices. If there are some weird devices, then work this out in the ker=
-nel and have DEVTYPE identity them correctly.
-
-Regards
-
-Marcel
+PiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gRnJvbTogUm9zZSwgR3JlZ29yeSBW
+DQo+ID4gU2VudDogVHVlc2RheSwgTWF5IDI2LCAyMDE1IDc6MDEgUE0NCj4gPiBUbzogSGlyb3No
+aSBTaGltYW1vdG87IFNraWRtb3JlLCBEb25hbGQgQzsgS2lyc2hlciwgSmVmZnJleSBUOyBpbnRl
+bC13aXJlZC0NCj4gPiBsYW5AbGlzdHMub3N1b3NsLm9yZw0KPiA+IENjOiBuaG9ybWFuQHJlZGhh
+dC5jb207IGpvZ3JlZW5lQHJlZGhhdC5jb207IExpbnV4IE5ldGRldiBMaXN0OyBDaG9pLA0KPiA+
+IFN5IEpvbmc7IFJvbnkgRWZyYWltOyBEYXZpZCBNaWxsZXI7IEVkd2FyZCBDcmVlOyBPciBHZXJs
+aXR6Ow0KPiA+IHNhc3NtYW5uQHJlZGhhdC5jb20NCj4gPiBTdWJqZWN0OiBSRTogW1BBVENIIHY1
+IDMvM10gaXhnYmU6IEFkZCBuZXcgbmRvIHRvIHRydXN0IFZGDQo+ID4NCj4gPg0KPiA+ID4gLS0t
+LS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+IEZyb206IEhpcm9zaGkgU2hpbWFtb3RvIFtt
+YWlsdG86aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbV0NCj4gPiA+IFNlbnQ6IFR1ZXNkYXksIE1h
+eSAyNiwgMjAxNSA1OjI4IFBNDQo+ID4gPiBUbzogUm9zZSwgR3JlZ29yeSBWOyBTa2lkbW9yZSwg
+RG9uYWxkIEM7IEtpcnNoZXIsIEplZmZyZXkgVDsNCj4gPiA+IGludGVsLXdpcmVkLSBsYW5AbGlz
+dHMub3N1b3NsLm9yZw0KPiA+ID4gQ2M6IG5ob3JtYW5AcmVkaGF0LmNvbTsgam9ncmVlbmVAcmVk
+aGF0LmNvbTsgTGludXggTmV0ZGV2IExpc3Q7IENob2ksDQo+ID4gPiBTeSBKb25nOyBSb255IEVm
+cmFpbTsgRGF2aWQgTWlsbGVyOyBFZHdhcmQgQ3JlZTsgT3IgR2VybGl0ejsNCj4gPiA+IHNhc3Nt
+YW5uQHJlZGhhdC5jb20NCj4gPiA+IFN1YmplY3Q6IFJFOiBbUEFUQ0ggdjUgMy8zXSBpeGdiZTog
+QWRkIG5ldyBuZG8gdG8gdHJ1c3QgVkYNCj4gPiA+DQo+ID4gPiA+ID4gLS0tLS1PcmlnaW5hbCBN
+ZXNzYWdlLS0tLS0NCj4gPiA+ID4gPiBGcm9tOiBTa2lkbW9yZSwgRG9uYWxkIEMNCj4gPiA+ID4g
+PiBTZW50OiBUdWVzZGF5LCBNYXkgMjYsIDIwMTUgMTA6NDYgQU0NCj4gPiA+ID4gPiBUbzogSGly
+b3NoaSBTaGltYW1vdG87IFJvc2UsIEdyZWdvcnkgVjsgS2lyc2hlciwgSmVmZnJleSBUOw0KPiA+
+ID4gPiA+IGludGVsLXdpcmVkLSBsYW5AbGlzdHMub3N1b3NsLm9yZw0KPiA+ID4gPiA+IENjOiBu
+aG9ybWFuQHJlZGhhdC5jb207IGpvZ3JlZW5lQHJlZGhhdC5jb207IExpbnV4IE5ldGRldiBMaXN0
+Ow0KPiA+ID4gPiA+IENob2ksIFN5IEpvbmc7IFJvbnkgRWZyYWltOyBEYXZpZCBNaWxsZXI7IEVk
+d2FyZCBDcmVlOyBPciBHZXJsaXR6Ow0KPiA+ID4gPiA+IHNhc3NtYW5uQHJlZGhhdC5jb20NCj4g
+PiA+ID4gPiBTdWJqZWN0OiBSRTogW1BBVENIIHY1IDMvM10gaXhnYmU6IEFkZCBuZXcgbmRvIHRv
+IHRydXN0IFZGDQo+ID4gPiA+ID4NCj4gPiA+ID4gPg0KPiA+ID4gPg0KPiA+ID4gPiBbc25pcF0N
+Cj4gPiA+ID4NCj4gPiA+ID4gPg0KPiA+ID4gPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0t
+LS0NCj4gPiA+ID4gPiA+IEZyb206IEhpcm9zaGkgU2hpbWFtb3RvIFttYWlsdG86aC1zaGltYW1v
+dG9AY3QuanAubmVjLmNvbV0NCj4gPiA+ID4gPiA+IFNlbnQ6IE1vbmRheSwgTWF5IDI1LCAyMDE1
+IDY6MDAgUE0NCj4gPiA+ID4gPiA+IFRvOiBTa2lkbW9yZSwgRG9uYWxkIEM7IFJvc2UsIEdyZWdv
+cnkgVjsgS2lyc2hlciwgSmVmZnJleSBUOw0KPiA+ID4gPiA+ID4gaW50ZWwtd2lyZWQtIGxhbkBs
+aXN0cy5vc3Vvc2wub3JnDQo+ID4gPiA+ID4gPiBDYzogbmhvcm1hbkByZWRoYXQuY29tOyBqb2dy
+ZWVuZUByZWRoYXQuY29tOyBMaW51eCBOZXRkZXYgTGlzdDsNCj4gPiA+ID4gPiA+IENob2ksIFN5
+IEpvbmc7IFJvbnkgRWZyYWltOyBEYXZpZCBNaWxsZXI7IEVkd2FyZCBDcmVlOyBPcg0KPiA+ID4g
+PiA+ID4gR2VybGl0ejsgc2Fzc21hbm5AcmVkaGF0LmNvbQ0KPiA+ID4gPiA+ID4gU3ViamVjdDog
+UkU6IFtQQVRDSCB2NSAzLzNdIGl4Z2JlOiBBZGQgbmV3IG5kbyB0byB0cnVzdCBWRg0KPiA+ID4g
+PiA+ID4NCj4gPiA+ID4gPiA+DQo+ID4gPiA+ID4gPiBEbyB5b3UgbWVhbiB0aGF0IFZGIHNob3Vs
+ZCBjYXJlIGFib3V0IGl0IGlzIHRydXN0ZWQgb3Igbm90Pw0KPiA+ID4gPiA+ID4gU2hvdWxkIFZG
+IHJlcXVlc3QgTUMgUHJvbWlzYyBhZ2FpbiB3aGVuIGl0J3MgdHJ1c3RlZD8NCj4gPiA+ID4gPiA+
+IE9yLCBkbyB5b3UgbWVhbiBWRiBuZXZlciBiZSB0cnVzdGVkIGR1cmluZyBpdHMgKG9yIFZNJ3Mp
+IGxpZmV0aW1lPw0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gSSB0aGluayB0aGUgVkYgc2hvdWxkbid0
+IGRpcmVjdGx5IGtub3cgd2hldGhlciBpdCBpcyB0cnVzdGVkIG9yDQo+ID4gPiA+ID4gbm90DQo+
+ID4gPiA+DQo+ID4gPiA+IFRoYXQncyBjb21wbGV0ZWx5IGlycmV2ZWxhbnQuICBUaGUgcGVyc29u
+IGFkbWluaXN0ZXJpbmcgdGhlIFBGIHdpbGwNCj4gPiA+ID4gYmUgdGhlIHBlcnNvbiB3aG8gcHJv
+dmlkZWQgdHJ1c3RlZCBwcml2aWxlZ2VzIHRvIHRoZSBWRi4gIEhlJ2xsIHRoZW4NCj4gPiA+ID4g
+KnRlbGwqIG9yIHNvbWVob3cgb3RoZXIgY29tbXVuaWNhdGUgdG8gdGhlIHBlcnNvbiBhZG1pbmlz
+dGVyaW5nIHRoZQ0KPiA+ID4gPiBWRg0KPiA+ID4gKHByb2JhYmx5IGhpbXNlbGYvaGVyc2VsZikg
+YW5kIHRoZW4gcHJvY2VlZCB0byBleGVjdXRlIGNvbW1hbmRzIG9uDQo+ID4gPiB0aGF0IFZGIHRo
+YXQgcmVxdWlyZSB0cnVzdGVkIHByaXZpbGVnZXMuDQo+ID4gPiA+DQo+ID4gPiA+IElmIHRoZSBW
+RiBkb2VzIG5vdCBoYXZlIHRydXN0ZWQgcHJpdmlsZWdlcyB0aGVuIHRoZSBjb21tYW5kcyB0byBh
+ZGQNCj4gPiA+ID4gVkxBTiBmaWx0ZXJzLCBzZXQgcHJvbWlzY3VvdXMgbW9kZXMsIGFuZCBhbnkg
+b3RoZXIgcHJpdmlsZWdlZA0KPiA+ID4gPiBjb21tYW5kcw0KPiA+ID4gd2lsbCBmYWlsLg0KPiA+
+ID4gPg0KPiA+ID4gPiBMZXQncyBub3QgZ2V0IHRvbyBmYW5jeSB3aXRoIHRoaXMuICBJdCdzIHNp
+bXBsZSAtIHRoZSBob3N0IFZNTSBhZG1pbg0KPiA+ID4gPiBwcm92aWRlcyB0cnVzdGVkIHByaXZp
+bGVnZXMgdG8gdGhlIFZGLiAgVGhlIHBlcnNvbiBhZG1pbmlzdGVyaW5nIHRoZQ0KPiA+ID4gPiBW
+RiAoaWYgaW4gZmFjdCBpdCBpcyBub3QgdGhlIHNhbWUgcGVyc29uLCBpdCB1c3VhbGx5IHdpbGwg
+YmUpIHdpbGwNCj4gPiA+IHByb2NlZWQgdG8gZG8gdGhpbmdzIHRoYXQgcmVxdWlyZSBWRiB0cnVz
+dGVkIHByaXZpbGVnZXMuDQo+ID4gPg0KPiA+ID4gTm93IEkgdGhpbmsgdGhhdCBpdCdzIGJldHRl
+ciB0byBoYXZlIGFuIGludGVyZmFjZSBiZXR3ZWVuIFBGIGFuZCBWRiB0bw0KPiA+ID4ga25vdyB0
+aGUgVkYgaXMgdHJ1c3RlZC4NCj4gPiA+IE90aGVyd2lzZSBWTSBjYW5ub3Qga25vdyB3aGV0aGVy
+IGl0cyBWRiBpcyB0cnVzdGVkLCB0aGF0IHByZXZlbnRzDQo+ID4gPiBhdXRvbWF0aWMgb3BlcmF0
+aW9ucy4NCj4gPg0KPiA+IEFncmVlZCwgaXQgd291bGQgYmUgc2lsbHkgZm9yIHRoZSBWRiB0byBo
+YXZlIHByaXZpbGVnZXMgYnV0IG5vdCBrbm93IHRoYXQgaXQgY2FuDQo+ID4gdXNlIHRoZW0hDQo+
+ID4NCj4gPiA+IE9yIGFkZCBhbm90aGVyIGNvbW11bmljYXRpbmcgaW50ZXJmYWNlIG91dHNpZGUg
+b2YgaXhnYmUgUEYtVkYgbWJveCBBUEk/DQo+ID4NCj4gPiBXZSBjYW4ndCBkZXBlbmQgb24gYW55
+IGdpdmVuIHZlbmRvciBzcGVjaWZpYyBpbnRlcmZhY2UuICBJJ2QgYWRkIGEgdmVyeSBjbGVhcg0K
+PiA+IGNvbW1lbnQgaW4gdGhlIFBoeXNpY2FsIEZ1bmN0aW9uIG5kbyBvcCB0aGF0IGdpdmVzIGEg
+VkYgdHJ1c3RlZCBwcml2aWxlZ2VzDQo+ID4gdGhhdCBpdCBpcyB1cCB0byB0aGUgZHJpdmVyIHRv
+IG5vdGlmeSB0aGUgVkYgZHJpdmVyLiAgQnV0IHllcywgaW4gdGhlIGNhc2Ugb2YgSW50ZWwNCj4g
+PiBkcml2ZXJzIHRoZSBtYWlsYm94IG9yIGFkbWluIHF1ZXVlIChmb3IgaTQwZSkgd291bGQgYmUg
+dGhlIG1lY2hhbmlzbSB0byBkbw0KPiA+IHRoYXQuICBJIGtub3cgeW91IGhhdmUgc29tZSBpeGdi
+ZSBwYXRjaGVzIHRoYXQgY29pbmNpZGUgd2l0aCB0aGlzIHBhdGNoIHNvDQo+ID4gdGhhdCdzIGEg
+Z29vZCBwbGFjZSB0byBsb29rLg0KPiA+DQo+IA0KPiBOb3cgd2h5IEkgYW0gbm90IGFnYWluc3Qg
+dGhpcyAoVkYga25vd2luZyBpdCBpcyAidHJ1c3RlZCIpIGhhcHBlbmluZyBJIGRvbid0IHNlZSB0
+aGUgbmVlZCBmb3IgaXQgZWl0aGVyLiAgSSBiZWxpZXZlIHRoZQ0KPiBzYW1lIGNvdWxkIGJlIGFj
+Y29tcGxpc2hlZCBieSBhbGxvd2luZyB0aGUgUEYgdG8gYXNrIGZvciB3aGF0ZXZlciBjb25maWd1
+cmF0aW9uIGl0IHdhbnRzIGFuZCBzb21lIHJlcXVlc3RzIHdpbGwgbm90IGJlDQo+IGdyYW50ZWQg
+YnkgdGhlIFBGIHVubGVzcyB0aGUgVkYgaXMgdHJ1c3RlZC4gIEdpdmVuLCB0aGlzIG1heSByZXF1
+aXJlIGFuIGV4dGVuc2lvbiBvZiB0aGUgbWFpbGJveCBtZXNzYWdlcyB0byBhbGxvdyBmb3INCj4g
+TkFLJ3MgdG8gbWFrZSBpdCBjbGVhciB0byB0aGUgVkYgdGhlIHJlcXVlc3Qgd2Fzbid0IGdyYW50
+ZWQuDQo+IA0KPiBIb3dldmVyIGxpa2UgR3JlZyBtZW50aW9ucyBhYm92ZSB0aGlzIG5lZWQgbm90
+IGJlIHJlcXVpcmVtZW50LCBkaWZmZXJlbnQgZHJpdmVycyBjb3VsZCBpbXBsZW1lbnQgdGhpcyB3
+YXkgb3Igbm90Lg0KPiANCg0KTm93IEknbSBwcmVwYXJpbmcgYSBwYXRjaHNldCB0byBoYW5kbGUg
+YW4gZXJyb3IgYWdhaW5zdCBWRiBNQyBwcm9taXNjIHJlcXVlc3QuDQpJJ20gbm90IHN1cmUgdGhh
+dCB3aGljaCBpcyBiZXR0ZXIgdG8gaGF2ZSBuZXcgbWFpbGJveCBBUEkgd2hpY2ggaW5kaWNhdGVz
+IFZGIGlzIHRydXN0ZWQuDQoNCkkgbWFkZSBhIHBhdGNoc2V0IHdoaWNoIGRvZXNuJ3QgYWRkIG5l
+dyBBUEkgYnV0IGhhbmRsZXMgZXJyb3IgYWdhaW5zdCBWRiBNQyBwcm9taXNjIHJlcXVlc3QuDQpX
+aWxsIHN1Ym1pdCBpdC4NCg0KdGhhbmtzLA0KSGlyb3NoaQ0K
