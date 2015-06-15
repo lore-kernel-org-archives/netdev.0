@@ -1,80 +1,44 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net] bridge: fix br_stp_set_bridge_priority race conditions
-Date: Mon, 15 Jun 2015 20:28:51 +0300
-Message-ID: <1434389331-2376-1-git-send-email-razor@blackwall.org>
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-	joerg@higgsboson.tk, Nikolay Aleksandrov <razor@blackwall.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:35414 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754109AbbFOR2z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 13:28:55 -0400
-Received: by wiga1 with SMTP id a1so85098589wig.0
-        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 10:28:54 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH] wireless: ipw2100: fix timeout bug - always evaluated to 0
+Date: Mon, 15 Jun 2015 19:24:35 +0200
+Message-ID: <1434389075-4693-1-git-send-email-hofrat@osadl.org>
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	James Ketrenos <jketreno@linux.intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
+To: Stanislav Yakovlev <stas.yakovlev@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-After the ->set() spinlocks were removed br_stp_set_bridge_priority
-was left running without any protection when used via sysfs. It can
-race with port add/del and could result in use-after-free cases and
-corrupted lists. Tested by running port add/del in a loop with stp
-enabled while setting priority in a loop, crashes are easily
-reproducible.
-The spinlocks around sysfs ->set() were removed in commit:
-14f98f258f19 ("bridge: range check STP parameters")
-There's also a race condition in the netlink priority support that is
-fixed by this change, but it was introduced recently and the fixes tag
-covers it, just in case it's needed the commit is:
-af615762e972 ("bridge: add ageing_time, stp_state, priority over netlink")
+commit: commit 2c86c275015c ("Add ipw2100 wireless driver.") introduced 
+HW_PHY_OFF_LOOP_DELAY (HZ / 5000) which always evaluated to 0. Clarified
+by Stanislav Yakovlev <stas.yakovlev@gmail.com> that it should be 50
+milliseconds thus fixed up to msecs_to_jiffies(50).
 
-Signed-off-by: Nikolay Aleksandrov <razor@blackwall.org>
-Fixes: 14f98f258f19 ("bridge: range check STP parameters")
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
 ---
- net/bridge/br_ioctl.c  | 2 --
- net/bridge/br_stp_if.c | 4 +++-
- 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
-index a9a4a1b7863d..8d423bc649b9 100644
---- a/net/bridge/br_ioctl.c
-+++ b/net/bridge/br_ioctl.c
-@@ -247,9 +247,7 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
- 			return -EPERM;
- 
--		spin_lock_bh(&br->lock);
- 		br_stp_set_bridge_priority(br, args[1]);
--		spin_unlock_bh(&br->lock);
- 		return 0;
- 
- 	case BRCTL_SET_PORT_PRIORITY:
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 41146872c1b4..7832d07f48f6 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -243,12 +243,13 @@ bool br_stp_recalculate_bridge_id(struct net_bridge *br)
- 	return true;
- }
- 
--/* called under bridge lock */
-+/* Acquires and releases bridge lock */
- void br_stp_set_bridge_priority(struct net_bridge *br, u16 newprio)
+Patch was compile tested with x86_64_defconfig + CONFIG_IPW2100=m
+(with a few buildwarnings in ipw2100.c though not related to this patch)
+
+Patch is against 4.1-rc7 (localversion-next is -next-20150615)
+
+ drivers/net/wireless/ipw2x00/ipw2100.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
+index 08eb229..36818c7 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2100.c
++++ b/drivers/net/wireless/ipw2x00/ipw2100.c
+@@ -1410,7 +1410,7 @@ static int ipw2100_power_cycle_adapter(struct ipw2100_priv *priv)
+ static int ipw2100_hw_phy_off(struct ipw2100_priv *priv)
  {
- 	struct net_bridge_port *p;
- 	int wasroot;
  
-+	spin_lock_bh(&br->lock);
- 	wasroot = br_is_root_bridge(br);
+-#define HW_PHY_OFF_LOOP_DELAY (HZ / 5000)
++#define HW_PHY_OFF_LOOP_DELAY (msecs_to_jiffies(50))
  
- 	list_for_each_entry(p, &br->port_list, list) {
-@@ -266,6 +267,7 @@ void br_stp_set_bridge_priority(struct net_bridge *br, u16 newprio)
- 	br_port_state_selection(br);
- 	if (br_is_root_bridge(br) && !wasroot)
- 		br_become_root_bridge(br);
-+	spin_unlock_bh(&br->lock);
- }
- 
- /* called under bridge lock */
+ 	struct host_command cmd = {
+ 		.host_command = CARD_DISABLE_PHY_OFF,
 -- 
-2.4.3
+1.7.10.4
