@@ -1,45 +1,72 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH 08/11] IB/cma: Add net_dev and private data checks to
- RDMA CM
-Date: Mon, 15 Jun 2015 11:08:37 -0600
-Message-ID: <20150615170837.GA14982@obsidianresearch.com>
-References: <1434358036-15526-1-git-send-email-haggaie@mellanox.com>
- <1434358036-15526-9-git-send-email-haggaie@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, Liran Liss <liranl@mellanox.com>,
-	Guy Shapiro <guysh@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
-	Yotam Kenneth <yotamke@mellanox.com>
-To: Haggai Eran <haggaie@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:33403 "EHLO quartz.orcorp.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755567AbbFORIl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jun 2015 13:08:41 -0400
-Content-Disposition: inline
-In-Reply-To: <1434358036-15526-9-git-send-email-haggaie@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] net: rds: use for_each_sg() for scatterlist parsing
+Date: Mon, 15 Jun 2015 19:13:05 +0200
+Message-ID: <1434388385-29246-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	Chien Yen <chien.yen@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 15, 2015 at 11:47:13AM +0300, Haggai Eran wrote:
-> Instead of relying on a the ib_cm module to check an incoming CM request's
-> private data header, add these checks to the RDMA CM module. This allows a
-> following patch to to clean up the ib_cm interface and remove the code that
-> looks into the private headers. It will also allow supporting namespaces in
-> RDMA CM by making these checks namespace aware later on.
+This patch also renames sg to sglist and aligns function parameters.
+See Documentation/DMA-API.txt - Part Id for scatterlist details
 
-I was expecting one of these patches to flow the net_device from here:
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+This is untested.
 
-> +static struct net_device *cma_get_net_dev(struct ib_cm_event *ib_event,
-> +					  const struct cma_req_info *req)
-> +{
+ net/rds/ib.h | 22 ++++++++++++++--------
+ 1 file changed, 14 insertions(+), 8 deletions(-)
 
-Down through cma_req_handler and cma_new_conn_id so that we get rid of
-the cma_translate_addr on the ingress side.
-
-Having the ingress side use one ingress net_device for all processing
-seems very important to me...
-
-Jason
+diff --git a/net/rds/ib.h b/net/rds/ib.h
+index c36d713..01d8072 100644
+--- a/net/rds/ib.h
++++ b/net/rds/ib.h
+@@ -235,28 +235,34 @@ extern struct workqueue_struct *rds_ib_wq;
+  * doesn't define it.
+  */
+ static inline void rds_ib_dma_sync_sg_for_cpu(struct ib_device *dev,
+-		struct scatterlist *sg, unsigned int sg_dma_len, int direction)
++					      struct scatterlist *sglist,
++					      unsigned int sg_dma_len,
++					      int direction)
+ {
+ 	unsigned int i;
++	struct scatterlist *sg;
+ 
+-	for (i = 0; i < sg_dma_len; ++i) {
++	for_each_sg(sglist, sg, sg_dma_len, i) {
+ 		ib_dma_sync_single_for_cpu(dev,
+-				ib_sg_dma_address(dev, &sg[i]),
+-				ib_sg_dma_len(dev, &sg[i]),
++				ib_sg_dma_address(dev, sg),
++				ib_sg_dma_len(dev, sg),
+ 				direction);
+ 	}
+ }
+ #define ib_dma_sync_sg_for_cpu	rds_ib_dma_sync_sg_for_cpu
+ 
+ static inline void rds_ib_dma_sync_sg_for_device(struct ib_device *dev,
+-		struct scatterlist *sg, unsigned int sg_dma_len, int direction)
++						 struct scatterlist *sglist,
++						 unsigned int sg_dma_len,
++						 int direction)
+ {
+ 	unsigned int i;
++	struct scatterlist *sg;
+ 
+-	for (i = 0; i < sg_dma_len; ++i) {
++	for_each_sg(sglist, sg, sg_dma_len, i) {
+ 		ib_dma_sync_single_for_device(dev,
+-				ib_sg_dma_address(dev, &sg[i]),
+-				ib_sg_dma_len(dev, &sg[i]),
++				ib_sg_dma_address(dev, sg),
++				ib_sg_dma_len(dev, sg),
+ 				direction);
+ 	}
+ }
+-- 
+2.4.2
