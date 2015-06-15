@@ -1,93 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC,v3 02/10] dpaa_eth: add support for DPAA Ethernet
-Date: Mon, 15 Jun 2015 08:08:15 -0700
-Message-ID: <1434380895.27504.128.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430319405-31280-1-git-send-email-madalin.bucur@freescale.com>
-	 <1433958961.27504.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <BL2PR03MB54503B16A47056DBA9653C0E6B80@BL2PR03MB545.namprd03.prod.outlook.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 00/15] Simplify netfilter and network namespaces
+Date: Mon, 15 Jun 2015 10:06:27 -0500
+Message-ID: <87twu9nh8s.fsf@x220.int.ebiederm.org>
+References: <87616ppt3h.fsf@x220.int.ebiederm.org>
+	<20150615070622.GA3315@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f54.google.com ([209.85.213.54]:35515 "EHLO
-	mail-yh0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754051AbbFOPIS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 11:08:18 -0400
-In-Reply-To: <BL2PR03MB54503B16A47056DBA9653C0E6B80@BL2PR03MB545.namprd03.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Juanjo Ciarlante <jjciarla@raiz.uncu.edu.ar>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20150615070622.GA3315@salvia> (Pablo Neira Ayuso's message of
+	"Mon, 15 Jun 2015 09:06:22 +0200")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-06-15 at 13:40 +0000, Madalin-Cristian Bucur wrote:
-> > -----Original Message-----
-> > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-> > 
-> > On Wed, 2015-04-29 at 17:56 +0300, Madalin Bucur wrote:
-> > > This introduces the Freescale Data Path Acceleration Architecture
-> > > (DPAA) Ethernet driver (dpaa_eth) that builds upon the DPAA QMan,
-> > > BMan, PAMU and FMan drivers to deliver Ethernet connectivity on
-> > > the Freescale DPAA QorIQ platforms.
-> > ...
-> > 
-> > > +	/* We're going to store the skb backpointer at the beginning
-> > > +	 * of the data buffer, so we need a privately owned skb
-> > > +	 */
-> > > +
-> > > +	/* Code borrowed from skb_unshare(). */
-> > > +	if (skb_cloned(skb)) {
-> > > +		struct sk_buff *nskb = skb_copy(skb, GFP_ATOMIC);
-> > > +
-> > > +		/* Finally, create a contig FD from this skb */
-> > > +		skb_to_contig_fd(priv, skb, &fd, countptr, &offset);
-> > > +
-> > > +		kfree_skb(skb);
-> > > +		skb = nskb;
-> > > +		/* skb_copy() has now linearized the skbuff. */
-> > > +	}
-> > > +
-> > 
-> > You know that TCP packets are clones, right ?
-> > This code is killing performance.
-> > 
-> > TCP allows the headers part being modified by a driver if needed.
-> > 
-> > You should use skb_header_cloned() instead.
-> 
-> Thank you, I'll address this. I plan to do something like this:
-> 
-> +       if (!nonlinear) {
-> +               /* We're going to store the skb backpointer at the beginning
-> +                * of the data buffer, so we need a privately owned skb
-> +                */
-> +
-> +               /* make sure skb is not shared, skb_cow_head() assumes it's not */
-> +               skb = skb_share_check(skb, GFP_ATOMIC);
-> +               if (!skb)
-> +                       goto enomem;
-> +
-> +               /* verify the skb head is not cloned */
-> +               if (skb_cow_head(skb, priv->tx_headroom))
-> +                       goto enomem;
-> +
-> +               nonlinear = skb_is_nonlinear(skb);
-> +       }
-> 
-> but I'm not sure the skb_share_check() is required on tx.
-> I'm also a bit puzzled by the aliasing between shared and cloned terms
-> (i.e. skb_unshare() could be named something like skb_unclone();
->  the skb_share_check() not only checks but also unshares an skb so
->  the already taken skb_unshare() name would probably fit too).
+Pablo Neira Ayuso <pablo@netfilter.org> writes:
 
-A driver can ask tx skbs to be not shared, even if pktgen is used with
-"clone=X" on it.
+> Hi Eric,
+>
+> On Sun, Jun 14, 2015 at 10:07:30PM -0500, Eric W. Biederman wrote:
+>> 
+>> While looking into what it would take to route packets out to network
+>> devices in other network namespaces I started looking at the netfilter
+>> hooks, and there is a lot of nasty code to figure out which network
+>> namespace to filter the packets in.
+>>
+>> Just passing the network namespace into the netfilter hooks looks like a
+>> significant simplication in the code, and worth it as the first thing
+>> most netfilter hooks do is compute the network namespace.
+>> 
+>> We probably even want per network namespace netfilter hooks as nftables
+>> tries (and fails to use).  nftables currently has a fairly serious bug
+>> where the tables for one network namespace run for packets in all
+>> network namespaces.  I do not have a fix yet but I think this patchset
+>> making it easy to get at the network namespace is a good starting
+>> place for a fix.
+>
+> I have a patchset that is almost ready to convert netfilter to pernet
+> hooks, it partially clashes with this. Will send it out today and will
+> Cc you so you can review it.
+>
+> I think it should take me little time to rebase it on top of yours.
+> It's rather large changeset, which quite a lot of boiler plate code
+> though.
 
-dev->priv_flags         &= ~IFF_TX_SKB_SHARING;
+Hmm.
 
-This way, you can avoid skb_share_check() completely. Only pktgen will
-care.
+I will wait and take a look.  I think going from where I am to pernet
+netfilter hooks is about one simple patch, so I don't know where the
+large about of boiler plate comes from.  I think I will code that up so
+I can verify that and we can compare notes later today.
 
-Most skb_share_check() calls in drivers/net are related to input paths
-on virtual drivers.
+Eric
+
