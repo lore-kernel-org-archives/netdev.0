@@ -1,74 +1,153 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] Increase limit of macvtap queues
-Date: Mon, 15 Jun 2015 16:07:03 +0800
-Message-ID: <557E87A7.5010203@redhat.com>
-References: <1434115828-9461-1-git-send-email-pagupta@redhat.com> <20150614103209-mutt-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kaber@trash.net, davem@davemloft.net, vyasevic@redhat.com,
-	bhutchings@solarflare.com, therbert@google.com,
-	viro@zeniv.linux.org.uk
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	Pankaj Gupta <pagupta@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44899 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753434AbbFOIHL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jun 2015 04:07:11 -0400
-In-Reply-To: <20150614103209-mutt-send-email-mst@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH 01/11] IB/core: Find the network device matching connection parameters
+Date: Mon, 15 Jun 2015 11:47:06 +0300
+Message-ID: <1434358036-15526-2-git-send-email-haggaie@mellanox.com>
+References: <1434358036-15526-1-git-send-email-haggaie@mellanox.com>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1434358036-15526-1-git-send-email-haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+From: Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
+In the case of IPoIB, and maybe in other cases, the network device is
+managed by an upper-layer protocol (ULP). In order to expose this
+network device to other users of the IB device, let ULPs implement
+a callback that returns network device according to connection parameters.
 
-On 06/14/2015 04:42 PM, Michael S. Tsirkin wrote:
-> On Fri, Jun 12, 2015 at 07:00:28PM +0530, Pankaj Gupta wrote:
->> Macvtap should be compatible with tuntap for maximum number
->> of queues. '1059590254fa9dce9cafc4f07d1103dbec415e76' removes
->> the limitation and increases number of queues in tuntap.
->> Now, Its safe to increase number of queues in Macvtap as well.
->>
->> Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
-> It's a good idea, but this might be a problem:
->
-> static void macvtap_del_queues(struct net_device *dev)
-> {
->         struct macvlan_dev *vlan = netdev_priv(dev);
->         struct macvtap_queue *q, *tmp, *qlist[MAX_MACVTAP_QUEUES];
->
-> ...
-> }
->
-> by itself, this will use 2K on stack, which seems too much.
->
-> You need to rework this function to use a linked list + list_move
-> instead of an array + list_del_init.
+The IB device and port, together with the P_Key and the GID should
+be enough to uniquely identify the ULP net device. However, in current
+kernels there can be multiple IPoIB interfaces created with the same GID.
+Furthermore, such configuration may be desireable to support ipvlan-like
+configurations for RDMA CM with IPoIB.  To resolve the device in these
+cases the code will also take the IP address as an additional input.
 
-Looks like even simpler, we can just do sock_put() inside
-list_for_each_entry_safe() loop.
+Signed-off-by: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+---
+ drivers/infiniband/core/device.c | 29 +++++++++++++++++++++++++++++
+ include/rdma/ib_verbs.h          | 35 +++++++++++++++++++++++++++++++++++
+ 2 files changed, 64 insertions(+)
 
->> ---
->>  include/linux/if_macvlan.h |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
->> index 6f6929e..a4ccc31 100644
->> --- a/include/linux/if_macvlan.h
->> +++ b/include/linux/if_macvlan.h
->> @@ -29,7 +29,7 @@ struct macvtap_queue;
->>   * Maximum times a macvtap device can be opened. This can be used to
->>   * configure the number of receive queue, e.g. for multiqueue virtio.
->>   */
->> -#define MAX_MACVTAP_QUEUES     16
->> +#define MAX_MACVTAP_QUEUES     256
->>
->>  #define MACVLAN_MC_FILTER_BITS 8
->>  #define MACVLAN_MC_FILTER_SZ   (1 << MACVLAN_MC_FILTER_BITS)
->> --
->> 1.7.1
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/infiniband/core/device.c b/drivers/infiniband/core/device.c
+index f08d438205ed..300609e8f841 100644
+--- a/drivers/infiniband/core/device.c
++++ b/drivers/infiniband/core/device.c
+@@ -38,6 +38,7 @@
+ #include <linux/slab.h>
+ #include <linux/init.h>
+ #include <linux/mutex.h>
++#include <linux/netdevice.h>
+ #include <rdma/rdma_netlink.h>
+ 
+ #include "core_priv.h"
+@@ -746,6 +747,34 @@ int ib_find_pkey(struct ib_device *device,
+ }
+ EXPORT_SYMBOL(ib_find_pkey);
+ 
++struct net_device *ib_get_net_dev_by_params(struct ib_device *dev,
++					    u8 port,
++					    u16 pkey,
++					    const union ib_gid *gid,
++					    const struct sockaddr *addr)
++{
++	struct net_device *net_dev = NULL;
++	struct ib_client *client;
++
++	if (!rdma_protocol_ib(dev, port))
++		return NULL;
++
++	down_read(&lists_rwsem);
++
++	list_for_each_entry(client, &client_list, list)
++		if (client->get_net_dev_by_params) {
++			net_dev = client->get_net_dev_by_params(dev, port, pkey,
++								gid, addr);
++			if (net_dev)
++				break;
++		}
++
++	up_read(&lists_rwsem);
++
++	return net_dev;
++}
++EXPORT_SYMBOL(ib_get_net_dev_by_params);
++
+ static int __init ib_core_init(void)
+ {
+ 	int ret;
+diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+index 986fddb08579..03899eebf53c 100644
+--- a/include/rdma/ib_verbs.h
++++ b/include/rdma/ib_verbs.h
+@@ -48,6 +48,7 @@
+ #include <linux/rwsem.h>
+ #include <linux/scatterlist.h>
+ #include <linux/workqueue.h>
++#include <linux/socket.h>
+ #include <uapi/linux/if_ether.h>
+ 
+ #include <linux/atomic.h>
+@@ -1762,6 +1763,26 @@ struct ib_client {
+ 	void (*add)   (struct ib_device *);
+ 	void (*remove)(struct ib_device *);
+ 
++	/* Returns the net_dev belonging to this ib_client and matching the
++	 * given parameters.
++	 * @dev:	An RDMA device that the net_dev use for communication.
++	 * @port:	A physical port number on the RDMA device.
++	 * @pkey:	P_Key that the net_dev uses if applicable.
++	 * @gid:	A GID that the net_dev uses to communicate.
++	 * @addr:	An IP address the net_dev is configured with.
++	 *
++	 * An ib_client that implements a net_dev on top of RDMA devices
++	 * (such as IP over IB) should implement this callback, allowing the
++	 * rdma_cm module to find the right net_dev for a given request.
++	 *
++	 * The caller is responsible for calling dev_put on the returned
++	 * netdev. */
++	struct net_device *(*get_net_dev_by_params)(
++			struct ib_device *dev,
++			u8 port,
++			u16 pkey,
++			const union ib_gid *gid,
++			const struct sockaddr *addr);
+ 	struct list_head list;
+ };
+ 
+@@ -3026,4 +3047,18 @@ static inline int ib_check_mr_access(int flags)
+ int ib_check_mr_status(struct ib_mr *mr, u32 check_mask,
+ 		       struct ib_mr_status *mr_status);
+ 
++/**
++ * ib_get_net_dev_by_params() - Return the appropriate net_dev
++ * for a received CM request
++ * @dev:	An RDMA device on which the request has been received.
++ * @port:	Port number on the RDMA device.
++ * @pkey:	The Pkey the request came on.
++ * @gid:	A GID that the net_dev uses to communicate.
++ * @addr:	Contains the IP address that the request specified as its
++ *		destination.
++ */
++struct net_device *ib_get_net_dev_by_params(struct ib_device *dev, u8 port,
++					    u16 pkey, const union ib_gid *gid,
++					    const struct sockaddr *addr);
++
+ #endif /* IB_VERBS_H */
+-- 
+1.7.11.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
