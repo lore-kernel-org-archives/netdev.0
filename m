@@ -1,169 +1,102 @@
-From: Craig Gallek <kraig@google.com>
-Subject: [PATCH net-next 3/3] sock_diag: implement a get_info handler for inet
-Date: Mon, 15 Jun 2015 11:26:20 -0400
-Message-ID: <1434381980-20588-4-git-send-email-kraig@google.com>
-References: <1434381980-20588-1-git-send-email-kraig@google.com>
-Cc: edumazet@google.com, mleitner@redhat.com,
-	stephen@networkplumber.org, davem@davemloft.net,
-	ebiederm@xmission.net, tgraf@suug.ch, xemul@openvz.org,
-	Craig Gallek <kraig@google.com>
-To: netdev@vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [PATCH 0/7] slub: bulk alloc and free for slub allocator
+Date: Mon, 15 Jun 2015 17:51:45 +0200
+Message-ID: <20150615155053.18824.617.stgit@devil>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: linux-mm@kvack.org, Christoph Lameter <cl@linux.com>,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f52.google.com ([209.85.213.52]:33941 "EHLO
-	mail-yh0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755187AbbFOP1W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 11:27:22 -0400
-Received: by yhid80 with SMTP id d80so45139981yhi.1
-        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 08:27:22 -0700 (PDT)
-In-Reply-To: <1434381980-20588-1-git-send-email-kraig@google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:50973 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753425AbbFOPvv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2015 11:51:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This get_info handler will simply dispatch to the appropriate
-existing inet protocol handler.
+With this patchset SLUB allocator now both have bulk alloc and free
+implemented.
 
-This patch also includes a new netlink attribute
-(INET_DIAG_PROTOCOL).  This attribute is currently only used
-for multicast messages.  Without this attribute, there is no
-way of knowing the IP protocol used by the socket information
-being broadcast.  This attribute is not necessary in the 'dump'
-variant of this protocol (though it could easily be added)
-because dump requests are issued for specific family/protocol
-pairs.
+(This patchset is based on DaveM's net-next tree on-top of commit
+c3eee1fb1d308.  Tested patchset applied on-top of volatile linux-next
+commit aa036f86e1bf ("slub bulk alloc: extract objects from the per
+cpu slab"))
 
-Tested: ss -E (note, the -E option has not yet been merged into
-the upstream version of ss).
+This mostly optimizes the "fastpath" where objects are available on
+the per CPU fastpath page.  This mostly amortize the less-heavy
+none-locked cmpxchg_double used on fastpath.
 
-Signed-off-by: Craig Gallek <kraig@google.com>
+The "fallback bulking" (e.g __kmem_cache_free_bulk) provides a good
+basis for comparison, but to avoid counting the overhead of the
+function call in benchmarking[1] I've used an inlined versions of
+these.
+
+Tested on (very fast) CPU i7-4790K @ 4.00GHz, thus look at cycles
+count (as nanosec measurements are very low given the clock rate).
+
+Baseline normal fastpath (alloc+free cost): 43 cycles(tsc) 10.814 ns
+
+Bulk - Fallback bulking           - fastpath-bulking
+   1 -  47 cycles(tsc) 11.921 ns  -  45 cycles(tsc) 11.461 ns   improved  4.3%
+   2 -  46 cycles(tsc) 11.649 ns  -  28 cycles(tsc)  7.023 ns   improved 39.1%
+   3 -  46 cycles(tsc) 11.550 ns  -  22 cycles(tsc)  5.671 ns   improved 52.2%
+   4 -  45 cycles(tsc) 11.398 ns  -  19 cycles(tsc)  4.967 ns   improved 57.8%
+   8 -  45 cycles(tsc) 11.303 ns  -  17 cycles(tsc)  4.298 ns   improved 62.2%
+  16 -  44 cycles(tsc) 11.221 ns  -  17 cycles(tsc)  4.423 ns   improved 61.4%
+  30 -  75 cycles(tsc) 18.894 ns  -  57 cycles(tsc) 14.497 ns   improved 24.0%
+  32 -  73 cycles(tsc) 18.491 ns  -  56 cycles(tsc) 14.227 ns   improved 23.3%
+  34 -  75 cycles(tsc) 18.962 ns  -  58 cycles(tsc) 14.638 ns   improved 22.7%
+  48 -  80 cycles(tsc) 20.049 ns  -  64 cycles(tsc) 16.247 ns   improved 20.0%
+  64 -  87 cycles(tsc) 21.929 ns  -  74 cycles(tsc) 18.598 ns   improved 14.9%
+ 128 -  98 cycles(tsc) 24.511 ns  -  89 cycles(tsc) 22.295 ns   improved  9.2%
+ 158 - 101 cycles(tsc) 25.389 ns  -  93 cycles(tsc) 23.390 ns   improved  7.9%
+ 250 - 104 cycles(tsc) 26.170 ns  - 100 cycles(tsc) 25.112 ns   improved  3.8%
+
+Benchmarking shows impressive improvements in the "fastpath" with a
+small number of objects in the working set.  Once the working set
+increases, resulting in activating the "slowpath" (that contains the
+heavier locked cmpxchg_double) the improvement decreases.
+
+I'm currently working on also optimizing the "slowpath" (as network
+stack use-case hits this), but this patchset should provide a good
+foundation for further improvements.
+
+Rest of my patch queue in this area needs some more work, but
+preliminary results are good.  I'm attending Netfilter Workshop[2]
+next week, and I'll hopefully return working on further improvements
+in this area.
+
+[1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/mm/slab_bulk_test01.c
+[2] http://workshop.netfilter.org/2015/
 ---
- include/uapi/linux/inet_diag.h |  3 ++-
- net/ipv4/inet_diag.c           | 46 ++++++++++++++++++++++++++++++++++++++++++
- net/ipv4/tcp.c                 |  4 +++-
- net/ipv4/tcp_diag.c            |  5 +++--
- 4 files changed, 54 insertions(+), 4 deletions(-)
 
-diff --git a/include/uapi/linux/inet_diag.h b/include/uapi/linux/inet_diag.h
-index c7093c7..b629fc5 100644
---- a/include/uapi/linux/inet_diag.h
-+++ b/include/uapi/linux/inet_diag.h
-@@ -111,9 +111,10 @@ enum {
- 	INET_DIAG_SKMEMINFO,
- 	INET_DIAG_SHUTDOWN,
- 	INET_DIAG_DCTCPINFO,
-+	INET_DIAG_PROTOCOL,  /* response attribute only */
- };
- 
--#define INET_DIAG_MAX INET_DIAG_DCTCPINFO
-+#define INET_DIAG_MAX INET_DIAG_PROTOCOL
- 
- /* INET_DIAG_MEM */
- 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index b1f01174..21985d8 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -1078,14 +1078,60 @@ static int inet_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
- 	return inet_diag_get_exact(skb, h, nlmsg_data(h));
- }
- 
-+static
-+int inet_diag_handler_get_info(struct sk_buff *skb, struct sock *sk)
-+{
-+	const struct inet_diag_handler *handler;
-+	struct nlmsghdr *nlh;
-+	struct nlattr *attr;
-+	struct inet_diag_msg *r;
-+	void *info = NULL;
-+	int err = 0;
-+
-+	nlh = nlmsg_put(skb, 0, 0, SOCK_DIAG_BY_FAMILY, sizeof(*r), 0);
-+	if (!nlh)
-+		return -ENOMEM;
-+
-+	r = nlmsg_data(nlh);
-+	memset(r, 0, sizeof(*r));
-+	inet_diag_msg_common_fill(r, sk);
-+	r->idiag_state = sk->sk_state;
-+
-+	if ((err = nla_put_u8(skb, INET_DIAG_PROTOCOL, sk->sk_protocol))) {
-+		nlmsg_cancel(skb, nlh);
-+		return err;
-+	}
-+
-+	handler = inet_diag_lock_handler(sk->sk_protocol);
-+	if (IS_ERR(handler)) {
-+		inet_diag_unlock_handler(handler);
-+		nlmsg_cancel(skb, nlh);
-+		return PTR_ERR(handler);
-+	}
-+
-+	attr = handler->idiag_info_size
-+		? nla_reserve(skb, INET_DIAG_INFO, handler->idiag_info_size)
-+		: NULL;
-+	if (attr)
-+		info = nla_data(attr);
-+
-+	handler->idiag_get_info(sk, r, info);
-+	inet_diag_unlock_handler(handler);
-+
-+	nlmsg_end(skb, nlh);
-+	return 0;
-+}
-+
- static const struct sock_diag_handler inet_diag_handler = {
- 	.family = AF_INET,
- 	.dump = inet_diag_handler_dump,
-+	.get_info = inet_diag_handler_get_info,
- };
- 
- static const struct sock_diag_handler inet6_diag_handler = {
- 	.family = AF_INET6,
- 	.dump = inet_diag_handler_dump,
-+	.get_info = inet_diag_handler_get_info,
- };
- 
- int inet_diag_register(const struct inet_diag_handler *h)
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 65f791f..697b86d 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2624,13 +2624,15 @@ EXPORT_SYMBOL(compat_tcp_setsockopt);
- /* Return information about state of tcp endpoint in API format. */
- void tcp_get_info(struct sock *sk, struct tcp_info *info)
- {
--	const struct tcp_sock *tp = tcp_sk(sk);
-+	const struct tcp_sock *tp = tcp_sk(sk); /* iff sk_type == SOCK_STREAM */
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 	u32 now = tcp_time_stamp;
- 	unsigned int start;
- 	u32 rate;
- 
- 	memset(info, 0, sizeof(*info));
-+	if (sk->sk_type != SOCK_STREAM)
-+		return;
- 
- 	info->tcpi_state = sk->sk_state;
- 	info->tcpi_ca_state = icsk->icsk_ca_state;
-diff --git a/net/ipv4/tcp_diag.c b/net/ipv4/tcp_diag.c
-index 423e388..479f349 100644
---- a/net/ipv4/tcp_diag.c
-+++ b/net/ipv4/tcp_diag.c
-@@ -19,13 +19,14 @@
- static void tcp_diag_get_info(struct sock *sk, struct inet_diag_msg *r,
- 			      void *_info)
- {
--	const struct tcp_sock *tp = tcp_sk(sk);
- 	struct tcp_info *info = _info;
- 
- 	if (sk->sk_state == TCP_LISTEN) {
- 		r->idiag_rqueue = sk->sk_ack_backlog;
- 		r->idiag_wqueue = sk->sk_max_ack_backlog;
--	} else {
-+	} else if (sk->sk_type == SOCK_STREAM) {
-+		const struct tcp_sock *tp = tcp_sk(sk);
-+
- 		r->idiag_rqueue = max_t(int, tp->rcv_nxt - tp->copied_seq, 0);
- 		r->idiag_wqueue = tp->write_seq - tp->snd_una;
- 	}
--- 
-2.2.0.rc0.207.ga3a616c
+Christoph Lameter (2):
+      slab: infrastructure for bulk object allocation and freeing
+      slub bulk alloc: extract objects from the per cpu slab
+
+Jesper Dangaard Brouer (5):
+      slub: reduce indention level in kmem_cache_alloc_bulk()
+      slub: fix error path bug in kmem_cache_alloc_bulk
+      slub: kmem_cache_alloc_bulk() move clearing outside IRQ disabled section
+      slub: improve bulk alloc strategy
+      slub: initial bulk free implementation
+
+
+ include/linux/slab.h |   10 +++++
+ mm/slab.c            |   13 +++++++
+ mm/slab.h            |    9 +++++
+ mm/slab_common.c     |   23 ++++++++++++
+ mm/slob.c            |   13 +++++++
+ mm/slub.c            |   93 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 161 insertions(+)
+
+--
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
