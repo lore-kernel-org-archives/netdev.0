@@ -1,143 +1,127 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 1/2] iplink_geneve: add ttl configuration at link creation
-Date: Mon, 15 Jun 2015 14:38:46 -0400
-Message-ID: <20150615183845.GF16684@tuxdriver.com>
-References: <1432320406-28121-1-git-send-email-linville@tuxdriver.com>
- <1434393436-4487-1-git-send-email-linville@tuxdriver.com>
- <1434393436-4487-2-git-send-email-linville@tuxdriver.com>
+From: Roman Khimov <khimov@altell.ru>
+Subject: Re: [PATCH] net: fix search limit handling in skb_find_text()
+Date: Mon, 15 Jun 2015 22:37:31 +0300
+Message-ID: <1847765.0Hbie9lSro@mate.hex>
+References: <1434359518-16897-1-git-send-email-khimov@altell.ru> <20150615170639.GA21117@salvia>
+Reply-To: khimov@altell.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:52699 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755211AbbFOSpK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 14:45:10 -0400
-Content-Disposition: inline
-In-Reply-To: <1434393436-4487-2-git-send-email-linville@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Phil Oester <kernel@linuxace.com>,
+	Thomas Graf <tgraf@suug.ch>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20150615170639.GA21117@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 15, 2015 at 02:37:15PM -0400, John W. Linville wrote:
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> ---
->  include/linux/if_link.h |  1 +
+=D0=92 =D0=BF=D0=B8=D1=81=D1=8C=D0=BC=D0=B5 =D0=BE=D1=82 15 =D0=B8=D1=8E=
+=D0=BD=D1=8F 2015 19:06:39 =D0=BF=D0=BE=D0=BB=D1=8C=D0=B7=D0=BE=D0=B2=D0=
+=B0=D1=82=D0=B5=D0=BB=D1=8C Pablo Neira Ayuso =D0=BD=D0=B0=D0=BF=D0=B8=D1=
+=81=D0=B0=D0=BB:
+> On Mon, Jun 15, 2015 at 12:11:58PM +0300, Roman I Khimov wrote:
+> > Suppose that we're trying to use an xt_string netfilter module to m=
+atch a
+> > string in a specially crafted packet that has "a nice string" start=
+ing at
+> > offset 28.
+> >=20
+> > It could be done in iptables like this:
+> >=20
+> > -A some_chain -m string --string "a nice string" --algo bm --from 2=
+8 --to
+> > 38 -j DROP
+> >=20
+> > And it would work as expected. Now changing that to
+> >=20
+> > -A some_chain -m string --string "a nice string" --algo bm --from 2=
+9 --to
+> > 38 -j DROP
+> >=20
+> > breaks the match, as expected. But, if we try to make
+> >=20
+> > -A some_chain -m string --string "a nice string" --algo bm --from 2=
+0 --to
+> > 28 -j DROP
+> >=20
+> > then it suddenly works again! So the 'to' parameter seems to be inc=
+lusive,
+> > not working as an offset after which no search should be done. OK, =
+now if
+> > we try:
+> >=20
+> > -A some_chain -m string --string "a nice string" --algo bm --from 2=
+8 --to
+> > 28 -j DROP
+> Can you reproduce the same behaviour with the km algo?
 
-This includes the include/linux/if_link.h bits, that will need to be
-dropped after iproute2 does the 4.1 update for that file.
+Will try tomorrow MSK time.
 
->  ip/iplink_geneve.c      | 23 ++++++++++++++++++++++-
->  man/man8/ip-link.8.in   |  7 +++++++
->  3 files changed, 30 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-> index 7720ad34c6b3..2b5268531bef 100644
-> --- a/include/linux/if_link.h
-> +++ b/include/linux/if_link.h
-> @@ -393,6 +393,7 @@ enum {
->  	IFLA_GENEVE_UNSPEC,
->  	IFLA_GENEVE_ID,
->  	IFLA_GENEVE_REMOTE,
-> +	IFLA_GENEVE_TTL,
->  	__IFLA_GENEVE_MAX
->  };
->  #define IFLA_GENEVE_MAX	(__IFLA_GENEVE_MAX - 1)
-> diff --git a/ip/iplink_geneve.c b/ip/iplink_geneve.c
-> index 74703e1ee156..dff08a62d9a9 100644
-> --- a/ip/iplink_geneve.c
-> +++ b/ip/iplink_geneve.c
-> @@ -17,9 +17,11 @@
->  static void print_explain(FILE *f)
->  {
->  	fprintf(f, "Usage: ... geneve id VNI remote ADDR\n");
-> +	fprintf(f, "                 [ ttl TTL ]\n");
->  	fprintf(f, "\n");
->  	fprintf(f, "Where: VNI  := 0-16777215\n");
->  	fprintf(f, "       ADDR := IP_ADDRESS\n");
-> +	fprintf(f, "       TTL  := { 1..255 | inherit }\n");
->  }
->  
->  static void explain(void)
-> @@ -34,7 +36,7 @@ static int geneve_parse_opt(struct link_util *lu, int argc, char **argv,
->  	int vni_set = 0;
->  	__u32 daddr = 0;
->  	struct in6_addr daddr6 = IN6ADDR_ANY_INIT;
-> -
-> +	__u8 ttl = 0;
->  
->  	while (argc > 0) {
->  		if (!matches(*argv, "id") ||
-> @@ -52,6 +54,18 @@ static int geneve_parse_opt(struct link_util *lu, int argc, char **argv,
->  			}
->  			if (IN_MULTICAST(ntohl(daddr)))
->  				invarg("invalid remote address", *argv);
-> +		} else if (!matches(*argv, "ttl") ||
-> +			   !matches(*argv, "hoplimit")) {
-> +			unsigned uval;
-> +
-> +			NEXT_ARG();
-> +			if (strcmp(*argv, "inherit") != 0) {
-> +				if (get_unsigned(&uval, *argv, 0))
-> +					invarg("invalid TTL", *argv);
-> +				if (uval > 255)
-> +					invarg("TTL must be <= 255", *argv);
-> +				ttl = uval;
-> +			}
->  		} else if (matches(*argv, "help") == 0) {
->  			explain();
->  			return -1;
-> @@ -80,6 +94,7 @@ static int geneve_parse_opt(struct link_util *lu, int argc, char **argv,
->  	addattr32(n, 1024, IFLA_GENEVE_ID, vni);
->  	if (daddr)
->  		addattr_l(n, 1024, IFLA_GENEVE_REMOTE, &daddr, 4);
-> +	addattr8(n, 1024, IFLA_GENEVE_TTL, ttl);
->  
->  	return 0;
->  }
-> @@ -105,6 +120,12 @@ static void geneve_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
->  			fprintf(f, "remote %s ",
->  				format_host(AF_INET, 4, &addr, s1, sizeof(s1)));
->  	}
-> +
-> +	if (tb[IFLA_GENEVE_TTL]) {
-> +		__u8 ttl = rta_getattr_u8(tb[IFLA_GENEVE_TTL]);
-> +		if (ttl)
-> +			fprintf(f, "ttl %d ", ttl);
-> +	}
->  }
->  
->  static void geneve_print_help(struct link_util *lu, int argc, char **argv,
-> diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-> index 8cac246d7296..51d0c624a023 100644
-> --- a/man/man8/ip-link.8.in
-> +++ b/man/man8/ip-link.8.in
-> @@ -606,6 +606,9 @@ the following additional arguments are supported:
->  
->  .BI "ip link add " DEVICE
->  .BI type " geneve " id " ID " remote " IPADDR"
-> +.R " [ "
-> +.BI ttl " TTL "
-> +.R " ]"
->  
->  .in +8
->  .sp
-> @@ -616,6 +619,10 @@ the following additional arguments are supported:
->  .BI remote " IPADDR"
->  - specifies the unicast destination IP address to use in outgoing packets.
->  
-> +.sp
-> +.BI ttl " TTL"
-> +- specifies the TTL value to use in outgoing packets.
-> +
->  .in -8
->  
->  .SS ip link delete - delete virtual link
-> -- 
-> 2.1.0
-> 
-> 
+> > The first behaviour (matching at 'to' offset) comes from skb_find_t=
+ext()
+> > comparison. The second one (not matching if 'from' and 'to' are equ=
+al)
+> > comes from skb_seq_read() check for (abs_offset >=3D st->upper_offs=
+et).
+> >=20
+> > I think that the way skb_find_text() handles 'to' is wrong and shou=
+ld be
+> > fixed so that we always have predictable behaviour -- only match be=
+fore
+> > 'to' offset.
+> >=20
+> > There are currently only five usages of skb_find_text() in the kern=
+el and
+> > it looks to me that none of them expect to match something at the '=
+to'
+> > offset, so probably this change is safe.
+>=20
+> So both 'from' and 'to' are inclusive which seems consistent to me. I=
+f
+> you make 'to' non-inclusive, then that will change the third example
+> above, right?=20
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Yep.
+
+> That will break existing setups for people that are
+> relying on this behaviour. This has been exposed in this way for long
+> time, so we should avoid that breakage.
+
+Yes, that could be an issue, but there are other skb_find_text() usages=
+ and to=20
+me they suggest that the intended behaviour is to stop search at 'to' o=
+ffset.=20
+In nf_conntrack_amanda.c, for example:
+
+        start =3D skb_find_text(skb, dataoff, skb->len,
+                              search[SEARCH_CONNECT].ts);
+=2E..
+        stop =3D skb_find_text(skb, start, skb->len,
+                             search[SEARCH_NEWLINE].ts);
+=2E..
+        stop +=3D start;
+=2E..
+                off =3D skb_find_text(skb, start, stop, search[i].ts);
+
+=46irst of all, nothing can ever match at skb->len, and second, it look=
+s like=20
+the third usage is also expecting to search from offset 'start' to offs=
+et=20
+'stop', not to 'stop + 1'.
+
+em_text_match() in net/sched/em_text.c is also suspicious.
+
+> I would suggest you fix the --from X --to Y where X =3D=3D Y which is=
+ not
+> doing what people would expect.
+
+That would certainly make things consistent, but I'm not sure we want i=
+t to be=20
+consistent this way.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
