@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 03/13] net/mlx4_core: Add sink counter
-Date: Mon, 15 Jun 2015 17:58:58 +0300
-Message-ID: <1434380348-19005-4-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 06/13] net/mlx4_core: Add port attribute when tracking counters
+Date: Mon, 15 Jun 2015 17:59:01 +0300
+Message-ID: <1434380348-19005-7-git-send-email-ogerlitz@mellanox.com>
 References: <1434380348-19005-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,106 +10,162 @@ Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:45037 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:45046 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755940AbbFOPAD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jun 2015 11:00:03 -0400
+	id S1755962AbbFOPAL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2015 11:00:11 -0400
 In-Reply-To: <1434380348-19005-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eran Ben Elisha <eranbe@mellanox.com>
 
-Reserve the last valid counter index for "sink" counter, when a
-new counter cannot be allocated, the driver will use this counter.
-
-In order to avoid allocating this counter on any other flow, fix the
-indices bitmap allocation range, and reserve the sink counter index.
-
-Add macro for the sink counter index and replace all appearences of the
-index with the macro.
+Counter will get its port attribute within the resource tracker when
+the first QP attached to it is modified to RTR. If a QP is counter-less,
+an attempt to create a new counter with assigned port will be made.
 
 Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/infiniband/hw/mlx4/qp.c                   |    3 ++-
- drivers/net/ethernet/mellanox/mlx4/en_resources.c |    2 +-
- drivers/net/ethernet/mellanox/mlx4/main.c         |   11 +++++++----
- include/linux/mlx4/device.h                       |    1 +
- 4 files changed, 11 insertions(+), 6 deletions(-)
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   90 +++++++++++++++++++-
+ 1 files changed, 87 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
-index 02fc91c..c7d916f 100644
---- a/drivers/infiniband/hw/mlx4/qp.c
-+++ b/drivers/infiniband/hw/mlx4/qp.c
-@@ -1544,7 +1544,8 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
- 						dev->counters[qp->port - 1];
- 			optpar |= MLX4_QP_OPTPAR_COUNTER_INDEX;
- 		} else
--			context->pri_path.counter_index = 0xff;
-+			context->pri_path.counter_index =
-+				MLX4_SINK_COUNTER_INDEX(dev->dev);
- 
- 		if (qp->flags & MLX4_IB_QP_NETIF) {
- 			mlx4_ib_steer_qp_reg(dev, qp, 1);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_resources.c b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-index 34f2fdf..97bcb91 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-@@ -66,7 +66,7 @@ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
- 		context->pri_path.sched_queue |= user_prio << 3;
- 		context->pri_path.feup = MLX4_FEUP_FORCE_ETH_UP;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 802eb2a..73db584 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -723,6 +723,9 @@ static void update_gid(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *inbox,
  	}
--	context->pri_path.counter_index = 0xff;
-+	context->pri_path.counter_index = MLX4_SINK_COUNTER_INDEX(mdev->dev);
- 	context->cqn_send = cpu_to_be32(cqn);
- 	context->cqn_recv = cpu_to_be32(cqn);
- 	context->db_rec_addr = cpu_to_be64(priv->res.db.dma << 2);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 1072dc1..2bf5468 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -479,7 +479,7 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 		}
- 	}
- 
--	dev->caps.max_counters = 1 << ilog2(dev_cap->max_counters);
-+	dev->caps.max_counters = dev_cap->max_counters;
- 
- 	dev->caps.reserved_qps_cnt[MLX4_QP_REGION_FW] = dev_cap->reserved_qps;
- 	dev->caps.reserved_qps_cnt[MLX4_QP_REGION_ETH_ADDR] =
-@@ -2193,13 +2193,16 @@ err_free_icm:
- static int mlx4_init_counters_table(struct mlx4_dev *dev)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
--	int nent;
-+	int nent_pow2;
- 
- 	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_COUNTERS))
- 		return -ENOENT;
- 
--	nent = dev->caps.max_counters;
--	return mlx4_bitmap_init(&priv->counters_bitmap, nent, nent - 1, 0, 0);
-+	nent_pow2 = roundup_pow_of_two(dev->caps.max_counters);
-+	/* reserve last counter index for sink counter */
-+	return mlx4_bitmap_init(&priv->counters_bitmap, nent_pow2,
-+				nent_pow2 - 1, 0,
-+				nent_pow2 - dev->caps.max_counters + 1);
  }
  
- static void mlx4_cleanup_counters_table(struct mlx4_dev *dev)
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index ad31e47..312c504 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -957,6 +957,7 @@ struct mlx4_mad_ifc {
- 			((dev)->caps.flags & MLX4_DEV_CAP_FLAG_IBOE))
++static int handle_counter(struct mlx4_dev *dev, struct mlx4_qp_context *qpc,
++			  u8 slave, int port);
++
+ static int update_vport_qp_param(struct mlx4_dev *dev,
+ 				 struct mlx4_cmd_mailbox *inbox,
+ 				 u8 slave, u32 qpn)
+@@ -738,6 +741,10 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
+ 	vp_oper = &priv->mfunc.master.vf_oper[slave].vport[port];
+ 	qp_type	= (be32_to_cpu(qpc->flags) >> 16) & 0xff;
  
- #define MLX4_INVALID_SLAVE_ID	0xFF
-+#define MLX4_SINK_COUNTER_INDEX(dev)	(dev->caps.max_counters - 1)
++	err = handle_counter(dev, qpc, slave, port);
++	if (err)
++		goto out;
++
+ 	if (MLX4_VGT != vp_oper->state.default_vlan) {
+ 		/* the reserved QPs (special, proxy, tunnel)
+ 		 * do not operate over vlans
+@@ -882,6 +889,83 @@ static void put_res(struct mlx4_dev *dev, int slave, u64 res_id,
+ 	spin_unlock_irq(mlx4_tlock(dev));
+ }
  
- void handle_port_mgmt_change_event(struct work_struct *work);
++static int counter_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
++			     u64 in_param, u64 *out_param, int port);
++
++static int handle_existing_counter(struct mlx4_dev *dev, u8 slave, int port,
++				   int counter_index)
++{
++	struct res_common *r;
++	struct res_counter *counter;
++	int ret = 0;
++
++	if (counter_index == MLX4_SINK_COUNTER_INDEX(dev))
++		return ret;
++
++	spin_lock_irq(mlx4_tlock(dev));
++	r = find_res(dev, counter_index, RES_COUNTER);
++	if (!r || r->owner != slave)
++		ret = -EINVAL;
++	counter = container_of(r, struct res_counter, com);
++	if (!counter->port)
++		counter->port = port;
++
++	spin_unlock_irq(mlx4_tlock(dev));
++	return ret;
++}
++
++static int handle_unexisting_counter(struct mlx4_dev *dev,
++				     struct mlx4_qp_context *qpc, u8 slave,
++				     int port)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_resource_tracker *tracker = &priv->mfunc.master.res_tracker;
++	struct res_common *tmp;
++	struct res_counter *counter;
++	u64 counter_idx = MLX4_SINK_COUNTER_INDEX(dev);
++	int err = 0;
++
++	spin_lock_irq(mlx4_tlock(dev));
++	list_for_each_entry(tmp,
++			    &tracker->slave_list[slave].res_list[RES_COUNTER],
++			    list) {
++		counter = container_of(tmp, struct res_counter, com);
++		if (port == counter->port) {
++			qpc->pri_path.counter_index  = counter->com.res_id;
++			spin_unlock_irq(mlx4_tlock(dev));
++			return 0;
++		}
++	}
++	spin_unlock_irq(mlx4_tlock(dev));
++
++	/* No existing counter, need to allocate a new counter */
++	err = counter_alloc_res(dev, slave, RES_OP_RESERVE, 0, 0, &counter_idx,
++				port);
++	if (err == -ENOENT) {
++		err = 0;
++	} else if (err && err != -ENOSPC) {
++		mlx4_err(dev, "%s: failed to create new counter for slave %d err %d\n",
++			 __func__, slave, err);
++	} else {
++		qpc->pri_path.counter_index = counter_idx;
++		mlx4_dbg(dev, "%s: alloc new counter for slave %d index %d\n",
++			 __func__, slave, qpc->pri_path.counter_index);
++		err = 0;
++	}
++
++	return err;
++}
++
++static int handle_counter(struct mlx4_dev *dev, struct mlx4_qp_context *qpc,
++			  u8 slave, int port)
++{
++	if (qpc->pri_path.counter_index != MLX4_SINK_COUNTER_INDEX(dev))
++		return handle_existing_counter(dev, slave, port,
++					       qpc->pri_path.counter_index);
++
++	return handle_unexisting_counter(dev, qpc, slave, port);
++}
++
+ static struct res_common *alloc_qp_tr(int id)
+ {
+ 	struct res_qp *ret;
+@@ -2025,7 +2109,7 @@ static int vlan_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ }
  
+ static int counter_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+-			     u64 in_param, u64 *out_param)
++			     u64 in_param, u64 *out_param, int port)
+ {
+ 	u32 index;
+ 	int err;
+@@ -2043,7 +2127,7 @@ static int counter_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 		return err;
+ 	}
+ 
+-	err = add_res_range(dev, slave, index, 1, RES_COUNTER, 0);
++	err = add_res_range(dev, slave, index, 1, RES_COUNTER, port);
+ 	if (err) {
+ 		__mlx4_counter_free(dev, index);
+ 		mlx4_release_resource(dev, slave, RES_COUNTER, 1, 0);
+@@ -2125,7 +2209,7 @@ int mlx4_ALLOC_RES_wrapper(struct mlx4_dev *dev, int slave,
+ 
+ 	case RES_COUNTER:
+ 		err = counter_alloc_res(dev, slave, vhcr->op_modifier, alop,
+-					vhcr->in_param, &vhcr->out_param);
++					vhcr->in_param, &vhcr->out_param, 0);
+ 		break;
+ 
+ 	case RES_XRCD:
 -- 
 1.7.1
