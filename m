@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 24/32] netfilter: ipset: Introduce RCU locking in bitmap:* types
-Date: Mon, 15 Jun 2015 23:26:21 +0200
-Message-ID: <1434403589-24796-25-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 29/32] netfilter: x_tables: remove XT_TABLE_INFO_SZ and a dereference.
+Date: Mon, 15 Jun 2015 23:26:26 +0200
+Message-ID: <1434403589-24796-30-git-send-email-pablo@netfilter.org>
 References: <1434403589-24796-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,200 +10,174 @@ In-Reply-To: <1434403589-24796-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+From: Eric Dumazet <edumazet@google.com>
 
-There's nothing much required because the bitmap types use atomic
-bit operations. However the logic of adding elements slightly changed:
-first the MAC address updated (which is not atomic), then the element
-activated (added). The extensions may call kfree_rcu() therefore we
-call rcu_barrier() at module removal.
+After Florian patches, there is no need for XT_TABLE_INFO_SZ anymore :
+Only one copy of table is kept, instead of one copy per cpu.
 
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+We also can avoid a dereference if we put table data right after
+xt_table_info. It reduces register pressure and helps compiler.
+
+Then, we attempt a kmalloc() if total size is under order-3 allocation,
+to reduce TLB pressure, as in many cases, rules fit in 32 KB.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipset/ip_set_bitmap_gen.h   |   33 ++++++++++++++++++++---------
- net/netfilter/ipset/ip_set_bitmap_ip.c    |    3 ++-
- net/netfilter/ipset/ip_set_bitmap_ipmac.c |   13 ++++++++++--
- net/netfilter/ipset/ip_set_bitmap_port.c  |    3 ++-
- 4 files changed, 38 insertions(+), 14 deletions(-)
+ include/linux/netfilter/x_tables.h |    5 +----
+ net/ipv4/netfilter/arp_tables.c    |    4 ++--
+ net/ipv4/netfilter/ip_tables.c     |    4 ++--
+ net/ipv6/netfilter/ip6_tables.c    |    4 ++--
+ net/netfilter/x_tables.c           |   32 ++++++++++++--------------------
+ 5 files changed, 19 insertions(+), 30 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_gen.h b/net/netfilter/ipset/ip_set_bitmap_gen.h
-index 6f024a8..86429f3 100644
---- a/net/netfilter/ipset/ip_set_bitmap_gen.h
-+++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
-@@ -144,10 +144,12 @@ mtype_add(struct ip_set *set, void *value, const struct ip_set_ext *ext,
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
+index 9969d79..95693c4 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -225,12 +225,9 @@ struct xt_table_info {
+ 	unsigned int __percpu *stackptr;
+ 	void ***jumpstack;
  
- 	if (ret == IPSET_ADD_FAILED) {
- 		if (SET_WITH_TIMEOUT(set) &&
--		    ip_set_timeout_expired(ext_timeout(x, set)))
-+		    ip_set_timeout_expired(ext_timeout(x, set))) {
- 			ret = 0;
--		else if (!(flags & IPSET_FLAG_EXIST))
-+		} else if (!(flags & IPSET_FLAG_EXIST)) {
-+			set_bit(e->id, map->members);
- 			return -IPSET_ERR_EXIST;
-+		}
- 		/* Element is re-added, cleanup extensions */
- 		ip_set_ext_destroy(set, x);
+-	/* Note : this field MUST be the last one, see XT_TABLE_INFO_SZ */
+-	void *entries;
++	unsigned char entries[0] __aligned(8);
+ };
+ 
+-#define XT_TABLE_INFO_SZ (offsetof(struct xt_table_info, entries) \
+-			  + nr_cpu_ids * sizeof(char *))
+ int xt_register_target(struct xt_target *target);
+ void xt_unregister_target(struct xt_target *target);
+ int xt_register_targets(struct xt_target *target, unsigned int n);
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index d75c139..95c9b6e 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -256,7 +256,7 @@ unsigned int arpt_do_table(struct sk_buff *skb,
+ 	const struct arphdr *arp;
+ 	struct arpt_entry *e, *back;
+ 	const char *indev, *outdev;
+-	void *table_base;
++	const void *table_base;
+ 	const struct xt_table_info *private;
+ 	struct xt_action_param acpar;
+ 	unsigned int addend;
+@@ -868,7 +868,7 @@ static int compat_table_info(const struct xt_table_info *info,
+ 			     struct xt_table_info *newinfo)
+ {
+ 	struct arpt_entry *iter;
+-	void *loc_cpu_entry;
++	const void *loc_cpu_entry;
+ 	int ret;
+ 
+ 	if (!newinfo || !info)
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 6151500..6c72fbb 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -938,7 +938,7 @@ copy_entries_to_user(unsigned int total_size,
+ 	struct xt_counters *counters;
+ 	const struct xt_table_info *private = table->private;
+ 	int ret = 0;
+-	void *loc_cpu_entry;
++	const void *loc_cpu_entry;
+ 
+ 	counters = alloc_counters(table);
+ 	if (IS_ERR(counters))
+@@ -1052,7 +1052,7 @@ static int compat_table_info(const struct xt_table_info *info,
+ 			     struct xt_table_info *newinfo)
+ {
+ 	struct ipt_entry *iter;
+-	void *loc_cpu_entry;
++	const void *loc_cpu_entry;
+ 	int ret;
+ 
+ 	if (!newinfo || !info)
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 80a7f0d..3c35ced 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -951,7 +951,7 @@ copy_entries_to_user(unsigned int total_size,
+ 	struct xt_counters *counters;
+ 	const struct xt_table_info *private = table->private;
+ 	int ret = 0;
+-	void *loc_cpu_entry;
++	const void *loc_cpu_entry;
+ 
+ 	counters = alloc_counters(table);
+ 	if (IS_ERR(counters))
+@@ -1065,7 +1065,7 @@ static int compat_table_info(const struct xt_table_info *info,
+ 			     struct xt_table_info *newinfo)
+ {
+ 	struct ip6t_entry *iter;
+-	void *loc_cpu_entry;
++	const void *loc_cpu_entry;
+ 	int ret;
+ 
+ 	if (!newinfo || !info)
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index 6062ce3..d324fe7 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -658,29 +658,23 @@ EXPORT_SYMBOL_GPL(xt_compat_target_to_user);
+ 
+ struct xt_table_info *xt_alloc_table_info(unsigned int size)
+ {
+-	struct xt_table_info *newinfo;
++	struct xt_table_info *info = NULL;
++	size_t sz = sizeof(*info) + size;
+ 
+ 	/* Pedantry: prevent them from hitting BUG() in vmalloc.c --RR */
+ 	if ((SMP_ALIGN(size) >> PAGE_SHIFT) + 2 > totalram_pages)
+ 		return NULL;
+ 
+-	newinfo = kzalloc(XT_TABLE_INFO_SZ, GFP_KERNEL);
+-	if (!newinfo)
+-		return NULL;
+-
+-	newinfo->size = size;
+-
+-	if (size <= PAGE_SIZE)
+-		newinfo->entries = kmalloc(size, GFP_KERNEL);
+-	else
+-		newinfo->entries = vmalloc(size);
+-
+-	if (newinfo->entries == NULL) {
+-		xt_free_table_info(newinfo);
+-		return NULL;
++	if (sz <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER))
++		info = kmalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_NORETRY);
++	if (!info) {
++		info = vmalloc(sz);
++		if (!info)
++			return NULL;
  	}
-@@ -165,6 +167,10 @@ mtype_add(struct ip_set *set, void *value, const struct ip_set_ext *ext,
- 		ip_set_init_comment(ext_comment(x, set), ext);
- 	if (SET_WITH_SKBINFO(set))
- 		ip_set_init_skbinfo(ext_skbinfo(x, set), ext);
-+
-+	/* Activate element */
-+	set_bit(e->id, map->members);
-+
- 	return 0;
+-
+-	return newinfo;
++	memset(info, 0, sizeof(*info));
++	info->size = size;
++	return info;
  }
+ EXPORT_SYMBOL(xt_alloc_table_info);
  
-@@ -203,10 +209,13 @@ mtype_list(const struct ip_set *set,
- 	struct nlattr *adt, *nested;
- 	void *x;
- 	u32 id, first = cb->args[IPSET_CB_ARG0];
-+	int ret = 0;
- 
- 	adt = ipset_nest_start(skb, IPSET_ATTR_ADT);
- 	if (!adt)
- 		return -EMSGSIZE;
-+	/* Extensions may be replaced */
-+	rcu_read_lock();
- 	for (; cb->args[IPSET_CB_ARG0] < map->elements;
- 	     cb->args[IPSET_CB_ARG0]++) {
- 		id = cb->args[IPSET_CB_ARG0];
-@@ -222,9 +231,11 @@ mtype_list(const struct ip_set *set,
- 		if (!nested) {
- 			if (id == first) {
- 				nla_nest_cancel(skb, adt);
--				return -EMSGSIZE;
--			} else
--				goto nla_put_failure;
-+				ret = -EMSGSIZE;
-+				goto out;
-+			}
-+
-+			goto nla_put_failure;
- 		}
- 		if (mtype_do_list(skb, map, id, set->dsize))
- 			goto nla_put_failure;
-@@ -238,16 +249,18 @@ mtype_list(const struct ip_set *set,
- 	/* Set listing finished */
- 	cb->args[IPSET_CB_ARG0] = 0;
- 
--	return 0;
-+	goto out;
- 
- nla_put_failure:
- 	nla_nest_cancel(skb, nested);
- 	if (unlikely(id == first)) {
- 		cb->args[IPSET_CB_ARG0] = 0;
--		return -EMSGSIZE;
-+		ret = -EMSGSIZE;
- 	}
- 	ipset_nest_end(skb, adt);
--	return 0;
-+out:
-+	rcu_read_unlock();
-+	return ret;
- }
- 
- static void
-@@ -260,7 +273,7 @@ mtype_gc(unsigned long ul_set)
- 
- 	/* We run parallel with other readers (test element)
- 	 * but adding/deleting new entries is locked out */
--	read_lock_bh(&set->lock);
-+	spin_lock_bh(&set->lock);
- 	for (id = 0; id < map->elements; id++)
- 		if (mtype_gc_test(id, map, set->dsize)) {
- 			x = get_ext(set, map, id);
-@@ -269,7 +282,7 @@ mtype_gc(unsigned long ul_set)
- 				ip_set_ext_destroy(set, x);
- 			}
- 		}
--	read_unlock_bh(&set->lock);
-+	spin_unlock_bh(&set->lock);
- 
- 	map->gc.expires = jiffies + IPSET_GC_PERIOD(set->timeout) * HZ;
- 	add_timer(&map->gc);
-diff --git a/net/netfilter/ipset/ip_set_bitmap_ip.c b/net/netfilter/ipset/ip_set_bitmap_ip.c
-index 7af99c3..b8ce474 100644
---- a/net/netfilter/ipset/ip_set_bitmap_ip.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_ip.c
-@@ -81,7 +81,7 @@ static inline int
- bitmap_ip_do_add(const struct bitmap_ip_adt_elem *e, struct bitmap_ip *map,
- 		 u32 flags, size_t dsize)
+@@ -688,8 +682,6 @@ void xt_free_table_info(struct xt_table_info *info)
  {
--	return !!test_and_set_bit(e->id, map->members);
-+	return !!test_bit(e->id, map->members);
- }
+ 	int cpu;
  
- static inline int
-@@ -376,6 +376,7 @@ bitmap_ip_init(void)
- static void __exit
- bitmap_ip_fini(void)
- {
-+	rcu_barrier();
- 	ip_set_type_unregister(&bitmap_ip_type);
- }
+-	kvfree(info->entries);
+-
+ 	if (info->jumpstack != NULL) {
+ 		for_each_possible_cpu(cpu)
+ 			kvfree(info->jumpstack[cpu]);
+@@ -698,7 +690,7 @@ void xt_free_table_info(struct xt_table_info *info)
  
-diff --git a/net/netfilter/ipset/ip_set_bitmap_ipmac.c b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-index 7733422..fe00e87 100644
---- a/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-@@ -147,15 +147,23 @@ bitmap_ipmac_do_add(const struct bitmap_ipmac_adt_elem *e,
- 	struct bitmap_ipmac_elem *elem;
+ 	free_percpu(info->stackptr);
  
- 	elem = get_elem(map->extensions, e->id, dsize);
--	if (test_and_set_bit(e->id, map->members)) {
-+	if (test_bit(e->id, map->members)) {
- 		if (elem->filled == MAC_FILLED) {
--			if (e->ether && (flags & IPSET_FLAG_EXIST))
-+			if (e->ether &&
-+			    (flags & IPSET_FLAG_EXIST) &&
-+			    !ether_addr_equal(e->ether, elem->ether)) {
-+				/* memcpy isn't atomic */
-+				clear_bit(e->id, map->members);
-+				smp_mb__after_atomic();
- 				memcpy(elem->ether, e->ether, ETH_ALEN);
-+			}
- 			return IPSET_ADD_FAILED;
- 		} else if (!e->ether)
- 			/* Already added without ethernet address */
- 			return IPSET_ADD_FAILED;
- 		/* Fill the MAC address and trigger the timer activation */
-+		clear_bit(e->id, map->members);
-+		smp_mb__after_atomic();
- 		memcpy(elem->ether, e->ether, ETH_ALEN);
- 		elem->filled = MAC_FILLED;
- 		return IPSET_ADD_START_STORED_TIMEOUT;
-@@ -413,6 +421,7 @@ bitmap_ipmac_init(void)
- static void __exit
- bitmap_ipmac_fini(void)
- {
-+	rcu_barrier();
- 	ip_set_type_unregister(&bitmap_ipmac_type);
+-	kfree(info);
++	kvfree(info);
  }
- 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_port.c b/net/netfilter/ipset/ip_set_bitmap_port.c
-index ec3bda1..2d360f9 100644
---- a/net/netfilter/ipset/ip_set_bitmap_port.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_port.c
-@@ -73,7 +73,7 @@ static inline int
- bitmap_port_do_add(const struct bitmap_port_adt_elem *e,
- 		   struct bitmap_port *map, u32 flags, size_t dsize)
- {
--	return !!test_and_set_bit(e->id, map->members);
-+	return !!test_bit(e->id, map->members);
- }
- 
- static inline int
-@@ -306,6 +306,7 @@ bitmap_port_init(void)
- static void __exit
- bitmap_port_fini(void)
- {
-+	rcu_barrier();
- 	ip_set_type_unregister(&bitmap_port_type);
- }
+ EXPORT_SYMBOL(xt_free_table_info);
  
 -- 
 1.7.10.4
