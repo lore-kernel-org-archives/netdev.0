@@ -1,73 +1,96 @@
-From: Roman I Khimov <khimov@altell.ru>
-Subject: [PATCH] net: fix search limit handling in skb_find_text()
-Date: Mon, 15 Jun 2015 12:11:58 +0300
-Message-ID: <1434359518-16897-1-git-send-email-khimov@altell.ru>
-Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, roman@khimov.ru,
-	Roman I Khimov <khimov@altell.ru>,
-	Phil Oester <kernel@linuxace.com>
-To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] net:usb:cdc_ncm: fix that tag Huawei devices as wwan
+Date: Mon, 15 Jun 2015 12:22:27 +0200
+Message-ID: <30508675-5839-4E65-975A-4CFC5B1C5E24@holtmann.org>
+References: <SNT147-W99A0E937260823EBAA1FFB3B90@phx.gbl> <CA+55aFz3S3nR_aDMMS1vcayyEqJCBL5tgoYAfDE2WGyM3Vcrww@mail.gmail.com> <87ioapl55s.fsf@nemi.mork.no>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Aleksander Morgado <aleksander@aleksander.es>,
+	Dan Williams <dcbw@redhat.com>,
+	Oliver Neukum <oliver@neukum.org>,
+	Ben Hutchings <ben.hutchings@codethink.co.uk>,
+	USB list <linux-usb@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	xiaomao <xiaomao0213@hotmail.com>
+To: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from senator.holtmann.net ([87.106.208.187]:33656 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753425AbbFOKWc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 06:22:32 -0400
+In-Reply-To: <87ioapl55s.fsf@nemi.mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Suppose that we're trying to use an xt_string netfilter module to match a
-string in a specially crafted packet that has "a nice string" starting at
-offset 28.
+Hi Bjorn,
 
-It could be done in iptables like this:
+>> Hmm. Oliver is marked as the maintainer of the USB CDC code, but
+>> others have touched it more recently. So I'm just wildly adding peop=
+le
+>> to the cc to comment on this patch and maybe apply it.
+>> Oliver/David/Ben/Bj=C3=B8rn?
+>=20
+> Adding Aleksander and Dan, too.  The 'wwanX' vs 'usbX' distinction is=
+ a
+> hint for userspace and nothing more. We try our best to make this hin=
+t
+> as precise as possible, but there has never been any guarantee that i=
+t
+> is 100% correct.  So userspace will have to deal with hints being wro=
+ng.
+> This has been discussed before:
+> http://lists.freedesktop.org/archives/modemmanager-devel/2014-April/0=
+01068.html
+>=20
+> What makes the Huawei NCM devices special is that the same ID is reus=
+ed
+> for both types of devices, making it impossible to achieve perfect
+> hinting by adding exceptions to the generic rule.  We can choose betw=
+een
+> wrong towards 'wwanX' or wrong towards 'usbX'.  But the hint WILL be
+> wrong in some cases no matter what we do.
+>=20
+> The 12d1:1506 device ID is a perfect example.  Here's a report of a
+> Huawei E5776 which should be used as a plain 'usbX' NCM device:
+> http://lists.freedesktop.org/archives/modemmanager-devel/2014-April/0=
+01040.html
+> And here's a report of a Huawei E3276 which needs wwan management and
+> therefore should be hinted as a 'wwanX' NCM device:
+> http://www.dd-wrt.com/phpBB2/viewtopic.php?p=3D764920
+>=20
+> So which of the two wrongs should we choose?
+>=20
+> Huawei wanting this changed is a strong argument for the 'usbX'
+> direction, of course.  But this will be a user visible change which i=
+s
+> likely to break currently working devices until userspace adapts.  An=
+d
+> that will normally trump almost any other argument.  I don't think we
+> can change this now.  I sincerely apologise about having added the
+> generic rule in the first place, but I don't see how I can go back an=
+d
+> change that.
+>=20
+> I believe we have to follow the path of least surprise: Keeping what =
+we
+> have.
+>=20
+> But we should definitely work with userspace to ensure that a wrongly
+> flagged 'wwanX' device is usable without any wwan management.
+> Preferably without the user really noticing anything different (excep=
+t
+> possibly the device name).
 
--A some_chain -m string --string "a nice string" --algo bm --from 28 --to 38 -j DROP
+we introduced DEVTYPE in uevent a long time ago. That is what userspace=
+ should be using and not second guessing on interface names.
 
-And it would work as expected. Now changing that to
+Why is userspace trying to hack around the kernel anyway. This never re=
+ally goes well unless the kernel exposes clear information to identify =
+devices. If there are some weird devices, then work this out in the ker=
+nel and have DEVTYPE identity them correctly.
 
--A some_chain -m string --string "a nice string" --algo bm --from 29 --to 38 -j DROP
+Regards
 
-breaks the match, as expected. But, if we try to make
-
--A some_chain -m string --string "a nice string" --algo bm --from 20 --to 28 -j DROP
-
-then it suddenly works again! So the 'to' parameter seems to be inclusive, not
-working as an offset after which no search should be done. OK, now if we try:
-
--A some_chain -m string --string "a nice string" --algo bm --from 28 --to 28 -j DROP
-
-it doesn't work. So, for the case of equal 'from' and 'to' it's treated in a
-different way.
-
-The first behaviour (matching at 'to' offset) comes from skb_find_text()
-comparison. The second one (not matching if 'from' and 'to' are equal) comes
-from skb_seq_read() check for (abs_offset >= st->upper_offset).
-
-I think that the way skb_find_text() handles 'to' is wrong and should be fixed
-so that we always have predictable behaviour -- only match before 'to' offset.
-
-There are currently only five usages of skb_find_text() in the kernel and it
-looks to me that none of them expect to match something at the 'to' offset,
-so probably this change is safe.
-
-Reported-by: Edward Makarov <makarov@altell.ru>
-Tested-by: Edward Makarov <makarov@altell.ru>
-Signed-off-by: Roman I Khimov <khimov@altell.ru>
-Cc: Phil Oester <kernel@linuxace.com>
----
- net/core/skbuff.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 3cfff2a..0d32be7 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2901,7 +2901,7 @@ unsigned int skb_find_text(struct sk_buff *skb, unsigned int from,
- 	skb_prepare_seq_read(skb, from, to, TS_SKB_CB(&state));
- 
- 	ret = textsearch_find(config, &state);
--	return (ret <= to - from ? ret : UINT_MAX);
-+	return (ret < to - from ? ret : UINT_MAX);
- }
- EXPORT_SYMBOL(skb_find_text);
- 
--- 
-2.1.4
-
+Marcel
