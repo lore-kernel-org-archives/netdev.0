@@ -1,83 +1,45 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 7/7] slub: initial bulk free implementation
-Date: Mon, 15 Jun 2015 10:04:17 -0700
-Message-ID: <557F0591.5080704@gmail.com>
-References: <20150615155053.18824.617.stgit@devil> <20150615155256.18824.42651.stgit@devil>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH 08/11] IB/cma: Add net_dev and private data checks to
+ RDMA CM
+Date: Mon, 15 Jun 2015 11:08:37 -0600
+Message-ID: <20150615170837.GA14982@obsidianresearch.com>
+References: <1434358036-15526-1-git-send-email-haggaie@mellanox.com>
+ <1434358036-15526-9-git-send-email-haggaie@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>, linux-mm@kvack.org,
- Christoph Lameter <cl@linux.com>,
- Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20150615155256.18824.42651.stgit@devil>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, Liran Liss <liranl@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Yotam Kenneth <yotamke@mellanox.com>
+To: Haggai Eran <haggaie@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:33403 "EHLO quartz.orcorp.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755567AbbFORIl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2015 13:08:41 -0400
+Content-Disposition: inline
+In-Reply-To: <1434358036-15526-9-git-send-email-haggaie@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/15/2015 08:52 AM, Jesper Dangaard Brouer wrote:
-> This implements SLUB specific kmem_cache_free_bulk().  SLUB allocator
-> now both have bulk alloc and free implemented.
->
-> Play nice and reenable local IRQs while calling slowpath.
->
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> ---
->   mm/slub.c |   32 +++++++++++++++++++++++++++++++-
->   1 file changed, 31 insertions(+), 1 deletion(-)
->
-> diff --git a/mm/slub.c b/mm/slub.c
-> index 98d0e6f73ec1..cc4f870677bb 100644
-> --- a/mm/slub.c
-> +++ b/mm/slub.c
-> @@ -2752,7 +2752,37 @@ EXPORT_SYMBOL(kmem_cache_free);
->   
->   void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
->   {
-> -	__kmem_cache_free_bulk(s, size, p);
-> +	struct kmem_cache_cpu *c;
-> +	struct page *page;
-> +	int i;
-> +
-> +	local_irq_disable();
-> +	c = this_cpu_ptr(s->cpu_slab);
-> +
-> +	for (i = 0; i < size; i++) {
-> +		void *object = p[i];
-> +
-> +		if (unlikely(!object))
-> +			continue; // HOW ABOUT BUG_ON()???
-> +
-> +		page = virt_to_head_page(object);
-> +		BUG_ON(s != page->slab_cache); /* Check if valid slab page */
-> +
-> +		if (c->page == page) {
-> +			/* Fastpath: local CPU free */
-> +			set_freepointer(s, object, c->freelist);
-> +			c->freelist = object;
-> +		} else {
-> +			c->tid = next_tid(c->tid);
-> +			local_irq_enable();
-> +			/* Slowpath: overhead locked cmpxchg_double_slab */
-> +			__slab_free(s, page, object, _RET_IP_);
-> +			local_irq_disable();
-> +			c = this_cpu_ptr(s->cpu_slab);
-> +		}
-> +	}
-> +	c->tid = next_tid(c->tid);
-> +	local_irq_enable();
->   }
->   EXPORT_SYMBOL(kmem_cache_free_bulk);
+On Mon, Jun 15, 2015 at 11:47:13AM +0300, Haggai Eran wrote:
+> Instead of relying on a the ib_cm module to check an incoming CM request's
+> private data header, add these checks to the RDMA CM module. This allows a
+> following patch to to clean up the ib_cm interface and remove the code that
+> looks into the private headers. It will also allow supporting namespaces in
+> RDMA CM by making these checks namespace aware later on.
 
-So if the idea is to batch the freeing maybe you should look at doing 
-the freeing in two passes.  The first would be to free all those buffers 
-that share their page with the percpu slab.  Then you could just free 
-everything else in the second pass after you have re-enabled IRQs.
+I was expecting one of these patches to flow the net_device from here:
 
-- Alex
+> +static struct net_device *cma_get_net_dev(struct ib_cm_event *ib_event,
+> +					  const struct cma_req_info *req)
+> +{
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Down through cma_req_handler and cma_new_conn_id so that we get rid of
+the cma_translate_addr on the ingress side.
+
+Having the ingress side use one ingress net_device for all processing
+seems very important to me...
+
+Jason
