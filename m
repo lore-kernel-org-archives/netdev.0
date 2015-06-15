@@ -1,7 +1,7 @@
 From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 02/11] IB/ipoib: Return IPoIB devices matching connection parameters
-Date: Mon, 15 Jun 2015 11:47:07 +0300
-Message-ID: <1434358036-15526-3-git-send-email-haggaie@mellanox.com>
+Subject: [PATCH 03/11] IB/cm: Expose service ID in request events
+Date: Mon, 15 Jun 2015 11:47:08 +0300
+Message-ID: <1434358036-15526-4-git-send-email-haggaie@mellanox.com>
 References: <1434358036-15526-1-git-send-email-haggaie@mellanox.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
@@ -16,193 +16,56 @@ In-Reply-To: <1434358036-15526-1-git-send-email-haggaie-VPRAkNaXOzVWk0Htik3J/w@p
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Expose the service ID on an incoming CM or SIDR request to the event
+handler. This will allow the RDMA CM module to de-multiplex connection
+requests based on the information encoded in the service ID.
 
-Implement the get_net_device_by_port_pkey_ip callback that returns network
-device to ib_core according to connection parameters. Check the ipoib
-device and iterate over all child devices to look for a match.
-
-For each IPoIB device we iterate through all upper devices when searching
-for a matching IP, in order to support bonding.
-
-Signed-off-by: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Signed-off-by: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/infiniband/ulp/ipoib/ipoib_main.c | 141 +++++++++++++++++++++++++++++-
- 1 file changed, 140 insertions(+), 1 deletion(-)
+ drivers/infiniband/core/cm.c | 3 +++
+ include/rdma/ib_cm.h         | 1 +
+ 2 files changed, 4 insertions(+)
 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-index da149c278cb8..15af32665a87 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-@@ -48,6 +48,9 @@
+diff --git a/drivers/infiniband/core/cm.c b/drivers/infiniband/core/cm.c
+index 32063add9280..c5f5f89e274a 100644
+--- a/drivers/infiniband/core/cm.c
++++ b/drivers/infiniband/core/cm.c
+@@ -1256,6 +1256,7 @@ static void cm_format_paths_from_req(struct cm_req_msg *req_msg,
+ 	primary_path->packet_life_time =
+ 		cm_req_get_primary_local_ack_timeout(req_msg);
+ 	primary_path->packet_life_time -= (primary_path->packet_life_time > 0);
++	primary_path->service_id = req_msg->service_id;
  
- #include <linux/jhash.h>
- #include <net/arp.h>
-+#include <net/addrconf.h>
-+#include <linux/inetdevice.h>
-+#include <rdma/ib_cache.h>
- 
- #define DRV_VERSION "1.0.0"
- 
-@@ -91,11 +94,15 @@ struct ib_sa_client ipoib_sa_client;
- static void ipoib_add_one(struct ib_device *device);
- static void ipoib_remove_one(struct ib_device *device);
- static void ipoib_neigh_reclaim(struct rcu_head *rp);
-+static struct net_device *ipoib_get_net_dev_by_params(
-+		struct ib_device *dev, u8 port, u16 pkey,
-+		const union ib_gid *gid, const struct sockaddr *addr);
- 
- static struct ib_client ipoib_client = {
- 	.name   = "ipoib",
- 	.add    = ipoib_add_one,
--	.remove = ipoib_remove_one
-+	.remove = ipoib_remove_one,
-+	.get_net_dev_by_params = ipoib_get_net_dev_by_params,
- };
- 
- int ipoib_open(struct net_device *dev)
-@@ -222,6 +229,138 @@ static int ipoib_change_mtu(struct net_device *dev, int new_mtu)
- 	return 0;
+ 	if (req_msg->alt_local_lid) {
+ 		memset(alt_path, 0, sizeof *alt_path);
+@@ -1277,6 +1278,7 @@ static void cm_format_paths_from_req(struct cm_req_msg *req_msg,
+ 		alt_path->packet_life_time =
+ 			cm_req_get_alt_local_ack_timeout(req_msg);
+ 		alt_path->packet_life_time -= (alt_path->packet_life_time > 0);
++		alt_path->service_id = req_msg->service_id;
+ 	}
  }
  
-+/* Called with an RCU read lock taken */
-+static bool ipoib_is_dev_match_addr(const struct sockaddr *addr,
-+				    struct net_device *dev)
-+{
-+	struct net *net = dev_net(dev);
-+	struct in_device *in_dev;
-+	struct sockaddr_in *addr_in = (struct sockaddr_in *)addr;
-+	struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)addr;
-+	__be32 ret_addr;
-+
-+	switch (addr->sa_family) {
-+	case AF_INET:
-+		in_dev = in_dev_get(dev);
-+		if (!in_dev)
-+			return false;
-+
-+		ret_addr = inet_confirm_addr(net, in_dev, 0,
-+					     addr_in->sin_addr.s_addr,
-+					     RT_SCOPE_HOST);
-+		in_dev_put(in_dev);
-+		if (ret_addr)
-+			return true;
-+
-+		break;
-+	case AF_INET6:
-+		if (IS_ENABLED(CONFIG_IPV6) &&
-+		    ipv6_chk_addr(net, &addr_in6->sin6_addr, dev, 1))
-+			return true;
-+
-+		break;
-+	}
-+	return false;
-+}
-+
-+/**
-+ * Find a net_device matching the given address, which is an upper device of
-+ * the given net_device.
-+ * @addr: IP address to look for.
-+ * @dev: base IPoIB net_device
-+ *
-+ * If found, returns the net_device with a reference held. Otherwise return
-+ * NULL.
-+ */
-+static struct net_device *ipoib_get_net_dev_match_addr(
-+		const struct sockaddr *addr, struct net_device *dev)
-+{
-+	struct net_device *upper,
-+			  *result = NULL;
-+	struct list_head *iter;
-+
-+	rcu_read_lock();
-+	if (ipoib_is_dev_match_addr(addr, dev)) {
-+		dev_hold(dev);
-+		result = dev;
-+		goto out;
-+	}
-+
-+	netdev_for_each_all_upper_dev_rcu(dev, upper, iter) {
-+		if (ipoib_is_dev_match_addr(addr, upper)) {
-+			dev_hold(upper);
-+			result = upper;
-+			break;
-+		}
-+	}
-+out:
-+	rcu_read_unlock();
-+	return result;
-+}
-+
-+/* returns an IPoIB netdev on top a given ipoib device matching a pkey_index
-+ * and address, if one exists. */
-+static struct net_device *ipoib_match_gid_pkey_addr(struct ipoib_dev_priv *priv,
-+						    const union ib_gid *gid,
-+						    u16 pkey_index,
-+						    const struct sockaddr *addr)
-+{
-+	struct ipoib_dev_priv *child_priv;
-+	struct net_device *net_dev = NULL;
-+
-+	if (priv->pkey_index == pkey_index &&
-+	    (!gid || !memcmp(gid, &priv->local_gid, sizeof(*gid)))) {
-+		net_dev = ipoib_get_net_dev_match_addr(addr, priv->dev);
-+		if (net_dev)
-+			return net_dev;
-+	}
-+
-+	/* Check child interfaces */
-+	down_read(&priv->vlan_rwsem);
-+	list_for_each_entry(child_priv, &priv->child_intfs, list) {
-+		net_dev = ipoib_match_gid_pkey_addr(child_priv, gid,
-+						    pkey_index, addr);
-+		if (net_dev)
-+			break;
-+	}
-+	up_read(&priv->vlan_rwsem);
-+
-+	return net_dev;
-+}
-+
-+static struct net_device *ipoib_get_net_dev_by_params(
-+		struct ib_device *dev, u8 port, u16 pkey,
-+		const union ib_gid *gid, const struct sockaddr *addr)
-+{
-+	struct ipoib_dev_priv *priv;
-+	struct list_head *dev_list;
-+	struct net_device *net_dev;
-+	u16 pkey_index;
-+	int ret;
-+
-+	ret = ib_find_cached_pkey(dev, port, pkey, &pkey_index);
-+	if (ret)
-+		return NULL;
-+
-+	if (!rdma_protocol_ib(dev, port))
-+		return NULL;
-+
-+	dev_list = ib_get_client_data(dev, &ipoib_client);
-+	if (!dev_list)
-+		return NULL;
-+
-+	list_for_each_entry(priv, dev_list, list) {
-+		if (priv->port != port)
-+			continue;
-+
-+		net_dev = ipoib_match_gid_pkey_addr(priv, gid, pkey_index,
-+						    addr);
-+		if (net_dev)
-+			return net_dev;
-+	}
-+	return NULL;
-+}
-+
- int ipoib_set_mode(struct net_device *dev, const char *buf)
- {
- 	struct ipoib_dev_priv *priv = netdev_priv(dev);
+@@ -2980,6 +2982,7 @@ static void cm_format_sidr_req_event(struct cm_work *work,
+ 	param = &work->cm_event.param.sidr_req_rcvd;
+ 	param->pkey = __be16_to_cpu(sidr_req_msg->pkey);
+ 	param->listen_id = listen_id;
++	param->service_id = sidr_req_msg->service_id;
+ 	param->port = work->port->port_num;
+ 	work->cm_event.private_data = &sidr_req_msg->private_data;
+ }
+diff --git a/include/rdma/ib_cm.h b/include/rdma/ib_cm.h
+index 39ed2d2fbd51..1b567bbc3ad4 100644
+--- a/include/rdma/ib_cm.h
++++ b/include/rdma/ib_cm.h
+@@ -223,6 +223,7 @@ struct ib_cm_apr_event_param {
+ 
+ struct ib_cm_sidr_req_event_param {
+ 	struct ib_cm_id		*listen_id;
++	__be64			service_id;
+ 	u8			port;
+ 	u16			pkey;
+ };
 -- 
 1.7.11.2
 
