@@ -1,43 +1,83 @@
-From: Zack Weinberg <zackw@panix.com>
-Subject: Re: "ip netns create" hangs forever, spamming console with
- "unregister_netdevice: waiting for lo to become free"
-Date: Mon, 15 Jun 2015 13:34:05 -0400
-Message-ID: <CAKCAbMjpRyfZ5OjY6SEygJfmo4AxVPsd+rjMJP1UWS8aQT-HEg@mail.gmail.com>
-References: <CAKCAbMgkpFMX7cQS=c3eD802aKTWesCv1TW7n8mtBvqLF0BN8Q@mail.gmail.com>
-	<CAKCAbMj9tKg95mNyUQZxRHxtTTCb2BQxYLehtA8XjD7Sf_t1Cw@mail.gmail.com>
-	<CANr6G5zVPaP1N-9rQ=PCn9-NJGd7QONmv_HO6OqJs19yBWCyFA@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 3/3] net: dsa: Allow configuration of CPU & DSA port speeds/duplex
+Date: Mon, 15 Jun 2015 10:35:17 -0700
+Message-ID: <557F0CD5.4070705@gmail.com>
+References: <1434129537-15252-1-git-send-email-andrew@lunn.ch> <1434129537-15252-3-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Joe Stringer <joestringer@nicira.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Guenter Roeck <linux@roeck-us.net>,
+	Cory Tusar <cory.tusar@pid1solutions.com>,
+	netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbackend.panix.com ([166.84.1.89]:60107 "EHLO
-	mailbackend.panix.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754514AbbFOReH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 13:34:07 -0400
-Received: from mail-wi0-f181.google.com (mail-wi0-f181.google.com [209.85.212.181])
-	by mailbackend.panix.com (Postfix) with ESMTPSA id CDE71132B7
-	for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 13:34:06 -0400 (EDT)
-Received: by wiga1 with SMTP id a1so85236353wig.0
-        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 10:34:05 -0700 (PDT)
-In-Reply-To: <CANr6G5zVPaP1N-9rQ=PCn9-NJGd7QONmv_HO6OqJs19yBWCyFA@mail.gmail.com>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:33604 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754514AbbFORgY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 13:36:24 -0400
+Received: by pdjn11 with SMTP id n11so77578280pdj.0
+        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 10:36:24 -0700 (PDT)
+In-Reply-To: <1434129537-15252-3-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 7, 2015 at 11:56 PM, Joe Stringer <joestringer@nicira.com> wrote:
->
-> Hi Zack, have you had any further development on this issue?
+On 12/06/15 10:18, Andrew Lunn wrote:
+> By default, DSA and CPU ports are configured to the maximum speed the
+> switch supports. However there can be use cases where the peer device
+> port is slower. Allow a fixed-link property to be used with the DSA
+> and CPU port in the device tree, and use this information to configure
+> the port.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
+>  include/net/dsa.h |  1 +
+>  net/dsa/dsa.c     | 39 +++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 40 insertions(+)
+> 
+> diff --git a/include/net/dsa.h b/include/net/dsa.h
+> index fbca63ba8f73..24572f99224c 100644
+> --- a/include/net/dsa.h
+> +++ b/include/net/dsa.h
+> @@ -160,6 +160,7 @@ struct dsa_switch {
+>  	 * Slave mii_bus and devices for the individual ports.
+>  	 */
+>  	u32			dsa_port_mask;
+> +	u32			cpu_port_mask;
+>  	u32			phys_port_mask;
+>  	u32			phys_mii_mask;
+>  	struct mii_bus		*slave_mii_bus;
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index 392e29a0227d..f9c8f4e7ebce 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -176,6 +176,36 @@ __ATTRIBUTE_GROUPS(dsa_hwmon);
+>  #endif /* CONFIG_NET_DSA_HWMON */
+>  
+>  /* basic switch operations **************************************************/
+> +static int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct net_device *master)
+> +{
+> +	struct dsa_chip_data *cd = ds->pd;
+> +	struct device_node *port_dn;
+> +	struct phy_device *phydev;
+> +	int ret, port;
+> +
+> +	for (port = 0; port < DSA_MAX_PORTS; port++) {
+> +		if (!((ds->cpu_port_mask | ds->dsa_port_mask) & (1 << port)))
+> +			continue;
+> +
+> +		port_dn = cd->port_dn[port];
+> +		if (of_phy_is_fixed_link(port_dn)) {
+> +			ret = of_phy_register_fixed_link(port_dn);
+> +			if (ret) {
+> +				netdev_err(master,
+> +					   "failed to register fixed PHY\n");
+> +				return ret;
+> +			}
+> +			phydev = of_phy_find_device(port_dn);
+> +			phydev->is_pseudo_fixed_link = true;
 
-Sorry for the delay.  The only additional piece of information I have
-for you is that
-https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1403152 may be
-another report of the same bug, or a closely-related one.
-
-I am fairly sure this would be easy to fix if someone could just come
-up with a reliable reproducer, but I've had no further luck myself,
-although that Ubuntu bug did give me an idea -- specifically, it might
-be necessary to make a lot of outbound connections from within a
-network namespace to trigger the problem.  I am juggling several other
-issues right now and haven't had time to follow up on that idea.
-
-zw
+I suppose this could be automatically set by the Generic PHY driver once
+we bind it to the fixed MDIO bus implementation instead of having driver
+have to do this, what do you think?
+-- 
+Florian
