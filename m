@@ -1,58 +1,80 @@
-From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Subject: RE: [RFC,v3 02/10] dpaa_eth: add support for DPAA Ethernet
-Date: Mon, 15 Jun 2015 13:40:46 +0000
-Message-ID: <BL2PR03MB54503B16A47056DBA9653C0E6B80@BL2PR03MB545.namprd03.prod.outlook.com>
-References: <1430319405-31280-1-git-send-email-madalin.bucur@freescale.com>
- <1433958961.27504.15.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH] ethernet/sfc: mark state UNINIT after unregister
+Date: Mon, 15 Jun 2015 14:49:18 +0100
+Message-ID: <557ED7DE.7080407@solarflare.com>
+References: <1434135061-42521-1-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1433958961.27504.15.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	<netdev@vger.kernel.org>
+To: Jarod Wilson <jarod@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:50462 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752139AbbFONtY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 09:49:24 -0400
+In-Reply-To: <1434135061-42521-1-git-send-email-jarod@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiANCj4gT24gV2VkLCAyMDE1LTA0LTI5IGF0IDE3
-OjU2ICswMzAwLCBNYWRhbGluIEJ1Y3VyIHdyb3RlOg0KPiA+IFRoaXMgaW50cm9kdWNlcyB0aGUg
-RnJlZXNjYWxlIERhdGEgUGF0aCBBY2NlbGVyYXRpb24gQXJjaGl0ZWN0dXJlDQo+ID4gKERQQUEp
-IEV0aGVybmV0IGRyaXZlciAoZHBhYV9ldGgpIHRoYXQgYnVpbGRzIHVwb24gdGhlIERQQUEgUU1h
-biwNCj4gPiBCTWFuLCBQQU1VIGFuZCBGTWFuIGRyaXZlcnMgdG8gZGVsaXZlciBFdGhlcm5ldCBj
-b25uZWN0aXZpdHkgb24NCj4gPiB0aGUgRnJlZXNjYWxlIERQQUEgUW9ySVEgcGxhdGZvcm1zLg0K
-PiAuLi4NCj4gDQo+ID4gKwkvKiBXZSdyZSBnb2luZyB0byBzdG9yZSB0aGUgc2tiIGJhY2twb2lu
-dGVyIGF0IHRoZSBiZWdpbm5pbmcNCj4gPiArCSAqIG9mIHRoZSBkYXRhIGJ1ZmZlciwgc28gd2Ug
-bmVlZCBhIHByaXZhdGVseSBvd25lZCBza2INCj4gPiArCSAqLw0KPiA+ICsNCj4gPiArCS8qIENv
-ZGUgYm9ycm93ZWQgZnJvbSBza2JfdW5zaGFyZSgpLiAqLw0KPiA+ICsJaWYgKHNrYl9jbG9uZWQo
-c2tiKSkgew0KPiA+ICsJCXN0cnVjdCBza19idWZmICpuc2tiID0gc2tiX2NvcHkoc2tiLCBHRlBf
-QVRPTUlDKTsNCj4gPiArDQo+ID4gKwkJLyogRmluYWxseSwgY3JlYXRlIGEgY29udGlnIEZEIGZy
-b20gdGhpcyBza2IgKi8NCj4gPiArCQlza2JfdG9fY29udGlnX2ZkKHByaXYsIHNrYiwgJmZkLCBj
-b3VudHB0ciwgJm9mZnNldCk7DQo+ID4gKw0KPiA+ICsJCWtmcmVlX3NrYihza2IpOw0KPiA+ICsJ
-CXNrYiA9IG5za2I7DQo+ID4gKwkJLyogc2tiX2NvcHkoKSBoYXMgbm93IGxpbmVhcml6ZWQgdGhl
-IHNrYnVmZi4gKi8NCj4gPiArCX0NCj4gPiArDQo+IA0KPiBZb3Uga25vdyB0aGF0IFRDUCBwYWNr
-ZXRzIGFyZSBjbG9uZXMsIHJpZ2h0ID8NCj4gVGhpcyBjb2RlIGlzIGtpbGxpbmcgcGVyZm9ybWFu
-Y2UuDQo+IA0KPiBUQ1AgYWxsb3dzIHRoZSBoZWFkZXJzIHBhcnQgYmVpbmcgbW9kaWZpZWQgYnkg
-YSBkcml2ZXIgaWYgbmVlZGVkLg0KPiANCj4gWW91IHNob3VsZCB1c2Ugc2tiX2hlYWRlcl9jbG9u
-ZWQoKSBpbnN0ZWFkLg0KDQpUaGFuayB5b3UsIEknbGwgYWRkcmVzcyB0aGlzLiBJIHBsYW4gdG8g
-ZG8gc29tZXRoaW5nIGxpa2UgdGhpczoNCg0KKyAgICAgICBpZiAoIW5vbmxpbmVhcikgew0KKyAg
-ICAgICAgICAgICAgIC8qIFdlJ3JlIGdvaW5nIHRvIHN0b3JlIHRoZSBza2IgYmFja3BvaW50ZXIg
-YXQgdGhlIGJlZ2lubmluZw0KKyAgICAgICAgICAgICAgICAqIG9mIHRoZSBkYXRhIGJ1ZmZlciwg
-c28gd2UgbmVlZCBhIHByaXZhdGVseSBvd25lZCBza2INCisgICAgICAgICAgICAgICAgKi8NCisN
-CisgICAgICAgICAgICAgICAvKiBtYWtlIHN1cmUgc2tiIGlzIG5vdCBzaGFyZWQsIHNrYl9jb3df
-aGVhZCgpIGFzc3VtZXMgaXQncyBub3QgKi8NCisgICAgICAgICAgICAgICBza2IgPSBza2Jfc2hh
-cmVfY2hlY2soc2tiLCBHRlBfQVRPTUlDKTsNCisgICAgICAgICAgICAgICBpZiAoIXNrYikNCisg
-ICAgICAgICAgICAgICAgICAgICAgIGdvdG8gZW5vbWVtOw0KKw0KKyAgICAgICAgICAgICAgIC8q
-IHZlcmlmeSB0aGUgc2tiIGhlYWQgaXMgbm90IGNsb25lZCAqLw0KKyAgICAgICAgICAgICAgIGlm
-IChza2JfY293X2hlYWQoc2tiLCBwcml2LT50eF9oZWFkcm9vbSkpDQorICAgICAgICAgICAgICAg
-ICAgICAgICBnb3RvIGVub21lbTsNCisNCisgICAgICAgICAgICAgICBub25saW5lYXIgPSBza2Jf
-aXNfbm9ubGluZWFyKHNrYik7DQorICAgICAgIH0NCg0KYnV0IEknbSBub3Qgc3VyZSB0aGUgc2ti
-X3NoYXJlX2NoZWNrKCkgaXMgcmVxdWlyZWQgb24gdHguDQpJJ20gYWxzbyBhIGJpdCBwdXp6bGVk
-IGJ5IHRoZSBhbGlhc2luZyBiZXR3ZWVuIHNoYXJlZCBhbmQgY2xvbmVkIHRlcm1zDQooaS5lLiBz
-a2JfdW5zaGFyZSgpIGNvdWxkIGJlIG5hbWVkIHNvbWV0aGluZyBsaWtlIHNrYl91bmNsb25lKCk7
-DQogdGhlIHNrYl9zaGFyZV9jaGVjaygpIG5vdCBvbmx5IGNoZWNrcyBidXQgYWxzbyB1bnNoYXJl
-cyBhbiBza2Igc28NCiB0aGUgYWxyZWFkeSB0YWtlbiBza2JfdW5zaGFyZSgpIG5hbWUgd291bGQg
-cHJvYmFibHkgZml0IHRvbykuDQoNCk1hZGFsaW4NCg==
+On 12/06/15 19:51, Jarod Wilson wrote:
+> Without this change, modprobe -r sfc hits the BUG_ON() in
+> efx_pci_remove_main(). Best as I can tell, this was just an oversight,
+> efx->state gets set to STATE_UNINIT in the error path of
+> efx_register_netdev() just after unregister_netdevice(), and the same
+> should happen in efx_unregister_netdev() after its unregister_netdevice()
+> call. Now I can load and unload no problem.
+>
+> CC: Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+> CC: netdev@vger.kernel.org
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> ---
+>  drivers/net/ethernet/sfc/efx.c | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+> index 0c42ed9..f3eaade 100644
+> --- a/drivers/net/ethernet/sfc/efx.c
+> +++ b/drivers/net/ethernet/sfc/efx.c
+> @@ -2448,6 +2448,7 @@ static void efx_unregister_netdev(struct efx_nic *efx)
+>  #endif
+>  		device_remove_file(&efx->pci_dev->dev, &dev_attr_phy_type);
+>  		unregister_netdev(efx->net_dev);
+> +		efx->state = STATE_UNINIT;
+>  	}
+>  }
+>  
+This isn't quite the right place, efx->state changes are supposed to be serialised by the RTNL lock.
+Our out-of-tree driver has this in efx_pci_remove, just after the efx_disable_interrupts(efx) call and before rtnl_unlock() (see patch below).  I'd suggest that's the change we should make, but I haven't tested it yet.
+
+For reference, the "oversight" was in my e7fef9b45ae188066bb6eb3dde8310d33c2f7d5e "sfc: add sysfs entry to control MCDI tracing" which accidentally took our out-of-tree version of efx_unregister_netdev().  Before that the code was as in Jarod's patch.
+
+-Ed
+
+----8<----
+
+sfc: mark state UNINIT after unregister
+
+Without this change, modprobe -r sfc hits the BUG_ON() in
+efx_pci_remove_main().
+
+Reported-by: Jarod Wilson <jarod@redhat.com>
+Fixes: e7fef9b45ae188066bb6eb3dde8310d33c2f7d5e
+---
+ drivers/net/ethernet/sfc/efx.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 0c42ed9..67bdaf3 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -2920,6 +2920,7 @@ static void efx_pci_remove(struct pci_dev *pci_dev)
+     efx_dissociate(efx);
+     dev_close(efx->net_dev);
+     efx_disable_interrupts(efx);
++    efx->state = STATE_UNINIT;
+     rtnl_unlock();
+ 
+     if (efx->type->sriov_fini)
