@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 02/13] net/mlx4_core: Reset counters data when freed
-Date: Mon, 15 Jun 2015 17:58:57 +0300
-Message-ID: <1434380348-19005-3-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 05/13] net/mlx4_core: Adjust counter grant policy in the resource tracker
+Date: Mon, 15 Jun 2015 17:59:00 +0300
+Message-ID: <1434380348-19005-6-git-send-email-ogerlitz@mellanox.com>
 References: <1434380348-19005-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,77 +10,133 @@ Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:44951 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:44957 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755872AbbFOO7m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jun 2015 10:59:42 -0400
+	id S1755877AbbFOO7n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2015 10:59:43 -0400
 In-Reply-To: <1434380348-19005-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eran Ben Elisha <eranbe@mellanox.com>
 
-Add resetting the counter data to the free counter flow, so the counter's
-data won't be accessible anymore if querying the counter. Also, on next
-counter allocation (to another VM for example), it will be fresh and clear.
+Each physical function has a guarantee of two counters per port, one
+for a default counter and one for the IB driver.
+
+Each virtual function has a guarantee of one counter per port.
+All other counters are free and can be obtained on demand.
+
+This is a preparation step for supporting a get_vf_stats ndo call,
+so we can promise a counter for every VF in order to collect their
+statistics from the PF context.
 
 Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/main.c |   21 +++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/mlx4.h |    2 ++
- 2 files changed, 23 insertions(+), 0 deletions(-)
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   35 +++++++++++++++++--
+ 1 files changed, 31 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index ad81364..1072dc1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -2242,11 +2242,32 @@ int mlx4_counter_alloc(struct mlx4_dev *dev, u32 *idx)
- }
- EXPORT_SYMBOL_GPL(mlx4_counter_alloc);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index ab48386..802eb2a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -48,6 +48,8 @@
+ #include "fw.h"
  
-+static int __mlx4_clear_if_stat(struct mlx4_dev *dev,
-+				u8 counter_index)
+ #define MLX4_MAC_VALID		(1ull << 63)
++#define MLX4_PF_COUNTERS_PER_PORT	2
++#define MLX4_VF_COUNTERS_PER_PORT	1
+ 
+ struct mac_res {
+ 	struct list_head list;
+@@ -459,11 +461,21 @@ void mlx4_init_quotas(struct mlx4_dev *dev)
+ 	dev->quotas.mpt =
+ 		priv->mfunc.master.res_tracker.res_alloc[RES_MPT].quota[pf];
+ }
++
++static int get_max_gauranteed_vfs_counter(struct mlx4_dev *dev)
 +{
-+	struct mlx4_cmd_mailbox *if_stat_mailbox;
-+	int err;
-+	u32 if_stat_in_mod = (counter_index & 0xff) | MLX4_QUERY_IF_STAT_RESET;
-+
-+	if_stat_mailbox = mlx4_alloc_cmd_mailbox(dev);
-+	if (IS_ERR(if_stat_mailbox))
-+		return PTR_ERR(if_stat_mailbox);
-+
-+	err = mlx4_cmd_box(dev, 0, if_stat_mailbox->dma, if_stat_in_mod, 0,
-+			   MLX4_CMD_QUERY_IF_STAT, MLX4_CMD_TIME_CLASS_C,
-+			   MLX4_CMD_NATIVE);
-+
-+	mlx4_free_cmd_mailbox(dev, if_stat_mailbox);
-+	return err;
++	/* reduce the sink counter */
++	return (dev->caps.max_counters - 1 -
++		(MLX4_PF_COUNTERS_PER_PORT * MLX4_MAX_PORTS))
++		/ MLX4_MAX_PORTS;
 +}
 +
- void __mlx4_counter_free(struct mlx4_dev *dev, u32 idx)
+ int mlx4_init_resource_tracker(struct mlx4_dev *dev)
  {
- 	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_COUNTERS))
- 		return;
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	int i, j;
+ 	int t;
++	int max_vfs_guarantee_counter = get_max_gauranteed_vfs_counter(dev);
  
-+	__mlx4_clear_if_stat(dev, idx);
-+
- 	mlx4_bitmap_free(&mlx4_priv(dev)->counters_bitmap, idx, MLX4_USE_RR);
- 	return;
+ 	priv->mfunc.master.res_tracker.slave_list =
+ 		kzalloc(dev->num_slaves * sizeof(struct slave_list),
+@@ -499,6 +511,9 @@ int mlx4_init_resource_tracker(struct mlx4_dev *dev)
+ 			res_alloc->allocated = kzalloc((dev->persist->
+ 							num_vfs + 1) *
+ 						       sizeof(int), GFP_KERNEL);
++		/* Reduce the sink counter */
++		if (i == RES_COUNTER)
++			res_alloc->res_free = dev->caps.max_counters - 1;
+ 
+ 		if (!res_alloc->quota || !res_alloc->guaranteed ||
+ 		    !res_alloc->allocated)
+@@ -577,9 +592,17 @@ int mlx4_init_resource_tracker(struct mlx4_dev *dev)
+ 				break;
+ 			case RES_COUNTER:
+ 				res_alloc->quota[t] = dev->caps.max_counters;
+-				res_alloc->guaranteed[t] = 0;
+ 				if (t == mlx4_master_func_num(dev))
+-					res_alloc->res_free = res_alloc->quota[t];
++					res_alloc->guaranteed[t] =
++						MLX4_PF_COUNTERS_PER_PORT *
++						MLX4_MAX_PORTS;
++				else if (t <= max_vfs_guarantee_counter)
++					res_alloc->guaranteed[t] =
++						MLX4_VF_COUNTERS_PER_PORT *
++						MLX4_MAX_PORTS;
++				else
++					res_alloc->guaranteed[t] = 0;
++				res_alloc->res_free -= res_alloc->guaranteed[t];
+ 				break;
+ 			default:
+ 				break;
+@@ -952,7 +975,7 @@ static struct res_common *alloc_srq_tr(int id)
+ 	return &ret->com;
  }
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index f424900..8d2d359 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -65,6 +65,8 @@
  
- #define INIT_HCA_TPT_MW_ENABLE          (1 << 7)
+-static struct res_common *alloc_counter_tr(int id)
++static struct res_common *alloc_counter_tr(int id, int port)
+ {
+ 	struct res_counter *ret;
  
-+#define MLX4_QUERY_IF_STAT_RESET	BIT(31)
+@@ -962,6 +985,7 @@ static struct res_common *alloc_counter_tr(int id)
+ 
+ 	ret->com.res_id = id;
+ 	ret->com.state = RES_COUNTER_ALLOCATED;
++	ret->port = port;
+ 
+ 	return &ret->com;
+ }
+@@ -1022,7 +1046,7 @@ static struct res_common *alloc_tr(u64 id, enum mlx4_resource type, int slave,
+ 		pr_err("implementation missing\n");
+ 		return NULL;
+ 	case RES_COUNTER:
+-		ret = alloc_counter_tr(id);
++		ret = alloc_counter_tr(id, extra);
+ 		break;
+ 	case RES_XRCD:
+ 		ret = alloc_xrcdn_tr(id);
+@@ -2335,6 +2359,9 @@ static int counter_free_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 		return -EINVAL;
+ 
+ 	index = get_param_l(&in_param);
++	if (index == MLX4_SINK_COUNTER_INDEX(dev))
++		return 0;
 +
- enum {
- 	MLX4_HCR_BASE		= 0x80680,
- 	MLX4_HCR_SIZE		= 0x0001c,
+ 	err = rem_res_range(dev, slave, index, 1, RES_COUNTER, 0);
+ 	if (err)
+ 		return err;
 -- 
 1.7.1
