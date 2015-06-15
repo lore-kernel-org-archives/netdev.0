@@ -1,42 +1,129 @@
-From: Stanislav Yakovlev <stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] wireless: ipw2100: fix timeout bug - always evaluated to 0
-Date: Mon, 15 Jun 2015 22:25:32 +0400
-Message-ID: <CA++WF2Ppn66VP8fq5Q-MXY_=7M3TqPM_tbF5VzWtVb1osyAngA@mail.gmail.com>
-References: <1434389075-4693-1-git-send-email-hofrat@osadl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	James Ketrenos <jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Nicholas Mc Guire <hofrat-Q945KHDl0DbYtjvyW6yDsg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1434389075-4693-1-git-send-email-hofrat-Q945KHDl0DbYtjvyW6yDsg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [PATCH 1/2] iplink_geneve: add ttl configuration at link creation
+Date: Mon, 15 Jun 2015 14:37:15 -0400
+Message-ID: <1434393436-4487-2-git-send-email-linville@tuxdriver.com>
+References: <1432320406-28121-1-git-send-email-linville@tuxdriver.com>
+ <1434393436-4487-1-git-send-email-linville@tuxdriver.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:52598 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755698AbbFOSh6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 14:37:58 -0400
+In-Reply-To: <1434393436-4487-1-git-send-email-linville@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15 June 2015 at 21:24, Nicholas Mc Guire <hofrat-Q945KHDl0DbYtjvyW6yDsg@public.gmane.org> wrote:
-> commit: commit 2c86c275015c ("Add ipw2100 wireless driver.") introduced
-> HW_PHY_OFF_LOOP_DELAY (HZ / 5000) which always evaluated to 0. Clarified
-> by Stanislav Yakovlev <stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> that it should be 50
-> milliseconds thus fixed up to msecs_to_jiffies(50).
->
-> Signed-off-by: Nicholas Mc Guire <hofrat-Q945KHDl0DbYtjvyW6yDsg@public.gmane.org>
-> ---
->
-> Patch was compile tested with x86_64_defconfig + CONFIG_IPW2100=m
-> (with a few buildwarnings in ipw2100.c though not related to this patch)
->
-> Patch is against 4.1-rc7 (localversion-next is -next-20150615)
->
->  drivers/net/wireless/ipw2x00/ipw2100.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+ include/linux/if_link.h |  1 +
+ ip/iplink_geneve.c      | 23 ++++++++++++++++++++++-
+ man/man8/ip-link.8.in   |  7 +++++++
+ 3 files changed, 30 insertions(+), 1 deletion(-)
 
-Acked-by: Stanislav Yakovlev <stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-
-Stanislav.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 7720ad34c6b3..2b5268531bef 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -393,6 +393,7 @@ enum {
+ 	IFLA_GENEVE_UNSPEC,
+ 	IFLA_GENEVE_ID,
+ 	IFLA_GENEVE_REMOTE,
++	IFLA_GENEVE_TTL,
+ 	__IFLA_GENEVE_MAX
+ };
+ #define IFLA_GENEVE_MAX	(__IFLA_GENEVE_MAX - 1)
+diff --git a/ip/iplink_geneve.c b/ip/iplink_geneve.c
+index 74703e1ee156..dff08a62d9a9 100644
+--- a/ip/iplink_geneve.c
++++ b/ip/iplink_geneve.c
+@@ -17,9 +17,11 @@
+ static void print_explain(FILE *f)
+ {
+ 	fprintf(f, "Usage: ... geneve id VNI remote ADDR\n");
++	fprintf(f, "                 [ ttl TTL ]\n");
+ 	fprintf(f, "\n");
+ 	fprintf(f, "Where: VNI  := 0-16777215\n");
+ 	fprintf(f, "       ADDR := IP_ADDRESS\n");
++	fprintf(f, "       TTL  := { 1..255 | inherit }\n");
+ }
+ 
+ static void explain(void)
+@@ -34,7 +36,7 @@ static int geneve_parse_opt(struct link_util *lu, int argc, char **argv,
+ 	int vni_set = 0;
+ 	__u32 daddr = 0;
+ 	struct in6_addr daddr6 = IN6ADDR_ANY_INIT;
+-
++	__u8 ttl = 0;
+ 
+ 	while (argc > 0) {
+ 		if (!matches(*argv, "id") ||
+@@ -52,6 +54,18 @@ static int geneve_parse_opt(struct link_util *lu, int argc, char **argv,
+ 			}
+ 			if (IN_MULTICAST(ntohl(daddr)))
+ 				invarg("invalid remote address", *argv);
++		} else if (!matches(*argv, "ttl") ||
++			   !matches(*argv, "hoplimit")) {
++			unsigned uval;
++
++			NEXT_ARG();
++			if (strcmp(*argv, "inherit") != 0) {
++				if (get_unsigned(&uval, *argv, 0))
++					invarg("invalid TTL", *argv);
++				if (uval > 255)
++					invarg("TTL must be <= 255", *argv);
++				ttl = uval;
++			}
+ 		} else if (matches(*argv, "help") == 0) {
+ 			explain();
+ 			return -1;
+@@ -80,6 +94,7 @@ static int geneve_parse_opt(struct link_util *lu, int argc, char **argv,
+ 	addattr32(n, 1024, IFLA_GENEVE_ID, vni);
+ 	if (daddr)
+ 		addattr_l(n, 1024, IFLA_GENEVE_REMOTE, &daddr, 4);
++	addattr8(n, 1024, IFLA_GENEVE_TTL, ttl);
+ 
+ 	return 0;
+ }
+@@ -105,6 +120,12 @@ static void geneve_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 			fprintf(f, "remote %s ",
+ 				format_host(AF_INET, 4, &addr, s1, sizeof(s1)));
+ 	}
++
++	if (tb[IFLA_GENEVE_TTL]) {
++		__u8 ttl = rta_getattr_u8(tb[IFLA_GENEVE_TTL]);
++		if (ttl)
++			fprintf(f, "ttl %d ", ttl);
++	}
+ }
+ 
+ static void geneve_print_help(struct link_util *lu, int argc, char **argv,
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 8cac246d7296..51d0c624a023 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -606,6 +606,9 @@ the following additional arguments are supported:
+ 
+ .BI "ip link add " DEVICE
+ .BI type " geneve " id " ID " remote " IPADDR"
++.R " [ "
++.BI ttl " TTL "
++.R " ]"
+ 
+ .in +8
+ .sp
+@@ -616,6 +619,10 @@ the following additional arguments are supported:
+ .BI remote " IPADDR"
+ - specifies the unicast destination IP address to use in outgoing packets.
+ 
++.sp
++.BI ttl " TTL"
++- specifies the TTL value to use in outgoing packets.
++
+ .in -8
+ 
+ .SS ip link delete - delete virtual link
+-- 
+2.1.0
