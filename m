@@ -1,50 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/3] sock_diag: implement a get_info handler
- for inet
-Date: Mon, 15 Jun 2015 13:30:56 -0700
-Message-ID: <1434400256.27504.145.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1434381980-20588-1-git-send-email-kraig@google.com>
-	 <1434381980-20588-4-git-send-email-kraig@google.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: netstat and dual stack sockets
+Date: Mon, 15 Jun 2015 22:54:21 +0200
+Message-ID: <20150615205421.GA22616@orbit.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, mleitner@redhat.com,
-	stephen@networkplumber.org, davem@davemloft.net,
-	ebiederm@xmission.net, tgraf@suug.ch, xemul@openvz.org
-To: Craig Gallek <kraig@google.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:34520 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752151AbbFOUa7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 16:30:59 -0400
-Received: by iebmu5 with SMTP id mu5so70591700ieb.1
-        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 13:30:58 -0700 (PDT)
-In-Reply-To: <1434381980-20588-4-git-send-email-kraig@google.com>
+Received: from orbit.nwl.cc ([176.31.251.142]:59900 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751941AbbFOVAL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2015 17:00:11 -0400
+Received: from mail.nwl.cc (orbit [127.0.0.1])
+	by mail.nwl.cc (Postfix) with ESMTP id 4036920094
+	for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 22:54:22 +0200 (CEST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-06-15 at 11:26 -0400, Craig Gallek wrote:
-> This get_info handler will simply dispatch to the appropriate
-> existing inet protocol handler.
-> 
-> This patch also includes a new netlink attribute
-> (INET_DIAG_PROTOCOL).  This attribute is currently only used
-> for multicast messages.  Without this attribute, there is no
-> way of knowing the IP protocol used by the socket information
-> being broadcast.  This attribute is not necessary in the 'dump'
-> variant of this protocol (though it could easily be added)
-> because dump requests are issued for specific family/protocol
-> pairs.
-> 
-> Tested: ss -E (note, the -E option has not yet been merged into
-> the upstream version of ss).
-> 
-> Signed-off-by: Craig Gallek <kraig@google.com>
-> ---
+Hi,
 
-Note to readers : This extension was discussed during web10g talk in
-Ottawa.
+A socket listening on any AF_INET6 address will receive IPv4 traffic as
+well, as long as it does not set IPV6_V6ONLY (or sysctl
+net.ipv6.bindv6only is set). Apache APR e.g. explicitly disables
+IPV6_V6ONLY for listening sockets.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+As I see it, a user has no way of detecting the listening socket in this
+address family: it does not show in /proc/net/{tcp,udp} nor do
+'netstat', 'ss' or 'lsof' print any additional information about those
+sockets over pure IPv6 ones.
 
-Thanks Craig !
+Is this correct? If so, are there any intentions to export the missing
+information to userspace?
+
+Phil
