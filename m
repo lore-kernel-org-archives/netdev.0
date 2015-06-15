@@ -1,91 +1,89 @@
-From: Duan Andy <fugang.duan@freescale.com>
-Subject: RE: [PATCH] net: fec: Ensure clocks are enabled while using mdio bus
-Date: Mon, 15 Jun 2015 01:43:39 +0000
-Message-ID: <BLUPR03MB373121D2B0C2168C5193A2EF5B80@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <1434123545-13549-1-git-send-email-andrew@lunn.ch>
- <BLUPR03MB373E1D5EADCB4753C8D0F15F5B90@BLUPR03MB373.namprd03.prod.outlook.com>
- <20150614144118.GA7800@lunn.ch> <557DD698.3020300@gmail.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net-next] rocker: fix neigh tbl index increment race
+Date: Mon, 15 Jun 2015 11:07:36 +0900
+Message-ID: <20150615020734.GA29281@vergenet.net>
+References: <1434169480-62863-1-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Cory Tusar <cory.tusar@pid1solutions.com>,
-	netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	makita.toshiaki@lab.ntt.co.jp
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0141.outbound.protection.outlook.com ([157.56.110.141]:14144
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752326AbbFOB7V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Jun 2015 21:59:21 -0400
-In-Reply-To: <557DD698.3020300@gmail.com>
-Content-Language: en-US
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:35320 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753418AbbFOCHq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jun 2015 22:07:46 -0400
+Received: by pacyx8 with SMTP id yx8so55577743pac.2
+        for <netdev@vger.kernel.org>; Sun, 14 Jun 2015 19:07:46 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1434169480-62863-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+IFNlbnQ6IE1vbmRh
-eSwgSnVuZSAxNSwgMjAxNSAzOjMyIEFNDQo+IFRvOiBBbmRyZXcgTHVubjsgRHVhbiBGdWdhbmct
-QjM4NjExDQo+IENjOiBEYXZpZCBNaWxsZXI7IENvcnkgVHVzYXI7IG5ldGRldg0KPiBTdWJqZWN0
-OiBSZTogW1BBVENIXSBuZXQ6IGZlYzogRW5zdXJlIGNsb2NrcyBhcmUgZW5hYmxlZCB3aGlsZSB1
-c2luZyBtZGlvDQo+IGJ1cw0KPiANCj4gTGUgMDYvMTQvMTUgMDc6NDEsIEFuZHJldyBMdW5uIGEg
-w6ljcml0IDoNCj4gPiBPbiBTdW4sIEp1biAxNCwgMjAxNSBhdCAwODowNzoxMkFNICswMDAwLCBE
-dWFuIEFuZHkgd3JvdGU6DQo+ID4+IEZyb206IEFuZHJldyBMdW5uIDxhbmRyZXdAbHVubi5jaD4g
-U2VudDogRnJpZGF5LCBKdW5lIDEyLCAyMDE1IDExOjM5DQo+ID4+IFBNDQo+ID4+PiBUbzogRGF2
-aWQgTWlsbGVyDQo+ID4+PiBDYzogRHVhbiBGdWdhbmctQjM4NjExOyBDb3J5IFR1c2FyOyBuZXRk
-ZXY7IEFuZHJldyBMdW5uDQo+ID4+PiBTdWJqZWN0OiBbUEFUQ0hdIG5ldDogZmVjOiBFbnN1cmUg
-Y2xvY2tzIGFyZSBlbmFibGVkIHdoaWxlIHVzaW5nDQo+ID4+PiBtZGlvIGJ1cw0KPiA+Pj4NCj4g
-Pj4+IFdoZW4gYSBzd2l0Y2ggaXMgYXR0YWNoZWQgdG8gdGhlIG1kaW8gYnVzLCB0aGUgbWRpbyBi
-dXMgY2FuIGJlIHVzZWQNCj4gPj4+IHdoaWxlIHRoZSBpbnRlcmZhY2UgaXMgbm90IG9wZW4uIElm
-IHRoZSBjbG9ja3MgYXJlIG5vdCBlbmFibGVkLCBNRElPDQo+ID4+PiByZWFkcy93cml0ZXMgd2ls
-bCBzaW1wbHkgdGltZSBvdXQuIFNvIGVuYWJsZSB0aGUgY2xvY2tzIGJlZm9yZQ0KPiA+Pj4gc3Rh
-cnRpbmcgYSB0cmFuc2FjdGlvbiwgYW5kIGRpc2FibGUgdGhlbSBhZnRlcndhcmRzLiBUaGUgQ0NG
-DQo+ID4+PiBwZXJmb3JtcyByZWZlcmVuY2UgY291bnRpbmcgc28gdGhlIGNsb2NrcyB3aWxsIG9u
-bHkgYmUgZGlzYWJsZWQgaWYNCj4gdGhlcmUgYXJlIG5vIG90aGVyIHVzZXJzLg0KPiA+Pj4NCj4g
-Pj4+IFNpZ25lZC1vZmYtYnk6IEFuZHJldyBMdW5uIDxhbmRyZXdAbHVubi5jaD4NCj4gPj4+IC0t
-LQ0KPiA+Pg0KPiA+PiBOQUsgdGhlIHBhdGNoLg0KPiA+DQo+ID4+IGkuTVggc2VyaWVzIE1ESU8g
-YnVzIGlzIGEgcGFydCBvZiBFTkVUIGNvbnRyb2xsZXIuIElmIHRoZSBldGgNCj4gPj4gaW50ZXJm
-YWNlIGlzIG5vdCBvcGVuLCBhbGwgY2xvY2tzIGluY2x1ZGluZyBNRElPIGJ1cyBjbG9jayBhcmUg
-bm90DQo+ID4+IGVuYWJsZWQgZm9yIHBvd2VyIHNhdmluZy4NCj4gDQo+IFdoaWNoIGlzIGZpbmUs
-IGJ1dCBpcyBhbiBhc3N1bXB0aW9uIHlvdSBjYW4gb25seSBtYWtlIHdoZW4geW91ciBFTkVUDQo+
-IGNvbnRyb2xsZXIgaXMgY29ubmVjdGVkIHRvIGFuIEV0aGVybmV0IFBIWSwgd2l0aCBhIHN3aXRj
-aCwgdGhpbmdzIGdldCBhDQo+IGxpdHRsZSBkaWZmZXJlbnQgc2VlIGJlbG93Lg0KPiANCj4gPg0K
-PiA+IFdoZXJlIGRvIHlvdSBzZWUgYSBwb3dlciBzYXZpbmcgcmVncmVzc2lvbiBpbiB0aGlzIGNv
-ZGU/IEl0IGlzIG5vdCBhcw0KPiA+IGlmIGkganVzdCB1bmNvbmRpdGlvbmFsbHkgdHVybiB0aGUg
-Y2xvY2tzIG9uLiBBcyB0aGUgY29tbWVudCBzYXlzLCBhdA0KPiA+IHRoZSBzdGFydCBvZiBhbiBN
-RElPIHRyYW5zYWN0aW9uLCB0aGUgY2xvY2tzIGFyZSBlbmFibGVkLiBBdCB0aGUgZW5kDQo+ID4g
-b2YgYSB0cmFuc2FjdGlvbiwgdGhleSBhcmUgZGlzYWJsZWQgYWdhaW4uIElmIHlvdSBkb24ndCBo
-YXZlIGEgc3dpdGNoDQo+ID4gY29ubmVjdGVkLCB0aGVyZSB3aWxsIGJlIG5vIHRyYW5zYWN0aW9u
-cywgaGVuY2Ugbm8gY2hhbmdlIHRvIHBvd2VyDQo+ID4gc2F2aW5ncy4NCj4gPg0KPiA+PiBJbiBn
-ZW5lcmFsLCBpZiB5b3Ugd2FudCB0byB1c2UgbWRpbyBidXMgbmV0IGludGVyZmFjZSBtdXN0IGJl
-IHJ1bm5pbmcNCj4gPj4gc3RhdHVzLg0KPiA+DQo+ID4gVGhpcyBpcyBub3QgdHJ1ZSBmb3IgYSBu
-dW1iZXIgb2YgRXRoZXJuZXQgZGV2aWNlcy4gQWxsIHRob3NlIGN1cnJlbnRseQ0KPiA+IHVzZWQg
-d2l0aCBEU0EgYWxsb3cgTURJTyB0cmFuc2FjdGlvbnMgYXQgYW55IHRpbWUuDQo+IA0KQXMgSSBz
-YWlkLCB0aGUgTURJTyBidXMgaXMganVzdCBvbmUgZnVuY3Rpb24gb2YgRU5FVCBjb250cm9sbGVy
-LCBub3QgZGVwZW5kZW50IEhXL0lQLg0KDQoNCj4gUmlnaHQsIHRoZSB0eXBpY2FsIHNlcXVlbmNl
-IGxvb2tzIGxpa2UgdGhpczoNCj4gDQo+IC0gZXRoZXJuZXQgZGV2aWNlIGlzIHByb2JlZCBhbmQg
-cmVnaXN0ZXJlZCBmaXJzdCwgZm9yIHBvd2VyIHNhdmluZ3MNCj4gcHVycG9zZXMsIHRoZSBwcm9i
-ZSBmdW5jdGlvbiBtaWdodCB0dXJuIG9mZiBjbG9ja3Mgc2luY2Ugd2UgZG8gbm90IGtub3cNCj4g
-d2hldGhlciB0aGUgaW50ZXJmYWNlIHdpbGwgYmUgdXNlZCBhdCBhbGwsIHNvIHVudGlsIG5kb19v
-cGVuIGlzIGNhbGxlZCwNCj4gc3VjaCBjbG9ja3MgY2FuIGJlIGRpc2FibGVkDQo+IA0KPiAtIERT
-QSBpcyBwcm9iZWQgc2Vjb25kLCBhbmQgcHJvYmVzIHRoZSBzd2l0Y2hlcyB1c2luZyBNRElPIGJ1
-cyBhY2Nlc3NlcywNCj4gYW5kIGlmIGEgc3dpdGNoIGlzIGZvdW5kLCB3aWxsIGNvbmZpZ3VyZSBp
-dCB2aWEgTURJTyBidXMgcmVhZHMvd3JpdGVzLCBieQ0KPiB0aGVuLCB0aGUgbmV0d29yayBpbnRl
-cmZhY2UgaXMgZ3VhcmFudGVlZCB0byBiZSBkb3duDQo+IA0KPiAtIGxhc3QsIHlvdSBjb3VsZCBk
-aXNhYmxlIHRoZSBwYXJlbnQgbmV0d29yayBkZXZpY2UsIGJ1dCBzdGlsbCBpc3N1ZSBNRElPDQo+
-IHJlYWRzL3dyaXRlcyB0b3dhcmRzIHRoZSBzd2l0Y2ggdG8gY29sbGVjdCBzdGF0aXN0aWNzLCBt
-YWtlIGl0IHJ1biBpbiBhbg0KPiB1bm1hbmFnZWQgbW9kZSB3aXRoIHRoZSBDUFUgaW50ZXJmYWNl
-IGRvd24vcG93ZXJlZCBvZmYNCj4gDQo+IFNpbmNlIGNsb2NrcyBhcmUgcmVmZXJlbmNlIGNvdW50
-ZWQsIEkgcmVhbGx5IGRvIG5vdCBzZWUgbXVjaCBwcm9ibGVtIHdpdGgNCj4gQW5kcmV3J3MgYXBw
-cm9hY2ggaGVyZS4NCj4gDQo+IElmIHlvdSBhcmUgcnVubmluZyB3aXRob3V0IGEgc3dpdGNoIGFu
-ZCBqdXN0IGEgUEhZLCB5b3Ugd2lsbCBnZXQgYW4NCj4gb2NjYXNpb25hbCBjbG9jayByZWZlcmVu
-Y2UgY291bnQgPiAxIGR1cmluZyBNRElPIHJlYWRzL3dyaXRlcywgYW5kIHBhc3QNCj4geW91ciBu
-ZG9fY2xvc2UoKSBpZiB0aGUgY2xvY2sgcmVmZXJlbmNlIGNvdW50IGlzIDEsIGFrYSBzdGlsbCB0
-dXJuZWQgb24sDQo+IHRoZW4gdGhhdCBtZWFucyB5b3UgYXJlIG5vdCB1c2luZyB0aGUgUEhZIGxp
-YnJhcnkgcHJvcGVybHkgYW5kIHlvdSBoYXZlDQo+IGRhbmdsaW5nIE1ESU8gYWNjZXNzZXMuDQo+
-IC0tDQo+IEZsb3JpYW4NCg0KVGhhbmtzIGZvciB5b3VyIGRldGFpbCBleHBsYWluIHdoeSBkbyB5
-b3Ugd2FudCB0aGUgY2hhbmdlLg0KDQpJZiBzbywgaXQganVzdCBuZWVkIHRvIGVuYWJsZSBFTkVU
-IGlwZyBjbG9jayBmb3IgeW91ciBjYXNlcywgbm90IGFsbCBlbmV0IGNsb2Nrcy4NCklwZyBjbG9j
-ayBpcyBmb3IgTURJTyBidXMgcmVhZC93cml0ZSwgZm9yIEVORVQgcmVnaXN0ZXJzIGFjY2Vzc2lu
-Zy4gKGZlcC0+Y2xrX2lwZykNCg0KV2hpY2ggc3dpdGNoIHBoeSBkbyB5b3UgdXNlID8gSSB0cmll
-ZCBCQ001NDIyMCBzd2l0Y2ggb24gdGhlIGRyaXZlciB0aGF0IHdvcmtzIGZpbmUuDQo=
+On Fri, Jun 12, 2015 at 09:24:40PM -0700, sfeldma@gmail.com wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
+> 
+> rocker->neigh_tbl_next_index is used to generate unique indices for neigh
+> entries programmed into the device.  The way new indices were generated was
+> racy with the new prepare-commit transaction model.  A simple fix here
+> removes the race.  The race was with two processes getting the same index,
+> one process using prepare-commit, the other not:
+> 
+> Proc A					Proc B
+> 
+> PREPARE phase
+> get neigh_tbl_next_index
+> 
+> 					NONE phase
+> 					get neigh_tbl_next_index
+> 					neigh_tbl_next_index++
+> 
+> COMMIT phase
+> neigh_tbl_next_index++
+> 
+> Both A and B got the same index.  The fix is to store and increment
+> neigh_tbl_next_index in the PREPARE (or NONE) phase and use value in COMMIT
+> phase:
+> 
+> Proc A					Proc B
+> 
+> PREPARE phase
+> get neigh_tbl_next_index
+> neigh_tbl_next_index++
+> 
+> 					NONE phase
+> 					get neigh_tbl_next_index
+> 					neigh_tbl_next_index++
+> 
+> COMMIT phase
+> // use value stashed in PREPARE phase
+> 
+> Reported-by: Simon Horman <simon.horman@netronome.com>
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
+
+> ---
+>  drivers/net/ethernet/rocker/rocker.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+> index c6a6e3c..a9d1559 100644
+> --- a/drivers/net/ethernet/rocker/rocker.c
+> +++ b/drivers/net/ethernet/rocker/rocker.c
+> @@ -2901,10 +2901,10 @@ static void _rocker_neigh_add(struct rocker *rocker,
+>  			      enum switchdev_trans trans,
+>  			      struct rocker_neigh_tbl_entry *entry)
+>  {
+> -	entry->index = rocker->neigh_tbl_next_index;
+> +	if (trans != SWITCHDEV_TRANS_COMMIT)
+> +		entry->index = rocker->neigh_tbl_next_index++;
+>  	if (trans == SWITCHDEV_TRANS_PREPARE)
+>  		return;
+> -	rocker->neigh_tbl_next_index++;
+>  	entry->ref_count++;
+>  	hash_add(rocker->neigh_tbl, &entry->entry,
+>  		 be32_to_cpu(entry->ip_addr));
+> -- 
+> 1.7.10.4
+> 
