@@ -1,83 +1,52 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 3/3] net: dsa: Allow configuration of CPU & DSA port speeds/duplex
-Date: Mon, 15 Jun 2015 10:35:17 -0700
-Message-ID: <557F0CD5.4070705@gmail.com>
-References: <1434129537-15252-1-git-send-email-andrew@lunn.ch> <1434129537-15252-3-git-send-email-andrew@lunn.ch>
+From: Nicholas Mc Guire <der.herr@hofr.at>
+Subject: Re: [BUG ?] delay always evaluates to 0
+Date: Mon, 15 Jun 2015 19:38:25 +0200
+Message-ID: <20150615173825.GC31859@opentech.at>
+References: <20150612165829.GA22474@opentech.at> <CA++WF2NoEAhRKnOXtC_C=JfmvZU=WuPEKZ3Zs2KxdHwBtHhHFg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Guenter Roeck <linux@roeck-us.net>,
-	Cory Tusar <cory.tusar@pid1solutions.com>,
-	netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:33604 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754514AbbFORgY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 13:36:24 -0400
-Received: by pdjn11 with SMTP id n11so77578280pdj.0
-        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 10:36:24 -0700 (PDT)
-In-Reply-To: <1434129537-15252-3-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	James Ketrenos <jketreno@linux.intel.com>,
+	wireless <linux-wireless@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stanislav Yakovlev <stas.yakovlev@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA++WF2NoEAhRKnOXtC_C=JfmvZU=WuPEKZ3Zs2KxdHwBtHhHFg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/06/15 10:18, Andrew Lunn wrote:
-> By default, DSA and CPU ports are configured to the maximum speed the
-> switch supports. However there can be use cases where the peer device
-> port is slower. Allow a fixed-link property to be used with the DSA
-> and CPU port in the device tree, and use this information to configure
-> the port.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> ---
->  include/net/dsa.h |  1 +
->  net/dsa/dsa.c     | 39 +++++++++++++++++++++++++++++++++++++++
->  2 files changed, 40 insertions(+)
-> 
-> diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index fbca63ba8f73..24572f99224c 100644
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -160,6 +160,7 @@ struct dsa_switch {
->  	 * Slave mii_bus and devices for the individual ports.
->  	 */
->  	u32			dsa_port_mask;
-> +	u32			cpu_port_mask;
->  	u32			phys_port_mask;
->  	u32			phys_mii_mask;
->  	struct mii_bus		*slave_mii_bus;
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index 392e29a0227d..f9c8f4e7ebce 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -176,6 +176,36 @@ __ATTRIBUTE_GROUPS(dsa_hwmon);
->  #endif /* CONFIG_NET_DSA_HWMON */
->  
->  /* basic switch operations **************************************************/
-> +static int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct net_device *master)
-> +{
-> +	struct dsa_chip_data *cd = ds->pd;
-> +	struct device_node *port_dn;
-> +	struct phy_device *phydev;
-> +	int ret, port;
-> +
-> +	for (port = 0; port < DSA_MAX_PORTS; port++) {
-> +		if (!((ds->cpu_port_mask | ds->dsa_port_mask) & (1 << port)))
-> +			continue;
-> +
-> +		port_dn = cd->port_dn[port];
-> +		if (of_phy_is_fixed_link(port_dn)) {
-> +			ret = of_phy_register_fixed_link(port_dn);
-> +			if (ret) {
-> +				netdev_err(master,
-> +					   "failed to register fixed PHY\n");
-> +				return ret;
-> +			}
-> +			phydev = of_phy_find_device(port_dn);
-> +			phydev->is_pseudo_fixed_link = true;
+On Mon, 15 Jun 2015, Stanislav Yakovlev wrote:
 
-I suppose this could be automatically set by the Generic PHY driver once
-we bind it to the fixed MDIO bus implementation instead of having driver
-have to do this, what do you think?
--- 
-Florian
+> Hi Nicholas,
+> 
+> On 12 June 2015 at 20:58, Nicholas Mc Guire <der.herr@hofr.at> wrote:
+> > Hi !
+> >
+> > commit 2c86c275015c ("Add ipw2100 wireless driver.") introduced
+> >
+> > drivers/net/wireless/ipw2100.c - line-numbers are from next-20150511
+> > 1410 static int ipw2100_hw_phy_off(struct ipw2100_priv *priv)
+> > 1411 {
+> > 1412
+> > 1413 #define HW_PHY_OFF_LOOP_DELAY (HZ / 5000)
+> > 1414
+> > ...
+> > 1437
+> > 1438                 schedule_timeout_uninterruptible(HW_PHY_OFF_LOOP_DELAY);
+> > 1439         }
+> >
+> > but (HZ / 5000) will evaluate to 0 for all configurable HZ values - typo ?
+> > and this schedule_timeout_uninterruptible() is probably not doing what
+> > is intended.
+> 
+> Yes, you are right. This is a bug. I think it should be:
+> 
+> -#define HW_PHY_OFF_LOOP_DELAY (HZ / 5000)
+> +#define HW_PHY_OFF_LOOP_DELAY (msecs_to_jiffies(50))
+> 
+> Will you send us a patch?
+>
+just sent it out - thanks!
+
+hofrat 
