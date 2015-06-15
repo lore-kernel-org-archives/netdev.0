@@ -1,63 +1,70 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH] ethernet/sfc: mark state UNINIT after unregister
-Date: Mon, 15 Jun 2015 12:58:39 -0400
-Message-ID: <557F043F.5020908@redhat.com>
-References: <1434135061-42521-1-git-send-email-jarod@redhat.com> <557ED7DE.7080407@solarflare.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] net: fix search limit handling in skb_find_text()
+Date: Mon, 15 Jun 2015 19:06:39 +0200
+Message-ID: <20150615170639.GA21117@salvia>
+References: <1434359518-16897-1-git-send-email-khimov@altell.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	netdev@vger.kernel.org
-To: Edward Cree <ecree@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <557ED7DE.7080407@solarflare.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, roman@khimov.ru,
+	Phil Oester <kernel@linuxace.com>, Thomas Graf <tgraf@suug.ch>
+To: Roman I Khimov <khimov@altell.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:53261 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750734AbbFORBe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2015 13:01:34 -0400
+Content-Disposition: inline
+In-Reply-To: <1434359518-16897-1-git-send-email-khimov@altell.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 6/15/2015 9:49 AM, Edward Cree wrote:
-> On 12/06/15 19:51, Jarod Wilson wrote:
->> Without this change, modprobe -r sfc hits the BUG_ON() in
->> efx_pci_remove_main(). Best as I can tell, this was just an oversight,
->> efx->state gets set to STATE_UNINIT in the error path of
->> efx_register_netdev() just after unregister_netdevice(), and the same
->> should happen in efx_unregister_netdev() after its unregister_netdevice()
->> call. Now I can load and unload no problem.
->>
->> CC: Solarflare linux maintainers <linux-net-drivers@solarflare.com>
->> CC: netdev@vger.kernel.org
->> Signed-off-by: Jarod Wilson <jarod@redhat.com>
->> ---
->>   drivers/net/ethernet/sfc/efx.c | 1 +
->>   1 file changed, 1 insertion(+)
->>
->> diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
->> index 0c42ed9..f3eaade 100644
->> --- a/drivers/net/ethernet/sfc/efx.c
->> +++ b/drivers/net/ethernet/sfc/efx.c
->> @@ -2448,6 +2448,7 @@ static void efx_unregister_netdev(struct efx_nic *efx)
->>   #endif
->>                device_remove_file(&efx->pci_dev->dev, &dev_attr_phy_type);
->>                unregister_netdev(efx->net_dev);
->> +             efx->state = STATE_UNINIT;
->>        }
->>   }
->>
-> This isn't quite the right place, efx->state changes are supposed to be serialised by the RTNL lock.
-> Our out-of-tree driver has this in efx_pci_remove, just after the efx_disable_interrupts(efx) call and before rtnl_unlock() (see patch below).  I'd suggest that's the change we should make, but I haven't tested it yet.
+Cc'ing Thomas.
+
+On Mon, Jun 15, 2015 at 12:11:58PM +0300, Roman I Khimov wrote:
+> Suppose that we're trying to use an xt_string netfilter module to match a
+> string in a specially crafted packet that has "a nice string" starting at
+> offset 28.
+> 
+> It could be done in iptables like this:
+> 
+> -A some_chain -m string --string "a nice string" --algo bm --from 28 --to 38 -j DROP
+> 
+> And it would work as expected. Now changing that to
+> 
+> -A some_chain -m string --string "a nice string" --algo bm --from 29 --to 38 -j DROP
+> 
+> breaks the match, as expected. But, if we try to make
+> 
+> -A some_chain -m string --string "a nice string" --algo bm --from 20 --to 28 -j DROP
 >
-> For reference, the "oversight" was in my e7fef9b45ae188066bb6eb3dde8310d33c2f7d5e "sfc: add sysfs entry to control MCDI tracing" which accidentally took our out-of-tree version of efx_unregister_netdev().  Before that the code was as in Jarod's patch.
+> then it suddenly works again! So the 'to' parameter seems to be inclusive, not
+> working as an offset after which no search should be done. OK, now if we try:
+> 
+> -A some_chain -m string --string "a nice string" --algo bm --from 28 --to 28 -j DROP
 
-Ah, I did notice the rtnl_lock calls before some other occasions where 
-state was set, but was thinking the lock might not be necessary if we're 
-that far along the teardown path with the netdev already unregistered. 
-You know the code far better than I do though, and your version works 
-just fine here too.
+Can you reproduce the same behaviour with the km algo?
 
-Feel free to add this (along with your signed-off-by, of course):
+> it doesn't work. So, for the case of equal 'from' and 'to' it's treated in a
+> different way.
+>
+> The first behaviour (matching at 'to' offset) comes from skb_find_text()
+> comparison. The second one (not matching if 'from' and 'to' are equal) comes
+> from skb_seq_read() check for (abs_offset >= st->upper_offset).
+> 
+> I think that the way skb_find_text() handles 'to' is wrong and should be fixed
+> so that we always have predictable behaviour -- only match before 'to' offset.
+>
+> There are currently only five usages of skb_find_text() in the kernel and it
+> looks to me that none of them expect to match something at the 'to' offset,
+> so probably this change is safe.
 
-Reviewed-by: Jarod Wilson <jarod@redhat.com>
+So both 'from' and 'to' are inclusive which seems consistent to me. If
+you make 'to' non-inclusive, then that will change the third example
+above, right? That will break existing setups for people that are
+relying on this behaviour. This has been exposed in this way for long
+time, so we should avoid that breakage.
 
--- 
-Jarod Wilson
-jarod@redhat.com
+I would suggest you fix the --from X --to Y where X == Y which is not
+doing what people would expect.
