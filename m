@@ -1,80 +1,73 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH] ethernet/sfc: mark state UNINIT after unregister
-Date: Mon, 15 Jun 2015 14:49:18 +0100
-Message-ID: <557ED7DE.7080407@solarflare.com>
-References: <1434135061-42521-1-git-send-email-jarod@redhat.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [RFC PATCH net-next 2/4] switchdev: add fwd_mark generator helper
+Date: Mon, 15 Jun 2015 06:52:47 -0700
+Message-ID: <CAE4R7bCABXELpMjqL1x1qyRy11JGmtMGZ6-Yo_5hXbWuFFF8_Q@mail.gmail.com>
+References: <1434218670-43821-1-git-send-email-sfeldma@gmail.com>
+ <1434218670-43821-3-git-send-email-sfeldma@gmail.com> <20150614065601.GB2105@nanopsycho.orion>
+ <CAE4R7bA_N0YtoNEWrX7kO=PA3nWNc-nGL0Bcyt_1SmeX9PZs_g@mail.gmail.com> <20150615054638.GB2179@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	<netdev@vger.kernel.org>
-To: Jarod Wilson <jarod@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"simon.horman@netronome.com" <simon.horman@netronome.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	davidch <davidch@broadcom.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:50462 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752139AbbFONtY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 09:49:24 -0400
-In-Reply-To: <1434135061-42521-1-git-send-email-jarod@redhat.com>
+Received: from mail-qk0-f169.google.com ([209.85.220.169]:34791 "EHLO
+	mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753971AbbFONxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 09:53:08 -0400
+Received: by qkdm188 with SMTP id m188so32665524qkd.1
+        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 06:53:07 -0700 (PDT)
+In-Reply-To: <20150615054638.GB2179@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/06/15 19:51, Jarod Wilson wrote:
-> Without this change, modprobe -r sfc hits the BUG_ON() in
-> efx_pci_remove_main(). Best as I can tell, this was just an oversight,
-> efx->state gets set to STATE_UNINIT in the error path of
-> efx_register_netdev() just after unregister_netdevice(), and the same
-> should happen in efx_unregister_netdev() after its unregister_netdevice()
-> call. Now I can load and unload no problem.
+On Sun, Jun 14, 2015 at 10:46 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Sun, Jun 14, 2015 at 07:50:13PM CEST, sfeldma@gmail.com wrote:
+>>On Sat, Jun 13, 2015 at 11:56 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> Sat, Jun 13, 2015 at 08:04:28PM CEST, sfeldma@gmail.com wrote:
+>>>>From: Scott Feldman <sfeldma@gmail.com>
+>>>>
+>>>>skb->fwd_mark and dev->fwd_mark are 32-bit and should be unique for device
+>>>>and maybe even unique for a sub-set of ports within device, so add
+>>>>switchdev helper function to generate unique marks based on driver-supplied
+>>>>key.  Typically, the driver would use device switch ID for key, and maybe
+>>>>additional fields in key for grouped ports such as bridge ifindex.  The key
+>>>>can be of arbitrary length.
+>>>>
+>>>>The generator uses a global hash table to store fwd_marks hashed by key.
+>>>>
+>>>>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>>
+>><snip>
+>>
+>>>>+u32 switchdev_mark_get(void *key, size_t key_len)
+>>>>+{
+>>>>+      struct switchdev_mark_ht_entry {
+>>>>+              struct hlist_node entry;
+>>>>+              void *key;
+>>>>+              size_t key_len;
+>>>>+              u32 key_crc32;
+>>>>+              u32 mark;
+>>>>+      } *entry;
+>>>>+      u32 key_crc32 = crc32(~0, key, key_len);
+>>>>+      u32 mark = 0;
+>>>>+      unsigned long flags;
+>>>>+
+>>>>+      spin_lock_irqsave(&switchdev_mark_lock, flags);
+>>>
+>>> I fail to see why _irqsave variant is needed here.
+>>
+>>I don't know what context caller is in, so using most conservative
+>>spinlock.  Is there a better way?
 >
-> CC: Solarflare linux maintainers <linux-net-drivers@solarflare.com>
-> CC: netdev@vger.kernel.org
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
-> ---
->  drivers/net/ethernet/sfc/efx.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-> index 0c42ed9..f3eaade 100644
-> --- a/drivers/net/ethernet/sfc/efx.c
-> +++ b/drivers/net/ethernet/sfc/efx.c
-> @@ -2448,6 +2448,7 @@ static void efx_unregister_netdev(struct efx_nic *efx)
->  #endif
->  		device_remove_file(&efx->pci_dev->dev, &dev_attr_phy_type);
->  		unregister_netdev(efx->net_dev);
-> +		efx->state = STATE_UNINIT;
->  	}
->  }
->  
-This isn't quite the right place, efx->state changes are supposed to be serialised by the RTNL lock.
-Our out-of-tree driver has this in efx_pci_remove, just after the efx_disable_interrupts(efx) call and before rtnl_unlock() (see patch below).  I'd suggest that's the change we should make, but I haven't tested it yet.
+> I don't see why would someone call this from irq.
 
-For reference, the "oversight" was in my e7fef9b45ae188066bb6eb3dde8310d33c2f7d5e "sfc: add sysfs entry to control MCDI tracing" which accidentally took our out-of-tree version of efx_unregister_netdev().  Before that the code was as in Jarod's patch.
-
--Ed
-
-----8<----
-
-sfc: mark state UNINIT after unregister
-
-Without this change, modprobe -r sfc hits the BUG_ON() in
-efx_pci_remove_main().
-
-Reported-by: Jarod Wilson <jarod@redhat.com>
-Fixes: e7fef9b45ae188066bb6eb3dde8310d33c2f7d5e
----
- drivers/net/ethernet/sfc/efx.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 0c42ed9..67bdaf3 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -2920,6 +2920,7 @@ static void efx_pci_remove(struct pci_dev *pci_dev)
-     efx_dissociate(efx);
-     dev_close(efx->net_dev);
-     efx_disable_interrupts(efx);
-+    efx->state = STATE_UNINIT;
-     rtnl_unlock();
- 
-     if (efx->type->sriov_fini)
+Ok, good point, I'll adjust to spin_lock.
