@@ -1,38 +1,74 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: displayed name changed in ip link show for bridge- and other
- interfaces
-Date: Mon, 15 Jun 2015 09:23:53 +0200
-Message-ID: <557E7D89.30301@6wind.com>
-References: <201506141200.20435.ulrich.gemkow@ikr.uni-stuttgart.de> <557DCD0A.5040500@hartkopp.net> <557DD20E.4080005@hartkopp.net>
-Reply-To: nicolas.dichtel@6wind.com
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] Increase limit of macvtap queues
+Date: Mon, 15 Jun 2015 16:07:03 +0800
+Message-ID: <557E87A7.5010203@redhat.com>
+References: <1434115828-9461-1-git-send-email-pagupta@redhat.com> <20150614103209-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Ulrich Gemkow <ulrich.gemkow@ikr.uni-stuttgart.de>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kaber@trash.net, davem@davemloft.net, vyasevic@redhat.com,
+	bhutchings@solarflare.com, therbert@google.com,
+	viro@zeniv.linux.org.uk
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	Pankaj Gupta <pagupta@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:34496 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751515AbbFOHX4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 03:23:56 -0400
-Received: by wgv5 with SMTP id 5so61176752wgv.1
-        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 00:23:55 -0700 (PDT)
-In-Reply-To: <557DD20E.4080005@hartkopp.net>
+Received: from mx1.redhat.com ([209.132.183.28]:44899 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753434AbbFOIHL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2015 04:07:11 -0400
+In-Reply-To: <20150614103209-mutt-send-email-mst@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 14/06/2015 21:12, Oliver Hartkopp a =E9crit :
-> @Nicolas: Just saw that you were not responsible for the @NONE m)
->
-> Sorry.
->
-> Btw. do you know why this @NONE stuff just emerged in 4.1-rc ?
-Yes, it comes from the iflink cleanup in kernel:
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/n=
-et/core/dev.c?id=3De1622baf54df8cc958bf29d71de5ad545ea7d93c
 
 
-Regards,
-Nicolas
+On 06/14/2015 04:42 PM, Michael S. Tsirkin wrote:
+> On Fri, Jun 12, 2015 at 07:00:28PM +0530, Pankaj Gupta wrote:
+>> Macvtap should be compatible with tuntap for maximum number
+>> of queues. '1059590254fa9dce9cafc4f07d1103dbec415e76' removes
+>> the limitation and increases number of queues in tuntap.
+>> Now, Its safe to increase number of queues in Macvtap as well.
+>>
+>> Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
+> It's a good idea, but this might be a problem:
+>
+> static void macvtap_del_queues(struct net_device *dev)
+> {
+>         struct macvlan_dev *vlan = netdev_priv(dev);
+>         struct macvtap_queue *q, *tmp, *qlist[MAX_MACVTAP_QUEUES];
+>
+> ...
+> }
+>
+> by itself, this will use 2K on stack, which seems too much.
+>
+> You need to rework this function to use a linked list + list_move
+> instead of an array + list_del_init.
+
+Looks like even simpler, we can just do sock_put() inside
+list_for_each_entry_safe() loop.
+
+>> ---
+>>  include/linux/if_macvlan.h |    2 +-
+>>  1 files changed, 1 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
+>> index 6f6929e..a4ccc31 100644
+>> --- a/include/linux/if_macvlan.h
+>> +++ b/include/linux/if_macvlan.h
+>> @@ -29,7 +29,7 @@ struct macvtap_queue;
+>>   * Maximum times a macvtap device can be opened. This can be used to
+>>   * configure the number of receive queue, e.g. for multiqueue virtio.
+>>   */
+>> -#define MAX_MACVTAP_QUEUES     16
+>> +#define MAX_MACVTAP_QUEUES     256
+>>
+>>  #define MACVLAN_MC_FILTER_BITS 8
+>>  #define MACVLAN_MC_FILTER_SZ   (1 << MACVLAN_MC_FILTER_BITS)
+>> --
+>> 1.7.1
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
