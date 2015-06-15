@@ -1,40 +1,73 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH 1/2] net: mvneta: introduce tx_csum_limit property
-Date: Mon, 15 Jun 2015 15:36:01 +0100
-Message-ID: <20150615143601.GM7557@n2100.arm.linux.org.uk>
-References: <1434378443-23029-1-git-send-email-simon.guinot@sequanux.org>
- <1434378443-23029-2-git-send-email-simon.guinot@sequanux.org>
+From: Liberman Igal <Igal.Liberman@freescale.com>
+Subject: RE: [PATCH 08/12] fsl/fman: Add Frame Manager support
+Date: Mon, 15 Jun 2015 14:23:14 +0000
+Message-ID: <DM2PR03MB383A5275392BBBD604FE71BE6B80@DM2PR03MB383.namprd03.prod.outlook.com>
+References: <1433949712-5648-1-git-send-email-madalin.bucur@freescale.com>
+	 <1433949712-5648-2-git-send-email-madalin.bucur@freescale.com>
+	 <1433949712-5648-3-git-send-email-madalin.bucur@freescale.com>
+	 <1433949712-5648-4-git-send-email-madalin.bucur@freescale.com>
+	 <1434012956.2271.58.camel@x220> <1434015469.2271.83.camel@x220>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	netdev@vger.kernel.org, stable@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Simon Guinot <simon.guinot@sequanux.org>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1434378443-23029-2-git-send-email-simon.guinot@sequanux.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	Scott Wood <scottwood@freescale.com>
+To: Paul Bolle <pebolle@tiscali.nl>,
+	Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bon0117.outbound.protection.outlook.com ([157.56.111.117]:19526
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755662AbbFOOiH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2015 10:38:07 -0400
+In-Reply-To: <1434015469.2271.83.camel@x220>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 15, 2015 at 04:27:22PM +0200, Simon Guinot wrote:
-> This patch introduces the tx_csum_limit DT property. This allows to
-> configure the maximum frame size for which the Ethernet controller is
-> able to perform TCP/IP checksumming. If MTU is set to a value greater
-> than tx_csum_limit, then the features NETIF_F_IP_CSUM and NETIF_F_TSO
-> are disabled.
-> 
-> Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
-> Cc: <stable@vger.kernel.org> # v3.8+
-
-Sorry, I just tripped over this.  This looks like a patch adding a new
-_feature_ to this ethernet driver.  It isn't a regression fix, and it
-isn't a bug fix.  Why are you wanting to get it into stable kernels,
-which are supposed to only have bug and regression fixes applied?
-
--- 
-FTTC broadband for 0.8mile line: currently at 10.5Mbps down 400kbps up
-according to speedtest.net.
+SGkgUGF1bCwNClRoYW5rIHlvdSB2ZXJ5IG11Y2ggZm9yIHlvdXIgZmVlZGJhY2suDQoNCkknbSBw
+bGFubmluZyB0byBhZGRyZXNzIHRoZSBpc3N1ZXMgeW91J3ZlIHJhaXNlZCBpbiB0aGUgbmV4dCBz
+dWJtaXNzaW9uLg0KDQpSZWdhcmRzLA0KSWdhbCBMaWJlcm1hbi4NCg0KPiAtLS0tLU9yaWdpbmFs
+IE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBQYXVsIEJvbGxlIFttYWlsdG86cGVib2xsZUB0aXNjYWxp
+Lm5sXQ0KPiBTZW50OiBUaHVyc2RheSwgSnVuZSAxMSwgMjAxNSAxMjozOCBQTQ0KPiBUbzogQnVj
+dXIgTWFkYWxpbi1DcmlzdGlhbi1CMzI3MTYNCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7
+IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4cHBjLQ0KPiBkZXZAbGlzdHMub3ps
+YWJzLm9yZzsgV29vZCBTY290dC1CMDc0MjE7IExpYmVybWFuIElnYWwtQjMxOTUwDQo+IFN1Ympl
+Y3Q6IFJlOiBbUEFUQ0ggMDgvMTJdIGZzbC9mbWFuOiBBZGQgRnJhbWUgTWFuYWdlciBzdXBwb3J0
+DQo+IA0KPiBTbyBJIGNvdWxkbid0IGhlbHAgaGF2aW5nIHlldCBhbm90aGVyIGxvb2sgYXQgdGhl
+IGNvZGUsIGp1c3QgdG8gZHJpdmUgaG9tZSBteQ0KPiBwb2ludC4NCj4gDQo+IE9uIFRodSwgMjAx
+NS0wNi0xMSBhdCAxMDo1NSArMDIwMCwgUGF1bCBCb2xsZSB3cm90ZToNCj4gPiA+ICt2b2lkICpm
+bV9kcnZfaW5pdCh2b2lkKQ0KPiA+DQo+ID4gc3RhdGljLg0KPiA+DQo+ID4gPiArew0KPiA+ID4g
+KwltZW1zZXQoJmZtX2RydnMsIDAsIHNpemVvZihmbV9kcnZzKSk7DQo+IA0KPiBmbV9kcnZzIGlz
+IGFuIGV4dGVybmFsIHZhcmlhYmxlLiBJdCBpcyBndWFyYW50ZWVkIHRvIGJlIHplcm8sIGlzbid0
+IGl0Pw0KPiANCj4gPiA+ICsJbXV0ZXhfaW5pdCgmZm1fZHJ2X211dGV4KTsNCj4gPiA+ICsNCj4g
+PiA+ICsJLyogUmVnaXN0ZXIgdG8gdGhlIERUQiBmb3IgYmFzaWMgRk0gQVBJICovDQo+ID4gPiAr
+CXBsYXRmb3JtX2RyaXZlcl9yZWdpc3RlcigmZm1fZHJpdmVyKTsNCj4gPiA+ICsNCj4gPiA+ICsJ
+cmV0dXJuICZmbV9kcnZzOw0KPiANCj4gWW91J3JlIHJldHVybmluZyBhIHBvaW50ZXIgdG8gZXh0
+ZXJuYWwgdmFyaWFibGUuIEhvdydzIHRoYXQgdXNlZnVsPw0KPiANCj4gQW5kIG5vdGUgdGhpcyBp
+cyB0aGUgbGFzdCB0aW1lIHdlJ2xsIGV2ZXIgc2VlIGZtX2RydnMuIFNvIEkgdGhpbmsgdGhhdCBh
+bGwgdGhpcw0KPiB2YXJpYWJsZSBkb2VzIGZvciB0aGUgY29kZSBpcyBnZXR0aW5nIGluaXRpYWxp
+emVkIHRvIHplcm8sIHR3aWNlLg0KPiANCj4gPiA+ICt9DQo+ID4gPiArDQo+ID4gPiAraW50IGZt
+X2Rydl9mcmVlKHZvaWQgKnBfZm1fZHJ2KQ0KPiA+DQo+ID4gc3RhdGljLg0KPiA+DQo+ID4gPiAr
+ew0KPiA+ID4gKwlwbGF0Zm9ybV9kcml2ZXJfdW5yZWdpc3RlcigmZm1fZHJpdmVyKTsNCj4gPiA+
+ICsJbXV0ZXhfZGVzdHJveSgmZm1fZHJ2X211dGV4KTsNCj4gPiA+ICsNCj4gPiA+ICsJcmV0dXJu
+IDA7DQo+IA0KPiBUaGlzIGZ1bmN0aW9uIGhhcyBvbmUgY2FsbGVyLCB3aGljaCBkb2Vzbid0IGNo
+ZWNrIHRoZSByZXR1cm4gdmFsdWUuIFNvIHRoaXMNCj4gc2hvdWxkIGJlIGEgZnVuY3Rpb24gcmV0
+dXJuaW5nIHZvaWQuIE9mIGNvdXJzZSwgYSB3cmFwcGVyIG9mIHR3byBsaW5lcyBjYWxsZWQNCj4g
+b25seSBvbmNlIG1lYW5zIHlvdSBzaG91bGQgYWN0dWFsbHkgbm90IHB1dCB0aGlzIGludG8gYSBz
+ZXBhcmF0ZSBmdW5jdGlvbi4NCj4gDQo+ID4gPiArfQ0KPiANCj4gPiA+ICtzdGF0aWMgdm9pZCAq
+cF9mbV9kcnY7DQo+ID4NCj4gPiA+ICtzdGF0aWMgaW50IF9faW5pdCBfX2NvbGQgZm1fbG9hZCh2
+b2lkKSB7DQo+ID4gPiArCXBfZm1fZHJ2ID0gZm1fZHJ2X2luaXQoKTsNCj4gPiA+ICsJaWYgKCFw
+X2ZtX2Rydikgew0KPiANCj4gZm1fZHJ2X2luaXQoKSByZXR1cm5zIGEgcG9pbnRlciB0byBhbiBl
+eHRlcm5hbCB2YXJpYWJsZS4gU28gaG93IGNhbiB0aGlzDQo+IGhhcHBlbj8NCj4gDQo+ID4gPiAr
+CQlwcl9lcnIoIkZhaWxlZCB0byBpbml0IEZNIHdyYXBwZXIhXG4iKTsNCj4gPiA+ICsJCXJldHVy
+biAtRU5PREVWOw0KPiA+ID4gKwl9DQo+ID4gPiArDQo+ID4gPiArCXByX2luZm8oIkZyZWVzY2Fs
+ZSBGTSBtb2R1bGVcbiIpOw0KPiA+ID4gKwlyZXR1cm4gMDsNCj4gPiA+ICt9DQo+IA0KPiBUaGlz
+IGlzIGFsbCByYXRoZXIgYmFzaWMuIEl0IG11c3QgYmUsIG90aGVyd2lzZSBJIHdvdWxkbid0IHNw
+b3QgaXQuDQo+IA0KPiBTbyBJIGtlZXAgc3BvdHRpbmcgdGhlc2UgYmFzaWMgb2RkaXRpZXMsIHdp
+dGggZXZlcnkgY3VwIG9mIGNvZmZlZSBJIHRyZWF0DQo+IG15c2VsZiB0byB3aGlsZSByZWFkaW5n
+IHRocm91Z2ggdGhpcywgd2hlcmV2ZXIgSSBsb29rLiBCeSBub3cgSSdtIHN1cmUNCj4gdGhlcmUn
+cyBubyBuZWVkIGZvciB0aGUgbmV0ZGV2IHBlb3BsZSB0byBsb29rIGF0IHRoaXMsIG5vdCB5ZXQu
+DQo+IA0KPiANCj4gUGF1bCBCb2xsZQ0KDQo=
