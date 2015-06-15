@@ -1,47 +1,43 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 3/3] net: dsa: Allow configuration of CPU & DSA port speeds/duplex
-Date: Mon, 15 Jun 2015 10:32:50 -0700
-Message-ID: <557F0C42.1040007@gmail.com>
-References: <1434129537-15252-1-git-send-email-andrew@lunn.ch> <1434129537-15252-3-git-send-email-andrew@lunn.ch> <557B2181.9090900@gmail.com> <557B2525.7080401@roeck-us.net>
+From: Zack Weinberg <zackw@panix.com>
+Subject: Re: "ip netns create" hangs forever, spamming console with
+ "unregister_netdevice: waiting for lo to become free"
+Date: Mon, 15 Jun 2015 13:34:05 -0400
+Message-ID: <CAKCAbMjpRyfZ5OjY6SEygJfmo4AxVPsd+rjMJP1UWS8aQT-HEg@mail.gmail.com>
+References: <CAKCAbMgkpFMX7cQS=c3eD802aKTWesCv1TW7n8mtBvqLF0BN8Q@mail.gmail.com>
+	<CAKCAbMj9tKg95mNyUQZxRHxtTTCb2BQxYLehtA8XjD7Sf_t1Cw@mail.gmail.com>
+	<CANr6G5zVPaP1N-9rQ=PCn9-NJGd7QONmv_HO6OqJs19yBWCyFA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Cory Tusar <cory.tusar@pid1solutions.com>,
-	netdev <netdev@vger.kernel.org>
-To: Guenter Roeck <linux@roeck-us.net>, Andrew Lunn <andrew@lunn.ch>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Joe Stringer <joestringer@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33953 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754283AbbFOReA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 13:34:00 -0400
-Received: by pacgb13 with SMTP id gb13so39505803pac.1
-        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 10:34:00 -0700 (PDT)
-In-Reply-To: <557B2525.7080401@roeck-us.net>
+Received: from mailbackend.panix.com ([166.84.1.89]:60107 "EHLO
+	mailbackend.panix.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754514AbbFOReH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 13:34:07 -0400
+Received: from mail-wi0-f181.google.com (mail-wi0-f181.google.com [209.85.212.181])
+	by mailbackend.panix.com (Postfix) with ESMTPSA id CDE71132B7
+	for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 13:34:06 -0400 (EDT)
+Received: by wiga1 with SMTP id a1so85236353wig.0
+        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 10:34:05 -0700 (PDT)
+In-Reply-To: <CANr6G5zVPaP1N-9rQ=PCn9-NJGd7QONmv_HO6OqJs19yBWCyFA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/06/15 11:29, Guenter Roeck wrote:
-[snip]
+On Sun, Jun 7, 2015 at 11:56 PM, Joe Stringer <joestringer@nicira.com> wrote:
+>
+> Hi Zack, have you had any further development on this issue?
 
-static int dsa_switch_setup_one(struct dsa_switch *ds, struct
->>> device *parent)
->>>   {
->>>       struct dsa_switch_driver *drv = ds->drv;
->>> @@ -204,6 +234,7 @@ static int dsa_switch_setup_one(struct dsa_switch
->>> *ds, struct device *parent)
->>>               }
->>>               dst->cpu_switch = index;
->>>               dst->cpu_port = i;
->>> +            ds->cpu_port_mask |= 1 << i;
->>
->> Same question as Guenter here, I assume this is because you plan on
->> having multiple CPU ports connected to the switch and this makes it
->> easier to deal with, is that right?
->>
-> 
-> If so, should that be done in a separate patch set ?
+Sorry for the delay.  The only additional piece of information I have
+for you is that
+https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1403152 may be
+another report of the same bug, or a closely-related one.
 
-I think it would be clearer that way, yes.
--- 
-Florian
+I am fairly sure this would be easy to fix if someone could just come
+up with a reliable reproducer, but I've had no further luck myself,
+although that Ubuntu bug did give me an idea -- specifically, it might
+be necessary to make a lot of outbound connections from within a
+network namespace to trigger the problem.  I am juggling several other
+issues right now and haven't had time to follow up on that idea.
+
+zw
