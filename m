@@ -1,89 +1,66 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next] rocker: fix neigh tbl index increment race
-Date: Mon, 15 Jun 2015 11:07:36 +0900
-Message-ID: <20150615020734.GA29281@vergenet.net>
-References: <1434169480-62863-1-git-send-email-sfeldma@gmail.com>
+From: Baolin Wang <baolin.wang@linaro.org>
+Subject: Re: [PATCH v5 00/24] Convert the posix_clock_operations and k_clock
+ structure to ready for 2038
+Date: Mon, 15 Jun 2015 10:27:53 +0800
+Message-ID: <CAMz4ku+yt=DWctKj+S4mTCKna-CyfXkhJhWLkJecBBXed39A7Q@mail.gmail.com>
+References: <cover.1434079262.git.baolin.wang@linaro.org>
+	<alpine.DEB.2.11.1506121512180.3786@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@resnulli.us,
-	makita.toshiaki@lab.ntt.co.jp
-To: sfeldma@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:35320 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753418AbbFOCHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jun 2015 22:07:46 -0400
-Received: by pacyx8 with SMTP id yx8so55577743pac.2
-        for <netdev@vger.kernel.org>; Sun, 14 Jun 2015 19:07:46 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1434169480-62863-1-git-send-email-sfeldma@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	John Stultz <john.stultz@linaro.org>,
+	Heena Sirwani <heenasirwani@gmail.com>,
+	Xunlei Pang <pang.xunlei@linaro.org>, peterz@infradead.org,
+	rafael.j.wysocki@intel.com, Greg KH <gregkh@linuxfoundation.org>,
+	Richard Cochran <richardcochran@gmail.com>,
+	benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au,
+	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	linux390@de.ibm.com, rth@twiddle.net, riel@redhat.com,
+	cl@linux.com, tj@kernel.org,
+	=?UTF-8?B?RnLDqWTDqXJpYyBXZWlzYmVja2Vy?= <fweisbec@gmail.com>,
+	Andrew Hunter <ahh@google.com>, Paul Turner <pjt@google.com>,
+	linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+	linux-arch@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Serge Hallyn <serge.hallyn@canonical.com>,
+	James Morris <james.l.morris@oracle.com>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Paul
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1506121512180.3786@nanos>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 12, 2015 at 09:24:40PM -0700, sfeldma@gmail.com wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
-> 
-> rocker->neigh_tbl_next_index is used to generate unique indices for neigh
-> entries programmed into the device.  The way new indices were generated was
-> racy with the new prepare-commit transaction model.  A simple fix here
-> removes the race.  The race was with two processes getting the same index,
-> one process using prepare-commit, the other not:
-> 
-> Proc A					Proc B
-> 
-> PREPARE phase
-> get neigh_tbl_next_index
-> 
-> 					NONE phase
-> 					get neigh_tbl_next_index
-> 					neigh_tbl_next_index++
-> 
-> COMMIT phase
-> neigh_tbl_next_index++
-> 
-> Both A and B got the same index.  The fix is to store and increment
-> neigh_tbl_next_index in the PREPARE (or NONE) phase and use value in COMMIT
-> phase:
-> 
-> Proc A					Proc B
-> 
-> PREPARE phase
-> get neigh_tbl_next_index
-> neigh_tbl_next_index++
-> 
-> 					NONE phase
-> 					get neigh_tbl_next_index
-> 					neigh_tbl_next_index++
-> 
-> COMMIT phase
-> // use value stashed in PREPARE phase
-> 
-> Reported-by: Simon Horman <simon.horman@netronome.com>
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+On 12 June 2015 at 21:16, Thomas Gleixner <tglx@linutronix.de> wrote:
+> On Fri, 12 Jun 2015, Baolin Wang wrote:
+>
+> Sigh. Again threading of the series failed. Some patches are, the
+> whole series is not. Can you please get your tools straight?
+>
+> You neither managed to cc me on the security patch.
+>
+>> - Modify the subject line and the changelog:
+>
+>>   timekeeping: Change the implementation of timekeeping_clocktai()
+>
+> Sigh. How is that better than the previous one? It's more accurate,
+> but equally useless.
+>
+> And of course you did not address my request to change the macro mess
+> in
+>
+>>   posix-timers: Introduce {get,put}_timespec and {get,put}_itimerspec
+>
+> according to the discussion with Arnd.
+>
+> Thanks,
+>
+>         tglx
 
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
+Hi Thomas,
 
-> ---
->  drivers/net/ethernet/rocker/rocker.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-> index c6a6e3c..a9d1559 100644
-> --- a/drivers/net/ethernet/rocker/rocker.c
-> +++ b/drivers/net/ethernet/rocker/rocker.c
-> @@ -2901,10 +2901,10 @@ static void _rocker_neigh_add(struct rocker *rocker,
->  			      enum switchdev_trans trans,
->  			      struct rocker_neigh_tbl_entry *entry)
->  {
-> -	entry->index = rocker->neigh_tbl_next_index;
-> +	if (trans != SWITCHDEV_TRANS_COMMIT)
-> +		entry->index = rocker->neigh_tbl_next_index++;
->  	if (trans == SWITCHDEV_TRANS_PREPARE)
->  		return;
-> -	rocker->neigh_tbl_next_index++;
->  	entry->ref_count++;
->  	hash_add(rocker->neigh_tbl, &entry->entry,
->  		 be32_to_cpu(entry->ip_addr));
-> -- 
-> 1.7.10.4
-> 
+Thanks for your comments, and i'll fix these problems you point out.
+
+-- 
+Baolin.wang
+Best Regards
