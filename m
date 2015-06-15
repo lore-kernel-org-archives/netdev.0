@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 17/32] netfilter: ipset: Make sure we always return line number on batch
-Date: Mon, 15 Jun 2015 23:26:14 +0200
-Message-ID: <1434403589-24796-18-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 18/32] netfilter: ipset: Check CIDR value only when attribute is given
+Date: Mon, 15 Jun 2015 23:26:15 +0200
+Message-ID: <1434403589-24796-19-git-send-email-pablo@netfilter.org>
 References: <1434403589-24796-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,554 +12,276 @@ List-Id: netdev.vger.kernel.org
 
 From: Sergey Popovich <popovich_sergei@mail.ua>
 
-Even if we return with generic IPSET_ERR_PROTOCOL it is good idea
-to return line number if we called in batch mode.
+There is no reason to check CIDR value regardless attribute
+specifying CIDR is given.
 
-Moreover we are not always exiting with IPSET_ERR_PROTOCOL. For
-example hash:ip,port,net may return IPSET_ERR_HASH_RANGE_UNSUPPORTED
-or IPSET_ERR_INVALID_CIDR.
+Initialize cidr array in element structure on element structure
+declaration to let more freedom to the compiler to optimize
+initialization right before element structure is used.
+
+Remove local variables cidr and cidr2 for netnet and netportnet
+hashes as we do not use packed cidr value for such set types and
+can store value directly in e.cidr[].
 
 Signed-off-by: Sergey Popovich <popovich_sergei@mail.ua>
 Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 ---
- net/netfilter/ipset/ip_set_bitmap_ip.c       |    6 +++---
- net/netfilter/ipset/ip_set_bitmap_ipmac.c    |    6 +++---
- net/netfilter/ipset/ip_set_bitmap_port.c     |    6 +++---
- net/netfilter/ipset/ip_set_hash_ip.c         |   12 ++++++------
- net/netfilter/ipset/ip_set_hash_ipmark.c     |   12 ++++++------
- net/netfilter/ipset/ip_set_hash_ipport.c     |   12 ++++++------
- net/netfilter/ipset/ip_set_hash_ipportip.c   |   12 ++++++------
- net/netfilter/ipset/ip_set_hash_ipportnet.c  |   12 ++++++------
- net/netfilter/ipset/ip_set_hash_mac.c        |    6 +++---
- net/netfilter/ipset/ip_set_hash_net.c        |   12 ++++++------
- net/netfilter/ipset/ip_set_hash_netiface.c   |   12 ++++++------
- net/netfilter/ipset/ip_set_hash_netnet.c     |   12 ++++++------
- net/netfilter/ipset/ip_set_hash_netport.c    |   12 ++++++------
- net/netfilter/ipset/ip_set_hash_netportnet.c |   12 ++++++------
- net/netfilter/ipset/ip_set_list_set.c        |    6 +++---
- 15 files changed, 75 insertions(+), 75 deletions(-)
+ net/netfilter/ipset/ip_set_hash_net.c        |    8 +++---
+ net/netfilter/ipset/ip_set_hash_netiface.c   |    8 +++---
+ net/netfilter/ipset/ip_set_hash_netnet.c     |   37 +++++++++++---------------
+ net/netfilter/ipset/ip_set_hash_netportnet.c |   37 +++++++++++---------------
+ 4 files changed, 41 insertions(+), 49 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_ip.c b/net/netfilter/ipset/ip_set_bitmap_ip.c
-index 212005e..7af99c3 100644
---- a/net/netfilter/ipset/ip_set_bitmap_ip.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_ip.c
-@@ -138,12 +138,12 @@ bitmap_ip_uadt(struct ip_set *set, struct nlattr *tb[],
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
- 	int ret = 0;
- 
--	if (unlikely(!tb[IPSET_ATTR_IP]))
--		return -IPSET_ERR_PROTOCOL;
--
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
- 
-+	if (unlikely(!tb[IPSET_ATTR_IP]))
-+		return -IPSET_ERR_PROTOCOL;
-+
- 	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
- 	if (ret)
- 		return ret;
-diff --git a/net/netfilter/ipset/ip_set_bitmap_ipmac.c b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-index 0648e74..7733422 100644
---- a/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-@@ -239,12 +239,12 @@ bitmap_ipmac_uadt(struct ip_set *set, struct nlattr *tb[],
- 	u32 ip = 0;
- 	int ret = 0;
- 
--	if (unlikely(!tb[IPSET_ATTR_IP]))
--		return -IPSET_ERR_PROTOCOL;
--
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
- 
-+	if (unlikely(!tb[IPSET_ATTR_IP]))
-+		return -IPSET_ERR_PROTOCOL;
-+
- 	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
- 	if (ret)
- 		return ret;
-diff --git a/net/netfilter/ipset/ip_set_bitmap_port.c b/net/netfilter/ipset/ip_set_bitmap_port.c
-index 10ed264..ec3bda1 100644
---- a/net/netfilter/ipset/ip_set_bitmap_port.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_port.c
-@@ -136,13 +136,13 @@ bitmap_port_uadt(struct ip_set *set, struct nlattr *tb[],
- 	u16 port_to;
- 	int ret = 0;
- 
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO)))
- 		return -IPSET_ERR_PROTOCOL;
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	port = ip_set_get_h16(tb[IPSET_ATTR_PORT]);
- 	if (port < map->first_port || port > map->last_port)
- 		return -IPSET_ERR_BITMAP_RANGE;
-diff --git a/net/netfilter/ipset/ip_set_hash_ip.c b/net/netfilter/ipset/ip_set_hash_ip.c
-index 2b08b1b..2bbadcc 100644
---- a/net/netfilter/ipset/ip_set_hash_ip.c
-+++ b/net/netfilter/ipset/ip_set_hash_ip.c
-@@ -108,12 +108,12 @@ hash_ip4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	u32 ip = 0, ip_to = 0, hosts;
- 	int ret = 0;
- 
--	if (unlikely(!tb[IPSET_ATTR_IP]))
--		return -IPSET_ERR_PROTOCOL;
--
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
- 
-+	if (unlikely(!tb[IPSET_ATTR_IP]))
-+		return -IPSET_ERR_PROTOCOL;
-+
- 	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
- 	if (ret)
- 		return ret;
-@@ -240,6 +240,9 @@ hash_ip6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
- 	int ret;
- 
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!tb[IPSET_ATTR_IP]))
- 		return -IPSET_ERR_PROTOCOL;
- 	if (unlikely(tb[IPSET_ATTR_IP_TO]))
-@@ -251,9 +254,6 @@ hash_ip6_uadt(struct ip_set *set, struct nlattr *tb[],
- 			return -IPSET_ERR_INVALID_CIDR;
- 	}
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
- 	if (ret)
- 		return ret;
-diff --git a/net/netfilter/ipset/ip_set_hash_ipmark.c b/net/netfilter/ipset/ip_set_hash_ipmark.c
-index 68fe40c..3aafb36 100644
---- a/net/netfilter/ipset/ip_set_hash_ipmark.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipmark.c
-@@ -108,13 +108,13 @@ hash_ipmark4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	u32 ip, ip_to = 0;
- 	int ret;
- 
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!tb[IPSET_ATTR_IP] ||
- 		     !ip_set_attr_netorder(tb, IPSET_ATTR_MARK)))
- 		return -IPSET_ERR_PROTOCOL;
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_ipaddr4(tb[IPSET_ATTR_IP], &e.ip);
- 	if (ret)
- 		return ret;
-@@ -234,6 +234,9 @@ hash_ipmark6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
- 	int ret;
- 
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!tb[IPSET_ATTR_IP] ||
- 		     !ip_set_attr_netorder(tb, IPSET_ATTR_MARK)))
- 		return -IPSET_ERR_PROTOCOL;
-@@ -246,9 +249,6 @@ hash_ipmark6_uadt(struct ip_set *set, struct nlattr *tb[],
- 			return -IPSET_ERR_INVALID_CIDR;
- 	}
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
- 	if (ret)
- 		return ret;
-diff --git a/net/netfilter/ipset/ip_set_hash_ipport.c b/net/netfilter/ipset/ip_set_hash_ipport.c
-index 9f03639..4db1270 100644
---- a/net/netfilter/ipset/ip_set_hash_ipport.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipport.c
-@@ -116,14 +116,14 @@ hash_ipport4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	bool with_ports = false;
- 	int ret;
- 
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!tb[IPSET_ATTR_IP] ||
- 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO)))
- 		return -IPSET_ERR_PROTOCOL;
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_ipaddr4(tb[IPSET_ATTR_IP], &e.ip);
- 	if (ret)
- 		return ret;
-@@ -273,6 +273,9 @@ hash_ipport6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	bool with_ports = false;
- 	int ret;
- 
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!tb[IPSET_ATTR_IP] ||
- 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO)))
-@@ -286,9 +289,6 @@ hash_ipport6_uadt(struct ip_set *set, struct nlattr *tb[],
- 			return -IPSET_ERR_INVALID_CIDR;
- 	}
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
- 	if (ret)
- 		return ret;
-diff --git a/net/netfilter/ipset/ip_set_hash_ipportip.c b/net/netfilter/ipset/ip_set_hash_ipportip.c
-index aa0966b..c01bf68 100644
---- a/net/netfilter/ipset/ip_set_hash_ipportip.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipportip.c
-@@ -119,14 +119,14 @@ hash_ipportip4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	bool with_ports = false;
- 	int ret;
- 
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
- 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO)))
- 		return -IPSET_ERR_PROTOCOL;
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_ipaddr4(tb[IPSET_ATTR_IP], &e.ip);
- 	if (ret)
- 		return ret;
-@@ -284,6 +284,9 @@ hash_ipportip6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	bool with_ports = false;
- 	int ret;
- 
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
- 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO)))
-@@ -297,9 +300,6 @@ hash_ipportip6_uadt(struct ip_set *set, struct nlattr *tb[],
- 			return -IPSET_ERR_INVALID_CIDR;
- 	}
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
- 	if (ret)
- 		return ret;
-diff --git a/net/netfilter/ipset/ip_set_hash_ipportnet.c b/net/netfilter/ipset/ip_set_hash_ipportnet.c
-index f3c6256..e38a029 100644
---- a/net/netfilter/ipset/ip_set_hash_ipportnet.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipportnet.c
-@@ -173,15 +173,15 @@ hash_ipportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	u8 cidr;
- 	int ret;
- 
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
- 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
- 		return -IPSET_ERR_PROTOCOL;
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
- 	if (ret)
- 		return ret;
-@@ -420,6 +420,9 @@ hash_ipportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	u8 cidr;
- 	int ret;
- 
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
- 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
-@@ -434,9 +437,6 @@ hash_ipportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
- 			return -IPSET_ERR_INVALID_CIDR;
- 	}
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
- 	if (ret)
- 		return ret;
-diff --git a/net/netfilter/ipset/ip_set_hash_mac.c b/net/netfilter/ipset/ip_set_hash_mac.c
-index 0d49519..8981c8b 100644
---- a/net/netfilter/ipset/ip_set_hash_mac.c
-+++ b/net/netfilter/ipset/ip_set_hash_mac.c
-@@ -107,12 +107,12 @@ hash_mac4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
- 	int ret;
- 
--	if (unlikely(!tb[IPSET_ATTR_ETHER]))
--		return -IPSET_ERR_PROTOCOL;
--
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
- 
-+	if (unlikely(!tb[IPSET_ATTR_ETHER]))
-+		return -IPSET_ERR_PROTOCOL;
-+
- 	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
 diff --git a/net/netfilter/ipset/ip_set_hash_net.c b/net/netfilter/ipset/ip_set_hash_net.c
-index 5eb334d..2988ec5 100644
+index 2988ec5..d19926a 100644
 --- a/net/netfilter/ipset/ip_set_hash_net.c
 +++ b/net/netfilter/ipset/ip_set_hash_net.c
-@@ -146,13 +146,13 @@ hash_net4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	u32 ip = 0, ip_to = 0, last;
- 	int ret;
- 
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!tb[IPSET_ATTR_IP] ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
- 		return -IPSET_ERR_PROTOCOL;
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
+@@ -329,11 +329,11 @@ hash_net6_uadt(struct ip_set *set, struct nlattr *tb[],
  	if (ret)
  		return ret;
-@@ -312,15 +312,15 @@ hash_net6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
- 	int ret;
  
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!tb[IPSET_ATTR_IP] ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
- 		return -IPSET_ERR_PROTOCOL;
- 	if (unlikely(tb[IPSET_ATTR_IP_TO]))
- 		return -IPSET_ERR_HASH_RANGE_UNSUPPORTED;
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+-	if (tb[IPSET_ATTR_CIDR])
++	if (tb[IPSET_ATTR_CIDR]) {
+ 		e.cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
 -
- 	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
- 	if (ret)
- 		return ret;
+-	if (!e.cidr || e.cidr > HOST_MASK)
+-		return -IPSET_ERR_INVALID_CIDR;
++		if (!e.cidr || e.cidr > HOST_MASK)
++			return -IPSET_ERR_INVALID_CIDR;
++	}
+ 
+ 	ip6_netmask(&e.ip, e.cidr);
+ 
 diff --git a/net/netfilter/ipset/ip_set_hash_netiface.c b/net/netfilter/ipset/ip_set_hash_netiface.c
-index 5eef6f3..c80588c 100644
+index c80588c..7b69fa2 100644
 --- a/net/netfilter/ipset/ip_set_hash_netiface.c
 +++ b/net/netfilter/ipset/ip_set_hash_netiface.c
-@@ -293,14 +293,14 @@ hash_netiface4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	char iface[IFNAMSIZ];
- 	int ret;
- 
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!tb[IPSET_ATTR_IP] ||
- 		     !tb[IPSET_ATTR_IFACE] ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
- 		return -IPSET_ERR_PROTOCOL;
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
+@@ -541,10 +541,12 @@ hash_netiface6_uadt(struct ip_set *set, struct nlattr *tb[],
  	if (ret)
  		return ret;
-@@ -523,6 +523,9 @@ hash_netiface6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	char iface[IFNAMSIZ];
- 	int ret;
  
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+-	if (tb[IPSET_ATTR_CIDR])
++	if (tb[IPSET_ATTR_CIDR]) {
+ 		e.cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
+-	if (e.cidr > HOST_MASK)
+-		return -IPSET_ERR_INVALID_CIDR;
++		if (e.cidr > HOST_MASK)
++			return -IPSET_ERR_INVALID_CIDR;
++	}
 +
- 	if (unlikely(!tb[IPSET_ATTR_IP] ||
- 		     !tb[IPSET_ATTR_IFACE] ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
-@@ -530,9 +533,6 @@ hash_netiface6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (unlikely(tb[IPSET_ATTR_IP_TO]))
- 		return -IPSET_ERR_HASH_RANGE_UNSUPPORTED;
+ 	ip6_netmask(&e.ip, e.cidr);
  
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
- 	if (ret)
- 		return ret;
+ 	strcpy(iface, nla_data(tb[IPSET_ATTR_IFACE]));
 diff --git a/net/netfilter/ipset/ip_set_hash_netnet.c b/net/netfilter/ipset/ip_set_hash_netnet.c
-index 775b1b0..2e6a1ae 100644
+index 2e6a1ae..11eee00 100644
 --- a/net/netfilter/ipset/ip_set_hash_netnet.c
 +++ b/net/netfilter/ipset/ip_set_hash_netnet.c
-@@ -167,14 +167,14 @@ hash_netnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	u8 cidr, cidr2;
+@@ -160,17 +160,15 @@ hash_netnet4_uadt(struct ip_set *set, struct nlattr *tb[],
+ {
+ 	const struct hash_netnet *h = set->data;
+ 	ipset_adtfn adtfn = set->variant->adt[adt];
+-	struct hash_netnet4_elem e = { };
++	struct hash_netnet4_elem e = { .cidr = { HOST_MASK, HOST_MASK, }, };
+ 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
+ 	u32 ip = 0, ip_to = 0, last;
+ 	u32 ip2 = 0, ip2_from = 0, ip2_to = 0, last2;
+-	u8 cidr, cidr2;
  	int ret;
  
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	e.cidr[0] = e.cidr[1] = HOST_MASK;
+ 	if (tb[IPSET_ATTR_LINENO])
+ 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+ 
+-	e.cidr[0] = e.cidr[1] = HOST_MASK;
  	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
  		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
  		return -IPSET_ERR_PROTOCOL;
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
- 	if (ret)
+@@ -188,17 +186,15 @@ hash_netnet4_uadt(struct ip_set *set, struct nlattr *tb[],
  		return ret;
-@@ -392,6 +392,9 @@ hash_netnet6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 
+ 	if (tb[IPSET_ATTR_CIDR]) {
+-		cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
+-		if (!cidr || cidr > HOST_MASK)
++		e.cidr[0] = nla_get_u8(tb[IPSET_ATTR_CIDR]);
++		if (!e.cidr[0] || e.cidr[0] > HOST_MASK)
+ 			return -IPSET_ERR_INVALID_CIDR;
+-		e.cidr[0] = cidr;
+ 	}
+ 
+ 	if (tb[IPSET_ATTR_CIDR2]) {
+-		cidr2 = nla_get_u8(tb[IPSET_ATTR_CIDR2]);
+-		if (!cidr2 || cidr2 > HOST_MASK)
++		e.cidr[1] = nla_get_u8(tb[IPSET_ATTR_CIDR2]);
++		if (!e.cidr[1] || e.cidr[1] > HOST_MASK)
+ 			return -IPSET_ERR_INVALID_CIDR;
+-		e.cidr[1] = cidr2;
+ 	}
+ 
+ 	if (tb[IPSET_ATTR_CADT_FLAGS]) {
+@@ -245,15 +241,13 @@ hash_netnet4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 
+ 	while (!after(ip, ip_to)) {
+ 		e.ip[0] = htonl(ip);
+-		last = ip_set_range_to_cidr(ip, ip_to, &cidr);
+-		e.cidr[0] = cidr;
++		last = ip_set_range_to_cidr(ip, ip_to, &e.cidr[0]);
+ 		ip2 = (retried &&
+ 		       ip == ntohl(h->next.ip[0])) ? ntohl(h->next.ip[1])
+ 						   : ip2_from;
+ 		while (!after(ip2, ip2_to)) {
+ 			e.ip[1] = htonl(ip2);
+-			last2 = ip_set_range_to_cidr(ip2, ip2_to, &cidr2);
+-			e.cidr[1] = cidr2;
++			last2 = ip_set_range_to_cidr(ip2, ip2_to, &e.cidr[1]);
+ 			ret = adtfn(set, &e, &ext, &ext, flags);
+ 			if (ret && !ip_set_eexist(ret, flags))
+ 				return ret;
+@@ -388,14 +382,13 @@ hash_netnet6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 	       enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
+ {
+ 	ipset_adtfn adtfn = set->variant->adt[adt];
+-	struct hash_netnet6_elem e = { };
++	struct hash_netnet6_elem e = { .cidr = { HOST_MASK, HOST_MASK, }, };
  	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
  	int ret;
  
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	e.cidr[0] = e.cidr[1] = HOST_MASK;
+ 	if (tb[IPSET_ATTR_LINENO])
+ 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+ 
+-	e.cidr[0] = e.cidr[1] = HOST_MASK;
  	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
  		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
-@@ -399,9 +402,6 @@ hash_netnet6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (unlikely(tb[IPSET_ATTR_IP_TO] || tb[IPSET_ATTR_IP2_TO]))
- 		return -IPSET_ERR_HASH_RANGE_UNSUPPORTED;
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip[0]);
- 	if (ret)
- 		return ret;
-diff --git a/net/netfilter/ipset/ip_set_hash_netport.c b/net/netfilter/ipset/ip_set_hash_netport.c
-index 0eb73da..7a6448c 100644
---- a/net/netfilter/ipset/ip_set_hash_netport.c
-+++ b/net/netfilter/ipset/ip_set_hash_netport.c
-@@ -166,15 +166,15 @@ hash_netport4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	u8 cidr;
- 	int ret;
- 
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!tb[IPSET_ATTR_IP] ||
- 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
  		return -IPSET_ERR_PROTOCOL;
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
+@@ -414,15 +407,17 @@ hash_netnet6_uadt(struct ip_set *set, struct nlattr *tb[],
  	if (ret)
  		return ret;
-@@ -378,6 +378,9 @@ hash_netport6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	u8 cidr;
- 	int ret;
  
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!tb[IPSET_ATTR_IP] ||
- 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
-@@ -386,9 +389,6 @@ hash_netport6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (unlikely(tb[IPSET_ATTR_IP_TO]))
- 		return -IPSET_ERR_HASH_RANGE_UNSUPPORTED;
+-	if (tb[IPSET_ATTR_CIDR])
++	if (tb[IPSET_ATTR_CIDR]) {
+ 		e.cidr[0] = nla_get_u8(tb[IPSET_ATTR_CIDR]);
++		if (!e.cidr[0] || e.cidr[0] > HOST_MASK)
++			return -IPSET_ERR_INVALID_CIDR;
++	}
  
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+-	if (tb[IPSET_ATTR_CIDR2])
++	if (tb[IPSET_ATTR_CIDR2]) {
+ 		e.cidr[1] = nla_get_u8(tb[IPSET_ATTR_CIDR2]);
 -
- 	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
- 	if (ret)
- 		return ret;
+-	if (!e.cidr[0] || e.cidr[0] > HOST_MASK || !e.cidr[1] ||
+-	    e.cidr[1] > HOST_MASK)
+-		return -IPSET_ERR_INVALID_CIDR;
++		if (!e.cidr[1] || e.cidr[1] > HOST_MASK)
++			return -IPSET_ERR_INVALID_CIDR;
++	}
+ 
+ 	ip6_netmask(&e.ip[0], e.cidr[0]);
+ 	ip6_netmask(&e.ip[1], e.cidr[1]);
 diff --git a/net/netfilter/ipset/ip_set_hash_netportnet.c b/net/netfilter/ipset/ip_set_hash_netportnet.c
-index c3634ad..7ad9a77 100644
+index 7ad9a77..6eb5f87 100644
 --- a/net/netfilter/ipset/ip_set_hash_netportnet.c
 +++ b/net/netfilter/ipset/ip_set_hash_netportnet.c
-@@ -183,6 +183,9 @@ hash_netportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	u8 cidr, cidr2;
- 	int ret;
- 
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	e.cidr[0] = e.cidr[1] = HOST_MASK;
- 	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
- 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
-@@ -190,9 +193,6 @@ hash_netportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
- 		return -IPSET_ERR_PROTOCOL;
- 
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
- 	if (ret)
- 		return ret;
-@@ -453,6 +453,9 @@ hash_netportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
+@@ -175,18 +175,16 @@ hash_netportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
+ {
+ 	const struct hash_netportnet *h = set->data;
+ 	ipset_adtfn adtfn = set->variant->adt[adt];
+-	struct hash_netportnet4_elem e = { };
++	struct hash_netportnet4_elem e = { .cidr = { HOST_MASK, HOST_MASK, }, };
+ 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
+ 	u32 ip = 0, ip_to = 0, ip_last, p = 0, port, port_to;
+ 	u32 ip2_from = 0, ip2_to = 0, ip2_last, ip2;
  	bool with_ports = false;
+-	u8 cidr, cidr2;
  	int ret;
  
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	e.cidr[0] = e.cidr[1] = HOST_MASK;
+ 	if (tb[IPSET_ATTR_LINENO])
+ 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+ 
+-	e.cidr[0] = e.cidr[1] = HOST_MASK;
  	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
  		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
-@@ -462,9 +465,6 @@ hash_netportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (unlikely(tb[IPSET_ATTR_IP_TO] || tb[IPSET_ATTR_IP2_TO]))
- 		return -IPSET_ERR_HASH_RANGE_UNSUPPORTED;
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
+@@ -206,17 +204,15 @@ hash_netportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		return ret;
  
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
--
- 	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip[0]);
+ 	if (tb[IPSET_ATTR_CIDR]) {
+-		cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
+-		if (!cidr || cidr > HOST_MASK)
++		e.cidr[0] = nla_get_u8(tb[IPSET_ATTR_CIDR]);
++		if (!e.cidr[0] || e.cidr[0] > HOST_MASK)
+ 			return -IPSET_ERR_INVALID_CIDR;
+-		e.cidr[0] = cidr;
+ 	}
+ 
+ 	if (tb[IPSET_ATTR_CIDR2]) {
+-		cidr = nla_get_u8(tb[IPSET_ATTR_CIDR2]);
+-		if (!cidr || cidr > HOST_MASK)
++		e.cidr[1] = nla_get_u8(tb[IPSET_ATTR_CIDR2]);
++		if (!e.cidr[1] || e.cidr[1] > HOST_MASK)
+ 			return -IPSET_ERR_INVALID_CIDR;
+-		e.cidr[1] = cidr;
+ 	}
+ 
+ 	e.port = nla_get_be16(tb[IPSET_ATTR_PORT]);
+@@ -285,8 +281,7 @@ hash_netportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 
+ 	while (!after(ip, ip_to)) {
+ 		e.ip[0] = htonl(ip);
+-		ip_last = ip_set_range_to_cidr(ip, ip_to, &cidr);
+-		e.cidr[0] = cidr;
++		ip_last = ip_set_range_to_cidr(ip, ip_to, &e.cidr[0]);
+ 		p = retried && ip == ntohl(h->next.ip[0]) ? ntohs(h->next.port)
+ 							  : port;
+ 		for (; p <= port_to; p++) {
+@@ -297,8 +292,7 @@ hash_netportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 			while (!after(ip2, ip2_to)) {
+ 				e.ip[1] = htonl(ip2);
+ 				ip2_last = ip_set_range_to_cidr(ip2, ip2_to,
+-								&cidr2);
+-				e.cidr[1] = cidr2;
++								&e.cidr[1]);
+ 				ret = adtfn(set, &e, &ext, &ext, flags);
+ 				if (ret && !ip_set_eexist(ret, flags))
+ 					return ret;
+@@ -447,7 +441,7 @@ hash_netportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
+ {
+ 	const struct hash_netportnet *h = set->data;
+ 	ipset_adtfn adtfn = set->variant->adt[adt];
+-	struct hash_netportnet6_elem e = { };
++	struct hash_netportnet6_elem e = { .cidr = { HOST_MASK, HOST_MASK, }, };
+ 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
+ 	u32 port, port_to;
+ 	bool with_ports = false;
+@@ -456,7 +450,6 @@ hash_netportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 	if (tb[IPSET_ATTR_LINENO])
+ 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+ 
+-	e.cidr[0] = e.cidr[1] = HOST_MASK;
+ 	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
+ 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
+@@ -477,15 +470,17 @@ hash_netportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
  	if (ret)
  		return ret;
-diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
-index 7d1377d..107ea6c 100644
---- a/net/netfilter/ipset/ip_set_list_set.c
-+++ b/net/netfilter/ipset/ip_set_list_set.c
-@@ -383,13 +383,13 @@ list_set_uadt(struct ip_set *set, struct nlattr *tb[],
- 	struct ip_set *s;
- 	int ret = 0;
  
-+	if (tb[IPSET_ATTR_LINENO])
-+		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
-+
- 	if (unlikely(!tb[IPSET_ATTR_NAME] ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
- 		return -IPSET_ERR_PROTOCOL;
+-	if (tb[IPSET_ATTR_CIDR])
++	if (tb[IPSET_ATTR_CIDR]) {
+ 		e.cidr[0] = nla_get_u8(tb[IPSET_ATTR_CIDR]);
++		if (!e.cidr[0] || e.cidr[0] > HOST_MASK)
++			return -IPSET_ERR_INVALID_CIDR;
++	}
  
--	if (tb[IPSET_ATTR_LINENO])
--		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+-	if (tb[IPSET_ATTR_CIDR2])
++	if (tb[IPSET_ATTR_CIDR2]) {
+ 		e.cidr[1] = nla_get_u8(tb[IPSET_ATTR_CIDR2]);
 -
- 	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+-	if (unlikely(!e.cidr[0] || e.cidr[0] > HOST_MASK || !e.cidr[1] ||
+-		     e.cidr[1] > HOST_MASK))
+-		return -IPSET_ERR_INVALID_CIDR;
++		if (!e.cidr[1] || e.cidr[1] > HOST_MASK)
++			return -IPSET_ERR_INVALID_CIDR;
++	}
+ 
+ 	ip6_netmask(&e.ip[0], e.cidr[0]);
+ 	ip6_netmask(&e.ip[1], e.cidr[1]);
 -- 
 1.7.10.4
 
