@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 06/13] net/mlx4_core: Add port attribute when tracking counters
-Date: Mon, 15 Jun 2015 17:59:01 +0300
-Message-ID: <1434380348-19005-7-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 11/13] net/mlx4_en: Show PF own statistics via ethtool
+Date: Mon, 15 Jun 2015 17:59:06 +0300
+Message-ID: <1434380348-19005-12-git-send-email-ogerlitz@mellanox.com>
 References: <1434380348-19005-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,162 +10,196 @@ Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:45046 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:45076 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755962AbbFOPAL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jun 2015 11:00:11 -0400
+	id S1755951AbbFOPA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2015 11:00:26 -0400
 In-Reply-To: <1434380348-19005-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eran Ben Elisha <eranbe@mellanox.com>
 
-Counter will get its port attribute within the resource tracker when
-the first QP attached to it is modified to RTR. If a QP is counter-less,
-an attempt to create a new counter with assigned port will be made.
+Allow the user to observe the PF own statistics using ethtool with pf_
+prefixed counter names.
+
+Those counters are the PF statistics out of the overall port statistics.
+Every PF QP is attached to a counter and the summary of those counters
+is the PF statistics.
 
 Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   90 +++++++++++++++++++-
- 1 files changed, 87 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |   17 +++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |    8 +++++++-
+ drivers/net/ethernet/mellanox/mlx4/en_port.c    |   15 ++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    1 +
+ drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h |   11 ++++++++++-
+ 5 files changed, 49 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 802eb2a..73db584 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -723,6 +723,9 @@ static void update_gid(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *inbox,
- 	}
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index a2ddf3d..99ba1c5 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -119,6 +119,12 @@ static const char main_strings[][ETH_GSTRING_LEN] = {
+ 	"queue_stopped", "wake_queue", "tx_timeout", "rx_alloc_failed",
+ 	"rx_csum_good", "rx_csum_none", "rx_csum_complete", "tx_chksum_offload",
  
-+static int handle_counter(struct mlx4_dev *dev, struct mlx4_qp_context *qpc,
-+			  u8 slave, int port);
++	/* pf statistics */
++	"pf_rx_packets",
++	"pf_rx_bytes",
++	"pf_tx_packets",
++	"pf_tx_bytes",
 +
- static int update_vport_qp_param(struct mlx4_dev *dev,
- 				 struct mlx4_cmd_mailbox *inbox,
- 				 u8 slave, u32 qpn)
-@@ -738,6 +741,10 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
- 	vp_oper = &priv->mfunc.master.vf_oper[slave].vport[port];
- 	qp_type	= (be32_to_cpu(qpc->flags) >> 16) & 0xff;
+ 	/* priority flow control statistics rx */
+ 	"rx_pause_prio_0", "rx_pause_duration_prio_0",
+ 	"rx_pause_transition_prio_0",
+@@ -368,6 +374,11 @@ static void mlx4_en_get_ethtool_stats(struct net_device *dev,
+ 		if (bitmap_iterator_test(&it))
+ 			data[index++] = ((unsigned long *)&priv->port_stats)[i];
  
-+	err = handle_counter(dev, qpc, slave, port);
-+	if (err)
-+		goto out;
++	for (i = 0; i < NUM_PF_STATS; i++, bitmap_iterator_inc(&it))
++		if (bitmap_iterator_test(&it))
++			data[index++] =
++				((unsigned long *)&priv->pf_stats)[i];
 +
- 	if (MLX4_VGT != vp_oper->state.default_vlan) {
- 		/* the reserved QPs (special, proxy, tunnel)
- 		 * do not operate over vlans
-@@ -882,6 +889,83 @@ static void put_res(struct mlx4_dev *dev, int slave, u64 res_id,
- 	spin_unlock_irq(mlx4_tlock(dev));
- }
+ 	for (i = 0; i < NUM_FLOW_PRIORITY_STATS_RX;
+ 	     i++, bitmap_iterator_inc(&it))
+ 		if (bitmap_iterator_test(&it))
+@@ -448,6 +459,12 @@ static void mlx4_en_get_strings(struct net_device *dev,
+ 				strcpy(data + (index++) * ETH_GSTRING_LEN,
+ 				       main_strings[strings]);
  
-+static int counter_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
-+			     u64 in_param, u64 *out_param, int port);
++		for (i = 0; i < NUM_PF_STATS; i++, strings++,
++		     bitmap_iterator_inc(&it))
++			if (bitmap_iterator_test(&it))
++				strcpy(data + (index++) * ETH_GSTRING_LEN,
++				       main_strings[strings]);
 +
-+static int handle_existing_counter(struct mlx4_dev *dev, u8 slave, int port,
-+				   int counter_index)
-+{
-+	struct res_common *r;
-+	struct res_counter *counter;
-+	int ret = 0;
-+
-+	if (counter_index == MLX4_SINK_COUNTER_INDEX(dev))
-+		return ret;
-+
-+	spin_lock_irq(mlx4_tlock(dev));
-+	r = find_res(dev, counter_index, RES_COUNTER);
-+	if (!r || r->owner != slave)
-+		ret = -EINVAL;
-+	counter = container_of(r, struct res_counter, com);
-+	if (!counter->port)
-+		counter->port = port;
-+
-+	spin_unlock_irq(mlx4_tlock(dev));
-+	return ret;
-+}
-+
-+static int handle_unexisting_counter(struct mlx4_dev *dev,
-+				     struct mlx4_qp_context *qpc, u8 slave,
-+				     int port)
-+{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_resource_tracker *tracker = &priv->mfunc.master.res_tracker;
-+	struct res_common *tmp;
-+	struct res_counter *counter;
-+	u64 counter_idx = MLX4_SINK_COUNTER_INDEX(dev);
-+	int err = 0;
-+
-+	spin_lock_irq(mlx4_tlock(dev));
-+	list_for_each_entry(tmp,
-+			    &tracker->slave_list[slave].res_list[RES_COUNTER],
-+			    list) {
-+		counter = container_of(tmp, struct res_counter, com);
-+		if (port == counter->port) {
-+			qpc->pri_path.counter_index  = counter->com.res_id;
-+			spin_unlock_irq(mlx4_tlock(dev));
-+			return 0;
-+		}
-+	}
-+	spin_unlock_irq(mlx4_tlock(dev));
-+
-+	/* No existing counter, need to allocate a new counter */
-+	err = counter_alloc_res(dev, slave, RES_OP_RESERVE, 0, 0, &counter_idx,
-+				port);
-+	if (err == -ENOENT) {
-+		err = 0;
-+	} else if (err && err != -ENOSPC) {
-+		mlx4_err(dev, "%s: failed to create new counter for slave %d err %d\n",
-+			 __func__, slave, err);
-+	} else {
-+		qpc->pri_path.counter_index = counter_idx;
-+		mlx4_dbg(dev, "%s: alloc new counter for slave %d index %d\n",
-+			 __func__, slave, qpc->pri_path.counter_index);
-+		err = 0;
-+	}
-+
-+	return err;
-+}
-+
-+static int handle_counter(struct mlx4_dev *dev, struct mlx4_qp_context *qpc,
-+			  u8 slave, int port)
-+{
-+	if (qpc->pri_path.counter_index != MLX4_SINK_COUNTER_INDEX(dev))
-+		return handle_existing_counter(dev, slave, port,
-+					       qpc->pri_path.counter_index);
-+
-+	return handle_unexisting_counter(dev, qpc, slave, port);
-+}
-+
- static struct res_common *alloc_qp_tr(int id)
+ 		for (i = 0; i < NUM_FLOW_STATS; i++, strings++,
+ 		     bitmap_iterator_inc(&it))
+ 			if (bitmap_iterator_test(&it))
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 048fca0..f9142f2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1895,6 +1895,7 @@ static void mlx4_en_clear_stats(struct net_device *dev)
+ 	       sizeof(priv->rx_priority_flowstats));
+ 	memset(&priv->tx_priority_flowstats, 0,
+ 	       sizeof(priv->tx_priority_flowstats));
++	memset(&priv->pf_stats, 0, sizeof(priv->pf_stats));
+ 
+ 	for (i = 0; i < priv->tx_ring_num; i++) {
+ 		priv->tx_ring[i]->bytes = 0;
+@@ -2685,7 +2686,7 @@ void mlx4_en_update_pfc_stats_bitmap(struct mlx4_dev *dev,
+ 				     u8 rx_ppp, u8 rx_pause,
+ 				     u8 tx_ppp, u8 tx_pause)
  {
- 	struct res_qp *ret;
-@@ -2025,7 +2109,7 @@ static int vlan_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
- }
+-	int last_i = NUM_MAIN_STATS + NUM_PORT_STATS;
++	int last_i = NUM_MAIN_STATS + NUM_PORT_STATS + NUM_PF_STATS;
  
- static int counter_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
--			     u64 in_param, u64 *out_param)
-+			     u64 in_param, u64 *out_param, int port)
+ 	if (!mlx4_is_slave(dev) &&
+ 	    (dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_FLOWSTATS_EN)) {
+@@ -2747,6 +2748,11 @@ void mlx4_en_set_stats_bitmap(struct mlx4_dev *dev,
+ 	bitmap_set(stats_bitmap->bitmap, last_i, NUM_PORT_STATS);
+ 	last_i += NUM_PORT_STATS;
+ 
++	if (mlx4_is_master(dev))
++		bitmap_set(stats_bitmap->bitmap, last_i,
++			   NUM_PF_STATS);
++	last_i += NUM_PF_STATS;
++
+ 	mlx4_en_update_pfc_stats_bitmap(dev, stats_bitmap,
+ 					rx_ppp, rx_pause,
+ 					tx_ppp, tx_pause);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
+index 0a56f01..73f6277 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
+@@ -149,6 +149,7 @@ static unsigned long en_stats_adder(__be64 *start, __be64 *next, int num)
+ 
+ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
  {
- 	u32 index;
++	struct mlx4_counter tmp_counter_stats;
+ 	struct mlx4_en_stat_out_mbox *mlx4_en_stats;
+ 	struct mlx4_en_stat_out_flow_control_mbox *flowstats;
+ 	struct mlx4_en_priv *priv = netdev_priv(mdev->pndev[port]);
+@@ -156,7 +157,7 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
+ 	struct mlx4_cmd_mailbox *mailbox;
+ 	u64 in_mod = reset << 8 | port;
  	int err;
-@@ -2043,7 +2127,7 @@ static int counter_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
- 		return err;
- 	}
+-	int i;
++	int i, counter_index;
  
--	err = add_res_range(dev, slave, index, 1, RES_COUNTER, 0);
-+	err = add_res_range(dev, slave, index, 1, RES_COUNTER, port);
- 	if (err) {
- 		__mlx4_counter_free(dev, index);
- 		mlx4_release_resource(dev, slave, RES_COUNTER, 1, 0);
-@@ -2125,7 +2209,7 @@ int mlx4_ALLOC_RES_wrapper(struct mlx4_dev *dev, int slave,
+ 	mailbox = mlx4_alloc_cmd_mailbox(mdev->dev);
+ 	if (IS_ERR(mailbox))
+@@ -296,6 +297,11 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
  
- 	case RES_COUNTER:
- 		err = counter_alloc_res(dev, slave, vhcr->op_modifier, alop,
--					vhcr->in_param, &vhcr->out_param);
-+					vhcr->in_param, &vhcr->out_param, 0);
- 		break;
+ 	spin_unlock_bh(&priv->stats_lock);
  
- 	case RES_XRCD:
++	memset(&tmp_counter_stats, 0, sizeof(tmp_counter_stats));
++	counter_index = mlx4_get_default_counter_index(mdev->dev, port);
++	err = mlx4_get_counter_stats(mdev->dev, counter_index,
++				     &tmp_counter_stats, reset);
++
+ 	/* 0xffs indicates invalid value */
+ 	memset(mailbox->buf, 0xff, sizeof(*flowstats) * MLX4_NUM_PRIORITIES);
+ 
+@@ -314,6 +320,13 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
+ 
+ 	spin_lock_bh(&priv->stats_lock);
+ 
++	if (tmp_counter_stats.counter_mode == 0) {
++		priv->pf_stats.rx_bytes   = be64_to_cpu(tmp_counter_stats.rx_bytes);
++		priv->pf_stats.tx_bytes   = be64_to_cpu(tmp_counter_stats.tx_bytes);
++		priv->pf_stats.rx_packets = be64_to_cpu(tmp_counter_stats.rx_frames);
++		priv->pf_stats.tx_packets = be64_to_cpu(tmp_counter_stats.tx_frames);
++	}
++
+ 	for (i = 0; i < MLX4_NUM_PRIORITIES; i++)	{
+ 		priv->rx_priority_flowstats[i].rx_pause =
+ 			be64_to_cpu(flowstats[i].rx_pause);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index f6c3e12..d5f9adb 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -566,6 +566,7 @@ struct mlx4_en_priv {
+ #endif
+ 	struct mlx4_en_perf_stats pstats;
+ 	struct mlx4_en_pkt_stats pkstats;
++	struct mlx4_en_counter_stats pf_stats;
+ 	struct mlx4_en_flow_stats_rx rx_priority_flowstats[MLX4_NUM_PRIORITIES];
+ 	struct mlx4_en_flow_stats_tx tx_priority_flowstats[MLX4_NUM_PRIORITIES];
+ 	struct mlx4_en_flow_stats_rx rx_flowstats;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h
+index 0055583..c5c1de9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h
+@@ -23,6 +23,14 @@ struct mlx4_en_pkt_stats {
+ #define NUM_PKT_STATS		43
+ };
+ 
++struct mlx4_en_counter_stats {
++	unsigned long rx_packets;
++	unsigned long rx_bytes;
++	unsigned long tx_packets;
++	unsigned long tx_bytes;
++#define NUM_PF_STATS      4
++};
++
+ struct mlx4_en_port_stats {
+ 	unsigned long tso_packets;
+ 	unsigned long xmit_more;
+@@ -71,7 +79,8 @@ struct mlx4_en_flow_stats_tx {
+ 
+ #define NUM_FLOW_STATS (NUM_FLOW_STATS_RX + NUM_FLOW_STATS_TX + \
+ 			NUM_FLOW_PRIORITY_STATS_TX + \
+-			NUM_FLOW_PRIORITY_STATS_RX)
++			NUM_FLOW_PRIORITY_STATS_RX + \
++			NUM_PF_STATS)
+ 
+ struct mlx4_en_stat_out_flow_control_mbox {
+ 	/* Total number of PAUSE frames received from the far-end port */
 -- 
 1.7.1
