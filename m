@@ -1,24 +1,20 @@
 From: Joonsoo Kim <iamjoonsoo.kim@lge.com>
 Subject: Re: [PATCH 7/7] slub: initial bulk free implementation
-Date: Tue, 16 Jun 2015 16:23:28 +0900
-Message-ID: <20150616072328.GB13125@js1304-P5Q-DELUXE>
+Date: Tue, 16 Jun 2015 16:28:06 +0900
+Message-ID: <20150616072806.GC13125@js1304-P5Q-DELUXE>
 References: <20150615155053.18824.617.stgit@devil>
  <20150615155256.18824.42651.stgit@devil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-mm@kvack.org, Christoph Lameter <cl@linux.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Alexander Duyck <alexander.duyck@gmail.com>
+	Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	Alexander Duyck <alexander.duyck@gmail.com>
 To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lgeamrelo01.lge.com ([156.147.1.125]:41068 "EHLO
-	lgeamrelo01.lge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751419AbbFPHVU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 03:21:20 -0400
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
 In-Reply-To: <20150615155256.18824.42651.stgit@devil>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
 On Mon, Jun 15, 2015 at 05:52:56PM +0200, Jesper Dangaard Brouer wrote:
 > This implements SLUB specific kmem_cache_free_bulk().  SLUB allocator
@@ -55,8 +51,27 @@ On Mon, Jun 15, 2015 at 05:52:56PM +0200, Jesper Dangaard Brouer wrote:
 > +
 > +		page = virt_to_head_page(object);
 > +		BUG_ON(s != page->slab_cache); /* Check if valid slab page */
+> +
+> +		if (c->page == page) {
+> +			/* Fastpath: local CPU free */
+> +			set_freepointer(s, object, c->freelist);
+> +			c->freelist = object;
+> +		} else {
+> +			c->tid = next_tid(c->tid);
+> +			local_irq_enable();
+> +			/* Slowpath: overhead locked cmpxchg_double_slab */
+> +			__slab_free(s, page, object, _RET_IP_);
+> +			local_irq_disable();
+> +			c = this_cpu_ptr(s->cpu_slab);
 
-You need to use cache_from_objt() to support kmemcg accounting.
-And, slab_free_hook() should be called before free.
+SLUB free path doesn't need to irq management in many cases although
+it uses cmpxchg_doule_slab. Is this really better than just calling
+__kmem_cache_free_bulk()?
 
 Thanks.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
