@@ -1,55 +1,62 @@
 From: Julien Grall <julien.grall@citrix.com>
-Subject: [PATCH v4 2/3] net/xen-netback: Remove unused code in xenvif_rx_action
-Date: Tue, 16 Jun 2015 20:10:47 +0100
-Message-ID: <1434481848-26387-3-git-send-email-julien.grall@citrix.com>
+Subject: [PATCH v4 1/3] net/xen-netfront: Correct printf format in xennet_get_responses
+Date: Tue, 16 Jun 2015 20:10:46 +0100
+Message-ID: <1434481848-26387-2-git-send-email-julien.grall@citrix.com>
 References: <1434481848-26387-1-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>,
 	Julien Grall <julien.grall@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
 	<netdev@vger.kernel.org>
 To: <xen-devel@lists.xenproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:4058 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754792AbbFPTMC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jun 2015 15:12:02 -0400
 In-Reply-To: <1434481848-26387-1-git-send-email-julien.grall@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The variables old_req_cons and ring_slots_used are assigned but never
-used since commit 1650d5455bd2dc6b5ee134bd6fc1a3236c266b5b "xen-netback:
-always fully coalesce guest Rx packets".
+rx->status is an int16_t, print it using %d rather than %u in order to
+have a meaningful value when the field is negative.
+
+Also use %u rather than %x for rx->offset.
 
 Signed-off-by: Julien Grall <julien.grall@citrix.com>
-Acked-by: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
+Reviewed-by: David Vrabel <david.vrabel@citrix.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
 Cc: netdev@vger.kernel.org
 
 ---
-    Changes in v2:
-        - Add Wei's Acked-by
----
- drivers/net/xen-netback/netback.c | 5 -----
- 1 file changed, 5 deletions(-)
+    Changes in v4:
+        - Use %u for the rx->offset because offset is unsigned
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 0d25943..ba3ae30 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -515,14 +515,9 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
- 
- 	while (xenvif_rx_ring_slots_available(queue, XEN_NETBK_RX_SLOTS_MAX)
- 	       && (skb = xenvif_rx_dequeue(queue)) != NULL) {
--		RING_IDX old_req_cons;
--		RING_IDX ring_slots_used;
--
- 		queue->last_rx_time = jiffies;
- 
--		old_req_cons = queue->rx.req_cons;
- 		XENVIF_RX_CB(skb)->meta_slots_used = xenvif_gop_skb(skb, &npo, queue);
--		ring_slots_used = queue->rx.req_cons - old_req_cons;
- 
- 		__skb_queue_tail(&rxq, skb);
- 	}
+    Changes in v3:
+        - Use %d for the rx->offset too.
+
+    Changes in v2:
+        - Add David's Reviewed-by
+---
+ drivers/net/xen-netfront.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index e031c94..281720f 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -733,7 +733,7 @@ static int xennet_get_responses(struct netfront_queue *queue,
+ 		if (unlikely(rx->status < 0 ||
+ 			     rx->offset + rx->status > PAGE_SIZE)) {
+ 			if (net_ratelimit())
+-				dev_warn(dev, "rx->offset: %x, size: %u\n",
++				dev_warn(dev, "rx->offset: %u, size: %d\n",
+ 					 rx->offset, rx->status);
+ 			xennet_move_rx_slot(queue, skb, ref);
+ 			err = -EINVAL;
 -- 
 2.1.4
