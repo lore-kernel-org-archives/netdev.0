@@ -1,62 +1,86 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH 1/2] net: mvneta: introduce tx_csum_limit property
-Date: Tue, 16 Jun 2015 11:59:05 +0000
-Message-ID: <20150616115905.GB2917@io.lakedaemon.net>
-References: <1434378443-23029-1-git-send-email-simon.guinot@sequanux.org>
- <1434378443-23029-2-git-send-email-simon.guinot@sequanux.org>
- <20150615164952.4f2f4dab@free-electrons.com>
- <20150615155440.GS4853@kw.sim.vm.gnt>
- <20150616120034.510b0030@free-electrons.com>
+From: Joonsoo Kim <js1304@gmail.com>
+Subject: Re: [PATCH 7/7] slub: initial bulk free implementation
+Date: Tue, 16 Jun 2015 21:00:39 +0900
+Message-ID: <CAAmzW4P4kHW4NJv=BFXye4bENv1L7Tdyhuwio3rm5j-3y-tE-g@mail.gmail.com>
+References: <20150615155053.18824.617.stgit@devil>
+	<20150615155256.18824.42651.stgit@devil>
+	<20150616072328.GB13125@js1304-P5Q-DELUXE>
+	<20150616112033.0b8bafb8@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Guinot <simon.guinot@sequanux.org>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	stable@vger.kernel.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+	Linux Memory Management List <linux-mm@kvack.org>,
+	Christoph Lameter <cl@linux.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pmta2.delivery5.ore.mailhop.org ([54.186.218.12]:46458 "HELO
-	pmta2.delivery5.ore.mailhop.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754528AbbFPL7K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 07:59:10 -0400
-Content-Disposition: inline
-In-Reply-To: <20150616120034.510b0030@free-electrons.com>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:34724 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753223AbbFPMAk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 08:00:40 -0400
+Received: by oigx81 with SMTP id x81so9600064oig.1
+        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 05:00:39 -0700 (PDT)
+In-Reply-To: <20150616112033.0b8bafb8@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thomas, Simon,
+2015-06-16 18:20 GMT+09:00 Jesper Dangaard Brouer <brouer@redhat.com>:
+> On Tue, 16 Jun 2015 16:23:28 +0900
+> Joonsoo Kim <iamjoonsoo.kim@lge.com> wrote:
+>
+>> On Mon, Jun 15, 2015 at 05:52:56PM +0200, Jesper Dangaard Brouer wrote:
+>> > This implements SLUB specific kmem_cache_free_bulk().  SLUB allocator
+>> > now both have bulk alloc and free implemented.
+>> >
+>> > Play nice and reenable local IRQs while calling slowpath.
+>> >
+>> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+>> > ---
+>> >  mm/slub.c |   32 +++++++++++++++++++++++++++++++-
+>> >  1 file changed, 31 insertions(+), 1 deletion(-)
+>> >
+>> > diff --git a/mm/slub.c b/mm/slub.c
+>> > index 98d0e6f73ec1..cc4f870677bb 100644
+>> > --- a/mm/slub.c
+>> > +++ b/mm/slub.c
+>> > @@ -2752,7 +2752,37 @@ EXPORT_SYMBOL(kmem_cache_free);
+>> >
+>> >  void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
+>> >  {
+>> > -   __kmem_cache_free_bulk(s, size, p);
+>> > +   struct kmem_cache_cpu *c;
+>> > +   struct page *page;
+>> > +   int i;
+>> > +
+>> > +   local_irq_disable();
+>> > +   c = this_cpu_ptr(s->cpu_slab);
+>> > +
+>> > +   for (i = 0; i < size; i++) {
+>> > +           void *object = p[i];
+>> > +
+>> > +           if (unlikely(!object))
+>> > +                   continue; // HOW ABOUT BUG_ON()???
+>> > +
+>> > +           page = virt_to_head_page(object);
+>> > +           BUG_ON(s != page->slab_cache); /* Check if valid slab page */
+>>
+>> You need to use cache_from_objt() to support kmemcg accounting.
+>> And, slab_free_hook() should be called before free.
+>
+> Okay, but Christoph choose to not support kmem_cache_debug() in patch2/7.
+>
+> Should we/I try to add kmem cache debugging support?
 
-On Tue, Jun 16, 2015 at 12:00:34PM +0200, Thomas Petazzoni wrote:
-> On Mon, 15 Jun 2015 17:54:41 +0200, Simon Guinot wrote:
-> > > The current armada-370-neta would limit the HW checksumming features to
-> > > packets smaller than 1600 bytes, while a new armada-xp-neta would not
-> > > have this limit.
-> > 
-> > This was also my first idea. But by doing this, we take the risk of
-> > losing the HW checksumming feature with jumbo frames on some currently
-> > working Armada XP setups. This may happen for example if a user is able
-> > to update the kernel but not the on-board DTB. In order to fix a feature
-> > on a SoC, we are breaking the DTB-kernel compatibility for the very same
-> > feature on an another SoC. I am not sure it is OK.
+kmem_cache_debug() is the check for slab internal debugging feature.
+slab_free_hook() and others mentioned from me are also related to external
+debugging features like as kasan and kmemleak. So, even if
+debugged kmem_cache isn't supported by bulk API, external debugging
+feature should be supported.
 
-Frankly, this isn't a realistic scenario.  We've said from day one that
-if the dtb is provided with the board that it needs to be updateable.
-For exactly these kinds of situations.  Also, Thomas' assessment is
-correct, everyone we've ever spoken to is keeping the dtb in sync with
-the kernel.
+> If adding these, then I would also need to add those on alloc path...
 
-As long as a board with the old dtb boots a newer kernel without
-crashing, then it's fine.  afaict in this situation, the updated driver
-should limit HW checksumming for packets >1600 bytes if the compatible
-string is 'armada-370-neta'.  Regardless of actual SoC underneath.
-If the driver gets 'armada-xp-neta' then there is no checksum limit.
+Yes, please.
 
-Users with an Armada XP SoC and an old dtb will need to upgrade the dtb
-in order to make use of HW checksumming on jumbo packets with newer
-kernels.  Seems sane to me.
-
-thx,
-
-Jason.
+Thanks.
