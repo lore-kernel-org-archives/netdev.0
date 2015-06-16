@@ -1,38 +1,63 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH 7/7] slub: initial bulk free implementation
-Date: Tue, 16 Jun 2015 11:04:45 -0500 (CDT)
-Message-ID: <alpine.DEB.2.11.1506161104060.5683@east.gentwo.org>
-References: <20150615155053.18824.617.stgit@devil> <20150615155256.18824.42651.stgit@devil> <20150616072806.GC13125@js1304-P5Q-DELUXE> <20150616102110.55208fdd@redhat.com> <20150616105732.2bc37714@redhat.com> <CAAmzW4OM-afGBZbWZzcH7O-mivNWvyeKpMVV4Os+i4Xb7GPgmg@mail.gmail.com>
- <alpine.DEB.2.11.1506161008350.3496@east.gentwo.org> <20150616175231.427499ae@redhat.com>
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Joonsoo Kim <js1304@gmail.com>,
-	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-	Linux Memory Management List <linux-mm@kvack.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net] ipv4: include NLM_F_APPEND flag in append route notifications
+Date: Tue, 16 Jun 2015 09:11:59 -0700
+Message-ID: <1434471120-26742-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from resqmta-ch2-03v.sys.comcast.net ([69.252.207.35]:41578 "EHLO
-	resqmta-ch2-03v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751404AbbFPQEq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 12:04:46 -0400
-In-Reply-To: <20150616175231.427499ae@redhat.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:34152 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752711AbbFPQMG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 12:12:06 -0400
+Received: by pdbki1 with SMTP id ki1so17541469pdb.1
+        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 09:12:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 16 Jun 2015, Jesper Dangaard Brouer wrote:
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-> It is very important that everybody realizes that the save+restore
-> variant is very expensive, this is key:
->
-> CPU: i7-4790K CPU @ 4.00GHz
->  * local_irq_{disable,enable}:  7 cycles(tsc) - 1.821 ns
->  * local_irq_{save,restore}  : 37 cycles(tsc) - 9.443 ns
->
-> Even if EVERY object need to call slowpath/__slab_free() it will be
-> faster than calling the fallback.  Because I've demonstrated the call
-> this_cpu_cmpxchg_double() costs 9 cycles.
+This patch adds NLM_F_APPEND flag to struct nlmsg_hdr->nlmsg_flags
+in newroute notifications if the route add was an append.
+(This is similar to how NLM_F_REPLACE is already part of new
+route replace notifications today)
 
-But the cmpxchg also stores a value. You need to add the cost of the store
-to the cycles.
+This helps userspace determine if the route add operation was
+an append.
+
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ net/ipv4/fib_trie.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 3c699c4..38ffc20 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1082,6 +1082,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ 	struct trie *t = (struct trie *)tb->tb_data;
+ 	struct fib_alias *fa, *new_fa;
+ 	struct key_vector *l, *tp;
++	unsigned int nlflags = 0;
+ 	struct fib_info *fi;
+ 	u8 plen = cfg->fc_dst_len;
+ 	u8 slen = KEYLENGTH - plen;
+@@ -1203,6 +1204,8 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ 
+ 		if (!(cfg->fc_nlflags & NLM_F_APPEND))
+ 			fa = fa_first;
++		else
++			nlflags |= NLM_F_APPEND;
+ 	}
+ 	err = -ENOENT;
+ 	if (!(cfg->fc_nlflags & NLM_F_CREATE))
+@@ -1238,7 +1241,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ 
+ 	rt_cache_flush(cfg->fc_nlinfo.nl_net);
+ 	rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen, new_fa->tb_id,
+-		  &cfg->fc_nlinfo, 0);
++		  &cfg->fc_nlinfo, nlflags);
+ succeeded:
+ 	return 0;
+ 
+-- 
+1.7.10.4
