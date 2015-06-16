@@ -1,56 +1,64 @@
-From: Haggai Eran <haggaie@mellanox.com>
-Subject: Re: [PATCH 08/11] IB/cma: Add net_dev and private data checks to
- RDMA CM
-Date: Tue, 16 Jun 2015 08:26:26 +0300
-Message-ID: <557FB382.5090300@mellanox.com>
-References: <1434358036-15526-1-git-send-email-haggaie@mellanox.com>
- <1434358036-15526-9-git-send-email-haggaie@mellanox.com>
- <20150615170837.GA14982@obsidianresearch.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC PATCH net-next 0/4] switchdev: avoid duplicate packet
+ forwarding
+Date: Tue, 16 Jun 2015 08:04:27 +0200
+Message-ID: <20150616060427.GA2135@nanopsycho.orion>
+References: <1434218670-43821-1-git-send-email-sfeldma@gmail.com>
+ <20150615.162551.805611215439524288.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Doug Ledford <dledford@redhat.com>, <linux-rdma@vger.kernel.org>,
-	<netdev@vger.kernel.org>, Liran Liss <liranl@mellanox.com>,
-	Guy Shapiro <guysh@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
-	Yotam Kenneth <yotamke@mellanox.com>
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org,
+	simon.horman@netronome.com, roopa@cumulusnetworks.com,
+	ronen.arad@intel.com, john.r.fastabend@intel.com, andrew@lunn.ch,
+	f.fainelli@gmail.com, linux@roeck-us.net, davidch@broadcom.com,
+	stephen@networkplumber.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0088.outbound.protection.outlook.com ([157.56.112.88]:63904
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752492AbbFPF1T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jun 2015 01:27:19 -0400
-In-Reply-To: <20150615170837.GA14982@obsidianresearch.com>
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:35425 "EHLO
+	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751622AbbFPGEe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 02:04:34 -0400
+Received: by wgbhy7 with SMTP id hy7so4321184wgb.2
+        for <netdev@vger.kernel.org>; Mon, 15 Jun 2015 23:04:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150615.162551.805611215439524288.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15/06/2015 20:08, Jason Gunthorpe wrote:
-> On Mon, Jun 15, 2015 at 11:47:13AM +0300, Haggai Eran wrote:
->> Instead of relying on a the ib_cm module to check an incoming CM request's
->> private data header, add these checks to the RDMA CM module. This allows a
->> following patch to to clean up the ib_cm interface and remove the code that
->> looks into the private headers. It will also allow supporting namespaces in
->> RDMA CM by making these checks namespace aware later on.
-> 
-> I was expecting one of these patches to flow the net_device from here:
-> 
->> +static struct net_device *cma_get_net_dev(struct ib_cm_event *ib_event,
->> +					  const struct cma_req_info *req)
->> +{
-> 
-> Down through cma_req_handler and cma_new_conn_id so that we get rid of
-> the cma_translate_addr on the ingress side.
-> 
-> Having the ingress side use one ingress net_device for all processing
-> seems very important to me...
+Tue, Jun 16, 2015 at 01:25:51AM CEST, davem@davemloft.net wrote:
+>From: sfeldma@gmail.com
+>Date: Sat, 13 Jun 2015 11:04:26 -0700
+>
+>> The switchdev port driver must do two things:
+>> 
+>> 1) Generate a fwd_mark for each switch port, using some unique key of the
+>>    switch device (and optionally port).  This is a one-time operation done
+>>    when port's netdev is setup.
+>> 
+>> 2) On packet ingress from port, mark the skb with the ingress port's
+>>    fwd_mark.  If the device supports it, it's useful to only mark skbs
+>>    which were already forwarded by the device.  If the device does not
+>>    support such indication, all skbs can be marked, even if they're
+>>    local dst.
+>> 
+>> Two new 32-bit fields are added to struct sk_buff and struct netdevice to
+>> hold the fwd_mark.  I've wrapped these with CONFIG_NET_SWITCHDEV for now. I
+>> tried using skb->mark for this purpose, but ebtables can overwrite the
+>> skb->mark before the bridge gets it, so that will not work.
+>> 
+>> In general, this fwd_mark can be used for any case where a packet is
+>> forwarded by the device and a copy is sent to the CPU, to avoid the kernel
+>> re-forwarding the packet.  sFlow is another use-case that comes to mind,
+>> but I haven't explored the details.
+>
+>Generally I'm against adding new fields fo sk_buff but I'm trying to be
+>open minded. :-)
+>
+>About the per-device fwd_mark, if the key attribute is uniqueness,
+>let's just do it right and use something like lib/idr.c to generate
+>truly unique indices at probe time for all devices using this
+>facility.  I like that better than having them be unique by a happy
+>accident.
 
-Is it really very important? I thought the bound_dev_if of a passive
-connection id is only used by the netlink statistics mechanism.
-
-If you insist, I can set bound_dev_if based on the results of
-cma_get_net_dev. That would cause the rdma_translate_ip call in
-cma_translate_addr to exit early after calling rdma_copy_addr with the
-chosen net_dev.
-
-Haggai
+We already have per-device uniqueue key. dev->ifindex.
+That should be good for fwd_mark purposes I believe.
