@@ -1,86 +1,68 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 2/2] batman-adv: avoid DAT to mess up LAN state
-Date: Tue, 16 Jun 2015 21:06:24 +0200
-Message-ID: <1434481584-1275-3-git-send-email-antonio@meshcoding.com>
-References: <1434481584-1275-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <antonio@meshcoding.com>,
-	Marek Lindner <mareklindner@neomailbox.ch>
+Subject: pull request [net]: batman-adv 20150616
+Date: Tue, 16 Jun 2015 21:06:22 +0200
+Message-ID: <1434481584-1275-1-git-send-email-antonio@meshcoding.com>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:33085 "EHLO s1.neomailbox.net"
+Received: from s1.neomailbox.net ([5.148.176.57]:12566 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932177AbbFPTIl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jun 2015 15:08:41 -0400
-In-Reply-To: <1434481584-1275-1-git-send-email-antonio@meshcoding.com>
+	id S932119AbbFPTIi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jun 2015 15:08:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a node running DAT receives an ARP request from the LAN for the
-first time, it is likely that this node will request the ARP entry
-through the distributed ARP table (DAT) in the mesh.
+Hello David,
 
-Once a DAT reply is received the asking node must check if the MAC
-address for which the IP address has been asked is local. If it is, the
-node must drop the ARP reply bceause the client should have replied on
-its own locally.
+this is a pull request intended for net/linux-4.1.
+I know it is rather late in the release cycle, but the fixes are
+pretty small and they were worth being sent now.
 
-Forwarding this reply means fooling any L2 bridge (e.g. Ethernet
-switches) lying between the batman-adv node and the LAN. This happens
-because the L2 bridge will think that the client sending the ARP reply
-lies somewhere in the mesh, while this node is sitting in the same LAN.
+Patch 1/2 fixes an overflow of a u32 variable that may happen while
+computing the metric to select the best batman-GW in the network.
+** It would be great if this patch could be queued for inclusion in
+any stable release >= 3.2
 
-Reported-by: Simon Wunderlich <sw@simonwunderlich.de>
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
----
+
+Patch 2/2 prevents the Distributed ARP Table from forging unwanted
+ARP replies on behalf of another host that may fool an Ethernet switch
+sitting behind batman-adv.
+** It would be great if this patch could be queued for inclusion in
+any stable release >= 3.8
+
+
+Please pull or let me know if something is wrong
+
+Thanks a lot,
+	Antonio
+
+
+
+The following changes since commit ac0a72a3e6e8d817f60ce4d9a8f3b43dc256d847:
+
+  net/mlx4_core: Disable Granular QoS per VF under IB/Eth VPI configuration (2015-06-15 16:42:57 -0700)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
+
+for you to fetch changes up to c065d51055924f6daad8e16307c364602b0f9805:
+
+  batman-adv: avoid DAT to mess up LAN state (2015-06-16 11:13:12 +0200)
+
+----------------------------------------------------------------
+Included changes:
+- fix gateway selection metric overflow
+- avoid the Distriubted ARP Table to fool Ethernet switches by forging
+  unexpected packets
+
+----------------------------------------------------------------
+Antonio Quartulli (1):
+      batman-adv: avoid DAT to mess up LAN state
+
+Ruben Wisniewski (1):
+      batman-adv: Avoid u32 overflow during gateway select
+
  net/batman-adv/distributed-arp-table.c | 18 +++++++++++++-----
- 1 file changed, 13 insertions(+), 5 deletions(-)
-
-diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
-index aad022d..5a4d45a 100644
---- a/net/batman-adv/distributed-arp-table.c
-+++ b/net/batman-adv/distributed-arp-table.c
-@@ -1107,6 +1107,9 @@ void batadv_dat_snoop_outgoing_arp_reply(struct batadv_priv *bat_priv,
-  * @bat_priv: the bat priv with all the soft interface information
-  * @skb: packet to check
-  * @hdr_size: size of the encapsulation header
-+ *
-+ * Returns true if the packet was snooped and consumed by DAT. False if the
-+ * packet has to be delivered to the interface
-  */
- bool batadv_dat_snoop_incoming_arp_reply(struct batadv_priv *bat_priv,
- 					 struct sk_buff *skb, int hdr_size)
-@@ -1114,7 +1117,7 @@ bool batadv_dat_snoop_incoming_arp_reply(struct batadv_priv *bat_priv,
- 	uint16_t type;
- 	__be32 ip_src, ip_dst;
- 	uint8_t *hw_src, *hw_dst;
--	bool ret = false;
-+	bool dropped = false;
- 	unsigned short vid;
- 
- 	if (!atomic_read(&bat_priv->distributed_arp_table))
-@@ -1143,12 +1146,17 @@ bool batadv_dat_snoop_incoming_arp_reply(struct batadv_priv *bat_priv,
- 	/* if this REPLY is directed to a client of mine, let's deliver the
- 	 * packet to the interface
- 	 */
--	ret = !batadv_is_my_client(bat_priv, hw_dst, vid);
-+	dropped = !batadv_is_my_client(bat_priv, hw_dst, vid);
-+
-+	/* if this REPLY is sent on behalf of a client of mine, let's drop the
-+	 * packet because the client will reply by itself
-+	 */
-+	dropped |= batadv_is_my_client(bat_priv, hw_src, vid);
- out:
--	if (ret)
-+	if (dropped)
- 		kfree_skb(skb);
--	/* if ret == false -> packet has to be delivered to the interface */
--	return ret;
-+	/* if dropped == false -> deliver to the interface */
-+	return dropped;
- }
- 
- /**
--- 
-2.4.3
+ net/batman-adv/gateway_client.c        |  2 +-
+ 2 files changed, 14 insertions(+), 6 deletions(-)
