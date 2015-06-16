@@ -1,43 +1,31 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: netstat and dual stack sockets
-Date: Tue, 16 Jun 2015 03:25:53 +0200
-Message-ID: <20150616012538.05160213DD@mail.nwl.cc>
-References: <20150615205421.GA22616@orbit.nwl.cc>
- <CAPh34mdX2YuqMVY8Adjnaa4CET2xaMJafQ2mLgck6sOo0Nq3xQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/15] Simplify netfilter and network
+ namespaces
+Date: Mon, 15 Jun 2015 19:14:02 -0700 (PDT)
+Message-ID: <20150615.191402.2195212737911259876.davem@davemloft.net>
+References: <87616ppt3h.fsf@x220.int.ebiederm.org>
+	<20150615.171042.1771913051598016582.davem@davemloft.net>
+	<87twu8lcre.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Hagen Paul Pfeifer <hagen@jauu.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:54254 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755843AbbFPBZj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jun 2015 21:25:39 -0400
-Content-Disposition: inline
-In-Reply-To: <CAPh34mdX2YuqMVY8Adjnaa4CET2xaMJafQ2mLgck6sOo0Nq3xQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	stephen@networkplumber.org, jjciarla@raiz.uncu.edu.ar,
+	wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg,
+	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	jhs@mojatatu.com, steffen.klassert@secunet.com,
+	herbert@gondor.apana.org.au
+To: ebiederm@xmission.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <87twu8lcre.fsf@x220.int.ebiederm.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-HGN!
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Mon, 15 Jun 2015 19:26:13 -0500
 
-On Mon, Jun 15, 2015 at 11:36:54PM +0200, Hagen Paul Pfeifer wrote:
-> On 15 June 2015 at 22:54, Phil Sutter <phil@nwl.cc> wrote:
-> 
-> > As I see it, a user has no way of detecting the listening socket in this
-> > address family: it does not show in /proc/net/{tcp,udp} nor do
-> > 'netstat', 'ss' or 'lsof' print any additional information about those
-> > sockets over pure IPv6 ones.
-> 
-> Probably a combination of IPV6_V6ONLY(1, 0) and IN6_IS_ADDR_V4MAPPED
-> fulfills all user requirements, ... so far. Your proposal is to hand
-> over sk->sk_ipv6only?
+> So what I am in the processes of doing is reviewing and testing
+> the combined set of patches and hopefully I will have something
+> for you soon (tomorrow?).  Unless Pablo has objections.
 
-Not sure if I understand you correctly - of course it is possible to
-programmatically determine whether a socket one has opened accepts
-v4mapped addresses or a given address is v4mapped. My concern is about
-the system administrator's point of view, using system tools to find out
-on which IP addresses and ports a machine is accessible. Looking at e.g.
-/proc/net/tcp6 does not reveal if a listening socket also accepts
-v4mapped addresses, factually acting as AF_INET socket upon request.
-
-Cheers, Phil
+I will be travelling tomorrow so there is no rush.
