@@ -1,36 +1,41 @@
-From: Ashutosh Tripathi <azbycs@gmail.com>
-Subject: Setting up interfaces in loopback mode using SIOCETHTOOL
-Date: Tue, 16 Jun 2015 16:22:12 +0530
-Message-ID: <CAC4WbQYt6K8xoHxviiGSsPRoEd7UX4Rhs0wkUvF+MPHG3yU2Aw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH iproute2 net-next 0/3] iplink_bridge: add support for ageing_time, priority and stp_state
+Date: Tue, 16 Jun 2015 13:38:46 +0300
+Message-ID: <1434451129-3241-1-git-send-email-razor@blackwall.org>
+Cc: stephen@networkplumber.org, joerg@higgsboson.tk,
+	davem@davemloft.net, Nikolay Aleksandrov <razor@blackwall.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f171.google.com ([209.85.160.171]:33202 "EHLO
-	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754519AbbFPKwd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 06:52:33 -0400
-Received: by ykfr66 with SMTP id r66so9985445ykf.0
-        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 03:52:32 -0700 (PDT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:36974 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756186AbbFPKxQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 06:53:16 -0400
+Received: by wifx6 with SMTP id x6so15428283wif.0
+        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 03:53:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+Hi,
+Three months ago support was added to be able to set ageing_time,
+priority and stp_state via netlink by commit:
+af615762e972 ("bridge: add ageing_time, stp_state, priority over netlink")
+This patch-set adds support for iproute2 to be able to use them.
+Exampes:
+ip link set dev br0 type bridge priority 10
+ip link set dev br0 type bridge ageing_time 10
+ip link set dev br0 type bridge stp_state 1
 
-In spite of several days of trying to get information out of ethtool
-source code, I could not get a way to set the loopback mode for
-network interfaces. I was also referring to the driver code for ixgbe
-devices to get more info on the support it provides to ethtool. In the
-driver code, there seems to be a way to set the loopback mode. But I
-had no idea how to refer to this code from user space.
 
-The SIOCETHTOOL is pretty general purpose. There is a way to test the
-interface in loopback mode via the command line interface. But I just
-wanted to set the interface in loopback mode so that I could send
-packets on the interface myself and stress the interface.
+Best regards,
+ Nikolay Aleksandrov
 
-Please help me with any suggestion in this regard.
+Nikolay Aleksandrov (3):
+  iplink_bridge: add support for ageing_time
+  iplink_bridge: add support for stp_state
+  iplink_bridge: add support for priority
 
-Thanks,
-----
-Ashutosh
+ ip/iplink_bridge.c | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+-- 
+2.4.3
