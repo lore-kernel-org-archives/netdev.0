@@ -1,97 +1,119 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: Re: [BUG,BISECTED] mvneta: second interface no more usable on mirabox
-Date: Wed, 17 Jun 2015 01:05:24 +0200
-Message-ID: <874mm71cgb.fsf@natisbad.org>
-References: <87a8vz72hr.fsf@natisbad.org> <5580A4C3.1020509@list.ru>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [RFC PATCH net-next 0/4] switchdev: avoid duplicate packet forwarding
+Date: Tue, 16 Jun 2015 16:53:56 -0700
+Message-ID: <CAE4R7bA2ruG5MbExqC=TUiZdP9xjTvhSZxNV1kv+C4MfcG_1gA@mail.gmail.com>
+References: <1434218670-43821-1-git-send-email-sfeldma@gmail.com>
+ <20150615.162551.805611215439524288.davem@davemloft.net> <20150616060427.GA2135@nanopsycho.orion>
+ <CAE4R7bDEw0JVkwagps1eBVGuZuK58eEfTX+0GU-2U1UKGCYyKQ@mail.gmail.com> <20150616211147.GB2135@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Stas Sergeev <stsp@list.ru>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"simon.horman@netronome.com" <simon.horman@netronome.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	davidch <davidch@broadcom.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 36.223.133.77.rev.sfr.net ([77.133.223.36]:58412 "EHLO
-	smtp.natisbad.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757467AbbFPXFm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 19:05:42 -0400
-In-Reply-To: <5580A4C3.1020509@list.ru> (Stas Sergeev's message of "Wed, 17
-	Jun 2015 01:35:47 +0300")
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:33691 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751560AbbFPXyR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 19:54:17 -0400
+Received: by obcej4 with SMTP id ej4so22563711obc.0
+        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 16:54:16 -0700 (PDT)
+In-Reply-To: <20150616211147.GB2135@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-Stas Sergeev <stsp@list.ru> writes:
-
-> 17.06.2015 00:44, Arnaud Ebalard =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->> Hi,
+On Tue, Jun 16, 2015 at 2:11 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Tue, Jun 16, 2015 at 06:47:47PM CEST, sfeldma@gmail.com wrote:
+>>On Mon, Jun 15, 2015 at 11:04 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> Tue, Jun 16, 2015 at 01:25:51AM CEST, davem@davemloft.net wrote:
+>>>>From: sfeldma@gmail.com
+>>>>Date: Sat, 13 Jun 2015 11:04:26 -0700
+>>>>
+>>>>> The switchdev port driver must do two things:
+>>>>>
+>>>>> 1) Generate a fwd_mark for each switch port, using some unique key of the
+>>>>>    switch device (and optionally port).  This is a one-time operation done
+>>>>>    when port's netdev is setup.
+>>>>>
+>>>>> 2) On packet ingress from port, mark the skb with the ingress port's
+>>>>>    fwd_mark.  If the device supports it, it's useful to only mark skbs
+>>>>>    which were already forwarded by the device.  If the device does not
+>>>>>    support such indication, all skbs can be marked, even if they're
+>>>>>    local dst.
+>>>>>
+>>>>> Two new 32-bit fields are added to struct sk_buff and struct netdevice to
+>>>>> hold the fwd_mark.  I've wrapped these with CONFIG_NET_SWITCHDEV for now. I
+>>>>> tried using skb->mark for this purpose, but ebtables can overwrite the
+>>>>> skb->mark before the bridge gets it, so that will not work.
+>>>>>
+>>>>> In general, this fwd_mark can be used for any case where a packet is
+>>>>> forwarded by the device and a copy is sent to the CPU, to avoid the kernel
+>>>>> re-forwarding the packet.  sFlow is another use-case that comes to mind,
+>>>>> but I haven't explored the details.
+>>>>
+>>>>Generally I'm against adding new fields fo sk_buff but I'm trying to be
+>>>>open minded. :-)
+>>>>
+>>>>About the per-device fwd_mark, if the key attribute is uniqueness,
+>>>>let's just do it right and use something like lib/idr.c to generate
+>>>>truly unique indices at probe time for all devices using this
+>>>>facility.  I like that better than having them be unique by a happy
+>>>>accident.
+>>>
+>>> We already have per-device uniqueue key. dev->ifindex.
+>>> That should be good for fwd_mark purposes I believe.
 >>
->> On Mirabox, the second ethernet interface is no more usable on 4.1-r=
-c*
->> series (no packets coming out of the interface, when using dhclient =
-for
->> instance). It works as expected on 4.0.
+>>It would be great if we could use dev->index, but fwd_mark is really
+>>to mark device ports that belong to a group.  In the case of a bridge,
+>>the device ports in the bridge should all have the same mark.  And
+>>another device's ports in the same bridge would have a different mark
+>>(so we can't use the bridge's dev->ifindex).  On ingress, the skb is
+>>marked with the ingress port's mark.  If the skb is to be forwarded
+>>out an egress port, the skb mark is compared with egress port's mark.
+>>If marks compare, then the device has already forwarded the pkt so the
+>>kernel can consume_skb to avoid duplicate pkts on the wire.
 >>
->> Bisecting the issue, I ended up on 898b2970e2c9 ("mvneta: implement
->> SGMII-based in-band link state signaling"). Reverting that commit gi=
-ves
->> me back the second interface.
->>
->> Then, I also tested on a NETGEAR ReadyNAS 104, which is also powered=
- by
->> the same SoC (Armada 370) and also has two (mvneta-supported) ethern=
-et
->> interfaces. With an unmodified 4.1-rc8, only one of the two interfac=
-es
->> is available. Reverting 898b2970e2c9 makes both usable again.
->>
->> FWIW, mirabox and RN104 ethernet interfaces use RGMII.
-> Hi, hope someone who can reproduce the problem,
-> can provide a better help.
-> I looked into a patch, and it seems most things are done
-> under "if (pp->use_inband_status)", which is not your case.
-
-Looking at the patch, yes. Both platforms I have which encounter the
-problem use RGMII and "if (pp->use_inband_status)" changes are for
-SGMII.
-
-> But it seems the patch can still change a couple of flags
-> for you, and maybe that makes a problem?
-
-AFAICT, autoneg config register (MVNETA_GMAC_AUTONEG_CONFIG) is
-modified. And the logic when link status changes is also modified:
- - MVNETA_GMAC_FORCE_LINK_DOWN flag cleared when there is carrier. It w=
-as
-   previously set when that event occured.
- - The link down event logic is also modified.
-
+>>So what we need is a unique mark for device ports within a fwding
+>>group, such as a bridge.
 >
-> Please try the attached (absolutely untested) patch.
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethe=
-rnet/marvell/mvneta.c
-> index ce5f7f9..74176ec 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -1013,6 +1013,12 @@ static void mvneta_defaults_set(struct mvneta_=
-port *pp)
->  		val =3D mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
->  		val |=3D MVNETA_GMAC_1MS_CLOCK_ENABLE;
->  		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
-> +	} else {
-> +		val =3D mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
-> +		val &=3D ~(MVNETA_GMAC_INBAND_AN_ENABLE |
-> +		       MVNETA_GMAC_AN_SPEED_EN |
-> +		       MVNETA_GMAC_AN_DUPLEX_EN);
-> +		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
->  	}
-> =20
->  	mvneta_set_ucast_table(pp, -1);
+> Yep, have a group of netdevs, pick one of them and use it's ifindex for
+> the whole group.
 
-*Second interface is back w/ that patch applied*. Cannot tell if it is =
-a
- proper fix, though or a valid workaround.
+That will not work because ports from two switches in the same bridge
+need different marks...that's how the bridge knows which ports to fwd
+and which ones to skip.
 
-Thanks for your feedback.
+Example:
 
-a+
+br0
+   sw1p1 (mark=3)
+   sw1p2 (mark=3)
+   sw2p2 (mark=7)
+   sw2p2 (mark=7)
+
+Two switches, sw1 and sw2, in bridge br0.  Let's say sw1 receives an
+unknown unicast pkt. It'll flood the pkt to its other switch ports
+(sw1p2, in this case) and send a copy to the CPU (the bridge), with
+skb->mark=3.  The bridge will flood pkt to sw1p2, sw2p1, and sw2p2,
+but our little check in dev.c will drop the pkt to sw1p2 just before
+egress onto wire.  Pkt goes out on sw2p1 and sw2p2.  This is why we
+can't use just the br0 ifindex to generate the mark.  We need
+something unique about the switch port and the bridge ifindex to give
+us a mark for a port.
+
+I'm going to send v2 which uses switch port ppid + some group ifindex
+to generate port mark.  Group ifindex could be bond ifindex or bridge
+ifindex or even zero if ports are L3 router ports and we want to prune
+any L3 forwarding by the kernel.  There is some flexibility here,
+depending on what we're trying to do.  We have the switch port ppid,
+so we might as well use it.
+
+-scott
