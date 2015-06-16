@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sfc: mark state UNINIT after unregister
-Date: Mon, 15 Jun 2015 19:55:17 -0700 (PDT)
-Message-ID: <20150615.195517.1004965610413006036.davem@davemloft.net>
-References: <557F0B1A.2040809@solarflare.com>
+Subject: Re: [PATCH 1/1 net-next] net: rds: use for_each_sg() for
+ scatterlist parsing
+Date: Mon, 15 Jun 2015 19:56:30 -0700 (PDT)
+Message-ID: <20150615.195630.111617476194185511.davem@davemloft.net>
+References: <1434388385-29246-1-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: ecree@solarflare.com
+Cc: linux-kernel@vger.kernel.org, chien.yen@oracle.com,
+	rds-devel@oss.oracle.com, netdev@vger.kernel.org
+To: fabf@skynet.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43582 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43593 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754095AbbFPCzS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 22:55:18 -0400
-In-Reply-To: <557F0B1A.2040809@solarflare.com>
+	with ESMTP id S1751354AbbFPC4b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 22:56:31 -0400
+In-Reply-To: <1434388385-29246-1-git-send-email-fabf@skynet.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Mon, 15 Jun 2015 18:27:54 +0100
+From: Fabian Frederick <fabf@skynet.be>
+Date: Mon, 15 Jun 2015 19:13:05 +0200
 
-> Without this change, modprobe -r sfc hits the BUG_ON() in
-> efx_pci_remove_main().
-> 
-> Fixes: e7fef9b45ae1 ("sfc: add sysfs entry to control MCDI tracing")
-> Reported-by: Jarod Wilson <jarod@redhat.com>
-> Reviewed-by: Jarod Wilson <jarod@redhat.com>
-> Signed-off-by: Edward Cree <ecree@solarflare.com>
+>  {
+>  	unsigned int i;
+> +	struct scatterlist *sg;
 
-Applied, thanks.
+Please order local variables from longest to shortest line (reverse
+christmas tree).
+
+Thanks.
