@@ -1,55 +1,61 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [PATCH] fm10k: Don't assume page fragments are page size
-Date: Tue, 16 Jun 2015 11:47:12 -0700
-Message-ID: <20150616184712.1966.44790.stgit@ahduyck-vm-fedora22>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	jeffrey.t.kirsher@intel.com
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: [PATCH 1/2] batman-adv: Avoid u32 overflow during gateway select
+Date: Tue, 16 Jun 2015 21:06:23 +0200
+Message-ID: <1434481584-1275-2-git-send-email-antonio@meshcoding.com>
+References: <1434481584-1275-1-git-send-email-antonio@meshcoding.com>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Ruben Wisniewski <ruben@freifunk-nrw.de>,
+	Ruben Wisniewsi <ruben@vfn-nrw.de>,
+	Sven Eckelmann <sven@narfation.org>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Antonio Quartulli <antonio@meshcoding.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33343 "EHLO mx1.redhat.com"
+Received: from s1.neomailbox.net ([5.148.176.57]:24798 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754785AbbFPSrN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jun 2015 14:47:13 -0400
+	id S932169AbbFPTIk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jun 2015 15:08:40 -0400
+In-Reply-To: <1434481584-1275-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change pulls out the optimization that assumed that all fragments
-would be limited to page size.  That hasn't been the case for some time now
-and to assume this is incorrect as the TCP allocator can provide up to a
-32K page fragment.
+From: Ruben Wisniewski <ruben@freifunk-nrw.de>
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+The gateway selection based on fast connections is using a single value
+calculated from the average tq (0-255) and the download bandwidth (in
+100Kibit). The formula for the first step (tq ** 2 * 10000 * bandwidth)
+tends to overflow a u32 with low bandwidth settings like 50 [100KiBit]
+and a tq value of over 92.
+
+Changing this to a 64 bit unsigned integer allows to support a
+bandwidth_down with up to ~2.8e10 [100KiBit] and a perfect tq of 255. This
+is ~6.6 times higher than the maximum possible value of the gateway
+announcement TVLV.
+
+This problem only affects the non-default gw_sel_class 1.
+
+Signed-off-by: Ruben Wisniewsi <ruben@vfn-nrw.de>
+[sven@narfation.org: rewritten commit message, changed to kernel type]
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+
+Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_main.c |    7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
+ net/batman-adv/gateway_client.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index 982fdcdc795b..620ff5e9dc59 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -1079,9 +1079,7 @@ netdev_tx_t fm10k_xmit_frame_ring(struct sk_buff *skb,
- 	struct fm10k_tx_buffer *first;
- 	int tso;
- 	u32 tx_flags = 0;
--#if PAGE_SIZE > FM10K_MAX_DATA_PER_TXD
- 	unsigned short f;
--#endif
- 	u16 count = TXD_USE_COUNT(skb_headlen(skb));
- 
- 	/* need: 1 descriptor per page * PAGE_SIZE/FM10K_MAX_DATA_PER_TXD,
-@@ -1089,12 +1087,9 @@ netdev_tx_t fm10k_xmit_frame_ring(struct sk_buff *skb,
- 	 *       + 2 desc gap to keep tail from touching head
- 	 * otherwise try next time
- 	 */
--#if PAGE_SIZE > FM10K_MAX_DATA_PER_TXD
- 	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
- 		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
--#else
--	count += skb_shinfo(skb)->nr_frags;
--#endif
-+
- 	if (fm10k_maybe_stop_tx(tx_ring, count + 3)) {
- 		tx_ring->tx_stats.tx_busy++;
- 		return NETDEV_TX_BUSY;
+diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
+index 090828c..ca734f8 100644
+--- a/net/batman-adv/gateway_client.c
++++ b/net/batman-adv/gateway_client.c
+@@ -133,7 +133,7 @@ batadv_gw_get_best_gw_node(struct batadv_priv *bat_priv)
+ 	struct batadv_neigh_node *router;
+ 	struct batadv_neigh_ifinfo *router_ifinfo;
+ 	struct batadv_gw_node *gw_node, *curr_gw = NULL;
+-	uint32_t max_gw_factor = 0, tmp_gw_factor = 0;
++	uint64_t max_gw_factor = 0, tmp_gw_factor = 0;
+ 	uint32_t gw_divisor;
+ 	uint8_t max_tq = 0;
+ 	uint8_t tq_avg;
+-- 
+2.4.3
