@@ -1,68 +1,55 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: pull request [net]: batman-adv 20150616
-Date: Tue, 16 Jun 2015 21:06:22 +0200
-Message-ID: <1434481584-1275-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:12566 "EHLO s1.neomailbox.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932119AbbFPTIi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jun 2015 15:08:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julien Grall <julien.grall@citrix.com>
+Subject: [PATCH v4 2/3] net/xen-netback: Remove unused code in xenvif_rx_action
+Date: Tue, 16 Jun 2015 20:10:47 +0100
+Message-ID: <1434481848-26387-3-git-send-email-julien.grall@citrix.com>
+References: <1434481848-26387-1-git-send-email-julien.grall@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>,
+	Julien Grall <julien.grall@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>
+To: <xen-devel@lists.xenproject.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1434481848-26387-1-git-send-email-julien.grall@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello David,
+The variables old_req_cons and ring_slots_used are assigned but never
+used since commit 1650d5455bd2dc6b5ee134bd6fc1a3236c266b5b "xen-netback:
+always fully coalesce guest Rx packets".
 
-this is a pull request intended for net/linux-4.1.
-I know it is rather late in the release cycle, but the fixes are
-pretty small and they were worth being sent now.
+Signed-off-by: Julien Grall <julien.grall@citrix.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: netdev@vger.kernel.org
 
-Patch 1/2 fixes an overflow of a u32 variable that may happen while
-computing the metric to select the best batman-GW in the network.
-** It would be great if this patch could be queued for inclusion in
-any stable release >= 3.2
+---
+    Changes in v2:
+        - Add Wei's Acked-by
+---
+ drivers/net/xen-netback/netback.c | 5 -----
+ 1 file changed, 5 deletions(-)
 
-
-Patch 2/2 prevents the Distributed ARP Table from forging unwanted
-ARP replies on behalf of another host that may fool an Ethernet switch
-sitting behind batman-adv.
-** It would be great if this patch could be queued for inclusion in
-any stable release >= 3.8
-
-
-Please pull or let me know if something is wrong
-
-Thanks a lot,
-	Antonio
-
-
-
-The following changes since commit ac0a72a3e6e8d817f60ce4d9a8f3b43dc256d847:
-
-  net/mlx4_core: Disable Granular QoS per VF under IB/Eth VPI configuration (2015-06-15 16:42:57 -0700)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
-
-for you to fetch changes up to c065d51055924f6daad8e16307c364602b0f9805:
-
-  batman-adv: avoid DAT to mess up LAN state (2015-06-16 11:13:12 +0200)
-
-----------------------------------------------------------------
-Included changes:
-- fix gateway selection metric overflow
-- avoid the Distriubted ARP Table to fool Ethernet switches by forging
-  unexpected packets
-
-----------------------------------------------------------------
-Antonio Quartulli (1):
-      batman-adv: avoid DAT to mess up LAN state
-
-Ruben Wisniewski (1):
-      batman-adv: Avoid u32 overflow during gateway select
-
- net/batman-adv/distributed-arp-table.c | 18 +++++++++++++-----
- net/batman-adv/gateway_client.c        |  2 +-
- 2 files changed, 14 insertions(+), 6 deletions(-)
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 0d25943..ba3ae30 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -515,14 +515,9 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
+ 
+ 	while (xenvif_rx_ring_slots_available(queue, XEN_NETBK_RX_SLOTS_MAX)
+ 	       && (skb = xenvif_rx_dequeue(queue)) != NULL) {
+-		RING_IDX old_req_cons;
+-		RING_IDX ring_slots_used;
+-
+ 		queue->last_rx_time = jiffies;
+ 
+-		old_req_cons = queue->rx.req_cons;
+ 		XENVIF_RX_CB(skb)->meta_slots_used = xenvif_gop_skb(skb, &npo, queue);
+-		ring_slots_used = queue->rx.req_cons - old_req_cons;
+ 
+ 		__skb_queue_tail(&rxq, skb);
+ 	}
+-- 
+2.1.4
