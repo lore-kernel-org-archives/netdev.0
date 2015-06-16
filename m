@@ -1,47 +1,53 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/17] fm10k: remove extraneous NULL check on l2_accel
-Date: Tue, 16 Jun 2015 06:47:19 -0700
-Message-ID: <1434462448-140563-9-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1434462448-140563-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next 09/17] fm10k: trivial fixup message style to include
+ a colon
+Date: Tue, 16 Jun 2015 17:16:18 +0300
+Message-ID: <55802FB2.9080507@cogentembedded.com>
+References: <1434462448-140563-1-git-send-email-jeffrey.t.kirsher@intel.com> <1434462448-140563-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:8750 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756706AbbFPNrg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jun 2015 09:47:36 -0400
-In-Reply-To: <1434462448-140563-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:32934 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754670AbbFPOQV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 10:16:21 -0400
+Received: by laka10 with SMTP id a10so12383046lak.0
+        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 07:16:20 -0700 (PDT)
+In-Reply-To: <1434462448-140563-10-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+Hello.
 
-l2_accel was checked for NULL at the top of fm10k_dfwd_del_station, and
-we return if it is not defined. Due to this, we already know it can't be
-null here so a separate check is meaningless. Discovered via cppcheck.
+On 6/16/2015 4:47 PM, Jeff Kirsher wrote:
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+> From: Jacob Keller <jacob.e.keller@intel.com>
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index 4c6b511..99228bf 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -1333,8 +1333,7 @@ static void fm10k_dfwd_del_station(struct net_device *dev, void *priv)
- 	dglort.rss_l = fls(interface->ring_feature[RING_F_RSS].mask);
- 	dglort.pc_l = fls(interface->ring_feature[RING_F_QOS].mask);
- 	dglort.glort = interface->glort;
--	if (l2_accel)
--		dglort.shared_l = fls(l2_accel->size);
-+	dglort.shared_l = fls(l2_accel->size);
- 	hw->mac.ops.configure_dglort_map(hw, &dglort);
- 
- 	/* If table is empty remove it */
--- 
-2.4.3
+> Fix up error message style to include a colon.
+
+> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+> Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>   drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+
+> diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+> index 445014a..5269b16 100644
+> --- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+> +++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+> @@ -1773,7 +1773,7 @@ static int fm10k_probe(struct pci_dev *pdev,
+>   					   fm10k_driver_name);
+>   	if (err) {
+>   		dev_err(&pdev->dev,
+> -			"pci_request_selected_regions failed 0x%x\n", err);
+> +			"pci_request_selected_regions failed: 0x%x\n", err);
+
+    I don't think printing error in hexadecimal makes much sense, so you might 
+as well fix that format to "%d"...
+
+WBR, Sergei
