@@ -1,63 +1,53 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH iproute2 net-next] bonding: export 3ad actor and partner port state
-Date: Tue, 16 Jun 2015 12:26:57 +0300
-Message-ID: <1434446817-1224-1-git-send-email-razor@blackwall.org>
-Cc: stephen@networkplumber.org,
-	Nikolay Aleksandrov <razor@blackwall.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:34592 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932347AbbFPJ1F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 05:27:05 -0400
-Received: by wgv5 with SMTP id 5so7724746wgv.1
-        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 02:27:04 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH 1/2] net: mvneta: introduce tx_csum_limit property
+Date: Tue, 16 Jun 2015 12:00:34 +0200
+Message-ID: <20150616120034.510b0030@free-electrons.com>
+References: <1434378443-23029-1-git-send-email-simon.guinot@sequanux.org>
+	<1434378443-23029-2-git-send-email-simon.guinot@sequanux.org>
+	<20150615164952.4f2f4dab@free-electrons.com>
+	<20150615155440.GS4853@kw.sim.vm.gnt>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	stable@vger.kernel.org
+To: Simon Guinot <simon.guinot@sequanux.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20150615155440.GS4853@kw.sim.vm.gnt>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds support to retrieve the new bond slave attributes:
-IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE
-IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE
-which are read-only.
-This patch also adds the linux/if_link.h definitions.
+Hello,
 
-Signed-off-by: Nikolay Aleksandrov <razor@blackwall.org>
----
- include/linux/if_link.h | 2 ++
- ip/iplink_bond_slave.c  | 8 ++++++++
- 2 files changed, 10 insertions(+)
+On Mon, 15 Jun 2015 17:54:41 +0200, Simon Guinot wrote:
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 7720ad34c6b3..63555875c0c5 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -452,6 +452,8 @@ enum {
- 	IFLA_BOND_SLAVE_PERM_HWADDR,
- 	IFLA_BOND_SLAVE_QUEUE_ID,
- 	IFLA_BOND_SLAVE_AD_AGGREGATOR_ID,
-+	IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE,
-+	IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE,
- 	__IFLA_BOND_SLAVE_MAX,
- };
- 
-diff --git a/ip/iplink_bond_slave.c b/ip/iplink_bond_slave.c
-index aacba14aef9c..33bea9132b78 100644
---- a/ip/iplink_bond_slave.c
-+++ b/ip/iplink_bond_slave.c
-@@ -78,6 +78,14 @@ static void bond_slave_print_opt(struct link_util *lu, FILE *f, struct rtattr *t
- 	if (tb[IFLA_BOND_SLAVE_AD_AGGREGATOR_ID])
- 		fprintf(f, "ad_aggregator_id %d ",
- 			rta_getattr_u16(tb[IFLA_BOND_SLAVE_AD_AGGREGATOR_ID]));
-+
-+	if (tb[IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE])
-+		fprintf(f, "ad_actor_oper_port_state %d\n",
-+			rta_getattr_u8(tb[IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE]));
-+
-+	if (tb[IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE])
-+		fprintf(f, "ad_partner_oper_port_state %d\n",
-+			rta_getattr_u16(tb[IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE]));
- }
- 
- static int bond_slave_parse_opt(struct link_util *lu, int argc, char **argv,
+> > The current armada-370-neta would limit the HW checksumming features to
+> > packets smaller than 1600 bytes, while a new armada-xp-neta would not
+> > have this limit.
+> 
+> This was also my first idea. But by doing this, we take the risk of
+> losing the HW checksumming feature with jumbo frames on some currently
+> working Armada XP setups. This may happen for example if a user is able
+> to update the kernel but not the on-board DTB. In order to fix a feature
+> on a SoC, we are breaking the DTB-kernel compatibility for the very same
+> feature on an another SoC. I am not sure it is OK.
+> 
+> Are you comfortable with that ?
+
+It's either that, or keep a not-ideal solution for this problem. I'm
+not a strong believer in the need of enforcing the DT as a stable ABI,
+and I am not aware of anyone using Marvell platforms with a DTB that
+isn't changed together with the kernel. So my preference goes to fixing
+the problem properly, rather than doing non-ideal solutions.
+
+Though this is just my own opinion, and I am not a maintainer of the
+mach-mvebu platform.
+
+Thomas
 -- 
-2.4.3
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
