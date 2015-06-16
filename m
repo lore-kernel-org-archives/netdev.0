@@ -1,29 +1,30 @@
 From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH 2/7] slub bulk alloc: extract objects from the per cpu
- slab
-Date: Tue, 16 Jun 2015 10:05:06 -0500 (CDT)
-Message-ID: <alpine.DEB.2.11.1506161003480.3496@east.gentwo.org>
-References: <20150615155053.18824.617.stgit@devil> <20150615155207.18824.8674.stgit@devil> <20150616072107.GA13125@js1304-P5Q-DELUXE>
+Subject: Re: [PATCH 7/7] slub: initial bulk free implementation
+Date: Tue, 16 Jun 2015 10:06:56 -0500 (CDT)
+Message-ID: <alpine.DEB.2.11.1506161006060.3496@east.gentwo.org>
+References: <20150615155053.18824.617.stgit@devil> <20150615155256.18824.42651.stgit@devil> <20150616072328.GB13125@js1304-P5Q-DELUXE> <20150616112033.0b8bafb8@redhat.com> <CAAmzW4P4kHW4NJv=BFXye4bENv1L7Tdyhuwio3rm5j-3y-tE-g@mail.gmail.com>
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, linux-mm@kvack.org,
-    Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+    Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+    Linux Memory Management List <linux-mm@kvack.org>,
+    Andrew Morton <akpm@linux-foundation.org>,
+    Linux-Netdev <netdev@vger.kernel.org>,
     Alexander Duyck <alexander.duyck@gmail.com>
-To: Joonsoo Kim <iamjoonsoo.kim@lge.com>
+To: Joonsoo Kim <js1304@gmail.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20150616072107.GA13125@js1304-P5Q-DELUXE>
+In-Reply-To: <CAAmzW4P4kHW4NJv=BFXye4bENv1L7Tdyhuwio3rm5j-3y-tE-g@mail.gmail.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 On Tue, 16 Jun 2015, Joonsoo Kim wrote:
 
-> Now I found that we need to call slab_pre_alloc_hook() before any operation
-> on kmem_cache to support kmemcg accounting. And, we need to call
-> slab_post_alloc_hook() on every allocated objects to support many
-> debugging features like as kasan and kmemleak
+> > If adding these, then I would also need to add those on alloc path...
+>
+> Yes, please.
 
-Use the fallback function for any debugging avoids that. This needs to be
-fast. If the performance is not wanted (debugging etc active) then the
-fallback should be fine.
+Lets fall back to the generic implementation for any of these things. We
+need to focus on maximum performance in these functions. The more special
+cases we have to handle the more all of this gets compromised.
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
