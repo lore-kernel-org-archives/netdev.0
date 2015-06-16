@@ -1,50 +1,40 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: Setting up interfaces in loopback mode using SIOCETHTOOL
-Date: Tue, 16 Jun 2015 15:08:30 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF222866469130A73A@ORSMSX110.amr.corp.intel.com>
-References: <CAC4WbQYt6K8xoHxviiGSsPRoEd7UX4Rhs0wkUvF+MPHG3yU2Aw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Ashutosh Tripathi <azbycs@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:35294 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754472AbbFPPJP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jun 2015 11:09:15 -0400
-In-Reply-To: <CAC4WbQYt6K8xoHxviiGSsPRoEd7UX4Rhs0wkUvF+MPHG3yU2Aw@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH 7/7] slub: initial bulk free implementation
+Date: Tue, 16 Jun 2015 10:10:25 -0500 (CDT)
+Message-ID: <alpine.DEB.2.11.1506161008350.3496@east.gentwo.org>
+References: <20150615155053.18824.617.stgit@devil> <20150615155256.18824.42651.stgit@devil> <20150616072806.GC13125@js1304-P5Q-DELUXE> <20150616102110.55208fdd@redhat.com> <20150616105732.2bc37714@redhat.com>
+ <CAAmzW4OM-afGBZbWZzcH7O-mivNWvyeKpMVV4Os+i4Xb7GPgmg@mail.gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+    Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+    Linux Memory Management List <linux-mm@kvack.org>,
+    Andrew Morton <akpm@linux-foundation.org>,
+    Linux-Netdev <netdev@vger.kernel.org>,
+    Alexander Duyck <alexander.duyck@gmail.com>
+To: Joonsoo Kim <js1304@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CAAmzW4OM-afGBZbWZzcH7O-mivNWvyeKpMVV4Os+i4Xb7GPgmg@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
-ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBP
-biBCZWhhbGYgT2YgQXNodXRvc2ggVHJpcGF0aGkNCj4gU2VudDogVHVlc2RheSwgSnVuZSAxNiwg
-MjAxNSAzOjUyIEFNDQo+IFRvOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFNl
-dHRpbmcgdXAgaW50ZXJmYWNlcyBpbiBsb29wYmFjayBtb2RlIHVzaW5nIFNJT0NFVEhUT09MDQo+
-IA0KPiBIaSBBbGwsDQo+IA0KPiBJbiBzcGl0ZSBvZiBzZXZlcmFsIGRheXMgb2YgdHJ5aW5nIHRv
-IGdldCBpbmZvcm1hdGlvbiBvdXQgb2YgZXRodG9vbCBzb3VyY2UNCj4gY29kZSwgSSBjb3VsZCBu
-b3QgZ2V0IGEgd2F5IHRvIHNldCB0aGUgbG9vcGJhY2sgbW9kZSBmb3IgbmV0d29yayBpbnRlcmZh
-Y2VzLg0KPiBJIHdhcyBhbHNvIHJlZmVycmluZyB0byB0aGUgZHJpdmVyIGNvZGUgZm9yIGl4Z2Jl
-IGRldmljZXMgdG8gZ2V0IG1vcmUgaW5mbyBvbg0KPiB0aGUgc3VwcG9ydCBpdCBwcm92aWRlcyB0
-byBldGh0b29sLiBJbiB0aGUgZHJpdmVyIGNvZGUsIHRoZXJlIHNlZW1zIHRvIGJlIGENCj4gd2F5
-IHRvIHNldCB0aGUgbG9vcGJhY2sgbW9kZS4gQnV0IEkgaGFkIG5vIGlkZWEgaG93IHRvIHJlZmVy
-IHRvIHRoaXMgY29kZQ0KPiBmcm9tIHVzZXIgc3BhY2UuDQo+IA0KPiBUaGUgU0lPQ0VUSFRPT0wg
-aXMgcHJldHR5IGdlbmVyYWwgcHVycG9zZS4gVGhlcmUgaXMgYSB3YXkgdG8gdGVzdCB0aGUNCj4g
-aW50ZXJmYWNlIGluIGxvb3BiYWNrIG1vZGUgdmlhIHRoZSBjb21tYW5kIGxpbmUgaW50ZXJmYWNl
-LiBCdXQgSSBqdXN0IHdhbnRlZA0KPiB0byBzZXQgdGhlIGludGVyZmFjZSBpbiBsb29wYmFjayBt
-b2RlIHNvIHRoYXQgSSBjb3VsZCBzZW5kIHBhY2tldHMgb24gdGhlDQo+IGludGVyZmFjZSBteXNl
-bGYgYW5kIHN0cmVzcyB0aGUgaW50ZXJmYWNlLg0KPiANCj4gUGxlYXNlIGhlbHAgbWUgd2l0aCBh
-bnkgc3VnZ2VzdGlvbiBpbiB0aGlzIHJlZ2FyZC4NCj4gDQo+IFRoYW5rcywNCj4gLS0tLQ0KPiBB
-c2h1dG9zaA0KPiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUg
-bGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbiB0aGUgYm9keQ0KPiBvZiBhIG1lc3NhZ2UgdG8g
-bWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZyBNb3JlIG1ham9yZG9tbyBpbmZvIGF0DQo+IGh0dHA6
-Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0KDQpIZXkgQXNodXRvc2gsDQoN
-CkN1cnJlbnRseSBpeGdiZSBvbmx5IHVzZXMgTUFDIGxvb3BiYWNrIHZpYSB0aGUgZXRodG9vbCBz
-ZWxmX3Rlc3QsIHdoaWNoIGRvZXNuJ3Qgc291bmQgbGlrZSB3aGF0IHlvdSdyZSBsb29raW5nIGZv
-ci4gIEkgZG9uJ3Qga25vdyBvZiBhbiBldGh0b29sIGludGVyZmFjZSB0byB0ZWxsIGFuIGFkYXB0
-ZXIgdG8gZ28gaW50byBsb29wYmFjayBtb2RlLCBidXQgdGhpcyBtaWdodCBqdXN0IGJlIGJlY2F1
-c2UgdGhlIGRyaXZlciBJIGN1cnJlbnRseSB3b3JrIG9uIChpeGdiZSkgZG9lc24ndCBzdXBwb3J0
-IGl0LiA6KQ0KDQpUaGFua3MsDQotRG9uIFNraWRtb3JlIDxkb25hbGQuYy5za2lkbW9yZUBpbnRl
-bC5jb20+DQoNCg==
+On Tue, 16 Jun 2015, Joonsoo Kim wrote:
+
+> So, in your test, most of objects may come from one or two slabs and your
+> algorithm is well optimized for this case. But, is this workload normal case?
+
+It is normal if the objects were bulk allocated because SLUB ensures that
+all objects are first allocated from one page before moving to another.
+
+> If most of objects comes from many different slabs, bulk free API does
+> enabling/disabling interrupt very much so I guess it work worse than
+> just calling __kmem_cache_free_bulk(). Could you test this case?
+
+In case of SLAB this would be an issue since the queueing mechanism
+destroys spatial locality. This is much less an issue for SLUB.
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
