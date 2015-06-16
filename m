@@ -1,76 +1,94 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net] packet: avoid out of bounds read in round robin fanout
-Date: Tue, 16 Jun 2015 17:07:59 -0400
-Message-ID: <1434488879-10663-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, edumazet@google.com,
-	Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC PATCH net-next 0/4] switchdev: avoid duplicate packet
+ forwarding
+Date: Tue, 16 Jun 2015 23:11:47 +0200
+Message-ID: <20150616211147.GB2135@nanopsycho.orion>
+References: <1434218670-43821-1-git-send-email-sfeldma@gmail.com>
+ <20150615.162551.805611215439524288.davem@davemloft.net>
+ <20150616060427.GA2135@nanopsycho.orion>
+ <CAE4R7bDEw0JVkwagps1eBVGuZuK58eEfTX+0GU-2U1UKGCYyKQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"simon.horman@netronome.com" <simon.horman@netronome.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	davidch <davidch@broadcom.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f171.google.com ([209.85.160.171]:32863 "EHLO
-	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753814AbbFPVI2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 17:08:28 -0400
-Received: by ykfr66 with SMTP id r66so24284147ykf.0
-        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 14:08:28 -0700 (PDT)
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:35931 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752489AbbFPVLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 17:11:50 -0400
+Received: by wicnd19 with SMTP id nd19so9783925wic.1
+        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 14:11:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bDEw0JVkwagps1eBVGuZuK58eEfTX+0GU-2U1UKGCYyKQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+Tue, Jun 16, 2015 at 06:47:47PM CEST, sfeldma@gmail.com wrote:
+>On Mon, Jun 15, 2015 at 11:04 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Tue, Jun 16, 2015 at 01:25:51AM CEST, davem@davemloft.net wrote:
+>>>From: sfeldma@gmail.com
+>>>Date: Sat, 13 Jun 2015 11:04:26 -0700
+>>>
+>>>> The switchdev port driver must do two things:
+>>>>
+>>>> 1) Generate a fwd_mark for each switch port, using some unique key of the
+>>>>    switch device (and optionally port).  This is a one-time operation done
+>>>>    when port's netdev is setup.
+>>>>
+>>>> 2) On packet ingress from port, mark the skb with the ingress port's
+>>>>    fwd_mark.  If the device supports it, it's useful to only mark skbs
+>>>>    which were already forwarded by the device.  If the device does not
+>>>>    support such indication, all skbs can be marked, even if they're
+>>>>    local dst.
+>>>>
+>>>> Two new 32-bit fields are added to struct sk_buff and struct netdevice to
+>>>> hold the fwd_mark.  I've wrapped these with CONFIG_NET_SWITCHDEV for now. I
+>>>> tried using skb->mark for this purpose, but ebtables can overwrite the
+>>>> skb->mark before the bridge gets it, so that will not work.
+>>>>
+>>>> In general, this fwd_mark can be used for any case where a packet is
+>>>> forwarded by the device and a copy is sent to the CPU, to avoid the kernel
+>>>> re-forwarding the packet.  sFlow is another use-case that comes to mind,
+>>>> but I haven't explored the details.
+>>>
+>>>Generally I'm against adding new fields fo sk_buff but I'm trying to be
+>>>open minded. :-)
+>>>
+>>>About the per-device fwd_mark, if the key attribute is uniqueness,
+>>>let's just do it right and use something like lib/idr.c to generate
+>>>truly unique indices at probe time for all devices using this
+>>>facility.  I like that better than having them be unique by a happy
+>>>accident.
+>>
+>> We already have per-device uniqueue key. dev->ifindex.
+>> That should be good for fwd_mark purposes I believe.
+>
+>It would be great if we could use dev->index, but fwd_mark is really
+>to mark device ports that belong to a group.  In the case of a bridge,
+>the device ports in the bridge should all have the same mark.  And
+>another device's ports in the same bridge would have a different mark
+>(so we can't use the bridge's dev->ifindex).  On ingress, the skb is
+>marked with the ingress port's mark.  If the skb is to be forwarded
+>out an egress port, the skb mark is compared with egress port's mark.
+>If marks compare, then the device has already forwarded the pkt so the
+>kernel can consume_skb to avoid duplicate pkts on the wire.
+>
+>So what we need is a unique mark for device ports within a fwding
+>group, such as a bridge.
 
-PACKET_FANOUT_LB computes f->rr_cur such that it is modulo
-f->num_members. It returns the old value unconditionally, but
-f->num_members may have changed since the last store. This can be
-fixed with
+Yep, have a group of netdevs, pick one of them and use it's ifindex for
+the whole group.
 
-  -        return cur
-  +        return cur < num ? : 0;
 
-When modifying the logic, simplify it further by replacing the loop
-with an unconditional atomic increment.
-
-Fixes: dc99f600698d ("packet: Add fanout support.")
-Suggested-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/packet/af_packet.c | 19 ++-----------------
- 1 file changed, 2 insertions(+), 17 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index b5989c6..efd35e8 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1272,16 +1272,6 @@ static void packet_sock_destruct(struct sock *sk)
- 	sk_refcnt_debug_dec(sk);
- }
- 
--static int fanout_rr_next(struct packet_fanout *f, unsigned int num)
--{
--	int x = atomic_read(&f->rr_cur) + 1;
--
--	if (x >= num)
--		x = 0;
--
--	return x;
--}
--
- static unsigned int fanout_demux_hash(struct packet_fanout *f,
- 				      struct sk_buff *skb,
- 				      unsigned int num)
-@@ -1293,13 +1283,8 @@ static unsigned int fanout_demux_lb(struct packet_fanout *f,
- 				    struct sk_buff *skb,
- 				    unsigned int num)
- {
--	int cur, old;
--
--	cur = atomic_read(&f->rr_cur);
--	while ((old = atomic_cmpxchg(&f->rr_cur, cur,
--				     fanout_rr_next(f, num))) != cur)
--		cur = old;
--	return cur;
-+	unsigned int val = atomic_inc_return(&f->rr_cur);
-+	return val % num;
- }
- 
- static unsigned int fanout_demux_cpu(struct packet_fanout *f,
--- 
-2.2.0.rc0.207.ga3a616c
+>
+>I'm investigating Dave's suggestion to use IDR.  I think this will work...
