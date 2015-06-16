@@ -1,35 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] packet: free packet_rollover after
- synchronize_net
-Date: Tue, 16 Jun 2015 12:19:30 -0700
-Message-ID: <1434482370.27504.196.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1434473497-28551-1-git-send-email-willemb@google.com>
+From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH/RFC net-next] openvswitch: allow output of
+ MPLS packets on tunnel vports
+Date: Tue, 16 Jun 2015 12:54:08 -0700
+Message-ID: <CALnjE+q+N1nQdRpsdrYSyON3Sv2qRdvyFz4JELu4a0sJs=h6uw@mail.gmail.com>
+References: <1434415189-16006-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:34336 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754848AbbFPTTd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 15:19:33 -0400
-Received: by iebmu5 with SMTP id mu5so19604510ieb.1
-        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 12:19:32 -0700 (PDT)
-In-Reply-To: <1434473497-28551-1-git-send-email-willemb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1434415189-16006-1-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-06-16 at 12:51 -0400, Willem de Bruijn wrote:
-> From: Willem de Bruijn <willemb@google.com>
-> 
-> Destruction of the po->rollover must be delayed until there are no
-> more packets in flight that can access it. The field is destroyed in
-> packet_release, before synchronize_net. Delay using rcu.
-> 
-> Fixes: 0648ab70afe6 ("packet: rollover prepare: per-socket state")
-> 
-> Suggested-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+T24gTW9uLCBKdW4gMTUsIDIwMTUgYXQgNTozOSBQTSwgU2ltb24gSG9ybWFuCjxzaW1vbi5ob3Jt
+YW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gQ3VycmVudGx5IG91dHB1dCBvZiBNUExTIHBhY2tl
+dHMgb24gdHVubmVsIHZwb3J0cyBpcyBub3QgYWxsb3dlZCBieSB0aGUKPiBkYXRhcGF0aCBhbmQs
+IG1vcmVvdmVyLCBmbG93cyB0aGF0IG1hdGNoIG9uIE1QTFMgcGFja2V0cyBhbmQgb3V0cHV0IHRv
+Cj4gdHVubmVsIHZwb3J0cyBhcmUgcmVqZWN0ZWQgYnkgdGhlIGRhdGFwYXRoLiBUaGUgZmxvd3Mg
+YXJlIHJlamVjdGVkCj4gcmVnYXJkbGVzcyBvZiBpZiB0aGV5IGFsc28gb3V0cHV0IHRvIG5vbi10
+dW5uZWwgdnBvcnRzIHdoaWNoIGlzIGFsbG93ZWQgZm9yCj4gTVBMUyBwYWNrZXRzIGFuZCB0aGUg
+Zm9sbG93aW5nIGlzIGxvZ2dlZCBieSB0aGUga2VybmVsLgo+Cj4gb3BlbnZzd2l0Y2g6IG5ldGxp
+bms6IEZsb3cgYWN0aW9ucyBtYXkgbm90IGJlIHNhZmUgb24gYWxsIG1hdGNoaW5nIHBhY2tldHMu
+Cj4KPiBUaGlzIHBhdGNoIGFkZHJlc3NlcyB0aGUgYWJvdmUgYnkgYWxsb3dpbmcgb3V0cHV0IG9m
+IE1QTFMgcGFja2V0cyB0byB0dW5uZWwKPiB2cG9ydHMuCj4KPiBNeSByZWNvbGxlY3Rpb24gb2Yg
+YWRkaW5nIE1QTFMgc3VwcG9ydCB0byB0aGUgZGF0YXBhdGggd2FzIHRoYXQgYSByYXRoZXIKPiBj
+b25zZXJ2YXRpdmUgYXBwcm9hY2ggd2FzIHRha2VuIGluIG9yZGVyIHRvIG1pbmltaXNlIHRoZSBj
+aGFuY2Ugb2YgZmFsbG91dC4KPiBUaGlzIHBhdGNoIHByb3Bvc2VzIHJlbGF4aW5nIG9uZSByZXN0
+cmljdGlvbiB3aGljaCB3YXMgaW50cm9kdWNlZCBhdCB0aGF0Cj4gdGltZS4KPgo+IE15IGxpbWl0
+ZWQgdGVzdGluZyBoYXMgbm90IGlzb2xhdGVkIGFueSBzaWRlIGVmZmVjdHMgb2YgdGhpcyBjaGFu
+Z2UuCj4KPiBTaWduZWQtb2ZmLWJ5OiBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1hbkBuZXRyb25v
+bWUuY29tPgo+IC0tLQo+ICBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgfCAzIC0tLQo+
+ICAxIGZpbGUgY2hhbmdlZCwgMyBkZWxldGlvbnMoLSkKPgo+IGRpZmYgLS1naXQgYS9uZXQvb3Bl
+bnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMK
+PiBpbmRleCA2MjRlNDFjNDI2N2YuLmE1ZDNjMGFlOGFjOCAxMDA2NDQKPiAtLS0gYS9uZXQvb3Bl
+bnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKPiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRs
+aW5rLmMKPiBAQCAtMTg0Nyw5ICsxODQ3LDYgQEAgc3RhdGljIGludCB2YWxpZGF0ZV9zZXQoY29u
+c3Qgc3RydWN0IG5sYXR0ciAqYSwKPiAgICAgICAgICAgICAgICAgYnJlYWs7Cj4KPiAgICAgICAg
+IGNhc2UgT1ZTX0tFWV9BVFRSX1RVTk5FTDoKPiAtICAgICAgICAgICAgICAgaWYgKGV0aF9wX21w
+bHMoZXRoX3R5cGUpKQo+IC0gICAgICAgICAgICAgICAgICAgICAgIHJldHVybiAtRUlOVkFMOwo+
+IC0KT25lIG9mIHRoZSBwcm9ibGVtIGlzIHdpdGggc2V0dGluZyBza2ItPmlubmVyX3Byb3RvY29s
+LiBNUExTIGFuZAp0dW5uZWwgYm90aCBuZWVkcyB0byBzZXQgaW5uZXIgcHJvdG9jb2wgZmllbGQu
+IFNvIG91dGVyIGVuY2Fwc3VsYXRpb24Kd291bGQganVzdCBvdmVyd3JpdGUgZWFybGllciBpbm5l
+ciBwcm90b2NvbCBmaWVsZCBvbiBwYWNrZXQgdHJhbnNpdApwYXRoLgpfX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVu
+dnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
