@@ -1,35 +1,58 @@
-From: Andrea Parri <parri.andrea@gmail.com>
-Subject: [PATCH RESEND] pkt_sched: sch_qfq: remove redundant -if- control statement
-Date: Wed, 17 Jun 2015 00:16:59 +0200
-Message-ID: <1434493019-5762-1-git-send-email-parri.andrea@gmail.com>
-Cc: paolo.valente@unimore.it, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Andrea Parri <parri.andrea@gmail.com>
-To: jhs@mojatatu.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v4 3/3] net/xen-netback: Don't mix hexa and decimal with
+ 0x in the printf format
+Date: Wed, 17 Jun 2015 01:29:16 +0300
+Message-ID: <5580A33C.4040007@cogentembedded.com>
+References: <1434481848-26387-1-git-send-email-julien.grall@citrix.com>	 <1434481848-26387-4-git-send-email-julien.grall@citrix.com>	 <5580821D.4080408@cogentembedded.com> <1434492550.2689.8.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Julien Grall <julien.grall@citrix.com>,
+	xen-devel@lists.xenproject.org, linux-kernel@vger.kernel.org,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:35628 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752988AbbFPW3V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 18:29:21 -0400
+Received: by lbbwc1 with SMTP id wc1so20054255lbb.2
+        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 15:29:19 -0700 (PDT)
+In-Reply-To: <1434492550.2689.8.camel@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The control !hlist_unhashed() in qfq_destroy_agg() is unnecessary
-because already performed in hlist_del_init(), so remove it.
+Hello.
 
-Signed-off-by: Andrea Parri <parri.andrea@gmail.com>
----
- net/sched/sch_qfq.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+On 06/17/2015 01:09 AM, Joe Perches wrote:
 
-diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-index 3ec7e88..b8d73bc 100644
---- a/net/sched/sch_qfq.c
-+++ b/net/sched/sch_qfq.c
-@@ -339,8 +339,7 @@ static struct qfq_aggregate *qfq_choose_next_agg(struct qfq_sched *);
- 
- static void qfq_destroy_agg(struct qfq_sched *q, struct qfq_aggregate *agg)
- {
--	if (!hlist_unhashed(&agg->nonfull_next))
--		hlist_del_init(&agg->nonfull_next);
-+	hlist_del_init(&agg->nonfull_next);
- 	q->wsum -= agg->class_weight;
- 	if (q->wsum != 0)
- 		q->iwsum = ONE_FP / q->wsum;
--- 
-1.9.1
+>>> Append 0x to all %x in order to avoid while reading when there is other
+>>> decimal value in the log.
+
+> []
+
+>>> @@ -874,7 +874,7 @@ static inline void xenvif_grant_handle_set(struct xenvif_queue *queue,
+>>>    	if (unlikely(queue->grant_tx_handle[pending_idx] !=
+>>>    		     NETBACK_INVALID_HANDLE)) {
+>>>    		netdev_err(queue->vif->dev,
+>>> -			   "Trying to overwrite active handle! pending_idx: %x\n",
+>>> +			   "Trying to overwrite active handle! pending_idx: 0x%x\n",
+
+>>      Using "%#x" is shorter ind does the same.
+
+> That's true, but it's also far less common.
+
+    Which is a pity... People just don't know the format specifiers well 
+enough. :-(
+
+> $ git grep -E "%#[\*\d\.]*x" | wc -l
+> 1419
+> $ git grep "0x%" | wc -l
+> 29844
+
+    Which means 29 KB could theoretically be saved on allyesconfig build. :-)
+(Actually less since the width specifiers will likely need to be fixed where 
+present.)
+
+WBR, Sergei
