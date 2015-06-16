@@ -1,63 +1,54 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
 Subject: Re: [PATCH 7/7] slub: initial bulk free implementation
-Date: Tue, 16 Jun 2015 10:04:56 +0200
-Message-ID: <20150616100456.624d775e@redhat.com>
+Date: Tue, 16 Jun 2015 10:21:10 +0200
+Message-ID: <20150616102110.55208fdd@redhat.com>
 References: <20150615155053.18824.617.stgit@devil>
 	<20150615155256.18824.42651.stgit@devil>
-	<alpine.DEB.2.11.1506151133150.20358@east.gentwo.org>
+	<20150616072806.GC13125@js1304-P5Q-DELUXE>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
-        netdev@vger.kernel.org, Alexander Duyck <alexander.duyck@gmail.com>,
-        brouer@redhat.com
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.11.1506151133150.20358@east.gentwo.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-mm@kvack.org, Christoph Lameter <cl@linux.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	Alexander Duyck <alexander.duyck@gmail.com>, brouer@redhat.com
+To: Joonsoo Kim <iamjoonsoo.kim@lge.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54552 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756277AbbFPIVP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jun 2015 04:21:15 -0400
+In-Reply-To: <20150616072806.GC13125@js1304-P5Q-DELUXE>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 15 Jun 2015 11:34:44 -0500 (CDT)
-Christoph Lameter <cl@linux.com> wrote:
 
-> On Mon, 15 Jun 2015, Jesper Dangaard Brouer wrote:
-> 
-> > +	for (i = 0; i < size; i++) {
-> > +		void *object = p[i];
-> > +
-> > +		if (unlikely(!object))
-> > +			continue; // HOW ABOUT BUG_ON()???
-> 
-> Sure BUG_ON would be fitting here.
+On Tue, 16 Jun 2015 16:28:06 +0900 Joonsoo Kim <iamjoonsoo.kim@lge.com> wrote:
 
-Okay, will do in V2.
+> Is this really better than just calling __kmem_cache_free_bulk()?
 
-> > +
-> > +		page = virt_to_head_page(object);
-> > +		BUG_ON(s != page->slab_cache); /* Check if valid slab page */
-> 
-> This is the check if the slab page belongs to the slab cache we are
-> interested in.
+Yes, as can be seen by cover-letter, but my cover-letter does not seem
+to have reached mm-list.
 
-Is this appropriate to keep on this fastpath? (I copied the check from
-one of your earlier patches)
+Measurements for the entire patchset:
 
-> > +
-> > +		if (c->page == page) {
-> > +			/* Fastpath: local CPU free */
-> > +			set_freepointer(s, object, c->freelist);
-> > +			c->freelist = object;
-> > +		} else {
-> > +			c->tid = next_tid(c->tid);
-> 
-> tids are only useful for the fastpath. No need to fiddle around with them
-> for the slowpath.
+Bulk - Fallback bulking           - fastpath-bulking
+   1 -  47 cycles(tsc) 11.921 ns  -  45 cycles(tsc) 11.461 ns   improved  4.3%
+   2 -  46 cycles(tsc) 11.649 ns  -  28 cycles(tsc)  7.023 ns   improved 39.1%
+   3 -  46 cycles(tsc) 11.550 ns  -  22 cycles(tsc)  5.671 ns   improved 52.2%
+   4 -  45 cycles(tsc) 11.398 ns  -  19 cycles(tsc)  4.967 ns   improved 57.8%
+   8 -  45 cycles(tsc) 11.303 ns  -  17 cycles(tsc)  4.298 ns   improved 62.2%
+  16 -  44 cycles(tsc) 11.221 ns  -  17 cycles(tsc)  4.423 ns   improved 61.4%
+  30 -  75 cycles(tsc) 18.894 ns  -  57 cycles(tsc) 14.497 ns   improved 24.0%
+  32 -  73 cycles(tsc) 18.491 ns  -  56 cycles(tsc) 14.227 ns   improved 23.3%
+  34 -  75 cycles(tsc) 18.962 ns  -  58 cycles(tsc) 14.638 ns   improved 22.7%
+  48 -  80 cycles(tsc) 20.049 ns  -  64 cycles(tsc) 16.247 ns   improved 20.0%
+  64 -  87 cycles(tsc) 21.929 ns  -  74 cycles(tsc) 18.598 ns   improved 14.9%
+ 128 -  98 cycles(tsc) 24.511 ns  -  89 cycles(tsc) 22.295 ns   improved  9.2%
+ 158 - 101 cycles(tsc) 25.389 ns  -  93 cycles(tsc) 23.390 ns   improved  7.9%
+ 250 - 104 cycles(tsc) 26.170 ns  - 100 cycles(tsc) 25.112 ns   improved  3.8%
 
-Okay, understood.
-
-> > +			local_irq_enable();
-> > +			/* Slowpath: overhead locked cmpxchg_double_slab */
-
+I'll do a compare against the previous patch, and post the results.
 
 -- 
 Best regards,
@@ -65,9 +56,3 @@ Best regards,
   MSc.CS, Sr. Network Kernel Developer at Red Hat
   Author of http://www.iptv-analyzer.org
   LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
