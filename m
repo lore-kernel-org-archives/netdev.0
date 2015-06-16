@@ -1,60 +1,44 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [Intel-wired-lan] [PATCH] fm10k: Don't assume page fragments
- are page size
-Date: Tue, 16 Jun 2015 21:38:55 +0000
-Message-ID: <1434490735.12272.5.camel@intel.com>
-References: <20150616184712.1966.44790.stgit@ahduyck-vm-fedora22>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 1/7] slab: infrastructure for bulk object allocation and
+ freeing
+Date: Tue, 16 Jun 2015 14:44:41 -0700
+Message-ID: <20150616144441.65bead5677fc13f86b5244f2@linux-foundation.org>
+References: <20150615155053.18824.617.stgit@devil>
+	<20150615155156.18824.35187.stgit@devil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: "alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, Christoph Lameter <cl@linux.com>,
+	netdev@vger.kernel.org, Alexander Duyck <alexander.duyck@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:61144 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754783AbbFPVi5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jun 2015 17:38:57 -0400
-In-Reply-To: <20150616184712.1966.44790.stgit@ahduyck-vm-fedora22>
-Content-Language: en-US
-Content-ID: <542074CE788C254598C817B44EBD778B@intel.com>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:37166 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750905AbbFPVom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 17:44:42 -0400
+In-Reply-To: <20150615155156.18824.35187.stgit@devil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-QWNrZWQtYnk6IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0KDQpSZWdh
-cmRzLA0KSmFrZQ0KDQpPbiBUdWUsIDIwMTUtMDYtMTYgYXQgMTE6NDcgLTA3MDAsIEFsZXhhbmRl
-ciBEdXljayB3cm90ZToNCj4gVGhpcyBjaGFuZ2UgcHVsbHMgb3V0IHRoZSBvcHRpbWl6YXRpb24g
-dGhhdCBhc3N1bWVkIHRoYXQgYWxsIA0KPiBmcmFnbWVudHMNCj4gd291bGQgYmUgbGltaXRlZCB0
-byBwYWdlIHNpemUuICBUaGF0IGhhc24ndCBiZWVuIHRoZSBjYXNlIGZvciBzb21lIA0KPiB0aW1l
-IG5vdw0KPiBhbmQgdG8gYXNzdW1lIHRoaXMgaXMgaW5jb3JyZWN0IGFzIHRoZSBUQ1AgYWxsb2Nh
-dG9yIGNhbiBwcm92aWRlIHVwIA0KPiB0byBhDQo+IDMySyBwYWdlIGZyYWdtZW50Lg0KPiANCj4g
-U2lnbmVkLW9mZi1ieTogQWxleGFuZGVyIER1eWNrIDxhbGV4YW5kZXIuaC5kdXlja0ByZWRoYXQu
-Y29tPg0KPiAtLS0NCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2ZtMTBrL2ZtMTBrX21h
-aW4uYyB8ICAgIDcgKy0tLS0tLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCA2
-IGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
-dGVsL2ZtMTBrL2ZtMTBrX21haW4uYyANCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9m
-bTEway9mbTEwa19tYWluLmMNCj4gaW5kZXggOTgyZmRjZGM3OTViLi42MjBmZjVlOWRjNTkgMTAw
-NjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2ZtMTBrL2ZtMTBrX21haW4u
-Yw0KPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9mbTEway9mbTEwa19tYWluLmMN
-Cj4gQEAgLTEwNzksOSArMTA3OSw3IEBAIG5ldGRldl90eF90IGZtMTBrX3htaXRfZnJhbWVfcmlu
-ZyhzdHJ1Y3QgDQo+IHNrX2J1ZmYgKnNrYiwNCj4gICAgICAgc3RydWN0IGZtMTBrX3R4X2J1ZmZl
-ciAqZmlyc3Q7DQo+ICAgICAgIGludCB0c287DQo+ICAgICAgIHUzMiB0eF9mbGFncyA9IDA7DQo+
-IC0jaWYgUEFHRV9TSVpFID4gRk0xMEtfTUFYX0RBVEFfUEVSX1RYRA0KPiAgICAgICB1bnNpZ25l
-ZCBzaG9ydCBmOw0KPiAtI2VuZGlmDQo+ICAgICAgIHUxNiBjb3VudCA9IFRYRF9VU0VfQ09VTlQo
-c2tiX2hlYWRsZW4oc2tiKSk7DQo+ICANCj4gICAgICAgLyogbmVlZDogMSBkZXNjcmlwdG9yIHBl
-ciBwYWdlICogDQo+IFBBR0VfU0laRS9GTTEwS19NQVhfREFUQV9QRVJfVFhELA0KPiBAQCAtMTA4
-OSwxMiArMTA4Nyw5IEBAIG5ldGRldl90eF90IGZtMTBrX3htaXRfZnJhbWVfcmluZyhzdHJ1Y3Qg
-DQo+IHNrX2J1ZmYgKnNrYiwNCj4gICAgICAgICogICAgICAgKyAyIGRlc2MgZ2FwIHRvIGtlZXAg
-dGFpbCBmcm9tIHRvdWNoaW5nIGhlYWQNCj4gICAgICAgICogb3RoZXJ3aXNlIHRyeSBuZXh0IHRp
-bWUNCj4gICAgICAgICovDQo+IC0jaWYgUEFHRV9TSVpFID4gRk0xMEtfTUFYX0RBVEFfUEVSX1RY
-RA0KPiAgICAgICBmb3IgKGYgPSAwOyBmIDwgc2tiX3NoaW5mbyhza2IpLT5ucl9mcmFnczsgZisr
-KQ0KPiAgICAgICAgICAgICAgIGNvdW50ICs9IFRYRF9VU0VfQ09VTlQoc2tiX3NoaW5mbyhza2Ip
-DQo+IC0+ZnJhZ3NbZl0uc2l6ZSk7DQo+IC0jZWxzZQ0KPiAtICAgICBjb3VudCArPSBza2Jfc2hp
-bmZvKHNrYiktPm5yX2ZyYWdzOw0KPiAtI2VuZGlmDQo+ICsNCj4gICAgICAgaWYgKGZtMTBrX21h
-eWJlX3N0b3BfdHgodHhfcmluZywgY291bnQgKyAzKSkgew0KPiAgICAgICAgICAgICAgIHR4X3Jp
-bmctPnR4X3N0YXRzLnR4X2J1c3krKzsNCj4gICAgICAgICAgICAgICByZXR1cm4gTkVUREVWX1RY
-X0JVU1k7DQo+IA0KPiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXw0KPiBJbnRlbC13aXJlZC1sYW4gbWFpbGluZyBsaXN0DQo+IEludGVsLXdpcmVkLWxhbkBs
-aXN0cy5vc3Vvc2wub3JnDQo+IGh0dHA6Ly9saXN0cy5vc3Vvc2wub3JnL21haWxtYW4vbGlzdGlu
-Zm8vaW50ZWwtd2lyZWQtbGFu
+On Mon, 15 Jun 2015 17:51:56 +0200 Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+
+> +bool kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
+> +								void **p)
+> +{
+> +	return kmem_cache_alloc_bulk(s, flags, size, p);
+> +}
+
+hm, any call to this function is going to be nasty, brutal and short.
+
+--- a/mm/slab.c~slab-infrastructure-for-bulk-object-allocation-and-freeing-v3-fix
++++ a/mm/slab.c
+@@ -3425,7 +3425,7 @@ EXPORT_SYMBOL(kmem_cache_free_bulk);
+ bool kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
+ 								void **p)
+ {
+-	return kmem_cache_alloc_bulk(s, flags, size, p);
++	return __kmem_cache_alloc_bulk(s, flags, size, p);
+ }
+ EXPORT_SYMBOL(kmem_cache_alloc_bulk);
+ 
+_
