@@ -1,198 +1,38 @@
-From: Craig Gallek <kraig@google.com>
-Subject: [PATCH iproute2] ss: Include -E option for socket destroy events
-Date: Tue, 16 Jun 2015 12:02:58 -0400
-Message-ID: <1434470578-25796-1-git-send-email-kraig@google.com>
-Cc: stephen@networkplumber.org, edumazet@google.com,
-	Craig Gallek <kraig@google.com>
-To: netdev@vger.kernel.org
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH 7/7] slub: initial bulk free implementation
+Date: Tue, 16 Jun 2015 11:04:45 -0500 (CDT)
+Message-ID: <alpine.DEB.2.11.1506161104060.5683@east.gentwo.org>
+References: <20150615155053.18824.617.stgit@devil> <20150615155256.18824.42651.stgit@devil> <20150616072806.GC13125@js1304-P5Q-DELUXE> <20150616102110.55208fdd@redhat.com> <20150616105732.2bc37714@redhat.com> <CAAmzW4OM-afGBZbWZzcH7O-mivNWvyeKpMVV4Os+i4Xb7GPgmg@mail.gmail.com>
+ <alpine.DEB.2.11.1506161008350.3496@east.gentwo.org> <20150616175231.427499ae@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Joonsoo Kim <js1304@gmail.com>,
+	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+	Linux Memory Management List <linux-mm@kvack.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f169.google.com ([209.85.160.169]:33423 "EHLO
-	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754061AbbFPQDO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 12:03:14 -0400
-Received: by ykfr66 with SMTP id r66so17260367ykf.0
-        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 09:03:13 -0700 (PDT)
+Received: from resqmta-ch2-03v.sys.comcast.net ([69.252.207.35]:41578 "EHLO
+	resqmta-ch2-03v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751404AbbFPQEq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 12:04:46 -0400
+In-Reply-To: <20150616175231.427499ae@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the IPv4/IPv6/TCP/UDP multicast groups of NETLINK_SOCK_DIAG
-to filter and display socket statistics as they are destroyed.
+On Tue, 16 Jun 2015, Jesper Dangaard Brouer wrote:
 
-Kernel support patch series: 24029a3603cfa633e8bc2b3fb3e48e76c497831d
+> It is very important that everybody realizes that the save+restore
+> variant is very expensive, this is key:
+>
+> CPU: i7-4790K CPU @ 4.00GHz
+>  * local_irq_{disable,enable}:  7 cycles(tsc) - 1.821 ns
+>  * local_irq_{save,restore}  : 37 cycles(tsc) - 9.443 ns
+>
+> Even if EVERY object need to call slowpath/__slab_free() it will be
+> faster than calling the fallback.  Because I've demonstrated the call
+> this_cpu_cmpxchg_double() costs 9 cycles.
 
-Signed-off-by: Craig Gallek <kraig@google.com>
----
- include/linux/inet_diag.h |  3 +-
- include/linux/sock_diag.h | 10 +++++++
- misc/ss.c                 | 72 ++++++++++++++++++++++++++++++++++++++++++++++-
- 3 files changed, 83 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
-index 0fb76bb..e83340b 100644
---- a/include/linux/inet_diag.h
-+++ b/include/linux/inet_diag.h
-@@ -111,9 +111,10 @@ enum {
- 	INET_DIAG_SKMEMINFO,
- 	INET_DIAG_SHUTDOWN,
- 	INET_DIAG_DCTCPINFO,
-+	INET_DIAG_PROTOCOL,  /* response attribute only */
- };
- 
--#define INET_DIAG_MAX INET_DIAG_DCTCPINFO
-+#define INET_DIAG_MAX INET_DIAG_PROTOCOL
- 
- /* INET_DIAG_MEM */
- 
-diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
-index 78996e2..024e1f4 100644
---- a/include/linux/sock_diag.h
-+++ b/include/linux/sock_diag.h
-@@ -23,4 +23,14 @@ enum {
- 	SK_MEMINFO_VARS,
- };
- 
-+enum sknetlink_groups {
-+	SKNLGRP_NONE,
-+	SKNLGRP_INET_TCP_DESTROY,
-+	SKNLGRP_INET_UDP_DESTROY,
-+	SKNLGRP_INET6_TCP_DESTROY,
-+	SKNLGRP_INET6_UDP_DESTROY,
-+	__SKNLGRP_MAX,
-+};
-+#define SKNLGRP_MAX	(__SKNLGRP_MAX - 1)
-+
- #endif /* __SOCK_DIAG_H__ */
-diff --git a/misc/ss.c b/misc/ss.c
-index dba0901..9e59257 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -99,6 +99,7 @@ int show_proc_ctx = 0;
- int show_sock_ctx = 0;
- /* If show_users & show_proc_ctx only do user_ent_hash_build() once */
- int user_ent_hash_build_init = 0;
-+int follow_events = 0;
- 
- int netid_width;
- int state_width;
-@@ -2030,6 +2031,9 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f, int protocol)
- 	if (f && f->f && run_ssfilter(f->f, &s) == 0)
- 		return 0;
- 
-+	if (tb[INET_DIAG_PROTOCOL])
-+		protocol = *(__u8 *)RTA_DATA(tb[INET_DIAG_PROTOCOL]);
-+
- 	inet_stats_print(&s, protocol);
- 
- 	if (show_options) {
-@@ -3217,6 +3221,64 @@ static int netlink_show(struct filter *f)
- 	return 0;
- }
- 
-+struct sock_diag_msg {
-+	__u8 sdiag_family;
-+};
-+
-+static int generic_show_sock(const struct sockaddr_nl *addr,
-+		struct nlmsghdr *nlh, void *arg)
-+{
-+	struct sock_diag_msg *r = NLMSG_DATA(nlh);
-+	struct inet_diag_arg inet_arg = { .f = arg, .protocol = IPPROTO_MAX };
-+
-+	switch (r->sdiag_family) {
-+	case AF_INET:
-+	case AF_INET6:
-+		return show_one_inet_sock(addr, nlh, &inet_arg);
-+	case AF_UNIX:
-+		return unix_show_sock(addr, nlh, arg);
-+	case AF_PACKET:
-+		return packet_show_sock(addr, nlh, arg);
-+	case AF_NETLINK:
-+		return netlink_show_sock(addr, nlh, arg);
-+	default:
-+		return -1;
-+	}
-+}
-+
-+static int handle_follow_request(struct filter *f)
-+{
-+	int ret = -1;
-+	int groups = 0;
-+	struct rtnl_handle rth;
-+
-+	if (f->families & (1 << AF_INET) && f->dbs & (1 << TCP_DB))
-+		groups |= 1 << (SKNLGRP_INET_TCP_DESTROY - 1);
-+	if (f->families & (1 << AF_INET) && f->dbs & (1 << UDP_DB))
-+		groups |= 1 << (SKNLGRP_INET_UDP_DESTROY - 1);
-+	if (f->families & (1 << AF_INET6) && f->dbs & (1 << TCP_DB))
-+		groups |= 1 << (SKNLGRP_INET6_TCP_DESTROY - 1);
-+	if (f->families & (1 << AF_INET6) && f->dbs & (1 << UDP_DB))
-+		groups |= 1 << (SKNLGRP_INET6_UDP_DESTROY - 1);
-+
-+	if (groups == 0)
-+		return -1;
-+
-+	if (rtnl_open_byproto(&rth, groups, NETLINK_SOCK_DIAG))
-+		return -1;
-+
-+	rth.dump = 0;
-+	rth.local.nl_pid = 0;
-+
-+	if (rtnl_dump_filter(&rth, generic_show_sock, f))
-+		goto Exit;
-+
-+	ret = 0;
-+Exit:
-+	rtnl_close(&rth);
-+	return ret;
-+}
-+
- struct snmpstat
- {
- 	int tcp_estab;
-@@ -3399,6 +3461,7 @@ static void _usage(FILE *dest)
- "   -i, --info          show internal TCP information\n"
- "   -s, --summary       show socket usage summary\n"
- "   -b, --bpf           show bpf filter socket information\n"
-+"   -E, --events        continually display sockets as they are destroyed\n"
- "   -Z, --context       display process SELinux security contexts\n"
- "   -z, --contexts      display process and socket SELinux security contexts\n"
- "   -N, --net           switch to the specified network namespace name\n"
-@@ -3481,6 +3544,7 @@ static const struct option long_opts[] = {
- 	{ "info", 0, 0, 'i' },
- 	{ "processes", 0, 0, 'p' },
- 	{ "bpf", 0, 0, 'b' },
-+	{ "events", 0, 0, 'E' },
- 	{ "dccp", 0, 0, 'd' },
- 	{ "tcp", 0, 0, 't' },
- 	{ "udp", 0, 0, 'u' },
-@@ -3516,7 +3580,7 @@ int main(int argc, char *argv[])
- 	int ch;
- 	int state_filter = 0;
- 
--	while ((ch = getopt_long(argc, argv, "dhaletuwxnro460spbf:miA:D:F:vVzZN:",
-+	while ((ch = getopt_long(argc, argv, "dhaletuwxnro460spbEf:miA:D:F:vVzZN:",
- 				 long_opts, NULL)) != EOF) {
- 		switch(ch) {
- 		case 'n':
-@@ -3546,6 +3610,9 @@ int main(int argc, char *argv[])
- 			show_options = 1;
- 			show_bpf++;
- 			break;
-+		case 'E':
-+			follow_events = 1;
-+			break;
- 		case 'd':
- 			filter_db_set(&current_filter, DCCP_DB);
- 			break;
-@@ -3838,6 +3905,9 @@ int main(int argc, char *argv[])
- 
- 	fflush(stdout);
- 
-+	if (follow_events)
-+		exit(handle_follow_request(&current_filter));
-+
- 	if (current_filter.dbs & (1<<NETLINK_DB))
- 		netlink_show(&current_filter);
- 	if (current_filter.dbs & PACKET_DBM)
--- 
-2.2.0.rc0.207.ga3a616c
+But the cmpxchg also stores a value. You need to add the cost of the store
+to the cycles.
