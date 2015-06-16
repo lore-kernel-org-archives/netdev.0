@@ -1,61 +1,142 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] cxgb3: avoid needless buffer copy for firmware
-Date: Tue, 16 Jun 2015 15:36:17 -0700
-Message-ID: <20150616223617.GA17958@www.outflux.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Santosh Raspatur <santosh@chelsio.com>, netdev@vger.kernel.org,
-	Alexander Gordeev <agordeev@redhat.com>,
-	Joe Perches <joe@perches.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [RFC PATCH 1/2] sctp: add new getsockopt option SCTP_SOCKOPT_PEELOFF_KERNEL
+Date: Tue, 16 Jun 2015 19:42:32 -0300
+Message-ID: <7c625395f94fd7bdeb3b28fe74f2c6ae1a96be6b.1434492495.git.marcelo.leitner@gmail.com>
+References: <cover.1434492495.git.marcelo.leitner@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56665 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755205AbbFPWmm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jun 2015 18:42:42 -0400
+In-Reply-To: <cover.1434492495.git.marcelo.leitner@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There's no reason to perform a buffer copy for the firmware name. This
-also avoids a (currently impossible with current callers) NULL dereference
-if there was no matching firmware.
+SCTP has this operation to peel off associations from a given socket and
+create a new socket using this association. We currently have two ways
+to use this operation:
+- via getsockopt(), on which it will also create and return a file
+  descriptor for this new socket
+- via sctp_do_peeloff(), which is for kernel only
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
+The caveat with using sctp_do_peeloff() directly is that it creates a
+dependency to SCTP module, while all other operations are handled via
+kernel_{socket,sendmsg,getsockopt...}() interface. This causes the
+kernel to load SCTP module even when it's not directly used
+
+This patch then creates a new sockopt that is to be used only by kernel
+users of this protocol. This new sockopt will not allocate a file
+descriptor but instead just return the socket pointer directly.
+
+If called by an user application, it will just return -EPERM.
+
+Even though it's not intended for user applications, it's listed under
+uapi header. That's because hidding this wouldn't add any extra security
+and to keep the sockopt list in one place, so it's easy to check
+available numbers to use.
+
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 ---
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ include/uapi/linux/sctp.h | 12 ++++++++++++
+ net/sctp/socket.c         | 39 +++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 51 insertions(+)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-index b96e4bfcac41..8f7aa53a4c4b 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-@@ -1025,19 +1025,19 @@ int t3_get_edc_fw(struct cphy *phy, int edc_idx, int size)
+diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
+index ce70fe6b45df3e841c35accbdb6379c16563893c..b3aad3ce456ab3c1ebf4d81fdb7269ba40b3d92a 100644
+--- a/include/uapi/linux/sctp.h
++++ b/include/uapi/linux/sctp.h
+@@ -105,6 +105,10 @@ typedef __s32 sctp_assoc_t;
+ #define SCTP_SOCKOPT_BINDX_ADD	100	/* BINDX requests for adding addrs */
+ #define SCTP_SOCKOPT_BINDX_REM	101	/* BINDX requests for removing addrs. */
+ #define SCTP_SOCKOPT_PEELOFF	102	/* peel off association. */
++#define SCTP_SOCKOPT_PEELOFF_KERNEL	103	/* peel off association.
++						 * only valid for kernel
++						 * users
++						 */
+ /* Options 104-106 are deprecated and removed. Do not use this space */
+ #define SCTP_SOCKOPT_CONNECTX_OLD	107	/* CONNECTX old requests. */
+ #define SCTP_GET_PEER_ADDRS	108		/* Get all peer address. */
+@@ -892,6 +896,14 @@ typedef struct {
+ 	int sd;
+ } sctp_peeloff_arg_t;
+ 
++/* This is the union that is passed as an argument(optval) to
++ * getsockopt(SCTP_SOCKOPT_PEELOFF_KERNEL).
++ */
++typedef union {
++	sctp_assoc_t associd;
++	struct socket *socket;
++} sctp_peeloff_kernel_arg_t;
++
+ /*
+  *  Peer Address Thresholds socket option
+  */
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index f09de7fac2e6acddad8b2e046dbf626e329cb674..dab6f9be260229f012e10e8f67c80ce99c0d2d06 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4448,6 +4448,32 @@ int sctp_do_peeloff(struct sock *sk, sctp_assoc_t id, struct socket **sockp)
+ }
+ EXPORT_SYMBOL(sctp_do_peeloff);
+ 
++static int sctp_getsockopt_peeloff_kernel(struct sock *sk, int len,
++					  char __user *optval, int __user *optlen)
++{
++	sctp_peeloff_kernel_arg_t peeloff;
++	struct socket *newsock;
++	int retval = 0;
++
++	if (len < sizeof(sctp_peeloff_kernel_arg_t))
++		return -EINVAL;
++	len = sizeof(sctp_peeloff_kernel_arg_t);
++	if (copy_from_user(&peeloff, optval, len))
++		return -EFAULT;
++
++	retval = sctp_do_peeloff(sk, peeloff.associd, &newsock);
++	if (retval < 0)
++		goto out;
++
++	peeloff.socket = newsock;
++	if (copy_to_user(optval, &peeloff, len)) {
++		sock_release(newsock);
++		return -EFAULT;
++	}
++out:
++	return retval;
++}
++
+ static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval, int __user *optlen)
  {
- 	struct adapter *adapter = phy->adapter;
- 	const struct firmware *fw;
--	char buf[64];
-+	const char *fw_name;
- 	u32 csum;
- 	const __be32 *p;
- 	u16 *cache = phy->phy_cache;
--	int i, ret;
--
--	snprintf(buf, sizeof(buf), get_edc_fw_name(edc_idx));
-+	int i, ret = -EINVAL;
+ 	sctp_peeloff_arg_t peeloff;
+@@ -5943,6 +5969,11 @@ static int sctp_getsockopt_recvnxtinfo(struct sock *sk,	int len,
+ 	return 0;
+ }
  
--	ret = request_firmware(&fw, buf, &adapter->pdev->dev);
-+	fw_name = get_edc_fw_name(edc_idx);
-+	if (fw_name)
-+		ret = request_firmware(&fw, fw_name, &adapter->pdev->dev);
- 	if (ret < 0) {
- 		dev_err(&adapter->pdev->dev,
- 			"could not upgrade firmware: unable to load %s\n",
--			buf);
-+			fw_name);
- 		return ret;
- 	}
- 
++static inline bool sctp_is_kernel(void)
++{
++	return segment_eq(get_fs(), KERNEL_DS);
++}
++
+ static int sctp_getsockopt(struct sock *sk, int level, int optname,
+ 			   char __user *optval, int __user *optlen)
+ {
+@@ -5986,6 +6017,14 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
+ 	case SCTP_SOCKOPT_PEELOFF:
+ 		retval = sctp_getsockopt_peeloff(sk, len, optval, optlen);
+ 		break;
++	case SCTP_SOCKOPT_PEELOFF_KERNEL:
++		if (!sctp_is_kernel()) {
++			retval = -EPERM;
++			break;
++		}
++		retval = sctp_getsockopt_peeloff_kernel(sk, len, optval,
++							optlen);
++		break;
+ 	case SCTP_PEER_ADDR_PARAMS:
+ 		retval = sctp_getsockopt_peer_addr_params(sk, len, optval,
+ 							  optlen);
 -- 
-1.9.1
-
-
--- 
-Kees Cook
-Chrome OS Security
+2.4.1
