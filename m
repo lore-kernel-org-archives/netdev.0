@@ -1,27 +1,64 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: displayed name changed in ip link show for bridge- and other
- interfaces
-Date: Tue, 16 Jun 2015 19:47:46 +0200
-Message-ID: <55806142.8050407@hartkopp.net>
-References: <201506141200.20435.ulrich.gemkow@ikr.uni-stuttgart.de>	<557DCD0A.5040500@hartkopp.net>	<557DD20E.4080005@hartkopp.net>	<557E7D89.30301@6wind.com>	<557E9728.7080208@6wind.com> <20150615085410.6628b5bb@urahara> <55805E6A.90805@hartkopp.net>
+From: Ilya Dryomov <idryomov@gmail.com>
+Subject: Re: [PATCH] crush:Make the function crush_ln static
+Date: Tue, 16 Jun 2015 20:54:15 +0300
+Message-ID: <CAOi1vP_U2=y1YirGwELH4MN=KZhgjR+gP-OZMfeyJAhtu5+n=w@mail.gmail.com>
+References: <1433803863-9241-1-git-send-email-xerofoify@gmail.com>
+	<CAOi1vP_G6eVwRW4coey4-gUEx3Y2k-pnDfJxMk6Va+C0aTLG-w@mail.gmail.com>
+	<CAOi1vP8xL=ZdEH5fcGaMOkKbs5Hdjg9BLe6FxdRGVezdiighyQ@mail.gmail.com>
+	<55804C64.3070702@gmail.com>
+	<CAOi1vP84CnY+-0RvR=LJ3v-w_ZYBEuW4=AJ8xZUhKEjsLe0WdQ@mail.gmail.com>
+	<558057E2.1010709@gmail.com>
+	<CAOi1vP9suCQZX0ZSPB0Z7xKdn4_K6KaX_c5uLe_c26a3nDAR9w@mail.gmail.com>
+	<55805B45.3020204@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ulrich Gemkow <ulrich.gemkow@ikr.uni-stuttgart.de>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.161]:44290 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751162AbbFPRr6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 13:47:58 -0400
-In-Reply-To: <55805E6A.90805@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Yan, Zheng" <zyan@redhat.com>, Sage Weil <sage@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ceph Development <ceph-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: nick <xerofoify@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55805B45.3020204@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16.06.2015 19:35, Oliver Hartkopp wrote:
+On Tue, Jun 16, 2015 at 8:22 PM, nick <xerofoify@gmail.com> wrote:
+>
+>
+> On 2015-06-16 01:16 PM, Ilya Dryomov wrote:
+>> On Tue, Jun 16, 2015 at 8:07 PM, nick <xerofoify@gmail.com> wrote:
+>>>
+>>>
+>>> On 2015-06-16 12:47 PM, Ilya Dryomov wrote:
+>>>> On Tue, Jun 16, 2015 at 7:18 PM, nick <xerofoify@gmail.com> wrote:
+>>>>> Ilya,
+>>>>> That's fine I do have a unrelated question through. I have over 90 patches lying around in terms of cleanups/
+>>>>> fixes and need help getting them merged. Should I just resend them or wait until the end of this merge window.
+>>>>
+>>>> Are all of those ceph patches?
+>>>>
+>>>> Thanks,
+>>>>
+>>>>                 Ilya
+>>>>
+>>> Ilya,
+>>> Sorry for the second email but two of them are. I just checked, would you like me to resend
+>>> these two patches.
+>>
+>> No need to resend, just point them out in a reply.
+>>
+>> Thanks,
+>>
+>>                 Ilya
+>>
+> The two patches have these subject headers:
+> ceph:Remove the unused marco AES_KEY_SIZE
+> ceph:Make the function ceph_monmap_contains bool
+> If you can't find them I will resend them.
 
-> ps. will apply the patch from Nicolas if it fixes the ip output.
+I can't - looks like ceph-devel wasn't CC'ed.  Please resend.
 
-No it didn't - I have no bridging configured in my kernel %-)
+Thanks,
+
+                Ilya
