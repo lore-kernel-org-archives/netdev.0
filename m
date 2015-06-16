@@ -1,32 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1 net-next] net: rds: use for_each_sg() for
- scatterlist parsing
-Date: Mon, 15 Jun 2015 19:56:30 -0700 (PDT)
-Message-ID: <20150615.195630.111617476194185511.davem@davemloft.net>
-References: <1434388385-29246-1-git-send-email-fabf@skynet.be>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v2 net-next 0/3] bpf: share helpers between tracing and
+ networking
+Date: Mon, 15 Jun 2015 20:28:51 -0700
+Message-ID: <557F97F3.6060400@plumgrid.com>
+References: <1434163154-5218-1-git-send-email-ast@plumgrid.com> <20150615.160130.583783771772303463.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, chien.yen@oracle.com,
-	rds-devel@oss.oracle.com, netdev@vger.kernel.org
-To: fabf@skynet.be
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43593 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751354AbbFPC4b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 22:56:31 -0400
-In-Reply-To: <1434388385-29246-1-git-send-email-fabf@skynet.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
+	wangnan0-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150615.160130.583783771772303463.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Fabian Frederick <fabf@skynet.be>
-Date: Mon, 15 Jun 2015 19:13:05 +0200
+On 6/15/15 4:01 PM, David Miller wrote:
+>
+> Although I agree with the sentiment that this thing can cause
+> surprising results and can be asking for trouble.
+>
+> If someone wants to filter traffic "by UID" they might make
+> a simple ingress TC ebpf program using these new interfaces
+> and expect it to work.
+>
+> But the UID their program will see will be the UID of whatever
+> randomly happened to be executing when the packet was received
+> and processed.
 
->  {
->  	unsigned int i;
-> +	struct scatterlist *sg;
-
-Please order local variables from longest to shortest line (reverse
-christmas tree).
-
-Thanks.
+yes, you're right. Such tc filters will be incorrect.
+Will send a partial revert disallowing them in tc.
