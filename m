@@ -1,38 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V1 00/13] mlx4 driver update (+ new VF ndo)
-Date: Mon, 15 Jun 2015 17:23:22 -0700 (PDT)
-Message-ID: <20150615.172322.97736390268575202.davem@davemloft.net>
-References: <1434380348-19005-1-git-send-email-ogerlitz@mellanox.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 00/15] Simplify netfilter and network namespaces
+Date: Mon, 15 Jun 2015 19:26:13 -0500
+Message-ID: <87twu8lcre.fsf@x220.int.ebiederm.org>
+References: <87616ppt3h.fsf@x220.int.ebiederm.org>
+	<20150615.171042.1771913051598016582.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com, talal@mellanox.com,
-	hadarh@mellanox.com, eranbe@mellanox.com
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42878 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750996AbbFPAXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 20:23:23 -0400
-In-Reply-To: <1434380348-19005-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	stephen@networkplumber.org, jjciarla@raiz.uncu.edu.ar,
+	wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg,
+	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	jhs@mojatatu.com, steffen.klassert@secunet.com,
+	herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20150615.171042.1771913051598016582.davem@davemloft.net> (David
+	Miller's message of "Mon, 15 Jun 2015 17:10:42 -0700 (PDT)")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Mon, 15 Jun 2015 17:58:55 +0300
+David Miller <davem@davemloft.net> writes:
 
-> This series from Eran and Hadar is further dealing with traffic 
-> counters in the mlx4 driver, this time mostly around SRIOV.
-> 
-> We added a new ndo to read the VF counters through the PF netdev 
-> netlink infrastructure plus mlx4 implementation for that ndo.
-> 
-> Or.
-> 
-> changes from V0:
->   - applied feedback from John to use nested netlink encoding
->     for the VF counters so we can extend it later
->   - add handling of single ported VFs in the mlx4_en driver new ndo
->   - avoid chopping the FW counters from 64 to 32 bits in mlx4_en PF flow
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Sun, 14 Jun 2015 22:07:30 -0500
+>
+>> While looking into what it would take to route packets out to network
+>> devices in other network namespaces I started looking at the netfilter
+>> hooks, and there is a lot of nasty code to figure out which network
+>> namespace to filter the packets in.
+>
+> I am assume that you and Pablo are going to look at eachother's
+> work and decide how to proceed and therefore I'm getting another
+> series to actually apply at some point in the future.
 
-Looks good, series applied, thanks Or.
+I am busily looking, and being slightly challenged by the fact that the
+netfilter code is a moving target in net-next.  That is not really a
+bad thing as some of Pablo's patches were against the patches that
+were merged today.
+
+It does look like Pablo's path to getting per network namespace
+netfilter hooks is the best path to a good long term result, for per
+network namespace hooks.  I am busily agumenting it with a Kconfig guard
+so bisection that disables network namespaces support while netfilter
+only works on the initial network namespace.  As otherwise bisection
+will be a lost cause.  AKA
+
+	config NET_NS
+		depends on !NETFILTER
+
+At the same time it looks like Pablos patches come out cleaner when
+rebased on my patchset.
+
+The number of conflicts between the two patchsets is very small
+and easily resolved.
+
+So what I am in the processes of doing is reviewing and testing
+the combined set of patches and hopefully I will have something
+for you soon (tomorrow?).  Unless Pablo has objections.
+
+Right now I am attempting to verify that I have found all of the places
+in Pablo's patchset where the patches do not compile on their own, as
+there were some silly left-overs.
+
+But overall I think Pablo's patches look good.
+
+Eric
