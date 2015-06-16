@@ -1,73 +1,55 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH V2 net-next] net: rds: use for_each_sg() for scatterlist parsing
-Date: Tue, 16 Jun 2015 20:44:07 +0200
-Message-ID: <1434480247-22072-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	Chien Yen <chien.yen@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [PATCH] fm10k: Don't assume page fragments are page size
+Date: Tue, 16 Jun 2015 11:47:12 -0700
+Message-ID: <20150616184712.1966.44790.stgit@ahduyck-vm-fedora22>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33343 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754785AbbFPSrN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jun 2015 14:47:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch also renames sg to sglist and aligns function parameters.
-See Documentation/DMA-API.txt - Part Id for scatterlist details
+This change pulls out the optimization that assumed that all fragments
+would be limited to page size.  That hasn't been the case for some time now
+and to assume this is incorrect as the TCP allocator can provide up to a
+32K page fragment.
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
-This is untested.
-V2: reorder variables (suggested by David S. Miller)
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c |    7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
- net/rds/ib.h | 22 ++++++++++++++--------
- 1 file changed, 14 insertions(+), 8 deletions(-)
-
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index c36d713..2de2898 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -235,28 +235,34 @@ extern struct workqueue_struct *rds_ib_wq;
-  * doesn't define it.
-  */
- static inline void rds_ib_dma_sync_sg_for_cpu(struct ib_device *dev,
--		struct scatterlist *sg, unsigned int sg_dma_len, int direction)
-+					      struct scatterlist *sglist,
-+					      unsigned int sg_dma_len,
-+					      int direction)
- {
-+	struct scatterlist *sg;
- 	unsigned int i;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index 982fdcdc795b..620ff5e9dc59 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -1079,9 +1079,7 @@ netdev_tx_t fm10k_xmit_frame_ring(struct sk_buff *skb,
+ 	struct fm10k_tx_buffer *first;
+ 	int tso;
+ 	u32 tx_flags = 0;
+-#if PAGE_SIZE > FM10K_MAX_DATA_PER_TXD
+ 	unsigned short f;
+-#endif
+ 	u16 count = TXD_USE_COUNT(skb_headlen(skb));
  
--	for (i = 0; i < sg_dma_len; ++i) {
-+	for_each_sg(sglist, sg, sg_dma_len, i) {
- 		ib_dma_sync_single_for_cpu(dev,
--				ib_sg_dma_address(dev, &sg[i]),
--				ib_sg_dma_len(dev, &sg[i]),
-+				ib_sg_dma_address(dev, sg),
-+				ib_sg_dma_len(dev, sg),
- 				direction);
- 	}
- }
- #define ib_dma_sync_sg_for_cpu	rds_ib_dma_sync_sg_for_cpu
- 
- static inline void rds_ib_dma_sync_sg_for_device(struct ib_device *dev,
--		struct scatterlist *sg, unsigned int sg_dma_len, int direction)
-+						 struct scatterlist *sglist,
-+						 unsigned int sg_dma_len,
-+						 int direction)
- {
-+	struct scatterlist *sg;
- 	unsigned int i;
- 
--	for (i = 0; i < sg_dma_len; ++i) {
-+	for_each_sg(sglist, sg, sg_dma_len, i) {
- 		ib_dma_sync_single_for_device(dev,
--				ib_sg_dma_address(dev, &sg[i]),
--				ib_sg_dma_len(dev, &sg[i]),
-+				ib_sg_dma_address(dev, sg),
-+				ib_sg_dma_len(dev, sg),
- 				direction);
- 	}
- }
--- 
-2.4.2
+ 	/* need: 1 descriptor per page * PAGE_SIZE/FM10K_MAX_DATA_PER_TXD,
+@@ -1089,12 +1087,9 @@ netdev_tx_t fm10k_xmit_frame_ring(struct sk_buff *skb,
+ 	 *       + 2 desc gap to keep tail from touching head
+ 	 * otherwise try next time
+ 	 */
+-#if PAGE_SIZE > FM10K_MAX_DATA_PER_TXD
+ 	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
+ 		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
+-#else
+-	count += skb_shinfo(skb)->nr_frags;
+-#endif
++
+ 	if (fm10k_maybe_stop_tx(tx_ring, count + 3)) {
+ 		tx_ring->tx_stats.tx_busy++;
+ 		return NETDEV_TX_BUSY;
