@@ -1,83 +1,97 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [RFC PATCH 2/2] dlm: avoid using sctp_do_peeloff directly
-Date: Tue, 16 Jun 2015 19:42:33 -0300
-Message-ID: <4a1e9e2f82a49135a5bd16cfe92a242572979cd6.1434492495.git.marcelo.leitner@gmail.com>
-References: <cover.1434492495.git.marcelo.leitner@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
-To: netdev@vger.kernel.org
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: [BUG,BISECTED] mvneta: second interface no more usable on mirabox
+Date: Wed, 17 Jun 2015 01:05:24 +0200
+Message-ID: <874mm71cgb.fsf@natisbad.org>
+References: <87a8vz72hr.fsf@natisbad.org> <5580A4C3.1020509@list.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Stas Sergeev <stsp@list.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34799 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754418AbbFPWmn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jun 2015 18:42:43 -0400
-In-Reply-To: <cover.1434492495.git.marcelo.leitner@gmail.com>
+Received: from 36.223.133.77.rev.sfr.net ([77.133.223.36]:58412 "EHLO
+	smtp.natisbad.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757467AbbFPXFm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 19:05:42 -0400
+In-Reply-To: <5580A4C3.1020509@list.ru> (Stas Sergeev's message of "Wed, 17
+	Jun 2015 01:35:47 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch reverts 2f2d76cc3e93 ("dlm: Do not allocate a fd for
-peeloff") but also makes use of a new sockopt:
-SCTP_SOCKOPT_PEELOFF_KERNEL, which avoids allocating file descriptors
-while doing this operation.
+Hi,
 
-By this we avoid creating a direct dependency from dlm to sctp module,
-which can then be left unloaded if dlm is not really using it.
+Stas Sergeev <stsp@list.ru> writes:
 
-Note that this was preferred other than a module split as it once was
-split and was merged back in 2007 by commit 6ed7257b4670 ("[DLM]
-Consolidate transport protocols") so that we don't revert it.
+> 17.06.2015 00:44, Arnaud Ebalard =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>> Hi,
+>>
+>> On Mirabox, the second ethernet interface is no more usable on 4.1-r=
+c*
+>> series (no packets coming out of the interface, when using dhclient =
+for
+>> instance). It works as expected on 4.0.
+>>
+>> Bisecting the issue, I ended up on 898b2970e2c9 ("mvneta: implement
+>> SGMII-based in-band link state signaling"). Reverting that commit gi=
+ves
+>> me back the second interface.
+>>
+>> Then, I also tested on a NETGEAR ReadyNAS 104, which is also powered=
+ by
+>> the same SoC (Armada 370) and also has two (mvneta-supported) ethern=
+et
+>> interfaces. With an unmodified 4.1-rc8, only one of the two interfac=
+es
+>> is available. Reverting 898b2970e2c9 makes both usable again.
+>>
+>> FWIW, mirabox and RN104 ethernet interfaces use RGMII.
+> Hi, hope someone who can reproduce the problem,
+> can provide a better help.
+> I looked into a patch, and it seems most things are done
+> under "if (pp->use_inband_status)", which is not your case.
 
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- fs/dlm/lowcomms.c | 17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
+Looking at the patch, yes. Both platforms I have which encounter the
+problem use RGMII and "if (pp->use_inband_status)" changes are for
+SGMII.
 
-diff --git a/fs/dlm/lowcomms.c b/fs/dlm/lowcomms.c
-index 754fd6c0b7470bab272b071e6ca6e4969e4e4209..aa50131e51ceaf2d56cc2252fe6c0c17b80af769 100644
---- a/fs/dlm/lowcomms.c
-+++ b/fs/dlm/lowcomms.c
-@@ -52,7 +52,6 @@
- #include <linux/mutex.h>
- #include <linux/sctp.h>
- #include <linux/slab.h>
--#include <net/sctp/sctp.h>
- #include <net/ipv6.h>
- 
- #include "dlm_internal.h"
-@@ -671,6 +670,8 @@ static void process_sctp_notification(struct connection *con,
- 			int prim_len, ret;
- 			int addr_len;
- 			struct connection *new_con;
-+			sctp_peeloff_kernel_arg_t parg;
-+			int parglen = sizeof(parg);
- 
- 			/*
- 			 * We get this before any data for an association.
-@@ -719,19 +720,17 @@ static void process_sctp_notification(struct connection *con,
- 				return;
- 
- 			/* Peel off a new sock */
--			lock_sock(con->sock->sk);
--			ret = sctp_do_peeloff(con->sock->sk,
--				sn->sn_assoc_change.sac_assoc_id,
--				&new_con->sock);
--			release_sock(con->sock->sk);
-+			parg.associd = sn->sn_assoc_change.sac_assoc_id;
-+			ret = kernel_getsockopt(con->sock, IPPROTO_SCTP,
-+						SCTP_SOCKOPT_PEELOFF_KERNEL,
-+						(void *)&parg, &parglen);
- 			if (ret < 0) {
- 				log_print("Can't peel off a socket for "
- 					  "connection %d to node %d: err=%d",
--					  (int)sn->sn_assoc_change.sac_assoc_id,
--					  nodeid, ret);
-+					  parg.associd, nodeid, ret);
- 				return;
- 			}
--			add_sock(new_con->sock, new_con);
-+			add_sock(parg.socket, new_con);
- 
- 			linger.l_onoff = 1;
- 			linger.l_linger = 0;
--- 
-2.4.1
+> But it seems the patch can still change a couple of flags
+> for you, and maybe that makes a problem?
+
+AFAICT, autoneg config register (MVNETA_GMAC_AUTONEG_CONFIG) is
+modified. And the logic when link status changes is also modified:
+ - MVNETA_GMAC_FORCE_LINK_DOWN flag cleared when there is carrier. It w=
+as
+   previously set when that event occured.
+ - The link down event logic is also modified.
+
+>
+> Please try the attached (absolutely untested) patch.
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethe=
+rnet/marvell/mvneta.c
+> index ce5f7f9..74176ec 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -1013,6 +1013,12 @@ static void mvneta_defaults_set(struct mvneta_=
+port *pp)
+>  		val =3D mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
+>  		val |=3D MVNETA_GMAC_1MS_CLOCK_ENABLE;
+>  		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
+> +	} else {
+> +		val =3D mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
+> +		val &=3D ~(MVNETA_GMAC_INBAND_AN_ENABLE |
+> +		       MVNETA_GMAC_AN_SPEED_EN |
+> +		       MVNETA_GMAC_AN_DUPLEX_EN);
+> +		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
+>  	}
+> =20
+>  	mvneta_set_ucast_table(pp, -1);
+
+*Second interface is back w/ that patch applied*. Cannot tell if it is =
+a
+ proper fix, though or a valid workaround.
+
+Thanks for your feedback.
+
+a+
