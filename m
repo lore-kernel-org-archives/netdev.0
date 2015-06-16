@@ -1,66 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/17] fm10k: ignore invalid multicast address entries
-Date: Tue, 16 Jun 2015 06:47:13 -0700
-Message-ID: <1434462448-140563-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/17] fm10k: add call to fm10k_clean_all_rx_rings in fm10k_down
+Date: Tue, 16 Jun 2015 06:47:17 -0700
+Message-ID: <1434462448-140563-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1434462448-140563-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Ngai-Mint Kwan <ngai-mint.kwan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:24718 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:62774 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756693AbbFPNrc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jun 2015 09:47:32 -0400
+	id S1756701AbbFPNre (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jun 2015 09:47:34 -0400
 In-Reply-To: <1434462448-140563-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-This change fixes an issue with adding an invalid multicast address
-using the iproute2 tool (ip maddr add <MADDR> dev <dev>). The iproute2
-tool and the kernel do not validate or filter the multicast addresses
-when adding them to the multicast list. Thus, when synchronizing this
-list with an invalid entry, the action will be aborted with an error
-since the fm10k driver currently validates the list. Consequently,
-multicast entries beyond the invalid one will not be processed and
-communicated with the switch via the mailbox. This change makes it so
-that invalid addresses will simply be skipped and allows synchronizing
-the full list to proceed.
+This prevents a memory leak in fm10k_set_ringparams. The leak occurs
+because we go down, change ring parameters, and then come up. However,
+fm10k_down on its own is not clearing the Rx rings. Since fm10k_up
+assumes the rings are clean we basically drop the buffers and leak a
+bunch of memory. Eventually we hit dirty page faults and reboot the
+system. This issue does not occur elsewhere because other flows that
+involve fm10k_down go through fm10k_close which immediately called
+fm10k_free_all_rx_resources which properly cleans the rings.
 
-Signed-off-by: Ngai-Mint Kwan <ngai-mint.kwan@intel.com>
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index 2f4f41b..4c6b511 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -923,18 +923,12 @@ static int __fm10k_mc_sync(struct net_device *dev,
- 	struct fm10k_intfc *interface = netdev_priv(dev);
- 	struct fm10k_hw *hw = &interface->hw;
- 	u16 vid, glort = interface->glort;
--	s32 err;
--
--	if (!is_multicast_ether_addr(addr))
--		return -EADDRNOTAVAIL;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index df9fda3..445014a 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -1559,6 +1559,7 @@ void fm10k_down(struct fm10k_intfc *interface)
  
- 	/* update table with current entries */
- 	for (vid = hw->mac.default_vid ? fm10k_find_next_vlan(interface, 0) : 0;
- 	     vid < VLAN_N_VID;
- 	     vid = fm10k_find_next_vlan(interface, vid)) {
--		err = hw->mac.ops.update_mc_addr(hw, glort, addr, vid, sync);
--		if (err)
--			return err;
-+		hw->mac.ops.update_mc_addr(hw, glort, addr, vid, sync);
- 	}
+ 	/* free any buffers still on the rings */
+ 	fm10k_clean_all_tx_rings(interface);
++	fm10k_clean_all_rx_rings(interface);
+ }
  
- 	return 0;
+ /**
 -- 
 2.4.3
