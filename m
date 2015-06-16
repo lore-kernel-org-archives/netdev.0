@@ -1,84 +1,50 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v4 3/3] net/xen-netback: Don't mix hexa and decimal with
- 0x in the printf format
-Date: Tue, 16 Jun 2015 16:55:19 -0700
-Message-ID: <1434498919.2689.35.camel@perches.com>
-References: <1434481848-26387-1-git-send-email-julien.grall@citrix.com>
-	 <1434481848-26387-4-git-send-email-julien.grall@citrix.com>
-	 <5580821D.4080408@cogentembedded.com> <1434492550.2689.8.camel@perches.com>
-	 <5580A33C.4040007@cogentembedded.com>
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next] Modify Liquidio Kconfig for crc lib
+Date: Tue, 16 Jun 2015 16:51:43 -0700
+Message-ID: <1434498703-6365-1-git-send-email-rvatsavayi@caviumnetworks.com>
+References: <CAD3Xx4J-nVXvOdV4wdos44Tvm8iR-c_bSwN=E5W+=RbOtTwTCw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Julien Grall <julien.grall@citrix.com>,
-	xen-devel@lists.xenproject.org, linux-kernel@vger.kernel.org,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5580A33C.4040007@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <valentinrothberg@gmail.com>,
+	Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+	Derek Chickles <derek.chickles@caviumnetworks.com>,
+	Satanand Burla <satananda.burla@caviumnetworks.com>,
+	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0084.outbound.protection.outlook.com ([207.46.100.84]:56976
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752680AbbFPXzb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jun 2015 19:55:31 -0400
+In-Reply-To: <CAD3Xx4J-nVXvOdV4wdos44Tvm8iR-c_bSwN=E5W+=RbOtTwTCw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-06-17 at 01:29 +0300, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 06/17/2015 01:09 AM, Joe Perches wrote:
-> 
-> >>> Append 0x to all %x in order to avoid while reading when there is other
-> >>> decimal value in the log.
-> 
-> > []
-> 
-> >>> @@ -874,7 +874,7 @@ static inline void xenvif_grant_handle_set(struct xenvif_queue *queue,
-> >>>    	if (unlikely(queue->grant_tx_handle[pending_idx] !=
-> >>>    		     NETBACK_INVALID_HANDLE)) {
-> >>>    		netdev_err(queue->vif->dev,
-> >>> -			   "Trying to overwrite active handle! pending_idx: %x\n",
-> >>> +			   "Trying to overwrite active handle! pending_idx: 0x%x\n",
-> 
-> >>      Using "%#x" is shorter ind does the same.
-> 
-> > That's true, but it's also far less common.
-> 
->     Which is a pity... People just don't know the format specifiers well 
-> enough. :-(
-> 
-> > $ git grep -E "%#[\*\d\.]*x" | wc -l
-> > 1419
-> > $ git grep "0x%" | wc -l
-> > 29844
-> 
->     Which means 29 KB could theoretically be saved on allyesconfig build. :-)
-> (Actually less since the width specifiers will likely need to be fixed where 
-> present.)
+Following patch contains changes in liquidio Kconfig for
+selecting LIBCRC32C.
 
-And less than that because a lot of these are in
-arch specific code.
+Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
+Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+---
+ drivers/net/ethernet/cavium/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-0x%x is easier and simpler to visualize than %#x.
-
-But you are welcome to try to make the kernel smaller.
-One byte at a time.
-
-There are ~14.5k uses of 0x%x in ~10.5k lines and
-~2600 files that would be changed.
-
-That's a lot of lines and a lot of patches.
-
-$ git grep --name-only "0x%x" | xargs sed -i -e 's/0x%x/%#x/g'
-$ git diff | wc
-  96250  415388 3949872
-
-Only a 4M patch.
-
-The pretty common (~5k) "0x%08x" would be "%#010x"
-so that doesn't save any space.
-
-but this one's a ~3.5M patch.
-
-$ git grep --name-only -P "0x%\d+\w*x" | xargs perl -p -i -e 's/0x%0(\d+)(\w*)x/"\%#0" . eval($1 + 2) . "$2x"/eg'
-$ git diff | wc
-  80857  344565 3306990
-
-enjoy...
+diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
+index 5e7a0e2..c4d6bbe 100644
+--- a/drivers/net/ethernet/cavium/Kconfig
++++ b/drivers/net/ethernet/cavium/Kconfig
+@@ -46,7 +46,7 @@ config LIQUIDIO
+ 	depends on 64BIT
+ 	select PTP_1588_CLOCK
+ 	select FW_LOADER
+-	select LIBCRC32
++	select LIBCRC32C
+ 	---help---
+ 	  This driver supports Cavium LiquidIO Intelligent Server Adapters
+ 	  based on CN66XX and CN68XX chips.
+-- 
+1.8.4.2
