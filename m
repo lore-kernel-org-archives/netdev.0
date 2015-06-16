@@ -1,49 +1,81 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 net-next 0/3] bpf: share helpers between tracing and
- networking
-Date: Tue, 16 Jun 2015 11:19:40 +0200
-Message-ID: <557FEA2C.5080408@iogearbox.net>
-References: <1434163154-5218-1-git-send-email-ast@plumgrid.com> <20150615.160130.583783771772303463.davem@davemloft.net> <557F97F3.6060400@plumgrid.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH 7/7] slub: initial bulk free implementation
+Date: Tue, 16 Jun 2015 11:20:33 +0200
+Message-ID: <20150616112033.0b8bafb8@redhat.com>
+References: <20150615155053.18824.617.stgit@devil>
+	<20150615155256.18824.42651.stgit@devil>
+	<20150616072328.GB13125@js1304-P5Q-DELUXE>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: luto@amacapital.net, mingo@kernel.org, rostedt@goodmis.org,
-	wangnan0@huawei.com, lizefan@huawei.com,
-	daniel.wagner@bmw-carit.de, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:58137 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932872AbbFPJTy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 05:19:54 -0400
-In-Reply-To: <557F97F3.6060400@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-mm@kvack.org, Christoph Lameter <cl@linux.com>,
+        Andrew Morton
+ <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+        Alexander Duyck
+ <alexander.duyck@gmail.com>, brouer@redhat.com
+To: Joonsoo Kim <iamjoonsoo.kim@lge.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20150616072328.GB13125@js1304-P5Q-DELUXE>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 06/16/2015 05:28 AM, Alexei Starovoitov wrote:
-> On 6/15/15 4:01 PM, David Miller wrote:
->>
->> Although I agree with the sentiment that this thing can cause
->> surprising results and can be asking for trouble.
->>
->> If someone wants to filter traffic "by UID" they might make
->> a simple ingress TC ebpf program using these new interfaces
->> and expect it to work.
->>
->> But the UID their program will see will be the UID of whatever
->> randomly happened to be executing when the packet was received
->> and processed.
->
-> yes, you're right. Such tc filters will be incorrect.
-> Will send a partial revert disallowing them in tc.
+On Tue, 16 Jun 2015 16:23:28 +0900
+Joonsoo Kim <iamjoonsoo.kim@lge.com> wrote:
 
-Sorry for late reply [on vacation]; if you really want to, you
-could go via skb->sk->sk_socket->file and then retrieve credentials
-from there for egress side (you can have a look at xt_owner). You'd
-need a different *_proto helper for tc in that case, which would
-then map to BPF_FUNC_get_current_uid_gid, etc. But that doesn't work
-for ingress however, even if you would have early demux, so you
-would need to let the eBPF helper function return an error code in
-that case.
+> On Mon, Jun 15, 2015 at 05:52:56PM +0200, Jesper Dangaard Brouer wrote:
+> > This implements SLUB specific kmem_cache_free_bulk().  SLUB allocator
+> > now both have bulk alloc and free implemented.
+> > 
+> > Play nice and reenable local IRQs while calling slowpath.
+> > 
+> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> > ---
+> >  mm/slub.c |   32 +++++++++++++++++++++++++++++++-
+> >  1 file changed, 31 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/mm/slub.c b/mm/slub.c
+> > index 98d0e6f73ec1..cc4f870677bb 100644
+> > --- a/mm/slub.c
+> > +++ b/mm/slub.c
+> > @@ -2752,7 +2752,37 @@ EXPORT_SYMBOL(kmem_cache_free);
+> >  
+> >  void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
+> >  {
+> > -	__kmem_cache_free_bulk(s, size, p);
+> > +	struct kmem_cache_cpu *c;
+> > +	struct page *page;
+> > +	int i;
+> > +
+> > +	local_irq_disable();
+> > +	c = this_cpu_ptr(s->cpu_slab);
+> > +
+> > +	for (i = 0; i < size; i++) {
+> > +		void *object = p[i];
+> > +
+> > +		if (unlikely(!object))
+> > +			continue; // HOW ABOUT BUG_ON()???
+> > +
+> > +		page = virt_to_head_page(object);
+> > +		BUG_ON(s != page->slab_cache); /* Check if valid slab page */
+> 
+> You need to use cache_from_objt() to support kmemcg accounting.
+> And, slab_free_hook() should be called before free.
+
+Okay, but Christoph choose to not support kmem_cache_debug() in patch2/7.
+
+Should we/I try to add kmem cache debugging support?
+
+If adding these, then I would also need to add those on alloc path...
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
