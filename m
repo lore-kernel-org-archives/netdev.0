@@ -1,54 +1,42 @@
-From: Craig Gallek <kraig@google.com>
-Subject: Re: [PATCH iproute2] ss: Include -E option for socket destroy events
-Date: Tue, 16 Jun 2015 16:17:18 -0400
-Message-ID: <CAEfhGiyVWT_dq3p0E4hhsOtCxOXSXJOzH4qek0dduRYsZHvWug@mail.gmail.com>
-References: <1434470578-25796-1-git-send-email-kraig@google.com>
-	<1434473455.27504.179.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [net-next 07/17] fm10k: use an unsigned int for i in
+ ethtool_get_strings
+Date: Tue, 16 Jun 2015 20:33:00 +0000
+Message-ID: <1434486780.12272.1.camel@intel.com>
+References: <1434462448-140563-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1434462448-140563-8-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <55803055.5030003@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: "sergei.shtylyov@cogentembedded.com"
+	<sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:38324 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757120AbbFPURV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 16:17:21 -0400
-Received: by igblz2 with SMTP id lz2so22504529igb.1
-        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 13:17:18 -0700 (PDT)
-In-Reply-To: <1434473455.27504.179.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mga14.intel.com ([192.55.52.115]:7823 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757132AbbFPUdE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jun 2015 16:33:04 -0400
+In-Reply-To: <55803055.5030003@cogentembedded.com>
+Content-Language: en-US
+Content-ID: <6E1F19868033FE4888AC4BFBB85C411D@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I am not sure filter works, and apparently some fields are not properly
-> reported ? (source port for example looks wrong)
->
-> (Note : you probably need to filter in user space, but ss should already
-> have support for this)
-Ah, good catch on the filter.  It can be fixed by
-- if ((err = inet_show_sock(h, NULL, diag_arg->protocol)) < 0)
-+ if ((err = inet_show_sock(h, diag_arg->f, diag_arg->protocol)) < 0)
-in show_one_inet_sock.  I believe this worked previously because the
-filter determined the parameters of the netlink request, effectively
-causing the filtering to happen in the kernel.  However, if the
-ssfilter defined a parameter that could not be used select sockets via
-the netlink request (either because it is a concept not available in
-the request structure or because the multicast groups have no request
-concept), this user space filtering parameter would be necessary.
-Perhaps this was an optimization to not do userspace filtering when we
-know we won't need it?  In that case, my updated version of this patch
-should probably set the filter parameter of inet_diag_arg to NULL in
-the case of a get request and to the actual userspace filter in the
-case of monitoring the broadcast data.
-
-The source port issue is a harder problem (related to the kernel
-patches, not this one).  The point at which socket information is
-broadcast happens after the unhash callback of the appropriate
-protocol (called in sk_common_release).  This process sets the source
-port of the socket to zero (via __inet_put_port for tcp and
-udp_lib_unhash for udp).  If we want the source port to be returned, I
-believe the only options are broadcasting earlier in the destruction
-path (potentially missing any activity that may happen after that
-point) or to store the source port in an additional location for later
-use...
+T24gVHVlLCAyMDE1LTA2LTE2IGF0IDE3OjE5ICswMzAwLCBTZXJnZWkgU2h0eWx5b3Ygd3JvdGU6
+DQo+IE9uIDYvMTYvMjAxNSA0OjQ3IFBNLCBKZWZmIEtpcnNoZXIgd3JvdGU6DQo+IA0KPiA+IEZy
+b206IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0KPiANCj4gPiBUaGUg
+dmFsdWUgd2lsbCBuZXZlciBiZSBuZWdhdGl2ZSwgYW5kIHdlIHVzZSB0aGUgJWkgcHJpbnQgZm9y
+bWF0LCANCj4gPiB1c2UNCj4gDQo+ICAgICAiJWkiIGlzIHRoZSBzYW1lIGFzICIlZCIsIEFGQUlS
+LiBZb3UgbmVlZCAiJXUiIGZvciB0aGUgdW5zaWduZWQgDQo+IHZhcmlhYmxlcy4NCj4gDQo+ID4g
+dW5zaWduZWQgaW50IGZvciB0aGUgbG9vcCBjb3VudGVyLiBJc3N1ZSBmb3VuZCB1c2luZyBjcHBj
+aGVjay4NCj4gDQo+ID4gU2lnbmVkLW9mZi1ieTogSmFjb2IgS2VsbGVyIDxqYWNvYi5lLmtlbGxl
+ckBpbnRlbC5jb20+DQo+ID4gVGVzdGVkLWJ5OiBLcmlzaG5laWwgU2luZ2ggPEtyaXNobmVpbC5r
+LnNpbmdoQGludGVsLmNvbT4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGplZmZy
+ZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gDQo+IFdCUiwgU2VyZ2VpDQo+IA0KDQpPb3BzLCB5
+b3UgYXJlIHJpZ2h0Lg0KDQpSZWdhcmRzLA0KSmFrZQ==
