@@ -1,34 +1,41 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH] ath10k: txrx: remove unreachable negative return check and fixup type
-Date: Tue, 16 Jun 2015 13:16:23 +0300
-Message-ID: <87616o7ybs.fsf@kamboji.qca.qualcomm.com>
-References: <1434039489-24934-1-git-send-email-hofrat@osadl.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net-next 00/15] Simplify netfilter and network namespaces
+Date: Tue, 16 Jun 2015 12:32:06 +0200
+Message-ID: <20150616103206.GA3882@salvia>
+References: <87616ppt3h.fsf@x220.int.ebiederm.org>
+ <20150615.171042.1771913051598016582.davem@davemloft.net>
+ <87twu8lcre.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <linux-wireless@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <ath10k@lists.infradead.org>
-To: Nicholas Mc Guire <hofrat@osadl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, stephen@networkplumber.org,
+	jjciarla@raiz.uncu.edu.ar, wensong@linux-vs.org,
+	horms@verge.net.au, ja@ssi.bg, kaber@trash.net,
+	kadlec@blackhole.kfki.hu, jhs@mojatatu.com,
+	steffen.klassert@secunet.com, herbert@gondor.apana.org.au
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabertooth02.qualcomm.com ([65.197.215.38]:3737 "EHLO
-	sabertooth02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756455AbbFPKQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 06:16:29 -0400
-In-Reply-To: <1434039489-24934-1-git-send-email-hofrat@osadl.org> (Nicholas Mc
-	Guire's message of "Thu, 11 Jun 2015 18:18:09 +0200")
+Received: from mail.us.es ([193.147.175.20]:50564 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753612AbbFPK0q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jun 2015 06:26:46 -0400
+Content-Disposition: inline
+In-Reply-To: <87twu8lcre.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nicholas Mc Guire <hofrat@osadl.org> writes:
+On Mon, Jun 15, 2015 at 07:26:13PM -0500, Eric W. Biederman wrote:
+[...]
+> So what I am in the processes of doing is reviewing and testing
+> the combined set of patches and hopefully I will have something
+> for you soon (tomorrow?).  Unless Pablo has objections.
 
-> wait_event_timeout(), introduced in 'commit 5e3dd157d7e7 ("ath10k: mac80211
-> driver for Qualcomm Atheros 802.11ac CQA98xx devices")' never returns < 0
-> so the only failure condition to be checked is == 0 (timeout). Further the
-> return type is long not int - an appropriately named variable is added
-> and the assignments fixed up.
->
-> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+Please, feel free to take over my patchset and improve it. That has
+consumed part of my weekend and I have several open branches in my
+internal tree that I need to push forward.
 
-Thanks, applied.
+So I'd be really happy if you polish them and get this done.
 
--- 
-Kalle Valo
+Let me know if I can help in any case.
+
+Thanks a lot Eric.
