@@ -1,63 +1,55 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net] ipv4: include NLM_F_APPEND flag in append route notifications
-Date: Tue, 16 Jun 2015 09:11:59 -0700
-Message-ID: <1434471120-26742-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:34152 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752711AbbFPQMG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 12:12:06 -0400
-Received: by pdbki1 with SMTP id ki1so17541469pdb.1
-        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 09:12:05 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ilya Dryomov <idryomov@gmail.com>
+Subject: Re: [PATCH] crush:Make the function crush_ln static
+Date: Tue, 16 Jun 2015 19:12:52 +0300
+Message-ID: <CAOi1vP8xL=ZdEH5fcGaMOkKbs5Hdjg9BLe6FxdRGVezdiighyQ@mail.gmail.com>
+References: <1433803863-9241-1-git-send-email-xerofoify@gmail.com>
+	<CAOi1vP_G6eVwRW4coey4-gUEx3Y2k-pnDfJxMk6Va+C0aTLG-w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Yan, Zheng" <zyan@redhat.com>, Sage Weil <sage@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ceph Development <ceph-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Nicholas Krause <xerofoify@gmail.com>
+Return-path: <ceph-devel-owner@vger.kernel.org>
+In-Reply-To: <CAOi1vP_G6eVwRW4coey4-gUEx3Y2k-pnDfJxMk6Va+C0aTLG-w@mail.gmail.com>
+Sender: ceph-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Tue, Jun 9, 2015 at 11:00 AM, Ilya Dryomov <idryomov@gmail.com> wrote:
+> On Tue, Jun 9, 2015 at 1:51 AM, Nicholas Krause <xerofoify@gmail.com> wrote:
+>> This makes the function, crush_ln static now due to having
+>> only one caller in its own definition and declaration file
+>> of mapper.c
+>>
+>> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+>> ---
+>>  net/ceph/crush/mapper.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/ceph/crush/mapper.c b/net/ceph/crush/mapper.c
+>> index 5b47736..86778d4 100644
+>> --- a/net/ceph/crush/mapper.c
+>> +++ b/net/ceph/crush/mapper.c
+>> @@ -239,7 +239,7 @@ static int bucket_straw_choose(struct crush_bucket_straw *bucket,
+>>  }
+>>
+>>  // compute 2^44*log2(input+1)
+>> -uint64_t crush_ln(unsigned xin)
+>> +static uint64_t crush_ln(unsigned xin)
+>>  {
+>>      unsigned x=xin, x1;
+>>      int iexpon, index1, index2;
+>
+> This is tied up with a bunch of style cleanups, I'll apply it after
+> they are sorted out.
 
-This patch adds NLM_F_APPEND flag to struct nlmsg_hdr->nlmsg_flags
-in newroute notifications if the route add was an append.
-(This is similar to how NLM_F_REPLACE is already part of new
-route replace notifications today)
+I folded your patch into a cleanup commit [1] that also fixed
+crush_ln() formatting - I hope you don't mind.
 
-This helps userspace determine if the route add operation was
-an append.
+[1] https://github.com/ceph/ceph-client/commit/45c7a1f5df419e53c17f2eeb5680d6fb20a07162
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/ipv4/fib_trie.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+Thanks,
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 3c699c4..38ffc20 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1082,6 +1082,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 	struct trie *t = (struct trie *)tb->tb_data;
- 	struct fib_alias *fa, *new_fa;
- 	struct key_vector *l, *tp;
-+	unsigned int nlflags = 0;
- 	struct fib_info *fi;
- 	u8 plen = cfg->fc_dst_len;
- 	u8 slen = KEYLENGTH - plen;
-@@ -1203,6 +1204,8 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 
- 		if (!(cfg->fc_nlflags & NLM_F_APPEND))
- 			fa = fa_first;
-+		else
-+			nlflags |= NLM_F_APPEND;
- 	}
- 	err = -ENOENT;
- 	if (!(cfg->fc_nlflags & NLM_F_CREATE))
-@@ -1238,7 +1241,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 
- 	rt_cache_flush(cfg->fc_nlinfo.nl_net);
- 	rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen, new_fa->tb_id,
--		  &cfg->fc_nlinfo, 0);
-+		  &cfg->fc_nlinfo, nlflags);
- succeeded:
- 	return 0;
- 
--- 
-1.7.10.4
+                Ilya
