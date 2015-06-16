@@ -1,62 +1,102 @@
 From: Julien Grall <julien.grall@citrix.com>
-Subject: [PATCH v4 1/3] net/xen-netfront: Correct printf format in xennet_get_responses
-Date: Tue, 16 Jun 2015 20:10:46 +0100
-Message-ID: <1434481848-26387-2-git-send-email-julien.grall@citrix.com>
+Subject: [PATCH v4 3/3] net/xen-netback: Don't mix hexa and decimal with 0x in the printf format
+Date: Tue, 16 Jun 2015 20:10:48 +0100
+Message-ID: <1434481848-26387-4-git-send-email-julien.grall@citrix.com>
 References: <1434481848-26387-1-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>,
 	Julien Grall <julien.grall@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
 	<netdev@vger.kernel.org>
 To: <xen-devel@lists.xenproject.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:4058 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754792AbbFPTMC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jun 2015 15:12:02 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1434481848-26387-1-git-send-email-julien.grall@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-rx->status is an int16_t, print it using %d rather than %u in order to
-have a meaningful value when the field is negative.
+Append 0x to all %x in order to avoid while reading when there is other
+decimal value in the log.
 
-Also use %u rather than %x for rx->offset.
+Also replace some of the hexadecimal print to decimal to uniformize the
+format with netfront.
 
 Signed-off-by: Julien Grall <julien.grall@citrix.com>
-Reviewed-by: David Vrabel <david.vrabel@citrix.com>
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
 Cc: netdev@vger.kernel.org
 
 ---
     Changes in v4:
-        - Use %u for the rx->offset because offset is unsigned
-
-    Changes in v3:
-        - Use %d for the rx->offset too.
-
-    Changes in v2:
-        - Add David's Reviewed-by
+        - Patch added
 ---
- drivers/net/xen-netfront.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/xen-netback/netback.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index e031c94..281720f 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -733,7 +733,7 @@ static int xennet_get_responses(struct netfront_queue *queue,
- 		if (unlikely(rx->status < 0 ||
- 			     rx->offset + rx->status > PAGE_SIZE)) {
- 			if (net_ratelimit())
--				dev_warn(dev, "rx->offset: %x, size: %u\n",
-+				dev_warn(dev, "rx->offset: %u, size: %d\n",
- 					 rx->offset, rx->status);
- 			xennet_move_rx_slot(queue, skb, ref);
- 			err = -EINVAL;
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index ba3ae30..11bd9d8 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -748,7 +748,7 @@ static int xenvif_count_requests(struct xenvif_queue *queue,
+ 		slots++;
+ 
+ 		if (unlikely((txp->offset + txp->size) > PAGE_SIZE)) {
+-			netdev_err(queue->vif->dev, "Cross page boundary, txp->offset: %x, size: %u\n",
++			netdev_err(queue->vif->dev, "Cross page boundary, txp->offset: %u, size: %u\n",
+ 				 txp->offset, txp->size);
+ 			xenvif_fatal_tx_err(queue->vif);
+ 			return -EINVAL;
+@@ -874,7 +874,7 @@ static inline void xenvif_grant_handle_set(struct xenvif_queue *queue,
+ 	if (unlikely(queue->grant_tx_handle[pending_idx] !=
+ 		     NETBACK_INVALID_HANDLE)) {
+ 		netdev_err(queue->vif->dev,
+-			   "Trying to overwrite active handle! pending_idx: %x\n",
++			   "Trying to overwrite active handle! pending_idx: 0x%x\n",
+ 			   pending_idx);
+ 		BUG();
+ 	}
+@@ -887,7 +887,7 @@ static inline void xenvif_grant_handle_reset(struct xenvif_queue *queue,
+ 	if (unlikely(queue->grant_tx_handle[pending_idx] ==
+ 		     NETBACK_INVALID_HANDLE)) {
+ 		netdev_err(queue->vif->dev,
+-			   "Trying to unmap invalid handle! pending_idx: %x\n",
++			   "Trying to unmap invalid handle! pending_idx: 0x%x\n",
+ 			   pending_idx);
+ 		BUG();
+ 	}
+@@ -1243,7 +1243,7 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
+ 		/* No crossing a page as the payload mustn't fragment. */
+ 		if (unlikely((txreq.offset + txreq.size) > PAGE_SIZE)) {
+ 			netdev_err(queue->vif->dev,
+-				   "txreq.offset: %x, size: %u, end: %lu\n",
++				   "txreq.offset: %u, size: %u, end: %lu\n",
+ 				   txreq.offset, txreq.size,
+ 				   (unsigned long)(txreq.offset&~PAGE_MASK) + txreq.size);
+ 			xenvif_fatal_tx_err(queue->vif);
+@@ -1593,12 +1593,12 @@ static inline void xenvif_tx_dealloc_action(struct xenvif_queue *queue)
+ 					queue->pages_to_unmap,
+ 					gop - queue->tx_unmap_ops);
+ 		if (ret) {
+-			netdev_err(queue->vif->dev, "Unmap fail: nr_ops %tx ret %d\n",
++			netdev_err(queue->vif->dev, "Unmap fail: nr_ops %tu ret %d\n",
+ 				   gop - queue->tx_unmap_ops, ret);
+ 			for (i = 0; i < gop - queue->tx_unmap_ops; ++i) {
+ 				if (gop[i].status != GNTST_okay)
+ 					netdev_err(queue->vif->dev,
+-						   " host_addr: %llx handle: %x status: %d\n",
++						   " host_addr: 0x%llx handle: 0x%x status: %d\n",
+ 						   gop[i].host_addr,
+ 						   gop[i].handle,
+ 						   gop[i].status);
+@@ -1731,7 +1731,7 @@ void xenvif_idx_unmap(struct xenvif_queue *queue, u16 pending_idx)
+ 				&queue->mmap_pages[pending_idx], 1);
+ 	if (ret) {
+ 		netdev_err(queue->vif->dev,
+-			   "Unmap fail: ret: %d pending_idx: %d host_addr: %llx handle: %x status: %d\n",
++			   "Unmap fail: ret: %d pending_idx: %d host_addr: %llx handle: 0x%x status: %d\n",
+ 			   ret,
+ 			   pending_idx,
+ 			   tx_unmap_op.host_addr,
 -- 
 2.1.4
