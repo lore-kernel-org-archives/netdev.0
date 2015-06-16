@@ -1,48 +1,76 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 00/15] Simplify netfilter and network namespaces
-Date: Tue, 16 Jun 2015 16:00:42 -0500
-Message-ID: <87twu7id1h.fsf@x220.int.ebiederm.org>
-References: <87616ppt3h.fsf@x220.int.ebiederm.org>
-	<20150615.171042.1771913051598016582.davem@davemloft.net>
-	<87twu8lcre.fsf@x220.int.ebiederm.org> <20150616103206.GA3882@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, stephen@networkplumber.org,
-	jjciarla@raiz.uncu.edu.ar, wensong@linux-vs.org,
-	horms@verge.net.au, ja@ssi.bg, kaber@trash.net,
-	kadlec@blackhole.kfki.hu, jhs@mojatatu.com,
-	steffen.klassert@secunet.com, herbert@gondor.apana.org.au
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net] packet: avoid out of bounds read in round robin fanout
+Date: Tue, 16 Jun 2015 17:07:59 -0400
+Message-ID: <1434488879-10663-1-git-send-email-willemb@google.com>
+Cc: davem@davemloft.net, edumazet@google.com,
+	Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:50928 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753155AbbFPVGL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 17:06:11 -0400
-In-Reply-To: <20150616103206.GA3882@salvia> (Pablo Neira Ayuso's message of
-	"Tue, 16 Jun 2015 12:32:06 +0200")
+Received: from mail-yk0-f171.google.com ([209.85.160.171]:32863 "EHLO
+	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753814AbbFPVI2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 17:08:28 -0400
+Received: by ykfr66 with SMTP id r66so24284147ykf.0
+        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 14:08:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pablo Neira Ayuso <pablo@netfilter.org> writes:
+From: Willem de Bruijn <willemb@google.com>
 
-> On Mon, Jun 15, 2015 at 07:26:13PM -0500, Eric W. Biederman wrote:
-> [...]
->> So what I am in the processes of doing is reviewing and testing
->> the combined set of patches and hopefully I will have something
->> for you soon (tomorrow?).  Unless Pablo has objections.
->
-> Please, feel free to take over my patchset and improve it. That has
-> consumed part of my weekend and I have several open branches in my
-> internal tree that I need to push forward.
->
-> So I'd be really happy if you polish them and get this done.
->
-> Let me know if I can help in any case.
+PACKET_FANOUT_LB computes f->rr_cur such that it is modulo
+f->num_members. It returns the old value unconditionally, but
+f->num_members may have changed since the last store. This can be
+fixed with
 
-Will do.  I have found more bugs lurking in your boilter plate changes
-that I am comfortable with so I am in the process of refactoring things
-a bit more than you did so the sweeping changes are more pedantic
-and much less likely to introduce bugs.
+  -        return cur
+  +        return cur < num ? : 0;
 
-Eric
+When modifying the logic, simplify it further by replacing the loop
+with an unconditional atomic increment.
+
+Fixes: dc99f600698d ("packet: Add fanout support.")
+Suggested-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ net/packet/af_packet.c | 19 ++-----------------
+ 1 file changed, 2 insertions(+), 17 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index b5989c6..efd35e8 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1272,16 +1272,6 @@ static void packet_sock_destruct(struct sock *sk)
+ 	sk_refcnt_debug_dec(sk);
+ }
+ 
+-static int fanout_rr_next(struct packet_fanout *f, unsigned int num)
+-{
+-	int x = atomic_read(&f->rr_cur) + 1;
+-
+-	if (x >= num)
+-		x = 0;
+-
+-	return x;
+-}
+-
+ static unsigned int fanout_demux_hash(struct packet_fanout *f,
+ 				      struct sk_buff *skb,
+ 				      unsigned int num)
+@@ -1293,13 +1283,8 @@ static unsigned int fanout_demux_lb(struct packet_fanout *f,
+ 				    struct sk_buff *skb,
+ 				    unsigned int num)
+ {
+-	int cur, old;
+-
+-	cur = atomic_read(&f->rr_cur);
+-	while ((old = atomic_cmpxchg(&f->rr_cur, cur,
+-				     fanout_rr_next(f, num))) != cur)
+-		cur = old;
+-	return cur;
++	unsigned int val = atomic_inc_return(&f->rr_cur);
++	return val % num;
+ }
+ 
+ static unsigned int fanout_demux_cpu(struct packet_fanout *f,
+-- 
+2.2.0.rc0.207.ga3a616c
