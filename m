@@ -1,57 +1,97 @@
-From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH/RFC net-next] openvswitch: allow output of
- MPLS packets on tunnel vports
-Date: Tue, 16 Jun 2015 12:54:08 -0700
-Message-ID: <CALnjE+q+N1nQdRpsdrYSyON3Sv2qRdvyFz4JELu4a0sJs=h6uw@mail.gmail.com>
-References: <1434415189-16006-1-git-send-email-simon.horman@netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1434415189-16006-1-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH RFC net] neigh: do not modify unlinked entries
+Date: Tue, 16 Jun 2015 22:56:39 +0300
+Message-ID: <1434484599-5875-1-git-send-email-ja@ssi.bg>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Ying Xue <ying.xue@windriver.com>, alexei@purestorage.com,
+	joern@purestorage.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:34931 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752798AbbFPT5V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jun 2015 15:57:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBKdW4gMTUsIDIwMTUgYXQgNTozOSBQTSwgU2ltb24gSG9ybWFuCjxzaW1vbi5ob3Jt
-YW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gQ3VycmVudGx5IG91dHB1dCBvZiBNUExTIHBhY2tl
-dHMgb24gdHVubmVsIHZwb3J0cyBpcyBub3QgYWxsb3dlZCBieSB0aGUKPiBkYXRhcGF0aCBhbmQs
-IG1vcmVvdmVyLCBmbG93cyB0aGF0IG1hdGNoIG9uIE1QTFMgcGFja2V0cyBhbmQgb3V0cHV0IHRv
-Cj4gdHVubmVsIHZwb3J0cyBhcmUgcmVqZWN0ZWQgYnkgdGhlIGRhdGFwYXRoLiBUaGUgZmxvd3Mg
-YXJlIHJlamVjdGVkCj4gcmVnYXJkbGVzcyBvZiBpZiB0aGV5IGFsc28gb3V0cHV0IHRvIG5vbi10
-dW5uZWwgdnBvcnRzIHdoaWNoIGlzIGFsbG93ZWQgZm9yCj4gTVBMUyBwYWNrZXRzIGFuZCB0aGUg
-Zm9sbG93aW5nIGlzIGxvZ2dlZCBieSB0aGUga2VybmVsLgo+Cj4gb3BlbnZzd2l0Y2g6IG5ldGxp
-bms6IEZsb3cgYWN0aW9ucyBtYXkgbm90IGJlIHNhZmUgb24gYWxsIG1hdGNoaW5nIHBhY2tldHMu
-Cj4KPiBUaGlzIHBhdGNoIGFkZHJlc3NlcyB0aGUgYWJvdmUgYnkgYWxsb3dpbmcgb3V0cHV0IG9m
-IE1QTFMgcGFja2V0cyB0byB0dW5uZWwKPiB2cG9ydHMuCj4KPiBNeSByZWNvbGxlY3Rpb24gb2Yg
-YWRkaW5nIE1QTFMgc3VwcG9ydCB0byB0aGUgZGF0YXBhdGggd2FzIHRoYXQgYSByYXRoZXIKPiBj
-b25zZXJ2YXRpdmUgYXBwcm9hY2ggd2FzIHRha2VuIGluIG9yZGVyIHRvIG1pbmltaXNlIHRoZSBj
-aGFuY2Ugb2YgZmFsbG91dC4KPiBUaGlzIHBhdGNoIHByb3Bvc2VzIHJlbGF4aW5nIG9uZSByZXN0
-cmljdGlvbiB3aGljaCB3YXMgaW50cm9kdWNlZCBhdCB0aGF0Cj4gdGltZS4KPgo+IE15IGxpbWl0
-ZWQgdGVzdGluZyBoYXMgbm90IGlzb2xhdGVkIGFueSBzaWRlIGVmZmVjdHMgb2YgdGhpcyBjaGFu
-Z2UuCj4KPiBTaWduZWQtb2ZmLWJ5OiBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1hbkBuZXRyb25v
-bWUuY29tPgo+IC0tLQo+ICBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgfCAzIC0tLQo+
-ICAxIGZpbGUgY2hhbmdlZCwgMyBkZWxldGlvbnMoLSkKPgo+IGRpZmYgLS1naXQgYS9uZXQvb3Bl
-bnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMK
-PiBpbmRleCA2MjRlNDFjNDI2N2YuLmE1ZDNjMGFlOGFjOCAxMDA2NDQKPiAtLS0gYS9uZXQvb3Bl
-bnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKPiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRs
-aW5rLmMKPiBAQCAtMTg0Nyw5ICsxODQ3LDYgQEAgc3RhdGljIGludCB2YWxpZGF0ZV9zZXQoY29u
-c3Qgc3RydWN0IG5sYXR0ciAqYSwKPiAgICAgICAgICAgICAgICAgYnJlYWs7Cj4KPiAgICAgICAg
-IGNhc2UgT1ZTX0tFWV9BVFRSX1RVTk5FTDoKPiAtICAgICAgICAgICAgICAgaWYgKGV0aF9wX21w
-bHMoZXRoX3R5cGUpKQo+IC0gICAgICAgICAgICAgICAgICAgICAgIHJldHVybiAtRUlOVkFMOwo+
-IC0KT25lIG9mIHRoZSBwcm9ibGVtIGlzIHdpdGggc2V0dGluZyBza2ItPmlubmVyX3Byb3RvY29s
-LiBNUExTIGFuZAp0dW5uZWwgYm90aCBuZWVkcyB0byBzZXQgaW5uZXIgcHJvdG9jb2wgZmllbGQu
-IFNvIG91dGVyIGVuY2Fwc3VsYXRpb24Kd291bGQganVzdCBvdmVyd3JpdGUgZWFybGllciBpbm5l
-ciBwcm90b2NvbCBmaWVsZCBvbiBwYWNrZXQgdHJhbnNpdApwYXRoLgpfX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVu
-dnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+The lockless lookups can return entry that is unlinked.
+Sometimes they get reference before last neigh_cleanup_and_release,
+sometimes they do not need reference. Later, any
+modification attempts may result in the following problems:
+
+1. entry is not destroyed immediately because neigh_update
+can start the timer for dead entry, eg. on change to NUD_REACHABLE
+state. As result, entry lives for some time but is invisible
+and out of control.
+
+2. __neigh_event_send can run in parallel with neigh_destroy
+while refcnt=0 but if timer is started and expired refcnt can
+reach 0 for second time leading to second neigh_destroy and
+possible crash.
+
+Thanks to Eric Dumazet and Ying Xue for their work and analyze
+on the __neigh_event_send change.
+
+Fixes: 767e97e1e0db ("neigh: RCU conversion of struct neighbour")
+Fixes: a263b3093641 ("ipv4: Make neigh lookups directly in output packet path.")
+Fixes: 6fd6ce2056de ("ipv6: Do not depend on rt->n in ip6_finish_output2().")
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+ net/core/neighbour.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+  This is an RFC, so that it can get proper commit message,
+testing and reports. In fact, I'm interested to see valid
+stack dumps for the "NEIGH: BUG, double timer add, state is %x"
+message without this patch and without any debug patches that
+dump stack from neigh_hold or other places...
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 3de6542..2237c1b 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -957,6 +957,8 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
+ 	rc = 0;
+ 	if (neigh->nud_state & (NUD_CONNECTED | NUD_DELAY | NUD_PROBE))
+ 		goto out_unlock_bh;
++	if (neigh->dead)
++		goto out_dead;
+ 
+ 	if (!(neigh->nud_state & (NUD_STALE | NUD_INCOMPLETE))) {
+ 		if (NEIGH_VAR(neigh->parms, MCAST_PROBES) +
+@@ -1013,6 +1015,13 @@ out_unlock_bh:
+ 		write_unlock(&neigh->lock);
+ 	local_bh_enable();
+ 	return rc;
++
++out_dead:
++	if (neigh->nud_state & NUD_STALE)
++		goto out_unlock_bh;
++	write_unlock_bh(&neigh->lock);
++	kfree_skb(skb);
++	return 1;
+ }
+ EXPORT_SYMBOL(__neigh_event_send);
+ 
+@@ -1076,6 +1085,8 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+ 	if (!(flags & NEIGH_UPDATE_F_ADMIN) &&
+ 	    (old & (NUD_NOARP | NUD_PERMANENT)))
+ 		goto out;
++	if (neigh->dead)
++		goto out;
+ 
+ 	if (!(new & NUD_VALID)) {
+ 		neigh_del_timer(neigh);
+@@ -1225,6 +1236,8 @@ EXPORT_SYMBOL(neigh_update);
+  */
+ void __neigh_set_probe_once(struct neighbour *neigh)
+ {
++	if (neigh->dead)
++		return;
+ 	neigh->updated = jiffies;
+ 	if (!(neigh->nud_state & NUD_FAILED))
+ 		return;
+-- 
+1.9.3
