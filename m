@@ -1,51 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] [4.2] NFC update
-Date: Mon, 15 Jun 2015 16:44:58 -0700 (PDT)
-Message-ID: <20150615.164458.1884229248616341167.davem@davemloft.net>
-References: <20150614160045.GA10440@ribalta.ger.corp.intel.com>
+Subject: Re: [PATCH net-next] bridge: del external_learned fdbs from device
+ on flush or ageout
+Date: Mon, 15 Jun 2015 17:09:24 -0700 (PDT)
+Message-ID: <20150615.170924.2212463704435329039.davem@davemloft.net>
+References: <1434306791-43364-1-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-nfc@lists.01.org
-To: sameo@linux.intel.com
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	roopa@cumulusnetworks.com, john.r.fastabend@intel.com,
+	andrew@lunn.ch, f.fainelli@gmail.com, linux@roeck-us.net,
+	stephen@networkplumber.org
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42619 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42746 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751350AbbFOXo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 19:44:59 -0400
-In-Reply-To: <20150614160045.GA10440@ribalta.ger.corp.intel.com>
+	with ESMTP id S1750717AbbFPAJ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2015 20:09:27 -0400
+In-Reply-To: <1434306791-43364-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Samuel Ortiz <sameo@linux.intel.com>
-Date: Sun, 14 Jun 2015 18:00:45 +0200
+From: sfeldma@gmail.com
+Date: Sun, 14 Jun 2015 11:33:11 -0700
 
-> This is the NFC pull request for 4.2:
+> From: Scott Feldman <sfeldma@gmail.com>
 > 
-> - NCI drivers can now define their own handlers for processing
->   proprietary NCI responses and notifications.
+> We need to delete from offload the device externally learnded fdbs when any
+> one of these events happen:
 > 
-> - NFC vendors can use a dedicated netlink API to send their own
->   proprietary commands, like e.g. all commands needed to implement
->   vendor specific manufacturing tools.
+> 1) Bridge ages out fdb.  (When bridge is doing ageing vs. device doing
+> ageing.  If device is doing ageing, it would send SWITCHDEV_FDB_DEL
+> directly).
 > 
-> - A new generic NCI over UART driver against which any NCI chipset
->   running on top of a serial interface can register.
+> 2) STP state change flushes fdbs on port.
 > 
-> - The st21nfcb driver is renamed to st-nci as it can and will support
->   most of ST Microelectronics NCI chipsets.
+> 3) User uses sysfs interface to flush fdbs from bridge or bridge port:
 > 
-> - The st21nfcb driver can put its CLF in hibernate mode and save
->   significant amount of power.
+> 	echo 1 >/sys/class/net/BR_DEV/bridge/flush
+> 	echo 1 >/sys/class/net/BR_PORT/brport/flush
 > 
-> - A few st21nfcb minor fixes.
+> 4) Offload driver send event SWITCHDEV_FDB_DEL to delete fdb entry.
 > 
-> - The NXP NCI driver now supports ACPI enumeration.
+> For rocker, we can now get called to delete fdb entry in wait and nowait
+> contexts, so set NOWAIT flag when deleting fdb entry.
 > 
-> - The Marvell NCI driver now supports both USB and serial
->   physical interfaces.
-> 
-> - The Marvell NCI drivers also supports NCI frames being muxed
->   over HCI. This is a setting that can be defined by a DT property.
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 
-Pulled, thanks Sam.
+Applied, thanks Scott.
