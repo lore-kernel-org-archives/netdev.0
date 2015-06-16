@@ -1,58 +1,61 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v4 3/3] net/xen-netback: Don't mix hexa and decimal with
- 0x in the printf format
-Date: Wed, 17 Jun 2015 01:29:16 +0300
-Message-ID: <5580A33C.4040007@cogentembedded.com>
-References: <1434481848-26387-1-git-send-email-julien.grall@citrix.com>	 <1434481848-26387-4-git-send-email-julien.grall@citrix.com>	 <5580821D.4080408@cogentembedded.com> <1434492550.2689.8.camel@perches.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] cxgb3: avoid needless buffer copy for firmware
+Date: Tue, 16 Jun 2015 15:36:17 -0700
+Message-ID: <20150616223617.GA17958@www.outflux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Julien Grall <julien.grall@citrix.com>,
-	xen-devel@lists.xenproject.org, linux-kernel@vger.kernel.org,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:35628 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752988AbbFPW3V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 18:29:21 -0400
-Received: by lbbwc1 with SMTP id wc1so20054255lbb.2
-        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 15:29:19 -0700 (PDT)
-In-Reply-To: <1434492550.2689.8.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Santosh Raspatur <santosh@chelsio.com>, netdev@vger.kernel.org,
+	Alexander Gordeev <agordeev@redhat.com>,
+	Joe Perches <joe@perches.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+There's no reason to perform a buffer copy for the firmware name. This
+also avoids a (currently impossible with current callers) NULL dereference
+if there was no matching firmware.
 
-On 06/17/2015 01:09 AM, Joe Perches wrote:
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
->>> Append 0x to all %x in order to avoid while reading when there is other
->>> decimal value in the log.
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+index b96e4bfcac41..8f7aa53a4c4b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+@@ -1025,19 +1025,19 @@ int t3_get_edc_fw(struct cphy *phy, int edc_idx, int size)
+ {
+ 	struct adapter *adapter = phy->adapter;
+ 	const struct firmware *fw;
+-	char buf[64];
++	const char *fw_name;
+ 	u32 csum;
+ 	const __be32 *p;
+ 	u16 *cache = phy->phy_cache;
+-	int i, ret;
+-
+-	snprintf(buf, sizeof(buf), get_edc_fw_name(edc_idx));
++	int i, ret = -EINVAL;
+ 
+-	ret = request_firmware(&fw, buf, &adapter->pdev->dev);
++	fw_name = get_edc_fw_name(edc_idx);
++	if (fw_name)
++		ret = request_firmware(&fw, fw_name, &adapter->pdev->dev);
+ 	if (ret < 0) {
+ 		dev_err(&adapter->pdev->dev,
+ 			"could not upgrade firmware: unable to load %s\n",
+-			buf);
++			fw_name);
+ 		return ret;
+ 	}
+ 
+-- 
+1.9.1
 
-> []
 
->>> @@ -874,7 +874,7 @@ static inline void xenvif_grant_handle_set(struct xenvif_queue *queue,
->>>    	if (unlikely(queue->grant_tx_handle[pending_idx] !=
->>>    		     NETBACK_INVALID_HANDLE)) {
->>>    		netdev_err(queue->vif->dev,
->>> -			   "Trying to overwrite active handle! pending_idx: %x\n",
->>> +			   "Trying to overwrite active handle! pending_idx: 0x%x\n",
-
->>      Using "%#x" is shorter ind does the same.
-
-> That's true, but it's also far less common.
-
-    Which is a pity... People just don't know the format specifiers well 
-enough. :-(
-
-> $ git grep -E "%#[\*\d\.]*x" | wc -l
-> 1419
-> $ git grep "0x%" | wc -l
-> 29844
-
-    Which means 29 KB could theoretically be saved on allyesconfig build. :-)
-(Actually less since the width specifiers will likely need to be fixed where 
-present.)
-
-WBR, Sergei
+-- 
+Kees Cook
+Chrome OS Security
