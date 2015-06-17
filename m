@@ -1,80 +1,59 @@
-From: Simon Guinot <simon.guinot@sequanux.org>
-Subject: Re: [PATCH v2 0/3] Fix Ethernet jumbo frames support for Armada 370
- and 38x
-Date: Wed, 17 Jun 2015 19:22:17 +0200
-Message-ID: <20150617172217.GY4853@kw.sim.vm.gnt>
-References: <1434547162-6275-1-git-send-email-simon.guinot@sequanux.org>
- <20150617172458.3e373b8a@free-electrons.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH V3 0/2] pci: Provide a flag to access VPD through function
+ 0
+Date: Wed, 17 Jun 2015 10:23:53 -0700
+Message-ID: <5581AD29.2040406@gmail.com>
+References: <20150603184445.109080.36387.stgit@mdrustad-wks.jf.intel.com> <051B68B4-3E77-4EB0-B9FE-8523631884A2@intel.com> <45099CC7-DDAB-41D9-AB74-5A81E2AAF64C@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="fKfh0xY2eB01Z/0V"
-Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
-	netdev@vger.kernel.org, Vincent Donnefort <vdonnefort@gmail.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vm1.sequanux.org ([188.165.36.56]:55150 "EHLO vm1.sequanux.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754163AbbFQRWW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2015 13:22:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20150617172458.3e373b8a@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <45099CC7-DDAB-41D9-AB74-5A81E2AAF64C@intel.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 06/17/2015 09:29 AM, Rustad, Mark D wrote:
+> + Alex
+>
+>> On Jun 5, 2015, at 2:59 PM, Rustad, Mark D <mark.d.rustad@intel.com> wrote:
+>>
+>>> On Jun 3, 2015, at 11:46 AM, Mark D Rustad <mark.d.rustad@intel.com> wrote:
+>>>
+>>> Many multi-function devices provide shared registers in extended
+>>> config space for accessing VPD. The behavior of these registers
+>>> means that the state must be tracked and access locked correctly
+>>> for accesses not to hang or worse. One way to meet these needs is
+>>> to always perform the accesses through function 0, thereby using
+>>> the state tracking and mutex that already exists.
+>>>
+>>> To provide this behavior, add a dev_flags bit to indicate that this
+>>> should be done. This bit can then be set for any non-zero function
+>>> that needs to redirect such VPD access to function 0. Do not set
+>>> this bit on the zero function or there will be an infinite recursion.
+>>>
+>>> The second patch uses this new flag to invoke this behavior on all
+>>> multi-function Intel Ethernet devices.
+>>>
+>>> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+>>>
+>>> ---
+>>> Changes in V2:
+>>> - Corrected a spelling error in a log message
+>>> - Added checks to see that the referenced function 0 is reasonable
+>>> Changes in V3:
+>>> - Don't leak a device reference
+>>> - Check that function 0 has VPD
+>>> - Make a helper for the function 0 checks
+>>> - Moved a multifunction check to the quirk patch
+>> So does this series look acceptable now? I think I addressed the issues that Alex raised. Can these also be considered for -stable?
+> More than a week has passed without any comment. Is this going to be accepted or is there still an issue?
 
---fKfh0xY2eB01Z/0V
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Yeah, this looks like it has addressed most of the corner cases so I am 
+good with it.
 
-On Wed, Jun 17, 2015 at 05:24:58PM +0200, Thomas Petazzoni wrote:
-> Dear Simon Guinot,
->=20
-> On Wed, 17 Jun 2015 15:19:19 +0200, Simon Guinot wrote:
->=20
-> > This patch series fixes the Ethernet jumbo frames support for the SoCs
-> > Armada 370, 380 and 385. Unlike Armada XP, the Ethernet controller for
-> > this SoCs don't support TCP/IP checksumming with a frame size larger
-> > than 1600 bytes.
-> >=20
-> > This patches should be applied to the -stable kernels 3.8 and onwards.
->=20
-> You should add a Fixes: tag to each commit to indicate which commit is
-> being fixed by your patches.
->=20
-> Also, I was a bit surprised by your statement that Armada 38x is also
-> affected by the problem, since Armada 38x is more recent than Armada
-> XP. but indeed, according to the Armada 38x datasheet:
->=20
->   IPv4 and TCP/UDP over IPv4/IPv6 checksum generation on transmit
->   frames for standard Ethernet packet size
->=20
-> While the Armada XP datasheet says:
->=20
->   Long frames transmission (including jumbo frames), with
->   IPv4/v6/TCP/UDP checksum generation
->=20
-> So it seems like you're right about this!
-
-At first, I though this was an error in the Armada 38x datasheet (maybe
-a sloppy copy/paster). Therefore I have checked on an DB-88F6820-GP
-board and then I can confirm that the Armada 38x is also affected.
-
-Simon
-
---fKfh0xY2eB01Z/0V
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlWBrMkACgkQgtp0PDeOcDqa0ACfcOywfyjQZj1IBNEn4LjVVtZ9
-OoQAnRkpkyJLBLcSxAL3IWhIjNQivOIq
-=bLVg
------END PGP SIGNATURE-----
-
---fKfh0xY2eB01Z/0V--
+Acked-by: Alexander Duyck <alexander.h.duyck@redhat.com>
