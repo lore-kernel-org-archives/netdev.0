@@ -1,34 +1,48 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net] ipv4: include NLM_F_APPEND flag in append route notifications
-Date: Wed, 17 Jun 2015 11:07:25 -0700
-Message-ID: <5581B75D.6020105@cumulusnetworks.com>
-References: <1434471120-26742-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bDnVEq1mqUmmYMFAd9CeEbn9tTzD_UnoDKYVScT5G=QJA@mail.gmail.com> <5581893E.3070609@cumulusnetworks.com> <558193C1.70001@gmail.com> <55819E5A.8020801@cumulusnetworks.com> <5581AF03.8010501@redhat.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH 3/3] net: dsa: Allow configuration of CPU & DSA port
+ speeds/duplex
+Date: Wed, 17 Jun 2015 14:09:52 -0400 (EDT)
+Message-ID: <536480200.118000.1434564592107.JavaMail.zimbra@savoirfairelinux.com>
+References: <1434129537-15252-1-git-send-email-andrew@lunn.ch> <1434129537-15252-3-git-send-email-andrew@lunn.ch> <557F0CD5.4070705@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Cc: Andrew Lunn <andrew@lunn.ch>, David <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Cory Tusar <cory.tusar@pid1solutions.com>,
+	netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:34525 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756504AbbFQSH0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 14:07:26 -0400
-Received: by pdbki1 with SMTP id ki1so45685044pdb.1
-        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 11:07:26 -0700 (PDT)
-In-Reply-To: <5581AF03.8010501@redhat.com>
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:64035 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755656AbbFQSJz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 14:09:55 -0400
+In-Reply-To: <557F0CD5.4070705@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/17/15, 10:31 AM, Alexander Duyck wrote:
->
-> I'd say go with something closer to the original patch, but flip the 
-> logic like you have here, and lose the "|=" in favor of an "=" since 
-> you are either sending a message with 0 or NLM_F_APPEND.
->
-> Anyway that is just my $.02.
-agreed,
+Hi Andrew, All,
 
-thanks alex, v2 posted..
+On 12/06/15 10:18, Andrew Lunn wrote:
+> By default, DSA and CPU ports are configured to the maximum speed the
+> switch supports. However there can be use cases where the peer device
+> port is slower. Allow a fixed-link property to be used with the DSA
+> and CPU port in the device tree, and use this information to configure
+> the port.
+
+Would it be a good idea for DSA to expose the "cpu" port to userspace as well?
+That way, it'd be possible to use ethtool to set the port speed and duplex
+mode, or dump registers (this would have saved me quite some time in dev).
+
+Also, in my RFC for 802.1Q support [1], I assume the CPU port to be a tagged
+member of each VLAN. But someone may want to add a VLAN with swp3 and swp4
+only, and another VLAN with swp0, swp1 and the CPU port. Am I correct? This is
+currently not possible, but with an exposed "cpu" interface, the user could
+explicitly add the CPU port to a VLAN.
+
+Sorry if this is a bit off-topic.
+
+[1] https://lkml.org/lkml/2015/6/1/752
+
+Thanks,
+-v
