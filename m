@@ -1,75 +1,91 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net v2] packet: avoid out of bounds read in round robin fanout
-Date: Wed, 17 Jun 2015 15:59:34 -0400
-Message-ID: <1434571174-8356-1-git-send-email-willemb@google.com>
-References: <55816378.1020602@cogentembedded.com>
-Cc: davem@davemloft.net, edumazet@google.com,
-	Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f47.google.com ([209.85.213.47]:33703 "EHLO
-	mail-yh0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752552AbbFQT7p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 15:59:45 -0400
-Received: by yhpn97 with SMTP id n97so41746948yhp.0
-        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 12:59:45 -0700 (PDT)
-In-Reply-To: <55816378.1020602@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?q?Peter=20N=C3=B8rlund?= <pch-chEQUL3jiZBWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net-next 0/3] ipv4: Hash-based multipath routing
+Date: Wed, 17 Jun 2015 22:08:03 +0200
+Message-ID: <1434571686-5149-1-git-send-email-pch@ordbogen.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
+This patch series enhances the IPv4 multipath code, adding support for
+hash-based multipath.
 
-PACKET_FANOUT_LB computes f->rr_cur such that it is modulo
-f->num_members. It returns the old value unconditionally, but
-f->num_members may have changed since the last store. Ensure
-that the return value is always < num.
+The multipath algorithm is a per-route attribute (RTA_MP_ALGO) with som=
+e
+degree of binary compatibility with the old implementation (2.6.12 - 2.=
+6.22),
+but without source level compatibility since attributes have different =
+names:
 
-When modifying the logic, simplify it further by replacing the loop
-with an unconditional atomic increment.
+RT_MP_ALG_L3_HASH:
+L3 hash-based distribution. This was IP_MP_ALG_NONE, which with the rou=
+te
+cache behaved somewhat like L3-based distribution. This is now the defa=
+ult.
 
-Fixes: dc99f600698d ("packet: Add fanout support.")
-Suggested-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/packet/af_packet.c | 18 ++----------------
- 1 file changed, 2 insertions(+), 16 deletions(-)
+RT_MP_ALG_PER_PACKET:
+Per-packet distribution. Was IP_MP_ALG_RR. Uses round-robin.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index b5989c6..104f902 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1272,16 +1272,6 @@ static void packet_sock_destruct(struct sock *sk)
- 	sk_refcnt_debug_dec(sk);
- }
- 
--static int fanout_rr_next(struct packet_fanout *f, unsigned int num)
--{
--	int x = atomic_read(&f->rr_cur) + 1;
--
--	if (x >= num)
--		x = 0;
--
--	return x;
--}
--
- static unsigned int fanout_demux_hash(struct packet_fanout *f,
- 				      struct sk_buff *skb,
- 				      unsigned int num)
-@@ -1293,13 +1283,9 @@ static unsigned int fanout_demux_lb(struct packet_fanout *f,
- 				    struct sk_buff *skb,
- 				    unsigned int num)
- {
--	int cur, old;
-+	unsigned int val = atomic_inc_return(&f->rr_cur);
- 
--	cur = atomic_read(&f->rr_cur);
--	while ((old = atomic_cmpxchg(&f->rr_cur, cur,
--				     fanout_rr_next(f, num))) != cur)
--		cur = old;
--	return cur;
-+	return val % num;
- }
- 
- static unsigned int fanout_demux_cpu(struct packet_fanout *f,
--- 
-2.4.3.573.g4eafbef
+RT_MP_ALG_DRR, RT_MP_ALG_RANDOM, RT_MP_ALG_WRANDOM:
+Unsupported values, but reserved because they existed in 2.6.12 - 2.6.2=
+2.
+
+RT_MP_ALG_L4_HASH:
+L4 hash-based distribution. This is new.
+
+The traditional modulo approach was replaced by a threshold-based appro=
+ach,
+described in RFC 2992. This reduces disruption in case of link failures=
+ or
+route changes.
+
+To better support anycast environments where PMTU usually breaks with
+multipath, certain ICMP packets are hashed using the header within the
+payload, ensuring that ICMP packets are routed over the same path as th=
+e
+flow they belong to.
+
+As a side effect, the multipath spinlock was removed and the code got f=
+aster.
+I measured ip_mkroute_input (excl. __mkroute_input) on a Xeon X3350 (2.=
+66GHz)
+with two paths and L3 hashing:
+
+1 thread:
+Before: ~199.8 cycles(tsc)
+After:   ~75.2 cycles(tsc)
+
+4 threads:
+Before: ~393.9 cycles(tsc)
+After:   ~77.8 cycles(tsc)
+
+If this patch is accepted, a follow-up patch to iproute2 will also be
+submitted.
+
+Best regards,
+ Peter N=C3=B8rlund
+
+Peter N=C3=B8rlund (3):
+      ipv4: Lock-less per-packet multipath
+      ipv4: L3 and L4 hash-based multipath routing
+      ipv4: ICMP packet inspection for multipath
+
+ include/net/ip_fib.h           |   10 ++-
+ include/net/route.h            |    5 +
+ include/uapi/linux/rtnetlink.h |   14 ++++
+ net/ipv4/Kconfig               |    1=20
+ net/ipv4/fib_frontend.c        |    4 +
+ net/ipv4/fib_semantics.c       |  146 +++++++++++++++++++++++++-------=
+--------
+ net/ipv4/icmp.c                |   29 +++++++-
+ net/ipv4/route.c               |  108 +++++++++++++++++++++++++++---
+ net/ipv4/xfrm4_policy.c        |    2 -
+ 9 files changed, 246 insertions(+), 73 deletions(-)
