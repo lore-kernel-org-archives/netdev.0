@@ -1,37 +1,47 @@
 From: Antonio Borneo <borneo.antonio@gmail.com>
-Subject: [PATCH 0/2] replace USE_OF in drivers
-Date: Wed, 17 Jun 2015 19:42:29 +0800
-Message-ID: <1434541351-9699-1-git-send-email-borneo.antonio@gmail.com>
-Cc: Antonio Borneo <borneo.antonio@gmail.com>
+Subject: [PATCH 1/2] clocksource: Kconfig: replace USE_OF with OF
+Date: Wed, 17 Jun 2015 19:42:30 +0800
+Message-ID: <1434541351-9699-2-git-send-email-borneo.antonio@gmail.com>
+References: <1434541351-9699-1-git-send-email-borneo.antonio@gmail.com>
+Cc: Antonio Borneo <borneo.antonio@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Daniel Lezcano <daniel.lezcano@linaro.org>,
 	Thomas Gleixner <tglx@linutronix.de>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:37434 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753366AbbFQLnP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 07:43:15 -0400
+In-Reply-To: <1434541351-9699-1-git-send-email-borneo.antonio@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Kconfig option USE_OF is used as intermediate option by few
-arch's (ARM, MIPS, Xtensa); in all these cases USE_OF implies
-setting option OF and other OF_???.
+USE_OF is used as intermediate Kconfig option by few
+arch's (ARM, MIPS, Xtensa); in all these cases it
+implies setting option OF too.
+Replace the only instance of USE_OF in clocksource
+with OF.
 
-Outside arch folder, USE_OF is used only in two places.
-In both places, USE_OF can be replaced by OF or OF_???.
-This change reduces the scope of USE_OF and makes the drivers
-(actually only the Via network ones) available to other arch's
-that don't use USE_OF.
+Signed-off-by: Antonio Borneo <borneo.antonio@gmail.com>
+---
 
-The two patches of this series can be applied independently and
-can be taken separately in the respective tree.
+ drivers/clocksource/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Antonio Borneo (2):
-  clocksource: Kconfig: replace USE_OF with OF
-  net: via/Kconfig: replace USE_OF with OF_???
-
- drivers/clocksource/Kconfig      | 2 +-
- drivers/net/ethernet/via/Kconfig | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
+diff --git a/drivers/clocksource/Kconfig b/drivers/clocksource/Kconfig
+index 51d7865f..d7410c2 100644
+--- a/drivers/clocksource/Kconfig
++++ b/drivers/clocksource/Kconfig
+@@ -254,7 +254,7 @@ config CLKSRC_MIPS_GIC
+ 
+ config CLKSRC_PXA
+ 	def_bool y if ARCH_PXA || ARCH_SA1100
+-	select CLKSRC_OF if USE_OF
++	select CLKSRC_OF if OF
+ 	help
+ 	  This enables OST0 support available on PXA and SA-11x0
+ 	  platforms.
 -- 
 2.4.3
