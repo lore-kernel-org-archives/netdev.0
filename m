@@ -1,59 +1,45 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH v2 0/3] Fix Ethernet jumbo frames support for Armada 370
- and 38x
-Date: Wed, 17 Jun 2015 17:24:58 +0200
-Message-ID: <20150617172458.3e373b8a@free-electrons.com>
-References: <1434547162-6275-1-git-send-email-simon.guinot@sequanux.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Vincent Donnefort <vdonnefort@gmail.com>
-To: Simon Guinot <simon.guinot@sequanux.org>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 06/12] net/mlx5e: Remove re-assignment of wq type in mlx5e_enable_rq()
+Date: Wed, 17 Jun 2015 18:26:23 +0300
+Message-ID: <1434554789-13758-7-git-send-email-ogerlitz@mellanox.com>
+References: <1434554789-13758-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:36667 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754602AbbFQPZC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 11:25:02 -0400
-In-Reply-To: <1434547162-6275-1-git-send-email-simon.guinot@sequanux.org>
+Received: from [193.47.165.129] ([193.47.165.129]:53964 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755165AbbFQP1D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jun 2015 11:27:03 -0400
+In-Reply-To: <1434554789-13758-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Simon Guinot,
+From: Achiad Shochat <achiad@mellanox.com>
 
-On Wed, 17 Jun 2015 15:19:19 +0200, Simon Guinot wrote:
+It is already assigned at mlx5e_build_rq_param()
 
-> This patch series fixes the Ethernet jumbo frames support for the SoCs
-> Armada 370, 380 and 385. Unlike Armada XP, the Ethernet controller for
-> this SoCs don't support TCP/IP checksumming with a frame size larger
-> than 1600 bytes.
-> 
-> This patches should be applied to the -stable kernels 3.8 and onwards.
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-You should add a Fixes: tag to each commit to indicate which commit is
-being fixed by your patches.
-
-Also, I was a bit surprised by your statement that Armada 38x is also
-affected by the problem, since Armada 38x is more recent than Armada
-XP. but indeed, according to the Armada 38x datasheet:
-
-  IPv4 and TCP/UDP over IPv4/IPv6 checksum generation on transmit
-  frames for standard Ethernet packet size
-
-While the Armada XP datasheet says:
-
-  Long frames transmission (including jumbo frames), with
-  IPv4/v6/TCP/UDP checksum generation
-
-So it seems like you're right about this!
-
-Best regards,
-
-Thomas
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index f5f5eb9..45dc8c2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -345,7 +345,6 @@ static int mlx5e_enable_rq(struct mlx5e_rq *rq, struct mlx5e_rq_param *param)
+ 	MLX5_SET(rqc,  rqc, cqn,		c->rq.cq.mcq.cqn);
+ 	MLX5_SET(rqc,  rqc, state,		MLX5_RQC_STATE_RST);
+ 	MLX5_SET(rqc,  rqc, flush_in_error_en,	1);
+-	MLX5_SET(wq,   wq,  wq_type,		MLX5_WQ_TYPE_LINKED_LIST);
+ 	MLX5_SET(wq,   wq,  log_wq_pg_sz,	rq->wq_ctrl.buf.page_shift -
+ 						PAGE_SHIFT);
+ 	MLX5_SET64(wq, wq,  dbr_addr,		rq->wq_ctrl.db.dma);
 -- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+2.3.7
