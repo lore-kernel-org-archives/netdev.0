@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH net-next 25/43] netfilter: Make nf_hook_ops just a parameter structure
-Date: Wed, 17 Jun 2015 10:28:34 -0500
-Message-ID: <1434554932-4552-25-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH net-next 42/43] netfilter bridge: Make the sysctl knobs per network namespace
+Date: Wed, 17 Jun 2015 10:28:51 -0500
+Message-ID: <1434554932-4552-42-git-send-email-ebiederm@xmission.com>
 References: <87r3pae5hn.fsf@x220.int.ebiederm.org>
 Cc: <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
 	Stephen Hemminger <stephen@networkplumber.org>,
@@ -16,301 +16,353 @@ Cc: <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:41047 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757429AbbFQPi2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 11:38:28 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <87r3pae5hn.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Eric W Biederman <ebiederm@xmission.com>
 
-Add a new structure nf_hook_entry that makes up the nf_hook_lists, and
-dynamically allocate it nf_register_hook and free it in
-nf_unregister_hook.
+This patch replaces the global brnf_call_* variables to make them per
+network namespace.
 
-This gives the netfilter hook code a little more freedom to evolve
-and removes an error case when converting netfilter hooks to be
-per nework namespace.
+Based on an early patch by Pablo Neira Ayuso <pablo@netfilter.org>
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Eric W Biederman <ebiederm@xmission.com>
 ---
- include/linux/netfilter.h        | 12 +++---
- include/net/netfilter/nf_queue.h |  4 +-
- net/netfilter/core.c             | 92 +++++++++++++++++++++++++---------------
- net/netfilter/nf_internals.h     | 13 +++++-
- net/netfilter/nf_queue.c         |  6 +--
- 5 files changed, 80 insertions(+), 47 deletions(-)
+ include/net/netns/netfilter.h |  11 +++
+ net/bridge/br_netfilter.c     | 151 +++++++++++++++++++++++++-----------------
+ 2 files changed, 103 insertions(+), 59 deletions(-)
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index 43db9eaf42f6..054cd9d45324 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -84,8 +84,6 @@ typedef unsigned int nf_hookfn(void *priv,
- 			       const struct nf_hook_state *state);
- 
- struct nf_hook_ops {
--	struct list_head 	list;
--
- 	/* User fills in from here down. */
- 	nf_hookfn		*hook;
- 	struct net_device	*dev;
-@@ -122,10 +120,12 @@ struct nf_sockopt_ops {
+diff --git a/include/net/netns/netfilter.h b/include/net/netns/netfilter.h
+index 38aa4983e2a9..181b13e1390f 100644
+--- a/include/net/netns/netfilter.h
++++ b/include/net/netns/netfilter.h
+@@ -15,5 +15,16 @@ struct netns_nf {
+ 	struct ctl_table_header *nf_log_dir_header;
+ #endif
+ 	struct list_head hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
++#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
++	int brnf_call_iptables;
++	int brnf_call_ip6tables;
++	int brnf_call_arptables;
++	int brnf_filter_vlan_tagged;
++	int brnf_filter_pppoe_tagged;
++	int brnf_pass_vlan_indev;
++#ifdef CONFIG_SYSCTL
++	struct ctl_table_header *brnf_sysctl_header;
++#endif
++#endif
  };
- 
- /* Function to register/unregister hook points. */
--int nf_register_hook(struct net *net, struct nf_hook_ops *reg);
--void nf_unregister_hook(struct net *net, struct nf_hook_ops *reg);
--int nf_register_hooks(struct net *net, struct nf_hook_ops *reg, unsigned int n);
--void nf_unregister_hooks(struct net *net, struct nf_hook_ops *reg, unsigned int n);
-+int nf_register_hook(struct net *net, const struct nf_hook_ops *reg);
-+void nf_unregister_hook(struct net *net, const struct nf_hook_ops *reg);
-+int nf_register_hooks(struct net *net, const struct nf_hook_ops *reg,
-+		      unsigned int n);
-+void nf_unregister_hooks(struct net *net, const struct nf_hook_ops *reg,
-+			 unsigned int n);
- 
- /* Functions to register get/setsockopt ranges (non-inclusive).  You
-    need to check permissions yourself! */
-diff --git a/include/net/netfilter/nf_queue.h b/include/net/netfilter/nf_queue.h
-index d81d584157e1..cad00472e3be 100644
---- a/include/net/netfilter/nf_queue.h
-+++ b/include/net/netfilter/nf_queue.h
-@@ -5,13 +5,15 @@
- #include <linux/ipv6.h>
- #include <linux/jhash.h>
- 
-+struct nf_hook_entry;
-+
- /* Each queued (to userspace) skbuff has one of these. */
- struct nf_queue_entry {
- 	struct list_head	list;
- 	struct sk_buff		*skb;
- 	unsigned int		id;
- 
--	struct nf_hook_ops	*elem;
-+	struct nf_hook_entry	*elem;
- 	struct nf_hook_state	state;
- 	u16			size; /* sizeof(entry) + saved route keys */
- 
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index ccf248607342..95456c09cf69 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -59,34 +59,46 @@ EXPORT_SYMBOL(nf_hooks_needed);
- 
- static DEFINE_MUTEX(nf_hook_mutex);
- 
--int nf_register_hook(struct net *net, struct nf_hook_ops *reg)
-+static struct list_head *find_nf_hook_list(struct net *net,
-+					   const struct nf_hook_ops *reg)
- {
- 	struct list_head *nf_hook_list;
--	struct nf_hook_ops *elem;
- 
--	mutex_lock(&nf_hook_mutex);
--	switch (reg->pf) {
--	case NFPROTO_NETDEV:
-+	nf_hook_list = &net->nf.hooks[reg->pf][reg->hooknum];
- #ifdef CONFIG_NETFILTER_INGRESS
--		if (reg->hooknum == NF_NETDEV_INGRESS) {
--			BUG_ON(reg->dev == NULL);
--			nf_hook_list = &reg->dev->nf_hooks_ingress;
--			net_inc_ingress_queue();
--			break;
--		}
-+	if ((reg->pf == NFPROTO_NETDEV) && (reg->hooknum == NF_NETDEV_INGRESS))
-+		nf_hook_list = &reg->dev->nf_hooks_ingress;
  #endif
--		/* Fall through. */
--	default:
--		nf_hook_list = &net->nf.hooks[reg->pf][reg->hooknum];
--		break;
--	}
-+	return nf_hook_list;
-+}
- 
-+int nf_register_hook(struct net *net, const struct nf_hook_ops *reg)
-+{
-+	struct list_head *nf_hook_list;
-+	struct nf_hook_entry *elem, *new;
-+
-+	new = kzalloc(sizeof(*new), GFP_KERNEL);
-+	if (!new)
-+		return -ENOMEM;
-+
-+	new->hook     = reg->hook;
-+	new->priv     = reg->priv;
-+	new->owner    = reg->owner;
-+	new->priority = reg->priority;
-+
-+	mutex_lock(&nf_hook_mutex);
-+	nf_hook_list = find_nf_hook_list(net, reg);
- 	list_for_each_entry(elem, nf_hook_list, list) {
--		if (reg->priority < elem->priority)
-+		if (new->priority < elem->priority)
- 			break;
- 	}
--	list_add_rcu(&reg->list, elem->list.prev);
-+	list_add_rcu(&new->list, elem->list.prev);
- 	mutex_unlock(&nf_hook_mutex);
-+
-+#ifdef CONFIG_NETFILTER_INGRESS
-+	if ((reg->pf == NFPROTO_NETDEV) && (reg->hooknum == NF_NETDEV_INGRESS))
-+		net_inc_ingress_queue();
-+#endif
- #ifdef HAVE_JUMP_LABEL
- 	static_key_slow_inc(&nf_hooks_needed[reg->pf][reg->hooknum]);
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index c6acff3a94ec..33d264b18853 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -44,23 +44,6 @@
+ #include <linux/sysctl.h>
  #endif
-@@ -94,31 +106,41 @@ int nf_register_hook(struct net *net, struct nf_hook_ops *reg)
- }
- EXPORT_SYMBOL(nf_register_hook);
  
--void nf_unregister_hook(struct net *net, struct nf_hook_ops *reg)
-+void nf_unregister_hook(struct net *net, const struct nf_hook_ops *reg)
- {
-+	struct list_head *nf_hook_list;
-+	struct nf_hook_entry *elem;
-+
- 	mutex_lock(&nf_hook_mutex);
--	list_del_rcu(&reg->list);
--	mutex_unlock(&nf_hook_mutex);
--	switch (reg->pf) {
--	case NFPROTO_NETDEV:
--#ifdef CONFIG_NETFILTER_INGRESS
--		if (reg->hooknum == NF_NETDEV_INGRESS) {
--			net_dec_ingress_queue();
-+	nf_hook_list = find_nf_hook_list(net, reg);
-+	list_for_each_entry(elem, nf_hook_list, list) {
-+		if ((reg->hook     == elem->hook) &&
-+		    (reg->priv     == elem->priv) &&
-+		    (reg->owner    == elem->owner) &&
-+		    (reg->priority == elem->priority)) {
-+			list_del_rcu(&elem->list);
- 			break;
- 		}
--		break;
+-#ifdef CONFIG_SYSCTL
+-static struct ctl_table_header *brnf_sysctl_header;
+-static int brnf_call_iptables __read_mostly = 1;
+-static int brnf_call_ip6tables __read_mostly = 1;
+-static int brnf_call_arptables __read_mostly = 1;
+-static int brnf_filter_vlan_tagged __read_mostly = 0;
+-static int brnf_filter_pppoe_tagged __read_mostly = 0;
+-static int brnf_pass_vlan_indev __read_mostly = 0;
+-#else
+-#define brnf_call_iptables 1
+-#define brnf_call_ip6tables 1
+-#define brnf_call_arptables 1
+-#define brnf_filter_vlan_tagged 0
+-#define brnf_filter_pppoe_tagged 0
+-#define brnf_pass_vlan_indev 0
 -#endif
--	default:
--		break;
+-
+ #define IS_IP(skb) \
+ 	(!skb_vlan_tag_present(skb) && skb->protocol == htons(ETH_P_IP))
+ 
+@@ -80,17 +63,17 @@ static inline __be16 vlan_proto(const struct sk_buff *skb)
+ 		return 0;
+ }
+ 
+-#define IS_VLAN_IP(skb) \
++#define IS_VLAN_IP(skb, net) \
+ 	(vlan_proto(skb) == htons(ETH_P_IP) && \
+-	 brnf_filter_vlan_tagged)
++	 net->nf.brnf_filter_vlan_tagged)
+ 
+-#define IS_VLAN_IPV6(skb) \
++#define IS_VLAN_IPV6(skb, net) \
+ 	(vlan_proto(skb) == htons(ETH_P_IPV6) && \
+-	 brnf_filter_vlan_tagged)
++	 net->nf.brnf_filter_vlan_tagged)
+ 
+-#define IS_VLAN_ARP(skb) \
++#define IS_VLAN_ARP(skb, net) \
+ 	(vlan_proto(skb) == htons(ETH_P_ARP) &&	\
+-	 brnf_filter_vlan_tagged)
++	 net->nf.brnf_filter_vlan_tagged)
+ 
+ static inline __be16 pppoe_proto(const struct sk_buff *skb)
+ {
+@@ -98,15 +81,15 @@ static inline __be16 pppoe_proto(const struct sk_buff *skb)
+ 			    sizeof(struct pppoe_hdr)));
+ }
+ 
+-#define IS_PPPOE_IP(skb) \
++#define IS_PPPOE_IP(skb, net) \
+ 	(skb->protocol == htons(ETH_P_PPP_SES) && \
+ 	 pppoe_proto(skb) == htons(PPP_IP) && \
+-	 brnf_filter_pppoe_tagged)
++	 net->nf.brnf_filter_pppoe_tagged)
+ 
+-#define IS_PPPOE_IPV6(skb) \
++#define IS_PPPOE_IPV6(skb, net) \
+ 	(skb->protocol == htons(ETH_P_PPP_SES) && \
+ 	 pppoe_proto(skb) == htons(PPP_IPV6) && \
+-	 brnf_filter_pppoe_tagged)
++	 net->nf.brnf_filter_pppoe_tagged)
+ 
+ /* largest possible L2 header, see br_nf_dev_queue_xmit() */
+ #define NF_BRIDGE_MAX_MAC_HEADER_LENGTH (PPPOE_SES_HLEN + ETH_HLEN)
+@@ -628,7 +611,8 @@ static struct net_device *brnf_get_logical_dev(struct sk_buff *skb, const struct
+ 	struct net_device *vlan, *br;
+ 
+ 	br = bridge_parent(dev);
+-	if (brnf_pass_vlan_indev == 0 || !skb_vlan_tag_present(skb))
++	if (dev_net(dev)->nf.brnf_pass_vlan_indev == 0 ||
++	    !skb_vlan_tag_present(skb))
+ 		return br;
+ 
+ 	vlan = __vlan_find_dev_deep_rcu(br, skb->vlan_proto,
+@@ -712,18 +696,23 @@ static unsigned int br_nf_pre_routing(void *priv,
+ 		return NF_DROP;
+ 	br = p->br;
+ 
+-	if (IS_IPV6(skb) || IS_VLAN_IPV6(skb) || IS_PPPOE_IPV6(skb)) {
+-		if (!brnf_call_ip6tables && !br->nf_call_ip6tables)
++	if (IS_IPV6(skb) ||
++	    IS_VLAN_IPV6(skb, state->net) ||
++	    IS_PPPOE_IPV6(skb, state->net)) {
++		if (!state->net->nf.brnf_call_ip6tables &&
++		    !br->nf_call_ip6tables)
+ 			return NF_ACCEPT;
+ 
+ 		nf_bridge_pull_encap_header_rcsum(skb);
+ 		return br_nf_pre_routing_ipv6(skb, state);
  	}
-+	mutex_unlock(&nf_hook_mutex);
-+	if (&elem->list == nf_hook_list) {
-+		WARN(1, "nf_unregister_hook: hook not found!\n");
-+		return;
-+	}
-+#ifdef CONFIG_NETFILTER_INGRESS
-+	if ((reg->pf == NFPROTO_NETDEV) && (reg->hooknum == NF_NETDEV_INGRESS))
-+		net_dec_ingress_queue();
+ 
+-	if (!brnf_call_iptables && !br->nf_call_iptables)
++	if (!state->net->nf.brnf_call_iptables && !br->nf_call_iptables)
+ 		return NF_ACCEPT;
+ 
+-	if (!IS_IP(skb) && !IS_VLAN_IP(skb) && !IS_PPPOE_IP(skb))
++	if (!IS_IP(skb) &&
++	    !IS_VLAN_IP(skb, state->net) &&
++	    !IS_PPPOE_IP(skb, state->net))
+ 		return NF_ACCEPT;
+ 
+ 	nf_bridge_pull_encap_header_rcsum(skb);
+@@ -772,7 +761,7 @@ static int br_nf_forward_finish(struct sock *sk, struct sk_buff *skb)
+ 	struct net *net = dev_net(skb->dev);
+ 	struct net_device *in;
+ 
+-	if (!IS_ARP(skb) && !IS_VLAN_ARP(skb)) {
++	if (!IS_ARP(skb) && !IS_VLAN_ARP(skb, net)) {
+ 
+ 		if (skb->protocol == htons(ETH_P_IP))
+ 			nf_bridge->frag_max_size = IPCB(skb)->frag_max_size;
+@@ -827,9 +816,13 @@ static unsigned int br_nf_forward_ip(void *priv,
+ 	if (!parent)
+ 		return NF_DROP;
+ 
+-	if (IS_IP(skb) || IS_VLAN_IP(skb) || IS_PPPOE_IP(skb))
++	if (IS_IP(skb) ||
++	    IS_VLAN_IP(skb, state->net) ||
++	    IS_PPPOE_IP(skb, state->net))
+ 		pf = NFPROTO_IPV4;
+-	else if (IS_IPV6(skb) || IS_VLAN_IPV6(skb) || IS_PPPOE_IPV6(skb))
++	else if (IS_IPV6(skb) ||
++		 IS_VLAN_IPV6(skb, state->net) ||
++		 IS_PPPOE_IPV6(skb, state->net))
+ 		pf = NFPROTO_IPV6;
+ 	else
+ 		return NF_ACCEPT;
+@@ -879,17 +872,17 @@ static unsigned int br_nf_forward_arp(void *priv,
+ 		return NF_ACCEPT;
+ 	br = p->br;
+ 
+-	if (!brnf_call_arptables && !br->nf_call_arptables)
++	if (!state->net->nf.brnf_call_arptables && !br->nf_call_arptables)
+ 		return NF_ACCEPT;
+ 
+ 	if (!IS_ARP(skb)) {
+-		if (!IS_VLAN_ARP(skb))
++		if (!IS_VLAN_ARP(skb, state->net))
+ 			return NF_ACCEPT;
+ 		nf_bridge_pull_encap_header(skb);
+ 	}
+ 
+ 	if (arp_hdr(skb)->ar_pln != 4) {
+-		if (IS_VLAN_ARP(skb))
++		if (IS_VLAN_ARP(skb, state->net))
+ 			nf_bridge_push_encap_header(skb);
+ 		return NF_ACCEPT;
+ 	}
+@@ -1044,9 +1037,13 @@ static unsigned int br_nf_post_routing(void *priv,
+ 	if (!realoutdev)
+ 		return NF_DROP;
+ 
+-	if (IS_IP(skb) || IS_VLAN_IP(skb) || IS_PPPOE_IP(skb))
++	if (IS_IP(skb) ||
++	    IS_VLAN_IP(skb, state->net) ||
++	    IS_PPPOE_IP(skb, state->net))
+ 		pf = NFPROTO_IPV4;
+-	else if (IS_IPV6(skb) || IS_VLAN_IPV6(skb) || IS_PPPOE_IPV6(skb))
++	else if (IS_IPV6(skb) ||
++		 IS_VLAN_IPV6(skb, state->net) ||
++		 IS_PPPOE_IPV6(skb, state->net))
+ 		pf = NFPROTO_IPV6;
+ 	else
+ 		return NF_ACCEPT;
+@@ -1202,42 +1199,42 @@ int brnf_sysctl_call_tables(struct ctl_table *ctl, int write,
+ static struct ctl_table brnf_table[] = {
+ 	{
+ 		.procname	= "bridge-nf-call-arptables",
+-		.data		= &brnf_call_arptables,
++		.data		= &init_net.nf.brnf_call_arptables,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= brnf_sysctl_call_tables,
+ 	},
+ 	{
+ 		.procname	= "bridge-nf-call-iptables",
+-		.data		= &brnf_call_iptables,
++		.data		= &init_net.nf.brnf_call_iptables,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= brnf_sysctl_call_tables,
+ 	},
+ 	{
+ 		.procname	= "bridge-nf-call-ip6tables",
+-		.data		= &brnf_call_ip6tables,
++		.data		= &init_net.nf.brnf_call_ip6tables,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= brnf_sysctl_call_tables,
+ 	},
+ 	{
+ 		.procname	= "bridge-nf-filter-vlan-tagged",
+-		.data		= &brnf_filter_vlan_tagged,
++		.data		= &init_net.nf.brnf_filter_vlan_tagged,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= brnf_sysctl_call_tables,
+ 	},
+ 	{
+ 		.procname	= "bridge-nf-filter-pppoe-tagged",
+-		.data		= &brnf_filter_pppoe_tagged,
++		.data		= &init_net.nf.brnf_filter_pppoe_tagged,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= brnf_sysctl_call_tables,
+ 	},
+ 	{
+ 		.procname	= "bridge-nf-pass-vlan-input-dev",
+-		.data		= &brnf_pass_vlan_indev,
++		.data		= &init_net.nf.brnf_pass_vlan_indev,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= brnf_sysctl_call_tables,
+@@ -1248,11 +1245,58 @@ static struct ctl_table brnf_table[] = {
+ 
+ static int __net_init br_nf_net_init(struct net *net)
+ {
+-	return nf_register_hooks(net, br_nf_ops, ARRAY_SIZE(br_nf_ops));
++#ifdef CONFIG_SYSCTL
++	struct ctl_table *table;
++	int i;
 +#endif
- #ifdef HAVE_JUMP_LABEL
- 	static_key_slow_dec(&nf_hooks_needed[reg->pf][reg->hooknum]);
- #endif
- 	synchronize_net();
-+	kfree(elem);
- }
- EXPORT_SYMBOL(nf_unregister_hook);
- 
--int nf_register_hooks(struct net *net, struct nf_hook_ops *reg, unsigned int n)
-+int nf_register_hooks(struct net *net, const struct nf_hook_ops *reg,
-+		      unsigned int n)
- {
- 	unsigned int i;
- 	int err = 0;
-@@ -137,7 +159,7 @@ err:
- }
- EXPORT_SYMBOL(nf_register_hooks);
- 
--void nf_unregister_hooks(struct net *net, struct nf_hook_ops *reg,
-+void nf_unregister_hooks(struct net *net, const struct nf_hook_ops *reg,
- 			 unsigned int n)
- {
- 	while (n-- > 0)
-@@ -148,7 +170,7 @@ EXPORT_SYMBOL(nf_unregister_hooks);
- unsigned int nf_iterate(struct list_head *head,
- 			struct sk_buff *skb,
- 			struct nf_hook_state *state,
--			struct nf_hook_ops **elemp)
-+			struct nf_hook_entry **elemp)
- {
- 	unsigned int verdict;
- 
-@@ -186,14 +208,14 @@ repeat:
-  * -EPERM for NF_DROP, 0 otherwise. */
- int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state)
- {
--	struct nf_hook_ops *elem;
-+	struct nf_hook_entry *elem;
- 	unsigned int verdict;
- 	int ret = 0;
- 
- 	/* We may already have this, but read-locks nest anyway */
- 	rcu_read_lock();
- 
--	elem = list_entry_rcu(state->hook_list, struct nf_hook_ops, list);
-+	elem = list_entry_rcu(state->hook_list, struct nf_hook_entry, list);
- next_hook:
- 	verdict = nf_iterate(state->hook_list, skb, state, &elem);
- 	if (verdict == NF_ACCEPT || verdict == NF_STOP) {
-diff --git a/net/netfilter/nf_internals.h b/net/netfilter/nf_internals.h
-index ea7f36784b3d..ff8e1f7197dc 100644
---- a/net/netfilter/nf_internals.h
-+++ b/net/netfilter/nf_internals.h
-@@ -13,11 +13,20 @@
- 
- 
- /* core.c */
-+struct nf_hook_entry {
-+	struct list_head	list;
-+	nf_hookfn		*hook;
-+	void			*priv;
-+	struct module		*owner;
-+	/* Hooks are ordered in ascending priority. */
-+	int			priority;
-+};
++	int ret;
 +
- unsigned int nf_iterate(struct list_head *head, struct sk_buff *skb,
--			struct nf_hook_state *state, struct nf_hook_ops **elemp);
-+			struct nf_hook_state *state, struct nf_hook_entry **elemp);
++	net->nf.brnf_call_arptables      = 1;
++	net->nf.brnf_call_iptables       = 1;
++	net->nf.brnf_call_ip6tables      = 1;
++	net->nf.brnf_filter_vlan_tagged  = 0;
++	net->nf.brnf_filter_pppoe_tagged = 0;
++	net->nf.brnf_pass_vlan_indev     = 0;
++
++	ret = nf_register_hooks(net, br_nf_ops, ARRAY_SIZE(br_nf_ops));
++	if (ret < 0)
++		goto err_hooks_reg;
++
++#ifdef CONFIG_SYSCTL
++	ret = -ENOMEM;
++	table = kmemdup(brnf_table, sizeof(brnf_table), GFP_KERNEL);
++	if (!table)
++		goto err_sysctl_alloc;
++
++	/* Update the variables to point into the current struct net */
++	for (i = 0; i < ARRAY_SIZE(brnf_table) - 1; i++)
++		table[i].data += (void *)net - (void *)&init_net;
++
++	net->nf.brnf_sysctl_header = register_net_sysctl(net, "net/bridge", table);
++	if (net->nf.brnf_sysctl_header == NULL)
++		goto err_sysctl_reg;
++#endif
++
++	return 0;
++
++#ifdef CONFIG_SYSCTL
++err_sysctl_reg:
++	printk(KERN_WARNING "br_netfiter: can't register to sysctl.\n");
++	kfree(table);
++err_sysctl_alloc:
++	nf_unregister_hooks(net, br_nf_ops, ARRAY_SIZE(br_nf_ops));
++#endif
++err_hooks_reg:
++	return ret;
+ }
  
- /* nf_queue.c */
--int nf_queue(struct sk_buff *skb, struct nf_hook_ops *elem,
-+int nf_queue(struct sk_buff *skb, struct nf_hook_entry *elem,
- 	     struct nf_hook_state *state, unsigned int queuenum);
- int __init netfilter_queue_init(void);
- 
-diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
-index ab077fe4c1b8..6ae3b2ccceb8 100644
---- a/net/netfilter/nf_queue.c
-+++ b/net/netfilter/nf_queue.c
-@@ -110,7 +110,7 @@ EXPORT_SYMBOL_GPL(nf_queue_entry_get_refs);
-  * through nf_reinject().
-  */
- int nf_queue(struct sk_buff *skb,
--	     struct nf_hook_ops *elem,
-+	     struct nf_hook_entry *elem,
- 	     struct nf_hook_state *state,
- 	     unsigned int queuenum)
+ static void __net_exit br_nf_net_exit(struct net *net)
  {
-@@ -172,7 +172,7 @@ err:
- void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
++#ifdef CONFIG_SYSCTL
++	struct ctl_table *table = net->nf.brnf_sysctl_header->ctl_table_arg;
++	unregister_net_sysctl_table(net->nf.brnf_sysctl_header);
++	kfree(table);
++#endif
+ 	nf_unregister_hooks(net, br_nf_ops, ARRAY_SIZE(br_nf_ops));
+ }
+ 
+@@ -1269,15 +1313,6 @@ static int __init br_netfilter_init(void)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-#ifdef CONFIG_SYSCTL
+-	brnf_sysctl_header = register_net_sysctl(&init_net, "net/bridge", brnf_table);
+-	if (brnf_sysctl_header == NULL) {
+-		printk(KERN_WARNING
+-		       "br_netfilter: can't register to sysctl.\n");
+-		nf_unregister_hooks(&init_net, br_nf_ops, ARRAY_SIZE(br_nf_ops));
+-		return -ENOMEM;
+-	}
+-#endif
+ 	RCU_INIT_POINTER(nf_br_ops, &br_ops);
+ 	printk(KERN_NOTICE "Bridge firewalling registered\n");
+ 	return 0;
+@@ -1286,9 +1321,7 @@ static int __init br_netfilter_init(void)
+ static void __exit br_netfilter_fini(void)
  {
- 	struct sk_buff *skb = entry->skb;
--	struct nf_hook_ops *elem = entry->elem;
-+	struct nf_hook_entry *elem = entry->elem;
- 	const struct nf_afinfo *afinfo;
- 	int err;
+ 	RCU_INIT_POINTER(nf_br_ops, NULL);
+-#ifdef CONFIG_SYSCTL
+-	unregister_net_sysctl_table(brnf_sysctl_header);
+-#endif
++	unregister_pernet_subsys(&br_nf_net_ops);
+ }
  
-@@ -182,7 +182,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
- 
- 	/* Continue traversal iff userspace said ok... */
- 	if (verdict == NF_REPEAT) {
--		elem = list_entry(elem->list.prev, struct nf_hook_ops, list);
-+		elem = list_entry(elem->list.prev, struct nf_hook_entry, list);
- 		verdict = NF_ACCEPT;
- 	}
- 
+ module_init(br_netfilter_init);
 -- 
 2.2.1
+
