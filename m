@@ -1,103 +1,69 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH 01/12] fsl/fman: Add the FMan FLIB headers
-Date: Wed, 17 Jun 2015 12:57:51 -0500
-Message-ID: <1434563871.2353.90.camel@freescale.com>
-References: <1433949712-5648-1-git-send-email-madalin.bucur@freescale.com>
-	 <1433949712-5648-2-git-send-email-madalin.bucur@freescale.com>
-	 <1433949712-5648-3-git-send-email-madalin.bucur@freescale.com>
-	 <1433962446.2477.121.camel@freescale.com>
-	 <DM2PR03MB3830ADD2B503C6738BB27E7E6A60@DM2PR03MB383.namprd03.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Bucur Madalin-Cristian-B32716 <madalin.bucur@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
-To: Liberman Igal-B31950 <Igal.Liberman@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <DM2PR03MB3830ADD2B503C6738BB27E7E6A60@DM2PR03MB383.namprd03.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v2] ipv4: include NLM_F_APPEND flag in append route notifications
+Date: Wed, 17 Jun 2015 11:07:01 -0700
+Message-ID: <1434564421-32047-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com,
+	sfeldma@gmail.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34138 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753033AbbFQSHH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 14:07:07 -0400
+Received: by pacgb13 with SMTP id gb13so41472729pac.1
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 11:07:07 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-06-17 at 09:59 -0500, Liberman Igal-B31950 wrote:
-> 
-> Regards,
-> Igal Liberman.
-> 
-> > -----Original Message-----
-> > From: Wood Scott-B07421
-> > Sent: Wednesday, June 10, 2015 9:54 PM
-> > To: Bucur Madalin-Cristian-B32716
-> > Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; linuxppc-
-> > dev@lists.ozlabs.org; Liberman Igal-B31950
-> > Subject: Re: [PATCH 01/12] fsl/fman: Add the FMan FLIB headers
-> > 
-> > On Wed, 2015-06-10 at 18:21 +0300, Madalin Bucur wrote:
-> > > From: Igal Liberman <Igal.Liberman@freescale.com>
-> > > 
-> > > This patch presents the FMan Foundation Libraries (FLIB) headers.
-> > > The FMan FLib provides the basic API used by the FMan drivers to
-> > > configure and control the FMan hardware.
-> > > 
-> > > Signed-off-by: Igal Liberman <Igal.Liberman@freescale.com>
-> > > ---
-> > >  .../ethernet/freescale/fman/flib/common/general.h  |  41 ++
-> > >  .../net/ethernet/freescale/fman/flib/fsl_fman.h    | 609
-> > > +++++++++++++++++++++
-> > >  2 files changed, 650 insertions(+)
-> > >  create mode 100644
-> > > drivers/net/ethernet/freescale/fman/flib/common/general.h
-> > >  create mode 100644
-> > > drivers/net/ethernet/freescale/fman/flib/fsl_fman.h
-> > 
-> > Why do we need separate patches just for headers?
-> > 
-> 
-> We wanted to make the patches smaller, it's the main reason for this 
-> separation.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Patches should be divided by function, not arbitrarily in order to 
-decrease size.  Splitting like this makes it harder to see the whole 
-picture, to search for identifiers, etc.
+This patch adds NLM_F_APPEND flag to struct nlmsg_hdr->nlmsg_flags
+in newroute notifications if the route add was an append.
+(This is similar to how NLM_F_REPLACE is already part of new
+route replace notifications today)
 
-The right way to make these patches smaller is to remove unnecessary 
-features.
+This helps userspace determine if the route add operation was
+an append.
 
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+v2: flip if condition around append and change |= to =
+(feedback from Alexander Duyck and Scott Feldman)
 
-> > What does the flib directory mean, in the context of Linux?  If 
-> > someone were
-> > to add code to this driver, how do they know if the code should go 
-> > into the
-> > flib directory or not?
-> > 
-> > > 
-> > > +#define iowrite32be(val, addr)               out_be32(&(*addr), 
-> > > val)
-> > > +#define ioread32be(addr)             in_be32(&(*addr))
-> > 
-> > iowrite32be()/ioread32be() are already defined for all relevant 
-> > architectures.
-> > Why are you redefining them into something PPC- specific?
-> > 
-> 
-> Removed those. 
+ net/ipv4/fib_trie.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-Please don't stop at the specific things I'm pointing out.
-
-> > > +/* do not change! if changed, must be disabled for rev1 ! */ 
-> > > #define
-> > > +DEFAULT_HALT_ON_EXTERNAL_ACTIVATION  false
-> > > +/* do not change! if changed, must be disabled for rev1 ! */ 
-> > > #define
-> > > +DEFAULT_HALT_ON_UNRECOVERABLE_ECC_ERROR false
-> > 
-> > rev1 of what chip?
-> > 
-> 
-> P4080. I'll update the comments. 
-
-No.  p4080rev1 is not supported, and in any case this is not the right 
-way to select different errata for different chips.
-
--Scott
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 3c699c4..6c666a9 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1082,6 +1082,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ 	struct trie *t = (struct trie *)tb->tb_data;
+ 	struct fib_alias *fa, *new_fa;
+ 	struct key_vector *l, *tp;
++	unsigned int nlflags = 0;
+ 	struct fib_info *fi;
+ 	u8 plen = cfg->fc_dst_len;
+ 	u8 slen = KEYLENGTH - plen;
+@@ -1201,7 +1202,9 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ 		if (fa_match)
+ 			goto out;
+ 
+-		if (!(cfg->fc_nlflags & NLM_F_APPEND))
++		if (cfg->fc_nlflags & NLM_F_APPEND)
++			nlflags = NLM_F_APPEND;
++		else
+ 			fa = fa_first;
+ 	}
+ 	err = -ENOENT;
+@@ -1238,7 +1241,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ 
+ 	rt_cache_flush(cfg->fc_nlinfo.nl_net);
+ 	rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen, new_fa->tb_id,
+-		  &cfg->fc_nlinfo, 0);
++		  &cfg->fc_nlinfo, nlflags);
+ succeeded:
+ 	return 0;
+ 
+-- 
+1.7.10.4
