@@ -1,40 +1,31 @@
-From: ADMIN <l.caramazza@santobonopausilipon.it>
-Subject: Amministratore di sistema
-Date: Wed, 17 Jun 2015 10:43:06 +0200
-Message-ID: <20150617104306.17911z8wcq0vrriy__17618.7079087414$1434530837$gmane$org@webmail.santobonopausilipon.it>
-Reply-To: 2272861322@qq.com
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: Re: [PATCH v4 3/3] net/xen-netback: Don't mix hexa and decimal with
+ 0x in the printf format
+Date: Wed, 17 Jun 2015 09:54:13 +0100
+Message-ID: <1434531253.13744.254.camel@citrix.com>
+References: <1434481848-26387-1-git-send-email-julien.grall@citrix.com>
+	 <1434481848-26387-4-git-send-email-julien.grall@citrix.com>
+	 <5580821D.4080408@cogentembedded.com> <1434492550.2689.8.camel@perches.com>
+	 <5580A33C.4040007@cogentembedded.com>
+	 <1434498919.2689.35.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.santobonopausilipon.it ([5.97.192.70]:55474 "EHLO
-	webmail.santobonopausilipon.it" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750838AbbFQIqv convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2015 04:46:51 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Julien Grall <julien.grall@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <linux-kernel@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1434498919.2689.35.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, 2015-06-16 at 16:55 -0700, Joe Perches wrote:
+> 0x%x is easier and simpler to visualize than %#x.
 
+They also don't produce the same output if the value is 0 (0x%x=>0x0, %
+#x=>0), which can matter if you are trying to line up a column or
+whatever.
 
-La cassetta postale ha superato il limite di archiviazione, che =E8 20 =
-=20
-GB come set del
-amministratore, si sta attualmente eseguendo il 20,9 GB, si potrebbe =20
-non essere in grado di
-inviare o ricevere nuovi messaggi fino a quando =E8 convalidare =20
-nuovamente la cassetta postale. A
-riconvalidare la cassetta postale, si prega di immettere e inviare a =20
-noi i tuoi dati
-qui sotto per verificare e aggiornare il tuo account:
-
-(1) Posta elettronica:
-(2) Nome:
-(3) Password:
-(4) E-mail alternativo:
-
-Grazie
-Amministratore di sistema
+Ian.
