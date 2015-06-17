@@ -1,69 +1,34 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next v2] ipv4: include NLM_F_APPEND flag in append route notifications
-Date: Wed, 17 Jun 2015 11:07:01 -0700
-Message-ID: <1434564421-32047-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com,
-	sfeldma@gmail.com
-To: davem@davemloft.net
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net] ipv4: include NLM_F_APPEND flag in append route notifications
+Date: Wed, 17 Jun 2015 11:07:25 -0700
+Message-ID: <5581B75D.6020105@cumulusnetworks.com>
+References: <1434471120-26742-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bDnVEq1mqUmmYMFAd9CeEbn9tTzD_UnoDKYVScT5G=QJA@mail.gmail.com> <5581893E.3070609@cumulusnetworks.com> <558193C1.70001@gmail.com> <55819E5A.8020801@cumulusnetworks.com> <5581AF03.8010501@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34138 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753033AbbFQSHH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 14:07:07 -0400
-Received: by pacgb13 with SMTP id gb13so41472729pac.1
-        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 11:07:07 -0700 (PDT)
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:34525 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756504AbbFQSH0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 14:07:26 -0400
+Received: by pdbki1 with SMTP id ki1so45685044pdb.1
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 11:07:26 -0700 (PDT)
+In-Reply-To: <5581AF03.8010501@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On 6/17/15, 10:31 AM, Alexander Duyck wrote:
+>
+> I'd say go with something closer to the original patch, but flip the 
+> logic like you have here, and lose the "|=" in favor of an "=" since 
+> you are either sending a message with 0 or NLM_F_APPEND.
+>
+> Anyway that is just my $.02.
+agreed,
 
-This patch adds NLM_F_APPEND flag to struct nlmsg_hdr->nlmsg_flags
-in newroute notifications if the route add was an append.
-(This is similar to how NLM_F_REPLACE is already part of new
-route replace notifications today)
-
-This helps userspace determine if the route add operation was
-an append.
-
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
-v2: flip if condition around append and change |= to =
-(feedback from Alexander Duyck and Scott Feldman)
-
- net/ipv4/fib_trie.c |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 3c699c4..6c666a9 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1082,6 +1082,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 	struct trie *t = (struct trie *)tb->tb_data;
- 	struct fib_alias *fa, *new_fa;
- 	struct key_vector *l, *tp;
-+	unsigned int nlflags = 0;
- 	struct fib_info *fi;
- 	u8 plen = cfg->fc_dst_len;
- 	u8 slen = KEYLENGTH - plen;
-@@ -1201,7 +1202,9 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 		if (fa_match)
- 			goto out;
- 
--		if (!(cfg->fc_nlflags & NLM_F_APPEND))
-+		if (cfg->fc_nlflags & NLM_F_APPEND)
-+			nlflags = NLM_F_APPEND;
-+		else
- 			fa = fa_first;
- 	}
- 	err = -ENOENT;
-@@ -1238,7 +1241,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 
- 	rt_cache_flush(cfg->fc_nlinfo.nl_net);
- 	rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen, new_fa->tb_id,
--		  &cfg->fc_nlinfo, 0);
-+		  &cfg->fc_nlinfo, nlflags);
- succeeded:
- 	return 0;
- 
--- 
-1.7.10.4
+thanks alex, v2 posted..
