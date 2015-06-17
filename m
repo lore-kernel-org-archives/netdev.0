@@ -1,44 +1,40 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next 00/15] Simplify netfilter and network
- namespaces
-Date: Thu, 18 Jun 2015 01:01:36 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1506180055030.3621@ja.home.ssi.bg>
-References: <87616ppt3h.fsf@x220.int.ebiederm.org> <alpine.LFD.2.11.1506172216440.2649@ja.home.ssi.bg> <87wpz25a2q.fsf@x220.int.ebiederm.org>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next] switchdev: change BUG_ON to WARN for attr set
+ failure case
+Date: Wed, 17 Jun 2015 15:38:47 -0700
+Message-ID: <CAE4R7bC4-prxLhafcgv-ruEK2Ya3mZxFkCnrxEEP8AUriiKrzw@mail.gmail.com>
+References: <1434046842-24601-1-git-send-email-sfeldma@gmail.com> <20150611.162724.1330335369043090316.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Juanjo Ciarlante <jjciarla@raiz.uncu.edu.ar>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	David Ahern <dsahern@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:58025 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750856AbbFQWGt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2015 18:06:49 -0400
-In-Reply-To: <87wpz25a2q.fsf@x220.int.ebiederm.org>
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:33205 "EHLO
+	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752059AbbFQWjI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 18:39:08 -0400
+Received: by oiyy130 with SMTP id y130so28057857oiy.0
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 15:39:08 -0700 (PDT)
+In-Reply-To: <20150611.162724.1330335369043090316.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Jun 11, 2015 at 4:27 PM, David Miller <davem@davemloft.net> wrote:
+> From: sfeldma@gmail.com
+> Date: Thu, 11 Jun 2015 11:20:42 -0700
+>
+>> From: Scott Feldman <sfeldma@gmail.com>
+>>
+>> This particular BUG_ON condition was checking for attr set err in the
+>> COMMIT phase, which isn't expected (it's a driver bug if PREPARE phase is
+>> OK but COMMIT fails).  But BUG_ON() is too strong for this case, so change
+>> to WARN().  BUG_ON() would be warranted if the system was corrupted beyond
+>> repair, but this is not the case here.
+>>
+>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>
+> Applied, thanks Scott.
 
-	Hello,
-
-On Wed, 17 Jun 2015, Eric W. Biederman wrote:
-
-> p.s.  I do have my patch that I can toss in your direction if you are
-> interested.
-
-	Of course... I'll be able to check it after 8 hours...
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+I think this one slipped thru the cracks.  I'm not seeing it in net-next.
