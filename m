@@ -1,59 +1,54 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 02/12] net/mlx4_en: Use HW counters for rx/tx bytes/packets in PF device
-Date: Wed, 17 Jun 2015 18:26:19 +0300
-Message-ID: <1434554789-13758-3-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 04/12] net/mlx5e: Use skb_shinfo(skb)->gso_segs rather than counting them
+Date: Wed, 17 Jun 2015 18:26:21 +0300
+Message-ID: <1434554789-13758-5-git-send-email-ogerlitz@mellanox.com>
 References: <1434554789-13758-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53927 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:53977 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755165AbbFQP07 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2015 11:26:59 -0400
+	id S1756776AbbFQP1I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jun 2015 11:27:08 -0400
 In-Reply-To: <1434554789-13758-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
 
-Under SRIOV, the port rx/tx bytes/packets statistics should by read
-from the HW instead of using the PF netdevice SW accounting. This is
-needed in order to get the full port statistics and not just the PF
-own ones
+Instead of counting number of gso fragments, we can use
+skb_shinfo(skb)->gso_segs.
 
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_port.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-index 73f6277..ee99e67 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-@@ -203,6 +203,20 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
- 		priv->port_stats.tso_packets       += ring->tso_packets;
- 		priv->port_stats.xmit_more         += ring->xmit_more;
- 	}
-+	if (mlx4_is_master(mdev->dev)) {
-+		stats->rx_packets = en_stats_adder(&mlx4_en_stats->RTOT_prio_0,
-+						   &mlx4_en_stats->RTOT_prio_1,
-+						   NUM_PRIORITIES);
-+		stats->tx_packets = en_stats_adder(&mlx4_en_stats->TTOT_prio_0,
-+						   &mlx4_en_stats->TTOT_prio_1,
-+						   NUM_PRIORITIES);
-+		stats->rx_bytes = en_stats_adder(&mlx4_en_stats->ROCT_prio_0,
-+						 &mlx4_en_stats->ROCT_prio_1,
-+						 NUM_PRIORITIES);
-+		stats->tx_bytes = en_stats_adder(&mlx4_en_stats->TOCT_prio_0,
-+						 &mlx4_en_stats->TOCT_prio_1,
-+						 NUM_PRIORITIES);
-+	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 471babd..c0566b6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -143,16 +143,13 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
  
- 	/* net device stats */
- 	stats->rx_errors = be64_to_cpu(mlx4_en_stats->PCS) +
+ 	if (skb_is_gso(skb)) {
+ 		u32 payload_len;
+-		int num_pkts;
+ 
+ 		eseg->mss    = cpu_to_be16(skb_shinfo(skb)->gso_size);
+ 		opcode       = MLX5_OPCODE_LSO;
+ 		ihs          = skb_transport_offset(skb) + tcp_hdrlen(skb);
+ 		payload_len  = skb->len - ihs;
+-		num_pkts     =    (payload_len / skb_shinfo(skb)->gso_size) +
+-				!!(payload_len % skb_shinfo(skb)->gso_size);
+ 		MLX5E_TX_SKB_CB(skb)->num_bytes = skb->len +
+-						  (num_pkts - 1) * ihs;
++					(skb_shinfo(skb)->gso_segs - 1) * ihs;
+ 		sq->stats.tso_packets++;
+ 		sq->stats.tso_bytes += payload_len;
+ 	} else {
 -- 
 2.3.7
