@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH net-next 37/43] netfilter: nf_defrag: Register netfilter hooks in all network namespaces
-Date: Wed, 17 Jun 2015 10:28:46 -0500
-Message-ID: <1434554932-4552-37-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH net-next 33/43] netfilter: ebtables: adapt the filter and nat table to pernet hooks
+Date: Wed, 17 Jun 2015 10:28:42 -0500
+Message-ID: <1434554932-4552-33-git-send-email-ebiederm@xmission.com>
 References: <87r3pae5hn.fsf@x220.int.ebiederm.org>
 Cc: <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
 	Stephen Hemminger <stephen@networkplumber.org>,
@@ -16,106 +16,126 @@ Cc: <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:40969 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754602AbbFQPi0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 11:38:26 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <87r3pae5hn.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric W Biederman <ebiederm@xmission.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+This adapts the filter and nat tables to register the hooks for each
+netnamespace.
+
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Eric W Biederman <ebiederm@xmission.com>
 ---
- net/ipv4/netfilter/nf_defrag_ipv4.c       | 21 ++++++++++++++++++---
- net/ipv6/netfilter/nf_defrag_ipv6_hooks.c | 21 ++++++++++++++++++---
- 2 files changed, 36 insertions(+), 6 deletions(-)
+ net/bridge/netfilter/ebtable_filter.c | 25 +++++++++++++------------
+ net/bridge/netfilter/ebtable_nat.c    | 24 ++++++++++++------------
+ 2 files changed, 25 insertions(+), 24 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_defrag_ipv4.c b/net/ipv4/netfilter/nf_defrag_ipv4.c
-index e9f4088d4759..8d5a45ddf9b5 100644
---- a/net/ipv4/netfilter/nf_defrag_ipv4.c
-+++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
-@@ -109,15 +109,30 @@ static struct nf_hook_ops ipv4_defrag_ops[] = {
- 	},
- };
+diff --git a/net/bridge/netfilter/ebtable_filter.c b/net/bridge/netfilter/ebtable_filter.c
+index a3dc249945ec..514273f949c0 100644
+--- a/net/bridge/netfilter/ebtable_filter.c
++++ b/net/bridge/netfilter/ebtable_filter.c
+@@ -96,12 +96,23 @@ static struct nf_hook_ops ebt_ops_filter[] __read_mostly = {
  
--static int __init nf_defrag_init(void)
-+static int __net_init nf_defrag_net_init(struct net *net)
+ static int __net_init frame_filter_net_init(struct net *net)
  {
--	return nf_register_hooks(&init_net, ipv4_defrag_ops,
-+	return nf_register_hooks(net, ipv4_defrag_ops,
- 				 ARRAY_SIZE(ipv4_defrag_ops));
++	int ret;
++
+ 	net->xt.frame_filter = ebt_register_table(net, &frame_filter);
+-	return PTR_ERR_OR_ZERO(net->xt.frame_filter);
++	if (IS_ERR(net->xt.frame_filter))
++		return PTR_ERR(net->xt.frame_filter);
++
++	ret = nf_register_hooks(net, ebt_ops_filter,
++				ARRAY_SIZE(ebt_ops_filter));
++	if (ret < 0)
++		ebt_unregister_table(net, net->xt.frame_filter);
++
++	return ret;
  }
  
-+static void __net_exit nf_defrag_net_exit(struct net *net)
-+{
-+	nf_unregister_hooks(net, ipv4_defrag_ops, ARRAY_SIZE(ipv4_defrag_ops));
-+}
-+
-+static struct pernet_operations nf_defrag_net_ops = {
-+	.init = nf_defrag_net_init,
-+	.exit = nf_defrag_net_exit,
-+};
-+
-+static int __init nf_defrag_init(void)
-+{
-+	return register_pernet_subsys(&nf_defrag_net_ops);
-+}
-+
- static void __exit nf_defrag_fini(void)
+ static void __net_exit frame_filter_net_exit(struct net *net)
  {
--	nf_unregister_hooks(&init_net, ipv4_defrag_ops, ARRAY_SIZE(ipv4_defrag_ops));
-+	unregister_pernet_subsys(&nf_defrag_net_ops);
++	nf_unregister_hooks(net, ebt_ops_filter, ARRAY_SIZE(ebt_ops_filter));
+ 	ebt_unregister_table(net, net->xt.frame_filter);
  }
  
- void nf_defrag_ipv4_enable(void)
-diff --git a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-index 2bd7aa696382..a20d461fbd89 100644
---- a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-+++ b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-@@ -100,6 +100,22 @@ static struct nf_hook_ops ipv6_defrag_ops[] = {
- 	},
- };
+@@ -112,21 +123,11 @@ static struct pernet_operations frame_filter_net_ops = {
  
-+static int __net_init nf_defrag_net_init(struct net *net)
-+{
-+	return nf_register_hooks(net, ipv6_defrag_ops,
-+				 ARRAY_SIZE(ipv6_defrag_ops));
-+}
-+
-+static void __net_exit nf_defrag_net_exit(struct net *net)
-+{
-+	nf_unregister_hooks(net, ipv6_defrag_ops, ARRAY_SIZE(ipv6_defrag_ops));
-+}
-+
-+static struct pernet_operations nf_defrag_net_ops = {
-+	.init = nf_defrag_net_init,
-+	.exit = nf_defrag_net_exit,
-+};
-+
- static int __init nf_defrag_init(void)
+ static int __init ebtable_filter_init(void)
  {
- 	int ret = 0;
-@@ -109,8 +125,7 @@ static int __init nf_defrag_init(void)
- 		pr_err("nf_defrag_ipv6: can't initialize frag6.\n");
- 		return ret;
- 	}
--	ret = nf_register_hooks(&init_net, ipv6_defrag_ops,
--				ARRAY_SIZE(ipv6_defrag_ops));
-+	ret = register_pernet_subsys(&nf_defrag_net_ops);
- 	if (ret < 0) {
- 		pr_err("nf_defrag_ipv6: can't register hooks\n");
- 		goto cleanup_frag6;
-@@ -125,7 +140,7 @@ cleanup_frag6:
+-	int ret;
+-
+-	ret = register_pernet_subsys(&frame_filter_net_ops);
+-	if (ret < 0)
+-		return ret;
+-	ret = nf_register_hooks(&init_net, ebt_ops_filter,
+-				ARRAY_SIZE(ebt_ops_filter));
+-	if (ret < 0)
+-		unregister_pernet_subsys(&frame_filter_net_ops);
+-	return ret;
++	return register_pernet_subsys(&frame_filter_net_ops);
+ }
  
- static void __exit nf_defrag_fini(void)
+ static void __exit ebtable_filter_fini(void)
  {
--	nf_unregister_hooks(&init_net, ipv6_defrag_ops, ARRAY_SIZE(ipv6_defrag_ops));
-+	unregister_pernet_subsys(&nf_defrag_net_ops);
- 	nf_ct_frag6_cleanup();
+-	nf_unregister_hooks(&init_net, ebt_ops_filter, ARRAY_SIZE(ebt_ops_filter));
+ 	unregister_pernet_subsys(&frame_filter_net_ops);
+ }
+ 
+diff --git a/net/bridge/netfilter/ebtable_nat.c b/net/bridge/netfilter/ebtable_nat.c
+index 11bf447f8b46..2dcd19c7d078 100644
+--- a/net/bridge/netfilter/ebtable_nat.c
++++ b/net/bridge/netfilter/ebtable_nat.c
+@@ -96,12 +96,22 @@ static struct nf_hook_ops ebt_ops_nat[] __read_mostly = {
+ 
+ static int __net_init frame_nat_net_init(struct net *net)
+ {
++	int ret;
++
+ 	net->xt.frame_nat = ebt_register_table(net, &frame_nat);
+-	return PTR_ERR_OR_ZERO(net->xt.frame_nat);
++	if (IS_ERR(net->xt.frame_nat))
++		return PTR_ERR(net->xt.frame_nat);
++
++	ret = nf_register_hooks(net, ebt_ops_nat, ARRAY_SIZE(ebt_ops_nat));
++	if (ret < 0)
++		ebt_unregister_table(net, net->xt.frame_nat);
++
++	return ret;
+ }
+ 
+ static void __net_exit frame_nat_net_exit(struct net *net)
+ {
++	nf_unregister_hooks(net, ebt_ops_nat, ARRAY_SIZE(ebt_ops_nat));
+ 	ebt_unregister_table(net, net->xt.frame_nat);
+ }
+ 
+@@ -112,21 +122,11 @@ static struct pernet_operations frame_nat_net_ops = {
+ 
+ static int __init ebtable_nat_init(void)
+ {
+-	int ret;
+-
+-	ret = register_pernet_subsys(&frame_nat_net_ops);
+-	if (ret < 0)
+-		return ret;
+-	ret = nf_register_hooks(&init_net, ebt_ops_nat,
+-				ARRAY_SIZE(ebt_ops_nat));
+-	if (ret < 0)
+-		unregister_pernet_subsys(&frame_nat_net_ops);
+-	return ret;
++	return register_pernet_subsys(&frame_nat_net_ops);
+ }
+ 
+ static void __exit ebtable_nat_fini(void)
+ {
+-	nf_unregister_hooks(&init_net, ebt_ops_nat, ARRAY_SIZE(ebt_ops_nat));
+ 	unregister_pernet_subsys(&frame_nat_net_ops);
  }
  
 -- 
 2.2.1
+
