@@ -1,38 +1,37 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH] cxgb4i: Fix neigh entry leak
-Date: Wed, 17 Jun 2015 17:17:16 +0800
-Message-ID: <1434532636-32274-1-git-send-email-ying.xue@windriver.com>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: Re: [PATCH v4 3/3] net/xen-netback: Don't mix hexa and decimal with
+ 0x in the printf format
+Date: Wed, 17 Jun 2015 10:25:43 +0100
+Message-ID: <1434533143.13744.273.camel@citrix.com>
+References: <1434481848-26387-1-git-send-email-julien.grall@citrix.com>
+	 <1434481848-26387-4-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-scsi@vger.kernel.org>, <netdev@vger.kernel.org>
-To: <kxie@chelsio.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <xen-devel@lists.xenproject.org>, <linux-kernel@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>
+To: Julien Grall <julien.grall@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:45317 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751136AbbFQJZq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jun 2015 05:25:46 -0400
+In-Reply-To: <1434481848-26387-4-git-send-email-julien.grall@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When csk->atid returned by cxgb4_alloc_atid() is less than zero,
-init_act_open() directly returns with -EINVAL. But as init_act_open()
-ever invokes dst_neigh_lookup() before it calls cxgb4_alloc_atid(),
-this leads to the leak of neigh entry searched by dst_neigh_lookup().
+On Tue, 2015-06-16 at 20:10 +0100, Julien Grall wrote:
+> Append 0x to all %x in order to avoid while reading when there is other
+> decimal value in the log.
+> 
+> Also replace some of the hexadecimal print to decimal to uniformize the
+> format with netfront.
+> 
+> Signed-off-by: Julien Grall <julien.grall@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> Cc: netdev@vger.kernel.org
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
----
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+You meant s/Append/Prepend/, nonetheless:
 
-diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index dd00e5f..c449d2a 100644
---- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-+++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -1393,7 +1393,7 @@ static int init_act_open(struct cxgbi_sock *csk)
- 	csk->atid = cxgb4_alloc_atid(lldi->tids, csk);
- 	if (csk->atid < 0) {
- 		pr_err("%s, NO atid available.\n", ndev->name);
--		return -EINVAL;
-+		goto rel_resource;
- 	}
- 	cxgbi_sock_set_flag(csk, CTPF_HAS_ATID);
- 	cxgbi_sock_get(csk);
--- 
-1.7.9.5
-
+Acked-by: Ian Campbell <ian.campbell@citrix.com>
