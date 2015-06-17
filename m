@@ -1,57 +1,61 @@
-From: Nicholas Krause <xerofoify@gmail.com>
-Subject: [PATCH] xilinx:Remove unused variable num_frag in the function
- axienet_start_xmit
-Date: Wed, 17 Jun 2015 11:52:42 -0400
-Message-ID: <1434556362-3748-1-git-send-email-xerofoify@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next 0/3 v4] changes to make ipv4 routing table aware
+ of next-hop link status
+Date: Wed, 17 Jun 2015 18:05:32 +0200
+Message-ID: <55819ACC.3010702@6wind.com>
+References: <1434386001-1157-1-git-send-email-gospo@cumulusnetworks.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- michal.simek@xilinx.com, soren.brinkmann@xilinx.com, John.Linn@xilinx.com,
- linux-arm-kernel@lists.infradead.org
-To: anirudh@xilinx.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Andy Gospodarek <gospo@cumulusnetworks.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	ddutt@cumulusnetworks.com, sfeldma@gmail.com,
+	alexander.duyck@gmail.com, hannes@stressinduktion.org,
+	stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:33600 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754802AbbFQQFf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 12:05:35 -0400
+Received: by wiwd19 with SMTP id d19so138405828wiw.0
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 09:05:34 -0700 (PDT)
+In-Reply-To: <1434386001-1157-1-git-send-email-gospo@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This removes the unused variable num_frag and the setting of it
-to the number of fragments from the passed sk_buff pointer by
-this function's caller due to this variable never being used
-in this particular function and is not declared as  global so
-setting it for global use in this file is pointless.
+Le 15/06/2015 18:33, Andy Gospodarek a =C3=A9crit :
+> This series adds the ability to have the Linux kernel track whether o=
+r
+> not a particular route should be used based on the link-status of the
+> interface associated with the next-hop.
+>
+> Before this patch any link-failure on an interface that was serving a=
+s a
+> gateway for some systems could result in those systems being isolated
+> from the rest of the network as the stack would continue to attempt t=
+o
+> send frames out of an interface that is actually linked-down.  When t=
+he
+> kernel is responsible for all forwarding, it should also be responsib=
+le
+> for taking action when the traffic can no longer be forwarded -- ther=
+e
+> is no real need to outsource link-monitoring to userspace anymore.
+>
+> This feature is only enabled with the new per-interface or ipv4 globa=
+l
+> sysctls called 'ignore_routes_with_linkdown'.
+>
+> net.ipv4.conf.all.ignore_routes_with_linkdown =3D 0
+> net.ipv4.conf.default.ignore_routes_with_linkdown =3D 0
+> net.ipv4.conf.lo.ignore_routes_with_linkdown =3D 0
+> ...
+Sorry for my late reply, but is it possible to advertise this sysctl vi=
+a the
+netconf infra (grep NETCONFA_)?
 
-Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
----
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 2 --
- 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-index 28b7e7d..624dce4 100644
---- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -651,7 +651,6 @@ static inline int axienet_check_tx_bd_space(struct axienet_local *lp,
- static int axienet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- {
- 	u32 ii;
--	u32 num_frag;
- 	u32 csum_start_off;
- 	u32 csum_index_off;
- 	skb_frag_t *frag;
-@@ -659,7 +658,6 @@ static int axienet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	struct axienet_local *lp = netdev_priv(ndev);
- 	struct axidma_bd *cur_p;
- 
--	num_frag = skb_shinfo(skb)->nr_frags;
- 	cur_p = &lp->tx_bd_v[lp->tx_bd_tail];
- 
- 	if (axienet_check_tx_bd_space(lp, num_frag)) {
--- 
-2.1.4
+Regards,
+Nicolas
