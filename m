@@ -1,61 +1,35 @@
-From: Nicolai Stange <nicstange@gmail.com>
-Subject: [PATCH] isdn: disable HiSax NetJet driver on microblaze arch
-Date: Wed, 17 Jun 2015 03:05:02 +0200
-Message-ID: <87pp4vw3ep.fsf@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-CC: Karsten Keil <isdn@linux-pingi.de>
-CC: Jean Delvare <jdelvare@suse.de>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Nicolai Stange <nicstange@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next] cxgb4: Add PCI device ID for custom T522 & T520 adapter
+Date: Wed, 17 Jun 2015 14:40:04 +0530
+Message-ID: <1434532204-30479-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:7796 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750971AbbFQD4v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2015 23:56:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix an allmodconfig compilation failer on microblaze due to big endian
-architectures being apparently unsupported by the NetJet code:
-  drivers/isdn/hisax/nj_s.c: In function 'setup_netjet_s':
-  drivers/isdn/hisax/nj_s.c:265:2:
-      error: #error "not running on big endian machines now"
-
-Modify the relevant Kconfig such that the NetJet code is not built on
-microblaze anymore.
-
-Note that endianess on microblaze is not determined through Kconfig,
-but by means of a compiler provided CPP macro, namely __MICROBLAZEEL__.
-However, gcc defaults to big endianess on that platform.
-
-Signed-off-by: Nicolai Stange <nicstange@gmail.com>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- The maintainer tree listed under "ISDN SUBSYSTEM" in MAINTAINERS does
- not exist anymore. I created the diff against the Linus tree.
+ drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
- drivers/isdn/hisax/Kconfig | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/isdn/hisax/Kconfig b/drivers/isdn/hisax/Kconfig
-index 97465ac..eb83d94 100644
---- a/drivers/isdn/hisax/Kconfig
-+++ b/drivers/isdn/hisax/Kconfig
-@@ -237,7 +237,7 @@ config HISAX_MIC
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h b/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
+index 1a9a6f3..d7ca106 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
+@@ -153,6 +153,8 @@ CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN
+ 	CH_PCI_ID_TABLE_FENTRY(0x5088),	/* Custom T570-CR */
+ 	CH_PCI_ID_TABLE_FENTRY(0x5089),	/* Custom T520-CR */
+ 	CH_PCI_ID_TABLE_FENTRY(0x5090),	/* Custom T540-CR */
++	CH_PCI_ID_TABLE_FENTRY(0x5091),	/* Custom T522-CR */
++	CH_PCI_ID_TABLE_FENTRY(0x5092),	/* Custom T520-CR */
+ CH_PCI_DEVICE_ID_TABLE_DEFINE_END;
  
- config HISAX_NETJET
- 	bool "NETjet card"
--	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
-+	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || MICROBLAZE))
- 	depends on VIRT_TO_BUS
- 	help
- 	  This enables HiSax support for the NetJet from Traverse
-@@ -249,7 +249,7 @@ config HISAX_NETJET
- 
- config HISAX_NETJET_U
- 	bool "NETspider U card"
--	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
-+	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || MICROBLAZE))
- 	depends on VIRT_TO_BUS
- 	help
- 	  This enables HiSax support for the Netspider U interface ISDN card
+ #endif /* __T4_PCI_ID_TBL_H__ */
 -- 
-2.4.3
+2.3.4
