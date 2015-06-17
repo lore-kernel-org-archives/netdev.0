@@ -1,205 +1,192 @@
-From: Julien Grall <julien.grall@citrix.com>
-Subject: [PATCH v2 1/7] xen: Include xen/page.h rather than asm/xen/page.h
-Date: Wed, 17 Jun 2015 15:28:02 +0100
-Message-ID: <1434551288-14113-2-git-send-email-julien.grall@citrix.com>
-References: <1434551288-14113-1-git-send-email-julien.grall@citrix.com>
+From: Neelakantam Gaddam <neelugaddam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: OVS Offload Decision Proposal
+Date: Wed, 17 Jun 2015 20:14:35 +0530
+Message-ID: <CAOv37=C7=wCuJq-F940PzGRza=f4Bp+f_uTrT0mwwL_5-Q3NuQ@mail.gmail.com>
+References: <20150304011817.GA29502@vergenet.net>
+ <CA+mtBx9U-HUXcfk+oOuNRwpKq74WXmbkWvQDrYURCavfWZjQaQ@mail.gmail.com>
+ <54F75802.90705@gmail.com>
+ <CA+mtBx-WYTo7tzvNKPYhBHkrPo8_W795+6tAMqVySLsMBqeRdQ@mail.gmail.com>
+ <54F7B830.3060603@gmail.com>
+ <20150306004425.GB6785@neilslaptop.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>,
-	Julien Grall <julien.grall@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	<netdev@vger.kernel.org>
-To: <xen-devel@lists.xenproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1434551288-14113-1-git-send-email-julien.grall@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>, Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+ John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20150306004425.GB6785-0o1r3XBGOEbbgkc5XkKeNuvMHUBZFtU3YPYVAmT7z5s@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Using xen/page.h will be necessary later for using common xen page
-helpers.
-
-As xen/page.h already include asm/xen/page.h, always use the later.
-
-Signed-off-by: Julien Grall <julien.grall@citrix.com>
-Reviewed-by: David Vrabel <david.vrabel@citrix.com>
-Cc: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Cc: netdev@vger.kernel.org
-
----
-    Changes in v2:
-        - Add David's Reviewed-by
----
- arch/arm/xen/mm.c                  | 2 +-
- arch/arm/xen/p2m.c                 | 2 +-
- drivers/net/xen-netback/netback.c  | 2 +-
- drivers/net/xen-netfront.c         | 1 -
- drivers/xen/events/events_base.c   | 2 +-
- drivers/xen/events/events_fifo.c   | 2 +-
- drivers/xen/gntdev.c               | 2 +-
- drivers/xen/manage.c               | 2 +-
- drivers/xen/tmem.c                 | 2 +-
- drivers/xen/xenbus/xenbus_client.c | 2 +-
- 10 files changed, 9 insertions(+), 10 deletions(-)
-
-diff --git a/arch/arm/xen/mm.c b/arch/arm/xen/mm.c
-index 4983250..03e75fe 100644
---- a/arch/arm/xen/mm.c
-+++ b/arch/arm/xen/mm.c
-@@ -15,10 +15,10 @@
- #include <xen/xen.h>
- #include <xen/interface/grant_table.h>
- #include <xen/interface/memory.h>
-+#include <xen/page.h>
- #include <xen/swiotlb-xen.h>
- 
- #include <asm/cacheflush.h>
--#include <asm/xen/page.h>
- #include <asm/xen/hypercall.h>
- #include <asm/xen/interface.h>
- 
-diff --git a/arch/arm/xen/p2m.c b/arch/arm/xen/p2m.c
-index cb7a14c..887596c 100644
---- a/arch/arm/xen/p2m.c
-+++ b/arch/arm/xen/p2m.c
-@@ -10,10 +10,10 @@
- 
- #include <xen/xen.h>
- #include <xen/interface/memory.h>
-+#include <xen/page.h>
- #include <xen/swiotlb-xen.h>
- 
- #include <asm/cacheflush.h>
--#include <asm/xen/page.h>
- #include <asm/xen/hypercall.h>
- #include <asm/xen/interface.h>
- 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 0d25943..c04d797 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -44,9 +44,9 @@
- #include <xen/xen.h>
- #include <xen/events.h>
- #include <xen/interface/memory.h>
-+#include <xen/page.h>
- 
- #include <asm/xen/hypercall.h>
--#include <asm/xen/page.h>
- 
- /* Provide an option to disable split event channels at load time as
-  * event channels are limited resource. Split event channels are
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index e031c94..e9800ea 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -45,7 +45,6 @@
- #include <linux/slab.h>
- #include <net/ip.h>
- 
--#include <asm/xen/page.h>
- #include <xen/xen.h>
- #include <xen/xenbus.h>
- #include <xen/events.h>
-diff --git a/drivers/xen/events/events_base.c b/drivers/xen/events/events_base.c
-index 3838795..96093ae 100644
---- a/drivers/xen/events/events_base.c
-+++ b/drivers/xen/events/events_base.c
-@@ -39,8 +39,8 @@
- #include <asm/irq.h>
- #include <asm/idle.h>
- #include <asm/io_apic.h>
--#include <asm/xen/page.h>
- #include <asm/xen/pci.h>
-+#include <xen/page.h>
- #endif
- #include <asm/sync_bitops.h>
- #include <asm/xen/hypercall.h>
-diff --git a/drivers/xen/events/events_fifo.c b/drivers/xen/events/events_fifo.c
-index 417415d..ed673e1 100644
---- a/drivers/xen/events/events_fifo.c
-+++ b/drivers/xen/events/events_fifo.c
-@@ -44,13 +44,13 @@
- #include <asm/sync_bitops.h>
- #include <asm/xen/hypercall.h>
- #include <asm/xen/hypervisor.h>
--#include <asm/xen/page.h>
- 
- #include <xen/xen.h>
- #include <xen/xen-ops.h>
- #include <xen/events.h>
- #include <xen/interface/xen.h>
- #include <xen/interface/event_channel.h>
-+#include <xen/page.h>
- 
- #include "events_internal.h"
- 
-diff --git a/drivers/xen/gntdev.c b/drivers/xen/gntdev.c
-index 8927485..67b9163 100644
---- a/drivers/xen/gntdev.c
-+++ b/drivers/xen/gntdev.c
-@@ -41,9 +41,9 @@
- #include <xen/balloon.h>
- #include <xen/gntdev.h>
- #include <xen/events.h>
-+#include <xen/page.h>
- #include <asm/xen/hypervisor.h>
- #include <asm/xen/hypercall.h>
--#include <asm/xen/page.h>
- 
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Derek G. Murray <Derek.Murray@cl.cam.ac.uk>, "
-diff --git a/drivers/xen/manage.c b/drivers/xen/manage.c
-index 9e6a851..d10effe 100644
---- a/drivers/xen/manage.c
-+++ b/drivers/xen/manage.c
-@@ -19,10 +19,10 @@
- #include <xen/grant_table.h>
- #include <xen/events.h>
- #include <xen/hvc-console.h>
-+#include <xen/page.h>
- #include <xen/xen-ops.h>
- 
- #include <asm/xen/hypercall.h>
--#include <asm/xen/page.h>
- #include <asm/xen/hypervisor.h>
- 
- enum shutdown_state {
-diff --git a/drivers/xen/tmem.c b/drivers/xen/tmem.c
-index c4211a3..3718b4a 100644
---- a/drivers/xen/tmem.c
-+++ b/drivers/xen/tmem.c
-@@ -17,8 +17,8 @@
- 
- #include <xen/xen.h>
- #include <xen/interface/xen.h>
-+#include <xen/page.h>
- #include <asm/xen/hypercall.h>
--#include <asm/xen/page.h>
- #include <asm/xen/hypervisor.h>
- #include <xen/tmem.h>
- 
-diff --git a/drivers/xen/xenbus/xenbus_client.c b/drivers/xen/xenbus/xenbus_client.c
-index 96b2011..a014016 100644
---- a/drivers/xen/xenbus/xenbus_client.c
-+++ b/drivers/xen/xenbus/xenbus_client.c
-@@ -37,7 +37,7 @@
- #include <linux/vmalloc.h>
- #include <linux/export.h>
- #include <asm/xen/hypervisor.h>
--#include <asm/xen/page.h>
-+#include <xen/page.h>
- #include <xen/interface/xen.h>
- #include <xen/interface/event_channel.h>
- #include <xen/balloon.h>
--- 
-2.1.4
+SGkgQWxsLAoKSSBhbSBpbnRlcmVzdGVkIGluIE9WUyBIVyBvZmZsb2FkIHN1cHBvcnQuCgpJcyB0
+aGVyZSBhbnkgcGxhbiBmb3IgaW1wbGVtZW50aW5nIEhXIG9mZmxvYWQgc3VwcG9ydCBmb3IgdXBj
+b21pbmcgT1ZTCnJlbGVhc2VzPwpJZiBpbXBsZW1lbnRhdGlvbiBpcyBhbHJlYWR5IHN0YXJ0ZWQs
+IHBsZWFzZSBwb2ludCBtZSB0byB0aGUgc291cmNlLgoKCgpPbiBGcmksIE1hciA2LCAyMDE1IGF0
+IDY6MTQgQU0sIE5laWwgSG9ybWFuIDxuaG9ybWFuQHR1eGRyaXZlci5jb20+IHdyb3RlOgoKPiBP
+biBXZWQsIE1hciAwNCwgMjAxNSBhdCAwNTo1ODowOFBNIC0wODAwLCBKb2huIEZhc3RhYmVuZCB3
+cm90ZToKPiA+IFsuLi5dCj4gPgo+ID4gPj4+RG9lc24ndCB0aGlzIGltcGx5IHR3byBlbnRpdGll
+cyB0byBiZSBpbmRlcGVuZGVudGx5IG1hbmFnaW5nIHRoZSBzYW1lCj4gPiA+Pj5waHlzaWNhbCBy
+ZXNvdXJjZT8gSWYgc28sIHRoaXMgcmFpc2VzIHF1ZXN0aW9ucyBvZiBob3cgdGhlIHJlc291cmNl
+Cj4gPiA+Pj53b3VsZCBiZSBwYXJ0aXRpb25lZCBiZXR3ZWVuIHRoZW0/IEhvdyBhcmUgY29uZmxp
+Y3RpbmcgcmVxdWVzdHMKPiA+ID4+PmJldHdlZW4gdGhlIHR3byByZWN0aWZpZWQ/Cj4gPiA+Pgo+
+ID4gPj4KPiA+ID4+V2hhdCB0d28gZW50aXRpZXM/IFRoZSBkcml2ZXIgKyBmbG93IEFQSSBjb2Rl
+IEkgaGF2ZSBpbiB0aGlzIGNhc2UKPiBtYW5hZ2UKPiA+ID4+dGhlIHBoeXNpY2FsIHJlc291cmNl
+Lgo+ID4gPj4KPiA+ID5PVlMgYW5kIG5vbi1PVlMga2VybmVsLiBNYW5hZ2VtZW50IGluIHRoaXMg
+Y29udGV4dCByZWZlcnMgdG8gcG9saWNpZXMKPiA+ID5mb3Igb3B0aW1pemluZyB1c2Ugb2YgdGhl
+IEhXIHJlc291cmNlIChsaWtlIHdoaWNoIHN1YnNldCBvZiBmbG93cyB0bwo+ID4gPm9mZmxvYWQg
+Zm9yIGJlc3QgdXRpbGl6YXRpb24pLgo+ID4gPgo+ID4gPj5JJ20gZ3Vlc3NpbmcgdGhlIGNvbmZs
+aWN0IHlvdSBhcmUgdGhpbmtpbmcgYWJvdXQgaXMgaWYgd2Ugd2FudCB0byB1c2UKPiA+ID4+Ym90
+aCBMMyAob3Igc29tZSBvdGhlciBrZXJuZWwgc3Vic3lzdGVtKSBhbmQgT1ZTIGluIHRoZSBhYm92
+ZSBjYXNlIGF0Cj4gPiA+PnRoZSBzYW1lIHRpbWU/IE5vdCBzdXJlIGlmIHBlb3BsZSBhY3R1YWxs
+eSBkbyB0aGlzIGJ1dCB3aGF0IEkgZXhwZWN0IGlzCj4gPiA+PnRoZSBMMyBzdWItc3lzdGVtIHNo
+b3VsZCByZXF1ZXN0IGEgdGFibGUgZnJvbSB0aGUgaGFyZHdhcmUgZm9yIEwzCj4gPiA+PnJvdXRl
+cy4gVGhlbiB0aGUgZHJpdmVyL2tlcm5lbCBjYW4gYWxsb2NhdGUgYSBwYXJ0IG9mIHRoZSBoYXJk
+d2FyZQo+ID4gPj5yZXNvdXJjZXMgZm9yIEwzIGFuZCBhIHNldCBmb3IgT1ZTLgo+ID4gPj4KPiA+
+ID5JJ20gdGhpbmtpbmcgb2YgdGhpcyBhcyBhIG1vcmUgZ2VuZXJhbCBwcm9ibGVtLiBXZSd2ZSBl
+c3RhYmxpc2hlZCB0aGF0Cj4gPiA+dGhlIGV4aXN0aW5nIGtlcm5lbCBtZWNoYW5pc21zIChyb3V0
+aW5nLCB0YywgcWRpc2NzLCBldGMpIHNob3VsZCBhbmQKPiA+ID5tYXliZSBhcmUgcmVxdWlyZWQg
+dG8gd29yayB3aXRoIHRoZXNlIEhXIG9mZmxvYWRzLiBJIGRvbid0IHRoaW5rIHRoYXQKPiA+ID5h
+IG1vZGVsIHdoZXJlIHdlIGNhbid0IHVzZSBvZmZsb2FkcyB3aXRoIE9WUyBhbmQga2VybmVsIHNp
+bXVsdGFuZW91c2x5Cj4gPiA+d291bGQgZmx5LCBub3IgYXJlIHdlIGdvaW5nIHRvIHdhbnQgdGhl
+IGtlcm5lbCB0byBiZSBkZXBlbmRlbnQgb24gT1ZTCj4gPiA+Zm9yIHJlc291cmNlIG1hbmFnZW1l
+bnQuIFNvIGF0IHNvbWUgcG9pbnQsIHRoZXNlIHR3byBhcmUgZ29pbmcgdG8gbmVlZAo+ID4gPnRv
+IHdvcmsgdG9nZXRoZXIgc29tZWhvdyB0byBzaGFyZSBjb21tb24gSFcgcmVzb3VyY2VzLiBCeSB0
+aGlzCj4gPiA+cmVhc29uaW5nLCAgT1ZTIG9mZmxvYWQgY2FuJ3QgYmUgZGVmaW5lZCBpbiBhIHZh
+Y3V1bS4gU3RyaWN0Cj4gPiA+cGFydGl0aW9uaW5nIG9ubHkgZ29lcyBzbyBmYXIgYW4gaW5ldml0
+YWJseSBsZWFkcyB0byBwb29yIHJlc291cmNlCj4gPiA+dXRpbGl6YXRpb24uIEZvciBpbnN0YW5j
+ZSwgaWYgd2UgZ2F2ZSBPVlMgYW5kIGtlcm5lbCBlYWNoIDEwMDAgZmxvdwo+ID4gPnN0YXRlcyBl
+YWNoIHRvIG9mZmxvYWQsIGJ1dCBPVlMgaGFzIDIwMDAgZmxvd3MgdGhhdCBhcmUgaW51bmRhdGVk
+IGFuZAo+ID4gPmtlcm5lbCBvbmVzIGFyZSBnZXR0aW5nIGFueSB0cmFmZmljIHRoZW4gd2UgaGF2
+ZSBhY2hpZXZlZCBwb29yCj4gPiA+dXRpbGl6YXRpb24uIFRoaXMgcHJvYmxlbSBiZWNvbWVzIGV2
+ZW4gbW9yZSBldmlkZW50IHdoZW4gc29tZW9uZSBhZGRzCj4gPiA+cmF0ZSBsaW1pdGluZyB0byBm
+bG93cy4gV2hhdCB3b3VsZCBpdCBtZWFuIGlmIGJvdGggT1ZTIGFuZCBrZXJuZWwKPiA+ID50cmll
+ZCB0byBpbnN0YW50aWF0ZSBhIGZsb3cgd2l0aCBndWFyYW50ZWVkIGxpbmUgcmF0ZSBiYW5kd2lk
+dGg/IEl0Cj4gPiA+c2VlbXMgbGlrZSB3ZSBuZWVkIGVpdGhlciBhIGNlbnRyYWxpemVkIHJlc291
+cmNlIG1hbmFnZXIsICBvciBhdCBsZWFzdAo+ID4gPnNvbWUgc29ydCBvZiBmYWlybHkgZHluYW1p
+YyBkZWxlZ2F0aW9uIG1lY2hhbmlzbSBmb3IgbWFuYWdpbmcgdGhlCj4gPiA+cmVzb3VyY2UgKHBy
+ZXN1bWFibHkga2VybmVsIGlzIG1hc3RlciBvZiB0aGUgcmVzb3VyY2UpLgo+ID4gPgo+ID4gPk1h
+eWJlIGEgc29sdXRpb24gdG8gYWxsIG9mIHRoaXMgaGFzIGFscmVhZHkgYmVlbiBmbGVzaGVkIG91
+dCwgYnV0IEkKPiA+ID5kaWRuJ3QgcmVhZGlseSBzZWUgdGhpcyBpbiBTaW1vbidzIHdyaXRlLXVw
+Lgo+ID4KPiBJbiBhZGRpdGlvbiB0byBKb2hucyBub3RlcyBiZWxvdywgSSB0aGluayBpdHMgaW1w
+b3J0YW50IHRvIGtlZXAgaW4gbWluZAo+IGhlcmUKPiB0aGF0IG5vIG9uZSBpcyBleHBsaWNpdGx5
+IHNldHRpbmcgb3V0IG1ha2UgT1ZTIG9mZmxvYWQgYW5kIGtlcm5lbCBkYXRhcGxhbmUKPiBvZmZs
+b2FkIG11dHVhbGx5IGV4Y2x1c2l2ZSwgbm9yIGRvIEkgdGhpbmsgdGhhdCBhbnkgb2YgdGhlIGF2
+YWlsYWJsZQo+IHByb3Bvc2Fscwo+IGFyZSBhY3R1YWxseSBkb2luZyBzby4gIFdlIGp1c3QgaGF2
+ZSB0d28gdXNlIGNhc2VzIHRoYXQgcmVxdWlyZSBkaWZmZXJlbnQKPiBzZW1hbnRpY3MgdG8gbWFr
+ZSBlZmZpY2llbnQgdXNlIG9mIHRob3NlIG9mZmxvYWRzIHdpdGhpbiB0aGVpciBvd24KPiBlbnZp
+cm9ubWVudHMuCj4KPiBPVlMsIGluIEpvaG5zIHdvcmxkIHJlcXVpcmVzIGZpbmUgZ3JhaW5lZCBj
+b250cm9sIG9mIHRoZSBoYXJkd2FyZQo+IGRhdGFwbGFuZSwgc28KPiB0aGF0IHRoZSBPVlMgYnJp
+ZGdlIGNhbiBvcHRpbWFsbHkgcGFzcyBvZmYgdGhlIG1vc3QgY3ljbGUgY29uc3RyYWluZWQKPiBv
+cGVyYXRpb25zCj4gdG8gdGhlIGhhcmR3YXJlLCBiZSB0aGF0IEwyL0wzLCBvciBzb21lIGNvbWJp
+bmF0aW9uIG9mIGJvdGgsIGluIGFuIGVmZm9ydAo+IHRvCj4gbWF4aW1pemUgd2hhdGV2ZXIgYWdn
+cmVnYXRlIHNvZnR3YXJlL2hhcmR3YXJlIGRhdGFwYXRoIGl0IHdpc2hlcyB0bwo+IGNvbnN0cnVj
+dAo+IGJhc2VkIG9uIHVzZXIgc3VwcGxpZWQgcnVsZXMuCj4KPiBBbHRlcm5hdGl2ZWx5LCBrZXJu
+ZWwgZnVuY3Rpb25hbCBvZmZsb2FkcyBhbHJlYWR5IGhhdmUgdmVyeSB3ZWxsIGRlZmluZWQKPiBz
+ZW1hbnRpY3MsIGFuZCBtb3JlIHRoYW4gYW55dGhpbmcgZWxzZSByZWFsbHkganVzdCB3YW50IHRv
+IGVuZm9yY2UgdGhvc2UKPiBzZW1hbnRpY3MgaW4gaGFyZHdhcmUgdG8gb3Bwb3J0dW5pc3RpY2Fs
+bHkgYWNjZWxlcmF0ZSBkYXRhIG1vdmVtZW50IHdoZW4KPiBwb3NzaWJsZSwgYnV0IG5vdCBpZiBp
+dCBtZWFucyBzYWNyaWZpY2luZyBob3cgdGhlIHVzZXJzIGludGVyYWN0cyB3aXRoCj4gdGhvc2UK
+PiBmdW5jdGlvbnMgKHJvdXRpbmcgc2hvdWxkIHN0aWxsIGFjdCBsaWtlIHJvdXRpbmcsIGJyaWRn
+aW5nIGxpa2UgYnJpZGdpbmcsCj4gZXRjKS4KPiBUaGF0IG1heSByZXF1aXJlIHNvbWV3aGF0IGxl
+c3MgZWZmaWNpZW50IHJlc291cmNlIHV0aWxpemF0aW9uIHRoYW4gd2UgY291bGQKPiBvdGhlcndp
+c2UgYWNoaWV2ZSBpbiB0aGUgaGFyZHdhcmUsIGJ1dCBpZiB0aGUgZ29hbCBpcyBzZW1hbnRpYwo+
+IGNvbnNpc3RlbmN5LCB0aGF0Cj4gbWF5IGJlIGEgbmVjZXNzZWNhcnkgdHJhZGUgb2ZmLgo+Cj4g
+QXMgdG8gY28tZXhpc3RlbmNlLCB0aGVyZXMgbm8gcmVhc29uIHRoYXQgYm90aCB0aGUgbW9kZWxz
+IGNhbid0IG9wZXJhdGUgaW4KPiBwYXJhbGxlbCwgYXMgbG9uZyBhcyB0aGUgQVBJJ3MgZm9yIHJl
+c291cmNlIG1hbmFnZW1lbnQgY29sbGFib3JhdGUgdW5kZXIKPiB0aGUKPiBjb3ZlcnMuICBUaGUg
+b25seSBxdWVzdGlvbiBpcywgZG9lcyB0aGUgaGFyZHdhcmUgaGF2ZSBlbm91Z2ggcmVzb3VyY2Vz
+IHRvCj4gZG8KPiBib3RoPyAgSSBleHBlY3QgdGhlIGFuc3dlciBpcywgbm90IGxpa2VseSAodGhv
+dWdoIGluIHNvbWUgc2l0dWF0aW9ucyBpdAo+IG1heSkuCj4gQnV0IGZvciB0aGF0IHZlcnkgcmVh
+c29uIHdlIG5lZWQgdG8gbWFrZSB0aGF0IHJlc291cmNlIGFsbG9jYXRpb24gYW4KPiBhZG1pbmlz
+dHJhdGl2ZSBkZWNpc2lvbi4gIEZvciBrZXJuZWwgZnVuY3Rpb25hbGl0eSwgdGhlIG9ubHkgYXNw
+ZWN0IG9mIHRoZQo+IG9mZmxvYWQgdGhhdCB3ZSBzaG91bGQgZXhwb3NlIHRvIHRoZSB1c2VyIGlz
+IGFuIG9uL29mZiBzd2l0Y2gsIGFuZAo+IHBvc3NpYmx5IHNvbWUKPiBwYXJhbWV0ZXJzIHdpdGgg
+d2hpY2ggdG8gZGVmaW5lIG9mZmxvYWQgcmVzb3VyY2Ugc2l6aW5nIGFuZCBwb2xpY3kuIEkuZS4K
+PiBjb21tYW5kcyBsaWtlOgo+IGlwIG5laWdoIG9mZmxvYWQgZW5hYmxlIGRldiBzdzAgY2FjaGVz
+aXplIDEwMDAgcG9saWN5IGxydQo+IHRvIHJlc2VydmUgMTAwMCBlbnRyaWVzIHRvIHN0b3JlIGwy
+IGxvb2t1cHMgd2l0aCBhIGxlYXN0IHJlY2VudGx5IHVzZWQKPiByZXBsYWNlbWVudCBwb2xpY3kK
+Pgo+IG9yCj4gaXAgcm91dGUgb2ZmbG9hZCBlbmFibGUgZGV2IHN3MCBjYWNoZXNpemUgMTAwMCBw
+b2xpY3kgbWF4dXNlCj4gdG8gcmVzZXJ2ZSAxMDAwIGVudHJpZXMgdG8gc3RvcmUgbDMgbG9va3Vw
+cyB3aXRoIGEgcmVwbGFjZW1lbnQgcG9saWN5IHRoYXQKPiBvbmx5Cj4gcmVwbGFjZXMgcm91dGVz
+IHdobydzIGhpdCBjb3VudCBpcyBsYXJnZXIgdGhhbiB0aGUgbGVhc3QgdXNlZCBpbiB0aGUgY2Fj
+aGUKPgo+IEJ5IGVuYWJsaW5nIGtlcm5lbCBmdW5jdGlvbmFsaXR5IGxpa2UgdGhhdCwgcmVtYWlu
+aW5nIHJlc291cmNlcyBjYW4gYmUKPiB1c2VkIGJ5Cj4gdGhlIGxvd2VyIGxldmVsIEFQSSBmb3Ig
+dGhpbmdzIGxpa2UgT1ZTIHRvIHVzZS4gIElmIHRoZXJlIGFyZW4ndCBlbm91Z2gKPiBsZWZ0IHRv
+Cj4gZW5hYmxlIE9WUyBvZmZsb2FkLCBzbyBiZSBpdC4gIHRoZSBhZG1pbmlzdHJhdG9yIGhhcyBh
+bGwgdGhlIHRvb2xzIGF0IHRoZWlyCj4gZGlzcG9zYWwgd2l0aCB3aGljaCB0byByZWR1Y2UgcmVz
+b3VyY2UgdXNhZ2UgaW4gb25lIGFyZWEgaW4gb3JkZXIgdG8gZnJlZQo+IHRoZW0KPiBmb3IgdXNl
+IGluIGFub3RoZXIuCj4KPiBCZXN0Cj4gTmVpbAo+Cj4gPiBJIGFncmVlIHdpdGggYWxsIHRoaXMg
+YW5kIG5vIEkgZG9uJ3QgdGhpbmsgaXQgaXMgYWxsIGZsdXNoZWQgb3V0IHlldC4KPiA+Cj4gPiBJ
+IGN1cnJlbnRseSBoYXZlIHNvbWV0aGluZyBsaWtlIHRoZSBmb2xsb3dpbmcgYWx0aG91Z2ggY3Vy
+cmVudGx5Cj4gPiBwcm90by10eXBlZCBvbiBhIHVzZXIgc3BhY2UgZHJpdmVyIEkgcGxhbiB0byBt
+b3ZlIHRoZSBwcm90b3R5cGUgaW50bwo+ID4gdGhlIGtlcm5lbCByb2NrZXIgc3dpdGNoIG92ZXIg
+dGhlIG5leHQgY291cGxlIHdlZWtzLiBUaGUgYmlnZ2VzdCBhbW91bnQKPiA+IG9mIHdvcmsgbGVm
+dCBpcyBnZXR0aW5nIGEgIndvcmxkIiBpbnRvIHJvY2tlciB0aGF0IGRvZXNuJ3QgaGF2ZSBhCj4g
+PiBwcmUtZGVmaW5lZCB0YWJsZSBtb2RlbCBhbmQgaW1wbGVtZW50aW5nIGNvbnN0cmFpbnRzIG9u
+IHRoZSByZXNvdXJjZXMKPiA+IHRvIHJlZmxlY3QgaG93IHRoZSB0YWJsZXMgYXJlIGNyZWF0ZWQu
+Cj4gPgo+ID4gVmlhIHVzZXIgc3BhY2UgdG9vbCBJIGNhbiBjYWxsIGludG8gYW4gQVBJIHRvIGFs
+bG9jYXRlIHRhYmxlcywKPiA+Cj4gPiAjLi9mbG93dGwgY3JlYXRlIHRhYmxlIHR5cGUgZmxvdyBu
+YW1lIGZsb3ctdGFibGUgXAo+ID4gICAgICAgICBtYXRjaGVzICRteV9tYXRjaGVzIGFjdGlvbnMg
+JG15X2FjdGlvbnMgXAo+ID4gICAgICAgICBzaXplIDEwMjQgc291cmNlIDEKPiA+Cj4gPiB0aGlz
+IGFsbG9jYXRlcyBhIGZsb3cgdGFibGUgcmVzb3VyY2UgaW4gdGhlIGhhcmR3YXJlIHdpdGggdGhl
+IGlkZW50aWZpZXIKPiA+ICdmbG93LXRhYmxlJyB0aGF0IGNhbiBtYXRjaCBvbiBmaWVsZHMgaW4g
+JG15X21hdGNoZXMgYW5kIHByb3ZpZGUgYWN0aW9ucwo+ID4gaW4gJG15X2FjdGlvbnMuIFRoaXMg
+bGV0cyB0aGUgZHJpdmVyIGNyZWF0ZSBhbiBvcHRpbWl6ZWQgdGFibGUgaW4gdGhlCj4gPiBoYXJk
+d2FyZSB0aGF0IG1hdGNoZXMgb24ganVzdCB0aGUgbWF0Y2hlcyBhbmQganVzdCB0aGUgYWN0aW9u
+cy4gT25lCj4gPiByZWFzb24gd2UgbmVlZCB0aGlzIGlzIGJlY2F1c2UgaWYgdGhlIGhhcmR3YXJl
+IChhdCBsZWFzdCB0aGUgaGFyZHdhcmUgSQo+ID4gZ2VuZXJhbGx5IHdvcmsgb24pIHRyaWVzIHRv
+IHVzZSB3aWRlIG1hdGNoZXMgaXQgaXMgc2V2ZXJlbHkgbGltaXRlZCBpbgo+ID4gdGhlIG51bWJl
+ciBvZiBlbnRyaWVzIGl0IGNhbiBzdXBwb3J0LiBCdXQgaWYgeW91IGJ1aWxkIHRhYmxlcyB0aGF0
+IGp1c3QKPiA+IG1hdGNoIG9uIHRoZSByZWxldmFudCBmaWVsZHMgd2UgY2FuIHN1cHBvcnQgbWFu
+eSBtb3JlIGVudHJpZXMgaW4gdGhlCj4gPiB0YWJsZS4KPiA+Cj4gPiBUaGVuIEkgaGF2ZSBhIGZl
+dyBvdGhlciAnd2VsbC1kZWZpbmVkJyB0eXBlcyB0byBoYW5kbGUgTDMsIEwyLgo+ID4KPiA+ICMu
+L2Zsb3d0bCBjcmVhdGUgdGFibGUgdHlwZSBsMy1yb3V0ZSByb3V0ZS10YWJsZSBzaXplIDIwNDgg
+c291cmNlIGRmbHQKPiA+Cj4gPiB0aGVzZSBkb24ndCBuZWVkIG1hdGNoZXMvYWN0aW9ucyBzcGVj
+aWZpZXJzIGJlY2F1c2UgaXQgaXMga25vd24gd2hhdAo+ID4gYSBsMy1yb3V0ZSB0eXBlIHRhYmxl
+IGlzLiBTaW1pbGFybHkgd2UgY2FuIGhhdmUgYSBsMiB0YWJsZSwKPiA+Cj4gPiAjLi9mbG93dGwg
+Y3JlYXRlIHRhYmxlIHR5cGUgbDItZndkIGwyLXRhYmxlIHNpemUgOGsgc291cmNlIGRmbHQKPiA+
+Cj4gPiB0aGUgJ3NvdXJjZScgZmllbGQgaW5zdHJ1Y3RzIHRoZSBoYXJkd2FyZSB3aGVyZSB0byBw
+bGFjZSB0aGUgdGFibGUgaW4KPiA+IHRoZSBmb3J3YXJkaW5nIHBpcGVsaW5lLiBJIHVzZSAnZGZs
+dCcgdG8gaW5kaWNhdGUgdGhlIGRyaXZlciBzaG91bGQKPiA+IHBsYWNlIGl0IGluIHRoZSAibm9y
+bWFsIiBzcG90IGZvciB0aGF0IHR5cGUuCj4gPgo+ID4gVGhlbiB0aGUgZmxvdy1hcGkgbW9kdWxl
+IGluIHRoZSBrZXJuZWwgYWN0cyBhcyB0aGUgcmVzb3VyY2UgbWFuYWdlci4gSWYKPiA+IGEgInJv
+dXRlIiBydWxlIGlzIHJlY2VpdmVkIGl0IG1hcHMgdG8gdGhlIGwzLXJvdXRlIHRhYmxlIGlmIGEg
+bDIgbmRvIG9wCj4gPiBpcyByZWNlaXZlZCB3ZSBwb2ludCBpdCBhdCB0aGUgImwyLXRhYmxlIiBh
+bmQgc28gb24uIFVzZXIgc3BhY2UgZmxvd3RsCj4gPiBzZXQgcnVsZSBjb21tYW5kcyBjYW4gb25s
+eSBiZSBkaXJlY3RlZCBhdCB0YWJsZXMgb2YgdHlwZSAnZmxvdycuIElmIHRoZQo+ID4gdXNlciB0
+cmllcyB0byBwdXNoIGEgZmxvdyBydWxlIGludG8gbDItdGFibGUgb3IgbDMtdGFibGUgaXQgd2ls
+bCBiZQo+ID4gcmVqZWN0ZWQgYmVjYXVzZSB0aGVzZSBhcmUgcmVzZXJ2ZWQgZm9yIHRoZSBrZXJu
+ZWwgc3Vic3lzdGVtcy4KPiA+Cj4gPiBJIHdvdWxkIGV4cGVjdCBPVlMgdXNlciBzcGFjZSBkYXRh
+IHBsYW5lIGZvciBleGFtcGxlIHRvIHJlc2VydmUgYSB0YWJsZQo+ID4gb3IgbWF5YmUgbXVsdGlw
+bGUgdGFibGVzIGxpa2UgdGhpcywKPiA+Cj4gPiAjLi9mbG93dGwgY3JlYXRlIHRhYmxlIHR5cGUg
+ZmxvdyBuYW1lIG92cy10YWJsZS0xIFwKPiA+ICAgICAgIG1hdGNoZXMgJG92c19tYXRjaGVzMSBh
+Y3Rpb25zICRvdnNfYWN0aW9uczEgXAo+ID4gICAgICAgc2l6ZSAxayBzb3VyY2UgMQo+ID4KPiA+
+ICMuL2Zsb3d0bCBjcmVhdGUgdGFibGUgdHlwZSBmbG93IG5hbWUgb3ZzLXRhYmxlLTIgXAo+ID4g
+ICAgICAgbWF0Y2hlcyAkb3ZzX21hdGNoZXMyIGFjdGlvbnMgJG92c19hY3RvaW5zMiBcCj4gPiAg
+ICAgICBzaXplIDFrIHNvdXJjZSAyCj4gPgo+ID4gQnkgbWFuaXB1bGF0aW5nIHRoZSBzb3VyY2Ug
+ZmllbGRzIHlvdSBjb3VsZCBoYXZlIGEgdGFibGUgdGhhdCBmb3J3YXJkCj4gPiBwYWNrZXRzIHRv
+IHRoZSBsMi9sMyB0YWJsZXMgb3IgYSAiZmxvdyIgdGFibGUgZGVwZW5kaW5nIG9uIHNvbWUgY3Jp
+dGVyaWEKPiA+IG9yIHlvdSBjb3VsZCB3b3JrIHRoZSBvdGhlciB3YXkgaGF2ZSBhIHNldCBvZiBy
+b3V0ZXMgYW5kIGlmIHRoZXkgbWlzcwo+ID4gZm9yd2FyZCB0byBhICJmbG93IiB0YWJsZS4gT3Ro
+ZXIgY29tYmluYXRpb25zIGFyZSBwb3NzaWJsZSBhcyB3ZWxsLgo+ID4KPiA+IEkgaG9wZSB0aGF0
+IGlzIGhlbHBmdWwgSSdsbCB0cnkgdG8gZG8gYSBiZXR0ZXIgd3JpdGUtdXAgd2hlbiBJIHBvc3Qg
+dGhlCj4gPiBjb2RlLiBBbHNvIGl0IHNlZW1zIGxpa2UgYSByZWFzb25hYmxlIGFwcHJvYWNoIHRv
+IG1lIGFueSB0aG91Z2h0cz8KPiA+Cj4gPiAuSm9obgo+ID4KPiA+IC0tCj4gPiBKb2huIEZhc3Rh
+YmVuZCAgICAgICAgIEludGVsIENvcnBvcmF0aW9uCj4gPgo+IF9fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fCj4gZGV2IG1haWxpbmcgbGlzdAo+IGRldkBvcGVu
+dnN3aXRjaC5vcmcKPiBodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2
+Cj4KCgoKLS0gClRoYW5rcyAmIFJlZ2FyZHMKTmVlbGFrYW50YW0gR2FkZGFtCl9fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2
+QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8v
+ZGV2Cg==
