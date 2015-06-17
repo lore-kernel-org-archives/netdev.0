@@ -1,86 +1,207 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH v2 1/3] net: mvneta: introduce compatible string "marvell,armada-xp-neta"
-Date: Wed, 17 Jun 2015 17:12:36 +0200
-Message-ID: <55818E64.20007@free-electrons.com>
-References: <1434547162-6275-1-git-send-email-simon.guinot@sequanux.org> <1434547162-6275-2-git-send-email-simon.guinot@sequanux.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Vincent Donnefort <vdonnefort@gmail.com>,
-	stable@vger.kernel.org
-To: Simon Guinot <simon.guinot@sequanux.org>
+From: Craig Gallek <kraig@google.com>
+Subject: [PATCH iproute2 v2] ss: Include -E option for socket destroy events
+Date: Wed, 17 Jun 2015 11:14:48 -0400
+Message-ID: <1434554088-10200-1-git-send-email-kraig@google.com>
+Cc: stephen@networkplumber.org, edumazet@google.com,
+	Craig Gallek <kraig@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:36161 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755239AbbFQPMj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 11:12:39 -0400
-In-Reply-To: <1434547162-6275-2-git-send-email-simon.guinot@sequanux.org>
+Received: from mail-yk0-f169.google.com ([209.85.160.169]:36772 "EHLO
+	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932338AbbFQPPE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 11:15:04 -0400
+Received: by ykdr198 with SMTP id r198so42597162ykd.3
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 08:15:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Simon,
+Use the IPv4/IPv6/TCP/UDP multicast groups of NETLINK_SOCK_DIAG
+to filter and display socket statistics as they are destroyed.
 
-On 17/06/2015 15:19, Simon Guinot wrote:
-> The mvneta driver supports the Ethernet IP found in the Armada 370, XP,
-> 380 and 385 SoCs. Since at least one more hardware feature is available
-> for the Armada XP SoCs then a way to identify them is needed.
-> 
-> This patch introduces a new compatible string "marvell,armada-xp-neta".
+Kernel support patch series: 24029a3603cfa633e8bc2b3fb3e48e76c497831d
 
-Let's be future proof by going further. I would like to have an compatible string
-for each SoC even if we currently we don't use them.
+Signed-off-by: Craig Gallek <kraig@google.com>
+---
+ include/linux/inet_diag.h |  3 +-
+ include/linux/sock_diag.h | 10 +++++++
+ misc/ss.c                 | 74 +++++++++++++++++++++++++++++++++++++++++++++--
+ 3 files changed, 84 insertions(+), 3 deletions(-)
 
-You even don't have to use add it in the mvneta.c file if you use:
-"marvell,armada-380-neta", "marvell,armada-xp-neta"
-
-
-Thanks,
-
-Gregory
-
-
-> Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
-> Cc: <stable@vger.kernel.org> # v3.8+
-> ---
->  Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt | 2 +-
->  drivers/net/ethernet/marvell/mvneta.c                             | 1 +
->  2 files changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-> index 750d577e8083..f5a8ca29aff0 100644
-> --- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-> +++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-> @@ -1,7 +1,7 @@
->  * Marvell Armada 370 / Armada XP Ethernet Controller (NETA)
->  
->  Required properties:
-> -- compatible: should be "marvell,armada-370-neta".
-> +- compatible: "marvell,armada-370-neta" or "marvell,armada-xp-neta".
->  - reg: address and length of the register set for the device.
->  - interrupts: interrupt for the device
->  - phy: See ethernet.txt file in the same directory.
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index ce5f7f9cff06..aceb977b104d 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -3179,6 +3179,7 @@ static int mvneta_remove(struct platform_device *pdev)
->  
->  static const struct of_device_id mvneta_match[] = {
->  	{ .compatible = "marvell,armada-370-neta" },
-> +	{ .compatible = "marvell,armada-xp-neta" },
->  	{ }
->  };
->  MODULE_DEVICE_TABLE(of, mvneta_match);
-> 
-
-
+diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+index 0fb76bb..e83340b 100644
+--- a/include/linux/inet_diag.h
++++ b/include/linux/inet_diag.h
+@@ -111,9 +111,10 @@ enum {
+ 	INET_DIAG_SKMEMINFO,
+ 	INET_DIAG_SHUTDOWN,
+ 	INET_DIAG_DCTCPINFO,
++	INET_DIAG_PROTOCOL,  /* response attribute only */
+ };
+ 
+-#define INET_DIAG_MAX INET_DIAG_DCTCPINFO
++#define INET_DIAG_MAX INET_DIAG_PROTOCOL
+ 
+ /* INET_DIAG_MEM */
+ 
+diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
+index 78996e2..024e1f4 100644
+--- a/include/linux/sock_diag.h
++++ b/include/linux/sock_diag.h
+@@ -23,4 +23,14 @@ enum {
+ 	SK_MEMINFO_VARS,
+ };
+ 
++enum sknetlink_groups {
++	SKNLGRP_NONE,
++	SKNLGRP_INET_TCP_DESTROY,
++	SKNLGRP_INET_UDP_DESTROY,
++	SKNLGRP_INET6_TCP_DESTROY,
++	SKNLGRP_INET6_UDP_DESTROY,
++	__SKNLGRP_MAX,
++};
++#define SKNLGRP_MAX	(__SKNLGRP_MAX - 1)
++
+ #endif /* __SOCK_DIAG_H__ */
+diff --git a/misc/ss.c b/misc/ss.c
+index dba0901..759795c 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -99,6 +99,7 @@ int show_proc_ctx = 0;
+ int show_sock_ctx = 0;
+ /* If show_users & show_proc_ctx only do user_ent_hash_build() once */
+ int user_ent_hash_build_init = 0;
++int follow_events = 0;
+ 
+ int netid_width;
+ int state_width;
+@@ -2030,6 +2031,9 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f, int protocol)
+ 	if (f && f->f && run_ssfilter(f->f, &s) == 0)
+ 		return 0;
+ 
++	if (tb[INET_DIAG_PROTOCOL])
++		protocol = *(__u8 *)RTA_DATA(tb[INET_DIAG_PROTOCOL]);
++
+ 	inet_stats_print(&s, protocol);
+ 
+ 	if (show_options) {
+@@ -2201,7 +2205,7 @@ static int show_one_inet_sock(const struct sockaddr_nl *addr,
+ 
+ 	if (!(diag_arg->f->families & (1 << r->idiag_family)))
+ 		return 0;
+-	if ((err = inet_show_sock(h, NULL, diag_arg->protocol)) < 0)
++	if ((err = inet_show_sock(h, diag_arg->f, diag_arg->protocol)) < 0)
+ 		return err;
+ 
+ 	return 0;
+@@ -3217,6 +3221,64 @@ static int netlink_show(struct filter *f)
+ 	return 0;
+ }
+ 
++struct sock_diag_msg {
++	__u8 sdiag_family;
++};
++
++static int generic_show_sock(const struct sockaddr_nl *addr,
++		struct nlmsghdr *nlh, void *arg)
++{
++	struct sock_diag_msg *r = NLMSG_DATA(nlh);
++	struct inet_diag_arg inet_arg = { .f = arg, .protocol = IPPROTO_MAX };
++
++	switch (r->sdiag_family) {
++	case AF_INET:
++	case AF_INET6:
++		return show_one_inet_sock(addr, nlh, &inet_arg);
++	case AF_UNIX:
++		return unix_show_sock(addr, nlh, arg);
++	case AF_PACKET:
++		return packet_show_sock(addr, nlh, arg);
++	case AF_NETLINK:
++		return netlink_show_sock(addr, nlh, arg);
++	default:
++		return -1;
++	}
++}
++
++static int handle_follow_request(struct filter *f)
++{
++	int ret = -1;
++	int groups = 0;
++	struct rtnl_handle rth;
++
++	if (f->families & (1 << AF_INET) && f->dbs & (1 << TCP_DB))
++		groups |= 1 << (SKNLGRP_INET_TCP_DESTROY - 1);
++	if (f->families & (1 << AF_INET) && f->dbs & (1 << UDP_DB))
++		groups |= 1 << (SKNLGRP_INET_UDP_DESTROY - 1);
++	if (f->families & (1 << AF_INET6) && f->dbs & (1 << TCP_DB))
++		groups |= 1 << (SKNLGRP_INET6_TCP_DESTROY - 1);
++	if (f->families & (1 << AF_INET6) && f->dbs & (1 << UDP_DB))
++		groups |= 1 << (SKNLGRP_INET6_UDP_DESTROY - 1);
++
++	if (groups == 0)
++		return -1;
++
++	if (rtnl_open_byproto(&rth, groups, NETLINK_SOCK_DIAG))
++		return -1;
++
++	rth.dump = 0;
++	rth.local.nl_pid = 0;
++
++	if (rtnl_dump_filter(&rth, generic_show_sock, f))
++		goto Exit;
++
++	ret = 0;
++Exit:
++	rtnl_close(&rth);
++	return ret;
++}
++
+ struct snmpstat
+ {
+ 	int tcp_estab;
+@@ -3399,6 +3461,7 @@ static void _usage(FILE *dest)
+ "   -i, --info          show internal TCP information\n"
+ "   -s, --summary       show socket usage summary\n"
+ "   -b, --bpf           show bpf filter socket information\n"
++"   -E, --events        continually display sockets as they are destroyed\n"
+ "   -Z, --context       display process SELinux security contexts\n"
+ "   -z, --contexts      display process and socket SELinux security contexts\n"
+ "   -N, --net           switch to the specified network namespace name\n"
+@@ -3481,6 +3544,7 @@ static const struct option long_opts[] = {
+ 	{ "info", 0, 0, 'i' },
+ 	{ "processes", 0, 0, 'p' },
+ 	{ "bpf", 0, 0, 'b' },
++	{ "events", 0, 0, 'E' },
+ 	{ "dccp", 0, 0, 'd' },
+ 	{ "tcp", 0, 0, 't' },
+ 	{ "udp", 0, 0, 'u' },
+@@ -3516,7 +3580,7 @@ int main(int argc, char *argv[])
+ 	int ch;
+ 	int state_filter = 0;
+ 
+-	while ((ch = getopt_long(argc, argv, "dhaletuwxnro460spbf:miA:D:F:vVzZN:",
++	while ((ch = getopt_long(argc, argv, "dhaletuwxnro460spbEf:miA:D:F:vVzZN:",
+ 				 long_opts, NULL)) != EOF) {
+ 		switch(ch) {
+ 		case 'n':
+@@ -3546,6 +3610,9 @@ int main(int argc, char *argv[])
+ 			show_options = 1;
+ 			show_bpf++;
+ 			break;
++		case 'E':
++			follow_events = 1;
++			break;
+ 		case 'd':
+ 			filter_db_set(&current_filter, DCCP_DB);
+ 			break;
+@@ -3838,6 +3905,9 @@ int main(int argc, char *argv[])
+ 
+ 	fflush(stdout);
+ 
++	if (follow_events)
++		exit(handle_follow_request(&current_filter));
++
+ 	if (current_filter.dbs & (1<<NETLINK_DB))
+ 		netlink_show(&current_filter);
+ 	if (current_filter.dbs & PACKET_DBM)
 -- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+2.2.0.rc0.207.ga3a616c
