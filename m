@@ -1,7 +1,7 @@
 From: sfeldma@gmail.com
-Subject: [RFC PATCH net-next v2 3/5] switchdev: add offload_fwd_mark generator helper
-Date: Wed, 17 Jun 2015 14:53:12 -0700
-Message-ID: <1434577994-22409-4-git-send-email-sfeldma@gmail.com>
+Subject: [RFC PATCH net-next v2 4/5] rocker: add offload_fwd_mark support
+Date: Wed, 17 Jun 2015 14:53:13 -0700
+Message-ID: <1434577994-22409-5-git-send-email-sfeldma@gmail.com>
 References: <1434577994-22409-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, simon.horman@netronome.com,
 	roopa@cumulusnetworks.com, ronen.arad@intel.com,
@@ -10,170 +10,115 @@ Cc: jiri@resnulli.us, simon.horman@netronome.com,
 	stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:35024 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757244AbbFQVvV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 17:51:21 -0400
-Received: by pdbnf5 with SMTP id nf5so50182552pdb.2
-        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 14:51:21 -0700 (PDT)
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:32817 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753453AbbFQVvY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 17:51:24 -0400
+Received: by pdjn11 with SMTP id n11so50036641pdj.0
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 14:51:22 -0700 (PDT)
 In-Reply-To: <1434577994-22409-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-skb->offload_fwd_mark and dev->offload_fwd_mark are 32-bit and should be
-unique for device and may even be unique for a sub-set of ports within
-device, so add switchdev helper function to generate unique marks based on
-port's switch ID and group_ifindex.  group_ifindex would typically be the
-container dev's ifindex, such as the bridge's ifindex.
+If device flags ingress packet as "fwd offload", mark the
+skb->offlaod_fwd_mark using the ingress port's dev->offlaod_fwd_mark.  This
+will be the hint to the kernel that this packet has already been forwarded
+by device to egress ports matching skb->offlaod_fwd_mark.
 
-The generator uses a global hash table to store offload_fwd_marks hashed by
-{switch ID, group_ifindex} key.
+For rocker, derive port dev->offlaod_fwd_mark based on device switch ID and
+port ifindex.  If port is bridged, use the bridge ifindex rather than the
+port ifindex.
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
- include/net/switchdev.h   |    9 ++++
- net/switchdev/switchdev.c |  103 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 112 insertions(+)
+ drivers/net/ethernet/rocker/rocker.c |   14 +++++++++++++-
+ drivers/net/ethernet/rocker/rocker.h |    1 +
+ 2 files changed, 14 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 437f8fe..d882902 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -157,6 +157,9 @@ int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
- int switchdev_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
- 			    struct net_device *dev,
- 			    struct net_device *filter_dev, int idx);
-+void switchdev_port_fwd_mark_set(struct net_device *dev,
-+				 struct net_device *group_dev,
-+				 bool joining);
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index d4ec660..b72674c 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -4701,6 +4701,7 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
+ 	const struct rocker_tlv *attrs[ROCKER_TLV_RX_MAX + 1];
+ 	struct sk_buff *skb = rocker_desc_cookie_ptr_get(desc_info);
+ 	size_t rx_len;
++	u16 rx_flags = 0;
  
- #else
+ 	if (!skb)
+ 		return -ENOENT;
+@@ -4708,6 +4709,8 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
+ 	rocker_tlv_parse_desc(attrs, ROCKER_TLV_RX_MAX, desc_info);
+ 	if (!attrs[ROCKER_TLV_RX_FRAG_LEN])
+ 		return -EINVAL;
++	if (attrs[ROCKER_TLV_RX_FLAGS])
++		rx_flags = rocker_tlv_get_u16(attrs[ROCKER_TLV_RX_FLAGS]);
  
-@@ -271,6 +274,12 @@ static inline int switchdev_port_fdb_dump(struct sk_buff *skb,
- 	return -EOPNOTSUPP;
- }
+ 	rocker_dma_rx_ring_skb_unmap(rocker, attrs);
  
-+static inline void switchdev_port_fwd_mark_set(struct net_device *dev,
-+					       struct net_device *group_dev,
-+					       bool joining)
-+{
-+}
-+
- #endif
+@@ -4715,6 +4718,9 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
+ 	skb_put(skb, rx_len);
+ 	skb->protocol = eth_type_trans(skb, rocker_port->dev);
  
- #endif /* _LINUX_SWITCHDEV_H_ */
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 00c67a5..6cb30bf 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -920,3 +920,106 @@ void switchdev_fib_ipv4_abort(struct fib_info *fi)
- 	fi->fib_net->ipv4.fib_offload_disabled = true;
- }
- EXPORT_SYMBOL_GPL(switchdev_fib_ipv4_abort);
++	if (rx_flags & ROCKER_RX_FLAGS_FWD_OFFLOAD)
++		skb->offload_fwd_mark = rocker_port->dev->offload_fwd_mark;
 +
-+static bool switchdev_port_same_parent_id(struct net_device *a,
-+					  struct net_device *b)
-+{
-+	struct switchdev_attr a_attr = {
-+		.id = SWITCHDEV_ATTR_PORT_PARENT_ID,
-+		.flags = SWITCHDEV_F_NO_RECURSE,
-+	};
-+	struct switchdev_attr b_attr = {
-+		.id = SWITCHDEV_ATTR_PORT_PARENT_ID,
-+		.flags = SWITCHDEV_F_NO_RECURSE,
-+	};
+ 	rocker_port->dev->stats.rx_packets++;
+ 	rocker_port->dev->stats.rx_bytes += skb->len;
+ 
+@@ -4852,11 +4858,13 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+ 	}
+ 	rocker->ports[port_number] = rocker_port;
+ 
++	switchdev_port_fwd_mark_set(rocker_port->dev, NULL, false);
 +
-+	if (switchdev_port_attr_get(a, &a_attr) ||
-+	    switchdev_port_attr_get(b, &b_attr))
-+		return false;
-+
-+	return netdev_phys_item_id_same(&a_attr.u.ppid, &b_attr.u.ppid);
-+}
-+
-+static u32 switchdev_port_fwd_mark_get(struct net_device *dev,
-+				       struct net_device *group_dev)
-+{
-+	struct net_device *lower_dev;
-+	struct list_head *iter;
-+
-+	netdev_for_each_lower_dev(group_dev, lower_dev, iter) {
-+		if (lower_dev == dev)
-+			continue;
-+		if (switchdev_port_same_parent_id(dev, lower_dev))
-+			return lower_dev->offload_fwd_mark;
-+		return switchdev_port_fwd_mark_get(dev, lower_dev);
-+	}
-+
-+	return dev->ifindex;
-+}
-+
-+static void switchdev_port_fwd_mark_reset(struct net_device *group_dev,
-+					  u32 old_mark, u32 *reset_mark)
-+{
-+	struct net_device *lower_dev;
-+	struct list_head *iter;
-+
-+	netdev_for_each_lower_dev(group_dev, lower_dev, iter) {
-+		if (lower_dev->offload_fwd_mark == old_mark) {
-+			if (!*reset_mark)
-+				*reset_mark = lower_dev->ifindex;
-+			lower_dev->offload_fwd_mark = *reset_mark;
-+		}
-+		switchdev_port_fwd_mark_reset(lower_dev, old_mark, reset_mark);
-+	}
-+}
-+
-+/**
-+ *	switchdev_port_fwd_mark_set - Set port offload forwarding mark
-+ *
-+ *	@dev: port device
-+ *	@group_dev: containing device
-+ *	@joining: true if dev is joining group; false if leaving group
-+ *
-+ *	An ungrouped port's offload mark is just its ifindex.  A grouped
-+ *	port's (member of a bridge, for example) offload mark is the ifindex
-+ *	of one of the ports in the group with the same parent (switch) ID.
-+ *	Ports on the same device in the same group will have the same mark.
-+ *
-+ *	Example:
-+ *
-+ *		br0		ifindex=9
-+ *		  sw1p1		ifindex=2	mark=2
-+ *		  sw1p2		ifindex=3	mark=2
-+ *		  sw2p1		ifindex=4	mark=5
-+ *		  sw2p2		ifindex=5	mark=5
-+ *
-+ *	If sw2p2 leaves the bridge, we'll have:
-+ *
-+ *		br0		ifindex=9
-+ *		  sw1p1		ifindex=2	mark=2
-+ *		  sw1p2		ifindex=3	mark=2
-+ *		  sw2p1		ifindex=4	mark=4
-+ *		sw2p2		ifindex=5	mark=5
-+ */
-+void switchdev_port_fwd_mark_set(struct net_device *dev,
-+				 struct net_device *group_dev,
-+				 bool joining)
-+{
-+	u32 mark = dev->ifindex;
-+	u32 reset_mark = 0;
-+
-+	if (group_dev && joining) {
-+		mark = switchdev_port_fwd_mark_get(dev, group_dev);
-+	} else if (group_dev && !joining) {
-+		if (dev->offload_fwd_mark == mark)
-+			/* Ohoh, this port was the mark reference port,
-+			 * but it's leaving the group, so reset the
-+			 * mark for the remaining ports in the group.
-+			 */
-+			switchdev_port_fwd_mark_reset(group_dev, mark,
-+						      &reset_mark);
-+	}
-+
-+	dev->offload_fwd_mark = mark;
-+}
-+EXPORT_SYMBOL_GPL(switchdev_port_fwd_mark_set);
+ 	rocker_port_set_learning(rocker_port, SWITCHDEV_TRANS_NONE);
+ 
+ 	err = rocker_port_ig_tbl(rocker_port, SWITCHDEV_TRANS_NONE, 0);
+ 	if (err) {
+-		dev_err(&pdev->dev, "install ig port table failed\n");
++		netdev_err(rocker_port->dev, "install ig port table failed\n");
+ 		goto err_port_ig_tbl;
+ 	}
+ 
+@@ -4876,6 +4884,7 @@ err_untagged_vlan:
+ 	rocker_port_ig_tbl(rocker_port, SWITCHDEV_TRANS_NONE,
+ 			   ROCKER_OP_FLAG_REMOVE);
+ err_port_ig_tbl:
++	rocker->ports[port_number] = NULL;
+ 	unregister_netdev(dev);
+ err_register_netdev:
+ 	free_netdev(dev);
+@@ -5131,6 +5140,7 @@ static int rocker_port_bridge_join(struct rocker_port *rocker_port,
+ 		rocker_port_internal_vlan_id_get(rocker_port, bridge->ifindex);
+ 
+ 	rocker_port->bridge_dev = bridge;
++	switchdev_port_fwd_mark_set(rocker_port->dev, bridge, true);
+ 
+ 	return rocker_port_vlan_add(rocker_port, SWITCHDEV_TRANS_NONE,
+ 				    untagged_vid, 0);
+@@ -5151,6 +5161,8 @@ static int rocker_port_bridge_leave(struct rocker_port *rocker_port)
+ 		rocker_port_internal_vlan_id_get(rocker_port,
+ 						 rocker_port->dev->ifindex);
+ 
++	switchdev_port_fwd_mark_set(rocker_port->dev, rocker_port->bridge_dev,
++				    false);
+ 	rocker_port->bridge_dev = NULL;
+ 
+ 	err = rocker_port_vlan_add(rocker_port, SWITCHDEV_TRANS_NONE,
+diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
+index c61fbf9..f846c0d 100644
+--- a/drivers/net/ethernet/rocker/rocker.h
++++ b/drivers/net/ethernet/rocker/rocker.h
+@@ -245,6 +245,7 @@ enum {
+ #define ROCKER_RX_FLAGS_TCP			BIT(5)
+ #define ROCKER_RX_FLAGS_UDP			BIT(6)
+ #define ROCKER_RX_FLAGS_TCP_UDP_CSUM_GOOD	BIT(7)
++#define ROCKER_RX_FLAGS_FWD_OFFLOAD		BIT(8)
+ 
+ enum {
+ 	ROCKER_TLV_TX_UNSPEC,
 -- 
 1.7.10.4
