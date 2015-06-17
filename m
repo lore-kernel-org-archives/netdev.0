@@ -1,69 +1,75 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next 0/3 v4] changes to make ipv4 routing table aware
- of next-hop link status
-Date: Wed, 17 Jun 2015 21:52:11 +0200
-Message-ID: <5581CFEB.3010000@6wind.com>
-References: <1434386001-1157-1-git-send-email-gospo@cumulusnetworks.com> <55819ACC.3010702@6wind.com> <20150617191012.GJ588@gospo.home.greyhouse.net>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	ddutt@cumulusnetworks.com, sfeldma@gmail.com,
-	alexander.duyck@gmail.com, hannes@stressinduktion.org,
-	stephen@networkplumber.org
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net v2] packet: avoid out of bounds read in round robin fanout
+Date: Wed, 17 Jun 2015 15:59:34 -0400
+Message-ID: <1434571174-8356-1-git-send-email-willemb@google.com>
+References: <55816378.1020602@cogentembedded.com>
+Cc: davem@davemloft.net, edumazet@google.com,
+	Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:33467 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751067AbbFQTwO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 15:52:14 -0400
-Received: by wgez8 with SMTP id z8so45652987wge.0
-        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 12:52:13 -0700 (PDT)
-In-Reply-To: <20150617191012.GJ588@gospo.home.greyhouse.net>
+Received: from mail-yh0-f47.google.com ([209.85.213.47]:33703 "EHLO
+	mail-yh0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752552AbbFQT7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 15:59:45 -0400
+Received: by yhpn97 with SMTP id n97so41746948yhp.0
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 12:59:45 -0700 (PDT)
+In-Reply-To: <55816378.1020602@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 17/06/2015 21:10, Andy Gospodarek a =E9crit :
-> On Wed, Jun 17, 2015 at 06:05:32PM +0200, Nicolas Dichtel wrote:
->> Le 15/06/2015 18:33, Andy Gospodarek a =E9crit :
->>> This series adds the ability to have the Linux kernel track whether=
- or
->>> not a particular route should be used based on the link-status of t=
-he
->>> interface associated with the next-hop.
->>>
->>> Before this patch any link-failure on an interface that was serving=
- as a
->>> gateway for some systems could result in those systems being isolat=
-ed
->> >from the rest of the network as the stack would continue to attempt=
- to
->>> send frames out of an interface that is actually linked-down.  When=
- the
->>> kernel is responsible for all forwarding, it should also be respons=
-ible
->>> for taking action when the traffic can no longer be forwarded -- th=
-ere
->>> is no real need to outsource link-monitoring to userspace anymore.
->>>
->>> This feature is only enabled with the new per-interface or ipv4 glo=
-bal
->>> sysctls called 'ignore_routes_with_linkdown'.
->>>
->>> net.ipv4.conf.all.ignore_routes_with_linkdown =3D 0
->>> net.ipv4.conf.default.ignore_routes_with_linkdown =3D 0
->>> net.ipv4.conf.lo.ignore_routes_with_linkdown =3D 0
->>> ...
->> Sorry for my late reply, but is it possible to advertise this sysctl=
- via the
->> netconf infra (grep NETCONFA_)?
-> I would be happy to do that.  Do you see it as a requirement for this
-> set to be accepted?
-No, but it would be great to do it before net-next closes.
+From: Willem de Bruijn <willemb@google.com>
 
->
-> I've got to add ipv6 support, so netconf support could also easily be
-> added in the kernel and iproute2.
-Ok.
+PACKET_FANOUT_LB computes f->rr_cur such that it is modulo
+f->num_members. It returns the old value unconditionally, but
+f->num_members may have changed since the last store. Ensure
+that the return value is always < num.
+
+When modifying the logic, simplify it further by replacing the loop
+with an unconditional atomic increment.
+
+Fixes: dc99f600698d ("packet: Add fanout support.")
+Suggested-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ net/packet/af_packet.c | 18 ++----------------
+ 1 file changed, 2 insertions(+), 16 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index b5989c6..104f902 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1272,16 +1272,6 @@ static void packet_sock_destruct(struct sock *sk)
+ 	sk_refcnt_debug_dec(sk);
+ }
+ 
+-static int fanout_rr_next(struct packet_fanout *f, unsigned int num)
+-{
+-	int x = atomic_read(&f->rr_cur) + 1;
+-
+-	if (x >= num)
+-		x = 0;
+-
+-	return x;
+-}
+-
+ static unsigned int fanout_demux_hash(struct packet_fanout *f,
+ 				      struct sk_buff *skb,
+ 				      unsigned int num)
+@@ -1293,13 +1283,9 @@ static unsigned int fanout_demux_lb(struct packet_fanout *f,
+ 				    struct sk_buff *skb,
+ 				    unsigned int num)
+ {
+-	int cur, old;
++	unsigned int val = atomic_inc_return(&f->rr_cur);
+ 
+-	cur = atomic_read(&f->rr_cur);
+-	while ((old = atomic_cmpxchg(&f->rr_cur, cur,
+-				     fanout_rr_next(f, num))) != cur)
+-		cur = old;
+-	return cur;
++	return val % num;
+ }
+ 
+ static unsigned int fanout_demux_cpu(struct packet_fanout *f,
+-- 
+2.4.3.573.g4eafbef
