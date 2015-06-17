@@ -1,184 +1,102 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH v6 2/3] ixgbe: Add new ndo to trust
- VF
-Date: Wed, 17 Jun 2015 09:22:09 -0700
-Message-ID: <55819EB1.5090203@gmail.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EE18AA@BPXM14GP.gisp.nec.co.jp>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [PATCH V3 0/2] pci: Provide a flag to access VPD through
+ function 0
+Date: Wed, 17 Jun 2015 16:29:14 +0000
+Message-ID: <45099CC7-DDAB-41D9-AB74-5A81E2AAF64C@intel.com>
+References: <20150603184445.109080.36387.stgit@mdrustad-wks.jf.intel.com>
+ <051B68B4-3E77-4EB0-B9FE-8523631884A2@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	Edward Cree <ecree@solarflare.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_933DBC4A-33F1-459A-87A3-C3AAF3D93F76";
+	protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: "Rustad, Mark D" <mark.d.rustad@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:36788 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754893AbbFQQWM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 12:22:12 -0400
-Received: by paceq1 with SMTP id eq1so15001089pac.3
-        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 09:22:11 -0700 (PDT)
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05EE18AA@BPXM14GP.gisp.nec.co.jp>
+Received: from mga01.intel.com ([192.55.52.88]:40986 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753449AbbFQQ3i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jun 2015 12:29:38 -0400
+In-Reply-To: <051B68B4-3E77-4EB0-B9FE-8523631884A2@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/17/2015 04:43 AM, Hiroshi Shimamoto wrote:
-> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
->
-> Implements the new netdev op to trust VF in ixgbe.
->
-> The administrator can turn on and off VF trusted by ip command which
-> supports trust message.
->   # ip link set dev eth0 vf 1 trust on
-> or
->   # ip link set dev eth0 vf 1 trust off
->
-> Send a ping to reset VF on changing the status of trusting.
-> VF driver will reconfigure its features on reset.
->
-> Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-> ---
->   drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  1 +
->   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  1 +
->   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 45 ++++++++++++++++++++++----
->   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |  1 +
->   4 files changed, 41 insertions(+), 7 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> index 8830c0f..7f76c12 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> @@ -152,6 +152,7 @@ struct vf_data_storage {
->   	u16 vlan_count;
->   	u8 spoofchk_enabled;
->   	bool rss_query_enabled;
-> +	u8 trusted;
->   	unsigned int vf_api;
->   };
->
+--Apple-Mail=_933DBC4A-33F1-459A-87A3-C3AAF3D93F76
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=us-ascii
 
-At some point these boolean values should be converted to bit flags to 
-save space.  At this point it looks like you have something like 5 
-boolean values now in this structure.  If you converted them to a u8 
-field of bit flags you could save about 4 bytes per instance.
++ Alex
 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index 5f1b06a..376b49b 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -8349,6 +8349,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
->   	.ndo_set_vf_rate	= ixgbe_ndo_set_vf_bw,
->   	.ndo_set_vf_spoofchk	= ixgbe_ndo_set_vf_spoofchk,
->   	.ndo_set_vf_rss_query_en = ixgbe_ndo_set_vf_rss_query_en,
-> +	.ndo_set_vf_trust	= ixgbe_ndo_set_vf_trust,
->   	.ndo_get_vf_config	= ixgbe_ndo_get_vf_config,
->   	.ndo_get_stats64	= ixgbe_get_stats64,
->   #ifdef CONFIG_IXGBE_DCB
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-> index 1d17b58..826f88e 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-> @@ -116,6 +116,9 @@ static int __ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
->   			 * we want to disable the querying by default.
->   			 */
->   			adapter->vfinfo[i].rss_query_enabled = 0;
-> +
-> +			/* Untrust all VFs */
-> +			adapter->vfinfo[i].trusted = false;
->   		}
->
->   		return 0;
-> @@ -1124,18 +1127,23 @@ void ixgbe_disable_tx_rx(struct ixgbe_adapter *adapter)
->   	IXGBE_WRITE_REG(hw, IXGBE_VFRE(1), 0);
->   }
->
-> -void ixgbe_ping_all_vfs(struct ixgbe_adapter *adapter)
-> +static inline void ixgbe_ping_vf(struct ixgbe_adapter *adapter, int vf)
->   {
->   	struct ixgbe_hw *hw = &adapter->hw;
->   	u32 ping;
-> +
-> +	ping = IXGBE_PF_CONTROL_MSG;
-> +	if (adapter->vfinfo[vf].clear_to_send)
-> +		ping |= IXGBE_VT_MSGTYPE_CTS;
-> +	ixgbe_write_mbx(hw, &ping, 1, vf);
-> +}
-> +
-> +void ixgbe_ping_all_vfs(struct ixgbe_adapter *adapter)
-> +{
->   	int i;
->
-> -	for (i = 0 ; i < adapter->num_vfs; i++) {
-> -		ping = IXGBE_PF_CONTROL_MSG;
-> -		if (adapter->vfinfo[i].clear_to_send)
-> -			ping |= IXGBE_VT_MSGTYPE_CTS;
-> -		ixgbe_write_mbx(hw, &ping, 1, i);
-> -	}
-> +	for (i = 0 ; i < adapter->num_vfs; i++)
-> +		ixgbe_ping_vf(adapter, i);
->   }
->
+> On Jun 5, 2015, at 2:59 PM, Rustad, Mark D <mark.d.rustad@intel.com> =
+wrote:
+>=20
+>> On Jun 3, 2015, at 11:46 AM, Mark D Rustad <mark.d.rustad@intel.com> =
+wrote:
+>>=20
+>> Many multi-function devices provide shared registers in extended
+>> config space for accessing VPD. The behavior of these registers
+>> means that the state must be tracked and access locked correctly
+>> for accesses not to hang or worse. One way to meet these needs is
+>> to always perform the accesses through function 0, thereby using
+>> the state tracking and mutex that already exists.
+>>=20
+>> To provide this behavior, add a dev_flags bit to indicate that this
+>> should be done. This bit can then be set for any non-zero function
+>> that needs to redirect such VPD access to function 0. Do not set
+>> this bit on the zero function or there will be an infinite recursion.
+>>=20
+>> The second patch uses this new flag to invoke this behavior on all
+>> multi-function Intel Ethernet devices.
+>>=20
+>> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+>>=20
+>> ---
+>> Changes in V2:
+>> - Corrected a spelling error in a log message
+>> - Added checks to see that the referenced function 0 is reasonable
+>> Changes in V3:
+>> - Don't leak a device reference
+>> - Check that function 0 has VPD
+>> - Make a helper for the function 0 checks
+>> - Moved a multifunction check to the quirk patch
+>=20
+> So does this series look acceptable now? I think I addressed the =
+issues that Alex raised. Can these also be considered for -stable?
 
-This ping_all_vfs/ping_vf change doesn't really have anything to do with 
-the ndo_trust part and should probably be a separate patch.
+More than a week has passed without any comment. Is this going to be =
+accepted or is there still an issue?
 
->   int ixgbe_ndo_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
-> @@ -1416,6 +1424,28 @@ int ixgbe_ndo_set_vf_rss_query_en(struct net_device *netdev, int vf,
->   	return 0;
->   }
->
-> +int ixgbe_ndo_set_vf_trust(struct net_device *netdev, int vf, bool setting)
-> +{
-> +	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-> +
-> +	if (vf >= adapter->num_vfs)
-> +		return -EINVAL;
-> +
-> +	/* nothing to do */
-> +	if (adapter->vfinfo[vf].trusted == setting)
-> +		return 0;
-> +
-> +	adapter->vfinfo[vf].trusted = setting;
-> +
-> +	/* reset VF to reconfigure features */
-> +	adapter->vfinfo[vf].clear_to_send = false;
-> +	ixgbe_ping_vf(adapter, vf);
-> +
-> +	e_info(drv, "VF %u is %strusted\n", vf, setting ? "" : "not ");
-> +
-> +	return 0;
-> +}
-> +
->   int ixgbe_ndo_get_vf_config(struct net_device *netdev,
->   			    int vf, struct ifla_vf_info *ivi)
->   {
-> @@ -1430,5 +1460,6 @@ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
->   	ivi->qos = adapter->vfinfo[vf].pf_qos;
->   	ivi->spoofchk = adapter->vfinfo[vf].spoofchk_enabled;
->   	ivi->rss_query_en = adapter->vfinfo[vf].rss_query_enabled;
-> +	ivi->trusted = adapter->vfinfo[vf].trusted;
->   	return 0;
->   }
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-> index 2c197e6..dad9257 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-> @@ -49,6 +49,7 @@ int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int min_tx_rate,
->   int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting);
->   int ixgbe_ndo_set_vf_rss_query_en(struct net_device *netdev, int vf,
->   				  bool setting);
-> +int ixgbe_ndo_set_vf_trust(struct net_device *netdev, int vf, bool setting);
->   int ixgbe_ndo_get_vf_config(struct net_device *netdev,
->   			    int vf, struct ifla_vf_info *ivi);
->   void ixgbe_check_vf_rate_limit(struct ixgbe_adapter *adapter);
->
+--
+Mark Rustad, Networking Division, Intel Corporation
+
+
+--Apple-Mail=_933DBC4A-33F1-459A-87A3-C3AAF3D93F76
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
+
+-----BEGIN PGP SIGNATURE-----
+Comment: GPGTools - http://gpgtools.org
+
+iQIcBAEBCAAGBQJVgaBZAAoJEDwO/+eO4+5uGukQAKOK+W+hOnYngKpbDANNutZn
+jAJIdQ9+tnf+bShEU5F+hNEtmmj4nSw6OCvHrI+34TgBlMJxcrF2hfV5TAebmIZX
+rd4dbz1Xjw7tU49XJKj7CNq2vKELiezlqDJCbi9p+0q+/xDRDfwNzYNv2BsgW3zQ
+bGtfV3WvYnKQ26A9FKmAK+fe9SQKt+P/AipRilsGlt9xIQljZrsXm6RUuFyqpURn
+2AAlYF5cIqehVSPi8igRj8OI3RrfHqImgOtEMuJHXLhuHq8hNjC26Gw6X8r9N/U0
+ooz4fSQC/fcpzFtsxMuhasNWhoxquVBbPSmFKhQf70t44WHmyy8pIxkZYVmyrYIv
+u1fCQAa+Ot2BrQ5/v0FLTCMnJzurdkL0yTJC8VzLwzQGC0OCQ+K2d4VkKp5mOakN
+wUkBdQsYNbMH5Bwi+0VMQxhleYo3t7se8Rin89dyZQnLZLYjBav0lQU4j0oPrfh5
+xEYQ2Iy+H4B+Bka5CR5kwbeAYoTy6kW9Hqf38FpVgSV2A2D7tir2lNpVnbjz8XZg
+q1hhcYqmkJTk2eIa+d670JNE1Y1O+tCMeFDOEW0xziD2e9aJdk4uTxn1RrahB0UN
+6cNepkGeiqaDVyWJwrmOrqlv8g5L0WIc87lIY/x5mWV87+7/1GIu0Z29jN3kr58p
+KkCsxWobnNpZCFkkDdS9
+=33l1
+-----END PGP SIGNATURE-----
+
+--Apple-Mail=_933DBC4A-33F1-459A-87A3-C3AAF3D93F76--
