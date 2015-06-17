@@ -1,404 +1,303 @@
-From: =?UTF-8?q?Peter=20N=C3=B8rlund?= <pch@ordbogen.com>
-Subject: [PATCH net-next 2/3] ipv4: L3 and L4 hash-based multipath routing
-Date: Wed, 17 Jun 2015 22:08:05 +0200
-Message-ID: <1434571686-5149-3-git-send-email-pch@ordbogen.com>
+From: =?UTF-8?q?Peter=20N=C3=B8rlund?= <pch-chEQUL3jiZBWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net-next 1/3] ipv4: Lock-less per-packet multipath
+Date: Wed, 17 Jun 2015 22:08:04 +0200
+Message-ID: <1434571686-5149-2-git-send-email-pch@ordbogen.com>
 References: <1434571686-5149-1-git-send-email-pch@ordbogen.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, linux-api@vger.kernel.org,
-	=?UTF-8?q?Peter=20N=C3=B8rlund?= <pch@ordbogen.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ordbogen.com ([86.58.170.13]:38891 "EHLO mail.ordbogen.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751605AbbFQUOm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2015 16:14:42 -0400
-In-Reply-To: <1434571686-5149-1-git-send-email-pch@ordbogen.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Peter=20N=C3=B8rlund?= <pch-chEQUL3jiZBWk0Htik3J/w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1434571686-5149-1-git-send-email-pch-chEQUL3jiZBWk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds L3 and L4 hash-based multipath routing, selectable on a
-per-route basis with the reintroduced RTA_MP_ALGO attribute. The defaul=
-t is
-now RT_MP_ALG_L3_HASH.
+The current multipath attempted to be quasi random, but in most cases i=
+t
+behaved just like a round robin balancing. This patch refactors the
+algorithm to be exactly that and in doing so, avoids the spin lock.
 
-Signed-off-by: Peter N=C3=B8rlund <pch@ordbogen.com>
+The new design paves the way for hash-based multipath, replacing the
+modulo with thresholds, minimizing disruption in case of failing paths =
+or
+route replacements.
+
+Signed-off-by: Peter N=C3=B8rlund <pch-chEQUL3jiZBWk0Htik3J/w@public.gmane.org>
 ---
- include/net/ip_fib.h           |  4 ++-
- include/net/route.h            |  5 ++--
- include/uapi/linux/rtnetlink.h | 14 ++++++++++-
- net/ipv4/fib_frontend.c        |  4 +++
- net/ipv4/fib_semantics.c       | 34 ++++++++++++++++++++++---
- net/ipv4/icmp.c                |  4 +--
- net/ipv4/route.c               | 56 ++++++++++++++++++++++++++++++++++=
-+-------
- net/ipv4/xfrm4_policy.c        |  2 +-
- 8 files changed, 103 insertions(+), 20 deletions(-)
+ include/net/ip_fib.h     |   6 +--
+ net/ipv4/Kconfig         |   1 +
+ net/ipv4/fib_semantics.c | 116 ++++++++++++++++++++++++++-------------=
+--------
+ 3 files changed, 68 insertions(+), 55 deletions(-)
 
 diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 4be4f25..250d98e 100644
+index 54271ed..4be4f25 100644
 --- a/include/net/ip_fib.h
 +++ b/include/net/ip_fib.h
-@@ -37,6 +37,7 @@ struct fib_config {
- 	u32			fc_flags;
- 	u32			fc_priority;
- 	__be32			fc_prefsrc;
-+	int			fc_mp_alg;
- 	struct nlattr		*fc_mx;
- 	struct rtnexthop	*fc_mp;
- 	int			fc_mx_len;
-@@ -116,6 +117,7 @@ struct fib_info {
+@@ -76,8 +76,8 @@ struct fib_nh {
+ 	unsigned int		nh_flags;
+ 	unsigned char		nh_scope;
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+-	int			nh_weight;
+-	int			nh_power;
++	int			nh_mp_weight;
++	atomic_t		nh_mp_upper_bound;
+ #endif
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+ 	__u32			nh_tclassid;
+@@ -115,7 +115,7 @@ struct fib_info {
+ #define fib_advmss fib_metrics[RTAX_ADVMSS-1]
  	int			fib_nhs;
  #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 	int			fib_mp_weight;
-+	int			fib_mp_alg;
+-	int			fib_power;
++	int			fib_mp_weight;
  #endif
  	struct rcu_head		rcu;
  	struct fib_nh		fib_nh[0];
-@@ -308,7 +310,7 @@ int ip_fib_check_default(__be32 gw, struct net_devi=
-ce *dev);
- int fib_sync_down_dev(struct net_device *dev, int force);
- int fib_sync_down_addr(struct net *net, __be32 local);
- int fib_sync_up(struct net_device *dev);
--void fib_select_multipath(struct fib_result *res);
-+void fib_select_multipath(struct fib_result *res, const struct flowi4 =
-*flow);
-=20
- /* Exported by fib_trie.c */
- void fib_trie_init(void);
-diff --git a/include/net/route.h b/include/net/route.h
-index fe22d03..1fc7deb 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -110,7 +110,8 @@ struct in_device;
- int ip_rt_init(void);
- void rt_cache_flush(struct net *net);
- void rt_flush_dev(struct net_device *dev);
--struct rtable *__ip_route_output_key(struct net *, struct flowi4 *flp)=
-;
-+struct rtable *__ip_route_output_key(struct net *, struct flowi4 *flp,
-+				     const struct flowi4 *mp_flow);
- struct rtable *ip_route_output_flow(struct net *, struct flowi4 *flp,
- 				    struct sock *sk);
- struct dst_entry *ipv4_blackhole_route(struct net *net,
-@@ -267,7 +268,7 @@ static inline struct rtable *ip_route_connect(struc=
-t flowi4 *fl4,
- 			      sport, dport, sk);
-=20
- 	if (!dst || !src) {
--		rt =3D __ip_route_output_key(net, fl4);
-+		rt =3D __ip_route_output_key(net, fl4, NULL);
- 		if (IS_ERR(rt))
- 			return rt;
- 		ip_rt_put(rt);
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetl=
-ink.h
-index 17fb02f..dff4a72 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -271,6 +271,18 @@ enum rt_scope_t {
- #define RTM_F_EQUALIZE		0x400	/* Multipath equalizer: NI	*/
- #define RTM_F_PREFIX		0x800	/* Prefix addresses		*/
-=20
-+/* Multipath algorithms */
-+
-+enum rt_mp_alg_t {
-+	RT_MP_ALG_L3_HASH,	/* Was IP_MP_ALG_NONE */
-+	RT_MP_ALG_PER_PACKET,	/* Was IP_MP_ALG_RR */
-+	RT_MP_ALG_DRR,		/* not used */
-+	RT_MP_ALG_RANDOM,	/* not used */
-+	RT_MP_ALG_WRANDOM,	/* not used */
-+	RT_MP_ALG_L4_HASH,
-+	__RT_MP_ALG_MAX
-+};
-+
- /* Reserved table identifiers */
-=20
- enum rt_class_t {
-@@ -301,7 +313,7 @@ enum rtattr_type_t {
- 	RTA_FLOW,
- 	RTA_CACHEINFO,
- 	RTA_SESSION, /* no longer used */
--	RTA_MP_ALGO, /* no longer used */
-+	RTA_MP_ALGO,
- 	RTA_TABLE,
- 	RTA_MARK,
- 	RTA_MFC_STATS,
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 872494e..376e8c1 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -590,6 +590,7 @@ const struct nla_policy rtm_ipv4_policy[RTA_MAX + 1=
-] =3D {
- 	[RTA_PREFSRC]		=3D { .type =3D NLA_U32 },
- 	[RTA_METRICS]		=3D { .type =3D NLA_NESTED },
- 	[RTA_MULTIPATH]		=3D { .len =3D sizeof(struct rtnexthop) },
-+	[RTA_MP_ALGO]		=3D { .type =3D NLA_U32 },
- 	[RTA_FLOW]		=3D { .type =3D NLA_U32 },
- };
-=20
-@@ -650,6 +651,9 @@ static int rtm_to_fib_config(struct net *net, struc=
-t sk_buff *skb,
- 			cfg->fc_mp =3D nla_data(attr);
- 			cfg->fc_mp_len =3D nla_len(attr);
- 			break;
-+		case RTA_MP_ALGO:
-+			cfg->fc_mp_alg =3D nla_get_u32(attr);
-+			break;
- 		case RTA_FLOW:
- 			cfg->fc_flow =3D nla_get_u32(attr);
- 			break;
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index d83071d..cb91f67 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -81,6 +81,7 @@ config IP_MULTIPLE_TABLES
+ config IP_ROUTE_MULTIPATH
+ 	bool "IP: equal cost multipath"
+ 	depends on IP_ADVANCED_ROUTER
++	select BITREVERSE
+ 	help
+ 	  Normally, the routing tables specify a single action to be taken in
+ 	  a deterministic manner for a given packet. If you say Y here
 diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 8c8df80..da06e88 100644
+index 28ec3c1..8c8df80 100644
 --- a/net/ipv4/fib_semantics.c
 +++ b/net/ipv4/fib_semantics.c
-@@ -257,6 +257,11 @@ static inline int nh_comp(const struct fib_info *f=
-i, const struct fib_info *ofi)
- {
- 	const struct fib_nh *onh =3D ofi->fib_nh;
+@@ -15,6 +15,7 @@
 =20
-+#ifdef CONFIG_IP_ROUTE_MULTIPATH
-+	if (fi->fib_mp_alg !=3D ofi->fib_mp_alg)
-+		return -1;
-+#endif
-+
- 	for_nexthops(fi) {
- 		if (nh->nh_oif !=3D onh->nh_oif ||
- 		    nh->nh_gw  !=3D onh->nh_gw ||
-@@ -896,6 +901,7 @@ struct fib_info *fib_create_info(struct fib_config =
-*cfg)
+ #include <asm/uaccess.h>
+ #include <linux/bitops.h>
++#include <linux/bitrev.h>
+ #include <linux/types.h>
+ #include <linux/kernel.h>
+ #include <linux/jiffies.h>
+@@ -57,7 +58,7 @@ static struct hlist_head fib_info_devhash[DEVINDEX_HA=
+SHSIZE];
 =20
- 	if (cfg->fc_mp) {
  #ifdef CONFIG_IP_ROUTE_MULTIPATH
-+		fi->fib_mp_alg =3D cfg->fc_mp_alg;
- 		err =3D fib_get_nhs(fi, cfg->fc_mp, cfg->fc_mp_len, cfg);
- 		if (err !=3D 0)
- 			goto failure;
-@@ -1085,6 +1091,10 @@ int fib_dump_info(struct sk_buff *skb, u32 porti=
-d, u32 seq, int event,
- 		struct rtnexthop *rtnh;
- 		struct nlattr *mp;
 =20
-+		if (fi->fib_mp_alg &&
-+		    nla_put_u32(skb, RTA_MP_ALGO, fi->fib_mp_alg))
-+			goto nla_put_failure;
-+
- 		mp =3D nla_nest_start(skb, RTA_MULTIPATH);
- 		if (!mp)
- 			goto nla_put_failure;
-@@ -1312,15 +1322,31 @@ int fib_sync_up(struct net_device *dev)
+-static DEFINE_SPINLOCK(fib_multipath_lock);
++static DEFINE_PER_CPU(u8, fib_mp_rr_counter);
+=20
+ #define for_nexthops(fi) {						\
+ 	int nhsel; const struct fib_nh *nh;				\
+@@ -261,7 +262,7 @@ static inline int nh_comp(const struct fib_info *fi=
+, const struct fib_info *ofi)
+ 		    nh->nh_gw  !=3D onh->nh_gw ||
+ 		    nh->nh_scope !=3D onh->nh_scope ||
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+-		    nh->nh_weight !=3D onh->nh_weight ||
++		    nh->nh_mp_weight !=3D onh->nh_mp_weight ||
+ #endif
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+ 		    nh->nh_tclassid !=3D onh->nh_tclassid ||
+@@ -449,6 +450,43 @@ static int fib_count_nexthops(struct rtnexthop *rt=
+nh, int remaining)
+ 	return remaining > 0 ? 0 : nhs;
  }
 =20
- /*
-- * The algorithm is suboptimal, but it provides really
-- * fair weighted route distribution.
-+ * Compute multipath hash based on 3- or 5-tuple
-  */
--void fib_select_multipath(struct fib_result *res)
-+static int fib_multipath_hash(const struct fib_result *res,
-+			      const struct flowi4 *flow)
++static void fib_rebalance(struct fib_info *fi)
 +{
-+	u32 hash =3D flow->saddr ^ flow->daddr;
++	int factor;
++	int total;
++	int w;
 +
-+	if (res->fi->fib_mp_alg =3D=3D RT_MP_ALG_L4_HASH && flow->flowi4_prot=
-o !=3D 0)
-+		hash ^=3D flow->flowi4_proto ^ flow->fl4_sport ^ flow->fl4_dport;
-+
-+	hash ^=3D hash >> 16;
-+	hash ^=3D hash >> 8;
-+	return hash & 0xFF;
-+}
-+
-+void fib_select_multipath(struct fib_result *res, const struct flowi4 =
-*flow)
- {
- 	struct fib_info *fi =3D res->fi;
- 	u8 w;
-=20
--	w =3D bitrev8(this_cpu_inc_return(fib_mp_rr_counter));
-+	if (res->fi->fib_mp_alg =3D=3D RT_MP_ALG_PER_PACKET) {
-+		w =3D bitrev8(this_cpu_inc_return(fib_mp_rr_counter));
-+	} else {
-+		w =3D fib_multipath_hash(res, flow);
-+	}
-=20
- 	for_nexthops(fi) {
- 		if (w >=3D atomic_read(&nh->nh_mp_upper_bound))
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index f5203fb..3abcfea 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -459,7 +459,7 @@ static struct rtable *icmp_route_lookup(struct net =
-*net,
- 	fl4->fl4_icmp_type =3D type;
- 	fl4->fl4_icmp_code =3D code;
- 	security_skb_classify_flow(skb_in, flowi4_to_flowi(fl4));
--	rt =3D __ip_route_output_key(net, fl4);
-+	rt =3D __ip_route_output_key(net, fl4, NULL);
- 	if (IS_ERR(rt))
- 		return rt;
-=20
-@@ -481,7 +481,7 @@ static struct rtable *icmp_route_lookup(struct net =
-*net,
- 		goto relookup_failed;
-=20
- 	if (inet_addr_type(net, fl4_dec.saddr) =3D=3D RTN_LOCAL) {
--		rt2 =3D __ip_route_output_key(net, &fl4_dec);
-+		rt2 =3D __ip_route_output_key(net, &fl4_dec, NULL);
- 		if (IS_ERR(rt2))
- 			err =3D PTR_ERR(rt2);
- 	} else {
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index f605598..a1ec62c 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1006,7 +1006,7 @@ void ipv4_update_pmtu(struct sk_buff *skb, struct=
- net *net, u32 mtu,
-=20
- 	__build_flow_key(&fl4, NULL, iph, oif,
- 			 RT_TOS(iph->tos), protocol, mark, flow_flags);
--	rt =3D __ip_route_output_key(net, &fl4);
-+	rt =3D __ip_route_output_key(net, &fl4, NULL);
- 	if (!IS_ERR(rt)) {
- 		__ip_rt_update_pmtu(rt, &fl4, mtu);
- 		ip_rt_put(rt);
-@@ -1025,7 +1025,7 @@ static void __ipv4_sk_update_pmtu(struct sk_buff =
-*skb, struct sock *sk, u32 mtu)
- 	if (!fl4.flowi4_mark)
- 		fl4.flowi4_mark =3D IP4_REPLY_MARK(sock_net(sk), skb->mark);
-=20
--	rt =3D __ip_route_output_key(sock_net(sk), &fl4);
-+	rt =3D __ip_route_output_key(sock_net(sk), &fl4, NULL);
- 	if (!IS_ERR(rt)) {
- 		__ip_rt_update_pmtu(rt, &fl4, mtu);
- 		ip_rt_put(rt);
-@@ -1094,7 +1094,7 @@ void ipv4_redirect(struct sk_buff *skb, struct ne=
-t *net,
-=20
- 	__build_flow_key(&fl4, NULL, iph, oif,
- 			 RT_TOS(iph->tos), protocol, mark, flow_flags);
--	rt =3D __ip_route_output_key(net, &fl4);
-+	rt =3D __ip_route_output_key(net, &fl4, NULL);
- 	if (!IS_ERR(rt)) {
- 		__ip_do_redirect(rt, skb, &fl4, false);
- 		ip_rt_put(rt);
-@@ -1109,7 +1109,7 @@ void ipv4_sk_redirect(struct sk_buff *skb, struct=
- sock *sk)
- 	struct rtable *rt;
-=20
- 	__build_flow_key(&fl4, sk, iph, 0, 0, 0, 0, 0);
--	rt =3D __ip_route_output_key(sock_net(sk), &fl4);
-+	rt =3D __ip_route_output_key(sock_net(sk), &fl4, NULL);
- 	if (!IS_ERR(rt)) {
- 		__ip_do_redirect(rt, skb, &fl4, false);
- 		ip_rt_put(rt);
-@@ -1631,6 +1631,39 @@ out:
- 	return err;
- }
-=20
-+#ifdef CONFIG_IP_ROUTE_MULTIPATH
-+/* Fill flow key data based on packet for use in multipath routing. */
-+static void ip_multipath_flow(const struct sk_buff *skb, struct flowi4=
- *flow)
-+{
-+	const struct iphdr *iph;
-+
-+	iph =3D ip_hdr(skb);
-+
-+	flow->saddr =3D iph->saddr;
-+	flow->daddr =3D iph->daddr;
-+	flow->flowi4_proto =3D iph->protocol;
-+	flow->fl4_sport =3D 0;
-+	flow->fl4_dport =3D 0;
-+
-+	if (unlikely(ip_is_fragment(iph)))
++	if (fi->fib_nhs < 2)
 +		return;
 +
-+	if (iph->protocol =3D=3D IPPROTO_TCP ||
-+	    iph->protocol =3D=3D IPPROTO_UDP ||
-+	    iph->protocol =3D=3D IPPROTO_SCTP) {
-+		__be16 _ports;
-+		const __be16 *ports;
++	total =3D 0;
++	for_nexthops(fi) {
++		if (!(nh->nh_flags & RTNH_F_DEAD))
++			total +=3D nh->nh_mp_weight;
++	} endfor_nexthops(fi);
 +
-+		ports =3D skb_header_pointer(skb, iph->ihl * 4, sizeof(_ports),
-+					   &_ports);
-+		if (ports) {
-+			flow->fl4_sport =3D ports[0];
-+			flow->fl4_dport =3D ports[1];
++	if (likely(total !=3D 0)) {
++		factor =3D DIV_ROUND_UP(total, 8388608);
++		total /=3D factor;
++	} else {
++		factor =3D 1;
++	}
++
++	w =3D 0;
++	change_nexthops(fi) {
++		int upper_bound;
++
++		if (nexthop_nh->nh_flags & RTNH_F_DEAD) {
++			upper_bound =3D -1;
++		} else {
++			w +=3D nexthop_nh->nh_mp_weight / factor;
++			upper_bound =3D DIV_ROUND_CLOSEST(256 * w, total);
 +		}
-+	}
++
++		atomic_set(&nexthop_nh->nh_mp_upper_bound, upper_bound);
++	} endfor_nexthops(fi);
 +}
-+#endif /* CONFIG_IP_ROUTE_MULTIPATH */
 +
- static int ip_mkroute_input(struct sk_buff *skb,
- 			    struct fib_result *res,
- 			    const struct flowi4 *fl4,
-@@ -1638,8 +1671,12 @@ static int ip_mkroute_input(struct sk_buff *skb,
- 			    __be32 daddr, __be32 saddr, u32 tos)
+ static int fib_get_nhs(struct fib_info *fi, struct rtnexthop *rtnh,
+ 		       int remaining, struct fib_config *cfg)
  {
+@@ -461,7 +499,7 @@ static int fib_get_nhs(struct fib_info *fi, struct =
+rtnexthop *rtnh,
+ 		nexthop_nh->nh_flags =3D
+ 			(cfg->fc_flags & ~0xFF) | rtnh->rtnh_flags;
+ 		nexthop_nh->nh_oif =3D rtnh->rtnh_ifindex;
+-		nexthop_nh->nh_weight =3D rtnh->rtnh_hops + 1;
++		nexthop_nh->nh_mp_weight =3D rtnh->rtnh_hops + 1;
+=20
+ 		attrlen =3D rtnh_attrlen(rtnh);
+ 		if (attrlen > 0) {
+@@ -884,7 +922,7 @@ struct fib_info *fib_create_info(struct fib_config =
+*cfg)
+ 			fi->fib_net->ipv4.fib_num_tclassid_users++;
+ #endif
  #ifdef CONFIG_IP_ROUTE_MULTIPATH
--	if (res->fi && res->fi->fib_nhs > 1)
--		fib_select_multipath(res);
-+	if (res->fi && res->fi->fib_nhs > 1) {
-+		struct flowi4 mp_flow;
+-		nh->nh_weight =3D 1;
++		nh->nh_mp_weight =3D 1;
+ #endif
+ 	}
+=20
+@@ -936,8 +974,15 @@ struct fib_info *fib_create_info(struct fib_config=
+ *cfg)
+=20
+ 	change_nexthops(fi) {
+ 		fib_info_update_nh_saddr(net, nexthop_nh);
++#ifdef CONFIG_IP_ROUTE_MULTIPATH
++		fi->fib_mp_weight +=3D nexthop_nh->nh_mp_weight;
++#endif
+ 	} endfor_nexthops(fi)
+=20
++#ifdef CONFIG_IP_ROUTE_MULTIPATH
++	fib_rebalance(fi);
++#endif
 +
-+		ip_multipath_flow(skb, &mp_flow);
-+		fib_select_multipath(res, &mp_flow);
-+	}
- #endif
+ link_it:
+ 	ofi =3D fib_find_info(fi);
+ 	if (ofi) {
+@@ -1050,7 +1095,7 @@ int fib_dump_info(struct sk_buff *skb, u32 portid=
+, u32 seq, int event,
+ 				goto nla_put_failure;
 =20
- 	/* create a routing cache entry */
-@@ -2012,7 +2049,8 @@ add:
-  * Major route resolver routine.
-  */
+ 			rtnh->rtnh_flags =3D nh->nh_flags & 0xFF;
+-			rtnh->rtnh_hops =3D nh->nh_weight - 1;
++			rtnh->rtnh_hops =3D nh->nh_mp_weight - 1;
+ 			rtnh->rtnh_ifindex =3D nh->nh_oif;
 =20
--struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *f=
-l4)
-+struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *f=
-l4,
-+				     const struct flowi4 *mp_flow)
- {
- 	struct net_device *dev_out =3D NULL;
- 	__u8 tos =3D RT_FL_TOS(fl4);
-@@ -2170,7 +2208,7 @@ struct rtable *__ip_route_output_key(struct net *=
-net, struct flowi4 *fl4)
-=20
+ 			if (nh->nh_gw &&
+@@ -1130,12 +1175,6 @@ int fib_sync_down_dev(struct net_device *dev, in=
+t force)
+ 			else if (nexthop_nh->nh_dev =3D=3D dev &&
+ 				 nexthop_nh->nh_scope !=3D scope) {
+ 				nexthop_nh->nh_flags |=3D RTNH_F_DEAD;
+-#ifdef CONFIG_IP_ROUTE_MULTIPATH
+-				spin_lock_bh(&fib_multipath_lock);
+-				fi->fib_power -=3D nexthop_nh->nh_power;
+-				nexthop_nh->nh_power =3D 0;
+-				spin_unlock_bh(&fib_multipath_lock);
+-#endif
+ 				dead++;
+ 			}
  #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 	if (res.fi->fib_nhs > 1 && fl4->flowi4_oif =3D=3D 0)
--		fib_select_multipath(&res);
-+		fib_select_multipath(&res, (mp_flow ? mp_flow : fl4));
- 	else
- #endif
- 	if (!res.prefixlen &&
-@@ -2273,7 +2311,7 @@ struct dst_entry *ipv4_blackhole_route(struct net=
- *net, struct dst_entry *dst_or
- struct rtable *ip_route_output_flow(struct net *net, struct flowi4 *fl=
-p4,
- 				    struct sock *sk)
+@@ -1149,6 +1188,10 @@ int fib_sync_down_dev(struct net_device *dev, in=
+t force)
+ 			fi->fib_flags |=3D RTNH_F_DEAD;
+ 			ret++;
+ 		}
++
++#ifdef CONFIG_IP_ROUTE_MULTIPATH
++		fib_rebalance(fi);
++#endif
+ 	}
+=20
+ 	return ret;
+@@ -1254,16 +1297,15 @@ int fib_sync_up(struct net_device *dev)
+ 			    !__in_dev_get_rtnl(dev))
+ 				continue;
+ 			alive++;
+-			spin_lock_bh(&fib_multipath_lock);
+-			nexthop_nh->nh_power =3D 0;
+ 			nexthop_nh->nh_flags &=3D ~RTNH_F_DEAD;
+-			spin_unlock_bh(&fib_multipath_lock);
+ 		} endfor_nexthops(fi)
+=20
+ 		if (alive > 0) {
+ 			fi->fib_flags &=3D ~RTNH_F_DEAD;
+ 			ret++;
+ 		}
++
++		fib_rebalance(fi);
+ 	}
+=20
+ 	return ret;
+@@ -1276,49 +1318,19 @@ int fib_sync_up(struct net_device *dev)
+ void fib_select_multipath(struct fib_result *res)
  {
--	struct rtable *rt =3D __ip_route_output_key(net, flp4);
-+	struct rtable *rt =3D __ip_route_output_key(net, flp4, NULL);
+ 	struct fib_info *fi =3D res->fi;
+-	int w;
+-
+-	spin_lock_bh(&fib_multipath_lock);
+-	if (fi->fib_power <=3D 0) {
+-		int power =3D 0;
+-		change_nexthops(fi) {
+-			if (!(nexthop_nh->nh_flags & RTNH_F_DEAD)) {
+-				power +=3D nexthop_nh->nh_weight;
+-				nexthop_nh->nh_power =3D nexthop_nh->nh_weight;
+-			}
+-		} endfor_nexthops(fi);
+-		fi->fib_power =3D power;
+-		if (power <=3D 0) {
+-			spin_unlock_bh(&fib_multipath_lock);
+-			/* Race condition: route has just become dead. */
+-			res->nh_sel =3D 0;
+-			return;
+-		}
+-	}
++	u8 w;
 =20
- 	if (IS_ERR(rt))
- 		return rt;
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index bff6974..7eae158 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -31,7 +31,7 @@ static struct dst_entry *__xfrm4_dst_lookup(struct ne=
-t *net, struct flowi4 *fl4,
- 	if (saddr)
- 		fl4->saddr =3D saddr->a4;
++	w =3D bitrev8(this_cpu_inc_return(fib_mp_rr_counter));
 =20
--	rt =3D __ip_route_output_key(net, fl4);
-+	rt =3D __ip_route_output_key(net, fl4, NULL);
- 	if (!IS_ERR(rt))
- 		return &rt->dst;
+-	/* w should be random number [0..fi->fib_power-1],
+-	 * it is pretty bad approximation.
+-	 */
+-
+-	w =3D jiffies % fi->fib_power;
++	for_nexthops(fi) {
++		if (w >=3D atomic_read(&nh->nh_mp_upper_bound))
++			continue;
 =20
+-	change_nexthops(fi) {
+-		if (!(nexthop_nh->nh_flags & RTNH_F_DEAD) &&
+-		    nexthop_nh->nh_power) {
+-			w -=3D nexthop_nh->nh_power;
+-			if (w <=3D 0) {
+-				nexthop_nh->nh_power--;
+-				fi->fib_power--;
+-				res->nh_sel =3D nhsel;
+-				spin_unlock_bh(&fib_multipath_lock);
+-				return;
+-			}
+-		}
++		res->nh_sel =3D nhsel;
++		return;
+ 	} endfor_nexthops(fi);
+=20
+-	/* Race condition: route has just become dead. */
++	/* Race condition: route has just become dead */
+ 	res->nh_sel =3D 0;
+-	spin_unlock_bh(&fib_multipath_lock);
+ }
+ #endif
 --=20
 2.1.4
