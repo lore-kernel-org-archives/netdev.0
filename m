@@ -1,36 +1,37 @@
 From: Antonio Borneo <borneo.antonio@gmail.com>
-Subject: [PATCH] net: via-rhine: remove unneeded include file
-Date: Wed, 17 Jun 2015 19:41:22 +0800
-Message-ID: <1434541282-9653-1-git-send-email-borneo.antonio@gmail.com>
+Subject: [PATCH 0/2] replace USE_OF in drivers
+Date: Wed, 17 Jun 2015 19:42:29 +0800
+Message-ID: <1434541351-9699-1-git-send-email-borneo.antonio@gmail.com>
 Cc: Antonio Borneo <borneo.antonio@gmail.com>
-To: Alexey Charkov <alchark@gmail.com>,
+To: Daniel Lezcano <daniel.lezcano@linaro.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Francois Romieu <romieu@fr.zoreil.com>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:33012 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754756AbbFQLmS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 07:42:18 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Antonio Borneo <borneo.antonio@gmail.com>
----
+Kconfig option USE_OF is used as intermediate option by few
+arch's (ARM, MIPS, Xtensa); in all these cases USE_OF implies
+setting option OF and other OF_???.
 
- drivers/net/ethernet/via/via-rhine.c | 1 -
- 1 file changed, 1 deletion(-)
+Outside arch folder, USE_OF is used only in two places.
+In both places, USE_OF can be replaced by OF or OF_???.
+This change reduces the scope of USE_OF and makes the drivers
+(actually only the Via network ones) available to other arch's
+that don't use USE_OF.
 
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index de28504..a1aaf3a 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -96,7 +96,6 @@ static const int multicast_filter_limit = 32;
- #include <linux/ioport.h>
- #include <linux/interrupt.h>
- #include <linux/pci.h>
--#include <linux/of_address.h>
- #include <linux/of_device.h>
- #include <linux/of_irq.h>
- #include <linux/platform_device.h>
+The two patches of this series can be applied independently and
+can be taken separately in the respective tree.
+
+Antonio Borneo (2):
+  clocksource: Kconfig: replace USE_OF with OF
+  net: via/Kconfig: replace USE_OF with OF_???
+
+ drivers/clocksource/Kconfig      | 2 +-
+ drivers/net/ethernet/via/Kconfig | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
 -- 
 2.4.3
