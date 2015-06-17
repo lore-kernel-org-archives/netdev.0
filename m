@@ -1,81 +1,62 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [BUG,BISECTED] mvneta: second interface no more usable on mirabox
-Date: Wed, 17 Jun 2015 16:24:14 +0300
-Message-ID: <558174FE.8010403@list.ru>
-References: <87a8vz72hr.fsf@natisbad.org> <5580A4C3.1020509@list.ru> <874mm71cgb.fsf@natisbad.org>
+From: Julien Grall <julien.grall@citrix.com>
+Subject: [PATCH v2 0/7] xen: Clean up
+Date: Wed, 17 Jun 2015 15:28:01 +0100
+Message-ID: <1434551288-14113-1-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Arnaud Ebalard <arno@natisbad.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback8.mail.ru ([94.100.181.110]:36301 "EHLO
-	fallback8.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754519AbbFQNow (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 09:44:52 -0400
-Received: from smtp22.mail.ru (smtp22.mail.ru [94.100.181.177])
-	by fallback8.mail.ru (mPOP.Fallback_MX) with ESMTP id BDBA9854734A
-	for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 16:24:25 +0300 (MSK)
-In-Reply-To: <874mm71cgb.fsf@natisbad.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Wei Liu <wei.liu2@citrix.com>, Ian
+	Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org, Stefano
+	Stabellini <stefano.stabellini@eu.citrix.com>,
+	linux-kernel@vger.kernel.org, Julien Grall <julien.grall@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	linux-arm-kernel@lists.infradead.org,
+	=?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+To: <xen-devel@lists.xenproject.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-17.06.2015 02:05, Arnaud Ebalard =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->> But it seems the patch can still change a couple of flags
->> for you, and maybe that makes a problem?
-> AFAICT, autoneg config register (MVNETA_GMAC_AUTONEG_CONFIG) is
-> modified.
-Or, else, prevented from being modified at a couple of
-bits that were wrongly cleared before. That code is now
-used by both autoneg and mdio modes, so clearing the
-autoneg bits is not possible (and not needed).
-Unfortunately I haven't checked if these bits are ever
-properly initialized. They are not. :( I think my u-boot did
-that for me, and for you - only for the first interface.
-
->   And the logic when link status changes is also modified:
->   - MVNETA_GMAC_FORCE_LINK_DOWN flag cleared when there is carrier. I=
-t was
->     previously set when that event occured.
->   - The link down event logic is also modified.
-This was needed to properly update the MAC status
-register. It wasn't used before my patch, because the
-status was retrieved with MDIO, and even with my patch
-it is used only for inbound status, but I felt it would be
-good to have it properly updated in all cases, to avoid the
-surprises in the future. AFAIK these bits are only mirrored
-by the relevant bits in the status register, and nothing more.
-
->> Please try the attached (absolutely untested) patch.
->> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/eth=
-ernet/marvell/mvneta.c
->> index ce5f7f9..74176ec 100644
->> --- a/drivers/net/ethernet/marvell/mvneta.c
->> +++ b/drivers/net/ethernet/marvell/mvneta.c
->> @@ -1013,6 +1013,12 @@ static void mvneta_defaults_set(struct mvneta=
-_port *pp)
->>   		val =3D mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
->>   		val |=3D MVNETA_GMAC_1MS_CLOCK_ENABLE;
->>   		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
->> +	} else {
->> +		val =3D mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
->> +		val &=3D ~(MVNETA_GMAC_INBAND_AN_ENABLE |
->> +		       MVNETA_GMAC_AN_SPEED_EN |
->> +		       MVNETA_GMAC_AN_DUPLEX_EN);
->> +		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
->>   	}
->>  =20
->>   	mvneta_set_ucast_table(pp, -1);
-> *Second interface is back w/ that patch applied*. Cannot tell if it i=
-s a
->   proper fix, though or a valid workaround.
-I think it is a proper fix - adding a missing initialization.
-Previously that initialization was hidden in a completely
-unexpected place, from where I had to remove it, but
-forgot to re-add elsewhere.
-
-> Thanks for your feedback.
-Thanks for your testing, I'll submit a patch in a few days.
+SGksCgpUaG9zZXMgcGF0Y2hlcyB3YXMgb3JpZ2luYWxseSBwYXJ0IG9mIHRoZSBYZW4gNjRLQiBz
+ZXJpZXMgWzFdLiBBbHRob3VnaCwKSSB0aGluayB0aGV5IGNhbiBnbyB3aXRob3V0IHdhaXRpbmcg
+dGhlIHJlc3Qgb2YgdGhlIDY0S0Igc2VyaWVzLgoKUGF0Y2ggIzEtIzQgc2hvdWxkIGdvIHRocm91
+Z2ggdGhlIFhlbiB0cmVlLCBldmVuIHRob3VnaCBwYXRjaCAjMSB0b3VjaGVzCm11bHRpcGxlIHBh
+cnQuCgpQYXRjaCAjNS0jNyBzaG91bGQgZ28gdGhyb3VnaCB0aGUgQmxvY2sgdHJlZS4KClJlZ2Fy
+ZHMsCgpbMV0gaHR0cDovL2xrbWwub3JnL2xrbWwvMjAxNS81LzE0LzUzMwoKQ2M6IEJvcmlzIE9z
+dHJvdnNreSA8Ym9yaXMub3N0cm92c2t5QG9yYWNsZS5jb20+CkNjOiBEYXZpZCBWcmFiZWwgPGRh
+dmlkLnZyYWJlbEBjaXRyaXguY29tPgpDYzogSWFuIENhbXBiZWxsIDxpYW4uY2FtcGJlbGxAY2l0
+cml4LmNvbT4KQ2M6IEtvbnJhZCBSemVzenV0ZWsgV2lsayA8a29ucmFkLndpbGtAb3JhY2xlLmNv
+bT4KQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcKQ2M6IFJvZ2VyIFBhdSBNb25uw6kgPHJvZ2Vy
+LnBhdUBjaXRyaXguY29tPgpDYzogU3RlZmFubyBTdGFiZWxsaW5pIDxzdGVmYW5vLnN0YWJlbGxp
+bmlAZXUuY2l0cml4LmNvbT4KQ2M6IFdlaSBMaXUgPHdlaS5saXUyQGNpdHJpeC5jb20+CgpKdWxp
+ZW4gR3JhbGwgKDcpOgogIHhlbjogSW5jbHVkZSB4ZW4vcGFnZS5oIHJhdGhlciB0aGFuIGFzbS94
+ZW4vcGFnZS5oCiAgeGVuL3hlbmJ1czogY2xpZW50OiBGaXggY2FsbCBvZiB2aXJ0X3RvX21mbiBp
+biB4ZW5idXNfZ3JhbnRfcmluZwogIHhlbi9ncmFudC10YWJsZTogUmVtb3ZlIHVudXNlZCBtYWNy
+byBTUFAKICBhcm0veGVuOiBEcm9wIGR1cGxpY2F0ZSBkZWZpbmUgbWZuX3RvX3ZpcnQKICBibG9j
+ay94ZW4tYmxrZnJvbnQ6IFJlbW92ZSB1bnVzZWQgbWFjcm8gTUFYSU1VTV9PVVRTVEFORElOR19C
+TE9DS19SRVFTCiAgYmxvY2sveGVuLWJsa2Zyb250OiBSZW1vdmUgaW52YWxpZCBjb21tZW50CiAg
+YmxvY2sveGVuLWJsa2JhY2s6IHMvbnJfcGFnZXMvbnJfc2Vncy8KCiBhcmNoL2FybS9pbmNsdWRl
+L2FzbS94ZW4vcGFnZS5oICAgICB8ICAxIC0KIGFyY2gvYXJtL3hlbi9tbS5jICAgICAgICAgICAg
+ICAgICAgIHwgIDIgKy0KIGFyY2gvYXJtL3hlbi9wMm0uYyAgICAgICAgICAgICAgICAgIHwgIDIg
+Ky0KIGRyaXZlcnMvYmxvY2sveGVuLWJsa2JhY2svYmxrYmFjay5jIHwgMTAgKysrKystLS0tLQog
+ZHJpdmVycy9ibG9jay94ZW4tYmxrYmFjay9jb21tb24uaCAgfCAgMiArLQogZHJpdmVycy9ibG9j
+ay94ZW4tYmxrZnJvbnQuYyAgICAgICAgfCAgOCAtLS0tLS0tLQogZHJpdmVycy9uZXQveGVuLW5l
+dGJhY2svbmV0YmFjay5jICAgfCAgMiArLQogZHJpdmVycy9uZXQveGVuLW5ldGZyb250LmMgICAg
+ICAgICAgfCAgMSAtCiBkcml2ZXJzL3hlbi9ldmVudHMvZXZlbnRzX2Jhc2UuYyAgICB8ICAyICst
+CiBkcml2ZXJzL3hlbi9ldmVudHMvZXZlbnRzX2ZpZm8uYyAgICB8ICAyICstCiBkcml2ZXJzL3hl
+bi9nbnRkZXYuYyAgICAgICAgICAgICAgICB8ICAyICstCiBkcml2ZXJzL3hlbi9ncmFudC10YWJs
+ZS5jICAgICAgICAgICB8ICAxIC0KIGRyaXZlcnMveGVuL21hbmFnZS5jICAgICAgICAgICAgICAg
+IHwgIDIgKy0KIGRyaXZlcnMveGVuL3RtZW0uYyAgICAgICAgICAgICAgICAgIHwgIDIgKy0KIGRy
+aXZlcnMveGVuL3hlbmJ1cy94ZW5idXNfY2xpZW50LmMgIHwgIDggKysrKy0tLS0KIDE1IGZpbGVz
+IGNoYW5nZWQsIDE4IGluc2VydGlvbnMoKyksIDI5IGRlbGV0aW9ucygtKQoKLS0gCjIuMS40CgoK
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVs
+IG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwOi8vbGlzdHMueGVuLm9y
+Zy94ZW4tZGV2ZWwK
