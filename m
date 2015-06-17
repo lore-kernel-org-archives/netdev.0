@@ -1,65 +1,86 @@
-From: Liberman Igal <Igal.Liberman@freescale.com>
-Subject: RE: [PATCH 01/12] fsl/fman: Add the FMan FLIB headers
-Date: Wed, 17 Jun 2015 14:59:37 +0000
-Message-ID: <DM2PR03MB3830ADD2B503C6738BB27E7E6A60@DM2PR03MB383.namprd03.prod.outlook.com>
-References: <1433949712-5648-1-git-send-email-madalin.bucur@freescale.com>
-	 <1433949712-5648-2-git-send-email-madalin.bucur@freescale.com>
-	 <1433949712-5648-3-git-send-email-madalin.bucur@freescale.com>
- <1433962446.2477.121.camel@freescale.com>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH v2 1/3] net: mvneta: introduce compatible string "marvell,armada-xp-neta"
+Date: Wed, 17 Jun 2015 17:12:36 +0200
+Message-ID: <55818E64.20007@free-electrons.com>
+References: <1434547162-6275-1-git-send-email-simon.guinot@sequanux.org> <1434547162-6275-2-git-send-email-simon.guinot@sequanux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
-To: Scott Wood <scottwood@freescale.com>,
-	Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Vincent Donnefort <vdonnefort@gmail.com>,
+	stable@vger.kernel.org
+To: Simon Guinot <simon.guinot@sequanux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0139.outbound.protection.outlook.com ([65.55.169.139]:49648
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754519AbbFQO7l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2015 10:59:41 -0400
-In-Reply-To: <1433962446.2477.121.camel@freescale.com>
-Content-Language: en-US
+Received: from down.free-electrons.com ([37.187.137.238]:36161 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755239AbbFQPMj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 11:12:39 -0400
+In-Reply-To: <1434547162-6275-2-git-send-email-simon.guinot@sequanux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNClJlZ2FyZHMsDQpJZ2FsIExpYmVybWFuLg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0t
-LS0tDQo+IEZyb206IFdvb2QgU2NvdHQtQjA3NDIxDQo+IFNlbnQ6IFdlZG5lc2RheSwgSnVuZSAx
-MCwgMjAxNSA5OjU0IFBNDQo+IFRvOiBCdWN1ciBNYWRhbGluLUNyaXN0aWFuLUIzMjcxNg0KPiBD
-YzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsg
-bGludXhwcGMtDQo+IGRldkBsaXN0cy5vemxhYnMub3JnOyBMaWJlcm1hbiBJZ2FsLUIzMTk1MA0K
-PiBTdWJqZWN0OiBSZTogW1BBVENIIDAxLzEyXSBmc2wvZm1hbjogQWRkIHRoZSBGTWFuIEZMSUIg
-aGVhZGVycw0KPiANCj4gT24gV2VkLCAyMDE1LTA2LTEwIGF0IDE4OjIxICswMzAwLCBNYWRhbGlu
-IEJ1Y3VyIHdyb3RlOg0KPiA+IEZyb206IElnYWwgTGliZXJtYW4gPElnYWwuTGliZXJtYW5AZnJl
-ZXNjYWxlLmNvbT4NCj4gPg0KPiA+IFRoaXMgcGF0Y2ggcHJlc2VudHMgdGhlIEZNYW4gRm91bmRh
-dGlvbiBMaWJyYXJpZXMgKEZMSUIpIGhlYWRlcnMuDQo+ID4gVGhlIEZNYW4gRkxpYiBwcm92aWRl
-cyB0aGUgYmFzaWMgQVBJIHVzZWQgYnkgdGhlIEZNYW4gZHJpdmVycyB0bw0KPiA+IGNvbmZpZ3Vy
-ZSBhbmQgY29udHJvbCB0aGUgRk1hbiBoYXJkd2FyZS4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6
-IElnYWwgTGliZXJtYW4gPElnYWwuTGliZXJtYW5AZnJlZXNjYWxlLmNvbT4NCj4gPiAtLS0NCj4g
-PiAgLi4uL2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZsaWIvY29tbW9uL2dlbmVyYWwuaCAgfCAg
-NDEgKysNCj4gPiAgLi4uL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbGliL2ZzbF9mbWFu
-LmggICAgfCA2MDkNCj4gPiArKysrKysrKysrKysrKysrKysrKysNCj4gPiAgMiBmaWxlcyBjaGFu
-Z2VkLCA2NTAgaW5zZXJ0aW9ucygrKQ0KPiA+ICBjcmVhdGUgbW9kZSAxMDA2NDQNCj4gPiBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbGliL2NvbW1vbi9nZW5lcmFsLmgNCj4g
-PiAgY3JlYXRlIG1vZGUgMTAwNjQ0DQo+ID4gZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxl
-L2ZtYW4vZmxpYi9mc2xfZm1hbi5oDQo+IA0KPiBXaHkgZG8gd2UgbmVlZCBzZXBhcmF0ZSBwYXRj
-aGVzIGp1c3QgZm9yIGhlYWRlcnM/DQo+IA0KDQpXZSB3YW50ZWQgdG8gbWFrZSB0aGUgcGF0Y2hl
-cyBzbWFsbGVyLCBpdCdzIHRoZSBtYWluIHJlYXNvbiBmb3IgdGhpcyBzZXBhcmF0aW9uLg0KDQo+
-IFdoYXQgZG9lcyAiY29tbW9uIiByZWZlciB0bz8NCj4gDQoNCkkgcmVtb3ZlZCAuL2ZsaWIvY29t
-bW9uLg0KDQo+IFdoYXQgZG9lcyB0aGUgZmxpYiBkaXJlY3RvcnkgbWVhbiwgaW4gdGhlIGNvbnRl
-eHQgb2YgTGludXg/ICBJZiBzb21lb25lIHdlcmUNCj4gdG8gYWRkIGNvZGUgdG8gdGhpcyBkcml2
-ZXIsIGhvdyBkbyB0aGV5IGtub3cgaWYgdGhlIGNvZGUgc2hvdWxkIGdvIGludG8gdGhlDQo+IGZs
-aWIgZGlyZWN0b3J5IG9yIG5vdD8NCj4gDQo+ID4NCj4gPiArI2RlZmluZSBpb3dyaXRlMzJiZSh2
-YWwsIGFkZHIpICAgICAgICAgICAgICAgb3V0X2JlMzIoJigqYWRkciksIHZhbCkNCj4gPiArI2Rl
-ZmluZSBpb3JlYWQzMmJlKGFkZHIpICAgICAgICAgICAgIGluX2JlMzIoJigqYWRkcikpDQo+IA0K
-PiBpb3dyaXRlMzJiZSgpL2lvcmVhZDMyYmUoKSBhcmUgYWxyZWFkeSBkZWZpbmVkIGZvciBhbGwg
-cmVsZXZhbnQgYXJjaGl0ZWN0dXJlcy4NCj4gV2h5IGFyZSB5b3UgcmVkZWZpbmluZyB0aGVtIGlu
-dG8gc29tZXRoaW5nIFBQQy0gc3BlY2lmaWM/DQo+IA0KDQpSZW1vdmVkIHRob3NlLiANCg0KPiA+
-ICsvKiBkbyBub3QgY2hhbmdlISBpZiBjaGFuZ2VkLCBtdXN0IGJlIGRpc2FibGVkIGZvciByZXYx
-ICEgKi8gI2RlZmluZQ0KPiA+ICtERUZBVUxUX0hBTFRfT05fRVhURVJOQUxfQUNUSVZBVElPTiAg
-ZmFsc2UNCj4gPiArLyogZG8gbm90IGNoYW5nZSEgaWYgY2hhbmdlZCwgbXVzdCBiZSBkaXNhYmxl
-ZCBmb3IgcmV2MSAhICovICNkZWZpbmUNCj4gPiArREVGQVVMVF9IQUxUX09OX1VOUkVDT1ZFUkFC
-TEVfRUNDX0VSUk9SIGZhbHNlDQo+IA0KPiByZXYxIG9mIHdoYXQgY2hpcD8NCj4gDQoNClA0MDgw
-LiBJJ2xsIHVwZGF0ZSB0aGUgY29tbWVudHMuIA0KDQo+IC1TY290dA0KDQpJZ2FsLg0KDQo=
+Hi Simon,
+
+On 17/06/2015 15:19, Simon Guinot wrote:
+> The mvneta driver supports the Ethernet IP found in the Armada 370, XP,
+> 380 and 385 SoCs. Since at least one more hardware feature is available
+> for the Armada XP SoCs then a way to identify them is needed.
+> 
+> This patch introduces a new compatible string "marvell,armada-xp-neta".
+
+Let's be future proof by going further. I would like to have an compatible string
+for each SoC even if we currently we don't use them.
+
+You even don't have to use add it in the mvneta.c file if you use:
+"marvell,armada-380-neta", "marvell,armada-xp-neta"
+
+
+Thanks,
+
+Gregory
+
+
+> Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
+> Cc: <stable@vger.kernel.org> # v3.8+
+> ---
+>  Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt | 2 +-
+>  drivers/net/ethernet/marvell/mvneta.c                             | 1 +
+>  2 files changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+> index 750d577e8083..f5a8ca29aff0 100644
+> --- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+> +++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+> @@ -1,7 +1,7 @@
+>  * Marvell Armada 370 / Armada XP Ethernet Controller (NETA)
+>  
+>  Required properties:
+> -- compatible: should be "marvell,armada-370-neta".
+> +- compatible: "marvell,armada-370-neta" or "marvell,armada-xp-neta".
+>  - reg: address and length of the register set for the device.
+>  - interrupts: interrupt for the device
+>  - phy: See ethernet.txt file in the same directory.
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+> index ce5f7f9cff06..aceb977b104d 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -3179,6 +3179,7 @@ static int mvneta_remove(struct platform_device *pdev)
+>  
+>  static const struct of_device_id mvneta_match[] = {
+>  	{ .compatible = "marvell,armada-370-neta" },
+> +	{ .compatible = "marvell,armada-xp-neta" },
+>  	{ }
+>  };
+>  MODULE_DEVICE_TABLE(of, mvneta_match);
+> 
+
+
+-- 
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
