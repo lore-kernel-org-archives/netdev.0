@@ -1,11 +1,8 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH net-next 17/43] netfilter: use forward declaration instead of including linux/proc_fs.h
-Date: Wed, 17 Jun 2015 10:28:26 -0500
-Message-ID: <1434554932-4552-17-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH net-next 29/43] x_tables: Kill xt_[un]hook_link
+Date: Wed, 17 Jun 2015 10:28:38 -0500
+Message-ID: <1434554932-4552-29-git-send-email-ebiederm@xmission.com>
 References: <87r3pae5hn.fsf@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	Juanjo Ciarlante <jjciarla@raiz.uncu.edu.ar>,
@@ -20,67 +17,102 @@ Cc: <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
 	Herbert Xu <herbert@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:39918 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757470AbbFQPi3 (ORCPT
+Received: from out02.mta.xmission.com ([166.70.13.232]:41099 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757378AbbFQPi3 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 11:38:29 -0400
 In-Reply-To: <87r3pae5hn.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Eric W Biederman <ebiederm@xmission.com>
 
-We don't need to pull the full definitions in that file, a simple forwa=
-rd
-declaration is enough.
+These functions have no more users, kill them.
 
-Moreover, include linux/procfs.h from nf_synproxy_core, otherwise this =
-hits a
-compilation error due to missing declarations, ie.
-
-net/netfilter/nf_synproxy_core.c: In function =E2=80=98synproxy_proc_in=
-it=E2=80=99:
-net/netfilter/nf_synproxy_core.c:326:2: error: implicit declaration of =
-function =E2=80=98proc_create=E2=80=99 [-Werror=3Dimplicit-function-dec=
-laration]
-  if (!proc_create("synproxy", S_IRUGO, net->proc_net_stat,
-  ^
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- include/net/netns/netfilter.h    | 2 +-
- net/netfilter/nf_synproxy_core.c | 1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
+ include/linux/netfilter/x_tables.h |  3 ---
+ net/netfilter/x_tables.c           | 54 --------------------------------------
+ 2 files changed, 57 deletions(-)
 
-diff --git a/include/net/netns/netfilter.h b/include/net/netns/netfilte=
-r.h
-index 88740024ccf3..cf25b5e35f3c 100644
---- a/include/net/netns/netfilter.h
-+++ b/include/net/netns/netfilter.h
-@@ -1,9 +1,9 @@
- #ifndef __NETNS_NETFILTER_H
- #define __NETNS_NETFILTER_H
-=20
--#include <linux/proc_fs.h>
- #include <linux/netfilter.h>
-=20
-+struct proc_dir_entry;
- struct nf_logger;
-=20
- struct netns_nf {
-diff --git a/net/netfilter/nf_synproxy_core.c b/net/netfilter/nf_synpro=
-xy_core.c
-index 52e20c9a46a5..789feeae6c44 100644
---- a/net/netfilter/nf_synproxy_core.c
-+++ b/net/netfilter/nf_synproxy_core.c
-@@ -11,6 +11,7 @@
- #include <asm/unaligned.h>
- #include <net/tcp.h>
- #include <net/netns/generic.h>
-+#include <linux/proc_fs.h>
-=20
- #include <linux/netfilter_ipv4/ip_tables.h>
- #include <linux/netfilter/x_tables.h>
---=20
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
+index 0803027b36a2..61fc19961592 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -409,9 +409,6 @@ xt_get_per_cpu_counter(struct xt_counters *cnt, unsigned int cpu)
+ 	return cnt;
+ }
+ 
+-struct nf_hook_ops *xt_hook_link(const struct xt_table *, nf_hookfn *);
+-void xt_hook_unlink(const struct xt_table *, struct nf_hook_ops *);
+-
+ #ifdef CONFIG_COMPAT
+ #include <net/compat.h>
+ 
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index f7ade70ef342..67b70a717c0a 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -1227,60 +1227,6 @@ static const struct file_operations xt_target_ops = {
+ 
+ #endif /* CONFIG_PROC_FS */
+ 
+-/**
+- * xt_hook_link - set up hooks for a new table
+- * @table:	table with metadata needed to set up hooks
+- * @fn:		Hook function
+- *
+- * This function will take care of creating and registering the necessary
+- * Netfilter hooks for XT tables.
+- */
+-struct nf_hook_ops *xt_hook_link(const struct xt_table *table, nf_hookfn *fn)
+-{
+-	unsigned int hook_mask = table->valid_hooks;
+-	uint8_t i, num_hooks = hweight32(hook_mask);
+-	uint8_t hooknum;
+-	struct nf_hook_ops *ops;
+-	int ret;
+-
+-	ops = kmalloc(sizeof(*ops) * num_hooks, GFP_KERNEL);
+-	if (ops == NULL)
+-		return ERR_PTR(-ENOMEM);
+-
+-	for (i = 0, hooknum = 0; i < num_hooks && hook_mask != 0;
+-	     hook_mask >>= 1, ++hooknum) {
+-		if (!(hook_mask & 1))
+-			continue;
+-		ops[i].hook     = fn;
+-		ops[i].owner    = table->me;
+-		ops[i].pf       = table->af;
+-		ops[i].hooknum  = hooknum;
+-		ops[i].priority = table->priority;
+-		++i;
+-	}
+-
+-	ret = nf_register_hooks(&init_net, ops, num_hooks);
+-	if (ret < 0) {
+-		kfree(ops);
+-		return ERR_PTR(ret);
+-	}
+-
+-	return ops;
+-}
+-EXPORT_SYMBOL_GPL(xt_hook_link);
+-
+-/**
+- * xt_hook_unlink - remove hooks for a table
+- * @ops:	nf_hook_ops array as returned by nf_hook_link
+- * @hook_mask:	the very same mask that was passed to nf_hook_link
+- */
+-void xt_hook_unlink(const struct xt_table *table, struct nf_hook_ops *ops)
+-{
+-	nf_unregister_hooks(&init_net, ops, hweight32(table->valid_hooks));
+-	kfree(ops);
+-}
+-EXPORT_SYMBOL_GPL(xt_hook_unlink);
+-
+ int xt_proto_init(struct net *net, u_int8_t af)
+ {
+ #ifdef CONFIG_PROC_FS
+-- 
 2.2.1
