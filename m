@@ -1,63 +1,66 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: [RFC V3] net: don't wait for order-3 page allocation
-Date: Wed, 17 Jun 2015 16:02:59 -0700 (PDT)
-Message-ID: <alpine.DEB.2.10.1506171602300.8203@chino.kir.corp.google.com>
-References: <0099265406c32b9b9057de100404a4148d602cdd.1434066549.git.shli@fb.com> <557AA834.8070503@suse.cz>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Shaohua Li <shli@fb.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, Kernel-team@fb.com, clm@fb.com,
-	linux-mm@kvack.org, dbavatar@gmail.com,
-	Eric Dumazet <edumazet@google.com>
-To: Vlastimil Babka <vbabka@suse.cz>
+From: sfeldma@gmail.com
+Subject: [PATCH net-next] switchdev: fdb filter_dev is always NULL for self (device), so remove check
+Date: Wed, 17 Jun 2015 16:08:31 -0700
+Message-ID: <1434582511-46290-1-git-send-email-sfeldma@gmail.com>
+Cc: jiri@resnulli.us, sridhar.samudrala@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:35715 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751120AbbFQXDD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 19:03:03 -0400
-Received: by igbzc4 with SMTP id zc4so114821464igb.0
-        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 16:03:02 -0700 (PDT)
-In-Reply-To: <557AA834.8070503@suse.cz>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34037 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753907AbbFQXGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 19:06:34 -0400
+Received: by pabvl15 with SMTP id vl15so569167pab.1
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 16:06:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 12 Jun 2015, Vlastimil Babka wrote:
+From: Scott Feldman <sfeldma@gmail.com>
 
-> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> > index 3cfff2a..41ec022 100644
-> > --- a/net/core/skbuff.c
-> > +++ b/net/core/skbuff.c
-> > @@ -4398,7 +4398,7 @@ struct sk_buff *alloc_skb_with_frags(unsigned long
-> > header_len,
-> > 
-> >   		while (order) {
-> >   			if (npages >= 1 << order) {
-> > -				page = alloc_pages(gfp_mask |
-> > +				page = alloc_pages((gfp_mask & ~__GFP_WAIT) |
-> >   						   __GFP_COMP |
-> >   						   __GFP_NOWARN |
-> >   						   __GFP_NORETRY,
-> 
-> Note that __GFP_NORETRY is weaker than ~__GFP_WAIT and thus redundant. But it
-> won't hurt anything leaving it there. And you might consider __GFP_NO_KSWAPD
-> instead, as I said in the other thread.
-> 
+Remove the filter_dev check when dumping fdb entries, otherwise dump
+returns empty list.  filter_dev is always passed as NULL when dumping fdbs
+on SELF.  We want the fdbs installed on the device to be listed in the
+dump.
 
-Yeah, I agreed with __GFP_NO_KSWAPD to avoid utilizing memory reserves for 
-this.
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+Fixes: 45d4122c ("switchdev: add support for fdb add/del/dump via switchdev_port_obj ops")
+---
+ net/switchdev/switchdev.c |    6 ------
+ 1 file changed, 6 deletions(-)
 
-> > diff --git a/net/core/sock.c b/net/core/sock.c
-> > index 292f422..e9855a4 100644
-> > --- a/net/core/sock.c
-> > +++ b/net/core/sock.c
-> > @@ -1883,7 +1883,7 @@ bool skb_page_frag_refill(unsigned int sz, struct
-> > page_frag *pfrag, gfp_t gfp)
-> > 
-> >   	pfrag->offset = 0;
-> >   	if (SKB_FRAG_PAGE_ORDER) {
-> > -		pfrag->page = alloc_pages(gfp | __GFP_COMP |
-> > +		pfrag->page = alloc_pages((gfp & ~__GFP_WAIT) | __GFP_COMP |
-> >   					  __GFP_NOWARN | __GFP_NORETRY,
-> >   					  SKB_FRAG_PAGE_ORDER);
-> >   		if (likely(pfrag->page)) {
-> > 
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index a5d0f8e..7dda437 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -657,7 +657,6 @@ struct switchdev_fdb_dump {
+ 	struct switchdev_obj obj;
+ 	struct sk_buff *skb;
+ 	struct netlink_callback *cb;
+-	struct net_device *filter_dev;
+ 	int idx;
+ };
+ 
+@@ -670,14 +669,10 @@ static int switchdev_port_fdb_dump_cb(struct net_device *dev,
+ 	u32 seq = dump->cb->nlh->nlmsg_seq;
+ 	struct nlmsghdr *nlh;
+ 	struct ndmsg *ndm;
+-	struct net_device *master = netdev_master_upper_dev_get(dev);
+ 
+ 	if (dump->idx < dump->cb->args[0])
+ 		goto skip;
+ 
+-	if (master && dump->filter_dev != master)
+-		goto skip;
+-
+ 	nlh = nlmsg_put(dump->skb, portid, seq, RTM_NEWNEIGH,
+ 			sizeof(*ndm), NLM_F_MULTI);
+ 	if (!nlh)
+@@ -731,7 +726,6 @@ int switchdev_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+ 		},
+ 		.skb = skb,
+ 		.cb = cb,
+-		.filter_dev = filter_dev,
+ 		.idx = idx,
+ 	};
+ 	int err;
+-- 
+1.7.10.4
