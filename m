@@ -1,61 +1,50 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [PATCH V3 0/2] pci: Provide a flag to access VPD through function 0
-Date: Wed, 17 Jun 2015 11:44:01 -0500
-Message-ID: <CAErSpo7e-QtQQTj2yh_jG07vqU1j1YBez_9wrcrzOQs7+eDFng@mail.gmail.com>
-References: <20150603184445.109080.36387.stgit@mdrustad-wks.jf.intel.com>
- <051B68B4-3E77-4EB0-B9FE-8523631884A2@intel.com> <45099CC7-DDAB-41D9-AB74-5A81E2AAF64C@intel.com>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH v2 1/3] net: mvneta: introduce compatible string
+ "marvell, armada-xp-neta"
+Date: Wed, 17 Jun 2015 17:01:12 +0000
+Message-ID: <20150617170112.GD2917@io.lakedaemon.net>
+References: <1434547162-6275-1-git-send-email-simon.guinot@sequanux.org>
+ <1434547162-6275-2-git-send-email-simon.guinot@sequanux.org>
+ <55818E64.20007@free-electrons.com>
+ <55818F10.8030304@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-To: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <45099CC7-DDAB-41D9-AB74-5A81E2AAF64C@intel.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Guinot <simon.guinot@sequanux.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	Vincent Donnefort <vdonnefort@gmail.com>,
+	stable@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <55818F10.8030304@free-electrons.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 17, 2015 at 11:29 AM, Rustad, Mark D
-<mark.d.rustad@intel.com> wrote:
-> + Alex
->
->> On Jun 5, 2015, at 2:59 PM, Rustad, Mark D <mark.d.rustad@intel.com> wrote:
->>
->>> On Jun 3, 2015, at 11:46 AM, Mark D Rustad <mark.d.rustad@intel.com> wrote:
->>>
->>> Many multi-function devices provide shared registers in extended
->>> config space for accessing VPD. The behavior of these registers
->>> means that the state must be tracked and access locked correctly
->>> for accesses not to hang or worse. One way to meet these needs is
->>> to always perform the accesses through function 0, thereby using
->>> the state tracking and mutex that already exists.
->>>
->>> To provide this behavior, add a dev_flags bit to indicate that this
->>> should be done. This bit can then be set for any non-zero function
->>> that needs to redirect such VPD access to function 0. Do not set
->>> this bit on the zero function or there will be an infinite recursion.
->>>
->>> The second patch uses this new flag to invoke this behavior on all
->>> multi-function Intel Ethernet devices.
->>>
->>> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
->>>
->>> ---
->>> Changes in V2:
->>> - Corrected a spelling error in a log message
->>> - Added checks to see that the referenced function 0 is reasonable
->>> Changes in V3:
->>> - Don't leak a device reference
->>> - Check that function 0 has VPD
->>> - Make a helper for the function 0 checks
->>> - Moved a multifunction check to the quirk patch
->>
->> So does this series look acceptable now? I think I addressed the issues that Alex raised. Can these also be considered for -stable?
->
-> More than a week has passed without any comment. Is this going to be accepted or is there still an issue?
+Hi Gregory,
 
-Sorry, Mark, I've just been busy with other issues and haven't had a
-chance to look at this yet.
+On Wed, Jun 17, 2015 at 05:15:28PM +0200, Gregory CLEMENT wrote:
+> On 17/06/2015 17:12, Gregory CLEMENT wrote:
+> > On 17/06/2015 15:19, Simon Guinot wrote:
+> >> The mvneta driver supports the Ethernet IP found in the Armada 370, XP,
+> >> 380 and 385 SoCs. Since at least one more hardware feature is available
+> >> for the Armada XP SoCs then a way to identify them is needed.
+> >>
+> >> This patch introduces a new compatible string "marvell,armada-xp-neta".
+> > 
+> > Let's be future proof by going further. I would like to have an compatible string
+> > for each SoC even if we currently we don't use them.
 
-Bjorn
+I disagree with this.  We can't predict what incosistencies we'll discover in
+the future.  We should only assign new compatible strings based on known IP
+variations when we discover them.  This seems fraught with demons since we
+can't predict the scope of affected IP blocks (some steppings of one SoC, three
+SoCs plus two steppings of a fourth, etc)
+
+imho, the 'future-proofing' lies in being specific as to the naming of the
+compatible strings against known hardware variations at the time.
+
+thx,
+
+Jason.
