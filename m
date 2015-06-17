@@ -1,70 +1,62 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net] ipv4: include NLM_F_APPEND flag in append route notifications
-Date: Wed, 17 Jun 2015 09:20:42 -0700
-Message-ID: <55819E5A.8020801@cumulusnetworks.com>
-References: <1434471120-26742-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bDnVEq1mqUmmYMFAd9CeEbn9tTzD_UnoDKYVScT5G=QJA@mail.gmail.com> <5581893E.3070609@cumulusnetworks.com> <558193C1.70001@gmail.com>
+From: Nicholas Krause <xerofoify@gmail.com>
+Subject: Re: [PATCH] xilinx:Remove unused variable num_frag in the function
+ axienet_start_xmit
+Date: Wed, 17 Jun 2015 12:21:04 -0400
+Message-ID: <DD47523D-0DF9-46B5-9382-3C30BBD9E815@gmail.com>
+References: <1434556362-3748-1-git-send-email-xerofoify@gmail.com>
+ <20150617160730.GE2906@xsjsorenbubuntu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:35745 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753322AbbFQQUp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 12:20:45 -0400
-Received: by pdbnf5 with SMTP id nf5so43689789pdb.2
-        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 09:20:44 -0700 (PDT)
-In-Reply-To: <558193C1.70001@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ michal.simek@xilinx.com, anirudh@xilinx.com, John.Linn@xilinx.com,
+ linux-arm-kernel@lists.infradead.org
+To: =?ISO-8859-1?Q?S=F6ren_Brinkmann?= <soren.brinkmann@xilinx.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20150617160730.GE2906@xsjsorenbubuntu>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 6/17/15, 8:35 AM, Alexander Duyck wrote:
->
->> @@ -1189,8 +1190,9 @@ int fib_table_insert(struct fib_table *tb, struct
->> fib_config *cfg)
->>                          fib_release_info(fi_drop);
->>                          if (state & FA_S_ACCESSED)
->> rt_cache_flush(cfg->fc_nlinfo.nl_net);
->> +                       nlflags |= NLM_F_REPLACE;
->>                          rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, 
->> plen,
->> -                               tb->tb_id, &cfg->fc_nlinfo, 
->> NLM_F_REPLACE);
->> +                               tb->tb_id, &cfg->fc_nlinfo, nlflags);
->>
->>                          goto succeeded;
->>
->
-> Why even bother modifying this part?  Is this actually needed at all, 
-> are there some other flags you plan to drop into nlflags as well that 
-> would be passed as a part of this message?
-
-agreed, for the same reason my initial patch did not touch this part. 
-Nope, no other flags. I was trying to meet scotts concerns.
->
->> @@ -1201,7 +1203,9 @@ int fib_table_insert(struct fib_table *tb, struct
->> fib_config *cfg)
->>                  if (fa_match)
->>                          goto out;
->>
->> -               if (!(cfg->fc_nlflags & NLM_F_APPEND))
->> +               if (cfg->fc_nlflags & NLM_F_APPEND)
->> +                       nlflags |= NLM_F_APPEND;
->> +               else
->>                          fa = fa_first;
->>          }
->>          err = -ENOENT;
->
-> I'm not sure I see the point of using the |=.   Why not just use a = 
-> and save yourself an instruction or two since you don't really need 
-> the OR operator in this case.
->
-ack,
-
-I would prefer keeping my initial patch which was pretty non-intrusive.
-
-thanks,
-Roopa
+CgpPbiBKdW5lIDE3LCAyMDE1IDEyOjA3OjMwIFBNIEVEVCwgIlPDtnJlbiBCcmlua21hbm4iIDxz
+b3Jlbi5icmlua21hbm5AeGlsaW54LmNvbT4gd3JvdGU6Cj5PbiBXZWQsIDIwMTUtMDYtMTcgYXQg
+MTE6NTJBTSAtMDQwMCwgTmljaG9sYXMgS3JhdXNlIHdyb3RlOgo+PiBUaGlzIHJlbW92ZXMgdGhl
+IHVudXNlZCB2YXJpYWJsZSBudW1fZnJhZyBhbmQgdGhlIHNldHRpbmcgb2YgaXQKPj4gdG8gdGhl
+IG51bWJlciBvZiBmcmFnbWVudHMgZnJvbSB0aGUgcGFzc2VkIHNrX2J1ZmYgcG9pbnRlciBieQo+
+PiB0aGlzIGZ1bmN0aW9uJ3MgY2FsbGVyIGR1ZSB0byB0aGlzIHZhcmlhYmxlIG5ldmVyIGJlaW5n
+IHVzZWQKPj4gaW4gdGhpcyBwYXJ0aWN1bGFyIGZ1bmN0aW9uIGFuZCBpcyBub3QgZGVjbGFyZWQg
+YXMgIGdsb2JhbCBzbwo+PiBzZXR0aW5nIGl0IGZvciBnbG9iYWwgdXNlIGluIHRoaXMgZmlsZSBp
+cyBwb2ludGxlc3MuCj4+IAo+PiBTaWduZWQtb2ZmLWJ5OiBOaWNob2xhcyBLcmF1c2UgPHhlcm9m
+b2lmeUBnbWFpbC5jb20+Cj4+IC0tLQo+PiAgZHJpdmVycy9uZXQvZXRoZXJuZXQveGlsaW54L3hp
+bGlueF9heGllbmV0X21haW4uYyB8IDIgLS0KPj4gIDEgZmlsZSBjaGFuZ2VkLCAyIGRlbGV0aW9u
+cygtKQo+PiAKPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3hpbGlueC94aWxp
+bnhfYXhpZW5ldF9tYWluLmMKPmIvZHJpdmVycy9uZXQvZXRoZXJuZXQveGlsaW54L3hpbGlueF9h
+eGllbmV0X21haW4uYwo+PiBpbmRleCAyOGI3ZTdkLi42MjRkY2U0IDEwMDY0NAo+PiAtLS0gYS9k
+cml2ZXJzL25ldC9ldGhlcm5ldC94aWxpbngveGlsaW54X2F4aWVuZXRfbWFpbi5jCj4+ICsrKyBi
+L2RyaXZlcnMvbmV0L2V0aGVybmV0L3hpbGlueC94aWxpbnhfYXhpZW5ldF9tYWluLmMKPj4gQEAg
+LTY1MSw3ICs2NTEsNiBAQCBzdGF0aWMgaW5saW5lIGludAo+YXhpZW5ldF9jaGVja190eF9iZF9z
+cGFjZShzdHJ1Y3QgYXhpZW5ldF9sb2NhbCAqbHAsCj4+ICBzdGF0aWMgaW50IGF4aWVuZXRfc3Rh
+cnRfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZQo+Km5kZXYpCj4+
+ICB7Cj4+ICAJdTMyIGlpOwo+PiAtCXUzMiBudW1fZnJhZzsKPj4gIAl1MzIgY3N1bV9zdGFydF9v
+ZmY7Cj4+ICAJdTMyIGNzdW1faW5kZXhfb2ZmOwo+PiAgCXNrYl9mcmFnX3QgKmZyYWc7Cj4+IEBA
+IC02NTksNyArNjU4LDYgQEAgc3RhdGljIGludCBheGllbmV0X3N0YXJ0X3htaXQoc3RydWN0IHNr
+X2J1ZmYKPipza2IsIHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2KQo+PiAgCXN0cnVjdCBheGllbmV0
+X2xvY2FsICpscCA9IG5ldGRldl9wcml2KG5kZXYpOwo+PiAgCXN0cnVjdCBheGlkbWFfYmQgKmN1
+cl9wOwo+PiAgCj4+IC0JbnVtX2ZyYWcgPSBza2Jfc2hpbmZvKHNrYiktPm5yX2ZyYWdzOwo+PiAg
+CWN1cl9wID0gJmxwLT50eF9iZF92W2xwLT50eF9iZF90YWlsXTsKPj4gIAo+PiAgCWlmIChheGll
+bmV0X2NoZWNrX3R4X2JkX3NwYWNlKGxwLCBudW1fZnJhZykpIHsKPgo+SXQncyB1c2VkIHJpZ2h0
+IGhlcmUsIGlzbid0IGl0IChhbmQgZnVydGhlciBkb3duIGluIHRoaXMgZnVuY3Rpb24gdG9vKT8K
+PkRvZXMgeW91ciB0cmVlIGNvbXBpbGUgd2l0aCB0aGlzIGNoYW5nZT8KPgo+CVPDtnJlbgpNeSB0
+cmVlIGRvZXMgY29tcGlsZSB3aXRoIHRoaXMgY2hhbmdlLiAKTmljayAKCi0tIApTZW50IGZyb20g
+bXkgQW5kcm9pZCBkZXZpY2Ugd2l0aCBLLTkgTWFpbC4gUGxlYXNlIGV4Y3VzZSBteSBicmV2aXR5
+LgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbGludXgt
+YXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQu
+b3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJt
+LWtlcm5lbAo=
