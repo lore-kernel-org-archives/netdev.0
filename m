@@ -1,40 +1,60 @@
-From: Maninder Singh <maninder1.s@samsung.com>
-Subject: Re: Re: [PATCH 1/1] net: replace if()/BUG with BUG_ON()
-Date: Wed, 17 Jun 2015 05:04:12 +0000 (GMT)
-Message-ID: <405153159.1166061434517448384.JavaMail.weblogic@epmlwas03c>
-Reply-To: maninder1.s@samsung.com
+From: Nicholas Krause <xerofoify@gmail.com>
+Subject: [PATCH] xen-netback:Make the function
+	xenvif_schedulable have a return type of bool
+Date: Tue, 16 Jun 2015 23:03:30 -0400
+Message-ID: <1434510210-1341-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: base64
-Cc: "willemb@google.com" <willemb@google.com>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"al.drozdov@gmail.com" <al.drozdov@gmail.com>,
-	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"eyal.birger@gmail.com" <eyal.birger@gmail.com>,
-	"mst@redhat.com" <mst@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	PANKAJ MISHRA <pankaj.m@samsung.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.samsung.com ([203.254.224.33]:37902 "EHLO
-	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752554AbbFQFEN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 01:04:13 -0400
-Received: from epcpsbgr1.samsung.com
- (u141.gpu120.samsung.co.kr [203.254.230.141])
- by mailout3.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
- 64bit (built May  5 2014))
- with ESMTP id <0NQ201SPXOR0HL70@mailout3.samsung.com> for
- netdev@vger.kernel.org; Wed, 17 Jun 2015 14:04:12 +0900 (KST)
-MIME-version: 1.0
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xenproject.org, wei.liu2@citrix.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: ian.campbell@citrix.com
+Return-path: <xen-devel-bounces@lists.xen.org>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-SGkgRGF2aWQsIA0KDQo+PiBVc2UgQlVHX09OKGNvbmRpdGlvbikgaW5zdGVhZCBvZiBpZihjb25k
-aXRpb24pL0JVRygpDQo+PiANCj4+IFNpZ25lZC1vZmYtYnk6IE1hbmluZGVyIFNpbmdoIDxtYW5p
-bmRlcjEuc0BzYW1zdW5nLmNvbT4NCj4+IFJldmlld2VkLWJ5OiBBa2hpbGVzaCBLdW1hciA8YWto
-aWxlc2gua0BzYW1zdW5nLmNvbT4NCg0KPllvdXIgZW1haWwgY2xpZW50IGNvcnJ1cHRlZCB0aGlz
-IHBhdGNoLCBtYWtpbmcgaXQgdW51c2FibGUNCg0KSSByZXNlbnQgdGhlIHBhdGNoIHdpdGggZ2l0
-IHNlbmQtbWFpbCAsIGl0IHJlc3VsdHMgb2ssIGhvcGVmdWxseSBpdCBkb2VzIG5vdCBjb3JydXB0
-IGl0Lg0KDQpUaGFua3M=
+This makes the function xenvif_sechedulable have a return type of
+bool now due to this particular function's return statement only
+ever evaluating to have a value of one or zero.
+
+Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+---
+ drivers/net/xen-netback/common.h    | 2 +-
+ drivers/net/xen-netback/interface.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 8a495b3..c02cafb 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -280,7 +280,7 @@ void xenvif_free(struct xenvif *vif);
+ int xenvif_xenbus_init(void);
+ void xenvif_xenbus_fini(void);
+ 
+-int xenvif_schedulable(struct xenvif *vif);
++bool xenvif_schedulable(struct xenvif *vif);
+ 
+ int xenvif_queue_stopped(struct xenvif_queue *queue);
+ void xenvif_wake_queue(struct xenvif_queue *queue);
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 1a83e19..b5fcb52 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -63,7 +63,7 @@ void xenvif_skb_zerocopy_complete(struct xenvif_queue *queue)
+ 	atomic_dec(&queue->inflight_packets);
+ }
+ 
+-int xenvif_schedulable(struct xenvif *vif)
++bool xenvif_schedulable(struct xenvif *vif)
+ {
+ 	return netif_running(vif->dev) &&
+ 		test_bit(VIF_STATUS_CONNECTED, &vif->status) &&
+-- 
+2.1.4
