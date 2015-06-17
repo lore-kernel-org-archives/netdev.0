@@ -1,7 +1,7 @@
 From: Simon Guinot <simon.guinot@sequanux.org>
-Subject: [PATCH v2 3/3] ARM: mvebu: disable IP checksum with jumbo frames for Armada 370
-Date: Wed, 17 Jun 2015 15:19:22 +0200
-Message-ID: <1434547162-6275-4-git-send-email-simon.guinot@sequanux.org>
+Subject: [PATCH v2 2/3] ARM: mvebu: update Ethernet compatible string for Armada XP
+Date: Wed, 17 Jun 2015 15:19:21 +0200
+Message-ID: <1434547162-6275-3-git-send-email-simon.guinot@sequanux.org>
 References: <1434547162-6275-1-git-send-email-simon.guinot@sequanux.org>
 Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Vincent Donnefort <vdonnefort@gmail.com>,
@@ -11,92 +11,120 @@ To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
 	Andrew Lunn <andrew@lunn.ch>,
 	Gregory Clement <gregory.clement@free-electrons.com>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vm1.sequanux.org ([188.165.36.56]:52617 "EHLO vm1.sequanux.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757072AbbFQNT3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jun 2015 09:19:29 -0400
 In-Reply-To: <1434547162-6275-1-git-send-email-simon.guinot@sequanux.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Ethernet controller found in the Armada 370, 380 and 385 SoCs don't
-support TCP/IP checksumming with frame sizes larger than 1600 bytes.
-
-This patch fixes the issue by disabling the features NETIF_F_IP_CSUM and
-NETIF_F_TSO for the Armada 370 and compatibles SoCs when the MTU is set
-to a value greater than 1600 bytes.
+This patch updates the Ethernet DT nodes for Armada XP SoCs with the
+compatible string "marvell,armada-xp-neta".
 
 Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
 Cc: <stable@vger.kernel.org> # v3.8+
 ---
- drivers/net/ethernet/marvell/mvneta.c | 26 +++++++++++++++++++++++++-
- 1 file changed, 25 insertions(+), 1 deletion(-)
+ arch/arm/boot/dts/armada-370-xp.dtsi     |  2 --
+ arch/arm/boot/dts/armada-370.dtsi        |  8 ++++++++
+ arch/arm/boot/dts/armada-xp-mv78260.dtsi |  2 +-
+ arch/arm/boot/dts/armada-xp-mv78460.dtsi |  2 +-
+ arch/arm/boot/dts/armada-xp.dtsi         | 10 +++++++++-
+ 5 files changed, 19 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index aceb977b104d..9b2b7478fe47 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -310,6 +310,7 @@ struct mvneta_port {
- 	unsigned int link;
- 	unsigned int duplex;
- 	unsigned int speed;
-+	unsigned int tx_csum_limit;
- 	int use_inband_status:1;
+diff --git a/arch/arm/boot/dts/armada-370-xp.dtsi b/arch/arm/boot/dts/armada-370-xp.dtsi
+index ec96f0b36346..06a2f2ae9d1e 100644
+--- a/arch/arm/boot/dts/armada-370-xp.dtsi
++++ b/arch/arm/boot/dts/armada-370-xp.dtsi
+@@ -270,7 +270,6 @@
+ 			};
+ 
+ 			eth0: ethernet@70000 {
+-				compatible = "marvell,armada-370-neta";
+ 				reg = <0x70000 0x4000>;
+ 				interrupts = <8>;
+ 				clocks = <&gateclk 4>;
+@@ -286,7 +285,6 @@
+ 			};
+ 
+ 			eth1: ethernet@74000 {
+-				compatible = "marvell,armada-370-neta";
+ 				reg = <0x74000 0x4000>;
+ 				interrupts = <10>;
+ 				clocks = <&gateclk 3>;
+diff --git a/arch/arm/boot/dts/armada-370.dtsi b/arch/arm/boot/dts/armada-370.dtsi
+index 00b50db57c9c..ca4257b2f77d 100644
+--- a/arch/arm/boot/dts/armada-370.dtsi
++++ b/arch/arm/boot/dts/armada-370.dtsi
+@@ -307,6 +307,14 @@
+ 					dmacap,memset;
+ 				};
+ 			};
++
++			ethernet@70000 {
++				compatible = "marvell,armada-370-neta";
++			};
++
++			ethernet@74000 {
++				compatible = "marvell,armada-370-neta";
++			};
+ 		};
+ 	};
  };
+diff --git a/arch/arm/boot/dts/armada-xp-mv78260.dtsi b/arch/arm/boot/dts/armada-xp-mv78260.dtsi
+index 8479fdc9e9c2..c5fdc99f0dbe 100644
+--- a/arch/arm/boot/dts/armada-xp-mv78260.dtsi
++++ b/arch/arm/boot/dts/armada-xp-mv78260.dtsi
+@@ -318,7 +318,7 @@
+ 			};
  
-@@ -2502,8 +2503,10 @@ static int mvneta_change_mtu(struct net_device *dev, int mtu)
+ 			eth3: ethernet@34000 {
+-				compatible = "marvell,armada-370-neta";
++				compatible = "marvell,armada-xp-neta";
+ 				reg = <0x34000 0x4000>;
+ 				interrupts = <14>;
+ 				clocks = <&gateclk 1>;
+diff --git a/arch/arm/boot/dts/armada-xp-mv78460.dtsi b/arch/arm/boot/dts/armada-xp-mv78460.dtsi
+index 661d54c81580..0e24f1a38540 100644
+--- a/arch/arm/boot/dts/armada-xp-mv78460.dtsi
++++ b/arch/arm/boot/dts/armada-xp-mv78460.dtsi
+@@ -356,7 +356,7 @@
+ 			};
  
- 	dev->mtu = mtu;
+ 			eth3: ethernet@34000 {
+-				compatible = "marvell,armada-370-neta";
++				compatible = "marvell,armada-xp-neta";
+ 				reg = <0x34000 0x4000>;
+ 				interrupts = <14>;
+ 				clocks = <&gateclk 1>;
+diff --git a/arch/arm/boot/dts/armada-xp.dtsi b/arch/arm/boot/dts/armada-xp.dtsi
+index 013d63f69e36..8fdd6d7c0ab1 100644
+--- a/arch/arm/boot/dts/armada-xp.dtsi
++++ b/arch/arm/boot/dts/armada-xp.dtsi
+@@ -177,7 +177,7 @@
+ 			};
  
--	if (!netif_running(dev))
-+	if (!netif_running(dev)) {
-+		netdev_update_features(dev);
- 		return 0;
-+	}
+ 			eth2: ethernet@30000 {
+-				compatible = "marvell,armada-370-neta";
++				compatible = "marvell,armada-xp-neta";
+ 				reg = <0x30000 0x4000>;
+ 				interrupts = <12>;
+ 				clocks = <&gateclk 2>;
+@@ -220,6 +220,14 @@
+ 				};
+ 			};
  
- 	/* The interface is running, so we have to force a
- 	 * reallocation of the queues
-@@ -2532,9 +2535,26 @@ static int mvneta_change_mtu(struct net_device *dev, int mtu)
- 	mvneta_start_dev(pp);
- 	mvneta_port_up(pp);
- 
-+	netdev_update_features(dev);
++			ethernet@70000 {
++				compatible = "marvell,armada-xp-neta";
++			};
 +
- 	return 0;
- }
- 
-+static netdev_features_t mvneta_fix_features(struct net_device *dev,
-+					     netdev_features_t features)
-+{
-+	struct mvneta_port *pp = netdev_priv(dev);
++			ethernet@74000 {
++				compatible = "marvell,armada-xp-neta";
++			};
 +
-+	if (pp->tx_csum_limit && dev->mtu > pp->tx_csum_limit) {
-+		features &= ~(NETIF_F_IP_CSUM | NETIF_F_TSO);
-+		netdev_info(dev,
-+			    "Disable IP checksum for MTU greater than %dB\n",
-+			    pp->tx_csum_limit);
-+	}
-+
-+	return features;
-+}
-+
- /* Get mac address */
- static void mvneta_get_mac_addr(struct mvneta_port *pp, unsigned char *addr)
- {
-@@ -2856,6 +2876,7 @@ static const struct net_device_ops mvneta_netdev_ops = {
- 	.ndo_set_rx_mode     = mvneta_set_rx_mode,
- 	.ndo_set_mac_address = mvneta_set_mac_addr,
- 	.ndo_change_mtu      = mvneta_change_mtu,
-+	.ndo_fix_features    = mvneta_fix_features,
- 	.ndo_get_stats64     = mvneta_get_stats64,
- 	.ndo_do_ioctl        = mvneta_ioctl,
- };
-@@ -3101,6 +3122,9 @@ static int mvneta_probe(struct platform_device *pdev)
- 		}
- 	}
- 
-+	if (of_device_is_compatible(dn, "marvell,armada-370-neta"))
-+		pp->tx_csum_limit = 1600;
-+
- 	pp->tx_ring_size = MVNETA_MAX_TXD;
- 	pp->rx_ring_size = MVNETA_MAX_RXD;
- 
+ 			xor@f0900 {
+ 				compatible = "marvell,orion-xor";
+ 				reg = <0xF0900 0x100
 -- 
 2.1.4
