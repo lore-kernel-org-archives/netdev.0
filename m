@@ -1,99 +1,93 @@
-From: David Herrmann <dh.herrmann@gmail.com>
-Subject: [PATCH v2] netlink: add API to retrieve all group memberships
-Date: Wed, 17 Jun 2015 17:14:33 +0200
-Message-ID: <1434554073-23646-1-git-send-email-dh.herrmann@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-kernel@vger.kernel.org,
-	David Herrmann <dh.herrmann@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH v2 1/3] net: mvneta: introduce compatible string "marvell,
+ armada-xp-neta"
+Date: Wed, 17 Jun 2015 17:15:28 +0200
+Message-ID: <55818F10.8030304@free-electrons.com>
+References: <1434547162-6275-1-git-send-email-simon.guinot@sequanux.org> <1434547162-6275-2-git-send-email-simon.guinot@sequanux.org> <55818E64.20007@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+	Vincent Donnefort <vdonnefort@gmail.com>,
+	stable@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Simon Guinot <simon.guinot@sequanux.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from down.free-electrons.com ([37.187.137.238]:36364 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756552AbbFQPPb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 11:15:31 -0400
+In-Reply-To: <55818E64.20007@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds getsockopt(SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS) to
-retrieve all groups a socket is a member of. Currently, we have to use
-getsockname() and look at the nl.nl_groups bitmask. However, this mask is
-limited to 32 groups. Hence, similar to NETLINK_ADD_MEMBERSHIP and
-NETLINK_DROP_MEMBERSHIP, this adds a separate sockopt to manager higher
-groups IDs than 32.
+On 17/06/2015 17:12, Gregory CLEMENT wrote:
+> Hi Simon,
+> 
+> On 17/06/2015 15:19, Simon Guinot wrote:
+>> The mvneta driver supports the Ethernet IP found in the Armada 370, XP,
+>> 380 and 385 SoCs. Since at least one more hardware feature is available
+>> for the Armada XP SoCs then a way to identify them is needed.
+>>
+>> This patch introduces a new compatible string "marvell,armada-xp-neta".
+> 
+> Let's be future proof by going further. I would like to have an compatible string
+> for each SoC even if we currently we don't use them.
+> 
+> You even don't have to use add it in the mvneta.c file if you use:
+> "marvell,armada-380-neta", "marvell,armada-xp-neta"
 
-This new NETLINK_LIST_MEMBERSHIPS option takes a pointer to __u32 and the
-size of the array. The array is filled with the full membership-set of the
-socket, and the required array size is returned in optlen. Hence,
-user-space can retry with a properly sized array in case it was too small.
+Actually I meant:
+"marvell,armada-380-neta", "marvell,armada-370-neta"
 
-Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
----
-v2:
-  - rebase on top of net-next
-    conflict due to 59324cf35ab ('netlink: allow to listen "all" netns')
+> 
+> 
+> Thanks,
+> 
+> Gregory
+> 
+> 
+>> Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
+>> Cc: <stable@vger.kernel.org> # v3.8+
+>> ---
+>>  Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt | 2 +-
+>>  drivers/net/ethernet/marvell/mvneta.c                             | 1 +
+>>  2 files changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+>> index 750d577e8083..f5a8ca29aff0 100644
+>> --- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+>> +++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+>> @@ -1,7 +1,7 @@
+>>  * Marvell Armada 370 / Armada XP Ethernet Controller (NETA)
+>>  
+>>  Required properties:
+>> -- compatible: should be "marvell,armada-370-neta".
+>> +- compatible: "marvell,armada-370-neta" or "marvell,armada-xp-neta".
+>>  - reg: address and length of the register set for the device.
+>>  - interrupts: interrupt for the device
+>>  - phy: See ethernet.txt file in the same directory.
+>> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+>> index ce5f7f9cff06..aceb977b104d 100644
+>> --- a/drivers/net/ethernet/marvell/mvneta.c
+>> +++ b/drivers/net/ethernet/marvell/mvneta.c
+>> @@ -3179,6 +3179,7 @@ static int mvneta_remove(struct platform_device *pdev)
+>>  
+>>  static const struct of_device_id mvneta_match[] = {
+>>  	{ .compatible = "marvell,armada-370-neta" },
+>> +	{ .compatible = "marvell,armada-xp-neta" },
+>>  	{ }
+>>  };
+>>  MODULE_DEVICE_TABLE(of, mvneta_match);
+>>
+> 
+> 
 
- include/uapi/linux/netlink.h | 17 +++++++++--------
- net/netlink/af_netlink.c     | 22 ++++++++++++++++++++++
- 2 files changed, 31 insertions(+), 8 deletions(-)
 
-diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
-index 3e34b7d..cf6a65c 100644
---- a/include/uapi/linux/netlink.h
-+++ b/include/uapi/linux/netlink.h
-@@ -101,14 +101,15 @@ struct nlmsgerr {
- 	struct nlmsghdr msg;
- };
- 
--#define NETLINK_ADD_MEMBERSHIP	1
--#define NETLINK_DROP_MEMBERSHIP	2
--#define NETLINK_PKTINFO		3
--#define NETLINK_BROADCAST_ERROR	4
--#define NETLINK_NO_ENOBUFS	5
--#define NETLINK_RX_RING		6
--#define NETLINK_TX_RING		7
--#define NETLINK_LISTEN_ALL_NSID	8
-+#define NETLINK_ADD_MEMBERSHIP		1
-+#define NETLINK_DROP_MEMBERSHIP		2
-+#define NETLINK_PKTINFO			3
-+#define NETLINK_BROADCAST_ERROR		4
-+#define NETLINK_NO_ENOBUFS		5
-+#define NETLINK_RX_RING			6
-+#define NETLINK_TX_RING			7
-+#define NETLINK_LISTEN_ALL_NSID		8
-+#define NETLINK_LIST_MEMBERSHIPS	9
- 
- struct nl_pktinfo {
- 	__u32	group;
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 69d67c3..dea9253 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2290,6 +2290,28 @@ static int netlink_getsockopt(struct socket *sock, int level, int optname,
- 			return -EFAULT;
- 		err = 0;
- 		break;
-+	case NETLINK_LIST_MEMBERSHIPS: {
-+		int pos, idx, shift;
-+
-+		err = 0;
-+		netlink_table_grab();
-+		for (pos = 0; pos * 8 < nlk->ngroups; pos += sizeof(u32)) {
-+			if (len - pos < sizeof(u32))
-+				break;
-+
-+			idx = pos / sizeof(unsigned long);
-+			shift = (pos % sizeof(unsigned long)) * 8;
-+			if (put_user((u32)(nlk->groups[idx] >> shift),
-+				     (u32 __user *)(optval + pos))) {
-+				err = -EFAULT;
-+				break;
-+			}
-+		}
-+		if (put_user(ALIGN(nlk->ngroups / 8, sizeof(u32)), optlen))
-+			err = -EFAULT;
-+		netlink_table_ungrab();
-+		break;
-+	}
- 	default:
- 		err = -ENOPROTOOPT;
- 	}
 -- 
-2.4.2
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
