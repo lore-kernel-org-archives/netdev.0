@@ -1,28 +1,38 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: Re: [Xen-devel] [PATCH v4 3/3] net/xen-netback: Don't mix hexa
- and decimal with 0x in the printf format
-Date: Wed, 17 Jun 2015 10:13:12 +0100
-Message-ID: <558156480200007800085EAB@mail.emea.novell.com>
-References: <1434481848-26387-1-git-send-email-julien.grall@citrix.com>
- <1434481848-26387-4-git-send-email-julien.grall@citrix.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH] cxgb4i: Fix neigh entry leak
+Date: Wed, 17 Jun 2015 17:17:16 +0800
+Message-ID: <1434532636-32274-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: "Ian Campbell" <ian.campbell@citrix.com>,
-	"Wei Liu" <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "Julien Grall" <julien.grall@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1434481848-26387-4-git-send-email-julien.grall@citrix.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <linux-scsi@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <kxie@chelsio.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>> On 16.06.15 at 21:10, <julien.grall@citrix.com> wrote:
-> Append 0x to all %x in order to avoid while reading when there is other
-> decimal value in the log.
+When csk->atid returned by cxgb4_alloc_atid() is less than zero,
+init_act_open() directly returns with -EINVAL. But as init_act_open()
+ever invokes dst_neigh_lookup() before it calls cxgb4_alloc_atid(),
+this leads to the leak of neigh entry searched by dst_neigh_lookup().
 
-To save on the space taken by the format strings you should prefer
-%#x over 0x%x (like we do in the hypervisor).
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+---
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Jan
+diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+index dd00e5f..c449d2a 100644
+--- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
++++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+@@ -1393,7 +1393,7 @@ static int init_act_open(struct cxgbi_sock *csk)
+ 	csk->atid = cxgb4_alloc_atid(lldi->tids, csk);
+ 	if (csk->atid < 0) {
+ 		pr_err("%s, NO atid available.\n", ndev->name);
+-		return -EINVAL;
++		goto rel_resource;
+ 	}
+ 	cxgbi_sock_set_flag(csk, CTPF_HAS_ATID);
+ 	cxgbi_sock_get(csk);
+-- 
+1.7.9.5
+
