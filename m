@@ -1,11 +1,8 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH net-next 18/43] netfilter: don't pull include/linux/netfilter.h from netns headers
-Date: Wed, 17 Jun 2015 10:28:27 -0500
-Message-ID: <1434554932-4552-18-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH net-next 36/43] netfilter: nf_conntract: Register netfilter hooks in all network namespaces
+Date: Wed, 17 Jun 2015 10:28:45 -0500
+Message-ID: <1434554932-4552-36-git-send-email-ebiederm@xmission.com>
 References: <87r3pae5hn.fsf@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	Juanjo Ciarlante <jjciarla@raiz.uncu.edu.ar>,
@@ -24,143 +21,146 @@ In-Reply-To: <87r3pae5hn.fsf@x220.int.ebiederm.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Eric W Biederman <ebiederm@xmission.com>
 
-This pulls the full hook netfilter definitions from all those that incl=
-ude
-net_namespace.h.
-
-Instead let's just include the bare minimum required in the new
-linux/netfilter_defs.h file, and use it from the netfilter netns header=
- files.
-
-I also needed to include in.h and in6.h from linux/netfilter.h otherwis=
-e we hit
-this compilation error:
-
-In file included from include/linux/netfilter_defs.h:4:0,
-                 from include/net/netns/netfilter.h:4,
-                 from include/net/net_namespace.h:22,
-                 from include/linux/netdevice.h:43,
-                 from net/netfilter/nfnetlink_queue_core.c:23:
-include/uapi/linux/netfilter.h:76:17: error: field =E2=80=98in=E2=80=99=
- has incomplete type struct in_addr in;
-
-And also explicit include linux/netfilter.h in several spots.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- include/linux/netfilter.h      | 6 ++----
- include/linux/netfilter_defs.h | 9 +++++++++
- include/net/netns/netfilter.h  | 2 +-
- include/net/netns/x_tables.h   | 2 +-
- include/uapi/linux/netfilter.h | 3 ++-
- net/ipv6/output_core.c         | 1 +
- 6 files changed, 16 insertions(+), 7 deletions(-)
- create mode 100644 include/linux/netfilter_defs.h
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c | 22 +++++++++++-----------
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c | 24 ++++++++++++------------
+ 2 files changed, 23 insertions(+), 23 deletions(-)
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index b3d157274cda..c10a13697e5e 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -10,7 +10,8 @@
- #include <linux/wait.h>
- #include <linux/list.h>
- #include <linux/static_key.h>
--#include <uapi/linux/netfilter.h>
-+#include <linux/netfilter_defs.h>
-+
- #ifdef CONFIG_NETFILTER
- static inline int NF_DROP_GETERR(int verdict)
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index abf6f60e80fe..735a32dace73 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -424,7 +424,15 @@ static int ipv4_net_init(struct net *net)
+ 		pr_err("nf_conntrack_ipv4: pernet registration failed\n");
+ 		goto out_ipv4;
+ 	}
++	ret = nf_register_hooks(net, ipv4_conntrack_ops,
++				ARRAY_SIZE(ipv4_conntrack_ops));
++	if (ret < 0) {
++		pr_err("nf_conntrack_ipv4: can't register hooks.\n");
++		goto out_hooks;
++	}
+ 	return 0;
++out_hooks:
++	nf_ct_l3proto_pernet_unregister(net, &nf_conntrack_l3proto_ipv4);
+ out_ipv4:
+ 	nf_ct_l4proto_pernet_unregister(net, &nf_conntrack_l4proto_icmp);
+ out_icmp:
+@@ -437,6 +445,8 @@ out_tcp:
+ 
+ static void ipv4_net_exit(struct net *net)
  {
-@@ -38,9 +39,6 @@ static inline void nf_inet_addr_mask(const union nf_i=
-net_addr *a1,
-=20
- int netfilter_init(void);
-=20
--/* Largest hook number + 1 */
--#define NF_MAX_HOOKS 8
++	nf_unregister_hooks(net, ipv4_conntrack_ops,
++			    ARRAY_SIZE(ipv4_conntrack_ops));
+ 	nf_ct_l3proto_pernet_unregister(net, &nf_conntrack_l3proto_ipv4);
+ 	nf_ct_l4proto_pernet_unregister(net, &nf_conntrack_l4proto_icmp);
+ 	nf_ct_l4proto_pernet_unregister(net, &nf_conntrack_l4proto_udp4);
+@@ -467,17 +477,10 @@ static int __init nf_conntrack_l3proto_ipv4_init(void)
+ 		goto cleanup_sockopt;
+ 	}
+ 
+-	ret = nf_register_hooks(&init_net, ipv4_conntrack_ops,
+-				ARRAY_SIZE(ipv4_conntrack_ops));
+-	if (ret < 0) {
+-		pr_err("nf_conntrack_ipv4: can't register hooks.\n");
+-		goto cleanup_pernet;
+-	}
 -
- struct sk_buff;
-=20
- struct nf_hook_ops;
-diff --git a/include/linux/netfilter_defs.h b/include/linux/netfilter_d=
-efs.h
-new file mode 100644
-index 000000000000..d3a7f8597e82
---- /dev/null
-+++ b/include/linux/netfilter_defs.h
-@@ -0,0 +1,9 @@
-+#ifndef __LINUX_NETFILTER_CORE_H_
-+#define __LINUX_NETFILTER_CORE_H_
-+
-+#include <uapi/linux/netfilter.h>
-+
-+/* Largest hook number + 1, see uapi/linux/netfilter_decnet.h */
-+#define NF_MAX_HOOKS 8
-+
-+#endif
-diff --git a/include/net/netns/netfilter.h b/include/net/netns/netfilte=
-r.h
-index cf25b5e35f3c..532e4ba64f49 100644
---- a/include/net/netns/netfilter.h
-+++ b/include/net/netns/netfilter.h
-@@ -1,7 +1,7 @@
- #ifndef __NETNS_NETFILTER_H
- #define __NETNS_NETFILTER_H
-=20
--#include <linux/netfilter.h>
-+#include <linux/netfilter_defs.h>
-=20
- struct proc_dir_entry;
- struct nf_logger;
-diff --git a/include/net/netns/x_tables.h b/include/net/netns/x_tables.=
-h
-index 4d6597ad6067..c8a7681efa6a 100644
---- a/include/net/netns/x_tables.h
-+++ b/include/net/netns/x_tables.h
-@@ -2,7 +2,7 @@
- #define __NETNS_X_TABLES_H
-=20
- #include <linux/list.h>
--#include <linux/netfilter.h>
-+#include <linux/netfilter_defs.h>
-=20
- struct ebt_table;
-=20
-diff --git a/include/uapi/linux/netfilter.h b/include/uapi/linux/netfil=
-ter.h
-index 177027cce6b3..d93f949d1d9a 100644
---- a/include/uapi/linux/netfilter.h
-+++ b/include/uapi/linux/netfilter.h
-@@ -4,7 +4,8 @@
- #include <linux/types.h>
- #include <linux/compiler.h>
- #include <linux/sysctl.h>
+ 	ret = nf_ct_l4proto_register(&nf_conntrack_l4proto_tcp4);
+ 	if (ret < 0) {
+ 		pr_err("nf_conntrack_ipv4: can't register tcp4 proto.\n");
+-		goto cleanup_hooks;
++		goto cleanup_pernet;
+ 	}
+ 
+ 	ret = nf_ct_l4proto_register(&nf_conntrack_l4proto_udp4);
+@@ -514,8 +517,6 @@ static int __init nf_conntrack_l3proto_ipv4_init(void)
+ 	nf_ct_l4proto_unregister(&nf_conntrack_l4proto_udp4);
+  cleanup_tcp4:
+ 	nf_ct_l4proto_unregister(&nf_conntrack_l4proto_tcp4);
+- cleanup_hooks:
+-	nf_unregister_hooks(&init_net, ipv4_conntrack_ops, ARRAY_SIZE(ipv4_conntrack_ops));
+  cleanup_pernet:
+ 	unregister_pernet_subsys(&ipv4_net_ops);
+  cleanup_sockopt:
+@@ -533,7 +534,6 @@ static void __exit nf_conntrack_l3proto_ipv4_fini(void)
+ 	nf_ct_l4proto_unregister(&nf_conntrack_l4proto_icmp);
+ 	nf_ct_l4proto_unregister(&nf_conntrack_l4proto_udp4);
+ 	nf_ct_l4proto_unregister(&nf_conntrack_l4proto_tcp4);
+-	nf_unregister_hooks(&init_net, ipv4_conntrack_ops, ARRAY_SIZE(ipv4_conntrack_ops));
+ 	unregister_pernet_subsys(&ipv4_net_ops);
+ 	nf_unregister_sockopt(&so_getorigdst);
+ }
+diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+index 710ed6607e66..5823956fa130 100644
+--- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+@@ -366,7 +366,16 @@ static int ipv6_net_init(struct net *net)
+ 		pr_err("nf_conntrack_ipv6: pernet registration failed.\n");
+ 		goto cleanup_icmpv6;
+ 	}
++	ret = nf_register_hooks(net, ipv6_conntrack_ops,
++				ARRAY_SIZE(ipv6_conntrack_ops));
++	if (ret < 0) {
++		pr_err("nf_conntrack_ipv6: can't register pre-routing defrag "
++		       "hook.\n");
++		goto cleanup_hooks;
++	}
+ 	return 0;
++cleanup_hooks:
++	nf_ct_l3proto_pernet_unregister(net, &nf_conntrack_l3proto_ipv6);
+  cleanup_icmpv6:
+ 	nf_ct_l4proto_pernet_unregister(net, &nf_conntrack_l4proto_icmpv6);
+  cleanup_udp6:
+@@ -379,6 +388,8 @@ static int ipv6_net_init(struct net *net)
+ 
+ static void ipv6_net_exit(struct net *net)
+ {
++	nf_unregister_hooks(net, ipv6_conntrack_ops,
++			    ARRAY_SIZE(ipv6_conntrack_ops));
+ 	nf_ct_l3proto_pernet_unregister(net, &nf_conntrack_l3proto_ipv6);
+ 	nf_ct_l4proto_pernet_unregister(net, &nf_conntrack_l4proto_icmpv6);
+ 	nf_ct_l4proto_pernet_unregister(net, &nf_conntrack_l4proto_udp6);
+@@ -407,18 +418,10 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
+ 	if (ret < 0)
+ 		goto cleanup_sockopt;
+ 
+-	ret = nf_register_hooks(&init_net, ipv6_conntrack_ops,
+-				ARRAY_SIZE(ipv6_conntrack_ops));
+-	if (ret < 0) {
+-		pr_err("nf_conntrack_ipv6: can't register pre-routing defrag "
+-		       "hook.\n");
+-		goto cleanup_pernet;
+-	}
 -
-+#include <linux/in.h>
-+#include <linux/in6.h>
-=20
- /* Responses from hook functions. */
- #define NF_DROP 0
-diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
-index b053e36560a9..87a3998a8417 100644
---- a/net/ipv6/output_core.c
-+++ b/net/ipv6/output_core.c
-@@ -8,6 +8,7 @@
- #include <net/ip6_fib.h>
- #include <net/addrconf.h>
- #include <net/secure_seq.h>
-+#include <linux/netfilter.h>
-=20
- static u32 __ipv6_select_ident(struct net *net, u32 hashrnd,
- 			       const struct in6_addr *dst,
---=20
+ 	ret = nf_ct_l4proto_register(&nf_conntrack_l4proto_tcp6);
+ 	if (ret < 0) {
+ 		pr_err("nf_conntrack_ipv6: can't register tcp6 proto.\n");
+-		goto cleanup_hooks;
++		goto cleanup_pernet;
+ 	}
+ 
+ 	ret = nf_ct_l4proto_register(&nf_conntrack_l4proto_udp6);
+@@ -446,8 +449,6 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
+ 	nf_ct_l4proto_unregister(&nf_conntrack_l4proto_udp6);
+  cleanup_tcp6:
+ 	nf_ct_l4proto_unregister(&nf_conntrack_l4proto_tcp6);
+- cleanup_hooks:
+-	nf_unregister_hooks(&init_net, ipv6_conntrack_ops, ARRAY_SIZE(ipv6_conntrack_ops));
+  cleanup_pernet:
+ 	unregister_pernet_subsys(&ipv6_net_ops);
+  cleanup_sockopt:
+@@ -462,7 +463,6 @@ static void __exit nf_conntrack_l3proto_ipv6_fini(void)
+ 	nf_ct_l4proto_unregister(&nf_conntrack_l4proto_tcp6);
+ 	nf_ct_l4proto_unregister(&nf_conntrack_l4proto_udp6);
+ 	nf_ct_l4proto_unregister(&nf_conntrack_l4proto_icmpv6);
+-	nf_unregister_hooks(&init_net, ipv6_conntrack_ops, ARRAY_SIZE(ipv6_conntrack_ops));
+ 	unregister_pernet_subsys(&ipv6_net_ops);
+ 	nf_unregister_sockopt(&so_getorigdst6);
+ }
+-- 
 2.2.1
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
