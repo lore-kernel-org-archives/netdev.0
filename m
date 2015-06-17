@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH net-next 11/43] nftables: Pass struct net in nft_pktinfo
-Date: Wed, 17 Jun 2015 10:28:20 -0500
-Message-ID: <1434554932-4552-11-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH net-next 43/43] netfilter: Skip unnecessary calls to synchronize_net
+Date: Wed, 17 Jun 2015 10:28:52 -0500
+Message-ID: <1434554932-4552-43-git-send-email-ebiederm@xmission.com>
 References: <87r3pae5hn.fsf@x220.int.ebiederm.org>
 Cc: <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
 	Stephen Hemminger <stephen@networkplumber.org>,
@@ -16,46 +16,33 @@ Cc: <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:45934 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755435AbbFQPid (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 11:38:33 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <87r3pae5hn.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-nft_pktinfo is passed on the stack so this does not bloat any in core
-data structures.
-
-By centrally computing this information this makes maintence of the code
-simpler, and understading of the code easier.
+From: Eric W Biederman <ebiederm@xmission.com>
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- include/net/netfilter/nf_tables.h | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/netfilter/core.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index f54bd2dcca1a..a028f0280cfd 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -14,6 +14,7 @@
- 
- struct nft_pktinfo {
- 	struct sk_buff			*skb;
-+	struct net			*net;
- 	const struct net_device		*in;
- 	const struct net_device		*out;
- 	u8				pf;
-@@ -30,7 +31,7 @@ static inline void nft_set_pktinfo(struct nft_pktinfo *pkt,
- 				   const struct nf_hook_state *state)
- {
- 	pkt->skb = skb;
--	pkt->xt.net = state->net;
-+	pkt->net = pkt->xt.net = state->net;
- 	pkt->in = pkt->xt.in = state->in;
- 	pkt->out = pkt->xt.out = state->out;
- 	pkt->hook = pkt->xt.hooknum = state->hook;
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 95456c09cf69..1b4eadc9c030 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -134,7 +134,9 @@ void nf_unregister_hook(struct net *net, const struct nf_hook_ops *reg)
+ #ifdef HAVE_JUMP_LABEL
+ 	static_key_slow_dec(&nf_hooks_needed[reg->pf][reg->hooknum]);
+ #endif
+-	synchronize_net();
++	/* Don't wait if there are no packets in flight */
++	if (net->loopback_dev)
++		synchronize_net();
+ 	kfree(elem);
+ }
+ EXPORT_SYMBOL(nf_unregister_hook);
 -- 
 2.2.1
+
