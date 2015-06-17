@@ -1,62 +1,205 @@
 From: Julien Grall <julien.grall@citrix.com>
-Subject: [PATCH v2 0/7] xen: Clean up
-Date: Wed, 17 Jun 2015 15:28:01 +0100
-Message-ID: <1434551288-14113-1-git-send-email-julien.grall@citrix.com>
+Subject: [PATCH v2 1/7] xen: Include xen/page.h rather than asm/xen/page.h
+Date: Wed, 17 Jun 2015 15:28:02 +0100
+Message-ID: <1434551288-14113-2-git-send-email-julien.grall@citrix.com>
+References: <1434551288-14113-1-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Wei Liu <wei.liu2@citrix.com>, Ian
-	Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org, Stefano
-	Stabellini <stefano.stabellini@eu.citrix.com>,
-	linux-kernel@vger.kernel.org, Julien Grall <julien.grall@citrix.com>,
+Content-Type: text/plain
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>,
+	Julien Grall <julien.grall@citrix.com>,
 	David Vrabel <david.vrabel@citrix.com>,
+	Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
 	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	linux-arm-kernel@lists.infradead.org,
-	=?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+	<netdev@vger.kernel.org>
 To: <xen-devel@lists.xenproject.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1434551288-14113-1-git-send-email-julien.grall@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGksCgpUaG9zZXMgcGF0Y2hlcyB3YXMgb3JpZ2luYWxseSBwYXJ0IG9mIHRoZSBYZW4gNjRLQiBz
-ZXJpZXMgWzFdLiBBbHRob3VnaCwKSSB0aGluayB0aGV5IGNhbiBnbyB3aXRob3V0IHdhaXRpbmcg
-dGhlIHJlc3Qgb2YgdGhlIDY0S0Igc2VyaWVzLgoKUGF0Y2ggIzEtIzQgc2hvdWxkIGdvIHRocm91
-Z2ggdGhlIFhlbiB0cmVlLCBldmVuIHRob3VnaCBwYXRjaCAjMSB0b3VjaGVzCm11bHRpcGxlIHBh
-cnQuCgpQYXRjaCAjNS0jNyBzaG91bGQgZ28gdGhyb3VnaCB0aGUgQmxvY2sgdHJlZS4KClJlZ2Fy
-ZHMsCgpbMV0gaHR0cDovL2xrbWwub3JnL2xrbWwvMjAxNS81LzE0LzUzMwoKQ2M6IEJvcmlzIE9z
-dHJvdnNreSA8Ym9yaXMub3N0cm92c2t5QG9yYWNsZS5jb20+CkNjOiBEYXZpZCBWcmFiZWwgPGRh
-dmlkLnZyYWJlbEBjaXRyaXguY29tPgpDYzogSWFuIENhbXBiZWxsIDxpYW4uY2FtcGJlbGxAY2l0
-cml4LmNvbT4KQ2M6IEtvbnJhZCBSemVzenV0ZWsgV2lsayA8a29ucmFkLndpbGtAb3JhY2xlLmNv
-bT4KQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcKQ2M6IFJvZ2VyIFBhdSBNb25uw6kgPHJvZ2Vy
-LnBhdUBjaXRyaXguY29tPgpDYzogU3RlZmFubyBTdGFiZWxsaW5pIDxzdGVmYW5vLnN0YWJlbGxp
-bmlAZXUuY2l0cml4LmNvbT4KQ2M6IFdlaSBMaXUgPHdlaS5saXUyQGNpdHJpeC5jb20+CgpKdWxp
-ZW4gR3JhbGwgKDcpOgogIHhlbjogSW5jbHVkZSB4ZW4vcGFnZS5oIHJhdGhlciB0aGFuIGFzbS94
-ZW4vcGFnZS5oCiAgeGVuL3hlbmJ1czogY2xpZW50OiBGaXggY2FsbCBvZiB2aXJ0X3RvX21mbiBp
-biB4ZW5idXNfZ3JhbnRfcmluZwogIHhlbi9ncmFudC10YWJsZTogUmVtb3ZlIHVudXNlZCBtYWNy
-byBTUFAKICBhcm0veGVuOiBEcm9wIGR1cGxpY2F0ZSBkZWZpbmUgbWZuX3RvX3ZpcnQKICBibG9j
-ay94ZW4tYmxrZnJvbnQ6IFJlbW92ZSB1bnVzZWQgbWFjcm8gTUFYSU1VTV9PVVRTVEFORElOR19C
-TE9DS19SRVFTCiAgYmxvY2sveGVuLWJsa2Zyb250OiBSZW1vdmUgaW52YWxpZCBjb21tZW50CiAg
-YmxvY2sveGVuLWJsa2JhY2s6IHMvbnJfcGFnZXMvbnJfc2Vncy8KCiBhcmNoL2FybS9pbmNsdWRl
-L2FzbS94ZW4vcGFnZS5oICAgICB8ICAxIC0KIGFyY2gvYXJtL3hlbi9tbS5jICAgICAgICAgICAg
-ICAgICAgIHwgIDIgKy0KIGFyY2gvYXJtL3hlbi9wMm0uYyAgICAgICAgICAgICAgICAgIHwgIDIg
-Ky0KIGRyaXZlcnMvYmxvY2sveGVuLWJsa2JhY2svYmxrYmFjay5jIHwgMTAgKysrKystLS0tLQog
-ZHJpdmVycy9ibG9jay94ZW4tYmxrYmFjay9jb21tb24uaCAgfCAgMiArLQogZHJpdmVycy9ibG9j
-ay94ZW4tYmxrZnJvbnQuYyAgICAgICAgfCAgOCAtLS0tLS0tLQogZHJpdmVycy9uZXQveGVuLW5l
-dGJhY2svbmV0YmFjay5jICAgfCAgMiArLQogZHJpdmVycy9uZXQveGVuLW5ldGZyb250LmMgICAg
-ICAgICAgfCAgMSAtCiBkcml2ZXJzL3hlbi9ldmVudHMvZXZlbnRzX2Jhc2UuYyAgICB8ICAyICst
-CiBkcml2ZXJzL3hlbi9ldmVudHMvZXZlbnRzX2ZpZm8uYyAgICB8ICAyICstCiBkcml2ZXJzL3hl
-bi9nbnRkZXYuYyAgICAgICAgICAgICAgICB8ICAyICstCiBkcml2ZXJzL3hlbi9ncmFudC10YWJs
-ZS5jICAgICAgICAgICB8ICAxIC0KIGRyaXZlcnMveGVuL21hbmFnZS5jICAgICAgICAgICAgICAg
-IHwgIDIgKy0KIGRyaXZlcnMveGVuL3RtZW0uYyAgICAgICAgICAgICAgICAgIHwgIDIgKy0KIGRy
-aXZlcnMveGVuL3hlbmJ1cy94ZW5idXNfY2xpZW50LmMgIHwgIDggKysrKy0tLS0KIDE1IGZpbGVz
-IGNoYW5nZWQsIDE4IGluc2VydGlvbnMoKyksIDI5IGRlbGV0aW9ucygtKQoKLS0gCjIuMS40CgoK
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVs
-IG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwOi8vbGlzdHMueGVuLm9y
-Zy94ZW4tZGV2ZWwK
+Using xen/page.h will be necessary later for using common xen page
+helpers.
+
+As xen/page.h already include asm/xen/page.h, always use the later.
+
+Signed-off-by: Julien Grall <julien.grall@citrix.com>
+Reviewed-by: David Vrabel <david.vrabel@citrix.com>
+Cc: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Cc: netdev@vger.kernel.org
+
+---
+    Changes in v2:
+        - Add David's Reviewed-by
+---
+ arch/arm/xen/mm.c                  | 2 +-
+ arch/arm/xen/p2m.c                 | 2 +-
+ drivers/net/xen-netback/netback.c  | 2 +-
+ drivers/net/xen-netfront.c         | 1 -
+ drivers/xen/events/events_base.c   | 2 +-
+ drivers/xen/events/events_fifo.c   | 2 +-
+ drivers/xen/gntdev.c               | 2 +-
+ drivers/xen/manage.c               | 2 +-
+ drivers/xen/tmem.c                 | 2 +-
+ drivers/xen/xenbus/xenbus_client.c | 2 +-
+ 10 files changed, 9 insertions(+), 10 deletions(-)
+
+diff --git a/arch/arm/xen/mm.c b/arch/arm/xen/mm.c
+index 4983250..03e75fe 100644
+--- a/arch/arm/xen/mm.c
++++ b/arch/arm/xen/mm.c
+@@ -15,10 +15,10 @@
+ #include <xen/xen.h>
+ #include <xen/interface/grant_table.h>
+ #include <xen/interface/memory.h>
++#include <xen/page.h>
+ #include <xen/swiotlb-xen.h>
+ 
+ #include <asm/cacheflush.h>
+-#include <asm/xen/page.h>
+ #include <asm/xen/hypercall.h>
+ #include <asm/xen/interface.h>
+ 
+diff --git a/arch/arm/xen/p2m.c b/arch/arm/xen/p2m.c
+index cb7a14c..887596c 100644
+--- a/arch/arm/xen/p2m.c
++++ b/arch/arm/xen/p2m.c
+@@ -10,10 +10,10 @@
+ 
+ #include <xen/xen.h>
+ #include <xen/interface/memory.h>
++#include <xen/page.h>
+ #include <xen/swiotlb-xen.h>
+ 
+ #include <asm/cacheflush.h>
+-#include <asm/xen/page.h>
+ #include <asm/xen/hypercall.h>
+ #include <asm/xen/interface.h>
+ 
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 0d25943..c04d797 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -44,9 +44,9 @@
+ #include <xen/xen.h>
+ #include <xen/events.h>
+ #include <xen/interface/memory.h>
++#include <xen/page.h>
+ 
+ #include <asm/xen/hypercall.h>
+-#include <asm/xen/page.h>
+ 
+ /* Provide an option to disable split event channels at load time as
+  * event channels are limited resource. Split event channels are
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index e031c94..e9800ea 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -45,7 +45,6 @@
+ #include <linux/slab.h>
+ #include <net/ip.h>
+ 
+-#include <asm/xen/page.h>
+ #include <xen/xen.h>
+ #include <xen/xenbus.h>
+ #include <xen/events.h>
+diff --git a/drivers/xen/events/events_base.c b/drivers/xen/events/events_base.c
+index 3838795..96093ae 100644
+--- a/drivers/xen/events/events_base.c
++++ b/drivers/xen/events/events_base.c
+@@ -39,8 +39,8 @@
+ #include <asm/irq.h>
+ #include <asm/idle.h>
+ #include <asm/io_apic.h>
+-#include <asm/xen/page.h>
+ #include <asm/xen/pci.h>
++#include <xen/page.h>
+ #endif
+ #include <asm/sync_bitops.h>
+ #include <asm/xen/hypercall.h>
+diff --git a/drivers/xen/events/events_fifo.c b/drivers/xen/events/events_fifo.c
+index 417415d..ed673e1 100644
+--- a/drivers/xen/events/events_fifo.c
++++ b/drivers/xen/events/events_fifo.c
+@@ -44,13 +44,13 @@
+ #include <asm/sync_bitops.h>
+ #include <asm/xen/hypercall.h>
+ #include <asm/xen/hypervisor.h>
+-#include <asm/xen/page.h>
+ 
+ #include <xen/xen.h>
+ #include <xen/xen-ops.h>
+ #include <xen/events.h>
+ #include <xen/interface/xen.h>
+ #include <xen/interface/event_channel.h>
++#include <xen/page.h>
+ 
+ #include "events_internal.h"
+ 
+diff --git a/drivers/xen/gntdev.c b/drivers/xen/gntdev.c
+index 8927485..67b9163 100644
+--- a/drivers/xen/gntdev.c
++++ b/drivers/xen/gntdev.c
+@@ -41,9 +41,9 @@
+ #include <xen/balloon.h>
+ #include <xen/gntdev.h>
+ #include <xen/events.h>
++#include <xen/page.h>
+ #include <asm/xen/hypervisor.h>
+ #include <asm/xen/hypercall.h>
+-#include <asm/xen/page.h>
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Derek G. Murray <Derek.Murray@cl.cam.ac.uk>, "
+diff --git a/drivers/xen/manage.c b/drivers/xen/manage.c
+index 9e6a851..d10effe 100644
+--- a/drivers/xen/manage.c
++++ b/drivers/xen/manage.c
+@@ -19,10 +19,10 @@
+ #include <xen/grant_table.h>
+ #include <xen/events.h>
+ #include <xen/hvc-console.h>
++#include <xen/page.h>
+ #include <xen/xen-ops.h>
+ 
+ #include <asm/xen/hypercall.h>
+-#include <asm/xen/page.h>
+ #include <asm/xen/hypervisor.h>
+ 
+ enum shutdown_state {
+diff --git a/drivers/xen/tmem.c b/drivers/xen/tmem.c
+index c4211a3..3718b4a 100644
+--- a/drivers/xen/tmem.c
++++ b/drivers/xen/tmem.c
+@@ -17,8 +17,8 @@
+ 
+ #include <xen/xen.h>
+ #include <xen/interface/xen.h>
++#include <xen/page.h>
+ #include <asm/xen/hypercall.h>
+-#include <asm/xen/page.h>
+ #include <asm/xen/hypervisor.h>
+ #include <xen/tmem.h>
+ 
+diff --git a/drivers/xen/xenbus/xenbus_client.c b/drivers/xen/xenbus/xenbus_client.c
+index 96b2011..a014016 100644
+--- a/drivers/xen/xenbus/xenbus_client.c
++++ b/drivers/xen/xenbus/xenbus_client.c
+@@ -37,7 +37,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/export.h>
+ #include <asm/xen/hypervisor.h>
+-#include <asm/xen/page.h>
++#include <xen/page.h>
+ #include <xen/interface/xen.h>
+ #include <xen/interface/event_channel.h>
+ #include <xen/balloon.h>
+-- 
+2.1.4
