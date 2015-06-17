@@ -1,99 +1,51 @@
-From: Pavel Fedin <p.fedin@samsung.com>
-Subject: [PATCH] net: Cavium: Bug fix: MAC address setting in shutdown state
-Date: Wed, 17 Jun 2015 10:35:14 +0300
-Message-ID: <00a401d0a8d0$271e3760$755aa620$@samsung.com>
+From: Frans Klaver <fransklaver@gmail.com>
+Subject: Re: [RESUBMIT Patch 1/1] net: replace if()/BUG with BUG_ON
+Date: Wed, 17 Jun 2015 09:36:11 +0200
+Message-ID: <CAH6sp9M=DABEgO2yS+cSSBfNJiwP6wxecWVtMTpb9P_rrcadCw@mail.gmail.com>
+References: <1434515761-14796-1-git-send-email-maninder1.s@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ks_c_5601-1987
-Content-Transfer-Encoding: 7bit
-Cc: Aleksey.Makarov@caviumnetworks.com,
-	'Sunil Goutham' <sgoutham@cavium.com>,
-	=?ks_c_5601-1987?B?J7HoxcLHzyc=?= <thlab.kim@samsung.com>,
-	'Dyasly Sergey' <s.dyasly@samsung.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.w1.samsung.com ([210.118.77.11]:37342 "EHLO
-	mailout1.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755204AbbFQHfS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 03:35:18 -0400
-Received: from eucpsbgm2.samsung.com (unknown [203.254.199.245])
- by mailout1.w1.samsung.com
- (Oracle Communications Messaging Server 7.0.5.31.0 64bit (built May  5 2014))
- with ESMTP id <0NQ200HVAVQSJN70@mailout1.w1.samsung.com> for
- netdev@vger.kernel.org; Wed, 17 Jun 2015 08:35:16 +0100 (BST)
-Content-language: ru
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, willemb@google.com, dborkman@redhat.com,
+	al.drozdov@gmail.com, Al Viro <viro@zeniv.linux.org.uk>,
+	eyal.birger@gmail.com, mst@redhat.com,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	pankaj.m@samsung.com
+To: Maninder Singh <maninder1.s@samsung.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1434515761-14796-1-git-send-email-maninder1.s@samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This bug pops up with NetworkManager on Fedora 21. NetworkManager tends to
-stop the interface (nicvf_stop() is called) before changing settings. In
-stopped state MAC cannot be sent to a PF. However, when the interface is
-restarted (nicvf_open() is called), we ping the PF using NIC_MBOX_MSG_READY
-message, and the PF replies back with old MAC address, overriding what we had
-after MAC setting from userspace. As a result, we cannot set MAC address using
-NetworkManager.
+On Wed, Jun 17, 2015 at 6:36 AM, Maninder Singh <maninder1.s@samsung.com> wrote:
+> Use BUG_ON(condition) instead of if(condition)/BUG() .
+>
+> Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
+> Reviewed-by: Akhilesh Kumar <akhilesh.k@samsung.com>
+> ---
+>  net/packet/af_packet.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index b5989c6..c91d405 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -547,8 +547,7 @@ static void prb_setup_retire_blk_timer(struct packet_sock *po, int tx_ring)
+>  {
+>         struct tpacket_kbdq_core *pkc;
+>
+> -       if (tx_ring)
+> -               BUG();
+> +       BUG_ON(tx_ring);
+>
+>         pkc = tx_ring ? GET_PBDQC_FROM_RB(&po->tx_ring) :
+>                         GET_PBDQC_FROM_RB(&po->rx_ring);
 
-This patch introduces special tracking of MAC change in stopped state so that
-the correct new MAC address is sent to a PF when interface is reopen.
+I don't get this. We're not allowed to be using tx_ring, but we can
+and do handle it? Does that still warrant a BUG() or BUG_ON()? It's
+been in since the function introduction[0]. Can somebody explain?
 
-Signed-off-by: Pavel Fedin <p.fedin@samsung.com>
----
- drivers/net/ethernet/cavium/thunder/nic.h        |  1 +
- drivers/net/ethernet/cavium/thunder/nicvf_main.c | 12 ++++++++++--
- 2 files changed, 11 insertions(+), 2 deletions(-)
+Thanks,
+Frans
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h
-b/drivers/net/ethernet/cavium/thunder/nic.h
-index a3b43e5..dda8a02 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -263,6 +263,7 @@ struct nicvf {
- 	bool			pf_acked;
- 	bool			pf_nacked;
- 	bool			bgx_stats_acked;
-+	bool			set_mac_pending;
- } ____cacheline_aligned_in_smp;
- 
- /* PF <--> VF Mailbox communication
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index 02da802..49d7bcf 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -201,7 +201,8 @@ static void  nicvf_handle_mbx_intr(struct nicvf *nic)
- 		nic->vf_id = mbx.nic_cfg.vf_id & 0x7F;
- 		nic->tns_mode = mbx.nic_cfg.tns_mode & 0x7F;
- 		nic->node = mbx.nic_cfg.node_id;
--		ether_addr_copy(nic->netdev->dev_addr, mbx.nic_cfg.mac_addr);
-+		if (!nic->set_mac_pending)
-+			ether_addr_copy(nic->netdev->dev_addr, mbx.nic_cfg.mac_addr);
- 		nic->link_up = false;
- 		nic->duplex = 0;
- 		nic->speed = 0;
-@@ -941,6 +942,11 @@ int nicvf_open(struct net_device *netdev)
- 		nicvf_hw_set_mac_addr(nic, netdev);
- 	}
- 
-+	if (nic->set_mac_pending) {
-+		nic->set_mac_pending = false;
-+		nicvf_hw_set_mac_addr(nic, netdev);
-+	}
-+
- 	/* Init tasklet for handling Qset err interrupt */
- 	tasklet_init(&nic->qs_err_task, nicvf_handle_qs_err,
- 		     (unsigned long)nic);
-@@ -1040,9 +1046,11 @@ static int nicvf_set_mac_address(struct net_device *netdev, void
-*p)
- 
- 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
- 
--	if (nic->msix_enabled)
-+	if (nic->msix_enabled) {
- 		if (nicvf_hw_set_mac_addr(nic, netdev))
- 			return -EBUSY;
-+	} else
-+		nic->set_mac_pending = true;
- 
- 	return 0;
- }
--- 
-1.9.5.msysgit.0
+[0] f6fb8f100b80 (af-packet: TPACKET_V3 flexible buffer implementation.)
