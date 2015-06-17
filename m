@@ -1,50 +1,61 @@
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next] Modify Liquidio Kconfig for crc lib
-Date: Tue, 16 Jun 2015 16:51:43 -0700
-Message-ID: <1434498703-6365-1-git-send-email-rvatsavayi@caviumnetworks.com>
-References: <CAD3Xx4J-nVXvOdV4wdos44Tvm8iR-c_bSwN=E5W+=RbOtTwTCw@mail.gmail.com>
+From: Nicolai Stange <nicstange@gmail.com>
+Subject: [PATCH] isdn: disable HiSax NetJet driver on microblaze arch
+Date: Wed, 17 Jun 2015 03:05:02 +0200
+Message-ID: <87pp4vw3ep.fsf@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <valentinrothberg@gmail.com>,
-	Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-	Derek Chickles <derek.chickles@caviumnetworks.com>,
-	Satanand Burla <satananda.burla@caviumnetworks.com>,
-	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0084.outbound.protection.outlook.com ([207.46.100.84]:56976
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752680AbbFPXzb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jun 2015 19:55:31 -0400
-In-Reply-To: <CAD3Xx4J-nVXvOdV4wdos44Tvm8iR-c_bSwN=E5W+=RbOtTwTCw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+CC: Karsten Keil <isdn@linux-pingi.de>
+CC: Jean Delvare <jdelvare@suse.de>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Nicolai Stange <nicstange@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Following patch contains changes in liquidio Kconfig for
-selecting LIBCRC32C.
+Fix an allmodconfig compilation failer on microblaze due to big endian
+architectures being apparently unsupported by the NetJet code:
+  drivers/isdn/hisax/nj_s.c: In function 'setup_netjet_s':
+  drivers/isdn/hisax/nj_s.c:265:2:
+      error: #error "not running on big endian machines now"
 
-Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
-Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
-Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+Modify the relevant Kconfig such that the NetJet code is not built on
+microblaze anymore.
+
+Note that endianess on microblaze is not determined through Kconfig,
+but by means of a compiler provided CPP macro, namely __MICROBLAZEEL__.
+However, gcc defaults to big endianess on that platform.
+
+Signed-off-by: Nicolai Stange <nicstange@gmail.com>
 ---
- drivers/net/ethernet/cavium/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ The maintainer tree listed under "ISDN SUBSYSTEM" in MAINTAINERS does
+ not exist anymore. I created the diff against the Linus tree.
 
-diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
-index 5e7a0e2..c4d6bbe 100644
---- a/drivers/net/ethernet/cavium/Kconfig
-+++ b/drivers/net/ethernet/cavium/Kconfig
-@@ -46,7 +46,7 @@ config LIQUIDIO
- 	depends on 64BIT
- 	select PTP_1588_CLOCK
- 	select FW_LOADER
--	select LIBCRC32
-+	select LIBCRC32C
- 	---help---
- 	  This driver supports Cavium LiquidIO Intelligent Server Adapters
- 	  based on CN66XX and CN68XX chips.
+ drivers/isdn/hisax/Kconfig | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/isdn/hisax/Kconfig b/drivers/isdn/hisax/Kconfig
+index 97465ac..eb83d94 100644
+--- a/drivers/isdn/hisax/Kconfig
++++ b/drivers/isdn/hisax/Kconfig
+@@ -237,7 +237,7 @@ config HISAX_MIC
+ 
+ config HISAX_NETJET
+ 	bool "NETjet card"
+-	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
++	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || MICROBLAZE))
+ 	depends on VIRT_TO_BUS
+ 	help
+ 	  This enables HiSax support for the NetJet from Traverse
+@@ -249,7 +249,7 @@ config HISAX_NETJET
+ 
+ config HISAX_NETJET_U
+ 	bool "NETspider U card"
+-	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
++	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || MICROBLAZE))
+ 	depends on VIRT_TO_BUS
+ 	help
+ 	  This enables HiSax support for the Netspider U interface ISDN card
 -- 
-1.8.4.2
+2.4.3
