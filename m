@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH net-next 27/43] x_tables: Add magical hook registration in the common case
-Date: Wed, 17 Jun 2015 10:28:36 -0500
-Message-ID: <1434554932-4552-27-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH net-next 37/43] netfilter: nf_defrag: Register netfilter hooks in all network namespaces
+Date: Wed, 17 Jun 2015 10:28:46 -0500
+Message-ID: <1434554932-4552-37-git-send-email-ebiederm@xmission.com>
 References: <87r3pae5hn.fsf@x220.int.ebiederm.org>
 Cc: <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
 	Stephen Hemminger <stephen@networkplumber.org>,
@@ -16,166 +16,106 @@ Cc: <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:40969 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754602AbbFQPi0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 11:38:26 -0400
 In-Reply-To: <87r3pae5hn.fsf@x220.int.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Eric W Biederman <ebiederm@xmission.com>
 
-Add a new field fn to struct xt_table that will hold the standard hook
-function.  If that field is set the hook function is automatically
-registered when as part of the table registration, and automatically
-unregisted as part of table unregistration.
-
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- include/linux/netfilter/x_tables.h   |  8 +++++
- net/ipv4/netfilter/arptable_filter.c |  2 +-
- net/netfilter/x_tables.c             | 66 ++++++++++++++++++++++++++++++++++++
- 3 files changed, 75 insertions(+), 1 deletion(-)
+ net/ipv4/netfilter/nf_defrag_ipv4.c       | 21 ++++++++++++++++++---
+ net/ipv6/netfilter/nf_defrag_ipv6_hooks.c | 21 ++++++++++++++++++---
+ 2 files changed, 36 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index 349d80b2c339..0803027b36a2 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -184,9 +184,14 @@ struct xt_target {
- 	unsigned short family;
+diff --git a/net/ipv4/netfilter/nf_defrag_ipv4.c b/net/ipv4/netfilter/nf_defrag_ipv4.c
+index e9f4088d4759..8d5a45ddf9b5 100644
+--- a/net/ipv4/netfilter/nf_defrag_ipv4.c
++++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
+@@ -109,15 +109,30 @@ static struct nf_hook_ops ipv4_defrag_ops[] = {
+ 	},
  };
  
-+struct nf_hook_state;
-+typedef unsigned int xt_hookfn(void *priv,
-+			       struct sk_buff *skb,
-+			       const struct nf_hook_state *state);
- /* Furniture shopping... */
- struct xt_table {
- 	struct list_head list;
-+	struct net *net;
+-static int __init nf_defrag_init(void)
++static int __net_init nf_defrag_net_init(struct net *net)
+ {
+-	return nf_register_hooks(&init_net, ipv4_defrag_ops,
++	return nf_register_hooks(net, ipv4_defrag_ops,
+ 				 ARRAY_SIZE(ipv4_defrag_ops));
+ }
  
- 	/* What hooks you will enter on */
- 	unsigned int valid_hooks;
-@@ -200,6 +205,9 @@ struct xt_table {
- 	u_int8_t af;		/* address/protocol family */
- 	int priority;		/* hook order */
- 
-+	/* Default hook function */
-+	xt_hookfn *fn;
++static void __net_exit nf_defrag_net_exit(struct net *net)
++{
++	nf_unregister_hooks(net, ipv4_defrag_ops, ARRAY_SIZE(ipv4_defrag_ops));
++}
 +
- 	/* A unique name... */
- 	const char name[XT_TABLE_MAXNAMELEN];
++static struct pernet_operations nf_defrag_net_ops = {
++	.init = nf_defrag_net_init,
++	.exit = nf_defrag_net_exit,
++};
++
++static int __init nf_defrag_init(void)
++{
++	return register_pernet_subsys(&nf_defrag_net_ops);
++}
++
+ static void __exit nf_defrag_fini(void)
+ {
+-	nf_unregister_hooks(&init_net, ipv4_defrag_ops, ARRAY_SIZE(ipv4_defrag_ops));
++	unregister_pernet_subsys(&nf_defrag_net_ops);
+ }
+ 
+ void nf_defrag_ipv4_enable(void)
+diff --git a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
+index 2bd7aa696382..a20d461fbd89 100644
+--- a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
++++ b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
+@@ -100,6 +100,22 @@ static struct nf_hook_ops ipv6_defrag_ops[] = {
+ 	},
  };
-diff --git a/net/ipv4/netfilter/arptable_filter.c b/net/ipv4/netfilter/arptable_filter.c
-index 1897ee160920..40fd714dafd1 100644
---- a/net/ipv4/netfilter/arptable_filter.c
-+++ b/net/ipv4/netfilter/arptable_filter.c
-@@ -38,7 +38,7 @@ static struct nf_hook_ops *arpfilter_ops __read_mostly;
- static int __net_init arptable_filter_net_init(struct net *net)
- {
- 	struct arpt_replace *repl;
--	
-+
- 	repl = arpt_alloc_initial_table(&packet_filter);
- 	if (repl == NULL)
- 		return -ENOMEM;
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index e703310121cf..f7ade70ef342 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -833,6 +833,57 @@ xt_replace_table(struct xt_table *table,
- }
- EXPORT_SYMBOL_GPL(xt_replace_table);
  
-+static void xt_unregister_hooks(const struct xt_table *table)
++static int __net_init nf_defrag_net_init(struct net *net)
 +{
-+	unsigned long bits = table->valid_hooks;
-+	struct net *net = table->net;
-+	struct nf_hook_ops ops = {
-+		.hook     = table->fn,
-+		.owner    = table->me,
-+		.pf       = table->af,
-+		.hooknum  = 0,
-+		.priority = table->priority,
-+	};
-+	unsigned bit;
-+
-+	for_each_set_bit(bit, &bits, NF_MAX_HOOKS) {
-+		ops.hooknum = bit;
-+		nf_unregister_hook(net, &ops);
-+	}
++	return nf_register_hooks(net, ipv6_defrag_ops,
++				 ARRAY_SIZE(ipv6_defrag_ops));
 +}
 +
-+static int xt_register_hooks(const struct xt_table *table)
++static void __net_exit nf_defrag_net_exit(struct net *net)
 +{
-+	unsigned long bits = table->valid_hooks;
-+	unsigned long registered = 0;
-+	struct net *net = table->net;
-+	struct nf_hook_ops ops = {
-+		.hook     = table->fn,
-+		.owner    = table->me,
-+		.pf       = table->af,
-+		.hooknum  = 0,
-+		.priority = table->priority,
-+	};
-+	unsigned bit;
-+	int ret;
-+
-+	for_each_set_bit(bit, &bits, NF_MAX_HOOKS) {
-+		ops.hooknum = bit;
-+		ret = nf_register_hook(net, &ops);
-+		if (ret)
-+			goto cleanup;
-+		registered |= 1 << bit;
-+	}
-+	return 0;
-+
-+cleanup:
-+	for_each_set_bit(bit, &registered, NF_MAX_HOOKS) {
-+		ops.hooknum = bit;
-+		nf_unregister_hook(net, &ops);
-+	}
-+	return ret;
++	nf_unregister_hooks(net, ipv6_defrag_ops, ARRAY_SIZE(ipv6_defrag_ops));
 +}
 +
- struct xt_table *xt_register_table(struct net *net,
- 				   const struct xt_table *input_table,
- 				   struct xt_table_info *bootstrap,
-@@ -871,7 +922,15 @@ struct xt_table *xt_register_table(struct net *net,
- 	private->initial_entries = private->number;
- 
- 	list_add(&table->list, &net->xt.tables[table->af]);
-+	table->net = net;
- 	mutex_unlock(&xt[table->af].mutex);
++static struct pernet_operations nf_defrag_net_ops = {
++	.init = nf_defrag_net_init,
++	.exit = nf_defrag_net_exit,
++};
 +
-+	if (table->fn) {
-+		ret = xt_register_hooks(table);
-+		if (ret)
-+			goto out_unregister;
-+	}
-+
- 	return table;
- 
- unlock:
-@@ -879,6 +938,10 @@ unlock:
- 	kfree(table);
- out:
- 	return ERR_PTR(ret);
-+out_unregister:
-+	mutex_lock(&xt[table->af].mutex);
-+	list_del(&table->list);
-+	goto unlock;
- }
- EXPORT_SYMBOL_GPL(xt_register_table);
- 
-@@ -886,6 +949,9 @@ void *xt_unregister_table(struct xt_table *table)
+ static int __init nf_defrag_init(void)
  {
- 	struct xt_table_info *private;
+ 	int ret = 0;
+@@ -109,8 +125,7 @@ static int __init nf_defrag_init(void)
+ 		pr_err("nf_defrag_ipv6: can't initialize frag6.\n");
+ 		return ret;
+ 	}
+-	ret = nf_register_hooks(&init_net, ipv6_defrag_ops,
+-				ARRAY_SIZE(ipv6_defrag_ops));
++	ret = register_pernet_subsys(&nf_defrag_net_ops);
+ 	if (ret < 0) {
+ 		pr_err("nf_defrag_ipv6: can't register hooks\n");
+ 		goto cleanup_frag6;
+@@ -125,7 +140,7 @@ cleanup_frag6:
  
-+	if (table->fn)
-+		xt_unregister_hooks(table);
-+
- 	mutex_lock(&xt[table->af].mutex);
- 	private = table->private;
- 	list_del(&table->list);
+ static void __exit nf_defrag_fini(void)
+ {
+-	nf_unregister_hooks(&init_net, ipv6_defrag_ops, ARRAY_SIZE(ipv6_defrag_ops));
++	unregister_pernet_subsys(&nf_defrag_net_ops);
+ 	nf_ct_frag6_cleanup();
+ }
+ 
 -- 
 2.2.1
-
