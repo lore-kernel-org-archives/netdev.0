@@ -1,43 +1,65 @@
-From: Craig Gallek <kraig@google.com>
-Subject: [PATCH net-next] sock_diag: fetch source port from inet_sock
-Date: Wed, 17 Jun 2015 10:59:10 -0400
-Message-ID: <1434553150-8750-1-git-send-email-kraig@google.com>
-Cc: edumazet@google.com, davem@davemloft.net,
-	Craig Gallek <kraig@google.com>
-To: netdev@vger.kernel.org
+From: Liberman Igal <Igal.Liberman@freescale.com>
+Subject: RE: [PATCH 01/12] fsl/fman: Add the FMan FLIB headers
+Date: Wed, 17 Jun 2015 14:59:37 +0000
+Message-ID: <DM2PR03MB3830ADD2B503C6738BB27E7E6A60@DM2PR03MB383.namprd03.prod.outlook.com>
+References: <1433949712-5648-1-git-send-email-madalin.bucur@freescale.com>
+	 <1433949712-5648-2-git-send-email-madalin.bucur@freescale.com>
+	 <1433949712-5648-3-git-send-email-madalin.bucur@freescale.com>
+ <1433962446.2477.121.camel@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+To: Scott Wood <scottwood@freescale.com>,
+	Madalin-Cristian Bucur <madalin.bucur@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f182.google.com ([209.85.160.182]:33276 "EHLO
-	mail-yk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752219AbbFQO7V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 10:59:21 -0400
-Received: by ykfr66 with SMTP id r66so41941883ykf.0
-        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 07:59:21 -0700 (PDT)
+Received: from mail-bl2on0139.outbound.protection.outlook.com ([65.55.169.139]:49648
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754519AbbFQO7l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jun 2015 10:59:41 -0400
+In-Reply-To: <1433962446.2477.121.camel@freescale.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When an inet_sock is destroyed, its source port (sk_num) is set to
-zero as part of the unhash procedure.  In order to supply a source
-port as part of the NETLINK_SOCK_DIAG socket destruction broadcasts,
-the source port number must be read from inet_sport instead.
-
-Tested: ss -E
-Signed-off-by: Craig Gallek <kraig@google.com>
----
- net/ipv4/inet_diag.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 21985d8..ba6a80f 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -1095,6 +1095,8 @@ int inet_diag_handler_get_info(struct sk_buff *skb, struct sock *sk)
- 	r = nlmsg_data(nlh);
- 	memset(r, 0, sizeof(*r));
- 	inet_diag_msg_common_fill(r, sk);
-+	if (sk->sk_type == SOCK_DGRAM || sk->sk_type == SOCK_STREAM)
-+		r->id.idiag_sport = inet_sk(sk)->inet_sport;
- 	r->idiag_state = sk->sk_state;
- 
- 	if ((err = nla_put_u8(skb, INET_DIAG_PROTOCOL, sk->sk_protocol))) {
--- 
-2.2.0.rc0.207.ga3a616c
+DQoNClJlZ2FyZHMsDQpJZ2FsIExpYmVybWFuLg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0t
+LS0tDQo+IEZyb206IFdvb2QgU2NvdHQtQjA3NDIxDQo+IFNlbnQ6IFdlZG5lc2RheSwgSnVuZSAx
+MCwgMjAxNSA5OjU0IFBNDQo+IFRvOiBCdWN1ciBNYWRhbGluLUNyaXN0aWFuLUIzMjcxNg0KPiBD
+YzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsg
+bGludXhwcGMtDQo+IGRldkBsaXN0cy5vemxhYnMub3JnOyBMaWJlcm1hbiBJZ2FsLUIzMTk1MA0K
+PiBTdWJqZWN0OiBSZTogW1BBVENIIDAxLzEyXSBmc2wvZm1hbjogQWRkIHRoZSBGTWFuIEZMSUIg
+aGVhZGVycw0KPiANCj4gT24gV2VkLCAyMDE1LTA2LTEwIGF0IDE4OjIxICswMzAwLCBNYWRhbGlu
+IEJ1Y3VyIHdyb3RlOg0KPiA+IEZyb206IElnYWwgTGliZXJtYW4gPElnYWwuTGliZXJtYW5AZnJl
+ZXNjYWxlLmNvbT4NCj4gPg0KPiA+IFRoaXMgcGF0Y2ggcHJlc2VudHMgdGhlIEZNYW4gRm91bmRh
+dGlvbiBMaWJyYXJpZXMgKEZMSUIpIGhlYWRlcnMuDQo+ID4gVGhlIEZNYW4gRkxpYiBwcm92aWRl
+cyB0aGUgYmFzaWMgQVBJIHVzZWQgYnkgdGhlIEZNYW4gZHJpdmVycyB0bw0KPiA+IGNvbmZpZ3Vy
+ZSBhbmQgY29udHJvbCB0aGUgRk1hbiBoYXJkd2FyZS4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6
+IElnYWwgTGliZXJtYW4gPElnYWwuTGliZXJtYW5AZnJlZXNjYWxlLmNvbT4NCj4gPiAtLS0NCj4g
+PiAgLi4uL2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZsaWIvY29tbW9uL2dlbmVyYWwuaCAgfCAg
+NDEgKysNCj4gPiAgLi4uL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbGliL2ZzbF9mbWFu
+LmggICAgfCA2MDkNCj4gPiArKysrKysrKysrKysrKysrKysrKysNCj4gPiAgMiBmaWxlcyBjaGFu
+Z2VkLCA2NTAgaW5zZXJ0aW9ucygrKQ0KPiA+ICBjcmVhdGUgbW9kZSAxMDA2NDQNCj4gPiBkcml2
+ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbGliL2NvbW1vbi9nZW5lcmFsLmgNCj4g
+PiAgY3JlYXRlIG1vZGUgMTAwNjQ0DQo+ID4gZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxl
+L2ZtYW4vZmxpYi9mc2xfZm1hbi5oDQo+IA0KPiBXaHkgZG8gd2UgbmVlZCBzZXBhcmF0ZSBwYXRj
+aGVzIGp1c3QgZm9yIGhlYWRlcnM/DQo+IA0KDQpXZSB3YW50ZWQgdG8gbWFrZSB0aGUgcGF0Y2hl
+cyBzbWFsbGVyLCBpdCdzIHRoZSBtYWluIHJlYXNvbiBmb3IgdGhpcyBzZXBhcmF0aW9uLg0KDQo+
+IFdoYXQgZG9lcyAiY29tbW9uIiByZWZlciB0bz8NCj4gDQoNCkkgcmVtb3ZlZCAuL2ZsaWIvY29t
+bW9uLg0KDQo+IFdoYXQgZG9lcyB0aGUgZmxpYiBkaXJlY3RvcnkgbWVhbiwgaW4gdGhlIGNvbnRl
+eHQgb2YgTGludXg/ICBJZiBzb21lb25lIHdlcmUNCj4gdG8gYWRkIGNvZGUgdG8gdGhpcyBkcml2
+ZXIsIGhvdyBkbyB0aGV5IGtub3cgaWYgdGhlIGNvZGUgc2hvdWxkIGdvIGludG8gdGhlDQo+IGZs
+aWIgZGlyZWN0b3J5IG9yIG5vdD8NCj4gDQo+ID4NCj4gPiArI2RlZmluZSBpb3dyaXRlMzJiZSh2
+YWwsIGFkZHIpICAgICAgICAgICAgICAgb3V0X2JlMzIoJigqYWRkciksIHZhbCkNCj4gPiArI2Rl
+ZmluZSBpb3JlYWQzMmJlKGFkZHIpICAgICAgICAgICAgIGluX2JlMzIoJigqYWRkcikpDQo+IA0K
+PiBpb3dyaXRlMzJiZSgpL2lvcmVhZDMyYmUoKSBhcmUgYWxyZWFkeSBkZWZpbmVkIGZvciBhbGwg
+cmVsZXZhbnQgYXJjaGl0ZWN0dXJlcy4NCj4gV2h5IGFyZSB5b3UgcmVkZWZpbmluZyB0aGVtIGlu
+dG8gc29tZXRoaW5nIFBQQy0gc3BlY2lmaWM/DQo+IA0KDQpSZW1vdmVkIHRob3NlLiANCg0KPiA+
+ICsvKiBkbyBub3QgY2hhbmdlISBpZiBjaGFuZ2VkLCBtdXN0IGJlIGRpc2FibGVkIGZvciByZXYx
+ICEgKi8gI2RlZmluZQ0KPiA+ICtERUZBVUxUX0hBTFRfT05fRVhURVJOQUxfQUNUSVZBVElPTiAg
+ZmFsc2UNCj4gPiArLyogZG8gbm90IGNoYW5nZSEgaWYgY2hhbmdlZCwgbXVzdCBiZSBkaXNhYmxl
+ZCBmb3IgcmV2MSAhICovICNkZWZpbmUNCj4gPiArREVGQVVMVF9IQUxUX09OX1VOUkVDT1ZFUkFC
+TEVfRUNDX0VSUk9SIGZhbHNlDQo+IA0KPiByZXYxIG9mIHdoYXQgY2hpcD8NCj4gDQoNClA0MDgw
+LiBJJ2xsIHVwZGF0ZSB0aGUgY29tbWVudHMuIA0KDQo+IC1TY290dA0KDQpJZ2FsLg0KDQo=
