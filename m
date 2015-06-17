@@ -1,57 +1,135 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 01/12] net/mlx4_en: Fix off-by-four in ethtool
-Date: Wed, 17 Jun 2015 18:26:18 +0300
-Message-ID: <1434554789-13758-2-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 08/12] net/mlx5e: Avoid TX CQE generation if more xmit packets expected
+Date: Wed, 17 Jun 2015 18:26:25 +0300
+Message-ID: <1434554789-13758-9-git-send-email-ogerlitz@mellanox.com>
 References: <1434554789-13758-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53926 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:54003 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753455AbbFQP06 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2015 11:26:58 -0400
+	id S1756903AbbFQP1Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jun 2015 11:27:16 -0400
 In-Reply-To: <1434554789-13758-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+From: Achiad Shochat <achiad@mellanox.com>
 
-NUM_ALL_STATS was not updated with the new four entries, instead
-NUM_FLOW_STATS was updated, fix it. that caused off-by-four for all
-counters below pf_*_*.
+In order to save PCI BW consumed by TX CQEs and to reduce the amount of
+CPU cache misses caused by TX CQE reading, we request TX CQE generation
+only when skb->xmit_more=0.
 
-Fixes: b42de4d01264 ('net/mlx4_en: Show PF own statistics via ethtool')
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+As a consequence of the above, a single TX CQE may now indicate the
+transmission completion of multiple TX SKBs.
+
+This also handles a problem introduced in commit b1b8105ebf41 "net/mlx5e:
+Support NETIF_F_SG" where we didn't ask for NOP completions while the
+driver didn't have the proper code to handle this case.
+
+Fixes: b1b8105ebf41 ('net/mlx5e: Support NETIF_F_SG')
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c | 57 +++++++++++++++----------
+ 1 file changed, 34 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h
-index c5c1de9..7fd466c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h
-@@ -79,8 +79,7 @@ struct mlx4_en_flow_stats_tx {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index f5c7d78..a45d751 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -210,7 +210,6 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
  
- #define NUM_FLOW_STATS (NUM_FLOW_STATS_RX + NUM_FLOW_STATS_TX + \
- 			NUM_FLOW_PRIORITY_STATS_TX + \
--			NUM_FLOW_PRIORITY_STATS_RX + \
--			NUM_PF_STATS)
-+			NUM_FLOW_PRIORITY_STATS_RX)
+ 	cseg->opmod_idx_opcode	= cpu_to_be32((sq->pc << 8) | opcode);
+ 	cseg->qpn_ds		= cpu_to_be32((sq->sqn << 8) | ds_cnt);
+-	cseg->fm_ce_se		= MLX5_WQE_CTRL_CQ_UPDATE;
  
- struct mlx4_en_stat_out_flow_control_mbox {
- 	/* Total number of PAUSE frames received from the far-end port */
-@@ -108,7 +107,7 @@ enum {
- };
+ 	sq->skb[pi] = skb;
  
- #define NUM_ALL_STATS	(NUM_MAIN_STATS + NUM_PORT_STATS + NUM_PKT_STATS + \
--			 NUM_FLOW_STATS + NUM_PERF_STATS)
-+			 NUM_FLOW_STATS + NUM_PERF_STATS + NUM_PF_STATS)
+@@ -225,8 +224,10 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 		sq->stats.stopped++;
+ 	}
  
- #define MLX4_FIND_NETDEV_STAT(n) (offsetof(struct net_device_stats, n) / \
- 				  sizeof(((struct net_device_stats *)0)->n))
+-	if (!skb->xmit_more || netif_xmit_stopped(sq->txq))
++	if (!skb->xmit_more || netif_xmit_stopped(sq->txq)) {
++		cseg->fm_ce_se = MLX5_WQE_CTRL_CQ_UPDATE;
+ 		mlx5e_tx_notify_hw(sq, wqe);
++	}
+ 
+ 	/* fill sq edge with nops to avoid wqe wrap around */
+ 	while ((sq->pc & wq->sz_m1) > sq->edge)
+@@ -280,36 +281,46 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 
+ 	for (i = 0; i < MLX5E_TX_CQ_POLL_BUDGET; i++) {
+ 		struct mlx5_cqe64 *cqe;
+-		struct sk_buff *skb;
+-		u16 ci;
+-		int j;
++		u16 wqe_counter;
++		bool last_wqe;
+ 
+ 		cqe = mlx5e_get_cqe(cq);
+ 		if (!cqe)
+ 			break;
+ 
+-		ci = sqcc & sq->wq.sz_m1;
+-		skb = sq->skb[ci];
++		wqe_counter = be16_to_cpu(cqe->wqe_counter);
++
++		do {
++			struct sk_buff *skb;
++			u16 ci;
++			int j;
++
++			last_wqe = (sqcc == wqe_counter);
++
++			ci = sqcc & sq->wq.sz_m1;
++			skb = sq->skb[ci];
+ 
+-		if (unlikely(!skb)) { /* nop */
+-			sq->stats.nop++;
+-			sqcc++;
+-			continue;
+-		}
++			if (unlikely(!skb)) { /* nop */
++				sq->stats.nop++;
++				sqcc++;
++				continue;
++			}
+ 
+-		for (j = 0; j < MLX5E_TX_SKB_CB(skb)->num_dma; j++) {
+-			dma_addr_t addr;
+-			u32 size;
++			for (j = 0; j < MLX5E_TX_SKB_CB(skb)->num_dma; j++) {
++				dma_addr_t addr;
++				u32 size;
+ 
+-			mlx5e_dma_get(sq, dma_fifo_cc, &addr, &size);
+-			dma_fifo_cc++;
+-			dma_unmap_single(sq->pdev, addr, size, DMA_TO_DEVICE);
+-		}
++				mlx5e_dma_get(sq, dma_fifo_cc, &addr, &size);
++				dma_fifo_cc++;
++				dma_unmap_single(sq->pdev, addr, size,
++						 DMA_TO_DEVICE);
++			}
+ 
+-		npkts++;
+-		nbytes += MLX5E_TX_SKB_CB(skb)->num_bytes;
+-		sqcc += MLX5E_TX_SKB_CB(skb)->num_wqebbs;
+-		dev_kfree_skb(skb);
++			npkts++;
++			nbytes += MLX5E_TX_SKB_CB(skb)->num_bytes;
++			sqcc += MLX5E_TX_SKB_CB(skb)->num_wqebbs;
++			dev_kfree_skb(skb);
++		} while (!last_wqe);
+ 	}
+ 
+ 	mlx5_cqwq_update_db_record(&cq->wq);
 -- 
 2.3.7
