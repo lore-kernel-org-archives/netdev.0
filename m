@@ -1,78 +1,64 @@
-From: Jean Delvare <jdelvare@suse.de>
-Subject: Re: [PATCH] isdn: disable HiSax NetJet driver on microblaze arch
-Date: Wed, 17 Jun 2015 08:53:49 +0200
-Message-ID: <1434524029.4280.12.camel@chaos.site>
-References: <87pp4vw3ep.fsf@gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [RFC PATCH net-next 0/4] switchdev: avoid duplicate packet forwarding
+Date: Wed, 17 Jun 2015 00:02:39 -0700
+Message-ID: <CAE4R7bAKkcEQ51_=LuXc8FCtgQNxMrYuioYV0L_akNov37TmGA@mail.gmail.com>
+References: <1434218670-43821-1-git-send-email-sfeldma@gmail.com>
+ <20150615.162551.805611215439524288.davem@davemloft.net> <20150616060427.GA2135@nanopsycho.orion>
+ <CAE4R7bDEw0JVkwagps1eBVGuZuK58eEfTX+0GU-2U1UKGCYyKQ@mail.gmail.com>
+ <20150616211147.GB2135@nanopsycho.orion> <CAE4R7bA2ruG5MbExqC=TUiZdP9xjTvhSZxNV1kv+C4MfcG_1gA@mail.gmail.com>
+ <20150617063002.GA2090@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Karsten Keil <isdn@linux-pingi.de>,
-	"David S. Miller" <davem@davemloft.net>
-To: Nicolai Stange <nicstange@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87pp4vw3ep.fsf@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"simon.horman@netronome.com" <simon.horman@netronome.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	davidch <davidch@broadcom.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:33222 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753494AbbFQHDB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 03:03:01 -0400
+Received: by obcej4 with SMTP id ej4so27294821obc.0
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 00:03:00 -0700 (PDT)
+In-Reply-To: <20150617063002.GA2090@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le Wednesday 17 June 2015 =C3=A0 03:05 +0200, Nicolai Stange a =C3=A9cr=
-it :
-> Fix an allmodconfig compilation failer on microblaze due to big endia=
-n
-> architectures being apparently unsupported by the NetJet code:
->   drivers/isdn/hisax/nj_s.c: In function 'setup_netjet_s':
->   drivers/isdn/hisax/nj_s.c:265:2:
->       error: #error "not running on big endian machines now"
->=20
-> Modify the relevant Kconfig such that the NetJet code is not built on
-> microblaze anymore.
->=20
-> Note that endianess on microblaze is not determined through Kconfig,
-> but by means of a compiler provided CPP macro, namely __MICROBLAZEEL_=
-_.
-> However, gcc defaults to big endianess on that platform.
->=20
-> Signed-off-by: Nicolai Stange <nicstange@gmail.com>
-> ---
->  The maintainer tree listed under "ISDN SUBSYSTEM" in MAINTAINERS doe=
-s
->  not exist anymore. I created the diff against the Linus tree.
->=20
->  drivers/isdn/hisax/Kconfig | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/isdn/hisax/Kconfig b/drivers/isdn/hisax/Kconfig
-> index 97465ac..eb83d94 100644
-> --- a/drivers/isdn/hisax/Kconfig
-> +++ b/drivers/isdn/hisax/Kconfig
-> @@ -237,7 +237,7 @@ config HISAX_MIC
-> =20
->  config HISAX_NETJET
->  	bool "NETjet card"
-> -	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !C=
-PU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
-> +	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !C=
-PU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || MICROBLAZ=
-E))
->  	depends on VIRT_TO_BUS
->  	help
->  	  This enables HiSax support for the NetJet from Traverse
-> @@ -249,7 +249,7 @@ config HISAX_NETJET
-> =20
->  config HISAX_NETJET_U
->  	bool "NETspider U card"
-> -	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !C=
-PU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
-> +	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !C=
-PU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || MICROBLAZ=
-E))
->  	depends on VIRT_TO_BUS
->  	help
->  	  This enables HiSax support for the Netspider U interface ISDN car=
-d
+On Tue, Jun 16, 2015 at 11:30 PM, Jiri Pirko <jiri@resnulli.us> wrote:
 
-Acked-by: Jean Delvare <jdelvare@suse.de>
+> Scott, again, I'm not talking about br0 ifindex! I'm talking about
+> ifindexes of the port netdevs.
+>
+> br0
+>   sw1p1  ifindex=1
+>   sw1p2  ifindex=2
+>   sw2p1  ifindex=3
+>   sw2p2  ifindex=4
+>
+>
+> now we have 2 groups, one in each switch. So for sw1 group (sw1p1 and
+> sw1p2) we select mark one of the ifindexes, so either "1" or "2"
+> For second group, from sw2 we select "3" or "4". So for example:
+> br0
+>   sw1p1  mark=1
+>   sw1p2  mark=1
+>   sw2p1  mark=4
+>   sw2p2  mark=4
+>
+> This is generic, usable for every group.
 
---=20
-Jean Delvare
-SUSE L3 Support
+Oooh, that's good.  I like it.  If the port is not grouped, set
+mark=ifindex.  Or mark=0 to have a dflt group for ungrouped ports.
+
+Do you see a way to code this up?  The only thing that comes to mind
+is for the swX driver to keep track of mark picked for each bridge
+brY, but I was hoping you have an idea how to do this without any
+storage?
