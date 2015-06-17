@@ -1,227 +1,85 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] tests: Add output testing
-Date: Thu, 18 Jun 2015 00:28:18 +0300
-Message-ID: <1434576498-6657-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:36848 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753272AbbFQV3p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 17:29:45 -0400
-Received: by lbbqq2 with SMTP id qq2so40300301lbb.3
-        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 14:29:44 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH v2 1/3] net: mvneta: introduce compatible string
+ "marvell, armada-xp-neta"
+Date: Wed, 17 Jun 2015 21:39:26 +0000
+Message-ID: <20150617213926.GE2917@io.lakedaemon.net>
+References: <1434547162-6275-1-git-send-email-simon.guinot@sequanux.org>
+ <1434547162-6275-2-git-send-email-simon.guinot@sequanux.org>
+ <55818E64.20007@free-electrons.com>
+ <55818F10.8030304@free-electrons.com>
+ <20150617170112.GD2917@io.lakedaemon.net>
+ <20150617224312.3bfc80d9@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Simon Guinot <simon.guinot@sequanux.org>,
+ netdev@vger.kernel.org, stable@vger.kernel.org,
+ Vincent Donnefort <vdonnefort@gmail.com>,
+ Gregory CLEMENT <gregory.clement@free-electrons.com>,
+ linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20150617224312.3bfc80d9@free-electrons.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Vadim Kochan <vadim4j@gmail.com>
+Hey Thomas,
 
-Added possibility to check command output by grep from the testing
-script.
+On Wed, Jun 17, 2015 at 10:43:12PM +0200, Thomas Petazzoni wrote:
+> On Wed, 17 Jun 2015 17:01:12 +0000, Jason Cooper wrote:
+> 
+> > I disagree with this.  We can't predict what incosistencies we'll discover in
+> > the future.  We should only assign new compatible strings based on known IP
+> > variations when we discover them.  This seems fraught with demons since we
+> > can't predict the scope of affected IP blocks (some steppings of one SoC, three
+> > SoCs plus two steppings of a fourth, etc)
+> > 
+> > imho, the 'future-proofing' lies in being specific as to the naming of the
+> > compatible strings against known hardware variations at the time.
+> 
+> Except that this clearly doesn't work, and the case raised by Simon is
+> a perfect illustration of why planning ahead is beneficial. 
 
-Now TMP_OUT & TMP_ERR are passed from Makefile and changed to
-STD_ERR & STD_OUT.
+Odd, I'd use that as an example of the process working.  ;-)  we have
+everyone using 'armada-370-neta' for a given block.  We discovered that
+the original IP block (on the 370s) had a limitation (no hw checksum
+for greater than 1600 bytes).  A newer version of the IP block (XP)
+doesn't have the limitation.
 
-Also changed some existing tests to make output testing.
+So we change the driver to honor the limit for the 370 compatible
+string.  We create a new compatible string for xp where the block
+doesn't have the limitation.
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- testsuite/Makefile                           |  4 ++
- testsuite/lib/generic.sh                     | 80 ++++++++++++++++++++--------
- testsuite/tests/ip/link/new_link.t           |  4 ++
- testsuite/tests/ip/route/add_default_route.t | 23 +++++++-
- 4 files changed, 88 insertions(+), 23 deletions(-)
+How did the process fail?
 
-diff --git a/testsuite/Makefile b/testsuite/Makefile
-index 4b945b0..2027650 100644
---- a/testsuite/Makefile
-+++ b/testsuite/Makefile
-@@ -52,6 +52,9 @@ endif
- 	@for i in $(IPVERS); do \
- 		o=`echo $$i | sed -e 's/iproute2\///'`; \
- 		echo -n "Running $@ [$$o/`uname -r`]: "; \
-+		TMP_ERR=`mktemp /tmp/tc_testsuite.XXXXXX`; \
-+		TMP_OUT=`mktemp /tmp/tc_testsuite.XXXXXX`; \
-+		STD_ERR="$$TMP_ERR" STD_OUT="$$TMP_OUT" \
- 		TC="$$i/tc/tc" IP="$$i/ip/ip" DEV="$(DEV)" IPVER="$@" SNAME="$$i" \
- 		ERRF="$(RESULTS_DIR)/$@.$$o.err" $(KENV) $(PREFIX) tests/$@ > $(RESULTS_DIR)/$@.$$o.out; \
- 		if [ "$$?" = "127" ]; then \
-@@ -61,5 +64,6 @@ endif
- 		else \
- 			echo "PASS"; \
- 		fi; \
-+		rm "$$TMP_ERR" "$$TMP_OUT"; \
- 		dmesg > $(RESULTS_DIR)/$@.$$o.dmesg; \
- 	done
-diff --git a/testsuite/lib/generic.sh b/testsuite/lib/generic.sh
-index 3473cc1..b7de704 100644
---- a/testsuite/lib/generic.sh
-+++ b/testsuite/lib/generic.sh
-@@ -30,57 +30,49 @@ ts_tc()
- {
- 	SCRIPT=$1; shift
- 	DESC=$1; shift
--	TMP_ERR=`mktemp /tmp/tc_testsuite.XXXXXX` || exit
--	TMP_OUT=`mktemp /tmp/tc_testsuite.XXXXXX` || exit
- 
--	$TC $@ 2> $TMP_ERR > $TMP_OUT
-+	$TC $@ 2> $STD_ERR > $STD_OUT
- 
--	if [ -s $TMP_ERR ]; then
-+	if [ -s $STD_ERR ]; then
- 		ts_err "${SCRIPT}: ${DESC} failed:"
- 		ts_err "command: $TC $@"
- 		ts_err "stderr output:"
--		ts_err_cat $TMP_ERR
--		if [ -s $TMP_OUT ]; then
-+		ts_err_cat $STD_ERR
-+		if [ -s $STD_OUT ]; then
- 			ts_err "stdout output:"
--			ts_err_cat $TMP_OUT
-+			ts_err_cat $STD_OUT
- 		fi
--	elif [ -s $TMP_OUT ]; then
-+	elif [ -s $STD_OUT ]; then
- 		echo "${SCRIPT}: ${DESC} succeeded with output:"
--		cat $TMP_OUT
-+		cat $STD_OUT
- 	else
- 		echo "${SCRIPT}: ${DESC} succeeded"
- 	fi
--
--	rm $TMP_ERR $TMP_OUT
- }
- 
- ts_ip()
- {
- 	SCRIPT=$1; shift
- 	DESC=$1; shift
--	TMP_ERR=`mktemp /tmp/tc_testsuite.XXXXXX` || exit
--	TMP_OUT=`mktemp /tmp/tc_testsuite.XXXXXX` || exit
- 
--	$IP $@ 2> $TMP_ERR > $TMP_OUT
-+	$IP $@ 2> $STD_ERR > $STD_OUT
-         RET=$?
- 
--	if [ -s $TMP_ERR ] || [ "$RET" != "0" ]; then
-+	if [ -s $STD_ERR ] || [ "$RET" != "0" ]; then
- 		ts_err "${SCRIPT}: ${DESC} failed:"
- 		ts_err "command: $IP $@"
- 		ts_err "stderr output:"
--		ts_err_cat $TMP_ERR
--		if [ -s $TMP_OUT ]; then
-+		ts_err_cat $STD_ERR
-+		if [ -s $STD_OUT ]; then
- 			ts_err "stdout output:"
--			ts_err_cat $TMP_OUT
-+			ts_err_cat $STD_OUT
- 		fi
--	elif [ -s $TMP_OUT ]; then
-+	elif [ -s $STD_OUT ]; then
- 		echo "${SCRIPT}: ${DESC} succeeded with output:"
--		cat $TMP_OUT
-+		cat $STD_OUT
- 	else
- 		echo "${SCRIPT}: ${DESC} succeeded"
- 	fi
--
--	rm $TMP_ERR $TMP_OUT
- }
- 
- ts_qdisc_available()
-@@ -97,3 +89,47 @@ rand_dev()
- {
-     echo "dev-$(tr -dc "[:alpha:]" < /dev/urandom | head -c 6)"
- }
-+
-+pr_failed()
-+{
-+	echo " [FAILED]"
-+	ts_err "matching failed"
-+}
-+
-+pr_success()
-+{
-+	echo " [SUCCESS]"
-+}
-+
-+test_on()
-+{
-+	echo -n "test on: \"$1\""
-+	if cat "$STD_OUT" | grep -qE "$1"
-+	then
-+		pr_success
-+	else
-+		pr_failed
-+	fi
-+}
-+
-+test_on_not()
-+{
-+	echo -n "test on: \"$1\""
-+	if cat "$STD_OUT" | grep -vqE "$1"
-+	then
-+		pr_success
-+	else
-+		pr_failed
-+	fi
-+}
-+
-+test_lines_count()
-+{
-+	echo -n "test on lines count ($1): "
-+	if cat "$STD_OUT" | wc -l | grep -q "$1"
-+	then
-+		pr_success
-+	else
-+		pr_failed
-+	fi
-+}
-diff --git a/testsuite/tests/ip/link/new_link.t b/testsuite/tests/ip/link/new_link.t
-index 549ff25..699adbc 100755
---- a/testsuite/tests/ip/link/new_link.t
-+++ b/testsuite/tests/ip/link/new_link.t
-@@ -7,5 +7,9 @@ ts_log "[Testing add/del virtual links]"
- NEW_DEV="$(rand_dev)"
- 
- ts_ip "$0" "Add $NEW_DEV dummy interface"  link add dev $NEW_DEV type dummy
-+
- ts_ip "$0" "Show $NEW_DEV dummy interface" link show dev $NEW_DEV
-+test_on "$NEW_DEV"
-+test_lines_count 2
-+
- ts_ip "$0" "Del $NEW_DEV dummy interface"  link del dev $NEW_DEV
-diff --git a/testsuite/tests/ip/route/add_default_route.t b/testsuite/tests/ip/route/add_default_route.t
-index 2908528..e5ea647 100755
---- a/testsuite/tests/ip/route/add_default_route.t
-+++ b/testsuite/tests/ip/route/add_default_route.t
-@@ -8,5 +8,26 @@ DEV=dummy0
- 
- ts_ip "$0" "Add new interface $DEV" link add $DEV type dummy
- ts_ip "$0" "Set $DEV into UP state" link set up dev $DEV
-+
- ts_ip "$0" "Add 1.1.1.1/24 addr on $DEV" addr add 1.1.1.1/24 dev $DEV
--ts_ip "$0" "Add default route via 1.1.1.1" route add default via 1.1.1.1
-+ts_ip "$0" "Add default route via 1.1.1.2" route add default via 1.1.1.2
-+
-+ts_ip "$0" "Show IPv4 default route" -4 route show default
-+test_on "default via 1.1.1.2 dev $DEV"
-+test_lines_count 1
-+
-+ts_ip "$0" "Add another IPv4 route dst 2.2.2.0/24" -4 route add 2.2.2.0/24 dev $DEV
-+ts_ip "$0" "Show IPv4 default route" -4 route show default
-+test_on "default via 1.1.1.2 dev $DEV"
-+test_lines_count 1
-+
-+ts_ip "$0" "Add dead:beef::1/64 addr on $DEV" -6 addr add dead:beef::1/64 dev $DEV
-+ts_ip "$0" "Add default route via dead:beef::2" route add default via dead:beef::2
-+ts_ip "$0" "Show IPv6 default route" -6 route show default
-+test_on "default via dead:beef::2 dev $DEV"
-+test_lines_count 1
-+
-+ts_ip "$0" "Add another IPv6 route dst cafe:babe::/64" -6 route add cafe:babe::/64 dev $DEV
-+ts_ip "$0" "Show IPv6 default route" -6 route show default
-+test_on "default via dead:beef::2 dev $DEV"
-+test_lines_count 1
--- 
-2.4.2
+> We already had the issue several times on mvebu platforms, so it
+> should really become the rule to have one compatible string specific
+> to the actual SoC in the list of compatible strings.
+
+Sorry, I'm just not a fan of guessing.  But I'll fall back to the DT
+maintainers on this one.  if they are ok with it, then I'll drop my
+objection.
+
+> Not doing so requires breaking DT backward compatibility more often, so
+> wanting DT backward compatibility and not wanting to plan ahead is a
+> bit antagonist.
+
+I'm not seeing where backwards compatibility was broken?  A device with
+an old dtb booting a newer kernel gets a bugfix.  In the case of an XP
+board with an old dtb (armada-370-neta), the hardware still works, but
+not optimally.  Upgrading the dtb will enable hw checksumming for jumbo
+packets.
+
+thx,
+
+Jason.
