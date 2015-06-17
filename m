@@ -1,38 +1,100 @@
-From: Sathya Perla <sathya.perla@avagotech.com>
-Subject: Re: [PATCH] benet:Make the function be_get_sriov_config have a return
- type of void
-Date: Wed, 17 Jun 2015 11:48:37 +0530
-Message-ID: <CAKvpyk0oM2oS_Ky4h=ff+QD=iP4EZ7DFrJOZVhBmY3cCKAKvjQ@mail.gmail.com>
-References: <1434462161-24955-1-git-send-email-xerofoify@gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH 2/7] slub bulk alloc: extract objects from the per cpu
+ slab
+Date: Wed, 17 Jun 2015 08:24:03 +0200
+Message-ID: <20150617082403.65d9cf5a@redhat.com>
+References: <20150615155053.18824.617.stgit@devil>
+	<20150615155207.18824.8674.stgit@devil>
+	<20150616144840.1b669e149d937365a4b54c1c@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ajit Kumar Khaparde <ajit.khaparde@avagotech.com>,
-	Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>,
-	Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicholas Krause <xerofoify@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f181.google.com ([209.85.160.181]:34070 "EHLO
-	mail-yk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754770AbbFQGSi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 02:18:38 -0400
-Received: by ykfl8 with SMTP id l8so32010857ykf.1
-        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 23:18:38 -0700 (PDT)
-In-Reply-To: <1434462161-24955-1-git-send-email-xerofoify@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, Christoph Lameter <cl@linux.com>,
+        netdev@vger.kernel.org, Alexander Duyck <alexander.duyck@gmail.com>,
+        brouer@redhat.com
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20150616144840.1b669e149d937365a4b54c1c@linux-foundation.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 16, 2015 at 7:12 PM, Nicholas Krause <xerofoify@gmail.com> wrote:
-> This makes the function be_get_sriov_config have a return type of
-> void now due to never signaling/nor its only caller the function
-> be_alloc_sriov_res checking if this function has returned a
-> error code to indicate this particular function has failed
-> and the error is unrecoverable from.
->
-> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+On Tue, 16 Jun 2015 14:48:40 -0700
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-Hi, you should have prefixed the subject line with "net-next" as this
-is a cleanup fix
-and so must go to the net-next tree. Thanks!
+> On Mon, 15 Jun 2015 17:52:07 +0200 Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> 
+> > From: Christoph Lameter <cl@linux.com>
+> > 
+> > [NOTICE: Already in AKPM's quilt-queue]
+> > 
+> > First piece: acceleration of retrieval of per cpu objects
+> > 
+> > If we are allocating lots of objects then it is advantageous to disable
+> > interrupts and avoid the this_cpu_cmpxchg() operation to get these objects
+> > faster.
+> > 
+> > Note that we cannot do the fast operation if debugging is enabled, because
+> > we would have to add extra code to do all the debugging checks.  And it
+> > would not be fast anyway.
+> > 
+> > Note also that the requirement of having interrupts disabled
+> > avoids having to do processor flag operations.
+> > 
+> > Allocate as many objects as possible in the fast way and then fall back to
+> > the generic implementation for the rest of the objects.
+> > 
+> > ...
+> >
+> > --- a/mm/slub.c
+> > +++ b/mm/slub.c
+> > @@ -2759,7 +2759,32 @@ EXPORT_SYMBOL(kmem_cache_free_bulk);
+> >  bool kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
+> >  								void **p)
+> >  {
+> > -	return kmem_cache_alloc_bulk(s, flags, size, p);
+> > +	if (!kmem_cache_debug(s)) {
+> > +		struct kmem_cache_cpu *c;
+> > +
+> > +		/* Drain objects in the per cpu slab */
+> > +		local_irq_disable();
+> > +		c = this_cpu_ptr(s->cpu_slab);
+> > +
+> > +		while (size) {
+> > +			void *object = c->freelist;
+> > +
+> > +			if (!object)
+> > +				break;
+> > +
+> > +			c->freelist = get_freepointer(s, object);
+> > +			*p++ = object;
+> > +			size--;
+> > +
+> > +			if (unlikely(flags & __GFP_ZERO))
+> > +				memset(object, 0, s->object_size);
+> > +		}
+> > +		c->tid = next_tid(c->tid);
+> > +
+> > +		local_irq_enable();
+> 
+> It might be worth adding
+> 
+> 		if (!size)
+> 			return true;
+> 
+> here.  To avoid the pointless call to __kmem_cache_alloc_bulk().
 
-Acked-by: Sathya Perla <sathya.perla@avagotech.com>
+The pointless call did present a measurable performance hit (2ns), and
+I've removed it in the next patches, which fixes the error/exit path.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
