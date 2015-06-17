@@ -1,76 +1,47 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 0/3 v4] changes to make ipv4 routing table aware
- of next-hop link status
-Date: Wed, 17 Jun 2015 16:25:27 -0400
-Message-ID: <20150617202526.GK588@gospo.home.greyhouse.net>
-References: <1434386001-1157-1-git-send-email-gospo@cumulusnetworks.com>
- <55819ACC.3010702@6wind.com>
- <20150617191012.GJ588@gospo.home.greyhouse.net>
- <5581CFEB.3010000@6wind.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] ipv4: include NLM_F_APPEND flag in append
+ route notifications
+Date: Wed, 17 Jun 2015 13:37:23 -0700
+Message-ID: <5581DA83.9060504@cumulusnetworks.com>
+References: <1434564421-32047-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bBAWVKV4vtv7kJFS+MxzWMTHjxPJJ=h-+7kj8WSrZjn3Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	ddutt@cumulusnetworks.com, sfeldma@gmail.com,
-	alexander.duyck@gmail.com, hannes@stressinduktion.org,
-	stephen@networkplumber.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:35916 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751370AbbFQUZa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 16:25:30 -0400
-Received: by qgal13 with SMTP id l13so19487912qga.3
-        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 13:25:30 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5581CFEB.3010000@6wind.com>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:33308 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753403AbbFQUhZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 16:37:25 -0400
+Received: by pdjn11 with SMTP id n11so48695057pdj.0
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 13:37:24 -0700 (PDT)
+In-Reply-To: <CAE4R7bBAWVKV4vtv7kJFS+MxzWMTHjxPJJ=h-+7kj8WSrZjn3Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 17, 2015 at 09:52:11PM +0200, Nicolas Dichtel wrote:
-> Le 17/06/2015 21:10, Andy Gospodarek a =E9crit :
-> >On Wed, Jun 17, 2015 at 06:05:32PM +0200, Nicolas Dichtel wrote:
-> >>Le 15/06/2015 18:33, Andy Gospodarek a =E9crit :
-> >>>This series adds the ability to have the Linux kernel track whethe=
-r or
-> >>>not a particular route should be used based on the link-status of =
-the
-> >>>interface associated with the next-hop.
-> >>>
-> >>>Before this patch any link-failure on an interface that was servin=
-g as a
-> >>>gateway for some systems could result in those systems being isola=
-ted
-> >>>from the rest of the network as the stack would continue to attemp=
-t to
-> >>>send frames out of an interface that is actually linked-down.  Whe=
-n the
-> >>>kernel is responsible for all forwarding, it should also be respon=
-sible
-> >>>for taking action when the traffic can no longer be forwarded -- t=
-here
-> >>>is no real need to outsource link-monitoring to userspace anymore.
-> >>>
-> >>>This feature is only enabled with the new per-interface or ipv4 gl=
-obal
-> >>>sysctls called 'ignore_routes_with_linkdown'.
-> >>>
-> >>>net.ipv4.conf.all.ignore_routes_with_linkdown =3D 0
-> >>>net.ipv4.conf.default.ignore_routes_with_linkdown =3D 0
-> >>>net.ipv4.conf.lo.ignore_routes_with_linkdown =3D 0
-> >>>...
-> >>Sorry for my late reply, but is it possible to advertise this sysct=
-l via the
-> >>netconf infra (grep NETCONFA_)?
-> >I would be happy to do that.  Do you see it as a requirement for thi=
-s
-> >set to be accepted?
-> No, but it would be great to do it before net-next closes.
-Will do.
-
->=20
-> >
-> >I've got to add ipv6 support, so netconf support could also easily b=
-e
-> >added in the kernel and iproute2.
-> Ok.
+On 6/17/15, 11:30 AM, Scott Feldman wrote:
+> On Wed, Jun 17, 2015 at 11:07 AM, Roopa Prabhu
+> <roopa@cumulusnetworks.com> wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> This patch adds NLM_F_APPEND flag to struct nlmsg_hdr->nlmsg_flags
+>> in newroute notifications if the route add was an append.
+>> (This is similar to how NLM_F_REPLACE is already part of new
+>> route replace notifications today)
+>>
+>> This helps userspace determine if the route add operation was
+>> an append.
+>>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> ---
+>> v2: flip if condition around append and change |= to =
+>> (feedback from Alexander Duyck and Scott Feldman)
+> Is this a bug fix for net, or a new feature for net-next?  Regardless,
+>
+> Acked-by: Scott Feldman <sfeldma@gmail.com>
+I could not decide between net and net-next.
+....but the patch applies cleanly against net if Dave decides to pick it 
+up for net.
