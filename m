@@ -1,57 +1,99 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: displayed name changed in ip link show for bridge- and other
- interfaces
-Date: Wed, 17 Jun 2015 09:26:05 +0200
-Message-ID: <5581210D.5070901@6wind.com>
-References: <201506141200.20435.ulrich.gemkow@ikr.uni-stuttgart.de>	<557DCD0A.5040500@hartkopp.net>	<557DD20E.4080005@hartkopp.net>	<557E7D89.30301@6wind.com>	<557E9728.7080208@6wind.com> <20150615085410.6628b5bb@urahara> <55805E6A.90805@hartkopp.net>
-Reply-To: nicolas.dichtel@6wind.com
+From: Pavel Fedin <p.fedin@samsung.com>
+Subject: [PATCH] net: Cavium: Bug fix: MAC address setting in shutdown state
+Date: Wed, 17 Jun 2015 10:35:14 +0300
+Message-ID: <00a401d0a8d0$271e3760$755aa620$@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ulrich Gemkow <ulrich.gemkow@ikr.uni-stuttgart.de>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=ks_c_5601-1987
+Content-Transfer-Encoding: 7bit
+Cc: Aleksey.Makarov@caviumnetworks.com,
+	'Sunil Goutham' <sgoutham@cavium.com>,
+	=?ks_c_5601-1987?B?J7HoxcLHzyc=?= <thlab.kim@samsung.com>,
+	'Dyasly Sergey' <s.dyasly@samsung.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:38563 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753817AbbFQH0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 03:26:08 -0400
-Received: by wibdq8 with SMTP id dq8so42687343wib.1
-        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 00:26:07 -0700 (PDT)
-In-Reply-To: <55805E6A.90805@hartkopp.net>
+Received: from mailout1.w1.samsung.com ([210.118.77.11]:37342 "EHLO
+	mailout1.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755204AbbFQHfS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 03:35:18 -0400
+Received: from eucpsbgm2.samsung.com (unknown [203.254.199.245])
+ by mailout1.w1.samsung.com
+ (Oracle Communications Messaging Server 7.0.5.31.0 64bit (built May  5 2014))
+ with ESMTP id <0NQ200HVAVQSJN70@mailout1.w1.samsung.com> for
+ netdev@vger.kernel.org; Wed, 17 Jun 2015 08:35:16 +0100 (BST)
+Content-language: ru
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 16/06/2015 19:35, Oliver Hartkopp a =E9crit :
-> On 15.06.2015 17:54, Stephen Hemminger wrote:
->> On Mon, 15 Jun 2015 11:13:12 +0200
->> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
->>
->>> Theoretically, virtual interfaces should advertise an IFLA_LINK to =
-0.
->>> I don't know what is the best fix:
->>>    - patching iproute2 to avoid this '@NONE'
->>>    - patching the kernel (see below).
->>
->>
->> Sorry this is an ABI change. The kernel has to go back
->> to doing the same thing as before.
->>
->
-> Isn't this too late right now at 4.1-rc8 stage???
->
-> At least the patch suggested for br_device.c at
->
-> http://marc.info/?l=3Dlinux-netdev&m=3D143435960111768&w=3D2
->
-> would been necessary in all networking drivers, right?
->
-> I currently see this @NONE stuff with virtual CAN devices too.
-Another solution is to revert e1622baf54df ("dev: set iflink to 0 for v=
-irtual
-interfaces") and add a ndo_get_iflink handler which returns 0 for all v=
-irtual
-interfaces that had this IFLA_LINK set to 0 before the series.
-But it's not consistent between virtual interfaces.
+This bug pops up with NetworkManager on Fedora 21. NetworkManager tends to
+stop the interface (nicvf_stop() is called) before changing settings. In
+stopped state MAC cannot be sent to a PF. However, when the interface is
+restarted (nicvf_open() is called), we ping the PF using NIC_MBOX_MSG_READY
+message, and the PF replies back with old MAC address, overriding what we had
+after MAC setting from userspace. As a result, we cannot set MAC address using
+NetworkManager.
+
+This patch introduces special tracking of MAC change in stopped state so that
+the correct new MAC address is sent to a PF when interface is reopen.
+
+Signed-off-by: Pavel Fedin <p.fedin@samsung.com>
+---
+ drivers/net/ethernet/cavium/thunder/nic.h        |  1 +
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c | 12 ++++++++++--
+ 2 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h
+b/drivers/net/ethernet/cavium/thunder/nic.h
+index a3b43e5..dda8a02 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -263,6 +263,7 @@ struct nicvf {
+ 	bool			pf_acked;
+ 	bool			pf_nacked;
+ 	bool			bgx_stats_acked;
++	bool			set_mac_pending;
+ } ____cacheline_aligned_in_smp;
+ 
+ /* PF <--> VF Mailbox communication
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 02da802..49d7bcf 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -201,7 +201,8 @@ static void  nicvf_handle_mbx_intr(struct nicvf *nic)
+ 		nic->vf_id = mbx.nic_cfg.vf_id & 0x7F;
+ 		nic->tns_mode = mbx.nic_cfg.tns_mode & 0x7F;
+ 		nic->node = mbx.nic_cfg.node_id;
+-		ether_addr_copy(nic->netdev->dev_addr, mbx.nic_cfg.mac_addr);
++		if (!nic->set_mac_pending)
++			ether_addr_copy(nic->netdev->dev_addr, mbx.nic_cfg.mac_addr);
+ 		nic->link_up = false;
+ 		nic->duplex = 0;
+ 		nic->speed = 0;
+@@ -941,6 +942,11 @@ int nicvf_open(struct net_device *netdev)
+ 		nicvf_hw_set_mac_addr(nic, netdev);
+ 	}
+ 
++	if (nic->set_mac_pending) {
++		nic->set_mac_pending = false;
++		nicvf_hw_set_mac_addr(nic, netdev);
++	}
++
+ 	/* Init tasklet for handling Qset err interrupt */
+ 	tasklet_init(&nic->qs_err_task, nicvf_handle_qs_err,
+ 		     (unsigned long)nic);
+@@ -1040,9 +1046,11 @@ static int nicvf_set_mac_address(struct net_device *netdev, void
+*p)
+ 
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+ 
+-	if (nic->msix_enabled)
++	if (nic->msix_enabled) {
+ 		if (nicvf_hw_set_mac_addr(nic, netdev))
+ 			return -EBUSY;
++	} else
++		nic->set_mac_pending = true;
+ 
+ 	return 0;
+ }
+-- 
+1.9.5.msysgit.0
