@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 10/17] fm10k: use dma_set_mask_and_coherent in fm10k_probe
-Date: Wed, 17 Jun 2015 05:54:57 -0700
-Message-ID: <1434545704-112470-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 07/17] fm10k: use an unsigned int for i in ethtool_get_strings
+Date: Wed, 17 Jun 2015 05:54:54 -0700
+Message-ID: <1434545704-112470-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1434545704-112470-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -11,73 +11,37 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:14632 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755045AbbFQMzO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2015 08:55:14 -0400
+	id S1756276AbbFQMzJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jun 2015 08:55:09 -0400
 In-Reply-To: <1434545704-112470-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch cleans up the use of dma_get_required_mask and uses the
-simpler dma_set_mask_and_coherent function instead of doing these as
-separate steps.
-
-I removed the dma_get_required_mask call because based on some minimal
-testing it appears that either (a) we're not doing the right thing with
-the call or (b) we don't need it anyways. If the value returned is
-<48bits, we'll end up trying with 48 bits anyways. If it's over 48bits,
-fm10k can't support that anyways, and we should try 48bits. If 48bits
-fails, we'll fallback to 32bits. This cleans up some very funky code.
+The value will never be negative, and we use the %u print format. Thus,
+use unsigned int for the loop counter. Issue found using cppcheck.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
-v2: updated error message to use %d
+v2: updated patch description to reference %u and not %i
 
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 24 ++++++------------------
- 1 file changed, 6 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index fe54c78..ce53ff2 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -1741,30 +1741,18 @@ static int fm10k_probe(struct pci_dev *pdev,
- 	struct fm10k_intfc *interface;
- 	struct fm10k_hw *hw;
- 	int err;
--	u64 dma_mask;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+index 4b9d9f8..06f0b08 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+@@ -124,7 +124,7 @@ static void fm10k_get_strings(struct net_device *dev, u32 stringset, u8 *data)
+ {
+ 	struct fm10k_intfc *interface = netdev_priv(dev);
+ 	char *p = (char *)data;
+-	int i;
++	unsigned int i;
  
- 	err = pci_enable_device_mem(pdev);
- 	if (err)
- 		return err;
- 
--	/* By default fm10k only supports a 48 bit DMA mask */
--	dma_mask = DMA_BIT_MASK(48) | dma_get_required_mask(&pdev->dev);
--
--	if ((dma_mask <= DMA_BIT_MASK(32)) ||
--	    dma_set_mask_and_coherent(&pdev->dev, dma_mask)) {
--		dma_mask &= DMA_BIT_MASK(32);
--
-+	err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(48));
-+	if (err)
- 		err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
--		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
--		if (err) {
--			err = dma_set_coherent_mask(&pdev->dev,
--						    DMA_BIT_MASK(32));
--			if (err) {
--				dev_err(&pdev->dev,
--					"No usable DMA configuration, aborting\n");
--				goto err_dma;
--			}
--		}
-+	if (err) {
-+		dev_err(&pdev->dev,
-+			"DMA configuration failed: %d\n", err);
-+		goto err_dma;
- 	}
- 
- 	err = pci_request_selected_regions(pdev,
+ 	switch (stringset) {
+ 	case ETH_SS_TEST:
 -- 
 2.4.3
