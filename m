@@ -1,53 +1,75 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 00/12] Mellanox NIC drivers update, Jun 17 2015
-Date: Wed, 17 Jun 2015 18:26:17 +0300
-Message-ID: <1434554789-13758-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 11/12] net/mlx5e: Pop cq outside mlx5e_get_cqe
+Date: Wed, 17 Jun 2015 18:26:28 +0300
+Message-ID: <1434554789-13758-12-git-send-email-ogerlitz@mellanox.com>
+References: <1434554789-13758-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53956 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:53951 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755434AbbFQP1A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2015 11:27:00 -0400
+	id S1754602AbbFQP07 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jun 2015 11:26:59 -0400
+In-Reply-To: <1434554789-13758-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Achiad Shochat <achiad@mellanox.com>
 
-This series has two fixes from Eran to his recent SRIOV counters work in 
-mlx4 and few more updates from Saeed and Achiad to the mlx5 Ethernet
-code. All fixes here relate to net-next code, so no need for -stable.
+Separate between mlx5e_get_cqe() and mlx5_cqwq_pop(), this helps for
+better code readability and better CQ buffer management.
 
-Or.
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 2 ++
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   | 2 ++
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c | 2 --
+ 3 files changed, 4 insertions(+), 2 deletions(-)
 
-Achiad Shochat (7):
-  net/mlx5e: Poll rx cq before tx cq to improve round-trip latency
-  net/mlx5e: Remove re-assignment of wq type in mlx5e_enable_rq()
-  net/mlx5e: Avoid redundant dev_kfree_skb() upon NOP completion
-  net/mlx5e: Avoid TX CQE generation if more xmit packets expected
-  net/mlx5e: Remove extra spaces
-  net/mlx5e: Remove mlx5e_cq.sqrq back-pointer
-  net/mlx5e: Pop cq outside mlx5e_get_cqe
-
-Eran Ben Elisha (2):
-  net/mlx4_en: Fix off-by-four in ethtool
-  net/mlx4_en: Use HW counters for rx/tx bytes/packets in PF device
-
-Saeed Mahameed (3):
-  net/mlx5e: Static mapping of netdev priv resources to/from netdev TX queues
-  net/mlx5e: Use skb_shinfo(skb)->gso_segs rather than counting them
-  net/mlx5e: Prefetch skb data on RX
-
- drivers/net/ethernet/mellanox/mlx4/en_port.c      | 14 ++++
- drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h   |  5 +-
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  6 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 45 ++++++-----
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |  5 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   | 92 +++++++++++------------
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c | 10 +--
- 7 files changed, 96 insertions(+), 81 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index 4a25957..760b3ef 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -209,6 +209,8 @@ bool mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
+ 		if (!cqe)
+ 			break;
+ 
++		mlx5_cqwq_pop(&cq->wq);
++
+ 		wqe_counter_be = cqe->wqe_counter;
+ 		wqe_counter    = be16_to_cpu(wqe_counter_be);
+ 		wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index c789619..03f28f4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -288,6 +288,8 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 		if (!cqe)
+ 			break;
+ 
++		mlx5_cqwq_pop(&cq->wq);
++
+ 		wqe_counter = be16_to_cpu(cqe->wqe_counter);
+ 
+ 		do {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+index 8f7cbac..0406fae 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+@@ -43,8 +43,6 @@ struct mlx5_cqe64 *mlx5e_get_cqe(struct mlx5e_cq *cq)
+ 	if (cqe_ownership_bit != sw_ownership_val)
+ 		return NULL;
+ 
+-	mlx5_cqwq_pop(wq);
+-
+ 	/* ensure cqe content is read after cqe ownership bit */
+ 	rmb();
+ 
 -- 
 2.3.7
