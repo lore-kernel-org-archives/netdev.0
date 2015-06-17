@@ -1,56 +1,69 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next 00/15] Simplify netfilter and network
- namespaces
-Date: Wed, 17 Jun 2015 22:38:26 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1506172216440.2649@ja.home.ssi.bg>
-References: <87616ppt3h.fsf@x220.int.ebiederm.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next 0/3 v4] changes to make ipv4 routing table aware
+ of next-hop link status
+Date: Wed, 17 Jun 2015 21:52:11 +0200
+Message-ID: <5581CFEB.3010000@6wind.com>
+References: <1434386001-1157-1-git-send-email-gospo@cumulusnetworks.com> <55819ACC.3010702@6wind.com> <20150617191012.GJ588@gospo.home.greyhouse.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Juanjo Ciarlante <jjciarla@raiz.uncu.edu.ar>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <87616ppt3h.fsf@x220.int.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	ddutt@cumulusnetworks.com, sfeldma@gmail.com,
+	alexander.duyck@gmail.com, hannes@stressinduktion.org,
+	stephen@networkplumber.org
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:33467 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751067AbbFQTwO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 15:52:14 -0400
+Received: by wgez8 with SMTP id z8so45652987wge.0
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 12:52:13 -0700 (PDT)
+In-Reply-To: <20150617191012.GJ588@gospo.home.greyhouse.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Le 17/06/2015 21:10, Andy Gospodarek a =E9crit :
+> On Wed, Jun 17, 2015 at 06:05:32PM +0200, Nicolas Dichtel wrote:
+>> Le 15/06/2015 18:33, Andy Gospodarek a =E9crit :
+>>> This series adds the ability to have the Linux kernel track whether=
+ or
+>>> not a particular route should be used based on the link-status of t=
+he
+>>> interface associated with the next-hop.
+>>>
+>>> Before this patch any link-failure on an interface that was serving=
+ as a
+>>> gateway for some systems could result in those systems being isolat=
+ed
+>> >from the rest of the network as the stack would continue to attempt=
+ to
+>>> send frames out of an interface that is actually linked-down.  When=
+ the
+>>> kernel is responsible for all forwarding, it should also be respons=
+ible
+>>> for taking action when the traffic can no longer be forwarded -- th=
+ere
+>>> is no real need to outsource link-monitoring to userspace anymore.
+>>>
+>>> This feature is only enabled with the new per-interface or ipv4 glo=
+bal
+>>> sysctls called 'ignore_routes_with_linkdown'.
+>>>
+>>> net.ipv4.conf.all.ignore_routes_with_linkdown =3D 0
+>>> net.ipv4.conf.default.ignore_routes_with_linkdown =3D 0
+>>> net.ipv4.conf.lo.ignore_routes_with_linkdown =3D 0
+>>> ...
+>> Sorry for my late reply, but is it possible to advertise this sysctl=
+ via the
+>> netconf infra (grep NETCONFA_)?
+> I would be happy to do that.  Do you see it as a requirement for this
+> set to be accepted?
+No, but it would be great to do it before net-next closes.
 
-	Hello,
-
-On Sun, 14 Jun 2015, Eric W. Biederman wrote:
-
-> This patshset roots out all of the very weird network namespace
-> computation logic (except for the code in ipvs) and fixes it.  I really
-> don't like how the code has been essentially guessing  which network
-> namespace to use.
-> 
-> Probably the worst guessing is in ipvs in the function skb_net. I have
-> some preliminary changes to fix ipvs but they are not quite ready yet.
-> Cleaning up ipvs enough that I can kill skb_net is on my short list.
-
-	For IPVS skb_net is too complicated. One of
-the first things we do in hook handler is to check
-skb_dst, so even now dev_net(skb_dst(skb)->dev) should
-work. sock_net is used for administration via netlink,
-skb_net is not used there (ip_vs_ctl.c).
-
-	As for removing/replacing skb_net, ip_vs_conn_net()
-is ok when cp is present, we have also svc->net, otherwise
-we can store net into struct ip_vs_iphdr, it is filled by
-ip_vs_fill_iph_skb from small number of places when hook
-handler is entered.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+>
+> I've got to add ipv6 support, so netconf support could also easily be
+> added in the kernel and iproute2.
+Ok.
