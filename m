@@ -1,8 +1,11 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH net-next 26/43] netfitler: Remove spurios included of netfilter.h
-Date: Wed, 17 Jun 2015 10:28:35 -0500
-Message-ID: <1434554932-4552-26-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH net-next 18/43] netfilter: don't pull include/linux/netfilter.h from netns headers
+Date: Wed, 17 Jun 2015 10:28:27 -0500
+Message-ID: <1434554932-4552-18-git-send-email-ebiederm@xmission.com>
 References: <87r3pae5hn.fsf@x220.int.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	Juanjo Ciarlante <jjciarla@raiz.uncu.edu.ar>,
@@ -21,175 +24,143 @@ In-Reply-To: <87r3pae5hn.fsf@x220.int.ebiederm.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric W Biederman <ebiederm@xmission.com>
+=46rom: Pablo Neira Ayuso <pablo@netfilter.org>
 
-While testing my netfilter changes I noticed several files where
-recompiling unncessarily because they unncessarily included
-netfilter.h.
+This pulls the full hook netfilter definitions from all those that incl=
+ude
+net_namespace.h.
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Instead let's just include the bare minimum required in the new
+linux/netfilter_defs.h file, and use it from the netfilter netns header=
+ files.
+
+I also needed to include in.h and in6.h from linux/netfilter.h otherwis=
+e we hit
+this compilation error:
+
+In file included from include/linux/netfilter_defs.h:4:0,
+                 from include/net/netns/netfilter.h:4,
+                 from include/net/net_namespace.h:22,
+                 from include/linux/netdevice.h:43,
+                 from net/netfilter/nfnetlink_queue_core.c:23:
+include/uapi/linux/netfilter.h:76:17: error: field =E2=80=98in=E2=80=99=
+ has incomplete type struct in_addr in;
+
+And also explicit include linux/netfilter.h in several spots.
+
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- drivers/net/hamradio/bpqether.c | 1 -
- drivers/net/ppp/pptp.c          | 2 --
- drivers/net/wan/lapbether.c     | 1 -
- net/ax25/af_ax25.c              | 1 -
- net/ax25/ax25_in.c              | 1 -
- net/ax25/ax25_ip.c              | 1 -
- net/ax25/ax25_out.c             | 1 -
- net/ax25/ax25_uid.c             | 1 -
- net/netrom/nr_route.c           | 1 -
- net/rose/rose_link.c            | 1 -
- net/rose/rose_route.c           | 1 -
- security/selinux/xfrm.c         | 3 ---
- 12 files changed, 15 deletions(-)
+ include/linux/netfilter.h      | 6 ++----
+ include/linux/netfilter_defs.h | 9 +++++++++
+ include/net/netns/netfilter.h  | 2 +-
+ include/net/netns/x_tables.h   | 2 +-
+ include/uapi/linux/netfilter.h | 3 ++-
+ net/ipv6/output_core.c         | 1 +
+ 6 files changed, 16 insertions(+), 7 deletions(-)
+ create mode 100644 include/linux/netfilter_defs.h
 
-diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
-index 63ff08a26da8..7856b6ccf5c5 100644
---- a/drivers/net/hamradio/bpqether.c
-+++ b/drivers/net/hamradio/bpqether.c
-@@ -76,7 +76,6 @@
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
- #include <linux/stat.h>
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index b3d157274cda..c10a13697e5e 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -10,7 +10,8 @@
+ #include <linux/wait.h>
+ #include <linux/list.h>
+ #include <linux/static_key.h>
+-#include <uapi/linux/netfilter.h>
++#include <linux/netfilter_defs.h>
++
+ #ifdef CONFIG_NETFILTER
+ static inline int NF_DROP_GETERR(int verdict)
+ {
+@@ -38,9 +39,6 @@ static inline void nf_inet_addr_mask(const union nf_i=
+net_addr *a1,
+=20
+ int netfilter_init(void);
+=20
+-/* Largest hook number + 1 */
+-#define NF_MAX_HOOKS 8
+-
+ struct sk_buff;
+=20
+ struct nf_hook_ops;
+diff --git a/include/linux/netfilter_defs.h b/include/linux/netfilter_d=
+efs.h
+new file mode 100644
+index 000000000000..d3a7f8597e82
+--- /dev/null
++++ b/include/linux/netfilter_defs.h
+@@ -0,0 +1,9 @@
++#ifndef __LINUX_NETFILTER_CORE_H_
++#define __LINUX_NETFILTER_CORE_H_
++
++#include <uapi/linux/netfilter.h>
++
++/* Largest hook number + 1, see uapi/linux/netfilter_decnet.h */
++#define NF_MAX_HOOKS 8
++
++#endif
+diff --git a/include/net/netns/netfilter.h b/include/net/netns/netfilte=
+r.h
+index cf25b5e35f3c..532e4ba64f49 100644
+--- a/include/net/netns/netfilter.h
++++ b/include/net/netns/netfilter.h
+@@ -1,7 +1,7 @@
+ #ifndef __NETNS_NETFILTER_H
+ #define __NETNS_NETFILTER_H
+=20
 -#include <linux/netfilter.h>
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/rtnetlink.h>
-diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
-index 14839bc0aaf5..686f37daa262 100644
---- a/drivers/net/ppp/pptp.c
-+++ b/drivers/net/ppp/pptp.c
-@@ -28,8 +28,6 @@
- #include <linux/file.h>
- #include <linux/in.h>
- #include <linux/ip.h>
++#include <linux/netfilter_defs.h>
+=20
+ struct proc_dir_entry;
+ struct nf_logger;
+diff --git a/include/net/netns/x_tables.h b/include/net/netns/x_tables.=
+h
+index 4d6597ad6067..c8a7681efa6a 100644
+--- a/include/net/netns/x_tables.h
++++ b/include/net/netns/x_tables.h
+@@ -2,7 +2,7 @@
+ #define __NETNS_X_TABLES_H
+=20
+ #include <linux/list.h>
 -#include <linux/netfilter.h>
--#include <linux/netfilter_ipv4.h>
- #include <linux/rcupdate.h>
- #include <linux/spinlock.h>
- 
-diff --git a/drivers/net/wan/lapbether.c b/drivers/net/wan/lapbether.c
-index 2f5eda8a7227..6676607164d6 100644
---- a/drivers/net/wan/lapbether.c
-+++ b/drivers/net/wan/lapbether.c
-@@ -40,7 +40,6 @@
- #include <linux/interrupt.h>
- #include <linux/notifier.h>
- #include <linux/stat.h>
--#include <linux/netfilter.h>
- #include <linux/module.h>
- #include <linux/lapb.h>
- #include <linux/init.h>
-diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-index 4273533d22b1..9c891d0412a2 100644
---- a/net/ax25/af_ax25.c
-+++ b/net/ax25/af_ax25.c
-@@ -40,7 +40,6 @@
- #include <linux/notifier.h>
- #include <linux/proc_fs.h>
- #include <linux/stat.h>
--#include <linux/netfilter.h>
- #include <linux/sysctl.h>
- #include <linux/init.h>
- #include <linux/spinlock.h>
-diff --git a/net/ax25/ax25_in.c b/net/ax25/ax25_in.c
-index 7ed8ab724819..29a3687237aa 100644
---- a/net/ax25/ax25_in.c
-+++ b/net/ax25/ax25_in.c
-@@ -23,7 +23,6 @@
- #include <linux/inet.h>
- #include <linux/netdevice.h>
- #include <linux/skbuff.h>
--#include <linux/netfilter.h>
- #include <net/sock.h>
- #include <net/tcp_states.h>
- #include <asm/uaccess.h>
-diff --git a/net/ax25/ax25_ip.c b/net/ax25/ax25_ip.c
-index 7c646bb2c6f7..b563a3f5f2a8 100644
---- a/net/ax25/ax25_ip.c
-+++ b/net/ax25/ax25_ip.c
-@@ -31,7 +31,6 @@
- #include <linux/notifier.h>
- #include <linux/proc_fs.h>
- #include <linux/stat.h>
--#include <linux/netfilter.h>
- #include <linux/sysctl.h>
- #include <net/ip.h>
- #include <net/arp.h>
-diff --git a/net/ax25/ax25_out.c b/net/ax25/ax25_out.c
-index be2acab9be9d..8ddd41baa81c 100644
---- a/net/ax25/ax25_out.c
-+++ b/net/ax25/ax25_out.c
-@@ -24,7 +24,6 @@
- #include <linux/inet.h>
- #include <linux/netdevice.h>
- #include <linux/skbuff.h>
--#include <linux/netfilter.h>
- #include <net/sock.h>
- #include <asm/uaccess.h>
- #include <linux/fcntl.h>
-diff --git a/net/ax25/ax25_uid.c b/net/ax25/ax25_uid.c
-index 71c4badbc807..4ad2fb7bcd35 100644
---- a/net/ax25/ax25_uid.c
-+++ b/net/ax25/ax25_uid.c
-@@ -34,7 +34,6 @@
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
- #include <linux/stat.h>
--#include <linux/netfilter.h>
- #include <linux/sysctl.h>
- #include <linux/export.h>
- #include <net/ip.h>
-diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
-index 96b64d2f6dbf..d72a4f1558f2 100644
---- a/net/netrom/nr_route.c
-+++ b/net/netrom/nr_route.c
-@@ -31,7 +31,6 @@
- #include <linux/mm.h>
- #include <linux/interrupt.h>
- #include <linux/notifier.h>
--#include <linux/netfilter.h>
- #include <linux/init.h>
- #include <linux/spinlock.h>
- #include <net/netrom.h>
-diff --git a/net/rose/rose_link.c b/net/rose/rose_link.c
-index e873d7d9f857..c76638cc2cd5 100644
---- a/net/rose/rose_link.c
-+++ b/net/rose/rose_link.c
-@@ -25,7 +25,6 @@
- #include <linux/fcntl.h>
- #include <linux/mm.h>
- #include <linux/interrupt.h>
--#include <linux/netfilter.h>
- #include <net/rose.h>
- 
- static void rose_ftimer_expiry(unsigned long);
-diff --git a/net/rose/rose_route.c b/net/rose/rose_route.c
-index 40148932c8a4..0fc76d845103 100644
---- a/net/rose/rose_route.c
-+++ b/net/rose/rose_route.c
-@@ -31,7 +31,6 @@
- #include <linux/mm.h>
- #include <linux/interrupt.h>
- #include <linux/notifier.h>
--#include <linux/netfilter.h>
- #include <linux/init.h>
- #include <net/rose.h>
- #include <linux/seq_file.h>
-diff --git a/security/selinux/xfrm.c b/security/selinux/xfrm.c
-index 98b042630a9e..56e354fcdfc6 100644
---- a/security/selinux/xfrm.c
-+++ b/security/selinux/xfrm.c
-@@ -35,9 +35,6 @@
- #include <linux/init.h>
- #include <linux/security.h>
++#include <linux/netfilter_defs.h>
+=20
+ struct ebt_table;
+=20
+diff --git a/include/uapi/linux/netfilter.h b/include/uapi/linux/netfil=
+ter.h
+index 177027cce6b3..d93f949d1d9a 100644
+--- a/include/uapi/linux/netfilter.h
++++ b/include/uapi/linux/netfilter.h
+@@ -4,7 +4,8 @@
  #include <linux/types.h>
--#include <linux/netfilter.h>
--#include <linux/netfilter_ipv4.h>
--#include <linux/netfilter_ipv6.h>
- #include <linux/slab.h>
- #include <linux/ip.h>
- #include <linux/tcp.h>
--- 
+ #include <linux/compiler.h>
+ #include <linux/sysctl.h>
+-
++#include <linux/in.h>
++#include <linux/in6.h>
+=20
+ /* Responses from hook functions. */
+ #define NF_DROP 0
+diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
+index b053e36560a9..87a3998a8417 100644
+--- a/net/ipv6/output_core.c
++++ b/net/ipv6/output_core.c
+@@ -8,6 +8,7 @@
+ #include <net/ip6_fib.h>
+ #include <net/addrconf.h>
+ #include <net/secure_seq.h>
++#include <linux/netfilter.h>
+=20
+ static u32 __ipv6_select_ident(struct net *net, u32 hashrnd,
+ 			       const struct in6_addr *dst,
+--=20
 2.2.1
 
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
