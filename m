@@ -1,62 +1,184 @@
-From: Nicholas Krause <xerofoify@gmail.com>
-Subject: Re: [PATCH] xilinx:Remove unused variable num_frag in the function
- axienet_start_xmit
-Date: Wed, 17 Jun 2015 12:21:04 -0400
-Message-ID: <DD47523D-0DF9-46B5-9382-3C30BBD9E815@gmail.com>
-References: <1434556362-3748-1-git-send-email-xerofoify@gmail.com>
- <20150617160730.GE2906@xsjsorenbubuntu>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH v6 2/3] ixgbe: Add new ndo to trust
+ VF
+Date: Wed, 17 Jun 2015 09:22:09 -0700
+Message-ID: <55819EB1.5090203@gmail.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EE18AA@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- michal.simek@xilinx.com, anirudh@xilinx.com, John.Linn@xilinx.com,
- linux-arm-kernel@lists.infradead.org
-To: =?ISO-8859-1?Q?S=F6ren_Brinkmann?= <soren.brinkmann@xilinx.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20150617160730.GE2906@xsjsorenbubuntu>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	Edward Cree <ecree@solarflare.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36788 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754893AbbFQQWM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 12:22:12 -0400
+Received: by paceq1 with SMTP id eq1so15001089pac.3
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 09:22:11 -0700 (PDT)
+In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05EE18AA@BPXM14GP.gisp.nec.co.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiBKdW5lIDE3LCAyMDE1IDEyOjA3OjMwIFBNIEVEVCwgIlPDtnJlbiBCcmlua21hbm4iIDxz
-b3Jlbi5icmlua21hbm5AeGlsaW54LmNvbT4gd3JvdGU6Cj5PbiBXZWQsIDIwMTUtMDYtMTcgYXQg
-MTE6NTJBTSAtMDQwMCwgTmljaG9sYXMgS3JhdXNlIHdyb3RlOgo+PiBUaGlzIHJlbW92ZXMgdGhl
-IHVudXNlZCB2YXJpYWJsZSBudW1fZnJhZyBhbmQgdGhlIHNldHRpbmcgb2YgaXQKPj4gdG8gdGhl
-IG51bWJlciBvZiBmcmFnbWVudHMgZnJvbSB0aGUgcGFzc2VkIHNrX2J1ZmYgcG9pbnRlciBieQo+
-PiB0aGlzIGZ1bmN0aW9uJ3MgY2FsbGVyIGR1ZSB0byB0aGlzIHZhcmlhYmxlIG5ldmVyIGJlaW5n
-IHVzZWQKPj4gaW4gdGhpcyBwYXJ0aWN1bGFyIGZ1bmN0aW9uIGFuZCBpcyBub3QgZGVjbGFyZWQg
-YXMgIGdsb2JhbCBzbwo+PiBzZXR0aW5nIGl0IGZvciBnbG9iYWwgdXNlIGluIHRoaXMgZmlsZSBp
-cyBwb2ludGxlc3MuCj4+IAo+PiBTaWduZWQtb2ZmLWJ5OiBOaWNob2xhcyBLcmF1c2UgPHhlcm9m
-b2lmeUBnbWFpbC5jb20+Cj4+IC0tLQo+PiAgZHJpdmVycy9uZXQvZXRoZXJuZXQveGlsaW54L3hp
-bGlueF9heGllbmV0X21haW4uYyB8IDIgLS0KPj4gIDEgZmlsZSBjaGFuZ2VkLCAyIGRlbGV0aW9u
-cygtKQo+PiAKPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3hpbGlueC94aWxp
-bnhfYXhpZW5ldF9tYWluLmMKPmIvZHJpdmVycy9uZXQvZXRoZXJuZXQveGlsaW54L3hpbGlueF9h
-eGllbmV0X21haW4uYwo+PiBpbmRleCAyOGI3ZTdkLi42MjRkY2U0IDEwMDY0NAo+PiAtLS0gYS9k
-cml2ZXJzL25ldC9ldGhlcm5ldC94aWxpbngveGlsaW54X2F4aWVuZXRfbWFpbi5jCj4+ICsrKyBi
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L3hpbGlueC94aWxpbnhfYXhpZW5ldF9tYWluLmMKPj4gQEAg
-LTY1MSw3ICs2NTEsNiBAQCBzdGF0aWMgaW5saW5lIGludAo+YXhpZW5ldF9jaGVja190eF9iZF9z
-cGFjZShzdHJ1Y3QgYXhpZW5ldF9sb2NhbCAqbHAsCj4+ICBzdGF0aWMgaW50IGF4aWVuZXRfc3Rh
-cnRfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZQo+Km5kZXYpCj4+
-ICB7Cj4+ICAJdTMyIGlpOwo+PiAtCXUzMiBudW1fZnJhZzsKPj4gIAl1MzIgY3N1bV9zdGFydF9v
-ZmY7Cj4+ICAJdTMyIGNzdW1faW5kZXhfb2ZmOwo+PiAgCXNrYl9mcmFnX3QgKmZyYWc7Cj4+IEBA
-IC02NTksNyArNjU4LDYgQEAgc3RhdGljIGludCBheGllbmV0X3N0YXJ0X3htaXQoc3RydWN0IHNr
-X2J1ZmYKPipza2IsIHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2KQo+PiAgCXN0cnVjdCBheGllbmV0
-X2xvY2FsICpscCA9IG5ldGRldl9wcml2KG5kZXYpOwo+PiAgCXN0cnVjdCBheGlkbWFfYmQgKmN1
-cl9wOwo+PiAgCj4+IC0JbnVtX2ZyYWcgPSBza2Jfc2hpbmZvKHNrYiktPm5yX2ZyYWdzOwo+PiAg
-CWN1cl9wID0gJmxwLT50eF9iZF92W2xwLT50eF9iZF90YWlsXTsKPj4gIAo+PiAgCWlmIChheGll
-bmV0X2NoZWNrX3R4X2JkX3NwYWNlKGxwLCBudW1fZnJhZykpIHsKPgo+SXQncyB1c2VkIHJpZ2h0
-IGhlcmUsIGlzbid0IGl0IChhbmQgZnVydGhlciBkb3duIGluIHRoaXMgZnVuY3Rpb24gdG9vKT8K
-PkRvZXMgeW91ciB0cmVlIGNvbXBpbGUgd2l0aCB0aGlzIGNoYW5nZT8KPgo+CVPDtnJlbgpNeSB0
-cmVlIGRvZXMgY29tcGlsZSB3aXRoIHRoaXMgY2hhbmdlLiAKTmljayAKCi0tIApTZW50IGZyb20g
-bXkgQW5kcm9pZCBkZXZpY2Ugd2l0aCBLLTkgTWFpbC4gUGxlYXNlIGV4Y3VzZSBteSBicmV2aXR5
-LgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbGludXgt
-YXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQu
-b3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJt
-LWtlcm5lbAo=
+On 06/17/2015 04:43 AM, Hiroshi Shimamoto wrote:
+> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+>
+> Implements the new netdev op to trust VF in ixgbe.
+>
+> The administrator can turn on and off VF trusted by ip command which
+> supports trust message.
+>   # ip link set dev eth0 vf 1 trust on
+> or
+>   # ip link set dev eth0 vf 1 trust off
+>
+> Send a ping to reset VF on changing the status of trusting.
+> VF driver will reconfigure its features on reset.
+>
+> Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> ---
+>   drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  1 +
+>   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  1 +
+>   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 45 ++++++++++++++++++++++----
+>   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |  1 +
+>   4 files changed, 41 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+> index 8830c0f..7f76c12 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+> @@ -152,6 +152,7 @@ struct vf_data_storage {
+>   	u16 vlan_count;
+>   	u8 spoofchk_enabled;
+>   	bool rss_query_enabled;
+> +	u8 trusted;
+>   	unsigned int vf_api;
+>   };
+>
+
+At some point these boolean values should be converted to bit flags to 
+save space.  At this point it looks like you have something like 5 
+boolean values now in this structure.  If you converted them to a u8 
+field of bit flags you could save about 4 bytes per instance.
+
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index 5f1b06a..376b49b 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -8349,6 +8349,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+>   	.ndo_set_vf_rate	= ixgbe_ndo_set_vf_bw,
+>   	.ndo_set_vf_spoofchk	= ixgbe_ndo_set_vf_spoofchk,
+>   	.ndo_set_vf_rss_query_en = ixgbe_ndo_set_vf_rss_query_en,
+> +	.ndo_set_vf_trust	= ixgbe_ndo_set_vf_trust,
+>   	.ndo_get_vf_config	= ixgbe_ndo_get_vf_config,
+>   	.ndo_get_stats64	= ixgbe_get_stats64,
+>   #ifdef CONFIG_IXGBE_DCB
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> index 1d17b58..826f88e 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> @@ -116,6 +116,9 @@ static int __ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
+>   			 * we want to disable the querying by default.
+>   			 */
+>   			adapter->vfinfo[i].rss_query_enabled = 0;
+> +
+> +			/* Untrust all VFs */
+> +			adapter->vfinfo[i].trusted = false;
+>   		}
+>
+>   		return 0;
+> @@ -1124,18 +1127,23 @@ void ixgbe_disable_tx_rx(struct ixgbe_adapter *adapter)
+>   	IXGBE_WRITE_REG(hw, IXGBE_VFRE(1), 0);
+>   }
+>
+> -void ixgbe_ping_all_vfs(struct ixgbe_adapter *adapter)
+> +static inline void ixgbe_ping_vf(struct ixgbe_adapter *adapter, int vf)
+>   {
+>   	struct ixgbe_hw *hw = &adapter->hw;
+>   	u32 ping;
+> +
+> +	ping = IXGBE_PF_CONTROL_MSG;
+> +	if (adapter->vfinfo[vf].clear_to_send)
+> +		ping |= IXGBE_VT_MSGTYPE_CTS;
+> +	ixgbe_write_mbx(hw, &ping, 1, vf);
+> +}
+> +
+> +void ixgbe_ping_all_vfs(struct ixgbe_adapter *adapter)
+> +{
+>   	int i;
+>
+> -	for (i = 0 ; i < adapter->num_vfs; i++) {
+> -		ping = IXGBE_PF_CONTROL_MSG;
+> -		if (adapter->vfinfo[i].clear_to_send)
+> -			ping |= IXGBE_VT_MSGTYPE_CTS;
+> -		ixgbe_write_mbx(hw, &ping, 1, i);
+> -	}
+> +	for (i = 0 ; i < adapter->num_vfs; i++)
+> +		ixgbe_ping_vf(adapter, i);
+>   }
+>
+
+This ping_all_vfs/ping_vf change doesn't really have anything to do with 
+the ndo_trust part and should probably be a separate patch.
+
+>   int ixgbe_ndo_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
+> @@ -1416,6 +1424,28 @@ int ixgbe_ndo_set_vf_rss_query_en(struct net_device *netdev, int vf,
+>   	return 0;
+>   }
+>
+> +int ixgbe_ndo_set_vf_trust(struct net_device *netdev, int vf, bool setting)
+> +{
+> +	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+> +
+> +	if (vf >= adapter->num_vfs)
+> +		return -EINVAL;
+> +
+> +	/* nothing to do */
+> +	if (adapter->vfinfo[vf].trusted == setting)
+> +		return 0;
+> +
+> +	adapter->vfinfo[vf].trusted = setting;
+> +
+> +	/* reset VF to reconfigure features */
+> +	adapter->vfinfo[vf].clear_to_send = false;
+> +	ixgbe_ping_vf(adapter, vf);
+> +
+> +	e_info(drv, "VF %u is %strusted\n", vf, setting ? "" : "not ");
+> +
+> +	return 0;
+> +}
+> +
+>   int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+>   			    int vf, struct ifla_vf_info *ivi)
+>   {
+> @@ -1430,5 +1460,6 @@ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+>   	ivi->qos = adapter->vfinfo[vf].pf_qos;
+>   	ivi->spoofchk = adapter->vfinfo[vf].spoofchk_enabled;
+>   	ivi->rss_query_en = adapter->vfinfo[vf].rss_query_enabled;
+> +	ivi->trusted = adapter->vfinfo[vf].trusted;
+>   	return 0;
+>   }
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+> index 2c197e6..dad9257 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+> @@ -49,6 +49,7 @@ int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int min_tx_rate,
+>   int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting);
+>   int ixgbe_ndo_set_vf_rss_query_en(struct net_device *netdev, int vf,
+>   				  bool setting);
+> +int ixgbe_ndo_set_vf_trust(struct net_device *netdev, int vf, bool setting);
+>   int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+>   			    int vf, struct ifla_vf_info *ivi);
+>   void ixgbe_check_vf_rate_limit(struct ixgbe_adapter *adapter);
+>
