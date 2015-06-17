@@ -1,75 +1,103 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCH net] ipv4: include NLM_F_APPEND flag in append route notifications
-Date: Wed, 17 Jun 2015 10:31:47 -0700
-Message-ID: <5581AF03.8010501@redhat.com>
-References: <1434471120-26742-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bDnVEq1mqUmmYMFAd9CeEbn9tTzD_UnoDKYVScT5G=QJA@mail.gmail.com> <5581893E.3070609@cumulusnetworks.com> <558193C1.70001@gmail.com> <55819E5A.8020801@cumulusnetworks.com>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH 01/12] fsl/fman: Add the FMan FLIB headers
+Date: Wed, 17 Jun 2015 12:57:51 -0500
+Message-ID: <1434563871.2353.90.camel@freescale.com>
+References: <1433949712-5648-1-git-send-email-madalin.bucur@freescale.com>
+	 <1433949712-5648-2-git-send-email-madalin.bucur@freescale.com>
+	 <1433949712-5648-3-git-send-email-madalin.bucur@freescale.com>
+	 <1433962446.2477.121.camel@freescale.com>
+	 <DM2PR03MB3830ADD2B503C6738BB27E7E6A60@DM2PR03MB383.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: roopa <roopa@cumulusnetworks.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47866 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755588AbbFQRbs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2015 13:31:48 -0400
-In-Reply-To: <55819E5A.8020801@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Bucur Madalin-Cristian-B32716 <madalin.bucur@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+To: Liberman Igal-B31950 <Igal.Liberman@freescale.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <DM2PR03MB3830ADD2B503C6738BB27E7E6A60@DM2PR03MB383.namprd03.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/17/2015 09:20 AM, roopa wrote:
-> On 6/17/15, 8:35 AM, Alexander Duyck wrote:
->>
->>> @@ -1189,8 +1190,9 @@ int fib_table_insert(struct fib_table *tb, struct
->>> fib_config *cfg)
->>>                          fib_release_info(fi_drop);
->>>                          if (state & FA_S_ACCESSED)
->>> rt_cache_flush(cfg->fc_nlinfo.nl_net);
->>> +                       nlflags |= NLM_F_REPLACE;
->>>                          rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, 
->>> plen,
->>> -                               tb->tb_id, &cfg->fc_nlinfo, 
->>> NLM_F_REPLACE);
->>> +                               tb->tb_id, &cfg->fc_nlinfo, nlflags);
->>>
->>>                          goto succeeded;
->>>
->>
->> Why even bother modifying this part?  Is this actually needed at all, 
->> are there some other flags you plan to drop into nlflags as well that 
->> would be passed as a part of this message?
->
-> agreed, for the same reason my initial patch did not touch this part. 
-> Nope, no other flags. I was trying to meet scotts concerns.
->>
->>> @@ -1201,7 +1203,9 @@ int fib_table_insert(struct fib_table *tb, struct
->>> fib_config *cfg)
->>>                  if (fa_match)
->>>                          goto out;
->>>
->>> -               if (!(cfg->fc_nlflags & NLM_F_APPEND))
->>> +               if (cfg->fc_nlflags & NLM_F_APPEND)
->>> +                       nlflags |= NLM_F_APPEND;
->>> +               else
->>>                          fa = fa_first;
->>>          }
->>>          err = -ENOENT;
->>
->> I'm not sure I see the point of using the |=.   Why not just use a = 
->> and save yourself an instruction or two since you don't really need 
->> the OR operator in this case.
->>
-> ack,
->
-> I would prefer keeping my initial patch which was pretty non-intrusive.
+On Wed, 2015-06-17 at 09:59 -0500, Liberman Igal-B31950 wrote:
+> 
+> Regards,
+> Igal Liberman.
+> 
+> > -----Original Message-----
+> > From: Wood Scott-B07421
+> > Sent: Wednesday, June 10, 2015 9:54 PM
+> > To: Bucur Madalin-Cristian-B32716
+> > Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; linuxppc-
+> > dev@lists.ozlabs.org; Liberman Igal-B31950
+> > Subject: Re: [PATCH 01/12] fsl/fman: Add the FMan FLIB headers
+> > 
+> > On Wed, 2015-06-10 at 18:21 +0300, Madalin Bucur wrote:
+> > > From: Igal Liberman <Igal.Liberman@freescale.com>
+> > > 
+> > > This patch presents the FMan Foundation Libraries (FLIB) headers.
+> > > The FMan FLib provides the basic API used by the FMan drivers to
+> > > configure and control the FMan hardware.
+> > > 
+> > > Signed-off-by: Igal Liberman <Igal.Liberman@freescale.com>
+> > > ---
+> > >  .../ethernet/freescale/fman/flib/common/general.h  |  41 ++
+> > >  .../net/ethernet/freescale/fman/flib/fsl_fman.h    | 609
+> > > +++++++++++++++++++++
+> > >  2 files changed, 650 insertions(+)
+> > >  create mode 100644
+> > > drivers/net/ethernet/freescale/fman/flib/common/general.h
+> > >  create mode 100644
+> > > drivers/net/ethernet/freescale/fman/flib/fsl_fman.h
+> > 
+> > Why do we need separate patches just for headers?
+> > 
+> 
+> We wanted to make the patches smaller, it's the main reason for this 
+> separation.
 
-I'd say go with something closer to the original patch, but flip the 
-logic like you have here, and lose the "|=" in favor of an "=" since you 
-are either sending a message with 0 or NLM_F_APPEND.
+Patches should be divided by function, not arbitrarily in order to 
+decrease size.  Splitting like this makes it harder to see the whole 
+picture, to search for identifiers, etc.
 
-Anyway that is just my $.02.
+The right way to make these patches smaller is to remove unnecessary 
+features.
 
-- Alex
+
+> > What does the flib directory mean, in the context of Linux?  If 
+> > someone were
+> > to add code to this driver, how do they know if the code should go 
+> > into the
+> > flib directory or not?
+> > 
+> > > 
+> > > +#define iowrite32be(val, addr)               out_be32(&(*addr), 
+> > > val)
+> > > +#define ioread32be(addr)             in_be32(&(*addr))
+> > 
+> > iowrite32be()/ioread32be() are already defined for all relevant 
+> > architectures.
+> > Why are you redefining them into something PPC- specific?
+> > 
+> 
+> Removed those. 
+
+Please don't stop at the specific things I'm pointing out.
+
+> > > +/* do not change! if changed, must be disabled for rev1 ! */ 
+> > > #define
+> > > +DEFAULT_HALT_ON_EXTERNAL_ACTIVATION  false
+> > > +/* do not change! if changed, must be disabled for rev1 ! */ 
+> > > #define
+> > > +DEFAULT_HALT_ON_UNRECOVERABLE_ECC_ERROR false
+> > 
+> > rev1 of what chip?
+> > 
+> 
+> P4080. I'll update the comments. 
+
+No.  p4080rev1 is not supported, and in any case this is not the right 
+way to select different errata for different chips.
+
+-Scott
