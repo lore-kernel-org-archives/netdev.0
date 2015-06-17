@@ -1,149 +1,78 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [RFC PATCH net-next 0/4] switchdev: avoid duplicate packet
- forwarding
-Date: Wed, 17 Jun 2015 08:30:02 +0200
-Message-ID: <20150617063002.GA2090@nanopsycho.orion>
-References: <1434218670-43821-1-git-send-email-sfeldma@gmail.com>
- <20150615.162551.805611215439524288.davem@davemloft.net>
- <20150616060427.GA2135@nanopsycho.orion>
- <CAE4R7bDEw0JVkwagps1eBVGuZuK58eEfTX+0GU-2U1UKGCYyKQ@mail.gmail.com>
- <20150616211147.GB2135@nanopsycho.orion>
- <CAE4R7bA2ruG5MbExqC=TUiZdP9xjTvhSZxNV1kv+C4MfcG_1gA@mail.gmail.com>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: Re: [PATCH] isdn: disable HiSax NetJet driver on microblaze arch
+Date: Wed, 17 Jun 2015 08:53:49 +0200
+Message-ID: <1434524029.4280.12.camel@chaos.site>
+References: <87pp4vw3ep.fsf@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	davidch <davidch@broadcom.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:37438 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757387AbbFQGaF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 02:30:05 -0400
-Received: by wifx6 with SMTP id x6so41149883wif.0
-        for <netdev@vger.kernel.org>; Tue, 16 Jun 2015 23:30:04 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bA2ruG5MbExqC=TUiZdP9xjTvhSZxNV1kv+C4MfcG_1gA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Karsten Keil <isdn@linux-pingi.de>,
+	"David S. Miller" <davem@davemloft.net>
+To: Nicolai Stange <nicstange@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87pp4vw3ep.fsf@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Jun 17, 2015 at 01:53:56AM CEST, sfeldma@gmail.com wrote:
->On Tue, Jun 16, 2015 at 2:11 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Tue, Jun 16, 2015 at 06:47:47PM CEST, sfeldma@gmail.com wrote:
->>>On Mon, Jun 15, 2015 at 11:04 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> Tue, Jun 16, 2015 at 01:25:51AM CEST, davem@davemloft.net wrote:
->>>>>From: sfeldma@gmail.com
->>>>>Date: Sat, 13 Jun 2015 11:04:26 -0700
->>>>>
->>>>>> The switchdev port driver must do two things:
->>>>>>
->>>>>> 1) Generate a fwd_mark for each switch port, using some unique key of the
->>>>>>    switch device (and optionally port).  This is a one-time operation done
->>>>>>    when port's netdev is setup.
->>>>>>
->>>>>> 2) On packet ingress from port, mark the skb with the ingress port's
->>>>>>    fwd_mark.  If the device supports it, it's useful to only mark skbs
->>>>>>    which were already forwarded by the device.  If the device does not
->>>>>>    support such indication, all skbs can be marked, even if they're
->>>>>>    local dst.
->>>>>>
->>>>>> Two new 32-bit fields are added to struct sk_buff and struct netdevice to
->>>>>> hold the fwd_mark.  I've wrapped these with CONFIG_NET_SWITCHDEV for now. I
->>>>>> tried using skb->mark for this purpose, but ebtables can overwrite the
->>>>>> skb->mark before the bridge gets it, so that will not work.
->>>>>>
->>>>>> In general, this fwd_mark can be used for any case where a packet is
->>>>>> forwarded by the device and a copy is sent to the CPU, to avoid the kernel
->>>>>> re-forwarding the packet.  sFlow is another use-case that comes to mind,
->>>>>> but I haven't explored the details.
->>>>>
->>>>>Generally I'm against adding new fields fo sk_buff but I'm trying to be
->>>>>open minded. :-)
->>>>>
->>>>>About the per-device fwd_mark, if the key attribute is uniqueness,
->>>>>let's just do it right and use something like lib/idr.c to generate
->>>>>truly unique indices at probe time for all devices using this
->>>>>facility.  I like that better than having them be unique by a happy
->>>>>accident.
->>>>
->>>> We already have per-device uniqueue key. dev->ifindex.
->>>> That should be good for fwd_mark purposes I believe.
->>>
->>>It would be great if we could use dev->index, but fwd_mark is really
->>>to mark device ports that belong to a group.  In the case of a bridge,
->>>the device ports in the bridge should all have the same mark.  And
->>>another device's ports in the same bridge would have a different mark
->>>(so we can't use the bridge's dev->ifindex).  On ingress, the skb is
->>>marked with the ingress port's mark.  If the skb is to be forwarded
->>>out an egress port, the skb mark is compared with egress port's mark.
->>>If marks compare, then the device has already forwarded the pkt so the
->>>kernel can consume_skb to avoid duplicate pkts on the wire.
->>>
->>>So what we need is a unique mark for device ports within a fwding
->>>group, such as a bridge.
->>
->> Yep, have a group of netdevs, pick one of them and use it's ifindex for
->> the whole group.
->
->That will not work because ports from two switches in the same bridge
->need different marks...that's how the bridge knows which ports to fwd
->and which ones to skip.
->
->Example:
->
->br0
->   sw1p1 (mark=3)
->   sw1p2 (mark=3)
->   sw2p2 (mark=7)
->   sw2p2 (mark=7)
->
->Two switches, sw1 and sw2, in bridge br0.  Let's say sw1 receives an
->unknown unicast pkt. It'll flood the pkt to its other switch ports
->(sw1p2, in this case) and send a copy to the CPU (the bridge), with
->skb->mark=3.  The bridge will flood pkt to sw1p2, sw2p1, and sw2p2,
->but our little check in dev.c will drop the pkt to sw1p2 just before
->egress onto wire.  Pkt goes out on sw2p1 and sw2p2.  This is why we
->can't use just the br0 ifindex to generate the mark.  We need
->something unique about the switch port and the bridge ifindex to give
->us a mark for a port.
+Le Wednesday 17 June 2015 =C3=A0 03:05 +0200, Nicolai Stange a =C3=A9cr=
+it :
+> Fix an allmodconfig compilation failer on microblaze due to big endia=
+n
+> architectures being apparently unsupported by the NetJet code:
+>   drivers/isdn/hisax/nj_s.c: In function 'setup_netjet_s':
+>   drivers/isdn/hisax/nj_s.c:265:2:
+>       error: #error "not running on big endian machines now"
+>=20
+> Modify the relevant Kconfig such that the NetJet code is not built on
+> microblaze anymore.
+>=20
+> Note that endianess on microblaze is not determined through Kconfig,
+> but by means of a compiler provided CPP macro, namely __MICROBLAZEEL_=
+_.
+> However, gcc defaults to big endianess on that platform.
+>=20
+> Signed-off-by: Nicolai Stange <nicstange@gmail.com>
+> ---
+>  The maintainer tree listed under "ISDN SUBSYSTEM" in MAINTAINERS doe=
+s
+>  not exist anymore. I created the diff against the Linus tree.
+>=20
+>  drivers/isdn/hisax/Kconfig | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/isdn/hisax/Kconfig b/drivers/isdn/hisax/Kconfig
+> index 97465ac..eb83d94 100644
+> --- a/drivers/isdn/hisax/Kconfig
+> +++ b/drivers/isdn/hisax/Kconfig
+> @@ -237,7 +237,7 @@ config HISAX_MIC
+> =20
+>  config HISAX_NETJET
+>  	bool "NETjet card"
+> -	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !C=
+PU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
+> +	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !C=
+PU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || MICROBLAZ=
+E))
+>  	depends on VIRT_TO_BUS
+>  	help
+>  	  This enables HiSax support for the NetJet from Traverse
+> @@ -249,7 +249,7 @@ config HISAX_NETJET
+> =20
+>  config HISAX_NETJET_U
+>  	bool "NETspider U card"
+> -	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !C=
+PU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
+> +	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !C=
+PU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || MICROBLAZ=
+E))
+>  	depends on VIRT_TO_BUS
+>  	help
+>  	  This enables HiSax support for the Netspider U interface ISDN car=
+d
 
+Acked-by: Jean Delvare <jdelvare@suse.de>
 
-Scott, again, I'm not talking about br0 ifindex! I'm talking about
-ifindexes of the port netdevs.
-
-br0
-  sw1p1  ifindex=1
-  sw1p2  ifindex=2
-  sw2p1  ifindex=3
-  sw2p2  ifindex=4
-
-
-now we have 2 groups, one in each switch. So for sw1 group (sw1p1 and
-sw1p2) we select mark one of the ifindexes, so either "1" or "2"
-For second group, from sw2 we select "3" or "4". So for example:
-br0
-  sw1p1  mark=1
-  sw1p2  mark=1
-  sw2p1  mark=4
-  sw2p2  mark=4
-
-This is generic, usable for every group.
-
-
->
->I'm going to send v2 which uses switch port ppid + some group ifindex
->to generate port mark.  Group ifindex could be bond ifindex or bridge
->ifindex or even zero if ports are L3 router ports and we want to prune
->any L3 forwarding by the kernel.  There is some flexibility here,
->depending on what we're trying to do.  We have the switch port ppid,
->so we might as well use it.
->
->-scott
+--=20
+Jean Delvare
+SUSE L3 Support
