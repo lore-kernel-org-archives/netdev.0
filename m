@@ -1,188 +1,358 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 0/3 v5] changes to make ipv4 routing table aware
- of next-hop link status
-Date: Thu, 18 Jun 2015 15:39:38 -0400
-Message-ID: <20150618193937.GO588@gospo.home.greyhouse.net>
-References: <1434640932-2681-1-git-send-email-gospo@cumulusnetworks.com>
- <CAE4R7bAswHA37ed=R90q+WGJo3peXU-_N_5CL5PMuOivxq-uYg@mail.gmail.com>
+From: Alexander Duyck <alexander.h.duyck-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next 1/3] ipv4: Lock-less per-packet multipath
+Date: Thu, 18 Jun 2015 12:42:05 -0700
+Message-ID: <55831F0D.3040703@redhat.com>
+References: <1434571686-5149-1-git-send-email-pch@ordbogen.com> <1434571686-5149-2-git-send-email-pch@ordbogen.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, ddutt@cumulusnetworks.com,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:33719 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751147AbbFRTjk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 15:39:40 -0400
-Received: by qged89 with SMTP id d89so29731780qge.0
-        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 12:39:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bAswHA37ed=R90q+WGJo3peXU-_N_5CL5PMuOivxq-uYg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?UTF-8?B?UGV0ZXIgTsO4cmx1bmQ=?= <pch-chEQUL3jiZBWk0Htik3J/w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1434571686-5149-2-git-send-email-pch-chEQUL3jiZBWk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 18, 2015 at 10:51:37AM -0700, Scott Feldman wrote:
-> On Thu, Jun 18, 2015 at 8:22 AM, Andy Gospodarek
-> <gospo@cumulusnetworks.com> wrote:
-> > This series adds the ability to have the Linux kernel track whether or
-> > not a particular route should be used based on the link-status of the
-> > interface associated with the next-hop.
-> >
-> > Before this patch any link-failure on an interface that was serving as a
-> > gateway for some systems could result in those systems being isolated
-> > from the rest of the network as the stack would continue to attempt to
-> > send frames out of an interface that is actually linked-down.  When the
-> > kernel is responsible for all forwarding, it should also be responsible
-> > for taking action when the traffic can no longer be forwarded -- there
-> > is no real need to outsource link-monitoring to userspace anymore.
-> >
-> > This feature is only enabled with the new per-interface or ipv4 global
-> > sysctls called 'ignore_routes_with_linkdown'.
-> >
-> > net.ipv4.conf.all.ignore_routes_with_linkdown = 0
-> > net.ipv4.conf.default.ignore_routes_with_linkdown = 0
-> > net.ipv4.conf.lo.ignore_routes_with_linkdown = 0
-> > ...
-> >
-> > When the above sysctls are set, the kernel will not only report to
-> > userspace that the link is down, but it will also report to userspace
-> > that a route is dead.  This will signal to userspace that the route will
-> > not be selected.
-> >
-> > With the new sysctls set, the following behavior can be observed
-> > (interface p8p1 is link-down):
-> >
-> > # ip route show
-> > default via 10.0.5.2 dev p9p1
-> > 10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15
-> > 70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1
-> > 80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 dead linkdown
-> > 90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 dead linkdown
-> > 90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2
-> > # ip route get 90.0.0.1
-> > 90.0.0.1 via 70.0.0.2 dev p7p1  src 70.0.0.1
-> >     cache
-> > # ip route get 80.0.0.1
-> > local 80.0.0.1 dev lo  src 80.0.0.1
-> >     cache <local>
-> > # ip route get 80.0.0.2
-> > 80.0.0.2 via 10.0.5.2 dev p9p1  src 10.0.5.15
-> >     cache
-> >
-> > While the route does remain in the table (so it can be modified if
-> > needed rather than being wiped away as it would be if IFF_UP was
-> > cleared), the proper next-hop is chosen automatically when the link is
-> > down.  Now interface p8p1 is linked-up:
-> >
-> > # ip route show
-> > default via 10.0.5.2 dev p9p1
-> > 10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15
-> > 70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1
-> > 80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1
-> > 90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1
-> > 90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2
-> > 192.168.56.0/24 dev p2p1  proto kernel  scope link  src 192.168.56.2
-> > # ip route get 90.0.0.1
-> > 90.0.0.1 via 80.0.0.2 dev p8p1  src 80.0.0.1
-> >     cache
-> > # ip route get 80.0.0.1
-> > local 80.0.0.1 dev lo  src 80.0.0.1
-> >     cache <local>
-> > # ip route get 80.0.0.2
-> > 80.0.0.2 dev p8p1  src 80.0.0.1
-> >     cache
-> >
-> > and the output changes to what one would expect.
-> >
-> > If the global or interface sysctl is not set, the following output would be
-> > expected when p8p1 is down:
-> >
-> > # ip route show
-> > default via 10.0.5.2 dev p9p1
-> > 10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15
-> > 70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1
-> > 80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 linkdown
-> > 90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 linkdown
-> > 90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2
-> >
-> > If the dead flag does not appear there should be no expectation that the
-> > kernel would skip using this route due to link being down.
-> >
-> > v2: Split kernel changes into 2 patches: first to add linkdown flag and
-> > second to add new sysctl settings.  Also took suggestion from Alex to
-> > simplify code by only checking sysctl during fib lookup and suggestion
-> > from Scott to add a per-interface sysctl.  Added iproute2 patch to
-> > recognize and print linkdown flag.
-> >
-> > v3: Code cleanups along with reverse-path checks suggested by Alex and
-> > small fixes related to problems found when multipath was disabled.
-> >
-> > v4: Drop binary sysctls
-> >
-> > v5: Whitespace and variable declaration fixups suggested by Dave
-> >
-> > Though there were some that preferred not to have a configuration option
-> > and to make this behavior the default when it was discussed in Ottawa
-> > earlier this year since "it was time to do this."  I wanted to propose
-> > the config option to preserve the current behavior for those that desire
-> > it.  I'll happily remove it if Dave and Linus approve.
-> >
-> > An IPv6 implementation is also needed (DECnet too!), but I wanted to start with
-> > the IPv4 implementation to get people comfortable with the idea before moving
-> > forward.  If this is accepted the IPv6 implementation can be posted shortly.
-> >
-> > There was also a request for switchdev support for this, but that will be
-> > posted as a followup as switchdev does not currently handle dead
-> > next-hops in a multi-path case and I felt that infra needed to be added
-> > first.
-> 
-> Andy, I finally got some time to try your patches with
-> switchdev+rocker.  With static routes I see the same results as
-> you...feature is working.  But, I'm not getting switchdev add/mod
-> updates when link changes.  So switchdev needs to get hooked for this
-> new feature.  I privately had told you switchdev was getting hooked,
-> but I was getting fooled by OSPF. I had an ECMP setup and OSPF was
-> pruning the ECMP nh list when a link went down due to OSPF Hellos no
-> longer getting thru.  (I had "link-detect" off in zebra).  switchdev
-> API should be ready to call for this linkdown event.  Need to make the
-> call around where the netlink echo is sent.   (I'm assuming linkdown
-> event generates NEWLINK msgs with LINKDOWN flag set).
+On 06/17/2015 01:08 PM, Peter N=C3=B8rlund wrote:
+> The current multipath attempted to be quasi random, but in most cases=
+ it
+> behaved just like a round robin balancing. This patch refactors the
+> algorithm to be exactly that and in doing so, avoids the spin lock.
+>
+> The new design paves the way for hash-based multipath, replacing the
+> modulo with thresholds, minimizing disruption in case of failing path=
+s or
+> route replacements.
+>
+> Signed-off-by: Peter N=C3=B8rlund <pch-chEQUL3jiZBWk0Htik3J/w@public.gmane.org>
+> ---
+>   include/net/ip_fib.h     |   6 +--
+>   net/ipv4/Kconfig         |   1 +
+>   net/ipv4/fib_semantics.c | 116 ++++++++++++++++++++++++++----------=
+-----------
+>   3 files changed, 68 insertions(+), 55 deletions(-)
+>
+> diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+> index 54271ed..4be4f25 100644
+> --- a/include/net/ip_fib.h
+> +++ b/include/net/ip_fib.h
+> @@ -76,8 +76,8 @@ struct fib_nh {
+>   	unsigned int		nh_flags;
+>   	unsigned char		nh_scope;
+>   #ifdef CONFIG_IP_ROUTE_MULTIPATH
+> -	int			nh_weight;
+> -	int			nh_power;
+> +	int			nh_mp_weight;
+> +	atomic_t		nh_mp_upper_bound;
+>   #endif
+>   #ifdef CONFIG_IP_ROUTE_CLASSID
+>   	__u32			nh_tclassid;
+> @@ -115,7 +115,7 @@ struct fib_info {
+>   #define fib_advmss fib_metrics[RTAX_ADVMSS-1]
+>   	int			fib_nhs;
+>   #ifdef CONFIG_IP_ROUTE_MULTIPATH
+> -	int			fib_power;
+> +	int			fib_mp_weight;
+>   #endif
+>   	struct rcu_head		rcu;
+>   	struct fib_nh		fib_nh[0];
 
-Thanks for the testing, Scott.  I'm not surprised that you see those
-results.   There are not currently any ipv4 route updates send with the
-set as-is-posted, but this is because the current upstream kernel
-doesn't do that either.
+I could do without some of this renaming.  For example you could=20
+probably not bother with adding the _mp piece to the name.  That way we=
+=20
+don't have to track all the nh_weight -> nh_mp_weight changes.   Also=20
+you could probably just use the name fib_weight since not including the=
+=20
+_mp was already the convention for the multipath portions of the=20
+structure anyway.
 
-If we examine the way the ipv4 code currently works before my patches,
-any time a route is possibly marked RTNH_F_DEAD, fib_table_flush will
-eventually be called and those routes marked dead will be deleted.
-Nothing happens if only a single nexthop in a multipath route is dead.
-No RTM_DELROUTE messages are sent for routes that are completely dead
-and no RTM_NEWROUTE for routes that are still alive with dead nexthops
-to alert userspace.  No call to the switchdev layer that those next hops
-are inactive and that they should not be used (of course this is not a
-big deal as you stated that rocker doesn't have ECMP support, but it is
-still a switchdev layer issue).
+This isn't really improving readability at all so I would say don't=20
+bother renaming it.
 
-When I started to work on this, I actually wasn't aware that
-RTM_DELROUTE messages were not sent for routes that were not protocol
-'kernel' and didn't discover this until I started to investigate
-switchdev implementation.  In hindsight resolving that inconsistency is
-something that probably should have been handled first.
+> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+> index d83071d..cb91f67 100644
+> --- a/net/ipv4/Kconfig
+> +++ b/net/ipv4/Kconfig
+> @@ -81,6 +81,7 @@ config IP_MULTIPLE_TABLES
+>   config IP_ROUTE_MULTIPATH
+>   	bool "IP: equal cost multipath"
+>   	depends on IP_ADVANCED_ROUTER
+> +	select BITREVERSE
+>   	help
+>   	  Normally, the routing tables specify a single action to be taken=
+ in
+>   	  a deterministic manner for a given packet. If you say Y here
+> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+> index 28ec3c1..8c8df80 100644
+> --- a/net/ipv4/fib_semantics.c
+> +++ b/net/ipv4/fib_semantics.c
+> @@ -15,6 +15,7 @@
+>
+>   #include <asm/uaccess.h>
+>   #include <linux/bitops.h>
+> +#include <linux/bitrev.h>
+>   #include <linux/types.h>
+>   #include <linux/kernel.h>
+>   #include <linux/jiffies.h>
+> @@ -57,7 +58,7 @@ static struct hlist_head fib_info_devhash[DEVINDEX_=
+HASHSIZE];
+>
+>   #ifdef CONFIG_IP_ROUTE_MULTIPATH
+>
+> -static DEFINE_SPINLOCK(fib_multipath_lock);
+> +static DEFINE_PER_CPU(u8, fib_mp_rr_counter);
+>
+>   #define for_nexthops(fi) {						\
+>   	int nhsel; const struct fib_nh *nh;				\
+> @@ -261,7 +262,7 @@ static inline int nh_comp(const struct fib_info *=
+fi, const struct fib_info *ofi)
+>   		    nh->nh_gw  !=3D onh->nh_gw ||
+>   		    nh->nh_scope !=3D onh->nh_scope ||
+>   #ifdef CONFIG_IP_ROUTE_MULTIPATH
+> -		    nh->nh_weight !=3D onh->nh_weight ||
+> +		    nh->nh_mp_weight !=3D onh->nh_mp_weight ||
+>   #endif
+>   #ifdef CONFIG_IP_ROUTE_CLASSID
+>   		    nh->nh_tclassid !=3D onh->nh_tclassid ||
+> @@ -449,6 +450,43 @@ static int fib_count_nexthops(struct rtnexthop *=
+rtnh, int remaining)
+>   	return remaining > 0 ? 0 : nhs;
+>   }
+>
 
-I've already began the process of essentially changing fib_flush/
-fib_table_flush to something that is more like an update since feedback
-should be provided to anyone who cares that the kernel has decided to
-make a change to the routing tables and proper RTM_DELROUTE/
-RTM_NEWROUTE messages should be sent both on admin down/up and if
-configured link down/up when those routes were not added by the kernel.
-Once the changes to morph fib_table_flush into a routine that performs
-route updates the proper behavior at the switchdev layer will also be
-implemented.  I'm probably a day or two away from having this in a form
-that I've tested and I'm comfortable posting and had planned it as a
-followup to this series along with the netconf support that was
-requested by Nicolas.
+This is a good example.  If we don't do the rename we don't have to=20
+review changes like the one above which just add extra overhead to the=20
+patch.
+
+> +static void fib_rebalance(struct fib_info *fi)
+> +{
+> +	int factor;
+> +	int total;
+> +	int w;
+> +
+> +	if (fi->fib_nhs < 2)
+> +		return;
+> +
+> +	total =3D 0;
+> +	for_nexthops(fi) {
+> +		if (!(nh->nh_flags & RTNH_F_DEAD))
+> +			total +=3D nh->nh_mp_weight;
+> +	} endfor_nexthops(fi);
+> +
+> +	if (likely(total !=3D 0)) {
+> +		factor =3D DIV_ROUND_UP(total, 8388608);
+> +		total /=3D factor;
+> +	} else {
+> +		factor =3D 1;
+> +	}
+> +
+
+So where does the 8388608 value come from?  Is it just here to help=20
+restrict the upper_bound to a u8 value?
+
+> +	w =3D 0;
+> +	change_nexthops(fi) {
+> +		int upper_bound;
+> +
+> +		if (nexthop_nh->nh_flags & RTNH_F_DEAD) {
+> +			upper_bound =3D -1;
+> +		} else {
+> +			w +=3D nexthop_nh->nh_mp_weight / factor;
+> +			upper_bound =3D DIV_ROUND_CLOSEST(256 * w, total);
+> +		}
+
+This is doing some confusing stuff.  I assume the whole point is to get=
+=20
+the value to convert the upper_bound into a u8 value based on the weigh=
+t=20
+where you end with 256 as the last value, do I have that right?
+
+I'm not really sure that is the best way to go from a code standpoint=20
+since fib_nhs is an int which technically means we could support more=20
+than 256 next hops for a given route.
+
+Also I assume that it is safe to divide by total because the assumption=
+=20
+is that if one or more routes are not dead then total has a non-zero=20
+value, do I have that right?  If so what is the point of setting the=20
+factor to 1 above, unless you are just hacking around a divide by 0 err=
+or.
+
+Maybe what you should do above is simply return if total =3D=3D 0 since=
+ it=20
+doesn't look like you can safely update anything otherwise.
+
+> +
+> +		atomic_set(&nexthop_nh->nh_mp_upper_bound, upper_bound);
+> +	} endfor_nexthops(fi);
+> +}
+> +
+>   static int fib_get_nhs(struct fib_info *fi, struct rtnexthop *rtnh,
+>   		       int remaining, struct fib_config *cfg)
+>   {
+> @@ -461,7 +499,7 @@ static int fib_get_nhs(struct fib_info *fi, struc=
+t rtnexthop *rtnh,
+>   		nexthop_nh->nh_flags =3D
+>   			(cfg->fc_flags & ~0xFF) | rtnh->rtnh_flags;
+>   		nexthop_nh->nh_oif =3D rtnh->rtnh_ifindex;
+> -		nexthop_nh->nh_weight =3D rtnh->rtnh_hops + 1;
+> +		nexthop_nh->nh_mp_weight =3D rtnh->rtnh_hops + 1;
+>
+>   		attrlen =3D rtnh_attrlen(rtnh);
+>   		if (attrlen > 0) {
+> @@ -884,7 +922,7 @@ struct fib_info *fib_create_info(struct fib_confi=
+g *cfg)
+>   			fi->fib_net->ipv4.fib_num_tclassid_users++;
+>   #endif
+>   #ifdef CONFIG_IP_ROUTE_MULTIPATH
+> -		nh->nh_weight =3D 1;
+> +		nh->nh_mp_weight =3D 1;
+>   #endif
+>   	}
+>
+
+More unnecessary rename noise.
+
+> @@ -936,8 +974,15 @@ struct fib_info *fib_create_info(struct fib_conf=
+ig *cfg)
+>
+>   	change_nexthops(fi) {
+>   		fib_info_update_nh_saddr(net, nexthop_nh);
+> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
+> +		fi->fib_mp_weight +=3D nexthop_nh->nh_mp_weight;
+> +#endif
+>   	} endfor_nexthops(fi)
+>
+> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
+> +	fib_rebalance(fi);
+> +#endif
+> +
+>   link_it:
+>   	ofi =3D fib_find_info(fi);
+>   	if (ofi) {
+> @@ -1050,7 +1095,7 @@ int fib_dump_info(struct sk_buff *skb, u32 port=
+id, u32 seq, int event,
+>   				goto nla_put_failure;
+>
+>   			rtnh->rtnh_flags =3D nh->nh_flags & 0xFF;
+> -			rtnh->rtnh_hops =3D nh->nh_weight - 1;
+> +			rtnh->rtnh_hops =3D nh->nh_mp_weight - 1;
+>   			rtnh->rtnh_ifindex =3D nh->nh_oif;
+>
+>   			if (nh->nh_gw &&
+> @@ -1130,12 +1175,6 @@ int fib_sync_down_dev(struct net_device *dev, =
+int force)
+>   			else if (nexthop_nh->nh_dev =3D=3D dev &&
+>   				 nexthop_nh->nh_scope !=3D scope) {
+>   				nexthop_nh->nh_flags |=3D RTNH_F_DEAD;
+> -#ifdef CONFIG_IP_ROUTE_MULTIPATH
+> -				spin_lock_bh(&fib_multipath_lock);
+> -				fi->fib_power -=3D nexthop_nh->nh_power;
+> -				nexthop_nh->nh_power =3D 0;
+> -				spin_unlock_bh(&fib_multipath_lock);
+> -#endif
+>   				dead++;
+>   			}
+>   #ifdef CONFIG_IP_ROUTE_MULTIPATH
+> @@ -1149,6 +1188,10 @@ int fib_sync_down_dev(struct net_device *dev, =
+int force)
+>   			fi->fib_flags |=3D RTNH_F_DEAD;
+>   			ret++;
+>   		}
+> +
+> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
+> +		fib_rebalance(fi);
+> +#endif
+>   	}
+>
+>   	return ret;
+> @@ -1254,16 +1297,15 @@ int fib_sync_up(struct net_device *dev)
+>   			    !__in_dev_get_rtnl(dev))
+>   				continue;
+>   			alive++;
+> -			spin_lock_bh(&fib_multipath_lock);
+> -			nexthop_nh->nh_power =3D 0;
+>   			nexthop_nh->nh_flags &=3D ~RTNH_F_DEAD;
+> -			spin_unlock_bh(&fib_multipath_lock);
+>   		} endfor_nexthops(fi)
+>
+>   		if (alive > 0) {
+>   			fi->fib_flags &=3D ~RTNH_F_DEAD;
+>   			ret++;
+>   		}
+> +
+> +		fib_rebalance(fi);
+>   	}
+>
+>   	return ret;
+> @@ -1276,49 +1318,19 @@ int fib_sync_up(struct net_device *dev)
+>   void fib_select_multipath(struct fib_result *res)
+>   {
+>   	struct fib_info *fi =3D res->fi;
+> -	int w;
+> -
+> -	spin_lock_bh(&fib_multipath_lock);
+> -	if (fi->fib_power <=3D 0) {
+> -		int power =3D 0;
+> -		change_nexthops(fi) {
+> -			if (!(nexthop_nh->nh_flags & RTNH_F_DEAD)) {
+> -				power +=3D nexthop_nh->nh_weight;
+> -				nexthop_nh->nh_power =3D nexthop_nh->nh_weight;
+> -			}
+> -		} endfor_nexthops(fi);
+> -		fi->fib_power =3D power;
+> -		if (power <=3D 0) {
+> -			spin_unlock_bh(&fib_multipath_lock);
+> -			/* Race condition: route has just become dead. */
+> -			res->nh_sel =3D 0;
+> -			return;
+> -		}
+> -	}
+> +	u8 w;
+>
+> +	w =3D bitrev8(this_cpu_inc_return(fib_mp_rr_counter));
+>
+> -	/* w should be random number [0..fi->fib_power-1],
+> -	 * it is pretty bad approximation.
+> -	 */
+> -
+> -	w =3D jiffies % fi->fib_power;
+> +	for_nexthops(fi) {
+> +		if (w >=3D atomic_read(&nh->nh_mp_upper_bound))
+> +			continue;
+>
+> -	change_nexthops(fi) {
+> -		if (!(nexthop_nh->nh_flags & RTNH_F_DEAD) &&
+> -		    nexthop_nh->nh_power) {
+> -			w -=3D nexthop_nh->nh_power;
+> -			if (w <=3D 0) {
+> -				nexthop_nh->nh_power--;
+> -				fi->fib_power--;
+> -				res->nh_sel =3D nhsel;
+> -				spin_unlock_bh(&fib_multipath_lock);
+> -				return;
+> -			}
+> -		}
+> +		res->nh_sel =3D nhsel;
+> +		return;
+>   	} endfor_nexthops(fi);
+>
+> -	/* Race condition: route has just become dead. */
+> +	/* Race condition: route has just become dead */
+>   	res->nh_sel =3D 0;
+> -	spin_unlock_bh(&fib_multipath_lock);
+>   }
+>   #endif
+>
+
+Instead of doing bitrev8 why not just hash jiffies since that is=20
+essentially what you are doing with this counter anyway.  You could=20
+probably even look at converting from a u8 to something like a u32 whic=
+h=20
+would give you a more pseudo random distribution.
