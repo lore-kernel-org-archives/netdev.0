@@ -1,70 +1,50 @@
 From: Mazhar Rana <ranamazharp@gmail.com>
-Subject: [PATCH ipv6 0/1] ipv6: addrconf: routes are not deleted if last ipv6 address is removed
-Date: Thu, 18 Jun 2015 14:59:01 +0530
-Message-ID: <1434619742-10423-1-git-send-email-ranamazharp@gmail.com>
+Subject: [PATCH ipv6 1/1] ipv6: addrconf: do addrconf_ifdown when last ipv6 address is removed
+Date: Thu, 18 Jun 2015 14:59:02 +0530
+Message-ID: <1434619742-10423-2-git-send-email-ranamazharp@gmail.com>
+References: <1434619742-10423-1-git-send-email-ranamazharp@gmail.com>
 Cc: Mazhar Rana <ranamazharp@gmail.com>, linux-kernel@vger.kernel.org,
 	davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
 	yoshfuji@linux-ipv6.org, kaber@trash.net,
 	hannes@stressinduktion.org, sanket.saha@cyberoam.com,
 	mazhar.rana@cyberoam.com
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Hi,
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:36378 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753792AbbFRJan (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 05:30:43 -0400
+In-Reply-To: <1434619742-10423-1-git-send-email-ranamazharp@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 After 'commit 876fd05ddbae03166e7037fca957b55bb3be6594
 ("ipv6: don't disable interface if last ipv6 address is removed")'
 it is not clearing ipv6 interface configurations(routes, neighbours,
 etc) when last ipv6 address of interface is removed.
 
-This is now creating functionality issue with below deployment.
+This patch will call addrconf_ifdown when last ipv6 address of
+interface is removed to clear ipv6 interface configurations. This will
+not delete /proc/sys/net/ipv6/conf/<interface> directory.
 
-On ubuntu 14.04 (upgraded with linux kernel 3.19)
-eth1 GW1: 2604:2000:7000:2::102
-eth0 GW2: 2001:df7:6000:101::1b:102
-
-HostA: 3804:3000:1406:2::102 (reachable via GW1 and GW2 both)
-
-In this deployment, HostA is reachable via eth0 and eth1. I prefer
-that all traffic for HostA should go via GW1 which is available on 
-link eth1. 
-
-$ ip -6 ro s
-2001:df7:6000:101::/64 dev eth0  proto kernel  metric 256 
-2604:2000:7000:2::/64 dev eth1  proto kernel  metric 256 
-3804:3000:1406:2::/64 via 2604:2000:7000:2::102 dev eth1  metric 1024 
-fe80::/64 dev eth0  proto kernel  metric 256 
-fe80::/64 dev eth1  proto kernel  metric 256 
-default via 2001:df7:6000:101::1b:102 dev eth0  proto static  metric 1 
-
-On failure of GW1 I removed all ipv6 address of eth1 so all traffic
-should go through default gateway 'GW2'.
-
-$ sudo ip -6 addr flush dev eth1
-$ ip -6 ro s
-2001:df7:6000:101::/64 dev eth0  proto kernel  metric 256 
-3804:3000:1406:2::/64 via 2604:2000:7000:2::102 dev eth1  metric 1024 
-fe80::/64 dev eth0  proto kernel  metric 256 
-fe80::/64 dev eth0.100  proto kernel  metric 256 
-default via 2001:df7:6000:101::1b:102 dev eth0  proto static  metric 1
-
-But here, route for HostA is not deleted, so traffic for HostA is
-still trying to go through GW1 which is not reachable anymore.
-
-If 'commit 876fd05ddbae03166e7037fca957b55bb3be6594
-("ipv6: don't disable interface if last ipv6 address is removed")'
-is taken only for problem mention on changlog of that commit then 
-here I have alternate proposal which will overcome both issue.
-
-Do you see any side effect of this proposal?
-
-Mazhar Rana (1):
-  ipv6: addrconf: do addrconf_ifdown when last ipv6 address is removed
-
+Signed-off-by: Mazhar Rana <mazhar.rana@cyberoam.com>
+Acked-by: Sanket Shah <sanket.shah@cyberoam.com>
+---
  net/ipv6/addrconf.c | 2 ++
  1 file changed, 2 insertions(+)
 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 37b70e8..230452c 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2678,6 +2678,8 @@ static int inet6_addr_del(struct net *net, int ifindex, u32 ifa_flags,
+ 				ipv6_mc_config(net->ipv6.mc_autojoin_sk,
+ 					       false, pfx, dev->ifindex);
+ 			}
++			if (list_empty(&idev->addr_list))
++				addrconf_ifdown(idev->dev, 0);
+ 			return 0;
+ 		}
+ 	}
 -- 
 1.9.1
