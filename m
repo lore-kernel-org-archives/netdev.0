@@ -1,136 +1,140 @@
-From: Christoph Paasch <cpaasch@apple.com>
-Subject: [PATCH net v2] tcp: Do not call tcp_fastopen_reset_cipher from
- interrupt context
-Date: Thu, 18 Jun 2015 09:15:34 -0700
-Message-ID: <1434644134-81335-1-git-send-email-cpaasch@apple.com>
-Cc: netdev@vger.kernel.org, Christoph Paasch <cpaasch@apple.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out4.apple.com ([17.151.62.26]:59561 "EHLO
-	mail-in4.apple.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932319AbbFRQPw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 12:15:52 -0400
-Received: from localhost ([17.149.226.91])
- by chicory.apple.com (Oracle Communications Messaging Server 7.0.5.30.0 64bit
- (built Oct 22 2013)) with ESMTPSA id <0NQ500NP5EIF1U50@chicory.apple.com> for
- netdev@vger.kernel.org; Thu, 18 Jun 2015 09:15:51 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Subject: e1000e driver - hang after 4 hours of uptime - finally bisected!
+Date: Thu, 18 Jun 2015 12:46:54 -0400
+Message-ID: <5284.1434646014@turing-police.cc.vt.edu>
+Mime-Version: 1.0
+Content-Type: multipart/signed; boundary="==_Exmh_1434646014_2109P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Yanir Lubetkin <yanirx.lubetkin@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-tcp_fastopen_reset_cipher really cannot be called from interrupt
-context. It allocates the tcp_fastopen_context with GFP_KERNEL and
-calls crypto_alloc_cipher, which allocates all kind of stuff with
-GFP_KERNEL.
+--==_Exmh_1434646014_2109P
+Content-Type: text/plain; charset=us-ascii
 
-Thus, we might sleep when the key-generation is triggered by an
-incoming TFO cookie-request which would then happen in interrupt-
-context, as shown by enabling CONFIG_DEBUG_ATOMIC_SLEEP:
+(follow up to a report from last week - bisecting took a while as I could
+only do 1 or 2 tests an evening)
 
-[   36.001813] BUG: sleeping function called from invalid context at mm/slub.c:1266
-[   36.003624] in_atomic(): 1, irqs_disabled(): 0, pid: 1016, name: packetdrill
-[   36.004859] CPU: 1 PID: 1016 Comm: packetdrill Not tainted 4.1.0-rc7 #14
-[   36.006085] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.7.5-0-ge51488c-20140602_164612-nilsson.home.kraxel.org 04/01/2014
-[   36.008250]  00000000000004f2 ffff88007f8838a8 ffffffff8171d53a ffff880075a084a8
-[   36.009630]  ffff880075a08000 ffff88007f8838c8 ffffffff810967d3 ffff88007f883928
-[   36.011076]  0000000000000000 ffff88007f8838f8 ffffffff81096892 ffff88007f89be00
-[   36.012494] Call Trace:
-[   36.012953]  <IRQ>  [<ffffffff8171d53a>] dump_stack+0x4f/0x6d
-[   36.014085]  [<ffffffff810967d3>] ___might_sleep+0x103/0x170
-[   36.015117]  [<ffffffff81096892>] __might_sleep+0x52/0x90
-[   36.016117]  [<ffffffff8118e887>] kmem_cache_alloc_trace+0x47/0x190
-[   36.017266]  [<ffffffff81680d82>] ? tcp_fastopen_reset_cipher+0x42/0x130
-[   36.018485]  [<ffffffff81680d82>] tcp_fastopen_reset_cipher+0x42/0x130
-[   36.019679]  [<ffffffff81680f01>] tcp_fastopen_init_key_once+0x61/0x70
-[   36.020884]  [<ffffffff81680f2c>] __tcp_fastopen_cookie_gen+0x1c/0x60
-[   36.022058]  [<ffffffff816814ff>] tcp_try_fastopen+0x58f/0x730
-[   36.023118]  [<ffffffff81671788>] tcp_conn_request+0x3e8/0x7b0
-[   36.024185]  [<ffffffff810e3872>] ? __module_text_address+0x12/0x60
-[   36.025327]  [<ffffffff8167b2e1>] tcp_v4_conn_request+0x51/0x60
-[   36.026410]  [<ffffffff816727e0>] tcp_rcv_state_process+0x190/0xda0
-[   36.027556]  [<ffffffff81661f97>] ? __inet_lookup_established+0x47/0x170
-[   36.028784]  [<ffffffff8167c2ad>] tcp_v4_do_rcv+0x16d/0x3d0
-[   36.029832]  [<ffffffff812e6806>] ? security_sock_rcv_skb+0x16/0x20
-[   36.030936]  [<ffffffff8167cc8a>] tcp_v4_rcv+0x77a/0x7b0
-[   36.031875]  [<ffffffff816af8c3>] ? iptable_filter_hook+0x33/0x70
-[   36.032953]  [<ffffffff81657d22>] ip_local_deliver_finish+0x92/0x1f0
-[   36.034065]  [<ffffffff81657f1a>] ip_local_deliver+0x9a/0xb0
-[   36.035069]  [<ffffffff81657c90>] ? ip_rcv+0x3d0/0x3d0
-[   36.035963]  [<ffffffff81657569>] ip_rcv_finish+0x119/0x330
-[   36.036950]  [<ffffffff81657ba7>] ip_rcv+0x2e7/0x3d0
-[   36.037847]  [<ffffffff81610652>] __netif_receive_skb_core+0x552/0x930
-[   36.038994]  [<ffffffff81610a57>] __netif_receive_skb+0x27/0x70
-[   36.040033]  [<ffffffff81610b72>] process_backlog+0xd2/0x1f0
-[   36.041025]  [<ffffffff81611482>] net_rx_action+0x122/0x310
-[   36.042007]  [<ffffffff81076743>] __do_softirq+0x103/0x2f0
-[   36.042978]  [<ffffffff81723e3c>] do_softirq_own_stack+0x1c/0x30
+My Dell Latitude E6530 crashes with a specific kernel lockup almost
+exactly 4 hours after boot if there isn't a cable connected to the
+Ethernet port:
 
-This patch moves the call to tcp_fastopen_init_key_once to the places
-where a listener socket creates its TFO-state, which always happens in
-user-context (either from the setsockopt, or implicitly during the
-listen()-call)
+[14508.846327] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 0
+[14468.229720] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 0
+[14463.254791] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 0
+[14491.134413] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 1
+[14463.396593] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 2
+[14490.390223] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 1
+[14494.680591] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 0
+[14513.365378] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 1
+[14482.271716] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 3
+[14479.906820] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 0
 
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Fixes: 222e83d2e0ae ("tcp: switch tcp_fastopen key generation to net_get_random_once")
-Signed-off-by: Christoph Paasch <cpaasch@apple.com>
----
+As far as I can tell, the timestamp jitter is just how long it takes me to
+enter the cryptLUKS passphrase for the hard drive at boot...
 
-Notes:
-    v2: Instead of reverting Hannes' patch, move the call to tcp_fastopen_init_once
-        to the places where we enable TFO on the server-side from user-context.
+lspci tells me:
 
- net/ipv4/af_inet.c      | 2 ++
- net/ipv4/tcp.c          | 7 +++++--
- net/ipv4/tcp_fastopen.c | 2 --
- 3 files changed, 7 insertions(+), 4 deletions(-)
+lspci -vvv -s "00:19.0"
+00:19.0 Ethernet controller: Intel Corporation 82579LM Gigabit Network Connection (rev 04)
+        DeviceName:  Onboard LAN
+        Subsystem: Dell Device 0535
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 0
+        Interrupt: pin A routed to IRQ 28
+        Region 0: Memory at f7700000 (32-bit, non-prefetchable) [size=128K]
+        Region 1: Memory at f7739000 (32-bit, non-prefetchable) [size=4K]
+        Region 2: I/O ports at f040 [size=32]
+        Capabilities: [c8] Power Management version 2
+                Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
+                Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
+        Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
+                Address: 00000000fee00318  Data: 0000
+        Capabilities: [e0] PCI Advanced Features
+                AFCap: TP+ FLR+
+                AFCtrl: FLR-
+                AFStatus: TP-
+        Kernel driver in use: e1000e
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 8b47a4d79d04..a5aa54ea6533 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -228,6 +228,8 @@ int inet_listen(struct socket *sock, int backlog)
- 				err = 0;
- 			if (err)
- 				goto out;
-+
-+			tcp_fastopen_init_key_once(true);
- 		}
- 		err = inet_csk_listen_start(sk, backlog);
- 		if (err)
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index f1377f2a0472..bb2ce74f6004 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2545,10 +2545,13 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 
- 	case TCP_FASTOPEN:
- 		if (val >= 0 && ((1 << sk->sk_state) & (TCPF_CLOSE |
--		    TCPF_LISTEN)))
-+		    TCPF_LISTEN))) {
-+			tcp_fastopen_init_key_once(true);
-+
- 			err = fastopen_init_queue(sk, val);
--		else
-+		} else {
- 			err = -EINVAL;
-+		}
- 		break;
- 	case TCP_TIMESTAMP:
- 		if (!tp->repair)
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index 46b087a27503..f9c0fb84e435 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -78,8 +78,6 @@ static bool __tcp_fastopen_cookie_gen(const void *path,
- 	struct tcp_fastopen_context *ctx;
- 	bool ok = false;
- 
--	tcp_fastopen_init_key_once(true);
--
- 	rcu_read_lock();
- 	ctx = rcu_dereference(tcp_fastopen_ctx);
- 	if (ctx) {
--- 
-2.4.4
+
+The traceback always looks like:
+
+[14479.906820] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 0
+
+[14479.906908] Call Trace:
+[14479.906914]  <NMI>  [<ffffffffba94db16>] dump_stack+0x50/0xa8
+[14479.906930]  [<ffffffffba948bb9>] panic+0xcd/0x1e4
+[14479.906940]  [<ffffffffba166a60>] ? perf_event_task_disable+0xc0/0xc0
+[14479.906952]  [<ffffffffba125d8b>] watchdog_overflow_callback+0x9b/0xa0
+[14479.906959]  [<ffffffffba16a684>] __perf_event_overflow+0xc4/0x1f0
+[14479.906968]  [<ffffffffba16b3a4>] perf_event_overflow+0x14/0x20
+[14479.906976]  [<ffffffffba022271>] intel_pmu_handle_irq+0x1e1/0x430
+[14479.906990]  [<ffffffffba01a0f6>] perf_event_nmi_handler+0x26/0x40
+[14479.906999]  [<ffffffffba0085b3>] nmi_handle+0x103/0x340
+[14479.907005]  [<ffffffffba0084b5>] ? nmi_handle+0x5/0x340
+[14479.907017]  [<ffffffffba008a53>] default_do_nmi+0xc3/0x120
+[14479.907032]  [<ffffffffba008b98>] do_nmi+0xe8/0x130
+[14479.907044]  [<ffffffffba95c9a8>] end_repeat_nmi+0x1e/0x2e
+[14479.907055]  [<ffffffffba529886>] ? e1000e_cyclecounter_read+0x16/0xc0
+[14479.907061]  [<ffffffffba529886>] ? e1000e_cyclecounter_read+0x16/0xc0
+[14479.907069]  [<ffffffffba529886>] ? e1000e_cyclecounter_read+0x16/0xc0
+[14479.907075]  <<EOE>>  [<ffffffffba0e9529>] timecounter_read+0x19/0x60
+[14479.907088]  [<ffffffffba53687e>] e1000e_phc_gettime+0x2e/0x60
+[14479.907098]  [<ffffffffba536a31>] e1000e_systim_overflow_work+0x31/0x70
+[14479.907105]  [<ffffffffba07ad19>] process_one_work+0x3c9/0x980
+[14479.907115]  [<ffffffffba07ac62>] ? process_one_work+0x312/0x980
+[14479.907125]  [<ffffffffba07b348>] ? worker_thread+0x78/0x760
+[14479.907134]  [<ffffffffba07b59c>] worker_thread+0x2cc/0x760
+[14479.907144]  [<ffffffffba07b2d0>] ? process_one_work+0x980/0x980
+[14479.907154]  [<ffffffffba082a5e>] kthread+0xfe/0x120
+[14479.907163]  [<ffffffffba08ca50>] ? finish_task_switch+0x50/0x1c0
+[14479.907173]  [<ffffffffba082960>] ? kthread_create_on_node+0x270/0x270
+[14479.907179]  [<ffffffffba95ae4f>] ret_from_fork+0x3f/0x70
+[14479.907188]  [<ffffffffba082960>] ? kthread_create_on_node+0x270/0x270
+[14479.907243] Kernel Offset: 0x39000000 from 0xffffffff81000000 (relocation range: 0xffffffff80000000-0xffffffffbfffffff)
+
+Bisection tells me it's this commit:
+
+commit 83129b37ef35bb6a7f01c060129736a8db5d31c4
+Author: Yanir Lubetkin <yanirx.lubetkin@intel.com>
+Date:   Tue Jun 2 17:05:45 2015 +0300
+
+    e1000e: fix systim issues
+
+    Two issues involving systim were reported.
+    1. Clock is not running in the correct frequency
+    2. In some situations, systim values were not incremented linearly
+    This patch fixes the hardware clock configuration and the spurious
+    non-linear increment.
+
+
+
+--==_Exmh_1434646014_2109P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBVYL1/QdmEQWDXROgAQJbig/8Cqcf/hSsjC/dt/gYU+99bcGDup4Tkfdo
+S/C5nb/bUsZkBEr5/0K3OPAFY10ofq5PqDehjlZquKuMDRYq4nGtCTzZVKV8djSX
+II4swbfRkDCg0O8TQGi20cwdWxFt1YKCKrL9of2Yzwenbxx3YZ4kG3c0v90UkUCq
+Rn5OcWLbJS6S/RwSu8ieIuW/8FB+BEmH3m4yYkhUkndvG0dUuqSI6VnXg2KsN6z+
+DKgeQ0i4+eCkRP55Br426dAgi8UFwzIAb4Br7uWpXt05nR45Ta03mBjN843EBsQE
+t+krUGwHIuCNHXYEe6L6T7Dn8FPgX2xgfgj+LXmOSPqoKHZ1bD9b6FPcz2Te9UL0
+EwNjvl/CYMk2cruuVwwyb0UzP2hwX4gRbLzkpr64haKTm8/oclHlRVwYm75qAnvr
+ZlcAbXUtaj1b52uApFlayMpRh+gEMDQ9Po90+V5V1qHyILitHolLb8LkFAj7Bvt7
+j8KWqw8EaU2jKGaQw+17LRj6YY0FrIWcHnyznx13807+G38N1RD6RnIoZatBsfms
+9jPMJgvjsNlXzubDDR5bvCvwz0upuCHOvIIqfNfGzZOHRJkeAXIPXq4hYsMc3aLU
+VSgmFHHDTR7pgNa0sNg9gYjKESmGPqDQ61lldZrMigcx52RNpfnQqA0MvgYdsVQw
+73P2W/vE6Ms=
+=Z0qc
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1434646014_2109P--
