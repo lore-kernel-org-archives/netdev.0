@@ -1,43 +1,136 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2] bpf: fix a bug in verification logic when SUB
- operation taken on FRAME_PTR
-Date: Thu, 18 Jun 2015 09:00:19 -0700
-Message-ID: <20150618160018.GA13470@Alexeis-MBP.westell.com>
-References: <1434615176-96706-1-git-send-email-wangnan0@huawei.com>
- <1434616305-97746-1-git-send-email-wangnan0@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ast@kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, lizefan@huawei.com, pi3orama@163.com
-To: Wang Nan <wangnan0@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1434616305-97746-1-git-send-email-wangnan0@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Christoph Paasch <cpaasch@apple.com>
+Subject: [PATCH net v2] tcp: Do not call tcp_fastopen_reset_cipher from
+ interrupt context
+Date: Thu, 18 Jun 2015 09:15:34 -0700
+Message-ID: <1434644134-81335-1-git-send-email-cpaasch@apple.com>
+Cc: netdev@vger.kernel.org, Christoph Paasch <cpaasch@apple.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out4.apple.com ([17.151.62.26]:59561 "EHLO
+	mail-in4.apple.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932319AbbFRQPw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 12:15:52 -0400
+Received: from localhost ([17.149.226.91])
+ by chicory.apple.com (Oracle Communications Messaging Server 7.0.5.30.0 64bit
+ (built Oct 22 2013)) with ESMTPSA id <0NQ500NP5EIF1U50@chicory.apple.com> for
+ netdev@vger.kernel.org; Thu, 18 Jun 2015 09:15:51 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 18, 2015 at 08:31:45AM +0000, Wang Nan wrote:
-> Original code has a problem, cause following code failed to pass verifier:
-> 
->  r1 <- r10
->  r1 -= 8
->  r2 = 8
->  r3 = unsafe pointer
->  call BPF_FUNC_probe_read  <-- R1 type=inv expected=fp
-> 
-> However, by replacing 'r1 -= 8' to 'r1 += -8' the above program can be
-> loaded successfully.
-> 
-> This is because the verifier allows only BPF_ADD instruction on a
-> FRAME_PTR reigster to forge PTR_TO_STACK register, but makes BPF_SUB
-> on FRAME_PTR reigster to get a UNKNOWN_VALUE register.
-> 
-> This patch fix it by adding BPF_SUB in stack_relative checking.
+tcp_fastopen_reset_cipher really cannot be called from interrupt
+context. It allocates the tcp_fastopen_context with GFP_KERNEL and
+calls crypto_alloc_cipher, which allocates all kind of stuff with
+GFP_KERNEL.
 
-It's not a bug. It's catching ADD only by design.
-If we let it recognize SUB then one might argue we should let it
-recognize multiply, shifts and all other arithmetic on pointers.
-verifier will be getting bigger and bigger. Where do we stop?
-llvm only emits canonical ADD. If you've seen llvm doing SUB,
-let's fix it there.
-So what piece generated this 'r1 -= 8' ?
+Thus, we might sleep when the key-generation is triggered by an
+incoming TFO cookie-request which would then happen in interrupt-
+context, as shown by enabling CONFIG_DEBUG_ATOMIC_SLEEP:
+
+[   36.001813] BUG: sleeping function called from invalid context at mm/slub.c:1266
+[   36.003624] in_atomic(): 1, irqs_disabled(): 0, pid: 1016, name: packetdrill
+[   36.004859] CPU: 1 PID: 1016 Comm: packetdrill Not tainted 4.1.0-rc7 #14
+[   36.006085] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.7.5-0-ge51488c-20140602_164612-nilsson.home.kraxel.org 04/01/2014
+[   36.008250]  00000000000004f2 ffff88007f8838a8 ffffffff8171d53a ffff880075a084a8
+[   36.009630]  ffff880075a08000 ffff88007f8838c8 ffffffff810967d3 ffff88007f883928
+[   36.011076]  0000000000000000 ffff88007f8838f8 ffffffff81096892 ffff88007f89be00
+[   36.012494] Call Trace:
+[   36.012953]  <IRQ>  [<ffffffff8171d53a>] dump_stack+0x4f/0x6d
+[   36.014085]  [<ffffffff810967d3>] ___might_sleep+0x103/0x170
+[   36.015117]  [<ffffffff81096892>] __might_sleep+0x52/0x90
+[   36.016117]  [<ffffffff8118e887>] kmem_cache_alloc_trace+0x47/0x190
+[   36.017266]  [<ffffffff81680d82>] ? tcp_fastopen_reset_cipher+0x42/0x130
+[   36.018485]  [<ffffffff81680d82>] tcp_fastopen_reset_cipher+0x42/0x130
+[   36.019679]  [<ffffffff81680f01>] tcp_fastopen_init_key_once+0x61/0x70
+[   36.020884]  [<ffffffff81680f2c>] __tcp_fastopen_cookie_gen+0x1c/0x60
+[   36.022058]  [<ffffffff816814ff>] tcp_try_fastopen+0x58f/0x730
+[   36.023118]  [<ffffffff81671788>] tcp_conn_request+0x3e8/0x7b0
+[   36.024185]  [<ffffffff810e3872>] ? __module_text_address+0x12/0x60
+[   36.025327]  [<ffffffff8167b2e1>] tcp_v4_conn_request+0x51/0x60
+[   36.026410]  [<ffffffff816727e0>] tcp_rcv_state_process+0x190/0xda0
+[   36.027556]  [<ffffffff81661f97>] ? __inet_lookup_established+0x47/0x170
+[   36.028784]  [<ffffffff8167c2ad>] tcp_v4_do_rcv+0x16d/0x3d0
+[   36.029832]  [<ffffffff812e6806>] ? security_sock_rcv_skb+0x16/0x20
+[   36.030936]  [<ffffffff8167cc8a>] tcp_v4_rcv+0x77a/0x7b0
+[   36.031875]  [<ffffffff816af8c3>] ? iptable_filter_hook+0x33/0x70
+[   36.032953]  [<ffffffff81657d22>] ip_local_deliver_finish+0x92/0x1f0
+[   36.034065]  [<ffffffff81657f1a>] ip_local_deliver+0x9a/0xb0
+[   36.035069]  [<ffffffff81657c90>] ? ip_rcv+0x3d0/0x3d0
+[   36.035963]  [<ffffffff81657569>] ip_rcv_finish+0x119/0x330
+[   36.036950]  [<ffffffff81657ba7>] ip_rcv+0x2e7/0x3d0
+[   36.037847]  [<ffffffff81610652>] __netif_receive_skb_core+0x552/0x930
+[   36.038994]  [<ffffffff81610a57>] __netif_receive_skb+0x27/0x70
+[   36.040033]  [<ffffffff81610b72>] process_backlog+0xd2/0x1f0
+[   36.041025]  [<ffffffff81611482>] net_rx_action+0x122/0x310
+[   36.042007]  [<ffffffff81076743>] __do_softirq+0x103/0x2f0
+[   36.042978]  [<ffffffff81723e3c>] do_softirq_own_stack+0x1c/0x30
+
+This patch moves the call to tcp_fastopen_init_key_once to the places
+where a listener socket creates its TFO-state, which always happens in
+user-context (either from the setsockopt, or implicitly during the
+listen()-call)
+
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Fixes: 222e83d2e0ae ("tcp: switch tcp_fastopen key generation to net_get_random_once")
+Signed-off-by: Christoph Paasch <cpaasch@apple.com>
+---
+
+Notes:
+    v2: Instead of reverting Hannes' patch, move the call to tcp_fastopen_init_once
+        to the places where we enable TFO on the server-side from user-context.
+
+ net/ipv4/af_inet.c      | 2 ++
+ net/ipv4/tcp.c          | 7 +++++--
+ net/ipv4/tcp_fastopen.c | 2 --
+ 3 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 8b47a4d79d04..a5aa54ea6533 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -228,6 +228,8 @@ int inet_listen(struct socket *sock, int backlog)
+ 				err = 0;
+ 			if (err)
+ 				goto out;
++
++			tcp_fastopen_init_key_once(true);
+ 		}
+ 		err = inet_csk_listen_start(sk, backlog);
+ 		if (err)
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index f1377f2a0472..bb2ce74f6004 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2545,10 +2545,13 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 
+ 	case TCP_FASTOPEN:
+ 		if (val >= 0 && ((1 << sk->sk_state) & (TCPF_CLOSE |
+-		    TCPF_LISTEN)))
++		    TCPF_LISTEN))) {
++			tcp_fastopen_init_key_once(true);
++
+ 			err = fastopen_init_queue(sk, val);
+-		else
++		} else {
+ 			err = -EINVAL;
++		}
+ 		break;
+ 	case TCP_TIMESTAMP:
+ 		if (!tp->repair)
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index 46b087a27503..f9c0fb84e435 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -78,8 +78,6 @@ static bool __tcp_fastopen_cookie_gen(const void *path,
+ 	struct tcp_fastopen_context *ctx;
+ 	bool ok = false;
+ 
+-	tcp_fastopen_init_key_once(true);
+-
+ 	rcu_read_lock();
+ 	ctx = rcu_dereference(tcp_fastopen_ctx);
+ 	if (ctx) {
+-- 
+2.4.4
