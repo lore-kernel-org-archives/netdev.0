@@ -1,7 +1,7 @@
 From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH 06/22] fjes: buffer address regist/unregistration routine
-Date: Thu, 18 Jun 2015 09:49:31 +0900
-Message-ID: <1434588587-25655-6-git-send-email-izumi.taku@jp.fujitsu.com>
+Subject: [PATCH 08/22] fjes: net_device_ops.ndo_start_xmit
+Date: Thu, 18 Jun 2015 09:49:33 +0900
+Message-ID: <1434588587-25655-8-git-send-email-izumi.taku@jp.fujitsu.com>
 References: <1434588359-25589-1-git-send-email-izumi.taku@jp.fujitsu.com>
  <1434588587-25655-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Cc: rkhan@redhat.com, alexander.h.duyck@redhat.com,
@@ -13,256 +13,345 @@ In-Reply-To: <1434588587-25655-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Sender: platform-driver-x86-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds buffer address regist/unregistration routine.
-
-This function is mainly invoked when network device's
-activation (open) and deactivation (close)
-in order to retist/unregist shared buffer address.
+This patch adds net_device_ops.ndo_start_xmit callback,
+which is called when sending packets.
 
 Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 ---
- drivers/platform/x86/fjes/fjes_hw.c | 189 ++++++++++++++++++++++++++++++++++++
- drivers/platform/x86/fjes/fjes_hw.h |   9 +-
- 2 files changed, 197 insertions(+), 1 deletion(-)
+ drivers/platform/x86/fjes/fjes.h      |   1 +
+ drivers/platform/x86/fjes/fjes_hw.c   |  58 +++++++++++
+ drivers/platform/x86/fjes/fjes_hw.h   |  12 +++
+ drivers/platform/x86/fjes/fjes_main.c | 190 ++++++++++++++++++++++++++++++++++
+ 4 files changed, 261 insertions(+)
 
+diff --git a/drivers/platform/x86/fjes/fjes.h b/drivers/platform/x86/fjes/fjes.h
+index 7f03eb7..d8901aa 100644
+--- a/drivers/platform/x86/fjes/fjes.h
++++ b/drivers/platform/x86/fjes/fjes.h
+@@ -30,6 +30,7 @@
+ #define FJES_ACPI_SYMBOL	"Extended Socket"
+ #define FJES_MAX_QUEUES		1
+ #define FJES_TX_RETRY_INTERVAL	(20 * HZ)
++#define FJES_TX_RETRY_TIMEOUT	(100)
+ #define FJES_OPEN_ZONE_UPDATE_WAIT	(300) /* msec */
+ 
+ /* board specific private data structure */
 diff --git a/drivers/platform/x86/fjes/fjes_hw.c b/drivers/platform/x86/fjes/fjes_hw.c
-index eb04d9a..5c68541 100644
+index e2137d8..8be343f 100644
 --- a/drivers/platform/x86/fjes/fjes_hw.c
 +++ b/drivers/platform/x86/fjes/fjes_hw.c
-@@ -461,6 +461,195 @@ int fjes_hw_request_info(struct fjes_hw *hw)
- 	return result;
+@@ -809,3 +809,61 @@ int fjes_hw_wait_epstop(struct fjes_hw *hw)
+ 	return (wait_time < FJES_COMMAND_EPSTOP_WAIT_TIMEOUT * 1000)
+ 			? 0 : -EBUSY;
  }
- 
-+int fjes_hw_register_buff_addr(struct fjes_hw *hw, int dest_epid,
-+		struct ep_share_mem_info *buf_pair)
++
++bool fjes_hw_check_epbuf_version(struct epbuf_handler *epbh, u32 version)
 +{
-+	union fjes_device_command_req *req_buf = hw->hw_info.req_buf;
-+	union fjes_device_command_res *res_buf = hw->hw_info.res_buf;
-+	enum fjes_dev_command_response_e ret;
-+	int i, idx;
-+	int page_count;
-+	void *addr;
-+	int timeout;
-+	int result;
++	union ep_buffer_info *info = epbh->info;
 +
-+	if (test_bit(dest_epid, &hw->hw_info.buffer_share_bit))
-+		return 0;
-+
-+	memset(req_buf, 0, hw->hw_info.req_buf_size);
-+	memset(res_buf, 0, hw->hw_info.res_buf_size);
-+
-+	req_buf->share_buffer.length =
-+		FJES_DEV_COMMAND_SHARE_BUFFER_REQ_LEN(buf_pair->tx.size,
-+				buf_pair->rx.size);
-+	req_buf->share_buffer.epid = dest_epid;
-+
-+	idx = 0;
-+	req_buf->share_buffer.buffer[idx++] = buf_pair->tx.size;
-+	page_count = buf_pair->tx.size / EP_BUFFER_INFO_SIZE;
-+	for (i = 0; i < page_count; i++) {
-+		addr = ((u8 *)(buf_pair->tx.buffer)) +
-+				(i * EP_BUFFER_INFO_SIZE);
-+		req_buf->share_buffer.buffer[idx++] =
-+				(__le64)(page_to_phys(vmalloc_to_page(addr)) +
-+						offset_in_page(addr));
-+	}
-+
-+	req_buf->share_buffer.buffer[idx++] = buf_pair->rx.size;
-+	page_count = buf_pair->rx.size / EP_BUFFER_INFO_SIZE;
-+	for (i = 0; i < page_count; i++) {
-+		addr = ((u8 *)(buf_pair->rx.buffer)) +
-+				(i * EP_BUFFER_INFO_SIZE);
-+		req_buf->share_buffer.buffer[idx++] =
-+				(__le64)(page_to_phys(vmalloc_to_page(addr)) +
-+						offset_in_page(addr));
-+	}
-+
-+	res_buf->share_buffer.length = 0;
-+	res_buf->share_buffer.code = 0;
-+
-+	ret = fjes_hw_issue_request_command(hw, FJES_CMD_REQ_SHARE_BUFFER);
-+
-+	timeout = FJES_COMMAND_REQ_BUFF_TIMEOUT * 1000;
-+	while ((ret == FJES_CMD_STATUS_NORMAL) &&
-+		   (res_buf->share_buffer.length ==
-+				   FJES_DEV_COMMAND_SHARE_BUFFER_RES_LEN) &&
-+		   (res_buf->share_buffer.code == FJES_CMD_REQ_RES_CODE_BUSY) &&
-+		   (timeout > 0)) {
-+
-+			msleep(200 + hw->my_epid * 20);
-+			timeout -= (200 + hw->my_epid * 20);
-+
-+			res_buf->share_buffer.length = 0;
-+			res_buf->share_buffer.code = 0;
-+
-+			ret = fjes_hw_issue_request_command(hw,
-+					FJES_CMD_REQ_SHARE_BUFFER);
-+	}
-+
-+	result = 0;
-+
-+	if (res_buf->share_buffer.length !=
-+			FJES_DEV_COMMAND_SHARE_BUFFER_RES_LEN)
-+		result = -ENOMSG;
-+	else if (ret == FJES_CMD_STATUS_NORMAL) {
-+		switch (res_buf->share_buffer.code) {
-+		case FJES_CMD_REQ_RES_CODE_NORMAL:
-+			result = 0;
-+			set_bit(dest_epid, &hw->hw_info.buffer_share_bit);
-+			break;
-+		case FJES_CMD_REQ_RES_CODE_BUSY:
-+			result = -EBUSY;
-+			break;
-+		default:
-+			result = -EPERM;
-+			break;
-+		}
-+	} else {
-+		switch (ret) {
-+		case FJES_CMD_STATUS_UNKNOWN:
-+			result = -EPERM;
-+			break;
-+		case FJES_CMD_STATUS_TIMEOUT:
-+			result = -EBUSY;
-+			break;
-+		case FJES_CMD_STATUS_ERROR_PARAM:
-+		case FJES_CMD_STATUS_ERROR_STATUS:
-+		default:
-+			result = -EPERM;
-+			break;
-+		}
-+	}
-+
-+	return result;
++	return (info->common.version == version);
 +}
 +
-+int fjes_hw_unregister_buff_addr(struct fjes_hw *hw, int dest_epid)
++bool fjes_hw_check_mtu(struct epbuf_handler *epbh, u32 mtu)
 +{
-+	union fjes_device_command_req *req_buf = hw->hw_info.req_buf;
-+	union fjes_device_command_res *res_buf = hw->hw_info.res_buf;
-+	struct fjes_device_shared_info *share = hw->hw_info.share;
-+	enum fjes_dev_command_response_e ret;
-+	int result;
-+	int timeout;
++	union ep_buffer_info *info = epbh->info;
 +
-+
-+	if (!hw->base)
-+		return -EPERM;
-+
-+	if (req_buf == NULL || res_buf == NULL || share == NULL)
-+		return -EPERM;
-+
-+	if (!test_bit(dest_epid, &hw->hw_info.buffer_share_bit))
-+		return 0;
-+
-+	memset(req_buf, 0, hw->hw_info.req_buf_size);
-+	memset(res_buf, 0, hw->hw_info.res_buf_size);
-+
-+	req_buf->unshare_buffer.length =
-+			FJES_DEV_COMMAND_UNSHARE_BUFFER_REQ_LEN;
-+	req_buf->unshare_buffer.epid = dest_epid;
-+
-+	res_buf->unshare_buffer.length = 0;
-+	res_buf->unshare_buffer.code = 0;
-+
-+	ret = fjes_hw_issue_request_command(hw, FJES_CMD_REQ_UNSHARE_BUFFER);
-+
-+	timeout = FJES_COMMAND_REQ_BUFF_TIMEOUT * 1000;
-+	while ((ret == FJES_CMD_STATUS_NORMAL) &&
-+		   (res_buf->unshare_buffer.length ==
-+				FJES_DEV_COMMAND_UNSHARE_BUFFER_RES_LEN) &&
-+		   (res_buf->unshare_buffer.code ==
-+				FJES_CMD_REQ_RES_CODE_BUSY) &&
-+		   (timeout > 0)) {
-+
-+		msleep(200 + hw->my_epid * 20);
-+			timeout -= (200 + hw->my_epid * 20);
-+
-+		res_buf->unshare_buffer.length = 0;
-+		res_buf->unshare_buffer.code = 0;
-+
-+		ret = fjes_hw_issue_request_command(hw,
-+				FJES_CMD_REQ_UNSHARE_BUFFER);
-+	}
-+
-+	result = 0;
-+
-+	if (res_buf->unshare_buffer.length !=
-+			FJES_DEV_COMMAND_UNSHARE_BUFFER_RES_LEN) {
-+		result = -ENOMSG;
-+	} else if (ret == FJES_CMD_STATUS_NORMAL) {
-+		switch (res_buf->unshare_buffer.code) {
-+		case FJES_CMD_REQ_RES_CODE_NORMAL:
-+			result = 0;
-+			clear_bit(dest_epid, &hw->hw_info.buffer_share_bit);
-+			break;
-+		case FJES_CMD_REQ_RES_CODE_BUSY:
-+			result = -EBUSY;
-+			break;
-+		default:
-+			result = -EPERM;
-+			break;
-+		}
-+	} else {
-+		switch (ret) {
-+		case FJES_CMD_STATUS_UNKNOWN:
-+			result = -EPERM;
-+			break;
-+		case FJES_CMD_STATUS_TIMEOUT:
-+			result = -EBUSY;
-+			break;
-+		case FJES_CMD_STATUS_ERROR_PARAM:
-+		case FJES_CMD_STATUS_ERROR_STATUS:
-+		default:
-+			result = -EPERM;
-+			break;
-+		}
-+	}
-+
-+	return result;
++	return (info->v1i.frame_max == FJES_MTU_TO_FRAME_SIZE(mtu));
 +}
 +
- void fjes_hw_set_irqmask(struct fjes_hw *hw, enum REG_ICTL_MASK intr_mask,
- 		bool mask)
- {
++bool fjes_hw_check_vlan_id(struct epbuf_handler *epbh, u16 vlan_id)
++{
++	union ep_buffer_info *info = epbh->info;
++	int i;
++	bool ret = false;
++
++	if (vlan_id == 0) {
++		ret = true;
++	} else {
++		for (i = 0; i < EP_BUFFER_SUPPORT_VLAN_MAX; i++) {
++			if (vlan_id == info->v1i.vlan_id[i]) {
++				ret = true;
++				break;
++			}
++		}
++	}
++	return ret;
++}
++
++int fjes_hw_epbuf_tx_pkt_send(struct epbuf_handler *epbh,
++		void *frame, size_t size)
++{
++	union ep_buffer_info *info = epbh->info;
++	struct esmem_frame_t *ring_frame;
++
++	if (EP_RING_FULL(info->v1i.head, info->v1i.tail, info->v1i.count_max))
++		return -ENOBUFS;
++
++	ring_frame =
++	    (struct esmem_frame_t *)&(epbh->
++				      ring[EP_RING_INDEX
++					   (info->v1i.tail - 1,
++					    info->v1i.count_max) *
++					   info->v1i.frame_max]);
++
++	ring_frame->frame_size = size;
++	memcpy((void *)(ring_frame->frame_data), (void *)frame, size);
++
++	EP_RING_INDEX_INC(epbh->info->v1i.tail, info->v1i.count_max);
++
++	return 0;
++}
++
 diff --git a/drivers/platform/x86/fjes/fjes_hw.h b/drivers/platform/x86/fjes/fjes_hw.h
-index 7861fe3..2528992 100644
+index 170bcfb..f6fdae5 100644
 --- a/drivers/platform/x86/fjes/fjes_hw.h
 +++ b/drivers/platform/x86/fjes/fjes_hw.h
-@@ -34,11 +34,13 @@ struct fjes_hw;
+@@ -49,6 +49,9 @@ struct fjes_hw;
  
- #define FJES_DEVICE_RESET_TIMEOUT  ((17 + 1) * 3) /* sec */
- #define FJES_COMMAND_REQ_TIMEOUT  (5 + 1) /* sec */
-+#define FJES_COMMAND_REQ_BUFF_TIMEOUT	(8 * 3) /* sec */
+ #define FJES_ZONING_ZONE_TYPE_NONE (0xFF)
  
- #define FJES_CMD_REQ_ERR_INFO_PARAM  (0x0001)
- #define FJES_CMD_REQ_ERR_INFO_STATUS (0x0002)
++#define FJES_TX_DELAY_SEND_NONE		(0)
++#define FJES_TX_DELAY_SEND_PENDING	(1)
++
+ #define FJES_RX_STOP_REQ_NONE		(0x0)
+ #define FJES_RX_STOP_REQ_DONE		(0x1)
+ #define FJES_RX_STOP_REQ_REQUEST	(0x2)
+@@ -60,6 +63,11 @@ struct fjes_hw;
  
- #define FJES_CMD_REQ_RES_CODE_NORMAL (0)
-+#define FJES_CMD_REQ_RES_CODE_BUSY   (1)
+ #define EP_RING_NUM(buffer_size, frame_size) \
+ 		(u32)((buffer_size) / (frame_size))
++#define EP_RING_INDEX(_num, _max) (((_num) + (_max)) % (_max))
++#define EP_RING_INDEX_INC(_num, _max) \
++	((_num) = EP_RING_INDEX((_num) + 1, (_max)))
++#define EP_RING_FULL(_head, _tail, _max)				\
++	(0 == EP_RING_INDEX(((_tail) - (_head)), (_max)))
  
- #define EP_BUFFER_SIZE \
- 	(((sizeof(union ep_buffer_info) + (128 * (64 * 1024))) \
-@@ -59,6 +61,9 @@ struct fjes_hw;
- #define FJES_DEV_COMMAND_INFO_RES_LEN(epnum) (8 + 2*(epnum))
- #define FJES_DEV_COMMAND_SHARE_BUFFER_REQ_LEN(txb, rxb) \
- 	(24 + (8 * ((txb)/EP_BUFFER_INFO_SIZE + (rxb)/EP_BUFFER_INFO_SIZE)))
-+#define FJES_DEV_COMMAND_SHARE_BUFFER_RES_LEN	(8)
-+#define FJES_DEV_COMMAND_UNSHARE_BUFFER_REQ_LEN	(8)
-+#define FJES_DEV_COMMAND_UNSHARE_BUFFER_RES_LEN	(8)
+ #define FJES_MTU_TO_BUFFER_SIZE(mtu) \
+ 	(ETH_HLEN + VLAN_HLEN + (mtu) + ETH_FCS_LEN)
+@@ -312,5 +320,9 @@ enum ep_partner_status
  
- #define FJES_DEV_REQ_BUF_SIZE(maxep) \
- 	FJES_DEV_COMMAND_SHARE_BUFFER_REQ_LEN(EP_BUFFER_SIZE, EP_BUFFER_SIZE)
-@@ -270,7 +275,9 @@ int fjes_hw_init(struct fjes_hw *);
- void fjes_hw_exit(struct fjes_hw *);
- int fjes_hw_reset(struct fjes_hw *);
- int fjes_hw_request_info(struct fjes_hw *);
--
-+int fjes_hw_register_buff_addr(struct fjes_hw *, int,
-+		struct ep_share_mem_info *);
-+int fjes_hw_unregister_buff_addr(struct fjes_hw *, int);
- void fjes_hw_init_command_registers(struct fjes_hw *,
- 		struct fjes_device_command_param *);
- void fjes_hw_setup_epbuf(struct epbuf_handler *, u8 *, u32);
+ bool fjes_hw_epid_is_same_zone(struct fjes_hw *, int);
+ int fjes_hw_epid_is_shared(struct fjes_device_shared_info *, int);
++bool fjes_hw_check_epbuf_version(struct epbuf_handler *, u32);
++bool fjes_hw_check_mtu(struct epbuf_handler *, u32);
++bool fjes_hw_check_vlan_id(struct epbuf_handler *, u16);
++int fjes_hw_epbuf_tx_pkt_send(struct epbuf_handler *, void *, size_t);
+ 
+ #endif /* FJES_HW_H_ */
+diff --git a/drivers/platform/x86/fjes/fjes_main.c b/drivers/platform/x86/fjes/fjes_main.c
+index 14a72ec..0d4bca6 100644
+--- a/drivers/platform/x86/fjes/fjes_main.c
++++ b/drivers/platform/x86/fjes/fjes_main.c
+@@ -52,6 +52,8 @@ static int fjes_open(struct net_device *);
+ static int fjes_close(struct net_device *);
+ static int fjes_setup_resources(struct fjes_adapter *);
+ static void fjes_free_resources(struct fjes_adapter *);
++static netdev_tx_t fjes_xmit_frame(struct sk_buff *,
++		struct net_device *);
+ static irqreturn_t fjes_intr(int, void*);
+ 
+ static int fjes_acpi_add(struct acpi_device *);
+@@ -215,6 +217,7 @@ static void fjes_free_irq(struct fjes_adapter *adapter)
+ static const struct net_device_ops fjes_netdev_ops = {
+ 	.ndo_open		= fjes_open,
+ 	.ndo_stop		= fjes_close,
++	.ndo_start_xmit		= fjes_xmit_frame,
+ };
+ 
+ /*
+@@ -416,6 +419,193 @@ static void fjes_free_resources(struct fjes_adapter *adapter)
+ 
+ }
+ 
++static int fjes_tx_send(struct fjes_adapter *adapter, int dest,
++				void *data, size_t len)
++{
++	int retval;
++
++	retval = fjes_hw_epbuf_tx_pkt_send(
++		&(adapter->hw.ep_shm_info[dest].tx), data, len);
++	if (retval)
++		return retval;
++
++	adapter->hw.ep_shm_info[dest].tx.info->v1i.tx_status =
++		FJES_TX_DELAY_SEND_PENDING;
++
++	retval = 0;
++	return retval;
++}
++
++static netdev_tx_t fjes_xmit_frame(struct sk_buff *skb,
++		struct net_device *netdev)
++{
++	struct fjes_adapter *adapter = netdev_priv(netdev);
++	struct fjes_hw *hw = &adapter->hw;
++	enum ep_partner_status pstatus;
++
++	int len;
++	char *data, shortpkt[VLAN_ETH_HLEN];
++
++	u16 queue_no = 0;
++	struct netdev_queue *cur_queue = netdev_get_tx_queue(netdev, queue_no);
++	netdev_tx_t ret = NETDEV_TX_OK;
++	struct ethhdr *eth;
++	int dest_epid;
++
++	int max_epid, my_epid;
++	u16 vlan_id = 0;
++	bool vlan = false;
++	bool is_multi = false;
++
++	eth = (struct ethhdr *)skb->data;
++	my_epid = hw->my_epid;
++
++	vlan = (vlan_get_tag(skb, &vlan_id) == 0) ? true : false;
++
++	data = skb->data;
++	len = skb->len;
++
++	if (is_multicast_ether_addr(eth->h_dest)) {
++		dest_epid = 0;
++		max_epid = hw->max_epid;
++		is_multi = true;
++	} else if (is_local_ether_addr(eth->h_dest)) {
++
++		dest_epid = eth->h_dest[ETH_ALEN - 1];
++		max_epid = dest_epid + 1;
++
++		if ((eth->h_dest[0] == 0x02) &&
++			(0x00 == (eth->h_dest[1] | eth->h_dest[2] |
++				eth->h_dest[3] | eth->h_dest[4])) &&
++			(dest_epid < hw->max_epid)) {
++			;
++		} else {
++
++			dest_epid = 0;
++			max_epid = 0;
++			ret = NETDEV_TX_OK;
++
++			adapter->stats64.tx_packets += 1;
++			hw->ep_shm_info[my_epid].net_stats.tx_packets += 1;
++			adapter->stats64.tx_bytes += len;
++			hw->ep_shm_info[my_epid].net_stats.tx_bytes += len;
++
++		}
++	} else {
++
++		dest_epid = 0;
++		max_epid = 0;
++		ret = NETDEV_TX_OK;
++
++		adapter->stats64.tx_packets += 1;
++		hw->ep_shm_info[my_epid].net_stats.tx_packets += 1;
++		adapter->stats64.tx_bytes += len;
++		hw->ep_shm_info[my_epid].net_stats.tx_bytes += len;
++
++	}
++
++	for (; dest_epid < max_epid; dest_epid++) {
++
++		if (my_epid == dest_epid)
++			continue;
++
++		pstatus = fjes_hw_get_partner_ep_status(hw, dest_epid);
++		if (pstatus != EP_PARTNER_SHARED)
++			ret = NETDEV_TX_OK;
++		else if (!fjes_hw_check_epbuf_version(
++				&(adapter->hw.ep_shm_info[dest_epid].rx), 0)) {
++
++			/* version is NOT 0 */
++			adapter->stats64.tx_carrier_errors += 1;
++			hw->ep_shm_info[my_epid].net_stats.tx_carrier_errors += 1;
++
++			ret = NETDEV_TX_OK;
++		} else if (!fjes_hw_check_mtu(
++				&(adapter->hw.ep_shm_info[dest_epid].rx),
++				netdev->mtu)) {
++
++			adapter->stats64.tx_dropped += 1;
++			hw->ep_shm_info[my_epid].net_stats.tx_dropped += 1;
++			adapter->stats64.tx_errors += 1;
++			hw->ep_shm_info[my_epid].net_stats.tx_errors += 1;
++
++			ret = NETDEV_TX_OK;
++
++		} else if ((vlan == true) &&
++			   !fjes_hw_check_vlan_id(
++				&(adapter->hw.ep_shm_info[dest_epid].rx),
++				vlan_id)) {
++
++			ret = NETDEV_TX_OK;
++
++		} else {
++
++			if (len < VLAN_ETH_HLEN) {
++				memset(shortpkt, 0, VLAN_ETH_HLEN);
++				memcpy(shortpkt, skb->data, skb->len);
++				len = VLAN_ETH_HLEN;
++				data = shortpkt;
++			}
++
++			if (adapter->tx_retry_count == 0) {
++				adapter->tx_start_jiffies = jiffies;
++				adapter->tx_retry_count = 1;
++			} else {
++				adapter->tx_retry_count++;
++			}
++
++			if (fjes_tx_send(adapter, dest_epid, data, len)) {
++
++				if (is_multi) {
++					ret = NETDEV_TX_OK;
++				} else if (
++					   ((long)jiffies -
++					    (long)adapter->tx_start_jiffies) >=
++					    FJES_TX_RETRY_TIMEOUT) {
++
++					adapter->stats64.tx_fifo_errors += 1;
++					hw->ep_shm_info[my_epid].net_stats.tx_fifo_errors += 1;
++					adapter->stats64.tx_errors += 1;
++					hw->ep_shm_info[my_epid].net_stats.tx_errors += 1;
++
++					ret = NETDEV_TX_OK;
++				} else {
++
++					netdev->trans_start = jiffies;
++					netif_tx_stop_queue(cur_queue);
++
++					ret = NETDEV_TX_BUSY;
++				}
++			} else {
++
++				if (!is_multi) {
++					adapter->stats64.tx_packets += 1;
++					hw->ep_shm_info[my_epid].net_stats.tx_packets += 1;
++					adapter->stats64.tx_bytes += len;
++					hw->ep_shm_info[my_epid].net_stats.tx_bytes += len;
++				}
++
++				adapter->tx_retry_count = 0;
++				ret = NETDEV_TX_OK;
++
++			}
++		}
++	}
++
++
++	if (ret == NETDEV_TX_OK) {
++		dev_kfree_skb(skb);
++		if (is_multi) {
++			adapter->stats64.tx_packets += 1;
++			hw->ep_shm_info[my_epid].net_stats.tx_packets += 1;
++			adapter->stats64.tx_bytes += 1;
++			hw->ep_shm_info[my_epid].net_stats.tx_bytes += len;
++		}
++	}
++
++	return ret;
++}
++
+ static irqreturn_t fjes_intr(int irq, void *data)
+ {
+ 	struct fjes_adapter *adapter = data;
 -- 
 1.8.3.1
