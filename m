@@ -1,62 +1,104 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] fm10k: Report MAC address on driver load
-Date: Thu, 18 Jun 2015 15:49:35 -0700
-Message-ID: <1434667775.3530.79.camel@intel.com>
-References: <20150618031252.15654.56639.stgit@ahduyck-vm-fedora22>
+From: Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>
+Subject: Re: [REGRESSION] NFS is creating a hidden port (left over from
+ xs_bind() )
+Date: Thu, 18 Jun 2015 18:50:51 -0400
+Message-ID: <20150618185051.2b2828c3@tlielax.poochiereds.net>
+References: <20150611234929.7b48d314@gandalf.local.home>
+	<CAHQdGtSyHtMfyVxT=hFY4m6XvM=3mxnZ=ajVJWYNXvYqE0+3zA@mail.gmail.com>
+	<1434120035.27504.77.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150612113420.5c114183@gandalf.local.home>
+	<20150612115038.44e20ccd@gandalf.local.home>
+	<20150617230819.0a11e47a@grimm.local.home>
+	<CAHQdGtQfF8sgfj6B2H=Sg+mn6ghPD+4UuZMSMFjj3XCVee60pw@mail.gmail.com>
+	<20150618154914.57424225@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-zPKiQJE8mA9UFI381Hbi"
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:41055 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751110AbbFRWtf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jun 2015 18:49:35 -0400
-In-Reply-To: <20150618031252.15654.56639.stgit@ahduyck-vm-fedora22>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-zPKiQJE8mA9UFI381Hbi
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2015-06-17 at 20:12 -0700, Alexander Duyck wrote:
-> This change adds the MAC address to the list of values recorded on
-> driver
-> load.  The MAC address represents the serial number of the unit and
-> allows
-> us to track the value should a card be replaced in a system.
->=20
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
-> ---
->  drivers/net/ethernet/intel/fm10k/fm10k_pci.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-
-Thanks Alex, I will get this added to my queue.
-
---=-zPKiQJE8mA9UFI381Hbi
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Network Devel Mailing List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150618154914.57424225-f9ZlEuEWxVcJvu8Pb33WZ0EMvNT87kid@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+On Thu, 18 Jun 2015 15:49:14 -0400
+Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
 
-iQIcBAABCgAGBQJVg0r/AAoJEOVv75VaS+3O18sP/RSrFav+cSqh0qyWcwLw6Y5k
-Jz9X7jFNpbFaiJiZ4pfMNPGcfiguHOMPNk6786XIM+wvTKcQ9D8D3BglWdy/C3AF
-dHYERsz32Mp+ZjLG23UOSyuZNE5VcWqFklDCffb7m0VNflk8Bzd7QLiBdB+ggZB4
-GVyEz3jZuvN0ZoVwoMZEyzGtHd+RaJAZ0Y/IN+gP0CBTuQpNV5Qpel99taEi2pMG
-SgzqqBJCZpnMueJm4yoLulPrYlfiSVtmJKVHLifSfK7Fk5X1ao4AmHhkeZeR0ZG7
-NYGk90fDACeuhX8kUhxquvPm6FsdiwFXAN1RVkxGCqAZ8KAw/G2YKWQhxJg3IL2f
-n2IhvjYbzYbcakcMSOU1hfrN51sNq8PKGzgqx2R6oNh33zjtfcC3QajLCALSWBi1
-muM2c2q1AzhVfGb22G4iPt96ffkCxB2tcBBysqOfzMv1Yc+RvRCGlfL2ilDh27qb
-8udzV4z+G8IOtK4eDYUH1QJGJPQBWUnPiKRI9foX7oQBSb6u4TY8npGjpGsxIP+j
-Yq43O8OOAzcxSRIE5YKFXpdnHcdIoUdgBciUcGo4rSzHAJAtvhinnZBJkhMrkx9D
-GIuy9FTy2349vhzqpDrztTK6N++H29U8NVc3SK5+HlF4QMO9wKbui8sQSyz8p+Dp
-XC/qDcg1Sl65z6TBLHUG
-=P8nN
------END PGP SIGNATURE-----
+> On Thu, 18 Jun 2015 15:24:52 -0400
+> Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org> wrote:
+> 
+> > On Wed, Jun 17, 2015 at 11:08 PM, Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
+> > > On Fri, 12 Jun 2015 11:50:38 -0400
+> > > Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
+> > >
+> > >> I reverted the following commits:
+> > >>
+> > >> c627d31ba0696cbd829437af2be2f2dee3546b1e
+> > >> 9e2b9f37760e129cee053cc7b6e7288acc2a7134
+> > >> caf4ccd4e88cf2795c927834bc488c8321437586
+> > >>
+> > >> And the issue goes away. That is, I watched the port go from
+> > >> ESTABLISHED to TIME_WAIT, and then gone, and theirs no hidden port.
+> > >>
+> > >> In fact, I watched the port with my portlist.c module, and it
+> > >> disappeared there too when it entered the TIME_WAIT state.
+> > >>
+> > 
+> > I've scanned those commits again and again, and I'm not seeing how we
+> > could be introducing a socket leak there. The only suspect I can see
+> > would be the NFS swap bugs that Jeff fixed a few weeks ago. Are you
+> > using NFS swap?
+> 
+> Not that I'm aware of.
+> 
+> > 
+> > > I've been running v4.0.5 with the above commits reverted for 5 days
+> > > now, and there's still no hidden port appearing.
+> > >
+> > > What's the status on this? Should those commits be reverted or is there
+> > > another solution to this bug?
+> > >
+> > 
+> > I'm trying to reproduce, but I've had no luck yet.
+> 
+> It seems to happen with the connection to my wife's machine, and that
+> is where my wife's box connects two directories via nfs:
+> 
+> This is what's in my wife's /etc/fstab directory
+> 
+> goliath:/home/upload     /upload         nfs     auto,rw,intr,soft       0 0
+> goliath:/home/gallery    /gallery        nfs     auto,ro,intr,soft	 0 0
+> 
+> And here's what's in my /etc/exports directory
+> 
+> /home/upload       wife(no_root_squash,no_all_squash,rw,sync,no_subtree_check)
+> /home/gallery      192.168.23.0/24(ro,sync,no_subtree_check)
+> 
+> Attached is my config.
+> 
 
---=-zPKiQJE8mA9UFI381Hbi--
+The interesting bit here is that the sockets all seem to connect to port
+55201 on the remote host, if I'm reading these traces correctly. What's
+listening on that port on the server?
+
+This might give some helpful info:
+
+    $ rpcinfo -p <NFS servername>
+
+Also, what NFS version are you using to mount here? Your fstab entries
+suggest that you're using the default version (for whatever distro this
+is), but have you (e.g.) set up nfsmount.conf to default to v3 on this
+box?
+
+-- 
+Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
