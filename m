@@ -1,52 +1,62 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next 00/15] Simplify netfilter and network
- namespaces
-Date: Thu, 18 Jun 2015 22:21:15 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1506182210240.1659@ja.home.ssi.bg>
-References: <87616ppt3h.fsf@x220.int.ebiederm.org> <alpine.LFD.2.11.1506172216440.2649@ja.home.ssi.bg> <87wpz25a2q.fsf@x220.int.ebiederm.org> <alpine.LFD.2.11.1506180055030.3621@ja.home.ssi.bg> <87fv5p2hzg.fsf@x220.int.ebiederm.org>
+From: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
+Subject: Re: [REGRESSION] NFS is creating a hidden port (left over from
+ xs_bind() )
+Date: Thu, 18 Jun 2015 15:24:52 -0400
+Message-ID: <CAHQdGtQfF8sgfj6B2H=Sg+mn6ghPD+4UuZMSMFjj3XCVee60pw@mail.gmail.com>
+References: <20150611234929.7b48d314@gandalf.local.home>
+	<CAHQdGtSyHtMfyVxT=hFY4m6XvM=3mxnZ=ajVJWYNXvYqE0+3zA@mail.gmail.com>
+	<1434120035.27504.77.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150612113420.5c114183@gandalf.local.home>
+	<20150612115038.44e20ccd@gandalf.local.home>
+	<20150617230819.0a11e47a@grimm.local.home>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:51699 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752639AbbFRTVR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jun 2015 15:21:17 -0400
-In-Reply-To: <87fv5p2hzg.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Network Devel Mailing List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150617230819.0a11e47a-2kNGR76GQU9OHLTnHDQRgA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Jun 17, 2015 at 11:08 PM, Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
+> On Fri, 12 Jun 2015 11:50:38 -0400
+> Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
+>
+>> I reverted the following commits:
+>>
+>> c627d31ba0696cbd829437af2be2f2dee3546b1e
+>> 9e2b9f37760e129cee053cc7b6e7288acc2a7134
+>> caf4ccd4e88cf2795c927834bc488c8321437586
+>>
+>> And the issue goes away. That is, I watched the port go from
+>> ESTABLISHED to TIME_WAIT, and then gone, and theirs no hidden port.
+>>
+>> In fact, I watched the port with my portlist.c module, and it
+>> disappeared there too when it entered the TIME_WAIT state.
+>>
 
-	Hello,
+I've scanned those commits again and again, and I'm not seeing how we
+could be introducing a socket leak there. The only suspect I can see
+would be the NFS swap bugs that Jeff fixed a few weeks ago. Are you
+using NFS swap?
 
-On Thu, 18 Jun 2015, Eric W. Biederman wrote:
+> I've been running v4.0.5 with the above commits reverted for 5 days
+> now, and there's still no hidden port appearing.
+>
+> What's the status on this? Should those commits be reverted or is there
+> another solution to this bug?
+>
 
-> My incremental patch for ipvs on top of everything else I have pushed
-> out looks like this:
-> 
-> From: "Eric W. Biederman" <ebiederm@xmission.com>
-> Date: Fri, 12 Jun 2015 18:34:12 -0500
-> Subject: [PATCH] ipvs: Pass struct net down to where it is needed and used
-> 
-> Pass struct net down to where it is used and stop guessing
-> which network namespace should be used.
+I'm trying to reproduce, but I've had no luck yet.
 
-	At first look patch is ok. But I'm not sure
-for the changes in ip_vs_xmit.c. Can you explain in
-2-3 lines, when can we see different netns? Is it when
-packet is forwarded to output device and it is part from
-another netns?
-
-	I'm asking because these __ip_vs_get_out_rt*
-calls in ip_vs_xmit.c can reroute packet to another
-device...
-
-	Also, skb_sknet is another candidate for removal.
-But I can take care about it after your changes are
-pushed...
-
-Regards
-
+Cheers
+  Trond
 --
-Julian Anastasov <ja@ssi.bg>
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
