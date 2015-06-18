@@ -1,47 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/3 v4] net: ipv4 sysctl option to ignore
- routes when nexthop link is down
-Date: Thu, 18 Jun 2015 03:27:58 -0700 (PDT)
-Message-ID: <20150618.032758.842689503494499354.davem@davemloft.net>
-References: <1434386001-1157-1-git-send-email-gospo@cumulusnetworks.com>
-	<1434386001-1157-3-git-send-email-gospo@cumulusnetworks.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: [PATCH] net/macb: add config for Atmel sama5d2 SoCs
+Date: Thu, 18 Jun 2015 12:18:19 +0200
+Message-ID: <1434622699-2689-1-git-send-email-nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ddutt@cumulusnetworks.com,
-	sfeldma@gmail.com, alexander.duyck@gmail.com,
-	hannes@stressinduktion.org, stephen@networkplumber.org
-To: gospo@cumulusnetworks.com
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+	Boris BREZILLON <boris.brezillon@free-electrons.com>,
+	Cyrille Pitchen <cyrille.pitchen@atmel.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>
+To: <linux-arm-kernel@lists.infradead.org>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41172 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754817AbbFRKQT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 06:16:19 -0400
-In-Reply-To: <1434386001-1157-3-git-send-email-gospo@cumulusnetworks.com>
+Received: from eusmtp01.atmel.com ([212.144.249.242]:8924 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754752AbbFRKSC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 06:18:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Date: Mon, 15 Jun 2015 12:33:20 -0400
+From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
 
-> @@ -1035,12 +1036,18 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
->  	    nla_put_in_addr(skb, RTA_PREFSRC, fi->fib_prefsrc))
->  		goto nla_put_failure;
->  	if (fi->fib_nhs == 1) {
-> +		struct in_device *in_dev;
->  		if (fi->fib_nh->nh_gw &&
->  		    nla_put_in_addr(skb, RTA_GATEWAY, fi->fib_nh->nh_gw))
->  			goto nla_put_failure;
+Add the compatible string for Atmel sama5d2 SoC family as the configuration
+options differ from other instances of the GEM.
 
-Please put an empty line between local variable declarations and code.
+Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+ drivers/net/ethernet/cadence/macb.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-> @@ -1057,11 +1064,17 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
->  			goto nla_put_failure;
->  
->  		for_nexthops(fi) {
-> +			struct in_device *in_dev;
->  			rtnh = nla_reserve_nohdr(skb, sizeof(*rtnh));
->  			if (!rtnh)
->  				goto nla_put_failure;
-
-Likewise.
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 740d04fd2223..caeb39561567 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2713,6 +2713,13 @@ static const struct macb_config pc302gem_config = {
+ 	.init = macb_init,
+ };
+ 
++static const struct macb_config sama5d2_config = {
++	.caps = 0,
++	.dma_burst_length = 16,
++	.clk_init = macb_clk_init,
++	.init = macb_init,
++};
++
+ static const struct macb_config sama5d3_config = {
+ 	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
+ 	.dma_burst_length = 16,
+@@ -2756,6 +2763,7 @@ static const struct of_device_id macb_dt_ids[] = {
+ 	{ .compatible = "cdns,macb" },
+ 	{ .compatible = "cdns,pc302-gem", .data = &pc302gem_config },
+ 	{ .compatible = "cdns,gem", .data = &pc302gem_config },
++	{ .compatible = "atmel,sama5d2-gem", .data = &sama5d2_config },
+ 	{ .compatible = "atmel,sama5d3-gem", .data = &sama5d3_config },
+ 	{ .compatible = "atmel,sama5d4-gem", .data = &sama5d4_config },
+ 	{ .compatible = "cdns,at91rm9200-emac", .data = &emac_config },
+-- 
+2.1.3
