@@ -1,7 +1,8 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH v2 0/4] net/macb: add sama5d2 support
-Date: Thu, 18 Jun 2015 16:27:19 +0200
-Message-ID: <cover.1434637286.git.nicolas.ferre@atmel.com>
+Subject: [PATCH v2 1/4] net/macb: bindings doc: fix compatibility string
+Date: Thu, 18 Jun 2015 16:27:20 +0200
+Message-ID: <d34d38d251e57ed176ad526452681f4b9bdf4778.1434637286.git.nicolas.ferre@atmel.com>
+References: <cover.1434637286.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>,
@@ -11,36 +12,33 @@ Cc: <linux-kernel@vger.kernel.org>,
 	Nicolas Ferre <nicolas.ferre@atmel.com>
 To: <linux-arm-kernel@lists.infradead.org>,
 	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.243]:20408 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754065AbbFRO1F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 10:27:05 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1434637286.git.nicolas.ferre@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+In the driver and the DT bindings we use the "atmel" prefix. Fix it in the
+binding documentation.
 
-This series is basically the support for another flavor of the GEM IP
-configuration. It ended up being a series because of some little fixes made to
-the binding documentation before adding the new compatibility string.
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+ Documentation/devicetree/bindings/net/macb.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Bye,
-
-v2: - fix bindings
-    - add sama5d2 compatibility string to the binding documentation
-
-Cyrille Pitchen (1):
-  net/macb: add config for Atmel sama5d2 SoCs
-
-Nicolas Ferre (3):
-  net/macb: bindings doc: fix compatibility string
-  net/macb: bindings doc/trivial: fix sama5d4 comment
-  net/macb: bindings doc: add sama5d2 compatibility sting
-
- Documentation/devicetree/bindings/net/macb.txt | 5 +++--
- drivers/net/ethernet/cadence/macb.c            | 8 ++++++++
- 2 files changed, 11 insertions(+), 2 deletions(-)
-
+diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
+index 8ec5fdf444e9..0ae6974383d7 100644
+--- a/Documentation/devicetree/bindings/net/macb.txt
++++ b/Documentation/devicetree/bindings/net/macb.txt
+@@ -7,8 +7,8 @@ Required properties:
+   Use "cdns,at32ap7000-macb" for other 10/100 usage or use the generic form: "cdns,macb".
+   Use "cdns,pc302-gem" for Picochip picoXcell pc302 and later devices based on
+   the Cadence GEM, or the generic form: "cdns,gem".
+-  Use "cdns,sama5d3-gem" for the Gigabit IP available on Atmel sama5d3 SoCs.
+-  Use "cdns,sama5d4-gem" for the Gigabit IP available on Atmel sama5d4 SoCs.
++  Use "atmel,sama5d3-gem" for the Gigabit IP available on Atmel sama5d3 SoCs.
++  Use "atmel,sama5d4-gem" for the Gigabit IP available on Atmel sama5d4 SoCs.
+   Use "cdns,zynqmp-gem" for Zynq Ultrascale+ MPSoC.
+ - reg: Address and length of the register set for the device
+ - interrupts: Should contain macb interrupt
 -- 
 2.1.3
