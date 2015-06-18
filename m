@@ -1,40 +1,253 @@
 From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH next v2] bonding: Display LACP info only to CAP_NET_ADMIN
- capable user
-Date: Thu, 18 Jun 2015 10:58:48 -0700
-Message-ID: <CAF2d9jiEjKmtzX4p_5dc3JPoDQ8cQZ3EwRvNXuu9gm8Ysv1Exg@mail.gmail.com>
-References: <1434589182-7953-1-git-send-email-maheshb@google.com>
- <1434626256.27504.208.camel@edumazet-glaptop2.roam.corp.google.com> <20150618144133.GL588@gospo.home.greyhouse.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
+Subject: [PATCH next v3] bonding: Display LACP info only to CAP_NET_ADMIN capable user
+Date: Thu, 18 Jun 2015 11:30:54 -0700
+Message-ID: <1434652254-17510-1-git-send-email-maheshb@google.com>
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	netdev <netdev@vger.kernel.org>
+To: Jay Vosburgh <j.vosburgh@gmail.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
 	Veaceslav Falico <vfalico@gmail.com>,
 	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f46.google.com ([209.85.213.46]:33142 "EHLO
-	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751674AbbFRR7J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 13:59:09 -0400
-Received: by yhpn97 with SMTP id n97so61738511yhp.0
-        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 10:59:08 -0700 (PDT)
-In-Reply-To: <20150618144133.GL588@gospo.home.greyhouse.net>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:36288 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754439AbbFRSbD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 14:31:03 -0400
+Received: by igbiq7 with SMTP id iq7so1445758igb.1
+        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 11:31:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>
->> Hmm... I would rather not send these fake attributes at all ?
->
-> That would be my preference as well.  Sorry if my lack of elaboration on
-> on my earlier email made this confusing.
->
-> If there are values that should not be visible to non-root users, then
-> don't send them at all.  Do not just send NULL values.
->
-OK, would change this in the next rev.
+Actor and Partner details can be accessed via proc-fs, sys-fs
+entries or netlink interface. These interfaces are world readable
+at this moment. The earlier patch-series made the LACP communication
+secure to avoid nuisance attack from within the same L2 domain but
+it did not prevent "someone unprivileged" looking at that information
+on host and perform the same act.
 
-Thanks,
+This patch essentially avoids spitting those entries if the user
+in question does not have enough privileges.
+
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+ drivers/net/bonding/bond_netlink.c |  23 +++++----
+ drivers/net/bonding/bond_procfs.c  | 101 +++++++++++++++++++------------------
+ drivers/net/bonding/bond_sysfs.c   |  12 ++---
+ 3 files changed, 71 insertions(+), 65 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
+index 5580fcde738f..1bda29249d12 100644
+--- a/drivers/net/bonding/bond_netlink.c
++++ b/drivers/net/bonding/bond_netlink.c
+@@ -601,19 +601,20 @@ static int bond_fill_info(struct sk_buff *skb,
+ 	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
+ 		struct ad_info info;
+ 
+-		if (nla_put_u16(skb, IFLA_BOND_AD_ACTOR_SYS_PRIO,
+-				bond->params.ad_actor_sys_prio))
+-			goto nla_put_failure;
+-
+-		if (nla_put_u16(skb, IFLA_BOND_AD_USER_PORT_KEY,
+-				bond->params.ad_user_port_key))
+-			goto nla_put_failure;
++		if (capable(CAP_NET_ADMIN)) {
++			if (nla_put_u16(skb, IFLA_BOND_AD_ACTOR_SYS_PRIO,
++					bond->params.ad_actor_sys_prio))
++				goto nla_put_failure;
+ 
+-		if (nla_put(skb, IFLA_BOND_AD_ACTOR_SYSTEM,
+-			    sizeof(bond->params.ad_actor_system),
+-			    &bond->params.ad_actor_system))
+-			goto nla_put_failure;
++			if (nla_put_u16(skb, IFLA_BOND_AD_USER_PORT_KEY,
++					bond->params.ad_user_port_key))
++				goto nla_put_failure;
+ 
++			if (nla_put(skb, IFLA_BOND_AD_ACTOR_SYSTEM,
++				    sizeof(bond->params.ad_actor_system),
++				    &bond->params.ad_actor_system))
++				goto nla_put_failure;
++		}
+ 		if (!bond_3ad_get_active_agg_info(bond, &info)) {
+ 			struct nlattr *nest;
+ 
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index e7f3047a26df..f514fe5e80a5 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -135,27 +135,30 @@ static void bond_info_show_master(struct seq_file *seq)
+ 					  bond->params.ad_select);
+ 		seq_printf(seq, "Aggregator selection policy (ad_select): %s\n",
+ 			   optval->string);
+-		seq_printf(seq, "System priority: %d\n",
+-			   BOND_AD_INFO(bond).system.sys_priority);
+-		seq_printf(seq, "System MAC address: %pM\n",
+-			   &BOND_AD_INFO(bond).system.sys_mac_addr);
+-
+-		if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+-			seq_printf(seq, "bond %s has no active aggregator\n",
+-				   bond->dev->name);
+-		} else {
+-			seq_printf(seq, "Active Aggregator Info:\n");
+-
+-			seq_printf(seq, "\tAggregator ID: %d\n",
+-				   ad_info.aggregator_id);
+-			seq_printf(seq, "\tNumber of ports: %d\n",
+-				   ad_info.ports);
+-			seq_printf(seq, "\tActor Key: %d\n",
+-				   ad_info.actor_key);
+-			seq_printf(seq, "\tPartner Key: %d\n",
+-				   ad_info.partner_key);
+-			seq_printf(seq, "\tPartner Mac Address: %pM\n",
+-				   ad_info.partner_system);
++		if (capable(CAP_NET_ADMIN)) {
++			seq_printf(seq, "System priority: %d\n",
++				   BOND_AD_INFO(bond).system.sys_priority);
++			seq_printf(seq, "System MAC address: %pM\n",
++				   &BOND_AD_INFO(bond).system.sys_mac_addr);
++
++			if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
++				seq_printf(seq,
++					   "bond %s has no active aggregator\n",
++					   bond->dev->name);
++			} else {
++				seq_printf(seq, "Active Aggregator Info:\n");
++
++				seq_printf(seq, "\tAggregator ID: %d\n",
++					   ad_info.aggregator_id);
++				seq_printf(seq, "\tNumber of ports: %d\n",
++					   ad_info.ports);
++				seq_printf(seq, "\tActor Key: %d\n",
++					   ad_info.actor_key);
++				seq_printf(seq, "\tPartner Key: %d\n",
++					   ad_info.partner_key);
++				seq_printf(seq, "\tPartner Mac Address: %pM\n",
++					   ad_info.partner_system);
++			}
+ 		}
+ 	}
+ }
+@@ -199,33 +202,35 @@ static void bond_info_show_slave(struct seq_file *seq,
+ 			seq_printf(seq, "Partner Churned Count: %d\n",
+ 				   port->churn_partner_count);
+ 
+-			seq_puts(seq, "details actor lacp pdu:\n");
+-			seq_printf(seq, "    system priority: %d\n",
+-				   port->actor_system_priority);
+-			seq_printf(seq, "    system mac address: %pM\n",
+-				   &port->actor_system);
+-			seq_printf(seq, "    port key: %d\n",
+-				   port->actor_oper_port_key);
+-			seq_printf(seq, "    port priority: %d\n",
+-				   port->actor_port_priority);
+-			seq_printf(seq, "    port number: %d\n",
+-				   port->actor_port_number);
+-			seq_printf(seq, "    port state: %d\n",
+-				   port->actor_oper_port_state);
+-
+-			seq_puts(seq, "details partner lacp pdu:\n");
+-			seq_printf(seq, "    system priority: %d\n",
+-				   port->partner_oper.system_priority);
+-			seq_printf(seq, "    system mac address: %pM\n",
+-				   &port->partner_oper.system);
+-			seq_printf(seq, "    oper key: %d\n",
+-				   port->partner_oper.key);
+-			seq_printf(seq, "    port priority: %d\n",
+-				   port->partner_oper.port_priority);
+-			seq_printf(seq, "    port number: %d\n",
+-				   port->partner_oper.port_number);
+-			seq_printf(seq, "    port state: %d\n",
+-				   port->partner_oper.port_state);
++			if (capable(CAP_NET_ADMIN)) {
++				seq_puts(seq, "details actor lacp pdu:\n");
++				seq_printf(seq, "    system priority: %d\n",
++					   port->actor_system_priority);
++				seq_printf(seq, "    system mac address: %pM\n",
++					   &port->actor_system);
++				seq_printf(seq, "    port key: %d\n",
++					   port->actor_oper_port_key);
++				seq_printf(seq, "    port priority: %d\n",
++					   port->actor_port_priority);
++				seq_printf(seq, "    port number: %d\n",
++					   port->actor_port_number);
++				seq_printf(seq, "    port state: %d\n",
++					   port->actor_oper_port_state);
++
++				seq_puts(seq, "details partner lacp pdu:\n");
++				seq_printf(seq, "    system priority: %d\n",
++					   port->partner_oper.system_priority);
++				seq_printf(seq, "    system mac address: %pM\n",
++					   &port->partner_oper.system);
++				seq_printf(seq, "    oper key: %d\n",
++					   port->partner_oper.key);
++				seq_printf(seq, "    port priority: %d\n",
++					   port->partner_oper.port_priority);
++				seq_printf(seq, "    port number: %d\n",
++					   port->partner_oper.port_number);
++				seq_printf(seq, "    port state: %d\n",
++					   port->partner_oper.port_state);
++			}
+ 		} else {
+ 			seq_puts(seq, "Aggregator ID: N/A\n");
+ 		}
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 143a2abd1c1c..31835a4dab57 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -549,7 +549,7 @@ static ssize_t bonding_show_ad_actor_key(struct device *d,
+ 	int count = 0;
+ 	struct bonding *bond = to_bond(d);
+ 
+-	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
++	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN)) {
+ 		struct ad_info ad_info;
+ 		count = sprintf(buf, "%d\n",
+ 				bond_3ad_get_active_agg_info(bond, &ad_info)
+@@ -569,7 +569,7 @@ static ssize_t bonding_show_ad_partner_key(struct device *d,
+ 	int count = 0;
+ 	struct bonding *bond = to_bond(d);
+ 
+-	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
++	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN)) {
+ 		struct ad_info ad_info;
+ 		count = sprintf(buf, "%d\n",
+ 				bond_3ad_get_active_agg_info(bond, &ad_info)
+@@ -589,7 +589,7 @@ static ssize_t bonding_show_ad_partner_mac(struct device *d,
+ 	int count = 0;
+ 	struct bonding *bond = to_bond(d);
+ 
+-	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
++	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN)) {
+ 		struct ad_info ad_info;
+ 		if (!bond_3ad_get_active_agg_info(bond, &ad_info))
+ 			count = sprintf(buf, "%pM\n", ad_info.partner_system);
+@@ -698,7 +698,7 @@ static ssize_t bonding_show_ad_actor_sys_prio(struct device *d,
+ {
+ 	struct bonding *bond = to_bond(d);
+ 
+-	if (BOND_MODE(bond) == BOND_MODE_8023AD)
++	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN))
+ 		return sprintf(buf, "%hu\n", bond->params.ad_actor_sys_prio);
+ 
+ 	return 0;
+@@ -712,7 +712,7 @@ static ssize_t bonding_show_ad_actor_system(struct device *d,
+ {
+ 	struct bonding *bond = to_bond(d);
+ 
+-	if (BOND_MODE(bond) == BOND_MODE_8023AD)
++	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN))
+ 		return sprintf(buf, "%pM\n", bond->params.ad_actor_system);
+ 
+ 	return 0;
+@@ -727,7 +727,7 @@ static ssize_t bonding_show_ad_user_port_key(struct device *d,
+ {
+ 	struct bonding *bond = to_bond(d);
+ 
+-	if (BOND_MODE(bond) == BOND_MODE_8023AD)
++	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN))
+ 		return sprintf(buf, "%hu\n", bond->params.ad_user_port_key);
+ 
+ 	return 0;
+-- 
+2.4.3.573.g4eafbef
