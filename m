@@ -1,48 +1,93 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [PATCH] fm10k: Report MAC address on driver load
-Date: Wed, 17 Jun 2015 20:12:52 -0700
-Message-ID: <20150618031252.15654.56639.stgit@ahduyck-vm-fedora22>
+From: nick <xerofoify@gmail.com>
+Subject: Re: [PATCH] xilinx:Remove unused variable num_frag in the function
+ axienet_start_xmit
+Date: Wed, 17 Jun 2015 23:10:58 -0400
+Message-ID: <558236C2.9030009@gmail.com>
+References: <1434556362-3748-1-git-send-email-xerofoify@gmail.com>
+ <20150617160730.GE2906@xsjsorenbubuntu>
+ <DD47523D-0DF9-46B5-9382-3C30BBD9E815@gmail.com>
+ <20150617185848.GI2906@xsjsorenbubuntu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54829 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751207AbbFRDMx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2015 23:12:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ michal.simek@xilinx.com, anirudh@xilinx.com, John.Linn@xilinx.com,
+ linux-arm-kernel@lists.infradead.org
+To: =?UTF-8?B?U8O2cmVuIEJyaW5rbWFubg==?= <soren.brinkmann@xilinx.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20150617185848.GI2906@xsjsorenbubuntu>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-This change adds the MAC address to the list of values recorded on driver
-load.  The MAC address represents the serial number of the unit and allows
-us to track the value should a card be replaced in a system.
-
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index df9fda38bdd1..5db41ab3b762 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -1837,7 +1837,7 @@ static int fm10k_probe(struct pci_dev *pdev,
- 	fm10k_ptp_register(interface);
- 
- 	/* print bus type/speed/width info */
--	dev_info(&pdev->dev, "(PCI Express:%s Width: %s Payload: %s)\n",
-+	dev_info(&pdev->dev, "(PCI Express:%s Width: %s Payload: %s) %pM\n",
- 		 (hw->bus.speed == fm10k_bus_speed_8000 ? "8.0GT/s" :
- 		  hw->bus.speed == fm10k_bus_speed_5000 ? "5.0GT/s" :
- 		  hw->bus.speed == fm10k_bus_speed_2500 ? "2.5GT/s" :
-@@ -1849,7 +1849,7 @@ static int fm10k_probe(struct pci_dev *pdev,
- 		 (hw->bus.payload == fm10k_bus_payload_128 ? "128B" :
- 		  hw->bus.payload == fm10k_bus_payload_256 ? "256B" :
- 		  hw->bus.payload == fm10k_bus_payload_512 ? "512B" :
--		  "Unknown"));
-+		  "Unknown"), netdev->dev_addr);
- 
- 	/* print warning for non-optimal configurations */
- 	fm10k_slot_warn(interface);
+CgpPbiAyMDE1LTA2LTE3IDAyOjU4IFBNLCBTw7ZyZW4gQnJpbmttYW5uIHdyb3RlOgo+IE9uIFdl
+ZCwgMjAxNS0wNi0xNyBhdCAxMjoyMVBNIC0wNDAwLCBOaWNob2xhcyBLcmF1c2Ugd3JvdGU6Cj4+
+Cj4+Cj4+IE9uIEp1bmUgMTcsIDIwMTUgMTI6MDc6MzAgUE0gRURULCAiU8O2cmVuIEJyaW5rbWFu
+biIgPHNvcmVuLmJyaW5rbWFubkB4aWxpbnguY29tPiB3cm90ZToKPj4+IE9uIFdlZCwgMjAxNS0w
+Ni0xNyBhdCAxMTo1MkFNIC0wNDAwLCBOaWNob2xhcyBLcmF1c2Ugd3JvdGU6Cj4+Pj4gVGhpcyBy
+ZW1vdmVzIHRoZSB1bnVzZWQgdmFyaWFibGUgbnVtX2ZyYWcgYW5kIHRoZSBzZXR0aW5nIG9mIGl0
+Cj4+Pj4gdG8gdGhlIG51bWJlciBvZiBmcmFnbWVudHMgZnJvbSB0aGUgcGFzc2VkIHNrX2J1ZmYg
+cG9pbnRlciBieQo+Pj4+IHRoaXMgZnVuY3Rpb24ncyBjYWxsZXIgZHVlIHRvIHRoaXMgdmFyaWFi
+bGUgbmV2ZXIgYmVpbmcgdXNlZAo+Pj4+IGluIHRoaXMgcGFydGljdWxhciBmdW5jdGlvbiBhbmQg
+aXMgbm90IGRlY2xhcmVkIGFzICBnbG9iYWwgc28KPj4+PiBzZXR0aW5nIGl0IGZvciBnbG9iYWwg
+dXNlIGluIHRoaXMgZmlsZSBpcyBwb2ludGxlc3MuCj4+Pj4KPj4+PiBTaWduZWQtb2ZmLWJ5OiBO
+aWNob2xhcyBLcmF1c2UgPHhlcm9mb2lmeUBnbWFpbC5jb20+Cj4+Pj4gLS0tCj4+Pj4gIGRyaXZl
+cnMvbmV0L2V0aGVybmV0L3hpbGlueC94aWxpbnhfYXhpZW5ldF9tYWluLmMgfCAyIC0tCj4+Pj4g
+IDEgZmlsZSBjaGFuZ2VkLCAyIGRlbGV0aW9ucygtKQo+Pj4+Cj4+Pj4gZGlmZiAtLWdpdCBhL2Ry
+aXZlcnMvbmV0L2V0aGVybmV0L3hpbGlueC94aWxpbnhfYXhpZW5ldF9tYWluLmMKPj4+IGIvZHJp
+dmVycy9uZXQvZXRoZXJuZXQveGlsaW54L3hpbGlueF9heGllbmV0X21haW4uYwo+Pj4+IGluZGV4
+IDI4YjdlN2QuLjYyNGRjZTQgMTAwNjQ0Cj4+Pj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+eGlsaW54L3hpbGlueF9heGllbmV0X21haW4uYwo+Pj4+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L3hpbGlueC94aWxpbnhfYXhpZW5ldF9tYWluLmMKPj4+PiBAQCAtNjUxLDcgKzY1MSw2IEBA
+IHN0YXRpYyBpbmxpbmUgaW50Cj4+PiBheGllbmV0X2NoZWNrX3R4X2JkX3NwYWNlKHN0cnVjdCBh
+eGllbmV0X2xvY2FsICpscCwKPj4+PiAgc3RhdGljIGludCBheGllbmV0X3N0YXJ0X3htaXQoc3Ry
+dWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UKPj4+ICpuZGV2KQo+Pj4+ICB7Cj4+
+Pj4gIAl1MzIgaWk7Cj4+Pj4gLQl1MzIgbnVtX2ZyYWc7Cj4+Pj4gIAl1MzIgY3N1bV9zdGFydF9v
+ZmY7Cj4+Pj4gIAl1MzIgY3N1bV9pbmRleF9vZmY7Cj4+Pj4gIAlza2JfZnJhZ190ICpmcmFnOwo+
+Pj4+IEBAIC02NTksNyArNjU4LDYgQEAgc3RhdGljIGludCBheGllbmV0X3N0YXJ0X3htaXQoc3Ry
+dWN0IHNrX2J1ZmYKPj4+ICpza2IsIHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2KQo+Pj4+ICAJc3Ry
+dWN0IGF4aWVuZXRfbG9jYWwgKmxwID0gbmV0ZGV2X3ByaXYobmRldik7Cj4+Pj4gIAlzdHJ1Y3Qg
+YXhpZG1hX2JkICpjdXJfcDsKPj4+PiAgCj4+Pj4gLQludW1fZnJhZyA9IHNrYl9zaGluZm8oc2ti
+KS0+bnJfZnJhZ3M7Cj4+Pj4gIAljdXJfcCA9ICZscC0+dHhfYmRfdltscC0+dHhfYmRfdGFpbF07
+Cj4+Pj4gIAo+Pj4+ICAJaWYgKGF4aWVuZXRfY2hlY2tfdHhfYmRfc3BhY2UobHAsIG51bV9mcmFn
+KSkgewo+Pj4KPj4+IEl0J3MgdXNlZCByaWdodCBoZXJlLCBpc24ndCBpdCAoYW5kIGZ1cnRoZXIg
+ZG93biBpbiB0aGlzIGZ1bmN0aW9uIHRvbyk/Cj4+PiBEb2VzIHlvdXIgdHJlZSBjb21waWxlIHdp
+dGggdGhpcyBjaGFuZ2U/Cj4+Pgo+Pj4gCVPDtnJlbgo+PiBNeSB0cmVlIGRvZXMgY29tcGlsZSB3
+aXRoIHRoaXMgY2hhbmdlLiAKPiAKPiBZb3UgaGF2ZSB0byBmaXggeW91ciB0ZXN0aW5nIHByb2Nl
+c3M6Cj4gICAgIENISyAgICAgaW5jbHVkZS9jb25maWcva2VybmVsLnJlbGVhc2UKPiAgICAgVVBE
+ICAgICBpbmNsdWRlL2NvbmZpZy9rZXJuZWwucmVsZWFzZQo+ICAgICBDSEsgICAgIGluY2x1ZGUv
+Z2VuZXJhdGVkL3VhcGkvbGludXgvdmVyc2lvbi5oCj4gICAgIENISyAgICAgaW5jbHVkZS9nZW5l
+cmF0ZWQvdXRzcmVsZWFzZS5oCj4gICAgIFVQRCAgICAgaW5jbHVkZS9nZW5lcmF0ZWQvdXRzcmVs
+ZWFzZS5oCj4gICAgIENISyAgICAgaW5jbHVkZS9nZW5lcmF0ZWQvYm91bmRzLmgKPiAgICAgQ0hL
+ICAgICBpbmNsdWRlL2dlbmVyYXRlZC90aW1lY29uc3QuaAo+ICAgICBDSEsgICAgIGluY2x1ZGUv
+Z2VuZXJhdGVkL2FzbS1vZmZzZXRzLmgKPiAgICAgQ0FMTCAgICBzY3JpcHRzL2NoZWNrc3lzY2Fs
+bHMuc2gKPiAgIDxzdGRpbj46MTI1MzoyOiB3YXJuaW5nOiAjd2FybmluZyBzeXNjYWxsIHVzZXJm
+YXVsdGZkIG5vdCBpbXBsZW1lbnRlZCBbLVdjcHBdCj4gICAgIENDICAgICAgZHJpdmVycy9uZXQv
+ZXRoZXJuZXQveGlsaW54L3hpbGlueF9heGllbmV0X21haW4ubwo+ICAgZHJpdmVycy9uZXQvZXRo
+ZXJuZXQveGlsaW54L3hpbGlueF9heGllbmV0X21haW4uYzogSW4gZnVuY3Rpb24gJ2F4aWVuZXRf
+c3RhcnRfeG1pdCc6Cj4gICBkcml2ZXJzL25ldC9ldGhlcm5ldC94aWxpbngveGlsaW54X2F4aWVu
+ZXRfbWFpbi5jOjY2NzozNjogZXJyb3I6ICdudW1fZnJhZycgdW5kZWNsYXJlZCAoZmlyc3QgdXNl
+IGluIHRoaXMgZnVuY3Rpb24pCj4gICAgIGlmIChheGllbmV0X2NoZWNrX3R4X2JkX3NwYWNlKGxw
+LCBudW1fZnJhZykpIHsKPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4K
+PiAgIGRyaXZlcnMvbmV0L2V0aGVybmV0L3hpbGlueC94aWxpbnhfYXhpZW5ldF9tYWluLmM6NjY3
+OjM2OiBub3RlOiBlYWNoIHVuZGVjbGFyZWQgaWRlbnRpZmllciBpcyByZXBvcnRlZCBvbmx5IG9u
+Y2UgZm9yIGVhY2ggZnVuY3Rpb24gaXQgYXBwZWFycyBpbgo+ICAgc2NyaXB0cy9NYWtlZmlsZS5i
+dWlsZDoyNTg6IHJlY2lwZSBmb3IgdGFyZ2V0ICdkcml2ZXJzL25ldC9ldGhlcm5ldC94aWxpbngv
+eGlsaW54X2F4aWVuZXRfbWFpbi5vJyBmYWlsZWQKPiAgIG1ha2VbMV06ICoqKiBbZHJpdmVycy9u
+ZXQvZXRoZXJuZXQveGlsaW54L3hpbGlueF9heGllbmV0X21haW4ub10gRXJyb3IgMQo+ICAgTWFr
+ZWZpbGU6MTU0NTogcmVjaXBlIGZvciB0YXJnZXQgJ2RyaXZlcnMvbmV0L2V0aGVybmV0L3hpbGlu
+eC94aWxpbnhfYXhpZW5ldF9tYWluLm8nIGZhaWxlZAo+ICAgbWFrZTogKioqIFtkcml2ZXJzL25l
+dC9ldGhlcm5ldC94aWxpbngveGlsaW54X2F4aWVuZXRfbWFpbi5vXSBFcnJvciAyCj4gCj4gTkFD
+SyBmb3IgdGhlIHBhdGNoLgo+IAo+IAlTw7ZyZW4KPiAKU29ycnkgYWJvdXQgdGhhdCBhcyBJIHRy
+aWVkIGFnYWluIGFuZCBpdCBkaWRuJ3QgYnVpbGQuIFdlaXJkIGlzc3VlIG1heWJlIHNvbWV0aGlu
+ZyB3aXRoIGNjYWNoZS4KTmljawoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX18KbGludXgtYXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5l
+bEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4v
+bGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAo=
