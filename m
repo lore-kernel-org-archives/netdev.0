@@ -1,49 +1,67 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 1/3 v4] net: track link-status of ipv4 nexthops
-Date: Thu, 18 Jun 2015 10:55:30 -0400
-Message-ID: <20150618145529.GM588@gospo.home.greyhouse.net>
-References: <1434386001-1157-1-git-send-email-gospo@cumulusnetworks.com>
- <1434386001-1157-2-git-send-email-gospo@cumulusnetworks.com>
- <20150618.032630.1483876648100612079.davem@davemloft.net>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: Re: [RFC V3] net: don't wait for order-3 page allocation
+Date: Thu, 18 Jun 2015 17:22:40 +0200
+Message-ID: <5582E240.8080704@suse.cz>
+References: <0099265406c32b9b9057de100404a4148d602cdd.1434066549.git.shli@fb.com> <557AA834.8070503@suse.cz> <alpine.DEB.2.10.1506171602300.8203@chino.kir.corp.google.com> <20150618143019.GE5858@dhcp22.suse.cz> <CANn89iLr2iNV3VjA4POPpfsmOpyB7jP2-wPiAkCOcA+Oh+2=5A@mail.gmail.com> <20150618144311.GF5858@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ddutt@cumulusnetworks.com,
-	sfeldma@gmail.com, alexander.duyck@gmail.com,
-	hannes@stressinduktion.org, stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f175.google.com ([209.85.160.175]:36723 "EHLO
-	mail-yk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754658AbbFROzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 10:55:33 -0400
-Received: by ykdr198 with SMTP id r198so68391176ykd.3
-        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 07:55:31 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150618.032630.1483876648100612079.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Rientjes <rientjes@google.com>, Shaohua Li <shli@fb.com>,
+ netdev <netdev@vger.kernel.org>,
+ David Miller <davem@davemloft.net>, kernel-team <Kernel-team@fb.com>,
+ clm@fb.com, linux-mm@kvack.org, dbavatar@gmail.com
+To: Michal Hocko <mhocko@suse.cz>, Eric Dumazet <edumazet@google.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20150618144311.GF5858@dhcp22.suse.cz>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 18, 2015 at 03:26:30AM -0700, David Miller wrote:
-> From: Andy Gospodarek <gospo@cumulusnetworks.com>
-> Date: Mon, 15 Jun 2015 12:33:19 -0400
-> 
-> > @@ -1107,9 +1107,10 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
-> >  	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-> >  	struct in_device *in_dev;
-> >  	struct net *net = dev_net(dev);
-> > +	unsigned flags;
-> 
-> Please always fully spell out "unsigned int" instead of shortening it to
-> just "unsigned", thanks.
-> 
-> > @@ -920,11 +926,17 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
-> >  		if (!nh->nh_dev)
-> >  			goto failure;
-> >  	} else {
-> > +		int linkdown = 0;
-> >  		change_nexthops(fi) {
-> 
-> Please put an empty line between local variable declarations and
-> code.
+On 06/18/2015 04:43 PM, Michal Hocko wrote:
+> On Thu 18-06-15 07:35:53, Eric Dumazet wrote:
+>> On Thu, Jun 18, 2015 at 7:30 AM, Michal Hocko <mhocko@suse.cz> wrote:
+>>
+>>> Abusing __GFP_NO_KSWAPD is a wrong way to go IMHO. It is true that the
+>>> _current_ implementation of the allocator has this nasty and very subtle
+>>> side effect but that doesn't mean it should be abused outside of the mm
+>>> proper. Why shouldn't this path wake the kswapd and let it compact
+>>> memory on the background to increase the success rate for the later
+>>> high order allocations?
+>>
+>> I kind of agree.
+>>
+>> If kswapd is a problem (is it ???) we should fix it, instead of adding
+>> yet another flag to some random locations attempting
+>> memory allocations.
+>
+> No, kswapd is not a problem. The problem is ~__GFP_WAIT allocation can
+> access some portion of the memory reserves (see gfp_to_alloc_flags resp.
+> __zone_watermark_ok and ALLOC_HARDER). __GFP_NO_KSWAPD is just a dirty
+> hack to not give that access which was introduced for THP AFAIR.
+>
+> The implicit access to memory reserves for non sleeping allocation has
+> been there for ages and it might be not suitable for this particular
+> path but that doesn't mean another gfp flag with a different side effect
+> should be hijacked. We should either stop doing that implicit access to
+> memory reserves and give __GFP_RESERVE or add the __GFP_NORESERVE. But
+> that is a problem to be solved in the mm proper. Spreading subtle
+> dependencies outside of mm will just make situation worse.
 
-Ugh, thanks.  I'll fixup this and your other comments with v5.
+So you are not proposing to use these __GFP_RESERVE/NORESERVE flag 
+outside of mm, right? (besides, we distinguish several kinds of 
+reserves, so what exactly would the flag do?) As that would be also 
+subtle dependency. The general problem I think is that we should want 
+the mm users to specify higher-level intentions (such as GFP_KERNEL) 
+which would map to specific directions (__GFP_*) for the allocator, and 
+currently it's rather a mess of both kinds of flags. Clearly the 
+intention here is "opportunistic allocation that should not 
+reclaim/compact, use reserves, wake up kswapd (?) because it's better to 
+fall back to smaller pages than wait") and we don't seem to have a 
+GFP_OPPORTUNISTIC flag for that. The allocation has to then mask out 
+__GFP_WAIT which however looks like an atomic allocation to the 
+allocator and give access to reserves, etc...
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
