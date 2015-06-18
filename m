@@ -1,44 +1,43 @@
-From: yvonne.hunt@aus.salvationarmy.org
-Subject: (unknown)
-Date: Thu, 18 Jun 2015 19:57:12 +1000
-Message-ID: <OF8234EC68.39C2F13C-ONCA257E68.0036AB79-CA257E68.0036ACEE@aus.salvationarmy.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/3 v4] net: track link-status of ipv4 nexthops
+Date: Thu, 18 Jun 2015 03:26:30 -0700 (PDT)
+Message-ID: <20150618.032630.1483876648100612079.davem@davemloft.net>
+References: <1434386001-1157-1-git-send-email-gospo@cumulusnetworks.com>
+	<1434386001-1157-2-git-send-email-gospo@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ddutt@cumulusnetworks.com,
+	sfeldma@gmail.com, alexander.duyck@gmail.com,
+	hannes@stressinduktion.org, stephen@networkplumber.org
+To: gospo@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpa.aus.salvationarmy.org ([125.254.33.123]:12798 "EHLO
-	smtpa.aus.salvationarmy.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753162AbbFRKM7 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jun 2015 06:12:59 -0400
-In-Reply-To: 
-References: 
-Subject: 
+Received: from shards.monkeyblade.net ([149.20.54.216]:41154 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753696AbbFRKOv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 06:14:51 -0400
+In-Reply-To: <1434386001-1157-2-git-send-email-gospo@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your email was listed for Qatar Foundation Compensation funds,contact(morganadmas@att.net)
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Date: Mon, 15 Jun 2015 12:33:19 -0400
 
+> @@ -1107,9 +1107,10 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+>  	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+>  	struct in_device *in_dev;
+>  	struct net *net = dev_net(dev);
+> +	unsigned flags;
 
+Please always fully spell out "unsigned int" instead of shortening it to
+just "unsigned", thanks.
 
+> @@ -920,11 +926,17 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+>  		if (!nh->nh_dev)
+>  			goto failure;
+>  	} else {
+> +		int linkdown = 0;
+>  		change_nexthops(fi) {
 
-
-
-
-*******************************************************************
-CAUTION - This message may contain privileged and confidential
-information intended only for the use of the addressee named above.  
-If you are not the intended recipient of this message you are hereby 
-notified that any use,dissemination, distribution or reproduction of 
-this message is prohibited.
-
-If you have received this message in error please delete it and notify
-the sender immediately.  Any views expressed in this message are those of
-the individual sender and may not necessarily reflect the views of 
-The Salvation Army Australia Southern Territory.
-*******************************************************************
-
-*******************************************************************
-This email has been scanned for malicious content
-*******************************************************************
+Please put an empty line between local variable declarations and
+code.
