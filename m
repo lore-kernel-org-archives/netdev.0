@@ -1,65 +1,40 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] net: fix search limit handling in skb_find_text()
-Date: Thu, 18 Jun 2015 22:01:31 +0200
-Message-ID: <20150618200131.GA3506@salvia>
-References: <1434359518-16897-1-git-send-email-khimov@altell.ru>
- <1847765.0Hbie9lSro@mate.hex>
- <20150616104841.GA4163@salvia>
- <6185418.JcpCEFvK8k@sencha>
+From: Samuel Ortiz <sameo@linux.intel.com>
+Subject: [GIT] [4.2] 2nd NFC update
+Date: Thu, 18 Jun 2015 22:57:06 +0200
+Message-ID: <20150618205706.GA16707@ribalta.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Phil Oester <kernel@linuxace.com>,
-	Thomas Graf <tgraf@suug.ch>
-To: Roman Khimov <khimov@altell.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Linux NFC <linux-nfc@lists.01.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58533 "EHLO mail.us.es"
+Received: from mga14.intel.com ([192.55.52.115]:3426 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753609AbbFRT4J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jun 2015 15:56:09 -0400
+	id S1751259AbbFRU53 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jun 2015 16:57:29 -0400
 Content-Disposition: inline
-In-Reply-To: <6185418.JcpCEFvK8k@sencha>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 16, 2015 at 03:13:41PM +0300, Roman Khimov wrote:
-> =D0=92 =D0=BF=D0=B8=D1=81=D1=8C=D0=BC=D0=B5 =D0=BE=D1=82 16 =D0=B8=D1=
-=8E=D0=BD=D1=8F 2015 12:48:41 =D0=BF=D0=BE=D0=BB=D1=8C=D0=B7=D0=BE=D0=B2=
-=D0=B0=D1=82=D0=B5=D0=BB=D1=8C Pablo Neira Ayuso =D0=BD=D0=B0=D0=BF=D0=B8=
-=D1=81=D0=B0=D0=BB:
-[...]
-> > But if we change the existing behaviour, users may be relying on it
-> > and we'll get things broken for them. Someone else will come later =
-one
-> > with another patch to say: "hey, --to used to be inclusive but this=
- is
-> > not the case anymore and it's breaking my setup".
->=20
-> I do understand your concerns, but fixing it this way would require c=
-hanging=20
-> skb_seq_read() and basicaly would propagate "'to' offset included" se=
-mantics=20
-> (which seems a bit strange for programmers, IMO) further. And initial=
-ly I=20
-> thought that changing skb_seq_read() would be more intrusive, althoug=
-h looking=20
-> at all this now it looks like the only real user of upper_offset fiel=
-d in=20
-> ts_config struct is skb_find_text(), because other invocations of=20
-> skb_seq_read() from drivers/scsi/libiscsi_tcp.c and net/batman-adv/ma=
-in.c use=20
-> skb->len as an upper limit.
->=20
-> > > em_text_match() in net/sched/em_text.c is also suspicious.
-> >=20
-> > Please, elaborate.
->=20
-> The way it constructs 'to' offset, I think it doesn't expect somethin=
-g to=20
-> match at 'to'. Although I might be wrong here.
+Hi David,
 
-Could you send a patch that resolves the inconsistency for programmers
-while leaving the userspace exposed behaviour through xt_string and
-em_string intact? Thanks.
+This is a follow up fix for a typo that I introduced while cleaning
+the 1st 4.2 NFC pull request patches.
+
+The following changes since commit d0dcad8bd32a34aa85bcbd5d2033658cb3964377:
+
+  NFC: nfcmrvl: set PB_BAIL_OUT at setup (2015-06-13 00:08:55 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/sameo/nfc-next.git tags/nfc-next-4.2-2
+
+for you to fetch changes up to fb77ff4f43990dc91926ce2704036a547482544e:
+
+  NFC: nci: fix mistake in uart generic driver (2015-06-15 18:10:37 +0200)
+
+----------------------------------------------------------------
+Vincent Cuissard (1):
+      NFC: nci: fix mistake in uart generic driver
+
+ net/nfc/nci/uart.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
