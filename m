@@ -1,58 +1,60 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH v2 4/4] net/macb: add config for Atmel sama5d2 SoCs
-Date: Thu, 18 Jun 2015 16:27:23 +0200
-Message-ID: <b5d2868d4e35e29fb96d672177fa49448946e055.1434637286.git.nicolas.ferre@atmel.com>
-References: <cover.1434637286.git.nicolas.ferre@atmel.com>
+From: Michal Hocko <mhocko@suse.cz>
+Subject: Re: [RFC V3] net: don't wait for order-3 page allocation
+Date: Thu, 18 Jun 2015 16:30:19 +0200
+Message-ID: <20150618143019.GE5858@dhcp22.suse.cz>
+References: <0099265406c32b9b9057de100404a4148d602cdd.1434066549.git.shli@fb.com>
+ <557AA834.8070503@suse.cz>
+ <alpine.DEB.2.10.1506171602300.8203@chino.kir.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	Cyrille Pitchen <cyrille.pitchen@atmel.com>,
-	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>
-To: <linux-arm-kernel@lists.infradead.org>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1434637286.git.nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlastimil Babka <vbabka@suse.cz>, Shaohua Li <shli@fb.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, Kernel-team@fb.com,
+	clm@fb.com, linux-mm@kvack.org, dbavatar@gmail.com,
+	Eric Dumazet <edumazet@google.com>
+To: David Rientjes <rientjes@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:48019 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753000AbbFROaY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jun 2015 10:30:24 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.10.1506171602300.8203@chino.kir.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+On Wed 17-06-15 16:02:59, David Rientjes wrote:
+> On Fri, 12 Jun 2015, Vlastimil Babka wrote:
+> 
+> > > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> > > index 3cfff2a..41ec022 100644
+> > > --- a/net/core/skbuff.c
+> > > +++ b/net/core/skbuff.c
+> > > @@ -4398,7 +4398,7 @@ struct sk_buff *alloc_skb_with_frags(unsigned long
+> > > header_len,
+> > > 
+> > >   		while (order) {
+> > >   			if (npages >= 1 << order) {
+> > > -				page = alloc_pages(gfp_mask |
+> > > +				page = alloc_pages((gfp_mask & ~__GFP_WAIT) |
+> > >   						   __GFP_COMP |
+> > >   						   __GFP_NOWARN |
+> > >   						   __GFP_NORETRY,
+> > 
+> > Note that __GFP_NORETRY is weaker than ~__GFP_WAIT and thus redundant. But it
+> > won't hurt anything leaving it there. And you might consider __GFP_NO_KSWAPD
+> > instead, as I said in the other thread.
+> > 
+> 
+> Yeah, I agreed with __GFP_NO_KSWAPD to avoid utilizing memory reserves for 
+> this.
 
-Add the compatible string for Atmel sama5d2 SoC family as the configuration
-options differ from other instances of the GEM.
+Abusing __GFP_NO_KSWAPD is a wrong way to go IMHO. It is true that the
+_current_ implementation of the allocator has this nasty and very subtle
+side effect but that doesn't mean it should be abused outside of the mm
+proper. Why shouldn't this path wake the kswapd and let it compact
+memory on the background to increase the success rate for the later
+high order allocations?
 
-Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
----
- drivers/net/ethernet/cadence/macb.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 740d04fd2223..caeb39561567 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -2713,6 +2713,13 @@ static const struct macb_config pc302gem_config = {
- 	.init = macb_init,
- };
- 
-+static const struct macb_config sama5d2_config = {
-+	.caps = 0,
-+	.dma_burst_length = 16,
-+	.clk_init = macb_clk_init,
-+	.init = macb_init,
-+};
-+
- static const struct macb_config sama5d3_config = {
- 	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
- 	.dma_burst_length = 16,
-@@ -2756,6 +2763,7 @@ static const struct of_device_id macb_dt_ids[] = {
- 	{ .compatible = "cdns,macb" },
- 	{ .compatible = "cdns,pc302-gem", .data = &pc302gem_config },
- 	{ .compatible = "cdns,gem", .data = &pc302gem_config },
-+	{ .compatible = "atmel,sama5d2-gem", .data = &sama5d2_config },
- 	{ .compatible = "atmel,sama5d3-gem", .data = &sama5d3_config },
- 	{ .compatible = "atmel,sama5d4-gem", .data = &sama5d4_config },
- 	{ .compatible = "cdns,at91rm9200-emac", .data = &emac_config },
 -- 
-2.1.3
+Michal Hocko
+SUSE Labs
