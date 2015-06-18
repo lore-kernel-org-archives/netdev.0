@@ -1,7 +1,7 @@
 From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH 19/22] fjes: update_zone_task
-Date: Thu, 18 Jun 2015 09:49:44 +0900
-Message-ID: <1434588587-25655-19-git-send-email-izumi.taku@jp.fujitsu.com>
+Subject: [PATCH 07/22] fjes: net_device_ops.ndo_open and .ndo_stop
+Date: Thu, 18 Jun 2015 09:49:32 +0900
+Message-ID: <1434588587-25655-7-git-send-email-izumi.taku@jp.fujitsu.com>
 References: <1434588359-25589-1-git-send-email-izumi.taku@jp.fujitsu.com>
  <1434588587-25655-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Cc: rkhan@redhat.com, alexander.h.duyck@redhat.com,
@@ -13,281 +13,594 @@ In-Reply-To: <1434588587-25655-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Sender: platform-driver-x86-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds update_zone_task.
-
-Zoning information can be changed by user.
-This task is used to monitor if zoning information is
-changed or not.
+This patch adds net_device_ops.ndo_open and .ndo_stop
+callback. These function is called when network device
+activation and deactivation.
 
 Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 ---
- drivers/platform/x86/fjes/fjes_hw.c   | 183 ++++++++++++++++++++++++++++++++++
- drivers/platform/x86/fjes/fjes_hw.h   |   1 +
- drivers/platform/x86/fjes/fjes_main.c |  14 +++
- 3 files changed, 198 insertions(+)
+ drivers/platform/x86/fjes/fjes.h      |   2 +-
+ drivers/platform/x86/fjes/fjes_hw.c   | 150 ++++++++++++++++++++
+ drivers/platform/x86/fjes/fjes_hw.h   |  30 ++++
+ drivers/platform/x86/fjes/fjes_main.c | 257 ++++++++++++++++++++++++++++++++++
+ drivers/platform/x86/fjes/fjes_regs.h |  16 +++
+ 5 files changed, 454 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/platform/x86/fjes/fjes.h b/drivers/platform/x86/fjes/fjes.h
+index 3515572..7f03eb7 100644
+--- a/drivers/platform/x86/fjes/fjes.h
++++ b/drivers/platform/x86/fjes/fjes.h
+@@ -30,7 +30,7 @@
+ #define FJES_ACPI_SYMBOL	"Extended Socket"
+ #define FJES_MAX_QUEUES		1
+ #define FJES_TX_RETRY_INTERVAL	(20 * HZ)
+-
++#define FJES_OPEN_ZONE_UPDATE_WAIT	(300) /* msec */
+ 
+ /* board specific private data structure */
+ struct fjes_adapter {
 diff --git a/drivers/platform/x86/fjes/fjes_hw.c b/drivers/platform/x86/fjes/fjes_hw.c
-index 85f9693..e07b266 100644
+index 5c68541..e2137d8 100644
 --- a/drivers/platform/x86/fjes/fjes_hw.c
 +++ b/drivers/platform/x86/fjes/fjes_hw.c
-@@ -22,6 +22,8 @@
- #include "fjes_hw.h"
- #include "fjes.h"
- 
-+static void fjes_hw_update_zone_task(struct work_struct *);
-+
- /* supported MTU list */
- u32 fjes_support_mtu[] = {
- 	FJES_MTU_DEFINE(8 * 1024),
-@@ -331,6 +333,8 @@ int fjes_hw_init(struct fjes_hw *hw)
- 
- 	fjes_hw_set_irqmask(hw, REG_ICTL_MASK_ALL, true);
- 
-+	INIT_WORK(&hw->update_zone_task, fjes_hw_update_zone_task);
-+
- 	mutex_init(&hw->hw_info.lock);
- 
- 	hw->max_epid = fjes_hw_get_max_epid(hw);
-@@ -358,6 +362,8 @@ void fjes_hw_exit(struct fjes_hw *hw)
- 	}
- 
- 	fjes_hw_cleanup(hw);
-+
-+	cancel_work_sync(&hw->update_zone_task);
+@@ -564,6 +564,7 @@ int fjes_hw_register_buff_addr(struct fjes_hw *hw, int dest_epid,
+ 	return result;
  }
  
- static enum fjes_dev_command_response_e fjes_hw_issue_request_command(
-@@ -940,3 +946,180 @@ int fjes_hw_epbuf_tx_pkt_send(struct epbuf_handler *epbh,
- 	return 0;
++
+ int fjes_hw_unregister_buff_addr(struct fjes_hw *hw, int dest_epid)
+ {
+ 	union fjes_device_command_req *req_buf = hw->hw_info.req_buf;
+@@ -650,6 +651,25 @@ int fjes_hw_unregister_buff_addr(struct fjes_hw *hw, int dest_epid)
+ 	return result;
  }
  
-+static void fjes_hw_update_zone_task(struct work_struct *work)
++int fjes_hw_raise_interrupt(struct fjes_hw *hw, int dest_epid,
++		enum REG_ICTL_MASK  mask)
 +{
++	u32 ig = mask | dest_epid;
 +
-+	struct fjes_hw *hw = container_of(work,
-+			struct fjes_hw, update_zone_task);
-+	struct fjes_adapter *adapter = (struct fjes_adapter *)hw->back;
-+	struct net_device *netdev = adapter->netdev;
-+	int ret;
-+	int epidx;
-+	enum ep_partner_status pstatus;
-+	unsigned long share_bit = 0;
-+	unsigned long unshare_bit = 0;
-+	unsigned long irq_bit = 0;
-+	bool update = false;
-+	union fjes_device_command_res *res_buf =
-+			hw->hw_info.res_buf;
++	wr32(XSCT_IG, cpu_to_le32(ig));
 +
-+	mutex_lock(&hw->hw_info.lock);
++	return 0;
++}
 +
-+	ret = fjes_hw_request_info(hw);
-+	switch (ret) {
-+	case -ENOMSG:
-+	case -EBUSY:
-+	default:
-+		if (!work_pending(&adapter->force_close_task)) {
-+			adapter->force_reset = true;
-+			schedule_work(&adapter->force_close_task);
++u32 fjes_hw_capture_interrupt_status(struct fjes_hw *hw)
++{
++	u32 cur_is;
++
++	cur_is = rd32(XSCT_IS);
++
++	return cur_is;
++}
++
+ void fjes_hw_set_irqmask(struct fjes_hw *hw, enum REG_ICTL_MASK intr_mask,
+ 		bool mask)
+ {
+@@ -659,3 +679,133 @@ void fjes_hw_set_irqmask(struct fjes_hw *hw, enum REG_ICTL_MASK intr_mask,
+ 		wr32(XSCT_IMC, intr_mask);
+ }
+ 
++bool fjes_hw_epid_is_same_zone(struct fjes_hw *hw, int epid)
++{
++	if (epid >= hw->max_epid)
++		return false;
++
++	if ((hw->ep_shm_info[epid].es_status !=
++			FJES_ZONING_STATUS_ENABLE) ||
++		(hw->ep_shm_info[hw->my_epid].zone ==
++			FJES_ZONING_ZONE_TYPE_NONE))
++		return false;
++	else
++		return (hw->ep_shm_info[epid].zone ==
++				hw->ep_shm_info[hw->my_epid].zone);
++
++}
++
++int fjes_hw_epid_is_shared(struct fjes_device_shared_info *share,
++		int dest_epid)
++{
++	int value = false;
++
++	if (dest_epid < share->epnum)
++		value = share->ep_status[dest_epid];
++
++	return value;
++}
++
++static bool fjes_hw_epid_is_stop_requested(struct fjes_hw *hw, int src_epid)
++{
++	return test_bit(src_epid, &hw->txrx_stop_req_bit);
++}
++
++static bool fjes_hw_epid_is_stop_process_done(struct fjes_hw *hw, int src_epid)
++{
++	return (hw->ep_shm_info[src_epid].tx.info->v1i.rx_status &
++			FJES_RX_STOP_REQ_DONE);
++}
++
++enum ep_partner_status
++fjes_hw_get_partner_ep_status(struct fjes_hw *hw, int epid)
++{
++	enum ep_partner_status status;
++
++	if (fjes_hw_epid_is_shared(hw->hw_info.share, epid)) {
++		if (fjes_hw_epid_is_stop_requested(hw, epid))
++			status = EP_PARTNER_WAITING;
++		else {
++			if (fjes_hw_epid_is_stop_process_done(hw, epid))
++				status = EP_PARTNER_COMPLETE;
++			else
++				status = EP_PARTNER_SHARED;
 +		}
-+		break;
-+
-+	case 0:
-+
-+		for (epidx = 0; epidx < hw->max_epid; epidx++) {
-+			if (epidx != hw->my_epid) {
-+
-+				pstatus = fjes_hw_get_partner_ep_status(hw, epidx);
-+				switch (pstatus) {
-+				case EP_PARTNER_UNSHARE:
-+				default:
-+					if ((res_buf->info.info[epidx].zone !=
-+						FJES_ZONING_ZONE_TYPE_NONE) &&
-+					    (res_buf->info.info[epidx].es_status ==
-+						FJES_ZONING_STATUS_ENABLE) &&
-+					    (res_buf->info.info[epidx].zone ==
-+						res_buf->info.info[hw->my_epid].zone))
-+						set_bit(epidx, &share_bit);
-+					else
-+						set_bit(epidx, &unshare_bit);
-+					break;
-+
-+				case EP_PARTNER_COMPLETE:
-+				case EP_PARTNER_WAITING:
-+					if ((res_buf->info.info[epidx].zone ==
-+						FJES_ZONING_ZONE_TYPE_NONE) ||
-+					    (res_buf->info.info[epidx].es_status !=
-+						FJES_ZONING_STATUS_ENABLE) ||
-+					    (res_buf->info.info[epidx].zone !=
-+						res_buf->info.
-+						  info[hw->my_epid].zone)) {
-+
-+						set_bit(epidx,
-+						  &adapter->unshare_watch_bitmask);
-+						set_bit(epidx,
-+						  &hw->hw_info.buffer_unshare_reserve_bit);
-+					}
-+					break;
-+
-+				case EP_PARTNER_SHARED:
-+					if ((res_buf->info.info[epidx].zone ==
-+						FJES_ZONING_ZONE_TYPE_NONE) ||
-+					    (res_buf->info.info[epidx].es_status !=
-+						FJES_ZONING_STATUS_ENABLE) ||
-+					    (res_buf->info.info[epidx].zone !=
-+						res_buf->info.
-+						  info[hw->my_epid].zone))
-+
-+						set_bit(epidx, &irq_bit);
-+					break;
-+				}
-+
-+			}
-+
-+			if (hw->ep_shm_info[epidx].zone !=
-+						res_buf->info.info[epidx].zone)
-+				update = true;
-+			hw->ep_shm_info[epidx].es_status =
-+				res_buf->info.info[epidx].es_status;
-+			hw->ep_shm_info[epidx].zone =
-+				res_buf->info.info[epidx].zone;
-+
-+		}
-+		break;
++	} else {
++		status = EP_PARTNER_UNSHARE;
 +	}
 +
-+	mutex_unlock(&hw->hw_info.lock);
++	return status;
++}
++
++void fjes_hw_raise_epstop(struct fjes_hw *hw)
++{
++	int epidx;
++	enum ep_partner_status status;
 +
 +	for (epidx = 0; epidx < hw->max_epid; epidx++) {
-+
 +		if (epidx == hw->my_epid)
 +			continue;
 +
-+		if (test_bit(epidx, &share_bit)) {
-+
-+			fjes_hw_setup_epbuf(&hw->ep_shm_info[epidx].tx,
-+				netdev->dev_addr, netdev->mtu);
-+
-+			mutex_lock(&hw->hw_info.lock);
-+
-+			ret = fjes_hw_register_buff_addr(hw, epidx,
-+				&hw->ep_shm_info[epidx]);
-+
-+			switch (ret) {
-+			case 0:
-+				break;
-+			case -ENOMSG:
-+			case -EBUSY:
-+			default:
-+				if (!work_pending(&adapter->force_close_task)) {
-+					adapter->force_reset = true;
-+					schedule_work(
-+					  &adapter->force_close_task);
-+				}
-+				break;
-+			}
-+
-+			mutex_unlock(&hw->hw_info.lock);
-+		}
-+
-+
-+		if (test_bit(epidx, &unshare_bit)) {
-+
-+			mutex_lock(&hw->hw_info.lock);
-+
-+			ret = fjes_hw_unregister_buff_addr(hw, epidx);
-+
-+			switch (ret) {
-+			case 0:
-+				break;
-+			case -ENOMSG:
-+			case -EBUSY:
-+			default:
-+				if (!work_pending(&adapter->force_close_task)) {
-+					adapter->force_reset = true;
-+					schedule_work(
-+					  &adapter->force_close_task);
-+				}
-+				break;
-+			}
-+
-+			mutex_unlock(&hw->hw_info.lock);
-+
-+			if (ret == 0)
-+				fjes_hw_setup_epbuf(&hw->ep_shm_info[epidx].tx,
-+					netdev->dev_addr, netdev->mtu);
-+
-+		}
-+
-+		if (test_bit(epidx, &irq_bit)) {
++		status = fjes_hw_get_partner_ep_status(hw, epidx);
++		switch (status) {
++		case EP_PARTNER_SHARED:
 +			fjes_hw_raise_interrupt(hw, epidx,
-+				REG_ICTL_MASK_TXRX_STOP_REQ);
-+
-+			set_bit(epidx, &hw->txrx_stop_req_bit);
-+			hw->ep_shm_info[epidx].tx.
-+				info->v1i.rx_status |=
-+					FJES_RX_STOP_REQ_REQUEST;
-+			set_bit(epidx, &hw->hw_info.buffer_unshare_reserve_bit);
++					REG_ICTL_MASK_TXRX_STOP_REQ);
++			break;
++		default:
++			break;
 +		}
 +
++		set_bit(epidx, &hw->hw_info.buffer_unshare_reserve_bit);
++		set_bit(epidx, &hw->txrx_stop_req_bit);
++
++		hw->ep_shm_info[epidx].tx.info->v1i.rx_status |=
++				FJES_RX_STOP_REQ_REQUEST;
++
 +	}
 +
-+	if (irq_bit || adapter->unshare_watch_bitmask) {
-+		if (!work_pending(&adapter->unshare_watch_task))
-+			queue_work(adapter->control_wq,
-+				&adapter->unshare_watch_task);
-+	}
 +}
 +
++int fjes_hw_wait_epstop(struct fjes_hw *hw)
++{
++	int epidx;
++	int wait_time = 0;
++	enum ep_partner_status status;
++	union ep_buffer_info *info;
++
++	while (hw->hw_info.buffer_unshare_reserve_bit &&
++		   (wait_time < FJES_COMMAND_EPSTOP_WAIT_TIMEOUT * 1000)) {
++
++		for (epidx = 0; epidx < hw->max_epid; epidx++) {
++			if (epidx == hw->my_epid)
++				continue;
++			status = fjes_hw_epid_is_shared(hw->hw_info.share,
++					epidx);
++			info = hw->ep_shm_info[epidx].rx.info;
++			if ((!status ||
++				 (info->v1i.rx_status &
++					FJES_RX_STOP_REQ_DONE)) &&
++				test_bit(epidx,
++				 &hw->hw_info.buffer_unshare_reserve_bit)) {
++				clear_bit(epidx,
++				 &hw->hw_info.buffer_unshare_reserve_bit);
++			}
++		}
++
++		msleep(100);
++		wait_time += 100;
++
++	}
++
++	for (epidx = 0; epidx < hw->max_epid; epidx++) {
++		if (epidx == hw->my_epid)
++			continue;
++		if (test_bit(epidx, &hw->hw_info.buffer_unshare_reserve_bit))
++			clear_bit(epidx,
++				&hw->hw_info.buffer_unshare_reserve_bit);
++	}
++
++	return (wait_time < FJES_COMMAND_EPSTOP_WAIT_TIMEOUT * 1000)
++			? 0 : -EBUSY;
++}
 diff --git a/drivers/platform/x86/fjes/fjes_hw.h b/drivers/platform/x86/fjes/fjes_hw.h
-index 14e8db9..1b0afc0 100644
+index 2528992..170bcfb 100644
 --- a/drivers/platform/x86/fjes/fjes_hw.h
 +++ b/drivers/platform/x86/fjes/fjes_hw.h
-@@ -284,6 +284,7 @@ struct fjes_hw {
+@@ -35,6 +35,7 @@ struct fjes_hw;
+ #define FJES_DEVICE_RESET_TIMEOUT  ((17 + 1) * 3) /* sec */
+ #define FJES_COMMAND_REQ_TIMEOUT  (5 + 1) /* sec */
+ #define FJES_COMMAND_REQ_BUFF_TIMEOUT	(8 * 3) /* sec */
++#define FJES_COMMAND_EPSTOP_WAIT_TIMEOUT	(1) /* sec */
  
- 	unsigned long txrx_stop_req_bit;
- 	unsigned long epstop_req_bit;
-+	struct work_struct update_zone_task;
+ #define FJES_CMD_REQ_ERR_INFO_PARAM  (0x0001)
+ #define FJES_CMD_REQ_ERR_INFO_STATUS (0x0002)
+@@ -42,6 +43,17 @@ struct fjes_hw;
+ #define FJES_CMD_REQ_RES_CODE_NORMAL (0)
+ #define FJES_CMD_REQ_RES_CODE_BUSY   (1)
  
- 	int my_epid;
- 	int max_epid;
++#define FJES_ZONING_STATUS_DISABLE	(0x00)
++#define FJES_ZONING_STATUS_ENABLE	(0x01)
++#define FJES_ZONING_STATUS_INVALID	(0xFF)
++
++#define FJES_ZONING_ZONE_TYPE_NONE (0xFF)
++
++#define FJES_RX_STOP_REQ_NONE		(0x0)
++#define FJES_RX_STOP_REQ_DONE		(0x1)
++#define FJES_RX_STOP_REQ_REQUEST	(0x2)
++#define FJES_RX_POLL_WORK			(0x4)
++
+ #define EP_BUFFER_SIZE \
+ 	(((sizeof(union ep_buffer_info) + (128 * (64 * 1024))) \
+ 		/ EP_BUFFER_INFO_SIZE) * EP_BUFFER_INFO_SIZE)
+@@ -77,6 +89,15 @@ struct esmem_frame_t {
+ 	u8 frame_data[];
+ };
+ 
++/* EP partner status */
++enum ep_partner_status {
++	EP_PARTNER_UNSHARE,
++	EP_PARTNER_SHARED,
++	EP_PARTNER_WAITING,
++	EP_PARTNER_COMPLETE,
++	EP_PARTNER_STATUS_MAX,
++};
++
+ /* shared status region */
+ struct fjes_device_shared_info {
+ 	int epnum;
+@@ -281,6 +302,15 @@ int fjes_hw_unregister_buff_addr(struct fjes_hw *, int);
+ void fjes_hw_init_command_registers(struct fjes_hw *,
+ 		struct fjes_device_command_param *);
+ void fjes_hw_setup_epbuf(struct epbuf_handler *, u8 *, u32);
++int fjes_hw_raise_interrupt(struct fjes_hw *, int, enum REG_ICTL_MASK);
+ void fjes_hw_set_irqmask(struct fjes_hw *, enum REG_ICTL_MASK, bool);
++u32 fjes_hw_capture_interrupt_status(struct fjes_hw *);
++void fjes_hw_raise_epstop(struct fjes_hw *);
++int fjes_hw_wait_epstop(struct fjes_hw *);
++enum ep_partner_status
++	fjes_hw_get_partner_ep_status(struct fjes_hw *, int);
++
++bool fjes_hw_epid_is_same_zone(struct fjes_hw *, int);
++int fjes_hw_epid_is_shared(struct fjes_device_shared_info *, int);
+ 
+ #endif /* FJES_HW_H_ */
 diff --git a/drivers/platform/x86/fjes/fjes_main.c b/drivers/platform/x86/fjes/fjes_main.c
-index 1bba967..900aa65 100644
+index f38e0af..14a72ec 100644
 --- a/drivers/platform/x86/fjes/fjes_main.c
 +++ b/drivers/platform/x86/fjes/fjes_main.c
-@@ -323,6 +323,8 @@ static int fjes_close(struct net_device *netdev)
- 	cancel_work_sync(&adapter->raise_intr_rxdata_task);
- 	cancel_work_sync(&adapter->tx_stall_task);
+@@ -24,6 +24,7 @@
+ #include <linux/nls.h>
+ #include <linux/platform_device.h>
+ #include <linux/netdevice.h>
++#include <linux/interrupt.h>
  
-+	cancel_work_sync(&hw->update_zone_task);
+ #include "fjes.h"
+ 
+@@ -44,6 +45,14 @@ MODULE_DESCRIPTION("FUJITSU Extended Socket Network Device Driver");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_VERSION);
+ 
++static int fjes_request_irq(struct fjes_adapter *);
++static void fjes_free_irq(struct fjes_adapter *);
 +
- 	fjes_hw_wait_epstop(hw);
++static int fjes_open(struct net_device *);
++static int fjes_close(struct net_device *);
++static int fjes_setup_resources(struct fjes_adapter *);
++static void fjes_free_resources(struct fjes_adapter *);
++static irqreturn_t fjes_intr(int, void*);
  
- 	fjes_free_resources(adapter);
-@@ -852,6 +854,15 @@ static int fjes_vlan_rx_kill_vid(struct net_device *netdev,
- 	return 0;
+ static int fjes_acpi_add(struct acpi_device *);
+ static int fjes_acpi_remove(struct acpi_device *);
+@@ -173,10 +182,258 @@ static acpi_status fjes_get_acpi_resource(struct acpi_resource *acpi_res,
+ 	return AE_OK;
  }
  
-+static void fjes_update_zone_irq(struct fjes_adapter *adapter,
-+		int src_epid)
++static int fjes_request_irq(struct fjes_adapter *adapter)
++{
++	struct net_device *netdev = adapter->netdev;
++	int result = -1;
++
++	if (!adapter->irq_registered) {
++		result = request_irq(adapter->hw.hw_res.irq, fjes_intr,
++					IRQF_SHARED, netdev->name, adapter);
++		if (result)
++			adapter->irq_registered = false;
++		else
++			adapter->irq_registered = true;
++	}
++
++	return result;
++}
++
++static void fjes_free_irq(struct fjes_adapter *adapter)
 +{
 +	struct fjes_hw *hw = &adapter->hw;
 +
-+	if (!work_pending(&hw->update_zone_task))
-+		queue_work(adapter->control_wq, &hw->update_zone_task);
++
++	fjes_hw_set_irqmask(hw, REG_ICTL_MASK_ALL, true);
++
++	if (adapter->irq_registered) {
++		free_irq(adapter->hw.hw_res.irq, adapter);
++		adapter->irq_registered = false;
++	}
 +}
 +
- static irqreturn_t fjes_intr(int irq, void *data)
- {
- 	struct fjes_adapter *adapter = data;
-@@ -866,6 +877,9 @@ static irqreturn_t fjes_intr(int irq, void *data)
- 		if (icr & REG_ICTL_MASK_RX_DATA)
- 			fjes_rx_irq(adapter, icr & REG_IS_MASK_EPID);
+ static const struct net_device_ops fjes_netdev_ops = {
++	.ndo_open		= fjes_open,
++	.ndo_stop		= fjes_close,
+ };
  
-+		if (icr & REG_ICTL_MASK_INFO_UPDATE)
-+			fjes_update_zone_irq(adapter, icr & REG_IS_MASK_EPID);
+ /*
++ *  fjes_open - Called when a network interface is made active
++ */
++static int fjes_open(struct net_device *netdev)
++{
++	int result;
++	struct fjes_adapter *adapter = netdev_priv(netdev);
++	struct fjes_hw *hw = &adapter->hw;
 +
- 		ret = IRQ_HANDLED;
- 	} else
- 		ret = IRQ_NONE;
++	if (adapter->open_guard)
++		return -ENXIO;
++
++	result = fjes_setup_resources(adapter);
++	if (result)
++		goto err_setup_res;
++
++	hw->txrx_stop_req_bit = 0;
++	hw->epstop_req_bit = 0;
++
++	fjes_hw_capture_interrupt_status(hw);
++
++	result = fjes_request_irq(adapter);
++	if (result)
++		goto err_req_irq;
++
++	fjes_hw_set_irqmask(hw, REG_ICTL_MASK_ALL, false);
++
++	netif_tx_start_all_queues(netdev);
++	netif_carrier_on(netdev);
++
++	return 0;
++
++err_req_irq:
++	fjes_free_irq(adapter);
++
++err_setup_res:
++	fjes_free_resources(adapter);
++	return result;
++
++}
++
++/*
++ *  fjes_close - Disables a network interface
++ */
++static int fjes_close(struct net_device *netdev)
++{
++	struct fjes_adapter *adapter = netdev_priv(netdev);
++	struct fjes_hw *hw = &adapter->hw;
++	int epidx;
++
++	netif_tx_stop_all_queues(netdev);
++	netif_carrier_off(netdev);
++
++	fjes_hw_raise_epstop(hw);
++
++	for (epidx = 0; epidx < hw->max_epid; epidx++) {
++		if (epidx == hw->my_epid)
++			continue;
++
++		adapter->hw.ep_shm_info[epidx].tx.info->v1i.rx_status &=
++			~FJES_RX_POLL_WORK;
++	}
++
++	fjes_free_irq(adapter);
++
++	fjes_hw_wait_epstop(hw);
++
++	fjes_free_resources(adapter);
++
++	return 0;
++}
++
++static int fjes_setup_resources(struct fjes_adapter *adapter)
++{
++	int epidx;
++	struct ep_share_mem_info *buf_pair;
++	int result;
++	struct fjes_hw *hw = &adapter->hw;
++	struct net_device *netdev = adapter->netdev;
++
++
++	mutex_lock(&hw->hw_info.lock);
++	result = fjes_hw_request_info(hw);
++	switch (result) {
++	case 0:
++		for (epidx = 0; epidx < hw->max_epid; epidx++) {
++			hw->ep_shm_info[epidx].es_status =
++			    hw->hw_info.res_buf->info.info[epidx].es_status;
++			hw->ep_shm_info[epidx].zone =
++			    hw->hw_info.res_buf->info.info[epidx].zone;
++		}
++		break;
++	default:
++	case -ENOMSG:
++	case -EBUSY:
++		adapter->force_reset = true;
++
++		mutex_unlock(&hw->hw_info.lock);
++		return result;
++	}
++	mutex_unlock(&hw->hw_info.lock);
++
++
++	for (epidx = 0; epidx < (hw->max_epid); epidx++) {
++		if ((epidx != hw->my_epid) &&
++			(hw->ep_shm_info[epidx].es_status ==
++				FJES_ZONING_STATUS_ENABLE)) {
++			fjes_hw_raise_interrupt(hw, epidx,
++					REG_ICTL_MASK_INFO_UPDATE);
++		}
++	}
++
++	msleep(FJES_OPEN_ZONE_UPDATE_WAIT * hw->max_epid);
++
++
++	for (epidx = 0; epidx < (hw->max_epid); epidx++) {
++		if (epidx == hw->my_epid)
++			continue;
++
++		buf_pair = &(hw->ep_shm_info[epidx]);
++
++		fjes_hw_setup_epbuf(&(buf_pair->tx), netdev->dev_addr,
++				netdev->mtu);
++
++		if (fjes_hw_epid_is_same_zone(hw, epidx)) {
++			mutex_lock(&hw->hw_info.lock);
++			result = fjes_hw_register_buff_addr(hw, epidx,
++					buf_pair);
++			mutex_unlock(&hw->hw_info.lock);
++
++			switch (result) {
++			case 0:
++				break;
++			case -ENOMSG:
++			case -EBUSY:
++			default:
++				adapter->force_reset = true;
++				return result;
++			}
++		}
++	}
++
++	return 0;
++}
++
++static void fjes_free_resources(struct fjes_adapter *adapter)
++{
++	int epidx;
++	struct ep_share_mem_info *buf_pair;
++	int result;
++	struct fjes_hw *hw = &adapter->hw;
++	struct net_device *netdev = adapter->netdev;
++	struct fjes_device_command_param param;
++	bool reset_flag = false;
++
++	for (epidx = 0; epidx < hw->max_epid; epidx++) {
++		if (epidx == hw->my_epid)
++			continue;
++
++		mutex_lock(&hw->hw_info.lock);
++		result = fjes_hw_unregister_buff_addr(hw, epidx);
++		mutex_unlock(&hw->hw_info.lock);
++
++		if (result)
++			reset_flag = true;
++
++		buf_pair = &hw->ep_shm_info[epidx];
++
++		fjes_hw_setup_epbuf(&buf_pair->tx, netdev->dev_addr,
++				netdev->mtu);
++
++		clear_bit(epidx, &hw->txrx_stop_req_bit);
++	}
++
++	if (reset_flag || adapter->force_reset) {
++
++		result = fjes_hw_reset(hw);
++
++		adapter->force_reset = false;
++
++		if (result)
++			adapter->open_guard = true;
++
++		hw->hw_info.buffer_share_bit = 0;
++
++		memset((void *)&param, 0, sizeof(param));
++
++		param.req_len = hw->hw_info.req_buf_size;
++		param.req_start = __pa(hw->hw_info.req_buf);
++		param.res_len = hw->hw_info.res_buf_size;
++		param.res_start = __pa(hw->hw_info.res_buf);
++		param.share_start = __pa(hw->hw_info.share->ep_status);
++
++		fjes_hw_init_command_registers(hw, &param);
++	}
++
++
++}
++
++static irqreturn_t fjes_intr(int irq, void *data)
++{
++	struct fjes_adapter *adapter = data;
++	struct fjes_hw *hw = &adapter->hw;
++	irqreturn_t ret;
++	u32 icr;
++
++	icr = fjes_hw_capture_interrupt_status(hw);
++
++	if (icr & REG_IS_MASK_IS_ASSERT) {
++		ret = IRQ_HANDLED;
++	} else
++		ret = IRQ_NONE;
++
++	return ret;
++}
++
++/*
+  *  fjes_probe - Device Initialization Routine
+  *
+  *  Returns 0 on success, negative on failure
+diff --git a/drivers/platform/x86/fjes/fjes_regs.h b/drivers/platform/x86/fjes/fjes_regs.h
+index e7acf1f..1d4033f 100644
+--- a/drivers/platform/x86/fjes/fjes_regs.h
++++ b/drivers/platform/x86/fjes/fjes_regs.h
+@@ -52,8 +52,11 @@
+ #define XSCT_RESPBAH        0x004C  /* Response Buffer Address High */
+ 
+ /* Interrupt Control registers */
++#define XSCT_IS             0x0080  /* Interrupt status */
+ #define XSCT_IMS            0x0084  /* Interrupt mas set */
+ #define XSCT_IMC            0x0088  /* Interrupt mask clear */
++#define XSCT_IG             0x008C  /* Interrupt generator */
++#define XSCT_ICTL           0x0090  /* Interrupt control */
+ 
+ 
+ /*
+@@ -108,6 +111,15 @@ union REG_CS {
+ 	__le32 Reg;
+ };
+ 
++/* Interrupt Control registers */
++union REG_ICTL {
++	struct {
++		__le32 automak:1;
++		__le32 rsv0:31;
++	} Bits;
++	__le32 Reg;
++};
++
+ enum REG_ICTL_MASK {
+ 	REG_ICTL_MASK_INFO_UPDATE     = 1 << 20,
+ 	REG_ICTL_MASK_DEV_STOP_REQ    = 1 << 19,
+@@ -117,6 +129,10 @@ enum REG_ICTL_MASK {
+ 	REG_ICTL_MASK_ALL             = GENMASK(20, 16),
+ };
+ 
++enum REG_IS_MASK {
++	REG_IS_MASK_IS_ASSERT	= 1 << 31,
++	REG_IS_MASK_EPID		= GENMASK(15, 0),
++};
+ 
+ struct fjes_hw;
+ 
 -- 
 1.8.3.1
