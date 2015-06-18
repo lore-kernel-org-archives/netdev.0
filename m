@@ -1,67 +1,73 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net 2/2] bridge: multicast: start querier timer when
- running user-space stp
-Date: Thu, 18 Jun 2015 11:37:40 +0800
-Message-ID: <20150618033740.GB27370@gondor.apana.org.au>
-References: <1434540511-648-1-git-send-email-nikolay@cumulusnetworks.com>
- <1434540511-648-3-git-send-email-nikolay@cumulusnetworks.com>
+From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+Subject: Re: [PATCH net-next] switchdev: fdb filter_dev is always NULL for
+ self (device), so remove check
+Date: Wed, 17 Jun 2015 22:30:54 -0700
+Message-ID: <5582578E.2000600@intel.com>
+References: <1434582511-46290-1-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	davem@davemloft.net, sashok@cumulusnetworks.com
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jiri@resnulli.us
+To: sfeldma@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:35951 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751867AbbFRDhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 23:37:42 -0400
-Content-Disposition: inline
-In-Reply-To: <1434540511-648-3-git-send-email-nikolay@cumulusnetworks.com>
+Received: from mga11.intel.com ([192.55.52.93]:64422 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751763AbbFRFa4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jun 2015 01:30:56 -0400
+In-Reply-To: <1434582511-46290-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 17, 2015 at 04:28:31AM -0700, Nikolay Aleksandrov wrote:
-> From: Satish Ashok <sashok@cumulusnetworks.com>
-> 
-> When STP is running in user-space and querier is configured, the
-> querier timer is not started when a port goes to forwarding state.
-> 
-> Signed-off-by: Satish Ashok <sashok@cumulusnetworks.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Fixes: eb1d16414339 ("bridge: Add core IGMP snooping support")
+
+
+On 6/17/2015 4:08 PM, sfeldma@gmail.com wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
+>
+> Remove the filter_dev check when dumping fdb entries, otherwise dump
+> returns empty list.  filter_dev is always passed as NULL when dumping fdbs
+> on SELF.  We want the fdbs installed on the device to be listed in the
+> dump.
+>
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+Acked-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+
+> Fixes: 45d4122c ("switchdev: add support for fdb add/del/dump via switchdev_port_obj ops")
 > ---
->  net/bridge/br_stp.c | 3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-> index fb3ebe615513..1e2f2f1ff6b0 100644
-> --- a/net/bridge/br_stp.c
-> +++ b/net/bridge/br_stp.c
-> @@ -456,6 +456,9 @@ void br_port_state_selection(struct net_bridge *br)
->  				p->topology_change_ack = 0;
->  				br_make_blocking(p);
->  			}
-> +		} else if (br->stp_enabled == BR_USER_STP &&
-> +			   p->state == BR_STATE_FORWARDING) {
-> +			br_multicast_enable_port(p);
->  		}
-
-Minor nit, the stp_enabled check appears to be redundant since
-you're in the else clause.
-
-More importantly, I'm not sure about the logic.  For kernel STP,
-we enable the port as soon as we get out of blocking.  IIRC enabling
-the port just means that we start tracking subscriptions/queries
-so it should be OK to do even while we're listening/learning.
-
-In any case the logic should be identical whether we use kernel
-STP or user-space STP.
-
-So how about removing br_multicast_enable_port from br_make_forward
-and just add it here for both kernel and user-space STP?
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+>   net/switchdev/switchdev.c |    6 ------
+>   1 file changed, 6 deletions(-)
+>
+> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+> index a5d0f8e..7dda437 100644
+> --- a/net/switchdev/switchdev.c
+> +++ b/net/switchdev/switchdev.c
+> @@ -657,7 +657,6 @@ struct switchdev_fdb_dump {
+>   	struct switchdev_obj obj;
+>   	struct sk_buff *skb;
+>   	struct netlink_callback *cb;
+> -	struct net_device *filter_dev;
+>   	int idx;
+>   };
+>   
+> @@ -670,14 +669,10 @@ static int switchdev_port_fdb_dump_cb(struct net_device *dev,
+>   	u32 seq = dump->cb->nlh->nlmsg_seq;
+>   	struct nlmsghdr *nlh;
+>   	struct ndmsg *ndm;
+> -	struct net_device *master = netdev_master_upper_dev_get(dev);
+>   
+>   	if (dump->idx < dump->cb->args[0])
+>   		goto skip;
+>   
+> -	if (master && dump->filter_dev != master)
+> -		goto skip;
+> -
+>   	nlh = nlmsg_put(dump->skb, portid, seq, RTM_NEWNEIGH,
+>   			sizeof(*ndm), NLM_F_MULTI);
+>   	if (!nlh)
+> @@ -731,7 +726,6 @@ int switchdev_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+>   		},
+>   		.skb = skb,
+>   		.cb = cb,
+> -		.filter_dev = filter_dev,
+>   		.idx = idx,
+>   	};
+>   	int err;
