@@ -1,62 +1,63 @@
-From: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Subject: Re: [REGRESSION] NFS is creating a hidden port (left over from
- xs_bind() )
-Date: Thu, 18 Jun 2015 15:24:52 -0400
-Message-ID: <CAHQdGtQfF8sgfj6B2H=Sg+mn6ghPD+4UuZMSMFjj3XCVee60pw@mail.gmail.com>
-References: <20150611234929.7b48d314@gandalf.local.home>
-	<CAHQdGtSyHtMfyVxT=hFY4m6XvM=3mxnZ=ajVJWYNXvYqE0+3zA@mail.gmail.com>
-	<1434120035.27504.77.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150612113420.5c114183@gandalf.local.home>
-	<20150612115038.44e20ccd@gandalf.local.home>
-	<20150617230819.0a11e47a@grimm.local.home>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net-next 00/43] Simplify netfilter and network namespaces
+ (take 2)
+Date: Thu, 18 Jun 2015 21:40:23 +0200
+Message-ID: <20150618194023.GA3057@salvia>
+References: <87616ppt3h.fsf@x220.int.ebiederm.org>
+ <87r3pae5hn.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Network Devel Mailing List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150617230819.0a11e47a-2kNGR76GQU9OHLTnHDQRgA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Juanjo Ciarlante <jjciarla@raiz.uncu.edu.ar>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87r3pae5hn.fsf@x220.int.ebiederm.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 17, 2015 at 11:08 PM, Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
-> On Fri, 12 Jun 2015 11:50:38 -0400
-> Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
->
->> I reverted the following commits:
->>
->> c627d31ba0696cbd829437af2be2f2dee3546b1e
->> 9e2b9f37760e129cee053cc7b6e7288acc2a7134
->> caf4ccd4e88cf2795c927834bc488c8321437586
->>
->> And the issue goes away. That is, I watched the port go from
->> ESTABLISHED to TIME_WAIT, and then gone, and theirs no hidden port.
->>
->> In fact, I watched the port with my portlist.c module, and it
->> disappeared there too when it entered the TIME_WAIT state.
->>
+On Wed, Jun 17, 2015 at 10:09:40AM -0500, Eric W. Biederman wrote:
+[...]
+> There are a few extra cleanups in the first group of changes sprinkled
+> in as I noticed a few other things as I was sorting out the network
+> namespace computation logic.
 
-I've scanned those commits again and again, and I'm not seeing how we
-could be introducing a socket leak there. The only suspect I can see
-would be the NFS swap bugs that Jeff fixed a few weeks ago. Are you
-using NFS swap?
+This is a rather large patchset that address many pernet issues in the
+netfilter codebase, I would classify them in:
 
-> I've been running v4.0.5 with the above commits reverted for 5 days
-> now, and there's still no hidden port appearing.
->
-> What's the status on this? Should those commits be reverted or is there
-> another solution to this bug?
->
+1) Patches to prepare the ground for easier pernet integration.
 
-I'm trying to reproduce, but I've had no luck yet.
+2) Get rid of the dev_net(dev) ? ... : ...; pattern all around the
+   netfilter code.
 
-Cheers
-  Trond
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+3) Missing pernet sysctl support is some spots, eg. br_netfilter.
+
+4) Pernet hooks, probably the largest changeset in this pile and the
+   most important one IMO.
+
+So given that it's quite evident that netfilter netns support is
+half-cooked and there's room for improvement in it, as we've been
+receiving patches to partially add support on things that people
+sporadically needed, could you please split this in several (smaller)
+batches in logical changes for easier review?
+
+On a different front, nfnetlink_log and nfnetlink_queue also still
+lack of netns support so patches for that would be also appreciated in
+another different round.
+
+I'm going to take as much of small preparation patches that I can to
+reduce your patchload:
+
+1/43, 8/43, 16/43, 17/43, 18/43, 26/43
+
+Thank you.
