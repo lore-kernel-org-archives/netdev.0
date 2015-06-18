@@ -1,188 +1,399 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: RE: [Intel-wired-lan] [PATCH v6 1/3] if_link: Add control trust VF
-Date: Thu, 18 Jun 2015 06:16:09 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05EE24BB@BPXM14GP.gisp.nec.co.jp>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EE188B@BPXM14GP.gisp.nec.co.jp>
- <55819DE0.2000205@gmail.com>
+From: Li Zhijian <lizhijian@cn.fujitsu.com>
+Subject: [RFC] COLO Proxy Module
+Date: Thu, 18 Jun 2015 14:37:47 +0800
+Message-ID: <5582673B.3010804@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 8BIT
-Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	"David Miller" <davem@davemloft.net>,
-	Edward Cree <ecree@solarflare.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([210.143.35.52]:60047 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751567AbbFRGQ2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 02:16:28 -0400
-In-Reply-To: <55819DE0.2000205@gmail.com>
-Content-Language: ja-JP
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <pablo@netfilter.org>,
+	<kaber@trash.net>, <kadlec@blackhole.kfki.hu>,
+	<davem@davemloft.net>, <coreteam@netfilter.org>,
+	Yang Hongyang <yanghy@cn.fujitsu.com>,
+	=?UTF-8?B?5ripIOS7jua0iw==?= <wency@cn.fujitsu.com>,
+	zhanghailiang <zhang.zhanghailiang@huawei.com>,
+	Lai Jiangshan <laijs@cn.fujitsu.com>,
+	"peter.huangpeng" <peter.huangpeng@huawei.com>,
+	"Gonglei (Arei)" <arei.gonglei@huawei.com>
+To: <netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Subject: Re: [Intel-wired-lan] [PATCH v6 1/3] if_link: Add control trust VF
-> 
-> On 06/17/2015 04:41 AM, Hiroshi Shimamoto wrote:
-> > From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-> >
-> > Add netlink directives and ndo entry to trust VF user.
-> >
-> > This controls the special permission of VF user.
-> > The administrator will dedicatedly trust VF user to use some features
-> > which impacts security and/or performance.
-> >
-> > The administrator never turn it on unless VF user is fully trusted.
-> >
-> > Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-> > Reviewed-by: Hayato Momma <h-momma@ce.jp.nec.com>
-> > CC: Choi, Sy Jong <sy.jong.choi@intel.com>
-> > ---
-> > include/linux/if_link.h      |  1 +
-> >   include/linux/netdevice.h    |  3 +++
-> >   include/uapi/linux/if_link.h |  6 ++++++
-> >   net/core/rtnetlink.c         | 19 +++++++++++++++++--
-> >   4 files changed, 27 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-> > index ae5d0d2..f923d15 100644
-> > --- a/include/linux/if_link.h
-> > +++ b/include/linux/if_link.h
-> > @@ -24,5 +24,6 @@ struct ifla_vf_info {
-> >   	__u32 min_tx_rate;
-> >   	__u32 max_tx_rate;
-> >   	__u32 rss_query_en;
-> > +	__u32 trusted;
-> >   };
-> >   #endif /* _LINUX_IF_LINK_H */
-> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> > index e20979d..a034fb8 100644
-> > --- a/include/linux/netdevice.h
-> > +++ b/include/linux/netdevice.h
-> > @@ -873,6 +873,7 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-> >    * int (*ndo_set_vf_rate)(struct net_device *dev, int vf, int min_tx_rate,
-> >    *			  int max_tx_rate);
-> >    * int (*ndo_set_vf_spoofchk)(struct net_device *dev, int vf, bool setting);
-> > + * int (*ndo_set_vf_trust)(struct net_device *dev, int vf, bool setting);
-> >    * int (*ndo_get_vf_config)(struct net_device *dev,
-> >    *			    int vf, struct ifla_vf_info *ivf);
-> >    * int (*ndo_set_vf_link_state)(struct net_device *dev, int vf, int link_state);
-> > @@ -1095,6 +1096,8 @@ struct net_device_ops {
-> >   						   int max_tx_rate);
-> >   	int			(*ndo_set_vf_spoofchk)(struct net_device *dev,
-> >   						       int vf, bool setting);
-> > +	int			(*ndo_set_vf_trust)(struct net_device *dev,
-> > +						    int vf, bool setting);
-> >   	int			(*ndo_get_vf_config)(struct net_device *dev,
-> >   						     int vf,
-> >   						     struct ifla_vf_info *ivf);
-> > diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-> > index 2c7e8e3..891050c 100644
-> > --- a/include/uapi/linux/if_link.h
-> > +++ b/include/uapi/linux/if_link.h
-> > @@ -485,6 +485,7 @@ enum {
-> >   				 * on/off switch
-> >   				 */
-> >   	IFLA_VF_STATS,		/* network device statistics */
-> > +	IFLA_VF_TRUST,		/* Trust VF */
-> >   	__IFLA_VF_MAX,
-> >   };
-> >
-> > @@ -546,6 +547,11 @@ enum {
-> >
-> >   #define IFLA_VF_STATS_MAX (__IFLA_VF_STATS_MAX - 1)
-> >
-> > +struct ifla_vf_trust {
-> > +	__u32 vf;
-> > +	__u32 setting;
-> > +};
-> > +
-> >   /* VF ports management section
-> >    *
-> >    *	Nested layout of set/get msg is:
-> > diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> > index 2d102ce..abd1a75 100644
-> > --- a/net/core/rtnetlink.c
-> > +++ b/net/core/rtnetlink.c
-> > @@ -831,7 +831,8 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev,
-> >   			 /* IFLA_VF_STATS_BROADCAST */
-> >   			 nla_total_size(sizeof(__u64)) +
-> >   			 /* IFLA_VF_STATS_MULTICAST */
-> > -			 nla_total_size(sizeof(__u64)));
-> > +			 nla_total_size(sizeof(__u64)) +
-> > +			 nla_total_size(sizeof(struct ifla_vf_trust)));
-> >   		return size;
-> >   	} else
-> >   		return 0;
-> > @@ -1151,6 +1152,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
-> >   			struct ifla_vf_link_state vf_linkstate;
-> >   			struct ifla_vf_rss_query_en vf_rss_query_en;
-> >   			struct ifla_vf_stats vf_stats;
-> > +			struct ifla_vf_trust vf_trust;
-> >
-> >   			/*
-> >   			 * Not all SR-IOV capable drivers support the
-> > @@ -1160,6 +1162,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
-> >   			 */
-> >   			ivi.spoofchk = -1;
-> >   			ivi.rss_query_en = -1;
-> > +			ivi.trusted = -1;
-> >   			memset(ivi.mac, 0, sizeof(ivi.mac));
-> >   			/* The default value for VF link state is "auto"
-> >   			 * IFLA_VF_LINK_STATE_AUTO which equals zero
-> > @@ -1173,7 +1176,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
-> >   				vf_tx_rate.vf =
-> >   				vf_spoofchk.vf =
-> >   				vf_linkstate.vf =
-> > -				vf_rss_query_en.vf = ivi.vf;
-> > +				vf_rss_query_en.vf =
-> > +				vf_trust.vf = ivi.vf;
-> >
-> >   			memcpy(vf_mac.mac, ivi.mac, sizeof(ivi.mac));
-> >   			vf_vlan.vlan = ivi.vlan;
-> > @@ -1184,6 +1188,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
-> >   			vf_spoofchk.setting = ivi.spoofchk;
-> >   			vf_linkstate.link_state = ivi.linkstate;
-> >   			vf_rss_query_en.setting = ivi.rss_query_en;
-> > +			vf_trust.setting = ivi.trusted;
-> >   			vf = nla_nest_start(skb, IFLA_VF_INFO);
-> >   			if (!vf) {
-> >   				nla_nest_cancel(skb, vfinfo);
-> 
-> Don't you also need to define a section in ifla_vf_policy for
-> IFLA_VF_TRUST?  Otherwise I thought the .len value gets configured as 0.
+Hi, all
 
-Yes, I will check and add codes.
+We are planning to implement a kernel module called COLO Proxy to buffer and
+compare packets. This module is one of the important component of COLO project
+and now it is still in early stage, so any comments and feedback are warmly
+welcomed, thanks in advance.
 
-thanks,
-Hiroshi
+=====
+# RFC: COLO-Proxy Module
 
-> 
-> > @@ -1571,6 +1576,16 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
-> >   							    ivrssq_en->setting);
-> >   			break;
-> >   		}
-> > +		case IFLA_VF_TRUST: {
-> > +			struct ifla_vf_trust *ivt;
-> > +
-> > +			ivt = nla_data(vf);
-> > +			err = -EOPNOTSUPP;
-> > +			if (ops->ndo_set_vf_trust)
-> > +				err = ops->ndo_set_vf_trust(dev, ivt->vf,
-> > +							    ivt->setting);
-> > +			break;
-> > +		}
-> >   		default:
-> >   			err = -EINVAL;
-> >   			break;
-> >
+## Rationale
+
+COLO FT/HA (COarse-grain LOck-stepping Virtual Machines for Non-stop Service)
+project is a high availability solution. Both Primary VM (PVM) and Secondary VM
+(SVM) run in parallel. They receive the same request from client, and generate
+responses in parallel too. If the response packets from PVM and SVM are
+identical, they are released immediately. Otherwise, a VM checkpoint (on demand)
+is conducted.
+Paper:
+http://www.socc2013.org/home/program/a3-dong.pdf?attredirects=0
+COLO on Xen:
+http://wiki.xen.org/wiki/COLO_-_Coarse_Grain_Lock_Stepping
+COLO on Qemu/KVM:
+http://wiki.qemu.org/Features/COLO
+
+By the needs of capturing response packets from PVM and SVM and finding out
+whether they are identical, we introduce a new kernel module which called
+colo-proxy.
+
+This document describes the design of the colo-proxy module
+
+## Glossary
+
+   * PVM - Primary VM, which provides services to clients.
+   * SVM - Secondary VM, a hot standby and replication of PVM.
+   * PN - Primary Node, the host which PVM runs on
+   * SN - Secondary Node, the host which SVM runs on
+
+## Network topology
+
+================================= Normal =====================================
+                                  +--------+
+                                  | client |
+                                  +----+---+
+-------------------------+           |            + -------------------------+
+PN                       |           +            |                        SN|
++-------+         +----[eth0]-----[switch]-----[eth0]---------+              |
+|PVM    |     +---+-+    |                        |       +---+-+            |
+|     [tap0]--+ br0 |    |                        |       | br0 |            |
+|       |     +-----+  [eth1]-----[forward]----[eth1]--+  +-----+            |
++-------+                |                        |    |            +-------+|
+                          |                        |    |  +-----+   |    SVM||
+                        [eth2]---[checkpoint]---[eth2]  +--+ br1 |-[tap0]    ||
+                          |                        |       +-----+   |       ||
+                          |                        |                 +-------+|
+-------------------------+                        +--------------------------+
+e.g.
+PN:
+br0: 192.168.0.33
+eth1: 192.168.1.33
+eth2: 192.168.2.33
+
+SN:
+br0: 192.168.0.88
+br1: no ip address
+eth1: 192.168.1.88
+eth2: 192.168.2.88
+
+
+============================== After failover ================================
+                                  +--------+
+                                  | client |
+                                  +----+---+
+-------------------------+           |            ---------------------------+
+PN (dead)                |           +            |                SN (alive)|
++-------+         +----[eth0]--X--[switch]-----[eth0]-------+                |
+|PVM    |     +---+-+    |                        |     +---+-+              |
+|     [tap0]--+ br0 |    |                        |     | br0 +--+           |
+|       |     +-----+  [eth1]--X--[forward]----[eth1]   +-----+  |           |
++-------+                |                        |              |  +-------+|
+                          |                        |     +-----+  |  |    SVM||
+                        [eth2]-X-[checkpoint]---[eth2]   | br1 |  +[tap0]    ||
+                          |                        |     +-----+     |       ||
+                          |                        |                 +-------+|
+-------------------------+                        +--------------------------+
+
+## Network flow
+
+### Receive packets from client (Input)
+
+                                 +------+
+                                 |Client|
+                                 +---+--+
++-----------------------+          |         +------------------------+
+|PN                     |          v         |                      SN|
+|                 +---[eth0]<---[switch]     |         +--------+     |
+| +-------+       v     |                    |         |    SVM |     |
+| | PVM   |     +-+-+   |                    |      [tap0]      |     |
+| |     [tap0]<-+br0|   |                    |       ^ |        |     |
+| |       | |   +---+   |                    |       | +--------+     |
+| +-------+ |           |                    |     +-+-------------+  |
+|           +-------->[eth1]------------->[eth1]--->colo-proxy     |  |
+|           copy&forward|                    |     |*Adjust        |  |
+|                       |                    |     | Client's ack  |  |
++-----------------------+                    +-----+---------------+--+
+
+   * colo-proxy on SN:
+     ** Capture the first ack from client, find out the initial seq number of the
+        tcp connection on PVM. (for seq number adjustment)
+     ** Adjust ack/sack from client until next checkpoint, make sure tcp
+        connection on SVM won't break.
+
+### Response packets (Output)
+
+                                      +------+
+                                      |Client|
+                                      +---^--+
++----------------------------+          |         +------------------------+
+|PN                          +          +         |                      SN|
+| +----+  checkpoint   +-->[eth0]+-->[switch]     |         +---------+    |
+| |PVM |     ^  |      |     +                    |         +    SVM  |    |
+| +-+--+     |  v    +-+-+   |                    |      [tap0]       |    |
+|   |        |[tap0]->br0|   |                    |       + +         |    |
++---v--+     |  ^    +---+   +                    +       | +---------+    |
+||Vhost|     |  |        ++[eth1]<------------+[eth1]<---+v-------------+  |
++---+--+     |  |        |   +                    +      |colo-proxy    |  |
+|   |     No |  |Yes     |   |                    |      |*Adjust SVM's |  |
++---|--------|--|--------|---+                    |      | Seq number   |  |
+|   |     identical?     |   |                    +------+--------------+--+
+| +-v-----+   ^    +-----v-+ |
+| |enqueue+---+    |enqueue| |
+| +-------+compare +-------+ |
+|                            |
+| colo-proxy                 |
++----------------------------+
+
+
+
+   * colo-proxy on SN:
+     ** track the initial seq number of the tcp connection on SVM.
+        (for seq number adjustment)
+     ** Adjust seq number from SVM until next checkpoint.
+   * colo-proxy on PN:
+     ** enqueue the packets from SVM
+     ** enqueue the packets from PVM
+     ** compare the tcp payload data of these two queue
+     ** if the data is identical, release PVM queue, drop SVM queue
+     ** if the data is not identical, notice the upper layer(userspace tools:
+        QEMU or libxl on Xen) a checkpoint is needed
+     ** release PVM queue and drop SVM queue at checkpoint
+
+### After failover
+
+At this point, PN is dead, SVM is serving the clients.
+
+#### Receive packets from client (Input)
+
+               +------+
+               |Client|
+               +---+--+
+                   |
+               +---v--+
+               |Switch|
+               +---+--+
+                   v
++-------------[eth0]--------------+
+|        |-------+             SN |
+| +------v---------+              |
+| |colo-proxy      |              |
+| |*Adjust client's|              |
+| | ack number     |              |
+| +------+---------+              |
+|        |                        |
+|        |       +-----------+    |
+|        |       |    SVM    |    |
+|        +--->[tap0]         |    |
+|                |           |    |
+|                +-----------+    |
++---------------------------------+
+
+   * colo-proxy on SN:
+     ** Adjust the ack/sack number from client, this only applies to the existing
+        tcp connection.
+
+#### Response packets (Output)
+
+               +------+
+               |Client|
+               +---^--+
+                   |
+               +---+--+
+               |Switch|
+               +---^--+
+                   +
++-------------[eth0]--------------+
+|        |-------^             SN |
+| +----------------+              |
+| |colo-proxy      |              |
+| |*Adjust SVM's   |              |
+| | seq number     |              |
+| +------^---------+              |
+|        |                        |
+|        |       +-----------+    |
+|        |       |    SVM    |    |
+|        +---+[tap0]         |    |
+|                |           |    |
+|                +-----------+    |
++---------------------------------+
+
+   * colo-proxy on SN:
+     ** Adjust the seq number of the packets returned by SVM, this only applies
+        to the existing tcp connection.
+
+NOTE:
+We track the initial seq number of the tcp connection on both PVM/SVM so that
+we can calculate the offset when we do the seq adjustment after failover.
+
+## Implementation
+
+We archive our goal by extending nf_conntrack mechanism.
+
+There're 4 kernel modules in colo-proxy:
+
+### nf_conntrack_colo
+
+In this module We add an nf_conntrack extension named 'colo':
+<pre>
+static struct nf_ct_ext_type nf_ct_colo_extend __read_mostly = {
+      .len        = sizeof(struct nf_conn_colo),
+      .move       = nf_ct_colo_extend_move,
+      .destroy    = nf_ct_colo_extend_destroy,
+      .align      = __alignof__(struct nf_conn_colo),
+      .id		= NF_CT_EXT_COLO,
+};
+</pre>
+This extension hold essential states needed by colo-proxy. e.g. manage the
+node status, the tcp connection status.
+
+### xt_PMYCOLO
+
+This module is for PN. It do the following operations:
+
+* Register a xt_target(cooperate with iptables) to initiate the PN node
+    status, run a kernel thread to compare packets.
+<pre>
+static struct xt_target colo_primary_tg_regs[] __read_mostly = {
+	{
+		.name		= "PMYCOLO",
+		.family		= NFPROTO_UNSPEC,
+		.target		= colo_primary_tg,
+		.checkentry	= colo_primary_tg_check,
+		.destroy	= colo_primary_tg_destroy,
+		.targetsize	= sizeof(struct xt_colo_primary_info),
+		.table		= "mangle",
+		.hooks		= (1 << NF_INET_PRE_ROUTING),
+		.me		= THIS_MODULE,
+	},
+};
+
+static int colo_primary_tg_check(const struct xt_tgchk_param *par)
+{
+      /*
+       * Setup forward device, init primary node status, create kthread for
+       * packets comparison.
+       */
+}
+</pre>
+
+* Register a nf_queue_handler to enqueue packets sent by PVM.
+<pre>
+static const struct nf_queue_handler coloqh = {
+	.outfn	= &colo_enqueue_packet,
+};
+</pre>
+
+* Register some nf hooks to enqueue packets sent by SVM.
+<pre>
+static struct nf_hook_ops colo_primary_ops[] __read_mostly = {
+	{
+		.hook		= colo_slaver_queue_hook,
+		.owner		= THIS_MODULE,
+		.pf		= NFPROTO_IPV4,
+		.hooknum	= NF_INET_PRE_ROUTING,
+		.priority	= NF_IP_PRI_RAW + 1,
+	},
+	{
+		.hook		= colo_slaver_queue_hook,
+		.owner		= THIS_MODULE,
+		.pf		= NFPROTO_IPV6,
+		.hooknum	= NF_INET_PRE_ROUTING,
+		.priority	= NF_IP_PRI_RAW + 1,
+	},
+	{
+		.hook		= colo_slaver_arp_hook,
+		.owner		= THIS_MODULE,
+		.pf		= NFPROTO_ARP,
+		.hooknum	= NF_ARP_IN,
+		.priority	= NF_IP_PRI_FILTER + 1,
+	},
+};
+</pre>
+
+### xt_SECCOLO
+
+This module is for SN. It do the following operations:
+
+* Register a xt_target(cooperate with iptables) to initiate the SN node
+    status.
+<pre>
+static struct xt_target colo_secondary_tg_regs[] __read_mostly = {
+	{
+		.name		= "SECCOLO",
+		.family		= NFPROTO_UNSPEC,
+		.target		= colo_secondary_tg,
+		.checkentry	= colo_secondary_tg_check,
+		.destroy	= colo_secondary_tg_destroy,
+		.targetsize	= sizeof(struct xt_colo_secondary_info),
+		.table		= "mangle",
+		.hooks		= (1 << NF_INET_PRE_ROUTING),
+		.me		= THIS_MODULE,
+	},
+};
+</pre>
+
+* Register some nf hooks to track the initial seq number of the tcp
+    connections on both PVM/SVM, and do the seq adjustment for SVM(by
+    using the existing nf_conntrack_seqadj module).
+<pre>
+static struct nf_hook_ops colo_secondary_ops[] __read_mostly = {
+	{
+		.hook		= colo_secondary_hook,
+		.owner		= THIS_MODULE,
+		.pf		= NFPROTO_IPV4,
+		.hooknum	= NF_INET_PRE_ROUTING,
+		.priority	= NF_IP_PRI_MANGLE + 1,
+	},
+	{
+		.hook		= colo_secondary_hook,
+		.owner		= THIS_MODULE,
+		.pf		= NFPROTO_IPV6,
+		.hooknum	= NF_INET_PRE_ROUTING,
+		.priority	= NF_IP_PRI_MANGLE + 1,
+	},
+};
+</pre>
+
+### nfnetlink_colo
+
+This module is for communication with the userspace tools like QEMU or libxl.
+
+In this module, add a colo protocol to the existing nfnetlink mechanism.
+<pre>
+static const struct nfnetlink_subsystem nfulnl_subsys = {
+	.name		= "colo",
+	.subsys_id	= NFNL_SUBSYS_COLO,
+	.cb_count	= NFCOLO_MSG_MAX,
+	.cb		= nfnl_colo_cb,
+};
+
+static const struct nfnl_callback nfnl_colo_cb[NFCOLO_MSG_MAX] = {
+	[NFCOLO_KERNEL_NOTIFY] = { .call   = NULL,
+		.policy = NULL,
+		.attr_count = 0, },
+	[NFCOLO_DO_CHECKPOINT] = { .call   = colo_do_checkpoint,
+		.policy = nfnl_colo_policy,
+		.attr_count = NFNL_COLO_MAX, },
+	[NFCOLO_DO_FAILOVER] = { .call   = colo_do_failover,
+		.policy = nfnl_colo_policy,
+		.attr_count = NFNL_COLO_MAX, },
+	[NFCOLO_PROXY_INIT] = { .call   = colo_init_proxy,
+		.policy = nfnl_colo_policy,
+		.attr_count = NFNL_COLO_MAX, },
+	[NFCOLO_PROXY_RESET] = { .call   = colo_reset_proxy,
+		.policy = nfnl_colo_policy,
+		.attr_count = NFNL_COLO_MAX,},
+};
+</pre>
+
