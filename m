@@ -1,140 +1,81 @@
-From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Subject: e1000e driver - hang after 4 hours of uptime - finally bisected!
-Date: Thu, 18 Jun 2015 12:46:54 -0400
-Message-ID: <5284.1434646014@turing-police.cc.vt.edu>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1434646014_2109P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Yanir Lubetkin <yanirx.lubetkin@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---==_Exmh_1434646014_2109P
-Content-Type: text/plain; charset=us-ascii
-
-(follow up to a report from last week - bisecting took a while as I could
-only do 1 or 2 tests an evening)
-
-My Dell Latitude E6530 crashes with a specific kernel lockup almost
-exactly 4 hours after boot if there isn't a cable connected to the
-Ethernet port:
-
-[14508.846327] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 0
-[14468.229720] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 0
-[14463.254791] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 0
-[14491.134413] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 1
-[14463.396593] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 2
-[14490.390223] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 1
-[14494.680591] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 0
-[14513.365378] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 1
-[14482.271716] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 3
-[14479.906820] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 0
-
-As far as I can tell, the timestamp jitter is just how long it takes me to
-enter the cryptLUKS passphrase for the hard drive at boot...
-
-lspci tells me:
-
-lspci -vvv -s "00:19.0"
-00:19.0 Ethernet controller: Intel Corporation 82579LM Gigabit Network Connection (rev 04)
-        DeviceName:  Onboard LAN
-        Subsystem: Dell Device 0535
-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
-        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-        Latency: 0
-        Interrupt: pin A routed to IRQ 28
-        Region 0: Memory at f7700000 (32-bit, non-prefetchable) [size=128K]
-        Region 1: Memory at f7739000 (32-bit, non-prefetchable) [size=4K]
-        Region 2: I/O ports at f040 [size=32]
-        Capabilities: [c8] Power Management version 2
-                Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
-                Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
-        Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
-                Address: 00000000fee00318  Data: 0000
-        Capabilities: [e0] PCI Advanced Features
-                AFCap: TP+ FLR+
-                AFCtrl: FLR-
-                AFStatus: TP-
-        Kernel driver in use: e1000e
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net 2/2] bridge: multicast: start querier timer when running user-space stp
+Date: Thu, 18 Jun 2015 20:35:09 +0300
+Message-ID: <0872B4B8-66E5-487A-8F75-3A4AA856EBE4@cumulusnetworks.com>
+References: <1434540511-648-1-git-send-email-nikolay@cumulusnetworks.com> <1434540511-648-3-git-send-email-nikolay@cumulusnetworks.com> <20150618033740.GB27370@gondor.apana.org.au>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	davem@davemloft.net, sashok@cumulusnetworks.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:33889 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755654AbbFRRfM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 13:35:12 -0400
+Received: by wicnd19 with SMTP id nd19so29681351wic.1
+        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 10:35:10 -0700 (PDT)
+In-Reply-To: <20150618033740.GB27370@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-The traceback always looks like:
+> On Jun 18, 2015, at 6:37 AM, Herbert Xu <herbert@gondor.apana.org.au>=
+ wrote:
+>=20
+> On Wed, Jun 17, 2015 at 04:28:31AM -0700, Nikolay Aleksandrov wrote:
+>> From: Satish Ashok <sashok@cumulusnetworks.com>
+>>=20
+>> When STP is running in user-space and querier is configured, the
+>> querier timer is not started when a port goes to forwarding state.
+>>=20
+>> Signed-off-by: Satish Ashok <sashok@cumulusnetworks.com>
+>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>> Fixes: eb1d16414339 ("bridge: Add core IGMP snooping support")
+>> ---
+>> net/bridge/br_stp.c | 3 +++
+>> 1 file changed, 3 insertions(+)
+>>=20
+>> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+>> index fb3ebe615513..1e2f2f1ff6b0 100644
+>> --- a/net/bridge/br_stp.c
+>> +++ b/net/bridge/br_stp.c
+>> @@ -456,6 +456,9 @@ void br_port_state_selection(struct net_bridge *=
+br)
+>> 				p->topology_change_ack =3D 0;
+>> 				br_make_blocking(p);
+>> 			}
+>> +		} else if (br->stp_enabled =3D=3D BR_USER_STP &&
+>> +			   p->state =3D=3D BR_STATE_FORWARDING) {
+>> +			br_multicast_enable_port(p);
+>> 		}
+>=20
+> Minor nit, the stp_enabled check appears to be redundant since
+> you're in the else clause.
+>=20
 
-[14479.906820] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 0
+Right you are, I=E2=80=99ve overlooked it.
 
-[14479.906908] Call Trace:
-[14479.906914]  <NMI>  [<ffffffffba94db16>] dump_stack+0x50/0xa8
-[14479.906930]  [<ffffffffba948bb9>] panic+0xcd/0x1e4
-[14479.906940]  [<ffffffffba166a60>] ? perf_event_task_disable+0xc0/0xc0
-[14479.906952]  [<ffffffffba125d8b>] watchdog_overflow_callback+0x9b/0xa0
-[14479.906959]  [<ffffffffba16a684>] __perf_event_overflow+0xc4/0x1f0
-[14479.906968]  [<ffffffffba16b3a4>] perf_event_overflow+0x14/0x20
-[14479.906976]  [<ffffffffba022271>] intel_pmu_handle_irq+0x1e1/0x430
-[14479.906990]  [<ffffffffba01a0f6>] perf_event_nmi_handler+0x26/0x40
-[14479.906999]  [<ffffffffba0085b3>] nmi_handle+0x103/0x340
-[14479.907005]  [<ffffffffba0084b5>] ? nmi_handle+0x5/0x340
-[14479.907017]  [<ffffffffba008a53>] default_do_nmi+0xc3/0x120
-[14479.907032]  [<ffffffffba008b98>] do_nmi+0xe8/0x130
-[14479.907044]  [<ffffffffba95c9a8>] end_repeat_nmi+0x1e/0x2e
-[14479.907055]  [<ffffffffba529886>] ? e1000e_cyclecounter_read+0x16/0xc0
-[14479.907061]  [<ffffffffba529886>] ? e1000e_cyclecounter_read+0x16/0xc0
-[14479.907069]  [<ffffffffba529886>] ? e1000e_cyclecounter_read+0x16/0xc0
-[14479.907075]  <<EOE>>  [<ffffffffba0e9529>] timecounter_read+0x19/0x60
-[14479.907088]  [<ffffffffba53687e>] e1000e_phc_gettime+0x2e/0x60
-[14479.907098]  [<ffffffffba536a31>] e1000e_systim_overflow_work+0x31/0x70
-[14479.907105]  [<ffffffffba07ad19>] process_one_work+0x3c9/0x980
-[14479.907115]  [<ffffffffba07ac62>] ? process_one_work+0x312/0x980
-[14479.907125]  [<ffffffffba07b348>] ? worker_thread+0x78/0x760
-[14479.907134]  [<ffffffffba07b59c>] worker_thread+0x2cc/0x760
-[14479.907144]  [<ffffffffba07b2d0>] ? process_one_work+0x980/0x980
-[14479.907154]  [<ffffffffba082a5e>] kthread+0xfe/0x120
-[14479.907163]  [<ffffffffba08ca50>] ? finish_task_switch+0x50/0x1c0
-[14479.907173]  [<ffffffffba082960>] ? kthread_create_on_node+0x270/0x270
-[14479.907179]  [<ffffffffba95ae4f>] ret_from_fork+0x3f/0x70
-[14479.907188]  [<ffffffffba082960>] ? kthread_create_on_node+0x270/0x270
-[14479.907243] Kernel Offset: 0x39000000 from 0xffffffff81000000 (relocation range: 0xffffffff80000000-0xffffffffbfffffff)
+> More importantly, I'm not sure about the logic.  For kernel STP,
+> we enable the port as soon as we get out of blocking.  IIRC enabling
+> the port just means that we start tracking subscriptions/queries
+> so it should be OK to do even while we're listening/learning.
+>=20
+> In any case the logic should be identical whether we use kernel
+> STP or user-space STP.
+>=20
+> So how about removing br_multicast_enable_port from br_make_forward
+> and just add it here for both kernel and user-space STP?
+>=20
+> Thanks,
+> --=20
+> Email: Herbert Xu <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-Bisection tells me it's this commit:
+Makes sense, I=E2=80=99ll re-spin, test and post a v2. Thank you for th=
+e suggestion.
 
-commit 83129b37ef35bb6a7f01c060129736a8db5d31c4
-Author: Yanir Lubetkin <yanirx.lubetkin@intel.com>
-Date:   Tue Jun 2 17:05:45 2015 +0300
-
-    e1000e: fix systim issues
-
-    Two issues involving systim were reported.
-    1. Clock is not running in the correct frequency
-    2. In some situations, systim values were not incremented linearly
-    This patch fixes the hardware clock configuration and the spurious
-    non-linear increment.
-
-
-
---==_Exmh_1434646014_2109P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Exmh version 2.5 07/13/2001
-
-iQIVAwUBVYL1/QdmEQWDXROgAQJbig/8Cqcf/hSsjC/dt/gYU+99bcGDup4Tkfdo
-S/C5nb/bUsZkBEr5/0K3OPAFY10ofq5PqDehjlZquKuMDRYq4nGtCTzZVKV8djSX
-II4swbfRkDCg0O8TQGi20cwdWxFt1YKCKrL9of2Yzwenbxx3YZ4kG3c0v90UkUCq
-Rn5OcWLbJS6S/RwSu8ieIuW/8FB+BEmH3m4yYkhUkndvG0dUuqSI6VnXg2KsN6z+
-DKgeQ0i4+eCkRP55Br426dAgi8UFwzIAb4Br7uWpXt05nR45Ta03mBjN843EBsQE
-t+krUGwHIuCNHXYEe6L6T7Dn8FPgX2xgfgj+LXmOSPqoKHZ1bD9b6FPcz2Te9UL0
-EwNjvl/CYMk2cruuVwwyb0UzP2hwX4gRbLzkpr64haKTm8/oclHlRVwYm75qAnvr
-ZlcAbXUtaj1b52uApFlayMpRh+gEMDQ9Po90+V5V1qHyILitHolLb8LkFAj7Bvt7
-j8KWqw8EaU2jKGaQw+17LRj6YY0FrIWcHnyznx13807+G38N1RD6RnIoZatBsfms
-9jPMJgvjsNlXzubDDR5bvCvwz0upuCHOvIIqfNfGzZOHRJkeAXIPXq4hYsMc3aLU
-VSgmFHHDTR7pgNa0sNg9gYjKESmGPqDQ61lldZrMigcx52RNpfnQqA0MvgYdsVQw
-73P2W/vE6Ms=
-=Z0qc
------END PGP SIGNATURE-----
-
---==_Exmh_1434646014_2109P--
+Cheers,
+ Nik
