@@ -1,77 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH next v2] bonding: Display LACP info only to
- CAP_NET_ADMIN capable user
-Date: Thu, 18 Jun 2015 04:17:36 -0700
-Message-ID: <1434626256.27504.208.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1434589182-7953-1-git-send-email-maheshb@google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH ipv6 0/1] ipv6: addrconf: routes are not deleted if last
+ ipv6 address is removed
+Date: Thu, 18 Jun 2015 13:23:18 +0200
+Message-ID: <1434626598.7926.27.camel@stressinduktion.org>
+References: <1434619742-10423-1-git-send-email-ranamazharp@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Mahesh Bandewar <maheshb@google.com>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, sanket.saha@cyberoam.com, mazhar.rana@cyberoam.com
+To: Mazhar Rana <ranamazharp@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:36458 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753795AbbFRLRv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 07:17:51 -0400
-Received: by wgzl5 with SMTP id l5so60885861wgz.3
-        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 04:17:50 -0700 (PDT)
-In-Reply-To: <1434589182-7953-1-git-send-email-maheshb@google.com>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:42698 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754277AbbFRLXX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 07:23:23 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id C286720916
+	for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 07:23:22 -0400 (EDT)
+In-Reply-To: <1434619742-10423-1-git-send-email-ranamazharp@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-06-17 at 17:59 -0700, Mahesh Bandewar wrote:
-> Actor and Partner details can be accessed via proc-fs, sys-fs
-> entries or netlink interface. These interfaces are world readable
-> at this moment. The earlier patch-series made the LACP communication
-> secure to avoid nuisance attack from within the same L2 domain but
-> it did not prevent "someone unprivileged" looking at that information
-> on host and perform the same act.
+On Thu, 2015-06-18 at 14:59 +0530, Mazhar Rana wrote:
+> Hi,
 > 
-> This patch essentially avoids spitting those entries if the user
-> in question does not have enough privileges.
+> After 'commit 876fd05ddbae03166e7037fca957b55bb3be6594
+> ("ipv6: don't disable interface if last ipv6 address is removed")'
+> it is not clearing ipv6 interface configurations(routes, neighbours,
+> etc) when last ipv6 address of interface is removed.
 > 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> ---
->  drivers/net/bonding/bond_netlink.c |  11 ++--
->  drivers/net/bonding/bond_procfs.c  | 101 +++++++++++++++++++------------------
->  drivers/net/bonding/bond_sysfs.c   |  12 ++---
->  3 files changed, 67 insertions(+), 57 deletions(-)
+> This is now creating functionality issue with below deployment.
 > 
-> diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-> index 5580fcde738f..3fd3aa4b145e 100644
-> --- a/drivers/net/bonding/bond_netlink.c
-> +++ b/drivers/net/bonding/bond_netlink.c
-> @@ -600,18 +600,23 @@ static int bond_fill_info(struct sk_buff *skb,
->  
->  	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
->  		struct ad_info info;
-> +		u8 zero_mac[ETH_ALEN];
->  
-> +		eth_zero_addr(zero_mac);
->  		if (nla_put_u16(skb, IFLA_BOND_AD_ACTOR_SYS_PRIO,
-> -				bond->params.ad_actor_sys_prio))
-> +				capable(CAP_NET_ADMIN) ?
-> +				bond->params.ad_actor_sys_prio : 0))
->  			goto nla_put_failure;
->  
->  		if (nla_put_u16(skb, IFLA_BOND_AD_USER_PORT_KEY,
-> -				bond->params.ad_user_port_key))
-> +				capable(CAP_NET_ADMIN) ?
-> +				bond->params.ad_user_port_key : 0))
->  			goto nla_put_failure;
->  
->  		if (nla_put(skb, IFLA_BOND_AD_ACTOR_SYSTEM,
->  			    sizeof(bond->params.ad_actor_system),
-> -			    &bond->params.ad_actor_system))
-> +			    capable(CAP_NET_ADMIN) ?
-> +			    &bond->params.ad_actor_system : &zero_mac))
->  			goto nla_put_failure;
->  
+> On ubuntu 14.04 (upgraded with linux kernel 3.19)
+> eth1 GW1: 2604:2000:7000:2::102
+> eth0 GW2: 2001:df7:6000:101::1b:102
+> 
+> HostA: 3804:3000:1406:2::102 (reachable via GW1 and GW2 both)
+> 
+> In this deployment, HostA is reachable via eth0 and eth1. I prefer
+> that all traffic for HostA should go via GW1 which is available on 
+> link eth1. 
+> 
+> $ ip -6 ro s
+> 2001:df7:6000:101::/64 dev eth0  proto kernel  metric 256 
+> 2604:2000:7000:2::/64 dev eth1  proto kernel  metric 256 
+> 3804:3000:1406:2::/64 via 2604:2000:7000:2::102 dev eth1  metric 1024 
+> fe80::/64 dev eth0  proto kernel  metric 256 
+> fe80::/64 dev eth1  proto kernel  metric 256 
+> default via 2001:df7:6000:101::1b:102 dev eth0  proto static  metric 1 
+> 
+> On failure of GW1 I removed all ipv6 address of eth1 so all traffic
+> should go through default gateway 'GW2'.
+> 
+> $ sudo ip -6 addr flush dev eth1
+> $ ip -6 ro s
+> 2001:df7:6000:101::/64 dev eth0  proto kernel  metric 256 
+> 3804:3000:1406:2::/64 via 2604:2000:7000:2::102 dev eth1  metric 1024 
+> fe80::/64 dev eth0  proto kernel  metric 256 
+> fe80::/64 dev eth0.100  proto kernel  metric 256 
+> default via 2001:df7:6000:101::1b:102 dev eth0  proto static  metric 1
+> 
+> But here, route for HostA is not deleted, so traffic for HostA is
+> still trying to go through GW1 which is not reachable anymore.
+> 
+> If 'commit 876fd05ddbae03166e7037fca957b55bb3be6594
+> ("ipv6: don't disable interface if last ipv6 address is removed")'
+> is taken only for problem mention on changlog of that commit then 
+> here I have alternate proposal which will overcome both issue.
+> 
+> Do you see any side effect of this proposal?
 
-Hmm... I would rather not send these fake attributes at all ?
+In theory IPv6 mandates that on-link information (which subnet is available on
+which link) and address specific connected routes should not depend on each
+other. That said, your initial assumption that clearing addresses from an
+interface to shut it down for IPv6 operation is wrong.
+
+I guess the check was there to make sure each link has an LL address.
+
+As we changed backwards compatibility here I am a bit ambivalent.
+
+Another glitch I noticed with your patch: We don't set disable_ipv6 bit on
+addrconf_ifdown with how==0, so we cannot easily bring the interface up without
+disturbing IPv4 operations, could you check, that the disable_ipv6 switch works
+to at least bring the ipv6 part of the interface up again?
+
+Bye,
+Hannes
