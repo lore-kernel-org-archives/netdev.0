@@ -1,7 +1,7 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH v2 2/4] net/macb: bindings doc/trivial: fix sama5d4 comment
-Date: Thu, 18 Jun 2015 16:27:21 +0200
-Message-ID: <dcce40eef71cfbedfca905fb1918e41930a4067c.1434637286.git.nicolas.ferre@atmel.com>
+Subject: [PATCH v2 3/4] net/macb: bindings doc: add sama5d2 compatibility sting
+Date: Thu, 18 Jun 2015 16:27:22 +0200
+Message-ID: <4af1b48e32c28127885713d7b0690d5be39e9496.1434637286.git.nicolas.ferre@atmel.com>
 References: <cover.1434637286.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,26 +17,24 @@ In-Reply-To: <cover.1434637286.git.nicolas.ferre@atmel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On sama5d4, we only have a GEM IP that is configured to do 10/100 Mbits. So the
-use of "Gigabit" can be confusing.
+Add sama5d2 to the biding documentation for this use of the GEM IP.
 
 Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 ---
- Documentation/devicetree/bindings/net/macb.txt | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ Documentation/devicetree/bindings/net/macb.txt | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
-index 0ae6974383d7..97349e3f3ff2 100644
+index 97349e3f3ff2..b5d79761ac97 100644
 --- a/Documentation/devicetree/bindings/net/macb.txt
 +++ b/Documentation/devicetree/bindings/net/macb.txt
-@@ -8,7 +8,7 @@ Required properties:
+@@ -7,6 +7,7 @@ Required properties:
+   Use "cdns,at32ap7000-macb" for other 10/100 usage or use the generic form: "cdns,macb".
    Use "cdns,pc302-gem" for Picochip picoXcell pc302 and later devices based on
    the Cadence GEM, or the generic form: "cdns,gem".
++  Use "atmel,sama5d2-gem" for the GEM IP (10/100) available on Atmel sama5d2 SoCs.
    Use "atmel,sama5d3-gem" for the Gigabit IP available on Atmel sama5d3 SoCs.
--  Use "atmel,sama5d4-gem" for the Gigabit IP available on Atmel sama5d4 SoCs.
-+  Use "atmel,sama5d4-gem" for the GEM IP (10/100) available on Atmel sama5d4 SoCs.
+   Use "atmel,sama5d4-gem" for the GEM IP (10/100) available on Atmel sama5d4 SoCs.
    Use "cdns,zynqmp-gem" for Zynq Ultrascale+ MPSoC.
- - reg: Address and length of the register set for the device
- - interrupts: Should contain macb interrupt
 -- 
 2.1.3
