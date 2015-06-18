@@ -1,39 +1,57 @@
-From: ADMIN <l.caramazza@santobonopausilipon.it>
-Subject: Administrador do sistema
-Date: Thu, 18 Jun 2015 12:43:38 +0200
-Message-ID: <20150618124338.198314cnq9t6s1ju@webmail.santobonopausilipon.it>
-Reply-To: 2272861322@qq.com
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: Re: [PATCH RFC] tun, macvtap: higher order allocations for skbs
+Date: Thu, 18 Jun 2015 12:54:44 +0200
+Message-ID: <5582A374.6020402@de.ibm.com>
+References: <1434622758-16549-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.santobonopausilipon.it ([5.97.192.70]:47512 "EHLO
-	webmail.santobonopausilipon.it" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753428AbbFRKuw convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jun 2015 06:50:52 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1434622758-16549-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Am 18.06.2015 um 12:20 schrieb Michael S. Tsirkin:
+> Needs more testing. Anyone see anything wrong with this?
+Can you explain the motivation? 
+FWIW, basic networking between two guest over macvtap still
+seems to work on s390 so I dont see any obvious regression.
 
+Christian
 
-Sua caixa de correio excedeu o limite de armazenamento, que =E9 de 20 G=
-B =20
-como definido pelo administrador, voc=EA est=E1 atualmente em execu=E7=E3=
-o no =20
-20,9 GB, voc=EA pode n=E3o ser capaz de enviar ou receber novas mensage=
-ns =20
-at=E9 que voc=EA re-validar sua caixa de correio. Para re-validar sua =20
-caixa de correio, por favor entrar e de nos enviar os detalhes do seu
-abaixo para verificar e atualizar sua conta:
-
-(1) E-mail:
-(2) Nome:
-(3) Senha:
-(4) E-mail alternativo:
-
-Obrigado
-Administrador do sistema
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  drivers/net/macvtap.c | 2 +-
+>  drivers/net/tun.c     | 2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 928f3f4..80e87e4 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -610,7 +610,7 @@ static inline struct sk_buff *macvtap_alloc_skb(struct sock *sk, size_t prepad,
+>  		linear = len;
+> 
+>  	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
+> -				   err, 0);
+> +				   err, 1);
+>  	if (!skb)
+>  		return NULL;
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index cb376b2d..8f2f1e5 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1069,7 +1069,7 @@ static struct sk_buff *tun_alloc_skb(struct tun_file *tfile,
+>  		linear = len;
+> 
+>  	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
+> -				   &err, 0);
+> +				   &err, 1);
+>  	if (!skb)
+>  		return ERR_PTR(err);
+> 
