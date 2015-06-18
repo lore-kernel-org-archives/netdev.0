@@ -1,40 +1,36 @@
-From: Samuel Ortiz <sameo@linux.intel.com>
-Subject: [GIT] [4.2] 2nd NFC update
-Date: Thu, 18 Jun 2015 22:57:06 +0200
-Message-ID: <20150618205706.GA16707@ribalta.ger.corp.intel.com>
+From: Darren Hart <dvhart@infradead.org>
+Subject: Re: [PATCH 00/22] FUJITSU Extended Socket network device driver
+Date: Thu, 18 Jun 2015 14:22:10 -0700
+Message-ID: <20150618212210.GA121898@vmdeb7>
+References: <1434588359-25589-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Linux NFC <linux-nfc@lists.01.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:3426 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751259AbbFRU53 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jun 2015 16:57:29 -0400
+Cc: platform-driver-x86@vger.kernel.org, rkhan@redhat.com,
+	alexander.h.duyck@redhat.com, netdev@vger.kernel.org,
+	linux-acpi@vger.kernel.org
+To: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1434588359-25589-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Sender: platform-driver-x86-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+On Thu, Jun 18, 2015 at 09:45:59AM +0900, Taku Izumi wrote:
+> This patchsets adds FUJITSU Extended Socket network device driver.
+> Extended Socket network device is a shared memory based high-speed network 
+> interface between Extended Partitions of PRIMEQUEST 2000 E2 series.
+> 
+> You can get some information about Extended Partition and Extended
+> Socket by referring the following manual.
+> 
+> http://globalsp.ts.fujitsu.com/dmsp/Publications/public/CA92344-0537.pdf
+>  3.2.1 Extended Partitioning
+>  3.2.2 Extended Socket
+> 
 
-This is a follow up fix for a typo that I introduced while cleaning
-the 1st 4.2 NFC pull request patches.
+As Alex mentioned earlier, I suspect this is more appropriate for drivers/net.
+If David objects, we can consider for platform/drivers/x86.
 
-The following changes since commit d0dcad8bd32a34aa85bcbd5d2033658cb3964377:
-
-  NFC: nfcmrvl: set PB_BAIL_OUT at setup (2015-06-13 00:08:55 +0200)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/sameo/nfc-next.git tags/nfc-next-4.2-2
-
-for you to fetch changes up to fb77ff4f43990dc91926ce2704036a547482544e:
-
-  NFC: nci: fix mistake in uart generic driver (2015-06-15 18:10:37 +0200)
-
-----------------------------------------------------------------
-Vincent Cuissard (1):
-      NFC: nci: fix mistake in uart generic driver
-
- net/nfc/nci/uart.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+-- 
+Darren Hart
+Intel Open Source Technology Center
