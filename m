@@ -1,50 +1,94 @@
-From: Mazhar Rana <ranamazharp@gmail.com>
-Subject: [PATCH ipv6 1/1] ipv6: addrconf: do addrconf_ifdown when last ipv6 address is removed
-Date: Thu, 18 Jun 2015 14:59:02 +0530
-Message-ID: <1434619742-10423-2-git-send-email-ranamazharp@gmail.com>
-References: <1434619742-10423-1-git-send-email-ranamazharp@gmail.com>
-Cc: Mazhar Rana <ranamazharp@gmail.com>, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	hannes@stressinduktion.org, sanket.saha@cyberoam.com,
-	mazhar.rana@cyberoam.com
-To: netdev@vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] Revert "tcp: switch tcp_fastopen key generation to
+ net_get_random_once"
+Date: Thu, 18 Jun 2015 11:32:33 +0200
+Message-ID: <1434619953.7926.10.camel@stressinduktion.org>
+References: <1434587299-60271-1-git-send-email-cpaasch@apple.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: Christoph Paasch <cpaasch@apple.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36378 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753792AbbFRJan (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 05:30:43 -0400
-In-Reply-To: <1434619742-10423-1-git-send-email-ranamazharp@gmail.com>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:39636 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753002AbbFRJch (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 05:32:37 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id DDEBA20BB8
+	for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 05:32:36 -0400 (EDT)
+In-Reply-To: <1434587299-60271-1-git-send-email-cpaasch@apple.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After 'commit 876fd05ddbae03166e7037fca957b55bb3be6594
-("ipv6: don't disable interface if last ipv6 address is removed")'
-it is not clearing ipv6 interface configurations(routes, neighbours,
-etc) when last ipv6 address of interface is removed.
+Hello Christoph,
 
-This patch will call addrconf_ifdown when last ipv6 address of
-interface is removed to clear ipv6 interface configurations. This will
-not delete /proc/sys/net/ipv6/conf/<interface> directory.
+On Wed, 2015-06-17 at 17:28 -0700, Christoph Paasch wrote:
+> This reverts commit 222e83d2e0aecb6a5e8d42b1a8d51332a1eba960.
+> 
+> tcp_fastopen_reset_cipher really cannot be called from interrupt
+> context. It allocates the tcp_fastopen_context with GFP_KERNEL and
+> calls crypto_alloc_cipher, which allocates all kind of stuff with
+> GFP_KERNEL.
+> 
+> Thus, we might sleep when the key-generation is triggered by an
+> incoming TFO cookie-request which would then happen in interrupt-
+> context, as shown by enabling CONFIG_DEBUG_ATOMIC_SLEEP:
+> 
+> [   36.001813] BUG: sleeping function called from invalid context at 
+> mm/slub.c:1266
+> [   36.003624] in_atomic(): 1, irqs_disabled(): 0, pid: 1016, name: 
+> packetdrill
+> [   36.004859] CPU: 1 PID: 1016 Comm: packetdrill Not tainted 4.1.0-rc7 #14
+> [   36.006085] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel
+> -1.7.5-0-ge51488c-20140602_164612-nilsson.home.kraxel.org 04/01/2014
+> [   36.008250]  00000000000004f2 ffff88007f8838a8 ffffffff8171d53a 
+> ffff880075a084a8
+> [   36.009630]  ffff880075a08000 ffff88007f8838c8 ffffffff810967d3 
+> ffff88007f883928
+> [   36.011076]  0000000000000000 ffff88007f8838f8 ffffffff81096892 
+> ffff88007f89be00
+> [   36.012494] Call Trace:
+> [   36.012953]  <IRQ>  [<ffffffff8171d53a>] dump_stack+0x4f/0x6d
+> [   36.014085]  [<ffffffff810967d3>] ___might_sleep+0x103/0x170
+> [   36.015117]  [<ffffffff81096892>] __might_sleep+0x52/0x90
+> [   36.016117]  [<ffffffff8118e887>] kmem_cache_alloc_trace+0x47/0x190
+> [   36.017266]  [<ffffffff81680d82>] ? tcp_fastopen_reset_cipher+0x42/0x130
+> [   36.018485]  [<ffffffff81680d82>] tcp_fastopen_reset_cipher+0x42/0x130
+> [   36.019679]  [<ffffffff81680f01>] tcp_fastopen_init_key_once+0x61/0x70
+> [   36.020884]  [<ffffffff81680f2c>] __tcp_fastopen_cookie_gen+0x1c/0x60
+> [   36.022058]  [<ffffffff816814ff>] tcp_try_fastopen+0x58f/0x730
+> [   36.023118]  [<ffffffff81671788>] tcp_conn_request+0x3e8/0x7b0
+> [   36.024185]  [<ffffffff810e3872>] ? __module_text_address+0x12/0x60
+> [   36.025327]  [<ffffffff8167b2e1>] tcp_v4_conn_request+0x51/0x60
+> [   36.026410]  [<ffffffff816727e0>] tcp_rcv_state_process+0x190/0xda0
+> [   36.027556]  [<ffffffff81661f97>] ? __inet_lookup_established+0x47/0x170
+> [   36.028784]  [<ffffffff8167c2ad>] tcp_v4_do_rcv+0x16d/0x3d0
+> [   36.029832]  [<ffffffff812e6806>] ? security_sock_rcv_skb+0x16/0x20
+> [   36.030936]  [<ffffffff8167cc8a>] tcp_v4_rcv+0x77a/0x7b0
+> [   36.031875]  [<ffffffff816af8c3>] ? iptable_filter_hook+0x33/0x70
+> [   36.032953]  [<ffffffff81657d22>] ip_local_deliver_finish+0x92/0x1f0
+> [   36.034065]  [<ffffffff81657f1a>] ip_local_deliver+0x9a/0xb0
+> [   36.035069]  [<ffffffff81657c90>] ? ip_rcv+0x3d0/0x3d0
+> [   36.035963]  [<ffffffff81657569>] ip_rcv_finish+0x119/0x330
+> [   36.036950]  [<ffffffff81657ba7>] ip_rcv+0x2e7/0x3d0
+> [   36.037847]  [<ffffffff81610652>] __netif_receive_skb_core+0x552/0x930
+> [   36.038994]  [<ffffffff81610a57>] __netif_receive_skb+0x27/0x70
+> [   36.040033]  [<ffffffff81610b72>] process_backlog+0xd2/0x1f0
+> [   36.041025]  [<ffffffff81611482>] net_rx_action+0x122/0x310
+> [   36.042007]  [<ffffffff81076743>] __do_softirq+0x103/0x2f0
+> [   36.042978]  [<ffffffff81723e3c>] do_softirq_own_stack+0x1c/0x30
+> 
+> There does not seem to be a better way to handle this. We could try
+> to make the call to kmalloc and crypto_alloc_cipher during bootup, and
+> then generate the random value only on-the-fly (when the first TFO-SYN
+> comes in) with net_get_random_once in order to have the better entropy
+> that comes with doing the late initialisation of the random value. But
+> that's probably net-next material.
 
-Signed-off-by: Mazhar Rana <mazhar.rana@cyberoam.com>
-Acked-by: Sanket Shah <sanket.shah@cyberoam.com>
----
- net/ipv6/addrconf.c | 2 ++
- 1 file changed, 2 insertions(+)
+can't we simply move the net_get_random_once to the TCP_FASTOPEN setsockopt and
+sendmsg(MSG_FASTOPEN) path, so those allocations still happen in process context
+but we still defer the extraction of entropy as long as posible?
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 37b70e8..230452c 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2678,6 +2678,8 @@ static int inet6_addr_del(struct net *net, int ifindex, u32 ifa_flags,
- 				ipv6_mc_config(net->ipv6.mc_autojoin_sk,
- 					       false, pfx, dev->ifindex);
- 			}
-+			if (list_empty(&idev->addr_list))
-+				addrconf_ifdown(idev->dev, 0);
- 			return 0;
- 		}
- 	}
--- 
-1.9.1
+Thanks,
+Hannes
