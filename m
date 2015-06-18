@@ -1,53 +1,57 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 12/22] fjes: net_device_ops.ndo_get_stats64
-Date: Thu, 18 Jun 2015 17:00:52 +0300
-Message-ID: <5582CF14.3040507@cogentembedded.com>
-References: <1434588359-25589-1-git-send-email-izumi.taku@jp.fujitsu.com> <1434588587-25655-1-git-send-email-izumi.taku@jp.fujitsu.com> <1434588587-25655-12-git-send-email-izumi.taku@jp.fujitsu.com>
+Subject: Re: [RFC PATCH net-next v2 2/5] net: add phys ID compare helper to
+ test if two IDs are the same
+Date: Thu, 18 Jun 2015 17:11:14 +0300
+Message-ID: <5582D182.80803@cogentembedded.com>
+References: <1434577994-22409-1-git-send-email-sfeldma@gmail.com> <1434577994-22409-3-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: rkhan@redhat.com, alexander.h.duyck@redhat.com,
-	netdev@vger.kernel.org, linux-acpi@vger.kernel.org
-To: Taku Izumi <izumi.taku@jp.fujitsu.com>,
-	platform-driver-x86@vger.kernel.org, dvhart@infradead.org
-Return-path: <platform-driver-x86-owner@vger.kernel.org>
-In-Reply-To: <1434588587-25655-12-git-send-email-izumi.taku@jp.fujitsu.com>
-Sender: platform-driver-x86-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jiri@resnulli.us, simon.horman@netronome.com,
+	roopa@cumulusnetworks.com, ronen.arad@intel.com,
+	john.r.fastabend@intel.com, andrew@lunn.ch, f.fainelli@gmail.com,
+	linux@roeck-us.net, davidch@broadcom.com,
+	stephen@networkplumber.org
+To: sfeldma@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:35443 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751529AbbFROLR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 10:11:17 -0400
+Received: by lbbwc1 with SMTP id wc1so53257942lbb.2
+        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 07:11:16 -0700 (PDT)
+In-Reply-To: <1434577994-22409-3-git-send-email-sfeldma@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 6/18/2015 3:49 AM, Taku Izumi wrote:
+On 6/18/2015 12:53 AM, sfeldma@gmail.com wrote:
 
-> This patch adds net_device_ops.ndo_get_stats64 callback.
+> From: Scott Feldman <sfeldma@gmail.com>
 
-> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 > ---
->   drivers/platform/x86/fjes/fjes_main.c | 14 ++++++++++++++
->   1 file changed, 14 insertions(+)
+>   include/linux/netdevice.h |    7 +++++++
+>   net/switchdev/switchdev.c |    8 ++------
+>   2 files changed, 9 insertions(+), 6 deletions(-)
 
-> diff --git a/drivers/platform/x86/fjes/fjes_main.c b/drivers/platform/x86/fjes/fjes_main.c
-> index 97bf487..eeda824 100644
-> --- a/drivers/platform/x86/fjes/fjes_main.c
-> +++ b/drivers/platform/x86/fjes/fjes_main.c
-> @@ -57,6 +57,8 @@ static netdev_tx_t fjes_xmit_frame(struct sk_buff *,
->   static void fjes_raise_intr_rxdata_task(struct work_struct *);
->   static void fjes_tx_stall_task(struct work_struct *);
->   static irqreturn_t fjes_intr(int, void*);
-> +static struct rtnl_link_stats64
-> +*fjes_get_stats64(struct net_device *, struct rtnl_link_stats64 *);
-
-    I'd leave * on the first line, otherwise it looks quite ugly..
-
-[...]
-> @@ -734,6 +737,17 @@ static netdev_tx_t fjes_xmit_frame(struct sk_buff *skb,
->   	return ret;
->   }
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 7be616e1..63090ce 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -766,6 +766,13 @@ struct netdev_phys_item_id {
+>   	unsigned char id_len;
+>   };
 >
-> +static struct rtnl_link_stats64
-> +*fjes_get_stats64(struct net_device *netdev,
+> +static inline bool netdev_phys_item_id_same(struct netdev_phys_item_id *a,
+> +					    struct netdev_phys_item_id *b)
+> +{
+> +	return ((a->id_len == b->id_len) &&
+> +		(memcmp(a->id, b->id, a->id_len) == 0));
 
-    Same here.
+    Parens around the *return* expression not needed (and neither the ones 
+around ==).
 
 [...]
 
