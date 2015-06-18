@@ -1,238 +1,248 @@
-From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH 18/22] fjes: unshare_watch_task
-Date: Thu, 18 Jun 2015 09:49:43 +0900
-Message-ID: <1434588587-25655-18-git-send-email-izumi.taku@jp.fujitsu.com>
-References: <1434588359-25589-1-git-send-email-izumi.taku@jp.fujitsu.com>
- <1434588587-25655-1-git-send-email-izumi.taku@jp.fujitsu.com>
-Cc: rkhan@redhat.com, alexander.h.duyck@redhat.com,
-	netdev@vger.kernel.org, linux-acpi@vger.kernel.org,
-	Taku Izumi <izumi.taku@jp.fujitsu.com>
-To: platform-driver-x86@vger.kernel.org, dvhart@infradead.org
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH next v2] bonding: Display LACP info only to CAP_NET_ADMIN capable user
+Date: Wed, 17 Jun 2015 17:59:42 -0700
+Message-ID: <1434589182-7953-1-git-send-email-maheshb@google.com>
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	netdev <netdev@vger.kernel.org>
+To: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwym02.jp.fujitsu.com ([211.128.242.41]:48657 "EHLO
-	mgwym02.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752906AbbFRAxa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 20:53:30 -0400
-In-Reply-To: <1434588587-25655-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:35361 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751614AbbFRA7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2015 20:59:47 -0400
+Received: by igbzc4 with SMTP id zc4so116248087igb.0
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2015 17:59:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds unshare_watch_task.
+Actor and Partner details can be accessed via proc-fs, sys-fs
+entries or netlink interface. These interfaces are world readable
+at this moment. The earlier patch-series made the LACP communication
+secure to avoid nuisance attack from within the same L2 domain but
+it did not prevent "someone unprivileged" looking at that information
+on host and perform the same act.
 
-Shared buffer's status can be changed into unshared.
-This task is used to monitor shared buffer's status.
+This patch essentially avoids spitting those entries if the user
+in question does not have enough privileges.
 
-Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
- drivers/platform/x86/fjes/fjes.h      |   3 +
- drivers/platform/x86/fjes/fjes_main.c | 152 ++++++++++++++++++++++++++++++++++
- 2 files changed, 155 insertions(+)
+ drivers/net/bonding/bond_netlink.c |  11 ++--
+ drivers/net/bonding/bond_procfs.c  | 101 +++++++++++++++++++------------------
+ drivers/net/bonding/bond_sysfs.c   |  12 ++---
+ 3 files changed, 67 insertions(+), 57 deletions(-)
 
-diff --git a/drivers/platform/x86/fjes/fjes.h b/drivers/platform/x86/fjes/fjes.h
-index e50fd01..2e814bb 100644
---- a/drivers/platform/x86/fjes/fjes.h
-+++ b/drivers/platform/x86/fjes/fjes.h
-@@ -61,6 +61,9 @@ struct fjes_adapter {
- 	struct work_struct tx_stall_task;
- 	struct work_struct raise_intr_rxdata_task;
+diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
+index 5580fcde738f..3fd3aa4b145e 100644
+--- a/drivers/net/bonding/bond_netlink.c
++++ b/drivers/net/bonding/bond_netlink.c
+@@ -600,18 +600,23 @@ static int bond_fill_info(struct sk_buff *skb,
  
-+	struct work_struct unshare_watch_task;
-+	unsigned long unshare_watch_bitmask;
+ 	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
+ 		struct ad_info info;
++		u8 zero_mac[ETH_ALEN];
+ 
++		eth_zero_addr(zero_mac);
+ 		if (nla_put_u16(skb, IFLA_BOND_AD_ACTOR_SYS_PRIO,
+-				bond->params.ad_actor_sys_prio))
++				capable(CAP_NET_ADMIN) ?
++				bond->params.ad_actor_sys_prio : 0))
+ 			goto nla_put_failure;
+ 
+ 		if (nla_put_u16(skb, IFLA_BOND_AD_USER_PORT_KEY,
+-				bond->params.ad_user_port_key))
++				capable(CAP_NET_ADMIN) ?
++				bond->params.ad_user_port_key : 0))
+ 			goto nla_put_failure;
+ 
+ 		if (nla_put(skb, IFLA_BOND_AD_ACTOR_SYSTEM,
+ 			    sizeof(bond->params.ad_actor_system),
+-			    &bond->params.ad_actor_system))
++			    capable(CAP_NET_ADMIN) ?
++			    &bond->params.ad_actor_system : &zero_mac))
+ 			goto nla_put_failure;
+ 
+ 		if (!bond_3ad_get_active_agg_info(bond, &info)) {
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index e7f3047a26df..f514fe5e80a5 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -135,27 +135,30 @@ static void bond_info_show_master(struct seq_file *seq)
+ 					  bond->params.ad_select);
+ 		seq_printf(seq, "Aggregator selection policy (ad_select): %s\n",
+ 			   optval->string);
+-		seq_printf(seq, "System priority: %d\n",
+-			   BOND_AD_INFO(bond).system.sys_priority);
+-		seq_printf(seq, "System MAC address: %pM\n",
+-			   &BOND_AD_INFO(bond).system.sys_mac_addr);
+-
+-		if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+-			seq_printf(seq, "bond %s has no active aggregator\n",
+-				   bond->dev->name);
+-		} else {
+-			seq_printf(seq, "Active Aggregator Info:\n");
+-
+-			seq_printf(seq, "\tAggregator ID: %d\n",
+-				   ad_info.aggregator_id);
+-			seq_printf(seq, "\tNumber of ports: %d\n",
+-				   ad_info.ports);
+-			seq_printf(seq, "\tActor Key: %d\n",
+-				   ad_info.actor_key);
+-			seq_printf(seq, "\tPartner Key: %d\n",
+-				   ad_info.partner_key);
+-			seq_printf(seq, "\tPartner Mac Address: %pM\n",
+-				   ad_info.partner_system);
++		if (capable(CAP_NET_ADMIN)) {
++			seq_printf(seq, "System priority: %d\n",
++				   BOND_AD_INFO(bond).system.sys_priority);
++			seq_printf(seq, "System MAC address: %pM\n",
++				   &BOND_AD_INFO(bond).system.sys_mac_addr);
 +
- 	struct delayed_work interrupt_watch_task;
- 	bool interrupt_watch_enable;
- 
-diff --git a/drivers/platform/x86/fjes/fjes_main.c b/drivers/platform/x86/fjes/fjes_main.c
-index 3931bcc..1bba967 100644
---- a/drivers/platform/x86/fjes/fjes_main.c
-+++ b/drivers/platform/x86/fjes/fjes_main.c
-@@ -75,6 +75,7 @@ static int fjes_remove(struct platform_device *);
- static int fjes_sw_init(struct fjes_adapter *);
- static void fjes_netdev_setup(struct net_device *);
- static void fjes_irq_watch_task(struct work_struct *);
-+static void fjes_watch_unshare_task(struct work_struct *);
- static void fjes_rx_irq(struct fjes_adapter *, int);
- static int fjes_poll(struct napi_struct *, int);
- 
-@@ -317,6 +318,8 @@ static int fjes_close(struct net_device *netdev)
- 	fjes_free_irq(adapter);
- 
- 	cancel_delayed_work_sync(&adapter->interrupt_watch_task);
-+	cancel_work_sync(&adapter->unshare_watch_task);
-+	adapter->unshare_watch_bitmask = 0;
- 	cancel_work_sync(&adapter->raise_intr_rxdata_task);
- 	cancel_work_sync(&adapter->tx_stall_task);
- 
-@@ -1075,6 +1078,8 @@ static int fjes_probe(struct platform_device *plat_dev)
- 	INIT_WORK(&adapter->tx_stall_task, fjes_tx_stall_task);
- 	INIT_WORK(&adapter->raise_intr_rxdata_task,
- 			fjes_raise_intr_rxdata_task);
-+	INIT_WORK(&adapter->unshare_watch_task, fjes_watch_unshare_task);
-+	adapter->unshare_watch_bitmask = 0;
- 
- 	INIT_DELAYED_WORK(&adapter->interrupt_watch_task, fjes_irq_watch_task);
- 	adapter->interrupt_watch_enable = false;
-@@ -1121,7 +1126,9 @@ static int fjes_remove(struct platform_device *plat_dev)
- 	struct fjes_adapter *adapter = netdev_priv(netdev);
- 	struct fjes_hw *hw = &adapter->hw;
- 
++			if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
++				seq_printf(seq,
++					   "bond %s has no active aggregator\n",
++					   bond->dev->name);
++			} else {
++				seq_printf(seq, "Active Aggregator Info:\n");
 +
- 	cancel_delayed_work_sync(&adapter->interrupt_watch_task);
-+	cancel_work_sync(&adapter->unshare_watch_task);
- 	cancel_work_sync(&adapter->raise_intr_rxdata_task);
- 	cancel_work_sync(&adapter->tx_stall_task);
- 	if (adapter->control_wq)
-@@ -1185,6 +1192,151 @@ static void fjes_irq_watch_task(struct work_struct *work)
- 
++				seq_printf(seq, "\tAggregator ID: %d\n",
++					   ad_info.aggregator_id);
++				seq_printf(seq, "\tNumber of ports: %d\n",
++					   ad_info.ports);
++				seq_printf(seq, "\tActor Key: %d\n",
++					   ad_info.actor_key);
++				seq_printf(seq, "\tPartner Key: %d\n",
++					   ad_info.partner_key);
++				seq_printf(seq, "\tPartner Mac Address: %pM\n",
++					   ad_info.partner_system);
++			}
+ 		}
+ 	}
  }
+@@ -199,33 +202,35 @@ static void bond_info_show_slave(struct seq_file *seq,
+ 			seq_printf(seq, "Partner Churned Count: %d\n",
+ 				   port->churn_partner_count);
  
-+static void fjes_watch_unshare_task(struct work_struct *work)
-+{
-+	struct fjes_adapter *adapter = container_of(work,
-+			struct fjes_adapter, unshare_watch_task);
-+	struct fjes_hw *hw = &adapter->hw;
-+	struct net_device *netdev = adapter->netdev;
-+	int epidx;
-+	int max_epid, my_epid;
-+	unsigned long unshare_watch_bitmask;
-+	int wait_time = 0;
-+	int is_shared;
-+	int ret;
+-			seq_puts(seq, "details actor lacp pdu:\n");
+-			seq_printf(seq, "    system priority: %d\n",
+-				   port->actor_system_priority);
+-			seq_printf(seq, "    system mac address: %pM\n",
+-				   &port->actor_system);
+-			seq_printf(seq, "    port key: %d\n",
+-				   port->actor_oper_port_key);
+-			seq_printf(seq, "    port priority: %d\n",
+-				   port->actor_port_priority);
+-			seq_printf(seq, "    port number: %d\n",
+-				   port->actor_port_number);
+-			seq_printf(seq, "    port state: %d\n",
+-				   port->actor_oper_port_state);
+-
+-			seq_puts(seq, "details partner lacp pdu:\n");
+-			seq_printf(seq, "    system priority: %d\n",
+-				   port->partner_oper.system_priority);
+-			seq_printf(seq, "    system mac address: %pM\n",
+-				   &port->partner_oper.system);
+-			seq_printf(seq, "    oper key: %d\n",
+-				   port->partner_oper.key);
+-			seq_printf(seq, "    port priority: %d\n",
+-				   port->partner_oper.port_priority);
+-			seq_printf(seq, "    port number: %d\n",
+-				   port->partner_oper.port_number);
+-			seq_printf(seq, "    port state: %d\n",
+-				   port->partner_oper.port_state);
++			if (capable(CAP_NET_ADMIN)) {
++				seq_puts(seq, "details actor lacp pdu:\n");
++				seq_printf(seq, "    system priority: %d\n",
++					   port->actor_system_priority);
++				seq_printf(seq, "    system mac address: %pM\n",
++					   &port->actor_system);
++				seq_printf(seq, "    port key: %d\n",
++					   port->actor_oper_port_key);
++				seq_printf(seq, "    port priority: %d\n",
++					   port->actor_port_priority);
++				seq_printf(seq, "    port number: %d\n",
++					   port->actor_port_number);
++				seq_printf(seq, "    port state: %d\n",
++					   port->actor_oper_port_state);
 +
-+	my_epid = hw->my_epid;
-+	max_epid = hw->max_epid;
-+
-+	unshare_watch_bitmask = adapter->unshare_watch_bitmask;
-+	adapter->unshare_watch_bitmask = 0;
-+
-+	while ((unshare_watch_bitmask || hw->txrx_stop_req_bit) &&
-+			(wait_time < 3000)) {
-+
-+		for (epidx = 0; epidx < hw->max_epid; epidx++) {
-+
-+			if (epidx == hw->my_epid)
-+				continue;
-+
-+			if (test_bit(epidx, &hw->txrx_stop_req_bit)) {
-+
-+				is_shared = fjes_hw_epid_is_shared(hw->hw_info.share, epidx);
-+				if (!is_shared ||
-+					(is_shared &&
-+					 (FJES_RX_STOP_REQ_DONE &
-+					  hw->ep_shm_info[epidx].rx.info->v1i.rx_status))) {
-+
-+					mutex_lock(&hw->hw_info.lock);
-+					ret = fjes_hw_unregister_buff_addr(hw, epidx);
-+					switch (ret) {
-+					case 0:
-+						break;
-+					case -ENOMSG:
-+					case -EBUSY:
-+					default:
-+
-+						if (!work_pending(&adapter->force_close_task)) {
-+							adapter->force_reset = true;
-+							schedule_work(&adapter->force_close_task);
-+						}
-+						break;
-+					}
-+					mutex_unlock(&hw->hw_info.lock);
-+
-+					fjes_hw_setup_epbuf(&hw->ep_shm_info[epidx].tx,
-+						netdev->dev_addr, netdev->mtu);
-+
-+					clear_bit(epidx, &hw->txrx_stop_req_bit);
-+					clear_bit(epidx, &unshare_watch_bitmask);
-+					clear_bit(epidx, &hw->hw_info.buffer_unshare_reserve_bit);
-+
-+				}
++				seq_puts(seq, "details partner lacp pdu:\n");
++				seq_printf(seq, "    system priority: %d\n",
++					   port->partner_oper.system_priority);
++				seq_printf(seq, "    system mac address: %pM\n",
++					   &port->partner_oper.system);
++				seq_printf(seq, "    oper key: %d\n",
++					   port->partner_oper.key);
++				seq_printf(seq, "    port priority: %d\n",
++					   port->partner_oper.port_priority);
++				seq_printf(seq, "    port number: %d\n",
++					   port->partner_oper.port_number);
++				seq_printf(seq, "    port state: %d\n",
++					   port->partner_oper.port_state);
 +			}
-+
-+			is_shared = fjes_hw_epid_is_shared(hw->hw_info.share, epidx);
-+			if (!is_shared && test_bit(epidx, &unshare_watch_bitmask)) {
-+
-+				if (test_bit(epidx, &hw->hw_info.buffer_unshare_reserve_bit)) {
-+
-+					mutex_lock(&hw->hw_info.lock);
-+					ret = fjes_hw_unregister_buff_addr(hw, epidx);
-+					switch (ret) {
-+					case 0:
-+						break;
-+					case -ENOMSG:
-+					case -EBUSY:
-+					default:
-+
-+						if (!work_pending(&adapter->force_close_task)) {
-+							adapter->force_reset = true;
-+							schedule_work(&adapter->force_close_task);
-+						}
-+						break;
-+					}
-+					mutex_unlock(&hw->hw_info.lock);
-+
-+					fjes_hw_setup_epbuf(&hw->ep_shm_info[epidx].tx,
-+						netdev->dev_addr, netdev->mtu);
-+
-+					clear_bit(epidx, &hw->txrx_stop_req_bit);
-+					clear_bit(epidx, &unshare_watch_bitmask);
-+					clear_bit(epidx, &hw->hw_info.buffer_unshare_reserve_bit);
-+
-+				}
-+			}
-+
-+		}
-+		msleep(100);
-+		wait_time += 100;
-+	}
-+
-+	if (hw->hw_info.buffer_unshare_reserve_bit) {
-+
-+		for (epidx = 0; epidx < hw->max_epid; epidx++) {
-+
-+			if (epidx == hw->my_epid)
-+				continue;
-+
-+			if (test_bit(epidx, &hw->hw_info.buffer_unshare_reserve_bit)) {
-+
-+				mutex_lock(&hw->hw_info.lock);
-+
-+				ret = fjes_hw_unregister_buff_addr(hw, epidx);
-+				switch (ret) {
-+				case 0:
-+					break;
-+				case -ENOMSG:
-+				case -EBUSY:
-+				default:
-+
-+					if (!work_pending(&adapter->force_close_task)) {
-+						adapter->force_reset = true;
-+						schedule_work(&adapter->force_close_task);
-+					}
-+					break;
-+				}
-+				mutex_unlock(&hw->hw_info.lock);
-+
-+				fjes_hw_setup_epbuf(&hw->ep_shm_info[epidx].tx,
-+					netdev->dev_addr, netdev->mtu);
-+
-+				clear_bit(epidx, &hw->txrx_stop_req_bit);
-+				clear_bit(epidx, &unshare_watch_bitmask);
-+				clear_bit(epidx,
-+				  &hw->hw_info.buffer_unshare_reserve_bit);
-+			}
-+
-+			if (test_bit(epidx, &unshare_watch_bitmask)) {
-+				hw->ep_shm_info[epidx].tx.info->v1i.rx_status &=
-+						~FJES_RX_STOP_REQ_DONE;
-+			}
-+		}
-+
-+	}
-+
-+}
-+
- /*
-  *  fjes_init_module - Driver Registration Routine
-  *
+ 		} else {
+ 			seq_puts(seq, "Aggregator ID: N/A\n");
+ 		}
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 143a2abd1c1c..31835a4dab57 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -549,7 +549,7 @@ static ssize_t bonding_show_ad_actor_key(struct device *d,
+ 	int count = 0;
+ 	struct bonding *bond = to_bond(d);
+ 
+-	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
++	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN)) {
+ 		struct ad_info ad_info;
+ 		count = sprintf(buf, "%d\n",
+ 				bond_3ad_get_active_agg_info(bond, &ad_info)
+@@ -569,7 +569,7 @@ static ssize_t bonding_show_ad_partner_key(struct device *d,
+ 	int count = 0;
+ 	struct bonding *bond = to_bond(d);
+ 
+-	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
++	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN)) {
+ 		struct ad_info ad_info;
+ 		count = sprintf(buf, "%d\n",
+ 				bond_3ad_get_active_agg_info(bond, &ad_info)
+@@ -589,7 +589,7 @@ static ssize_t bonding_show_ad_partner_mac(struct device *d,
+ 	int count = 0;
+ 	struct bonding *bond = to_bond(d);
+ 
+-	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
++	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN)) {
+ 		struct ad_info ad_info;
+ 		if (!bond_3ad_get_active_agg_info(bond, &ad_info))
+ 			count = sprintf(buf, "%pM\n", ad_info.partner_system);
+@@ -698,7 +698,7 @@ static ssize_t bonding_show_ad_actor_sys_prio(struct device *d,
+ {
+ 	struct bonding *bond = to_bond(d);
+ 
+-	if (BOND_MODE(bond) == BOND_MODE_8023AD)
++	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN))
+ 		return sprintf(buf, "%hu\n", bond->params.ad_actor_sys_prio);
+ 
+ 	return 0;
+@@ -712,7 +712,7 @@ static ssize_t bonding_show_ad_actor_system(struct device *d,
+ {
+ 	struct bonding *bond = to_bond(d);
+ 
+-	if (BOND_MODE(bond) == BOND_MODE_8023AD)
++	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN))
+ 		return sprintf(buf, "%pM\n", bond->params.ad_actor_system);
+ 
+ 	return 0;
+@@ -727,7 +727,7 @@ static ssize_t bonding_show_ad_user_port_key(struct device *d,
+ {
+ 	struct bonding *bond = to_bond(d);
+ 
+-	if (BOND_MODE(bond) == BOND_MODE_8023AD)
++	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN))
+ 		return sprintf(buf, "%hu\n", bond->params.ad_user_port_key);
+ 
+ 	return 0;
 -- 
-1.8.3.1
+2.4.3.573.g4eafbef
