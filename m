@@ -1,65 +1,54 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: [PATCH] mvneta: add forgotten initialization of autonegotiation bits
-Date: Thu, 18 Jun 2015 18:36:03 +0300
-Message-ID: <5582E563.3010801@list.ru>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next 3/3 v5] iproute2: add support to print 'linkdown'
+ nexthop flag
+Date: Thu, 18 Jun 2015 08:43:08 -0700
+Message-ID: <CAE4R7bDHTCEpqFZYYfCwc=_Wxh6-1BkGuyj04=deGHCHMC--+g@mail.gmail.com>
+References: <1434640932-2681-1-git-send-email-gospo@cumulusnetworks.com> <1434640932-2681-4-git-send-email-gospo@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: stable@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>
-To: Linux kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, ddutt@cumulusnetworks.com,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:32909 "EHLO
+	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752871AbbFRPna convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 11:43:30 -0400
+Received: by oiyy130 with SMTP id y130so43280219oiy.0
+        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 08:43:29 -0700 (PDT)
+In-Reply-To: <1434640932-2681-4-git-send-email-gospo@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Thu, Jun 18, 2015 at 8:22 AM, Andy Gospodarek
+<gospo@cumulusnetworks.com> wrote:
+> Signed-off-by: Andy Gospodaerk <gospo@cumulusnetworks.com>
+> Signed-off-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
+>
+> ---
+>  ip/iproute.c | 4 ++++
+>  1 file changed, 4 insertions(+)
+>
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index 3795baf..3369c49 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -451,6 +451,8 @@ int print_route(const struct sockaddr_nl *who, st=
+ruct nlmsghdr *n, void *arg)
+>                 fprintf(fp, "offload ");
+>         if (r->rtm_flags & RTM_F_NOTIFY)
+>                 fprintf(fp, "notify ");
+> +       if (r->rtm_flags & RTNH_F_LINKDOWN)
+> +               fprintf(fp, "linkdown ");
 
 
-The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band link state
-signaling")
-changed mvneta_adjust_link() so that it does not clear the auto-negotiation
-bits in MVNETA_GMAC_AUTONEG_CONFIG register. This was necessary for
-auto-negotiation mode to work.
-Unfortunately I haven't checked if these bits are ever initialized.
-It appears they are not.
-This patch adds the missing initialization of the auto-negotiation bits
-in the MVNETA_GMAC_AUTONEG_CONFIG register.
-It fixes the following regression:
-https://www.mail-archive.com/netdev@vger.kernel.org/msg67928.html
-
-Since the patch was tested to fix a regression, it should be applied to
-stable tree.
-
-Tested-by: Arnaud Ebalard <arno@natisbad.org>
-
-CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-CC: Florian Fainelli <f.fainelli@gmail.com>
-CC: netdev@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
-CC: stable@vger.kernel.org
-
-Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
----
- drivers/net/ethernet/marvell/mvneta.c | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index ce5f7f9..74176ec 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -1013,6 +1013,12 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
- 		val = mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
- 		val |= MVNETA_GMAC_1MS_CLOCK_ENABLE;
- 		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
-+	} else {
-+		val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
-+		val &= ~(MVNETA_GMAC_INBAND_AN_ENABLE |
-+		       MVNETA_GMAC_AN_SPEED_EN |
-+		       MVNETA_GMAC_AN_DUPLEX_EN);
-+		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
- 	}
-
- 	mvneta_set_ucast_table(pp, -1);
--- 
-1.9.1
+iproute.c: In function =E2=80=98print_route=E2=80=99:
+iproute.c:454:21: error: =E2=80=98RTNH_F_LINKDOWN=E2=80=99 undeclared (=
+first use in
+this function)
+iproute.c:454:21: note: each undeclared identifier is reported only
+once for each function it appears in
