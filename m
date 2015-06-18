@@ -1,135 +1,33 @@
-From: Shengzhou Liu <Shengzhou.Liu@freescale.com>
-Subject: [PATCH] net/phy: Add support for Realtek RTL8211F
-Date: Thu, 18 Jun 2015 16:42:47 +0800
-Message-ID: <1434616967-38930-1-git-send-email-Shengzhou.Liu@freescale.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] switchdev: fdb filter_dev is always NULL for
+ self (device), so remove check
+Date: Thu, 18 Jun 2015 11:22:08 +0200
+Message-ID: <20150618092208.GB2136@nanopsycho.orion>
+References: <1434582511-46290-1-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Shengzhou Liu <Shengzhou.Liu@freescale.com>
-To: <netdev@vger.kernel.org>, <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, sridhar.samudrala@intel.com
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0119.outbound.protection.outlook.com ([157.56.110.119]:27795
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753404AbbFRJTS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jun 2015 05:19:18 -0400
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:36749 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752968AbbFRJWL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 05:22:11 -0400
+Received: by wgzl5 with SMTP id l5so58313505wgz.3
+        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 02:22:10 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1434582511-46290-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RTL8211F has different register definitions from RTL8211E.
-Specially it needs to enable TXDLY in case of RGMII.
+Thu, Jun 18, 2015 at 01:08:31AM CEST, sfeldma@gmail.com wrote:
+>From: Scott Feldman <sfeldma@gmail.com>
+>
+>Remove the filter_dev check when dumping fdb entries, otherwise dump
+>returns empty list.  filter_dev is always passed as NULL when dumping fdbs
+>on SELF.  We want the fdbs installed on the device to be listed in the
+>dump.
+>
+>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 
-Signed-off-by: Shengzhou Liu <Shengzhou.Liu@freescale.com>
----
- drivers/net/phy/realtek.c | 68 ++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 67 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
-index 96a0f0f..4535361 100644
---- a/drivers/net/phy/realtek.c
-+++ b/drivers/net/phy/realtek.c
-@@ -22,8 +22,12 @@
- #define RTL821x_INER		0x12
- #define RTL821x_INER_INIT	0x6400
- #define RTL821x_INSR		0x13
-+#define RTL8211E_INER_LINK_STATUS 0x400
- 
--#define	RTL8211E_INER_LINK_STATUS	0x400
-+#define RTL8211F_INER_LINK_STATUS 0x0010
-+#define RTL8211F_INSR		0x1d
-+#define RTL8211F_PAGE_SELECT	0x1f
-+#define RTL8211F_TX_DELAY	0x100
- 
- MODULE_DESCRIPTION("Realtek PHY driver");
- MODULE_AUTHOR("Johnson Leung");
-@@ -38,6 +42,18 @@ static int rtl821x_ack_interrupt(struct phy_device *phydev)
- 	return (err < 0) ? err : 0;
- }
- 
-+static int rtl8211f_ack_interrupt(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	phy_write(phydev, RTL8211F_PAGE_SELECT, 0xa43);
-+	err = phy_read(phydev, RTL8211F_INSR);
-+	/* restore to default page 0 */
-+	phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
-+
-+	return (err < 0) ? err : 0;
-+}
-+
- static int rtl8211b_config_intr(struct phy_device *phydev)
- {
- 	int err;
-@@ -64,6 +80,41 @@ static int rtl8211e_config_intr(struct phy_device *phydev)
- 	return err;
- }
- 
-+static int rtl8211f_config_intr(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
-+		err = phy_write(phydev, RTL821x_INER,
-+				RTL8211F_INER_LINK_STATUS);
-+	else
-+		err = phy_write(phydev, RTL821x_INER, 0);
-+
-+	return err;
-+}
-+
-+static int rtl8211f_config_init(struct phy_device *phydev)
-+{
-+	int ret;
-+	u16 reg;
-+
-+	ret = genphy_config_init(phydev);
-+	if (ret < 0)
-+		return ret;
-+
-+	if (phydev->interface == PHY_INTERFACE_MODE_RGMII) {
-+		/* enable TXDLY */
-+		phy_write(phydev, RTL8211F_PAGE_SELECT, 0xd08);
-+		reg = phy_read(phydev, 0x11);
-+		reg |= RTL8211F_TX_DELAY;
-+		phy_write(phydev, 0x11, reg);
-+		/* restore to default page 0 */
-+		phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
-+	}
-+
-+	return 0;
-+}
-+
- static struct phy_driver realtek_drvs[] = {
- 	{
- 		.phy_id         = 0x00008201,
-@@ -98,6 +149,20 @@ static struct phy_driver realtek_drvs[] = {
- 		.suspend	= genphy_suspend,
- 		.resume		= genphy_resume,
- 		.driver		= { .owner = THIS_MODULE,},
-+	}, {
-+		.phy_id		= 0x001cc916,
-+		.name		= "RTL8211F Gigabit Ethernet",
-+		.phy_id_mask	= 0x001fffff,
-+		.features	= PHY_GBIT_FEATURES,
-+		.flags		= PHY_HAS_INTERRUPT,
-+		.config_aneg	= &genphy_config_aneg,
-+		.config_init	= &rtl8211f_config_init,
-+		.read_status	= &genphy_read_status,
-+		.ack_interrupt	= &rtl8211f_ack_interrupt,
-+		.config_intr	= &rtl8211f_config_intr,
-+		.suspend	= genphy_suspend,
-+		.resume		= genphy_resume,
-+		.driver		= { .owner = THIS_MODULE },
- 	},
- };
- 
-@@ -106,6 +171,7 @@ module_phy_driver(realtek_drvs);
- static struct mdio_device_id __maybe_unused realtek_tbl[] = {
- 	{ 0x001cc912, 0x001fffff },
- 	{ 0x001cc915, 0x001fffff },
-+	{ 0x001cc916, 0x001fffff },
- 	{ }
- };
- 
--- 
-2.1.0.27.g96db324
+Acked-by: Jiri Pirko <jiri@resnulli.us>
