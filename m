@@ -1,30 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: dwmac-rk: Don't add function name in info
- or err messages
-Date: Thu, 18 Jun 2015 03:31:51 -0700 (PDT)
-Message-ID: <20150618.033151.447730490306007318.davem@davemloft.net>
-References: <1434390259-27145-1-git-send-email-romain.perier@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH RFC] tun, macvtap: higher order allocations for skbs
+Date: Thu, 18 Jun 2015 12:20:17 +0200
+Message-ID: <1434622758-16549-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-rockchip@lists.infradead.org
-To: romain.perier@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41208 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754641AbbFRKUK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 06:20:10 -0400
-In-Reply-To: <1434390259-27145-1-git-send-email-romain.perier@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:42659 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753027AbbFRKUU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jun 2015 06:20:20 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Romain Perier <romain.perier@gmail.com>
-Date: Mon, 15 Jun 2015 17:44:19 +0000
+Needs more testing. Anyone see anything wrong with this?
 
-> These kind of informations are only useful for debugging and should not be
-> displayed in normal modules message.
-> 
-> Signed-off-by: Romain Perier <romain.perier@gmail.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/net/macvtap.c | 2 +-
+ drivers/net/tun.c     | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Applied.
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 928f3f4..80e87e4 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -610,7 +610,7 @@ static inline struct sk_buff *macvtap_alloc_skb(struct sock *sk, size_t prepad,
+ 		linear = len;
+ 
+ 	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
+-				   err, 0);
++				   err, 1);
+ 	if (!skb)
+ 		return NULL;
+ 
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index cb376b2d..8f2f1e5 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1069,7 +1069,7 @@ static struct sk_buff *tun_alloc_skb(struct tun_file *tfile,
+ 		linear = len;
+ 
+ 	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
+-				   &err, 0);
++				   &err, 1);
+ 	if (!skb)
+ 		return ERR_PTR(err);
+ 
+-- 
+MST
