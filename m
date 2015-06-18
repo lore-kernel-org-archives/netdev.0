@@ -1,253 +1,275 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH next v3] bonding: Display LACP info only to CAP_NET_ADMIN capable user
-Date: Thu, 18 Jun 2015 11:30:54 -0700
-Message-ID: <1434652254-17510-1-git-send-email-maheshb@google.com>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Subject: pull request: bluetooth-next 2015-06-18
+Date: Thu, 18 Jun 2015 21:43:11 +0300
+Message-ID: <20150618184311.GA30772@t440s.P-661HNU-F1>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="rwEMma7ioTxnRzrJ"
+Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:36288 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754439AbbFRSbD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 14:31:03 -0400
-Received: by igbiq7 with SMTP id iq7so1445758igb.1
-        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 11:31:02 -0700 (PDT)
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:34604 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755654AbbFRSnV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 14:43:21 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Actor and Partner details can be accessed via proc-fs, sys-fs
-entries or netlink interface. These interfaces are world readable
-at this moment. The earlier patch-series made the LACP communication
-secure to avoid nuisance attack from within the same L2 domain but
-it did not prevent "someone unprivileged" looking at that information
-on host and perform the same act.
 
-This patch essentially avoids spitting those entries if the user
-in question does not have enough privileges.
+--rwEMma7ioTxnRzrJ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Hi Dave,
+
+Here's the final bluetooth-next pull request for 4.2.
+
+ - Cleanups & fixes to 802.15.4 code and related drivers
+ - Fix btusb driver memory leak
+ - New USB IDs for Atheros controllers
+ - Support for BCM4324B3 UART based Broadcom controller
+ - Fix for Bluetooth encryption key size handling
+ - Broadcom controller initialization fixes
+ - Support for Intel controller DDC parameters
+ - Support for multiple Bluetooth LE advertising instances
+ - Fix for HCI user channel cleanup path
+
+Please let me know if there are any issues pulling. Thanks.
+
+Johan
+
 ---
- drivers/net/bonding/bond_netlink.c |  23 +++++----
- drivers/net/bonding/bond_procfs.c  | 101 +++++++++++++++++++------------------
- drivers/net/bonding/bond_sysfs.c   |  12 ++---
- 3 files changed, 71 insertions(+), 65 deletions(-)
+The following changes since commit a9ab2184f451ec78af245ebb8b663d8700d44672:
 
-diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-index 5580fcde738f..1bda29249d12 100644
---- a/drivers/net/bonding/bond_netlink.c
-+++ b/drivers/net/bonding/bond_netlink.c
-@@ -601,19 +601,20 @@ static int bond_fill_info(struct sk_buff *skb,
- 	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
- 		struct ad_info info;
- 
--		if (nla_put_u16(skb, IFLA_BOND_AD_ACTOR_SYS_PRIO,
--				bond->params.ad_actor_sys_prio))
--			goto nla_put_failure;
--
--		if (nla_put_u16(skb, IFLA_BOND_AD_USER_PORT_KEY,
--				bond->params.ad_user_port_key))
--			goto nla_put_failure;
-+		if (capable(CAP_NET_ADMIN)) {
-+			if (nla_put_u16(skb, IFLA_BOND_AD_ACTOR_SYS_PRIO,
-+					bond->params.ad_actor_sys_prio))
-+				goto nla_put_failure;
- 
--		if (nla_put(skb, IFLA_BOND_AD_ACTOR_SYSTEM,
--			    sizeof(bond->params.ad_actor_system),
--			    &bond->params.ad_actor_system))
--			goto nla_put_failure;
-+			if (nla_put_u16(skb, IFLA_BOND_AD_USER_PORT_KEY,
-+					bond->params.ad_user_port_key))
-+				goto nla_put_failure;
- 
-+			if (nla_put(skb, IFLA_BOND_AD_ACTOR_SYSTEM,
-+				    sizeof(bond->params.ad_actor_system),
-+				    &bond->params.ad_actor_system))
-+				goto nla_put_failure;
-+		}
- 		if (!bond_3ad_get_active_agg_info(bond, &info)) {
- 			struct nlattr *nest;
- 
-diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
-index e7f3047a26df..f514fe5e80a5 100644
---- a/drivers/net/bonding/bond_procfs.c
-+++ b/drivers/net/bonding/bond_procfs.c
-@@ -135,27 +135,30 @@ static void bond_info_show_master(struct seq_file *seq)
- 					  bond->params.ad_select);
- 		seq_printf(seq, "Aggregator selection policy (ad_select): %s\n",
- 			   optval->string);
--		seq_printf(seq, "System priority: %d\n",
--			   BOND_AD_INFO(bond).system.sys_priority);
--		seq_printf(seq, "System MAC address: %pM\n",
--			   &BOND_AD_INFO(bond).system.sys_mac_addr);
--
--		if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
--			seq_printf(seq, "bond %s has no active aggregator\n",
--				   bond->dev->name);
--		} else {
--			seq_printf(seq, "Active Aggregator Info:\n");
--
--			seq_printf(seq, "\tAggregator ID: %d\n",
--				   ad_info.aggregator_id);
--			seq_printf(seq, "\tNumber of ports: %d\n",
--				   ad_info.ports);
--			seq_printf(seq, "\tActor Key: %d\n",
--				   ad_info.actor_key);
--			seq_printf(seq, "\tPartner Key: %d\n",
--				   ad_info.partner_key);
--			seq_printf(seq, "\tPartner Mac Address: %pM\n",
--				   ad_info.partner_system);
-+		if (capable(CAP_NET_ADMIN)) {
-+			seq_printf(seq, "System priority: %d\n",
-+				   BOND_AD_INFO(bond).system.sys_priority);
-+			seq_printf(seq, "System MAC address: %pM\n",
-+				   &BOND_AD_INFO(bond).system.sys_mac_addr);
-+
-+			if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
-+				seq_printf(seq,
-+					   "bond %s has no active aggregator\n",
-+					   bond->dev->name);
-+			} else {
-+				seq_printf(seq, "Active Aggregator Info:\n");
-+
-+				seq_printf(seq, "\tAggregator ID: %d\n",
-+					   ad_info.aggregator_id);
-+				seq_printf(seq, "\tNumber of ports: %d\n",
-+					   ad_info.ports);
-+				seq_printf(seq, "\tActor Key: %d\n",
-+					   ad_info.actor_key);
-+				seq_printf(seq, "\tPartner Key: %d\n",
-+					   ad_info.partner_key);
-+				seq_printf(seq, "\tPartner Mac Address: %pM\n",
-+					   ad_info.partner_system);
-+			}
- 		}
- 	}
- }
-@@ -199,33 +202,35 @@ static void bond_info_show_slave(struct seq_file *seq,
- 			seq_printf(seq, "Partner Churned Count: %d\n",
- 				   port->churn_partner_count);
- 
--			seq_puts(seq, "details actor lacp pdu:\n");
--			seq_printf(seq, "    system priority: %d\n",
--				   port->actor_system_priority);
--			seq_printf(seq, "    system mac address: %pM\n",
--				   &port->actor_system);
--			seq_printf(seq, "    port key: %d\n",
--				   port->actor_oper_port_key);
--			seq_printf(seq, "    port priority: %d\n",
--				   port->actor_port_priority);
--			seq_printf(seq, "    port number: %d\n",
--				   port->actor_port_number);
--			seq_printf(seq, "    port state: %d\n",
--				   port->actor_oper_port_state);
--
--			seq_puts(seq, "details partner lacp pdu:\n");
--			seq_printf(seq, "    system priority: %d\n",
--				   port->partner_oper.system_priority);
--			seq_printf(seq, "    system mac address: %pM\n",
--				   &port->partner_oper.system);
--			seq_printf(seq, "    oper key: %d\n",
--				   port->partner_oper.key);
--			seq_printf(seq, "    port priority: %d\n",
--				   port->partner_oper.port_priority);
--			seq_printf(seq, "    port number: %d\n",
--				   port->partner_oper.port_number);
--			seq_printf(seq, "    port state: %d\n",
--				   port->partner_oper.port_state);
-+			if (capable(CAP_NET_ADMIN)) {
-+				seq_puts(seq, "details actor lacp pdu:\n");
-+				seq_printf(seq, "    system priority: %d\n",
-+					   port->actor_system_priority);
-+				seq_printf(seq, "    system mac address: %pM\n",
-+					   &port->actor_system);
-+				seq_printf(seq, "    port key: %d\n",
-+					   port->actor_oper_port_key);
-+				seq_printf(seq, "    port priority: %d\n",
-+					   port->actor_port_priority);
-+				seq_printf(seq, "    port number: %d\n",
-+					   port->actor_port_number);
-+				seq_printf(seq, "    port state: %d\n",
-+					   port->actor_oper_port_state);
-+
-+				seq_puts(seq, "details partner lacp pdu:\n");
-+				seq_printf(seq, "    system priority: %d\n",
-+					   port->partner_oper.system_priority);
-+				seq_printf(seq, "    system mac address: %pM\n",
-+					   &port->partner_oper.system);
-+				seq_printf(seq, "    oper key: %d\n",
-+					   port->partner_oper.key);
-+				seq_printf(seq, "    port priority: %d\n",
-+					   port->partner_oper.port_priority);
-+				seq_printf(seq, "    port number: %d\n",
-+					   port->partner_oper.port_number);
-+				seq_printf(seq, "    port state: %d\n",
-+					   port->partner_oper.port_state);
-+			}
- 		} else {
- 			seq_puts(seq, "Aggregator ID: N/A\n");
- 		}
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 143a2abd1c1c..31835a4dab57 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -549,7 +549,7 @@ static ssize_t bonding_show_ad_actor_key(struct device *d,
- 	int count = 0;
- 	struct bonding *bond = to_bond(d);
- 
--	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
-+	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN)) {
- 		struct ad_info ad_info;
- 		count = sprintf(buf, "%d\n",
- 				bond_3ad_get_active_agg_info(bond, &ad_info)
-@@ -569,7 +569,7 @@ static ssize_t bonding_show_ad_partner_key(struct device *d,
- 	int count = 0;
- 	struct bonding *bond = to_bond(d);
- 
--	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
-+	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN)) {
- 		struct ad_info ad_info;
- 		count = sprintf(buf, "%d\n",
- 				bond_3ad_get_active_agg_info(bond, &ad_info)
-@@ -589,7 +589,7 @@ static ssize_t bonding_show_ad_partner_mac(struct device *d,
- 	int count = 0;
- 	struct bonding *bond = to_bond(d);
- 
--	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
-+	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN)) {
- 		struct ad_info ad_info;
- 		if (!bond_3ad_get_active_agg_info(bond, &ad_info))
- 			count = sprintf(buf, "%pM\n", ad_info.partner_system);
-@@ -698,7 +698,7 @@ static ssize_t bonding_show_ad_actor_sys_prio(struct device *d,
- {
- 	struct bonding *bond = to_bond(d);
- 
--	if (BOND_MODE(bond) == BOND_MODE_8023AD)
-+	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN))
- 		return sprintf(buf, "%hu\n", bond->params.ad_actor_sys_prio);
- 
- 	return 0;
-@@ -712,7 +712,7 @@ static ssize_t bonding_show_ad_actor_system(struct device *d,
- {
- 	struct bonding *bond = to_bond(d);
- 
--	if (BOND_MODE(bond) == BOND_MODE_8023AD)
-+	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN))
- 		return sprintf(buf, "%pM\n", bond->params.ad_actor_system);
- 
- 	return 0;
-@@ -727,7 +727,7 @@ static ssize_t bonding_show_ad_user_port_key(struct device *d,
- {
- 	struct bonding *bond = to_bond(d);
- 
--	if (BOND_MODE(bond) == BOND_MODE_8023AD)
-+	if (BOND_MODE(bond) == BOND_MODE_8023AD && capable(CAP_NET_ADMIN))
- 		return sprintf(buf, "%hu\n", bond->params.ad_user_port_key);
- 
- 	return 0;
--- 
-2.4.3.573.g4eafbef
+  Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge (2015-05-31 01:07:06 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git for-upstream
+
+for you to fetch changes up to 952497b159468477392f9b562b904da9bc76d468:
+
+  Bluetooth: Fix warning of potentially uninitialized adv_instance variable (2015-06-18 21:05:31 +0300)
+
+----------------------------------------------------------------
+Aleksei Volkov (1):
+      Bluetooth: btusb: Correct typo in Roper Class 1 Bluetooth Dongle
+
+Alexander Aring (20):
+      ieee802154: 6lowpan: set ackreq when needed
+      mac802154: remove unneeded vif struct
+      mac802154: cleanup address filtering flags
+      mac802154: remove aack hw flag
+      mac802154: cleanup ieee802154 hardware flags
+      mac802154: remove unused hw_filt attribute
+      mac802154: rearrange attribute in ieee802154_hw
+      mac802154: add missing structure comments
+      mac802154: change pan_coord type to bool
+      mac802154: fix flags BIT definitions order
+      mac802154: iface: fix hrtimer cancel on ifdown
+      mac802154: iface: flush workqueue before stop
+      at86rf230: use level high as fallback default
+      at86rf230: add support for sleep state
+      fakelb: add xmit_async after stop testcase
+      at86rf230: fix phy settings while sleeping
+      at86rf230: add recommended csma backoffs settings
+      at86rf230: cleanup start and stop callbacks
+      mac802154: iface: fix order while interface up
+      mac802154: iface: cleanup stack variable
+
+Alexey Dobriyan (1):
+      Bluetooth: Stop sabotaging list poisoning
+
+Arron Wang (2):
+      Bluetooth: Make l2cap_recv_acldata() and sco_recv_scodata() return void
+      Bluetooth: Move SCO support under BT_BREDR config option
+
+Chan-yeol Park (1):
+      Bluetooth: hci_uart: Fix dereferencing of ERR_PTR
+
+Christoffer Holmstedt (1):
+      nl802154: fix misspelled enum
+
+Dmitry Tunin (3):
+      ath3k: Add support of 0489:e076 AR3012 device
+      ath3k: add support of 13d3:3474 AR3012 device
+      Bluetooth: ath3k: Add support of 04ca:300d AR3012 device
+
+Florian Grandel (20):
+      Bluetooth: hci_core/mgmt: Introduce multi-adv list
+      Bluetooth: hci_core/mgmt: move adv timeout to hdev
+      Bluetooth: mgmt: dry update_scan_rsp_data()
+      Bluetooth: mgmt: rename update_*_data_for_instance()
+      Bluetooth: mgmt: multi adv for read_adv_features()
+      Bluetooth: mgmt: multi adv for get_current_adv_instance()
+      Bluetooth: mgmt: multi adv for get_adv_instance_flags()
+      Bluetooth: mgmt: improve get_adv_instance_flags() readability
+      Bluetooth: mgmt: multi adv for enable_advertising()
+      Bluetooth: mgmt: multi adv for create_instance_scan_rsp_data()
+      Bluetooth: mgmt: multi adv for create_instance_adv_data()
+      Bluetooth: mgmt: multi adv for set_advertising*()
+      Bluetooth: mgmt: multi adv for clear_adv_instances()
+      Bluetooth: mgmt/hci_core: multi-adv for add_advertising*()
+      Bluetooth: mgmt: multi adv for remove_advertising*()
+      Bluetooth: mgmt: program multi-adv on power on
+      Bluetooth: mgmt: multi-adv for trigger_le_scan()
+      Bluetooth: mgmt: multi-adv for mgmt_reenable_advertising()
+      Bluetooth: hci_core: remove obsolete adv_instance
+      Bluetooth: hci_core: increase max adv inst
+
+Frederic Danis (7):
+      Bluetooth: btbcm: Move request/release_firmware()
+      Bluetooth: btbcm: Add BCM4324B3 UART device
+      Bluetooth: hci_uart: Support operational speed during setup
+      Bluetooth: btbcm: Add helper functions for UART setup
+      Bluetooth: hci_uart: Update Broadcom UART setup
+      Bluetooth: hci_uart: Add bcm_set_baudrate()
+      Bluetooth: hci_uart: Fix speed selection
+
+Glenn Ruben Bakke (5):
+      Bluetooth: 6lowpan: Enable delete_netdev to be scheduled when last peer is deleted
+      Bluetooth: 6lowpan: Rename ambiguous variable
+      Bluetooth: 6lowpan: Move netdev sysfs device reference
+      Bluetooth: 6lowpan: Fix double kfree of netdev priv
+      Bluetooth: 6lowpan: Fix module refcount
+
+Ilya Faenson (2):
+      Bluetooth: btbcm: Support the BCM4354 Bluetooth UART device
+      Bluetooth: hci_uart: Add new line discipline enhancements
+
+Jaganath Kanakkassery (1):
+      Bluetooth: Fix potential NULL dereference in RFCOMM bind callback
+
+Johan Hedberg (10):
+      Bluetooth: Fix encryption key size handling for LTKs
+      Bluetooth: Fix exposing full value of shortened LTKs
+      Bluetooth: Add debugfs support for max LE encryption key size
+      Bluetooth: Add debugfs support for min LE encryption key size
+      Bluetooth: Move SC-only check outside of BT_CONFIG branch
+      Bluetooth: Read encryption key size for BR/EDR connections
+      Bluetooth: Use actual encryption key size for SMP over BR/EDR
+      Bluetooth: Remove redundant check for ACL_LINK
+      Bluetooth: Use zalloc when possible
+      Bluetooth: Fix warning of potentially uninitialized adv_instance variable
+
+Lennert Buytenhek (3):
+      ieee802154: Fix generation of random EUI-64 addresses.
+      ieee802154: Fix EUI-64 station address validation.
+      ieee802154: Fix sockaddr_ieee802154 implicit padding information leak.
+
+Loic Poulain (2):
+      Bluetooth: Reorder HCI user channel socket release
+      Bluetooth: Don't call shutdown when leaving user channel
+
+Marcel Holtmann (6):
+      Bluetooth: Fix race condition with user channel and setup stage
+      Bluetooth: btusb: Fix memory leak in Intel setup routine
+      Bluetooth: btusb: Remove double error check from local version command
+      Bluetooth: btusb: Remove unneeded btusb_read_local_version function
+      Bluetooth: btusb: Fix secure send command length alignment on Intel 8260
+      Bluetooth: Increment management interface revision
+
+Prasanna Karthik (3):
+      Bluetooth: vhci: Clean up coding style fix
+      Bluetooth: hci_bcsp: Clean up code Fix
+      Bluetooth: bt3c_cs: Fix coding style -- clean up
+
+Stefan Schmidt (7):
+      ieee802154/atusb: Add function for partial register writes
+      ieee802154/atusb: Add .set_txpower operation to the driver
+      ieee802154/atusb: Add .set_promiscuous_mode driver operation
+      MAINTAINERS: Add myself as maintainer for the atusb driver
+      mac802154/iface: remove superfluous WARN_ON call in slave_open()
+      ieee802154/mrf24j40: make sure we do not override return values
+      ieee802154: cc2520: check for return values in cc2520_filter()
+
+Tedd Ho-Jeong An (1):
+      Bluetooth: btusb: Add routine for applying Intel DDC parameters
+
+Varka Bhadram (10):
+      cc2520: fix in default tx power setting
+      cc2520: fix CC2591 handling
+      cc2520: add set transmit power setting support
+      cc2520: update initial transmit power value
+      cc2520: update current channel
+      mac802154: add trace functionality for driver ops
+      cfg802154: fix rdev-ops naming convension and format specifiers
+      nl802154: export supported commands
+      mac802154: cleanup llsec param flags
+      mac802154: rx packet handle cleanup
+
+ MAINTAINERS                        |   8 +
+ drivers/bluetooth/ath3k.c          |   6 +
+ drivers/bluetooth/bt3c_cs.c        |   3 +-
+ drivers/bluetooth/btbcm.c          | 132 ++++++++-
+ drivers/bluetooth/btbcm.h          |  61 +++-
+ drivers/bluetooth/btusb.c          | 148 ++++++----
+ drivers/bluetooth/hci_ath.c        |   1 +
+ drivers/bluetooth/hci_bcm.c        | 107 ++++++-
+ drivers/bluetooth/hci_bcsp.c       |  16 +-
+ drivers/bluetooth/hci_h4.c         |   1 +
+ drivers/bluetooth/hci_ldisc.c      | 123 ++++++++
+ drivers/bluetooth/hci_uart.h       |  11 +
+ drivers/bluetooth/hci_vhci.c       |   2 +-
+ drivers/net/ieee802154/at86rf230.c | 112 ++++++-
+ drivers/net/ieee802154/atusb.c     | 101 +++++--
+ drivers/net/ieee802154/cc2520.c    | 151 ++++++++--
+ drivers/net/ieee802154/fakelb.c    |   5 +
+ drivers/net/ieee802154/mrf24j40.c  |  10 +-
+ include/linux/ieee802154.h         |  16 +-
+ include/linux/spi/cc2520.h         |   1 -
+ include/net/bluetooth/bluetooth.h  |  11 +
+ include/net/bluetooth/hci.h        |  10 +
+ include/net/bluetooth/hci_core.h   |  47 ++-
+ include/net/ieee802154_netdev.h    |  18 +-
+ include/net/mac802154.h            | 136 +++++----
+ include/net/nl802154.h             |   6 +-
+ net/bluetooth/6lowpan.c            |  13 +-
+ net/bluetooth/Makefile             |   3 +-
+ net/bluetooth/hci_conn.c           |   4 +-
+ net/bluetooth/hci_core.c           | 148 +++++++++-
+ net/bluetooth/hci_event.c          | 113 ++++++-
+ net/bluetooth/hci_sock.c           |  30 +-
+ net/bluetooth/l2cap_core.c         |  13 +-
+ net/bluetooth/mgmt.c               | 570 +++++++++++++++++++++++++-----------
+ net/bluetooth/rfcomm/sock.c        |  20 +-
+ net/bluetooth/sco.c                |   5 +-
+ net/bluetooth/smp.c                | 138 +++++++--
+ net/ieee802154/6lowpan/tx.c        |   5 +-
+ net/ieee802154/nl802154.c          |  40 +++
+ net/ieee802154/socket.c            |   6 +
+ net/ieee802154/trace.h             |  10 +-
+ net/mac802154/Makefile             |   4 +-
+ net/mac802154/driver-ops.h         |  92 +++++-
+ net/mac802154/ieee802154_i.h       |   2 -
+ net/mac802154/iface.c              | 126 ++++----
+ net/mac802154/rx.c                 |   8 +-
+ net/mac802154/trace.c              |   9 +
+ net/mac802154/trace.h              | 272 +++++++++++++++++
+ 48 files changed, 2325 insertions(+), 549 deletions(-)
+ create mode 100644 net/mac802154/trace.c
+ create mode 100644 net/mac802154/trace.h
+
+--rwEMma7ioTxnRzrJ
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJVgxE/AAoJECQj9vv5qNQSJ+8P/RvIUCDL2WKWf3HjH4X/C1Ly
+6A3NK97v8Qjx4LqQYgtCGqw/4TwsIjo0Ai7SLstVn6/gpquTcszu8FuwPBNPAHUM
+fCq1GWDkzesdaOoajywkHR94hvotHXoWsGDj+tRDbSFuo0cCIddzLSsz4UztyTKY
+7DeogynctAcLB8kjnnh1LqSkvJbqHwrGk2i8o6THTkir4xS2ySW3OHM1DAE0F43x
+fN430qS4ZoagpJmcfmhJ9OYs1Q43cfEodZRr2UvIuUzlRuHxhTKSZ5TmzE3SOO69
+Iu0hUddP7IDia46RkyxIH0qUkQz0ArmSVmaNZNEnMCctJKni0uEHAlzAIynmrRH6
+AUGAW7aACa6P22oQiBErm9sRJceTjwf3xyBBXLyMLdZMq2uAGJdw0PiC6FRICkiE
+eIOcn3fYIoC3/r2ivRyW2Sdc4Evj0LTDXtUXBQdqPwaTSEMaKPQC1CvfebFNp4VM
+adwDI/VL3uy8KzS3t4eUJHp2JHtIzmfmQSXxolLi2Yp/EbOBUk0CQ2T4O1bJDiyy
+cYF93VqlwU/Ae9am39fqp4tdn1OUGMkpY7QB627zhaYRFfflFsKg2oBXHkNKT2Jf
+EwDuy/4fYkKc1kiqnYBRgEmPual/L9GPJdG5bLu9Mqa4dA6g7PFLslzqt39Rw3GT
+K2Uucb4QGmmXhiD6Q4Ff
+=xc1l
+-----END PGP SIGNATURE-----
+
+--rwEMma7ioTxnRzrJ--
