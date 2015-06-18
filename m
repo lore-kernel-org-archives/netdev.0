@@ -1,94 +1,65 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] Revert "tcp: switch tcp_fastopen key generation to
- net_get_random_once"
-Date: Thu, 18 Jun 2015 11:32:33 +0200
-Message-ID: <1434619953.7926.10.camel@stressinduktion.org>
-References: <1434587299-60271-1-git-send-email-cpaasch@apple.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fix search limit handling in skb_find_text()
+Date: Thu, 18 Jun 2015 03:08:57 -0700 (PDT)
+Message-ID: <20150618.030857.727287316393260187.davem@davemloft.net>
+References: <1434359518-16897-1-git-send-email-khimov@altell.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: Christoph Paasch <cpaasch@apple.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:39636 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753002AbbFRJch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 05:32:37 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id DDEBA20BB8
-	for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 05:32:36 -0400 (EDT)
-In-Reply-To: <1434587299-60271-1-git-send-email-cpaasch@apple.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, roman@khimov.ru, kernel@linuxace.com
+To: khimov@altell.ru
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1434359518-16897-1-git-send-email-khimov@altell.ru>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Christoph,
+From: Roman I Khimov <khimov@altell.ru>
+Date: Mon, 15 Jun 2015 12:11:58 +0300
 
-On Wed, 2015-06-17 at 17:28 -0700, Christoph Paasch wrote:
-> This reverts commit 222e83d2e0aecb6a5e8d42b1a8d51332a1eba960.
+> Suppose that we're trying to use an xt_string netfilter module to match a
+> string in a specially crafted packet that has "a nice string" starting at
+> offset 28.
 > 
-> tcp_fastopen_reset_cipher really cannot be called from interrupt
-> context. It allocates the tcp_fastopen_context with GFP_KERNEL and
-> calls crypto_alloc_cipher, which allocates all kind of stuff with
-> GFP_KERNEL.
+> It could be done in iptables like this:
 > 
-> Thus, we might sleep when the key-generation is triggered by an
-> incoming TFO cookie-request which would then happen in interrupt-
-> context, as shown by enabling CONFIG_DEBUG_ATOMIC_SLEEP:
+> -A some_chain -m string --string "a nice string" --algo bm --from 28 --to 38 -j DROP
 > 
-> [   36.001813] BUG: sleeping function called from invalid context at 
-> mm/slub.c:1266
-> [   36.003624] in_atomic(): 1, irqs_disabled(): 0, pid: 1016, name: 
-> packetdrill
-> [   36.004859] CPU: 1 PID: 1016 Comm: packetdrill Not tainted 4.1.0-rc7 #14
-> [   36.006085] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel
-> -1.7.5-0-ge51488c-20140602_164612-nilsson.home.kraxel.org 04/01/2014
-> [   36.008250]  00000000000004f2 ffff88007f8838a8 ffffffff8171d53a 
-> ffff880075a084a8
-> [   36.009630]  ffff880075a08000 ffff88007f8838c8 ffffffff810967d3 
-> ffff88007f883928
-> [   36.011076]  0000000000000000 ffff88007f8838f8 ffffffff81096892 
-> ffff88007f89be00
-> [   36.012494] Call Trace:
-> [   36.012953]  <IRQ>  [<ffffffff8171d53a>] dump_stack+0x4f/0x6d
-> [   36.014085]  [<ffffffff810967d3>] ___might_sleep+0x103/0x170
-> [   36.015117]  [<ffffffff81096892>] __might_sleep+0x52/0x90
-> [   36.016117]  [<ffffffff8118e887>] kmem_cache_alloc_trace+0x47/0x190
-> [   36.017266]  [<ffffffff81680d82>] ? tcp_fastopen_reset_cipher+0x42/0x130
-> [   36.018485]  [<ffffffff81680d82>] tcp_fastopen_reset_cipher+0x42/0x130
-> [   36.019679]  [<ffffffff81680f01>] tcp_fastopen_init_key_once+0x61/0x70
-> [   36.020884]  [<ffffffff81680f2c>] __tcp_fastopen_cookie_gen+0x1c/0x60
-> [   36.022058]  [<ffffffff816814ff>] tcp_try_fastopen+0x58f/0x730
-> [   36.023118]  [<ffffffff81671788>] tcp_conn_request+0x3e8/0x7b0
-> [   36.024185]  [<ffffffff810e3872>] ? __module_text_address+0x12/0x60
-> [   36.025327]  [<ffffffff8167b2e1>] tcp_v4_conn_request+0x51/0x60
-> [   36.026410]  [<ffffffff816727e0>] tcp_rcv_state_process+0x190/0xda0
-> [   36.027556]  [<ffffffff81661f97>] ? __inet_lookup_established+0x47/0x170
-> [   36.028784]  [<ffffffff8167c2ad>] tcp_v4_do_rcv+0x16d/0x3d0
-> [   36.029832]  [<ffffffff812e6806>] ? security_sock_rcv_skb+0x16/0x20
-> [   36.030936]  [<ffffffff8167cc8a>] tcp_v4_rcv+0x77a/0x7b0
-> [   36.031875]  [<ffffffff816af8c3>] ? iptable_filter_hook+0x33/0x70
-> [   36.032953]  [<ffffffff81657d22>] ip_local_deliver_finish+0x92/0x1f0
-> [   36.034065]  [<ffffffff81657f1a>] ip_local_deliver+0x9a/0xb0
-> [   36.035069]  [<ffffffff81657c90>] ? ip_rcv+0x3d0/0x3d0
-> [   36.035963]  [<ffffffff81657569>] ip_rcv_finish+0x119/0x330
-> [   36.036950]  [<ffffffff81657ba7>] ip_rcv+0x2e7/0x3d0
-> [   36.037847]  [<ffffffff81610652>] __netif_receive_skb_core+0x552/0x930
-> [   36.038994]  [<ffffffff81610a57>] __netif_receive_skb+0x27/0x70
-> [   36.040033]  [<ffffffff81610b72>] process_backlog+0xd2/0x1f0
-> [   36.041025]  [<ffffffff81611482>] net_rx_action+0x122/0x310
-> [   36.042007]  [<ffffffff81076743>] __do_softirq+0x103/0x2f0
-> [   36.042978]  [<ffffffff81723e3c>] do_softirq_own_stack+0x1c/0x30
+> And it would work as expected. Now changing that to
 > 
-> There does not seem to be a better way to handle this. We could try
-> to make the call to kmalloc and crypto_alloc_cipher during bootup, and
-> then generate the random value only on-the-fly (when the first TFO-SYN
-> comes in) with net_get_random_once in order to have the better entropy
-> that comes with doing the late initialisation of the random value. But
-> that's probably net-next material.
+> -A some_chain -m string --string "a nice string" --algo bm --from 29 --to 38 -j DROP
+> 
+> breaks the match, as expected. But, if we try to make
+> 
+> -A some_chain -m string --string "a nice string" --algo bm --from 20 --to 28 -j DROP
+> 
+> then it suddenly works again! So the 'to' parameter seems to be inclusive, not
+> working as an offset after which no search should be done. OK, now if we try:
+> 
+> -A some_chain -m string --string "a nice string" --algo bm --from 28 --to 28 -j DROP
+> 
+> it doesn't work. So, for the case of equal 'from' and 'to' it's treated in a
+> different way.
+> 
+> The first behaviour (matching at 'to' offset) comes from skb_find_text()
+> comparison. The second one (not matching if 'from' and 'to' are equal) comes
+> from skb_seq_read() check for (abs_offset >= st->upper_offset).
+> 
+> I think that the way skb_find_text() handles 'to' is wrong and should be fixed
+> so that we always have predictable behaviour -- only match before 'to' offset.
+> 
+> There are currently only five usages of skb_find_text() in the kernel and it
+> looks to me that none of them expect to match something at the 'to' offset,
+> so probably this change is safe.
+> 
+> Reported-by: Edward Makarov <makarov@altell.ru>
+> Tested-by: Edward Makarov <makarov@altell.ru>
+> Signed-off-by: Roman I Khimov <khimov@altell.ru>
 
-can't we simply move the net_get_random_once to the TCP_FASTOPEN setsockopt and
-sendmsg(MSG_FASTOPEN) path, so those allocations still happen in process context
-but we still defer the extraction of entropy as long as posible?
+Unfortunately any aspect of this exposed to userspace is pretty much locked
+in place, and we can't change it without potentially breaking someone's
+setup.  This has been this way for a long time, so the risk of breaking
+things is very real.
 
-Thanks,
-Hannes
+I'm not applying this, sorry.
