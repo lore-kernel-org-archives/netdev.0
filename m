@@ -1,67 +1,158 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Subject: Re: [RFC V3] net: don't wait for order-3 page allocation
-Date: Thu, 18 Jun 2015 17:22:40 +0200
-Message-ID: <5582E240.8080704@suse.cz>
-References: <0099265406c32b9b9057de100404a4148d602cdd.1434066549.git.shli@fb.com> <557AA834.8070503@suse.cz> <alpine.DEB.2.10.1506171602300.8203@chino.kir.corp.google.com> <20150618143019.GE5858@dhcp22.suse.cz> <CANn89iLr2iNV3VjA4POPpfsmOpyB7jP2-wPiAkCOcA+Oh+2=5A@mail.gmail.com> <20150618144311.GF5858@dhcp22.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Rientjes <rientjes@google.com>, Shaohua Li <shli@fb.com>,
- netdev <netdev@vger.kernel.org>,
- David Miller <davem@davemloft.net>, kernel-team <Kernel-team@fb.com>,
- clm@fb.com, linux-mm@kvack.org, dbavatar@gmail.com
-To: Michal Hocko <mhocko@suse.cz>, Eric Dumazet <edumazet@google.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20150618144311.GF5858@dhcp22.suse.cz>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: [PATCH net-next 0/3 v5] changes to make ipv4 routing table aware of next-hop link status
+Date: Thu, 18 Jun 2015 11:22:09 -0400
+Message-ID: <1434640932-2681-1-git-send-email-gospo@cumulusnetworks.com>
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	ddutt@cumulusnetworks.com, sfeldma@gmail.com,
+	alexander.duyck@gmail.com, hannes@stressinduktion.org,
+	stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f43.google.com ([209.85.213.43]:34919 "EHLO
+	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754379AbbFRPXS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 11:23:18 -0400
+Received: by yhak3 with SMTP id k3so58505787yha.2
+        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 08:23:17 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/18/2015 04:43 PM, Michal Hocko wrote:
-> On Thu 18-06-15 07:35:53, Eric Dumazet wrote:
->> On Thu, Jun 18, 2015 at 7:30 AM, Michal Hocko <mhocko@suse.cz> wrote:
->>
->>> Abusing __GFP_NO_KSWAPD is a wrong way to go IMHO. It is true that the
->>> _current_ implementation of the allocator has this nasty and very subtle
->>> side effect but that doesn't mean it should be abused outside of the mm
->>> proper. Why shouldn't this path wake the kswapd and let it compact
->>> memory on the background to increase the success rate for the later
->>> high order allocations?
->>
->> I kind of agree.
->>
->> If kswapd is a problem (is it ???) we should fix it, instead of adding
->> yet another flag to some random locations attempting
->> memory allocations.
->
-> No, kswapd is not a problem. The problem is ~__GFP_WAIT allocation can
-> access some portion of the memory reserves (see gfp_to_alloc_flags resp.
-> __zone_watermark_ok and ALLOC_HARDER). __GFP_NO_KSWAPD is just a dirty
-> hack to not give that access which was introduced for THP AFAIR.
->
-> The implicit access to memory reserves for non sleeping allocation has
-> been there for ages and it might be not suitable for this particular
-> path but that doesn't mean another gfp flag with a different side effect
-> should be hijacked. We should either stop doing that implicit access to
-> memory reserves and give __GFP_RESERVE or add the __GFP_NORESERVE. But
-> that is a problem to be solved in the mm proper. Spreading subtle
-> dependencies outside of mm will just make situation worse.
+This series adds the ability to have the Linux kernel track whether or
+not a particular route should be used based on the link-status of the
+interface associated with the next-hop.
 
-So you are not proposing to use these __GFP_RESERVE/NORESERVE flag 
-outside of mm, right? (besides, we distinguish several kinds of 
-reserves, so what exactly would the flag do?) As that would be also 
-subtle dependency. The general problem I think is that we should want 
-the mm users to specify higher-level intentions (such as GFP_KERNEL) 
-which would map to specific directions (__GFP_*) for the allocator, and 
-currently it's rather a mess of both kinds of flags. Clearly the 
-intention here is "opportunistic allocation that should not 
-reclaim/compact, use reserves, wake up kswapd (?) because it's better to 
-fall back to smaller pages than wait") and we don't seem to have a 
-GFP_OPPORTUNISTIC flag for that. The allocation has to then mask out 
-__GFP_WAIT which however looks like an atomic allocation to the 
-allocator and give access to reserves, etc...
+Before this patch any link-failure on an interface that was serving as a
+gateway for some systems could result in those systems being isolated
+from the rest of the network as the stack would continue to attempt to
+send frames out of an interface that is actually linked-down.  When the
+kernel is responsible for all forwarding, it should also be responsible
+for taking action when the traffic can no longer be forwarded -- there
+is no real need to outsource link-monitoring to userspace anymore.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+This feature is only enabled with the new per-interface or ipv4 global
+sysctls called 'ignore_routes_with_linkdown'.
+
+net.ipv4.conf.all.ignore_routes_with_linkdown = 0
+net.ipv4.conf.default.ignore_routes_with_linkdown = 0
+net.ipv4.conf.lo.ignore_routes_with_linkdown = 0
+...
+
+When the above sysctls are set, the kernel will not only report to
+userspace that the link is down, but it will also report to userspace
+that a route is dead.  This will signal to userspace that the route will
+not be selected.
+
+With the new sysctls set, the following behavior can be observed
+(interface p8p1 is link-down):
+
+# ip route show 
+default via 10.0.5.2 dev p9p1 
+10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15 
+70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1 
+80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 dead linkdown
+90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 dead linkdown
+90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2 
+# ip route get 90.0.0.1 
+90.0.0.1 via 70.0.0.2 dev p7p1  src 70.0.0.1 
+    cache 
+# ip route get 80.0.0.1 
+local 80.0.0.1 dev lo  src 80.0.0.1 
+    cache <local> 
+# ip route get 80.0.0.2
+80.0.0.2 via 10.0.5.2 dev p9p1  src 10.0.5.15 
+    cache 
+
+While the route does remain in the table (so it can be modified if
+needed rather than being wiped away as it would be if IFF_UP was
+cleared), the proper next-hop is chosen automatically when the link is
+down.  Now interface p8p1 is linked-up:
+
+# ip route show 
+default via 10.0.5.2 dev p9p1 
+10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15 
+70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1 
+80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 
+90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 
+90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2 
+192.168.56.0/24 dev p2p1  proto kernel  scope link  src 192.168.56.2 
+# ip route get 90.0.0.1 
+90.0.0.1 via 80.0.0.2 dev p8p1  src 80.0.0.1 
+    cache 
+# ip route get 80.0.0.1 
+local 80.0.0.1 dev lo  src 80.0.0.1 
+    cache <local> 
+# ip route get 80.0.0.2
+80.0.0.2 dev p8p1  src 80.0.0.1 
+    cache 
+
+and the output changes to what one would expect.
+
+If the global or interface sysctl is not set, the following output would be
+expected when p8p1 is down:
+
+# ip route show 
+default via 10.0.5.2 dev p9p1 
+10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15 
+70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1 
+80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 linkdown
+90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 linkdown
+90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2 
+
+If the dead flag does not appear there should be no expectation that the
+kernel would skip using this route due to link being down.
+
+v2: Split kernel changes into 2 patches: first to add linkdown flag and
+second to add new sysctl settings.  Also took suggestion from Alex to
+simplify code by only checking sysctl during fib lookup and suggestion
+from Scott to add a per-interface sysctl.  Added iproute2 patch to
+recognize and print linkdown flag.
+
+v3: Code cleanups along with reverse-path checks suggested by Alex and
+small fixes related to problems found when multipath was disabled.
+
+v4: Drop binary sysctls
+
+v5: Whitespace and variable declaration fixups suggested by Dave
+
+Though there were some that preferred not to have a configuration option
+and to make this behavior the default when it was discussed in Ottawa
+earlier this year since "it was time to do this."  I wanted to propose
+the config option to preserve the current behavior for those that desire
+it.  I'll happily remove it if Dave and Linus approve.
+
+An IPv6 implementation is also needed (DECnet too!), but I wanted to start with
+the IPv4 implementation to get people comfortable with the idea before moving
+forward.  If this is accepted the IPv6 implementation can be posted shortly.
+
+There was also a request for switchdev support for this, but that will be
+posted as a followup as switchdev does not currently handle dead
+next-hops in a multi-path case and I felt that infra needed to be added
+first.
+
+FWIW, we have been running the original version of this series with a
+global sysctl and our customers have been happily using a backported
+version for IPv4 and IPv6 for >6 months.
+
+Andy Gospodarek (3):
+  net: track link-status of ipv4 nexthops
+  net: ipv4 sysctl option to ignore routes when nexthop link is down
+  iproute2: add support to print 'linkdown' nexthop flag
+
+ include/linux/inetdevice.h        |   3 +
+ include/net/fib_rules.h           |   3 +-
+ include/net/ip_fib.h              |  21 ++++---
+ include/uapi/linux/ip.h           |   1 +
+ include/uapi/linux/rtnetlink.h    |   3 +
+ net/ipv4/devinet.c                |   2 +
+ net/ipv4/fib_frontend.c           |  32 ++++++----
+ net/ipv4/fib_lookup.h             |   2 +-
+ net/ipv4/fib_rules.c              |   5 +-
+ net/ipv4/fib_semantics.c          | 126 ++++++++++++++++++++++++++++++++------
+ net/ipv4/fib_trie.c               |  20 +++++-
+ net/ipv4/netfilter/ipt_rpfilter.c |   2 +-
+ net/ipv4/route.c                  |  10 +--
+ ip/iproute.c                      |   4 +
+ 14 files changed, 184 insertions(+), 50 deletions(-)
+
+-- 
+1.9.3
