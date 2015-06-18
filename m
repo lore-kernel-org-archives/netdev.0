@@ -1,95 +1,62 @@
-From: Michal Hocko <mhocko@suse.cz>
-Subject: Re: [RFC V3] net: don't wait for order-3 page allocation
-Date: Thu, 18 Jun 2015 17:47:16 +0200
-Message-ID: <20150618154716.GH5858@dhcp22.suse.cz>
-References: <0099265406c32b9b9057de100404a4148d602cdd.1434066549.git.shli@fb.com>
- <557AA834.8070503@suse.cz>
- <alpine.DEB.2.10.1506171602300.8203@chino.kir.corp.google.com>
- <20150618143019.GE5858@dhcp22.suse.cz>
- <CANn89iLr2iNV3VjA4POPpfsmOpyB7jP2-wPiAkCOcA+Oh+2=5A@mail.gmail.com>
- <20150618144311.GF5858@dhcp22.suse.cz>
- <5582E240.8080704@suse.cz>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 3/3 v5] iproute2: add support to print
+ 'linkdown' nexthop flag
+Date: Thu, 18 Jun 2015 11:57:00 -0400
+Message-ID: <20150618155659.GN588@gospo.home.greyhouse.net>
+References: <1434640932-2681-1-git-send-email-gospo@cumulusnetworks.com>
+ <1434640932-2681-4-git-send-email-gospo@cumulusnetworks.com>
+ <CAE4R7bDHTCEpqFZYYfCwc=_Wxh6-1BkGuyj04=deGHCHMC--+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <edumazet@google.com>,
-	David Rientjes <rientjes@google.com>, Shaohua Li <shli@fb.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	kernel-team <Kernel-team@fb.com>, clm@fb.com, linux-mm@kvack.org,
-	dbavatar@gmail.com
-To: Vlastimil Babka <vbabka@suse.cz>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, ddutt@cumulusnetworks.com,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:52866 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752327AbbFRPrV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jun 2015 11:47:21 -0400
+Received: from mail-yk0-f169.google.com ([209.85.160.169]:34454 "EHLO
+	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755239AbbFRP5D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 11:57:03 -0400
+Received: by ykfl8 with SMTP id l8so69765882ykf.1
+        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 08:57:02 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <5582E240.8080704@suse.cz>
+In-Reply-To: <CAE4R7bDHTCEpqFZYYfCwc=_Wxh6-1BkGuyj04=deGHCHMC--+g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu 18-06-15 17:22:40, Vlastimil Babka wrote:
-> On 06/18/2015 04:43 PM, Michal Hocko wrote:
-> >On Thu 18-06-15 07:35:53, Eric Dumazet wrote:
-> >>On Thu, Jun 18, 2015 at 7:30 AM, Michal Hocko <mhocko@suse.cz> wrote:
-> >>
-> >>>Abusing __GFP_NO_KSWAPD is a wrong way to go IMHO. It is true that the
-> >>>_current_ implementation of the allocator has this nasty and very subtle
-> >>>side effect but that doesn't mean it should be abused outside of the mm
-> >>>proper. Why shouldn't this path wake the kswapd and let it compact
-> >>>memory on the background to increase the success rate for the later
-> >>>high order allocations?
-> >>
-> >>I kind of agree.
-> >>
-> >>If kswapd is a problem (is it ???) we should fix it, instead of adding
-> >>yet another flag to some random locations attempting
-> >>memory allocations.
+On Thu, Jun 18, 2015 at 08:43:08AM -0700, Scott Feldman wrote:
+> On Thu, Jun 18, 2015 at 8:22 AM, Andy Gospodarek
+> <gospo@cumulusnetworks.com> wrote:
+> > Signed-off-by: Andy Gospodaerk <gospo@cumulusnetworks.com>
+> > Signed-off-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
 > >
-> >No, kswapd is not a problem. The problem is ~__GFP_WAIT allocation can
-> >access some portion of the memory reserves (see gfp_to_alloc_flags resp.
-> >__zone_watermark_ok and ALLOC_HARDER). __GFP_NO_KSWAPD is just a dirty
-> >hack to not give that access which was introduced for THP AFAIR.
+> > ---
+> >  ip/iproute.c | 4 ++++
+> >  1 file changed, 4 insertions(+)
 > >
-> >The implicit access to memory reserves for non sleeping allocation has
-> >been there for ages and it might be not suitable for this particular
-> >path but that doesn't mean another gfp flag with a different side effect
-> >should be hijacked. We should either stop doing that implicit access to
-> >memory reserves and give __GFP_RESERVE or add the __GFP_NORESERVE. But
-> >that is a problem to be solved in the mm proper. Spreading subtle
-> >dependencies outside of mm will just make situation worse.
-> 
-> So you are not proposing to use these __GFP_RESERVE/NORESERVE flag outside
-> of mm, right? (besides, we distinguish several kinds of reserves, so what
-> exactly would the flag do?)
+> > diff --git a/ip/iproute.c b/ip/iproute.c
+> > index 3795baf..3369c49 100644
+> > --- a/ip/iproute.c
+> > +++ b/ip/iproute.c
+> > @@ -451,6 +451,8 @@ int print_route(const struct sockaddr_nl *who, =
+struct nlmsghdr *n, void *arg)
+> >                 fprintf(fp, "offload ");
+> >         if (r->rtm_flags & RTM_F_NOTIFY)
+> >                 fprintf(fp, "notify ");
+> > +       if (r->rtm_flags & RTNH_F_LINKDOWN)
+> > +               fprintf(fp, "linkdown ");
+>=20
+>=20
+> iproute.c: In function =E2=80=98print_route=E2=80=99:
+> iproute.c:454:21: error: =E2=80=98RTNH_F_LINKDOWN=E2=80=99 undeclared=
+ (first use in
+> this function)
+> iproute.c:454:21: note: each undeclared identifier is reported only
+> once for each function it appears in
 
-That is to be discussed. Most allocations already express their interest
-in memory reserves by __GFP_HIGH directly or by GFP_ATOMIC indirectly.
-So maybe we do not need any additional flag here. There are not that
-many ~__GFP_WAIT and most of them seem to require it _only_ because the
-context doesn't allow for sleeping (e.g. to prevent from deadlocks).
-
-> As that would be also subtle dependency. The
-> general problem I think is that we should want the mm users to specify
-> higher-level intentions (such as GFP_KERNEL) which would map to specific
-> directions (__GFP_*) for the allocator, and currently it's rather a mess of
-> both kinds of flags.
-
-I agree. So I think that maybe we should drop that implicit access to
-memory reserves for ~__GFP_WAIT allocations and let it do what it is
-documented to do.
-
-> Clearly the intention here is "opportunistic allocation that should
-> not reclaim/compact, use reserves, wake up kswapd (?) because it's
-> better to fall back to smaller pages than wait") and we don't seem to
-> have a GFP_OPPORTUNISTIC flag for that. The allocation has to then
-> mask out __GFP_WAIT which however looks like an atomic allocation to
-> the allocator and give access to reserves, etc...
-
-I think simply dropping GFP_WAIT is a good way to express that. The
-fact that the current implementation gives access to memory reserves
-implicitly is just a detail and the user of the allocator shouldn't care
-about that.
--- 
-Michal Hocko
-SUSE Labs
+Yes, you need to pull that from the patches above into your iproute2
+sources.  Stephen regularly tells people not to pose uapi updates, so I
+did not.
