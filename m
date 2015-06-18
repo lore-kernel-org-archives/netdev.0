@@ -1,50 +1,95 @@
-From: Christoph Paasch <cpaasch@apple.com>
-Subject: Re: [PATCH net] Revert
- "tcp: switch tcp_fastopen key generation to net_get_random_once"
-Date: Thu, 18 Jun 2015 08:45:29 -0700
-Message-ID: <20150618154529.GG33243@Chimay.local>
-References: <1434587299-60271-1-git-send-email-cpaasch@apple.com>
- <1434619953.7926.10.camel@stressinduktion.org>
- <1434626053.27504.206.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Michal Hocko <mhocko@suse.cz>
+Subject: Re: [RFC V3] net: don't wait for order-3 page allocation
+Date: Thu, 18 Jun 2015 17:47:16 +0200
+Message-ID: <20150618154716.GH5858@dhcp22.suse.cz>
+References: <0099265406c32b9b9057de100404a4148d602cdd.1434066549.git.shli@fb.com>
+ <557AA834.8070503@suse.cz>
+ <alpine.DEB.2.10.1506171602300.8203@chino.kir.corp.google.com>
+ <20150618143019.GE5858@dhcp22.suse.cz>
+ <CANn89iLr2iNV3VjA4POPpfsmOpyB7jP2-wPiAkCOcA+Oh+2=5A@mail.gmail.com>
+ <20150618144311.GF5858@dhcp22.suse.cz>
+ <5582E240.8080704@suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+	David Rientjes <rientjes@google.com>, Shaohua Li <shli@fb.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	kernel-team <Kernel-team@fb.com>, clm@fb.com, linux-mm@kvack.org,
+	dbavatar@gmail.com
+To: Vlastimil Babka <vbabka@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out4.apple.com ([17.151.62.26]:43802 "EHLO
-	mail-in4.apple.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751937AbbFRPpb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 11:45:31 -0400
-Received: from localhost ([17.149.226.91])
- by chicory.apple.com (Oracle Communications Messaging Server 7.0.5.30.0 64bit
- (built Oct 22 2013)) with ESMTPSA id <0NQ500NFQD3U1U40@chicory.apple.com> for
- netdev@vger.kernel.org; Thu, 18 Jun 2015 08:45:30 -0700 (PDT)
-Content-disposition: inline
-In-reply-to: <1434626053.27504.206.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from cantor2.suse.de ([195.135.220.15]:52866 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752327AbbFRPrV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jun 2015 11:47:21 -0400
+Content-Disposition: inline
+In-Reply-To: <5582E240.8080704@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18/06/15 - 04:14:13, Eric Dumazet wrote:
-> On Thu, 2015-06-18 at 11:32 +0200, Hannes Frederic Sowa wrote:
-> > > There does not seem to be a better way to handle this. We could try
-> > > to make the call to kmalloc and crypto_alloc_cipher during bootup, and
-> > > then generate the random value only on-the-fly (when the first TFO-SYN
-> > > comes in) with net_get_random_once in order to have the better entropy
-> > > that comes with doing the late initialisation of the random value. But
-> > > that's probably net-next material.
-> > 
-> > can't we simply move the net_get_random_once to the TCP_FASTOPEN setsockopt and
-> > sendmsg(MSG_FASTOPEN) path, so those allocations still happen in process context
-> > but we still defer the extraction of entropy as long as posible?
+On Thu 18-06-15 17:22:40, Vlastimil Babka wrote:
+> On 06/18/2015 04:43 PM, Michal Hocko wrote:
+> >On Thu 18-06-15 07:35:53, Eric Dumazet wrote:
+> >>On Thu, Jun 18, 2015 at 7:30 AM, Michal Hocko <mhocko@suse.cz> wrote:
+> >>
+> >>>Abusing __GFP_NO_KSWAPD is a wrong way to go IMHO. It is true that the
+> >>>_current_ implementation of the allocator has this nasty and very subtle
+> >>>side effect but that doesn't mean it should be abused outside of the mm
+> >>>proper. Why shouldn't this path wake the kswapd and let it compact
+> >>>memory on the background to increase the success rate for the later
+> >>>high order allocations?
+> >>
+> >>I kind of agree.
+> >>
+> >>If kswapd is a problem (is it ???) we should fix it, instead of adding
+> >>yet another flag to some random locations attempting
+> >>memory allocations.
+> >
+> >No, kswapd is not a problem. The problem is ~__GFP_WAIT allocation can
+> >access some portion of the memory reserves (see gfp_to_alloc_flags resp.
+> >__zone_watermark_ok and ALLOC_HARDER). __GFP_NO_KSWAPD is just a dirty
+> >hack to not give that access which was introduced for THP AFAIR.
+> >
+> >The implicit access to memory reserves for non sleeping allocation has
+> >been there for ages and it might be not suitable for this particular
+> >path but that doesn't mean another gfp flag with a different side effect
+> >should be hijacked. We should either stop doing that implicit access to
+> >memory reserves and give __GFP_RESERVE or add the __GFP_NORESERVE. But
+> >that is a problem to be solved in the mm proper. Spreading subtle
+> >dependencies outside of mm will just make situation worse.
 > 
-> Yes, I do not think this would be hard. This bug is old (3.13) and does
-> not seem very urgent to expedite a revert.
+> So you are not proposing to use these __GFP_RESERVE/NORESERVE flag outside
+> of mm, right? (besides, we distinguish several kinds of reserves, so what
+> exactly would the flag do?)
 
-True, it would be simpler to call tcp_fastopen_init_key_once to the
-setsocketopt() and inet_listen().
+That is to be discussed. Most allocations already express their interest
+in memory reserves by __GFP_HIGH directly or by GFP_ATOMIC indirectly.
+So maybe we do not need any additional flag here. There are not that
+many ~__GFP_WAIT and most of them seem to require it _only_ because the
+context doesn't allow for sleeping (e.g. to prevent from deadlocks).
 
-I will resubmit.
+> As that would be also subtle dependency. The
+> general problem I think is that we should want the mm users to specify
+> higher-level intentions (such as GFP_KERNEL) which would map to specific
+> directions (__GFP_*) for the allocator, and currently it's rather a mess of
+> both kinds of flags.
 
+I agree. So I think that maybe we should drop that implicit access to
+memory reserves for ~__GFP_WAIT allocations and let it do what it is
+documented to do.
 
-Christoph
+> Clearly the intention here is "opportunistic allocation that should
+> not reclaim/compact, use reserves, wake up kswapd (?) because it's
+> better to fall back to smaller pages than wait") and we don't seem to
+> have a GFP_OPPORTUNISTIC flag for that. The allocation has to then
+> mask out __GFP_WAIT which however looks like an atomic allocation to
+> the allocator and give access to reserves, etc...
+
+I think simply dropping GFP_WAIT is a good way to express that. The
+fact that the current implementation gives access to memory reserves
+implicitly is just a detail and the user of the allocator shouldn't care
+about that.
+-- 
+Michal Hocko
+SUSE Labs
