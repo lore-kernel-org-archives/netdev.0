@@ -1,65 +1,135 @@
-From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 08/11] IB/cma: Add net_dev and private data checks to
- RDMA CM
-Date: Thu, 18 Jun 2015 11:34:43 +0300
-Message-ID: <558282A3.8040709@mellanox.com>
-References: <1434358036-15526-1-git-send-email-haggaie@mellanox.com>
- <1434358036-15526-9-git-send-email-haggaie@mellanox.com>
- <20150615170837.GA14982@obsidianresearch.com> <557FB382.5090300@mellanox.com>
- <20150617171843.GC27232@obsidianresearch.com>
+From: Shengzhou Liu <Shengzhou.Liu@freescale.com>
+Subject: [PATCH] net/phy: Add support for Realtek RTL8211F
+Date: Thu, 18 Jun 2015 16:42:47 +0800
+Message-ID: <1434616967-38930-1-git-send-email-Shengzhou.Liu@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150617171843.GC27232-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Shengzhou Liu <Shengzhou.Liu@freescale.com>
+To: <netdev@vger.kernel.org>, <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0119.outbound.protection.outlook.com ([157.56.110.119]:27795
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753404AbbFRJTS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jun 2015 05:19:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 17/06/2015 20:18, Jason Gunthorpe wrote:
-> On Tue, Jun 16, 2015 at 08:26:26AM +0300, Haggai Eran wrote:
->> On 15/06/2015 20:08, Jason Gunthorpe wrote:
->>> On Mon, Jun 15, 2015 at 11:47:13AM +0300, Haggai Eran wrote:
->>>> Instead of relying on a the ib_cm module to check an incoming CM request's
->>>> private data header, add these checks to the RDMA CM module. This allows a
->>>> following patch to to clean up the ib_cm interface and remove the code that
->>>> looks into the private headers. It will also allow supporting namespaces in
->>>> RDMA CM by making these checks namespace aware later on.
->>>
->>> I was expecting one of these patches to flow the net_device from here:
->>>
->>>> +static struct net_device *cma_get_net_dev(struct ib_cm_event *ib_event,
->>>> +					  const struct cma_req_info *req)
->>>> +{
->>>
->>> Down through cma_req_handler and cma_new_conn_id so that we get rid of
->>> the cma_translate_addr on the ingress side.
->>>
->>> Having the ingress side use one ingress net_device for all processing
->>> seems very important to me...
->>
->> Is it really very important? I thought the bound_dev_if of a passive
->> connection id is only used by the netlink statistics mechanism.
-> 
-> I mean 'very important' in the sense it makes the RDMA-CM *make
-> logical sense*, not so much in the 'can user space tell'.
-> 
-> So yes, cleaning this seems very important to establish that logical
-> narrative of how the packet flows through this code.
-> 
-> Plus, there is an init_net in the cma_translate_addr path that needs to
-> be addressed - so purging cma_translate_addr is a great way to handle
-> that. That would leave only the call in rdma_bind_addr, and for bind,
-> the process net namespace is the correct thing to use.
-Okay, I'll add a patch that cleans these cma_translate_addr calls.
+RTL8211F has different register definitions from RTL8211E.
+Specially it needs to enable TXDLY in case of RGMII.
 
+Signed-off-by: Shengzhou Liu <Shengzhou.Liu@freescale.com>
+---
+ drivers/net/phy/realtek.c | 68 ++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 67 insertions(+), 1 deletion(-)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
+index 96a0f0f..4535361 100644
+--- a/drivers/net/phy/realtek.c
++++ b/drivers/net/phy/realtek.c
+@@ -22,8 +22,12 @@
+ #define RTL821x_INER		0x12
+ #define RTL821x_INER_INIT	0x6400
+ #define RTL821x_INSR		0x13
++#define RTL8211E_INER_LINK_STATUS 0x400
+ 
+-#define	RTL8211E_INER_LINK_STATUS	0x400
++#define RTL8211F_INER_LINK_STATUS 0x0010
++#define RTL8211F_INSR		0x1d
++#define RTL8211F_PAGE_SELECT	0x1f
++#define RTL8211F_TX_DELAY	0x100
+ 
+ MODULE_DESCRIPTION("Realtek PHY driver");
+ MODULE_AUTHOR("Johnson Leung");
+@@ -38,6 +42,18 @@ static int rtl821x_ack_interrupt(struct phy_device *phydev)
+ 	return (err < 0) ? err : 0;
+ }
+ 
++static int rtl8211f_ack_interrupt(struct phy_device *phydev)
++{
++	int err;
++
++	phy_write(phydev, RTL8211F_PAGE_SELECT, 0xa43);
++	err = phy_read(phydev, RTL8211F_INSR);
++	/* restore to default page 0 */
++	phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
++
++	return (err < 0) ? err : 0;
++}
++
+ static int rtl8211b_config_intr(struct phy_device *phydev)
+ {
+ 	int err;
+@@ -64,6 +80,41 @@ static int rtl8211e_config_intr(struct phy_device *phydev)
+ 	return err;
+ }
+ 
++static int rtl8211f_config_intr(struct phy_device *phydev)
++{
++	int err;
++
++	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
++		err = phy_write(phydev, RTL821x_INER,
++				RTL8211F_INER_LINK_STATUS);
++	else
++		err = phy_write(phydev, RTL821x_INER, 0);
++
++	return err;
++}
++
++static int rtl8211f_config_init(struct phy_device *phydev)
++{
++	int ret;
++	u16 reg;
++
++	ret = genphy_config_init(phydev);
++	if (ret < 0)
++		return ret;
++
++	if (phydev->interface == PHY_INTERFACE_MODE_RGMII) {
++		/* enable TXDLY */
++		phy_write(phydev, RTL8211F_PAGE_SELECT, 0xd08);
++		reg = phy_read(phydev, 0x11);
++		reg |= RTL8211F_TX_DELAY;
++		phy_write(phydev, 0x11, reg);
++		/* restore to default page 0 */
++		phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
++	}
++
++	return 0;
++}
++
+ static struct phy_driver realtek_drvs[] = {
+ 	{
+ 		.phy_id         = 0x00008201,
+@@ -98,6 +149,20 @@ static struct phy_driver realtek_drvs[] = {
+ 		.suspend	= genphy_suspend,
+ 		.resume		= genphy_resume,
+ 		.driver		= { .owner = THIS_MODULE,},
++	}, {
++		.phy_id		= 0x001cc916,
++		.name		= "RTL8211F Gigabit Ethernet",
++		.phy_id_mask	= 0x001fffff,
++		.features	= PHY_GBIT_FEATURES,
++		.flags		= PHY_HAS_INTERRUPT,
++		.config_aneg	= &genphy_config_aneg,
++		.config_init	= &rtl8211f_config_init,
++		.read_status	= &genphy_read_status,
++		.ack_interrupt	= &rtl8211f_ack_interrupt,
++		.config_intr	= &rtl8211f_config_intr,
++		.suspend	= genphy_suspend,
++		.resume		= genphy_resume,
++		.driver		= { .owner = THIS_MODULE },
+ 	},
+ };
+ 
+@@ -106,6 +171,7 @@ module_phy_driver(realtek_drvs);
+ static struct mdio_device_id __maybe_unused realtek_tbl[] = {
+ 	{ 0x001cc912, 0x001fffff },
+ 	{ 0x001cc915, 0x001fffff },
++	{ 0x001cc916, 0x001fffff },
+ 	{ }
+ };
+ 
+-- 
+2.1.0.27.g96db324
