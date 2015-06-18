@@ -1,100 +1,52 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH] tipc:Make the function
- tipc_buf_append have a return type of bool
-Date: Thu, 18 Jun 2015 10:56:45 +0800
-Message-ID: <5582336D.9020402@windriver.com>
-References: <1434595459-24040-1-git-send-email-xerofoify@gmail.com>
+From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Subject: Re: [REGRESSION] NFS is creating a hidden port (left over from
+ xs_bind() )
+Date: Wed, 17 Jun 2015 23:08:19 -0400
+Message-ID: <20150617230819.0a11e47a@grimm.local.home>
+References: <20150611234929.7b48d314@gandalf.local.home>
+	<CAHQdGtSyHtMfyVxT=hFY4m6XvM=3mxnZ=ajVJWYNXvYqE0+3zA@mail.gmail.com>
+	<1434120035.27504.77.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150612113420.5c114183@gandalf.local.home>
+	<20150612115038.44e20ccd@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-	davem@davemloft.net, linux-kernel@vger.kernel.org
-To: Nicholas Krause <xerofoify@gmail.com>, <jon.maloy@ericsson.com>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1434595459-24040-1-git-send-email-xerofoify@gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Network Devel Mailing List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150612115038.44e20ccd-f9ZlEuEWxVcJvu8Pb33WZ0EMvNT87kid@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 06/18/2015 10:44 AM, Nicholas Krause wrote:
-> This converts the function tipc_buf_append now due to this
-> particular function only returning either one or zero as
-> its return value.
-> 
-> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+On Fri, 12 Jun 2015 11:50:38 -0400
+Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
 
-Acked-by: Ying Xue <ying.xue@windriver.com>
-
-> ---
->  net/tipc/msg.c | 12 ++++++------
->  net/tipc/msg.h |  2 +-
->  2 files changed, 7 insertions(+), 7 deletions(-)
+> I reverted the following commits:
 > 
-> diff --git a/net/tipc/msg.c b/net/tipc/msg.c
-> index c3e96e8..52f2978 100644
-> --- a/net/tipc/msg.c
-> +++ b/net/tipc/msg.c
-> @@ -115,9 +115,9 @@ struct sk_buff *tipc_msg_create(uint user, uint type,
->   *            out: set when successful non-complete reassembly, otherwise NULL
->   * @*buf:     in:  the buffer to append. Always defined
->   *            out: head buf after successful complete reassembly, otherwise NULL
-> - * Returns 1 when reassembly complete, otherwise 0
-> + * Returns true when reassembly complete, otherwise false
->   */
-> -int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
-> +bool tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
->  {
->  	struct sk_buff *head = *headbuf;
->  	struct sk_buff *frag = *buf;
-> @@ -144,7 +144,7 @@ int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
->  		skb_frag_list_init(head);
->  		TIPC_SKB_CB(head)->tail = NULL;
->  		*buf = NULL;
-> -		return 0;
-> +		return false;
->  	}
->  
->  	if (!head)
-> @@ -171,16 +171,16 @@ int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
->  		*buf = head;
->  		TIPC_SKB_CB(head)->tail = NULL;
->  		*headbuf = NULL;
-> -		return 1;
-> +		return true;
->  	}
->  	*buf = NULL;
-> -	return 0;
-> +	return false;
->  err:
->  	pr_warn_ratelimited("Unable to build fragment list\n");
->  	kfree_skb(*buf);
->  	kfree_skb(*headbuf);
->  	*buf = *headbuf = NULL;
-> -	return 0;
-> +	return false;
->  }
->  
->  /* tipc_msg_validate - validate basic format of received message
-> diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-> index e1d3595e..00d3357 100644
-> --- a/net/tipc/msg.h
-> +++ b/net/tipc/msg.h
-> @@ -771,7 +771,7 @@ void tipc_msg_init(u32 own_addr, struct tipc_msg *m, u32 user, u32 type,
->  struct sk_buff *tipc_msg_create(uint user, uint type, uint hdr_sz,
->  				uint data_sz, u32 dnode, u32 onode,
->  				u32 dport, u32 oport, int errcode);
-> -int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf);
-> +bool tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf);
->  bool tipc_msg_bundle(struct sk_buff *bskb, struct sk_buff *skb, u32 mtu);
->  
->  bool tipc_msg_make_bundle(struct sk_buff **skb, u32 mtu, u32 dnode);
+> c627d31ba0696cbd829437af2be2f2dee3546b1e
+> 9e2b9f37760e129cee053cc7b6e7288acc2a7134
+> caf4ccd4e88cf2795c927834bc488c8321437586
+> 
+> And the issue goes away. That is, I watched the port go from
+> ESTABLISHED to TIME_WAIT, and then gone, and theirs no hidden port.
+> 
+> In fact, I watched the port with my portlist.c module, and it
+> disappeared there too when it entered the TIME_WAIT state.
 > 
 
+I've been running v4.0.5 with the above commits reverted for 5 days
+now, and there's still no hidden port appearing.
 
-------------------------------------------------------------------------------
+What's the status on this? Should those commits be reverted or is there
+another solution to this bug?
+
+-- Steve
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
