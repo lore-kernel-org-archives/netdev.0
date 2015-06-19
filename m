@@ -1,68 +1,58 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH] xen-netback: fix a BUG() during initialization
-Date: Fri, 19 Jun 2015 16:37:39 +0100
-Message-ID: <20150619153739.GL28194@zion.uk.xensource.com>
-References: <1434716511-25657-1-git-send-email-imrep.amz@gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH net] netfilter: nftables: Do not run chains in the wrong network namespace
+Date: Fri, 19 Jun 2015 10:41:21 -0500
+Message-ID: <87oakbg0ym.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <xen-devel@lists.xenproject.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, "Palik, Imre" <imrep@amazon.de>,
-	Matt Wilson <msw@amazon.com>
-To: Imre Palik <imrep.amz@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1434716511-25657-1-git-send-email-imrep.amz@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 19, 2015 at 02:21:51PM +0200, Imre Palik wrote:
-> From: "Palik, Imre" <imrep@amazon.de>
-> 
-> Commit edafc132baac ("xen-netback: making the bandwidth limiter runtime settable")
-> introduced the capability to change the bandwidth rate limit at runtime.
-> But it also introduced a possible crashing bug.
-> 
-> If netback receives two XenbusStateConnected without getting the
-> hotplug-status watch firing in between, then it will try to register the
-> watches for the rate limiter again.  But this triggers a BUG() in the watch
-> registration code.
-> 
-> The fix modifies connect() to remove the possibly existing packet-rate
-> watches before trying to install those watches.  This behaviour is in line
-> with how connect() deals with the hotplug-status watch.
-> 
-> Signed-off-by: Imre Palik <imrep@amazon.de>
-> Cc: Matt Wilson <msw@amazon.com>
 
-Acked-by: Wei Liu <wei.liu2@citrix.com>
+Currenlty nf_tables chains added in one network namespace are being
+run in all network namespace.  The issues are myriad with the simplest
+being an unprivileged user can cause any network packets to be dropped.
 
-> ---
->  drivers/net/xen-netback/xenbus.c |    4 ++++
->  1 file changed, 4 insertions(+)
-> 
-> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-> index 968787a..ec383b0 100644
-> --- a/drivers/net/xen-netback/xenbus.c
-> +++ b/drivers/net/xen-netback/xenbus.c
-> @@ -681,6 +681,9 @@ static int xen_register_watchers(struct xenbus_device *dev, struct xenvif *vif)
->  	char *node;
->  	unsigned maxlen = strlen(dev->nodename) + sizeof("/rate");
->  
-> +	if (vif->credit_watch.node)
-> +		return -EADDRINUSE;
-> +
->  	node = kmalloc(maxlen, GFP_KERNEL);
->  	if (!node)
->  		return -ENOMEM;
-> @@ -770,6 +773,7 @@ static void connect(struct backend_info *be)
->  	}
->  
->  	xen_net_read_rate(dev, &credit_bytes, &credit_usec);
-> +	xen_unregister_watchers(be->vif);
->  	xen_register_watchers(dev, be->vif);
->  	read_xenbus_vif_flags(be);
->  
-> -- 
-> 1.7.9.5
+Address this by simply not running nf_tables chains in the wrong
+network namespace.
+
+Cc: stable@vger.kernel.org
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ net/netfilter/nf_tables_core.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
+index f153b07073af..f77bad46ac68 100644
+--- a/net/netfilter/nf_tables_core.c
++++ b/net/netfilter/nf_tables_core.c
+@@ -114,7 +114,8 @@ unsigned int
+ nft_do_chain(struct nft_pktinfo *pkt, const struct nf_hook_ops *ops)
+ {
+ 	const struct nft_chain *chain = ops->priv, *basechain = chain;
+-	const struct net *net = read_pnet(&nft_base_chain(basechain)->pnet);
++	const struct net *chain_net = read_pnet(&nft_base_chain(basechain)->pnet);
++	const struct net *net = dev_net(pkt->in ? pkt->in : pkt->out);
+ 	const struct nft_rule *rule;
+ 	const struct nft_expr *expr, *last;
+ 	struct nft_regs regs;
+@@ -124,6 +125,10 @@ nft_do_chain(struct nft_pktinfo *pkt, const struct nf_hook_ops *ops)
+ 	int rulenum;
+ 	unsigned int gencursor = nft_genmask_cur(net);
+ 
++	/* Ignore chains that are not for the current network namespace */
++	if (!net_eq(net, chain_net))
++		return NF_ACCEPT;
++
+ do_chain:
+ 	rulenum = 0;
+ 	rule = list_entry(&chain->rules, struct nft_rule, list);
+-- 
+2.2.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
