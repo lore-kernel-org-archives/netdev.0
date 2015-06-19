@@ -1,63 +1,62 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH] net: inet_diag: export IPV6_V6ONLY sockopt
-Date: Fri, 19 Jun 2015 14:15:32 +0200
-Message-ID: <1434716132-25103-1-git-send-email-phil@nwl.cc>
-References: <20150615205421.GA22616@orbit.nwl.cc>
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Imre Palik <imrep.amz@gmail.com>
+Subject: [PATCH] xen-netback: fix a BUG() during initialization
+Date: Fri, 19 Jun 2015 14:21:51 +0200
+Message-ID: <1434716511-25657-1-git-send-email-imrep.amz@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Palik, Imre" <imrep@amazon.de>, Matt Wilson <msw@amazon.com>
+To: xen-devel@lists.xenproject.org,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:52290 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751193AbbFSMPe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Jun 2015 08:15:34 -0400
-In-Reply-To: <20150615205421.GA22616@orbit.nwl.cc>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:34502 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751711AbbFSMWK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 08:22:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For AF_INET6 sockets, the value of struct ipv6_pinfo.ipv6only is
-exported to userspace. It indicates whether an unbound socket listens on
-IPv4 as well as IPv6. Since the socket is natively IPv6, it is not
-listed by e.g. 'netstat -l -4'.
+From: "Palik, Imre" <imrep@amazon.de>
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
-This patch is accompanied by an appropriate one for iproute2 to enable
-the additional information in 'ss -e'.
----
- include/uapi/linux/inet_diag.h | 3 ++-
- net/ipv4/inet_diag.c           | 4 ++++
- 2 files changed, 6 insertions(+), 1 deletion(-)
+Commit edafc132baac ("xen-netback: making the bandwidth limiter runtime settable")
+introduced the capability to change the bandwidth rate limit at runtime.
+But it also introduced a possible crashing bug.
 
-diff --git a/include/uapi/linux/inet_diag.h b/include/uapi/linux/inet_diag.h
-index c7093c7..9ca4834 100644
---- a/include/uapi/linux/inet_diag.h
-+++ b/include/uapi/linux/inet_diag.h
-@@ -111,9 +111,10 @@ enum {
- 	INET_DIAG_SKMEMINFO,
- 	INET_DIAG_SHUTDOWN,
- 	INET_DIAG_DCTCPINFO,
-+	INET_DIAG_SKV6ONLY,
- };
+If netback receives two XenbusStateConnected without getting the
+hotplug-status watch firing in between, then it will try to register the
+watches for the rate limiter again.  But this triggers a BUG() in the watch
+registration code.
+
+The fix modifies connect() to remove the possibly existing packet-rate
+watches before trying to install those watches.  This behaviour is in line
+with how connect() deals with the hotplug-status watch.
+
+Signed-off-by: Imre Palik <imrep@amazon.de>
+Cc: Matt Wilson <msw@amazon.com>
+---
+ drivers/net/xen-netback/xenbus.c |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index 968787a..ec383b0 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -681,6 +681,9 @@ static int xen_register_watchers(struct xenbus_device *dev, struct xenvif *vif)
+ 	char *node;
+ 	unsigned maxlen = strlen(dev->nodename) + sizeof("/rate");
  
--#define INET_DIAG_MAX INET_DIAG_DCTCPINFO
-+#define INET_DIAG_MAX INET_DIAG_SKV6ONLY
- 
- /* INET_DIAG_MEM */
- 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 4d32262..4bf6d03 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -151,6 +151,10 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
- 			if (nla_put_u8(skb, INET_DIAG_TCLASS,
- 				       inet6_sk(sk)->tclass) < 0)
- 				goto errout;
++	if (vif->credit_watch.node)
++		return -EADDRINUSE;
 +
-+		if (nla_put_u8(skb, INET_DIAG_SKV6ONLY,
-+				inet6_sk(sk)->ipv6only) < 0)
-+			goto errout;
+ 	node = kmalloc(maxlen, GFP_KERNEL);
+ 	if (!node)
+ 		return -ENOMEM;
+@@ -770,6 +773,7 @@ static void connect(struct backend_info *be)
  	}
- #endif
+ 
+ 	xen_net_read_rate(dev, &credit_bytes, &credit_usec);
++	xen_unregister_watchers(be->vif);
+ 	xen_register_watchers(dev, be->vif);
+ 	read_xenbus_vif_flags(be);
  
 -- 
-2.1.2
+1.7.9.5
