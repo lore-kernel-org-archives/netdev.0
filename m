@@ -1,70 +1,70 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next RFC v2 2/3] ipv4: add support for light weight
- tunnel encap attributes
-Date: Fri, 19 Jun 2015 15:55:23 +0100
-Message-ID: <55842D5B.90608@brocade.com>
-References: <1434689355-4088-3-git-send-email-roopa@cumulusnetworks.com> <alpine.LFD.2.11.1506190857520.1731@ja.home.ssi.bg> <558424E8.5090806@cumulusnetworks.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH 3/3] net: dsa: Allow configuration of CPU & DSA port
+ speeds/duplex
+Date: Fri, 19 Jun 2015 11:05:14 -0400 (EDT)
+Message-ID: <2144581324.52952.1434726314482.JavaMail.zimbra@savoirfairelinux.com>
+References: <1434129537-15252-1-git-send-email-andrew@lunn.ch> <1434129537-15252-3-git-send-email-andrew@lunn.ch> <557F0CD5.4070705@gmail.com> <536480200.118000.1434564592107.JavaMail.zimbra@savoirfairelinux.com> <20150618011159.GA22072@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: <ebiederm@xmission.com>, <tgraf@suug.ch>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: roopa <roopa@cumulusnetworks.com>, Julian Anastasov <ja@ssi.bg>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	David <davem@davemloft.net>, Guenter Roeck <linux@roeck-us.net>,
+	Cory Tusar <cory.tusar@pid1solutions.com>,
+	netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:48261 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752292AbbFSOzy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 10:55:54 -0400
-In-Reply-To: <558424E8.5090806@cumulusnetworks.com>
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:58428 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751752AbbFSPFW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 11:05:22 -0400
+In-Reply-To: <20150618011159.GA22072@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19/06/15 15:19, roopa wrote:
-> On 6/18/15, 11:59 PM, Julian Anastasov wrote:
->>     Hello,
->>
->> On Thu, 18 Jun 2015, Roopa Prabhu wrote:
->>
->>> @@ -366,6 +371,7 @@ static inline size_t fib_nlmsg_size(struct
->>> fib_info *fi)
->>>       payload += nla_total_size((RTAX_MAX * nla_total_size(4)));
->>>       if (fi->fib_nhs) {
->>> +        size_t nh_encapsize = 0;
->>     Var not in #ifdef. Any warnings with CONFIG_LWTUNNEL=n?
->>
->>>           /* Also handles the special case fib_nhs == 1 */
->>>           /* each nexthop is packed in an attribute */
->>> @@ -374,8 +380,23 @@ static inline size_t fib_nlmsg_size(struct
->>> fib_info *fi)
->>>           /* may contain flow and gateway attribute */
->>>           nhsize += 2 * nla_total_size(4);
->>> +#ifdef CONFIG_LWTUNNEL
->>> +        /* grab encap info */
->>> +        for_nexthops(fi) {
->>> +            if (nh->nh_lwtstate) {
->>> +                /* RTA_ENCAP_TYPE */
->>> +                nh_encapsize += lwtunnel_get_encap_size(
->>> +                        nh->nh_lwtstate);
->>     New labels not in #ifdef:
-> Will check and fix all warnings with CONFIG_LWTUNNEL off
->>
->>> +
->>> +err_inval:
->>> +    ret = -EINVAL;
->>> +
->>> +errout:
->>> +    return ret;
->>>   }
->>     Some other places may need changes:
->>
->> - nh_comp: there is logic that decides if same fib_info
->> is reused from many fib nodes. There should be check
->> if NH matches by nh_lwtstate.
->
-> yes, i will add that.
+Hi Andrew,
 
-One other place - fib_nh_match. This is used when deleting a route to 
-verify that any supplied rtnetlink properties match the route in the fib.
+On Jun 17, 2015, at 9:11 PM, Andrew Lunn andrew@lunn.ch wrote:
+> On Wed, Jun 17, 2015 at 02:09:52PM -0400, Vivien Didelot wrote:
+>> Hi Andrew, All,
+>> 
+>> On 12/06/15 10:18, Andrew Lunn wrote:
+>> > By default, DSA and CPU ports are configured to the maximum speed the
+>> > switch supports. However there can be use cases where the peer device
+>> > port is slower. Allow a fixed-link property to be used with the DSA
+>> > and CPU port in the device tree, and use this information to configure
+>> > the port.
+>> 
+>> Would it be a good idea for DSA to expose the "cpu" port to userspace as well?
+>> That way, it'd be possible to use ethtool to set the port speed and duplex
+>> mode, or dump registers (this would have saved me quite some time in dev).
+> 
+> I have code which expose these via debugfs. So far, i have all
+> registers, stats, ATU, and the scratch registers. For the patches to
+> apply cleanly, they depend on these patches, so i've not posted them
+> yet.
+
+Yes I do have debug too, but via sysfs (with eventually write access) for:
+GLOBAL1, GLOBAL2, cpu port registers, SerDes registers, PVIDs, and VTU.
+Not really standard though.
+
+> I'm not strongly against having a CPU port, but i don't particularly
+> like having the CPU port as an interface. And when you get to cascaded
+> switches, the DSA ports are also interesting, so should we also have a
+> netdev for them? But they are equally useless for transferring frames
+> from the host as the CPU port. This is why i went for debugfs.
+> 
+>> Also, in my RFC for 802.1Q support [1], I assume the CPU port to be a tagged
+>> member of each VLAN. But someone may want to add a VLAN with swp3 and swp4
+>> only, and another VLAN with swp0, swp1 and the CPU port. Am I correct?
+> 
+> The DSA concept is that switch ports are separate interfaces. So
+> adding a VLAN to two ports does to automatically bridge those ports
+> together. You need to add them to a bridge as well before VLAN tagged
+> frames are bridged between ports.
+
+My point was to expose all configurable ports with the same standard interface
+(netdev, like any other virtual switch port). But indeed, their uselessness for
+data transfer can be a good reason not to do it.
 
 Thanks,
-Rob
+-v
