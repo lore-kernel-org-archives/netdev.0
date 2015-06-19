@@ -1,405 +1,408 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next RFC v2 2/3] ipv4: add support for light weight tunnel encap attributes
-Date: Thu, 18 Jun 2015 21:49:14 -0700
-Message-ID: <1434689355-4088-3-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH net-next RFC v2 3/3] mpls: support for ip tunnels
+Date: Thu, 18 Jun 2015 21:49:15 -0700
+Message-ID: <1434689355-4088-4-git-send-email-roopa@cumulusnetworks.com>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: ebiederm@xmission.com, rshearma@brocade.com, tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:33656 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752731AbbFSEtW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 00:49:22 -0400
-Received: by pdjn11 with SMTP id n11so82177435pdj.0
-        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 21:49:21 -0700 (PDT)
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:33667 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752852AbbFSEtX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 00:49:23 -0400
+Received: by pdjn11 with SMTP id n11so82177638pdj.0
+        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 21:49:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Introduces two netlink attributes RTA_ENCAP_TYPE and
-RTA_ENCAP to support attaching encap information to ipv4 routes.
-
-RTA_ENCAP is a nested attribute as suggested by Thomas
-(and also as Robert had it in his series). RTA_ENCAP
-netlink policy is declared by the light weight tunnel
-drivers that support this encap type.
-
-fib code calls the following for each nexthop:
-	- new route handler:
-		lwt build state (that parses RTA_ENCAP and returns
-	  	lwt state that lives in every fib_nh)
-	- del dump hanlder:
-		lwt release handler to release lwt state data
-	- route dump hanlder:
-		lwt dump encap to fill RTA_ENCAP data
-	- during input route lookup
-		sets dst->output to lwtunnel_output which
-		in turn calls the corresponding lwt tunnel
-		output function which applies the required
-		encap and xmits the packet
+Support ip mpls tunnels using the new lwt infrastructure.
 
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- include/net/ip_fib.h           |    7 ++-
- include/net/route.h            |    3 ++
- include/uapi/linux/rtnetlink.h |    3 +-
- net/ipv4/fib_frontend.c        |    8 ++++
- net/ipv4/fib_semantics.c       |   93 +++++++++++++++++++++++++++++++++++++++-
- net/ipv4/route.c               |   33 +++++++++++++-
- 6 files changed, 142 insertions(+), 5 deletions(-)
+ include/linux/mpls_iptunnel.h      |    6 ++
+ include/net/mpls_iptunnel.h        |   29 +++++
+ include/uapi/linux/mpls_iptunnel.h |   26 +++++
+ net/mpls/Kconfig                   |    5 +
+ net/mpls/Makefile                  |    1 +
+ net/mpls/af_mpls.c                 |    9 +-
+ net/mpls/internal.h                |    3 +
+ net/mpls/mpls_iptunnel.c           |  205 ++++++++++++++++++++++++++++++++++++
+ 8 files changed, 281 insertions(+), 3 deletions(-)
+ create mode 100644 include/linux/mpls_iptunnel.h
+ create mode 100644 include/net/mpls_iptunnel.h
+ create mode 100644 include/uapi/linux/mpls_iptunnel.h
+ create mode 100644 net/mpls/mpls_iptunnel.c
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 54271ed..49f18d7 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -44,7 +44,9 @@ struct fib_config {
- 	u32			fc_flow;
- 	u32			fc_nlflags;
- 	struct nl_info		fc_nlinfo;
-- };
-+	struct nlattr		*fc_encap;
-+	u16			fc_encap_type;
+diff --git a/include/linux/mpls_iptunnel.h b/include/linux/mpls_iptunnel.h
+new file mode 100644
+index 0000000..ef29eb2
+--- /dev/null
++++ b/include/linux/mpls_iptunnel.h
+@@ -0,0 +1,6 @@
++#ifndef _LINUX_MPLS_IPTUNNEL_H
++#define _LINUX_MPLS_IPTUNNEL_H
++
++#include <uapi/linux/mpls_iptunnel.h>
++
++#endif  /* _LINUX_MPLS_IPTUNNEL_H */
+diff --git a/include/net/mpls_iptunnel.h b/include/net/mpls_iptunnel.h
+new file mode 100644
+index 0000000..4234efc
+--- /dev/null
++++ b/include/net/mpls_iptunnel.h
+@@ -0,0 +1,29 @@
++/*
++ * Copyright (c) 2015 Cumulus Networks, Inc.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ */
++
++#ifndef _NET_MPLS_IPTUNNEL_H
++#define _NET_MPLS_IPTUNNEL_H 1
++
++#define MAX_NEW_LABELS 2
++
++struct mpls_iptunnel_encap {
++	u32	label[MAX_NEW_LABELS];
++	u8	labels;
 +};
- 
- struct fib_info;
- struct rtable;
-@@ -89,6 +91,9 @@ struct fib_nh {
- 	struct rtable __rcu * __percpu *nh_pcpu_rth_output;
- 	struct rtable __rcu	*nh_rth_input;
- 	struct fnhe_hash_bucket	__rcu *nh_exceptions;
-+#ifdef CONFIG_LWTUNNEL
-+	struct lwtunnel_state	*nh_lwtstate;
-+#endif
- };
- 
- /*
-diff --git a/include/net/route.h b/include/net/route.h
-index fe22d03..39a6495 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -66,6 +66,9 @@ struct rtable {
- 
- 	struct list_head	rt_uncached;
- 	struct uncached_list	*rt_uncached_list;
-+#ifdef CONFIG_LWTUNNEL
-+	struct lwtunnel_state   *rt_lwtstate;
-+#endif
- };
- 
- static inline bool rt_is_input_route(const struct rtable *rt)
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 17fb02f..6c089ad 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -308,6 +308,8 @@ enum rtattr_type_t {
- 	RTA_VIA,
- 	RTA_NEWDST,
- 	RTA_PREF,
-+	RTA_ENCAP_TYPE,
-+	RTA_ENCAP,
- 	__RTA_MAX
- };
- 
-@@ -357,7 +359,6 @@ struct rtvia {
- };
- 
- /* RTM_CACHEINFO */
--
- struct rta_cacheinfo {
- 	__u32	rta_clntref;
- 	__u32	rta_lastuse;
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 872494e..fbe0630 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -591,6 +591,8 @@ const struct nla_policy rtm_ipv4_policy[RTA_MAX + 1] = {
- 	[RTA_METRICS]		= { .type = NLA_NESTED },
- 	[RTA_MULTIPATH]		= { .len = sizeof(struct rtnexthop) },
- 	[RTA_FLOW]		= { .type = NLA_U32 },
-+	[RTA_ENCAP_TYPE]	= { .type = NLA_U16 },
-+	[RTA_ENCAP]		= { .type = NLA_NESTED },
- };
- 
- static int rtm_to_fib_config(struct net *net, struct sk_buff *skb,
-@@ -656,6 +658,12 @@ static int rtm_to_fib_config(struct net *net, struct sk_buff *skb,
- 		case RTA_TABLE:
- 			cfg->fc_table = nla_get_u32(attr);
- 			break;
-+		case RTA_ENCAP:
-+			cfg->fc_encap = attr;
-+			break;
-+		case RTA_ENCAP_TYPE:
-+			cfg->fc_encap_type = nla_get_u16(attr);
-+			break;
- 		}
- 	}
- 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 28ec3c1..54dd287 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -42,6 +42,7 @@
- #include <net/ip_fib.h>
- #include <net/netlink.h>
- #include <net/nexthop.h>
-+#include <net/lwtunnel.h>
- 
- #include "fib_lookup.h"
- 
-@@ -208,6 +209,10 @@ static void free_fib_info_rcu(struct rcu_head *head)
- 	change_nexthops(fi) {
- 		if (nexthop_nh->nh_dev)
- 			dev_put(nexthop_nh->nh_dev);
-+#ifdef CONFIG_LWTUNNEL
-+		if (nexthop_nh->nh_lwtstate)
-+			lwtunnel_state_put(nexthop_nh->nh_lwtstate);
-+#endif
- 		free_nh_exceptions(nexthop_nh);
- 		rt_fibinfo_free_cpus(nexthop_nh->nh_pcpu_rth_output);
- 		rt_fibinfo_free(&nexthop_nh->nh_rth_input);
-@@ -366,6 +371,7 @@ static inline size_t fib_nlmsg_size(struct fib_info *fi)
- 	payload += nla_total_size((RTAX_MAX * nla_total_size(4)));
- 
- 	if (fi->fib_nhs) {
-+		size_t nh_encapsize = 0;
- 		/* Also handles the special case fib_nhs == 1 */
- 
- 		/* each nexthop is packed in an attribute */
-@@ -374,8 +380,23 @@ static inline size_t fib_nlmsg_size(struct fib_info *fi)
- 		/* may contain flow and gateway attribute */
- 		nhsize += 2 * nla_total_size(4);
- 
-+#ifdef CONFIG_LWTUNNEL
-+		/* grab encap info */
-+		for_nexthops(fi) {
-+			if (nh->nh_lwtstate) {
-+				/* RTA_ENCAP_TYPE */
-+				nh_encapsize += lwtunnel_get_encap_size(
-+						nh->nh_lwtstate);
-+				/* RTA_ENCAP */
-+				nh_encapsize +=  nla_total_size(2);
-+			}
-+		} endfor_nexthops(fi);
-+#endif
 +
- 		/* all nexthops are packed in a nested attribute */
--		payload += nla_total_size(fi->fib_nhs * nhsize);
-+		payload += nla_total_size((fi->fib_nhs * nhsize) +
-+					  nh_encapsize);
++static inline struct mpls_iptunnel_encap *mpls_lwt_hdr(struct lwtunnel_state *lwtstate)
++{
++	return (struct mpls_iptunnel_encap *)lwtstate->tunnel.data;
++}
 +
- 	}
++#endif
+diff --git a/include/uapi/linux/mpls_iptunnel.h b/include/uapi/linux/mpls_iptunnel.h
+new file mode 100644
+index 0000000..228e36a
+--- /dev/null
++++ b/include/uapi/linux/mpls_iptunnel.h
+@@ -0,0 +1,26 @@
++/*
++ *	mpls tunnel api
++ *
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++
++#ifndef _UAPI_LINUX_MPLS_IPTUNNEL_H
++#define _UAPI_LINUX_MPLS_IPTUNNEL_H
++
++/* MPLS tunnel attributes
++ * [RTA_ENCAP] = {
++ *     [MPLS_IPTUNNEL_DST]
++ * }
++ */
++enum {
++	MPLS_IPTUNNEL_UNSPEC,
++	MPLS_IPTUNNEL_DST,
++	__MPLS_IPTUNNEL_MAX,
++};
++#define MPLS_IPTUNNEL_MAX (__MPLS_IPTUNNEL_MAX - 1)
++
++#endif /* _UAPI_LINUX_MPLS_IPTUNNEL_H */
+diff --git a/net/mpls/Kconfig b/net/mpls/Kconfig
+index 17bde79..3e87a6b 100644
+--- a/net/mpls/Kconfig
++++ b/net/mpls/Kconfig
+@@ -27,4 +27,9 @@ config MPLS_ROUTING
+ 	help
+ 	 Add support for forwarding of mpls packets.
  
- 	return payload;
-@@ -452,6 +473,9 @@ static int fib_count_nexthops(struct rtnexthop *rtnh, int remaining)
- static int fib_get_nhs(struct fib_info *fi, struct rtnexthop *rtnh,
- 		       int remaining, struct fib_config *cfg)
++config MPLS_IPTUNNEL
++	tristate "MPLS: IP over MPLS tunnel support"
++	help
++	 Light weight tunnel handling for mpls tunnel packets
++
+ endif # MPLS
+diff --git a/net/mpls/Makefile b/net/mpls/Makefile
+index 65bbe68..9ca9236 100644
+--- a/net/mpls/Makefile
++++ b/net/mpls/Makefile
+@@ -3,5 +3,6 @@
+ #
+ obj-$(CONFIG_NET_MPLS_GSO) += mpls_gso.o
+ obj-$(CONFIG_MPLS_ROUTING) += mpls_router.o
++obj-$(CONFIG_MPLS_IPTUNNEL) += mpls_iptunnel.o
+ 
+ mpls_router-y := af_mpls.o
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 1f93a59..c6f17ab 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -58,10 +58,11 @@ static inline struct mpls_dev *mpls_dev_get(const struct net_device *dev)
+ 	return rcu_dereference_rtnl(dev->mpls_ptr);
+ }
+ 
+-static bool mpls_output_possible(const struct net_device *dev)
++bool mpls_output_possible(const struct net_device *dev)
  {
-+	struct net *net = cfg->fc_nlinfo.nl_net;
+ 	return dev && (dev->flags & IFF_UP) && netif_carrier_ok(dev);
+ }
++EXPORT_SYMBOL(mpls_output_possible);
+ 
+ static unsigned int mpls_rt_header_size(const struct mpls_route *rt)
+ {
+@@ -69,13 +70,14 @@ static unsigned int mpls_rt_header_size(const struct mpls_route *rt)
+ 	return rt->rt_labels * sizeof(struct mpls_shim_hdr);
+ }
+ 
+-static unsigned int mpls_dev_mtu(const struct net_device *dev)
++unsigned int mpls_dev_mtu(const struct net_device *dev)
+ {
+ 	/* The amount of data the layer 2 frame can hold */
+ 	return dev->mtu;
+ }
++EXPORT_SYMBOL(mpls_dev_mtu);
+ 
+-static bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
++bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
+ {
+ 	if (skb->len <= mtu)
+ 		return false;
+@@ -85,6 +87,7 @@ static bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
+ 
+ 	return true;
+ }
++EXPORT_SYMBOL(mpls_pkt_too_big);
+ 
+ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+ 			struct mpls_entry_decoded dec)
+diff --git a/net/mpls/internal.h b/net/mpls/internal.h
+index 8cabeb5..8e3af1e 100644
+--- a/net/mpls/internal.h
++++ b/net/mpls/internal.h
+@@ -52,5 +52,8 @@ static inline struct mpls_entry_decoded mpls_entry_decode(struct mpls_shim_hdr *
+ 
+ int nla_put_labels(struct sk_buff *skb, int attrtype,  u8 labels, const u32 label[]);
+ int nla_get_labels(const struct nlattr *nla, u32 max_labels, u32 *labels, u32 label[]);
++bool mpls_output_possible(const struct net_device *dev);
++unsigned int mpls_dev_mtu(const struct net_device *dev);
++bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu);
+ 
+ #endif /* MPLS_INTERNAL_H */
+diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
+new file mode 100644
+index 0000000..79a9969
+--- /dev/null
++++ b/net/mpls/mpls_iptunnel.c
+@@ -0,0 +1,205 @@
++/*
++ * mpls tunnels	An implementation mpls tunnels using the light weight tunnel
++ *		infrastructure
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ */
++#include <linux/types.h>
++#include <linux/skbuff.h>
++#include <linux/net.h>
++#include <linux/module.h>
++#include <linux/mpls.h>
++#include <linux/vmalloc.h>
++#include <net/ip.h>
++#include <net/dst.h>
++#include <net/lwtunnel.h>
++#include <net/netevent.h>
++#include <net/netns/generic.h>
++#include <net/mpls_iptunnel.h>
++#include <linux/mpls_iptunnel.h>
++#include "internal.h"
++
++static const struct nla_policy mpls_iptunnel_policy[MPLS_IPTUNNEL_MAX+1] = {
++	[MPLS_IPTUNNEL_DST]	= { .type = NLA_U32 },
++};
++
++static unsigned int mpls_encap_size(struct mpls_iptunnel_encap *en)
++{
++	/* The size of the layer 2.5 labels to be added for this route */
++	return en->labels * sizeof(struct mpls_shim_hdr);
++}
++
++int mpls_output(struct sock *sk, struct sk_buff *skb)
++{
++	struct mpls_iptunnel_encap *tun_encap_info;
++	struct mpls_shim_hdr *hdr;
++	struct mpls_entry_decoded dec;
++	struct net_device *out_dev;
++	unsigned int hh_len;
++	unsigned int new_header_size;
++	unsigned int mtu;
++	struct lwtunnel_state *lwtstate;
++	struct rtable *rt = skb_rtable(skb);
++	int err;
++	bool bos;
++	int i;
++
++	if (skb->pkt_type != PACKET_HOST)
++		goto drop;
++
++	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
++		goto drop;
++
++	if (!rt)
++		goto drop;
++
++	/* Find the output device */
++	out_dev = rcu_dereference(skb_dst(skb)->dev);
++	if (!mpls_output_possible(out_dev))
++		goto drop;
++
++	if (skb_warn_if_lro(skb))
++		goto drop;
++	skb_forward_csum(skb);
++
++	lwtstate = rt->rt_lwtstate;
++	if (!lwtstate)
++		goto drop;
++
++	tun_encap_info = mpls_lwt_hdr(lwtstate);
++
++	/* Verify the destination can hold the packet */
++	new_header_size = mpls_encap_size(tun_encap_info);
++	mtu = mpls_dev_mtu(out_dev);
++	if (mpls_pkt_too_big(skb, mtu - new_header_size))
++		goto drop;
++
++	hh_len = LL_RESERVED_SPACE(out_dev);
++	if (!out_dev->header_ops)
++		hh_len = 0;
++
++	/* Ensure there is enough space for the headers in the skb */
++	if (skb_cow(skb, hh_len + new_header_size))
++		goto drop;
++
++	skb->dev = out_dev;
++	skb->protocol = htons(ETH_P_MPLS_UC);
++
++	skb_push(skb, new_header_size);
++	skb_reset_network_header(skb);
++
++	/* Push the new labels */
++	hdr = mpls_hdr(skb);
++	bos = true;
++	for (i = tun_encap_info->labels - 1; i >= 0; i--) {
++		hdr[i] = mpls_entry_encode(tun_encap_info->label[i],
++					   dec.ttl, 0, bos);
++		bos = false;
++	}
++
++	err = neigh_xmit(NEIGH_ARP_TABLE, out_dev, &rt->rt_gateway,
++			 skb);
++	if (err)
++		net_dbg_ratelimited("%s: packet transmission failed: "
++					"%d\n", __func__, err);
++
++	return 0;
++
++drop:
++	kfree_skb(skb);
++	return -EINVAL;
++}
++
++static int mpls_build_state(struct net_device *dev, struct nlattr *nla,
++			    struct lwtunnel_state **ts)
++{
++	struct mpls_iptunnel_encap *tun_encap_info;
++	struct nlattr *tb[MPLS_IPTUNNEL_MAX+1];
++	struct lwtunnel_state *newts;
++	int tun_encap_info_len;
 +	int ret;
 +
- 	change_nexthops(fi) {
- 		int attrlen;
- 
-@@ -475,12 +499,40 @@ static int fib_get_nhs(struct fib_info *fi, struct rtnexthop *rtnh,
- 			if (nexthop_nh->nh_tclassid)
- 				fi->fib_net->ipv4.fib_num_tclassid_users++;
- #endif
-+#ifdef CONFIG_LWTUNNEL
-+			nla = nla_find(attrs, attrlen, RTA_ENCAP);
-+			if (nla) {
-+				struct lwtunnel_state *lwtstate;
-+				struct net_device *dev = NULL;
-+				struct nlattr *nla_entype;
++	ret = nla_parse_nested(tb, MPLS_IPTUNNEL_MAX, nla,
++			       mpls_iptunnel_policy);
++	if (ret < 0)
++		return ret;
 +
-+				nla_entype = nla_find(attrs, attrlen,
-+						      RTA_ENCAP_TYPE);
-+				if (!nla_entype)
-+					goto err_inval;
-+				if (cfg->fc_oif)
-+					dev = __dev_get_by_index(net, cfg->fc_oif);
-+				ret = lwtunnel_build_state(dev, nla_get_u16(
-+							   nla_entype),
-+							   nla, &lwtstate);
-+				if (ret)
-+					goto errout;
-+				lwtunnel_state_get(lwtstate);
-+				nexthop_nh->nh_lwtstate = lwtstate;
-+			}
-+#endif
- 		}
- 
- 		rtnh = rtnh_next(rtnh, &remaining);
- 	} endfor_nexthops(fi);
- 
- 	return 0;
++	if (!tb[MPLS_IPTUNNEL_DST])
++		return -EINVAL;
 +
-+err_inval:
-+	ret = -EINVAL;
++	tun_encap_info_len = sizeof(*tun_encap_info);
++
++	newts = lwtunnel_state_alloc(tun_encap_info_len);
++	if (!newts)
++		return -ENOMEM;
++
++	newts->tunnel.len = tun_encap_info_len;
++	tun_encap_info = mpls_lwt_hdr(newts);
++	ret = nla_get_labels(tb[MPLS_IPTUNNEL_DST], MAX_NEW_LABELS,
++			     &tun_encap_info->labels, tun_encap_info->label);
++	if (ret)
++		goto errout;
++	newts->type = LWTUNNEL_ENCAP_MPLS;
++	newts->flags |= LWTUNNEL_STATE_OUTPUT_REDIRECT;
++
++	*ts = newts;
++
++	return 0;
 +
 +errout:
++	kfree(newts);
++	*ts = NULL;
++
 +	return ret;
- }
- 
- #endif
-@@ -875,6 +927,25 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- 	} else {
- 		struct fib_nh *nh = fi->fib_nh;
- 
-+#ifdef CONFIG_LWTUNNEL
-+		if (cfg->fc_encap) {
-+			struct lwtunnel_state *lwtstate;
-+			struct net_device *dev = NULL;
-+			int ret;
++}
 +
-+			if (cfg->fc_encap_type == LWTUNNEL_ENCAP_NONE)
-+				goto err_inval;
-+			if (cfg->fc_oif)
-+				dev = __dev_get_by_index(net, cfg->fc_oif);
-+			ret = lwtunnel_build_state(dev, cfg->fc_encap_type,
-+						   cfg->fc_encap, &lwtstate);
-+			if (ret)
-+				goto err_inval;
++static int mpls_fill_encap_info(struct sk_buff *skb,
++				struct lwtunnel_state *lwtstate)
++{
++	struct mpls_iptunnel_encap *tun_encap_info;
 +
-+			lwtunnel_state_get(lwtstate);
-+			nh->nh_lwtstate = lwtstate;
-+		}
-+#endif
- 		nh->nh_oif = cfg->fc_oif;
- 		nh->nh_gw = cfg->fc_gw;
- 		nh->nh_flags = cfg->fc_flags;
-@@ -1034,7 +1105,17 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
- 		    nla_put_u32(skb, RTA_FLOW, fi->fib_nh[0].nh_tclassid))
- 			goto nla_put_failure;
- #endif
-+#ifdef CONFIG_LWTUNNEL
-+		if (fi->fib_nh->nh_lwtstate) {
-+			struct lwtunnel_state *lwtstate;
++	tun_encap_info = mpls_lwt_hdr(lwtstate);
++	if (nla_put_labels(skb, MPLS_IPTUNNEL_DST, tun_encap_info->labels,
++			   tun_encap_info->label))
++		goto nla_put_failure;
 +
-+			lwtstate = fi->fib_nh->nh_lwtstate;
-+			if (nla_put_u16(skb, RTA_ENCAP_TYPE, lwtstate->type))
-+				goto nla_put_failure;
-+			lwtunnel_fill_encap(skb, lwtstate);
-+		}
- 	}
-+#endif
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 	if (fi->fib_nhs > 1) {
- 		struct rtnexthop *rtnh;
-@@ -1061,6 +1142,16 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
- 			    nla_put_u32(skb, RTA_FLOW, nh->nh_tclassid))
- 				goto nla_put_failure;
- #endif
-+#ifdef CONFIG_LWTUNNEL
-+			if (nh->nh_lwtstate) {
-+				struct lwtunnel_state *lwtstate;
++	return 0;
 +
-+				lwtstate = nh->nh_lwtstate;
-+				if (nla_put_u16(skb, RTA_ENCAP_TYPE, lwtstate->type))
-+					goto nla_put_failure;
-+				lwtunnel_fill_encap(skb, lwtstate);
-+			}
-+#endif
- 			/* length of rtnetlink header + attributes */
- 			rtnh->rtnh_len = nlmsg_get_pos(skb) - (void *) rtnh;
- 		} endfor_nexthops(fi);
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index f605598..c6549f9 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -102,6 +102,7 @@
- #include <net/tcp.h>
- #include <net/icmp.h>
- #include <net/xfrm.h>
-+#include <net/lwtunnel.h>
- #include <net/netevent.h>
- #include <net/rtnetlink.h>
- #ifdef CONFIG_SYSCTL
-@@ -1355,6 +1356,9 @@ static void ipv4_dst_destroy(struct dst_entry *dst)
- 		list_del(&rt->rt_uncached);
- 		spin_unlock_bh(&ul->lock);
- 	}
-+#ifdef CONFIG_LWTUNNEL
-+	lwtunnel_state_put(rt->rt_lwtstate);
-+#endif
- }
- 
- void rt_flush_dev(struct net_device *dev)
-@@ -1403,6 +1407,14 @@ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
- #ifdef CONFIG_IP_ROUTE_CLASSID
- 		rt->dst.tclassid = nh->nh_tclassid;
- #endif
-+#ifdef CONFIG_LWTUNNEL
-+		if (nh->nh_lwtstate) {
-+			lwtunnel_state_get(nh->nh_lwtstate);
-+			rt->rt_lwtstate = nh->nh_lwtstate;
-+		} else {
-+			rt->rt_lwtstate = NULL;
-+		}
-+#endif
- 		if (unlikely(fnhe))
- 			cached = rt_bind_exception(rt, fnhe, daddr);
- 		else if (!(rt->dst.flags & DST_NOCACHE))
-@@ -1488,6 +1500,9 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	rth->rt_gateway	= 0;
- 	rth->rt_uses_gateway = 0;
- 	INIT_LIST_HEAD(&rth->rt_uncached);
-+#ifdef CONFIG_LWTUNNEL
-+	rth->rt_lwtstate = NULL;
-+#endif
- 	if (our) {
- 		rth->dst.input= ip_local_deliver;
- 		rth->rt_flags |= RTCF_LOCAL;
-@@ -1618,12 +1633,19 @@ static int __mkroute_input(struct sk_buff *skb,
- 	rth->rt_gateway	= 0;
- 	rth->rt_uses_gateway = 0;
- 	INIT_LIST_HEAD(&rth->rt_uncached);
-+#ifdef CONFIG_LWTUNNEL
-+	rth->rt_lwtstate = NULL;
-+#endif
- 	RT_CACHE_STAT_INC(in_slow_tot);
- 
- 	rth->dst.input = ip_forward;
- 	rth->dst.output = ip_output;
- 
- 	rt_set_nexthop(rth, daddr, res, fnhe, res->fi, res->type, itag);
-+#ifdef CONFIG_LWTUNNEL
-+	if (lwtunnel_output_redirect(rth->rt_lwtstate))
-+		rth->dst.output = lwtunnel_output;
-+#endif
- 	skb_dst_set(skb, &rth->dst);
- out:
- 	err = 0;
-@@ -1792,6 +1814,9 @@ local_input:
- 	rth->rt_gateway	= 0;
- 	rth->rt_uses_gateway = 0;
- 	INIT_LIST_HEAD(&rth->rt_uncached);
-+#ifdef CONFIG_LWTUNNEL
-+	rth->rt_lwtstate = NULL;
-+#endif
- 	RT_CACHE_STAT_INC(in_slow_tot);
- 	if (res.type == RTN_UNREACHABLE) {
- 		rth->dst.input= ip_error;
-@@ -1981,7 +2006,9 @@ add:
- 	rth->rt_gateway = 0;
- 	rth->rt_uses_gateway = 0;
- 	INIT_LIST_HEAD(&rth->rt_uncached);
--
-+#ifdef CONFIG_LWTUNNEL
-+	rth->rt_lwtstate = NULL;
-+#endif
- 	RT_CACHE_STAT_INC(out_slow_tot);
- 
- 	if (flags & RTCF_LOCAL)
-@@ -2261,7 +2288,9 @@ struct dst_entry *ipv4_blackhole_route(struct net *net, struct dst_entry *dst_or
- 		rt->rt_uses_gateway = ort->rt_uses_gateway;
- 
- 		INIT_LIST_HEAD(&rt->rt_uncached);
--
-+#ifdef CONFIG_LWTUNNEL
-+		rt->rt_lwtstate = NULL;
-+#endif
- 		dst_free(new);
- 	}
- 
++nla_put_failure:
++	return -EMSGSIZE;
++}
++
++static int mpls_encap_nlsize(struct lwtunnel_state *lwtstate)
++{
++	struct mpls_iptunnel_encap *tun_encap_info = mpls_lwt_hdr(lwtstate);
++
++	return nla_total_size(tun_encap_info->labels * 4);
++}
++
++static const struct lwtunnel_encap_ops mpls_iptun_ops = {
++	.build_state = mpls_build_state,
++	.output = mpls_output,
++	.fill_encap = mpls_fill_encap_info,
++	.get_encap_size = mpls_encap_nlsize,
++};
++
++static int __init mpls_iptunnel_init(void)
++{
++	lwtunnel_encap_add_ops(&mpls_iptun_ops, LWTUNNEL_ENCAP_MPLS);
++
++	return 0;
++}
++module_init(mpls_iptunnel_init);
++
++static void __exit mpls_iptunnel_exit(void)
++{
++	lwtunnel_encap_del_ops(&mpls_iptun_ops, LWTUNNEL_ENCAP_MPLS);
++}
++module_exit(mpls_iptunnel_exit);
++
++MODULE_DESCRIPTION("MultiProtocol Label Switching IP Tunnels");
++MODULE_LICENSE("GPL v2");
 -- 
 1.7.10.4
