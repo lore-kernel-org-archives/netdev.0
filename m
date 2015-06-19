@@ -1,353 +1,52 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next RFC v2 1/3] lwt: infrastructure to support light weight tunnels
-Date: Thu, 18 Jun 2015 21:49:13 -0700
-Message-ID: <1434689355-4088-2-git-send-email-roopa@cumulusnetworks.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: ebiederm@xmission.com, rshearma@brocade.com, tgraf@suug.ch
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC net] neigh: do not modify unlinked entries
+Date: Thu, 18 Jun 2015 23:40:10 -0700
+Message-ID: <1434696010.31511.0.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1434484599-5875-1-git-send-email-ja@ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ying Xue <ying.xue@windriver.com>,
+	alexei@purestorage.com, joern@purestorage.com
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:33668 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752148AbbFSEtV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 00:49:21 -0400
-Received: by padev16 with SMTP id ev16so76791570pad.0
-        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 21:49:21 -0700 (PDT)
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:36709 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751021AbbFSGkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 02:40:15 -0400
+Received: by wicnd19 with SMTP id nd19so9380785wic.1
+        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 23:40:13 -0700 (PDT)
+In-Reply-To: <1434484599-5875-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Tue, 2015-06-16 at 22:56 +0300, Julian Anastasov wrote:
+> The lockless lookups can return entry that is unlinked.
+> Sometimes they get reference before last neigh_cleanup_and_release,
+> sometimes they do not need reference. Later, any
+> modification attempts may result in the following problems:
+> 
+> 1. entry is not destroyed immediately because neigh_update
+> can start the timer for dead entry, eg. on change to NUD_REACHABLE
+> state. As result, entry lives for some time but is invisible
+> and out of control.
+> 
+> 2. __neigh_event_send can run in parallel with neigh_destroy
+> while refcnt=0 but if timer is started and expired refcnt can
+> reach 0 for second time leading to second neigh_destroy and
+> possible crash.
+> 
+> Thanks to Eric Dumazet and Ying Xue for their work and analyze
+> on the __neigh_event_send change.
+> 
+> Fixes: 767e97e1e0db ("neigh: RCU conversion of struct neighbour")
+> Fixes: a263b3093641 ("ipv4: Make neigh lookups directly in output packet path.")
+> Fixes: 6fd6ce2056de ("ipv6: Do not depend on rt->n in ip6_finish_output2().")
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> ---
 
-provides ops to parse, build and output encaped
-packets for drivers that want to attach tunnel encap
-information to routes.
+Seems good to me Julian !
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- include/linux/lwtunnel.h      |    6 ++
- include/net/lwtunnel.h        |   84 +++++++++++++++++++++
- include/uapi/linux/lwtunnel.h |   11 +++
- net/Kconfig                   |    5 ++
- net/core/Makefile             |    1 +
- net/core/lwtunnel.c           |  162 +++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 269 insertions(+)
- create mode 100644 include/linux/lwtunnel.h
- create mode 100644 include/net/lwtunnel.h
- create mode 100644 include/uapi/linux/lwtunnel.h
- create mode 100644 net/core/lwtunnel.c
-
-diff --git a/include/linux/lwtunnel.h b/include/linux/lwtunnel.h
-new file mode 100644
-index 0000000..97f32f8
---- /dev/null
-+++ b/include/linux/lwtunnel.h
-@@ -0,0 +1,6 @@
-+#ifndef _LINUX_LWTUNNEL_H_
-+#define _LINUX_LWTUNNEL_H_
-+
-+#include <uapi/linux/lwtunnel.h>
-+
-+#endif /* _LINUX_LWTUNNEL_H_ */
-diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
-new file mode 100644
-index 0000000..649da3c
---- /dev/null
-+++ b/include/net/lwtunnel.h
-@@ -0,0 +1,84 @@
-+#ifndef __NET_LWTUNNEL_H
-+#define __NET_LWTUNNEL_H 1
-+
-+#include <linux/lwtunnel.h>
-+#include <linux/netdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/types.h>
-+#include <net/dsfield.h>
-+#include <net/ip.h>
-+#include <net/rtnetlink.h>
-+
-+#define LWTUNNEL_HASH_BITS   7
-+#define LWTUNNEL_HASH_SIZE   (1 << LWTUNNEL_HASH_BITS)
-+
-+struct lwtunnel_hdr {
-+	int             len;
-+	__u8            data[0];
-+};
-+
-+/* lw tunnel state flags */
-+#define LWTUNNEL_STATE_OUTPUT_REDIRECT 0x1
-+
-+#define lwtunnel_output_redirect(lwtstate) (lwtstate && \
-+			(lwtstate->flags & LWTUNNEL_STATE_OUTPUT_REDIRECT))
-+
-+struct lwtunnel_state {
-+	__u16		type;
-+	__u16		flags;
-+	atomic_t	refcnt;
-+	struct lwtunnel_hdr tunnel;
-+};
-+
-+struct lwtunnel_net {
-+	struct hlist_head tunnels[LWTUNNEL_HASH_SIZE];
-+};
-+
-+struct lwtunnel_encap_ops {
-+	int (*build_state)(struct net_device *dev, struct nlattr *encap,
-+			   struct lwtunnel_state **ts);
-+	int (*output)(struct sock *sk, struct sk_buff *skb);
-+	int (*fill_encap)(struct sk_buff *skb,
-+			  struct lwtunnel_state *lwtstate);
-+	int (*get_encap_size)(struct lwtunnel_state *lwtstate);
-+};
-+
-+#define MAX_LWTUNNEL_ENCAP_OPS 8
-+extern const struct lwtunnel_encap_ops __rcu *
-+		lwtun_encaps[MAX_LWTUNNEL_ENCAP_OPS];
-+
-+static inline void lwtunnel_state_get(struct lwtunnel_state *lws)
-+{
-+	atomic_inc(&lws->refcnt);
-+}
-+
-+static inline void lwtunnel_state_put(struct lwtunnel_state *lws)
-+{
-+	if (!lws)
-+		return;
-+
-+	if (atomic_dec_and_test(&lws->refcnt))
-+		kfree(lws);
-+}
-+
-+static inline struct lwtunnel_state *lwtunnel_skb_lwstate(struct sk_buff *skb)
-+{
-+	struct rtable *rt = (struct rtable *)skb_dst(skb);
-+
-+	return rt->rt_lwtstate;
-+}
-+
-+int lwtunnel_encap_add_ops(const struct lwtunnel_encap_ops *op,
-+			   unsigned int num);
-+int lwtunnel_encap_del_ops(const struct lwtunnel_encap_ops *op,
-+			   unsigned int num);
-+int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
-+			 struct nlattr *encap,
-+			 struct lwtunnel_state **lws);
-+int lwtunnel_fill_encap(struct sk_buff *skb,
-+			struct lwtunnel_state *lwtstate);
-+int lwtunnel_get_encap_size(struct lwtunnel_state *lwtstate);
-+struct lwtunnel_state *lwtunnel_state_alloc(int hdr_len);
-+int lwtunnel_output(struct sock *sk, struct sk_buff *skb);
-+
-+#endif /* __NET_LWTUNNEL_H */
-diff --git a/include/uapi/linux/lwtunnel.h b/include/uapi/linux/lwtunnel.h
-new file mode 100644
-index 0000000..11150c0
---- /dev/null
-+++ b/include/uapi/linux/lwtunnel.h
-@@ -0,0 +1,11 @@
-+#ifndef _UAPI_LWTUNNEL_H_
-+#define _UAPI_LWTUNNEL_H_
-+
-+#include <linux/types.h>
-+
-+enum tunnel_encap_types {
-+	LWTUNNEL_ENCAP_NONE,
-+	LWTUNNEL_ENCAP_MPLS,
-+};
-+
-+#endif /* _UAPI_LWTUNNEL_H_ */
-diff --git a/net/Kconfig b/net/Kconfig
-index 57a7c5a..e296d6f 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -374,9 +374,14 @@ source "net/caif/Kconfig"
- source "net/ceph/Kconfig"
- source "net/nfc/Kconfig"
- 
-+config LWTUNNEL
-+	bool "Network light weight tunnels"
-+	---help---
-+	  light weight tunnels
- 
- endif   # if NET
- 
- # Used by archs to tell that they support BPF_JIT
- config HAVE_BPF_JIT
- 	bool
-+
-diff --git a/net/core/Makefile b/net/core/Makefile
-index fec0856..086b01f 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -23,3 +23,4 @@ obj-$(CONFIG_NETWORK_PHY_TIMESTAMPING) += timestamping.o
- obj-$(CONFIG_NET_PTP_CLASSIFY) += ptp_classifier.o
- obj-$(CONFIG_CGROUP_NET_PRIO) += netprio_cgroup.o
- obj-$(CONFIG_CGROUP_NET_CLASSID) += netclassid_cgroup.o
-+obj-$(CONFIG_LWTUNNEL) += lwtunnel.o
-diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
-new file mode 100644
-index 0000000..29c7802
---- /dev/null
-+++ b/net/core/lwtunnel.c
-@@ -0,0 +1,162 @@
-+/*
-+ * lwtunnel	Infrastructure for light weight tunnels like mpls
-+ *
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ */
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/capability.h>
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/slab.h>
-+#include <linux/uaccess.h>
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include <linux/in.h>
-+#include <linux/init.h>
-+#include <linux/err.h>
-+
-+#include <net/lwtunnel.h>
-+#include <net/rtnetlink.h>
-+
-+struct lwtunnel_state *lwtunnel_state_alloc(int hdr_len)
-+{
-+	struct lwtunnel_state *lws;
-+
-+	return kzalloc(sizeof(*lws) + hdr_len, GFP_KERNEL);
-+}
-+EXPORT_SYMBOL(lwtunnel_state_alloc);
-+
-+const struct lwtunnel_encap_ops __rcu *
-+		lwtun_encaps[MAX_LWTUNNEL_ENCAP_OPS] __read_mostly;
-+
-+int lwtunnel_encap_add_ops(const struct lwtunnel_encap_ops *ops,
-+			   unsigned int num)
-+{
-+	if (num >= MAX_LWTUNNEL_ENCAP_OPS)
-+		return -ERANGE;
-+
-+	return !cmpxchg((const struct lwtunnel_encap_ops **)
-+			&lwtun_encaps[num],
-+			NULL, ops) ? 0 : -1;
-+}
-+EXPORT_SYMBOL(lwtunnel_encap_add_ops);
-+
-+int lwtunnel_encap_del_ops(const struct lwtunnel_encap_ops *ops,
-+			   unsigned int num)
-+{
-+	int ret;
-+
-+	if (num >= MAX_LWTUNNEL_ENCAP_OPS)
-+		return -ERANGE;
-+
-+	ret = (cmpxchg((const struct lwtunnel_encap_ops **)
-+		       &lwtun_encaps[num],
-+		       ops, NULL) == ops) ? 0 : -1;
-+
-+	synchronize_net();
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(lwtunnel_encap_del_ops);
-+
-+int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
-+			 struct nlattr *encap, struct lwtunnel_state **lws)
-+{
-+	const struct lwtunnel_encap_ops *ops;
-+	int ret = -EINVAL;
-+
-+	if (encap_type == LWTUNNEL_ENCAP_NONE ||
-+	    encap_type >= MAX_LWTUNNEL_ENCAP_OPS)
-+		return ret;
-+
-+	ret = -EOPNOTSUPP;
-+	rcu_read_lock();
-+	ops = rcu_dereference(lwtun_encaps[encap_type]);
-+	if (likely(ops && ops->build_state))
-+		ret = ops->build_state(dev, encap, lws);
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(lwtunnel_build_state);
-+
-+int lwtunnel_fill_encap(struct sk_buff *skb, struct lwtunnel_state *lwtstate)
-+{
-+	const struct lwtunnel_encap_ops *ops;
-+	struct nlattr *nest;
-+	int ret = -EINVAL;
-+
-+	if (lwtstate->type == LWTUNNEL_ENCAP_NONE ||
-+	    lwtstate->type >= MAX_LWTUNNEL_ENCAP_OPS)
-+		return 0;
-+
-+	ret = -EOPNOTSUPP;
-+	nest = nla_nest_start(skb, RTA_ENCAP);
-+	rcu_read_lock();
-+	ops = rcu_dereference(lwtun_encaps[lwtstate->type]);
-+	if (likely(ops && ops->fill_encap))
-+		ret = ops->fill_encap(skb, lwtstate);
-+	rcu_read_unlock();
-+
-+	if (ret)
-+		goto errout;
-+
-+	nla_nest_end(skb, nest);
-+
-+	return 0;
-+
-+errout:
-+	nla_nest_cancel(skb, nest);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(lwtunnel_fill_encap);
-+
-+int lwtunnel_get_encap_size(struct lwtunnel_state *lwtstate)
-+{
-+	const struct lwtunnel_encap_ops *ops;
-+	int ret = 0;
-+
-+	if (lwtstate->type == LWTUNNEL_ENCAP_NONE ||
-+	    lwtstate->type >= MAX_LWTUNNEL_ENCAP_OPS)
-+		return 0;
-+
-+	rcu_read_lock();
-+	ops = rcu_dereference(lwtun_encaps[lwtstate->type]);
-+	if (likely(ops && ops->get_encap_size))
-+		ret = nla_total_size(ops->get_encap_size(lwtstate));
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(lwtunnel_get_encap_size);
-+
-+int lwtunnel_output(struct sock *sk, struct sk_buff *skb)
-+{
-+	const struct lwtunnel_encap_ops *ops;
-+	struct lwtunnel_state *lwtstate = lwtunnel_skb_lwstate(skb);
-+	int ret = 0;
-+
-+	if (!lwtstate)
-+		return -EINVAL;
-+
-+	if (lwtstate->type == LWTUNNEL_ENCAP_NONE ||
-+	    lwtstate->type >= MAX_LWTUNNEL_ENCAP_OPS)
-+		return 0;
-+
-+	rcu_read_lock();
-+	ops = rcu_dereference(lwtun_encaps[lwtstate->type]);
-+	if (likely(ops && ops->output))
-+		ret = ops->output(sk, skb);
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(lwtunnel_output);
--- 
-1.7.10.4
+Acked-by: Eric Dumazet <edumazet@google.com>
