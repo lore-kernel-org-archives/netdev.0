@@ -1,53 +1,137 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH next v3] bonding: Display LACP info only to CAP_NET_ADMIN
- capable user
-Date: Fri, 19 Jun 2015 13:07:31 -0400
-Message-ID: <20150619170730.GR588@gospo.home.greyhouse.net>
-References: <1434652254-17510-1-git-send-email-maheshb@google.com>
- <20150619030010.GP588@gospo.home.greyhouse.net>
- <CAF2d9jjpzE+M0mKgTu_HL_b4zn4WimLK8We0bH-AyEuUiFD7yw@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 00/12] Netfilter updates for net-next
+Date: Fri, 19 Jun 2015 19:17:37 +0200
+Message-ID: <1434734269-4545-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Mahesh Bandewar <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f175.google.com ([209.85.220.175]:35311 "EHLO
-	mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752164AbbFSRHf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 13:07:35 -0400
-Received: by qkbp125 with SMTP id p125so59754674qkb.2
-        for <netdev@vger.kernel.org>; Fri, 19 Jun 2015 10:07:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAF2d9jjpzE+M0mKgTu_HL_b4zn4WimLK8We0bH-AyEuUiFD7yw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 19, 2015 at 10:02:39AM -0700, Mahesh Bandewar wrote:
-> On Thu, Jun 18, 2015 at 8:00 PM, Andy Gospodarek
-> <gospo@cumulusnetworks.com> wrote:
-[...]
-> > With this patch, actor_oper_port_state and partner_oper.port_state are
-> > not displayed in /proc, but that information is available via netlink
-> > from bond_fill_slave_info().
-> >
-> > I suspect you do not deem these two values as critical to the security
-> > of the system, but wanted to confirm before ACKing.
-> >
-> Yes, one can very easily figure out that LACP is used in the system
-> with parameters like bond-mode, lacp-rate, or the port-state. I feel
-> these do not need to be hidden from unprivileged users to ensure
-> security. Principally hiding enough to ensure security would be good
-> rather than hiding everything. However if there is a scenario where
-> exposing these values is a threat (in the same sense) then it's not
-> lot of extra work to achieve that and I'm open to make those change.
+Hi David,
 
-Sounds fine to me.  I just wanted to be sure the diffrence between the
-information displayed in various modes was intentional (or at least not
-unintentional) and did not conflict with your plans.
+The following patchset contains a final Netfilter pull request for net-next
+4.2. This mostly addresses some fallout from the previous pull request, small
+netns updates and a couple of new features for nfnetlink_log and the socket
+match that didn't get in time for the previous pull request. More specifically
+they are:
 
-Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+1) Add security context information to nfnetlink_queue, from Roman Kubiak.
+
+2) Add support to restore the sk_mark into skb->mark through xt_socket,
+   from Harout Hedeshian.
+
+3) Force alignment of 16 bytes of per cpu xt_counters, from Eric Dumazet.
+
+4) Rename br_netfilter.c to br_netfilter_hooks.c to prepare split of IPv6 code
+   into a separated file.
+
+5) Move the IPv6 code in br_netfilter into a separated file.
+
+6) Remove unused RCV_SKB_FAIL() in nfnetlink_queue and nfetlink_log, from Eric
+   Biederman.
+
+7) Two liner to simplify netns logic in em_ipset_match().
+
+8) Add missing includes to net/net_namespace.h to avoid compilation problems
+   that result from not including linux/netfilter.h in netns headers.
+
+9) Use a forward declaration instead of including linux/proc_fs.h from
+   netns/netfilter.h
+
+10) Add a new linux/netfilter_defs.h to replace the linux/netfilter.h inclusion
+    in netns headers.
+
+11) Remove spurious netfilter.h file included in the net tree, also from Eric
+    Biederman.
+
+12) Fix x_tables compilation warnings on 32 bits platforms that resulted from
+    recent changes in x_tables counters, from Florian Westphal.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 89d256bb69f2596c3a31ac51466eac9e1791c388:
+
+  bpf: disallow bpf tc programs access current->pid,uid (2015-06-15 20:51:20 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+for you to fetch changes up to dcb8f5c8139ef945cdfd55900fae265c4dbefc02:
+
+  netfilter: xtables: fix warnings on 32bit platforms (2015-06-18 21:14:33 +0200)
+
+----------------------------------------------------------------
+Eric Dumazet (1):
+      netfilter: x_tables: align per cpu xt_counter
+
+Eric W Biederman (1):
+      netfilter: Remove spurios included of netfilter.h
+
+Eric W. Biederman (2):
+      netfilter: Kill unused copies of RCV_SKB_FAIL
+      net: sched: Simplify em_ipset_match
+
+Florian Westphal (1):
+      netfilter: xtables: fix warnings on 32bit platforms
+
+Harout Hedeshian (1):
+      netfilter: xt_socket: add XT_SOCKET_RESTORESKMARK flag
+
+Pablo Neira Ayuso (5):
+      netfilter: bridge: rename br_netfilter.c to br_netfilter_hooks.c
+      netfilter: bridge: split ipv6 code into separated file
+      net: include missing headers in net/net_namespace.h
+      netfilter: use forward declaration instead of including linux/proc_fs.h
+      netfilter: don't pull include/linux/netfilter.h from netns headers
+
+Roman Kubiak (1):
+      netfilter: nfnetlink_queue: add security context information
+
+ drivers/net/hamradio/bpqether.c                    |    1 -
+ drivers/net/ppp/pptp.c                             |    2 -
+ drivers/net/wan/lapbether.c                        |    1 -
+ include/linux/netfilter.h                          |    6 +-
+ include/linux/netfilter/x_tables.h                 |   14 +-
+ include/linux/netfilter_defs.h                     |    9 +
+ include/net/net_namespace.h                        |    2 +
+ include/net/netfilter/br_netfilter.h               |   60 +++++
+ include/net/netns/netfilter.h                      |    4 +-
+ include/net/netns/x_tables.h                       |    2 +-
+ include/uapi/linux/netfilter.h                     |    3 +-
+ include/uapi/linux/netfilter/nfnetlink_queue.h     |    4 +-
+ include/uapi/linux/netfilter/xt_socket.h           |    8 +
+ net/ax25/af_ax25.c                                 |    1 -
+ net/ax25/ax25_in.c                                 |    1 -
+ net/ax25/ax25_ip.c                                 |    1 -
+ net/ax25/ax25_out.c                                |    1 -
+ net/ax25/ax25_uid.c                                |    1 -
+ net/bridge/Makefile                                |    2 +
+ .../{br_netfilter.c => br_netfilter_hooks.c}       |  248 +-------------------
+ net/bridge/br_netfilter_ipv6.c                     |  245 +++++++++++++++++++
+ net/ipv6/output_core.c                             |    1 +
+ net/netfilter/nf_synproxy_core.c                   |    1 +
+ net/netfilter/nfnetlink_log.c                      |    2 -
+ net/netfilter/nfnetlink_queue_core.c               |   37 ++-
+ net/netfilter/xt_socket.c                          |   59 ++++-
+ net/netrom/nr_route.c                              |    1 -
+ net/rose/rose_link.c                               |    1 -
+ net/rose/rose_route.c                              |    1 -
+ net/sched/em_ipset.c                               |    4 +-
+ security/selinux/xfrm.c                            |    3 -
+ 31 files changed, 444 insertions(+), 282 deletions(-)
+ create mode 100644 include/linux/netfilter_defs.h
+ rename net/bridge/{br_netfilter.c => br_netfilter_hooks.c} (82%)
+ create mode 100644 net/bridge/br_netfilter_ipv6.c
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
