@@ -1,105 +1,54 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH] net: dsa: mv88e6xxx: split phy page accessors
-Date: Fri, 19 Jun 2015 10:32:10 -0400
-Message-ID: <1434724330-3442-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Guenter Roeck <linux@roeck-us.net>,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net-next RFC v2 0/3] light weight tunnel infrastructure
+ and driver
+Date: Fri, 19 Jun 2015 15:38:36 +0100
+Message-ID: <5584296C.1080108@brocade.com>
+References: <1434689355-4088-1-git-send-email-roopa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>, <ebiederm@xmission.com>,
+	<tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:29322 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751391AbbFSOiv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 10:38:51 -0400
+In-Reply-To: <1434689355-4088-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Split mv88e6xxx_phy_page_read and mv88e6xxx_phy_page_write into two
-functions each, one to acquire the smi_mutex and one to call the actual
-read/write functions.
+On 19/06/15 05:49, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> This series implements infrastructure for light weight tunnels to support
+> mpls label edge routers (ie mpls ip tunnels). As previously discussed
+> having netdevices will not scale. Hence this series introduces new RTA_ENCAP*
+> attributes to attach encap information with routes (following suggestion
+> from Eric Biederman).
 
-This will be useful to access registers such as Fiber/SERDES Control,
-from setup code with SMI lock held.
+Looks promising, thanks for posting this series Roopa!
 
-Also rename their "error" labels to "clear", since it is not only an
-error path.
+>
+> The first patch introduces an infrastructure to support light weight tunnels
+> that dont have netdevices. The infrastructure allows tunnel drivers
+> to register handlers to parse and build tunnel encap data which can be attached
+> to each route nexthop.
+>
+> The second patch adds support in ipv4 fib to carry such light weight tunnel
+> encap data.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 43 ++++++++++++++++++++++++++++++++-----------
- 1 file changed, 32 insertions(+), 11 deletions(-)
+I presume this isn't ready to be merged until IPv6 is done, right?
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index bfe70ce..9caec51 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2068,37 +2068,58 @@ int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active)
- 	return 0;
- }
- 
--int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg)
-+/* Must be called with SMI lock held */
-+static int _mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page,
-+				    int reg)
- {
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
- 
--	mutex_lock(&ps->smi_mutex);
- 	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
- 	if (ret < 0)
--		goto error;
-+		goto clear;
- 	ret = _mv88e6xxx_phy_read_indirect(ds, port, reg);
--error:
-+clear:
- 	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
--	mutex_unlock(&ps->smi_mutex);
- 	return ret;
- }
- 
--int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
--			     int reg, int val)
-+int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
- 
- 	mutex_lock(&ps->smi_mutex);
-+	ret = _mv88e6xxx_phy_page_read(ds, port, page, reg);
-+	mutex_unlock(&ps->smi_mutex);
-+
-+	return ret;
-+}
-+
-+/* Must be called with SMI lock held */
-+static int _mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
-+				     int reg, int val)
-+{
-+	int ret;
-+
- 	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
- 	if (ret < 0)
--		goto error;
--
-+		goto clear;
- 	ret = _mv88e6xxx_phy_write_indirect(ds, port, reg, val);
--error:
-+clear:
- 	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
-+	return ret;
-+}
-+
-+int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
-+			     int reg, int val)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	int ret;
-+
-+	mutex_lock(&ps->smi_mutex);
-+	ret = _mv88e6xxx_phy_page_write(ds, port, page, reg, val);
- 	mutex_unlock(&ps->smi_mutex);
-+
- 	return ret;
- }
- 
--- 
-2.4.3
+>
+> The third patch implements mpls ip tunnels using this light weight tunnel
+> infrastructure.
+>
+> Could not think of a better name, so, it is 'lwt' for 'light weight tunnels'
+> for now.
+
+I can't think of a better name either.
+
+Thanks,
+Rob
