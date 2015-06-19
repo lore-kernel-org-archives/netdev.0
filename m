@@ -1,91 +1,87 @@
-From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
-Subject: Re: [PATCH 1/1] ssb: remove unncessary out label
-Date: Fri, 19 Jun 2015 17:13:11 +0200
-Message-ID: <20150619171311.7ed6dfd1@wiggum>
-References: <1434704025-20448-1-git-send-email-maninder1.s@samsung.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next RFC v2 1/3] lwt: infrastructure to support light
+ weight tunnels
+Date: Fri, 19 Jun 2015 08:14:11 -0700
+Message-ID: <558431C3.5020703@cumulusnetworks.com>
+References: <1434689355-4088-2-git-send-email-roopa@cumulusnetworks.com> <55842A93.2040607@brocade.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/CI/CQIbjEsYa.7d_GHzTLuF"; protocol="application/pgp-signature"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pankaj.m@samsung.com
-To: Maninder Singh <maninder1.s@samsung.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, tgraf@suug.ch, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Robert Shearman <rshearma@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bues.ch ([80.190.117.144]:34092 "EHLO bues.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751866AbbFSPNi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Jun 2015 11:13:38 -0400
-In-Reply-To: <1434704025-20448-1-git-send-email-maninder1.s@samsung.com>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:34021 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754504AbbFSPOO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 11:14:14 -0400
+Received: by pdbki1 with SMTP id ki1so92769869pdb.1
+        for <netdev@vger.kernel.org>; Fri, 19 Jun 2015 08:14:14 -0700 (PDT)
+In-Reply-To: <55842A93.2040607@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Sig_/CI/CQIbjEsYa.7d_GHzTLuF
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On 6/19/15, 7:43 AM, Robert Shearman wrote:
+>> diff --git a/include/linux/lwtunnel.h b/include/linux/lwtunnel.h
+>> new file mode 100644 
+<snip>
+>> +/* lw tunnel state flags */
+>> +#define LWTUNNEL_STATE_OUTPUT_REDIRECT 0x1
+>> +
+>> +#define lwtunnel_output_redirect(lwtstate) (lwtstate && \
+>> +            (lwtstate->flags & LWTUNNEL_STATE_OUTPUT_REDIRECT))
+>
+> This could be made an inline function for type-safety.
+ack
+>
+>> +
+>> +struct lwtunnel_state {
+>> +    __u16        type;
+>> +    __u16        flags;
+>> +    atomic_t    refcnt;
+>> +    struct lwtunnel_hdr tunnel;
+>> +};
+>> +
+>> +struct lwtunnel_net {
+>> +    struct hlist_head tunnels[LWTUNNEL_HASH_SIZE];
+>> +};
+>
+> This type doesn't appear to be used in this patch series. Do you 
+> intend to use it in a future version?
+ack, will get rid of it
+>
+>>
+>> +
+>> +static inline struct lwtunnel_state *lwtunnel_skb_lwstate(struct 
+>> sk_buff *skb)
+>> +{
+>> +    struct rtable *rt = (struct rtable *)skb_dst(skb);
+>> +
+>> +    return rt->rt_lwtstate;
+>> +}
+>
+> It doesn't look like this patch will build on its own because 
+> rt_lwtstate isn't added to struct rtable until patch 2.
+looks like i messed up the patch creation. I will fix that with the next 
+series.
+>
+> More importantly, is it safe to assume that skb_dst will always return 
+> an IPv4 dst? How will this look when IPv6 support is added?
 
-On Fri, 19 Jun 2015 14:23:45 +0530
-Maninder Singh <maninder1.s@samsung.com> wrote:
+Today lwtunnel_skb_lwstate is called from lwtunnel_output which is only 
+called from ipv4 code.
+And my ipv6 variant code was supposed to have a 6 suffix. something like 
+lwtunnel_output6.
+Or to be more explicit i will probably have variants of the output and 
+skb handling functions like,
+lwtunnel_output_ipv4 and lwtunnel_output_ipv6.
+>> +
+>> +    ret = -EOPNOTSUPP;
+>> +    nest = nla_nest_start(skb, RTA_ENCAP);
+>
+> Again, it doesn't look like this will build since RTA_ENCAP isn't 
+> added until patch 2.
+>
+ack, sorry abt the patch ordering. will fix it.
 
-> This patch removes unnecessary label "out" and
-> some restructring for using device_create_file directly.
->=20
-> Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
-> Reviewed-by: Rohit Thapliyal <r.thapliyal@samsung.com>
-> ---
->  drivers/ssb/pci.c |    8 +-------
->  1 files changed, 1 insertions(+), 7 deletions(-)
->=20
-> diff --git a/drivers/ssb/pci.c b/drivers/ssb/pci.c
-> index 0f28c08..d6ca4d3 100644
-> --- a/drivers/ssb/pci.c
-> +++ b/drivers/ssb/pci.c
-> @@ -1173,17 +1173,11 @@ void ssb_pci_exit(struct ssb_bus *bus)
->  int ssb_pci_init(struct ssb_bus *bus)
->  {
->  	struct pci_dev *pdev;
-> -	int err;
-> =20
->  	if (bus->bustype !=3D SSB_BUSTYPE_PCI)
->  		return 0;
-> =20
->  	pdev =3D bus->host_pci;
->  	mutex_init(&bus->sprom_mutex);
-> -	err =3D device_create_file(&pdev->dev, &dev_attr_ssb_sprom);
-> -	if (err)
-> -		goto out;
-> -
-> -out:
-> -	return err;
-> +	return device_create_file(&pdev->dev, &dev_attr_ssb_sprom);
->  }
-
-
-I don't really think this change adds any value, but if you insist on
-it you get my acked-by.
-
-
---=20
-Michael
-
---Sig_/CI/CQIbjEsYa.7d_GHzTLuF
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJVhDGKAAoJEPUyvh2QjYsOnz4P/1YYsopGsUY+tEgWnwDwOrW9
-bZv4iWQiSMA7uMy7uzWiaRy0SNQrLRItYiuZzah/asOdSE/Sb7lFJdt7qfdeTdyj
-DyjY3kiUMXhZSYYtmYU9cpoMF9PpWyDAL/BvAaSpi8B9LGeBtUpfWZamT2D1VEjI
-jIQwo+/HQvE3RP5dZCvRcG5ixLrIrdCy/a2IV8RSl95gT8kR7t98d1KM10Y8R/qh
-/70FRfhyF6sY6iVdpNDkUjrs1Dui7Hc72I0jZf65ZMSkSBH84nihn+T9isYOAFC3
-NaPhvJwwzeGu3L1GL6ZA9bK/tgEb/pcC1WQTZUnirslc2NzK7gEPE/VKxW+8yNF0
-7VsyvNaRvH3IbnxctpAjmSMeUIHsIR0JRkfjlcNaYtrk42uzRFyJRzTo+KfDkUz4
-d/PTEzS2y2kJ3hH6kdILffWsmkoLhYAL9ogds5qqBckTDqi5keFwZWmWhgSyG0oV
-tzeiLdVKA9ye6iXOk/+8ewDa3QEb8R+od2wcdtg6Eaq7G7RV7fa5Wty+Sy6wxCWM
-Nqj1U/sXVrTmWXM/V20jwDq40eI23iY/Zzr6yyBYNHlqudp3VFvnZvw2lfoy7lSJ
-zTVCy2jzwkV9NeFFq1GwQianmpb1/kQXvGTPW8EKtUwGxvskDdZjJOxNXDRUZStG
-tNZEIOZtNFUV/BeBBjtr
-=vO39
------END PGP SIGNATURE-----
-
---Sig_/CI/CQIbjEsYa.7d_GHzTLuF--
+Thanks for the review.
