@@ -1,62 +1,84 @@
-From: Imre Palik <imrep.amz@gmail.com>
-Subject: [PATCH] xen-netback: fix a BUG() during initialization
-Date: Fri, 19 Jun 2015 14:21:51 +0200
-Message-ID: <1434716511-25657-1-git-send-email-imrep.amz@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Palik, Imre" <imrep@amazon.de>, Matt Wilson <msw@amazon.com>
-To: xen-devel@lists.xenproject.org,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
+From: Simon Guinot <simon.guinot@sequanux.org>
+Subject: Re: [PATCH v2 1/3] net: mvneta: introduce compatible string
+ "marvell, armada-xp-neta"
+Date: Fri, 19 Jun 2015 14:32:53 +0200
+Message-ID: <20150619123253.GB4853@kw.sim.vm.gnt>
+References: <1434547162-6275-1-git-send-email-simon.guinot@sequanux.org>
+ <1434547162-6275-2-git-send-email-simon.guinot@sequanux.org>
+ <55818E64.20007@free-electrons.com>
+ <55818F10.8030304@free-electrons.com>
+ <20150617170112.GD2917@io.lakedaemon.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="HYC+c85AsWjroYih"
+Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	stable@vger.kernel.org, Vincent Donnefort <vdonnefort@gmail.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Jason Cooper <jason@lakedaemon.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:34502 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751711AbbFSMWK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 08:22:10 -0400
+Received: from vm1.sequanux.org ([188.165.36.56]:46557 "EHLO vm1.sequanux.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751072AbbFSMc6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Jun 2015 08:32:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20150617170112.GD2917@io.lakedaemon.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Palik, Imre" <imrep@amazon.de>
 
-Commit edafc132baac ("xen-netback: making the bandwidth limiter runtime settable")
-introduced the capability to change the bandwidth rate limit at runtime.
-But it also introduced a possible crashing bug.
+--HYC+c85AsWjroYih
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-If netback receives two XenbusStateConnected without getting the
-hotplug-status watch firing in between, then it will try to register the
-watches for the rate limiter again.  But this triggers a BUG() in the watch
-registration code.
+On Wed, Jun 17, 2015 at 05:01:12PM +0000, Jason Cooper wrote:
+> Hi Gregory,
+>=20
+> On Wed, Jun 17, 2015 at 05:15:28PM +0200, Gregory CLEMENT wrote:
+> > On 17/06/2015 17:12, Gregory CLEMENT wrote:
+> > > On 17/06/2015 15:19, Simon Guinot wrote:
+> > >> The mvneta driver supports the Ethernet IP found in the Armada 370, =
+XP,
+> > >> 380 and 385 SoCs. Since at least one more hardware feature is availa=
+ble
+> > >> for the Armada XP SoCs then a way to identify them is needed.
+> > >>
+> > >> This patch introduces a new compatible string "marvell,armada-xp-net=
+a".
+> > >=20
+> > > Let's be future proof by going further. I would like to have an compa=
+tible string
+> > > for each SoC even if we currently we don't use them.
+>=20
+> I disagree with this.  We can't predict what incosistencies we'll discove=
+r in
+> the future.  We should only assign new compatible strings based on known =
+IP
+> variations when we discover them.  This seems fraught with demons since we
+> can't predict the scope of affected IP blocks (some steppings of one SoC,=
+ three
+> SoCs plus two steppings of a fourth, etc)
+>=20
+> imho, the 'future-proofing' lies in being specific as to the naming of the
+> compatible strings against known hardware variations at the time.
 
-The fix modifies connect() to remove the possibly existing packet-rate
-watches before trying to install those watches.  This behaviour is in line
-with how connect() deals with the hotplug-status watch.
+So, should I add more compatible strings or not ?
 
-Signed-off-by: Imre Palik <imrep@amazon.de>
-Cc: Matt Wilson <msw@amazon.com>
----
- drivers/net/xen-netback/xenbus.c |    4 ++++
- 1 file changed, 4 insertions(+)
+Simon
 
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 968787a..ec383b0 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -681,6 +681,9 @@ static int xen_register_watchers(struct xenbus_device *dev, struct xenvif *vif)
- 	char *node;
- 	unsigned maxlen = strlen(dev->nodename) + sizeof("/rate");
- 
-+	if (vif->credit_watch.node)
-+		return -EADDRINUSE;
-+
- 	node = kmalloc(maxlen, GFP_KERNEL);
- 	if (!node)
- 		return -ENOMEM;
-@@ -770,6 +773,7 @@ static void connect(struct backend_info *be)
- 	}
- 
- 	xen_net_read_rate(dev, &credit_bytes, &credit_usec);
-+	xen_unregister_watchers(be->vif);
- 	xen_register_watchers(dev, be->vif);
- 	read_xenbus_vif_flags(be);
- 
--- 
-1.7.9.5
+--HYC+c85AsWjroYih
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlWEC/UACgkQgtp0PDeOcDrQlwCfdsYQWiiyYkklsn5EbYAm/7ds
+DcEAn3xzH2P7zKkUChH+4vJ8uX2r7Lcc
+=HhAi
+-----END PGP SIGNATURE-----
+
+--HYC+c85AsWjroYih--
