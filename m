@@ -1,76 +1,53 @@
-From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Subject: Re: [REGRESSION] NFS is creating a hidden port (left over from
- xs_bind() )
-Date: Thu, 18 Jun 2015 23:21:00 -0400
-Message-ID: <20150618232100.78318096@gandalf.local.home>
-References: <20150611234929.7b48d314@gandalf.local.home>
-	<CAHQdGtSyHtMfyVxT=hFY4m6XvM=3mxnZ=ajVJWYNXvYqE0+3zA@mail.gmail.com>
-	<1434120035.27504.77.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150612113420.5c114183@gandalf.local.home>
-	<20150612115038.44e20ccd@gandalf.local.home>
-	<20150617230819.0a11e47a@grimm.local.home>
-	<CAHQdGtQfF8sgfj6B2H=Sg+mn6ghPD+4UuZMSMFjj3XCVee60pw@mail.gmail.com>
-	<20150618154914.57424225@gandalf.local.home>
-	<20150618185051.2b2828c3@tlielax.poochiereds.net>
-	<20150618210843.4b09c31c@grimm.local.home>
-	<20150618213702.33f64b20@synchrony.poochiereds.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Network Devel Mailing List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org
-To: Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150618213702.33f64b20-08S845evdOaAjSkqwZiSMmfYqLom42DlXqFh9Ls21Oc@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Maninder Singh <maninder1.s@samsung.com>
+Subject: [PATCH 1/1] ixgbe: use kzalloc for allocating one thing
+Date: Fri, 19 Jun 2015 09:37:55 +0530
+Message-ID: <1434686875-13040-1-git-send-email-maninder1.s@samsung.com>
+Cc: pankaj.m@samsung.com, Maninder Singh <maninder1.s@samsung.com>
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Jun 2015 21:37:02 -0400
-Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org> wrote:
+Use kzalloc rather than kcalloc(1..
 
-> > Note, the box has been rebooted since I posted my last trace.
-> > 
-> 
-> Ahh pity. The port has probably changed...if you trace it again maybe
-> try to figure out what it's talking to before rebooting the server?
+The semantic patch that makes this change is as follows:
 
-I could probably re-enable the trace again.
+// <smpl>
+@@
+@@
 
-Would it be best if I put back the commits and run it with the buggy
-kernel. I could then run these commands after the bug happens and/or
-before the port goes away.
+- kcalloc(1,
++ kzalloc(
+          ...)
+// </smpl>
 
+and removing checkpatch below CHECK:
+CHECK: Prefer kzalloc(sizeof(*fwd_adapter)...) over 
+kzalloc(sizeof(struct ixgbe_fwd_adapter)...)
+
+Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
+Reviewed-by: Vaneet Narang <v.narang@samsung.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 3bf2f3c..3f58757 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -8134,7 +8134,7 @@ static void *ixgbe_fwd_add(struct net_device *pdev, struct net_device *vdev)
+ 	    (adapter->num_rx_pools > IXGBE_MAX_MACVLANS))
+ 		return ERR_PTR(-EBUSY);
  
-> Oh! I was thinking that you were seeing this extra port on the
-> _client_, but now rereading your original mail I see that it's
-> appearing up on the NFS server. Is that correct?
-
-Correct, the bug is on the NFS server, not the client. The client is
-already up and running, and had the filesystem mounted when the server
-rebooted. I take it that this happened when the client tried to
-reconnect.
-
-Just let me know what you would like to do. As this is my main
-production server of my local network, I would only be able to do this
-a few times. Let me know all the commands and tracing you would like to
-have. I'll try it tomorrow (going to bed now).
-
--- Steve
-
-
-> 
-> So, assuming that this is NFSv4.0, then this port is probably bound
-> when the server is establishing the callback channel to the client. So
-> we may need to look at how those xprts are being created and whether
-> there are differences from a standard client xprt.
-> 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-	fwd_adapter = kcalloc(1, sizeof(struct ixgbe_fwd_adapter), GFP_KERNEL);
++	fwd_adapter = kzalloc(sizeof(*fwd_adapter), GFP_KERNEL);
+ 	if (!fwd_adapter)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-- 
+1.7.1
