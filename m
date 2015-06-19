@@ -1,52 +1,40 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next RFC v2 0/3] light weight tunnel infrastructure
- and driver
-Date: Fri, 19 Jun 2015 08:05:45 -0700
-Message-ID: <55842FC9.8080400@cumulusnetworks.com>
-References: <1434689355-4088-1-git-send-email-roopa@cumulusnetworks.com> <5584296C.1080108@brocade.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 3/3] net: dsa: Allow configuration of CPU & DSA port
+ speeds/duplex
+Date: Fri, 19 Jun 2015 17:05:33 +0200
+Message-ID: <20150619150533.GH3557@lunn.ch>
+References: <1434129537-15252-1-git-send-email-andrew@lunn.ch>
+ <1434129537-15252-3-git-send-email-andrew@lunn.ch>
+ <557F0CD5.4070705@gmail.com>
+ <536480200.118000.1434564592107.JavaMail.zimbra@savoirfairelinux.com>
+ <20150618011159.GA22072@lunn.ch>
+ <2144581324.52952.1434726314482.JavaMail.zimbra@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, tgraf@suug.ch, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Robert Shearman <rshearma@brocade.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	David <davem@davemloft.net>, Guenter Roeck <linux@roeck-us.net>,
+	Cory Tusar <cory.tusar@pid1solutions.com>,
+	netdev <netdev@vger.kernel.org>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:36265 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751752AbbFSPFs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 11:05:48 -0400
-Received: by paceq1 with SMTP id eq1so62484205pac.3
-        for <netdev@vger.kernel.org>; Fri, 19 Jun 2015 08:05:47 -0700 (PDT)
-In-Reply-To: <5584296C.1080108@brocade.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:59187 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753398AbbFSPLb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Jun 2015 11:11:31 -0400
+Content-Disposition: inline
+In-Reply-To: <2144581324.52952.1434726314482.JavaMail.zimbra@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/19/15, 7:38 AM, Robert Shearman wrote:
->> This series implements infrastructure for light weight tunnels to 
->> support
->> mpls label edge routers (ie mpls ip tunnels). As previously discussed
->> having netdevices will not scale. Hence this series introduces new 
->> RTA_ENCAP*
->> attributes to attach encap information with routes (following suggestion
->> from Eric Biederman).
->
-> Looks promising, thanks for posting this series Roopa!
->
->>
->> The first patch introduces an infrastructure to support light weight 
->> tunnels
->> that dont have netdevices. The infrastructure allows tunnel drivers
->> to register handlers to parse and build tunnel encap data which can 
->> be attached
->> to each route nexthop.
->>
->> The second patch adds support in ipv4 fib to carry such light weight 
->> tunnel
->> encap data.
->
-> I presume this isn't ready to be merged until IPv6 is done, right?
-yes, I will be adding ipv6 support soon. I will post the next non-RFC 
-series with the ipv6 changes
+> Yes I do have debug too, but via sysfs (with eventually write access) for:
+> GLOBAL1, GLOBAL2, cpu port registers, SerDes registers, PVIDs, and VTU.
+> Not really standard though.
 
-thanks,
-Roopa
+We should really get an implementation into mainline. There is no
+point us all implementing our own.
+
+You say your code is not really standard. Do you think it would get
+rejected if it was submitted? The rules for debugfs are much more
+relaxed, so what i have should be acceptable.
+
+	 Andrew
