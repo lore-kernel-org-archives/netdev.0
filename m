@@ -1,130 +1,43 @@
-From: Jeff Layton <jlayton@poochiereds.net>
-Subject: Re: [REGRESSION] NFS is creating a hidden port (left over from
- xs_bind() )
-Date: Thu, 18 Jun 2015 21:37:02 -0400
-Message-ID: <20150618213702.33f64b20@synchrony.poochiereds.net>
-References: <20150611234929.7b48d314@gandalf.local.home>
-	<CAHQdGtSyHtMfyVxT=hFY4m6XvM=3mxnZ=ajVJWYNXvYqE0+3zA@mail.gmail.com>
-	<1434120035.27504.77.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150612113420.5c114183@gandalf.local.home>
-	<20150612115038.44e20ccd@gandalf.local.home>
-	<20150617230819.0a11e47a@grimm.local.home>
-	<CAHQdGtQfF8sgfj6B2H=Sg+mn6ghPD+4UuZMSMFjj3XCVee60pw@mail.gmail.com>
-	<20150618154914.57424225@gandalf.local.home>
-	<20150618185051.2b2828c3@tlielax.poochiereds.net>
-	<20150618210843.4b09c31c@grimm.local.home>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH] fm10k: Report MAC address on driver
+ load
+Date: Thu, 18 Jun 2015 19:23:48 -0700
+Message-ID: <55837D34.7070100@gmail.com>
+References: <20150618031252.15654.56639.stgit@ahduyck-vm-fedora22> <1434671381.3530.81.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Trond Myklebust <trond.myklebust@primarydata.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	Linux NFS Mailing List <linux-nfs@vger.kernel.org>,
-	Linux Network Devel Mailing List <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>, bfields@fieldses.org
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150618210843.4b09c31c@grimm.local.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35542 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751900AbbFSCXu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 22:23:50 -0400
+Received: by pacyx8 with SMTP id yx8so74267219pac.2
+        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 19:23:50 -0700 (PDT)
+In-Reply-To: <1434671381.3530.81.camel@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 18 Jun 2015 21:08:43 -0400
-Steven Rostedt <rostedt@goodmis.org> wrote:
+On 06/18/2015 04:49 PM, Jeff Kirsher wrote:
+> On Wed, 2015-06-17 at 20:12 -0700, Alexander Duyck wrote:
+>> This change adds the MAC address to the list of values recorded on
+>> driver
+>> load.  The MAC address represents the serial number of the unit and
+>> allows
+>> us to track the value should a card be replaced in a system.
+>>
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+>> ---
+>>   drivers/net/ethernet/intel/fm10k/fm10k_pci.c |    4 ++--
+>>   1 file changed, 2 insertions(+), 2 deletions(-)
+> With the recent fm10k patches that Jake submitted, this patch no longer
+> applies cleanly.  If you could re-spin your patch against my next-queue
+> tree (dev-queue branch) that would be much appreciated.
 
-> On Thu, 18 Jun 2015 18:50:51 -0400
-> Jeff Layton <jlayton@poochiereds.net> wrote:
->  
-> > The interesting bit here is that the sockets all seem to connect to port
-> > 55201 on the remote host, if I'm reading these traces correctly. What's
-> > listening on that port on the server?
-> > 
-> > This might give some helpful info:
-> > 
-> >     $ rpcinfo -p <NFS servername>
-> 
-> # rpcinfo -p wife
->    program vers proto   port  service
->     100000    4   tcp    111  portmapper
->     100000    3   tcp    111  portmapper
->     100000    2   tcp    111  portmapper
->     100000    4   udp    111  portmapper
->     100000    3   udp    111  portmapper
->     100000    2   udp    111  portmapper
->     100024    1   udp  34243  status
->     100024    1   tcp  34498  status
-> 
-> # rpcinfo -p localhost
->    program vers proto   port  service
->     100000    4   tcp    111  portmapper
->     100000    3   tcp    111  portmapper
->     100000    2   tcp    111  portmapper
->     100000    4   udp    111  portmapper
->     100000    3   udp    111  portmapper
->     100000    2   udp    111  portmapper
->     100024    1   udp  38332  status
->     100024    1   tcp  52684  status
->     100003    2   tcp   2049  nfs
->     100003    3   tcp   2049  nfs
->     100003    4   tcp   2049  nfs
->     100227    2   tcp   2049
->     100227    3   tcp   2049
->     100003    2   udp   2049  nfs
->     100003    3   udp   2049  nfs
->     100003    4   udp   2049  nfs
->     100227    2   udp   2049
->     100227    3   udp   2049
->     100021    1   udp  53218  nlockmgr
->     100021    3   udp  53218  nlockmgr
->     100021    4   udp  53218  nlockmgr
->     100021    1   tcp  49825  nlockmgr
->     100021    3   tcp  49825  nlockmgr
->     100021    4   tcp  49825  nlockmgr
->     100005    1   udp  49166  mountd
->     100005    1   tcp  48797  mountd
->     100005    2   udp  47856  mountd
->     100005    2   tcp  53839  mountd
->     100005    3   udp  36090  mountd
->     100005    3   tcp  46390  mountd
-> 
-> Note, the box has been rebooted since I posted my last trace.
-> 
+I should have a new patch for you in 20 minutes or so.  Just waiting on 
+the build to finish and then I'll give it a quick test.
 
-Ahh pity. The port has probably changed...if you trace it again maybe
-try to figure out what it's talking to before rebooting the server?
-
-> > 
-> > Also, what NFS version are you using to mount here? Your fstab entries
-> > suggest that you're using the default version (for whatever distro this
-> > is), but have you (e.g.) set up nfsmount.conf to default to v3 on this
-> > box?
-> > 
-> 
-> My box is Debian testing (recently updated).
-> 
-> # dpkg -l nfs-*
-> 
-> ii  nfs-common     1:1.2.8-9    amd64        NFS support files common to clien
-> ii  nfs-kernel-ser 1:1.2.8-9    amd64        support for NFS kernel server
-> 
-> 
-> same for both boxes.
-> 
-> nfsmount.conf doesn't exist on either box.
-> 
-> I'm assuming it is using nfs4.
-> 
-
-(cc'ing Bruce)
-
-Oh! I was thinking that you were seeing this extra port on the
-_client_, but now rereading your original mail I see that it's
-appearing up on the NFS server. Is that correct?
-
-So, assuming that this is NFSv4.0, then this port is probably bound
-when the server is establishing the callback channel to the client. So
-we may need to look at how those xprts are being created and whether
-there are differences from a standard client xprt.
-
--- 
-Jeff Layton <jlayton@poochiereds.net>
+- Alex
