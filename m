@@ -1,72 +1,105 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 00/15] Simplify netfilter and network namespaces
-Date: Fri, 19 Jun 2015 09:24:45 -0500
-Message-ID: <87lhff22tu.fsf@x220.int.ebiederm.org>
-References: <87616ppt3h.fsf@x220.int.ebiederm.org>
-	<alpine.LFD.2.11.1506172216440.2649@ja.home.ssi.bg>
-	<87wpz25a2q.fsf@x220.int.ebiederm.org>
-	<alpine.LFD.2.11.1506180055030.3621@ja.home.ssi.bg>
-	<87fv5p2hzg.fsf@x220.int.ebiederm.org>
-	<alpine.LFD.2.11.1506182210240.1659@ja.home.ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.11.1506182210240.1659@ja.home.ssi.bg> (Julian
-	Anastasov's message of "Thu, 18 Jun 2015 22:21:15 +0300 (EEST)")
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH] net: dsa: mv88e6xxx: split phy page accessors
+Date: Fri, 19 Jun 2015 10:32:10 -0400
+Message-ID: <1434724330-3442-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Guenter Roeck <linux@roeck-us.net>,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Julian Anastasov <ja@ssi.bg> writes:
+Split mv88e6xxx_phy_page_read and mv88e6xxx_phy_page_write into two
+functions each, one to acquire the smi_mutex and one to call the actual
+read/write functions.
 
-> 	Hello,
->
-> On Thu, 18 Jun 2015, Eric W. Biederman wrote:
->
->> My incremental patch for ipvs on top of everything else I have pushed
->> out looks like this:
->> 
->> From: "Eric W. Biederman" <ebiederm@xmission.com>
->> Date: Fri, 12 Jun 2015 18:34:12 -0500
->> Subject: [PATCH] ipvs: Pass struct net down to where it is needed and used
->> 
->> Pass struct net down to where it is used and stop guessing
->> which network namespace should be used.
->
-> 	At first look patch is ok. But I'm not sure
-> for the changes in ip_vs_xmit.c. Can you explain in
-> 2-3 lines, when can we see different netns? Is it when
-> packet is forwarded to output device and it is part from
-> another netns?
->
-> 	I'm asking because these __ip_vs_get_out_rt*
-> calls in ip_vs_xmit.c can reroute packet to another
-> device...
+This will be useful to access registers such as Fiber/SERDES Control,
+from setup code with SMI lock held.
 
-The driver was ensure_mtu_is_adequate where in one half
-of the function we have skb_net another half we have 
-dev_net(dst_skb(skb)->dev).    That is goofy.
+Also rename their "error" labels to "clear", since it is not only an
+error path.
 
-That gets replaced by ip_vs_conn_net(cp).
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 43 ++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 32 insertions(+), 11 deletions(-)
 
-In practice today I don't see that there are differences in
-network namespaces today.
-
-Moving forward I hope to be able to route packets out to network devices
-in different network namespaces. It is a massive optimization that
-doesn't need much code to support.  Once that optimization is in place
-deriving the network namespace from the output device will not work.
-
-I believe using ip_vs_conn_net(cp) is a simple rule that is easy to
-understand and easy to implement correctly on the output path.
-
-> 	Also, skb_sknet is another candidate for removal.
-> But I can take care about it after your changes are
-> pushed...
-
-*nod*
-
-Eric
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index bfe70ce..9caec51 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2068,37 +2068,58 @@ int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active)
+ 	return 0;
+ }
+ 
+-int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg)
++/* Must be called with SMI lock held */
++static int _mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page,
++				    int reg)
+ {
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+ 
+-	mutex_lock(&ps->smi_mutex);
+ 	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
+ 	if (ret < 0)
+-		goto error;
++		goto clear;
+ 	ret = _mv88e6xxx_phy_read_indirect(ds, port, reg);
+-error:
++clear:
+ 	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
+-	mutex_unlock(&ps->smi_mutex);
+ 	return ret;
+ }
+ 
+-int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
+-			     int reg, int val)
++int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+ 
+ 	mutex_lock(&ps->smi_mutex);
++	ret = _mv88e6xxx_phy_page_read(ds, port, page, reg);
++	mutex_unlock(&ps->smi_mutex);
++
++	return ret;
++}
++
++/* Must be called with SMI lock held */
++static int _mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
++				     int reg, int val)
++{
++	int ret;
++
+ 	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
+ 	if (ret < 0)
+-		goto error;
+-
++		goto clear;
+ 	ret = _mv88e6xxx_phy_write_indirect(ds, port, reg, val);
+-error:
++clear:
+ 	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
++	return ret;
++}
++
++int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
++			     int reg, int val)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	int ret;
++
++	mutex_lock(&ps->smi_mutex);
++	ret = _mv88e6xxx_phy_page_write(ds, port, page, reg, val);
+ 	mutex_unlock(&ps->smi_mutex);
++
+ 	return ret;
+ }
+ 
+-- 
+2.4.3
