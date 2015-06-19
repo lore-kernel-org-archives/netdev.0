@@ -1,87 +1,75 @@
-From: Pankaj Gupta <pagupta@redhat.com>
-Subject: [PATCH v2 net-next] macvtap: Increase limit of macvtap queues
-Date: Fri, 19 Jun 2015 19:47:53 +0530
-Message-ID: <1434723473-18224-1-git-send-email-pagupta@redhat.com>
-Cc: kaber@trash.net, mst@redhat.com, davem@davemloft.net,
-	jasowang@redhat.com, vyasevic@redhat.com,
-	bhutchings@solarflare.com, therbert@google.com,
-	viro@zeniv.linux.org.uk, pagupta@redhat.com,
-	herbert@gondor.apana.org.au, justin@myriabit.com,
-	sergei.shtylyov@cogentembedded.com
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next RFC v2 2/3] ipv4: add support for light weight
+ tunnel encap attributes
+Date: Fri, 19 Jun 2015 07:19:20 -0700
+Message-ID: <558424E8.5090806@cumulusnetworks.com>
+References: <1434689355-4088-3-git-send-email-roopa@cumulusnetworks.com> <alpine.LFD.2.11.1506190857520.1731@ja.home.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, rshearma@brocade.com, tgraf@suug.ch,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:35790 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751954AbbFSOTX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 10:19:23 -0400
+Received: by pdbci14 with SMTP id ci14so33202095pdb.2
+        for <netdev@vger.kernel.org>; Fri, 19 Jun 2015 07:19:22 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.11.1506190857520.1731@ja.home.ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Macvtap should be compatible with tuntap for 
-maximum number of queues. 
+On 6/18/15, 11:59 PM, Julian Anastasov wrote:
+> 	Hello,
+>
+> On Thu, 18 Jun 2015, Roopa Prabhu wrote:
+>
+>> @@ -366,6 +371,7 @@ static inline size_t fib_nlmsg_size(struct fib_info *fi)
+>>   	payload += nla_total_size((RTAX_MAX * nla_total_size(4)));
+>>   
+>>   	if (fi->fib_nhs) {
+>> +		size_t nh_encapsize = 0;
+> 	Var not in #ifdef. Any warnings with CONFIG_LWTUNNEL=n?
+>
+>>   		/* Also handles the special case fib_nhs == 1 */
+>>   
+>>   		/* each nexthop is packed in an attribute */
+>> @@ -374,8 +380,23 @@ static inline size_t fib_nlmsg_size(struct fib_info *fi)
+>>   		/* may contain flow and gateway attribute */
+>>   		nhsize += 2 * nla_total_size(4);
+>>   
+>> +#ifdef CONFIG_LWTUNNEL
+>> +		/* grab encap info */
+>> +		for_nexthops(fi) {
+>> +			if (nh->nh_lwtstate) {
+>> +				/* RTA_ENCAP_TYPE */
+>> +				nh_encapsize += lwtunnel_get_encap_size(
+>> +						nh->nh_lwtstate);
+> 	New labels not in #ifdef:
+Will check and fix all warnings with CONFIG_LWTUNNEL off
+>
+>> +
+>> +err_inval:
+>> +	ret = -EINVAL;
+>> +
+>> +errout:
+>> +	return ret;
+>>   }
+> 	Some other places may need changes:
+>
+> - nh_comp: there is logic that decides if same fib_info
+> is reused from many fib nodes. There should be check
+> if NH matches by nh_lwtstate.
 
-commit 'baf71c5c1f80d82e92924050a60b5baaf97e3094 (tuntap: 
-Increase the number of queues in tun.)' removes
-the limitations and increases number of queues in tuntap.
-Now, Its safe to increase number of queues in Macvtap as well.
+yes, i will add that.
+>
+> - xfrm4_fill_dst: not sure about this but some fields
+> are copied.
+>
+I have not picked up xfrm4_fill_dst specifically, but this infra is 
+supposed to be similar to that.
+I will look.
 
-This patch also modifies 'macvtap_del_queues' function
-to avoid extra memory allocation in stack.
-
-Changes from v1->v2 :
-Michael S. Tsirkin, Jason Wang  : 
-                  Better way to use linked list to 
-avoid use of extra memory in stack.
-Sergei Shtylyov : Specify dependent commit's summary.
-
-Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
----
- drivers/net/macvtap.c      | 10 ++--------
- include/linux/if_macvlan.h |  2 +-
- 2 files changed, 3 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 483afb1..6a64197f 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -263,27 +263,21 @@ out:
- static void macvtap_del_queues(struct net_device *dev)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
--	struct macvtap_queue *q, *tmp, *qlist[MAX_MACVTAP_QUEUES];
--	int i, j = 0;
-+	struct macvtap_queue *q, *tmp;
- 
- 	ASSERT_RTNL();
- 	list_for_each_entry_safe(q, tmp, &vlan->queue_list, next) {
- 		list_del_init(&q->next);
--		qlist[j++] = q;
- 		RCU_INIT_POINTER(q->vlan, NULL);
- 		if (q->enabled)
- 			vlan->numvtaps--;
- 		vlan->numqueues--;
-+		sock_put(&q->sk);
- 	}
--	for (i = 0; i < vlan->numvtaps; i++)
--		RCU_INIT_POINTER(vlan->taps[i], NULL);
- 	BUG_ON(vlan->numvtaps);
- 	BUG_ON(vlan->numqueues);
- 	/* guarantee that any future macvtap_set_queue will fail */
- 	vlan->numvtaps = MAX_MACVTAP_QUEUES;
--
--	for (--j; j >= 0; j--)
--		sock_put(&qlist[j]->sk);
- }
- 
- static rx_handler_result_t macvtap_handle_frame(struct sk_buff **pskb)
-diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-index 6f6929e..a4ccc31 100644
---- a/include/linux/if_macvlan.h
-+++ b/include/linux/if_macvlan.h
-@@ -29,7 +29,7 @@ struct macvtap_queue;
-  * Maximum times a macvtap device can be opened. This can be used to
-  * configure the number of receive queue, e.g. for multiqueue virtio.
-  */
--#define MAX_MACVTAP_QUEUES	16
-+#define MAX_MACVTAP_QUEUES	256
- 
- #define MACVLAN_MC_FILTER_BITS	8
- #define MACVLAN_MC_FILTER_SZ	(1 << MACVLAN_MC_FILTER_BITS)
--- 
-1.9.3
+Thanks.
