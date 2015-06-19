@@ -1,75 +1,72 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next RFC v2 2/3] ipv4: add support for light weight
- tunnel encap attributes
-Date: Fri, 19 Jun 2015 07:19:20 -0700
-Message-ID: <558424E8.5090806@cumulusnetworks.com>
-References: <1434689355-4088-3-git-send-email-roopa@cumulusnetworks.com> <alpine.LFD.2.11.1506190857520.1731@ja.home.ssi.bg>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 00/15] Simplify netfilter and network namespaces
+Date: Fri, 19 Jun 2015 09:24:45 -0500
+Message-ID: <87lhff22tu.fsf@x220.int.ebiederm.org>
+References: <87616ppt3h.fsf@x220.int.ebiederm.org>
+	<alpine.LFD.2.11.1506172216440.2649@ja.home.ssi.bg>
+	<87wpz25a2q.fsf@x220.int.ebiederm.org>
+	<alpine.LFD.2.11.1506180055030.3621@ja.home.ssi.bg>
+	<87fv5p2hzg.fsf@x220.int.ebiederm.org>
+	<alpine.LFD.2.11.1506182210240.1659@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, rshearma@brocade.com, tgraf@suug.ch,
-	davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
 To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:35790 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751954AbbFSOTX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 10:19:23 -0400
-Received: by pdbci14 with SMTP id ci14so33202095pdb.2
-        for <netdev@vger.kernel.org>; Fri, 19 Jun 2015 07:19:22 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.11.1506190857520.1731@ja.home.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.11.1506182210240.1659@ja.home.ssi.bg> (Julian
+	Anastasov's message of "Thu, 18 Jun 2015 22:21:15 +0300 (EEST)")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 6/18/15, 11:59 PM, Julian Anastasov wrote:
+Julian Anastasov <ja@ssi.bg> writes:
+
 > 	Hello,
 >
-> On Thu, 18 Jun 2015, Roopa Prabhu wrote:
+> On Thu, 18 Jun 2015, Eric W. Biederman wrote:
 >
->> @@ -366,6 +371,7 @@ static inline size_t fib_nlmsg_size(struct fib_info *fi)
->>   	payload += nla_total_size((RTAX_MAX * nla_total_size(4)));
->>   
->>   	if (fi->fib_nhs) {
->> +		size_t nh_encapsize = 0;
-> 	Var not in #ifdef. Any warnings with CONFIG_LWTUNNEL=n?
+>> My incremental patch for ipvs on top of everything else I have pushed
+>> out looks like this:
+>> 
+>> From: "Eric W. Biederman" <ebiederm@xmission.com>
+>> Date: Fri, 12 Jun 2015 18:34:12 -0500
+>> Subject: [PATCH] ipvs: Pass struct net down to where it is needed and used
+>> 
+>> Pass struct net down to where it is used and stop guessing
+>> which network namespace should be used.
 >
->>   		/* Also handles the special case fib_nhs == 1 */
->>   
->>   		/* each nexthop is packed in an attribute */
->> @@ -374,8 +380,23 @@ static inline size_t fib_nlmsg_size(struct fib_info *fi)
->>   		/* may contain flow and gateway attribute */
->>   		nhsize += 2 * nla_total_size(4);
->>   
->> +#ifdef CONFIG_LWTUNNEL
->> +		/* grab encap info */
->> +		for_nexthops(fi) {
->> +			if (nh->nh_lwtstate) {
->> +				/* RTA_ENCAP_TYPE */
->> +				nh_encapsize += lwtunnel_get_encap_size(
->> +						nh->nh_lwtstate);
-> 	New labels not in #ifdef:
-Will check and fix all warnings with CONFIG_LWTUNNEL off
+> 	At first look patch is ok. But I'm not sure
+> for the changes in ip_vs_xmit.c. Can you explain in
+> 2-3 lines, when can we see different netns? Is it when
+> packet is forwarded to output device and it is part from
+> another netns?
 >
->> +
->> +err_inval:
->> +	ret = -EINVAL;
->> +
->> +errout:
->> +	return ret;
->>   }
-> 	Some other places may need changes:
->
-> - nh_comp: there is logic that decides if same fib_info
-> is reused from many fib nodes. There should be check
-> if NH matches by nh_lwtstate.
+> 	I'm asking because these __ip_vs_get_out_rt*
+> calls in ip_vs_xmit.c can reroute packet to another
+> device...
 
-yes, i will add that.
->
-> - xfrm4_fill_dst: not sure about this but some fields
-> are copied.
->
-I have not picked up xfrm4_fill_dst specifically, but this infra is 
-supposed to be similar to that.
-I will look.
+The driver was ensure_mtu_is_adequate where in one half
+of the function we have skb_net another half we have 
+dev_net(dst_skb(skb)->dev).    That is goofy.
 
-Thanks.
+That gets replaced by ip_vs_conn_net(cp).
+
+In practice today I don't see that there are differences in
+network namespaces today.
+
+Moving forward I hope to be able to route packets out to network devices
+in different network namespaces. It is a massive optimization that
+doesn't need much code to support.  Once that optimization is in place
+deriving the network namespace from the output device will not work.
+
+I believe using ip_vs_conn_net(cp) is a simple rule that is easy to
+understand and easy to implement correctly on the output path.
+
+> 	Also, skb_sknet is another candidate for removal.
+> But I can take care about it after your changes are
+> pushed...
+
+*nod*
+
+Eric
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
