@@ -1,43 +1,50 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH] fm10k: Report MAC address on driver
- load
-Date: Thu, 18 Jun 2015 19:23:48 -0700
-Message-ID: <55837D34.7070100@gmail.com>
-References: <20150618031252.15654.56639.stgit@ahduyck-vm-fedora22> <1434671381.3530.81.camel@intel.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [PATCH v2] fm10k: Report MAC address on driver load
+Date: Thu, 18 Jun 2015 19:41:10 -0700
+Message-ID: <20150619023812.1345.75383.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
+To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35542 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751900AbbFSCXu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2015 22:23:50 -0400
-Received: by pacyx8 with SMTP id yx8so74267219pac.2
-        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 19:23:50 -0700 (PDT)
-In-Reply-To: <1434671381.3530.81.camel@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:41866 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752409AbbFSClL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jun 2015 22:41:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/18/2015 04:49 PM, Jeff Kirsher wrote:
-> On Wed, 2015-06-17 at 20:12 -0700, Alexander Duyck wrote:
->> This change adds the MAC address to the list of values recorded on
->> driver
->> load.  The MAC address represents the serial number of the unit and
->> allows
->> us to track the value should a card be replaced in a system.
->>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
->> ---
->>   drivers/net/ethernet/intel/fm10k/fm10k_pci.c |    4 ++--
->>   1 file changed, 2 insertions(+), 2 deletions(-)
-> With the recent fm10k patches that Jake submitted, this patch no longer
-> applies cleanly.  If you could re-spin your patch against my next-queue
-> tree (dev-queue branch) that would be much appreciated.
+This change adds the MAC address to the list of values recorded on driver
+load.  The MAC address represents the serial number of the unit and allows
+us to track the value should a card be replaced in a system.
 
-I should have a new patch for you in 20 minutes or so.  Just waiting on 
-the build to finish and then I'll give it a quick test.
+The log message should now be similar in output to that of ixgbe.
 
-- Alex
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+
+v2: Moved printing of MAC onto separate line similar to ixgbe.
+
+(Hopefully this works for you Jeff.  I took at look at the patch and just
+ moved the bit I needed down.  I figured since this block hasn't changed I
+ should be able to get away with just doing this instead of pulling and
+ rebasing off of your tree. )
+
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c |    3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index ce53ff25f88d..62a584f633d8 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -1843,6 +1843,9 @@ static int fm10k_probe(struct pci_dev *pdev,
+ 	/* print warning for non-optimal configurations */
+ 	fm10k_slot_warn(interface);
+ 
++	/* report MAC address for logging */
++	dev_info(&pdev->dev, "%pM\n", netdev->dev_addr);
++
+ 	/* enable SR-IOV after registering netdev to enforce PF/VF ordering */
+ 	fm10k_iov_configure(pdev, 0);
+ 
