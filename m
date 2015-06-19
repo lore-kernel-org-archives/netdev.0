@@ -1,213 +1,188 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/12] netfilter: xt_socket: add XT_SOCKET_RESTORESKMARK flag
-Date: Fri, 19 Jun 2015 19:17:39 +0200
-Message-ID: <1434734269-4545-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 11/12] netfilter: Remove spurios included of netfilter.h
+Date: Fri, 19 Jun 2015 19:17:48 +0200
+Message-ID: <1434734269-4545-12-git-send-email-pablo@netfilter.org>
 References: <1434734269-4545-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55517 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:55558 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754658AbbFSRMe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Jun 2015 13:12:34 -0400
+	id S1754831AbbFSRMk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Jun 2015 13:12:40 -0400
 In-Reply-To: <1434734269-4545-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harout Hedeshian <harouth@codeaurora.org>
+From: Eric W Biederman <ebiederm@xmission.com>
 
-xt_socket is useful for matching sockets with IP_TRANSPARENT and
-taking some action on the matching packets. However, it lacks the
-ability to match only a small subset of transparent sockets.
+While testing my netfilter changes I noticed several files where
+recompiling unncessarily because they unncessarily included
+netfilter.h.
 
-Suppose there are 2 applications, each with its own set of transparent
-sockets. The first application wants all matching packets dropped,
-while the second application wants them forwarded somewhere else.
-
-Add the ability to retore the skb->mark from the sk_mark. The mark
-is only restored if a matching socket is found and the transparent /
-nowildcard conditions are satisfied.
-
-Now the 2 hypothetical applications can differentiate their sockets
-based on a mark value set with SO_MARK.
-
-iptables -t mangle -I PREROUTING -m socket --transparent \
-                                           --restore-skmark -j action
-iptables -t mangle -A action -m mark --mark 10 -j action2
-iptables -t mangle -A action -m mark --mark 11 -j action3
-
-Signed-off-by: Harout Hedeshian <harouth@codeaurora.org>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/xt_socket.h |    8 ++++
- net/netfilter/xt_socket.c                |   59 +++++++++++++++++++++++++++---
- 2 files changed, 61 insertions(+), 6 deletions(-)
+ drivers/net/hamradio/bpqether.c |    1 -
+ drivers/net/ppp/pptp.c          |    2 --
+ drivers/net/wan/lapbether.c     |    1 -
+ net/ax25/af_ax25.c              |    1 -
+ net/ax25/ax25_in.c              |    1 -
+ net/ax25/ax25_ip.c              |    1 -
+ net/ax25/ax25_out.c             |    1 -
+ net/ax25/ax25_uid.c             |    1 -
+ net/netrom/nr_route.c           |    1 -
+ net/rose/rose_link.c            |    1 -
+ net/rose/rose_route.c           |    1 -
+ security/selinux/xfrm.c         |    3 ---
+ 12 files changed, 15 deletions(-)
 
-diff --git a/include/uapi/linux/netfilter/xt_socket.h b/include/uapi/linux/netfilter/xt_socket.h
-index 6315e2a..87644f8 100644
---- a/include/uapi/linux/netfilter/xt_socket.h
-+++ b/include/uapi/linux/netfilter/xt_socket.h
-@@ -6,6 +6,7 @@
- enum {
- 	XT_SOCKET_TRANSPARENT = 1 << 0,
- 	XT_SOCKET_NOWILDCARD = 1 << 1,
-+	XT_SOCKET_RESTORESKMARK = 1 << 2,
- };
+diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
+index 63ff08a..7856b6c 100644
+--- a/drivers/net/hamradio/bpqether.c
++++ b/drivers/net/hamradio/bpqether.c
+@@ -76,7 +76,6 @@
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <linux/stat.h>
+-#include <linux/netfilter.h>
+ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/rtnetlink.h>
+diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
+index 14839bc..686f37d 100644
+--- a/drivers/net/ppp/pptp.c
++++ b/drivers/net/ppp/pptp.c
+@@ -28,8 +28,6 @@
+ #include <linux/file.h>
+ #include <linux/in.h>
+ #include <linux/ip.h>
+-#include <linux/netfilter.h>
+-#include <linux/netfilter_ipv4.h>
+ #include <linux/rcupdate.h>
+ #include <linux/spinlock.h>
  
- struct xt_socket_mtinfo1 {
-@@ -18,4 +19,11 @@ struct xt_socket_mtinfo2 {
- };
- #define XT_SOCKET_FLAGS_V2 (XT_SOCKET_TRANSPARENT | XT_SOCKET_NOWILDCARD)
+diff --git a/drivers/net/wan/lapbether.c b/drivers/net/wan/lapbether.c
+index 2f5eda8..6676607 100644
+--- a/drivers/net/wan/lapbether.c
++++ b/drivers/net/wan/lapbether.c
+@@ -40,7 +40,6 @@
+ #include <linux/interrupt.h>
+ #include <linux/notifier.h>
+ #include <linux/stat.h>
+-#include <linux/netfilter.h>
+ #include <linux/module.h>
+ #include <linux/lapb.h>
+ #include <linux/init.h>
+diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+index 4273533..9c891d0 100644
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -40,7 +40,6 @@
+ #include <linux/notifier.h>
+ #include <linux/proc_fs.h>
+ #include <linux/stat.h>
+-#include <linux/netfilter.h>
+ #include <linux/sysctl.h>
+ #include <linux/init.h>
+ #include <linux/spinlock.h>
+diff --git a/net/ax25/ax25_in.c b/net/ax25/ax25_in.c
+index 7ed8ab7..29a3687 100644
+--- a/net/ax25/ax25_in.c
++++ b/net/ax25/ax25_in.c
+@@ -23,7 +23,6 @@
+ #include <linux/inet.h>
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>
+-#include <linux/netfilter.h>
+ #include <net/sock.h>
+ #include <net/tcp_states.h>
+ #include <asm/uaccess.h>
+diff --git a/net/ax25/ax25_ip.c b/net/ax25/ax25_ip.c
+index 7c646bb..b563a3f 100644
+--- a/net/ax25/ax25_ip.c
++++ b/net/ax25/ax25_ip.c
+@@ -31,7 +31,6 @@
+ #include <linux/notifier.h>
+ #include <linux/proc_fs.h>
+ #include <linux/stat.h>
+-#include <linux/netfilter.h>
+ #include <linux/sysctl.h>
+ #include <net/ip.h>
+ #include <net/arp.h>
+diff --git a/net/ax25/ax25_out.c b/net/ax25/ax25_out.c
+index be2acab..8ddd41b 100644
+--- a/net/ax25/ax25_out.c
++++ b/net/ax25/ax25_out.c
+@@ -24,7 +24,6 @@
+ #include <linux/inet.h>
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>
+-#include <linux/netfilter.h>
+ #include <net/sock.h>
+ #include <asm/uaccess.h>
+ #include <linux/fcntl.h>
+diff --git a/net/ax25/ax25_uid.c b/net/ax25/ax25_uid.c
+index 71c4bad..4ad2fb7 100644
+--- a/net/ax25/ax25_uid.c
++++ b/net/ax25/ax25_uid.c
+@@ -34,7 +34,6 @@
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <linux/stat.h>
+-#include <linux/netfilter.h>
+ #include <linux/sysctl.h>
+ #include <linux/export.h>
+ #include <net/ip.h>
+diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
+index 96b64d2..d72a4f1 100644
+--- a/net/netrom/nr_route.c
++++ b/net/netrom/nr_route.c
+@@ -31,7 +31,6 @@
+ #include <linux/mm.h>
+ #include <linux/interrupt.h>
+ #include <linux/notifier.h>
+-#include <linux/netfilter.h>
+ #include <linux/init.h>
+ #include <linux/spinlock.h>
+ #include <net/netrom.h>
+diff --git a/net/rose/rose_link.c b/net/rose/rose_link.c
+index e873d7d..c76638c 100644
+--- a/net/rose/rose_link.c
++++ b/net/rose/rose_link.c
+@@ -25,7 +25,6 @@
+ #include <linux/fcntl.h>
+ #include <linux/mm.h>
+ #include <linux/interrupt.h>
+-#include <linux/netfilter.h>
+ #include <net/rose.h>
  
-+struct xt_socket_mtinfo3 {
-+	__u8 flags;
-+};
-+#define XT_SOCKET_FLAGS_V3 (XT_SOCKET_TRANSPARENT \
-+			   | XT_SOCKET_NOWILDCARD \
-+			   | XT_SOCKET_RESTORESKMARK)
-+
- #endif /* _XT_SOCKET_H */
-diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
-index e092cb0..43e26c8 100644
---- a/net/netfilter/xt_socket.c
-+++ b/net/netfilter/xt_socket.c
-@@ -205,6 +205,7 @@ static bool
- socket_match(const struct sk_buff *skb, struct xt_action_param *par,
- 	     const struct xt_socket_mtinfo1 *info)
- {
-+	struct sk_buff *pskb = (struct sk_buff *)skb;
- 	struct sock *sk = skb->sk;
- 
- 	if (!sk)
-@@ -226,6 +227,10 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
- 		if (info->flags & XT_SOCKET_TRANSPARENT)
- 			transparent = xt_socket_sk_is_transparent(sk);
- 
-+		if (info->flags & XT_SOCKET_RESTORESKMARK && !wildcard &&
-+		    transparent)
-+			pskb->mark = sk->sk_mark;
-+
- 		if (sk != skb->sk)
- 			sock_gen_put(sk);
- 
-@@ -247,7 +252,7 @@ socket_mt4_v0(const struct sk_buff *skb, struct xt_action_param *par)
- }
- 
- static bool
--socket_mt4_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
-+socket_mt4_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
- {
- 	return socket_match(skb, par, par->matchinfo);
- }
-@@ -371,9 +376,10 @@ static struct sock *xt_socket_lookup_slow_v6(const struct sk_buff *skb,
- }
- 
- static bool
--socket_mt6_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
-+socket_mt6_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
- {
- 	const struct xt_socket_mtinfo1 *info = (struct xt_socket_mtinfo1 *) par->matchinfo;
-+	struct sk_buff *pskb = (struct sk_buff *)skb;
- 	struct sock *sk = skb->sk;
- 
- 	if (!sk)
-@@ -395,6 +401,10 @@ socket_mt6_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
- 		if (info->flags & XT_SOCKET_TRANSPARENT)
- 			transparent = xt_socket_sk_is_transparent(sk);
- 
-+		if (info->flags & XT_SOCKET_RESTORESKMARK && !wildcard &&
-+		    transparent)
-+			pskb->mark = sk->sk_mark;
-+
- 		if (sk != skb->sk)
- 			sock_gen_put(sk);
- 
-@@ -428,6 +438,19 @@ static int socket_mt_v2_check(const struct xt_mtchk_param *par)
- 	return 0;
- }
- 
-+static int socket_mt_v3_check(const struct xt_mtchk_param *par)
-+{
-+	const struct xt_socket_mtinfo3 *info =
-+				    (struct xt_socket_mtinfo3 *)par->matchinfo;
-+
-+	if (info->flags & ~XT_SOCKET_FLAGS_V3) {
-+		pr_info("unknown flags 0x%x\n",
-+			info->flags & ~XT_SOCKET_FLAGS_V3);
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
- static struct xt_match socket_mt_reg[] __read_mostly = {
- 	{
- 		.name		= "socket",
-@@ -442,7 +465,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
- 		.name		= "socket",
- 		.revision	= 1,
- 		.family		= NFPROTO_IPV4,
--		.match		= socket_mt4_v1_v2,
-+		.match		= socket_mt4_v1_v2_v3,
- 		.checkentry	= socket_mt_v1_check,
- 		.matchsize	= sizeof(struct xt_socket_mtinfo1),
- 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
-@@ -454,7 +477,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
- 		.name		= "socket",
- 		.revision	= 1,
- 		.family		= NFPROTO_IPV6,
--		.match		= socket_mt6_v1_v2,
-+		.match		= socket_mt6_v1_v2_v3,
- 		.checkentry	= socket_mt_v1_check,
- 		.matchsize	= sizeof(struct xt_socket_mtinfo1),
- 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
-@@ -466,7 +489,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
- 		.name		= "socket",
- 		.revision	= 2,
- 		.family		= NFPROTO_IPV4,
--		.match		= socket_mt4_v1_v2,
-+		.match		= socket_mt4_v1_v2_v3,
- 		.checkentry	= socket_mt_v2_check,
- 		.matchsize	= sizeof(struct xt_socket_mtinfo1),
- 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
-@@ -478,7 +501,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
- 		.name		= "socket",
- 		.revision	= 2,
- 		.family		= NFPROTO_IPV6,
--		.match		= socket_mt6_v1_v2,
-+		.match		= socket_mt6_v1_v2_v3,
- 		.checkentry	= socket_mt_v2_check,
- 		.matchsize	= sizeof(struct xt_socket_mtinfo1),
- 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
-@@ -486,6 +509,30 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
- 		.me		= THIS_MODULE,
- 	},
- #endif
-+	{
-+		.name		= "socket",
-+		.revision	= 3,
-+		.family		= NFPROTO_IPV4,
-+		.match		= socket_mt4_v1_v2_v3,
-+		.checkentry	= socket_mt_v3_check,
-+		.matchsize	= sizeof(struct xt_socket_mtinfo1),
-+		.hooks		= (1 << NF_INET_PRE_ROUTING) |
-+				  (1 << NF_INET_LOCAL_IN),
-+		.me		= THIS_MODULE,
-+	},
-+#ifdef XT_SOCKET_HAVE_IPV6
-+	{
-+		.name		= "socket",
-+		.revision	= 3,
-+		.family		= NFPROTO_IPV6,
-+		.match		= socket_mt6_v1_v2_v3,
-+		.checkentry	= socket_mt_v3_check,
-+		.matchsize	= sizeof(struct xt_socket_mtinfo1),
-+		.hooks		= (1 << NF_INET_PRE_ROUTING) |
-+				  (1 << NF_INET_LOCAL_IN),
-+		.me		= THIS_MODULE,
-+	},
-+#endif
- };
- 
- static int __init socket_mt_init(void)
+ static void rose_ftimer_expiry(unsigned long);
+diff --git a/net/rose/rose_route.c b/net/rose/rose_route.c
+index 40148932..0fc76d8 100644
+--- a/net/rose/rose_route.c
++++ b/net/rose/rose_route.c
+@@ -31,7 +31,6 @@
+ #include <linux/mm.h>
+ #include <linux/interrupt.h>
+ #include <linux/notifier.h>
+-#include <linux/netfilter.h>
+ #include <linux/init.h>
+ #include <net/rose.h>
+ #include <linux/seq_file.h>
+diff --git a/security/selinux/xfrm.c b/security/selinux/xfrm.c
+index 98b0426..56e354f 100644
+--- a/security/selinux/xfrm.c
++++ b/security/selinux/xfrm.c
+@@ -35,9 +35,6 @@
+ #include <linux/init.h>
+ #include <linux/security.h>
+ #include <linux/types.h>
+-#include <linux/netfilter.h>
+-#include <linux/netfilter_ipv4.h>
+-#include <linux/netfilter_ipv6.h>
+ #include <linux/slab.h>
+ #include <linux/ip.h>
+ #include <linux/tcp.h>
 -- 
 1.7.10.4
