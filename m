@@ -1,118 +1,85 @@
-From: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kvGyRCNUhGIzFRTEAbKEI=?=
-	<hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH RFC net] neigh: do not modify unlinked entries
-Date: Fri, 19 Jun 2015 16:14:05 +0900
-Message-ID: <5583C13D.7050904@miraclelinux.com>
-References: <1434484599-5875-1-git-send-email-ja@ssi.bg>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v2] tcp: Do not call tcp_fastopen_reset_cipher from
+ interrupt context
+Date: Fri, 19 Jun 2015 01:01:51 -0700
+Message-ID: <1434700911.31511.10.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1434644134-81335-1-git-send-email-cpaasch@apple.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ying Xue <ying.xue@windriver.com>, alexei@purestorage.com,
-	joern@purestorage.com
-To: Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Christoph Paasch <cpaasch@apple.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35374 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751484AbbFSHOK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 03:14:10 -0400
-Received: by pacyx8 with SMTP id yx8so79363560pac.2
-        for <netdev@vger.kernel.org>; Fri, 19 Jun 2015 00:14:10 -0700 (PDT)
-In-Reply-To: <1434484599-5875-1-git-send-email-ja@ssi.bg>
+Received: from mail-wg0-f51.google.com ([74.125.82.51]:32782 "EHLO
+	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752852AbbFSIBz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 04:01:55 -0400
+Received: by wgez8 with SMTP id z8so82886465wge.0
+        for <netdev@vger.kernel.org>; Fri, 19 Jun 2015 01:01:54 -0700 (PDT)
+In-Reply-To: <1434644134-81335-1-git-send-email-cpaasch@apple.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-Julian Anastasov wrote:
-> The lockless lookups can return entry that is unlinked.
-> Sometimes they get reference before last neigh_cleanup_and_release,
-> sometimes they do not need reference. Later, any
-> modification attempts may result in the following problems:
+On Thu, 2015-06-18 at 09:15 -0700, Christoph Paasch wrote:
+> tcp_fastopen_reset_cipher really cannot be called from interrupt
+> context. It allocates the tcp_fastopen_context with GFP_KERNEL and
+> calls crypto_alloc_cipher, which allocates all kind of stuff with
+> GFP_KERNEL.
 > 
-> 1. entry is not destroyed immediately because neigh_update
-> can start the timer for dead entry, eg. on change to NUD_REACHABLE
-> state. As result, entry lives for some time but is invisible
-> and out of control.
+> Thus, we might sleep when the key-generation is triggered by an
+> incoming TFO cookie-request which would then happen in interrupt-
+> context, as shown by enabling CONFIG_DEBUG_ATOMIC_SLEEP:
 > 
-> 2. __neigh_event_send can run in parallel with neigh_destroy
-> while refcnt=0 but if timer is started and expired refcnt can
-> reach 0 for second time leading to second neigh_destroy and
-> possible crash.
+> [   36.001813] BUG: sleeping function called from invalid context at mm/slub.c:1266
+> [   36.003624] in_atomic(): 1, irqs_disabled(): 0, pid: 1016, name: packetdrill
+> [   36.004859] CPU: 1 PID: 1016 Comm: packetdrill Not tainted 4.1.0-rc7 #14
+> [   36.006085] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.7.5-0-ge51488c-20140602_164612-nilsson.home.kraxel.org 04/01/2014
+> [   36.008250]  00000000000004f2 ffff88007f8838a8 ffffffff8171d53a ffff880075a084a8
+> [   36.009630]  ffff880075a08000 ffff88007f8838c8 ffffffff810967d3 ffff88007f883928
+> [   36.011076]  0000000000000000 ffff88007f8838f8 ffffffff81096892 ffff88007f89be00
+> [   36.012494] Call Trace:
+> [   36.012953]  <IRQ>  [<ffffffff8171d53a>] dump_stack+0x4f/0x6d
+> [   36.014085]  [<ffffffff810967d3>] ___might_sleep+0x103/0x170
+> [   36.015117]  [<ffffffff81096892>] __might_sleep+0x52/0x90
+> [   36.016117]  [<ffffffff8118e887>] kmem_cache_alloc_trace+0x47/0x190
+> [   36.017266]  [<ffffffff81680d82>] ? tcp_fastopen_reset_cipher+0x42/0x130
+> [   36.018485]  [<ffffffff81680d82>] tcp_fastopen_reset_cipher+0x42/0x130
+> [   36.019679]  [<ffffffff81680f01>] tcp_fastopen_init_key_once+0x61/0x70
+> [   36.020884]  [<ffffffff81680f2c>] __tcp_fastopen_cookie_gen+0x1c/0x60
+> [   36.022058]  [<ffffffff816814ff>] tcp_try_fastopen+0x58f/0x730
+> [   36.023118]  [<ffffffff81671788>] tcp_conn_request+0x3e8/0x7b0
+> [   36.024185]  [<ffffffff810e3872>] ? __module_text_address+0x12/0x60
+> [   36.025327]  [<ffffffff8167b2e1>] tcp_v4_conn_request+0x51/0x60
+> [   36.026410]  [<ffffffff816727e0>] tcp_rcv_state_process+0x190/0xda0
+> [   36.027556]  [<ffffffff81661f97>] ? __inet_lookup_established+0x47/0x170
+> [   36.028784]  [<ffffffff8167c2ad>] tcp_v4_do_rcv+0x16d/0x3d0
+> [   36.029832]  [<ffffffff812e6806>] ? security_sock_rcv_skb+0x16/0x20
+> [   36.030936]  [<ffffffff8167cc8a>] tcp_v4_rcv+0x77a/0x7b0
+> [   36.031875]  [<ffffffff816af8c3>] ? iptable_filter_hook+0x33/0x70
+> [   36.032953]  [<ffffffff81657d22>] ip_local_deliver_finish+0x92/0x1f0
+> [   36.034065]  [<ffffffff81657f1a>] ip_local_deliver+0x9a/0xb0
+> [   36.035069]  [<ffffffff81657c90>] ? ip_rcv+0x3d0/0x3d0
+> [   36.035963]  [<ffffffff81657569>] ip_rcv_finish+0x119/0x330
+> [   36.036950]  [<ffffffff81657ba7>] ip_rcv+0x2e7/0x3d0
+> [   36.037847]  [<ffffffff81610652>] __netif_receive_skb_core+0x552/0x930
+> [   36.038994]  [<ffffffff81610a57>] __netif_receive_skb+0x27/0x70
+> [   36.040033]  [<ffffffff81610b72>] process_backlog+0xd2/0x1f0
+> [   36.041025]  [<ffffffff81611482>] net_rx_action+0x122/0x310
+> [   36.042007]  [<ffffffff81076743>] __do_softirq+0x103/0x2f0
+> [   36.042978]  [<ffffffff81723e3c>] do_softirq_own_stack+0x1c/0x30
 > 
-> Thanks to Eric Dumazet and Ying Xue for their work and analyze
-> on the __neigh_event_send change.
+> This patch moves the call to tcp_fastopen_init_key_once to the places
+> where a listener socket creates its TFO-state, which always happens in
+> user-context (either from the setsockopt, or implicitly during the
+> listen()-call)
 > 
-> Fixes: 767e97e1e0db ("neigh: RCU conversion of struct neighbour")
-> Fixes: a263b3093641 ("ipv4: Make neigh lookups directly in output packet path.")
-> Fixes: 6fd6ce2056de ("ipv6: Do not depend on rt->n in ip6_finish_output2().")
 > Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Fixes: 222e83d2e0ae ("tcp: switch tcp_fastopen key generation to net_get_random_once")
+> Signed-off-by: Christoph Paasch <cpaasch@apple.com>
 > ---
->  net/core/neighbour.c | 13 +++++++++++++
->  1 file changed, 13 insertions(+)
-> 
->   This is an RFC, so that it can get proper commit message,
-> testing and reports. In fact, I'm interested to see valid
-> stack dumps for the "NEIGH: BUG, double timer add, state is %x"
-> message without this patch and without any debug patches that
-> dump stack from neigh_hold or other places...
-> 
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index 3de6542..2237c1b 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -957,6 +957,8 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
->  	rc = 0;
->  	if (neigh->nud_state & (NUD_CONNECTED | NUD_DELAY | NUD_PROBE))
->  		goto out_unlock_bh;
-> +	if (neigh->dead)
-> +		goto out_dead;
->  
->  	if (!(neigh->nud_state & (NUD_STALE | NUD_INCOMPLETE))) {
->  		if (NEIGH_VAR(neigh->parms, MCAST_PROBES) +
-> @@ -1013,6 +1015,13 @@ out_unlock_bh:
->  		write_unlock(&neigh->lock);
->  	local_bh_enable();
->  	return rc;
-> +
-> +out_dead:
-> +	if (neigh->nud_state & NUD_STALE)
-> +		goto out_unlock_bh;
-> +	write_unlock_bh(&neigh->lock);
-> +	kfree_skb(skb);
-> +	return 1;
->  }
->  EXPORT_SYMBOL(__neigh_event_send);
->  
 
-Should we always drop the packet here since it is
-already dead, shouldn't we?
+Acked-by: Eric Dumazet <edumazet@google.com>
 
---yoshfuji
-
-> @@ -1076,6 +1085,8 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
->  	if (!(flags & NEIGH_UPDATE_F_ADMIN) &&
->  	    (old & (NUD_NOARP | NUD_PERMANENT)))
->  		goto out;
-> +	if (neigh->dead)
-> +		goto out;
->  
->  	if (!(new & NUD_VALID)) {
->  		neigh_del_timer(neigh);
-> @@ -1225,6 +1236,8 @@ EXPORT_SYMBOL(neigh_update);
->   */
->  void __neigh_set_probe_once(struct neighbour *neigh)
->  {
-> +	if (neigh->dead)
-> +		return;
->  	neigh->updated = jiffies;
->  	if (!(neigh->nud_state & NUD_FAILED))
->  		return;
-> 
-
--- 
-吉藤英明 <hideaki.yoshifuji@miraclelinux.com>
-ミラクル・リナックス株式会社 技術本部 サポート部
+Thanks Christoph.
