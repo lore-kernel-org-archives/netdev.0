@@ -1,108 +1,62 @@
-From: Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>
-Subject: Re: [REGRESSION] NFS is creating a hidden port (left over from
- xs_bind() )
-Date: Fri, 19 Jun 2015 15:52:26 -0400
-Message-ID: <20150619155226.7c5d6637@synchrony.poochiereds.net>
-References: <20150611234929.7b48d314@gandalf.local.home>
-	<CAHQdGtSyHtMfyVxT=hFY4m6XvM=3mxnZ=ajVJWYNXvYqE0+3zA@mail.gmail.com>
-	<1434120035.27504.77.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150612113420.5c114183@gandalf.local.home>
-	<20150612115038.44e20ccd@gandalf.local.home>
-	<20150617230819.0a11e47a@grimm.local.home>
-	<CAHQdGtQfF8sgfj6B2H=Sg+mn6ghPD+4UuZMSMFjj3XCVee60pw@mail.gmail.com>
-	<20150618154914.57424225@gandalf.local.home>
-	<20150618185051.2b2828c3@tlielax.poochiereds.net>
-	<20150618210843.4b09c31c@grimm.local.home>
-	<20150618213702.33f64b20@synchrony.poochiereds.net>
-	<20150619122553.43d2d86c@gandalf.local.home>
-	<20150619131759.7b38d9de@gandalf.local.home>
-	<CAHQdGtRCYoeToxyDHjnd+6f40J8SrScmQKKOW5O8AzJo3NefAA@mail.gmail.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH 1/1 net-next] sunrpc: use sg_init_one() in
+ krb5_rc4_setup_enc/seq_key()
+Date: Fri, 19 Jun 2015 15:52:51 -0400
+Message-ID: <20150619195251.GD21903@fieldses.org>
+References: <1434484672-5877-1-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Network Devel Mailing List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Bruce James Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-To: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAHQdGtRCYoeToxyDHjnd+6f40J8SrScmQKKOW5O8AzJo3NefAA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Fabian Frederick <fabf@skynet.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fieldses.org ([173.255.197.46]:45523 "EHLO fieldses.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754463AbbFSTwx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Jun 2015 15:52:53 -0400
+Content-Disposition: inline
+In-Reply-To: <1434484672-5877-1-git-send-email-fabf@skynet.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 19 Jun 2015 13:39:08 -0400
-Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org> wrote:
+Thanks, applying.--b.
 
-> On Fri, Jun 19, 2015 at 1:17 PM, Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
-> > On Fri, 19 Jun 2015 12:25:53 -0400
-> > Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
-> >
-> >
-> >> I don't see that 55201 anywhere. But then again, I didn't look for it
-> >> before the port disappeared. I could reboot and look for it again. I
-> >> should have saved the full netstat -tapn as well :-/
-> >
-> > Of course I didn't find it anywhere, that's the port on my wife's box
-> > that port 947 was connected to.
-> >
-> > Now I even went over to my wife's box and ran
-> >
-> >  # rpcinfo -p localhost
-> >    program vers proto   port  service
-> >     100000    4   tcp    111  portmapper
-> >     100000    3   tcp    111  portmapper
-> >     100000    2   tcp    111  portmapper
-> >     100000    4   udp    111  portmapper
-> >     100000    3   udp    111  portmapper
-> >     100000    2   udp    111  portmapper
-> >     100024    1   udp  34243  status
-> >     100024    1   tcp  34498  status
-> >
-> > which doesn't show anything.
-> >
-> > but something is listening to that port...
-> >
-> >  # netstat -ntap |grep 55201
-> > tcp        0      0 0.0.0.0:55201           0.0.0.0:*               LISTEN
+On Tue, Jun 16, 2015 at 09:57:52PM +0200, Fabian Frederick wrote:
+> Don't opencode sg_init_one()
 > 
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+> ---
+>  net/sunrpc/auth_gss/gss_krb5_crypto.c | 8 ++------
+>  1 file changed, 2 insertions(+), 6 deletions(-)
 > 
-> Hang on. This is on the client box while there is an active NFSv4
-> mount? Then that's probably the NFSv4 callback channel listening for
-> delegation callbacks.
-> 
-> Can you please try:
-> 
-> echo "options nfs callback_tcpport=4048" > /etc/modprobe.d/nfs-local.conf
-> 
-> and then either reboot the client or unload and then reload the nfs
-> modules before reattempting the mount. If this is indeed the callback
-> channel, then that will move your phantom listener to port 4048...
-> 
-
-Right, it was a little unclear to me before, but it now seems clear
-that the callback socket that the server is opening to the client is
-the one squatting on the port.
-
-...and that sort of makes sense, doesn't it? That rpc_clnt will stick
-around for the life of the client's lease, and the rpc_clnt binds to a
-particular port so that it can reconnect using the same one.
-
-Given that Stephen has done the legwork and figured out that reverting
-those commits fixes the issue, then I suspect that the real culprit is
-caf4ccd4e88cf2.
-
-The client is likely closing down the other end of the callback
-socket when it goes idle. Before that commit, we probably did an
-xs_close on it, but now we're doing a xs_tcp_shutdown and that leaves
-the port bound.
-
-I'm travelling this weekend and am not set up to reproduce it to
-confirm, but that does seem to be a plausible scenario.
--- 
-Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+> diff --git a/net/sunrpc/auth_gss/gss_krb5_crypto.c b/net/sunrpc/auth_gss/gss_krb5_crypto.c
+> index b5408e8..fee3c15 100644
+> --- a/net/sunrpc/auth_gss/gss_krb5_crypto.c
+> +++ b/net/sunrpc/auth_gss/gss_krb5_crypto.c
+> @@ -881,9 +881,7 @@ krb5_rc4_setup_seq_key(struct krb5_ctx *kctx, struct crypto_blkcipher *cipher,
+>  	if (err)
+>  		goto out_err;
+>  
+> -	sg_init_table(sg, 1);
+> -	sg_set_buf(sg, &zeroconstant, 4);
+> -
+> +	sg_init_one(sg, &zeroconstant, 4);
+>  	err = crypto_hash_digest(&desc, sg, 4, Kseq);
+>  	if (err)
+>  		goto out_err;
+> @@ -951,9 +949,7 @@ krb5_rc4_setup_enc_key(struct krb5_ctx *kctx, struct crypto_blkcipher *cipher,
+>  	if (err)
+>  		goto out_err;
+>  
+> -	sg_init_table(sg, 1);
+> -	sg_set_buf(sg, zeroconstant, 4);
+> -
+> +	sg_init_one(sg, zeroconstant, 4);
+>  	err = crypto_hash_digest(&desc, sg, 4, Kcrypt);
+>  	if (err)
+>  		goto out_err;
+> -- 
+> 2.4.2
