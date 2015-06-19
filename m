@@ -1,53 +1,38 @@
-From: Maninder Singh <maninder1.s@samsung.com>
-Subject: [PATCH 1/1] ixgbe: use kzalloc for allocating one thing
-Date: Fri, 19 Jun 2015 09:37:55 +0530
-Message-ID: <1434686875-13040-1-git-send-email-maninder1.s@samsung.com>
-Cc: pankaj.m@samsung.com, Maninder Singh <maninder1.s@samsung.com>
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>
+Subject: RE: [PATCH 00/22] FUJITSU Extended Socket network device driver
+Date: Fri, 19 Jun 2015 04:20:49 +0000
+Message-ID: <E86EADE93E2D054CBCD4E708C38D364A5424255E@G01JPEXMBYT01>
+References: <1434588359-25589-1-git-send-email-izumi.taku@jp.fujitsu.com>
+ <20150618212210.GA121898@vmdeb7>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-2022-jp"
+Cc: "platform-driver-x86@vger.kernel.org"
+	<platform-driver-x86@vger.kernel.org>,
+	"rkhan@redhat.com" <rkhan@redhat.com>,
+	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>
+To: Darren Hart <dvhart@infradead.org>, Joe Perches <joe@perches.com>,
+	"Sergei Shtylyov" <sergei.shtylyov@cogentembedded.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgwkm01.jp.fujitsu.com ([202.219.69.168]:26602 "EHLO
+	mgwkm01.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751283AbbFSEUz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 00:20:55 -0400
+In-Reply-To: <20150618212210.GA121898@vmdeb7>
+Content-Language: ja-JP
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use kzalloc rather than kcalloc(1..
 
-The semantic patch that makes this change is as follows:
+ Thank you for reviewing.
 
-// <smpl>
-@@
-@@
+> As Alex mentioned earlier, I suspect this is more appropriate for drivers/net.
+> If David objects, we can consider for platform/drivers/x86.
 
-- kcalloc(1,
-+ kzalloc(
-          ...)
-// </smpl>
+ OK, I'll migrate the code from drivers/platform/x86 to drivers/net and also
+ incorporate comments. I'm going to resend one soon.
 
-and removing checkpatch below CHECK:
-CHECK: Prefer kzalloc(sizeof(*fwd_adapter)...) over 
-kzalloc(sizeof(struct ixgbe_fwd_adapter)...)
-
-Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
-Reviewed-by: Vaneet Narang <v.narang@samsung.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 3bf2f3c..3f58757 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8134,7 +8134,7 @@ static void *ixgbe_fwd_add(struct net_device *pdev, struct net_device *vdev)
- 	    (adapter->num_rx_pools > IXGBE_MAX_MACVLANS))
- 		return ERR_PTR(-EBUSY);
- 
--	fwd_adapter = kcalloc(1, sizeof(struct ixgbe_fwd_adapter), GFP_KERNEL);
-+	fwd_adapter = kzalloc(sizeof(*fwd_adapter), GFP_KERNEL);
- 	if (!fwd_adapter)
- 		return ERR_PTR(-ENOMEM);
- 
--- 
-1.7.1
+ Sincerely,
+ Taku Izumi
