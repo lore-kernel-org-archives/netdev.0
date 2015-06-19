@@ -1,110 +1,190 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: inet_diag: export IPV6_V6ONLY sockopt
-Date: Fri, 19 Jun 2015 06:52:00 -0700
-Message-ID: <1434721920.31511.16.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150615205421.GA22616@orbit.nwl.cc>
-	 <1434716132-25103-1-git-send-email-phil@nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Phil Sutter <phil@nwl.cc>
+From: Daniel Wagner <daniel.wagner@bmw-carit.de>
+Subject: [PATCH v1] bpf: BPF based latency tracing
+Date: Fri, 19 Jun 2015 15:57:27 +0200
+Message-ID: <1434722247-9952-1-git-send-email-daniel.wagner@bmw-carit.de>
+Cc: Daniel Wagner <daniel.wagner@bmw-carit.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Ingo Molnar <mingo@kernel.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:32810 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752001AbbFSNwE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 09:52:04 -0400
-Received: by wibee9 with SMTP id ee9so10353884wib.0
-        for <netdev@vger.kernel.org>; Fri, 19 Jun 2015 06:52:03 -0700 (PDT)
-In-Reply-To: <1434716132-25103-1-git-send-email-phil@nwl.cc>
+Received: from mail.bmw-carit.de ([62.245.222.98]:49492 "EHLO
+	linuxmail.bmw-carit.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751883AbbFSN5j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 09:57:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-06-19 at 14:15 +0200, Phil Sutter wrote:
-> For AF_INET6 sockets, the value of struct ipv6_pinfo.ipv6only is
-> exported to userspace. It indicates whether an unbound socket listens on
-> IPv4 as well as IPv6.
+BPF offers another way to generate latency histograms. We attach
+kprobes at trace_preempt_off and trace_preempt_on and calculate the
+time it takes to from seeing the off/on transition.
 
-What is an 'unbound socket' ??? This makes no sense to me here.
+The first array is used to store the start time stamp. The key is the
+CPU id. The second array stores the log2(time diff). We need to use
+static allocation here (array and not hash tables). The kprobes
+hooking into trace_preempt_on|off should not calling any dynamic
+memory allocation or free path. We need to avoid recursivly
+getting called. Besides that, it reduces jitter in the measurement.
 
->  Since the socket is natively IPv6, it is not
-> listed by e.g. 'netstat -l -4'.
+CPU 0
+      latency        : count     distribution
+       1 -> 1        : 0        |                                        |
+       2 -> 3        : 0        |                                        |
+       4 -> 7        : 0        |                                        |
+       8 -> 15       : 0        |                                        |
+      16 -> 31       : 0        |                                        |
+      32 -> 63       : 0        |                                        |
+      64 -> 127      : 0        |                                        |
+     128 -> 255      : 0        |                                        |
+     256 -> 511      : 0        |                                        |
+     512 -> 1023     : 0        |                                        |
+    1024 -> 2047     : 0        |                                        |
+    2048 -> 4095     : 166723   |*************************************** |
+    4096 -> 8191     : 19870    |***                                     |
+    8192 -> 16383    : 6324     |                                        |
+   16384 -> 32767    : 1098     |                                        |
+   32768 -> 65535    : 190      |                                        |
+   65536 -> 131071   : 179      |                                        |
+  131072 -> 262143   : 18       |                                        |
+  262144 -> 524287   : 4        |                                        |
+  524288 -> 1048575  : 1363     |                                        |
+CPU 1
+      latency        : count     distribution
+       1 -> 1        : 0        |                                        |
+       2 -> 3        : 0        |                                        |
+       4 -> 7        : 0        |                                        |
+       8 -> 15       : 0        |                                        |
+      16 -> 31       : 0        |                                        |
+      32 -> 63       : 0        |                                        |
+      64 -> 127      : 0        |                                        |
+     128 -> 255      : 0        |                                        |
+     256 -> 511      : 0        |                                        |
+     512 -> 1023     : 0        |                                        |
+    1024 -> 2047     : 0        |                                        |
+    2048 -> 4095     : 114042   |*************************************** |
+    4096 -> 8191     : 9587     |**                                      |
+    8192 -> 16383    : 4140     |                                        |
+   16384 -> 32767    : 673      |                                        |
+   32768 -> 65535    : 179      |                                        |
+   65536 -> 131071   : 29       |                                        |
+  131072 -> 262143   : 4        |                                        |
+  262144 -> 524287   : 1        |                                        |
+  524288 -> 1048575  : 364      |                                        |
+CPU 2
+      latency        : count     distribution
+       1 -> 1        : 0        |                                        |
+       2 -> 3        : 0        |                                        |
+       4 -> 7        : 0        |                                        |
+       8 -> 15       : 0        |                                        |
+      16 -> 31       : 0        |                                        |
+      32 -> 63       : 0        |                                        |
+      64 -> 127      : 0        |                                        |
+     128 -> 255      : 0        |                                        |
+     256 -> 511      : 0        |                                        |
+     512 -> 1023     : 0        |                                        |
+    1024 -> 2047     : 0        |                                        |
+    2048 -> 4095     : 40147    |*************************************** |
+    4096 -> 8191     : 2300     |*                                       |
+    8192 -> 16383    : 828      |                                        |
+   16384 -> 32767    : 178      |                                        |
+   32768 -> 65535    : 59       |                                        |
+   65536 -> 131071   : 2        |                                        |
+  131072 -> 262143   : 0        |                                        |
+  262144 -> 524287   : 1        |                                        |
+  524288 -> 1048575  : 174      |                                        |
+CPU 3
+      latency        : count     distribution
+       1 -> 1        : 0        |                                        |
+       2 -> 3        : 0        |                                        |
+       4 -> 7        : 0        |                                        |
+       8 -> 15       : 0        |                                        |
+      16 -> 31       : 0        |                                        |
+      32 -> 63       : 0        |                                        |
+      64 -> 127      : 0        |                                        |
+     128 -> 255      : 0        |                                        |
+     256 -> 511      : 0        |                                        |
+     512 -> 1023     : 0        |                                        |
+    1024 -> 2047     : 0        |                                        |
+    2048 -> 4095     : 29626    |*************************************** |
+    4096 -> 8191     : 2704     |**                                      |
+    8192 -> 16383    : 1090     |                                        |
+   16384 -> 32767    : 160      |                                        |
+   32768 -> 65535    : 72       |                                        |
+   65536 -> 131071   : 32       |                                        |
+  131072 -> 262143   : 26       |                                        |
+  262144 -> 524287   : 12       |                                        |
+  524288 -> 1048575  : 298      |                                        |
 
-netstat does not use this interface. iproute2/ss does.
+All this is based on the trace3 examples written by
+Alexei Starovoitov <ast@plumgrid.com>.
 
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
-> This patch is accompanied by an appropriate one for iproute2 to enable
-> the additional information in 'ss -e'.
-> ---
->  include/uapi/linux/inet_diag.h | 3 ++-
->  net/ipv4/inet_diag.c           | 4 ++++
->  2 files changed, 6 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/uapi/linux/inet_diag.h b/include/uapi/linux/inet_diag.h
-> index c7093c7..9ca4834 100644
-> --- a/include/uapi/linux/inet_diag.h
-> +++ b/include/uapi/linux/inet_diag.h
-> @@ -111,9 +111,10 @@ enum {
->  	INET_DIAG_SKMEMINFO,
->  	INET_DIAG_SHUTDOWN,
->  	INET_DIAG_DCTCPINFO,
-> +	INET_DIAG_SKV6ONLY,
->  };
->  
-> -#define INET_DIAG_MAX INET_DIAG_DCTCPINFO
-> +#define INET_DIAG_MAX INET_DIAG_SKV6ONLY
->  
->  /* INET_DIAG_MEM */
->  
-> diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-> index 4d32262..4bf6d03 100644
-> --- a/net/ipv4/inet_diag.c
-> +++ b/net/ipv4/inet_diag.c
-> @@ -151,6 +151,10 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
->  			if (nla_put_u8(skb, INET_DIAG_TCLASS,
->  				       inet6_sk(sk)->tclass) < 0)
->  				goto errout;
-> +
-> +		if (nla_put_u8(skb, INET_DIAG_SKV6ONLY,
-> +				inet6_sk(sk)->ipv6only) < 0)
-> +			goto errout;
->  	}
->  #endif
->  
+Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
+Cc: Alexei Starovoitov <ast@plumgrid.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
+---
 
-1) This certainly should not compile on current linux trees.
-   Always submit such patches on net-next.
+Hi Alexei,
 
-2) It is not clear why we would add this attribute if it is 0.
-    This looks a waste of data.
+Something broke in my toolchain and it took me a while to figure out whats
+going on.
 
-So I would rather use :
+With the rebase on net-next no additinal patches are needed and this
+thing here runs fine.
 
-diff --git a/include/uapi/linux/inet_diag.h b/include/uapi/linux/inet_diag.h
-index b629fc53b1090e73047b263a9231e34ebf64b2af..46d72e45f8701526abb06f4a8187262dbc635784 100644
---- a/include/uapi/linux/inet_diag.h
-+++ b/include/uapi/linux/inet_diag.h
-@@ -112,6 +112,7 @@ enum {
- 	INET_DIAG_SHUTDOWN,
- 	INET_DIAG_DCTCPINFO,
- 	INET_DIAG_PROTOCOL,  /* response attribute only */
-+	INET_DIAG_SKV6ONLY,
- };
+cheers,
+daniel
+
+changes
+
+v1:	- rebases on net-next
+
+v0:
+	- renamed to lathist since there is no direct hw latency involved
+	-  use arrays instead of hash tables
+
+samples/bpf/Makefile | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 46c6a8c..4450fed 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -12,6 +12,7 @@ hostprogs-y += tracex2
+ hostprogs-y += tracex3
+ hostprogs-y += tracex4
+ hostprogs-y += tracex5
++hostprogs-y += lathist
  
- #define INET_DIAG_MAX INET_DIAG_PROTOCOL
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 21985d8d41e709908021769be36380f7a5dfac23..381a26e932691075a73ae63569fd3a4366ce277f 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -151,6 +151,9 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
- 			if (nla_put_u8(skb, INET_DIAG_TCLASS,
- 				       inet6_sk(sk)->tclass) < 0)
- 				goto errout;
-+		if (ipv6_only_sock(sk) &&
-+		    nla_put_u8(skb, INET_DIAG_SKV6ONLY, 1))
-+			goto errout;
- 	}
- #endif
+ test_verifier-objs := test_verifier.o libbpf.o
+ test_maps-objs := test_maps.o libbpf.o
+@@ -24,6 +25,7 @@ tracex2-objs := bpf_load.o libbpf.o tracex2_user.o
+ tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
+ tracex4-objs := bpf_load.o libbpf.o tracex4_user.o
+ tracex5-objs := bpf_load.o libbpf.o tracex5_user.o
++lathist-objs := bpf_load.o libbpf.o lathist_user.o
  
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+@@ -36,6 +38,7 @@ always += tracex3_kern.o
+ always += tracex4_kern.o
+ always += tracex5_kern.o
+ always += tcbpf1_kern.o
++always += lathist_kern.o
+ 
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ 
+@@ -48,6 +51,7 @@ HOSTLOADLIBES_tracex2 += -lelf
+ HOSTLOADLIBES_tracex3 += -lelf
+ HOSTLOADLIBES_tracex4 += -lelf -lrt
+ HOSTLOADLIBES_tracex5 += -lelf
++HOSTLOADLIBES_lathist += -lelf
+ 
+ # point this to your LLVM backend with bpf support
+ LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
+-- 
+2.1.0
