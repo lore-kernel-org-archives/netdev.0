@@ -1,51 +1,115 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCH v2] bpf: fix a bug in verification logic when SUB operation
- taken on FRAME_PTR
-Date: Fri, 19 Jun 2015 08:44:52 +0800
-Message-ID: <55836604.1050807@huawei.com>
-References: <1434615176-96706-1-git-send-email-wangnan0@huawei.com> <1434616305-97746-1-git-send-email-wangnan0@huawei.com> <20150618160018.GA13470@Alexeis-MBP.westell.com>
+From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Subject: Re: [REGRESSION] NFS is creating a hidden port (left over from
+ xs_bind() )
+Date: Thu, 18 Jun 2015 21:08:43 -0400
+Message-ID: <20150618210843.4b09c31c@grimm.local.home>
+References: <20150611234929.7b48d314@gandalf.local.home>
+	<CAHQdGtSyHtMfyVxT=hFY4m6XvM=3mxnZ=ajVJWYNXvYqE0+3zA@mail.gmail.com>
+	<1434120035.27504.77.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150612113420.5c114183@gandalf.local.home>
+	<20150612115038.44e20ccd@gandalf.local.home>
+	<20150617230819.0a11e47a@grimm.local.home>
+	<CAHQdGtQfF8sgfj6B2H=Sg+mn6ghPD+4UuZMSMFjj3XCVee60pw@mail.gmail.com>
+	<20150618154914.57424225@gandalf.local.home>
+	<20150618185051.2b2828c3@tlielax.poochiereds.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <ast@kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <lizefan@huawei.com>,
-	<pi3orama@163.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150618160018.GA13470@Alexeis-MBP.westell.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Network Devel Mailing List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150618185051.2b2828c3-9yPaYZwiELC+kQycOl6kW4xkIHaj4LzF@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 18 Jun 2015 18:50:51 -0400
+Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org> wrote:
+ 
+> The interesting bit here is that the sockets all seem to connect to port
+> 55201 on the remote host, if I'm reading these traces correctly. What's
+> listening on that port on the server?
+> 
+> This might give some helpful info:
+> 
+>     $ rpcinfo -p <NFS servername>
+
+# rpcinfo -p wife
+   program vers proto   port  service
+    100000    4   tcp    111  portmapper
+    100000    3   tcp    111  portmapper
+    100000    2   tcp    111  portmapper
+    100000    4   udp    111  portmapper
+    100000    3   udp    111  portmapper
+    100000    2   udp    111  portmapper
+    100024    1   udp  34243  status
+    100024    1   tcp  34498  status
+
+# rpcinfo -p localhost
+   program vers proto   port  service
+    100000    4   tcp    111  portmapper
+    100000    3   tcp    111  portmapper
+    100000    2   tcp    111  portmapper
+    100000    4   udp    111  portmapper
+    100000    3   udp    111  portmapper
+    100000    2   udp    111  portmapper
+    100024    1   udp  38332  status
+    100024    1   tcp  52684  status
+    100003    2   tcp   2049  nfs
+    100003    3   tcp   2049  nfs
+    100003    4   tcp   2049  nfs
+    100227    2   tcp   2049
+    100227    3   tcp   2049
+    100003    2   udp   2049  nfs
+    100003    3   udp   2049  nfs
+    100003    4   udp   2049  nfs
+    100227    2   udp   2049
+    100227    3   udp   2049
+    100021    1   udp  53218  nlockmgr
+    100021    3   udp  53218  nlockmgr
+    100021    4   udp  53218  nlockmgr
+    100021    1   tcp  49825  nlockmgr
+    100021    3   tcp  49825  nlockmgr
+    100021    4   tcp  49825  nlockmgr
+    100005    1   udp  49166  mountd
+    100005    1   tcp  48797  mountd
+    100005    2   udp  47856  mountd
+    100005    2   tcp  53839  mountd
+    100005    3   udp  36090  mountd
+    100005    3   tcp  46390  mountd
+
+Note, the box has been rebooted since I posted my last trace.
+
+> 
+> Also, what NFS version are you using to mount here? Your fstab entries
+> suggest that you're using the default version (for whatever distro this
+> is), but have you (e.g.) set up nfsmount.conf to default to v3 on this
+> box?
+> 
+
+My box is Debian testing (recently updated).
+
+# dpkg -l nfs-*
+
+ii  nfs-common     1:1.2.8-9    amd64        NFS support files common to clien
+ii  nfs-kernel-ser 1:1.2.8-9    amd64        support for NFS kernel server
 
 
-On 2015/6/19 0:00, Alexei Starovoitov wrote:
-> On Thu, Jun 18, 2015 at 08:31:45AM +0000, Wang Nan wrote:
->> Original code has a problem, cause following code failed to pass verifier:
->>
->>   r1 <- r10
->>   r1 -= 8
->>   r2 = 8
->>   r3 = unsafe pointer
->>   call BPF_FUNC_probe_read  <-- R1 type=inv expected=fp
->>
->> However, by replacing 'r1 -= 8' to 'r1 += -8' the above program can be
->> loaded successfully.
->>
->> This is because the verifier allows only BPF_ADD instruction on a
->> FRAME_PTR reigster to forge PTR_TO_STACK register, but makes BPF_SUB
->> on FRAME_PTR reigster to get a UNKNOWN_VALUE register.
->>
->> This patch fix it by adding BPF_SUB in stack_relative checking.
-> It's not a bug. It's catching ADD only by design.
-> If we let it recognize SUB then one might argue we should let it
-> recognize multiply, shifts and all other arithmetic on pointers.
-> verifier will be getting bigger and bigger. Where do we stop?
-> llvm only emits canonical ADD. If you've seen llvm doing SUB,
-> let's fix it there.
-> So what piece generated this 'r1 -= 8' ?
->
+same for both boxes.
 
-I hit this problem when writing code of automatical parameter generator. The
-instruction is generated by myself. Now I have corrected my code.
+nfsmount.conf doesn't exist on either box.
 
-Thank you.
+I'm assuming it is using nfs4.
+
+Anything else I can provide?
+
+-- Steve
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
