@@ -1,58 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] inet_diag: Remove _bh suffix in
- inet_diag_dump_reqs().
-Date: Thu, 18 Jun 2015 23:42:08 -0700
-Message-ID: <1434696128.31511.1.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1434627654-3630-1-git-send-email-shimoda.hiroaki@gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next RFC v2 2/3] ipv4: add support for light weight
+ tunnel encap attributes
+Date: Fri, 19 Jun 2015 09:59:01 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1506190857520.1731@ja.home.ssi.bg>
+References: <1434689355-4088-3-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Hiroaki Shimoda <shimoda.hiroaki@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: ebiederm@xmission.com, rshearma@brocade.com, tgraf@suug.ch,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:34536 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750772AbbFSGmN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 02:42:13 -0400
-Received: by wgfq1 with SMTP id q1so34686374wgf.1
-        for <netdev@vger.kernel.org>; Thu, 18 Jun 2015 23:42:11 -0700 (PDT)
-In-Reply-To: <1434627654-3630-1-git-send-email-shimoda.hiroaki@gmail.com>
+Received: from ja.ssi.bg ([178.16.129.10]:41837 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752686AbbFSG7Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Jun 2015 02:59:25 -0400
+In-Reply-To: <1434689355-4088-3-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-06-18 at 20:40 +0900, Hiroaki Shimoda wrote:
-> inet_diag_dump_reqs() is called from inet_diag_dump_icsk() with BH
-> disabled. So no need to disable BH in inet_diag_dump_reqs().
-> 
-> Signed-off-by: Hiroaki Shimoda <shimoda.hiroaki@gmail.com>
-> ---
->  net/ipv4/inet_diag.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-> index 21985d8d41e7..4ca789ba63cb 100644
-> --- a/net/ipv4/inet_diag.c
-> +++ b/net/ipv4/inet_diag.c
-> @@ -746,7 +746,7 @@ static int inet_diag_dump_reqs(struct sk_buff *skb, struct sock *sk,
+
+	Hello,
+
+On Thu, 18 Jun 2015, Roopa Prabhu wrote:
+
+> @@ -366,6 +371,7 @@ static inline size_t fib_nlmsg_size(struct fib_info *fi)
+>  	payload += nla_total_size((RTAX_MAX * nla_total_size(4)));
 >  
->  	entry.family = sk->sk_family;
+>  	if (fi->fib_nhs) {
+> +		size_t nh_encapsize = 0;
+
+	Var not in #ifdef. Any warnings with CONFIG_LWTUNNEL=n?
+
+>  		/* Also handles the special case fib_nhs == 1 */
 >  
-> -	spin_lock_bh(&icsk->icsk_accept_queue.syn_wait_lock);
-> +	spin_lock(&icsk->icsk_accept_queue.syn_wait_lock);
+>  		/* each nexthop is packed in an attribute */
+> @@ -374,8 +380,23 @@ static inline size_t fib_nlmsg_size(struct fib_info *fi)
+>  		/* may contain flow and gateway attribute */
+>  		nhsize += 2 * nla_total_size(4);
 >  
->  	lopt = icsk->icsk_accept_queue.listen_opt;
->  	if (!lopt || !listen_sock_qlen(lopt))
-> @@ -794,7 +794,7 @@ static int inet_diag_dump_reqs(struct sk_buff *skb, struct sock *sk,
->  	}
->  
->  out:
-> -	spin_unlock_bh(&icsk->icsk_accept_queue.syn_wait_lock);
-> +	spin_unlock(&icsk->icsk_accept_queue.syn_wait_lock);
->  
->  	return err;
+> +#ifdef CONFIG_LWTUNNEL
+> +		/* grab encap info */
+> +		for_nexthops(fi) {
+> +			if (nh->nh_lwtstate) {
+> +				/* RTA_ENCAP_TYPE */
+> +				nh_encapsize += lwtunnel_get_encap_size(
+> +						nh->nh_lwtstate);
+
+	New labels not in #ifdef:
+
+> +
+> +err_inval:
+> +	ret = -EINVAL;
+> +
+> +errout:
+> +	return ret;
 >  }
 
-Sure, although this will soon be removed completely when SYN_RECV
-sockets will be stored in regular ehash table.
+	Some other places may need changes:
 
-Thanks
+- nh_comp: there is logic that decides if same fib_info
+is reused from many fib nodes. There should be check
+if NH matches by nh_lwtstate.
+
+- xfrm4_fill_dst: not sure about this but some fields
+are copied.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
