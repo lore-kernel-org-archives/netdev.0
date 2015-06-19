@@ -1,48 +1,68 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next RFC v2 2/3] ipv4: add support for light weight
- tunnel encap attributes
-Date: Fri, 19 Jun 2015 08:28:34 -0700
-Message-ID: <55843522.7060804@cumulusnetworks.com>
-References: <1434689355-4088-3-git-send-email-roopa@cumulusnetworks.com> <558432F1.5040209@brocade.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH] xen-netback: fix a BUG() during initialization
+Date: Fri, 19 Jun 2015 16:37:39 +0100
+Message-ID: <20150619153739.GL28194@zion.uk.xensource.com>
+References: <1434716511-25657-1-git-send-email-imrep.amz@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, tgraf@suug.ch, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Robert Shearman <rshearma@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:32913 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751808AbbFSP2h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 11:28:37 -0400
-Received: by padev16 with SMTP id ev16so87504107pad.0
-        for <netdev@vger.kernel.org>; Fri, 19 Jun 2015 08:28:36 -0700 (PDT)
-In-Reply-To: <558432F1.5040209@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <xen-devel@lists.xenproject.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, "Palik, Imre" <imrep@amazon.de>,
+	Matt Wilson <msw@amazon.com>
+To: Imre Palik <imrep.amz@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1434716511-25657-1-git-send-email-imrep.amz@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 6/19/15, 8:19 AM, Robert Shearman wrote:
-> On 19/06/15 05:49, Roopa Prabhu wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> Introduces two netlink attributes RTA_ENCAP_TYPE and
->> RTA_ENCAP to support attaching encap information to ipv4 routes.
->
-> Surely RTA_ENCAP_TYPE should be part of RTA_ENCAP, since the type 
-> doesn't make sense without the data and vice versa?
-I went back and forth on this. And started with what you are saying 
-above. But then I wanted RTA_ENCAP netlink policy to be declared by 
-individual lwtunnel drivers.
-And to determine which RTA_ENCAP netlink policy to pick, you need to 
-know the RTA_ENCAP policy type (or lwtunnel type)
-which is encoded in RTA_ENCAP_TYPE. And I did not want to introduce 
-another level of nest in RTA_ENCAP (because for nexthops we are already 
-2 levels deep when parsing RTA_ENCAP).
+On Fri, Jun 19, 2015 at 02:21:51PM +0200, Imre Palik wrote:
+> From: "Palik, Imre" <imrep@amazon.de>
+> 
+> Commit edafc132baac ("xen-netback: making the bandwidth limiter runtime settable")
+> introduced the capability to change the bandwidth rate limit at runtime.
+> But it also introduced a possible crashing bug.
+> 
+> If netback receives two XenbusStateConnected without getting the
+> hotplug-status watch firing in between, then it will try to register the
+> watches for the rate limiter again.  But this triggers a BUG() in the watch
+> registration code.
+> 
+> The fix modifies connect() to remove the possibly existing packet-rate
+> watches before trying to install those watches.  This behaviour is in line
+> with how connect() deals with the hotplug-status watch.
+> 
+> Signed-off-by: Imre Palik <imrep@amazon.de>
+> Cc: Matt Wilson <msw@amazon.com>
 
-Hence, fib code first looks for RTA_ENCAP and if RTA_ENCAP is specified, 
-RTA_ENCAP_TYPE is a required attribute. My iproute2 patches handles this 
-and makes sure
-there is an  RTA_ENCAP_TYPE specified with RTA_ENCAP.
+Acked-by: Wei Liu <wei.liu2@citrix.com>
 
-thanks,
-Roopa
+> ---
+>  drivers/net/xen-netback/xenbus.c |    4 ++++
+>  1 file changed, 4 insertions(+)
+> 
+> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+> index 968787a..ec383b0 100644
+> --- a/drivers/net/xen-netback/xenbus.c
+> +++ b/drivers/net/xen-netback/xenbus.c
+> @@ -681,6 +681,9 @@ static int xen_register_watchers(struct xenbus_device *dev, struct xenvif *vif)
+>  	char *node;
+>  	unsigned maxlen = strlen(dev->nodename) + sizeof("/rate");
+>  
+> +	if (vif->credit_watch.node)
+> +		return -EADDRINUSE;
+> +
+>  	node = kmalloc(maxlen, GFP_KERNEL);
+>  	if (!node)
+>  		return -ENOMEM;
+> @@ -770,6 +773,7 @@ static void connect(struct backend_info *be)
+>  	}
+>  
+>  	xen_net_read_rate(dev, &credit_bytes, &credit_usec);
+> +	xen_unregister_watchers(be->vif);
+>  	xen_register_watchers(dev, be->vif);
+>  	read_xenbus_vif_flags(be);
+>  
+> -- 
+> 1.7.9.5
