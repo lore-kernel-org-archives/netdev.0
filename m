@@ -1,71 +1,118 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next RFC v2 2/3] ipv4: add support for light weight
- tunnel encap attributes
-Date: Fri, 19 Jun 2015 09:59:01 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1506190857520.1731@ja.home.ssi.bg>
-References: <1434689355-4088-3-git-send-email-roopa@cumulusnetworks.com>
+From: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kvGyRCNUhGIzFRTEAbKEI=?=
+	<hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH RFC net] neigh: do not modify unlinked entries
+Date: Fri, 19 Jun 2015 16:14:05 +0900
+Message-ID: <5583C13D.7050904@miraclelinux.com>
+References: <1434484599-5875-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ebiederm@xmission.com, rshearma@brocade.com, tgraf@suug.ch,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji@miraclelinux.com,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ying Xue <ying.xue@windriver.com>, alexei@purestorage.com,
+	joern@purestorage.com
+To: Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:41837 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752686AbbFSG7Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Jun 2015 02:59:25 -0400
-In-Reply-To: <1434689355-4088-3-git-send-email-roopa@cumulusnetworks.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35374 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751484AbbFSHOK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 03:14:10 -0400
+Received: by pacyx8 with SMTP id yx8so79363560pac.2
+        for <netdev@vger.kernel.org>; Fri, 19 Jun 2015 00:14:10 -0700 (PDT)
+In-Reply-To: <1434484599-5875-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-	Hello,
-
-On Thu, 18 Jun 2015, Roopa Prabhu wrote:
-
-> @@ -366,6 +371,7 @@ static inline size_t fib_nlmsg_size(struct fib_info *fi)
->  	payload += nla_total_size((RTAX_MAX * nla_total_size(4)));
+Julian Anastasov wrote:
+> The lockless lookups can return entry that is unlinked.
+> Sometimes they get reference before last neigh_cleanup_and_release,
+> sometimes they do not need reference. Later, any
+> modification attempts may result in the following problems:
+> 
+> 1. entry is not destroyed immediately because neigh_update
+> can start the timer for dead entry, eg. on change to NUD_REACHABLE
+> state. As result, entry lives for some time but is invisible
+> and out of control.
+> 
+> 2. __neigh_event_send can run in parallel with neigh_destroy
+> while refcnt=0 but if timer is started and expired refcnt can
+> reach 0 for second time leading to second neigh_destroy and
+> possible crash.
+> 
+> Thanks to Eric Dumazet and Ying Xue for their work and analyze
+> on the __neigh_event_send change.
+> 
+> Fixes: 767e97e1e0db ("neigh: RCU conversion of struct neighbour")
+> Fixes: a263b3093641 ("ipv4: Make neigh lookups directly in output packet path.")
+> Fixes: 6fd6ce2056de ("ipv6: Do not depend on rt->n in ip6_finish_output2().")
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> ---
+>  net/core/neighbour.c | 13 +++++++++++++
+>  1 file changed, 13 insertions(+)
+> 
+>   This is an RFC, so that it can get proper commit message,
+> testing and reports. In fact, I'm interested to see valid
+> stack dumps for the "NEIGH: BUG, double timer add, state is %x"
+> message without this patch and without any debug patches that
+> dump stack from neigh_hold or other places...
+> 
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 3de6542..2237c1b 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -957,6 +957,8 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
+>  	rc = 0;
+>  	if (neigh->nud_state & (NUD_CONNECTED | NUD_DELAY | NUD_PROBE))
+>  		goto out_unlock_bh;
+> +	if (neigh->dead)
+> +		goto out_dead;
 >  
->  	if (fi->fib_nhs) {
-> +		size_t nh_encapsize = 0;
-
-	Var not in #ifdef. Any warnings with CONFIG_LWTUNNEL=n?
-
->  		/* Also handles the special case fib_nhs == 1 */
->  
->  		/* each nexthop is packed in an attribute */
-> @@ -374,8 +380,23 @@ static inline size_t fib_nlmsg_size(struct fib_info *fi)
->  		/* may contain flow and gateway attribute */
->  		nhsize += 2 * nla_total_size(4);
->  
-> +#ifdef CONFIG_LWTUNNEL
-> +		/* grab encap info */
-> +		for_nexthops(fi) {
-> +			if (nh->nh_lwtstate) {
-> +				/* RTA_ENCAP_TYPE */
-> +				nh_encapsize += lwtunnel_get_encap_size(
-> +						nh->nh_lwtstate);
-
-	New labels not in #ifdef:
-
+>  	if (!(neigh->nud_state & (NUD_STALE | NUD_INCOMPLETE))) {
+>  		if (NEIGH_VAR(neigh->parms, MCAST_PROBES) +
+> @@ -1013,6 +1015,13 @@ out_unlock_bh:
+>  		write_unlock(&neigh->lock);
+>  	local_bh_enable();
+>  	return rc;
 > +
-> +err_inval:
-> +	ret = -EINVAL;
-> +
-> +errout:
-> +	return ret;
+> +out_dead:
+> +	if (neigh->nud_state & NUD_STALE)
+> +		goto out_unlock_bh;
+> +	write_unlock_bh(&neigh->lock);
+> +	kfree_skb(skb);
+> +	return 1;
 >  }
+>  EXPORT_SYMBOL(__neigh_event_send);
+>  
 
-	Some other places may need changes:
+Should we always drop the packet here since it is
+already dead, shouldn't we?
 
-- nh_comp: there is logic that decides if same fib_info
-is reused from many fib nodes. There should be check
-if NH matches by nh_lwtstate.
+--yoshfuji
 
-- xfrm4_fill_dst: not sure about this but some fields
-are copied.
+> @@ -1076,6 +1085,8 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+>  	if (!(flags & NEIGH_UPDATE_F_ADMIN) &&
+>  	    (old & (NUD_NOARP | NUD_PERMANENT)))
+>  		goto out;
+> +	if (neigh->dead)
+> +		goto out;
+>  
+>  	if (!(new & NUD_VALID)) {
+>  		neigh_del_timer(neigh);
+> @@ -1225,6 +1236,8 @@ EXPORT_SYMBOL(neigh_update);
+>   */
+>  void __neigh_set_probe_once(struct neighbour *neigh)
+>  {
+> +	if (neigh->dead)
+> +		return;
+>  	neigh->updated = jiffies;
+>  	if (!(neigh->nud_state & NUD_FAILED))
+>  		return;
+> 
 
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+-- 
+吉藤英明 <hideaki.yoshifuji@miraclelinux.com>
+ミラクル・リナックス株式会社 技術本部 サポート部
