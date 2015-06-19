@@ -1,81 +1,43 @@
-From: Trond Myklebust <trond.myklebust@primarydata.com>
-Subject: Re: [REGRESSION] NFS is creating a hidden port (left over from
- xs_bind() )
-Date: Fri, 19 Jun 2015 13:39:08 -0400
-Message-ID: <CAHQdGtRCYoeToxyDHjnd+6f40J8SrScmQKKOW5O8AzJo3NefAA@mail.gmail.com>
-References: <20150611234929.7b48d314@gandalf.local.home>
-	<CAHQdGtSyHtMfyVxT=hFY4m6XvM=3mxnZ=ajVJWYNXvYqE0+3zA@mail.gmail.com>
-	<1434120035.27504.77.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150612113420.5c114183@gandalf.local.home>
-	<20150612115038.44e20ccd@gandalf.local.home>
-	<20150617230819.0a11e47a@grimm.local.home>
-	<CAHQdGtQfF8sgfj6B2H=Sg+mn6ghPD+4UuZMSMFjj3XCVee60pw@mail.gmail.com>
-	<20150618154914.57424225@gandalf.local.home>
-	<20150618185051.2b2828c3@tlielax.poochiereds.net>
-	<20150618210843.4b09c31c@grimm.local.home>
-	<20150618213702.33f64b20@synchrony.poochiereds.net>
-	<20150619122553.43d2d86c@gandalf.local.home>
-	<20150619131759.7b38d9de@gandalf.local.home>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next RFC v2 1/3] lwt: infrastructure to support light
+ weight tunnels
+Date: Fri, 19 Jun 2015 11:34:04 -0700
+Message-ID: <5584609C.5020802@cumulusnetworks.com>
+References: <1434689355-4088-2-git-send-email-roopa@cumulusnetworks.com> <55842A93.2040607@brocade.com> <558431C3.5020703@cumulusnetworks.com> <5584507C.2000303@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jeff Layton <jlayton@poochiereds.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	Linux NFS Mailing List <linux-nfs@vger.kernel.org>,
-	Linux Network Devel Mailing List <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Bruce James Fields <bfields@fieldses.org>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150619131759.7b38d9de@gandalf.local.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, tgraf@suug.ch, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Robert Shearman <rshearma@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:35012 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750716AbbFSSeG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2015 14:34:06 -0400
+Received: by pdbci14 with SMTP id ci14so37287136pdb.2
+        for <netdev@vger.kernel.org>; Fri, 19 Jun 2015 11:34:06 -0700 (PDT)
+In-Reply-To: <5584507C.2000303@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 19, 2015 at 1:17 PM, Steven Rostedt <rostedt@goodmis.org> wrote:
-> On Fri, 19 Jun 2015 12:25:53 -0400
-> Steven Rostedt <rostedt@goodmis.org> wrote:
+On 6/19/15, 10:25 AM, Robert Shearman wrote:
+> n 19/06/15 16:14, roopa wrote:
+>> Today lwtunnel_skb_lwstate is called from lwtunnel_output which is only
+>> called from ipv4 code.
+>> And my ipv6 variant code was supposed to have a 6 suffix. something like
+>> lwtunnel_output6.
+>> Or to be more explicit i will probably have variants of the output and
+>> skb handling functions like,
+>> lwtunnel_output_ipv4 and lwtunnel_output_ipv6.
 >
+> Do you intend for these functions to be used by netdevices to support 
+> the vxlan use case?
 >
->> I don't see that 55201 anywhere. But then again, I didn't look for it
->> before the port disappeared. I could reboot and look for it again. I
->> should have saved the full netstat -tapn as well :-/
+> If so, then how will the netdevice know which one of the two to call? 
+> Will there have to be a netdevice for ipv4 and a netdevice for ipv6?
 >
-> Of course I didn't find it anywhere, that's the port on my wife's box
-> that port 947 was connected to.
->
-> Now I even went over to my wife's box and ran
->
->  # rpcinfo -p localhost
->    program vers proto   port  service
->     100000    4   tcp    111  portmapper
->     100000    3   tcp    111  portmapper
->     100000    2   tcp    111  portmapper
->     100000    4   udp    111  portmapper
->     100000    3   udp    111  portmapper
->     100000    2   udp    111  portmapper
->     100024    1   udp  34243  status
->     100024    1   tcp  34498  status
->
-> which doesn't show anything.
->
-> but something is listening to that port...
->
->  # netstat -ntap |grep 55201
-> tcp        0      0 0.0.0.0:55201           0.0.0.0:*               LISTEN
+> If not, could you outline how you intend for it to be implemented?
 
-
-Hang on. This is on the client box while there is an active NFSv4
-mount? Then that's probably the NFSv4 callback channel listening for
-delegation callbacks.
-
-Can you please try:
-
-echo "options nfs callback_tcpport=4048" > /etc/modprobe.d/nfs-local.conf
-
-and then either reboot the client or unload and then reload the nfs
-modules before reattempting the mount. If this is indeed the callback
-channel, then that will move your phantom listener to port 4048...
-
-Cheers
-   Trond
+In the netdevice case, this output function is not called atall. It 
+should just follow the existing netdevice the route is pointing to.
