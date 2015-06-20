@@ -1,134 +1,45 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2] bpf: BPF based latency tracing
-Date: Sat, 20 Jun 2015 10:14:19 +0200
-Message-ID: <558520DB.6000904@iogearbox.net>
-References: <1434722444-10200-1-git-send-email-daniel.wagner@bmw-carit.de>
+From: christophe leroy <christophe.leroy@c-s.fr>
+Subject: Performance loss due to commit  37c3185 ([NET]: Added GSO toggle)
+Date: Sat, 20 Jun 2015 11:55:03 +0200
+Message-ID: <55853877.9080000@c-s.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Daniel Wagner <daniel.wagner@bmw-carit.de>,
-	Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1434722444-10200-1-git-send-email-daniel.wagner@bmw-carit.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 2.236.17.93.rev.sfr.net ([93.17.236.2]:61703 "EHLO
+	mailhub1.si.c-s.fr" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751630AbbFTKcN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2015 06:32:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/19/2015 04:00 PM, Daniel Wagner wrote:
-> BPF offers another way to generate latency histograms. We attach
-> kprobes at trace_preempt_off and trace_preempt_on and calculate the
-> time it takes to from seeing the off/on transition.
->
-> The first array is used to store the start time stamp. The key is the
-> CPU id. The second array stores the log2(time diff). We need to use
-> static allocation here (array and not hash tables). The kprobes
-> hooking into trace_preempt_on|off should not calling any dynamic
-> memory allocation or free path. We need to avoid recursivly
-> getting called. Besides that, it reduces jitter in the measurement.
->
-> CPU 0
->        latency        : count     distribution
->         1 -> 1        : 0        |                                        |
->         2 -> 3        : 0        |                                        |
->         4 -> 7        : 0        |                                        |
->         8 -> 15       : 0        |                                        |
->        16 -> 31       : 0        |                                        |
->        32 -> 63       : 0        |                                        |
->        64 -> 127      : 0        |                                        |
->       128 -> 255      : 0        |                                        |
->       256 -> 511      : 0        |                                        |
->       512 -> 1023     : 0        |                                        |
->      1024 -> 2047     : 0        |                                        |
->      2048 -> 4095     : 166723   |*************************************** |
->      4096 -> 8191     : 19870    |***                                     |
->      8192 -> 16383    : 6324     |                                        |
->     16384 -> 32767    : 1098     |                                        |
->     32768 -> 65535    : 190      |                                        |
->     65536 -> 131071   : 179      |                                        |
->    131072 -> 262143   : 18       |                                        |
->    262144 -> 524287   : 4        |                                        |
->    524288 -> 1048575  : 1363     |                                        |
-> CPU 1
->        latency        : count     distribution
->         1 -> 1        : 0        |                                        |
->         2 -> 3        : 0        |                                        |
->         4 -> 7        : 0        |                                        |
->         8 -> 15       : 0        |                                        |
->        16 -> 31       : 0        |                                        |
->        32 -> 63       : 0        |                                        |
->        64 -> 127      : 0        |                                        |
->       128 -> 255      : 0        |                                        |
->       256 -> 511      : 0        |                                        |
->       512 -> 1023     : 0        |                                        |
->      1024 -> 2047     : 0        |                                        |
->      2048 -> 4095     : 114042   |*************************************** |
->      4096 -> 8191     : 9587     |**                                      |
->      8192 -> 16383    : 4140     |                                        |
->     16384 -> 32767    : 673      |                                        |
->     32768 -> 65535    : 179      |                                        |
->     65536 -> 131071   : 29       |                                        |
->    131072 -> 262143   : 4        |                                        |
->    262144 -> 524287   : 1        |                                        |
->    524288 -> 1048575  : 364      |                                        |
-> CPU 2
->        latency        : count     distribution
->         1 -> 1        : 0        |                                        |
->         2 -> 3        : 0        |                                        |
->         4 -> 7        : 0        |                                        |
->         8 -> 15       : 0        |                                        |
->        16 -> 31       : 0        |                                        |
->        32 -> 63       : 0        |                                        |
->        64 -> 127      : 0        |                                        |
->       128 -> 255      : 0        |                                        |
->       256 -> 511      : 0        |                                        |
->       512 -> 1023     : 0        |                                        |
->      1024 -> 2047     : 0        |                                        |
->      2048 -> 4095     : 40147    |*************************************** |
->      4096 -> 8191     : 2300     |*                                       |
->      8192 -> 16383    : 828      |                                        |
->     16384 -> 32767    : 178      |                                        |
->     32768 -> 65535    : 59       |                                        |
->     65536 -> 131071   : 2        |                                        |
->    131072 -> 262143   : 0        |                                        |
->    262144 -> 524287   : 1        |                                        |
->    524288 -> 1048575  : 174      |                                        |
-> CPU 3
->        latency        : count     distribution
->         1 -> 1        : 0        |                                        |
->         2 -> 3        : 0        |                                        |
->         4 -> 7        : 0        |                                        |
->         8 -> 15       : 0        |                                        |
->        16 -> 31       : 0        |                                        |
->        32 -> 63       : 0        |                                        |
->        64 -> 127      : 0        |                                        |
->       128 -> 255      : 0        |                                        |
->       256 -> 511      : 0        |                                        |
->       512 -> 1023     : 0        |                                        |
->      1024 -> 2047     : 0        |                                        |
->      2048 -> 4095     : 29626    |*************************************** |
->      4096 -> 8191     : 2704     |**                                      |
->      8192 -> 16383    : 1090     |                                        |
->     16384 -> 32767    : 160      |                                        |
->     32768 -> 65535    : 72       |                                        |
->     65536 -> 131071   : 32       |                                        |
->    131072 -> 262143   : 26       |                                        |
->    262144 -> 524287   : 12       |                                        |
->    524288 -> 1048575  : 298      |                                        |
->
-> All this is based on the trace3 examples written by
-> Alexei Starovoitov <ast@plumgrid.com>.
->
-> Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
+Hello Herbert,
 
-I think it would be useful to perhaps have two options:
+In commit "[NET]: Added GSO toggle"=20
+37c3185a02d4b85fbe134bf5204535405dd2c957,
+you force NETIF_F_HW_CSUM if GSO feature is selected.
+By default, SW GSO is active as soon as a network board has NETIF_F_SG=20
+feature.
+This means that function sk_setup_caps() forces NETIF_F_HW_CSUM for any=
+=20
+board having NETIF_F_SG
 
-1) User specifies a specific CPU and gets one such an output above.
-2) Summary view, i.e. to have the samples of each CPU for comparison
-    next to each other in columns and maybe the histogram view a bit
-    more compressed (perhaps summary of all CPUs).
+=46or boards having no HW checksum capability, this results in performa=
+nce=20
+loss due to data copy being done in skb_do_copy_data_nocache() with=20
+copy_from_user() then checksum being done later with csum_partial()=20
+instead of getting both done at the same time using=20
+csum_and_copy_from_user()
 
-Anyway, it's sample code people can go with and modify individually.
+Is there a reason for forcing NETIF_F_HW_CSUM   ?
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Christophe
+
+---
+L'absence de virus dans ce courrier =C3=A9lectronique a =C3=A9t=C3=A9 v=
+=C3=A9rifi=C3=A9e par le logiciel antivirus Avast.
+https://www.avast.com/antivirus
