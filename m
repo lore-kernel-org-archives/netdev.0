@@ -1,75 +1,134 @@
-From: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Subject: Re: [REGRESSION] NFS is creating a hidden port (left over from
- xs_bind() )
-Date: Fri, 19 Jun 2015 22:44:29 -0400
-Message-ID: <CAHQdGtQWx8udzG6VT8NwX5eWoDgnfyx7B-n-+75kakXf=a-F1g@mail.gmail.com>
-References: <20150611234929.7b48d314@gandalf.local.home>
-	<CAHQdGtSyHtMfyVxT=hFY4m6XvM=3mxnZ=ajVJWYNXvYqE0+3zA@mail.gmail.com>
-	<1434120035.27504.77.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150612113420.5c114183@gandalf.local.home>
-	<20150612115038.44e20ccd@gandalf.local.home>
-	<20150617230819.0a11e47a@grimm.local.home>
-	<CAHQdGtQfF8sgfj6B2H=Sg+mn6ghPD+4UuZMSMFjj3XCVee60pw@mail.gmail.com>
-	<20150618154914.57424225@gandalf.local.home>
-	<20150618185051.2b2828c3@tlielax.poochiereds.net>
-	<20150618210843.4b09c31c@grimm.local.home>
-	<20150618213702.33f64b20@synchrony.poochiereds.net>
-	<20150619122553.43d2d86c@gandalf.local.home>
-	<20150619131759.7b38d9de@gandalf.local.home>
-	<CAHQdGtRCYoeToxyDHjnd+6f40J8SrScmQKKOW5O8AzJo3NefAA@mail.gmail.com>
-	<20150619155226.7c5d6637@synchrony.poochiereds.net>
-	<1434745818.8838.1.camel@primarydata.com>
-	<20150619181440.22f54e6a@gandalf.local.home>
-	<1434756359.8498.2.camel@primarydata.com>
-	<20150619212706.2f13a44e@gandalf.local.home>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2] bpf: BPF based latency tracing
+Date: Sat, 20 Jun 2015 10:14:19 +0200
+Message-ID: <558520DB.6000904@iogearbox.net>
+References: <1434722444-10200-1-git-send-email-daniel.wagner@bmw-carit.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Network Devel Mailing List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Bruce James Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-To: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150619212706.2f13a44e-f9ZlEuEWxVcJvu8Pb33WZ0EMvNT87kid@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Daniel Wagner <daniel.wagner@bmw-carit.de>,
+	Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1434722444-10200-1-git-send-email-daniel.wagner@bmw-carit.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 19, 2015 at 9:27 PM, Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
-> On Fri, 19 Jun 2015 19:25:59 -0400
-> Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org> wrote:
+On 06/19/2015 04:00 PM, Daniel Wagner wrote:
+> BPF offers another way to generate latency histograms. We attach
+> kprobes at trace_preempt_off and trace_preempt_on and calculate the
+> time it takes to from seeing the off/on transition.
 >
+> The first array is used to store the start time stamp. The key is the
+> CPU id. The second array stores the log2(time diff). We need to use
+> static allocation here (array and not hash tables). The kprobes
+> hooking into trace_preempt_on|off should not calling any dynamic
+> memory allocation or free path. We need to avoid recursivly
+> getting called. Besides that, it reduces jitter in the measurement.
 >
->> 8<--------------------------------------------------------------
->> >From 4876cc779ff525b9c2376d8076edf47815e71f2c Mon Sep 17 00:00:00 2001
->> From: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
->> Date: Fri, 19 Jun 2015 16:17:57 -0400
->> Subject: [PATCH v2] SUNRPC: Ensure we release the TCP socket once it has been
->>  closed
->>
->> This fixes a regression introduced by commit caf4ccd4e88cf2 ("SUNRPC:
->> Make xs_tcp_close() do a socket shutdown rather than a sock_release").
->> Prior to that commit, the autoclose feature would ensure that an
->> idle connection would result in the socket being both disconnected and
->> released, whereas now only gets disconnected.
->>
->> While the current behaviour is harmless, it does leave the port bound
->> until either RPC traffic resumes or the RPC client is shut down.
+> CPU 0
+>        latency        : count     distribution
+>         1 -> 1        : 0        |                                        |
+>         2 -> 3        : 0        |                                        |
+>         4 -> 7        : 0        |                                        |
+>         8 -> 15       : 0        |                                        |
+>        16 -> 31       : 0        |                                        |
+>        32 -> 63       : 0        |                                        |
+>        64 -> 127      : 0        |                                        |
+>       128 -> 255      : 0        |                                        |
+>       256 -> 511      : 0        |                                        |
+>       512 -> 1023     : 0        |                                        |
+>      1024 -> 2047     : 0        |                                        |
+>      2048 -> 4095     : 166723   |*************************************** |
+>      4096 -> 8191     : 19870    |***                                     |
+>      8192 -> 16383    : 6324     |                                        |
+>     16384 -> 32767    : 1098     |                                        |
+>     32768 -> 65535    : 190      |                                        |
+>     65536 -> 131071   : 179      |                                        |
+>    131072 -> 262143   : 18       |                                        |
+>    262144 -> 524287   : 4        |                                        |
+>    524288 -> 1048575  : 1363     |                                        |
+> CPU 1
+>        latency        : count     distribution
+>         1 -> 1        : 0        |                                        |
+>         2 -> 3        : 0        |                                        |
+>         4 -> 7        : 0        |                                        |
+>         8 -> 15       : 0        |                                        |
+>        16 -> 31       : 0        |                                        |
+>        32 -> 63       : 0        |                                        |
+>        64 -> 127      : 0        |                                        |
+>       128 -> 255      : 0        |                                        |
+>       256 -> 511      : 0        |                                        |
+>       512 -> 1023     : 0        |                                        |
+>      1024 -> 2047     : 0        |                                        |
+>      2048 -> 4095     : 114042   |*************************************** |
+>      4096 -> 8191     : 9587     |**                                      |
+>      8192 -> 16383    : 4140     |                                        |
+>     16384 -> 32767    : 673      |                                        |
+>     32768 -> 65535    : 179      |                                        |
+>     65536 -> 131071   : 29       |                                        |
+>    131072 -> 262143   : 4        |                                        |
+>    262144 -> 524287   : 1        |                                        |
+>    524288 -> 1048575  : 364      |                                        |
+> CPU 2
+>        latency        : count     distribution
+>         1 -> 1        : 0        |                                        |
+>         2 -> 3        : 0        |                                        |
+>         4 -> 7        : 0        |                                        |
+>         8 -> 15       : 0        |                                        |
+>        16 -> 31       : 0        |                                        |
+>        32 -> 63       : 0        |                                        |
+>        64 -> 127      : 0        |                                        |
+>       128 -> 255      : 0        |                                        |
+>       256 -> 511      : 0        |                                        |
+>       512 -> 1023     : 0        |                                        |
+>      1024 -> 2047     : 0        |                                        |
+>      2048 -> 4095     : 40147    |*************************************** |
+>      4096 -> 8191     : 2300     |*                                       |
+>      8192 -> 16383    : 828      |                                        |
+>     16384 -> 32767    : 178      |                                        |
+>     32768 -> 65535    : 59       |                                        |
+>     65536 -> 131071   : 2        |                                        |
+>    131072 -> 262143   : 0        |                                        |
+>    262144 -> 524287   : 1        |                                        |
+>    524288 -> 1048575  : 174      |                                        |
+> CPU 3
+>        latency        : count     distribution
+>         1 -> 1        : 0        |                                        |
+>         2 -> 3        : 0        |                                        |
+>         4 -> 7        : 0        |                                        |
+>         8 -> 15       : 0        |                                        |
+>        16 -> 31       : 0        |                                        |
+>        32 -> 63       : 0        |                                        |
+>        64 -> 127      : 0        |                                        |
+>       128 -> 255      : 0        |                                        |
+>       256 -> 511      : 0        |                                        |
+>       512 -> 1023     : 0        |                                        |
+>      1024 -> 2047     : 0        |                                        |
+>      2048 -> 4095     : 29626    |*************************************** |
+>      4096 -> 8191     : 2704     |**                                      |
+>      8192 -> 16383    : 1090     |                                        |
+>     16384 -> 32767    : 160      |                                        |
+>     32768 -> 65535    : 72       |                                        |
+>     65536 -> 131071   : 32       |                                        |
+>    131072 -> 262143   : 26       |                                        |
+>    262144 -> 524287   : 12       |                                        |
+>    524288 -> 1048575  : 298      |                                        |
 >
-> Is there a way to test RPC traffic resuming? I'd like to try that before
-> declaring this bug harmless.
+> All this is based on the trace3 examples written by
+> Alexei Starovoitov <ast@plumgrid.com>.
+>
+> Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
 
-You should be seeing the same issue if you mount an NFSv3 partition.
-After about 5 minutes of inactivity, the client will close down the
-connection to the server, and rkhunter should again see the phantom
-socket. If you then try to access the partition, the RPC layer should
-immediately release the socket and establish a new connection on the
-same port.
+I think it would be useful to perhaps have two options:
 
-Cheers
-  Trond
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+1) User specifies a specific CPU and gets one such an output above.
+2) Summary view, i.e. to have the samples of each CPU for comparison
+    next to each other in columns and maybe the histogram view a bit
+    more compressed (perhaps summary of all CPUs).
+
+Anyway, it's sample code people can go with and modify individually.
+
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
