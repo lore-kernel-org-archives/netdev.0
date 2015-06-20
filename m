@@ -1,38 +1,69 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCHv2 net-next] net: fec: Ensure clocks are enabled while
- using mdio bus
-Date: Sat, 20 Jun 2015 14:47:20 -0300
-Message-ID: <CAOMZO5Bb2i2Xr2-+6pNSy5WHxh1FK3utB3-VqS6X-_OK=+t82g@mail.gmail.com>
-References: <1434816914-9816-1-git-send-email-andrew@lunn.ch>
+From: Vivek Bhagat <vivek.bhagat89-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [Patch] ax88179_178a: add reset functionality in reset_resume
+Date: Sat, 20 Jun 2015 23:24:34 +0530
+Message-ID: <CA+vmRF4FpAhc-8QQhSY+mZg-a2R3aP5Qy1FBgv0VwNtE3iLkBA@mail.gmail.com>
 Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=bcaec5485abac354d80518f6bb95
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+--bcaec5485abac354d80518f6bb95
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Nimrod Andy <B38611@freescale.com>,
-	Duan Andy <fugang.duan@freescale.com>,
-	Cory Tusar <cory.tusar@pid1solutions.com>,
-	netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:36119 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753604AbbFTRrW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2015 13:47:22 -0400
-Received: by lbbqq2 with SMTP id qq2so88068266lbb.3
-        for <netdev@vger.kernel.org>; Sat, 20 Jun 2015 10:47:20 -0700 (PDT)
-In-Reply-To: <1434816914-9816-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 20, 2015 at 1:15 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+ Dear All,
 
-> @@ -1764,6 +1765,11 @@ static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
->  {
->         struct fec_enet_private *fep = bus->priv;
->         unsigned long time_left;
-> +       int ret;
-> +
-> +       ret = clk_prepare_enable(fep->clk_ipg);
-> +       if (ret)
-> +               return 0xffff;
+Attached patch fix iperf connection problem after reset resume of
+ethernet to usb dongle.
 
-Why don`t you return ret instead?
+Without reset functionality, i see ping works after reset resume but
+iperf connection fails with wrong checksum error message shown by
+tcpdump.
+
+Attached patch fix above issue.
+
+Thanks,
+Vivek
+
+--bcaec5485abac354d80518f6bb95
+Content-Type: application/octet-stream;
+	name="0001-ax88179_178a-add-reset-function-in-reset_resume.patch"
+Content-Disposition: attachment;
+	filename="0001-ax88179_178a-add-reset-function-in-reset_resume.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ib5cgmvg0
+
+RnJvbSBkMTc4MDY1YzllM2NmYThhNDVlZjUzN2ZhZTc0MTI3NzUzMzliZWIwIE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBWaXZlayBLdW1hciBCaGFnYXQgPHZpdmVrLmJoYWdhdEBzYW1z
+dW5nLmNvbT4KRGF0ZTogVGh1LCAxMSBKdW4gMjAxNSAwNzoyMzo0NiAtMDcwMApTdWJqZWN0OiBb
+UEFUQ0hdIGF4ODgxNzlfMTc4YTogYWRkIHJlc2V0IGZ1bmN0aW9uIGluIHJlc2V0X3Jlc3VtZQoK
+d2l0aG91dCByZXNldCBmdW5jdGlvbmFsaXR5IGluIHJlc2V0X3Jlc3VtZSwgaXBlcmYgY29ubmVj
+dGlvbgpkb2VzIG5vdCBlc3RhYmxpc2ggYWZ0ZXIgc3VzcGVuZC9yZXN1bWUgaG93ZXZlciBwaW5n
+IHdvcmtzIGF0CnRoZSBzYW1lIHRpbWUuCgpyZXNldCBmdW5jdGlvbiBpbnNpZGUgcmVzZXRfcmVz
+dW1lIHNvbHZlcyBhYm92ZSBidWcuIFdlIGhhdmUgdmVyaWZpZWQKaXQgb24gQVNJWCBiYXNlZCBT
+VCBMYWIsIENhZHljZSBkb25nbGUuCgpTaWduZWQtb2ZmLWJ5OiBWaXZlayBLdW1hciBCaGFnYXQg
+PHZpdmVrLmJoYWdhdEBzYW1zdW5nLmNvbT4KU2lnbmVkLW9mZi1ieTogUHJhdmVlbiBLdW1hciA8
+cHJhdmVlbi5rMDlAc2Ftc3VuZy5jb20+CgotLS0KIGRyaXZlcnMvbmV0L3VzYi9heDg4MTc5XzE3
+OGEuYyB8ICAgMTQgKysrKysrKysrKysrKy0KIDEgZmlsZSBjaGFuZ2VkLCAxMyBpbnNlcnRpb25z
+KCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdXNiL2F4ODgxNzlf
+MTc4YS5jIGIvZHJpdmVycy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jCmluZGV4IGU2MzM4YzEuLjAw
+OTI4YzAgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3VzYi9heDg4MTc5XzE3OGEuYworKysgYi9k
+cml2ZXJzL25ldC91c2IvYXg4ODE3OV8xNzhhLmMKQEAgLTE2MzAsNiArMTYzMCwxOCBAQCBzdGF0
+aWMgaW50IGF4ODgxNzlfc3RvcChzdHJ1Y3QgdXNibmV0ICpkZXYpCiAJcmV0dXJuIDA7CiB9CiAK
+K3N0YXRpYyBpbnQgYXg4ODE3OV9yZXNldF9yZXN1bWUoc3RydWN0IHVzYl9pbnRlcmZhY2UgKmlu
+dGYpCit7CisJc3RydWN0IHVzYm5ldCAqZGV2ID0gdXNiX2dldF9pbnRmZGF0YShpbnRmKTsKKwlp
+bnQgcmV0OworCisJcmV0ID0gYXg4ODE3OV9yZXNldChkZXYpOworCWlmIChyZXQgPCAwKQorCQly
+ZXR1cm4gcmV0OworCisJcmV0dXJuICBheDg4MTc5X3Jlc3VtZShpbnRmKTsKK30KKwogc3RhdGlj
+IGNvbnN0IHN0cnVjdCBkcml2ZXJfaW5mbyBheDg4MTc5X2luZm8gPSB7CiAJLmRlc2NyaXB0aW9u
+ID0gIkFTSVggQVg4ODE3OSBVU0IgMy4wIEdpZ2FiaXQgRXRoZXJuZXQiLAogCS5iaW5kID0gYXg4
+ODE3OV9iaW5kLApAQCAtMTc0NCw3ICsxNzU2LDcgQEAgc3RhdGljIHN0cnVjdCB1c2JfZHJpdmVy
+IGF4ODgxNzlfMTc4YV9kcml2ZXIgPSB7CiAJLnByb2JlID0JdXNibmV0X3Byb2JlLAogCS5zdXNw
+ZW5kID0JYXg4ODE3OV9zdXNwZW5kLAogCS5yZXN1bWUgPQlheDg4MTc5X3Jlc3VtZSwKLQkucmVz
+ZXRfcmVzdW1lID0JYXg4ODE3OV9yZXN1bWUsCisJLnJlc2V0X3Jlc3VtZSA9CWF4ODgxNzlfcmVz
+ZXRfcmVzdW1lLAogCS5kaXNjb25uZWN0ID0JdXNibmV0X2Rpc2Nvbm5lY3QsCiAJLnN1cHBvcnRz
+X2F1dG9zdXNwZW5kID0gMSwKIAkuZGlzYWJsZV9odWJfaW5pdGlhdGVkX2xwbSA9IDEsCi0tIAox
+LjcuOS41Cgo=
+--bcaec5485abac354d80518f6bb95--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
