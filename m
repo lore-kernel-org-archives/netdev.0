@@ -1,71 +1,133 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 2/3] rcar_can: print signed IRQ #
-Date: Sat, 20 Jun 2015 14:03:04 +0200
-Message-ID: <CAMuHMdWZFKR04NJc7xtnPUosYuosX9FPDJopG3wovu_GqGxSOw@mail.gmail.com>
-References: <2010452.WyFito6egU@wasted.cogentembedded.com>
-	<2390389.thI8mIvbv5@wasted.cogentembedded.com>
+From: Jakub =?UTF-8?B?S2ljacWEc2tp?= <moorray3@wp.pl>
+Subject: Re: [PATCH 00/32] Netfilter updates for net-next
+Date: Sat, 20 Jun 2015 15:11:30 +0200
+Message-ID: <20150620151130.74b68b6c@north>
+References: <1434403589-24796-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	wg@grandegger.com, Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-can@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:32832 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754084AbbFTMDF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2015 08:03:05 -0400
-In-Reply-To: <2390389.thI8mIvbv5@wasted.cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, kbuild test robot <fengguang.wu@intel.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Bernhard Thaler <bernhard.thaler@wvnet.at>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1434403589-24796-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Sergei,
+On Mon, 15 Jun 2015 23:25:57 +0200, Pablo Neira Ayuso wrote:
+> Hi David,
+>=20
+> This a bit large (and late) patchset that contains Netfilter updates =
+for
+> net-next. Most relevantly br_netfilter fixes, ipset RCU support, remo=
+val of
+> x_tables percpu ruleset copy and rework of the nf_tables netdev suppo=
+rt. More
+> specifically, they are:
+[...]
+> ----------------------------------------------------------------
+> Bernhard Thaler (7):
+>       netfilter: bridge: refactor clearing BRNF_NF_BRIDGE_PREROUTING
+>       netfilter: bridge: re-order br_nf_pre_routing_finish_ipv6()
+>       netfilter: bridge: detect NAT66 correctly and change MAC addres=
+s
+>       netfilter: bridge: refactor frag_max_size
+>       netfilter: bridge: rename br_parse_ip_options
+>       netfilter: bridge: re-order check_hbh_len()
+>       netfilter: bridge: forward IPv6 fragmented packets
 
-On Sat, Jun 20, 2015 at 2:33 AM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Printing IRQ # using "%x" and "%u" unsigned formats isn't quite correct as
-> 'ndev->irq' is of  type *int*, so  the "%d" format  needs to be used instead.
->
-> While fixing this, beautify the dev_info() message in rcar_can_probe() a bit.
+Pablo, Bernhard,
 
-If you change the message, why don't you make it consistent
-("interrupt" vs. "IRQ")?
+this batch breaks builds with CONFIG_IPV6=3Dn.  No idea why build bot
+didn't catch that.
 
-> Fixes: fd1159318e55 ("can: add Renesas R-Car CAN driver")
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->
-> ---
->  drivers/net/can/rcar_can.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> Index: linux-can/drivers/net/can/rcar_can.c
-> ===================================================================
-> --- linux-can.orig/drivers/net/can/rcar_can.c
-> +++ linux-can/drivers/net/can/rcar_can.c
-> @@ -526,7 +526,7 @@ static int rcar_can_open(struct net_devi
->         napi_enable(&priv->napi);
->         err = request_irq(ndev->irq, rcar_can_interrupt, 0, ndev->name, ndev);
->         if (err) {
-> -               netdev_err(ndev, "error requesting interrupt %x\n", ndev->irq);
-> +               netdev_err(ndev, "error requesting interrupt %d\n", ndev->irq);
->                 goto out_close;
->         }
->         can_led_event(ndev, CAN_LED_EVENT_OPEN);
-> @@ -824,7 +824,7 @@ static int rcar_can_probe(struct platfor
->
->         devm_can_led_init(ndev);
->
-> -       dev_info(&pdev->dev, "device registered (reg_base=%p, irq=%u)\n",
-> +       dev_info(&pdev->dev, "device registered (regs @ %p, IRQ%d)\n",
->                  priv->regs, ndev->irq);
+linux/net/bridge/br_netfilter.c: In function =E2=80=98br_validate_ipv6=E2=
+=80=99:
+/home/kuba/Development/Linux/linux/net/bridge/br_netfilter.c:350:618: e=
+rror: =E2=80=98struct netns_mib=E2=80=99 has no member named =E2=80=98i=
+pv6_statistics=E2=80=99
+    IP6_INC_STATS_BH(dev_net(dev), idev,
 
-Gr{oetje,eeting}s,
+linux/net/bridge/br_netfilter.c:350:706: error: =E2=80=98struct netns_m=
+ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
+    IP6_INC_STATS_BH(dev_net(dev), idev,
 
-                        Geert
+linux/net/bridge/br_netfilter.c:350:915: error: =E2=80=98struct netns_m=
+ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
+    IP6_INC_STATS_BH(dev_net(dev), idev,
 
+linux/net/bridge/br_netfilter.c:350:964: error: =E2=80=98struct netns_m=
+ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
+    IP6_INC_STATS_BH(dev_net(dev), idev,
+
+linux/net/bridge/br_netfilter.c:350:1031: error: request for member =E2=
+=80=98syncp=E2=80=99 in something not a structure or union
+    IP6_INC_STATS_BH(dev_net(dev), idev,
+
+linux/net/bridge/br_netfilter.c:350:1044: error: request for member =E2=
+=80=98mibs=E2=80=99 in something not a structure or union
+    IP6_INC_STATS_BH(dev_net(dev), idev,
+
+linux/net/bridge/br_netfilter.c:350:1113: error: request for member =E2=
+=80=98syncp=E2=80=99 in something not a structure or union
+    IP6_INC_STATS_BH(dev_net(dev), idev,
+
+linux/net/bridge/br_netfilter.c:355:613: error: =E2=80=98struct netns_m=
+ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
+    IP6_INC_STATS_BH(dev_net(dev), idev,
+
+linux/net/bridge/br_netfilter.c:355:701: error: =E2=80=98struct netns_m=
+ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
+    IP6_INC_STATS_BH(dev_net(dev), idev,
+
+linux/net/bridge/br_netfilter.c:355:910: error: =E2=80=98struct netns_m=
+ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
+    IP6_INC_STATS_BH(dev_net(dev), idev,
+
+linux/net/bridge/br_netfilter.c:355:959: error: =E2=80=98struct netns_m=
+ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
+    IP6_INC_STATS_BH(dev_net(dev), idev,
+
+linux/net/bridge/br_netfilter.c:355:1026: error: request for member =E2=
+=80=98syncp=E2=80=99 in something not a structure or union
+    IP6_INC_STATS_BH(dev_net(dev), idev,
+
+linux/net/bridge/br_netfilter.c:355:1039: error: request for member =E2=
+=80=98mibs=E2=80=99 in something not a structure or union
+    IP6_INC_STATS_BH(dev_net(dev), idev,
+
+linux/net/bridge/br_netfilter.c:355:1103: error: request for member =E2=
+=80=98syncp=E2=80=99 in something not a structure or union
+    IP6_INC_STATS_BH(dev_net(dev), idev,
+
+linux/net/bridge/br_netfilter.c:370:612: error: =E2=80=98struct netns_m=
+ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
+  IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
+
+linux/net/bridge/br_netfilter.c:370:700: error: =E2=80=98struct netns_m=
+ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
+  IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
+
+linux/net/bridge/br_netfilter.c:370:909: error: =E2=80=98struct netns_m=
+ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
+  IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
+
+linux/net/bridge/br_netfilter.c:370:958: error: =E2=80=98struct netns_m=
+ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
+  IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
+
+linux/net/bridge/br_netfilter.c:370:1025: error: request for member =E2=
+=80=98syncp=E2=80=99 in something not a structure or union
+  IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
+
+linux/net/bridge/br_netfilter.c:370:1038: error: request for member =E2=
+=80=98mibs=E2=80=99 in something not a structure or union
+  IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
+
+linux/net/bridge/br_netfilter.c:370:1103: error: request for member =E2=
+=80=98syncp=E2=80=99 in something not a structure or union
+  IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
 --
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
