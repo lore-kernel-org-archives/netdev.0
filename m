@@ -1,128 +1,104 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH 3/6] dsa: mv88x6xxx: Refactor getting a single statistic
-Date: Sat, 20 Jun 2015 18:42:30 +0200
-Message-ID: <1434818553-10239-4-git-send-email-andrew@lunn.ch>
-References: <1434818553-10239-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Cory Tusar <cory.tusar@pid1solutions.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:59980 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755233AbbFTQtU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Jun 2015 12:49:20 -0400
-In-Reply-To: <1434818553-10239-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Manfred Schlaegl <manfred.schlaegl@gmx.at>
+Subject: [PATCH] can: fix loss of frames due to wrong assumption in raw_rcv
+Date: Sat, 20 Jun 2015 19:21:08 +0200
+Message-ID: <5585A104.1090201@gmx.at>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="FFhAhitpnRbt2xJXxIUHd4xMT45hWODPt"
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Manfred Schlaegl <manfred.schlaegl@ginzinger.com>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Move the code to retrieve a statistics counter into a function of its
-own, so it can later be reused.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--FFhAhitpnRbt2xJXxIUHd4xMT45hWODPt
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+I've detected a massive loss of can frames on i.MX6 using flexcan
+driver with 4.1-rc8 and tracked this down to following commit:
+514ac99c64b22d83b52dfee3b8becaa69a92bc4a - "can: fix multiple delivery
+of a single CAN frame for overlapping CAN filters"
+
+514ac99c64b22d83b52dfee3b8becaa69a92bc4a introduces a frame equality
+check. Since the sk_buff pointer is not sufficient to do this (buffers
+are reused), the check also compares time stamps.
+In short: pointer+time stamp was assumed as unique key to a specific
+frame.
+The problem with this is, that the time stamp is an optional property
+and not set per default.
+In our case (flexcan) the time stamp is always zero, so the equality
+check is reduced to equality of buffer pointers, resulting in a lot of
+dropped frames.
+
+Possible solutions I thought of:
+ 1. Every driver has to set a time stamp
+    (possibly error prone and hard to enforce?)
+ 2. Change the equality check
+ 3. Fulfil the requirements of the equality check by setting a
+    time stamp per default.
+
+This patch fixes the problem with solution 3. A time stamp is set at
+time of allocation in alloc_can_skb.
+The time stamp may be overridden later, but the function of the equality
+check is ensured.
+
+I'm not really deep in linux network subsystem, so there may exists
+more elegant solutions for the problem.
+
+Signed-off-by: Manfred Schlaegl <manfred.schlaegl@gmx.at>
 ---
- drivers/net/dsa/mv88e6xxx.c | 63 ++++++++++++++++++++++++++-------------------
- drivers/net/dsa/mv88e6xxx.h |  4 +++
- 2 files changed, 40 insertions(+), 27 deletions(-)
+ drivers/net/can/dev.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 6e684f3d377c..43c1515a8319 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -681,6 +681,40 @@ static void _mv88e6xxx_get_strings(struct dsa_switch *ds,
- 	}
- }
- 
-+static uint64_t _mv88e6xxx_get_ethtool_stat(struct dsa_switch *ds,
-+					    int stat,
-+					    struct mv88e6xxx_hw_stat *stats,
-+					    int port)
-+{
-+	struct mv88e6xxx_hw_stat *s = stats + stat;
-+	u32 low;
-+	u32 high = 0;
-+	int ret;
-+	u64 value;
-+
-+	if (s->reg >= 0x100) {
-+		ret = _mv88e6xxx_reg_read(ds, REG_PORT(port),
-+					  s->reg - 0x100);
-+		if (ret < 0)
-+			return UINT64_MAX;
-+
-+		low = ret;
-+		if (s->sizeof_stat == 4) {
-+			ret = _mv88e6xxx_reg_read(ds, REG_PORT(port),
-+						  s->reg - 0x100 + 1);
-+			if (ret < 0)
-+				return UINT64_MAX;
-+			high = ret;
-+		}
-+	} else {
-+		_mv88e6xxx_stats_read(ds, s->reg, &low);
-+		if (s->sizeof_stat == 8)
-+			_mv88e6xxx_stats_read(ds, s->reg + 1, &high);
-+	}
-+	value = (((u64)high) << 16) | low;
-+	return value;
-+}
-+
- static void _mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
- 					 int nr_stats,
- 					 struct mv88e6xxx_hw_stat *stats,
-@@ -699,34 +733,9 @@ static void _mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
- 	}
- 
- 	/* Read each of the counters. */
--	for (i = 0; i < nr_stats; i++) {
--		struct mv88e6xxx_hw_stat *s = stats + i;
--		u32 low;
--		u32 high = 0;
-+	for (i = 0; i < nr_stats; i++)
-+		data[i] = _mv88e6xxx_get_ethtool_stat(ds, i, stats, port);
- 
--		if (s->reg >= 0x100) {
--			ret = _mv88e6xxx_reg_read(ds, REG_PORT(port),
--						  s->reg - 0x100);
--			if (ret < 0)
--				goto error;
--			low = ret;
--			if (s->sizeof_stat == 4) {
--				ret = _mv88e6xxx_reg_read(ds, REG_PORT(port),
--							  s->reg - 0x100 + 1);
--				if (ret < 0)
--					goto error;
--				high = ret;
--			}
--			data[i] = (((u64)high) << 16) | low;
--			continue;
--		}
--		_mv88e6xxx_stats_read(ds, s->reg, &low);
--		if (s->sizeof_stat == 8)
--			_mv88e6xxx_stats_read(ds, s->reg + 1, &high);
--
--		data[i] = (((u64)high) << 32) | low;
--	}
--error:
- 	mutex_unlock(&ps->smi_mutex);
- }
- 
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 8b9c76b66ddb..7cccff202586 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -11,6 +11,10 @@
- #ifndef __MV88E6XXX_H
- #define __MV88E6XXX_H
- 
-+#ifndef UINT64_MAX
-+#define UINT64_MAX		(u64)(~((u64)0))
-+#endif
-+
- #define SMI_CMD			0x00
- #define SMI_CMD_BUSY		BIT(15)
- #define SMI_CMD_CLAUSE_22	BIT(12)
--- 
-2.1.4
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index b0f6924..282e2e7 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -575,6 +575,7 @@ struct sk_buff *alloc_can_skb(struct net_device *dev,=
+ struct can_frame **cf)
+ 	if (unlikely(!skb))
+ 		return NULL;
+=20
++	__net_timestamp(skb);
+ 	skb->protocol =3D htons(ETH_P_CAN);
+ 	skb->pkt_type =3D PACKET_BROADCAST;
+ 	skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+--=20
+1.7.10.4
+
+
+
+--FFhAhitpnRbt2xJXxIUHd4xMT45hWODPt
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBAgAGBQJVhaEEAAoJEGS1eKPM78WhkzEP/jiN23Q/TU1ehC7FFnruR5l4
+PYlCKTbS4tIJgPxbugaquiysV2T2iYvcXfMjQbW+ryaVBnwCWvI6CMGoKemxcWdv
+hTf+vNsGr4tq+GDIp6TegexKbofAoFWDc7ctXuPuzoalA7Se4DfvSUSTdUwlSOj2
+9nCU+Z75KZSmZ0lRi7/v19JKJbU2DexwW72oQ4CH1Hfr7K7yhZvFDIOgyj4cYF6K
+un3KzrAvQYKq8hZa9SOMcdklL27m8jQDtWrv7m7oedeXP6MyizuFBnN1P/tHe0cr
+Z/xZW8atqLgFsUuTTG1AXpMH4g0xphwZFosdpNtqKbrAp+b3LrZvnVnE0F37vniN
+Ly2RVzws05oMmHwoj/GHYvLNMZhwag378XX0fKLqdjpedPa/tQgZ2IoVXsHi7UQp
+zDf/L9QmWVrSo2VAqv/9i2b8oVEhI/DRVBQ01XjVe4xdRgv1q2x1ip+tMf07juKO
+4pqSFHOqw3vZfgd2sV0F/EsJudFyBvipgEAVWO0jlJ9//nEJ53ag8L07wGE/sB2Q
+izyUk84jQzY0Z1AuEPTBXqI6ap8yAsNV5r2fgJDEF4lJIDwpTvAk5YoDkZNNTJnj
+DRZX0QNYK/uSessbfqFayt8Q/0mLzl4BFHz0+BekLVJXpYD8waOdO94SBC3awFBC
+Z0HQm/k14zxjIraaOodc
+=WuOr
+-----END PGP SIGNATURE-----
+
+--FFhAhitpnRbt2xJXxIUHd4xMT45hWODPt--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-can" in
