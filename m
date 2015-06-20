@@ -1,51 +1,41 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 2/2] rcar_can: unify error messages
-Date: Sat, 20 Jun 2015 03:51:34 +0300
-Message-ID: <2511974.9a3ucLkyEa@wasted.cogentembedded.com>
-References: <1593397.kKIHxKLe5s@wasted.cogentembedded.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v2] bpf: BPF based latency tracing
+Date: Fri, 19 Jun 2015 17:53:57 -0700
+Message-ID: <5584B9A5.9030602@plumgrid.com>
+References: <1434722444-10200-1-git-send-email-daniel.wagner@bmw-carit.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
-	linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1593397.kKIHxKLe5s@wasted.cogentembedded.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Ingo Molnar <mingo@kernel.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Daniel Wagner <daniel.wagner@bmw-carit.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1434722444-10200-1-git-send-email-daniel.wagner@bmw-carit.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All the error messages in the driver but  the ones from devm_clk_get() failures
-use similar format.  Make those  two messages consitent with others.
+On 6/19/15 7:00 AM, Daniel Wagner wrote:
+> BPF offers another way to generate latency histograms. We attach
+> kprobes at trace_preempt_off and trace_preempt_on and calculate the
+> time it takes to from seeing the off/on transition.
+...
+> Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
+...
+> With the rebase on net-next no additinal patches are needed and this
+> thing here runs fine.
+...
+> samples/bpf/Makefile       |   4 ++
+>   samples/bpf/lathist_kern.c |  99 +++++++++++++++++++++++++++++++++++++++++++
+>   samples/bpf/lathist_user.c | 103 +++++++++++++++++++++++++++++++++++++++++++++
+>   3 files changed, 206 insertions(+)
+>   create mode 100644 samples/bpf/lathist_kern.c
+>   create mode 100644 samples/bpf/lathist_user.c
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Thanks. That's a useful example.
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 
----
- drivers/net/can/rcar_can.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-Index: linux-can/drivers/net/can/rcar_can.c
-===================================================================
---- linux-can.orig/drivers/net/can/rcar_can.c
-+++ linux-can/drivers/net/can/rcar_can.c
-@@ -785,7 +785,8 @@ static int rcar_can_probe(struct platfor
- 	priv->clk = devm_clk_get(&pdev->dev, "clkp1");
- 	if (IS_ERR(priv->clk)) {
- 		err = PTR_ERR(priv->clk);
--		dev_err(&pdev->dev, "cannot get peripheral clock: %d\n", err);
-+		dev_err(&pdev->dev, "cannot get peripheral clock, error %d\n",
-+			err);
- 		goto fail_clk;
- 	}
- 
-@@ -797,7 +798,7 @@ static int rcar_can_probe(struct platfor
- 	priv->can_clk = devm_clk_get(&pdev->dev, clock_names[clock_select]);
- 	if (IS_ERR(priv->can_clk)) {
- 		err = PTR_ERR(priv->can_clk);
--		dev_err(&pdev->dev, "cannot get CAN clock: %d\n", err);
-+		dev_err(&pdev->dev, "cannot get CAN clock, error %d\n", err);
- 		goto fail_clk;
- 	}
- 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-can" in
+Dave,
+this patch is for net-next and I hope it's not too late
+for this merge window.
