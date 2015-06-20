@@ -1,81 +1,41 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net] netfilter: nf_qeueue: Drop queue entries on nf_unregister_hook
-Date: Sat, 20 Jun 2015 09:16:08 -0500
-Message-ID: <87616i8nyv.fsf@x220.int.ebiederm.org>
-References: <878ubffron.fsf@x220.int.ebiederm.org>
-	<871th7frlg.fsf@x220.int.ebiederm.org> <20150620105738.GA3439@salvia>
-	<20150620113248.GA6915@acer.localdomain>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next RFC v2 1/3] lwt: infrastructure to support light
+ weight tunnels
+Date: Sat, 20 Jun 2015 07:27:25 -0700
+Message-ID: <5585784D.3020809@cumulusnetworks.com>
+References: <1434689355-4088-2-git-send-email-roopa@cumulusnetworks.com> <55842A93.2040607@brocade.com> <558431C3.5020703@cumulusnetworks.com> <5584507C.2000303@brocade.com> <5584609C.5020802@cumulusnetworks.com> <558461CB.3020408@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20150620113248.GA6915@acer.localdomain> (Patrick McHardy's
-	message of "Sat, 20 Jun 2015 13:32:48 +0200")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, tgraf@suug.ch, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Robert Shearman <rshearma@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:35373 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754925AbbFTO11 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2015 10:27:27 -0400
+Received: by pdbci14 with SMTP id ci14so50732391pdb.2
+        for <netdev@vger.kernel.org>; Sat, 20 Jun 2015 07:27:26 -0700 (PDT)
+In-Reply-To: <558461CB.3020408@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy <kaber@trash.net> writes:
-
-> On 20.06, Pablo Neira Ayuso wrote:
->> On Fri, Jun 19, 2015 at 02:03:39PM -0500, Eric W. Biederman wrote:
->> > 
->> > Add code to nf_unregister_hook to flush the nf_queue when a hook is
->> > unregistered.  This guarantees that the pointer that the nf_queue code
->> > retains into the nf_hook list will remain valid while a packet is
->> > queued.
->> 
->> I think the real problem is that struct nf_queue_entry holds a pointer
->> to struct nf_hook_ops, which will be gone after removal. So you
->> uncovered a long standing problem that will amplify by when pernet
->> hooks are in place.
->> 
->> Regarding the pointer to nf_hook_list, now that new netdevice variant
->> doesn't support nf_queue yet, so that nf_hook_list will be always
->> valid since it will point to the global nf_hooks in the core.
+On 6/19/15, 11:39 AM, Robert Shearman wrote:
+> On 19/06/15 19:34, roopa wrote:
+>> On 6/19/15, 10:25 AM, Robert Shearman wrote:
+>>> n 19/06/15 16:14, roopa wrote:
+>>>
+>> In the netdevice case, this output function is not called atall. It
+>> should just follow the existing netdevice the route is pointing to.
 >
-> I think Eric's patch is the right thing to do. I'm not sure I get
-> your netdev comment, but we certainly do want to drop packets once
-> a hook is gone.
->
->> > +{
->> > +	const struct nf_queue_handler *qh;
->> > +	struct net *net;
->> > +
->> > +	rtnl_lock();
->> 
->> Why rtnl_lock() here?
->
-> for_each_net(). Would actually be nice to have a variant that doesn't
-> need the rtnl since it makes locking order analysis a lot harder.
+> Sorry for not being clear, but I meant that there would have to be 
+> lwtunnel_skb_lwstate functions for ipv4 and ipv6 to match the output 
+> functions. So in the vxlan use case where it's using a netdevice, how 
+> would it determine which one to call?
 
-Someone added a for_each_net_rcu.  But right now I am not at all certain
-I trust an rcu variant not to miss something, in a weird corner case.
-When missing something translates to an unprivileged user triggerable
-kernel oops I am not ready to play games.
-
-As for the lock analysis.  Except for nf_tables nf_unregister_hook is
-called by module removal routines where rtnl_lock() is safe.
-
-With nftables we seem to do everything under some version of the
-nfnl_lock.  Does the nfnl_lock have any problems with taking the
-rtnl_lock to nest underneath it?
-
-I tested this path and I did not have any practical problems, but I
-don't think I had lockdep enabled at the time.
-
-Eric
-
->> > +	rcu_read_lock();
->> > +	qh = rcu_dereference(queue_handler);
->> > +	if (qh) {
->> > +		for_each_net(net) {
->> > +			qh->nf_hook_drop(net, ops);
->> > +		}
->> > +	}
->> > +	rcu_read_unlock();
->> > +	rtnl_unlock();
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+thanks for that clarification, and good point. I see some areas of the 
+kernel checking for skb->protocol to do the conversion (something like 
+below). I am guessing that is acceptable.
+if (skb->protocol == htons(ETH_P_IPV6))
+                 struct rt6_info *rt6 = (struct rt6_info *)skb_dst(skb);
