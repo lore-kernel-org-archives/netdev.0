@@ -1,63 +1,71 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net] netfilter: nf_qeueue: Drop queue entries on
- nf_unregister_hook
-Date: Sat, 20 Jun 2015 13:32:48 +0200
-Message-ID: <20150620113248.GA6915@acer.localdomain>
-References: <878ubffron.fsf@x220.int.ebiederm.org>
- <871th7frlg.fsf@x220.int.ebiederm.org>
- <20150620105738.GA3439@salvia>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 2/3] rcar_can: print signed IRQ #
+Date: Sat, 20 Jun 2015 14:03:04 +0200
+Message-ID: <CAMuHMdWZFKR04NJc7xtnPUosYuosX9FPDJopG3wovu_GqGxSOw@mail.gmail.com>
+References: <2010452.WyFito6egU@wasted.cogentembedded.com>
+	<2390389.thI8mIvbv5@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150620105738.GA3439@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	wg@grandegger.com, Marc Kleine-Budde <mkl@pengutronix.de>,
+	linux-can@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:32832 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754084AbbFTMDF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2015 08:03:05 -0400
+In-Reply-To: <2390389.thI8mIvbv5@wasted.cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 20.06, Pablo Neira Ayuso wrote:
-> On Fri, Jun 19, 2015 at 02:03:39PM -0500, Eric W. Biederman wrote:
-> > 
-> > Add code to nf_unregister_hook to flush the nf_queue when a hook is
-> > unregistered.  This guarantees that the pointer that the nf_queue code
-> > retains into the nf_hook list will remain valid while a packet is
-> > queued.
-> 
-> I think the real problem is that struct nf_queue_entry holds a pointer
-> to struct nf_hook_ops, which will be gone after removal. So you
-> uncovered a long standing problem that will amplify by when pernet
-> hooks are in place.
-> 
-> Regarding the pointer to nf_hook_list, now that new netdevice variant
-> doesn't support nf_queue yet, so that nf_hook_list will be always
-> valid since it will point to the global nf_hooks in the core.
+Hi Sergei,
 
-I think Eric's patch is the right thing to do. I'm not sure I get
-your netdev comment, but we certainly do want to drop packets once
-a hook is gone.
+On Sat, Jun 20, 2015 at 2:33 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Printing IRQ # using "%x" and "%u" unsigned formats isn't quite correct as
+> 'ndev->irq' is of  type *int*, so  the "%d" format  needs to be used instead.
+>
+> While fixing this, beautify the dev_info() message in rcar_can_probe() a bit.
 
-> > +{
-> > +	const struct nf_queue_handler *qh;
-> > +	struct net *net;
-> > +
-> > +	rtnl_lock();
-> 
-> Why rtnl_lock() here?
+If you change the message, why don't you make it consistent
+("interrupt" vs. "IRQ")?
 
-for_each_net(). Would actually be nice to have a variant that doesn't
-need the rtnl since it makes locking order analysis a lot harder.
+> Fixes: fd1159318e55 ("can: add Renesas R-Car CAN driver")
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>
+> ---
+>  drivers/net/can/rcar_can.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> Index: linux-can/drivers/net/can/rcar_can.c
+> ===================================================================
+> --- linux-can.orig/drivers/net/can/rcar_can.c
+> +++ linux-can/drivers/net/can/rcar_can.c
+> @@ -526,7 +526,7 @@ static int rcar_can_open(struct net_devi
+>         napi_enable(&priv->napi);
+>         err = request_irq(ndev->irq, rcar_can_interrupt, 0, ndev->name, ndev);
+>         if (err) {
+> -               netdev_err(ndev, "error requesting interrupt %x\n", ndev->irq);
+> +               netdev_err(ndev, "error requesting interrupt %d\n", ndev->irq);
+>                 goto out_close;
+>         }
+>         can_led_event(ndev, CAN_LED_EVENT_OPEN);
+> @@ -824,7 +824,7 @@ static int rcar_can_probe(struct platfor
+>
+>         devm_can_led_init(ndev);
+>
+> -       dev_info(&pdev->dev, "device registered (reg_base=%p, irq=%u)\n",
+> +       dev_info(&pdev->dev, "device registered (regs @ %p, IRQ%d)\n",
+>                  priv->regs, ndev->irq);
 
-> > +	rcu_read_lock();
-> > +	qh = rcu_dereference(queue_handler);
-> > +	if (qh) {
-> > +		for_each_net(net) {
-> > +			qh->nf_hook_drop(net, ops);
-> > +		}
-> > +	}
-> > +	rcu_read_unlock();
-> > +	rtnl_unlock();
+Gr{oetje,eeting}s,
+
+                        Geert
+
 --
-To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
