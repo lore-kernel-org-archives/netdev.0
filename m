@@ -1,31 +1,147 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/12] Netfilter updates for net-next
-Date: Sat, 20 Jun 2015 15:40:05 -0700 (PDT)
-Message-ID: <20150620.154005.2005345358963922408.davem@davemloft.net>
-References: <1434734269-4545-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1434734269-4545-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Popov <alex.popov@linux.com>
+Subject: [PATCH v2 1/1] net: fs_enet: Fix NETIF_F_SG feature for Freescale MPC5121
+Date: Sun, 21 Jun 2015 01:32:46 +0300
+Message-ID: <1434839566-31704-1-git-send-email-alex.popov@linux.com>
+To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>,
+	Leroy Christophe <christophe.leroy@c-s.fr>,
+	David Miller <davem@davemloft.net>,
+	Alexander Popov <alex.popov@linux.com>,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:33038 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752234AbbFTWdL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2015 18:33:11 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Fri, 19 Jun 2015 19:17:37 +0200
+Commit 4fc9b87bae25 ("net: fs_enet: Implement NETIF_F_SG feature")
+brings a trouble to Freescale MPC512x: a kernel oops happens
+during sending non-linear sk_buff with .data not aligned by 4.
 
-> The following patchset contains a final Netfilter pull request for net-next
-> 4.2. This mostly addresses some fallout from the previous pull request, small
-> netns updates and a couple of new features for nfnetlink_log and the socket
-> match that didn't get in time for the previous pull request. More specifically
-> they are:
- ...
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+Log quotation:
 
-Pulled, thanks a lot Pablo.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+Unable to handle kernel paging request for data at address 0xe467c000
+Faulting instruction address: 0xc000cd44
+Oops: Kernel access of bad area, sig: 11 [#1]
+MPC512x generic
+Modules linked in:
+CPU: 0 PID: 984 Comm: kworker/0:1H Not tainted 4.1.0-rc8-00024-gbb16140 #2
+Workqueue: rpciod rpc_async_schedule
+task: cf364a50 ti: cf362000 task.ti: cf362000
+NIP: c000cd44 LR: c000c720 CTR: 00000206
+REGS: cf363ac0 TRAP: 0300   Not tainted  (4.1.0-rc8-00024-gbb16140)
+MSR: 00009032 <EE,ME,IR,DR,RI>  CR: 42004082  XER: 00000000
+DAR: e467c000 DSISR: 20000000
+GPR00: c0279e24 cf363b70 cf364a50 e467c000 00000206 0000001f 00000001 00000001
+GPR08: 00000000 e467c000 e46800be 000139a6 82002082 00000000 c002e46c cf3c3680
+GPR16: c044cb30 c04b0000 cf363c48 00000000 00000001 fde0315c 00000000 0000000b
+GPR24: 0000002c 000040be cf339aa0 0000000b 00000001 cf873210 00282f85 00000000
+NIP [c000cd44] clean_dcache_range+0x1c/0x30
+LR [c000c720] dma_direct_map_page+0x40/0x94
+Call Trace:
+[cf363b70] [cf339b60] 0xcf339b60 (unreliable)
+[cf363b90] [c0279e24] fs_enet_start_xmit+0x1c8/0x42c
+[cf363bd0] [c02ff710] dev_hard_start_xmit+0x2dc/0x3d4
+[cf363c40] [c0319c60] sch_direct_xmit+0xcc/0x1cc
+[cf363c70] [c02ff9c0] __dev_queue_xmit+0x1b8/0x47c
+[cf363ca0] [c032a3e8] ip_finish_output+0x1fc/0x9a8
+[cf363ce0] [c032c31c] ip_send_skb+0x1c/0xa4
+[cf363cf0] [c035112c] udp_send_skb+0xe4/0x2e8
+[cf363d10] [c0351368] udp_push_pending_frames+0x38/0x84
+[cf363d20] [c03537b8] udp_sendpage+0x134/0x174
+[cf363d70] [c0384fd4] xs_sendpages+0x21c/0x250
+[cf363db0] [c03852bc] xs_udp_send_request+0x50/0xf8
+[cf363de0] [c0382f08] xprt_transmit+0x64/0x280
+[cf363e20] [c038017c] call_transmit+0x168/0x234
+[cf363e40] [c0387918] __rpc_execute+0x88/0x2b0
+[cf363e80] [c00296f8] process_one_work+0x124/0x2fc
+[cf363ea0] [c0029a00] worker_thread+0x130/0x480
+[cf363ef0] [c002e528] kthread+0xbc/0xd0
+[cf363f40] [c000e4a8] ret_from_kernel_thread+0x5c/0x64
+Instruction dump:
+7c70faa6 60630800 7c70fba6 4c00012c 4e800020 38a0001f 7c632878 7c832050
+7c842a14 5484d97f 4d820020 7c8903a6 <7c00186c> 38630020 4200fff8 7c0004ac
+---[ end trace c846c1eceb513c85 ]---
+
+The reason:
+
+MPC5121 FEC requires 4-byte alignment for TX data buffer and calls
+tx_skb_align_workaround() for copying sk_buff with not aligned .data to a new
+sk_buff with aligned one. But tx_skb_align_workaround() uses
+skb_copy_from_linear_data() which doesn't work for non-linear sk_buff:
+a new sk_buff has non-zero nr_frags and zero .data_len.
+
+So improve the condition of calling tx_skb_align_workaround() and use
+skb_linearize() in it.
+
+Signed-off-by: Alexander Popov <alex.popov@linux.com>
+---
+ .../net/ethernet/freescale/fs_enet/fs_enet-main.c  | 26 +++++++++++++++++++---
+ 1 file changed, 23 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+index 9b3639e..d92802b 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
++++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+@@ -490,6 +490,9 @@ static struct sk_buff *tx_skb_align_workaround(struct net_device *dev,
+ {
+ 	struct sk_buff *new_skb;
+ 
++	if (skb_linearize(skb))
++		return NULL;
++
+ 	/* Alloc new skb */
+ 	new_skb = netdev_alloc_skb(dev, skb->len + 4);
+ 	if (!new_skb)
+@@ -515,12 +518,27 @@ static int fs_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	cbd_t __iomem *bdp;
+ 	int curidx;
+ 	u16 sc;
+-	int nr_frags = skb_shinfo(skb)->nr_frags;
++	int nr_frags;
+ 	skb_frag_t *frag;
+ 	int len;
+-
+ #ifdef CONFIG_FS_ENET_MPC5121_FEC
+-	if (((unsigned long)skb->data) & 0x3) {
++	int is_aligned = 1;
++	int i;
++
++	if (!IS_ALIGNED((unsigned long)skb->data, 4)) {
++		is_aligned = 0;
++	} else {
++		nr_frags = skb_shinfo(skb)->nr_frags;
++		frag = skb_shinfo(skb)->frags;
++		for (i = 0; i < nr_frags; i++, frag++) {
++			if (!IS_ALIGNED(frag->page_offset, 4)) {
++				is_aligned = 0;
++				break;
++			}
++		}
++	}
++
++	if (!is_aligned) {
+ 		skb = tx_skb_align_workaround(dev, skb);
+ 		if (!skb) {
+ 			/*
+@@ -532,6 +550,7 @@ static int fs_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		}
+ 	}
+ #endif
++
+ 	spin_lock(&fep->tx_lock);
+ 
+ 	/*
+@@ -539,6 +558,7 @@ static int fs_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 */
+ 	bdp = fep->cur_tx;
+ 
++	nr_frags = skb_shinfo(skb)->nr_frags;
+ 	if (fep->tx_free <= nr_frags || (CBDR_SC(bdp) & BD_ENET_TX_READY)) {
+ 		netif_stop_queue(dev);
+ 		spin_unlock(&fep->tx_lock);
+-- 
+1.9.1
