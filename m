@@ -1,100 +1,170 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build warnings after merge of the net-next tree
-Date: Sat, 20 Jun 2015 23:12:55 +1000
-Message-ID: <20150620231255.320ed133@canb.auug.org.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net] netfilter: nf_qeueue: Drop queue entries on nf_unregister_hook
+Date: Sat, 20 Jun 2015 09:03:12 -0500
+Message-ID: <871th6bhpb.fsf@x220.int.ebiederm.org>
+References: <878ubffron.fsf@x220.int.ebiederm.org>
+	<871th7frlg.fsf@x220.int.ebiederm.org> <20150620105738.GA3439@salvia>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/3Y30uONJHUyOT8BM8n=cysH"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Florian Westphal <fw@strlen.de>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out03.mta.xmission.com ([166.70.13.233]:37168 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753017AbbFTOIe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2015 10:08:34 -0400
+In-Reply-To: <20150620105738.GA3439@salvia> (Pablo Neira Ayuso's message of
+	"Sat, 20 Jun 2015 12:57:38 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/3Y30uONJHUyOT8BM8n=cysH
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Pablo Neira Ayuso <pablo@netfilter.org> writes:
 
-Hi all,
+> On Fri, Jun 19, 2015 at 02:03:39PM -0500, Eric W. Biederman wrote:
+>> 
+>> Add code to nf_unregister_hook to flush the nf_queue when a hook is
+>> unregistered.  This guarantees that the pointer that the nf_queue code
+>> retains into the nf_hook list will remain valid while a packet is
+>> queued.
+>
+> I think the real problem is that struct nf_queue_entry holds a pointer
+> to struct nf_hook_ops, which will be gone after removal.
 
-After merging the net-next tree, today's linux-next build (i386 defconfig)
-produced these warnings:
+Yes that is what I meant, when I was talking about the pointer that
+the nf_queue code holds into the nf_hook list.  That list is threaded
+through nf_hook_ops, and is used to retain the place in the nf_hook list
+for when the packet returns through nf_reinject.
 
-In file included from include/net/netfilter/nf_conntrack_tuple.h:13:0,
-                 from include/linux/netfilter/nf_conntrack_dccp.h:28,
-                 from include/net/netfilter/nf_conntrack.h:22,
-                 from net/netfilter/nf_conntrack_core.c:37:
-include/linux/netfilter/x_tables.h: In function 'xt_percpu_counter_alloc':
-include/linux/netfilter/x_tables.h:373:10: warning: cast from pointer to in=
-teger of different size [-Wpointer-to-int-cast]
-   return (__force u64) res;
-          ^
-include/linux/netfilter/x_tables.h: In function 'xt_percpu_counter_free':
-include/linux/netfilter/x_tables.h:381:15: warning: cast to pointer from in=
-teger of different size [-Wint-to-pointer-cast]
-   free_percpu((void __percpu *) pcnt);
-               ^
-In file included from include/asm-generic/percpu.h:6:0,
-                 from arch/x86/include/asm/percpu.h:551,
-                 from arch/x86/include/asm/preempt.h:5,
-                 from include/linux/preempt.h:64,
-                 from include/linux/spinlock.h:50,
-                 from include/linux/mm_types.h:8,
-                 from include/linux/kmemcheck.h:4,
-                 from include/linux/skbuff.h:18,
-                 from include/linux/netfilter.h:5,
-                 from net/netfilter/nf_conntrack_core.c:16:
-include/linux/netfilter/x_tables.h: In function 'xt_get_this_cpu_counter':
-include/linux/netfilter/x_tables.h:388:23: warning: cast to pointer from in=
-teger of different size [-Wint-to-pointer-cast]
-   return this_cpu_ptr((void __percpu *) cnt->pcnt);
-                       ^
-include/linux/percpu-defs.h:206:47: note: in definition of macro '__verify_=
-pcpu_ptr'
-  const void __percpu *__vpp_verify =3D (typeof((ptr) + 0))NULL; \
-                                               ^
-include/linux/percpu-defs.h:239:27: note: in expansion of macro 'raw_cpu_pt=
-r'
- #define this_cpu_ptr(ptr) raw_cpu_ptr(ptr)
-                           ^
-include/linux/netfilter/x_tables.h:388:10: note: in expansion of macro 'thi=
-s_cpu_ptr'
-   return this_cpu_ptr((void __percpu *) cnt->pcnt);
-          ^
+> So you
+> uncovered a long standing problem that will amplify by when pernet
+> hooks are in place.
 
-and many more.
+Yes.  This will apply to more than just nftables when the pernet hooks
+are in place.  The try_module_get prevents this for everything except
+for nftables today.  So in practice this problem has existed since the
+merge of nftables.  The try_module_get shows this problem has existed
+in some form longer than git.
 
-Introduced by commit:
+> Regarding the pointer to nf_hook_list, now that new netdevice variant
+> doesn't support nf_queue yet, so that nf_hook_list will be always
+> valid since it will point to the global nf_hooks in the core.
 
-  71ae0dff02d7 ("netfilter: xtables: use percpu rule counters")
+>
+>> I tested what would happen if we do not flush queued packets and was
+>> trivially able to obtain the oops below.  All that was required was
+>> to stop the nf_queue listening process, to delete all of the nf_tables,
+>> and to awaken the nf_queue listening process.
+> [...]
+>
+> Please, route netfilter patches through the netfilter trees, ie. nf
+> and nf-next.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Whatever works. I just see this as a bug in the networking stack that
+needs to be fixed.  I don't care who I send it to as long as Linus gets
+it.
 
---Sig_/3Y30uONJHUyOT8BM8n=cysH
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
+>> Cc: stable@vger.kernel.org
+>
+> I guess this is a leftover since there is no Cc to stable. Anyway,
+> we have to wait until this hits master before we ask for -stable
+> inclusion.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+This is a marker that this should be backported to stable, and the
+typicall way this is remembered outside of the network trees.  The stable
+folks grep the git log for Cc: stable...  
 
-iQIcBAEBCAAGBQJVhWbdAAoJEMDTa8Ir7ZwVIF4P+QGzBqSFmPdovvINko2rpLF1
-l1/bQ/+vh+IqVlG453Gl+xhcjG7ENjvJ97/11Yo7kd2WFg10cCEmS0x5WzXxrvpF
-8Lj729cEcFGv8CDf6nYMC/QWwkOe4Ee5mDpgeTcnt/6lEsdBy0IHAbi7X+Plle4p
-QZ2X8jceQkFJb1gG+YmUX4MDrPV2OlPDZ7CdACSB52UvdCwASK3D2akE/9B9cACe
-aFVt5nbGY2Liap+uEk4sR3N8sceCSY5xnyd9zW0/9JILaCrX2O0wKhSdEM0WCQXW
-8vO2BwWXzKvsYUVwt8RnuSzdde59nQCZJPFwzLy0OOf2TR9PHwHlC6xUQ6Mz4TB/
-1Wwd2tBkFcN0nj4hyZQJbN2ZoHEL9IInSNXNHxg+B2S0CLoTy1qWM+6QdKhWcUV2
-CfZ81xkBZHuK1l/YXSdDT3vlR4Vvh+XWlm2OWic6JbPs4s1qRBEar0QVI6wi3DLB
-zu2Xs4WnYrntEt7yV9JuuYggGsyNroFJUvYva24tT8J9SqgFFixCD+deVz2j7AyC
-tMRKKzudqSfiF0w1jhrFGApMzzy3MMhyKH6EgDZemQ+3EpcDAoz8kR9dU+x9yvyn
-Q4Ap5UWL0XpGWzCmah0pMWaJGwIp4a6oEHKgyZHtj7opr0b5pb7+iTaDrthEV6rt
-/VGPxo6LusTI4zrQbGEP
-=SrfA
------END PGP SIGNATURE-----
+> More comments below. Thanks for this fix BTW.
+>
+>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>> ---
+>> 
+>> Apologies for the duplicate send but I forgot to include the appropriate
+>> mailing lists.
+>> 
+>>  include/net/netfilter/nf_queue.h     |  2 ++
+>>  net/netfilter/core.c                 |  1 +
+>>  net/netfilter/nf_internals.h         |  1 +
+>>  net/netfilter/nf_queue.c             | 17 +++++++++++++++++
+>>  net/netfilter/nfnetlink_queue_core.c | 24 +++++++++++++++++++++++-
+>>  5 files changed, 44 insertions(+), 1 deletion(-)
+>> 
+>> diff --git a/include/net/netfilter/nf_queue.h b/include/net/netfilter/nf_queue.h
+>> index d81d584157e1..e8635854a55b 100644
+>> --- a/include/net/netfilter/nf_queue.h
+>> +++ b/include/net/netfilter/nf_queue.h
+>> @@ -24,6 +24,8 @@ struct nf_queue_entry {
+>>  struct nf_queue_handler {
+>>  	int			(*outfn)(struct nf_queue_entry *entry,
+>>  					 unsigned int queuenum);
+>> +	void			(*nf_hook_drop)(struct net *net,
+>> +						struct nf_hook_ops *ops);
+>>  };
+>>  
+>>  void nf_register_queue_handler(const struct nf_queue_handler *qh);
+>> diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+>> index 653e32eac08c..a0e54974e2c9 100644
+>> --- a/net/netfilter/core.c
+>> +++ b/net/netfilter/core.c
+>> @@ -118,6 +118,7 @@ void nf_unregister_hook(struct nf_hook_ops *reg)
+>>  	static_key_slow_dec(&nf_hooks_needed[reg->pf][reg->hooknum]);
+>>  #endif
+>>  	synchronize_net();
+>> +	nf_queue_nf_hook_drop(reg);
+>>  }
+>>  EXPORT_SYMBOL(nf_unregister_hook);
+>>  
+>> diff --git a/net/netfilter/nf_internals.h b/net/netfilter/nf_internals.h
+>> index ea7f36784b3d..399210693c2a 100644
+>> --- a/net/netfilter/nf_internals.h
+>> +++ b/net/netfilter/nf_internals.h
+>> @@ -19,6 +19,7 @@ unsigned int nf_iterate(struct list_head *head, struct sk_buff *skb,
+>>  /* nf_queue.c */
+>>  int nf_queue(struct sk_buff *skb, struct nf_hook_ops *elem,
+>>  	     struct nf_hook_state *state, unsigned int queuenum);
+>> +void nf_queue_nf_hook_drop(struct nf_hook_ops *ops);
+>>  int __init netfilter_queue_init(void);
+>>  
+>>  /* nf_log.c */
+>> diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+>> index 2e88032cd5ad..cd60d397fe05 100644
+>> --- a/net/netfilter/nf_queue.c
+>> +++ b/net/netfilter/nf_queue.c
+>> @@ -105,6 +105,23 @@ bool nf_queue_entry_get_refs(struct nf_queue_entry *entry)
+>>  }
+>>  EXPORT_SYMBOL_GPL(nf_queue_entry_get_refs);
+>>  
+>> +void nf_queue_nf_hook_drop(struct nf_hook_ops *ops)
+>
+> I'd suggest you rename all these 'nf_hook_drop' to 'flush'.
 
---Sig_/3Y30uONJHUyOT8BM8n=cysH--
+The functions in nfnetfilter_queue_core.c are also named drop,
+and I am not in a mood to change the convention.
+
+>> +{
+>> +	const struct nf_queue_handler *qh;
+>> +	struct net *net;
+>> +
+>> +	rtnl_lock();
+>
+> Why rtnl_lock() here?
+
+Because we need a race free way to visit all of the network namespaces.
+I would perform the for_each_net on the other side of nf_hook_drop but
+the rcu locking would not allow that.
+
+>> +	rcu_read_lock();
+>> +	qh = rcu_dereference(queue_handler);
+>> +	if (qh) {
+>> +		for_each_net(net) {
+>> +			qh->nf_hook_drop(net, ops);
+>> +		}
+>> +	}
+>> +	rcu_read_unlock();
+>> +	rtnl_unlock();
+>> +}
+>> +
+>>  /*
+>>   * Any packet that leaves via this function must come back
+>>   * through nf_reinject().
