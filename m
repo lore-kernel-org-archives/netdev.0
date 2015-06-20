@@ -1,133 +1,100 @@
-From: Jakub =?UTF-8?B?S2ljacWEc2tp?= <moorray3@wp.pl>
-Subject: Re: [PATCH 00/32] Netfilter updates for net-next
-Date: Sat, 20 Jun 2015 15:11:30 +0200
-Message-ID: <20150620151130.74b68b6c@north>
-References: <1434403589-24796-1-git-send-email-pablo@netfilter.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warnings after merge of the net-next tree
+Date: Sat, 20 Jun 2015 23:12:55 +1000
+Message-ID: <20150620231255.320ed133@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, kbuild test robot <fengguang.wu@intel.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Bernhard Thaler <bernhard.thaler@wvnet.at>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1434403589-24796-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/3Y30uONJHUyOT8BM8n=cysH"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Jun 2015 23:25:57 +0200, Pablo Neira Ayuso wrote:
-> Hi David,
->=20
-> This a bit large (and late) patchset that contains Netfilter updates =
-for
-> net-next. Most relevantly br_netfilter fixes, ipset RCU support, remo=
-val of
-> x_tables percpu ruleset copy and rework of the nf_tables netdev suppo=
-rt. More
-> specifically, they are:
-[...]
-> ----------------------------------------------------------------
-> Bernhard Thaler (7):
->       netfilter: bridge: refactor clearing BRNF_NF_BRIDGE_PREROUTING
->       netfilter: bridge: re-order br_nf_pre_routing_finish_ipv6()
->       netfilter: bridge: detect NAT66 correctly and change MAC addres=
-s
->       netfilter: bridge: refactor frag_max_size
->       netfilter: bridge: rename br_parse_ip_options
->       netfilter: bridge: re-order check_hbh_len()
->       netfilter: bridge: forward IPv6 fragmented packets
+--Sig_/3Y30uONJHUyOT8BM8n=cysH
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Pablo, Bernhard,
+Hi all,
 
-this batch breaks builds with CONFIG_IPV6=3Dn.  No idea why build bot
-didn't catch that.
+After merging the net-next tree, today's linux-next build (i386 defconfig)
+produced these warnings:
 
-linux/net/bridge/br_netfilter.c: In function =E2=80=98br_validate_ipv6=E2=
-=80=99:
-/home/kuba/Development/Linux/linux/net/bridge/br_netfilter.c:350:618: e=
-rror: =E2=80=98struct netns_mib=E2=80=99 has no member named =E2=80=98i=
-pv6_statistics=E2=80=99
-    IP6_INC_STATS_BH(dev_net(dev), idev,
+In file included from include/net/netfilter/nf_conntrack_tuple.h:13:0,
+                 from include/linux/netfilter/nf_conntrack_dccp.h:28,
+                 from include/net/netfilter/nf_conntrack.h:22,
+                 from net/netfilter/nf_conntrack_core.c:37:
+include/linux/netfilter/x_tables.h: In function 'xt_percpu_counter_alloc':
+include/linux/netfilter/x_tables.h:373:10: warning: cast from pointer to in=
+teger of different size [-Wpointer-to-int-cast]
+   return (__force u64) res;
+          ^
+include/linux/netfilter/x_tables.h: In function 'xt_percpu_counter_free':
+include/linux/netfilter/x_tables.h:381:15: warning: cast to pointer from in=
+teger of different size [-Wint-to-pointer-cast]
+   free_percpu((void __percpu *) pcnt);
+               ^
+In file included from include/asm-generic/percpu.h:6:0,
+                 from arch/x86/include/asm/percpu.h:551,
+                 from arch/x86/include/asm/preempt.h:5,
+                 from include/linux/preempt.h:64,
+                 from include/linux/spinlock.h:50,
+                 from include/linux/mm_types.h:8,
+                 from include/linux/kmemcheck.h:4,
+                 from include/linux/skbuff.h:18,
+                 from include/linux/netfilter.h:5,
+                 from net/netfilter/nf_conntrack_core.c:16:
+include/linux/netfilter/x_tables.h: In function 'xt_get_this_cpu_counter':
+include/linux/netfilter/x_tables.h:388:23: warning: cast to pointer from in=
+teger of different size [-Wint-to-pointer-cast]
+   return this_cpu_ptr((void __percpu *) cnt->pcnt);
+                       ^
+include/linux/percpu-defs.h:206:47: note: in definition of macro '__verify_=
+pcpu_ptr'
+  const void __percpu *__vpp_verify =3D (typeof((ptr) + 0))NULL; \
+                                               ^
+include/linux/percpu-defs.h:239:27: note: in expansion of macro 'raw_cpu_pt=
+r'
+ #define this_cpu_ptr(ptr) raw_cpu_ptr(ptr)
+                           ^
+include/linux/netfilter/x_tables.h:388:10: note: in expansion of macro 'thi=
+s_cpu_ptr'
+   return this_cpu_ptr((void __percpu *) cnt->pcnt);
+          ^
 
-linux/net/bridge/br_netfilter.c:350:706: error: =E2=80=98struct netns_m=
-ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
-    IP6_INC_STATS_BH(dev_net(dev), idev,
+and many more.
 
-linux/net/bridge/br_netfilter.c:350:915: error: =E2=80=98struct netns_m=
-ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
-    IP6_INC_STATS_BH(dev_net(dev), idev,
+Introduced by commit:
 
-linux/net/bridge/br_netfilter.c:350:964: error: =E2=80=98struct netns_m=
-ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
-    IP6_INC_STATS_BH(dev_net(dev), idev,
+  71ae0dff02d7 ("netfilter: xtables: use percpu rule counters")
 
-linux/net/bridge/br_netfilter.c:350:1031: error: request for member =E2=
-=80=98syncp=E2=80=99 in something not a structure or union
-    IP6_INC_STATS_BH(dev_net(dev), idev,
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-linux/net/bridge/br_netfilter.c:350:1044: error: request for member =E2=
-=80=98mibs=E2=80=99 in something not a structure or union
-    IP6_INC_STATS_BH(dev_net(dev), idev,
+--Sig_/3Y30uONJHUyOT8BM8n=cysH
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
 
-linux/net/bridge/br_netfilter.c:350:1113: error: request for member =E2=
-=80=98syncp=E2=80=99 in something not a structure or union
-    IP6_INC_STATS_BH(dev_net(dev), idev,
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-linux/net/bridge/br_netfilter.c:355:613: error: =E2=80=98struct netns_m=
-ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
-    IP6_INC_STATS_BH(dev_net(dev), idev,
+iQIcBAEBCAAGBQJVhWbdAAoJEMDTa8Ir7ZwVIF4P+QGzBqSFmPdovvINko2rpLF1
+l1/bQ/+vh+IqVlG453Gl+xhcjG7ENjvJ97/11Yo7kd2WFg10cCEmS0x5WzXxrvpF
+8Lj729cEcFGv8CDf6nYMC/QWwkOe4Ee5mDpgeTcnt/6lEsdBy0IHAbi7X+Plle4p
+QZ2X8jceQkFJb1gG+YmUX4MDrPV2OlPDZ7CdACSB52UvdCwASK3D2akE/9B9cACe
+aFVt5nbGY2Liap+uEk4sR3N8sceCSY5xnyd9zW0/9JILaCrX2O0wKhSdEM0WCQXW
+8vO2BwWXzKvsYUVwt8RnuSzdde59nQCZJPFwzLy0OOf2TR9PHwHlC6xUQ6Mz4TB/
+1Wwd2tBkFcN0nj4hyZQJbN2ZoHEL9IInSNXNHxg+B2S0CLoTy1qWM+6QdKhWcUV2
+CfZ81xkBZHuK1l/YXSdDT3vlR4Vvh+XWlm2OWic6JbPs4s1qRBEar0QVI6wi3DLB
+zu2Xs4WnYrntEt7yV9JuuYggGsyNroFJUvYva24tT8J9SqgFFixCD+deVz2j7AyC
+tMRKKzudqSfiF0w1jhrFGApMzzy3MMhyKH6EgDZemQ+3EpcDAoz8kR9dU+x9yvyn
+Q4Ap5UWL0XpGWzCmah0pMWaJGwIp4a6oEHKgyZHtj7opr0b5pb7+iTaDrthEV6rt
+/VGPxo6LusTI4zrQbGEP
+=SrfA
+-----END PGP SIGNATURE-----
 
-linux/net/bridge/br_netfilter.c:355:701: error: =E2=80=98struct netns_m=
-ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
-    IP6_INC_STATS_BH(dev_net(dev), idev,
-
-linux/net/bridge/br_netfilter.c:355:910: error: =E2=80=98struct netns_m=
-ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
-    IP6_INC_STATS_BH(dev_net(dev), idev,
-
-linux/net/bridge/br_netfilter.c:355:959: error: =E2=80=98struct netns_m=
-ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
-    IP6_INC_STATS_BH(dev_net(dev), idev,
-
-linux/net/bridge/br_netfilter.c:355:1026: error: request for member =E2=
-=80=98syncp=E2=80=99 in something not a structure or union
-    IP6_INC_STATS_BH(dev_net(dev), idev,
-
-linux/net/bridge/br_netfilter.c:355:1039: error: request for member =E2=
-=80=98mibs=E2=80=99 in something not a structure or union
-    IP6_INC_STATS_BH(dev_net(dev), idev,
-
-linux/net/bridge/br_netfilter.c:355:1103: error: request for member =E2=
-=80=98syncp=E2=80=99 in something not a structure or union
-    IP6_INC_STATS_BH(dev_net(dev), idev,
-
-linux/net/bridge/br_netfilter.c:370:612: error: =E2=80=98struct netns_m=
-ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
-  IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
-
-linux/net/bridge/br_netfilter.c:370:700: error: =E2=80=98struct netns_m=
-ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
-  IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
-
-linux/net/bridge/br_netfilter.c:370:909: error: =E2=80=98struct netns_m=
-ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
-  IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
-
-linux/net/bridge/br_netfilter.c:370:958: error: =E2=80=98struct netns_m=
-ib=E2=80=99 has no member named =E2=80=98ipv6_statistics=E2=80=99
-  IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
-
-linux/net/bridge/br_netfilter.c:370:1025: error: request for member =E2=
-=80=98syncp=E2=80=99 in something not a structure or union
-  IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
-
-linux/net/bridge/br_netfilter.c:370:1038: error: request for member =E2=
-=80=98mibs=E2=80=99 in something not a structure or union
-  IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
-
-linux/net/bridge/br_netfilter.c:370:1103: error: request for member =E2=
-=80=98syncp=E2=80=99 in something not a structure or union
-  IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
+--Sig_/3Y30uONJHUyOT8BM8n=cysH--
