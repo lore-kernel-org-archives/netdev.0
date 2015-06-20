@@ -1,43 +1,45 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/3] rcar_can: print signed IRQ #
-Date: Sat, 20 Jun 2015 17:38:11 +0300
-Message-ID: <55857AD3.4040000@cogentembedded.com>
-References: <2010452.WyFito6egU@wasted.cogentembedded.com>	<2390389.thI8mIvbv5@wasted.cogentembedded.com> <CAMuHMdWZFKR04NJc7xtnPUosYuosX9FPDJopG3wovu_GqGxSOw@mail.gmail.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next RFC v2 3/3] mpls: support for ip tunnels
+Date: Sat, 20 Jun 2015 07:41:04 -0700
+Message-ID: <55857B80.7090103@cumulusnetworks.com>
+References: <1434689355-4088-4-git-send-email-roopa@cumulusnetworks.com> <55843E15.2040301@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	wg@grandegger.com, Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-can@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdWZFKR04NJc7xtnPUosYuosX9FPDJopG3wovu_GqGxSOw@mail.gmail.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ebiederm@xmission.com, tgraf@suug.ch, davem@davemloft.net,
+	netdev@vger.kernel.org,
+	Vivek Venkatraman <vivek@cumulusnetworks.com>
+To: Robert Shearman <rshearma@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:35873 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754547AbbFTOlF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2015 10:41:05 -0400
+Received: by paceq1 with SMTP id eq1so79299350pac.3
+        for <netdev@vger.kernel.org>; Sat, 20 Jun 2015 07:41:05 -0700 (PDT)
+In-Reply-To: <55843E15.2040301@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 6/19/15, 9:06 AM, Robert Shearman wrote:
+>
+> Since the entire label stack and the output device is encoded in the 
+> route, this means that you won't get prefix-independent convergence 
+> with this implementation for an IGP route change. I.e. if you've got 
+> 10 million VPN routes via an IGP route for the BGP nexthop, and the 
+> IGP route for the BGP nexthop changes (e.g. because a link has gone 
+> down somewhere in the network) then you'll have to update all 10 
+> million IP routes to change the output device, gateway and IGP label.
+>
+> That's going to represent a scaling obstacle for one of the primary 
+> MPLS use cases.
 
-On 6/20/2015 3:03 PM, Geert Uytterhoeven wrote:
+I cant say I understand PIC very well, but, assuming PIC is not just an 
+mpls thing, PIC does require an alternate nexthop infrastructure in the 
+kernel (FIB).
+And if that were present, It would help the mpls case too. I am not sure 
+how you would solve PIC just for the mpls case or if having a netdevice 
+makes it any easier.
 
->> Printing IRQ # using "%x" and "%u" unsigned formats isn't quite correct as
->> 'ndev->irq' is of  type *int*, so  the "%d" format  needs to be used instead.
-
->> While fixing this, beautify the dev_info() message in rcar_can_probe() a bit.
-
-> If you change the message, why don't you make it consistent
-> ("interrupt" vs. "IRQ")?
-
-    I decided to change the message in a follow-up patch (posted afterwards).
-
->> Fixes: fd1159318e55 ("can: add Renesas R-Car CAN driver")
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-[...]
-
-> Gr{oetje,eeting}s,
->                          Geert
-
-WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-can" in
+Thanks,
+Roopa
