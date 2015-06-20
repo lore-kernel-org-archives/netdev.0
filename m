@@ -1,63 +1,81 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net] netfilter: nf_queue: Don't recompute the hook_list head
-Date: Sat, 20 Jun 2015 09:08:20 -0500
-Message-ID: <877fqya2wb.fsf@x220.int.ebiederm.org>
-References: <87381ne3rq.fsf@x220.int.ebiederm.org>
-	<20150620105839.GB3439@salvia>
+Subject: Re: [PATCH net] netfilter: nf_qeueue: Drop queue entries on nf_unregister_hook
+Date: Sat, 20 Jun 2015 09:16:08 -0500
+Message-ID: <87616i8nyv.fsf@x220.int.ebiederm.org>
+References: <878ubffron.fsf@x220.int.ebiederm.org>
+	<871th7frlg.fsf@x220.int.ebiederm.org> <20150620105738.GA3439@salvia>
+	<20150620113248.GA6915@acer.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20150620105839.GB3439@salvia> (Pablo Neira Ayuso's message of
-	"Sat, 20 Jun 2015 12:58:39 +0200")
+In-Reply-To: <20150620113248.GA6915@acer.localdomain> (Patrick McHardy's
+	message of "Sat, 20 Jun 2015 13:32:48 +0200")
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pablo Neira Ayuso <pablo@netfilter.org> writes:
+Patrick McHardy <kaber@trash.net> writes:
 
-> On Fri, Jun 19, 2015 at 05:23:37PM -0500, Eric W. Biederman wrote:
+> On 20.06, Pablo Neira Ayuso wrote:
+>> On Fri, Jun 19, 2015 at 02:03:39PM -0500, Eric W. Biederman wrote:
+>> > 
+>> > Add code to nf_unregister_hook to flush the nf_queue when a hook is
+>> > unregistered.  This guarantees that the pointer that the nf_queue code
+>> > retains into the nf_hook list will remain valid while a packet is
+>> > queued.
 >> 
->> If someone sends packets from one of the netdevice ingress hooks to
->> the a userspace queue, and then userspace later accepts the packet,
->> the netfilter code can enter an infinite loop as the list head will
->> never be found.
+>> I think the real problem is that struct nf_queue_entry holds a pointer
+>> to struct nf_hook_ops, which will be gone after removal. So you
+>> uncovered a long standing problem that will amplify by when pernet
+>> hooks are in place.
 >> 
->> Pass in the saved list_head to avoid this.
+>> Regarding the pointer to nf_hook_list, now that new netdevice variant
+>> doesn't support nf_queue yet, so that nf_hook_list will be always
+>> valid since it will point to the global nf_hooks in the core.
 >
-> There is no userspace queueing for netdevice yet, so this can be route
-> through nf-next. Thanks.
-
-*scratches head* the netdevice queueing is in the netfilter core.
-
-netfilter_ingress calls nf_hook_slow.  The queuing happens in
-nf_hook_slow if anything returns the verdict queue it.
-
-This patch applies to Linus's tree.
-
-So how in the world does this not need to be ported to 4.1?
-
->> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
->> ---
->>  net/netfilter/nf_queue.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
+> I think Eric's patch is the right thing to do. I'm not sure I get
+> your netdev comment, but we certainly do want to drop packets once
+> a hook is gone.
+>
+>> > +{
+>> > +	const struct nf_queue_handler *qh;
+>> > +	struct net *net;
+>> > +
+>> > +	rtnl_lock();
 >> 
->> diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
->> index cd60d397fe05..8a8b2abc35ff 100644
->> --- a/net/netfilter/nf_queue.c
->> +++ b/net/netfilter/nf_queue.c
->> @@ -213,7 +213,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
->>  
->>  	if (verdict == NF_ACCEPT) {
->>  	next_hook:
->> -		verdict = nf_iterate(&nf_hooks[entry->state.pf][entry->state.hook],
->> +		verdict = nf_iterate(entry->state.hook_list,
->>  				     skb, &entry->state, &elem);
->>  	}
->>  
->> -- 
->> 2.2.1
->> 
+>> Why rtnl_lock() here?
+>
+> for_each_net(). Would actually be nice to have a variant that doesn't
+> need the rtnl since it makes locking order analysis a lot harder.
+
+Someone added a for_each_net_rcu.  But right now I am not at all certain
+I trust an rcu variant not to miss something, in a weird corner case.
+When missing something translates to an unprivileged user triggerable
+kernel oops I am not ready to play games.
+
+As for the lock analysis.  Except for nf_tables nf_unregister_hook is
+called by module removal routines where rtnl_lock() is safe.
+
+With nftables we seem to do everything under some version of the
+nfnl_lock.  Does the nfnl_lock have any problems with taking the
+rtnl_lock to nest underneath it?
+
+I tested this path and I did not have any practical problems, but I
+don't think I had lockdep enabled at the time.
+
+Eric
+
+>> > +	rcu_read_lock();
+>> > +	qh = rcu_dereference(queue_handler);
+>> > +	if (qh) {
+>> > +		for_each_net(net) {
+>> > +			qh->nf_hook_drop(net, ops);
+>> > +		}
+>> > +	}
+>> > +	rcu_read_unlock();
+>> > +	rtnl_unlock();
 --
 To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
