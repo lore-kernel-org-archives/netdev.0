@@ -1,147 +1,117 @@
-From: Alexander Popov <alex.popov@linux.com>
-Subject: [PATCH v2 1/1] net: fs_enet: Fix NETIF_F_SG feature for Freescale MPC5121
-Date: Sun, 21 Jun 2015 01:32:46 +0300
-Message-ID: <1434839566-31704-1-git-send-email-alex.popov@linux.com>
-To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-	Vitaly Bordug <vbordug@ru.mvista.com>,
-	Leroy Christophe <christophe.leroy@c-s.fr>,
-	David Miller <davem@davemloft.net>,
-	Alexander Popov <alex.popov@linux.com>,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] can: fix loss of frames due to wrong assumption in raw_rcv
+Date: Sun, 21 Jun 2015 00:42:21 +0200
+Message-ID: <5585EC4D.40103@hartkopp.net>
+References: <5585A104.1090201@gmx.at>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Manfred Schlaegl <manfred.schlaegl@ginzinger.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Manfred Schlaegl <manfred.schlaegl@gmx.at>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:33038 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752234AbbFTWdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2015 18:33:11 -0400
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.220]:41053 "EHLO
+	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752234AbbFTWm2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2015 18:42:28 -0400
+In-Reply-To: <5585A104.1090201@gmx.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 4fc9b87bae25 ("net: fs_enet: Implement NETIF_F_SG feature")
-brings a trouble to Freescale MPC512x: a kernel oops happens
-during sending non-linear sk_buff with .data not aligned by 4.
+Hello Manfred,
 
-Log quotation:
+On 06/20/2015 07:21 PM, Manfred Schlaegl wrote:
+> I've detected a massive loss of can frames on i.MX6 using flexcan
+> driver with 4.1-rc8 and tracked this down to following commit:
+> 514ac99c64b22d83b52dfee3b8becaa69a92bc4a - "can: fix multiple delivery
+> of a single CAN frame for overlapping CAN filters"
 
-Unable to handle kernel paging request for data at address 0xe467c000
-Faulting instruction address: 0xc000cd44
-Oops: Kernel access of bad area, sig: 11 [#1]
-MPC512x generic
-Modules linked in:
-CPU: 0 PID: 984 Comm: kworker/0:1H Not tainted 4.1.0-rc8-00024-gbb16140 #2
-Workqueue: rpciod rpc_async_schedule
-task: cf364a50 ti: cf362000 task.ti: cf362000
-NIP: c000cd44 LR: c000c720 CTR: 00000206
-REGS: cf363ac0 TRAP: 0300   Not tainted  (4.1.0-rc8-00024-gbb16140)
-MSR: 00009032 <EE,ME,IR,DR,RI>  CR: 42004082  XER: 00000000
-DAR: e467c000 DSISR: 20000000
-GPR00: c0279e24 cf363b70 cf364a50 e467c000 00000206 0000001f 00000001 00000001
-GPR08: 00000000 e467c000 e46800be 000139a6 82002082 00000000 c002e46c cf3c3680
-GPR16: c044cb30 c04b0000 cf363c48 00000000 00000001 fde0315c 00000000 0000000b
-GPR24: 0000002c 000040be cf339aa0 0000000b 00000001 cf873210 00282f85 00000000
-NIP [c000cd44] clean_dcache_range+0x1c/0x30
-LR [c000c720] dma_direct_map_page+0x40/0x94
-Call Trace:
-[cf363b70] [cf339b60] 0xcf339b60 (unreliable)
-[cf363b90] [c0279e24] fs_enet_start_xmit+0x1c8/0x42c
-[cf363bd0] [c02ff710] dev_hard_start_xmit+0x2dc/0x3d4
-[cf363c40] [c0319c60] sch_direct_xmit+0xcc/0x1cc
-[cf363c70] [c02ff9c0] __dev_queue_xmit+0x1b8/0x47c
-[cf363ca0] [c032a3e8] ip_finish_output+0x1fc/0x9a8
-[cf363ce0] [c032c31c] ip_send_skb+0x1c/0xa4
-[cf363cf0] [c035112c] udp_send_skb+0xe4/0x2e8
-[cf363d10] [c0351368] udp_push_pending_frames+0x38/0x84
-[cf363d20] [c03537b8] udp_sendpage+0x134/0x174
-[cf363d70] [c0384fd4] xs_sendpages+0x21c/0x250
-[cf363db0] [c03852bc] xs_udp_send_request+0x50/0xf8
-[cf363de0] [c0382f08] xprt_transmit+0x64/0x280
-[cf363e20] [c038017c] call_transmit+0x168/0x234
-[cf363e40] [c0387918] __rpc_execute+0x88/0x2b0
-[cf363e80] [c00296f8] process_one_work+0x124/0x2fc
-[cf363ea0] [c0029a00] worker_thread+0x130/0x480
-[cf363ef0] [c002e528] kthread+0xbc/0xd0
-[cf363f40] [c000e4a8] ret_from_kernel_thread+0x5c/0x64
-Instruction dump:
-7c70faa6 60630800 7c70fba6 4c00012c 4e800020 38a0001f 7c632878 7c832050
-7c842a14 5484d97f 4d820020 7c8903a6 <7c00186c> 38630020 4200fff8 7c0004ac
----[ end trace c846c1eceb513c85 ]---
+thanks for detecting this issue!
 
-The reason:
+> 514ac99c64b22d83b52dfee3b8becaa69a92bc4a introduces a frame equality
+> check. Since the sk_buff pointer is not sufficient to do this (buffers
+> are reused), the check also compares time stamps.
+> In short: pointer+time stamp was assumed as unique key to a specific
+> frame.
+> The problem with this is, that the time stamp is an optional property
+> and not set per default.
+> In our case (flexcan) the time stamp is always zero, so the equality
+> check is reduced to equality of buffer pointers, resulting in a lot of
+> dropped frames.
 
-MPC5121 FEC requires 4-byte alignment for TX data buffer and calls
-tx_skb_align_workaround() for copying sk_buff with not aligned .data to a new
-sk_buff with aligned one. But tx_skb_align_workaround() uses
-skb_copy_from_linear_data() which doesn't work for non-linear sk_buff:
-a new sk_buff has non-zero nr_frags and zero .data_len.
+The question is why your system did not generate a timestamp at the time of
+skb reception.
 
-So improve the condition of calling tx_skb_align_workaround() and use
-skb_linearize() in it.
+Usually when netif_rx(), netif_rx_ni() is invoked the timestamp is set in the
+following reception process.
 
-Signed-off-by: Alexander Popov <alex.popov@linux.com>
----
- .../net/ethernet/freescale/fs_enet/fs_enet-main.c  | 26 +++++++++++++++++++---
- 1 file changed, 23 insertions(+), 3 deletions(-)
+flexcan.c only uses netif_receive_skb() - but all theses functions set the
+timestamp
 
-diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-index 9b3639e..d92802b 100644
---- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-@@ -490,6 +490,9 @@ static struct sk_buff *tx_skb_align_workaround(struct net_device *dev,
- {
- 	struct sk_buff *new_skb;
- 
-+	if (skb_linearize(skb))
-+		return NULL;
-+
- 	/* Alloc new skb */
- 	new_skb = netdev_alloc_skb(dev, skb->len + 4);
- 	if (!new_skb)
-@@ -515,12 +518,27 @@ static int fs_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	cbd_t __iomem *bdp;
- 	int curidx;
- 	u16 sc;
--	int nr_frags = skb_shinfo(skb)->nr_frags;
-+	int nr_frags;
- 	skb_frag_t *frag;
- 	int len;
--
- #ifdef CONFIG_FS_ENET_MPC5121_FEC
--	if (((unsigned long)skb->data) & 0x3) {
-+	int is_aligned = 1;
-+	int i;
-+
-+	if (!IS_ALIGNED((unsigned long)skb->data, 4)) {
-+		is_aligned = 0;
-+	} else {
-+		nr_frags = skb_shinfo(skb)->nr_frags;
-+		frag = skb_shinfo(skb)->frags;
-+		for (i = 0; i < nr_frags; i++, frag++) {
-+			if (!IS_ALIGNED(frag->page_offset, 4)) {
-+				is_aligned = 0;
-+				break;
-+			}
-+		}
-+	}
-+
-+	if (!is_aligned) {
- 		skb = tx_skb_align_workaround(dev, skb);
- 		if (!skb) {
- 			/*
-@@ -532,6 +550,7 @@ static int fs_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		}
- 	}
- #endif
-+
- 	spin_lock(&fep->tx_lock);
- 
- 	/*
-@@ -539,6 +558,7 @@ static int fs_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 */
- 	bdp = fep->cur_tx;
- 
-+	nr_frags = skb_shinfo(skb)->nr_frags;
- 	if (fep->tx_free <= nr_frags || (CBDR_SC(bdp) & BD_ENET_TX_READY)) {
- 		netif_stop_queue(dev);
- 		spin_unlock(&fep->tx_lock);
--- 
-1.9.1
+	net_timestamp_check(netdev_tstamp_prequeue, skb);
+
+depending on netdev_tstamp_prequeue which is configured by
+
+/proc/sys/net/core/netdev_tstamp_prequeue
+
+See the idea of netdev_tstamp_prequeue here:
+
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/net/core/sysctl_net_core.c?id=3b098e2d7c693796cc4dffb07caa249fc0f70771
+
+Can you tell me the output of /proc/sys/net/core/netdev_tstamp_prequeue on
+your machine?
+
+If it's not '1' can you set it to '1' for a test?
+
+> 
+> Possible solutions I thought of:
+>  1. Every driver has to set a time stamp
+>     (possibly error prone and hard to enforce?)
+>  2. Change the equality check
+>  3. Fulfil the requirements of the equality check by setting a
+>     time stamp per default.
+> 
+> This patch fixes the problem with solution 3. A time stamp is set at
+> time of allocation in alloc_can_skb.
+
+That's a feasible way if won't find a better way to make sure the timestamps
+are generally set before the skb is processed in the NET_RX softirq.
+
+> The time stamp may be overridden later, but the function of the equality
+> check is ensured.
+> 
+> I'm not really deep in linux network subsystem, so there may exists
+> more elegant solutions for the problem.
+> 
+> Signed-off-by: Manfred Schlaegl <manfred.schlaegl@gmx.at>
+> ---
+>  drivers/net/can/dev.c |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+> index b0f6924..282e2e7 100644
+> --- a/drivers/net/can/dev.c
+> +++ b/drivers/net/can/dev.c
+> @@ -575,6 +575,7 @@ struct sk_buff *alloc_can_skb(struct net_device *dev, struct can_frame **cf)
+>  	if (unlikely(!skb))
+>  		return NULL;
+>  
+> +	__net_timestamp(skb);
+>  	skb->protocol = htons(ETH_P_CAN);
+>  	skb->pkt_type = PACKET_BROADCAST;
+>  	skb->ip_summed = CHECKSUM_UNNECESSARY;
+> 
+
+Please check the netdev_tstamp_prequeue value first.
+
+If we would need solution 3 the __net_timestamp(skb) should be placed in
+alloc_canfd_skb() too.
+
+Thanks again for your investigation!
+
+Best regards,
+Oliver
