@@ -1,45 +1,56 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCHv2 net-next] net: fec: Ensure clocks are enabled while
- using mdio bus
-Date: Sat, 20 Jun 2015 19:58:17 +0200
-Message-ID: <20150620175817.GA9863@lunn.ch>
-References: <1434816914-9816-1-git-send-email-andrew@lunn.ch>
- <CAOMZO5Bb2i2Xr2-+6pNSy5WHxh1FK3utB3-VqS6X-_OK=+t82g@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 00/32] Netfilter updates for net-next
+Date: Sat, 20 Jun 2015 20:30:06 +0200
+Message-ID: <20150620183006.GA3362@salvia>
+References: <1434403589-24796-1-git-send-email-pablo@netfilter.org>
+ <20150620151130.74b68b6c@north>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Nimrod Andy <B38611@freescale.com>,
-	Duan Andy <fugang.duan@freescale.com>,
-	Cory Tusar <cory.tusar@pid1solutions.com>,
-	netdev <netdev@vger.kernel.org>
-To: Fabio Estevam <festevam@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:60021 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754655AbbFTSEL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Jun 2015 14:04:11 -0400
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bernhard Thaler <bernhard.thaler@wvnet.at>,
+	netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, kbuild test robot <fengguang.wu@intel.com>
+To: Jakub =?utf-8?B?S2ljacWEc2tp?= <moorray3@wp.pl>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAOMZO5Bb2i2Xr2-+6pNSy5WHxh1FK3utB3-VqS6X-_OK=+t82g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20150620151130.74b68b6c@north>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 20, 2015 at 02:47:20PM -0300, Fabio Estevam wrote:
-> On Sat, Jun 20, 2015 at 1:15 PM, Andrew Lunn <andrew@lunn.ch> wrote:
-> 
-> > @@ -1764,6 +1765,11 @@ static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
-> >  {
-> >         struct fec_enet_private *fep = bus->priv;
-> >         unsigned long time_left;
-> > +       int ret;
-> > +
-> > +       ret = clk_prepare_enable(fep->clk_ipg);
-> > +       if (ret)
-> > +               return 0xffff;
-> 
-> Why don`t you return ret instead?
+On Sat, Jun 20, 2015 at 03:11:30PM +0200, Jakub Kici=C5=84ski wrote:
+> On Mon, 15 Jun 2015 23:25:57 +0200, Pablo Neira Ayuso wrote:
+> > Hi David,
+> >=20
+> > This a bit large (and late) patchset that contains Netfilter update=
+s for
+> > net-next. Most relevantly br_netfilter fixes, ipset RCU support, re=
+moval of
+> > x_tables percpu ruleset copy and rework of the nf_tables netdev sup=
+port. More
+> > specifically, they are:
+> [...]
+> > ----------------------------------------------------------------
+> > Bernhard Thaler (7):
+> >       netfilter: bridge: refactor clearing BRNF_NF_BRIDGE_PREROUTIN=
+G
+> >       netfilter: bridge: re-order br_nf_pre_routing_finish_ipv6()
+> >       netfilter: bridge: detect NAT66 correctly and change MAC addr=
+ess
+> >       netfilter: bridge: refactor frag_max_size
+> >       netfilter: bridge: rename br_parse_ip_options
+> >       netfilter: bridge: re-order check_hbh_len()
+> >       netfilter: bridge: forward IPv6 fragmented packets
+>=20
+> Pablo, Bernhard,
+>=20
+> this batch breaks builds with CONFIG_IPV6=3Dn.  No idea why build bot
+> didn't catch that.
 
-ret would also work.
+There is a pending pull request to address this fallout:
 
-v3 to follow soon.
+http://patchwork.ozlabs.org/patch/486819/
 
-   Andrew
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
