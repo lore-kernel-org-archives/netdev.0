@@ -1,77 +1,104 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 2/3] rcar_can: print signed IRQ #
-Date: Sat, 20 Jun 2015 18:02:19 +0200
-Message-ID: <55858E8B.9000801@pengutronix.de>
-References: <2010452.WyFito6egU@wasted.cogentembedded.com>
- <2390389.thI8mIvbv5@wasted.cogentembedded.com>
- <CAMuHMdWZFKR04NJc7xtnPUosYuosX9FPDJopG3wovu_GqGxSOw@mail.gmail.com>
- <55857AD3.4040000@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="lQpXtkO3WU2FppTVeAi6IeK2808SouQuX"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	wg@grandegger.com, linux-can@vger.kernel.org,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <55857AD3.4040000@cogentembedded.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCHv2 net-next] net: fec: Ensure clocks are enabled while using mdio bus
+Date: Sat, 20 Jun 2015 18:15:14 +0200
+Message-ID: <1434816914-9816-1-git-send-email-andrew@lunn.ch>
+Cc: Nimrod Andy <B38611@freescale.com>,
+	Duan Andy <fugang.duan@freescale.com>,
+	Cory Tusar <cory.tusar@pid1solutions.com>,
+	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:59928 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750833AbbFTQV1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Jun 2015 12:21:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---lQpXtkO3WU2FppTVeAi6IeK2808SouQuX
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+When a switch is attached to the mdio bus, the mdio bus can be used
+while the interface is not open. If the IPG clock are not enabled,
+MDIO reads/writes will simply time out. So enable the clock before
+starting a transaction, and disable it afterwards. The CCF performs
+reference counting so the clock will only be disabled if there are no
+other users.
 
-On 06/20/2015 04:38 PM, Sergei Shtylyov wrote:
-> Hello.
->=20
-> On 6/20/2015 3:03 PM, Geert Uytterhoeven wrote:
->=20
->>> Printing IRQ # using "%x" and "%u" unsigned formats isn't quite corre=
-ct as
->>> 'ndev->irq' is of  type *int*, so  the "%d" format  needs to be used =
-instead.
->=20
->>> While fixing this, beautify the dev_info() message in rcar_can_probe(=
-) a bit.
->=20
->> If you change the message, why don't you make it consistent
->> ("interrupt" vs. "IRQ")?
->=20
->     I decided to change the message in a follow-up patch (posted afterw=
-ards).
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+v2:
+  Only enable/disable the IPG clock.
 
-Please squash you patches, so that you don't modify code (or error
-messages) that you've added in a previous patch.
+drivers/net/ethernet/freescale/fec_main.c | 21 +++++++++++++++++++--
+ 1 file changed, 19 insertions(+), 2 deletions(-)
 
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---lQpXtkO3WU2FppTVeAi6IeK2808SouQuX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJVhY6PAAoJEP5prqPJtc/H9s8IAIPp0G3jxJIrU7MEi+GRwMmV
-sSzDSHYyYHysx/CE3LGD3P/3seXNTH9uJNK/U8SmVcFR2TqORz1KipygR6j/tthw
-gAE86eWUZUc1wRx9anauM4i8LLMPrPUa/r8dlE7zyFg+MExwwOi+8KrBK+MP8nzb
-i2gDKAlbcHLuNax8lK4NG2mtcXfMOQJPhjARqF9rZFDyAa4CPHWx1EV+s2BISsNq
-8/1GDZgumRVFOR8cP5eCkdMZn9lCO6hAdpLty77WR+TAJywkcmUMYlh02R0txNtp
-kfO0HOkzr4hlO7O6355SbKTEdkOCDNMiZ4nxoL74U7eiYjHLecrIdhkZqwjGRu0=
-=xl8/
------END PGP SIGNATURE-----
-
---lQpXtkO3WU2FppTVeAi6IeK2808SouQuX--
---
-To unsubscribe from this list: send the line "unsubscribe linux-can" in
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index bf4cf3fbb5f2..2b8a043a573c 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -65,6 +65,7 @@
+ 
+ static void set_multicast_list(struct net_device *ndev);
+ static void fec_enet_itr_coal_init(struct net_device *ndev);
++static int fec_enet_clk_enable(struct net_device *ndev, bool enable);
+ 
+ #define DRIVER_NAME	"fec"
+ 
+@@ -1764,6 +1765,11 @@ static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+ {
+ 	struct fec_enet_private *fep = bus->priv;
+ 	unsigned long time_left;
++	int ret;
++
++	ret = clk_prepare_enable(fep->clk_ipg);
++	if (ret)
++		return 0xffff;
+ 
+ 	fep->mii_timeout = 0;
+ 	init_completion(&fep->mdio_done);
+@@ -1779,11 +1785,14 @@ static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+ 	if (time_left == 0) {
+ 		fep->mii_timeout = 1;
+ 		netdev_err(fep->netdev, "MDIO read timeout\n");
++		clk_disable_unprepare(fep->clk_ipg);
+ 		return -ETIMEDOUT;
+ 	}
+ 
+-	/* return value */
+-	return FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
++	ret = FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
++	clk_disable_unprepare(fep->clk_ipg);
++
++	return ret;
+ }
+ 
+ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+@@ -1791,10 +1800,15 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+ {
+ 	struct fec_enet_private *fep = bus->priv;
+ 	unsigned long time_left;
++	int ret;
+ 
+ 	fep->mii_timeout = 0;
+ 	init_completion(&fep->mdio_done);
+ 
++	ret = clk_prepare_enable(fep->clk_ipg);
++	if (ret)
++		return ret;
++
+ 	/* start a write op */
+ 	writel(FEC_MMFR_ST | FEC_MMFR_OP_WRITE |
+ 		FEC_MMFR_PA(mii_id) | FEC_MMFR_RA(regnum) |
+@@ -1807,9 +1821,12 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+ 	if (time_left == 0) {
+ 		fep->mii_timeout = 1;
+ 		netdev_err(fep->netdev, "MDIO write timeout\n");
++		clk_disable_unprepare(fep->clk_ipg);
+ 		return -ETIMEDOUT;
+ 	}
+ 
++	clk_disable_unprepare(fep->clk_ipg);
++
+ 	return 0;
+ }
+ 
+-- 
+2.1.4
