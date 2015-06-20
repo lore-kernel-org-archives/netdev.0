@@ -1,117 +1,68 @@
 From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH] can: fix loss of frames due to wrong assumption in raw_rcv
-Date: Sun, 21 Jun 2015 00:42:21 +0200
-Message-ID: <5585EC4D.40103@hartkopp.net>
-References: <5585A104.1090201@gmx.at>
+Subject: Re: displayed name changed in ip link show for bridge- and other
+ interfaces
+Date: Sun, 21 Jun 2015 00:58:13 +0200
+Message-ID: <5585F005.6060408@hartkopp.net>
+References: <201506141200.20435.ulrich.gemkow@ikr.uni-stuttgart.de>	<557DCD0A.5040500@hartkopp.net>	<557DD20E.4080005@hartkopp.net>	<557E7D89.30301@6wind.com>	<557E9728.7080208@6wind.com> <20150615085410.6628b5bb@urahara> <55805E6A.90805@hartkopp.net> <5581210D.5070901@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Manfred Schlaegl <manfred.schlaegl@ginzinger.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Manfred Schlaegl <manfred.schlaegl@gmx.at>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ulrich Gemkow <ulrich.gemkow@ikr.uni-stuttgart.de>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: nicolas.dichtel@6wind.com,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.220]:41053 "EHLO
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.160]:42607 "EHLO
 	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752234AbbFTWm2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2015 18:42:28 -0400
-In-Reply-To: <5585A104.1090201@gmx.at>
+	with ESMTP id S1752234AbbFTXEh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2015 19:04:37 -0400
+In-Reply-To: <5581210D.5070901@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Manfred,
 
-On 06/20/2015 07:21 PM, Manfred Schlaegl wrote:
-> I've detected a massive loss of can frames on i.MX6 using flexcan
-> driver with 4.1-rc8 and tracked this down to following commit:
-> 514ac99c64b22d83b52dfee3b8becaa69a92bc4a - "can: fix multiple delivery
-> of a single CAN frame for overlapping CAN filters"
 
-thanks for detecting this issue!
+On 06/17/2015 09:26 AM, Nicolas Dichtel wrote:
+> Le 16/06/2015 19:35, Oliver Hartkopp a =E9crit :
+>> On 15.06.2015 17:54, Stephen Hemminger wrote:
+>>> On Mon, 15 Jun 2015 11:13:12 +0200
+>>> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+>>>
+>>>> Theoretically, virtual interfaces should advertise an IFLA_LINK to=
+ 0.
+>>>> I don't know what is the best fix:
+>>>>    - patching iproute2 to avoid this '@NONE'
+>>>>    - patching the kernel (see below).
+>>>
+>>>
+>>> Sorry this is an ABI change. The kernel has to go back
+>>> to doing the same thing as before.
+>>>
+>>
+>> Isn't this too late right now at 4.1-rc8 stage???
+>>
+>> At least the patch suggested for br_device.c at
+>>
+>> http://marc.info/?l=3Dlinux-netdev&m=3D143435960111768&w=3D2
+>>
+>> would been necessary in all networking drivers, right?
+>>
+>> I currently see this @NONE stuff with virtual CAN devices too.
+> Another solution is to revert e1622baf54df ("dev: set iflink to 0 for=
+ virtual
+> interfaces") and add a ndo_get_iflink handler which returns 0 for all=
+ virtual
+> interfaces that had this IFLA_LINK set to 0 before the series.
+> But it's not consistent between virtual interfaces.
 
-> 514ac99c64b22d83b52dfee3b8becaa69a92bc4a introduces a frame equality
-> check. Since the sk_buff pointer is not sufficient to do this (buffers
-> are reused), the check also compares time stamps.
-> In short: pointer+time stamp was assumed as unique key to a specific
-> frame.
-> The problem with this is, that the time stamp is an optional property
-> and not set per default.
-> In our case (flexcan) the time stamp is always zero, so the equality
-> check is reduced to equality of buffer pointers, resulting in a lot of
-> dropped frames.
+I have no good suggestion, as I don't know if this makes a difference f=
+or the
+ABI to finally make 'ip' omit the '@NONE' output.
 
-The question is why your system did not generate a timestamp at the time of
-skb reception.
+E.g. virtual CAN interfaces (vcan.c) now print this @NONE and they neve=
+r have
+a (physical?) link. So you probably have to deal with different virtual
+interfaces anyway, right?
 
-Usually when netif_rx(), netif_rx_ni() is invoked the timestamp is set in the
-following reception process.
-
-flexcan.c only uses netif_receive_skb() - but all theses functions set the
-timestamp
-
-	net_timestamp_check(netdev_tstamp_prequeue, skb);
-
-depending on netdev_tstamp_prequeue which is configured by
-
-/proc/sys/net/core/netdev_tstamp_prequeue
-
-See the idea of netdev_tstamp_prequeue here:
-
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/net/core/sysctl_net_core.c?id=3b098e2d7c693796cc4dffb07caa249fc0f70771
-
-Can you tell me the output of /proc/sys/net/core/netdev_tstamp_prequeue on
-your machine?
-
-If it's not '1' can you set it to '1' for a test?
-
-> 
-> Possible solutions I thought of:
->  1. Every driver has to set a time stamp
->     (possibly error prone and hard to enforce?)
->  2. Change the equality check
->  3. Fulfil the requirements of the equality check by setting a
->     time stamp per default.
-> 
-> This patch fixes the problem with solution 3. A time stamp is set at
-> time of allocation in alloc_can_skb.
-
-That's a feasible way if won't find a better way to make sure the timestamps
-are generally set before the skb is processed in the NET_RX softirq.
-
-> The time stamp may be overridden later, but the function of the equality
-> check is ensured.
-> 
-> I'm not really deep in linux network subsystem, so there may exists
-> more elegant solutions for the problem.
-> 
-> Signed-off-by: Manfred Schlaegl <manfred.schlaegl@gmx.at>
-> ---
->  drivers/net/can/dev.c |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-> index b0f6924..282e2e7 100644
-> --- a/drivers/net/can/dev.c
-> +++ b/drivers/net/can/dev.c
-> @@ -575,6 +575,7 @@ struct sk_buff *alloc_can_skb(struct net_device *dev, struct can_frame **cf)
->  	if (unlikely(!skb))
->  		return NULL;
->  
-> +	__net_timestamp(skb);
->  	skb->protocol = htons(ETH_P_CAN);
->  	skb->pkt_type = PACKET_BROADCAST;
->  	skb->ip_summed = CHECKSUM_UNNECESSARY;
-> 
-
-Please check the netdev_tstamp_prequeue value first.
-
-If we would need solution 3 the __net_timestamp(skb) should be placed in
-alloc_canfd_skb() too.
-
-Thanks again for your investigation!
-
-Best regards,
+Regards,
 Oliver
