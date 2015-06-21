@@ -1,52 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: inet_diag: export IPV6_V6ONLY sockopt
-Date: Sun, 21 Jun 2015 01:52:57 -0700
-Message-ID: <1434876777.31511.24.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150615205421.GA22616@orbit.nwl.cc>
-	 <1434716132-25103-1-git-send-email-phil@nwl.cc>
-	 <1434721920.31511.16.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150621014739.GA18664@orbit.nwl.cc>
+From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 07/11] IB/cma: Helper functions to access port space IDRs
+Date: Sun, 21 Jun 2015 15:51:45 +0300
+Message-ID: <5586B361.7060500@mellanox.com>
+References: <1434358036-15526-1-git-send-email-haggaie@mellanox.com>
+ <1434358036-15526-8-git-send-email-haggaie@mellanox.com>
+ <1828884A29C6694DAF28B7E6B8A82373A8FF5AF3@ORSMSX109.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Phil Sutter <phil@nwl.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:35240 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752756AbbFUIxB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2015 04:53:01 -0400
-Received: by wiga1 with SMTP id a1so51758744wig.0
-        for <netdev@vger.kernel.org>; Sun, 21 Jun 2015 01:53:00 -0700 (PDT)
-In-Reply-To: <20150621014739.GA18664@orbit.nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+To: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1828884A29C6694DAF28B7E6B8A82373A8FF5AF3-P5GAC/sN6hkd3b2yrw5b5LfspsVTdybXVpNB7YpNyf8@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2015-06-21 at 03:47 +0200, Phil Sutter wrote:
-
+On 16/06/2015 01:36, Hefty, Sean wrote:
+>> Add helper functions to access the IDRs by port-space and port number.
+>>
+>> Pass around the port-space enum in cma.c instead of using pointers to
+>> port-space IDRs.
 > 
-> > 1) This certainly should not compile on current linux trees.
-> >    Always submit such patches on net-next.
-> 
-> It cleanly applies to net.git.
+> What is the motivation for this change?
 
-A very old one, because there is no ipv6only field anymore after
-commit 9fe516ba3fb29b6f6a752ffd93342fdee500ec01 ("inet: move ipv6only in
-sock_common") back in linux 3.17 
+In the next patch ("IB/cma: Add net_dev and private data checks to RDMA
+CM"), in cma_id_from_event(), I pass the port-space that is extracted
+from the service ID to cma_ps_find(). Without this patch, I would need
+to find the correct port-space IDR, effectively duplicating the code in
+cma_select_inet_ps().
 
-inet6_sk(sk)->ipv6only can not possibly compile today, I am pretty sure
-of this.
+Regards,
+Haggai
 
-# git grep -n ipv6only -- include
-include/linux/ipv6.h:285:#define __ipv6_only_sock(sk)   (sk->sk_ipv6only)
-include/linux/ipv6.h:297:static inline int inet_v6_ipv6only(const struct sock *sk)
-include/linux/ipv6.h:299:       /* ipv6only field is at same position for timewait and other sockets */
-include/linux/ipv6.h:324:#define tcp_twsk_ipv6only(__sk)                0
-include/linux/ipv6.h:325:#define inet_v6_ipv6only(__sk)         0
-include/net/inet_timewait_sock.h:58:#define tw_ipv6only         __tw_common.skc_ipv6only
-include/net/sock.h:186: unsigned char           skc_ipv6only:1;
-include/net/sock.h:325:#define sk_ipv6only              __sk_common.skc_ipv6only
-
-So always make sure your tree is not one year old before submitting a patch.
-
-Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
