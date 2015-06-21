@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cxgb3: avoid needless buffer copy for firmware
-Date: Sun, 21 Jun 2015 09:50:54 -0700 (PDT)
-Message-ID: <20150621.095054.1961985059600092774.davem@davemloft.net>
-References: <20150616223617.GA17958@www.outflux.net>
+Subject: Re: [PATCH net-next] Modify Liquidio Kconfig for crc lib
+Date: Sun, 21 Jun 2015 09:51:38 -0700 (PDT)
+Message-ID: <20150621.095138.1008992950448839381.davem@davemloft.net>
+References: <CAD3Xx4J-nVXvOdV4wdos44Tvm8iR-c_bSwN=E5W+=RbOtTwTCw@mail.gmail.com>
+	<1434498703-6365-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, santosh@chelsio.com,
-	netdev@vger.kernel.org, agordeev@redhat.com, joe@perches.com
-To: keescook@chromium.org
+Cc: netdev@vger.kernel.org, valentinrothberg@gmail.com,
+	derek.chickles@caviumnetworks.com,
+	satananda.burla@caviumnetworks.com,
+	felix.manlunas@caviumnetworks.com,
+	raghu.vatsavayi@caviumnetworks.com
+To: rvatsavayi@caviumnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46523 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46529 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754831AbbFUQjI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2015 12:39:08 -0400
-In-Reply-To: <20150616223617.GA17958@www.outflux.net>
+	with ESMTP id S1755301AbbFUQjw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2015 12:39:52 -0400
+In-Reply-To: <1434498703-6365-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kees Cook <keescook@chromium.org>
-Date: Tue, 16 Jun 2015 15:36:17 -0700
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Date: Tue, 16 Jun 2015 16:51:43 -0700
 
-> There's no reason to perform a buffer copy for the firmware name. This
-> also avoids a (currently impossible with current callers) NULL dereference
-> if there was no matching firmware.
+> Following patch contains changes in liquidio Kconfig for
+> selecting LIBCRC32C.
 > 
-> Signed-off-by: Kees Cook <keescook@chromium.org>
+> Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
+> Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
+> Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 
-Applied to net-next, thanks.
+Applied, thank you.
