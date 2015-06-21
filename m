@@ -1,52 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] NET: Add ezchip ethernet driver
-Date: Sun, 21 Jun 2015 09:22:18 -0700 (PDT)
-Message-ID: <20150621.092218.2158342160706463595.davem@davemloft.net>
-References: <1434263193-16877-1-git-send-email-noamc@ezchip.com>
-	<1434465342-7412-1-git-send-email-noamc@ezchip.com>
+Subject: Re: [PATCH net] packet: read num_members once in
+ packet_rcv_fanout()
+Date: Sun, 21 Jun 2015 09:23:51 -0700 (PDT)
+Message-ID: <20150621.092351.2098594550856406748.davem@davemloft.net>
+References: <1434466751.27504.176.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexey.Brodkin@synopsys.com, vgupta@synopsys.com,
-	giladb@ezchip.com, cmetcalf@ezchip.com, talz@ezchip.com
-To: noamc@ezchip.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, willemb@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46302 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46307 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751909AbbFUQKg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2015 12:10:36 -0400
-In-Reply-To: <1434465342-7412-1-git-send-email-noamc@ezchip.com>
+	with ESMTP id S1755792AbbFUQMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2015 12:12:05 -0400
+In-Reply-To: <1434466751.27504.176.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTm9hbSBDYW11cyA8bm9hbWNAZXpjaGlwLmNvbT4NCkRhdGU6IFR1ZSwgMTYgSnVuIDIw
-MTUgMTc6MzU6NDIgKzAzMDANCg0KPiBGcm9tOiBOb2FtIENhbXVzIDxub2FtY0BlemNoaXAuY29t
-Pg0KPiANCj4gU2ltcGxlIExBTiBkZXZpY2UgZm9yIGRlYnVnIG9yIG1hbmFnZW1lbnQgcHVycG9z
-ZXMuDQo+IERldmljZSBzdXBwb3J0cyBpbnRlcnJ1cHRzIGZvciBSWCBhbmQgVFgoY29tcGxldGlv
-bikuDQo+IERldmljZSBkb2VzIG5vdCBoYXZlIERNQSBhYmlsaXR5Lg0KPiANCj4gU2lnbmVkLW9m
-Zi1ieTogTm9hbSBDYW11cyA8bm9hbWNAZXpjaGlwLmNvbT4NCj4gU2lnbmVkLW9mZi1ieTogVGFs
-IFppbGNlciA8dGFsekBlemNoaXAuY29tPg0KPiBBY2tlZC1ieTogQWxleGV5IEJyb2RraW4gPGFi
-cm9ka2luQHN5bm9wc3lzLmNvbT4NCg0KVGhpcyBidWlsZHMgd2l0aCBzZXZlcmFsIHdhcm5pbmdz
-IGFuZCBhbHNvIGRvZXNuJ3QgY29tcGlsZS4NCg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvZXpjaGlw
-L25wc19lbmV0LmM6IEluIGZ1bmN0aW9uIKFucHNfZW5ldF9yZWFkX3J4X2ZpZm+iOg0KZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvZXpjaGlwL25wc19lbmV0LmM6NDM6MjQ6IHdhcm5pbmc6IGNhc3QgZnJv
-bSBwb2ludGVyIHRvIGludGVnZXIgb2YgZGlmZmVyZW50IHNpemUgWy1XcG9pbnRlci10by1pbnQt
-Y2FzdF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L2V6Y2hpcC9ucHNfZW5ldC5jOjQzOjI0OiB3YXJu
-aW5nOiBjYXN0IGZyb20gcG9pbnRlciB0byBpbnRlZ2VyIG9mIGRpZmZlcmVudCBzaXplIFstV3Bv
-aW50ZXItdG8taW50LWNhc3RdDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9lemNoaXAvbnBzX2VuZXQu
-YzogSW4gZnVuY3Rpb24goW5wc19lbmV0X3NlbmRfZnJhbWWiOg0KZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvZXpjaGlwL25wc19lbmV0LmM6MzY2OjI0OiB3YXJuaW5nOiBjYXN0IGZyb20gcG9pbnRlciB0
-byBpbnRlZ2VyIG9mIGRpZmZlcmVudCBzaXplIFstV3BvaW50ZXItdG8taW50LWNhc3RdDQpkcml2
-ZXJzL25ldC9ldGhlcm5ldC9lemNoaXAvbnBzX2VuZXQuYzozNjY6MjQ6IHdhcm5pbmc6IGNhc3Qg
-ZnJvbSBwb2ludGVyIHRvIGludGVnZXIgb2YgZGlmZmVyZW50IHNpemUgWy1XcG9pbnRlci10by1p
-bnQtY2FzdF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L2V6Y2hpcC9ucHNfZW5ldC5jOiBJbiBmdW5j
-dGlvbiChbnBzX2VuZXRfcG9sbF9jb250cm9sbGVyojoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2V6
-Y2hpcC9ucHNfZW5ldC5jOjUzNToyOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVu
-Y3Rpb24goW5wc19lbmV0X2JvYXJkX2lycV9oYW5kbGVyoiBbLVdlcnJvcj1pbXBsaWNpdC1mdW5j
-dGlvbi1kZWNsYXJhdGlvbl0NCmNjMTogc29tZSB3YXJuaW5ncyBiZWluZyB0cmVhdGVkIGFzIGVy
-cm9ycw0KDQpJIGRvIG5vdCBldmVuIHNlZSB3aGVyZSBucGVfZW5ldF9ib2FyZF9pcnFfaGFuZGxl
-ciBjb3VsZCBwb3NzaWJsZSBiZSBkZWZpbmVkLg0KDQpJdCBpcyBxdWl0ZSBpbmZ1cmlhdGluZyB0
-byByZWNlaXZlIGEgcGF0Y2ggbGlrZSB0aGlzIHdoaWNoIGlzIGNsYWltZWQNCnRvIGJlIGNvbXBs
-ZXRlIGFuZCByZWFkeSB0byBiZSBhcHBsaWVkIHRvIG15IHRyZWUsIHlldCBpdCBpcyB2ZXJ5DQpj
-bGVhcmx5IG5vdC4NCg==
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 16 Jun 2015 07:59:11 -0700
+
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> We need to tell compiler it must not read f->num_members multiple
+> times. Otherwise testing if num is not zero is flaky, and we could
+> attempt an invalid divide by 0 in fanout_demux_cpu()
+> 
+> Note bug was present in packet_rcv_fanout_hash() and
+> packet_rcv_fanout_lb() but final 3.1 had a simple location
+> after commit 95ec3eb417115fb ("packet: Add 'cpu' fanout policy.")
+> 
+> Fixes: dc99f600698dc ("packet: Add fanout support.")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Willem de Bruijn <willemb@google.com>
+> ---
+> Note : I chose to use READ_ONCE() but stable backports should use
+> ACCESS_ONCE()
+
+Applied and queued up for -stable, and thanks for the backport notes.
