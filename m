@@ -1,33 +1,53 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH - regression 4.1-rc8] can: fix loss of CAN frames in raw_rcv
-Date: Sun, 21 Jun 2015 19:10:04 +0200
-Message-ID: <5586EFEC.20006@hartkopp.net>
-References: <1434905444-11438-1-git-send-email-socketcan@hartkopp.net> <5586ED08.3000000@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] ipv4: include NLM_F_APPEND flag in append
+ route notifications
+Date: Sun, 21 Jun 2015 10:23:57 -0700 (PDT)
+Message-ID: <20150621.102357.102968042925261063.davem@davemloft.net>
+References: <1434564421-32047-1-git-send-email-roopa@cumulusnetworks.com>
+	<CAE4R7bBAWVKV4vtv7kJFS+MxzWMTHjxPJJ=h-+7kj8WSrZjn3Q@mail.gmail.com>
+	<5581DA83.9060504@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org,
-	davem@davemloft.net, manfred.schlaegl@gmx.at,
-	linux-kernel@vger.kernel.org
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org,
+	alexander.duyck@gmail.com
+To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.161]:45848 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751666AbbFURKO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2015 13:10:14 -0400
-In-Reply-To: <5586ED08.3000000@pengutronix.de>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46814 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752344AbbFURMK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2015 13:12:10 -0400
+In-Reply-To: <5581DA83.9060504@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21.06.2015 18:57, Marc Kleine-Budde wrote:
+From: roopa <roopa@cumulusnetworks.com>
+Date: Wed, 17 Jun 2015 13:37:23 -0700
 
->
-> I'll send a pullrequest to David asap, I'll add stable on Cc if this
-> doesn't make it into v4.1 anymore.
+> On 6/17/15, 11:30 AM, Scott Feldman wrote:
+>> On Wed, Jun 17, 2015 at 11:07 AM, Roopa Prabhu
+>> <roopa@cumulusnetworks.com> wrote:
+>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>>
+>>> This patch adds NLM_F_APPEND flag to struct nlmsg_hdr->nlmsg_flags
+>>> in newroute notifications if the route add was an append.
+>>> (This is similar to how NLM_F_REPLACE is already part of new
+>>> route replace notifications today)
+>>>
+>>> This helps userspace determine if the route add operation was
+>>> an append.
+>>>
+>>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>> ---
+>>> v2: flip if condition around append and change |= to =
+>>> (feedback from Alexander Duyck and Scott Feldman)
+>> Is this a bug fix for net, or a new feature for net-next?  Regardless,
+>>
+>> Acked-by: Scott Feldman <sfeldma@gmail.com>
+> I could not decide between net and net-next.
+> ....but the patch applies cleanly against net if Dave decides to pick
+> it up for net.
 
-Thanks Marc!
+It's been like this for so long that it's more like a new feature.
 
-I sent it to netdev and Dave directly too as he was working on his backlog - 
-and I was not sure if you are available until the next pull request for 4.1.
-
-Best regards,
-Oliver
+Therefore, applied to net-next, thanks.
