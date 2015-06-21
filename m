@@ -1,68 +1,56 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: displayed name changed in ip link show for bridge- and other
- interfaces
-Date: Sun, 21 Jun 2015 00:58:13 +0200
-Message-ID: <5585F005.6060408@hartkopp.net>
-References: <201506141200.20435.ulrich.gemkow@ikr.uni-stuttgart.de>	<557DCD0A.5040500@hartkopp.net>	<557DD20E.4080005@hartkopp.net>	<557E7D89.30301@6wind.com>	<557E9728.7080208@6wind.com> <20150615085410.6628b5bb@urahara> <55805E6A.90805@hartkopp.net> <5581210D.5070901@6wind.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCHv2 net-next] net: fec: Ensure clocks are enabled while
+ using mdio bus
+Date: Sat, 20 Jun 2015 18:01:33 -0700
+Message-ID: <55860CED.2070307@gmail.com>
+References: <1434816914-9816-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ulrich Gemkow <ulrich.gemkow@ikr.uni-stuttgart.de>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: nicolas.dichtel@6wind.com,
-	Stephen Hemminger <stephen@networkplumber.org>
+Cc: Nimrod Andy <B38611@freescale.com>,
+	Duan Andy <fugang.duan@freescale.com>,
+	Cory Tusar <cory.tusar@pid1solutions.com>,
+	netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.160]:42607 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752234AbbFTXEh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2015 19:04:37 -0400
-In-Reply-To: <5581210D.5070901@6wind.com>
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:36380 "EHLO
+	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755352AbbFUBBi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2015 21:01:38 -0400
+Received: by oigb199 with SMTP id b199so60347697oig.3
+        for <netdev@vger.kernel.org>; Sat, 20 Jun 2015 18:01:38 -0700 (PDT)
+In-Reply-To: <1434816914-9816-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le 06/20/15 09:15, Andrew Lunn a =C3=A9crit :
+> When a switch is attached to the mdio bus, the mdio bus can be used
+> while the interface is not open. If the IPG clock are not enabled,
+> MDIO reads/writes will simply time out. So enable the clock before
+> starting a transaction, and disable it afterwards. The CCF performs
+> reference counting so the clock will only be disabled if there are no
+> other users.
+>=20
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
+> v2:
+>   Only enable/disable the IPG clock.
+>=20
+> drivers/net/ethernet/freescale/fec_main.c | 21 +++++++++++++++++++--
+>  1 file changed, 19 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/=
+ethernet/freescale/fec_main.c
+> index bf4cf3fbb5f2..2b8a043a573c 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -65,6 +65,7 @@
+> =20
+>  static void set_multicast_list(struct net_device *ndev);
+>  static void fec_enet_itr_coal_init(struct net_device *ndev);
+> +static int fec_enet_clk_enable(struct net_device *ndev, bool enable)=
+;
 
-
-On 06/17/2015 09:26 AM, Nicolas Dichtel wrote:
-> Le 16/06/2015 19:35, Oliver Hartkopp a =E9crit :
->> On 15.06.2015 17:54, Stephen Hemminger wrote:
->>> On Mon, 15 Jun 2015 11:13:12 +0200
->>> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
->>>
->>>> Theoretically, virtual interfaces should advertise an IFLA_LINK to=
- 0.
->>>> I don't know what is the best fix:
->>>>    - patching iproute2 to avoid this '@NONE'
->>>>    - patching the kernel (see below).
->>>
->>>
->>> Sorry this is an ABI change. The kernel has to go back
->>> to doing the same thing as before.
->>>
->>
->> Isn't this too late right now at 4.1-rc8 stage???
->>
->> At least the patch suggested for br_device.c at
->>
->> http://marc.info/?l=3Dlinux-netdev&m=3D143435960111768&w=3D2
->>
->> would been necessary in all networking drivers, right?
->>
->> I currently see this @NONE stuff with virtual CAN devices too.
-> Another solution is to revert e1622baf54df ("dev: set iflink to 0 for=
- virtual
-> interfaces") and add a ndo_get_iflink handler which returns 0 for all=
- virtual
-> interfaces that had this IFLA_LINK set to 0 before the series.
-> But it's not consistent between virtual interfaces.
-
-I have no good suggestion, as I don't know if this makes a difference f=
-or the
-ABI to finally make 'ip' omit the '@NONE' output.
-
-E.g. virtual CAN interfaces (vcan.c) now print this @NONE and they neve=
-r have
-a (physical?) link. So you probably have to deal with different virtual
-interfaces anyway, right?
-
-Regards,
-Oliver
+You do not seem to be using this, unrelated change?
+--=20
+=46lorian
