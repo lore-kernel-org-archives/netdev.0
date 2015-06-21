@@ -1,62 +1,52 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next RFC v2 1/3] lwt: infrastructure to support light
- weight tunnels
-Date: Sun, 21 Jun 2015 22:40:44 +0200
-Message-ID: <20150621204044.GD4228@pox.localdomain>
-References: <1434689355-4088-2-git-send-email-roopa@cumulusnetworks.com>
- <55842A93.2040607@brocade.com>
- <558431C3.5020703@cumulusnetworks.com>
- <5584507C.2000303@brocade.com>
- <5584609C.5020802@cumulusnetworks.com>
- <558461CB.3020408@brocade.com>
- <5585784D.3020809@cumulusnetworks.com>
+From: achiad shochat <achiad.mellanox@gmail.com>
+Subject: Re: [PATCH net-next 05/12] net/mlx5e: Poll rx cq before tx cq to
+ improve round-trip latency
+Date: Mon, 22 Jun 2015 00:35:37 +0300
+Message-ID: <CAEHy93LdUDFVoxWU_++t1D5tqBSEM1TY4ZguW7QszvEyPOvagg@mail.gmail.com>
+References: <1434554789-13758-1-git-send-email-ogerlitz@mellanox.com>
+	<1434554789-13758-6-git-send-email-ogerlitz@mellanox.com>
+	<20150621.102144.267706734504980452.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Shearman <rshearma@brocade.com>, ebiederm@xmission.com,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: ogerlitz@mellanox.com, netdev@vger.kernel.org, amirv@mellanox.com,
+	talal@mellanox.com, saeedm@mellanox.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:34453 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750757AbbFUUkr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2015 16:40:47 -0400
-Received: by wicnd19 with SMTP id nd19so59679731wic.1
-        for <netdev@vger.kernel.org>; Sun, 21 Jun 2015 13:40:46 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5585784D.3020809@cumulusnetworks.com>
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:36586 "EHLO
+	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753209AbbFUVfi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2015 17:35:38 -0400
+Received: by oigb199 with SMTP id b199so68594574oig.3
+        for <netdev@vger.kernel.org>; Sun, 21 Jun 2015 14:35:37 -0700 (PDT)
+In-Reply-To: <20150621.102144.267706734504980452.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/20/15 at 07:27am, roopa wrote:
-> On 6/19/15, 11:39 AM, Robert Shearman wrote:
-> >On 19/06/15 19:34, roopa wrote:
-> >>On 6/19/15, 10:25 AM, Robert Shearman wrote:
-> >>>n 19/06/15 16:14, roopa wrote:
-> >>>
-> >>In the netdevice case, this output function is not called atall. It
-> >>should just follow the existing netdevice the route is pointing to.
-> >
-> >Sorry for not being clear, but I meant that there would have to be
-> >lwtunnel_skb_lwstate functions for ipv4 and ipv6 to match the output
-> >functions. So in the vxlan use case where it's using a netdevice, how
-> >would it determine which one to call?
-> 
-> thanks for that clarification, and good point. I see some areas of the
-> kernel checking for skb->protocol to do the conversion (something like
-> below). I am guessing that is acceptable.
-> if (skb->protocol == htons(ETH_P_IPV6))
->                 struct rt6_info *rt6 = (struct rt6_info *)skb_dst(skb);
+Hello Dave,
 
-I'm not yet convinced that it makes sense to offer the no-netdevice
-shortcut for VXLAN. I'm not convinced we need yet another VXLAN data
-path. In fact, I'm trying to get rid of the OVS one for this specific
-reason.
+In mlx5 the RX processing is broken down into two stages:
+1) Hand to kernel SKBs of completed RX packets - @mlx5e_poll_rx_cq()
+2) Allocate and post to HW new RX buffers - @mlx5e_post_rx_wqes()
 
-I have no objection though if somebody comes up with an architecture
-that can't just pass the required metadata between the namespaces and
-do the actual encapsulation in a single net_device in the root/host
-namespace.
+Would handling of TX completions in between stages (1) and (2) be OK?
 
-Either way, I thin it's fair to defer to this to a later point. We
-don't need to solve this for the first iteration of MPLS and VXLAN
-implementation.
+On 21 June 2015 at 20:21, David Miller <davem@davemloft.net> wrote:
+> From: Or Gerlitz <ogerlitz@mellanox.com>
+> Date: Wed, 17 Jun 2015 18:26:22 +0300
+>
+>> From: Achiad Shochat <achiad@mellanox.com>
+>>
+>> For better round trip latency, handle rx completions before
+>> tx completions.
+>>
+>> Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+>> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+>> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+>
+> I completely disagree with this change.
+>
+> TX completions should always be handled first because they free up resources
+> and therefore increase the likelyhood that RX processing will not fail due
+> to lack of resources (memory, etc.).
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
