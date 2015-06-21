@@ -1,56 +1,55 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCHv2 net-next] net: fec: Ensure clocks are enabled while
- using mdio bus
-Date: Sat, 20 Jun 2015 18:01:33 -0700
-Message-ID: <55860CED.2070307@gmail.com>
-References: <1434816914-9816-1-git-send-email-andrew@lunn.ch>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH] net: inet_diag: export IPV6_V6ONLY sockopt
+Date: Sun, 21 Jun 2015 03:47:39 +0200
+Message-ID: <20150621014739.GA18664@orbit.nwl.cc>
+References: <20150615205421.GA22616@orbit.nwl.cc>
+ <1434716132-25103-1-git-send-email-phil@nwl.cc>
+ <1434721920.31511.16.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nimrod Andy <B38611@freescale.com>,
-	Duan Andy <fugang.duan@freescale.com>,
-	Cory Tusar <cory.tusar@pid1solutions.com>,
-	netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:36380 "EHLO
-	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755352AbbFUBBi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2015 21:01:38 -0400
-Received: by oigb199 with SMTP id b199so60347697oig.3
-        for <netdev@vger.kernel.org>; Sat, 20 Jun 2015 18:01:38 -0700 (PDT)
-In-Reply-To: <1434816914-9816-1-git-send-email-andrew@lunn.ch>
+Received: from orbit.nwl.cc ([176.31.251.142]:40036 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753463AbbFUBrm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Jun 2015 21:47:42 -0400
+Content-Disposition: inline
+In-Reply-To: <1434721920.31511.16.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 06/20/15 09:15, Andrew Lunn a =C3=A9crit :
-> When a switch is attached to the mdio bus, the mdio bus can be used
-> while the interface is not open. If the IPG clock are not enabled,
-> MDIO reads/writes will simply time out. So enable the clock before
-> starting a transaction, and disable it afterwards. The CCF performs
-> reference counting so the clock will only be disabled if there are no
-> other users.
->=20
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> ---
-> v2:
->   Only enable/disable the IPG clock.
->=20
-> drivers/net/ethernet/freescale/fec_main.c | 21 +++++++++++++++++++--
->  1 file changed, 19 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/=
-ethernet/freescale/fec_main.c
-> index bf4cf3fbb5f2..2b8a043a573c 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -65,6 +65,7 @@
-> =20
->  static void set_multicast_list(struct net_device *ndev);
->  static void fec_enet_itr_coal_init(struct net_device *ndev);
-> +static int fec_enet_clk_enable(struct net_device *ndev, bool enable)=
-;
+On Fri, Jun 19, 2015 at 06:52:00AM -0700, Eric Dumazet wrote:
+> On Fri, 2015-06-19 at 14:15 +0200, Phil Sutter wrote:
+> > For AF_INET6 sockets, the value of struct ipv6_pinfo.ipv6only is
+> > exported to userspace. It indicates whether an unbound socket listens on
+> > IPv4 as well as IPv6.
+> 
+> What is an 'unbound socket' ??? This makes no sense to me here.
 
-You do not seem to be using this, unrelated change?
---=20
-=46lorian
+Indeed, this is just plain wrong. Actually meant "not bound to a
+specific IPv6 address".
+
+> >  Since the socket is natively IPv6, it is not
+> > listed by e.g. 'netstat -l -4'.
+> 
+> netstat does not use this interface. iproute2/ss does.
+
+Just used this as a simple example illustrating the problem, but doing
+the same with 'ss' is truly a better choice.
+
+[...]
+
+> 1) This certainly should not compile on current linux trees.
+>    Always submit such patches on net-next.
+
+It cleanly applies to net.git.
+
+> 2) It is not clear why we would add this attribute if it is 0.
+>     This looks a waste of data.
+> 
+> So I would rather use :
+
+ACK. Thanks for reviewing, v2 follows after I've tested it.
+
+Cheers, Phil
