@@ -1,18 +1,17 @@
-From: Vivek Bhagat <vivek.bhagat89-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Vivek Bhagat <vivek.bhagat89@gmail.com>
 Subject: [Patch v1] ax88179_178a: add reset functionality in reset_resume
-Date: Sun, 21 Jun 2015 11:41:43 +0530
-Message-ID: <CA+vmRF7e0Y1S_YXeHAL9u=Tp-Py_8NL3JzAVJceriFZ5Nq+LWQ@mail.gmail.com>
+Date: Sun, 21 Jun 2015 11:46:08 +0530
+Message-ID: <CA+vmRF7nC2Ndzzt+QRj2YG7yQEtHw=3ZBuNBCqyM7nqErFoU-g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
->From d178065c9e3cfa8a45ef537fae7412775339beb0 Mon Sep 17 00:00:00 2001
-From: Vivek Kumar Bhagat <vivek.bhagat-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Date: Thu, 11 Jun 2015 07:23:46 -0700
-Subject: [PATCH] ax88179_178a: add reset functionality in reset_resume
+To: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vn0-f42.google.com ([209.85.216.42]:41677 "EHLO
+	mail-vn0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751466AbbFUGQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2015 02:16:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Without reset functionality in reset_resume, iperf connection does not
 establish after suspend/resume however ping works at the same time.
@@ -21,8 +20,8 @@ iperf connection fails with wrong checksum error shown by tcpdump.
 reset function inside reset_resume solves above bug. We have verified
 this issue on ASIX based ST Lab, Cadyce dongle.
 
-Signed-off-by: Vivek Kumar Bhagat <vivek.bhagat-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Signed-off-by: Praveen Kumar <praveen.k09-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
+Signed-off-by: Praveen Kumar <praveen.k09@samsung.com>
 
 ---
  drivers/net/usb/ax88179_178a.c |   14 +++++++++++++-
@@ -62,5 +61,3 @@ index e6338c1..00928c0 100644
   .disable_hub_initiated_lpm = 1,
 -- 
 1.7.9.5
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
