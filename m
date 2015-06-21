@@ -1,52 +1,52 @@
-From: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
-Subject: [PATCH v2 1/4] net: stmmac: dwmac-rk: remove unused gpio register
- defines
-Date: Sun, 21 Jun 2015 21:52:51 +0200
-Message-ID: <1434916374-7457-2-git-send-email-heiko@sntech.de>
-References: <1434916374-7457-1-git-send-email-heiko@sntech.de>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next RFC v2 2/3] ipv4: add support for light weight
+ tunnel encap attributes
+Date: Sun, 21 Jun 2015 22:20:17 +0200
+Message-ID: <20150621202017.GA4228@pox.localdomain>
+References: <1434689355-4088-3-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1434916374-7457-1-git-send-email-heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: ebiederm@xmission.com, rshearma@brocade.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:33536 "EHLO
+	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751186AbbFUUUW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2015 16:20:22 -0400
+Received: by wgwi7 with SMTP id i7so6334669wgw.0
+        for <netdev@vger.kernel.org>; Sun, 21 Jun 2015 13:20:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1434689355-4088-3-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In a first version the driver did want to do some gpio wiggling, which
-of course never made it into the kernel, but somehow these register
-defines where forgotten. Remove them, as they shouldn't be here.
+On 06/18/15 at 09:49pm, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> Introduces two netlink attributes RTA_ENCAP_TYPE and
+> RTA_ENCAP to support attaching encap information to ipv4 routes.
+> 
+> RTA_ENCAP is a nested attribute as suggested by Thomas
+> (and also as Robert had it in his series). RTA_ENCAP
+> netlink policy is declared by the light weight tunnel
+> drivers that support this encap type.
+> 
+> fib code calls the following for each nexthop:
+> 	- new route handler:
+> 		lwt build state (that parses RTA_ENCAP and returns
+> 	  	lwt state that lives in every fib_nh)
+> 	- del dump hanlder:
+> 		lwt release handler to release lwt state data
+> 	- route dump hanlder:
+> 		lwt dump encap to fill RTA_ENCAP data
+> 	- during input route lookup
+> 		sets dst->output to lwtunnel_output which
+> 		in turn calls the corresponding lwt tunnel
+> 		output function which applies the required
+> 		encap and xmits the packet
 
-Signed-off-by: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 3 ---
- 1 file changed, 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-index 26c339d..a396070 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -65,9 +65,6 @@ struct rk_priv_data {
- 
- #define RK3288_GRF_SOC_CON1	0x0248
- #define RK3288_GRF_SOC_CON3	0x0250
--#define RK3288_GRF_GPIO3D_E	0x01ec
--#define RK3288_GRF_GPIO4A_E	0x01f0
--#define RK3288_GRF_GPIO4B_E	0x01f4
- 
- /*RK3288_GRF_SOC_CON1*/
- #define GMAC_PHY_INTF_SEL_RGMII	(GRF_BIT(6) | GRF_CLR_BIT(7) | GRF_CLR_BIT(8))
--- 
-2.1.4
+Thanks for putting in the flag! I think introducing helpers for the
+lwt work would help as it can centralize the required ifdef magic
+and be defined as a static inline nop or macros so the core routing
+code doesn't need to have ifdefs spread around.
