@@ -1,43 +1,52 @@
-From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 07/11] IB/cma: Helper functions to access port space IDRs
-Date: Sun, 21 Jun 2015 15:51:45 +0300
-Message-ID: <5586B361.7060500@mellanox.com>
-References: <1434358036-15526-1-git-send-email-haggaie@mellanox.com>
- <1434358036-15526-8-git-send-email-haggaie@mellanox.com>
- <1828884A29C6694DAF28B7E6B8A82373A8FF5AF3@ORSMSX109.amr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5] NET: Add ezchip ethernet driver
+Date: Sun, 21 Jun 2015 09:22:18 -0700 (PDT)
+Message-ID: <20150621.092218.2158342160706463595.davem@davemloft.net>
+References: <1434263193-16877-1-git-send-email-noamc@ezchip.com>
+	<1434465342-7412-1-git-send-email-noamc@ezchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-To: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1828884A29C6694DAF28B7E6B8A82373A8FF5AF3-P5GAC/sN6hkd3b2yrw5b5LfspsVTdybXVpNB7YpNyf8@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexey.Brodkin@synopsys.com, vgupta@synopsys.com,
+	giladb@ezchip.com, cmetcalf@ezchip.com, talz@ezchip.com
+To: noamc@ezchip.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46302 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751909AbbFUQKg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2015 12:10:36 -0400
+In-Reply-To: <1434465342-7412-1-git-send-email-noamc@ezchip.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16/06/2015 01:36, Hefty, Sean wrote:
->> Add helper functions to access the IDRs by port-space and port number.
->>
->> Pass around the port-space enum in cma.c instead of using pointers to
->> port-space IDRs.
-> 
-> What is the motivation for this change?
-
-In the next patch ("IB/cma: Add net_dev and private data checks to RDMA
-CM"), in cma_id_from_event(), I pass the port-space that is extracted
-from the service ID to cma_ps_find(). Without this patch, I would need
-to find the correct port-space IDR, effectively duplicating the code in
-cma_select_inet_ps().
-
-Regards,
-Haggai
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+RnJvbTogTm9hbSBDYW11cyA8bm9hbWNAZXpjaGlwLmNvbT4NCkRhdGU6IFR1ZSwgMTYgSnVuIDIw
+MTUgMTc6MzU6NDIgKzAzMDANCg0KPiBGcm9tOiBOb2FtIENhbXVzIDxub2FtY0BlemNoaXAuY29t
+Pg0KPiANCj4gU2ltcGxlIExBTiBkZXZpY2UgZm9yIGRlYnVnIG9yIG1hbmFnZW1lbnQgcHVycG9z
+ZXMuDQo+IERldmljZSBzdXBwb3J0cyBpbnRlcnJ1cHRzIGZvciBSWCBhbmQgVFgoY29tcGxldGlv
+bikuDQo+IERldmljZSBkb2VzIG5vdCBoYXZlIERNQSBhYmlsaXR5Lg0KPiANCj4gU2lnbmVkLW9m
+Zi1ieTogTm9hbSBDYW11cyA8bm9hbWNAZXpjaGlwLmNvbT4NCj4gU2lnbmVkLW9mZi1ieTogVGFs
+IFppbGNlciA8dGFsekBlemNoaXAuY29tPg0KPiBBY2tlZC1ieTogQWxleGV5IEJyb2RraW4gPGFi
+cm9ka2luQHN5bm9wc3lzLmNvbT4NCg0KVGhpcyBidWlsZHMgd2l0aCBzZXZlcmFsIHdhcm5pbmdz
+IGFuZCBhbHNvIGRvZXNuJ3QgY29tcGlsZS4NCg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvZXpjaGlw
+L25wc19lbmV0LmM6IEluIGZ1bmN0aW9uIKFucHNfZW5ldF9yZWFkX3J4X2ZpZm+iOg0KZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvZXpjaGlwL25wc19lbmV0LmM6NDM6MjQ6IHdhcm5pbmc6IGNhc3QgZnJv
+bSBwb2ludGVyIHRvIGludGVnZXIgb2YgZGlmZmVyZW50IHNpemUgWy1XcG9pbnRlci10by1pbnQt
+Y2FzdF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L2V6Y2hpcC9ucHNfZW5ldC5jOjQzOjI0OiB3YXJu
+aW5nOiBjYXN0IGZyb20gcG9pbnRlciB0byBpbnRlZ2VyIG9mIGRpZmZlcmVudCBzaXplIFstV3Bv
+aW50ZXItdG8taW50LWNhc3RdDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9lemNoaXAvbnBzX2VuZXQu
+YzogSW4gZnVuY3Rpb24goW5wc19lbmV0X3NlbmRfZnJhbWWiOg0KZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvZXpjaGlwL25wc19lbmV0LmM6MzY2OjI0OiB3YXJuaW5nOiBjYXN0IGZyb20gcG9pbnRlciB0
+byBpbnRlZ2VyIG9mIGRpZmZlcmVudCBzaXplIFstV3BvaW50ZXItdG8taW50LWNhc3RdDQpkcml2
+ZXJzL25ldC9ldGhlcm5ldC9lemNoaXAvbnBzX2VuZXQuYzozNjY6MjQ6IHdhcm5pbmc6IGNhc3Qg
+ZnJvbSBwb2ludGVyIHRvIGludGVnZXIgb2YgZGlmZmVyZW50IHNpemUgWy1XcG9pbnRlci10by1p
+bnQtY2FzdF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L2V6Y2hpcC9ucHNfZW5ldC5jOiBJbiBmdW5j
+dGlvbiChbnBzX2VuZXRfcG9sbF9jb250cm9sbGVyojoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2V6
+Y2hpcC9ucHNfZW5ldC5jOjUzNToyOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVu
+Y3Rpb24goW5wc19lbmV0X2JvYXJkX2lycV9oYW5kbGVyoiBbLVdlcnJvcj1pbXBsaWNpdC1mdW5j
+dGlvbi1kZWNsYXJhdGlvbl0NCmNjMTogc29tZSB3YXJuaW5ncyBiZWluZyB0cmVhdGVkIGFzIGVy
+cm9ycw0KDQpJIGRvIG5vdCBldmVuIHNlZSB3aGVyZSBucGVfZW5ldF9ib2FyZF9pcnFfaGFuZGxl
+ciBjb3VsZCBwb3NzaWJsZSBiZSBkZWZpbmVkLg0KDQpJdCBpcyBxdWl0ZSBpbmZ1cmlhdGluZyB0
+byByZWNlaXZlIGEgcGF0Y2ggbGlrZSB0aGlzIHdoaWNoIGlzIGNsYWltZWQNCnRvIGJlIGNvbXBs
+ZXRlIGFuZCByZWFkeSB0byBiZSBhcHBsaWVkIHRvIG15IHRyZWUsIHlldCBpdCBpcyB2ZXJ5DQpj
+bGVhcmx5IG5vdC4NCg==
