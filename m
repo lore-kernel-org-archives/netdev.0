@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND] pkt_sched: sch_qfq: remove redundant -if-
- control statement
-Date: Sun, 21 Jun 2015 09:48:13 -0700 (PDT)
-Message-ID: <20150621.094813.2149203024416614613.davem@davemloft.net>
-References: <1434493019-5762-1-git-send-email-parri.andrea@gmail.com>
+Subject: Re: [PATCH] cxgb3: avoid needless buffer copy for firmware
+Date: Sun, 21 Jun 2015 09:50:54 -0700 (PDT)
+Message-ID: <20150621.095054.1961985059600092774.davem@davemloft.net>
+References: <20150616223617.GA17958@www.outflux.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, paolo.valente@unimore.it, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: parri.andrea@gmail.com
+Cc: linux-kernel@vger.kernel.org, santosh@chelsio.com,
+	netdev@vger.kernel.org, agordeev@redhat.com, joe@perches.com
+To: keescook@chromium.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46510 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46523 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751861AbbFUQg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2015 12:36:27 -0400
-In-Reply-To: <1434493019-5762-1-git-send-email-parri.andrea@gmail.com>
+	with ESMTP id S1754831AbbFUQjI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2015 12:39:08 -0400
+In-Reply-To: <20150616223617.GA17958@www.outflux.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrea Parri <parri.andrea@gmail.com>
-Date: Wed, 17 Jun 2015 00:16:59 +0200
+From: Kees Cook <keescook@chromium.org>
+Date: Tue, 16 Jun 2015 15:36:17 -0700
 
-> The control !hlist_unhashed() in qfq_destroy_agg() is unnecessary
-> because already performed in hlist_del_init(), so remove it.
+> There's no reason to perform a buffer copy for the firmware name. This
+> also avoids a (currently impossible with current callers) NULL dereference
+> if there was no matching firmware.
 > 
-> Signed-off-by: Andrea Parri <parri.andrea@gmail.com>
+> Signed-off-by: Kees Cook <keescook@chromium.org>
 
-Applied.
+Applied to net-next, thanks.
