@@ -1,65 +1,75 @@
-From: Nicolai Stange <nicstange@gmail.com>
-Subject: Re: [PATCH] isdn: disable HiSax NetJet driver on microblaze arch
-Date: Mon, 22 Jun 2015 14:36:11 +0200
-Message-ID: <87lhfbly2s.fsf@gmail.com>
-References: <87pp4vw3ep.fsf@gmail.com>
-	<20150621.095400.890337700038231482.davem@davemloft.net>
-	<87y4jdc58w.fsf@gmail.com> <1434972453.4568.8.camel@chaos.site>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nicolai Stange <nicstange@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	isdn@linux-pingi.de, Chen Gang <gang.chen.5i5j@gmail.com>,
-	Ralf Baechle <ralf@linux-mips.org>
-To: Jean Delvare <jdelvare@suse.de>
+From: Haggai Eran <haggaie@mellanox.com>
+Subject: [PATCH v1 04/12] IB/cm: Expose service ID in request events
+Date: Mon, 22 Jun 2015 15:42:33 +0300
+Message-ID: <1434976961-27424-5-git-send-email-haggaie@mellanox.com>
+References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	Liran Liss <liranl@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Yotam Kenneth <yotamke@mellanox.com>,
+	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+	Haggai Eran <haggaie@mellanox.com>
+To: Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:35209 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754298AbbFVMgR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2015 08:36:17 -0400
-In-Reply-To: <1434972453.4568.8.camel@chaos.site> (Jean Delvare's message of
-	"Mon, 22 Jun 2015 13:27:33 +0200")
+Received: from [193.47.165.129] ([193.47.165.129]:52093 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933319AbbFVMnH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Jun 2015 08:43:07 -0400
+In-Reply-To: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jean Delvare <jdelvare@suse.de> writes:
-> Le Sunday 21 June 2015 =C3=A0 19:59 +0200, Nicolai Stange a =C3=A9cri=
-t :
->> David Miller <davem@davemloft.net> writes:
->>> Applied, but we're long overdue for an across-the-board-available
->>> endianness Kconfig option that can flat out be used in these situat=
-ions.
->>> The current way this is handled is at best, a mess.
->>=20
->> Regarding the general Kconfig endianess symbol, I will do another pa=
-tch
->> based on the information of
->>   git grep '_endian\.h' -- arch/
->> and supply every arch with either of CONFIG_CPU_{LITTLE,BIG}_ENDIAN =
-if
->> lacking.
->
-> Note that Chen Gang (Cc'd) attempted the same almost a year ago:
-> http://patchwork.linux-mips.org/patch/7540/
-> then:
-> http://marc.info/?t=3D140958656400002&r=3D1&w=3D2
->
-> The idea was great IMHO but it did not work out, and I can't remember
-> why.
+Expose the service ID on an incoming CM or SIDR request to the event
+handler. This will allow the RDMA CM module to de-multiplex connection
+requests based on the information encoded in the service ID.
 
-Thank you very much for this pointer, Jean!  I've read through these
-threads and to summarize, some arch maintainers' main point against tha=
-t
-patchset is that (recent) drivers should generally support both, LE and
-BE.
+Acked-by: Sean Hefty <sean.hefty@intel.com>
+Signed-off-by: Haggai Eran <haggaie@mellanox.com>
+---
+ drivers/infiniband/core/cm.c | 3 +++
+ include/rdma/ib_cm.h         | 1 +
+ 2 files changed, 4 insertions(+)
 
-It is interesting to note that Chen Gang had already addressed the very
-same issue (Hisax NetJet driver) by the far more general approach
-proposed by David Miller here, namely by introducing an
-"across-the-board-available endianess Kconfig option".
-
-So unless you really want to have such an option and ping me, I will no=
-t
-do another patch in the mood of Chen Gang's original one.
+diff --git a/drivers/infiniband/core/cm.c b/drivers/infiniband/core/cm.c
+index 0103534472e0..dd92c999e6e9 100644
+--- a/drivers/infiniband/core/cm.c
++++ b/drivers/infiniband/core/cm.c
+@@ -1256,6 +1256,7 @@ static void cm_format_paths_from_req(struct cm_req_msg *req_msg,
+ 	primary_path->packet_life_time =
+ 		cm_req_get_primary_local_ack_timeout(req_msg);
+ 	primary_path->packet_life_time -= (primary_path->packet_life_time > 0);
++	primary_path->service_id = req_msg->service_id;
+ 
+ 	if (req_msg->alt_local_lid) {
+ 		memset(alt_path, 0, sizeof *alt_path);
+@@ -1277,6 +1278,7 @@ static void cm_format_paths_from_req(struct cm_req_msg *req_msg,
+ 		alt_path->packet_life_time =
+ 			cm_req_get_alt_local_ack_timeout(req_msg);
+ 		alt_path->packet_life_time -= (alt_path->packet_life_time > 0);
++		alt_path->service_id = req_msg->service_id;
+ 	}
+ }
+ 
+@@ -2980,6 +2982,7 @@ static void cm_format_sidr_req_event(struct cm_work *work,
+ 	param = &work->cm_event.param.sidr_req_rcvd;
+ 	param->pkey = __be16_to_cpu(sidr_req_msg->pkey);
+ 	param->listen_id = listen_id;
++	param->service_id = sidr_req_msg->service_id;
+ 	param->port = work->port->port_num;
+ 	work->cm_event.private_data = &sidr_req_msg->private_data;
+ }
+diff --git a/include/rdma/ib_cm.h b/include/rdma/ib_cm.h
+index 39ed2d2fbd51..1b567bbc3ad4 100644
+--- a/include/rdma/ib_cm.h
++++ b/include/rdma/ib_cm.h
+@@ -223,6 +223,7 @@ struct ib_cm_apr_event_param {
+ 
+ struct ib_cm_sidr_req_event_param {
+ 	struct ib_cm_id		*listen_id;
++	__be64			service_id;
+ 	u8			port;
+ 	u16			pkey;
+ };
+-- 
+1.7.11.2
