@@ -1,13 +1,12 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
 Subject: Re: [arc-linux-dev] [PATCH] stmmac: explicitly zero des0 & des1 on
  init
-Date: Mon, 22 Jun 2015 08:08:31 +0000
-Message-ID: <1434960510.4269.25.camel@synopsys.com>
-References: <1434476441-18241-1-git-send-email-abrodkin@synopsys.com>
-	 <C2D7FE5348E1B147BCA15975FBA23075665A5DED@IN01WEMBXB.internal.synopsys.com>
+Date: Mon, 22 Jun 2015 14:04:11 +0530
+Message-ID: <5587C883.9080304@synopsys.com>
+References: <1434476441-18241-1-git-send-email-abrodkin@synopsys.com>	 <C2D7FE5348E1B147BCA15975FBA23075665A5DED@IN01WEMBXB.internal.synopsys.com> <1434960510.4269.25.camel@synopsys.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: 7bit
 Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
 	"linux-mm@kvack.org" <linux-mm@kvack.org>,
@@ -17,49 +16,53 @@ Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"arc-linux-dev@synopsys.com" <arc-linux-dev@synopsys.com>,
 	"linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
 	"arnd@arndb.de" <arnd@arndb.de>
-To: Vineet Gupta <Vineet.Gupta1@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.60.111]:54792 "EHLO
-	smtprelay.synopsys.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S933138AbbFVIIh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2015 04:08:37 -0400
-In-Reply-To: <C2D7FE5348E1B147BCA15975FBA23075665A5DED@IN01WEMBXB.internal.synopsys.com>
-Content-Language: en-US
-Content-ID: <9C754CE371BF664B83E790960FE8A875@internal.synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1434960510.4269.25.camel@synopsys.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SGkgYWxsLA0KDQpPbiBXZWQsIDIwMTUtMDYtMTcgYXQgMDc6MDMgKzAwMDAsIFZpbmVldCBHdXB0
-YSB3cm90ZToNCitDQyBsaW51eC1hcmNoLCBsaW51eC1tbSwgQXJuZCBhbmQgTWFyZWsNCg0KT24g
-VHVlc2RheSAxNiBKdW5lIDIwMTUgMTE6MTEgUE0sIEFsZXhleSBCcm9ka2luIHdyb3RlOg0KDQpD
-dXJyZW50IGltcGxlbWVudHRpb24gb2YgZGVzY3JpcHRvciBpbml0IHByb2NlZHVyZSBvbmx5IHRh
-a2VzIGNhcmUgYWJvdXQNCm93bmVyc2hpcCBmbGFnLiBXaGlsZSBpdCBpcyBwZXJmZWN0bHkgcG9z
-c2libGUgdG8gaGF2ZSB1bmRlcmx5aW5nIG1lbW9yeQ0KZmlsbGVkIHdpdGggZ2FyYmFnZSBvbiBi
-b290IG9yIGRyaXZlciBpbnN0YWxsYXRpb24uDQoNCkFuZCByYW5kb21seSBzZXQgZmxhZ3MgaW4g
-bm9uLXplcm9lZCBkZXMwIGFuZCBkZXMxIGZpZWxkcyBtYXkgbGVhZCB0bw0KdW5wcmVkaWN0YWJs
-ZSBiZWhhdmlvciBvZiB0aGUgR01BQyBETUEgYmxvY2suDQoNClNvbHV0aW9uIHRvIHRoaXMgcHJv
-YmxlbSBpcyBhcyBzaW1wbGUgYXMgZXhwbGljaXQgemVyb2luZyBvZiBib3RoIGRlczANCmFuZCBk
-ZXMxIGZpZWxkcyBvZiBhbGwgYnVmZmVyIGRlc2NyaXB0b3JzLg0KDQpTaWduZWQtb2ZmLWJ5OiBB
-bGV4ZXkgQnJvZGtpbiA8YWJyb2RraW5Ac3lub3BzeXMuY29tPjxtYWlsdG86YWJyb2RraW5Ac3lu
-b3BzeXMuY29tPg0KQ2M6IEdpdXNlcHBlIENhdmFsbGFybyA8cGVwcGUuY2F2YWxsYXJvQHN0LmNv
-bT48bWFpbHRvOnBlcHBlLmNhdmFsbGFyb0BzdC5jb20+DQpDYzogYXJjLWxpbnV4LWRldkBzeW5v
-cHN5cy5jb208bWFpbHRvOmFyYy1saW51eC1kZXZAc3lub3BzeXMuY29tPg0KQ2M6IGxpbnV4LWtl
-cm5lbEB2Z2VyLmtlcm5lbC5vcmc8bWFpbHRvOmxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc+
-DQpDYzogc3RhYmxlQHZnZXIua2VybmVsLm9yZzxtYWlsdG86c3RhYmxlQHZnZXIua2VybmVsLm9y
-Zz4NCg0KRldJVywgdGhpcyB3YXMgY2F1c2luZyBzcG9yYWRpYy9yYW5kb20gbmV0d29ya2luZyBm
-bGFraW5lc3Mgb24gQVJDIFNEUCBwbGF0Zm9ybSAoc2NoZWR1bGVkIGZvciB1cHN0cmVhbSBpbmNs
-dXNpb24gaW4gbmV4dCB3aW5kb3cpDQoNClRoaXMgYWxzbyBsZWFkcyB0byBhbiBpbnRlcmVzdGlu
-ZyBxdWVzdGlvbiAtIHNob3VsZCBhcmNoLyovZG1hX2FsbG9jX2NvaGVyZW50KCkgYW5kIGZyaWVu
-ZHMgdW5jb25kaXRpb25hbGx5IHplcm8gb3V0IG1lbW9yeSAodnMuIHRoZSBjdXJyZW50IHNlbWFu
-dGljcyBvZiBsZXR0aW5nIG9ubHkgZG9pbmcgaXQgYmFzZWQgb24gZ2ZwLCBhcyByZXF1ZXN0ZWQg
-YnkgZHJpdmVyKS4gVGhpcyBpcyB0aGUgc2Vjb25kIGluc3RhbmNlIHdlIHJhbiBpbnRvIHN0YWxl
-IGRlc2NyaXB0b3IgbWVtb3J5LCB0aGUgZmlyc3Qgb25lIHdhcyBpbiBkd19tbWMgZHJpdmVyIHdo
-aWNoIHdhcyByZWNlbnRseSBmaXhlZCBpbiB1cHN0cmVhbSBhcyB3ZWxsIChhbHRob3VnaCBkZWJ1
-Z2dlZCBpbmRlcGVuZGVudGx5IGJ5IEFsZXhleSBhbmQgdXNpbmcgdGhlIHVwc3RyZWFtIGZpeCkN
-Cg0KaHR0cDovL3d3dy5zcGluaWNzLm5ldC9saXN0cy9saW51eC1tbWMvbXNnMzE2MDAuaHRtbA0K
-DQpUaGUgcHJvcyBpcyBiZXR0ZXIgb3V0IG9mIGJveCBleHBlcmllbmNlIChkZXNwaXRlIGJ1Z2d5
-IGRyaXZlcnMpIHdoaWxlIHRoZSBjb25zIGFyZSB0aGV5IHJlbWFpbiBicm9rZW4gYW5kIHBlcmhh
-cHMgaW5jcmVhc2VkIGJvb3QgdGltZSBkdWUgdG8gZXh0cmEgbWVtemVyby4uLi4NCg0KUHJvYmFi
-bHkgaWYgd2UgYWxyZWFkeSBoYXZlIGRtYV96YWxsb2NfY29oZXJlbnQoKSB0aGF0IGRvZXMgZXhw
-bGljaXQgemVyb2luZyBvZiByZXR1cm5lZCBtZW1vcnkgdGhlbiB0aGVyZSdzIG5vIG5lZWQgdG8g
-ZG8gaW1wbGljaXQgemVyb2luZyBpbiBkbWFfYWxsb2NfY29oZXJlbnQoKT8NCg0KLUFsZXhleQ0K
+On Monday 22 June 2015 01:38 PM, Alexey Brodkin wrote:
+> Hi all,
+> 
+> On Wed, 2015-06-17 at 07:03 +0000, Vineet Gupta wrote:
+> +CC linux-arch, linux-mm, Arnd and Marek
+> 
+> On Tuesday 16 June 2015 11:11 PM, Alexey Brodkin wrote:
+> 
+> Current implementtion of descriptor init procedure only takes care about
+> ownership flag. While it is perfectly possible to have underlying memory
+> filled with garbage on boot or driver installation.
+> 
+> And randomly set flags in non-zeroed des0 and des1 fields may lead to
+> unpredictable behavior of the GMAC DMA block.
+> 
+> Solution to this problem is as simple as explicit zeroing of both des0
+> and des1 fields of all buffer descriptors.
+> 
+> Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com><mailto:abrodkin@synopsys.com>
+> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com><mailto:peppe.cavallaro@st.com>
+> Cc: arc-linux-dev@synopsys.com<mailto:arc-linux-dev@synopsys.com>
+> Cc: linux-kernel@vger.kernel.org<mailto:linux-kernel@vger.kernel.org>
+> Cc: stable@vger.kernel.org<mailto:stable@vger.kernel.org>
+> 
+> FWIW, this was causing sporadic/random networking flakiness on ARC SDP platform (scheduled for upstream inclusion in next window)
+> 
+> This also leads to an interesting question - should arch/*/dma_alloc_coherent() and friends unconditionally zero out memory (vs. the current semantics of letting only doing it based on gfp, as requested by driver). This is the second instance we ran into stale descriptor memory, the first one was in dw_mmc driver which was recently fixed in upstream as well (although debugged independently by Alexey and using the upstream fix)
+> 
+> http://www.spinics.net/lists/linux-mmc/msg31600.html
+> 
+> The pros is better out of box experience (despite buggy drivers) while the cons are they remain broken and perhaps increased boot time due to extra memzero....
+> 
+> Probably if we already have dma_zalloc_coherent() that does explicit zeroing of returned memory then there's no need to do implicit zeroing in dma_alloc_coherent()?
+
+
+The question is, when drivers don't have dma_zalloc_coherent() - meaning they
+don't pass __GFP_ZERO, which causes these random issues, do we need to be more
+conservative in arch code (ARC at least is) or do we need to debug and fix these
+drivers - one by one.
+
+FWIW, ARC needs to fix __GFP_ZERO case, since we are doing memzero twice.
+
+-Vineet
