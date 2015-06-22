@@ -1,7 +1,7 @@
 From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v1 09/12] IB/cma: validate routing of incoming requests
-Date: Mon, 22 Jun 2015 15:42:38 +0300
-Message-ID: <1434976961-27424-10-git-send-email-haggaie@mellanox.com>
+Subject: [PATCH v1 03/12] IB/ipoib: Return IPoIB devices matching connection parameters
+Date: Mon, 22 Jun 2015 15:42:32 +0300
+Message-ID: <1434976961-27424-4-git-send-email-haggaie@mellanox.com>
 References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
@@ -16,141 +16,279 @@ In-Reply-To: <1434976961-27424-1-git-send-email-haggaie-VPRAkNaXOzVWk0Htik3J/w@p
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Pass incoming request parameters through the relevant IPv4/IPv6 routing
-tables and make sure the network stack is configured to handle such
-requests.
+From: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
+Implement the get_net_device_by_port_pkey_ip callback that returns network
+device to ib_core according to connection parameters. Check the ipoib
+device and iterate over all child devices to look for a match.
+
+For each IPoIB device we iterate through all upper devices when searching
+for a matching IP, in order to support bonding.
+
+Signed-off-by: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Signed-off-by: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/infiniband/core/cma.c | 95 +++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 92 insertions(+), 3 deletions(-)
+ drivers/infiniband/ulp/ipoib/ipoib_main.c | 227 +++++++++++++++++++++++++++++-
+ 1 file changed, 226 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index 4701167f5117..759697d6e627 100644
---- a/drivers/infiniband/core/cma.c
-+++ b/drivers/infiniband/core/cma.c
-@@ -46,6 +46,8 @@
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index d128432f226d..eb33a7b2be04 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -48,6 +48,9 @@
  
- #include <net/tcp.h>
- #include <net/ipv6.h>
-+#include <net/ip_fib.h>
-+#include <net/ip6_route.h>
+ #include <linux/jhash.h>
+ #include <net/arp.h>
++#include <net/addrconf.h>
++#include <linux/inetdevice.h>
++#include <rdma/ib_cache.h>
  
- #include <rdma/rdma_cm.h>
- #include <rdma/rdma_cm_ib.h>
-@@ -1062,15 +1064,97 @@ static int cma_save_req_info(const struct ib_cm_event *ib_event,
+ #define DRV_VERSION "1.0.0"
+ 
+@@ -91,11 +94,15 @@ struct ib_sa_client ipoib_sa_client;
+ static void ipoib_add_one(struct ib_device *device);
+ static void ipoib_remove_one(struct ib_device *device, void *client_data);
+ static void ipoib_neigh_reclaim(struct rcu_head *rp);
++static struct net_device *ipoib_get_net_dev_by_params(
++		struct ib_device *dev, u8 port, u16 pkey,
++		const union ib_gid *gid, const struct sockaddr *addr);
+ 
+ static struct ib_client ipoib_client = {
+ 	.name   = "ipoib",
+ 	.add    = ipoib_add_one,
+-	.remove = ipoib_remove_one
++	.remove = ipoib_remove_one,
++	.get_net_dev_by_params = ipoib_get_net_dev_by_params,
+ };
+ 
+ int ipoib_open(struct net_device *dev)
+@@ -222,6 +229,224 @@ static int ipoib_change_mtu(struct net_device *dev, int new_mtu)
  	return 0;
  }
  
-+static bool validate_ipv4_net_dev(struct net_device *net_dev,
-+				  const struct sockaddr_in *dst_addr,
-+				  const struct sockaddr_in *src_addr)
++/* Called with an RCU read lock taken */
++static bool ipoib_is_dev_match_addr_rcu(const struct sockaddr *addr,
++					struct net_device *dev)
 +{
-+	__be32 daddr = dst_addr->sin_addr.s_addr,
-+	       saddr = src_addr->sin_addr.s_addr;
-+	struct fib_result res;
-+	struct flowi4 fl4;
-+	int err;
-+	bool ret;
++	struct net *net = dev_net(dev);
++	struct in_device *in_dev;
++	struct sockaddr_in *addr_in = (struct sockaddr_in *)addr;
++	struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)addr;
++	__be32 ret_addr;
 +
-+	if (ipv4_is_multicast(saddr) || ipv4_is_lbcast(saddr) ||
-+	    ipv4_is_lbcast(daddr) || ipv4_is_zeronet(saddr) ||
-+	    ipv4_is_zeronet(daddr) || ipv4_is_loopback(daddr) ||
-+	    ipv4_is_loopback(saddr))
-+		return false;
++	switch (addr->sa_family) {
++	case AF_INET:
++		in_dev = in_dev_get(dev);
++		if (!in_dev)
++			return false;
 +
-+	memset(&fl4, 0, sizeof(fl4));
-+	fl4.flowi4_iif = net_dev->ifindex;
-+	fl4.daddr = daddr;
-+	fl4.saddr = saddr;
++		ret_addr = inet_confirm_addr(net, in_dev, 0,
++					     addr_in->sin_addr.s_addr,
++					     RT_SCOPE_HOST);
++		in_dev_put(in_dev);
++		if (ret_addr)
++			return true;
++
++		break;
++	case AF_INET6:
++		if (IS_ENABLED(CONFIG_IPV6) &&
++		    ipv6_chk_addr(net, &addr_in6->sin6_addr, dev, 1))
++			return true;
++
++		break;
++	}
++	return false;
++}
++
++/**
++ * Find the master net_device on top of the given net_device.
++ * @dev: base IPoIB net_device
++ *
++ * Returns the master net_device with a reference held, or the same net_device
++ * if no master exists.
++ */
++static struct net_device *ipoib_get_master_net_dev(struct net_device *dev)
++{
++	struct net_device *master;
 +
 +	rcu_read_lock();
-+	err = fib_lookup(dev_net(net_dev), &fl4, &res);
-+	if (err)
-+		return false;
-+
-+	ret = FIB_RES_DEV(res) == net_dev;
++	master = netdev_master_upper_dev_get_rcu(dev);
++	if (master)
++		dev_hold(master);
 +	rcu_read_unlock();
 +
-+	return ret;
++	if (master)
++		return master;
++
++	dev_hold(dev);
++	return dev;
 +}
 +
-+static bool validate_ipv6_net_dev(struct net_device *net_dev,
-+				  const struct sockaddr_in6 *dst_addr,
-+				  const struct sockaddr_in6 *src_addr)
++/**
++ * Find a net_device matching the given address, which is an upper device of
++ * the given net_device.
++ * @addr: IP address to look for.
++ * @dev: base IPoIB net_device
++ *
++ * If found, returns the net_device with a reference held. Otherwise return
++ * NULL.
++ */
++static struct net_device *ipoib_get_net_dev_match_addr(
++		const struct sockaddr *addr, struct net_device *dev)
 +{
-+#if IS_ENABLED(CONFIG_IPV6)
-+	const int strict = ipv6_addr_type(&dst_addr->sin6_addr) &
-+			   IPV6_ADDR_LINKLOCAL;
-+	struct rt6_info *rt = rt6_lookup(dev_net(net_dev), &dst_addr->sin6_addr,
-+					 &src_addr->sin6_addr, net_dev->ifindex,
-+					 strict);
-+	bool ret;
++	struct net_device *upper,
++			  *result = NULL;
++	struct list_head *iter;
 +
-+	if (!rt)
-+		return false;
++	rcu_read_lock();
++	if (ipoib_is_dev_match_addr_rcu(addr, dev)) {
++		dev_hold(dev);
++		result = dev;
++		goto out;
++	}
 +
-+	ret = rt->rt6i_idev->dev == net_dev;
-+	ip6_rt_put(rt);
-+
-+	return ret;
-+#else
-+	return false;
-+#endif
++	netdev_for_each_all_upper_dev_rcu(dev, upper, iter) {
++		if (ipoib_is_dev_match_addr_rcu(addr, upper)) {
++			dev_hold(upper);
++			result = upper;
++			break;
++		}
++	}
++out:
++	rcu_read_unlock();
++	return result;
 +}
 +
-+static bool validate_net_dev(struct net_device *net_dev,
-+			     const struct sockaddr *daddr,
-+			     const struct sockaddr *saddr)
++/* returns the number of IPoIB netdevs on top a given ipoib device matching a
++ * pkey_index and address, if one exists.
++ *
++ * @found_net_dev: contains a matching net_device if the return value >= 1,
++ * with a reference held. */
++static int ipoib_match_gid_pkey_addr(struct ipoib_dev_priv *priv,
++				     const union ib_gid *gid,
++				     u16 pkey_index,
++				     const struct sockaddr *addr,
++				     struct net_device **found_net_dev)
 +{
-+	const struct sockaddr_in *daddr4 = (const struct sockaddr_in *)daddr;
-+	const struct sockaddr_in *saddr4 = (const struct sockaddr_in *)saddr;
-+	const struct sockaddr_in6 *daddr6 = (const struct sockaddr_in6 *)daddr;
-+	const struct sockaddr_in6 *saddr6 = (const struct sockaddr_in6 *)saddr;
++	struct ipoib_dev_priv *child_priv;
++	struct net_device *net_dev = NULL;
++	int matches = 0;
 +
-+	switch (daddr->sa_family) {
-+	case AF_INET:
-+		return saddr->sa_family == AF_INET &&
-+		       validate_ipv4_net_dev(net_dev, daddr4, saddr4);
++	if (priv->pkey_index == pkey_index &&
++	    (!gid || !memcmp(gid, &priv->local_gid, sizeof(*gid)))) {
++		if (!addr) {
++			net_dev = ipoib_get_master_net_dev(priv->dev);
++		} else {
++			/* Verify the net_device matches the IP address, as
++			 * IPoIB child devices currently share a GID. */
++			net_dev = ipoib_get_net_dev_match_addr(addr, priv->dev);
++		}
++		if (net_dev) {
++			ipoib_warn(priv, "matching net_dev found: %s\n",
++				   net_dev->name);
++			if (!*found_net_dev)
++				*found_net_dev = net_dev;
++			else
++				dev_put(net_dev);
++			++matches;
++		}
++	}
 +
-+	case AF_INET6:
-+		return saddr->sa_family == AF_INET6 &&
-+		       validate_ipv6_net_dev(net_dev, daddr6, saddr6);
++	/* Check child interfaces */
++	down_read(&priv->vlan_rwsem);
++	list_for_each_entry(child_priv, &priv->child_intfs, list) {
++		matches += ipoib_match_gid_pkey_addr(child_priv, gid,
++						    pkey_index, addr,
++						    found_net_dev);
++		if (matches > 1)
++			break;
++	}
++	up_read(&priv->vlan_rwsem);
 +
++	return matches;
++}
++
++/* Returns the number of matching net_devs found (between 0 and 2). Also
++ * return the matching net_device in the @net_dev parameter, holding a
++ * reference to the net_device, if the number of matches >= 1 */
++static int __ipoib_get_net_dev_by_params(struct list_head *dev_list, u8 port,
++					 u16 pkey_index,
++					 const union ib_gid *gid,
++					 const struct sockaddr *addr,
++					 struct net_device **net_dev)
++{
++	struct ipoib_dev_priv *priv;
++	int matches = 0;
++
++	*net_dev = NULL;
++
++	list_for_each_entry(priv, dev_list, list) {
++		if (priv->port != port)
++			continue;
++
++		matches += ipoib_match_gid_pkey_addr(priv, gid, pkey_index,
++						     addr, net_dev);
++		if (matches > 1)
++			break;
++	}
++
++	return matches;
++}
++
++static struct net_device *ipoib_get_net_dev_by_params(
++		struct ib_device *dev, u8 port, u16 pkey,
++		const union ib_gid *gid, const struct sockaddr *addr)
++{
++	struct net_device *net_dev;
++	struct list_head *dev_list;
++	u16 pkey_index;
++	int matches;
++	int ret;
++
++	if (!rdma_protocol_ib(dev, port))
++		return NULL;
++
++	ret = ib_find_cached_pkey(dev, port, pkey, &pkey_index);
++	if (ret)
++		return NULL;
++
++	dev_list = ib_get_client_data(dev, &ipoib_client);
++	if (!dev_list)
++		return NULL;
++
++	/* See if we can find a unique device matching the L2 parameters */
++	matches = __ipoib_get_net_dev_by_params(dev_list, port, pkey_index,
++						gid, NULL, &net_dev);
++
++	switch (matches) {
++	case 0:
++		return NULL;
++	case 1:
++		return net_dev;
++	}
++
++	dev_put(net_dev);
++
++	/* Couldn't find a unique device with L2 parameters only. Use L3
++	 * address to uniquely match the net device */
++	matches = __ipoib_get_net_dev_by_params(dev_list, port, pkey_index,
++						gid, addr, &net_dev);
++	switch (matches) {
++	case 0:
++		return NULL;
 +	default:
-+		return false;
++		dev_warn(&dev->dev, "duplicate IP address detected\n");
++		/* Fall through */
++	case 1:
++		return net_dev;
 +	}
 +}
 +
- static struct net_device *cma_get_net_dev(struct ib_cm_event *ib_event,
- 					  const struct cma_req_info *req)
+ int ipoib_set_mode(struct net_device *dev, const char *buf)
  {
--	struct sockaddr_storage listen_addr_storage;
--	struct sockaddr *listen_addr = (struct sockaddr *)&listen_addr_storage;
-+	struct sockaddr_storage listen_addr_storage, src_addr_storage;
-+	struct sockaddr *listen_addr = (struct sockaddr *)&listen_addr_storage,
-+			*src_addr = (struct sockaddr *)&src_addr_storage;
- 	struct net_device *net_dev;
- 	int err;
- 
--	err = cma_save_ip_info(listen_addr, NULL, ib_event, req->service_id);
-+	err = cma_save_ip_info(listen_addr, src_addr, ib_event,
-+			       req->service_id);
- 	if (err)
- 		return ERR_PTR(err);
- 
-@@ -1079,6 +1163,11 @@ static struct net_device *cma_get_net_dev(struct ib_cm_event *ib_event,
- 	if (!net_dev)
- 		return ERR_PTR(-ENODEV);
- 
-+	if (!validate_net_dev(net_dev, listen_addr, src_addr)) {
-+		dev_put(net_dev);
-+		return ERR_PTR(-EHOSTUNREACH);
-+	}
-+
- 	return net_dev;
- }
- 
+ 	struct ipoib_dev_priv *priv = netdev_priv(dev);
 -- 
 1.7.11.2
 
