@@ -1,36 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 05/12] net/mlx5e: Poll rx cq before tx cq to
- improve round-trip latency
-Date: Mon, 22 Jun 2015 06:35:54 -0700 (PDT)
-Message-ID: <20150622.063554.1081040359354241131.davem@davemloft.net>
-References: <1434554789-13758-6-git-send-email-ogerlitz@mellanox.com>
-	<20150621.102144.267706734504980452.davem@davemloft.net>
-	<CAEHy93LdUDFVoxWU_++t1D5tqBSEM1TY4ZguW7QszvEyPOvagg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 03/12] netfilter: x_tables: align per cpu xt_counter
+Date: Mon, 22 Jun 2015 15:27:31 +0200
+Message-ID: <1434979651.4110.2.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1434734269-4545-1-git-send-email-pablo@netfilter.org>
+	 <1434734269-4545-4-git-send-email-pablo@netfilter.org>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CB54634@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ogerlitz@mellanox.com, netdev@vger.kernel.org, amirv@mellanox.com,
-	talal@mellanox.com, saeedm@mellanox.com
-To: achiad.mellanox@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53748 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752765AbbFVNYK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2015 09:24:10 -0400
-In-Reply-To: <CAEHy93LdUDFVoxWU_++t1D5tqBSEM1TY4ZguW7QszvEyPOvagg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: 'Pablo Neira Ayuso' <pablo@netfilter.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB54634@AcuExch.aculab.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: achiad shochat <achiad.mellanox@gmail.com>
-Date: Mon, 22 Jun 2015 00:35:37 +0300
-
-> Hello Dave,
+On Mon, 2015-06-22 at 11:49 +0000, David Laight wrote:
+> From: Pablo Neira Ayuso
+> > Sent: 19 June 2015 18:18
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Let's force a 16 bytes alignment on xt_counter percpu allocations,
+> > so that bytes and packets sit in same cache line.
+> > 
+> > xt_counter being exported to user space, we cannot add __align(16) on
+> > the structure itself.
 > 
-> In mlx5 the RX processing is broken down into two stages:
-> 1) Hand to kernel SKBs of completed RX packets - @mlx5e_poll_rx_cq()
-> 2) Allocate and post to HW new RX buffers - @mlx5e_post_rx_wqes()
-> 
-> Would handling of TX completions in between stages (1) and (2) be OK?
+> You could allocate a wrapper structure that contains xt_counter
+> and is itself marked __align(16).
 
-I would do all of TX processing first and synchronously.  It's very
-cheap and makes lots of resources available for RX processing.
+Sure. I took one solution, out of multiple ones.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
