@@ -1,125 +1,48 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH v5] NET: Add ezchip ethernet driver
-Date: Mon, 22 Jun 2015 19:47:51 -0400
-Message-ID: <20150622234749.GA21581@windriver.com>
-References: <1434263193-16877-1-git-send-email-noamc@ezchip.com>
- <1434465342-7412-1-git-send-email-noamc@ezchip.com>
- <CAF2d9jgQRatz_wL5+xk7fH=gAXTixb1yNVZGnenmKwR9RoSQLQ@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next] bridge: multicast: disable port when in
+ blocking state
+Date: Tue, 23 Jun 2015 07:52:15 +0800
+Message-ID: <20150622235215.GA14897@gondor.apana.org.au>
+References: <1434703550-29305-1-git-send-email-nikolay@cumulusnetworks.com>
+ <1435003931-6418-1-git-send-email-nikolay@cumulusnetworks.com>
+ <EA66CF77-F024-471C-A8F1-A7E6C3DB1721@cumulusnetworks.com>
+ <709324EA-9BEC-43AD-9DC1-55F712C378E6@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Noam Camus <noamc@ezchip.com>,
-	linux-netdev <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <Alexey.Brodkin@synopsys.com>,
-	<vgupta@synopsys.com>, <giladb@ezchip.com>, <cmetcalf@ezchip.com>,
-	Tal Zilcer <talz@ezchip.com>
-To: Mahesh Bandewar <maheshb@google.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, sashok@cumulusnetworks.com,
+	davem@davemloft.net, stephen@networkplumber.org
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:37284 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751787AbbFVXt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2015 19:49:59 -0400
+Received: from helcar.hengli.com.au ([209.40.204.226]:57774 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753923AbbFVXwW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2015 19:52:22 -0400
 Content-Disposition: inline
-In-Reply-To: <CAF2d9jgQRatz_wL5+xk7fH=gAXTixb1yNVZGnenmKwR9RoSQLQ@mail.gmail.com>
+In-Reply-To: <709324EA-9BEC-43AD-9DC1-55F712C378E6@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Re: [PATCH v5] NET: Add ezchip ethernet driver] On 22/06/2015 (Mon 10:45) Mahesh Bandewar wrote:
+On Mon, Jun 22, 2015 at 11:38:36PM +0300, Nikolay Aleksandrov wrote:
+>=20
+> One more thing - I don=E2=80=99t think we need any additional changes=
+ because there=E2=80=99s a check in
+> br_multicast_port_query_expired():
+>       if (port->state =3D=3D BR_STATE_DISABLED ||
+>             port->state =3D=3D BR_STATE_BLOCKING)
+>                 goto out;
+>=20
+> So it looks like the port should be fine (i.e. not sending) when it g=
+oes in blocking state.
 
-> On Tue, Jun 16, 2015 at 7:35 AM, Noam Camus <noamc@ezchip.com> wrote:
-> >
-> > From: Noam Camus <noamc@ezchip.com>
-> >
-> > Simple LAN device for debug or management purposes.
-> > Device supports interrupts for RX and TX(completion).
-> > Device does not have DMA ability.
-> >
-> > Signed-off-by: Noam Camus <noamc@ezchip.com>
-> > Signed-off-by: Tal Zilcer <talz@ezchip.com>
-> > Acked-by: Alexey Brodkin <abrodkin@synopsys.com>
-> > ---
-> > Change log for v5:
-> > Basically its all based on Florian comments.
-> > Main items are:
-> > 1) Move all interrupt chore to bottom-half
-> > 2) use memcpy_toio/fromio
-> > 3) dev_kfree_skb() moved to bottom-half
-> > 4) add set_rx_mode callback
-> > 5) use platform api toward non-DT platforms
-> > ---
+Thanks for looking into this! Perhaps we could at least add a
+comment to state that the disable_port isn't needed because the
+timers will expire and kill themselves automatically?  I think
+adding it to the place where you were going to place the disable_port
+call would be the most obvious.
 
-[...]
-
-> > diff --git a/drivers/net/ethernet/ezchip/Kconfig b/drivers/net/ethernet/ezchip/Kconfig
-> > new file mode 100644
-> > index 0000000..d031177
-> > --- /dev/null
-> > +++ b/drivers/net/ethernet/ezchip/Kconfig
-> > @@ -0,0 +1,27 @@
-> > +#
-> > +# EZchip network device configuration
-> > +#
-> > +
-> > +config NET_VENDOR_EZCHIP
-> > +       bool "EZchip devices"
-> > +       default y
-> >
-> Why this has to be included in the default build? Shouldn't it be
-> either "m" or "N" by default?
-> 
-
-Mahesh, in the future please don't quote 1200 lines of code in its
-entirety just to add these two lines of comment, which in this case
-happen to also be incorrect.  It is a NET_VENDOR_<name> option which
-is just the lead in as it clearly states below if we go look...
-
-> > +       ---help---
-> > +         If you have a network (Ethernet) device belonging to this class, say Y
-> > +         and read the Ethernet-HOWTO, available from
-> > +         <http://www.tldp.org/docs.html#howto>.
-
-Noam, since you are unlikely to get this in final from before net-next
-closes (happening any time now), please delete the Howto reference when
-you resubmit in two weeks, assuming that my cleanup here:
-
-   https://patchwork.ozlabs.org/patch/487080/
-
-gets applied to this release.
-
-> > +
-> > +         Note that the answer to this question doesn't directly affect the
-> > +         kernel: saying N will just cause the configurator to skip all
-> > +         the questions about EZchip devices. If you say Y, you will be asked for
-> > +         your specific device in the following questions.
-
-Mahesh, here above.  So he's not doing a "default y" on an actual driver
-(which, if he were, yes that would be wrong.)  What worries me more
-though, is that ...
-
-> > +
-> > +if NET_VENDOR_EZCHIP
-> > +
-> > +config EZCHIP_NPS_MANAGEMENT_ENET
-> > +       tristate "EZchip NPS management enet support"
-
-...there is no dependency line here.  None.  Noam - this implicitly
-means that you expect this to build on all arch for all combinations of
-.config files.  At a quick glance I see a dts fragment, and I also see a
-call to of_get_mac_address() so I'm thinking there needs to be some
-dependency here, on OF or OF_NET, or... ?
-
-Paul.
---
-
-> > +       ---help---
-> > +         Simple LAN device for debug or management purposes.
-> > +         Device supports interrupts for RX and TX(completion).
-> > +         Device does not have DMA ability.
-> > +
-> > +endif
-> > diff --git a/drivers/net/ethernet/ezchip/Makefile b/drivers/net/ethernet/ezchip/Makefile
-> > new file mode 100644
-> > index 0000000..e490176
-> > --- /dev/null
-> > +++ b/drivers/net/ethernet/ezchip/Makefile
-
-[snip]
+Thanks,
+--=20
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
