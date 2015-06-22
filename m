@@ -1,71 +1,70 @@
-From: Noam Camus <noamc@ezchip.com>
-Subject: RE: [PATCH v5] NET: Add ezchip ethernet driver
-Date: Mon, 22 Jun 2015 14:52:48 +0000
-Message-ID: <DB4PR02MB272B2804219ED0AD76BA1B2D6A10@DB4PR02MB272.eurprd02.prod.outlook.com>
-References: <1434263193-16877-1-git-send-email-noamc@ezchip.com>
-	<1434465342-7412-1-git-send-email-noamc@ezchip.com>
- <20150621.092218.2158342160706463595.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net] netfilter: nf_queue: Don't recompute the hook_list head
+Date: Mon, 22 Jun 2015 09:56:37 -0500
+Message-ID: <87fv5j7pwa.fsf@x220.int.ebiederm.org>
+References: <87381ne3rq.fsf@x220.int.ebiederm.org>
+	<20150620105839.GB3439@salvia> <877fqya2wb.fsf@x220.int.ebiederm.org>
+	<20150620185353.GA3567@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-7
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Alexey.Brodkin@synopsys.com" <Alexey.Brodkin@synopsys.com>,
-	"vgupta@synopsys.com" <vgupta@synopsys.com>,
-	Gilad Ben Yossef <giladb@ezchip.com>,
-	Chris Metcalf <cmetcalf@ezchip.com>,
-	Tal Zilcer <talz@ezchip.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0098.outbound.protection.outlook.com ([157.56.112.98]:21920
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751183AbbFVOww convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2015 10:52:52 -0400
-In-Reply-To: <20150621.092218.2158342160706463595.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20150620185353.GA3567@salvia> (Pablo Neira Ayuso's message of
+	"Sat, 20 Jun 2015 20:53:53 +0200")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: David Miller [mailto:davem@davemloft.net]=20
-Sent: Sunday, June 21, 2015 7:22 PM
+Pablo Neira Ayuso <pablo@netfilter.org> writes:
 
-> This builds with several warnings and also doesn't compile.
+> On Sat, Jun 20, 2015 at 09:08:20AM -0500, Eric W. Biederman wrote:
+>> Pablo Neira Ayuso <pablo@netfilter.org> writes:
+>> 
+>> > On Fri, Jun 19, 2015 at 05:23:37PM -0500, Eric W. Biederman wrote:
+>> >> 
+>> >> If someone sends packets from one of the netdevice ingress hooks to
+>> >> the a userspace queue, and then userspace later accepts the packet,
+>> >> the netfilter code can enter an infinite loop as the list head will
+>> >> never be found.
+>> >> 
+>> >> Pass in the saved list_head to avoid this.
+>> >
+>> > There is no userspace queueing for netdevice yet, so this can be route
+>> > through nf-next. Thanks.
+>> 
+>> *scratches head* the netdevice queueing is in the netfilter core.
+>> 
+>> netfilter_ingress calls nf_hook_slow.  The queuing happens in
+>> nf_hook_slow if anything returns the verdict queue it.
+>> 
+>> This patch applies to Linus's tree.
+>> 
+>> So how in the world does this not need to be ported to 4.1?
 >
-> drivers/net/ethernet/ezchip/nps_enet.c: In function =A1nps_enet_read_=
-rx_fifo=A2:
-> drivers/net/ethernet/ezchip/nps_enet.c:43:24: warning: cast from poin=
-ter to integer of different size [-Wpointer-to-int-cast]
-> drivers/net/ethernet/ezchip/nps_enet.c:43:24: warning: cast from poin=
-ter to integer of different size [-Wpointer-to-int-cast]
-> drivers/net/ethernet/ezchip/nps_enet.c: In function =A1nps_enet_send_=
-frame=A2:
-> drivers/net/ethernet/ezchip/nps_enet.c:366:24: warning: cast from poi=
-nter to integer of different size [-Wpointer-to-int-cast]
-> drivers/net/ethernet/ezchip/nps_enet.c:366:24: warning: cast from poi=
-nter to integer of different size [-Wpointer-to-int-cast]
-Once I start to use newer GCC (5.1.1) I get those as well. My previous =
-GCC (4.8) did not report them.
+> There is no nfnetlink_queue support for the netdev family at this
+> moment, so this can't be triggered unless you use an out of tree
+> module.
+>
+> I have a patch here to add a static key to disable userspace queueing
+> per family using a static key so that part would be basically
+> inactive.
+>
+> But if you really want to see this in 4.1, no problem, please just let
+> me know and I'll pass it to David, as I said it's basically not
+> resolving any urgent problem so this is not harming.
 
-> drivers/net/ethernet/ezchip/nps_enet.c: In function =A1nps_enet_poll_=
-controller=A2:
-> drivers/net/ethernet/ezchip/nps_enet.c:535:2: error: implicit declara=
-tion of function =A1nps_enet_board_irq_handler=A2 [-Werror=3Dimplicit-f=
-unction-declaration]
-cc1: some warnings being treated as errors
-My configuration lacked the CONFIG_NET_POLL_CONTROLLER this is why I mi=
-ssed this typo caused due to renaming. I added CONFIG_NETCONSOLE to my =
-configuration, now GCC report this error as well.
+So I have read through the code and I simply do not see anywhere
+that would prevent code in nft_queue to be called on a per netdevice
+chain, or where in nfqnl_enqueue_packet we would decided not to queue
+the packet.
 
-> I do not even see where npe_enet_board_irq_handler could possible be =
-defined.
-It was renamed: nps_enet_board_irq_handler -> nps_enet_irq_handler (I r=
-emoved the _board).
+Could you please point me to what in the code makes this code path
+impossible to use?
 
-> It is quite infuriating to receive a patch like this which is claimed=
- to be complete and ready to be applied to my tree, yet it is very clea=
-rly not.
-My sincerest apologies  for any problem I have made. I will send anothe=
-r version that will be worth applying to your tree.
+Right now it looks like something that is triggerable in 4.1.
 
-Noam
+Eric
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
