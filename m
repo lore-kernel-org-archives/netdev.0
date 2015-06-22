@@ -1,84 +1,88 @@
-From: Maninder Singh <maninder1.s@samsung.com>
-Subject: [RFC PATCH v2] packet: remove handling of tx_ring
-Date: Mon, 22 Jun 2015 12:39:16 +0530
-Message-ID: <1434956956-34121-1-git-send-email-maninder1.s@samsung.com>
-Cc: pankaj.m@samsung.com, Maninder Singh <maninder1.s@samsung.com>
-To: davem@davemloft.net, willemb@google.com, dborkman@redhat.com,
-	al.drozdov@gmail.com, viro@zeniv.linux.org.uk,
-	eyal.birger@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fransklaver@gmail.com
+From: sfeldma@gmail.com
+Subject: [PATCH net-next 0/2] switchdev; add VLAN support for port's bridge_getlink
+Date: Mon, 22 Jun 2015 00:27:15 -0700
+Message-ID: <1434958037-26057-1-git-send-email-sfeldma@gmail.com>
+Cc: jiri@resnulli.us, roopa@cumulusnetworks.com,
+	vivien.didelot@savoirfairelinux.com, ronen.arad@intel.com,
+	f.fainelli@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.samsung.com ([203.254.224.25]:50189 "EHLO
-	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932934AbbFVHLD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2015 03:11:03 -0400
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34993 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753879AbbFVHZo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2015 03:25:44 -0400
+Received: by pacyo7 with SMTP id yo7so25061700pac.2
+        for <netdev@vger.kernel.org>; Mon, 22 Jun 2015 00:25:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove handling of tx_ring in prb_setup_retire_blk_timer
-for TPACKET_V3 because init_prb_bdqc is called only for zero tx_ring 
-and thus prb_setup_retire_blk_timer for zero tx_ring only.
+From: Scott Feldman <sfeldma@gmail.com>
 
-And also in functon init_prb_bdqc there is no usage of tx_ring.
-Thus removing tx_ring from init_prb_bdqc.
+One more missing piece of the puzzle.  Add vlan dump support to switchdev
+port's bridge_getlink.  iproute2 "bridge vlan show" cmd already knows how
+to show the vlans installed on the bridge and the device , but (until now)
+no one implemented the port vlan part of the netlink PF_BRIDGE:RTM_GETLINK
+msg.  Before this patch, "bridge vlan show":
 
-Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
-Suggested-by: Frans Klaver <fransklaver@gmail.com>
----
-v1: replace if()/BUG with BUG_ON() for tx_ring
-v2: remove BUG() by removing tx_ring handling
+	$ bridge -c vlan show
+	port    vlan ids
+	sw1p1    30-34			<< bridge side vlans
+		 57
 
- net/packet/af_packet.c |   14 +++++---------
- 1 file changed, 5 insertions(+), 9 deletions(-)
+	sw1p1				<< device side vlans (missing)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index fd51641..aeafcf0 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -543,15 +543,11 @@ static void prb_init_blk_timer(struct packet_sock *po,
- 	pkc->retire_blk_timer.expires = jiffies;
- }
- 
--static void prb_setup_retire_blk_timer(struct packet_sock *po, int tx_ring)
-+static void prb_setup_retire_blk_timer(struct packet_sock *po)
- {
- 	struct tpacket_kbdq_core *pkc;
- 
--	if (tx_ring)
--		BUG();
--
--	pkc = tx_ring ? GET_PBDQC_FROM_RB(&po->tx_ring) :
--			GET_PBDQC_FROM_RB(&po->rx_ring);
-+	pkc = GET_PBDQC_FROM_RB(&po->rx_ring);
- 	prb_init_blk_timer(po, pkc, prb_retire_rx_blk_timer_expired);
- }
- 
-@@ -607,7 +603,7 @@ static void prb_init_ft_ops(struct tpacket_kbdq_core *p1,
- static void init_prb_bdqc(struct packet_sock *po,
- 			struct packet_ring_buffer *rb,
- 			struct pgv *pg_vec,
--			union tpacket_req_u *req_u, int tx_ring)
-+			union tpacket_req_u *req_u)
- {
- 	struct tpacket_kbdq_core *p1 = GET_PBDQC_FROM_RB(rb);
- 	struct tpacket_block_desc *pbd;
-@@ -634,7 +630,7 @@ static void init_prb_bdqc(struct packet_sock *po,
- 
- 	p1->max_frame_len = p1->kblk_size - BLK_PLUS_PRIV(p1->blk_sizeof_priv);
- 	prb_init_ft_ops(p1, req_u);
--	prb_setup_retire_blk_timer(po, tx_ring);
-+	prb_setup_retire_blk_timer(po);
- 	prb_open_block(p1, pbd);
- }
- 
-@@ -4001,7 +3997,7 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
- 		 * it above but just being paranoid
- 		 */
- 			if (!tx_ring)
--				init_prb_bdqc(po, rb, pg_vec, req_u, tx_ring);
-+				init_prb_bdqc(po, rb, pg_vec, req_u);
- 			break;
- 		default:
- 			break;
+	sw1p2    57
+
+	sw1p2
+
+	sw1p3
+
+	sw1p4
+
+	br0     None
+
+(When the port is bridged, the output repeats the vlan list for the vlans
+on the bridge side of the port and the vlans on the device side of the
+port.  The listing above show no vlans for the device side even though they
+are installed).
+
+After this patch:
+
+	$ bridge -c vlan show
+	port    vlan ids
+	sw1p1    30-34			<< bridge side vlan
+		 57
+
+	sw1p1    30-34			<< device side vlans
+		 57
+		 3840 PVID
+
+	sw1p2    57
+
+	sw1p2    57
+		 3840 PVID
+
+	sw1p3    3842 PVID
+
+	sw1p4    3843 PVID
+
+	br0     None
+
+
+Scott Feldman (2):
+  switchdev: rename vlan vid_start to vid_begin
+  switchdev; add VLAN support for port's bridge_getlink
+
+ drivers/net/ethernet/emulex/benet/be_main.c   |    2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c   |    4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    3 +-
+ drivers/net/ethernet/rocker/rocker.c          |   29 +++++-
+ include/linux/rtnetlink.h                     |    6 +-
+ include/net/switchdev.h                       |    2 +-
+ net/bridge/br_vlan.c                          |    4 +-
+ net/core/rtnetlink.c                          |   18 +++-
+ net/switchdev/switchdev.c                     |  135 +++++++++++++++++++++++--
+ 9 files changed, 183 insertions(+), 20 deletions(-)
+
 -- 
-1.7.9.5
+1.7.10.4
