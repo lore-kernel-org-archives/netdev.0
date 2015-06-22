@@ -1,226 +1,94 @@
-From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v1 07/12] IB/cma: Helper functions to access port space IDRs
-Date: Mon, 22 Jun 2015 15:42:36 +0300
-Message-ID: <1434976961-27424-8-git-send-email-haggaie@mellanox.com>
-References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1434976961-27424-1-git-send-email-haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: Re: [PATCH 1/2] batman-adv: Avoid u32 overflow during gateway select
+Date: Mon, 22 Jun 2015 14:53:12 +0200
+Message-ID: <55880538.1050109@meshcoding.com>
+References: <1434481584-1275-1-git-send-email-antonio@meshcoding.com> <1434481584-1275-2-git-send-email-antonio@meshcoding.com> <20150621.093713.572451264516042062.davem@davemloft.net> <1534492.Qn5WYoJSum@sven-edge>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="TX1QbHjKQqkHSMUQDb8nJDLKNtPn5Il7B"
+Cc: Sven Eckelmann <sven@narfation.org>, netdev@vger.kernel.org,
+	b.a.t.m.a.n@lists.open-mesh.org, ruben@freifunk-nrw.de,
+	ruben@vfn-nrw.de, mareklindner@neomailbox.ch
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s1.neomailbox.net ([5.148.176.57]:39072 "EHLO s1.neomailbox.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933660AbbFVM4F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Jun 2015 08:56:05 -0400
+In-Reply-To: <1534492.Qn5WYoJSum@sven-edge>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add helper functions to access the IDRs by port-space and port number.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--TX1QbHjKQqkHSMUQDb8nJDLKNtPn5Il7B
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-Pass around the port-space enum in cma.c instead of using pointers to
-port-space IDRs.
+On 21/06/15 20:27, Sven Eckelmann wrote:
+> On Sunday 21 June 2015 09:37:13 David Miller wrote:
+>> From: Antonio Quartulli <antonio@meshcoding.com>
+>> Date: Tue, 16 Jun 2015 21:06:23 +0200
+>>
+>>> @@ -133,7 +133,7 @@ batadv_gw_get_best_gw_node(struct batadv_priv
+>>> *bat_priv)>=20
+>>>  	struct batadv_neigh_node *router;
+>>>  	struct batadv_neigh_ifinfo *router_ifinfo;
+>>>  	struct batadv_gw_node *gw_node, *curr_gw =3D NULL;
+>>>
+>>> -	uint32_t max_gw_factor =3D 0, tmp_gw_factor =3D 0;
+>>> +	uint64_t max_gw_factor =3D 0, tmp_gw_factor =3D 0;
+>>>
+>>>  	uint32_t gw_divisor;
+>>
+>> Divides are performed using these variables, so if you make
+>> them 64-bit the build will fail.  You have to use one of the
+>> routines in include/linux/math64.h in this situation, but
+>> realize that this operation is now going to be quite expensive.
+>=20
+> Just a minor comment: The division is currently "max_gw_factor >> 18" w=
+hich=20
+> the compiler also outputs as such (shrd + shr on i586). This is the rea=
+son why=20
+> it currently also works on architectures without a native 64 bit div.
 
-Signed-off-by: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
----
- drivers/infiniband/core/cma.c | 81 ++++++++++++++++++++++++++++++++-----------
- 1 file changed, 60 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index 21cc6c99008b..02914bf1e548 100644
---- a/drivers/infiniband/core/cma.c
-+++ b/drivers/infiniband/core/cma.c
-@@ -113,6 +113,22 @@ static DEFINE_IDR(udp_ps);
- static DEFINE_IDR(ipoib_ps);
- static DEFINE_IDR(ib_ps);
- 
-+static struct idr *cma_idr(enum rdma_port_space ps)
-+{
-+	switch (ps) {
-+	case RDMA_PS_TCP:
-+		return &tcp_ps;
-+	case RDMA_PS_UDP:
-+		return &udp_ps;
-+	case RDMA_PS_IPOIB:
-+		return &ipoib_ps;
-+	case RDMA_PS_IB:
-+		return &ib_ps;
-+	default:
-+		return NULL;
-+	}
-+}
-+
- struct cma_device {
- 	struct list_head	list;
- 	struct ib_device	*device;
-@@ -122,11 +138,33 @@ struct cma_device {
- };
- 
- struct rdma_bind_list {
--	struct idr		*ps;
-+	enum rdma_port_space	ps;
- 	struct hlist_head	owners;
- 	unsigned short		port;
- };
- 
-+static int cma_ps_alloc(enum rdma_port_space ps,
-+			struct rdma_bind_list *bind_list, int snum)
-+{
-+	struct idr *idr = cma_idr(ps);
-+
-+	return idr_alloc(idr, bind_list, snum, snum + 1, GFP_KERNEL);
-+}
-+
-+static struct rdma_bind_list *cma_ps_find(enum rdma_port_space ps, int snum)
-+{
-+	struct idr *idr = cma_idr(ps);
-+
-+	return idr_find(idr, snum);
-+}
-+
-+static void cma_ps_remove(enum rdma_port_space ps, int snum)
-+{
-+	struct idr *idr = cma_idr(ps);
-+
-+	idr_remove(idr, snum);
-+}
-+
- enum {
- 	CMA_OPTION_AFONLY,
- };
-@@ -1053,7 +1091,7 @@ static void cma_release_port(struct rdma_id_private *id_priv)
- 	mutex_lock(&lock);
- 	hlist_del(&id_priv->node);
- 	if (hlist_empty(&bind_list->owners)) {
--		idr_remove(bind_list->ps, bind_list->port);
-+		cma_ps_remove(bind_list->ps, bind_list->port);
- 		kfree(bind_list);
- 	}
- 	mutex_unlock(&lock);
-@@ -2349,8 +2387,8 @@ static void cma_bind_port(struct rdma_bind_list *bind_list,
- 	hlist_add_head(&id_priv->node, &bind_list->owners);
- }
- 
--static int cma_alloc_port(struct idr *ps, struct rdma_id_private *id_priv,
--			  unsigned short snum)
-+static int cma_alloc_port(enum rdma_port_space ps,
-+			  struct rdma_id_private *id_priv, unsigned short snum)
- {
- 	struct rdma_bind_list *bind_list;
- 	int ret;
-@@ -2359,7 +2397,7 @@ static int cma_alloc_port(struct idr *ps, struct rdma_id_private *id_priv,
- 	if (!bind_list)
- 		return -ENOMEM;
- 
--	ret = idr_alloc(ps, bind_list, snum, snum + 1, GFP_KERNEL);
-+	ret = cma_ps_alloc(ps, bind_list, snum);
- 	if (ret < 0)
- 		goto err;
- 
-@@ -2372,7 +2410,8 @@ err:
- 	return ret == -ENOSPC ? -EADDRNOTAVAIL : ret;
- }
- 
--static int cma_alloc_any_port(struct idr *ps, struct rdma_id_private *id_priv)
-+static int cma_alloc_any_port(enum rdma_port_space ps,
-+			      struct rdma_id_private *id_priv)
- {
- 	static unsigned int last_used_port;
- 	int low, high, remaining;
-@@ -2383,7 +2422,7 @@ static int cma_alloc_any_port(struct idr *ps, struct rdma_id_private *id_priv)
- 	rover = prandom_u32() % remaining + low;
- retry:
- 	if (last_used_port != rover &&
--	    !idr_find(ps, (unsigned short) rover)) {
-+	    !cma_ps_find(ps, (unsigned short)rover)) {
- 		int ret = cma_alloc_port(ps, id_priv, rover);
- 		/*
- 		 * Remember previously used port number in order to avoid
-@@ -2438,7 +2477,8 @@ static int cma_check_port(struct rdma_bind_list *bind_list,
- 	return 0;
- }
- 
--static int cma_use_port(struct idr *ps, struct rdma_id_private *id_priv)
-+static int cma_use_port(enum rdma_port_space ps,
-+			struct rdma_id_private *id_priv)
- {
- 	struct rdma_bind_list *bind_list;
- 	unsigned short snum;
-@@ -2448,7 +2488,7 @@ static int cma_use_port(struct idr *ps, struct rdma_id_private *id_priv)
- 	if (snum < PROT_SOCK && !capable(CAP_NET_BIND_SERVICE))
- 		return -EACCES;
- 
--	bind_list = idr_find(ps, snum);
-+	bind_list = cma_ps_find(ps, snum);
- 	if (!bind_list) {
- 		ret = cma_alloc_port(ps, id_priv, snum);
- 	} else {
-@@ -2471,25 +2511,24 @@ static int cma_bind_listen(struct rdma_id_private *id_priv)
- 	return ret;
- }
- 
--static struct idr *cma_select_inet_ps(struct rdma_id_private *id_priv)
-+static enum rdma_port_space cma_select_inet_ps(
-+		struct rdma_id_private *id_priv)
- {
- 	switch (id_priv->id.ps) {
- 	case RDMA_PS_TCP:
--		return &tcp_ps;
- 	case RDMA_PS_UDP:
--		return &udp_ps;
- 	case RDMA_PS_IPOIB:
--		return &ipoib_ps;
- 	case RDMA_PS_IB:
--		return &ib_ps;
-+		return id_priv->id.ps;
- 	default:
--		return NULL;
-+
-+		return 0;
- 	}
- }
- 
--static struct idr *cma_select_ib_ps(struct rdma_id_private *id_priv)
-+static enum rdma_port_space cma_select_ib_ps(struct rdma_id_private *id_priv)
- {
--	struct idr *ps = NULL;
-+	enum rdma_port_space ps = 0;
- 	struct sockaddr_ib *sib;
- 	u64 sid_ps, mask, sid;
- 
-@@ -2499,15 +2538,15 @@ static struct idr *cma_select_ib_ps(struct rdma_id_private *id_priv)
- 
- 	if ((id_priv->id.ps == RDMA_PS_IB) && (sid == (RDMA_IB_IP_PS_IB & mask))) {
- 		sid_ps = RDMA_IB_IP_PS_IB;
--		ps = &ib_ps;
-+		ps = RDMA_PS_IB;
- 	} else if (((id_priv->id.ps == RDMA_PS_IB) || (id_priv->id.ps == RDMA_PS_TCP)) &&
- 		   (sid == (RDMA_IB_IP_PS_TCP & mask))) {
- 		sid_ps = RDMA_IB_IP_PS_TCP;
--		ps = &tcp_ps;
-+		ps = RDMA_PS_TCP;
- 	} else if (((id_priv->id.ps == RDMA_PS_IB) || (id_priv->id.ps == RDMA_PS_UDP)) &&
- 		   (sid == (RDMA_IB_IP_PS_UDP & mask))) {
- 		sid_ps = RDMA_IB_IP_PS_UDP;
--		ps = &udp_ps;
-+		ps = RDMA_PS_UDP;
- 	}
- 
- 	if (ps) {
-@@ -2520,7 +2559,7 @@ static struct idr *cma_select_ib_ps(struct rdma_id_private *id_priv)
- 
- static int cma_get_port(struct rdma_id_private *id_priv)
- {
--	struct idr *ps;
-+	enum rdma_port_space ps;
- 	int ret;
- 
- 	if (cma_family(id_priv) != AF_IB)
--- 
-1.7.11.2
+Thanks for the comment David and Sven.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+
+David you can drop this pull request.
+I'll send a new one later with a modified patch that explicitly
+introduces the shift.
+
+
+
+Thanks!
+
+--=20
+Antonio Quartulli
+
+
+--TX1QbHjKQqkHSMUQDb8nJDLKNtPn5Il7B
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJViAU8AAoJEOb/4TMchkvfk5QQAJqhTf9FPJQEe899Ru1uhxlF
+EhkJYGx/0N1iKkwfwaCkuYUEFGo0PrILoUgONZudso9atckueMnoq4IWt/+txU9A
+nVYm14DhwMrjuLT2SwUcY4U+zNJDYqY9zJuNHSeBGjMbERXq6o3RhMqIi87YMQMS
+qDhrHcf+Gjru8/D73drjMkd8soUlaL/YE2POUB+WKBP8yeKzqavd2xlipCVSA0C+
+Yq5mZAut1mM6eIaUhOeuvErNR5wV5m1dCvRj9cabbynQbgorujmEsf92iCwqz/kT
+MtN4P0fPZTrKWkxKAqPh/gntf2x51bdUOo75yM2gxVmiOqAyuix1Ky7zfuL18qYZ
+fj3gAcQRlIX16OneR6jlRA6RXM+4eKTiYxeAjoNb0G7lQvHYnhrDdZ5sUqEyQGiq
+L3RDAbhAgJIlOqj1RbzB/l4i+JyugWE8/0TEiCEjVJXLqMhKv7yiZUL+wWucQ6eU
+a1wlLA03SC3xx06Xn8omcOcQ3FpCwOqXqL8SehhEtWaUhm6CRPO1wes2mdT2dbqg
+Ys8Fa6PUti+YYuN15yUG0fdx+35EzTLUFd9SzK9vCZnuYbEHXrHVDC8OFy3vXk83
+HtLkXJ7k6HW+goRFamoN/7ZgyrcF2iaSkoInfC7I6SYh+rx/PS51vxeTvtYB5h/o
+zi4eQEclU+BkfFzsXriH
+=tjLa
+-----END PGP SIGNATURE-----
+
+--TX1QbHjKQqkHSMUQDb8nJDLKNtPn5Il7B--
