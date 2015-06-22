@@ -1,51 +1,58 @@
-From: Manfred Schlaegl <manfred.schlaegl@gmx.at>
-Subject: Re: [PATCH - regression 4.1-rc8] can: fix loss of CAN frames in raw_rcv
-Date: Mon, 22 Jun 2015 12:10:14 +0200
-Message-ID: <5587DF06.3010509@gmx.at>
-References: <1434905444-11438-1-git-send-email-socketcan@hartkopp.net>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] can: fix loss of frames due to wrong assumption in raw_rcv
+Date: Mon, 22 Jun 2015 12:24:42 +0200
+Message-ID: <5587E26A.1070000@hartkopp.net>
+References: <5585A104.1090201@gmx.at> <5585EC4D.40103@hartkopp.net> <5587D9DA.6000102@gmx.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-To: Oliver Hartkopp <socketcan@hartkopp.net>, netdev@vger.kernel.org,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	mkl@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.15]:59393 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753925AbbFVKKZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Jun 2015 06:10:25 -0400
-In-Reply-To: <1434905444-11438-1-git-send-email-socketcan@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Manfred Schlaegl <manfred.schlaegl@ginzinger.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Manfred Schlaegl <manfred.schlaegl@gmx.at>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <5587D9DA.6000102@gmx.at>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello!
+Hello Manfred,
 
-On 2015-06-21 18:50, Oliver Hartkopp wrote:
-> As reported by Manfred Schlaegl here
-> 
->    http://marc.info/?l=linux-netdev&m=143482089824232&w=2
-> 
-> commit 514ac99c64b "can: fix multiple delivery of a single CAN frame for
-> overlapping CAN filters" requires the skb->tstamp to be set to check for
-> identical CAN skbs.
-> 
-> As net timestamping is influenced by several players (netstamp_needed and
-> netdev_tstamp_prequeue) Manfred missed a proper timestamp which leads to
-> CAN frame loss.
-> 
-> As skb timestamping became now mandatory for CAN related skbs this patch
-> makes sure that received CAN skbs always have a proper timestamp set.
-> Maybe there's a better solution in the future but this patch fixes the
-> CAN frame loss so far.
-> 
+On 22.06.2015 11:48, Manfred Schlaegl wrote:
 
-I'm not sure, but maybe this patch (and also my original one) opens a new potential issue with timestamps.
+>> Can you tell me the output of /proc/sys/net/core/netdev_tstamp_prequeue on
+>> your machine?
+>
+> /proc/sys/net/core/netdev_tstamp_prequeue is set to 1 (unmodified, default)
+>
+> I tried to dig a little deeper in timestamping:
+>   1. (net/core/dev.c) I found that static_key_false(&netstamp_needed) is always 0, resulting that the timestamp is never set by net_timestamp_check in netif_receive_skb_internal.
+>   2. (net/core/dev.c) static_key_false(&netstamp_needed) is 0 because net_enable_timestamp is never called.
+>   3. (net/core/sock.c) net_enable_timestamp is never called because SK_FLAGS_TIMESTAMP is not set
+>   4. (net/core/sock.c) SK_FLAGS_TIMESTAMP is not set because neither of SOCK_TIMESTAMP or SOCK_TIMESTAMPING_RX_SOFTWARE is set
+>   5. (net/core/sock.c) SOCK_TIMESTAMP or SOCK_TIMESTAMPING_RX_SOFTWARE is not set because timestamping is an optional feature (according to http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/timestamping.txt?id=b953c0d234bc72e8489d3bf51a276c5c4ec85345) not enabled in my use case (even if netdev_tstamp_prequeue is set to 1)
+>
+> So the original assumption for the was correct: The correctness of the skb equality check depends on a feature that is not enabled by default (respectively user configurable).
+> Do you agree with this?
 
-If the timestamp is set at allocation time, this cancels setting the timestamp at delivery (by net_timestamp_check in, for example, netif_receive_skb_internal.) -> So it changes the behavior of timestamping (http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/timestamping.txt?id=b953c0d234bc72e8489d3bf51a276c5c4ec85345) generally.
+Yes.
 
-Hypothetical example: If timestamping is enabled by the user and there is a significant delay between allocation and delivery of a skb (early allocation in driver or something) the timestamp does not reflect the reception time anymore.
+But the point becomes an issue when there's no userspace application that 
+requires timestamps.
 
-What do you thing about this?
+I did my testing wile having at least one "candump" instances running, which 
+enables timestamping. So when there's no one requesting timestamps the check 
+in can_rcv does not perform properly.
 
-best regards,
-Manfred
+Therefor my patch grabs your idea to set the timestamps for CAN skbs 
+unconditionally. But there were some more places in the code where we need to 
+take care about that.
+
+Regards,
+Oliver
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-can" in
