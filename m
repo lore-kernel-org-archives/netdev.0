@@ -1,67 +1,37 @@
-From: Manfred Schlaegl <manfred.schlaegl@gmx.at>
-Subject: Re: [PATCH - regression 4.1-rc8] can: fix loss of CAN frames in raw_rcv
-Date: Mon, 22 Jun 2015 13:49:27 +0200
-Message-ID: <5587F647.4000105@gmx.at>
-References: <1434905444-11438-1-git-send-email-socketcan@hartkopp.net> <5587DF06.3010509@gmx.at> <5587E4BC.3080608@hartkopp.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 03/12] netfilter: x_tables: align per cpu xt_counter
+Date: Mon, 22 Jun 2015 11:49:02 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB54634@AcuExch.aculab.com>
+References: <1434734269-4545-1-git-send-email-pablo@netfilter.org>
+ <1434734269-4545-4-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-To: Oliver Hartkopp <socketcan@hartkopp.net>, netdev@vger.kernel.org,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	mkl@pengutronix.de
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Pablo Neira Ayuso' <pablo@netfilter.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.19]:56775 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932979AbbFVLtc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Jun 2015 07:49:32 -0400
-In-Reply-To: <5587E4BC.3080608@hartkopp.net>
+Received: from smtp-out6.electric.net ([192.162.217.187]:51880 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754750AbbFVLvX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2015 07:51:23 -0400
+In-Reply-To: <1434734269-4545-4-git-send-email-pablo@netfilter.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Oliver,
+From: Pablo Neira Ayuso
+> Sent: 19 June 2015 18:18
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Let's force a 16 bytes alignment on xt_counter percpu allocations,
+> so that bytes and packets sit in same cache line.
+> 
+> xt_counter being exported to user space, we cannot add __align(16) on
+> the structure itself.
 
-On 2015-06-22 12:34, Oliver Hartkopp wrote:
-> Hello Manfred,
-> 
-> On 22.06.2015 12:10, Manfred Schlaegl wrote:
->> On 2015-06-21 18:50, Oliver Hartkopp wrote:
->>> As reported by Manfred Schlaegl here
->>>
->>>     http://marc.info/?l=linux-netdev&m=143482089824232&w=2
->>>
->>> commit 514ac99c64b "can: fix multiple delivery of a single CAN frame for
->>> overlapping CAN filters" requires the skb->tstamp to be set to check for
->>> identical CAN skbs.
->>>
->>> As net timestamping is influenced by several players (netstamp_needed and
->>> netdev_tstamp_prequeue) Manfred missed a proper timestamp which leads to
->>> CAN frame loss.
->>>
->>> As skb timestamping became now mandatory for CAN related skbs this patch
->>> makes sure that received CAN skbs always have a proper timestamp set.
->>> Maybe there's a better solution in the future but this patch fixes the
->>> CAN frame loss so far.
->>>
->>
->> I'm not sure, but maybe this patch (and also my original one) opens a new potential issue with timestamps.
->>
->> If the timestamp is set at allocation time, this cancels setting the timestamp at delivery (by net_timestamp_check in, for example, netif_receive_skb_internal.) -> So it changes the behavior of timestamping (http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/timestamping.txt?id=b953c0d234bc72e8489d3bf51a276c5c4ec85345) generally.
-> 
-> The only change is that the timestamps for CAN skbs are generated always.
-> The idea behind the timestamping by user control is to omit the timestamping when it's not needed. There's no user visible change in behaviour when the timestamp is set in the CAN skbs all time.
-> 
->> Hypothetical example: If timestamping is enabled by the user and there is a significant delay between allocation and delivery of a skb (early allocation in driver or something) the timestamp does not reflect the reception time anymore.
-> 
-> The change only affects CAN skbs.
-> These skbs are allocated at CAN frame reception time, filled with content and then sent to the network layer.
-> 
-> AFAICS the timestamp becomes more precise for CAN related skbs.
-> I did not see any case of 'early allocation' in linux/drivers/net/can, did you?
+You could allocate a wrapper structure that contains xt_counter
+and is itself marked __align(16).
 
-No, I also did not find this case in current driver implementations -- because of that I gave the hypothetical example.
-I just was worried about that this may be a potential latent issue for future driver implementations and wanted to indicate this.
-
-But I trust your expertise, so if you are fine with it, I'm too. ;-)
-
-Best regards,
-Manfred
+	David
