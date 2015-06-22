@@ -1,141 +1,84 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH] lib: test_bpf: purge CPP register redefinitions
-Date: Mon, 22 Jun 2015 09:10:51 +0200
-Message-ID: <5587B4FB.3040609@nod.at>
-References: <87twu0df3k.fsf@gmail.com> <20150622060523.GA16156@Alexeis-MacBook-Pro.local> <5587B0C7.8090507@nod.at>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070900040409070207060008"
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, daniel@iogearbox.net
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Nicolai Stange <nicstange@gmail.com>
+From: Maninder Singh <maninder1.s@samsung.com>
+Subject: [RFC PATCH v2] packet: remove handling of tx_ring
+Date: Mon, 22 Jun 2015 12:39:16 +0530
+Message-ID: <1434956956-34121-1-git-send-email-maninder1.s@samsung.com>
+Cc: pankaj.m@samsung.com, Maninder Singh <maninder1.s@samsung.com>
+To: davem@davemloft.net, willemb@google.com, dborkman@redhat.com,
+	al.drozdov@gmail.com, viro@zeniv.linux.org.uk,
+	eyal.birger@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fransklaver@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.ns.miles-group.at ([95.130.255.143]:65276 "EHLO radon.swed.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753790AbbFVHK4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Jun 2015 03:10:56 -0400
-In-Reply-To: <5587B0C7.8090507@nod.at>
+Received: from mailout2.samsung.com ([203.254.224.25]:50189 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932934AbbFVHLD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2015 03:11:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------070900040409070207060008
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
+Remove handling of tx_ring in prb_setup_retire_blk_timer
+for TPACKET_V3 because init_prb_bdqc is called only for zero tx_ring 
+and thus prb_setup_retire_blk_timer for zero tx_ring only.
 
-Am 22.06.2015 um 08:52 schrieb Richard Weinberger:
-> Am 22.06.2015 um 08:05 schrieb Alexei Starovoitov:
->> to get rid of warning you proposing to do 1k line renames?!
->> Just add:
->> +#undef R8
->> +#undef R9
->> +#undef R10
->>  #define R0             BPF_REG_0
-> 
-> This would be also just another hack.
-> 
->> Though I think the better fix woud be to clean up:
->> arch/x86/include/uapi/asm/ptrace-abi.h
->> What's the point of:
->> #define R8 72
->> from 'uapi' point of view?
-> 
-> To query cpu registers using ptrace(2).
-> 
->> Look like kernel details that shouldn't be exposed in uapi.
-> 
-> These are not kernel details.
-> 
-> Actually the problem is the other way around.
-> UML is Linux ported to it's own userspace ABI.
-> Hence, the arch/um and arch/x86/um use uapi header files.
-> 
-> Maybe we can rework UML's header files such that
-> no uapi header pollutes the kernel namespace.
+And also in functon init_prb_bdqc there is no usage of tx_ring.
+Thus removing tx_ring from init_prb_bdqc.
 
-While riding the bus to my office I've materialized that idea.
-Nicolai, can you please give the attached patch a try?
+Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
+Suggested-by: Frans Klaver <fransklaver@gmail.com>
+---
+v1: replace if()/BUG with BUG_ON() for tx_ring
+v2: remove BUG() by removing tx_ring handling
 
-Thanks,
-//richard
+ net/packet/af_packet.c |   14 +++++---------
+ 1 file changed, 5 insertions(+), 9 deletions(-)
 
---------------070900040409070207060008
-Content-Type: text/x-patch;
- name="ptrace_abi.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="ptrace_abi.diff"
-
-diff --git a/arch/um/include/asm/ptrace-generic.h b/arch/um/include/asm/ptrace-generic.h
-index cb9b3c4..7485162 100644
---- a/arch/um/include/asm/ptrace-generic.h
-+++ b/arch/um/include/asm/ptrace-generic.h
-@@ -8,7 +8,6 @@
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index fd51641..aeafcf0 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -543,15 +543,11 @@ static void prb_init_blk_timer(struct packet_sock *po,
+ 	pkc->retire_blk_timer.expires = jiffies;
+ }
  
- #ifndef __ASSEMBLY__
- 
--#include <asm/ptrace-abi.h>
- #include <sysdep/ptrace.h>
- 
- struct pt_regs {
-diff --git a/arch/um/kernel/ptrace.c b/arch/um/kernel/ptrace.c
-index 174ee50..7a0b2d9 100644
---- a/arch/um/kernel/ptrace.c
-+++ b/arch/um/kernel/ptrace.c
-@@ -8,6 +8,7 @@
- #include <linux/sched.h>
- #include <linux/tracehook.h>
- #include <asm/uaccess.h>
-+#include <asm/ptrace-abi.h>
- 
- void user_enable_single_step(struct task_struct *child)
+-static void prb_setup_retire_blk_timer(struct packet_sock *po, int tx_ring)
++static void prb_setup_retire_blk_timer(struct packet_sock *po)
  {
-diff --git a/arch/x86/um/ptrace_32.c b/arch/x86/um/ptrace_32.c
-index ce3dd4f..a29756f 100644
---- a/arch/x86/um/ptrace_32.c
-+++ b/arch/x86/um/ptrace_32.c
-@@ -6,6 +6,7 @@
- #include <linux/mm.h>
- #include <linux/sched.h>
- #include <asm/uaccess.h>
-+#include <asm/ptrace-abi.h>
- #include <skas.h>
+ 	struct tpacket_kbdq_core *pkc;
  
- extern int arch_switch_tls(struct task_struct *to);
-diff --git a/arch/x86/um/ptrace_64.c b/arch/x86/um/ptrace_64.c
-index 3b52bf0..a629694 100644
---- a/arch/x86/um/ptrace_64.c
-+++ b/arch/x86/um/ptrace_64.c
-@@ -11,6 +11,7 @@
- #define __FRAME_OFFSETS
- #include <asm/ptrace.h>
- #include <asm/uaccess.h>
-+#include <asm/ptrace-abi.h>
+-	if (tx_ring)
+-		BUG();
+-
+-	pkc = tx_ring ? GET_PBDQC_FROM_RB(&po->tx_ring) :
+-			GET_PBDQC_FROM_RB(&po->rx_ring);
++	pkc = GET_PBDQC_FROM_RB(&po->rx_ring);
+ 	prb_init_blk_timer(po, pkc, prb_retire_rx_blk_timer_expired);
+ }
  
- /*
-  * determines which flags the user has access to.
-diff --git a/arch/x86/um/tls_32.c b/arch/x86/um/tls_32.c
-index 80ffa5b..48e3858 100644
---- a/arch/x86/um/tls_32.c
-+++ b/arch/x86/um/tls_32.c
-@@ -7,6 +7,7 @@
- #include <linux/sched.h>
- #include <linux/syscalls.h>
- #include <asm/uaccess.h>
-+#include <asm/ptrace-abi.h>
- #include <os.h>
- #include <skas.h>
- #include <sysdep/tls.h>
-diff --git a/arch/x86/um/tls_64.c b/arch/x86/um/tls_64.c
-index d22363c..3ad7143 100644
---- a/arch/x86/um/tls_64.c
-+++ b/arch/x86/um/tls_64.c
-@@ -1,4 +1,5 @@
- #include <linux/sched.h>
-+#include <asm/ptrace-abi.h>
- 
- void clear_flushed_tls(struct task_struct *task)
+@@ -607,7 +603,7 @@ static void prb_init_ft_ops(struct tpacket_kbdq_core *p1,
+ static void init_prb_bdqc(struct packet_sock *po,
+ 			struct packet_ring_buffer *rb,
+ 			struct pgv *pg_vec,
+-			union tpacket_req_u *req_u, int tx_ring)
++			union tpacket_req_u *req_u)
  {
-
---------------070900040409070207060008--
+ 	struct tpacket_kbdq_core *p1 = GET_PBDQC_FROM_RB(rb);
+ 	struct tpacket_block_desc *pbd;
+@@ -634,7 +630,7 @@ static void init_prb_bdqc(struct packet_sock *po,
+ 
+ 	p1->max_frame_len = p1->kblk_size - BLK_PLUS_PRIV(p1->blk_sizeof_priv);
+ 	prb_init_ft_ops(p1, req_u);
+-	prb_setup_retire_blk_timer(po, tx_ring);
++	prb_setup_retire_blk_timer(po);
+ 	prb_open_block(p1, pbd);
+ }
+ 
+@@ -4001,7 +3997,7 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
+ 		 * it above but just being paranoid
+ 		 */
+ 			if (!tx_ring)
+-				init_prb_bdqc(po, rb, pg_vec, req_u, tx_ring);
++				init_prb_bdqc(po, rb, pg_vec, req_u);
+ 			break;
+ 		default:
+ 			break;
+-- 
+1.7.9.5
