@@ -1,104 +1,59 @@
-From: Frans Klaver <fransklaver@gmail.com>
-Subject: Re: [RFC PATCH v2] packet: remove handling of tx_ring
-Date: Mon, 22 Jun 2015 08:33:11 +0200
-Message-ID: <CAH6sp9OXmn9XUuorQhUeorOwnJj8mGdu-bZiD0NBuq=BsyCXtA@mail.gmail.com>
-References: <1434952497-15216-1-git-send-email-maninder1.s@samsung.com>
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: Re: [PATCH] stmmac: explicitly zero des0 & des1 on init
+Date: Mon, 22 Jun 2015 06:43:15 +0000
+Message-ID: <1434955394.4269.6.camel@synopsys.com>
+References: <1434476441-18241-1-git-send-email-abrodkin@synopsys.com>
+	 <20150621.092948.394430183523491972.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: davem@davemloft.net, Willem de Bruijn <willemb@google.com>,
-	dborkman@redhat.com, Alexander Drozdov <al.drozdov@gmail.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Eyal Birger <eyal.birger@gmail.com>, mst@redhat.com,
-	netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="utf-7"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	pankaj.m@samsung.com
-To: Maninder Singh <maninder1.s@samsung.com>
+	"arc-linux-dev@synopsys.com" <arc-linux-dev@synopsys.com>,
+	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>
+To: "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1434952497-15216-1-git-send-email-maninder1.s@samsung.com>
+In-Reply-To: <20150621.092948.394430183523491972.davem@davemloft.net>
+Content-Language: en-US
+Content-ID: <823C88D46E9C524E8CAAE30336E09FF9@internal.synopsys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 22, 2015 at 7:54 AM, Maninder Singh <maninder1.s@samsung.com> wrote:
-> v1 = replace if()/BUG with BUG_ON() for tx_ring.
->
-> v2 =
+Hi David,
 
-I would keep this below the ---. There's little historical use for
-this version information when it gets merged.
+On Sun, 2015-06-21 at 09:29 -0700, David Miller wrote:
++AD4- From: Alexey Brodkin +ADw-Alexey.Brodkin+AEA-synopsys.com+AD4-
++AD4- Date: Tue, 16 Jun 2015 20:40:41 +-0300
++AD4- 
++AD4- +AD4- Current implementtion of descriptor init procedure only takes care 
++AD4- +AD4- about
++AD4- +AD4- ownership flag. While it is perfectly possible to have underlying 
++AD4- +AD4- memory
++AD4- +AD4- filled with garbage on boot or driver installation.
++AD4- +AD4- 
++AD4- +AD4- And randomly set flags in non-zeroed des0 and des1 fields may lead 
++AD4- +AD4- to
++AD4- +AD4- unpredictable behavior of the GMAC DMA block.
++AD4- +AD4- 
++AD4- +AD4- Solution to this problem is as simple as explicit zeroing of both 
++AD4- +AD4- des0
++AD4- +AD4- and des1 fields of all buffer descriptors.
++AD4- +AD4- 
++AD4- +AD4- Signed-off-by: Alexey Brodkin +ADw-abrodkin+AEA-synopsys.com+AD4-
++AD4- 
++AD4- If you need the memory zero initialized, use dma+AF8-zalloc+AF8-coherent().
 
-> remove handling of tx_ring in prb_setup_retire_blk_timer
-> for TPACKET_V3 because init_prb_bdqc is called only for NULL tx_ring
-> and thus prb_setup_retire_blk_timer for NULL tx_ring only.
+Indeed usage of dma+AF8-zalloc+AF8-coherent() will resolve observed issue.
+But since buffer descriptors are reused extensively I would say that
+explicit zeroing of fields with flags is useful. Probably I need to add
+this clarification in commit message.
 
-I'd say tx_ring is false, rather than NULL. It's not a pointer (here).
+And then if we do that explicit zeroing of flags and other fields which
+hold data size and addresses of data buffer and the next descriptor in
+chain are all get set later we may not care about allocation of zeroed
+memory.
 
-
-> And also in funciton init_prb_bdqc there is no usage of tx_ring.
-
-s,funciton,function,
-
-
-> Thus removing tx_ring from init_prb_bdqc.
->
-> Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
-> Suggested-by: Frans Klaver <fransklaver@gmail.com>
-> ---
->  net/packet/af_packet.c |   14 +++++---------
->  1 file changed, 5 insertions(+), 9 deletions(-)
->
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index fd51641..aeafcf0 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -543,15 +543,11 @@ static void prb_init_blk_timer(struct packet_sock *po,
->         pkc->retire_blk_timer.expires = jiffies;
->  }
->
-> -static void prb_setup_retire_blk_timer(struct packet_sock *po, int tx_ring)
-> +static void prb_setup_retire_blk_timer(struct packet_sock *po)
->  {
->         struct tpacket_kbdq_core *pkc;
->
-> -       if (tx_ring)
-> -               BUG();
-> -
-> -       pkc = tx_ring ? GET_PBDQC_FROM_RB(&po->tx_ring) :
-> -                       GET_PBDQC_FROM_RB(&po->rx_ring);
-> +       pkc = GET_PBDQC_FROM_RB(&po->rx_ring);
->         prb_init_blk_timer(po, pkc, prb_retire_rx_blk_timer_expired);
->  }
->
-> @@ -607,7 +603,7 @@ static void prb_init_ft_ops(struct tpacket_kbdq_core *p1,
->  static void init_prb_bdqc(struct packet_sock *po,
->                         struct packet_ring_buffer *rb,
->                         struct pgv *pg_vec,
-> -                       union tpacket_req_u *req_u, int tx_ring)
-> +                       union tpacket_req_u *req_u)
->  {
->         struct tpacket_kbdq_core *p1 = GET_PBDQC_FROM_RB(rb);
->         struct tpacket_block_desc *pbd;
-> @@ -634,7 +630,7 @@ static void init_prb_bdqc(struct packet_sock *po,
->
->         p1->max_frame_len = p1->kblk_size - BLK_PLUS_PRIV(p1->blk_sizeof_priv);
->         prb_init_ft_ops(p1, req_u);
-> -       prb_setup_retire_blk_timer(po, tx_ring);
-> +       prb_setup_retire_blk_timer(po);
->         prb_open_block(p1, pbd);
->  }
->
-> @@ -4001,7 +3997,7 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
->                  * it above but just being paranoid
->                  */
->                         if (!tx_ring)
-> -                               init_prb_bdqc(po, rb, pg_vec, req_u, tx_ring);
-> +                               init_prb_bdqc(po, rb, pg_vec, req_u);
->                         break;
->                 default:
->                         break;
-> --
-> 1.7.9.5
-
-Looks like what I made myself yesterday evening.
-
-Thanks,
-Frans
+-Alexey--
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+Please read the FAQ at  http://www.tux.org/lkml/
