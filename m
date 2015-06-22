@@ -1,11 +1,10 @@
-From: Maninder Singh <maninder1.s@samsung.com>
+From: Frans Klaver <fransklaver@gmail.com>
 Subject: Re: [RFC PATCH v2] packet: remove handling of tx_ring
-Date: Mon, 22 Jun 2015 06:53:06 +0000 (GMT)
-Message-ID: <1504484104.41691434955982414.JavaMail.weblogic@ep2mlwas07a>
-Reply-To: maninder1.s@samsung.com
+Date: Mon, 22 Jun 2015 09:00:50 +0200
+Message-ID: <CAH6sp9P2UejTaX=3aw4boKwtxMuypWxM2W0k=9xP7q=YArrmbg@mail.gmail.com>
+References: <1504484104.41691434955982414.JavaMail.weblogic@ep2mlwas07a>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=UTF-8
 Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	Willem de Bruijn <willemb@google.com>,
 	"dborkman@redhat.com" <dborkman@redhat.com>,
@@ -15,42 +14,84 @@ Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	"mst@redhat.com" <mst@redhat.com>, netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	PANKAJ MISHRA <pankaj.m@samsung.com>
-To: Frans Klaver <fransklaver@gmail.com>
+To: Maninder Singh <maninder1.s@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.samsung.com ([203.254.224.25]:39977 "EHLO
-	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754258AbbFVGxJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2015 02:53:09 -0400
-Received: from epcpsbgr2.samsung.com
- (u142.gpu120.samsung.co.kr [203.254.230.142])
- by mailout2.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
- 64bit (built May  5 2014))
- with ESMTP id <0NQC02WLZ34I7P50@mailout2.samsung.com> for
- netdev@vger.kernel.org; Mon, 22 Jun 2015 15:53:06 +0900 (KST)
-MIME-version: 1.0
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:35496 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751787AbbFVHAw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2015 03:00:52 -0400
+In-Reply-To: <1504484104.41691434955982414.JavaMail.weblogic@ep2mlwas07a>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgRnJhbnMsDQoNCj4+IHYxID0gcmVwbGFjZSBpZigpL0JVRyB3aXRoIEJVR19PTigpIGZvciB0
-eF9yaW5nLg0KPj4NCj4+IHYyID0NCj4NCj5JIHdvdWxkIGtlZXAgdGhpcyBiZWxvdyB0aGUgLS0t
-LiBUaGVyZSdzIGxpdHRsZSBoaXN0b3JpY2FsIHVzZSBmb3INCj50aGlzIHZlcnNpb24gaW5mb3Jt
-YXRpb24gd2hlbiBpdCBnZXRzIG1lcmdlZC4NCj4NCj4+IHJlbW92ZSBoYW5kbGluZyBvZiB0eF9y
-aW5nIGluIHByYl9zZXR1cF9yZXRpcmVfYmxrX3RpbWVyDQo+PiBmb3IgVFBBQ0tFVF9WMyBiZWNh
-dXNlIGluaXRfcHJiX2JkcWMgaXMgY2FsbGVkIG9ubHkgZm9yIE5VTEwgdHhfcmluZw0KPj4gYW5k
-IHRodXMgcHJiX3NldHVwX3JldGlyZV9ibGtfdGltZXIgZm9yIE5VTEwgdHhfcmluZyBvbmx5Lg0K
-Pg0KPkknZCBzYXkgdHhfcmluZyBpcyBmYWxzZSwgcmF0aGVyIHRoYW4gTlVMTC4gSXQncyBub3Qg
-YSBwb2ludGVyIChoZXJlKS4NCj4NCj4NCj4+IEFuZCBhbHNvIGluIGZ1bmNpdG9uIGluaXRfcHJi
-X2JkcWMgdGhlcmUgaXMgbm8gdXNhZ2Ugb2YgdHhfcmluZy4NCj4NCj5zLGZ1bmNpdG9uLGZ1bmN0
-aW9uLA0KDQpUaGFua3MgZm9yIGZlZWRiYWNrICwgcGxlYXNlIGNoZWNrIGJlbG93IGNoYW5nZWxv
-ZyBpZiBpdCBsb29rcyBvaywNClRoZW4gaSB3aWxsIHNoYXJlIHVwZGF0ZWQgcGF0Y2g6LQ0KDQp2
-MSA9IHJlcGxhY2UgaWYoKS9CVUcgd2l0aCBCVUdfT04oKSBmb3IgdHhfcmluZy4NCg0KU2lnbmVk
-LW9mZi1ieTogTWFuaW5kZXIgU2luZ2ggPG1hbmluZGVyMS5zQHNhbXN1bmcuY29tPg0KU2lnbmVk
-LW9mZi1ieTogRnJhbnMgS2xhdmVyIDxmcmFuc2tsYXZlckBnbWFpbC5jb20+DQotLS0NCkNoYW5n
-ZXMgaW4gdjI6DQoNCiBSZW1vdmUgaGFuZGxpbmcgb2YgdHhfcmluZyBpbiBwcmJfc2V0dXBfcmV0
-aXJlX2Jsa190aW1lcg0KIGZvciBUUEFDS0VUX1YzIGJlY2F1c2UgaW5pdF9wcmJfYmRxYyBpcyBj
-YWxsZWQgb25seSBmb3IgemVybyB0eF9yaW5nIA0KIGFuZCB0aHVzIHByYl9zZXR1cF9yZXRpcmVf
-YmxrX3RpbWVyIGZvciB6ZXJvIHR4X3Jpbmcgb25seS4NCg0KIEFuZCBhbHNvIGluIGZ1bmN0b24g
-aW5pdF9wcmJfYmRxYyB0aGVyZSBpcyBubyB1c2FnZSBvZiB0eF9yaW5nLg0KIFRodXMgcmVtb3Zp
-bmcgdHhfcmluZyBmcm9tIGluaXRfcHJiX2JkcWMuDQoNCiBuZXQvcGFja2V0L2FmX3BhY2tldC5j
-IHwgICAxNCArKysrKy0tLS0tLS0tLQ0KIDEgZmlsZSBjaGFuZ2VkLCA1IGluc2VydGlvbnMoKyks
-IDkgZGVsZXRpb25zKC0pDQogDQogVGhhbmtzDQogTWFuaW5kZXI=
+Hi,
+
+On Mon, Jun 22, 2015 at 8:53 AM, Maninder Singh <maninder1.s@samsung.com> wrote:
+> Hi Frans,
+>
+>>> v1 = replace if()/BUG with BUG_ON() for tx_ring.
+>>>
+>>> v2 =
+>>
+>>I would keep this below the ---. There's little historical use for
+>>this version information when it gets merged.
+>>
+>>> remove handling of tx_ring in prb_setup_retire_blk_timer
+>>> for TPACKET_V3 because init_prb_bdqc is called only for NULL tx_ring
+>>> and thus prb_setup_retire_blk_timer for NULL tx_ring only.
+>>
+>>I'd say tx_ring is false, rather than NULL. It's not a pointer (here).
+>>
+>>
+>>> And also in funciton init_prb_bdqc there is no usage of tx_ring.
+>>
+>>s,funciton,function,
+>
+> Thanks for feedback , please check below changelog if it looks ok,
+> Then i will share updated patch:-
+>
+> v1 = replace if()/BUG with BUG_ON() for tx_ring.
+>
+> Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
+> Signed-off-by: Frans Klaver <fransklaver@gmail.com>
+
+No, the Suggested-by: was better for me. You can't go about and add
+Signed-off-by lines for someone else without permission ;-).
+
+> ---
+> Changes in v2:
+>
+>  Remove handling of tx_ring in prb_setup_retire_blk_timer
+>  for TPACKET_V3 because init_prb_bdqc is called only for zero tx_ring
+>  and thus prb_setup_retire_blk_timer for zero tx_ring only.
+>
+>  And also in functon init_prb_bdqc there is no usage of tx_ring.
+>  Thus removing tx_ring from init_prb_bdqc.
+>
+>  net/packet/af_packet.c |   14 +++++---------
+>  1 file changed, 5 insertions(+), 9 deletions(-)
+>
+>  Thanks
+>  Maninder
+
+No, I didn't make myself clear enough, I'm afraid. The info about the
+different incarnations of your patch should go below the dashes. The
+whole "Remove handling ...." text should be your commit message,
+because that is what you want to see in the commit log. Here's an
+example:
+
+Subject: [RFC PATCH v2] packet: remove handling of tx_ring
+
+Remove handling of tx_ring in prb_setup_retire_blk_timer for
+TPACKET_V3 because init_prb_bdqc is called only for zero tx_ring and
+thus prb_setup_retire_blk_timer for zero tx_ring only.
+
+And also in functon init_prb_bdqc there is no usage of tx_ring. Thus
+removing tx_ring from init_prb_bdqc.
+
+Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
+Suggested-by: Frans Klaver <fransklaver@gmail.com>
+---
+v1..v2: remove BUG() by removing tx_path
+
+diffstat & patch
