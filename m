@@ -1,70 +1,46 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net] netfilter: nf_queue: Don't recompute the hook_list head
-Date: Mon, 22 Jun 2015 09:56:37 -0500
-Message-ID: <87fv5j7pwa.fsf@x220.int.ebiederm.org>
-References: <87381ne3rq.fsf@x220.int.ebiederm.org>
-	<20150620105839.GB3439@salvia> <877fqya2wb.fsf@x220.int.ebiederm.org>
-	<20150620185353.GA3567@salvia>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH - regression 4.1-rc8] can: fix loss of CAN frames in raw_rcv
+Date: Mon, 22 Jun 2015 17:09:29 +0200
+Message-ID: <55882529.7030605@hartkopp.net>
+References: <1434905444-11438-1-git-send-email-socketcan@hartkopp.net> <5587DF06.3010509@gmx.at> <5587E4BC.3080608@hartkopp.net> <5587F647.4000105@gmx.at>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20150620185353.GA3567@salvia> (Pablo Neira Ayuso's message of
-	"Sat, 20 Jun 2015 20:53:53 +0200")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Manfred Schlaegl <manfred.schlaegl@gmx.at>, netdev@vger.kernel.org,
+	davem@davemloft.net, linux-kernel@vger.kernel.org,
+	mkl@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.220]:52534 "EHLO
+	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751183AbbFVPJp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2015 11:09:45 -0400
+In-Reply-To: <5587F647.4000105@gmx.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pablo Neira Ayuso <pablo@netfilter.org> writes:
-
-> On Sat, Jun 20, 2015 at 09:08:20AM -0500, Eric W. Biederman wrote:
->> Pablo Neira Ayuso <pablo@netfilter.org> writes:
->> 
->> > On Fri, Jun 19, 2015 at 05:23:37PM -0500, Eric W. Biederman wrote:
->> >> 
->> >> If someone sends packets from one of the netdevice ingress hooks to
->> >> the a userspace queue, and then userspace later accepts the packet,
->> >> the netfilter code can enter an infinite loop as the list head will
->> >> never be found.
->> >> 
->> >> Pass in the saved list_head to avoid this.
->> >
->> > There is no userspace queueing for netdevice yet, so this can be route
->> > through nf-next. Thanks.
->> 
->> *scratches head* the netdevice queueing is in the netfilter core.
->> 
->> netfilter_ingress calls nf_hook_slow.  The queuing happens in
->> nf_hook_slow if anything returns the verdict queue it.
->> 
->> This patch applies to Linus's tree.
->> 
->> So how in the world does this not need to be ported to 4.1?
+On 22.06.2015 13:49, Manfred Schlaegl wrote:
+> On 2015-06-22 12:34, Oliver Hartkopp wrote:
+>> On 22.06.2015 12:10, Manfred Schlaegl wrote:
+>>> Hypothetical example: If timestamping is enabled by the user and there is a significant delay between allocation and delivery of a skb (early allocation in driver or something) the timestamp does not reflect the reception time anymore.
+>>
+>> The change only affects CAN skbs.
+>> These skbs are allocated at CAN frame reception time, filled with content and then sent to the network layer.
+>>
+>> AFAICS the timestamp becomes more precise for CAN related skbs.
+>> I did not see any case of 'early allocation' in linux/drivers/net/can, did you?
 >
-> There is no nfnetlink_queue support for the netdev family at this
-> moment, so this can't be triggered unless you use an out of tree
-> module.
+> No, I also did not find this case in current driver implementations -- because of that I gave the hypothetical example.
+> I just was worried about that this may be a potential latent issue for future driver implementations and wanted to indicate this.
 >
-> I have a patch here to add a static key to disable userspace queueing
-> per family using a static key so that part would be basically
-> inactive.
->
-> But if you really want to see this in 4.1, no problem, please just let
-> me know and I'll pass it to David, as I said it's basically not
-> resolving any urgent problem so this is not harming.
+> But I trust your expertise, so if you are fine with it, I'm too. ;-)
 
-So I have read through the code and I simply do not see anywhere
-that would prevent code in nft_queue to be called on a per netdevice
-chain, or where in nfqnl_enqueue_packet we would decided not to queue
-the packet.
+I don't claim to be 'an expert' :-)
 
-Could you please point me to what in the code makes this code path
-impossible to use?
+But our usual use-case is CAN logging which enables the timestamping on all 
+CAN interfaces anyway - without any problems.
 
-Right now it looks like something that is triggerable in 4.1.
+As the timestamp is calculated only once this patch moves the timestamp 
+creation closer to the CAN frame arrival time - so latency finally decreases.
 
-Eric
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+Best regards,
+Oliver
