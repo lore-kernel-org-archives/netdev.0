@@ -1,50 +1,101 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next RFC v2 1/3] lwt: infrastructure to support light
- weight tunnels
-Date: Sun, 21 Jun 2015 19:48:49 -0700
-Message-ID: <55877791.1030500@cumulusnetworks.com>
-References: <1434689355-4088-2-git-send-email-roopa@cumulusnetworks.com> <55842A93.2040607@brocade.com> <558431C3.5020703@cumulusnetworks.com> <5584507C.2000303@brocade.com> <5584609C.5020802@cumulusnetworks.com> <558461CB.3020408@brocade.com> <5585784D.3020809@cumulusnetworks.com> <20150621204044.GD4228@pox.localdomain>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 22 Jun 2015 12:58:33 +1000
+Message-ID: <20150622125833.451c4440@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Robert Shearman <rshearma@brocade.com>, ebiederm@xmission.com,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35979 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752867AbbFVCsv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2015 22:48:51 -0400
-Received: by paceq1 with SMTP id eq1so99326387pac.3
-        for <netdev@vger.kernel.org>; Sun, 21 Jun 2015 19:48:51 -0700 (PDT)
-In-Reply-To: <20150621204044.GD4228@pox.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/pRgzmiSgBDipHIcHo3udMUq"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 6/21/15, 1:40 PM, Thomas Graf wrote:
-> On 06/20/15 at 07:27am, roopa wrote:
->> On 6/19/15, 11:39 AM, Robert Shearman wrote:
->>>
->>> Sorry for not being clear, but I meant that there would have to be
->>> lwtunnel_skb_lwstate functions for ipv4 and ipv6 to match the output
->>> functions. So in the vxlan use case where it's using a netdevice, how
->>> would it determine which one to call?
->> thanks for that clarification, and good point. I see some areas of the
->> kernel checking for skb->protocol to do the conversion (something like
->> below). I am guessing that is acceptable.
->> if (skb->protocol == htons(ETH_P_IPV6))
->>                  struct rt6_info *rt6 = (struct rt6_info *)skb_dst(skb);
-> I'm not yet convinced that it makes sense to offer the no-netdevice
-> shortcut for VXLAN. I'm not convinced we need yet another VXLAN data
-> path. In fact, I'm trying to get rid of the OVS one for this specific
-> reason.
->
-> I have no objection though if somebody comes up with an architecture
-> that can't just pass the required metadata between the namespaces and
-> do the actual encapsulation in a single net_device in the root/host
-> namespace.
->
-> Either way, I thin it's fair to defer to this to a later point. We
-> don't need to solve this for the first iteration of MPLS and VXLAN
-> implementation.
-ack, thanks for your thoughts on this.
+--Sig_/pRgzmiSgBDipHIcHo3udMUq
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
+
+Hi all,
+
+Today's linux-next merge of the net-next tree got a conflict in:
+
+  net/packet/af_packet.c
+
+between commit:
+
+  468479e6043c ("packet: avoid out of bounds read in round robin fanout")
+
+from the net tree and commit:
+
+  3b3a5b0aab5b ("packet: rollover huge flows before small flows")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc net/packet/af_packet.c
+index fe1610ddeacf,20e8c40da90d..000000000000
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@@ -1272,6 -1326,30 +1326,20 @@@ static void packet_sock_destruct(struc
+  	sk_refcnt_debug_dec(sk);
+  }
+ =20
+ -static int fanout_rr_next(struct packet_fanout *f, unsigned int num)
+ -{
+ -	int x =3D atomic_read(&f->rr_cur) + 1;
+ -
+ -	if (x >=3D num)
+ -		x =3D 0;
+ -
+ -	return x;
+ -}
+ -
++ static bool fanout_flow_is_huge(struct packet_sock *po, struct sk_buff *s=
+kb)
++ {
++ 	u32 rxhash;
++ 	int i, count =3D 0;
++=20
++ 	rxhash =3D skb_get_hash(skb);
++ 	for (i =3D 0; i < ROLLOVER_HLEN; i++)
++ 		if (po->rollover->history[i] =3D=3D rxhash)
++ 			count++;
++=20
++ 	po->rollover->history[prandom_u32() % ROLLOVER_HLEN] =3D rxhash;
++ 	return count > (ROLLOVER_HLEN >> 1);
++ }
++=20
+  static unsigned int fanout_demux_hash(struct packet_fanout *f,
+  				      struct sk_buff *skb,
+  				      unsigned int num)
+
+--Sig_/pRgzmiSgBDipHIcHo3udMUq
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJVh3ndAAoJEMDTa8Ir7ZwVuhkP/RnaaYphj2IxKJDsLXwK1Y3S
+CklCKWMam1jWe/LiKORgv5qxLon0ki5Cdcb067jNbOtw2LxcBjmLbVD3m8CpgIB4
++LkX05pvVnZCxiPpPRPMogXG6EyiplBOHKtfQc/iiZvhQ0KVJUVMl/tboGCqPAhk
+Vi1FWqLaO5p0MBYIklGrpoC8+diLqRxD1znv2UyZ6QU+SRvS1nZbp0qmXby3Uroe
+5cBzXWKAi9VgszKJjihgAeKE68lzepEXwMADr9QVGPRxt3gAoWwGIBeYQFlxIyW7
+CyYVe8WE41o/2Tcdte0bb+r6/csOllRCX65M25uMd5AxW+l9zGGl7y80UUKPxSod
+7YPqUbRhxbU9BWl3cKupUZJhuSiHZk9aD9PcDjFdk5R3kkD27LxwOmkQov2X7lJ4
+ux/bkb0D4zyPasmXU/aR9b2EotngRUk89zcKY2hG2sfru1uHIg4iMU0CCRQURkeK
+GQTD0V12ikibivrLRjsNssP6s8aGH2FGr34bUZy4aBUvS1eJ6ekxMp/agoLHqtTZ
+fL8ELsJkd7WJku2kJx4qoRt7q3MPAScUbth4vY9knMueTn05Cf40SZcZZz3ycKK+
++3ljnIdRVWh9zTggDzpaofve/Sz+oOlg+PLnCXUV/hyVua8FyMODqzoHIppwY5JP
+Hi+ZfvnRJXCBRIJodnZn
+=9Ud1
+-----END PGP SIGNATURE-----
+
+--Sig_/pRgzmiSgBDipHIcHo3udMUq--
