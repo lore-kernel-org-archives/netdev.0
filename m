@@ -1,160 +1,337 @@
 From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: [PATCH net-next 0/3 v6] changes to make ipv4 routing table aware of next-hop link status
-Date: Tue, 23 Jun 2015 11:51:48 -0400
-Message-ID: <1435074711-924-1-git-send-email-gospo@cumulusnetworks.com>
+Subject: [PATCH net-next 1/3 v6] net: track link-status of ipv4 nexthops
+Date: Tue, 23 Jun 2015 11:51:49 -0400
+Message-ID: <1435074711-924-2-git-send-email-gospo@cumulusnetworks.com>
+References: <1435074711-924-1-git-send-email-gospo@cumulusnetworks.com>
 Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
 To: netdev@vger.kernel.org, davem@davemloft.net,
 	ddutt@cumulusnetworks.com, sfeldma@gmail.com,
 	alexander.duyck@gmail.com, hannes@stressinduktion.org,
 	stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f180.google.com ([209.85.160.180]:34882 "EHLO
-	mail-yk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933010AbbFWPwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 11:52:53 -0400
-Received: by ykdy1 with SMTP id y1so7836495ykd.2
-        for <netdev@vger.kernel.org>; Tue, 23 Jun 2015 08:52:52 -0700 (PDT)
+Received: from mail-yk0-f175.google.com ([209.85.160.175]:33625 "EHLO
+	mail-yk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932853AbbFWPwy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 11:52:54 -0400
+Received: by ykdt186 with SMTP id t186so7846737ykd.0
+        for <netdev@vger.kernel.org>; Tue, 23 Jun 2015 08:52:53 -0700 (PDT)
+In-Reply-To: <1435074711-924-1-git-send-email-gospo@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series adds the ability to have the Linux kernel track whether or
-not a particular route should be used based on the link-status of the
-interface associated with the next-hop.  
+Add a fib flag called RTNH_F_LINKDOWN to any ipv4 nexthops that are
+reachable via an interface where carrier is off.  No action is taken,
+but additional flags are passed to userspace to indicate carrier status.
 
-Before this patch any link-failure on an interface that was serving as a
-gateway for some systems could result in those systems being isolated
-from the rest of the network as the stack would continue to attempt to
-send frames out of an interface that is actually linked-down.  When the
-kernel is responsible for all forwarding, it should also be responsible
-for taking action when the traffic can no longer be forwarded -- there
-is no real need to outsource link-monitoring to userspace anymore.
+This also includes a cleanup to fib_disable_ip to more clearly indicate
+what event made the function call to replace the more cryptic force
+option previously used.
 
-This feature is only enabled with the new per-interface or ipv4 global
-sysctls called 'ignore_routes_with_linkdown'.
+v2: Split out kernel functionality into 2 patches, this patch simply
+sets and clears new nexthop flag RTNH_F_LINKDOWN.
 
-net.ipv4.conf.all.ignore_routes_with_linkdown = 0
-net.ipv4.conf.default.ignore_routes_with_linkdown = 0
-net.ipv4.conf.lo.ignore_routes_with_linkdown = 0
-...
+v3: Cleanups suggested by Alex as well as a bug noticed in
+fib_sync_down_dev and fib_sync_up when multipath was not enabled.
 
-When the above sysctls are set, the kernel will not only report to
-userspace that the link is down, but it will also report to userspace
-that a route is dead.  This will signal to userspace that the route will
-not be selected.
+v5: Whitespace and variable declaration fixups suggested by Dave.
 
-With the new sysctls set, the following behavior can be observed
-(interface p8p1 is link-down):
+v6: Style fixups noticed by Dave; ran checkpatch to be sure I got them
+all.
 
-# ip route show 
-default via 10.0.5.2 dev p9p1 
-10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15 
-70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1 
-80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 dead linkdown
-90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 dead linkdown
-90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2 
-# ip route get 90.0.0.1 
-90.0.0.1 via 70.0.0.2 dev p7p1  src 70.0.0.1 
-    cache 
-# ip route get 80.0.0.1 
-local 80.0.0.1 dev lo  src 80.0.0.1 
-    cache <local> 
-# ip route get 80.0.0.2
-80.0.0.2 via 10.0.5.2 dev p9p1  src 10.0.5.15 
-    cache 
+Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+Signed-off-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
+Acked-by: Scott Feldman <sfeldma@gmail.com>
+---
+ include/net/ip_fib.h           |  4 +--
+ include/uapi/linux/rtnetlink.h |  3 +++
+ net/ipv4/fib_frontend.c        | 23 ++++++++++------
+ net/ipv4/fib_semantics.c       | 60 +++++++++++++++++++++++++++++++++---------
+ 4 files changed, 67 insertions(+), 23 deletions(-)
 
-While the route does remain in the table (so it can be modified if
-needed rather than being wiped away as it would be if IFF_UP was
-cleared), the proper next-hop is chosen automatically when the link is
-down.  Now interface p8p1 is linked-up:
-
-# ip route show 
-default via 10.0.5.2 dev p9p1 
-10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15 
-70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1 
-80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 
-90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 
-90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2 
-192.168.56.0/24 dev p2p1  proto kernel  scope link  src 192.168.56.2 
-# ip route get 90.0.0.1 
-90.0.0.1 via 80.0.0.2 dev p8p1  src 80.0.0.1 
-    cache 
-# ip route get 80.0.0.1 
-local 80.0.0.1 dev lo  src 80.0.0.1 
-    cache <local> 
-# ip route get 80.0.0.2
-80.0.0.2 dev p8p1  src 80.0.0.1 
-    cache 
-
-and the output changes to what one would expect.
-
-If the global or interface sysctl is not set, the following output would
-be expected when p8p1 is down:
-
-# ip route show 
-default via 10.0.5.2 dev p9p1 
-10.0.5.0/24 dev p9p1  proto kernel  scope link  src 10.0.5.15 
-70.0.0.0/24 dev p7p1  proto kernel  scope link  src 70.0.0.1 
-80.0.0.0/24 dev p8p1  proto kernel  scope link  src 80.0.0.1 linkdown
-90.0.0.0/24 via 80.0.0.2 dev p8p1  metric 1 linkdown
-90.0.0.0/24 via 70.0.0.2 dev p7p1  metric 2 
-
-If the dead flag does not appear there should be no expectation that the
-kernel would skip using this route due to link being down.
-
-v2: Split kernel changes into 2 patches: first to add linkdown flag and
-second to add new sysctl settings.  Also took suggestion from Alex to
-simplify code by only checking sysctl during fib lookup and suggestion
-from Scott to add a per-interface sysctl.  Added iproute2 patch to
-recognize and print linkdown flag.
-
-v3: Code cleanups along with reverse-path checks suggested by Alex and
-small fixes related to problems found when multipath was disabled.
-
-v4: Drop binary sysctls
-
-v5: Whitespace and variable declaration fixups suggested by Dave
-
-v6: Style changes noticed by Dave and checkpath suggestions.
-
-Though there were some that preferred not to have a configuration option
-and to make this behavior the default when it was discussed in Ottawa
-earlier this year since "it was time to do this."  I wanted to propose
-the config option to preserve the current behavior for those that desire
-it.  I'll happily remove it if Dave and Linus approve.
-
-An IPv6 implementation is also needed (DECnet too!), but I wanted to
-start with the IPv4 implementation to get people comfortable with the
-idea before moving forward.  If this is accepted the IPv6 implementation
-can be posted shortly.
-
-There was also a request for switchdev support for this, but that will
-be posted as a followup as switchdev does not currently handle dead
-next-hops in a multi-path case and I felt that infra needed to be added
-first.
-
-FWIW, we have been running the original version of this series with a
-global sysctl and our customers have been happily using a backported
-version for IPv4 and IPv6 for >6 months.
-
-Andy Gospodarek (3):
-  net: track link-status of ipv4 nexthops
-  net: ipv4 sysctl option to ignore routes when nexthop link is down
-  iproute2: add support to print 'linkdown' nexthop flag
-
- include/linux/inetdevice.h        |  3 ++
- include/net/fib_rules.h           |  3 +-
- include/net/ip_fib.h              | 20 +++++----
- include/uapi/linux/ip.h           |  1 +
- include/uapi/linux/rtnetlink.h    |  3 ++
- net/ipv4/devinet.c                |  2 +
- net/ipv4/fib_frontend.c           | 29 +++++++-----
- net/ipv4/fib_rules.c              |  5 ++-
- net/ipv4/fib_semantics.c          | 92 +++++++++++++++++++++++++++++++--------
- net/ipv4/fib_trie.c               |  6 +++
- net/ipv4/netfilter/ipt_rpfilter.c |  2 +-
- net/ipv4/route.c                  | 10 ++---
- ip/iproute.c                      |   4 +
- 13 files changed, 133 insertions(+), 47 deletions(-)
-
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 54271ed..f73d27c 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -305,9 +305,9 @@ void fib_flush_external(struct net *net);
+ 
+ /* Exported by fib_semantics.c */
+ int ip_fib_check_default(__be32 gw, struct net_device *dev);
+-int fib_sync_down_dev(struct net_device *dev, int force);
++int fib_sync_down_dev(struct net_device *dev, unsigned long event);
+ int fib_sync_down_addr(struct net *net, __be32 local);
+-int fib_sync_up(struct net_device *dev);
++int fib_sync_up(struct net_device *dev, unsigned int nh_flags);
+ void fib_select_multipath(struct fib_result *res);
+ 
+ /* Exported by fib_trie.c */
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 17fb02f..fdd8f07 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -338,6 +338,9 @@ struct rtnexthop {
+ #define RTNH_F_PERVASIVE	2	/* Do recursive gateway lookup	*/
+ #define RTNH_F_ONLINK		4	/* Gateway is forced on link	*/
+ #define RTNH_F_OFFLOAD		8	/* offloaded route */
++#define RTNH_F_LINKDOWN		16	/* carrier-down on nexthop */
++
++#define RTNH_COMPARE_MASK	(RTNH_F_DEAD | RTNH_F_LINKDOWN)
+ 
+ /* Macros to handle hexthops */
+ 
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 872494e..534eb14 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -1063,9 +1063,9 @@ static void nl_fib_lookup_exit(struct net *net)
+ 	net->ipv4.fibnl = NULL;
+ }
+ 
+-static void fib_disable_ip(struct net_device *dev, int force)
++static void fib_disable_ip(struct net_device *dev, unsigned long event)
+ {
+-	if (fib_sync_down_dev(dev, force))
++	if (fib_sync_down_dev(dev, event))
+ 		fib_flush(dev_net(dev));
+ 	rt_cache_flush(dev_net(dev));
+ 	arp_ifdown(dev);
+@@ -1081,7 +1081,7 @@ static int fib_inetaddr_event(struct notifier_block *this, unsigned long event,
+ 	case NETDEV_UP:
+ 		fib_add_ifaddr(ifa);
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+-		fib_sync_up(dev);
++		fib_sync_up(dev, RTNH_F_DEAD);
+ #endif
+ 		atomic_inc(&net->ipv4.dev_addr_genid);
+ 		rt_cache_flush(dev_net(dev));
+@@ -1093,7 +1093,7 @@ static int fib_inetaddr_event(struct notifier_block *this, unsigned long event,
+ 			/* Last address was deleted from this interface.
+ 			 * Disable IP.
+ 			 */
+-			fib_disable_ip(dev, 1);
++			fib_disable_ip(dev, event);
+ 		} else {
+ 			rt_cache_flush(dev_net(dev));
+ 		}
+@@ -1107,9 +1107,10 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+ 	struct in_device *in_dev;
+ 	struct net *net = dev_net(dev);
++	unsigned int flags;
+ 
+ 	if (event == NETDEV_UNREGISTER) {
+-		fib_disable_ip(dev, 2);
++		fib_disable_ip(dev, event);
+ 		rt_flush_dev(dev);
+ 		return NOTIFY_DONE;
+ 	}
+@@ -1124,16 +1125,22 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+ 			fib_add_ifaddr(ifa);
+ 		} endfor_ifa(in_dev);
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+-		fib_sync_up(dev);
++		fib_sync_up(dev, RTNH_F_DEAD);
+ #endif
+ 		atomic_inc(&net->ipv4.dev_addr_genid);
+ 		rt_cache_flush(net);
+ 		break;
+ 	case NETDEV_DOWN:
+-		fib_disable_ip(dev, 0);
++		fib_disable_ip(dev, event);
+ 		break;
+-	case NETDEV_CHANGEMTU:
+ 	case NETDEV_CHANGE:
++		flags = dev_get_flags(dev);
++		if (flags & (IFF_RUNNING | IFF_LOWER_UP))
++			fib_sync_up(dev, RTNH_F_LINKDOWN);
++		else
++			fib_sync_down_dev(dev, event);
++		/* fall through */
++	case NETDEV_CHANGEMTU:
+ 		rt_cache_flush(net);
+ 		break;
+ 	}
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 28ec3c1..b1b305b 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -266,7 +266,7 @@ static inline int nh_comp(const struct fib_info *fi, const struct fib_info *ofi)
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+ 		    nh->nh_tclassid != onh->nh_tclassid ||
+ #endif
+-		    ((nh->nh_flags ^ onh->nh_flags) & ~RTNH_F_DEAD))
++		    ((nh->nh_flags ^ onh->nh_flags) & ~RTNH_COMPARE_MASK))
+ 			return -1;
+ 		onh++;
+ 	} endfor_nexthops(fi);
+@@ -318,7 +318,7 @@ static struct fib_info *fib_find_info(const struct fib_info *nfi)
+ 		    nfi->fib_type == fi->fib_type &&
+ 		    memcmp(nfi->fib_metrics, fi->fib_metrics,
+ 			   sizeof(u32) * RTAX_MAX) == 0 &&
+-		    ((nfi->fib_flags ^ fi->fib_flags) & ~RTNH_F_DEAD) == 0 &&
++		    !((nfi->fib_flags ^ fi->fib_flags) & ~RTNH_COMPARE_MASK) &&
+ 		    (nfi->fib_nhs == 0 || nh_comp(fi, nfi) == 0))
+ 			return fi;
+ 	}
+@@ -604,6 +604,8 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
+ 				return -ENODEV;
+ 			if (!(dev->flags & IFF_UP))
+ 				return -ENETDOWN;
++			if (!netif_carrier_ok(dev))
++				nh->nh_flags |= RTNH_F_LINKDOWN;
+ 			nh->nh_dev = dev;
+ 			dev_hold(dev);
+ 			nh->nh_scope = RT_SCOPE_LINK;
+@@ -636,6 +638,8 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
+ 		if (!dev)
+ 			goto out;
+ 		dev_hold(dev);
++		if (!netif_carrier_ok(dev))
++			nh->nh_flags |= RTNH_F_LINKDOWN;
+ 		err = (dev->flags & IFF_UP) ? 0 : -ENETDOWN;
+ 	} else {
+ 		struct in_device *in_dev;
+@@ -654,6 +658,8 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
+ 		nh->nh_dev = in_dev->dev;
+ 		dev_hold(nh->nh_dev);
+ 		nh->nh_scope = RT_SCOPE_HOST;
++		if (!netif_carrier_ok(nh->nh_dev))
++			nh->nh_flags |= RTNH_F_LINKDOWN;
+ 		err = 0;
+ 	}
+ out:
+@@ -920,11 +926,17 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+ 		if (!nh->nh_dev)
+ 			goto failure;
+ 	} else {
++		int linkdown = 0;
++
+ 		change_nexthops(fi) {
+ 			err = fib_check_nh(cfg, fi, nexthop_nh);
+ 			if (err != 0)
+ 				goto failure;
++			if (nexthop_nh->nh_flags & RTNH_F_LINKDOWN)
++				linkdown++;
+ 		} endfor_nexthops(fi)
++		if (linkdown == fi->fib_nhs)
++			fi->fib_flags |= RTNH_F_LINKDOWN;
+ 	}
+ 
+ 	if (fi->fib_prefsrc) {
+@@ -1103,7 +1115,7 @@ int fib_sync_down_addr(struct net *net, __be32 local)
+ 	return ret;
+ }
+ 
+-int fib_sync_down_dev(struct net_device *dev, int force)
++int fib_sync_down_dev(struct net_device *dev, unsigned long event)
+ {
+ 	int ret = 0;
+ 	int scope = RT_SCOPE_NOWHERE;
+@@ -1112,7 +1124,8 @@ int fib_sync_down_dev(struct net_device *dev, int force)
+ 	struct hlist_head *head = &fib_info_devhash[hash];
+ 	struct fib_nh *nh;
+ 
+-	if (force)
++	if (event == NETDEV_UNREGISTER ||
++	    event == NETDEV_DOWN)
+ 		scope = -1;
+ 
+ 	hlist_for_each_entry(nh, head, nh_hash) {
+@@ -1129,7 +1142,15 @@ int fib_sync_down_dev(struct net_device *dev, int force)
+ 				dead++;
+ 			else if (nexthop_nh->nh_dev == dev &&
+ 				 nexthop_nh->nh_scope != scope) {
+-				nexthop_nh->nh_flags |= RTNH_F_DEAD;
++				switch (event) {
++				case NETDEV_DOWN:
++				case NETDEV_UNREGISTER:
++					nexthop_nh->nh_flags |= RTNH_F_DEAD;
++					/* fall through */
++				case NETDEV_CHANGE:
++					nexthop_nh->nh_flags |= RTNH_F_LINKDOWN;
++					break;
++				}
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 				spin_lock_bh(&fib_multipath_lock);
+ 				fi->fib_power -= nexthop_nh->nh_power;
+@@ -1139,14 +1160,23 @@ int fib_sync_down_dev(struct net_device *dev, int force)
+ 				dead++;
+ 			}
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+-			if (force > 1 && nexthop_nh->nh_dev == dev) {
++			if (event == NETDEV_UNREGISTER &&
++			    nexthop_nh->nh_dev == dev) {
+ 				dead = fi->fib_nhs;
+ 				break;
+ 			}
+ #endif
+ 		} endfor_nexthops(fi)
+ 		if (dead == fi->fib_nhs) {
+-			fi->fib_flags |= RTNH_F_DEAD;
++			switch (event) {
++			case NETDEV_DOWN:
++			case NETDEV_UNREGISTER:
++				fi->fib_flags |= RTNH_F_DEAD;
++				/* fall through */
++			case NETDEV_CHANGE:
++				fi->fib_flags |= RTNH_F_LINKDOWN;
++				break;
++			}
+ 			ret++;
+ 		}
+ 	}
+@@ -1210,13 +1240,11 @@ out:
+ 	return;
+ }
+ 
+-#ifdef CONFIG_IP_ROUTE_MULTIPATH
+-
+ /*
+  * Dead device goes up. We wake up dead nexthops.
+  * It takes sense only on multipath routes.
+  */
+-int fib_sync_up(struct net_device *dev)
++int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
+ {
+ 	struct fib_info *prev_fi;
+ 	unsigned int hash;
+@@ -1243,7 +1271,7 @@ int fib_sync_up(struct net_device *dev)
+ 		prev_fi = fi;
+ 		alive = 0;
+ 		change_nexthops(fi) {
+-			if (!(nexthop_nh->nh_flags & RTNH_F_DEAD)) {
++			if (!(nexthop_nh->nh_flags & nh_flags)) {
+ 				alive++;
+ 				continue;
+ 			}
+@@ -1254,14 +1282,18 @@ int fib_sync_up(struct net_device *dev)
+ 			    !__in_dev_get_rtnl(dev))
+ 				continue;
+ 			alive++;
++#ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 			spin_lock_bh(&fib_multipath_lock);
+ 			nexthop_nh->nh_power = 0;
+-			nexthop_nh->nh_flags &= ~RTNH_F_DEAD;
++			nexthop_nh->nh_flags &= ~nh_flags;
+ 			spin_unlock_bh(&fib_multipath_lock);
++#else
++			nexthop_nh->nh_flags &= ~nh_flags;
++#endif
+ 		} endfor_nexthops(fi)
+ 
+ 		if (alive > 0) {
+-			fi->fib_flags &= ~RTNH_F_DEAD;
++			fi->fib_flags &= ~nh_flags;
+ 			ret++;
+ 		}
+ 	}
+@@ -1269,6 +1301,8 @@ int fib_sync_up(struct net_device *dev)
+ 	return ret;
+ }
+ 
++#ifdef CONFIG_IP_ROUTE_MULTIPATH
++
+ /*
+  * The algorithm is suboptimal, but it provides really
+  * fair weighted route distribution.
 -- 
 1.9.3
