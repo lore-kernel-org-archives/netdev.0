@@ -1,30 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dsa: mv88x6xxx: Zero statistics counters
-Date: Tue, 23 Jun 2015 06:37:37 -0700 (PDT)
-Message-ID: <20150623.063737.1237579188603074208.davem@davemloft.net>
-References: <1434828689-11804-1-git-send-email-andrew@lunn.ch>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next] bridge: multicast: add a comment to
+ br_port_state_selection about blocking state
+Date: Tue, 23 Jun 2015 21:26:38 +0800
+Message-ID: <20150623132638.GA20498@gondor.apana.org.au>
+References: <77FF1B4A-1D3A-4F59-A7C7-0ADBB34F8920@cumulusnetworks.com>
+ <1435060064-32761-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@roeck-us.net,
-	vivien.didelot@savoirfairelinux.com, cory.tusar@pid1solutions.com
-To: andrew@lunn.ch
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, sashok@cumulusnetworks.com,
+	davem@davemloft.net, stephen@networkplumber.org
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33442 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754585AbbFWNZs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 09:25:48 -0400
-In-Reply-To: <1434828689-11804-1-git-send-email-andrew@lunn.ch>
+Received: from helcar.hengli.com.au ([209.40.204.226]:34791 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754741AbbFWN0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 09:26:44 -0400
+Content-Disposition: inline
+In-Reply-To: <1435060064-32761-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Sat, 20 Jun 2015 21:31:29 +0200
-
-> Zero the statistics counters when setting up the global
-> registers. Otherwise the counters will remain from the last boot if
-> the power has not been removed.
+On Tue, Jun 23, 2015 at 04:47:44AM -0700, Nikolay Aleksandrov wrote:
+> Add a comment to explain why we're not disabling port's multicast when it
+> goes in blocking state. Since there's a check in the timer's function which
+> bypasses the timer if the port's in blocking/disabled state, the timer will
+> simply expire and stop without sending more queries.
 > 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> Suggested-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Applied, thanks.
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
