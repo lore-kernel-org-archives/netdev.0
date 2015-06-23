@@ -1,62 +1,109 @@
-From: Antonio Borneo <borneo.antonio-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 0/6] Remove redundant spi driver bus initialization
-Date: Tue, 23 Jun 2015 22:45:08 +0800
-Message-ID: <1435070714-24174-1-git-send-email-borneo.antonio@gmail.com>
-Cc: Antonio Borneo <borneo.antonio-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>,
-	Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org, Andrzej Hajda <a.hajda-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Jaroslav Kysela <perex-/Fr2/VpizcU@public.gmane.org>,
-	Jonathan Cameron <jic23-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Karol Wrona <k.wrona-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Kyungmin Park <kyungmin.park-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Lars-Peter Clausen <lars-Qo5EllUWu/uELgA04lAiVw@public.gmane.org>,
-	Liam Girdwood <lgirdwood-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-iio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Mauro Carvalho Chehab <mchehab-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, patches-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org,
-	Solomon Peachy <pizza-pCgMCH4qpMRg9hUCZPvPmw@public.gmane.org>,
-	Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>,
-	Varka Bhadram <varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-iio-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-iio-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Pavel Fedin <p.fedin@samsung.com>
+Subject: [PATCH v3] net: Cavium: Fix MAC address setting in shutdown state
+Date: Tue, 23 Jun 2015 17:51:06 +0300
+Message-ID: <016f01d0adc4$09237ba0$1b6a72e0$@samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Aleksey.Makarov@caviumnetworks.com, sgoutham@cavium.com,
+	thlab.kim@samsung.com, s.dyasly@samsung.com,
+	'Robert Richter' <robert.richter@caviumnetworks.com>
+To: netdev@vger.kernel.org, 'David Miller' <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout2.w1.samsung.com ([210.118.77.12]:30860 "EHLO
+	mailout2.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933155AbbFWOvJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 10:51:09 -0400
+Received: from eucpsbgm1.samsung.com (unknown [203.254.199.244])
+ by mailout2.w1.samsung.com
+ (Oracle Communications Messaging Server 7.0.5.31.0 64bit (built May  5 2014))
+ with ESMTP id <0NQE00IX5JX76060@mailout2.w1.samsung.com> for
+ netdev@vger.kernel.org; Tue, 23 Jun 2015 15:51:07 +0100 (BST)
+Content-language: ru
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This cleanup was already completed between end 2011 and early 2012
-with a patch series from Lars-Peter Clausen:
-https://lkml.org/lkml/2011/11/24/190
+This bug pops up with NetworkManager on Fedora 21. NetworkManager tends to
+stop the interface (nicvf_stop() is called) before changing settings. In
+stopped state MAC cannot be sent to a PF. However, when the interface is
+restarted (nicvf_open() is called), we ping the PF using NIC_MBOX_MSG_READY
+message, and the PF replies back with old MAC address, overriding what we
+had after MAC setting from userspace. As a result, we cannot set MAC
+address using NetworkManager.
 
-Later on new redundant initialization re-appeared here and there.
-Time to cleanup again.
+This patch introduces special tracking of MAC change in stopped state so
+that the correct new MAC address is sent to a PF when interface is reopen.
 
-And, yes, I'm lazy! I copy-paste the exact same commit message from
-Lars-Peter; only minor reformat to stay in 75 char/line and fix the
-name of spi_register_driver().
+Signed-off-by: Pavel Fedin <p.fedin@samsung.com>
+---
+Changes for v3:
+- Fixed (actually hand-edited) file permissions to be 644. I occasionally pushed them as 755 to my
+local repo.
+Changes for v2:
+- Fixed a couple of checkpatch.pl reports (was forgotten in v1)
+- Adjusted email client prefs, hopefully will not corrupt patches any more.
+---
+ drivers/net/ethernet/cavium/thunder/nic.h        |  1 +
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c | 14 ++++++++++++--
+ 2 files changed, 13 insertions(+), 2 deletions(-)
 
-Regards,
-Antonio
-
-Antonio Borneo (6):
-  ASoC: wm0010: Remove redundant spi driver bus initialization
-  iio: ssp_sensors: Remove redundant spi driver bus initialization
-  staging: mt29f_spinand: Remove redundant spi driver bus initialization
-  net: ieee802154: Remove redundant spi driver bus initialization
-  wireless: cw1200: Remove redundant spi driver bus initialization
-  [media] s5c73m3: Remove redundant spi driver bus initialization
-
- drivers/iio/common/ssp_sensors/ssp_dev.c      | 1 -
- drivers/media/i2c/s5c73m3/s5c73m3-spi.c       | 1 -
- drivers/net/ieee802154/cc2520.c               | 1 -
- drivers/net/ieee802154/mrf24j40.c             | 1 -
- drivers/net/wireless/cw1200/cw1200_spi.c      | 1 -
- drivers/staging/mt29f_spinand/mt29f_spinand.c | 1 -
- sound/soc/codecs/wm0010.c                     | 1 -
- 7 files changed, 7 deletions(-)
-
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index a3b43e5..dda8a02 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -263,6 +263,7 @@ struct nicvf {
+ 	bool			pf_acked;
+ 	bool			pf_nacked;
+ 	bool			bgx_stats_acked;
++	bool			set_mac_pending;
+ } ____cacheline_aligned_in_smp;
+ 
+ /* PF <--> VF Mailbox communication
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 02da802..8b119a0 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -201,7 +201,9 @@ static void  nicvf_handle_mbx_intr(struct nicvf *nic)
+ 		nic->vf_id = mbx.nic_cfg.vf_id & 0x7F;
+ 		nic->tns_mode = mbx.nic_cfg.tns_mode & 0x7F;
+ 		nic->node = mbx.nic_cfg.node_id;
+-		ether_addr_copy(nic->netdev->dev_addr, mbx.nic_cfg.mac_addr);
++		if (!nic->set_mac_pending)
++			ether_addr_copy(nic->netdev->dev_addr,
++					mbx.nic_cfg.mac_addr);
+ 		nic->link_up = false;
+ 		nic->duplex = 0;
+ 		nic->speed = 0;
+@@ -941,6 +943,11 @@ int nicvf_open(struct net_device *netdev)
+ 		nicvf_hw_set_mac_addr(nic, netdev);
+ 	}
+ 
++	if (nic->set_mac_pending) {
++		nic->set_mac_pending = false;
++		nicvf_hw_set_mac_addr(nic, netdev);
++	}
++
+ 	/* Init tasklet for handling Qset err interrupt */
+ 	tasklet_init(&nic->qs_err_task, nicvf_handle_qs_err,
+ 		     (unsigned long)nic);
+@@ -1040,9 +1047,12 @@ static int nicvf_set_mac_address(struct net_device *netdev, void *p)
+ 
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+ 
+-	if (nic->msix_enabled)
++	if (nic->msix_enabled) {
+ 		if (nicvf_hw_set_mac_addr(nic, netdev))
+ 			return -EBUSY;
++	} else {
++		nic->set_mac_pending = true;
++	}
+ 
+ 	return 0;
+ }
 -- 
-2.4.4
+1.9.5.msysgit.0
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in
