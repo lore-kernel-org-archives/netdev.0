@@ -1,36 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/3 v5] net: track link-status of ipv4 nexthops
-Date: Tue, 23 Jun 2015 02:30:40 -0700 (PDT)
-Message-ID: <20150623.023040.2256044180311272935.davem@davemloft.net>
-References: <1434640932-2681-1-git-send-email-gospo@cumulusnetworks.com>
-	<1434640932-2681-2-git-send-email-gospo@cumulusnetworks.com>
+Subject: Re: [PATCH] mvneta: add forgotten initialization of
+ autonegotiation bits
+Date: Tue, 23 Jun 2015 02:33:51 -0700 (PDT)
+Message-ID: <20150623.023351.212943884120317727.davem@davemloft.net>
+References: <5582E563.3010801@list.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ddutt@cumulusnetworks.com,
-	sfeldma@gmail.com, alexander.duyck@gmail.com,
-	hannes@stressinduktion.org, stephen@networkplumber.org
-To: gospo@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60272 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752046AbbFWJTP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 05:19:15 -0400
-In-Reply-To: <1434640932-2681-2-git-send-email-gospo@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	netdev@vger.kernel.org, f.fainelli@gmail.com,
+	thomas.petazzoni@free-electrons.com, arno@natisbad.org,
+	stsp@users.sourceforge.net
+To: stsp@list.ru
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <5582E563.3010801@list.ru>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Date: Thu, 18 Jun 2015 11:22:10 -0400
+From: Stas Sergeev <stsp@list.ru>
+Date: Thu, 18 Jun 2015 18:36:03 +0300
 
-> -		    ((nh->nh_flags ^ onh->nh_flags) & ~RTNH_F_DEAD))
-> +		    ((nh->nh_flags ^ onh->nh_flags) & ~(RTNH_F_COMPARE_MASK)))
->  			return -1;
+> 
+> The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band link state
+> signaling")
+> changed mvneta_adjust_link() so that it does not clear the auto-negotiation
+> bits in MVNETA_GMAC_AUTONEG_CONFIG register. This was necessary for
+> auto-negotiation mode to work.
+> Unfortunately I haven't checked if these bits are ever initialized.
+> It appears they are not.
+> This patch adds the missing initialization of the auto-negotiation bits
+> in the MVNETA_GMAC_AUTONEG_CONFIG register.
+> It fixes the following regression:
+> https://www.mail-archive.com/netdev@vger.kernel.org/msg67928.html
+> 
+> Since the patch was tested to fix a regression, it should be applied to
+> stable tree.
+> 
+> Tested-by: Arnaud Ebalard <arno@natisbad.org>
+> 
+> CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> CC: Florian Fainelli <f.fainelli@gmail.com>
+> CC: netdev@vger.kernel.org
+> CC: linux-kernel@vger.kernel.org
+> CC: stable@vger.kernel.org
+> 
+> Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
 
-Excessive parenthesis, just plain "~RTNH_F_COMPARE_MASK" is sufficient.
-
-> +		if (linkdown == fi->fib_nhs) {
-> +			fi->fib_flags |= RTNH_F_LINKDOWN;
-> +		}
-
-Single line basic blocks do not get enclosing curly braces.
+Applied, thanks.
