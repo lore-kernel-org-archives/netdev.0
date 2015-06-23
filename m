@@ -1,46 +1,49 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 2/2 v6] net: ipv4 sysctl option to ignore routes
- when nexthop link is down
-Date: Tue, 23 Jun 2015 13:20:33 -0400
-Message-ID: <20150623172028.GT588@gospo.home.greyhouse.net>
-References: <1435074711-924-1-git-send-email-gospo@cumulusnetworks.com>
- <1435074711-924-3-git-send-email-gospo@cumulusnetworks.com>
- <CAE4R7bB22KZjRFW1N70moF0Zm3biW8YgKzJeFWU+noT8BeSASA@mail.gmail.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: displayed name changed in ip link show for bridge- and other
+ interfaces
+Date: Tue, 23 Jun 2015 19:21:30 +0200
+Message-ID: <5589959A.8060600@hartkopp.net>
+References: <201506141200.20435.ulrich.gemkow@ikr.uni-stuttgart.de>	<557DCD0A.5040500@hartkopp.net>	<557DD20E.4080005@hartkopp.net>	<557E7D89.30301@6wind.com>	<557E9728.7080208@6wind.com> <20150615085410.6628b5bb@urahara> <55805E6A.90805@hartkopp.net> <5581210D.5070901@6wind.com> <5585F005.6060408@hartkopp.net> <558955A0.7040203@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, ddutt@cumulusnetworks.com,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Ulrich Gemkow <ulrich.gemkow@ikr.uni-stuttgart.de>,
+	netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f169.google.com ([209.85.216.169]:33719 "EHLO
-	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754470AbbFWRUg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 13:20:36 -0400
-Received: by qcbcf1 with SMTP id cf1so4743815qcb.0
-        for <netdev@vger.kernel.org>; Tue, 23 Jun 2015 10:20:36 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bB22KZjRFW1N70moF0Zm3biW8YgKzJeFWU+noT8BeSASA@mail.gmail.com>
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.161]:56356 "EHLO
+	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754729AbbFWRVw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 13:21:52 -0400
+In-Reply-To: <558955A0.7040203@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 23, 2015 at 09:30:15AM -0700, Scott Feldman wrote:
-> On Tue, Jun 23, 2015 at 8:51 AM, Andy Gospodarek
-> <gospo@cumulusnetworks.com> wrote:
-> > This feature is only enabled with the new per-interface or ipv4 global
-> > sysctls called 'ignore_routes_with_linkdown'.
-> 
-> [cut]
-> 
-> checkpatch.pl says:
-> 
-> WARNING: suspect code indent for conditional statements (16, 20)
-> #293: FILE: net/ipv4/fib_semantics.c:1047:
-> +               if (fi->fib_nh->nh_flags & RTNH_F_LINKDOWN) {
-> +                   in_dev = __in_dev_get_rcu(fi->fib_nh->nh_dev);
+On 23.06.2015 14:48, Nicolas Dichtel wrote:
 
-Good catch, Scott.  I saw this one, but mistakenly looked at the lines
-around it and thought I was following the style in the file.  v7 coming
-soon.
+>> E.g. virtual CAN interfaces (vcan.c) now print this @NONE and they never have
+>> a (physical?) link. So you probably have to deal with different virtual
+>> interfaces anyway, right?
+> Yes, with the current code, all virtual interfaces (that define a
+> rtnl_link_ops) will have this "@SOMETHING" because IFLA_LINK is now set to 0.
+
+Just for the records:
+
+Virtual and real CAN network interfaces (the stuff in drivers/net/can) also
+have @NONE displayed in their name:
+
+# ip link show
+(..)
+6: vcan0@NONE: <NOARP,UP,LOWER_UP> mtu 72 qdisc noqueue state UNKNOWN mode DEFAULT group default 
+    link/can 
+(..)
+8: can0@NONE: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN mode DEFAULT group default qlen 10
+    link/can 
+(..)
+
+So at least your distinction real/virtual networking interfaces doesn't match
+for all kind of interfaces.
+
+Regards,
+Oliver
