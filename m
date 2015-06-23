@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 10/11] net/mlx5e: Pop cq outside mlx5e_get_cqe
-Date: Tue, 23 Jun 2015 17:14:21 +0300
-Message-ID: <1435068862-26488-11-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 04/11] net/mlx5e: Use skb_shinfo(skb)->gso_segs rather than counting them
+Date: Tue, 23 Jun 2015 17:14:15 +0300
+Message-ID: <1435068862-26488-5-git-send-email-ogerlitz@mellanox.com>
 References: <1435068862-26488-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,66 +10,46 @@ Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:41189 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:41241 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933905AbbFWOPC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jun 2015 10:15:02 -0400
+	id S934069AbbFWOPN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jun 2015 10:15:13 -0400
 In-Reply-To: <1435068862-26488-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Achiad Shochat <achiad@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
 
-Separate between mlx5e_get_cqe() and mlx5_cqwq_pop(), this helps for
-better code readability and better CQ buffer management.
+Instead of counting number of gso fragments, we can use
+skb_shinfo(skb)->gso_segs.
 
-Signed-off-by: Achiad Shochat <achiad@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 2 ++
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   | 2 ++
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c | 2 --
- 3 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 4a25957..760b3ef 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -209,6 +209,8 @@ bool mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
- 		if (!cqe)
- 			break;
- 
-+		mlx5_cqwq_pop(&cq->wq);
-+
- 		wqe_counter_be = cqe->wqe_counter;
- 		wqe_counter    = be16_to_cpu(wqe_counter_be);
- 		wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index c789619..03f28f4 100644
+index 471babd..c0566b6 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -288,6 +288,8 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
- 		if (!cqe)
- 			break;
+@@ -143,16 +143,13 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
  
-+		mlx5_cqwq_pop(&cq->wq);
-+
- 		wqe_counter = be16_to_cpu(cqe->wqe_counter);
+ 	if (skb_is_gso(skb)) {
+ 		u32 payload_len;
+-		int num_pkts;
  
- 		do {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-index bf6b27b..2c7cb67 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-@@ -43,8 +43,6 @@ struct mlx5_cqe64 *mlx5e_get_cqe(struct mlx5e_cq *cq)
- 	if (cqe_ownership_bit != sw_ownership_val)
- 		return NULL;
- 
--	mlx5_cqwq_pop(wq);
--
- 	/* ensure cqe content is read after cqe ownership bit */
- 	rmb();
- 
+ 		eseg->mss    = cpu_to_be16(skb_shinfo(skb)->gso_size);
+ 		opcode       = MLX5_OPCODE_LSO;
+ 		ihs          = skb_transport_offset(skb) + tcp_hdrlen(skb);
+ 		payload_len  = skb->len - ihs;
+-		num_pkts     =    (payload_len / skb_shinfo(skb)->gso_size) +
+-				!!(payload_len % skb_shinfo(skb)->gso_size);
+ 		MLX5E_TX_SKB_CB(skb)->num_bytes = skb->len +
+-						  (num_pkts - 1) * ihs;
++					(skb_shinfo(skb)->gso_segs - 1) * ihs;
+ 		sq->stats.tso_packets++;
+ 		sq->stats.tso_bytes += payload_len;
+ 	} else {
 -- 
 2.3.7
