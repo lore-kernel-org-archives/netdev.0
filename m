@@ -1,51 +1,48 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: pull request: bluetooth-next 2015-06-18
-Date: Tue, 23 Jun 2015 13:29:03 +0200
-Message-ID: <F6D7F62D-3444-496B-BB43-0844129A4738@holtmann.org>
-References: <20150618184311.GA30772@t440s.P-661HNU-F1> <20150623.032255.394457596589182499.davem@davemloft.net> <558939EE.10206@peakwork.de>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Markus Pfau <markus.pfau-9kPUpXxpYhgb1SvskN2V4Q@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <558939EE.10206-9kPUpXxpYhgb1SvskN2V4Q@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next] bridge: multicast: add a comment to br_port_state_selection about blocking state
+Date: Tue, 23 Jun 2015 04:47:44 -0700
+Message-ID: <1435060064-32761-1-git-send-email-nikolay@cumulusnetworks.com>
+References: <77FF1B4A-1D3A-4F59-A7C7-0ADBB34F8920@cumulusnetworks.com>
+Cc: sashok@cumulusnetworks.com, davem@davemloft.net,
+	stephen@networkplumber.org, herbert@gondor.apana.org.au,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:35504 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754445AbbFWLsD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 07:48:03 -0400
+Received: by pdbci14 with SMTP id ci14so5792361pdb.2
+        for <netdev@vger.kernel.org>; Tue, 23 Jun 2015 04:48:02 -0700 (PDT)
+In-Reply-To: <77FF1B4A-1D3A-4F59-A7C7-0ADBB34F8920@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Markus,
+Add a comment to explain why we're not disabling port's multicast when it
+goes in blocking state. Since there's a check in the timer's function which
+bypasses the timer if the port's in blocking/disabled state, the timer will
+simply expire and stop without sending more queries.
 
->>> Here's the final bluetooth-next pull request for 4.2.
->>> 
->>>  - Cleanups & fixes to 802.15.4 code and related drivers
->>>  - Fix btusb driver memory leak
->>>  - New USB IDs for Atheros controllers
->>>  - Support for BCM4324B3 UART based Broadcom controller
->>>  - Fix for Bluetooth encryption key size handling
->>>  - Broadcom controller initialization fixes
->>>  - Support for Intel controller DDC parameters
->>>  - Support for multiple Bluetooth LE advertising instances
->>>  - Fix for HCI user channel cleanup path
->>> 
->>> Please let me know if there are any issues pulling. Thanks.
->> Pulled, thanks Johan,
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-bluetooth" in
->> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Hi David,
-> 
-> I didn't get any response to my issue "High CPU load when turning off BT keyboard" from 2015-06-15.
-> Is it already fixed in "Fix for HCI user channel cleanup path" ?
+Suggested-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ net/bridge/br_stp.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-
-your issue is an userspace daemon issue and not a kernel issue. This pull request is for the kernel side of the Bluetooth subsystem. None of these have anything to do with the userspace daemon.
-
-I am sorry that your email has not yet been answered. However it is only 10 days old and I bet one of the maintainers for the userspace code will have a look at it soon. If not, then you can always resend it to get their attention.
-
-Regards
-
-Marcel
+diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+index e7ab74b405a1..b4b6dab9c285 100644
+--- a/net/bridge/br_stp.c
++++ b/net/bridge/br_stp.c
+@@ -463,6 +463,10 @@ void br_port_state_selection(struct net_bridge *br)
+ 
+ 		if (p->state != BR_STATE_BLOCKING)
+ 			br_multicast_enable_port(p);
++		/* Multicast is not disabled for the port when it goes in
++		 * blocking state because the timers will expire and stop by
++		 * themselves without sending more queries.
++		 */
+ 		if (p->state == BR_STATE_FORWARDING)
+ 			++liveports;
+ 	}
+-- 
+1.9.1
