@@ -1,43 +1,37 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH 2/2] sh_eth: Remove obsolete r8a779x-ether platform_device_id entries
-Date: Tue, 23 Jun 2015 15:01:02 +0200
-Message-ID: <1435064462-11680-2-git-send-email-geert+renesas@glider.be>
-References: <1435064462-11680-1-git-send-email-geert+renesas@glider.be>
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	Geert Uytterhoeven <geert+renesas@glider.be>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1435064462-11680-1-git-send-email-geert+renesas@glider.be>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: split phy page accessors
+Date: Tue, 23 Jun 2015 06:18:25 -0700 (PDT)
+Message-ID: <20150623.061825.2036705332261161582.davem@davemloft.net>
+References: <1434724330-3442-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, linux@roeck-us.net,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33348 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932500AbbFWNGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 09:06:36 -0400
+In-Reply-To: <1434724330-3442-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since commit a483dcbfa21f919c ("ARM: shmobile: lager: Remove legacy
-board support"), R-Car Gen2 SoCs are only supported in generic DT-only
-ARM multi-platform builds.  The driver doesn't need to match platform
-devices by name anymore, hence remove the corresponding
-platform_device_id entry.
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Fri, 19 Jun 2015 10:32:10 -0400
 
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
----
- drivers/net/ethernet/renesas/sh_eth.c | 4 ----
- 1 file changed, 4 deletions(-)
+> Split mv88e6xxx_phy_page_read and mv88e6xxx_phy_page_write into two
+> functions each, one to acquire the smi_mutex and one to call the actual
+> read/write functions.
+> 
+> This will be useful to access registers such as Fiber/SERDES Control,
+> from setup code with SMI lock held.
+> 
+> Also rename their "error" labels to "clear", since it is not only an
+> error path.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 06ac93468e04aff8..70f3eff4ffc1d6f1 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -3305,10 +3305,6 @@ static struct platform_device_id sh_eth_id_table[] = {
- 	{ "sh7763-gether", (kernel_ulong_t)&sh7763_data },
- 	{ "r8a7740-gether", (kernel_ulong_t)&r8a7740_data },
- 	{ "r8a777x-ether", (kernel_ulong_t)&r8a777x_data },
--	{ "r8a7790-ether", (kernel_ulong_t)&r8a779x_data },
--	{ "r8a7791-ether", (kernel_ulong_t)&r8a779x_data },
--	{ "r8a7793-ether", (kernel_ulong_t)&r8a779x_data },
--	{ "r8a7794-ether", (kernel_ulong_t)&r8a779x_data },
- 	{ }
- };
- MODULE_DEVICE_TABLE(platform, sh_eth_id_table);
--- 
-1.9.1
-
+Please resubmit this alongside a patch that actually uses the new
+facility.
