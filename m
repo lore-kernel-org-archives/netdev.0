@@ -1,109 +1,58 @@
-From: Pavel Fedin <p.fedin@samsung.com>
-Subject: [PATCH v3] net: Cavium: Fix MAC address setting in shutdown state
-Date: Tue, 23 Jun 2015 17:51:06 +0300
-Message-ID: <016f01d0adc4$09237ba0$1b6a72e0$@samsung.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Aleksey.Makarov@caviumnetworks.com, sgoutham@cavium.com,
-	thlab.kim@samsung.com, s.dyasly@samsung.com,
-	'Robert Richter' <robert.richter@caviumnetworks.com>
-To: netdev@vger.kernel.org, 'David Miller' <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.w1.samsung.com ([210.118.77.12]:30860 "EHLO
-	mailout2.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933155AbbFWOvJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 10:51:09 -0400
-Received: from eucpsbgm1.samsung.com (unknown [203.254.199.244])
- by mailout2.w1.samsung.com
- (Oracle Communications Messaging Server 7.0.5.31.0 64bit (built May  5 2014))
- with ESMTP id <0NQE00IX5JX76060@mailout2.w1.samsung.com> for
- netdev@vger.kernel.org; Tue, 23 Jun 2015 15:51:07 +0100 (BST)
-Content-language: ru
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antonio Borneo <borneo.antonio@gmail.com>
+Subject: [PATCH 4/6] net: ieee802154: Remove redundant spi driver bus initialization
+Date: Tue, 23 Jun 2015 22:52:52 +0800
+Message-ID: <1435071172-24542-1-git-send-email-borneo.antonio@gmail.com>
+References: <1435070714-24174-1-git-send-email-borneo.antonio@gmail.com>
+Cc: Antonio Borneo <borneo.antonio@gmail.com>,
+	linux-kernel@vger.kernel.org
+To: Alan Ott <alan@signal11.us>,
+	Alexander Aring <alex.aring@gmail.com>,
+	Varka Bhadram <varkabhadram@gmail.com>,
+	linux-wpan@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1435070714-24174-1-git-send-email-borneo.antonio@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This bug pops up with NetworkManager on Fedora 21. NetworkManager tends to
-stop the interface (nicvf_stop() is called) before changing settings. In
-stopped state MAC cannot be sent to a PF. However, when the interface is
-restarted (nicvf_open() is called), we ping the PF using NIC_MBOX_MSG_READY
-message, and the PF replies back with old MAC address, overriding what we
-had after MAC setting from userspace. As a result, we cannot set MAC
-address using NetworkManager.
+In ancient times it was necessary to manually initialize the bus
+field of an spi_driver to spi_bus_type. These days this is done in
+spi_register_driver(), so we can drop the manual assignment.
 
-This patch introduces special tracking of MAC change in stopped state so
-that the correct new MAC address is sent to a PF when interface is reopen.
-
-Signed-off-by: Pavel Fedin <p.fedin@samsung.com>
+Signed-off-by: Antonio Borneo <borneo.antonio@gmail.com>
+To: Alan Ott <alan@signal11.us>
+To: Alexander Aring <alex.aring@gmail.com>
+To: Varka Bhadram <varkabhadram@gmail.com>
+To: linux-wpan@vger.kernel.org
+To: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 ---
-Changes for v3:
-- Fixed (actually hand-edited) file permissions to be 644. I occasionally pushed them as 755 to my
-local repo.
-Changes for v2:
-- Fixed a couple of checkpatch.pl reports (was forgotten in v1)
-- Adjusted email client prefs, hopefully will not corrupt patches any more.
----
- drivers/net/ethernet/cavium/thunder/nic.h        |  1 +
- drivers/net/ethernet/cavium/thunder/nicvf_main.c | 14 ++++++++++++--
- 2 files changed, 13 insertions(+), 2 deletions(-)
+ drivers/net/ieee802154/cc2520.c   | 1 -
+ drivers/net/ieee802154/mrf24j40.c | 1 -
+ 2 files changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index a3b43e5..dda8a02 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -263,6 +263,7 @@ struct nicvf {
- 	bool			pf_acked;
- 	bool			pf_nacked;
- 	bool			bgx_stats_acked;
-+	bool			set_mac_pending;
- } ____cacheline_aligned_in_smp;
- 
- /* PF <--> VF Mailbox communication
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index 02da802..8b119a0 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -201,7 +201,9 @@ static void  nicvf_handle_mbx_intr(struct nicvf *nic)
- 		nic->vf_id = mbx.nic_cfg.vf_id & 0x7F;
- 		nic->tns_mode = mbx.nic_cfg.tns_mode & 0x7F;
- 		nic->node = mbx.nic_cfg.node_id;
--		ether_addr_copy(nic->netdev->dev_addr, mbx.nic_cfg.mac_addr);
-+		if (!nic->set_mac_pending)
-+			ether_addr_copy(nic->netdev->dev_addr,
-+					mbx.nic_cfg.mac_addr);
- 		nic->link_up = false;
- 		nic->duplex = 0;
- 		nic->speed = 0;
-@@ -941,6 +943,11 @@ int nicvf_open(struct net_device *netdev)
- 		nicvf_hw_set_mac_addr(nic, netdev);
- 	}
- 
-+	if (nic->set_mac_pending) {
-+		nic->set_mac_pending = false;
-+		nicvf_hw_set_mac_addr(nic, netdev);
-+	}
-+
- 	/* Init tasklet for handling Qset err interrupt */
- 	tasklet_init(&nic->qs_err_task, nicvf_handle_qs_err,
- 		     (unsigned long)nic);
-@@ -1040,9 +1047,12 @@ static int nicvf_set_mac_address(struct net_device *netdev, void *p)
- 
- 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
- 
--	if (nic->msix_enabled)
-+	if (nic->msix_enabled) {
- 		if (nicvf_hw_set_mac_addr(nic, netdev))
- 			return -EBUSY;
-+	} else {
-+		nic->set_mac_pending = true;
-+	}
- 
- 	return 0;
- }
+diff --git a/drivers/net/ieee802154/cc2520.c b/drivers/net/ieee802154/cc2520.c
+index f833b8b..bd957f1 100644
+--- a/drivers/net/ieee802154/cc2520.c
++++ b/drivers/net/ieee802154/cc2520.c
+@@ -1046,7 +1046,6 @@ MODULE_DEVICE_TABLE(of, cc2520_of_ids);
+ static struct spi_driver cc2520_driver = {
+ 	.driver = {
+ 		.name = "cc2520",
+-		.bus = &spi_bus_type,
+ 		.owner = THIS_MODULE,
+ 		.of_match_table = of_match_ptr(cc2520_of_ids),
+ 	},
+diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
+index fba2dfd..bc8fb26 100644
+--- a/drivers/net/ieee802154/mrf24j40.c
++++ b/drivers/net/ieee802154/mrf24j40.c
+@@ -812,7 +812,6 @@ MODULE_DEVICE_TABLE(spi, mrf24j40_ids);
+ static struct spi_driver mrf24j40_driver = {
+ 	.driver = {
+ 		.name = "mrf24j40",
+-		.bus = &spi_bus_type,
+ 		.owner = THIS_MODULE,
+ 	},
+ 	.id_table = mrf24j40_ids,
 -- 
-1.9.5.msysgit.0
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
+2.4.4
