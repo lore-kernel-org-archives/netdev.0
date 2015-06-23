@@ -1,54 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: Cavium: Fix MAC address setting in shutdown
- state
-Date: Tue, 23 Jun 2015 07:10:13 -0700 (PDT)
-Message-ID: <20150623.071013.2258233138502834064.davem@davemloft.net>
-References: <052701d0ad83$c60df970$5229ec50$@samsung.com>
+Subject: Re: [PATCH net-next v1 1/1] net: fec: init MAC prior to mii bus
+ probe
+Date: Tue, 23 Jun 2015 07:11:23 -0700 (PDT)
+Message-ID: <20150623.071123.2266348029568993238.davem@davemloft.net>
+References: <1435044771-22828-1-git-send-email-B38611@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Aleksey.Makarov@caviumnetworks.com,
-	sgoutham@cavium.com, thlab.kim@samsung.com, s.dyasly@samsung.com,
-	robert.richter@caviumnetworks.com
-To: p.fedin@samsung.com
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	Frank.Li@freescale.com
+To: B38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33731 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33739 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932307AbbFWN6Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 09:58:24 -0400
-In-Reply-To: <052701d0ad83$c60df970$5229ec50$@samsung.com>
+	with ESMTP id S932186AbbFWN7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 09:59:33 -0400
+In-Reply-To: <1435044771-22828-1-git-send-email-B38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Fedin <p.fedin@samsung.com>
-Date: Tue, 23 Jun 2015 10:11:03 +0300
+From: Fugang Duan <B38611@freescale.com>
+Date: Tue, 23 Jun 2015 15:32:51 +0800
 
-> This bug pops up with NetworkManager on Fedora 21. NetworkManager tends to
-> stop the interface (nicvf_stop() is called) before changing settings. In
-> stopped state MAC cannot be sent to a PF. However, when the interface is
-> restarted (nicvf_open() is called), we ping the PF using NIC_MBOX_MSG_READY
-> message, and the PF replies back with old MAC address, overriding what we
-> had after MAC setting from userspace. As a result, we cannot set MAC
-> address using NetworkManager.
+> Below case causes mii bus probe failed:
+> ifconfig eth0 down -> suspend/resume with Mega/fax mix off -> ifconfig eth0 up
 > 
-> This patch introduces special tracking of MAC change in stopped state so
-> that the correct new MAC address is sent to a PF when interface is reopen.
+> In i.MX6SX/i.MX7D chip, Mega/fast mix off feature is supported that means most of
+> SOC power will be off including ENET MAC for power saving. Once ENET MAC power
+> off, all initialized MAC registers reset to default, so in the case, it must
+> init MAC prior to mii bus probe.
 > 
-> Signed-off-by: Pavel Fedin <p.fedin@samsung.com>
-> ---
->  Differences from v1:
-> - Fixed a couple of checkpatch.pl reports (was forgotten in v1)
-> - Adjusted email client prefs, hopefully will not corrupt patches any more.
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
 
-Still have problems:
-
-> diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-> index a3b43e5..dda8a02 100755
-> --- a/drivers/net/ethernet/cavium/thunder/nic.h
-> +++ b/drivers/net/ethernet/cavium/thunder/nic.h
-> @@ -263,6 +263,7 @@ struct nicvf {
-
-This hunk makes 'git am' complain:
-
-Applying: net: Cavium: Fix MAC address setting in shutdown state
-warning: drivers/net/ethernet/cavium/thunder/nic.h has type 100644, expected 100755
+Applied.
