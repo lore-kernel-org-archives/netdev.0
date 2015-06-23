@@ -1,26 +1,30 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
+From: Alan Ott <alan@signal11.us>
 Subject: Re: [PATCH 4/6] net: ieee802154: Remove redundant spi driver bus
  initialization
-Date: Tue, 23 Jun 2015 20:36:19 +0530
-Message-ID: <558975EB.7020805@gmail.com>
+Date: Tue, 23 Jun 2015 11:08:40 -0400
+Message-ID: <55897678.40907@signal11.us>
 References: <1435070714-24174-1-git-send-email-borneo.antonio@gmail.com> <1435071172-24542-1-git-send-email-borneo.antonio@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org
 To: Antonio Borneo <borneo.antonio@gmail.com>,
-	Alan Ott <alan@signal11.us>,
 	Alexander Aring <alex.aring@gmail.com>,
+	Varka Bhadram <varkabhadram@gmail.com>,
 	linux-wpan@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:48923 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933004AbbFWPIm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 11:08:42 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id D93C320652
+	for <netdev@vger.kernel.org>; Tue, 23 Jun 2015 11:08:41 -0400 (EDT)
 In-Reply-To: <1435071172-24542-1-git-send-email-borneo.antonio@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Antonio Borneo,
-
-On Tuesday 23 June 2015 08:22 PM, Antonio Borneo wrote:
-
+On 06/23/2015 10:52 AM, Antonio Borneo wrote:
 > In ancient times it was necessary to manually initialize the bus
 > field of an spi_driver to spi_bus_type. These days this is done in
 > spi_register_driver(), so we can drop the manual assignment.
@@ -49,9 +53,6 @@ On Tuesday 23 June 2015 08:22 PM, Antonio Borneo wrote:
 >   		.owner = THIS_MODULE,
 >   		.of_match_table = of_match_ptr(cc2520_of_ids),
 >   	},
-
-Acked-by: Varka Bhadram <varkabhadram@gmail.com>
-
 > diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
 > index fba2dfd..bc8fb26 100644
 > --- a/drivers/net/ieee802154/mrf24j40.c
@@ -65,6 +66,4 @@ Acked-by: Varka Bhadram <varkabhadram@gmail.com>
 >   	},
 >   	.id_table = mrf24j40_ids,
 
--- 
-Best regards,
-Varka Bhadram.
+Acked-by: Alan Ott <alan@signal11.us>
