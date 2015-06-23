@@ -1,42 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch v1] ax88179_178a: add reset functionality in
- reset_resume
-Date: Tue, 23 Jun 2015 06:41:31 -0700 (PDT)
-Message-ID: <20150623.064131.462521891937908897.davem@davemloft.net>
-References: <CA+vmRF7e0Y1S_YXeHAL9u=Tp-Py_8NL3JzAVJceriFZ5Nq+LWQ@mail.gmail.com>
+Subject: Re: pull-request: can 2015-06-21
+Date: Tue, 23 Jun 2015 06:43:38 -0700 (PDT)
+Message-ID: <20150623.064338.1193972764545855895.davem@davemloft.net>
+References: <1434906299-19452-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: vivek.bhagat89@gmail.com
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: mkl@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33502 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33523 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753330AbbFWN3l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 09:29:41 -0400
-In-Reply-To: <CA+vmRF7e0Y1S_YXeHAL9u=Tp-Py_8NL3JzAVJceriFZ5Nq+LWQ@mail.gmail.com>
+	with ESMTP id S1754173AbbFWNbt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 09:31:49 -0400
+In-Reply-To: <1434906299-19452-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vivek Bhagat <vivek.bhagat89@gmail.com>
-Date: Sun, 21 Jun 2015 11:41:43 +0530
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Sun, 21 Jun 2015 19:04:58 +0200
 
-> From d178065c9e3cfa8a45ef537fae7412775339beb0 Mon Sep 17 00:00:00 2001
-> From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
-> Date: Thu, 11 Jun 2015 07:23:46 -0700
-> Subject: [PATCH] ax88179_178a: add reset functionality in reset_resume
+> this is a, probably too late, pull request for v4.1.
 > 
-> Without reset functionality in reset_resume, iperf connection does not
-> establish after suspend/resume however ping works at the same time.
-> iperf connection fails with wrong checksum error shown by tcpdump.
+> Oliver Hartkopp fixed a bug in the generic CAN frame handling code, which may
+> lead to loss of CAN frames. It was introduced during v4.1 development.
 > 
-> reset function inside reset_resume solves above bug. We have verified
-> this issue on ASIX based ST Lab, Cadyce dongle.
-> 
-> Signed-off-by: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
-> Signed-off-by: Praveen Kumar <praveen.k09@samsung.com>
+> Please queue via net/master if possible, net-next/master otherwise. I've added
+> stable on Cc, just in case.
 
-Your email client has corrupted the patch, turning TAB characters into
-spaces etc.
-
-Please fix this up and resubmit.
+Pulled, thanks.
