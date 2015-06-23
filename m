@@ -1,55 +1,41 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 04/11] net/mlx5e: Use skb_shinfo(skb)->gso_segs rather than counting them
-Date: Tue, 23 Jun 2015 17:14:15 +0300
-Message-ID: <1435068862-26488-5-git-send-email-ogerlitz@mellanox.com>
-References: <1435068862-26488-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:41241 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S934069AbbFWOPN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jun 2015 10:15:13 -0400
-In-Reply-To: <1435068862-26488-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH] net: switchdev: ignore unsupported bridge flags
+Date: Tue, 23 Jun 2015 10:26:04 -0400
+Message-ID: <1435069564-10241-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: sfeldma@gmail.com, Jiri Pirko <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Saeed Mahameed <saeedm@mellanox.com>
+switchdev_port_bridge_getlink() queries SWITCHDEV_ATTR_PORT_BRIDGE_FLAGS
+attributes, but a driver doesn't need to implement this in order to get
+bridge link information.
 
-Instead of counting number of gso fragments, we can use
-skb_shinfo(skb)->gso_segs.
+So error out only on errors different than -EOPNOTSUPP.
 
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+(This is a follow-up patch for 7d4f8d8.)
+
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ net/switchdev/switchdev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index 471babd..c0566b6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -143,16 +143,13 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index f01d340..84f77a0 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -532,7 +532,7 @@ int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+ 	int err;
  
- 	if (skb_is_gso(skb)) {
- 		u32 payload_len;
--		int num_pkts;
+ 	err = switchdev_port_attr_get(dev, &attr);
+-	if (err)
++	if (err && err != -EOPNOTSUPP)
+ 		return err;
  
- 		eseg->mss    = cpu_to_be16(skb_shinfo(skb)->gso_size);
- 		opcode       = MLX5_OPCODE_LSO;
- 		ihs          = skb_transport_offset(skb) + tcp_hdrlen(skb);
- 		payload_len  = skb->len - ihs;
--		num_pkts     =    (payload_len / skb_shinfo(skb)->gso_size) +
--				!!(payload_len % skb_shinfo(skb)->gso_size);
- 		MLX5E_TX_SKB_CB(skb)->num_bytes = skb->len +
--						  (num_pkts - 1) * ihs;
-+					(skb_shinfo(skb)->gso_segs - 1) * ihs;
- 		sq->stats.tso_packets++;
- 		sq->stats.tso_bytes += payload_len;
- 	} else {
+ 	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
 -- 
-2.3.7
+2.4.4
