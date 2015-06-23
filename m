@@ -1,37 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] NET: Add ezchip ethernet driver
-Date: Tue, 23 Jun 2015 00:31:04 -0700 (PDT)
-Message-ID: <20150623.003104.558693134575813076.davem@davemloft.net>
-References: <1434263193-16877-1-git-send-email-noamc@ezchip.com>
-	<1434465342-7412-1-git-send-email-noamc@ezchip.com>
-	<CAF2d9jgQRatz_wL5+xk7fH=gAXTixb1yNVZGnenmKwR9RoSQLQ@mail.gmail.com>
+From: Fugang Duan <B38611@freescale.com>
+Subject: [PATCH net-next v1 1/1] net: fec: init MAC prior to mii bus probe
+Date: Tue, 23 Jun 2015 15:32:51 +0800
+Message-ID: <1435044771-22828-1-git-send-email-B38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: noamc@ezchip.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Alexey.Brodkin@synopsys.com,
-	vgupta@synopsys.com, giladb@ezchip.com, cmetcalf@ezchip.com,
-	talz@ezchip.com
-To: maheshb@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAF2d9jgQRatz_wL5+xk7fH=gAXTixb1yNVZGnenmKwR9RoSQLQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <stephen@networkplumber.org>,
+	<b38611@freescale.com>, <Frank.Li@freescale.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bon0114.outbound.protection.outlook.com ([157.56.111.114]:50743
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753509AbbFWHhV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jun 2015 03:37:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
-Date: Mon, 22 Jun 2015 10:45:15 -0700
+Below case causes mii bus probe failed:
+ifconfig eth0 down -> suspend/resume with Mega/fax mix off -> ifconfig eth0 up
 
-> On Tue, Jun 16, 2015 at 7:35 AM, Noam Camus <noamc@ezchip.com> wrote:
->> @@ -0,0 +1,27 @@
->> +#
->> +# EZchip network device configuration
->> +#
->> +
->> +config NET_VENDOR_EZCHIP
->> +       bool "EZchip devices"
->> +       default y
->>
-> Why this has to be included in the default build? Shouldn't it be
-> either "m" or "N" by default?
+In i.MX6SX/i.MX7D chip, Mega/fast mix off feature is supported that means most of
+SOC power will be off including ENET MAC for power saving. Once ENET MAC power
+off, all initialized MAC registers reset to default, so in the case, it must
+init MAC prior to mii bus probe.
 
-It's a vendor guard, which are always enabled yes by default.
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index bf4cf3f..e464aea 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -2856,12 +2856,14 @@ fec_enet_open(struct net_device *ndev)
+ 	if (ret)
+ 		goto err_enet_alloc;
+ 
++	/* Init MAC prior to mii bus probe */
++	fec_restart(ndev);
++
+ 	/* Probe and connect to PHY when open the interface */
+ 	ret = fec_enet_mii_probe(ndev);
+ 	if (ret)
+ 		goto err_enet_mii_probe;
+ 
+-	fec_restart(ndev);
+ 	napi_enable(&fep->napi);
+ 	phy_start(fep->phy_dev);
+ 	netif_tx_start_all_queues(ndev);
+-- 
+1.7.8
