@@ -1,43 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] lib: test_bpf: purge CPP register redefinitions
-Date: Tue, 23 Jun 2015 06:47:56 -0700 (PDT)
-Message-ID: <20150623.064756.774554173201417256.davem@davemloft.net>
-References: <5587B0C7.8090507@nod.at>
-	<5587B4FB.3040609@nod.at>
-	<87egl3lusf.fsf@gmail.com>
+Subject: Re: [PATCH v2 0/4] net: stmmac: dwmac-rk: add support for rk3368
+Date: Tue, 23 Jun 2015 06:49:54 -0700 (PDT)
+Message-ID: <20150623.064954.1515778425917492486.davem@davemloft.net>
+References: <1434916374-7457-1-git-send-email-heiko@sntech.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: richard@nod.at, alexei.starovoitov@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	daniel@iogearbox.net
-To: nicstange@gmail.com
+Cc: peppe.cavallaro@st.com, roger.chen@rock-chips.com,
+	linux-rockchip@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: heiko@sntech.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33548 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33555 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752229AbbFWNgJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 09:36:09 -0400
-In-Reply-To: <87egl3lusf.fsf@gmail.com>
+	with ESMTP id S1753838AbbFWNiF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 09:38:05 -0400
+In-Reply-To: <1434916374-7457-1-git-send-email-heiko@sntech.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolai Stange <nicstange@gmail.com>
-Date: Mon, 22 Jun 2015 15:47:12 +0200
+From: Heiko Stuebner <heiko@sntech.de>
+Date: Sun, 21 Jun 2015 21:52:50 +0200
 
-> Richard Weinberger <richard@nod.at> writes:
->> While riding the bus to my office I've materialized that idea.
->> Nicolai, can you please give the attached patch a try?
-> W/o my test_bpf patch applied, w/ your patch applied:
->  - linux mainline: um compiles
->  - linux-next: um compiles up to this mfd/syscon issue communicated to
->                you in sidechannel
+> Apart from small cleanups, this series provides support for the dwmac
+> on the new rk3368 ARM64 soc.
 > 
-> In particular, your patch fixes, next to [0], the issue addressed by my
-> patch.
+> Tested on a R88 board using a RMII phy.
 > 
-> -> My 1K line regexp replace patch reduces to a debatable naming style
->    patch. Drop it, sorry for the noise.
-> 
-> [0] http://lkml.kernel.org/r/1420386535-22530-1-git-send-email-richard@nod.at
+> Changes since v1:
+> - Adapt to changes resulting from patch d42202dce002 ("net: stmmac:
+> dwmac-rk: Don't add function name in info or err messages")
 
-Ok, I'll revert this then.
+Series applied to net-next, thanks.
