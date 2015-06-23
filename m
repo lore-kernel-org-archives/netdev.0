@@ -1,28 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/phy: Add support for Realtek RTL8211F
-Date: Tue, 23 Jun 2015 01:06:39 -0700 (PDT)
-Message-ID: <20150623.010639.431315316588044220.davem@davemloft.net>
-References: <1434616967-38930-1-git-send-email-Shengzhou.Liu@freescale.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] rocker: call correct unregister function on error
+Date: Tue, 23 Jun 2015 10:01:40 +0200
+Message-ID: <20150623080140.GA2303@nanopsycho.ki.iif.hu>
+References: <1435045930-12130-1-git-send-email-gilad@benyossef.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
-To: Shengzhou.Liu@freescale.com
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org,
+	Gilad Ben-Yossef <giladb@ezchip.com>
+To: Gilad Ben-Yossef <gilad@benyossef.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59814 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751821AbbFWHyv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 03:54:51 -0400
-In-Reply-To: <1434616967-38930-1-git-send-email-Shengzhou.Liu@freescale.com>
+Received: from mail-wg0-f52.google.com ([74.125.82.52]:35475 "EHLO
+	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751821AbbFWIBs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 04:01:48 -0400
+Received: by wgbhy7 with SMTP id hy7so2180823wgb.2
+        for <netdev@vger.kernel.org>; Tue, 23 Jun 2015 01:01:47 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1435045930-12130-1-git-send-email-gilad@benyossef.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shengzhou Liu <Shengzhou.Liu@freescale.com>
-Date: Thu, 18 Jun 2015 16:42:47 +0800
+Tue, Jun 23, 2015 at 09:52:10AM CEST, gilad@benyossef.com wrote:
+>Use the correct unregister function matching the register
+>function on the error path.
+>
+>Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
+>CC: Gilad Ben-Yossef <giladb@ezchip.com>
+>CC: Scott Feldman <sfeldma@gmail.com>
+>CC: Jiri Pirko <jiri@resnulli.us>
 
-> RTL8211F has different register definitions from RTL8211E.
-> Specially it needs to enable TXDLY in case of RGMII.
-> 
-> Signed-off-by: Shengzhou Liu <Shengzhou.Liu@freescale.com>
-
-Applied, thanks.
+Fixes: c1beeef7a32a791a ("rocker: implement IPv4 fib offloading")
+Acked-by: Jiri Pirko <jiri@resnulli.us>
