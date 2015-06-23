@@ -1,45 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] net: fs_enet: Fix NETIF_F_SG feature for
- Freescale MPC5121
-Date: Tue, 23 Jun 2015 06:39:26 -0700 (PDT)
-Message-ID: <20150623.063926.723221732046739833.davem@davemloft.net>
-References: <1434839566-31704-1-git-send-email-alex.popov@linux.com>
+Subject: Re: [Patch v1] ax88179_178a: add reset functionality in
+ reset_resume
+Date: Tue, 23 Jun 2015 06:41:31 -0700 (PDT)
+Message-ID: <20150623.064131.462521891937908897.davem@davemloft.net>
+References: <CA+vmRF7e0Y1S_YXeHAL9u=Tp-Py_8NL3JzAVJceriFZ5Nq+LWQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
-	christophe.leroy@c-s.fr, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: alex.popov@linux.com
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: vivek.bhagat89@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33464 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33502 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752229AbbFWN1i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 09:27:38 -0400
-In-Reply-To: <1434839566-31704-1-git-send-email-alex.popov@linux.com>
+	with ESMTP id S1753330AbbFWN3l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 09:29:41 -0400
+In-Reply-To: <CA+vmRF7e0Y1S_YXeHAL9u=Tp-Py_8NL3JzAVJceriFZ5Nq+LWQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Popov <alex.popov@linux.com>
-Date: Sun, 21 Jun 2015 01:32:46 +0300
+From: Vivek Bhagat <vivek.bhagat89@gmail.com>
+Date: Sun, 21 Jun 2015 11:41:43 +0530
 
-> Commit 4fc9b87bae25 ("net: fs_enet: Implement NETIF_F_SG feature")
-> brings a trouble to Freescale MPC512x: a kernel oops happens
-> during sending non-linear sk_buff with .data not aligned by 4.
+> From d178065c9e3cfa8a45ef537fae7412775339beb0 Mon Sep 17 00:00:00 2001
+> From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
+> Date: Thu, 11 Jun 2015 07:23:46 -0700
+> Subject: [PATCH] ax88179_178a: add reset functionality in reset_resume
 > 
-> Log quotation:
- ...
-> The reason:
+> Without reset functionality in reset_resume, iperf connection does not
+> establish after suspend/resume however ping works at the same time.
+> iperf connection fails with wrong checksum error shown by tcpdump.
 > 
-> MPC5121 FEC requires 4-byte alignment for TX data buffer and calls
-> tx_skb_align_workaround() for copying sk_buff with not aligned .data to a new
-> sk_buff with aligned one. But tx_skb_align_workaround() uses
-> skb_copy_from_linear_data() which doesn't work for non-linear sk_buff:
-> a new sk_buff has non-zero nr_frags and zero .data_len.
+> reset function inside reset_resume solves above bug. We have verified
+> this issue on ASIX based ST Lab, Cadyce dongle.
 > 
-> So improve the condition of calling tx_skb_align_workaround() and use
-> skb_linearize() in it.
-> 
-> Signed-off-by: Alexander Popov <alex.popov@linux.com>
+> Signed-off-by: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
+> Signed-off-by: Praveen Kumar <praveen.k09@samsung.com>
 
-Applied, thanks.
+Your email client has corrupted the patch, turning TAB characters into
+spaces etc.
+
+Please fix this up and resubmit.
