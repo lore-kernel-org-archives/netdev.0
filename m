@@ -1,53 +1,35 @@
-From: Fugang Duan <B38611@freescale.com>
-Subject: [PATCH net-next v1 1/1] net: fec: init MAC prior to mii bus probe
-Date: Tue, 23 Jun 2015 15:32:51 +0800
-Message-ID: <1435044771-22828-1-git-send-email-B38611@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] switchdev: fdb filter_dev is always NULL for
+ self (device), so remove check
+Date: Tue, 23 Jun 2015 00:58:55 -0700 (PDT)
+Message-ID: <20150623.005855.372472229421613354.davem@davemloft.net>
+References: <1434582511-46290-1-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <stephen@networkplumber.org>,
-	<b38611@freescale.com>, <Frank.Li@freescale.com>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	sridhar.samudrala@intel.com
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0114.outbound.protection.outlook.com ([157.56.111.114]:50743
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753509AbbFWHhV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jun 2015 03:37:21 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:59736 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751483AbbFWHrI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 03:47:08 -0400
+In-Reply-To: <1434582511-46290-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Below case causes mii bus probe failed:
-ifconfig eth0 down -> suspend/resume with Mega/fax mix off -> ifconfig eth0 up
+From: sfeldma@gmail.com
+Date: Wed, 17 Jun 2015 16:08:31 -0700
 
-In i.MX6SX/i.MX7D chip, Mega/fast mix off feature is supported that means most of
-SOC power will be off including ENET MAC for power saving. Once ENET MAC power
-off, all initialized MAC registers reset to default, so in the case, it must
-init MAC prior to mii bus probe.
+> From: Scott Feldman <sfeldma@gmail.com>
+> 
+> Remove the filter_dev check when dumping fdb entries, otherwise dump
+> returns empty list.  filter_dev is always passed as NULL when dumping fdbs
+> on SELF.  We want the fdbs installed on the device to be listed in the
+> dump.
+> 
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> Fixes: 45d4122c ("switchdev: add support for fdb add/del/dump via switchdev_port_obj ops")
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index bf4cf3f..e464aea 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2856,12 +2856,14 @@ fec_enet_open(struct net_device *ndev)
- 	if (ret)
- 		goto err_enet_alloc;
- 
-+	/* Init MAC prior to mii bus probe */
-+	fec_restart(ndev);
-+
- 	/* Probe and connect to PHY when open the interface */
- 	ret = fec_enet_mii_probe(ndev);
- 	if (ret)
- 		goto err_enet_mii_probe;
- 
--	fec_restart(ndev);
- 	napi_enable(&fep->napi);
- 	phy_start(fep->phy_dev);
- 	netif_tx_start_all_queues(ndev);
--- 
-1.7.8
+Applied, thanks.
