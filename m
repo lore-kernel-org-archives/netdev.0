@@ -1,123 +1,53 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH 2/3] net: dsa: mv88e6xxx: add support to dump VLANs
-Date: Tue, 23 Jun 2015 17:46:09 -0400
-Message-ID: <1435095970-18576-3-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1435095970-18576-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1435095970-18576-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 1/2] sh_eth: Remove obsolete r7s72100-ether
+ platform_device_id entry
+Date: Wed, 24 Jun 2015 08:49:50 +0900
+Message-ID: <20150623234949.GF9988@verge.net.au>
+References: <1435064462-11680-1-git-send-email-geert+renesas@glider.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: Geert Uytterhoeven <geert+renesas@glider.be>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1435064462-11680-1-git-send-email-geert+renesas@glider.be>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This commit implements the port_vlan_dump function in the
-dsa_switch_driver structure for Marvell 88E6xxx compatible switches.
+On Tue, Jun 23, 2015 at 03:01:01PM +0200, Geert Uytterhoeven wrote:
+> Since commit 05104c266ae9a167 ("ARM: shmobile: r7s72100: genmai: Remove
+> legacy board file"), r7s72100 is only supported in generic DT-only ARM
+> multi-platform builds.  The driver doesn't need to match platform
+> devices by name anymore, hence remove the corresponding
+> platform_device_id entry.
+> 
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
-This allows to access a switch VLAN Table Unit from standard userspace
-commands such as "bridge vlan show".
+Acked-by: Simon Horman <horms+renesas@verge.net.au>
 
-A populated VTU can give the following output:
-
-    # bridge vlan
-    port	vlan ids
-    swp0	None
-    swp0
-    swp1	None
-    swp1
-    swp2	1000
-		1200
-
-    swp2	1000
-		1200
-
-    swp3	550 PVID Egress Untagged
-
-    swp3	550 PVID Egress Untagged
-
-    swp4	1200
-
-    swp4	1200
-
-    br0	None
-
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 44 ++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx.h |  2 ++
- 2 files changed, 46 insertions(+)
-
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 0dce8e8..0d63bf6 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1441,6 +1441,50 @@ static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds, u16 vid,
- 	return 0;
- }
- 
-+int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port, u16 vid,
-+			     u16 *bridge_flags)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	struct mv88e6xxx_vtu_entry entry = { 0 };
-+	int prev_vid = vid ? vid - 1 : 4095;
-+	int ret;
-+
-+	mutex_lock(&ps->smi_mutex);
-+	ret = _mv88e6xxx_vtu_getnext(ds, prev_vid, &entry);
-+	if (ret < 0)
-+		goto unlock;
-+
-+	if (entry.vid != vid || !entry.valid) {
-+		ret = -ENOENT;
-+		goto unlock;
-+	}
-+
-+	switch (entry.tags[port]) {
-+	case GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED:
-+		*bridge_flags |= BRIDGE_VLAN_INFO_UNTAGGED;
-+		/* fall through... */
-+	case GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED:
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		goto unlock;
-+	}
-+
-+	/* check PVID */
-+	ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_DEFAULT_VLAN);
-+	if (ret < 0)
-+		goto unlock;
-+
-+	if ((ret & PORT_DEFAULT_VLAN_MASK) == vid)
-+		*bridge_flags |= BRIDGE_VLAN_INFO_PVID;
-+
-+	ret = 0;
-+unlock:
-+	mutex_unlock(&ps->smi_mutex);
-+
-+	return ret;
-+}
-+
- static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 798b6b8..7b75c2b 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -440,6 +440,8 @@ int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
- int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg);
- int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
- 			     int reg, int val);
-+int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds,int port, u16 vid,
-+			     u16 *bridge_flags);
- extern struct dsa_switch_driver mv88e6131_switch_driver;
- extern struct dsa_switch_driver mv88e6123_61_65_switch_driver;
- extern struct dsa_switch_driver mv88e6352_switch_driver;
--- 
-2.4.4
+> ---
+>  drivers/net/ethernet/renesas/sh_eth.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index 7fb244f565b283b0..06ac93468e04aff8 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -3303,7 +3303,6 @@ static struct platform_device_id sh_eth_id_table[] = {
+>  	{ "sh7757-ether", (kernel_ulong_t)&sh7757_data },
+>  	{ "sh7757-gether", (kernel_ulong_t)&sh7757_data_giga },
+>  	{ "sh7763-gether", (kernel_ulong_t)&sh7763_data },
+> -	{ "r7s72100-ether", (kernel_ulong_t)&r7s72100_data },
+>  	{ "r8a7740-gether", (kernel_ulong_t)&r8a7740_data },
+>  	{ "r8a777x-ether", (kernel_ulong_t)&r8a777x_data },
+>  	{ "r8a7790-ether", (kernel_ulong_t)&r8a779x_data },
+> -- 
+> 1.9.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
