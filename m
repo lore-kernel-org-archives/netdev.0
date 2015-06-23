@@ -1,137 +1,88 @@
-From: Duan Andy <fugang.duan@freescale.com>
-Subject: RE: [PATCHv3 net-next] net: fec: Ensure clocks are enabled while
- using mdio bus
-Date: Tue, 23 Jun 2015 04:47:54 +0000
-Message-ID: <BLUPR03MB37339A6B1031412B45CF681F5A00@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <1434825509-11241-1-git-send-email-andrew@lunn.ch>
- <BLUPR03MB37330241ECB85BA2131AAA1F5A00@BLUPR03MB373.namprd03.prod.outlook.com>
- <20150623025221.GA11054@lunn.ch>
- <BLUPR03MB373DBCEB67F4E59BF04C9B2F5A00@BLUPR03MB373.namprd03.prod.outlook.com>
- <20150623034356.GB11054@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Cory Tusar <cory.tusar@pid1solutions.com>,
-	netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH net] ip: report the original address of ICMP messages
+Date: Tue, 23 Jun 2015 08:34:39 +0300
+Message-ID: <1435037679-2304-1-git-send-email-ja@ssi.bg>
+Cc: netdev@vger.kernel.org, Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0120.outbound.protection.outlook.com ([207.46.100.120]:34247
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750840AbbFWFWE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 01:22:04 -0400
-In-Reply-To: <20150623034356.GB11054@lunn.ch>
-Content-Language: en-US
+Received: from ja.ssi.bg ([178.16.129.10]:41943 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753138AbbFWFfH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jun 2015 01:35:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch> Sent: Tuesday, June 23, 2015 11:44 AM
-> To: Duan Fugang-B38611
-> Cc: Florian Fainelli; David Miller; Cory Tusar; netdev
-> Subject: Re: [PATCHv3 net-next] net: fec: Ensure clocks are enabled while
-> using mdio bus
-> 
-> On Tue, Jun 23, 2015 at 03:12:15AM +0000, Duan Andy wrote:
-> > From: Andrew Lunn <andrew@lunn.ch> Sent: Tuesday, June 23, 2015 10:52
-> > AM
-> > > To: Duan Fugang-B38611; Florian Fainelli
-> > > Cc: David Miller; Cory Tusar; netdev
-> > > Subject: Re: [PATCHv3 net-next] net: fec: Ensure clocks are enabled
-> > > while using mdio bus
-> > >
-> > > > > int mii_id, int regnum)  {
-> > > > >  	struct fec_enet_private *fep = bus->priv;
-> > > > >  	unsigned long time_left;
-> > > > > +	int ret;
-> > > > > +
-> > > > > +	ret = clk_prepare_enable(fep->clk_ipg);
-> > > > > +	if (ret)
-> > > > > +		return ret;
-> > > > >
-> > > > >  	fep->mii_timeout = 0;
-> > > > >  	init_completion(&fep->mdio_done); @@ -1779,11 +1785,14 @@
-> > > > > static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id,
-> > > > > int regnum)
-> > > > >  	if (time_left == 0) {
-> > > > >  		fep->mii_timeout = 1;
-> > > > >  		netdev_err(fep->netdev, "MDIO read timeout\n");
-> > > > > +		clk_disable_unprepare(fep->clk_ipg);
-> > > > >  		return -ETIMEDOUT;
-> > > > >  	}
-> > > > >
-> > > > > -	/* return value */
-> > > > > -	return FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
-> > > > > +	ret = FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
-> > > > > +	clk_disable_unprepare(fep->clk_ipg);
-> > > > > +
-> > > > > +	return ret;
-> > > > >  }
-> > > > >
-> > > >
-> > >
-> > > > I suggest you use runtime pm to enable/disable clock for
-> > > > performance consideration. Not every time for mdio bus access
-> > > > needs to enable/disable clock.
-> > >
-> > > Can you explain that some more. When are you suggesting doing a
-> > > runtime enable/disable? Given the current DSA architecture, i would
-> > > probably do a runtime enable as soon as i lookup the mdio bus, and
-> > > never do a runtime disable. Also, how would you include this runtime
-> > > pm into the phy state machine which is going to be polling your mdio
-> > > bus around once per second for normal phys?
-> > >
-> >
-> > You can do it like this:
-> >
-> > #define FEC_MDIO_PM_TIMEOUT  100 /* ms */
-> >
-> > static int fec_probe(struct platform_device *pdev) {
-> > 	...
-> > 	pm_runtime_enable(&pdev->dev);
-> > 	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
-> > 	pm_runtime_use_autosuspend(&pdev->dev);
-> > 	...
-> > }
-> >
-> >
-> > static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int
-> > regnum) {
-> > 	...
-> > 	pm_runtime_get_sync(dev);
-> >
-> > 	...
-> >
-> > 	pm_runtime_mark_last_busy(dev);
-> > 	pm_runtime_put_autosuspend(dev);
-> > }
-> 
-> Isn't this heavier than clk_prepare_enable()/clk_disable_unprepare()?
-> 
-No, I don't think so. Move clock enable/disable() to runtime suspend/resume is similar to your patch, but
-Can reduce the times during mii bus stress busy access like mii stress test case.
+ICMP messages can trigger ICMP and local errors. In this case
+serr->port is 0 and starting from Linux 4.0 we do not return
+the original target address to the error queue readers.
+Add function to define which errors provide addr_offset.
+With this fix my ping command is not silent anymore.
 
+Fixes: c247f0534cc5 ("ip: fix error queue empty skb handling")
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+ net/ipv4/ip_sockglue.c | 11 ++++++++++-
+ net/ipv6/datagram.c    | 12 +++++++++++-
+ 2 files changed, 21 insertions(+), 2 deletions(-)
 
-static int fec_runtime_suspend(struct device *dev)
-{
-	...
-	clk_disable(fep->ipg_clk);
-
-	return 0;
-}
-
-static int fec_runtime_resume(struct device *dev)
-{
-	return clk_enable(fep->ipg_clk);
-}
-
-> The clock is only going to be enabled/disabled before the interface is
-> opened(). Once it is open, the IGP clock is always running, so these
-> clock operations just become simple reference counts. But the runtime
-> operations you are suggesting will be doing lots of stuff after open as
-> well as before open.
-> 
-No, no any lots of stuff comparing to your current implementation.
-
->    Andrew
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 7cfb089..6ddde89 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -432,6 +432,15 @@ void ip_local_error(struct sock *sk, int err, __be32 daddr, __be16 port, u32 inf
+ 		kfree_skb(skb);
+ }
+ 
++/* For some errors we have valid addr_offset even with zero payload and
++ * zero port. Also, addr_offset should be supported if port is set.
++ */
++static inline bool ipv4_datagram_support_addr(struct sock_exterr_skb *serr)
++{
++	return serr->ee.ee_origin == SO_EE_ORIGIN_ICMP ||
++	       serr->ee.ee_origin == SO_EE_ORIGIN_LOCAL || serr->port;
++}
++
+ /* IPv4 supports cmsg on all imcp errors and some timestamps
+  *
+  * Timestamp code paths do not initialize the fields expected by cmsg:
+@@ -498,7 +507,7 @@ int ip_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
+ 
+ 	serr = SKB_EXT_ERR(skb);
+ 
+-	if (sin && serr->port) {
++	if (sin && ipv4_datagram_support_addr(serr)) {
+ 		sin->sin_family = AF_INET;
+ 		sin->sin_addr.s_addr = *(__be32 *)(skb_network_header(skb) +
+ 						   serr->addr_offset);
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 762a58c..62d908e 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -325,6 +325,16 @@ void ipv6_local_rxpmtu(struct sock *sk, struct flowi6 *fl6, u32 mtu)
+ 	kfree_skb(skb);
+ }
+ 
++/* For some errors we have valid addr_offset even with zero payload and
++ * zero port. Also, addr_offset should be supported if port is set.
++ */
++static inline bool ipv6_datagram_support_addr(struct sock_exterr_skb *serr)
++{
++	return serr->ee.ee_origin == SO_EE_ORIGIN_ICMP6 ||
++	       serr->ee.ee_origin == SO_EE_ORIGIN_ICMP ||
++	       serr->ee.ee_origin == SO_EE_ORIGIN_LOCAL || serr->port;
++}
++
+ /* IPv6 supports cmsg on all origins aside from SO_EE_ORIGIN_LOCAL.
+  *
+  * At one point, excluding local errors was a quick test to identify icmp/icmp6
+@@ -389,7 +399,7 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
+ 
+ 	serr = SKB_EXT_ERR(skb);
+ 
+-	if (sin && serr->port) {
++	if (sin && ipv6_datagram_support_addr(serr)) {
+ 		const unsigned char *nh = skb_network_header(skb);
+ 		sin->sin6_family = AF_INET6;
+ 		sin->sin6_flowinfo = 0;
+-- 
+1.9.3
