@@ -1,30 +1,67 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] net: switchdev: ignore unsupported bridge flags
-Date: Tue, 23 Jun 2015 17:09:20 +0200
-Message-ID: <20150623150920.GA2043@nanopsycho>
-References: <1435069564-10241-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, sfeldma@gmail.com,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1435069564-10241-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bridge: vlan: flush the dynamically
+	learned entries on port vlan delete
+Date: Tue, 23 Jun 2015 18:16:09 +0300
+Message-ID: <E72DC437-E365-4C90-B2B6-B04FDF4E91D7@cumulusnetworks.com>
+References: <1435062496-14596-1-git-send-email-nikolay@cumulusnetworks.com>
+	<55897509.8010205@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, vyasevich@gmail.com,
+	bridge@lists.linux-foundation.org, davem@davemloft.net
+To: Toshiaki Makita <toshiaki.makita1@gmail.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <55897509.8010205@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Tue, Jun 23, 2015 at 04:26:04PM CEST, vivien.didelot@savoirfairelinux.com wrote:
->switchdev_port_bridge_getlink() queries SWITCHDEV_ATTR_PORT_BRIDGE_FLAGS
->attributes, but a driver doesn't need to implement this in order to get
->bridge link information.
->
->So error out only on errors different than -EOPNOTSUPP.
->
->(This is a follow-up patch for 7d4f8d8.)
->
->Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Fixes: 8793d0a664a8 ("switchdev: add new switchdev_port_bridge_getlink")
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+> On Jun 23, 2015, at 6:02 PM, Toshiaki Makita =
+<toshiaki.makita1@gmail.com> wrote:
+>=20
+> On 15/06/23 (=E7=81=AB) 21:28, Nikolay Aleksandrov wrote:
+>> Add a new argument to br_fdb_delete_by_port which allows to specify a
+>> vid to match when flushing entries and use it in nbp_vlan_delete() to
+>> flush the dynamically learned entries of the vlan/port pair when =
+removing
+>> a vlan from a port. Before this patch only the local mac was being
+>> removed and the dynamically learned ones were left to expire.
+>> Note that the do_all argument is still respected and if specified, =
+the
+>> vid will be ignored.
+>>=20
+>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>> ---
+>> note: There are 2 warnings, the C99 comment was already there and the =
+81
+>>       char line is the prototype and I think it looks better this =
+way.
+>>       One unclear thing is about vid 0, I see that it can be passed =
+to
+>>       nbp_vlan_(add|delete) although the comment says it shouldn't.
+>=20
+> nbp_vlan_add() should not be called with vid 0 because vid 0 of fdb
+> entries is internally used when vlan_filtering is disabled, and such
+> entries are exposed to userspace as those without any vlan id.
+> bridge's vlan_filtering is respecting 802.1Q-2011 spec, which says vid =
+0
+> cannot be used as a normal vlan id.
+> If vlan 0 can be added, it should be a bug.
+>=20
+> Toshiaki Makita
+
+Right, that is my understanding as well. I=E2=80=99ll look into this and =
+post a fix
+if necessary.
+
+Thanks,
+ Nik=
