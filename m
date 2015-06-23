@@ -1,106 +1,59 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net] ip: report the original address of ICMP messages
-Date: Tue, 23 Jun 2015 13:57:26 -0400
-Message-ID: <CA+FuTSeza4ZhCUPoL9hLuZzNHAQf79mSBi9EvMvx3mK58A2RRQ@mail.gmail.com>
-References: <1435037679-2304-1-git-send-email-ja@ssi.bg>
+From: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next V11 0/4] openvswitch: Add support for
+	802.1AD
+Date: Tue, 23 Jun 2015 14:26:27 -0400
+Message-ID: <1435083990-12986-1-git-send-email-thomasfherbert@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:34530 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932540AbbFWR54 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 13:57:56 -0400
-Received: by obbkm3 with SMTP id km3so11357344obb.1
-        for <netdev@vger.kernel.org>; Tue, 23 Jun 2015 10:57:55 -0700 (PDT)
-In-Reply-To: <1435037679-2304-1-git-send-email-ja@ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-> ICMP messages can trigger ICMP and local errors. In this case
-> serr->port is 0 and starting from Linux 4.0 we do not return
-> the original target address to the error queue readers.
-> Add function to define which errors provide addr_offset.
-> With this fix my ping command is not silent anymore.
->
-> Fixes: c247f0534cc5 ("ip: fix error queue empty skb handling")
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
-
-Acked-by: Willem de Bruijn <willemb@google.com>
-
-The ping utility from iputils relies on cmsg IP_RECVERR to get
-the source address on icmp errors, not on msg_name, so that
-worked for me both before and after applying the patch. I used
-`ping -t 2 $hostname` to trigger a TTL exceeded. Perhaps you used
-a different tool or test? In any case, the change looks fine to me.
-Thanks for preparing the patch.
-
-> ---
->  net/ipv4/ip_sockglue.c | 11 ++++++++++-
->  net/ipv6/datagram.c    | 12 +++++++++++-
->  2 files changed, 21 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-> index 7cfb089..6ddde89 100644
-> --- a/net/ipv4/ip_sockglue.c
-> +++ b/net/ipv4/ip_sockglue.c
-> @@ -432,6 +432,15 @@ void ip_local_error(struct sock *sk, int err, __be32 daddr, __be16 port, u32 inf
->                 kfree_skb(skb);
->  }
->
-> +/* For some errors we have valid addr_offset even with zero payload and
-> + * zero port. Also, addr_offset should be supported if port is set.
-> + */
-> +static inline bool ipv4_datagram_support_addr(struct sock_exterr_skb *serr)
-> +{
-> +       return serr->ee.ee_origin == SO_EE_ORIGIN_ICMP ||
-> +              serr->ee.ee_origin == SO_EE_ORIGIN_LOCAL || serr->port;
-> +}
-> +
->  /* IPv4 supports cmsg on all imcp errors and some timestamps
->   *
->   * Timestamp code paths do not initialize the fields expected by cmsg:
-> @@ -498,7 +507,7 @@ int ip_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
->
->         serr = SKB_EXT_ERR(skb);
->
-> -       if (sin && serr->port) {
-> +       if (sin && ipv4_datagram_support_addr(serr)) {
->                 sin->sin_family = AF_INET;
->                 sin->sin_addr.s_addr = *(__be32 *)(skb_network_header(skb) +
->                                                    serr->addr_offset);
-> diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-> index 762a58c..62d908e 100644
-> --- a/net/ipv6/datagram.c
-> +++ b/net/ipv6/datagram.c
-> @@ -325,6 +325,16 @@ void ipv6_local_rxpmtu(struct sock *sk, struct flowi6 *fl6, u32 mtu)
->         kfree_skb(skb);
->  }
->
-> +/* For some errors we have valid addr_offset even with zero payload and
-> + * zero port. Also, addr_offset should be supported if port is set.
-> + */
-> +static inline bool ipv6_datagram_support_addr(struct sock_exterr_skb *serr)
-> +{
-> +       return serr->ee.ee_origin == SO_EE_ORIGIN_ICMP6 ||
-> +              serr->ee.ee_origin == SO_EE_ORIGIN_ICMP ||
-> +              serr->ee.ee_origin == SO_EE_ORIGIN_LOCAL || serr->port;
-> +}
-> +
->  /* IPv6 supports cmsg on all origins aside from SO_EE_ORIGIN_LOCAL.
->   *
->   * At one point, excluding local errors was a quick test to identify icmp/icmp6
-> @@ -389,7 +399,7 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
->
->         serr = SKB_EXT_ERR(skb);
->
-> -       if (sin && serr->port) {
-> +       if (sin && ipv6_datagram_support_addr(serr)) {
->                 const unsigned char *nh = skb_network_header(skb);
->                 sin->sin6_family = AF_INET6;
->                 sin->sin6_flowinfo = 0;
-> --
-> 1.9.3
->
+VjExOiBBZGQgaW5uZXIgdHBpZCB0byBmbG93IGtleS4gRml4IHNlcGFyYXRlIGlubmVyIGVuY2Fw
+IGF0dHJpYnV0ZQp3aGVuIHBhcnNpbmcgbmV0bGluayBhdHRyaWJ1dGVzLiBNZXJnZSAyIHBhdGNo
+ZXMgdG8gY29uc29saWRhdGUKcWlucSBjaGFuZ2VzLgoKVjEwOiBJbXBsZW1lbnQgcmV2aWV3ZXIg
+Y29tbWVudHM6IENvbnNvbGlkYXRlIHZsYW4gcGFyc2luZyBmdW5jdGlvbnMuClNwbGl0cyBuZXRs
+aW5rIHBhcnNpbmcgYW5kIGZsb3cgY29udmVyc2lvbiBpbnRvIGEgc2VwYXJhdGUgcGF0Y2guIFVz
+ZXMKZG91YmxlIGVuY2FwIGF0dHJpYnV0ZSBlbmNhcHN1bGF0aW9uIGZvciA4MDIuMWFkLiAgTmV0
+bGluayBhdHRyaWJ1dGVzCm5vdyBsb29rIGxpa2UgdGhpczoKCiAgICBldGhfdHlwZSgweDg4YTgp
+LHZsYW4odmlkPTEwMCksZW5jYXAoZXRoX3R5cGUoMHg4MTAwKSwgdmxhbih2aWQ9MjAwKSwKICAg
+ICAgICBlbmNhcChldGhfdHlwZSgweDA4MDApLCAuLi4pKQoKVGhlIGRvdWJsZSBlbmNhcCBhdHJp
+YnV0ZXMgaW4gdGhpcyB2ZXJzaW9uIG9mIHRoZSBwYXRjaCBpcyBpbmNvbXBhdGlibGUgd2l0aApv
+bGQgdmVyc2lvbnMgb2YgdGhlIHVzZXIgbGV2ZWwgODAyLjFhZCBwYXRjaC4gQSBuZXcgdXNlciBs
+ZXZlbCBwYXRjaCB3aGljaAppcyBhbHNvIGJlaW5nIHN1Ym1pdHRlZCBzaW11bHRhbmVvdXNseSB0
+byBvcGVudnN3aXRjaCBkZXYgbWFpbGluZyBsaXN0LgoKVjk6ICBJbmNsdWRlcyBjaGFuZ2VzIHN1
+Z2dlc3RlZCBieSByZXZpZXdlcnMKClY4OiAgSW5jbHVkZXMgY2hhbmdlcyBzdWdnZXN0ZWQgYnkg
+cmV2aWV3ZXJzCgpWNzogIEluY2x1ZGVzIGNoYW5nZXMgc3VnZ2VzdGVkIGJ5IHJldmlld2VycwoK
+VjY6ICBSZWJhc2VkIHRvIG5ldC1uZXh0CgpWNTogIFVzZSBlbmNhcHN1bGF0ZWQgYXR0cmlidXRl
+cwoKQWx0aG91Z2ggdGhlIE9wZW4gRmxvdyBzcGVjaWZpY2F0aW9uIHNwZWNpZmllZCBzdXBwb3J0
+IGZvciA4MDIuMUFEIChxaW5xKQphcyB3ZWxsIGFzIHB1c2ggYW5kIHBvcCB2bGFuIGhlYWRlcnMs
+ICBTbyBmYXIgT3BlbiB2U3dpdGNoIGhhcyBvbmx5CnN1cHBvcnRlZCBhIHNpbmdsZSB0YWcgaGVh
+ZGVyLgoKVGhpcyBwYXRjaCBhY2NvbXBhbmllcyB2ZXJzaW9uIDEwIG9mIHRoZSB1c2VyIGxldmVs
+IG9wZW52c3dpdGNoIHBhdGNoCnN1Ym1pdHRlZCB0byBvcGVudnN3aXRjaCBkZXYgbGlzdC4KRm9y
+IGRpc2N1c3Npb24sIGhpc3RvcnkgIGFuZCBwcmV2aW91cyB2ZXJzaW9ucyBvZiB0aGUga2VybmVs
+IG1vZHVsZQpwYXRjaCBhbmQgdGhlIHVzZXIgY29kZSBwYXRjaCBzZWUgdGhlIE9WUyBkZXYgbWFp
+bGluZyBsaXN0LApvcGVudnN3aXRjaC5vcmcvcGlwZXJtYWlsL2Rldi8uLgoKVGhvbWFzIEYgSGVy
+YmVydCAoMyk6CiAgb3BlbnZzd2l0Y2g6IDgwMi4xYWQgdWFwaSBjaGFuZ2VzLgogIENoZWNrIGZv
+ciB2bGFuIGV0aGVybmV0IHR5cGVzIGZvciA4MDIxLnEgb3IgODAyLjFhZAogIDgwMi4xQUQ6IEZs
+b3cgaGFuZGxpbmcsIGFjdGlvbnMsIHZsYW4gcGFyc2luZyBhbmQgbmV0bGluayBhdHRyaWJ1dGVz
+CgogaW5jbHVkZS9saW51eC9pZl92bGFuLmggICAgICAgICAgfCAgIDkgKysKIGluY2x1ZGUvdWFw
+aS9saW51eC9vcGVudnN3aXRjaC5oIHwgIDE3ICsrLS0KIG5ldC9vcGVudnN3aXRjaC9mbG93LmMg
+ICAgICAgICAgIHwgIDg0ICsrKysrKysrKysrKysrLS0tCiBuZXQvb3BlbnZzd2l0Y2gvZmxvdy5o
+ICAgICAgICAgICB8ICAgNSArCiBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgICB8IDE5
+NSArKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKystLS0tLS0KIDUgZmlsZXMgY2hhbmdl
+ZCwgMjYwIGluc2VydGlvbnMoKyksIDUwIGRlbGV0aW9ucygtKQoKLS0gCjIuMS4wCgpfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0
+CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3Rp
+bmZvL2Rldgo=
