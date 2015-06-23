@@ -1,65 +1,42 @@
-From: Markus Pfau <markus.pfau@peakwork.de>
-Subject: Re: pull request: bluetooth-next 2015-06-18
-Date: Tue, 23 Jun 2015 13:53:26 +0200
-Message-ID: <558948B6.5040904@peakwork.de>
-References: <20150618184311.GA30772@t440s.P-661HNU-F1>
- <20150623.032255.394457596589182499.davem@davemloft.net>
- <558939EE.10206@peakwork.de>
- <F6D7F62D-3444-496B-BB43-0844129A4738@holtmann.org>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/3 v5] net: track link-status of ipv4 nexthops
+Date: Tue, 23 Jun 2015 07:59:49 -0400
+Message-ID: <20150623115949.GS588@gospo.home.greyhouse.net>
+References: <1434640932-2681-1-git-send-email-gospo@cumulusnetworks.com>
+ <1434640932-2681-2-git-send-email-gospo@cumulusnetworks.com>
+ <20150623.023040.2256044180311272935.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-bluetooth@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, ddutt@cumulusnetworks.com,
+	sfeldma@gmail.com, alexander.duyck@gmail.com,
+	hannes@stressinduktion.org, stephen@networkplumber.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.peakwork.de ([213.203.211.174]:45554 "EHLO
-	mail.peakwork.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753370AbbFWLx3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 07:53:29 -0400
-In-Reply-To: <F6D7F62D-3444-496B-BB43-0844129A4738@holtmann.org>
+Received: from mail-yk0-f178.google.com ([209.85.160.178]:34387 "EHLO
+	mail-yk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752669AbbFWL7w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 07:59:52 -0400
+Received: by ykfy125 with SMTP id y125so3788930ykf.1
+        for <netdev@vger.kernel.org>; Tue, 23 Jun 2015 04:59:52 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150623.023040.2256044180311272935.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Marcel and Johan,
+On Tue, Jun 23, 2015 at 02:30:40AM -0700, David Miller wrote:
+> From: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Date: Thu, 18 Jun 2015 11:22:10 -0400
+> 
+> > -		    ((nh->nh_flags ^ onh->nh_flags) & ~RTNH_F_DEAD))
+> > +		    ((nh->nh_flags ^ onh->nh_flags) & ~(RTNH_F_COMPARE_MASK)))
+> >  			return -1;
+> 
+> Excessive parenthesis, just plain "~RTNH_F_COMPARE_MASK" is sufficient.
+> 
+> > +		if (linkdown == fi->fib_nhs) {
+> > +			fi->fib_flags |= RTNH_F_LINKDOWN;
+> > +		}
+> 
+> Single line basic blocks do not get enclosing curly braces.
 
-> Hi Markus,
->
->>>> Here's the final bluetooth-next pull request for 4.2.
->>>>
->>>>   - Cleanups & fixes to 802.15.4 code and related drivers
->>>>   - Fix btusb driver memory leak
->>>>   - New USB IDs for Atheros controllers
->>>>   - Support for BCM4324B3 UART based Broadcom controller
->>>>   - Fix for Bluetooth encryption key size handling
->>>>   - Broadcom controller initialization fixes
->>>>   - Support for Intel controller DDC parameters
->>>>   - Support for multiple Bluetooth LE advertising instances
->>>>   - Fix for HCI user channel cleanup path
->>>>
->>>> Please let me know if there are any issues pulling. Thanks.
->>> Pulled, thanks Johan,
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe linux-bluetooth" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> Hi David,
->>
->> I didn't get any response to my issue "High CPU load when turning off BT keyboard" from 2015-06-15.
->> Is it already fixed in "Fix for HCI user channel cleanup path" ?
->
-> your issue is an userspace daemon issue and not a kernel issue. This pull request is for the kernel side of the Bluetooth subsystem. None of these have anything to do with the userspace daemon.
->
-> I am sorry that your email has not yet been answered. However it is only 10 days old and I bet one of the maintainers for the userspace code will have a look at it soon. If not, then you can always resend it to get their attention.
->
-> Regards
->
-> Marcel
->
-Thank you for your prompt reply!
-I'll post it like Johan suggests to the correct group!
-
-Regards,
-Markus
+Sorry...v6 coming soon.
