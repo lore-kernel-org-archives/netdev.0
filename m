@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 08/11] net/mlx5e: Remove extra spaces
-Date: Tue, 23 Jun 2015 17:14:19 +0300
-Message-ID: <1435068862-26488-9-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 09/11] net/mlx5e: Remove mlx5e_cq.sqrq back-pointer
+Date: Tue, 23 Jun 2015 17:14:20 +0300
+Message-ID: <1435068862-26488-10-git-send-email-ogerlitz@mellanox.com>
 References: <1435068862-26488-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,9 +10,9 @@ Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:41210 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:41220 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S934069AbbFWOPD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S934070AbbFWOPD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 23 Jun 2015 10:15:03 -0400
 In-Reply-To: <1435068862-26488-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,46 +20,90 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Achiad Shochat <achiad@mellanox.com>
 
-Coding Style fix, remove extra spaces.
+Use container_of() instead.
 
 Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      | 1 -
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 3 ---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c | 2 +-
+ 5 files changed, 3 insertions(+), 7 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 1706979..3d23bd6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -208,7 +208,6 @@ enum cq_flags {
+ struct mlx5e_cq {
+ 	/* data path - accessed per cqe */
+ 	struct mlx5_cqwq           wq;
+-	void                      *sqrq;
+ 	unsigned long              flags;
+ 
+ 	/* data path - accessed per napi poll */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 45dc8c2..40206da 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -853,8 +853,6 @@ static int mlx5e_open_tx_cqs(struct mlx5e_channel *c,
+ 				    priv->params.tx_cq_moderation_pkts);
+ 		if (err)
+ 			goto err_close_tx_cqs;
+-
+-		c->sq[tc].cq.sqrq = &c->sq[tc];
+ 	}
+ 
+ 	return 0;
+@@ -946,7 +944,6 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
+ 			    priv->params.rx_cq_moderation_pkts);
+ 	if (err)
+ 		goto err_close_tx_cqs;
+-	c->rq.cq.sqrq = &c->rq;
+ 
+ 	napi_enable(&c->napi);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index 06e7c74..4a25957 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -191,7 +191,7 @@ static inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
+ 
+ bool mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
+ {
+-	struct mlx5e_rq *rq = cq->sqrq;
++	struct mlx5e_rq *rq = container_of(cq, struct mlx5e_rq, cq);
+ 	int i;
+ 
+ 	/* avoid accessing cq (dma coherent memory) if not needed */
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index a45d751..67493ab 100644
+index 67493ab..c789619 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -153,7 +153,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 		sq->stats.tso_packets++;
- 		sq->stats.tso_bytes += payload_len;
- 	} else {
--		ihs             = mlx5e_get_inline_hdr_size(sq, skb);
-+		ihs = mlx5e_get_inline_hdr_size(sq, skb);
- 		MLX5E_TX_SKB_CB(skb)->num_bytes = max_t(unsigned int, skb->len,
- 							ETH_ZLEN);
- 	}
-@@ -161,7 +161,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 	skb_copy_from_linear_data(skb, eseg->inline_hdr_start, ihs);
- 	skb_pull_inline(skb, ihs);
+@@ -266,7 +266,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 	if (!test_and_clear_bit(MLX5E_CQ_HAS_CQES, &cq->flags))
+ 		return false;
  
--	eseg->inline_hdr_sz	= cpu_to_be16(ihs);
-+	eseg->inline_hdr_sz = cpu_to_be16(ihs);
+-	sq = cq->sqrq;
++	sq = container_of(cq, struct mlx5e_sq, cq);
  
- 	ds_cnt  = sizeof(*wqe) / MLX5_SEND_WQE_DS;
- 	ds_cnt += DIV_ROUND_UP(ihs - sizeof(eseg->inline_hdr_start),
-@@ -208,8 +208,8 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 	npkts = 0;
+ 	nbytes = 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+index 088bc42..bf6b27b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+@@ -65,7 +65,7 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
  
- 	ds_cnt += MLX5E_TX_SKB_CB(skb)->num_dma;
+ 	busy |= mlx5e_poll_rx_cq(&c->rq.cq, budget);
  
--	cseg->opmod_idx_opcode	= cpu_to_be32((sq->pc << 8) | opcode);
--	cseg->qpn_ds		= cpu_to_be32((sq->sqn << 8) | ds_cnt);
-+	cseg->opmod_idx_opcode = cpu_to_be32((sq->pc << 8) | opcode);
-+	cseg->qpn_ds           = cpu_to_be32((sq->sqn << 8) | ds_cnt);
+-	busy |= mlx5e_post_rx_wqes(c->rq.cq.sqrq);
++	busy |= mlx5e_post_rx_wqes(&c->rq);
  
- 	sq->skb[pi] = skb;
- 
+ 	if (busy)
+ 		return budget;
 -- 
 2.3.7
