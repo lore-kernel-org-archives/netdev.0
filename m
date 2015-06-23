@@ -1,44 +1,29 @@
-From: Gilad Ben-Yossef <gilad@benyossef.com>
-Subject: [PATCH] rocker: call correct unregister function on error
-Date: Tue, 23 Jun 2015 10:52:10 +0300
-Message-ID: <1435045930-12130-1-git-send-email-gilad@benyossef.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] inet_diag: Remove _bh suffix in
+ inet_diag_dump_reqs().
+Date: Tue, 23 Jun 2015 01:20:34 -0700 (PDT)
+Message-ID: <20150623.012034.2003342970147447378.davem@davemloft.net>
+References: <1434627654-3630-1-git-send-email-shimoda.hiroaki@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Gilad Ben-Yossef <giladb@ezchip.com>
-To: <sfeldma@gmail.com>, <jiri@resnulli.us>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: shimoda.hiroaki@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0094.outbound.protection.outlook.com ([157.56.112.94]:18944
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752080AbbFWIGy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jun 2015 04:06:54 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:59916 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753377AbbFWIIp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 04:08:45 -0400
+In-Reply-To: <1434627654-3630-1-git-send-email-shimoda.hiroaki@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the correct unregister function matching the register
-function on the error path.
+From: Hiroaki Shimoda <shimoda.hiroaki@gmail.com>
+Date: Thu, 18 Jun 2015 20:40:54 +0900
 
-Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
-CC: Gilad Ben-Yossef <giladb@ezchip.com>
-CC: Scott Feldman <sfeldma@gmail.com>
-CC: Jiri Pirko <jiri@resnulli.us>
+> inet_diag_dump_reqs() is called from inet_diag_dump_icsk() with BH
+> disabled. So no need to disable BH in inet_diag_dump_reqs().
+> 
+> Signed-off-by: Hiroaki Shimoda <shimoda.hiroaki@gmail.com>
 
----
- drivers/net/ethernet/rocker/rocker.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index d4ec660..66b865a 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -5272,7 +5272,7 @@ static int __init rocker_module_init(void)
- 	return 0;
- 
- err_pci_register_driver:
--	unregister_netdevice_notifier(&rocker_netevent_nb);
-+	unregister_netevent_notifier(&rocker_netevent_nb);
- 	unregister_netdevice_notifier(&rocker_netdevice_nb);
- 	return err;
- }
--- 
-1.7.1
+Applied.
