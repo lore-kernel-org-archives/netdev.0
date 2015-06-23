@@ -1,64 +1,126 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net] dcb : Fix incorrect documentation for struct dcb_app
-Date: Mon, 22 Jun 2015 17:44:35 -0700
-Message-ID: <1435020275-2819-1-git-send-email-anish@chelsio.com>
-Cc: davem@davemloft.net, john.r.fastabend@intel.com,
-	shanim@mellanox.com, ogerlitz@mellanox.com,
-	Anish Bhatt <anish@chelsio.com>
-To: netdev@vger.kernel.org
+From: Duan Andy <fugang.duan@freescale.com>
+Subject: RE: [PATCHv3 net-next] net: fec: Ensure clocks are enabled while
+ using mdio bus
+Date: Tue, 23 Jun 2015 01:25:36 +0000
+Message-ID: <BLUPR03MB37330241ECB85BA2131AAA1F5A00@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1434825509-11241-1-git-send-email-andrew@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Cory Tusar <cory.tusar@pid1solutions.com>,
+	netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:14081 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752077AbbFWAo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2015 20:44:59 -0400
+Received: from mail-bn1bbn0105.outbound.protection.outlook.com ([157.56.111.105]:27022
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752215AbbFWBZj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2015 21:25:39 -0400
+In-Reply-To: <1434825509-11241-1-git-send-email-andrew@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While IEEE and CEE use the same structure to store apps, the selector
-and priority fields for both are different. Only the priority field is
-explained, add documentation explaining how the selector field differs
-for both.
+From: Andrew Lunn <andrew@lunn.ch> Sent: Sunday, June 21, 2015 2:38 AM
+> To: David Miller
+> Cc: Duan Fugang-B38611; Duan Fugang-B38611; Cory Tusar; netdev; Andrew
+> Lunn
+> Subject: [PATCHv3 net-next] net: fec: Ensure clocks are enabled while
+> using mdio bus
+> 
+> When a switch is attached to the mdio bus, the mdio bus can be used while
+> the interface is not open. If the IPG clock are not enabled, MDIO
+> reads/writes will simply time out. So enable the clock before starting a
+> transaction, and disable it afterwards. The CCF performs reference
+> counting so the clock will only be disabled if there are no other users.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
+> 
+> v3:
+>  Return the error code from clk_prepare_enable()
+> v2:
+>  Only enable the IGP clock.
+> 
+>  drivers/net/ethernet/freescale/fec_main.c | 21 +++++++++++++++++++--
+>  1 file changed, 19 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> b/drivers/net/ethernet/freescale/fec_main.c
+> index bf4cf3fbb5f2..8d9b1fd175f7 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -65,6 +65,7 @@
+> 
+>  static void set_multicast_list(struct net_device *ndev);  static void
+> fec_enet_itr_coal_init(struct net_device *ndev);
+> +static int fec_enet_clk_enable(struct net_device *ndev, bool enable);
+> 
+>  #define DRIVER_NAME	"fec"
+> 
+> @@ -1764,6 +1765,11 @@ static int fec_enet_mdio_read(struct mii_bus *bus,
+> int mii_id, int regnum)  {
+>  	struct fec_enet_private *fep = bus->priv;
+>  	unsigned long time_left;
+> +	int ret;
+> +
+> +	ret = clk_prepare_enable(fep->clk_ipg);
+> +	if (ret)
+> +		return ret;
+> 
+>  	fep->mii_timeout = 0;
+>  	init_completion(&fep->mdio_done);
+> @@ -1779,11 +1785,14 @@ static int fec_enet_mdio_read(struct mii_bus *bus,
+> int mii_id, int regnum)
+>  	if (time_left == 0) {
+>  		fep->mii_timeout = 1;
+>  		netdev_err(fep->netdev, "MDIO read timeout\n");
+> +		clk_disable_unprepare(fep->clk_ipg);
+>  		return -ETIMEDOUT;
+>  	}
+> 
+> -	/* return value */
+> -	return FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
+> +	ret = FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
+> +	clk_disable_unprepare(fep->clk_ipg);
+> +
+> +	return ret;
+>  }
+> 
 
-cgdcbxd code shows an example of how selector fields differ.
+I suggest you use runtime pm to enable/disable clock for performance consideration. Not every time for mdio bus access needs to enable/disable clock.
 
-Signed-off-by: Anish Bhatt <anish@chelsio.com>
----
- include/uapi/linux/dcbnl.h | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/include/uapi/linux/dcbnl.h b/include/uapi/linux/dcbnl.h
-index 6497d79..3ea470f 100644
---- a/include/uapi/linux/dcbnl.h
-+++ b/include/uapi/linux/dcbnl.h
-@@ -207,8 +207,7 @@ struct cee_pfc {
- #define IEEE_8021QAZ_APP_SEL_ANY	4
- 
- /* This structure contains the IEEE 802.1Qaz APP managed object. This
-- * object is also used for the CEE std as well. There is no difference
-- * between the objects.
-+ * object is also used for the CEE std as well.
-  *
-  * @selector: protocol identifier type
-  * @protocol: protocol of type indicated
-@@ -216,13 +215,18 @@ struct cee_pfc {
-  *            8-bit 802.1p user priority bitmap for CEE
-  *
-  * ----
-- *  Selector field values
-+ *  Selector field values for IEEE 802.1Qaz
-  *	0	Reserved
-  *	1	Ethertype
-  *	2	Well known port number over TCP or SCTP
-  *	3	Well known port number over UDP or DCCP
-  *	4	Well known port number over TCP, SCTP, UDP, or DCCP
-  *	5-7	Reserved
-+ *
-+ *  Selector field values for CEE
-+ *	0	Ethertype
-+ *	1	Well known port number over TCP or UDP
-+ *	2-3	Reserved
-  */
- struct dcb_app {
- 	__u8	selector;
--- 
-2.4.4
+>  static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int
+> regnum, @@ -1791,10 +1800,15 @@ static int fec_enet_mdio_write(struct
+> mii_bus *bus, int mii_id, int regnum,  {
+>  	struct fec_enet_private *fep = bus->priv;
+>  	unsigned long time_left;
+> +	int ret;
+> 
+>  	fep->mii_timeout = 0;
+>  	init_completion(&fep->mdio_done);
+> 
+> +	ret = clk_prepare_enable(fep->clk_ipg);
+> +	if (ret)
+> +		return ret;
+> +
+>  	/* start a write op */
+>  	writel(FEC_MMFR_ST | FEC_MMFR_OP_WRITE |
+>  		FEC_MMFR_PA(mii_id) | FEC_MMFR_RA(regnum) | @@ -1807,9
+> +1821,12 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int
+> mii_id, int regnum,
+>  	if (time_left == 0) {
+>  		fep->mii_timeout = 1;
+>  		netdev_err(fep->netdev, "MDIO write timeout\n");
+> +		clk_disable_unprepare(fep->clk_ipg);
+>  		return -ETIMEDOUT;
+>  	}
+> 
+> +	clk_disable_unprepare(fep->clk_ipg);
+> +
+>  	return 0;
+>  }
+> 
+> --
+> 2.1.4
