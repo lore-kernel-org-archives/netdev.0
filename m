@@ -1,30 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3 v7] changes to make ipv4 routing table
- aware of next-hop link status
-Date: Wed, 24 Jun 2015 02:37:52 -0700 (PDT)
-Message-ID: <20150624.023752.1728293911019047923.davem@davemloft.net>
-References: <1435081538-1620-1-git-send-email-gospo@cumulusnetworks.com>
+Subject: Re: [PATCH v3] stmmac: troubleshoot unexpected bits in des0 & des1
+Date: Wed, 24 Jun 2015 02:39:08 -0700 (PDT)
+Message-ID: <20150624.023908.1017811354688857624.davem@davemloft.net>
+References: <1435135661-24359-1-git-send-email-abrodkin@synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ddutt@cumulusnetworks.com,
-	sfeldma@gmail.com, alexander.duyck@gmail.com,
-	hannes@stressinduktion.org, stephen@networkplumber.org
-To: gospo@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39377 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751913AbbFXJ0B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 05:26:01 -0400
-In-Reply-To: <1435081538-1620-1-git-send-email-gospo@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
+	arc-linux-dev@synopsys.com, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org
+To: Alexey.Brodkin@synopsys.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1435135661-24359-1-git-send-email-abrodkin@synopsys.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Date: Tue, 23 Jun 2015 13:45:35 -0400
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Date: Wed, 24 Jun 2015 11:47:41 +0300
 
-> This series adds the ability to have the Linux kernel track whether or
-> not a particular route should be used based on the link-status of the
-> interface associated with the next-hop.  
+> Current implementation of descriptor init procedure only takes
+> care about setting/clearing ownership flag in "des0"/"des1"
+> fields while it is perfectly possible to get unexpected bits
+> set because of the following factors:
 
-Kernel bits applied, thanks Andy.
+Applied.
