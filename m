@@ -1,52 +1,40 @@
-From: Tero Marttila <tero.marttila@aalto.fi>
-Subject: Behaviour of sysctl net.ipv6.conf.all.* parameters
-Date: Wed, 24 Jun 2015 17:17:42 +0300
-Message-ID: <558ABC06.2060201@aalto.fi>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch -next] renesas: missing unlock on error path
+Date: Wed, 24 Jun 2015 17:32:54 +0300
+Message-ID: <20150624143254.GG1702@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Masaru Nagai <masaru.nagai.vx@renesas.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Masaru Nagai <masaru.nagai.vx@renesas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out-01.aalto.fi ([130.233.228.120]:54680 "EHLO
-	smtp-out-01.aalto.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752856AbbFXOXg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 10:23:36 -0400
-Received: from smtp-out-01.aalto.fi (localhost.localdomain [127.0.0.1])
-	by localhost (Email Security Appliance) with SMTP id F2D371152DB_58ABC06B
-	for <netdev@vger.kernel.org>; Wed, 24 Jun 2015 14:17:42 +0000 (GMT)
-Received: from EXHUB02.org.aalto.fi (exhub02.org.aalto.fi [130.233.222.119])
-	by smtp-out-01.aalto.fi (Sophos Email Appliance) with ESMTP id C93101152C1_58ABC06F
-	for <netdev@vger.kernel.org>; Wed, 24 Jun 2015 14:17:42 +0000 (GMT)
+Received: from userp1040.oracle.com ([156.151.31.81]:46134 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751552AbbFXOdU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 10:33:20 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+We need to unlock before returning here.
 
-I was exploring the behavior of various net.ipv6.conf.all parameters
-such as use_tempaddr on Linux 3.16, but the behavior doesn't seem to
-make sense.
+Fixes: a0d2f20650e8 ('Renesas Ethernet AVB PTP clock driver')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-The following settings do *not* result in privacy addresses on eth0:
-
-	net.ipv6.conf.all.use_tempaddr=2
-	net.ipv6.conf.eth0.use_tempaddr=0
-
-But the following settings do:
-
-	net.ipv6.conf.all.use_tempaddr=0
-	net.ipv6.conf.eth0.use_tempaddr=2
-
-This doesn't make sense per any of the AND/OR/MAX semantics as used for
-e.g. net.ipv4.conf.all.
-
-Looking at the net/ipv6/addrconf.c implementation, I can figure out
-where net.ipv6.conf.default is implemented, and some handling for
-specific devconf_all parameters (forwarding, disable_ipv6, proxy_ndp),
-but I am unable to find any link between struct
-netns_ipv6.devconf_all.use_tempaddr and struct inet6_dev.cnf.use_tempaddr.
-
-Does anyone have any pointers for where this linking logic would be
-implemented, or are the majority of net.ipv6.conf.all.* sysctl
-parameters actually complete no-ops?
-
- -- Tero Marttila
+diff --git a/drivers/net/ethernet/renesas/ravb_ptp.c b/drivers/net/ethernet/renesas/ravb_ptp.c
+index 42656da..7a8ce92 100644
+--- a/drivers/net/ethernet/renesas/ravb_ptp.c
++++ b/drivers/net/ethernet/renesas/ravb_ptp.c
+@@ -116,8 +116,10 @@ static int ravb_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
+ 	priv->ptp.current_addend = addend;
+ 
+ 	gccr = ravb_read(ndev, GCCR);
+-	if (gccr & GCCR_LTI)
++	if (gccr & GCCR_LTI) {
++		spin_unlock_irqrestore(&priv->lock, flags);
+ 		return -EBUSY;
++	}
+ 	ravb_write(ndev, addend & GTI_TIV, GTI);
+ 	ravb_write(ndev, gccr | GCCR_LTI, GCCR);
+ 
