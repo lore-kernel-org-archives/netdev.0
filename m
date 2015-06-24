@@ -1,7 +1,7 @@
 From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH v2 22/22] fjes: ethtool support
-Date: Wed, 24 Jun 2015 11:55:54 +0900
-Message-ID: <1435114554-7151-23-git-send-email-izumi.taku@jp.fujitsu.com>
+Subject: [PATCH v2 18/22] fjes: unshare_watch_task
+Date: Wed, 24 Jun 2015 11:55:50 +0900
+Message-ID: <1435114554-7151-19-git-send-email-izumi.taku@jp.fujitsu.com>
 References: <1435114351-6961-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
 	rkhan@redhat.com, alexander.h.duyck@redhat.com,
@@ -9,196 +9,207 @@ Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
 	sergei.shtylyov@cogentembedded.com, stephen@networkplumber.org,
 	yasu.isimatu@gmail.com, Taku Izumi <izumi.taku@jp.fujitsu.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <platform-driver-x86-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgwym02.jp.fujitsu.com ([211.128.242.41]:48699 "EHLO
+	mgwym02.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933862AbbFXDAa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2015 23:00:30 -0400
 In-Reply-To: <1435114351-6961-1-git-send-email-izumi.taku@jp.fujitsu.com>
-Sender: platform-driver-x86-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds implementation for ethtool support.
+This patch adds unshare_watch_task.
+Shared buffer's status can be changed into unshared.
+This task is used to monitor shared buffer's status.
 
 Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 ---
- drivers/net/fjes/Makefile       |   2 +-
- drivers/net/fjes/fjes.h         |   2 +
- drivers/net/fjes/fjes_ethtool.c | 135 ++++++++++++++++++++++++++++++++++++++++
- drivers/net/fjes/fjes_main.c    |   1 +
- 4 files changed, 139 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/fjes/fjes_ethtool.c
+ drivers/net/fjes/fjes.h      |   3 +
+ drivers/net/fjes/fjes_main.c | 130 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 133 insertions(+)
 
-diff --git a/drivers/net/fjes/Makefile b/drivers/net/fjes/Makefile
-index a67f65d8..8ca4de0 100644
---- a/drivers/net/fjes/Makefile
-+++ b/drivers/net/fjes/Makefile
-@@ -27,5 +27,5 @@
- 
- obj-$(CONFIG_FUJITSU_ES) += fjes.o
- 
--fjes-objs := fjes_main.o fjes_hw.o
-+fjes-objs := fjes_main.o fjes_hw.o fjes_ethtool.o
- 
 diff --git a/drivers/net/fjes/fjes.h b/drivers/net/fjes/fjes.h
-index 57feee8..a592fe2 100644
+index d31d4c3..57feee8 100644
 --- a/drivers/net/fjes/fjes.h
 +++ b/drivers/net/fjes/fjes.h
-@@ -72,4 +72,6 @@ extern char fjes_driver_name[];
- extern char fjes_driver_version[];
- extern const u32 fjes_support_mtu[];
+@@ -59,6 +59,9 @@ struct fjes_adapter {
+ 	struct work_struct tx_stall_task;
+ 	struct work_struct raise_intr_rxdata_task;
  
-+void fjes_set_ethtool_ops(struct net_device *);
++	struct work_struct unshare_watch_task;
++	unsigned long unshare_watch_bitmask;
 +
- #endif /* FJES_H_ */
-diff --git a/drivers/net/fjes/fjes_ethtool.c b/drivers/net/fjes/fjes_ethtool.c
-new file mode 100644
-index 0000000..c69be42
---- /dev/null
-+++ b/drivers/net/fjes/fjes_ethtool.c
-@@ -0,0 +1,135 @@
-+/*
-+ *  FUJITSU Extended Socket Network Device driver
-+ *  Copyright (c) 2015 FUJITSU LIMITED
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, see <http://www.gnu.org/licenses/>.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ */
-+
-+/* ethtool support for fjes */
-+
-+#include <linux/vmalloc.h>
-+#include <linux/netdevice.h>
-+#include <linux/ethtool.h>
-+#include <linux/platform_device.h>
-+
-+#include "fjes.h"
-+
-+struct fjes_stats {
-+	char stat_string[ETH_GSTRING_LEN];
-+	int sizeof_stat;
-+	int stat_offset;
-+};
-+
-+#define FJES_STAT(name, stat) { \
-+	.stat_string = name, \
-+	.sizeof_stat = FIELD_SIZEOF(struct fjes_adapter, stat), \
-+	.stat_offset = offsetof(struct fjes_adapter, stat) \
-+}
-+
-+static const struct fjes_stats fjes_gstrings_stats[] = {
-+	FJES_STAT("rx_packets", stats64.rx_packets),
-+	FJES_STAT("tx_packets", stats64.tx_packets),
-+	FJES_STAT("rx_bytes", stats64.rx_bytes),
-+	FJES_STAT("tx_bytes", stats64.rx_bytes),
-+	FJES_STAT("rx_dropped", stats64.rx_dropped),
-+	FJES_STAT("tx_dropped", stats64.tx_dropped),
-+};
-+
-+static void fjes_get_ethtool_stats(struct net_device *netdev,
-+				   struct ethtool_stats *stats, u64 *data)
-+{
-+	struct fjes_adapter *adapter = netdev_priv(netdev);
-+	int i;
-+	char *p;
-+
-+	for (i = 0; i < ARRAY_SIZE(fjes_gstrings_stats); i++) {
-+		p = (char *)adapter + fjes_gstrings_stats[i].stat_offset;
-+		data[i] = (fjes_gstrings_stats[i].sizeof_stat == sizeof(u64))
-+			? *(u64 *)p : *(u32 *)p;
-+	}
-+}
-+
-+static void fjes_get_strings(struct net_device *netdev,
-+			     u32 stringset, u8 *data)
-+{
-+	u8 *p = data;
-+	int i;
-+
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		for (i = 0; i < ARRAY_SIZE(fjes_gstrings_stats); i++) {
-+			memcpy(p, fjes_gstrings_stats[i].stat_string,
-+			       ETH_GSTRING_LEN);
-+			p += ETH_GSTRING_LEN;
-+		}
-+		break;
-+	}
-+}
-+
-+static int fjes_get_sset_count(struct net_device *netdev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return ARRAY_SIZE(fjes_gstrings_stats);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static void fjes_get_drvinfo(struct net_device *netdev,
-+			     struct ethtool_drvinfo *drvinfo)
-+{
-+	struct fjes_adapter *adapter = netdev_priv(netdev);
-+	struct platform_device *plat_dev = adapter->plat_dev;
-+
-+	strlcpy(drvinfo->driver, fjes_driver_name, sizeof(drvinfo->driver));
-+	strlcpy(drvinfo->version, fjes_driver_version,
-+		sizeof(drvinfo->version));
-+
-+	strlcpy(drvinfo->fw_version, "none", sizeof(drvinfo->fw_version));
-+	snprintf(drvinfo->bus_info, sizeof(drvinfo->bus_info),
-+		 "platform:%s", plat_dev->name);
-+	drvinfo->regdump_len = 0;
-+	drvinfo->eedump_len = 0;
-+}
-+
-+static int fjes_get_settings(struct net_device *netdev,
-+			     struct ethtool_cmd *ecmd)
-+{
-+	ecmd->supported = 0;
-+	ecmd->advertising = 0;
-+	ecmd->duplex = DUPLEX_FULL;
-+	ecmd->autoneg = AUTONEG_DISABLE;
-+	ecmd->transceiver = XCVR_DUMMY1;
-+	ecmd->port = PORT_NONE;
-+	ethtool_cmd_speed_set(ecmd, 20000);	/* 20Gb/s */
-+
-+	return 0;
-+}
-+
-+static const struct ethtool_ops fjes_ethtool_ops = {
-+		.get_settings		= fjes_get_settings,
-+		.get_drvinfo		= fjes_get_drvinfo,
-+		.get_ethtool_stats = fjes_get_ethtool_stats,
-+		.get_strings      = fjes_get_strings,
-+		.get_sset_count   = fjes_get_sset_count,
-+};
-+
-+void fjes_set_ethtool_ops(struct net_device *netdev)
-+{
-+	netdev->ethtool_ops = &fjes_ethtool_ops;
-+}
+ 	struct delayed_work interrupt_watch_task;
+ 	bool interrupt_watch_enable;
+ 
 diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index 1db1a7d..f61ce3b 100644
+index 1ddb9d3..69a238c 100644
 --- a/drivers/net/fjes/fjes_main.c
 +++ b/drivers/net/fjes/fjes_main.c
-@@ -1211,6 +1211,7 @@ static void fjes_netdev_setup(struct net_device *netdev)
+@@ -73,6 +73,7 @@ static int fjes_remove(struct platform_device *);
+ static int fjes_sw_init(struct fjes_adapter *);
+ static void fjes_netdev_setup(struct net_device *);
+ static void fjes_irq_watch_task(struct work_struct *);
++static void fjes_watch_unshare_task(struct work_struct *);
+ static void fjes_rx_irq(struct fjes_adapter *, int);
+ static int fjes_poll(struct napi_struct *, int);
  
- 	netdev->watchdog_timeo = FJES_TX_RETRY_INTERVAL;
- 	netdev->netdev_ops = &fjes_netdev_ops;
-+	fjes_set_ethtool_ops(netdev);
- 	netdev->mtu = fjes_support_mtu[0];
- 	netdev->flags |= IFF_BROADCAST;
- 	netdev->features |= NETIF_F_HW_CSUM | NETIF_F_HW_VLAN_CTAG_FILTER;
+@@ -312,6 +313,8 @@ static int fjes_close(struct net_device *netdev)
+ 	fjes_free_irq(adapter);
+ 
+ 	cancel_delayed_work_sync(&adapter->interrupt_watch_task);
++	cancel_work_sync(&adapter->unshare_watch_task);
++	adapter->unshare_watch_bitmask = 0;
+ 	cancel_work_sync(&adapter->raise_intr_rxdata_task);
+ 	cancel_work_sync(&adapter->tx_stall_task);
+ 
+@@ -1032,6 +1035,8 @@ static int fjes_probe(struct platform_device *plat_dev)
+ 	INIT_WORK(&adapter->tx_stall_task, fjes_tx_stall_task);
+ 	INIT_WORK(&adapter->raise_intr_rxdata_task,
+ 		  fjes_raise_intr_rxdata_task);
++	INIT_WORK(&adapter->unshare_watch_task, fjes_watch_unshare_task);
++	adapter->unshare_watch_bitmask = 0;
+ 
+ 	INIT_DELAYED_WORK(&adapter->interrupt_watch_task, fjes_irq_watch_task);
+ 	adapter->interrupt_watch_enable = false;
+@@ -1077,6 +1082,7 @@ static int fjes_remove(struct platform_device *plat_dev)
+ 	struct fjes_hw *hw = &adapter->hw;
+ 
+ 	cancel_delayed_work_sync(&adapter->interrupt_watch_task);
++	cancel_work_sync(&adapter->unshare_watch_task);
+ 	cancel_work_sync(&adapter->raise_intr_rxdata_task);
+ 	cancel_work_sync(&adapter->tx_stall_task);
+ 	if (adapter->control_wq)
+@@ -1136,6 +1142,130 @@ static void fjes_irq_watch_task(struct work_struct *work)
+ 	}
+ }
+ 
++static void fjes_watch_unshare_task(struct work_struct *work)
++{
++	struct fjes_adapter *adapter =
++	container_of(work, struct fjes_adapter, unshare_watch_task);
++
++	struct fjes_hw *hw = &adapter->hw;
++	struct net_device *netdev = adapter->netdev;
++	int epidx;
++	int max_epid, my_epid;
++	unsigned long unshare_watch_bitmask;
++	int wait_time = 0;
++	int is_shared;
++	int stop_req, stop_req_done;
++	int unshare_watch, unshare_reserve;
++	int ret;
++
++	my_epid = hw->my_epid;
++	max_epid = hw->max_epid;
++
++	unshare_watch_bitmask = adapter->unshare_watch_bitmask;
++	adapter->unshare_watch_bitmask = 0;
++
++	while ((unshare_watch_bitmask || hw->txrx_stop_req_bit) &&
++	       (wait_time < 3000)) {
++		for (epidx = 0; epidx < hw->max_epid; epidx++) {
++			if (epidx == hw->my_epid)
++				continue;
++
++			is_shared =
++			fjes_hw_epid_is_shared(hw->hw_info.share, epidx);
++
++			stop_req =
++			test_bit(epidx, &hw->txrx_stop_req_bit);
++
++			stop_req_done =
++			hw->ep_shm_info[epidx].rx.info->v1i.rx_status &
++			FJES_RX_STOP_REQ_DONE;
++
++			unshare_watch =
++			test_bit(epidx, &unshare_watch_bitmask);
++
++			unshare_reserve =
++			test_bit(epidx,
++				 &hw->hw_info.buffer_unshare_reserve_bit);
++
++			if ((!stop_req ||
++			     (is_shared && (!is_shared || !stop_req_done))) &&
++			    (is_shared || !unshare_watch || !unshare_reserve))
++				continue;
++
++			mutex_lock(&hw->hw_info.lock);
++			ret = fjes_hw_unregister_buff_addr(hw, epidx);
++			switch (ret) {
++			case 0:
++				break;
++			case -ENOMSG:
++			case -EBUSY:
++			default:
++				if (!work_pending(
++					&adapter->force_close_task)) {
++					adapter->force_reset = true;
++					schedule_work(
++						&adapter->force_close_task);
++				}
++				break;
++			}
++			mutex_unlock(&hw->hw_info.lock);
++
++			fjes_hw_setup_epbuf(&hw->ep_shm_info[epidx].tx,
++					    netdev->dev_addr, netdev->mtu);
++
++			clear_bit(epidx, &hw->txrx_stop_req_bit);
++			clear_bit(epidx, &unshare_watch_bitmask);
++			clear_bit(epidx,
++				  &hw->hw_info.buffer_unshare_reserve_bit);
++		}
++
++		msleep(100);
++		wait_time += 100;
++	}
++
++	if (hw->hw_info.buffer_unshare_reserve_bit) {
++		for (epidx = 0; epidx < hw->max_epid; epidx++) {
++			if (epidx == hw->my_epid)
++				continue;
++
++			if (test_bit(epidx,
++				     &hw->hw_info.buffer_unshare_reserve_bit)) {
++				mutex_lock(&hw->hw_info.lock);
++
++				ret = fjes_hw_unregister_buff_addr(hw, epidx);
++				switch (ret) {
++				case 0:
++					break;
++				case -ENOMSG:
++				case -EBUSY:
++				default:
++					if (!work_pending(
++						&adapter->force_close_task)) {
++						adapter->force_reset = true;
++						schedule_work(
++							&adapter->force_close_task);
++					}
++					break;
++				}
++				mutex_unlock(&hw->hw_info.lock);
++
++				fjes_hw_setup_epbuf(
++					&hw->ep_shm_info[epidx].tx,
++					netdev->dev_addr, netdev->mtu);
++
++				clear_bit(epidx, &hw->txrx_stop_req_bit);
++				clear_bit(epidx, &unshare_watch_bitmask);
++				clear_bit(epidx, &hw->hw_info.buffer_unshare_reserve_bit);
++			}
++
++			if (test_bit(epidx, &unshare_watch_bitmask)) {
++				hw->ep_shm_info[epidx].tx.info->v1i.rx_status &=
++						~FJES_RX_STOP_REQ_DONE;
++			}
++		}
++	}
++}
++
+ /* fjes_init_module - Driver Registration Routine */
+ static int __init fjes_init_module(void)
+ {
 -- 
 1.8.3.1
