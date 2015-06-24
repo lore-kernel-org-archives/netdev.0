@@ -1,107 +1,52 @@
-From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH RFC] vhost: add ioctl to query nregions upper limit
-Date: Wed, 24 Jun 2015 16:17:46 +0200
-Message-ID: <20150624161606-mutt-send-email-mst@redhat.com>
-References: <1435153753-2686-1-git-send-email-mst@redhat.com>
- <20150624160727.2e0f542f@nial.brq.redhat.com>
+From: Tero Marttila <tero.marttila@aalto.fi>
+Subject: Behaviour of sysctl net.ipv6.conf.all.* parameters
+Date: Wed, 24 Jun 2015 17:17:42 +0300
+Message-ID: <558ABC06.2060201@aalto.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Paolo Bonzini <pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Igor Mammedov <imammedo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20150624160727.2e0f542f-XNjAa/bfCnL1wF9wiOj0lkEOCMrvLtNR@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out-01.aalto.fi ([130.233.228.120]:54680 "EHLO
+	smtp-out-01.aalto.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752856AbbFXOXg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 10:23:36 -0400
+Received: from smtp-out-01.aalto.fi (localhost.localdomain [127.0.0.1])
+	by localhost (Email Security Appliance) with SMTP id F2D371152DB_58ABC06B
+	for <netdev@vger.kernel.org>; Wed, 24 Jun 2015 14:17:42 +0000 (GMT)
+Received: from EXHUB02.org.aalto.fi (exhub02.org.aalto.fi [130.233.222.119])
+	by smtp-out-01.aalto.fi (Sophos Email Appliance) with ESMTP id C93101152C1_58ABC06F
+	for <netdev@vger.kernel.org>; Wed, 24 Jun 2015 14:17:42 +0000 (GMT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 24, 2015 at 04:07:27PM +0200, Igor Mammedov wrote:
-> On Wed, 24 Jun 2015 15:49:27 +0200
-> "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> 
-> > Userspace currently simply tries to give vhost as many regions
-> > as it happens to have, but you only have the mem table
-> > when you have initialized a large part of VM, so graceful
-> > failure is very hard to support.
-> > 
-> > The result is that userspace tends to fail catastrophically.
-> > 
-> > Instead, add a new ioctl so userspace can find out how much kernel
-> > supports, up front. This returns a positive value that we commit to.
-> > 
-> > Also, document our contract with legacy userspace: when running on an
-> > old kernel, you get -1 and you can assume at least 64 slots.  Since 0
-> > value's left unused, let's make that mean that the current userspace
-> > behaviour (trial and error) is required, just in case we want it back.
-> > 
-> > Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> > Cc: Igor Mammedov <imammedo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> > Cc: Paolo Bonzini <pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> > ---
-> >  include/uapi/linux/vhost.h | 17 ++++++++++++++++-
-> >  drivers/vhost/vhost.c      |  5 +++++
-> >  2 files changed, 21 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/include/uapi/linux/vhost.h b/include/uapi/linux/vhost.h
-> > index ab373191..f71fa6d 100644
-> > --- a/include/uapi/linux/vhost.h
-> > +++ b/include/uapi/linux/vhost.h
-> > @@ -80,7 +80,7 @@ struct vhost_memory {
-> >   * Allows subsequent call to VHOST_OWNER_SET to succeed. */
-> >  #define VHOST_RESET_OWNER _IO(VHOST_VIRTIO, 0x02)
-> >  
-> > -/* Set up/modify memory layout */
-> > +/* Set up/modify memory layout: see also VHOST_GET_MEM_MAX_NREGIONS below. */
-> >  #define VHOST_SET_MEM_TABLE	_IOW(VHOST_VIRTIO, 0x03, struct vhost_memory)
-> >  
-> >  /* Write logging setup. */
-> > @@ -127,6 +127,21 @@ struct vhost_memory {
-> >  /* Set eventfd to signal an error */
-> >  #define VHOST_SET_VRING_ERR _IOW(VHOST_VIRTIO, 0x22, struct vhost_vring_file)
-> >  
-> > +/* Query upper limit on nregions in VHOST_SET_MEM_TABLE arguments.
-> > + * Returns:
-> > + * 	0 < value <= MAX_INT - gives the upper limit, higher values will fail
-> > + * 	0 - there's no static limit: try and see if it works
-> > + * 	-1 - on failure
-> > + */
-> > +#define VHOST_GET_MEM_MAX_NREGIONS   _IO(VHOST_VIRTIO, 0x23)
-> > +
-> > +/* Returned by VHOST_GET_MEM_MAX_NREGIONS to mean there's no static limit:
-> > + * try and it'll work if you are lucky. */
-> > +#define VHOST_MEM_MAX_NREGIONS_NONE 0
-> is it needed? we always have a limit,
-> or don't have IOCTL => -1 => old try and see way
-> 
-> > +/* We support at least as many nregions in VHOST_SET_MEM_TABLE:
-> > + * for use on legacy kernels without VHOST_GET_MEM_MAX_NREGIONS support. */
-> > +#define VHOST_MEM_MAX_NREGIONS_DEFAULT 64
-> ^^^ not used below,
-> if it's for legacy then perhaps s/DEFAULT/LEGACY/ 
+Hi,
 
-The assumption was that userspace detecting old kernels will just use 64,
-this means we do want a flag to get the old way.
+I was exploring the behavior of various net.ipv6.conf.all parameters
+such as use_tempaddr on Linux 3.16, but the behavior doesn't seem to
+make sense.
 
-OTOH if you won't think it's useful, let me know.
+The following settings do *not* result in privacy addresses on eth0:
 
-> > +
-> >  /* VHOST_NET specific defines */
-> >  
-> >  /* Attach virtio net ring to a raw socket, or tap device.
-> > diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> > index 9e8e004..3b68f9d 100644
-> > --- a/drivers/vhost/vhost.c
-> > +++ b/drivers/vhost/vhost.c
-> > @@ -917,6 +917,11 @@ long vhost_dev_ioctl(struct vhost_dev *d, unsigned int ioctl, void __user *argp)
-> >  	long r;
-> >  	int i, fd;
-> >  
-> > +	if (ioctl == VHOST_GET_MEM_MAX_NREGIONS) {
-> > +		r = VHOST_MEMORY_MAX_NREGIONS;
-> > +		goto done;
-> > +	}
-> > +
-> >  	/* If you are not the owner, you can become one */
-> >  	if (ioctl == VHOST_SET_OWNER) {
-> >  		r = vhost_dev_set_owner(d);
+	net.ipv6.conf.all.use_tempaddr=2
+	net.ipv6.conf.eth0.use_tempaddr=0
+
+But the following settings do:
+
+	net.ipv6.conf.all.use_tempaddr=0
+	net.ipv6.conf.eth0.use_tempaddr=2
+
+This doesn't make sense per any of the AND/OR/MAX semantics as used for
+e.g. net.ipv4.conf.all.
+
+Looking at the net/ipv6/addrconf.c implementation, I can figure out
+where net.ipv6.conf.default is implemented, and some handling for
+specific devconf_all parameters (forwarding, disable_ipv6, proxy_ndp),
+but I am unable to find any link between struct
+netns_ipv6.devconf_all.use_tempaddr and struct inet6_dev.cnf.use_tempaddr.
+
+Does anyone have any pointers for where this linking logic would be
+implemented, or are the majority of net.ipv6.conf.all.* sysctl
+parameters actually complete no-ops?
+
+ -- Tero Marttila
