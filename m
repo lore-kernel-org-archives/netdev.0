@@ -1,28 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: merge window freeze
-Date: Wed, 24 Jun 2015 02:53:28 -0700 (PDT)
-Message-ID: <20150624.025328.682044271321726878.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Maninder Singh <maninder1.s@samsung.com>
+Subject: [PATCH 1/1] ppp: remove NULL check before kfree
+Date: Wed, 24 Jun 2015 15:09:42 +0530
+Message-ID: <1435138782-48477-1-git-send-email-maninder1.s@samsung.com>
+Cc: pankaj.m@samsung.com, Maninder Singh <maninder1.s@samsung.com>
+To: paulus@samba.org, linux-ppp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39421 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751858AbbFXJlg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 05:41:36 -0400
+Received: from mailout1.samsung.com ([203.254.224.24]:39244 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933AbbFXJlb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 05:41:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+No need of explicit NULL check before kfree,
+removing the same and little coding style changes.
 
-I've processed all of my patch backlog and plan to do some merging
-then prepare a pull request of net-next for Linus.
+Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
+Reviewed-by: Vaneet narang <v.narang@samsung.com>
+---
+ drivers/net/ppp/ppp_mppe.c |   10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-DO NOT submit any net-next changes at this time, please instead
-wait for net-next to open up again (should be some time next week
-or so).
-
-Bug fixes, of course, are always welcome.
-
-Thanks.
+diff --git a/drivers/net/ppp/ppp_mppe.c b/drivers/net/ppp/ppp_mppe.c
+index 05005c6..06f60b1 100644
+--- a/drivers/net/ppp/ppp_mppe.c
++++ b/drivers/net/ppp/ppp_mppe.c
+@@ -238,12 +238,11 @@ static void *mppe_alloc(unsigned char *options, int optlen)
+ 	return (void *)state;
+ 
+ 	out_free:
+-	    if (state->sha1_digest)
+ 		kfree(state->sha1_digest);
+ 	    if (state->sha1)
+-		crypto_free_hash(state->sha1);
++			crypto_free_hash(state->sha1);
+ 	    if (state->arc4)
+-		crypto_free_blkcipher(state->arc4);
++			crypto_free_blkcipher(state->arc4);
+ 	    kfree(state);
+ 	out:
+ 	return NULL;
+@@ -256,12 +255,11 @@ static void mppe_free(void *arg)
+ {
+ 	struct ppp_mppe_state *state = (struct ppp_mppe_state *) arg;
+ 	if (state) {
+-	    if (state->sha1_digest)
+ 		kfree(state->sha1_digest);
+ 	    if (state->sha1)
+-		crypto_free_hash(state->sha1);
++			crypto_free_hash(state->sha1);
+ 	    if (state->arc4)
+-		crypto_free_blkcipher(state->arc4);
++			crypto_free_blkcipher(state->arc4);
+ 	    kfree(state);
+ 	}
+ }
+-- 
+1.7.9.5
