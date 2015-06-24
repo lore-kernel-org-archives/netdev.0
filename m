@@ -1,63 +1,70 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH iproute2] ss: print value of IPV6_V6ONLY socket option if set
-Date: Wed, 24 Jun 2015 13:07:20 +0200
-Message-ID: <1435144040-26325-1-git-send-email-phil@nwl.cc>
-Cc: Stephen Hemminger <shemming@brocade.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:45673 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751527AbbFXLHW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jun 2015 07:07:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Maninder Singh <maninder1.s@samsung.com>
+Subject: [RFC][PATCH v2] ppp: remove NULL check before kfree
+Date: Wed, 24 Jun 2015 16:49:52 +0530
+Message-ID: <1435144792-30367-1-git-send-email-maninder1.s@samsung.com>
+Cc: pankaj.m@samsung.com, Maninder Singh <maninder1.s@samsung.com>
+To: paulus@samba.org, linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If available and set, print 'v6only:1' for AF_INET6 sockets upon request
-of extended information. For IPv6 sockets bound to in6addr_any, this is
-the only way to determine if they will also accept IPv4 requests or not.
+Removes NULL check before kfree
+and using tabs in place of space.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
+and removing checkpatch warning:
+labels should not be indented.
+
+Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
+Reviewed-by: Vaneet narang <v.narang@samsung.com>
 ---
-Depends on unapplied patch 'ss: Include -E option for socket destroy
-events'
+ drivers/net/ppp/ppp_mppe.c |   24 +++++++++++-------------
+ 1 file changed, 11 insertions(+), 13 deletions(-)
 
-Kernel support patch: 204621551b2a0060a013b92f7add4d5c452fa7cb
----
- include/linux/inet_diag.h | 3 ++-
- misc/ss.c                 | 5 +++++
- 2 files changed, 7 insertions(+), 1 deletion(-)
-
-diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
-index e83340b..1db4116 100644
---- a/include/linux/inet_diag.h
-+++ b/include/linux/inet_diag.h
-@@ -112,9 +112,10 @@ enum {
- 	INET_DIAG_SHUTDOWN,
- 	INET_DIAG_DCTCPINFO,
- 	INET_DIAG_PROTOCOL,  /* response attribute only */
-+	INET_DIAG_SKV6ONLY,
- };
+diff --git a/drivers/net/ppp/ppp_mppe.c b/drivers/net/ppp/ppp_mppe.c
+index 05005c6..339b50e 100644
+--- a/drivers/net/ppp/ppp_mppe.c
++++ b/drivers/net/ppp/ppp_mppe.c
+@@ -237,15 +237,14 @@ static void *mppe_alloc(unsigned char *options, int optlen)
  
--#define INET_DIAG_MAX INET_DIAG_PROTOCOL
-+#define INET_DIAG_MAX INET_DIAG_SKV6ONLY
+ 	return (void *)state;
  
- /* INET_DIAG_MEM */
+-	out_free:
+-	    if (state->sha1_digest)
+-		kfree(state->sha1_digest);
+-	    if (state->sha1)
++out_free:
++	kfree(state->sha1_digest);
++	if (state->sha1)
+ 		crypto_free_hash(state->sha1);
+-	    if (state->arc4)
++	if (state->arc4)
+ 		crypto_free_blkcipher(state->arc4);
+-	    kfree(state);
+-	out:
++	kfree(state);
++out:
+ 	return NULL;
+ }
  
-diff --git a/misc/ss.c b/misc/ss.c
-index 759795c..62a638b 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -2047,6 +2047,11 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f, int protocol)
+@@ -256,13 +255,12 @@ static void mppe_free(void *arg)
+ {
+ 	struct ppp_mppe_state *state = (struct ppp_mppe_state *) arg;
+ 	if (state) {
+-	    if (state->sha1_digest)
+ 		kfree(state->sha1_digest);
+-	    if (state->sha1)
+-		crypto_free_hash(state->sha1);
+-	    if (state->arc4)
+-		crypto_free_blkcipher(state->arc4);
+-	    kfree(state);
++		if (state->sha1)
++			crypto_free_hash(state->sha1);
++		if (state->arc4)
++			crypto_free_blkcipher(state->arc4);
++		kfree(state);
+ 	}
+ }
  
- 	if (show_details) {
- 		sock_details_print(&s);
-+		if (s.local.family == AF_INET6 && tb[INET_DIAG_SKV6ONLY]) {
-+			unsigned char v6only;
-+			v6only = *(__u8 *)RTA_DATA(tb[INET_DIAG_SKV6ONLY]);
-+			printf(" v6only:%u", v6only);
-+		}
- 		if (tb[INET_DIAG_SHUTDOWN]) {
- 			unsigned char mask;
- 			mask = *(__u8 *)RTA_DATA(tb[INET_DIAG_SHUTDOWN]);
 -- 
-2.1.2
+1.7.9.5
+
