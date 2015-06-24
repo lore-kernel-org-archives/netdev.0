@@ -1,45 +1,63 @@
-From: Maninder Singh <maninder1.s@samsung.com>
-Subject: Re: [PATCH 1/1] ppp: remove NULL check before kfree
-Date: Wed, 24 Jun 2015 11:05:55 +0000 (GMT)
-Message-ID: <595072132.187031435143954821.JavaMail.weblogic@ep2mlwas03a>
-Reply-To: maninder1.s@samsung.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: base64
-Cc: PANKAJ MISHRA <pankaj.m@samsung.com>
-To: "paulus@samba.org" <paulus@samba.org>,
-	"linux-ppp@vger.kernel.org" <linux-ppp@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-MIME-version: 1.0
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH iproute2] ss: print value of IPV6_V6ONLY socket option if set
+Date: Wed, 24 Jun 2015 13:07:20 +0200
+Message-ID: <1435144040-26325-1-git-send-email-phil@nwl.cc>
+Cc: Stephen Hemminger <shemming@brocade.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbit.nwl.cc ([176.31.251.142]:45673 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751527AbbFXLHW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Jun 2015 07:07:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQo+Tm8gbmVlZCBvZiBleHBsaWNpdCBOVUxMIGNoZWNrIGJlZm9yZSBrZnJlZSwNCj5yZW1vdmlu
-ZyB0aGUgc2FtZSBhbmQgbGl0dGxlIGNvZGluZyBzdHlsZSBjaGFuZ2VzLg0KPg0KPlNpZ25lZC1v
-ZmYtYnk6IE1hbmluZGVyIFNpbmdoIDxtYW5pbmRlcjEuc0BzYW1zdW5nLmNvbT4NCj5SZXZpZXdl
-ZC1ieTogVmFuZWV0IG5hcmFuZyA8di5uYXJhbmdAc2Ftc3VuZy5jb20+DQo+LS0tDQo+IGRyaXZl
-cnMvbmV0L3BwcC9wcHBfbXBwZS5jIHwgICAxMCArKysrLS0tLS0tDQo+IDEgZmlsZSBjaGFuZ2Vk
-LCA0IGluc2VydGlvbnMoKyksIDYgZGVsZXRpb25zKC0pDQo+DQo+ZGlmZiAtLWdpdCBhL2RyaXZl
-cnMvbmV0L3BwcC9wcHBfbXBwZS5jIGIvZHJpdmVycy9uZXQvcHBwL3BwcF9tcHBlLmMNCj5pbmRl
-eCAwNTAwNWM2Li4wNmY2MGIxIDEwMDY0NA0KPi0tLSBhL2RyaXZlcnMvbmV0L3BwcC9wcHBfbXBw
-ZS5jDQo+KysrIGIvZHJpdmVycy9uZXQvcHBwL3BwcF9tcHBlLmMNCj5AQCAtMjM4LDEyICsyMzgs
-MTEgQEAgc3RhdGljIHZvaWQgKm1wcGVfYWxsb2ModW5zaWduZWQgY2hhciAqb3B0aW9ucywgaW50
-IG9wdGxlbikNCj4gCXJldHVybiAodm9pZCAqKXN0YXRlOw0KPiANCj4gCW91dF9mcmVlOg0KPi0J
-ICAgIGlmIChzdGF0ZS0+c2hhMV9kaWdlc3QpDQo+IAkJa2ZyZWUoc3RhdGUtPnNoYTFfZGlnZXN0
-KTsNCj4gCSAgICBpZiAoc3RhdGUtPnNoYTEpDQo+LQkJY3J5cHRvX2ZyZWVfaGFzaChzdGF0ZS0+
-c2hhMSk7DQo+KwkJCWNyeXB0b19mcmVlX2hhc2goc3RhdGUtPnNoYTEpOw0KPiAJICAgIGlmIChz
-dGF0ZS0+YXJjNCkNCj4tCQljcnlwdG9fZnJlZV9ibGtjaXBoZXIoc3RhdGUtPmFyYzQpOw0KPisJ
-CQljcnlwdG9fZnJlZV9ibGtjaXBoZXIoc3RhdGUtPmFyYzQpOw0KPiAJICAgIGtmcmVlKHN0YXRl
-KTsNCj4gCW91dDoNCj4gCXJldHVybiBOVUxMOw0KPkBAIC0yNTYsMTIgKzI1NSwxMSBAQCBzdGF0
-aWMgdm9pZCBtcHBlX2ZyZWUodm9pZCAqYXJnKQ0KPiB7DQo+IAlzdHJ1Y3QgcHBwX21wcGVfc3Rh
-dGUgKnN0YXRlID0gKHN0cnVjdCBwcHBfbXBwZV9zdGF0ZSAqKSBhcmc7DQo+IAlpZiAoc3RhdGUp
-IHsNCj4tCSAgICBpZiAoc3RhdGUtPnNoYTFfZGlnZXN0KQ0KPiAJCWtmcmVlKHN0YXRlLT5zaGEx
-X2RpZ2VzdCk7DQo+IAkgICAgaWYgKHN0YXRlLT5zaGExKQ0KPi0JCWNyeXB0b19mcmVlX2hhc2go
-c3RhdGUtPnNoYTEpOw0KPisJCQljcnlwdG9fZnJlZV9oYXNoKHN0YXRlLT5zaGExKTsNCj4gCSAg
-ICBpZiAoc3RhdGUtPmFyYzQpDQo+LQkJY3J5cHRvX2ZyZWVfYmxrY2lwaGVyKHN0YXRlLT5hcmM0
-KTsNCj4rCQkJY3J5cHRvX2ZyZWVfYmxrY2lwaGVyKHN0YXRlLT5hcmM0KTsNCj4gCSAgICBrZnJl
-ZShzdGF0ZSk7DQo+IAl9DQo+IH0NCj4tLSANCj4xLjcuOS41DQpTZW5kIFYyIG9mIHBhdGNoIHdp
-dGggc29tZSBtb3JlIGNoYW5nZXMuDQpUaGFua3MNCk1hbmluZGVyDQotLS0tLS0tDQoNCg==
+If available and set, print 'v6only:1' for AF_INET6 sockets upon request
+of extended information. For IPv6 sockets bound to in6addr_any, this is
+the only way to determine if they will also accept IPv4 requests or not.
 
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+Depends on unapplied patch 'ss: Include -E option for socket destroy
+events'
 
+Kernel support patch: 204621551b2a0060a013b92f7add4d5c452fa7cb
+---
+ include/linux/inet_diag.h | 3 ++-
+ misc/ss.c                 | 5 +++++
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+index e83340b..1db4116 100644
+--- a/include/linux/inet_diag.h
++++ b/include/linux/inet_diag.h
+@@ -112,9 +112,10 @@ enum {
+ 	INET_DIAG_SHUTDOWN,
+ 	INET_DIAG_DCTCPINFO,
+ 	INET_DIAG_PROTOCOL,  /* response attribute only */
++	INET_DIAG_SKV6ONLY,
+ };
+ 
+-#define INET_DIAG_MAX INET_DIAG_PROTOCOL
++#define INET_DIAG_MAX INET_DIAG_SKV6ONLY
+ 
+ /* INET_DIAG_MEM */
+ 
+diff --git a/misc/ss.c b/misc/ss.c
+index 759795c..62a638b 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -2047,6 +2047,11 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f, int protocol)
+ 
+ 	if (show_details) {
+ 		sock_details_print(&s);
++		if (s.local.family == AF_INET6 && tb[INET_DIAG_SKV6ONLY]) {
++			unsigned char v6only;
++			v6only = *(__u8 *)RTA_DATA(tb[INET_DIAG_SKV6ONLY]);
++			printf(" v6only:%u", v6only);
++		}
+ 		if (tb[INET_DIAG_SHUTDOWN]) {
+ 			unsigned char mask;
+ 			mask = *(__u8 *)RTA_DATA(tb[INET_DIAG_SHUTDOWN]);
+-- 
+2.1.2
