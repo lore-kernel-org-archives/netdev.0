@@ -1,26 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] stmmac: troubleshoot unexpected bits in des0 & des1
-Date: Wed, 24 Jun 2015 02:39:08 -0700 (PDT)
-Message-ID: <20150624.023908.1017811354688857624.davem@davemloft.net>
-References: <1435135661-24359-1-git-send-email-abrodkin@synopsys.com>
+Subject: Re: [PATCH v2] net: inet_diag: export IPV6_V6ONLY sockopt
+Date: Wed, 24 Jun 2015 02:51:52 -0700 (PDT)
+Message-ID: <20150624.025152.1145614139930184404.davem@davemloft.net>
+References: <1435136571-18879-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
-	arc-linux-dev@synopsys.com, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org
-To: Alexey.Brodkin@synopsys.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1435135661-24359-1-git-send-email-abrodkin@synopsys.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: phil@nwl.cc
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39415 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751160AbbFXJkB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 05:40:01 -0400
+In-Reply-To: <1435136571-18879-1-git-send-email-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Date: Wed, 24 Jun 2015 11:47:41 +0300
+From: Phil Sutter <phil@nwl.cc>
+Date: Wed, 24 Jun 2015 11:02:51 +0200
 
-> Current implementation of descriptor init procedure only takes
-> care about setting/clearing ownership flag in "des0"/"des1"
-> fields while it is perfectly possible to get unexpected bits
-> set because of the following factors:
+> For AF_INET6 sockets, the value of struct ipv6_pinfo.ipv6only is
+> exported to userspace. It indicates whether a socket bound to in6addr_any
+> listens on IPv4 as well as IPv6. Since the socket is natively IPv6, it is not
+> listed by e.g. 'ss -l -4'.
+> 
+> This patch is accompanied by an appropriate one for iproute2 to enable
+> the additional information in 'ss -e'.
+> 
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
-Applied.
+Applied, thanks.
