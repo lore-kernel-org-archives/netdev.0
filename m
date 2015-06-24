@@ -1,86 +1,57 @@
-From: Ajith Adapa <adapa.ajith@gmail.com>
-Subject: Issue with LACP mode support in Linux bonding driver
-Date: Wed, 24 Jun 2015 15:25:14 +0530
-Message-ID: <CADAe=+LERY5jgVLpVdteFQXhcJdHzNxJpj=9t7Nyf0YTmSXcYQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: merge window freeze
+Date: Wed, 24 Jun 2015 13:25:47 +0300
+Message-ID: <EC3F09A3-8B3D-4ABD-B94D-1A36D13DF09A@cumulusnetworks.com>
+References: <20150624.025328.682044271321726878.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:32991 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752690AbbFXJzz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 05:55:55 -0400
-Received: by obpn3 with SMTP id n3so23485011obp.0
-        for <netdev@vger.kernel.org>; Wed, 24 Jun 2015 02:55:53 -0700 (PDT)
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:38313 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751408AbbFXKZv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 06:25:51 -0400
+Received: by wibdq8 with SMTP id dq8so42023934wib.1
+        for <netdev@vger.kernel.org>; Wed, 24 Jun 2015 03:25:50 -0700 (PDT)
+In-Reply-To: <20150624.025328.682044271321726878.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-I am using Centos7 with v3.10 kernel.
+> On Jun 24, 2015, at 12:53 PM, David Miller <davem@davemloft.net> wrot=
+e:
+>=20
+>=20
+> I've processed all of my patch backlog and plan to do some merging
+> then prepare a pull request of net-next for Linus.
+>=20
+> DO NOT submit any net-next changes at this time, please instead
+> wait for net-next to open up again (should be some time next week
+> or so).
+>=20
+> Bug fixes, of course, are always welcome.
+>=20
+> Thanks.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-My issue is related to multiaggregation in LACP.
+Hi Dave,
+I noticed that both of my bridge patches are marked with =E2=80=9CChang=
+es Requested=E2=80=9D, but
+there was no feedback why and also the first one:
+"bridge: multicast: add a comment to br_port_state_selection about bloc=
+king state=E2=80=9D
+was ACKed and in the second one our discussion with Toshiaki
+was about a possible bug that=E2=80=99s not related to the patch.=20
+Could you please tell me what I have to change in them ?
 
-In my setup topology I connected linux server and a L2 switch back to
-back with 2 interfaces eth0 and eth1 (on both sides).
+Patch links:
+[1] https://patchwork.ozlabs.org/patch/487591/
+[2] https://patchwork.ozlabs.org/patch/487608/
 
-On Switch I have mapped eth0 to po1 and eth1 to po2. On linux server I
-have created a single bond interface with both interfaces eth0 and
-eth1.
-
-On L2 switch both po1 and po2 has same system-id but the Actor key is
-different i.e. on PO1 it is 16385 and on PO2 it is 32768. As per the
-information available about bond0 on linux server which is given below
-Active aggregator ID is 1 which is mapped to eth0 but eth1.
-
-But we have observed that eth1 on linux server is also sending LACPDUS
-with Collecting/Distributing bit set as 1. Which will result in single
-bond interface on Linux server is splitted into multiple port-channels
-on Switch causing duplication of frames on linux server.
-
-As per IEEE 802.3ad 2003 standard portchannel should not support
-multi-aggregation.
-
-
-#  cat /proc/net/bonding/bond0
-Ethernet Channel Bonding Driver: v3.7.1 (April 27, 2011)
-
-Bonding Mode: IEEE 802.3ad Dynamic link aggregation
-Transmit Hash Policy: layer2 (0)
-MII Status: up
-MII Polling Interval (ms): 100
-Up Delay (ms): 0
-Down Delay (ms): 0
-
-802.3ad info
-LACP rate: fast
-Min links: 0
-Aggregator selection policy (ad_select): stable
-Active Aggregator Info:
-    Aggregator ID: 1
-    Number of ports: 1
-    Actor Key: 17
-    Partner Key: 16385
-    Partner Mac Address: 11:11:22:22:33:33
-
-Slave Interface: eth0
-MII Status: up
-Speed: 1000 Mbps
-Duplex: full
-Link Failure Count: 0
-Permanent HW addr: 08:00:27:18:ae:4b
-Aggregator ID: 1
-Slave queue ID: 0
-
-Slave Interface: eth1
-MII Status: up
-Speed: 1000 Mbps
-Duplex: full
-Link Failure Count: 0
-Permanent HW addr: 08:00:27:76:35:a2
-Aggregator ID: 3
-Slave queue ID: 0
-
-
-Regards,
-Ajith
+Thank you,
+ Nik
