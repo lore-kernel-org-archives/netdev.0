@@ -1,31 +1,70 @@
-From: David Miller <davem@davemloft.net>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
 Subject: Re: [PATCH 1/2] sh_eth: Remove obsolete r7s72100-ether
  platform_device_id entry
-Date: Wed, 24 Jun 2015 00:55:37 -0700 (PDT)
-Message-ID: <20150624.005537.1031818561162918702.davem@davemloft.net>
+Date: Wed, 24 Jun 2015 09:48:15 +0200
+Message-ID: <CAMuHMdWZ3k8z7iBPsoj9g5uiKmQ-FiznQxqXoaNXO2nq+8gjjw@mail.gmail.com>
 References: <1435064462-11680-1-git-send-email-geert+renesas@glider.be>
+	<20150624.005537.1031818561162918702.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: geert+renesas@glider.be
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1435064462-11680-1-git-send-email-geert+renesas@glider.be>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:36233 "EHLO
+	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750970AbbFXHsQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 03:48:16 -0400
+In-Reply-To: <20150624.005537.1031818561162918702.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydCtyZW5lc2FzQGdsaWRlci5iZT4NCkRhdGU6
-IFR1ZSwgMjMgSnVuIDIwMTUgMTU6MDE6MDEgKzAyMDANCg0KPiBTaW5jZSBjb21taXQgMDUxMDRj
-MjY2YWU5YTE2NyAoIkFSTTogc2htb2JpbGU6IHI3czcyMTAwOiBnZW5tYWk6IFJlbW92ZQ0KPiBs
-ZWdhY3kgYm9hcmQgZmlsZSIpLCByN3M3MjEwMCBpcyBvbmx5IHN1cHBvcnRlZCBpbiBnZW5lcmlj
-IERULW9ubHkgQVJNDQo+IG11bHRpLXBsYXRmb3JtIGJ1aWxkcy4gIFRoZSBkcml2ZXIgZG9lc24n
-dCBuZWVkIHRvIG1hdGNoIHBsYXRmb3JtDQo+IGRldmljZXMgYnkgbmFtZSBhbnltb3JlLCBoZW5j
-ZSByZW1vdmUgdGhlIGNvcnJlc3BvbmRpbmcNCj4gcGxhdGZvcm1fZGV2aWNlX2lkIGVudHJ5Lg0K
-PiANCj4gU2lnbmVkLW9mZi1ieTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydCtyZW5lc2FzQGds
-aWRlci5iZT4NCg0KVGhlc2UgdHdvIGNoYW5nZXMgYXJlIGluY29tcGxldGUsIHBsZWFzZSBjb21w
-aWxlIHRlc3QgeW91ciBjaGFuZ2VzIGFuZA0KbG9vayBmb3Igd2FybmluZ3M6DQoNCmRyaXZlcnMv
-bmV0L2V0aGVybmV0L3JlbmVzYXMvc2hfZXRoLmM6NDkzOjMxOiB3YXJuaW5nOiChcjhhNzc5eF9k
-YXRhoiBkZWZpbmVkIGJ1dCBub3QgdXNlZCBbLVd1bnVzZWQtdmFyaWFibGVdDQpkcml2ZXJzL25l
-dC9ldGhlcm5ldC9yZW5lc2FzL3NoX2V0aC5jOjgwMzozMTogd2FybmluZzogoXI3czcyMTAwX2Rh
-dGGiIGRlZmluZWQgYnV0IG5vdCB1c2VkIFstV3VudXNlZC12YXJpYWJsZV0NCg==
+Hi David,
+
+On Wed, Jun 24, 2015 at 9:55 AM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Geert Uytterhoeven <geert+renesas@glider.be>
+> Date: Tue, 23 Jun 2015 15:01:01 +0200
+>
+>> Since commit 05104c266ae9a167 ("ARM: shmobile: r7s72100: genmai: Rem=
+ove
+>> legacy board file"), r7s72100 is only supported in generic DT-only A=
+RM
+>> multi-platform builds.  The driver doesn't need to match platform
+>> devices by name anymore, hence remove the corresponding
+>> platform_device_id entry.
+>>
+>> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+>
+> These two changes are incomplete, please compile test your changes an=
+d
+> look for warnings:
+>
+> drivers/net/ethernet/renesas/sh_eth.c:493:31: warning: =E2=80=98r8a77=
+9x_data=E2=80=99 defined but not used [-Wunused-variable]
+> drivers/net/ethernet/renesas/sh_eth.c:803:31: warning: =E2=80=98r7s72=
+100_data=E2=80=99 defined but not used [-Wunused-variable]
+
+You're right. They're still used for DT matching, but I missed that
+sh_eth_match_table[] is protected by #ifdef CONFIG_OF, which is always =
+set
+on ARM these days.
+
+Sorry about that, will fix.
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
+
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+                                -- Linus Torvalds
