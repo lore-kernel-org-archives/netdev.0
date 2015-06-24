@@ -1,46 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] enic: use atomic_t instead of spin_lock in
- busy poll
-Date: Wed, 24 Jun 2015 01:25:01 -0700 (PDT)
-Message-ID: <20150624.012501.1398638370458478294.davem@davemloft.net>
-References: <1435076270-14166-1-git-send-email-_govind@gmx.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
-To: _govind@gmx.com
+From: Suman Tripathi <stripathi@apm.com>
+Subject: [PATCH net-next v1 0/1]drivers: net: xgene: Fix the ACPI support for RGMII/SGMII0/XFI ethernet interfaces of APM X-Gene SoC.
+Date: Wed, 24 Jun 2015 13:51:39 +0530
+Message-ID: <1435134100-12460-1-git-send-email-stripathi@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, kchudgar@apm.com,
+	patches@apm.com, isubramanian@apm.com,
+	Suman Tripathi <stripathi@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39118 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751037AbbFXINK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 04:13:10 -0400
-In-Reply-To: <1435076270-14166-1-git-send-email-_govind@gmx.com>
+Received: from denmail01-v4020.amcc.com ([192.195.68.30]:33822 "EHLO
+	denmail01.amcc.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750847AbbFXIW0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 04:22:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Date: Tue, 23 Jun 2015 21:47:50 +0530
+v1 change:
+ * Fix the compilation error.
+ * Drop other patches as it got accepted.
 
-> -static inline bool enic_poll_unlock_napi(struct vnic_rq *rq)
-> +static inline void enic_poll_unlock_napi(struct vnic_rq *rq,
-> +					 struct napi_struct *napi)
->  {
-> -	bool rc = false;
-> -
-> -	spin_lock(&rq->bpoll_lock);
-> -	WARN_ON(rq->bpoll_state &
-> -		(ENIC_POLL_STATE_POLL | ENIC_POLL_STATE_NAPI_YIELD));
-> -	if (rq->bpoll_state & ENIC_POLL_STATE_POLL_YIELD)
-> -		rc = true;
-> -	rq->bpoll_state = ENIC_POLL_STATE_IDLE;
-> -	spin_unlock(&rq->bpoll_lock);
-> -
-> -	return rc;
-> +	WARN_ON(atomic_read(&rq->bpoll_state) != ENIC_POLL_STATE_NAPI);
-> +	napi_gro_flush(napi, false);
-> +	atomic_set(&rq->bpoll_state, ENIC_POLL_STATE_IDLE);
->  }
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Signed-off-by: Suman Tripathi <stripathi@apm.com>
+---
 
-I don't understand why you needed to add this napi_gro_flush() call here,
-and regardless of the reason you must explain this, in detail, in your
-commit message,
+Suman Tripathi (1):
+  drivers: net: xgene: Fix the compilation error "error: implicit
+    declaration of function 'acpi_evaluate_integer'" in APM X-Gene
+    ethernet driver.
+
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+--
+1.8.2.1
