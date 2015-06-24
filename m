@@ -1,85 +1,56 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 3/4] net/mlx4_en: Fix wrong csum complete report when rxvlan offload is disabled
-Date: Wed, 24 Jun 2015 18:22:02 +0300
-Message-ID: <1435159323-10028-4-git-send-email-ogerlitz@mellanox.com>
-References: <1435159323-10028-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:56561 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752620AbbFXPWc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jun 2015 11:22:32 -0400
-In-Reply-To: <1435159323-10028-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: sock_hold and sock_put
+Date: Wed, 24 Jun 2015 17:26:01 +0200
+Message-ID: <1435159561.4110.14.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAGZFCEHHXbnsSoBaTUdxqwoQ75hN5BTBXJMEXp0dkwQbFSEkRw@mail.gmail.com>
+	 <1435150000.4110.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAGZFCEFQju581PDF3QpyX-s8vvdxPrZTwS85CP3rTu4wUfEHBg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-newbie <linux-newbie@vger.kernel.org>
+To: ratheesh kannoth <ratheesh.ksz@gmail.com>
+Return-path: <linux-newbie-owner@vger.kernel.org>
+In-Reply-To: <CAGZFCEFQju581PDF3QpyX-s8vvdxPrZTwS85CP3rTu4wUfEHBg@mail.gmail.com>
+Sender: linux-newbie-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Shamay <idos@mellanox.com>
+On Wed, 2015-06-24 at 19:44 +0530, ratheesh kannoth wrote:
+> On Wed, Jun 24, 2015 at 6:16 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > You misunderstood the comment.
+> >
+> > Comment only stated that sock_hold() must be used in contexts where
+> > caller owns a reference (and will eventually release it later with
+> > sock_put().
+> >
+> > There is nothing about having a lock here.
+> 
+> Thanks. I think, i did not put the question right.
+> 
+> I understood the comment perfectly. Suppose i need to use the
+> sock_hold in some callbacks ( say netdev_notifier chain callback)
+> function. How can i gurantee race won't happen at the point where i
+> call sock_hold().
+>  If i put the question  in another way - say kernel is doing a
+> sock_put() on a socket, and at the same time  the   netdev_callback
+> function( that i implemented ) is called on another core ( in smp
+> machine ). and the  callback is  holding (sock_hold()) on the same
+> sock.
 
-The check_csum() function relied on hwtstamp_rx_filter to know if rxvlan
-offload is disabled. This is wrong since rxvlan offload can be switched
-on/off regardless of hwtstamp_rx_filter.
+You can not possibly use sock_hold() from the callback, unless you
+already took a reference on the socket _before_ callback was called, to
+make sure socket would not disappear.
 
-Also moved check_csum to query CQE information to identify VLAN packets
-and removed the check of IP packets, since it has been validated before.
+Its hard to understand what you try to do here.
 
-Fixes: f8c6455bb04b ('net/mlx4_en: Extend checksum offloading by CHECKSUM COMPLETE')
-Signed-off-by: Ido Shamay <idos@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c | 17 ++++++-----------
- 1 file changed, 6 insertions(+), 11 deletions(-)
+If you worry because socket would disappear when "kernel is doing a
+sock_put()", then it means you did not take the needed extra reference
+to make sure callback would access a valid socket.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 35f726c..580dd59 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -718,7 +718,7 @@ static int get_fixed_ipv6_csum(__wsum hw_checksum, struct sk_buff *skb,
- }
- #endif
- static int check_csum(struct mlx4_cqe *cqe, struct sk_buff *skb, void *va,
--		      int hwtstamp_rx_filter)
-+		      netdev_features_t dev_features)
- {
- 	__wsum hw_checksum = 0;
- 
-@@ -726,14 +726,8 @@ static int check_csum(struct mlx4_cqe *cqe, struct sk_buff *skb, void *va,
- 
- 	hw_checksum = csum_unfold((__force __sum16)cqe->checksum);
- 
--	if (((struct ethhdr *)va)->h_proto == htons(ETH_P_8021Q) &&
--	    hwtstamp_rx_filter != HWTSTAMP_FILTER_NONE) {
--		/* next protocol non IPv4 or IPv6 */
--		if (((struct vlan_hdr *)hdr)->h_vlan_encapsulated_proto
--		    != htons(ETH_P_IP) &&
--		    ((struct vlan_hdr *)hdr)->h_vlan_encapsulated_proto
--		    != htons(ETH_P_IPV6))
--			return -1;
-+	if (be32_to_cpu(cqe->vlan_my_qpn) & MLX4_CQE_VLAN_PRESENT_MASK &&
-+	    !(dev_features & NETIF_F_HW_VLAN_CTAG_RX)) {
- 		hw_checksum = get_fixed_vlan_csum(hw_checksum, hdr);
- 		hdr += sizeof(struct vlan_hdr);
- 	}
-@@ -896,7 +890,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 
- 			if (ip_summed == CHECKSUM_COMPLETE) {
- 				void *va = skb_frag_address(skb_shinfo(gro_skb)->frags);
--				if (check_csum(cqe, gro_skb, va, ring->hwtstamp_rx_filter)) {
-+				if (check_csum(cqe, gro_skb, va,
-+					       dev->features)) {
- 					ip_summed = CHECKSUM_NONE;
- 					ring->csum_none++;
- 					ring->csum_complete--;
-@@ -951,7 +946,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		}
- 
- 		if (ip_summed == CHECKSUM_COMPLETE) {
--			if (check_csum(cqe, skb, skb->data, ring->hwtstamp_rx_filter)) {
-+			if (check_csum(cqe, skb, skb->data, dev->features)) {
- 				ip_summed = CHECKSUM_NONE;
- 				ring->csum_complete--;
- 				ring->csum_none++;
--- 
-2.3.7
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-newbie" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at http://www.linux-learn.org/faqs
