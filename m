@@ -1,62 +1,45 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: Re: [PATCH net-next] enic: use atomic_t instead of spin_lock in busy
- poll
-Date: Wed, 24 Jun 2015 15:56:17 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1506241401180.24620@ws.cisco>
-References: <1435076270-14166-1-git-send-email-_govind@gmx.com> <20150624.012501.1398638370458478294.davem@davemloft.net>
+From: Maninder Singh <maninder1.s@samsung.com>
+Subject: Re: [PATCH 1/1] ppp: remove NULL check before kfree
+Date: Wed, 24 Jun 2015 11:05:55 +0000 (GMT)
+Message-ID: <595072132.187031435143954821.JavaMail.weblogic@ep2mlwas03a>
+Reply-To: maninder1.s@samsung.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: _govind@gmx.com, netdev@vger.kernel.org, ssujith@cisco.com,
-	benve@cisco.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.19]:65063 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751732AbbFXK0l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jun 2015 06:26:41 -0400
-In-Reply-To: <20150624.012501.1398638370458478294.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: base64
+Cc: PANKAJ MISHRA <pankaj.m@samsung.com>
+To: "paulus@samba.org" <paulus@samba.org>,
+	"linux-ppp@vger.kernel.org" <linux-ppp@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+MIME-version: 1.0
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 24 Jun 2015, David Miller wrote:
+DQo+Tm8gbmVlZCBvZiBleHBsaWNpdCBOVUxMIGNoZWNrIGJlZm9yZSBrZnJlZSwNCj5yZW1vdmlu
+ZyB0aGUgc2FtZSBhbmQgbGl0dGxlIGNvZGluZyBzdHlsZSBjaGFuZ2VzLg0KPg0KPlNpZ25lZC1v
+ZmYtYnk6IE1hbmluZGVyIFNpbmdoIDxtYW5pbmRlcjEuc0BzYW1zdW5nLmNvbT4NCj5SZXZpZXdl
+ZC1ieTogVmFuZWV0IG5hcmFuZyA8di5uYXJhbmdAc2Ftc3VuZy5jb20+DQo+LS0tDQo+IGRyaXZl
+cnMvbmV0L3BwcC9wcHBfbXBwZS5jIHwgICAxMCArKysrLS0tLS0tDQo+IDEgZmlsZSBjaGFuZ2Vk
+LCA0IGluc2VydGlvbnMoKyksIDYgZGVsZXRpb25zKC0pDQo+DQo+ZGlmZiAtLWdpdCBhL2RyaXZl
+cnMvbmV0L3BwcC9wcHBfbXBwZS5jIGIvZHJpdmVycy9uZXQvcHBwL3BwcF9tcHBlLmMNCj5pbmRl
+eCAwNTAwNWM2Li4wNmY2MGIxIDEwMDY0NA0KPi0tLSBhL2RyaXZlcnMvbmV0L3BwcC9wcHBfbXBw
+ZS5jDQo+KysrIGIvZHJpdmVycy9uZXQvcHBwL3BwcF9tcHBlLmMNCj5AQCAtMjM4LDEyICsyMzgs
+MTEgQEAgc3RhdGljIHZvaWQgKm1wcGVfYWxsb2ModW5zaWduZWQgY2hhciAqb3B0aW9ucywgaW50
+IG9wdGxlbikNCj4gCXJldHVybiAodm9pZCAqKXN0YXRlOw0KPiANCj4gCW91dF9mcmVlOg0KPi0J
+ICAgIGlmIChzdGF0ZS0+c2hhMV9kaWdlc3QpDQo+IAkJa2ZyZWUoc3RhdGUtPnNoYTFfZGlnZXN0
+KTsNCj4gCSAgICBpZiAoc3RhdGUtPnNoYTEpDQo+LQkJY3J5cHRvX2ZyZWVfaGFzaChzdGF0ZS0+
+c2hhMSk7DQo+KwkJCWNyeXB0b19mcmVlX2hhc2goc3RhdGUtPnNoYTEpOw0KPiAJICAgIGlmIChz
+dGF0ZS0+YXJjNCkNCj4tCQljcnlwdG9fZnJlZV9ibGtjaXBoZXIoc3RhdGUtPmFyYzQpOw0KPisJ
+CQljcnlwdG9fZnJlZV9ibGtjaXBoZXIoc3RhdGUtPmFyYzQpOw0KPiAJICAgIGtmcmVlKHN0YXRl
+KTsNCj4gCW91dDoNCj4gCXJldHVybiBOVUxMOw0KPkBAIC0yNTYsMTIgKzI1NSwxMSBAQCBzdGF0
+aWMgdm9pZCBtcHBlX2ZyZWUodm9pZCAqYXJnKQ0KPiB7DQo+IAlzdHJ1Y3QgcHBwX21wcGVfc3Rh
+dGUgKnN0YXRlID0gKHN0cnVjdCBwcHBfbXBwZV9zdGF0ZSAqKSBhcmc7DQo+IAlpZiAoc3RhdGUp
+IHsNCj4tCSAgICBpZiAoc3RhdGUtPnNoYTFfZGlnZXN0KQ0KPiAJCWtmcmVlKHN0YXRlLT5zaGEx
+X2RpZ2VzdCk7DQo+IAkgICAgaWYgKHN0YXRlLT5zaGExKQ0KPi0JCWNyeXB0b19mcmVlX2hhc2go
+c3RhdGUtPnNoYTEpOw0KPisJCQljcnlwdG9fZnJlZV9oYXNoKHN0YXRlLT5zaGExKTsNCj4gCSAg
+ICBpZiAoc3RhdGUtPmFyYzQpDQo+LQkJY3J5cHRvX2ZyZWVfYmxrY2lwaGVyKHN0YXRlLT5hcmM0
+KTsNCj4rCQkJY3J5cHRvX2ZyZWVfYmxrY2lwaGVyKHN0YXRlLT5hcmM0KTsNCj4gCSAgICBrZnJl
+ZShzdGF0ZSk7DQo+IAl9DQo+IH0NCj4tLSANCj4xLjcuOS41DQpTZW5kIFYyIG9mIHBhdGNoIHdp
+dGggc29tZSBtb3JlIGNoYW5nZXMuDQpUaGFua3MNCk1hbmluZGVyDQotLS0tLS0tDQoNCg==
 
-> From: Govindarajulu Varadarajan <_govind@gmx.com>
-> Date: Tue, 23 Jun 2015 21:47:50 +0530
->
->> -static inline bool enic_poll_unlock_napi(struct vnic_rq *rq)
->> +static inline void enic_poll_unlock_napi(struct vnic_rq *rq,
->> +					 struct napi_struct *napi)
->>  {
->> -	bool rc = false;
->> -
->> -	spin_lock(&rq->bpoll_lock);
->> -	WARN_ON(rq->bpoll_state &
->> -		(ENIC_POLL_STATE_POLL | ENIC_POLL_STATE_NAPI_YIELD));
->> -	if (rq->bpoll_state & ENIC_POLL_STATE_POLL_YIELD)
->> -		rc = true;
->> -	rq->bpoll_state = ENIC_POLL_STATE_IDLE;
->> -	spin_unlock(&rq->bpoll_lock);
->> -
->> -	return rc;
->> +	WARN_ON(atomic_read(&rq->bpoll_state) != ENIC_POLL_STATE_NAPI);
->> +	napi_gro_flush(napi, false);
->> +	atomic_set(&rq->bpoll_state, ENIC_POLL_STATE_IDLE);
->>  }
->
-> I don't understand why you needed to add this napi_gro_flush() call here,
-> and regardless of the reason you must explain this, in detail, in your
-> commit message,
->
 
-In napi poll, if gro is enabled, we call napi_gro_receive() to deliver the
-packets. Before we call napi_complete(), i.e while re-polling, if low
-latency busy poll is called, we use netif_receive_skb() to deliver the packets.
-At this point if there are some skb's held in GRO, busy poll could deliver the
-packets out of order. So we call napi_gro_flush() to flush skbs before we
-move the napi poll to idle.
-
-Let me know if this change is OK, I will send new patch with detailed
-description.
-
-Thanks
-Govind
