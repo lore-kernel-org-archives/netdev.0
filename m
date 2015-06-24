@@ -1,250 +1,191 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v2 2/4] net: dsa: add support for switchdev VLAN objects
-Date: Wed, 24 Jun 2015 14:50:57 -0400
-Message-ID: <1435171859-27012-3-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1435171859-27012-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>, Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	linux-kernel@vger.kernel.org,
-	Jerome Oufella <jerome.oufella@savoirfairelinux.com>,
-	kernel@savoirfairelinux.com
+From: igal.liberman@freescale.com
+Subject: [v2,0/9] Freescale DPAA FMan
+Date: Wed, 24 Jun 2015 22:32:09 +0300
+Message-ID: <1435174329-6896-1-git-send-email-igal.liberman@freescale.com>
+Reply-To: igal.liberman@freescale.com
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: linuxppc-dev@lists.ozlabs.org, scottwood@freescale.com,
+	madalin.bucur@freescale.com, pebolle@tiscali.nl,
+	Igal Liberman <igal.liberman@freescale.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:65429 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753765AbbFXSvO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 14:51:14 -0400
-In-Reply-To: <1435171859-27012-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Received: from mail-bn1bon0113.outbound.protection.outlook.com ([157.56.111.113]:10052
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752418AbbFXTcw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Jun 2015 15:32:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the glue between DSA and switchdev operations to add,
-delete and dump SWITCHDEV_OBJ_PORT_VLAN objects.
+From: Igal Liberman <igal.liberman@freescale.com>
 
-This is a first step to link the "bridge vlan" command with hardware
-entries for DSA compatible switch chips.
+The Freescale Data Path Acceleration Architecture (DPAA) is a set of 
+hardware components on specific QorIQ multicore processors. This 
+architecture provides the infrastructure to support simplified sharing 
+of networking interfaces and accelerators by multiple CPU cores and 
+the accelerators.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- include/net/dsa.h  |   9 ++++
- net/dsa/dsa_priv.h |   6 +++
- net/dsa/slave.c    | 137 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 152 insertions(+)
+One of the DPAA accelerators is the Frame Manager (FMan) which 
+contains a series of hardware blocks: ports, Ethernet MACs, a multi 
+user RAM (MURAM) and Storage Profile (SP).
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index fbca63b..cabf2a5 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -302,6 +302,15 @@ struct dsa_switch_driver {
- 			   const unsigned char *addr, u16 vid);
- 	int	(*fdb_getnext)(struct dsa_switch *ds, int port,
- 			       unsigned char *addr, bool *is_static);
-+
-+	/*
-+	 * VLAN support
-+	 */
-+	int	(*port_vlan_add)(struct dsa_switch *ds, int port, u16 vid,
-+				 u16 bridge_flags);
-+	int	(*port_vlan_del)(struct dsa_switch *ds, int port, u16 vid);
-+	int	(*port_vlan_dump)(struct dsa_switch *ds, int port, u16 vid,
-+				  u16 *bridge_flags);
- };
- 
- void register_switch_driver(struct dsa_switch_driver *type);
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index d5f1f9b..9029717 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -13,6 +13,7 @@
- 
- #include <linux/phy.h>
- #include <linux/netdevice.h>
-+#include <linux/if_vlan.h>
- 
- struct dsa_device_ops {
- 	netdev_tx_t (*xmit)(struct sk_buff *skb, struct net_device *dev);
-@@ -47,6 +48,11 @@ struct dsa_slave_priv {
- 	int			old_duplex;
- 
- 	struct net_device	*bridge_dev;
-+
-+	/*
-+	 * Which VLANs this port is a member of.
-+	 */
-+	DECLARE_BITMAP(vlan_bitmap, VLAN_N_VID);
- };
- 
- /* dsa.c */
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 04ffad3..47c459b 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -18,6 +18,7 @@
- #include <net/rtnetlink.h>
- #include <net/switchdev.h>
- #include <linux/if_bridge.h>
-+#include <linux/if_vlan.h>
- #include "dsa_priv.h"
- 
- /* slave mii_bus handling ***************************************************/
-@@ -363,6 +364,136 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
- 	return ret;
- }
- 
-+static int dsa_slave_port_vlans_add(struct net_device *dev,
-+				     struct switchdev_obj *obj)
-+{
-+	struct switchdev_obj_vlan *vlan = &obj->u.vlan;
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	int vid, err = 0;
-+
-+	if (!ds->drv->port_vlan_add)
-+		return -EOPNOTSUPP;
-+
-+	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid) {
-+		err = ds->drv->port_vlan_add(ds, p->port, vid, vlan->flags);
-+		if (err)
-+			break;
-+		set_bit(vid, p->vlan_bitmap);
-+	}
-+
-+	return err;
-+}
-+
-+static int dsa_slave_port_obj_add(struct net_device *dev,
-+				  struct switchdev_obj *obj)
-+{
-+	int err;
-+
-+	/*
-+	 * Skip the prepare phase, since currently the DSA drivers don't need to
-+	 * allocate any memory for operations and they will not fail to HW
-+	 * (unless something horrible goes wrong on the MDIO bus, in which case
-+	 * the prepare phase wouldn't have been able to predict anyway).
-+	 */
-+	if (obj->trans != SWITCHDEV_TRANS_COMMIT)
-+		return 0;
-+
-+	switch (obj->id) {
-+	case SWITCHDEV_OBJ_PORT_VLAN:
-+		err = dsa_slave_port_vlans_add(dev, obj);
-+		break;
-+	default:
-+		err = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	return err;
-+}
-+
-+static int dsa_slave_port_vlans_del(struct net_device *dev,
-+				     struct switchdev_obj *obj)
-+{
-+	struct switchdev_obj_vlan *vlan = &obj->u.vlan;
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	int vid, err = 0;
-+
-+	if (!ds->drv->port_vlan_del)
-+		return -EOPNOTSUPP;
-+
-+	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid) {
-+		err = ds->drv->port_vlan_del(ds, p->port, vid);
-+		if (err)
-+			break;
-+		clear_bit(vid, p->vlan_bitmap);
-+	}
-+
-+	return err;
-+}
-+
-+static int dsa_slave_port_obj_del(struct net_device *dev,
-+				  struct switchdev_obj *obj)
-+{
-+	int err;
-+
-+	switch (obj->id) {
-+	case SWITCHDEV_OBJ_PORT_VLAN:
-+		err = dsa_slave_port_vlans_del(dev, obj);
-+		break;
-+	default:
-+		err = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	return err;
-+}
-+
-+static int dsa_slave_port_vlans_dump(struct net_device *dev,
-+				     struct switchdev_obj *obj)
-+{
-+	struct switchdev_obj_vlan *vlan = &obj->u.vlan;
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	int vid, err = 0;
-+
-+	if (!ds->drv->port_vlan_dump)
-+		return -EOPNOTSUPP;
-+
-+	for_each_set_bit(vid, p->vlan_bitmap, VLAN_N_VID) {
-+		u16 flags = 0;
-+
-+		err = ds->drv->port_vlan_dump(ds, p->port, vid, &flags);
-+		if (err)
-+			break;
-+
-+		vlan->flags = flags;
-+		vlan->vid_begin = vlan->vid_end = vid;
-+		err = obj->cb(dev, obj);
-+		if (err)
-+			break;
-+	}
-+
-+	return err;
-+}
-+
-+static int dsa_slave_port_obj_dump(struct net_device *dev,
-+				   struct switchdev_obj *obj)
-+{
-+	int err;
-+
-+	switch (obj->id) {
-+	case SWITCHDEV_OBJ_PORT_VLAN:
-+		err = dsa_slave_port_vlans_dump(dev, obj);
-+		break;
-+	default:
-+		err = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	return err;
-+}
-+
- static int dsa_slave_bridge_port_join(struct net_device *dev,
- 				      struct net_device *br)
- {
-@@ -697,11 +828,17 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- 	.ndo_fdb_dump		= dsa_slave_fdb_dump,
- 	.ndo_do_ioctl		= dsa_slave_ioctl,
- 	.ndo_get_iflink		= dsa_slave_get_iflink,
-+	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
-+	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
-+	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
- };
- 
- static const struct switchdev_ops dsa_slave_switchdev_ops = {
- 	.switchdev_port_attr_get	= dsa_slave_port_attr_get,
- 	.switchdev_port_attr_set	= dsa_slave_port_attr_set,
-+	.switchdev_port_obj_add		= dsa_slave_port_obj_add,
-+	.switchdev_port_obj_del		= dsa_slave_port_obj_del,
-+	.switchdev_port_obj_dump	= dsa_slave_port_obj_dump,
- };
- 
- static void dsa_slave_adjust_link(struct net_device *dev)
+This patch set introduced the FMan driver code that configures and 
+initializes the FMan hardware blocks, offering support for three 
+different types of MACs (dTSEC, TGEC, MEMAC).
+
+The first 3 patches present the FMan Foundation Libraries (FLIBs).
+The FMan drivers make use of the basic API the FMan FLib provides to 
+configure and control the FMan hardware. The remaining patches present 
+the required FMan hardware module drivers.
+
+The driver structure and a hint on file naming:
+----------------------------------
+|   FMan driver/MAC driver       |	fm_drv*, mac* files
+----------------------------------
+| FMan | Port | MAC | MURAM | SP |	fm_* files
+----------------------------------
+|			  FLib				 |	fman_* files
+----------------------------------
+
+v1 --> v2:
+	- Addressed feedback from Paul Bolle:
+		- General feedback of FMan Driver layer
+		- Remove Errata defines
+		- Aligned comments to Kernel Doc
+		- Remove Loadable Module support (not yet supported)
+		- Removed not needed KConfig dependencies 
+	- Addressed feedback from Scott Wood
+		- Use Kernel ioread/iowrite services
+		- Squash FLIB source and header patches together
+
+
+This submission is based on the prior Freescale DPAA FMan V3,RFC 
+submission. Several issues addresses in this submission:
+	- Reduced MAC layering and complexity
+	- Reduced code base
+	- T1024/T2080 10G best effort support
+
+Igal Liberman (8):
+  fsl/fman: Add the FMan FLIB
+  fsl/fman: Add the FMan port FLIB
+  fsl/fman: Add the FMan MAC FLIB
+  fsl/fman: Add FMan MURAM support
+  fsl/fman: Add Frame Manager support
+  fsl/fman: Add FMan MAC support
+  fsl/fman: Add FMan SP support
+  fsl/fman: Add FMan MAC driver
+
+Madalin Bucur (1):
+  fsl/fman: Add FMan Port Support
+
+ drivers/net/ethernet/freescale/Kconfig             |    1 +
+ drivers/net/ethernet/freescale/Makefile            |    2 +
+ drivers/net/ethernet/freescale/fman/Kconfig        |   44 +
+ drivers/net/ethernet/freescale/fman/Makefile       |   12 +
+ .../net/ethernet/freescale/fman/flib/fsl_enet.h    |  135 ++
+ .../net/ethernet/freescale/fman/flib/fsl_fman.h    |  608 ++++++
+ .../ethernet/freescale/fman/flib/fsl_fman_dtsec.h  |  830 +++++++++
+ .../freescale/fman/flib/fsl_fman_dtsec_mii_acc.h   |   93 +
+ .../ethernet/freescale/fman/flib/fsl_fman_memac.h  |  443 +++++
+ .../freescale/fman/flib/fsl_fman_memac_mii_acc.h   |   75 +
+ .../ethernet/freescale/fman/flib/fsl_fman_port.h   |  443 +++++
+ .../net/ethernet/freescale/fman/flib/fsl_fman_sp.h |   53 +
+ .../ethernet/freescale/fman/flib/fsl_fman_tgec.h   |  402 ++++
+ drivers/net/ethernet/freescale/fman/fm.c           | 1941 ++++++++++++++++++++
+ drivers/net/ethernet/freescale/fman/fm.h           |  397 ++++
+ drivers/net/ethernet/freescale/fman/fm_common.h    |  265 +++
+ drivers/net/ethernet/freescale/fman/fm_drv.c       |  784 ++++++++
+ drivers/net/ethernet/freescale/fman/fm_drv.h       |  118 ++
+ drivers/net/ethernet/freescale/fman/fm_muram.c     |  127 ++
+ drivers/net/ethernet/freescale/fman/fm_port_drv.c  |  457 +++++
+ drivers/net/ethernet/freescale/fman/fm_sp_common.h |  104 ++
+ drivers/net/ethernet/freescale/fman/fman.c         |  975 ++++++++++
+ .../ethernet/freescale/fman/inc/crc_mac_addr_ext.h |  314 ++++
+ drivers/net/ethernet/freescale/fman/inc/enet_ext.h |  199 ++
+ drivers/net/ethernet/freescale/fman/inc/fm_ext.h   |  488 +++++
+ .../net/ethernet/freescale/fman/inc/fm_muram_ext.h |  112 ++
+ .../net/ethernet/freescale/fman/inc/fm_port_ext.h  |  367 ++++
+ .../net/ethernet/freescale/fman/inc/fsl_fman_drv.h |  212 +++
+ drivers/net/ethernet/freescale/fman/inc/mac.h      |  136 ++
+ drivers/net/ethernet/freescale/fman/inc/service.h  |   55 +
+ drivers/net/ethernet/freescale/fman/mac/Makefile   |    8 +
+ drivers/net/ethernet/freescale/fman/mac/fm_dtsec.c | 1053 +++++++++++
+ drivers/net/ethernet/freescale/fman/mac/fm_dtsec.h |  209 +++
+ .../ethernet/freescale/fman/mac/fm_dtsec_mii_acc.c |   80 +
+ .../ethernet/freescale/fman/mac/fm_dtsec_mii_acc.h |   43 +
+ drivers/net/ethernet/freescale/fman/mac/fm_mac.h   |  261 +++
+ drivers/net/ethernet/freescale/fman/mac/fm_memac.c |  723 ++++++++
+ drivers/net/ethernet/freescale/fman/mac/fm_memac.h |  123 ++
+ .../ethernet/freescale/fman/mac/fm_memac_mii_acc.c |   63 +
+ drivers/net/ethernet/freescale/fman/mac/fm_tgec.c  |  630 +++++++
+ drivers/net/ethernet/freescale/fman/mac/fm_tgec.h  |  125 ++
+ .../net/ethernet/freescale/fman/mac/fman_dtsec.c   |  530 ++++++
+ .../freescale/fman/mac/fman_dtsec_mii_acc.c        |  168 ++
+ .../net/ethernet/freescale/fman/mac/fman_memac.c   |  365 ++++
+ .../freescale/fman/mac/fman_memac_mii_acc.c        |  217 +++
+ .../net/ethernet/freescale/fman/mac/fman_tgec.c    |  215 +++
+ drivers/net/ethernet/freescale/fman/mac/mac-api.c  |  765 ++++++++
+ drivers/net/ethernet/freescale/fman/mac/mac.c      |  526 ++++++
+ drivers/net/ethernet/freescale/fman/port/Makefile  |    3 +
+ drivers/net/ethernet/freescale/fman/port/fm_port.c | 1345 ++++++++++++++
+ drivers/net/ethernet/freescale/fman/port/fm_port.h |  521 ++++++
+ .../net/ethernet/freescale/fman/port/fman_port.c   |  613 +++++++
+ drivers/net/ethernet/freescale/fman/sp/Makefile    |    3 +
+ drivers/net/ethernet/freescale/fman/sp/fm_sp.c     |  390 ++++
+ 54 files changed, 19171 insertions(+)
+ create mode 100644 drivers/net/ethernet/freescale/fman/Kconfig
+ create mode 100644 drivers/net/ethernet/freescale/fman/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_enet.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_dtsec.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_dtsec_mii_acc.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_memac.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_memac_mii_acc.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_port.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_sp.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_tgec.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm_common.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm_drv.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm_drv.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm_muram.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm_port_drv.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm_sp_common.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/inc/crc_mac_addr_ext.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/inc/enet_ext.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/inc/fm_ext.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/inc/fm_muram_ext.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/inc/fm_port_ext.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/inc/fsl_fman_drv.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/inc/mac.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/inc/service.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_dtsec.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_dtsec.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_dtsec_mii_acc.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_dtsec_mii_acc.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_mac.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_memac.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_memac.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_memac_mii_acc.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_tgec.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_tgec.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fman_dtsec.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fman_dtsec_mii_acc.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fman_memac.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fman_memac_mii_acc.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fman_tgec.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/mac-api.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/mac.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/port/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/fman/port/fm_port.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/port/fm_port.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/port/fman_port.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/sp/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/fman/sp/fm_sp.c
+
 -- 
-2.4.4
+1.7.9.5
