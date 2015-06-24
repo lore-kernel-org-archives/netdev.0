@@ -1,191 +1,67 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: [PATCH v3] stmmac: troubleshoot unexpected bits in des0 & des1
-Date: Wed, 24 Jun 2015 11:47:41 +0300
-Message-ID: <1435135661-24359-1-git-send-email-abrodkin@synopsys.com>
-Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	arc-linux-dev@synopsys.com, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org, David Miller <davem@davemloft.net>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH v2] net: inet_diag: export IPV6_V6ONLY sockopt
+Date: Wed, 24 Jun 2015 11:02:51 +0200
+Message-ID: <1435136571-18879-1-git-send-email-phil@nwl.cc>
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbit.nwl.cc ([176.31.251.142]:42142 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752340AbbFXJCy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Jun 2015 05:02:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Current implementation of descriptor init procedure only takes
-care about setting/clearing ownership flag in "des0"/"des1"
-fields while it is perfectly possible to get unexpected bits
-set because of the following factors:
+For AF_INET6 sockets, the value of struct ipv6_pinfo.ipv6only is
+exported to userspace. It indicates whether a socket bound to in6addr_any
+listens on IPv4 as well as IPv6. Since the socket is natively IPv6, it is not
+listed by e.g. 'ss -l -4'.
 
- [1] On driver probe underlying memory allocated with
-     dma_alloc_coherent() might not be zeroed and so
-     it will be filled with garbage.
+This patch is accompanied by an appropriate one for iproute2 to enable
+the additional information in 'ss -e'.
 
- [2] During driver operation some bits could be set by SD/MMC
-     controller (for example error flags etc).
-
-And unexpected and/or randomly set flags in "des0"/"des1"
-fields may lead to unpredictable behavior of GMAC DMA block.
-
-This change addresses both items above with:
-
- [1] Use of dma_zalloc_coherent() instead of simple
-     dma_alloc_coherent() to make sure allocated memory is
-     zeroed. That shouldn't affect performance because
-     this allocation only happens once on driver probe.
-
- [2] Do explicit zeroing of both "des0" and "des1" fields
-     of all buffer descriptors during initialization of
-     DMA transfer.
-
-And while at it fixed identation of dma_free_coherent()
-counterpart as well.
-
-Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Cc: arc-linux-dev@synopsys.com
-Cc: linux-kernel@vger.kernel.org
-Cc: stable@vger.kernel.org
-Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
-
-Changes compared to v2:
- * Fixed identation of dma_zalloc_coherent() parameters
- * Fixed identation of dma_free_coherent() counterpart
-
-Changes compared to v1:
- * Use dma_zalloc_coherent() instead of dma_alloc_coherent()
-   on probing to make sure no garbage appears in buffer descriptors
-
+Changes since v1:
+- Commit message corrected.
+- Patch based on current net-next.git.
+- Eric's superior solution implemented.
 ---
+ include/uapi/linux/inet_diag.h | 3 ++-
+ net/ipv4/inet_diag.c           | 4 ++++
+ 2 files changed, 6 insertions(+), 1 deletion(-)
 
- drivers/net/ethernet/stmicro/stmmac/descs.h       |  2 ++
- drivers/net/ethernet/stmicro/stmmac/enh_desc.c    |  3 +-
- drivers/net/ethernet/stmicro/stmmac/norm_desc.c   |  3 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 44 +++++++++++------------
- 4 files changed, 28 insertions(+), 24 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/descs.h b/drivers/net/ethernet/stmicro/stmmac/descs.h
-index ad39960..799c292 100644
---- a/drivers/net/ethernet/stmicro/stmmac/descs.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/descs.h
-@@ -158,6 +158,8 @@ struct dma_desc {
- 			u32 buffer2_size:13;
- 			u32 reserved4:3;
- 		} etx;		/* -- enhanced -- */
+diff --git a/include/uapi/linux/inet_diag.h b/include/uapi/linux/inet_diag.h
+index b629fc5..68a1f71 100644
+--- a/include/uapi/linux/inet_diag.h
++++ b/include/uapi/linux/inet_diag.h
+@@ -112,9 +112,10 @@ enum {
+ 	INET_DIAG_SHUTDOWN,
+ 	INET_DIAG_DCTCPINFO,
+ 	INET_DIAG_PROTOCOL,  /* response attribute only */
++	INET_DIAG_SKV6ONLY,
+ };
+ 
+-#define INET_DIAG_MAX INET_DIAG_PROTOCOL
++#define INET_DIAG_MAX INET_DIAG_SKV6ONLY
+ 
+ /* INET_DIAG_MEM */
+ 
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 21985d8..653564d 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -151,6 +151,10 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 			if (nla_put_u8(skb, INET_DIAG_TCLASS,
+ 				       inet6_sk(sk)->tclass) < 0)
+ 				goto errout;
 +
-+		u64 all_flags;
- 	} des01;
- 	unsigned int des2;
- 	unsigned int des3;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-index 1e2bcf5..7d94444 100644
---- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-@@ -240,6 +240,7 @@ static int enh_desc_get_rx_status(void *data, struct stmmac_extra_stats *x,
- static void enh_desc_init_rx_desc(struct dma_desc *p, int disable_rx_ic,
- 				  int mode, int end)
- {
-+	p->des01.all_flags = 0;
- 	p->des01.erx.own = 1;
- 	p->des01.erx.buffer1_size = BUF_SIZE_8KiB - 1;
- 
-@@ -254,7 +255,7 @@ static void enh_desc_init_rx_desc(struct dma_desc *p, int disable_rx_ic,
- 
- static void enh_desc_init_tx_desc(struct dma_desc *p, int mode, int end)
- {
--	p->des01.etx.own = 0;
-+	p->des01.all_flags = 0;
- 	if (mode == STMMAC_CHAIN_MODE)
- 		ehn_desc_tx_set_on_chain(p, end);
- 	else
-diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-index 35ad4f4..48c3456 100644
---- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-@@ -123,6 +123,7 @@ static int ndesc_get_rx_status(void *data, struct stmmac_extra_stats *x,
- static void ndesc_init_rx_desc(struct dma_desc *p, int disable_rx_ic, int mode,
- 			       int end)
- {
-+	p->des01.all_flags = 0;
- 	p->des01.rx.own = 1;
- 	p->des01.rx.buffer1_size = BUF_SIZE_2KiB - 1;
- 
-@@ -137,7 +138,7 @@ static void ndesc_init_rx_desc(struct dma_desc *p, int disable_rx_ic, int mode,
- 
- static void ndesc_init_tx_desc(struct dma_desc *p, int mode, int end)
- {
--	p->des01.tx.own = 0;
-+	p->des01.all_flags = 0;
- 	if (mode == STMMAC_CHAIN_MODE)
- 		ndesc_tx_set_on_chain(p, end);
- 	else
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index a515673..50f7a7a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1195,41 +1195,41 @@ static int alloc_dma_desc_resources(struct stmmac_priv *priv)
- 		goto err_tx_skbuff;
- 
- 	if (priv->extend_desc) {
--		priv->dma_erx = dma_alloc_coherent(priv->device, rxsize *
--						   sizeof(struct
--							  dma_extended_desc),
--						   &priv->dma_rx_phy,
--						   GFP_KERNEL);
-+		priv->dma_erx = dma_zalloc_coherent(priv->device, rxsize *
-+						    sizeof(struct
-+							   dma_extended_desc),
-+						    &priv->dma_rx_phy,
-+						    GFP_KERNEL);
- 		if (!priv->dma_erx)
- 			goto err_dma;
- 
--		priv->dma_etx = dma_alloc_coherent(priv->device, txsize *
--						   sizeof(struct
--							  dma_extended_desc),
--						   &priv->dma_tx_phy,
--						   GFP_KERNEL);
-+		priv->dma_etx = dma_zalloc_coherent(priv->device, txsize *
-+						    sizeof(struct
-+							   dma_extended_desc),
-+						    &priv->dma_tx_phy,
-+						    GFP_KERNEL);
- 		if (!priv->dma_etx) {
- 			dma_free_coherent(priv->device, priv->dma_rx_size *
--					sizeof(struct dma_extended_desc),
--					priv->dma_erx, priv->dma_rx_phy);
-+					  sizeof(struct dma_extended_desc),
-+					  priv->dma_erx, priv->dma_rx_phy);
- 			goto err_dma;
- 		}
- 	} else {
--		priv->dma_rx = dma_alloc_coherent(priv->device, rxsize *
--						  sizeof(struct dma_desc),
--						  &priv->dma_rx_phy,
--						  GFP_KERNEL);
-+		priv->dma_rx = dma_zalloc_coherent(priv->device, rxsize *
-+						   sizeof(struct dma_desc),
-+						   &priv->dma_rx_phy,
-+						   GFP_KERNEL);
- 		if (!priv->dma_rx)
- 			goto err_dma;
- 
--		priv->dma_tx = dma_alloc_coherent(priv->device, txsize *
--						  sizeof(struct dma_desc),
--						  &priv->dma_tx_phy,
--						  GFP_KERNEL);
-+		priv->dma_tx = dma_zalloc_coherent(priv->device, txsize *
-+						   sizeof(struct dma_desc),
-+						   &priv->dma_tx_phy,
-+						   GFP_KERNEL);
- 		if (!priv->dma_tx) {
- 			dma_free_coherent(priv->device, priv->dma_rx_size *
--					sizeof(struct dma_desc),
--					priv->dma_rx, priv->dma_rx_phy);
-+					  sizeof(struct dma_desc),
-+					  priv->dma_rx, priv->dma_rx_phy);
- 			goto err_dma;
- 		}
++		if (ipv6_only_sock(sk) &&
++		    nla_put_u8(skb, INET_DIAG_SKV6ONLY, 1))
++			goto errout;
  	}
+ #endif
+ 
 -- 
-2.4.2
+2.1.2
