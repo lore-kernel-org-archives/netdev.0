@@ -1,100 +1,43 @@
-From: Igor Mammedov <imammedo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH RFC] vhost: add ioctl to query nregions upper limit
-Date: Wed, 24 Jun 2015 16:07:27 +0200
-Message-ID: <20150624160727.2e0f542f@nial.brq.redhat.com>
-References: <1435153753-2686-1-git-send-email-mst@redhat.com>
+From: ratheesh kannoth <ratheesh.ksz@gmail.com>
+Subject: Re: sock_hold and sock_put
+Date: Wed, 24 Jun 2015 19:44:49 +0530
+Message-ID: <CAGZFCEFQju581PDF3QpyX-s8vvdxPrZTwS85CP3rTu4wUfEHBg@mail.gmail.com>
+References: <CAGZFCEHHXbnsSoBaTUdxqwoQ75hN5BTBXJMEXp0dkwQbFSEkRw@mail.gmail.com>
+	<1435150000.4110.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Paolo Bonzini <pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1435153753-2686-1-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-newbie <linux-newbie@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:32808 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753143AbbFXOOu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 10:14:50 -0400
+In-Reply-To: <1435150000.4110.7.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 24 Jun 2015 15:49:27 +0200
-"Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+On Wed, Jun 24, 2015 at 6:16 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> You misunderstood the comment.
+>
+> Comment only stated that sock_hold() must be used in contexts where
+> caller owns a reference (and will eventually release it later with
+> sock_put().
+>
+> There is nothing about having a lock here.
 
-> Userspace currently simply tries to give vhost as many regions
-> as it happens to have, but you only have the mem table
-> when you have initialized a large part of VM, so graceful
-> failure is very hard to support.
-> 
-> The result is that userspace tends to fail catastrophically.
-> 
-> Instead, add a new ioctl so userspace can find out how much kernel
-> supports, up front. This returns a positive value that we commit to.
-> 
-> Also, document our contract with legacy userspace: when running on an
-> old kernel, you get -1 and you can assume at least 64 slots.  Since 0
-> value's left unused, let's make that mean that the current userspace
-> behaviour (trial and error) is required, just in case we want it back.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> Cc: Igor Mammedov <imammedo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> Cc: Paolo Bonzini <pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> ---
->  include/uapi/linux/vhost.h | 17 ++++++++++++++++-
->  drivers/vhost/vhost.c      |  5 +++++
->  2 files changed, 21 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/uapi/linux/vhost.h b/include/uapi/linux/vhost.h
-> index ab373191..f71fa6d 100644
-> --- a/include/uapi/linux/vhost.h
-> +++ b/include/uapi/linux/vhost.h
-> @@ -80,7 +80,7 @@ struct vhost_memory {
->   * Allows subsequent call to VHOST_OWNER_SET to succeed. */
->  #define VHOST_RESET_OWNER _IO(VHOST_VIRTIO, 0x02)
->  
-> -/* Set up/modify memory layout */
-> +/* Set up/modify memory layout: see also VHOST_GET_MEM_MAX_NREGIONS below. */
->  #define VHOST_SET_MEM_TABLE	_IOW(VHOST_VIRTIO, 0x03, struct vhost_memory)
->  
->  /* Write logging setup. */
-> @@ -127,6 +127,21 @@ struct vhost_memory {
->  /* Set eventfd to signal an error */
->  #define VHOST_SET_VRING_ERR _IOW(VHOST_VIRTIO, 0x22, struct vhost_vring_file)
->  
-> +/* Query upper limit on nregions in VHOST_SET_MEM_TABLE arguments.
-> + * Returns:
-> + * 	0 < value <= MAX_INT - gives the upper limit, higher values will fail
-> + * 	0 - there's no static limit: try and see if it works
-> + * 	-1 - on failure
-> + */
-> +#define VHOST_GET_MEM_MAX_NREGIONS   _IO(VHOST_VIRTIO, 0x23)
-> +
-> +/* Returned by VHOST_GET_MEM_MAX_NREGIONS to mean there's no static limit:
-> + * try and it'll work if you are lucky. */
-> +#define VHOST_MEM_MAX_NREGIONS_NONE 0
-is it needed? we always have a limit,
-or don't have IOCTL => -1 => old try and see way
+Thanks. I think, i did not put the question right.
 
-> +/* We support at least as many nregions in VHOST_SET_MEM_TABLE:
-> + * for use on legacy kernels without VHOST_GET_MEM_MAX_NREGIONS support. */
-> +#define VHOST_MEM_MAX_NREGIONS_DEFAULT 64
-^^^ not used below,
-if it's for legacy then perhaps s/DEFAULT/LEGACY/ 
+I understood the comment perfectly. Suppose i need to use the
+sock_hold in some callbacks ( say netdev_notifier chain callback)
+function. How can i gurantee race won't happen at the point where i
+call sock_hold().
+ If i put the question  in another way - say kernel is doing a
+sock_put() on a socket, and at the same time  the   netdev_callback
+function( that i implemented ) is called on another core ( in smp
+machine ). and the  callback is  holding (sock_hold()) on the same
+sock.
 
-> +
->  /* VHOST_NET specific defines */
->  
->  /* Attach virtio net ring to a raw socket, or tap device.
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index 9e8e004..3b68f9d 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -917,6 +917,11 @@ long vhost_dev_ioctl(struct vhost_dev *d, unsigned int ioctl, void __user *argp)
->  	long r;
->  	int i, fd;
->  
-> +	if (ioctl == VHOST_GET_MEM_MAX_NREGIONS) {
-> +		r = VHOST_MEMORY_MAX_NREGIONS;
-> +		goto done;
-> +	}
-> +
->  	/* If you are not the owner, you can become one */
->  	if (ioctl == VHOST_SET_OWNER) {
->  		r = vhost_dev_set_owner(d);
+Thanks,
+Ratheesh
