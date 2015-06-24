@@ -1,68 +1,92 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v2 00/22] FUJITSU Extended Socket network device driver
-Date: Wed, 24 Jun 2015 15:41:13 +0200
-Message-ID: <20150624154113.4b41db79@redhat.com>
-References: <1435114351-6961-1-git-send-email-izumi.taku@jp.fujitsu.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH RFC] vhost: add ioctl to query nregions upper limit
+Date: Wed, 24 Jun 2015 15:49:27 +0200
+Message-ID: <1435153753-2686-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, netdev@vger.kernel.org,
-	platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
-	rkhan@redhat.com, alexander.h.duyck@redhat.com,
-	linux-acpi@vger.kernel.org, joe@perches.com, yasu.isimatu@gmail.com
-To: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1435114351-6961-1-git-send-email-izumi.taku@jp.fujitsu.com>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Igor Mammedov <imammedo@redhat.com>,
+	Paolo Bonzini <pbonzini@redhat.com>, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-api@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 24 Jun 2015 11:52:31 +0900
-Taku Izumi <izumi.taku@jp.fujitsu.com> wrote:
+Userspace currently simply tries to give vhost as many regions
+as it happens to have, but you only have the mem table
+when you have initialized a large part of VM, so graceful
+failure is very hard to support.
 
-> This patchsets adds FUJITSU Extended Socket network device driver.
-> Extended Socket network device is a shared memory based high-speed network
-> interface between Extended Partitions of PRIMEQUEST 2000 E2 series.
-> 
-> You can get some information about Extended Partition and Extended
-> Socket by referring the following manual.
-> 
-> http://globalsp.ts.fujitsu.com/dmsp/Publications/public/CA92344-0537.pdf
->   3.2.1 Extended Partitioning
->   3.2.2 Extended Socket
-> 
-> v1 -> v2:
->   - Location change
->     drivers/platform/x86 => driver/net
+The result is that userspace tends to fail catastrophically.
 
-Could/should this driver be placed under driver/net/ethernet/fujitsu ??
+Instead, add a new ioctl so userspace can find out how much kernel
+supports, up front. This returns a positive value that we commit to.
 
-You are using Ethernet addresses but they are kind of special, always
-02:00:00:00:00:xx which is hard-coded... maybe I misunderstand the
-code/hw and it is not Ethernet?
+Also, document our contract with legacy userspace: when running on an
+old kernel, you get -1 and you can assume at least 64 slots.  Since 0
+value's left unused, let's make that mean that the current userspace
+behaviour (trial and error) is required, just in case we want it back.
 
-[...]
->  drivers/net/fjes/Makefile       |   31 +
->  drivers/net/fjes/fjes.h         |   77 +++
->  drivers/net/fjes/fjes_ethtool.c |  135 ++++
->  drivers/net/fjes/fjes_hw.c      | 1122 +++++++++++++++++++++++++++++++
->  drivers/net/fjes/fjes_hw.h      |  333 ++++++++++
->  drivers/net/fjes/fjes_main.c    | 1397 +++++++++++++++++++++++++++++++++++++++
->  drivers/net/fjes/fjes_regs.h    |  142 ++++
->  9 files changed, 3246 insertions(+)
->  create mode 100644 drivers/net/fjes/Makefile
->  create mode 100644 drivers/net/fjes/fjes.h
->  create mode 100644 drivers/net/fjes/fjes_ethtool.c
->  create mode 100644 drivers/net/fjes/fjes_hw.c
->  create mode 100644 drivers/net/fjes/fjes_hw.h
->  create mode 100644 drivers/net/fjes/fjes_main.c
->  create mode 100644 drivers/net/fjes/fjes_regs.h
-> 
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Cc: Igor Mammedov <imammedo@redhat.com>
+Cc: Paolo Bonzini <pbonzini@redhat.com>
+---
+ include/uapi/linux/vhost.h | 17 ++++++++++++++++-
+ drivers/vhost/vhost.c      |  5 +++++
+ 2 files changed, 21 insertions(+), 1 deletion(-)
 
-
-
+diff --git a/include/uapi/linux/vhost.h b/include/uapi/linux/vhost.h
+index ab373191..f71fa6d 100644
+--- a/include/uapi/linux/vhost.h
++++ b/include/uapi/linux/vhost.h
+@@ -80,7 +80,7 @@ struct vhost_memory {
+  * Allows subsequent call to VHOST_OWNER_SET to succeed. */
+ #define VHOST_RESET_OWNER _IO(VHOST_VIRTIO, 0x02)
+ 
+-/* Set up/modify memory layout */
++/* Set up/modify memory layout: see also VHOST_GET_MEM_MAX_NREGIONS below. */
+ #define VHOST_SET_MEM_TABLE	_IOW(VHOST_VIRTIO, 0x03, struct vhost_memory)
+ 
+ /* Write logging setup. */
+@@ -127,6 +127,21 @@ struct vhost_memory {
+ /* Set eventfd to signal an error */
+ #define VHOST_SET_VRING_ERR _IOW(VHOST_VIRTIO, 0x22, struct vhost_vring_file)
+ 
++/* Query upper limit on nregions in VHOST_SET_MEM_TABLE arguments.
++ * Returns:
++ * 	0 < value <= MAX_INT - gives the upper limit, higher values will fail
++ * 	0 - there's no static limit: try and see if it works
++ * 	-1 - on failure
++ */
++#define VHOST_GET_MEM_MAX_NREGIONS   _IO(VHOST_VIRTIO, 0x23)
++
++/* Returned by VHOST_GET_MEM_MAX_NREGIONS to mean there's no static limit:
++ * try and it'll work if you are lucky. */
++#define VHOST_MEM_MAX_NREGIONS_NONE 0
++/* We support at least as many nregions in VHOST_SET_MEM_TABLE:
++ * for use on legacy kernels without VHOST_GET_MEM_MAX_NREGIONS support. */
++#define VHOST_MEM_MAX_NREGIONS_DEFAULT 64
++
+ /* VHOST_NET specific defines */
+ 
+ /* Attach virtio net ring to a raw socket, or tap device.
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 9e8e004..3b68f9d 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -917,6 +917,11 @@ long vhost_dev_ioctl(struct vhost_dev *d, unsigned int ioctl, void __user *argp)
+ 	long r;
+ 	int i, fd;
+ 
++	if (ioctl == VHOST_GET_MEM_MAX_NREGIONS) {
++		r = VHOST_MEMORY_MAX_NREGIONS;
++		goto done;
++	}
++
+ 	/* If you are not the owner, you can become one */
+ 	if (ioctl == VHOST_SET_OWNER) {
+ 		r = vhost_dev_set_owner(d);
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+MST
