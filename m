@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: inet_diag: export IPV6_V6ONLY sockopt
-Date: Wed, 24 Jun 2015 02:51:52 -0700 (PDT)
-Message-ID: <20150624.025152.1145614139930184404.davem@davemloft.net>
-References: <1435136571-18879-1-git-send-email-phil@nwl.cc>
+Subject: merge window freeze
+Date: Wed, 24 Jun 2015 02:53:28 -0700 (PDT)
+Message-ID: <20150624.025328.682044271321726878.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: phil@nwl.cc
+Cc: linux-wireless@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39415 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39421 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751160AbbFXJkB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 05:40:01 -0400
-In-Reply-To: <1435136571-18879-1-git-send-email-phil@nwl.cc>
+	with ESMTP id S1751858AbbFXJlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 05:41:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter <phil@nwl.cc>
-Date: Wed, 24 Jun 2015 11:02:51 +0200
 
-> For AF_INET6 sockets, the value of struct ipv6_pinfo.ipv6only is
-> exported to userspace. It indicates whether a socket bound to in6addr_any
-> listens on IPv4 as well as IPv6. Since the socket is natively IPv6, it is not
-> listed by e.g. 'ss -l -4'.
-> 
-> This patch is accompanied by an appropriate one for iproute2 to enable
-> the additional information in 'ss -e'.
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+I've processed all of my patch backlog and plan to do some merging
+then prepare a pull request of net-next for Linus.
 
-Applied, thanks.
+DO NOT submit any net-next changes at this time, please instead
+wait for net-next to open up again (should be some time next week
+or so).
+
+Bug fixes, of course, are always welcome.
+
+Thanks.
