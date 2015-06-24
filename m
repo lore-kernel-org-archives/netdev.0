@@ -1,76 +1,53 @@
-From: Matan Barak <matanb@mellanox.com>
-Subject: [PATCH for-next V6 03/10] net/bonding: Export bond_option_active_slave_get_rcu
-Date: Wed, 24 Jun 2015 15:59:19 +0300
-Message-ID: <1435150766-6803-4-git-send-email-matanb@mellanox.com>
-References: <1435150766-6803-1-git-send-email-matanb@mellanox.com>
-Cc: linux-rdma@vger.kernel.org, Moni Shoua <monis@mellanox.com>,
-	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-	Matan Barak <matanb@mellanox.com>, netdev@vger.kernel.org
-To: Doug Ledford <dledford@redhat.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: merge window freeze
+Date: Wed, 24 Jun 2015 16:14:19 +0300
+Message-ID: <73579E83-D190-41C0-BDFC-24C16F862BBE@cumulusnetworks.com>
+References: <20150624.025328.682044271321726878.davem@davemloft.net> <EC3F09A3-8B3D-4ABD-B94D-1A36D13DF09A@cumulusnetworks.com> <20150624.054134.167274466460545100.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:42539 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752243AbbFXNA1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jun 2015 09:00:27 -0400
-In-Reply-To: <1435150766-6803-1-git-send-email-matanb@mellanox.com>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:38630 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751947AbbFXNOW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 09:14:22 -0400
+Received: by wibdq8 with SMTP id dq8so46305451wib.1
+        for <netdev@vger.kernel.org>; Wed, 24 Jun 2015 06:14:21 -0700 (PDT)
+In-Reply-To: <20150624.054134.167274466460545100.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some consumers of the netdev events API would like to know who is the
-active slave when a NETDEV_CHANGEUPPER or NETDEV_BONDING_FAILOVER
-events occur. For example, when managing RoCE GIDs, GIDs based on the
-bond's ips should only be set on the port which corresponds to active
-slave netdevice.
 
-Signed-off-by: Matan Barak <matanb@mellanox.com>
----
- drivers/net/bonding/bond_options.c | 13 -------------
- include/net/bonding.h              |  7 +++++++
- 2 files changed, 7 insertions(+), 13 deletions(-)
+> On Jun 24, 2015, at 3:41 PM, David Miller <davem@davemloft.net> wrote=
+:
+>=20
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Date: Wed, 24 Jun 2015 13:25:47 +0300
+>=20
+>> I noticed that both of my bridge patches are marked with =E2=80=9CCh=
+anges Requested=E2=80=9D, but
+>> there was no feedback why and also the first one:
+>> "bridge: multicast: add a comment to br_port_state_selection about b=
+locking state=E2=80=9D
+>> was ACKed and in the second one our discussion with Toshiaki
+>> was about a possible bug that=E2=80=99s not related to the patch.=20
+>> Could you please tell me what I have to change in them ?
+>>=20
+>> Patch links:
+>> [1] https://patchwork.ozlabs.org/patch/487591/
+>> [2] https://patchwork.ozlabs.org/patch/487608/
+>>=20
+>=20
+> Indeed, I misread the feedback on patch #2.
+>=20
+> Series applied, thanks.
 
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 4df2894..c4fe29a8 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -689,19 +689,6 @@ static int bond_option_mode_set(struct bonding *bond,
- 	return 0;
- }
- 
--static struct net_device *__bond_option_active_slave_get(struct bonding *bond,
--							 struct slave *slave)
--{
--	return bond_uses_primary(bond) && slave ? slave->dev : NULL;
--}
--
--struct net_device *bond_option_active_slave_get_rcu(struct bonding *bond)
--{
--	struct slave *slave = rcu_dereference(bond->curr_active_slave);
--
--	return __bond_option_active_slave_get(bond, slave);
--}
--
- static int bond_option_active_slave_set(struct bonding *bond,
- 					const struct bond_opt_value *newval)
- {
-diff --git a/include/net/bonding.h b/include/net/bonding.h
-index 78ed135..81a94ed 100644
---- a/include/net/bonding.h
-+++ b/include/net/bonding.h
-@@ -307,6 +307,13 @@ static inline bool bond_uses_primary(struct bonding *bond)
- 	return bond_mode_uses_primary(BOND_MODE(bond));
- }
- 
-+static inline struct net_device *bond_option_active_slave_get_rcu(struct bonding *bond)
-+{
-+	struct slave *slave = rcu_dereference(bond->curr_active_slave);
-+
-+	return bond_uses_primary(bond) && slave ? slave->dev : NULL;
-+}
-+
- static inline bool bond_slave_is_up(struct slave *slave)
- {
- 	return netif_running(slave->dev) && netif_carrier_ok(slave->dev);
--- 
-2.1.0
+Thanks Dave. I had a scalability concern with patch 2 and vlan ranges, =
+but I=E2=80=99ll
+keep testing and if I hit, or anyone else hits, an issue I=E2=80=99ll w=
+orkout a fix.
 
-Cc: netdev@vger.kernel.org
+Cheers,
+ Nik
