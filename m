@@ -1,70 +1,38 @@
-From: Maninder Singh <maninder1.s@samsung.com>
-Subject: [RFC][PATCH v2] ppp: remove NULL check before kfree
-Date: Wed, 24 Jun 2015 16:49:52 +0530
-Message-ID: <1435144792-30367-1-git-send-email-maninder1.s@samsung.com>
-Cc: pankaj.m@samsung.com, Maninder Singh <maninder1.s@samsung.com>
-To: paulus@samba.org, linux-ppp@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: merge window freeze
+Date: Wed, 24 Jun 2015 05:41:34 -0700 (PDT)
+Message-ID: <20150624.054134.167274466460545100.davem@davemloft.net>
+References: <20150624.025328.682044271321726878.davem@davemloft.net>
+	<EC3F09A3-8B3D-4ABD-B94D-1A36D13DF09A@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: nikolay@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40263 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751024AbbFXMaH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 08:30:07 -0400
+In-Reply-To: <EC3F09A3-8B3D-4ABD-B94D-1A36D13DF09A@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Removes NULL check before kfree
-and using tabs in place of space.
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Wed, 24 Jun 2015 13:25:47 +0300
 
-and removing checkpatch warning:
-labels should not be indented.
+> I noticed that both of my bridge patches are marked with “Changes Requested”, but
+> there was no feedback why and also the first one:
+> "bridge: multicast: add a comment to br_port_state_selection about blocking state”
+> was ACKed and in the second one our discussion with Toshiaki
+> was about a possible bug that’s not related to the patch. 
+> Could you please tell me what I have to change in them ?
+> 
+> Patch links:
+> [1] https://patchwork.ozlabs.org/patch/487591/
+> [2] https://patchwork.ozlabs.org/patch/487608/
+> 
 
-Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
-Reviewed-by: Vaneet narang <v.narang@samsung.com>
----
- drivers/net/ppp/ppp_mppe.c |   24 +++++++++++-------------
- 1 file changed, 11 insertions(+), 13 deletions(-)
+Indeed, I misread the feedback on patch #2.
 
-diff --git a/drivers/net/ppp/ppp_mppe.c b/drivers/net/ppp/ppp_mppe.c
-index 05005c6..339b50e 100644
---- a/drivers/net/ppp/ppp_mppe.c
-+++ b/drivers/net/ppp/ppp_mppe.c
-@@ -237,15 +237,14 @@ static void *mppe_alloc(unsigned char *options, int optlen)
- 
- 	return (void *)state;
- 
--	out_free:
--	    if (state->sha1_digest)
--		kfree(state->sha1_digest);
--	    if (state->sha1)
-+out_free:
-+	kfree(state->sha1_digest);
-+	if (state->sha1)
- 		crypto_free_hash(state->sha1);
--	    if (state->arc4)
-+	if (state->arc4)
- 		crypto_free_blkcipher(state->arc4);
--	    kfree(state);
--	out:
-+	kfree(state);
-+out:
- 	return NULL;
- }
- 
-@@ -256,13 +255,12 @@ static void mppe_free(void *arg)
- {
- 	struct ppp_mppe_state *state = (struct ppp_mppe_state *) arg;
- 	if (state) {
--	    if (state->sha1_digest)
- 		kfree(state->sha1_digest);
--	    if (state->sha1)
--		crypto_free_hash(state->sha1);
--	    if (state->arc4)
--		crypto_free_blkcipher(state->arc4);
--	    kfree(state);
-+		if (state->sha1)
-+			crypto_free_hash(state->sha1);
-+		if (state->arc4)
-+			crypto_free_blkcipher(state->arc4);
-+		kfree(state);
- 	}
- }
- 
--- 
-1.7.9.5
-
+Series applied, thanks.
