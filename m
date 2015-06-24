@@ -1,45 +1,47 @@
-From: "Alexander V. Lukyanov" <lav@netis.ru>
-Subject: atl1c from linux-4.0.5 fails the probe
-Date: Wed, 24 Jun 2015 15:29:18 +0300
-Message-ID: <20150624122918.GA69037@lav-w.yar.ru>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: sock_hold and sock_put
+Date: Wed, 24 Jun 2015 14:46:40 +0200
+Message-ID: <1435150000.4110.7.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAGZFCEHHXbnsSoBaTUdxqwoQ75hN5BTBXJMEXp0dkwQbFSEkRw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-newbie <linux-newbie@vger.kernel.org>
+To: ratheesh kannoth <ratheesh.ksz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ysu1-bbox2-vlan904.yar.ru ([213.187.127.39]:32777 "EHLO
-	bbox2.yar.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753669AbbFXMkP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jun 2015 08:40:15 -0400
-Content-Disposition: inline
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:34116 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753328AbbFXMqo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 08:46:44 -0400
+In-Reply-To: <CAGZFCEHHXbnsSoBaTUdxqwoQ75hN5BTBXJMEXp0dkwQbFSEkRw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On Wed, 2015-06-24 at 14:47 +0530, ratheesh kannoth wrote:
+> Hi list,
+> 
+> There is a comment on sock_hold() function -
+> 
+> 561 /* Grab socket reference count. This operation is valid only
+> 562    when sk is ALREADY grabbed f.e. it is found in hash table
+> 563    or a list and the lookup is made under lock preventing hash table
+> 564    modifications.
+> 565  */
+> 
+> 
+> But i could see instances of sock hold() in kernel  without any locks.
+> 
+> 
+> How  the race between sock_hold() and sock_put() is prevented in  smp ?
+> 
+> note: I would like to use sock_hold() and sock_put() in
+> netdev_notifier chain call back functions.
 
-https://bugzilla.redhat.com/show_bug.cgi?id=1234825
+You misunderstood the comment.
 
-After upgrade kernel 3.19.8-100.fc20.i686 -> kernel-4.0.5-200.fc21.i686 the
-module atl1c fails to detect my ethernet controller.
+Comment only stated that sock_hold() must be used in contexts where
+caller owns a reference (and will eventually release it later with
+sock_put().
 
-It produces the following error message:
-
-Jun 23 10:58:38 node2 kernel: [    1.397542] atl1c 0000:02:00.0: MAC state machine can't be idle since disabled for 10ms second
-Jun 23 10:58:38 node2 kernel: [    1.397624] atl1c: probe of 0000:02:00.0 failed with error -5
-
-Additional info:
-02:00.0 Ethernet controller: Qualcomm Atheros AR8151 v2.0 Gigabit Ethernet (rev c0)
-	Subsystem: Gigabyte Technology Co., Ltd Device e000
-	Flags: bus master, fast devsel, latency 0, IRQ 28
-	Memory at f7c00000 (64-bit, non-prefetchable) [size=256K]
-	I/O ports at e000 [size=128]
-	Capabilities: [40] Power Management version 3
-	Capabilities: [48] MSI: Enable+ Count=1/1 Maskable- 64bit+
-	Capabilities: [58] Express Endpoint, MSI 00
-	Capabilities: [6c] Vital Product Data
-	Capabilities: [100] Advanced Error Reporting
-	Capabilities: [180] Device Serial Number ff-ce-fb-f0-50-e5-49-ff
-
--- 
-   Alexander.
+There is nothing about having a lock here.
