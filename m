@@ -1,57 +1,62 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: merge window freeze
-Date: Wed, 24 Jun 2015 13:25:47 +0300
-Message-ID: <EC3F09A3-8B3D-4ABD-B94D-1A36D13DF09A@cumulusnetworks.com>
-References: <20150624.025328.682044271321726878.davem@davemloft.net>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: Re: [PATCH net-next] enic: use atomic_t instead of spin_lock in busy
+ poll
+Date: Wed, 24 Jun 2015 15:56:17 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1506241401180.24620@ws.cisco>
+References: <1435076270-14166-1-git-send-email-_govind@gmx.com> <20150624.012501.1398638370458478294.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: _govind@gmx.com, netdev@vger.kernel.org, ssujith@cisco.com,
+	benve@cisco.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:38313 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751408AbbFXKZv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 06:25:51 -0400
-Received: by wibdq8 with SMTP id dq8so42023934wib.1
-        for <netdev@vger.kernel.org>; Wed, 24 Jun 2015 03:25:50 -0700 (PDT)
-In-Reply-To: <20150624.025328.682044271321726878.davem@davemloft.net>
+Received: from mout.gmx.net ([212.227.15.19]:65063 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751732AbbFXK0l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Jun 2015 06:26:41 -0400
+In-Reply-To: <20150624.012501.1398638370458478294.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 24 Jun 2015, David Miller wrote:
 
-> On Jun 24, 2015, at 12:53 PM, David Miller <davem@davemloft.net> wrot=
-e:
->=20
->=20
-> I've processed all of my patch backlog and plan to do some merging
-> then prepare a pull request of net-next for Linus.
->=20
-> DO NOT submit any net-next changes at this time, please instead
-> wait for net-next to open up again (should be some time next week
-> or so).
->=20
-> Bug fixes, of course, are always welcome.
->=20
-> Thanks.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> From: Govindarajulu Varadarajan <_govind@gmx.com>
+> Date: Tue, 23 Jun 2015 21:47:50 +0530
+>
+>> -static inline bool enic_poll_unlock_napi(struct vnic_rq *rq)
+>> +static inline void enic_poll_unlock_napi(struct vnic_rq *rq,
+>> +					 struct napi_struct *napi)
+>>  {
+>> -	bool rc = false;
+>> -
+>> -	spin_lock(&rq->bpoll_lock);
+>> -	WARN_ON(rq->bpoll_state &
+>> -		(ENIC_POLL_STATE_POLL | ENIC_POLL_STATE_NAPI_YIELD));
+>> -	if (rq->bpoll_state & ENIC_POLL_STATE_POLL_YIELD)
+>> -		rc = true;
+>> -	rq->bpoll_state = ENIC_POLL_STATE_IDLE;
+>> -	spin_unlock(&rq->bpoll_lock);
+>> -
+>> -	return rc;
+>> +	WARN_ON(atomic_read(&rq->bpoll_state) != ENIC_POLL_STATE_NAPI);
+>> +	napi_gro_flush(napi, false);
+>> +	atomic_set(&rq->bpoll_state, ENIC_POLL_STATE_IDLE);
+>>  }
+>
+> I don't understand why you needed to add this napi_gro_flush() call here,
+> and regardless of the reason you must explain this, in detail, in your
+> commit message,
+>
 
-Hi Dave,
-I noticed that both of my bridge patches are marked with =E2=80=9CChang=
-es Requested=E2=80=9D, but
-there was no feedback why and also the first one:
-"bridge: multicast: add a comment to br_port_state_selection about bloc=
-king state=E2=80=9D
-was ACKed and in the second one our discussion with Toshiaki
-was about a possible bug that=E2=80=99s not related to the patch.=20
-Could you please tell me what I have to change in them ?
+In napi poll, if gro is enabled, we call napi_gro_receive() to deliver the
+packets. Before we call napi_complete(), i.e while re-polling, if low
+latency busy poll is called, we use netif_receive_skb() to deliver the packets.
+At this point if there are some skb's held in GRO, busy poll could deliver the
+packets out of order. So we call napi_gro_flush() to flush skbs before we
+move the napi poll to idle.
 
-Patch links:
-[1] https://patchwork.ozlabs.org/patch/487591/
-[2] https://patchwork.ozlabs.org/patch/487608/
+Let me know if this change is OK, I will send new patch with detailed
+description.
 
-Thank you,
- Nik
+Thanks
+Govind
