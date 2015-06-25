@@ -1,29 +1,82 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: netdev broken?
-Date: Thu, 25 Jun 2015 13:20:58 +0200
-Message-ID: <20150625112058.GC19468@orbit.nwl.cc>
-References: <558BE207.5070004@mojatatu.com>
+From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
+Subject: [EDT] [PATCH] ax88179_178a: add reset function in reset_resume
+Date: Thu, 25 Jun 2015 11:23:10 +0000 (GMT)
+Message-ID: <00.51.27612.E94EB855@epcpsbgx1.samsung.com>
+Reply-To: vivek.bhagat@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: multipart/mixed;
+ boundary="----=SAMSUNG_mySingle_MIME_MULTIPART_BOUNDARY"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:39957 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751340AbbFYLVA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jun 2015 07:21:00 -0400
-Content-Disposition: inline
-In-Reply-To: <558BE207.5070004@mojatatu.com>
+Received: from mailout2.samsung.com ([203.254.224.25]:36264 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750777AbbFYLXM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 07:23:12 -0400
+Received: from epcpsbgr3.samsung.com
+ (u143.gpu120.samsung.co.kr [203.254.230.143])
+ by mailout2.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
+ 64bit (built May  5 2014))
+ with ESMTP id <0NQH02ZN3ZMMPDB0@mailout2.samsung.com> for
+ netdev@vger.kernel.org; Thu, 25 Jun 2015 20:23:10 +0900 (KST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 25, 2015 at 07:12:07AM -0400, Jamal Hadi Salim wrote:
-> Trying to catchup with email and i am noticing my last
-> received email was on the 21st. Anyone else having problems
-> (feel like i am asking the question "if you cant hear me
-> please raise your hand" ;->).
 
-I received your mail. If you didn't, you probably won't receive mine
-either. :)
+------=SAMSUNG_mySingle_MIME_MULTIPART_BOUNDARY
+Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Message-ID: <191952963.255281435231390504.JavaMail.weblogic@ep2mlwas06c>
 
-Cheers, Phil
+RVAtRUM1NjJENkI1MzU5NDQ3OUJDQTZGQzczRjE3REVFNTQKCkhlbGxvIERhdmlkLAoKd2l0aG91
+dCByZXNldCBmdW5jdGlvbmFsaXR5IGluIHJlc2V0X3Jlc3VtZSwgaXBlcmYgY29ubmVjdGlvbiBk
+b2VzIG5vdAplc3RhYmxpc2ggYWZ0ZXIgc3VzcGVuZC9yZXN1bWUgaG93ZXZlciBwaW5nIHdvcmtz
+IGF0IHRoZSBzYW1lIHRpbWUuCgpyZXNldCBmdW5jdGlvbiBpbnNpZGUgcmVzZXRfcmVzdW1lIHNv
+bHZlcyBhYm92ZSBidWcuIFdlIGhhdmUgdmVyaWZpZWQKaXQgb24gQVNJWCBiYXNlZCBTVCBMYWIs
+IENhZHljZSBkb25nbGUuCgpBcyBteSBlbWFpbCBjbGllbnQgaXMgZ2l2aW5nIHByb2JsZW0gb2Yg
+Y29udmVydGluZyB0YWJzIGludG8gc3BhY2VzLApQbGVhc2UgZmluZCBwYXRjaCBhdHRhY2hlZCBo
+ZXJld2l0aC4KClRoYW5rcywKVml2ZWs=
+
+
+------=SAMSUNG_mySingle_MIME_MULTIPART_BOUNDARY
+Content-Type: application/octet-stream;
+ name="0001-ax88179_178a-add-reset-function-in-reset_resume.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="0001-ax88179_178a-add-reset-function-in-reset_resume.patch"
+
+
+RnJvbSBkMTc4MDY1YzllM2NmYThhNDVlZjUzN2ZhZTc0MTI3NzUzMzliZWIwIE1vbiBTZXAg
+MTcgMDA6MDA6MDAgMjAwMQpGcm9tOiBWaXZlayBLdW1hciBCaGFnYXQgPHZpdmVrLmJoYWdh
+dEBzYW1zdW5nLmNvbT4KRGF0ZTogVGh1LCAxMSBKdW4gMjAxNSAwNzoyMzo0NiAtMDcwMApT
+dWJqZWN0OiBbUEFUQ0hdIGF4ODgxNzlfMTc4YTogYWRkIHJlc2V0IGZ1bmN0aW9uIGluIHJl
+c2V0X3Jlc3VtZQoKd2l0aG91dCByZXNldCBmdW5jdGlvbmFsaXR5IGluIHJlc2V0X3Jlc3Vt
+ZSwgaXBlcmYgY29ubmVjdGlvbgpkb2VzIG5vdCBlc3RhYmxpc2ggYWZ0ZXIgc3VzcGVuZC9y
+ZXN1bWUgaG93ZXZlciBwaW5nIHdvcmtzIGF0CnRoZSBzYW1lIHRpbWUuCgpyZXNldCBmdW5j
+dGlvbiBpbnNpZGUgcmVzZXRfcmVzdW1lIHNvbHZlcyBhYm92ZSBidWcuIFdlIGhhdmUgdmVy
+aWZpZWQKaXQgb24gQVNJWCBiYXNlZCBTVCBMYWIsIENhZHljZSBkb25nbGUuCgpTaWduZWQt
+b2ZmLWJ5OiBWaXZlayBLdW1hciBCaGFnYXQgPHZpdmVrLmJoYWdhdEBzYW1zdW5nLmNvbT4K
+U2lnbmVkLW9mZi1ieTogUHJhdmVlbiBLdW1hciA8cHJhdmVlbi5rMDlAc2Ftc3VuZy5jb20+
+CgotLS0KIGRyaXZlcnMvbmV0L3VzYi9heDg4MTc5XzE3OGEuYyB8ICAgMTQgKysrKysrKysr
+KysrKy0KIDEgZmlsZSBjaGFuZ2VkLCAxMyBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0p
+CgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jIGIvZHJpdmVy
+cy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jCmluZGV4IGU2MzM4YzEuLjAwOTI4YzAgMTAwNjQ0
+Ci0tLSBhL2RyaXZlcnMvbmV0L3VzYi9heDg4MTc5XzE3OGEuYworKysgYi9kcml2ZXJzL25l
+dC91c2IvYXg4ODE3OV8xNzhhLmMKQEAgLTE2MzAsNiArMTYzMCwxOCBAQCBzdGF0aWMgaW50
+IGF4ODgxNzlfc3RvcChzdHJ1Y3QgdXNibmV0ICpkZXYpCiAJcmV0dXJuIDA7CiB9CiAKK3N0
+YXRpYyBpbnQgYXg4ODE3OV9yZXNldF9yZXN1bWUoc3RydWN0IHVzYl9pbnRlcmZhY2UgKmlu
+dGYpCit7CisJc3RydWN0IHVzYm5ldCAqZGV2ID0gdXNiX2dldF9pbnRmZGF0YShpbnRmKTsK
+KwlpbnQgcmV0OworCisJcmV0ID0gYXg4ODE3OV9yZXNldChkZXYpOworCWlmIChyZXQgPCAw
+KQorCQlyZXR1cm4gcmV0OworCisJcmV0dXJuICBheDg4MTc5X3Jlc3VtZShpbnRmKTsKK30K
+Kwogc3RhdGljIGNvbnN0IHN0cnVjdCBkcml2ZXJfaW5mbyBheDg4MTc5X2luZm8gPSB7CiAJ
+LmRlc2NyaXB0aW9uID0gIkFTSVggQVg4ODE3OSBVU0IgMy4wIEdpZ2FiaXQgRXRoZXJuZXQi
+LAogCS5iaW5kID0gYXg4ODE3OV9iaW5kLApAQCAtMTc0NCw3ICsxNzU2LDcgQEAgc3RhdGlj
+IHN0cnVjdCB1c2JfZHJpdmVyIGF4ODgxNzlfMTc4YV9kcml2ZXIgPSB7CiAJLnByb2JlID0J
+dXNibmV0X3Byb2JlLAogCS5zdXNwZW5kID0JYXg4ODE3OV9zdXNwZW5kLAogCS5yZXN1bWUg
+PQlheDg4MTc5X3Jlc3VtZSwKLQkucmVzZXRfcmVzdW1lID0JYXg4ODE3OV9yZXN1bWUsCisJ
+LnJlc2V0X3Jlc3VtZSA9CWF4ODgxNzlfcmVzZXRfcmVzdW1lLAogCS5kaXNjb25uZWN0ID0J
+dXNibmV0X2Rpc2Nvbm5lY3QsCiAJLnN1cHBvcnRzX2F1dG9zdXNwZW5kID0gMSwKIAkuZGlz
+YWJsZV9odWJfaW5pdGlhdGVkX2xwbSA9IDEsCi0tIAoxLjcuOS41Cgo=
+
+
+------=SAMSUNG_mySingle_MIME_MULTIPART_BOUNDARY--
