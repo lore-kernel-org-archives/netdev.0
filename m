@@ -1,28 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: netdev broken?
-Date: Thu, 25 Jun 2015 05:03:36 -0700 (PDT)
-Message-ID: <20150625.050336.816411333956712076.davem@davemloft.net>
-References: <558BE207.5070004@mojatatu.com>
+Subject: Re: [EDT] [PATCH] ax88179_178a: add reset function in reset_resume
+Date: Thu, 25 Jun 2015 05:22:30 -0700 (PDT)
+Message-ID: <20150625.052230.1912548324037545521.davem@davemloft.net>
+References: <00.51.27612.E94EB855@epcpsbgx1.samsung.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: jhs@mojatatu.com
+To: vivek.bhagat@samsung.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47159 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47224 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751340AbbFYLvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 07:51:46 -0400
-In-Reply-To: <558BE207.5070004@mojatatu.com>
+	with ESMTP id S1751233AbbFYMKi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 08:10:38 -0400
+In-Reply-To: <00.51.27612.E94EB855@epcpsbgx1.samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Thu, 25 Jun 2015 07:12:07 -0400
+From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
+Date: Thu, 25 Jun 2015 11:23:10 +0000 (GMT)
 
-> Trying to catchup with email and i am noticing my last
-> received email was on the 21st. Anyone else having problems
-> (feel like i am asking the question "if you cant hear me
-> please raise your hand" ;->).
+> As my email client is giving problem of converting tabs into spaces,
+> Please find patch attached herewith.
 
-I'm pretty sure you're just not subscribed to the list.
+Sorry, this is not acceptable.
+
+Please read Documentation/email-clients.txt for how to properly
+setup your email client to not corrupt patches you send.
+
+If you dont' do this correctly, your patch doesn't get queued
+properly into the patchwork database and therefore it's a lot
+more work for me.  Also non-inlined patches cannot be properly
+quoted by people reviewing your work and want to provide
+feedback.
