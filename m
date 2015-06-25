@@ -1,55 +1,70 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH] flow_dissector: Pre-initialize ip_proto in __skb_flow_dissect()
-Date: Thu, 25 Jun 2015 09:07:44 -0700
-Message-ID: <CALx6S36S-npOnqa0U4KZTRNXNihH-cFzW3S6ZowtW_0_L4Ck2A@mail.gmail.com>
-References: <1435237832-28838-1-git-send-email-geert@linux-m68k.org>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [GIT] Networking
+Date: Thu, 25 Jun 2015 12:24:29 -0400
+Message-ID: <CAP=VYLogXORmUN1bt1++ucmTOp=T-nJd2pve0-ufV+HQaCVy6Q@mail.gmail.com>
+References: <20150624.063911.1220157256743743341.davem@davemloft.net> <CA+55aFybr6Fjti5WSm=FQpfwdwgH1Pcfg6L81M-Hd9MzuSHktg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1435237832-28838-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Doug Ledford <dledford@redhat.com>,
+	Ira Weiny <ira.weiny@intel.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:35355 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751122AbbFYQZA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 12:25:00 -0400
+In-Reply-To: <CA+55aFybr6Fjti5WSm=FQpfwdwgH1Pcfg6L81M-Hd9MzuSHktg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 25, 2015 at 6:10 AM, Geert Uytterhoeven
-<geert@linux-m68k.org> wrote:
-> net/core/flow_dissector.c: In function =E2=80=98__skb_flow_dissect=E2=
-=80=99:
-> net/core/flow_dissector.c:132: warning: =E2=80=98ip_proto=E2=80=99 ma=
-y be used uninitialized in this function
+On Wed, Jun 24, 2015 at 7:38 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+
+[...]
+
 >
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> ---
-> This may be a false positive, but the state machine in
-> __skb_flow_dissect() is a bit hard to follow.
-> As I believe it is controlled by a packet received from the network, =
-the
-> only safe thing to do is to pre-initialize ip_proto.
-> ---
->  net/core/flow_dissector.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> I'm getting *real* tired of that BUG_ON() shit. I realize that
+> infiniband is a niche market, and those "commercial grade" niche
+> markets are more-than-used-to crap code and horrible hacks, but this
+> is still the kernel. We don't add random machine-killing debug checks
+> when it is *so* simple to just do
 >
-> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> index 476e5dda59e19822..2a834c6179b9973e 100644
-> --- a/net/core/flow_dissector.c
-> +++ b/net/core/flow_dissector.c
-> @@ -129,7 +129,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb=
-,
->         struct flow_dissector_key_ports *key_ports;
->         struct flow_dissector_key_tags *key_tags;
->         struct flow_dissector_key_keyid *key_keyid;
-> -       u8 ip_proto;
-> +       u8 ip_proto =3D 0;
+>         if (WARN_ON_ONCE(..))
+>                 return -EINVAL;
 >
->         if (!data) {
->                 data =3D skb->data;
+> instead.
+>
+> Killing the machine for idiotic things like that is truly offensive,
+> and truly horrible horrible code. Why do I keep on having to tell
+> people off for doing these things? Why do people keep thinking that
+> debugging-by-killing-the-machine is a good idea?
+
+Ingo figured this was an educational battle that we'd never win.
+
+https://lkml.org/lkml/2014/5/21/490
+
+I tend to agree, as unfortunate as that is.
+
+Paul.
+--
+
+>
+> Either that BUG_ON() cannot possibly happen, in which case it should
+> damn well not exist in the first place. Or it's a valuable debug aid,
+> in which case it should damn well not be a BUG_ON. You can't have it
+> both ways.
+>
+> The next pointless BUG_ON() I see, I will start getting _really_
+> unpleasant about.
+>
+> Doug, get rid of those things asap.
+>
+>                     Linus
 > --
-> 1.9.1
->
-
-Acked-by: Tom Herbert <tom@herbertland.com>
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
