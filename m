@@ -1,52 +1,54 @@
-From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
-Subject: [EDT][PATCH] ax88179_178a: add reset function in reset_resume
-Date: Thu, 25 Jun 2015 12:41:11 +0000 (GMT)
-Message-ID: <1874645844.257601435236071349.JavaMail.weblogic@ep2mlwas06c>
-Reply-To: vivek.bhagat@samsung.com
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 resend] Fix changing tunnel remote and local
+ address to any
+Date: Thu, 25 Jun 2015 08:46:16 -0400
+Message-ID: <20150625084616.226471e2@uryu.home.lan>
+References: <20150604120117.GB7119@indiana.gru.redhat.com>
+	<557557A7.5010004@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>,
+	netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:39545 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750968AbbFYMlN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 08:41:13 -0400
-Received: from epcpsbgr2.samsung.com
- (u142.gpu120.samsung.co.kr [203.254.230.142])
- by mailout4.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
- 64bit (built May  5 2014))
- with ESMTP id <0NQI00SNM38NIY20@mailout4.samsung.com> for
- netdev@vger.kernel.org; Thu, 25 Jun 2015 21:41:11 +0900 (KST)
-MIME-version: 1.0
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:33074 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751083AbbFYMqT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 08:46:19 -0400
+Received: by ieqy10 with SMTP id y10so53588738ieq.0
+        for <netdev@vger.kernel.org>; Thu, 25 Jun 2015 05:46:19 -0700 (PDT)
+In-Reply-To: <557557A7.5010004@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RVAtRUM1NjJENkI1MzU5NDQ3OUJDQTZGQzczRjE3REVFNTQKV2l0aG91dCByZXNldCBmdW5jdGlv
-bmFsaXR5IGluIHJlc2V0X3Jlc3VtZSwgaXBlcmYgY29ubmVjdGlvbgpkb2VzIG5vdCBlc3RhYmxp
-c2ggYWZ0ZXIgc3VzcGVuZC9yZXN1bWUgaG93ZXZlciBwaW5nIHdvcmtzIGF0CnRoZSBzYW1lIHRp
-bWUuCgpyZXNldCBmdW5jdGlvbiBpbnNpZGUgcmVzZXRfcmVzdW1lIHNvbHZlcyBhYm92ZSBidWcu
-IFdlIGhhdmUgdmVyaWZpZWQKaXQgb24gQVNJWCBiYXNlZCBTVCBMYWIsIENhZHljZSBkb25nbGUu
-CgpTaWduZWQtb2ZmLWJ5OiBWaXZlayBLdW1hciBCaGFnYXQgPHZpdmVrLmJoYWdhdEBzYW1zdW5n
-LmNvbT4KU2lnbmVkLW9mZi1ieTogUHJhdmVlbiBLdW1hciA8cHJhdmVlbi5rMDlAc2Ftc3VuZy5j
-b20+Ci0tLQogZHJpdmVycy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jIHwgICAxNCArKysrKysrKysr
-KysrLQogMSBmaWxlIGNoYW5nZWQsIDEzIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkKCmRp
-ZmYgLS1naXQgYS9kcml2ZXJzL25ldC91c2IvYXg4ODE3OV8xNzhhLmMgYi9kcml2ZXJzL25ldC91
-c2IvYXg4ODE3OV8xNzhhLmMKaW5kZXggZTYzMzhjMS4uMDA5MjhjMCAxMDA2NDQKLS0tIGEvZHJp
-dmVycy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jCisrKyBiL2RyaXZlcnMvbmV0L3VzYi9heDg4MTc5
-XzE3OGEuYwpAQCAtMTYzMCw2ICsxNjMwLDE4IEBAIHN0YXRpYyBpbnQgYXg4ODE3OV9zdG9wKHN0
-cnVjdCB1c2JuZXQgKmRldikKICAgICAgICByZXR1cm4gMDsKIH0KCitzdGF0aWMgaW50IGF4ODgx
-NzlfcmVzZXRfcmVzdW1lKHN0cnVjdCB1c2JfaW50ZXJmYWNlICppbnRmKQoreworICAgICAgIHN0
-cnVjdCB1c2JuZXQgKmRldiA9IHVzYl9nZXRfaW50ZmRhdGEoaW50Zik7CisgICAgICAgaW50IHJl
-dDsKKworICAgICAgIHJldCA9IGF4ODgxNzlfcmVzZXQoZGV2KTsKKyAgICAgICBpZiAocmV0IDwg
-MCkKKyAgICAgICAgICAgICAgIHJldHVybiByZXQ7CisKKyAgICAgICByZXR1cm4gIGF4ODgxNzlf
-cmVzdW1lKGludGYpOworfQorCiBzdGF0aWMgY29uc3Qgc3RydWN0IGRyaXZlcl9pbmZvIGF4ODgx
-NzlfaW5mbyA9IHsKICAgICAgICAuZGVzY3JpcHRpb24gPSAiQVNJWCBBWDg4MTc5IFVTQiAzLjAg
-R2lnYWJpdCBFdGhlcm5ldCIsCiAgICAgICAgLmJpbmQgPSBheDg4MTc5X2JpbmQsCkBAIC0xNzQ0
-LDcgKzE3NTYsNyBAQCBzdGF0aWMgc3RydWN0IHVzYl9kcml2ZXIgYXg4ODE3OV8xNzhhX2RyaXZl
-ciA9IHsKICAgICAgICAucHJvYmUgPSAgICAgICAgdXNibmV0X3Byb2JlLAogICAgICAgIC5zdXNw
-ZW5kID0gICAgICBheDg4MTc5X3N1c3BlbmQsCiAgICAgICAgLnJlc3VtZSA9ICAgICAgIGF4ODgx
-NzlfcmVzdW1lLAotICAgICAgIC5yZXNldF9yZXN1bWUgPSBheDg4MTc5X3Jlc3VtZSwKKyAgICAg
-ICAucmVzZXRfcmVzdW1lID0gYXg4ODE3OV9yZXNldF9yZXN1bWUsCiAgICAgICAgLmRpc2Nvbm5l
-Y3QgPSAgIHVzYm5ldF9kaXNjb25uZWN0LAogICAgICAgIC5zdXBwb3J0c19hdXRvc3VzcGVuZCA9
-IDEsCiAgICAgICAgLmRpc2FibGVfaHViX2luaXRpYXRlZF9scG0gPSAxLAotLQoxLjcuOS41
+On Mon, 08 Jun 2015 10:51:51 +0200
+Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+
+> Le 04/06/2015 14:01, Thadeu Lima de Souza Cascardo a =C3=A9crit :
+> > If a tunnel is created with a local address, you can't change it to=
+ any.
+> >
+> >   # ip tunnel add tunl1 mode ipip remote 10.16.42.37 local 10.16.42=
+=2E214 ttl 64
+> >   # ip tunnel show tunl1
+> >   tunl1: ip/ip  remote 10.16.42.37  local 10.16.42.214  ttl 64
+> >   # ip tunnel change tunl1 local any
+> >   # echo $?
+> >   0
+> >   # ip tunnel show tunl1
+> >   tunl1: ip/ip  remote 10.16.42.37  local 10.16.42.214  ttl 64
+> >
+> > It happens that parse_args zeroes ip_tunnel_parm, and when creating=
+ the
+> > tunnel, it is OK to leave it as is if the address is any. However, =
+when
+> > changing the tunnel, the current parameters will be read from
+> > ip_tunnel_parm, and local and remote address won't be zeroes anymor=
+e, so
+> > it needs to be explicitly set to any.
+> >
+> > Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+> Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+
+Applied.
