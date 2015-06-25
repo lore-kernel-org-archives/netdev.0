@@ -1,113 +1,76 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ss: Correct state 'listen' to 'listening' in
- docs and command help
-Date: Wed, 24 Jun 2015 23:28:28 -0400
-Message-ID: <20150624232828.7f05225c@uryu.home.lan>
-References: <001001d0a328$01f70690$05e513b0$@cox.net>
+Subject: Re: [PATCH iproute2] ss: Fix allocation of cong control alg name
+Date: Wed, 24 Jun 2015 23:31:19 -0400
+Message-ID: <20150624233119.4f6e3a72@uryu.home.lan>
+References: <1432895400-12266-1-git-send-email-vadim4j@gmail.com>
+	<556848F4.6080003@iogearbox.net>
+	<F15B4449A1150D418551CFE4D16B783B86469FBC@FMSMSX102.amr.corp.intel.com>
+	<5568986A.7010000@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: "Brian Dyson" <brian.dyson@cox.net>
+Cc: "Guzman Mosqueda, Jose R" <jose.r.guzman.mosqueda@intel.com>,
+	Vadim Kochan <vadim4j@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	eric.dumazet@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f180.google.com ([209.85.220.180]:34593 "EHLO
-	mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751906AbbFYD2b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 23:28:31 -0400
-Received: by qkeo142 with SMTP id o142so32318345qke.1
-        for <netdev@vger.kernel.org>; Wed, 24 Jun 2015 20:28:31 -0700 (PDT)
-In-Reply-To: <001001d0a328$01f70690$05e513b0$@cox.net>
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:35059 "EHLO
+	mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752068AbbFYDbW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 23:31:22 -0400
+Received: by qkbp125 with SMTP id p125so32331547qkb.2
+        for <netdev@vger.kernel.org>; Wed, 24 Jun 2015 20:31:21 -0700 (PDT)
+In-Reply-To: <5568986A.7010000@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 9 Jun 2015 19:49:01 -0700
-"Brian Dyson" <brian.dyson@cox.net> wrote:
+On Fri, 29 May 2015 18:48:42 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-> Minor change to correct states in ss command documentation and command line
-> help.
-> The correct state term is 'listening' not 'listen' (see definition of
-> sstate_namel in misc/ss.c).
+> On 05/29/2015 06:17 PM, Guzman Mosqueda, Jose R wrote:
+> > Hi Daniel and Vadim
+> >
+> > Thanks for your prompt response and for the patch.
+> >
+> > Also, what about the other one? Do you think it is an issue or not?
+> >
+> > " File: tc/tc_util.c
+> > Function: void print_rate(char *buf, int len, __u64 rate)
+> > Line: ~264
+> >
+> > In the case that user inputs a high value for rate, the "for" loop will exit in the condition meaning that variable "i" get the value of 5 which will be an invalid index for the "units" array due to that array has only 5 elements."
+> >
+> > I know a very high value is invalid but in the case that it comes directly from user, it could cause and issue, what do you think?
 > 
-> Signed-off-by: Brian Dyson <brian.dyson@cox.net>
-> ---
->  doc/ss.sgml   | 4 ++--
->  man/man8/ss.8 | 4 ++--
->  misc/ss.c     | 4 ++--
->  3 files changed, 6 insertions(+), 6 deletions(-)
+> Hm, this prints just the netlink dump from kernel side, but perhaps
+> we should just change it ...
 > 
-> diff --git a/doc/ss.sgml b/doc/ss.sgml
-> index 3024b57..de168f7 100644
-> --- a/doc/ss.sgml
-> +++ b/doc/ss.sgml
-> @@ -371,10 +371,10 @@ Available identifiers are:
->  <itemize>
->  <item> All standard TCP states: <tt/established/, <tt/syn-sent/,
->  <tt/syn-recv/, <tt/fin-wait-1/, <tt/fin-wait-2/, <tt/time-wait/,
-> -<tt/closed/, <tt/close-wait/, <tt/last-ack/, <tt/listen/ and <tt/closing/.
-> +<tt/closed/, <tt/close-wait/, <tt/last-ack/, <tt/listening/ and
-> <tt/closing/.
+> diff --git a/tc/tc_util.c b/tc/tc_util.c
+> index dc2b70f..aa6de24 100644
+> --- a/tc/tc_util.c
+> +++ b/tc/tc_util.c
+> @@ -250,18 +250,19 @@ void print_rate(char *buf, int len, __u64 rate)
+>   	extern int use_iec;
+>   	unsigned long kilo = use_iec ? 1024 : 1000;
+>   	const char *str = use_iec ? "i" : "";
+> -	int i = 0;
+>   	static char *units[5] = {"", "K", "M", "G", "T"};
+> +	int i;
 > 
->  <item><tt/all/ - for all the states
-> -<item><tt/connected/ - all the states except for <tt/listen/ and
-> <tt/closed/
-> +<item><tt/connected/ - all the states except for <tt/listening/ and
-> <tt/closed/
->  <item><tt/synchronized/ - all the <tt/connected/ states except for
->  <tt/syn-sent/
->  <item><tt/bucket/ - states, which are maintained as minisockets, i.e.
-> diff --git a/man/man8/ss.8 b/man/man8/ss.8
-> index b7fbaef..4978eff 100644
-> --- a/man/man8/ss.8
-> +++ b/man/man8/ss.8
-> @@ -142,14 +142,14 @@ Available identifiers are:
+>   	rate <<= 3; /* bytes/sec -> bits/sec */
 > 
->  All standard TCP states:
->  .BR established ", " syn-sent ", " syn-recv ", " fin-wait-1 ", " fin-wait-2
-> ", " time-wait ", " closed ", " close-wait ", " last-ack ", "
-> -.BR  listen " and " closing.
-> +.BR  listening " and " closing.
-> 
->  .B all
->  - for all the states
-> 
->  .B connected
->  - all the states except for
-> -.BR listen " and " closed
-> +.BR listening " and " closed
-> 
->  .B synchronized
->  - all the
-> diff --git a/misc/ss.c b/misc/ss.c
-> index 347e3a1..3a0d524 100644
-> --- a/misc/ss.c
-> +++ b/misc/ss.c
-> @@ -3411,11 +3411,11 @@ static void _usage(FILE *dest)
->  "   -F, --filter=FILE   read filter information from FILE\n"
->  "       FILTER := [ state STATE-FILTER ] [ EXPRESSION ]\n"
->  "       STATE-FILTER :=
-> {all|connected|synchronized|bucket|big|TCP-STATES}\n"
-> -"         TCP-STATES :=
-> {established|syn-sent|syn-recv|fin-wait-{1,2}|time-wait|closed|close-wait|la
-> st-ack|listen|closing}\n"
-> +"         TCP-STATES :=
-> {established|syn-sent|syn-recv|fin-wait-{1,2}|time-wait|closed|close-wait|la
-> st-ack|listening|closing}\n"
->  "          connected :=
-> {established|syn-sent|syn-recv|fin-wait-{1,2}|time-wait|close-wait|last-ack|
-> closing}\n"
->  "       synchronized :=
-> {established|syn-recv|fin-wait-{1,2}|time-wait|close-wait|last-ack|closing}\
-> n"
->  "             bucket := {syn-recv|time-wait}\n"
-> -"                big :=
-> {established|syn-sent|fin-wait-{1,2}|closed|close-wait|last-ack|listen|closi
-> ng}\n"
-> +"                big :=
-> {established|syn-sent|fin-wait-{1,2}|closed|close-wait|last-ack|listening|cl
-> osing}\n"
->                 );
->  }
+> -	for (i = 0; i < ARRAY_SIZE(units); i++)  {
+> +	for (i = 0; i < ARRAY_SIZE(units) - 1; i++)  {
+>   		if (rate < kilo)
+>   			break;
+>   		if (((rate % kilo) != 0) && rate < 1000*kilo)
+>   			break;
+>   		rate /= kilo;
+>   	}
+> +
+>   	snprintf(buf, len, "%.0f%s%sbit", (double)rate, units[i], str);
+>   }
 
-The patch has been corrupted by linewrapping in your mailer and therefore
-can not be applied. Please figure out how to send a patch that does not
-cause extra line breaks.
+I don't know what thread you meant to hijack for this, but it wasn't the
+one about ss: cong name.
