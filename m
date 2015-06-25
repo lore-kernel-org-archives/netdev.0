@@ -1,39 +1,45 @@
-From: leroy christophe <christophe.leroy@c-s.fr>
-Subject: RESEND: Performance loss due to commit  37c3185 ([NET]: Added GSO
- toggle)
-Date: Thu, 25 Jun 2015 16:57:30 +0200
-Message-ID: <558C16DA.7060100@c-s.fr>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [GIT] Networking
+Date: Thu, 25 Jun 2015 18:01:17 +0300
+Message-ID: <CAJ3xEMiyT3tOTO7yr4doutNMsmsrQtX1r2WvjTuTTd7dRzYnoA@mail.gmail.com>
+References: <20150624.063911.1220157256743743341.davem@davemloft.net>
+	<CA+55aFybr6Fjti5WSm=FQpfwdwgH1Pcfg6L81M-Hd9MzuSHktg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-crypto <linux-crypto@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 2.236.17.93.rev.sfr.net ([93.17.236.2]:9898 "EHLO
-	mailhub1.si.c-s.fr" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751555AbbFYO5d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 10:57:33 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Doug Ledford <dledford@redhat.com>,
+	Ira Weiny <ira.weiny@intel.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFybr6Fjti5WSm=FQpfwdwgH1Pcfg6L81M-Hd9MzuSHktg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Herbert,
+On Thu, Jun 25, 2015 at 2:38 AM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+>
+> On Wed, Jun 24, 2015 at 6:39 AM, David Miller <davem@davemloft.net> wrote:
+> >
+> >   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+>
+> Just going through the conflicts, I see commit 7193a141eb74 ("IB/mlx4:
+> Set VF to read from QP counters"), and wonder...
+>
+> Is that code really supposed to fall through to the
+> infiniband-over-ethernet case when the link layer is
+> IB_LINK_LAYER_INFINIBAND but it's a slave?
+>
+> The commit message is not in the least helpful.
+>
 
-In commit "[NET]: Added GSO toggle" 
-37c3185a02d4b85fbe134bf5204535405dd2c957,
-you force NETIF_F_HW_CSUM if GSO feature is selected.
-By default, SW GSO is active as soon as a network board has NETIF_F_SG 
-feature.
-This means that function sk_setup_caps() forces NETIF_F_HW_CSUM for any 
-board having NETIF_F_SG
+And this is a bug indeed.
 
-For boards having no HW checksum capability, this results in performance 
-loss due to data copy being done in skb_do_copy_data_nocache() with 
-copy_from_user() then checksum being done later with csum_partial() 
-instead of getting both done at the same time using 
-csum_and_copy_from_user()
+Under IB links, we should use the the infiniband-over-ethernet flow only for one
+specific case (reading link performance counters by SRIOV VFs) and nothing else.
 
-What is the reason for forcing NETIF_F_HW_CSUM   ?
+I sent a fix, https://patchwork.kernel.org/patch/6675921/
 
-Christophe
+Or.
