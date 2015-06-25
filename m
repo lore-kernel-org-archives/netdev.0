@@ -1,53 +1,51 @@
-From: <giladb@ezchip.com>
-Subject: [PATCH net] dsa: fix promiscuity leak on slave dev open error
-Date: Thu, 25 Jun 2015 16:50:13 +0300
-Message-ID: <1435240213-15179-1-git-send-email-giladb@ezchip.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Performance loss due to commit  37c3185 ([NET]: Added GSO toggle)
+Date: Thu, 25 Jun 2015 22:37:08 +0800
+Message-ID: <20150625143708.GA10700@gondor.apana.org.au>
+References: <55853877.9080000@c-s.fr>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Gilad Ben-Yossef <gilad@benyossef.com>,
-	"Gilad Ben-Yossef" <giladb@ezchip.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	"Scott Feldman" <sfeldma@gmail.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: christophe leroy <christophe.leroy@c-s.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0061.outbound.protection.outlook.com ([157.56.112.61]:35523
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751171AbbFYOWe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jun 2015 10:22:34 -0400
+Received: from helcar.hengli.com.au ([209.40.204.226]:59300 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751596AbbFYOhO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 10:37:14 -0400
+Content-Disposition: inline
+In-Reply-To: <55853877.9080000@c-s.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gilad Ben-Yossef <gilad@benyossef.com>
+On Sat, Jun 20, 2015 at 11:55:03AM +0200, christophe leroy wrote:
+> Hello Herbert,
+> 
+> In commit "[NET]: Added GSO toggle"
+> 37c3185a02d4b85fbe134bf5204535405dd2c957,
+> you force NETIF_F_HW_CSUM if GSO feature is selected.
+> By default, SW GSO is active as soon as a network board has NETIF_F_SG
+> feature.
+> This means that function sk_setup_caps() forces NETIF_F_HW_CSUM for any
+> board having NETIF_F_SG
+> 
+> For boards having no HW checksum capability, this results in performance
+> loss due to data copy being done in skb_do_copy_data_nocache() with
+> copy_from_user() then checksum being done later with csum_partial()
+> instead of getting both done at the same time using
+> csum_and_copy_from_user()
+> 
+> Is there a reason for forcing NETIF_F_HW_CSUM   ?
 
-DSA master netdev promiscuity counter was not being properly
-decremented on slave device open error path.
+Well GSO requires hardware checksum for all the protocols that
+it supports.  I guess we should also check that the hardware can
+checksum both IPv4 and IPv6 before enabling it.
 
-Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
-CC: Gilad Ben-Yossef <giladb@ezchip.com>
-CC: David S. Miller <davem@davemloft.net>
-CC: Florian Fainelli <f.fainelli@gmail.com>
-CC: Guenter Roeck <linux@roeck-us.net>
-CC: Andrew Lunn <andrew@lunn.ch>
-CC: Scott Feldman <sfeldma@gmail.com>
----
- net/dsa/slave.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+However, the benefit of GSO should cancel out the cost of copying
+so I was hoping to just enable GSO unconditionally at some point.
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 04ffad3..0917123 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -112,7 +112,7 @@ static int dsa_slave_open(struct net_device *dev)
- 
- clear_promisc:
- 	if (dev->flags & IFF_PROMISC)
--		dev_set_promiscuity(master, 0);
-+		dev_set_promiscuity(master, -1);
- clear_allmulti:
- 	if (dev->flags & IFF_ALLMULTI)
- 		dev_set_allmulti(master, -1);
+Thanks,
 -- 
-1.7.1
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
