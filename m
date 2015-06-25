@@ -1,28 +1,57 @@
-From: Robert Urban <urban@unix-beratung.de>
-Subject: parsing the output of ethtool programmatically
-Date: Thu, 25 Jun 2015 03:28:23 +0200
-Message-ID: <558B5937.4080600@unix-beratung.de>
+From: "Weiny, Ira" <ira.weiny@intel.com>
+Subject: RE: [GIT] Networking
+Date: Thu, 25 Jun 2015 01:52:49 +0000
+Message-ID: <2807E5FD2F6FDA4886F6618EAC48510E110A2D71@CRSMSX101.amr.corp.intel.com>
+References: <20150624.063911.1220157256743743341.davem@davemloft.net>
+ <CA+55aFybr6Fjti5WSm=FQpfwdwgH1Pcfg6L81M-Hd9MzuSHktg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: bwh@kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"'Jason Gunthorpe (jgunthorpe@obsidianresearch.com)'"
+	<jgunthorpe@obsidianresearch.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dna.y42.org ([176.9.161.194]:35610 "EHLO dna.y42.org"
+Received: from mga03.intel.com ([134.134.136.65]:13274 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752334AbbFYBes (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jun 2015 21:34:48 -0400
+	id S1751796AbbFYBwy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Jun 2015 21:52:54 -0400
+In-Reply-To: <CA+55aFybr6Fjti5WSm=FQpfwdwgH1Pcfg6L81M-Hd9MzuSHktg@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-there doesn't seem to be any flag to request ethtool to present its output in a
-script-friendly form.  Things like:
->         Link partner advertised link modes:  10baseT/Half 10baseT/Full
->                                              100baseT/Half 100baseT/Full
->                                              1000baseT/Full
-are kind of pain to parse.
-
-Something to consider?
-
-Robert Urban
+TGludXMsDQoNCj4gDQo+IE9uIHRoZSAqb3RoZXIqIHNpZGUgb2YgdGhlIHNhbWUgY29uZmxpY3Qs
+IEkgZmluZCBhbiBldmVuIG1vcmUgb2ZmZW5zaXZlIGNvbW1pdCwNCj4gbmFtZWx5IGNvbW1pdCA0
+Y2Q3Yzk0NzlhZmYgKCJJQi9tYWQ6IEFkZCBzdXBwb3J0IGZvciBhZGRpdGlvbmFsIE1BRCBpbmZv
+DQo+IHRvL2Zyb20gZHJpdmVycyIpIHdoaWNoIGFkZHMgYSBCVUdfT04oKSBmb3IgYSBzYW5pdHkg
+Y2hlY2ssIHJhdGhlciB0aGFuIGp1c3QNCj4gcmV0dXJuaW5nIC1FSU5WQUwgb3Igc29tZXRoaW5n
+IHNhbmUgbGlrZSB0aGF0Lg0KPiANCj4gSSdtIGdldHRpbmcgKnJlYWwqIHRpcmVkIG9mIHRoYXQg
+QlVHX09OKCkgc2hpdC4gSSByZWFsaXplIHRoYXQgaW5maW5pYmFuZCBpcyBhDQo+IG5pY2hlIG1h
+cmtldCwgYW5kIHRob3NlICJjb21tZXJjaWFsIGdyYWRlIiBuaWNoZSBtYXJrZXRzIGFyZSBtb3Jl
+LXRoYW4tDQo+IHVzZWQtdG8gY3JhcCBjb2RlIGFuZCBob3JyaWJsZSBoYWNrcywgYnV0IHRoaXMg
+aXMgc3RpbGwgdGhlIGtlcm5lbC4gV2UgZG9uJ3QgYWRkDQo+IHJhbmRvbSBtYWNoaW5lLWtpbGxp
+bmcgZGVidWcgY2hlY2tzIHdoZW4gaXQgaXMgKnNvKiBzaW1wbGUgdG8ganVzdCBkbw0KPiANCj4g
+ICAgICAgICBpZiAoV0FSTl9PTl9PTkNFKC4uKSkNCj4gICAgICAgICAgICAgICAgIHJldHVybiAt
+RUlOVkFMOw0KPiANCj4gaW5zdGVhZC4NCg0KUGxlYXNlIGFjY2VwdCBteSBhcG9sb2dpZXMuICBU
+aGUgb3JpZ2luYWwgcGF0Y2ggdXNlZCBXQVJOX09OIGJ1dCBJIHdhcyBhZHZpc2VkIHRvIHVzZSBC
+VUdfT04gaW4gYSByZXZpZXcgYW5kIEkgc2hvdWxkIGhhdmUgdGhvdWdodCBhYm91dCBpdCBtb3Jl
+IHJhdGhlciB0aGFuIGJsaW5kbHkgbWFrZSB0aGUgY2hhbmdlLg0KCQ0KPiANCj4gS2lsbGluZyB0
+aGUgbWFjaGluZSBmb3IgaWRpb3RpYyB0aGluZ3MgbGlrZSB0aGF0IGlzIHRydWx5IG9mZmVuc2l2
+ZSwgYW5kIHRydWx5DQo+IGhvcnJpYmxlIGhvcnJpYmxlIGNvZGUuIFdoeSBkbyBJIGtlZXAgb24g
+aGF2aW5nIHRvIHRlbGwgcGVvcGxlIG9mZiBmb3IgZG9pbmcNCj4gdGhlc2UgdGhpbmdzPyBXaHkg
+ZG8gcGVvcGxlIGtlZXAgdGhpbmtpbmcgdGhhdCBkZWJ1Z2dpbmctYnkta2lsbGluZy10aGUtDQo+
+IG1hY2hpbmUgaXMgYSBnb29kIGlkZWE/DQo+IA0KPiBFaXRoZXIgdGhhdCBCVUdfT04oKSBjYW5u
+b3QgcG9zc2libHkgaGFwcGVuLCBpbiB3aGljaCBjYXNlIGl0IHNob3VsZCBkYW1uDQo+IHdlbGwg
+bm90IGV4aXN0IGluIHRoZSBmaXJzdCBwbGFjZS4gT3IgaXQncyBhIHZhbHVhYmxlIGRlYnVnIGFp
+ZCwgaW4gd2hpY2ggY2FzZSBpdA0KPiBzaG91bGQgZGFtbiB3ZWxsIG5vdCBiZSBhIEJVR19PTi4g
+WW91IGNhbid0IGhhdmUgaXQgYm90aCB3YXlzLg0KDQpJdCB3YXMgaW50ZW5kZWQgYXMgYSBkZWJ1
+ZyBhaWQuDQoJDQo+IA0KPiBUaGUgbmV4dCBwb2ludGxlc3MgQlVHX09OKCkgSSBzZWUsIEkgd2ls
+bCBzdGFydCBnZXR0aW5nIF9yZWFsbHlfIHVucGxlYXNhbnQNCj4gYWJvdXQuDQo+IA0KPiBEb3Vn
+LCBnZXQgcmlkIG9mIHRob3NlIHRoaW5ncyBhc2FwLg0KDQpGaXggc3VibWl0dGVkIHRvIERvdWcu
+DQoNCmh0dHBzOi8vcGF0Y2h3b3JrLmtlcm5lbC5vcmcvcGF0Y2gvNjY3MTkzMS8NCg0KSXJhDQoN
+Cg==
