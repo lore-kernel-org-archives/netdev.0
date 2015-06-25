@@ -1,42 +1,53 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] flow_dissector: Pre-initialize ip_proto in
- __skb_flow_dissect()
-Date: Thu, 25 Jun 2015 15:48:38 +0200
-Message-ID: <20150625134838.GA2455@nanopsycho.ki.iif.hu>
-References: <1435237832-28838-1-git-send-email-geert@linux-m68k.org>
- <20150625.063331.1437042913073267200.davem@davemloft.net>
+From: <giladb@ezchip.com>
+Subject: [PATCH net] dsa: fix promiscuity leak on slave dev open error
+Date: Thu, 25 Jun 2015 16:50:13 +0300
+Message-ID: <1435240213-15179-1-git-send-email-giladb@ezchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: geert@linux-m68k.org, tom@herbertland.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150625.063331.1437042913073267200.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Gilad Ben-Yossef <gilad@benyossef.com>,
+	"Gilad Ben-Yossef" <giladb@ezchip.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	"Scott Feldman" <sfeldma@gmail.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1on0061.outbound.protection.outlook.com ([157.56.112.61]:35523
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751171AbbFYOWe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jun 2015 10:22:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thu, Jun 25, 2015 at 03:33:31PM CEST, davem@davemloft.net wrote:
->From: Geert Uytterhoeven <geert@linux-m68k.org>
->Date: Thu, 25 Jun 2015 15:10:32 +0200
->
->> net/core/flow_dissector.c: In function =E2=80=98__skb_flow_dissect=E2=
-=80=99:
->> net/core/flow_dissector.c:132: warning: =E2=80=98ip_proto=E2=80=99 m=
-ay be used uninitialized in this function
->>=20
->> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
->> ---
->> This may be a false positive, but the state machine in
->> __skb_flow_dissect() is a bit hard to follow.
->> As I believe it is controlled by a packet received from the network,=
- the
->> only safe thing to do is to pre-initialize ip_proto.
->
->Actually I think this is a real bug, because for the ETH_P_MPLS_* case=
-s I cannot
->see what will always set ip_proto before it gets used as an input.
+From: Gilad Ben-Yossef <gilad@benyossef.com>
 
-I think that MPLS cases are ok. In this case, return is always hit.
-I believe this is false positive.
+DSA master netdev promiscuity counter was not being properly
+decremented on slave device open error path.
+
+Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
+CC: Gilad Ben-Yossef <giladb@ezchip.com>
+CC: David S. Miller <davem@davemloft.net>
+CC: Florian Fainelli <f.fainelli@gmail.com>
+CC: Guenter Roeck <linux@roeck-us.net>
+CC: Andrew Lunn <andrew@lunn.ch>
+CC: Scott Feldman <sfeldma@gmail.com>
+---
+ net/dsa/slave.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 04ffad3..0917123 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -112,7 +112,7 @@ static int dsa_slave_open(struct net_device *dev)
+ 
+ clear_promisc:
+ 	if (dev->flags & IFF_PROMISC)
+-		dev_set_promiscuity(master, 0);
++		dev_set_promiscuity(master, -1);
+ clear_allmulti:
+ 	if (dev->flags & IFF_ALLMULTI)
+ 		dev_set_allmulti(master, -1);
+-- 
+1.7.1
