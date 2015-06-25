@@ -1,194 +1,240 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC] virtio_net: Adding tx_timeout function.
-Date: Thu, 25 Jun 2015 17:47:34 +0800
-Message-ID: <558BCE36.6060305@redhat.com>
-References: <1435110269-6755-1-git-send-email-jcfaracco@gmail.com> <20150624080438-mutt-send-email-mst@redhat.com> <CAENf94JDha3+uEP1=Op60pzg-7Y1DP8UnPhf6xPUAJj8f0DLCQ@mail.gmail.com>
+From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
+Subject: Re: [PATCH RFC] 2/2 huawei_cdc_ncm: introduce new TX ncm stack
+Date: Thu, 25 Jun 2015 11:49:29 +0200
+Message-ID: <1435225769.28594.13.camel@suse.com>
+References: <1435012335-6055-1-git-send-email-mrkiko.rs@gmail.com>
+	 <1435012335-6055-3-git-send-email-mrkiko.rs@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Julio Faracco <jcfaracco@gmail.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38527 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751370AbbFYJrm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jun 2015 05:47:42 -0400
-In-Reply-To: <CAENf94JDha3+uEP1=Op60pzg-7Y1DP8UnPhf6xPUAJj8f0DLCQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1435012335-6055-3-git-send-email-mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+On Tue, 2015-06-23 at 00:32 +0200, Enrico Mioso wrote:
+> This patch introduces a new NCM tx engine, able to operate in standard-
+> and huawei-style mode.
+> In the first case, the NDP is disposed after the initial headers and
+> before any datagram.
+> 
+> What works:
+> - is able to communicate with compliant NCM devices:
+> 	I tested this with a board running the Linux g_ncm gadget driver.
+> 
+> What doesn't work:
+> - After some packets I start gettint LOTS of EVENT_RX_MEMORY from usbnet,
+> 	which fails to allocate an RX SKB in rx_submit(). Don't understand why,
+> 	any suggestion would be very welcome.
+> 
+> The tx_fixup function given here, even if actually working, should be
+> considered as an example: the NCM manager is used here simulating the
+> cdc_ncm.c behaviour.
+> 
+> Signed-off-by: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  drivers/net/usb/huawei_cdc_ncm.c | 187 ++++++++++++++++++++++++++++++++++++++-
+>  1 file changed, 185 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/usb/huawei_cdc_ncm.c b/drivers/net/usb/huawei_cdc_ncm.c
+> index 735f7da..217802a 100644
+> --- a/drivers/net/usb/huawei_cdc_ncm.c
+> +++ b/drivers/net/usb/huawei_cdc_ncm.c
+> @@ -29,6 +29,35 @@
+>  #include <linux/usb/cdc-wdm.h>
+>  #include <linux/usb/cdc_ncm.h>
+>  
+> +/* NCM management operations: */
+> +
+> +/* NCM_INIT_FRAME: prepare for a new frame.
+> + * NTH16 header is written to output SKB, NDP data is reset and last
+> + * committed NDP pointer set to NULL.
+> + * Now, data may be added to this NCM package.
+> + */
+> +#define NCM_INIT_FRAME		1
+> +
+> +/* NCM_UPDATE_NDP: adds data to an NDP structure, hence updating it.
+> + * Some checks are performed to be sure data fits in, respecting device and
+> + * spec constrains.
+> + * Normally the NDP is kept in memory and committed to the SKB only when
+> + * requested. However, calling this "method" after NCM_COMMIT_NDP, causes it to
+> + * work directly on the already committed SKB copy. this allows for flexibility
+> + * in frame ordering.
+> + */
+> +#define NCM_UPDATE_NDP		2
+> +
+> +/* Write NDP: commits NDP to output SKB.
+> + * This method should be called only once per frame.
+> + */
+> +#define NCM_COMMIT_NDP		3
+> +
+> +/* Finalizes NTH16 header: to be called when working in
+> + * update-already-committed mode.
+> + */
+> +#define NCM_FINALIZE_NTH	5
+> +
+>  /* Driver data */
+>  struct huawei_cdc_ncm_state {
+>  	struct cdc_ncm_ctx *ctx;
+> @@ -36,6 +65,16 @@ struct huawei_cdc_ncm_state {
+>  	struct usb_driver *subdriver;
+>  	struct usb_interface *control;
+>  	struct usb_interface *data;
+> +
+> +	/* Keeps track of where data starts and ends in SKBs. */
+> +	int data_start;
+> +	int data_len;
+> +
+> +	/* Last committed NDP for post-commit operations. */
+> +	struct usb_cdc_ncm_ndp16 *skb_ndp;
+> +
+> +	/* Non-committed NDP */
+> +	struct usb_cdc_ncm_ndp16 *ndp;
+>  };
+>  
+>  static int huawei_cdc_ncm_manage_power(struct usbnet *usbnet_dev, int on)
+> @@ -53,6 +92,149 @@ static int huawei_cdc_ncm_manage_power(struct usbnet *usbnet_dev, int on)
+>  	return 0;
+>  }
+>  
+> +/* huawei_ncm_mgmt: flexible TX NCM manager.
+> + *
+> + * Once a non-zero status value is rturned, current frame should be discarded
+> + * and operations restarted from scratch.
+> + */
+
+Is there any advantage in keeping this in a single function?
+
+> +int
+> +huawei_ncm_mgmt(struct usbnet *dev,
+> +		struct huawei_cdc_ncm_state *drvstate, struct sk_buff *skb_out, int mode) {
+> +	struct usb_cdc_ncm_nth16 *nth16 = (struct usb_cdc_ncm_nth16 *)skb_out->data;
+> +	struct cdc_ncm_ctx *ctx = drvstate->ctx;
+> +	struct usb_cdc_ncm_ndp16 *ndp16 = NULL;
+> +	int ret = -EINVAL;
+> +	u16 ndplen, index;
+> +
+> +	switch (mode) {
+> +	case NCM_INIT_FRAME:
+> +
+> +		/* Write a new NTH16 header */
+> +		nth16 = (struct usb_cdc_ncm_nth16 *)memset(skb_put(skb_out, sizeof(struct usb_cdc_ncm_nth16)), 0, sizeof(struct usb_cdc_ncm_nth16));
+> +		if (!nth16) {
+> +			ret = -EINVAL;
+> +			goto error;
+> +		}
+> +
+> +		/* NTH16 signature and header length are known a-priori. */
+> +		nth16->dwSignature = cpu_to_le32(USB_CDC_NCM_NTH16_SIGN);
+> +		nth16->wHeaderLength = cpu_to_le16(sizeof(struct usb_cdc_ncm_nth16));
+> +
+> +		/* TX sequence numbering */
+> +		nth16->wSequence = cpu_to_le16(ctx->tx_seq++);
+> +
+> +		/* Forget about previous SKB NDP */
+> +		drvstate->skb_ndp = NULL;
+
+This is probably better done after you know you cannot fail.
+
+> +
+> +		/* Allocate a new NDP */
+> +		ndp16 = kzalloc(ctx->max_ndp_size, GFP_NOIO);
+
+Where is this freed?
+
+> +		if (!ndp16)
+> +			return ret;
+> +
+> +		/* Prepare a new NDP to add data on subsequent calls. */
+> +		drvstate->ndp = memset(ndp16, 0, ctx->max_ndp_size);
+
+Either kzalloc() or memset(). Using both never makes sense.
+
+> +
+> +		/* Initial NDP length */
+> +		ndp16->wLength = cpu_to_le16(sizeof(struct usb_cdc_ncm_ndp16) + sizeof(struct usb_cdc_ncm_dpe16));
+> +
+> +		/* Frame signature: to be reworked in general. */
+> +			ndp16->dwSignature = cpu_to_le32(USB_CDC_NCM_NDP16_NOCRC_SIGN);
+> +
+> +			ret = 0;
+> +			break;
+> +
+> +	case NCM_UPDATE_NDP:
+> +
+> +		if (drvstate->skb_ndp) {
+> +			ndp16 = drvstate->skb_ndp;
+> +		} else {
+> +			ndp16 = drvstate->ndp;
+> +
+> +			/* Do we have enough space for the data? */
+> +			if (skb_out->len + ctx->max_ndp_size > ctx->tx_max)
+> +				goto error;
+> +		}
+> +
+> +		/* Calculate frame number within this NDP */
+> +		ndplen = le16_to_cpu(ndp16->wLength);
+> +		index = (ndplen - sizeof(struct usb_cdc_ncm_ndp16)) / sizeof(struct usb_cdc_ncm_dpe16) - 1;
+> +
+> +		if (index >= CDC_NCM_DPT_DATAGRAMS_MAX)
+> +			goto error;
+> +
+> +		/* tx_max shouldn't be exceeded after committing. */
+> +		if (ndplen + sizeof(struct usb_cdc_ncm_dpe16) > ctx->tx_max)
+> +				goto error;
+> +
+> +		/* Adding a DPT entry. */
+> +		ndp16->dpe16[index].wDatagramLength = cpu_to_le16(drvstate->data_len);
+> +		ndp16->dpe16[index].wDatagramIndex = cpu_to_le16(drvstate->data_start);
+> +		ndp16->wLength = cpu_to_le16(ndplen + sizeof(struct usb_cdc_ncm_dpe16));
+> +
+> +		ret = 0;
+> +		break;
+> +
+> +	case NCM_COMMIT_NDP:
+> +
+> +		if (drvstate->skb_ndp)
+> +			goto error;	/* Call this only once please. */
+> +
+> +		ndp16 = drvstate->ndp;
+> +
+> +		nth16->wNdpIndex = cpu_to_le16(skb_out->len);
+> +
+> +		/* "commit" NDP */
+> +		drvstate->skb_ndp = memcpy(skb_put(skb_out, ctx->max_ndp_size), ndp16, ctx->max_ndp_size);
+> +
+> +		kfree(ndp16);
+> +		ndp16 = NULL;
+> +		drvstate->ndp = NULL;
+> +
+> +	case NCM_FINALIZE_NTH:
+> +
+> +		/* Finalize NTH16 header, setting it's block length */
+> +		nth16->wBlockLength = cpu_to_le16(skb_out->len);
+> +
+> +		ret = 0;
+> +		break;
+> +	default:
+> +		break;
+> +	}
+> +
+> +error:
+
+The purpose of a label is kind of defeated by having a conditional after
+it.
+
+> +	if (ret)
+> +		kfree(drvstate->ndp);
+> +	return ret;
+> +}
+
+	Regards
+		Oliver
 
 
-
-On 06/25/2015 09:31 AM, Julio Faracco wrote:
-> 2015-06-24 3:10 GMT-03:00 Michael S. Tsirkin <mst@redhat.com>:
->> On Tue, Jun 23, 2015 at 10:44:29PM -0300, Julio Faracco wrote:
->>> virtio_net paravirtualized driver does not have a tx_timeout() function to
->>> guarantee that the driver will recover properly after receiving a timeout
->>> during a transmission of a packet. This patch add this feature and throw a
->>> timeout exception after 5 HZ. Considering some tests, this is the best
->>> time to use here.
->>>
->>> Signed-off-by: Julio Faracco <jcfaracco@gmail.com>
->>> Cc: Jason Wang <jasowang@redhat.com>
->> Looks like a bunch of locks and flushes are missing in this patch.  IMHO
->> that's just too painful with current hardware.  IMO the right thing to
->> do here is to add ability to reset specific queues to hardware.
->>
-> I agree, Michael. This model is the default one resetting the device
-> due to transmission timeout.
-> To have a better performance, only some queues must be reset.
-
-Resetting device during tx hang is much more important. I don't see much
-value of caring the performance in this case and at least most of the
-drivers does not care.
-
-And we could not assume it was just an issue of a specific queue, it
-maybe a bug of guest driver, qemu or even host stack. So resetting the
-whole devices make more sense.
-
-Btw, I think it's better to print a warning with a dump of each queue state.
-
->
->>> ---
->>>  drivers/net/virtio_net.c |   69 +++++++++++++++++++++++++++++++++++++++++++++-
->>>  1 file changed, 68 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->>> index 63c7810..75ac45c 100644
->>> --- a/drivers/net/virtio_net.c
->>> +++ b/drivers/net/virtio_net.c
->>> @@ -135,6 +135,9 @@ struct virtnet_info {
->>>       /* Work struct for config space updates */
->>>       struct work_struct config_work;
->>>
->>> +     /* Work struct for resetting the virtio-net driver. */
->>> +     struct work_struct reset_task;
->>> +
->>>       /* Does the affinity hint is set for virtqueues? */
->>>       bool affinity_hint_set;
->>>
->>> @@ -1394,6 +1397,18 @@ static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
->>>       return 0;
->>>  }
->>>
->>> +static void virtnet_tx_timeout(struct net_device *dev)
->>> +{
->>> +     struct virtnet_info *vi = netdev_priv(dev);
->>> +
->>> +     dev_warn(&dev->dev, "TX Timeout exception with latency: %ld\n",
->>> +              jiffies - dev_trans_start(dev));
->>> +
->>> +     schedule_work(&vi->reset_task);
->> What if after this triggers user does something
->> to the device (e.g. attempts to remove it)?
->> Or if a packet is transmitted or used?
-> At some point, this work must be canceled.
-> Yes, you are right. Specially, when the driver is being removed.
->>> +}
->>> +
->>> +static void virtnet_reset_task(struct work_struct *work);
->>> +
->>>  static const struct net_device_ops virtnet_netdev = {
->>>       .ndo_open            = virtnet_open,
->>>       .ndo_stop            = virtnet_close,
->>> @@ -1405,6 +1420,7 @@ static const struct net_device_ops virtnet_netdev = {
->>>       .ndo_get_stats64     = virtnet_stats,
->>>       .ndo_vlan_rx_add_vid = virtnet_vlan_rx_add_vid,
->>>       .ndo_vlan_rx_kill_vid = virtnet_vlan_rx_kill_vid,
->>> +     .ndo_tx_timeout      = virtnet_tx_timeout,
->>>  #ifdef CONFIG_NET_POLL_CONTROLLER
->>>       .ndo_poll_controller = virtnet_netpoll,
->>>  #endif
->>> @@ -1750,6 +1766,7 @@ static int virtnet_probe(struct virtio_device *vdev)
->>>       dev->netdev_ops = &virtnet_netdev;
->>>       dev->features = NETIF_F_HIGHDMA;
->>>
->>> +     dev->watchdog_timeo = 5 * HZ;
->>>       dev->ethtool_ops = &virtnet_ethtool_ops;
->>>       SET_NETDEV_DEV(dev, &vdev->dev);
->>>
->>> @@ -1811,6 +1828,7 @@ static int virtnet_probe(struct virtio_device *vdev)
->>>       }
->>>
->>>       INIT_WORK(&vi->config_work, virtnet_config_changed_work);
->>> +     INIT_WORK(&vi->reset_task, virtnet_reset_task);
->>>
->>>       /* If we can receive ANY GSO packets, we must allocate large ones. */
->>>       if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) ||
->>> @@ -1891,7 +1909,7 @@ static int virtnet_probe(struct virtio_device *vdev)
->>>               netif_carrier_on(dev);
->>>       }
->>>
->>> -     pr_debug("virtnet: registered device %s with %d RX and TX vq's\n",
->>> +     pr_debug("virtio_net: registered device %s with %d RX and TX vq's\n",
->>>                dev->name, max_queue_pairs);
->>>
->>>       return 0;
->>> @@ -2001,6 +2019,55 @@ static int virtnet_restore(struct virtio_device *vdev)
->>>  }
->>>  #endif
->>>
->>> +static void virtnet_reset_task(struct work_struct *work)
->>> +{
->>> +     struct virtnet_info *vi =
->>> +             container_of(work, struct virtnet_info, reset_task);
->>> +     struct net_device *dev = vi->dev;
->>> +     struct virtio_device *vdev = vi->vdev;
->>> +     int err, i;
->>> +
->>> +     flush_work(&vi->config_work);
->>> +
->>> +     netif_device_detach(vi->dev);
->>> +     cancel_delayed_work_sync(&vi->refill);
->>> +
->>> +     if (netif_running(vi->dev)) {
->>> +             for (i = 0; i < vi->max_queue_pairs; i++) {
->>> +                     napi_disable(&vi->rq[i].napi);
->>> +                     napi_hash_del(&vi->rq[i].napi);
->>> +                     netif_napi_del(&vi->rq[i].napi);
->>> +             }
->>> +     }
->>> +
->>> +     remove_vq_common(vi);
->>> +
->>> +     dev->stats.tx_errors++;
->>> +
->>> +     err = init_vqs(vi);
->>> +     if (err) {
->>> +             dev_warn(&dev->dev, "virtio_net: virtqueue initialization failed.\n");
->>> +             return;
->>> +     }
->>> +
->>> +     virtio_device_ready(vdev);
->>> +
->>> +     if (netif_running(vi->dev)) {
->>> +             for (i = 0; i < vi->curr_queue_pairs; i++)
->>> +                     if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
->>> +                             schedule_delayed_work(&vi->refill, 0);
->>> +
->>> +             for (i = 0; i < vi->max_queue_pairs; i++)
->>> +                     virtnet_napi_enable(&vi->rq[i]);
->>> +     }
->>> +
->>> +     netif_device_attach(vi->dev);
->>> +
->>> +     rtnl_lock();
->>> +     virtnet_set_queues(vi, vi->curr_queue_pairs);
->>> +     rtnl_unlock();
->> Won't this lose a bunch of state, like mac addresses,
->> multicast, rx mode, etc etc?
-> I will rebase this patch with the properly changes and locks.
-> After, I will resend it.
->
-> Thanks for your opinion, Michael.
->>
->>> +}
->>> +
->>>  static struct virtio_device_id id_table[] = {
->>>       { VIRTIO_ID_NET, VIRTIO_DEV_ANY_ID },
->>>       { 0 },
->>> --
->>> 1.7.10.4
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
