@@ -1,70 +1,49 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [GIT] Networking
-Date: Thu, 25 Jun 2015 12:24:29 -0400
-Message-ID: <CAP=VYLogXORmUN1bt1++ucmTOp=T-nJd2pve0-ufV+HQaCVy6Q@mail.gmail.com>
-References: <20150624.063911.1220157256743743341.davem@davemloft.net> <CA+55aFybr6Fjti5WSm=FQpfwdwgH1Pcfg6L81M-Hd9MzuSHktg@mail.gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net PATCH 1/1] net: phy: fix phy link up when limiting speed via device tree
+Date: Thu, 25 Jun 2015 22:21:02 +0530
+Message-ID: <1435251062-5287-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Doug Ledford <dledford@redhat.com>,
-	Ira Weiny <ira.weiny@intel.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <f.fainelli@gmail.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:35355 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751122AbbFYQZA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 12:25:00 -0400
-In-Reply-To: <CA+55aFybr6Fjti5WSm=FQpfwdwgH1Pcfg6L81M-Hd9MzuSHktg@mail.gmail.com>
+Received: from bear.ext.ti.com ([192.94.94.41]:59824 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751197AbbFYQvK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jun 2015 12:51:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 24, 2015 at 7:38 PM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
+When limiting phy link speed using "max-speed" to 100mbps or less on a
+giga bit phy, phy never completes auto negotiation and phy state
+machine is held in PHY_AN. Fixing this issue by comparing the giga
+bit advertise though phydev->supported doesn't have it but phy has
+BMSR_ESTATEN set. So that auto negotiation is restarted as old and
+new advertise are different and link comes up fine.
 
-[...]
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/phy/phy_device.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
->
-> I'm getting *real* tired of that BUG_ON() shit. I realize that
-> infiniband is a niche market, and those "commercial grade" niche
-> markets are more-than-used-to crap code and horrible hacks, but this
-> is still the kernel. We don't add random machine-killing debug checks
-> when it is *so* simple to just do
->
->         if (WARN_ON_ONCE(..))
->                 return -EINVAL;
->
-> instead.
->
-> Killing the machine for idiotic things like that is truly offensive,
-> and truly horrible horrible code. Why do I keep on having to tell
-> people off for doing these things? Why do people keep thinking that
-> debugging-by-killing-the-machine is a good idea?
-
-Ingo figured this was an educational battle that we'd never win.
-
-https://lkml.org/lkml/2014/5/21/490
-
-I tend to agree, as unfortunate as that is.
-
-Paul.
---
-
->
-> Either that BUG_ON() cannot possibly happen, in which case it should
-> damn well not exist in the first place. Or it's a valuable debug aid,
-> in which case it should damn well not be a BUG_ON. You can't have it
-> both ways.
->
-> The next pointless BUG_ON() I see, I will start getting _really_
-> unpleasant about.
->
-> Doug, get rid of those things asap.
->
->                     Linus
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index bdfe51f..d551df6 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -796,10 +796,11 @@ static int genphy_config_advert(struct phy_device *phydev)
+ 	if (phydev->supported & (SUPPORTED_1000baseT_Half |
+ 				 SUPPORTED_1000baseT_Full)) {
+ 		adv |= ethtool_adv_to_mii_ctrl1000_t(advertise);
+-		if (adv != oldadv)
+-			changed = 1;
+ 	}
+ 
++	if (adv != oldadv)
++		changed = 1;
++
+ 	err = phy_write(phydev, MII_CTRL1000, adv);
+ 	if (err < 0)
+ 		return err;
+-- 
+2.4.4.409.g5b1d901
