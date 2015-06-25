@@ -1,49 +1,38 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net PATCH 1/1] net: phy: fix phy link up when limiting speed via device tree
-Date: Thu, 25 Jun 2015 22:21:02 +0530
-Message-ID: <1435251062-5287-1-git-send-email-mugunthanvnm@ti.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [GIT] Networking
+Date: Thu, 25 Jun 2015 09:52:18 -0700
+Message-ID: <1435251138.9377.28.camel@perches.com>
+References: <20150624.063911.1220157256743743341.davem@davemloft.net>
+	 <CA+55aFybr6Fjti5WSm=FQpfwdwgH1Pcfg6L81M-Hd9MzuSHktg@mail.gmail.com>
+	 <CAP=VYLogXORmUN1bt1++ucmTOp=T-nJd2pve0-ufV+HQaCVy6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <f.fainelli@gmail.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:59824 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751197AbbFYQvK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jun 2015 12:51:10 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Doug Ledford <dledford@redhat.com>,
+	Ira Weiny <ira.weiny@intel.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAP=VYLogXORmUN1bt1++ucmTOp=T-nJd2pve0-ufV+HQaCVy6Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When limiting phy link speed using "max-speed" to 100mbps or less on a
-giga bit phy, phy never completes auto negotiation and phy state
-machine is held in PHY_AN. Fixing this issue by comparing the giga
-bit advertise though phydev->supported doesn't have it but phy has
-BMSR_ESTATEN set. So that auto negotiation is restarted as old and
-new advertise are different and link comes up fine.
+On Thu, 2015-06-25 at 12:24 -0400, Paul Gortmaker wrote:
+> On Wed, Jun 24, 2015 at 7:38 PM, Linus Torvalds <torvalds@linux-foundation.org> wrote:
+> > I'm getting *real* tired of that BUG_ON() shit.
+[]
+> > Killing the machine for idiotic things like that is truly offensive,
+> > and truly horrible horrible code. Why do I keep on having to tell
+> > people off for doing these things? Why do people keep thinking that
+> > debugging-by-killing-the-machine is a good idea?
+> 
+> Ingo figured this was an educational battle that we'd never win.
+> 
+> https://lkml.org/lkml/2014/5/21/490
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- drivers/net/phy/phy_device.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index bdfe51f..d551df6 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -796,10 +796,11 @@ static int genphy_config_advert(struct phy_device *phydev)
- 	if (phydev->supported & (SUPPORTED_1000baseT_Half |
- 				 SUPPORTED_1000baseT_Full)) {
- 		adv |= ethtool_adv_to_mii_ctrl1000_t(advertise);
--		if (adv != oldadv)
--			changed = 1;
- 	}
- 
-+	if (adv != oldadv)
-+		changed = 1;
-+
- 	err = phy_write(phydev, MII_CTRL1000, adv);
- 	if (err < 0)
- 		return err;
--- 
-2.4.4.409.g5b1d901
+That should still be applied but for the selfie/OED bit as
+selfie is in the OED now...
