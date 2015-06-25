@@ -1,55 +1,61 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net 9/9] bnx2x: Fix linearization for encapsulated packets
-Date: Thu, 25 Jun 2015 15:19:29 +0300
-Message-ID: <1435234769-5625-10-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net 7/9] bnx2x: Fix statistics gathering on link change
+Date: Thu, 25 Jun 2015 15:19:27 +0300
+Message-ID: <1435234769-5625-8-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1435234769-5625-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:46661 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751964AbbFYMUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 08:20:21 -0400
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:51061 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751019AbbFYMUO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 08:20:14 -0400
 In-Reply-To: <1435234769-5625-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Due to FW constraints, driver must make sure that transmitted SKBs will
-not be too fragmented, or in the case that they are - that each 'window'
-of fragments passed to the FW would contain at least an mss worth of data.
+From: Ariel Elior <Ariel.Elior@qlogic.com>
 
-For encapsultaed packets the calculation is wrong, since it ignores the
-inner headers in the calculation of the headers' length.
-This could lead to a FW assertion in case of a too-fragmented encapsulated
-packet.
+Since driver statistics flow access MACs and those might reset during
+link re-configurations, when we're about to change link properties we
+have to make sure that statistics are not operational.
+Statisics would be re-enabled [i.e., gathering of statistics would
+re-commence] once physical link is achieved again.
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Since driver employs a link-flap avoidance scheme, there are scenarios
+where driver will receive no indication that the new link is up, and
+as a result the statistics would not be re-enabled.
+
+Preventing LFA from working in such cases would guarantee that we'll
+always receive such indications and thus will fix statistics gathering.
+
 Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index ec56a9b..d336356 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -3400,8 +3400,13 @@ static int bnx2x_pkt_req_lin(struct bnx2x *bp, struct sk_buff *skb,
- 			u32 wnd_sum = 0;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index 733b0fc..caf6b31 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -658,6 +658,7 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	bp->link_params.multi_phy_config = new_multi_phy_config;
+ 	if (netif_running(dev)) {
+ 		bnx2x_stats_handle(bp, STATS_EVENT_STOP);
++		bnx2x_force_link_reset(bp);
+ 		bnx2x_link_set(bp);
+ 	}
  
- 			/* Headers length */
--			hlen = (int)(skb_transport_header(skb) - skb->data) +
--				tcp_hdrlen(skb);
-+			if (xmit_type & XMIT_GSO_ENC)
-+				hlen = (int)(skb_inner_transport_header(skb) -
-+					     skb->data) +
-+					     inner_tcp_hdrlen(skb);
-+			else
-+				hlen = (int)(skb_transport_header(skb) -
-+					     skb->data) + tcp_hdrlen(skb);
+@@ -1969,6 +1970,7 @@ static int bnx2x_set_pauseparam(struct net_device *dev,
  
- 			/* Amount of data (w/o headers) on linear part of SKB*/
- 			first_bd_sz = skb_headlen(skb) - hlen;
+ 	if (netif_running(dev)) {
+ 		bnx2x_stats_handle(bp, STATS_EVENT_STOP);
++		bnx2x_force_link_reset(bp);
+ 		bnx2x_link_set(bp);
+ 	}
+ 
 -- 
 1.9.3
