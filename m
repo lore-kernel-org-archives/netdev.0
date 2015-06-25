@@ -1,111 +1,71 @@
-From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCH RFC] 2/2 huawei_cdc_ncm: introduce new TX ncm stack
-Date: Thu, 25 Jun 2015 15:38:46 +0200
-Message-ID: <1435239526.28594.24.camel@suse.de>
-References: <1435012335-6055-1-git-send-email-mrkiko.rs@gmail.com>
-	 <1435012335-6055-3-git-send-email-mrkiko.rs@gmail.com>
-	 <1435225769.28594.13.camel@suse.com>
-	 <alpine.LNX.2.20.1506251327570.25021@localhost.localdomain>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net 6/9] bnx2x: Fix self-test for 20g devices
+Date: Thu, 25 Jun 2015 16:46:41 +0300
+Message-ID: <558C0641.4000904@cogentembedded.com>
+References: <1435234769-5625-1-git-send-email-Yuval.Mintz@qlogic.com> <1435234769-5625-7-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LNX.2.20.1506251327570.25021-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Ariel.Elior@qlogic.com
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f51.google.com ([209.85.215.51]:35472 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751753AbbFYNqq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 09:46:46 -0400
+Received: by lagi2 with SMTP id i2so45435648lag.2
+        for <netdev@vger.kernel.org>; Thu, 25 Jun 2015 06:46:44 -0700 (PDT)
+In-Reply-To: <1435234769-5625-7-git-send-email-Yuval.Mintz@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-06-25 at 13:44 +0200, Enrico Mioso wrote:
+Hello.
 
-> On Thu, 25 Jun 2015, Oliver Neukum wrote:
+On 06/25/2015 03:19 PM, Yuval Mintz wrote:
 
-> > Is there any advantage in keeping this in a single function?
-> >
-> I did this choice in the light of the fact I think the tx_fixup function will 
-> become more complex than it is now, when aggregating frames.
+> 20g-capable devices are not configured properly for self-test, using
+> 10g as their speed which cause the link indication to remain down and
+> fail the internal loopback test.
 
-Yes, but that is a reason to split the helpers up not the opposite.
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+> Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
+> ---
+>   drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 12 ++++++++----
+>   1 file changed, 8 insertions(+), 4 deletions(-)
 
-> I answer here your other message to make it more convenient to read: my 
-> intention for the tx_fixup function would be to:
-> - aggregate frames
-> - send them out when:
->  	- a timer expires
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+> index c1033a5..3df03bb 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+> @@ -2347,12 +2347,16 @@ int bnx2x_initial_phy_init(struct bnx2x *bp, int load_mode)
+>   		if (load_mode == LOAD_DIAG) {
+>   			struct link_params *lp = &bp->link_params;
+>   			lp->loopback_mode = LOOPBACK_XGXS;
+> -			/* do PHY loopback at 10G speed, if possible */
+> -			if (lp->req_line_speed[cfx_idx] < SPEED_10000) {
+> +			/* Prefer doing PHY loopback at highest speed */
+> +			if (lp->req_line_speed[cfx_idx] < SPEED_20000) {
+>   				if (lp->speed_cap_mask[cfx_idx] &
+> -				    PORT_HW_CFG_SPEED_CAPABILITY_D0_10G)
+> +				    PORT_HW_CFG_SPEED_CAPABILITY_D0_20G)
+>   					lp->req_line_speed[cfx_idx] =
+> -					SPEED_10000;
+> +					SPEED_20000;
 
-How would you do that in tx_fixup()? If a timer is required then you
-need a separate function.
+    I would have added one more tab here.
 
->  	OR
->  	- we have enough data in the aggregate, and cannot add more.
+> +				else if (lp->speed_cap_mask[cfx_idx] &
+> +					    PORT_HW_CFG_SPEED_CAPABILITY_D0_10G)
 
-Yes.
+    This line should have been started right under 'lp'.
 
-You need a third case:
-	- the interface is taken down.
+> +						lp->req_line_speed[cfx_idx] =
 
-But in general the logic for that is already there. So can you explain
-what additional goals you have?
+    This line is indented too much.
 
-> This is something done in cdc_ncm.c for example.
-> But here I have a question: by reading the comment in file 
-> drivers/net/usb/rndis_host.c at line 572, there seem to be different opinions 
-> in this matter.
+> +						SPEED_10000;
 
-That is a very old comment written for much slower devices.
-rndis_host doesn't get much love nowadays.
+    This line seems alright.
 
-> What to do ?
-> 
-> >> +int
-> >> +huawei_ncm_mgmt(struct usbnet *dev,
-> >> +		struct huawei_cdc_ncm_state *drvstate, struct sk_buff *skb_out, int mode) {
-> >> +	struct usb_cdc_ncm_nth16 *nth16 = (struct usb_cdc_ncm_nth16 *)skb_out->data;
-> >> +	struct cdc_ncm_ctx *ctx = drvstate->ctx;
-> >> +	struct usb_cdc_ncm_ndp16 *ndp16 = NULL;
-> >> +	int ret = -EINVAL;
-> >> +	u16 ndplen, index;
-> >> +
-> >> +	switch (mode) {
-> >> +	case NCM_INIT_FRAME:
-> >> +
-> >> +		/* Write a new NTH16 header */
-> >> +		nth16 = (struct usb_cdc_ncm_nth16 *)memset(skb_put(skb_out, sizeof(struct usb_cdc_ncm_nth16)), 0, sizeof(struct usb_cdc_ncm_nth16));
-> >> +		if (!nth16) {
-> >> +			ret = -EINVAL;
-> >> +			goto error;
-> >> +		}
-> >> +
-> >> +		/* NTH16 signature and header length are known a-priori. */
-> >> +		nth16->dwSignature = cpu_to_le32(USB_CDC_NCM_NTH16_SIGN);
-> >> +		nth16->wHeaderLength = cpu_to_le16(sizeof(struct usb_cdc_ncm_nth16));
-> >> +
-> >> +		/* TX sequence numbering */
-> >> +		nth16->wSequence = cpu_to_le16(ctx->tx_seq++);
-> >> +
-> >> +		/* Forget about previous SKB NDP */
-> >> +		drvstate->skb_ndp = NULL;
-> >
-> > This is probably better done after you know you cannot fail.
-> Sure. Thank you.
-> >
-> >> +
-> >> +		/* Allocate a new NDP */
-> >> +		ndp16 = kzalloc(ctx->max_ndp_size, GFP_NOIO);
-> >
-> > Where is this freed?
-> The intention wqas to free it in the NCM_COMMIT_NDP case.
-> Infact after allocating the pointer, I make a copy of it in the driver state 
-> (drvstate) variable, and get back to it later.
-> Is this wrong?
-
-Well, no, but it supposes a matched commit phase. Can you guarantee
-that? I was under the oppression that in that phase you want to actually
-give a frame over to the hardware.
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+WBR, Sergei
