@@ -1,68 +1,132 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Wed, 24 Jun 2015 16:38:11 -0700
-Message-ID: <CA+55aFybr6Fjti5WSm=FQpfwdwgH1Pcfg6L81M-Hd9MzuSHktg@mail.gmail.com>
-References: <20150624.063911.1220157256743743341.davem@davemloft.net>
+From: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>
+Subject: RE: [PATCH v2 01/22] fjes: Introduce FUJITSU Extended Socket
+ Network Device driver
+Date: Thu, 25 Jun 2015 00:32:40 +0000
+Message-ID: <E86EADE93E2D054CBCD4E708C38D364A542440A2@G01JPEXMBYT01>
+References: <1435114351-6961-1-git-send-email-izumi.taku@jp.fujitsu.com>
+	 <1435114554-7151-2-git-send-email-izumi.taku@jp.fujitsu.com>
+ <1435128637.2504.51.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Doug Ledford <dledford@redhat.com>,
-	Ira Weiny <ira.weiny@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:34139 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750991AbbFXXiM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2015 19:38:12 -0400
-In-Reply-To: <20150624.063911.1220157256743743341.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-2022-jp"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"platform-driver-x86@vger.kernel.org"
+	<platform-driver-x86@vger.kernel.org>,
+	"dvhart@infradead.org" <dvhart@infradead.org>,
+	"rkhan@redhat.com" <rkhan@redhat.com>,
+	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>,
+	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>,
+	"sergei.shtylyov@cogentembedded.com"
+	<sergei.shtylyov@cogentembedded.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"yasu.isimatu@gmail.com" <yasu.isimatu@gmail.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1435128637.2504.51.camel@perches.com>
+Content-Language: ja-JP
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 24, 2015 at 6:39 AM, David Miller <davem@davemloft.net> wrote:
->
->   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
 
-Just going through the conflicts, I see commit 7193a141eb74 ("IB/mlx4:
-Set VF to read from QP counters"), and wonder...
+ Thanks for your help.
 
-Is that code really supposed to fall through to the
-infiniband-over-ethernet case when the link layer is
-IB_LINK_LAYER_INFINIBAND but it's a slave?
+> -----Original Message-----
+> From: platform-driver-x86-owner@vger.kernel.org [mailto:platform-driver-x86-owner@vger.kernel.org] On Behalf Of Joe
+> Perches
+> Sent: Wednesday, June 24, 2015 3:51 PM
+> To: Izumi, Taku/泉 拓
+> Cc: netdev@vger.kernel.org; davem@davemloft.net; platform-driver-x86@vger.kernel.org; dvhart@infradead.org;
+> rkhan@redhat.com; alexander.h.duyck@redhat.com; linux-acpi@vger.kernel.org; sergei.shtylyov@cogentembedded.com;
+> stephen@networkplumber.org; yasu.isimatu@gmail.com
+> Subject: Re: [PATCH v2 01/22] fjes: Introduce FUJITSU Extended Socket Network Device driver
+> 
+> On Wed, 2015-06-24 at 11:55 +0900, Taku Izumi wrote:
+> > This patch adds the basic code of FUJITSU Extended Socket
+> > Network Device driver.
+> 
+> trivial notes:
+> 
+> > diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
+> []
+> > +static int fjes_acpi_add(struct acpi_device *device)
+> > +{
+> []
+> > +	result =
+> > +	utf16s_to_utf8s((wchar_t *)str->string.pointer,
+> > +			str->string.length, UTF16_LITTLE_ENDIAN,
+> > +			str_buf, sizeof(str_buf) - 1);
+> 
+> I dislike this style as it's not normally used in the kernel.
+> Most would use another tab indent on the utf16s_to_utf8s line
+> if the line didn't fit, but this would is more common:
 
-The commit message is not in the least helpful.
+ To tell the truth, I dislike this style too.... OK, I'll fix.
+ I reformatted to fix " CHECK: Alignment should match open parenthesis" 
+ style issue.
+ I thought the following style is easy to exceed 80 columns, I opted
+ the above style.
 
-On the *other* side of the same conflict, I find an even more
-offensive commit, namely commit 4cd7c9479aff ("IB/mad: Add support for
-additional MAD info to/from drivers") which adds a BUG_ON() for a
-sanity check, rather than just returning -EINVAL or something sane
-like that.
 
-I'm getting *real* tired of that BUG_ON() shit. I realize that
-infiniband is a niche market, and those "commercial grade" niche
-markets are more-than-used-to crap code and horrible hacks, but this
-is still the kernel. We don't add random machine-killing debug checks
-when it is *so* simple to just do
+> 	result = utf16s_to_utf8s((wchar_t *)str->string.pointer,
+> 				 str->string.length, UTF16_LITTLE_ENDIAN,
+> 				 str_buf, sizeof(str_buf) - 1);
+> >
+> > +	/* create platform_device */
+> > +	plat_dev =
+> > +	platform_device_register_simple(DRV_NAME, 0, fjes_resource,
+> > +					ARRAY_SIZE(fjes_resource));
+> 
+> 	plat_dev = platform_device_register_simple(DRV_NAME, 0, fjes_resource,
+> 						   ARRAY_SIZE(fjes_resource));
+> 
+> etc...
+> 
+> > +static acpi_status
+> > +fjes_get_acpi_resource(struct acpi_resource *acpi_res, void *data)
+> > +{
+> > +	struct resource *res = data;
+> > +	struct acpi_resource_address32 *addr;
+> > +	struct acpi_resource_irq *irq;
+> > +
+> > +	switch (acpi_res->type) {
+> > +	case ACPI_RESOURCE_TYPE_ADDRESS32:
+> > +		addr = &acpi_res->data.address32;
+> > +		res[0].start = addr->address.minimum;
+> > +		res[0].end = addr->address.minimum +
+> > +			addr->address.address_length - 1;
+> > +		break;
+> > +
+> > +	case ACPI_RESOURCE_TYPE_IRQ:
+> > +		irq = &acpi_res->data.irq;
+> > +		if (irq->interrupt_count != 1)
+> > +			return AE_ERROR;
+> > +		res[1].start = irq->interrupts[0];
+> > +		res[1].end = irq->interrupts[0];
+> > +		break;
+> > +
+> > +	default:
+> > +		break;
+> > +	}
+> > +
+> > +	return AE_OK;
+> > +}
+> 
+> Is this function used in this compilation?
+> If not, it's odd to add code that isn't used.
+> 
+> Is it better to make the 2nd argument a
+> struct resource * rather than a void * ?
 
-        if (WARN_ON_ONCE(..))
-                return -EINVAL;
+  This function is used as a callback function of "acpi_walk_resources".
+  Its signature is
 
-instead.
+   acpi_status(*acpi_walk_resource_callback) (struct acpi_resource * resource, void *context);
 
-Killing the machine for idiotic things like that is truly offensive,
-and truly horrible horrible code. Why do I keep on having to tell
-people off for doing these things? Why do people keep thinking that
-debugging-by-killing-the-machine is a good idea?
+  Sincerely,
+  Taku Izumi
 
-Either that BUG_ON() cannot possibly happen, in which case it should
-damn well not exist in the first place. Or it's a valuable debug aid,
-in which case it should damn well not be a BUG_ON. You can't have it
-both ways.
-
-The next pointless BUG_ON() I see, I will start getting _really_
-unpleasant about.
-
-Doug, get rid of those things asap.
-
-                    Linus
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe platform-driver-x86" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
