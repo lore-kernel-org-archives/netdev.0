@@ -1,59 +1,95 @@
-From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: [PATCH 2/2] iproute2: misc/ss.c - fix run_ssfilter af_packet when protocol == 0
-Date: Thu, 25 Jun 2015 02:03:03 -0700
-Message-ID: <1435222983-14661-2-git-send-email-zenczykowski@gmail.com>
-References: <1435222983-14661-1-git-send-email-zenczykowski@gmail.com>
+From: Simon Guinot <simon.guinot@sequanux.org>
+Subject: Re: [PATCH v2 1/3] net: mvneta: introduce compatible string
+ "marvell, armada-xp-neta"
+Date: Thu, 25 Jun 2015 11:13:23 +0200
+Message-ID: <20150625091323.GH4853@kw.sim.vm.gnt>
+References: <1434547162-6275-1-git-send-email-simon.guinot@sequanux.org>
+ <1434547162-6275-2-git-send-email-simon.guinot@sequanux.org>
+ <55818E64.20007@free-electrons.com>
+ <55818F10.8030304@free-electrons.com>
+ <20150617170112.GD2917@io.lakedaemon.net>
+ <20150619123253.GB4853@kw.sim.vm.gnt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
-	Stephen Hemminger <shemming@brocade.com>,
-	Eric Dumazet <edumazet@google.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="qJM7dOmrnYWq+SaN"
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	Vincent Donnefort <vdonnefort@gmail.com>,
+	stable@vger.kernel.org,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Jason Cooper <jason@lakedaemon.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:36592 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752334AbbFYJDQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 05:03:16 -0400
-Received: by iecvh10 with SMTP id vh10so50337386iec.3
-        for <netdev@vger.kernel.org>; Thu, 25 Jun 2015 02:03:15 -0700 (PDT)
-In-Reply-To: <1435222983-14661-1-git-send-email-zenczykowski@gmail.com>
+Received: from vm1.sequanux.org ([188.165.36.56]:38484 "EHLO vm1.sequanux.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752132AbbFYJN0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jun 2015 05:13:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20150619123253.GB4853@kw.sim.vm.gnt>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Maciej =C5=BBenczykowski <maze@google.com>
 
-s->local.data is a pointer to a field of a non-NULL struct, and hence
-cannot be NULL, thus comparing it to 0 is always false, and thus the
-return is always false.
+--qJM7dOmrnYWq+SaN
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Presumably this was meant to be a check whether s->local.data[0] (which
-I believe stores af_packet protocol) is 0, ie. ANY.
+On Fri, Jun 19, 2015 at 02:32:53PM +0200, Simon Guinot wrote:
+> On Wed, Jun 17, 2015 at 05:01:12PM +0000, Jason Cooper wrote:
+> > Hi Gregory,
+> >=20
+> > On Wed, Jun 17, 2015 at 05:15:28PM +0200, Gregory CLEMENT wrote:
+> > > On 17/06/2015 17:12, Gregory CLEMENT wrote:
+> > > > On 17/06/2015 15:19, Simon Guinot wrote:
+> > > >> The mvneta driver supports the Ethernet IP found in the Armada 370=
+, XP,
+> > > >> 380 and 385 SoCs. Since at least one more hardware feature is avai=
+lable
+> > > >> for the Armada XP SoCs then a way to identify them is needed.
+> > > >>
+> > > >> This patch introduces a new compatible string "marvell,armada-xp-n=
+eta".
+> > > >=20
+> > > > Let's be future proof by going further. I would like to have an com=
+patible string
+> > > > for each SoC even if we currently we don't use them.
+> >=20
+> > I disagree with this.  We can't predict what incosistencies we'll disco=
+ver in
+> > the future.  We should only assign new compatible strings based on know=
+n IP
+> > variations when we discover them.  This seems fraught with demons since=
+ we
+> > can't predict the scope of affected IP blocks (some steppings of one So=
+C, three
+> > SoCs plus two steppings of a fourth, etc)
+> >=20
+> > imho, the 'future-proofing' lies in being specific as to the naming of =
+the
+> > compatible strings against known hardware variations at the time.
+>=20
+> So, should I add more compatible strings or not ?
 
-Change-Id: Ia232f5b06ce081e3b2fb6338f1a709cd94e03ae5
-=46ixes:
-  ss.c:1018:37: error: comparison of array 's->local.data' equal to a n=
-ull pointer is always false [-Werror,-Wtautological-pointer-compare]
-    return s->lport =3D=3D 0 && s->local.data =3D=3D 0;
-                            ~~~~~~~~~^~~~    ~
-  1 error generated.
----
- misc/ss.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi Gregory and Jason,
 
-diff --git a/misc/ss.c b/misc/ss.c
-index dba0901791c7..36b0efdfd32f 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1090,7 +1090,7 @@ static int run_ssfilter(struct ssfilter *f, struc=
-t sockstat *s)
- 					     strspn(p+1, "0123456789abcdef") =3D=3D 5);
- 		}
- 		if (s->local.family =3D=3D AF_PACKET)
--			return s->lport =3D=3D 0 && s->local.data =3D=3D 0;
-+			return s->lport =3D=3D 0 && s->local.data[0] =3D=3D 0;
- 		if (s->local.family =3D=3D AF_NETLINK)
- 			return s->lport < 0;
-=20
---=20
-2.4.3.573.g4eafbef
+How do you want me to handle this ? Did you reach an agreement ?
+
+Thanks,
+
+Simon
+
+--qJM7dOmrnYWq+SaN
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlWLxjMACgkQgtp0PDeOcDrX5wCfdkOLANKFbrshdQTABjiFz0wb
+ooUAni3FzCdZAdLA6gax+L4s2lVT5vkL
+=jWDS
+-----END PGP SIGNATURE-----
+
+--qJM7dOmrnYWq+SaN--
