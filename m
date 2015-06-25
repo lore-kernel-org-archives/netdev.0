@@ -1,208 +1,43 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next v2] enic: use atomic_t instead of spin_lock in busy poll
-Date: Thu, 25 Jun 2015 16:02:04 +0530
-Message-ID: <1435228324-11560-1-git-send-email-_govind@gmx.com>
-Cc: ssujith@cisco.com, benve@cisco.com,
-	Govindarajulu Varadarajan <_govind@gmx.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [net-next PATCH 1/1] net: sched: flower fix typo
+Date: Thu, 25 Jun 2015 06:55:27 -0400
+Message-ID: <1435229727-3398-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <hadi@mojatatu.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net, jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.20]:52371 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751628AbbFYKcS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jun 2015 06:32:18 -0400
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:33932 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751995AbbFYKzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 06:55:40 -0400
+Received: by igcsj18 with SMTP id sj18so5450437igc.1
+        for <netdev@vger.kernel.org>; Thu, 25 Jun 2015 03:55:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We use spinlock to access a single flag. We can avoid spin_locks by using
-atomic variable and atomic_cmpxchg(). Use atomic_cmpxchg to set the flag
-for idle to poll. And a simple atomic_set to unlock (set idle from poll).
+From: Jamal Hadi Salim <hadi@mojatatu.com>
 
-In napi poll, if gro is enabled, we call napi_gro_receive() to deliver the
-packets. Before we call napi_complete(), i.e while re-polling, if low
-latency busy poll is called, we use netif_receive_skb() to deliver the packets.
-At this point if there are some skb's held in GRO, busy poll could deliver the
-packets out of order. So we call napi_gro_flush() to flush skbs before we
-move the napi poll to idle.
+Fix typo in the validation rules for flower's attributes
 
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
-v2: Add more details about why gro flush is required while unlocking napi poll.
+ net/sched/cls_flower.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
- drivers/net/ethernet/cisco/enic/enic_main.c |  4 +-
- drivers/net/ethernet/cisco/enic/vnic_rq.h   | 91 +++++++++--------------------
- 2 files changed, 29 insertions(+), 66 deletions(-)
-
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index eadae1b..da2004e 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -1208,7 +1208,7 @@ static int enic_poll(struct napi_struct *napi, int budget)
- 		napi_complete(napi);
- 		vnic_intr_unmask(&enic->intr[intr]);
- 	}
--	enic_poll_unlock_napi(&enic->rq[cq_rq]);
-+	enic_poll_unlock_napi(&enic->rq[cq_rq], napi);
- 
- 	return rq_work_done;
- }
-@@ -1414,7 +1414,7 @@ static int enic_poll_msix_rq(struct napi_struct *napi, int budget)
- 		 */
- 		enic_calc_int_moderation(enic, &enic->rq[rq]);
- 
--	enic_poll_unlock_napi(&enic->rq[rq]);
-+	enic_poll_unlock_napi(&enic->rq[rq], napi);
- 	if (work_done < work_to_do) {
- 
- 		/* Some work done, but not enough to stay in polling,
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_rq.h b/drivers/net/ethernet/cisco/enic/vnic_rq.h
-index 8111d52..b9c82f1 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_rq.h
-+++ b/drivers/net/ethernet/cisco/enic/vnic_rq.h
-@@ -21,6 +21,7 @@
- #define _VNIC_RQ_H_
- 
- #include <linux/pci.h>
-+#include <linux/netdevice.h>
- 
- #include "vnic_dev.h"
- #include "vnic_cq.h"
-@@ -75,6 +76,12 @@ struct vnic_rq_buf {
- 	uint64_t wr_id;
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index b92d3f4..9d37ccd 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -216,8 +216,8 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
+ 	[TCA_FLOWER_KEY_IPV6_DST_MASK]	= { .len = sizeof(struct in6_addr) },
+ 	[TCA_FLOWER_KEY_TCP_SRC]	= { .type = NLA_U16 },
+ 	[TCA_FLOWER_KEY_TCP_DST]	= { .type = NLA_U16 },
+-	[TCA_FLOWER_KEY_TCP_SRC]	= { .type = NLA_U16 },
+-	[TCA_FLOWER_KEY_TCP_DST]	= { .type = NLA_U16 },
++	[TCA_FLOWER_KEY_UDP_SRC]	= { .type = NLA_U16 },
++	[TCA_FLOWER_KEY_UDP_DST]	= { .type = NLA_U16 },
  };
  
-+enum enic_poll_state {
-+	ENIC_POLL_STATE_IDLE,
-+	ENIC_POLL_STATE_NAPI,
-+	ENIC_POLL_STATE_POLL
-+};
-+
- struct vnic_rq {
- 	unsigned int index;
- 	struct vnic_dev *vdev;
-@@ -86,19 +93,7 @@ struct vnic_rq {
- 	void *os_buf_head;
- 	unsigned int pkts_outstanding;
- #ifdef CONFIG_NET_RX_BUSY_POLL
--#define ENIC_POLL_STATE_IDLE		0
--#define ENIC_POLL_STATE_NAPI		(1 << 0) /* NAPI owns this poll */
--#define ENIC_POLL_STATE_POLL		(1 << 1) /* poll owns this poll */
--#define ENIC_POLL_STATE_NAPI_YIELD	(1 << 2) /* NAPI yielded this poll */
--#define ENIC_POLL_STATE_POLL_YIELD	(1 << 3) /* poll yielded this poll */
--#define ENIC_POLL_YIELD			(ENIC_POLL_STATE_NAPI_YIELD |	\
--					 ENIC_POLL_STATE_POLL_YIELD)
--#define ENIC_POLL_LOCKED		(ENIC_POLL_STATE_NAPI |		\
--					 ENIC_POLL_STATE_POLL)
--#define ENIC_POLL_USER_PEND		(ENIC_POLL_STATE_POLL |		\
--					 ENIC_POLL_STATE_POLL_YIELD)
--	unsigned int bpoll_state;
--	spinlock_t bpoll_lock;
-+	atomic_t bpoll_state;
- #endif /* CONFIG_NET_RX_BUSY_POLL */
- };
- 
-@@ -215,76 +210,43 @@ static inline int vnic_rq_fill(struct vnic_rq *rq,
- #ifdef CONFIG_NET_RX_BUSY_POLL
- static inline void enic_busy_poll_init_lock(struct vnic_rq *rq)
- {
--	spin_lock_init(&rq->bpoll_lock);
--	rq->bpoll_state = ENIC_POLL_STATE_IDLE;
-+	atomic_set(&rq->bpoll_state, ENIC_POLL_STATE_IDLE);
- }
- 
- static inline bool enic_poll_lock_napi(struct vnic_rq *rq)
- {
--	bool rc = true;
--
--	spin_lock(&rq->bpoll_lock);
--	if (rq->bpoll_state & ENIC_POLL_LOCKED) {
--		WARN_ON(rq->bpoll_state & ENIC_POLL_STATE_NAPI);
--		rq->bpoll_state |= ENIC_POLL_STATE_NAPI_YIELD;
--		rc = false;
--	} else {
--		rq->bpoll_state = ENIC_POLL_STATE_NAPI;
--	}
--	spin_unlock(&rq->bpoll_lock);
-+	int rc = atomic_cmpxchg(&rq->bpoll_state, ENIC_POLL_STATE_IDLE,
-+				ENIC_POLL_STATE_NAPI);
- 
--	return rc;
-+	return (rc == ENIC_POLL_STATE_IDLE);
- }
- 
--static inline bool enic_poll_unlock_napi(struct vnic_rq *rq)
-+static inline void enic_poll_unlock_napi(struct vnic_rq *rq,
-+					 struct napi_struct *napi)
- {
--	bool rc = false;
--
--	spin_lock(&rq->bpoll_lock);
--	WARN_ON(rq->bpoll_state &
--		(ENIC_POLL_STATE_POLL | ENIC_POLL_STATE_NAPI_YIELD));
--	if (rq->bpoll_state & ENIC_POLL_STATE_POLL_YIELD)
--		rc = true;
--	rq->bpoll_state = ENIC_POLL_STATE_IDLE;
--	spin_unlock(&rq->bpoll_lock);
--
--	return rc;
-+	WARN_ON(atomic_read(&rq->bpoll_state) != ENIC_POLL_STATE_NAPI);
-+	napi_gro_flush(napi, false);
-+	atomic_set(&rq->bpoll_state, ENIC_POLL_STATE_IDLE);
- }
- 
- static inline bool enic_poll_lock_poll(struct vnic_rq *rq)
- {
--	bool rc = true;
--
--	spin_lock_bh(&rq->bpoll_lock);
--	if (rq->bpoll_state & ENIC_POLL_LOCKED) {
--		rq->bpoll_state |= ENIC_POLL_STATE_POLL_YIELD;
--		rc = false;
--	} else {
--		rq->bpoll_state |= ENIC_POLL_STATE_POLL;
--	}
--	spin_unlock_bh(&rq->bpoll_lock);
-+	int rc = atomic_cmpxchg(&rq->bpoll_state, ENIC_POLL_STATE_IDLE,
-+				ENIC_POLL_STATE_POLL);
- 
--	return rc;
-+	return (rc == ENIC_POLL_STATE_IDLE);
- }
- 
--static inline bool enic_poll_unlock_poll(struct vnic_rq *rq)
--{
--	bool rc = false;
- 
--	spin_lock_bh(&rq->bpoll_lock);
--	WARN_ON(rq->bpoll_state & ENIC_POLL_STATE_NAPI);
--	if (rq->bpoll_state & ENIC_POLL_STATE_POLL_YIELD)
--		rc = true;
--	rq->bpoll_state = ENIC_POLL_STATE_IDLE;
--	spin_unlock_bh(&rq->bpoll_lock);
--
--	return rc;
-+static inline void enic_poll_unlock_poll(struct vnic_rq *rq)
-+{
-+	WARN_ON(atomic_read(&rq->bpoll_state) != ENIC_POLL_STATE_POLL);
-+	atomic_set(&rq->bpoll_state, ENIC_POLL_STATE_IDLE);
- }
- 
- static inline bool enic_poll_busy_polling(struct vnic_rq *rq)
- {
--	WARN_ON(!(rq->bpoll_state & ENIC_POLL_LOCKED));
--	return rq->bpoll_state & ENIC_POLL_USER_PEND;
-+	return atomic_read(&rq->bpoll_state) & ENIC_POLL_STATE_POLL;
- }
- 
- #else
-@@ -298,7 +260,8 @@ static inline bool enic_poll_lock_napi(struct vnic_rq *rq)
- 	return true;
- }
- 
--static inline bool enic_poll_unlock_napi(struct vnic_rq *rq)
-+static inline bool enic_poll_unlock_napi(struct vnic_rq *rq,
-+					 struct napi_struct *napi)
- {
- 	return false;
- }
+ static void fl_set_key_val(struct nlattr **tb,
 -- 
-2.4.4
+1.7.9.5
