@@ -1,131 +1,97 @@
 From: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>
-Subject: RE: [PATCH v2 01/22] fjes: Introduce FUJITSU Extended Socket
- Network Device driver
-Date: Thu, 25 Jun 2015 00:32:40 +0000
-Message-ID: <E86EADE93E2D054CBCD4E708C38D364A542440A2@G01JPEXMBYT01>
+Subject: RE: [PATCH v2 00/22] FUJITSU Extended Socket network device driver
+Date: Thu, 25 Jun 2015 00:32:53 +0000
+Message-ID: <E86EADE93E2D054CBCD4E708C38D364A542440AB@G01JPEXMBYT01>
 References: <1435114351-6961-1-git-send-email-izumi.taku@jp.fujitsu.com>
-	 <1435114554-7151-2-git-send-email-izumi.taku@jp.fujitsu.com>
- <1435128637.2504.51.camel@perches.com>
+ <20150624154113.4b41db79@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="iso-2022-jp"
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
 	"platform-driver-x86@vger.kernel.org"
 	<platform-driver-x86@vger.kernel.org>,
 	"dvhart@infradead.org" <dvhart@infradead.org>,
 	"rkhan@redhat.com" <rkhan@redhat.com>,
 	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>,
 	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"joe@perches.com" <joe@perches.com>,
 	"yasu.isimatu@gmail.com" <yasu.isimatu@gmail.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1435128637.2504.51.camel@perches.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
+In-Reply-To: <20150624154113.4b41db79@redhat.com>
 Content-Language: ja-JP
-Sender: linux-acpi-owner@vger.kernel.org
+Sender: platform-driver-x86-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
- Thanks for your help.
+ Thanks for your comment.
 
 > -----Original Message-----
-> From: platform-driver-x86-owner@vger.kernel.org [mailto:platform-driver-x86-owner@vger.kernel.org] On Behalf Of Joe
-> Perches
-> Sent: Wednesday, June 24, 2015 3:51 PM
+> From: platform-driver-x86-owner@vger.kernel.org [mailto:platform-driver-x86-owner@vger.kernel.org] On Behalf Of Jesper
+> Dangaard Brouer
+> Sent: Wednesday, June 24, 2015 10:41 PM
 > To: Izumi, Taku/泉 拓
-> Cc: netdev@vger.kernel.org; davem@davemloft.net; platform-driver-x86@vger.kernel.org; dvhart@infradead.org;
-> rkhan@redhat.com; alexander.h.duyck@redhat.com; linux-acpi@vger.kernel.org; sergei.shtylyov@cogentembedded.com;
-> stephen@networkplumber.org; yasu.isimatu@gmail.com
-> Subject: Re: [PATCH v2 01/22] fjes: Introduce FUJITSU Extended Socket Network Device driver
+> Cc: brouer@redhat.com; netdev@vger.kernel.org; platform-driver-x86@vger.kernel.org; dvhart@infradead.org;
+> rkhan@redhat.com; alexander.h.duyck@redhat.com; linux-acpi@vger.kernel.org; joe@perches.com; yasu.isimatu@gmail.com
+> Subject: Re: [PATCH v2 00/22] FUJITSU Extended Socket network device driver
 > 
-> On Wed, 2015-06-24 at 11:55 +0900, Taku Izumi wrote:
-> > This patch adds the basic code of FUJITSU Extended Socket
-> > Network Device driver.
+> On Wed, 24 Jun 2015 11:52:31 +0900
+> Taku Izumi <izumi.taku@jp.fujitsu.com> wrote:
 > 
-> trivial notes:
-> 
-> > diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-> []
-> > +static int fjes_acpi_add(struct acpi_device *device)
-> > +{
-> []
-> > +	result =
-> > +	utf16s_to_utf8s((wchar_t *)str->string.pointer,
-> > +			str->string.length, UTF16_LITTLE_ENDIAN,
-> > +			str_buf, sizeof(str_buf) - 1);
-> 
-> I dislike this style as it's not normally used in the kernel.
-> Most would use another tab indent on the utf16s_to_utf8s line
-> if the line didn't fit, but this would is more common:
-
- To tell the truth, I dislike this style too.... OK, I'll fix.
- I reformatted to fix " CHECK: Alignment should match open parenthesis" 
- style issue.
- I thought the following style is easy to exceed 80 columns, I opted
- the above style.
-
-
-> 	result = utf16s_to_utf8s((wchar_t *)str->string.pointer,
-> 				 str->string.length, UTF16_LITTLE_ENDIAN,
-> 				 str_buf, sizeof(str_buf) - 1);
+> > This patchsets adds FUJITSU Extended Socket network device driver.
+> > Extended Socket network device is a shared memory based high-speed network
+> > interface between Extended Partitions of PRIMEQUEST 2000 E2 series.
 > >
-> > +	/* create platform_device */
-> > +	plat_dev =
-> > +	platform_device_register_simple(DRV_NAME, 0, fjes_resource,
-> > +					ARRAY_SIZE(fjes_resource));
+> > You can get some information about Extended Partition and Extended
+> > Socket by referring the following manual.
+> >
+> > http://globalsp.ts.fujitsu.com/dmsp/Publications/public/CA92344-0537.pdf
+> >   3.2.1 Extended Partitioning
+> >   3.2.2 Extended Socket
+> >
+> > v1 -> v2:
+> >   - Location change
+> >     drivers/platform/x86 => driver/net
 > 
-> 	plat_dev = platform_device_register_simple(DRV_NAME, 0, fjes_resource,
-> 						   ARRAY_SIZE(fjes_resource));
+> Could/should this driver be placed under driver/net/ethernet/fujitsu ??
 > 
-> etc...
-> 
-> > +static acpi_status
-> > +fjes_get_acpi_resource(struct acpi_resource *acpi_res, void *data)
-> > +{
-> > +	struct resource *res = data;
-> > +	struct acpi_resource_address32 *addr;
-> > +	struct acpi_resource_irq *irq;
-> > +
-> > +	switch (acpi_res->type) {
-> > +	case ACPI_RESOURCE_TYPE_ADDRESS32:
-> > +		addr = &acpi_res->data.address32;
-> > +		res[0].start = addr->address.minimum;
-> > +		res[0].end = addr->address.minimum +
-> > +			addr->address.address_length - 1;
-> > +		break;
-> > +
-> > +	case ACPI_RESOURCE_TYPE_IRQ:
-> > +		irq = &acpi_res->data.irq;
-> > +		if (irq->interrupt_count != 1)
-> > +			return AE_ERROR;
-> > +		res[1].start = irq->interrupts[0];
-> > +		res[1].end = irq->interrupts[0];
-> > +		break;
-> > +
-> > +	default:
-> > +		break;
-> > +	}
-> > +
-> > +	return AE_OK;
-> > +}
-> 
-> Is this function used in this compilation?
-> If not, it's odd to add code that isn't used.
-> 
-> Is it better to make the 2nd argument a
-> struct resource * rather than a void * ?
+> You are using Ethernet addresses but they are kind of special, always
+> 02:00:00:00:00:xx which is hard-coded... maybe I misunderstand the
+> code/hw and it is not Ethernet?
 
-  This function is used as a callback function of "acpi_walk_resources".
-  Its signature is
-
-   acpi_status(*acpi_walk_resource_callback) (struct acpi_resource * resource, void *context);
+  "Extended Socket network device" doesn't necessitate real (physical) Ethernet card.
+  There's no Ethernet card, so I'm not quite sure I can put this code
+  under driver/net/ethernet.
+  I thought this driver is analogous with "vmxnet3" or "hyperv", so I put at driver/net.
+  If it's no problem to put it under driver/net/ethernet, I'm ready to migrate it.
 
   Sincerely,
   Taku Izumi
-
 > 
+> [...]
+> >  drivers/net/fjes/Makefile       |   31 +
+> >  drivers/net/fjes/fjes.h         |   77 +++
+> >  drivers/net/fjes/fjes_ethtool.c |  135 ++++
+> >  drivers/net/fjes/fjes_hw.c      | 1122 +++++++++++++++++++++++++++++++
+> >  drivers/net/fjes/fjes_hw.h      |  333 ++++++++++
+> >  drivers/net/fjes/fjes_main.c    | 1397 +++++++++++++++++++++++++++++++++++++++
+> >  drivers/net/fjes/fjes_regs.h    |  142 ++++
+> >  9 files changed, 3246 insertions(+)
+> >  create mode 100644 drivers/net/fjes/Makefile
+> >  create mode 100644 drivers/net/fjes/fjes.h
+> >  create mode 100644 drivers/net/fjes/fjes_ethtool.c
+> >  create mode 100644 drivers/net/fjes/fjes_hw.c
+> >  create mode 100644 drivers/net/fjes/fjes_hw.h
+> >  create mode 100644 drivers/net/fjes/fjes_main.c
+> >  create mode 100644 drivers/net/fjes/fjes_regs.h
+> >
+> 
+> 
+> 
+> --
+> Best regards,
+>   Jesper Dangaard Brouer
+>   MSc.CS, Sr. Network Kernel Developer at Red Hat
+>   Author of http://www.iptv-analyzer.org
+>   LinkedIn: http://www.linkedin.com/in/brouer
 > --
 > To unsubscribe from this list: send the line "unsubscribe platform-driver-x86" in
 > the body of a message to majordomo@vger.kernel.org
