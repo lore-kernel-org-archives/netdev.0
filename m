@@ -1,28 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/4] net: dsa: mv88e6352: add support for VLAN Table
- Unit
-Date: Thu, 25 Jun 2015 01:29:52 -0700 (PDT)
-Message-ID: <20150625.012952.551273001965761045.davem@davemloft.net>
-References: <1435171859-27012-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sfeldma@gmail.com, jiri@resnulli.us,
-	andrew@lunn.ch, f.fainelli@gmail.com, linux@roeck-us.net,
-	linux-kernel@vger.kernel.org, jerome.oufella@savoirfairelinux.com,
-	kernel@savoirfairelinux.com
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1435171859-27012-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net V1 0/4] mlx4 driver fixes, June 24, 2015
+Date: Thu, 25 Jun 2015 11:29:40 +0300
+Message-ID: <1435220984-16295-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:47628 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751340AbbFYIaI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jun 2015 04:30:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Wed, 24 Jun 2015 14:50:55 -0400
+Hi Dave,
 
-> This patchset brings full support for hardware VLANs in DSA, and the Marvell
-> 88E6352 and compatible switch chips.
+Some fixes that we made recently, all need to go into stable.
 
-As I clearly announced on net-next yesterday, the net-next tree is now
-closed.  Please resubmit this series when the net-next tree opens up
-again.
+patch #1 "net/mlx4_en: Release TX QP when destroying TX ring" and patch #3 
+"Fix wrong csum complete report when rxvlan offload is disabled" to >= 3.19
+
+patch #2 "Wake TX queues only when there's enough room" addressing a bug 
+which is there from day one... should go to whatever kernels it's still applicable
+
+patch #4 "mlx4: Disable HA for SRIOV PF RoCE devices" to >= 4.0
+
+The patches are marked with net but are made against net-next,
+as the net tree still doesn't contain all the net-next bits.
+
+thanks,
+
+Or.
+
+Changes from V0:
+ - addressed feedback from Eric D. on the checksum complete patch
+
+
+Eran Ben Elisha (1):
+  net/mlx4_en: Release TX QP when destroying TX ring
+
+Ido Shamay (2):
+  net/mlx4_en: Wake TX queues only when there's enough room
+  net/mlx4_en: Fix wrong csum complete report when rxvlan offload is
+    disabled
+
+Or Gerlitz (1):
+  mlx4: Disable HA for SRIOV PF RoCE devices
+
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  4 ----
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 17 ++++++-----------
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c     | 20 ++++++++++++--------
+ drivers/net/ethernet/mellanox/mlx4/intf.c      |  8 +++++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  2 +-
+ 5 files changed, 26 insertions(+), 25 deletions(-)
+
+-- 
+2.3.7
