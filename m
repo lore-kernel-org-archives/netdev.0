@@ -1,61 +1,52 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net 7/9] bnx2x: Fix statistics gathering on link change
-Date: Thu, 25 Jun 2015 15:19:27 +0300
-Message-ID: <1435234769-5625-8-git-send-email-Yuval.Mintz@qlogic.com>
-References: <1435234769-5625-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
+Subject: [EDT][PATCH] ax88179_178a: add reset function in reset_resume
+Date: Thu, 25 Jun 2015 12:41:11 +0000 (GMT)
+Message-ID: <1874645844.257601435236071349.JavaMail.weblogic@ep2mlwas06c>
+Reply-To: vivek.bhagat@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:51061 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751019AbbFYMUO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 08:20:14 -0400
-In-Reply-To: <1435234769-5625-1-git-send-email-Yuval.Mintz@qlogic.com>
+Received: from mailout4.samsung.com ([203.254.224.34]:39545 "EHLO
+	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750968AbbFYMlN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 08:41:13 -0400
+Received: from epcpsbgr2.samsung.com
+ (u142.gpu120.samsung.co.kr [203.254.230.142])
+ by mailout4.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
+ 64bit (built May  5 2014))
+ with ESMTP id <0NQI00SNM38NIY20@mailout4.samsung.com> for
+ netdev@vger.kernel.org; Thu, 25 Jun 2015 21:41:11 +0900 (KST)
+MIME-version: 1.0
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Elior <Ariel.Elior@qlogic.com>
-
-Since driver statistics flow access MACs and those might reset during
-link re-configurations, when we're about to change link properties we
-have to make sure that statistics are not operational.
-Statisics would be re-enabled [i.e., gathering of statistics would
-re-commence] once physical link is achieved again.
-
-Since driver employs a link-flap avoidance scheme, there are scenarios
-where driver will receive no indication that the new link is up, and
-as a result the statistics would not be re-enabled.
-
-Preventing LFA from working in such cases would guarantee that we'll
-always receive such indications and thus will fix statistics gathering.
-
-Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index 733b0fc..caf6b31 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -658,6 +658,7 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	bp->link_params.multi_phy_config = new_multi_phy_config;
- 	if (netif_running(dev)) {
- 		bnx2x_stats_handle(bp, STATS_EVENT_STOP);
-+		bnx2x_force_link_reset(bp);
- 		bnx2x_link_set(bp);
- 	}
- 
-@@ -1969,6 +1970,7 @@ static int bnx2x_set_pauseparam(struct net_device *dev,
- 
- 	if (netif_running(dev)) {
- 		bnx2x_stats_handle(bp, STATS_EVENT_STOP);
-+		bnx2x_force_link_reset(bp);
- 		bnx2x_link_set(bp);
- 	}
- 
--- 
-1.9.3
+RVAtRUM1NjJENkI1MzU5NDQ3OUJDQTZGQzczRjE3REVFNTQKV2l0aG91dCByZXNldCBmdW5jdGlv
+bmFsaXR5IGluIHJlc2V0X3Jlc3VtZSwgaXBlcmYgY29ubmVjdGlvbgpkb2VzIG5vdCBlc3RhYmxp
+c2ggYWZ0ZXIgc3VzcGVuZC9yZXN1bWUgaG93ZXZlciBwaW5nIHdvcmtzIGF0CnRoZSBzYW1lIHRp
+bWUuCgpyZXNldCBmdW5jdGlvbiBpbnNpZGUgcmVzZXRfcmVzdW1lIHNvbHZlcyBhYm92ZSBidWcu
+IFdlIGhhdmUgdmVyaWZpZWQKaXQgb24gQVNJWCBiYXNlZCBTVCBMYWIsIENhZHljZSBkb25nbGUu
+CgpTaWduZWQtb2ZmLWJ5OiBWaXZlayBLdW1hciBCaGFnYXQgPHZpdmVrLmJoYWdhdEBzYW1zdW5n
+LmNvbT4KU2lnbmVkLW9mZi1ieTogUHJhdmVlbiBLdW1hciA8cHJhdmVlbi5rMDlAc2Ftc3VuZy5j
+b20+Ci0tLQogZHJpdmVycy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jIHwgICAxNCArKysrKysrKysr
+KysrLQogMSBmaWxlIGNoYW5nZWQsIDEzIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkKCmRp
+ZmYgLS1naXQgYS9kcml2ZXJzL25ldC91c2IvYXg4ODE3OV8xNzhhLmMgYi9kcml2ZXJzL25ldC91
+c2IvYXg4ODE3OV8xNzhhLmMKaW5kZXggZTYzMzhjMS4uMDA5MjhjMCAxMDA2NDQKLS0tIGEvZHJp
+dmVycy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jCisrKyBiL2RyaXZlcnMvbmV0L3VzYi9heDg4MTc5
+XzE3OGEuYwpAQCAtMTYzMCw2ICsxNjMwLDE4IEBAIHN0YXRpYyBpbnQgYXg4ODE3OV9zdG9wKHN0
+cnVjdCB1c2JuZXQgKmRldikKICAgICAgICByZXR1cm4gMDsKIH0KCitzdGF0aWMgaW50IGF4ODgx
+NzlfcmVzZXRfcmVzdW1lKHN0cnVjdCB1c2JfaW50ZXJmYWNlICppbnRmKQoreworICAgICAgIHN0
+cnVjdCB1c2JuZXQgKmRldiA9IHVzYl9nZXRfaW50ZmRhdGEoaW50Zik7CisgICAgICAgaW50IHJl
+dDsKKworICAgICAgIHJldCA9IGF4ODgxNzlfcmVzZXQoZGV2KTsKKyAgICAgICBpZiAocmV0IDwg
+MCkKKyAgICAgICAgICAgICAgIHJldHVybiByZXQ7CisKKyAgICAgICByZXR1cm4gIGF4ODgxNzlf
+cmVzdW1lKGludGYpOworfQorCiBzdGF0aWMgY29uc3Qgc3RydWN0IGRyaXZlcl9pbmZvIGF4ODgx
+NzlfaW5mbyA9IHsKICAgICAgICAuZGVzY3JpcHRpb24gPSAiQVNJWCBBWDg4MTc5IFVTQiAzLjAg
+R2lnYWJpdCBFdGhlcm5ldCIsCiAgICAgICAgLmJpbmQgPSBheDg4MTc5X2JpbmQsCkBAIC0xNzQ0
+LDcgKzE3NTYsNyBAQCBzdGF0aWMgc3RydWN0IHVzYl9kcml2ZXIgYXg4ODE3OV8xNzhhX2RyaXZl
+ciA9IHsKICAgICAgICAucHJvYmUgPSAgICAgICAgdXNibmV0X3Byb2JlLAogICAgICAgIC5zdXNw
+ZW5kID0gICAgICBheDg4MTc5X3N1c3BlbmQsCiAgICAgICAgLnJlc3VtZSA9ICAgICAgIGF4ODgx
+NzlfcmVzdW1lLAotICAgICAgIC5yZXNldF9yZXN1bWUgPSBheDg4MTc5X3Jlc3VtZSwKKyAgICAg
+ICAucmVzZXRfcmVzdW1lID0gYXg4ODE3OV9yZXNldF9yZXN1bWUsCiAgICAgICAgLmRpc2Nvbm5l
+Y3QgPSAgIHVzYm5ldF9kaXNjb25uZWN0LAogICAgICAgIC5zdXBwb3J0c19hdXRvc3VzcGVuZCA9
+IDEsCiAgICAgICAgLmRpc2FibGVfaHViX2luaXRpYXRlZF9scG0gPSAxLAotLQoxLjcuOS41
