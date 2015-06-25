@@ -1,31 +1,34 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: netdev broken?
-Date: Thu, 25 Jun 2015 09:20:35 -0400
-Message-ID: <558C0023.7020008@mojatatu.com>
-References: <558BE207.5070004@mojatatu.com> <20150625.050336.816411333956712076.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] flow_dissector: Pre-initialize ip_proto in
+ __skb_flow_dissect()
+Date: Thu, 25 Jun 2015 06:33:31 -0700 (PDT)
+Message-ID: <20150625.063331.1437042913073267200.davem@davemloft.net>
+References: <1435237832-28838-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: tom@herbertland.com, jiri@resnulli.us, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:38292 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751356AbbFYNUh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 09:20:37 -0400
-Received: by igin14 with SMTP id n14so55127706igi.1
-        for <netdev@vger.kernel.org>; Thu, 25 Jun 2015 06:20:37 -0700 (PDT)
-In-Reply-To: <20150625.050336.816411333956712076.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47672 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751313AbbFYNVi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 09:21:38 -0400
+In-Reply-To: <1435237832-28838-1-git-send-email-geert@linux-m68k.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/25/15 08:03, David Miller wrote:
-
->
-> I'm pretty sure you're just not subscribed to the list.
->
-
-I never unsubscribed. Ive resubscribed.
-
-cheers,
-jamal
+RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IFRo
+dSwgMjUgSnVuIDIwMTUgMTU6MTA6MzIgKzAyMDANCg0KPiBuZXQvY29yZS9mbG93X2Rpc3NlY3Rv
+ci5jOiBJbiBmdW5jdGlvbiChX19za2JfZmxvd19kaXNzZWN0ojoNCj4gbmV0L2NvcmUvZmxvd19k
+aXNzZWN0b3IuYzoxMzI6IHdhcm5pbmc6IKFpcF9wcm90b6IgbWF5IGJlIHVzZWQgdW5pbml0aWFs
+aXplZCBpbiB0aGlzIGZ1bmN0aW9uDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBHZWVydCBVeXR0ZXJo
+b2V2ZW4gPGdlZXJ0QGxpbnV4LW02OGsub3JnPg0KPiAtLS0NCj4gVGhpcyBtYXkgYmUgYSBmYWxz
+ZSBwb3NpdGl2ZSwgYnV0IHRoZSBzdGF0ZSBtYWNoaW5lIGluDQo+IF9fc2tiX2Zsb3dfZGlzc2Vj
+dCgpIGlzIGEgYml0IGhhcmQgdG8gZm9sbG93Lg0KPiBBcyBJIGJlbGlldmUgaXQgaXMgY29udHJv
+bGxlZCBieSBhIHBhY2tldCByZWNlaXZlZCBmcm9tIHRoZSBuZXR3b3JrLCB0aGUNCj4gb25seSBz
+YWZlIHRoaW5nIHRvIGRvIGlzIHRvIHByZS1pbml0aWFsaXplIGlwX3Byb3RvLg0KDQpBY3R1YWxs
+eSBJIHRoaW5rIHRoaXMgaXMgYSByZWFsIGJ1ZywgYmVjYXVzZSBmb3IgdGhlIEVUSF9QX01QTFNf
+KiBjYXNlcyBJIGNhbm5vdA0Kc2VlIHdoYXQgd2lsbCBhbHdheXMgc2V0IGlwX3Byb3RvIGJlZm9y
+ZSBpdCBnZXRzIHVzZWQgYXMgYW4gaW5wdXQuDQo=
