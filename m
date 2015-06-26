@@ -1,158 +1,118 @@
-From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-Subject: Re: [PATCH RFC] 2/2 huawei_cdc_ncm: introduce new TX ncm stack
-Date: Fri, 26 Jun 2015 10:14:02 +0200
-Message-ID: <1435306442.2914.8.camel@suse.com>
-References: <1435012335-6055-1-git-send-email-mrkiko.rs@gmail.com>
-	 <1435012335-6055-3-git-send-email-mrkiko.rs@gmail.com>
-	 <1435225769.28594.13.camel@suse.com>
-	 <alpine.LNX.2.20.1506251327570.25021@localhost.localdomain>
-	 <1435239526.28594.24.camel@suse.de>
-	 <alpine.LNX.2.20.1506251543240.16582@localhost.localdomain>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: about [PATCH] net:usb:cdc_ncm: fix that tag Huawei devices as wwan
+Date: Fri, 26 Jun 2015 11:20:32 +0200
+Message-ID: <87oak27rmn.fsf@nemi.mork.no>
+References: <SNT147-W99A0E937260823EBAA1FFB3B90@phx.gbl>
+	<CA+55aFz3S3nR_aDMMS1vcayyEqJCBL5tgoYAfDE2WGyM3Vcrww@mail.gmail.com>
+	<87ioapl55s.fsf@nemi.mork.no>
+	<30508675-5839-4E65-975A-4CFC5B1C5E24@holtmann.org>
+	<87a8w1kz3a.fsf@nemi.mork.no>
+	<EA652056-E807-4977-AF2A-8BF7E3E41DFD@holtmann.org>
+	<SNT147-W34897D8EB12DAD3DE657EDB3A60@phx.gbl>
+	<SNT147-W52BB193529481B6D3BFA57B3AF0@phx.gbl>
+	<73FEE7778B75214796F3C8DE1ABE6DD66ED26A22@szxema508-mbx.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LNX.2.20.1506251543240.16582-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "torvalds\@linux-foundation.org" <torvalds@linux-foundation.org>,
+	"aleksander\@aleksander.es" <aleksander@aleksander.es>,
+	"dcbw\@redhat.com" <dcbw@redhat.com>,
+	"oliver\@neukum.org" <oliver@neukum.org>,
+	"ben.hutchings\@codethink.co.uk" <ben.hutchings@codethink.co.uk>,
+	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"marcel\@holtmann.org" <marcel@holtmann.org>,
+	"xiaomao0213\@hotmail.com" <xiaomao0213@hotmail.com>,
+	Zhangyuhan <zhangyuhan@huawei.com>
+To: "Chenqi \(jakio\)" <cqi.chen@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:35788 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751985AbbFZJXL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 05:23:11 -0400
+In-Reply-To: <73FEE7778B75214796F3C8DE1ABE6DD66ED26A22@szxema508-mbx.china.huawei.com>
+	(Chenqi's message of "Thu, 25 Jun 2015 08:55:04 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-06-25 at 17:19 +0200, Enrico Mioso wrote:
-> Hi Oliver! And thank you again.
-> 
-> I like / recommend the usage of open messaging standards: my preferred XMPP ID
-> (JID) is: mrkiko-aHS423dKhWw@public.gmane.org
-> 
-> On Thu, 25 Jun 2015, Oliver Neukum wrote:
-> 
-> > Date: Thu, 25 Jun 2015 15:38:46
-> > From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-> > To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> > Subject: Re: [PATCH RFC] 2/2 huawei_cdc_ncm: introduce new TX ncm stack
-> > 
-> > On Thu, 2015-06-25 at 13:44 +0200, Enrico Mioso wrote:
-> >
-> >> On Thu, 25 Jun 2015, Oliver Neukum wrote:
-> >
-> >>> Is there any advantage in keeping this in a single function?
-> >>>
-> >> I did this choice in the light of the fact I think the tx_fixup function will
-> >> become more complex than it is now, when aggregating frames.
-> >
-> > Yes, but that is a reason to split the helpers up not the opposite.
-> Right - I understood only now your observation.
-> 
-> the only reason to write the manager that way was that it shouldn't become very 
-> complex - it should simply do things to frames, helping out in building valid 
-> NCM packages.
-> 
-> >
-> >> I answer here your other message to make it more convenient to read: my
-> >> intention for the tx_fixup function would be to:
-> >> - aggregate frames
-> >> - send them out when:
-> >>  	- a timer expires
-> >
-> > How would you do that in tx_fixup()? If a timer is required then you
-> > need a separate function.
-> >
-> Sure. I meant: I will adapt it in case needed, and expectin the code to become 
-> a little bit more convoluted.
+"Chenqi (jakio)" <cqi.chen@huawei.com> writes:
 
-You cannot become any more convoluted even if you try.
+> Hi, All,
+>
+> I'm from Huawei Technologies Co., Ltd, working in mobile broadband
+> devices department.
+>
+> Huawei's broadband card don't support wwan in linux OS, there are
+> several historical reasons:
+>
+> 1.  Huawei produced dozens of broadband card types in past years, and
+> our customers/users integrate our products in many different OS
+> versions, We need give customer/user a continuous method to let them
+> use convenience.
+>
+> 2.  Wwan connection need application support, while we didn't test
+> them for compatibility.
+>
+> Meanwhile, we have provided serial port to let other existing
+> applications dial-up the connection
+>
+> I understand that you guys have some confusion why the Huawei
+> broadband cards support wwan in windows OS but not in linux OS with
+> the same device ID.  Since wwan standard is used firstly in windows
+> OS, when we pronounced to support this feature, wwan is not enabled i=
+n
+> linux.  So we keep the card's behavior in linux same as before.
 
-> >>  	OR
-> >>  	- we have enough data in the aggregate, and cannot add more.
-> >
-> > Yes.
-> >
-> > You need a third case:
-> > 	- the interface is taken down.
-> >
-> > But in general the logic for that is already there. So can you explain
-> > what additional goals you have?
-> regarding the "timer logic" I saw it in cdc_ncm.c, but I should study it in 
-> more detail to understand it and implement it here where needed in case.
+The Linux kernel/drivers/userspace always will attempt to use hardware
+in the same way Windows use it, or at least as close as we are able to
+get.  The reason is simple: A billion (or whatever) Windows users is th=
+e
+best test lab you can get.
 
-It is involved. Basically a timer for transmission creates locking
-issues. cdc-ncm uses an hrtimer which calls a bottom half which
-calls xmit with a NULL skb.
+You may not agree with this strategy, but as a hardware vendor you have
+to expect it to happen.  The community will continue to develop support
+based on that assumption, even if you try to accommodate Linux by addin=
+g
+addiotional "Linux specific" features or modes.
 
-        /* if there is a remaining skb, it gets priority */
-        if (skb != NULL) {
-                swap(skb, ctx->tx_rem_skb);
-                swap(sign, ctx->tx_rem_sign);
-        } else {
-                ready2send = 1;
-        }
+> This wwan patch has great influence on our broadband cards, we have
+> tested many our broadband cards with this kernel version, and this
+> compatible issue is common.  So please approve our modification for
+> this problem.
 
-The else branch here is the timer triggering.
-The actual transmission is done in usbnet if cdc_ncm_fill_tx_frame()
-returns an skb.
+If noone else has any comments or objections here, then I am certainly
+not going to object to the proposed patch.
 
-I doubt you can can come up with anything more convoluted
-but it simplifies locking.
+Please go ahead and submit the patch formally.  I am going to keep my
+big mouth shut :)
 
-> > Well, no, but it supposes a matched commit phase. Can you guarantee
-> > that? I was under the oppression that in that phase you want to actually
-> > give a frame over to the hardware.
-> No. When Italk about committing, I think about "writing things to out skb".
-> another reason why i found confortable writing the code this way was to 
-> maintain a kind of statefullness in a more "clean" way.
-> But I understand this is kind of agruable, and I can if needed break it up as 
-> desired.
-> 
-> Regarding the commit phase - I am not sure I understand your comment, sorry
-> about that.
-> However, my intention would be to allow the caller to do calls in sequences 
-> like:
-> - init frame
-> - ncm update
-> - ncm update
-> - ncm update
-> ...
-> - ncm update
-> - ncm commit
-> 
-> (to work in "huawei" mode)
-> 
-> OR
-> 
-> - ncm init frame
-> - ncm commit
-> - ncm update
-> - ncm update
-> - ncm update
-> - ncm update
-> - finalize nth
-> 
-> (to work in "cdc_ncm.c"-mode)..
+> I think the root cause of this issue is this kernel version trait the
+> NCM as wwan devtype, maybe we can add a flag in usb descriptor in
+> future to indicate whether the device support wwan or not, then Huawe=
+i
+> can support wwan feature later for the newest product without
+> introducing compatible issues.
+>
+> BTW: if we want to join the usb-ethernet kernel evolution in linux,
+> which forum or organization should we join in?  We can participate in
+> it to avoid similar problems.
 
-Sounds like a plan.
+USB networking drivers are discussed, along with other network drivers,
+on the netdev@vger.kernel.org mailing list.  Preferable with a copy to
+the linux-usb@vger.kernel.org mailing list for USB expert review.
 
-> But to prevent usbnet from submittinx RX'd packets, I should be doing something 
-> nasty here. And unfortunately don't understand why.
+But as you point out above:  wwan connections need application support.
+Userspace projects like ModemManager, oFono, libmbim, libqmi, umbim,
+uqmi and probably more, each have their own development forums/mailing
+lists.  This is where the most important part of the wwan developemt
+takes place.
 
-        // some devices want funky USB-level framing, for
-        // win32 driver (usually) and/or hardware quirks
-        if (info->tx_fixup) {
-                skb = info->tx_fixup (dev, skb, GFP_ATOMIC);
-                if (!skb) {
-                        /* packet collected; minidriver waiting for more
-*/
-                        if (info->flags & FLAG_MULTI_PACKET)
-                                goto not_drop;
+Huawei have already made important contributions to the development of
+both Linux wwan drivers and userspace applications.  I am sure all thos=
+e
+projects will appreciate any further help Huawei are able to offer.
 
-So you just return NULL if you are ready to queue more. But you
-need the FLAG_MULTI_PACKET flag.
-
-	Regards
-		Oliver
+Thanks a lot for your detailed introduction and explanation.
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Bj=C3=B8rn
