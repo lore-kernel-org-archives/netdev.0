@@ -1,55 +1,120 @@
-From: Xi Wang <xi.wang@gmail.com>
-Subject: [PATCH net-next] test_bpf: extend tests for 32-bit endianness conversion
-Date: Fri, 26 Jun 2015 08:25:20 -0700
-Message-ID: <1435332320-6476-1-git-send-email-xi.wang@gmail.com>
-Cc: linux-kernel@vger.kernel.org, Xi Wang <xi.wang@gmail.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/3] net: dsa: mv88e6xxx: add debugfs interface for VTU
+Date: Fri, 26 Jun 2015 17:23:44 +0200
+Message-ID: <20150626152344.GI9469@lunn.ch>
+References: <1435095970-18576-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1435095970-18576-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <20150626140434.GB9469@lunn.ch>
+ <806756942.307866.1435331071618.JavaMail.zimbra@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:33999 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751931AbbFZPZa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 11:25:30 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:58396 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751802AbbFZP3q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Jun 2015 11:29:46 -0400
+Content-Disposition: inline
+In-Reply-To: <806756942.307866.1435331071618.JavaMail.zimbra@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently "ALU_END_FROM_BE 32" and "ALU_END_FROM_LE 32" do not test if
-the upper bits of the result are zeros (the arm64 JIT had such bugs).
-Extend the two tests to catch this.
+> >> +static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds, u16 vid,
+> >> +                  struct mv88e6xxx_vtu_entry *entry)
+> >> +{
+> >> +    int ret, i;
+> >> +
+> >> +    ret = _mv88e6xxx_vtu_wait(ds);
+> >> +    if (ret < 0)
+> >> +        return ret;
+> >> +
+> >> +    ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_VID,
+> >> +                   vid & GLOBAL_VTU_VID_MASK);
+> >> +    if (ret < 0)
+> >> +        return ret;
+> >> +
+> >> +    ret = _mv88e6xxx_vtu_cmd(ds, GLOBAL_VTU_OP_VTU_GET_NEXT);
+> >> +    if (ret < 0)
+> >> +        return ret;
+> >> +
+> >> +    ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_VID);
+> >> +    if (ret < 0)
+> >> +        return ret;
+> >> +
+> >> +    entry->vid = ret & GLOBAL_VTU_VID_MASK;
+> >> +    entry->valid = !!(ret & GLOBAL_VTU_VID_VALID);
+> >> +
+> >> +    if (entry->valid) {
+> >> +        /* Ports 0-3, offsets 0, 4, 8, 12 */
+> >> +        ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_DATA_0_3);
+> >> +        if (ret < 0)
+> >> +            return ret;
+> >> +
+> >> +        for (i = 0; i < 4; ++i)
+> >> +            entry->tags[i] = (ret >> (i * 4)) & 3;
+> >> +
+> >> +        /* Ports 4-6, offsets 0, 4, 8 */
+> >> +        ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_DATA_4_7);
+> >> +        if (ret < 0)
+> >> +            return ret;
+> >> +
+> >> +        for (i = 4; i < 7; ++i)
+> >> +            entry->tags[i] = (ret >> ((i - 4) * 4)) & 3;
+> >> +
+> >> +        ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_FID);
+> >> +        if (ret < 0)
+> >> +            return ret;
+> >> +
+> >> +        entry->fid = ret & GLOBAL_VTU_FID_MASK;
+> >> +
+> >> +        ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_SID);
+> >> +        if (ret < 0)
+> >> +            return ret;
+> >> +
+> >> +        entry->sid = ret & GLOBAL_VTU_SID_MASK;
+> > 
+> > As you point out in the header file, not all switches have FID and
+> > VID. A quick look at DSDT suggests for both FID and SID:
+> > 
+> > DEV_88E6097_FAMILY | DEV_88E6165_FAMILY | DEV_88E6351_FAMILY |
+> > DEV_88E6352_FAMILY
+> > 
+> > Please limit access to these registers to just these families.
+> 
+> OK. Thanks for pointing this out. I think you meant SID instead of VID.
 
-Cc: Alexei Starovoitov <ast@plumgrid.com>
-Signed-off-by: Xi Wang <xi.wang@gmail.com>
----
-See the arm64 JIT bugs:
+Yes, my error.
 
-https://lkml.org/lkml/2015/6/25/721
----
- lib/test_bpf.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+> Would something like the following be correct then?
+> 
+> #define GLOBAL_VTU_FID          0x02    /* 6097 6165 6351 6352 */
+> #define GLOBAL_VTU_SID          0x03    /* 6097 6165 6351 6352 */
 
-diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-index 7f58c73..9198f28 100644
---- a/lib/test_bpf.c
-+++ b/lib/test_bpf.c
-@@ -3674,6 +3674,9 @@ static struct bpf_test tests[] = {
- 		.u.insns_int = {
- 			BPF_LD_IMM64(R0, 0x0123456789abcdefLL),
- 			BPF_ENDIAN(BPF_FROM_BE, R0, 32),
-+			BPF_ALU64_REG(BPF_MOV, R1, R0),
-+			BPF_ALU64_IMM(BPF_RSH, R1, 32),
-+			BPF_ALU32_REG(BPF_ADD, R0, R1), /* R1 = 0 */
- 			BPF_EXIT_INSN(),
- 		},
- 		INTERNAL,
-@@ -3708,6 +3711,9 @@ static struct bpf_test tests[] = {
- 		.u.insns_int = {
- 			BPF_LD_IMM64(R0, 0x0123456789abcdefLL),
- 			BPF_ENDIAN(BPF_FROM_LE, R0, 32),
-+			BPF_ALU64_REG(BPF_MOV, R1, R0),
-+			BPF_ALU64_IMM(BPF_RSH, R1, 32),
-+			BPF_ALU32_REG(BPF_ADD, R0, R1), /* R1 = 0 */
- 			BPF_EXIT_INSN(),
- 		},
- 		INTERNAL,
--- 
-2.1.4
+Yes. I've not annotated all #defines, but here there is a clear
+overlap with the MAC address for some chips, so the comment is
+justified.
+ 
+>     if (mv88e6xxx_6097_family(ds) || mv88e6xxx_6165_family(ds) ||
+>         mv88e6xxx_6351_family(ds) || mv88e6xxx_6352_family(ds)) {
+>         ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_FID);
+>         if (ret < 0)
+>             return ret;
+> 
+>         entry->fid = ret & GLOBAL_VTU_FID_MASK;
+> 
+>         ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_SID);
+>         if (ret < 0)
+>             return ret;
+> 
+>         entry->sid = ret & GLOBAL_VTU_SID_MASK;
+>     }
+
+Maybe add an else to set sid and fid to 0?
+
+Thanks
+	Andrew
