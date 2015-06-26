@@ -1,68 +1,170 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next] hv_netvsc: Add support to set MTU reservation from
- guest side
-Date: Fri, 26 Jun 2015 12:06:00 -0700
-Message-ID: <1435345560-5972-1-git-send-email-haiyangz@microsoft.com>
+From: Nicolae Rosia <nicolae.rosia@gmail.com>
+Subject: Re: macb napi strange behavior
+Date: Fri, 26 Jun 2015 20:50:30 +0300
+Message-ID: <CAH=tA9F+hhKvbGaTb7j9km4niRR3K89MEgjz=aah9rB4A_tG4A@mail.gmail.com>
+References: <CAH=tA9FfYh_XSg7y=TujXwuvrjvgg+hOY1j_UOyJNK5mrwaBCw@mail.gmail.com>
+	<5581C27C.4040408@ni.com>
+	<CAH=tA9HCqKgSFwMczRJ1hb=Sjb1H5XFg00ddRq=BW+_8OZ0ARQ@mail.gmail.com>
+	<CAGVrzcZxPqyp3CDLc-UQejtVg1QVv5OBuGLQNVSrtfG9H1OUnA@mail.gmail.com>
+	<20150620164332.GA2505@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Jaeden Amero <jaeden.amero@ni.com>,
+	netdev <netdev@vger.kernel.org>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Cyrille Pitchen <cyrille.pitchen@atmel.com>,
+	Josh Cartwright <joshc@ni.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Bogdan Chifor <chiforbogdan86@gmail.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:36814 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752078AbbFZRuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 13:50:32 -0400
+Received: by lacny3 with SMTP id ny3so67931371lac.3
+        for <netdev@vger.kernel.org>; Fri, 26 Jun 2015 10:50:30 -0700 (PDT)
+In-Reply-To: <20150620164332.GA2505@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When packet encapsulation is in use, the MTU needs to be reduced for
-headroom reservation.
-The existing code takes the updated MTU value only from the host side.
-But vSwitch extensions, such as Open vSwitch, require the flexibility
-to change the MTU to different values from within a guest during the
-lifecycle of a vNIC, when the encapsulation protocol is changed. The
-patch supports this kind of MTU changes.
+Hi,
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+I gave it a shot. Can you please take a look?
+I don't know how to deal with multiple queues since Zynq 7000 has one
+queue per interface.
+I get a performance improvement of over 110 Mbps in IP forwarding (680
+Mbps vs 570 Mbps) and a massive reduction of interrupts.
+
+Patch below.
+
+From: Nicolae Rosia <nicolae.rosia@certsign.ro>
+Date: Fri, 26 Jun 2015 19:44:50 +0300
+Subject: [PATCH] macb: use tx napi
+
 ---
- drivers/net/hyperv/netvsc_drv.c   |    3 +--
- drivers/net/hyperv/rndis_filter.c |    2 +-
- 2 files changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/cadence/macb.c | 37 ++++++++++++++++++++++++++++++++++---
+ 1 file changed, 34 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 358475e..68e7ece 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -743,8 +743,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
- 		limit = NETVSC_MTU - ETH_HLEN;
- 
--	/* Hyper-V hosts don't support MTU < ETH_DATA_LEN (1500) */
--	if (mtu < ETH_DATA_LEN || mtu > limit)
-+	if (mtu < 68 || mtu > limit)
- 		return -EINVAL;
- 
- 	nvdev->start_remove = true;
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 006c1b8..172824e 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -1053,7 +1053,7 @@ int rndis_filter_device_add(struct hv_device *dev,
- 	ret = rndis_filter_query_device(rndis_device,
- 					RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE,
- 					&mtu, &size);
--	if (ret == 0 && size == sizeof(u32))
-+	if (ret == 0 && size == sizeof(u32) && mtu < net_device->ndev->mtu)
- 		net_device->ndev->mtu = mtu;
- 
- 	/* Get the mac address */
+diff --git a/drivers/net/ethernet/cadence/macb.c
+b/drivers/net/ethernet/cadence/macb.c
+index 30eedb1..2a3ecf7 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -602,10 +602,13 @@ static void macb_tx_interrupt(struct macb_queue *queue)
+ {
+     unsigned int tail;
+     unsigned int head;
++#if 0
+     u32 status;
++#endif
+     struct macb *bp = queue->bp;
+     u16 queue_index = queue - bp->queues;
+
++#if 0
+     status = macb_readl(bp, TSR);
+     macb_writel(bp, TSR, status);
+
+@@ -614,6 +617,7 @@ static void macb_tx_interrupt(struct macb_queue *queue)
+
+     netdev_vdbg(bp->dev, "macb_tx_interrupt status = 0x%03lx\n",
+         (unsigned long)status);
++#endif
+
+     head = queue->tx_head;
+     for (tail = queue->tx_tail; tail != head; tail++) {
+@@ -951,12 +955,17 @@ static int macb_poll(struct napi_struct *napi, int budget)
+     status = macb_readl(bp, RSR);
+     macb_writel(bp, RSR, status);
+
+-    work_done = 0;
++    status = macb_readl(bp, TSR);
++    if (status) {
++        macb_writel(bp, TSR, status);
++        macb_tx_interrupt(&bp->queues[0]);
++    }
+
+     netdev_vdbg(bp->dev, "poll: status = %08lx, budget = %d\n",
+            (unsigned long)status, budget);
+
+     work_done = bp->macbgem_ops.mog_rx(bp, budget);
++
+     if (work_done < budget) {
+         napi_complete(napi);
+
+@@ -969,6 +978,16 @@ static int macb_poll(struct napi_struct *napi, int budget)
+         } else {
+             macb_writel(bp, IER, MACB_RX_INT_FLAGS);
+         }
++
++        /* Packets received while interrupts were disabled */
++        status = macb_readl(bp, TSR);
++        if (status) {
++            if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
++                macb_writel(bp, ISR, MACB_BIT(TCOMP));
++            napi_reschedule(napi);
++        } else {
++            macb_writel(bp, IER, MACB_TX_INT_FLAGS);
++        }
+     }
+
+     /* TODO: Handle errors */
+@@ -1029,8 +1048,17 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+             break;
+         }
+
+-        if (status & MACB_BIT(TCOMP))
+-            macb_tx_interrupt(queue);
++        if (status & MACB_BIT(TCOMP)) {
++            /* disable tx interrupts */
++            queue_writel(queue, IDR, MACB_TX_INT_FLAGS);
++            if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
++                queue_writel(queue, ISR, MACB_BIT(TCOMP));
++
++            if (napi_schedule_prep(&bp->napi)) {
++                netdev_vdbg(bp->dev, "scheduling TX softirq\n");
++                __napi_schedule(&bp->napi);
++            }
++        }
+
+         /*
+          * Link change detection isn't possible with RMII, so we'll
+@@ -2348,6 +2376,7 @@ static int macb_probe(struct platform_device *pdev)
+     }
+
+     macb_probe_queues(mem, &queue_mask, &num_queues);
++    dev_err(&pdev->dev, "queue count: %d.\n", num_queues);
+     dev = alloc_etherdev_mq(sizeof(*bp), num_queues);
+     if (!dev)
+         goto err_out_disable_clocks;
+@@ -2377,6 +2406,8 @@ static int macb_probe(struct platform_device *pdev)
+         if (!(queue_mask & (1 << hw_q)))
+             continue;
+
++        dev_err(&pdev->dev, "queue index: %d\n", q);
++
+         queue = &bp->queues[q];
+         queue->bp = bp;
+         if (hw_q) {
 -- 
-1.7.4.1
+2.1.0
+
+On Sat, Jun 20, 2015 at 7:43 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+> Florian Fainelli <f.fainelli@gmail.com> :
+> [...]
+>> Typically, NAPI is used at the receive side of the Ethernet NIC/driver
+>> to lower the hard/soft interrupt context switch, although there is
+>> nothing that prevent you to implement a similar scheme for the
+>> transmit side. Usually, for transmit you will be submitting one packet
+>> for transmission and get a completion interrupt, so without interrupt
+>> coalescing (software or hardware) you can end-up with 1 interrupt per
+>> packet transmitted.
+>
+> The wording is a bit shy: there is a long standing policy to move
+> everything to NAPI context (as well as go mostly lockless, etc.).
+>
+> Any taker to move macb Tx processing to NAPI context or should I consider it ?
+>
+> --
+> Ueimor
