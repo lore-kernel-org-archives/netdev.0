@@ -1,42 +1,67 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [ANNOUNCE] iproute2 4.1.0
-Date: Fri, 26 Jun 2015 15:35:04 -0700
-Message-ID: <558DD398.7020003@cumulusnetworks.com>
-References: <20150626130616.5a350099@urahara> <558DC8D7.4080803@cumulusnetworks.com> <20150626153349.2b0152c9@urahara>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Why can't we SNAT (or inverse DNAT) in PREROUTING?
+Date: Sat, 27 Jun 2015 00:48:25 +0200
+Message-ID: <20150626224825.GB28820@electric-eye.fr.zoreil.com>
+References: <CALCETrWRv5S_X=MQRGwO-NR+XrQc2o-EnooHFN0V41xqJEY8sA@mail.gmail.com>
+ <20150626203249.GA28820@electric-eye.fr.zoreil.com>
+ <CALCETrUR9VKJ0jJwqF79Jm6Y954yhMrA=ifzRWCvvgHzOpgzag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34689 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751969AbbFZWfG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 18:35:06 -0400
-Received: by pabvl15 with SMTP id vl15so75204361pab.1
-        for <netdev@vger.kernel.org>; Fri, 26 Jun 2015 15:35:06 -0700 (PDT)
-In-Reply-To: <20150626153349.2b0152c9@urahara>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:55110 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752124AbbFZWsh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 18:48:37 -0400
+Content-Disposition: inline
+In-Reply-To: <CALCETrUR9VKJ0jJwqF79Jm6Y954yhMrA=ifzRWCvvgHzOpgzag@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/26/15, 3:33 PM, Stephen Hemminger wrote:
-> On Fri, 26 Jun 2015 14:49:11 -0700
-> roopa <roopa@cumulusnetworks.com> wrote:
->
->> Hi Stephen,
->>
->> I don't see the below fix in the 4.1 tarball you point below:
->> https://patchwork.ozlabs.org/patch/479743/
->>
->> I am not sure yet if there was a problem with my submission. I intended
->> for it to go into 4.1.
->>
->> Thanks,
->> Roopa
-> That is held off I thought mpls needed net-next (4.2) not 4.1.
-> It is merged into master (post 4.1).
->
-Mpls is in 4.1 and the route dels are broken without this fix.
+Andy Lutomirski <luto@amacapital.net> :
+> [re-add netdev -- I assume you meant to reply all]
 
-Thanks,
-Roopa
+Thanks. Late friday.
+
+> On Fri, Jun 26, 2015 at 1:32 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+> > Andy Lutomirski <luto@amacapital.net> :
+> > [...]
+> >> Could we add some option to do SNAT and inverse DNAT before routing?
+> >
+> > I haven't used it for ages but what's wrong with iptables + fwmark ?
+> >
+> > It takes place in PREROUTING.
+> 
+> This works, but it seems unnecessarily painful.  It means that all of
+> my policy rules have to be duplicated with fwmark rules based on '-m
+> conntrack' or similar.
+
+I'd rather say that the fwmark rules will duplicate the SNAT rules since
+your routing policy depends on the post SNAT source addresses. You'd
+be right to complain it does not really help :o)
+
+> Shouldn't the order of operations be:
+> 
+> 1. Check rp_filter.
+> 
+> 2. Handle NAT.
+> 
+> 3. Routing decision.
+> 
+> ?
+
+The admittedly painful fwmark part would still be needed for pre-NAT
+source address based policy routing (assuming SNAT loses valuable policy
+information). Life would be easier for your current requirements but
+some different policy requirements would be unable to avoid the
+fwmark/mangle style stuff.
+
+Btw, the suggested scheme implies that filtering between SNAT and DNAT
+would be done before routing, thus without INPUT vs FORWARD tainting.
+
+It may be done but it would be a different beast and I can't help thinking
+that routing and filtering would overlap.
+
+-- 
+Ueimor
