@@ -1,30 +1,60 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [PATCH] xen-netfront: Remove the meaningless code
-Date: Fri, 26 Jun 2015 16:15:18 +0100
-Message-ID: <558D6C86.4040802@citrix.com>
-References: <1435360646-7831-1-git-send-email-liang.z.li@intel.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH] Add PTP cross-timestamp to the PTP driver interface
+Date: Fri, 26 Jun 2015 15:24:25 +0000
+Message-ID: <1435332264.2160.3.camel@intel.com>
+References: <1435275777-3918-1-git-send-email-christopher.s.hall@intel.com>
+	 <20150626065507.GB1511@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	<konrad.wilk@oracle.com>, <boris.ostrovsky@oracle.com>,
-	<andrew.bennieston@citrix.com>, <wei.liu2@citrix.com>,
-	<davem@davemloft.net>
-To: Liang Li <liang.z.li@intel.com>, <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Stanton, Kevin B" <kevin.b.stanton@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: "Hall, Christopher S" <christopher.s.hall@intel.com>,
+	"richardcochran@gmail.com" <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:53534 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751814AbbFZPPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 11:15:22 -0400
-In-Reply-To: <1435360646-7831-1-git-send-email-liang.z.li@intel.com>
+Received: from mga02.intel.com ([134.134.136.20]:21339 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753212AbbFZPY1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Jun 2015 11:24:27 -0400
+In-Reply-To: <20150626065507.GB1511@localhost.localdomain>
+Content-Language: en-US
+Content-ID: <BD1E980AAC2AB746A0AD3F8DBAD42CFB@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27/06/15 00:17, Liang Li wrote:
-> The function netif_set_real_num_tx_queues() will return -EINVAL if
-> the second parameter < 1, so call this function with the second
-> parameter set to 0 is meaningless.
-
-Reviewed-by: David Vrabel <david.vrabel@citrix.com>
-
-David
+T24gRnJpLCAyMDE1LTA2LTI2IGF0IDA4OjU1ICswMjAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
+DQo+IENocmlzLA0KPiANCj4gQmFzaWNhbGx5IHRoaXMgcGF0Y2ggbG9va3Mgb2theSB0byBtZS4g
+IENvdWxkIHlvdSBwbGVhc2UgYWRkIExLTUwsDQo+IEpvaG4gU3R1bHR6IGFuZCB0Z2x4ICh0aGUg
+dGltZSBndXlzKSBvbnRvIENDPyAgSSB3b3VsZCBsaWtlIHRvIGdldA0KPiB0aGVpciBBY2tzIG9y
+IGF0IGxlYXN0IGxldCB0aGVtIGhhdmUgYSBjaGFuY2UgdG8gcmV2aWV3IGl0Lg0KPiANCj4gT24g
+VGh1LCBKdW4gMjUsIDIwMTUgYXQgMDQ6NDI6NTZQTSAtMDcwMCwgQ2hyaXN0b3BoZXIgSGFsbCB3
+cm90ZToNCj4gPiBUaGlzIHBhdGNoIGFsbG93cyBzeXN0ZW0gYW5kIGRldmljZSB0aW1lICgiY3Jv
+c3MtdGltZXN0YW1wIikgdG8gYmUgDQo+ID4gcGVyZm9ybWVkIA0KPiA+IGJ5IHRoZSBkcml2ZXIu
+IEN1cnJlbnRseSwgdGhlIHRpbWVzdGFtcGluZyBpcyBwZXJmb3JtZWQgaW4gdGhlIA0KPiA+IFBU
+UF9TWVNfT0ZGU0VUIA0KPiA+IGlvY3RsLiAgSXQgcmVhZHMgZ2V0dGltZW9mZGF5KCkgYW5kIHRo
+ZSBnZXR0aW1lNjQoKSBjYWxsYmFjayANCj4gPiBwcm92aWRlZCBieSB0aGUgDQo+ID4gZHJpdmVy
+LiBUaGUgY3Jvc3MtdGltZXN0YW1wIGlzIGJlc3QgZWZmb3J0IGlnbm9yaW5nIHRoZSBsYXRlbmN5
+IA0KPiA+IGJldHdlZW4gdGhlIA0KPiA+IGNhcHR1cmUgb2Ygc3lzdGVtIHRpbWUgKGdldG5zdGlt
+ZW9mZGF5KCkpIGFuZCB0aGUgZGV2aWNlIHRpbWUgDQo+ID4gKGRyaXZlciBjYWxsYmFjaykuDQo+
+IA0KPiBZb3UgY2FuIG1ha2UgdGhlIG1vdGl2YXRpb24gbW9yZSBjbGVhciBieSBtZW50aW9uaW5n
+IGhvdyB0aGUgbmV3ZXINCj4gUENJZSBzcGVjIGZvcmVzZWVzICJwZXJmZWN0IiB0aW1lc3RhbXBz
+LiAgSWYgSSBkaWRuJ3QgYWxyZWFkeSBrbm93IA0KPiB0aGUNCj4gYmFja2dyb3VuZCwgSSB3b3Vs
+ZCB3b25kZXIgd2hvIHdvdWxkIGV2ZXIgd2FudCAiYmVzdCBlZmZvcnQiIHNpbmdsZQ0KPiBjcm9z
+cyB0aW1lc3RhbXBzLg0KPiANCg0KRllJLCBJIHJlYWQgImJlc3QgZWZmb3J0IiBhcyBhIGNvbW1l
+bnQgb24gaG93IGl0J3MgaW1wbGVtZW50ZWQgdG9kYXksDQpub3Qgd2hhdCB0aGUgaW1wbGVtZW50
+YXRpb24gY291bGQgcHJvdmlkZS4NCg0KPiA+IEFkZGl0aW9uYWxseSwgdGhlIGNhbGxiYWNrLCBn
+ZXRzeW5jdGltZTY0KCksIHdpbGwgb25seSBiZSBjYWxsZWQgDQo+ID4gd2hlbiANCj4gPiBuX3Nh
+bXBsZXMgPT0gMSBiZWNhdXNlIHRoZSBkcml2ZXIgcmV0dXJucyBvbmx5IDEgY3Jvc3MtdGltZXN0
+YW1wIA0KPiA+IHdoZXJlIA0KPiA+IG11bHRpcGxlIHNhbXBsZXMgY2Fubm90IGJlIGNoYWluZWQg
+dG9nZXRoZXIuDQo+IA0KPiBUaGVyZSBzaG91bGQgYmUgYSB3YXkgZm9yIHVzZXIgc3BhY2UgdG8g
+ZmluZCBvdXQgd2hldGhlciBhIHBhcnRpY3VsYXINCj4gZGV2aWNlIG9mZmVycyB0aGUgY3Jvc3Mg
+dGltZXN0YW1wIGNhcGFiaWxpdHkuICBUaGVyZSBhcmUgcmVzZXJ2ZWQNCj4gZmllbGRzIGluICdz
+dHJ1Y3QgcHRwX2Nsb2NrX2NhcHMnIHRoYXQgY291bGQgYmUgdXNlZC4NCj4gDQoNClllcywgSSBh
+Z3JlZS4gT3RoZXJ3aXNlIHdlJ2QgaGF2ZSB0byB1c2Ugb25seSBvbmUgc2FtcGxlIGluIHB0cDRs
+IGluDQpvcmRlciB0byBiZW5lZml0LCBidXQgd2UnZCBiZSB1bmFibGUgdG8gdGVsbCBpdCB3YXMg
+d29ydGggaXQuDQoNClJlZ2FyZHMsDQpKYWtlDQoNCj4gVGhhbmtzLA0KPiBSaWNoYXJkDQo+IC0t
+DQo+IFRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNj
+cmliZSBuZXRkZXYiIGluDQo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdl
+ci5rZXJuZWwub3JnDQo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5l
+bC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA==
