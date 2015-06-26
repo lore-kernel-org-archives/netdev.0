@@ -1,76 +1,113 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net 06/10] e1000e: i219 - increase IPG for speed 10/100 full
- duplex
-Date: Fri, 26 Jun 2015 14:30:45 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB57C45@AcuExch.aculab.com>
-References: <1435314040-3228-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1435314040-3228-7-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH 1/1] net namespace: dynamically configure new net
+ namespace inherit net config
+Date: Fri, 26 Jun 2015 10:34:19 -0400
+Message-ID: <CAP=VYLo+rAjzEU8WJYuby9AhWLnQ_12N42LrnAT0ZUKcHvfVMw@mail.gmail.com>
+References: <1435311439-26916-1-git-send-email-Yanjun.Zhu@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Yanir Lubetkin <yanirx.lubetkin@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>
-To: 'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Zhu Yanjun <Yanjun.Zhu@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.190]:52174 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752772AbbFZOdW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 10:33:22 -0400
-In-Reply-To: <1435314040-3228-7-git-send-email-jeffrey.t.kirsher@intel.com>
-Content-Language: en-US
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:32960 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753546AbbFZOet (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 10:34:49 -0400
+Received: by ieqy10 with SMTP id y10so77044207ieq.0
+        for <netdev@vger.kernel.org>; Fri, 26 Jun 2015 07:34:49 -0700 (PDT)
+In-Reply-To: <1435311439-26916-1-git-send-email-Yanjun.Zhu@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Of Jeff Kirsher
-> Sent: 26 June 2015 11:21
-> In SPT/i219, there were CRC errors in speed 10/100 full duplex.
-> The solution given by the HW team is to increase the IPG from 8 to 0xC
-> 
-> Signed-off-by: Yanir Lubetkin <yanirx.lubetkin@intel.com>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+On Fri, Jun 26, 2015 at 5:37 AM, Zhu Yanjun <Yanjun.Zhu@windriver.com> wrote:
+> The new net namespace can inherit from the original net config, or
+> the current net config. As such, a config is needed to decide where
+> the new namespace inherit from.
+
+As per the netdev mailing list FAQ, and Dave's post from a day
+or two ago, netdev is closed for patches during the merge
+window.
+
+And on top of that your commit doesn't tell us who needs this
+and why, plus a compile time switch is a klunky and user
+unfriendly way of configuring something that smells like it
+might be needed to be changed regularly (if it needs to exist
+even at all).  Finally, putting ifdefs around a curly brace like
+you've done here is really bad form.
+
+Paul.
+--
+
+>
+> Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
 > ---
->  drivers/net/ethernet/intel/e1000e/ich8lan.c | 10 +++++++---
->  1 file changed, 7 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-> index c5bb1dd..983f5bf 100644
-> --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-> +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-> @@ -1400,16 +1400,20 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
->  	if (((hw->mac.type == e1000_pch2lan) ||
->  	     (hw->mac.type == e1000_pch_lpt) ||
->  	     (hw->mac.type == e1000_pch_spt)) && link) {
-> -		u32 reg;
-> +		u16 speed, duplex;
-> 
-> -		reg = er32(STATUS);
-> +		e1000e_get_speed_and_duplex_copper(hw, &speed, &duplex);
->  		tipg_reg = er32(TIPG);
->  		tipg_reg &= ~E1000_TIPG_IPGT_MASK;
-> 
-> -		if (!(reg & (E1000_STATUS_FD | E1000_STATUS_SPEED_MASK))) {
-> +		if (duplex == HALF_DUPLEX && speed == SPEED_10) {
->  			tipg_reg |= 0xFF;
->  			/* Reduce Rx latency in analog PHY */
->  			emi_val = 0;
-> +		} else if (hw->mac.type == e1000_pch_spt &&
-> +			   duplex == FULL_DUPLEX && speed != SPEED_1000) {
-
-You really ought to have a comment here explaining why the inter-packet
-gap is increased.
-
-> +			tipg_reg |= 0xC;
-
-Shouldn't you mask out the old IPG value - just in case it isn't 8.
-
-> +			emi_val = 1;
->  		} else {
-> 
->  			/* Roll back the default values */
-
-	David
+>  init/Kconfig       |  9 +++++++++
+>  net/ipv4/devinet.c | 13 +++++++++++++
+>  2 files changed, 22 insertions(+)
+>
+> diff --git a/init/Kconfig b/init/Kconfig
+> index dc24dec..fab8c41 100644
+> --- a/init/Kconfig
+> +++ b/init/Kconfig
+> @@ -1212,6 +1212,15 @@ config NET_NS
+>           Allow user space to create what appear to be multiple instances
+>           of the network stack.
+>
+> +config NET_NS_INHERIT_ORIGINAL
+> +       bool "New network namespace inherits from original net config"
+> +       depends on NET_NS
+> +       default n
+> +       help
+> +         Allow new network namespace inherit from original net config.
+> +         If no, the new network namespace inherits from the current net
+> +         config including the modified net config.
+> +
+>  endif # NAMESPACES
+>
+>  config SCHED_AUTOGROUP
+> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> index 419d23c..cf635e4 100644
+> --- a/net/ipv4/devinet.c
+> +++ b/net/ipv4/devinet.c
+> @@ -2271,6 +2271,7 @@ static __net_init int devinet_init_net(struct net *net)
+>  #endif
+>
+>         err = -ENOMEM;
+> +#ifndef CONFIG_NET_NS_INHERIT_ORIGINAL
+>         all = &ipv4_devconf;
+>         dflt = &ipv4_devconf_dflt;
+>
+> @@ -2282,6 +2283,15 @@ static __net_init int devinet_init_net(struct net *net)
+>                 dflt = kmemdup(dflt, sizeof(ipv4_devconf_dflt), GFP_KERNEL);
+>                 if (!dflt)
+>                         goto err_alloc_dflt;
+> +#else
+> +       all = kmemdup(&ipv4_devconf, sizeof(ipv4_devconf), GFP_KERNEL);
+> +       if (!all)
+> +               goto err_alloc_all;
+> +
+> +       dflt = kmemdup(&ipv4_devconf_dflt, sizeof(ipv4_devconf_dflt), GFP_KERNEL);
+> +       if (!dflt)
+> +               goto err_alloc_dflt;
+> +#endif
+>
+>  #ifdef CONFIG_SYSCTL
+>                 tbl = kmemdup(tbl, sizeof(ctl_forward_entry), GFP_KERNEL);
+> @@ -2292,7 +2302,10 @@ static __net_init int devinet_init_net(struct net *net)
+>                 tbl[0].extra1 = all;
+>                 tbl[0].extra2 = net;
+>  #endif
+> +
+> +#ifndef CONFIG_NET_NS_INHERIT_ORIGINAL
+>         }
+> +#endif
+>
+>  #ifdef CONFIG_SYSCTL
+>         err = __devinet_sysctl_register(net, "all", all);
+> --
+> 1.9.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
