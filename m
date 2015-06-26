@@ -1,46 +1,55 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 08/10] e1000e: i219 - k1 workaround for LPT is not required for SPT
-Date: Fri, 26 Jun 2015 03:20:38 -0700
-Message-ID: <1435314040-3228-9-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1435314040-3228-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Yanir Lubetkin <yanirx.lubetkin@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Subject: Re: netlink & rhashtable status
+Date: Fri, 26 Jun 2015 13:44:04 +0300
+Message-ID: <558D2CF4.5070503@yandex-team.ru>
+References: <1431497740.566.129.camel@edumazet-glaptop2.roam.corp.google.com> <20150513062038.GA26944@gondor.apana.org.au> <1431522271.566.132.camel@edumazet-glaptop2.roam.corp.google.com> <1431533884.566.148.camel@edumazet-glaptop2.roam.corp.google.com> <20150514025333.GA3853@gondor.apana.org.au> <1431573463.27831.32.camel@edumazet-glaptop2.roam.corp.google.com> <20150514033448.GA5080@gondor.apana.org.au> <1431575890.27831.34.camel@edumazet-glaptop2.roam.corp.google.com> <1431576818.27831.36.camel@edumazet-glaptop2.roam.corp.google.com> <20150514041628.GA5428@gondor.apana.org.au> <20150514042151.GA5482@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
+	netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:40750 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752004AbbFZKUz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Jun 2015 06:20:55 -0400
-In-Reply-To: <1435314040-3228-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from forward-corp1m.cmail.yandex.net ([5.255.216.100]:47819 "EHLO
+	forward-corp1m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751784AbbFZKoJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 06:44:09 -0400
+In-Reply-To: <20150514042151.GA5482@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yanir Lubetkin <yanirx.lubetkin@intel.com>
+On 14.05.2015 07:21, Herbert Xu wrote:
+> On Thu, May 14, 2015 at 12:16:28PM +0800, Herbert Xu wrote:
+>> On Wed, May 13, 2015 at 09:13:38PM -0700, Eric Dumazet wrote:
+>>>
+>>> So it looks like we lost an skb or something....
+>>
+>> OK that sounds reasonable.  So my plan is to disable dynamic
+>> rehashing and then hunt down this lookup bug.
+>
+> Oh wait this isn't even a lookup failure since that should return
+> ECONNREFUSED.  Could it be that this hang is a separate bug that's
+> not related to rhashtable?
 
-In SPT hardware does not require this driver workaround.
-Removed the conditional that caused K1 workaround execution on SPT.
+Hang in getaddrinfo is a bug in libc: function make_request in
+sysdeps/unix/sysv/linux/check_pf.c ignores NLMSG_ERROR
+(as well as messsages with nlmh->nlmsg_pid != pid)
 
-Signed-off-by: Yanir Lubetkin <yanirx.lubetkin@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+It hangs forever in case of any error or netlink pid collision.
+And I've seen ECONNREFUSED in message buffer when connected to hang
+process with gdb.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 3f5b8cb..91a5a0a 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -1489,8 +1489,7 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
- 	if ((hw->adapter->pdev->device == E1000_DEV_ID_PCH_LPTLP_I218_LM) ||
- 	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_LPTLP_I218_V) ||
- 	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_I218_LM3) ||
--	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_I218_V3) ||
--	    (hw->mac.type == e1000_pch_spt)) {
-+	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_I218_V3)) {
- 		ret_val = e1000_k1_workaround_lpt_lp(hw, link);
- 		if (ret_val)
- 			return ret_val;
--- 
-2.4.3
+
+I've found race in v3.18 in __netlink_lookup: rhashtable_hashfn
+computes hash using one table and following rhashtable_lookup_compare
+dereferences ht->tbl once again and could see different table.
+
+patch follows...
+
+>
+> If that was the case then we simply need to get rid of dynamic
+> rehashing.
+>
+> Cheers,
+>
