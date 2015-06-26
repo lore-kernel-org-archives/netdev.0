@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 03/10] e1000e: fix locking issue with e1000e_disable_aspm
-Date: Fri, 26 Jun 2015 03:20:33 -0700
-Message-ID: <1435314040-3228-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 05/10] e1000e: i219 - fix to enable both ULP and EEE in Sx state
+Date: Fri, 26 Jun 2015 03:20:35 -0700
+Message-ID: <1435314040-3228-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1435314040-3228-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Yanir Lubetkin <yanirx.lubetkin@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:58214 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:40750 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751682AbbFZKUr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751680AbbFZKUr (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 26 Jun 2015 06:20:47 -0400
 In-Reply-To: <1435314040-3228-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,93 +18,112 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Yanir Lubetkin <yanirx.lubetkin@intel.com>
 
-e1000e_disable_aspm called pci_disable_link_state_locked which requires
-pci_bus_sem to be held, but is also called from places where this semaphore
-was not previously acquired. This patch implements two flavors of
-disable_aspm, one that acquires the lock, and the other (_locked) which
-should be called when the semaphore is already acquired.
+In i219, there is a hardware bug that prevented ULP entry.
+A side effect of the original software fix for this was that EEE in
+Sx couldn't be enabled.
+This patch implements a modified flow that allows both ULP and EEE in Sx.
 
 Signed-off-by: Yanir Lubetkin <yanirx.lubetkin@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 38 ++++++++++++++++++++++++++----
- 1 file changed, 34 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/e1000e/ich8lan.c | 45 ++++++++++++++++++++---------
+ 1 file changed, 32 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index e62b9dc..89d788d 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -6354,13 +6354,14 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool runtime)
- }
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index c742a4f..c5bb1dd 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -1089,6 +1089,7 @@ s32 e1000_enable_ulp_lpt_lp(struct e1000_hw *hw, bool to_sx)
+ 	u32 mac_reg;
+ 	s32 ret_val = 0;
+ 	u16 phy_reg;
++	u16 oem_reg = 0;
  
- /**
-- * e1000e_disable_aspm - Disable ASPM states
-+ * __e1000e_disable_aspm - Disable ASPM states
-  * @pdev: pointer to PCI device struct
-  * @state: bit-mask of ASPM states to disable
-+ * @locked: indication if this context holds pci_bus_sem locked.
-  *
-  * Some devices *must* have certain ASPM states disabled per hardware errata.
-  **/
--static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
-+static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state, int locked)
- {
- 	struct pci_dev *parent = pdev->bus->self;
- 	u16 aspm_dis_mask = 0;
-@@ -6399,7 +6400,10 @@ static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
- 		 "L1" : "");
+ 	if ((hw->mac.type < e1000_pch_lpt) ||
+ 	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_LPT_I217_LM) ||
+@@ -1130,33 +1131,37 @@ s32 e1000_enable_ulp_lpt_lp(struct e1000_hw *hw, bool to_sx)
+ 	if (ret_val)
+ 		goto out;
  
- #ifdef CONFIG_PCIEASPM
--	pci_disable_link_state_locked(pdev, state);
-+	if (locked)
-+		pci_disable_link_state_locked(pdev, state);
-+	else
-+		pci_disable_link_state(pdev, state);
- 
- 	/* Double-check ASPM control.  If not disabled by the above, the
- 	 * BIOS is preventing that from happening (or CONFIG_PCIEASPM is
-@@ -6422,6 +6426,32 @@ static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
- 					   aspm_dis_mask);
- }
- 
-+/**
-+ * e1000e_disable_aspm - Disable ASPM states.
-+ * @pdev: pointer to PCI device struct
-+ * @state: bit-mask of ASPM states to disable
-+ *
-+ * This function acquires the pci_bus_sem!
-+ * Some devices *must* have certain ASPM states disabled per hardware errata.
-+ **/
-+static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
-+{
-+	__e1000e_disable_aspm(pdev, state, 0);
-+}
++	/* Force SMBus mode in PHY */
++	ret_val = e1000_read_phy_reg_hv_locked(hw, CV_SMB_CTRL, &phy_reg);
++	if (ret_val)
++		goto release;
++	phy_reg |= CV_SMB_CTRL_FORCE_SMBUS;
++	e1000_write_phy_reg_hv_locked(hw, CV_SMB_CTRL, phy_reg);
 +
-+/**
-+ * e1000e_disable_aspm_locked   Disable ASPM states.
-+ * @pdev: pointer to PCI device struct
-+ * @state: bit-mask of ASPM states to disable
-+ *
-+ * This function must be called with pci_bus_sem acquired!
-+ * Some devices *must* have certain ASPM states disabled per hardware errata.
-+ **/
-+static void e1000e_disable_aspm_locked(struct pci_dev *pdev, u16 state)
-+{
-+	__e1000e_disable_aspm(pdev, state, 1);
-+}
++	/* Force SMBus mode in MAC */
++	mac_reg = er32(CTRL_EXT);
++	mac_reg |= E1000_CTRL_EXT_FORCE_SMBUS;
++	ew32(CTRL_EXT, mac_reg);
 +
- #ifdef CONFIG_PM
- static int __e1000_resume(struct pci_dev *pdev)
- {
-@@ -6435,7 +6465,7 @@ static int __e1000_resume(struct pci_dev *pdev)
- 	if (adapter->flags2 & FLAG2_DISABLE_ASPM_L1)
- 		aspm_disable_flag |= PCIE_LINK_STATE_L1;
- 	if (aspm_disable_flag)
--		e1000e_disable_aspm(pdev, aspm_disable_flag);
-+		e1000e_disable_aspm_locked(pdev, aspm_disable_flag);
+ 	/* Si workaround for ULP entry flow on i127/rev6 h/w.  Enable
+ 	 * LPLU and disable Gig speed when entering ULP
+ 	 */
+ 	if ((hw->phy.type == e1000_phy_i217) && (hw->phy.revision == 6)) {
+ 		ret_val = e1000_read_phy_reg_hv_locked(hw, HV_OEM_BITS,
+-						       &phy_reg);
++						       &oem_reg);
+ 		if (ret_val)
+ 			goto release;
++
++		phy_reg = oem_reg;
+ 		phy_reg |= HV_OEM_BITS_LPLU | HV_OEM_BITS_GBE_DIS;
++
+ 		ret_val = e1000_write_phy_reg_hv_locked(hw, HV_OEM_BITS,
+ 							phy_reg);
++
+ 		if (ret_val)
+ 			goto release;
+ 	}
  
- 	pci_set_master(pdev);
+-	/* Force SMBus mode in PHY */
+-	ret_val = e1000_read_phy_reg_hv_locked(hw, CV_SMB_CTRL, &phy_reg);
+-	if (ret_val)
+-		goto release;
+-	phy_reg |= CV_SMB_CTRL_FORCE_SMBUS;
+-	e1000_write_phy_reg_hv_locked(hw, CV_SMB_CTRL, phy_reg);
+-
+-	/* Force SMBus mode in MAC */
+-	mac_reg = er32(CTRL_EXT);
+-	mac_reg |= E1000_CTRL_EXT_FORCE_SMBUS;
+-	ew32(CTRL_EXT, mac_reg);
+-
+ 	/* Set Inband ULP Exit, Reset to SMBus mode and
+ 	 * Disable SMBus Release on PERST# in PHY
+ 	 */
+@@ -1168,10 +1173,15 @@ s32 e1000_enable_ulp_lpt_lp(struct e1000_hw *hw, bool to_sx)
+ 	if (to_sx) {
+ 		if (er32(WUFC) & E1000_WUFC_LNKC)
+ 			phy_reg |= I218_ULP_CONFIG1_WOL_HOST;
++		else
++			phy_reg &= ~I218_ULP_CONFIG1_WOL_HOST;
  
+ 		phy_reg |= I218_ULP_CONFIG1_STICKY_ULP;
++		phy_reg &= ~I218_ULP_CONFIG1_INBAND_EXIT;
+ 	} else {
+ 		phy_reg |= I218_ULP_CONFIG1_INBAND_EXIT;
++		phy_reg &= ~I218_ULP_CONFIG1_STICKY_ULP;
++		phy_reg &= ~I218_ULP_CONFIG1_WOL_HOST;
+ 	}
+ 	e1000_write_phy_reg_hv_locked(hw, I218_ULP_CONFIG1, phy_reg);
+ 
+@@ -1183,6 +1193,15 @@ s32 e1000_enable_ulp_lpt_lp(struct e1000_hw *hw, bool to_sx)
+ 	/* Commit ULP changes in PHY by starting auto ULP configuration */
+ 	phy_reg |= I218_ULP_CONFIG1_START;
+ 	e1000_write_phy_reg_hv_locked(hw, I218_ULP_CONFIG1, phy_reg);
++
++	if ((hw->phy.type == e1000_phy_i217) && (hw->phy.revision == 6) &&
++	    to_sx && (er32(STATUS) & E1000_STATUS_LU)) {
++		ret_val = e1000_write_phy_reg_hv_locked(hw, HV_OEM_BITS,
++							oem_reg);
++		if (ret_val)
++			goto release;
++	}
++
+ release:
+ 	hw->phy.ops.release(hw);
+ out:
 -- 
 2.4.3
