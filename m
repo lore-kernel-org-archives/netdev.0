@@ -1,51 +1,53 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] Add PTP cross-timestamp to the PTP driver interface
-Date: Fri, 26 Jun 2015 08:55:07 +0200
-Message-ID: <20150626065507.GB1511@localhost.localdomain>
-References: <1435275777-3918-1-git-send-email-christopher.s.hall@intel.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [v2,9/9] fsl/fman: Add FMan MAC driver
+Date: Fri, 26 Jun 2015 09:01:43 +0200
+Message-ID: <1435302103.28572.54.camel@tiscali.nl>
+References: <1435174672-4608-1-git-send-email-igal.liberman@freescale.com>
+	 <1435273590.28572.11.camel@tiscali.nl>
+	 <1435280369.2977.4.camel@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jacob.e.keller@intel.com,
-	john.ronciak@intel.com, kevin.b.stanton@intel.com
-To: Christopher Hall <christopher.s.hall@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: igal.liberman@freescale.com, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, madalin.bucur@freescale.com
+To: Scott Wood <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:34452 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752034AbbFZGzM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 02:55:12 -0400
-Received: by wicnd19 with SMTP id nd19so36703724wic.1
-        for <netdev@vger.kernel.org>; Thu, 25 Jun 2015 23:55:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1435275777-3918-1-git-send-email-christopher.s.hall@intel.com>
+Received: from lb1-smtp-cloud2.xs4all.net ([194.109.24.21]:56588 "EHLO
+	lb1-smtp-cloud2.xs4all.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751558AbbFZHBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 03:01:49 -0400
+In-Reply-To: <1435280369.2977.4.camel@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris,
+On Thu, 2015-06-25 at 19:59 -0500, Scott Wood wrote:
+> On Fri, 2015-06-26 at 01:06 +0200, Paul Bolle wrote:
+> > (Evolution 3.16 is basically unbearable for replying to patches. 
+> > Anyone
+> > else running into this?) 
 
-Basically this patch looks okay to me.  Could you please add LKML,
-John Stultz and tglx (the time guys) onto CC?  I would like to get
-their Acks or at least let them have a chance to review it.
+You replied with Evolution v3.16, didn't you? Look how it wrapped that
+line. Now imagine how a patch of a few thousands lines might look like
+when replying. (Of course a patch of a few thousands lines is part of
+the issue here. As in: no one can really handle that.) 
 
-On Thu, Jun 25, 2015 at 04:42:56PM -0700, Christopher Hall wrote:
-> This patch allows system and device time ("cross-timestamp") to be performed 
-> by the driver. Currently, the timestamping is performed in the PTP_SYS_OFFSET 
-> ioctl.  It reads gettimeofday() and the gettime64() callback provided by the 
-> driver. The cross-timestamp is best effort ignoring the latency between the 
-> capture of system time (getnstimeofday()) and the device time 
-> (driver callback).
+And if you set certain lines to "preformatted" to undo the wrapping it
+inserts ">" in the tabs!
 
-You can make the motivation more clear by mentioning how the newer
-PCIe spec foresees "perfect" timestamps.  If I didn't already know the
-background, I would wonder who would ever want "best effort" single
-cross timestamps.
+There's more. I'll stop now, as this is drifting too far off topic.
 
-> Additionally, the callback, getsynctime64(), will only be called when 
-> n_samples == 1 because the driver returns only 1 cross-timestamp where 
-> multiple samples cannot be chained together.
+> If you mean the crazy lag when selecting moderate-to-large amounts of 
+> 
+> text (for snipping), yes.
 
-There should be a way for user space to find out whether a particular
-device offers the cross timestamp capability.  There are reserved
-fields in 'struct ptp_clock_caps' that could be used.
+One of my replies I had to do over a few times because evolution or I
+lost track of what was selected. Ie, I thought I had selected hundreds
+of lines but something much smaller was deleted. Something like that.
+As confusing as it gets, so who knows what actually happened?
+
+Yes, I know, I should ask for a refund.
 
 Thanks,
-Richard
+
+
+Paul Bolle
