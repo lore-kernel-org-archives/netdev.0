@@ -1,183 +1,151 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [ANNOUNCE] iproute2 4.1.0
-Date: Fri, 26 Jun 2015 13:06:16 -0700
-Message-ID: <20150626130616.5a350099@urahara>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] improve mvneta (Marvell 370) driver TCPv6 performance [1]
+Date: Fri, 26 Jun 2015 23:03:32 +0200
+Message-ID: <20150626210332.GQ9469@lunn.ch>
+References: <CAEvQe-QUHodbnEB3jhqGn7yRBoNbb-Lvi37xoK7O6XWLeyaUNA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	netdev@vger.kernel.org, Oren Laskin <orenlaskin@igneoussystems.com>
+To: Phil Hofer <philhofer@igneoussystems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:34970 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751898AbbFZVI0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 17:08:26 -0400
-Received: by pactm7 with SMTP id tm7so73995951pac.2
-        for <netdev@vger.kernel.org>; Fri, 26 Jun 2015 14:08:26 -0700 (PDT)
+Received: from vps0.lunn.ch ([178.209.37.122]:58533 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752727AbbFZVJc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Jun 2015 17:09:32 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEvQe-QUHodbnEB3jhqGn7yRBoNbb-Lvi37xoK7O6XWLeyaUNA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update to iproute2 for 4.1
+On Fri, Jun 26, 2015 at 01:31:09PM -0700, Phil Hofer wrote:
+> I've made some changes based on advice from Willy Tarreau.
+> The changes don't influence the IPv6 performance numbers on our board
+> relative to the previous patch. I still get about 90% of IPv4
+> performance.
+> 
+> Enabling NETIF_F_TSO6 still causes problems; that will probably have
+> to be addressed in a separate patch. I still haven't figured out why
+> that breaks the driver.
 
-4.1 is released and this is the corresponding iproute2.
-Noteable features:
-   * new command for controlling TIPC
-   * BPF support in tc
-   * Lots of RED cleanup work
-   * Enhancements to ss
-   * color option to ip command
+Hi Phil
 
-Source:
-  http://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-4.1.0.tar=
-=2Egz
+The Change Log message is supposed to explain what the patch does, and
+importantly, why. It will land in the git repository as documentation
+for the patch. Please could you re-write you log.
 
-Repository:
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+> Signed off: Phil Hofer <philhofer@igneoussystems.com>
+> 
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c
+> b/drivers/net/ethernet/marvell/mvneta.c
+> index 5bdf782..3e0a90a 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -338,7 +338,8 @@ struct mvneta_port {
+>  #define MVNETA_RXD_ERR_LEN             BIT(18)
+>  #define MVNETA_RXD_ERR_RESOURCE                (BIT(17) | BIT(18))
+>  #define MVNETA_RXD_ERR_CODE_MASK       (BIT(17) | BIT(18))
+> -#define MVNETA_RXD_L3_IP4              BIT(25)
+> +#define MVNETA_RXD_L3_IP               BIT(24)
+> +#define MVNETA_RXD_IP_HEAD_OK          BIT(25)
+>  #define MVNETA_RXD_FIRST_LAST_DESC     (BIT(26) | BIT(27))
+>  #define MVNETA_RXD_L4_CSUM_OK          BIT(30)
+> 
+> @@ -1235,13 +1236,17 @@ static u32 mvneta_txq_desc_csum(int l3_offs,
+> int l3_proto,
+>         command =  l3_offs    << MVNETA_TX_L3_OFF_SHIFT;
+>         command |= ip_hdr_len << MVNETA_TX_IP_HLEN_SHIFT;
+> 
+> +       /* IPv6 packet header checksumming
+> +        * is not supported, but TCPv6 header
+> +        * checksumming *is* supported.
+> +        */
+>         if (l3_proto == htons(ETH_P_IP))
+>                 command |= MVNETA_TXD_IP_CSUM;
+> -       else
+> +       else if (l3_proto == htons(ETH_P_IPV6))
+>                 command |= MVNETA_TX_L3_IP6;
+> 
+>         if (l4_proto == IPPROTO_TCP)
+> -               command |=  MVNETA_TX_L4_CSUM_FULL;
+> +               command |= MVNETA_TX_L4_CSUM_FULL;
 
-Report problems (or enhancements) to the netdev@vger.kernel.org mailing=
- list.
+What white space change should really be in a different patch.
 
-Sorry for the delay, Linus and I don't coordinate vacations.
+>         else if (l4_proto == IPPROTO_UDP)
+>                 command |= MVNETA_TX_L4_UDP | MVNETA_TX_L4_CSUM_FULL;
+>         else
+> @@ -1288,13 +1293,16 @@ static void mvneta_rx_error(struct mvneta_port *pp,
+>  static void mvneta_rx_csum(struct mvneta_port *pp, u32 status,
+>                            struct sk_buff *skb)
+>  {
+> -       if ((status & MVNETA_RXD_L3_IP4) &&
+> -           (status & MVNETA_RXD_L4_CSUM_OK)) {
+> +       /* IPHeadOk will be set for IPv6
+> +        * and IPv4 packets with proper
+> +        * checksums.
+> +        */
+> +       if ((status & MVNETA_RXD_IP_HEAD_OK) &&
+> +               (status & MVNETA_RXD_L4_CSUM_OK)) {
+>                 skb->csum = 0;
+>                 skb->ip_summed = CHECKSUM_UNNECESSARY;
+>                 return;
+>         }
+> -
 
----
-Andy Gospodarek (1):
-      iproute2: unify naming for entries offloaded to hardware
+Unneeded white space change.
 
-Christophe Gouault (2):
-      xfrm: add command for configuring SPD hash table
-      xfrm: revise man page and document ip xfrm policy set
+>         skb->ip_summed = CHECKSUM_NONE;
+>  }
+> 
+> @@ -3129,7 +3137,7 @@ static int mvneta_probe(struct platform_device *pdev)
+> 
+>         netif_napi_add(dev, &pp->napi, mvneta_poll, NAPI_POLL_WEIGHT);
+> 
+> -       dev->features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
+> +       dev->features = NETIF_F_SG | NETIF_F_IP_CSUM |
+> NETIF_F_IPV6_CSUM | NETIF_F_TSO;
 
-Daniel Borkmann (9):
-      misc: header rebase, add bpf.h
-      tc: add eBPF support to f_bpf
-      tc, bpf: finalize eBPF support for cls and act front-end
-      tc: built-in eBPF exec proxy
-      examples: bpf: fix ld offs to have same prog loaded on ingress/eg=
-ress
-      tc: {m, f}_ebpf: add option for dumping verifier log
-      tc: minor cleanup on ingress
-      tc: util: fix print_rate for ludicrous speeds
-      tc: bpf: add initial man page
+It looks like you patch has been mangled by your mail client. Please
+use git send-email to avoid such issues.
 
-David Ward (9):
-      tc: red, gred: Rename overloaded variable wlog
-      tc: red, gred: Fix format specifier in burst size warning
-      tc: red, gred: Notify when using the default value for "bandwidth=
-"
-      tc: red: Mark "bandwidth" parameter as optional in usage text
-      tc: gred: Fix whitespace issues in code
-      tc: gred: Print usage text if no arguments appear after "gred"
-      tc: gred: Improve parameter/statistics output
-      tc: gred: Handle unsigned values properly in option parsing/print=
-ing
-      tc: gred: Adopt the term VQ in the command syntax and output
+    Andrew
 
-Eric Dumazet (5):
-      ss: small optim in tcp_show_info()
-      ss: dctcp changes
-      ss: Fix allocation of cong control alg name
-      ss: speedup resolve_service()
-      ss: do not bindly dump two families
-
-Eric W. Biederman (8):
-      add a source addres length parameter to rt_addr_n2a
-      make the addr argument of ll_addr_n2a const
-      add support for printing AF_PACKET addresses
-      add address family to/from string helper functions.
-      misc whitespace cleanup
-      add support for the RTA_VIA attribute
-      add support for the RTA_NEWDST attribute.
-      add basic mpls support to iproute
-
-=46elix Fietkau (1):
-      tc: add support for connmark action
-
-Jetchko Jekov (1):
-      gre: raising the size of the buffer holding nl messages.
-
-Lennert Buytenhek (1):
-      man ip-link: Add missing lowpan link type
-
-Lubomir Rintel (1):
-      ip: support RFC4191 router preference
-
-Maciej =C5=BBenczykowski (2):
-      iproute2: tc/m_pedit.c - remove dead code
-      iproute2: misc/ss.c - fix run_ssfilter af_packet when protocol =3D=
-=3D 0
-
-Madhu Challa (1):
-      ip: enable configuring multicast group autojoin
-
-Mathias Nyman (1):
-      ip: Add color output option
-
-Mazhar Rana (1):
-      mroute: "ip mroute show" not working when "to" and/or "from" is g=
-iven
-
-Mike Frysinger (1):
-      enable transparent LFS
-
-Nicolas Dichtel (5):
-      netns: allow to dump and monitor nsid
-      ipxfrm: wrong nl msg sent on deleteall cmd
-      tc: fix compilation warning on 32bits arch
-      libnamespaces: fix warning about syscall()
-      mroute: remove invalid check against NLM_F_MULTI
-
-Pavel =C5=A0imerda (5):
-      turn Makefile more distribution friendly
-      ip-xfrm: support 'proto any' with 'sport' and 'dport'
-      cbq: fix find syntax in example
-      lnstat: run indefinitely by default
-      lnstat: dump to stdout, not stderr
-
-Richard Alpe (1):
-      tipc: add new TIPC configuration tool
-
-Scott Feldman (1):
-      route: label externally offloaded routes
-
-Stephen Hemminger (16):
-      update headers files for net-next
-      update kernel headers to net-next 4.0-rc5
-      xfrm: fix build with later kernel headers
-      update kernel headers for net-next
-      fix whitespace
-      update kernel headers and add tc_connmark.h
-      update headers to reflect BPF changes
-      ip: document exit code
-      ip: return correct exit code on route failure
-      ip: fix exit code for rule failures
-      ip: fix exit code for addrlabel
-      Update to latest kernel headers
-      libnetlink: add size argument to rtnl_talk
-      update to 4.1-rc5 headers
-      change of rtnetlink to use RTN_F_OFFLOAD
-      v4.1.0
-
-Thadeu Lima de Souza Cascardo (1):
-      Fix changing tunnel remote and local address to any
-
-Thomas Graf (2):
-      iproute2: Fix typo in get_prefix_1()
-      route: Add missing newline in helptext
-
-Vadim Kochan (10):
-      tc util: Fix possible buffer overflow when print class id
-      ss: Fix wrong filter behaviour
-      man ip-link: Add deleting links by group
-      ip link: Add group in usage() for 'ip link delete'
-      man ip-link: Remove extra GROUP explanation
-      tests: Run each test in network namespace
-      tests: Add test for 'ip route add default'
-      ss: Show more info (ring,fanout) for packet socks
-      configure: Check for libmnl
-      tests: Add output testing
-
-Vlad Zolotarov (1):
-      ip link set vf: Added "query_rss" command
-
-WANG Cong (1):
-      tc: fill in handle before checking argc
+>         dev->hw_features |= dev->features;
+>         dev->vlan_features |= dev->features;
+>         dev->priv_flags |= IFF_UNICAST_FLT;
+> 
+> 
+> On Fri, Jun 26, 2015 at 12:57 PM, Phil Hofer
+> <philhofer@igneoussystems.com> wrote:
+> > My apologies.
+> >
+> > I have a follow-up on the way with some of Willy's suggested changes as well.
+> >
+> > On Fri, Jun 26, 2015 at 11:52 AM, Thomas Petazzoni
+> > <thomas.petazzoni@free-electrons.com> wrote:
+> >> Hello Phil,
+> >>
+> >> On Fri, 26 Jun 2015 11:12:03 -0700, Phil Hofer wrote:
+> >>> TCP performance over IPv6 was only about 60% of IPv4 performance. This
+> >>> patch makes up most (but not all) of the difference.
+> >>>
+> >>> Signed off by: Thomas Petazzoni (thomas.petazzoni@free-electrons.com)
+> >>
+> >> What makes you think you can use my Signed-off-by for a patch that I
+> >> haven't written? It should be your Signed-off-by here, certainly not
+> >> mine.
+> >>
+> >> Also, the e-mail address should be between <...>, not between (...).
+> >>
+> >> Thanks!
+> >>
+> >> Thomas
+> >> --
+> >> Thomas Petazzoni, CTO, Free Electrons
+> >> Embedded Linux, Kernel and Android engineering
+> >> http://free-electrons.com
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
