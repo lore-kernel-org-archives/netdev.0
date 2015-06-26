@@ -1,45 +1,31 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 3/3] net: dsa: mv88e6352: add support for port_vlan_dump
-Date: Fri, 26 Jun 2015 16:12:17 +0200
-Message-ID: <20150626141217.GD9469@lunn.ch>
-References: <1435095970-18576-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1435095970-18576-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [-next] fib_dump_info() suspicious RCU usage
+Date: Fri, 26 Jun 2015 10:24:48 -0400
+Message-ID: <20150626142447.GV588@gospo.home.greyhouse.net>
+References: <20150626093540.GA4989@swordfish>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Cc: Dinesh Dutt <ddutt@cumulusnetworks.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1435095970-18576-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20150626093540.GA4989@swordfish>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 23, 2015 at 05:46:10PM -0400, Vivien Didelot wrote:
-> Add support for dumping the VLAN Table Unit entries by pointing to the
-> port_vlan_dump function implemented for mv88e6xxx.
+On Fri, Jun 26, 2015 at 06:35:40PM +0900, Sergey Senozhatsky wrote:
+> Hello,
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->  drivers/net/dsa/mv88e6352.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-> index b524bd3..c35f57f 100644
-> --- a/drivers/net/dsa/mv88e6352.c
-> +++ b/drivers/net/dsa/mv88e6352.c
-> @@ -397,6 +397,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
->  	.fdb_add		= mv88e6xxx_port_fdb_add,
->  	.fdb_del		= mv88e6xxx_port_fdb_del,
->  	.fdb_getnext		= mv88e6xxx_port_fdb_getnext,
-> +	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
->  };
+> Since 0eeb075fad736 ('net: ipv4 sysctl option to ignore routes when nexthop
+> link is down') fib_dump_info() and fib_sync_up() are using __in_dev_get_rcu(),
+> which requires (missing) RCU read side protection.
 
-Once the code is made generic in terms of number of ports, i would
-suggest adding this to all drivers which support it. Between us, we
-can test most of them.
+Yep, I can reproduce this now.  Thanks for reporting.
 
-Thanks
-	Andrew
+I'll take a look and should be able to post an easy fix quickly.
