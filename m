@@ -1,18 +1,16 @@
 From: Michal Schmidt <mschmidt@redhat.com>
 Subject: [PATCH net] bnx2x: fix DMA API usage
-Date: Fri, 26 Jun 2015 17:50:00 +0200
-Message-ID: <1435333800-22447-2-git-send-email-mschmidt@redhat.com>
-References: <1435333800-22447-1-git-send-email-mschmidt@redhat.com>
+Date: Fri, 26 Jun 2015 17:49:59 +0200
+Message-ID: <1435333800-22447-1-git-send-email-mschmidt@redhat.com>
 Cc: Gabriel Krisman Bertazi <krisman@linux.vnet.ibm.com>,
 	Yuval Mintz <Yuval.Mintz@qlogic.com>,
 	Ariel Elior <Ariel.Elior@qlogic.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58848 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39698 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752369AbbFZPuE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Jun 2015 11:50:04 -0400
-In-Reply-To: <1435333800-22447-1-git-send-email-mschmidt@redhat.com>
+	id S1752252AbbFZPuD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Jun 2015 11:50:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
