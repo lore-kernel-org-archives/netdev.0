@@ -1,49 +1,37 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net-next 0/3] iplink_bridge: add support for
- ageing_time, priority and stp_state
-Date: Fri, 26 Jun 2015 00:07:42 -0400
-Message-ID: <20150626000742.105a5908@uryu.home.lan>
-References: <1434451129-3241-1-git-send-email-razor@blackwall.org>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [PATCH iproute2] ss: print value of IPV6_V6ONLY socket option
+ if set
+Date: Fri, 26 Jun 2015 00:18:29 -0400
+Message-ID: <20150626001829.205b812c@uryu.home.lan>
+References: <98d177c535aa4910b83df0b9856d80ab@HQ1WP-EXMB11.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joerg@higgsboson.tk, davem@davemloft.net
-To: Nikolay Aleksandrov <razor@blackwall.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:32794 "EHLO
-	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751696AbbFZELM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 00:11:12 -0400
-Received: by oiyy130 with SMTP id y130so67305342oiy.0
-        for <netdev@vger.kernel.org>; Thu, 25 Jun 2015 21:11:11 -0700 (PDT)
-In-Reply-To: <1434451129-3241-1-git-send-email-razor@blackwall.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:42169 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751278AbbFZETD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 00:19:03 -0400
+In-Reply-To: <98d177c535aa4910b83df0b9856d80ab@HQ1WP-EXMB11.corp.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 16 Jun 2015 13:38:46 +0300
-Nikolay Aleksandrov <razor@blackwall.org> wrote:
+On Wed, 24 Jun 2015 11:07:20 +0000
+Phil Sutter <phil@nwl.cc> wrote:
 
-> Hi,
-> Three months ago support was added to be able to set ageing_time,
-> priority and stp_state via netlink by commit:
-> af615762e972 ("bridge: add ageing_time, stp_state, priority over netlink")
-> This patch-set adds support for iproute2 to be able to use them.
-> Exampes:
-> ip link set dev br0 type bridge priority 10
-> ip link set dev br0 type bridge ageing_time 10
-> ip link set dev br0 type bridge stp_state 1
+> If available and set, print 'v6only:1' for AF_INET6 sockets upon request
+> of extended information. For IPv6 sockets bound to in6addr_any, this is
+> the only way to determine if they will also accept IPv4 requests or not.
 > 
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
+> Depends on unapplied patch 'ss: Include -E option for socket destroy
+> events'
 > 
-> Best regards,
->  Nikolay Aleksandrov
-> 
-> Nikolay Aleksandrov (3):
->   iplink_bridge: add support for ageing_time
->   iplink_bridge: add support for stp_state
->   iplink_bridge: add support for priority
-> 
->  ip/iplink_bridge.c | 26 ++++++++++++++++++++++++++
->  1 file changed, 26 insertions(+)
-> 
+> Kernel support patch: 204621551b2a0060a013b92f7add4d5c452fa7cb
 
-All these are staged in net-next branch.
+
+Applied, currently staged on local net-next branch.
+Will merge after 4.1 iproute2 release
