@@ -1,58 +1,76 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH 3/3] net: dsa: mv88e6352: add support for port_vlan_dump
-Date: Fri, 26 Jun 2015 10:33:16 -0400 (EDT)
-Message-ID: <1052297361.304968.1435329196722.JavaMail.zimbra@savoirfairelinux.com>
-References: <1435095970-18576-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1435095970-18576-4-git-send-email-vivien.didelot@savoirfairelinux.com> <20150626141217.GD9469@lunn.ch>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net 06/10] e1000e: i219 - increase IPG for speed 10/100 full
+ duplex
+Date: Fri, 26 Jun 2015 14:30:45 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB57C45@AcuExch.aculab.com>
+References: <1435314040-3228-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1435314040-3228-7-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Yanir Lubetkin <yanirx.lubetkin@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: 'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:65383 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752824AbbFZOdT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 10:33:19 -0400
-In-Reply-To: <20150626141217.GD9469@lunn.ch>
+Received: from smtp-out4.electric.net ([192.162.216.190]:52174 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752772AbbFZOdW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 10:33:22 -0400
+In-Reply-To: <1435314040-3228-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
-
-On Jun 26, 2015, at 10:12 AM, Andrew Lunn andrew@lunn.ch wrote:
-
-> On Tue, Jun 23, 2015 at 05:46:10PM -0400, Vivien Didelot wrote:
->> Add support for dumping the VLAN Table Unit entries by pointing to the
->> port_vlan_dump function implemented for mv88e6xxx.
->> 
->> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->> ---
->>  drivers/net/dsa/mv88e6352.c | 1 +
->>  1 file changed, 1 insertion(+)
->> 
->> diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
->> index b524bd3..c35f57f 100644
->> --- a/drivers/net/dsa/mv88e6352.c
->> +++ b/drivers/net/dsa/mv88e6352.c
->> @@ -397,6 +397,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
->>  	.fdb_add		= mv88e6xxx_port_fdb_add,
->>  	.fdb_del		= mv88e6xxx_port_fdb_del,
->>  	.fdb_getnext		= mv88e6xxx_port_fdb_getnext,
->> +	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
->>  };
+From: Of Jeff Kirsher
+> Sent: 26 June 2015 11:21
+> In SPT/i219, there were CRC errors in speed 10/100 full duplex.
+> The solution given by the HW team is to increase the IPG from 8 to 0xC
 > 
-> Once the code is made generic in terms of number of ports, i would
-> suggest adding this to all drivers which support it. Between us, we
-> can test most of them.
+> Signed-off-by: Yanir Lubetkin <yanirx.lubetkin@intel.com>
+> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/net/ethernet/intel/e1000e/ich8lan.c | 10 +++++++---
+>  1 file changed, 7 insertions(+), 3 deletions(-)
 > 
-> Thanks
-> 	Andrew
+> diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+> index c5bb1dd..983f5bf 100644
+> --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
+> +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+> @@ -1400,16 +1400,20 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
+>  	if (((hw->mac.type == e1000_pch2lan) ||
+>  	     (hw->mac.type == e1000_pch_lpt) ||
+>  	     (hw->mac.type == e1000_pch_spt)) && link) {
+> -		u32 reg;
+> +		u16 speed, duplex;
+> 
+> -		reg = er32(STATUS);
+> +		e1000e_get_speed_and_duplex_copper(hw, &speed, &duplex);
+>  		tipg_reg = er32(TIPG);
+>  		tipg_reg &= ~E1000_TIPG_IPGT_MASK;
+> 
+> -		if (!(reg & (E1000_STATUS_FD | E1000_STATUS_SPEED_MASK))) {
+> +		if (duplex == HALF_DUPLEX && speed == SPEED_10) {
+>  			tipg_reg |= 0xFF;
+>  			/* Reduce Rx latency in analog PHY */
+>  			emi_val = 0;
+> +		} else if (hw->mac.type == e1000_pch_spt &&
+> +			   duplex == FULL_DUPLEX && speed != SPEED_1000) {
 
-OK. I'll add it in mv88e6352.c, mv88e6171.c, mv88e6131.c, mv88e6123_61_65.c.
+You really ought to have a comment here explaining why the inter-packet
+gap is increased.
 
-Thanks,
--v
+> +			tipg_reg |= 0xC;
+
+Shouldn't you mask out the old IPG value - just in case it isn't 8.
+
+> +			emi_val = 1;
+>  		} else {
+> 
+>  			/* Roll back the default values */
+
+	David
