@@ -1,170 +1,110 @@
-From: Nicolae Rosia <nicolae.rosia@gmail.com>
-Subject: Re: macb napi strange behavior
-Date: Fri, 26 Jun 2015 20:50:30 +0300
-Message-ID: <CAH=tA9F+hhKvbGaTb7j9km4niRR3K89MEgjz=aah9rB4A_tG4A@mail.gmail.com>
-References: <CAH=tA9FfYh_XSg7y=TujXwuvrjvgg+hOY1j_UOyJNK5mrwaBCw@mail.gmail.com>
-	<5581C27C.4040408@ni.com>
-	<CAH=tA9HCqKgSFwMczRJ1hb=Sjb1H5XFg00ddRq=BW+_8OZ0ARQ@mail.gmail.com>
-	<CAGVrzcZxPqyp3CDLc-UQejtVg1QVv5OBuGLQNVSrtfG9H1OUnA@mail.gmail.com>
-	<20150620164332.GA2505@electric-eye.fr.zoreil.com>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [PATCH V3 0/2] pci: Provide a flag to access VPD through
+ function 0
+Date: Fri, 26 Jun 2015 18:04:21 +0000
+Message-ID: <8CB0ECE7-CFE2-43CB-BA60-2E2E0A34D5D1@intel.com>
+References: <20150603184445.109080.36387.stgit@mdrustad-wks.jf.intel.com>
+ <051B68B4-3E77-4EB0-B9FE-8523631884A2@intel.com>
+ <45099CC7-DDAB-41D9-AB74-5A81E2AAF64C@intel.com>
+ <CAErSpo7e-QtQQTj2yh_jG07vqU1j1YBez_9wrcrzOQs7+eDFng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Jaeden Amero <jaeden.amero@ni.com>,
-	netdev <netdev@vger.kernel.org>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Cyrille Pitchen <cyrille.pitchen@atmel.com>,
-	Josh Cartwright <joshc@ni.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Bogdan Chifor <chiforbogdan86@gmail.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:36814 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752078AbbFZRuc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 13:50:32 -0400
-Received: by lacny3 with SMTP id ny3so67931371lac.3
-        for <netdev@vger.kernel.org>; Fri, 26 Jun 2015 10:50:30 -0700 (PDT)
-In-Reply-To: <20150620164332.GA2505@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_165B12A1-5D1D-4E3C-B606-C317F013CCB4";
+	protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <CAErSpo7e-QtQQTj2yh_jG07vqU1j1YBez_9wrcrzOQs7+eDFng@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+--Apple-Mail=_165B12A1-5D1D-4E3C-B606-C317F013CCB4
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=us-ascii
 
-I gave it a shot. Can you please take a look?
-I don't know how to deal with multiple queues since Zynq 7000 has one
-queue per interface.
-I get a performance improvement of over 110 Mbps in IP forwarding (680
-Mbps vs 570 Mbps) and a massive reduction of interrupts.
+> On Jun 17, 2015, at 9:44 AM, Bjorn Helgaas <bhelgaas@google.com> =
+wrote:
+>=20
+> On Wed, Jun 17, 2015 at 11:29 AM, Rustad, Mark D
+> <mark.d.rustad@intel.com> wrote:
+>> + Alex
+>>=20
+>>> On Jun 5, 2015, at 2:59 PM, Rustad, Mark D <mark.d.rustad@intel.com> =
+wrote:
+>>>=20
+>>>> On Jun 3, 2015, at 11:46 AM, Mark D Rustad =
+<mark.d.rustad@intel.com> wrote:
+>>>>=20
+>>>> Many multi-function devices provide shared registers in extended
+>>>> config space for accessing VPD. The behavior of these registers
+>>>> means that the state must be tracked and access locked correctly
+>>>> for accesses not to hang or worse. One way to meet these needs is
+>>>> to always perform the accesses through function 0, thereby using
+>>>> the state tracking and mutex that already exists.
+>>>>=20
+>>>> To provide this behavior, add a dev_flags bit to indicate that this
+>>>> should be done. This bit can then be set for any non-zero function
+>>>> that needs to redirect such VPD access to function 0. Do not set
+>>>> this bit on the zero function or there will be an infinite =
+recursion.
+>>>>=20
+>>>> The second patch uses this new flag to invoke this behavior on all
+>>>> multi-function Intel Ethernet devices.
+>>>>=20
+>>>> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+>>>>=20
+>>>> ---
+>>>> Changes in V2:
+>>>> - Corrected a spelling error in a log message
+>>>> - Added checks to see that the referenced function 0 is reasonable
+>>>> Changes in V3:
+>>>> - Don't leak a device reference
+>>>> - Check that function 0 has VPD
+>>>> - Make a helper for the function 0 checks
+>>>> - Moved a multifunction check to the quirk patch
+>>>=20
+>>> So does this series look acceptable now? I think I addressed the =
+issues that Alex raised. Can these also be considered for -stable?
+>>=20
+>> More than a week has passed without any comment. Is this going to be =
+accepted or is there still an issue?
+>=20
+> Sorry, Mark, I've just been busy with other issues and haven't had a
+> chance to look at this yet.
 
-Patch below.
+Is there any chance of this getting into this merge window?
 
-From: Nicolae Rosia <nicolae.rosia@certsign.ro>
-Date: Fri, 26 Jun 2015 19:44:50 +0300
-Subject: [PATCH] macb: use tx napi
+--
+Mark Rustad, Networking Division, Intel Corporation
 
----
- drivers/net/ethernet/cadence/macb.c | 37 ++++++++++++++++++++++++++++++++++---
- 1 file changed, 34 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/cadence/macb.c
-b/drivers/net/ethernet/cadence/macb.c
-index 30eedb1..2a3ecf7 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -602,10 +602,13 @@ static void macb_tx_interrupt(struct macb_queue *queue)
- {
-     unsigned int tail;
-     unsigned int head;
-+#if 0
-     u32 status;
-+#endif
-     struct macb *bp = queue->bp;
-     u16 queue_index = queue - bp->queues;
+--Apple-Mail=_165B12A1-5D1D-4E3C-B606-C317F013CCB4
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
 
-+#if 0
-     status = macb_readl(bp, TSR);
-     macb_writel(bp, TSR, status);
+-----BEGIN PGP SIGNATURE-----
+Comment: GPGTools - http://gpgtools.org
 
-@@ -614,6 +617,7 @@ static void macb_tx_interrupt(struct macb_queue *queue)
+iQIcBAEBCAAGBQJVjZQkAAoJEDwO/+eO4+5u+S4P/39Fau9TPpLocOuAkdxDJBoH
+x/i9BHxbBQPCwd12O5eu2G7XX+xPQJddPv4rV5HpA5+Uzx1Ry2q0+SEEgRt76iKp
+qBtKUKn/jnA8YUM7YAkjaKGfNicKO0EE5EQVfGfU2uEsa82qjTRBTC3jh1T6/DJH
+EDZv1WTQW0SUhZc4OHmW83JrLCfpwrR8DVdi/xb5CXkSIVb957DRmwahKBa/1HpO
+PNlyAe23Q3RBrESCCNlHDlqfj1C+0HJMyPSduk7Bt9/m0qZrAKZ1Q/a/zIfep+Qc
+SoH1zVszvA3e0J56F4LnTgEKuDgS94ZSUh9DHnZc2P1IACm14KyHWxWPHMYl9EzW
+2JQiDnmwxP8keuQXu2wuiPtW+7XuFsXwr2LvgdelIubOExk8llV7jcTd4CgYjqsR
+wEmyt2MR7c105sJ61X+Fcmj9ZsIw8e6BxwkYVGlkdadaOFeUv4bpeC4dhbLujHlf
+jEAJy/qLpyZtC7fMgvSJalmnUUwZQYQoNYqqioSWUhcu/jg9BToCeoY1p3grl2Wv
+CnKqCSe+bZqIM+R3JF9AHrdgT6PvfQ+hWbi5M1XRJmRYNRucFZxuzrhVbC7FpUsI
+1/wo4oKofNtBKTy4BCafn52rXXfk8qrSZRmHKgBGteo6Aaxw8Nl9EUIxIUw4o9br
++8m9wroFXJA/t/O5Dmc/
+=DIWf
+-----END PGP SIGNATURE-----
 
-     netdev_vdbg(bp->dev, "macb_tx_interrupt status = 0x%03lx\n",
-         (unsigned long)status);
-+#endif
-
-     head = queue->tx_head;
-     for (tail = queue->tx_tail; tail != head; tail++) {
-@@ -951,12 +955,17 @@ static int macb_poll(struct napi_struct *napi, int budget)
-     status = macb_readl(bp, RSR);
-     macb_writel(bp, RSR, status);
-
--    work_done = 0;
-+    status = macb_readl(bp, TSR);
-+    if (status) {
-+        macb_writel(bp, TSR, status);
-+        macb_tx_interrupt(&bp->queues[0]);
-+    }
-
-     netdev_vdbg(bp->dev, "poll: status = %08lx, budget = %d\n",
-            (unsigned long)status, budget);
-
-     work_done = bp->macbgem_ops.mog_rx(bp, budget);
-+
-     if (work_done < budget) {
-         napi_complete(napi);
-
-@@ -969,6 +978,16 @@ static int macb_poll(struct napi_struct *napi, int budget)
-         } else {
-             macb_writel(bp, IER, MACB_RX_INT_FLAGS);
-         }
-+
-+        /* Packets received while interrupts were disabled */
-+        status = macb_readl(bp, TSR);
-+        if (status) {
-+            if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-+                macb_writel(bp, ISR, MACB_BIT(TCOMP));
-+            napi_reschedule(napi);
-+        } else {
-+            macb_writel(bp, IER, MACB_TX_INT_FLAGS);
-+        }
-     }
-
-     /* TODO: Handle errors */
-@@ -1029,8 +1048,17 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
-             break;
-         }
-
--        if (status & MACB_BIT(TCOMP))
--            macb_tx_interrupt(queue);
-+        if (status & MACB_BIT(TCOMP)) {
-+            /* disable tx interrupts */
-+            queue_writel(queue, IDR, MACB_TX_INT_FLAGS);
-+            if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-+                queue_writel(queue, ISR, MACB_BIT(TCOMP));
-+
-+            if (napi_schedule_prep(&bp->napi)) {
-+                netdev_vdbg(bp->dev, "scheduling TX softirq\n");
-+                __napi_schedule(&bp->napi);
-+            }
-+        }
-
-         /*
-          * Link change detection isn't possible with RMII, so we'll
-@@ -2348,6 +2376,7 @@ static int macb_probe(struct platform_device *pdev)
-     }
-
-     macb_probe_queues(mem, &queue_mask, &num_queues);
-+    dev_err(&pdev->dev, "queue count: %d.\n", num_queues);
-     dev = alloc_etherdev_mq(sizeof(*bp), num_queues);
-     if (!dev)
-         goto err_out_disable_clocks;
-@@ -2377,6 +2406,8 @@ static int macb_probe(struct platform_device *pdev)
-         if (!(queue_mask & (1 << hw_q)))
-             continue;
-
-+        dev_err(&pdev->dev, "queue index: %d\n", q);
-+
-         queue = &bp->queues[q];
-         queue->bp = bp;
-         if (hw_q) {
--- 
-2.1.0
-
-On Sat, Jun 20, 2015 at 7:43 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
-> Florian Fainelli <f.fainelli@gmail.com> :
-> [...]
->> Typically, NAPI is used at the receive side of the Ethernet NIC/driver
->> to lower the hard/soft interrupt context switch, although there is
->> nothing that prevent you to implement a similar scheme for the
->> transmit side. Usually, for transmit you will be submitting one packet
->> for transmission and get a completion interrupt, so without interrupt
->> coalescing (software or hardware) you can end-up with 1 interrupt per
->> packet transmitted.
->
-> The wording is a bit shy: there is a long standing policy to move
-> everything to NAPI context (as well as go mostly lockless, etc.).
->
-> Any taker to move macb Tx processing to NAPI context or should I consider it ?
->
-> --
-> Ueimor
+--Apple-Mail=_165B12A1-5D1D-4E3C-B606-C317F013CCB4--
