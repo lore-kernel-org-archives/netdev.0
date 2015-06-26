@@ -1,85 +1,102 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [v2,1/9] fsl/fman: Add the FMan FLIB
-Date: Thu, 25 Jun 2015 20:26:31 -0500
-Message-ID: <1435281991.4306.1.camel@freescale.com>
-References: <1435174389-8016-1-git-send-email-igal.liberman@freescale.com>
+From: Ajith Adapa <adapa.ajith@gmail.com>
+Subject: Re: Issue with LACP mode support in Linux bonding driver
+Date: Fri, 26 Jun 2015 07:07:09 +0530
+Message-ID: <CADAe=+LV=qxt1fwxJdvz6ODScDGGUpmA0YE+mPKZE4C2X0sqUA@mail.gmail.com>
+References: <CADAe=+LERY5jgVLpVdteFQXhcJdHzNxJpj=9t7Nyf0YTmSXcYQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, pebolle@tiscali.nl, linuxppc-dev@lists.ozlabs.org,
- madalin.bucur@freescale.com
-To: igal.liberman@freescale.com
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1435174389-8016-1-git-send-email-igal.liberman@freescale.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:33301 "EHLO
+	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751004AbbFZBhu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2015 21:37:50 -0400
+Received: by oiyy130 with SMTP id y130so65547169oiy.0
+        for <netdev@vger.kernel.org>; Thu, 25 Jun 2015 18:37:49 -0700 (PDT)
+In-Reply-To: <CADAe=+LERY5jgVLpVdteFQXhcJdHzNxJpj=9t7Nyf0YTmSXcYQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDE1LTA2LTI0IGF0IDIyOjMzICswMzAwLCBpZ2FsLmxpYmVybWFuQGZyZWVzY2Fs
-ZS5jb20gd3JvdGU6Cj4gRnJvbTogSWdhbCBMaWJlcm1hbiA8SWdhbC5MaWJlcm1hbkBmcmVlc2Nh
-bGUuY29tPgo+IAo+IFRoZSBGTWFuIEZMaWIgcHJvdmlkZXMgdGhlIGJhc2ljIEFQSSB1c2VkIGJ5
-IHRoZSBGTWFuIGRyaXZlcnMgdG8KPiA+IGNvbmZpZ3VyZSBhbmQgY29udHJvbCB0aGUgRk1hbiBo
-YXJkd2FyZS4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBJZ2FsIExpYmVybWFuIDxJZ2FsLkxpYmVybWFu
-QGZyZWVzY2FsZS5jb20+CgpBZ2Fpbiwgd2hhdCBpcyBhbiBGTGliPyAgV2hhdCBkZXRlcm1pbmVz
-IHdoZXRoZXIgY29udGVudCBzaG91bGQgZ28gaW4gCnRoZSAiZmxpYiIgZGlyZWN0b3J5PwoKVGhl
-IHBhdGNoIHRpdGxlIHNheXMgIkFkZCB0aGUgRk1hbiBGTElCIiwgYnV0IHRoZXJlJ3MgbW9yZSBj
-b2RlIGFkZGVkIApvdXRzaWRlIHRoZSAiZmxpYiIgZGlyZWN0b3J5IHRoYW4gaW5zaWRlLgogCiJG
-TWFuIGRyaXZlcnMiPyAgVGhlcmUncyBtb3JlIHRoYW4gb25lPyAgV2hhdCBpcyAKImRyaXZlcnMv
-bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW4uYyIgaWYgbm90ICJ0aGUgRk1hbiBkcml2
-ZXIiPyAKIFdoYXQgaXMgInRoZSBGTWFuIGRyaXZlciIgaWYgbm90IHRoZSBjb2RlICJ0byBjb25m
-aWd1cmUgYW5kIGNvbnRyb2wgCnRoZSBGTWFuIGhhcmR3YXJlIj8gIElmIHRoaXMgaXMgYSBwdWJs
-aWMgQVBJLCB3aGVyZSdzIHRoZSAKZG9jdW1lbnRhdGlvbj8KCi0tLQo+ICBkcml2ZXJzL25ldC9l
-dGhlcm5ldC9mcmVlc2NhbGUvS2NvbmZpZyAgICAgICAgICAgICB8ICAgIDEgKwo+ICBkcml2ZXJz
-L25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvTWFrZWZpbGUgICAgICAgICAgICB8ICAgIDIgKwo+ICBk
-cml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9LY29uZmlnICAgICAgICB8ICAgIDcg
-Kwo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9NYWtlZmlsZSAgICAgICB8
-ICAgIDUgKwo+ICAuLi4vbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZsaWIvZnNsX2ZtYW4u
-aCAgICB8ICA2MDggCj4gKysrKysrKysrKysrCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVz
-Y2FsZS9mbWFuL2ZtYW4uYyAgICAgICAgIHwgIDk3NSAKPiArKysrKysrKysrKysrKysrKysrKwo+
-ICA2IGZpbGVzIGNoYW5nZWQsIDE1OTggaW5zZXJ0aW9ucygrKQo+ICBjcmVhdGUgbW9kZSAxMDA2
-NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vS2NvbmZpZwo+ICBjcmVhdGUg
-bW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vTWFrZWZpbGUK
-PiAgY3JlYXRlIG1vZGUgMTAwNjQ0IAo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9m
-bWFuL2ZsaWIvZnNsX2ZtYW4uaAo+ICBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbi5jCj4gCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
-L2V0aGVybmV0L2ZyZWVzY2FsZS9LY29uZmlnIAo+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJl
-ZXNjYWxlL0tjb25maWcKPiBpbmRleCAyNWUzNDI1Li4yNGU5MzhkIDEwMDY0NAo+IC0tLSBhL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9LY29uZmlnCj4gKysrIGIvZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvZnJlZXNjYWxlL0tjb25maWcKPiBAQCAtNTUsNiArNTUsNyBAQCBjb25maWcgRkVD
-X01QQzUyeHhfTURJTwo+ICAgICAgICAgSWYgY29tcGlsZWQgYXMgbW9kdWxlLCBpdCB3aWxsIGJl
-IGNhbGxlZCBmZWNfbXBjNTJ4eF9waHkuCj4gIAo+ICBzb3VyY2UgImRyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ZyZWVzY2FsZS9mc19lbmV0L0tjb25maWciCj4gK3NvdXJjZSAiZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvZnJlZXNjYWxlL2ZtYW4vS2NvbmZpZyIKPiAgCj4gIGNvbmZpZyBGU0xfUFFfTURJTwo+
-ICAgICAgIHRyaXN0YXRlICJGcmVlc2NhbGUgUFEgTURJTyIKPiBkaWZmIC0tZ2l0IGEvZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL01ha2VmaWxlIAo+IGIvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvZnJlZXNjYWxlL01ha2VmaWxlCj4gaW5kZXggNzFkZWJkMS4uNDA5N2M1OCAxMDA2NDQKPiAt
-LS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvTWFrZWZpbGUKPiArKysgYi9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvTWFrZWZpbGUKPiBAQCAtMTcsMyArMTcsNSBAQCBn
-aWFuZmFyX2RyaXZlci1vYmpzIDo9IGdpYW5mYXIubyBcCj4gICAgICAgICAgICAgICBnaWFuZmFy
-X2V0aHRvb2wubwo+ICBvYmotJChDT05GSUdfVUNDX0dFVEgpICs9IHVjY19nZXRoX2RyaXZlci5v
-Cj4gIHVjY19nZXRoX2RyaXZlci1vYmpzIDo9IHVjY19nZXRoLm8gdWNjX2dldGhfZXRodG9vbC5v
-Cj4gKwo+ICtvYmotJChDT05GSUdfRlNMX0ZNQU4pICs9IGZtYW4vCj4gZGlmZiAtLWdpdCBhL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL0tjb25maWcgCj4gYi9kcml2ZXJzL25l
-dC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9LY29uZmlnCj4gbmV3IGZpbGUgbW9kZSAxMDA2NDQK
-PiBpbmRleCAwMDAwMDAwLi44YWVhZTI5Cj4gLS0tIC9kZXYvbnVsbAo+ICsrKyBiL2RyaXZlcnMv
-bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL0tjb25maWcKPiBAQCAtMCwwICsxLDcgQEAKPiAr
-Y29uZmlnIEZTTF9GTUFOCj4gKyAgICAgYm9vbCAiRk1hbiBzdXBwb3J0Igo+ICsgICAgIGRlcGVu
-ZHMgb24gRlNMX1NPQyB8fCBDT01QSUxFX1RFU1QKPiArICAgICBkZWZhdWx0IG4KPiArICAgICBo
-ZWxwCj4gKyAgICAgICAgICAgICBGcmVlc2NhbGUgRGF0YS1QYXRoIEFjY2VsZXJhdGlvbiBBcmNo
-aXRlY3R1cmUgRnJhbWUgTWFuYWdlcgo+ICsgICAgICAgICAgICAgKEZNYW4pIHN1cHBvcnQKCiJk
-ZWZhdWx0IG4iIGlzIGEgbm8tb3AuCgpXaGF0IGRvZXMgZW5hYmxpbmcgdGhpcyBvcHRpb24gYWN0
-dWFsbHkgZG8sIGluIHRlcm1zIG9mIHVzZXItdmlzaWJsZSAKZmVhdHVyZXM/Cgo+ICt0eXBlZGVm
-IHN0cnVjdCBmbV9wcnNfcmVzdWx0X3QgZm1fcHJzX3Jlc3VsdDsKPiArdHlwZWRlZiBlbnVtIGVf
-ZW5ldF9tb2RlIGVuZXRfbW9kZV90OwoKVGhpcyB1c2Ugb2YgdHlwZWRlZiBpcyBjb250cmFyeSB0
-byBrZXJuZWwgY29kaW5nIHN0eWxlLgoKLVNjb3R0Cl9fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMt
-ZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xp
-bnV4cHBjLWRldg==
+Hi,
+
+How can I know the current maintainer for Linux Bonding Driver ?
+
+Regards,
+Ajith
+
+Regards,
+Ajith
+--------------------------------------------
+codingfreak.blogspot.com
+
+
+On 24 June 2015 at 15:25, Ajith Adapa <adapa.ajith@gmail.com> wrote:
+> Hi,
+>
+> I am using Centos7 with v3.10 kernel.
+>
+> My issue is related to multiaggregation in LACP.
+>
+> In my setup topology I connected linux server and a L2 switch back to
+> back with 2 interfaces eth0 and eth1 (on both sides).
+>
+> On Switch I have mapped eth0 to po1 and eth1 to po2. On linux server I
+> have created a single bond interface with both interfaces eth0 and
+> eth1.
+>
+> On L2 switch both po1 and po2 has same system-id but the Actor key is
+> different i.e. on PO1 it is 16385 and on PO2 it is 32768. As per the
+> information available about bond0 on linux server which is given below
+> Active aggregator ID is 1 which is mapped to eth0 but eth1.
+>
+> But we have observed that eth1 on linux server is also sending LACPDUS
+> with Collecting/Distributing bit set as 1. Which will result in single
+> bond interface on Linux server is splitted into multiple port-channels
+> on Switch causing duplication of frames on linux server.
+>
+> As per IEEE 802.3ad 2003 standard portchannel should not support
+> multi-aggregation.
+>
+>
+> #  cat /proc/net/bonding/bond0
+> Ethernet Channel Bonding Driver: v3.7.1 (April 27, 2011)
+>
+> Bonding Mode: IEEE 802.3ad Dynamic link aggregation
+> Transmit Hash Policy: layer2 (0)
+> MII Status: up
+> MII Polling Interval (ms): 100
+> Up Delay (ms): 0
+> Down Delay (ms): 0
+>
+> 802.3ad info
+> LACP rate: fast
+> Min links: 0
+> Aggregator selection policy (ad_select): stable
+> Active Aggregator Info:
+>     Aggregator ID: 1
+>     Number of ports: 1
+>     Actor Key: 17
+>     Partner Key: 16385
+>     Partner Mac Address: 11:11:22:22:33:33
+>
+> Slave Interface: eth0
+> MII Status: up
+> Speed: 1000 Mbps
+> Duplex: full
+> Link Failure Count: 0
+> Permanent HW addr: 08:00:27:18:ae:4b
+> Aggregator ID: 1
+> Slave queue ID: 0
+>
+> Slave Interface: eth1
+> MII Status: up
+> Speed: 1000 Mbps
+> Duplex: full
+> Link Failure Count: 0
+> Permanent HW addr: 08:00:27:76:35:a2
+> Aggregator ID: 3
+> Slave queue ID: 0
+>
+>
+> Regards,
+> Ajith
