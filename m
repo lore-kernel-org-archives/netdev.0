@@ -1,42 +1,48 @@
-From: Jiri Slaby <jslaby@suse.com>
-Subject: Re: please queue commit ac37e2515c1a for stable 3.12 - 3.18
-Date: Fri, 26 Jun 2015 14:59:32 +0200
-Message-ID: <558D4CB4.5070102@suse.com>
-References: <20150604205403.GA24969@unicorn.suse.cz>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: via: VIA_RHINE and VIA_VELOCITY should depend on
+ HAS_DMA
+Date: Fri, 26 Jun 2015 16:21:24 +0300
+Message-ID: <558D51D4.9060202@cogentembedded.com>
+References: <1435320502-4951-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: stable@vger.kernel.org, netdev@vger.kernel.org,
-	Jiri Slaby <jslaby@suse.cz>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Michal Kubecek <mkubecek@suse.cz>,
-	David Miller <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20150604205403.GA24969@unicorn.suse.cz>
-Sender: stable-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Antonio Borneo <borneo.antonio@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1435320502-4951-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/04/2015, 10:54 PM, Michal Kubecek wrote:
-> Hello,
-> 
-> please queue mainline commit
-> 
->   ac37e2515c1a ("xfrm: release dst_orig in case of error in xfrm_lookup()")
-> 
-> for stable branches 3.12, 3.14 and 3.18. It fixes a dst_entry reference
-> leak introduced by commit
-> 
->   f92ee61982d6 ("xfrm: Generate blackhole routes only from route lookup functions")
-> 
-> present in these branches (3.12 and 3.14 as a backport, 3.18 from
-> mainline). The patch applies cleanly to all three and I tested that it
-> fixes the issue in 3.12.
+Hello.
 
-David, do you have any plans on taking the commit or should we apply it
-directly?
+On 6/26/2015 3:08 PM, Geert Uytterhoeven wrote:
 
-thanks,
--- 
-js
-suse labs
+> If NO_DMA=y:
+
+>      ERROR: "dma_sync_single_for_cpu" [drivers/net/ethernet/via/via-rhine.ko] undefined!
+>      ERROR: "dma_set_mask" [drivers/net/ethernet/via/via-rhine.ko] undefined!
+>      ERROR: "dma_mapping_error" [drivers/net/ethernet/via/via-rhine.ko] undefined!
+>      ERROR: "dma_map_single" [drivers/net/ethernet/via/via-rhine.ko] undefined!
+>      ERROR: "dma_alloc_coherent" [drivers/net/ethernet/via/via-rhine.ko] undefined!
+>      ERROR: "dma_free_coherent" [drivers/net/ethernet/via/via-rhine.ko] undefined!
+>      ERROR: "dma_unmap_single" [drivers/net/ethernet/via/via-rhine.ko] undefined!
+>      ERROR: "dma_map_page" [drivers/net/ethernet/via/via-velocity.ko] undefined!
+>      ERROR: "dma_sync_single_for_cpu" [drivers/net/ethernet/via/via-velocity.ko] undefined!
+>      ERROR: "dma_free_coherent" [drivers/net/ethernet/via/via-velocity.ko] undefined!
+>      ERROR: "dma_unmap_single" [drivers/net/ethernet/via/via-velocity.ko] undefined!
+>      ERROR: "dma_map_single" [drivers/net/ethernet/via/via-velocity.ko] undefined!
+>      ERROR: "dma_alloc_coherent" [drivers/net/ethernet/via/via-velocity.ko] undefined!
+
+> Before, the symbols depended implicitly on HAS_DMA through PCI or
+> USE_OF.  Add explicit dependencies on HAS_DMA to fix this.
+
+> Fixes: commit b7d3282a245f4428 ("net: via/Kconfig: replace USE_OF with OF_???")
+
+Fixes: b7d3282a245f ("net: via/Kconfig: replace USE_OF with OF_???")
+
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+
+WBR, Sergei
