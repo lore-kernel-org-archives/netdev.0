@@ -1,18 +1,18 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 3/3] net: phy: mdio-bcm-unimac: workaround initial read failures for integrated PHYs
-Date: Fri, 26 Jun 2015 10:39:06 -0700
-Message-ID: <1435340346-10297-4-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net 2/3] net: bcmgenet: workaround initial read failures for integrated PHYs
+Date: Fri, 26 Jun 2015 10:39:05 -0700
+Message-ID: <1435340346-10297-3-git-send-email-f.fainelli@gmail.com>
 References: <1435340346-10297-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:33671 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984AbbFZRkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 13:40:43 -0400
-Received: by pdjn11 with SMTP id n11so78861600pdj.0
-        for <netdev@vger.kernel.org>; Fri, 26 Jun 2015 10:40:43 -0700 (PDT)
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:35926 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752437AbbFZRkl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 13:40:41 -0400
+Received: by pdcu2 with SMTP id u2so78789630pdc.3
+        for <netdev@vger.kernel.org>; Fri, 26 Jun 2015 10:40:41 -0700 (PDT)
 In-Reply-To: <1435340346-10297-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -33,14 +33,27 @@ located there (e.g: power management suspend/resume calls).
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/phy/mdio-bcm-unimac.c | 43 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 43 insertions(+)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |  1 +
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   | 54 ++++++++++++++++++++++++--
+ 2 files changed, 51 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/phy/mdio-bcm-unimac.c b/drivers/net/phy/mdio-bcm-unimac.c
-index fc7abc50b4f1..6a52a7f0fa0d 100644
---- a/drivers/net/phy/mdio-bcm-unimac.c
-+++ b/drivers/net/phy/mdio-bcm-unimac.c
-@@ -120,6 +120,48 @@ static int unimac_mdio_write(struct mii_bus *bus, int phy_id,
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index 6f2887a5e0be..6159deab8c98 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -594,6 +594,7 @@ struct bcmgenet_priv {
+ 	wait_queue_head_t wq;
+ 	struct phy_device *phydev;
+ 	struct device_node *phy_dn;
++	struct device_node *mdio_dn;
+ 	struct mii_bus *mii_bus;
+ 	u16 gphy_rev;
+ 	struct clk *clk_eee;
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+index 6bef04e2f735..adf23d2ac488 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+@@ -408,6 +408,52 @@ static int bcmgenet_mii_probe(struct net_device *dev)
  	return 0;
  }
  
@@ -59,18 +72,20 @@ index fc7abc50b4f1..6a52a7f0fa0d 100644
 + * to read from non-existing PHYs, we either use bus->phy_mask or do a manual
 + * Device Tree scan to limit the search area.
 + */
-+static int unimac_mdio_reset(struct mii_bus *bus)
++static int bcmgenet_mii_bus_reset(struct mii_bus *bus)
 +{
-+	struct device_node *np = bus->dev.of_node;
-+	struct device_node *child;
++	struct net_device *dev = bus->priv;
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++	struct device_node *np = priv->mdio_dn;
++	struct device_node *child = NULL;
 +	u32 read_mask = 0;
-+	int addr;
++	int addr = 0;
 +
 +	if (!np) {
-+		read_mask = ~bus->phy_mask;
++		read_mask = 1 << priv->phy_addr;
 +	} else {
 +		for_each_available_child_of_node(np, child) {
-+			addr = of_mdio_parse_addr(&bus->dev, child);
++			addr = of_mdio_parse_addr(&dev->dev, child);
 +			if (addr < 0)
 +				continue;
 +
@@ -79,23 +94,51 @@ index fc7abc50b4f1..6a52a7f0fa0d 100644
 +	}
 +
 +	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
-+		if (read_mask & 1 << addr)
++		if (read_mask & 1 << addr) {
++			dev_dbg(&dev->dev, "Workaround for PHY @ %d\n", addr);
 +			mdiobus_read(bus, addr, MII_BMSR);
++		}
 +	}
 +
 +	return 0;
 +}
 +
- static int unimac_mdio_probe(struct platform_device *pdev)
+ static int bcmgenet_mii_alloc(struct bcmgenet_priv *priv)
  {
- 	struct unimac_mdio_priv *priv;
-@@ -155,6 +197,7 @@ static int unimac_mdio_probe(struct platform_device *pdev)
- 	bus->parent = &pdev->dev;
- 	bus->read = unimac_mdio_read;
- 	bus->write = unimac_mdio_write;
-+	bus->reset = unimac_mdio_reset;
- 	snprintf(bus->id, MII_BUS_ID_SIZE, "%s", pdev->name);
+ 	struct mii_bus *bus;
+@@ -427,6 +473,7 @@ static int bcmgenet_mii_alloc(struct bcmgenet_priv *priv)
+ 	bus->parent = &priv->pdev->dev;
+ 	bus->read = bcmgenet_mii_read;
+ 	bus->write = bcmgenet_mii_write;
++	bus->reset = bcmgenet_mii_bus_reset;
+ 	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-%d",
+ 		 priv->pdev->name, priv->pdev->id);
  
- 	bus->irq = kcalloc(PHY_MAX_ADDR, sizeof(int), GFP_KERNEL);
+@@ -443,7 +490,6 @@ static int bcmgenet_mii_of_init(struct bcmgenet_priv *priv)
+ {
+ 	struct device_node *dn = priv->pdev->dev.of_node;
+ 	struct device *kdev = &priv->pdev->dev;
+-	struct device_node *mdio_dn;
+ 	char *compat;
+ 	int ret;
+ 
+@@ -451,14 +497,14 @@ static int bcmgenet_mii_of_init(struct bcmgenet_priv *priv)
+ 	if (!compat)
+ 		return -ENOMEM;
+ 
+-	mdio_dn = of_find_compatible_node(dn, NULL, compat);
++	priv->mdio_dn = of_find_compatible_node(dn, NULL, compat);
+ 	kfree(compat);
+-	if (!mdio_dn) {
++	if (!priv->mdio_dn) {
+ 		dev_err(kdev, "unable to find MDIO bus node\n");
+ 		return -ENODEV;
+ 	}
+ 
+-	ret = of_mdiobus_register(priv->mii_bus, mdio_dn);
++	ret = of_mdiobus_register(priv->mii_bus, priv->mdio_dn);
+ 	if (ret) {
+ 		dev_err(kdev, "failed to register MDIO bus\n");
+ 		return ret;
 -- 
 2.1.0
