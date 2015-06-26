@@ -1,54 +1,59 @@
-From: Liang Li <liang.z.li@intel.com>
-Subject: [PATCH] xen-netfront: Remove the meaningless code
-Date: Sat, 27 Jun 2015 07:17:26 +0800
-Message-ID: <1435360646-7831-1-git-send-email-liang.z.li@intel.com>
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	david.vrabel@citrix.com, andrew.bennieston@citrix.com,
-	wei.liu2@citrix.com, davem@davemloft.net,
-	Liang Li <liang.z.li@intel.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:25927 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751724AbbFZL2o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Jun 2015 07:28:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] net: via: VIA_RHINE and VIA_VELOCITY should depend on HAS_DMA
+Date: Fri, 26 Jun 2015 14:08:22 +0200
+Message-ID: <1435320502-4951-1-git-send-email-geert@linux-m68k.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Antonio Borneo <borneo.antonio@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The function netif_set_real_num_tx_queues() will return -EINVAL if
-the second parameter < 1, so call this function with the second
-parameter set to 0 is meaningless.
+If NO_DMA=y:
 
-Signed-off-by: Liang Li <liang.z.li@intel.com>
+    ERROR: "dma_sync_single_for_cpu" [drivers/net/ethernet/via/via-rhine.ko] undefined!
+    ERROR: "dma_set_mask" [drivers/net/ethernet/via/via-rhine.ko] undefined!
+    ERROR: "dma_mapping_error" [drivers/net/ethernet/via/via-rhine.ko] undefined!
+    ERROR: "dma_map_single" [drivers/net/ethernet/via/via-rhine.ko] undefined!
+    ERROR: "dma_alloc_coherent" [drivers/net/ethernet/via/via-rhine.ko] undefined!
+    ERROR: "dma_free_coherent" [drivers/net/ethernet/via/via-rhine.ko] undefined!
+    ERROR: "dma_unmap_single" [drivers/net/ethernet/via/via-rhine.ko] undefined!
+    ERROR: "dma_map_page" [drivers/net/ethernet/via/via-velocity.ko] undefined!
+    ERROR: "dma_sync_single_for_cpu" [drivers/net/ethernet/via/via-velocity.ko] undefined!
+    ERROR: "dma_free_coherent" [drivers/net/ethernet/via/via-velocity.ko] undefined!
+    ERROR: "dma_unmap_single" [drivers/net/ethernet/via/via-velocity.ko] undefined!
+    ERROR: "dma_map_single" [drivers/net/ethernet/via/via-velocity.ko] undefined!
+    ERROR: "dma_alloc_coherent" [drivers/net/ethernet/via/via-velocity.ko] undefined!
+
+Before, the symbols depended implicitly on HAS_DMA through PCI or
+USE_OF.  Add explicit dependencies on HAS_DMA to fix this.
+
+Fixes: commit b7d3282a245f4428 ("net: via/Kconfig: replace USE_OF with OF_???")
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 ---
- drivers/net/xen-netfront.c | 7 -------
- 1 file changed, 7 deletions(-)
+ drivers/net/ethernet/via/Kconfig | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 56d8afd..1807cd1 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1245,10 +1245,6 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
- 	np                   = netdev_priv(netdev);
- 	np->xbdev            = dev;
- 
--	/* No need to use rtnl_lock() before the call below as it
--	 * happens before register_netdev().
--	 */
--	netif_set_real_num_tx_queues(netdev, 0);
- 	np->queues = NULL;
- 
- 	err = -ENOMEM;
-@@ -1900,9 +1896,6 @@ abort_transaction_no_dev_fatal:
- 	xennet_disconnect_backend(info);
- 	kfree(info->queues);
- 	info->queues = NULL;
--	rtnl_lock();
--	netif_set_real_num_tx_queues(info->netdev, 0);
--	rtnl_unlock();
-  out:
- 	return err;
- }
+diff --git a/drivers/net/ethernet/via/Kconfig b/drivers/net/ethernet/via/Kconfig
+index 8b0b1d6aca72c4a3..2f1264b882b9555f 100644
+--- a/drivers/net/ethernet/via/Kconfig
++++ b/drivers/net/ethernet/via/Kconfig
+@@ -18,6 +18,7 @@ if NET_VENDOR_VIA
+ config VIA_RHINE
+ 	tristate "VIA Rhine support"
+ 	depends on (PCI || OF_IRQ)
++	depends on HAS_DMA
+ 	select CRC32
+ 	select MII
+ 	---help---
+@@ -42,6 +43,7 @@ config VIA_RHINE_MMIO
+ config VIA_VELOCITY
+ 	tristate "VIA Velocity support"
+ 	depends on (PCI || (OF_ADDRESS && OF_IRQ))
++	depends on HAS_DMA
+ 	select CRC32
+ 	select CRC_CCITT
+ 	select MII
 -- 
 1.9.1
