@@ -1,47 +1,61 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: Re: [PATCH net] bnx2x: fix DMA API usage
-Date: Fri, 26 Jun 2015 17:57:05 +0200
-Message-ID: <558D7651.7020909@redhat.com>
-References: <1435333800-22447-1-git-send-email-mschmidt@redhat.com> <1435333800-22447-2-git-send-email-mschmidt@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net] dsa: fix promiscuity leak on slave dev open error
+Date: Fri, 26 Jun 2015 09:40:06 -0700
+Message-ID: <558D8066.5010702@gmail.com>
+References: <1435240213-15179-1-git-send-email-giladb@ezchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Gabriel Krisman Bertazi <krisman@linux.vnet.ibm.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Gilad Ben-Yossef <gilad@benyossef.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>, Scott Feldman <sfeldma@gmail.com>
+To: giladb@ezchip.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60672 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751995AbbFZP5I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Jun 2015 11:57:08 -0400
-In-Reply-To: <1435333800-22447-2-git-send-email-mschmidt@redhat.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:35137 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751888AbbFZQlh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 12:41:37 -0400
+Received: by pdbci14 with SMTP id ci14so77988174pdb.2
+        for <netdev@vger.kernel.org>; Fri, 26 Jun 2015 09:41:36 -0700 (PDT)
+In-Reply-To: <1435240213-15179-1-git-send-email-giladb@ezchip.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/26/2015 05:50 PM, Michal Schmidt wrote:
-> With CONFIG_DMA_API_DEBUG=y bnx2x triggers the error "DMA-API: device
-> driver frees DMA memory with wrong function".
-> On archs where PAGE_SIZE > SGE_PAGE_SIZE it also triggers "DMA-API:
-> device driver frees DMA memory with different size".
+On 25/06/15 06:50, giladb@ezchip.com wrote:
+> From: Gilad Ben-Yossef <gilad@benyossef.com>
 > 
-> Fix this by making the mapping and unmapping symmetric:
->  - Do not map the whole pool page at once. Instead map the
->    SGE_PAGE_SIZE-sized pieces individually, so they can be unmapped in
->    the same manner.
->  - What's mapped using dma_map_page() must be unmapped using
->    dma_unmap_page().
+> DSA master netdev promiscuity counter was not being properly
+> decremented on slave device open error path.
 > 
-> Tested on ppc64.
-> 
-> Fixes: 4cace675d687 ("bnx2x: Alloc 4k fragment for each rx ring buffer element")
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-> ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     |  1 -
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 23 ++++++++++-------------
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h | 12 ++----------
->  3 files changed, 12 insertions(+), 24 deletions(-)
+> Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
+> CC: Gilad Ben-Yossef <giladb@ezchip.com>
+> CC: David S. Miller <davem@davemloft.net>
+> CC: Florian Fainelli <f.fainelli@gmail.com>
+> CC: Guenter Roeck <linux@roeck-us.net>
+> CC: Andrew Lunn <andrew@lunn.ch>
+> CC: Scott Feldman <sfeldma@gmail.com>
 
-The two patches I sent are absolutely identical.
-I just sent it twice by mistake. Sorry for any confusion.
-Michal
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+
+> ---
+>  net/dsa/slave.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> index 04ffad3..0917123 100644
+> --- a/net/dsa/slave.c
+> +++ b/net/dsa/slave.c
+> @@ -112,7 +112,7 @@ static int dsa_slave_open(struct net_device *dev)
+>  
+>  clear_promisc:
+>  	if (dev->flags & IFF_PROMISC)
+> -		dev_set_promiscuity(master, 0);
+> +		dev_set_promiscuity(master, -1);
+>  clear_allmulti:
+>  	if (dev->flags & IFF_ALLMULTI)
+>  		dev_set_allmulti(master, -1);
+> 
+
+
+-- 
+Florian
