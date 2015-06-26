@@ -1,108 +1,183 @@
-From: Sony Chacko <sony.chacko@qlogic.com>
-Subject: RE: [PATCH net] bnx2x: fix lockdep splat
-Date: Fri, 26 Jun 2015 20:44:28 +0000
-Message-ID: <0EA5B226BC5C7B45A71BF612AA8A019E019479CBE9@AVMB1.qlogic.org>
-References: <1435296749.4110.56.camel@edumazet-glaptop2.roam.corp.google.com>
- <81D78EA7F834FA4C83B64260D494C8590867DAB2@avmb3.qlogic.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [ANNOUNCE] iproute2 4.1.0
+Date: Fri, 26 Jun 2015 13:06:16 -0700
+Message-ID: <20150626130616.5a350099@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"walken@google.com" <walken@google.com>,
-	"decot@google.com" <decot@google.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	Michal Kalderon <Michal.Kalderon@qlogic.com>
-To: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:23511 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752200AbbFZUoe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 16:44:34 -0400
-In-Reply-To: <81D78EA7F834FA4C83B64260D494C8590867DAB2@avmb3.qlogic.org>
-Content-Language: en-US
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:34970 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751898AbbFZVI0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 17:08:26 -0400
+Received: by pactm7 with SMTP id tm7so73995951pac.2
+        for <netdev@vger.kernel.org>; Fri, 26 Jun 2015 14:08:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBT
-ZW50OiBGcmlkYXksIEp1bmUgMjYsIDIwMTUgODozMiBBTQ0KPiBUbzogRGF2aWQgTWlsbGVyDQo+
-IENjOiBuZXRkZXY7IE1pY2hhbCBLYWxkZXJvbjsgWXV2YWwgTWludHo7IEFyaWVsIEVsaW9yOyBE
-YXZpZA0KPiBEZWNvdGlnbnk7IE1pY2hlbCBMZXNwaW5hc3NlDQo+IFN1YmplY3Q6IFtQQVRDSCBu
-ZXRdIGJueDJ4OiBmaXggbG9ja2RlcCBzcGxhdA0KPiANCj4gRnJvbTogRXJpYyBEdW1hemV0IDxl
-ZHVtYXpldEBnb29nbGUuY29tPg0KPiANCj4gTWljaGVsIHJlcG9ydGVkIGZvbGxvd2luZyBsb2Nr
-ZGVwIHNwbGF0DQo+IA0KPiBbICAgNDQuNzE4MTE3XSBJTkZPOiB0cnlpbmcgdG8gcmVnaXN0ZXIg
-bm9uLXN0YXRpYyBrZXkuDQo+IFsgICA0NC43MjMwODFdIHRoZSBjb2RlIGlzIGZpbmUgYnV0IG5l
-ZWRzIGxvY2tkZXAgYW5ub3RhdGlvbi4NCj4gWyAgIDQ0LjcyODU1OV0gdHVybmluZyBvZmYgdGhl
-IGxvY2tpbmcgY29ycmVjdG5lc3MgdmFsaWRhdG9yLg0KPiBbICAgNDQuNzM0MDM2XSBDUFU6IDgg
-UElEOiA1NDgzIENvbW06IGV0aHRvb2wgTm90IHRhaW50ZWQgNC4xLjANCj4gWyAgIDQ0Ljc3MDI4
-OV0gQ2FsbCBUcmFjZToNCj4gWyAgIDQ0Ljc3Mjc0MV0gIFs8ZmZmZmZmZmY4MTZlYjFjZD5dIGR1
-bXBfc3RhY2srMHg0Yy8weDY1DQo+IFsgICA0NC43Nzc4NzldICBbPGZmZmZmZmZmODExMWQ5MjE+
-XSA/DQo+IGNvbnNvbGVfdW5sb2NrKzB4MWYxLzB4NTEwDQo+IFsgICA0NC43ODM3MDhdICBbPGZm
-ZmZmZmZmODExMTIxZjU+XQ0KPiBfX2xvY2tfYWNxdWlyZSsweDFkMDUvMHgxZjEwDQo+IFsgICA0
-NC43ODk1MzhdICBbPGZmZmZmZmZmODExMTM3MGE+XSA/DQo+IG1hcmtfaGVsZF9sb2NrcysweDZh
-LzB4OTANCj4gWyAgIDQ0Ljc5NTI3Nl0gIFs8ZmZmZmZmZmY4MTExMzgzNT5dID8NCj4gdHJhY2Vf
-aGFyZGlycXNfb25fY2FsbGVyKzB4MTA1LzB4MWQwDQo+IFsgICA0NC44MDE5NjddICBbPGZmZmZm
-ZmZmODExMTM5MGQ+XSA/DQo+IHRyYWNlX2hhcmRpcnFzX29uKzB4ZC8weDEwDQo+IFsgICA0NC44
-MDc3OTNdICBbPGZmZmZmZmZmODExMzMwZmE+XSA/DQo+IGhydGltZXJfdHJ5X3RvX2NhbmNlbCsw
-eDRhLzB4MjUwDQo+IFsgICA0NC44MTQxNDJdICBbPGZmZmZmZmZmODExMTJiYTY+XSBsb2NrX2Fj
-cXVpcmUrMHhiNi8weDI5MA0KPiBbICAgNDQuODE5NTM3XSAgWzxmZmZmZmZmZjgxMGQ2Njc1Pl0g
-PyBmbHVzaF93b3JrKzB4NS8weDI4MA0KPiBbICAgNDQuODI0ODQ0XSAgWzxmZmZmZmZmZjgxMGQ2
-NmFkPl0gZmx1c2hfd29yaysweDNkLzB4MjgwDQo+IFsgICA0NC44MzAwNjFdICBbPGZmZmZmZmZm
-ODEwZDY2NzU+XSA/IGZsdXNoX3dvcmsrMHg1LzB4MjgwDQo+IFsgICA0NC44MzUzNjZdICBbPGZm
-ZmZmZmZmODE2ZjNjNDM+XSA/DQo+IHNjaGVkdWxlX2hydGltZW91dF9yYW5nZSsweDEzLzB4MjAN
-Cj4gWyAgIDQ0Ljg0MTg4OV0gIFs8ZmZmZmZmZmY4MTEyZWM5Yj5dID8gdXNsZWVwX3JhbmdlKzB4
-NGIvMHg1MA0KPiBbICAgNDQuODQ3MzY1XSAgWzxmZmZmZmZmZjgxMTEzNzBhPl0gPw0KPiBtYXJr
-X2hlbGRfbG9ja3MrMHg2YS8weDkwDQo+IFsgICA0NC44NTMxMDJdICBbPGZmZmZmZmZmODEwZDg1
-ODU+XSA/DQo+IF9fY2FuY2VsX3dvcmtfdGltZXIrMHgxMDUvMHgxYzANCj4gWyAgIDQ0Ljg1OTM1
-OV0gIFs8ZmZmZmZmZmY4MTExMzgzNT5dID8NCj4gdHJhY2VfaGFyZGlycXNfb25fY2FsbGVyKzB4
-MTA1LzB4MWQwDQo+IFsgICA0NC44NjYwNDVdICBbPGZmZmZmZmZmODEwZDg1MWY+XQ0KPiBfX2Nh
-bmNlbF93b3JrX3RpbWVyKzB4OWYvMHgxYzANCj4gWyAgIDQ0Ljg3MjA0OF0gIFs8ZmZmZmZmZmZh
-MDAxMDk4Mj5dID8NCj4gYm54MnhfZnVuY19zdG9wKzB4NDIvMHg5MCBbYm54MnhdDQo+IFsgICA0
-NC44Nzg0ODFdICBbPGZmZmZmZmZmODEwZDg2NzA+XQ0KPiBjYW5jZWxfd29ya19zeW5jKzB4MTAv
-MHgyMA0KPiBbICAgNDQuODg0MTM0XSAgWzxmZmZmZmZmZmEwMDI1OWU1Pl0NCj4gYm54MnhfY2hp
-cF9jbGVhbnVwKzB4MjQ1LzB4NzMwIFtibngyeF0NCj4gWyAgIDQ0Ljg5MDgyOV0gIFs8ZmZmZmZm
-ZmY4MTEwY2UwMj5dID8gdXArMHgzMi8weDUwDQo+IFsgICA0NC44OTU0MzldICBbPGZmZmZmZmZm
-ODExMzA2YjU+XSA/IGRlbF90aW1lcl9zeW5jKzB4NS8weGQwDQo+IFsgICA0NC45MDEwMDVdICBb
-PGZmZmZmZmZmYTAwNTU5NmQ+XQ0KPiBibngyeF9uaWNfdW5sb2FkKzB4MjBkLzB4OGUwIFtibngy
-eF0NCj4gWyAgIDQ0LjkwNzUyN10gIFs8ZmZmZmZmZmY4MTFmMWFlZj5dID8gbWlnaHRfZmF1bHQr
-MHg1Zi8weGIwDQo+IFsgICA0NC45MTI5MjFdICBbPGZmZmZmZmZmYTAwNTg1MWM+XQ0KPiBibngy
-eF9yZWxvYWRfaWZfcnVubmluZysweDJjLzB4NTAgW2JueDJ4XQ0KPiBbICAgNDQuOTE5ODc5XSAg
-WzxmZmZmZmZmZmEwMDVhM2M1Pl0NCj4gYm54Mnhfc2V0X3JpbmdwYXJhbSsweDJiNS8weDQ2MCBb
-Ym54MnhdDQo+IFsgICA0NC45MjY2NjRdICBbPGZmZmZmZmZmODE1ZDQ5OGI+XSBkZXZfZXRodG9v
-bCsweDU1Yi8weDFjNDANCj4gWyAgIDQ0LjkzMjE0OF0gIFs8ZmZmZmZmZmY4MTVkZmRjNz5dID8g
-cnRubF9sb2NrKzB4MTcvMHgyMA0KPiBbICAgNDQuOTM3MzY0XSAgWzxmZmZmZmZmZjgxNWU3Zjhi
-Pl0gZGV2X2lvY3RsKzB4MTdiLzB4NjMwDQo+IFsgICA0NC45NDI1ODJdICBbPGZmZmZmZmZmODE1
-YWJmOGQ+XSBzb2NrX2RvX2lvY3RsKzB4NWQvMHg3MA0KPiBbICAgNDQuOTQ3OTcyXSAgWzxmZmZm
-ZmZmZjgxNWFjMDEzPl0gc29ja19pb2N0bCsweDczLzB4MjgwDQo+IFsgICA0NC45NTMxOTJdICBb
-PGZmZmZmZmZmODEyNGMxYzg+XSBkb192ZnNfaW9jdGwrMHg4OC8weDViMA0KPiBbICAgNDQuOTU4
-NTg3XSAgWzxmZmZmZmZmZjgxMTBkMGIzPl0gPyB1cF9yZWFkKzB4MjMvMHg0MA0KPiBbICAgNDQu
-OTYzNjMxXSAgWzxmZmZmZmZmZjgxMjU4NGNjPl0gPyBfX2ZnZXRfbGlnaHQrMHg2Yy8weGEwDQo+
-IFsgICA0NC45NjkxMDVdICBbPGZmZmZmZmZmODEyNGM3ODE+XSBTeVNfaW9jdGwrMHg5MS8weGIw
-DQo+IFsgICA0NC45NzQxNDldICBbPGZmZmZmZmZmODE2ZjRkZDc+XQ0KPiBzeXN0ZW1fY2FsbF9m
-YXN0cGF0aCsweDEyLzB4NmYNCj4gDQo+IEFzIGJueDJ4X2luaXRfcHRwKCkgaXMgb25seSBjYWxs
-ZWQgaWYgYnAtPmZsYWdzIGNvbnRhaW5zDQo+IFBUUF9TVVBQT1JURUQsIHdlIGFsc28gbmVlZCB0
-byBndWFyZCBibngyeF9zdG9wX3B0cCgpIHdpdGgNCj4gc2FtZSBjb25kaXRpb24sIG90aGVyd2lz
-ZSBwdHBfdGFzayB3b3JrcXVldWUgaXMgbm90IGluaXRpYWxpemVkDQo+IGFuZCBrZXJuZWwgYmFy
-ZnMgb24NCj4gY2FuY2VsX3dvcmtfc3luYygpDQo+IA0KPiBGaXhlczogZWVlZDAxOGNiZmEzMCAo
-ImJueDJ4OiBBZGQgdGltZXN0YW1waW5nIGFuZCBQVFANCj4gaGFyZHdhcmUgY2xvY2sgc3VwcG9y
-dCIpDQo+IFJlcG9ydGVkLWJ5OiBNaWNoZWwgTGVzcGluYXNzZSA8d2Fsa2VuQGdvb2dsZS5jb20+
-DQo+IFNpZ25lZC1vZmYtYnk6IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCj4g
-Q2M6IE1pY2hhbCBLYWxkZXJvbiA8TWljaGFsLkthbGRlcm9uQHFsb2dpYy5jb20+DQo+IENjOiBB
-cmllbCBFbGlvciA8QXJpZWwuRWxpb3JAcWxvZ2ljLmNvbT4NCj4gQ2M6IFl1dmFsIE1pbnR6IDxZ
-dXZhbC5NaW50ekBxbG9naWMuY29tPg0KPiBDYzogRGF2aWQgRGVjb3RpZ255IDxkZWNvdEBnb29n
-bGUuY29tPg0KPiAtLS0NCj4gVGhpcyBpcyBhIHN0YWJsZSBjYW5kaWRhdGUsIGJ1ZyB3YXMgYWRk
-ZWQgaW4gbGludXgtMy4xOA0KPiANCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2Ju
-eDJ4L2JueDJ4X21haW4uYyB8ICAgIDMgKystDQo+ICAxIGZpbGUgY2hhbmdlZCwgMiBpbnNlcnRp
-b25zKCspLCAxIGRlbGV0aW9uKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvYnJvYWRjb20vYm54MngvYm54MnhfbWFpbi5jDQo+IGIvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvYnJvYWRjb20vYm54MngvYm54MnhfbWFpbi5jDQo+IGluZGV4IDNkZjAzYmJhNDc3Yi4uYzI3
-YWYxMjMxNGVkIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9i
-bngyeC9ibngyeF9tYWluLmMNCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20v
-Ym54MngvYm54MnhfbWFpbi5jDQo+IEBAIC05MzMxLDcgKzkzMzEsOCBAQCB1bmxvYWRfZXJyb3I6
-DQo+ICAJICogZnVuY3Rpb24gc3RvcCByYW1yb2QgaXMgc2VudCwgc2luY2UgYXMgcGFydCBvZiB0
-aGlzIHJhbXJvZA0KPiBGVyBhY2Nlc3MNCj4gIAkgKiBQVFAgcmVnaXN0ZXJzLg0KPiAgCSAqLw0K
-PiAtCWJueDJ4X3N0b3BfcHRwKGJwKTsNCj4gKwlpZiAoYnAtPmZsYWdzICYgUFRQX1NVUFBPUlRF
-RCkNCj4gKwkJYm54Mnhfc3RvcF9wdHAoYnApOw0KPiANCj4gIAkvKiBEaXNhYmxlIEhXIGludGVy
-cnVwdHMsIE5BUEkgKi8NCj4gIAlibngyeF9uZXRpZl9zdG9wKGJwLCAxKTsNCj4gDQpBY2tlZC1i
-eTogU29ueSBDaGFja28gPHNvbnkuY2hhY2tvQHFsb2dpYy5jb20+DQoNClRoYW5rcy4NCg==
+Update to iproute2 for 4.1
+
+4.1 is released and this is the corresponding iproute2.
+Noteable features:
+   * new command for controlling TIPC
+   * BPF support in tc
+   * Lots of RED cleanup work
+   * Enhancements to ss
+   * color option to ip command
+
+Source:
+  http://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-4.1.0.tar=
+=2Egz
+
+Repository:
+  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+
+Report problems (or enhancements) to the netdev@vger.kernel.org mailing=
+ list.
+
+Sorry for the delay, Linus and I don't coordinate vacations.
+
+---
+Andy Gospodarek (1):
+      iproute2: unify naming for entries offloaded to hardware
+
+Christophe Gouault (2):
+      xfrm: add command for configuring SPD hash table
+      xfrm: revise man page and document ip xfrm policy set
+
+Daniel Borkmann (9):
+      misc: header rebase, add bpf.h
+      tc: add eBPF support to f_bpf
+      tc, bpf: finalize eBPF support for cls and act front-end
+      tc: built-in eBPF exec proxy
+      examples: bpf: fix ld offs to have same prog loaded on ingress/eg=
+ress
+      tc: {m, f}_ebpf: add option for dumping verifier log
+      tc: minor cleanup on ingress
+      tc: util: fix print_rate for ludicrous speeds
+      tc: bpf: add initial man page
+
+David Ward (9):
+      tc: red, gred: Rename overloaded variable wlog
+      tc: red, gred: Fix format specifier in burst size warning
+      tc: red, gred: Notify when using the default value for "bandwidth=
+"
+      tc: red: Mark "bandwidth" parameter as optional in usage text
+      tc: gred: Fix whitespace issues in code
+      tc: gred: Print usage text if no arguments appear after "gred"
+      tc: gred: Improve parameter/statistics output
+      tc: gred: Handle unsigned values properly in option parsing/print=
+ing
+      tc: gred: Adopt the term VQ in the command syntax and output
+
+Eric Dumazet (5):
+      ss: small optim in tcp_show_info()
+      ss: dctcp changes
+      ss: Fix allocation of cong control alg name
+      ss: speedup resolve_service()
+      ss: do not bindly dump two families
+
+Eric W. Biederman (8):
+      add a source addres length parameter to rt_addr_n2a
+      make the addr argument of ll_addr_n2a const
+      add support for printing AF_PACKET addresses
+      add address family to/from string helper functions.
+      misc whitespace cleanup
+      add support for the RTA_VIA attribute
+      add support for the RTA_NEWDST attribute.
+      add basic mpls support to iproute
+
+=46elix Fietkau (1):
+      tc: add support for connmark action
+
+Jetchko Jekov (1):
+      gre: raising the size of the buffer holding nl messages.
+
+Lennert Buytenhek (1):
+      man ip-link: Add missing lowpan link type
+
+Lubomir Rintel (1):
+      ip: support RFC4191 router preference
+
+Maciej =C5=BBenczykowski (2):
+      iproute2: tc/m_pedit.c - remove dead code
+      iproute2: misc/ss.c - fix run_ssfilter af_packet when protocol =3D=
+=3D 0
+
+Madhu Challa (1):
+      ip: enable configuring multicast group autojoin
+
+Mathias Nyman (1):
+      ip: Add color output option
+
+Mazhar Rana (1):
+      mroute: "ip mroute show" not working when "to" and/or "from" is g=
+iven
+
+Mike Frysinger (1):
+      enable transparent LFS
+
+Nicolas Dichtel (5):
+      netns: allow to dump and monitor nsid
+      ipxfrm: wrong nl msg sent on deleteall cmd
+      tc: fix compilation warning on 32bits arch
+      libnamespaces: fix warning about syscall()
+      mroute: remove invalid check against NLM_F_MULTI
+
+Pavel =C5=A0imerda (5):
+      turn Makefile more distribution friendly
+      ip-xfrm: support 'proto any' with 'sport' and 'dport'
+      cbq: fix find syntax in example
+      lnstat: run indefinitely by default
+      lnstat: dump to stdout, not stderr
+
+Richard Alpe (1):
+      tipc: add new TIPC configuration tool
+
+Scott Feldman (1):
+      route: label externally offloaded routes
+
+Stephen Hemminger (16):
+      update headers files for net-next
+      update kernel headers to net-next 4.0-rc5
+      xfrm: fix build with later kernel headers
+      update kernel headers for net-next
+      fix whitespace
+      update kernel headers and add tc_connmark.h
+      update headers to reflect BPF changes
+      ip: document exit code
+      ip: return correct exit code on route failure
+      ip: fix exit code for rule failures
+      ip: fix exit code for addrlabel
+      Update to latest kernel headers
+      libnetlink: add size argument to rtnl_talk
+      update to 4.1-rc5 headers
+      change of rtnetlink to use RTN_F_OFFLOAD
+      v4.1.0
+
+Thadeu Lima de Souza Cascardo (1):
+      Fix changing tunnel remote and local address to any
+
+Thomas Graf (2):
+      iproute2: Fix typo in get_prefix_1()
+      route: Add missing newline in helptext
+
+Vadim Kochan (10):
+      tc util: Fix possible buffer overflow when print class id
+      ss: Fix wrong filter behaviour
+      man ip-link: Add deleting links by group
+      ip link: Add group in usage() for 'ip link delete'
+      man ip-link: Remove extra GROUP explanation
+      tests: Run each test in network namespace
+      tests: Add test for 'ip route add default'
+      ss: Show more info (ring,fanout) for packet socks
+      configure: Check for libmnl
+      tests: Add output testing
+
+Vlad Zolotarov (1):
+      ip link set vf: Added "query_rss" command
+
+WANG Cong (1):
+      tc: fill in handle before checking argc
