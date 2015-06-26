@@ -1,209 +1,186 @@
-From: Ajith Adapa <adapa.ajith@gmail.com>
-Subject: Re: Issue with LACP mode in linux bonding driver
-Date: Fri, 26 Jun 2015 19:27:38 +0530
-Message-ID: <CADAe=+LmF_O5Tw_+kcg35urKBjJJOFZrYs3R2LNkdh-XW6r2ng@mail.gmail.com>
-References: <CADAe=+LvNgHV+crN_+E4xB+Pcz=KSvZpK5ADKzYFjHL2gGJq2Q@mail.gmail.com>
- <6462.1435284902@famine>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/3] net: dsa: mv88e6xxx: add debugfs interface for VTU
+Date: Fri, 26 Jun 2015 16:04:34 +0200
+Message-ID: <20150626140434.GB9469@lunn.ch>
+References: <1435095970-18576-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1435095970-18576-2-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:34822 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752540AbbFZN6T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 09:58:19 -0400
-Received: by oiax193 with SMTP id x193so75782232oia.2
-        for <netdev@vger.kernel.org>; Fri, 26 Jun 2015 06:58:17 -0700 (PDT)
-In-Reply-To: <6462.1435284902@famine>
+Received: from vps0.lunn.ch ([178.209.37.122]:58335 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752143AbbFZOKi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Jun 2015 10:10:38 -0400
+Content-Disposition: inline
+In-Reply-To: <1435095970-18576-2-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26 June 2015 at 07:45, Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
-> echo 'module bonding =p' > /sys/kernel/debug/dynamic_debug/control
-Hi,
-
-thanks for the reply.
-
-Linux server (enp0s8)(bond0) ======== (po1)(xe1) switch
-Linux server (enp0s9)(bond0) ======== (po2)(xe2) switch
-
-I have tried the steps mentioned in the previous mail. But I can only
-see RX state machine related logs as shown below
-
-[14775.575048] bonding: Received LACPDU on port 2
-[14775.575051] bonding: Rx Machine: Port=2, Last State=6, Curr State=6
-[14775.638060] bonding: Received LACPDU on port 1
-[14775.638063] bonding: Rx Machine: Port=1, Last State=6, Curr State=6
-[14775.650975] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14775.750280] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14775.850771] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14775.950817] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14776.052255] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14776.155483] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14776.259759] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14776.360020] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14776.462303] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14776.560375] bonding: Received LACPDU on port 2
-[14776.560378] bonding: Rx Machine: Port=2, Last State=6, Curr State=6
-[14776.562899] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14776.622476] bonding: Received LACPDU on port 1
-[14776.622478] bonding: Rx Machine: Port=1, Last State=6, Curr State=6
-[14776.665981] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14776.767769] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14776.867544] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14776.967442] bonding: Periodic Machine: Port=1, Last State=3, Curr State=4
-[14776.967510] bonding: Sent LACPDU on port 1
-[14776.967524] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14777.068075] bonding: Periodic Machine: Port=1, Last State=4, Curr State=3
-[14777.068080] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14777.169102] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14777.270426] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14777.371119] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14777.473184] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14777.542800] bonding: Received LACPDU on port 2
-[14777.542837] bonding: Rx Machine: Port=2, Last State=6, Curr State=6
-[14777.574911] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14777.604569] bonding: Received LACPDU on port 1
-[14777.604599] bonding: Rx Machine: Port=1, Last State=6, Curr State=6
-[14777.674451] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14777.774171] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14777.875429] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14777.976074] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14778.077979] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14778.179497] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14778.280577] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14778.382005] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14778.484380] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14778.528073] bonding: Received LACPDU on port 2
-[14778.528076] bonding: Rx Machine: Port=2, Last State=6, Curr State=6
-[14778.582553] bonding: Periodic Machine: Port=2, Last State=3, Curr State=4
-[14778.582641] bonding: Sent LACPDU on port 2
-[14778.586482] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14778.588507] bonding: Received LACPDU on port 1
-[14778.588509] bonding: Rx Machine: Port=1, Last State=6, Curr State=6
-[14778.682574] bonding: Periodic Machine: Port=2, Last State=4, Curr State=3
-[14778.686117] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14778.788289] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14778.890620] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14778.993106] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14779.093547] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14779.195574] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14779.296085] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14779.398869] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14779.499408] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14779.527556] bonding: Received LACPDU on port 2
-[14779.527559] bonding: Rx Machine: Port=2, Last State=6, Curr State=6
-[14779.587923] bonding: Received LACPDU on port 1
-[14779.587927] bonding: Rx Machine: Port=1, Last State=6, Curr State=6
-[14779.599856] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14779.700372] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14779.800274] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14779.900126] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14780.000140] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14780.100073] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14780.202081] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14780.304725] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14780.404988] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14780.505805] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14780.521825] bonding: Received LACPDU on port 2
-[14780.521829] bonding: Rx Machine: Port=2, Last State=6, Curr State=6
-[14780.580985] bonding: Received LACPDU on port 1
-[14780.580989] bonding: Rx Machine: Port=1, Last State=6, Curr State=6
-[14780.606091] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14780.706416] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14780.807086] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14780.907126] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14781.008729] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14781.109174] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14781.210017] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14781.312609] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14781.413590] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14781.513075] bonding: bond_should_notify_peers: bond bond0 slave enp0s8
-[14781.519042] bonding: Received LACPDU on port 2
-[14781.519045] bonding: Rx Machine: Port=2, Last State=6, Curr State=6
-[14781.577600] bonding: Received LACPDU on port 1
-[14781.577628] bonding: Rx Machine: Port=1, Last State=6, Curr State=6
+On Tue, Jun 23, 2015 at 05:46:08PM -0400, Vivien Didelot wrote:
+> Implement the Get Next operation for the VLAN Table Unit, and a "vtu"
+> debugfs file to dump the hardware VLANs.
+> 
+> A populated VTU can look like this:
+> 
+>     # cat /sys/kernel/debug/dsa0/vtu
+>     VID  FID  SID  P0 P1 P2 P3 P4 P5 P6
+>     550  562  0    x  x  x  u  x  t  x
+>     1000 1012 0    x  x  t  x  x  t  x
+>     1200 1212 0    x  x  t  x  t  t  x
 
 
-I am even attaching the tcpdump log on back to back connected links
-below as the lacpdu generated from linux server has collecting
-distributing bit set as TRUE.
+Hi Vivien
 
-LACPDU generated by switch
-19:15:33.941161 08:00:27:81:1e:a1 (oui Unknown) > 01:80:c2:00:00:02
-(oui Unknown), ethertype Slow Protocols (0x8809), length 124: LACPv1,
-length 110
-        Actor Information TLV (0x01), length 20
-          System 08:00:27:46:4d:1d (oui Unknown), System Priority
-32768, Key 2, Port 4, Port Priority 32768
-          State Flags [Activity, Aggregation, Synchronization,
-Collecting, Distributing]
-        Partner Information TLV (0x02), length 20
-          System 08:00:27:18:ae:4b (oui Unknown), System Priority
-65535, Key 17, Port 2, Port Priority 255
-          State Flags [Activity, Timeout, Aggregation,
-Synchronization, Collecting, Distributing]
-        Collector Information TLV (0x03), length 16
-          Max Delay 5
-        Terminator TLV (0x00), length 0
+Could you make this more generic and make use of ps->num_ports? Not
+all switches have 7 ports.
 
-LACPDU generated by linux server
-19:15:34.718987 08:00:27:76:35:a2 (oui Unknown) > 01:80:c2:00:00:02
-(oui Unknown), ethertype Slow Protocols (0x8809), length 124: LACPv1,
-length 110
-        Actor Information TLV (0x01), length 20
-          System 08:00:27:18:ae:4b (oui Unknown), System Priority
-65535, Key 17, Port 2, Port Priority 255
-          State Flags [Activity, Timeout, Aggregation,
-Synchronization, Collecting, Distributing]
-        Partner Information TLV (0x02), length 20
-          System 08:00:27:46:4d:1d (oui Unknown), System Priority
-32768, Key 2, Port 4, Port Priority 32768
-          State Flags [Activity, Aggregation, Synchronization,
-Collecting, Distributing]
-        Collector Information TLV (0x03), length 16
-          Max Delay 0
-        Terminator TLV (0x00), length 0
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  drivers/net/dsa/mv88e6xxx.c | 138 ++++++++++++++++++++++++++++++++++++++++++++
+>  drivers/net/dsa/mv88e6xxx.h |  24 ++++++++
+>  2 files changed, 162 insertions(+)
+> 
+> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+> index 8c130c0..0dce8e8 100644
+> --- a/drivers/net/dsa/mv88e6xxx.c
+> +++ b/drivers/net/dsa/mv88e6xxx.c
+> @@ -1366,6 +1366,81 @@ static void mv88e6xxx_bridge_work(struct work_struct *work)
+>  	}
+>  }
+>  
+> +static int _mv88e6xxx_vtu_wait(struct dsa_switch *ds)
+> +{
+> +	return _mv88e6xxx_wait(ds, REG_GLOBAL, GLOBAL_VTU_OP,
+> +			       GLOBAL_VTU_OP_BUSY);
+> +}
+> +
+> +static int _mv88e6xxx_vtu_cmd(struct dsa_switch *ds, u16 op)
+> +{
+> +	int ret;
+> +
+> +	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_OP, op);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	return _mv88e6xxx_vtu_wait(ds);
+> +}
+> +
+> +static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds, u16 vid,
+> +				  struct mv88e6xxx_vtu_entry *entry)
+> +{
+> +	int ret, i;
+> +
+> +	ret = _mv88e6xxx_vtu_wait(ds);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_VID,
+> +				   vid & GLOBAL_VTU_VID_MASK);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	ret = _mv88e6xxx_vtu_cmd(ds, GLOBAL_VTU_OP_VTU_GET_NEXT);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_VID);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	entry->vid = ret & GLOBAL_VTU_VID_MASK;
+> +	entry->valid = !!(ret & GLOBAL_VTU_VID_VALID);
+> +
+> +	if (entry->valid) {
+> +		/* Ports 0-3, offsets 0, 4, 8, 12 */
+> +		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_DATA_0_3);
+> +		if (ret < 0)
+> +			return ret;
+> +
+> +		for (i = 0; i < 4; ++i)
+> +			entry->tags[i] = (ret >> (i * 4)) & 3;
+> +
+> +		/* Ports 4-6, offsets 0, 4, 8 */
+> +		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_DATA_4_7);
+> +		if (ret < 0)
+> +			return ret;
+> +
+> +		for (i = 4; i < 7; ++i)
+> +			entry->tags[i] = (ret >> ((i - 4) * 4)) & 3;
+> +
+> +		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_FID);
+> +		if (ret < 0)
+> +			return ret;
+> +
+> +		entry->fid = ret & GLOBAL_VTU_FID_MASK;
+> +
+> +		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_SID);
+> +		if (ret < 0)
+> +			return ret;
+> +
+> +		entry->sid = ret & GLOBAL_VTU_SID_MASK;
 
-===================================================
+As you point out in the header file, not all switches have FID and
+VID. A quick look at DSDT suggests for both FID and SID:
 
-LACPDU generated by switch
-19:20:08.246164 08:00:27:81:50:43 (oui Unknown) > 01:80:c2:00:00:02
-(oui Unknown), ethertype Slow Protocols (0x8809), length 124: LACPv1,
-length 110
-        Actor Information TLV (0x01), length 20
-          System 08:00:27:46:4d:1d (oui Unknown), System Priority
-32768, Key 1, Port 3, Port Priority 32768
-          State Flags [Activity, Aggregation, Synchronization,
-Collecting, Distributing]
-        Partner Information TLV (0x02), length 20
-          System 08:00:27:18:ae:4b (oui Unknown), System Priority
-65535, Key 17, Port 1, Port Priority 255
-          State Flags [Activity, Timeout, Aggregation,
-Synchronization, Collecting, Distributing]
-        Collector Information TLV (0x03), length 16
-          Max Delay 5
-        Terminator TLV (0x00), length 0
+DEV_88E6097_FAMILY | DEV_88E6165_FAMILY | DEV_88E6351_FAMILY | DEV_88E6352_FAMILY
 
-LACPDU generated by linux server
-19:20:08.611534 08:00:27:18:ae:4b (oui Unknown) > 01:80:c2:00:00:02
-(oui Unknown), ethertype Slow Protocols (0x8809), length 124: LACPv1,
-length 110
-        Actor Information TLV (0x01), length 20
-          System 08:00:27:18:ae:4b (oui Unknown), System Priority
-65535, Key 17, Port 1, Port Priority 255
-          State Flags [Activity, Timeout, Aggregation,
-Synchronization, Collecting, Distributing]
-        Partner Information TLV (0x02), length 20
-          System 08:00:27:46:4d:1d (oui Unknown), System Priority
-32768, Key 1, Port 3, Port Priority 32768
-          State Flags [Activity, Aggregation, Synchronization,
-Collecting, Distributing]
-        Collector Information TLV (0x03), length 16
-          Max Delay 0
-        Terminator TLV (0x00), length 0
+Please limit access to these registers to just these families.
 
-Regards,
-Ajith
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+>  static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+>  {
+>  	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+> @@ -1739,6 +1814,66 @@ static const struct file_operations mv88e6xxx_atu_fops = {
+>  	.owner  = THIS_MODULE,
+>  };
+>  
+> +static int mv88e6xxx_vtu_show(struct seq_file *s, void *p)
+> +{
+> +	struct dsa_switch *ds = s->private;
+> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+> +	int vid = 0xfff; /* find the first or lowest VID */
+> +	int ret = 0;
+> +	int port;
+> +
+> +	seq_puts(s, "VID  FID  SID  P0 P1 P2 P3 P4 P5 P6\n");
+> +	mutex_lock(&ps->smi_mutex);
+> +
+> +	do {
+> +		struct mv88e6xxx_vtu_entry next = { 0 };
+> +
+> +		ret = _mv88e6xxx_vtu_getnext(ds, vid, &next);
+> +		if (ret < 0)
+> +			goto unlock;
+> +
+> +		if (!next.valid)
+> +			break;
+> +
+> +		seq_printf(s, "%-4d %-4d %-2d ", next.vid, next.fid, next.sid);
+> +		for (port = 0; port < 7; ++port) {
+> +			u8 tag = next.tags[port];
+> +
+> +			if (tag == GLOBAL_VTU_DATA_MEMBER_TAG_UNMODIFIED)
+> +				seq_puts(s, "  -");
+> +			else if (tag == GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED)
+> +				seq_puts(s, "  u");
+> +			else if (tag == GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED)
+> +				seq_puts(s, "  t");
+> +			else if (tag == GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
+> +				seq_puts(s, "  x");
+> +			else
+> +				seq_puts(s, "  ?"); /* unlikely */
+
+Maybe use a switch statememt?
+
+Thanks
+	Andrew
