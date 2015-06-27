@@ -1,27 +1,38 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] test_bpf: extend tests for 32-bit endianness
- conversion
-Date: Sat, 27 Jun 2015 11:14:40 +0200
-Message-ID: <558E6980.5070101@iogearbox.net>
-References: <1435332320-6476-1-git-send-email-xi.wang@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@plumgrid.com>
-To: Xi Wang <xi.wang@gmail.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1435332320-6476-1-git-send-email-xi.wang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gustavo Zacarias <gustavo@zacarias.com.ar>
+Subject: [PATCH iproute2] tipc: make build conditional on having libmnl
+Date: Sat, 27 Jun 2015 07:25:28 -0300
+Message-ID: <1435400728-13012-1-git-send-email-gustavo@zacarias.com.ar>
+Cc: Gustavo Zacarias <gustavo@zacarias.com.ar>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.zacarias.com.ar ([176.9.42.171]:39475 "EHLO
+	www.zacarias.com.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752940AbbF0KZk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Jun 2015 06:25:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/26/2015 05:25 PM, Xi Wang wrote:
-> Currently "ALU_END_FROM_BE 32" and "ALU_END_FROM_LE 32" do not test if
-> the upper bits of the result are zeros (the arm64 JIT had such bugs).
-> Extend the two tests to catch this.
->
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
-> Signed-off-by: Xi Wang <xi.wang@gmail.com>
+Signed-off-by: Gustavo Zacarias <gustavo@zacarias.com.ar>
+---
+ Makefile | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-Thanks for extending the test suite!
-
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+diff --git a/Makefile b/Makefile
+index 67176be..8153445 100644
+--- a/Makefile
++++ b/Makefile
+@@ -41,7 +41,11 @@ WFLAGS += -Wmissing-declarations -Wold-style-definition -Wformat=2
+ CFLAGS := $(WFLAGS) $(CCOPTS) -I../include $(DEFINES) $(CFLAGS)
+ YACCFLAGS = -d -t -v
+ 
+-SUBDIRS=lib ip tc bridge misc netem genl tipc man
++SUBDIRS=lib ip tc bridge misc netem genl man
++
++ifeq ($(HAVE_MNL),y)
++SUBDIRS += tipc
++endif
+ 
+ LIBNETLINK=../lib/libnetlink.a ../lib/libutil.a
+ LDLIBS += $(LIBNETLINK)
+-- 
+2.3.6
