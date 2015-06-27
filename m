@@ -1,80 +1,44 @@
-From: Antonio Borneo <borneo.antonio@gmail.com>
-Subject: Re: [PATCH] net: via: VIA_RHINE and VIA_VELOCITY should depend on HAS_DMA
-Date: Sat, 27 Jun 2015 14:38:45 +0800
-Message-ID: <CAAj6DX3VmUguq+rqyDWY0ezKmUuFe6-j0YZ8yv7He4JWyf4Ocw@mail.gmail.com>
-References: <1435320502-4951-1-git-send-email-geert@linux-m68k.org>
-	<558D51D4.9060202@cogentembedded.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v3.17 .. v3.19] lib/rhashtable: fix race between
+ rhashtable_lookup_compare and hashtable resize
+Date: Sat, 27 Jun 2015 16:07:43 +0900
+Message-ID: <20150627070743.GA29671@gondor.apana.org.au>
+References: <20150626104817.16520.77222.stgit@buzz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:33131 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751735AbbF0Giq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Jun 2015 02:38:46 -0400
-In-Reply-To: <558D51D4.9060202@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stable <stable@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150626104817.16520.77222.stgit@buzz>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 26, 2015 at 9:21 PM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Hello.
->
-> On 6/26/2015 3:08 PM, Geert Uytterhoeven wrote:
->
->> If NO_DMA=y:
->
->
->>      ERROR: "dma_sync_single_for_cpu"
->> [drivers/net/ethernet/via/via-rhine.ko] undefined!
->>      ERROR: "dma_set_mask" [drivers/net/ethernet/via/via-rhine.ko]
->> undefined!
->>      ERROR: "dma_mapping_error" [drivers/net/ethernet/via/via-rhine.ko]
->> undefined!
->>      ERROR: "dma_map_single" [drivers/net/ethernet/via/via-rhine.ko]
->> undefined!
->>      ERROR: "dma_alloc_coherent" [drivers/net/ethernet/via/via-rhine.ko]
->> undefined!
->>      ERROR: "dma_free_coherent" [drivers/net/ethernet/via/via-rhine.ko]
->> undefined!
->>      ERROR: "dma_unmap_single" [drivers/net/ethernet/via/via-rhine.ko]
->> undefined!
->>      ERROR: "dma_map_page" [drivers/net/ethernet/via/via-velocity.ko]
->> undefined!
->>      ERROR: "dma_sync_single_for_cpu"
->> [drivers/net/ethernet/via/via-velocity.ko] undefined!
->>      ERROR: "dma_free_coherent" [drivers/net/ethernet/via/via-velocity.ko]
->> undefined!
->>      ERROR: "dma_unmap_single" [drivers/net/ethernet/via/via-velocity.ko]
->> undefined!
->>      ERROR: "dma_map_single" [drivers/net/ethernet/via/via-velocity.ko]
->> undefined!
->>      ERROR: "dma_alloc_coherent"
->> [drivers/net/ethernet/via/via-velocity.ko] undefined!
->
->
->> Before, the symbols depended implicitly on HAS_DMA through PCI or
->> USE_OF.  Add explicit dependencies on HAS_DMA to fix this.
->
->
->> Fixes: commit b7d3282a245f4428 ("net: via/Kconfig: replace USE_OF with
->> OF_???")
->
->
-> Fixes: b7d3282a245f ("net: via/Kconfig: replace USE_OF with OF_???")
->
->> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
->
->
-> WBR, Sergei
->
+On Fri, Jun 26, 2015 at 01:48:17PM +0300, Konstantin Khlebnikov wrote:
+> Hash value passed as argument into rhashtable_lookup_compare could be
+> computed using different hash table than rhashtable_lookup_compare sees.
+> 
+> This patch passes key into rhashtable_lookup_compare() instead of hash and
+> compures hash value right in place using the same table as for lookup.
+> 
+> Also it adds comment for rhashtable_hashfn and rhashtable_obj_hashfn:
+> user must prevent concurrent insert/remove otherwise returned hash value
+> could be invalid.
+> 
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+> Fixes: e341694e3eb5 ("netlink: Convert netlink_lookup() to use RCU protected hash table")
+> Link: http://lkml.kernel.org/r/20150514042151.GA5482@gondor.apana.org.au
+> Cc: Stable <stable@vger.kernel.org> (v3.17 .. v3.19)
 
-Yes, I can confirm it.
-If HAS_DMA is not defined the build is broken.
-Your patch fixes the issue.
+This could indeed explain Eric's problems with those kernels.  Eric,
+can you rerun your test to see if this patch makes your problem go
+away on the pre-4.0 kernels?
 
-Thanks,
-Antonio
+Thanks!
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
