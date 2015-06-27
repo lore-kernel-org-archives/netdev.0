@@ -1,69 +1,38 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH net] net: do not process device backlog during unregistration
-Date: Sat, 27 Jun 2015 19:02:51 +0300
-Message-ID: <1435420971-19263-1-git-send-email-ja@ssi.bg>
-Cc: netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"Vittorio G (VittGam)" <linuxbugs@vittgam.net>
-To: David Miller <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] uapi: fix compatability of linux/in.h with
+ netinet/in.h
+Date: Sat, 27 Jun 2015 14:52:48 -0700 (PDT)
+Message-ID: <20150627.145248.343550575965644423.davem@davemloft.net>
+References: <20150625231206.4a9c3daf@uryu.home.lan>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pablo@netfilter.org, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:47408 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751498AbbF0QDs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Jun 2015 12:03:48 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:60733 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751756AbbF0Vww (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Jun 2015 17:52:52 -0400
+In-Reply-To: <20150625231206.4a9c3daf@uryu.home.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 381c759d9916 ("ipv4: Avoid crashing in ip_error")
-fixes a problem where processed packet comes from device
-with destroyed inetdev (dev->ip_ptr). This is not expected
-because inetdev_destroy is called in NETDEV_UNREGISTER
-phase and packets should not be processed after
-dev_close_many() and synchronize_net(). But backlog
-processing is deactivated later after NETDEV_UNREGISTER_FINAL
-phase which allows CPUs to initiate processing for new
-packets during and after the NETDEV_UNREGISTER phase.
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 25 Jun 2015 23:12:06 -0400
 
-Fix it by moving flush_backlog after the device driver
-is stopped and before the synchronize_net() call. This
-allows dev->ip_ptr to be always valid during packet
-processing.
+> This fixes breakage to iproute2 build with recent kernel headers
+> caused by:
+>    commit a263653ed798216c0069922d7b5237ca49436007
+>    Author: Pablo Neira Ayuso <pablo@netfilter.org>
+>    Date:   Wed Jun 17 10:28:27 2015 -0500
+> 
+>    netfilter: don't pull include/linux/netfilter.h from netns headers
+> 
+> The issue is that definitions in linux/in.h overlap with those
+> in netinet/in.h. This patch solves this by introducing the same
+> mechanism as was used to solve the same problem with linux/in6.h
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Reported-by: Vittorio Gambaletta <linuxbugs@vittgam.net>
-Fixes: 6e583ce5242f ("net: eliminate refcounting in backlog queue")
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
- net/core/dev.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-Tested by reverting commit 381c759d9916 and using the
-test commands provided by Eric Biederman:
-
-http://marc.info/?l=linux-netdev&m=143239231905533&w=2
-
-Problem does not occur every time. SMP may be needed
-to reproduce.
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index aa82f9a..67132b3 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6027,6 +6027,7 @@ static void rollback_registered_many(struct list_head *head)
- 		unlist_netdevice(dev);
- 
- 		dev->reg_state = NETREG_UNREGISTERING;
-+		on_each_cpu(flush_backlog, dev, 1);
- 	}
- 
- 	synchronize_net();
-@@ -6650,8 +6651,6 @@ void netdev_run_todo(void)
- 
- 		dev->reg_state = NETREG_UNREGISTERED;
- 
--		on_each_cpu(flush_backlog, dev, 1);
--
- 		netdev_wait_allrefs(dev);
- 
- 		/* paranoia */
--- 
-1.9.3
+Applied.
