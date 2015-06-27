@@ -1,97 +1,69 @@
-From: Gustavo Zacarias <gustavo@zacarias.com.ar>
-Subject: [PATCH] iproute2: bump to version 4.1.0
-Date: Sat, 27 Jun 2015 08:15:51 -0300
-Message-ID: <1435403751-17245-2-git-send-email-gustavo@zacarias.com.ar>
-References: <1435403751-17245-1-git-send-email-gustavo@zacarias.com.ar>
-Cc: Gustavo Zacarias <gustavo@zacarias.com.ar>
-To: netdev@vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH net] net: do not process device backlog during unregistration
+Date: Sat, 27 Jun 2015 19:02:51 +0300
+Message-ID: <1435420971-19263-1-git-send-email-ja@ssi.bg>
+Cc: netdev@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"Vittorio G (VittGam)" <linuxbugs@vittgam.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.zacarias.com.ar ([176.9.42.171]:39876 "EHLO
-	www.zacarias.com.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753367AbbF0LQO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Jun 2015 07:16:14 -0400
-In-Reply-To: <1435403751-17245-1-git-send-email-gustavo@zacarias.com.ar>
+Received: from ja.ssi.bg ([178.16.129.10]:47408 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751498AbbF0QDs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Jun 2015 12:03:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Gustavo Zacarias <gustavo@zacarias.com.ar>
----
- ...c-make-build-conditional-on-having-libmnl.patch | 33 ++++++++++++++++++++++
- package/iproute2/iproute2.hash                     |  2 +-
- package/iproute2/iproute2.mk                       |  6 +++-
- 3 files changed, 39 insertions(+), 2 deletions(-)
- create mode 100644 package/iproute2/0001-tipc-make-build-conditional-on-having-libmnl.patch
+commit 381c759d9916 ("ipv4: Avoid crashing in ip_error")
+fixes a problem where processed packet comes from device
+with destroyed inetdev (dev->ip_ptr). This is not expected
+because inetdev_destroy is called in NETDEV_UNREGISTER
+phase and packets should not be processed after
+dev_close_many() and synchronize_net(). But backlog
+processing is deactivated later after NETDEV_UNREGISTER_FINAL
+phase which allows CPUs to initiate processing for new
+packets during and after the NETDEV_UNREGISTER phase.
 
-diff --git a/package/iproute2/0001-tipc-make-build-conditional-on-having-libmnl.patch b/package/iproute2/0001-tipc-make-build-conditional-on-having-libmnl.patch
-new file mode 100644
-index 0000000..ccd1daf
---- /dev/null
-+++ b/package/iproute2/0001-tipc-make-build-conditional-on-having-libmnl.patch
-@@ -0,0 +1,33 @@
-+From db17dd9728b77485f26abb1ac5fcda65130f4a8d Mon Sep 17 00:00:00 2001
-+From: Gustavo Zacarias <gustavo@zacarias.com.ar>
-+Date: Sat, 27 Jun 2015 08:08:51 -0300
-+Subject: [PATCHv2 iproute2] tipc: make build conditional on having libmnl
-+
-+Signed-off-by: Gustavo Zacarias <gustavo@zacarias.com.ar>
-+---
-+ tipc/Makefile | 5 +++++
-+ 1 file changed, 5 insertions(+)
-+
-+diff --git a/tipc/Makefile b/tipc/Makefile
-+index 4bda8c5..b3ef9b9 100644
-+--- a/tipc/Makefile
-++++ b/tipc/Makefile
-+@@ -1,3 +1,6 @@
-++include ../Config
-++ifeq ($(HAVE_MNL),y)
-++
-+ TIPCOBJ=bearer.o \
-+     cmdl.o link.o \
-+     media.o misc.o \
-+@@ -8,6 +11,8 @@ TIPCOBJ=bearer.o \
-+ TARGETS=tipc
-+ LDLIBS += -lmnl
-+ 
-++endif
-++
-+ all: $(TARGETS) $(LIBS)
-+ 
-+ tipc: $(TIPCOBJ)
-+-- 
-+2.3.6
-+
-diff --git a/package/iproute2/iproute2.hash b/package/iproute2/iproute2.hash
-index 336d6b6..659e275 100644
---- a/package/iproute2/iproute2.hash
-+++ b/package/iproute2/iproute2.hash
-@@ -1,2 +1,2 @@
- # From https://kernel.org/pub/linux/utils/net/iproute2/sha256sums.asc
--sha256	5cd06eb1050b858b308b65705725042bb566fd261135e35a73dafb48cd632618	iproute2-4.0.0.tar.xz
-+sha256	d1326696c6a8f81ba66aaf48d858005cf280c81d3284d8d2c99748e3d0746146	iproute2-4.1.0.tar.xz
-diff --git a/package/iproute2/iproute2.mk b/package/iproute2/iproute2.mk
-index a8f4400..dabc8b4 100644
---- a/package/iproute2/iproute2.mk
-+++ b/package/iproute2/iproute2.mk
-@@ -4,7 +4,7 @@
- #
- ################################################################################
+Fix it by moving flush_backlog after the device driver
+is stopped and before the synchronize_net() call. This
+allows dev->ip_ptr to be always valid during packet
+processing.
+
+Reported-by: Vittorio Gambaletta <linuxbugs@vittgam.net>
+Fixes: 6e583ce5242f ("net: eliminate refcounting in backlog queue")
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+ net/core/dev.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+Tested by reverting commit 381c759d9916 and using the
+test commands provided by Eric Biederman:
+
+http://marc.info/?l=linux-netdev&m=143239231905533&w=2
+
+Problem does not occur every time. SMP may be needed
+to reproduce.
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index aa82f9a..67132b3 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6027,6 +6027,7 @@ static void rollback_registered_many(struct list_head *head)
+ 		unlist_netdevice(dev);
  
--IPROUTE2_VERSION = 4.0.0
-+IPROUTE2_VERSION = 4.1.0
- IPROUTE2_SOURCE = iproute2-$(IPROUTE2_VERSION).tar.xz
- IPROUTE2_SITE = $(BR2_KERNEL_MIRROR)/linux/utils/net/iproute2
- IPROUTE2_DEPENDENCIES = host-bison host-flex host-pkgconf
-@@ -17,6 +17,10 @@ ifeq ($(BR2_PACKAGE_BUSYBOX),y)
- IPROUTE2_DEPENDENCIES += busybox
- endif
+ 		dev->reg_state = NETREG_UNREGISTERING;
++		on_each_cpu(flush_backlog, dev, 1);
+ 	}
  
-+ifeq ($(BR2_PACKAGE_LIBMNL),y)
-+IPROUTE2_DEPENDENCIES += libmnl
-+endif
-+
- # If we've got iptables enable xtables support for tc
- ifeq ($(BR2_PACKAGE_IPTABLES)x$(BR2_STATIC_LIBS),yx)
- IPROUTE2_DEPENDENCIES += iptables
+ 	synchronize_net();
+@@ -6650,8 +6651,6 @@ void netdev_run_todo(void)
+ 
+ 		dev->reg_state = NETREG_UNREGISTERED;
+ 
+-		on_each_cpu(flush_backlog, dev, 1);
+-
+ 		netdev_wait_allrefs(dev);
+ 
+ 		/* paranoia */
 -- 
-2.3.6
+1.9.3
