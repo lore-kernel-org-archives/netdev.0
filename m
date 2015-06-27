@@ -1,84 +1,67 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH RFC net-next] vxlan: GRO support at tunnel layer
-Date: Fri, 26 Jun 2015 17:46:02 -0700
-Message-ID: <558DF24A.1040504@hp.com>
-References: <1435360189-641007-1-git-send-email-tom@herbertland.com>
+From: Ajith Adapa <adapa.ajith@gmail.com>
+Subject: Re: Issue with LACP mode in linux bonding driver
+Date: Sat, 27 Jun 2015 07:57:06 +0530
+Message-ID: <CADAe=++oN6FdmzqrzvXvT+83sS6mjSUDedmWMW6Vgh16M50ATA@mail.gmail.com>
+References: <CADAe=+LvNgHV+crN_+E4xB+Pcz=KSvZpK5ADKzYFjHL2gGJq2Q@mail.gmail.com>
+ <6462.1435284902@famine> <CADAe=+LmF_O5Tw_+kcg35urKBjJJOFZrYs3R2LNkdh-XW6r2ng@mail.gmail.com>
+ <13466.1435353566@famine> <558DE6E2.5080207@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, sramamur@linux.vnet.ibm.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Jay Vosburgh <jay.vosburgh@canonical.com>, vfalico@gmail.com,
+	gospo@cumulusnetworks.com, netdev@vger.kernel.org
+To: Jonathan Toppins <jtoppins@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g9t5008.houston.hp.com ([15.240.92.66]:51034 "EHLO
-	g9t5008.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751468AbbF0AqE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 20:46:04 -0400
-In-Reply-To: <1435360189-641007-1-git-send-email-tom@herbertland.com>
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:34973 "EHLO
+	mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753344AbbF0C1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2015 22:27:46 -0400
+Received: by oiax193 with SMTP id x193so87162427oia.2
+        for <netdev@vger.kernel.org>; Fri, 26 Jun 2015 19:27:46 -0700 (PDT)
+In-Reply-To: <558DE6E2.5080207@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/26/2015 04:09 PM, Tom Herbert wrote:
-> Add calls to gro_cells infrastructure to do GRO when receiving on a tunnel.
+Hi,
+
+Thanks for the Update.
+
+I agree with Jonathon and this change has to be picked by the stable
+release. Configuration like this might end up creating huge
+duplication of frames for end nodes.
+
+Regards,
+Ajith
+
+
+
+On 27 June 2015 at 05:27, Jonathan Toppins <jtoppins@cumulusnetworks.com> wrote:
+> On 6/26/15 5:19 PM, Jay Vosburgh wrote:
+>>
+>> Ajith Adapa <adapa.ajith@gmail.com> wrote:
+>>
+>>> On 26 June 2015 at 07:45, Jay Vosburgh <jay.vosburgh@canonical.com>
+>>> wrote:
+>>>>
+>>>> echo 'module bonding =p' > /sys/kernel/debug/dynamic_debug/control
+>>>
+>>> Hi,
+>>>
+>>> thanks for the reply.
+>>
+>>
+>>         I tried this out a bit here, and could reproduce the problem on
+>> 3.13, but not on 4.0.0.  A bit of checking suggests that this problem is
+>> fixed by the following commit:
+>>
+>> commit 63b46242f707849a1df10b70e026281bfa40e849
+>> Author: Wilson Kok <wkok@cumulusnetworks.com>
+>> Date:   Mon Jan 26 01:16:59 2015 -0500
+>>
+>>      bonding: fix incorrect lacp mux state when agg not active
+>>
 >
-> Testing:
+> Yes this should be picked up by the stable trees, apologies if I dropped the
+> ball on cc'ing stable@. We (cumulus) are running a version of this patch in
+> 3.2 code, so all stable trees should receive it.
 >
-> Ran 200 netperf TCP_STREAM instance
->
-> - With fix (GRO enabled on VXLAN interface)
->
->    Verify GRO is happening.
->
->    9084 MBps tput
->    3.44% CPU utilization
->
-> - Without fix (GRO disabled on VXLAN interface)
->
->    Verified no GRO is happening.
->
->    9084 MBps tput
->    5.54% CPU utilization
-
-This has been an area of interest so:
-
-Tested-by: Rick Jones <rick.jones2@hp.com>
-
-Some single-stream results between two otherwise identical systems with 
-82599ES NICs in them, one running a 4.1.0-rc1+ kernel from a davem tree 
-from a while ago, the other running 4.1.0+ from a davem tree pulled 
-yesterday upon which I've applied the patch.
-
-Netperf command used:
-
-netperf -l 30 -H <IP> -t TCP_MAERTS -c -- -O 
-throughput,local_cpu_util,local_cpu_peak_util,local_cpu_peak_id,local_sd
-
-First, inbound to the unpatched system from the patched:
-
-
-MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
-192.168.0.21 () port 0 AF_INET : demo
-Throughput Local Local   Local   Local
-            CPU   Peak    Peak    Service
-            Util  Per CPU Per CPU Demand
-            %     Util %  ID
-5487.42    6.01  99.83   0       2.872
-5580.83    6.20  99.16   0       2.911
-5445.52    5.68  98.92   0       2.734
-5653.36    6.24  99.80   0       2.891
-5187.56    5.66  97.41   0       2.858
-
-Second, inbound to the patched system from the unpatched:
-
-MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
-192.168.0.22 () port 0 AF_INET : demo
-Throughput Local Local   Local   Local
-            CPU   Peak    Peak    Service
-            Util  Per CPU Per CPU Demand
-            %     Util %  ID
-6933.29    3.19  93.67   3       1.208
-7031.35    3.34  95.08   3       1.244
-7006.28    3.27  94.55   3       1.223
-6948.62    3.09  93.20   3       1.165
-7007.80    3.22  94.34   3       1.206
-
-Comparing the service demands shows a > 50% reduction in overhead.
+> -Jon
