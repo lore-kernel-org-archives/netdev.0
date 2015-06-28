@@ -1,115 +1,216 @@
-From: Ramu Ramamurthy <sramamur@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC net-next] vxlan: GRO support at tunnel layer
-Date: Sun, 28 Jun 2015 10:20:40 -0700
-Message-ID: <df94e5b8a0ed7a9146063908e3001ef3@imap.linux.ibm.com>
-References: <1435360189-641007-1-git-send-email-tom@herbertland.com>
- <558DF24A.1040504@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [RFC PATCHv4] net: fec: Ensure clocks are enabled while using mdio bus
+Date: Sun, 28 Jun 2015 19:36:12 +0200
+Message-ID: <1435512972-24014-1-git-send-email-andrew@lunn.ch>
+Cc: Nimrod Andy <B38611@freescale.com>,
+	Duan Andy <fugang.duan@freescale.com>,
+	Cory Tusar <cory.tusar@pid1solutions.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:37918 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752243AbbF1RUn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jun 2015 13:20:43 -0400
-Received: from /spool/local
-	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <sramamur@linux.vnet.ibm.com>;
-	Sun, 28 Jun 2015 11:20:43 -0600
-Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
-	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id E821C1FF0043
-	for <netdev@vger.kernel.org>; Sun, 28 Jun 2015 11:11:50 -0600 (MDT)
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by b03cxnp07028.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t5SHIGGc36503738
-	for <netdev@vger.kernel.org>; Sun, 28 Jun 2015 10:18:16 -0700
-Received: from d03av01.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t5SHKekG016504
-	for <netdev@vger.kernel.org>; Sun, 28 Jun 2015 11:20:41 -0600
-In-Reply-To: <558DF24A.1040504@hp.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:58860 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752681AbbF1Rm3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Jun 2015 13:42:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2015-06-26 17:46, Rick Jones wrote:
-> On 06/26/2015 04:09 PM, Tom Herbert wrote:
->> Add calls to gro_cells infrastructure to do GRO when receiving on a 
->> tunnel.
->> 
->> Testing:
->> 
->> Ran 200 netperf TCP_STREAM instance
->> 
->> - With fix (GRO enabled on VXLAN interface)
->> 
->>    Verify GRO is happening.
->> 
->>    9084 MBps tput
->>    3.44% CPU utilization
->> 
->> - Without fix (GRO disabled on VXLAN interface)
->> 
->>    Verified no GRO is happening.
->> 
->>    9084 MBps tput
->>    5.54% CPU utilization
-> 
-> This has been an area of interest so:
-> 
-> Tested-by: Rick Jones <rick.jones2@hp.com>
-> 
-> Some single-stream results between two otherwise identical systems
-> with 82599ES NICs in them, one running a 4.1.0-rc1+ kernel from a
-> davem tree from a while ago, the other running 4.1.0+ from a davem
-> tree pulled yesterday upon which I've applied the patch.
-> 
-> Netperf command used:
-> 
-> netperf -l 30 -H <IP> -t TCP_MAERTS -c -- -O
-> throughput,local_cpu_util,local_cpu_peak_util,local_cpu_peak_id,local_sd
-> 
-> First, inbound to the unpatched system from the patched:
-> 
-> 
-> MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> 192.168.0.21 () port 0 AF_INET : demo
-> Throughput Local Local   Local   Local
->            CPU   Peak    Peak    Service
->            Util  Per CPU Per CPU Demand
->            %     Util %  ID
-> 5487.42    6.01  99.83   0       2.872
-> 5580.83    6.20  99.16   0       2.911
-> 5445.52    5.68  98.92   0       2.734
-> 5653.36    6.24  99.80   0       2.891
-> 5187.56    5.66  97.41   0       2.858
-> 
-> Second, inbound to the patched system from the unpatched:
-> 
-> MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> 192.168.0.22 () port 0 AF_INET : demo
-> Throughput Local Local   Local   Local
->            CPU   Peak    Peak    Service
->            Util  Per CPU Per CPU Demand
->            %     Util %  ID
-> 6933.29    3.19  93.67   3       1.208
-> 7031.35    3.34  95.08   3       1.244
-> 7006.28    3.27  94.55   3       1.223
-> 6948.62    3.09  93.20   3       1.165
-> 7007.80    3.22  94.34   3       1.206
-> 
-> Comparing the service demands shows a > 50% reduction in overhead.
+When a switch is attached to the mdio bus, the mdio bus can be used
+while the interface is not open. If the IPG clock is not enabled, MDIO
+reads/writes will simply time out. Add support for runtime PM to
+control the clocks and other resources. Enable/disable the clocks
+using runtime PM, with open()/close() and mdio read()/write() function
+triggering runtime PM operations. Auto suspend is used, since there
+are likely to be a number of MDIO operations in a burst during DSA
+probe.
 
-Rick, in your test, are you seeing gro becoming effective on the vxlan 
-interface
-with the 82599ES nic ? (ie, tcpdump on the vxlan interface shows larger 
-frames
-than the mtu of that interface, and kernel trace shows 
-vxlan_gro_receive() being hit)
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Cc: Duan Andy <fugang.duan@freescale.com>
+---
 
-Throughputs of 5.5 Gbps (or the improved 7Gbs) leads me to suspect that 
-gro is still not effective
-in your test on the vxlan interface with the 82588ES nic - Because, when 
-vxlan gro became effective with the patch
-I suggested earlier, I could see throughput of ~8.5 Gbps on that nic.
+RFC since net-next is closed for the merge window. Please send
+comments, Acked-by, etc, and i will then resubmit once net-next
+reopens.
+
+
+ drivers/net/ethernet/freescale/fec_main.c | 62 ++++++++++++++++++++++---------
+ 1 file changed, 45 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index bf4cf3fbb5f2..9b4d53132180 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -24,6 +24,7 @@
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/string.h>
++#include <linux/pm_runtime.h>
+ #include <linux/ptrace.h>
+ #include <linux/errno.h>
+ #include <linux/ioport.h>
+@@ -77,6 +78,7 @@ static void fec_enet_itr_coal_init(struct net_device *ndev);
+ #define FEC_ENET_RAEM_V	0x8
+ #define FEC_ENET_RAFL_V	0x8
+ #define FEC_ENET_OPD_V	0xFFF0
++#define FEC_MDIO_PM_TIMEOUT  100 /* ms */
+ 
+ static struct platform_device_id fec_devtype[] = {
+ 	{
+@@ -1763,11 +1765,15 @@ static void fec_enet_adjust_link(struct net_device *ndev)
+ static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+ {
+ 	struct fec_enet_private *fep = bus->priv;
++	struct device *dev = &fep->pdev->dev;
+ 	unsigned long time_left;
++	int ret = 0;
+ 
+ 	fep->mii_timeout = 0;
+ 	init_completion(&fep->mdio_done);
+ 
++	pm_runtime_get_sync(dev);
++
+ 	/* start a read op */
+ 	writel(FEC_MMFR_ST | FEC_MMFR_OP_READ |
+ 		FEC_MMFR_PA(mii_id) | FEC_MMFR_RA(regnum) |
+@@ -1779,22 +1785,32 @@ static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+ 	if (time_left == 0) {
+ 		fep->mii_timeout = 1;
+ 		netdev_err(fep->netdev, "MDIO read timeout\n");
+-		return -ETIMEDOUT;
++		ret = -ETIMEDOUT;
++		goto out;
+ 	}
+ 
+-	/* return value */
+-	return FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
++	ret = FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
++
++out:
++	pm_runtime_mark_last_busy(dev);
++	pm_runtime_put_autosuspend(dev);
++
++	return ret;
+ }
+ 
+ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+ 			   u16 value)
+ {
+ 	struct fec_enet_private *fep = bus->priv;
++	struct device *dev = &fep->pdev->dev;
+ 	unsigned long time_left;
++	int ret = 0;
+ 
+ 	fep->mii_timeout = 0;
+ 	init_completion(&fep->mdio_done);
+ 
++	pm_runtime_get_sync(dev);
++
+ 	/* start a write op */
+ 	writel(FEC_MMFR_ST | FEC_MMFR_OP_WRITE |
+ 		FEC_MMFR_PA(mii_id) | FEC_MMFR_RA(regnum) |
+@@ -1807,10 +1823,13 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+ 	if (time_left == 0) {
+ 		fep->mii_timeout = 1;
+ 		netdev_err(fep->netdev, "MDIO write timeout\n");
+-		return -ETIMEDOUT;
++		ret  = -ETIMEDOUT;
+ 	}
+ 
+-	return 0;
++	pm_runtime_mark_last_busy(dev);
++	pm_runtime_put_autosuspend(dev);
++
++	return ret;
+ }
+ 
+ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+@@ -2844,9 +2863,7 @@ fec_enet_open(struct net_device *ndev)
+ 	int ret;
+ 
+ 	pinctrl_pm_select_default_state(&fep->pdev->dev);
+-	ret = fec_enet_clk_enable(ndev, true);
+-	if (ret)
+-		return ret;
++	pm_runtime_get_sync(&fep->pdev->dev);
+ 
+ 	/* I should reset the ring buffers here, but I don't yet know
+ 	 * a simple way to do that.
+@@ -2874,7 +2891,8 @@ fec_enet_open(struct net_device *ndev)
+ err_enet_mii_probe:
+ 	fec_enet_free_buffers(ndev);
+ err_enet_alloc:
+-	fec_enet_clk_enable(ndev, false);
++	pm_runtime_mark_last_busy(&fep->pdev->dev);
++	pm_runtime_put_autosuspend(&fep->pdev->dev);
+ 	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
+ 	return ret;
+ }
+@@ -2895,8 +2913,10 @@ fec_enet_close(struct net_device *ndev)
+ 	phy_disconnect(fep->phy_dev);
+ 	fep->phy_dev = NULL;
+ 
+-	fec_enet_clk_enable(ndev, false);
+ 	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
++	pm_runtime_mark_last_busy(&fep->pdev->dev);
++	pm_runtime_put_autosuspend(&fep->pdev->dev);
++
+ 	fec_enet_free_buffers(ndev);
+ 
+ 	return 0;
+@@ -3426,8 +3446,9 @@ fec_probe(struct platform_device *pdev)
+ 
+ 	/* Carrier starts down, phylib will bring it up */
+ 	netif_carrier_off(ndev);
+-	fec_enet_clk_enable(ndev, false);
+ 	pinctrl_pm_select_sleep_state(&pdev->dev);
++	pm_runtime_set_active(&ndev->dev);
++	pm_runtime_enable(&ndev->dev);
+ 
+ 	ret = register_netdev(ndev);
+ 	if (ret)
+@@ -3441,6 +3462,12 @@ fec_probe(struct platform_device *pdev)
+ 
+ 	fep->rx_copybreak = COPYBREAK_DEFAULT;
+ 	INIT_WORK(&fep->tx_timeout_work, fec_enet_timeout_work);
++
++	pm_runtime_set_autosuspend_delay(&ndev->dev, FEC_MDIO_PM_TIMEOUT);
++	pm_runtime_use_autosuspend(&ndev->dev);
++	pm_runtime_mark_last_busy(&ndev->dev);
++	pm_runtime_put_autosuspend(&ndev->dev);
++
+ 	return 0;
+ 
+ failed_register:
+@@ -3496,10 +3523,11 @@ static int __maybe_unused fec_suspend(struct device *dev)
+ 		netif_device_detach(ndev);
+ 		netif_tx_unlock_bh(ndev);
+ 		fec_stop(ndev);
+-		fec_enet_clk_enable(ndev, false);
+ 		if (!(fep->wol_flag & FEC_WOL_FLAG_ENABLE))
+ 			pinctrl_pm_select_sleep_state(&fep->pdev->dev);
+ 	}
++
++	fec_enet_clk_enable(ndev, false);
+ 	rtnl_unlock();
+ 
+ 	if (fep->reg_phy && !(fep->wol_flag & FEC_WOL_FLAG_ENABLE))
+@@ -3529,12 +3557,12 @@ static int __maybe_unused fec_resume(struct device *dev)
+ 	}
+ 
+ 	rtnl_lock();
++	ret = fec_enet_clk_enable(ndev, true);
++	if (ret) {
++		rtnl_unlock();
++		goto failed_clk;
++	}
+ 	if (netif_running(ndev)) {
+-		ret = fec_enet_clk_enable(ndev, true);
+-		if (ret) {
+-			rtnl_unlock();
+-			goto failed_clk;
+-		}
+ 		if (fep->wol_flag & FEC_WOL_FLAG_ENABLE) {
+ 			if (pdata && pdata->sleep_mode_enable)
+ 				pdata->sleep_mode_enable(false);
+-- 
+2.1.4
