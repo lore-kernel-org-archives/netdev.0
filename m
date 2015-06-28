@@ -1,119 +1,54 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH RFC net-next] vxlan: GRO support at tunnel layer
-Date: Sun, 28 Jun 2015 14:31:00 -0700
-Message-ID: <CALx6S35joR=WtiqXne-vkMB+R0e=4pWo2r_WiKASGQcViBsAFA@mail.gmail.com>
-References: <1435360189-641007-1-git-send-email-tom@herbertland.com>
-	<558DF24A.1040504@hp.com>
-	<df94e5b8a0ed7a9146063908e3001ef3@imap.linux.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/1] tipc: purge backlog queue
+ counters when broadcast link is reset
+Date: Sun, 28 Jun 2015 16:43:26 -0700 (PDT)
+Message-ID: <20150628.164326.1697483508955370526.davem@davemloft.net>
+References: <1435499084-29332-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Rick Jones <rick.jones2@hp.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Ramu Ramamurthy <sramamur@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:35928 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752439AbbF1VbB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jun 2015 17:31:01 -0400
-Received: by iecvh10 with SMTP id vh10so104065928iec.3
-        for <netdev@vger.kernel.org>; Sun, 28 Jun 2015 14:31:00 -0700 (PDT)
-In-Reply-To: <df94e5b8a0ed7a9146063908e3001ef3@imap.linux.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1435499084-29332-1-git-send-email-jon.maloy@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 28, 2015 at 10:20 AM, Ramu Ramamurthy
-<sramamur@linux.vnet.ibm.com> wrote:
-> On 2015-06-26 17:46, Rick Jones wrote:
->>
->> On 06/26/2015 04:09 PM, Tom Herbert wrote:
->>>
->>> Add calls to gro_cells infrastructure to do GRO when receiving on a
->>> tunnel.
->>>
->>> Testing:
->>>
->>> Ran 200 netperf TCP_STREAM instance
->>>
->>> - With fix (GRO enabled on VXLAN interface)
->>>
->>>    Verify GRO is happening.
->>>
->>>    9084 MBps tput
->>>    3.44% CPU utilization
->>>
->>> - Without fix (GRO disabled on VXLAN interface)
->>>
->>>    Verified no GRO is happening.
->>>
->>>    9084 MBps tput
->>>    5.54% CPU utilization
->>
->>
->> This has been an area of interest so:
->>
->> Tested-by: Rick Jones <rick.jones2@hp.com>
->>
->> Some single-stream results between two otherwise identical systems
->> with 82599ES NICs in them, one running a 4.1.0-rc1+ kernel from a
->> davem tree from a while ago, the other running 4.1.0+ from a davem
->> tree pulled yesterday upon which I've applied the patch.
->>
->> Netperf command used:
->>
->> netperf -l 30 -H <IP> -t TCP_MAERTS -c -- -O
->> throughput,local_cpu_util,local_cpu_peak_util,local_cpu_peak_id,local_sd
->>
->> First, inbound to the unpatched system from the patched:
->>
->>
->> MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
->> 192.168.0.21 () port 0 AF_INET : demo
->> Throughput Local Local   Local   Local
->>            CPU   Peak    Peak    Service
->>            Util  Per CPU Per CPU Demand
->>            %     Util %  ID
->> 5487.42    6.01  99.83   0       2.872
->> 5580.83    6.20  99.16   0       2.911
->> 5445.52    5.68  98.92   0       2.734
->> 5653.36    6.24  99.80   0       2.891
->> 5187.56    5.66  97.41   0       2.858
->>
->> Second, inbound to the patched system from the unpatched:
->>
->> MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
->> 192.168.0.22 () port 0 AF_INET : demo
->> Throughput Local Local   Local   Local
->>            CPU   Peak    Peak    Service
->>            Util  Per CPU Per CPU Demand
->>            %     Util %  ID
->> 6933.29    3.19  93.67   3       1.208
->> 7031.35    3.34  95.08   3       1.244
->> 7006.28    3.27  94.55   3       1.223
->> 6948.62    3.09  93.20   3       1.165
->> 7007.80    3.22  94.34   3       1.206
->>
->> Comparing the service demands shows a > 50% reduction in overhead.
->
->
-> Rick, in your test, are you seeing gro becoming effective on the vxlan
-> interface
-> with the 82599ES nic ? (ie, tcpdump on the vxlan interface shows larger
-> frames
-> than the mtu of that interface, and kernel trace shows vxlan_gro_receive()
-> being hit)
->
-> Throughputs of 5.5 Gbps (or the improved 7Gbs) leads me to suspect that gro
-> is still not effective
-> in your test on the vxlan interface with the 82588ES nic - Because, when
-> vxlan gro became effective with the patch
-> I suggested earlier, I could see throughput of ~8.5 Gbps on that nic.
->
-You're comparing apples to oranges. Please test the patch in your
-environment I posted and report results. Please also test with
-multiple connections, single connection performance can be misleading
-and does not really reflect what real production servers are doing.
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Sun, 28 Jun 2015 09:44:44 -0400
 
-Tom
+> In commit 1f66d161ab3d8b518903fa6c3f9c1f48d6919e74
+> ("tipc: introduce starvation free send algorithm")
+> we introduced a counter per priority level for buffers
+> in the link backlog queue. We also introduced a new
+> function tipc_link_purge_backlog(), to reset these
+> counters to zero when the link is reset.
+> 
+> Unfortunately, we missed to call this function when
+> the broadcast link is reset, with the result that the
+> values of these counters might be permanently skewed
+> when new nodes are attached. This may in the worst case
+> lead to permananent, but spurious, broadcast link
+> congestion, where no broadcast packets can be sent at
+> all.
+> 
+> We fix this bug with this commit.
+> 
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
->
+Applied, thanks.
+
+------------------------------------------------------------------------------
+Monitor 25 network devices or servers for free with OpManager!
+OpManager is web-based network management software that monitors 
+network devices and physical & virtual servers, alerts via email & sms 
+for fault. Monitor 25 devices for free with no restriction. Download now
+http://ad.doubleclick.net/ddm/clk/292181274;119417398;o
