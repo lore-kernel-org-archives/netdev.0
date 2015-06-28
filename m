@@ -1,133 +1,88 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [v2,8/9] fsl/fman: Add FMan Port Support
-Date: Sun, 28 Jun 2015 03:08:56 -0500
-Message-ID: <1435478936.9432.29.camel@freescale.com>
-References: <1435174659-6876-1-git-send-email-igal.liberman@freescale.com>
-	 <1435274929.28572.28.camel@tiscali.nl>
-	 <DM2PR03MB38337ABD2E9B11C92DCAF9FE6AB0@DM2PR03MB383.namprd03.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Paul Bolle <pebolle@tiscali.nl>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	Bucur Madalin-Cristian-B32716 <madalin.bucur@freescale.com>
-To: Liberman Igal-B31950 <Igal.Liberman@freescale.com>
+From: Conrad Hoffmann <ch@bitfehler.net>
+Subject: [PATCH RFC] net/unix: SO_REUSEPORT for AF_UNIX
+Date: Sun, 28 Jun 2015 11:52:19 +0200
+Message-ID: <1435485139-16866-1-git-send-email-ch@bitfehler.net>
+Cc: Conrad Hoffmann <ch@bitfehler.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bn0108.outbound.protection.outlook.com ([157.56.110.108]:20160
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752196AbbF1IJh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Jun 2015 04:09:37 -0400
-In-Reply-To: <DM2PR03MB38337ABD2E9B11C92DCAF9FE6AB0@DM2PR03MB383.namprd03.prod.outlook.com>
+Received: from osk4r.t3rror.net ([5.9.43.3]:33877 "EHLO mail.t3rror.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752167AbbF1KDt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Jun 2015 06:03:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Why are these two parts being submitted separately?  Worse, the CC list seems 
-to be different for each part as I'm not seeing the "DPAA ETH driver".
+Support the SO_REUSEPORT option for AF_UNIX (aka AF_LOCAL) sockets. Note
+that unlike the IP implementations, the semantics for AF_UNIX sockets are
+those of the original BSD implementation, i.e. each socket that
+successfully reuses a port completely takes over from the previous
+listener.
 
--Scott
+The vast majority of software does an unlink() before bind() on UNIX
+sockets. This also effectively takes over the socket from the previous
+listener (given sufficient permissions), but leads to a short window of
+time where connections are refused because the socket doesn't exist. One
+can now achieve the same behaviour without dropping a single connection by
+using SO_REUSEPORT and not calling unlink() before bind().
 
-On Sun, 2015-06-28 at 03:06 -0500, Liberman Igal-B31950 wrote:
-> Hi Paul,
-> All those exported functions are used by DPAA ETH driver, which was 
-> submitted by Bucur Madalin (only fm_port_get_buffer_time_stamp() is not 
-> used currently, I'll remove it).
-> 
-> Regards,
-> Igal Liberman.
-> 
-> > -----Original Message-----
-> > From: Paul Bolle [mailto:pebolle@tiscali.nl]
-> > Sent: Friday, June 26, 2015 2:29 AM
-> > To: Liberman Igal-B31950; netdev@vger.kernel.org
-> > Cc: linuxppc-dev@lists.ozlabs.org; Wood Scott-B07421; Bucur Madalin-
-> > Cristian-B32716
-> > Subject: Re: [v2,8/9] fsl/fman: Add FMan Port Support
-> > 
-> > On Wed, 2015-06-24 at 22:37 +0300,  igal.liberman@freescale.comwrote:
-> > > --- a/drivers/net/ethernet/freescale/fman/fm_drv.c
-> > > +++ b/drivers/net/ethernet/freescale/fman/fm_drv.c
-> > 
-> > > +struct fm_port_t *fm_port_drv_handle(const struct fm_port_drv_t
-> > > +*port) {
-> > > + return port->fm_port;
-> > > +}
-> > > +EXPORT_SYMBOL(fm_port_drv_handle);
-> > 
-> > I couldn't find any users of this function.
-> > 
-> > > +void fm_port_get_buff_layout_ext_params(struct fm_port_drv_t *port,
-> > > +>        >       >       >       >       struct fm_port_params *params)
-> > 
-> > (Evolution 3.16 is a piece of ...).
-> > 
-> > > +{
-> > > + params->data_align = 0;
-> > > +}
-> > > +EXPORT_SYMBOL(fm_port_get_buff_layout_ext_params);
-> > 
-> > Ditto.
-> > 
-> > > +int fm_get_tx_port_channel(struct fm_port_drv_t *port) {
-> > > + return port->tx_ch;
-> > > +}
-> > > +EXPORT_SYMBOL(fm_get_tx_port_channel);
-> > 
-> > Ditto.
-> > 
-> > > --- /dev/null
-> > > +++ b/drivers/net/ethernet/freescale/fman/fm_port_drv.c
-> > 
-> > > +void fm_set_rx_port_params(struct fm_port_drv_t *port,
-> > > +                    struct fm_port_params *params)
-> > > +{
-> > +   [...]
-> > > +}
-> > > +EXPORT_SYMBOL(fm_set_rx_port_params);
-> > 
-> > Ditto.
-> > 
-> > (If you hear about my arrest for randomly attacking innocent people:
-> > blame evolution 3.16!)
-> > 
-> > > +void fm_set_tx_port_params(struct fm_port_drv_t *port,
-> > > +                    struct fm_port_params *params)
-> > > +{
-> > > + [...]
-> > > +}
-> > > +EXPORT_SYMBOL(fm_set_tx_port_params);
-> > 
-> > Ditto.
-> > 
-> > > --- /dev/null
-> > > +++ b/drivers/net/ethernet/freescale/fman/port/fm_port.c
-> > 
-> > > +u64 *fm_port_get_buffer_time_stamp(const struct fm_port_t
-> > *p_fm_port,
-> > > +                            char *p_data)
-> > > +{
-> > > + [...]
-> > > +}
-> > > +EXPORT_SYMBOL(fm_port_get_buffer_time_stamp);
-> > 
-> > Ditto.
-> > 
-> > > +int fm_port_disable(struct fm_port_t *p_fm_port) {
-> > > + [...]
-> > > +}
-> > > +EXPORT_SYMBOL(fm_port_disable);
-> > 
-> > This exports a function that I think is only used inside this file.
-> > 
-> > > +int fm_port_enable(struct fm_port_t *p_fm_port) {
-> > > + [...]
-> > > +}
-> > > +EXPORT_SYMBOL(fm_port_enable);
-> > 
-> > And here I could again find no users of this function.
-> > 
-> > Thanks,
-> > 
-> > 
-> > Paul Bolle
+The restrictions on this are the same as for the IP implementation:
+listening socket on the given path must exist, also have SO_REUSEPORT set
+and have the same uid.
+
+Signed-off-by: Conrad Hoffmann <ch@bitfehler.net>
+---
+ net/unix/af_unix.c | 31 +++++++++++++++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 03ee4d3..ef57199 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -326,6 +326,29 @@ found:
+ 	return s;
+ }
+ 
++static bool unix_port_reusable(struct sock *sk, const char *sun_path,
++			       struct path *path)
++{
++	struct sock *owner;
++	bool ret;
++
++	if (!sk->sk_reuseport)
++		return false;
++
++	if (kern_path(sun_path, LOOKUP_FOLLOW, path))
++		return false;
++
++	owner = unix_find_socket_byinode(d_backing_inode(path->dentry));
++	if (!owner)
++		return false;
++
++	ret = owner->sk_reuseport &&
++	      owner->sk_type == sk->sk_type &&
++	      uid_eq(sock_i_uid(sk), sock_i_uid(owner));
++	sock_put(owner);
++	return ret;
++}
++
+ static inline int unix_writable(struct sock *sk)
+ {
+ 	return (atomic_read(&sk->sk_wmem_alloc) << 2) <= sk->sk_sndbuf;
+@@ -914,9 +937,13 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 		umode_t mode = S_IFSOCK |
+ 		       (SOCK_INODE(sock)->i_mode & ~current_umask());
+ 		err = unix_mknod(sun_path, mode, &path);
+-		if (err) {
+-			if (err == -EEXIST)
++		if (err == -EEXIST) {
++			if (unix_port_reusable(sk, sun_path, &path))
++				err = 0;
++			else
+ 				err = -EADDRINUSE;
++		}
++		if (err) {
+ 			unix_release_addr(addr);
+ 			goto out_up;
+ 		}
+-- 
+2.4.4
