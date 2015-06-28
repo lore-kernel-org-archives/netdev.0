@@ -1,23 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] flow_dissector: Pre-initialize ip_proto in
- __skb_flow_dissect()
-Date: Sun, 28 Jun 2015 16:54:20 -0700 (PDT)
-Message-ID: <20150628.165420.750527732113926573.davem@davemloft.net>
-References: <1435237832-28838-1-git-send-email-geert@linux-m68k.org>
+Subject: Re: [PATCH] drivers: net: xgene: Pre-initialize ret in
+ xgene_enet_get_resources()
+Date: Sun, 28 Jun 2015 16:54:48 -0700 (PDT)
+Message-ID: <20150628.165448.1251421470587728980.davem@davemloft.net>
+References: <1435238009-29037-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-7
 Content-Transfer-Encoding: base64
-Cc: tom@herbertland.com, jiri@resnulli.us, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: stripathi@apm.com, isubramanian@apm.com, kchudgar@apm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: geert@linux-m68k.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1435237832-28838-1-git-send-email-geert@linux-m68k.org>
+In-Reply-To: <1435238009-29037-1-git-send-email-geert@linux-m68k.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IFRo
-dSwgMjUgSnVuIDIwMTUgMTU6MTA6MzIgKzAyMDANCg0KPiBuZXQvY29yZS9mbG93X2Rpc3NlY3Rv
-ci5jOiBJbiBmdW5jdGlvbiChX19za2JfZmxvd19kaXNzZWN0ojoNCj4gbmV0L2NvcmUvZmxvd19k
-aXNzZWN0b3IuYzoxMzI6IHdhcm5pbmc6IKFpcF9wcm90b6IgbWF5IGJlIHVzZWQgdW5pbml0aWFs
-aXplZCBpbiB0aGlzIGZ1bmN0aW9uDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBHZWVydCBVeXR0ZXJo
-b2V2ZW4gPGdlZXJ0QGxpbnV4LW02OGsub3JnPg0KDQpBcHBsaWVkLCB0aGFua3MuDQo=
+dSwgMjUgSnVuIDIwMTUgMTU6MTM6MjkgKzAyMDANCg0KPiBJZiBDT05GSUdfQUNQST1uOg0KPiAN
+Cj4gICAgIGRyaXZlcnMvbmV0L2V0aGVybmV0L2FwbS94Z2VuZS94Z2VuZV9lbmV0X21haW4uYzog
+SW4gZnVuY3Rpb24goXhnZW5lX2VuZXRfZ2V0X3Jlc291cmNlc6I6DQo+ICAgICBkcml2ZXJzL25l
+dC9ldGhlcm5ldC9hcG0veGdlbmUveGdlbmVfZW5ldF9tYWluLmM6OTUxOiB3YXJuaW5nOiChcmV0
+oiBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24NCj4gDQo+IElmIHRo
+ZSBkcml2ZXIgaXMgYm91bmQgdG8gYSBsZWdhY3kgcGxhdGZvcm0gZGV2aWNlLCByZXQgd2lsbCBj
+b250YWluDQo+IGFyYml0cmFyeSBkYXRhLiBJZiBpdCBpcyBub24temVybywgaXQgd2lsbCBiZSBy
+ZXR1cm5lZCB0byB0aGUgY2FsbGVyIGFzDQo+IGFuIGVycm9yIGNvZGUuDQo+IA0KPiBTaWduZWQt
+b2ZmLWJ5OiBHZWVydCBVeXR0ZXJob2V2ZW4gPGdlZXJ0QGxpbnV4LW02OGsub3JnPg0KDQpBcHBs
+aWVkLg0K
