@@ -1,55 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] uapi: fix compatability of linux/in.h with
- netinet/in.h
-Date: Sat, 27 Jun 2015 16:20:41 -0700 (PDT)
-Message-ID: <20150627.162041.2168402415351061903.davem@davemloft.net>
-References: <20150625231206.4a9c3daf@uryu.home.lan>
-	<20150627.145248.343550575965644423.davem@davemloft.net>
+Subject: Re: [PATCH 1/2] ax25: Stop using sock->sk_protinfo.
+Date: Sat, 27 Jun 2015 19:32:38 -0700 (PDT)
+Message-ID: <20150627.193238.1449363675975197869.davem@davemloft.net>
+References: <20150625.061907.1258416005349767495.davem@davemloft.net>
+	<20150626214305.GB13920@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: kda@linux-powerpc.org, netdev@vger.kernel.org, edumazet@google.com
+To: ralf@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60948 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33228 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752029AbbF0XUp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Jun 2015 19:20:45 -0400
-In-Reply-To: <20150627.145248.343550575965644423.davem@davemloft.net>
+	with ESMTP id S1752039AbbF1Ccl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Jun 2015 22:32:41 -0400
+In-Reply-To: <20150626214305.GB13920@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Sat, 27 Jun 2015 14:52:48 -0700 (PDT)
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Fri, 26 Jun 2015 23:43:05 +0200
 
-> Applied.
+> I have the big solution my queue which combines struct sock with ax25_cb
+> into struct ax25_sock but that's more complex because currently there is
+> the possibility for an ax25_cb to be created by an incoming connection
+> request even without a socket.
 
-Reverted, as it breaks the build.
+I initially tried morphing ax25_cb into ax25_sock but I stopped when
+I saw the anonymous ax25_cb objects.
 
-Please test your patches.
-
-In file included from include/linux/in.h:23:0,
-                 from include/uapi/linux/netfilter.h:7,
-                 from include/linux/netfilter_defs.h:4,
-                 from include/net/netns/netfilter.h:4,
-                 from include/net/net_namespace.h:22,
-                 from include/linux/init_task.h:15,
-                 from kernel/fork.c:562:
-include/uapi/linux/in.h:25:5: warning: "__UAPI_DEF_IN_IPPROTO" is not defined [-Wundef]
- #if __UAPI_DEF_IN_IPPROTO
-     ^
-include/uapi/linux/in.h:82:5: warning: "__UAPI_DEF_IN_ADDR" is not defined [-Wundef]
- #if __UAPI_DEF_IN_ADDR
-     ^
-include/uapi/linux/in.h:165:5: warning: "__UAPI_DEF_IP_MREQ" is not defined [-Wundef]
- #if __UAPI_DEF_IP_MREQ
-     ^
-include/uapi/linux/in.h:219:5: warning: "__UAPI_DEF_IN_PKTINFO" is not defined [-Wundef]
- #if __UAPI_DEF_IN_PKTINFO
-     ^
-include/uapi/linux/in.h:228:6: warning: "__UAPI_DEF_SOCKADDR_IN" is not defined [-Wundef]
- #if  __UAPI_DEF_SOCKADDR_IN
-      ^
-include/uapi/linux/in.h:242:5: warning: "__UAPI_DEF_IN_CLASS" is not defined [-Wundef]
- #if __UAPI_DEF_IN_CLASS
-     ^
+I really don't think it's worth it, FWIW...
