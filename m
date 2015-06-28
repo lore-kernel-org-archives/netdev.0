@@ -1,67 +1,89 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [RFC PATCHv2 3/4] net: dsa: Add dsa_is_dsa_port() helper
-Date: Sun, 28 Jun 2015 21:50:00 +0200
-Message-ID: <1435521001-25195-4-git-send-email-andrew@lunn.ch>
+Subject: [RFC PATCHv2 4/4] net: dsa: Allow configuration of CPU & DSA port speeds/duplex
+Date: Sun, 28 Jun 2015 21:50:01 +0200
+Message-ID: <1435521001-25195-5-git-send-email-andrew@lunn.ch>
 References: <1435521001-25195-1-git-send-email-andrew@lunn.ch>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
 	Guenter Roeck <linux@roeck-us.net>,
 	Andrew Lunn <andrew@lunn.ch>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58889 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:58894 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752468AbbF1T4I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Jun 2015 15:56:08 -0400
+	id S1752678AbbF1T4X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Jun 2015 15:56:23 -0400
 In-Reply-To: <1435521001-25195-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add an inline helper for determining is a port is a DSA port.
+By default, DSA and CPU ports are configured to the maximum speed the
+switch supports. However there can be use cases where the peer device
+port is slower. Allow a fixed-link property to be used with the DSA
+and CPU port in the device tree, and use this information to configure
+the port.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx.c | 5 ++---
- include/net/dsa.h           | 5 +++++
- 2 files changed, 7 insertions(+), 3 deletions(-)
+v2: Remove support for multiple CPU ports.
+---
+ net/dsa/dsa.c | 38 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index fc73d809c292..a5eb89ce0b99 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1441,8 +1441,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 		 * full duplex.
- 		 */
- 		reg = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_PCS_CTRL);
--		if (dsa_is_cpu_port(ds, port) ||
--		    ds->dsa_port_mask & (1 << port)) {
-+		if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)) {
- 			reg |= PORT_PCS_CTRL_FORCE_LINK |
- 				PORT_PCS_CTRL_LINK_UP |
- 				PORT_PCS_CTRL_DUPLEX_FULL |
-@@ -1505,7 +1504,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 	if (mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds) ||
- 	    mv88e6xxx_6165_family(ds) || mv88e6xxx_6097_family(ds) ||
- 	    mv88e6xxx_6095_family(ds) || mv88e6xxx_6065_family(ds)) {
--		if (ds->dsa_port_mask & (1 << port))
-+		if (dsa_is_dsa_port(ds, port))
- 			reg |= PORT_CONTROL_FRAME_MODE_DSA;
- 		if (port == dsa_upstream_port(ds))
- 			reg |= PORT_CONTROL_FORWARD_UNKNOWN |
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index fbca63ba8f73..153a6b23874f 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -171,6 +171,11 @@ static inline bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
- 	return !!(ds->index == ds->dst->cpu_switch && p == ds->dst->cpu_port);
- }
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 392e29a0227d..18eed3fbae93 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -176,6 +176,36 @@ __ATTRIBUTE_GROUPS(dsa_hwmon);
+ #endif /* CONFIG_NET_DSA_HWMON */
  
-+static inline bool dsa_is_dsa_port(struct dsa_switch *ds, int p)
+ /* basic switch operations **************************************************/
++static int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct net_device *master)
 +{
-+	return !!((ds->dsa_port_mask) & (1 << p));
++	struct dsa_chip_data *cd = ds->pd;
++	struct device_node *port_dn;
++	struct phy_device *phydev;
++	int ret, port;
++
++	for (port = 0; port < DSA_MAX_PORTS; port++) {
++		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
++			continue;
++
++		port_dn = cd->port_dn[port];
++		if (of_phy_is_fixed_link(port_dn)) {
++			ret = of_phy_register_fixed_link(port_dn);
++			if (ret) {
++				netdev_err(master,
++					   "failed to register fixed PHY\n");
++				return ret;
++			}
++			phydev = of_phy_find_device(port_dn);
++			phydev->is_pseudo_fixed_link = true;
++			genphy_config_init(phydev);
++			genphy_read_status(phydev);
++			if (ds->drv->adjust_link)
++				ds->drv->adjust_link(ds, port, phydev);
++		}
++	}
++	return 0;
 +}
 +
- static inline bool dsa_is_port_initialized(struct dsa_switch *ds, int p)
+ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
  {
- 	return ds->phys_port_mask & (1 << p) && ds->ports[p];
+ 	struct dsa_switch_driver *drv = ds->drv;
+@@ -297,6 +327,14 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
+ 		}
+ 	}
+ 
++	/* Perform configuration of the CPU and DSA ports */
++	ret = dsa_cpu_dsa_setup(ds, dst->master_netdev);
++	if (ret < 0) {
++		netdev_err(dst->master_netdev, "[%d] : can't configure CPU and DSA ports\n",
++			   index);
++		ret = 0;
++	}
++
+ #ifdef CONFIG_NET_DSA_HWMON
+ 	/* If the switch provides a temperature sensor,
+ 	 * register with hardware monitoring subsystem.
 -- 
 2.1.4
