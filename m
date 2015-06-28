@@ -1,63 +1,119 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH] - vxlan: gro not effective for intel 82599
-Date: Sun, 28 Jun 2015 14:17:26 -0700
-Message-ID: <CALx6S35B99cu=oyYcz4fSgAeA2ho6b6-H6vWg=Vq0s1UEVf0Uw@mail.gmail.com>
-References: <5981772fe36e64f8fec5997a4c7aa08f@imap.linux.ibm.com>
-	<CALx6S36JQaPg9Otg4pv5ah16JGaEXzo1xDL4jXKBdziUTVvXmw@mail.gmail.com>
-	<0b2eff60824ac7b7d3a672da9be9bf99@imap.linux.ibm.com>
-	<CALx6S35o-KgViFy6dU5FXA=B2wCJFQjaGPxp22MMhUWP94ZS=A@mail.gmail.com>
-	<3df94e04daebca29c94b6d32fb372177@imap.linux.ibm.com>
-	<CALx6S35-GKW+hgn-9Y5a87hETfetKuusALFUDZ5vzwrtQSiypA@mail.gmail.com>
-	<3036c2aaa52dc2817e674a77b5eac24d@imap.linux.ibm.com>
-	<CALx6S37+es-QD-_41O4cc59_oEX2UeeibZgjd8uOvTcPMHO+nA@mail.gmail.com>
-	<CAJ3xEMj_3+p9CGH8bkF26E9X0KGQdTr14S-vACS7zKcPPO6pQA@mail.gmail.com>
+Subject: Re: [PATCH RFC net-next] vxlan: GRO support at tunnel layer
+Date: Sun, 28 Jun 2015 14:31:00 -0700
+Message-ID: <CALx6S35joR=WtiqXne-vkMB+R0e=4pWo2r_WiKASGQcViBsAFA@mail.gmail.com>
+References: <1435360189-641007-1-git-send-email-tom@herbertland.com>
+	<558DF24A.1040504@hp.com>
+	<df94e5b8a0ed7a9146063908e3001ef3@imap.linux.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Ramu Ramamurthy <sramamur@linux.vnet.ibm.com>,
+Cc: Rick Jones <rick.jones2@hp.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Jiri Benc <jbenc@redhat.com>, James Morris <jmorris@namei.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	pradeeps@linux.vnet.ibm.com, J Kidambi <jkidambi@us.ibm.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Ramu Ramamurthy <sramamur@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:33010 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752396AbbF1VR2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jun 2015 17:17:28 -0400
-Received: by ieqy10 with SMTP id y10so104160170ieq.0
-        for <netdev@vger.kernel.org>; Sun, 28 Jun 2015 14:17:27 -0700 (PDT)
-In-Reply-To: <CAJ3xEMj_3+p9CGH8bkF26E9X0KGQdTr14S-vACS7zKcPPO6pQA@mail.gmail.com>
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:35928 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752439AbbF1VbB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jun 2015 17:31:01 -0400
+Received: by iecvh10 with SMTP id vh10so104065928iec.3
+        for <netdev@vger.kernel.org>; Sun, 28 Jun 2015 14:31:00 -0700 (PDT)
+In-Reply-To: <df94e5b8a0ed7a9146063908e3001ef3@imap.linux.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 28, 2015 at 1:19 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-> On Fri, Jun 26, 2015 at 10:59 PM, Tom Herbert <tom@herbertland.com> wrote:
-> [...]
->> Looks like GRO was never implemented for vxlan tunnels. The driver is
->> simply calling netif_rx instead of using the GRO cells infrastructure.
->> geneve is doing the same thing. For other tunnels which are used in
->> foo-over-udp (GRE, IPIP, SIT) ip_tunnel_rcv is called which in turn
->> calls gro_cells_receive.
+On Sun, Jun 28, 2015 at 10:20 AM, Ramu Ramamurthy
+<sramamur@linux.vnet.ibm.com> wrote:
+> On 2015-06-26 17:46, Rick Jones wrote:
+>>
+>> On 06/26/2015 04:09 PM, Tom Herbert wrote:
+>>>
+>>> Add calls to gro_cells infrastructure to do GRO when receiving on a
+>>> tunnel.
+>>>
+>>> Testing:
+>>>
+>>> Ran 200 netperf TCP_STREAM instance
+>>>
+>>> - With fix (GRO enabled on VXLAN interface)
+>>>
+>>>    Verify GRO is happening.
+>>>
+>>>    9084 MBps tput
+>>>    3.44% CPU utilization
+>>>
+>>> - Without fix (GRO disabled on VXLAN interface)
+>>>
+>>>    Verified no GRO is happening.
+>>>
+>>>    9084 MBps tput
+>>>    5.54% CPU utilization
+>>
+>>
+>> This has been an area of interest so:
+>>
+>> Tested-by: Rick Jones <rick.jones2@hp.com>
+>>
+>> Some single-stream results between two otherwise identical systems
+>> with 82599ES NICs in them, one running a 4.1.0-rc1+ kernel from a
+>> davem tree from a while ago, the other running 4.1.0+ from a davem
+>> tree pulled yesterday upon which I've applied the patch.
+>>
+>> Netperf command used:
+>>
+>> netperf -l 30 -H <IP> -t TCP_MAERTS -c -- -O
+>> throughput,local_cpu_util,local_cpu_peak_util,local_cpu_peak_id,local_sd
+>>
+>> First, inbound to the unpatched system from the patched:
+>>
+>>
+>> MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+>> 192.168.0.21 () port 0 AF_INET : demo
+>> Throughput Local Local   Local   Local
+>>            CPU   Peak    Peak    Service
+>>            Util  Per CPU Per CPU Demand
+>>            %     Util %  ID
+>> 5487.42    6.01  99.83   0       2.872
+>> 5580.83    6.20  99.16   0       2.911
+>> 5445.52    5.68  98.92   0       2.734
+>> 5653.36    6.24  99.80   0       2.891
+>> 5187.56    5.66  97.41   0       2.858
+>>
+>> Second, inbound to the patched system from the unpatched:
+>>
+>> MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+>> 192.168.0.22 () port 0 AF_INET : demo
+>> Throughput Local Local   Local   Local
+>>            CPU   Peak    Peak    Service
+>>            Util  Per CPU Per CPU Demand
+>>            %     Util %  ID
+>> 6933.29    3.19  93.67   3       1.208
+>> 7031.35    3.34  95.08   3       1.244
+>> 7006.28    3.27  94.55   3       1.223
+>> 6948.62    3.09  93.20   3       1.165
+>> 7007.80    3.22  94.34   3       1.206
+>>
+>> Comparing the service demands shows a > 50% reduction in overhead.
 >
-> Tom,
 >
-> Since v3.14, when a tunneled (say VXLAN/GRE) packets are received on
-> the physical interface, they go through GRO aggregation before being
-> delivered up to the tunnel "device" (e.g either vxlan/gre netdevice or
-> OVS vxlan/gre vport) -- so in that respect, can you elaborate a little
-> further why we want to GRO them again?
+> Rick, in your test, are you seeing gro becoming effective on the vxlan
+> interface
+> with the 82599ES nic ? (ie, tcpdump on the vxlan interface shows larger
+> frames
+> than the mtu of that interface, and kernel trace shows vxlan_gro_receive()
+> being hit)
 >
-
-If we don't have a verifiable checksum from the device GRO is not
-applied to UDP encapsulated packets at the physical interface, but can
-be done at the tunnel. Ramu is seeing poor performance because there
-is no GRO at all is happening, so doing it at the tunnel is an
-improvement. As I described before, avoiding checksum calculation in
-the device NAPI still seems to be a good thing (in my testing I do see
-a slight regression if we were to do the checksum in device NAPI).
-
-btw, the real "fix" for this is for NICs to provide CHECKSUM_COMPLETE! :-)
+> Throughputs of 5.5 Gbps (or the improved 7Gbs) leads me to suspect that gro
+> is still not effective
+> in your test on the vxlan interface with the 82588ES nic - Because, when
+> vxlan gro became effective with the patch
+> I suggested earlier, I could see throughput of ~8.5 Gbps on that nic.
+>
+You're comparing apples to oranges. Please test the patch in your
+environment I posted and report results. Please also test with
+multiple connections, single connection performance can be misleading
+and does not really reflect what real production servers are doing.
 
 Tom
 
-> Or.
+>
