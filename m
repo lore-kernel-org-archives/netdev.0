@@ -1,212 +1,79 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [RFC PATCH] cdc_ncm: add support for moving NDP to end of frames
-Date: Sun, 28 Jun 2015 09:03:37 +0200
-Message-ID: <1435475017-661-1-git-send-email-mrkiko.rs@gmail.com>
-Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Liberman Igal <Igal.Liberman@freescale.com>
+Subject: RE: [v2,8/9] fsl/fman: Add FMan Port Support
+Date: Sun, 28 Jun 2015 08:06:49 +0000
+Message-ID: <DM2PR03MB38337ABD2E9B11C92DCAF9FE6AB0@DM2PR03MB383.namprd03.prod.outlook.com>
+References: <1435174659-6876-1-git-send-email-igal.liberman@freescale.com>
+ <1435274929.28572.28.camel@tiscali.nl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Scott Wood <scottwood@freescale.com>,
+ "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+ Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+To: Paul Bolle <pebolle@tiscali.nl>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1435274929.28572.28.camel@tiscali.nl>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-This patch adds support for moving the NDP (Network Data Pointer) part of
-an NCM frame to the end of it. This allows newer Huawei devices to work with upstream Linux driver.
-This functionality can be enabled by a cdc_ncm subdriver when binding to a
-device. Hence this patch updates them.
-
-This code works pretty well with an E3372 device I am testing it with.
-The problem is - I observed my patch causing system failures when severe OOM
-conditions are met. I am not sure the problem is cause by my code, but would like to hear from you.
-
-Signed-off-by: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-
----
- drivers/net/usb/cdc_mbim.c       |  2 +-
- drivers/net/usb/cdc_ncm.c        | 51 ++++++++++++++++++++++++++++++++++++----
- drivers/net/usb/huawei_cdc_ncm.c |  7 ++++--
- include/linux/usb/cdc_ncm.h      |  7 +++++-
- 4 files changed, 58 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
-index e4b7a47..efc18e0 100644
---- a/drivers/net/usb/cdc_mbim.c
-+++ b/drivers/net/usb/cdc_mbim.c
-@@ -158,7 +158,7 @@ static int cdc_mbim_bind(struct usbnet *dev, struct usb_interface *intf)
- 	if (!cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
- 		goto err;
- 
--	ret = cdc_ncm_bind_common(dev, intf, data_altsetting);
-+	ret = cdc_ncm_bind_common(dev, intf, data_altsetting, 0);
- 	if (ret)
- 		goto err;
- 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 8067b8f..60b147f 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -684,10 +684,12 @@ static void cdc_ncm_free(struct cdc_ncm_ctx *ctx)
- 		ctx->tx_curr_skb = NULL;
- 	}
- 
-+	kfree(ctx->delayed_ndp16);
-+
- 	kfree(ctx);
- }
- 
--int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_altsetting)
-+int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_altsetting, int drvflags)
- {
- 	const struct usb_cdc_union_desc *union_desc = NULL;
- 	struct cdc_ncm_ctx *ctx;
-@@ -855,6 +857,17 @@ advance:
- 	/* finish setting up the device specific data */
- 	cdc_ncm_setup(dev);
- 
-+	/* Device-specific flags */
-+	ctx->drvflags = drvflags;
-+
-+	/* Allocate the delayed NDP if needed. */
-+	if (ctx->drvflags & CDC_NCM_FLAG_NDP_TO_END) {
-+		ctx->delayed_ndp16 = kzalloc(ctx->max_ndp_size, GFP_ATOMIC);
-+		if (!ctx->delayed_ndp16)
-+			goto error2;
-+		dev_info(&intf->dev, "NDP will be placed at end of frame for this device.");
-+	}
-+
- 	/* override ethtool_ops */
- 	dev->net->ethtool_ops = &cdc_ncm_ethtool_ops;
- 
-@@ -954,8 +967,11 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
- 	if (cdc_ncm_select_altsetting(intf) != CDC_NCM_COMM_ALTSETTING_NCM)
- 		return -ENODEV;
- 
--	/* The NCM data altsetting is fixed */
--	ret = cdc_ncm_bind_common(dev, intf, CDC_NCM_DATA_ALTSETTING_NCM);
-+	/* The NCM data altsetting is fixed, so we hard-coded it.
-+	 * Additionally, generic NCM devices are assumed to accept arbitrarily
-+	 * placed NDP.
-+	 */
-+	ret = cdc_ncm_bind_common(dev, intf, CDC_NCM_DATA_ALTSETTING_NCM, 0);
- 
- 	/*
- 	 * We should get an event when network connection is "connected" or
-@@ -986,6 +1002,14 @@ static struct usb_cdc_ncm_ndp16 *cdc_ncm_ndp(struct cdc_ncm_ctx *ctx, struct sk_
- 	struct usb_cdc_ncm_nth16 *nth16 = (void *)skb->data;
- 	size_t ndpoffset = le16_to_cpu(nth16->wNdpIndex);
- 
-+	/* If NDP should be moved to the end of the NCM package, we can't follow the
-+	* NTH16 header as we would normally do. NDP isn't written to the SKB yet, and
-+	* the wNdpIndex field in the header is actually not consistent with reality. It will be later.
-+	*/
-+	if (ctx->drvflags & CDC_NCM_FLAG_NDP_TO_END)
-+		if (ctx->delayed_ndp16->dwSignature == sign)
-+			return ctx->delayed_ndp16;
-+
- 	/* follow the chain of NDPs, looking for a match */
- 	while (ndpoffset) {
- 		ndp16 = (struct usb_cdc_ncm_ndp16 *)(skb->data + ndpoffset);
-@@ -995,7 +1019,8 @@ static struct usb_cdc_ncm_ndp16 *cdc_ncm_ndp(struct cdc_ncm_ctx *ctx, struct sk_
- 	}
- 
- 	/* align new NDP */
--	cdc_ncm_align_tail(skb, ctx->tx_ndp_modulus, 0, ctx->tx_max);
-+	if (!(ctx->drvflags & CDC_NCM_FLAG_NDP_TO_END))
-+		cdc_ncm_align_tail(skb, ctx->tx_ndp_modulus, 0, ctx->tx_max);
- 
- 	/* verify that there is room for the NDP and the datagram (reserve) */
- 	if ((ctx->tx_max - skb->len - reserve) < ctx->max_ndp_size)
-@@ -1008,7 +1033,12 @@ static struct usb_cdc_ncm_ndp16 *cdc_ncm_ndp(struct cdc_ncm_ctx *ctx, struct sk_
- 		nth16->wNdpIndex = cpu_to_le16(skb->len);
- 
- 	/* push a new empty NDP */
--	ndp16 = (struct usb_cdc_ncm_ndp16 *)memset(skb_put(skb, ctx->max_ndp_size), 0, ctx->max_ndp_size);
-+	if (!(ctx->drvflags & CDC_NCM_FLAG_NDP_TO_END)) {
-+		ndp16 = (struct usb_cdc_ncm_ndp16 *)memset(skb_put(skb, ctx->max_ndp_size), 0, ctx->max_ndp_size);
-+	} else {
-+		ndp16 = ctx->delayed_ndp16;
-+	}
-+
- 	ndp16->dwSignature = sign;
- 	ndp16->wLength = cpu_to_le16(sizeof(struct usb_cdc_ncm_ndp16) + sizeof(struct usb_cdc_ncm_dpe16));
- 	return ndp16;
-@@ -1150,6 +1180,17 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_buff *skb, __le32 sign)
- 		/* variables will be reset at next call */
- 	}
- 
-+	/* If requested, put NDP at end of frame. */
-+	if (ctx->drvflags & CDC_NCM_FLAG_NDP_TO_END) {
-+		nth16 = (struct usb_cdc_ncm_nth16 *)skb_out->data;
-+		cdc_ncm_align_tail(skb_out, ctx->tx_ndp_modulus, 0, ctx->tx_max);
-+		nth16->wNdpIndex = cpu_to_le16(skb_out->len);
-+		ndp16 = memcpy(skb_put(skb_out, ctx->max_ndp_size), ctx->delayed_ndp16, ctx->max_ndp_size);
-+
-+		/* Zero out delayed NDP - signature checking will naturally fail. */
-+		memset(ctx->delayed_ndp16, 0, ctx->max_ndp_size);
-+	}
-+
- 	/* If collected data size is less or equal ctx->min_tx_pkt
- 	 * bytes, we send buffers as it is. If we get more data, it
- 	 * would be more efficient for USB HS mobile device with DMA
-diff --git a/drivers/net/usb/huawei_cdc_ncm.c b/drivers/net/usb/huawei_cdc_ncm.c
-index 735f7da..2680a65 100644
---- a/drivers/net/usb/huawei_cdc_ncm.c
-+++ b/drivers/net/usb/huawei_cdc_ncm.c
-@@ -73,11 +73,14 @@ static int huawei_cdc_ncm_bind(struct usbnet *usbnet_dev,
- 	struct usb_driver *subdriver = ERR_PTR(-ENODEV);
- 	int ret = -ENODEV;
- 	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
-+	int drvflags = 0;
- 
- 	/* altsetting should always be 1 for NCM devices - so we hard-coded
--	 * it here
-+	 * it here. Some huawei devices will need the NDP part of the NCM package to
-+	 * be at the end of the frame.
- 	 */
--	ret = cdc_ncm_bind_common(usbnet_dev, intf, 1);
-+	drvflags |= CDC_NCM_FLAG_NDP_TO_END;
-+	ret = cdc_ncm_bind_common(usbnet_dev, intf, 1, drvflags);
- 	if (ret)
- 		goto err;
- 
-diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
-index 7c9b484..1f6526c 100644
---- a/include/linux/usb/cdc_ncm.h
-+++ b/include/linux/usb/cdc_ncm.h
-@@ -80,6 +80,9 @@
- #define CDC_NCM_TIMER_INTERVAL_MIN		5UL
- #define CDC_NCM_TIMER_INTERVAL_MAX		(U32_MAX / NSEC_PER_USEC)
- 
-+/* Driver flags */
-+#define CDC_NCM_FLAG_NDP_TO_END	0x02		/* NDP is placed at end of frame */
-+
- #define cdc_ncm_comm_intf_is_mbim(x)  ((x)->desc.bInterfaceSubClass == USB_CDC_SUBCLASS_MBIM && \
- 				       (x)->desc.bInterfaceProtocol == USB_CDC_PROTO_NONE)
- #define cdc_ncm_data_intf_is_mbim(x)  ((x)->desc.bInterfaceProtocol == USB_CDC_MBIM_PROTO_NTB)
-@@ -103,9 +106,11 @@ struct cdc_ncm_ctx {
- 
- 	spinlock_t mtx;
- 	atomic_t stop;
-+	int drvflags;
- 
- 	u32 timer_interval;
- 	u32 max_ndp_size;
-+	struct usb_cdc_ncm_ndp16 *delayed_ndp16;
- 
- 	u32 tx_timer_pending;
- 	u32 tx_curr_frame_num;
-@@ -133,7 +138,7 @@ struct cdc_ncm_ctx {
- };
- 
- u8 cdc_ncm_select_altsetting(struct usb_interface *intf);
--int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_altsetting);
-+int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_altsetting, int drvflags);
- void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *intf);
- struct sk_buff *cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_buff *skb, __le32 sign);
- int cdc_ncm_rx_verify_nth16(struct cdc_ncm_ctx *ctx, struct sk_buff *skb_in);
--- 
-2.4.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+SGkgUGF1bCwNCkFsbCB0aG9zZSBleHBvcnRlZCBmdW5jdGlvbnMgYXJlIHVzZWQgYnkgRFBBQSBF
+VEggZHJpdmVyLCB3aGljaCB3YXMgc3VibWl0dGVkIGJ5IEJ1Y3VyIE1hZGFsaW4gKG9ubHkgZm1f
+cG9ydF9nZXRfYnVmZmVyX3RpbWVfc3RhbXAoKSBpcyBub3QgdXNlZCBjdXJyZW50bHksIEknbGwg
+cmVtb3ZlIGl0KS4NCg0KUmVnYXJkcywNCklnYWwgTGliZXJtYW4uDQoNCj4gLS0tLS1PcmlnaW5h
+bCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogUGF1bCBCb2xsZSBbbWFpbHRvOnBlYm9sbGVAdGlzY2Fs
+aS5ubF0NCj4gU2VudDogRnJpZGF5LCBKdW5lIDI2LCAyMDE1IDI6MjkgQU0NCj4gVG86IExpYmVy
+bWFuIElnYWwtQjMxOTUwOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IENjOiBsaW51eHBwYy1k
+ZXZAbGlzdHMub3psYWJzLm9yZzsgV29vZCBTY290dC1CMDc0MjE7IEJ1Y3VyIE1hZGFsaW4tDQo+
+IENyaXN0aWFuLUIzMjcxNg0KPiBTdWJqZWN0OiBSZTogW3YyLDgvOV0gZnNsL2ZtYW46IEFkZCBG
+TWFuIFBvcnQgU3VwcG9ydA0KPiANCj4gT24gV2VkLCAyMDE1LTA2LTI0IGF0IDIyOjM3ICswMzAw
+LCBpZ2FsLmxpYmVybWFuQGZyZWVzY2FsZS5jb20gd3JvdGU6DQo+ID4gLS0tIGEvZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1fZHJ2LmMNCj4gPiArKysgYi9kcml2ZXJzL25l
+dC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbV9kcnYuYw0KPiANCj4gPiArc3RydWN0IGZtX3Bv
+cnRfdCAqZm1fcG9ydF9kcnZfaGFuZGxlKGNvbnN0IHN0cnVjdCBmbV9wb3J0X2Rydl90DQo+ID4g
+Kypwb3J0KSB7DQo+ID4gKwlyZXR1cm4gcG9ydC0+Zm1fcG9ydDsNCj4gPiArfQ0KPiA+ICtFWFBP
+UlRfU1lNQk9MKGZtX3BvcnRfZHJ2X2hhbmRsZSk7DQo+IA0KPiBJIGNvdWxkbid0IGZpbmQgYW55
+IHVzZXJzIG9mIHRoaXMgZnVuY3Rpb24uDQo+IA0KPiA+ICt2b2lkIGZtX3BvcnRfZ2V0X2J1ZmZf
+bGF5b3V0X2V4dF9wYXJhbXMoc3RydWN0IGZtX3BvcnRfZHJ2X3QgKnBvcnQsDQo+ID4gKz4gCT4g
+CT4gCT4gCT4gCXN0cnVjdCBmbV9wb3J0X3BhcmFtcyAqcGFyYW1zKQ0KPiANCj4gKEV2b2x1dGlv
+biAzLjE2IGlzIGEgcGllY2Ugb2YgLi4uKS4NCj4gDQo+ID4gK3sNCj4gPiArCXBhcmFtcy0+ZGF0
+YV9hbGlnbiA9IDA7DQo+ID4gK30NCj4gPiArRVhQT1JUX1NZTUJPTChmbV9wb3J0X2dldF9idWZm
+X2xheW91dF9leHRfcGFyYW1zKTsNCj4gDQo+IERpdHRvLg0KPiANCj4gPiAraW50IGZtX2dldF90
+eF9wb3J0X2NoYW5uZWwoc3RydWN0IGZtX3BvcnRfZHJ2X3QgKnBvcnQpIHsNCj4gPiArCXJldHVy
+biBwb3J0LT50eF9jaDsNCj4gPiArfQ0KPiA+ICtFWFBPUlRfU1lNQk9MKGZtX2dldF90eF9wb3J0
+X2NoYW5uZWwpOw0KPiANCj4gRGl0dG8uDQo+IA0KPiA+IC0tLSAvZGV2L251bGwNCj4gPiArKysg
+Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbV9wb3J0X2Rydi5jDQo+IA0K
+PiA+ICt2b2lkIGZtX3NldF9yeF9wb3J0X3BhcmFtcyhzdHJ1Y3QgZm1fcG9ydF9kcnZfdCAqcG9y
+dCwNCj4gPiArCQkJICAgc3RydWN0IGZtX3BvcnRfcGFyYW1zICpwYXJhbXMpDQo+ID4gK3sNCj4g
+KwlbLi4uXQ0KPiA+ICt9DQo+ID4gK0VYUE9SVF9TWU1CT0woZm1fc2V0X3J4X3BvcnRfcGFyYW1z
+KTsNCj4gDQo+IERpdHRvLg0KPiANCj4gKElmIHlvdSBoZWFyIGFib3V0IG15IGFycmVzdCBmb3Ig
+cmFuZG9tbHkgYXR0YWNraW5nIGlubm9jZW50IHBlb3BsZToNCj4gYmxhbWUgZXZvbHV0aW9uIDMu
+MTYhKQ0KPiANCj4gPiArdm9pZCBmbV9zZXRfdHhfcG9ydF9wYXJhbXMoc3RydWN0IGZtX3BvcnRf
+ZHJ2X3QgKnBvcnQsDQo+ID4gKwkJCSAgIHN0cnVjdCBmbV9wb3J0X3BhcmFtcyAqcGFyYW1zKQ0K
+PiA+ICt7DQo+ID4gKwlbLi4uXQ0KPiA+ICt9DQo+ID4gK0VYUE9SVF9TWU1CT0woZm1fc2V0X3R4
+X3BvcnRfcGFyYW1zKTsNCj4gDQo+IERpdHRvLg0KPiANCj4gPiAtLS0gL2Rldi9udWxsDQo+ID4g
+KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vcG9ydC9mbV9wb3J0LmMN
+Cj4gDQo+ID4gK3U2NCAqZm1fcG9ydF9nZXRfYnVmZmVyX3RpbWVfc3RhbXAoY29uc3Qgc3RydWN0
+IGZtX3BvcnRfdA0KPiAqcF9mbV9wb3J0LA0KPiA+ICsJCQkJICAgY2hhciAqcF9kYXRhKQ0KPiA+
+ICt7DQo+ID4gKwlbLi4uXQ0KPiA+ICt9DQo+ID4gK0VYUE9SVF9TWU1CT0woZm1fcG9ydF9nZXRf
+YnVmZmVyX3RpbWVfc3RhbXApOw0KPiANCj4gRGl0dG8uDQo+IA0KPiA+ICtpbnQgZm1fcG9ydF9k
+aXNhYmxlKHN0cnVjdCBmbV9wb3J0X3QgKnBfZm1fcG9ydCkgew0KPiA+ICsJWy4uLl0NCj4gPiAr
+fQ0KPiA+ICtFWFBPUlRfU1lNQk9MKGZtX3BvcnRfZGlzYWJsZSk7DQo+IA0KPiBUaGlzIGV4cG9y
+dHMgYSBmdW5jdGlvbiB0aGF0IEkgdGhpbmsgaXMgb25seSB1c2VkIGluc2lkZSB0aGlzIGZpbGUu
+DQo+IA0KPiA+ICtpbnQgZm1fcG9ydF9lbmFibGUoc3RydWN0IGZtX3BvcnRfdCAqcF9mbV9wb3J0
+KSB7DQo+ID4gKwlbLi4uXQ0KPiA+ICt9DQo+ID4gK0VYUE9SVF9TWU1CT0woZm1fcG9ydF9lbmFi
+bGUpOw0KPiANCj4gQW5kIGhlcmUgSSBjb3VsZCBhZ2FpbiBmaW5kIG5vIHVzZXJzIG9mIHRoaXMg
+ZnVuY3Rpb24uDQo+IA0KPiBUaGFua3MsDQo+IA0KPiANCj4gUGF1bCBCb2xsZQ0KX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxp
+bmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFi
+cy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
