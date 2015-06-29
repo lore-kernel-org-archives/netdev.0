@@ -1,88 +1,72 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH RFC] tun, macvtap: higher order allocations for skbs
-Date: Mon, 29 Jun 2015 12:50:21 +0800
-Message-ID: <5590CE8D.7030105@redhat.com>
-References: <1434622758-16549-1-git-send-email-mst@redhat.com>
+From: Neelakantam Gaddam <neelugaddam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [patch net-next 00/13] introduce rocker switch driver
+ with openvswitch hardware accelerated datapath
+Date: Mon, 29 Jun 2015 11:14:38 +0530
+Message-ID: <CAOv37=BNU1-+kgTR6RUqxw7snJL6=5g-rLYhuPc1F-V0B1k7tA@mail.gmail.com>
+References: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
+ <20140908135413.GA5995@casper.infradead.org>
+ <20140916155832.GA1869@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1434622758-16549-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org,
+ edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
+ f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org,
+ roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+ nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+ Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
+ dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20140916155832.GA1869-6KJVSR23iU488b5SBfVpbw@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-
-
-On 06/18/2015 06:20 PM, Michael S. Tsirkin wrote:
-> Needs more testing. Anyone see anything wrong with this?
->
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->  drivers/net/macvtap.c | 2 +-
->  drivers/net/tun.c     | 2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 928f3f4..80e87e4 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -610,7 +610,7 @@ static inline struct sk_buff *macvtap_alloc_skb(struct sock *sk, size_t prepad,
->  		linear = len;
->  
->  	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
-> -				   err, 0);
-> +				   err, 1);
->  	if (!skb)
->  		return NULL;
->  
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index cb376b2d..8f2f1e5 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -1069,7 +1069,7 @@ static struct sk_buff *tun_alloc_skb(struct tun_file *tfile,
->  		linear = len;
->  
->  	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
-> -				   &err, 0);
-> +				   &err, 1);
->  	if (!skb)
->  		return ERR_PTR(err);
->  
-
-Have a round of netperf testing in tun and ixgbe, can see improvement on
-packet size 512 and 2048.
-
-TX:
-size/session/+thu%/+normalize%
-   64/     1/    0%/    0%
-   64/     4/    0%/    0%
-  512/     1/   +6%/   +7%
-  512/     4/   +2%/   +2%
- 2048/     1/  +24%/  +50%
- 2048/     4/    0%/   +6%
-16384/     1/    0%/   -6%
-16384/     4/    0%/   -5%
-65535/     1/    0%/   -4%
-65535/     4/    0%/   -1%
-RX:
-size/session/+thu%/+normalize%
-   64/     1/   -5%/   -4%
-   64/     4/   -2%/   -1%
-  512/     1/   -7%/   -8%
-  512/     4/    0%/    0%
- 2048/     1/   +4%/   +7%
- 2048/     4/    0%/   +2%
-16384/     1/    0%/   +2%
-16384/     4/    0%/  +13%
-65535/     1/    0%/    0%
-65535/     4/    0%/   -1%
-TCP_RR:
-size/session/+thu%/+normalize%
-    1/    25/    0%/    0%
-    1/    50/    0%/    0%
-   64/    25/    0%/   -1%
-   64/    50/    0%/    0%
-  256/    25/    0%/    0%
-  256/    50/    0%/    0%
+SGkgQWxsLAoKU2hhbGwgd2UgZXhwZWN0IHRoZXNlIGNoYW5nZXMgdG8gYmUgYXZhaWxhYmxlIGlu
+IHRoZSB1cGNvbWluZyAyLjQgcmVsZWFzZT8Kb3IgaXMgaXQgc3RpbGwgaW4gZGV2ZWxvcG1lbnQ/
+CgoKCgoKCk9uIFR1ZSwgU2VwIDE2LCAyMDE0IGF0IDk6MjggUE0sIEppcmkgUGlya28gPGppcmlA
+cmVzbnVsbGkudXM+IHdyb3RlOgoKPiBNb24sIFNlcCAwOCwgMjAxNCBhdCAwMzo1NDoxM1BNIENF
+U1QsIHRncmFmQHN1dWcuY2ggd3JvdGU6Cj4gPk9uIDA5LzAzLzE0IGF0IDExOjI0YW0sIEppcmkg
+UGlya28gd3JvdGU6Cj4gPj4gVGhpcyBwYXRjaHNldCBjYW4gYmUgZGl2aWRlZCBpbnRvIDMgbWFp
+biBzZWN0aW9uczoKPiA+PiAtIGludHJvZHVjZSBzd2l0Y2hkZXYgYXBpIGZvciBpbXBsZW1lbnRp
+bmcgc3dpdGNoIGRyaXZlcnMKPiA+PiAtIGFkZCBoYXJkd2FyZSBhY2NlbGVyYXRpb24gYml0cyBp
+bnRvIG9wZW52c3dpdGNoIGRhdGFwYXRoLCBUaGlzIHVzZXMKPiA+PiAgIHByZXZpb3VzbHkgbWVu
+dGlvbmVkIHN3aXRjaGRldiBhcGkKPiA+PiAtIGludHJvZHVjZSByb2NrZXIgc3dpdGNoIGRyaXZl
+ciB3aGljaCBpbXBsZW1lbnRzIHN3aXRjaGRldiBhcGkKPiA+Cj4gPkppcmksIFNjb3R0LAo+ID4K
+PiA+RW5jbG9zZWQgaXMgdGhlIEdPT0cgZG9jIHdoaWNoIG91dGxpbmVzIHNvbWUgZGV0YWlscyBv
+biBteSBwYXJ0aWN1bGFyCj4gPmludGVyZXN0cyBbMF0uIEl0IGluY2x1ZGVzIHNldmVyYWwgZGlh
+Z3JhbXMgd2hpY2ggbWlnaHQgaGVscCB0bwo+ID51bmRlcnN0YW5kIHRoZSBvdmVyYWxsIGFyY2gu
+IEl0IGlzIGhpZ2hseSByZWxhdGVkIHRvIEpvaG4ncyB3b3JrIGFzCj4gPndlbGwuIFBsZWFzZSBs
+ZXQgbWUga25vdyBpZiBzb21ldGhpbmcgZG9lcyBub3QgYWxpZ24gd2l0aCB0aGUgbW9kZWwKPiA+
+eW91IGhhdmUgaW4gbWluZC4KPgo+Cj4gSGkgVGhvbWFzLgo+Cj4gU29ycnkgZm9yIGxhdGUgYW5z
+d2VyLCBJIHJldHVybmVkIGZyb20gdmFjYXRpb24geWVzdGVyZGF5Lgo+IEkgd2VudCBvdmVyIHlv
+dXIgZG9jdW1lbnQsIEkgZGlkIG5vdCBmaW5kIGFueXRoaW5nIHdoaWNoIHdvdWxkIG5vdCBhbGln
+bgo+IHdpdGggb3VyIGFwcHJvYWNoLiBMb29rcyBnb29kIHRvIG1lLgo+Cj4gPgo+ID5TdW1tYXJ5
+Ogo+ID5UaGUgZnVsbCB2aXJ0dWFsIHR1bm5lbCBlbmRwb2ludCBmbG93IG9mZmxvYWQgYXR0ZW1w
+dHMgdG8gb2ZmbG9hZCBmdWxsCj4gPmZsb3dzIHRvIHRoZSBoYXJkd2FyZSBhbmQgdXRpbGl6ZSB0
+aGUgZW1iZWRkZWQgc3dpdGNoIG9uIHRoZSBob3N0IE5JQwo+ID50byBlbXBvd2VyIHRoZSBlU3dp
+dGNoIHdpdGggdGhlIHJlcXVpcmVkIGZsZXhpYmlsaXR5IG9mIHRoZSBzb2Z0d2FyZQo+ID5kcml2
+ZW4gbmV0d29yay4gSW4gdGhpcyBtb2RlbCwgdGhlIGd1ZXN0IChWTSBvciBMWEMpIGF0dGFjaGVz
+IHRocm91Z2ggYQo+ID5TUi1JT1YgVkYgd2hpY2ggc2VydmVzIGFzIHRoZSBwcmltYXJ5IHBhdGgu
+IEEgc2xvdyBwYXRoIC8gc29mdHdhcmUgcGF0aAo+ID5pcyBwcm92aWRlZCB2aWEgdGhlIENQVSB3
+aGljaCBjYW4gcm91dGUgcGFja2V0cyBiYWNrIGludG8gdGhlIFZGIGJ5Cj4gPnRhZ2dpbmcgcGFj
+a2V0cyB3aXRoIGZvcndhcmRpbmcgbWV0YWRhdGEgYW5kIHNlbmRpbmcgdGhlIGZyYW1lIGJhY2sg
+dG8KPiA+dGhlIE5JQy4KPiA+Cj4gPlswXQo+IGh0dHBzOi8vZG9jcy5nb29nbGUuY29tL2RvY3Vt
+ZW50L2QvMTk1d2FVbGl1N0c1WVlWdVhIbUxtSGdKMzhERlN0ZTMyMVdQcTBvYUZoeVUvZWRpdD91
+c3A9c2hhcmluZwo+ID4oUHVibGljbHkgYWNjZXNzaWJsZSBhbmQgb3BlbiBmb3IgY29tbWVudHMp
+Cj4gX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KPiBkZXYg
+bWFpbGluZyBsaXN0Cj4gZGV2QG9wZW52c3dpdGNoLm9yZwo+IGh0dHA6Ly9vcGVudnN3aXRjaC5v
+cmcvbWFpbG1hbi9saXN0aW5mby9kZXYKPgoKCgotLSAKVGhhbmtzICYgUmVnYXJkcwpOZWVsYWth
+bnRhbSBHYWRkYW0KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRj
+aC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
