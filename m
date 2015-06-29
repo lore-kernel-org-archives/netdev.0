@@ -1,33 +1,88 @@
-From: Alex Gartrell <alexgartrell@gmail.com>
-Subject: Re: [PATCH RFC] net/unix: SO_REUSEPORT for AF_UNIX
-Date: Sun, 28 Jun 2015 21:05:22 -0700
-Message-ID: <CALCkm3f2uvsCn=uiyCqrR_V=CgCpU-TSGYH6JTkcm6QQV5FdVA@mail.gmail.com>
-References: <1435485139-16866-1-git-send-email-ch@bitfehler.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH RFC] tun, macvtap: higher order allocations for skbs
+Date: Mon, 29 Jun 2015 12:50:21 +0800
+Message-ID: <5590CE8D.7030105@redhat.com>
+References: <1434622758-16549-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Conrad Hoffmann <ch@bitfehler.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f41.google.com ([209.85.192.41]:33349 "EHLO
-	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752411AbbF2EFm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 00:05:42 -0400
-Received: by qgem68 with SMTP id m68so14122742qge.0
-        for <netdev@vger.kernel.org>; Sun, 28 Jun 2015 21:05:41 -0700 (PDT)
-In-Reply-To: <1435485139-16866-1-git-send-email-ch@bitfehler.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1434622758-16549-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 28, 2015 at 2:52 AM, Conrad Hoffmann <ch@bitfehler.net> wrote:
-> Support the SO_REUSEPORT option for AF_UNIX (aka AF_LOCAL) sockets. Note
-> that unlike the IP implementations, the semantics for AF_UNIX sockets are
-> those of the original BSD implementation, i.e. each socket that
-> successfully reuses a port completely takes over from the previous
-> listener.
 
-This is a really weird corner case from a user's perspective.  I think
-sharing it is more reasonable, as you can always signal the other
-process out of band.
 
--- 
-Alex Gartrell
+On 06/18/2015 06:20 PM, Michael S. Tsirkin wrote:
+> Needs more testing. Anyone see anything wrong with this?
+>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  drivers/net/macvtap.c | 2 +-
+>  drivers/net/tun.c     | 2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 928f3f4..80e87e4 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -610,7 +610,7 @@ static inline struct sk_buff *macvtap_alloc_skb(struct sock *sk, size_t prepad,
+>  		linear = len;
+>  
+>  	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
+> -				   err, 0);
+> +				   err, 1);
+>  	if (!skb)
+>  		return NULL;
+>  
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index cb376b2d..8f2f1e5 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1069,7 +1069,7 @@ static struct sk_buff *tun_alloc_skb(struct tun_file *tfile,
+>  		linear = len;
+>  
+>  	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
+> -				   &err, 0);
+> +				   &err, 1);
+>  	if (!skb)
+>  		return ERR_PTR(err);
+>  
+
+Have a round of netperf testing in tun and ixgbe, can see improvement on
+packet size 512 and 2048.
+
+TX:
+size/session/+thu%/+normalize%
+   64/     1/    0%/    0%
+   64/     4/    0%/    0%
+  512/     1/   +6%/   +7%
+  512/     4/   +2%/   +2%
+ 2048/     1/  +24%/  +50%
+ 2048/     4/    0%/   +6%
+16384/     1/    0%/   -6%
+16384/     4/    0%/   -5%
+65535/     1/    0%/   -4%
+65535/     4/    0%/   -1%
+RX:
+size/session/+thu%/+normalize%
+   64/     1/   -5%/   -4%
+   64/     4/   -2%/   -1%
+  512/     1/   -7%/   -8%
+  512/     4/    0%/    0%
+ 2048/     1/   +4%/   +7%
+ 2048/     4/    0%/   +2%
+16384/     1/    0%/   +2%
+16384/     4/    0%/  +13%
+65535/     1/    0%/    0%
+65535/     4/    0%/   -1%
+TCP_RR:
+size/session/+thu%/+normalize%
+    1/    25/    0%/    0%
+    1/    50/    0%/    0%
+   64/    25/    0%/   -1%
+   64/    50/    0%/    0%
+  256/    25/    0%/    0%
+  256/    50/    0%/    0%
