@@ -1,30 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] net: phy: bcm7xxx initial read/write workaround
-Date: Sun, 28 Jun 2015 20:29:41 -0700 (PDT)
-Message-ID: <20150628.202941.1570325669605547802.davem@davemloft.net>
-References: <1435340346-10297-1-git-send-email-f.fainelli@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCHv4] net: fec: Ensure clocks are enabled while using
+ mdio bus
+Date: Mon, 29 Jun 2015 05:44:02 +0200
+Message-ID: <20150629034402.GA30187@lunn.ch>
+References: <1435512972-24014-1-git-send-email-andrew@lunn.ch>
+ <BLUPR03MB373F2684A8C9BF38719B930F5AA0@BLUPR03MB373.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pgynther@google.com, jaedon.shin@gmail.com
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Cory Tusar <cory.tusar@pid1solutions.com>
+To: Duan Andy <fugang.duan@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40005 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753115AbbF2D3m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jun 2015 23:29:42 -0400
-In-Reply-To: <1435340346-10297-1-git-send-email-f.fainelli@gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:59011 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753027AbbF2DuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Jun 2015 23:50:09 -0400
+Content-Disposition: inline
+In-Reply-To: <BLUPR03MB373F2684A8C9BF38719B930F5AA0@BLUPR03MB373.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 26 Jun 2015 10:39:03 -0700
-
-> This patch series fixes occasional BCM7xxx PHY driver binding failure due
-> to a harware bug where the first read or write does not come out of the PHY
-> MDIO management controller.
+> > @@ -3496,10 +3523,11 @@ static int __maybe_unused fec_suspend(struct
+> > device *dev)
+> >  		netif_device_detach(ndev);
+> >  		netif_tx_unlock_bh(ndev);
+> >  		fec_stop(ndev);
+> > -		fec_enet_clk_enable(ndev, false);
+> >  		if (!(fep->wol_flag & FEC_WOL_FLAG_ENABLE))
+> >  			pinctrl_pm_select_sleep_state(&fep->pdev->dev);
+> >  	}
+> > +
+> > +	fec_enet_clk_enable(ndev, false);
 > 
-> Since we have two different MDIO controllers using this PHY, a similar
-> need to be replicated in GENET and UniMAC MDIO.
+> Why do you move out the api from netif runnig condition ?
 
-Series applied, thanks Florian.
+Ah, read the documentation again. I see my error. I thought it would
+call fec_suspend() and fec_resume(). But now i see there are separate
+runtime suspend and resume functions.
+
+I will fix this.
+
+  Andrew
