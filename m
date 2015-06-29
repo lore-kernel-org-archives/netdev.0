@@ -1,91 +1,47 @@
-From: Reyad Attiyat <reyad.attiyat@gmail.com>
-Subject: [PATCH] mwifiex: usb: Fix double add error when submitting rx urb
-Date: Sun, 28 Jun 2015 20:07:38 -0500
-Message-ID: <1435540058-11922-1-git-send-email-reyad.attiyat@gmail.com>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Reyad Attiyat <reyad.attiyat@gmail.com>
-To: akarwar@marvell.com, patila@marvell.com, kvalo@codeaurora.org,
-	bzhao@marvell.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:36041 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752396AbbF2BHz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jun 2015 21:07:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: Re: [v2,9/9] fsl/fman: Add FMan MAC driver
+Date: Mon, 29 Jun 2015 11:55:48 +1000
+Message-ID: <1435542948.26549.2.camel@ellerman.id.au>
+References: <1435174672-4608-1-git-send-email-igal.liberman@freescale.com>
+ <1435273590.28572.11.camel@tiscali.nl>
+ <1435280369.2977.4.camel@freescale.com>
+ <1435285275.8128.3.camel@ellerman.id.au>
+ <1435285530.4306.33.camel@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: igal.liberman@freescale.com, Paul Bolle <pebolle@tiscali.nl>,
+ netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ madalin.bucur@freescale.com
+To: Scott Wood <scottwood@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1435285530.4306.33.camel@freescale.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-There is an error that can occur where the driver adds the same URB to USB submission list twice.
-This happens since mwifiex_usb_submit_rem_rx can submit packets at same time as an rx urb complete callback.
-This causes list corruption and is fixed by not setting the skb to NULL when submitting an rx packet.
-
-[   84.461242] WARNING: CPU: 1 PID: 748 at lib/list_debug.c:36 __list_add+0xcb/0xd0()
-[   84.461245] list_add double add: new=ffff8800c92b0c50, prev=ffff8800c92b0c50, next=ffff8800ced6c430.
-[   84.461247] Modules linked in: rfcomm fuse cmac nf_conntrack_netbios_ns nf_conntrack_broadcast ip6t_rpfilter ip6t_REJECT nf_reject_ipv6 xt_conntrack ebtable_nat ebtable_broute bridge stp llc ebtable_filter ebtables ip6table_nat nf_conntrack_ipv6 nf_defrag_ipv6 nf_nat_ipv6 ip6table_mangle ip6table_security ip6table_raw ip6table_filter ip6_tables iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat nf_conntrack bnep iptable_mangle iptable_security iptable_raw btusb btintel bluetooth mwifiex_usb mwifiex x86_pkg_temp_thermal cfg80211 coretemp r8712u(C) kvm_intel kvm hid_sensor_als hid_sensor_incl_3d hid_sensor_rotation hid_sensor_magn_3d hid_sensor_accel_3d hid_sensor_gyro_3d hid_sensor_trigger hid_sensor_iio_common industrialio_triggered_buffer kfifo_buf rfkill iTCO_wdt industri
- alio iTCO_vendor_support
-[   84.461316]  crc32_pclmul crc32c_intel ghash_clmulni_intel microcode snd_hda_codec_realtek vfat snd_hda_codec_generic fat snd_hda_codec_hdmi snd_hda_intel snd_hda_controller uvcvideo snd_hda_codec videobuf2_vmalloc videobuf2_memops snd_hwdep videobuf2_core snd_hda_core joydev v4l2_common videodev hid_sensor_hub snd_seq hid_multitouch media snd_seq_device snd_pcm snd_timer mei_me snd i2c_i801 lpc_ich mei soundcore tpm_infineon tpm_tis tpm i2c_hid i2c_designware_platform i2c_designware_core nfsd auth_rpcgss nfs_acl lockd grace sunrpc sch_fq_codel i915 i2c_algo_bit drm_kms_helper drm xhci_pci xhci_hcd ehci_pci sd_mod ehci_hcd video
-[   84.461383] CPU: 1 PID: 748 Comm: kworker/u9:0 Tainted: G         C      4.1.0-rc5+ #163
-[   84.461386] Hardware name: Microsoft Corporation Surface Pro 2/Surface Pro 2, BIOS 2.05.0250 04/10/2015
-[   84.461396] Workqueue: MWIFIEX_RX_WORK_QUEUE mwifiex_rx_work_queue [mwifiex]
-[   84.461399]  ffffffff81a8150e ffff8801174cf8e8 ffffffff817df830 0000000000000000
-[   84.461405]  ffff8801174cf938 ffff8801174cf928 ffffffff810a54ba ffff8800c86bd750
-[   84.461410]  ffff8800c92b0c50 ffff8800c92b0c50 ffff8800ced6c430 ffff88010c057178
-[   84.461416] Call Trace:
-[   84.461421]  [<ffffffff817df830>] dump_stack+0x4f/0x7b
-[   84.461428]  [<ffffffff810a54ba>] warn_slowpath_common+0x8a/0xc0
-[   84.461432]  [<ffffffff810a5536>] warn_slowpath_fmt+0x46/0x50
-[   84.461436]  [<ffffffff814109fb>] __list_add+0xcb/0xd0
-[   84.461442]  [<ffffffff815c551a>] ? usb_hcd_link_urb_to_ep+0x2a/0xa0
-[   84.461446]  [<ffffffff815c5570>] usb_hcd_link_urb_to_ep+0x80/0xa0
-[   84.461459]  [<ffffffffa004318a>] prepare_transfer+0xaa/0x130 [xhci_hcd]
-[   84.461470]  [<ffffffffa0044cf7>] xhci_queue_bulk_tx+0xb7/0x7a0 [xhci_hcd]
-[   84.461480]  [<ffffffffa003b67f>] ? xhci_urb_enqueue+0x50f/0x660 [xhci_hcd]
-[   84.461489]  [<ffffffffa003b67f>] ? xhci_urb_enqueue+0x50f/0x660 [xhci_hcd]
-[   84.461498]  [<ffffffffa003b735>] xhci_urb_enqueue+0x5c5/0x660 [xhci_hcd]
-[   84.461503]  [<ffffffff815c7ad3>] usb_hcd_submit_urb+0x93/0xa70
-[   84.461507]  [<ffffffff8168dde8>] ? __alloc_skb+0x78/0x1f0
-[   84.461511]  [<ffffffff8168d301>] ? __kmalloc_reserve.isra.26+0x31/0x90
-[   84.461515]  [<ffffffff8168ddbc>] ? __alloc_skb+0x4c/0x1f0
-[   84.461519]  [<ffffffff8168ddfc>] ? __alloc_skb+0x8c/0x1f0
-[   84.461523]  [<ffffffff8168badd>] ? skb_dequeue+0x5d/0x80
-[   84.461527]  [<ffffffff815c987e>] usb_submit_urb+0x42e/0x5f0
-[   84.461531]  [<ffffffff816931d9>] ? __alloc_rx_skb+0x39/0x100
-[   84.461536]  [<ffffffffa05aa372>] mwifiex_usb_submit_rx_urb+0xb2/0x170 [mwifiex_usb]
-[   84.461542]  [<ffffffffa05aa5f5>] mwifiex_usb_submit_rem_rx_urbs+0x45/0x50 [mwifiex_usb]
-[   84.461550]  [<ffffffffa07094be>] mwifiex_rx_work_queue+0x10e/0x140 [mwifiex]
-[   84.461556]  [<ffffffff810c4429>] process_one_work+0x229/0x890
-[   84.461559]  [<ffffffff810c438c>] ? process_one_work+0x18c/0x890
-[   84.461565]  [<ffffffff810c4ae3>] worker_thread+0x53/0x470
-[   84.461569]  [<ffffffff810c4a90>] ? process_one_work+0x890/0x890
-[   84.461572]  [<ffffffff810cb162>] kthread+0xf2/0x110
-[   84.461577]  [<ffffffff811031ad>] ? trace_hardirqs_on+0xd/0x10
-[   84.461581]  [<ffffffff810cb070>] ? kthread_create_on_node+0x230/0x230
-[   84.461586]  [<ffffffff817e9662>] ret_from_fork+0x42/0x70
-[   84.461590]  [<ffffffff810cb070>] ? kthread_create_on_node+0x230/0x230
-[   84.461593] ---[ end trace 65103af5e6fb3444 ]---
-
-Signed-off-by: Reyad Attiyat <reyad.attiyat@gmail.com>
----
- drivers/net/wireless/mwifiex/usb.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/mwifiex/usb.c b/drivers/net/wireless/mwifiex/usb.c
-index fd8027f..cd3ba76 100644
---- a/drivers/net/wireless/mwifiex/usb.c
-+++ b/drivers/net/wireless/mwifiex/usb.c
-@@ -235,9 +235,11 @@ setup_for_next:
- 	if (card->rx_cmd_ep == context->ep) {
- 		mwifiex_usb_submit_rx_urb(context, size);
- 	} else {
--		context->skb = NULL;
--		if (atomic_read(&adapter->rx_pending) <= HIGH_RX_PENDING)
-+		if (atomic_read(&adapter->rx_pending) <= HIGH_RX_PENDING){
- 			mwifiex_usb_submit_rx_urb(context, size);
-+		}else{
-+			context->skb = NULL;
-+		}
- 	}
- 
- 	return;
--- 
-2.4.3
+T24gVGh1LCAyMDE1LTA2LTI1IGF0IDIxOjI1IC0wNTAwLCBTY290dCBXb29kIHdyb3RlOgo+IE9u
+IEZyaSwgMjAxNS0wNi0yNiBhdCAxMjoyMSArMTAwMCwgTWljaGFlbCBFbGxlcm1hbiB3cm90ZToK
+PiA+IE9uIFRodSwgMjAxNS0wNi0yNSBhdCAxOTo1OSAtMDUwMCwgU2NvdHQgV29vZCB3cm90ZToK
+PiA+ID4gT24gRnJpLCAyMDE1LTA2LTI2IGF0IDAxOjA2ICswMjAwLCBQYXVsIEJvbGxlIHdyb3Rl
+Ogo+ID4gPiA+IChFdm9sdXRpb24gMy4xNiBpcyBiYXNpY2FsbHkgdW5iZWFyYWJsZSBmb3IgcmVw
+bHlpbmcgdG8gcGF0Y2hlcy4gCj4gPiA+ID4gQW55b25lCj4gPiA+ID4gZWxzZSBydW5uaW5nIGlu
+dG8gdGhpcz8pIAo+ID4gPiAKPiA+ID4gSWYgeW91IG1lYW4gdGhlIGNyYXp5IGxhZyB3aGVuIHNl
+bGVjdGluZyBtb2RlcmF0ZS10by1sYXJnZSBhbW91bnRzIG9mIAo+ID4gPiB0ZXh0IChmb3Igc25p
+cHBpbmcpLCB5ZXMuCj4gPiAKPiA+IEkgcmVjb21tZW5kIHRoZSBleHRlcm5hbCBlZGl0b3IgcGx1
+Z2luIHdpdGggdmltLgo+IAo+IEkgdHJpZWQgdGhlIGV4dGVybmFsIGVkaXRvciBwbHVnaW4gKG5v
+dCB3aXRoIHZpbSkgYW5kIGl0IGZhaWxlZCB0byBicmluZyB0aGUgCj4gZXh0ZXJuYWxseSBtYWRl
+IGVkaXRzIGJhY2sgaW50byB0aGUgZXZvbHV0aW9uIGNvbXBvc2Ugd2luZG93LiAgSXQgdGhlbiAK
+PiBzdGFydGVkIHNwYXN0aWNhbGx5IHJlc3Bhd25pbmcgdGhlIGV4dGVybmFsIGVkaXRvciB3aXRo
+b3V0IG15IGRvaW5nIGFueXRoaW5nLgoKSSBndWVzcyBpdCBvbmx5IHdvcmtzIHdpdGggdmltIDsp
+CgpjaGVlcnMKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+XwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3Jn
+Cmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
