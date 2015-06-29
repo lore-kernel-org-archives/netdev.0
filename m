@@ -1,64 +1,34 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 3/3] printk: implement support for extended console
- drivers
-Date: Mon, 29 Jun 2015 12:13:55 -0400
-Message-ID: <20150629161355.GS15805@mtj.duckdns.org>
-References: <1430318704-32374-1-git-send-email-tj@kernel.org>
- <1430318704-32374-4-git-send-email-tj@kernel.org>
- <CAMuHMdWwH-3kx1ma5KE=fP94by8boxM_QYqPKpU=YJw8t3hYeg@mail.gmail.com>
- <20150629152805.GM15805@mtj.duckdns.org>
- <CAMuHMdXTn0+z4PV9UVZZmpMdk_-JUc4x-GqZweOhQyYMTzSOGQ@mail.gmail.com>
- <20150629154914.GQ15805@mtj.duckdns.org>
- <CAMuHMdX-cA3RccXF2kBifMEyT8e14rURp9Li_WFm7ODBOti=QQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] amd-xgbe: Add the __GFP_NOWARN flag to Rx buffer
+ allocation
+Date: Mon, 29 Jun 2015 09:27:22 -0700 (PDT)
+Message-ID: <20150629.092722.310092810741640306.davem@davemloft.net>
+References: <20150629162212.20833.16427.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pmladek@suse.cz, Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Kay Sievers <kay@vrfy.org>,
-	Josh Triplett <josh@joshtriplett.org>,
-	Linux Embedded <linux-embedded@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAMuHMdX-cA3RccXF2kBifMEyT8e14rURp9Li_WFm7ODBOti=QQ@mail.gmail.com>
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: thomas.lendacky@amd.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43862 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751159AbbF2Q1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 12:27:23 -0400
+In-Reply-To: <20150629162212.20833.16427.stgit@tlendack-t1.amdoffice.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 29, 2015 at 06:11:40PM +0200, Geert Uytterhoeven wrote:
-> On Mon, Jun 29, 2015 at 5:49 PM, Tejun Heo <tj@kernel.org> wrote:
-> > On Mon, Jun 29, 2015 at 05:47:49PM +0200, Geert Uytterhoeven wrote:
-> >> > netconsole itself is optional & modular.  I'm not sure making further
-> >> > splits is called for, especially given the use cases.
-> >>
-> >> It could be a hidden option, selected by its users (e.g. netconsole).
-> >
-> > Hmmm... what do you mean?
-> 
-> init/Kconfig:
-> 
->         config PRINTK_EXT_LOG
->                 bool
-> 
-> drivers/net/Kconfig:
-> 
->         config NETCONSOLE
->                 tristate "Network console logging support"
->                 select PRINTK_EXT_LOG
-> 
-> kernel/printk/printk.c:
-> 
->         void console_unlock(void)
->         {
-> #ifdef CONFIG_PRINTK_EXT_LOG
->                 static char ext_text[CONSOLE_EXT_LOG_MAX];
-> #endif
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Mon, 29 Jun 2015 11:22:12 -0500
 
-OIC, hmmm... yeah, I think doing it on-demand would be better but will
-try to find out which way is better.
+> When allocating Rx related buffers, alloc_pages is called using an order
+> number that is decreased until successful. A system under stress can
+> experience failures during this allocation process resulting in a warning
+> being issued. This message can be of concern to end users even though the
+> failure is not fatal. Since the failure is not fatal and can occur
+> multiple times, the driver should include the __GFP_NOWARN flag to
+> suppress the warning message from being issued.
+> 
+> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 
-Thanks!
-
--- 
-tejun
+Applied, thanks.
