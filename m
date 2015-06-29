@@ -1,54 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH resend] sctp: Fix race between OOTB responce and route
- removal
-Date: Mon, 29 Jun 2015 09:29:02 -0700 (PDT)
-Message-ID: <20150629.092902.445099737868203960.davem@davemloft.net>
-References: <5591049F.3040108@nokia.com>
+From: josh@joshtriplett.org
+Subject: Re: [PATCH 3/3] printk: implement support for extended console
+ drivers
+Date: Mon, 29 Jun 2015 09:50:00 -0700
+Message-ID: <20150629165000.GA1483@cloud>
+References: <1430318704-32374-1-git-send-email-tj@kernel.org>
+ <1430318704-32374-4-git-send-email-tj@kernel.org>
+ <CAMuHMdWwH-3kx1ma5KE=fP94by8boxM_QYqPKpU=YJw8t3hYeg@mail.gmail.com>
+ <20150629152805.GM15805@mtj.duckdns.org>
+ <CAMuHMdXTn0+z4PV9UVZZmpMdk_-JUc4x-GqZweOhQyYMTzSOGQ@mail.gmail.com>
+ <20150629154914.GQ15805@mtj.duckdns.org>
+ <CAMuHMdX-cA3RccXF2kBifMEyT8e14rURp9Li_WFm7ODBOti=QQ@mail.gmail.com>
+ <20150629161355.GS15805@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com,
-	marcelo.leitner@gmail.com, vyasevich@gmail.com
-To: alexander.sverdlin@nokia.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>, pmladek@suse.cz,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kay Sievers <kay@vrfy.org>,
+	Linux Embedded <linux-embedded@vger.kernel.org>
+To: Tejun Heo <tj@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43886 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751159AbbF2Q3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 12:29:03 -0400
-In-Reply-To: <5591049F.3040108@nokia.com>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:46808 "EHLO
+	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752197AbbF2QuF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 12:50:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20150629161355.GS15805@mtj.duckdns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Sverdlin <alexander.sverdlin@nokia.com>
-Date: Mon, 29 Jun 2015 10:41:03 +0200
+On Mon, Jun 29, 2015 at 12:13:55PM -0400, Tejun Heo wrote:
+> On Mon, Jun 29, 2015 at 06:11:40PM +0200, Geert Uytterhoeven wrote:
+> > On Mon, Jun 29, 2015 at 5:49 PM, Tejun Heo <tj@kernel.org> wrote:
+> > > On Mon, Jun 29, 2015 at 05:47:49PM +0200, Geert Uytterhoeven wrote:
+> > >> > netconsole itself is optional & modular.  I'm not sure making further
+> > >> > splits is called for, especially given the use cases.
+> > >>
+> > >> It could be a hidden option, selected by its users (e.g. netconsole).
+> > >
+> > > Hmmm... what do you mean?
+> > 
+> > init/Kconfig:
+> > 
+> >         config PRINTK_EXT_LOG
+> >                 bool
+> > 
+> > drivers/net/Kconfig:
+> > 
+> >         config NETCONSOLE
+> >                 tristate "Network console logging support"
+> >                 select PRINTK_EXT_LOG
+> > 
+> > kernel/printk/printk.c:
+> > 
+> >         void console_unlock(void)
+> >         {
+> > #ifdef CONFIG_PRINTK_EXT_LOG
+> >                 static char ext_text[CONSOLE_EXT_LOG_MAX];
+> > #endif
+> 
+> OIC, hmmm... yeah, I think doing it on-demand would be better but will
+> try to find out which way is better.
 
-> There is NULL pointer dereference possible during statistics update if the route
-> used for OOTB responce is removed at unfortunate time. If the route exists when
-> we receive OOTB packet and we finally jump into sctp_packet_transmit() to send
-> ABORT, but in the meantime route is removed under our feet, we take "no_route"
-> path and try to update stats with IP_INC_STATS(sock_net(asoc->base.sk), ...).
-> 
-> But sctp_ootb_pkt_new() used to prepare responce packet doesn't call
-> sctp_transport_set_owner() and therefore there is no asoc associated with this
-> packet. Probably temporary asoc just for OOTB responces is overkill, so just
-> introduce a check like in all other places in sctp_packet_transmit(), where
-> "asoc" is dereferenced.
-> 
-> To reproduce this, one needs to
-> 0. ensure that sctp module is loaded (otherwise ABORT is not generated)
-> 1. remove default route on the machine
-> 2. while true; do
->      ip route del [interface-specific route]
->      ip route add [interface-specific route]
->    done
-> 3. send enough OOTB packets (i.e. HB REQs) from another host to trigger ABORT
->    responce
-> 
-> On x86_64 the crash looks like this:
- ...
-> Signed-off-by: Alexander Sverdlin <alexander.sverdlin@nokia.com>
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
-> Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Allocating the buffer dynamically is fine, but in that case the code to
+do so should ideally be compiled out.  Since printk is used by almost
+*all* kernels, while netconsole is not, it's more critical to avoid
+allowing printk's size to balloon.
 
-Applied and queued up for -stable, thanks.
+- Josh Triplett
