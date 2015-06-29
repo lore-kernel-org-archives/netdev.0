@@ -1,53 +1,34 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 3/3] printk: implement support for extended console
- drivers
-Date: Mon, 29 Jun 2015 11:28:05 -0400
-Message-ID: <20150629152805.GM15805@mtj.duckdns.org>
-References: <1430318704-32374-1-git-send-email-tj@kernel.org>
- <1430318704-32374-4-git-send-email-tj@kernel.org>
- <CAMuHMdWwH-3kx1ma5KE=fP94by8boxM_QYqPKpU=YJw8t3hYeg@mail.gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH RFC net-next] vxlan: GRO support at tunnel layer
+Date: Mon, 29 Jun 2015 08:40:15 -0700
+Message-ID: <559166DF.5070602@hp.com>
+References: <1435360189-641007-1-git-send-email-tom@herbertland.com> <558DF24A.1040504@hp.com> <df94e5b8a0ed7a9146063908e3001ef3@imap.linux.ibm.com> <CALx6S35joR=WtiqXne-vkMB+R0e=4pWo2r_WiKASGQcViBsAFA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pmladek@suse.cz, Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Kay Sievers <kay@vrfy.org>,
-	Josh Triplett <josh@joshtriplett.org>,
-	Linux Embedded <linux-embedded@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAMuHMdWwH-3kx1ma5KE=fP94by8boxM_QYqPKpU=YJw8t3hYeg@mail.gmail.com>
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>,
+	Ramu Ramamurthy <sramamur@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g9t5008.houston.hp.com ([15.240.92.66]:54320 "EHLO
+	g9t5008.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753414AbbF2PkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 11:40:18 -0400
+In-Reply-To: <CALx6S35joR=WtiqXne-vkMB+R0e=4pWo2r_WiKASGQcViBsAFA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On 06/28/2015 02:31 PM, Tom Herbert wrote:
+> You're comparing apples to oranges. Please test the patch in your
+> environment I posted and report results. Please also test with
+> multiple connections, single connection performance can be misleading
+> and does not really reflect what real production servers are doing.
 
-On Mon, Jun 29, 2015 at 11:20:41AM +0200, Geert Uytterhoeven wrote:
-> On Wed, Apr 29, 2015 at 4:45 PM, Tejun Heo <tj@kernel.org> wrote:
-> > --- a/kernel/printk/printk.c
-> > +++ b/kernel/printk/printk.c
-> 
-> > @@ -2196,6 +2227,7 @@ out:
-> >   */
-> >  void console_unlock(void)
-> >  {
-> > +       static char ext_text[CONSOLE_EXT_LOG_MAX];
-> 
-> Can you please
->   a) make this feature optional,
+Slight drift - Linux is, for lack of a better expression, a complete 
+fruit stand.  One customer might indeed be into oranges, but I've had 
+customers coming to me wanting to see shiny apples.
 
-netconsole itself is optional & modular.  I'm not sure making further
-splits is called for, especially given the use cases.
+happy benchmarking,
 
->   b) (de)allocate this buffer dynamically when the first/last console with
->       CON_EXTENDED set is (un)registered?
-
-But yeah, making the buffer allocated on demand should be simple
-enough.  Will get to it.
-
-Thanks.
-
--- 
-tejun
+rick jones
