@@ -1,33 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH 1/1] net: phy: fix phy link up when limiting speed
- via device tree
-Date: Sun, 28 Jun 2015 16:59:36 -0700 (PDT)
-Message-ID: <20150628.165936.1506411757336657884.davem@davemloft.net>
-References: <1435251062-5287-1-git-send-email-mugunthanvnm@ti.com>
+Subject: Re: [PATCH] net: fec: don't access RACC register when not available
+Date: Sun, 28 Jun 2015 17:02:51 -0700 (PDT)
+Message-ID: <20150628.170251.1472757458531380273.davem@davemloft.net>
+References: <201506260510.t5Q5AZ90010455@goober.accelecon.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
-To: mugunthanvnm@ti.com
+Cc: netdev@vger.kernel.org
+To: gerg@uclinux.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39272 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39293 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752670AbbF1X7h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jun 2015 19:59:37 -0400
-In-Reply-To: <1435251062-5287-1-git-send-email-mugunthanvnm@ti.com>
+	with ESMTP id S1752967AbbF2ACw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jun 2015 20:02:52 -0400
+In-Reply-To: <201506260510.t5Q5AZ90010455@goober.accelecon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Thu, 25 Jun 2015 22:21:02 +0530
+From: Greg Ungerer <gerg@uclinux.org>
+Date: Fri, 26 Jun 2015 15:10:35 +1000
 
-> When limiting phy link speed using "max-speed" to 100mbps or less on a
-> giga bit phy, phy never completes auto negotiation and phy state
-> machine is held in PHY_AN. Fixing this issue by comparing the giga
-> bit advertise though phydev->supported doesn't have it but phy has
-> BMSR_ESTATEN set. So that auto negotiation is restarted as old and
-> new advertise are different and link comes up fine.
+> From 8969de63989b8814a6db9d00b9d1ceabe40e8b11 Mon Sep 17 00:00:00 2001
+> From: Greg Ungerer <gerg@uclinux.org>
+> Date: Sat, 20 Jun 2015 15:51:57 +1000
+> Subject: [PATCH] net: fec: don't access RACC register when not available
 > 
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> Not all silicon implementations of the Freescale FEC hardware module
+> have the RACC (Receive Accelerator Function) register, so we should not
+> be trying to access it on those that don't. Currently none of the ColdFire
+> based parts with a FEC have it.
+> 
+> Support for RACC was introduced by commit 4c09eed9 ("net: fec: Enable imx6
+> enet checksum acceleration"). A fix was introduced in commit d1391930
+> ("net: fec: Fix build for MCF5272") that disables its use on the ColdFire
+> M5272 part, but it doesn't fix the general case of other ColdFire parts.
+> 
+> To fix we create a quirk flag, FEC_QUIRK_HAS_RACC, and check it before
+> working with the RACC register.
+> 
+> Signed-off-by: Greg Ungerer <gerg@uclinux.org>
 
-Applied and queued up for -stable, thanks.
+Applied, thank you.
