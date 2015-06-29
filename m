@@ -1,83 +1,49 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: Unable to unregister netdevice after "netfilter: bridge: forward
- IPv6 fragmented packets"
-Date: Mon, 29 Jun 2015 20:55:25 +0200
-Message-ID: <20150629185525.GF2324@breakpoint.cc>
-References: <55916C5D.3080602@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bernhard.thaler@wvnet.at, pablo@netfilter.org,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	bridge@lists.linux-foundation.org,
-	xen-devel <xen-devel@lists.xenproject.org>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Julien Grall <julien.grall@citrix.com>
+From: Nik Nyby <nikolas@gnu.org>
+Subject: [PATCH] stmmac: Trivial: fix typo in constant name
+Date: Mon, 29 Jun 2015 15:39:27 -0400
+Message-ID: <1435606767-9708-1-git-send-email-nikolas@gnu.org>
+Cc: Nik Nyby <nikolas@gnu.org>
+To: peppe.cavallaro@st.com, netdev@vger.kernel.org, trivial@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:48154 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752567AbbF2Szd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 14:55:33 -0400
-Content-Disposition: inline
-In-Reply-To: <55916C5D.3080602@citrix.com>
+Received: from eggs.gnu.org ([208.118.235.92]:38745 "EHLO eggs.gnu.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752114AbbF2Tjt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jun 2015 15:39:49 -0400
+Received: from Debian-exim by eggs.gnu.org with spam-scanned (Exim 4.71)
+	(envelope-from <nikolas@gnu.org>)
+	id 1Z9euA-0002Oa-BJ
+	for netdev@vger.kernel.org; Mon, 29 Jun 2015 15:39:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Julien Grall <julien.grall@citrix.com> wrote:
-> Hi,
-> 
-> I tried to run the latest Linux tree
-> (4a10a91756ef381bced7b88cfb9232f660b92d93) as DOM0 Xen.
-> After destroying a guest using network, I got the following
-> lines in the DOM0 kernel log:
-> 
-> unregister_netdevice: waiting for vif1.0 to become free. Usage count = 1
-> 
-> The bisector pointed the problem after the commit
-> efb6de9b4ba0092b2c55f6a52d16294a8a698edd
-> "netfilter: bridge: forward IPv6 fragmented packets".
+This fixes a typo in the MMC_RX_CRC_ERROR constant.
 
-Seems we can leak skb in br_nf_dev_queue_xmit()...  Does this fix the problem?
+Signed-off-by: Nik Nyby <nikolas@gnu.org>
+---
+ drivers/net/ethernet/stmicro/stmmac/mmc_core.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
-index d89f4fa..1a6fa67 100644
---- a/net/bridge/br_netfilter_hooks.c
-+++ b/net/bridge/br_netfilter_hooks.c
-@@ -742,7 +742,7 @@ static int br_nf_dev_queue_xmit(struct sock *sk, struct sk_buff *skb)
- 		struct brnf_frag_data *data;
- 
- 		if (br_validate_ipv4(skb))
--			return NF_DROP;
-+			goto drop;
- 
- 		IPCB(skb)->frag_max_size = nf_bridge->frag_max_size;
- 
-@@ -767,7 +767,7 @@ static int br_nf_dev_queue_xmit(struct sock *sk, struct sk_buff *skb)
- 		struct brnf_frag_data *data;
- 
- 		if (br_validate_ipv6(skb))
--			return NF_DROP;
-+			goto drop;
- 
- 		IP6CB(skb)->frag_max_size = nf_bridge->frag_max_size;
- 
-@@ -782,12 +782,16 @@ static int br_nf_dev_queue_xmit(struct sock *sk, struct sk_buff *skb)
- 
- 		if (v6ops)
- 			return v6ops->fragment(sk, skb, br_nf_push_frag_xmit);
--		else
--			return -EMSGSIZE;
-+
-+		kfree_skb(skb);
-+		return -EMSGSIZE;
- 	}
- #endif
- 	nf_bridge_info_free(skb);
- 	return br_dev_queue_push_xmit(sk, skb);
-+ drop:
-+	kfree_skb(skb);
-+	return 0;
- }
- 
- /* PF_BRIDGE/POST_ROUTING ********************************************/
+diff --git a/drivers/net/ethernet/stmicro/stmmac/mmc_core.c b/drivers/net/ethernet/stmicro/stmmac/mmc_core.c
+index 08c483b..3f20bb1 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/mmc_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/mmc_core.c
+@@ -73,7 +73,7 @@
+ #define MMC_RX_OCTETCOUNT_G		0x00000188
+ #define MMC_RX_BROADCASTFRAME_G		0x0000018c
+ #define MMC_RX_MULTICASTFRAME_G		0x00000190
+-#define MMC_RX_CRC_ERRROR		0x00000194
++#define MMC_RX_CRC_ERROR		0x00000194
+ #define MMC_RX_ALIGN_ERROR		0x00000198
+ #define MMC_RX_RUN_ERROR		0x0000019C
+ #define MMC_RX_JABBER_ERROR		0x000001A0
+@@ -196,7 +196,7 @@ void dwmac_mmc_read(void __iomem *ioaddr, struct stmmac_counters *mmc)
+ 	mmc->mmc_rx_octetcount_g += readl(ioaddr + MMC_RX_OCTETCOUNT_G);
+ 	mmc->mmc_rx_broadcastframe_g += readl(ioaddr + MMC_RX_BROADCASTFRAME_G);
+ 	mmc->mmc_rx_multicastframe_g += readl(ioaddr + MMC_RX_MULTICASTFRAME_G);
+-	mmc->mmc_rx_crc_error += readl(ioaddr + MMC_RX_CRC_ERRROR);
++	mmc->mmc_rx_crc_error += readl(ioaddr + MMC_RX_CRC_ERROR);
+ 	mmc->mmc_rx_align_error += readl(ioaddr + MMC_RX_ALIGN_ERROR);
+ 	mmc->mmc_rx_run_error += readl(ioaddr + MMC_RX_RUN_ERROR);
+ 	mmc->mmc_rx_jabber_error += readl(ioaddr + MMC_RX_JABBER_ERROR);
+-- 
+2.1.4
