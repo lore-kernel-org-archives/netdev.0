@@ -1,93 +1,101 @@
-From: Ramu Ramamurthy <sramamur@linux.vnet.ibm.com>
-Subject: Re: [PATCH] - vxlan: gro not effective for intel 82599
-Date: Mon, 29 Jun 2015 12:56:47 -0700
-Message-ID: <64eee574bcb29f8ec0a6c6536a910d01@imap.linux.ibm.com>
-References: <5981772fe36e64f8fec5997a4c7aa08f@imap.linux.ibm.com>
- <CALx6S36JQaPg9Otg4pv5ah16JGaEXzo1xDL4jXKBdziUTVvXmw@mail.gmail.com>
- <0b2eff60824ac7b7d3a672da9be9bf99@imap.linux.ibm.com>
- <CALx6S35o-KgViFy6dU5FXA=B2wCJFQjaGPxp22MMhUWP94ZS=A@mail.gmail.com>
- <3df94e04daebca29c94b6d32fb372177@imap.linux.ibm.com>
- <CALx6S35-GKW+hgn-9Y5a87hETfetKuusALFUDZ5vzwrtQSiypA@mail.gmail.com>
- <3036c2aaa52dc2817e674a77b5eac24d@imap.linux.ibm.com>
- <CALx6S37+es-QD-_41O4cc59_oEX2UeeibZgjd8uOvTcPMHO+nA@mail.gmail.com>
- <CAJ3xEMj_3+p9CGH8bkF26E9X0KGQdTr14S-vACS7zKcPPO6pQA@mail.gmail.com>
- <CALx6S35B99cu=oyYcz4fSgAeA2ho6b6-H6vWg=Vq0s1UEVf0Uw@mail.gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH RFC net-next] vxlan: GRO support at tunnel layer
+Date: Mon, 29 Jun 2015 13:04:47 -0700
+Message-ID: <5591A4DF.4010104@hp.com>
+References: <1435360189-641007-1-git-send-email-tom@herbertland.com> <558DF24A.1040504@hp.com> <df94e5b8a0ed7a9146063908e3001ef3@imap.linux.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Benc <jbenc@redhat.com>, James Morris <jmorris@namei.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	pradeeps@linux.vnet.ibm.com, J Kidambi <jkidambi@us.ibm.com>
-To: Tom Herbert <tom@herbertland.com>
+Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Ramu Ramamurthy <sramamur@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:40066 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752560AbbF2T4u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 15:56:50 -0400
-Received: from /spool/local
-	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <sramamur@linux.vnet.ibm.com>;
-	Mon, 29 Jun 2015 13:56:50 -0600
-Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
-	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 1838419D8026
-	for <netdev@vger.kernel.org>; Mon, 29 Jun 2015 13:47:49 -0600 (MDT)
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by b03cxnp07028.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t5TJsNLm39911622
-	for <netdev@vger.kernel.org>; Mon, 29 Jun 2015 12:54:23 -0700
-Received: from d03av03.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t5TJulNe023653
-	for <netdev@vger.kernel.org>; Mon, 29 Jun 2015 13:56:49 -0600
-In-Reply-To: <CALx6S35B99cu=oyYcz4fSgAeA2ho6b6-H6vWg=Vq0s1UEVf0Uw@mail.gmail.com>
+Received: from g4t3425.houston.hp.com ([15.201.208.53]:27295 "EHLO
+	g4t3425.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752716AbbF2UEu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 16:04:50 -0400
+In-Reply-To: <df94e5b8a0ed7a9146063908e3001ef3@imap.linux.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2015-06-28 14:17, Tom Herbert wrote:
-> On Sun, Jun 28, 2015 at 1:19 PM, Or Gerlitz <gerlitz.or@gmail.com> 
-> wrote:
->> On Fri, Jun 26, 2015 at 10:59 PM, Tom Herbert <tom@herbertland.com> 
->> wrote:
->> [...]
->>> Looks like GRO was never implemented for vxlan tunnels. The driver is
->>> simply calling netif_rx instead of using the GRO cells 
->>> infrastructure.
->>> geneve is doing the same thing. For other tunnels which are used in
->>> foo-over-udp (GRE, IPIP, SIT) ip_tunnel_rcv is called which in turn
->>> calls gro_cells_receive.
->> 
->> Tom,
->> 
->> Since v3.14, when a tunneled (say VXLAN/GRE) packets are received on
->> the physical interface, they go through GRO aggregation before being
->> delivered up to the tunnel "device" (e.g either vxlan/gre netdevice or
->> OVS vxlan/gre vport) -- so in that respect, can you elaborate a little
->> further why we want to GRO them again?
->> 
-> 
-> If we don't have a verifiable checksum from the device GRO is not
-> applied to UDP encapsulated packets at the physical interface, but can
-> be done at the tunnel. Ramu is seeing poor performance because there
-> is no GRO at all is happening, so doing it at the tunnel is an
-> improvement. As I described before, avoiding checksum calculation in
-> the device NAPI still seems to be a good thing (in my testing I do see
-> a slight regression if we were to do the checksum in device NAPI).
-> 
-> btw, the real "fix" for this is for NICs to provide CHECKSUM_COMPLETE! 
-> :-)
-> 
-> Tom
-> 
->> Or.
+I went ahead and put the patched kernel on both systems.  I was getting 
+mixed results - in one direction, results in the 8Gbit/s range, in the 
+other in the 7 Gbit/s.  I noticed that interrupts were going to 
+different CPUs so I started playing with IRQ assignments, and bound all 
+interrupts of the 82599ES to CPU0 to remove that variable.  At that 
+point I started getting 8.X Gbit/s consistently in either direction.
 
-When I force the sender to set a non-zero UDP checksum for vxlan 
-encapsulated tcp-stream,
-then, I can see the gro activated at the receiver (82599ES nic),
-and the throughput is ~8.5Gbps !
+root@qu-stbaz1-perf0000:~# HDR="-P 1"; for i in `seq 1 5`; do netperf -H 
+192.168.0.22 -l 30 $HDR -c -C -- -O 
+throughput,local_cpu_util,local_sd,local_cpu_peak_util,local_cpu_peak_id,remote_cpu_util,remote_sd,remote_cpu_peak_util,remote_cpu_peak_id; 
+HDR="-P 0"; done
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
+192.168.0.22 () port 0 AF_INET : demo
+Throughput Local Local   Local   Local   Remote Remote  Remote  Remote
+            CPU   Service Peak    Peak    CPU    Service Peak    Peak
+            Util  Demand  Per CPU Per CPU Util   Demand  Per CPU Per CPU
+            %             Util %  ID      %              Util %  ID
+8768.48    1.95  0.582   62.22   0       4.36   1.304   99.97   0
+8757.99    1.95  0.583   62.27   0       4.37   1.307   100.00  0
+8793.86    2.01  0.600   64.32   0       4.23   1.262   100.00  0
+8720.98    1.93  0.580   61.67   0       4.45   1.337   99.97   0
+8380.49    1.84  0.575   58.74   0       4.39   1.374   100.00  0
 
-So, to get gro to be effective for the 82599ES receiver, the sender 
-needs to set the UDP
-checksum.  If the sender does NOT set the UDP checksum (udp-checksum == 
-0), then the gro-cells patch suggested by Tom
-will perform gro at the tunnel device level.
+
+root@qu-stbaz1-perf0001:~# HDR="-P 1"; for i in `seq 1 5`; do netperf -H 
+192.168.0.21 -l 30 $HDR -c -C -- -O 
+throughput,local_cpu_util,local_sd,local_cpu_peak_util,local_cpu_peak_id,remote_cpu_util,remote_sd,remote_cpu_peak_util,remote_cpu_peak_id; 
+HDR="-P 0"; done
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
+192.168.0.21 () port 0 AF_INET : demo
+Throughput Local Local   Local   Local   Remote Remote  Remote  Remote
+            CPU   Service Peak    Peak    CPU    Service Peak    Peak
+            Util  Demand  Per CPU Per CPU Util   Demand  Per CPU Per CPU
+            %             Util %  ID      %              Util %  ID
+8365.16    1.93  0.604   61.64   0       4.57   1.431   99.97   0
+8724.08    2.01  0.604   64.31   0       4.66   1.401   100.00  0
+8653.70    1.98  0.600   63.37   0       4.67   1.414   99.90   0
+8748.05    1.99  0.596   63.62   0       4.62   1.383   99.97   0
+8756.66    1.99  0.595   63.55   0       4.52   1.354   99.97   0
+
+If I switch the interrupts to a core on the other socket, throughput 
+drops to 7.5 Gbit/s or so either way.
+
+I'm still trying to get onto the consoles to check power management 
+settings. Intel(R) Xeon(R) CPU E5-2670 0 @ 2.60GHz are the processors in 
+use.
+
+happy benchmarking,
+
+rick
+
+PS  FWIW, if I shift from using just the linux native vxlan to a "mostly 
+full" set of OpenStack compute node plumbing - two OVS bridges and a 
+linux bridge and associated plumbing with a vxlan tunnel defined in OVS, 
+but nothing above the Linux bridge (and no VMs) I see more like 4.9 
+Gbit/s.  The veth pair connecting the linux bridge to the top ovs bridge 
+show rx checksum and gro enabled.  the linux bridge itself shows GRO but 
+rx checksum off (fixed).  I'm not sure how to go about checking the OVS 
+constructs.
+
+root@qu-stbaz1-perf0000:/home/raj# cat raj_full_stack.sh
+ovs-vsctl add-br br-tun
+ovs-vsctl add-port br-tun vxlan0 -- set interface vxlan0 type=vxlan 
+options:remote_ip=$1 options:key=99 options:dst_port=4789
+ovs-vsctl add-port br-tun patch-tun -- set interface patch-tun 
+type=patch options:peer=patch-int
+
+ovs-vsctl add-br br-int
+ovs-vsctl add-port br-int patch-int -- set interface patch-int 
+type=patch options:peer=patch-tun
+
+brctl addbr qbr
+ip link add dev qvb type veth peer name qvo
+brctl addif qbr qvb
+
+ovs-vsctl add-port br-int qvo
+
+ifconfig qbr $2
+ifconfig qbr mtu 1450
+ifconfig qvb up
+ifconfig qvo up
