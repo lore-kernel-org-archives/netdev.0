@@ -1,134 +1,47 @@
-From: Julien Grall <julien.grall@citrix.com>
-Subject: Unable to unregister netdevice after "netfilter: bridge: forward
- IPv6 fragmented packets"
-Date: Mon, 29 Jun 2015 17:03:41 +0100
-Message-ID: <55916C5D.3080602@citrix.com>
+From: josh@joshtriplett.org
+Subject: Re: [PATCH 3/3] printk: implement support for extended console
+ drivers
+Date: Mon, 29 Jun 2015 09:11:24 -0700
+Message-ID: <20150629161124.GA1348@cloud>
+References: <1430318704-32374-1-git-send-email-tj@kernel.org>
+ <1430318704-32374-4-git-send-email-tj@kernel.org>
+ <CAMuHMdWwH-3kx1ma5KE=fP94by8boxM_QYqPKpU=YJw8t3hYeg@mail.gmail.com>
+ <20150629152805.GM15805@mtj.duckdns.org>
+ <CAMuHMdXTn0+z4PV9UVZZmpMdk_-JUc4x-GqZweOhQyYMTzSOGQ@mail.gmail.com>
+ <20150629154914.GQ15805@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <stephen@networkplumber.org>, <netdev@vger.kernel.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	<bridge@lists.linux-foundation.org>,
-	xen-devel <xen-devel@lists.xenproject.org>,
-	David Vrabel <david.vrabel@citrix.com>
-To: <bernhard.thaler@wvnet.at>, <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:39054 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753458AbbF2QFJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 12:05:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>, pmladek@suse.cz,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kay Sievers <kay@vrfy.org>,
+	Linux Embedded <linux-embedded@vger.kernel.org>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150629154914.GQ15805@mtj.duckdns.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Mon, Jun 29, 2015 at 11:49:14AM -0400, Tejun Heo wrote:
+> On Mon, Jun 29, 2015 at 05:47:49PM +0200, Geert Uytterhoeven wrote:
+> > > netconsole itself is optional & modular.  I'm not sure making further
+> > > splits is called for, especially given the use cases.
+> > 
+> > It could be a hidden option, selected by its users (e.g. netconsole).
+> 
+> Hmmm... what do you mean?
 
-I tried to run the latest Linux tree
-(4a10a91756ef381bced7b88cfb9232f660b92d93) as DOM0 Xen.
-After destroying a guest using network, I got the following
-lines in the DOM0 kernel log:
+config PRINTK_BITS_THAT_NETCONSOLE_NEEDS
 
-unregister_netdevice: waiting for vif1.0 to become free. Usage count = 1
+(no help text or prompt)
 
-The bisector pointed the problem after the commit
-efb6de9b4ba0092b2c55f6a52d16294a8a698edd
-"netfilter: bridge: forward IPv6 fragmented packets".
+config NETCONSOLE
+    select PRINTK_BITS_THAT_NETCONSOLE_NEEDS
 
-This is happening on an xgene board. The bridge is configured
-using /etc/network/interfaces:
+That would ensure that the bits added to printk don't get compiled in
+unless CONFIG_NETCONSOLE=y.
 
-# The primary network interface
-auto xenbr0
-iface xenbr0 inet dhcp
-        hostname pony
-        bridge_ports eth0
-        bridge_stp off
-        bridge_waitport 0
-        bridge_fd 0
-        bridge_maxwait 0
-
-Xen tools is creating the interface vif1.0 and adding to the
-bridge xenbr0.
-
-Linux log:
-
-device eth0 entered promiscuous mode
-xenbr0: port 1(eth0) entered forwarding state
-xenbr0: port 1(eth0) entered forwarding state
-xenbr0: port 1(eth0) entered disabled state
-xgene-enet 17020000.ethernet eth0: Link is Down
-random: nonblocking pool is initialized
-[....] Configuring network interfaces...
-Waiting for a max of 0 seconds for eth0 to become available.
-Internet Systems Consortium DHCP Client 4.3.1
-Copyright 2004-2014 Internet Systems Consortium.
-All rights reserved.
-For info, please visit https://www.isc.org/software/dhcp/
-
-Listening on LPF/xenbr0/00:01:73:02:1a:00
-Sending on   LPF/xenbr0/00:01:73:02:1a:00
-Sending on   Socket/fallback
-DHCPDISCOVER on xenbr0 to 255.255.255.255 port 67 interval 7
-xgene-enet 17020000.ethernet eth0: Link is Up - 1Gbps/Full - flow control rx/tx
-xenbr0: port 1(eth0) entered forwarding state
-xenbr0: port 1(eth0) entered forwarding state
-DHCPDISCOVER on xenbr0 to 255.255.255.255 port 67 interval 13
-DHCPREQUEST on xenbr0 to 255.255.255.255 port 67
-DHCPOFFER from 10.80.224.1
-DHCPACK from 10.80.224.1
-bound to 10.80.229.126 -- renewal in 19083 seconds.
-done.
-[ ok ] Starting rpcbind daemon....
-[ ok ] Starting NFS common utilities: statd idmapd.
-[ ok ] Cleaning up temporary files....
-[info] Setting console screen modes.
-setterm: cannot (un)set powersave mode: Inappropriate ioctl for device
-[....] Setting up console font and keymap...Couldn't get a file descriptor referring to the console
-Couldn't get a file descriptor referring to the console
-done.
-[ ok ] Setting up X socket directories... /tmp/.X11-unix /tmp/.ICE-unix.
-INIT: Entering runlevel: 2
-[info] Using makefile-style concurrent boot in runlevel 2.
-[ ok ] Starting enhanced syslogd: rsyslogd.
-[ ok ] Starting deferred execution scheduler: atd.
-[ ok ] Starting periodic command scheduler: cron.
-[ ok ] Starting SMP IRQ Balancer: irqbalance.
-
-[ ok ] Starting NTP server: ntpd.
-[ ok ] Starting OpenBSD Secure Shell server: sshd.
-[ ok ] Starting system message bus: dbus.
-Starting /usr/local/sbin/xenstored...
-Setting domain 0 name, domid and JSON config...
-Done setting up Dom0
-Starting xenconsoled...
-Starting QEMU as disk backend for dom0
-
-Debian GNU/Linux 8 pony hvc0
-
-pony login: device vif1.0 entered promiscuous mode
-IPv6: ADDRCONF(NETDEV_UP): vif1.0: link is not ready
-xen-blkback: ring-ref 8, event-channel 3, protocol 1 (arm-abi) persistent grants
-vif vif-1-0 vif1.0: Guest Rx ready
-IPv6: ADDRCONF(NETDEV_CHANGE): vif1.0: link becomes ready
-xenbr0: port 2(vif1.0) entered forwarding state
-xenbr0: port 2(vif1.0) entered forwarding state
-(XEN) mm.c:1251:d0v2 gnttab_mark_dirty not implemented yet
-xenbr0: port 2(vif1.0) entered disabled state
-xenbr0: port 2(vif1.0) entered disabled state
-device vif1.0 left promiscuous mode
-xenbr0: port 2(vif1.0) entered disabled state
-INIT: Id "1" respawning too fast: disabled for 5 minutes
-INIT: Id "3" respawning too fast: disabled for 5 minutes
-INIT: Id "5" respawning too fast: disabled for 5 minutes
-INIT: Id "2" respawning too fast: disabled for 5 minutes
-INIT: Id "6" respawning too fast: disabled for 5 minutes
-INIT: Id "T0" respawning too fast: disabled for 5 minutes
-INIT: Id "4" respawning too fast: disabled for 5 minutes
-unregister_netdevice: waiting for vif1.0 to become free. Usage count = 1
-unregister_netdevice: waiting for vif1.0 to become free. Usage count = 1
-unregister_netdevice: waiting for vif1.0 to become free. Usage count = 1
-
-Regards,
-
--- 
-Julien Grall
+- Josh Triplett
