@@ -1,42 +1,53 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH] sock: honor GFP_ATOMIC when allocating send skbs
-Date: Mon, 29 Jun 2015 16:00:42 +0200
-Message-ID: <CAHmME9rZuQdWtAfiQUw9UG-P4TwhKNkSjajXM_S+0sKY7BiQpQ@mail.gmail.com>
-References: <1435583216-19877-1-git-send-email-Jason@zx2c4.com>
-	<1435584965.4110.97.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH 3/3] printk: implement support for extended console
+ drivers
+Date: Mon, 29 Jun 2015 11:28:05 -0400
+Message-ID: <20150629152805.GM15805@mtj.duckdns.org>
+References: <1430318704-32374-1-git-send-email-tj@kernel.org>
+ <1430318704-32374-4-git-send-email-tj@kernel.org>
+ <CAMuHMdWwH-3kx1ma5KE=fP94by8boxM_QYqPKpU=YJw8t3hYeg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:38446 "EHLO frisell.zx2c4.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752604AbbF2OAq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jun 2015 10:00:46 -0400
-In-Reply-To: <1435584965.4110.97.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: pmladek@suse.cz, Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kay Sievers <kay@vrfy.org>,
+	Josh Triplett <josh@joshtriplett.org>,
+	Linux Embedded <linux-embedded@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-embedded-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAMuHMdWwH-3kx1ma5KE=fP94by8boxM_QYqPKpU=YJw8t3hYeg@mail.gmail.com>
+Sender: linux-embedded-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+Hello,
 
-Thanks for your feedback on this. The precise problem is a BUG in the
-scheduler code when sleep is called from atomic context, due to having
-to wait on that allocation. This is triggered by a module I'm writing.
+On Mon, Jun 29, 2015 at 11:20:41AM +0200, Geert Uytterhoeven wrote:
+> On Wed, Apr 29, 2015 at 4:45 PM, Tejun Heo <tj@kernel.org> wrote:
+> > --- a/kernel/printk/printk.c
+> > +++ b/kernel/printk/printk.c
+> 
+> > @@ -2196,6 +2227,7 @@ out:
+> >   */
+> >  void console_unlock(void)
+> >  {
+> > +       static char ext_text[CONSOLE_EXT_LOG_MAX];
+> 
+> Can you please
+>   a) make this feature optional,
 
-I'm probably doing something I shouldn't... I'm calling udp_sendmsg
-from atomic context: bad news bears, right? Really what I'd like to do
-is create an skb with headroom, fill it with data, and then hand it
-off to the udp/ip stack to prepend the udp and ip headers and
-calculate the flowi4 and correct dev and checksums for the skb. But I
-can't seem to find a correct API for this. So instead I'm using a
-socket and calling sendmsg on it, which unfortunately winds up in an
-extra allocation and a memcpy when sending. Might there be a better
-way to do what I want? That is: pass a buffer off to the networking
-stack, a) with zero copies [without having to use sendpage], and b)
-from atomic context. I'd like to avoid using workqueues/kthreads/etc
-if possible.
+netconsole itself is optional & modular.  I'm not sure making further
+splits is called for, especially given the use cases.
 
-Thanks,
-Jason
+>   b) (de)allocate this buffer dynamically when the first/last console with
+>       CON_EXTENDED set is (un)registered?
+
+But yeah, making the buffer allocated on demand should be simple
+enough.  Will get to it.
+
+Thanks.
+
+-- 
+tejun
