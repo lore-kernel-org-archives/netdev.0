@@ -1,42 +1,63 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH RFC net-next] vxlan: GRO support at tunnel layer
-Date: Mon, 29 Jun 2015 08:45:57 -0700
-Message-ID: <55916835.8030809@hp.com>
-References: <1435360189-641007-1-git-send-email-tom@herbertland.com> <558DF24A.1040504@hp.com> <df94e5b8a0ed7a9146063908e3001ef3@imap.linux.ibm.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 3/3] printk: implement support for extended console drivers
+Date: Mon, 29 Jun 2015 17:47:49 +0200
+Message-ID: <CAMuHMdXTn0+z4PV9UVZZmpMdk_-JUc4x-GqZweOhQyYMTzSOGQ@mail.gmail.com>
+References: <1430318704-32374-1-git-send-email-tj@kernel.org>
+	<1430318704-32374-4-git-send-email-tj@kernel.org>
+	<CAMuHMdWwH-3kx1ma5KE=fP94by8boxM_QYqPKpU=YJw8t3hYeg@mail.gmail.com>
+	<20150629152805.GM15805@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Ramu Ramamurthy <sramamur@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t2353.austin.hp.com ([15.217.128.52]:21428 "EHLO
-	g2t2353.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753270AbbF2Pp7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 11:45:59 -0400
-In-Reply-To: <df94e5b8a0ed7a9146063908e3001ef3@imap.linux.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: pmladek@suse.cz, Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kay Sievers <kay@vrfy.org>,
+	Josh Triplett <josh@joshtriplett.org>,
+	Linux Embedded <linux-embedded@vger.kernel.org>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150629152805.GM15805@mtj.duckdns.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/28/2015 10:20 AM, Ramu Ramamurthy wrote:
-> Rick, in your test, are you seeing gro becoming effective on the
-> vxlan interface with the 82599ES nic ? (ie, tcpdump on the vxlan
-> interface shows larger frames than the mtu of that interface, and
-> kernel trace shows vxlan_gro_receive() being hit)
+Hi Tejun,
+
+On Mon, Jun 29, 2015 at 5:28 PM, Tejun Heo <tj@kernel.org> wrote:
+> On Mon, Jun 29, 2015 at 11:20:41AM +0200, Geert Uytterhoeven wrote:
+>> On Wed, Apr 29, 2015 at 4:45 PM, Tejun Heo <tj@kernel.org> wrote:
+>> > --- a/kernel/printk/printk.c
+>> > +++ b/kernel/printk/printk.c
+>>
+>> > @@ -2196,6 +2227,7 @@ out:
+>> >   */
+>> >  void console_unlock(void)
+>> >  {
+>> > +       static char ext_text[CONSOLE_EXT_LOG_MAX];
+>>
+>> Can you please
+>>   a) make this feature optional,
 >
-> Throughputs of 5.5 Gbps (or the improved 7Gbs) leads me to suspect
-> that gro is still not effective in your test on the vxlan interface
-> with the 82588ES nic - Because, when vxlan gro became effective with
-> the patch I suggested earlier, I could see throughput of ~8.5 Gbps on
-> that nic.
+> netconsole itself is optional & modular.  I'm not sure making further
+> splits is called for, especially given the use cases.
 
-For the 5.X gbit/s test, where I am not getting GRO, I am seeing 1398 
-byte data packets when I trace vxlan0.
+It could be a hidden option, selected by its users (e.g. netconsole).
 
-For the other direction, at 7ish Gbit/s I am seeing 64XXX byte packets 
-on vxlan0, with the occasional 25XXX byte packet.  If I disable gro on 
-that receiving vxlan0 interface, the throughput is more like 4.X Gbit/s
+>>   b) (de)allocate this buffer dynamically when the first/last console with
+>>       CON_EXTENDED set is (un)registered?
+>
+> But yeah, making the buffer allocated on demand should be simple
+> enough.  Will get to it.
 
-happy benchmarking,
+Thanks!
 
-rick
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
