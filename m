@@ -1,146 +1,67 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH v2 2/3] ARM: mvebu: update Ethernet compatible string
- for Armada XP
-Date: Mon, 29 Jun 2015 15:04:56 +0200
-Message-ID: <55914278.5070106@free-electrons.com>
-References: <1434547162-6275-1-git-send-email-simon.guinot@sequanux.org> <1434547162-6275-3-git-send-email-simon.guinot@sequanux.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Vincent Donnefort <vdonnefort@gmail.com>,
-	stable@vger.kernel.org
-To: Simon Guinot <simon.guinot@sequanux.org>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1434547162-6275-3-git-send-email-simon.guinot@sequanux.org>
-Sender: stable-owner@vger.kernel.org
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH] sock: honor GFP_ATOMIC when allocating send skbs
+Date: Mon, 29 Jun 2015 15:06:56 +0200
+Message-ID: <1435583216-19877-1-git-send-email-Jason@zx2c4.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Simon,
+Some sockets set sock->sk->sk_allocation = GFP_ATOMIC. In spite of this,
+functions that call sock_alloc_send_skb will then call
+sock_alloc_send_pskb, which very often results in sleeping. Since the
+intention of callers setting sk_allocation = GFP_ATOMIC might be to be
+able to send from atomic context, we need to honor this and not sleep.
 
-> This patch updates the Ethernet DT nodes for Armada XP SoCs with the
-> compatible string "marvell,armada-xp-neta".
-> 
-> Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
-> Cc: <stable@vger.kernel.org> # v3.8+
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+---
+ net/core/sock.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Acked-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
-
-
-Thanks,
-
-Gregory
-
-> ---
->  arch/arm/boot/dts/armada-370-xp.dtsi     |  2 --
->  arch/arm/boot/dts/armada-370.dtsi        |  8 ++++++++
->  arch/arm/boot/dts/armada-xp-mv78260.dtsi |  2 +-
->  arch/arm/boot/dts/armada-xp-mv78460.dtsi |  2 +-
->  arch/arm/boot/dts/armada-xp.dtsi         | 10 +++++++++-
->  5 files changed, 19 insertions(+), 5 deletions(-)
-> 
-> diff --git a/arch/arm/boot/dts/armada-370-xp.dtsi b/arch/arm/boot/dts/armada-370-xp.dtsi
-> index ec96f0b36346..06a2f2ae9d1e 100644
-> --- a/arch/arm/boot/dts/armada-370-xp.dtsi
-> +++ b/arch/arm/boot/dts/armada-370-xp.dtsi
-> @@ -270,7 +270,6 @@
->  			};
->  
->  			eth0: ethernet@70000 {
-> -				compatible = "marvell,armada-370-neta";
->  				reg = <0x70000 0x4000>;
->  				interrupts = <8>;
->  				clocks = <&gateclk 4>;
-> @@ -286,7 +285,6 @@
->  			};
->  
->  			eth1: ethernet@74000 {
-> -				compatible = "marvell,armada-370-neta";
->  				reg = <0x74000 0x4000>;
->  				interrupts = <10>;
->  				clocks = <&gateclk 3>;
-> diff --git a/arch/arm/boot/dts/armada-370.dtsi b/arch/arm/boot/dts/armada-370.dtsi
-> index 00b50db57c9c..ca4257b2f77d 100644
-> --- a/arch/arm/boot/dts/armada-370.dtsi
-> +++ b/arch/arm/boot/dts/armada-370.dtsi
-> @@ -307,6 +307,14 @@
->  					dmacap,memset;
->  				};
->  			};
-> +
-> +			ethernet@70000 {
-> +				compatible = "marvell,armada-370-neta";
-> +			};
-> +
-> +			ethernet@74000 {
-> +				compatible = "marvell,armada-370-neta";
-> +			};
->  		};
->  	};
->  };
-> diff --git a/arch/arm/boot/dts/armada-xp-mv78260.dtsi b/arch/arm/boot/dts/armada-xp-mv78260.dtsi
-> index 8479fdc9e9c2..c5fdc99f0dbe 100644
-> --- a/arch/arm/boot/dts/armada-xp-mv78260.dtsi
-> +++ b/arch/arm/boot/dts/armada-xp-mv78260.dtsi
-> @@ -318,7 +318,7 @@
->  			};
->  
->  			eth3: ethernet@34000 {
-> -				compatible = "marvell,armada-370-neta";
-> +				compatible = "marvell,armada-xp-neta";
->  				reg = <0x34000 0x4000>;
->  				interrupts = <14>;
->  				clocks = <&gateclk 1>;
-> diff --git a/arch/arm/boot/dts/armada-xp-mv78460.dtsi b/arch/arm/boot/dts/armada-xp-mv78460.dtsi
-> index 661d54c81580..0e24f1a38540 100644
-> --- a/arch/arm/boot/dts/armada-xp-mv78460.dtsi
-> +++ b/arch/arm/boot/dts/armada-xp-mv78460.dtsi
-> @@ -356,7 +356,7 @@
->  			};
->  
->  			eth3: ethernet@34000 {
-> -				compatible = "marvell,armada-370-neta";
-> +				compatible = "marvell,armada-xp-neta";
->  				reg = <0x34000 0x4000>;
->  				interrupts = <14>;
->  				clocks = <&gateclk 1>;
-> diff --git a/arch/arm/boot/dts/armada-xp.dtsi b/arch/arm/boot/dts/armada-xp.dtsi
-> index 013d63f69e36..8fdd6d7c0ab1 100644
-> --- a/arch/arm/boot/dts/armada-xp.dtsi
-> +++ b/arch/arm/boot/dts/armada-xp.dtsi
-> @@ -177,7 +177,7 @@
->  			};
->  
->  			eth2: ethernet@30000 {
-> -				compatible = "marvell,armada-370-neta";
-> +				compatible = "marvell,armada-xp-neta";
->  				reg = <0x30000 0x4000>;
->  				interrupts = <12>;
->  				clocks = <&gateclk 2>;
-> @@ -220,6 +220,14 @@
->  				};
->  			};
->  
-> +			ethernet@70000 {
-> +				compatible = "marvell,armada-xp-neta";
-> +			};
-> +
-> +			ethernet@74000 {
-> +				compatible = "marvell,armada-xp-neta";
-> +			};
-> +
->  			xor@f0900 {
->  				compatible = "marvell,orion-xor";
->  				reg = <0xF0900 0x100
-> 
-
-
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 1e1fe9a..f00e691 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1804,34 +1804,37 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+ 				     unsigned long data_len, int noblock,
+ 				     int *errcode, int max_page_order)
+ {
+ 	struct sk_buff *skb;
+ 	long timeo;
+ 	int err;
+ 
+ 	timeo = sock_sndtimeo(sk, noblock);
+ 	for (;;) {
+ 		err = sock_error(sk);
+ 		if (err != 0)
+ 			goto failure;
+ 
+ 		err = -EPIPE;
+ 		if (sk->sk_shutdown & SEND_SHUTDOWN)
+ 			goto failure;
+ 
++		if (sk->sk_allocation & GFP_ATOMIC)
++			break;
++
+ 		if (sk_wmem_alloc_get(sk) < sk->sk_sndbuf)
+ 			break;
+ 
+ 		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
+ 		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+ 		err = -EAGAIN;
+ 		if (!timeo)
+ 			goto failure;
+ 		if (signal_pending(current))
+ 			goto interrupted;
+ 		timeo = sock_wait_for_wmem(sk, timeo);
+ 	}
+ 	skb = alloc_skb_with_frags(header_len, data_len, max_page_order,
+ 				   errcode, sk->sk_allocation);
+ 	if (skb)
+ 		skb_set_owner_w(skb, sk);
+ 	return skb;
 -- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+2.4.2
