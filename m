@@ -1,55 +1,46 @@
-From: Thomas Hellstrom <thellstrom@vmware.com>
-Subject: Re: [Pv-drivers] [net-next]vmxnet3: Bump up driver version number
-Date: Mon, 29 Jun 2015 19:35:33 +0200
-Message-ID: <559181E5.603@vmware.com>
-References: <alpine.DEB.2.02.1506290411550.12845@promg-1n-a-dhcp378.eng.vmware.com>
+From: subashab@codeaurora.org
+Subject: [PATCH] netfilter: nf_nat: Fix possible null dereference
+Date: Mon, 29 Jun 2015 17:40:19 -0000
+Message-ID: <a1103d923f331e1a067c1f46331449de.squirrel@www.codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <pv-drivers@vmware.com>
-To: Shreyas Bhatewara <sbhatewara@vmware.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: pablo@netfilter.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-2.vmware.com ([208.91.2.13]:60758 "EHLO
-	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752298AbbF2RgO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 13:36:14 -0400
-Received: from sc9-mailhost1.vmware.com (sc9-mailhost1.vmware.com [10.113.161.71])
-	by smtp-outbound-2.vmware.com (Postfix) with ESMTP id B6D3C28490
-	for <netdev@vger.kernel.org>; Mon, 29 Jun 2015 10:36:13 -0700 (PDT)
-Received: from EX13-CAS-011.vmware.com (EX13-CAS-011.vmware.com [10.113.191.63])
-	by sc9-mailhost1.vmware.com (Postfix) with ESMTP id 532F7181D8
-	for <netdev@vger.kernel.org>; Mon, 29 Jun 2015 10:36:13 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.02.1506290411550.12845@promg-1n-a-dhcp378.eng.vmware.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:45851 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751100AbbF2RkU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 13:40:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/29/2015 01:14 PM, Shreyas Bhatewara wrote:
-> Bump up the driver version number to reflect the changes done to
-> work with vmxnet3 adapter version 2
->
-> Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
-Reviewed-by: Thomas Hellstrom <thellstrom@vmware.com>
+Fix an issue where __nf_ct_ext_find() could return null to nat in
+nf_nat_masquerade_ipv4() and could be dereferenced.
 
-> ---
->
-> diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-> index e9f1075..2652245 100644
-> --- a/drivers/net/vmxnet3/vmxnet3_int.h
-> +++ b/drivers/net/vmxnet3/vmxnet3_int.h
-> @@ -69,10 +69,10 @@
->  /*
->   * Version numbers
->   */
-> -#define VMXNET3_DRIVER_VERSION_STRING   "1.3.5.0-k"
-> +#define VMXNET3_DRIVER_VERSION_STRING   "1.4.2.0-k"
->  
->  /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
-> -#define VMXNET3_DRIVER_VERSION_NUM      0x01030500
-> +#define VMXNET3_DRIVER_VERSION_NUM      0x01040200
->  
->  #if defined(CONFIG_PCI_MSI)
->  	/* RSS only makes sense if MSI-X is supported. */
-> _______________________________________________
-> Pv-drivers mailing list
-> Pv-drivers@vmware.com
-> http://mailman2.vmware.com/mailman/listinfo/pv-drivers
+This was detected by static analysis software.
+
+Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+---
+ net/ipv4/netfilter/nf_nat_masquerade_ipv4.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
+b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
+index c6eb421..4be5d70 100644
+--- a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
++++ b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
+@@ -38,6 +38,8 @@ nf_nat_masquerade_ipv4(struct sk_buff *skb, unsigned int
+hooknum,
+
+ 	ct = nf_ct_get(skb, &ctinfo);
+ 	nat = nfct_nat(ct);
++	if (!nat)
++		return NF_DROP;
+
+ 	NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED ||
+ 			    ctinfo == IP_CT_RELATED_REPLY));
+--
+Employee of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux
+Foundation Collaborative Project
