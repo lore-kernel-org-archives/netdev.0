@@ -1,36 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next]vmxnet3: Bump up driver version number
-Date: Mon, 29 Jun 2015 09:27:54 -0700 (PDT)
-Message-ID: <20150629.092754.1326328986303666851.davem@davemloft.net>
-References: <alpine.DEB.2.02.1506290411550.12845@promg-1n-a-dhcp378.eng.vmware.com>
+Subject: Re: [PATCH] net-Liquidio: Delete unnecessary checks before the
+ function call "vfree"
+Date: Mon, 29 Jun 2015 09:28:23 -0700 (PDT)
+Message-ID: <20150629.092823.165902372857729782.davem@davemloft.net>
+References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+	<5317A59D.4@users.sourceforge.net>
+	<55912270.4030201@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pv-drivers@vmware.com
-To: sbhatewara@vmware.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43868 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752416AbbF2Q1z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 12:27:55 -0400
-In-Reply-To: <alpine.DEB.2.02.1506290411550.12845@promg-1n-a-dhcp378.eng.vmware.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: derek.chickles@caviumnetworks.com,
+	felix.manlunas@caviumnetworks.com,
+	raghu.vatsavayi@caviumnetworks.com, rric@kernel.org,
+	satananda.burla@caviumnetworks.com, sgoutham@cavium.com,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	julia.lawall@lip6.fr
+To: elfring@users.sourceforge.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55912270.4030201@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Date: Mon, 29 Jun 2015 04:14:43 -0700 (PDT)
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 29 Jun 2015 12:48:16 +0200
 
-> Subject: [net-next]vmxnet3: Bump up driver version number
-> From:	Shreyas Bhatewara <sbhatewara@vmware.com>
-> To:	netdev@vger.kernel.org
-> cc:	pv-drivers@vmware.com
-> Date:	Mon, 29 Jun 2015 04:14:43 -0700 (PDT)
-> Sender:	netdev-owner@vger.kernel.org
-> User-Agent: Alpine 2.02 (DEB 1266 2009-07-14)
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Mon, 29 Jun 2015 12:22:24 +0200
 > 
-> Bump up the driver version number to reflect the changes done to
-> work with vmxnet3 adapter version 2
+> The vfree() function performs also input parameter validation.
+> Thus the test around the call is not needed.
 > 
-> Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
+> This issue was detected by using the Coccinelle software.
+> 
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 
 Applied.
