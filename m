@@ -1,67 +1,102 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 3/3] printk: implement support for extended console drivers
-Date: Mon, 29 Jun 2015 11:20:41 +0200
-Message-ID: <CAMuHMdWwH-3kx1ma5KE=fP94by8boxM_QYqPKpU=YJw8t3hYeg@mail.gmail.com>
-References: <1430318704-32374-1-git-send-email-tj@kernel.org>
-	<1430318704-32374-4-git-send-email-tj@kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH RFC] tun, macvtap: higher order allocations for skbs
+Date: Mon, 29 Jun 2015 18:30:27 +0800
+Message-ID: <55911E43.6040406@redhat.com>
+References: <1434622758-16549-1-git-send-email-mst@redhat.com> <5590CE8D.7030105@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: pmladek@suse.cz, Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Kay Sievers <kay@vrfy.org>,
-	Josh Triplett <josh@joshtriplett.org>,
-	Linux Embedded <linux-embedded@vger.kernel.org>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-In-Reply-To: <1430318704-32374-4-git-send-email-tj@kernel.org>
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45085 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751398AbbF2Kaa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jun 2015 06:30:30 -0400
+In-Reply-To: <5590CE8D.7030105@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Tejun,
 
-On Wed, Apr 29, 2015 at 4:45 PM, Tejun Heo <tj@kernel.org> wrote:
-> --- a/kernel/printk/printk.c
-> +++ b/kernel/printk/printk.c
 
-> @@ -2196,6 +2227,7 @@ out:
->   */
->  void console_unlock(void)
->  {
-> +       static char ext_text[CONSOLE_EXT_LOG_MAX];
+On 06/29/2015 12:50 PM, Jason Wang wrote:
+>
+> On 06/18/2015 06:20 PM, Michael S. Tsirkin wrote:
+>> Needs more testing. Anyone see anything wrong with this?
+>>
+>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+>> ---
+>>  drivers/net/macvtap.c | 2 +-
+>>  drivers/net/tun.c     | 2 +-
+>>  2 files changed, 2 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+>> index 928f3f4..80e87e4 100644
+>> --- a/drivers/net/macvtap.c
+>> +++ b/drivers/net/macvtap.c
+>> @@ -610,7 +610,7 @@ static inline struct sk_buff *macvtap_alloc_skb(struct sock *sk, size_t prepad,
+>>  		linear = len;
+>>  
+>>  	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
+>> -				   err, 0);
+>> +				   err, 1);
+>>  	if (!skb)
+>>  		return NULL;
+>>  
+>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> index cb376b2d..8f2f1e5 100644
+>> --- a/drivers/net/tun.c
+>> +++ b/drivers/net/tun.c
+>> @@ -1069,7 +1069,7 @@ static struct sk_buff *tun_alloc_skb(struct tun_file *tfile,
+>>  		linear = len;
+>>  
+>>  	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
+>> -				   &err, 0);
+>> +				   &err, 1);
+>>  	if (!skb)
+>>  		return ERR_PTR(err);
+>>  
+> Have a round of netperf testing in tun and ixgbe, can see improvement on
+> packet size 512 and 2048.
+>
+> TX:
+> size/session/+thu%/+normalize%
+>    64/     1/    0%/    0%
+>    64/     4/    0%/    0%
+>   512/     1/   +6%/   +7%
+>   512/     4/   +2%/   +2%
+>  2048/     1/  +24%/  +50%
+>  2048/     4/    0%/   +6%
+> 16384/     1/    0%/   -6%
+> 16384/     4/    0%/   -5%
+> 65535/     1/    0%/   -4%
+> 65535/     4/    0%/   -1%
+> RX:
+> size/session/+thu%/+normalize%
+>    64/     1/   -5%/   -4%
+>    64/     4/   -2%/   -1%
+>   512/     1/   -7%/   -8%
+>   512/     4/    0%/    0%
+>  2048/     1/   +4%/   +7%
+>  2048/     4/    0%/   +2%
+> 16384/     1/    0%/   +2%
+> 16384/     4/    0%/  +13%
+> 65535/     1/    0%/    0%
+> 65535/     4/    0%/   -1%
+> TCP_RR:
+> size/session/+thu%/+normalize%
+>     1/    25/    0%/    0%
+>     1/    50/    0%/    0%
+>    64/    25/    0%/   -1%
+>    64/    50/    0%/    0%
+>   256/    25/    0%/    0%
+>   256/    50/    0%/    0%
+>
 
-Can you please
-  a) make this feature optional,
-  b) (de)allocate this buffer dynamically when the first/last console with
-      CON_EXTENDED set is (un)registered?
+Done another test through pktgen in guest with my tx interrupt patches,
+see little regression with this patch:
 
-Your patch is at the top of the bloat-o-meter output (against v4.1):
-
-add/remove: 388/154 grow/shrink: 1309/269 up/down: 92366/-44878 (47488)
-function                                     old     new   delta
-ext_text                                       -    8192   +8192
-do_con_trol                                    -    4824   +4824
-path_openat                                 1416    4224   +2808
-tvec_bases                                     4    2080   +2076
-ip_do_fragment                                 -    1824   +1824
-unix_stream_read_generic                       -    1452   +1452
-ext4_ext_shift_extents                         -    1350   +1350
-ext4_insert_range                              -    1174   +1174
-bpf_prepare_filter                           264    1430   +1166
-proc_pid_cmdline_read                          -    1020   +1020
-
-and unlike the others, this one is not that difficult to fix.
-
-Thanks!
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+size/before(pps)/after(pps)
+64/578689/573004
+8192/332698/322733
+16384/241497/237326
