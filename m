@@ -1,46 +1,35 @@
-From: subashab@codeaurora.org
-Subject: [PATCH] netfilter: nf_nat: Fix possible null dereference
-Date: Mon, 29 Jun 2015 17:40:19 -0000
-Message-ID: <a1103d923f331e1a067c1f46331449de.squirrel@www.codeaurora.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] uapi: fix compatability of linux/in.h with
+ netinet/in.h
+Date: Mon, 29 Jun 2015 20:07:20 +0200
+Message-ID: <20150629180720.GA22584@salvia>
+References: <20150625231206.4a9c3daf@uryu.home.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: pablo@netfilter.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:45851 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751100AbbF2RkU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 13:40:20 -0400
+Received: from mail.us.es ([193.147.175.20]:60834 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750849AbbF2SB6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jun 2015 14:01:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20150625231206.4a9c3daf@uryu.home.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix an issue where __nf_ct_ext_find() could return null to nat in
-nf_nat_masquerade_ipv4() and could be dereferenced.
+On Thu, Jun 25, 2015 at 11:12:06PM -0400, Stephen Hemminger wrote:
+> This fixes breakage to iproute2 build with recent kernel headers
+> caused by:
+>    commit a263653ed798216c0069922d7b5237ca49436007
+>    Author: Pablo Neira Ayuso <pablo@netfilter.org>
+>    Date:   Wed Jun 17 10:28:27 2015 -0500
+> 
+>    netfilter: don't pull include/linux/netfilter.h from netns headers
+> 
+> The issue is that definitions in linux/in.h overlap with those
+> in netinet/in.h. This patch solves this by introducing the same
+> mechanism as was used to solve the same problem with linux/in6.h
 
-This was detected by static analysis software.
-
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
----
- net/ipv4/netfilter/nf_nat_masquerade_ipv4.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-index c6eb421..4be5d70 100644
---- a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-+++ b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-@@ -38,6 +38,8 @@ nf_nat_masquerade_ipv4(struct sk_buff *skb, unsigned int
-hooknum,
-
- 	ct = nf_ct_get(skb, &ctinfo);
- 	nat = nfct_nat(ct);
-+	if (!nat)
-+		return NF_DROP;
-
- 	NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED ||
- 			    ctinfo == IP_CT_RELATED_REPLY));
---
-Employee of Qualcomm Innovation Center, Inc.
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux
-Foundation Collaborative Project
+My patch also modifies non-exposed net/netns/ headers, I'm not sure
+how this can be causing problems to uapi headers.
