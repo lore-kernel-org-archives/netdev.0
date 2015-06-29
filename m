@@ -1,51 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] amd-xgbe: Add the __GFP_NOWARN flag to Rx buffer
- allocation
-Date: Mon, 29 Jun 2015 14:59:35 -0700 (PDT)
-Message-ID: <20150629.145935.354102214496601108.davem@davemloft.net>
-References: <20150629162212.20833.16427.stgit@tlendack-t1.amdoffice.net>
-	<20150629.092722.310092810741640306.davem@davemloft.net>
-	<5591BD0B.6020802@amd.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
+From: Nik Nyby <nikolas@gnu.org>
+Subject: [PATCH] net: icplus: fix typo in constant name
+Date: Mon, 29 Jun 2015 18:40:08 -0400
+Message-ID: <1435617608-1735-1-git-send-email-nikolas@gnu.org>
+Cc: Nik Nyby <nikolas@gnu.org>
+To: romieu@fr.zoreil.com, sorbica@icplus.com.tw,
+	netdev@vger.kernel.org, trivial@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46022 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753225AbbF2V7i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 17:59:38 -0400
-In-Reply-To: <5591BD0B.6020802@amd.com>
+Received: from eggs.gnu.org ([208.118.235.92]:42723 "EHLO eggs.gnu.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752634AbbF2Wsu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jun 2015 18:48:50 -0400
+Received: from Debian-exim by eggs.gnu.org with spam-scanned (Exim 4.71)
+	(envelope-from <nikolas@gnu.org>)
+	id 1Z9hr5-0001lN-1n
+	for netdev@vger.kernel.org; Mon, 29 Jun 2015 18:48:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Mon, 29 Jun 2015 16:47:55 -0500
+This fixes a typo in the IPG_FRAMETOOLONGERRORS constant.
 
-> On 06/29/2015 11:27 AM, David Miller wrote:
->> From: Tom Lendacky <thomas.lendacky@amd.com>
->> Date: Mon, 29 Jun 2015 11:22:12 -0500
->>
->>> When allocating Rx related buffers, alloc_pages is called using an
->>> order
->>> number that is decreased until successful. A system under stress can
->>> experience failures during this allocation process resulting in a
->>> warning
->>> being issued. This message can be of concern to end users even though
->>> the
->>> failure is not fatal. Since the failure is not fatal and can occur
->>> multiple times, the driver should include the __GFP_NOWARN flag to
->>> suppress the warning message from being issued.
->>>
->>> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
->>
->> Applied, thanks.
->>
-> 
-> Hi David,
-> 
-> Can this be queued up for stable 4.0/4.1 (it isn't applicable before
-> 3.19)?
+Signed-off-by: Nik Nyby <nikolas@gnu.org>
+---
+ drivers/net/ethernet/icplus/ipg.c | 2 +-
+ drivers/net/ethernet/icplus/ipg.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Done.
+diff --git a/drivers/net/ethernet/icplus/ipg.c b/drivers/net/ethernet/icplus/ipg.c
+index ff29036..c3b6af8 100644
+--- a/drivers/net/ethernet/icplus/ipg.c
++++ b/drivers/net/ethernet/icplus/ipg.c
+@@ -1028,7 +1028,7 @@ static struct net_device_stats *ipg_nic_get_stats(struct net_device *dev)
+ 
+ 	/* detailed rx_errors */
+ 	sp->stats.rx_length_errors += ipg_r16(IPG_INRANGELENGTHERRORS) +
+-		ipg_r16(IPG_FRAMETOOLONGERRRORS);
++		ipg_r16(IPG_FRAMETOOLONGERRORS);
+ 	sp->stats.rx_crc_errors += ipg_r16(IPG_FRAMECHECKSEQERRORS);
+ 
+ 	/* Unutilized IPG statistic registers. */
+diff --git a/drivers/net/ethernet/icplus/ipg.h b/drivers/net/ethernet/icplus/ipg.h
+index a21e4f5..de60628 100644
+--- a/drivers/net/ethernet/icplus/ipg.h
++++ b/drivers/net/ethernet/icplus/ipg.h
+@@ -102,7 +102,7 @@ enum ipg_regs {
+ #define	IPG_MCSTFRAMESRCVDOK		0xB8
+ #define	IPG_BCSTFRAMESRCVDOK		0xBE
+ #define	IPG_MACCONTROLFRAMESRCVD	0xC6
+-#define	IPG_FRAMETOOLONGERRRORS		0xC8
++#define	IPG_FRAMETOOLONGERRORS		0xC8
+ #define	IPG_INRANGELENGTHERRORS		0xCA
+ #define	IPG_FRAMECHECKSEQERRORS		0xCC
+ #define	IPG_FRAMESLOSTRXERRORS		0xCE
+-- 
+2.1.4
