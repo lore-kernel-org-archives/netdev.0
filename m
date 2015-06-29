@@ -1,72 +1,45 @@
-From: josh@joshtriplett.org
-Subject: Re: [PATCH 3/3] printk: implement support for extended console
- drivers
-Date: Mon, 29 Jun 2015 09:50:00 -0700
-Message-ID: <20150629165000.GA1483@cloud>
-References: <1430318704-32374-1-git-send-email-tj@kernel.org>
- <1430318704-32374-4-git-send-email-tj@kernel.org>
- <CAMuHMdWwH-3kx1ma5KE=fP94by8boxM_QYqPKpU=YJw8t3hYeg@mail.gmail.com>
- <20150629152805.GM15805@mtj.duckdns.org>
- <CAMuHMdXTn0+z4PV9UVZZmpMdk_-JUc4x-GqZweOhQyYMTzSOGQ@mail.gmail.com>
- <20150629154914.GQ15805@mtj.duckdns.org>
- <CAMuHMdX-cA3RccXF2kBifMEyT8e14rURp9Li_WFm7ODBOti=QQ@mail.gmail.com>
- <20150629161355.GS15805@mtj.duckdns.org>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net] amd-xgbe: Add the __GFP_NOWARN flag to Rx buffer
+ allocation
+Date: Mon, 29 Jun 2015 11:22:12 -0500
+Message-ID: <20150629162212.20833.16427.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>, pmladek@suse.cz,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Kay Sievers <kay@vrfy.org>,
-	Linux Embedded <linux-embedded@vger.kernel.org>
-To: Tejun Heo <tj@kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:46808 "EHLO
-	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752197AbbF2QuF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 12:50:05 -0400
-Content-Disposition: inline
-In-Reply-To: <20150629161355.GS15805@mtj.duckdns.org>
+Received: from mail-bl2on0121.outbound.protection.outlook.com ([65.55.169.121]:53937
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752582AbbF2QyZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jun 2015 12:54:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 29, 2015 at 12:13:55PM -0400, Tejun Heo wrote:
-> On Mon, Jun 29, 2015 at 06:11:40PM +0200, Geert Uytterhoeven wrote:
-> > On Mon, Jun 29, 2015 at 5:49 PM, Tejun Heo <tj@kernel.org> wrote:
-> > > On Mon, Jun 29, 2015 at 05:47:49PM +0200, Geert Uytterhoeven wrote:
-> > >> > netconsole itself is optional & modular.  I'm not sure making further
-> > >> > splits is called for, especially given the use cases.
-> > >>
-> > >> It could be a hidden option, selected by its users (e.g. netconsole).
-> > >
-> > > Hmmm... what do you mean?
-> > 
-> > init/Kconfig:
-> > 
-> >         config PRINTK_EXT_LOG
-> >                 bool
-> > 
-> > drivers/net/Kconfig:
-> > 
-> >         config NETCONSOLE
-> >                 tristate "Network console logging support"
-> >                 select PRINTK_EXT_LOG
-> > 
-> > kernel/printk/printk.c:
-> > 
-> >         void console_unlock(void)
-> >         {
-> > #ifdef CONFIG_PRINTK_EXT_LOG
-> >                 static char ext_text[CONSOLE_EXT_LOG_MAX];
-> > #endif
-> 
-> OIC, hmmm... yeah, I think doing it on-demand would be better but will
-> try to find out which way is better.
+When allocating Rx related buffers, alloc_pages is called using an order
+number that is decreased until successful. A system under stress can
+experience failures during this allocation process resulting in a warning
+being issued. This message can be of concern to end users even though the
+failure is not fatal. Since the failure is not fatal and can occur
+multiple times, the driver should include the __GFP_NOWARN flag to
+suppress the warning message from being issued.
 
-Allocating the buffer dynamically is fine, but in that case the code to
-do so should ideally be compiled out.  Since printk is used by almost
-*all* kernels, while netconsole is not, it's more critical to avoid
-allowing printk's size to balloon.
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-desc.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-- Josh Triplett
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
+index dd03ad8..661cdaa 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
+@@ -268,7 +268,7 @@ static int xgbe_alloc_pages(struct xgbe_prv_data *pdata,
+ 	int ret;
+ 
+ 	/* Try to obtain pages, decreasing order if necessary */
+-	gfp |= __GFP_COLD | __GFP_COMP;
++	gfp |= __GFP_COLD | __GFP_COMP | __GFP_NOWARN;
+ 	while (order >= 0) {
+ 		pages = alloc_pages(gfp, order);
+ 		if (pages)
