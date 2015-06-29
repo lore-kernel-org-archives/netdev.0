@@ -1,151 +1,263 @@
-From: Alexander Sverdlin <alexander.sverdlin@nokia.com>
-Subject: [PATCH resend] sctp: Fix race between OOTB responce and route removal
-Date: Mon, 29 Jun 2015 10:41:03 +0200
-Message-ID: <5591049F.3040108@nokia.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH iproute2] include: add copy of tipc.h
+Date: Mon, 29 Jun 2015 10:53:15 +0200 (CEST)
+Message-ID: <20150629085315.B6DECA0BA1@unicorn.suse.cz>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd002.nsn-inter.net ([93.183.12.31]:45801 "EHLO
-	demumfd002.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753020AbbF2Il1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 04:41:27 -0400
+Received: from cantor2.suse.de ([195.135.220.15]:36656 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751376AbbF2IxR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jun 2015 04:53:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is NULL pointer dereference possible during statistics update if the route
-used for OOTB responce is removed at unfortunate time. If the route exists when
-we receive OOTB packet and we finally jump into sctp_packet_transmit() to send
-ABORT, but in the meantime route is removed under our feet, we take "no_route"
-path and try to update stats with IP_INC_STATS(sock_net(asoc->base.sk), ...).
+Copy of kernel include/uapi/linux/tipc.h is needed to build on systems
+with pre-3.16 kernel headers.
 
-But sctp_ootb_pkt_new() used to prepare responce packet doesn't call
-sctp_transport_set_owner() and therefore there is no asoc associated with this
-packet. Probably temporary asoc just for OOTB responces is overkill, so just
-introduce a check like in all other places in sctp_packet_transmit(), where
-"asoc" is dereferenced.
-
-To reproduce this, one needs to
-0. ensure that sctp module is loaded (otherwise ABORT is not generated)
-1. remove default route on the machine
-2. while true; do
-     ip route del [interface-specific route]
-     ip route add [interface-specific route]
-   done
-3. send enough OOTB packets (i.e. HB REQs) from another host to trigger ABORT
-   responce
-
-On x86_64 the crash looks like this:
-
-BUG: unable to handle kernel NULL pointer dereference at 0000000000000020
-IP: [<ffffffffa05ec9ac>] sctp_packet_transmit+0x63c/0x730 [sctp]
-PGD 0
-Oops: 0000 [#1] PREEMPT SMP
-Modules linked in: ...
-CPU: 0 PID: 0 Comm: swapper/0 Tainted: G           O    4.0.5-1-ARCH #1
-Hardware name: ...
-task: ffffffff818124c0 ti: ffffffff81800000 task.ti: ffffffff81800000
-RIP: 0010:[<ffffffffa05ec9ac>]  [<ffffffffa05ec9ac>] sctp_packet_transmit+0x63c/0x730 [sctp]
-RSP: 0018:ffff880127c037b8  EFLAGS: 00010296
-RAX: 0000000000000000 RBX: 0000000000000000 RCX: 00000015ff66b480
-RDX: 00000015ff66b400 RSI: ffff880127c17200 RDI: ffff880123403700
-RBP: ffff880127c03888 R08: 0000000000017200 R09: ffffffff814625af
-R10: ffffea00047e4680 R11: 00000000ffffff80 R12: ffff8800b0d38a28
-R13: ffff8800b0d38a28 R14: ffff8800b3e88000 R15: ffffffffa05f24e0
-FS:  0000000000000000(0000) GS:ffff880127c00000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 0000000000000020 CR3: 00000000c855b000 CR4: 00000000000007f0
-Stack:
- ffff880127c03910 ffff8800b0d38a28 ffffffff8189d240 ffff88011f91b400
- ffff880127c03828 ffffffffa05c94c5 0000000000000000 ffff8800baa1c520
- 0000000000000000 0000000000000001 0000000000000000 0000000000000000
-Call Trace:
- <IRQ>
- [<ffffffffa05c94c5>] ? sctp_sf_tabort_8_4_8.isra.20+0x85/0x140 [sctp]
- [<ffffffffa05d6b42>] ? sctp_transport_put+0x52/0x80 [sctp]
- [<ffffffffa05d0bfc>] sctp_do_sm+0xb8c/0x19a0 [sctp]
- [<ffffffff810b0e00>] ? trigger_load_balance+0x90/0x210
- [<ffffffff810e0329>] ? update_process_times+0x59/0x60
- [<ffffffff812c7a40>] ? timerqueue_add+0x60/0xb0
- [<ffffffff810e0549>] ? enqueue_hrtimer+0x29/0xa0
- [<ffffffff8101f599>] ? read_tsc+0x9/0x10
- [<ffffffff8116d4b5>] ? put_page+0x55/0x60
- [<ffffffff810ee1ad>] ? clockevents_program_event+0x6d/0x100
- [<ffffffff81462b68>] ? skb_free_head+0x58/0x80
- [<ffffffffa029a10b>] ? chksum_update+0x1b/0x27 [crc32c_generic]
- [<ffffffff81283f3e>] ? crypto_shash_update+0xce/0xf0
- [<ffffffffa05d3993>] sctp_endpoint_bh_rcv+0x113/0x280 [sctp]
- [<ffffffffa05dd4e6>] sctp_inq_push+0x46/0x60 [sctp]
- [<ffffffffa05ed7a0>] sctp_rcv+0x880/0x910 [sctp]
- [<ffffffffa05ecb50>] ? sctp_packet_transmit_chunk+0xb0/0xb0 [sctp]
- [<ffffffffa05ecb70>] ? sctp_csum_update+0x20/0x20 [sctp]
- [<ffffffff814b05a5>] ? ip_route_input_noref+0x235/0xd30
- [<ffffffff81051d6b>] ? ack_ioapic_level+0x7b/0x150
- [<ffffffff814b27be>] ip_local_deliver_finish+0xae/0x210
- [<ffffffff814b2e15>] ip_local_deliver+0x35/0x90
- [<ffffffff814b2a15>] ip_rcv_finish+0xf5/0x370
- [<ffffffff814b3128>] ip_rcv+0x2b8/0x3a0
- [<ffffffff81474193>] __netif_receive_skb_core+0x763/0xa50
- [<ffffffff81476c28>] __netif_receive_skb+0x18/0x60
- [<ffffffff81476cb0>] netif_receive_skb_internal+0x40/0xd0
- [<ffffffff814776c8>] napi_gro_receive+0xe8/0x120
- [<ffffffffa03946aa>] rtl8169_poll+0x2da/0x660 [r8169]
- [<ffffffff8147896a>] net_rx_action+0x21a/0x360
- [<ffffffff81078dc1>] __do_softirq+0xe1/0x2d0
- [<ffffffff8107912d>] irq_exit+0xad/0xb0
- [<ffffffff8157d158>] do_IRQ+0x58/0xf0
- [<ffffffff8157b06d>] common_interrupt+0x6d/0x6d
- <EOI>
- [<ffffffff810e1218>] ? hrtimer_start+0x18/0x20
- [<ffffffffa05d65f9>] ? sctp_transport_destroy_rcu+0x29/0x30 [sctp]
- [<ffffffff81020c50>] ? mwait_idle+0x60/0xa0
- [<ffffffff810216ef>] arch_cpu_idle+0xf/0x20
- [<ffffffff810b731c>] cpu_startup_entry+0x3ec/0x480
- [<ffffffff8156b365>] rest_init+0x85/0x90
- [<ffffffff818eb035>] start_kernel+0x48b/0x4ac
- [<ffffffff818ea120>] ? early_idt_handlers+0x120/0x120
- [<ffffffff818ea339>] x86_64_start_reservations+0x2a/0x2c
- [<ffffffff818ea49c>] x86_64_start_kernel+0x161/0x184
-Code: 90 48 8b 80 b8 00 00 00 48 89 85 70 ff ff ff 48 83 bd 70 ff ff ff 00 0f 85 cd fa ff ff 48 89 df 31 db e8 18 63 e7 e0 48 8b 45 80 <48> 8b 40 20 48 8b 40 30 48 8b 80 68 01 00 00 65 48 ff 40 78 e9
-RIP  [<ffffffffa05ec9ac>] sctp_packet_transmit+0x63c/0x730 [sctp]
- RSP <ffff880127c037b8>
-CR2: 0000000000000020
----[ end trace 5aec7fd2dc983574 ]---
-Kernel panic - not syncing: Fatal exception in interrupt
-Kernel Offset: 0x0 from 0xffffffff81000000 (relocation range: 0xffffffff80000000-0xffffffff9fffffff)
-drm_kms_helper: panic occurred, switching back to text console
----[ end Kernel panic - not syncing: Fatal exception in interrupt
-
-Signed-off-by: Alexander Sverdlin <alexander.sverdlin@nokia.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 ---
+ include/linux/tipc.h | 232 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 232 insertions(+)
+ create mode 100644 include/linux/tipc.h
 
-This patch was already published in linux-sctp, now sending to netdev, as nobody
-has picked it up.
-
-Stable info: This patch would be beneficial for stable kernels down to 3.2, I believe.
-
- net/sctp/output.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index fc5e45b..abe7c2d 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -599,7 +599,9 @@ out:
- 	return err;
- no_route:
- 	kfree_skb(nskb);
--	IP_INC_STATS(sock_net(asoc->base.sk), IPSTATS_MIB_OUTNOROUTES);
+diff --git a/include/linux/tipc.h b/include/linux/tipc.h
+new file mode 100644
+index 000000000000..6f71b9b41595
+--- /dev/null
++++ b/include/linux/tipc.h
+@@ -0,0 +1,232 @@
++/*
++ * include/uapi/linux/tipc.h: Header for TIPC socket interface
++ *
++ * Copyright (c) 2003-2006, Ericsson AB
++ * Copyright (c) 2005, 2010-2011, Wind River Systems
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
 +
-+	if (asoc)
-+		IP_INC_STATS(sock_net(asoc->base.sk), IPSTATS_MIB_OUTNOROUTES);
- 
- 	/* FIXME: Returning the 'err' will effect all the associations
- 	 * associated with a socket, although only one of the paths of the
++#ifndef _LINUX_TIPC_H_
++#define _LINUX_TIPC_H_
++
++#include <linux/types.h>
++#include <linux/sockios.h>
++
++/*
++ * TIPC addressing primitives
++ */
++
++struct tipc_portid {
++	__u32 ref;
++	__u32 node;
++};
++
++struct tipc_name {
++	__u32 type;
++	__u32 instance;
++};
++
++struct tipc_name_seq {
++	__u32 type;
++	__u32 lower;
++	__u32 upper;
++};
++
++static inline __u32 tipc_addr(unsigned int zone,
++			      unsigned int cluster,
++			      unsigned int node)
++{
++	return (zone << 24) | (cluster << 12) | node;
++}
++
++static inline unsigned int tipc_zone(__u32 addr)
++{
++	return addr >> 24;
++}
++
++static inline unsigned int tipc_cluster(__u32 addr)
++{
++	return (addr >> 12) & 0xfff;
++}
++
++static inline unsigned int tipc_node(__u32 addr)
++{
++	return addr & 0xfff;
++}
++
++/*
++ * Application-accessible port name types
++ */
++
++#define TIPC_CFG_SRV		0	/* configuration service name type */
++#define TIPC_TOP_SRV		1	/* topology service name type */
++#define TIPC_LINK_STATE		2	/* link state name type */
++#define TIPC_RESERVED_TYPES	64	/* lowest user-publishable name type */
++
++/*
++ * Publication scopes when binding port names and port name sequences
++ */
++
++#define TIPC_ZONE_SCOPE		1
++#define TIPC_CLUSTER_SCOPE	2
++#define TIPC_NODE_SCOPE		3
++
++/*
++ * Limiting values for messages
++ */
++
++#define TIPC_MAX_USER_MSG_SIZE	66000U
++
++/*
++ * Message importance levels
++ */
++
++#define TIPC_LOW_IMPORTANCE		0
++#define TIPC_MEDIUM_IMPORTANCE		1
++#define TIPC_HIGH_IMPORTANCE		2
++#define TIPC_CRITICAL_IMPORTANCE	3
++
++/*
++ * Msg rejection/connection shutdown reasons
++ */
++
++#define TIPC_OK			0
++#define TIPC_ERR_NO_NAME	1
++#define TIPC_ERR_NO_PORT	2
++#define TIPC_ERR_NO_NODE	3
++#define TIPC_ERR_OVERLOAD	4
++#define TIPC_CONN_SHUTDOWN	5
++
++/*
++ * TIPC topology subscription service definitions
++ */
++
++#define TIPC_SUB_PORTS		0x01	/* filter for port availability */
++#define TIPC_SUB_SERVICE	0x02	/* filter for service availability */
++#define TIPC_SUB_CANCEL		0x04	/* cancel a subscription */
++
++#define TIPC_WAIT_FOREVER	(~0)	/* timeout for permanent subscription */
++
++struct tipc_subscr {
++	struct tipc_name_seq seq;	/* name sequence of interest */
++	__u32 timeout;			/* subscription duration (in ms) */
++	__u32 filter;			/* bitmask of filter options */
++	char usr_handle[8];		/* available for subscriber use */
++};
++
++#define TIPC_PUBLISHED		1	/* publication event */
++#define TIPC_WITHDRAWN		2	/* withdraw event */
++#define TIPC_SUBSCR_TIMEOUT	3	/* subscription timeout event */
++
++struct tipc_event {
++	__u32 event;			/* event type */
++	__u32 found_lower;		/* matching name seq instances */
++	__u32 found_upper;		/*    "      "    "     "      */
++	struct tipc_portid port;	/* associated port */
++	struct tipc_subscr s;		/* associated subscription */
++};
++
++/*
++ * Socket API
++ */
++
++#ifndef AF_TIPC
++#define AF_TIPC		30
++#endif
++
++#ifndef PF_TIPC
++#define PF_TIPC		AF_TIPC
++#endif
++
++#ifndef SOL_TIPC
++#define SOL_TIPC	271
++#endif
++
++#define TIPC_ADDR_NAMESEQ	1
++#define TIPC_ADDR_MCAST		1
++#define TIPC_ADDR_NAME		2
++#define TIPC_ADDR_ID		3
++
++struct sockaddr_tipc {
++	unsigned short family;
++	unsigned char  addrtype;
++	signed   char  scope;
++	union {
++		struct tipc_portid id;
++		struct tipc_name_seq nameseq;
++		struct {
++			struct tipc_name name;
++			__u32 domain;
++		} name;
++	} addr;
++};
++
++/*
++ * Ancillary data objects supported by recvmsg()
++ */
++
++#define TIPC_ERRINFO	1	/* error info */
++#define TIPC_RETDATA	2	/* returned data */
++#define TIPC_DESTNAME	3	/* destination name */
++
++/*
++ * TIPC-specific socket option values
++ */
++
++#define TIPC_IMPORTANCE		127	/* Default: TIPC_LOW_IMPORTANCE */
++#define TIPC_SRC_DROPPABLE	128	/* Default: based on socket type */
++#define TIPC_DEST_DROPPABLE	129	/* Default: based on socket type */
++#define TIPC_CONN_TIMEOUT	130	/* Default: 8000 (ms)  */
++#define TIPC_NODE_RECVQ_DEPTH	131	/* Default: none (read only) */
++#define TIPC_SOCK_RECVQ_DEPTH	132	/* Default: none (read only) */
++
++/*
++ * Maximum sizes of TIPC bearer-related names (including terminating NULL)
++ * The string formatting for each name element is:
++ * media: media
++ * interface: media:interface name
++ * link: Z.C.N:interface-Z.C.N:interface
++ *
++ */
++
++#define TIPC_MAX_MEDIA_NAME	16
++#define TIPC_MAX_IF_NAME	16
++#define TIPC_MAX_BEARER_NAME	32
++#define TIPC_MAX_LINK_NAME	60
++
++#define SIOCGETLINKNAME		SIOCPROTOPRIVATE
++
++struct tipc_sioc_ln_req {
++	__u32 peer;
++	__u32 bearer_id;
++	char linkname[TIPC_MAX_LINK_NAME];
++};
++#endif
+-- 
+2.4.5
