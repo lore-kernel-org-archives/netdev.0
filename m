@@ -1,77 +1,39 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [patch net-next 00/13] introduce rocker switch driver
- with openvswitch hardware accelerated datapath
-Date: Mon, 29 Jun 2015 07:46:04 +0200
-Message-ID: <20150629054604.GA2242@nanopsycho.orion>
-References: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
- <20140908135413.GA5995@casper.infradead.org>
- <20140916155832.GA1869@nanopsycho.orion>
- <CAOv37=BNU1-+kgTR6RUqxw7snJL6=5g-rLYhuPc1F-V0B1k7tA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org,
- edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
- f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org,
- roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
- Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
- dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Neelakantam Gaddam <neelugaddam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAOv37=BNU1-+kgTR6RUqxw7snJL6=5g-rLYhuPc1F-V0B1k7tA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: [PATCH] build: must honor pkg-config flags for libmnl
+Date: Mon, 29 Jun 2015 10:01:55 +0200
+Message-ID: <1435564915-21929-1-git-send-email-jengelh@inai.de>
+Cc: netdev@vger.kernel.org
+To: shemming@brocade.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ares41.inai.de ([46.4.122.207]:55110 "EHLO ares41.inai.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752944AbbF2IB5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jun 2015 04:01:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TW9uLCBKdW4gMjksIDIwMTUgYXQgMDc6NDQ6MzhBTSBDRVNULCBuZWVsdWdhZGRhbUBnbWFpbC5j
-b20gd3JvdGU6Cj5IaSBBbGwsCj4KPlNoYWxsIHdlIGV4cGVjdCB0aGVzZSBjaGFuZ2VzIHRvIGJl
-IGF2YWlsYWJsZSBpbiB0aGUgdXBjb21pbmcgMi40IHJlbGVhc2U/Cj5vciBpcyBpdCBzdGlsbCBp
-biBkZXZlbG9wbWVudD8KClN0aWxsIGluIGRldmVsLgoKPgo+Cj4KPgo+Cj4KPk9uIFR1ZSwgU2Vw
-IDE2LCAyMDE0IGF0IDk6MjggUE0sIEppcmkgUGlya28gPGppcmlAcmVzbnVsbGkudXM+IHdyb3Rl
-Ogo+Cj4+IE1vbiwgU2VwIDA4LCAyMDE0IGF0IDAzOjU0OjEzUE0gQ0VTVCwgdGdyYWZAc3V1Zy5j
-aCB3cm90ZToKPj4gPk9uIDA5LzAzLzE0IGF0IDExOjI0YW0sIEppcmkgUGlya28gd3JvdGU6Cj4+
-ID4+IFRoaXMgcGF0Y2hzZXQgY2FuIGJlIGRpdmlkZWQgaW50byAzIG1haW4gc2VjdGlvbnM6Cj4+
-ID4+IC0gaW50cm9kdWNlIHN3aXRjaGRldiBhcGkgZm9yIGltcGxlbWVudGluZyBzd2l0Y2ggZHJp
-dmVycwo+PiA+PiAtIGFkZCBoYXJkd2FyZSBhY2NlbGVyYXRpb24gYml0cyBpbnRvIG9wZW52c3dp
-dGNoIGRhdGFwYXRoLCBUaGlzIHVzZXMKPj4gPj4gICBwcmV2aW91c2x5IG1lbnRpb25lZCBzd2l0
-Y2hkZXYgYXBpCj4+ID4+IC0gaW50cm9kdWNlIHJvY2tlciBzd2l0Y2ggZHJpdmVyIHdoaWNoIGlt
-cGxlbWVudHMgc3dpdGNoZGV2IGFwaQo+PiA+Cj4+ID5KaXJpLCBTY290dCwKPj4gPgo+PiA+RW5j
-bG9zZWQgaXMgdGhlIEdPT0cgZG9jIHdoaWNoIG91dGxpbmVzIHNvbWUgZGV0YWlscyBvbiBteSBw
-YXJ0aWN1bGFyCj4+ID5pbnRlcmVzdHMgWzBdLiBJdCBpbmNsdWRlcyBzZXZlcmFsIGRpYWdyYW1z
-IHdoaWNoIG1pZ2h0IGhlbHAgdG8KPj4gPnVuZGVyc3RhbmQgdGhlIG92ZXJhbGwgYXJjaC4gSXQg
-aXMgaGlnaGx5IHJlbGF0ZWQgdG8gSm9obidzIHdvcmsgYXMKPj4gPndlbGwuIFBsZWFzZSBsZXQg
-bWUga25vdyBpZiBzb21ldGhpbmcgZG9lcyBub3QgYWxpZ24gd2l0aCB0aGUgbW9kZWwKPj4gPnlv
-dSBoYXZlIGluIG1pbmQuCj4+Cj4+Cj4+IEhpIFRob21hcy4KPj4KPj4gU29ycnkgZm9yIGxhdGUg
-YW5zd2VyLCBJIHJldHVybmVkIGZyb20gdmFjYXRpb24geWVzdGVyZGF5Lgo+PiBJIHdlbnQgb3Zl
-ciB5b3VyIGRvY3VtZW50LCBJIGRpZCBub3QgZmluZCBhbnl0aGluZyB3aGljaCB3b3VsZCBub3Qg
-YWxpZ24KPj4gd2l0aCBvdXIgYXBwcm9hY2guIExvb2tzIGdvb2QgdG8gbWUuCj4+Cj4+ID4KPj4g
-PlN1bW1hcnk6Cj4+ID5UaGUgZnVsbCB2aXJ0dWFsIHR1bm5lbCBlbmRwb2ludCBmbG93IG9mZmxv
-YWQgYXR0ZW1wdHMgdG8gb2ZmbG9hZCBmdWxsCj4+ID5mbG93cyB0byB0aGUgaGFyZHdhcmUgYW5k
-IHV0aWxpemUgdGhlIGVtYmVkZGVkIHN3aXRjaCBvbiB0aGUgaG9zdCBOSUMKPj4gPnRvIGVtcG93
-ZXIgdGhlIGVTd2l0Y2ggd2l0aCB0aGUgcmVxdWlyZWQgZmxleGliaWxpdHkgb2YgdGhlIHNvZnR3
-YXJlCj4+ID5kcml2ZW4gbmV0d29yay4gSW4gdGhpcyBtb2RlbCwgdGhlIGd1ZXN0IChWTSBvciBM
-WEMpIGF0dGFjaGVzIHRocm91Z2ggYQo+PiA+U1ItSU9WIFZGIHdoaWNoIHNlcnZlcyBhcyB0aGUg
-cHJpbWFyeSBwYXRoLiBBIHNsb3cgcGF0aCAvIHNvZnR3YXJlIHBhdGgKPj4gPmlzIHByb3ZpZGVk
-IHZpYSB0aGUgQ1BVIHdoaWNoIGNhbiByb3V0ZSBwYWNrZXRzIGJhY2sgaW50byB0aGUgVkYgYnkK
-Pj4gPnRhZ2dpbmcgcGFja2V0cyB3aXRoIGZvcndhcmRpbmcgbWV0YWRhdGEgYW5kIHNlbmRpbmcg
-dGhlIGZyYW1lIGJhY2sgdG8KPj4gPnRoZSBOSUMuCj4+ID4KPj4gPlswXQo+PiBodHRwczovL2Rv
-Y3MuZ29vZ2xlLmNvbS9kb2N1bWVudC9kLzE5NXdhVWxpdTdHNVlZVnVYSG1MbUhnSjM4REZTdGUz
-MjFXUHEwb2FGaHlVL2VkaXQ/dXNwPXNoYXJpbmcKPj4gPihQdWJsaWNseSBhY2Nlc3NpYmxlIGFu
-ZCBvcGVuIGZvciBjb21tZW50cykKPj4gX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX18KPj4gZGV2IG1haWxpbmcgbGlzdAo+PiBkZXZAb3BlbnZzd2l0Y2gub3Jn
-Cj4+IGh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYKPj4KPgo+Cj4K
-Pi0tIAo+VGhhbmtzICYgUmVnYXJkcwo+TmVlbGFrYW50YW0gR2FkZGFtCl9fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9w
-ZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2
-Cg==
+The build otherwise fails if libmnl does not directly live in a
+standard search path.
+---
+ tipc/Makefile | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/tipc/Makefile b/tipc/Makefile
+index 4bda8c5..d4637f8 100644
+--- a/tipc/Makefile
++++ b/tipc/Makefile
+@@ -5,8 +5,11 @@ TIPCOBJ=bearer.o \
+     node.o socket.o \
+     tipc.o
+ 
++include ../Config
++
+ TARGETS=tipc
+-LDLIBS += -lmnl
++CFLAGS += $(shell $(PKG_CONFIG) libmnl --cflags)
++LDLIBS += $(shell $(PKG_CONFIG) libmnl --libs)
+ 
+ all: $(TARGETS) $(LIBS)
+ 
+-- 
+2.4.3
