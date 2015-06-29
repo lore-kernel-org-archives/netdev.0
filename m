@@ -1,43 +1,33 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCHv4] net: fec: Ensure clocks are enabled while using
- mdio bus
-Date: Mon, 29 Jun 2015 05:44:02 +0200
-Message-ID: <20150629034402.GA30187@lunn.ch>
-References: <1435512972-24014-1-git-send-email-andrew@lunn.ch>
- <BLUPR03MB373F2684A8C9BF38719B930F5AA0@BLUPR03MB373.namprd03.prod.outlook.com>
+From: Alex Gartrell <alexgartrell@gmail.com>
+Subject: Re: [PATCH RFC] net/unix: SO_REUSEPORT for AF_UNIX
+Date: Sun, 28 Jun 2015 21:05:22 -0700
+Message-ID: <CALCkm3f2uvsCn=uiyCqrR_V=CgCpU-TSGYH6JTkcm6QQV5FdVA@mail.gmail.com>
+References: <1435485139-16866-1-git-send-email-ch@bitfehler.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	Cory Tusar <cory.tusar@pid1solutions.com>
-To: Duan Andy <fugang.duan@freescale.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Conrad Hoffmann <ch@bitfehler.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:59011 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753027AbbF2DuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Jun 2015 23:50:09 -0400
-Content-Disposition: inline
-In-Reply-To: <BLUPR03MB373F2684A8C9BF38719B930F5AA0@BLUPR03MB373.namprd03.prod.outlook.com>
+Received: from mail-qg0-f41.google.com ([209.85.192.41]:33349 "EHLO
+	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752411AbbF2EFm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2015 00:05:42 -0400
+Received: by qgem68 with SMTP id m68so14122742qge.0
+        for <netdev@vger.kernel.org>; Sun, 28 Jun 2015 21:05:41 -0700 (PDT)
+In-Reply-To: <1435485139-16866-1-git-send-email-ch@bitfehler.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > @@ -3496,10 +3523,11 @@ static int __maybe_unused fec_suspend(struct
-> > device *dev)
-> >  		netif_device_detach(ndev);
-> >  		netif_tx_unlock_bh(ndev);
-> >  		fec_stop(ndev);
-> > -		fec_enet_clk_enable(ndev, false);
-> >  		if (!(fep->wol_flag & FEC_WOL_FLAG_ENABLE))
-> >  			pinctrl_pm_select_sleep_state(&fep->pdev->dev);
-> >  	}
-> > +
-> > +	fec_enet_clk_enable(ndev, false);
-> 
-> Why do you move out the api from netif runnig condition ?
+On Sun, Jun 28, 2015 at 2:52 AM, Conrad Hoffmann <ch@bitfehler.net> wrote:
+> Support the SO_REUSEPORT option for AF_UNIX (aka AF_LOCAL) sockets. Note
+> that unlike the IP implementations, the semantics for AF_UNIX sockets are
+> those of the original BSD implementation, i.e. each socket that
+> successfully reuses a port completely takes over from the previous
+> listener.
 
-Ah, read the documentation again. I see my error. I thought it would
-call fec_suspend() and fec_resume(). But now i see there are separate
-runtime suspend and resume functions.
+This is a really weird corner case from a user's perspective.  I think
+sharing it is more reasonable, as you can always signal the other
+process out of band.
 
-I will fix this.
-
-  Andrew
+-- 
+Alex Gartrell
