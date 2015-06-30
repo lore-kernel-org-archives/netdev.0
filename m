@@ -1,35 +1,64 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: mlx4: "failed to allocate default counter port 1"
-Date: Tue, 30 Jun 2015 16:52:45 +0300
-Message-ID: <55929F2D.9050805@mellanox.com>
-References: <alpine.LFD.2.11.1506301229520.1799@denkbrett>
- <5592913C.3000207@mellanox.com>
- <alpine.LFD.2.11.1506301520180.1799@denkbrett>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eran Ben Elisha <eranbe@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	<netdev@vger.kernel.org>
-To: Sebastian Ott <sebott@linux.vnet.ibm.com>
+From: Simon Guinot <simon.guinot@sequanux.org>
+Subject: [PATCH v3 1/3] net: mvneta: introduce compatible string "marvell,armada-xp-neta"
+Date: Tue, 30 Jun 2015 16:05:47 +0200
+Message-ID: <1435673149-12599-2-git-send-email-simon.guinot@sequanux.org>
+References: <1435673149-12599-1-git-send-email-simon.guinot@sequanux.org>
+Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Vincent Donnefort <vdonnefort@gmail.com>,
+	<stable@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0079.outbound.protection.outlook.com ([157.56.112.79]:14608
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752637AbbF3Nwe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Jun 2015 09:52:34 -0400
-In-Reply-To: <alpine.LFD.2.11.1506301520180.1799@denkbrett>
+Received: from vm1.sequanux.org ([188.165.36.56]:57760 "EHLO vm1.sequanux.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753957AbbF3OFz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jun 2015 10:05:55 -0400
+In-Reply-To: <1435673149-12599-1-git-send-email-simon.guinot@sequanux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/30/2015 4:24 PM, Sebastian Ott wrote:
->> >Do you run the VF on the same system/kernel as the PF, or the VF is probed to
->> >VM which runs the latest kernel and the PF runsolder kernel (which?)
-> The latter case. The PF is driven by a much older Kernel running OFED 2.3.2.0.0.1
->
+The mvneta driver supports the Ethernet IP found in the Armada 370, XP,
+380 and 385 SoCs. Since at least one more hardware feature is available
+for the Armada XP SoCs then a way to identify them is needed.
 
-Can you try running the inbox PF driver that comes with the PF kernel 
-(what kernel is that?) I'd like to see we're OK there.
+This patch introduces a new compatible string "marvell,armada-xp-neta".
 
-Or.
+Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
+Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP network unit")
+Cc: <stable@vger.kernel.org> # v3.8+
+Acked-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+---
+ Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt | 2 +-
+ drivers/net/ethernet/marvell/mvneta.c                             | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+index 750d577e8083..f5a8ca29aff0 100644
+--- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
++++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+@@ -1,7 +1,7 @@
+ * Marvell Armada 370 / Armada XP Ethernet Controller (NETA)
+ 
+ Required properties:
+-- compatible: should be "marvell,armada-370-neta".
++- compatible: "marvell,armada-370-neta" or "marvell,armada-xp-neta".
+ - reg: address and length of the register set for the device.
+ - interrupts: interrupt for the device
+ - phy: See ethernet.txt file in the same directory.
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index ce5f7f9cff06..aceb977b104d 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3179,6 +3179,7 @@ static int mvneta_remove(struct platform_device *pdev)
+ 
+ static const struct of_device_id mvneta_match[] = {
+ 	{ .compatible = "marvell,armada-370-neta" },
++	{ .compatible = "marvell,armada-xp-neta" },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, mvneta_match);
+-- 
+2.1.4
