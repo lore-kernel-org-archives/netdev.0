@@ -1,49 +1,53 @@
-From: "Qatar Foundation" <qatarfund@qf.org.qa>
-Subject: =?utf-8?q?Claim_=E2=82=AC950=2C000=2E00_EURO_?=
-Date: Tue, 30 Jun 2015 05:10:44 +0100
-Message-ID: <20150630040334.94D922748DDA@mail.kaltimpost.net>
-Reply-To: qfoundation63@gmail.com
+From: Maninder Singh <maninder1.s@samsung.com>
+Subject: Re: [PATCH 1/1] igb: Use ARRAY_SIZE instead fo sizeof(a)/sizeof(a[0])
+Date: Tue, 30 Jun 2015 08:01:57 +0000 (GMT)
+Message-ID: <1652907052.50321435651311854.JavaMail.weblogic@ep2mlwas04a>
+Reply-To: maninder1.s@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <qatarfund@qf.org.qa>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: base64
+Cc: "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
+	"shannon.nelson@intel.com" <shannon.nelson@intel.com>,
+	"carolyn.wyborny@intel.com" <carolyn.wyborny@intel.com>,
+	"donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
+	"matthew.vick@intel.com" <matthew.vick@intel.com>,
+	"john.ronciak@intel.com" <john.ronciak@intel.com>,
+	"mitch.a.williams@intel.com" <mitch.a.williams@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	PANKAJ MISHRA <pankaj.m@samsung.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [119.47.88.6] ([119.47.88.6]:34219 "EHLO mail.kaltimpost.net"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752098AbbF3H4l convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 03:56:41 -0400
-Content-Description: Mail message body
+Received: from mailout3.samsung.com ([203.254.224.33]:50090 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752799AbbF3ICS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 04:02:18 -0400
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout3.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
+ 64bit (built May  5 2014))
+ with ESMTP id <0NQQ00GR2ZNT0Z80@mailout3.samsung.com> for
+ netdev@vger.kernel.org; Tue, 30 Jun 2015 17:02:17 +0900 (KST)
+MIME-version: 1.0
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lieber Beg=C3=BCnstigte,
-
-Sie wurden ausgew=C3=A4hlt, um =E2=82=AC 950.000,00 EURO als Charity-Sp=
-enden / Hilfe der Qatar Foundation erhalten. Antworten zur=C3=BCck f=C3=
-=BCr weitere Informationen.
-
-Mit freundlichen Gr=C3=BC=C3=9Fen,
-Ingenieur Saad Al Muhannadi.
-Beantworten: qfoundation63@gmail.com
-
-Pr=C3=A4sident der Qatar Foundation.
-
-
-Dear Beneficiary,
-
-You have been selected to receive =E2=82=AC950,000.00 EURO as charity d=
-onations / aid of the Qatar Foundation. Reply back for more information=
-=2E
-
-Yours sincerely,
-Engineer Saad Al Muhannadi.
-Reply to: qfoundation63@gmail.com
-
-President of the Qatar Foundation.
-
-
-
-
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+SGkgSm9lLA0KDQo+PiBVc2UgQVJSQVlfU0laRSBpbnN0ZWFkIGZvIHNpemVvZihhKS9zaXplb2Yo
+YVswXSkNCj4NCj5JIHRoaW5rIGFsbCBvZiB0aGVzZSAjZGVmaW5lcyBzaG91bGQgYmUgcmVtb3Zl
+ZCBpbnN0ZWFkDQo+YXMgdGhleSBhcmUgYWxsIHVzZWQgb25seSBvbmNlLg0KDQpJZiB3ZSByZXBs
+Y2FzZSBvbmx5IEFSUkFZX1NJWkUgdGhlbiBjb29kIHdpbGwgbG9vayBhbGlrZQ0KdG8gZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlL3BoeS5jDQoNCkFuZCBpZiB3ZSBoYXZlIHRvIHJl
+bW92ZSB0aGVzZSAjZGVmaW5lcyAsIHRoZW4gd2UgY2FuIGFsc28gcmVtb3ZlIGl0IGZyb20gDQpk
+cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9lMTAwMGUvcGh5LmMgDQoNCkJlY2F1c2Ugc2FtZSBv
+cGVyYXRpb25zIGFuZCBzYW1lIHVzYWdlIGlzIHRoZXJlIGluIGJvdGggZmlsZXMuDQp3aGF0IHNh
+eT8NCg0KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAw
+MF9waHkuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF9waHkuYw0KPltd
+DQo+PiBAQCAtMzcsOCArMzcsNyBAQCBzdGF0aWMgczMyICBpZ2Jfc2V0X21hc3Rlcl9zbGF2ZV9t
+b2RlKHN0cnVjdCBlMTAwMF9odyAqaHcpOw0KPj4gIHN0YXRpYyBjb25zdCB1MTYgZTEwMDBfbTg4
+X2NhYmxlX2xlbmd0aF90YWJsZVtdID0gew0KPj4gIAkwLCA1MCwgODAsIDExMCwgMTQwLCAxNDAs
+IEUxMDAwX0NBQkxFX0xFTkdUSF9VTkRFRklORUQgfTsNCj4+ICAjZGVmaW5lIE04OEUxMDAwX0NB
+QkxFX0xFTkdUSF9UQUJMRV9TSVpFIFwNCj4+IC0JKHNpemVvZihlMTAwMF9tODhfY2FibGVfbGVu
+Z3RoX3RhYmxlKSAvIFwNCj4+IC0Jc2l6ZW9mKGUxMDAwX204OF9jYWJsZV9sZW5ndGhfdGFibGVb
+MF0pKQ0KPj4gKwlBUlJBWV9TSVpFKGUxMDAwX204OF9jYWJsZV9sZW5ndGhfdGFibGUpDQo+PiAg
