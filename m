@@ -1,42 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC net-next] vxlan: GRO support at tunnel layer
-Date: Tue, 30 Jun 2015 07:06:34 +0200
-Message-ID: <1435640794.4110.118.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1435360189-641007-1-git-send-email-tom@herbertland.com>
-	 <558DF24A.1040504@hp.com>
-	 <df94e5b8a0ed7a9146063908e3001ef3@imap.linux.ibm.com>
-	 <5591A4DF.4010104@hp.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/1] igb: Use ARRAY_SIZE instead fo
+ sizeof(a)/sizeof(a[0])
+Date: Mon, 29 Jun 2015 22:12:36 -0700
+Message-ID: <1435641156.6661.1.camel@perches.com>
+References: <1435640130-1466-1-git-send-email-maninder1.s@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Ramu Ramamurthy <sramamur@linux.vnet.ibm.com>,
-	Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, pankaj.m@samsung.com
+To: Maninder Singh <maninder1.s@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:33467 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751581AbbF3FGj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 01:06:39 -0400
-Received: by wiwl6 with SMTP id l6so119195736wiw.0
-        for <netdev@vger.kernel.org>; Mon, 29 Jun 2015 22:06:37 -0700 (PDT)
-In-Reply-To: <5591A4DF.4010104@hp.com>
+Received: from smtprelay0020.hostedemail.com ([216.40.44.20]:48909 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750771AbbF3FMl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 01:12:41 -0400
+In-Reply-To: <1435640130-1466-1-git-send-email-maninder1.s@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-06-29 at 13:04 -0700, Rick Jones wrote:
+On Tue, 2015-06-30 at 10:25 +0530, Maninder Singh wrote:
+> Use ARRAY_SIZE instead fo sizeof(a)/sizeof(a[0])
 
-> PS  FWIW, if I shift from using just the linux native vxlan to a "mostly 
-> full" set of OpenStack compute node plumbing - two OVS bridges and a 
-> linux bridge and associated plumbing with a vxlan tunnel defined in OVS, 
-> but nothing above the Linux bridge (and no VMs) I see more like 4.9 
-> Gbit/s.  The veth pair connecting the linux bridge to the top ovs bridge 
-> show rx checksum and gro enabled.  the linux bridge itself shows GRO but 
-> rx checksum off (fixed).  I'm not sure how to go about checking the OVS 
-> constructs.
-> 
+I think all of these #defines should be removed instead
+as they are all used only once.
 
-This is exactly why we had to implement GRO at the first stage.
-
-We can not assume a proper netdev tunnel is there where we can use
-gro_cells.
+> diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
+[]
+> @@ -37,8 +37,7 @@ static s32  igb_set_master_slave_mode(struct e1000_hw *hw);
+>  static const u16 e1000_m88_cable_length_table[] = {
+>  	0, 50, 80, 110, 140, 140, E1000_CABLE_LENGTH_UNDEFINED };
+>  #define M88E1000_CABLE_LENGTH_TABLE_SIZE \
+> -	(sizeof(e1000_m88_cable_length_table) / \
+> -	sizeof(e1000_m88_cable_length_table[0]))
+> +	ARRAY_SIZE(e1000_m88_cable_length_table)
+>  
+>  static const u16 e1000_igp_2_cable_length_table[] = {
+>  	0, 0, 0, 0, 0, 0, 0, 0, 3, 5, 8, 11, 13, 16, 18, 21,
+> @@ -50,8 +49,7 @@ static const u16 e1000_igp_2_cable_length_table[] = {
+>  	83, 89, 95, 100, 105, 109, 113, 116, 119, 122, 124,
+>  	104, 109, 114, 118, 121, 124};
+>  #define IGP02E1000_CABLE_LENGTH_TABLE_SIZE \
+> -	(sizeof(e1000_igp_2_cable_length_table) / \
+> -	 sizeof(e1000_igp_2_cable_length_table[0]))
+> +	ARRAY_SIZE(e1000_igp_2_cable_length_table)
+>  
+>  /**
+>   *  igb_check_reset_block - Check if PHY reset is blocked
