@@ -1,34 +1,85 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [Intel-wired-lan] [PATCH 1/1] igb: Use ARRAY_SIZE instead fo
- sizeof(a)/sizeof(a[0])
-Date: Tue, 30 Jun 2015 15:32:40 -0700
-Message-ID: <1435703560.12101.51.camel@perches.com>
-References: <1435640130-1466-1-git-send-email-maninder1.s@samsung.com>
-	 <9B4A1B1917080E46B64F07F2989DADD653571921@ORSMSX114.amr.corp.intel.com>
-	 <CAFLxGvxayeac0Hq8Gi5j_TJ4dnboYypz9gchW0VQ0Z9t-UFofA@mail.gmail.com>
-	 <9B4A1B1917080E46B64F07F2989DADD653571BF0@ORSMSX114.amr.corp.intel.com>
-	 <9B4A1B1917080E46B64F07F2989DADD653571DD7@ORSMSX114.amr.corp.intel.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: [PATCH] rtnetlink: Actually use the policy for the IFLA_VF_INFO
+Date: Tue, 30 Jun 2015 16:52:55 -0600
+Message-ID: <20150630225255.GA22529@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Richard Weinberger <richard.weinberger@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Maninder Singh <maninder1.s@samsung.com>,
-	"pankaj.m@samsung.com" <pankaj.m@samsung.com>
-To: "Fujinaka, Todd" <todd.fujinaka@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Jiri Pirko <jiri@resnulli.us>, Thomas Graf <tgraf@suug.ch>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0191.hostedemail.com ([216.40.44.191]:58286 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751042AbbF3Wco (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 18:32:44 -0400
-In-Reply-To: <9B4A1B1917080E46B64F07F2989DADD653571DD7@ORSMSX114.amr.corp.intel.com>
+Received: from quartz.orcorp.ca ([184.70.90.242]:41027 "EHLO quartz.orcorp.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751136AbbF3WxE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jun 2015 18:53:04 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-06-30 at 22:25 +0000, Fujinaka, Todd wrote:
-> I've submitted a version to intel-wired-lan that addresses the original
-> issue as well as Joe Perches's suggestion to just delete the define.
+It turns out the policy was defined but never actually checked,
+so lets check it.
 
-Please cc netdev next time too.
+Fixes: ebc08a6f47ee ("rtnetlink: Add VF config code to rtnetlink")
+Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+---
+ net/core/rtnetlink.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+DaveM: This shouldn't be applied until someone with the hardware that
+uses this can test it to make sure the policy is actually correct and
+matches what iproute does..
+
+I noticed this by inspection when investigating how to properly use
+netlink in another area. Compile tested only.
+
+Daniel/Mitch/Jeff: Can you test this?
+
+I suspect the absence of these checks allows user space to cause a
+read past the end of a buffer?
+
+I dropped the ifla_vfinfo_policy to match how
+IFLA_VF_PORTS/IFLA_VF_PORT is working but I wonder if that should be
+changed as well?
+
+Thanks,
+Jason
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a2b90e1fc115..7d5dc347bf7c 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1258,10 +1258,6 @@ static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+ 	[IFLA_INFO_SLAVE_DATA]	= { .type = NLA_NESTED },
+ };
+ 
+-static const struct nla_policy ifla_vfinfo_policy[IFLA_VF_INFO_MAX+1] = {
+-	[IFLA_VF_INFO]		= { .type = NLA_NESTED },
+-};
+-
+ static const struct nla_policy ifla_vf_policy[IFLA_VF_MAX+1] = {
+ 	[IFLA_VF_MAC]		= { .len = sizeof(struct ifla_vf_mac) },
+ 	[IFLA_VF_VLAN]		= { .len = sizeof(struct ifla_vf_vlan) },
+@@ -1681,6 +1677,7 @@ static int do_setlink(const struct sk_buff *skb,
+ 	}
+ 
+ 	if (tb[IFLA_VFINFO_LIST]) {
++		struct nlattr *vf_attrs[IFLA_VF_MAX + 1];
+ 		struct nlattr *attr;
+ 		int rem;
+ 		nla_for_each_nested(attr, tb[IFLA_VFINFO_LIST], rem) {
+@@ -1688,6 +1685,10 @@ static int do_setlink(const struct sk_buff *skb,
+ 				err = -EINVAL;
+ 				goto errout;
+ 			}
++			err = nla_parse_nested(vf_attrs, IFLA_VF_MAX, attr,
++					       ifla_vf_policy);
++			if (err < 0)
++				goto errout;
+ 			err = do_setvfinfo(dev, attr);
+ 			if (err < 0)
+ 				goto errout;
+-- 
+2.1.4
