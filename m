@@ -1,51 +1,49 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH v3 3/3] ARM: mvebu: disable IP checksum with jumbo
- frames for Armada 370
-Date: Tue, 30 Jun 2015 16:08:29 +0200
-Message-ID: <20150630160829.7bec1a8f@free-electrons.com>
-References: <1435673149-12599-1-git-send-email-simon.guinot@sequanux.org>
-	<1435673149-12599-4-git-send-email-simon.guinot@sequanux.org>
+From: Sebastian Ott <sebott@linux.vnet.ibm.com>
+Subject: Re: mlx4: "failed to allocate default counter port 1"
+Date: Tue, 30 Jun 2015 16:17:26 +0200 (CEST)
+Message-ID: <alpine.LFD.2.11.1506301615100.1799@denkbrett>
+References: <alpine.LFD.2.11.1506301229520.1799@denkbrett> <5592913C.3000207@mellanox.com> <alpine.LFD.2.11.1506301520180.1799@denkbrett> <55929F2D.9050805@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Vincent Donnefort <vdonnefort@gmail.com>,
-	<stable@vger.kernel.org>
-To: Simon Guinot <simon.guinot@sequanux.org>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1435673149-12599-4-git-send-email-simon.guinot@sequanux.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eran Ben Elisha <eranbe@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Hadar Hen Zion <hadarh@mellanox.com>, netdev@vger.kernel.org
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:59410 "EHLO
+	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751841AbbF3ORa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 10:17:30 -0400
+Received: from /spool/local
+	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <sebott@linux.vnet.ibm.com>;
+	Tue, 30 Jun 2015 15:17:28 +0100
+Received: from b06cxnps3075.portsmouth.uk.ibm.com (d06relay10.portsmouth.uk.ibm.com [9.149.109.195])
+	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 0D5A22190046
+	for <netdev@vger.kernel.org>; Tue, 30 Jun 2015 15:17:05 +0100 (BST)
+Received: from d06av09.portsmouth.uk.ibm.com (d06av09.portsmouth.uk.ibm.com [9.149.37.250])
+	by b06cxnps3075.portsmouth.uk.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t5UEHRGM37814470
+	for <netdev@vger.kernel.org>; Tue, 30 Jun 2015 14:17:27 GMT
+Received: from d06av09.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av09.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t5UEHQ5U000581
+	for <netdev@vger.kernel.org>; Tue, 30 Jun 2015 08:17:27 -0600
+In-Reply-To: <55929F2D.9050805@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Simon Guinot,
-
-On Tue, 30 Jun 2015 16:05:49 +0200, Simon Guinot wrote:
-> The Ethernet controller found in the Armada 370, 380 and 385 SoCs don't
-> support TCP/IP checksumming with frame sizes larger than 1600 bytes.
+On Tue, 30 Jun 2015, Or Gerlitz wrote:
+> On 6/30/2015 4:24 PM, Sebastian Ott wrote:
+> > > >Do you run the VF on the same system/kernel as the PF, or the VF is
+> > > >probed to
+> > > >VM which runs the latest kernel and the PF runsolder kernel (which?)
+> > The latter case. The PF is driven by a much older Kernel running OFED
+> > 2.3.2.0.0.1
+> >
 > 
-> This patch fixes the issue by disabling the features NETIF_F_IP_CSUM and
-> NETIF_F_TSO for the Armada 370 and compatibles SoCs when the MTU is set
-> to a value greater than 1600 bytes.
-> 
-> Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
-> Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP network unit")
-> Cc: <stable@vger.kernel.org> # v3.8+
+> Can you try running the inbox PF driver that comes with the PF kernel (what
+> kernel is that?) I'd like to see we're OK there.
 
-The title of this patch should be:
+Frankly, I don't know. Plus I also don't know how to build an ofed kernel.
 
-	net: mvneta: disable IP checksum with jumbo frames for Armada 370
-
-because it is touching the network driver, and not the mvebu ARM core code.
-
-Thanks,
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+Regards,
+Sebastian
