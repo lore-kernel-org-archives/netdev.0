@@ -1,37 +1,46 @@
-From: Richard Weinberger <richard.weinberger@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH 1/1] igb: Use ARRAY_SIZE instead fo sizeof(a)/sizeof(a[0])
-Date: Tue, 30 Jun 2015 21:01:17 +0200
-Message-ID: <CAFLxGvxayeac0Hq8Gi5j_TJ4dnboYypz9gchW0VQ0Z9t-UFofA@mail.gmail.com>
-References: <1435640130-1466-1-git-send-email-maninder1.s@samsung.com>
-	<9B4A1B1917080E46B64F07F2989DADD653571921@ORSMSX114.amr.corp.intel.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: missing in stable 4.1.1 - was Re: pull-request: can 2015-06-21
+Date: Tue, 30 Jun 2015 21:31:36 +0200
+Message-ID: <5592EE98.8030705@hartkopp.net>
+References: <1434906299-19452-1-git-send-email-mkl@pengutronix.de> <20150623.064338.1193972764545855895.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Maninder Singh <maninder1.s@samsung.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Nelson, Shannon" <shannon.nelson@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"pankaj.m@samsung.com" <pankaj.m@samsung.com>
-To: "Fujinaka, Todd" <todd.fujinaka@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <9B4A1B1917080E46B64F07F2989DADD653571921@ORSMSX114.amr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, mkl@pengutronix.de,
+	netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: stable@vger.kernel.org, gregkh@linuxfoundation.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20150623.064338.1193972764545855895.davem@davemloft.net>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 30, 2015 at 4:53 PM, Fujinaka, Todd <todd.fujinaka@intel.com> wrote:
-> I don't see the reason this is needed so I'm going to say NAK.
+Hello Greg,
 
-Using generic functions is always better than open coded stuff.
-Linux's ARRAY_SIZE also makes sure that the passed variable is actually
-an array.
+On 23.06.2015 15:43, David Miller wrote:
+> From: Marc Kleine-Budde <mkl@pengutronix.de>
+> Date: Sun, 21 Jun 2015 19:04:58 +0200
+>
+>> this is a, probably too late, pull request for v4.1.
+>>
+>> Oliver Hartkopp fixed a bug in the generic CAN frame handling code, which may
+>> lead to loss of CAN frames. It was introduced during v4.1 development.
+>>
+>> Please queue via net/master if possible, net-next/master otherwise. I've added
+>> stable on Cc, just in case.
+>
+> Pulled, thanks.
 
--- 
-Thanks,
-//richard
+the patch "can: fix loss of CAN frames in raw_rcv" was sent to stable on 
+2015-06-21 but unfortunately did not find its way into 4.1.1 :-(
+
+The upstream commit is:
+
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=36c01245eb8046c16eee6431e7dbfbb302635fa8
+
+which slipped into 4.2 at merge window opening time.
+
+So it just got lost in the stable queue somehow.
+
+Best regards,
+Oliver
