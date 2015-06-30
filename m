@@ -1,51 +1,62 @@
-From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
-Subject: [EDT] [v2][PATCH] ax88179_178a: add reset function in reset_resume
-Date: Tue, 30 Jun 2015 13:01:46 +0000 (GMT)
-Message-ID: <260059298.61661435669306906.JavaMail.weblogic@ep2mlwas09a>
-Reply-To: vivek.bhagat@samsung.com
+From: Sebastian Ott <sebott@linux.vnet.ibm.com>
+Subject: Re: mlx4: "failed to allocate default counter port 1"
+Date: Tue, 30 Jun 2015 15:19:42 +0200 (CEST)
+Message-ID: <alpine.LFD.2.11.1506301505320.1799@denkbrett>
+References: <alpine.LFD.2.11.1506301229520.1799@denkbrett>  <CAJ3xEMgF+46tb0R2nbX8FYb2HBiFtn6Qzx61WCihBKTFbZFUtg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.samsung.com ([203.254.224.33]:37477 "EHLO
-	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751203AbbF3NBt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 09:01:49 -0400
-Received: from epcpsbgr4.samsung.com
- (u144.gpu120.samsung.co.kr [203.254.230.144])
- by mailout3.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
- 64bit (built May  5 2014))
- with ESMTP id <0NQR00Z4FDIZW010@mailout3.samsung.com> for
- netdev@vger.kernel.org; Tue, 30 Jun 2015 22:01:47 +0900 (KST)
-MIME-version: 1.0
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eran Ben Elisha <eranbe@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJ3xEMgF+46tb0R2nbX8FYb2HBiFtn6Qzx61WCihBKTFbZFUtg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RVAtRUM1NjJENkI1MzU5NDQ3OUJDQTZGQzczRjE3REVFNTQKV2l0aG91dCByZXNldCBmdW5jdGlv
-bmFsaXR5IGluIHJlc2V0X3Jlc3VtZSwgaXBlcmYgY29ubmVjdGlvbgpkb2VzIG5vdCBlc3RhYmxp
-c2ggYWZ0ZXIgc3VzcGVuZC9yZXN1bWUgaG93ZXZlciBwaW5nIHdvcmtzIGF0CnRoZSBzYW1lIHRp
-bWUuIGlwZXJmIGNvbm5lY3Rpb24gZmFpbHMgYnkgZ2l2aW5nIGNoZWNrc3VtIGVycm9yCmluIHRj
-cGR1bXAuCgpyZXNldCBmdW5jdGlvbiBpbnNpZGUgcmVzZXRfcmVzdW1lIHNvbHZlcyBhYm92ZSBi
-dWcuCldlIGhhdmUgdmVyaWZpZWQgaXQgb24gQVNJWCBiYXNlZCBTVCBMYWIsIENhZHljZSBkb25n
-bGUuCgpTaWduZWQtb2ZmLWJ5OiBWaXZlayBLdW1hciBCaGFnYXQgPHZpdmVrLmJoYWdhdEBzYW1z
-dW5nLmNvbT4KU2lnbmVkLW9mZi1ieTogUHJhdmVlbiBLdW1hciA8cHJhdmVlbi5rMDlAc2Ftc3Vu
-Zy5jb20+CgotLS0KIGRyaXZlcnMvbmV0L3VzYi9heDg4MTc5XzE3OGEuYyB8ICAgMTQgKysrKysr
-KysrKysrKy0KIDEgZmlsZSBjaGFuZ2VkLCAxMyBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0p
-CgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jIGIvZHJpdmVycy9u
-ZXQvdXNiL2F4ODgxNzlfMTc4YS5jCmluZGV4IGU2MzM4YzEuLjAwOTI4YzAgMTAwNjQ0Ci0tLSBh
-L2RyaXZlcnMvbmV0L3VzYi9heDg4MTc5XzE3OGEuYworKysgYi9kcml2ZXJzL25ldC91c2IvYXg4
-ODE3OV8xNzhhLmMKQEAgLTE2MzAsNiArMTYzMCwxOCBAQCBzdGF0aWMgaW50IGF4ODgxNzlfc3Rv
-cChzdHJ1Y3QgdXNibmV0ICpkZXYpCiAJcmV0dXJuIDA7CiB9CiAKK3N0YXRpYyBpbnQgYXg4ODE3
-OV9yZXNldF9yZXN1bWUoc3RydWN0IHVzYl9pbnRlcmZhY2UgKmludGYpCit7CisJc3RydWN0IHVz
-Ym5ldCAqZGV2ID0gdXNiX2dldF9pbnRmZGF0YShpbnRmKTsKKwlpbnQgcmV0OworCisJcmV0ID0g
-YXg4ODE3OV9yZXNldChkZXYpOworCWlmIChyZXQgPCAwKQorCQlyZXR1cm4gcmV0OworCisJcmV0
-dXJuICBheDg4MTc5X3Jlc3VtZShpbnRmKTsKK30KKwogc3RhdGljIGNvbnN0IHN0cnVjdCBkcml2
-ZXJfaW5mbyBheDg4MTc5X2luZm8gPSB7CiAJLmRlc2NyaXB0aW9uID0gIkFTSVggQVg4ODE3OSBV
-U0IgMy4wIEdpZ2FiaXQgRXRoZXJuZXQiLAogCS5iaW5kID0gYXg4ODE3OV9iaW5kLApAQCAtMTc0
-NCw3ICsxNzU2LDcgQEAgc3RhdGljIHN0cnVjdCB1c2JfZHJpdmVyIGF4ODgxNzlfMTc4YV9kcml2
-ZXIgPSB7CiAJLnByb2JlID0JdXNibmV0X3Byb2JlLAogCS5zdXNwZW5kID0JYXg4ODE3OV9zdXNw
-ZW5kLAogCS5yZXN1bWUgPQlheDg4MTc5X3Jlc3VtZSwKLQkucmVzZXRfcmVzdW1lID0JYXg4ODE3
-OV9yZXN1bWUsCisJLnJlc2V0X3Jlc3VtZSA9CWF4ODgxNzlfcmVzZXRfcmVzdW1lLAogCS5kaXNj
-b25uZWN0ID0JdXNibmV0X2Rpc2Nvbm5lY3QsCiAJLnN1cHBvcnRzX2F1dG9zdXNwZW5kID0gMSwK
-IAkuZGlzYWJsZV9odWJfaW5pdGlhdGVkX2xwbSA9IDEsCi0tIAoxLjcuOS41
+On Tue, 30 Jun 2015, Or Gerlitz wrote:
+> On Tue, Jun 30, 2015 at 1:45 PM, Sebastian Ott
+> <sebott@linux.vnet.ibm.com> wrote:
+> > after the latest mellanox update the mlx4 driver fails to probe a VF:
+> > [   88.909562] mlx4_core 0000:00:00.0: mlx4_allocate_default_counters: failed to allocate default counter port 1 err -22
+> > [   88.909564] mlx4_core 0000:00:00.0: Failed to allocate default counters, aborting
+> > [   88.961735] mlx4_core: probe of 0000:00:00.0 failed with error -22
+> >
+> > PFs still work. See below for more dmesg output - I also added a line of
+> > debug output...maybe this helps.
+> 
+> Can you please send your "lspci | grep nox" listing? also what
+
+0000:00:00.0 Ethernet controller: Mellanox Technologies MT27500 Family [ConnectX-3 Virtual Function]
+
+> Firmware version you have there? e.g when you probe the PF with
+> mlx4_core debug_level=1 can you sens us the lines that follow the PF
+> probe, e.g as here + dump of all caps as you did for the VF
+
+I have access to 2 machines and run a guest instance on both machines:
+* on one the guest has acccess to a PF, but VF enablement is disallowed
+* on the other the hypervisor controls the PF and the guests have only
+  access to the VFs - so I cannot say much about the PF here
+
+At least I found out the FW version - it's: 2.33.5100
+
+Regards,
+Sebastian
+
+> 
+>   952.367911] mlx4_core: Mellanox ConnectX core driver v2.2-1 (Feb, 2014)
+> [  952.374606] mlx4_core: Initializing 0000:06:00.0
+> [  953.384332] mlx4_core 0000:06:00.0: FW version 2.34.5000 (cmd intf
+> rev 3), max commands 16
+> [...]
+> 
+> Also send us the output of "dmesg | grep -i counter" after such verbose load.
+> 
+> thanks,
+> 
+> Or.
+> 
+> 
