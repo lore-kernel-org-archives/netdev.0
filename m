@@ -1,34 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 0/3] Fix Ethernet jumbo frames support for Armada
- 370 and 38x
-Date: Tue, 30 Jun 2015 09:37:38 -0700 (PDT)
-Message-ID: <20150630.093738.48589191219422826.davem@davemloft.net>
-References: <1435674022-13295-1-git-send-email-simon.guinot@sequanux.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, jason@lakedaemon.net,
-	andrew@lunn.ch, gregory.clement@free-electrons.com,
-	sebastian.hesselbarth@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, vdonnefort@gmail.com
-To: simon.guinot@sequanux.org
+From: Craig Gallek <kraig@google.com>
+Subject: [PATCH net] sock_diag: don't broadcast kernel sockets
+Date: Tue, 30 Jun 2015 12:49:32 -0400
+Message-ID: <1435682972-2703-1-git-send-email-kraig@google.com>
+Cc: davej@codemonkey.org.uk, edumazet@google.com,
+	ebiederm@xmission.com, davem@davemloft.net,
+	Craig Gallek <kraig@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53921 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751620AbbF3Qhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 12:37:42 -0400
-In-Reply-To: <1435674022-13295-1-git-send-email-simon.guinot@sequanux.org>
+Received: from mail-qk0-f178.google.com ([209.85.220.178]:36479 "EHLO
+	mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752856AbbF3Qtt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 12:49:49 -0400
+Received: by qkei195 with SMTP id i195so10606951qke.3
+        for <netdev@vger.kernel.org>; Tue, 30 Jun 2015 09:49:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Guinot <simon.guinot@sequanux.org>
-Date: Tue, 30 Jun 2015 16:20:19 +0200
+Kernel sockets do not hold a reference for the network namespace to
+which they point.  Socket destruction broadcasting relies on the
+network namespace and will cause the splat below when a kernel socket
+is destroyed.
 
-> This patch series fixes the Ethernet jumbo frames support for the SoCs
-> Armada 370, 380 and 385. Unlike Armada XP, the Ethernet controller for
-> this SoCs don't support TCP/IP checksumming with a frame size larger
-> than 1600 bytes.
-> 
-> This patches should be applied to the -stable kernels 3.8 and onwards.
+This fix simply ignores kernel sockets when they are destroyed.
 
-Series applied, thanks.
+Reported as:
+general protection fault: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+CPU: 1 PID: 9130 Comm: kworker/1:1 Not tainted 4.1.0-gelk-debug+ #1
+Workqueue: sock_diag_events sock_diag_broadcast_destroy_work
+Stack:
+ ffff8800b9c586c0 ffff8800b9c586c0 ffff8800ac4692c0 ffff8800936d4a90
+ ffff8800352efd38 ffffffff8469a93e ffff8800352efd98 ffffffffc09b9b90
+ ffff8800352efd78 ffff8800ac4692c0 ffff8800b9c586c0 ffff8800831b6ab8
+Call Trace:
+ [<ffffffff8469a93e>] ? mutex_unlock+0xe/0x10
+ [<ffffffffc09b9b90>] ? inet_diag_handler_get_info+0x110/0x1fb [inet_diag]
+ [<ffffffff845c868d>] netlink_broadcast+0x1d/0x20
+ [<ffffffff8469a93e>] ? mutex_unlock+0xe/0x10
+ [<ffffffff845b2bf5>] sock_diag_broadcast_destroy_work+0xd5/0x160
+ [<ffffffff8408ea97>] process_one_work+0x147/0x420
+ [<ffffffff8408f0f9>] worker_thread+0x69/0x470
+ [<ffffffff8409fda3>] ? preempt_count_sub+0xa3/0xf0
+ [<ffffffff8408f090>] ? rescuer_thread+0x320/0x320
+ [<ffffffff84093cd7>] kthread+0x107/0x120
+ [<ffffffff84093bd0>] ? kthread_create_on_node+0x1b0/0x1b0
+ [<ffffffff8469d31f>] ret_from_fork+0x3f/0x70
+ [<ffffffff84093bd0>] ? kthread_create_on_node+0x1b0/0x1b0
+
+Tested:
+  Using a debug kernel while 'ss -E' is running:
+  ip netns add test-ns
+  ip netns delete test-ns
+
+Fixes: eb4cb008529c sock_diag: define destruction multicast groups
+Fixes: 26abe14379f8 net: Modify sk_alloc to not reference count the
+  netns of kernel sockets.
+Reported-by: Dave Jones <davej@codemonkey.org.uk>
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+Signed-off-by: Craig Gallek <kraig@google.com>
+---
+ net/core/sock.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+index e4be66f..08f16db 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1454,7 +1454,7 @@ void sk_destruct(struct sock *sk)
+ 
+ static void __sk_free(struct sock *sk)
+ {
+-	if (unlikely(sock_diag_has_destroy_listeners(sk)))
++	if (unlikely(sock_diag_has_destroy_listeners(sk) && sk->sk_net_refcnt))
+ 		sock_diag_broadcast_destroy(sk);
+ 	else
+ 		sk_destruct(sk);
+-- 
+2.2.0.rc0.207.ga3a616c
