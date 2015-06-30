@@ -1,7 +1,7 @@
 From: Simon Guinot <simon.guinot@sequanux.org>
-Subject: [PATCH v3 1/3] net: mvneta: introduce compatible string "marvell,armada-xp-neta"
-Date: Tue, 30 Jun 2015 16:05:47 +0200
-Message-ID: <1435673149-12599-2-git-send-email-simon.guinot@sequanux.org>
+Subject: [PATCH v3 2/3] ARM: mvebu: update Ethernet compatible string for Armada XP
+Date: Tue, 30 Jun 2015 16:05:48 +0200
+Message-ID: <1435673149-12599-3-git-send-email-simon.guinot@sequanux.org>
 References: <1435673149-12599-1-git-send-email-simon.guinot@sequanux.org>
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
 	Gregory Clement <gregory.clement@free-electrons.com>,
@@ -11,54 +11,118 @@ Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
 	<stable@vger.kernel.org>
 To: "David S. Miller" <davem@davemloft.net>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vm1.sequanux.org ([188.165.36.56]:57760 "EHLO vm1.sequanux.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753957AbbF3OFz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Jun 2015 10:05:55 -0400
+Return-path: <stable-owner@vger.kernel.org>
 In-Reply-To: <1435673149-12599-1-git-send-email-simon.guinot@sequanux.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The mvneta driver supports the Ethernet IP found in the Armada 370, XP,
-380 and 385 SoCs. Since at least one more hardware feature is available
-for the Armada XP SoCs then a way to identify them is needed.
-
-This patch introduces a new compatible string "marvell,armada-xp-neta".
+This patch updates the Ethernet DT nodes for Armada XP SoCs with the
+compatible string "marvell,armada-xp-neta".
 
 Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
-Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP network unit")
+Fixes: 77916519cba3 ("arm: mvebu: Armada XP MV78230 has only three Ethernet interfaces")
 Cc: <stable@vger.kernel.org> # v3.8+
 Acked-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 ---
- Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt | 2 +-
- drivers/net/ethernet/marvell/mvneta.c                             | 1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
+ arch/arm/boot/dts/armada-370-xp.dtsi     |  2 --
+ arch/arm/boot/dts/armada-370.dtsi        |  8 ++++++++
+ arch/arm/boot/dts/armada-xp-mv78260.dtsi |  2 +-
+ arch/arm/boot/dts/armada-xp-mv78460.dtsi |  2 +-
+ arch/arm/boot/dts/armada-xp.dtsi         | 10 +++++++++-
+ 5 files changed, 19 insertions(+), 5 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-index 750d577e8083..f5a8ca29aff0 100644
---- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-+++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-@@ -1,7 +1,7 @@
- * Marvell Armada 370 / Armada XP Ethernet Controller (NETA)
+diff --git a/arch/arm/boot/dts/armada-370-xp.dtsi b/arch/arm/boot/dts/armada-370-xp.dtsi
+index ec96f0b36346..06a2f2ae9d1e 100644
+--- a/arch/arm/boot/dts/armada-370-xp.dtsi
++++ b/arch/arm/boot/dts/armada-370-xp.dtsi
+@@ -270,7 +270,6 @@
+ 			};
  
- Required properties:
--- compatible: should be "marvell,armada-370-neta".
-+- compatible: "marvell,armada-370-neta" or "marvell,armada-xp-neta".
- - reg: address and length of the register set for the device.
- - interrupts: interrupt for the device
- - phy: See ethernet.txt file in the same directory.
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index ce5f7f9cff06..aceb977b104d 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -3179,6 +3179,7 @@ static int mvneta_remove(struct platform_device *pdev)
+ 			eth0: ethernet@70000 {
+-				compatible = "marvell,armada-370-neta";
+ 				reg = <0x70000 0x4000>;
+ 				interrupts = <8>;
+ 				clocks = <&gateclk 4>;
+@@ -286,7 +285,6 @@
+ 			};
  
- static const struct of_device_id mvneta_match[] = {
- 	{ .compatible = "marvell,armada-370-neta" },
-+	{ .compatible = "marvell,armada-xp-neta" },
- 	{ }
+ 			eth1: ethernet@74000 {
+-				compatible = "marvell,armada-370-neta";
+ 				reg = <0x74000 0x4000>;
+ 				interrupts = <10>;
+ 				clocks = <&gateclk 3>;
+diff --git a/arch/arm/boot/dts/armada-370.dtsi b/arch/arm/boot/dts/armada-370.dtsi
+index 00b50db57c9c..ca4257b2f77d 100644
+--- a/arch/arm/boot/dts/armada-370.dtsi
++++ b/arch/arm/boot/dts/armada-370.dtsi
+@@ -307,6 +307,14 @@
+ 					dmacap,memset;
+ 				};
+ 			};
++
++			ethernet@70000 {
++				compatible = "marvell,armada-370-neta";
++			};
++
++			ethernet@74000 {
++				compatible = "marvell,armada-370-neta";
++			};
+ 		};
+ 	};
  };
- MODULE_DEVICE_TABLE(of, mvneta_match);
+diff --git a/arch/arm/boot/dts/armada-xp-mv78260.dtsi b/arch/arm/boot/dts/armada-xp-mv78260.dtsi
+index 8479fdc9e9c2..c5fdc99f0dbe 100644
+--- a/arch/arm/boot/dts/armada-xp-mv78260.dtsi
++++ b/arch/arm/boot/dts/armada-xp-mv78260.dtsi
+@@ -318,7 +318,7 @@
+ 			};
+ 
+ 			eth3: ethernet@34000 {
+-				compatible = "marvell,armada-370-neta";
++				compatible = "marvell,armada-xp-neta";
+ 				reg = <0x34000 0x4000>;
+ 				interrupts = <14>;
+ 				clocks = <&gateclk 1>;
+diff --git a/arch/arm/boot/dts/armada-xp-mv78460.dtsi b/arch/arm/boot/dts/armada-xp-mv78460.dtsi
+index 661d54c81580..0e24f1a38540 100644
+--- a/arch/arm/boot/dts/armada-xp-mv78460.dtsi
++++ b/arch/arm/boot/dts/armada-xp-mv78460.dtsi
+@@ -356,7 +356,7 @@
+ 			};
+ 
+ 			eth3: ethernet@34000 {
+-				compatible = "marvell,armada-370-neta";
++				compatible = "marvell,armada-xp-neta";
+ 				reg = <0x34000 0x4000>;
+ 				interrupts = <14>;
+ 				clocks = <&gateclk 1>;
+diff --git a/arch/arm/boot/dts/armada-xp.dtsi b/arch/arm/boot/dts/armada-xp.dtsi
+index 013d63f69e36..8fdd6d7c0ab1 100644
+--- a/arch/arm/boot/dts/armada-xp.dtsi
++++ b/arch/arm/boot/dts/armada-xp.dtsi
+@@ -177,7 +177,7 @@
+ 			};
+ 
+ 			eth2: ethernet@30000 {
+-				compatible = "marvell,armada-370-neta";
++				compatible = "marvell,armada-xp-neta";
+ 				reg = <0x30000 0x4000>;
+ 				interrupts = <12>;
+ 				clocks = <&gateclk 2>;
+@@ -220,6 +220,14 @@
+ 				};
+ 			};
+ 
++			ethernet@70000 {
++				compatible = "marvell,armada-xp-neta";
++			};
++
++			ethernet@74000 {
++				compatible = "marvell,armada-xp-neta";
++			};
++
+ 			xor@f0900 {
+ 				compatible = "marvell,orion-xor";
+ 				reg = <0xF0900 0x100
 -- 
 2.1.4
