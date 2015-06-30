@@ -1,40 +1,44 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net] net: do not process device backlog during
- unregistration
-Date: Tue, 30 Jun 2015 09:25:18 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1506300913510.1508@ja.home.ssi.bg>
-References: <1435420971-19263-1-git-send-email-ja@ssi.bg> <876167wt2p.fsf@x220.int.ebiederm.org> <alpine.LFD.2.11.1506292241230.1739@ja.home.ssi.bg>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH v3.17 .. v3.19] lib/rhashtable: fix race between
+ rhashtable_lookup_compare and hashtable resize
+Date: Tue, 30 Jun 2015 08:28:36 +0200
+Message-ID: <20150630062836.GQ14658@pox.localdomain>
+References: <20150626104817.16520.77222.stgit@buzz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	"Vittorio G (VittGam)" <linuxbugs@vittgam.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:60663 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750750AbbF3GZ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Jun 2015 02:25:27 -0400
-In-Reply-To: <alpine.LFD.2.11.1506292241230.1739@ja.home.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Stable <stable@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150626104817.16520.77222.stgit@buzz>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Mon, 29 Jun 2015, Julian Anastasov wrote:
-
-> RFC patch:
+On 06/26/15 at 01:48pm, Konstantin Khlebnikov wrote:
+> Hash value passed as argument into rhashtable_lookup_compare could be
+> computed using different hash table than rhashtable_lookup_compare sees.
 > 
-> Subject: [PATCHv2 net] net: do not process device backlog during
->  unregistration
+> This patch passes key into rhashtable_lookup_compare() instead of hash and
+> compures hash value right in place using the same table as for lookup.
+> 
+> Also it adds comment for rhashtable_hashfn and rhashtable_obj_hashfn:
+> user must prevent concurrent insert/remove otherwise returned hash value
+> could be invalid.
+> 
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+> Fixes: e341694e3eb5 ("netlink: Convert netlink_lookup() to use RCU protected hash table")
+> Link: http://lkml.kernel.org/r/20150514042151.GA5482@gondor.apana.org.au
+> Cc: Stable <stable@vger.kernel.org> (v3.17 .. v3.19)
 
-	Ignore this v2, packets in backlog do not hold
-dev reference, I'll prepare new version with such check
-in enqueue_to_backlog. Also, it is process_backlog that
-should start the RCU read section because packets may
-escape the last synchronize_net... more fixes are needed.
+Nice catch.
 
-Regards
+For reference, this is a partial cherry pick of
+8d24c0b43125e ("rhashtable: Do hashing inside of rhashtable_lookup_compare()")
 
---
-Julian Anastasov <ja@ssi.bg>
+nft_hash is not affected as it doesn't use the lookup API until 4.0.
+
+Acked-by: Thomas Graf <tgraf@suug.ch>
