@@ -1,49 +1,132 @@
-From: Sebastian Ott <sebott@linux.vnet.ibm.com>
-Subject: Re: mlx4: "failed to allocate default counter port 1"
-Date: Tue, 30 Jun 2015 16:17:26 +0200 (CEST)
-Message-ID: <alpine.LFD.2.11.1506301615100.1799@denkbrett>
-References: <alpine.LFD.2.11.1506301229520.1799@denkbrett> <5592913C.3000207@mellanox.com> <alpine.LFD.2.11.1506301520180.1799@denkbrett> <55929F2D.9050805@mellanox.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eran Ben Elisha <eranbe@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Hadar Hen Zion <hadarh@mellanox.com>, netdev@vger.kernel.org
-To: Or Gerlitz <ogerlitz@mellanox.com>
+From: Simon Guinot <simon.guinot@sequanux.org>
+Subject: [PATCH v4 2/3] ARM: mvebu: update Ethernet compatible string for Armada XP
+Date: Tue, 30 Jun 2015 16:20:21 +0200
+Message-ID: <1435674022-13295-3-git-send-email-simon.guinot@sequanux.org>
+References: <1435674022-13295-1-git-send-email-simon.guinot@sequanux.org>
+Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Vincent Donnefort <vdonnefort@gmail.com>,
+	<stable@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:59410 "EHLO
-	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751841AbbF3ORa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 10:17:30 -0400
-Received: from /spool/local
-	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <sebott@linux.vnet.ibm.com>;
-	Tue, 30 Jun 2015 15:17:28 +0100
-Received: from b06cxnps3075.portsmouth.uk.ibm.com (d06relay10.portsmouth.uk.ibm.com [9.149.109.195])
-	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 0D5A22190046
-	for <netdev@vger.kernel.org>; Tue, 30 Jun 2015 15:17:05 +0100 (BST)
-Received: from d06av09.portsmouth.uk.ibm.com (d06av09.portsmouth.uk.ibm.com [9.149.37.250])
-	by b06cxnps3075.portsmouth.uk.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t5UEHRGM37814470
-	for <netdev@vger.kernel.org>; Tue, 30 Jun 2015 14:17:27 GMT
-Received: from d06av09.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-	by d06av09.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t5UEHQ5U000581
-	for <netdev@vger.kernel.org>; Tue, 30 Jun 2015 08:17:27 -0600
-In-Reply-To: <55929F2D.9050805@mellanox.com>
+Received: from vm1.sequanux.org ([188.165.36.56]:57981 "EHLO vm1.sequanux.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751653AbbF3OUb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jun 2015 10:20:31 -0400
+In-Reply-To: <1435674022-13295-1-git-send-email-simon.guinot@sequanux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 30 Jun 2015, Or Gerlitz wrote:
-> On 6/30/2015 4:24 PM, Sebastian Ott wrote:
-> > > >Do you run the VF on the same system/kernel as the PF, or the VF is
-> > > >probed to
-> > > >VM which runs the latest kernel and the PF runsolder kernel (which?)
-> > The latter case. The PF is driven by a much older Kernel running OFED
-> > 2.3.2.0.0.1
-> >
-> 
-> Can you try running the inbox PF driver that comes with the PF kernel (what
-> kernel is that?) I'd like to see we're OK there.
+This patch updates the Ethernet DT nodes for Armada XP SoCs with the
+compatible string "marvell,armada-xp-neta".
 
-Frankly, I don't know. Plus I also don't know how to build an ofed kernel.
+Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
+Fixes: 77916519cba3 ("arm: mvebu: Armada XP MV78230 has only three Ethernet interfaces")
+Cc: <stable@vger.kernel.org> # v3.8+
+Acked-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+---
+ arch/arm/boot/dts/armada-370-xp.dtsi     |  2 --
+ arch/arm/boot/dts/armada-370.dtsi        |  8 ++++++++
+ arch/arm/boot/dts/armada-xp-mv78260.dtsi |  2 +-
+ arch/arm/boot/dts/armada-xp-mv78460.dtsi |  2 +-
+ arch/arm/boot/dts/armada-xp.dtsi         | 10 +++++++++-
+ 5 files changed, 19 insertions(+), 5 deletions(-)
 
-Regards,
-Sebastian
+diff --git a/arch/arm/boot/dts/armada-370-xp.dtsi b/arch/arm/boot/dts/armada-370-xp.dtsi
+index ec96f0b36346..06a2f2ae9d1e 100644
+--- a/arch/arm/boot/dts/armada-370-xp.dtsi
++++ b/arch/arm/boot/dts/armada-370-xp.dtsi
+@@ -270,7 +270,6 @@
+ 			};
+ 
+ 			eth0: ethernet@70000 {
+-				compatible = "marvell,armada-370-neta";
+ 				reg = <0x70000 0x4000>;
+ 				interrupts = <8>;
+ 				clocks = <&gateclk 4>;
+@@ -286,7 +285,6 @@
+ 			};
+ 
+ 			eth1: ethernet@74000 {
+-				compatible = "marvell,armada-370-neta";
+ 				reg = <0x74000 0x4000>;
+ 				interrupts = <10>;
+ 				clocks = <&gateclk 3>;
+diff --git a/arch/arm/boot/dts/armada-370.dtsi b/arch/arm/boot/dts/armada-370.dtsi
+index 00b50db57c9c..ca4257b2f77d 100644
+--- a/arch/arm/boot/dts/armada-370.dtsi
++++ b/arch/arm/boot/dts/armada-370.dtsi
+@@ -307,6 +307,14 @@
+ 					dmacap,memset;
+ 				};
+ 			};
++
++			ethernet@70000 {
++				compatible = "marvell,armada-370-neta";
++			};
++
++			ethernet@74000 {
++				compatible = "marvell,armada-370-neta";
++			};
+ 		};
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/armada-xp-mv78260.dtsi b/arch/arm/boot/dts/armada-xp-mv78260.dtsi
+index 8479fdc9e9c2..c5fdc99f0dbe 100644
+--- a/arch/arm/boot/dts/armada-xp-mv78260.dtsi
++++ b/arch/arm/boot/dts/armada-xp-mv78260.dtsi
+@@ -318,7 +318,7 @@
+ 			};
+ 
+ 			eth3: ethernet@34000 {
+-				compatible = "marvell,armada-370-neta";
++				compatible = "marvell,armada-xp-neta";
+ 				reg = <0x34000 0x4000>;
+ 				interrupts = <14>;
+ 				clocks = <&gateclk 1>;
+diff --git a/arch/arm/boot/dts/armada-xp-mv78460.dtsi b/arch/arm/boot/dts/armada-xp-mv78460.dtsi
+index 661d54c81580..0e24f1a38540 100644
+--- a/arch/arm/boot/dts/armada-xp-mv78460.dtsi
++++ b/arch/arm/boot/dts/armada-xp-mv78460.dtsi
+@@ -356,7 +356,7 @@
+ 			};
+ 
+ 			eth3: ethernet@34000 {
+-				compatible = "marvell,armada-370-neta";
++				compatible = "marvell,armada-xp-neta";
+ 				reg = <0x34000 0x4000>;
+ 				interrupts = <14>;
+ 				clocks = <&gateclk 1>;
+diff --git a/arch/arm/boot/dts/armada-xp.dtsi b/arch/arm/boot/dts/armada-xp.dtsi
+index 013d63f69e36..8fdd6d7c0ab1 100644
+--- a/arch/arm/boot/dts/armada-xp.dtsi
++++ b/arch/arm/boot/dts/armada-xp.dtsi
+@@ -177,7 +177,7 @@
+ 			};
+ 
+ 			eth2: ethernet@30000 {
+-				compatible = "marvell,armada-370-neta";
++				compatible = "marvell,armada-xp-neta";
+ 				reg = <0x30000 0x4000>;
+ 				interrupts = <12>;
+ 				clocks = <&gateclk 2>;
+@@ -220,6 +220,14 @@
+ 				};
+ 			};
+ 
++			ethernet@70000 {
++				compatible = "marvell,armada-xp-neta";
++			};
++
++			ethernet@74000 {
++				compatible = "marvell,armada-xp-neta";
++			};
++
+ 			xor@f0900 {
+ 				compatible = "marvell,orion-xor";
+ 				reg = <0xF0900 0x100
+-- 
+2.1.4
