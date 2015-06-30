@@ -1,52 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: missing in stable 4.1.1 - was Re: pull-request: can 2015-06-21
-Date: Tue, 30 Jun 2015 14:20:55 -0700 (PDT)
-Message-ID: <20150630.142055.2284481896639682516.davem@davemloft.net>
-References: <1434906299-19452-1-git-send-email-mkl@pengutronix.de>
-	<20150623.064338.1193972764545855895.davem@davemloft.net>
-	<5592EE98.8030705@hartkopp.net>
+From: Andreas Schwab <schwab@linux-m68k.org>
+Subject: Re: Wiring up direct socket calls on x86_32 Linux?
+Date: Tue, 30 Jun 2015 23:29:04 +0200
+Message-ID: <87oajwrilb.fsf@igel.home>
+References: <CALCETrUdqUm4eue2VaNPM7tkt1DSfAgo9fd-06rcys3F0q3rQA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stable@vger.kernel.org, gregkh@linuxfoundation.org,
-	mkl@pengutronix.de, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, kernel@pengutronix.de
-To: socketcan@hartkopp.net
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <5592EE98.8030705@hartkopp.net>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: X86 ML <x86@kernel.org>,  "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,  Alexander Larsson <alexl@redhat.com>,  Cosimo Cecchi <cosimo@endlessm.com>,  Dan Nicholson <nicholson@endlessm.com>,  Network Development <netdev@vger.kernel.org>,  libc-alpha <libc-alpha@sourceware.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <libc-alpha-return-60524-glibc-alpha=m.gmane.org@sourceware.org>
+List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
+List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
+List-Archive: <http://sourceware.org/ml/libc-alpha/>
+List-Post: <mailto:libc-alpha@sourceware.org>
+List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
+Sender: libc-alpha-owner@sourceware.org
+In-Reply-To: <CALCETrUdqUm4eue2VaNPM7tkt1DSfAgo9fd-06rcys3F0q3rQA@mail.gmail.com>
+	(Andy Lutomirski's message of "Tue, 30 Jun 2015 14:14:38 -0700")
 List-Id: netdev.vger.kernel.org
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Tue, 30 Jun 2015 21:31:36 +0200
+Andy Lutomirski <luto@amacapital.net> writes:
 
-> Hello Greg,
-> 
-> On 23.06.2015 15:43, David Miller wrote:
->> From: Marc Kleine-Budde <mkl@pengutronix.de>
->> Date: Sun, 21 Jun 2015 19:04:58 +0200
->>
->>> this is a, probably too late, pull request for v4.1.
->>>
->>> Oliver Hartkopp fixed a bug in the generic CAN frame handling code,
->>> which may
->>> lead to loss of CAN frames. It was introduced during v4.1 development.
->>>
->>> Please queue via net/master if possible, net-next/master
->>> otherwise. I've added
->>> stable on Cc, just in case.
->>
->> Pulled, thanks.
-> 
-> the patch "can: fix loss of CAN frames in raw_rcv" was sent to stable
-> on 2015-06-21 but unfortunately did not find its way into 4.1.1 :-(
-> 
-> The upstream commit is:
-> 
-> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=36c01245eb8046c16eee6431e7dbfbb302635fa8
-> 
-> which slipped into 4.2 at merge window opening time.
-> 
-> So it just got lost in the stable queue somehow.
+> Glibc people: If Linux wired up the syscalls, would glibc use them?
 
-Please take care of CAN -stable submissions yourself, thanks.
+Not automatically.  It needs to be compatible with the configured
+minimum kernel version, so runtime probing would needed to be
+implemented.
+
+Andreas.
+
+-- 
+Andreas Schwab, schwab@linux-m68k.org
+GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
