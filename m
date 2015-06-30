@@ -1,39 +1,51 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: mlx4: "failed to allocate default counter port 1"
-Date: Tue, 30 Jun 2015 15:53:16 +0300
-Message-ID: <5592913C.3000207@mellanox.com>
-References: <alpine.LFD.2.11.1506301229520.1799@denkbrett>
+From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
+Subject: [EDT] [v2][PATCH] ax88179_178a: add reset function in reset_resume
+Date: Tue, 30 Jun 2015 13:01:46 +0000 (GMT)
+Message-ID: <260059298.61661435669306906.JavaMail.weblogic@ep2mlwas09a>
+Reply-To: vivek.bhagat@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eran Ben Elisha <eranbe@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	<netdev@vger.kernel.org>
-To: Sebastian Ott <sebott@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0070.outbound.protection.outlook.com ([157.55.234.70]:64482
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752956AbbF3MxG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Jun 2015 08:53:06 -0400
-In-Reply-To: <alpine.LFD.2.11.1506301229520.1799@denkbrett>
+Received: from mailout3.samsung.com ([203.254.224.33]:37477 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751203AbbF3NBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 09:01:49 -0400
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout3.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
+ 64bit (built May  5 2014))
+ with ESMTP id <0NQR00Z4FDIZW010@mailout3.samsung.com> for
+ netdev@vger.kernel.org; Tue, 30 Jun 2015 22:01:47 +0900 (KST)
+MIME-version: 1.0
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/30/2015 1:45 PM, Sebastian Ott wrote:
-> [   88.909558] mlx4_slave_cmd op=3840, ret=-22, status=3
-> [   88.909562] mlx4_core 0000:00:00.0: mlx4_allocate_default_counters: failed to allocate default counter port 1 err -22
-> [   88.909564] mlx4_core 0000:00:00.0: Failed to allocate default counters, aborting
-> [   88.961735] mlx4_core: probe of 0000:00:00.0 failed with error -22
-
-Do you run the VF on the same system/kernel as the PF, or the VF is 
-probed to VM which runs the latest kernel and the PF runsolder kernel 
-(which?)
-
-Can you also hook the PF code that serves this flow to see where we 
-actually fail? basically, we should be going this way 
-mlx4_ALLOC_RES_wrapper --> counter_alloc_res -- so I'd like to see which 
-of the branches in counter_alloc_res fails...
-
-Or.
+RVAtRUM1NjJENkI1MzU5NDQ3OUJDQTZGQzczRjE3REVFNTQKV2l0aG91dCByZXNldCBmdW5jdGlv
+bmFsaXR5IGluIHJlc2V0X3Jlc3VtZSwgaXBlcmYgY29ubmVjdGlvbgpkb2VzIG5vdCBlc3RhYmxp
+c2ggYWZ0ZXIgc3VzcGVuZC9yZXN1bWUgaG93ZXZlciBwaW5nIHdvcmtzIGF0CnRoZSBzYW1lIHRp
+bWUuIGlwZXJmIGNvbm5lY3Rpb24gZmFpbHMgYnkgZ2l2aW5nIGNoZWNrc3VtIGVycm9yCmluIHRj
+cGR1bXAuCgpyZXNldCBmdW5jdGlvbiBpbnNpZGUgcmVzZXRfcmVzdW1lIHNvbHZlcyBhYm92ZSBi
+dWcuCldlIGhhdmUgdmVyaWZpZWQgaXQgb24gQVNJWCBiYXNlZCBTVCBMYWIsIENhZHljZSBkb25n
+bGUuCgpTaWduZWQtb2ZmLWJ5OiBWaXZlayBLdW1hciBCaGFnYXQgPHZpdmVrLmJoYWdhdEBzYW1z
+dW5nLmNvbT4KU2lnbmVkLW9mZi1ieTogUHJhdmVlbiBLdW1hciA8cHJhdmVlbi5rMDlAc2Ftc3Vu
+Zy5jb20+CgotLS0KIGRyaXZlcnMvbmV0L3VzYi9heDg4MTc5XzE3OGEuYyB8ICAgMTQgKysrKysr
+KysrKysrKy0KIDEgZmlsZSBjaGFuZ2VkLCAxMyBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0p
+CgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jIGIvZHJpdmVycy9u
+ZXQvdXNiL2F4ODgxNzlfMTc4YS5jCmluZGV4IGU2MzM4YzEuLjAwOTI4YzAgMTAwNjQ0Ci0tLSBh
+L2RyaXZlcnMvbmV0L3VzYi9heDg4MTc5XzE3OGEuYworKysgYi9kcml2ZXJzL25ldC91c2IvYXg4
+ODE3OV8xNzhhLmMKQEAgLTE2MzAsNiArMTYzMCwxOCBAQCBzdGF0aWMgaW50IGF4ODgxNzlfc3Rv
+cChzdHJ1Y3QgdXNibmV0ICpkZXYpCiAJcmV0dXJuIDA7CiB9CiAKK3N0YXRpYyBpbnQgYXg4ODE3
+OV9yZXNldF9yZXN1bWUoc3RydWN0IHVzYl9pbnRlcmZhY2UgKmludGYpCit7CisJc3RydWN0IHVz
+Ym5ldCAqZGV2ID0gdXNiX2dldF9pbnRmZGF0YShpbnRmKTsKKwlpbnQgcmV0OworCisJcmV0ID0g
+YXg4ODE3OV9yZXNldChkZXYpOworCWlmIChyZXQgPCAwKQorCQlyZXR1cm4gcmV0OworCisJcmV0
+dXJuICBheDg4MTc5X3Jlc3VtZShpbnRmKTsKK30KKwogc3RhdGljIGNvbnN0IHN0cnVjdCBkcml2
+ZXJfaW5mbyBheDg4MTc5X2luZm8gPSB7CiAJLmRlc2NyaXB0aW9uID0gIkFTSVggQVg4ODE3OSBV
+U0IgMy4wIEdpZ2FiaXQgRXRoZXJuZXQiLAogCS5iaW5kID0gYXg4ODE3OV9iaW5kLApAQCAtMTc0
+NCw3ICsxNzU2LDcgQEAgc3RhdGljIHN0cnVjdCB1c2JfZHJpdmVyIGF4ODgxNzlfMTc4YV9kcml2
+ZXIgPSB7CiAJLnByb2JlID0JdXNibmV0X3Byb2JlLAogCS5zdXNwZW5kID0JYXg4ODE3OV9zdXNw
+ZW5kLAogCS5yZXN1bWUgPQlheDg4MTc5X3Jlc3VtZSwKLQkucmVzZXRfcmVzdW1lID0JYXg4ODE3
+OV9yZXN1bWUsCisJLnJlc2V0X3Jlc3VtZSA9CWF4ODgxNzlfcmVzZXRfcmVzdW1lLAogCS5kaXNj
+b25uZWN0ID0JdXNibmV0X2Rpc2Nvbm5lY3QsCiAJLnN1cHBvcnRzX2F1dG9zdXNwZW5kID0gMSwK
+IAkuZGlzYWJsZV9odWJfaW5pdGlhdGVkX2xwbSA9IDEsCi0tIAoxLjcuOS41
