@@ -1,51 +1,59 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: missing in stable 4.1.1 - was Re: pull-request: can 2015-06-21
-Date: Tue, 30 Jun 2015 14:04:31 -0700
-Message-ID: <20150630210431.GA13808@kroah.com>
-References: <1434906299-19452-1-git-send-email-mkl@pengutronix.de>
- <20150623.064338.1193972764545855895.davem@davemloft.net>
- <5592EE98.8030705@hartkopp.net>
- <20150630200713.GA10747@kroah.com>
- <5592FBD8.4090209@hartkopp.net>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Wiring up direct socket calls on x86_32 Linux?
+Date: Tue, 30 Jun 2015 14:14:38 -0700
+Message-ID: <CALCETrUdqUm4eue2VaNPM7tkt1DSfAgo9fd-06rcys3F0q3rQA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stable@vger.kernel.org, David Miller <davem@davemloft.net>,
-	mkl@pengutronix.de, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, kernel@pengutronix.de
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Larsson <alexl@redhat.com>,
+	Cosimo Cecchi <cosimo@endlessm.com>,
+	Dan Nicholson <nicholson@endlessm.com>,
+	Network Development <netdev@vger.kernel.org>,
+	libc-alpha <libc-alpha@sourceware.org>
+To: X86 ML <x86@kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:52333 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751509AbbF3VEd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 17:04:33 -0400
-Content-Disposition: inline
-In-Reply-To: <5592FBD8.4090209@hartkopp.net>
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:34146 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751804AbbF3VPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 17:15:00 -0400
+Received: by lbnk3 with SMTP id k3so1389216lbn.1
+        for <netdev@vger.kernel.org>; Tue, 30 Jun 2015 14:14:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 30, 2015 at 10:28:08PM +0200, Oliver Hartkopp wrote:
-> On 30.06.2015 22:07, Greg KH wrote:
-> >On Tue, Jun 30, 2015 at 09:31:36PM +0200, Oliver Hartkopp wrote:
-> 
-> >>The upstream commit is:
-> >>
-> >>http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=36c01245eb8046c16eee6431e7dbfbb302635fa8
-> >>
-> >>which slipped into 4.2 at merge window opening time.
-> >>
-> >>So it just got lost in the stable queue somehow.
-> >
-> >No, it's still there.  I don't queue up patches for a stable release
-> >until they have shown up in a public release from Linus.  So in this
-> >case, it will be elgible to be in a stable kernel after 4.2-rc1 is out.
-> >
-> >Unless you tell me otherwise, so if you want this in the next 4.1-stable
-> >release, I can queue it up now.
-> 
-> I would really appreciate it if you can queue it up now.
-> 
-> We already had a bug report for 4.1.0 which is fixed by this patch.
+Hi all-
 
-Ok, now queued up, thanks.
+sys_socketcall sucks.  If nothing else, it's impossible to filter with
+seccomp.  Should we wire up the real socket calls so that user code
+can (very slowly) start migrating?
 
-greg k-h
+I think the list is:
+ - socket
+ - bind
+ - connect
+ - listen
+ - accept4
+ - getsockname
+ - getpeername
+ - socketpair
+ - send
+ - sendto
+ - sendmsg
+ - recv
+ - recvfrom
+ - recvmsg
+ - shutdown
+ - setsockopt
+
+I skipped accept, which is superseded by accept4.  sendmmsg and
+recvmmsg are already wired up.
+
+Thoughts?  The patch would be trivial.
+
+Glibc people: If Linux wired up the syscalls, would glibc use them?
+
+--Andy
+
+-- 
+Andy Lutomirski
+AMA Capital Management, LLC
