@@ -1,54 +1,84 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH v4 3/3] net: mvneta: disable IP checksum with jumbo
- frames for Armada 370
-Date: Tue, 30 Jun 2015 16:26:19 +0200
-Message-ID: <20150630162619.7b7cd078@free-electrons.com>
-References: <1435674022-13295-1-git-send-email-simon.guinot@sequanux.org>
-	<1435674022-13295-4-git-send-email-simon.guinot@sequanux.org>
+From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH 1/1] igb: Use ARRAY_SIZE instead fo
+	sizeof(a)/sizeof(a[0])
+Date: Tue, 30 Jun 2015 14:53:05 +0000
+Message-ID: <9B4A1B1917080E46B64F07F2989DADD653571921@ORSMSX114.amr.corp.intel.com>
+References: <1435640130-1466-1-git-send-email-maninder1.s@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Vincent Donnefort <vdonnefort@gmail.com>,
-	<stable@vger.kernel.org>
-To: Simon Guinot <simon.guinot@sequanux.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "pankaj.m@samsung.com" <pankaj.m@samsung.com>
+To: Maninder Singh <maninder1.s@samsung.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:46880 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752380AbbF3O0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 10:26:22 -0400
-In-Reply-To: <1435674022-13295-4-git-send-email-simon.guinot@sequanux.org>
+Received: from mga09.intel.com ([134.134.136.24]:15847 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752595AbbF3OxY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 10:53:24 -0400
+In-Reply-To: <1435640130-1466-1-git-send-email-maninder1.s@samsung.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Simon Guinot,
+I don't see the reason this is needed so I'm going to say NAK.
 
-On Tue, 30 Jun 2015 16:20:22 +0200, Simon Guinot wrote:
-> The Ethernet controller found in the Armada 370, 380 and 385 SoCs don't
-> support TCP/IP checksumming with frame sizes larger than 1600 bytes.
-> 
-> This patch fixes the issue by disabling the features NETIF_F_IP_CSUM and
-> NETIF_F_TSO for the Armada 370 and compatibles SoCs when the MTU is set
-> to a value greater than 1600 bytes.
-> 
-> Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
-> Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP network unit")
-> Cc: <stable@vger.kernel.org> # v3.8+
-> ---
->  drivers/net/ethernet/marvell/mvneta.c | 26 +++++++++++++++++++++++++-
->  1 file changed, 25 insertions(+), 1 deletion(-)
+Todd Fujinaka
+Software Application Engineer
+Networking Division (ND)
+Intel Corporation
+todd.fujinaka@intel.com
+(503) 712-4565
 
-Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+-----Original Message-----
+From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Maninder Singh
+Sent: Monday, June 29, 2015 9:56 PM
+To: Kirsher, Jeffrey T; Brandeburg, Jesse; Nelson, Shannon; Wyborny, Carolyn; Skidmore, Donald C; Vick, Matthew; Ronciak, John; Williams, Mitch A; intel-wired-lan@lists.osuosl.org; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+Cc: Maninder Singh; pankaj.m@samsung.com
+Subject: [Intel-wired-lan] [PATCH 1/1] igb: Use ARRAY_SIZE instead fo sizeof(a)/sizeof(a[0])
 
-Thanks,
+Use ARRAY_SIZE instead fo sizeof(a)/sizeof(a[0])
 
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
+Reviewed-by: Yogesh Narayan Gaur <yn.gaur@samsung.com>
+---
+ drivers/net/ethernet/intel/igb/e1000_phy.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
+index c1bb64d..e399b3c 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.c
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
+@@ -37,8 +37,7 @@ static s32  igb_set_master_slave_mode(struct e1000_hw *hw);  static const u16 e1000_m88_cable_length_table[] = {
+ 	0, 50, 80, 110, 140, 140, E1000_CABLE_LENGTH_UNDEFINED };  #define M88E1000_CABLE_LENGTH_TABLE_SIZE \
+-	(sizeof(e1000_m88_cable_length_table) / \
+-	sizeof(e1000_m88_cable_length_table[0]))
++	ARRAY_SIZE(e1000_m88_cable_length_table)
+ 
+ static const u16 e1000_igp_2_cable_length_table[] = {
+ 	0, 0, 0, 0, 0, 0, 0, 0, 3, 5, 8, 11, 13, 16, 18, 21, @@ -50,8 +49,7 @@ static const u16 e1000_igp_2_cable_length_table[] = {
+ 	83, 89, 95, 100, 105, 109, 113, 116, 119, 122, 124,
+ 	104, 109, 114, 118, 121, 124};
+ #define IGP02E1000_CABLE_LENGTH_TABLE_SIZE \
+-	(sizeof(e1000_igp_2_cable_length_table) / \
+-	 sizeof(e1000_igp_2_cable_length_table[0]))
++	ARRAY_SIZE(e1000_igp_2_cable_length_table)
+ 
+ /**
+  *  igb_check_reset_block - Check if PHY reset is blocked
+--
+1.7.9.5
+
+_______________________________________________
+Intel-wired-lan mailing list
+Intel-wired-lan@lists.osuosl.org
+http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
