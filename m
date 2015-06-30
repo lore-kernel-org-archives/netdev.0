@@ -1,57 +1,67 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: missing in stable 4.1.1 - was Re: pull-request: can 2015-06-21
-Date: Tue, 30 Jun 2015 13:07:13 -0700
-Message-ID: <20150630200713.GA10747@kroah.com>
-References: <1434906299-19452-1-git-send-email-mkl@pengutronix.de>
- <20150623.064338.1193972764545855895.davem@davemloft.net>
- <5592EE98.8030705@hartkopp.net>
+From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH 1/1] igb: Use ARRAY_SIZE instead fo
+ sizeof(a)/sizeof(a[0])
+Date: Tue, 30 Jun 2015 20:16:29 +0000
+Message-ID: <9B4A1B1917080E46B64F07F2989DADD653571BF0@ORSMSX114.amr.corp.intel.com>
+References: <1435640130-1466-1-git-send-email-maninder1.s@samsung.com>
+	<9B4A1B1917080E46B64F07F2989DADD653571921@ORSMSX114.amr.corp.intel.com>
+ <CAFLxGvxayeac0Hq8Gi5j_TJ4dnboYypz9gchW0VQ0Z9t-UFofA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stable@vger.kernel.org, David Miller <davem@davemloft.net>,
-	mkl@pengutronix.de, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, kernel@pengutronix.de
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5592EE98.8030705@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Maninder Singh <maninder1.s@samsung.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"pankaj.m@samsung.com" <pankaj.m@samsung.com>
+To: Richard Weinberger <richard.weinberger@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:14541 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751767AbbF3UQb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jun 2015 16:16:31 -0400
+In-Reply-To: <CAFLxGvxayeac0Hq8Gi5j_TJ4dnboYypz9gchW0VQ0Z9t-UFofA@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 30, 2015 at 09:31:36PM +0200, Oliver Hartkopp wrote:
-> Hello Greg,
-> 
-> On 23.06.2015 15:43, David Miller wrote:
-> >From: Marc Kleine-Budde <mkl@pengutronix.de>
-> >Date: Sun, 21 Jun 2015 19:04:58 +0200
-> >
-> >>this is a, probably too late, pull request for v4.1.
-> >>
-> >>Oliver Hartkopp fixed a bug in the generic CAN frame handling code, which may
-> >>lead to loss of CAN frames. It was introduced during v4.1 development.
-> >>
-> >>Please queue via net/master if possible, net-next/master otherwise. I've added
-> >>stable on Cc, just in case.
-> >
-> >Pulled, thanks.
-> 
-> the patch "can: fix loss of CAN frames in raw_rcv" was sent to stable on
-> 2015-06-21 but unfortunately did not find its way into 4.1.1 :-(
-> 
-> The upstream commit is:
-> 
-> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=36c01245eb8046c16eee6431e7dbfbb302635fa8
-> 
-> which slipped into 4.2 at merge window opening time.
-> 
-> So it just got lost in the stable queue somehow.
-
-No, it's still there.  I don't queue up patches for a stable release
-until they have shown up in a public release from Linus.  So in this
-case, it will be elgible to be in a stable kernel after 4.2-rc1 is out.
-
-Unless you tell me otherwise, so if you want this in the next 4.1-stable
-release, I can queue it up now.
-
-thanks,
-
-greg k-h
+U29ycnkgZm9yIHRoZSB0b3AtcG9zdGluZywgYnV0IEknbSBwcm92aWRlZCB3aXRoIHRoZSB0b29s
+cyB0aGV5IGdpdmUgbWUgYW5kIGJvdHRvbSBwb3N0aW5nIGZyb20gT3V0bG9vayBqdXN0IGNvbmZ1
+c2VzIGVtYWlsIHRocmVhZHMuIFBsdXMsIHRoaXMgd2FzIGNyb3NzcG9zdGVkIGFsbCBvdmVyIGNy
+ZWF0aW9uIGFuZCBjYy1lZCB0byBhbnlvbmUgd2l0aCBhbiBpbnRlbCBhZGRyZXNzLg0KDQpJIHN0
+aWxsIHdvdWxkIHNheSBubyBpZiBJJ20gYWxsb3dlZCwgYmVjYXVzZSB0byBndWFyYW50ZWUgdGhh
+dCB0aGlzIGNoYW5nZSAtIHRoYXQgSSBkb24ndCB0aGluayBmaXhlcyBhbnl0aGluZyAtIHdvcmtz
+IGluIGFsbCBjYXNlcywgd2UgbmVlZCB0byBkbyBhbiBpbmNyZWRpYmxlIGFtb3VudCBvZiByZWdy
+ZXNzaW9uIHRlc3RpbmcuIEV2ZXJ5IHZhcmlhbnQgb2YgZXZlcnkgSW50ZWwgcGFydCB0aGF0IHVz
+ZXMgdGhpcyBkcml2ZXIgKGFuZCB0aGVyZSBhcmUgbWFueSkgc2hvdWxkIGJlIHRlc3RlZCBhbmQg
+d2lsbCBlbmQgdXAgYmVpbmcgdXNlZCBieSB0aGUgY29tbXVuaXR5Lg0KDQpQbHVzLCB5b3UgaGF2
+ZSBubyBpZGVhIHRoZSBudW1iZXIgb2Ygb2JzY3VyZSBidWdzIEkgaGF2ZSB0byBkZWFsIHdpdGgg
+YXMgdGhlIGd1eSBhbnN3ZXJpbmcgY3VzdG9tZXIgcXVlc3Rpb25zLiBJZiB0aGlzIHRyaWdnZXJz
+IHNvbWUgb2RkIGVtYmVkZGVkIGNvbXBpbGVyIGJ1ZywgSSdtIGdvaW5nIHRvIGhhdmUgdG8gZGln
+IGl0IG91dC4gVW5sZXNzIHRoZXJlIGlzIGFuIGFjdHVhbCBidWcsIEknZCBsaWtlIHRvIGxlYXZl
+IGl0IGFzIGl0IGlzLg0KDQpUb2RkIEZ1amluYWthDQpTb2Z0d2FyZSBBcHBsaWNhdGlvbiBFbmdp
+bmVlcg0KTmV0d29ya2luZyBEaXZpc2lvbiAoTkQpDQpJbnRlbCBDb3Jwb3JhdGlvbg0KdG9kZC5m
+dWppbmFrYUBpbnRlbC5jb20NCig1MDMpIDcxMi00NTY1DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2Fn
+ZS0tLS0tDQpGcm9tOiBSaWNoYXJkIFdlaW5iZXJnZXIgW21haWx0bzpyaWNoYXJkLndlaW5iZXJn
+ZXJAZ21haWwuY29tXSANClNlbnQ6IFR1ZXNkYXksIEp1bmUgMzAsIDIwMTUgMTI6MDEgUE0NClRv
+OiBGdWppbmFrYSwgVG9kZA0KQ2M6IE1hbmluZGVyIFNpbmdoOyBLaXJzaGVyLCBKZWZmcmV5IFQ7
+IEJyYW5kZWJ1cmcsIEplc3NlOyBOZWxzb24sIFNoYW5ub247IFd5Ym9ybnksIENhcm9seW47IFNr
+aWRtb3JlLCBEb25hbGQgQzsgVmljaywgTWF0dGhldzsgUm9uY2lhaywgSm9objsgV2lsbGlhbXMs
+IE1pdGNoIEE7IGludGVsLXdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wub3JnOyBuZXRkZXZAdmdlci5r
+ZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBwYW5rYWoubUBzYW1zdW5n
+LmNvbQ0KU3ViamVjdDogUmU6IFtJbnRlbC13aXJlZC1sYW5dIFtQQVRDSCAxLzFdIGlnYjogVXNl
+IEFSUkFZX1NJWkUgaW5zdGVhZCBmbyBzaXplb2YoYSkvc2l6ZW9mKGFbMF0pDQoNCk9uIFR1ZSwg
+SnVuIDMwLCAyMDE1IGF0IDQ6NTMgUE0sIEZ1amluYWthLCBUb2RkIDx0b2RkLmZ1amluYWthQGlu
+dGVsLmNvbT4gd3JvdGU6DQo+IEkgZG9uJ3Qgc2VlIHRoZSByZWFzb24gdGhpcyBpcyBuZWVkZWQg
+c28gSSdtIGdvaW5nIHRvIHNheSBOQUsuDQoNClVzaW5nIGdlbmVyaWMgZnVuY3Rpb25zIGlzIGFs
+d2F5cyBiZXR0ZXIgdGhhbiBvcGVuIGNvZGVkIHN0dWZmLg0KTGludXgncyBBUlJBWV9TSVpFIGFs
+c28gbWFrZXMgc3VyZSB0aGF0IHRoZSBwYXNzZWQgdmFyaWFibGUgaXMgYWN0dWFsbHkgYW4gYXJy
+YXkuDQoNCi0tDQpUaGFua3MsDQovL3JpY2hhcmQNCg==
