@@ -1,59 +1,52 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Wiring up direct socket calls on x86_32 Linux?
-Date: Tue, 30 Jun 2015 14:14:38 -0700
-Message-ID: <CALCETrUdqUm4eue2VaNPM7tkt1DSfAgo9fd-06rcys3F0q3rQA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: missing in stable 4.1.1 - was Re: pull-request: can 2015-06-21
+Date: Tue, 30 Jun 2015 14:20:55 -0700 (PDT)
+Message-ID: <20150630.142055.2284481896639682516.davem@davemloft.net>
+References: <1434906299-19452-1-git-send-email-mkl@pengutronix.de>
+	<20150623.064338.1193972764545855895.davem@davemloft.net>
+	<5592EE98.8030705@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Larsson <alexl@redhat.com>,
-	Cosimo Cecchi <cosimo@endlessm.com>,
-	Dan Nicholson <nicholson@endlessm.com>,
-	Network Development <netdev@vger.kernel.org>,
-	libc-alpha <libc-alpha@sourceware.org>
-To: X86 ML <x86@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:34146 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751804AbbF3VPA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 17:15:00 -0400
-Received: by lbnk3 with SMTP id k3so1389216lbn.1
-        for <netdev@vger.kernel.org>; Tue, 30 Jun 2015 14:14:58 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stable@vger.kernel.org, gregkh@linuxfoundation.org,
+	mkl@pengutronix.de, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, kernel@pengutronix.de
+To: socketcan@hartkopp.net
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <5592EE98.8030705@hartkopp.net>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all-
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Tue, 30 Jun 2015 21:31:36 +0200
 
-sys_socketcall sucks.  If nothing else, it's impossible to filter with
-seccomp.  Should we wire up the real socket calls so that user code
-can (very slowly) start migrating?
+> Hello Greg,
+> 
+> On 23.06.2015 15:43, David Miller wrote:
+>> From: Marc Kleine-Budde <mkl@pengutronix.de>
+>> Date: Sun, 21 Jun 2015 19:04:58 +0200
+>>
+>>> this is a, probably too late, pull request for v4.1.
+>>>
+>>> Oliver Hartkopp fixed a bug in the generic CAN frame handling code,
+>>> which may
+>>> lead to loss of CAN frames. It was introduced during v4.1 development.
+>>>
+>>> Please queue via net/master if possible, net-next/master
+>>> otherwise. I've added
+>>> stable on Cc, just in case.
+>>
+>> Pulled, thanks.
+> 
+> the patch "can: fix loss of CAN frames in raw_rcv" was sent to stable
+> on 2015-06-21 but unfortunately did not find its way into 4.1.1 :-(
+> 
+> The upstream commit is:
+> 
+> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=36c01245eb8046c16eee6431e7dbfbb302635fa8
+> 
+> which slipped into 4.2 at merge window opening time.
+> 
+> So it just got lost in the stable queue somehow.
 
-I think the list is:
- - socket
- - bind
- - connect
- - listen
- - accept4
- - getsockname
- - getpeername
- - socketpair
- - send
- - sendto
- - sendmsg
- - recv
- - recvfrom
- - recvmsg
- - shutdown
- - setsockopt
-
-I skipped accept, which is superseded by accept4.  sendmmsg and
-recvmmsg are already wired up.
-
-Thoughts?  The patch would be trivial.
-
-Glibc people: If Linux wired up the syscalls, would glibc use them?
-
---Andy
-
--- 
-Andy Lutomirski
-AMA Capital Management, LLC
+Please take care of CAN -stable submissions yourself, thanks.
