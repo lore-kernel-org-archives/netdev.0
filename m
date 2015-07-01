@@ -1,64 +1,61 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net v2] enic: fix issues in enic_poll
-Date: Wed,  1 Jul 2015 14:21:57 +0530
-Message-ID: <1435740717-12325-1-git-send-email-_govind@gmx.com>
-Cc: ssujith@cisco.com, benve@cisco.com,
-	Govindarajulu Varadarajan <_govind@gmx.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:57523 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752058AbbGAIwK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jul 2015 04:52:10 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 0/2] Error message clean-ups for Renesas R-Car CAN driver
+Date: Wed, 1 Jul 2015 11:01:03 +0200
+Message-ID: <5593AC4F.4010005@pengutronix.de>
+References: <1593397.kKIHxKLe5s@wasted.cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="LJWAgBD9CPneG4PP2HpnrnutqkGdUXKQ6"
+Cc: linux-sh@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, wg@grandegger.com,
+	linux-can@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1593397.kKIHxKLe5s@wasted.cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In enic_poll, we clean tx and rx queues, when low latency busy socket polling
-is happening, enic_poll will only clean tx queue. After cleaning tx, it should
-return total budget for re-poll.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--LJWAgBD9CPneG4PP2HpnrnutqkGdUXKQ6
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-There is a small window between vnic_intr_unmask() and enic_poll_unlock_napi().
-In this window if an irq occurs and napi is scheduled on different cpu, it tries
-to acquire enic_poll_lock_napi() and fails. Unlock napi_poll before unmasking
-the interrupt.
+On 06/20/2015 02:49 AM, Sergei Shtylyov wrote:
+> Hello.
+>=20
+>    Here's the set of 2 patches against Marc Kleine-Budde's 'linux-can.g=
+it'
+> repo plus 3 fix patches just posted; they are small error message clean=
+ups for
+> the Renesas R-Car CAN driver.
 
-v2:
-Do not change tx wonk done behaviour. Consider only rx work done for completing
-napi.
+Applied both series to can/master.
 
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
----
- drivers/net/ethernet/cisco/enic/enic_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Thanks,
+Marc
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index da2004e..918a8e4 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -1170,7 +1170,7 @@ static int enic_poll(struct napi_struct *napi, int budget)
- 						 wq_work_done,
- 						 0 /* dont unmask intr */,
- 						 0 /* dont reset intr timer */);
--		return rq_work_done;
-+		return budget;
- 	}
- 
- 	if (budget > 0)
-@@ -1191,6 +1191,7 @@ static int enic_poll(struct napi_struct *napi, int budget)
- 			0 /* don't reset intr timer */);
- 
- 	err = vnic_rq_fill(&enic->rq[0], enic_rq_alloc_buf);
-+	enic_poll_unlock_napi(&enic->rq[cq_rq], napi);
- 
- 	/* Buffer allocation failed. Stay in polling
- 	 * mode so we can try to fill the ring again.
-@@ -1208,7 +1209,6 @@ static int enic_poll(struct napi_struct *napi, int budget)
- 		napi_complete(napi);
- 		vnic_intr_unmask(&enic->intr[intr]);
- 	}
--	enic_poll_unlock_napi(&enic->rq[cq_rq], napi);
- 
- 	return rq_work_done;
- }
--- 
-2.4.4
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--LJWAgBD9CPneG4PP2HpnrnutqkGdUXKQ6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJVk6xSAAoJEP5prqPJtc/HKl4H/Rc4QGTXN7TWxIbcwcJehnoz
+/9ceMr9Xr9N1jmddkAhAl8nc8IEJ2MqjYW+IqX6SaMcCqT1KVnzyqvnwf5t2sxvZ
+jKnhoNj2zzusursdV4zkykXvCHD6HnuytHY/iNPRFOd7y7sAdZO7RE1gpre/kBwM
+GopEIFzveUT01kQkICKCYIL3i0z8zkEiSDbLEsowOIH//o7sGfvDTXOZDi4nJ5R4
+z7t1kEvLnt0cAt9/hxUAOVBPNORxUTxtz5838yuF+HoWpC9CU3+7gzZbMz262J7H
+Wbx19R2YD33NZJSL5DZU/L2ZNDv3M251Ni7pfPuREJqAAy+BPo9+3JCYQhsIPXc=
+=AcUU
+-----END PGP SIGNATURE-----
+
+--LJWAgBD9CPneG4PP2HpnrnutqkGdUXKQ6--
