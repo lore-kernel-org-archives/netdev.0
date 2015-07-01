@@ -1,64 +1,38 @@
-From: Alex Gartrell <agartrell@fb.com>
-Subject: [PATCH net-next] net: bail on sock_wfree, sock_rfree when we have a TCP_TIMEWAIT sk
-Date: Wed, 1 Jul 2015 13:13:09 -0700
-Message-ID: <1435781589-2210146-1-git-send-email-agartrell@fb.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: mlx4: "failed to allocate default counter port 1"
+Date: Wed, 1 Jul 2015 23:38:24 +0300
+Message-ID: <CAJ3xEMhWMAtWhw5Xj+3Pj40FAOSpHGJ3ayGn7WsoHJJEuMZiVA@mail.gmail.com>
+References: <alpine.LFD.2.11.1506301229520.1799@denkbrett>
+	<5592913C.3000207@mellanox.com>
+	<alpine.LFD.2.11.1506301520180.1799@denkbrett>
+	<55929F2D.9050805@mellanox.com>
+	<alpine.LFD.2.11.1506301615100.1799@denkbrett>
+	<5593E88F.10006@mellanox.com>
+	<alpine.LFD.2.11.1507011554060.1691@denkbrett>
+	<alpine.LFD.2.11.1507011616560.1691@denkbrett>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>, Alex Gartrell <agartrell@fb.com>
-To: <davem@davemloft.net>, <edumazet@google.com>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Sebastian Ott <sebott@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:35783 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752069AbbGAUNP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 16:13:15 -0400
-Received: from pps.filterd (m0004347 [127.0.0.1])
-	by m0004347.ppops.net (8.14.5/8.14.5) with SMTP id t61KBdGN018520
-	for <netdev@vger.kernel.org>; Wed, 1 Jul 2015 13:13:15 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0004347.ppops.net with ESMTP id 1vcmhpraaw-2
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 01 Jul 2015 13:13:15 -0700
-Received: from facebook.com (2401:db00:20:7017:face:0:13:0)	by
- mx-out.facebook.com (10.103.99.97) with ESMTP	id
- 9a8c23f4202d11e5a0dd0002c9931860-9bbf32b0 for <netdev@vger.kernel.org>;	Wed,
- 01 Jul 2015 13:13:14 -0700
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:34100 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751932AbbGAUiZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 16:38:25 -0400
+Received: by obbkm3 with SMTP id km3so36300358obb.1
+        for <netdev@vger.kernel.org>; Wed, 01 Jul 2015 13:38:25 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.11.1507011616560.1691@denkbrett>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If we early-demux bind a TCP_TIMEWAIT socket to an skb and then orphan it
-(as we need to do in the ipvs forwarding case), sock_wfree and sock_rfree
-are going to reach into the inet_timewait_sock and mess with fields that
-don't exist.
+On Wed, Jul 1, 2015 at 5:18 PM, Sebastian Ott <sebott@linux.vnet.ibm.com> wrote:
+> OK, using this patch it worked:
 
-Signed-off-by: Alex Gartrell <agartrell@fb.com>
----
- net/core/sock.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+yep, I forgot to recap err to zero.
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 1e1fe9a..b37328f 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1620,6 +1620,9 @@ void sock_wfree(struct sk_buff *skb)
- 	struct sock *sk = skb->sk;
- 	unsigned int len = skb->truesize;
- 
-+	if (sk->sk_state == TCP_TIME_WAIT)
-+		return;
-+
- 	if (!sock_flag(sk, SOCK_USE_WRITE_QUEUE)) {
- 		/*
- 		 * Keep a reference on sk_wmem_alloc, this will be released
-@@ -1665,6 +1668,9 @@ void sock_rfree(struct sk_buff *skb)
- 	struct sock *sk = skb->sk;
- 	unsigned int len = skb->truesize;
- 
-+	if (sk->sk_state == TCP_TIME_WAIT)
-+		return;
-+
- 	atomic_sub(len, &sk->sk_rmem_alloc);
- 	sk_mem_uncharge(sk, len);
- }
--- 
-Alex Gartrell <agartrell@fb.com>
+By "it worked" you mean the VF is live and kicking, all functionality
+you had before the 4.2 merge window is back again?
