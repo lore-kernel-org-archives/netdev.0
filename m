@@ -1,27 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ax88179_178a: add reset functionality in reset_resume
-Date: Wed, 01 Jul 2015 09:45:52 -0700 (PDT)
-Message-ID: <20150701.094552.2303353974111473540.davem@davemloft.net>
-References: <195010176.128271435750438202.JavaMail.weblogic@ep2mlwas07d>
+From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+Subject: Re: macb: zynq: why is SG disabled?
+Date: Wed, 1 Jul 2015 19:04:00 +0200
+Message-ID: <55941D80.2090904@atmel.com>
+References: <559403E3.3050900@certsign.ro>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hemanshu.s@samsung.com
-To: vivek.bhagat@samsung.com
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Nicolae Rosia <nicolae.rosia@certsign.ro>,
+	Michal Simek <michal.simek@xilinx.com>,
+	Punnaiah Choudary Kalluri
+	<punnaiah.choudary.kalluri@xilinx.com>, <netdev@vger.kernel.org>,
+	"Nicolas Ferre" <nicolas.ferre@atmel.com>,
+	<linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33529 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751170AbbGAQpx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 12:45:53 -0400
-In-Reply-To: <195010176.128271435750438202.JavaMail.weblogic@ep2mlwas07d>
+Received: from eusmtp01.atmel.com ([212.144.249.242]:12166 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751263AbbGARER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 13:04:17 -0400
+In-Reply-To: <559403E3.3050900@certsign.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
-Date: Wed, 01 Jul 2015 11:33:58 +0000 (GMT)
+Le 01/07/2015 17:14, Nicolae Rosia a =E9crit :
+> Hello,
+>=20
+> After reading the GEM part of Zynq7000 Technical Reference Manual [0]=
+, I think that SG should be supported.
+> Is there a reason why SG is disabled in macb for Zynq?
+>=20
+> Best regards,
+> Nicolae Rosia
 
-> I configured my email client and below patch does not have indentation
-> issue of converting tabs into spaces. I hope it should be accepted.
+Hi Nicolae,
 
-Patchwork is not recognizing your postings as a patch submission,
-therefore it's not ending up in my queue of patches to handle.
+when the scatter-gather patch was introduced, the feature was enabled o=
+nly on
+tested boards to avoid regressions on other boards.
+So SG is enabled on sama5d4x and sama5d2x SoCs. SG is disabled on purpo=
+se on
+sama5d3x.
+
+=46or Zynq, I think the feature is still disabled just because it has n=
+ever been
+tested.
+
+Best regards,
+
+Cyrille
