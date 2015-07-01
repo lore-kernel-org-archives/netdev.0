@@ -1,221 +1,57 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH V2] cdc_ncm: Add support for moving NDP to end of NCM frame
-Date: Wed,  1 Jul 2015 23:55:48 +0200
-Message-ID: <1435787748-30393-1-git-send-email-mrkiko.rs@gmail.com>
-Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: macb: replace literal constant with
+ NET_IP_ALIGN
+Date: Thu, 02 Jul 2015 00:13:57 +0200
+Message-ID: <1435788837.8526.3.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5592D105.7080006@certsign.ro>
+	 <1435748191.4110.127.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1435770389.12101.110.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Nicolae Rosia <nicolae.rosia@certsign.ro>, netdev@vger.kernel.org,
+	'Nicolas Ferre <nicolas.ferre@atmel.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:35626 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752797AbbGAWOE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 18:14:04 -0400
+Received: by wiga1 with SMTP id a1so137381061wig.0
+        for <netdev@vger.kernel.org>; Wed, 01 Jul 2015 15:14:03 -0700 (PDT)
+In-Reply-To: <1435770389.12101.110.camel@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-NCM specs are not actually mandating a specific position in the frame for
-the NDP (Network Datagram Pointer). However, some Huawei devices will
-ignore our aggregates if it is not placed after the datagrams it points
-to. Add support for doing just this, in a per-device configurable way.
-While at it, update NCM subdrivers, disabling this functionality in all of
-them, except in huawei_cdc_ncm where it is enabled instead.
-We aren't making any distinction between different Huawei NCM devices,
-based on what the vendor driver does. Standard NCM devices are left
-unaffected: if they are compliant, they should be always usable, still
-stay on the safe side.
+On Wed, 2015-07-01 at 10:06 -0700, Joe Perches wrote:
+> On Wed, 2015-07-01 at 12:56 +0200, Eric Dumazet wrote:
+> > On Tue, 2015-06-30 at 20:25 +0300, Nicolae Rosia wrote:
+> > > diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> []
+> > > @@ -2554,9 +2554,9 @@ static void at91ether_rx(struct net_device *dev)
+> > >  	while (lp->rx_ring[lp->rx_tail].addr & MACB_BIT(RX_USED)) {
+> > >  		p_recv = lp->rx_buffers + lp->rx_tail * AT91ETHER_MAX_RBUFF_SZ;
+> > >  		pktlen = MACB_BF(RX_FRMLEN, lp->rx_ring[lp->rx_tail].ctrl);
+> > > -		skb = netdev_alloc_skb(dev, pktlen + 2);
+> > > +		skb = netdev_alloc_skb(dev, pktlen + NET_IP_ALIGN);
+> > >  		if (skb) {
+> > > -			skb_reserve(skb, 2);
+> > > +			skb_reserve(skb, NET_IP_ALIGN);
+> > >  			memcpy(skb_put(skb, pktlen), p_recv, pktlen);
+> > >  
+> > >  			skb->protocol = eth_type_trans(skb, dev);
+> > 
+> > Then please use netdev_alloc_skb_ip_align(), so that you get rid of
+> > skb_reserve()
+> 
+> It seems there are ~50 of these in the kernel tree
+> that could be converted.
+> 
 
-This change has been tested and working with a Huawei E3131 device (which
-works regardless of NDP position) and an E3372 device (which mandates NDP
-to be after indexed datagrams).
+Make sure the 2 is really NET_IP_ALIGN
 
-V1->V2:
-- corrected wrong NDP acronym definition
-- fixed possible NULL pointer dereference
-- patch cleanup
-- rewrote description and commit subject to be more clear
+Some hardwares need 2, even if NET_IP_ALIGN is 0 (on x86 arches for
+example)
 
-Signed-off-by: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/usb/cdc_mbim.c       |  2 +-
- drivers/net/usb/cdc_ncm.c        | 50 ++++++++++++++++++++++++++++++++++++----
- drivers/net/usb/huawei_cdc_ncm.c |  7 ++++--
- include/linux/usb/cdc_ncm.h      |  7 +++++-
- 4 files changed, 57 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
-index e4b7a47..efc18e0 100644
---- a/drivers/net/usb/cdc_mbim.c
-+++ b/drivers/net/usb/cdc_mbim.c
-@@ -158,7 +158,7 @@ static int cdc_mbim_bind(struct usbnet *dev, struct usb_interface *intf)
- 	if (!cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
- 		goto err;
- 
--	ret = cdc_ncm_bind_common(dev, intf, data_altsetting);
-+	ret = cdc_ncm_bind_common(dev, intf, data_altsetting, 0);
- 	if (ret)
- 		goto err;
- 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 8067b8f..4a27673 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -684,10 +684,12 @@ static void cdc_ncm_free(struct cdc_ncm_ctx *ctx)
- 		ctx->tx_curr_skb = NULL;
- 	}
- 
-+	kfree(ctx->delayed_ndp16);
-+
- 	kfree(ctx);
- }
- 
--int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_altsetting)
-+int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_altsetting, int drvflags)
- {
- 	const struct usb_cdc_union_desc *union_desc = NULL;
- 	struct cdc_ncm_ctx *ctx;
-@@ -855,6 +857,17 @@ advance:
- 	/* finish setting up the device specific data */
- 	cdc_ncm_setup(dev);
- 
-+	/* Device-specific flags */
-+	ctx->drvflags = drvflags;
-+
-+	/* Allocate the delayed NDP if needed. */
-+	if (ctx->drvflags & CDC_NCM_FLAG_NDP_TO_END) {
-+		ctx->delayed_ndp16 = kzalloc(ctx->max_ndp_size, GFP_KERNEL);
-+		if (!ctx->delayed_ndp16)
-+			goto error2;
-+		dev_info(&intf->dev, "NDP will be placed at end of frame for this device.");
-+	}
-+
- 	/* override ethtool_ops */
- 	dev->net->ethtool_ops = &cdc_ncm_ethtool_ops;
- 
-@@ -954,8 +967,11 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
- 	if (cdc_ncm_select_altsetting(intf) != CDC_NCM_COMM_ALTSETTING_NCM)
- 		return -ENODEV;
- 
--	/* The NCM data altsetting is fixed */
--	ret = cdc_ncm_bind_common(dev, intf, CDC_NCM_DATA_ALTSETTING_NCM);
-+	/* The NCM data altsetting is fixed, so we hard-coded it.
-+	 * Additionally, generic NCM devices are assumed to accept arbitrarily
-+	 * placed NDP.
-+	 */
-+	ret = cdc_ncm_bind_common(dev, intf, CDC_NCM_DATA_ALTSETTING_NCM, 0);
- 
- 	/*
- 	 * We should get an event when network connection is "connected" or
-@@ -986,6 +1002,14 @@ static struct usb_cdc_ncm_ndp16 *cdc_ncm_ndp(struct cdc_ncm_ctx *ctx, struct sk_
- 	struct usb_cdc_ncm_nth16 *nth16 = (void *)skb->data;
- 	size_t ndpoffset = le16_to_cpu(nth16->wNdpIndex);
- 
-+	/* If NDP should be moved to the end of the NCM package, we can't follow the
-+	* NTH16 header as we would normally do. NDP isn't written to the SKB yet, and
-+	* the wNdpIndex field in the header is actually not consistent with reality. It will be later.
-+	*/
-+	if (ctx->drvflags & CDC_NCM_FLAG_NDP_TO_END)
-+		if (ctx->delayed_ndp16->dwSignature == sign)
-+			return ctx->delayed_ndp16;
-+
- 	/* follow the chain of NDPs, looking for a match */
- 	while (ndpoffset) {
- 		ndp16 = (struct usb_cdc_ncm_ndp16 *)(skb->data + ndpoffset);
-@@ -995,7 +1019,8 @@ static struct usb_cdc_ncm_ndp16 *cdc_ncm_ndp(struct cdc_ncm_ctx *ctx, struct sk_
- 	}
- 
- 	/* align new NDP */
--	cdc_ncm_align_tail(skb, ctx->tx_ndp_modulus, 0, ctx->tx_max);
-+	if (!(ctx->drvflags & CDC_NCM_FLAG_NDP_TO_END))
-+		cdc_ncm_align_tail(skb, ctx->tx_ndp_modulus, 0, ctx->tx_max);
- 
- 	/* verify that there is room for the NDP and the datagram (reserve) */
- 	if ((ctx->tx_max - skb->len - reserve) < ctx->max_ndp_size)
-@@ -1008,7 +1033,11 @@ static struct usb_cdc_ncm_ndp16 *cdc_ncm_ndp(struct cdc_ncm_ctx *ctx, struct sk_
- 		nth16->wNdpIndex = cpu_to_le16(skb->len);
- 
- 	/* push a new empty NDP */
--	ndp16 = (struct usb_cdc_ncm_ndp16 *)memset(skb_put(skb, ctx->max_ndp_size), 0, ctx->max_ndp_size);
-+	if (!(ctx->drvflags & CDC_NCM_FLAG_NDP_TO_END))
-+		ndp16 = (struct usb_cdc_ncm_ndp16 *)memset(skb_put(skb, ctx->max_ndp_size), 0, ctx->max_ndp_size);
-+	else
-+		ndp16 = ctx->delayed_ndp16;
-+
- 	ndp16->dwSignature = sign;
- 	ndp16->wLength = cpu_to_le16(sizeof(struct usb_cdc_ncm_ndp16) + sizeof(struct usb_cdc_ncm_dpe16));
- 	return ndp16;
-@@ -1150,6 +1179,17 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_buff *skb, __le32 sign)
- 		/* variables will be reset at next call */
- 	}
- 
-+	/* If requested, put NDP at end of frame. */
-+	if (ctx->drvflags & CDC_NCM_FLAG_NDP_TO_END) {
-+		nth16 = (struct usb_cdc_ncm_nth16 *)skb_out->data;
-+		cdc_ncm_align_tail(skb_out, ctx->tx_ndp_modulus, 0, ctx->tx_max);
-+		nth16->wNdpIndex = cpu_to_le16(skb_out->len);
-+		memcpy(skb_put(skb_out, ctx->max_ndp_size), ctx->delayed_ndp16, ctx->max_ndp_size);
-+
-+		/* Zero out delayed NDP - signature checking will naturally fail. */
-+		ndp16 = memset(ctx->delayed_ndp16, 0, ctx->max_ndp_size);
-+	}
-+
- 	/* If collected data size is less or equal ctx->min_tx_pkt
- 	 * bytes, we send buffers as it is. If we get more data, it
- 	 * would be more efficient for USB HS mobile device with DMA
-diff --git a/drivers/net/usb/huawei_cdc_ncm.c b/drivers/net/usb/huawei_cdc_ncm.c
-index 735f7da..2680a65 100644
---- a/drivers/net/usb/huawei_cdc_ncm.c
-+++ b/drivers/net/usb/huawei_cdc_ncm.c
-@@ -73,11 +73,14 @@ static int huawei_cdc_ncm_bind(struct usbnet *usbnet_dev,
- 	struct usb_driver *subdriver = ERR_PTR(-ENODEV);
- 	int ret = -ENODEV;
- 	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
-+	int drvflags = 0;
- 
- 	/* altsetting should always be 1 for NCM devices - so we hard-coded
--	 * it here
-+	 * it here. Some huawei devices will need the NDP part of the NCM package to
-+	 * be at the end of the frame.
- 	 */
--	ret = cdc_ncm_bind_common(usbnet_dev, intf, 1);
-+	drvflags |= CDC_NCM_FLAG_NDP_TO_END;
-+	ret = cdc_ncm_bind_common(usbnet_dev, intf, 1, drvflags);
- 	if (ret)
- 		goto err;
- 
-diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
-index 7c9b484..1f6526c 100644
---- a/include/linux/usb/cdc_ncm.h
-+++ b/include/linux/usb/cdc_ncm.h
-@@ -80,6 +80,9 @@
- #define CDC_NCM_TIMER_INTERVAL_MIN		5UL
- #define CDC_NCM_TIMER_INTERVAL_MAX		(U32_MAX / NSEC_PER_USEC)
- 
-+/* Driver flags */
-+#define CDC_NCM_FLAG_NDP_TO_END	0x02		/* NDP is placed at end of frame */
-+
- #define cdc_ncm_comm_intf_is_mbim(x)  ((x)->desc.bInterfaceSubClass == USB_CDC_SUBCLASS_MBIM && \
- 				       (x)->desc.bInterfaceProtocol == USB_CDC_PROTO_NONE)
- #define cdc_ncm_data_intf_is_mbim(x)  ((x)->desc.bInterfaceProtocol == USB_CDC_MBIM_PROTO_NTB)
-@@ -103,9 +106,11 @@ struct cdc_ncm_ctx {
- 
- 	spinlock_t mtx;
- 	atomic_t stop;
-+	int drvflags;
- 
- 	u32 timer_interval;
- 	u32 max_ndp_size;
-+	struct usb_cdc_ncm_ndp16 *delayed_ndp16;
- 
- 	u32 tx_timer_pending;
- 	u32 tx_curr_frame_num;
-@@ -133,7 +138,7 @@ struct cdc_ncm_ctx {
- };
- 
- u8 cdc_ncm_select_altsetting(struct usb_interface *intf);
--int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_altsetting);
-+int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_altsetting, int drvflags);
- void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *intf);
- struct sk_buff *cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_buff *skb, __le32 sign);
- int cdc_ncm_rx_verify_nth16(struct cdc_ncm_ctx *ctx, struct sk_buff *skb_in);
--- 
-2.4.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I would rather not touch this without testing the change on real
+hardware.
