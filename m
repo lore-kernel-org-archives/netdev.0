@@ -1,49 +1,44 @@
-From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Subject: Re: macb: zynq: why is SG disabled?
-Date: Wed, 1 Jul 2015 19:04:00 +0200
-Message-ID: <55941D80.2090904@atmel.com>
-References: <559403E3.3050900@certsign.ro>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] net: macb: replace literal constant with
+ NET_IP_ALIGN
+Date: Wed, 01 Jul 2015 10:06:29 -0700
+Message-ID: <1435770389.12101.110.camel@perches.com>
+References: <5592D105.7080006@certsign.ro>
+	 <1435748191.4110.127.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Nicolae Rosia <nicolae.rosia@certsign.ro>,
-	Michal Simek <michal.simek@xilinx.com>,
-	Punnaiah Choudary Kalluri
-	<punnaiah.choudary.kalluri@xilinx.com>, <netdev@vger.kernel.org>,
-	"Nicolas Ferre" <nicolas.ferre@atmel.com>,
-	<linux-arm-kernel@lists.infradead.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Nicolae Rosia <nicolae.rosia@certsign.ro>, netdev@vger.kernel.org,
+	'Nicolas Ferre <nicolas.ferre@atmel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.242]:12166 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751263AbbGARER (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 13:04:17 -0400
-In-Reply-To: <559403E3.3050900@certsign.ro>
+Received: from smtprelay0159.hostedemail.com ([216.40.44.159]:34064 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750753AbbGARGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 13:06:34 -0400
+In-Reply-To: <1435748191.4110.127.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 01/07/2015 17:14, Nicolae Rosia a =E9crit :
-> Hello,
->=20
-> After reading the GEM part of Zynq7000 Technical Reference Manual [0]=
-, I think that SG should be supported.
-> Is there a reason why SG is disabled in macb for Zynq?
->=20
-> Best regards,
-> Nicolae Rosia
+On Wed, 2015-07-01 at 12:56 +0200, Eric Dumazet wrote:
+> On Tue, 2015-06-30 at 20:25 +0300, Nicolae Rosia wrote:
+> > diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+[]
+> > @@ -2554,9 +2554,9 @@ static void at91ether_rx(struct net_device *dev)
+> >  	while (lp->rx_ring[lp->rx_tail].addr & MACB_BIT(RX_USED)) {
+> >  		p_recv = lp->rx_buffers + lp->rx_tail * AT91ETHER_MAX_RBUFF_SZ;
+> >  		pktlen = MACB_BF(RX_FRMLEN, lp->rx_ring[lp->rx_tail].ctrl);
+> > -		skb = netdev_alloc_skb(dev, pktlen + 2);
+> > +		skb = netdev_alloc_skb(dev, pktlen + NET_IP_ALIGN);
+> >  		if (skb) {
+> > -			skb_reserve(skb, 2);
+> > +			skb_reserve(skb, NET_IP_ALIGN);
+> >  			memcpy(skb_put(skb, pktlen), p_recv, pktlen);
+> >  
+> >  			skb->protocol = eth_type_trans(skb, dev);
+> 
+> Then please use netdev_alloc_skb_ip_align(), so that you get rid of
+> skb_reserve()
 
-Hi Nicolae,
-
-when the scatter-gather patch was introduced, the feature was enabled o=
-nly on
-tested boards to avoid regressions on other boards.
-So SG is enabled on sama5d4x and sama5d2x SoCs. SG is disabled on purpo=
-se on
-sama5d3x.
-
-=46or Zynq, I think the feature is still disabled just because it has n=
-ever been
-tested.
-
-Best regards,
-
-Cyrille
+It seems there are ~50 of these in the kernel tree
+that could be converted.
