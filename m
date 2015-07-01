@@ -1,130 +1,116 @@
-From: Shota Suzuki <suzuki_shota_t3@lab.ntt.co.jp>
-Subject: [PATCH net] igb: Fix oops caused by missing queue pairing
-Date: Wed,  1 Jul 2015 09:25:52 +0900
-Message-ID: <1435710352-956-1-git-send-email-suzuki_shota_t3@lab.ntt.co.jp>
-Cc: Shota Suzuki <suzuki_shota_t3@lab.ntt.co.jp>
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Chenqi (jakio)" <cqi.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: =?utf-8?B?562U5aSNOiBhYm91dCBbUEFUQ0hdIG5ldDp1c2I6Y2RjX25jbTogZml4IHRo?=
+ =?utf-8?Q?at_tag_Huawei_devices_as_wwan?=
+Date: Wed, 1 Jul 2015 00:49:01 +0000
+Message-ID: <73FEE7778B75214796F3C8DE1ABE6DD66ED26CD3@szxema508-mbx.china.huawei.com>
+References: <SNT147-W99A0E937260823EBAA1FFB3B90@phx.gbl>
+	<CA+55aFz3S3nR_aDMMS1vcayyEqJCBL5tgoYAfDE2WGyM3Vcrww@mail.gmail.com>
+	<87ioapl55s.fsf@nemi.mork.no>
+	<30508675-5839-4E65-975A-4CFC5B1C5E24@holtmann.org>
+	<87a8w1kz3a.fsf@nemi.mork.no>
+	<EA652056-E807-4977-AF2A-8BF7E3E41DFD@holtmann.org>
+	<SNT147-W34897D8EB12DAD3DE657EDB3A60@phx.gbl>
+	<SNT147-W52BB193529481B6D3BFA57B3AF0@phx.gbl>
+	<73FEE7778B75214796F3C8DE1ABE6DD66ED26A22@szxema508-mbx.china.huawei.com>
+ <87oak27rmn.fsf@nemi.mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org" <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>,
+	"dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org" <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	"ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org" <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org" <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	"xiaomao0213-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org" <xiaomao0213-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>,
+	Zhangyuhan <zhangyuhan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Maqianni <maqianni-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: =?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87oak27rmn.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
+Content-Language: zh-CN
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When initializing igb driver (e.g. 82576, I350), IGB_FLAG_QUEUE_PAIRS is
-set if adapter->rss_queues exceeds half of max_rss_queues in
-igb_init_queue_configuration().
-On the other hand, IGB_FLAG_QUEUE_PAIRS is not set even if the number of
-queues exceeds half of max_combined in igb_set_channels() when changing
-the number of queues by "ethtool -L".
-In this case, if numvecs is larger than MAX_MSIX_ENTRIES (10), the size
-of adapter->msix_entries[], an overflow can occur in
-igb_set_interrupt_capability(), which in turn leads to an oops.
-
-Fix this problem as follows:
- - When changing the number of queues by "ethtool -L", set
-   IGB_FLAG_QUEUE_PAIRS in the same way as initializing igb driver.
- - When increasing the size of q_vector, reallocate it appropriately.
-   (With IGB_FLAG_QUEUE_PAIRS set, the size of q_vector gets larger.)
-
-Another possible way to fix this problem is to cap the queues at its
-initial number, which is the number of the initial online cpus. But this
-is not the optimal way because we cannnot increase queues when another
-cpu becomes online.
-
-Note that before commit cd14ef54d25b ("igb: Change to use statically
-allocated array for MSIx entries"), this problem did not cause oops
-but just made the number of queues become 1 because of entering msi_only
-mode in igb_set_interrupt_capability().
-
-Fixes: 907b7835799f ("igb: Add ethtool support to configure number of channels")
-Signed-off-by: Shota Suzuki <suzuki_shota_t3@lab.ntt.co.jp>
----
-Although we might be able to additionally unset IGB_FLAG_QUEUE_PAIRS
-when it is not needed, this patch doesn't change existing behaviour
-because such a change is not a bug fix.
-
- drivers/net/ethernet/intel/igb/igb.h         |  1 +
- drivers/net/ethernet/intel/igb/igb_ethtool.c |  5 ++++-
- drivers/net/ethernet/intel/igb/igb_main.c    | 16 ++++++++++++++--
- 3 files changed, 19 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index c2bd4f9..212d668 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -540,6 +540,7 @@ void igb_ptp_rx_pktstamp(struct igb_q_vector *q_vector, unsigned char *va,
- 			 struct sk_buff *skb);
- int igb_ptp_set_ts_config(struct net_device *netdev, struct ifreq *ifr);
- int igb_ptp_get_ts_config(struct net_device *netdev, struct ifreq *ifr);
-+void igb_set_flag_queue_pairs(struct igb_adapter *, const u32);
- #ifdef CONFIG_IGB_HWMON
- void igb_sysfs_exit(struct igb_adapter *adapter);
- int igb_sysfs_init(struct igb_adapter *adapter);
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index d5673eb..0afc091 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -2991,6 +2991,7 @@ static int igb_set_channels(struct net_device *netdev,
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
- 	unsigned int count = ch->combined_count;
-+	unsigned int max_combined = 0;
- 
- 	/* Verify they are not requesting separate vectors */
- 	if (!count || ch->rx_count || ch->tx_count)
-@@ -3001,11 +3002,13 @@ static int igb_set_channels(struct net_device *netdev,
- 		return -EINVAL;
- 
- 	/* Verify the number of channels doesn't exceed hw limits */
--	if (count > igb_max_channels(adapter))
-+	max_combined = igb_max_channels(adapter);
-+	if (count > max_combined)
- 		return -EINVAL;
- 
- 	if (count != adapter->rss_queues) {
- 		adapter->rss_queues = count;
-+		igb_set_flag_queue_pairs(adapter, max_combined);
- 
- 		/* Hardware has to reinitialize queues and interrupts to
- 		 * match the new configuration.
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index f287186..59dc2b4 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1205,10 +1205,14 @@ static int igb_alloc_q_vector(struct igb_adapter *adapter,
- 
- 	/* allocate q_vector and rings */
- 	q_vector = adapter->q_vector[v_idx];
--	if (!q_vector)
-+	if (!q_vector) {
- 		q_vector = kzalloc(size, GFP_KERNEL);
--	else
-+	} else if (size > ksize(q_vector)) {
-+		kfree_rcu(q_vector, rcu);
-+		q_vector = kzalloc(size, GFP_KERNEL);
-+	} else {
- 		memset(q_vector, 0, size);
-+	}
- 	if (!q_vector)
- 		return -ENOMEM;
- 
-@@ -2888,6 +2892,14 @@ static void igb_init_queue_configuration(struct igb_adapter *adapter)
- 
- 	adapter->rss_queues = min_t(u32, max_rss_queues, num_online_cpus());
- 
-+	igb_set_flag_queue_pairs(adapter, max_rss_queues);
-+}
-+
-+void igb_set_flag_queue_pairs(struct igb_adapter *adapter,
-+			      const u32 max_rss_queues)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+
- 	/* Determine if we need to pair queues. */
- 	switch (hw->mac.type) {
- 	case e1000_82575:
--- 
-2.1.0
+SGnvvIxiam9ybiwNCg0KVGhhbmtzIGZvciB5b3VyIGtpbmRseSByZXBseSBhbmQgcHJvdmlkaW5n
+IHNvIG11Y2ggaW5mbyBhYm91dCBsaW51eCB3d2FuIGNvbXBvbmVudHMhDQoNCldlJ2xsIG1ha2Ug
+YSBkZWVwIHJlc2VhcmNoIG9uIGxpbnV4IHd3YW4gYXJjaGl0ZWN0dXJlLCBtYXliZSB3ZSBjYW4g
+c3VwcG9ydCBpdCBpbiB0aGUgbmV3bHkgZGV2ZWxvcGluZyBwcm9kdWN0cy4NCkFib3V0IHdoYXQg
+eW91IHNheWluZyBhYm91dCAic3VibWl0IHRoZSBwYXRjaCBmb3JtYWxseSIsIHdoYXQgc3RlcHMg
+c2hvdWxkIEkgZG8/IElzIHRoZXJlIGFueSBkb2N1bWVudHMgYWJvdXQgaXQ/DQoNCg0KQmVzdCBS
+ZWdhcmRz77yBDQpKYWtpby5jaGVuDQoNCg0KDQoNCuWNjuS4uuaKgOacr+aciemZkOWFrOWPuCBI
+dWF3ZWkgVGVjaG5vbG9naWVzIENvLiwgTHRkLg0KDQpQaG9uZTogMTg5MDkyOTcwNTYNCkVtYWls
+OiBjcWkuY2hlbkBodWF3ZWkuY29tDQrlnLDlnYDvvJropb/lronluILplKbkuJrkuIDot6/ova/k
+u7blpKfljqZH5bqnIOmCrue8lu+8mjcxMDAwMA0KDQoNCi0tLS0t6YKu5Lu25Y6f5Lu2LS0tLS0N
+CuWPkeS7tuS6ujogQmrDuHJuIE1vcmsgW21haWx0bzpiam9ybkBtb3JrLm5vXSANCuWPkemAgeaX
+tumXtDogMjAxNeW5tDbmnIgyNuaXpSAxNzoyMQ0K5pS25Lu25Lq6OiBDaGVucWkgKGpha2lvKQ0K
+5oqE6YCBOiB0b3J2YWxkc0BsaW51eC1mb3VuZGF0aW9uLm9yZzsgYWxla3NhbmRlckBhbGVrc2Fu
+ZGVyLmVzOyBkY2J3QHJlZGhhdC5jb207IG9saXZlckBuZXVrdW0ub3JnOyBiZW4uaHV0Y2hpbmdz
+QGNvZGV0aGluay5jby51azsgbGludXgtdXNiQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2QHZnZXIu
+a2VybmVsLm9yZzsgbWFyY2VsQGhvbHRtYW5uLm9yZzsgeGlhb21hbzAyMTNAaG90bWFpbC5jb207
+IFpoYW5neXVoYW4NCuS4u+mimDogUmU6IGFib3V0IFtQQVRDSF0gbmV0OnVzYjpjZGNfbmNtOiBm
+aXggdGhhdCB0YWcgSHVhd2VpIGRldmljZXMgYXMgd3dhbg0KDQoiQ2hlbnFpIChqYWtpbykiIDxj
+cWkuY2hlbkBodWF3ZWkuY29tPiB3cml0ZXM6DQoNCj4gSGksIEFsbCwNCj4NCj4gSSdtIGZyb20g
+SHVhd2VpIFRlY2hub2xvZ2llcyBDby4sIEx0ZCwgd29ya2luZyBpbiBtb2JpbGUgYnJvYWRiYW5k
+IA0KPiBkZXZpY2VzIGRlcGFydG1lbnQuDQo+DQo+IEh1YXdlaSdzIGJyb2FkYmFuZCBjYXJkIGRv
+bid0IHN1cHBvcnQgd3dhbiBpbiBsaW51eCBPUywgdGhlcmUgYXJlIA0KPiBzZXZlcmFsIGhpc3Rv
+cmljYWwgcmVhc29uczoNCj4NCj4gMS4gIEh1YXdlaSBwcm9kdWNlZCBkb3plbnMgb2YgYnJvYWRi
+YW5kIGNhcmQgdHlwZXMgaW4gcGFzdCB5ZWFycywgYW5kIA0KPiBvdXIgY3VzdG9tZXJzL3VzZXJz
+IGludGVncmF0ZSBvdXIgcHJvZHVjdHMgaW4gbWFueSBkaWZmZXJlbnQgT1MgDQo+IHZlcnNpb25z
+LCBXZSBuZWVkIGdpdmUgY3VzdG9tZXIvdXNlciBhIGNvbnRpbnVvdXMgbWV0aG9kIHRvIGxldCB0
+aGVtIA0KPiB1c2UgY29udmVuaWVuY2UuDQo+DQo+IDIuICBXd2FuIGNvbm5lY3Rpb24gbmVlZCBh
+cHBsaWNhdGlvbiBzdXBwb3J0LCB3aGlsZSB3ZSBkaWRuJ3QgdGVzdCANCj4gdGhlbSBmb3IgY29t
+cGF0aWJpbGl0eS4NCj4NCj4gTWVhbndoaWxlLCB3ZSBoYXZlIHByb3ZpZGVkIHNlcmlhbCBwb3J0
+IHRvIGxldCBvdGhlciBleGlzdGluZyANCj4gYXBwbGljYXRpb25zIGRpYWwtdXAgdGhlIGNvbm5l
+Y3Rpb24NCj4NCj4gSSB1bmRlcnN0YW5kIHRoYXQgeW91IGd1eXMgaGF2ZSBzb21lIGNvbmZ1c2lv
+biB3aHkgdGhlIEh1YXdlaSANCj4gYnJvYWRiYW5kIGNhcmRzIHN1cHBvcnQgd3dhbiBpbiB3aW5k
+b3dzIE9TIGJ1dCBub3QgaW4gbGludXggT1Mgd2l0aCANCj4gdGhlIHNhbWUgZGV2aWNlIElELiAg
+U2luY2Ugd3dhbiBzdGFuZGFyZCBpcyB1c2VkIGZpcnN0bHkgaW4gd2luZG93cyANCj4gT1MsIHdo
+ZW4gd2UgcHJvbm91bmNlZCB0byBzdXBwb3J0IHRoaXMgZmVhdHVyZSwgd3dhbiBpcyBub3QgZW5h
+YmxlZCBpbiANCj4gbGludXguICBTbyB3ZSBrZWVwIHRoZSBjYXJkJ3MgYmVoYXZpb3IgaW4gbGlu
+dXggc2FtZSBhcyBiZWZvcmUuDQoNClRoZSBMaW51eCBrZXJuZWwvZHJpdmVycy91c2Vyc3BhY2Ug
+YWx3YXlzIHdpbGwgYXR0ZW1wdCB0byB1c2UgaGFyZHdhcmUgaW4gdGhlIHNhbWUgd2F5IFdpbmRv
+d3MgdXNlIGl0LCBvciBhdCBsZWFzdCBhcyBjbG9zZSBhcyB3ZSBhcmUgYWJsZSB0byBnZXQuICBU
+aGUgcmVhc29uIGlzIHNpbXBsZTogQSBiaWxsaW9uIChvciB3aGF0ZXZlcikgV2luZG93cyB1c2Vy
+cyBpcyB0aGUgYmVzdCB0ZXN0IGxhYiB5b3UgY2FuIGdldC4NCg0KWW91IG1heSBub3QgYWdyZWUg
+d2l0aCB0aGlzIHN0cmF0ZWd5LCBidXQgYXMgYSBoYXJkd2FyZSB2ZW5kb3IgeW91IGhhdmUgdG8g
+ZXhwZWN0IGl0IHRvIGhhcHBlbi4gIFRoZSBjb21tdW5pdHkgd2lsbCBjb250aW51ZSB0byBkZXZl
+bG9wIHN1cHBvcnQgYmFzZWQgb24gdGhhdCBhc3N1bXB0aW9uLCBldmVuIGlmIHlvdSB0cnkgdG8g
+YWNjb21tb2RhdGUgTGludXggYnkgYWRkaW5nIGFkZGlvdGlvbmFsICJMaW51eCBzcGVjaWZpYyIg
+ZmVhdHVyZXMgb3IgbW9kZXMuDQoNCj4gVGhpcyB3d2FuIHBhdGNoIGhhcyBncmVhdCBpbmZsdWVu
+Y2Ugb24gb3VyIGJyb2FkYmFuZCBjYXJkcywgd2UgaGF2ZSANCj4gdGVzdGVkIG1hbnkgb3VyIGJy
+b2FkYmFuZCBjYXJkcyB3aXRoIHRoaXMga2VybmVsIHZlcnNpb24sIGFuZCB0aGlzIA0KPiBjb21w
+YXRpYmxlIGlzc3VlIGlzIGNvbW1vbi4gIFNvIHBsZWFzZSBhcHByb3ZlIG91ciBtb2RpZmljYXRp
+b24gZm9yIA0KPiB0aGlzIHByb2JsZW0uDQoNCklmIG5vb25lIGVsc2UgaGFzIGFueSBjb21tZW50
+cyBvciBvYmplY3Rpb25zIGhlcmUsIHRoZW4gSSBhbSBjZXJ0YWlubHkgbm90IGdvaW5nIHRvIG9i
+amVjdCB0byB0aGUgcHJvcG9zZWQgcGF0Y2guDQoNClBsZWFzZSBnbyBhaGVhZCBhbmQgc3VibWl0
+IHRoZSBwYXRjaCBmb3JtYWxseS4gIEkgYW0gZ29pbmcgdG8ga2VlcCBteSBiaWcgbW91dGggc2h1
+dCA6KQ0KDQo+IEkgdGhpbmsgdGhlIHJvb3QgY2F1c2Ugb2YgdGhpcyBpc3N1ZSBpcyB0aGlzIGtl
+cm5lbCB2ZXJzaW9uIHRyYWl0IHRoZSANCj4gTkNNIGFzIHd3YW4gZGV2dHlwZSwgbWF5YmUgd2Ug
+Y2FuIGFkZCBhIGZsYWcgaW4gdXNiIGRlc2NyaXB0b3IgaW4gDQo+IGZ1dHVyZSB0byBpbmRpY2F0
+ZSB3aGV0aGVyIHRoZSBkZXZpY2Ugc3VwcG9ydCB3d2FuIG9yIG5vdCwgdGhlbiBIdWF3ZWkgDQo+
+IGNhbiBzdXBwb3J0IHd3YW4gZmVhdHVyZSBsYXRlciBmb3IgdGhlIG5ld2VzdCBwcm9kdWN0IHdp
+dGhvdXQgDQo+IGludHJvZHVjaW5nIGNvbXBhdGlibGUgaXNzdWVzLg0KPg0KPiBCVFc6IGlmIHdl
+IHdhbnQgdG8gam9pbiB0aGUgdXNiLWV0aGVybmV0IGtlcm5lbCBldm9sdXRpb24gaW4gbGludXgs
+IA0KPiB3aGljaCBmb3J1bSBvciBvcmdhbml6YXRpb24gc2hvdWxkIHdlIGpvaW4gaW4/ICBXZSBj
+YW4gcGFydGljaXBhdGUgaW4gDQo+IGl0IHRvIGF2b2lkIHNpbWlsYXIgcHJvYmxlbXMuDQoNClVT
+QiBuZXR3b3JraW5nIGRyaXZlcnMgYXJlIGRpc2N1c3NlZCwgYWxvbmcgd2l0aCBvdGhlciBuZXR3
+b3JrIGRyaXZlcnMsIG9uIHRoZSBuZXRkZXZAdmdlci5rZXJuZWwub3JnIG1haWxpbmcgbGlzdC4g
+IFByZWZlcmFibGUgd2l0aCBhIGNvcHkgdG8gdGhlIGxpbnV4LXVzYkB2Z2VyLmtlcm5lbC5vcmcg
+bWFpbGluZyBsaXN0IGZvciBVU0IgZXhwZXJ0IHJldmlldy4NCg0KQnV0IGFzIHlvdSBwb2ludCBv
+dXQgYWJvdmU6ICB3d2FuIGNvbm5lY3Rpb25zIG5lZWQgYXBwbGljYXRpb24gc3VwcG9ydC4NClVz
+ZXJzcGFjZSBwcm9qZWN0cyBsaWtlIE1vZGVtTWFuYWdlciwgb0Zvbm8sIGxpYm1iaW0sIGxpYnFt
+aSwgdW1iaW0sIHVxbWkgYW5kIHByb2JhYmx5IG1vcmUsIGVhY2ggaGF2ZSB0aGVpciBvd24gZGV2
+ZWxvcG1lbnQgZm9ydW1zL21haWxpbmcgbGlzdHMuICBUaGlzIGlzIHdoZXJlIHRoZSBtb3N0IGlt
+cG9ydGFudCBwYXJ0IG9mIHRoZSB3d2FuIGRldmVsb3BlbXQgdGFrZXMgcGxhY2UuDQoNCkh1YXdl
+aSBoYXZlIGFscmVhZHkgbWFkZSBpbXBvcnRhbnQgY29udHJpYnV0aW9ucyB0byB0aGUgZGV2ZWxv
+cG1lbnQgb2YgYm90aCBMaW51eCB3d2FuIGRyaXZlcnMgYW5kIHVzZXJzcGFjZSBhcHBsaWNhdGlv
+bnMuICBJIGFtIHN1cmUgYWxsIHRob3NlIHByb2plY3RzIHdpbGwgYXBwcmVjaWF0ZSBhbnkgZnVy
+dGhlciBoZWxwIEh1YXdlaSBhcmUgYWJsZSB0byBvZmZlci4NCg0KVGhhbmtzIGEgbG90IGZvciB5
+b3VyIGRldGFpbGVkIGludHJvZHVjdGlvbiBhbmQgZXhwbGFuYXRpb24uDQoNCg0KQmrDuHJuDQo=
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
