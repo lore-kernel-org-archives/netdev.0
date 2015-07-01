@@ -1,59 +1,34 @@
-From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
-Subject: Re: [PATCH] ax88179_178a: add reset functionality in reset_resume
-Date: Wed, 01 Jul 2015 11:33:58 +0000 (GMT)
-Message-ID: <195010176.128271435750438202.JavaMail.weblogic@ep2mlwas07d>
-Reply-To: vivek.bhagat@samsung.com
+From: Sasnett_Karen <sasnett_karen@asdk12.org>
+Subject: (unknown)
+Date: Wed, 1 Jul 2015 12:13:41 +0000
+Message-ID: <B3EEA09B9C66584198B6765D1492AEF27A47B017__16028.2985693359$1435752853$gmane$org@ITEXCH01.asdk12.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, hemanshu.s@samsung.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:54893 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752416AbbGALeL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 07:34:11 -0400
-Received: from epcpsbgr3.samsung.com
- (u143.gpu120.samsung.co.kr [203.254.230.143])
- by mailout4.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
- 64bit (built May  5 2014))
- with ESMTP id <0NQT011U644NYR80@mailout4.samsung.com> for
- netdev@vger.kernel.org; Wed, 01 Jul 2015 20:33:59 +0900 (KST)
-MIME-version: 1.0
+Received: from mail-by2on0129.outbound.protection.outlook.com ([207.46.100.129]:12832
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753957AbbGAMNz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 08:13:55 -0400
+Subject: 
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGVsbG8gRGF2aWQsDQoNCkkgY29uZmlndXJlZCBteSBlbWFpbCBjbGllbnQgYW5kIGJlbG93IHBh
-dGNoIGRvZXMgbm90IGhhdmUgaW5kZW50YXRpb24NCmlzc3VlIG9mIGNvbnZlcnRpbmcgdGFicyBp
-bnRvIHNwYWNlcy4gSSBob3BlIGl0IHNob3VsZCBiZSBhY2NlcHRlZC4NCg0KVGhhbmtzLA0KVml2
-ZWsNCg0KLS0tLS0tLSBPcmlnaW5hbCBNZXNzYWdlIC0tLS0tLS0NClNlbmRlciA6IFZpdmVrIEt1
-bWFyIEJoYWdhdDx2aXZlay5iaGFnYXRAc2Ftc3VuZy5jb20+IENoaWVmIEVuZ2luZWVyL1NSSS1E
-ZWxoaS1TeXN0ZW0gUy9XIDEgVGVhbS9TYW1zdW5nIEVsZWN0cm9uaWNzDQpEYXRlIDogSnVsIDAx
-LCAyMDE1IDA5OjQ0IChHTVQrMDU6MzApDQpUaXRsZSA6IFtQQVRDSF0gYXg4ODE3OV8xNzhhOiBh
-ZGQgcmVzZXQgZnVuY3Rpb25hbGl0eSBpbiByZXNldF9yZXN1bWUNCg0KV2l0aG91dCByZXNldCBm
-dW5jdGlvbmFsaXR5IGluIHJlc2V0X3Jlc3VtZSwgaXBlcmYgY29ubmVjdGlvbg0KZG9lcyBub3Qg
-ZXN0YWJsaXNoIGFmdGVyIHN1c3BlbmQvcmVzdW1lIGhvd2V2ZXIgcGluZyB3b3JrcyBhdA0KdGhl
-IHNhbWUgdGltZS4gaXBlcmYgY29ubmVjdGlvbiBmYWlscyBieSBnaXZpbmcgY2hlY2tzdW0gZXJy
-b3INCmluIHRjcGR1bXAuDQoNCnJlc2V0IGZ1bmN0aW9uIGluc2lkZSByZXNldF9yZXN1bWUgc29s
-dmVzIGFib3ZlIGJ1Zy4NCldlIGhhdmUgdmVyaWZpZWQgaXQgb24gQVNJWCBiYXNlZCBTVCBMYWIs
-IENhZHljZSBkb25nbGUuDQoNClNpZ25lZC1vZmYtYnk6IFZpdmVrIEt1bWFyIEJoYWdhdCANClNp
-Z25lZC1vZmYtYnk6IFByYXZlZW4gS3VtYXIgDQoNCi0tLQ0KZHJpdmVycy9uZXQvdXNiL2F4ODgx
-NzlfMTc4YS5jIHwgICAxNCArKysrKysrKysrKysrLQ0KMSBmaWxlIGNoYW5nZWQsIDEzIGluc2Vy
-dGlvbnMoKyksIDEgZGVsZXRpb24oLSkNCg0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3VzYi9h
-eDg4MTc5XzE3OGEuYyBiL2RyaXZlcnMvbmV0L3VzYi9heDg4MTc5XzE3OGEuYw0KaW5kZXggZTYz
-MzhjMS4uMDA5MjhjMCAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L3VzYi9heDg4MTc5XzE3OGEu
-Yw0KKysrIGIvZHJpdmVycy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jDQpAQCAtMTYzMCw2ICsxNjMw
-LDE4IEBAIHN0YXRpYyBpbnQgYXg4ODE3OV9zdG9wKHN0cnVjdCB1c2JuZXQgKmRldikNCnJldHVy
-biAwOw0KfQ0KDQorc3RhdGljIGludCBheDg4MTc5X3Jlc2V0X3Jlc3VtZShzdHJ1Y3QgdXNiX2lu
-dGVyZmFjZSAqaW50ZikNCit7DQorIHN0cnVjdCB1c2JuZXQgKmRldiA9IHVzYl9nZXRfaW50ZmRh
-dGEoaW50Zik7DQorIGludCByZXQ7DQorDQorIHJldCA9IGF4ODgxNzlfcmVzZXQoZGV2KTsNCisg
-aWYgKHJldCA8IDApDQorIHJldHVybiByZXQ7DQorDQorIHJldHVybiAgYXg4ODE3OV9yZXN1bWUo
-aW50Zik7DQorfQ0KKw0Kc3RhdGljIGNvbnN0IHN0cnVjdCBkcml2ZXJfaW5mbyBheDg4MTc5X2lu
-Zm8gPSB7DQouZGVzY3JpcHRpb24gPSAiQVNJWCBBWDg4MTc5IFVTQiAzLjAgR2lnYWJpdCBFdGhl
-cm5ldCIsDQouYmluZCA9IGF4ODgxNzlfYmluZCwNCkBAIC0xNzQ0LDcgKzE3NTYsNyBAQCBzdGF0
-aWMgc3RydWN0IHVzYl9kcml2ZXIgYXg4ODE3OV8xNzhhX2RyaXZlciA9IHsNCi5wcm9iZSA9IHVz
-Ym5ldF9wcm9iZSwNCi5zdXNwZW5kID0gYXg4ODE3OV9zdXNwZW5kLA0KLnJlc3VtZSA9IGF4ODgx
-NzlfcmVzdW1lLA0KLSAucmVzZXRfcmVzdW1lID0gYXg4ODE3OV9yZXN1bWUsDQorIC5yZXNldF9y
-ZXN1bWUgPSBheDg4MTc5X3Jlc2V0X3Jlc3VtZSwNCi5kaXNjb25uZWN0ID0gdXNibmV0X2Rpc2Nv
-bm5lY3QsDQouc3VwcG9ydHNfYXV0b3N1c3BlbmQgPSAxLA0KLmRpc2FibGVfaHViX2luaXRpYXRl
-ZF9scG0gPSAxLA0KLS0gDQoxLjcuOS41
+
+
+
+Haben Sie einen Investor brauchen?
+
+Haben Sie gesch=E4ftliche oder pers=F6nliche Darlehen ben=F6tigen?
+
+Wir geben Darlehen an eine nat=FCrliche Person und Unternehmen bei 3% Z=
+insen j=E4hrlich. Weitere Informationen Kontaktieren Sie uns per E-Mail=
+: omfcreditspa@hotmail.com<mailto:omfcreditspa@hotmail.com>
+
+
+
+HINWEIS: Leiten Sie Ihre Antwort nur an diese E-Mail: omfcreditspa@hotm=
+ail.com<mailto:omfcreditspa@hotmail.com>
