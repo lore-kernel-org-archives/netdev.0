@@ -1,63 +1,72 @@
-From: "Tulio Magno Quites Machado Filho" <tuliom@linux.vnet.ibm.com>
-Subject: Re: Wiring up direct socket calls on x86_32 Linux?
-Date: Wed, 01 Jul 2015 13:19:08 -0300
-Message-ID: <87twtnx343.fsf@totoro.br.ibm.com>
-References: <CALCETrUdqUm4eue2VaNPM7tkt1DSfAgo9fd-06rcys3F0q3rQA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: macb: replace literal constant with
+ NET_IP_ALIGN
+Date: Wed, 01 Jul 2015 18:19:24 +0200
+Message-ID: <1435767564.4110.134.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5592D105.7080006@certsign.ro>
+	 <1435748191.4110.127.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5593EB38.5050000@certsign.ro>
+	 <1435758289.4110.130.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5593F956.4020300@certsign.ro>
+	 <1435764834.4110.132.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAH=tA9HHqQMhs5_qdc63BsT1BW0jvmoEChbsgzvn-LKqbUt1zQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: X86 ML <x86@kernel.org>,
-        "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Alexander Larsson <alexl@redhat.com>,
-        Cosimo Cecchi <cosimo@endlessm.com>,
-        Dan Nicholson <nicholson@endlessm.com>,
-        Network Development <netdev@vger.kernel.org>,
-        libc-alpha <libc-alpha@sourceware.org>,
-        Rajalakshmi Srinivasaraghavan <raji@linux.vnet.ibm.com>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <libc-alpha-return-60542-glibc-alpha=m.gmane.org@sourceware.org>
-List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
-List-Archive: <http://sourceware.org/ml/libc-alpha/>
-List-Post: <mailto:libc-alpha@sourceware.org>
-List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
-Sender: libc-alpha-owner@sourceware.org
-Cc: 
-In-Reply-To: <CALCETrUdqUm4eue2VaNPM7tkt1DSfAgo9fd-06rcys3F0q3rQA@mail.gmail.com>
-	(Andy Lutomirski's message of "Tue, 30 Jun 2015 14:14:38 -0700")
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Nicolae Rosia <nicolae.rosia@certsign.ro>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Nicolae Rosia <nicolae.rosia@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:34431 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754603AbbGAQT3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 12:19:29 -0400
+Received: by wiar9 with SMTP id r9so74719760wia.1
+        for <netdev@vger.kernel.org>; Wed, 01 Jul 2015 09:19:28 -0700 (PDT)
+In-Reply-To: <CAH=tA9HHqQMhs5_qdc63BsT1BW0jvmoEChbsgzvn-LKqbUt1zQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andy Lutomirski <luto@amacapital.net> writes:
+On Wed, 2015-07-01 at 18:53 +0300, Nicolae Rosia wrote:
+> On Wed, Jul 1, 2015 at 6:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> [...]
+> > This only matters in terms of few nano seconds per packet, so for 10Gb+
+> > NIC anyway. Absolute noise for most NIC.
+> >
+> I'll give it a try and benchmark.
+> I achieved a huge speedup by moving TX into napi [0], but my hardware doesn't
+> support multiple TX queues and I can't test that situation.
+> 
+> > Yes, but main question is : Do you have the hardware to test your
+> > changes ?
+> Yes, I have a Xilinx ZC706 board with a Zynq7 XC7Z045 processor [1]
+> 
+> [0] https://patchwork.ozlabs.org/patch/488949/
+> [1] http://www.xilinx.com/products/boards-and-kits/ek-z7-zc706-g.html
 
-> Hi all-
->
-> sys_socketcall sucks.  If nothing else, it's impossible to filter with
-> seccomp.  Should we wire up the real socket calls so that user code
-> can (very slowly) start migrating?
->
-> I think the list is:
->  - socket
->  - bind
->  - connect
->  - listen
->  - accept4
->  - getsockname
->  - getpeername
->  - socketpair
->  - send
->  - sendto
->  - sendmsg
->  - recv
->  - recvfrom
->  - recvmsg
->  - shutdown
->  - setsockopt
+OK, then enabling GRO should be quite easy, given driver already has
+most of it.
 
-I guess you might want to follow the patch Raji sent today [1].
-
-Her patch doesn't have all the syscalls you mentioned here, but has others too.
-She will work to get a generic implementation for these functions.
-
-[1] http://patchwork.sourceware.org/patch/7438/
-
--- 
-Tulio Magno
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index caeb39561567237261ac0d50befebad666cfbeb3..24a93c769caa5430ca61efe002b458fef7281e99 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -815,7 +815,7 @@ static int gem_rx(struct macb *bp, int budget)
+ 			       skb->data, 32, true);
+ #endif
+ 
+-		netif_receive_skb(skb);
++		napi_gro_receive(&bp->napi, skb);
+ 	}
+ 
+ 	gem_rx_refill(bp);
+@@ -896,7 +896,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 	bp->stats.rx_bytes += skb->len;
+ 	netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
+ 		   skb->len, skb->csum);
+-	netif_receive_skb(skb);
++	napi_gro_receive(&bp->napi, skb);
+ 
+ 	return 0;
+ }
