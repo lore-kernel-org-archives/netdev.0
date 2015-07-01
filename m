@@ -1,47 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: macb: replace literal constant with
- NET_IP_ALIGN
-Date: Wed, 01 Jul 2015 12:56:31 +0200
-Message-ID: <1435748191.4110.127.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5592D105.7080006@certsign.ro>
+From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
+Subject: Re: [PATCH] ax88179_178a: add reset functionality in reset_resume
+Date: Wed, 01 Jul 2015 11:33:58 +0000 (GMT)
+Message-ID: <195010176.128271435750438202.JavaMail.weblogic@ep2mlwas07d>
+Reply-To: vivek.bhagat@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Nicolas Ferre <nicolas.ferre@atmel.com>
-To: Nicolae Rosia <nicolae.rosia@certsign.ro>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, hemanshu.s@samsung.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:36317 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753779AbbGAK4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 06:56:34 -0400
-Received: by widjy10 with SMTP id jy10so54143595wid.1
-        for <netdev@vger.kernel.org>; Wed, 01 Jul 2015 03:56:33 -0700 (PDT)
-In-Reply-To: <5592D105.7080006@certsign.ro>
+Received: from mailout4.samsung.com ([203.254.224.34]:54893 "EHLO
+	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752416AbbGALeL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 07:34:11 -0400
+Received: from epcpsbgr3.samsung.com
+ (u143.gpu120.samsung.co.kr [203.254.230.143])
+ by mailout4.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
+ 64bit (built May  5 2014))
+ with ESMTP id <0NQT011U644NYR80@mailout4.samsung.com> for
+ netdev@vger.kernel.org; Wed, 01 Jul 2015 20:33:59 +0900 (KST)
+MIME-version: 1.0
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-06-30 at 20:25 +0300, Nicolae Rosia wrote:
-> Signed-off-by: Nicolae Rosia <nicolae.rosia@certsign.ro>
-> ---
->  drivers/net/ethernet/cadence/macb.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index caeb395..dbb5160 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -2554,9 +2554,9 @@ static void at91ether_rx(struct net_device *dev)
->  	while (lp->rx_ring[lp->rx_tail].addr & MACB_BIT(RX_USED)) {
->  		p_recv = lp->rx_buffers + lp->rx_tail * AT91ETHER_MAX_RBUFF_SZ;
->  		pktlen = MACB_BF(RX_FRMLEN, lp->rx_ring[lp->rx_tail].ctrl);
-> -		skb = netdev_alloc_skb(dev, pktlen + 2);
-> +		skb = netdev_alloc_skb(dev, pktlen + NET_IP_ALIGN);
->  		if (skb) {
-> -			skb_reserve(skb, 2);
-> +			skb_reserve(skb, NET_IP_ALIGN);
->  			memcpy(skb_put(skb, pktlen), p_recv, pktlen);
->  
->  			skb->protocol = eth_type_trans(skb, dev);
-
-Then please use netdev_alloc_skb_ip_align(), so that you get rid of
-skb_reserve()
+SGVsbG8gRGF2aWQsDQoNCkkgY29uZmlndXJlZCBteSBlbWFpbCBjbGllbnQgYW5kIGJlbG93IHBh
+dGNoIGRvZXMgbm90IGhhdmUgaW5kZW50YXRpb24NCmlzc3VlIG9mIGNvbnZlcnRpbmcgdGFicyBp
+bnRvIHNwYWNlcy4gSSBob3BlIGl0IHNob3VsZCBiZSBhY2NlcHRlZC4NCg0KVGhhbmtzLA0KVml2
+ZWsNCg0KLS0tLS0tLSBPcmlnaW5hbCBNZXNzYWdlIC0tLS0tLS0NClNlbmRlciA6IFZpdmVrIEt1
+bWFyIEJoYWdhdDx2aXZlay5iaGFnYXRAc2Ftc3VuZy5jb20+IENoaWVmIEVuZ2luZWVyL1NSSS1E
+ZWxoaS1TeXN0ZW0gUy9XIDEgVGVhbS9TYW1zdW5nIEVsZWN0cm9uaWNzDQpEYXRlIDogSnVsIDAx
+LCAyMDE1IDA5OjQ0IChHTVQrMDU6MzApDQpUaXRsZSA6IFtQQVRDSF0gYXg4ODE3OV8xNzhhOiBh
+ZGQgcmVzZXQgZnVuY3Rpb25hbGl0eSBpbiByZXNldF9yZXN1bWUNCg0KV2l0aG91dCByZXNldCBm
+dW5jdGlvbmFsaXR5IGluIHJlc2V0X3Jlc3VtZSwgaXBlcmYgY29ubmVjdGlvbg0KZG9lcyBub3Qg
+ZXN0YWJsaXNoIGFmdGVyIHN1c3BlbmQvcmVzdW1lIGhvd2V2ZXIgcGluZyB3b3JrcyBhdA0KdGhl
+IHNhbWUgdGltZS4gaXBlcmYgY29ubmVjdGlvbiBmYWlscyBieSBnaXZpbmcgY2hlY2tzdW0gZXJy
+b3INCmluIHRjcGR1bXAuDQoNCnJlc2V0IGZ1bmN0aW9uIGluc2lkZSByZXNldF9yZXN1bWUgc29s
+dmVzIGFib3ZlIGJ1Zy4NCldlIGhhdmUgdmVyaWZpZWQgaXQgb24gQVNJWCBiYXNlZCBTVCBMYWIs
+IENhZHljZSBkb25nbGUuDQoNClNpZ25lZC1vZmYtYnk6IFZpdmVrIEt1bWFyIEJoYWdhdCANClNp
+Z25lZC1vZmYtYnk6IFByYXZlZW4gS3VtYXIgDQoNCi0tLQ0KZHJpdmVycy9uZXQvdXNiL2F4ODgx
+NzlfMTc4YS5jIHwgICAxNCArKysrKysrKysrKysrLQ0KMSBmaWxlIGNoYW5nZWQsIDEzIGluc2Vy
+dGlvbnMoKyksIDEgZGVsZXRpb24oLSkNCg0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3VzYi9h
+eDg4MTc5XzE3OGEuYyBiL2RyaXZlcnMvbmV0L3VzYi9heDg4MTc5XzE3OGEuYw0KaW5kZXggZTYz
+MzhjMS4uMDA5MjhjMCAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L3VzYi9heDg4MTc5XzE3OGEu
+Yw0KKysrIGIvZHJpdmVycy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jDQpAQCAtMTYzMCw2ICsxNjMw
+LDE4IEBAIHN0YXRpYyBpbnQgYXg4ODE3OV9zdG9wKHN0cnVjdCB1c2JuZXQgKmRldikNCnJldHVy
+biAwOw0KfQ0KDQorc3RhdGljIGludCBheDg4MTc5X3Jlc2V0X3Jlc3VtZShzdHJ1Y3QgdXNiX2lu
+dGVyZmFjZSAqaW50ZikNCit7DQorIHN0cnVjdCB1c2JuZXQgKmRldiA9IHVzYl9nZXRfaW50ZmRh
+dGEoaW50Zik7DQorIGludCByZXQ7DQorDQorIHJldCA9IGF4ODgxNzlfcmVzZXQoZGV2KTsNCisg
+aWYgKHJldCA8IDApDQorIHJldHVybiByZXQ7DQorDQorIHJldHVybiAgYXg4ODE3OV9yZXN1bWUo
+aW50Zik7DQorfQ0KKw0Kc3RhdGljIGNvbnN0IHN0cnVjdCBkcml2ZXJfaW5mbyBheDg4MTc5X2lu
+Zm8gPSB7DQouZGVzY3JpcHRpb24gPSAiQVNJWCBBWDg4MTc5IFVTQiAzLjAgR2lnYWJpdCBFdGhl
+cm5ldCIsDQouYmluZCA9IGF4ODgxNzlfYmluZCwNCkBAIC0xNzQ0LDcgKzE3NTYsNyBAQCBzdGF0
+aWMgc3RydWN0IHVzYl9kcml2ZXIgYXg4ODE3OV8xNzhhX2RyaXZlciA9IHsNCi5wcm9iZSA9IHVz
+Ym5ldF9wcm9iZSwNCi5zdXNwZW5kID0gYXg4ODE3OV9zdXNwZW5kLA0KLnJlc3VtZSA9IGF4ODgx
+NzlfcmVzdW1lLA0KLSAucmVzZXRfcmVzdW1lID0gYXg4ODE3OV9yZXN1bWUsDQorIC5yZXNldF9y
+ZXN1bWUgPSBheDg4MTc5X3Jlc2V0X3Jlc3VtZSwNCi5kaXNjb25uZWN0ID0gdXNibmV0X2Rpc2Nv
+bm5lY3QsDQouc3VwcG9ydHNfYXV0b3N1c3BlbmQgPSAxLA0KLmRpc2FibGVfaHViX2luaXRpYXRl
+ZF9scG0gPSAxLA0KLS0gDQoxLjcuOS41
