@@ -1,38 +1,35 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: mlx4: "failed to allocate default counter port 1"
-Date: Wed, 1 Jul 2015 23:38:24 +0300
-Message-ID: <CAJ3xEMhWMAtWhw5Xj+3Pj40FAOSpHGJ3ayGn7WsoHJJEuMZiVA@mail.gmail.com>
-References: <alpine.LFD.2.11.1506301229520.1799@denkbrett>
-	<5592913C.3000207@mellanox.com>
-	<alpine.LFD.2.11.1506301520180.1799@denkbrett>
-	<55929F2D.9050805@mellanox.com>
-	<alpine.LFD.2.11.1506301615100.1799@denkbrett>
-	<5593E88F.10006@mellanox.com>
-	<alpine.LFD.2.11.1507011554060.1691@denkbrett>
-	<alpine.LFD.2.11.1507011616560.1691@denkbrett>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Sebastian Ott <sebott@linux.vnet.ibm.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH 0/2 net-next] tcp: reducing lost retransmits in recovery
+Date: Wed,  1 Jul 2015 14:11:13 -0700
+Message-ID: <1435785075-20600-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:34100 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751932AbbGAUiZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 16:38:25 -0400
-Received: by obbkm3 with SMTP id km3so36300358obb.1
-        for <netdev@vger.kernel.org>; Wed, 01 Jul 2015 13:38:25 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.11.1507011616560.1691@denkbrett>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:36161 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751675AbbGAVLX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 17:11:23 -0400
+Received: by igrv9 with SMTP id v9so83260050igr.1
+        for <netdev@vger.kernel.org>; Wed, 01 Jul 2015 14:11:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 1, 2015 at 5:18 PM, Sebastian Ott <sebott@linux.vnet.ibm.com> wrote:
-> OK, using this patch it worked:
+This patch series reduces lost retransmits in recovery, in particular
+when dealing with traffic policers. The main problem is that
+slow start in recovery under policing can cause massive lost and
+retransmit storms: any excess sending rate turns into drops. The
+solution is to avoid doing slow start when lost retransmit is
+detected and use packet conservation instead.
 
-yep, I forgot to recap err to zero.
+On networks with traffic policers the patches have lowered the
+TCP loss rates by ~20% from Google servers without latency regressions.
 
-By "it worked" you mean the VF is live and kicking, all functionality
-you had before the 4.2 merge window is back again?
+Yuchung Cheng (2):
+  tcp: reduce cwnd if retransmit is lost in CA_Loss
+  tcp: PRR uses CRB mode by default and SS mode conditionally
+
+ net/ipv4/tcp_input.c | 43 +++++++++++++++++++++++--------------------
+ 1 file changed, 23 insertions(+), 20 deletions(-)
+
+-- 
+2.4.3.573.g4eafbef
