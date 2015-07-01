@@ -1,42 +1,130 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: [RFC V3] net: don't wait for order-3 page allocation
-Date: Tue, 30 Jun 2015 16:49:25 -0700 (PDT)
-Message-ID: <alpine.DEB.2.10.1506301646500.5359@chino.kir.corp.google.com>
-References: <0099265406c32b9b9057de100404a4148d602cdd.1434066549.git.shli@fb.com> <557AA834.8070503@suse.cz> <alpine.DEB.2.10.1506171602300.8203@chino.kir.corp.google.com> <20150618143019.GE5858@dhcp22.suse.cz> <CANn89iLr2iNV3VjA4POPpfsmOpyB7jP2-wPiAkCOcA+Oh+2=5A@mail.gmail.com>
- <20150618144311.GF5858@dhcp22.suse.cz> <5582E240.8080704@suse.cz> <20150618154716.GH5858@dhcp22.suse.cz>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Vlastimil Babka <vbabka@suse.cz>,
-	Eric Dumazet <edumazet@google.com>, Shaohua Li <shli@fb.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	kernel-team <Kernel-team@fb.com>, clm@fb.com, linux-mm@kvack.org,
-	dbavatar@gmail.com
-To: Michal Hocko <mhocko@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:34979 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752919AbbF3Xt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2015 19:49:28 -0400
-Received: by igblr2 with SMTP id lr2so86419198igb.0
-        for <netdev@vger.kernel.org>; Tue, 30 Jun 2015 16:49:27 -0700 (PDT)
-In-Reply-To: <20150618154716.GH5858@dhcp22.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shota Suzuki <suzuki_shota_t3@lab.ntt.co.jp>
+Subject: [PATCH net] igb: Fix oops caused by missing queue pairing
+Date: Wed,  1 Jul 2015 09:25:52 +0900
+Message-ID: <1435710352-956-1-git-send-email-suzuki_shota_t3@lab.ntt.co.jp>
+Cc: Shota Suzuki <suzuki_shota_t3@lab.ntt.co.jp>
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Jun 2015, Michal Hocko wrote:
+When initializing igb driver (e.g. 82576, I350), IGB_FLAG_QUEUE_PAIRS is
+set if adapter->rss_queues exceeds half of max_rss_queues in
+igb_init_queue_configuration().
+On the other hand, IGB_FLAG_QUEUE_PAIRS is not set even if the number of
+queues exceeds half of max_combined in igb_set_channels() when changing
+the number of queues by "ethtool -L".
+In this case, if numvecs is larger than MAX_MSIX_ENTRIES (10), the size
+of adapter->msix_entries[], an overflow can occur in
+igb_set_interrupt_capability(), which in turn leads to an oops.
 
-> That is to be discussed. Most allocations already express their interest
-> in memory reserves by __GFP_HIGH directly or by GFP_ATOMIC indirectly.
-> So maybe we do not need any additional flag here. There are not that
-> many ~__GFP_WAIT and most of them seem to require it _only_ because the
-> context doesn't allow for sleeping (e.g. to prevent from deadlocks).
-> 
+Fix this problem as follows:
+ - When changing the number of queues by "ethtool -L", set
+   IGB_FLAG_QUEUE_PAIRS in the same way as initializing igb driver.
+ - When increasing the size of q_vector, reallocate it appropriately.
+   (With IGB_FLAG_QUEUE_PAIRS set, the size of q_vector gets larger.)
 
-We're talking about a patch that is being backported to stable.  
-Regardless of what improvements can be made to specify that an allocation 
-shouldn't be able to access reserves (and what belongs solely in the page 
-allocator proper) independent of __GFP_NO_KSWAPD, that can be cleaned up 
-at a later time.  I don't anticipate that cleanup to be backported to 
-stable, and my primary concern here is the ability for this allocations to 
-now access, and possibly deplete, memory reserves.
+Another possible way to fix this problem is to cap the queues at its
+initial number, which is the number of the initial online cpus. But this
+is not the optimal way because we cannnot increase queues when another
+cpu becomes online.
+
+Note that before commit cd14ef54d25b ("igb: Change to use statically
+allocated array for MSIx entries"), this problem did not cause oops
+but just made the number of queues become 1 because of entering msi_only
+mode in igb_set_interrupt_capability().
+
+Fixes: 907b7835799f ("igb: Add ethtool support to configure number of channels")
+Signed-off-by: Shota Suzuki <suzuki_shota_t3@lab.ntt.co.jp>
+---
+Although we might be able to additionally unset IGB_FLAG_QUEUE_PAIRS
+when it is not needed, this patch doesn't change existing behaviour
+because such a change is not a bug fix.
+
+ drivers/net/ethernet/intel/igb/igb.h         |  1 +
+ drivers/net/ethernet/intel/igb/igb_ethtool.c |  5 ++++-
+ drivers/net/ethernet/intel/igb/igb_main.c    | 16 ++++++++++++++--
+ 3 files changed, 19 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index c2bd4f9..212d668 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -540,6 +540,7 @@ void igb_ptp_rx_pktstamp(struct igb_q_vector *q_vector, unsigned char *va,
+ 			 struct sk_buff *skb);
+ int igb_ptp_set_ts_config(struct net_device *netdev, struct ifreq *ifr);
+ int igb_ptp_get_ts_config(struct net_device *netdev, struct ifreq *ifr);
++void igb_set_flag_queue_pairs(struct igb_adapter *, const u32);
+ #ifdef CONFIG_IGB_HWMON
+ void igb_sysfs_exit(struct igb_adapter *adapter);
+ int igb_sysfs_init(struct igb_adapter *adapter);
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index d5673eb..0afc091 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -2991,6 +2991,7 @@ static int igb_set_channels(struct net_device *netdev,
+ {
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+ 	unsigned int count = ch->combined_count;
++	unsigned int max_combined = 0;
+ 
+ 	/* Verify they are not requesting separate vectors */
+ 	if (!count || ch->rx_count || ch->tx_count)
+@@ -3001,11 +3002,13 @@ static int igb_set_channels(struct net_device *netdev,
+ 		return -EINVAL;
+ 
+ 	/* Verify the number of channels doesn't exceed hw limits */
+-	if (count > igb_max_channels(adapter))
++	max_combined = igb_max_channels(adapter);
++	if (count > max_combined)
+ 		return -EINVAL;
+ 
+ 	if (count != adapter->rss_queues) {
+ 		adapter->rss_queues = count;
++		igb_set_flag_queue_pairs(adapter, max_combined);
+ 
+ 		/* Hardware has to reinitialize queues and interrupts to
+ 		 * match the new configuration.
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index f287186..59dc2b4 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -1205,10 +1205,14 @@ static int igb_alloc_q_vector(struct igb_adapter *adapter,
+ 
+ 	/* allocate q_vector and rings */
+ 	q_vector = adapter->q_vector[v_idx];
+-	if (!q_vector)
++	if (!q_vector) {
+ 		q_vector = kzalloc(size, GFP_KERNEL);
+-	else
++	} else if (size > ksize(q_vector)) {
++		kfree_rcu(q_vector, rcu);
++		q_vector = kzalloc(size, GFP_KERNEL);
++	} else {
+ 		memset(q_vector, 0, size);
++	}
+ 	if (!q_vector)
+ 		return -ENOMEM;
+ 
+@@ -2888,6 +2892,14 @@ static void igb_init_queue_configuration(struct igb_adapter *adapter)
+ 
+ 	adapter->rss_queues = min_t(u32, max_rss_queues, num_online_cpus());
+ 
++	igb_set_flag_queue_pairs(adapter, max_rss_queues);
++}
++
++void igb_set_flag_queue_pairs(struct igb_adapter *adapter,
++			      const u32 max_rss_queues)
++{
++	struct e1000_hw *hw = &adapter->hw;
++
+ 	/* Determine if we need to pair queues. */
+ 	switch (hw->mac.type) {
+ 	case e1000_82575:
+-- 
+2.1.0
