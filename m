@@ -1,61 +1,71 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 0/2] Error message clean-ups for Renesas R-Car CAN driver
-Date: Wed, 1 Jul 2015 11:01:03 +0200
-Message-ID: <5593AC4F.4010005@pengutronix.de>
-References: <1593397.kKIHxKLe5s@wasted.cogentembedded.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL] virtio/vhost: cross endian support
+Date: Wed, 1 Jul 2015 11:31:50 +0200
+Message-ID: <20150701113150-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="LJWAgBD9CPneG4PP2HpnrnutqkGdUXKQ6"
-Cc: linux-sh@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org, wg@grandegger.com,
-	linux-can@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1593397.kKIHxKLe5s@wasted.cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	cornelia.huck@de.ibm.com, gkurz@linux.vnet.ibm.com,
+	kraxel@redhat.com, mst@redhat.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52361 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753414AbbGAJby (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jul 2015 05:31:54 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---LJWAgBD9CPneG4PP2HpnrnutqkGdUXKQ6
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+The following changes since commit 8a7b19d8b542b87bccc3eaaf81dcc90a5ca48aea:
 
-On 06/20/2015 02:49 AM, Sergei Shtylyov wrote:
-> Hello.
->=20
->    Here's the set of 2 patches against Marc Kleine-Budde's 'linux-can.g=
-it'
-> repo plus 3 fix patches just posted; they are small error message clean=
-ups for
-> the Renesas R-Car CAN driver.
+  include/uapi/linux/virtio_balloon.h: include linux/virtio_types.h (2015-06-01 15:46:54 +0200)
 
-Applied both series to can/master.
+are available in the git repository at:
 
-Thanks,
-Marc
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+for you to fetch changes up to 59a5b0f7bf74f88da6670bcbf924d8cc1e75b1ee:
 
+  virtio-pci: alloc only resources actually used. (2015-06-24 08:15:09 +0200)
 
---LJWAgBD9CPneG4PP2HpnrnutqkGdUXKQ6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+----------------------------------------------------------------
+virtio/vhost: cross endian support
 
------BEGIN PGP SIGNATURE-----
+I have just queued some more bugfix patches today but none fix regressions and
+none are related to these ones, so it looks like a good time for a merge for
+-rc1.
 
-iQEcBAEBCgAGBQJVk6xSAAoJEP5prqPJtc/HKl4H/Rc4QGTXN7TWxIbcwcJehnoz
-/9ceMr9Xr9N1jmddkAhAl8nc8IEJ2MqjYW+IqX6SaMcCqT1KVnzyqvnwf5t2sxvZ
-jKnhoNj2zzusursdV4zkykXvCHD6HnuytHY/iNPRFOd7y7sAdZO7RE1gpre/kBwM
-GopEIFzveUT01kQkICKCYIL3i0z8zkEiSDbLEsowOIH//o7sGfvDTXOZDi4nJ5R4
-z7t1kEvLnt0cAt9/hxUAOVBPNORxUTxtz5838yuF+HoWpC9CU3+7gzZbMz262J7H
-Wbx19R2YD33NZJSL5DZU/L2ZNDv3M251Ni7pfPuREJqAAy+BPo9+3JCYQhsIPXc=
-=AcUU
------END PGP SIGNATURE-----
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
---LJWAgBD9CPneG4PP2HpnrnutqkGdUXKQ6--
+----------------------------------------------------------------
+Gerd Hoffmann (1):
+      virtio-pci: alloc only resources actually used.
+
+Greg Kurz (8):
+      virtio: introduce virtio_is_little_endian() helper
+      tun: add tun_is_little_endian() helper
+      macvtap: introduce macvtap_is_little_endian() helper
+      vringh: introduce vringh_is_little_endian() helper
+      vhost: introduce vhost_is_little_endian() helper
+      virtio: add explicit big-endian support to memory accessors
+      vhost: cross-endian support for legacy devices
+      macvtap/tun: cross-endian support for little-endian hosts
+
+ drivers/vhost/vhost.h              | 25 ++++++++---
+ drivers/virtio/virtio_pci_common.h |  2 +
+ include/linux/virtio_byteorder.h   | 24 ++++++-----
+ include/linux/virtio_config.h      | 18 +++++---
+ include/linux/vringh.h             | 18 +++++---
+ include/uapi/linux/if_tun.h        |  6 +++
+ include/uapi/linux/vhost.h         | 14 +++++++
+ drivers/net/macvtap.c              | 65 ++++++++++++++++++++++++++++-
+ drivers/net/tun.c                  | 67 +++++++++++++++++++++++++++++-
+ drivers/vhost/vhost.c              | 85 +++++++++++++++++++++++++++++++++++++-
+ drivers/virtio/virtio_pci_common.c |  7 ----
+ drivers/virtio/virtio_pci_legacy.c | 13 +++++-
+ drivers/virtio/virtio_pci_modern.c | 24 ++++++++---
+ drivers/net/Kconfig                | 14 +++++++
+ drivers/vhost/Kconfig              | 15 +++++++
+ 15 files changed, 350 insertions(+), 47 deletions(-)
