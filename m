@@ -1,30 +1,52 @@
-From: wenny_budi_p@nusindo.co.id
-Subject: LOAN OFFER
-Date: Wed, 01 Jul 2015 05:07:28 +0100
-Message-ID: <20150701035124.3C1BABAE2E9@webmail.nusindo.co.id>
-Reply-To: george_18888@hotmail.com
+From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
+Subject: [PATCH] ax88179_178a: add reset functionality in reset_resume
+Date: Wed, 01 Jul 2015 04:14:28 +0000 (GMT)
+Message-ID: <645073370.95541435724068456.JavaMail.weblogic@ep2mlwas07d>
+Reply-To: vivek.bhagat@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <wenny_budi_p@nusindo.co.id>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: hemanshu.s@samsung.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailserver.nusindo.co.id ([202.51.19.146]:58504 "EHLO
-	webmail.nusindo.co.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752407AbbGAEHw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 00:07:52 -0400
-Content-Description: Mail message body
+Received: from mailout2.samsung.com ([203.254.224.25]:41414 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751382AbbGAEOq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 00:14:46 -0400
+Received: from epcpsbgr1.samsung.com
+ (u141.gpu120.samsung.co.kr [203.254.230.141])
+ by mailout2.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
+ 64bit (built May  5 2014))
+ with ESMTP id <0NQS03476JSLJFA0@mailout2.samsung.com> for
+ netdev@vger.kernel.org; Wed, 01 Jul 2015 13:14:45 +0900 (KST)
+MIME-version: 1.0
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
- Hello, do you need a business or personal loan interest rate of 3%? If interested, kindly get back to us with the following information.
-NAME OF BORROWER:
-* COUNTRY:
-* GENDER:
-* OCCUPATION:
-* MONTHLY INCOME:
-* Loan Amount Required:
-* Loan Duration:
-* LOAN PURPOSE:
-* PHONE NUMBERS:
- 
+V2l0aG91dCByZXNldCBmdW5jdGlvbmFsaXR5IGluIHJlc2V0X3Jlc3VtZSwgaXBlcmYgY29ubmVj
+dGlvbgpkb2VzIG5vdCBlc3RhYmxpc2ggYWZ0ZXIgc3VzcGVuZC9yZXN1bWUgaG93ZXZlciBwaW5n
+IHdvcmtzIGF0CnRoZSBzYW1lIHRpbWUuIGlwZXJmIGNvbm5lY3Rpb24gZmFpbHMgYnkgZ2l2aW5n
+IGNoZWNrc3VtIGVycm9yCmluIHRjcGR1bXAuCgpyZXNldCBmdW5jdGlvbiBpbnNpZGUgcmVzZXRf
+cmVzdW1lIHNvbHZlcyBhYm92ZSBidWcuCldlIGhhdmUgdmVyaWZpZWQgaXQgb24gQVNJWCBiYXNl
+ZCBTVCBMYWIsIENhZHljZSBkb25nbGUuCgpTaWduZWQtb2ZmLWJ5OiBWaXZlayBLdW1hciBCaGFn
+YXQgPHZpdmVrLmJoYWdhdEBzYW1zdW5nLmNvbT4KU2lnbmVkLW9mZi1ieTogUHJhdmVlbiBLdW1h
+ciA8cHJhdmVlbi5rMDlAc2Ftc3VuZy5jb20+CgotLS0KIGRyaXZlcnMvbmV0L3VzYi9heDg4MTc5
+XzE3OGEuYyB8ICAgMTQgKysrKysrKysrKysrKy0KIDEgZmlsZSBjaGFuZ2VkLCAxMyBpbnNlcnRp
+b25zKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdXNiL2F4ODgx
+NzlfMTc4YS5jIGIvZHJpdmVycy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jCmluZGV4IGU2MzM4YzEu
+LjAwOTI4YzAgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3VzYi9heDg4MTc5XzE3OGEuYworKysg
+Yi9kcml2ZXJzL25ldC91c2IvYXg4ODE3OV8xNzhhLmMKQEAgLTE2MzAsNiArMTYzMCwxOCBAQCBz
+dGF0aWMgaW50IGF4ODgxNzlfc3RvcChzdHJ1Y3QgdXNibmV0ICpkZXYpCiAJcmV0dXJuIDA7CiB9
+CiAKK3N0YXRpYyBpbnQgYXg4ODE3OV9yZXNldF9yZXN1bWUoc3RydWN0IHVzYl9pbnRlcmZhY2Ug
+KmludGYpCit7CisJc3RydWN0IHVzYm5ldCAqZGV2ID0gdXNiX2dldF9pbnRmZGF0YShpbnRmKTsK
+KwlpbnQgcmV0OworCisJcmV0ID0gYXg4ODE3OV9yZXNldChkZXYpOworCWlmIChyZXQgPCAwKQor
+CQlyZXR1cm4gcmV0OworCisJcmV0dXJuICBheDg4MTc5X3Jlc3VtZShpbnRmKTsKK30KKwogc3Rh
+dGljIGNvbnN0IHN0cnVjdCBkcml2ZXJfaW5mbyBheDg4MTc5X2luZm8gPSB7CiAJLmRlc2NyaXB0
+aW9uID0gIkFTSVggQVg4ODE3OSBVU0IgMy4wIEdpZ2FiaXQgRXRoZXJuZXQiLAogCS5iaW5kID0g
+YXg4ODE3OV9iaW5kLApAQCAtMTc0NCw3ICsxNzU2LDcgQEAgc3RhdGljIHN0cnVjdCB1c2JfZHJp
+dmVyIGF4ODgxNzlfMTc4YV9kcml2ZXIgPSB7CiAJLnByb2JlID0JdXNibmV0X3Byb2JlLAogCS5z
+dXNwZW5kID0JYXg4ODE3OV9zdXNwZW5kLAogCS5yZXN1bWUgPQlheDg4MTc5X3Jlc3VtZSwKLQku
+cmVzZXRfcmVzdW1lID0JYXg4ODE3OV9yZXN1bWUsCisJLnJlc2V0X3Jlc3VtZSA9CWF4ODgxNzlf
+cmVzZXRfcmVzdW1lLAogCS5kaXNjb25uZWN0ID0JdXNibmV0X2Rpc2Nvbm5lY3QsCiAJLnN1cHBv
+cnRzX2F1dG9zdXNwZW5kID0gMSwKIAkuZGlzYWJsZV9odWJfaW5pdGlhdGVkX2xwbSA9IDEsCi0t
+IAoxLjcuOS41
