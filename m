@@ -1,150 +1,35 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH 2/2 net-next] tcp: PRR uses CRB mode by default and SS mode conditionally
-Date: Wed,  1 Jul 2015 14:11:15 -0700
-Message-ID: <1435785075-20600-3-git-send-email-ycheng@google.com>
-References: <1435785075-20600-1-git-send-email-ycheng@google.com>
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: bail on sock_wfree, sock_rfree when we
+ have a TCP_TIMEWAIT sk
+Date: Wed, 01 Jul 2015 14:14:02 -0700 (PDT)
+Message-ID: <20150701.141402.587634025761326092.davem@davemloft.net>
+References: <1435781589-2210146-1-git-send-email-agartrell@fb.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, netdev@vger.kernel.org, kernel-team@fb.com
+To: agartrell@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:36184 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753137AbbGAVL0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 17:11:26 -0400
-Received: by igrv9 with SMTP id v9so83260658igr.1
-        for <netdev@vger.kernel.org>; Wed, 01 Jul 2015 14:11:25 -0700 (PDT)
-In-Reply-To: <1435785075-20600-1-git-send-email-ycheng@google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35128 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753021AbbGAVOE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 17:14:04 -0400
+In-Reply-To: <1435781589-2210146-1-git-send-email-agartrell@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PRR slow start is often too aggressive especially when drops are
-caused by traffic policers. The policers mainly use token bucket
-to enforce the rate so sending (twice) faster than the delivery
-rate causes excessive drops.
+From: Alex Gartrell <agartrell@fb.com>
+Date: Wed, 1 Jul 2015 13:13:09 -0700
 
-This patch changes PRR to the conservative reduction bound
-(CRB) mode in RFC 6937 by default. CRB follows the packet
-conservation rule to send at most the delivery rate by default.
+> If we early-demux bind a TCP_TIMEWAIT socket to an skb and then orphan it
+> (as we need to do in the ipvs forwarding case), sock_wfree and sock_rfree
+> are going to reach into the inet_timewait_sock and mess with fields that
+> don't exist.
+> 
+> Signed-off-by: Alex Gartrell <agartrell@fb.com>
 
-But if many packets are lost and the pipe is empty, CRB may take N
-round trips to repair N losses. We conditionally turn on slow start
-mode if all these conditions are made to speed up the recovery:
+If we're forwarding, we should not find a local socket, period.
 
-  1) on the second round or later in recovery
-  2) retransmission sent in the previous round is delivered on this ACK
-  3) no retransmission is marked lost on this ACK
+We should only match sockets for locally destined packets.
 
-By using packet conservation by default, this change reduces the loss
-retransmits signicantly on networks that deploy traffic policers,
-up to 20% reduction of overall loss rate.
-
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Nandita Dukkipati <nanditad@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
----
- net/ipv4/tcp_input.c | 29 +++++++++++++++--------------
- 1 file changed, 15 insertions(+), 14 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 923e0e5..ad1482d 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2476,15 +2476,14 @@ static bool tcp_try_undo_loss(struct sock *sk, bool frto_undo)
- 	return false;
- }
- 
--/* The cwnd reduction in CWR and Recovery use the PRR algorithm
-- * https://datatracker.ietf.org/doc/draft-ietf-tcpm-proportional-rate-reduction/
-+/* The cwnd reduction in CWR and Recovery uses the PRR algorithm in RFC 6937.
-  * It computes the number of packets to send (sndcnt) based on packets newly
-  * delivered:
-  *   1) If the packets in flight is larger than ssthresh, PRR spreads the
-  *	cwnd reductions across a full RTT.
-- *   2) If packets in flight is lower than ssthresh (such as due to excess
-- *	losses and/or application stalls), do not perform any further cwnd
-- *	reductions, but instead slow start up to ssthresh.
-+ *   2) Otherwise PRR uses packet conservation to send as much as delivered.
-+ *      But when the retransmits are acked without further losses, PRR
-+ *      slow starts cwnd up to ssthresh to speed up the recovery.
-  */
- static void tcp_init_cwnd_reduction(struct sock *sk)
- {
-@@ -2501,7 +2500,7 @@ static void tcp_init_cwnd_reduction(struct sock *sk)
- }
- 
- static void tcp_cwnd_reduction(struct sock *sk, const int prior_unsacked,
--			       int fast_rexmit)
-+			       int fast_rexmit, int flag)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	int sndcnt = 0;
-@@ -2510,16 +2509,18 @@ static void tcp_cwnd_reduction(struct sock *sk, const int prior_unsacked,
- 				 (tp->packets_out - tp->sacked_out);
- 
- 	tp->prr_delivered += newly_acked_sacked;
--	if (tcp_packets_in_flight(tp) > tp->snd_ssthresh) {
-+	if (delta < 0) {
- 		u64 dividend = (u64)tp->snd_ssthresh * tp->prr_delivered +
- 			       tp->prior_cwnd - 1;
- 		sndcnt = div_u64(dividend, tp->prior_cwnd) - tp->prr_out;
--	} else {
-+	} else if ((flag & FLAG_RETRANS_DATA_ACKED) &&
-+		   !(flag & FLAG_LOST_RETRANS)) {
- 		sndcnt = min_t(int, delta,
- 			       max_t(int, tp->prr_delivered - tp->prr_out,
- 				     newly_acked_sacked) + 1);
-+	} else {
-+		sndcnt = min(delta, newly_acked_sacked);
- 	}
--
- 	sndcnt = max(sndcnt, (fast_rexmit ? 1 : 0));
- 	tp->snd_cwnd = tcp_packets_in_flight(tp) + sndcnt;
- }
-@@ -2580,7 +2581,7 @@ static void tcp_try_to_open(struct sock *sk, int flag, const int prior_unsacked)
- 	if (inet_csk(sk)->icsk_ca_state != TCP_CA_CWR) {
- 		tcp_try_keep_open(sk);
- 	} else {
--		tcp_cwnd_reduction(sk, prior_unsacked, 0);
-+		tcp_cwnd_reduction(sk, prior_unsacked, 0, flag);
- 	}
- }
- 
-@@ -2737,7 +2738,7 @@ static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack)
- 
- /* Undo during fast recovery after partial ACK. */
- static bool tcp_try_undo_partial(struct sock *sk, const int acked,
--				 const int prior_unsacked)
-+				 const int prior_unsacked, int flag)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 
-@@ -2753,7 +2754,7 @@ static bool tcp_try_undo_partial(struct sock *sk, const int acked,
- 		 * mark more packets lost or retransmit more.
- 		 */
- 		if (tp->retrans_out) {
--			tcp_cwnd_reduction(sk, prior_unsacked, 0);
-+			tcp_cwnd_reduction(sk, prior_unsacked, 0, flag);
- 			return true;
- 		}
- 
-@@ -2840,7 +2841,7 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 			if (tcp_is_reno(tp) && is_dupack)
- 				tcp_add_reno_sack(sk);
- 		} else {
--			if (tcp_try_undo_partial(sk, acked, prior_unsacked))
-+			if (tcp_try_undo_partial(sk, acked, prior_unsacked, flag))
- 				return;
- 			/* Partial ACK arrived. Force fast retransmit. */
- 			do_lost = tcp_is_reno(tp) ||
-@@ -2891,7 +2892,7 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 
- 	if (do_lost)
- 		tcp_update_scoreboard(sk, fast_rexmit);
--	tcp_cwnd_reduction(sk, prior_unsacked, fast_rexmit);
-+	tcp_cwnd_reduction(sk, prior_unsacked, fast_rexmit, flag);
- 	tcp_xmit_retransmit_queue(sk);
- }
- 
--- 
-2.4.3.573.g4eafbef
+So I'd say that the state in which you say this can occur is illegal.
