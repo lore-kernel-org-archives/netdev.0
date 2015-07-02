@@ -1,250 +1,80 @@
-From: Matteo Croce <technoboy85@gmail.com>
-Subject: Re: [PATCH] add stealth mode
-Date: Thu, 2 Jul 2015 10:38:33 +0200
-Message-ID: <CAFnufp0sR-3PqYT0=reML2pn_-rvOvD3EDkGivrUeguNRwQYUA@mail.gmail.com>
-References: <CAFnufp3wM5rb=B4N8Ad+cLcTu8sx-f9OXpqp33uCKXe=q=je3Q@mail.gmail.com>
- <5594F4FF.1000904@6wind.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next] net: bail on sock_wfree, sock_rfree when we
+ have a TCP_TIMEWAIT sk
+Date: Thu, 2 Jul 2015 11:44:54 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1507021135180.2615@ja.home.ssi.bg>
+References: <1435781589-2210146-1-git-send-email-agartrell@fb.com> <20150701.141402.587634025761326092.davem@davemloft.net> <CANn89iK8SMLFNA6J0WB_qVTB+-C6qoX2o7-CxvwrLVua-cXzWg@mail.gmail.com> <CALCkm3fUmO0pmQEgrwjoNy5PjFk+mzYbUd1wmBsV7hVSHBngPA@mail.gmail.com>
+ <CANn89iL4Pr1MQ_7uDcKEyT+D+193cQk9R304JsMAE0od4+ieEQ@mail.gmail.com> <CALCkm3f1nmi-st-siG0CRv32X7G5d6+JCsOWM01Rh3Qif3HtuQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: nicolas.dichtel@6wind.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>,
+	"agartrell@fb.com" <agartrell@fb.com>,
+	netdev <netdev@vger.kernel.org>, kernel-team <kernel-team@fb.com>
+To: Alex Gartrell <alexgartrell@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:34965 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753141AbbGBIjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 04:39:15 -0400
-In-Reply-To: <5594F4FF.1000904@6wind.com>
+Received: from ja.ssi.bg ([178.16.129.10]:40469 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752899AbbGBIpN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jul 2015 04:45:13 -0400
+In-Reply-To: <CALCkm3f1nmi-st-siG0CRv32X7G5d6+JCsOWM01Rh3Qif3HtuQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add option to disable any reply not related to a listening socket,
-like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
-Also disables ICMP replies to echo request and timestamp.
-The stealth mode can be enabled selectively for a single interface.
 
-Signed-off-by: Matteo Croce <matteo@openwrt.org>
----
- Documentation/networking/ip-sysctl.txt | 12 ++++++++++++
- include/linux/inetdevice.h             |  1 +
- include/linux/ipv6.h                   |  1 +
- include/uapi/linux/ip.h                |  1 +
- net/ipv4/devinet.c                     |  1 +
- net/ipv4/icmp.c                        |  6 ++++++
- net/ipv4/tcp_ipv4.c                    |  3 ++-
- net/ipv4/udp.c                         |  4 +++-
- net/ipv6/addrconf.c                    |  7 +++++++
- net/ipv6/icmp.c                        |  3 ++-
- net/ipv6/tcp_ipv6.c                    |  2 +-
- net/ipv6/udp.c                         |  3 ++-
- 12 files changed, 39 insertions(+), 5 deletions(-)
+	Hello,
 
-diff --git a/Documentation/networking/ip-sysctl.txt
-b/Documentation/networking/ip-sysctl.txt
-index 5fae770..9eed021 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1181,6 +1181,12 @@ tag - INTEGER
-  Allows you to write a number, which can be used as required.
-  Default value is 0.
+On Wed, 1 Jul 2015, Alex Gartrell wrote:
 
-+stealth - BOOLEAN
-+ Disable any reply not related to a listening socket,
-+ like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
-+ Also disables ICMP replies to echo requests and timestamp.
-+ Default value is 0.
-+
- Alexey Kuznetsov.
- kuznet@ms2.inr.ac.ru
+> On Wed, Jul 1, 2015 at 4:26 PM, Eric Dumazet <edumazet@google.com> wrote:
+> > I think you are mistaken Alex.
+> 
+> Indeed, I was!  Should be unsurpising.
+> 
+> >
+> > socket early demux cannot possibly set skb->destructor to sock_rfree()
+> 
+> Yeah I will admit adding the code to sock_rfree reflexively out of paranoia.
+> 
+> > If skb->destructor is set by early demux, it correctly points to sock_edemux()
+> >
+> > And this one correctly handles all socket variants.
+> 
+> Yes, the problem appears to be in ip_vs_prepare_tunneled_skb
+> (ip_vs_xmit.c:859 in 4.0)
+> 
+>         if (skb_headroom(skb) < max_headroom || skb_cloned(skb)) {
+>                 new_skb = skb_realloc_headroom(skb, max_headroom);
+>                 if (!new_skb)
+>                         goto error;
+>                 if (skb->sk)
+>                         skb_set_owner_w(new_skb, skb->sk);
+>                 consume_skb(skb);
+>                 skb = new_skb;
+>         }
+> 
+> skb_set_owner_w sets sock_wfree.
+> 
+> I'll figure out how to ensure that we're using an appropriate destructor here.
 
-@@ -1584,6 +1590,12 @@ stable_secret - IPv6 address
+	Alex, in our discussion on January I thought
+we can skip calling skb_orphan for some cases but as
+input and output path use different skb->destructor
+we should call skb_orphan for every method, in every
+case when skb->dev != NULL, even when we do not call
+LOCAL_OUT, i.e. when NF_ACCEPT is returned for traffic
+to local real server. We should not call it only for
+local socket (skb->dev == NULL).
 
-  By default the stable secret is unset.
+	I think, your patch from January is almost
+good:
 
-+stealth - BOOLEAN
-+ Disable any reply not related to a listening socket,
-+ like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
-+ Also disables ICMPv6 replies to echo requests.
-+ Default value is 0.
-+
- icmp/*:
- ratelimit - INTEGER
-  Limit the maximal rates for sending ICMPv6 packets.
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index a4328ce..a64c01e 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -128,6 +128,7 @@ static inline void ipv4_devconf_setall(struct
-in_device *in_dev)
- #define IN_DEV_ARP_ANNOUNCE(in_dev) IN_DEV_MAXCONF((in_dev), ARP_ANNOUNCE)
- #define IN_DEV_ARP_IGNORE(in_dev) IN_DEV_MAXCONF((in_dev), ARP_IGNORE)
- #define IN_DEV_ARP_NOTIFY(in_dev) IN_DEV_MAXCONF((in_dev), ARP_NOTIFY)
-+#define IN_DEV_STEALTH(in_dev) IN_DEV_MAXCONF((in_dev), STEALTH)
+http://archive.linuxvirtualserver.org/html/lvs-devel/2015-01/msg00014.html
 
- struct in_ifaddr {
-  struct hlist_node hash;
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 82806c6..49494ec 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -53,6 +53,7 @@ struct ipv6_devconf {
-  __s32           ndisc_notify;
-  __s32 suppress_frag_ndisc;
-  __s32 accept_ra_mtu;
-+ __s32 stealth;
-  struct ipv6_stable_secret {
-  bool initialized;
-  struct in6_addr secret;
-diff --git a/include/uapi/linux/ip.h b/include/uapi/linux/ip.h
-index 08f894d..4acbf99 100644
---- a/include/uapi/linux/ip.h
-+++ b/include/uapi/linux/ip.h
-@@ -165,6 +165,7 @@ enum
-  IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL,
-  IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL,
-  IPV4_DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN,
-+ IPV4_DEVCONF_STEALTH,
-  __IPV4_DEVCONF_MAX
- };
+	Just add skb->dev check and we should be fine.
+And the patch from Eric for IPVS looks good too.
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 7498716..6b9930a 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -2178,6 +2178,7 @@ static struct devinet_sysctl_table {
-       "promote_secondaries"),
-  DEVINET_SYSCTL_FLUSHING_ENTRY(ROUTE_LOCALNET,
-       "route_localnet"),
-+ DEVINET_SYSCTL_RW_ENTRY(STEALTH, "stealth"),
-  },
- };
+Regards
 
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index f5203fb..e8e71fb 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -882,6 +882,9 @@ static bool icmp_echo(struct sk_buff *skb)
- {
-  struct net *net;
-
-+ if (IN_DEV_STEALTH(skb->dev->ip_ptr))
-+ return true;
-+
-  net = dev_net(skb_dst(skb)->dev);
-  if (!net->ipv4.sysctl_icmp_echo_ignore_all) {
-  struct icmp_bxm icmp_param;
-@@ -915,6 +918,9 @@ static bool icmp_timestamp(struct sk_buff *skb)
-  if (skb->len < 4)
-  goto out_err;
-
-+ if (IN_DEV_STEALTH(skb->dev->ip_ptr))
-+ return true;
-+
-  /*
-  * Fill in the current time as ms since midnight UT:
-  */
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index d7d4c2b..6f3e6e9 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -77,6 +77,7 @@
- #include <net/busy_poll.h>
-
- #include <linux/inet.h>
-+#include <linux/inetdevice.h>
- #include <linux/ipv6.h>
- #include <linux/stddef.h>
- #include <linux/proc_fs.h>
-@@ -1652,7 +1653,7 @@ csum_error:
-  TCP_INC_STATS_BH(net, TCP_MIB_CSUMERRORS);
- bad_packet:
-  TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
-- } else {
-+ } else if (!IN_DEV_STEALTH(skb->dev->ip_ptr)) {
-  tcp_v4_send_reset(NULL, skb);
-  }
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 83aa604..780069d 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -96,6 +96,7 @@
- #include <linux/timer.h>
- #include <linux/mm.h>
- #include <linux/inet.h>
-+#include <linux/inetdevice.h>
- #include <linux/netdevice.h>
- #include <linux/slab.h>
- #include <net/tcp_states.h>
-@@ -1823,7 +1824,8 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct
-udp_table *udptable,
-  goto csum_error;
-
-  UDP_INC_STATS_BH(net, UDP_MIB_NOPORTS, proto == IPPROTO_UDPLITE);
-- icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
-+ if (!IN_DEV_STEALTH(skb->dev->ip_ptr))
-+ icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
-
-  /*
-  * Hmm.  We got an UDP packet to a port to which we
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 21c2c81..b9e44e2 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -5585,6 +5585,13 @@ static struct addrconf_sysctl_table
-  .proc_handler = addrconf_sysctl_stable_secret,
-  },
-  {
-+ .procname = "stealth",
-+ .data = &ipv6_devconf.stealth,
-+ .maxlen = sizeof(int),
-+ .mode = 0644,
-+ .proc_handler = proc_dointvec,
-+ },
-+ {
-  /* sentinel */
-  }
-  },
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index 713d743..47797a6 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -723,7 +723,8 @@ static int icmpv6_rcv(struct sk_buff *skb)
-
-  switch (type) {
-  case ICMPV6_ECHO_REQUEST:
-- icmpv6_echo_reply(skb);
-+ if (!idev->cnf.stealth)
-+ icmpv6_echo_reply(skb);
-  break;
-
-  case ICMPV6_ECHO_REPLY:
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 6748c42..cb41856 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1445,7 +1445,7 @@ csum_error:
-  TCP_INC_STATS_BH(net, TCP_MIB_CSUMERRORS);
- bad_packet:
-  TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
-- } else {
-+ } else if (!__in6_dev_get(skb->dev)->cnf.stealth) {
-  tcp_v6_send_reset(NULL, skb);
-  }
-
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index e51fc3e..459238bb 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -934,7 +934,8 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct
-udp_table *udptable,
-  goto csum_error;
-
-  UDP6_INC_STATS_BH(net, UDP_MIB_NOPORTS, proto == IPPROTO_UDPLITE);
-- icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
-+ if (!__in6_dev_get(skb->dev)->cnf.stealth)
-+ icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
-
-  kfree_skb(skb);
-  return 0;
--- 
-2.1.4
+--
+Julian Anastasov <ja@ssi.bg>
