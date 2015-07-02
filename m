@@ -1,53 +1,165 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] net-RDS: Delete an unnecessary check before the function
- call "module_put"
-Date: Thu, 02 Jul 2015 18:08:19 +0200
-Message-ID: <559561F3.2040107@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net>
+From: Tejun Heo <tj@kernel.org>
+Subject: [PATCH v2 v4.2-rc1] printk: make extended printk support conditional
+ on netconsole
+Date: Thu, 2 Jul 2015 12:21:41 -0400
+Message-ID: <20150702162141.GC30677@mtj.duckdns.org>
+References: <1430318704-32374-1-git-send-email-tj@kernel.org>
+ <1430318704-32374-4-git-send-email-tj@kernel.org>
+ <CAMuHMdWwH-3kx1ma5KE=fP94by8boxM_QYqPKpU=YJw8t3hYeg@mail.gmail.com>
+ <20150629152805.GM15805@mtj.duckdns.org>
+ <CAMuHMdXTn0+z4PV9UVZZmpMdk_-JUc4x-GqZweOhQyYMTzSOGQ@mail.gmail.com>
+ <20150629154914.GQ15805@mtj.duckdns.org>
+ <CAMuHMdX-cA3RccXF2kBifMEyT8e14rURp9Li_WFm7ODBOti=QQ@mail.gmail.com>
+ <20150629161355.GS15805@mtj.duckdns.org>
+ <20150629233140.GA7711@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors <kernel-janitors@vger.kernel.org>,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Chien Yen <chien.yen@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: pmladek@suse.cz, "David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kay Sievers <kay@vrfy.org>,
+	Josh Triplett <josh@joshtriplett.org>,
+	Linux Embedded <linux-embedded@vger.kernel.org>,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.15.3]:62114 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753790AbbGBQIl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jul 2015 12:08:41 -0400
-In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Received: from mail-yk0-f172.google.com ([209.85.160.172]:34496 "EHLO
+	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753660AbbGBQVp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 12:21:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20150629233140.GA7711@mtj.duckdns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Thu, 2 Jul 2015 17:58:21 +0200
+6fe29354befe ("printk: implement support for extended console
+drivers") implemented extended printk support for extended netconsole.
+The code added was miniscule but it added static 8k buffer
+unconditionally unnecessarily bloating the kernel for cases where
+extended netconsole is not used.
 
-The module_put() function tests whether its argument is NULL and then
-returns immediately. Thus the test around the call is not needed.
+This patch introduces CONFIG_PRINTK_CON_EXTENDED which is selected by
+CONFIG_NETCONSOLE.  If the config option is not set, extended printk
+support is compiled out along with the static buffer.
 
-This issue was detected by using the Coccinelle software.
+Verified 8k reduction in vmlinux bss when !CONFIG_NETCONSOLE.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+v2: Added a warning for cases where CON_EXTENDED is requested while
+    CONFIG_PRINTK_CON_EXTENDED is disabled as suggested by Petr.
+
+Cc: Petr Mladek <pmladek@suse.com>
+Signed-off-by: Tejun Heo <tj@kernel.org>
+Reported-and-suggested-by: Geert Uytterhoeven <geert@linux-m68k.org>
 ---
- net/rds/transport.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/Kconfig    |    1 +
+ init/Kconfig           |    3 +++
+ kernel/printk/printk.c |   40 ++++++++++++++++++++++++++++++++++++----
+ 3 files changed, 40 insertions(+), 4 deletions(-)
 
-diff --git a/net/rds/transport.c b/net/rds/transport.c
-index 8b4a6cd..83498e1 100644
---- a/net/rds/transport.c
-+++ b/net/rds/transport.c
-@@ -73,7 +73,7 @@ EXPORT_SYMBOL_GPL(rds_trans_unregister);
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 019fcef..39587f1 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -195,6 +195,7 @@ config GENEVE
  
- void rds_trans_put(struct rds_transport *trans)
+ config NETCONSOLE
+ 	tristate "Network console logging support"
++	select PRINTK_CON_EXTENDED
+ 	---help---
+ 	If you want to log kernel messages over the network, enable this.
+ 	See <file:Documentation/networking/netconsole.txt> for details.
+diff --git a/init/Kconfig b/init/Kconfig
+index bcc41bd..cd281ab 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -1438,6 +1438,9 @@ config PRINTK
+ 	  very difficult to diagnose system problems, saying N here is
+ 	  strongly discouraged.
+ 
++config PRINTK_CON_EXTENDED
++	bool
++
+ config BUG
+ 	bool "BUG() support" if EXPERT
+ 	default y
+diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
+index cf8c242..f719118 100644
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -84,6 +84,10 @@ static struct lockdep_map console_lock_dep_map = {
+ };
+ #endif
+ 
++#ifdef CONFIG_PRINTK_CON_EXTENDED
++
++#define CONSOLE_EXT_LOG_BUF_LEN		CONSOLE_EXT_LOG_MAX
++
+ /*
+  * Number of registered extended console drivers.
+  *
+@@ -96,6 +100,32 @@ static struct lockdep_map console_lock_dep_map = {
+  */
+ static int nr_ext_console_drivers;
+ 
++static void inc_nr_ext_console_drivers(void)
++{
++	nr_ext_console_drivers++;
++}
++
++static void dec_nr_ext_console_drivers(void)
++{
++	nr_ext_console_drivers--;
++}
++
++#else	/* CONFIG_PRINTK_CON_EXTENDED */
++
++#define CONSOLE_EXT_LOG_BUF_LEN		0
++#define nr_ext_console_drivers		0
++
++static void inc_nr_ext_console_drivers(void)
++{
++	WARN_ONCE(true, "printk: CON_EXTENDED requested when !CONFIG_PRINTK_CON_EXTENDED\n");
++}
++
++static void dec_nr_ext_console_drivers(void)
++{
++}
++
++#endif	/* CONFIG_PRINTK_CON_EXTENDED */
++
+ /*
+  * Helper macros to handle lockdep when locking/unlocking console_sem. We use
+  * macros instead of functions so that _RET_IP_ contains useful information.
+@@ -2224,7 +2254,7 @@ static void console_cont_flush(char *text, size_t size)
+  */
+ void console_unlock(void)
  {
--	if (trans && trans->t_owner)
-+	if (trans)
- 		module_put(trans->t_owner);
- }
+-	static char ext_text[CONSOLE_EXT_LOG_MAX];
++	static char ext_text[CONSOLE_EXT_LOG_BUF_LEN];
+ 	static char text[LOG_LINE_MAX + PREFIX_MAX];
+ 	static u64 seen_seq;
+ 	unsigned long flags;
+@@ -2561,9 +2591,11 @@ void register_console(struct console *newcon)
+ 		console_drivers->next = newcon;
+ 	}
  
--- 
-2.4.5
+-	if (newcon->flags & CON_EXTENDED)
+-		if (!nr_ext_console_drivers++)
++	if (newcon->flags & CON_EXTENDED) {
++		if (!nr_ext_console_drivers)
+ 			pr_info("printk: continuation disabled due to ext consoles, expect more fragments in /dev/kmsg\n");
++		inc_nr_ext_console_drivers();
++	}
+ 
+ 	if (newcon->flags & CON_PRINTBUFFER) {
+ 		/*
+@@ -2638,7 +2670,7 @@ int unregister_console(struct console *console)
+ 	}
+ 
+ 	if (!res && (console->flags & CON_EXTENDED))
+-		nr_ext_console_drivers--;
++		dec_nr_ext_console_drivers();
+ 
+ 	/*
+ 	 * If this isn't the last console and it has CON_CONSDEV set, we
