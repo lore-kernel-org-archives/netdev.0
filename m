@@ -1,50 +1,250 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] rtnetlink: Actually use the policy for the IFLA_VF_INFO
-Date: Thu, 02 Jul 2015 10:34:54 +0200
-Message-ID: <5594F7AE.3010704@iogearbox.net>
-References: <20150630225255.GA22529@obsidianresearch.com> <5593B48F.2060403@iogearbox.net>
+From: Matteo Croce <technoboy85@gmail.com>
+Subject: Re: [PATCH] add stealth mode
+Date: Thu, 2 Jul 2015 10:38:33 +0200
+Message-ID: <CAFnufp0sR-3PqYT0=reML2pn_-rvOvD3EDkGivrUeguNRwQYUA@mail.gmail.com>
+References: <CAFnufp3wM5rb=B4N8Ad+cLcTu8sx-f9OXpqp33uCKXe=q=je3Q@mail.gmail.com>
+ <5594F4FF.1000904@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Jiri Pirko <jiri@resnulli.us>, Thomas Graf <tgraf@suug.ch>,
-	"David S. Miller" <davem@davemloft.net>,
-	Chris Wright <chrisw@sous-sol.org>
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60371 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752797AbbGBIfD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 04:35:03 -0400
-In-Reply-To: <5593B48F.2060403@iogearbox.net>
+Received: from mail-wg0-f51.google.com ([74.125.82.51]:34965 "EHLO
+	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753141AbbGBIjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 04:39:15 -0400
+In-Reply-To: <5594F4FF.1000904@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/01/2015 11:36 AM, Daniel Borkmann wrote:
-> Hi Jason,
->
-> On 07/01/2015 12:52 AM, Jason Gunthorpe wrote:
->> It turns out the policy was defined but never actually checked,
->> so lets check it.
->>
->> Fixes: ebc08a6f47ee ("rtnetlink: Add VF config code to rtnetlink")
->
-> I would argue that the actual commit would be ...
->
-> Fixes: c02db8c6290b ("rtnetlink: make SR-IOV VF interface symmetric")
->
-> ... since in ebc08a6f47ee, these members were part of ifla_policy[]
-> which has been validated (if we ignore the fact that it was NLA_BINARY).
->
-> So, commit c02db8c6290b moved it into a nested attribute (IFLA_VF_INFO)
-> where we indeed don't do further validation. Imho, we should pass the
-> parsed attribute table from nla_parse_nested() down into do_setvfinfo(),
-> something like the below; I can give it a test run on my ixgbe.
+Add option to disable any reply not related to a listening socket,
+like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
+Also disables ICMP replies to echo request and timestamp.
+The stealth mode can be enabled selectively for a single interface.
 
-Sorry for the late reply, something like this looks good from my side.
+Signed-off-by: Matteo Croce <matteo@openwrt.org>
+---
+ Documentation/networking/ip-sysctl.txt | 12 ++++++++++++
+ include/linux/inetdevice.h             |  1 +
+ include/linux/ipv6.h                   |  1 +
+ include/uapi/linux/ip.h                |  1 +
+ net/ipv4/devinet.c                     |  1 +
+ net/ipv4/icmp.c                        |  6 ++++++
+ net/ipv4/tcp_ipv4.c                    |  3 ++-
+ net/ipv4/udp.c                         |  4 +++-
+ net/ipv6/addrconf.c                    |  7 +++++++
+ net/ipv6/icmp.c                        |  3 ++-
+ net/ipv6/tcp_ipv6.c                    |  2 +-
+ net/ipv6/udp.c                         |  3 ++-
+ 12 files changed, 39 insertions(+), 5 deletions(-)
 
-Thanks,
-Daniel
+diff --git a/Documentation/networking/ip-sysctl.txt
+b/Documentation/networking/ip-sysctl.txt
+index 5fae770..9eed021 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1181,6 +1181,12 @@ tag - INTEGER
+  Allows you to write a number, which can be used as required.
+  Default value is 0.
+
++stealth - BOOLEAN
++ Disable any reply not related to a listening socket,
++ like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
++ Also disables ICMP replies to echo requests and timestamp.
++ Default value is 0.
++
+ Alexey Kuznetsov.
+ kuznet@ms2.inr.ac.ru
+
+@@ -1584,6 +1590,12 @@ stable_secret - IPv6 address
+
+  By default the stable secret is unset.
+
++stealth - BOOLEAN
++ Disable any reply not related to a listening socket,
++ like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
++ Also disables ICMPv6 replies to echo requests.
++ Default value is 0.
++
+ icmp/*:
+ ratelimit - INTEGER
+  Limit the maximal rates for sending ICMPv6 packets.
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index a4328ce..a64c01e 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -128,6 +128,7 @@ static inline void ipv4_devconf_setall(struct
+in_device *in_dev)
+ #define IN_DEV_ARP_ANNOUNCE(in_dev) IN_DEV_MAXCONF((in_dev), ARP_ANNOUNCE)
+ #define IN_DEV_ARP_IGNORE(in_dev) IN_DEV_MAXCONF((in_dev), ARP_IGNORE)
+ #define IN_DEV_ARP_NOTIFY(in_dev) IN_DEV_MAXCONF((in_dev), ARP_NOTIFY)
++#define IN_DEV_STEALTH(in_dev) IN_DEV_MAXCONF((in_dev), STEALTH)
+
+ struct in_ifaddr {
+  struct hlist_node hash;
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 82806c6..49494ec 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -53,6 +53,7 @@ struct ipv6_devconf {
+  __s32           ndisc_notify;
+  __s32 suppress_frag_ndisc;
+  __s32 accept_ra_mtu;
++ __s32 stealth;
+  struct ipv6_stable_secret {
+  bool initialized;
+  struct in6_addr secret;
+diff --git a/include/uapi/linux/ip.h b/include/uapi/linux/ip.h
+index 08f894d..4acbf99 100644
+--- a/include/uapi/linux/ip.h
++++ b/include/uapi/linux/ip.h
+@@ -165,6 +165,7 @@ enum
+  IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL,
+  IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL,
+  IPV4_DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN,
++ IPV4_DEVCONF_STEALTH,
+  __IPV4_DEVCONF_MAX
+ };
+
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 7498716..6b9930a 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -2178,6 +2178,7 @@ static struct devinet_sysctl_table {
+       "promote_secondaries"),
+  DEVINET_SYSCTL_FLUSHING_ENTRY(ROUTE_LOCALNET,
+       "route_localnet"),
++ DEVINET_SYSCTL_RW_ENTRY(STEALTH, "stealth"),
+  },
+ };
+
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index f5203fb..e8e71fb 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -882,6 +882,9 @@ static bool icmp_echo(struct sk_buff *skb)
+ {
+  struct net *net;
+
++ if (IN_DEV_STEALTH(skb->dev->ip_ptr))
++ return true;
++
+  net = dev_net(skb_dst(skb)->dev);
+  if (!net->ipv4.sysctl_icmp_echo_ignore_all) {
+  struct icmp_bxm icmp_param;
+@@ -915,6 +918,9 @@ static bool icmp_timestamp(struct sk_buff *skb)
+  if (skb->len < 4)
+  goto out_err;
+
++ if (IN_DEV_STEALTH(skb->dev->ip_ptr))
++ return true;
++
+  /*
+  * Fill in the current time as ms since midnight UT:
+  */
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index d7d4c2b..6f3e6e9 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -77,6 +77,7 @@
+ #include <net/busy_poll.h>
+
+ #include <linux/inet.h>
++#include <linux/inetdevice.h>
+ #include <linux/ipv6.h>
+ #include <linux/stddef.h>
+ #include <linux/proc_fs.h>
+@@ -1652,7 +1653,7 @@ csum_error:
+  TCP_INC_STATS_BH(net, TCP_MIB_CSUMERRORS);
+ bad_packet:
+  TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
+- } else {
++ } else if (!IN_DEV_STEALTH(skb->dev->ip_ptr)) {
+  tcp_v4_send_reset(NULL, skb);
+  }
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 83aa604..780069d 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -96,6 +96,7 @@
+ #include <linux/timer.h>
+ #include <linux/mm.h>
+ #include <linux/inet.h>
++#include <linux/inetdevice.h>
+ #include <linux/netdevice.h>
+ #include <linux/slab.h>
+ #include <net/tcp_states.h>
+@@ -1823,7 +1824,8 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct
+udp_table *udptable,
+  goto csum_error;
+
+  UDP_INC_STATS_BH(net, UDP_MIB_NOPORTS, proto == IPPROTO_UDPLITE);
+- icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
++ if (!IN_DEV_STEALTH(skb->dev->ip_ptr))
++ icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
+
+  /*
+  * Hmm.  We got an UDP packet to a port to which we
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 21c2c81..b9e44e2 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -5585,6 +5585,13 @@ static struct addrconf_sysctl_table
+  .proc_handler = addrconf_sysctl_stable_secret,
+  },
+  {
++ .procname = "stealth",
++ .data = &ipv6_devconf.stealth,
++ .maxlen = sizeof(int),
++ .mode = 0644,
++ .proc_handler = proc_dointvec,
++ },
++ {
+  /* sentinel */
+  }
+  },
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 713d743..47797a6 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -723,7 +723,8 @@ static int icmpv6_rcv(struct sk_buff *skb)
+
+  switch (type) {
+  case ICMPV6_ECHO_REQUEST:
+- icmpv6_echo_reply(skb);
++ if (!idev->cnf.stealth)
++ icmpv6_echo_reply(skb);
+  break;
+
+  case ICMPV6_ECHO_REPLY:
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 6748c42..cb41856 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1445,7 +1445,7 @@ csum_error:
+  TCP_INC_STATS_BH(net, TCP_MIB_CSUMERRORS);
+ bad_packet:
+  TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
+- } else {
++ } else if (!__in6_dev_get(skb->dev)->cnf.stealth) {
+  tcp_v6_send_reset(NULL, skb);
+  }
+
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index e51fc3e..459238bb 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -934,7 +934,8 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct
+udp_table *udptable,
+  goto csum_error;
+
+  UDP6_INC_STATS_BH(net, UDP_MIB_NOPORTS, proto == IPPROTO_UDPLITE);
+- icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
++ if (!__in6_dev_get(skb->dev)->cnf.stealth)
++ icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
+
+  kfree_skb(skb);
+  return 0;
+-- 
+2.1.4
