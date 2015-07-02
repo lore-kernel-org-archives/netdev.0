@@ -1,102 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net_sched: gen_estimator: extend pps limit
-Date: Thu, 02 Jul 2015 15:57:19 +0200
-Message-ID: <1435845439.11970.25.camel@edumazet-glaptop2.roam.corp.google.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] net-ipv6: Delete an unnecessary check before the function
+ call "free_percpu"
+Date: Thu, 02 Jul 2015 16:43:43 +0200
+Message-ID: <55954E1F.6090205@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.fastabend@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:37926 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753063AbbGBN50 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 09:57:26 -0400
-Received: by wibdq8 with SMTP id dq8so74498244wib.1
-        for <netdev@vger.kernel.org>; Thu, 02 Jul 2015 06:57:25 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Thu, 2 Jul 2015 16:30:24 +0200
 
-rate estimators are limited to 4 Mpps, which was fine years ago, but
-too small with current hardware generation.
+The free_percpu() function tests whether its argument is NULL and then
+returns immediately. Thus the test around the call is not needed.
 
-Lets use 2^5 scaling instead of 2^10 to get 128 Mpps new limit.
+This issue was detected by using the Coccinelle software.
 
-On 64bit arch, use an "unsigned long" for temp storage and remove limit.
-(We do not expect 32bit arches to be able to reach this point)
-
-Tested:
-
-tc -s -d filter sh dev eth0 parent ffff:
-
-filter protocol ip pref 1 u32 
-filter protocol ip pref 1 u32 fh 800: ht divisor 1 
-filter protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:15 
-  match 07000000/ff000000 at 12
-	action order 1: gact action drop
-	 random type none pass val 0
-	 index 1 ref 1 bind 1 installed 166 sec
- 	Action statistics:
-	Sent 39734251496 bytes 863788076 pkt (dropped 863788117, overlimits 0 requeues 0) 
-	rate 4067Mbit 11053596pps backlog 0b 0p requeues 0 
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- net/core/gen_estimator.c |   13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ net/ipv6/route.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-index 9dfb88a933e7..92d886f4adcb 100644
---- a/net/core/gen_estimator.c
-+++ b/net/core/gen_estimator.c
-@@ -66,7 +66,7 @@
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 1a1122a..6090969 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -369,10 +369,7 @@ static void ip6_dst_destroy(struct dst_entry *dst)
+ 	struct inet6_dev *idev;
  
-    NOTES.
+ 	dst_destroy_metrics_generic(dst);
+-
+-	if (rt->rt6i_pcpu)
+-		free_percpu(rt->rt6i_pcpu);
+-
++	free_percpu(rt->rt6i_pcpu);
+ 	rt6_uncached_list_del(rt);
  
--   * avbps is scaled by 2^5, avpps is scaled by 2^10.
-+   * avbps and avpps are scaled by 2^5.
-    * both values are reported as 32 bit unsigned values. bps can
-      overflow for fast links : max speed being 34360Mbit/sec
-    * Minimal interval is HZ/4=250msec (it is the greatest common divisor
-@@ -85,10 +85,10 @@ struct gen_estimator
- 	struct gnet_stats_rate_est64	*rate_est;
- 	spinlock_t		*stats_lock;
- 	int			ewma_log;
-+	u32			last_packets;
-+	unsigned long		avpps;
- 	u64			last_bytes;
- 	u64			avbps;
--	u32			last_packets;
--	u32			avpps;
- 	struct rcu_head		e_rcu;
- 	struct rb_node		node;
- 	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
-@@ -118,8 +118,8 @@ static void est_timer(unsigned long arg)
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(e, &elist[idx].list, list) {
- 		struct gnet_stats_basic_packed b = {0};
-+		unsigned long rate;
- 		u64 brate;
--		u32 rate;
- 
- 		spin_lock(e->stats_lock);
- 		read_lock(&est_lock);
-@@ -133,10 +133,11 @@ static void est_timer(unsigned long arg)
- 		e->avbps += (brate >> e->ewma_log) - (e->avbps >> e->ewma_log);
- 		e->rate_est->bps = (e->avbps+0xF)>>5;
- 
--		rate = (b.packets - e->last_packets)<<(12 - idx);
-+		rate = b.packets - e->last_packets;
-+		rate <<= (7 - idx);
- 		e->last_packets = b.packets;
- 		e->avpps += (rate >> e->ewma_log) - (e->avpps >> e->ewma_log);
--		e->rate_est->pps = (e->avpps+0x1FF)>>10;
-+		e->rate_est->pps = (e->avpps + 0xF) >> 5;
- skip:
- 		read_unlock(&est_lock);
- 		spin_unlock(e->stats_lock);
+ 	idev = rt->rt6i_idev;
+-- 
+2.4.5
