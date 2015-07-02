@@ -1,56 +1,68 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next] net: bail on sock_wfree, sock_rfree when we
- have a TCP_TIMEWAIT sk
-Date: Thu, 2 Jul 2015 21:47:31 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1507022140100.1649@ja.home.ssi.bg>
-References: <1435781589-2210146-1-git-send-email-agartrell@fb.com> <20150701.141402.587634025761326092.davem@davemloft.net> <CANn89iK8SMLFNA6J0WB_qVTB+-C6qoX2o7-CxvwrLVua-cXzWg@mail.gmail.com> <CALCkm3fUmO0pmQEgrwjoNy5PjFk+mzYbUd1wmBsV7hVSHBngPA@mail.gmail.com>
- <CANn89iL4Pr1MQ_7uDcKEyT+D+193cQk9R304JsMAE0od4+ieEQ@mail.gmail.com> <CALCkm3f1nmi-st-siG0CRv32X7G5d6+JCsOWM01Rh3Qif3HtuQ@mail.gmail.com> <alpine.LFD.2.11.1507021135180.2615@ja.home.ssi.bg>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next] hv_netvsc: Add support to set MTU reservation from
+ guest side
+Date: Thu,  2 Jul 2015 13:17:35 -0700
+Message-ID: <1435868255-10865-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	"agartrell@fb.com" <agartrell@fb.com>,
-	netdev <netdev@vger.kernel.org>, kernel-team <kernel-team@fb.com>
-To: Alex Gartrell <alexgartrell@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:58154 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754070AbbGBSru (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jul 2015 14:47:50 -0400
-In-Reply-To: <alpine.LFD.2.11.1507021135180.2615@ja.home.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
+When packet encapsulation is in use, the MTU needs to be reduced for
+headroom reservation.
+The existing code takes the updated MTU value only from the host side.
+But vSwitch extensions, such as Open vSwitch, require the flexibility
+to change the MTU to different values from within a guest during the
+lifecycle of a vNIC, when the encapsulation protocol is changed. The
+patch supports this kind of MTU changes.
 
-	Hello,
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c   |    3 +--
+ drivers/net/hyperv/rndis_filter.c |    2 +-
+ 2 files changed, 2 insertions(+), 3 deletions(-)
 
-On Thu, 2 Jul 2015, Julian Anastasov wrote:
-
-> 	Alex, in our discussion on January I thought
-> we can skip calling skb_orphan for some cases but as
-> input and output path use different skb->destructor
-> we should call skb_orphan for every method, in every
-> case when skb->dev != NULL, even when we do not call
-> LOCAL_OUT, i.e. when NF_ACCEPT is returned for traffic
-> to local real server. We should not call it only for
-> local socket (skb->dev == NULL).
-> 
-> 	I think, your patch from January is almost
-> good:
-> 
-> http://archive.linuxvirtualserver.org/html/lvs-devel/2015-01/msg00014.html
-> 
-> 	Just add skb->dev check and we should be fine.
-
-	Sorry, I overlooked the problem. Above is not
-correct because we can avoid the skb_orphan call
-when 'local' is true. ip_vs_nat_send_or_cont should
-call skb_orphan even for local=true while for TUN
-it should be before ip_vs_prepare_tunneled_skb.
-All other methods should avoid skb_orphan if
-local=true or skb->dev is NULL.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 358475e..68e7ece 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -743,8 +743,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
+ 		limit = NETVSC_MTU - ETH_HLEN;
+ 
+-	/* Hyper-V hosts don't support MTU < ETH_DATA_LEN (1500) */
+-	if (mtu < ETH_DATA_LEN || mtu > limit)
++	if (mtu < 68 || mtu > limit)
+ 		return -EINVAL;
+ 
+ 	nvdev->start_remove = true;
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 006c1b8..172824e 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1053,7 +1053,7 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	ret = rndis_filter_query_device(rndis_device,
+ 					RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE,
+ 					&mtu, &size);
+-	if (ret == 0 && size == sizeof(u32))
++	if (ret == 0 && size == sizeof(u32) && mtu < net_device->ndev->mtu)
+ 		net_device->ndev->mtu = mtu;
+ 
+ 	/* Get the mac address */
+-- 
+1.7.4.1
