@@ -1,63 +1,61 @@
-From: Mazhar Rana <ranamazharp@gmail.com>
-Subject: [PATCH] bonding: "primary_reselect" with "failure" is not working properly
-Date: Thu,  2 Jul 2015 15:43:46 +0530
-Message-ID: <1435832026-19918-1-git-send-email-ranamazharp@gmail.com>
-Cc: Mazhar Rana <ranamazharp@gmail.com>, davem@davemloft.net,
-	sanket.shah@cyberoam.com, mazhar.rana@cyberoam.com,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-	gospo@cumulusnetworks.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] mlx4: TCP/UDP packets have L4 hash
+Date: Thu, 02 Jul 2015 13:24:44 +0200
+Message-ID: <1435836284.11970.16.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:36349 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753444AbbGBKOv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 06:14:51 -0400
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:35206 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751497AbbGBLYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 07:24:48 -0400
+Received: by wiga1 with SMTP id a1so149950195wig.0
+        for <netdev@vger.kernel.org>; Thu, 02 Jul 2015 04:24:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When "primary_reselect" is set to "failure", primary interface should
-not become active until current active slave is up. But if we set first
-member of bond device as a "primary" interface and "primary_reselect"
-is set to "failure" then whenever primary interface's link get back(up)
-it become active slave even if current active slave is still up.
+From: Eric Dumazet <edumazet@google.com>
 
-With this patch, "bond_find_best_slave" will not traverse members if
-primary interface is not candidate for failover/reselection and current
-active slave is still up.
+Mellanox driver has the knowledge if rxhash is a L4 hash,
+if it receives a non fragmented TCP or UDP frame and
+NETIF_F_RXCSUM is enabled on netdev.
 
-Signed-off-by: Mazhar Rana <mazhar.rana@cyberoam.com>
-Reviewed-by: Sanket Shah <sanket.shah@cyberoam.com>
+ip_summed value is CHECKSUM_UNNECESSARY in this case.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Amir Vadai <amirv@mellanox.com>
+Cc: Ido Shamay <idos@mellanox.com>
 ---
- drivers/net/bonding/bond_main.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 19eb990..ac71261 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -715,7 +715,7 @@ static bool bond_should_change_active(struct bonding *bond)
-  */
- static struct slave *bond_find_best_slave(struct bonding *bond)
- {
--	struct slave *slave, *bestslave = NULL, *primary;
-+	struct slave *slave, *bestslave = NULL, *primary, *curr;
- 	struct list_head *iter;
- 	int mintime = bond->params.updelay;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 7a4f20bb7fcb..12c65e1ad6a9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -917,7 +917,9 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 			if (dev->features & NETIF_F_RXHASH)
+ 				skb_set_hash(gro_skb,
+ 					     be32_to_cpu(cqe->immed_rss_invalid),
+-					     PKT_HASH_TYPE_L3);
++					     (ip_summed == CHECKSUM_UNNECESSARY) ?
++						PKT_HASH_TYPE_L4 :
++						PKT_HASH_TYPE_L3);
  
-@@ -724,6 +724,14 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
- 	    bond_should_change_active(bond))
- 		return primary;
+ 			skb_record_rx_queue(gro_skb, cq->ring);
+ 			skb_mark_napi_id(gro_skb, &cq->napi);
+@@ -963,7 +965,9 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 		if (dev->features & NETIF_F_RXHASH)
+ 			skb_set_hash(skb,
+ 				     be32_to_cpu(cqe->immed_rss_invalid),
+-				     PKT_HASH_TYPE_L3);
++				     (ip_summed == CHECKSUM_UNNECESSARY) ?
++					PKT_HASH_TYPE_L4 :
++					PKT_HASH_TYPE_L3);
  
-+	/* We are here means primary interface is not candidate for
-+	 * reslection/failover. If currenet active slave is still up
-+	 * then there is no meaning to traverse  members.
-+	 */
-+	curr = rtnl_dereference(bond->curr_active_slave);
-+	if (curr && curr->link == BOND_LINK_UP)
-+		return bond->curr_active_slave;
-+
- 	bond_for_each_slave(bond, slave, iter) {
- 		if (slave->link == BOND_LINK_UP)
- 			return slave;
--- 
-1.9.1
+ 		if ((be32_to_cpu(cqe->vlan_my_qpn) &
+ 		    MLX4_CQE_VLAN_PRESENT_MASK) &&
