@@ -1,95 +1,165 @@
-From: "Lendacky, Thomas" <Thomas.Lendacky@amd.com>
-Subject: RE: amd-xgbe e0700000.xgmac: DMA-API: device driver tries to sync
- DMA memory it has not allocated
-Date: Thu, 2 Jul 2015 20:39:40 +0000
-Message-ID: <986457BC66A4884EBFFDEFEBEB20F84C25DEA663@satlexdag03.amd.com>
-References: <20150702140228.4f5810f07ca869fc54457b9f@arm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Kim Phillips <kim.phillips@arm.com>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH v2] bonding: "primary_reselect" with "failure" is not working properly
+Date: Thu, 02 Jul 2015 13:42:41 -0700
+Message-ID: <24978.1435869761@famine>
+References: <1435838839-21233-1-git-send-email-ranamazharp@gmail.com>
+Cc: netdev@vger.kernel.org, vfalico@gmail.com,
+	gospo@cumulusnetworks.com, davem@davemloft.net,
+	sanket.shah@cyberoam.com, mazhar.rana@cyberoam.com,
+	linux-kernel@vger.kernel.org
+To: Mazhar Rana <ranamazharp@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0101.outbound.protection.outlook.com ([207.46.100.101]:25568
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754441AbbGBUjt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 16:39:49 -0400
-In-Reply-To: <20150702140228.4f5810f07ca869fc54457b9f@arm.com>
-Content-Language: en-US
+Received: from youngberry.canonical.com ([91.189.89.112]:40723 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754447AbbGBUms (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 16:42:48 -0400
+In-reply-to: <1435838839-21233-1-git-send-email-ranamazharp@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Kim,
 
-Yup, no problem.  I think I know what the issue is.  I should be using dma_sync_single_range_for_cpu instead of dma_sync_single_for_cpu.  The page allocations that the driver is doing have crossed a 1MB boundary causing the warning because I'm using a calculated DMA address rather than the base DMA address + an offset.
+	[ added netdev to cc ]
 
-I'll try to reproduce it so I can verify, but I believe that is the issue.
+Mazhar Rana <ranamazharp@gmail.com> wrote:
 
-Is there any information on what was being run to trigger this?
+>When "primary_reselect" is set to "failure", primary interface should
+>not become active until current active slave is up. But if we set first
 
-Thanks,
-Tom
+	I think you mean "until current active slave is down" here, not
+"up."
 
------Original Message-----
-From: Kim Phillips [mailto:kim.phillips@arm.com] 
-Sent: Thursday, July 02, 2015 2:02 PM
-To: Lendacky, Thomas
-Cc: netdev@vger.kernel.org
-Subject: amd-xgbe e0700000.xgmac: DMA-API: device driver tries to sync DMA memory it has not allocated
+>member of bond device as a "primary" interface and "primary_reselect"
+>is set to "failure" then whenever primary interface's link get back(up)
+>it become active slave even if current active slave is still up.
+>
+>With this patch, "bond_find_best_slave" will not traverse members if
+>primary interface is not candidate for failover/reselection and current
+>active slave is still up.
+>
+>Signed-off-by: Mazhar Rana <mazhar.rana@cyberoam.com>
+>Reviewed-by: Sanket Shah <sanket.shah@cyberoam.com>
+>---
+>v2: return "curr" instead of "bond->curr_active_slave".
+>
+> drivers/net/bonding/bond_main.c | 10 +++++++++-
+> 1 file changed, 9 insertions(+), 1 deletion(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 19eb990..ac71261 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -715,7 +715,7 @@ static bool bond_should_change_active(struct bonding *bond)
+>  */
+> static struct slave *bond_find_best_slave(struct bonding *bond)
+> {
+>-	struct slave *slave, *bestslave = NULL, *primary;
+>+	struct slave *slave, *bestslave = NULL, *primary, *curr;
+> 	struct list_head *iter;
+> 	int mintime = bond->params.updelay;
+> 
+>@@ -724,6 +724,14 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+> 	    bond_should_change_active(bond))
+> 		return primary;
+> 
+>+	/* We are here means primary interface is not candidate for
+>+	 * reslection/failover. If currenet active slave is still up
+>+	 * then there is no meaning to traverse  members.
+>+	 */
+>+	curr = rtnl_dereference(bond->curr_active_slave);
+>+	if (curr && curr->link == BOND_LINK_UP)
+>+		return curr;
+>+
+> 	bond_for_each_slave(bond, slave, iter) {
+> 		if (slave->link == BOND_LINK_UP)
+> 			return slave;
+>-- 
 
-Hi Tom,
+	I believe the above patch will work, but I also think these
+functions are kind of hacky, as bond_should_change_active() doesn't
+really give the answer its name implies, so we have to second guess
+here.
 
-A pristine 4.1 kernel with CONFIG_DMA_API_DEBUG=y produces this call
-trace on an AMD Seattle:
+	I think the following, while a bigger change, ends up with
+clearer code.  Compile tested only.  Comments?
 
-[  112.896576] ------------[ cut here ]------------
-[  112.896591] WARNING: CPU: 2 PID: 1059 at lib/dma-debug.c:1202 check_sync+0x138/0x56c()
-[  112.896597] amd-xgbe e0700000.xgmac: DMA-API: device driver tries to sync DMA memory it has not allocated [device address=0x0000008003d52000] [size=1536 bytes]
-[  112.896600] Modules linked in: cpufreq_stats vfat fat xfs libcrc32c spi_pl022 aes_ce_blk ablk_helper cryptd aes_ce_cipher ghash_ce sha2_ce sha1_ce uio_pdrv_genirq uio fuse
-[  112.896634] CPU: 2 PID: 1059 Comm: sshd Tainted: G        W       4.1.0 #10
-[  112.896638] Hardware name: Default string Default string/Default string, BIOS ROD0082B 06/16/2015
-[  112.896641] Call trace:
-[  112.899086] [<fffffe0000097b20>] dump_backtrace+0x0/0x170
-[  112.899091] [<fffffe0000097cb0>] show_stack+0x20/0x2c
-[  112.899097] [<fffffe0000813da0>] dump_stack+0x8c/0xc4
-[  112.899102] [<fffffe00000c45bc>] warn_slowpath_common+0xa0/0xd8
-[  112.899106] [<fffffe00000c4668>] warn_slowpath_fmt+0x74/0x88
-[  112.899109] [<fffffe0000486f24>] check_sync+0x134/0x56c
-[  112.899113] [<fffffe00004873ac>] debug_dma_sync_single_for_cpu+0x50/0x5c
-[  112.899119] [<fffffe00005b07fc>] xgbe_rx_poll+0x1e0/0x6c0
-[  112.899123] [<fffffe00005b1cdc>] xgbe_one_poll+0x34/0x6c
-[  112.899128] [<fffffe00006a510c>] net_rx_action+0x270/0x504
-[  112.899133] [<fffffe00000c9ba0>] __do_softirq+0x120/0x60c
-[  112.899136] [<fffffe00000ca3fc>] irq_exit+0xa4/0xe4
-[  112.899143] [<fffffe000012d2f8>] __handle_domain_irq+0x74/0xc4
-[  112.899146] [<fffffe00000903ec>] gic_handle_irq+0x38/0x84
-[  112.899150] Exception stack(0xfffffe03de09bbf0 to 0xfffffe03de09bd10)
-[  112.899154] bbe0:                                     1ee64b30 fffffe00 002111e8 fffffe00
-[  112.899158] bc00: de09bd30 fffffe03 0081a668 fffffe00 dd54fa00 fffffe03 de09bcb0 fffffe03
-[  112.899162] bc20: 00000001 ffffffff 00000001 00000000 00000000 00000000 00000000 00000000
-[  112.899166] bc40: 00000000 00000000 002111e8 fffffe00 00000000 00000000 de098000 fffffe03
-[  112.899170] bc60: de09bc10 fffffe03 1d456228 00000000 00000076 00000000 00000008 00000000
-[  112.899174] bc80: 10000000 00077d2a 00000000 001dcd65 00213e98 fffffe00 96ea8f60 000003ff
-[  112.899178] bca0: 65b9a2e2 00000000 1ee64b30 fffffe00 002111e8 fffffe00 1ee64ba0 fffffe00
-[  112.899181] bcc0: 00000041 00000000 1ee10b80 fffffe00 025c58c8 fffffe00 00000003 00000000
-[  112.899185] bce0: 027b6c48 fffffe00 00100077 00000000 02ab0b4b 00000000 de09bd30 fffffe03
-[  112.899188] bd00: 0081a660 fffffe00 de09bd30 fffffe03
-[  112.899192] [<fffffe00000934e8>] el1_irq+0x68/0x100
-[  112.899198] [<fffffe00002111e4>] validate_mm+0x44/0x2d4
-[  112.899203] [<fffffe0000211edc>] vma_link+0x98/0xe0
-[  112.899206] [<fffffe0000213e70>] do_brk+0x2ec/0x314
-[  112.899209] [<fffffe0000213fd4>] SyS_brk+0x13c/0x170
-[  112.899212] ---[ end trace cbf36648db00d232 ]---
+	-J
 
-Can you look into it?
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 19eb990..8c30f6b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -689,40 +689,54 @@ out:
+ 
+ }
+ 
+-static bool bond_should_change_active(struct bonding *bond)
++static struct slave *bond_choose_primary_or_current(struct bonding *bond)
+ {
+ 	struct slave *prim = rtnl_dereference(bond->primary_slave);
+ 	struct slave *curr = rtnl_dereference(bond->curr_active_slave);
+ 
+-	if (!prim || !curr || curr->link != BOND_LINK_UP)
+-		return true;
++	if (!prim || !prim->link == BOND_LINK_UP)
++		return curr;
++
+ 	if (bond->force_primary) {
+ 		bond->force_primary = false;
+-		return true;
++		return prim;
++	}
++
++	if (!curr || curr->link != BOND_LINK_UP)
++		return prim;
++
++	/* At this point, prim and curr are both up */
++	switch (bond->params.primary_reselect) {
++	case BOND_PRI_RESELECT_ALWAYS:
++		return prim;
++	case BOND_PRI_RESELECT_BETTER:
++		if (prim->speed < curr->speed)
++			return curr;
++		if (prim->speed == curr->speed && prim->duplex <= curr->duplex)
++			return curr;
++		return prim;
++	case BOND_PRI_RESELECT_FAILURE:
++		return curr;
++	default:
++		netdev_err(bond->dev, "impossible primary_reselect %d\n",
++			   bond->params.primary_reselect);
++		return curr;
+ 	}
+-	if (bond->params.primary_reselect == BOND_PRI_RESELECT_BETTER &&
+-	    (prim->speed < curr->speed ||
+-	     (prim->speed == curr->speed && prim->duplex <= curr->duplex)))
+-		return false;
+-	if (bond->params.primary_reselect == BOND_PRI_RESELECT_FAILURE)
+-		return false;
+-	return true;
+ }
+ 
+ /**
+- * find_best_interface - select the best available slave to be the active one
++ * bond_find_best_slave - select the best available slave to be the active one
+  * @bond: our bonding struct
+  */
+ static struct slave *bond_find_best_slave(struct bonding *bond)
+ {
+-	struct slave *slave, *bestslave = NULL, *primary;
++	struct slave *slave, *bestslave = NULL;
+ 	struct list_head *iter;
+ 	int mintime = bond->params.updelay;
+ 
+-	primary = rtnl_dereference(bond->primary_slave);
+-	if (primary && primary->link == BOND_LINK_UP &&
+-	    bond_should_change_active(bond))
+-		return primary;
++	slave = bond_choose_primary_or_current(bond);
++	if (slave)
++		return slave;
+ 
+ 	bond_for_each_slave(bond, slave, iter) {
+ 		if (slave->link == BOND_LINK_UP)
 
-Thanks,
-
-Kim
-
-
--- IMPORTANT NOTICE: The contents of this email and any attachments are confidential and may also be privileged. If you are not the intended recipient, please notify the sender immediately and do not disclose the contents to any other person, use it for any purpose, or store or copy the information in any medium.  Thank you.
-
-ARM Limited, Registered office 110 Fulbourn Road, Cambridge CB1 9NJ, Registered in England & Wales, Company No:  2557590
-ARM Holdings plc, Registered office 110 Fulbourn Road, Cambridge CB1 9NJ, Registered in England & Wales, Company No:  2548782
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
