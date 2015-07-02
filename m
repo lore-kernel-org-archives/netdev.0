@@ -1,364 +1,95 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [v2,5/9] fsl/fman: Add Frame Manager support
-Date: Thu, 2 Jul 2015 15:17:08 -0500
-Message-ID: <1435868228.9432.95.camel@freescale.com>
-References: <1435174555-7008-1-git-send-email-igal.liberman@freescale.com>
-	 <1435290885.6524.13.camel@freescale.com>
-	 <DM2PR03MB3837D90A0A4A1BE054CFB35E6970@DM2PR03MB383.namprd03.prod.outlook.com>
+From: "Lendacky, Thomas" <Thomas.Lendacky@amd.com>
+Subject: RE: amd-xgbe e0700000.xgmac: DMA-API: device driver tries to sync
+ DMA memory it has not allocated
+Date: Thu, 2 Jul 2015 20:39:40 +0000
+Message-ID: <986457BC66A4884EBFFDEFEBEB20F84C25DEA663@satlexdag03.amd.com>
+References: <20150702140228.4f5810f07ca869fc54457b9f@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"Bucur Madalin-Cristian-B32716" <madalin.bucur@freescale.com>,
-	"pebolle@tiscali.nl" <pebolle@tiscali.nl>
-To: Liberman Igal-B31950 <Igal.Liberman@freescale.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Kim Phillips <kim.phillips@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0143.outbound.protection.outlook.com ([157.56.110.143]:1187
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+Received: from mail-by2on0101.outbound.protection.outlook.com ([207.46.100.101]:25568
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754292AbbGBURe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jul 2015 16:17:34 -0400
-In-Reply-To: <DM2PR03MB3837D90A0A4A1BE054CFB35E6970@DM2PR03MB383.namprd03.prod.outlook.com>
+	id S1754441AbbGBUjt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 16:39:49 -0400
+In-Reply-To: <20150702140228.4f5810f07ca869fc54457b9f@arm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-07-02 at 10:32 -0500, Liberman Igal-B31950 wrote:
-> Hi Scott,
-> Thank you for your feedback, please take a look at my comments/questions.
-> 
-> Regards,
-> Igal Liberman.
-> 
-> > -----Original Message-----
-> > From: Wood Scott-B07421
-> > Sent: Friday, June 26, 2015 6:55 AM
-> > To: Liberman Igal-B31950
-> > Cc: netdev@vger.kernel.org; linuxppc-dev@lists.ozlabs.org; Bucur Madalin-
-> > Cristian-B32716; pebolle@tiscali.nl
-> > Subject: Re: [v2,5/9] fsl/fman: Add Frame Manager support
-> > 
-> > On Wed, 2015-06-24 at 22:35 +0300,  igal.liberman@freescale.comwrote:
-> > > From: Igal Liberman <Igal.Liberman@freescale.com>
-> > > 
-> > > Add Frame Manger Driver support.
-> > > This patch adds The FMan configuration, initialization and runtime
-> > > control routines.
-> > > 
-> > > Signed-off-by: Igal Liberman <Igal.Liberman@freescale.com>
-> > > ---
-> > >  drivers/net/ethernet/freescale/fman/Kconfig        |   35 +
-> > >  drivers/net/ethernet/freescale/fman/Makefile       |    2 +-
-> > >  drivers/net/ethernet/freescale/fman/fm.c           | 1406
-> > > ++++++++++++++++++++
-> > >  drivers/net/ethernet/freescale/fman/fm.h           |  394 ++++++
-> > >  drivers/net/ethernet/freescale/fman/fm_common.h    |  142 ++
-> > >  drivers/net/ethernet/freescale/fman/fm_drv.c       |  701 ++++++++++
-> > >  drivers/net/ethernet/freescale/fman/fm_drv.h       |  116 ++
-> > >  drivers/net/ethernet/freescale/fman/inc/enet_ext.h |  199 +++
-> > >  drivers/net/ethernet/freescale/fman/inc/fm_ext.h   |  488 +++++++
-> > >  .../net/ethernet/freescale/fman/inc/fsl_fman_drv.h |   99 ++
-> > >  drivers/net/ethernet/freescale/fman/inc/service.h  |   55 +
-> > >  11 files changed, 3636 insertions(+), 1 deletion(-)  create mode
-> > > 100644 drivers/net/ethernet/freescale/fman/fm.c
-> > >  create mode 100644 drivers/net/ethernet/freescale/fman/fm.h
-> > >  create mode 100644 drivers/net/ethernet/freescale/fman/fm_common.h
-> > >  create mode 100644 drivers/net/ethernet/freescale/fman/fm_drv.c
-> > >  create mode 100644 drivers/net/ethernet/freescale/fman/fm_drv.h
-> > >  create mode 100644 drivers/net/ethernet/freescale/fman/inc/enet_ext.h
-> > >  create mode 100644 drivers/net/ethernet/freescale/fman/inc/fm_ext.h
-> > >  create mode 100644
-> > > drivers/net/ethernet/freescale/fman/inc/fsl_fman_drv.h
-> > >  create mode 100644 drivers/net/ethernet/freescale/fman/inc/service.h
-> > 
-> > Again, please start with something pared down, without extraneous
-> > features, but *with* enough functionality to actually pass packets around.
-> > Getting this thing into decent shape is going to be hard enough without
-> > carrying around the excess baggage.
-> > 
-> > > diff --git a/drivers/net/ethernet/freescale/fman/Kconfig
-> > > b/drivers/net/ethernet/freescale/fman/Kconfig
-> > > index 825a0d5..12c75bfd 100644
-> > > --- a/drivers/net/ethernet/freescale/fman/Kconfig
-> > > +++ b/drivers/net/ethernet/freescale/fman/Kconfig
-> > > @@ -7,3 +7,38 @@ config FSL_FMAN
-> > >               Freescale Data-Path Acceleration Architecture Frame 
-> > > Manager
-> > >               (FMan) support
-> > > 
-> > > +if FSL_FMAN
-> > > +
-> > > +config FSL_FM_MAX_FRAME_SIZE
-> > > +     int "Maximum L2 frame size"
-> > > +     range 64 9600
-> > > +     default "1522"
-> > > +     help
-> > > +             Configure this in relation to the maximum possible MTU of 
-> > > your
-> > > +             network configuration. In particular, one would need to
-> > > +             increase this value in order to use jumbo frames.
-> > > +             FSL_FM_MAX_FRAME_SIZE must accommodate the Ethernet FCS
-> > > +             (4 bytes) and one ETH+VLAN header (18 bytes), to a total 
-> > > of
-> > > +             22 bytes in excess of the desired L3 MTU.
-> > > +
-> > > +             Note that having too large a FSL_FM_MAX_FRAME_SIZE (much
-> > larger
-> > > +             than the actual MTU) may lead to buffer exhaustion, 
-> > > especially
-> > > +             in the case of badly fragmented datagrams on the Rx path.
-> > > +             Conversely, having a FSL_FM_MAX_FRAME_SIZE smaller than 
-> > > the
-> > > +             actual MTU will lead to frames being dropped.
-> > 
-> > Scatter gather can't be used for jumbo frames?
-> > 
-> 
-> Scatter gather is used, it's introduced in dpaa_eth as a separate patch 
-> from the basic support.
-> The dpaa_eth can work in S/G mode or use large buffers, max frame size 
-> sized to reduce S/G overhead (performance vs memory used trade-off).
+Hi Kim,
 
-That's not what the help text says: "In particular, one would need to
-increase this value in order to use jumbo frames" and "Conversely, having a 
-FSL_FM_MAX_FRAME_SIZE smaller than the actual MTU will lead to frames being 
-dropped."
+Yup, no problem.  I think I know what the issue is.  I should be using dma_sync_single_range_for_cpu instead of dma_sync_single_for_cpu.  The page allocations that the driver is doing have crossed a 1MB boundary causing the warning because I'm using a calculated DMA address rather than the base DMA address + an offset.
 
-> > Why is this a compile-time option?
-> > 
-> 
-> This is needed for a couple of reasons:
->  - FMan resource sizing - we need to know the maximum frame size we plan to 
-> use for determining the Rx FIFO sizes at config time
+I'll try to reproduce it so I can verify, but I believe that is the issue.
 
-Why can't the FIFO be resized at runtime?
+Is there any information on what was being run to trigger this?
 
->  - There are issues when changing the MAC maximum frame size at runtime 
-> thus the need to set in HW the maximum allowable and compensate from sw 
-> (drop frames above the set MTU).
+Thanks,
+Tom
 
-What are the issues?
+-----Original Message-----
+From: Kim Phillips [mailto:kim.phillips@arm.com] 
+Sent: Thursday, July 02, 2015 2:02 PM
+To: Lendacky, Thomas
+Cc: netdev@vger.kernel.org
+Subject: amd-xgbe e0700000.xgmac: DMA-API: device driver tries to sync DMA memory it has not allocated
 
-In any case, it could at least be a module parameter (i.e. a kernel command 
-line argument when not built as a module), rather than a compile-time option.
+Hi Tom,
 
-> > > +
-> > > +config FSL_FM_RX_EXTRA_HEADROOM
-> > > +     int "Add extra headroom at beginning of data buffers"
-> > > +     range 16 384
-> > > +     default "64"
-> > > +     help
-> > > +             Configure this to tell the Frame Manager to reserve some 
-> > > extra
-> > > +             space at the beginning of a data buffer on the receive 
-> > > path,
-> > > +             before Internal Context fields are copied. This is in 
-> > > addition
-> > > +             to the private data area already reserved for driver 
-> > > internal
-> > > +             use. The provided value must be a multiple of 16.
-> > > +
-> > > +             This option does not affect in any way the layout of
-> > > +             transmitted buffers.
-> > 
-> > There's nothing here to indicate when a user would want to do this.
-> > 
-> > Why is this a compile-time option?
-> > 
-> 
-> This allows reserving some more space at the start of the skb and may avoid 
-> the need for a skb_realloc_headroom().
+A pristine 4.1 kernel with CONFIG_DMA_API_DEBUG=y produces this call
+trace on an AMD Seattle:
 
-That doesn't tell an end-user when they would want to change this.
+[  112.896576] ------------[ cut here ]------------
+[  112.896591] WARNING: CPU: 2 PID: 1059 at lib/dma-debug.c:1202 check_sync+0x138/0x56c()
+[  112.896597] amd-xgbe e0700000.xgmac: DMA-API: device driver tries to sync DMA memory it has not allocated [device address=0x0000008003d52000] [size=1536 bytes]
+[  112.896600] Modules linked in: cpufreq_stats vfat fat xfs libcrc32c spi_pl022 aes_ce_blk ablk_helper cryptd aes_ce_cipher ghash_ce sha2_ce sha1_ce uio_pdrv_genirq uio fuse
+[  112.896634] CPU: 2 PID: 1059 Comm: sshd Tainted: G        W       4.1.0 #10
+[  112.896638] Hardware name: Default string Default string/Default string, BIOS ROD0082B 06/16/2015
+[  112.896641] Call trace:
+[  112.899086] [<fffffe0000097b20>] dump_backtrace+0x0/0x170
+[  112.899091] [<fffffe0000097cb0>] show_stack+0x20/0x2c
+[  112.899097] [<fffffe0000813da0>] dump_stack+0x8c/0xc4
+[  112.899102] [<fffffe00000c45bc>] warn_slowpath_common+0xa0/0xd8
+[  112.899106] [<fffffe00000c4668>] warn_slowpath_fmt+0x74/0x88
+[  112.899109] [<fffffe0000486f24>] check_sync+0x134/0x56c
+[  112.899113] [<fffffe00004873ac>] debug_dma_sync_single_for_cpu+0x50/0x5c
+[  112.899119] [<fffffe00005b07fc>] xgbe_rx_poll+0x1e0/0x6c0
+[  112.899123] [<fffffe00005b1cdc>] xgbe_one_poll+0x34/0x6c
+[  112.899128] [<fffffe00006a510c>] net_rx_action+0x270/0x504
+[  112.899133] [<fffffe00000c9ba0>] __do_softirq+0x120/0x60c
+[  112.899136] [<fffffe00000ca3fc>] irq_exit+0xa4/0xe4
+[  112.899143] [<fffffe000012d2f8>] __handle_domain_irq+0x74/0xc4
+[  112.899146] [<fffffe00000903ec>] gic_handle_irq+0x38/0x84
+[  112.899150] Exception stack(0xfffffe03de09bbf0 to 0xfffffe03de09bd10)
+[  112.899154] bbe0:                                     1ee64b30 fffffe00 002111e8 fffffe00
+[  112.899158] bc00: de09bd30 fffffe03 0081a668 fffffe00 dd54fa00 fffffe03 de09bcb0 fffffe03
+[  112.899162] bc20: 00000001 ffffffff 00000001 00000000 00000000 00000000 00000000 00000000
+[  112.899166] bc40: 00000000 00000000 002111e8 fffffe00 00000000 00000000 de098000 fffffe03
+[  112.899170] bc60: de09bc10 fffffe03 1d456228 00000000 00000076 00000000 00000008 00000000
+[  112.899174] bc80: 10000000 00077d2a 00000000 001dcd65 00213e98 fffffe00 96ea8f60 000003ff
+[  112.899178] bca0: 65b9a2e2 00000000 1ee64b30 fffffe00 002111e8 fffffe00 1ee64ba0 fffffe00
+[  112.899181] bcc0: 00000041 00000000 1ee10b80 fffffe00 025c58c8 fffffe00 00000003 00000000
+[  112.899185] bce0: 027b6c48 fffffe00 00100077 00000000 02ab0b4b 00000000 de09bd30 fffffe03
+[  112.899188] bd00: 0081a660 fffffe00 de09bd30 fffffe03
+[  112.899192] [<fffffe00000934e8>] el1_irq+0x68/0x100
+[  112.899198] [<fffffe00002111e4>] validate_mm+0x44/0x2d4
+[  112.899203] [<fffffe0000211edc>] vma_link+0x98/0xe0
+[  112.899206] [<fffffe0000213e70>] do_brk+0x2ec/0x314
+[  112.899209] [<fffffe0000213fd4>] SyS_brk+0x13c/0x170
+[  112.899212] ---[ end trace cbf36648db00d232 ]---
 
-> > > +     } else {
-> > > +             /* Reset the FM if required. */
-> > > +             if (p_fm->reset_on_init) {
-> > > +                     u32 svr = mfspr(SPRN_SVR);
-> > > +
-> > > +                     if (((SVR_SOC_VER(svr) == SVR_T4240 &&
-> > > +                           SVR_REV(svr) > 0x10)) ||
-> > > +                             ((SVR_SOC_VER(svr) == SVR_T4160 &&
-> > > +                               SVR_REV(svr) > 0x10)) ||
-> > > +                             ((SVR_SOC_VER(svr) == SVR_T4080 &&
-> > > +                               SVR_REV(svr) > 0x10)) ||
-> > > +                             (SVR_SOC_VER(svr) == SVR_T2080) ||
-> > > +                             (SVR_SOC_VER(svr) == SVR_T2081)) {
-> > > +                             pr_debug("Hack: No FM reset!\n");
-> >                 if (IS_ERR_VALUE(p_fm->cam_offset)) { Why?
-> > 
-> 
-> fm_muram_alloc () can return an offset or an Error.
+Can you look into it?
 
-No, I mean why "Hack: No FM reset!"?
+Thanks,
+
+Kim
 
 
-> > > +                             fman_resume(p_fm->p_fm_fpm_regs);
-> > > +                             usleep_range(100, 101);
-> > > +                     }
-> > > +             }
-> > > +
-> > 
-> > Why such a narrow range in usleep_range()?
-> > 
-> 
-> I was looking here: > 
-> > Ihttps://www.kernel.org/doc/Documentation/timers/timers-howto.ttn addition, 
-> > checkpatch says that usleep_range is preferred over udelay.
-> So instead of udelay(100), I used usleep_range(100, 101);
-> We can change the range, in your opinion, what is the more appropriate 
-> range?
-> 
+-- IMPORTANT NOTICE: The contents of this email and any attachments are confidential and may also be privileged. If you are not the intended recipient, please notify the sender immediately and do not disclose the contents to any other person, use it for any purpose, or store or copy the information in any medium.  Thank you.
 
-"The larger a range you supply, the greater a chance that you will not 
-trigger an interrupt; this should be balanced with what is an acceptable 
-upper bound on delay / performance for your specific code path. Exact 
-tolerances here are very situation specific, thus it is left to the caller to 
-determine a reasonable range."
-
-A spread of only 1us is pretty much useless, and for the shorter delays (e.g. 
-10us) just use udelay().
-
-> > > +/* do not change! if changed, must be disabled for rev1 ! */
-> > > +#define DFLT_VERIFY_UCODE                 false
-> > 
-> > I know I complained about this last time...
-> > 
-> > 
-> 
-> Leftovers, removed.
-
-Please also check for any leftovers I didn't spot, throughout the patchset.
-
-> 
-> > > +
-> > > +#define DFLT_DMA_READ_INT_BUF_LOW(dma_thresh_max_buf)        \
-> > > +     ((dma_thresh_max_buf + 1) / 2)
-> > > +#define DFLT_DMA_READ_INT_BUF_HIGH(dma_thresh_max_buf)       \
-> > > +     ((dma_thresh_max_buf + 1) * 3 / 4)
-> > > +#define DFLT_DMA_WRITE_INT_BUF_LOW(dma_thresh_max_buf)       \
-> > > +     ((dma_thresh_max_buf + 1) / 2)
-> > > +#define DFLT_DMA_WRITE_INT_BUF_HIGH(dma_thresh_max_buf)\
-> > > +     ((dma_thresh_max_buf + 1) * 3 / 4)
-> > > +#define DFLT_DMA_COMM_Q_LOW(major, dma_thresh_max_commq)
-> > \
-> > > +     ((major == 6) ? 0x2A : ((dma_thresh_max_commq + 1) / 2))
-> > > +#define DFLT_DMA_COMM_Q_HIGH(major, dma_thresh_max_commq)
-> > \
-> > > +     ((major == 6) ? 0x3f : ((dma_thresh_max_commq + 1) * 3 / 4))
-> > > +#define DFLT_TOTAL_NUM_OF_TASKS(major, minor,
-> > bmi_max_num_of_tasks)  \
-> > > +     ((major == 6) ? ((minor == 1 || minor == 4) ? 59 : 124) :       \
-> > > +     bmi_max_num_of_tasks)
-> > 
-> > Where do 0x2a, 0x3f, 59, 124, etc come from?  Please define symbolically.
-> > 
-> 
-> Added defines for the values above.
-
-Please also check the entire patchset for similar magic numbers.
-
-> > > +#define DFLT_TOTAL_FIFO_SIZE(major, minor)                   \
-> > > +     ((major == 6) ?                                         \
-> > > +     ((minor == 1 || minor == 4) ? (156 * 1024) : (295 * 1024)) :    \
-> > > +     (((major == 2) || (major == 5)) ?                       \
-> > > +     (100 * 1024) : ((major == 4) ?                  \
-> > > +     (46 * 1024) : (122 * 1024))))
-> > 
-> > This isn't the International Obfuscated C Code Contest.
-> > 
-> 
-> Made it look slightly better.
-> Given the large number of HW platforms supported, this selection will look 
-> complicated as much as we try to beautify it.
-> This code determines the KB of MURAM to use as total FIFO size based on 
-> FMan revision.
-
-static inline int fm_default_total_fifo_size(int major, int minor)
-{
-        switch (major) {
-        case 2:
-        case 5:
-                return 100 * 1024;
-        case 4:
-                return 46 * 1024;
-        case 6:
-                if (minor == 1 || minor == 4)
-                        return 156 * 1024;
-                return 295 * 1024;
-        default:
-                return 122 * 1024;
-        }
-}
-
-A comment explaining how these values are chosen and what the relevant 
-difference in the FMan versions is, would also be helpful.
-
-> > > 
-> > > +/* Memory Mapped Registers */
-> > > +
-> > > +struct fm_iram_regs_t {
-> > > +     uint32_t iadd;  /* FM IRAM instruction address register */
-> > > +     uint32_t idata;/* FM IRAM instruction data register */
-> > > +     uint32_t itcfg;/* FM IRAM timing config register */
-> > > +     uint32_t iready;/* FM IRAM ready register */
-> > > +     uint8_t res[0x80000 - 0x10];
-> > > +} __attribute__((__packed__));
-> > 
-> > Why do you need __packed__ on this?
-> > 
-> 
-> As all but the last the member of this memory mapped struct are u32, it's 
-> not mandatory but at a certain moment someone considered a good idea to 
-> throw in the packed attribute.
-> I you prefer to remove it, II can do so.
-
-I prever removing it.
-
-> > Why do you need the padding on the end?     
-> 
-> Again, it is memory mapped, we don't have other regs after those, so we can 
-> drop the padding, I can remove it.
-> I you prefer to remove it, II can do so.
-
-Likewise.
-
-> > > 
-> > > +/* Extra headroom for Rx buffers.
-> > > + * FMan is instructed to allocate, on the Rx path, this amount of
-> > > + * space at the beginning of a data buffer, beside the DPA private
-> > > + * data area and the IC fields.
-> > > + * Does not impact Tx buffer layout.
-> > > + * Configurable from Kconfig or bootargs. Zero by default, it's
-> > > +needed on
-> > > + * particular forwarding scenarios that add extra headers to the
-> > > + * forwarded frame.
-> > > + */
-> > > +int fsl_fm_rx_extra_headroom =
-> > CONFIG_FSL_FM_RX_EXTRA_HEADROOM;
-> > 
-> > If it's configurable via bootargs, why is the kconfig needed?
-> > 
-> 
-> KConfig sets default value, in bootargs you can override.
-
-Why can't the default just be hardcoded, and have only bootargs to override?
-
-> > > +/* Define ASSERT condition */
-> > > +#undef ASSERT
-> > > +#define ASSERT(x)       WARN_ON(!(x))
-> > 
-> > Why not just use WARN_ON directly?
-> > 
-> 
-> Mostly personal preference, I've also seen similar constructs used in other 
-> drivers.
-> One can decide later to change this to BUG_ON() or disable it for debug 
-> purposes.
-
-...and with that undef you end up with behavior that might depend on the 
-order in which you include headers. :-P
-
-Why is it so important to be able to change it?
-
--Scott
+ARM Limited, Registered office 110 Fulbourn Road, Cambridge CB1 9NJ, Registered in England & Wales, Company No:  2557590
+ARM Holdings plc, Registered office 110 Fulbourn Road, Cambridge CB1 9NJ, Registered in England & Wales, Company No:  2548782
