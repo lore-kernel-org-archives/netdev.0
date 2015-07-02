@@ -1,77 +1,79 @@
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: pull request: bluetooth 2015-07-02
-Date: Thu, 2 Jul 2015 10:30:38 +0300
-Message-ID: <20150702073038.GA25214@t440s.lan>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: macb: zynq: why is SG disabled?
+Date: Thu, 2 Jul 2015 09:48:34 +0200
+Message-ID: <5594ECD2.7090701@atmel.com>
+References: <559403E3.3050900@certsign.ro> <55941D80.2090904@atmel.com> <03CA77BA8AF6F1469AEDFBDA1322A7B7495B9EE3@XAP-PVEXMBX02.xlnx.xilinx.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="DocE+STaALJfprDB"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>,
+	"Cyrille Pitchen" <cyrille.pitchen@atmel.com>,
+	Nicolae Rosia <nicolae.rosia@certsign.ro>,
+	Michal Simek <michals@xilinx.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eusmtp01.atmel.com ([212.144.249.243]:15266 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751106AbbGBHtq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 03:49:46 -0400
+In-Reply-To: <03CA77BA8AF6F1469AEDFBDA1322A7B7495B9EE3@XAP-PVEXMBX02.xlnx.xilinx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Le 02/07/2015 04:33, Punnaiah Choudary Kalluri a =E9crit :
+> Hi Nicolae and Cyrille,
+>=20
+>    SG feature was not tested for Zynq using macb driver but tested it=
+ using the
+>  emacps Driver in Xilinx tree (this driver is deprecated recently)
+>=20
+> We will test and enable this feature in driver for Zynq.
+
+Ok, fine: we will be glad to merge patches that would enable this
+feature on Zynq.
+
+Bye,
 
 
---DocE+STaALJfprDB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+>> -----Original Message-----
+>> From: Cyrille Pitchen [mailto:cyrille.pitchen@atmel.com]
+>> Sent: Wednesday, July 01, 2015 10:34 PM
+>> To: Nicolae Rosia; Michal Simek; Punnaiah Choudary Kalluri;
+>> netdev@vger.kernel.org; Nicolas Ferre; linux-arm-kernel@lists.infrad=
+ead.org
+>> Subject: Re: macb: zynq: why is SG disabled?
+>>
+>> Le 01/07/2015 17:14, Nicolae Rosia a =E9crit :
+>>> Hello,
+>>>
+>>> After reading the GEM part of Zynq7000 Technical Reference Manual [=
+0], I
+>> think that SG should be supported.
+>>> Is there a reason why SG is disabled in macb for Zynq?
+>>>
+>>> Best regards,
+>>> Nicolae Rosia
+>>
+>> Hi Nicolae,
+>>
+>> when the scatter-gather patch was introduced, the feature was enable=
+d only
+>> on tested boards to avoid regressions on other boards.
+>> So SG is enabled on sama5d4x and sama5d2x SoCs. SG is disabled on pu=
+rpose
+>> on sama5d3x.
+>>
+>> For Zynq, I think the feature is still disabled just because it has =
+never been
+>> tested.
+>>
+>> Best regards,
+>>
+>> Cyrille
+>=20
 
-Hi Dave,
 
-A couple of regressions crept in because of a patch to use proper list
-APIs rather than manually reading & writing the next/prev pointers
-(commit 835a6a2f8603237a3e6cded5a6765090ecb06ea5). Turns out this was
-masking a few bugs: a missing INIT_LIST_HEAD() call and incorrectly
-using list_del() rather than list_del_init(). The two patches in this
-set fix these, and it'd be nice they could still make it to 4.2-rc1 to
-avoid new bug reports from users.
-
-Please let me know if there are any issues pulling. Thanks.
-
-Johan
-
---
-The following changes since commit 011cb197a84ed547c2b6b12a86adbeec1be0fdaf:
-
-  Merge branch 'bnx2x' (2015-06-25 06:30:43 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
-
-for you to fetch changes up to ab944c83f6690df0c7f67e6bcc29fc0c82ef6021:
-
-  Bluetooth: Reinitialize the list after deletion for session user list (2015-06-30 21:46:19 +0200)
-
-----------------------------------------------------------------
-Tedd Ho-Jeong An (2):
-      Bluetooth: hidp: Initialize list header of hidp session user
-      Bluetooth: Reinitialize the list after deletion for session user list
-
- net/bluetooth/hidp/core.c  | 1 +
- net/bluetooth/l2cap_core.c | 4 ++--
- 2 files changed, 3 insertions(+), 2 deletions(-)
-
---DocE+STaALJfprDB
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJVlOieAAoJECQj9vv5qNQSiiYP/1osk3CxItxSgCxN2Obq7Xlf
-0/fXWb3P1r+cbZP2REyBU7wZWlmN7imAZ9j3Zr1MUqJIf3+fmtrPARg7yEe+/sal
-ry4VS01OJDFdI4DKAMFEhtC/YdIqQ2Kbfucq2wqe4CrMVhkWIyo5qkMZ2Kha79oM
-gYcuHoWzDmLnHxcK7lGyaM5qdJxhk6FUUFiAwAZLTrfSfn5+atxzfsWZZRwZqBq1
-bygCkII3QEeTkjWFLGUCA9s/GttcQI8DMEiZoKrDlSJCF+ePTBG4h20+9YGBK3K9
-lYcOpWEEbYvQv3MohJXh4tysNbPanZBZa4tx4vOAyM+F1TE9SFVCOmvjmxTKKT9S
-tQLiRae+SwkRqpBeiN5c30atzltBsStRRQ6mIZeomqJR3uwILtMhgaodBRXitAME
-kCEF3+wfzyxIBLe4qWNUSB5cq3UYFHSEC6BfSk7sd+DpHV3CmBD7JuWDkeYzvHAn
-v7IVpITlEXdgek2cBw7DR/xaE96HhgNpDB9upEhuPvSsAjEkgWc/XCxG9cF9becx
-q0+H4kHyT9pui9j0u4XOW7BjFImFDR3QQklwq0luiY2GC9e/aW2lpyGHDpFpkDWo
-jCd5Pajz4gPfal2fHwd0dnz8Pjl5OxzkYY1ms8UyllsL8QkEsLVSVZXQHO++oJOr
-Vu1PlTAal8qUypnf+P2I
-=b/ol
------END PGP SIGNATURE-----
-
---DocE+STaALJfprDB--
+--=20
+Nicolas Ferre
