@@ -1,48 +1,26 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PULL] virtio/vhost: cross endian support
-Date: Thu, 2 Jul 2015 08:12:37 +0200
-Message-ID: <20150702080916-mutt-send-email-mst@redhat.com>
-References: <20150701113150-mutt-send-email-mst@redhat.com>
-	<CA+55aFwE+vO2xevQ5jpyC0uJ7gASDwMS4=aDb=78RsJNA-wN1Q@mail.gmail.com>
-	<CA+55aFxNfhQv2G6ak4b1A7Tb7zn9E7xfq7N+Pak5RW7VPSb=Vw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ax88179_178a: add reset functionality in reset_resume
+Date: Wed, 01 Jul 2015 23:47:40 -0700 (PDT)
+Message-ID: <20150701.234740.819384276683556600.davem@davemloft.net>
+References: <C0.47.27612.33CB4955@epcpsbgx1.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: KVM list <kvm@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	virtualization <virtualization@lists.linux-foundation.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <CA+55aFxNfhQv2G6ak4b1A7Tb7zn9E7xfq7N+Pak5RW7VPSb=Vw@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hemanshu.s@samsung.com
+To: vivek.bhagat@samsung.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37208 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752152AbbGBGrn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 02:47:43 -0400
+In-Reply-To: <C0.47.27612.33CB4955@epcpsbgx1.samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 01, 2015 at 12:03:59PM -0700, Linus Torvalds wrote:
-> On Wed, Jul 1, 2015 at 12:02 PM, Linus Torvalds
-> <torvalds@linux-foundation.org> wrote:
-> >
-> > Doing a unconditional byte swap is faster and simpler than the crazy
-> > conditionals.
-> 
-> Unconditional endianness not only makes for simpler and faster code,
-> it also ends up being easier to debug and add things like type
-> annotations for sparse.
-> 
->                 Linus
 
-At least this last one is well covered by these patches: this uses
-separate sparse types so all accesses are statically verified by sparse
-to use the correct accessor.
+Emails encoded in HTML will not make it to the mailing list, and also
+will not be read by me.
 
--- 
-MST
+You have some serious email posting issues, that you will need to
+sort out on your own before contributing changes.  Meanwhile perhaps
+you can find a colleague who can submit patches properly to the list.
