@@ -1,68 +1,74 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next] hv_netvsc: Add support to set MTU reservation from
- guest side
-Date: Thu,  2 Jul 2015 13:17:35 -0700
-Message-ID: <1435868255-10865-1-git-send-email-haiyangz@microsoft.com>
+From: Kim Phillips <kim.phillips@arm.com>
+Subject: amd-xgbe e0700000.xgmac: DMA-API: device driver tries to sync DMA
+ memory it has not allocated
+Date: Thu, 2 Jul 2015 14:02:28 -0500
+Message-ID: <20150702140228.4f5810f07ca869fc54457b9f@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=WINDOWS-1252
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <thomas.lendacky@amd.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu-smtp-delivery-143.mimecast.com ([207.82.80.143]:12218 "EHLO
+	eu-smtp-delivery-143.mimecast.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753357AbbGBTCp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jul 2015 15:02:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When packet encapsulation is in use, the MTU needs to be reduced for
-headroom reservation.
-The existing code takes the updated MTU value only from the host side.
-But vSwitch extensions, such as Open vSwitch, require the flexibility
-to change the MTU to different values from within a guest during the
-lifecycle of a vNIC, when the encapsulation protocol is changed. The
-patch supports this kind of MTU changes.
+Hi Tom,
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/netvsc_drv.c   |    3 +--
- drivers/net/hyperv/rndis_filter.c |    2 +-
- 2 files changed, 2 insertions(+), 3 deletions(-)
+A pristine 4.1 kernel with CONFIG_DMA_API_DEBUG=y produces this call
+trace on an AMD Seattle:
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 358475e..68e7ece 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -743,8 +743,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
- 		limit = NETVSC_MTU - ETH_HLEN;
- 
--	/* Hyper-V hosts don't support MTU < ETH_DATA_LEN (1500) */
--	if (mtu < ETH_DATA_LEN || mtu > limit)
-+	if (mtu < 68 || mtu > limit)
- 		return -EINVAL;
- 
- 	nvdev->start_remove = true;
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 006c1b8..172824e 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -1053,7 +1053,7 @@ int rndis_filter_device_add(struct hv_device *dev,
- 	ret = rndis_filter_query_device(rndis_device,
- 					RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE,
- 					&mtu, &size);
--	if (ret == 0 && size == sizeof(u32))
-+	if (ret == 0 && size == sizeof(u32) && mtu < net_device->ndev->mtu)
- 		net_device->ndev->mtu = mtu;
- 
- 	/* Get the mac address */
--- 
-1.7.4.1
+[  112.896576] ------------[ cut here ]------------
+[  112.896591] WARNING: CPU: 2 PID: 1059 at lib/dma-debug.c:1202 check_sync+0x138/0x56c()
+[  112.896597] amd-xgbe e0700000.xgmac: DMA-API: device driver tries to sync DMA memory it has not allocated [device address=0x0000008003d52000] [size=1536 bytes]
+[  112.896600] Modules linked in: cpufreq_stats vfat fat xfs libcrc32c spi_pl022 aes_ce_blk ablk_helper cryptd aes_ce_cipher ghash_ce sha2_ce sha1_ce uio_pdrv_genirq uio fuse
+[  112.896634] CPU: 2 PID: 1059 Comm: sshd Tainted: G        W       4.1.0 #10
+[  112.896638] Hardware name: Default string Default string/Default string, BIOS ROD0082B 06/16/2015
+[  112.896641] Call trace:
+[  112.899086] [<fffffe0000097b20>] dump_backtrace+0x0/0x170
+[  112.899091] [<fffffe0000097cb0>] show_stack+0x20/0x2c
+[  112.899097] [<fffffe0000813da0>] dump_stack+0x8c/0xc4
+[  112.899102] [<fffffe00000c45bc>] warn_slowpath_common+0xa0/0xd8
+[  112.899106] [<fffffe00000c4668>] warn_slowpath_fmt+0x74/0x88
+[  112.899109] [<fffffe0000486f24>] check_sync+0x134/0x56c
+[  112.899113] [<fffffe00004873ac>] debug_dma_sync_single_for_cpu+0x50/0x5c
+[  112.899119] [<fffffe00005b07fc>] xgbe_rx_poll+0x1e0/0x6c0
+[  112.899123] [<fffffe00005b1cdc>] xgbe_one_poll+0x34/0x6c
+[  112.899128] [<fffffe00006a510c>] net_rx_action+0x270/0x504
+[  112.899133] [<fffffe00000c9ba0>] __do_softirq+0x120/0x60c
+[  112.899136] [<fffffe00000ca3fc>] irq_exit+0xa4/0xe4
+[  112.899143] [<fffffe000012d2f8>] __handle_domain_irq+0x74/0xc4
+[  112.899146] [<fffffe00000903ec>] gic_handle_irq+0x38/0x84
+[  112.899150] Exception stack(0xfffffe03de09bbf0 to 0xfffffe03de09bd10)
+[  112.899154] bbe0:                                     1ee64b30 fffffe00 002111e8 fffffe00
+[  112.899158] bc00: de09bd30 fffffe03 0081a668 fffffe00 dd54fa00 fffffe03 de09bcb0 fffffe03
+[  112.899162] bc20: 00000001 ffffffff 00000001 00000000 00000000 00000000 00000000 00000000
+[  112.899166] bc40: 00000000 00000000 002111e8 fffffe00 00000000 00000000 de098000 fffffe03
+[  112.899170] bc60: de09bc10 fffffe03 1d456228 00000000 00000076 00000000 00000008 00000000
+[  112.899174] bc80: 10000000 00077d2a 00000000 001dcd65 00213e98 fffffe00 96ea8f60 000003ff
+[  112.899178] bca0: 65b9a2e2 00000000 1ee64b30 fffffe00 002111e8 fffffe00 1ee64ba0 fffffe00
+[  112.899181] bcc0: 00000041 00000000 1ee10b80 fffffe00 025c58c8 fffffe00 00000003 00000000
+[  112.899185] bce0: 027b6c48 fffffe00 00100077 00000000 02ab0b4b 00000000 de09bd30 fffffe03
+[  112.899188] bd00: 0081a660 fffffe00 de09bd30 fffffe03
+[  112.899192] [<fffffe00000934e8>] el1_irq+0x68/0x100
+[  112.899198] [<fffffe00002111e4>] validate_mm+0x44/0x2d4
+[  112.899203] [<fffffe0000211edc>] vma_link+0x98/0xe0
+[  112.899206] [<fffffe0000213e70>] do_brk+0x2ec/0x314
+[  112.899209] [<fffffe0000213fd4>] SyS_brk+0x13c/0x170
+[  112.899212] ---[ end trace cbf36648db00d232 ]---
+
+Can you look into it?
+
+Thanks,
+
+Kim
+
+
+-- IMPORTANT NOTICE: The contents of this email and any attachments are confidential and may also be privileged. If you are not the intended recipient, please notify the sender immediately and do not disclose the contents to any other person, use it for any purpose, or store or copy the information in any medium.  Thank you.
+
+ARM Limited, Registered office 110 Fulbourn Road, Cambridge CB1 9NJ, Registered in England & Wales, Company No:  2557590
+ARM Holdings plc, Registered office 110 Fulbourn Road, Cambridge CB1 9NJ, Registered in England & Wales, Company No:  2548782
