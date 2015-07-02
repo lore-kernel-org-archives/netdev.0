@@ -1,26 +1,43 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: iproute 4.1.1
-Date: Wed, 1 Jul 2015 18:28:44 -1000
-Message-ID: <20150701182844.05fb7742@uryu.home.lan>
+From: Angga <Hermin.Anggawijaya@alliedtelesis.co.nz>
+Subject: [PATCH] ipv6: Make MLD packets to only be processed locally.
+Date: Thu, 2 Jul 2015 05:08:02 +0000
+Message-ID: <5594C731.8000706@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Angga <Hermin.Anggawijaya@alliedtelesis.co.nz>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:34545 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751675AbbGBE2x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 00:28:53 -0400
-Received: by pabvl15 with SMTP id vl15so33744787pab.1
-        for <netdev@vger.kernel.org>; Wed, 01 Jul 2015 21:28:53 -0700 (PDT)
-Received: from uryu.home.lan (cpe-72-130-168-110.hawaii.res.rr.com. [72.130.168.110])
-        by mx.google.com with ESMTPSA id de4sm3911933pbb.95.2015.07.01.21.28.51
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 01 Jul 2015 21:28:52 -0700 (PDT)
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:57436 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751064AbbGBFIJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 01:08:09 -0400
+Content-Language: en-US
+Content-ID: <B217CD22523EBD47A5EA4CB00131058F@atlnz.lc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am putting out iproute2 4.1.1 (ie stable) on Monday. Will include fixes for MPLS and TIPC that
-are already in latest (master). Is there any other fixes which people think are urgent enough to
-backport.
+DQpCZWZvcmUgY29tbWl0IGRhYWQxNTEyNjNjZjMzNCAoImlwdjY6IE1ha2UgaXB2Nl9pc19tbGQo
+KSBpbmxpbmUgYW5kIHVzZSBpdA0KZnJvbSBpcDZfbWNfaW5wdXQoKS4iIE1MRCBwYWNrZXRzIHdl
+cmUgb25seSBwcm9jZXNzZWQgbG9jYWxseS4gQWZ0ZXIgdGhlDQpjaGFuZ2UsIGEgY29weSBvZiBN
+TEQgcGFja2V0IGdvZXMgdGhyb3VnaCBpcDZfbXJfaW5wdXQsIGNhdXNpbmcNCk1SVDZNU0dfTk9D
+QUNIRSBtZXNzYWdlIHRvIGJlIGdlbmVyYXRlZCB0byB1c2VyIHNwYWNlLg0KDQpNYWtlIE1MRCBw
+YWNrZXQgb25seSBwcm9jZXNzZWQgbG9jYWxseS4NCg0KRml4ZXM6IGRhYWQxNTEyNjNjZjMzNCAo
+ImlwdjY6IE1ha2UgaXB2Nl9pc19tbGQoKSBpbmxpbmUgYW5kIHVzZSBpdCBmcm9tIA0KaXA2X21j
+X2lucHV0KCkuIikNCg0KU2lnbmVkLW9mZi1ieTogSGVybWluIEFuZ2dhd2lqYXlhIDxoZXJtaW4u
+YW5nZ2F3aWpheWFAYWxsaWVkdGVsZXNpcy5jby5uej4NCi0tLQ0KDQpkaWZmIC0tZ2l0IGEvbGlu
+dXgvbmV0L2lwdjYvaXA2X2lucHV0LmMub3JpZyBiL2xpbnV4L25ldC9pcHY2L2lwNl9pbnB1dC5j
+DQppbmRleCBmMmU0NjRlLi41Nzk5MGM5IDEwMDY0NA0KLS0tIGEvbGludXgvbmV0L2lwdjYvaXA2
+X2lucHV0LmMub3JpZw0KKysrIGIvbGludXgvbmV0L2lwdjYvaXA2X2lucHV0LmMNCkBAIC0zMzEs
+MTAgKzMzMSwxMCBAQCBpbnQgaXA2X21jX2lucHV0KHN0cnVjdCBza19idWZmICpza2IpDQogICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICBpZiAob2Zmc2V0IDwgMCkNCiAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZ290byBvdXQ7DQoNCi0gICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgaWYgKCFpcHY2X2lzX21sZChza2IsIG5leHRoZHIsIG9mZnNldCkp
+DQotICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZ290byBvdXQ7DQorICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgIGlmIChpcHY2X2lzX21sZChza2IsIG5leHRoZHIs
+IG9mZnNldCkpDQorICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZGVsaXZl
+ciA9IHRydWU7DQoNCi0gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZGVsaXZlciA9IHRy
+dWU7DQorICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGdvdG8gb3V0Ow0KICAgICAgICAg
+ICAgICAgICAgICAgICAgIH0NCiAgICAgICAgICAgICAgICAgICAgICAgICAvKiB1bmtub3duIFJB
+IC0gcHJvY2VzcyBpdCBub3JtYWxseSAqLw0KICAgICAgICAgICAgICAgICB9DQo=
