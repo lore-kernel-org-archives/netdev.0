@@ -1,98 +1,76 @@
-From: yzhu1 <Yanjun.Zhu@windriver.com>
-Subject: Re: [PATCH 1/1] net namespace: dynamically configure new net namespace
- inherit net config
-Date: Thu, 2 Jul 2015 10:04:23 +0800
-Message-ID: <55949C27.1080201@windriver.com>
-References: <1435311439-26916-1-git-send-email-Yanjun.Zhu@windriver.com>
+From: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>
+Subject: RE: macb: zynq: why is SG disabled?
+Date: Thu, 2 Jul 2015 02:33:14 +0000
+Message-ID: <03CA77BA8AF6F1469AEDFBDA1322A7B7495B9EE3@XAP-PVEXMBX02.xlnx.xilinx.com>
+References: <559403E3.3050900@certsign.ro> <55941D80.2090904@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:38237 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753672AbbGBCEY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 22:04:24 -0400
-In-Reply-To: <1435311439-26916-1-git-send-email-Yanjun.Zhu@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Cyrille Pitchen <cyrille.pitchen@atmel.com>, Nicolae Rosia
+ <nicolae.rosia@certsign.ro>, Michal Simek <michals@xilinx.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Nicolas Ferre
+ <nicolas.ferre@atmel.com>, "linux-arm-kernel@lists.infradead.org"
+ <linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <55941D80.2090904@atmel.com>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Hi, David
+Hi Nicolae and Cyrille,
 
-This patch is applied in our linux for a long time. It should work well.
+   SG feature was not tested for Zynq using macb driver but tested it using=
+ the
+ emacps Driver in Xilinx tree (this driver is deprecated recently)
 
-Would you like to let me know your advice about this patch?
+We will test and enable this feature in driver for Zynq.
 
-Thanks a lot.
-Zhu Yanjun
+Regards,
+Punnaiah
 
-On 06/26/2015 05:37 PM, Zhu Yanjun wrote:
-> The new net namespace can inherit from the original net config, or
-> the current net config. As such, a config is needed to decide where
-> the new namespace inherit from.
->
-> Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
-> ---
->   init/Kconfig       |  9 +++++++++
->   net/ipv4/devinet.c | 13 +++++++++++++
->   2 files changed, 22 insertions(+)
->
-> diff --git a/init/Kconfig b/init/Kconfig
-> index dc24dec..fab8c41 100644
-> --- a/init/Kconfig
-> +++ b/init/Kconfig
-> @@ -1212,6 +1212,15 @@ config NET_NS
->   	  Allow user space to create what appear to be multiple instances
->   	  of the network stack.
->   
-> +config NET_NS_INHERIT_ORIGINAL
-> +	bool "New network namespace inherits from original net config"
-> +	depends on NET_NS
-> +	default n
-> +	help
-> +	  Allow new network namespace inherit from original net config.
-> +	  If no, the new network namespace inherits from the current net
-> +	  config including the modified net config.
-> +
->   endif # NAMESPACES
->   
->   config SCHED_AUTOGROUP
-> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-> index 419d23c..cf635e4 100644
-> --- a/net/ipv4/devinet.c
-> +++ b/net/ipv4/devinet.c
-> @@ -2271,6 +2271,7 @@ static __net_init int devinet_init_net(struct net *net)
->   #endif
->   
->   	err = -ENOMEM;
-> +#ifndef CONFIG_NET_NS_INHERIT_ORIGINAL
->   	all = &ipv4_devconf;
->   	dflt = &ipv4_devconf_dflt;
->   
-> @@ -2282,6 +2283,15 @@ static __net_init int devinet_init_net(struct net *net)
->   		dflt = kmemdup(dflt, sizeof(ipv4_devconf_dflt), GFP_KERNEL);
->   		if (!dflt)
->   			goto err_alloc_dflt;
-> +#else
-> +	all = kmemdup(&ipv4_devconf, sizeof(ipv4_devconf), GFP_KERNEL);
-> +	if (!all)
-> +		goto err_alloc_all;
-> +
-> +	dflt = kmemdup(&ipv4_devconf_dflt, sizeof(ipv4_devconf_dflt), GFP_KERNEL);
-> +	if (!dflt)
-> +		goto err_alloc_dflt;
-> +#endif
->   
->   #ifdef CONFIG_SYSCTL
->   		tbl = kmemdup(tbl, sizeof(ctl_forward_entry), GFP_KERNEL);
-> @@ -2292,7 +2302,10 @@ static __net_init int devinet_init_net(struct net *net)
->   		tbl[0].extra1 = all;
->   		tbl[0].extra2 = net;
->   #endif
-> +
-> +#ifndef CONFIG_NET_NS_INHERIT_ORIGINAL
->   	}
-> +#endif
->   
->   #ifdef CONFIG_SYSCTL
->   	err = __devinet_sysctl_register(net, "all", all);
+> -----Original Message-----
+> From: Cyrille Pitchen [mailto:cyrille.pitchen@atmel.com]
+> Sent: Wednesday, July 01, 2015 10:34 PM
+> To: Nicolae Rosia; Michal Simek; Punnaiah Choudary Kalluri;
+> netdev@vger.kernel.org; Nicolas Ferre; linux-arm-kernel@lists.infradead.o=
+rg
+> Subject: Re: macb: zynq: why is SG disabled?
+> =
+
+> Le 01/07/2015 17:14, Nicolae Rosia a =E9crit :
+> > Hello,
+> >
+> > After reading the GEM part of Zynq7000 Technical Reference Manual [0], I
+> think that SG should be supported.
+> > Is there a reason why SG is disabled in macb for Zynq?
+> >
+> > Best regards,
+> > Nicolae Rosia
+> =
+
+> Hi Nicolae,
+> =
+
+> when the scatter-gather patch was introduced, the feature was enabled only
+> on tested boards to avoid regressions on other boards.
+> So SG is enabled on sama5d4x and sama5d2x SoCs. SG is disabled on purpose
+> on sama5d3x.
+> =
+
+> For Zynq, I think the feature is still disabled just because it has never=
+ been
+> tested.
+> =
+
+> Best regards,
+> =
+
+> Cyrille
