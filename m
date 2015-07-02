@@ -1,61 +1,51 @@
-From: Mazhar Rana <ranamazharp@gmail.com>
-Subject: [PATCH v2] bonding: "primary_reselect" with "failure" is not working properly
-Date: Thu,  2 Jul 2015 17:37:19 +0530
-Message-ID: <1435838839-21233-1-git-send-email-ranamazharp@gmail.com>
-Cc: Mazhar Rana <ranamazharp@gmail.com>, davem@davemloft.net,
-	sanket.shah@cyberoam.com, mazhar.rana@cyberoam.com,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-	gospo@cumulusnetworks.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: 4.1 regression in resizable hashtable tests
+Date: Thu, 2 Jul 2015 14:31:30 +0200
+Message-ID: <20150702123130.GA20843@pox.localdomain>
+References: <alpine.LRH.2.11.1507011259180.4092@math.ut.ee>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: sparclinux@vger.kernel.org,
+	Linux Kernel list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Meelis Roos <mroos@linux.ee>
+Return-path: <sparclinux-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LRH.2.11.1507011259180.4092@math.ut.ee>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When "primary_reselect" is set to "failure", primary interface should
-not become active until current active slave is up. But if we set first
-member of bond device as a "primary" interface and "primary_reselect"
-is set to "failure" then whenever primary interface's link get back(up)
-it become active slave even if current active slave is still up.
+On 07/01/15 at 01:21pm, Meelis Roos wrote:
+> This is 4.1 on sparc64 - one of my boxes that happens to have most 
+> runtime test left on from some debugging effort. In 4.0 it was fine, 4.1 
+> gives this in dmesg:
+> 
+> [   31.898697] Running resizable hashtable tests...
+> [   31.898915]   Adding 2048 keys
+> [   31.952911]   Traversal complete: counted=17, nelems=2048, entries=2048
+> [   31.953004] Test failed: Total count mismatch ^^^
+> [   32.022676]   Traversal complete: counted=17, nelems=2048, entries=2048
+> [   32.022788] Test failed: Total count mismatch ^^^
+> [   32.022828]   Deleting 2048 keys
 
-With this patch, "bond_find_best_slave" will not traverse members if
-primary interface is not candidate for failover/reselection and current
-active slave is still up.
+Thanks for the report. I think this is already fixed. Can you try with the
+following commit:
 
-Signed-off-by: Mazhar Rana <mazhar.rana@cyberoam.com>
-Reviewed-by: Sanket Shah <sanket.shah@cyberoam.com>
----
-v2: return "curr" instead of "bond->curr_active_slave".
+commit 246b23a7695bd5a457aa51a36a948cce53d1d477
+Author: Thomas Graf <tgraf@suug.ch>
+Date:   Thu Apr 30 22:37:44 2015 +0000
 
- drivers/net/bonding/bond_main.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+    rhashtable-test: Use walker to test bucket statistics
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 19eb990..ac71261 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -715,7 +715,7 @@ static bool bond_should_change_active(struct bonding *bond)
-  */
- static struct slave *bond_find_best_slave(struct bonding *bond)
- {
--	struct slave *slave, *bestslave = NULL, *primary;
-+	struct slave *slave, *bestslave = NULL, *primary, *curr;
- 	struct list_head *iter;
- 	int mintime = bond->params.updelay;
- 
-@@ -724,6 +724,14 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
- 	    bond_should_change_active(bond))
- 		return primary;
- 
-+	/* We are here means primary interface is not candidate for
-+	 * reslection/failover. If currenet active slave is still up
-+	 * then there is no meaning to traverse  members.
-+	 */
-+	curr = rtnl_dereference(bond->curr_active_slave);
-+	if (curr && curr->link == BOND_LINK_UP)
-+		return curr;
-+
- 	bond_for_each_slave(bond, slave, iter) {
- 		if (slave->link == BOND_LINK_UP)
- 			return slave;
--- 
-1.9.1
+    As resizes may continue to run in the background, use walker to
+    ensure we see all entries. Also print the encountered number
+    of rehashes queued up while traversing.
+
+    This may lead to warnings due to entries being seen multiple
+    times. We consider them non-fatal.
+
+    Signed-off-by: Thomas Graf <tgraf@suug.ch>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
