@@ -1,70 +1,53 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next 5/6] net_sched: act: read tcfg_ptype once
-Date: Thu, 02 Jul 2015 08:47:16 -0700
-Message-ID: <55955D04.702@gmail.com>
-References: <1435842455-30501-1-git-send-email-edumazet@google.com> <1435842455-30501-6-git-send-email-edumazet@google.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] net-RDS: Delete an unnecessary check before the function
+ call "module_put"
+Date: Thu, 02 Jul 2015 18:08:19 +0200
+Message-ID: <559561F3.2040107@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Eric Dumazet <edumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors <kernel-janitors@vger.kernel.org>,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Chien Yen <chien.yen@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:35951 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751772AbbGBPr1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 11:47:27 -0400
-Received: by obdbs4 with SMTP id bs4so52351444obd.3
-        for <netdev@vger.kernel.org>; Thu, 02 Jul 2015 08:47:25 -0700 (PDT)
-In-Reply-To: <1435842455-30501-6-git-send-email-edumazet@google.com>
+Received: from mout.web.de ([212.227.15.3]:62114 "EHLO mout.web.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753790AbbGBQIl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jul 2015 12:08:41 -0400
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15-07-02 06:07 AM, Eric Dumazet wrote:
-> Third step for gact RCU operation :
-> 
-> Following patch will get rid of spinlock protection,
-> so we need to read tcfg_ptype once.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: John Fastabend <john.fastabend@gmail.com>
-> ---
->  net/sched/act_gact.c | 14 +++++++-------
->  1 file changed, 7 insertions(+), 7 deletions(-)
-> 
-> diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
-> index e968290e8378..7c7e72e95943 100644
-> --- a/net/sched/act_gact.c
-> +++ b/net/sched/act_gact.c
-> @@ -121,16 +121,16 @@ static int tcf_gact(struct sk_buff *skb, const struct tc_action *a,
->  		    struct tcf_result *res)
->  {
->  	struct tcf_gact *gact = a->priv;
-> -	int action = TC_ACT_SHOT;
-> +	int action = gact->tcf_action;
->  
->  	spin_lock(&gact->tcf_lock);
->  #ifdef CONFIG_GACT_PROB
-> -	if (gact->tcfg_ptype)
-> -		action = gact_rand[gact->tcfg_ptype](gact);
-> -	else
-> -		action = gact->tcf_action;
-> -#else
-> -	action = gact->tcf_action;
-> +	{
-> +	u32 ptype = READ_ONCE(gact->tcfg_ptype);
-> +
-> +	if (ptype)
-> +		action = gact_rand[ptype](gact);
-> +	}
->  #endif
->  	gact->tcf_bstats.bytes += qdisc_pkt_len(skb);
->  	gact->tcf_bstats.packets++;
-> 
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Thu, 2 Jul 2015 17:58:21 +0200
 
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
+The module_put() function tests whether its argument is NULL and then
+returns immediately. Thus the test around the call is not needed.
+
+This issue was detected by using the Coccinelle software.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ net/rds/transport.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/rds/transport.c b/net/rds/transport.c
+index 8b4a6cd..83498e1 100644
+--- a/net/rds/transport.c
++++ b/net/rds/transport.c
+@@ -73,7 +73,7 @@ EXPORT_SYMBOL_GPL(rds_trans_unregister);
+ 
+ void rds_trans_put(struct rds_transport *trans)
+ {
+-	if (trans && trans->t_owner)
++	if (trans)
+ 		module_put(trans->t_owner);
+ }
+ 
+-- 
+2.4.5
