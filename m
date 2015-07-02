@@ -1,79 +1,38 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: macb: zynq: why is SG disabled?
-Date: Thu, 2 Jul 2015 09:48:34 +0200
-Message-ID: <5594ECD2.7090701@atmel.com>
-References: <559403E3.3050900@certsign.ro> <55941D80.2090904@atmel.com> <03CA77BA8AF6F1469AEDFBDA1322A7B7495B9EE3@XAP-PVEXMBX02.xlnx.xilinx.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] add stealth mode
+Date: Thu, 02 Jul 2015 10:23:27 +0200
+Message-ID: <5594F4FF.1000904@6wind.com>
+References: <CAFnufp3wM5rb=B4N8Ad+cLcTu8sx-f9OXpqp33uCKXe=q=je3Q@mail.gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>,
-	"Cyrille Pitchen" <cyrille.pitchen@atmel.com>,
-	Nicolae Rosia <nicolae.rosia@certsign.ro>,
-	Michal Simek <michals@xilinx.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.243]:15266 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751106AbbGBHtq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 03:49:46 -0400
-In-Reply-To: <03CA77BA8AF6F1469AEDFBDA1322A7B7495B9EE3@XAP-PVEXMBX02.xlnx.xilinx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org
+To: Matteo Croce <technoboy85@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFnufp3wM5rb=B4N8Ad+cLcTu8sx-f9OXpqp33uCKXe=q=je3Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 02/07/2015 04:33, Punnaiah Choudary Kalluri a =E9crit :
-> Hi Nicolae and Cyrille,
->=20
->    SG feature was not tested for Zynq using macb driver but tested it=
- using the
->  emacps Driver in Xilinx tree (this driver is deprecated recently)
->=20
-> We will test and enable this feature in driver for Zynq.
+Le 02/07/2015 00:53, Matteo Croce a =C3=A9crit :
+> Add option to disable any reply not related to a listening socket,
+> like RST/ACK for TCP and ICMP Dest-Unreach for UDP.
+> Also disables ICMP replies to echo request and timestamp.
+> The stealth mode can be enabled selectively for a single interface.
+> ---
+>   include/linux/inetdevice.h | 1 +
+>   include/linux/ipv6.h       | 1 +
+>   include/uapi/linux/ip.h    | 1 +
+>   net/ipv4/devinet.c         | 1 +
+>   net/ipv4/icmp.c            | 6 ++++++
+>   net/ipv4/tcp_ipv4.c        | 3 ++-
+>   net/ipv4/udp.c             | 4 +++-
+>   net/ipv6/addrconf.c        | 7 +++++++
+>   net/ipv6/icmp.c            | 3 ++-
+>   net/ipv6/tcp_ipv6.c        | 2 +-
+>   net/ipv6/udp.c             | 3 ++-
+>   11 files changed, 27 insertions(+), 5 deletions(-)
 
-Ok, fine: we will be glad to merge patches that would enable this
-feature on Zynq.
-
-Bye,
-
-
->> -----Original Message-----
->> From: Cyrille Pitchen [mailto:cyrille.pitchen@atmel.com]
->> Sent: Wednesday, July 01, 2015 10:34 PM
->> To: Nicolae Rosia; Michal Simek; Punnaiah Choudary Kalluri;
->> netdev@vger.kernel.org; Nicolas Ferre; linux-arm-kernel@lists.infrad=
-ead.org
->> Subject: Re: macb: zynq: why is SG disabled?
->>
->> Le 01/07/2015 17:14, Nicolae Rosia a =E9crit :
->>> Hello,
->>>
->>> After reading the GEM part of Zynq7000 Technical Reference Manual [=
-0], I
->> think that SG should be supported.
->>> Is there a reason why SG is disabled in macb for Zynq?
->>>
->>> Best regards,
->>> Nicolae Rosia
->>
->> Hi Nicolae,
->>
->> when the scatter-gather patch was introduced, the feature was enable=
-d only
->> on tested boards to avoid regressions on other boards.
->> So SG is enabled on sama5d4x and sama5d2x SoCs. SG is disabled on pu=
-rpose
->> on sama5d3x.
->>
->> For Zynq, I think the feature is still disabled just because it has =
-never been
->> tested.
->>
->> Best regards,
->>
->> Cyrille
->=20
-
-
---=20
-Nicolas Ferre
+It is recommended to add an explanation of new sysctl here:
+Documentation/networking/ip-sysctl.txt
