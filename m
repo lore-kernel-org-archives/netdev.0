@@ -1,100 +1,48 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next 6/6] net_sched: act: remove spinlock in fast
- path
-Date: Thu, 02 Jul 2015 09:35:25 -0700
-Message-ID: <5595684D.90500@gmail.com>
-References: <1435842455-30501-1-git-send-email-edumazet@google.com> <1435842455-30501-7-git-send-email-edumazet@google.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] netlink: Delete an unnecessary check before the function
+ call "module_put"
+Date: Thu, 02 Jul 2015 18:45:53 +0200
+Message-ID: <55956AC1.9000902@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Eric Dumazet <edumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:33648 "EHLO
-	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753834AbbGBQfb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 12:35:31 -0400
-Received: by oiyy130 with SMTP id y130so60043721oiy.0
-        for <netdev@vger.kernel.org>; Thu, 02 Jul 2015 09:35:31 -0700 (PDT)
-In-Reply-To: <1435842455-30501-7-git-send-email-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	kernel-janitors <kernel-janitors@vger.kernel.org>,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 15-07-02 06:07 AM, Eric Dumazet wrote:
-> Final step for gact RCU operation :
-> 
-> 1) Use percpu stats
-> 2) update lastuse only every clock tick
-> 3) Remove spinlock acquisition, as it is no longer needed.
-> 
-> Since this is the last contended lock in packet RX when tc gact is used,
-> this gives impressive gain.
-> 
-> My host with 8 RX queues was handling 5 Mpps before the patch,
-> and more than 10 Mpps after patch.
-> 
-> Tested:
-> 
-> On receiver :
-> IP=ip
-> TC=tc
-> dev=eth0
-> 
-> $TC qdisc del dev $dev ingress 2>/dev/null
-> $TC qdisc add dev $dev ingress
-> $TC filter del dev $dev root pref 10 2>/dev/null
-> $TC filter del dev $dev pref 10 2>/dev/null
-> tc filter add dev $dev est 1sec 4sec parent ffff: protocol ip prio 1 \
-> 	u32 match ip src 7.0.0.0/8 flowid 1:15 action drop
-> 
-> Sender sends packets flood from 7/8 network
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: John Fastabend <john.fastabend@gmail.com>
-> ---
->  net/sched/act_gact.c | 14 ++++++--------
->  1 file changed, 6 insertions(+), 8 deletions(-)
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Thu, 2 Jul 2015 18:38:12 +0200
 
-[...]
+The module_put() function tests whether its argument is NULL and then
+returns immediately. Thus the test around the call is not needed.
 
-> @@ -121,9 +121,8 @@ static int tcf_gact(struct sk_buff *skb, const struct tc_action *a,
->  		    struct tcf_result *res)
->  {
->  	struct tcf_gact *gact = a->priv;
-> -	int action = gact->tcf_action;
-> +	int action = READ_ONCE(gact->tcf_action);
->  
-> -	spin_lock(&gact->tcf_lock);
->  #ifdef CONFIG_GACT_PROB
->  	{
->  	u32 ptype = READ_ONCE(gact->tcfg_ptype);
-> @@ -132,12 +131,11 @@ static int tcf_gact(struct sk_buff *skb, const struct tc_action *a,
->  		action = gact_rand[ptype](gact);
->  	}
->  #endif
-> -	gact->tcf_bstats.bytes += qdisc_pkt_len(skb);
-> -	gact->tcf_bstats.packets++;
-> +	bstats_cpu_update(this_cpu_ptr(gact->common.cpu_bstats), skb);
->  	if (action == TC_ACT_SHOT)
-> -		gact->tcf_qstats.drops++;
-> -	gact->tcf_tm.lastuse = jiffies;
-> -	spin_unlock(&gact->tcf_lock);
-> +		qstats_drop_inc(this_cpu_ptr(gact->common.cpu_qstats));
-> +	if (gact->tcf_tm.lastuse != jiffies)
-> +		gact->tcf_tm.lastuse = jiffies;
+This issue was detected by using the Coccinelle software.
 
-I'm missing the point of the if block. Is that really good enough
-for the 32bit system case? I would have expected some wrapper to
-handle it here something like u64_stats_() maybe _u64_jiffies(). Maybe
-after a coffee I'll make sense of it.
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ net/netlink/af_netlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
->  
->  	return action;
->  }
-> 
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index dea9253..9a0ae71 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -158,7 +158,7 @@ static int __netlink_remove_tap(struct netlink_tap *nt)
+ out:
+ 	spin_unlock(&netlink_tap_lock);
+ 
+-	if (found && nt->module)
++	if (found)
+ 		module_put(nt->module);
+ 
+ 	return found ? 0 : -ENODEV;
+-- 
+2.4.5
+
