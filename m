@@ -1,60 +1,98 @@
-From: Alex Gartrell <alexgartrell@gmail.com>
-Subject: Re: [PATCH net-next] net: bail on sock_wfree, sock_rfree when we have
- a TCP_TIMEWAIT sk
-Date: Wed, 1 Jul 2015 17:05:21 -0700
-Message-ID: <CALCkm3f1nmi-st-siG0CRv32X7G5d6+JCsOWM01Rh3Qif3HtuQ@mail.gmail.com>
-References: <1435781589-2210146-1-git-send-email-agartrell@fb.com>
- <20150701.141402.587634025761326092.davem@davemloft.net> <CANn89iK8SMLFNA6J0WB_qVTB+-C6qoX2o7-CxvwrLVua-cXzWg@mail.gmail.com>
- <CALCkm3fUmO0pmQEgrwjoNy5PjFk+mzYbUd1wmBsV7hVSHBngPA@mail.gmail.com> <CANn89iL4Pr1MQ_7uDcKEyT+D+193cQk9R304JsMAE0od4+ieEQ@mail.gmail.com>
+From: yzhu1 <Yanjun.Zhu@windriver.com>
+Subject: Re: [PATCH 1/1] net namespace: dynamically configure new net namespace
+ inherit net config
+Date: Thu, 2 Jul 2015 10:04:23 +0800
+Message-ID: <55949C27.1080201@windriver.com>
+References: <1435311439-26916-1-git-send-email-Yanjun.Zhu@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"agartrell@fb.com" <agartrell@fb.com>,
-	netdev <netdev@vger.kernel.org>, kernel-team <kernel-team@fb.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f181.google.com ([209.85.220.181]:35268 "EHLO
-	mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754091AbbGBAFl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 20:05:41 -0400
-Received: by qkbp125 with SMTP id p125so41451732qkb.2
-        for <netdev@vger.kernel.org>; Wed, 01 Jul 2015 17:05:40 -0700 (PDT)
-In-Reply-To: <CANn89iL4Pr1MQ_7uDcKEyT+D+193cQk9R304JsMAE0od4+ieEQ@mail.gmail.com>
+Received: from mail.windriver.com ([147.11.1.11]:38237 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753672AbbGBCEY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 22:04:24 -0400
+In-Reply-To: <1435311439-26916-1-git-send-email-Yanjun.Zhu@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 1, 2015 at 4:26 PM, Eric Dumazet <edumazet@google.com> wrote:
-> I think you are mistaken Alex.
+Hi, David
 
-Indeed, I was!  Should be unsurpising.
+This patch is applied in our linux for a long time. It should work well.
 
+Would you like to let me know your advice about this patch?
+
+Thanks a lot.
+Zhu Yanjun
+
+On 06/26/2015 05:37 PM, Zhu Yanjun wrote:
+> The new net namespace can inherit from the original net config, or
+> the current net config. As such, a config is needed to decide where
+> the new namespace inherit from.
 >
-> socket early demux cannot possibly set skb->destructor to sock_rfree()
-
-Yeah I will admit adding the code to sock_rfree reflexively out of paranoia.
-
-> If skb->destructor is set by early demux, it correctly points to sock_edemux()
+> Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+> ---
+>   init/Kconfig       |  9 +++++++++
+>   net/ipv4/devinet.c | 13 +++++++++++++
+>   2 files changed, 22 insertions(+)
 >
-> And this one correctly handles all socket variants.
-
-Yes, the problem appears to be in ip_vs_prepare_tunneled_skb
-(ip_vs_xmit.c:859 in 4.0)
-
-        if (skb_headroom(skb) < max_headroom || skb_cloned(skb)) {
-                new_skb = skb_realloc_headroom(skb, max_headroom);
-                if (!new_skb)
-                        goto error;
-                if (skb->sk)
-                        skb_set_owner_w(new_skb, skb->sk);
-                consume_skb(skb);
-                skb = new_skb;
-        }
-
-skb_set_owner_w sets sock_wfree.
-
-I'll figure out how to ensure that we're using an appropriate destructor here.
-
-Appreciate the patience!
-
--- 
-Alex Gartrell <agartrell@fb.com>
+> diff --git a/init/Kconfig b/init/Kconfig
+> index dc24dec..fab8c41 100644
+> --- a/init/Kconfig
+> +++ b/init/Kconfig
+> @@ -1212,6 +1212,15 @@ config NET_NS
+>   	  Allow user space to create what appear to be multiple instances
+>   	  of the network stack.
+>   
+> +config NET_NS_INHERIT_ORIGINAL
+> +	bool "New network namespace inherits from original net config"
+> +	depends on NET_NS
+> +	default n
+> +	help
+> +	  Allow new network namespace inherit from original net config.
+> +	  If no, the new network namespace inherits from the current net
+> +	  config including the modified net config.
+> +
+>   endif # NAMESPACES
+>   
+>   config SCHED_AUTOGROUP
+> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> index 419d23c..cf635e4 100644
+> --- a/net/ipv4/devinet.c
+> +++ b/net/ipv4/devinet.c
+> @@ -2271,6 +2271,7 @@ static __net_init int devinet_init_net(struct net *net)
+>   #endif
+>   
+>   	err = -ENOMEM;
+> +#ifndef CONFIG_NET_NS_INHERIT_ORIGINAL
+>   	all = &ipv4_devconf;
+>   	dflt = &ipv4_devconf_dflt;
+>   
+> @@ -2282,6 +2283,15 @@ static __net_init int devinet_init_net(struct net *net)
+>   		dflt = kmemdup(dflt, sizeof(ipv4_devconf_dflt), GFP_KERNEL);
+>   		if (!dflt)
+>   			goto err_alloc_dflt;
+> +#else
+> +	all = kmemdup(&ipv4_devconf, sizeof(ipv4_devconf), GFP_KERNEL);
+> +	if (!all)
+> +		goto err_alloc_all;
+> +
+> +	dflt = kmemdup(&ipv4_devconf_dflt, sizeof(ipv4_devconf_dflt), GFP_KERNEL);
+> +	if (!dflt)
+> +		goto err_alloc_dflt;
+> +#endif
+>   
+>   #ifdef CONFIG_SYSCTL
+>   		tbl = kmemdup(tbl, sizeof(ctl_forward_entry), GFP_KERNEL);
+> @@ -2292,7 +2302,10 @@ static __net_init int devinet_init_net(struct net *net)
+>   		tbl[0].extra1 = all;
+>   		tbl[0].extra2 = net;
+>   #endif
+> +
+> +#ifndef CONFIG_NET_NS_INHERIT_ORIGINAL
+>   	}
+> +#endif
+>   
+>   #ifdef CONFIG_SYSCTL
+>   	err = __devinet_sysctl_register(net, "all", all);
