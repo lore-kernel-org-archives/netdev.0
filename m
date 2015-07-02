@@ -1,37 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rionet: Don't try to corrupt skbuff assigning data
- pointer directly
-Date: Thu, 02 Jul 2015 12:12:04 -0700 (PDT)
-Message-ID: <20150702.121204.1674202660204278751.davem@davemloft.net>
-References: <5593E497.40804@nokia.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: bluetooth 2015-07-02
+Date: Thu, 02 Jul 2015 12:18:21 -0700 (PDT)
+Message-ID: <20150702.121821.1272949529563088472.davem@davemloft.net>
+References: <20150702073038.GA25214@t440s.lan>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mporter@kernel.crashing.org,
-	alexandre.bounine@idt.com, frank.kunz@nokia.com,
-	marek.krzyzowski@nokia.com
-To: alexander.sverdlin@nokia.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41161 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754126AbbGBTMG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 15:12:06 -0400
-In-Reply-To: <5593E497.40804@nokia.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150702073038.GA25214-ypHiNAJIRA7/PtFMR13I2A@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Sverdlin <alexander.sverdlin@nokia.com>
-Date: Wed, 1 Jul 2015 15:01:11 +0200
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 2 Jul 2015 10:30:38 +0300
 
-> It's not allowed to assign data pointer of skbuff directly, this makes no sense
-> if the assigned pointer is the very same as already existing one, or it brakes
-> all the pointer arithmetics in all other cases. We cannot do better as just
-> compare them and report BUG() in case of mismatch.
+> A couple of regressions crept in because of a patch to use proper list
+> APIs rather than manually reading & writing the next/prev pointers
+> (commit 835a6a2f8603237a3e6cded5a6765090ecb06ea5). Turns out this was
+> masking a few bugs: a missing INIT_LIST_HEAD() call and incorrectly
+> using list_del() rather than list_del_init(). The two patches in this
+> set fix these, and it'd be nice they could still make it to 4.2-rc1 to
+> avoid new bug reports from users.
 > 
-> Signed-off-by: Alexander Sverdlin <alexander.sverdlin@nokia.com>
+> Please let me know if there are any issues pulling. Thanks.
 
-BUG takes the entire machine out, which is worse than corrupting the
-skb->data
-
-If you really want to assert this condition, do it in a way that
-doesn't kill the entire machine.
+Pulled, thanks Johan.
