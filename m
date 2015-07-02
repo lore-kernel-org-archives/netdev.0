@@ -1,65 +1,108 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: Bpqether broken in 4.1
-Date: Thu, 2 Jul 2015 23:55:54 +0200
-Message-ID: <20150702215553.GB20390@linux-mips.org>
-References: <20150702183836.GA20390@linux-mips.org>
- <873816e0hg.fsf@x220.int.ebiederm.org>
+From: "Lendacky, Thomas" <Thomas.Lendacky@amd.com>
+Subject: RE: amd-xgbe e0700000.xgmac: DMA-API: device driver tries to sync
+ DMA memory it has not allocated
+Date: Thu, 2 Jul 2015 22:09:08 +0000
+Message-ID: <986457BC66A4884EBFFDEFEBEB20F84C25DEA71F@satlexdag03.amd.com>
+References: <20150702140228.4f5810f07ca869fc54457b9f@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-	Steven Whitehouse <swhiteho@redhat.com>,
-	Richard Stearn <richard@rns-stearn.demon.co.uk>,
-	f6bvp <f6bvp@free.fr>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-hams-owner@vger.kernel.org>
-Received: from localhost.localdomain ([127.0.0.1]:41824 "EHLO linux-mips.org"
-        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
-        id S27012810AbbGBV4ALbNh8 (ORCPT <rfc822;netdev@vger.kernel.org>
-        + 1 other); Thu, 2 Jul 2015 23:56:00 +0200
-Content-Disposition: inline
-In-Reply-To: <873816e0hg.fsf@x220.int.ebiederm.org>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Kim Phillips <kim.phillips@arm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0117.outbound.protection.outlook.com ([65.55.169.117]:57190
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753511AbbGBWXv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 18:23:51 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 02, 2015 at 04:03:07PM -0500, Eric W. Biederman wrote:
+Hi Kim,
 
-> > Eric's Commit 1d5da757da860a6916adbf68b09e868062b4b3b8 (ax25: Stop using
-> > magic neighbour cache operations.) breaks IP traffic over the AX.25 bpqether
-> > driver.
-> 
-> Sigh.  NETIF_F_LLTX is not set so recursion does not work :(
-> 
-> So we can either set NETIF_F_LLTX or just rever the offending commit.
+Actually I took a closer look at the DMA debug code and it's an 8k boundary that is crossed.  I've been able to reproduce the issue so I'll see if my fix takes care of it.
 
-The AX.25 stack has a sufficient number of hacks that attempts to fix
-any hack is likely to cause issues somewhere else and the header and
-neighbour stuff is the worst minefield.  I'm happy that your patch at
-least concentrates all those hacks in the AX.25 stack itself removing
-the impact from the generic networking code.
+Thanks,
+Tom
 
-> I think either will work.  ax25 is so very weird it just abuses the
-> neighbour table something awful.  It ax25 is not caching ip address to
-> ax25 address translations in there, ax25 should really not be using the
-> neighbour table.  Sigh.
-> 
-> So perhaps something like the below will be good enough.
-> 
-> diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
-> index 63ff08a26da8..fc2be36c9425 100644
-> --- a/drivers/net/hamradio/bpqether.c
-> +++ b/drivers/net/hamradio/bpqether.c
-> @@ -483,6 +483,7 @@ static void bpq_setup(struct net_device *dev)
->         memcpy(dev->dev_addr,  &ax25_defaddr, AX25_ADDR_LEN);
->  
->         dev->flags      = 0;
-> +       dev->features   = NETIF_F_LLTX; /* Allow recursion */
->  
->  #if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
->         dev->header_ops      = &ax25_header_ops;
+-----Original Message-----
+From: Lendacky, Thomas 
+Sent: Thursday, July 02, 2015 3:40 PM
+To: 'Kim Phillips'
+Cc: netdev@vger.kernel.org
+Subject: RE: amd-xgbe e0700000.xgmac: DMA-API: device driver tries to sync DMA memory it has not allocated
 
-Thanks, that restored bpqether to work.  I will cook up a patch to fix
-all other AX.25 drivers.
+Hi Kim,
 
-Thanks!
+Yup, no problem.  I think I know what the issue is.  I should be using dma_sync_single_range_for_cpu instead of dma_sync_single_for_cpu.  The page allocations that the driver is doing have crossed a 1MB boundary causing the warning because I'm using a calculated DMA address rather than the base DMA address + an offset.
 
-  Ralf
+I'll try to reproduce it so I can verify, but I believe that is the issue.
+
+Is there any information on what was being run to trigger this?
+
+Thanks,
+Tom
+
+-----Original Message-----
+From: Kim Phillips [mailto:kim.phillips@arm.com] 
+Sent: Thursday, July 02, 2015 2:02 PM
+To: Lendacky, Thomas
+Cc: netdev@vger.kernel.org
+Subject: amd-xgbe e0700000.xgmac: DMA-API: device driver tries to sync DMA memory it has not allocated
+
+Hi Tom,
+
+A pristine 4.1 kernel with CONFIG_DMA_API_DEBUG=y produces this call
+trace on an AMD Seattle:
+
+[  112.896576] ------------[ cut here ]------------
+[  112.896591] WARNING: CPU: 2 PID: 1059 at lib/dma-debug.c:1202 check_sync+0x138/0x56c()
+[  112.896597] amd-xgbe e0700000.xgmac: DMA-API: device driver tries to sync DMA memory it has not allocated [device address=0x0000008003d52000] [size=1536 bytes]
+[  112.896600] Modules linked in: cpufreq_stats vfat fat xfs libcrc32c spi_pl022 aes_ce_blk ablk_helper cryptd aes_ce_cipher ghash_ce sha2_ce sha1_ce uio_pdrv_genirq uio fuse
+[  112.896634] CPU: 2 PID: 1059 Comm: sshd Tainted: G        W       4.1.0 #10
+[  112.896638] Hardware name: Default string Default string/Default string, BIOS ROD0082B 06/16/2015
+[  112.896641] Call trace:
+[  112.899086] [<fffffe0000097b20>] dump_backtrace+0x0/0x170
+[  112.899091] [<fffffe0000097cb0>] show_stack+0x20/0x2c
+[  112.899097] [<fffffe0000813da0>] dump_stack+0x8c/0xc4
+[  112.899102] [<fffffe00000c45bc>] warn_slowpath_common+0xa0/0xd8
+[  112.899106] [<fffffe00000c4668>] warn_slowpath_fmt+0x74/0x88
+[  112.899109] [<fffffe0000486f24>] check_sync+0x134/0x56c
+[  112.899113] [<fffffe00004873ac>] debug_dma_sync_single_for_cpu+0x50/0x5c
+[  112.899119] [<fffffe00005b07fc>] xgbe_rx_poll+0x1e0/0x6c0
+[  112.899123] [<fffffe00005b1cdc>] xgbe_one_poll+0x34/0x6c
+[  112.899128] [<fffffe00006a510c>] net_rx_action+0x270/0x504
+[  112.899133] [<fffffe00000c9ba0>] __do_softirq+0x120/0x60c
+[  112.899136] [<fffffe00000ca3fc>] irq_exit+0xa4/0xe4
+[  112.899143] [<fffffe000012d2f8>] __handle_domain_irq+0x74/0xc4
+[  112.899146] [<fffffe00000903ec>] gic_handle_irq+0x38/0x84
+[  112.899150] Exception stack(0xfffffe03de09bbf0 to 0xfffffe03de09bd10)
+[  112.899154] bbe0:                                     1ee64b30 fffffe00 002111e8 fffffe00
+[  112.899158] bc00: de09bd30 fffffe03 0081a668 fffffe00 dd54fa00 fffffe03 de09bcb0 fffffe03
+[  112.899162] bc20: 00000001 ffffffff 00000001 00000000 00000000 00000000 00000000 00000000
+[  112.899166] bc40: 00000000 00000000 002111e8 fffffe00 00000000 00000000 de098000 fffffe03
+[  112.899170] bc60: de09bc10 fffffe03 1d456228 00000000 00000076 00000000 00000008 00000000
+[  112.899174] bc80: 10000000 00077d2a 00000000 001dcd65 00213e98 fffffe00 96ea8f60 000003ff
+[  112.899178] bca0: 65b9a2e2 00000000 1ee64b30 fffffe00 002111e8 fffffe00 1ee64ba0 fffffe00
+[  112.899181] bcc0: 00000041 00000000 1ee10b80 fffffe00 025c58c8 fffffe00 00000003 00000000
+[  112.899185] bce0: 027b6c48 fffffe00 00100077 00000000 02ab0b4b 00000000 de09bd30 fffffe03
+[  112.899188] bd00: 0081a660 fffffe00 de09bd30 fffffe03
+[  112.899192] [<fffffe00000934e8>] el1_irq+0x68/0x100
+[  112.899198] [<fffffe00002111e4>] validate_mm+0x44/0x2d4
+[  112.899203] [<fffffe0000211edc>] vma_link+0x98/0xe0
+[  112.899206] [<fffffe0000213e70>] do_brk+0x2ec/0x314
+[  112.899209] [<fffffe0000213fd4>] SyS_brk+0x13c/0x170
+[  112.899212] ---[ end trace cbf36648db00d232 ]---
+
+Can you look into it?
+
+Thanks,
+
+Kim
+
+
+-- IMPORTANT NOTICE: The contents of this email and any attachments are confidential and may also be privileged. If you are not the intended recipient, please notify the sender immediately and do not disclose the contents to any other person, use it for any purpose, or store or copy the information in any medium.  Thank you.
+
+ARM Limited, Registered office 110 Fulbourn Road, Cambridge CB1 9NJ, Registered in England & Wales, Company No:  2557590
+ARM Holdings plc, Registered office 110 Fulbourn Road, Cambridge CB1 9NJ, Registered in England & Wales, Company No:  2548782
