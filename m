@@ -1,165 +1,49 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH v2 v4.2-rc1] printk: make extended printk support conditional
- on netconsole
-Date: Thu, 2 Jul 2015 12:21:41 -0400
-Message-ID: <20150702162141.GC30677@mtj.duckdns.org>
-References: <1430318704-32374-1-git-send-email-tj@kernel.org>
- <1430318704-32374-4-git-send-email-tj@kernel.org>
- <CAMuHMdWwH-3kx1ma5KE=fP94by8boxM_QYqPKpU=YJw8t3hYeg@mail.gmail.com>
- <20150629152805.GM15805@mtj.duckdns.org>
- <CAMuHMdXTn0+z4PV9UVZZmpMdk_-JUc4x-GqZweOhQyYMTzSOGQ@mail.gmail.com>
- <20150629154914.GQ15805@mtj.duckdns.org>
- <CAMuHMdX-cA3RccXF2kBifMEyT8e14rURp9Li_WFm7ODBOti=QQ@mail.gmail.com>
- <20150629161355.GS15805@mtj.duckdns.org>
- <20150629233140.GA7711@mtj.duckdns.org>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH] rtnetlink: Actually use the policy for the IFLA_VF_INFO
+Date: Thu, 2 Jul 2015 10:23:00 -0600
+Message-ID: <20150702162300.GA4642@obsidianresearch.com>
+References: <20150630225255.GA22529@obsidianresearch.com>
+ <5593B48F.2060403@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: pmladek@suse.cz, "David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Kay Sievers <kay@vrfy.org>,
-	Josh Triplett <josh@joshtriplett.org>,
-	Linux Embedded <linux-embedded@vger.kernel.org>,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Jiri Pirko <jiri@resnulli.us>, Thomas Graf <tgraf@suug.ch>,
+	"David S. Miller" <davem@davemloft.net>,
+	Chris Wright <chrisw@sous-sol.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f172.google.com ([209.85.160.172]:34496 "EHLO
-	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753660AbbGBQVp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 12:21:45 -0400
+Received: from quartz.orcorp.ca ([184.70.90.242]:56111 "EHLO quartz.orcorp.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753125AbbGBQXM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jul 2015 12:23:12 -0400
 Content-Disposition: inline
-In-Reply-To: <20150629233140.GA7711@mtj.duckdns.org>
+In-Reply-To: <5593B48F.2060403@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-6fe29354befe ("printk: implement support for extended console
-drivers") implemented extended printk support for extended netconsole.
-The code added was miniscule but it added static 8k buffer
-unconditionally unnecessarily bloating the kernel for cases where
-extended netconsole is not used.
+On Wed, Jul 01, 2015 at 11:36:15AM +0200, Daniel Borkmann wrote:
+> Hi Jason,
+> 
+> On 07/01/2015 12:52 AM, Jason Gunthorpe wrote:
+> >It turns out the policy was defined but never actually checked,
+> >so lets check it.
+> >
+> >Fixes: ebc08a6f47ee ("rtnetlink: Add VF config code to rtnetlink")
+> 
+> I would argue that the actual commit would be ...
+> 
+> Fixes: c02db8c6290b ("rtnetlink: make SR-IOV VF interface symmetric")
 
-This patch introduces CONFIG_PRINTK_CON_EXTENDED which is selected by
-CONFIG_NETCONSOLE.  If the config option is not set, extended printk
-support is compiled out along with the static buffer.
+Yes, agree
 
-Verified 8k reduction in vmlinux bss when !CONFIG_NETCONSOLE.
+> So, commit c02db8c6290b moved it into a nested attribute (IFLA_VF_INFO)
+> where we indeed don't do further validation. Imho, we should pass the
+> parsed attribute table from nla_parse_nested() down into do_setvfinfo(),
+> something like the below; I can give it a test run on my ixgbe.
 
-v2: Added a warning for cases where CON_EXTENDED is requested while
-    CONFIG_PRINTK_CON_EXTENDED is disabled as suggested by Petr.
+Yes, that is saner overall
 
-Cc: Petr Mladek <pmladek@suse.com>
-Signed-off-by: Tejun Heo <tj@kernel.org>
-Reported-and-suggested-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- drivers/net/Kconfig    |    1 +
- init/Kconfig           |    3 +++
- kernel/printk/printk.c |   40 ++++++++++++++++++++++++++++++++++++----
- 3 files changed, 40 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 019fcef..39587f1 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -195,6 +195,7 @@ config GENEVE
- 
- config NETCONSOLE
- 	tristate "Network console logging support"
-+	select PRINTK_CON_EXTENDED
- 	---help---
- 	If you want to log kernel messages over the network, enable this.
- 	See <file:Documentation/networking/netconsole.txt> for details.
-diff --git a/init/Kconfig b/init/Kconfig
-index bcc41bd..cd281ab 100644
---- a/init/Kconfig
-+++ b/init/Kconfig
-@@ -1438,6 +1438,9 @@ config PRINTK
- 	  very difficult to diagnose system problems, saying N here is
- 	  strongly discouraged.
- 
-+config PRINTK_CON_EXTENDED
-+	bool
-+
- config BUG
- 	bool "BUG() support" if EXPERT
- 	default y
-diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index cf8c242..f719118 100644
---- a/kernel/printk/printk.c
-+++ b/kernel/printk/printk.c
-@@ -84,6 +84,10 @@ static struct lockdep_map console_lock_dep_map = {
- };
- #endif
- 
-+#ifdef CONFIG_PRINTK_CON_EXTENDED
-+
-+#define CONSOLE_EXT_LOG_BUF_LEN		CONSOLE_EXT_LOG_MAX
-+
- /*
-  * Number of registered extended console drivers.
-  *
-@@ -96,6 +100,32 @@ static struct lockdep_map console_lock_dep_map = {
-  */
- static int nr_ext_console_drivers;
- 
-+static void inc_nr_ext_console_drivers(void)
-+{
-+	nr_ext_console_drivers++;
-+}
-+
-+static void dec_nr_ext_console_drivers(void)
-+{
-+	nr_ext_console_drivers--;
-+}
-+
-+#else	/* CONFIG_PRINTK_CON_EXTENDED */
-+
-+#define CONSOLE_EXT_LOG_BUF_LEN		0
-+#define nr_ext_console_drivers		0
-+
-+static void inc_nr_ext_console_drivers(void)
-+{
-+	WARN_ONCE(true, "printk: CON_EXTENDED requested when !CONFIG_PRINTK_CON_EXTENDED\n");
-+}
-+
-+static void dec_nr_ext_console_drivers(void)
-+{
-+}
-+
-+#endif	/* CONFIG_PRINTK_CON_EXTENDED */
-+
- /*
-  * Helper macros to handle lockdep when locking/unlocking console_sem. We use
-  * macros instead of functions so that _RET_IP_ contains useful information.
-@@ -2224,7 +2254,7 @@ static void console_cont_flush(char *text, size_t size)
-  */
- void console_unlock(void)
- {
--	static char ext_text[CONSOLE_EXT_LOG_MAX];
-+	static char ext_text[CONSOLE_EXT_LOG_BUF_LEN];
- 	static char text[LOG_LINE_MAX + PREFIX_MAX];
- 	static u64 seen_seq;
- 	unsigned long flags;
-@@ -2561,9 +2591,11 @@ void register_console(struct console *newcon)
- 		console_drivers->next = newcon;
- 	}
- 
--	if (newcon->flags & CON_EXTENDED)
--		if (!nr_ext_console_drivers++)
-+	if (newcon->flags & CON_EXTENDED) {
-+		if (!nr_ext_console_drivers)
- 			pr_info("printk: continuation disabled due to ext consoles, expect more fragments in /dev/kmsg\n");
-+		inc_nr_ext_console_drivers();
-+	}
- 
- 	if (newcon->flags & CON_PRINTBUFFER) {
- 		/*
-@@ -2638,7 +2670,7 @@ int unregister_console(struct console *console)
- 	}
- 
- 	if (!res && (console->flags & CON_EXTENDED))
--		nr_ext_console_drivers--;
-+		dec_nr_ext_console_drivers();
- 
- 	/*
- 	 * If this isn't the last console and it has CON_CONSDEV set, we
+Jason
