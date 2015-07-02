@@ -1,55 +1,80 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] net-ipvs: Delete an unnecessary check before the function
- call "module_put"
-Date: Thu, 02 Jul 2015 17:10:41 +0200
-Message-ID: <55955471.9000501@users.sourceforge.net>
-References: <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.sourceforge.net> <546BA253.6030100@users.sourceforge.net> <20141119134040.GA12270@salvia>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next 1/6] net: sched: extend percpu stats helpers
+Date: Thu, 02 Jul 2015 08:19:45 -0700
+Message-ID: <55955691.9070609@gmail.com>
+References: <1435842455-30501-1-git-send-email-edumazet@google.com> <1435842455-30501-2-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: "David S. Miller" <davem@davemloft.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Julian Anastasov <ja@ssi.bg>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Simon Horman <horms@verge.net.au>,
-	Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20141119134040.GA12270@salvia>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Eric Dumazet <edumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:36725 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753127AbbGBPTu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2015 11:19:50 -0400
+Received: by obdbs4 with SMTP id bs4so51791297obd.3
+        for <netdev@vger.kernel.org>; Thu, 02 Jul 2015 08:19:49 -0700 (PDT)
+In-Reply-To: <1435842455-30501-2-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Thu, 2 Jul 2015 17:00:14 +0200
+On 15-07-02 06:07 AM, Eric Dumazet wrote:
+> qdisc_bstats_update_cpu() and other helpers were added to support
+> percpu stats for qdisc.
+> 
+> We want to add percpu stats for tc action, so this patch add common
+> helpers.
+> 
+> qdisc_bstats_update_cpu() is renamed to qdisc_bstats_cpu_update()
+> qdisc_qstats_drop_cpu() is renamed to qdisc_qstats_cpu_drop()
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: John Fastabend <john.fastabend@gmail.com>
+> ---
 
-The module_put() function tests whether its argument is NULL and then
-returns immediately. Thus the test around the call is not needed.
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
 
-This issue was detected by using the Coccinelle software.
+stupid nit below,
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- net/netfilter/ipvs/ip_vs_sched.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+>  include/net/sch_generic.h | 27 +++++++++++++++++----------
+>  net/core/dev.c            |  4 ++--
+>  2 files changed, 19 insertions(+), 12 deletions(-)
+> 
+> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+> index 2738f6f87908..0cd49b21b211 100644
+> --- a/include/net/sch_generic.h
+> +++ b/include/net/sch_generic.h
+> @@ -513,17 +513,21 @@ static inline void bstats_update(struct gnet_stats_basic_packed *bstats,
+>  	bstats->packets += skb_is_gso(skb) ? skb_shinfo(skb)->gso_segs : 1;
+>  }
+>  
+> -static inline void qdisc_bstats_update_cpu(struct Qdisc *sch,
+> -					   const struct sk_buff *skb)
+> +static inline void bstats_cpu_update(struct gnet_stats_basic_cpu *bstats,
+> +				     const struct sk_buff *skb)
+>  {
+> -	struct gnet_stats_basic_cpu *bstats =
+> -				this_cpu_ptr(sch->cpu_bstats);
+> -
+>  	u64_stats_update_begin(&bstats->syncp);
+>  	bstats_update(&bstats->bstats, skb);
+>  	u64_stats_update_end(&bstats->syncp);
+>  }
+>  
+> +static inline void qdisc_bstats_cpu_update(struct Qdisc *sch,
+> +					   const struct sk_buff *skb)
+> +{
+> +	bstats_cpu_update(this_cpu_ptr(sch->cpu_bstats), skb);
+> +
 
-diff --git a/net/netfilter/ipvs/ip_vs_sched.c b/net/netfilter/ipvs/ip_vs_sched.c
-index 199760c..e50221b 100644
---- a/net/netfilter/ipvs/ip_vs_sched.c
-+++ b/net/netfilter/ipvs/ip_vs_sched.c
-@@ -137,7 +137,7 @@ struct ip_vs_scheduler *ip_vs_scheduler_get(const char *sched_name)
- 
- void ip_vs_scheduler_put(struct ip_vs_scheduler *scheduler)
- {
--	if (scheduler && scheduler->module)
-+	if (scheduler)
- 		module_put(scheduler->module);
- }
- 
--- 
-2.4.5
+spurious new line.
 
+> +}
+> +
