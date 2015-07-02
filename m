@@ -1,76 +1,58 @@
-From: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>
-Subject: RE: macb: zynq: why is SG disabled?
-Date: Thu, 2 Jul 2015 02:33:14 +0000
-Message-ID: <03CA77BA8AF6F1469AEDFBDA1322A7B7495B9EE3@XAP-PVEXMBX02.xlnx.xilinx.com>
-References: <559403E3.3050900@certsign.ro> <55941D80.2090904@atmel.com>
+From: "pengyi Peng(Yi)" <pengyi.pengyi@huawei.com>
+Subject: Issue with active-backup mode bond and bridge
+Date: Thu, 2 Jul 2015 03:04:35 +0000
+Message-ID: <572BE4EE0DE0E74EAE41F3932BDE6AB83917952B@SZXEMA510-MBS.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Cyrille Pitchen <cyrille.pitchen@atmel.com>, Nicolae Rosia
- <nicolae.rosia@certsign.ro>, Michal Simek <michals@xilinx.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Nicolas Ferre
- <nicolas.ferre@atmel.com>, "linux-arm-kernel@lists.infradead.org"
- <linux-arm-kernel@lists.infradead.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <55941D80.2090904@atmel.com>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Lichunhe <lichunhe@huawei.com>,
+	"Zhangwei (FF)" <zw.zhang@huawei.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:33335 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750857AbbGBDEt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2015 23:04:49 -0400
+Content-Language: zh-CN
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Nicolae and Cyrille,
-
-   SG feature was not tested for Zynq using macb driver but tested it using=
- the
- emacps Driver in Xilinx tree (this driver is deprecated recently)
-
-We will test and enable this feature in driver for Zynq.
-
-Regards,
-Punnaiah
-
-> -----Original Message-----
-> From: Cyrille Pitchen [mailto:cyrille.pitchen@atmel.com]
-> Sent: Wednesday, July 01, 2015 10:34 PM
-> To: Nicolae Rosia; Michal Simek; Punnaiah Choudary Kalluri;
-> netdev@vger.kernel.org; Nicolas Ferre; linux-arm-kernel@lists.infradead.o=
-rg
-> Subject: Re: macb: zynq: why is SG disabled?
-> =
-
-> Le 01/07/2015 17:14, Nicolae Rosia a =E9crit :
-> > Hello,
-> >
-> > After reading the GEM part of Zynq7000 Technical Reference Manual [0], I
-> think that SG should be supported.
-> > Is there a reason why SG is disabled in macb for Zynq?
-> >
-> > Best regards,
-> > Nicolae Rosia
-> =
-
-> Hi Nicolae,
-> =
-
-> when the scatter-gather patch was introduced, the feature was enabled only
-> on tested boards to avoid regressions on other boards.
-> So SG is enabled on sama5d4x and sama5d2x SoCs. SG is disabled on purpose
-> on sama5d3x.
-> =
-
-> For Zynq, I think the feature is still disabled just because it has never=
- been
-> tested.
-> =
-
-> Best regards,
-> =
-
-> Cyrille
+SSBmaW5kIHRoYXQga2VybmVsIHNlZW1zIHRvIGJlIG5vdCB3ZWxsIGhhbmRsZWQgd2l0aCB0aGUg
+Y29tYmluYXRpb24gb2YgYm9uZGluZyBhbmQgYnJpZGdlIG1vZHVsZS4gSSBoYXZlIGEgcGh5c2lj
+YWwgaG9zdCB3aXRoIHR3byBuaWNzIHRoYXQgYXJlIGJvbmRlZCB0b2dldGhlciAoYWN0aXZlIGJh
+Y2t1cCBtb2RlKS4gIEVhY2ggbmljIGlzIGNvbm5lY3RlZCB0byBhIHNlcGFyYXRlIEwyIHN3aXRj
+aC4gQW5kIHRoZSB0d28gTDIgc3dpdGNocyBhcmUgY29ubmVjdGVkIHRvIGEgTDMgc3dpdGNoLg0K
+DQpJZiB0aGUgaG9zdCBvbmx5IGhhcyB0aGUgYm9uZCBkZXZpY2UsIHdoZW4gSSBtYW51YWxseSBt
+YWtlIHRoZSBhY3RpdmUgc2xhdmUgZG93biwgYm9uZGluZyB3aWxsIGlzc3VlIG9uZSBvciBtb3Jl
+IGdyYXR1aXRvdXMgQVJQcyBvbiB0aGUgbmV3bHkgYWN0aXZlIHNsYXZlLiBPbmUgZ3JhdHVpdG91
+cyBBUlAgaXMgaXNzdWVkIGZvciB0aGUgYm9uZGluZyBtYXN0ZXIgaW50ZXJmYWNlLCBwcm92aWRl
+ZCB0aGF0IHRoZSBpbnRlcmZhY2UgaGFzIGF0IGxlYXN0IG9uZSBJUCBhZGRyZXNzIGNvbmZpZ3Vy
+ZWQuIA0KDQpIb3dldmVyLCBpZiB0aGVyZSBpcyBhIGJyaWRnZSBuYW1lZCBicjAgYW5kIHRoZSBi
+b25kIGRldmljZSBqb2lucyBpbiB0aGUgYnJpZGdlIGJyMCwgdGhlIElQIGFkZHJlc3Mgb2YgdGhl
+IGJvbmQgbW92ZXMgdG8gdGhlIGJyMCBkZXZpY2UuIEZpcnN0LCBJIG1ha2UgdHdvIG5pY3MgdXAu
+IEJ1dCB0aGlzIHRpbWUsIHdoZW4gSSBhZ2FpbiBtYWtlIHRoZSBhY3RpdmUgc2xhdmUgZG93biwg
+SSBjYW4ndCBjYXB0dXJlIHRoZSBncmF0dWl0b3VzIEFSUCBpbiB0aGUgYm9uZCBkZXZpY2Ugd2l0
+aCB0Y3BkdW1wLiBBbmQgdGhpcyBjYW4gcmVzdWx0IGluIHRoZSBiYWQgY29ubmVjdCB0byB0aGUg
+aG9zdCwgYmVjYXVzZSB3aXRoIG5vIEFSUCBwYWNrZXQgc2VuZGVkIG91dCBvZiB0aGUgaG9zdCwg
+dGhlIEwzIHN3aXRjaCBtYXkgc3RpbGwgc2VuZCB0aGUgcGFja2V0cyBmcm9tIG91dHNpZGUgdG8g
+dGhlIG9sZCBMMiBzd2l0Y2ggd2hpY2ggY29ubmVjdCB0byB0aGUgbmV3IGJhY2t1cCBuaWMuIFRo
+ZXNlIHBhY2tldHMgY2FuJ3QgZ2V0IGFueSByZXNwb25zZXMuDQoNCkkgcmVhZCB0aGUga2VybmVs
+IGNvZGUuIA0KV2hlbiBjaGFuZ2UgdGhlIGFjdGl2ZSBzbGF2ZSBpbnRvIHRoZSBzcGVjaWZpZWQg
+b25lLCBpbiBib25kX2NoYW5nZV9hY3RpdmVfc2xhdmUgZnVuY3Rpb24sIGJvbmQgd2lsbCBzZW5k
+IHRoZSBORVRERVZfTk9USUZZX1BFRVJTIGV2ZW50Og0KCQkJbmV0ZGV2X2JvbmRpbmdfY2hhbmdl
+KGJvbmQtPmRldiwgTkVUREVWX0JPTkRJTkdfRkFJTE9WRVIpOw0KCQkJaWYgKHNob3VsZF9ub3Rp
+ZnlfcGVlcnMpDQoJCQkJbmV0ZGV2X2JvbmRpbmdfY2hhbmdlKGJvbmQtPmRldiwNCgkJCQkJCSAg
+ICAgIE5FVERFVl9OT1RJRllfUEVFUlMpOw0KCQkJCQkJCSAgCQkJCQkJCSAgDQpBbmQgaW4gaW5l
+dGRldl9ldmVudCBmdW5jdGlvbiwgaWYgZXZlbnQgaXMgTkVUREVWX05PVElGWV9QRUVSUywgaXQg
+d2lsbCBjYWxsIGluZXRkZXZfc2VuZF9ncmF0dWl0b3VzX2FycCB0byBzZW5kIGdyYXR1aXRvdXMg
+QVJQLg0KCWNhc2UgTkVUREVWX05PVElGWV9QRUVSUzoNCgkJLyogU2VuZCBncmF0dWl0b3VzIEFS
+UCB0byBub3RpZnkgb2YgbGluayBjaGFuZ2UgKi8NCgkJaW5ldGRldl9zZW5kX2dyYXR1aXRvdXNf
+YXJwKGRldiwgaW5fZGV2KTsNCgkJYnJlYWs7DQoNCkJ1dCB3aGVuIHRoZSBib25kIGlzIGluIHRo
+ZSBicmlkZ2UsIHRoZSBjb2RlIHdvbid0IGNoYW5nZSB0aGUgZGV2IHRvIHRoZSBicmlkZ2UgZGV2
+aWNlLCBhbmQgdGhlcmUgaXMgbm8gSVAgYWRkcmVzcyBpbiBib25kIGRldmljZSwgc28gdGhlcmUg
+aXMgbm8gZ3JhdHVpdG91cyBBUlAuDQoJCQ0KTXkgcXVlc3Rpb24gaXMsIHdoeSB0aGUgbGF0ZXN0
+IGtlcm5lbCg0LjEpIHN0aWxsIGRvZXMgbm90IGNvbnNpZGVyIHRoaXMgY29uZGl0b2luID8NCg0K
+DQotLQ0KVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vi
+c2NyaWJlIG5ldGRldiIgaW4NCnRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9AeHh4
+eHh4eHh4eHh4eHh4DQpNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwu
+b3JnL21ham9yZG9tby1pbmZvLmh0bWwNCg==
