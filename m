@@ -1,44 +1,60 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 6/6] net_sched: act: remove spinlock in fast
- path
-Date: Fri, 03 Jul 2015 07:25:43 -0400
-Message-ID: <55967137.7080806@mojatatu.com>
-References: <1435842455-30501-1-git-send-email-edumazet@google.com>	 <1435842455-30501-7-git-send-email-edumazet@google.com>	 <5595684D.90500@gmail.com> <1435870750.11970.37.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH net-next] hv_netvsc: Add support to set MTU reservation
+ from guest side
+Date: Fri, 3 Jul 2015 14:28:47 +0300
+Message-ID: <20150703112847.GA28762@mwanda>
+References: <1435868255-10865-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Eric Dumazet <edumazet@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:35665 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755202AbbGCLZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2015 07:25:46 -0400
-Received: by igblr2 with SMTP id lr2so138659827igb.0
-        for <netdev@vger.kernel.org>; Fri, 03 Jul 2015 04:25:45 -0700 (PDT)
-In-Reply-To: <1435870750.11970.37.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+ davem@davemloft.net
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <1435868255-10865-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On 07/02/15 16:59, Eric Dumazet wrote:
-> On Thu, 2015-07-02 at 09:35 -0700, John Fastabend wrote:
+On Thu, Jul 02, 2015 at 01:17:35PM -0700, Haiyang Zhang wrote:
+> When packet encapsulation is in use, the MTU needs to be reduced for
+> headroom reservation.
+> The existing code takes the updated MTU value only from the host side.
+> But vSwitch extensions, such as Open vSwitch, require the flexibility
+> to change the MTU to different values from within a guest during the
+> lifecycle of a vNIC, when the encapsulation protocol is changed. The
+> patch supports this kind of MTU changes.
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> ---
+>  drivers/net/hyperv/netvsc_drv.c   |    3 +--
+>  drivers/net/hyperv/rndis_filter.c |    2 +-
+>  2 files changed, 2 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> index 358475e..68e7ece 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -743,8 +743,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+>  	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
+>  		limit = NETVSC_MTU - ETH_HLEN;
+>  
+> -	/* Hyper-V hosts don't support MTU < ETH_DATA_LEN (1500) */
+> -	if (mtu < ETH_DATA_LEN || mtu > limit)
+> +	if (mtu < 68 || mtu > limit)
 
->
-> Point is to not dirty cache line for every packet ?
->
-> Doing the test means we attempt dirtying only ~HZ times per second,
-> which really matters to handle millions of packets per second.
->
-> My tests show a good enough performance, not sure we want a percpu thing
-> for this lastuse field.
->
+How did you calculate 68?  Avoid magic numbers like this, make it a
+define.
 
-Does it harm to always set gact->tcf_tm.lastuse ?
-
-cheers,
-jamal
+regards,
+dan carpenter
