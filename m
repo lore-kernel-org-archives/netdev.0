@@ -1,56 +1,36 @@
-From: "Krzyzowski, Marek (Nokia - DE/Ulm)" <marek.krzyzowski@nokia.com>
-Subject: RE: [PATCH] rionet: Don't try to corrupt skbuff assigning data
- pointer directly
-Date: Fri, 3 Jul 2015 07:27:54 +0000
-Message-ID: <A387159A1F0BB64C9AADD03D616DB14C14E0E7A8@DEMUMBX009.nsn-intra.net>
-References: <5593E497.40804@nokia.com>
- <20150702.121204.1674202660204278751.davem@davemloft.net>
- <559638AB.9010707@nokia.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"mporter@kernel.crashing.org" <mporter@kernel.crashing.org>,
-	"alexandre.bounine@idt.com" <alexandre.bounine@idt.com>,
-	"Kunz, Frank (Nokia - DE/Ulm)" <frank.kunz@nokia.com>
-To: "Sverdlin, Alexander (Nokia - DE/Ulm)" <alexander.sverdlin@nokia.com>,
-	ext David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd001.nsn-inter.net ([93.183.12.32]:40979 "EHLO
-	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754586AbbGCH2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2015 03:28:30 -0400
-In-Reply-To: <559638AB.9010707@nokia.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Liang Li <liang.z.li@intel.com>
+Subject: [PATCH] xen-netback: remove duplicated function definition
+Date: Sat,  4 Jul 2015 03:33:00 +0800
+Message-ID: <1435951980-16265-1-git-send-email-liang.z.li@intel.com>
+Cc: ian.campbell@citrix.com, wei.liu2@citrix.com,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	Liang Li <liang.z.li@intel.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SGVsbG8sDQoNCg0KSSB3b3VsZCBwcmVmZXIgdG8gcmVwbGFjZSB0aGlzIGxpbmUgb2YgY29kZSB3
-aXRoIHJldHVybmluZyBvZiB2YWx1ZSwgd2hlcmUgYW55IG5vbi1uZWdhdGl2ZSB2YWx1ZSB3b3Vs
-ZCBpbmRpY2F0ZSBzdWNjZXNzLCB3aGVyZWFzIG5lZ2F0aXZlIHZhbHVlcyB3b3VsZCBpbmRpY2F0
-ZSBzb21lIGVycm9ycy4gSXQgd291bGQgbWVhbiwgb2YgY291cnNlLCBubyByZXR1cm5pbmcgb2Yg
-YW55IHBvaW50ZXJzLg0KDQpCUg0KTWFyZWsNCg0KLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0N
-CkZyb206IEFsZXhhbmRlciBTdmVyZGxpbiBbbWFpbHRvOmFsZXhhbmRlci5zdmVyZGxpbkBub2tp
-YS5jb21dIA0KU2VudDogRnJpZGF5LCBKdWx5IDAzLCAyMDE1IDk6MjQgQU0NClRvOiBleHQgRGF2
-aWQgTWlsbGVyDQpDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbXBvcnRlckBrZXJuZWwuY3Jh
-c2hpbmcub3JnOyBhbGV4YW5kcmUuYm91bmluZUBpZHQuY29tOyBLdW56LCBGcmFuayAoTm9raWEg
-LSBERS9VbG0pOyBLcnp5em93c2tpLCBNYXJlayAoTm9raWEgLSBERS9VbG0pDQpTdWJqZWN0OiBS
-ZTogW1BBVENIXSByaW9uZXQ6IERvbid0IHRyeSB0byBjb3JydXB0IHNrYnVmZiBhc3NpZ25pbmcg
-ZGF0YSBwb2ludGVyIGRpcmVjdGx5DQoNCkhpIERhdmlkLA0KDQpPbiAwMi8wNy8xNSAyMToxMiwg
-ZXh0IERhdmlkIE1pbGxlciB3cm90ZToNCj4+IEl0J3Mgbm90IGFsbG93ZWQgdG8gYXNzaWduIGRh
-dGEgcG9pbnRlciBvZiBza2J1ZmYgZGlyZWN0bHksIHRoaXMgbWFrZXMgbm8gc2Vuc2UNCj4+ID4g
-aWYgdGhlIGFzc2lnbmVkIHBvaW50ZXIgaXMgdGhlIHZlcnkgc2FtZSBhcyBhbHJlYWR5IGV4aXN0
-aW5nIG9uZSwgb3IgaXQgYnJha2VzDQo+PiA+IGFsbCB0aGUgcG9pbnRlciBhcml0aG1ldGljcyBp
-biBhbGwgb3RoZXIgY2FzZXMuIFdlIGNhbm5vdCBkbyBiZXR0ZXIgYXMganVzdA0KPj4gPiBjb21w
-YXJlIHRoZW0gYW5kIHJlcG9ydCBCVUcoKSBpbiBjYXNlIG9mIG1pc21hdGNoLg0KPj4gPiANCj4+
-ID4gU2lnbmVkLW9mZi1ieTogQWxleGFuZGVyIFN2ZXJkbGluIDxhbGV4YW5kZXIuc3ZlcmRsaW5A
-bm9raWEuY29tPg0KPiBCVUcgdGFrZXMgdGhlIGVudGlyZSBtYWNoaW5lIG91dCwgd2hpY2ggaXMg
-d29yc2UgdGhhbiBjb3JydXB0aW5nIHRoZQ0KPiBza2ItPmRhdGENCj4gDQo+IElmIHlvdSByZWFs
-bHkgd2FudCB0byBhc3NlcnQgdGhpcyBjb25kaXRpb24sIGRvIGl0IGluIGEgd2F5IHRoYXQNCj4g
-ZG9lc24ndCBraWxsIHRoZSBlbnRpcmUgbWFjaGluZS4NCg0KSW4gZmFjdCwgdGhlIG1hY2hpbmUg
-Z29lcyBkb3duLCBzb21lIG1pbGxpc2Vjb25kcyBsYXRlciwgYnV0IGJlY2F1c2Ugb2YgdGhlIGZv
-bGxvd2luZw0KaW5jb25zaXN0ZW5jaWVzLCB3aGljaCBhcmUgbWlzbGVhZGluZy4gVGhlIGZ1bmN0
-aW9uIGhhcyBubyB3YXkgdG8gc2lnbmFsIGFuIGVycm9yIGFuZA0KdGhpcyBsaW5lIG9mIGNvZGUg
-aXMgc2ltcGx5IHdyb25nLiBUbyBwcmV2ZW50IG90aGVycyBmcm9tIGNvcHlpbmcgdGhpcyBlcnJv
-ciwgd2UgY2FuDQpzaW1wbHkgZGVsZXRlIGl0LiBXb3VsZCBpdCBiZSBmaW5lIGZyb20geW91ciBQ
-b1Y/DQoNCi0tIA0KQmVzdCByZWdhcmRzLA0KQWxleGFuZGVyIFN2ZXJkbGluLg0K
+There are two duplicated xenvif_zerocopy_callback() definitions.
+Remove one of them.
+
+Signed-off-by: Liang Li <liang.z.li@intel.com>
+---
+ drivers/net/xen-netback/common.h | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 8a495b3..c6cb85a 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -325,9 +325,6 @@ static inline pending_ring_idx_t nr_pending_reqs(struct xenvif_queue *queue)
+ 		queue->pending_prod + queue->pending_cons;
+ }
+ 
+-/* Callback from stack when TX packet can be released */
+-void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success);
+-
+ irqreturn_t xenvif_interrupt(int irq, void *dev_id);
+ 
+ extern bool separate_tx_rx_irq;
+-- 
+1.9.1
