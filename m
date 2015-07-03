@@ -1,115 +1,135 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next] net: bail on sock_wfree, sock_rfree when we
- have a TCP_TIMEWAIT sk
-Date: Fri, 3 Jul 2015 11:32:39 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1507031131010.1649@ja.home.ssi.bg>
-References: <1435781589-2210146-1-git-send-email-agartrell@fb.com> <20150701.141402.587634025761326092.davem@davemloft.net> <CANn89iK8SMLFNA6J0WB_qVTB+-C6qoX2o7-CxvwrLVua-cXzWg@mail.gmail.com> <CALCkm3fUmO0pmQEgrwjoNy5PjFk+mzYbUd1wmBsV7hVSHBngPA@mail.gmail.com>
- <CANn89iL4Pr1MQ_7uDcKEyT+D+193cQk9R304JsMAE0od4+ieEQ@mail.gmail.com> <CALCkm3f1nmi-st-siG0CRv32X7G5d6+JCsOWM01Rh3Qif3HtuQ@mail.gmail.com> <alpine.LFD.2.11.1507021135180.2615@ja.home.ssi.bg> <CALCkm3c8N0HE774TU96wjdC_wrkDOwAHEDaSOS+eVJD22zCXmg@mail.gmail.com>
- <CALCkm3eGTi6038Zq7N+XZsX3v5vbP0wY42ded0YUbBn0pjSE8Q@mail.gmail.com>
+From: Amitkumar Karwar <akarwar@marvell.com>
+Subject: RE: [PATCH] mwifiex: usb: Fix double add error when submitting rx urb
+Date: Fri, 3 Jul 2015 09:35:26 +0000
+Message-ID: <7da585717ace4951ac012b642878de54@SC-EXCH04.marvell.com>
+References: <1435540058-11922-1-git-send-email-reyad.attiyat@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	"agartrell@fb.com" <agartrell@fb.com>,
-	netdev <netdev@vger.kernel.org>, kernel-team <kernel-team@fb.com>
-To: Alex Gartrell <alexgartrell@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Reyad Attiyat <reyad.attiyat@gmail.com>,
+	"patila@marvell.com" <patila@marvell.com>,
+	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+	"bzhao@marvell.com" <bzhao@marvell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:49334 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754071AbbGCIfD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jul 2015 04:35:03 -0400
-In-Reply-To: <CALCkm3eGTi6038Zq7N+XZsX3v5vbP0wY42ded0YUbBn0pjSE8Q@mail.gmail.com>
+Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:51233 "EHLO
+	mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754799AbbGCJfb convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jul 2015 05:35:31 -0400
+In-Reply-To: <1435540058-11922-1-git-send-email-reyad.attiyat@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Reyad,
 
-	Hello,
-
-On Thu, 2 Jul 2015, Alex Gartrell wrote:
-
-> On Thu, Jul 2, 2015 at 2:18 PM, Alex Gartrell <alexgartrell@gmail.com> wrote:
-> > If early demux was enabled, we'd use the route from the socket
+> From: Reyad Attiyat [mailto:reyad.attiyat@gmail.com]
+> Sent: Monday, June 29, 2015 6:38 AM
+> To: Amitkumar Karwar; patila@marvell.com; kvalo@codeaurora.org;
+> bzhao@marvell.com
+> Cc: linux-wireless@vger.kernel.org; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; Reyad Attiyat
+> Subject: [PATCH] mwifiex: usb: Fix double add error when submitting rx
+> urb
 > 
-> Actually now that I think about it, this is probably broken, because
-> we don't reply to the packet but instead silently drop it.
+> There is an error that can occur where the driver adds the same URB to
+> USB submission list twice.
+> This happens since mwifiex_usb_submit_rem_rx can submit packets at same
+> time as an rx urb complete callback.
+> This causes list corruption and is fixed by not setting the skb to NULL
+> when submitting an rx packet.
+> 
+> [   84.461242] WARNING: CPU: 1 PID: 748 at lib/list_debug.c:36
+> __list_add+0xcb/0xd0()
+> [   84.461245] list_add double add: new=ffff8800c92b0c50,
+> prev=ffff8800c92b0c50, next=ffff8800ced6c430.
+> [   84.461247] Modules linked in: rfcomm fuse cmac
+> nf_conntrack_netbios_ns nf_conntrack_broadcast ip6t_rpfilter ip6t_REJECT
+> nf_reject_ipv6 xt_conntrack ebtable_nat ebtable_broute bridge stp llc
+> ebtable_filter ebtables ip6table_nat nf_conntrack_ipv6 nf_defrag_ipv6
+> nf_nat_ipv6 ip6table_mangle ip6table_security ip6table_raw
+> ip6table_filter ip6_tables iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4
+> nf_nat_ipv4 nf_nat nf_conntrack bnep iptable_mangle iptable_security
+> iptable_raw btusb btintel bluetooth mwifiex_usb mwifiex
+> x86_pkg_temp_thermal cfg80211 coretemp r8712u(C) kvm_intel kvm
+> hid_sensor_als hid_sensor_incl_3d hid_sensor_rotation hid_sensor_magn_3d
+> hid_sensor_accel_3d hid_sensor_gyro_3d hid_sensor_trigger
+> hid_sensor_iio_common industrialio_triggered_buffer kfifo_buf rfkill
+> iTCO_wdt industrialio iTCO_vendor_support
+> [   84.461316]  crc32_pclmul crc32c_intel ghash_clmulni_intel microcode
+> snd_hda_codec_realtek vfat snd_hda_codec_generic fat snd_hda_codec_hdmi
+> snd_hda_intel snd_hda_controller uvcvideo snd_hda_codec
+> videobuf2_vmalloc videobuf2_memops snd_hwdep videobuf2_core snd_hda_core
+> joydev v4l2_common videodev hid_sensor_hub snd_seq hid_multitouch media
+> snd_seq_device snd_pcm snd_timer mei_me snd i2c_i801 lpc_ich mei
+> soundcore tpm_infineon tpm_tis tpm i2c_hid i2c_designware_platform
+> i2c_designware_core nfsd auth_rpcgss nfs_acl lockd grace sunrpc
+> sch_fq_codel i915 i2c_algo_bit drm_kms_helper drm xhci_pci xhci_hcd
+> ehci_pci sd_mod ehci_hcd video
+> [   84.461383] CPU: 1 PID: 748 Comm: kworker/u9:0 Tainted: G         C
+> 4.1.0-rc5+ #163
+> [   84.461386] Hardware name: Microsoft Corporation Surface Pro
+> 2/Surface Pro 2, BIOS 2.05.0250 04/10/2015
+> [   84.461396] Workqueue: MWIFIEX_RX_WORK_QUEUE mwifiex_rx_work_queue
+> [mwifiex]
+> [   84.461399]  ffffffff81a8150e ffff8801174cf8e8 ffffffff817df830
+> 0000000000000000
+> [   84.461405]  ffff8801174cf938 ffff8801174cf928 ffffffff810a54ba
+> ffff8800c86bd750
+> [   84.461410]  ffff8800c92b0c50 ffff8800c92b0c50 ffff8800ced6c430
+> ffff88010c057178
+> [   84.461416] Call Trace:
+> [   84.461421]  [<ffffffff817df830>] dump_stack+0x4f/0x7b
+> [   84.461428]  [<ffffffff810a54ba>] warn_slowpath_common+0x8a/0xc0
+> [   84.461432]  [<ffffffff810a5536>] warn_slowpath_fmt+0x46/0x50
+> [   84.461436]  [<ffffffff814109fb>] __list_add+0xcb/0xd0
+> [   84.461442]  [<ffffffff815c551a>] ? usb_hcd_link_urb_to_ep+0x2a/0xa0
+> [   84.461446]  [<ffffffff815c5570>] usb_hcd_link_urb_to_ep+0x80/0xa0
+> [   84.461459]  [<ffffffffa004318a>] prepare_transfer+0xaa/0x130
+> [xhci_hcd]
+> [   84.461470]  [<ffffffffa0044cf7>] xhci_queue_bulk_tx+0xb7/0x7a0
+> [xhci_hcd]
+> [   84.461480]  [<ffffffffa003b67f>] ? xhci_urb_enqueue+0x50f/0x660
+> [xhci_hcd]
+> [   84.461489]  [<ffffffffa003b67f>] ? xhci_urb_enqueue+0x50f/0x660
+> [xhci_hcd]
+> [   84.461498]  [<ffffffffa003b735>] xhci_urb_enqueue+0x5c5/0x660
+> [xhci_hcd]
+> [   84.461503]  [<ffffffff815c7ad3>] usb_hcd_submit_urb+0x93/0xa70
+> [   84.461507]  [<ffffffff8168dde8>] ? __alloc_skb+0x78/0x1f0
+> [   84.461511]  [<ffffffff8168d301>] ?
+> __kmalloc_reserve.isra.26+0x31/0x90
+> [   84.461515]  [<ffffffff8168ddbc>] ? __alloc_skb+0x4c/0x1f0
+> [   84.461519]  [<ffffffff8168ddfc>] ? __alloc_skb+0x8c/0x1f0
+> [   84.461523]  [<ffffffff8168badd>] ? skb_dequeue+0x5d/0x80
+> [   84.461527]  [<ffffffff815c987e>] usb_submit_urb+0x42e/0x5f0
+> [   84.461531]  [<ffffffff816931d9>] ? __alloc_rx_skb+0x39/0x100
+> [   84.461536]  [<ffffffffa05aa372>]
+> mwifiex_usb_submit_rx_urb+0xb2/0x170 [mwifiex_usb]
+> [   84.461542]  [<ffffffffa05aa5f5>]
+> mwifiex_usb_submit_rem_rx_urbs+0x45/0x50 [mwifiex_usb]
+> [   84.461550]  [<ffffffffa07094be>] mwifiex_rx_work_queue+0x10e/0x140
+> [mwifiex]
+> [   84.461556]  [<ffffffff810c4429>] process_one_work+0x229/0x890
+> [   84.461559]  [<ffffffff810c438c>] ? process_one_work+0x18c/0x890
+> [   84.461565]  [<ffffffff810c4ae3>] worker_thread+0x53/0x470
+> [   84.461569]  [<ffffffff810c4a90>] ? process_one_work+0x890/0x890
+> [   84.461572]  [<ffffffff810cb162>] kthread+0xf2/0x110
+> [   84.461577]  [<ffffffff811031ad>] ? trace_hardirqs_on+0xd/0x10
+> [   84.461581]  [<ffffffff810cb070>] ?
+> kthread_create_on_node+0x230/0x230
+> [   84.461586]  [<ffffffff817e9662>] ret_from_fork+0x42/0x70
+> [   84.461590]  [<ffffffff810cb070>] ?
+> kthread_create_on_node+0x230/0x230
+> [   84.461593] ---[ end trace 65103af5e6fb3444 ]---
+> 
 
-	I think, the problem is that input packet takes
-the output path, not a problem with its sk_state.
+Thanks for the fix. Looks good.
 
-	Here is how I understand the situation:
+Acked-by: Amitkumar Karwar <akarwar@marvell.com>
 
-Input packet:
-
-ip_rcv_finish:
-	- early_demux:
-		- attach skb->sk, skb->destructor, skb->dst
-		- skb size is accounted later to sk
-
-LOCAL_IN:
-	- IPVS Remote Client mode: ip_vs_in
-	- Case 1: IPVS forward to local real server (NF_ACCEPT case):
-		- we are going to hit local server, so we should keep
-		skb->sk, etc
-		- skb->dst not changed
-		- return NF_ACCEPT
-		- continue to TCP stack
-	- Case 2: IPVS forward TUN for example:
-		- skb_orphan
-		- we should not work with any skb->sk from input path
-		- attach new skb->dst for the new real server
-		- ip_local_out
-
-TCP:
-	- if IPVS does not grab the packet above, we have
-	a call to skb_set_owner_r to account the skb size to sk
-
-
-Locally generated TCP packet:
-
-TCP tcp_transmit_skb:
-	- attach skb->sk, skb->destructor, increase sk_wmem_alloc
-
-LOCAL_OUT:
-	- IPVS Local Client mode: again ip_vs_in
-	- skb->dev is NULL means locally generated packet, skb->sk can
-	be set by TCP
-	- Case 1: IPVS forward to local real server (NF_ACCEPT case):
-		- we are going to hit local server, so we should keep
-		skb->sk, etc
-		- skb->dst not changed
-		- return NF_ACCEPT
-		- continue to TCP stack in LOCAL_IN
-	- Case 2: IPVS forward TUN for example:
-		- no skb_orphan because skb->sk is for
-		output path on skb->dev == NULL
-		- realloc headroom (call skb_set_owner_w): should happen
-		only for skb->sk from output path. This code in
-		ip_vs_prepare_tunneled_skb comes from old days from
-		ipip.c where skb->sk is present for locally generated
-		packets and IPIP's xmit routine reallocs headroom
-		- attach new skb->dst for the new real server
-		- ip_local_out
-
-To summarize:
-	- we should call skb_orphan as soon as possible after
-	deciding if packets goes to local or remote real server
-	but only for skb->sk set by early_demux, not for packets
-	sent by TCP
-	- if packets go to local server IPVS should not touch
-	skb->dst, skb->sk, etc (NF_ACCEPT case)
-	- for skb->sk set by early_demux, skb_orphan should happen before
-	skb_set_owner_w in ip_vs_prepare_tunneled_skb because
-	skb_set_owner_w will try to increase sk_wmem_alloc which is
-	wrong for early_demux phase
-	- reaching skb_set_owner_w code for skb->sk set by eraly_demux
-	looks wrong to me, it can happen on:
-		- redirect (DNAT), if somehow we have socket too
-		- IPVS redirect: if we forward both to local and remote
-		real servers
-		- not likely for forward, nobody forwards traffic
-		destined to local IP to remote host
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Regards,
+Amitkumar
