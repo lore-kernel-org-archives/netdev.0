@@ -1,135 +1,266 @@
-From: Amitkumar Karwar <akarwar@marvell.com>
-Subject: RE: [PATCH] mwifiex: usb: Fix double add error when submitting rx urb
-Date: Fri, 3 Jul 2015 09:35:26 +0000
-Message-ID: <7da585717ace4951ac012b642878de54@SC-EXCH04.marvell.com>
-References: <1435540058-11922-1-git-send-email-reyad.attiyat@gmail.com>
+From: GMAIL <ranamazharp@gmail.com>
+Subject: Re: [PATCH v2] bonding: "primary_reselect" with "failure" is not
+ working properly
+Date: Fri, 03 Jul 2015 15:23:27 +0530
+Message-ID: <55965B97.80109@gmail.com>
+References: <1435838839-21233-1-git-send-email-ranamazharp@gmail.com> <24978.1435869761@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Reyad Attiyat <reyad.attiyat@gmail.com>,
-	"patila@marvell.com" <patila@marvell.com>,
-	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"bzhao@marvell.com" <bzhao@marvell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:51233 "EHLO
-	mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754799AbbGCJfb convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jul 2015 05:35:31 -0400
-In-Reply-To: <1435540058-11922-1-git-send-email-reyad.attiyat@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, vfalico@gmail.com,
+	gospo@cumulusnetworks.com, davem@davemloft.net,
+	sanket.shah@cyberoam.com, mazhar.rana@cyberoam.com,
+	linux-kernel@vger.kernel.org
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <24978.1435869761@famine>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Reyad,
+Hi Jay,
 
-> From: Reyad Attiyat [mailto:reyad.attiyat@gmail.com]
-> Sent: Monday, June 29, 2015 6:38 AM
-> To: Amitkumar Karwar; patila@marvell.com; kvalo@codeaurora.org;
-> bzhao@marvell.com
-> Cc: linux-wireless@vger.kernel.org; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; Reyad Attiyat
-> Subject: [PATCH] mwifiex: usb: Fix double add error when submitting rx
-> urb
-> 
-> There is an error that can occur where the driver adds the same URB to
-> USB submission list twice.
-> This happens since mwifiex_usb_submit_rem_rx can submit packets at same
-> time as an rx urb complete callback.
-> This causes list corruption and is fixed by not setting the skb to NULL
-> when submitting an rx packet.
-> 
-> [   84.461242] WARNING: CPU: 1 PID: 748 at lib/list_debug.c:36
-> __list_add+0xcb/0xd0()
-> [   84.461245] list_add double add: new=ffff8800c92b0c50,
-> prev=ffff8800c92b0c50, next=ffff8800ced6c430.
-> [   84.461247] Modules linked in: rfcomm fuse cmac
-> nf_conntrack_netbios_ns nf_conntrack_broadcast ip6t_rpfilter ip6t_REJECT
-> nf_reject_ipv6 xt_conntrack ebtable_nat ebtable_broute bridge stp llc
-> ebtable_filter ebtables ip6table_nat nf_conntrack_ipv6 nf_defrag_ipv6
-> nf_nat_ipv6 ip6table_mangle ip6table_security ip6table_raw
-> ip6table_filter ip6_tables iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4
-> nf_nat_ipv4 nf_nat nf_conntrack bnep iptable_mangle iptable_security
-> iptable_raw btusb btintel bluetooth mwifiex_usb mwifiex
-> x86_pkg_temp_thermal cfg80211 coretemp r8712u(C) kvm_intel kvm
-> hid_sensor_als hid_sensor_incl_3d hid_sensor_rotation hid_sensor_magn_3d
-> hid_sensor_accel_3d hid_sensor_gyro_3d hid_sensor_trigger
-> hid_sensor_iio_common industrialio_triggered_buffer kfifo_buf rfkill
-> iTCO_wdt industrialio iTCO_vendor_support
-> [   84.461316]  crc32_pclmul crc32c_intel ghash_clmulni_intel microcode
-> snd_hda_codec_realtek vfat snd_hda_codec_generic fat snd_hda_codec_hdmi
-> snd_hda_intel snd_hda_controller uvcvideo snd_hda_codec
-> videobuf2_vmalloc videobuf2_memops snd_hwdep videobuf2_core snd_hda_core
-> joydev v4l2_common videodev hid_sensor_hub snd_seq hid_multitouch media
-> snd_seq_device snd_pcm snd_timer mei_me snd i2c_i801 lpc_ich mei
-> soundcore tpm_infineon tpm_tis tpm i2c_hid i2c_designware_platform
-> i2c_designware_core nfsd auth_rpcgss nfs_acl lockd grace sunrpc
-> sch_fq_codel i915 i2c_algo_bit drm_kms_helper drm xhci_pci xhci_hcd
-> ehci_pci sd_mod ehci_hcd video
-> [   84.461383] CPU: 1 PID: 748 Comm: kworker/u9:0 Tainted: G         C
-> 4.1.0-rc5+ #163
-> [   84.461386] Hardware name: Microsoft Corporation Surface Pro
-> 2/Surface Pro 2, BIOS 2.05.0250 04/10/2015
-> [   84.461396] Workqueue: MWIFIEX_RX_WORK_QUEUE mwifiex_rx_work_queue
-> [mwifiex]
-> [   84.461399]  ffffffff81a8150e ffff8801174cf8e8 ffffffff817df830
-> 0000000000000000
-> [   84.461405]  ffff8801174cf938 ffff8801174cf928 ffffffff810a54ba
-> ffff8800c86bd750
-> [   84.461410]  ffff8800c92b0c50 ffff8800c92b0c50 ffff8800ced6c430
-> ffff88010c057178
-> [   84.461416] Call Trace:
-> [   84.461421]  [<ffffffff817df830>] dump_stack+0x4f/0x7b
-> [   84.461428]  [<ffffffff810a54ba>] warn_slowpath_common+0x8a/0xc0
-> [   84.461432]  [<ffffffff810a5536>] warn_slowpath_fmt+0x46/0x50
-> [   84.461436]  [<ffffffff814109fb>] __list_add+0xcb/0xd0
-> [   84.461442]  [<ffffffff815c551a>] ? usb_hcd_link_urb_to_ep+0x2a/0xa0
-> [   84.461446]  [<ffffffff815c5570>] usb_hcd_link_urb_to_ep+0x80/0xa0
-> [   84.461459]  [<ffffffffa004318a>] prepare_transfer+0xaa/0x130
-> [xhci_hcd]
-> [   84.461470]  [<ffffffffa0044cf7>] xhci_queue_bulk_tx+0xb7/0x7a0
-> [xhci_hcd]
-> [   84.461480]  [<ffffffffa003b67f>] ? xhci_urb_enqueue+0x50f/0x660
-> [xhci_hcd]
-> [   84.461489]  [<ffffffffa003b67f>] ? xhci_urb_enqueue+0x50f/0x660
-> [xhci_hcd]
-> [   84.461498]  [<ffffffffa003b735>] xhci_urb_enqueue+0x5c5/0x660
-> [xhci_hcd]
-> [   84.461503]  [<ffffffff815c7ad3>] usb_hcd_submit_urb+0x93/0xa70
-> [   84.461507]  [<ffffffff8168dde8>] ? __alloc_skb+0x78/0x1f0
-> [   84.461511]  [<ffffffff8168d301>] ?
-> __kmalloc_reserve.isra.26+0x31/0x90
-> [   84.461515]  [<ffffffff8168ddbc>] ? __alloc_skb+0x4c/0x1f0
-> [   84.461519]  [<ffffffff8168ddfc>] ? __alloc_skb+0x8c/0x1f0
-> [   84.461523]  [<ffffffff8168badd>] ? skb_dequeue+0x5d/0x80
-> [   84.461527]  [<ffffffff815c987e>] usb_submit_urb+0x42e/0x5f0
-> [   84.461531]  [<ffffffff816931d9>] ? __alloc_rx_skb+0x39/0x100
-> [   84.461536]  [<ffffffffa05aa372>]
-> mwifiex_usb_submit_rx_urb+0xb2/0x170 [mwifiex_usb]
-> [   84.461542]  [<ffffffffa05aa5f5>]
-> mwifiex_usb_submit_rem_rx_urbs+0x45/0x50 [mwifiex_usb]
-> [   84.461550]  [<ffffffffa07094be>] mwifiex_rx_work_queue+0x10e/0x140
-> [mwifiex]
-> [   84.461556]  [<ffffffff810c4429>] process_one_work+0x229/0x890
-> [   84.461559]  [<ffffffff810c438c>] ? process_one_work+0x18c/0x890
-> [   84.461565]  [<ffffffff810c4ae3>] worker_thread+0x53/0x470
-> [   84.461569]  [<ffffffff810c4a90>] ? process_one_work+0x890/0x890
-> [   84.461572]  [<ffffffff810cb162>] kthread+0xf2/0x110
-> [   84.461577]  [<ffffffff811031ad>] ? trace_hardirqs_on+0xd/0x10
-> [   84.461581]  [<ffffffff810cb070>] ?
-> kthread_create_on_node+0x230/0x230
-> [   84.461586]  [<ffffffff817e9662>] ret_from_fork+0x42/0x70
-> [   84.461590]  [<ffffffff810cb070>] ?
-> kthread_create_on_node+0x230/0x230
-> [   84.461593] ---[ end trace 65103af5e6fb3444 ]---
-> 
+On Friday 03 July 2015 02:12 AM, Jay Vosburgh wrote:
 
-Thanks for the fix. Looks good.
+> 	[ added netdev to cc ]
+>
+> Mazhar Rana <ranamazharp@gmail.com> wrote:
+>
+>> When "primary_reselect" is set to "failure", primary interface should
+>> not become active until current active slave is up. But if we set first
+> 	I think you mean "until current active slave is down" here, not
+> "up."
 
-Acked-by: Amitkumar Karwar <akarwar@marvell.com>
+Yes, It should be "up", grammatical mistake
+
+>
+>> member of bond device as a "primary" interface and "primary_reselect"
+>> is set to "failure" then whenever primary interface's link get back(up)
+>> it become active slave even if current active slave is still up.
+>>
+>> With this patch, "bond_find_best_slave" will not traverse members if
+>> primary interface is not candidate for failover/reselection and current
+>> active slave is still up.
+>>
+>> Signed-off-by: Mazhar Rana <mazhar.rana@cyberoam.com>
+>> Reviewed-by: Sanket Shah <sanket.shah@cyberoam.com>
+>> ---
+>> v2: return "curr" instead of "bond->curr_active_slave".
+>>
+>> drivers/net/bonding/bond_main.c | 10 +++++++++-
+>> 1 file changed, 9 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 19eb990..ac71261 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -715,7 +715,7 @@ static bool bond_should_change_active(struct bonding *bond)
+>>   */
+>> static struct slave *bond_find_best_slave(struct bonding *bond)
+>> {
+>> -	struct slave *slave, *bestslave = NULL, *primary;
+>> +	struct slave *slave, *bestslave = NULL, *primary, *curr;
+>> 	struct list_head *iter;
+>> 	int mintime = bond->params.updelay;
+>>
+>> @@ -724,6 +724,14 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+>> 	    bond_should_change_active(bond))
+>> 		return primary;
+>>
+>> +	/* We are here means primary interface is not candidate for
+>> +	 * reslection/failover. If currenet active slave is still up
+>> +	 * then there is no meaning to traverse  members.
+>> +	 */
+>> +	curr = rtnl_dereference(bond->curr_active_slave);
+>> +	if (curr && curr->link == BOND_LINK_UP)
+>> +		return curr;
+>> +
+>> 	bond_for_each_slave(bond, slave, iter) {
+>> 		if (slave->link == BOND_LINK_UP)
+>> 			return slave;
+>> -- 
+> 	I believe the above patch will work, but I also think these
+> functions are kind of hacky, as bond_should_change_active() doesn't
+> really give the answer its name implies, so we have to second guess
+> here.
+>
+> 	I think the following, while a bigger change, ends up with
+> clearer code.  Compile tested only.  Comments?
+>
+> 	-J
+>
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 19eb990..8c30f6b 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -689,40 +689,54 @@ out:
+>   
+>   }
+>   
+> -static bool bond_should_change_active(struct bonding *bond)
+> +static struct slave *bond_choose_primary_or_current(struct bonding *bond)
+>   {
+>   	struct slave *prim = rtnl_dereference(bond->primary_slave);
+>   	struct slave *curr = rtnl_dereference(bond->curr_active_slave);
+>   
+> -	if (!prim || !curr || curr->link != BOND_LINK_UP)
+> -		return true;
+> +	if (!prim || !prim->link == BOND_LINK_UP)
+> +		return curr;
+
+This will not work when prim and curr both are pointing to same
+interface, e.g. bond0={eth0, eth1, eth2}, prim=eth0, curr=eth0, now if
+prim goes down then it will return curr which is again pointing to
+primary interface, so failover never happen.
+
+> +
+>   	if (bond->force_primary) {
+>   		bond->force_primary = false;
+> -		return true;
+> +		return prim;
+> +	}
+> +
+> +	if (!curr || curr->link != BOND_LINK_UP)
+> +		return prim;
+> +
+> +	/* At this point, prim and curr are both up */
+> +	switch (bond->params.primary_reselect) {
+> +	case BOND_PRI_RESELECT_ALWAYS:
+> +		return prim;
+> +	case BOND_PRI_RESELECT_BETTER:
+> +		if (prim->speed < curr->speed)
+> +			return curr;
+> +		if (prim->speed == curr->speed && prim->duplex <= curr->duplex)
+> +			return curr;
+> +		return prim;
+> +	case BOND_PRI_RESELECT_FAILURE:
+> +		return curr;
+> +	default:
+> +		netdev_err(bond->dev, "impossible primary_reselect %d\n",
+> +			   bond->params.primary_reselect);
+> +		return curr;
+>   	}
+> -	if (bond->params.primary_reselect == BOND_PRI_RESELECT_BETTER &&
+> -	    (prim->speed < curr->speed ||
+> -	     (prim->speed == curr->speed && prim->duplex <= curr->duplex)))
+> -		return false;
+> -	if (bond->params.primary_reselect == BOND_PRI_RESELECT_FAILURE)
+> -		return false;
+> -	return true;
+>   }
+>   
+>   /**
+> - * find_best_interface - select the best available slave to be the active one
+> + * bond_find_best_slave - select the best available slave to be the active one
+>    * @bond: our bonding struct
+>    */
+>   static struct slave *bond_find_best_slave(struct bonding *bond)
+>   {
+> -	struct slave *slave, *bestslave = NULL, *primary;
+> +	struct slave *slave, *bestslave = NULL;
+>   	struct list_head *iter;
+>   	int mintime = bond->params.updelay;
+>   
+> -	primary = rtnl_dereference(bond->primary_slave);
+> -	if (primary && primary->link == BOND_LINK_UP &&
+> -	    bond_should_change_active(bond))
+> -		return primary;
+> +	slave = bond_choose_primary_or_current(bond);
+
+primary_reselect policy only make sense when 'primary' interface is
+specified. And we should go for reselection only when primary link is
+up. So this function call should be conditional.
+If we make this call conditional and remove first condition/check from
+"bond_choose_primary_or_current" then it will work fine.
+
+> +	if (slave)
+> +		return slave;
+>   
+>   	bond_for_each_slave(bond, slave, iter) {
+>   		if (slave->link == BOND_LINK_UP)
+>
+> ---
+> 	-Jay Vosburgh, jay.vosburgh@canonical.com
+
+Below is the updated version of your patch. Any Comments or suggestions ?
+
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 19eb990..3520a1b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -689,40 +689,54 @@ out:
+  
+  }
+  
+-static bool bond_should_change_active(struct bonding *bond)
++static struct slave *bond_choose_primary_or_current(struct bonding *bond)
+  {
+  	struct slave *prim = rtnl_dereference(bond->primary_slave);
+  	struct slave *curr = rtnl_dereference(bond->curr_active_slave);
+  
+-	if (!prim || !curr || curr->link != BOND_LINK_UP)
+-		return true;
+  	if (bond->force_primary) {
+  		bond->force_primary = false;
+-		return true;
++		return prim;
++	}
++
++	if (!curr || curr->link != BOND_LINK_UP)
++		return prim;
++
++	/* At this point, prim and curr are both up */
++	switch (bond->params.primary_reselect) {
++	case BOND_PRI_RESELECT_ALWAYS:
++		return prim;
++	case BOND_PRI_RESELECT_BETTER:
++		if (prim->speed < curr->speed)
++			return curr;
++		if (prim->speed == curr->speed && prim->duplex <= curr->duplex)
++			return curr;
++		return prim;
++	case BOND_PRI_RESELECT_FAILURE:
++		return curr;
++	default:
++		netdev_err(bond->dev, "impossible primary_reselect %d\n",
++			   bond->params.primary_reselect);
++		return curr;
+  	}
+-	if (bond->params.primary_reselect == BOND_PRI_RESELECT_BETTER &&
+-	    (prim->speed < curr->speed ||
+-	     (prim->speed == curr->speed && prim->duplex <= curr->duplex)))
+-		return false;
+-	if (bond->params.primary_reselect == BOND_PRI_RESELECT_FAILURE)
+-		return false;
+-	return true;
+  }
+  
+  /**
+- * find_best_interface - select the best available slave to be the active one
++ * bond_find_best_slave - select the best available slave to be the active one
+   * @bond: our bonding struct
+   */
+  static struct slave *bond_find_best_slave(struct bonding *bond)
+  {
+-	struct slave *slave, *bestslave = NULL, *primary;
++	struct slave *slave = NULL, *bestslave = NULL, *primary;
+  	struct list_head *iter;
+  	int mintime = bond->params.updelay;
+  
+  	primary = rtnl_dereference(bond->primary_slave);
+-	if (primary && primary->link == BOND_LINK_UP &&
+-	    bond_should_change_active(bond))
+-		return primary;
++	if (primary && primary->link == BOND_LINK_UP)
++		slave = bond_choose_primary_or_current(bond);
++
++	if (slave)
++		return slave;
+  
+  	bond_for_each_slave(bond, slave, iter) {
+  		if (slave->link == BOND_LINK_UP)
+
+---
 
 Regards,
-Amitkumar
+Mazhar Rana
