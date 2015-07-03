@@ -1,69 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/3] gro: Pull headers into skb head for 1st
- skb in gro list
-Date: Fri, 03 Jul 2015 06:50:17 +0200
-Message-ID: <1435899017.11970.55.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1435871054-635096-1-git-send-email-tom@herbertland.com>
-	 <1435871054-635096-2-git-send-email-tom@herbertland.com>
+From: Rahul Jain <rahul.jain@samsung.com>
+Subject: [PATCH] Logically DeadCode
+Date: Fri, 03 Jul 2015 04:52:31 +0000 (GMT)
+Message-ID: <893988929.229281435899150021.JavaMail.weblogic@ep2mlwas07a>
+Reply-To: rahul.jain@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:35233 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752942AbbGCEuU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2015 00:50:20 -0400
-Received: by wgjx7 with SMTP id x7so78471638wgj.2
-        for <netdev@vger.kernel.org>; Thu, 02 Jul 2015 21:50:19 -0700 (PDT)
-In-Reply-To: <1435871054-635096-2-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: base64
+Cc: Nitin Jhanwar <nitin.j@samsung.com>,
+	"hemanshu.s@samsung.com" <hemanshu.s@samsung.com>,
+	Amit Khatri <amit.khatri@samsung.com>
+To: davem@davemloft.net, johannes.berg@intel.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+MIME-version: 1.0
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-07-02 at 14:04 -0700, Tom Herbert wrote:
-> When setting up the first skb in a gro list we ensure that all the
-> headers up to skb_gro_offset have been pulled into head. In subsequent
-> uses of this skb (e.g. determining same_flow) it is assumed that the
-> headers can be accessed in the skb head.
-> 
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
-> ---
->  net/core/dev.c | 4 ++++
->  1 file changed, 4 insertions(+)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 6778a99..05e0e37 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4228,6 +4228,10 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
->  	} else {
->  		napi->gro_count++;
->  	}
-> +
-> +	/* Ensure all headers are pulled into head for 1st skb */
-> +	skb_gro_header_slow(skb, skb_gro_offset(skb), 0);
-> +
->  	NAPI_GRO_CB(skb)->count = 1;
->  	NAPI_GRO_CB(skb)->age = jiffies;
->  	NAPI_GRO_CB(skb)->last = skb;
-
-I do not see how we can reach this point without having headers already
-pulled.
-
-For example, tcp_gro_receive() has :
-
-        off = skb_gro_offset(skb);
-        hlen = off + sizeof(*th);
-        th = skb_gro_header_fast(skb, off);
-        if (skb_gro_header_hard(skb, hlen)) {
-                th = skb_gro_header_slow(skb, hlen, off);
-                if (unlikely(!th))
-                        goto out;
-        }
-
-So by definition, skb is put in gro_list only if it was fully validated as a GRO
-candidate.
-
-Given the complexity of your 2nd patch, I am stopping the review right
-now.
+aGVsbG8sCgpGcm9tIDBjMzQwMzAxNjZhMTUwZDZkOWYxYWI1MmU3YmI0MGE1NDQwYTY4YzIgTW9u
+IFNlcCAxNyAwMDowMDowMCAyMDAxCkZyb206IFJhaHVsIEphaW4gPHJhaHVsLmphaW5Ac2Ftc3Vu
+Zy5jb20+CkRhdGU6IEZyaSwgMyBKdWwgMjAxNSAxMDoxOToxMiArMDUzMApTdWJqZWN0OiBbUEFU
+Q0hdIExvZ2ljYWxseSBEZWFkQ29kZQoKU2lnbmVkLW9mZi1ieTogUmFodWwgSmFpbiA8cmFodWwu
+amFpbkBzYW1zdW5nLmNvbT4KU2lnbmVkLW9mZi1ieTogQW1pdCBLaGF0cmkgPGFtaXQua2hhdHJp
+QHNhbXN1bmcuY29tPgotLS0KIG5ldC93aXJlbGVzcy91dGlsLmMgICAgICAgIHwgMyAtLS0KIG5l
+dC93aXJlbGVzcy93ZXh0LWNvbXBhdC5jIHwgMyAtLS0KIDIgZmlsZXMgY2hhbmdlZCwgNiBkZWxl
+dGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvd2lyZWxlc3MvdXRpbC5jIGIvbmV0L3dpcmVsZXNz
+L3V0aWwuYwppbmRleCBiYWY3MjE4Li41MDdlODk0IDEwMDY0NAotLS0gYS9uZXQvd2lyZWxlc3Mv
+dXRpbC5jCisrKyBiL25ldC93aXJlbGVzcy91dGlsLmMKQEAgLTEwMDksOSArMTAwOSw2IEBAIGlu
+dCBjZmc4MDIxMV9jaGFuZ2VfaWZhY2Uoc3RydWN0IGNmZzgwMjExX3JlZ2lzdGVyZWRfZGV2aWNl
+ICpyZGV2LAogCQljYXNlIE5VTV9OTDgwMjExX0lGVFlQRVM6CiAJCQkvKiBub3QgaGFwcGVuaW5n
+ICovCiAJCQlicmVhazsKLQkJY2FzZSBOTDgwMjExX0lGVFlQRV9QMlBfREVWSUNFOgotCQkJV0FS
+Tl9PTigxKTsKLQkJCWJyZWFrOwogCQl9CiAJfQogCmRpZmYgLS1naXQgYS9uZXQvd2lyZWxlc3Mv
+d2V4dC1jb21wYXQuYyBiL25ldC93aXJlbGVzcy93ZXh0LWNvbXBhdC5jCmluZGV4IGZkNjgyODMu
+LjhkZTFiNjQgMTAwNjQ0Ci0tLSBhL25ldC93aXJlbGVzcy93ZXh0LWNvbXBhdC5jCisrKyBiL25l
+dC93aXJlbGVzcy93ZXh0LWNvbXBhdC5jCkBAIC0zODcsOSArMzg3LDYgQEAgc3RhdGljIGludCBj
+Zmc4MDIxMV93ZXh0X3Npd3JldHJ5KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsCiAJCWNoYW5nZWQg
+fD0gV0lQSFlfUEFSQU1fUkVUUllfU0hPUlQ7CiAJfQogCi0JaWYgKCFjaGFuZ2VkKQotCQlyZXR1
+cm4gMDsKLQogCWVyciA9IHJkZXZfc2V0X3dpcGh5X3BhcmFtcyhyZGV2LCBjaGFuZ2VkKTsKIAlp
+ZiAoZXJyKSB7CiAJCXdkZXYtPndpcGh5LT5yZXRyeV9zaG9ydCA9IG9zaG9ydDsKLS0gCjEuOS4x
+Cgo=
