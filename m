@@ -1,45 +1,48 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Searching for mentor - writing kernel-space VPN & more
-Date: Fri, 3 Jul 2015 02:46:38 +0200
-Message-ID: <CAHmME9okP0hQtGqOy_xp5cC_Q5nDd4qo2GibykLXhFJzkMCHOQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Christopher Hall <christopher.s.hall@intel.com>
+Subject: [PATCH v2 0/1] Add PTP cross-timestamp to the PTP driver interface
+Date: Thu,  2 Jul 2015 18:14:47 -0700
+Message-ID: <1435886088-13890-1-git-send-email-christopher.s.hall@intel.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	john.ronciak@intel.com, john.stultz@linaro.org, tglx@linutronix.de,
+	christopher.s.hall@intel.com
+To: richardcochran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:42155 "EHLO frisell.zx2c4.com"
+Received: from mga09.intel.com ([134.134.136.24]:25795 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753273AbbGCAql (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jul 2015 20:46:41 -0400
+	id S1754199AbbGCBNk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jul 2015 21:13:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+This patch allows system and device time ("cross-timestamp") to be performed 
+by the driver. Currently, the cross-timestamping is performed in the
+PTP_SYS_OFFSET ioctl.  The PTP clock driver reads gettimeofday() and the 
+gettime64() callback provided by the driver. The cross-timestamp is best 
+effort where the latency between the capture of system time 
+(getnstimeofday()) and the device time (driver callback) may be significant.
 
-I'm working on a fairly advanced kernel space VPN with some
-interesting design choices. It's requiring me to dig pretty deep into
-the networking stack. Admittedly I'm a bit in over my head right now.
-Does anyone with deep knowledge and experience, especially inside the
-networking stack, have any interest in mentoring me through this and
-other kernel-related development puzzles?
+This patch adds an additional callback getsynctime64(). Which will be called 
+when the driver is able to perform a more accurate, implementation specific 
+cross-timestamping.  For example, future network devices that implement 
+PCIE PTM will be able to precisely correlate the device clock with the system 
+clock with virtually zero latency between captures.  This added callback can 
+be used by the driver to expose this functionality.
 
-As I understand it, Linux is in need of more developers, and I think
-with a good mentor I could go pretty far, and eventually join the
-ranks of someone useful to others.
+The callback, getsynctime64(), will only be called when defined and
+n_samples == 1 because the driver returns only 1 cross-timestamp where 
+multiple samples cannot be chained together.
 
-What I mean specifically is someone I can poke on instant message from
-time to time, "hey should I be using skb_dequeue or skb_recv_datagram
-here?" or "do I want to pop this in the work queue or keep it in
-softirq?" or "do I need to rcu_deref the qdisc?" or a variety of other
-intricate questions and considerations. I'm a pretty quick learner and
-quite devoted, but not all of this is documented and my eyeballs are
-starting to bleed from reading too many innards; having someone I can
-actually talk to and mind-meld with would be extremely nice.
+This patch also adds to the capabilities ioctl (PTP_CLOCK_GETCAPS), allowing 
+applications to query whether or not drivers implement the getsynctime 
+callback, providing more precise cross timestamping.
 
-In case bragging about something makes this a more attractive
-proposition: I just got avx and avx2 implementations of
-chacha20poly1305 rolling successfully, which I'm quite proud of.
+Christopher Hall (1):
+  Added additional callback to ptp_clock_info:
 
-Well, hope to hear from somebody soon!
+ drivers/ptp/ptp_chardev.c        | 29 +++++++++++++++++++++--------
+ include/linux/ptp_clock_kernel.h |  8 ++++++++
+ include/uapi/linux/ptp_clock.h   |  4 +++-
+ 3 files changed, 32 insertions(+), 9 deletions(-)
 
-Regards,
-Jason Donenfeld
+-- 
+1.9.1
