@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] cxgb4: Fix incorrect sequence numbers shown in
- devlog
-Date: Fri, 03 Jul 2015 09:54:15 -0700 (PDT)
-Message-ID: <20150703.095415.1789048043199002196.davem@davemloft.net>
-References: <1435920051-6756-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [PATCH] xen-netback: remove duplicated function definition
+Date: Fri, 03 Jul 2015 09:54:56 -0700 (PDT)
+Message-ID: <20150703.095456.896840617547142096.davem@davemloft.net>
+References: <1435951980-16265-1-git-send-email-liang.z.li@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
-To: hariprasad@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48532 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755143AbbGCQyQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2015 12:54:16 -0400
-In-Reply-To: <1435920051-6756-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, ian.campbell@citrix.com,
+	wei.liu2@citrix.com, xen-devel@lists.xenproject.org,
+	netdev@vger.kernel.org
+To: liang.z.li@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1435951980-16265-1-git-send-email-liang.z.li@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Fri,  3 Jul 2015 16:10:51 +0530
+From: Liang Li <liang.z.li@intel.com>
+Date: Sat,  4 Jul 2015 03:33:00 +0800
 
-> Part of commit 49aa284fe64c4c1 ("cxgb4: Add support for devlog")
-> change introduced a real bug where the Device Log Sequence Numbers are
-> no longer being converted from firmware Big-Endian to local CPU-Endian
-> format.
+> There are two duplicated xenvif_zerocopy_callback() definitions.
+> Remove one of them.
 > 
-> This patch moves all of the translation into the devlog_show() routine.
-> The only endianness code now in devlog_open() is the small loop to find the
-> earliest (lowest Sequence Number) Device Log entry in the circular buffer.
-> 
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+> Signed-off-by: Liang Li <liang.z.li@intel.com>
 
-Applied, thanks.
+You really need to fix the date on your computer.
+
+If your date is in the future, as your's is, then your patch appears
+out-of-order in the patchwork patch queue since it is ordered by the
+Date: field in the email.
