@@ -1,89 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/3] gro: Pull headers into skb head for 1st
- skb in gro list
-Date: Fri, 03 Jul 2015 20:44:54 +0200
-Message-ID: <1435949094.11970.78.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1435871054-635096-1-git-send-email-tom@herbertland.com>
-	 <1435871054-635096-2-git-send-email-tom@herbertland.com>
-	 <1435899017.11970.55.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S37dwbV=ztLpS6Z+9upXvCkm0Mk3U4HUbsgmxEWOi3dCKw@mail.gmail.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [RFC PATCH net-next] tcp: add NV congestion control
+Date: Fri, 3 Jul 2015 16:30:01 -0400
+Message-ID: <CADVnQykDpuO991cv43=1=A4mBJJD5pbE6paF3okXnZzeTOUs9g@mail.gmail.com>
+References: <1435886484-1709996-1-git-send-email-brakmo@fb.com>
+	<CALx6S35pRq_Z32R3xWTj4PpQJ4YkC-MzxzeYb8+vH=cfTibwcQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>,
+	Yuchung Cheng <ycheng@google.com>
 To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:35239 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755332AbbGCSo6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2015 14:44:58 -0400
-Received: by wiga1 with SMTP id a1so183989158wig.0
-        for <netdev@vger.kernel.org>; Fri, 03 Jul 2015 11:44:57 -0700 (PDT)
-In-Reply-To: <CALx6S37dwbV=ztLpS6Z+9upXvCkm0Mk3U4HUbsgmxEWOi3dCKw@mail.gmail.com>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:32808 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755447AbbGCUaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2015 16:30:03 -0400
+Received: by obpn3 with SMTP id n3so74795581obp.0
+        for <netdev@vger.kernel.org>; Fri, 03 Jul 2015 13:30:01 -0700 (PDT)
+In-Reply-To: <CALx6S35pRq_Z32R3xWTj4PpQJ4YkC-MzxzeYb8+vH=cfTibwcQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-07-03 at 11:36 -0700, Tom Herbert wrote:
-> On Thu, Jul 2, 2015 at 9:50 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Thu, 2015-07-02 at 14:04 -0700, Tom Herbert wrote:
-> >> When setting up the first skb in a gro list we ensure that all the
-> >> headers up to skb_gro_offset have been pulled into head. In subsequent
-> >> uses of this skb (e.g. determining same_flow) it is assumed that the
-> >> headers can be accessed in the skb head.
-> >>
-> >> Signed-off-by: Tom Herbert <tom@herbertland.com>
-> >> ---
-> >>  net/core/dev.c | 4 ++++
-> >>  1 file changed, 4 insertions(+)
-> >>
-> >> diff --git a/net/core/dev.c b/net/core/dev.c
-> >> index 6778a99..05e0e37 100644
-> >> --- a/net/core/dev.c
-> >> +++ b/net/core/dev.c
-> >> @@ -4228,6 +4228,10 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
-> >>       } else {
-> >>               napi->gro_count++;
-> >>       }
-> >> +
-> >> +     /* Ensure all headers are pulled into head for 1st skb */
-> >> +     skb_gro_header_slow(skb, skb_gro_offset(skb), 0);
-> >> +
-> >>       NAPI_GRO_CB(skb)->count = 1;
-> >>       NAPI_GRO_CB(skb)->age = jiffies;
-> >>       NAPI_GRO_CB(skb)->last = skb;
-> >
-> > I do not see how we can reach this point without having headers already
-> > pulled.
-> >
-> > For example, tcp_gro_receive() has :
-> >
-> >         off = skb_gro_offset(skb);
-> >         hlen = off + sizeof(*th);
-> >         th = skb_gro_header_fast(skb, off);
-> >         if (skb_gro_header_hard(skb, hlen)) {
-> >                 th = skb_gro_header_slow(skb, hlen, off);
-> >                 if (unlikely(!th))
-> >                         goto out;
-> >         }
-> >
-> > So by definition, skb is put in gro_list only if it was fully validated as a GRO
-> > candidate.
-> >
-> That code will access the data from fragments if possible, the
-> skb_gro_header_slow is what pulls the data into head. In
-> tcp_gro_receive we do tcp_hdr(p) on the 1st skbuf in a gro list so it
-> is assumed there that the headers have been pulled into head.
+> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+> index 48c3696..05e0da5 100644
+> --- a/include/linux/tcp.h
+> +++ b/include/linux/tcp.h
+> @@ -254,6 +254,10 @@ struct tcp_sock {
+>         u32     lost_out;       /* Lost packets                 */
+>         u32     sacked_out;     /* SACK'd packets                       */
+>         u32     fackets_out;    /* FACK'd packets                       */
+> +       u32     ack_in_flight;  /* This field is populated when new acks
+> +                                * are received. It contains the number of
+> +                                * bytes in flight when the last packet
+> +                                * acked was sent. Used by tcp-nv. */
 
-Not really, this code handles the current skb being passed to GRO
-engine.
+AFAICT the tcp_sock struct does not really need to grow to hold the
+ack_in_flight field, because this field does not need to be remembered
+between ACKs. I would recommend putting it in a small struct ("struct
+ack_sample"?) that is allocated on the stack in tcp_ack() and passed
+into the pkts_acked() function for congestion control modules that
+want extra info beyond the number of packets ACKed and the RTT.
 
-struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+In fact it might be cleaner to put the number of packets ACKed and the
+RTT in that struct as well, so in the future we don't have to modify
+all the congestion control modules' pkts_acked() function
+every time a new piece of info is provided by the core TCP stack.
 
-Then, we parse the gro list later :
+>  /* This is what the send packet queuing engine uses to pass
+>   * TCP per-packet control information to the transmission code.
+>   * We also store the host-order sequence numbers in here too.
+> - * This is 44 bytes if IPV6 is enabled.
+> + * This is 48 bytes if IPV6 is enabled.
+>   * If this grows please adjust skbuff.h:skbuff->cb[xxx] size appropriately.
+>   */
+>  struct tcp_skb_cb {
+>         __u32           seq;            /* Starting sequence number     */
+>         __u32           end_seq;        /* SEQ + FIN + SYN + datalen    */
+> +       __u32           in_flight;      /* bytes in flight when this packet
+> +                                        * was sent. */
 
-for (; (p = *head); head = &p->next) {
+AFAICT this patch would not require an increase in the size of sk_buff
+cb[] if it were to take advantage of the fact that the tcp_skb_cb
+header.h4 and header.h6 fields are only used in the packet reception
+code path, and this in_flight field is only used on the transmit
+side. So the in_flight field could be placed in a struct that is
+itself placed in a union with the "header" union. Like this:
 
-And yes, all skb found in gro list already have all headers pulled.
+        union {
+                struct {
+                        /* bytes in flight when this packet was sent */
+                        __u32 in_flight;
+                } tx;   /* only used for outgoing skbs */
 
-Your patch is not needed.
+                union {
+                        struct inet_skb_parm    h4;
+#if IS_ENABLED(CONFIG_IPV6)
+                        struct inet6_skb_parm   h6;
+#endif
+                } header;  /* only used for incoming skbs */
+        };
+
+That way the sender code can remember the in_flight value
+without requiring any extra space. And in the future other
+sender-side info could be stored in the "tx" struct, if needed.
+
+neal
