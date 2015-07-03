@@ -1,66 +1,55 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH 6/6] net: mvneta: Statically assign queues to CPUs
-Date: Fri, 3 Jul 2015 16:46:24 +0200
-Message-ID: <20150703164624.77188a63@free-electrons.com>
-References: <1435933551-28696-1-git-send-email-maxime.ripard@free-electrons.com>
-	<1435933551-28696-7-git-send-email-maxime.ripard@free-electrons.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v2 v4.2-rc1] printk: make extended printk support
+ conditional on netconsole
+Date: Fri, 3 Jul 2015 11:25:55 -0400
+Message-ID: <20150703152555.GA5273@mtj.duckdns.org>
+References: <1430318704-32374-4-git-send-email-tj@kernel.org>
+ <CAMuHMdWwH-3kx1ma5KE=fP94by8boxM_QYqPKpU=YJw8t3hYeg@mail.gmail.com>
+ <20150629152805.GM15805@mtj.duckdns.org>
+ <CAMuHMdXTn0+z4PV9UVZZmpMdk_-JUc4x-GqZweOhQyYMTzSOGQ@mail.gmail.com>
+ <20150629154914.GQ15805@mtj.duckdns.org>
+ <CAMuHMdX-cA3RccXF2kBifMEyT8e14rURp9Li_WFm7ODBOti=QQ@mail.gmail.com>
+ <20150629161355.GS15805@mtj.duckdns.org>
+ <20150629233140.GA7711@mtj.duckdns.org>
+ <20150702162141.GC30677@mtj.duckdns.org>
+ <20150703140352.GD32664@pathway.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Maxime Ripard <maxime.ripard@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:38408 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755400AbbGCOq2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2015 10:46:28 -0400
-In-Reply-To: <1435933551-28696-7-git-send-email-maxime.ripard@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kay Sievers <kay@vrfy.org>,
+	Josh Triplett <josh@joshtriplett.org>,
+	Linux Embedded <linux-embedded@vger.kernel.org>,
+	geert@linux-m68k.org
+To: Petr Mladek <pmladek@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150703140352.GD32664@pathway.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Maxime,
+On Fri, Jul 03, 2015 at 04:07:34PM +0200, Petr Mladek wrote:
+> > @@ -2561,9 +2591,11 @@ void register_console(struct console *newcon)
+> >  		console_drivers->next = newcon;
+> >  	}
+> >  
+> > -	if (newcon->flags & CON_EXTENDED)
+> > -		if (!nr_ext_console_drivers++)
+> > +	if (newcon->flags & CON_EXTENDED) {
+> > +		if (!nr_ext_console_drivers)
+> >  			pr_info("printk: continuation disabled due to ext consoles, expect more fragments in /dev/kmsg\n");
+> 
+> I would move the check and the message into
+> inc_nr_ext_console_drivers() when CONFIG_PRINTK_CON_EXTENDED is
+> defined. It does not make sense if we do not increment the counter.
 
-On Fri,  3 Jul 2015 16:25:51 +0200, Maxime Ripard wrote:
+It doesn't make any difference as it gets compiled out anyway but yeah
+moving it into the inc function makes more sense.  Updating the patch.
 
-> +static void mvneta_percpu_enable(void *arg)
-> +{
-> +	struct mvneta_port *pp = arg;
-> +
-> +	enable_percpu_irq(pp->dev->irq, IRQ_TYPE_NONE);
-> +}
-> +
->  static int mvneta_open(struct net_device *dev)
->  {
->  	struct mvneta_port *pp = netdev_priv(dev);
-> @@ -2655,6 +2662,19 @@ static int mvneta_open(struct net_device *dev)
->  		goto err_cleanup_txqs;
->  	}
->  
-> +	/*
-> +	 * Even though the documentation says that request_percpu_irq
-> +	 * doesn't enable the interrupts automatically, it actually
-> +	 * does so on the local CPU.
-> +	 *
-> +	 * Make sure it's disabled.
-> +	 */
-> +	disable_percpu_irq(pp->dev->irq);
-> +
-> +	/* Enable per-CPU interrupt on the one CPU we care about */
-> +	smp_call_function_single(rxq_def % num_online_cpus(),
-> +				 mvneta_percpu_enable, pp, true);
+Thanks.
 
-What happens if that CPU goes offline through CPU hotplug?
-
-Thanks!
-
-Thomas
 -- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+tejun
