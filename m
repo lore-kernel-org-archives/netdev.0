@@ -1,58 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hv_netvsc: Add support to set MTU reservation
- from guest side
-Date: Fri, 03 Jul 2015 09:17:29 -0700 (PDT)
-Message-ID: <20150703.091729.499431982657478377.davem@davemloft.net>
-References: <1435868255-10865-1-git-send-email-haiyangz@microsoft.com>
-	<20150703112847.GA28762@mwanda>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] net: macb: replace literal constant with
+ NET_IP_ALIGN
+Date: Fri, 3 Jul 2015 16:18:40 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB5BCAC@AcuExch.aculab.com>
+References: <5592D105.7080006@certsign.ro>
+	 <1435748191.4110.127.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1435770389.12101.110.camel@perches.com>
+ <1435788837.8526.3.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: haiyangz@microsoft.com, netdev@vger.kernel.org, olaf@aepfle.de,
-	jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
-	linux-kernel@vger.kernel.org
-To: dan.carpenter@oracle.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Nicolae Rosia <nicolae.rosia@certsign.ro>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	'Nicolas Ferre <nicolas.ferre@atmel.com>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48109 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755103AbbGCQRa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2015 12:17:30 -0400
-In-Reply-To: <20150703112847.GA28762@mwanda>
+Received: from smtp-out6.electric.net ([192.162.217.182]:57010 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755550AbbGCQUk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2015 12:20:40 -0400
+In-Reply-To: <1435788837.8526.3.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Fri, 3 Jul 2015 14:28:47 +0300
-
-> On Thu, Jul 02, 2015 at 01:17:35PM -0700, Haiyang Zhang wrote:
->> When packet encapsulation is in use, the MTU needs to be reduced for
->> headroom reservation.
->> The existing code takes the updated MTU value only from the host side.
->> But vSwitch extensions, such as Open vSwitch, require the flexibility
->> to change the MTU to different values from within a guest during the
->> lifecycle of a vNIC, when the encapsulation protocol is changed. The
->> patch supports this kind of MTU changes.
->> 
->> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
->> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
->> ---
->>  drivers/net/hyperv/netvsc_drv.c   |    3 +--
->>  drivers/net/hyperv/rndis_filter.c |    2 +-
->>  2 files changed, 2 insertions(+), 3 deletions(-)
->> 
->> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
->> index 358475e..68e7ece 100644
->> --- a/drivers/net/hyperv/netvsc_drv.c
->> +++ b/drivers/net/hyperv/netvsc_drv.c
->> @@ -743,8 +743,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
->>  	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
->>  		limit = NETVSC_MTU - ETH_HLEN;
->>  
->> -	/* Hyper-V hosts don't support MTU < ETH_DATA_LEN (1500) */
->> -	if (mtu < ETH_DATA_LEN || mtu > limit)
->> +	if (mtu < 68 || mtu > limit)
-> 
-> How did you calculate 68?  Avoid magic numbers like this, make it a
-> define.
-
-Agreed.
+RnJvbTogRXJpYyBEdW1hemV0DQo+IFNlbnQ6IDAxIEp1bHkgMjAxNSAyMzoxNA0KPiBUbzogSm9l
+IFBlcmNoZXMNCi4uLg0KPiA+ID4gVGhlbiBwbGVhc2UgdXNlIG5ldGRldl9hbGxvY19za2JfaXBf
+YWxpZ24oKSwgc28gdGhhdCB5b3UgZ2V0IHJpZCBvZg0KPiA+ID4gc2tiX3Jlc2VydmUoKQ0KPiA+
+DQo+ID4gSXQgc2VlbXMgdGhlcmUgYXJlIH41MCBvZiB0aGVzZSBpbiB0aGUga2VybmVsIHRyZWUN
+Cj4gPiB0aGF0IGNvdWxkIGJlIGNvbnZlcnRlZC4NCj4gPg0KPiANCj4gTWFrZSBzdXJlIHRoZSAy
+IGlzIHJlYWxseSBORVRfSVBfQUxJR04NCj4gDQo+IFNvbWUgaGFyZHdhcmVzIG5lZWQgMiwgZXZl
+biBpZiBORVRfSVBfQUxJR04gaXMgMCAob24geDg2IGFyY2hlcyBmb3INCj4gZXhhbXBsZSkNCg0K
+RXZlbiBvbiB4ODYgYWxpZ25pbmcgdGhlIGV0aGVybmV0IHJlY2VpdmUgZGF0YSBvbiBhIDRuKzIN
+CmJvdW5kYXJ5IGlzIGxpa2VseSB0byBnaXZlIG1hcmdpbmFsbHkgYmV0dGVyIHBlcmZvcm1hbmNl
+DQp0aGFuIGFsaWduaW5nIG9uIGEgNG4gYm91bmRhcnkuDQoNCglEYXZpZA0KDQo=
