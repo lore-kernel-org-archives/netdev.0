@@ -1,43 +1,65 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next 6/6] net_sched: act: remove spinlock in fast
- path
-Date: Fri, 03 Jul 2015 10:21:36 -0700
-Message-ID: <5596C4A0.9030502@gmail.com>
-References: <1435842455-30501-1-git-send-email-edumazet@google.com>	 <1435842455-30501-7-git-send-email-edumazet@google.com>	 <5595684D.90500@gmail.com>	 <1435870750.11970.37.camel@edumazet-glaptop2.roam.corp.google.com>	 <55967137.7080806@mojatatu.com> <1435925285.11970.69.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Julien Grall <julien.grall@citrix.com>
+Subject: [PATCH] net/bridge: Add missing in6_dev_put in br_validate_ipv6
+Date: Fri, 3 Jul 2015 19:01:31 +0100
+Message-ID: <1435946491-11148-1-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Eric Dumazet <edumazet@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:36671 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755289AbbGCRVm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2015 13:21:42 -0400
-Received: by obdbs4 with SMTP id bs4so72922867obd.3
-        for <netdev@vger.kernel.org>; Fri, 03 Jul 2015 10:21:41 -0700 (PDT)
-In-Reply-To: <1435925285.11970.69.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <xen-devel@lists.xenproject.org>, <linux-kernel@vger.kernel.org>,
+	"Julien Grall" <julien.grall@citrix.com>,
+	Bernhard Thaler <bernhard.thaler@wvnet.at>,
+	Pablo Neira Ayuso <pablo@netfilter.org>, <fw@strlen.de>,
+	<ian.campbell@citrix.com>, <wei.liu2@citrix.com>
+To: <stephen@networkplumber.org>, <davem@davemloft.net>,
+	<bridge@lists.linux-foundation.org>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 15-07-03 05:08 AM, Eric Dumazet wrote:
-> On Fri, 2015-07-03 at 07:25 -0400, Jamal Hadi Salim wrote:
->> On 07/02/15 16:59, Eric Dumazet wrote:
->>> On Thu, 2015-07-02 at 09:35 -0700, John Fastabend wrote:
->>
->>>
->>> Point is to not dirty cache line for every packet ?
->>>
->>> Doing the test means we attempt dirtying only ~HZ times per second,
->>> which really matters to handle millions of packets per second.
->>>
->>> My tests show a good enough performance, not sure we want a percpu thing
->>> for this lastuse field.
+The commit efb6de9b4ba0092b2c55f6a52d16294a8a698edd "netfilter: bridge:
+forward IPv6 fragmented packets" introduced a new function
+br_validate_ipv6 which take a reference on the inet6 device. Although,
+the reference is not released at the end.
 
-Agreed percpu is overkill thanks for the explanation. Looks good
-to me.
+This will result to the impossibility to destroy any netdevice using
+ipv6 and bridge.
+
+Spotted while trying to destroy a Xen guest on the upstream Linux:
+"unregister_netdevice: waiting for vif1.0 to become free. Usage count = 1"
+
+Signed-off-by: Julien Grall <julien.grall@citrix.com>
+Cc: Bernhard Thaler <bernhard.thaler@wvnet.at>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: fw@strlen.de
+Cc: ian.campbell@citrix.com
+Cc: wei.liu2@citrix.com
+
+---
+    Note that it's impossible to create new guest after this message.
+    I'm not sure if it's normal.
+---
+ net/bridge/br_netfilter_ipv6.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/net/bridge/br_netfilter_ipv6.c b/net/bridge/br_netfilter_ipv6.c
+index 6d12d26..7046e19 100644
+--- a/net/bridge/br_netfilter_ipv6.c
++++ b/net/bridge/br_netfilter_ipv6.c
+@@ -140,11 +140,16 @@ int br_validate_ipv6(struct sk_buff *skb)
+ 	/* No IP options in IPv6 header; however it should be
+ 	 * checked if some next headers need special treatment
+ 	 */
++
++	in6_dev_put(idev);
++
+ 	return 0;
+ 
+ inhdr_error:
+ 	IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
+ drop:
++	in6_dev_put(idev);
++
+ 	return -1;
+ }
+ 
+-- 
+2.1.4
