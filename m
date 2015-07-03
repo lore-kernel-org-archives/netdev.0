@@ -1,102 +1,124 @@
-From: Sam Protsenko <semen.protsenko@linaro.org>
-Subject: problems with L2TP
-Date: Fri, 3 Jul 2015 16:49:51 +0300
-Message-ID: <CAKaJLVuu8vZ8fq32jqbC0MKRms9ikmT_d9KKA+hJ8kwpEYBhmA@mail.gmail.com>
+From: Petr Mladek <pmladek@suse.com>
+Subject: Re: [PATCH v2 v4.2-rc1] printk: make extended printk support
+ conditional on netconsole
+Date: Fri, 3 Jul 2015 16:07:34 +0200
+Message-ID: <20150703140352.GD32664@pathway.suse.cz>
+References: <1430318704-32374-1-git-send-email-tj@kernel.org>
+ <1430318704-32374-4-git-send-email-tj@kernel.org>
+ <CAMuHMdWwH-3kx1ma5KE=fP94by8boxM_QYqPKpU=YJw8t3hYeg@mail.gmail.com>
+ <20150629152805.GM15805@mtj.duckdns.org>
+ <CAMuHMdXTn0+z4PV9UVZZmpMdk_-JUc4x-GqZweOhQyYMTzSOGQ@mail.gmail.com>
+ <20150629154914.GQ15805@mtj.duckdns.org>
+ <CAMuHMdX-cA3RccXF2kBifMEyT8e14rURp9Li_WFm7ODBOti=QQ@mail.gmail.com>
+ <20150629161355.GS15805@mtj.duckdns.org>
+ <20150629233140.GA7711@mtj.duckdns.org>
+ <20150702162141.GC30677@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sumit Semwal <sumit.semwal@linaro.org>
-To: James Chapman <jchapman@katalix.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:33676 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754840AbbGCNtw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2015 09:49:52 -0400
-Received: by igcur8 with SMTP id ur8so144520077igc.0
-        for <netdev@vger.kernel.org>; Fri, 03 Jul 2015 06:49:51 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kay Sievers <kay@vrfy.org>,
+	Josh Triplett <josh@joshtriplett.org>,
+	Linux Embedded <linux-embedded@vger.kernel.org>,
+	geert@linux-m68k.org
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-embedded-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150702162141.GC30677@mtj.duckdns.org>
+Sender: linux-embedded-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu 2015-07-02 12:21:41, Tejun Heo wrote:
+> 6fe29354befe ("printk: implement support for extended console
+> drivers") implemented extended printk support for extended netconsole.
+> The code added was miniscule but it added static 8k buffer
+> unconditionally unnecessarily bloating the kernel for cases where
+> extended netconsole is not used.
+> 
+> This patch introduces CONFIG_PRINTK_CON_EXTENDED which is selected by
+> CONFIG_NETCONSOLE.  If the config option is not set, extended printk
+> support is compiled out along with the static buffer.
+> 
+> Verified 8k reduction in vmlinux bss when !CONFIG_NETCONSOLE.
+> 
+> v2: Added a warning for cases where CON_EXTENDED is requested while
+>     CONFIG_PRINTK_CON_EXTENDED is disabled as suggested by Petr.
+> 
+> Cc: Petr Mladek <pmladek@suse.com>
+> Signed-off-by: Tejun Heo <tj@kernel.org>
+> Reported-and-suggested-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-I'm having issues running user-space code, which uses net/l2tp/l2tp_ppp.c.
-The code is supposed to be running in LAC mode (which is I believe is default).
-My server configuration described here: https://wiki.linaro.org/LMG/Kernel/PPP
+Reviewed-by: Petr Mladek <pmladek@suse.cz>
 
-I was trying to use next code snippets as user-space part:
-  1. Code example from comments in net/l2tp/l2tp_ppp.c
-  2. Code examples from Documentation/networking/l2tp.txt
-  3. Code from this project: http://www.kvack.org/~bcrl/pppol2tp/multihop.c
+There is still one small thing that might get improved, see below.
+But it is not that important and might be solved later. I am sorry
+for not noticing it last time.
 
-Basically, I was trying two options for user-space code:
-  1. Creating only one sockaddr_pppol2tp, like this:
 
-    <<<<<<<<<<<<<<<<<<<<<< cut here >>>>>>>>>>>>>>>>>>
-    session_fd = socket(AF_PPPOX, SOCK_DGRAM, PX_PROTO_OL2TP);
-    session_sa.sa_family = AF_PPPOX;
-    session_sa.sa_protocol = PX_PROTO_OL2TP;
-    session_sa.pppol2tp.fd = udp_fd;
-    session_sa.pppol2tp.s_tunnel = local_tunnel;
-    session_sa.pppol2tp.s_session = local_session;
-    session_sa.pppol2tp.d_tunnel = remote_tunnel;
-    session_sa.pppol2tp.d_session = remote_session;
-    connect(session_fd, (struct sockaddr *)&session_sa,
-            sizeof(session_sa));
-    <<<<<<<<<<<<<<<<<<<<<< cut here >>>>>>>>>>>>>>>>>>
+> diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
+> index cf8c242..f719118 100644
+> --- a/kernel/printk/printk.c
+> +++ b/kernel/printk/printk.c
+> @@ -84,6 +84,10 @@ static struct lockdep_map console_lock_dep_map = {
+>  };
+>  #endif
+>  
+> +#ifdef CONFIG_PRINTK_CON_EXTENDED
+> +
+> +#define CONSOLE_EXT_LOG_BUF_LEN		CONSOLE_EXT_LOG_MAX
+> +
+>  /*
+>   * Number of registered extended console drivers.
+>   *
+> @@ -96,6 +100,32 @@ static struct lockdep_map console_lock_dep_map = {
+>   */
+>  static int nr_ext_console_drivers;
+>  
+> +static void inc_nr_ext_console_drivers(void)
+> +{
+> +	nr_ext_console_drivers++;
+> +}
+> +
+> +static void dec_nr_ext_console_drivers(void)
+> +{
+> +	nr_ext_console_drivers--;
+> +}
+> +
+> +#else	/* CONFIG_PRINTK_CON_EXTENDED */
+> +
+> +#define CONSOLE_EXT_LOG_BUF_LEN		0
+> +#define nr_ext_console_drivers		0
+> +
+> +static void inc_nr_ext_console_drivers(void)
+> +{
+> +	WARN_ONCE(true, "printk: CON_EXTENDED requested when !CONFIG_PRINTK_CON_EXTENDED\n");
+> +}
+> +
+> +static void dec_nr_ext_console_drivers(void)
+> +{
+> +}
+> +
+> +#endif	/* CONFIG_PRINTK_CON_EXTENDED */
+> +
+>  /*
+>   * Helper macros to handle lockdep when locking/unlocking console_sem. We use
+>   * macros instead of functions so that _RET_IP_ contains useful information.
+> @@ -2561,9 +2591,11 @@ void register_console(struct console *newcon)
+>  		console_drivers->next = newcon;
+>  	}
+>  
+> -	if (newcon->flags & CON_EXTENDED)
+> -		if (!nr_ext_console_drivers++)
+> +	if (newcon->flags & CON_EXTENDED) {
+> +		if (!nr_ext_console_drivers)
+>  			pr_info("printk: continuation disabled due to ext consoles, expect more fragments in /dev/kmsg\n");
 
-    In that case user-space tool was failing on connect() call.
+I would move the check and the message into
+inc_nr_ext_console_drivers() when CONFIG_PRINTK_CON_EXTENDED is
+defined. It does not make sense if we do not increment the counter.
 
-  2. Creating two sockaddr_pppol2tp, like this:
-
-    <<<<<<<<<<<<<<<<<<<<<< cut here >>>>>>>>>>>>>>>>>>
-
-    tunnel_fd = socket(AF_PPPOX, SOCK_DGRAM, PX_PROTO_OL2TP);
-    tunnel_sa.sa_family = AF_PPPOX;
-    tunnel_sa.sa_protocol = PX_PROTO_OL2TP;
-    tunnel_sa.pppol2tp.fd = the_socket; /* UDP socket */
-    tunnel_sa.pppol2tp.s_tunnel = local_tunnel;
-    tunnel_sa.pppol2tp.s_session = 0; /* special case: mgmt socket */
-    tunnel_sa.pppol2tp.d_tunnel = remote_tunnel;
-    tunnel_sa.pppol2tp.d_session = 0; /* special case: mgmt socket */
-    connect(tunnel_fd, (struct sockaddr *)&tunnel_sa,
-            sizeof(tunnel_sa));
-
-    session_fd = socket(AF_PPPOX, SOCK_DGRAM, PX_PROTO_OL2TP);
-    session_sa.sa_family = AF_PPPOX;
-    session_sa.sa_protocol = PX_PROTO_OL2TP;
-    session_sa.pppol2tp.fd = udp_fd;
-    session_sa.pppol2tp.s_tunnel = local_tunnel;
-    session_sa.pppol2tp.s_session = local_session;
-    session_sa.pppol2tp.d_tunnel = remote_tunnel;
-    session_sa.pppol2tp.d_session = remote_session;
-    connect(session_fd, (struct sockaddr *)&session_sa,
-            sizeof(session_sa));
-    <<<<<<<<<<<<<<<<<<<<<< cut here >>>>>>>>>>>>>>>>>>
-
-    In this case my user-space tool works fine, but my server shows
-next errors in /var/log/syslog:
-
-    <<<<<<<<<<<<<<<<<<<<<< cut here >>>>>>>>>>>>>>>>>>
-    Jul  3 16:32:49 joe-laptop xl2tpd[2978]: Can not find tunnel 25061
-(refhim=0)
-    Jul  3 16:32:49 joe-laptop xl2tpd[2978]: network_thread: unable to
-find call or tunnel to handle packet.  call = 48566, tunnel = 25061
-Dumping.
-    <<<<<<<<<<<<<<<<<<<<<< cut here >>>>>>>>>>>>>>>>>>
-
-UDP socket was created next way (for both cases):
-https://android.googlesource.com/platform/external/mtpd/+/0269612ac00a0700997dda333faf0a3c33a388b8/mtpd.c#253
-
-(see the_socket variable in create_socket() function).
-
-So my questions are:
-1. Am I doing something wrong in userspace part? Because my server
-part is working fine with Android kernel implementation of LAC
-(drivers/net/ppp/pppolac.c). When I'm trying to do the same with
-mainline kernel implementation of LAC -- I'm having issues described
-above.
-2. Do we have some testing code for L2TP (particularly LAC)? Or maybe
-just some working user-space code sample?
-
-Thanks!
+Best Regards,
+Petr
