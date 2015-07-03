@@ -1,68 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH net-next] tcp: add NV congestion control
-Date: Fri, 03 Jul 2015 07:00:23 +0200
-Message-ID: <1435899623.11970.61.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1435886484-1709996-1-git-send-email-brakmo@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Lawrence Brakmo <brakmo@fb.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net] cxgb4: Fix incorrect sequence numbers shown in devlog
+Date: Fri,  3 Jul 2015 16:10:51 +0530
+Message-ID: <1435920051-6756-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:35581 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751276AbbGCFA1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2015 01:00:27 -0400
-Received: by wgjx7 with SMTP id x7so78587123wgj.2
-        for <netdev@vger.kernel.org>; Thu, 02 Jul 2015 22:00:25 -0700 (PDT)
-In-Reply-To: <1435886484-1709996-1-git-send-email-brakmo@fb.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:4362 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753874AbbGCF1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2015 01:27:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-07-02 at 18:21 -0700, Lawrence Brakmo wrote:
-> This is a request for comments.
-> 
-> TCP-NV (New Vegas) is a major update to TCP-Vegas. An earlier version of
-> NV was presented at 2010's LPC (slides). It is a delayed based
-> congestion avoidance for the data center. This version has been tested
-> within a 10G rack where the HW RTTs are 20-50us.
-> 
-> A description of TCP-NV, including implementation and experimental
-> results, can be found at:
-> http://www.brakmo.org/networking/tcp-nv/TCPNV.html
-> 
-> The current version includes many module parameters to support
-> experimentation with the parameters.
-> 
-> Signed-off-by: Lawrence Brakmo <lawrence@brakmo.org>
-> ---
->  include/linux/skbuff.h     |   2 +-
->  include/linux/tcp.h        |   4 +
->  include/net/tcp.h          |   5 +-
->  net/ipv4/Kconfig           |  16 ++
->  net/ipv4/Makefile          |   1 +
->  net/ipv4/sysctl_net_ipv4.c |   9 +
->  net/ipv4/tcp_input.c       |   5 +
->  net/ipv4/tcp_nv.c          | 477 +++++++++++++++++++++++++++++++++++++++++++++
->  net/ipv4/tcp_output.c      |   4 +-
->  9 files changed, 520 insertions(+), 3 deletions(-)
->  create mode 100644 net/ipv4/tcp_nv.c
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index d6cdd6e..96a131d 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -547,7 +547,7 @@ struct sk_buff {
->  	 * want to keep them across layers you have to do a skb_clone()
->  	 * first. This is owned by whoever has the skb queued ATM.
->  	 */
-> -	char			cb[48] __aligned(8);
-> +	char			cb[52] __aligned(8);
->  
+Part of commit 49aa284fe64c4c1 ("cxgb4: Add support for devlog")
+change introduced a real bug where the Device Log Sequence Numbers are
+no longer being converted from firmware Big-Endian to local CPU-Endian
+format.
 
-skb bloat alert.
+This patch moves all of the translation into the devlog_show() routine.
+The only endianness code now in devlog_open() is the small loop to find the
+earliest (lowest Sequence Number) Device Log entry in the circular buffer.
 
-This adds 8 bytes to cb[], and sk_buff, for no reason.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 25 +++++++++++-----------
+ 1 file changed, 13 insertions(+), 12 deletions(-)
 
-tcp_skb_cb is currently 44 bytes, so even if you add one u32, it should
-not exceed cb[]
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+index 484eb8c..a11485f 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+@@ -952,16 +952,23 @@ static int devlog_show(struct seq_file *seq, void *v)
+ 		 * eventually have to put a format interpreter in here ...
+ 		 */
+ 		seq_printf(seq, "%10d  %15llu  %8s  %8s  ",
+-			   e->seqno, e->timestamp,
++			   be32_to_cpu(e->seqno),
++			   be64_to_cpu(e->timestamp),
+ 			   (e->level < ARRAY_SIZE(devlog_level_strings)
+ 			    ? devlog_level_strings[e->level]
+ 			    : "UNKNOWN"),
+ 			   (e->facility < ARRAY_SIZE(devlog_facility_strings)
+ 			    ? devlog_facility_strings[e->facility]
+ 			    : "UNKNOWN"));
+-		seq_printf(seq, e->fmt, e->params[0], e->params[1],
+-			   e->params[2], e->params[3], e->params[4],
+-			   e->params[5], e->params[6], e->params[7]);
++		seq_printf(seq, e->fmt,
++			   be32_to_cpu(e->params[0]),
++			   be32_to_cpu(e->params[1]),
++			   be32_to_cpu(e->params[2]),
++			   be32_to_cpu(e->params[3]),
++			   be32_to_cpu(e->params[4]),
++			   be32_to_cpu(e->params[5]),
++			   be32_to_cpu(e->params[6]),
++			   be32_to_cpu(e->params[7]));
+ 	}
+ 	return 0;
+ }
+@@ -1043,23 +1050,17 @@ static int devlog_open(struct inode *inode, struct file *file)
+ 		return ret;
+ 	}
+ 
+-	/* Translate log multi-byte integral elements into host native format
+-	 * and determine where the first entry in the log is.
++	/* Find the earliest (lowest Sequence Number) log entry in the
++	 * circular Device Log.
+ 	 */
+ 	for (fseqno = ~((u32)0), index = 0; index < dinfo->nentries; index++) {
+ 		struct fw_devlog_e *e = &dinfo->log[index];
+-		int i;
+ 		__u32 seqno;
+ 
+ 		if (e->timestamp == 0)
+ 			continue;
+ 
+-		e->timestamp = (__force __be64)be64_to_cpu(e->timestamp);
+ 		seqno = be32_to_cpu(e->seqno);
+-		for (i = 0; i < 8; i++)
+-			e->params[i] =
+-				(__force __be32)be32_to_cpu(e->params[i]);
+-
+ 		if (seqno < fseqno) {
+ 			fseqno = seqno;
+ 			dinfo->first = index;
+-- 
+2.3.4
