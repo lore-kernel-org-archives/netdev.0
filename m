@@ -1,92 +1,144 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH 6/6] net: mvneta: Statically assign queues to CPUs
-Date: Sun, 5 Jul 2015 15:00:11 +0200
-Message-ID: <20150705130011.GB24162@1wt.eu>
-References: <1435933551-28696-1-git-send-email-maxime.ripard@free-electrons.com> <1435933551-28696-7-git-send-email-maxime.ripard@free-electrons.com> <20150703164624.77188a63@free-electrons.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next] net: bail on sock_wfree, sock_rfree when we
+ have a TCP_TIMEWAIT sk
+Date: Sat, 4 Jul 2015 11:34:13 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1507041100480.1484@ja.home.ssi.bg>
+References: <1435781589-2210146-1-git-send-email-agartrell@fb.com> <20150701.141402.587634025761326092.davem@davemloft.net> <CANn89iK8SMLFNA6J0WB_qVTB+-C6qoX2o7-CxvwrLVua-cXzWg@mail.gmail.com> <CALCkm3fUmO0pmQEgrwjoNy5PjFk+mzYbUd1wmBsV7hVSHBngPA@mail.gmail.com>
+ <CANn89iL4Pr1MQ_7uDcKEyT+D+193cQk9R304JsMAE0od4+ieEQ@mail.gmail.com> <CALCkm3f1nmi-st-siG0CRv32X7G5d6+JCsOWM01Rh3Qif3HtuQ@mail.gmail.com> <alpine.LFD.2.11.1507021135180.2615@ja.home.ssi.bg> <CALCkm3c8N0HE774TU96wjdC_wrkDOwAHEDaSOS+eVJD22zCXmg@mail.gmail.com>
+ <CALCkm3eGTi6038Zq7N+XZsX3v5vbP0wY42ded0YUbBn0pjSE8Q@mail.gmail.com> <alpine.LFD.2.11.1507031131010.1649@ja.home.ssi.bg> <CALCkm3eCnC7fwtStGZj4xZDJeNegLT3vBHKNABvsEq7_H7aQfg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150703164624.77188a63@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>,
+	"agartrell@fb.com" <agartrell@fb.com>,
+	netdev <netdev@vger.kernel.org>, kernel-team <kernel-team@fb.com>
+To: Alex Gartrell <alexgartrell@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:46814 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751697AbbGENsx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jul 2015 09:48:53 -0400
+In-Reply-To: <CALCkm3eCnC7fwtStGZj4xZDJeNegLT3vBHKNABvsEq7_H7aQfg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Thomas,
 
-On Fri, Jul 03, 2015 at 04:46:24PM +0200, Thomas Petazzoni wrote:
-> Maxime,
+	Hello,
+
+On Fri, 3 Jul 2015, Alex Gartrell wrote:
+
+> >         - if packets go to local server IPVS should not touch
+> >         skb->dst, skb->sk, etc (NF_ACCEPT case)
 > 
-> On Fri,  3 Jul 2015 16:25:51 +0200, Maxime Ripard wrote:
+> Yeah, the thing is that early demux could totally match for a socket
+> that existed before we created the service, and in that instance it
+> might make the most sense to retain the connection and simply
+> NF_ACCEPT.  The problem with that approach though is that is that the
+> behavior changes if early_demux is not enabled.  I believe that we
+> should just do the consistent thing and always drop the early_demux
+> result if bound for non-local, as you've said.
+
+	We must not forget that a local server listening
+on 0.0.0.0:VPORT or VIP:VPORT can be reached if a real
+server with some local IP is used as RIP. So, early demux
+will really work for this case when local stack is one
+of the real servers.
+
+> The interesting thing though is that, for the purposes of routing,
+> enabling early_demux does change the behavior.  I suspect that's a
+> bug, but it's far enough away from actual use cases that it's probably
+> fine (who is out there tearing down addresses and setting up routes in
+> their place?)
+
+	Looks like routing by definition can not divert skbs with
+early-demux socket because input routing is not called.
+Netfilter's DNAT may change daddr/dport before early-demux
+and in this case socket should not be found (eg. if we
+DNAT to other host). So, there is problem mostly for IPVS,
+I don't remember for other cases. May be CLUSTERIP too,
+I'm not sure. There is the problem that at LOCAL_IN
+SNAT is valid operation, not sure how it affects
+early-demux.
+
+> What do you think of the following:
 > 
-> > +static void mvneta_percpu_enable(void *arg)
-> > +{
-> > +	struct mvneta_port *pp = arg;
-> > +
-> > +	enable_percpu_irq(pp->dev->irq, IRQ_TYPE_NONE);
-> > +}
-> > +
-> >  static int mvneta_open(struct net_device *dev)
-> >  {
-> >  	struct mvneta_port *pp = netdev_priv(dev);
-> > @@ -2655,6 +2662,19 @@ static int mvneta_open(struct net_device *dev)
-> >  		goto err_cleanup_txqs;
-> >  	}
-> >  
-> > +	/*
-> > +	 * Even though the documentation says that request_percpu_irq
-> > +	 * doesn't enable the interrupts automatically, it actually
-> > +	 * does so on the local CPU.
-> > +	 *
-> > +	 * Make sure it's disabled.
-> > +	 */
-> > +	disable_percpu_irq(pp->dev->irq);
-> > +
-> > +	/* Enable per-CPU interrupt on the one CPU we care about */
-> > +	smp_call_function_single(rxq_def % num_online_cpus(),
-> > +				 mvneta_percpu_enable, pp, true);
+> commit f04c42f8041cc4ccc4cb2a30c1058136dd497a83
+> Author: Alex Gartrell <agartrell@fb.com>
+> Date:   Wed Jul 1 13:24:46 2015 -0700
 > 
-> What happens if that CPU goes offline through CPU hotplug?
+>     ipvs: orphan_skb in case of forwarding
 
-I just tried : if I start mvneta with "rxq_def=1", then my irq runs on
-CPU1. Then I offline CPU1 and the irqs are automatically handled by CPU0.
-Then I online CPU1 and irqs stay on CPU0.
+	skb_orphan or orphan skb
 
-More or less related, I found that if I enable a queue number larger than
-the CPU count it does work, but then the system complains during rmmod :
+>     It is possible that we bind against a local socket in early_demux when we
+>     are actually going to want to forward it.  In this case, the socket serves
+>     no purpose and only serves to confuse things (particularly functions which
+>     implicitly expect sk_fullsock to be true, like ip_local_out).
+>     Additionally, skb_set_owner_w is totally broken for non full-socks.
+> 
+>     Signed-off-by: Alex Gartrell <agartrell@fb.com>
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+> index bf66a86..3efe719 100644
+> --- a/net/netfilter/ipvs/ip_vs_xmit.c
+> +++ b/net/netfilter/ipvs/ip_vs_xmit.c
+> @@ -527,6 +527,19 @@ static inline int
+> ip_vs_tunnel_xmit_prepare(struct sk_buff *skb,
+>         return ret;
+>  }
+> 
+> +/* In the event of a remote destination, it's possible that we would have
+> + * matches against an old socket (particularly a TIME-WAIT socket). This
+> + * causes havoc down the line (ip_local_out et. al. expect regular sockets
+> + * and invalid memory accesses will happen) so simply drop the association
+> + * in this case
+> +*/
+> +static inline void ip_vs_drop_early_demux_sk(struct sk_buff *skb) {
 
-[  877.146203] ------------[ cut here ]------------
-[  877.146227] WARNING: CPU: 1 PID: 1731 at fs/proc/generic.c:552 remove_proc_entry+0x144/0x15c()
-[  877.146233] remove_proc_entry: removing non-empty directory 'irq/29', leaking at least 'mvneta'
-[  877.146238] Modules linked in: mvneta(-) [last unloaded: mvneta]
-[  877.146254] CPU: 1 PID: 1731 Comm: rmmod Tainted: G        W       4.1.1-mvebu-00006-g3d317ed-dirty #5
-[  877.146260] Hardware name: Marvell Armada 370/XP (Device Tree)
-[  877.146281] [<c0017194>] (unwind_backtrace) from [<c00126d4>] (show_stack+0x10/0x14)
-[  877.146293] [<c00126d4>] (show_stack) from [<c04d32e4>] (dump_stack+0x74/0x90)
-[  877.146305] [<c04d32e4>] (dump_stack) from [<c0025200>] (warn_slowpath_common+0x74/0xb0)
-[  877.146315] [<c0025200>] (warn_slowpath_common) from [<c00252d0>] (warn_slowpath_fmt+0x30/0x40)
-[  877.146325] [<c00252d0>] (warn_slowpath_fmt) from [<c0115694>] (remove_proc_entry+0x144/0x15c)
-[  877.146336] [<c0115694>] (remove_proc_entry) from [<c0060fd4>] (unregister_irq_proc+0x8c/0xb0)
-[  877.146347] [<c0060fd4>] (unregister_irq_proc) from [<c0059f84>] (free_desc+0x28/0x58)
-[  877.146356] [<c0059f84>] (free_desc) from [<c005a028>] (irq_free_descs+0x44/0x80)
-[  877.146368] [<c005a028>] (irq_free_descs) from [<bf015748>] (mvneta_remove+0x3c/0x4c [mvneta])
-[  877.146382] [<bf015748>] (mvneta_remove [mvneta]) from [<c024d6e8>] (platform_drv_remove+0x18/0x30)
-[  877.146393] [<c024d6e8>] (platform_drv_remove) from [<c024bd50>] (__device_release_driver+0x70/0xe4)
-[  877.146402] [<c024bd50>] (__device_release_driver) from [<c024c5b8>] (driver_detach+0xcc/0xd0)
-[  877.146411] [<c024c5b8>] (driver_detach) from [<c024bbe0>] (bus_remove_driver+0x4c/0x90)
-[  877.146425] [<c024bbe0>] (bus_remove_driver) from [<c007d3f0>] (SyS_delete_module+0x164/0x1b4)
-[  877.146437] [<c007d3f0>] (SyS_delete_module) from [<c000f4c0>] (ret_fast_syscall+0x0/0x3c)
-[  877.146443] ---[ end trace 48713a9ae31204b1 ]---
+	Move '{' on next line and below comment should be closed
+on next line. But I guess you will run later
+scripts/checkpatch.pl --strict /tmp/file.patch
 
-This was on the AX3 (dual-proc) with rxq_def=2.
+> +       /* If dev is set, the packet came from the LOCAL_IN callback and
+> +        * not from a local TCP socket */
+> +       if (skb->dev)
+> +               skb_orphan(skb);
+> +}
+> +
+>  /* return NF_STOLEN (sent) or NF_ACCEPT if local=1 (not sent) */
+>  static inline int ip_vs_nat_send_or_cont(int pf, struct sk_buff *skb,
+>                                          struct ip_vs_conn *cp, int local)
+> @@ -539,6 +552,7 @@ static inline int ip_vs_nat_send_or_cont(int pf,
+> struct sk_buff *skb,
+>         else
+>                 ip_vs_update_conntrack(skb, cp, 1);
+>         if (!local) {
+> +               ip_vs_drop_early_demux_sk(skb);
+>                 skb_forward_csum(skb);
+>                 NF_HOOK(pf, NF_INET_LOCAL_OUT, NULL, skb,
+>                         NULL, skb_dst(skb)->dev, dst_output_sk);
 
-Hoping this helps,
-Willy
+	For the local=true case in ip_vs_nat_send_or_cont may be
+we should call skb_orphan when cp->dport != cp->vport or
+cp->daddr != cp->vaddr. This is a case where we DNAT to
+local real server but on different addr/port. If early
+demux finds socket, it is some socket shadowed after adding
+the virtual service. So, may be we have to add such checks
+near the NF_ACCEPT code.
+
+	Can this work?
+
+	else {
+		/* Drop early-demux socket on DNAT */
+		if (cp->vport != cp->dport ||
+		    !ip_vs_addr_equal(cp->af, cp->vaddr, &cp->caddr))
+			ip_vs_drop_early_demux_sk(skb);
+		ret = NF_ACCEPT;
+	}
+
+	Otherwise, the other changes look good to me.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
