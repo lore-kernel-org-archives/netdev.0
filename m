@@ -1,73 +1,50 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: Summary lightweight tunnel discussion at NFWS
-Date: Sat, 04 Jul 2015 23:21:45 -0700
-Message-ID: <5598CCF9.4090407@cumulusnetworks.com>
-References: <1434689355-4088-3-git-send-email-roopa@cumulusnetworks.com> <20150703100023.GH26182@pox.localdomain>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH net-next] net: bail on sock_wfree, sock_rfree when we have
+ a TCP_TIMEWAIT sk
+Date: Sat, 4 Jul 2015 10:40:59 +0200
+Message-ID: <CANn89iJsqGUcSptWHJXYDmfO4XQZbb7nxVdjhuwcN3fVLcvEyg@mail.gmail.com>
+References: <1435781589-2210146-1-git-send-email-agartrell@fb.com>
+	<20150701.141402.587634025761326092.davem@davemloft.net>
+	<CANn89iK8SMLFNA6J0WB_qVTB+-C6qoX2o7-CxvwrLVua-cXzWg@mail.gmail.com>
+	<CALCkm3fUmO0pmQEgrwjoNy5PjFk+mzYbUd1wmBsV7hVSHBngPA@mail.gmail.com>
+	<CANn89iL4Pr1MQ_7uDcKEyT+D+193cQk9R304JsMAE0od4+ieEQ@mail.gmail.com>
+	<CALCkm3f1nmi-st-siG0CRv32X7G5d6+JCsOWM01Rh3Qif3HtuQ@mail.gmail.com>
+	<alpine.LFD.2.11.1507021135180.2615@ja.home.ssi.bg>
+	<CALCkm3c8N0HE774TU96wjdC_wrkDOwAHEDaSOS+eVJD22zCXmg@mail.gmail.com>
+	<CALCkm3eGTi6038Zq7N+XZsX3v5vbP0wY42ded0YUbBn0pjSE8Q@mail.gmail.com>
+	<alpine.LFD.2.11.1507031131010.1649@ja.home.ssi.bg>
+	<CALCkm3eCnC7fwtStGZj4xZDJeNegLT3vBHKNABvsEq7_H7aQfg@mail.gmail.com>
+	<alpine.LFD.2.11.1507041100480.1484@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, rshearma@brocade.com, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alex Gartrell <alexgartrell@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	"agartrell@fb.com" <agartrell@fb.com>,
+	netdev <netdev@vger.kernel.org>, kernel-team <kernel-team@fb.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34771 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750859AbbGEJU2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2015 05:20:28 -0400
-Received: by pabvl15 with SMTP id vl15so79448640pab.1
-        for <netdev@vger.kernel.org>; Sun, 05 Jul 2015 02:20:28 -0700 (PDT)
-In-Reply-To: <20150703100023.GH26182@pox.localdomain>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:38056 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753527AbbGEJsp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2015 05:48:45 -0400
+Received: by wibdq8 with SMTP id dq8so129731974wib.1
+        for <netdev@vger.kernel.org>; Sun, 05 Jul 2015 02:48:44 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.11.1507041100480.1484@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/3/15, 3:00 AM, Thomas Graf wrote:
-> On 06/18/15 at 09:49pm, Roopa Prabhu wrote:
->> +#ifdef CONFIG_LWTUNNEL
->> +		if (fi->fib_nh->nh_lwtstate) {
->> +			struct lwtunnel_state *lwtstate;
->> +
->> +			lwtstate = fi->fib_nh->nh_lwtstate;
->> +			if (nla_put_u16(skb, RTA_ENCAP_TYPE, lwtstate->type))
->> +				goto nla_put_failure;
->> +			lwtunnel_fill_encap(skb, lwtstate);
->> +		}
->>   	}
->> +#endif
-> Misplaced #endif ;-)
-Thx. I have fixed this since,...did not realize it came in as part of 
-this RFC series.
->
-> Other than that I managed to rebase my changes onto yours and it
-> looks clean.
-Glad to know!. thanks Thomas. I had a few more changes (mostly 
-cleanup/bug fixes, ipv6 support and mostly earlier feedback from you)
-in my local clone, pushed it to my github tree just now.
-This also tries to not use CONFIG_LWTUNNEL all over the place. I had it 
-that way initially also because of fib struct members
-under #ifdef CONFIG_LWTUNNEL. (If we think at a later point that it is 
-better to #ifdef CONFIG_LWTUNNEL fib struct members,
-I can bring some of that back in). And, Only control path (rtnetlink) 
-for ipv6 mpls iptunnels has been tested.
+>         Looks like routing by definition can not divert skbs with
+> early-demux socket because input routing is not called.
 
->
-> Since we also discussed this a bit at NFWS, I'm enclosing a quick
-> summary:
->
->   * Overall consensus that a lightweight flow based encapsulation
->     makes sense.
->   * Realization that what we actually want is stackable skb metadata
->     between layers without over engineering it.
->   * Consensus to avoid adding it to skb_shared_info and try to reuse
->     the skb dst field.
->   * New dst_metadata type similar to xfrm_dst which can carry metadata
->     such as encapsulation instructions/information.
->   * Can be made stackable to implement nested encapsulation if needed.
->     Left out in the beginning to keep it simple.
->   * Possible optimization option by putting the dst_metadata into a
->     per cpu scratch buffer or stack without taking a reference and
->     only force the reference & allocation when the skb is about to
->     be queued. The regular fast path should never queue a skb with
->     dst metadata attached.
-Thanks for the summary. this helps.
-I have been thinking of moving lwtstate from rtable to struct dst_entry.
-I will also look at the dst_metadata.
+Only if found socket has a valid sk->sk_rx_dst
+
+Early demux :
+
+1) if TCP lookup found a matching socket, we do the attachment
+   skb->sk = sk;
+   skb->destructor = sock_edemux
+
+2) If sk->sk_rx_dst is set and still valid, IP routing will use this cached dst.
+
+So it looks very possible that some packets could match a socket but
+fail the 2) phase.
