@@ -1,42 +1,38 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PULL] virtio/vhost: cross endian support
-Date: Fri, 3 Jul 2015 15:26:00 -0700
-Message-ID: <CA+55aFx6Rr8xWTKynja6Miuxhscc0QrfCGWgo4ZzbePCdeKjzA@mail.gmail.com>
-References: <20150701113150-mutt-send-email-mst@redhat.com>
-	<CA+55aFwE+vO2xevQ5jpyC0uJ7gASDwMS4=aDb=78RsJNA-wN1Q@mail.gmail.com>
-	<20150702071412-mutt-send-email-mst@redhat.com>
-	<20150703095637-mutt-send-email-mst@redhat.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH net-next 6/6] net_sched: act: remove spinlock in fast path
+Date: Sat, 4 Jul 2015 07:45:22 +0200
+Message-ID: <CANn89i+9SPG9u3YPbjfJX_swTj-RUHhkUFadGL6JD7SpFHHwwg@mail.gmail.com>
+References: <1435842455-30501-1-git-send-email-edumazet@google.com>
+	<1435842455-30501-7-git-send-email-edumazet@google.com>
+	<55966CEF.3000406@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: KVM list <kvm@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	virtualization <virtualization@lists.linux-foundation.org>,
-	david@gibson.dropbear.id.au
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20150703095637-mutt-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Eric Dumazet <edumazet@gmail.com>,
+	Gregoire Baron <baronchon@n7mm.org>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f52.google.com ([74.125.82.52]:33512 "EHLO
+	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753748AbbGDFpY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jul 2015 01:45:24 -0400
+Received: by wgck11 with SMTP id k11so101391420wgc.0
+        for <netdev@vger.kernel.org>; Fri, 03 Jul 2015 22:45:22 -0700 (PDT)
+In-Reply-To: <55966CEF.3000406@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 3, 2015 at 12:59 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
->
-> Linus, could you please clarify whether making the
-> feature depend on the cross-endian guest support
-> would address your comment, and whether you think
-> this can be merged as is, and the dependency added
-> after -rc1?
+On Fri, Jul 3, 2015 at 1:07 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-I'll take it. I still think dynamic byte order is a fundamental (and
-much too common) mistake, but whatever.
+> Very nice Eric;-> thanks.
+> So now basic accept/drop should be flying ;->
+> Other really low hanging fruit is act_csum, vlan and skbedit.
+> CCing the respective authors.
 
-                      Linus
+Note that act_mirred can be converted as well. I will do this because
+this is my main usage.
