@@ -1,49 +1,20 @@
-From: "Li, Liang Z" <liang.z.li@intel.com>
-Subject: Re: [PATCH] xen-netback: remove duplicated function
-	definition
-Date: Sat, 4 Jul 2015 15:43:47 +0000
-Message-ID: <F2CBF3009FA73547804AE4C663CAB28E55D931@shsmsx102.ccr.corp.intel.com>
-References: <1435951980-16265-1-git-send-email-liang.z.li@intel.com>
-	<20150703.095456.896840617547142096.davem@davemloft.net>
+From: "Enders A, Anouk" <a.enders@st.hanze.nl>
+Subject: work with
+Date: Sat, 4 Jul 2015 08:11:17 +0000
+Message-ID: <9F88D89CF7055C41BB9D7016AC88DB5359B6A678@HPEMB08W28.hanze.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"wei.liu2@citrix.com" <wei.liu2@citrix.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ian.campbell@citrix.com" <ian.campbell@citrix.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <20150703.095456.896840617547142096.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Undisclosed recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hpeed03w28.hanze.nl ([145.33.5.181]:40607 "EHLO
+	HPEED03W28.hanze.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750961AbbGEIc4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2015 04:32:56 -0400
+Content-Language: nl-NL
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Cc: linux-kernel@vger.kernel.org; ian.campbell@citrix.com;
-> wei.liu2@citrix.com; xen-devel@lists.xenproject.org;
-> netdev@vger.kernel.org
-> Subject: Re: [PATCH] xen-netback: remove duplicated function definition
-> 
-> From: Liang Li <liang.z.li@intel.com>
-> Date: Sat,  4 Jul 2015 03:33:00 +0800
-> 
-> > There are two duplicated xenvif_zerocopy_callback() definitions.
-> > Remove one of them.
-> >
-> > Signed-off-by: Liang Li <liang.z.li@intel.com>
-> 
-> You really need to fix the date on your computer.
-> 
-> If your date is in the future, as your's is, then your patch appears out-of-
-> order in the patchwork patch queue since it is ordered by the
-> Date: field in the email.
 
-OK. Thanks for your reminding.
+
+My name is Gatan Magsino, I work with Mediterranean Bank in Malta. Can i trust you with a business worth 8.3 million USD? Please reply ONLY to my private email: magsinoga@yahoo.com.hk for more information.
