@@ -1,43 +1,45 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [PATCH] NET: hamradio: Fix IP over bpq encapsulation.
-Date: Sat, 4 Jul 2015 11:22:30 +0200
-Message-ID: <20150704092230.GN5255@linux-mips.org>
+From: Vinson Lee <vlee@twopensource.com>
+Subject: Linux 4.2 build error in net/netfilter/ipset/ip_set_hash_netnet.c
+Date: Sat, 4 Jul 2015 00:44:36 -0700
+Message-ID: <CAHTgTXUmreHAqPfgGEd+GJNb_OEzaCuytqBTjZsE2GDqiy3TCw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org, stable@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([148.251.95.138]:53579 "EHLO
-	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755963AbbGEIu2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2015 04:50:28 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Sergey Popovich <popovich_sergei@mail.ua>,
+	Anton Danilov <littlesmilingcloud@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since 1d5da757da860a6916adbf68b09e868062b4b3b8 (ax25: Stop using magic
-neighbour cache operations.) any attempt to transmit IP packets over
-a bpqether device will result in a message like "Dead loop on virtual
-device bpq0, fix it urgently!"
+Hi.
 
-Fix suggested by Eric W. Biederman <ebiederm@xmission.com>.
+With the latest Linux 4.2-rc1, I am hitting this build error with GCC
+4.4.7 on CentOS 6.
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
-Cc: <stable@vger.kernel.org> # 4.1
----
- drivers/net/hamradio/bpqether.c | 1 +
- 1 file changed, 1 insertion(+)
+  CC      net/netfilter/ipset/ip_set_hash_netnet.o
+net/netfilter/ipset/ip_set_hash_netnet.c: In function =E2=80=98hash_net=
+net4_uadt=E2=80=99:
+net/netfilter/ipset/ip_set_hash_netnet.c:163: error: unknown field
+=E2=80=98cidr=E2=80=99 specified in initializer
+net/netfilter/ipset/ip_set_hash_netnet.c:163: warning: missing braces
+around initializer
+net/netfilter/ipset/ip_set_hash_netnet.c:163: warning: (near
+initialization for =E2=80=98e.<anonymous>.ip=E2=80=99)
+net/netfilter/ipset/ip_set_hash_netnet.c: In function =E2=80=98hash_net=
+net6_uadt=E2=80=99:
+net/netfilter/ipset/ip_set_hash_netnet.c:388: error: unknown field
+=E2=80=98cidr=E2=80=99 specified in initializer
+net/netfilter/ipset/ip_set_hash_netnet.c:388: warning: missing braces
+around initializer
+net/netfilter/ipset/ip_set_hash_netnet.c:388: warning: (near
+initialization for =E2=80=98e.ip[0]=E2=80=99)
 
-diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
-index 63ff08a..5b54b18 100644
---- a/drivers/net/hamradio/bpqether.c
-+++ b/drivers/net/hamradio/bpqether.c
-@@ -483,6 +483,7 @@ static void bpq_setup(struct net_device *dev)
- 	memcpy(dev->dev_addr,  &ax25_defaddr, AX25_ADDR_LEN);
- 
- 	dev->flags      = 0;
-+	dev->features	= NETIF_F_LLTX;	/* Allow recursion */
- 
- #if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
- 	dev->header_ops      = &ax25_header_ops;
+Cheers,
+Vinson
