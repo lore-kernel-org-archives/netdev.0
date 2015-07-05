@@ -1,61 +1,54 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: Linux 4.2 build error in net/netfilter/ipset/ip_set_hash_netnet.c
-Date: Sun, 5 Jul 2015 08:35:20 -0700
-Message-ID: <20150705153520.GA23589@roeck-us.net>
-References: <CAHTgTXUmreHAqPfgGEd+GJNb_OEzaCuytqBTjZsE2GDqiy3TCw@mail.gmail.com>
+From: Rob Herring <robh@kernel.org>
+Subject: [PATCH] net: phy: add dependency on HAS_IOMEM to MDIO_BUS_MUX_MMIOREG
+Date: Sun,  5 Jul 2015 12:16:27 -0500
+Message-ID: <1436116587-1982-1-git-send-email-robh@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Sergey Popovich <popovich_sergei@mail.ua>,
-	Anton Danilov <littlesmilingcloud@gmail.com>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Vinson Lee <vlee@twopensource.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAHTgTXUmreHAqPfgGEd+GJNb_OEzaCuytqBTjZsE2GDqiy3TCw@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Rob Herring <robh@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f181.google.com ([209.85.160.181]:32899 "EHLO
+	mail-yk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753057AbbGERRG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2015 13:17:06 -0400
+Received: by ykeo3 with SMTP id o3so9991847yke.0
+        for <netdev@vger.kernel.org>; Sun, 05 Jul 2015 10:17:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 04, 2015 at 12:44:36AM -0700, Vinson Lee wrote:
-> Hi.
->=20
-> With the latest Linux 4.2-rc1, I am hitting this build error with GCC
-> 4.4.7 on CentOS 6.
->=20
->   CC      net/netfilter/ipset/ip_set_hash_netnet.o
-> net/netfilter/ipset/ip_set_hash_netnet.c: In function =E2=80=98hash_n=
-etnet4_uadt=E2=80=99:
-> net/netfilter/ipset/ip_set_hash_netnet.c:163: error: unknown field
-> =E2=80=98cidr=E2=80=99 specified in initializer
-> net/netfilter/ipset/ip_set_hash_netnet.c:163: warning: missing braces
-> around initializer
-> net/netfilter/ipset/ip_set_hash_netnet.c:163: warning: (near
-> initialization for =E2=80=98e.<anonymous>.ip=E2=80=99)
-> net/netfilter/ipset/ip_set_hash_netnet.c: In function =E2=80=98hash_n=
-etnet6_uadt=E2=80=99:
-> net/netfilter/ipset/ip_set_hash_netnet.c:388: error: unknown field
-> =E2=80=98cidr=E2=80=99 specified in initializer
-> net/netfilter/ipset/ip_set_hash_netnet.c:388: warning: missing braces
-> around initializer
-> net/netfilter/ipset/ip_set_hash_netnet.c:388: warning: (near
-> initialization for =E2=80=98e.ip[0]=E2=80=99)
->=20
-Previously fixed with commit 1a869205c75cb ("netfilter: ipset: The unna=
-med union
-initialization may lead to compilation error"), reintroduced with commi=
-t
-aff227581ed1a ("netfilter: ipset: Check CIDR value only when attribute =
-is given").
+On UML builds, mdio-mux-mmioreg.c fails to compile:
 
-Guenter
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+drivers/net/phy/mdio-mux-mmioreg.c:50:3: error: implicit declaration of=
+ function =E2=80=98ioremap=E2=80=99 [-Werror=3Dimplicit-function-declar=
+ation]
+drivers/net/phy/mdio-mux-mmioreg.c:63:3: error: implicit declaration of=
+ function =E2=80=98iounmap=E2=80=99 [-Werror=3Dimplicit-function-declar=
+ation]
+
+This is due to CONFIG_OF now being user selectable. Add a dependency on
+HAS_IOMEM to fix this.
+
+Signed-off-by: Rob Herring <robh@kernel.org>
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+Cc: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/phy/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index cf18940..cb86d7a 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -191,7 +191,7 @@ config MDIO_BUS_MUX_GPIO
+=20
+ config MDIO_BUS_MUX_MMIOREG
+ 	tristate "Support for MMIO device-controlled MDIO bus multiplexers"
+-	depends on OF_MDIO
++	depends on OF_MDIO && HAS_IOMEM
+ 	select MDIO_BUS_MUX
+ 	help
+ 	  This module provides a driver for MDIO bus multiplexers that
+--=20
+2.1.0
