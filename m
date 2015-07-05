@@ -1,53 +1,92 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH] xen-netback: remove duplicated function definition
-Date: Sun, 5 Jul 2015 20:48:22 +0100
-Message-ID: <20150705194822.GA22267@zion.uk.xensource.com>
-References: <1435951980-16265-1-git-send-email-liang.z.li@intel.com>
+From: Alex Gartrell <agartrell@fb.com>
+Subject: [PATCH net-next] ipvs: skb_orphan in case of forwarding
+Date: Sun, 5 Jul 2015 13:25:50 -0700
+Message-ID: <1436127950-1481955-1-git-send-email-agartrell@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <linux-kernel@vger.kernel.org>, <ian.campbell@citrix.com>,
-	<wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>
-To: Liang Li <liang.z.li@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:20860 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752609AbbGETs0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jul 2015 15:48:26 -0400
-Content-Disposition: inline
-In-Reply-To: <1435951980-16265-1-git-send-email-liang.z.li@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <kernel-team@fb.com>,
+	Alex Gartrell <agartrell@fb.com>
+To: <ja@ssi.bg>, <horms@verge.net.au>, <lvs-devel@vger.kernel.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 04, 2015 at 03:33:00AM +0800, Liang Li wrote:
-> There are two duplicated xenvif_zerocopy_callback() definitions.
-> Remove one of them.
-> 
-> Signed-off-by: Liang Li <liang.z.li@intel.com>
+It is possible that we bind against a local socket in early_demux when we
+are actually going to want to forward it.  In this case, the socket serves
+no purpose and only serves to confuse things (particularly functions which
+implicitly expect sk_fullsock to be true, like ip_local_out).
+Additionally, skb_set_owner_w is totally broken for non full-socks.
 
-Acked-by: Wei Liu <wei.liu2@citrix.com>
+Signed-off-by: Alex Gartrell <agartrell@fb.com>
+---
+ net/netfilter/ipvs/ip_vs_xmit.c | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
 
-Please fix the time of your computer and resend.
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index bf66a86..65526f4 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -527,6 +527,21 @@ static inline int ip_vs_tunnel_xmit_prepare(struct sk_buff *skb,
+ 	return ret;
+ }
+ 
++/* In the event of a remote destination, it's possible that we would have
++ * matches against an old socket (particularly a TIME-WAIT socket). This
++ * causes havoc down the line (ip_local_out et. al. expect regular sockets
++ * and invalid memory accesses will happen) so simply drop the association
++ * in this case.
++*/
++static inline void ip_vs_drop_early_demux_sk(struct sk_buff *skb)
++{
++	/* If dev is set, the packet came from the LOCAL_IN callback and
++	 * not from a local TCP socket.
++	 */
++	if (skb->dev)
++		skb_orphan(skb);
++}
++
+ /* return NF_STOLEN (sent) or NF_ACCEPT if local=1 (not sent) */
+ static inline int ip_vs_nat_send_or_cont(int pf, struct sk_buff *skb,
+ 					 struct ip_vs_conn *cp, int local)
+@@ -538,12 +553,21 @@ static inline int ip_vs_nat_send_or_cont(int pf, struct sk_buff *skb,
+ 		ip_vs_notrack(skb);
+ 	else
+ 		ip_vs_update_conntrack(skb, cp, 1);
++
++	/* Remove the early_demux association unless it's bound for the
++	 * exact same port and address on this host after translation.
++	 */
++	if (!local || cp->vport != cp->dport ||
++	    !ip_vs_addr_equal(cp->af, &cp->vaddr, &cp->caddr))
++		ip_vs_drop_early_demux_sk(skb);
++
+ 	if (!local) {
+ 		skb_forward_csum(skb);
+ 		NF_HOOK(pf, NF_INET_LOCAL_OUT, NULL, skb,
+ 			NULL, skb_dst(skb)->dev, dst_output_sk);
+ 	} else
+ 		ret = NF_ACCEPT;
++
+ 	return ret;
+ }
+ 
+@@ -557,6 +581,7 @@ static inline int ip_vs_send_or_cont(int pf, struct sk_buff *skb,
+ 	if (likely(!(cp->flags & IP_VS_CONN_F_NFCT)))
+ 		ip_vs_notrack(skb);
+ 	if (!local) {
++		ip_vs_drop_early_demux_sk(skb);
+ 		skb_forward_csum(skb);
+ 		NF_HOOK(pf, NF_INET_LOCAL_OUT, NULL, skb,
+ 			NULL, skb_dst(skb)->dev, dst_output_sk);
+@@ -845,6 +870,8 @@ ip_vs_prepare_tunneled_skb(struct sk_buff *skb, int skb_af,
+ 	struct ipv6hdr *old_ipv6h = NULL;
+ #endif
+ 
++	ip_vs_drop_early_demux_sk(skb);
++
+ 	if (skb_headroom(skb) < max_headroom || skb_cloned(skb)) {
+ 		new_skb = skb_realloc_headroom(skb, max_headroom);
+ 		if (!new_skb)
+-- 
+Alex Gartrell <agartrell@fb.com>
 
-Wei.
-
-> ---
->  drivers/net/xen-netback/common.h | 3 ---
->  1 file changed, 3 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-> index 8a495b3..c6cb85a 100644
-> --- a/drivers/net/xen-netback/common.h
-> +++ b/drivers/net/xen-netback/common.h
-> @@ -325,9 +325,6 @@ static inline pending_ring_idx_t nr_pending_reqs(struct xenvif_queue *queue)
->  		queue->pending_prod + queue->pending_cons;
->  }
->  
-> -/* Callback from stack when TX packet can be released */
-> -void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success);
-> -
->  irqreturn_t xenvif_interrupt(int irq, void *dev_id);
->  
->  extern bool separate_tx_rx_irq;
-> -- 
-> 1.9.1
