@@ -1,54 +1,53 @@
-From: Rob Herring <robh@kernel.org>
-Subject: [PATCH] net: phy: add dependency on HAS_IOMEM to MDIO_BUS_MUX_MMIOREG
-Date: Sun,  5 Jul 2015 12:16:27 -0500
-Message-ID: <1436116587-1982-1-git-send-email-robh@kernel.org>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH] xen-netback: remove duplicated function definition
+Date: Sun, 5 Jul 2015 20:48:22 +0100
+Message-ID: <20150705194822.GA22267@zion.uk.xensource.com>
+References: <1435951980-16265-1-git-send-email-liang.z.li@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Rob Herring <robh@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linux-kernel@vger.kernel.org>, <ian.campbell@citrix.com>,
+	<wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>
+To: Liang Li <liang.z.li@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f181.google.com ([209.85.160.181]:32899 "EHLO
-	mail-yk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753057AbbGERRG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2015 13:17:06 -0400
-Received: by ykeo3 with SMTP id o3so9991847yke.0
-        for <netdev@vger.kernel.org>; Sun, 05 Jul 2015 10:17:06 -0700 (PDT)
+Received: from smtp.citrix.com ([66.165.176.89]:20860 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752609AbbGETs0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jul 2015 15:48:26 -0400
+Content-Disposition: inline
+In-Reply-To: <1435951980-16265-1-git-send-email-liang.z.li@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On UML builds, mdio-mux-mmioreg.c fails to compile:
+On Sat, Jul 04, 2015 at 03:33:00AM +0800, Liang Li wrote:
+> There are two duplicated xenvif_zerocopy_callback() definitions.
+> Remove one of them.
+> 
+> Signed-off-by: Liang Li <liang.z.li@intel.com>
 
-drivers/net/phy/mdio-mux-mmioreg.c:50:3: error: implicit declaration of=
- function =E2=80=98ioremap=E2=80=99 [-Werror=3Dimplicit-function-declar=
-ation]
-drivers/net/phy/mdio-mux-mmioreg.c:63:3: error: implicit declaration of=
- function =E2=80=98iounmap=E2=80=99 [-Werror=3Dimplicit-function-declar=
-ation]
+Acked-by: Wei Liu <wei.liu2@citrix.com>
 
-This is due to CONFIG_OF now being user selectable. Add a dependency on
-HAS_IOMEM to fix this.
+Please fix the time of your computer and resend.
 
-Signed-off-by: Rob Herring <robh@kernel.org>
-Cc: Florian Fainelli <f.fainelli@gmail.com>
-Cc: David S. Miller <davem@davemloft.net>
----
- drivers/net/phy/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Wei.
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index cf18940..cb86d7a 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -191,7 +191,7 @@ config MDIO_BUS_MUX_GPIO
-=20
- config MDIO_BUS_MUX_MMIOREG
- 	tristate "Support for MMIO device-controlled MDIO bus multiplexers"
--	depends on OF_MDIO
-+	depends on OF_MDIO && HAS_IOMEM
- 	select MDIO_BUS_MUX
- 	help
- 	  This module provides a driver for MDIO bus multiplexers that
---=20
-2.1.0
+> ---
+>  drivers/net/xen-netback/common.h | 3 ---
+>  1 file changed, 3 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+> index 8a495b3..c6cb85a 100644
+> --- a/drivers/net/xen-netback/common.h
+> +++ b/drivers/net/xen-netback/common.h
+> @@ -325,9 +325,6 @@ static inline pending_ring_idx_t nr_pending_reqs(struct xenvif_queue *queue)
+>  		queue->pending_prod + queue->pending_cons;
+>  }
+>  
+> -/* Callback from stack when TX packet can be released */
+> -void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success);
+> -
+>  irqreturn_t xenvif_interrupt(int irq, void *dev_id);
+>  
+>  extern bool separate_tx_rx_irq;
+> -- 
+> 1.9.1
