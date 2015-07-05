@@ -1,53 +1,51 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH net-next 3/6] net_sched: act: make tcfg_pval non zero
-Date: Sat, 4 Jul 2015 09:18:53 +0200
-Message-ID: <CANn89iJ9OWaG1_zvTMkGxpswGoGTweoi2XiYKoVVZcsLyn9w6A@mail.gmail.com>
-References: <1435842455-30501-1-git-send-email-edumazet@google.com>
-	<1435842455-30501-4-git-send-email-edumazet@google.com>
-	<559668A4.5040604@mojatatu.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH 4/6] net: mvneta: Handle per-cpu interrupts
+Date: Sun, 5 Jul 2015 14:37:08 +0200
+Message-ID: <20150705123708.GA24162@1wt.eu>
+References: <1435933551-28696-1-git-send-email-maxime.ripard@free-electrons.com> <1435933551-28696-5-git-send-email-maxime.ripard@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Eric Dumazet <edumazet@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Maxime Ripard <maxime.ripard@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:37379 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751273AbbGEKzK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2015 06:55:10 -0400
-Received: by wicgi11 with SMTP id gi11so130368319wic.0
-        for <netdev@vger.kernel.org>; Sun, 05 Jul 2015 03:55:08 -0700 (PDT)
-In-Reply-To: <559668A4.5040604@mojatatu.com>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:33921 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750734AbbGEMhX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jul 2015 08:37:23 -0400
+Content-Disposition: inline
+In-Reply-To: <1435933551-28696-5-git-send-email-maxime.ripard@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks guys for the review.
+Hi Maxime,
 
-For completeness, I'll add smp_wmb() here :
+On Fri, Jul 03, 2015 at 04:25:49PM +0200, Maxime Ripard wrote:
+> Now that our interrupt controller is allowing us to use per-CPU interrupts,
+> actually use it in the mvneta driver.
+> 
+> This involves obviously reworking the driver to have a CPU-local NAPI
+> structure, and report for incoming packet using that structure.
+> 
+> Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
 
-    gact->tcfg_pval    = max_t(u16, 1, p_parm->pval);
-    smp_wmb();
-    gact->tcfg_ptype   = p_parm->ptype;
+This patch breaks module build of mvneta unless you export request_percpu_irq :
 
-And corresponding smp_rmb()
-
-On Fri, Jul 3, 2015 at 12:49 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 07/02/15 09:07, Eric Dumazet wrote:
->>
->> First step for gact RCU operation :
->>
->> Instead of testing if tcfg_pval is zero or not, just make it 1.
->>
->> No change in behavior, but slightly faster code.
->>
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
->
->
-> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> cheers,
-> jamal
->
+diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
+index ec31697..1440a92 100644
+--- a/kernel/irq/manage.c
++++ b/kernel/irq/manage.c
+@@ -1799,6 +1799,7 @@ int request_percpu_irq(unsigned int irq, irq_handler_t handler,
+ 
+	return retval;
+ }
++EXPORT_SYMBOL_GPL(request_percpu_irq);
+ 
+Regards,
+Willy
