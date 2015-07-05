@@ -1,20 +1,37 @@
-From: "Enders A, Anouk" <a.enders@st.hanze.nl>
-Subject: work with
-Date: Sat, 4 Jul 2015 08:11:17 +0000
-Message-ID: <9F88D89CF7055C41BB9D7016AC88DB5359B6A678@HPEMB08W28.hanze.nl>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH] bnx2x: Update to FW version 7.12.30
+Date: Sun, 5 Jul 2015 05:00:59 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63DD93BB@avmb3.qlogic.org>
+References: <1434866091-30087-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Undisclosed recipients:;
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
+	netdev <netdev@vger.kernel.org>
+To: "dwmw2@infradead.org" <dwmw2@infradead.org>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hpeed03w28.hanze.nl ([145.33.5.181]:40607 "EHLO
-	HPEED03W28.hanze.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750961AbbGEIc4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2015 04:32:56 -0400
-Content-Language: nl-NL
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:34140 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753320AbbGEIkJ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jul 2015 04:40:09 -0400
+In-Reply-To: <1434866091-30087-1-git-send-email-Yuval.Mintz@qlogic.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> The new FW will allow us to utilize some new features in our driver,
+> mainly adding vlan filtering offload and vxlan offload support.
+> 
+> In addition, this fixes several issues:
+> 1. Packets from a VF with pvid configured which were sent with a
+>    different vlan were transmitted instead of being discarded.
+> 
+> 2. FCoE traffic might not recover after a failue while there's traffic
+>    to another function.
+> 
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 
-
-My name is Gatan Magsino, I work with Mediterranean Bank in Malta. Can i trust you with a business worth 8.3 million USD? Please reply ONLY to my private email: magsinoga@yahoo.com.hk for more information.
+Hi, any news about this one?
+Thanks, Yuval
