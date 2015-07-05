@@ -1,37 +1,63 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH] bnx2x: Update to FW version 7.12.30
-Date: Sun, 5 Jul 2015 05:00:59 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63DD93BB@avmb3.qlogic.org>
-References: <1434866091-30087-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Mr Lassine Diawara <nicolemarois7410@gmail.com>
+Subject: Greetings from Dr. Lassine Diawara.
+Date: Sun, 5 Jul 2015 00:53:39 -0700
+Message-ID: <CAEPXuGPtZ=A8Gk6AYvx++2121hZfeQvMEFZ5V6BdakgVY6jXiQ@mail.gmail.com>
+Reply-To: lassinediawa3@yandex.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
-	netdev <netdev@vger.kernel.org>
-To: "dwmw2@infradead.org" <dwmw2@infradead.org>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:34140 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753320AbbGEIkJ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jul 2015 04:40:09 -0400
-In-Reply-To: <1434866091-30087-1-git-send-email-Yuval.Mintz@qlogic.com>
-Content-Language: en-US
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:34790 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751465AbbGEIrc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2015 04:47:32 -0400
+Received: by wgqq4 with SMTP id q4so117186518wgq.1
+        for <netdev@vger.kernel.org>; Sun, 05 Jul 2015 01:47:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> The new FW will allow us to utilize some new features in our driver,
-> mainly adding vlan filtering offload and vxlan offload support.
-> 
-> In addition, this fixes several issues:
-> 1. Packets from a VF with pvid configured which were sent with a
->    different vlan were transmitted instead of being discarded.
-> 
-> 2. FCoE traffic might not recover after a failue while there's traffic
->    to another function.
-> 
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+--=20
+Greetings from Dr. Lassine Diawara.
 
-Hi, any news about this one?
-Thanks, Yuval
+Assalamu Alaikum,
+
+             Permit me to inform you of my desire of  going into
+business relationship with you, I know this  message will sounds very
+strange to you, but I have no  choice than to risk my life to choose a
+stranger like  you I have never seen before. We leave in a global
+world today, and with the help of internet technology  one can easily
+communicate with one  another all around  the world without knowing
+him or she in person, what  matters will be  the trust and the
+Information=E2=80=99s you  got about the person. In this case we can
+understand our self and work like one family.
+
+My Name is Dr. Lassine Diawara, the senior Auditor In charge of
+=46oreign Remittance Unit, Bank of Africa (BOA). I'm from Ouagadougou,
+Burkina Faso, West Africa.  My reason for contacting you is to
+transfer an abandoned $15.5M to your account.
+
+The owner of this fund died since 2003 with his Next Of Kin. I want to
+present you to the bank as the Next of Kin/beneficiary of this fund.
+
+=46urther details of the transaction shall be forwarded to you as soon
+as I receive your return mail indicating your interest.
+
+I will like you to provide immediately the below information=E2=80=99s,=
+ to
+enable me use it and get you next of  kin application form from my
+bank.
+
+1. Full Name:......................
+2.Full Address:...................
+3.Telephone Number:...............
+4.Country:........................
+5.Occupation:.....................
+6.Age:............................
+7.Sex:............................
+
+ I will let you know the next steps and procedures and more details to
+follow in order to finalize this transaction immediately.
+
+Yours Sincerely,
+Dr Lassine Diawara
