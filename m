@@ -1,62 +1,81 @@
-From: Matteo Croce <matteo@openwrt.org>
-Subject: Re: [PATCH v2] add stealth mode
-Date: Mon, 6 Jul 2015 21:44:06 +0200
-Message-ID: <CAFnufp3xP3xjd8zy0uLKEGgbBAb0motLva=f1EbMJCfcKG=Y-w@mail.gmail.com>
-References: <CAFnufp059tojfKYBye4eayOCvNNkAE9w_s_6E-PiG-EYp9K0Gg@mail.gmail.com>
- <21611.1436179798@turing-police.cc.vt.edu>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next,
+ v2] hv_netvsc: Add support to set MTU reservation from guest side
+Date: Mon,  6 Jul 2015 14:11:37 -0700
+Message-ID: <1436217097-31102-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Valdis.Kletnieks@vt.edu
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <21611.1436179798@turing-police.cc.vt.edu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-2015-07-06 12:49 GMT+02:00  <Valdis.Kletnieks@vt.edu>:
-> On Thu, 02 Jul 2015 10:56:01 +0200, Matteo Croce said:
->> Add option to disable any reply not related to a listening socket,
->> like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
->> Also disables ICMP replies to echo request and timestamp.
->> The stealth mode can be enabled selectively for a single interface.
->
-> A few notes.....
->
-> 1) Do you have an actual use case where an iptables '-j DROP' isn't usable?
+When packet encapsulation is in use, the MTU needs to be reduced for
+headroom reservation.
+The existing code takes the updated MTU value only from the host side.
+But vSwitch extensions, such as Open vSwitch, require the flexibility
+to change the MTU to different values from within a guest during the
+lifecycle of a vNIC, when the encapsulation protocol is changed. The
+patch supports this kind of MTU changes.
 
-If you mean using a default DROP policy and allowing only the traffic
-do you want,
-then the use case is where the port can change at runtime and you may not want
-to update the firewall every time
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |    1 +
+ drivers/net/hyperv/netvsc_drv.c   |    3 +--
+ drivers/net/hyperv/rndis_filter.c |    2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-
-> 2) You *do* realize that this isn't anywhere near sufficient in order
-> to actually make your machine "invisible", right?  (Hint: What *other*
-> packets can be sent to a machine to provoke a response?)
-
-Other than ICMP, UDP and TCP excluding open TCP/UDP ports?
-
-> 3) At least my copy had massive whitespace damage, where all the tab characters
-> appear to have evaporated....
-
-Sorry, I was using git sendemail first, but I got a security error from gmail,
-so I copied/pasted the patch in gmail which corrupted it
-
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index dd45440..26cd14c 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -589,6 +589,7 @@ struct nvsp_message {
+ 
+ 
+ #define NETVSC_MTU 65536
++#define NETVSC_MTU_MIN 68
+ 
+ #define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*16)	/* 16MB */
+ #define NETVSC_RECEIVE_BUFFER_SIZE_LEGACY	(1024*1024*15)  /* 15MB */
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 358475e..b855ba9 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -743,8 +743,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
+ 		limit = NETVSC_MTU - ETH_HLEN;
+ 
+-	/* Hyper-V hosts don't support MTU < ETH_DATA_LEN (1500) */
+-	if (mtu < ETH_DATA_LEN || mtu > limit)
++	if (mtu < NETVSC_MTU_MIN || mtu > limit)
+ 		return -EINVAL;
+ 
+ 	nvdev->start_remove = true;
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 006c1b8..172824e 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1053,7 +1053,7 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	ret = rndis_filter_query_device(rndis_device,
+ 					RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE,
+ 					&mtu, &size);
+-	if (ret == 0 && size == sizeof(u32))
++	if (ret == 0 && size == sizeof(u32) && mtu < net_device->ndev->mtu)
+ 		net_device->ndev->mtu = mtu;
+ 
+ 	/* Get the mac address */
 -- 
-Matteo Croce
-OpenWrt Developer
-  _______                     ________        __
- |       |.-----.-----.-----.|  |  |  |.----.|  |_
- |   -   ||  _  |  -__|     ||  |  |  ||   _||   _|
- |_______||   __|_____|__|__||________||__|  |____|
-          |__| W I R E L E S S   F R E E D O M
- -----------------------------------------------------
- CHAOS CALMER
- -----------------------------------------------------
-  * 1 1/2 oz Gin            Shake with a glassful
-  * 1/4 oz Triple Sec       of broken ice and pour
-  * 3/4 oz Lime Juice       unstrained into a goblet.
-  * 1 1/2 oz Orange Juice
-  * 1 tsp. Grenadine Syrup
- -----------------------------------------------------
+1.7.4.1
