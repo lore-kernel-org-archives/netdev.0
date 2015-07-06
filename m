@@ -1,67 +1,71 @@
-From: Vitaly Andrianov <vitalya@ti.com>
-Subject: [PATCH] sctp: Add counters for out data chunk discards
-Date: Mon, 6 Jul 2015 13:37:25 -0400
-Message-ID: <1436204245-21645-1-git-send-email-vitalya@ti.com>
+From: Huan Le <huan@apcera.com>
+Subject: Re: tc ingress filters not applied
+Date: Mon, 6 Jul 2015 17:24:34 +0000 (UTC)
+Message-ID: <loom.20150706T190215-28@post.gmane.org>
+References: <20150330141523.GQ23551@haze>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Vitaly Andrianov <vitalya@ti.com>
-To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
-	<davem@davemloft.net>, <linux-sctp@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<m-karicheri2@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:45311 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754457AbbGFRfH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jul 2015 13:35:07 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1ZCAIL-0001J6-8k
+	for netdev@vger.kernel.org; Mon, 06 Jul 2015 19:35:05 +0200
+Received: from 4.16.82.26 ([4.16.82.26])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 19:35:05 +0200
+Received: from huan by 4.16.82.26 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 19:35:05 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This commit adds a MIB entry for out data chunk discards.
-Number of outgoing SCTP DATA chunks for a SCTP association for which no
-problems were encountered to prevent their transmission but were discarded.
-Data chunks are discarded due to ungraceful closing of the SCTP
-association.
+Erik Hugne <erik.hugne <at> ericsson.com> writes:
 
-Signed-off-by: Vitaly Andrianov <vitalya@ti.com>
----
- include/net/sctp/sctp.h | 1 +
- net/sctp/outqueue.c     | 1 +
- net/sctp/proc.c         | 2 ++
- 3 files changed, 4 insertions(+)
+> 
+> I'm having troubles with TC policing, the ingress filters does not seem to be
+> applied.
+> 
+> 
+> Kernel: net-next/latest 
+> iproute2: shemminger/master
+> 
+> //E
+> 
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index ce13cf2..fd806ea 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -216,6 +216,7 @@ enum {
- 	SCTP_MIB_IN_PKT_BACKLOG,
- 	SCTP_MIB_IN_PKT_DISCARDS,
- 	SCTP_MIB_IN_DATA_CHUNK_DISCARDS,
-+	SCTP_MIB_OUT_DATA_CHUNK_DISCARDS,
- 	__SCTP_MIB_MAX
- };
- 
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 7e8f0a1..dc1a40f 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -315,6 +315,7 @@ int sctp_outq_tail(struct sctp_outq *q, struct sctp_chunk *chunk)
- 		case SCTP_STATE_SHUTDOWN_RECEIVED:
- 		case SCTP_STATE_SHUTDOWN_ACK_SENT:
- 			/* Cannot send after transport endpoint shutdown */
-+			SCTP_INC_STATS(net, SCTP_MIB_OUT_DATA_CHUNK_DISCARDS);
- 			error = -ESHUTDOWN;
- 			break;
- 
-diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-index 0697eda..1a10b81 100644
---- a/net/sctp/proc.c
-+++ b/net/sctp/proc.c
-@@ -67,6 +67,8 @@ static const struct snmp_mib sctp_snmp_list[] = {
- 	SNMP_MIB_ITEM("SctpInPktBacklog", SCTP_MIB_IN_PKT_BACKLOG),
- 	SNMP_MIB_ITEM("SctpInPktDiscards", SCTP_MIB_IN_PKT_DISCARDS),
- 	SNMP_MIB_ITEM("SctpInDataChunkDiscards", SCTP_MIB_IN_DATA_CHUNK_DISCARDS),
-+	SNMP_MIB_ITEM("SctpOutDataChunkDiscards",
-+		      SCTP_MIB_OUT_DATA_CHUNK_DISCARDS),
- 	SNMP_MIB_SENTINEL
- };
- 
--- 
-1.9.1
+I observed similar behavior when configuring a filter on ingress qdisc.
+Test shows that traffic was rate-limited to the configured value. 
+However, "tc filter show" does not show any filtering rule.
+
+(1) add ingress qdisc on eth1
+# tc qdisc add dev eth1 ingress
+# tc qdisc show dev eth1 ingress
+qdisc pfifo_fast 0: root refcnt 2 bands 3 priomap \
+ 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+qdisc ingress ffff: parent ffff:fff1 ---------------- 
+
+(2) add filter under ingress qdisc
+# tc filter add dev eth1 parent ffff: protocol all \
+ u32 match ip src 0.0.0.0/0 \
+ police rate 256kbit burst 10k drop flowid :1
+# tc filter show dev eth1
+
+(3) verified sch_ingress kernel module is installed
+# lsmod  | grep sch_ingress
+sch_ingress            12866  1
+
+(4) uname -a (if needed for debugging)
+Linux huan-lnx 3.16.0-30-generic #40~14.04.1-Ubuntu SMP 
+Thu Jan 15 17:43:14 UTC 2015 x86_64 x86_64 x86_64 GNU/Linux
+
+I am testing this using ubuntu 14.04 on a virtualbox VM
+(eth1 is a host-only adapter).
+
+Thanks,
+Huan
