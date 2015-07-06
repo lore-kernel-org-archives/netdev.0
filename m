@@ -1,292 +1,175 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [RFC net-next 6/6] net: Add chvrf command
-Date: Mon,  6 Jul 2015 09:03:20 -0600
-Message-ID: <1436195001-4818-7-git-send-email-dsa@cumulusnetworks.com>
-References: <1436195001-4818-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
-	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
-	nikolay@cumulusnetworks.com, ddutt@cumulusnetworks.com,
-	hannes@stressinduktion.org, nicolas.dichtel@6wind.com,
-	stephen@networkplumber.org, hadi@mojatatu.com,
-	ebiederm@xmission.com, davem@davemloft.net,
-	David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net-next 0/3] net: implement SMC-R solution
+Date: Mon,  6 Jul 2015 17:11:48 +0200
+Message-ID: <1436195511-32314-1-git-send-email-ubraun@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: utz.bacher@de.ibm.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, ursula.braun@de.ibm.com,
+	ubraun@linux.vnet.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:35278 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753099AbbGFPDm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 11:03:42 -0400
-Received: by iecuq6 with SMTP id uq6so115029772iec.2
-        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 08:03:41 -0700 (PDT)
-In-Reply-To: <1436195001-4818-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:40620 "EHLO
+	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753387AbbGFPMI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 11:12:08 -0400
+Received: from /spool/local
+	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+	Mon, 6 Jul 2015 16:12:06 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Example of how to use the default bind to interface option for tasks and
-correlate with VRF devices.
+=46rom: Ursula Braun <ursula.braun@de.ibm.com>
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- tools/net/Makefile |   6 +-
- tools/net/chvrf.c  | 225 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 229 insertions(+), 2 deletions(-)
- create mode 100644 tools/net/chvrf.c
+In 2013, IBM introduced an optimized communications solution for the
+IBM zEnterprise EC12 and BC12 (s390 in Linux terminology) that is
+comprised of the IBM 10GbE RoCE Express feature with Shared Memory
+Communications-RDMA (SMC-R) protocol [1].
+SMC-R is designed for the enterprise data center environment and is an =
+open
+protocol as specified in the informational RFC [2]. The final draft
+submitted by IBM has been approved for publication and is in the final
+editorial stage. Another implementation of this protocol is available s=
+ince
+2013 with IBM z/OS Version 2 Release 1.=20
 
-diff --git a/tools/net/Makefile b/tools/net/Makefile
-index ee577ea03ba5..c13f11f5637a 100644
---- a/tools/net/Makefile
-+++ b/tools/net/Makefile
-@@ -10,7 +10,7 @@ YACC = bison
- %.lex.c: %.l
- 	$(LEX) -o $@ $<
- 
--all : bpf_jit_disasm bpf_dbg bpf_asm
-+all : bpf_jit_disasm bpf_dbg bpf_asm chvrf
- 
- bpf_jit_disasm : CFLAGS = -Wall -O2 -DPACKAGE='bpf_jit_disasm'
- bpf_jit_disasm : LDLIBS = -lopcodes -lbfd -ldl
-@@ -25,8 +25,10 @@ bpf_asm : LDLIBS =
- bpf_asm : bpf_asm.o bpf_exp.yacc.o bpf_exp.lex.o
- bpf_exp.lex.o : bpf_exp.yacc.c
- 
-+chvrf : CFLAGS = -Wall -O2
-+
- clean :
--	rm -rf *.o bpf_jit_disasm bpf_dbg bpf_asm bpf_exp.yacc.* bpf_exp.lex.*
-+	rm -rf *.o bpf_jit_disasm bpf_dbg bpf_asm bpf_exp.yacc.* bpf_exp.lex.* chvrf
- 
- install :
- 	install bpf_jit_disasm $(prefix)/bin/bpf_jit_disasm
-diff --git a/tools/net/chvrf.c b/tools/net/chvrf.c
-new file mode 100644
-index 000000000000..71cc925fd101
---- /dev/null
-+++ b/tools/net/chvrf.c
-@@ -0,0 +1,225 @@
-+/*
-+ * chvrf.c - Example of how to use the default bind-to-device option for
-+ *           tasks and correlate to VRFs via the VRF device.
-+ *
-+ * Copyright (c) 2015 Cumulus Networks
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+#include <sys/ioctl.h>
-+#include <sys/prctl.h>
-+#include <sys/socket.h>
-+#include <signal.h>
-+#include <string.h>
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <netinet/in.h>
-+#include <net/if.h> /* for struct ifreq  */
-+#include <libgen.h>
-+#include <errno.h>
-+
-+#ifndef PR_SET_SK_BIND_DEV_IF
-+#define PR_SET_SK_BIND_DEV_IF   47
-+#endif
-+#ifndef PR_GET_SK_BIND_DEV_IF
-+#define PR_GET_SK_BIND_DEV_IF   48
-+#endif
-+
-+static int vrf_to_device(int vrf)
-+{
-+	struct ifreq ifdata;
-+	int sd, rc;
-+
-+	memset(&ifdata, 0, sizeof(ifdata));
-+	snprintf(ifdata.ifr_name, sizeof(ifdata.ifr_name) - 1, "vrf%d", vrf);
-+
-+	sd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
-+	if (sd < 0) {
-+		perror("socket failed");
-+		return -1;
-+	}
-+
-+	/* Get the index for the specified interface */
-+	rc = ioctl(sd, SIOCGIFINDEX, (char *)&ifdata);
-+	close(sd);
-+	if (rc != 0) {
-+		perror("ioctl(SIOCGIFINDEX) failed");
-+		return -1;
-+	}
-+
-+	return ifdata.ifr_ifindex;
-+}
-+
-+static int device_to_vrf(int idx)
-+{
-+	struct ifreq ifdata;
-+	int sd, vrf, rc;
-+
-+	memset(&ifdata, 0, sizeof(ifdata));
-+	ifdata.ifr_ifindex = idx;
-+
-+	sd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
-+	if (sd < 0) {
-+		perror("socket failed");
-+		return -1;
-+	}
-+
-+	/* Get the index for the specified interface */
-+	rc = ioctl(sd, SIOCGIFNAME, (char *)&ifdata);
-+	close(sd);
-+	if (rc != 0) {
-+		perror("ioctl(SIOCGIFNAME) failed");
-+		return -1;
-+	}
-+
-+	if (sscanf(ifdata.ifr_name, "vrf%d", &vrf) != 1) {
-+		fprintf(stderr, "Unexpected device name (%s)\n", ifdata.ifr_name);
-+		vrf = -1;
-+	}
-+
-+	return vrf;
-+}
-+
-+static int set_vrf(int vrf)
-+{
-+	int idx;
-+	long err;
-+
-+	/* convert vrf to device index */
-+	idx = vrf_to_device(vrf);
-+	if (idx < 0) {
-+		fprintf(stderr, "Failed to get device index for vrf %d\n", vrf);
-+		return -1;
-+	}
-+
-+	/* set default device bind */
-+	err = prctl(PR_SET_SK_BIND_DEV_IF, idx);
-+	if (err < 0) {
-+		fprintf(stderr, "prctl failed to device index: %d\n", errno);
-+		return -1;
-+	}
-+
-+	return 0;
-+}
-+
-+/* get vrf context for given process id */
-+static int get_vrf(pid_t pid)
-+{
-+	int vrf;
-+	long err;
-+
-+	/* lookup device index pid is tied to */
-+	err = prctl(PR_GET_SK_BIND_DEV_IF, pid);
-+	if (err < 0) {
-+		fprintf(stderr, "prctl failed: %d\n", errno);
-+		return -1;
-+	}
-+
-+	if (err == 0)
-+		return 0;
-+
-+	/* convert device index to vrf id */
-+	vrf = device_to_vrf((int)err);
-+	if (vrf < 0) {
-+		fprintf(stderr, "Failed to get device index for vrf %d\n", vrf);
-+		return -1;
-+	}
-+
-+	return vrf;
-+}
-+
-+static int run_vrf(char **argv, int vrf)
-+{
-+	char *cmd;
-+
-+	if (set_vrf(vrf) != 0) {
-+		fprintf(stderr, "Failed to set vrf context\n");
-+		return 1;
-+	}
-+
-+	cmd = strdup(argv[0]);
-+	if (!cmd) {
-+		fprintf(stderr, "Failed to set command\n");
-+		return 1;
-+	}
-+	argv[0] = basename(argv[0]);
-+	if (execvp(cmd, argv) < 0)
-+		perror("Failed to exec command\n");
-+
-+	return 1;
-+}
-+
-+static int show_vrf(pid_t pid)
-+{
-+	int vrf = get_vrf(pid);
-+
-+	switch (vrf) {
-+	case -1:
-+		fprintf(stderr, "Failed to get vrf context for pid %d\n", pid);
-+		if (kill(pid, 0) < 0) {
-+			if (errno == ESRCH)
-+				fprintf(stderr, "No process with given pid\n");
-+		}
-+		break;
-+	case 0:
-+		printf("Process %d is not running in a VRF context\n", pid);
-+		break;
-+	default:
-+		printf("Process %d is running in VRF %d\n", pid, vrf);
-+	}
-+	return vrf < 0 ? 1 : 0;
-+}
-+
-+static void usage(char *_prog)
-+{
-+	const char *prog = basename(_prog);
-+
-+	fprintf(stderr, "usage:\n");
-+	fprintf(stderr, "\nShow VRF context for given pid\n");
-+	fprintf(stderr, "\t%s -p pid\n", prog);
-+	fprintf(stderr, "\nRun command in given VRF context\n");
-+	fprintf(stderr, "\t%s -v vrf <command>\n", prog);
-+}
-+
-+int main(int argc, char *argv[])
-+{
-+	int rc;
-+	pid_t pid = 0;
-+	int vrf = 0;
-+
-+	extern char *optarg;
-+	extern int optind;
-+
-+	while ((rc = getopt(argc, argv, "+:p:v:")) != -1) {
-+		switch (rc) {
-+		case 'p':
-+			pid = atoi(optarg);
-+			break;
-+		case 'v':
-+			vrf = atoi(optarg);
-+			break;
-+		default:
-+			usage(argv[0]);
-+			return 1;
-+		}
-+	}
-+
-+	if ((pid && vrf) || (!pid && !vrf)) {
-+		usage(argv[0]);
-+		return 1;
-+	}
-+
-+	if (pid)
-+		return show_vrf(pid);
-+
-+	if (optind == argc) {
-+		usage(argv[0]);
-+		return 1;
-+	}
-+
-+	return run_vrf(&argv[optind], vrf);
-+}
--- 
-2.3.2 (Apple Git-55)
+SMC-R provides a =E2=80=9Csockets over RDMA=E2=80=9D solution that leve=
+rages industry
+standard RDMA over Converged Ethernet (RoCE) technology.
+
+IBM has developed a Linux implementation of the SMC-R standard. A new
+socket protocol family AF_SMC is introduced. A preload library can be u=
+sed
+to enable TCP-based applications to use SMC-R without changes.=20
+
+Key aspects of SMC-R are:=20
+1. Provides optimized performance compared to standard TCP/IP over Ethe=
+rnet
+   within the data center for both request/response (latency) and strea=
+ming
+   workloads (CPU savings) [3].=20
+   Initial benchmarks on Linux on x86 processors have shown latency
+   reduction of up to 52% with a throughput gain of 111% using SMC-R vs=
+ TCP
+   for request/response message patterns (10 concurrent TCP connections
+   with 16KB    messages) and CPU savings of up to 69% for streaming da=
+ta
+   patterns (single TCP connection with 20MB of data in one direction).
+   [1] is currently updated to contain more detailed information on Lin=
+ux
+   and performance.
+2. In order to preserve the traditional network administrative model th=
+e
+   SMC-R protocol ties into the existing IP addresses and uses TCP's
+   handshake to establish connections. This allows existing management
+   tools and security infrastructure to control the creation of SMC
+   connections.
+3. The SMC-R protocol logically bonds multiple RoCE adapters together
+   providing    redundancy with transparent fail-over for improved high
+   availability, increased bandwidth and load balancing across multiple
+   RDMA-capable devices.
+4. Due to its handshake protocol, SMC-R is compatible with (transparent=
+ to)
+   existing TCP connection load balancers that are commonly used in the
+   enterprise data center environment for multi-tier application worklo=
+ads.
+5. SMC-R's handshake protocol allows for transparent fallback to TCP/IP=
+,
+   should one of the peers not be capable of the protocol.
+
+Additional SMC-R overview and reference materials are available [1]. =20
+
+The SMC-R =E2=80=9Crendezvous" protocol eliminates the need for RDMA-CM=
+ and the
+exchange occurs through an initial TCP connection. Building on a TCP
+connection to establish an SMC-R connection solves many key requirement=
+s,
+including #4 and #5 above.
+The rendezvous process occurs in 2 phases:=20
+1. TCP/IP 3-way exchange:
+   Initiated when both client and server indicate SMC-R capability by
+   including TCP experimental options on the TCP/IP 3-way handshake (sy=
+n
+   flows) as described in RFC6994 [4]. The ExID assigned by IANA is
+   0xE2D4C3D9 [5].=20
+2. SMC-R 3-way exchange:
+   When both partners indicate SMC-R capability then at the completion =
+of
+   the 3-way TCP handshake the SMC-R layers in each peer take control o=
+f
+   the TCP connection and exchange their RDMA credentials. If this 3-wa=
+y
+   exchange    completes successfully the connection continues using SM=
+C-R.
+   If the exchange is not successful the connections falls back to stan=
+dard
+   TCP/IP.=20
+
+References:
+[1] SMC-R Overview and Reference Materials:
+    http://www-01.ibm.com/software/network/commserver/SMCR/=20
+[2] SMC-R Informational RFC:
+    http://tools.ietf.org/html/draft-fox-tcpm-shared-memory-rdma-07
+[3] Linux SMC-R Overview and Performance Summary
+    (archs x86 and s390):
+    http://www-01.ibm.com/software/network/commserver/SMCR/=20
+[4] Shared Use of TCP Experimental Options RFC 6994:
+    https://tools.ietf.org/rfc/rfc6994.txt   =20
+[5] IANA ExID SMCR:=20
+    http://www.iana.org/assignments/tcp-parameters/tcp-parameters.xhtml=
+#tcp-exids
+
+The patch series is prepared to apply to net-next and consists of these
+parts:
+1. net/ipv4/tcp: TCP experimental option
+2. net: definitions to establish new socket family
+3. net/smc: new socket family
+
+In the future, SMC-R will be enhanced to cover:
+- IPv6 support
+- Tracing
+- Statistics support
+
+Thanks,
+        Ursula
+
+Ursula Braun (3):
+  tcp: introduce TCP experimental option for SMC
+  net: introduce socket family constants
+  smc: introduce socket family AF_SMC
+
+ include/linux/socket.h     |    4 +-
+ include/linux/tcp.h        |    5 +-
+ include/net/request_sock.h |    3 +-
+ include/net/smc.h          |   13 +
+ include/net/tcp.h          |    3 +
+ net/Kconfig                |    1 +
+ net/Makefile               |    1 +
+ net/ipv4/tcp_input.c       |   12 +
+ net/ipv4/tcp_minisocks.c   |    4 +
+ net/ipv4/tcp_output.c      |   28 +
+ net/smc/Kconfig            |    9 +
+ net/smc/Makefile           |    3 +
+ net/smc/af_smc.c           | 3142 ++++++++++++++++++++++++++++++++++++=
+++++++
+ net/smc/af_smc.h           |  689 ++++++++++
+ net/smc/smc_core.c         | 3291 ++++++++++++++++++++++++++++++++++++=
+++++++++
+ net/smc/smc_llc.c          | 1597 +++++++++++++++++++++
+ net/smc/smc_llc.h          |  192 +++
+ net/smc/smc_proc.c         |  884 ++++++++++++
+ 18 files changed, 9878 insertions(+), 3 deletions(-)
+ create mode 100644 include/net/smc.h
+ create mode 100644 net/smc/Kconfig
+ create mode 100644 net/smc/Makefile
+ create mode 100644 net/smc/af_smc.c
+ create mode 100644 net/smc/af_smc.h
+ create mode 100644 net/smc/smc_core.c
+ create mode 100644 net/smc/smc_llc.c
+ create mode 100644 net/smc/smc_llc.h
+ create mode 100644 net/smc/smc_proc.c
+
+--=20
+2.3.8
