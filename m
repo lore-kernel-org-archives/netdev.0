@@ -1,92 +1,48 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: [RFC PATCH net-next] tcp: add NV congestion control
-Date: Mon, 6 Jul 2015 23:01:18 +0000
-Message-ID: <D1C055DE.47B1%brakmo@fb.com>
-References: <1435886484-1709996-1-git-send-email-brakmo@fb.com>
- <CALx6S35pRq_Z32R3xWTj4PpQJ4YkC-MzxzeYb8+vH=cfTibwcQ@mail.gmail.com>
+From: Kim Phillips <kim.phillips@arm.com>
+Subject: Re: [PATCH net] amd-xgbe: Fix DMA API debug warning
+Date: Mon, 6 Jul 2015 18:30:21 -0500
+Message-ID: <20150706183021.f105b4fd8e9e39cf6b1989b2@arm.com>
+References: <20150706165737.2337.95787.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=WINDOWS-1252
 Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>, Kernel Team <Kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Tom Lendacky <thomas.lendacky@amd.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:11606 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755924AbbGFXBh convert rfc822-to-8bit
+Received: from eu-smtp-delivery-143.mimecast.com ([146.101.78.143]:37701 "EHLO
+	eu-smtp-delivery-143.mimecast.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751862AbbGFXai convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jul 2015 19:01:37 -0400
-In-Reply-To: <CALx6S35pRq_Z32R3xWTj4PpQJ4YkC-MzxzeYb8+vH=cfTibwcQ@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <D9862AF719F7774A94232E071B4F03DB@fb.com>
+	Mon, 6 Jul 2015 19:30:38 -0400
+In-Reply-To: <20150706165737.2337.95787.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 6 Jul 2015 09:57:37 -0700
+Tom Lendacky <thomas.lendacky@amd.com> wrote:
+
+> When running a kernel configured with CONFIG_DMA_API_DEBUG=y a warning
+> is issued:
+>   DMA-API: device driver tries to sync DMA memory it has not allocated
+>
+> This warning is the result of mapping the full range of the Rx buffer
+> pages allocated and then performing a dma_sync_single_for_cpu against
+> a calculated DMA address. The proper thing to do is to use the
+> dma_sync_single_range_for_cpu with a base DMA address and an offset.
+>
+> Reported-by: Kim Phillips <kim.phillips@arm.com>
+> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+> ---
+
+That works, thanks!
+
+Tested-by: Kim Phillips <kim.phillips@arm.com>
+
+Kim
 
 
-On 7/3/15, 10:10 AM, "Tom Herbert" <tom@herbertland.com> wrote:
+-- IMPORTANT NOTICE: The contents of this email and any attachments are confidential and may also be privileged. If you are not the intended recipient, please notify the sender immediately and do not disclose the contents to any other person, use it for any purpose, or store or copy the information in any medium.  Thank you.
 
->On Thu, Jul 2, 2015 at 6:21 PM, Lawrence Brakmo <brakmo@fb.com> wrote:
->> This is a request for comments.
->>
->> TCP-NV (New Vegas) is a major update to TCP-Vegas. An earlier version of
->> NV was presented at 2010's LPC (slides). It is a delayed based
->> congestion avoidance for the data center. This version has been tested
->> within a 10G rack where the HW RTTs are 20-50us.
->>
->> A description of TCP-NV, including implementation and experimental
->> results, can be found at:
->> 
->>https://urldefense.proofpoint.com/v1/url?u=http://www.brakmo.org/networki
->>ng/tcp-nv/TCPNV.html&k=ZVNjlDMF0FElm4dQtryO4A%3D%3D%0A&r=m30SgjN07T%2FK%2
->>FdV1ZIt1iA%3D%3D%0A&m=vqkRy6FmoxrfPZVJumijB%2B1wrVylIcWDPCz5JB6%2Blp0%3D%
->>0A&s=232c928c0c7acaf211a56119e00288f4cc11cff70beef2159933f7667d59a773
->>
->> The current version includes many module parameters to support
->> experimentation with the parameters.
->>
->>
->> +module_param(nv_pad, int, 0644);
->> +MODULE_PARM_DESC(nv_pad, "extra packets above congestion level");
->> +module_param(nv_reset_period, int, 0644);
->> +MODULE_PARM_DESC(nv_reset_period, "nv_min_rtt reset period (secs)");
->> +module_param(nv_min_cwnd, int, 0644);
->> +MODULE_PARM_DESC(nv_min_cwnd, "NV will not decrease cwnd below this
->>value"
->> +                " without losses");
->> +module_param(nv_dec_eval_min_calls, int, 0644);
->> +MODULE_PARM_DESC(nv_dec_eval_min_calls, "Wait for this many data
->>points "
->> +                "before declaring congestion (< 256)");
->> +module_param(nv_ssthresh_eval_min_calls, int, 0644);
->> +MODULE_PARM_DESC(nv_ssthresh_eval_min_calls, "Wait for this many data
->>points "
->> +                "before declaring congestion during initial
->>slow-start");
->> +module_param(nv_rtt_min_cnt, int, 0644);
->> +MODULE_PARM_DESC(nv_rtt_min_cnt, "Wait for this many RTTs before
->>declaring"
->> +                " congestion (<64)");
->> +module_param(nv_cong_decrease_mult, int, 0644);
->> +MODULE_PARM_DESC(nv_cong_decrease_mult, "Congestion decrease factor");
->> +module_param(nv_ssthresh_factor, int, 0644);
->> +MODULE_PARM_DESC(nv_ssthresh_factor, "ssthresh factor");
->> +module_param(nv_rtt_factor, int, 0644);
->> +MODULE_PARM_DESC(nv_rtt_factor, "rtt averaging factor (0-256)");
->> +module_param(nv_rtt_cnt_inc_delta, int, 0644);
->> +MODULE_PARM_DESC(nv_rtt_cnt_inc_delta, "decrease cwnd for this many
->>RTTs "
->> +                "every 100 RTTs");
->> +module_param(nv_dec_factor, int, 0644);
->> +MODULE_PARM_DESC(nv_dec_factor, "decrease cwnd every ~192 RTTS by
->>factor/8");
->> +module_param(nv_loss_dec_factor, int, 0644);
->> +MODULE_PARM_DESC(nv_loss_dec_factor, "on loss new cwnd = cwnd * this /
->>1024");
->> +module_param(nv_cwnd_growth_factor, int, 0644);
->> +MODULE_PARM_DESC(nv_cwnd_growth_factor, "larger => cwnd grows slower");
->> +
->A lot of module parameters... can these be sysctls?
-
-I think module parameters are less intrusive than sysctls. These
-parameters are there for experimentation and expect many of them will be
-removed in the future after more testing and experimentation.
+ARM Limited, Registered office 110 Fulbourn Road, Cambridge CB1 9NJ, Registered in England & Wales, Company No:  2557590
+ARM Holdings plc, Registered office 110 Fulbourn Road, Cambridge CB1 9NJ, Registered in England & Wales, Company No:  2548782
