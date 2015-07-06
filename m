@@ -1,101 +1,93 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: [PATCH 0/7] introduce Hyper-V VM Sockets(hvsock)
-Date: Mon,  6 Jul 2015 07:39:35 -0700
-Message-ID: <1436193575-26674-1-git-send-email-decui@microsoft.com>
-To: gregkh@linuxfoundation.org, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	driverdev-devel@linuxdriverproject.org, olaf@aepfle.de,
-	apw@canonical.com, jasowang@redhat.com, kys@microsoft.com,
-	haiyangz@microsoft.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC patch] sctp: sctp_generate_fwdtsn: Initialize
+ sctp_fwdtsn_skip array, neatening
+Date: Mon, 6 Jul 2015 09:43:49 -0400
+Message-ID: <20150706134349.GB30816@hmsreliant.think-freely.org>
+References: <1435874096.2487.51.camel@perches.com>
+ <20150703115105.GA3503@hmsreliant.think-freely.org>
+ <1435941701.2487.71.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1435941701.2487.71.camel@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hyper-V VM Sockets (hvsock) is a byte-stream based communication mechanism
-between Windowsd 10 (or later) host and a guest. It's kind of TCP over
-VMBus, but the transportation layer (VMBus) is much simpler than IP.
-With Hyper-V VM Sockets, applications between the host and a guest can
-talk with each other directly by the traditional BSD-style socket APIs.
+On Fri, Jul 03, 2015 at 09:41:41AM -0700, Joe Perches wrote:
+> On Fri, 2015-07-03 at 07:51 -0400, Neil Horman wrote:
+> > On Thu, Jul 02, 2015 at 02:54:56PM -0700, Joe Perches wrote:
+> > > It's not clear to me that the sctp_fwdtsn_skip array is
+> > > always initialized when used.
+> > > 
+> > > It is appropriate to initialize the array to 0?
+> > > 
+> > > This patch initializes the array too 0 and moves the
+> > > local variables into the blocks where used.
+> > > 
+> > > It also does some miscellaneous neatening by using
+> > > continue; and unindenting the following block and
+> > > using ARRAY_SIZE rather than 10 to decouple the
+> > > array declaration size from a constant.
+> > > ---
+> > We don't set ftsn_skip_arr to a known value because we limit the amount of
+> > elements that get read from it prior to those elements being set.  That is to
+> > say, in our first use (the call to sctp_get_skip_pos), we pass the uninitialized
+> > array, and the nskips value, which is initalized to 0.  Looking at the
+> > definition of sctp_get_skip_pos, the for loop there becomes a nop, meaning the
+> > uninitalized array is irrelevant, as we never visit any of its elements.
+> > element zero is returned, and thats what the for_each loop in
+> > sctp_generate_fwdtsn sets in that element of the array.  On the next iteration
+> > of the for_each loop, we call sctp_get_skip_pos with nskips = 1, so only the
+> > first element is visited, whcih was set by the previous loop iteration.
+> 
+> Alright.
+> 
+> I might have chosen a while loop to limit the # of
+> returns but it likely compiles to the same code.
+> 
+> static inline int sctp_get_skip_pos(struct sctp_fwdtsn_skip *skiplist,
+> 				    int nskips, __be16 stream)
+> {
+> 	int i;
+> 
+> 	for (i = 0; i < nskips; i++) {
+> 		if (skiplist[i].stream == stream)
+> 			return i;
+> 	}
+> 	return i;
+> }
+> 
+> to:
+> 
+> {
+> 	int i = 0;
+> 
+> 	while (i < nskips && skiplist[i].stream != stream)
+> 		i++;
+> 
+> 	return i;
+> }
+> 
+> > The rest of the cleanups look ok I think.  Can you tell me what you did to test
+> > it?
+> 
+> Just code inspection.
 
-The patchset implements the necessary support in the guest side by adding
-the necessary new APIs in the vmbus driver, and introducing a new driver
-hv_sock.ko, which implements_a new socket address family AF_HYPERV.
+I'd like something more than that for this amount of code change.  at least run
+some lksctp tests to exercise the gap ack code.
+Neil
 
-
-I know the kernel has already had a VM Sockets driver (AF_VSOCK) based
-on VMware's VMCI (net/vmw_vsock/, drivers/misc/vmw_vmci), and KVM is
-proposing AF_VSOCK of virtio version:
-http://thread.gmane.org/gmane.linux.network/365205.
-
-However, though Hyper-V VM Sockets may seem conceptually similar to
-AF_VOSCK, there are differences in the transportation layer, and IMO these
-make the direct code reusing impractical:
-
-1. In AF_VSOCK, the endpoint type is: <u32 ContextID, u32 Port>, but in
-AF_HYPERV, the endpoint type is: <GUID VM_ID, GUID ServiceID>. Here GUID
-is 128-bit.
-
-2. AF_VSOCK supports SOCK_DGRAM, while AF_HYPERV doesn't.
-
-3. AF_VSOCK supports some special sock opts, like SO_VM_SOCKETS_BUFFER_SIZE,
-SO_VM_SOCKETS_BUFFER_MIN/MAX_SIZE and SO_VM_SOCKETS_CONNECT_TIMEOUT.
-These are meaningless to AF_HYPERV.
-
-4. Some AF_VSOCK's VMCI transportation ops are meanless to AF_HYPERV/VMBus,
-like    .notify_recv_init
-        .notify_recv_pre_block
-        .notify_recv_pre_dequeue
-        .notify_recv_post_dequeue
-        .notify_send_init
-        .notify_send_pre_block
-        .notify_send_pre_enqueue
-        .notify_send_post_enqueue
-etc.
-
-So I think we'd better introduce a new address family: AF_HYPERV.
-
-
-Please review the patchset.
-
-Looking forward to your comments!
-
-Dexuan Cui (7):
-  Drivers: hv: vmbus: define the new offer type for Hyper-V socket
-    (hvsock)
-  Drivers: hv: vmbus: define a new VMBus message type for hvsock
-  Drivers: hv: vmbus: add APIs to send/recv hvsock packet and get the
-    r/w-ability
-  Drivers: hv: vmbus: add APIs to register callbacks to process hvsock
-    connection
-  Drivers: hv: vmbus: add a helper function to set a channel's pending
-    send size
-  hvsock: introduce Hyper-V VM Sockets feature
-  Drivers: hv: vmbus: disable local interrupt when hvsock's callback is
-    running
-
- MAINTAINERS                   |    2 +
- drivers/hv/Makefile           |    4 +-
- drivers/hv/channel.c          |  146 ++++
- drivers/hv/channel_mgmt.c     |   13 +
- drivers/hv/connection.c       |   15 +-
- drivers/hv/hvsock_callbacks.c |   71 ++
- drivers/hv/hyperv_vmbus.h     |    4 +
- drivers/hv/ring_buffer.c      |   14 +
- include/linux/hyperv.h        |   68 ++
- include/linux/socket.h        |    4 +-
- include/net/af_hvsock.h       |   44 ++
- include/uapi/linux/hyperv.h   |   16 +
- net/Kconfig                   |    1 +
- net/Makefile                  |    1 +
- net/hv_sock/Kconfig           |   10 +
- net/hv_sock/Makefile          |    5 +
- net/hv_sock/af_hvsock.c       | 1463 +++++++++++++++++++++++++++++++++++++++++
- 17 files changed, 1878 insertions(+), 3 deletions(-)
- create mode 100644 drivers/hv/hvsock_callbacks.c
- create mode 100644 include/net/af_hvsock.h
- create mode 100644 net/hv_sock/Kconfig
- create mode 100644 net/hv_sock/Makefile
- create mode 100644 net/hv_sock/af_hvsock.c
-
--- 
-2.1.0
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+> 
