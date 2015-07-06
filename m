@@ -1,244 +1,164 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v3 2/3] net: dsa: add support for switchdev VLAN objects
-Date: Sun,  5 Jul 2015 22:14:52 -0400
-Message-ID: <1436148893-14379-3-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1436148893-14379-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>, Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1436148893-14379-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Erik Kline <ek@google.com>
+Subject: [PATCH net-next v2] ipv6: sysctl to restrict candidate source addresses
+Date: Mon,  6 Jul 2015 12:05:44 +0900
+Message-ID: <1436151944-21072-1-git-send-email-ek@google.com>
+Cc: hannes@stressinduktion.org, lorenzo@google.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	Erik Kline <ek@google.com>
+To: hideaki.yoshifuji@miraclelinux.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:32927 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751778AbbGFDF6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2015 23:05:58 -0400
+Received: by pacws9 with SMTP id ws9so88923134pac.0
+        for <netdev@vger.kernel.org>; Sun, 05 Jul 2015 20:05:57 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds the glue between DSA and switchdev operations to add,
-delete and dump SWITCHDEV_OBJ_PORT_VLAN objects.
+Per RFC 6724, section 4, "Candidate Source Addresses":
 
-This is a first step to link the "bridge vlan" command with hardware
-entries for DSA compatible switch chips.
+    It is RECOMMENDED that the candidate source addresses be the set
+    of unicast addresses assigned to the interface that will be used
+    to send to the destination (the "outgoing" interface).
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Add a sysctl to enable this behaviour.
+
+Signed-off-by: Erik Kline <ek@google.com>
 ---
- include/net/dsa.h  |   9 ++++
- net/dsa/dsa_priv.h |   6 +++
- net/dsa/slave.c    | 137 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 152 insertions(+)
+ Documentation/networking/ip-sysctl.txt |  7 +++++++
+ include/linux/ipv6.h                   |  1 +
+ include/uapi/linux/ipv6.h              |  1 +
+ net/ipv6/addrconf.c                    | 30 +++++++++++++++++++++++++-----
+ 4 files changed, 34 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index fbca63b..cabf2a5 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -302,6 +302,15 @@ struct dsa_switch_driver {
- 			   const unsigned char *addr, u16 vid);
- 	int	(*fdb_getnext)(struct dsa_switch *ds, int port,
- 			       unsigned char *addr, bool *is_static);
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 5fae770..c3bf04d 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1455,6 +1455,13 @@ router_solicitations - INTEGER
+ 	routers are present.
+ 	Default: 3
+ 
++use_oif_addr - BOOLEAN
++	When enabled, the candidate source addresses for destinations
++	routed via this interface are restricted to the set of addresses
++	configured on this interface (vis. RFC 6724, section 4).
 +
-+	/*
-+	 * VLAN support
-+	 */
-+	int	(*port_vlan_add)(struct dsa_switch *ds, int port, u16 vid,
-+				 u16 bridge_flags);
-+	int	(*port_vlan_del)(struct dsa_switch *ds, int port, u16 vid);
-+	int	(*port_vlan_dump)(struct dsa_switch *ds, int port, u16 vid,
-+				  u16 *bridge_flags);
++	Default: false
++
+ use_tempaddr - INTEGER
+ 	Preference for Privacy Extensions (RFC3041).
+ 	  <= 0 : disable Privacy Extensions
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 82806c6..4633c88 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -57,6 +57,7 @@ struct ipv6_devconf {
+ 		bool initialized;
+ 		struct in6_addr secret;
+ 	} stable_secret;
++	__s32		use_oif_addr;
+ 	void		*sysctl;
  };
  
- void register_switch_driver(struct dsa_switch_driver *type);
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index d5f1f9b..9029717 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -13,6 +13,7 @@
- 
- #include <linux/phy.h>
- #include <linux/netdevice.h>
-+#include <linux/if_vlan.h>
- 
- struct dsa_device_ops {
- 	netdev_tx_t (*xmit)(struct sk_buff *skb, struct net_device *dev);
-@@ -47,6 +48,11 @@ struct dsa_slave_priv {
- 	int			old_duplex;
- 
- 	struct net_device	*bridge_dev;
-+
-+	/*
-+	 * Which VLANs this port is a member of.
-+	 */
-+	DECLARE_BITMAP(vlan_bitmap, VLAN_N_VID);
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 5efa54a..cf9d65a 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -171,6 +171,7 @@ enum {
+ 	DEVCONF_USE_OPTIMISTIC,
+ 	DEVCONF_ACCEPT_RA_MTU,
+ 	DEVCONF_STABLE_SECRET,
++	DEVCONF_USE_OIF_ADDR,
+ 	DEVCONF_MAX
  };
  
- /* dsa.c */
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 04ffad3..47c459b 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -18,6 +18,7 @@
- #include <net/rtnetlink.h>
- #include <net/switchdev.h>
- #include <linux/if_bridge.h>
-+#include <linux/if_vlan.h>
- #include "dsa_priv.h"
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 21c2c81..a43687d 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -211,7 +211,8 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 	.accept_ra_mtu		= 1,
+ 	.stable_secret		= {
+ 		.initialized = false,
+-	}
++	},
++	.use_oif_addr		= 0,
+ };
  
- /* slave mii_bus handling ***************************************************/
-@@ -363,6 +364,136 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
- 	return ret;
+ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+@@ -253,6 +254,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	.stable_secret		= {
+ 		.initialized = false,
+ 	},
++	.use_oif_addr		= 0,
+ };
+ 
+ /* Check if a valid qdisc is available */
+@@ -1366,7 +1368,8 @@ int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
+ 				*score = &scores[0], *hiscore = &scores[1];
+ 	struct ipv6_saddr_dst dst;
+ 	struct net_device *dev;
+-	int dst_type;
++	struct inet6_dev *idev;
++	int dst_type, use_oif_addr = 0;
+ 
+ 	dst_type = __ipv6_addr_type(daddr);
+ 	dst.addr = daddr;
+@@ -1380,9 +1383,12 @@ int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
+ 
+ 	rcu_read_lock();
+ 
+-	for_each_netdev_rcu(net, dev) {
+-		struct inet6_dev *idev;
++	if (dst_dev) {
++		idev = __in6_dev_get(dst_dev);
++		use_oif_addr = (idev) ? idev->cnf.use_oif_addr : 0;
++	}
+ 
++	for_each_netdev_rcu(net, dev) {
+ 		/* Candidate Source Address (section 4)
+ 		 *  - multicast and link-local destination address,
+ 		 *    the set of candidate source address MUST only
+@@ -1394,9 +1400,14 @@ int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
+ 		 *    include addresses assigned to interfaces
+ 		 *    belonging to the same site as the outgoing
+ 		 *    interface.)
++		 *  - "It is RECOMMENDED that the candidate source addresses
++		 *    be the set of unicast addresses assigned to the
++		 *    interface that will be used to send to the destination
++		 *    (the 'outgoing' interface)." (RFC 6724)
+ 		 */
+ 		if (((dst_type & IPV6_ADDR_MULTICAST) ||
+-		     dst.scope <= IPV6_ADDR_SCOPE_LINKLOCAL) &&
++		     dst.scope <= IPV6_ADDR_SCOPE_LINKLOCAL ||
++		     use_oif_addr) &&
+ 		    dst.ifindex && dev->ifindex != dst.ifindex)
+ 			continue;
+ 
+@@ -4586,6 +4597,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] = cnf->accept_ra_from_local;
+ 	array[DEVCONF_ACCEPT_RA_MTU] = cnf->accept_ra_mtu;
+ 	/* we omit DEVCONF_STABLE_SECRET for now */
++	array[DEVCONF_USE_OIF_ADDR] = cnf->use_oif_addr;
  }
  
-+static int dsa_slave_port_vlans_add(struct net_device *dev,
-+				     struct switchdev_obj *obj)
-+{
-+	struct switchdev_obj_vlan *vlan = &obj->u.vlan;
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	int vid, err = 0;
+ static inline size_t inet6_ifla6_size(void)
+@@ -5585,6 +5597,14 @@ static struct addrconf_sysctl_table
+ 			.proc_handler	= addrconf_sysctl_stable_secret,
+ 		},
+ 		{
++			.procname       = "use_oif_addr",
++			.data           = &ipv6_devconf.use_oif_addr,
++			.maxlen         = sizeof(int),
++			.mode           = 0644,
++			.proc_handler   = proc_dointvec,
 +
-+	if (!ds->drv->port_vlan_add)
-+		return -EOPNOTSUPP;
-+
-+	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid) {
-+		err = ds->drv->port_vlan_add(ds, p->port, vid, vlan->flags);
-+		if (err)
-+			break;
-+		set_bit(vid, p->vlan_bitmap);
-+	}
-+
-+	return err;
-+}
-+
-+static int dsa_slave_port_obj_add(struct net_device *dev,
-+				  struct switchdev_obj *obj)
-+{
-+	int err;
-+
-+	/*
-+	 * Skip the prepare phase, since currently the DSA drivers don't need to
-+	 * allocate any memory for operations and they will not fail to HW
-+	 * (unless something horrible goes wrong on the MDIO bus, in which case
-+	 * the prepare phase wouldn't have been able to predict anyway).
-+	 */
-+	if (obj->trans != SWITCHDEV_TRANS_COMMIT)
-+		return 0;
-+
-+	switch (obj->id) {
-+	case SWITCHDEV_OBJ_PORT_VLAN:
-+		err = dsa_slave_port_vlans_add(dev, obj);
-+		break;
-+	default:
-+		err = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	return err;
-+}
-+
-+static int dsa_slave_port_vlans_del(struct net_device *dev,
-+				     struct switchdev_obj *obj)
-+{
-+	struct switchdev_obj_vlan *vlan = &obj->u.vlan;
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	int vid, err = 0;
-+
-+	if (!ds->drv->port_vlan_del)
-+		return -EOPNOTSUPP;
-+
-+	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid) {
-+		err = ds->drv->port_vlan_del(ds, p->port, vid);
-+		if (err)
-+			break;
-+		clear_bit(vid, p->vlan_bitmap);
-+	}
-+
-+	return err;
-+}
-+
-+static int dsa_slave_port_obj_del(struct net_device *dev,
-+				  struct switchdev_obj *obj)
-+{
-+	int err;
-+
-+	switch (obj->id) {
-+	case SWITCHDEV_OBJ_PORT_VLAN:
-+		err = dsa_slave_port_vlans_del(dev, obj);
-+		break;
-+	default:
-+		err = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	return err;
-+}
-+
-+static int dsa_slave_port_vlans_dump(struct net_device *dev,
-+				     struct switchdev_obj *obj)
-+{
-+	struct switchdev_obj_vlan *vlan = &obj->u.vlan;
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	int vid, err = 0;
-+
-+	if (!ds->drv->port_vlan_dump)
-+		return -EOPNOTSUPP;
-+
-+	for_each_set_bit(vid, p->vlan_bitmap, VLAN_N_VID) {
-+		u16 flags = 0;
-+
-+		err = ds->drv->port_vlan_dump(ds, p->port, vid, &flags);
-+		if (err)
-+			break;
-+
-+		vlan->flags = flags;
-+		vlan->vid_begin = vlan->vid_end = vid;
-+		err = obj->cb(dev, obj);
-+		if (err)
-+			break;
-+	}
-+
-+	return err;
-+}
-+
-+static int dsa_slave_port_obj_dump(struct net_device *dev,
-+				   struct switchdev_obj *obj)
-+{
-+	int err;
-+
-+	switch (obj->id) {
-+	case SWITCHDEV_OBJ_PORT_VLAN:
-+		err = dsa_slave_port_vlans_dump(dev, obj);
-+		break;
-+	default:
-+		err = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	return err;
-+}
-+
- static int dsa_slave_bridge_port_join(struct net_device *dev,
- 				      struct net_device *br)
- {
-@@ -697,11 +828,17 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- 	.ndo_fdb_dump		= dsa_slave_fdb_dump,
- 	.ndo_do_ioctl		= dsa_slave_ioctl,
- 	.ndo_get_iflink		= dsa_slave_get_iflink,
-+	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
-+	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
-+	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
- };
- 
- static const struct switchdev_ops dsa_slave_switchdev_ops = {
- 	.switchdev_port_attr_get	= dsa_slave_port_attr_get,
- 	.switchdev_port_attr_set	= dsa_slave_port_attr_set,
-+	.switchdev_port_obj_add		= dsa_slave_port_obj_add,
-+	.switchdev_port_obj_del		= dsa_slave_port_obj_del,
-+	.switchdev_port_obj_dump	= dsa_slave_port_obj_dump,
- };
- 
- static void dsa_slave_adjust_link(struct net_device *dev)
++		},
++		{
+ 			/* sentinel */
+ 		}
+ 	},
 -- 
-2.4.5
+2.4.3.573.g4eafbef
