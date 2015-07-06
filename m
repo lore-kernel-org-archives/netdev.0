@@ -1,53 +1,68 @@
-From: Julien Grall <julien.grall@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] net/bridge: Add missing
-	in6_dev_put in br_validate_ipv6
-Date: Mon, 6 Jul 2015 12:32:43 +0100
-Message-ID: <559A675B.80408@citrix.com>
-References: <1435946491-11148-1-git-send-email-julien.grall@citrix.com>
-	<20150703204213.GM16529@breakpoint.cc>	<559A5A0B.4040700@citrix.com>
-	<20150706111952.GC16864@breakpoint.cc>
+From: Marian Corcodel <corcodel.marian@gmail.com>
+Subject: Disable executions commands outside net_device_ops structure
+Date: Mon, 6 Jul 2015 14:49:02 +0300
+Message-ID: <CAGg4U=FTi_qf0+bGx8Zggqade9R+LrtS5TnG0-7bJQroaR8X+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, ian.campbell@citrix.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	Bernhard Thaler <bernhard.thaler@wvnet.at>,
-	xen-devel@lists.xenproject.org, davem@davemloft.net,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20150706111952.GC16864@breakpoint.cc>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=089e011609fcf8b575051a337d5b
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:38026 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753798AbbGFLtE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 07:49:04 -0400
+Received: by igrv9 with SMTP id v9so112970290igr.1
+        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 04:49:02 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/07/15 12:19, Florian Westphal wrote:
-> Julien Grall <julien.grall@citrix.com> wrote:
->> On 03/07/15 21:42, Florian Westphal wrote:
->>> I think it makes more sense to use __in6_dev_get() instead which doesn't
->>> take a reference.
->>
->> __in6_dev_get requires to hold rcu_read_lock or RTNL. My knowledge on
->> this code is very limited. Are we sure that one this lock is hold? At
->> first glance, I wasn't able to find one.
-> 
-> All netfilter hooks are rcu_read_locked via nf_hook_slow().
+--089e011609fcf8b575051a337d5b
+Content-Type: text/plain; charset=UTF-8
 
-Ok. I will resend the patch with __in6_dev_get.
+we keep commands only on net_device_ops structure - struct net_device_ops.
 
-> BTW, netfilter patches should be sent to netfilter-devel@vger.kernel.org.
+--089e011609fcf8b575051a337d5b
+Content-Type: text/x-patch; charset=US-ASCII; name="dis_exec_out_netdevice_ops.patch"
+Content-Disposition: attachment; filename="dis_exec_out_netdevice_ops.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ibruh4f60
 
-I used scripts/get_maintainer.pl which doesn't provide this mailing list
-for net/bridge/br_netfilter*.c
-
-Regards,
-
--- 
-Julien Grall
+RnJvbSAwNzQ5ZTEyYzIxYjU2NGQ2MmM4OWVjMzVjNWZjOGY0Mjg5YTdlNGQ5IE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBDb3Jjb2RlbCBNYXJpYW4gPGFzdUAxOTItMTY4LTAtMy5yZHNu
+ZXQucm8+CkRhdGU6IE1vbiwgNiBKdWwgMjAxNSAxMzoyNDo1OSArMDMwMApTdWJqZWN0OiBbUEFU
+Q0hdICBDb21taXR0ZXI6IENvcmNvZGVsIE1hcmlhbiA8Y29yY29kZWwubWFyaWFuQGdtYWlsLmNv
+bT4gCiBEaXNhYmxlIGV4ZWMgY29tbWFuZHMgb3V0c2lkZSBvcHMgc3RydWN0dXJlCgogT24gYnJh
+bmNoIG1hc3RlcgogWW91ciBicmFuY2ggaXMgdXAtdG8tZGF0ZSB3aXRoICdvcmlnaW4vbWFzdGVy
+Jy4KCiBDaGFuZ2VzIHRvIGJlIGNvbW1pdHRlZDoKCW1vZGlmaWVkOiAgIGRyaXZlcnMvbmV0L2V0
+aGVybmV0L3JlYWx0ZWsvcjgxNjkuYwotLS0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsv
+cjgxNjkuYyB8IDEyICsrKysrKy0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDYgaW5zZXJ0aW9ucygr
+KSwgNiBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFs
+dGVrL3I4MTY5LmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4MTY5LmMKaW5kZXgg
+M2RmNTFmYS4uODQwYTJlYyAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRl
+ay9yODE2OS5jCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYwpAQCAt
+NTM2NSw3ICs1MzY1LDcgQEAgc3RhdGljIHZvaWQgcnRsX2h3X3N0YXJ0XzgxNjkoc3RydWN0IG5l
+dF9kZXZpY2UgKmRldikKIAogCVJUTF9XMzIoUnhNaXNzZWQsIDApOwogCi0JcnRsX3NldF9yeF9t
+b2RlKGRldik7CisJLy9ydGxfc2V0X3J4X21vZGUoZGV2KTsKIAogCS8qIG5vIGVhcmx5LXJ4IGlu
+dGVycnVwdHMgKi8KIAlSVExfVzE2KE11bHRpSW50ciwgUlRMX1IxNihNdWx0aUludHIpICYgMHhm
+MDAwKTsKQEAgLTYzNTcsNyArNjM1Nyw3IEBAIHN0YXRpYyB2b2lkIHJ0bF9od19zdGFydF84MTY4
+KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiAKIAlSVExfVzgoQ2hpcENtZCwgQ21kVHhFbmIgfCBD
+bWRSeEVuYik7CiAKLQlydGxfc2V0X3J4X21vZGUoZGV2KTsKKwkvL3J0bF9zZXRfcnhfbW9kZShk
+ZXYpOwogCiAJUlRMX1cxNihNdWx0aUludHIsIFJUTF9SMTYoTXVsdGlJbnRyKSAmIDB4ZjAwMCk7
+CiB9CkBAIC02NTc0LDcgKzY1NzQsNyBAQCBzdGF0aWMgdm9pZCBydGxfaHdfc3RhcnRfODEwMShz
+dHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCiAJUlRMX1c4KENoaXBDbWQsIENtZFR4RW5iIHwgQ21k
+UnhFbmIpOwogCi0JcnRsX3NldF9yeF9tb2RlKGRldik7CisJLy9ydGxfc2V0X3J4X21vZGUoZGV2
+KTsKIAogCVJUTF9SOChJbnRyTWFzayk7CiAKQEAgLTY4ODEsNyArNjg4MSw3IEBAIHN0YXRpYyB2
+b2lkIHI4MTY5X2NzdW1fd29ya2Fyb3VuZChzdHJ1Y3QgcnRsODE2OV9wcml2YXRlICp0cCwKIAkJ
+CW5za2IgPSBzZWdzOwogCQkJc2VncyA9IHNlZ3MtPm5leHQ7CiAJCQluc2tiLT5uZXh0ID0gTlVM
+TDsKLQkJCXJ0bDgxNjlfc3RhcnRfeG1pdChuc2tiLCB0cC0+ZGV2KTsKKwkJCS8vcnRsODE2OV9z
+dGFydF94bWl0KG5za2IsIHRwLT5kZXYpOwogCQl9IHdoaWxlIChzZWdzKTsKIAogCQlkZXZfY29u
+c3VtZV9za2JfYW55KHNrYik7CkBAIC02ODg5LDcgKzY4ODksNyBAQCBzdGF0aWMgdm9pZCByODE2
+OV9jc3VtX3dvcmthcm91bmQoc3RydWN0IHJ0bDgxNjlfcHJpdmF0ZSAqdHAsCiAJCWlmIChza2Jf
+Y2hlY2tzdW1faGVscChza2IpIDwgMCkKIAkJCWdvdG8gZHJvcDsKIAotCQlydGw4MTY5X3N0YXJ0
+X3htaXQoc2tiLCB0cC0+ZGV2KTsKKwkJLy9ydGw4MTY5X3N0YXJ0X3htaXQoc2tiLCB0cC0+ZGV2
+KTsKIAl9IGVsc2UgewogCQlzdHJ1Y3QgbmV0X2RldmljZV9zdGF0cyAqc3RhdHM7CiAKQEAgLTc2
+MjMsNyArNzYyMyw3IEBAIHN0YXRpYyBpbnQgcnRsX29wZW4oc3RydWN0IG5ldF9kZXZpY2UgKmRl
+dikKIAogCXJ0bDgxNjlfaW5pdF9waHkoZGV2LCB0cCk7CiAKLQlfX3J0bDgxNjlfc2V0X2ZlYXR1
+cmVzKGRldiwgZGV2LT5mZWF0dXJlcyk7CisgICAgICAgLy9fX3J0bDgxNjlfc2V0X2ZlYXR1cmVz
+KGRldiwgZGV2LT5mZWF0dXJlcyk7CiAKIAlydGxfcGxsX3Bvd2VyX3VwKHRwKTsKIAotLSAKMi4x
+LjQKCg==
+--089e011609fcf8b575051a337d5b--
