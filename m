@@ -1,57 +1,83 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC net-next 0/6] Proposal for VRF-lite - v2
-Date: Mon, 06 Jul 2015 17:40:55 +0200
-Message-ID: <559AA187.6000007@6wind.com>
-References: <1436195001-4818-1-git-send-email-dsa@cumulusnetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/3] tcp: introduce TCP experimental option for
+ SMC
+Date: Mon, 06 Jul 2015 18:08:17 +0200
+Message-ID: <1436198897.4571.7.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1436195511-32314-1-git-send-email-ubraun@linux.vnet.ibm.com>
+	 <1436195511-32314-2-git-send-email-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
-	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
-	nikolay@cumulusnetworks.com, ddutt@cumulusnetworks.com,
-	hannes@stressinduktion.org, stephen@networkplumber.org,
-	hadi@mojatatu.com, ebiederm@xmission.com, davem@davemloft.net
-To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, utz.bacher@de.ibm.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, ursula.braun@de.ibm.com
+To: Ursula Braun <ubraun@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:36494 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753686AbbGFPk6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 11:40:58 -0400
-Received: by widjy10 with SMTP id jy10so164609949wid.1
-        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 08:40:57 -0700 (PDT)
-In-Reply-To: <1436195001-4818-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:34388 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753618AbbGFQIW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 12:08:22 -0400
+In-Reply-To: <1436195511-32314-2-git-send-email-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 06/07/2015 17:03, David Ahern a =C3=A9crit :
-> In the context of internet scale routing a requirement that always
-> comes up is the need to partition the available routing tables into
-> disjoint routing planes. A specific use case is the multi-tenancy
-> problem where each tenant has their own unique routing tables and in
-> the very least need different default gateways.
->
-> This is an attempt to build the ability to create virtual router
-> domains aka VRF's (VRF-lite to be specific) in the linux packet
-> forwarding stack. The main observation is that through the use of
-> rules and socket binding to interfaces, all the facilities that we
-> need are already present in the infrastructure. What is missing is a
-> handle that identifies a routing domain and can be used to gather
-> applicable rules/tables and uniqify neighbor selection. The scheme
-> used needs to preserves the notions of ECMP, and general routing
-> principles.
-[snip]
->   drivers/net/vrf.c             | 486 +++++++++++++++++++++++++++++++=
-+++++++++++
-[snip]
+On Mon, 2015-07-06 at 17:11 +0200, Ursula Braun wrote:
+> From: Ursula Braun <ursula.braun@de.ibm.com>
+> 
+> The SMC-R protocol defines dynamic discovery of peers. This is done by
+> implementing experimental TCP options as defined in RFC6994. The TCP code
+> needs to be extended to support RFC6994.
+> 
+> Setting the TCP experimental option for SMC-R [2] will be triggered from
+> kernel exploiters like the new SMC-R socket family by setting a new
+> flag "syn_smc" on struct tcp_sock of the connecting and the listening
+> socket. If the client peer is SMC-R capable, flag syn_smc is kept on the
+> connecting socket after the 3-way TCP handshake, otherwise it is reset.
+> If the server peer is SMC-R capable, the new connected TCP socket has
+> the new flag set, otherwise not.
+> 
+> Code snippet client:
+>   tcp_sk(sock->sk)->syn_smc = 1;
+>   rc = kernel_connect(sock, addr, alen, flags);
+>   if (tcp_sk(sock->sk)->syn_smc) {
+>           /* switch to smc for this connection */
+> 
+> Code snippet server:
+>   tcp_sk(sock->sk)->syn_smc = 1;
+>   rc = kernel_listen(sock, backlog);
+>   rc = kernel_accept(sock, &newsock, 0);
+>   if (tcp_sk(newsock->sk)->syn_smc) {
+>           /* switch to smc for this connection */
+> 
+> References:
+> [1] Shared Use of TCP Experimental Options RFC 6994:
+>     https://tools.ietf.org/rfc/rfc6994.txt
+> [2] IANA ExID SMCR:
+>     http://www.iana.org/assignments/tcp-parameters/tcp-parameters.xhtml#tcp-exids
+> 
+> This patch has already been posted in June 2013, but Dave Miller has
+> postponed applying till the user of the new flags, ie. the entire SMC-R
+> protocol stack is implemented.
+> 
+> Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 
-I'm still opposed to name this 'vrf', see the v1 thread:
-  - http://www.spinics.net/lists/netdev/msg332357.html
-  - http://www.spinics.net/lists/netdev/msg332376.html
 
-Shrijeet seemed to agree to rename it, is there a problem?
+>  struct tcp_out_options {
+>  	u16 options;		/* bit field of OPTION_* */
+> @@ -544,6 +545,14 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
+>  		}
+>  		ptr += (len + 3) >> 2;
+>  	}
+> +
+> +	if (unlikely(OPTION_SMC & options)) {
+> +		*ptr++ = htonl((TCPOPT_NOP  << 24) |
+> +			       (TCPOPT_NOP  << 16) |
+> +			       (TCPOPT_EXP <<  8) |
+> +			       (TCPOLEN_EXP_SMC_BASE));
+> +		*ptr++ = htonl(TCPOPT_SMC_MAGIC);
+> +	}
+>  }
 
 
-Regards,
-Nicolas
+I am concerned about adding an additional conditional branch in TCP
+write fast path, on all hosts, while SMC seems to be available only for
+some hardware class.
