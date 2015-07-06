@@ -1,69 +1,84 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: add dependency on HAS_IOMEM to MDIO_BUS_MUX_MMIOREG
-Date: Mon, 6 Jul 2015 10:19:39 -0700
-Message-ID: <CAGVrzca9p4Sg8H53Oy=dTQmCXYD-1RugrnXQBTz1e7p7gBYL4w@mail.gmail.com>
-References: <1436116587-1982-1-git-send-email-robh@kernel.org>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [Intel-wired-lan] [PATCH V3 0/2] pci: Provide a flag to access
+ VPD through function 0
+Date: Mon, 6 Jul 2015 17:31:59 +0000
+Message-ID: <C468F237-DBA2-4503-BA99-76CC1FC46999@intel.com>
+References: <20150603184445.109080.36387.stgit@mdrustad-wks.jf.intel.com>
+ <051B68B4-3E77-4EB0-B9FE-8523631884A2@intel.com>
+ <45099CC7-DDAB-41D9-AB74-5A81E2AAF64C@intel.com>
+ <CAErSpo7e-QtQQTj2yh_jG07vqU1j1YBez_9wrcrzOQs7+eDFng@mail.gmail.com>
+ <8CB0ECE7-CFE2-43CB-BA60-2E2E0A34D5D1@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Rob Herring <robh@kernel.org>
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_E609F99B-3604-41C9-B72C-3A4D69904F95";
+	protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Bjorn Helgaas <bhelgaas@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:34344 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751081AbbGFRUU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 13:20:20 -0400
-Received: by obbkm3 with SMTP id km3so111439591obb.1
-        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 10:20:19 -0700 (PDT)
-In-Reply-To: <1436116587-1982-1-git-send-email-robh@kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:2541 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754133AbbGFRcB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jul 2015 13:32:01 -0400
+In-Reply-To: <8CB0ECE7-CFE2-43CB-BA60-2E2E0A34D5D1@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-07-05 10:16 GMT-07:00 Rob Herring <robh@kernel.org>:
-> On UML builds, mdio-mux-mmioreg.c fails to compile:
->
-> drivers/net/phy/mdio-mux-mmioreg.c:50:3: error: implicit declaration =
-of function =E2=80=98ioremap=E2=80=99 [-Werror=3Dimplicit-function-decl=
-aration]
-> drivers/net/phy/mdio-mux-mmioreg.c:63:3: error: implicit declaration =
-of function =E2=80=98iounmap=E2=80=99 [-Werror=3Dimplicit-function-decl=
-aration]
->
-> This is due to CONFIG_OF now being user selectable. Add a dependency =
-on
-> HAS_IOMEM to fix this.
->
-> Signed-off-by: Rob Herring <robh@kernel.org>
+--Apple-Mail=_E609F99B-3604-41C9-B72C-3A4D69904F95
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=us-ascii
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> On Jun 26, 2015, at 11:04 AM, Rustad, Mark D <mark.d.rustad@intel.com> =
+wrote:
+>=20
+>> Sorry, Mark, I've just been busy with other issues and haven't had a
+>> chance to look at this yet.
+>=20
+> Is there any chance of this getting into this merge window?
 
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> ---
->  drivers/net/phy/Kconfig | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-> index cf18940..cb86d7a 100644
-> --- a/drivers/net/phy/Kconfig
-> +++ b/drivers/net/phy/Kconfig
-> @@ -191,7 +191,7 @@ config MDIO_BUS_MUX_GPIO
->
->  config MDIO_BUS_MUX_MMIOREG
->         tristate "Support for MMIO device-controlled MDIO bus multipl=
-exers"
-> -       depends on OF_MDIO
-> +       depends on OF_MDIO && HAS_IOMEM
->         select MDIO_BUS_MUX
->         help
->           This module provides a driver for MDIO bus multiplexers tha=
-t
-> --
-> 2.1.0
->
+Well, it has missed the merge window, but this really is a bug fix. =
+These patches address problems that, under race conditions, can corrupt =
+VPD data and under other conditions can cause hangs. In fact I would =
+submit that the reason that the VPD operations have been made =
+interruptible is directly related to hangs caused by the sharing of VPD =
+capability registers between functions. You see, if one function ever =
+performs a VPD write, any subsequent read on any other function that =
+shares those registers will definitely hang.
+
+I imagine that there are many devices beyond Intel's Ethernet devices =
+that would benefit from using the quirk that these patches introduce.
+
+Please apply it and consider it for -stable.
+
+--
+Mark Rustad, Networking Division, Intel Corporation
 
 
+--Apple-Mail=_E609F99B-3604-41C9-B72C-3A4D69904F95
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
 
---=20
-=46lorian
+-----BEGIN PGP SIGNATURE-----
+Comment: GPGTools - http://gpgtools.org
+
+iQIcBAEBCAAGBQJVmruPAAoJEDwO/+eO4+5u5pUP/0QYadQsnrPmVE5MipgcRZ0X
+StIZbIASI3FnZvVQxqc2Os0Oe5QAX334/sneRR+3zs9S+jc5PdF9VxVK7UbHX1qk
+Ypn6FBYrWcYPz4ipkg7HmpwNTB5lbqObUqOcmMhN07WEsCvkhmvDhbYnwUH4i45W
+ikt8AzQRRWF9A/eiN66Y83H3ODOu6gXTFO8jGzS1scwlNHiCpuE4Z9/sKd42h9sv
+imosZ25X+6R6cgO6yEcm7UTTIjfZ/V9qqbAquZOyBZp0WBqYwh6ODvqVhJkmEPi+
+mjVKrueBoToZEf+6iQ2dTyxtJZRrerj2wvzDVh6OjNo+/JvmzVLjo5J0fGDqGPcl
+Yx5BYVtYR6UnoI0vEVnjFuQFixw7JoCCMelnA/EnPJzHwHRaY7+01LYylEyghEkl
+Qx/rKzpgIYo1Y2XhJi3XhaFVMIjapKG8N1thqLybOnG2abvxJgk5/GUVoI4HdQ5c
+BD/bvjovtszTpLMI3q7QDQ1JMkFR3ce476rj13YPI3/o3ytaK7XSm/8MnTiqkJsX
+rWjmPBXHIq/RHf67f1NOhBiVxu5cdgYhv5CeP4ekXA/FnUsjZjuUI1hspolwi3rl
+RS1vAiuT+Qk+eOmi/ZeS7vZIyW/Jl4I9i50DrvQ2nUH5gNaQeSHalFeGoQtNF2iS
+UgTeiunlvqVy3Kw9PCEI
+=GBnj
+-----END PGP SIGNATURE-----
+
+--Apple-Mail=_E609F99B-3604-41C9-B72C-3A4D69904F95--
