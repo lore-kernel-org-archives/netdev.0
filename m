@@ -1,54 +1,73 @@
-From: Sam Protsenko <semen.protsenko@linaro.org>
-Subject: Re: problems with L2TP
-Date: Mon, 6 Jul 2015 19:16:30 +0300
-Message-ID: <CAKaJLVss0SMqf5hcBCdBuwa7+3_iBh527DW4+2Vb-RUPcb9Ffg@mail.gmail.com>
-References: <CAKaJLVuu8vZ8fq32jqbC0MKRms9ikmT_d9KKA+hJ8kwpEYBhmA@mail.gmail.com>
-	<20150703154155.GA19294@jackdaw>
+From: Marian Corcodel <corcodel.marian@gmail.com>
+Subject: Disable setting speed outside the ethtool
+Date: Mon, 6 Jul 2015 19:21:54 +0300
+Message-ID: <CAGg4U=F=iMgVRAAqk7tkJW_N0Lw8siquYmbWfR=b3sxKz4_63Q@mail.gmail.com>
 Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=089e014954c8ca11ed051a374d84
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:36210 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753801AbbGFQVy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 12:21:54 -0400
+Received: by obdbs4 with SMTP id bs4so110486333obd.3
+        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 09:21:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--089e014954c8ca11ed051a374d84
 Content-Type: text/plain; charset=UTF-8
-Cc: James Chapman <jchapman@katalix.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Sumit Semwal <sumit.semwal@linaro.org>
-To: Tom Parkin <tparkin@katalix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150703154155.GA19294@jackdaw>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-Thanks for your reply, Tom!
+Set speed only on ethtool..Driver is r8169 .
 
-> How is the tunnel/session being created on the server side?
+--089e014954c8ca11ed051a374d84
+Content-Type: text/x-patch; charset=US-ASCII;
+	name="0001-Committer-Corcodel-Marian-asu-192-168-0-3.rdsnet.ro.patch"
+Content-Disposition: attachment;
+	filename="0001-Committer-Corcodel-Marian-asu-192-168-0-3.rdsnet.ro.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ibs47bvp0
 
-My server is xl2tpd. If I understand correctly, session and tunnel are
-being created in start_pppd() function, see [1].
-Judging from xl2tpd logs (see [2]), start_pppd() function is executed,
-in turn, from control_finish() (see [3]), when "c->msgtype" switch is
-in "case ICCN:" (marked as "Incoming-Call-Connected" in log).
-Tunnel ID and call ID for server side are generated in new_tunnel()
-and new_call() functions, accordingly.
-Tunnel ID and call ID for client side, I believe, are being received
-from client in this code: [4] (see get_call() and get_tunnel()
-functions calls).
-
-> How are you deriving the session and tunnel IDs?
-
-If you mean how they are generated at client side -- they are
-basically random values (I'm using modified "mtpd" tool from Android):
- - session ID -- see "local_session" variable at [5]
- - tunnel ID -- see "local_tunnel" variable at [6].
-
-I will try to play with tunnel_id/session_id values for both tunnel
-and session sockets (in code from my first message) and see if it
-helps.
-
-Thanks!
-
-References:
-
-[1] https://github.com/xelerance/xl2tpd/blob/master/xl2tpd.c#L421
-[2] xl2tpd log (with debug options enabled): http://pastebin.com/f0kfz37E
-[3] https://github.com/xelerance/xl2tpd/blob/master/control.c#L998
-[4] https://github.com/xelerance/xl2tpd/blob/master/network.c#L597
-[5] https://android.googlesource.com/platform/external/mtpd/+/0269612ac00a0700997dda333faf0a3c33a388b8/l2tp.c#479
-[6] https://android.googlesource.com/platform/external/mtpd/+/0269612ac00a0700997dda333faf0a3c33a388b8/l2tp.c#319
+RnJvbSA4NGVhNjVhNmQxYzJiYzliYzI4ZThmNTRkZjU3NjYzOTVlYTljZTA1IE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBDb3Jjb2RlbCBNYXJpYW4gPGFzdUAxOTItMTY4LTAtMy5yZHNu
+ZXQucm8+CkRhdGU6IE1vbiwgNiBKdWwgMjAxNSAxNjozMzoxOCArMDMwMApTdWJqZWN0OiBbbmV0
+LW5leHQgRGlzYWJsZSBzZXR0aW5nIHNwZWVkIG91dHNpZGUgdGhlIGV0aHRvb2xdICBDb21taXR0
+ZXI6CiBDb3Jjb2RlbCBNYXJpYW4gPGFzdUAxOTItMTY4LTAtMy5yZHNuZXQucm8+ClRvOiBuZXRk
+ZXZAdmdlci5rZXJuZWwub3JnCk1JTUUtVmVyc2lvbjogMS4wCkNvbnRlbnQtVHlwZTogbXVsdGlw
+YXJ0L21peGVkOyBib3VuZGFyeT0iLS0tLS0tLS0tLS0tbWluZS1ib3VuZGFyeS1zdHJpbmciCgpU
+aGlzIGlzIGEgbXVsdGktcGFydCBtZXNzYWdlIGluIE1JTUUgZm9ybWF0LgotLS0tLS0tLS0tLS0t
+LW1pbmUtYm91bmRhcnktc3RyaW5nCkNvbnRlbnQtVHlwZTogdGV4dC9wbGFpbjsgY2hhcnNldD1V
+VEYtODsgZm9ybWF0PWZpeGVkCkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IDhiaXQKCgogT24g
+YnJhbmNoIG1hc3RlcgogWW91ciBicmFuY2ggaXMgYWhlYWQgb2YgJ29yaWdpbi9tYXN0ZXInIGJ5
+IDEgY29tbWl0LgogICAodXNlICJnaXQgcHVzaCIgdG8gcHVibGlzaCB5b3VyIGxvY2FsIGNvbW1p
+dHMpCiBEaXNhYmxlIHNldHRpbmcgc3BlZWQgb3V0c2lkZSBldGh0b29sCgogQ2hhbmdlcyB0byBi
+ZSBjb21taXR0ZWQ6Cgltb2RpZmllZDogICBkcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4
+MTY5LmMKClNpZ25lZC1vZmYtYnk6IENvcmNvZGVsIE1hcmlhbiA8YXN1QDE5Mi0xNjgtMC0zLnJk
+c25ldC5ybz4KLS0tCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4MTY5LmMgfCA2ICsr
+Ky0tLQogMSBmaWxlIGNoYW5nZWQsIDMgaW5zZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMoLSkKCgot
+LS0tLS0tLS0tLS0tLW1pbmUtYm91bmRhcnktc3RyaW5nCkNvbnRlbnQtVHlwZTogdGV4dC94LXBh
+dGNoOyBuYW1lPSIwMDAxLUNvbW1pdHRlci1Db3Jjb2RlbC1NYXJpYW4tYXN1LTE5Mi0xNjgtMC0z
+LnJkc25ldC5yby5wYXRjaCIKQ29udGVudC1UcmFuc2Zlci1FbmNvZGluZzogOGJpdApDb250ZW50
+LURpc3Bvc2l0aW9uOiBhdHRhY2htZW50OyBmaWxlbmFtZT0iMDAwMS1Db21taXR0ZXItQ29yY29k
+ZWwtTWFyaWFuLWFzdS0xOTItMTY4LTAtMy5yZHNuZXQucm8ucGF0Y2giCgpkaWZmIC0tZ2l0IGEv
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jIGIvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvcmVhbHRlay9yODE2OS5jCmluZGV4IDg0MGEyZWMuLjkxODlkYTMgMTAwNjQ0Ci0tLSBhL2Ry
+aXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYworKysgYi9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9yZWFsdGVrL3I4MTY5LmMKQEAgLTQzNTMsMTIgKzQzNTMsMTIgQEAgc3RhdGljIHZvaWQg
+cnRsODE2OV9pbml0X3BoeShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3QgcnRsODE2OV9w
+cml2YXRlICp0cCkKIAogCXJ0bDgxNjlfcGh5X3Jlc2V0KGRldiwgdHApOwogCi0JcnRsODE2OV9z
+ZXRfc3BlZWQoZGV2LCBBVVRPTkVHX0VOQUJMRSwgU1BFRURfMTAwMCwgRFVQTEVYX0ZVTEwsCisJ
+LyogcnRsODE2OV9zZXRfc3BlZWQoZGV2LCBBVVRPTkVHX0VOQUJMRSwgU1BFRURfMTAwMCwgRFVQ
+TEVYX0ZVTEwsCiAJCQkgIEFEVkVSVElTRURfMTBiYXNlVF9IYWxmIHwgQURWRVJUSVNFRF8xMGJh
+c2VUX0Z1bGwgfAogCQkJICBBRFZFUlRJU0VEXzEwMGJhc2VUX0hhbGYgfCBBRFZFUlRJU0VEXzEw
+MGJhc2VUX0Z1bGwgfAogCQkJICAodHAtPm1paS5zdXBwb3J0c19nbWlpID8KIAkJCSAgIEFEVkVS
+VElTRURfMTAwMGJhc2VUX0hhbGYgfAotCQkJICAgQURWRVJUSVNFRF8xMDAwYmFzZVRfRnVsbCA6
+IDApKTsKKwkJCSAgIEFEVkVSVElTRURfMTAwMGJhc2VUX0Z1bGwgOiAwKSk7ICovCiAKIAlpZiAo
+cnRsX3RiaV9lbmFibGVkKHRwKSkKIAkJbmV0aWZfaW5mbyh0cCwgbGluaywgZGV2LCAiVEJJIGF1
+dG8tbmVnb3RpYXRpbmdcbiIpOwpAQCAtNDU0MSw3ICs0NTQxLDcgQEAgc3RhdGljIGJvb2wgcnRs
+X3dvbF9wbGxfcG93ZXJfZG93bihzdHJ1Y3QgcnRsODE2OV9wcml2YXRlICp0cCkKIAlpZiAoIShf
+X3J0bDgxNjlfZ2V0X3dvbCh0cCkgJiBXQUtFX0FOWSkpCiAJCXJldHVybiBmYWxzZTsKIAotCXJ0
+bF9zcGVlZF9kb3duKHRwKTsKKwkvL3J0bF9zcGVlZF9kb3duKHRwKTsKIAlydGxfd29sX3N1c3Bl
+bmRfcXVpcmsodHApOwogCiAJcmV0dXJuIHRydWU7CgotLS0tLS0tLS0tLS0tLW1pbmUtYm91bmRh
+cnktc3RyaW5nLS0KCgo=
+--089e014954c8ca11ed051a374d84--
