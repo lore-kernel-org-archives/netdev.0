@@ -1,66 +1,101 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] rhashtable: fix for resize events during table walk
-Date: Mon, 6 Jul 2015 21:30:40 +0800
-Message-ID: <20150706133040.GA22723@gondor.apana.org.au>
-References: <1436184102-19175-1-git-send-email-phil@nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, sparclinux@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, daniel@iogearbox.net, geert@linux-m68k.org,
-	mroos@linux.ee
-To: Phil Sutter <phil@nwl.cc>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: [PATCH 0/7] introduce Hyper-V VM Sockets(hvsock)
+Date: Mon,  6 Jul 2015 07:39:35 -0700
+Message-ID: <1436193575-26674-1-git-send-email-decui@microsoft.com>
+To: gregkh@linuxfoundation.org, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	driverdev-devel@linuxdriverproject.org, olaf@aepfle.de,
+	apw@canonical.com, jasowang@redhat.com, kys@microsoft.com,
+	haiyangz@microsoft.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1436184102-19175-1-git-send-email-phil@nwl.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 06, 2015 at 02:01:42PM +0200, Phil Sutter wrote:
-> If rhashtable_walk_next detects a resize operation in progress, it jumps
-> to the new table and continues walking that one. But it misses to drop
-> the reference to it's current item, leading it to continue traversing
-> the new table's bucket in which the current item is sorted into, and
-> after reaching that bucket's end continues traversing the new table's
-> second bucket instead of the first one, thereby potentially missing
-> items.
-> 
-> This fixes the rhashtable runtime test for me. Bug probably introduced
-> by Herbert Xu's patch eddee5ba ("rhashtable: Fix walker behaviour during
-> rehash") although not explicitly tested.
-> 
-> Fixes: eddee5ba ("rhashtable: Fix walker behaviour during rehash")
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+Hyper-V VM Sockets (hvsock) is a byte-stream based communication mechanism
+between Windowsd 10 (or later) host and a guest. It's kind of TCP over
+VMBus, but the transportation layer (VMBus) is much simpler than IP.
+With Hyper-V VM Sockets, applications between the host and a guest can
+talk with each other directly by the traditional BSD-style socket APIs.
 
-Good catch!
+The patchset implements the necessary support in the guest side by adding
+the necessary new APIs in the vmbus driver, and introducing a new driver
+hv_sock.ko, which implements_a new socket address family AF_HYPERV.
 
-> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-> index a60a6d3..e36b94b 100644
-> --- a/lib/rhashtable.c
-> +++ b/lib/rhashtable.c
-> @@ -585,6 +585,7 @@ void *rhashtable_walk_next(struct rhashtable_iter *iter)
->  	struct bucket_table *tbl = iter->walker->tbl;
->  	struct rhashtable *ht = iter->ht;
->  	struct rhash_head *p = iter->p;
-> +	void *rc = NULL;
->  
->  	if (p) {
->  		p = rht_dereference_bucket_rcu(p->next, tbl, iter->slot);
-> @@ -617,12 +618,12 @@ next:
->  	if (iter->walker->tbl) {
->  		iter->slot = 0;
->  		iter->skip = 0;
-> -		return ERR_PTR(-EAGAIN);
-> +		rc = ERR_PTR(-EAGAIN);
->  	}
->  
->  	iter->p = NULL;
 
-I think a simpler fix would be to move "iter->p = NULL" before
-the if statement.
+I know the kernel has already had a VM Sockets driver (AF_VSOCK) based
+on VMware's VMCI (net/vmw_vsock/, drivers/misc/vmw_vmci), and KVM is
+proposing AF_VSOCK of virtio version:
+http://thread.gmane.org/gmane.linux.network/365205.
 
-Thanks,
+However, though Hyper-V VM Sockets may seem conceptually similar to
+AF_VOSCK, there are differences in the transportation layer, and IMO these
+make the direct code reusing impractical:
+
+1. In AF_VSOCK, the endpoint type is: <u32 ContextID, u32 Port>, but in
+AF_HYPERV, the endpoint type is: <GUID VM_ID, GUID ServiceID>. Here GUID
+is 128-bit.
+
+2. AF_VSOCK supports SOCK_DGRAM, while AF_HYPERV doesn't.
+
+3. AF_VSOCK supports some special sock opts, like SO_VM_SOCKETS_BUFFER_SIZE,
+SO_VM_SOCKETS_BUFFER_MIN/MAX_SIZE and SO_VM_SOCKETS_CONNECT_TIMEOUT.
+These are meaningless to AF_HYPERV.
+
+4. Some AF_VSOCK's VMCI transportation ops are meanless to AF_HYPERV/VMBus,
+like    .notify_recv_init
+        .notify_recv_pre_block
+        .notify_recv_pre_dequeue
+        .notify_recv_post_dequeue
+        .notify_send_init
+        .notify_send_pre_block
+        .notify_send_pre_enqueue
+        .notify_send_post_enqueue
+etc.
+
+So I think we'd better introduce a new address family: AF_HYPERV.
+
+
+Please review the patchset.
+
+Looking forward to your comments!
+
+Dexuan Cui (7):
+  Drivers: hv: vmbus: define the new offer type for Hyper-V socket
+    (hvsock)
+  Drivers: hv: vmbus: define a new VMBus message type for hvsock
+  Drivers: hv: vmbus: add APIs to send/recv hvsock packet and get the
+    r/w-ability
+  Drivers: hv: vmbus: add APIs to register callbacks to process hvsock
+    connection
+  Drivers: hv: vmbus: add a helper function to set a channel's pending
+    send size
+  hvsock: introduce Hyper-V VM Sockets feature
+  Drivers: hv: vmbus: disable local interrupt when hvsock's callback is
+    running
+
+ MAINTAINERS                   |    2 +
+ drivers/hv/Makefile           |    4 +-
+ drivers/hv/channel.c          |  146 ++++
+ drivers/hv/channel_mgmt.c     |   13 +
+ drivers/hv/connection.c       |   15 +-
+ drivers/hv/hvsock_callbacks.c |   71 ++
+ drivers/hv/hyperv_vmbus.h     |    4 +
+ drivers/hv/ring_buffer.c      |   14 +
+ include/linux/hyperv.h        |   68 ++
+ include/linux/socket.h        |    4 +-
+ include/net/af_hvsock.h       |   44 ++
+ include/uapi/linux/hyperv.h   |   16 +
+ net/Kconfig                   |    1 +
+ net/Makefile                  |    1 +
+ net/hv_sock/Kconfig           |   10 +
+ net/hv_sock/Makefile          |    5 +
+ net/hv_sock/af_hvsock.c       | 1463 +++++++++++++++++++++++++++++++++++++++++
+ 17 files changed, 1878 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/hv/hvsock_callbacks.c
+ create mode 100644 include/net/af_hvsock.h
+ create mode 100644 net/hv_sock/Kconfig
+ create mode 100644 net/hv_sock/Makefile
+ create mode 100644 net/hv_sock/af_hvsock.c
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.1.0
