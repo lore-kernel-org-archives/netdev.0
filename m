@@ -1,76 +1,28 @@
-From: Erik Kline <ek@google.com>
-Subject: Re: [PATCH net-next] ipv6: sysctl to restrict candidate source addresses
-Date: Mon, 6 Jul 2015 12:06:33 +0900
-Message-ID: <CAAedzxqC3jeezcSnmM+PYJYT+oVFr6kZ1mX_xBFmMrsGFTH6VQ@mail.gmail.com>
-References: <1435898941-9259-1-git-send-email-ek@google.com> <559633A6.9040403@miraclelinux.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH,v2 net-next] ipvs: skb_orphan in case of forwarding
+Date: Mon, 6 Jul 2015 12:50:19 +0900
+Message-ID: <20150706035019.GA9155@verge.net.au>
+References: <1436131706-1559824-1-git-send-email-agartrell@fb.com>
+ <alpine.LFD.2.11.1507060105470.12815@ja.home.ssi.bg>
+ <CALCkm3eyEbHpzfF1zk0OUnGaSf51=r9DmZs_2Xq4fTtOed3nNQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Lorenzo Colitti <lorenzo@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:33980 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751778AbbGFDGy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2015 23:06:54 -0400
-Received: by wifm2 with SMTP id m2so16906340wif.1
-        for <netdev@vger.kernel.org>; Sun, 05 Jul 2015 20:06:52 -0700 (PDT)
-In-Reply-To: <559633A6.9040403@miraclelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>, Alex Gartrell <agartrell@fb.com>,
+	lvs-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	kernel-team <kernel-team@fb.com>
+To: Alex Gartrell <alexgartrell@gmail.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CALCkm3eyEbHpzfF1zk0OUnGaSf51=r9DmZs_2Xq4fTtOed3nNQ@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Reworked with "use_oif_addr".
+On Sun, Jul 05, 2015 at 03:19:27PM -0700, Alex Gartrell wrote:
+> On Sun, Jul 5, 2015 at 3:13 PM, Julian Anastasov <ja@ssi.bg> wrote:
+> >         May be the patch fixes crashes? If yes, Simon
+> > should apply it for ipvs/net tree, otherwise after
+> > the merge window...
+> 
+> Yeah this is definitely a crash-fix and it's existed since at least 3.10.
 
-Thanks,
--Erik
-
-On 3 July 2015 at 16:03, YOSHIFUJI Hideaki
-<hideaki.yoshifuji@miraclelinux.com> wrote:
-> Hi,
->
-> Erik Kline wrote:
->> Per RFC 6724, section 4, "Candidate Source Addresses":
->>
->>     It is RECOMMENDED that the candidate source addresses be the set
->>     of unicast addresses assigned to the interface that will be used
->>     to send to the destination (the "outgoing" interface).
->>
->> Add a sysctl to enable this behaviour.
->>
->> Signed-off-by: Erik Kline <ek@google.com>
->> ---
->>  Documentation/networking/ip-sysctl.txt | 12 ++++++++++++
->>  include/linux/ipv6.h                   |  1 +
->>  include/uapi/linux/ipv6.h              |  1 +
->>  net/ipv6/addrconf.c                    | 30 +++++++++++++++++++++++++-----
->>  4 files changed, 39 insertions(+), 5 deletions(-)
->>
->> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
->> index 5fae770..d8f3e60 100644
->> --- a/Documentation/networking/ip-sysctl.txt
->> +++ b/Documentation/networking/ip-sysctl.txt
->> @@ -1435,6 +1435,18 @@ mtu - INTEGER
->>       Default Maximum Transfer Unit
->>       Default: 1280 (IPv6 required minimum)
->>
->> +restrict_srcaddr - INTEGER
->> +     Restrict candidate source addresses (vis. RFC 6724, section 4).
->> +
->> +     When set to 1, the candidate source addresses for destinations
->> +     routed via this interface are restricted to the set of addresses
->> +     configured on this interface.
->> +
->> +     Possible values are:
->> +             0 : no source address restrictions
->> +             1 : require matching outgoing interface
->> +     Default:  0
->> +
->
-> I cannot get what "restrict" restricts.  How about "use_oif_addr" or
-> something like that (like use_tempaddr)?
->
-> --
-> Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-> Technical Division, MIRACLE LINUX CORPORATION
+Is it possible to get a 'Fixes:' tag?
