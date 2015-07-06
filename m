@@ -1,68 +1,68 @@
-From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
-Subject: [PATCH] ip_tunnel: fix ipv4 pmtu check to honor inner ip header df
-Date: Mon,  6 Jul 2015 11:35:50 +0300
-Message-ID: <1436171750-6029-1-git-send-email-timo.teras@iki.fi>
-Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: netdev@vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] net: macb: replace literal constant with
+ NET_IP_ALIGN
+Date: Mon, 6 Jul 2015 08:54:59 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB5C530@AcuExch.aculab.com>
+References: <5592D105.7080006@certsign.ro>
+	 <1435748191.4110.127.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1435770389.12101.110.camel@perches.com>
+	 <1435788837.8526.3.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CB5BCAC@AcuExch.aculab.com>
+ <1435941553.11970.71.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Joe Perches <joe@perches.com>,
+	Nicolae Rosia <nicolae.rosia@certsign.ro>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	'Nicolas Ferre <nicolas.ferre@atmel.com>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:34077 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751454AbbGFIgC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 04:36:02 -0400
-Received: by lagx9 with SMTP id x9so145477108lag.1
-        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 01:36:01 -0700 (PDT)
+Received: from smtp-out4.electric.net ([192.162.216.194]:50821 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754557AbbGFI5J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 04:57:09 -0400
+In-Reply-To: <1435941553.11970.71.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Frag needed should be sent only if the inner header asked
-to not fragment. Currently fragmentation is broken if the
-tunnel has df set. The tunnel's df needs to be still checked
-to update internally the pmtu cache.
-
-This got broken in commit 23a3647bc4f93bac and this fixes
-the pmtu check back to the way it was.
-
-Fixes: 23a3647bc4f93bac ("ip_tunnels: Use skb-len to PMTU check.")
-Cc: Pravin B Shelar <pshelar@nicira.com>
----
-Should go to -stable queues (3.12.y and never).
-
- net/ipv4/ip_tunnel.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 0bb8e14..6822572 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -587,7 +587,8 @@ int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
- EXPORT_SYMBOL(ip_tunnel_encap);
- 
- static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
--			    struct rtable *rt, __be16 df)
-+			    struct rtable *rt, __be16 df,
-+			    const struct iphdr *inner_iph)
- {
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
- 	int pkt_size = skb->len - tunnel->hlen - dev->hard_header_len;
-@@ -604,7 +605,8 @@ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
- 
- 	if (skb->protocol == htons(ETH_P_IP)) {
- 		if (!skb_is_gso(skb) &&
--		    (df & htons(IP_DF)) && mtu < pkt_size) {
-+		    (inner_iph->frag_off & htons(IP_DF)) &&
-+		    mtu < pkt_size) {
- 			memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
- 			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
- 			return -E2BIG;
-@@ -738,7 +740,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 		goto tx_error;
- 	}
- 
--	if (tnl_update_pmtu(dev, skb, rt, tnl_params->frag_off)) {
-+	if (tnl_update_pmtu(dev, skb, rt, tnl_params->frag_off, inner_iph)) {
- 		ip_rt_put(rt);
- 		goto tx_error;
- 	}
--- 
-2.4.5
+RnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2Vu
+dDogMDMgSnVseSAyMDE1IDE3OjM5DQo+IE9uIEZyaSwgMjAxNS0wNy0wMyBhdCAxNjoxOCArMDAw
+MCwgRGF2aWQgTGFpZ2h0IHdyb3RlOg0KPiANCj4gPiBFdmVuIG9uIHg4NiBhbGlnbmluZyB0aGUg
+ZXRoZXJuZXQgcmVjZWl2ZSBkYXRhIG9uIGEgNG4rMg0KPiA+IGJvdW5kYXJ5IGlzIGxpa2VseSB0
+byBnaXZlIG1hcmdpbmFsbHkgYmV0dGVyIHBlcmZvcm1hbmNlDQo+ID4gdGhhbiBhbGlnbmluZyBv
+biBhIDRuIGJvdW5kYXJ5Lg0KPiANCj4gWW91IGFyZSBjb21pbmcgbGF0ZSB0byB0aGUgcGFydHku
+DQoNCkkndmUgYmVlbiB0byBtYW55IHBhcnRpZXMgYXQgbWFueSBkaWZmZXJlbnQgdGltZXMuLi4u
+DQoNCkdvaW5nIGJhY2sgbWFueSB5ZWFycywgU3VuJ3Mgb3JpZ2luYWwgc2J1cyBETUEgcGFydCBn
+ZW5lcmF0ZWQgYSBsb3QNCm9mIHNpbmdsZSBzYnVzIHRyYW5zZmVycyBmb3IgNG4rMiBhbGlnbmVk
+IGJ1ZmZlcnMgLSBzbyBpdCB3YXMgbmVjZXNzYXJ5DQp0byBkbyBhICdyZWFsaWdubWVudCcgY29w
+eS4gVGhlIGxhdGVyIERNQSsgKGRlZmluaXRlbHkgdGhlIERNQTIpIHBhcnQNCmRpZCBzYnVzIGJ1
+cnN0IHRyYW5zZmVycyBldmVuIHdoZW4gdGhlIGJ1ZmZlciB3YXMgNG4rMiBhbGlnbmVkLg0KU28g
+d2l0aCB0aGUgbGF0ZXIgcGFydHMgeW91IGNvdWxkIGNvcnJlY3RseSBhbGlnbiB0aGUgYnVmZmVy
+Lg0KDQo+IEludGVsIGd1eXMgZGVjaWRlZCB0byBjaGFuZ2UgTkVUX0lQX0FMSUdOIHRvIDAgKGl0
+IHdhcyAyIGluIHRoZSBwYXN0KQ0KLi4uDQo+ICAgICB4ODY6IEFsaWduIHNrYiB3LyBzdGFydCBv
+ZiBjYWNoZWxpbmUgb24gbmV3ZXIgY29yZSAyL1hlb24gQXJjaA0KPiANCj4gICAgIHg4NiBhcmNo
+aXRlY3R1cmVzIGNhbiBoYW5kbGUgdW5hbGlnbmVkIGFjY2Vzc2VzIGluIGhhcmR3YXJlLCBhbmQg
+aXQgaGFzDQo+ICAgICBiZWVuIHNob3duIHRoYXQgdW5hbGlnbmVkIERNQSBhY2Nlc3NlcyBjYW4g
+YmUgZXhwZW5zaXZlIG9uIE5laGFsZW0NCj4gICAgIGFyY2hpdGVjdHVyZXMuICBBcyBzdWNoIHdl
+IHNob3VsZCBvdmVyd3JpdGUgTkVUX0lQX0FMSUdOIHRvIHJlc29sdmUNCj4gICAgIHRoaXMgaXNz
+dWUuDQoNCk15IDIgY2VudHM6DQoNCkknZCBoYXZlIHRob3VnaHQgaXQgd291bGQgZGVwZW5kIG9u
+IHRoZSBuYXR1cmUgb2YgdGhlICdETUEnIHJlcXVlc3RzDQpnZW5lcmF0ZWQgYnkgdGhlIGhhcmR3
+YXJlIC0gc28gZXRoZXJuZXQgaGFyZHdhcmUgZGVwZW5kYW50Lg0KDQpUaGUgYWJvdmUgbWF5IGJl
+IGNvcnJlY3QgZm9yIFBDSSBtYXN0ZXJzIC0gZXNwZWNpYWxseSB0aG9zZSB0aGF0IGRvDQpwYWly
+ZWQgMTZiaXQgYWNjZXNzZXMgZm9yIGV2ZXJ5IDMyYml0IHdvcmQuDQpJZiB0aGUgaGFyZHdhcmUg
+Z2VuZXJhdGVkIGNhY2hlIGxpbmUgYWxpZ25lZCBQQ0kgYnVyc3RzIEkgd291bGRuJ3QNCmhhdmUg
+dGhvdWdodCBpdCB3b3VsZCBtYXR0ZXIuDQoNCkkgZG91YnQgaXQgaXMgdmFsaWQgZm9yIFBDSWUg
+dHJhbnNmZXJzIC0gd2hlcmUgdGhlIGV0aGVybmV0IGZyYW1lDQp3aWxsIGJlIHNwbGl0IGludG8g
+KHByb2JhYmx5KSAxMjhieXRlIFRMUHMuIEV2ZW4gaWYgaXQgc3RhcnRzIG9uDQphIDY0bisyIGJv
+dW5kYXJ5IHRoZSBzcGxpdHMgd2lsbCBiZSBvbiA2NCBieXRlIGJvdW5kYXJpZXMgc2luY2UgdGhl
+DQpmaXJzdCBhbmQgbGFzdCAzMmJpdCB3b3JkcyBvZiB0aGUgVExQIGhhdmUgc2VwYXJhdGUgYnl0
+ZSBlbmFibGVzLg0KDQpTbyBJJ2QgZXhwZWN0IHRvIHNlZSBhIGNhY2hlIGxpbmUgUk1XIGZvciB0
+aGUgZmlyc3QgYW5kIGxhc3QgY2FjaGUNCmxpbmVzIC0gVGhhdCBtYXksIG9yIG1heSBub3QsIGJl
+IHNsb3dlciB0aGFuIHRoZSBtaXNhbGlnbmVkIGFjY2Vzc2VzDQpmb3IgdGhlIGVudGlyZSBmcmFt
+ZSAoMSBjbG9jayBkYXRhIGRlbGF5IHBlciBhY2Nlc3M/KQ0KDQpPZiBjb3Vyc2UsIG1vZGVybiBu
+aWNzIHdpbGwgd3JpdGUgMiBieXRlcyBvZiAnY3JhcCcgYmVmb3JlIHRoZSBmcmFtZS4NClJvdW5k
+aW5nIHVwIHRoZSB0cmFuc2ZlciB0byB0aGUgZW5kIG9mIGEgY2FjaGUgbGluZSBtaWdodCBhbHNv
+IGhlbHANCihlc3BlY2lhbGx5IGlmIG9ubHkgYSBmZXcgZXh0cmEgd29yZHMgYXJlIG5lZWRlZCku
+DQoNCglEYXZpZA0KDQo=
