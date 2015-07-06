@@ -1,40 +1,106 @@
-From: Liang Li <liang.z.li@intel.com>
-Subject: [RESEND] xen-netback: remove duplicated function definition
-Date: Mon,  6 Jul 2015 08:42:56 +0800
-Message-ID: <1436143376-18457-1-git-send-email-liang.z.li@intel.com>
-Cc: netdev@vger.kernel.org, ian.campbell@citrix.com,
-	wei.liu2@citrix.com, xen-devel@lists.xenproject.org,
-	davem@davemloft.net, Liang Li <liang.z.li@intel.com>
-To: linux-kernel@vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v3 0/3] net: dsa: mv88e6xxx: add support for VLAN Table Unit
+Date: Sun,  5 Jul 2015 22:14:50 -0400
+Message-ID: <1436148893-14379-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>, Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:13206 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751447AbbGFAnT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jul 2015 20:43:19 -0400
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:62299 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751126AbbGFCO7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2015 22:14:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are two duplicated xenvif_zerocopy_callback() definitions.
-Remove one of them.
+Hi all,
 
-Signed-off-by: Liang Li <liang.z.li@intel.com>
----
- drivers/net/xen-netback/common.h | 3 ---
- 1 file changed, 3 deletions(-)
+This patchset brings full support for hardware VLANs in DSA, and the Marvell
+88E6xxx compatible switch chips.
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 8a495b3..c6cb85a 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -325,9 +325,6 @@ static inline pending_ring_idx_t nr_pending_reqs(struct xenvif_queue *queue)
- 		queue->pending_prod + queue->pending_cons;
- }
- 
--/* Callback from stack when TX packet can be released */
--void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success);
--
- irqreturn_t xenvif_interrupt(int irq, void *dev_id);
- 
- extern bool separate_tx_rx_irq;
+The first patch adds the VTU operations to the mv88e6xxx code, as well as a
+"vtu" debugfs file to read and modify the hardware VLAN table.
+
+The second patch adds the glue between DSA and the switchdev VLAN objects.
+
+The third patch finally implements the necessary functions in the mv88e6xxx
+code to interact with the hardware VLAN through switchdev, from userspace
+commands such as "bridge vlan".
+
+Below is an example of what can be done with this patchset.
+
+    "VID 550: 1t 3u"
+    "VID 1000: 2t"
+    "VID 1200: 2t 4t"
+
+The VLAN setup above can be achieved with the following bridge commands:
+
+    bridge vlan add vid 550 dev swp1 master
+    bridge vlan add vid 550 dev swp3 master untagged pvid
+    bridge vlan add vid 1000 dev swp2 master
+    bridge vlan add vid 1200 dev swp2 master
+    bridge vlan add vid 1200 dev swp4 master
+
+Removing the port 1 from VLAN 550 is done with:
+
+    bridge vlan del vid 550 dev swp1
+
+The bridge command would output the following setup:
+
+    # bridge vlan
+    port	vlan ids
+    swp0	None
+    swp0
+    swp1	None
+    swp1
+    swp2	1000
+		1200
+
+    swp2	1000
+		1200
+
+    swp3	550 PVID Egress Untagged
+
+    swp3	550 PVID Egress Untagged
+
+    swp4	1200
+
+    swp4	1200
+
+    br0	None
+
+Assuming that swp5 is the CPU port, the "vtu" debugfs file would show:
+
+    # cat /sys/kernel/debug/dsa0/vtu
+    VID  FID  SID  0  1  2  3  4  5  6
+    550  550  0    x  x  x  u  x  t  x
+    1000 1000 0    x  x  t  x  x  t  x
+    1200 1200 0    x  x  t  x  t  t  x
+
+Cheers,
+  -v
+
+
+Vivien Didelot (3):
+  net: dsa: mv88e6xxx: add debugfs interface for VTU
+  net: dsa: add support for switchdev VLAN objects
+  net: dsa: mv88e6xxx: add switchdev VLAN operations
+
+ drivers/net/dsa/mv88e6123_61_65.c |   3 +
+ drivers/net/dsa/mv88e6131.c       |   3 +
+ drivers/net/dsa/mv88e6171.c       |   3 +
+ drivers/net/dsa/mv88e6352.c       |   3 +
+ drivers/net/dsa/mv88e6xxx.c       | 463 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx.h       |  29 +++
+ include/net/dsa.h                 |   9 +
+ net/dsa/dsa_priv.h                |   6 +
+ net/dsa/slave.c                   | 137 +++++++++++
+ 9 files changed, 656 insertions(+)
+
 -- 
-1.9.1
+2.4.5
