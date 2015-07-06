@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v3 net-next 7/7] net_sched: act_mirred: remove spinlock in fast path
-Date: Mon,  6 Jul 2015 05:18:09 -0700
-Message-ID: <1436185089-18268-8-git-send-email-edumazet@google.com>
+Subject: [PATCH v3 net-next 6/7] net_sched: act_gact: remove spinlock in fast path
+Date: Mon,  6 Jul 2015 05:18:08 -0700
+Message-ID: <1436185089-18268-7-git-send-email-edumazet@google.com>
 References: <1436185089-18268-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Alexei Starovoitov <ast@plumgrid.com>,
@@ -11,178 +11,130 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:33370 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755045AbbGFMSm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 08:18:42 -0400
-Received: by igh16 with SMTP id 16so23109161igh.0
-        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 05:18:42 -0700 (PDT)
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:36594 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755318AbbGFMSj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 08:18:39 -0400
+Received: by iecvh10 with SMTP id vh10so111931952iec.3
+        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 05:18:38 -0700 (PDT)
 In-Reply-To: <1436185089-18268-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Like act_gact, act_mirred can be lockless in packet processing
+Final step for gact RCU operation :
 
 1) Use percpu stats
 2) update lastuse only every clock tick to avoid false sharing
-3) use rcu to protect tcfm_dev
-4) Remove spinlock usage, as it is no longer needed.
+3) Remove spinlock acquisition, as it is no longer needed.
 
-Next step : add multi queue capability to ifb device
+Since this is the last contended lock in packet RX when tc gact is used,
+this gives impressive gain.
+
+My host with 8 RX queues was handling 5 Mpps before the patch,
+and more than 11 Mpps after patch.
+
+Tested:
+
+On receiver :
+
+dev=eth0
+tc qdisc del dev $dev ingress 2>/dev/null
+tc qdisc add dev $dev ingress
+tc filter del dev $dev root pref 10 2>/dev/null
+tc filter del dev $dev pref 10 2>/dev/null
+tc filter add dev $dev est 1sec 4sec parent ffff: protocol ip prio 1 \
+	u32 match ip src 7.0.0.0/8 flowid 1:15 action drop
+
+Sender sends packets flood from 7/8 network
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Alexei Starovoitov <ast@plumgrid.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: John Fastabend <john.fastabend@gmail.com>
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Acked-by: John Fastabend <john.fastabend@gmail.com>
 ---
- include/net/tc_act/tc_mirred.h |  2 +-
- net/sched/act_mirred.c         | 57 ++++++++++++++++++++++--------------------
- 2 files changed, 31 insertions(+), 28 deletions(-)
+ include/net/act_api.h | 11 +++++++++++
+ net/sched/act_gact.c  | 17 +++++++----------
+ 2 files changed, 18 insertions(+), 10 deletions(-)
 
-diff --git a/include/net/tc_act/tc_mirred.h b/include/net/tc_act/tc_mirred.h
-index 4dd77a1c106b..dae96bae1c19 100644
---- a/include/net/tc_act/tc_mirred.h
-+++ b/include/net/tc_act/tc_mirred.h
-@@ -8,7 +8,7 @@ struct tcf_mirred {
- 	int			tcfm_eaction;
- 	int			tcfm_ifindex;
- 	int			tcfm_ok_push;
--	struct net_device	*tcfm_dev;
-+	struct net_device __rcu	*tcfm_dev;
- 	struct list_head	tcfm_list;
- };
- #define to_mirred(a) \
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index 002cd6c83dc6..19cd8904efa0 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -35,9 +35,11 @@ static LIST_HEAD(mirred_list);
- static void tcf_mirred_release(struct tc_action *a, int bind)
- {
- 	struct tcf_mirred *m = to_mirred(a);
-+	struct net_device *dev = rcu_dereference_protected(m->tcfm_dev, 1);
-+
- 	list_del(&m->tcfm_list);
--	if (m->tcfm_dev)
--		dev_put(m->tcfm_dev);
-+	if (dev)
-+		dev_put(dev);
+diff --git a/include/net/act_api.h b/include/net/act_api.h
+index db2063ffd181..8d2a707a9e87 100644
+--- a/include/net/act_api.h
++++ b/include/net/act_api.h
+@@ -70,6 +70,17 @@ static inline void tcf_hashinfo_destroy(struct tcf_hashinfo *hf)
+ 	kfree(hf->htab);
  }
  
- static const struct nla_policy mirred_policy[TCA_MIRRED_MAX + 1] = {
-@@ -94,7 +96,7 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
- 		if (dev == NULL)
- 			return -EINVAL;
- 		ret = tcf_hash_create(parm->index, est, a, sizeof(*m),
++/* Update lastuse only if needed, to avoid dirtying a cache line.
++ * We use a temp variable to avoid fetching jiffies twice.
++ */
++static inline void tcf_lastuse_update(struct tcf_t *tm)
++{
++	unsigned long now = jiffies;
++
++	if (tm->lastuse != now)
++		tm->lastuse = now;
++}
++
+ #ifdef CONFIG_NET_CLS_ACT
+ 
+ #define ACT_P_CREATED 1
+diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
+index e4eb88d3d8dc..5c1b05170736 100644
+--- a/net/sched/act_gact.c
++++ b/net/sched/act_gact.c
+@@ -90,7 +90,7 @@ static int tcf_gact_init(struct net *net, struct nlattr *nla,
+ 
+ 	if (!tcf_hash_check(parm->index, a, bind)) {
+ 		ret = tcf_hash_create(parm->index, est, a, sizeof(*gact),
 -				      bind, false);
 +				      bind, true);
  		if (ret)
  			return ret;
  		ret = ACT_P_CREATED;
-@@ -106,18 +108,18 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
- 	}
- 	m = to_mirred(a);
+@@ -104,7 +104,7 @@ static int tcf_gact_init(struct net *net, struct nlattr *nla,
  
--	spin_lock_bh(&m->tcf_lock);
+ 	gact = to_gact(a);
+ 
+-	spin_lock_bh(&gact->tcf_lock);
 +	ASSERT_RTNL();
- 	m->tcf_action = parm->action;
- 	m->tcfm_eaction = parm->eaction;
- 	if (dev != NULL) {
- 		m->tcfm_ifindex = parm->ifindex;
- 		if (ret != ACT_P_CREATED)
--			dev_put(m->tcfm_dev);
-+			dev_put(rcu_dereference_protected(m->tcfm_dev, 1));
- 		dev_hold(dev);
--		m->tcfm_dev = dev;
-+		rcu_assign_pointer(m->tcfm_dev, dev);
- 		m->tcfm_ok_push = ok_push;
+ 	gact->tcf_action = parm->action;
+ #ifdef CONFIG_GACT_PROB
+ 	if (p_parm) {
+@@ -117,7 +117,6 @@ static int tcf_gact_init(struct net *net, struct nlattr *nla,
+ 		gact->tcfg_ptype   = p_parm->ptype;
  	}
--	spin_unlock_bh(&m->tcf_lock);
-+
- 	if (ret == ACT_P_CREATED) {
- 		list_add(&m->tcfm_list, &mirred_list);
+ #endif
+-	spin_unlock_bh(&gact->tcf_lock);
+ 	if (ret == ACT_P_CREATED)
  		tcf_hash_insert(a);
-@@ -132,20 +134,22 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
- 	struct tcf_mirred *m = a->priv;
- 	struct net_device *dev;
- 	struct sk_buff *skb2;
-+	int retval, err;
- 	u32 at;
--	int retval, err = 1;
+ 	return ret;
+@@ -127,9 +126,8 @@ static int tcf_gact(struct sk_buff *skb, const struct tc_action *a,
+ 		    struct tcf_result *res)
+ {
+ 	struct tcf_gact *gact = a->priv;
+-	int action = gact->tcf_action;
++	int action = READ_ONCE(gact->tcf_action);
  
--	spin_lock(&m->tcf_lock);
--	m->tcf_tm.lastuse = jiffies;
--	bstats_update(&m->tcf_bstats, skb);
-+	tcf_lastuse_update(&m->tcf_tm);
-+
-+	bstats_cpu_update(this_cpu_ptr(m->common.cpu_bstats), skb);
- 
--	dev = m->tcfm_dev;
--	if (!dev) {
--		printk_once(KERN_NOTICE "tc mirred: target device is gone\n");
-+	rcu_read_lock();
-+	retval = READ_ONCE(m->tcf_action);
-+	dev = rcu_dereference(m->tcfm_dev);
-+	if (unlikely(!dev)) {
-+		pr_notice_once("tc mirred: target device is gone\n");
- 		goto out;
+-	spin_lock(&gact->tcf_lock);
+ #ifdef CONFIG_GACT_PROB
+ 	{
+ 	u32 ptype = READ_ONCE(gact->tcfg_ptype);
+@@ -138,12 +136,11 @@ static int tcf_gact(struct sk_buff *skb, const struct tc_action *a,
+ 		action = gact_rand[ptype](gact);
  	}
+ #endif
+-	gact->tcf_bstats.bytes += qdisc_pkt_len(skb);
+-	gact->tcf_bstats.packets++;
++	bstats_cpu_update(this_cpu_ptr(gact->common.cpu_bstats), skb);
+ 	if (action == TC_ACT_SHOT)
+-		gact->tcf_qstats.drops++;
+-	gact->tcf_tm.lastuse = jiffies;
+-	spin_unlock(&gact->tcf_lock);
++		qstats_drop_inc(this_cpu_ptr(gact->common.cpu_qstats));
++
++	tcf_lastuse_update(&gact->tcf_tm);
  
--	if (!(dev->flags & IFF_UP)) {
-+	if (unlikely(!(dev->flags & IFF_UP))) {
- 		net_notice_ratelimited("tc mirred to Houston: device %s is down\n",
- 				       dev->name);
- 		goto out;
-@@ -153,7 +157,7 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
- 
- 	at = G_TC_AT(skb->tc_verd);
- 	skb2 = skb_clone(skb, GFP_ATOMIC);
--	if (skb2 == NULL)
-+	if (!skb2)
- 		goto out;
- 
- 	if (!(at & AT_EGRESS)) {
-@@ -169,16 +173,13 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
- 	skb2->dev = dev;
- 	err = dev_queue_xmit(skb2);
- 
--out:
- 	if (err) {
--		m->tcf_qstats.overlimits++;
-+out:
-+		qstats_overlimit_inc(this_cpu_ptr(m->common.cpu_qstats));
- 		if (m->tcfm_eaction != TCA_EGRESS_MIRROR)
- 			retval = TC_ACT_SHOT;
--		else
--			retval = m->tcf_action;
--	} else
--		retval = m->tcf_action;
--	spin_unlock(&m->tcf_lock);
-+	}
-+	rcu_read_unlock();
- 
- 	return retval;
+ 	return action;
  }
-@@ -217,14 +218,16 @@ static int mirred_device_event(struct notifier_block *unused,
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
- 	struct tcf_mirred *m;
- 
-+	ASSERT_RTNL();
- 	if (event == NETDEV_UNREGISTER)
- 		list_for_each_entry(m, &mirred_list, tcfm_list) {
--			spin_lock_bh(&m->tcf_lock);
--			if (m->tcfm_dev == dev) {
-+			if (rcu_access_pointer(m->tcfm_dev) == dev) {
- 				dev_put(dev);
--				m->tcfm_dev = NULL;
-+				/* Note : no rcu grace period necessary, as
-+				 * net_device are already rcu protected.
-+				 */
-+				RCU_INIT_POINTER(m->tcfm_dev, NULL);
- 			}
--			spin_unlock_bh(&m->tcf_lock);
- 		}
- 
- 	return NOTIFY_DONE;
 -- 
 2.4.3.573.g4eafbef
