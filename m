@@ -1,68 +1,75 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] net: macb: replace literal constant with
- NET_IP_ALIGN
-Date: Mon, 6 Jul 2015 08:54:59 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB5C530@AcuExch.aculab.com>
-References: <5592D105.7080006@certsign.ro>
-	 <1435748191.4110.127.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1435770389.12101.110.camel@perches.com>
-	 <1435788837.8526.3.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CB5BCAC@AcuExch.aculab.com>
- <1435941553.11970.71.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Bob Liu <bob.liu@oracle.com>
+Subject: Re: [Xen-devel] [PATCH] net/bridge: Add missing in6_dev_put in br_validate_ipv6
+Date: Mon, 06 Jul 2015 17:58:26 +0800
+Message-ID: <559A5142.5000109@oracle.com>
+References: <1435946491-11148-1-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Joe Perches <joe@perches.com>,
-	Nicolae Rosia <nicolae.rosia@certsign.ro>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	'Nicolas Ferre <nicolas.ferre@atmel.com>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.194]:50821 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754557AbbGFI5J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 04:57:09 -0400
-In-Reply-To: <1435941553.11970.71.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, davem@davemloft.net,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	wei.liu2@citrix.com, ian.campbell@citrix.com, fw@strlen.de,
+	linux-kernel@vger.kernel.org,
+	Bernhard Thaler <bernhard.thaler@wvnet.at>,
+	xen-devel@lists.xenproject.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: Julien Grall <julien.grall@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1435946491-11148-1-git-send-email-julien.grall@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2Vu
-dDogMDMgSnVseSAyMDE1IDE3OjM5DQo+IE9uIEZyaSwgMjAxNS0wNy0wMyBhdCAxNjoxOCArMDAw
-MCwgRGF2aWQgTGFpZ2h0IHdyb3RlOg0KPiANCj4gPiBFdmVuIG9uIHg4NiBhbGlnbmluZyB0aGUg
-ZXRoZXJuZXQgcmVjZWl2ZSBkYXRhIG9uIGEgNG4rMg0KPiA+IGJvdW5kYXJ5IGlzIGxpa2VseSB0
-byBnaXZlIG1hcmdpbmFsbHkgYmV0dGVyIHBlcmZvcm1hbmNlDQo+ID4gdGhhbiBhbGlnbmluZyBv
-biBhIDRuIGJvdW5kYXJ5Lg0KPiANCj4gWW91IGFyZSBjb21pbmcgbGF0ZSB0byB0aGUgcGFydHku
-DQoNCkkndmUgYmVlbiB0byBtYW55IHBhcnRpZXMgYXQgbWFueSBkaWZmZXJlbnQgdGltZXMuLi4u
-DQoNCkdvaW5nIGJhY2sgbWFueSB5ZWFycywgU3VuJ3Mgb3JpZ2luYWwgc2J1cyBETUEgcGFydCBn
-ZW5lcmF0ZWQgYSBsb3QNCm9mIHNpbmdsZSBzYnVzIHRyYW5zZmVycyBmb3IgNG4rMiBhbGlnbmVk
-IGJ1ZmZlcnMgLSBzbyBpdCB3YXMgbmVjZXNzYXJ5DQp0byBkbyBhICdyZWFsaWdubWVudCcgY29w
-eS4gVGhlIGxhdGVyIERNQSsgKGRlZmluaXRlbHkgdGhlIERNQTIpIHBhcnQNCmRpZCBzYnVzIGJ1
-cnN0IHRyYW5zZmVycyBldmVuIHdoZW4gdGhlIGJ1ZmZlciB3YXMgNG4rMiBhbGlnbmVkLg0KU28g
-d2l0aCB0aGUgbGF0ZXIgcGFydHMgeW91IGNvdWxkIGNvcnJlY3RseSBhbGlnbiB0aGUgYnVmZmVy
-Lg0KDQo+IEludGVsIGd1eXMgZGVjaWRlZCB0byBjaGFuZ2UgTkVUX0lQX0FMSUdOIHRvIDAgKGl0
-IHdhcyAyIGluIHRoZSBwYXN0KQ0KLi4uDQo+ICAgICB4ODY6IEFsaWduIHNrYiB3LyBzdGFydCBv
-ZiBjYWNoZWxpbmUgb24gbmV3ZXIgY29yZSAyL1hlb24gQXJjaA0KPiANCj4gICAgIHg4NiBhcmNo
-aXRlY3R1cmVzIGNhbiBoYW5kbGUgdW5hbGlnbmVkIGFjY2Vzc2VzIGluIGhhcmR3YXJlLCBhbmQg
-aXQgaGFzDQo+ICAgICBiZWVuIHNob3duIHRoYXQgdW5hbGlnbmVkIERNQSBhY2Nlc3NlcyBjYW4g
-YmUgZXhwZW5zaXZlIG9uIE5laGFsZW0NCj4gICAgIGFyY2hpdGVjdHVyZXMuICBBcyBzdWNoIHdl
-IHNob3VsZCBvdmVyd3JpdGUgTkVUX0lQX0FMSUdOIHRvIHJlc29sdmUNCj4gICAgIHRoaXMgaXNz
-dWUuDQoNCk15IDIgY2VudHM6DQoNCkknZCBoYXZlIHRob3VnaHQgaXQgd291bGQgZGVwZW5kIG9u
-IHRoZSBuYXR1cmUgb2YgdGhlICdETUEnIHJlcXVlc3RzDQpnZW5lcmF0ZWQgYnkgdGhlIGhhcmR3
-YXJlIC0gc28gZXRoZXJuZXQgaGFyZHdhcmUgZGVwZW5kYW50Lg0KDQpUaGUgYWJvdmUgbWF5IGJl
-IGNvcnJlY3QgZm9yIFBDSSBtYXN0ZXJzIC0gZXNwZWNpYWxseSB0aG9zZSB0aGF0IGRvDQpwYWly
-ZWQgMTZiaXQgYWNjZXNzZXMgZm9yIGV2ZXJ5IDMyYml0IHdvcmQuDQpJZiB0aGUgaGFyZHdhcmUg
-Z2VuZXJhdGVkIGNhY2hlIGxpbmUgYWxpZ25lZCBQQ0kgYnVyc3RzIEkgd291bGRuJ3QNCmhhdmUg
-dGhvdWdodCBpdCB3b3VsZCBtYXR0ZXIuDQoNCkkgZG91YnQgaXQgaXMgdmFsaWQgZm9yIFBDSWUg
-dHJhbnNmZXJzIC0gd2hlcmUgdGhlIGV0aGVybmV0IGZyYW1lDQp3aWxsIGJlIHNwbGl0IGludG8g
-KHByb2JhYmx5KSAxMjhieXRlIFRMUHMuIEV2ZW4gaWYgaXQgc3RhcnRzIG9uDQphIDY0bisyIGJv
-dW5kYXJ5IHRoZSBzcGxpdHMgd2lsbCBiZSBvbiA2NCBieXRlIGJvdW5kYXJpZXMgc2luY2UgdGhl
-DQpmaXJzdCBhbmQgbGFzdCAzMmJpdCB3b3JkcyBvZiB0aGUgVExQIGhhdmUgc2VwYXJhdGUgYnl0
-ZSBlbmFibGVzLg0KDQpTbyBJJ2QgZXhwZWN0IHRvIHNlZSBhIGNhY2hlIGxpbmUgUk1XIGZvciB0
-aGUgZmlyc3QgYW5kIGxhc3QgY2FjaGUNCmxpbmVzIC0gVGhhdCBtYXksIG9yIG1heSBub3QsIGJl
-IHNsb3dlciB0aGFuIHRoZSBtaXNhbGlnbmVkIGFjY2Vzc2VzDQpmb3IgdGhlIGVudGlyZSBmcmFt
-ZSAoMSBjbG9jayBkYXRhIGRlbGF5IHBlciBhY2Nlc3M/KQ0KDQpPZiBjb3Vyc2UsIG1vZGVybiBu
-aWNzIHdpbGwgd3JpdGUgMiBieXRlcyBvZiAnY3JhcCcgYmVmb3JlIHRoZSBmcmFtZS4NClJvdW5k
-aW5nIHVwIHRoZSB0cmFuc2ZlciB0byB0aGUgZW5kIG9mIGEgY2FjaGUgbGluZSBtaWdodCBhbHNv
-IGhlbHANCihlc3BlY2lhbGx5IGlmIG9ubHkgYSBmZXcgZXh0cmEgd29yZHMgYXJlIG5lZWRlZCku
-DQoNCglEYXZpZA0KDQo=
+
+On 07/04/2015 02:01 AM, Julien Grall wrote:
+> The commit efb6de9b4ba0092b2c55f6a52d16294a8a698edd "netfilter: bridge:
+> forward IPv6 fragmented packets" introduced a new function
+> br_validate_ipv6 which take a reference on the inet6 device. Although,
+> the reference is not released at the end.
+> 
+> This will result to the impossibility to destroy any netdevice using
+> ipv6 and bridge.
+> 
+> Spotted while trying to destroy a Xen guest on the upstream Linux:
+> "unregister_netdevice: waiting for vif1.0 to become free. Usage count = 1"
+> 
+> Signed-off-by: Julien Grall <julien.grall@citrix.com>
+
+Also hit the same issue, thank you for the fix.
+
+Tested-by: Bob Liu <bob.liu@oracle.com>
+
+> Cc: Bernhard Thaler <bernhard.thaler@wvnet.at>
+> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> Cc: fw@strlen.de
+> Cc: ian.campbell@citrix.com
+> Cc: wei.liu2@citrix.com
+> 
+> ---
+>     Note that it's impossible to create new guest after this message.
+>     I'm not sure if it's normal.
+> ---
+>  net/bridge/br_netfilter_ipv6.c | 5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> diff --git a/net/bridge/br_netfilter_ipv6.c b/net/bridge/br_netfilter_ipv6.c
+> index 6d12d26..7046e19 100644
+> --- a/net/bridge/br_netfilter_ipv6.c
+> +++ b/net/bridge/br_netfilter_ipv6.c
+> @@ -140,11 +140,16 @@ int br_validate_ipv6(struct sk_buff *skb)
+>  	/* No IP options in IPv6 header; however it should be
+>  	 * checked if some next headers need special treatment
+>  	 */
+> +
+> +	in6_dev_put(idev);
+> +
+>  	return 0;
+>  
+>  inhdr_error:
+>  	IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
+>  drop:
+> +	in6_dev_put(idev);
+> +
+>  	return -1;
+>  }
+>  
+> 
