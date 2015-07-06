@@ -1,256 +1,77 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH v5] net: fec: Ensure clocks are enabled while using mdio bus
-Date: Mon,  6 Jul 2015 20:34:55 +0200
-Message-ID: <1436207695-652-1-git-send-email-andrew@lunn.ch>
-Cc: Duan Andy <fugang.duan@freescale.com>,
-	Cory Tusar <cory.tusar@pid1solutions.com>,
-	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:34862 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751419AbbGFSlU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jul 2015 14:41:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] sctp: Add counters for out data chunk discards
+Date: Mon, 06 Jul 2015 14:46:32 -0400
+Message-ID: <559ACD08.1080902@gmail.com>
+References: <1436204245-21645-1-git-send-email-vitalya@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: Vitaly Andrianov <vitalya@ti.com>, nhorman@tuxdriver.com,
+	davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	m-karicheri2@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1436204245-21645-1-git-send-email-vitalya@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When a switch is attached to the mdio bus, the mdio bus can be used
-while the interface is not open. If the IPG clock is not enabled, MDIO
-reads/writes will simply time out.
+On 07/06/2015 01:37 PM, Vitaly Andrianov wrote:
+> This commit adds a MIB entry for out data chunk discards.
+> Number of outgoing SCTP DATA chunks for a SCTP association for which no
+> problems were encountered to prevent their transmission but were discarded.
+> Data chunks are discarded due to ungraceful closing of the SCTP
+> association.
+> 
+> Signed-off-by: Vitaly Andrianov <vitalya@ti.com>
+> ---
+>  include/net/sctp/sctp.h | 1 +
+>  net/sctp/outqueue.c     | 1 +
+>  net/sctp/proc.c         | 2 ++
+>  3 files changed, 4 insertions(+)
+> 
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index ce13cf2..fd806ea 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -216,6 +216,7 @@ enum {
+>  	SCTP_MIB_IN_PKT_BACKLOG,
+>  	SCTP_MIB_IN_PKT_DISCARDS,
+>  	SCTP_MIB_IN_DATA_CHUNK_DISCARDS,
+> +	SCTP_MIB_OUT_DATA_CHUNK_DISCARDS,
+>  	__SCTP_MIB_MAX
+>  };
+>  
+> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+> index 7e8f0a1..dc1a40f 100644
+> --- a/net/sctp/outqueue.c
+> +++ b/net/sctp/outqueue.c
+> @@ -315,6 +315,7 @@ int sctp_outq_tail(struct sctp_outq *q, struct sctp_chunk *chunk)
+>  		case SCTP_STATE_SHUTDOWN_RECEIVED:
+>  		case SCTP_STATE_SHUTDOWN_ACK_SENT:
+>  			/* Cannot send after transport endpoint shutdown */
+> +			SCTP_INC_STATS(net, SCTP_MIB_OUT_DATA_CHUNK_DISCARDS);
+>  			error = -ESHUTDOWN;
+>  			break;
 
-Add support for runtime PM to control this clock. Enable/disable this
-clock using runtime PM, with open()/close() and mdio read()/write()
-function triggering runtime PM operations. Since PM is optional, the
-IPG clock is enabled at probe and is no longer modified by
-fec_enet_clk_enable(), thus if PM is not enabled in the kernel, it is
-guaranteed the clock is running when MDIO operations are performed.
+First, this is not the only case where a chunk is discarded on output.  If you
+are going to add an OUT_DATA_DISCARDS counter, you need to catch all such discards.
+Second,  in this particular case, you will count discarded messages, not chunks since
+sctp_outq_tail is guaranteed to queue the whole message or none of it.
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
-v5:
-Rewrite to use runtime PM with fec_runtime_suspend and fec_runtime_resume
+-vlad
 
-drivers/net/ethernet/freescale/fec_main.c | 88 ++++++++++++++++++++++++++-----
- 1 file changed, 75 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 1f89c59b4353..42e20e5385ac 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -24,6 +24,7 @@
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/string.h>
-+#include <linux/pm_runtime.h>
- #include <linux/ptrace.h>
- #include <linux/errno.h>
- #include <linux/ioport.h>
-@@ -77,6 +78,7 @@ static void fec_enet_itr_coal_init(struct net_device *ndev);
- #define FEC_ENET_RAEM_V	0x8
- #define FEC_ENET_RAFL_V	0x8
- #define FEC_ENET_OPD_V	0xFFF0
-+#define FEC_MDIO_PM_TIMEOUT  100 /* ms */
- 
- static struct platform_device_id fec_devtype[] = {
- 	{
-@@ -1767,7 +1769,13 @@ static void fec_enet_adjust_link(struct net_device *ndev)
- static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
- {
- 	struct fec_enet_private *fep = bus->priv;
-+	struct device *dev = &fep->pdev->dev;
- 	unsigned long time_left;
-+	int ret = 0;
-+
-+	ret = pm_runtime_get_sync(dev);
-+	if (IS_ERR_VALUE(ret))
-+		return ret;
- 
- 	fep->mii_timeout = 0;
- 	init_completion(&fep->mdio_done);
-@@ -1783,18 +1791,30 @@ static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
- 	if (time_left == 0) {
- 		fep->mii_timeout = 1;
- 		netdev_err(fep->netdev, "MDIO read timeout\n");
--		return -ETIMEDOUT;
-+		ret = -ETIMEDOUT;
-+		goto out;
- 	}
- 
--	/* return value */
--	return FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
-+	ret = FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
-+
-+out:
-+	pm_runtime_mark_last_busy(dev);
-+	pm_runtime_put_autosuspend(dev);
-+
-+	return ret;
- }
- 
- static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
- 			   u16 value)
- {
- 	struct fec_enet_private *fep = bus->priv;
-+	struct device *dev = &fep->pdev->dev;
- 	unsigned long time_left;
-+	int ret = 0;
-+
-+	ret = pm_runtime_get_sync(dev);
-+	if (IS_ERR_VALUE(ret))
-+		return ret;
- 
- 	fep->mii_timeout = 0;
- 	init_completion(&fep->mdio_done);
-@@ -1811,10 +1831,13 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
- 	if (time_left == 0) {
- 		fep->mii_timeout = 1;
- 		netdev_err(fep->netdev, "MDIO write timeout\n");
--		return -ETIMEDOUT;
-+		ret  = -ETIMEDOUT;
- 	}
- 
--	return 0;
-+	pm_runtime_mark_last_busy(dev);
-+	pm_runtime_put_autosuspend(dev);
-+
-+	return ret;
- }
- 
- static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
-@@ -1826,9 +1849,6 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
- 		ret = clk_prepare_enable(fep->clk_ahb);
- 		if (ret)
- 			return ret;
--		ret = clk_prepare_enable(fep->clk_ipg);
--		if (ret)
--			goto failed_clk_ipg;
- 		if (fep->clk_enet_out) {
- 			ret = clk_prepare_enable(fep->clk_enet_out);
- 			if (ret)
-@@ -1852,7 +1872,6 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
- 		}
- 	} else {
- 		clk_disable_unprepare(fep->clk_ahb);
--		clk_disable_unprepare(fep->clk_ipg);
- 		if (fep->clk_enet_out)
- 			clk_disable_unprepare(fep->clk_enet_out);
- 		if (fep->clk_ptp) {
-@@ -1874,8 +1893,6 @@ failed_clk_ptp:
- 	if (fep->clk_enet_out)
- 		clk_disable_unprepare(fep->clk_enet_out);
- failed_clk_enet_out:
--		clk_disable_unprepare(fep->clk_ipg);
--failed_clk_ipg:
- 		clk_disable_unprepare(fep->clk_ahb);
- 
- 	return ret;
-@@ -2847,10 +2864,14 @@ fec_enet_open(struct net_device *ndev)
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	int ret;
- 
-+	ret = pm_runtime_get_sync(&fep->pdev->dev);
-+	if (IS_ERR_VALUE(ret))
-+		return ret;
-+
- 	pinctrl_pm_select_default_state(&fep->pdev->dev);
- 	ret = fec_enet_clk_enable(ndev, true);
- 	if (ret)
--		return ret;
-+		goto clk_enable;
- 
- 	/* I should reset the ring buffers here, but I don't yet know
- 	 * a simple way to do that.
-@@ -2881,6 +2902,9 @@ err_enet_mii_probe:
- 	fec_enet_free_buffers(ndev);
- err_enet_alloc:
- 	fec_enet_clk_enable(ndev, false);
-+clk_enable:
-+	pm_runtime_mark_last_busy(&fep->pdev->dev);
-+	pm_runtime_put_autosuspend(&fep->pdev->dev);
- 	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
- 	return ret;
- }
-@@ -2903,6 +2927,9 @@ fec_enet_close(struct net_device *ndev)
- 
- 	fec_enet_clk_enable(ndev, false);
- 	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
-+	pm_runtime_mark_last_busy(&fep->pdev->dev);
-+	pm_runtime_put_autosuspend(&fep->pdev->dev);
-+
- 	fec_enet_free_buffers(ndev);
- 
- 	return 0;
-@@ -3388,6 +3415,10 @@ fec_probe(struct platform_device *pdev)
- 	if (ret)
- 		goto failed_clk;
- 
-+	ret = clk_prepare_enable(fep->clk_ipg);
-+	if (ret)
-+		goto failed_clk_ipg;
-+
- 	fep->reg_phy = devm_regulator_get(&pdev->dev, "phy");
- 	if (!IS_ERR(fep->reg_phy)) {
- 		ret = regulator_enable(fep->reg_phy);
-@@ -3434,6 +3465,8 @@ fec_probe(struct platform_device *pdev)
- 	netif_carrier_off(ndev);
- 	fec_enet_clk_enable(ndev, false);
- 	pinctrl_pm_select_sleep_state(&pdev->dev);
-+	pm_runtime_set_active(&pdev->dev);
-+	pm_runtime_enable(&pdev->dev);
- 
- 	ret = register_netdev(ndev);
- 	if (ret)
-@@ -3447,6 +3480,12 @@ fec_probe(struct platform_device *pdev)
- 
- 	fep->rx_copybreak = COPYBREAK_DEFAULT;
- 	INIT_WORK(&fep->tx_timeout_work, fec_enet_timeout_work);
-+
-+	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
-+	pm_runtime_use_autosuspend(&pdev->dev);
-+	pm_runtime_mark_last_busy(&pdev->dev);
-+	pm_runtime_put_autosuspend(&pdev->dev);
-+
- 	return 0;
- 
- failed_register:
-@@ -3457,6 +3496,8 @@ failed_init:
- 	if (fep->reg_phy)
- 		regulator_disable(fep->reg_phy);
- failed_regulator:
-+	clk_disable_unprepare(fep->clk_ipg);
-+failed_clk_ipg:
- 	fec_enet_clk_enable(ndev, false);
- failed_clk:
- failed_phy:
-@@ -3568,7 +3609,28 @@ failed_clk:
- 	return ret;
- }
- 
--static SIMPLE_DEV_PM_OPS(fec_pm_ops, fec_suspend, fec_resume);
-+static int __maybe_unused fec_runtime_suspend(struct device *dev)
-+{
-+	struct net_device *ndev = dev_get_drvdata(dev);
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+
-+	clk_disable_unprepare(fep->clk_ipg);
-+
-+	return 0;
-+}
-+
-+static int __maybe_unused fec_runtime_resume(struct device *dev)
-+{
-+	struct net_device *ndev = dev_get_drvdata(dev);
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+
-+	return clk_prepare_enable(fep->clk_ipg);
-+}
-+
-+static const struct dev_pm_ops fec_pm_ops = {
-+	SET_SYSTEM_SLEEP_PM_OPS(fec_suspend, fec_resume)
-+	SET_RUNTIME_PM_OPS(fec_runtime_suspend, fec_runtime_resume, NULL)
-+};
- 
- static struct platform_driver fec_driver = {
- 	.driver	= {
--- 
-2.1.4
+>  
+> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+> index 0697eda..1a10b81 100644
+> --- a/net/sctp/proc.c
+> +++ b/net/sctp/proc.c
+> @@ -67,6 +67,8 @@ static const struct snmp_mib sctp_snmp_list[] = {
+>  	SNMP_MIB_ITEM("SctpInPktBacklog", SCTP_MIB_IN_PKT_BACKLOG),
+>  	SNMP_MIB_ITEM("SctpInPktDiscards", SCTP_MIB_IN_PKT_DISCARDS),
+>  	SNMP_MIB_ITEM("SctpInDataChunkDiscards", SCTP_MIB_IN_DATA_CHUNK_DISCARDS),
+> +	SNMP_MIB_ITEM("SctpOutDataChunkDiscards",
+> +		      SCTP_MIB_OUT_DATA_CHUNK_DISCARDS),
+>  	SNMP_MIB_SENTINEL
+>  };
+>  
+> 
