@@ -1,73 +1,57 @@
-From: Marian Corcodel <corcodel.marian@gmail.com>
-Subject: Disable setting speed outside the ethtool
-Date: Mon, 6 Jul 2015 19:21:54 +0300
-Message-ID: <CAGg4U=F=iMgVRAAqk7tkJW_N0Lw8siquYmbWfR=b3sxKz4_63Q@mail.gmail.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH net] Revert "dev: set iflink to 0 for virtual interfaces"
+Date: Mon, 06 Jul 2015 18:38:06 +0200
+Message-ID: <559AAEEE.5060208@hartkopp.net>
+References: <5589959A.8060600@hartkopp.net> <1436196310-4090-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=089e014954c8ca11ed051a374d84
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ulrich.gemkow@ikr.uni-stuttgart.de, davem@davemloft.net,
+	netdev@vger.kernel.org, shemminger@vyatta.com
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:36210 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753801AbbGFQVy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 12:21:54 -0400
-Received: by obdbs4 with SMTP id bs4so110486333obd.3
-        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 09:21:54 -0700 (PDT)
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.217]:8979 "EHLO
+	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752343AbbGFQi0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 12:38:26 -0400
+In-Reply-To: <1436196310-4090-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---089e014954c8ca11ed051a374d84
-Content-Type: text/plain; charset=UTF-8
+On 06.07.2015 17:25, Nicolas Dichtel wrote:
+> This reverts commit e1622baf54df8cc958bf29d71de5ad545ea7d93c.
+>
+> The side effect of this commit is to add a '@NONE' after each virtual
+> interface name with a 'ip link'. It may break existing scripts.
+>
+> Reported-by: Olivier Hartkopp <socketcan@hartkopp.net>
+                   ^^^
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Set speed only on ethtool..Driver is r8169 .
+Tested-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
---089e014954c8ca11ed051a374d84
-Content-Type: text/x-patch; charset=US-ASCII;
-	name="0001-Committer-Corcodel-Marian-asu-192-168-0-3.rdsnet.ro.patch"
-Content-Disposition: attachment;
-	filename="0001-Committer-Corcodel-Marian-asu-192-168-0-3.rdsnet.ro.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ibs47bvp0
+Thanks Nicolas!
 
-RnJvbSA4NGVhNjVhNmQxYzJiYzliYzI4ZThmNTRkZjU3NjYzOTVlYTljZTA1IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBDb3Jjb2RlbCBNYXJpYW4gPGFzdUAxOTItMTY4LTAtMy5yZHNu
-ZXQucm8+CkRhdGU6IE1vbiwgNiBKdWwgMjAxNSAxNjozMzoxOCArMDMwMApTdWJqZWN0OiBbbmV0
-LW5leHQgRGlzYWJsZSBzZXR0aW5nIHNwZWVkIG91dHNpZGUgdGhlIGV0aHRvb2xdICBDb21taXR0
-ZXI6CiBDb3Jjb2RlbCBNYXJpYW4gPGFzdUAxOTItMTY4LTAtMy5yZHNuZXQucm8+ClRvOiBuZXRk
-ZXZAdmdlci5rZXJuZWwub3JnCk1JTUUtVmVyc2lvbjogMS4wCkNvbnRlbnQtVHlwZTogbXVsdGlw
-YXJ0L21peGVkOyBib3VuZGFyeT0iLS0tLS0tLS0tLS0tbWluZS1ib3VuZGFyeS1zdHJpbmciCgpU
-aGlzIGlzIGEgbXVsdGktcGFydCBtZXNzYWdlIGluIE1JTUUgZm9ybWF0LgotLS0tLS0tLS0tLS0t
-LW1pbmUtYm91bmRhcnktc3RyaW5nCkNvbnRlbnQtVHlwZTogdGV4dC9wbGFpbjsgY2hhcnNldD1V
-VEYtODsgZm9ybWF0PWZpeGVkCkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IDhiaXQKCgogT24g
-YnJhbmNoIG1hc3RlcgogWW91ciBicmFuY2ggaXMgYWhlYWQgb2YgJ29yaWdpbi9tYXN0ZXInIGJ5
-IDEgY29tbWl0LgogICAodXNlICJnaXQgcHVzaCIgdG8gcHVibGlzaCB5b3VyIGxvY2FsIGNvbW1p
-dHMpCiBEaXNhYmxlIHNldHRpbmcgc3BlZWQgb3V0c2lkZSBldGh0b29sCgogQ2hhbmdlcyB0byBi
-ZSBjb21taXR0ZWQ6Cgltb2RpZmllZDogICBkcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4
-MTY5LmMKClNpZ25lZC1vZmYtYnk6IENvcmNvZGVsIE1hcmlhbiA8YXN1QDE5Mi0xNjgtMC0zLnJk
-c25ldC5ybz4KLS0tCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4MTY5LmMgfCA2ICsr
-Ky0tLQogMSBmaWxlIGNoYW5nZWQsIDMgaW5zZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMoLSkKCgot
-LS0tLS0tLS0tLS0tLW1pbmUtYm91bmRhcnktc3RyaW5nCkNvbnRlbnQtVHlwZTogdGV4dC94LXBh
-dGNoOyBuYW1lPSIwMDAxLUNvbW1pdHRlci1Db3Jjb2RlbC1NYXJpYW4tYXN1LTE5Mi0xNjgtMC0z
-LnJkc25ldC5yby5wYXRjaCIKQ29udGVudC1UcmFuc2Zlci1FbmNvZGluZzogOGJpdApDb250ZW50
-LURpc3Bvc2l0aW9uOiBhdHRhY2htZW50OyBmaWxlbmFtZT0iMDAwMS1Db21taXR0ZXItQ29yY29k
-ZWwtTWFyaWFuLWFzdS0xOTItMTY4LTAtMy5yZHNuZXQucm8ucGF0Y2giCgpkaWZmIC0tZ2l0IGEv
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jIGIvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvcmVhbHRlay9yODE2OS5jCmluZGV4IDg0MGEyZWMuLjkxODlkYTMgMTAwNjQ0Ci0tLSBhL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYworKysgYi9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9yZWFsdGVrL3I4MTY5LmMKQEAgLTQzNTMsMTIgKzQzNTMsMTIgQEAgc3RhdGljIHZvaWQg
-cnRsODE2OV9pbml0X3BoeShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3QgcnRsODE2OV9w
-cml2YXRlICp0cCkKIAogCXJ0bDgxNjlfcGh5X3Jlc2V0KGRldiwgdHApOwogCi0JcnRsODE2OV9z
-ZXRfc3BlZWQoZGV2LCBBVVRPTkVHX0VOQUJMRSwgU1BFRURfMTAwMCwgRFVQTEVYX0ZVTEwsCisJ
-LyogcnRsODE2OV9zZXRfc3BlZWQoZGV2LCBBVVRPTkVHX0VOQUJMRSwgU1BFRURfMTAwMCwgRFVQ
-TEVYX0ZVTEwsCiAJCQkgIEFEVkVSVElTRURfMTBiYXNlVF9IYWxmIHwgQURWRVJUSVNFRF8xMGJh
-c2VUX0Z1bGwgfAogCQkJICBBRFZFUlRJU0VEXzEwMGJhc2VUX0hhbGYgfCBBRFZFUlRJU0VEXzEw
-MGJhc2VUX0Z1bGwgfAogCQkJICAodHAtPm1paS5zdXBwb3J0c19nbWlpID8KIAkJCSAgIEFEVkVS
-VElTRURfMTAwMGJhc2VUX0hhbGYgfAotCQkJICAgQURWRVJUSVNFRF8xMDAwYmFzZVRfRnVsbCA6
-IDApKTsKKwkJCSAgIEFEVkVSVElTRURfMTAwMGJhc2VUX0Z1bGwgOiAwKSk7ICovCiAKIAlpZiAo
-cnRsX3RiaV9lbmFibGVkKHRwKSkKIAkJbmV0aWZfaW5mbyh0cCwgbGluaywgZGV2LCAiVEJJIGF1
-dG8tbmVnb3RpYXRpbmdcbiIpOwpAQCAtNDU0MSw3ICs0NTQxLDcgQEAgc3RhdGljIGJvb2wgcnRs
-X3dvbF9wbGxfcG93ZXJfZG93bihzdHJ1Y3QgcnRsODE2OV9wcml2YXRlICp0cCkKIAlpZiAoIShf
-X3J0bDgxNjlfZ2V0X3dvbCh0cCkgJiBXQUtFX0FOWSkpCiAJCXJldHVybiBmYWxzZTsKIAotCXJ0
-bF9zcGVlZF9kb3duKHRwKTsKKwkvL3J0bF9zcGVlZF9kb3duKHRwKTsKIAlydGxfd29sX3N1c3Bl
-bmRfcXVpcmsodHApOwogCiAJcmV0dXJuIHRydWU7CgotLS0tLS0tLS0tLS0tLW1pbmUtYm91bmRh
-cnktc3RyaW5nLS0KCgo=
---089e014954c8ca11ed051a374d84--
+BR
+Oliver
+
+> ---
+>   net/core/dev.c | 4 ----
+>   1 file changed, 4 deletions(-)
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 6778a9999d52..72e0a4331154 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -677,10 +677,6 @@ int dev_get_iflink(const struct net_device *dev)
+>   	if (dev->netdev_ops && dev->netdev_ops->ndo_get_iflink)
+>   		return dev->netdev_ops->ndo_get_iflink(dev);
+>
+> -	/* If dev->rtnl_link_ops is set, it's a virtual interface. */
+> -	if (dev->rtnl_link_ops)
+> -		return 0;
+> -
+>   	return dev->ifindex;
+>   }
+>   EXPORT_SYMBOL(dev_get_iflink);
+>
