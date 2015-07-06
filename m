@@ -1,175 +1,269 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 0/3] net: implement SMC-R solution
-Date: Mon,  6 Jul 2015 17:11:48 +0200
-Message-ID: <1436195511-32314-1-git-send-email-ubraun@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [PATCH net-next 1/3] tcp: introduce TCP experimental option for SMC
+Date: Mon,  6 Jul 2015 17:11:49 +0200
+Message-ID: <1436195511-32314-2-git-send-email-ubraun@linux.vnet.ibm.com>
+References: <1436195511-32314-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Cc: utz.bacher@de.ibm.com, netdev@vger.kernel.org,
 	linux-s390@vger.kernel.org, ursula.braun@de.ibm.com,
 	ubraun@linux.vnet.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:40620 "EHLO
-	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753387AbbGFPMI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 11:12:08 -0400
+Received: from e06smtp17.uk.ibm.com ([195.75.94.113]:57733 "EHLO
+	e06smtp17.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753474AbbGFPMP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 11:12:15 -0400
 Received: from /spool/local
-	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e06smtp17.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Mon, 6 Jul 2015 16:12:06 +0100
+	Mon, 6 Jul 2015 16:12:13 +0100
+In-Reply-To: <1436195511-32314-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ursula Braun <ursula.braun@de.ibm.com>
+From: Ursula Braun <ursula.braun@de.ibm.com>
 
-In 2013, IBM introduced an optimized communications solution for the
-IBM zEnterprise EC12 and BC12 (s390 in Linux terminology) that is
-comprised of the IBM 10GbE RoCE Express feature with Shared Memory
-Communications-RDMA (SMC-R) protocol [1].
-SMC-R is designed for the enterprise data center environment and is an =
-open
-protocol as specified in the informational RFC [2]. The final draft
-submitted by IBM has been approved for publication and is in the final
-editorial stage. Another implementation of this protocol is available s=
-ince
-2013 with IBM z/OS Version 2 Release 1.=20
+The SMC-R protocol defines dynamic discovery of peers. This is done by
+implementing experimental TCP options as defined in RFC6994. The TCP code
+needs to be extended to support RFC6994.
 
-SMC-R provides a =E2=80=9Csockets over RDMA=E2=80=9D solution that leve=
-rages industry
-standard RDMA over Converged Ethernet (RoCE) technology.
+Setting the TCP experimental option for SMC-R [2] will be triggered from
+kernel exploiters like the new SMC-R socket family by setting a new
+flag "syn_smc" on struct tcp_sock of the connecting and the listening
+socket. If the client peer is SMC-R capable, flag syn_smc is kept on the
+connecting socket after the 3-way TCP handshake, otherwise it is reset.
+If the server peer is SMC-R capable, the new connected TCP socket has
+the new flag set, otherwise not.
 
-IBM has developed a Linux implementation of the SMC-R standard. A new
-socket protocol family AF_SMC is introduced. A preload library can be u=
-sed
-to enable TCP-based applications to use SMC-R without changes.=20
+Code snippet client:
+  tcp_sk(sock->sk)->syn_smc = 1;
+  rc = kernel_connect(sock, addr, alen, flags);
+  if (tcp_sk(sock->sk)->syn_smc) {
+          /* switch to smc for this connection */
 
-Key aspects of SMC-R are:=20
-1. Provides optimized performance compared to standard TCP/IP over Ethe=
-rnet
-   within the data center for both request/response (latency) and strea=
-ming
-   workloads (CPU savings) [3].=20
-   Initial benchmarks on Linux on x86 processors have shown latency
-   reduction of up to 52% with a throughput gain of 111% using SMC-R vs=
- TCP
-   for request/response message patterns (10 concurrent TCP connections
-   with 16KB    messages) and CPU savings of up to 69% for streaming da=
-ta
-   patterns (single TCP connection with 20MB of data in one direction).
-   [1] is currently updated to contain more detailed information on Lin=
-ux
-   and performance.
-2. In order to preserve the traditional network administrative model th=
-e
-   SMC-R protocol ties into the existing IP addresses and uses TCP's
-   handshake to establish connections. This allows existing management
-   tools and security infrastructure to control the creation of SMC
-   connections.
-3. The SMC-R protocol logically bonds multiple RoCE adapters together
-   providing    redundancy with transparent fail-over for improved high
-   availability, increased bandwidth and load balancing across multiple
-   RDMA-capable devices.
-4. Due to its handshake protocol, SMC-R is compatible with (transparent=
- to)
-   existing TCP connection load balancers that are commonly used in the
-   enterprise data center environment for multi-tier application worklo=
-ads.
-5. SMC-R's handshake protocol allows for transparent fallback to TCP/IP=
-,
-   should one of the peers not be capable of the protocol.
-
-Additional SMC-R overview and reference materials are available [1]. =20
-
-The SMC-R =E2=80=9Crendezvous" protocol eliminates the need for RDMA-CM=
- and the
-exchange occurs through an initial TCP connection. Building on a TCP
-connection to establish an SMC-R connection solves many key requirement=
-s,
-including #4 and #5 above.
-The rendezvous process occurs in 2 phases:=20
-1. TCP/IP 3-way exchange:
-   Initiated when both client and server indicate SMC-R capability by
-   including TCP experimental options on the TCP/IP 3-way handshake (sy=
-n
-   flows) as described in RFC6994 [4]. The ExID assigned by IANA is
-   0xE2D4C3D9 [5].=20
-2. SMC-R 3-way exchange:
-   When both partners indicate SMC-R capability then at the completion =
-of
-   the 3-way TCP handshake the SMC-R layers in each peer take control o=
-f
-   the TCP connection and exchange their RDMA credentials. If this 3-wa=
-y
-   exchange    completes successfully the connection continues using SM=
-C-R.
-   If the exchange is not successful the connections falls back to stan=
-dard
-   TCP/IP.=20
+Code snippet server:
+  tcp_sk(sock->sk)->syn_smc = 1;
+  rc = kernel_listen(sock, backlog);
+  rc = kernel_accept(sock, &newsock, 0);
+  if (tcp_sk(newsock->sk)->syn_smc) {
+          /* switch to smc for this connection */
 
 References:
-[1] SMC-R Overview and Reference Materials:
-    http://www-01.ibm.com/software/network/commserver/SMCR/=20
-[2] SMC-R Informational RFC:
-    http://tools.ietf.org/html/draft-fox-tcpm-shared-memory-rdma-07
-[3] Linux SMC-R Overview and Performance Summary
-    (archs x86 and s390):
-    http://www-01.ibm.com/software/network/commserver/SMCR/=20
-[4] Shared Use of TCP Experimental Options RFC 6994:
-    https://tools.ietf.org/rfc/rfc6994.txt   =20
-[5] IANA ExID SMCR:=20
-    http://www.iana.org/assignments/tcp-parameters/tcp-parameters.xhtml=
-#tcp-exids
+[1] Shared Use of TCP Experimental Options RFC 6994:
+    https://tools.ietf.org/rfc/rfc6994.txt
+[2] IANA ExID SMCR:
+    http://www.iana.org/assignments/tcp-parameters/tcp-parameters.xhtml#tcp-exids
 
-The patch series is prepared to apply to net-next and consists of these
-parts:
-1. net/ipv4/tcp: TCP experimental option
-2. net: definitions to establish new socket family
-3. net/smc: new socket family
+This patch has already been posted in June 2013, but Dave Miller has
+postponed applying till the user of the new flags, ie. the entire SMC-R
+protocol stack is implemented.
 
-In the future, SMC-R will be enhanced to cover:
-- IPv6 support
-- Tracing
-- Statistics support
+Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+---
+ include/linux/tcp.h        |  5 ++++-
+ include/net/request_sock.h |  3 ++-
+ include/net/tcp.h          |  3 +++
+ net/ipv4/tcp_input.c       | 12 ++++++++++++
+ net/ipv4/tcp_minisocks.c   |  4 ++++
+ net/ipv4/tcp_output.c      | 28 ++++++++++++++++++++++++++++
+ 6 files changed, 53 insertions(+), 2 deletions(-)
 
-Thanks,
-        Ursula
-
-Ursula Braun (3):
-  tcp: introduce TCP experimental option for SMC
-  net: introduce socket family constants
-  smc: introduce socket family AF_SMC
-
- include/linux/socket.h     |    4 +-
- include/linux/tcp.h        |    5 +-
- include/net/request_sock.h |    3 +-
- include/net/smc.h          |   13 +
- include/net/tcp.h          |    3 +
- net/Kconfig                |    1 +
- net/Makefile               |    1 +
- net/ipv4/tcp_input.c       |   12 +
- net/ipv4/tcp_minisocks.c   |    4 +
- net/ipv4/tcp_output.c      |   28 +
- net/smc/Kconfig            |    9 +
- net/smc/Makefile           |    3 +
- net/smc/af_smc.c           | 3142 ++++++++++++++++++++++++++++++++++++=
-++++++
- net/smc/af_smc.h           |  689 ++++++++++
- net/smc/smc_core.c         | 3291 ++++++++++++++++++++++++++++++++++++=
-++++++++
- net/smc/smc_llc.c          | 1597 +++++++++++++++++++++
- net/smc/smc_llc.h          |  192 +++
- net/smc/smc_proc.c         |  884 ++++++++++++
- 18 files changed, 9878 insertions(+), 3 deletions(-)
- create mode 100644 include/net/smc.h
- create mode 100644 net/smc/Kconfig
- create mode 100644 net/smc/Makefile
- create mode 100644 net/smc/af_smc.c
- create mode 100644 net/smc/af_smc.h
- create mode 100644 net/smc/smc_core.c
- create mode 100644 net/smc/smc_llc.c
- create mode 100644 net/smc/smc_llc.h
- create mode 100644 net/smc/smc_proc.c
-
---=20
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 48c3696..de0d67c 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -90,6 +90,7 @@ struct tcp_options_received {
+ 		sack_ok : 4,	/* SACK seen on SYN packet		*/
+ 		snd_wscale : 4,	/* Window scaling received from sender	*/
+ 		rcv_wscale : 4;	/* Window scaling to send to receiver	*/
++	u8	smc_capability:1; /* SMC capability			*/
+ 	u8	num_sacks;	/* Number of SACK blocks		*/
+ 	u16	user_mss;	/* mss requested by user in ioctl	*/
+ 	u16	mss_clamp;	/* Maximal mss, negotiated at connection setup */
+@@ -99,6 +100,7 @@ static inline void tcp_clear_options(struct tcp_options_received *rx_opt)
+ {
+ 	rx_opt->tstamp_ok = rx_opt->sack_ok = 0;
+ 	rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
++	rx_opt->smc_capability = 0;
+ }
+ 
+ /* This is the max number of SACKS that we'll generate and process. It's safe
+@@ -207,7 +209,8 @@ struct tcp_sock {
+ 		syn_fastopen_exp:1,/* SYN includes Fast Open exp. option */
+ 		syn_data_acked:1,/* data in SYN is acked by SYN-ACK */
+ 		save_syn:1,	/* Save headers of SYN packet */
+-		is_cwnd_limited:1;/* forward progress limited by snd_cwnd? */
++		is_cwnd_limited:1,/* forward progress limited by snd_cwnd? */
++		syn_smc:1;	/* SYN includes SMC			*/
+ 	u32	tlp_high_seq;	/* snd_nxt at the time of TLP retransmit. */
+ 
+ /* RTT measurement */
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index 87935ca..dee47d2 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -55,7 +55,8 @@ struct request_sock {
+ 	struct sock			*rsk_listener;
+ 	u16				mss;
+ 	u8				num_retrans; /* number of retransmits */
+-	u8				cookie_ts:1; /* syncookie: encode tcpopts in timestamp */
++	u8				cookie_ts:1, /* syncookie: encode tcpopts in timestamp */
++					smc_capability:1;
+ 	u8				num_timeout:7; /* number of timeouts */
+ 	/* The following two fields can be easily recomputed I think -AK */
+ 	u32				window_clamp; /* window clamp at creation time */
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 950cfec..882e8d5 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -185,6 +185,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
+  * experimental options. See draft-ietf-tcpm-experimental-options-00.txt
+  */
+ #define TCPOPT_FASTOPEN_MAGIC	0xF989
++#define TCPOPT_SMC_MAGIC	0xE2D4C3D9
+ 
+ /*
+  *     TCP option lengths
+@@ -197,6 +198,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
+ #define TCPOLEN_MD5SIG         18
+ #define TCPOLEN_FASTOPEN_BASE  2
+ #define TCPOLEN_EXP_FASTOPEN_BASE  4
++#define TCPOLEN_EXP_SMC_BASE   6
+ 
+ /* But this is what stacks really send out. */
+ #define TCPOLEN_TSTAMP_ALIGNED		12
+@@ -207,6 +209,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
+ #define TCPOLEN_SACK_PERBLOCK		8
+ #define TCPOLEN_MD5SIG_ALIGNED		20
+ #define TCPOLEN_MSS_ALIGNED		4
++#define TCPOLEN_EXP_SMC_BASE_ALIGNED    8
+ 
+ /* Flags in tp->nonagle */
+ #define TCP_NAGLE_OFF		1	/* Nagle's algo is disabled */
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 684f095..0cde982 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3743,6 +3743,11 @@ void tcp_parse_options(const struct sk_buff *skb,
+ 					tcp_parse_fastopen_option(opsize -
+ 						TCPOLEN_EXP_FASTOPEN_BASE,
+ 						ptr + 2, th->syn, foc, true);
++				else if (th->syn && !(opsize & 1) &&
++					 opsize >= TCPOLEN_EXP_SMC_BASE &&
++					 get_unaligned_be32(ptr) ==
++					 TCPOPT_SMC_MAGIC)
++					opt_rx->smc_capability = 1;
+ 				break;
+ 
+ 			}
+@@ -5554,6 +5559,9 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 		 * is initialized. */
+ 		tp->copied_seq = tp->rcv_nxt;
+ 
++		if (tp->syn_smc && !tp->rx_opt.smc_capability)
++			tp->syn_smc = 0;
++
+ 		smp_mb();
+ 
+ 		tcp_finish_connect(sk, skb);
+@@ -6000,6 +6008,7 @@ static void tcp_openreq_init(struct request_sock *req,
+ 
+ 	req->rcv_wnd = 0;		/* So that tcp_send_synack() knows! */
+ 	req->cookie_ts = 0;
++	req->smc_capability = 0;
+ 	tcp_rsk(req)->rcv_isn = TCP_SKB_CB(skb)->seq;
+ 	tcp_rsk(req)->rcv_nxt = TCP_SKB_CB(skb)->seq + 1;
+ 	tcp_rsk(req)->snt_synack = tcp_time_stamp;
+@@ -6140,6 +6149,9 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 	/* Note: tcp_v6_init_req() might override ir_iif for link locals */
+ 	inet_rsk(req)->ir_iif = sk->sk_bound_dev_if;
+ 
++	if (tmp_opt.smc_capability)
++		req->smc_capability = 1;
++
+ 	af_ops->init_req(req, sk, skb);
+ 
+ 	if (security_inet_conn_request(sk, skb, req))
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 4bc00cb..3a19d97 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -445,6 +445,10 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
+ 		struct tcp_request_sock *treq = tcp_rsk(req);
+ 		struct inet_connection_sock *newicsk = inet_csk(newsk);
+ 		struct tcp_sock *newtp = tcp_sk(newsk);
++		struct tcp_sock *oldtp = tcp_sk(sk);
++
++		if (oldtp->syn_smc && !req->smc_capability)
++			newtp->syn_smc = 0;
+ 
+ 		/* Now setup tcp_sock */
+ 		newtp->pred_flags = 0;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index b1c218d..acb6d8d 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -426,6 +426,7 @@ static inline bool tcp_urg_mode(const struct tcp_sock *tp)
+ #define OPTION_MD5		(1 << 2)
+ #define OPTION_WSCALE		(1 << 3)
+ #define OPTION_FAST_OPEN_COOKIE	(1 << 8)
++#define OPTION_SMC		(1 << 9)
+ 
+ struct tcp_out_options {
+ 	u16 options;		/* bit field of OPTION_* */
+@@ -544,6 +545,14 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
+ 		}
+ 		ptr += (len + 3) >> 2;
+ 	}
++
++	if (unlikely(OPTION_SMC & options)) {
++		*ptr++ = htonl((TCPOPT_NOP  << 24) |
++			       (TCPOPT_NOP  << 16) |
++			       (TCPOPT_EXP <<  8) |
++			       (TCPOLEN_EXP_SMC_BASE));
++		*ptr++ = htonl(TCPOPT_SMC_MAGIC);
++	}
+ }
+ 
+ /* Compute TCP options for SYN packets. This is not the final
+@@ -611,6 +620,15 @@ static unsigned int tcp_syn_options(struct sock *sk, struct sk_buff *skb,
+ 		}
+ 	}
+ 
++	if (tp->syn_smc) {
++		u32 need = TCPOLEN_EXP_SMC_BASE_ALIGNED;
++
++		if (remaining >= need) {
++			opts->options |= OPTION_SMC;
++			remaining -= need;
++		}
++	}
++
+ 	return MAX_TCP_OPTION_SPACE - remaining;
+ }
+ 
+@@ -623,6 +641,7 @@ static unsigned int tcp_synack_options(struct sock *sk,
+ 				   struct tcp_fastopen_cookie *foc)
+ {
+ 	struct inet_request_sock *ireq = inet_rsk(req);
++	struct tcp_sock *tp = tcp_sk(sk);
+ 	unsigned int remaining = MAX_TCP_OPTION_SPACE;
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+@@ -672,6 +691,15 @@ static unsigned int tcp_synack_options(struct sock *sk,
+ 		}
+ 	}
+ 
++	if (tp->syn_smc && req->smc_capability) {
++		u32 need = TCPOLEN_EXP_SMC_BASE_ALIGNED;
++
++		if (remaining >= need) {
++			opts->options |= OPTION_SMC;
++			remaining -= need;
++		}
++	}
++
+ 	return MAX_TCP_OPTION_SPACE - remaining;
+ }
+ 
+-- 
 2.3.8
