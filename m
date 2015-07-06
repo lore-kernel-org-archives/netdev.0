@@ -1,96 +1,111 @@
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: Re: [PATCH 4/6] net: mvneta: Handle per-cpu interrupts
-Date: Mon, 6 Jul 2015 15:00:38 +0200
-Message-ID: <20150706130038.GL3269@lukather>
-References: <1435933551-28696-1-git-send-email-maxime.ripard@free-electrons.com>
- <1435933551-28696-5-git-send-email-maxime.ripard@free-electrons.com>
- <20150705123708.GA24162@1wt.eu>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: [PATCH 0/7] introduce Hyper-V VM Sockets(hvsock)
+Date: Mon,  6 Jul 2015 07:43:16 -0700
+Message-ID: <1436193796-26761-1-git-send-email-decui@microsoft.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="zH41lVBEV8cLJnCl"
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:46335 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753234AbbGFNFG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 09:05:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20150705123708.GA24162@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: gregkh@linuxfoundation.org, davem@davemloft.net, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, driverdev-devel@linuxdriverproject.org,
+ olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com, kys@microsoft.com,
+ haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
+
+Hyper-V VM Sockets (hvsock) is a byte-stream based communication mechanism
+between Windowsd 10 (or later) host and a guest. It's kind of TCP over
+VMBus, but the transportation layer (VMBus) is much simpler than IP.
+With Hyper-V VM Sockets, applications between the host and a guest can
+talk with each other directly by the traditional BSD-style socket APIs.
+
+The patchset implements the necessary support in the guest side by adding
+the necessary new APIs in the vmbus driver, and introducing a new driver
+hv_sock.ko, which implements_a new socket address family AF_HYPERV.
 
 
---zH41lVBEV8cLJnCl
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I know the kernel has already had a VM Sockets driver (AF_VSOCK) based
+on VMware's VMCI (net/vmw_vsock/, drivers/misc/vmw_vmci), and KVM is
+proposing AF_VSOCK of virtio version:
+http://thread.gmane.org/gmane.linux.network/365205.
 
-Hi Willy,
+However, though Hyper-V VM Sockets may seem conceptually similar to
+AF_VOSCK, there are differences in the transportation layer, and IMO these
+make the direct code reusing impractical:
 
-On Sun, Jul 05, 2015 at 02:37:08PM +0200, Willy Tarreau wrote:
-> Hi Maxime,
->=20
-> On Fri, Jul 03, 2015 at 04:25:49PM +0200, Maxime Ripard wrote:
-> > Now that our interrupt controller is allowing us to use per-CPU interru=
-pts,
-> > actually use it in the mvneta driver.
-> >=20
-> > This involves obviously reworking the driver to have a CPU-local NAPI
-> > structure, and report for incoming packet using that structure.
-> >=20
-> > Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
->=20
-> This patch breaks module build of mvneta unless you export request_percpu=
-_irq :
->=20
-> diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-> index ec31697..1440a92 100644
-> --- a/kernel/irq/manage.c
-> +++ b/kernel/irq/manage.c
-> @@ -1799,6 +1799,7 @@ int request_percpu_irq(unsigned int irq, irq_handle=
-r_t handler,
-> =20
-> 	return retval;
->  }
-> +EXPORT_SYMBOL_GPL(request_percpu_irq);
+1. In AF_VSOCK, the endpoint type is: <u32 ContextID, u32 Port>, but in
+AF_HYPERV, the endpoint type is: <GUID VM_ID, GUID ServiceID>. Here GUID
+is 128-bit.
 
-Ah, right. Thanks!
+2. AF_VSOCK supports SOCK_DGRAM, while AF_HYPERV doesn't.
 
-Maxime
+3. AF_VSOCK supports some special sock opts, like SO_VM_SOCKETS_BUFFER_SIZE,
+SO_VM_SOCKETS_BUFFER_MIN/MAX_SIZE and SO_VM_SOCKETS_CONNECT_TIMEOUT.
+These are meaningless to AF_HYPERV.
 
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+4. Some AF_VSOCK's VMCI transportation ops are meanless to AF_HYPERV/VMBus,
+like    .notify_recv_init
+        .notify_recv_pre_block
+        .notify_recv_pre_dequeue
+        .notify_recv_post_dequeue
+        .notify_send_init
+        .notify_send_pre_block
+        .notify_send_pre_enqueue
+        .notify_send_post_enqueue
+etc.
 
---zH41lVBEV8cLJnCl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+So I think we'd better introduce a new address family: AF_HYPERV.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
 
-iQIcBAEBAgAGBQJVmnv2AAoJEBx+YmzsjxAgzawP/3/MTe0IHoCJki2FsNUf19cZ
-52dkmohwPbmRtiFwRTM7U6isAxOyS1yWKreodmvym+UPTO40HKoUG55kf7roN02n
-FOlGRRUkZ7r6jC1pe1bu4wNiecpuZTS1Mopvz4pH8KyPgBEbY1qjDQjCypfeMJaF
-LMqeE2OuHFsUk8FWYVG5fScdAaUqteq4EUTZV5Byu5NdJMLymz7Jd8SvHy/w7gNF
-4Qve0v7BIBjgv3iKb93URZfSJdNpRFr+svJUZk61TJTZDenjxEe6bO4Z4QLeEG1n
-xevzpovyCK7FqQdnqAMKMtYIB7htHgxwkouRKnPdz0ElTLxz5RRKqlpjCXSBXkkr
-/aAUrj/RmTNFmQd1VJxP1e+GsJu7xaZUgTpTI5Owa5ec4eIuC2j+8EffwZC9aRm+
-vNevAuO3FEfSkWuIxoskhw3SkuTn5CQ9b+rCm/t7eeRnNhdHC4OXFr6f4bZ9KL5l
-GCc8IMY0iiskCTT0Q1DMm5ODcavFbahgWY7aenuCrVih8Naa9EBI6y15FCEe7RfG
-iqgznsnHaIk606VcK8Qm7oRIGIOfTuv8biXJrRnvBnQu/wcbfA7WBWRqn6DINYOP
-XjymlVKzfyagKZ2qbqcuD7PMgoWK5lQvbwsO9WfwERfdLHu9gGN/7tBMAW1eEw9m
-Ae8PC+X9DUjWnsPojzaf
-=2KKa
------END PGP SIGNATURE-----
+Please review the patchset.
 
---zH41lVBEV8cLJnCl--
+Looking forward to your comments!
+
+Dexuan Cui (7):
+  Drivers: hv: vmbus: define the new offer type for Hyper-V socket
+    (hvsock)
+  Drivers: hv: vmbus: define a new VMBus message type for hvsock
+  Drivers: hv: vmbus: add APIs to send/recv hvsock packet and get the
+    r/w-ability
+  Drivers: hv: vmbus: add APIs to register callbacks to process hvsock
+    connection
+  Drivers: hv: vmbus: add a helper function to set a channel's pending
+    send size
+  hvsock: introduce Hyper-V VM Sockets feature
+  Drivers: hv: vmbus: disable local interrupt when hvsock's callback is
+    running
+
+ MAINTAINERS                   |    2 +
+ drivers/hv/Makefile           |    4 +-
+ drivers/hv/channel.c          |  146 ++++
+ drivers/hv/channel_mgmt.c     |   13 +
+ drivers/hv/connection.c       |   15 +-
+ drivers/hv/hvsock_callbacks.c |   71 ++
+ drivers/hv/hyperv_vmbus.h     |    4 +
+ drivers/hv/ring_buffer.c      |   14 +
+ include/linux/hyperv.h        |   68 ++
+ include/linux/socket.h        |    4 +-
+ include/net/af_hvsock.h       |   44 ++
+ include/uapi/linux/hyperv.h   |   16 +
+ net/Kconfig                   |    1 +
+ net/Makefile                  |    1 +
+ net/hv_sock/Kconfig           |   10 +
+ net/hv_sock/Makefile          |    5 +
+ net/hv_sock/af_hvsock.c       | 1463 +++++++++++++++++++++++++++++++++++++++++
+ 17 files changed, 1878 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/hv/hvsock_callbacks.c
+ create mode 100644 include/net/af_hvsock.h
+ create mode 100644 net/hv_sock/Kconfig
+ create mode 100644 net/hv_sock/Makefile
+ create mode 100644 net/hv_sock/af_hvsock.c
+
+-- 
+2.1.0
