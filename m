@@ -1,42 +1,90 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH] samples: bpf: enable trace samples for s390x
-Date: Mon, 06 Jul 2015 12:28:03 -0700
-Message-ID: <559AD6C3.20803@plumgrid.com>
-References: <20150706162007.69824718@holzheu>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next] hv_netvsc: Add support to set MTU reservation
+ from guest side
+Date: Mon, 6 Jul 2015 19:32:20 +0000
+Message-ID: <BN1PR0301MB077052B05F1CCC4EF7697DF3CA930@BN1PR0301MB0770.namprd03.prod.outlook.com>
+References: <1435868255-10865-1-git-send-email-haiyangz@microsoft.com>
+ <20150703112847.GA28762@mwanda>
+ <20150703.091729.499431982657478377.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	netdev@vger.kernel.org
-To: Michael Holzheu <holzheu@linux.vnet.ibm.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:34996 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755027AbbGFT2G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 15:28:06 -0400
-Received: by pdbci14 with SMTP id ci14so110931023pdb.2
-        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 12:28:06 -0700 (PDT)
-In-Reply-To: <20150706162007.69824718@holzheu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "olaf@aepfle.de" <olaf@aepfle.de>, "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, "dan.carpenter@oracle.com"
+ <dan.carpenter@oracle.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20150703.091729.499431982657478377.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On 7/6/15 7:20 AM, Michael Holzheu wrote:
-> The trace bpf samples do not compile on s390x because they use x86
-> specific fields from the "pt_regs" structure.
->
-> Fix this and access the fields via new PT_REGS macros.
->
-> Signed-off-by: Michael Holzheu<holzheu@linux.vnet.ibm.com>
-> ---
->   samples/bpf/bpf_helpers.h  | 25 +++++++++++++++++++++++++
->   samples/bpf/tracex1_kern.c |  2 +-
->   samples/bpf/tracex2_kern.c |  6 +++---
->   samples/bpf/tracex3_kern.c |  4 ++--
->   samples/bpf/tracex4_kern.c |  6 +++---
->   samples/bpf/tracex5_kern.c |  6 +++---
->   6 files changed, 37 insertions(+), 12 deletions(-)
 
-Looks good. Thanks!
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Friday, July 3, 2015 12:17 PM
+> To: dan.carpenter@oracle.com
+> Cc: Haiyang Zhang; netdev@vger.kernel.org; olaf@aepfle.de;
+> jasowang@redhat.com; driverdev-devel@linuxdriverproject.org; linux-
+> kernel@vger.kernel.org
+> Subject: Re: [PATCH net-next] hv_netvsc: Add support to set MTU
+> reservation from guest side
+> 
+> From: Dan Carpenter <dan.carpenter@oracle.com>
+> Date: Fri, 3 Jul 2015 14:28:47 +0300
+> 
+> > On Thu, Jul 02, 2015 at 01:17:35PM -0700, Haiyang Zhang wrote:
+> >> When packet encapsulation is in use, the MTU needs to be reduced for
+> >> headroom reservation.
+> >> The existing code takes the updated MTU value only from the host side.
+> >> But vSwitch extensions, such as Open vSwitch, require the flexibility
+> >> to change the MTU to different values from within a guest during the
+> >> lifecycle of a vNIC, when the encapsulation protocol is changed. The
+> >> patch supports this kind of MTU changes.
+> >>
+> >> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> >> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> >> ---
+> >>  drivers/net/hyperv/netvsc_drv.c   |    3 +--
+> >>  drivers/net/hyperv/rndis_filter.c |    2 +-
+> >>  2 files changed, 2 insertions(+), 3 deletions(-)
+> >>
+> >> diff --git a/drivers/net/hyperv/netvsc_drv.c
+> b/drivers/net/hyperv/netvsc_drv.c
+> >> index 358475e..68e7ece 100644
+> >> --- a/drivers/net/hyperv/netvsc_drv.c
+> >> +++ b/drivers/net/hyperv/netvsc_drv.c
+> >> @@ -743,8 +743,7 @@ static int netvsc_change_mtu(struct net_device
+> *ndev, int mtu)
+> >>  	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
+> >>  		limit = NETVSC_MTU - ETH_HLEN;
+> >>
+> >> -	/* Hyper-V hosts don't support MTU < ETH_DATA_LEN (1500) */
+> >> -	if (mtu < ETH_DATA_LEN || mtu > limit)
+> >> +	if (mtu < 68 || mtu > limit)
+> >
+> > How did you calculate 68?  Avoid magic numbers like this, make it a
+> > define.
+> 
+> Agreed.
+
+The number 68 is same as the common code in eth_change_mtu(). I think it
+came from the protocol requirement:
+https://en.wikipedia.org/wiki/Maximum_transmission_unit
+
+Sure, I will put the number in a define, and resubmit the patch.
+
+Thanks,
+- Haiyang
