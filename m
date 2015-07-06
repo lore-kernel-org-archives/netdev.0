@@ -1,79 +1,73 @@
-From: Shrijeet Mukherjee <shm@cumulusnetworks.com>
-Subject: Re: [RFC net-next 0/6] Proposal for VRF-lite - v2
-Date: Mon, 6 Jul 2015 10:53:33 -0700
-Message-ID: <CAJmoNQHFxgfEqgZUWFdR_WzemBqGctWgKUez2H9956M0pLLaUg@mail.gmail.com>
-References: <1436195001-4818-1-git-send-email-dsa@cumulusnetworks.com>
-	<559AA187.6000007@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jon Toppins <jtoppins@cumulusnetworks.com>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Dinesh Dutt <ddutt@cumulusnetworks.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Jamal Hadi Salim <hadi@mojatatu.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: [PATCH net-next] net: add support for linkdown sysctl to netconf
+Date: Mon,  6 Jul 2015 14:21:59 -0400
+Message-ID: <1436206919-973-1-git-send-email-gospo@cumulusnetworks.com>
+Cc: nicolas.dichtel@6wind.com,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:37065 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752876AbbGFRxe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 13:53:34 -0400
-Received: by wiclp1 with SMTP id lp1so28523770wic.0
-        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 10:53:33 -0700 (PDT)
-In-Reply-To: <559AA187.6000007@6wind.com>
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:34960 "EHLO
+	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751181AbbGFSWM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 14:22:12 -0400
+Received: by qkbp125 with SMTP id p125so123153030qkb.2
+        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 11:22:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No no problem,
+This kernel patch exports the value of the new
+ignore_routes_with_linkdown via netconf.
 
-Just trying to get the functional aspects worked out. the global
-search replace will be easy.
+Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+Suggested-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/uapi/linux/netconf.h | 1 +
+ net/ipv4/devinet.c           | 7 +++++++
+ 2 files changed, 8 insertions(+)
 
-Was hoping to see some more responses on the naming suggestions here
-from the community. If there is not disagreement we can spin patches
-with MRF as the name.
-
-
-On Mon, Jul 6, 2015 at 8:40 AM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
-> Le 06/07/2015 17:03, David Ahern a =C3=A9crit :
->>
->> In the context of internet scale routing a requirement that always
->> comes up is the need to partition the available routing tables into
->> disjoint routing planes. A specific use case is the multi-tenancy
->> problem where each tenant has their own unique routing tables and in
->> the very least need different default gateways.
->>
->> This is an attempt to build the ability to create virtual router
->> domains aka VRF's (VRF-lite to be specific) in the linux packet
->> forwarding stack. The main observation is that through the use of
->> rules and socket binding to interfaces, all the facilities that we
->> need are already present in the infrastructure. What is missing is a
->> handle that identifies a routing domain and can be used to gather
->> applicable rules/tables and uniqify neighbor selection. The scheme
->> used needs to preserves the notions of ECMP, and general routing
->> principles.
->
-> [snip]
->>
->>   drivers/net/vrf.c             | 486
->> ++++++++++++++++++++++++++++++++++++++++++
->
-> [snip]
->
-> I'm still opposed to name this 'vrf', see the v1 thread:
->  - http://www.spinics.net/lists/netdev/msg332357.html
->  - http://www.spinics.net/lists/netdev/msg332376.html
->
-> Shrijeet seemed to agree to rename it, is there a problem?
->
->
-> Regards,
-> Nicolas
+diff --git a/include/uapi/linux/netconf.h b/include/uapi/linux/netconf.h
+index 669a1f0..23cbd34 100644
+--- a/include/uapi/linux/netconf.h
++++ b/include/uapi/linux/netconf.h
+@@ -15,6 +15,7 @@ enum {
+ 	NETCONFA_RP_FILTER,
+ 	NETCONFA_MC_FORWARDING,
+ 	NETCONFA_PROXY_NEIGH,
++	NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN,
+ 	__NETCONFA_MAX
+ };
+ #define NETCONFA_MAX	(__NETCONFA_MAX - 1)
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 7498716..de2c563 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1740,6 +1740,8 @@ static int inet_netconf_msgsize_devconf(int type)
+ 		size += nla_total_size(4);
+ 	if (type == -1 || type == NETCONFA_PROXY_NEIGH)
+ 		size += nla_total_size(4);
++	if (type == -1 || type == NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN)
++		size += nla_total_size(4);
+ 
+ 	return size;
+ }
+@@ -1780,6 +1782,10 @@ static int inet_netconf_fill_devconf(struct sk_buff *skb, int ifindex,
+ 	    nla_put_s32(skb, NETCONFA_PROXY_NEIGH,
+ 			IPV4_DEVCONF(*devconf, PROXY_ARP)) < 0)
+ 		goto nla_put_failure;
++	if ((type == -1 || type == NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN) &&
++	    nla_put_s32(skb, NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN,
++			IPV4_DEVCONF(*devconf, IGNORE_ROUTES_WITH_LINKDOWN)) < 0)
++		goto nla_put_failure;
+ 
+ 	nlmsg_end(skb, nlh);
+ 	return 0;
+@@ -1819,6 +1825,7 @@ static const struct nla_policy devconf_ipv4_policy[NETCONFA_MAX+1] = {
+ 	[NETCONFA_FORWARDING]	= { .len = sizeof(int) },
+ 	[NETCONFA_RP_FILTER]	= { .len = sizeof(int) },
+ 	[NETCONFA_PROXY_NEIGH]	= { .len = sizeof(int) },
++	[NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN]	= { .len = sizeof(int) },
+ };
+ 
+ static int inet_netconf_get_devconf(struct sk_buff *in_skb,
+-- 
+1.9.3
