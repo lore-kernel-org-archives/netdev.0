@@ -1,136 +1,69 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net] amd-xgbe: Fix DMA API debug warning
-Date: Mon, 6 Jul 2015 11:57:37 -0500
-Message-ID: <20150706165737.2337.95787.stgit@tlendack-t1.amdoffice.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: add dependency on HAS_IOMEM to MDIO_BUS_MUX_MMIOREG
+Date: Mon, 6 Jul 2015 10:19:39 -0700
+Message-ID: <CAGVrzca9p4Sg8H53Oy=dTQmCXYD-1RugrnXQBTz1e7p7gBYL4w@mail.gmail.com>
+References: <1436116587-1982-1-git-send-email-robh@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Kim Phillips <kim.phillips@arm.com>,
-	David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Rob Herring <robh@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0131.outbound.protection.outlook.com ([65.55.169.131]:19485
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755203AbbGFRLz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jul 2015 13:11:55 -0400
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:34344 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751081AbbGFRUU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 13:20:20 -0400
+Received: by obbkm3 with SMTP id km3so111439591obb.1
+        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 10:20:19 -0700 (PDT)
+In-Reply-To: <1436116587-1982-1-git-send-email-robh@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When running a kernel configured with CONFIG_DMA_API_DEBUG=y a warning
-is issued:
-  DMA-API: device driver tries to sync DMA memory it has not allocated
+2015-07-05 10:16 GMT-07:00 Rob Herring <robh@kernel.org>:
+> On UML builds, mdio-mux-mmioreg.c fails to compile:
+>
+> drivers/net/phy/mdio-mux-mmioreg.c:50:3: error: implicit declaration =
+of function =E2=80=98ioremap=E2=80=99 [-Werror=3Dimplicit-function-decl=
+aration]
+> drivers/net/phy/mdio-mux-mmioreg.c:63:3: error: implicit declaration =
+of function =E2=80=98iounmap=E2=80=99 [-Werror=3Dimplicit-function-decl=
+aration]
+>
+> This is due to CONFIG_OF now being user selectable. Add a dependency =
+on
+> HAS_IOMEM to fix this.
+>
+> Signed-off-by: Rob Herring <robh@kernel.org>
 
-This warning is the result of mapping the full range of the Rx buffer
-pages allocated and then performing a dma_sync_single_for_cpu against
-a calculated DMA address. The proper thing to do is to use the
-dma_sync_single_range_for_cpu with a base DMA address and an offset.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Reported-by: Kim Phillips <kim.phillips@arm.com>
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-desc.c |    3 ++-
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c  |   11 +++++++----
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c  |   17 +++++++++++------
- drivers/net/ethernet/amd/xgbe/xgbe.h      |    3 ++-
- 4 files changed, 22 insertions(+), 12 deletions(-)
+> Cc: Florian Fainelli <f.fainelli@gmail.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/phy/Kconfig | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index cf18940..cb86d7a 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -191,7 +191,7 @@ config MDIO_BUS_MUX_GPIO
+>
+>  config MDIO_BUS_MUX_MMIOREG
+>         tristate "Support for MMIO device-controlled MDIO bus multipl=
+exers"
+> -       depends on OF_MDIO
+> +       depends on OF_MDIO && HAS_IOMEM
+>         select MDIO_BUS_MUX
+>         help
+>           This module provides a driver for MDIO bus multiplexers tha=
+t
+> --
+> 2.1.0
+>
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
-index 661cdaa..b3bc87f 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
-@@ -303,7 +303,8 @@ static void xgbe_set_buffer_data(struct xgbe_buffer_data *bd,
- 	get_page(pa->pages);
- 	bd->pa = *pa;
- 
--	bd->dma = pa->pages_dma + pa->pages_offset;
-+	bd->dma_base = pa->pages_dma;
-+	bd->dma_off = pa->pages_offset;
- 	bd->dma_len = len;
- 
- 	pa->pages_offset += len;
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 506e832..a4473d8 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -1110,6 +1110,7 @@ static void xgbe_rx_desc_reset(struct xgbe_prv_data *pdata,
- 	unsigned int rx_usecs = pdata->rx_usecs;
- 	unsigned int rx_frames = pdata->rx_frames;
- 	unsigned int inte;
-+	dma_addr_t hdr_dma, buf_dma;
- 
- 	if (!rx_usecs && !rx_frames) {
- 		/* No coalescing, interrupt for every descriptor */
-@@ -1129,10 +1130,12 @@ static void xgbe_rx_desc_reset(struct xgbe_prv_data *pdata,
- 	 *   Set buffer 2 (hi) address to buffer dma address (hi) and
- 	 *     set control bits OWN and INTE
- 	 */
--	rdesc->desc0 = cpu_to_le32(lower_32_bits(rdata->rx.hdr.dma));
--	rdesc->desc1 = cpu_to_le32(upper_32_bits(rdata->rx.hdr.dma));
--	rdesc->desc2 = cpu_to_le32(lower_32_bits(rdata->rx.buf.dma));
--	rdesc->desc3 = cpu_to_le32(upper_32_bits(rdata->rx.buf.dma));
-+	hdr_dma = rdata->rx.hdr.dma_base + rdata->rx.hdr.dma_off;
-+	buf_dma = rdata->rx.buf.dma_base + rdata->rx.buf.dma_off;
-+	rdesc->desc0 = cpu_to_le32(lower_32_bits(hdr_dma));
-+	rdesc->desc1 = cpu_to_le32(upper_32_bits(hdr_dma));
-+	rdesc->desc2 = cpu_to_le32(lower_32_bits(buf_dma));
-+	rdesc->desc3 = cpu_to_le32(upper_32_bits(buf_dma));
- 
- 	XGMAC_SET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, INTE, inte);
- 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 1e9c28d..aae9d5e 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -1765,8 +1765,9 @@ static struct sk_buff *xgbe_create_skb(struct xgbe_prv_data *pdata,
- 	/* Start with the header buffer which may contain just the header
- 	 * or the header plus data
- 	 */
--	dma_sync_single_for_cpu(pdata->dev, rdata->rx.hdr.dma,
--				rdata->rx.hdr.dma_len, DMA_FROM_DEVICE);
-+	dma_sync_single_range_for_cpu(pdata->dev, rdata->rx.hdr.dma_base,
-+				      rdata->rx.hdr.dma_off,
-+				      rdata->rx.hdr.dma_len, DMA_FROM_DEVICE);
- 
- 	packet = page_address(rdata->rx.hdr.pa.pages) +
- 		 rdata->rx.hdr.pa.pages_offset;
-@@ -1778,8 +1779,11 @@ static struct sk_buff *xgbe_create_skb(struct xgbe_prv_data *pdata,
- 	len -= copy_len;
- 	if (len) {
- 		/* Add the remaining data as a frag */
--		dma_sync_single_for_cpu(pdata->dev, rdata->rx.buf.dma,
--					rdata->rx.buf.dma_len, DMA_FROM_DEVICE);
-+		dma_sync_single_range_for_cpu(pdata->dev,
-+					      rdata->rx.buf.dma_base,
-+					      rdata->rx.buf.dma_off,
-+					      rdata->rx.buf.dma_len,
-+					      DMA_FROM_DEVICE);
- 
- 		skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
- 				rdata->rx.buf.pa.pages,
-@@ -1945,8 +1949,9 @@ read_again:
- 				if (!skb)
- 					error = 1;
- 			} else if (rdesc_len) {
--				dma_sync_single_for_cpu(pdata->dev,
--							rdata->rx.buf.dma,
-+				dma_sync_single_range_for_cpu(pdata->dev,
-+							rdata->rx.buf.dma_base,
-+							rdata->rx.buf.dma_off,
- 							rdata->rx.buf.dma_len,
- 							DMA_FROM_DEVICE);
- 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 63d72a1..717ce21 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -337,7 +337,8 @@ struct xgbe_buffer_data {
- 	struct xgbe_page_alloc pa;
- 	struct xgbe_page_alloc pa_unmap;
- 
--	dma_addr_t dma;
-+	dma_addr_t dma_base;
-+	unsigned long dma_off;
- 	unsigned int dma_len;
- };
- 
+
+
+--=20
+=46lorian
