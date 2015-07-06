@@ -1,31 +1,52 @@
-From: Alex Gartrell <alexgartrell@gmail.com>
-Subject: Re: [PATCH,v2 net-next] ipvs: skb_orphan in case of forwarding
-Date: Sun, 5 Jul 2015 21:14:38 -0700
-Message-ID: <CALCkm3d4Xqq+eWryejKhi84rM_fS4QRyu8Fn_Z7RHZv+zbv3_Q@mail.gmail.com>
-References: <1436131706-1559824-1-git-send-email-agartrell@fb.com>
- <alpine.LFD.2.11.1507060105470.12815@ja.home.ssi.bg> <CALCkm3eyEbHpzfF1zk0OUnGaSf51=r9DmZs_2Xq4fTtOed3nNQ@mail.gmail.com>
- <20150706035019.GA9155@verge.net.au>
+From: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>
+Subject: [PATCH] net: macb: Add SG support for Zynq SOC family
+Date: Mon,  6 Jul 2015 10:02:53 +0530
+Message-ID: <1436157173-27278-1-git-send-email-punnaia@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Julian Anastasov <ja@ssi.bg>, Alex Gartrell <agartrell@fb.com>,
-	lvs-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	kernel-team <kernel-team@fb.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20150706035019.GA9155@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	harinik@xilinx.com, michals@xilinx.com,
+	Punnaiah Choudary Kalluri <punnaia@xilinx.com>
+To: nicolas.ferre@atmel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0061.outbound.protection.outlook.com ([65.55.169.61]:37088
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751134AbbGFEro (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jul 2015 00:47:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 5, 2015 at 8:50 PM, Simon Horman <horms@verge.net.au> wrote:
-> Is it possible to get a 'Fixes:' tag?
+Enable SG support for Zynq SOC family devices.
 
-I suppose it'd be appropriate to say
+Signed-off-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
+---
+ drivers/net/ethernet/cadence/macb.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-Fixes: 41063e9dd119 ("ipv4: Early TCP socket demux.")
-
-As that is what introduces tcp early_demux, but that's just a guess as
-I haven't bisected it (not even sure my test would run on that code
-base).
-
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index caeb395..a4e3f86 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2741,8 +2741,7 @@ static const struct macb_config emac_config = {
+ 
+ 
+ static const struct macb_config zynqmp_config = {
+-	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE |
+-		MACB_CAPS_JUMBO,
++	.caps = MACB_CAPS_GIGABIT_MODE_AVAILABLE | MACB_CAPS_JUMBO,
+ 	.dma_burst_length = 16,
+ 	.clk_init = macb_clk_init,
+ 	.init = macb_init,
+@@ -2750,8 +2749,7 @@ static const struct macb_config zynqmp_config = {
+ };
+ 
+ static const struct macb_config zynq_config = {
+-	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE |
+-		MACB_CAPS_NO_GIGABIT_HALF,
++	.caps = MACB_CAPS_GIGABIT_MODE_AVAILABLE | MACB_CAPS_NO_GIGABIT_HALF,
+ 	.dma_burst_length = 16,
+ 	.clk_init = macb_clk_init,
+ 	.init = macb_init,
 -- 
-Alex Gartrell <agartrell@fb.com>
+1.7.4
