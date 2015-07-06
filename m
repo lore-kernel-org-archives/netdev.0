@@ -1,52 +1,67 @@
-From: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>
-Subject: [PATCH] net: macb: Add SG support for Zynq SOC family
-Date: Mon,  6 Jul 2015 10:02:53 +0530
-Message-ID: <1436157173-27278-1-git-send-email-punnaia@xilinx.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	harinik@xilinx.com, michals@xilinx.com,
-	Punnaiah Choudary Kalluri <punnaia@xilinx.com>
-To: nicolas.ferre@atmel.com
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 0/7] net_sched: act: lockless operation
+Date: Sun,  5 Jul 2015 23:41:25 -0700
+Message-ID: <1436164896-8243-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Eric Dumazet <edumazet@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0061.outbound.protection.outlook.com ([65.55.169.61]:37088
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751134AbbGFEro (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jul 2015 00:47:44 -0400
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:35353 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751349AbbGFGlr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 02:41:47 -0400
+Received: by iecuq6 with SMTP id uq6so107280102iec.2
+        for <netdev@vger.kernel.org>; Sun, 05 Jul 2015 23:41:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable SG support for Zynq SOC family devices.
+As mentioned by Alexei last week in Budapest, it is a bit weird
+to take a spinlock in order to drop a packet in a tc filter...
 
-Signed-off-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
----
- drivers/net/ethernet/cadence/macb.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+Lets add percpu infra for tc actions and use it for gact & mirred.
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index caeb395..a4e3f86 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -2741,8 +2741,7 @@ static const struct macb_config emac_config = {
- 
- 
- static const struct macb_config zynqmp_config = {
--	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE |
--		MACB_CAPS_JUMBO,
-+	.caps = MACB_CAPS_GIGABIT_MODE_AVAILABLE | MACB_CAPS_JUMBO,
- 	.dma_burst_length = 16,
- 	.clk_init = macb_clk_init,
- 	.init = macb_init,
-@@ -2750,8 +2749,7 @@ static const struct macb_config zynqmp_config = {
- };
- 
- static const struct macb_config zynq_config = {
--	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE |
--		MACB_CAPS_NO_GIGABIT_HALF,
-+	.caps = MACB_CAPS_GIGABIT_MODE_AVAILABLE | MACB_CAPS_NO_GIGABIT_HALF,
- 	.dma_burst_length = 16,
- 	.clk_init = macb_clk_init,
- 	.init = macb_init,
+Before changes, my host with 8 RX queues was handling 5 Mpps with gact,
+and more than 11 Mpps after.
+
+Mirred change is not yet visible if ifb+qdisc is used, as ifb is
+not yet multi queue enabled, but is a step forward.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Alexei Starovoitov <ast@plumgrid.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: John Fastabend <john.fastabend@gmail.com>
+
+Eric Dumazet (7):
+  net: sched: extend percpu stats helpers
+  net: sched: add percpu stats to actions
+  net_sched: act_gact: make tcfg_pval non zero
+  net_sched: act_gact: use a separate packet counters for gact_determ()
+  net_sched: act_gact: read tcfg_ptype once
+  net_sched: act_gact: remove spinlock in fast path
+  net_sched: act_mirred: remove spinlock in fast path
+
+ include/net/act_api.h          | 15 ++++++++++-
+ include/net/sch_generic.h      | 31 ++++++++++++++--------
+ include/net/tc_act/tc_gact.h   |  7 ++---
+ include/net/tc_act/tc_mirred.h |  2 +-
+ net/core/dev.c                 |  4 +--
+ net/sched/act_api.c            | 44 ++++++++++++++++++++++++--------
+ net/sched/act_bpf.c            |  2 +-
+ net/sched/act_connmark.c       |  3 ++-
+ net/sched/act_csum.c           |  3 ++-
+ net/sched/act_gact.c           | 44 ++++++++++++++++++--------------
+ net/sched/act_ipt.c            |  2 +-
+ net/sched/act_mirred.c         | 58 ++++++++++++++++++++++--------------------
+ net/sched/act_nat.c            |  3 ++-
+ net/sched/act_pedit.c          |  3 ++-
+ net/sched/act_simple.c         |  3 ++-
+ net/sched/act_skbedit.c        |  3 ++-
+ net/sched/act_vlan.c           |  3 ++-
+ 17 files changed, 148 insertions(+), 82 deletions(-)
+
 -- 
-1.7.4
+2.4.3.573.g4eafbef
