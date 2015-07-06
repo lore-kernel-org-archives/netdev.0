@@ -1,48 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net: graceful exit from netif_alloc_netdev_queues()
-Date: Mon, 06 Jul 2015 17:13:26 +0200
-Message-ID: <1436195606.4571.3.camel@edumazet-glaptop2.roam.corp.google.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: Summary lightweight tunnel discussion at NFWS
+Date: Mon, 06 Jul 2015 08:24:27 -0700
+Message-ID: <559A9DAB.2040001@cumulusnetworks.com>
+References: <1434689355-4088-3-git-send-email-roopa@cumulusnetworks.com> <20150703100023.GH26182@pox.localdomain> <5598CCF9.4090407@cumulusnetworks.com> <20150706130348.GA19361@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: ebiederm@xmission.com, rshearma@brocade.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:34880 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752126AbbGFPNa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 11:13:30 -0400
-Received: by wgjx7 with SMTP id x7so143055249wgj.2
-        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 08:13:29 -0700 (PDT)
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:34979 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751933AbbGFPYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 11:24:30 -0400
+Received: by pdbci14 with SMTP id ci14so107734183pdb.2
+        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 08:24:29 -0700 (PDT)
+In-Reply-To: <20150706130348.GA19361@pox.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 7/6/15, 6:03 AM, Thomas Graf wrote:
+> The integration into the routing code looks much better now. Any
+> chance you can rebase your tree and squash it into logical
+> commits?
+Will do today.
+>   I'm rebasing again onto yours and I think we should submit
+> all of this in a single series so everything can be reviewed in a
+> single thread.
+agreed.
+>
+> All of this is only useful if distros enable this by default which
+> minimize the value of a config option quite a bit. I think what you
+> have your latest tree is a good balance.
+ok
+>
+>> I have been thinking of moving lwtstate from rtable to struct dst_entry.
+>> I will also look at the dst_metadata.
+> I thought about the same. The introduction of dst_metadata makes
+> that a bit pointless because we don't want to store a pointer to the
+> tunnel metadata but allocate the metadata as a dst directly to avoid
+> the indirection. We need the separate code paths anyway until v6 and
+> v4 routing are merged so we would save very little while penalizing
+> everyone except rtable and fib6.
+agreed,
 
-User space can crash kernel with
-
-ip link add ifb10 numtxqueues 100000 type ifb
-
-We must replace a BUG_ON() by proper test and return -EINVAL for
-crazy values.
-
-Fixes: 60877a32bce00 ("net: allow large number of tx queues")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/dev.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6778a9999d52..0ad626214332 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6409,7 +6409,8 @@ static int netif_alloc_netdev_queues(struct net_device *dev)
- 	struct netdev_queue *tx;
- 	size_t sz = count * sizeof(*tx);
- 
--	BUG_ON(count < 1 || count > 0xffff);
-+	if (count < 1 || count > 0xffff)
-+		return -EINVAL;
- 
- 	tx = kzalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
- 	if (!tx) {
+thanks,
+Roopa
