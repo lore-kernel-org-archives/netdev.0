@@ -1,31 +1,48 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH v2 net-next 0/7] net_sched: act: lockless operation
-Date: Mon, 6 Jul 2015 08:49:52 +0200
-Message-ID: <CANn89iJUGm8FHE1Vn_Qqz8Hi_VU4q22WuqSBmgXjT2JvONwM1Q@mail.gmail.com>
-References: <1436164896-8243-1-git-send-email-edumazet@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Eric Dumazet <edumazet@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Suman Tripathi <stripathi@apm.com>
+Subject: [PATCH net-next] drivers: net: xgene: Fix the compilation error "error: implicit declaration of function 'acpi_evaluate_integer'" for CONFIG_ACPI=n.
+Date: Mon,  6 Jul 2015 13:34:22 +0530
+Message-ID: <1436169862-1372-1-git-send-email-stripathi@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, kchudgar@apm.com,
+	patches@apm.com, isubramanian@apm.com,
+	Suman Tripathi <stripathi@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:33059 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752732AbbGFGtx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 02:49:53 -0400
-Received: by wiwl6 with SMTP id l6so274924620wiw.0
-        for <netdev@vger.kernel.org>; Sun, 05 Jul 2015 23:49:52 -0700 (PDT)
-In-Reply-To: <1436164896-8243-1-git-send-email-edumazet@google.com>
+Received: from denmail01-v4020.amcc.com ([192.195.68.30]:47883 "EHLO
+	denmail01.amcc.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751225AbbGFIFM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 04:05:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 6, 2015 at 8:41 AM, Eric Dumazet <edumazet@google.com> wrote:
-> As mentioned by Alexei last week in Budapest, it is a bit weird
-> to take a spinlock in order to drop a packet in a tc filter...
->
+This patch guards the acpi_evaluate_interger function as it fails
+the build for CONFIG_ACPI=n.
 
-Arg, please ignore v2, I messed my git send-email command
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Signed-off-by: Suman Tripathi <stripathi@apm.com>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+---
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index 4e83d4c..70b9ef6 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -871,6 +871,7 @@ static const struct net_device_ops xgene_ndev_ops = {
+ 	.ndo_set_mac_address = xgene_enet_set_mac_address,
+ };
+
++#ifdef CONFIG_ACPI
+ static int xgene_get_port_id_acpi(struct device *dev,
+ 				  struct xgene_enet_pdata *pdata)
+ {
+@@ -886,6 +887,7 @@ static int xgene_get_port_id_acpi(struct device *dev,
+
+ 	return 0;
+ }
++#endif
+
+ static int xgene_get_port_id_dt(struct device *dev, struct xgene_enet_pdata *pdata)
+ {
+--
+1.8.2.1
