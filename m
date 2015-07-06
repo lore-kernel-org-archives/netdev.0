@@ -1,45 +1,54 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v3 net-next 7/7] net_sched: act_mirred: remove spinlock
- in fast path
-Date: Mon, 06 Jul 2015 08:53:43 -0400
-Message-ID: <559A7A57.2000803@mojatatu.com>
-References: <1436185089-18268-1-git-send-email-edumazet@google.com> <1436185089-18268-8-git-send-email-edumazet@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Eric Dumazet <edumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:35705 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752725AbbGFMxu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 08:53:50 -0400
-Received: by igcqs7 with SMTP id qs7so9106982igc.0
-        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 05:53:50 -0700 (PDT)
-In-Reply-To: <1436185089-18268-8-git-send-email-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net] bridge: mdb: start delete timer for temp
+	static entries
+Date: Mon,  6 Jul 2015 05:53:35 -0700
+Message-ID: <1436187215-4973-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: amwang@redhat.com, Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	bridge@lists.linux-foundation.org, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 07/06/15 08:18, Eric Dumazet wrote:
-> Like act_gact, act_mirred can be lockless in packet processing
->
-> 1) Use percpu stats
-> 2) update lastuse only every clock tick to avoid false sharing
-> 3) use rcu to protect tcfm_dev
-> 4) Remove spinlock usage, as it is no longer needed.
->
-> Next step : add multi queue capability to ifb device
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+From: Satish Ashok <sashok@cumulusnetworks.com>
 
-Looks good to me ;->
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Start the delete timer when adding temp static entries so they can expire.
 
-cant wait for the multi queue ifb.
+Signed-off-by: Satish Ashok <sashok@cumulusnetworks.com>
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Fixes: ccb1c31a7a87 ("bridge: add flags to distinguish permanent mdb entires")
+---
+ net/bridge/br_mdb.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-cheers,
-jamal
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index e29ad70b3000..3bfc675cf0d1 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -323,6 +323,7 @@ static int br_mdb_add_group(struct net_bridge *br, struct net_bridge_port *port,
+ 	struct net_bridge_port_group *p;
+ 	struct net_bridge_port_group __rcu **pp;
+ 	struct net_bridge_mdb_htable *mdb;
++	unsigned long now = jiffies;
+ 	int err;
+ 
+ 	mdb = mlock_dereference(br->mdb, br);
+@@ -347,6 +348,8 @@ static int br_mdb_add_group(struct net_bridge *br, struct net_bridge_port *port,
+ 	if (unlikely(!p))
+ 		return -ENOMEM;
+ 	rcu_assign_pointer(*pp, p);
++	if (state == MDB_TEMPORARY)
++		mod_timer(&p->timer, now + br->multicast_membership_interval);
+ 
+ 	br_mdb_notify(br->dev, port, group, RTM_NEWMDB);
+ 	return 0;
+-- 
+1.9.3
