@@ -1,71 +1,79 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: tc ingress filters not applied
-Date: Mon, 06 Jul 2015 19:43:13 +0200
-Message-ID: <559ABE31.9000405@iogearbox.net>
-References: <20150330141523.GQ23551@haze> <loom.20150706T190215-28@post.gmane.org>
+From: Shrijeet Mukherjee <shm@cumulusnetworks.com>
+Subject: Re: [RFC net-next 0/6] Proposal for VRF-lite - v2
+Date: Mon, 6 Jul 2015 10:53:33 -0700
+Message-ID: <CAJmoNQHFxgfEqgZUWFdR_WzemBqGctWgKUez2H9956M0pLLaUg@mail.gmail.com>
+References: <1436195001-4818-1-git-send-email-dsa@cumulusnetworks.com>
+	<559AA187.6000007@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Huan Le <huan@apcera.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jon Toppins <jtoppins@cumulusnetworks.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Dinesh Dutt <ddutt@cumulusnetworks.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Jamal Hadi Salim <hadi@mojatatu.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:54882 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750936AbbGFRnQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 13:43:16 -0400
-In-Reply-To: <loom.20150706T190215-28@post.gmane.org>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:37065 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752876AbbGFRxe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 13:53:34 -0400
+Received: by wiclp1 with SMTP id lp1so28523770wic.0
+        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 10:53:33 -0700 (PDT)
+In-Reply-To: <559AA187.6000007@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/06/2015 07:24 PM, Huan Le wrote:
-> Erik Hugne <erik.hugne <at> ericsson.com> writes:
->
->>
->> I'm having troubles with TC policing, the ingress filters does not seem to be
->> applied.
->>
->>
->> Kernel: net-next/latest
->> iproute2: shemminger/master
->>
->> //E
->>
->
-> I observed similar behavior when configuring a filter on ingress qdisc.
-> Test shows that traffic was rate-limited to the configured value.
-> However, "tc filter show" does not show any filtering rule.
->
-> (1) add ingress qdisc on eth1
-> # tc qdisc add dev eth1 ingress
-> # tc qdisc show dev eth1 ingress
-> qdisc pfifo_fast 0: root refcnt 2 bands 3 priomap \
->   1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-> qdisc ingress ffff: parent ffff:fff1 ----------------
->
-> (2) add filter under ingress qdisc
-> # tc filter add dev eth1 parent ffff: protocol all \
->   u32 match ip src 0.0.0.0/0 \
->   police rate 256kbit burst 10k drop flowid :1
-> # tc filter show dev eth1
+No no problem,
 
-You have to add the handle/parent here, otherwise this shows egress filters.
+Just trying to get the functional aspects worked out. the global
+search replace will be easy.
 
-> (3) verified sch_ingress kernel module is installed
-> # lsmod  | grep sch_ingress
-> sch_ingress            12866  1
+Was hoping to see some more responses on the naming suggestions here
+from the community. If there is not disagreement we can spin patches
+with MRF as the name.
+
+
+On Mon, Jul 6, 2015 at 8:40 AM, Nicolas Dichtel
+<nicolas.dichtel@6wind.com> wrote:
+> Le 06/07/2015 17:03, David Ahern a =C3=A9crit :
+>>
+>> In the context of internet scale routing a requirement that always
+>> comes up is the need to partition the available routing tables into
+>> disjoint routing planes. A specific use case is the multi-tenancy
+>> problem where each tenant has their own unique routing tables and in
+>> the very least need different default gateways.
+>>
+>> This is an attempt to build the ability to create virtual router
+>> domains aka VRF's (VRF-lite to be specific) in the linux packet
+>> forwarding stack. The main observation is that through the use of
+>> rules and socket binding to interfaces, all the facilities that we
+>> need are already present in the infrastructure. What is missing is a
+>> handle that identifies a routing domain and can be used to gather
+>> applicable rules/tables and uniqify neighbor selection. The scheme
+>> used needs to preserves the notions of ECMP, and general routing
+>> principles.
 >
-> (4) uname -a (if needed for debugging)
-> Linux huan-lnx 3.16.0-30-generic #40~14.04.1-Ubuntu SMP
-> Thu Jan 15 17:43:14 UTC 2015 x86_64 x86_64 x86_64 GNU/Linux
+> [snip]
+>>
+>>   drivers/net/vrf.c             | 486
+>> ++++++++++++++++++++++++++++++++++++++++++
 >
-> I am testing this using ubuntu 14.04 on a virtualbox VM
-> (eth1 is a host-only adapter).
+> [snip]
 >
-> Thanks,
-> Huan
+> I'm still opposed to name this 'vrf', see the v1 thread:
+>  - http://www.spinics.net/lists/netdev/msg332357.html
+>  - http://www.spinics.net/lists/netdev/msg332376.html
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Shrijeet seemed to agree to rename it, is there a problem?
 >
+>
+> Regards,
+> Nicolas
