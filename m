@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v3 3/3] net: dsa: mv88e6xxx: add switchdev VLAN operations
-Date: Sun,  5 Jul 2015 22:14:53 -0400
-Message-ID: <1436148893-14379-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v3 1/3] net: dsa: mv88e6xxx: add debugfs interface for VTU
+Date: Sun,  5 Jul 2015 22:14:51 -0400
+Message-ID: <1436148893-14379-2-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1436148893-14379-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -12,300 +12,443 @@ Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:54990 "EHLO
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:53685 "EHLO
 	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753242AbbGFCPF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2015 22:15:05 -0400
+	with ESMTP id S1753115AbbGFCPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2015 22:15:03 -0400
 In-Reply-To: <1436148893-14379-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit implements the switchdev operations to add, delete and dump
-VLANs for the Marvell 88E6352 and compatible switch chips.
+Implement the Get Next and Load Purge operations for the VLAN Table
+Unit, and a "vtu" debugfs file to read and write the hardware VLANs.
 
-This allows to access the switch VLAN Table Unit from standard userspace
-commands such as "bridge vlan".
+A populated VTU look like this:
 
-A configuration like "1t 2t 3t 4u" for VLAN 10 is achieved like this:
+    # cat /sys/kernel/debug/dsa0/vtu
+     VID  FID  SID  0  1  2  3  4  5  6
+     550  562    0  x  x  x  u  x  t  x
+    1000 1012    0  x  x  t  x  x  t  x
+    1200 1212    0  x  x  t  x  t  t  x
 
-    # bridge vlan add dev swp1 vid 10 master
-    # bridge vlan add dev swp2 vid 10 master
-    # bridge vlan add dev swp3 vid 10 master
-    # bridge vlan add dev swp4 vid 10 master untagged pvid
+Where "t", "u", "x", "-", respectively means that the port is tagged,
+untagged, excluded or unmodified, for a given VLAN entry.
 
-This calls port_vlan_add() for each command. Removing the port 3 from
-VLAN 10 is done with:
+VTU entries can be added by echoing the same format:
 
-    # bridge vlan del dev swp3 vid 10
+    echo 1300 1312 0 x x t x t t x > vtu
 
-This calls port_vlan_del() for port 3. Dumping VLANs is done with:
+and can be deleted by echoing only the VID:
 
-    # bridge vlan show
-    port    vlan ids
-    swp0    None
-    swp0
-    swp1     10
-
-    swp1     10
-
-    swp2     10
-
-    swp2     10
-
-    swp3    None
-    swp3
-    swp4     10 PVID Egress Untagged
-
-    swp4     10 PVID Egress Untagged
-
-    br0     None
-
-This calls port_vlan_dump() for each ports.
+    echo 1000 > vtu
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6123_61_65.c |   3 +
- drivers/net/dsa/mv88e6131.c       |   3 +
- drivers/net/dsa/mv88e6171.c       |   3 +
- drivers/net/dsa/mv88e6352.c       |   3 +
- drivers/net/dsa/mv88e6xxx.c       | 152 ++++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx.h       |   5 ++
- 6 files changed, 169 insertions(+)
+ drivers/net/dsa/mv88e6xxx.c | 311 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx.h |  24 ++++
+ 2 files changed, 335 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
-index 71a29a7..8e679ff 100644
---- a/drivers/net/dsa/mv88e6123_61_65.c
-+++ b/drivers/net/dsa/mv88e6123_61_65.c
-@@ -134,6 +134,9 @@ struct dsa_switch_driver mv88e6123_61_65_switch_driver = {
- #endif
- 	.get_regs_len		= mv88e6xxx_get_regs_len,
- 	.get_regs		= mv88e6xxx_get_regs,
-+	.port_vlan_add		= mv88e6xxx_port_vlan_add,
-+	.port_vlan_del		= mv88e6xxx_port_vlan_del,
-+	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
- };
- 
- MODULE_ALIAS("platform:mv88e6123");
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 32f4a08..c4d914b 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -182,6 +182,9 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
- 	.get_strings		= mv88e6xxx_get_strings,
- 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
- 	.get_sset_count		= mv88e6xxx_get_sset_count,
-+	.port_vlan_add		= mv88e6xxx_port_vlan_add,
-+	.port_vlan_del		= mv88e6xxx_port_vlan_del,
-+	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
- };
- 
- MODULE_ALIAS("platform:mv88e6085");
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 1c78084..7701ce6 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -119,6 +119,9 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.fdb_add		= mv88e6xxx_port_fdb_add,
- 	.fdb_del		= mv88e6xxx_port_fdb_del,
- 	.fdb_getnext		= mv88e6xxx_port_fdb_getnext,
-+	.port_vlan_add		= mv88e6xxx_port_vlan_add,
-+	.port_vlan_del		= mv88e6xxx_port_vlan_del,
-+	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
- };
- 
- MODULE_ALIAS("platform:mv88e6171");
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 632815c..b981be4a 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -392,6 +392,9 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.fdb_add		= mv88e6xxx_port_fdb_add,
- 	.fdb_del		= mv88e6xxx_port_fdb_del,
- 	.fdb_getnext		= mv88e6xxx_port_fdb_getnext,
-+	.port_vlan_add		= mv88e6xxx_port_vlan_add,
-+	.port_vlan_del		= mv88e6xxx_port_vlan_del,
-+	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
- };
- 
- MODULE_ALIAS("platform:mv88e6352");
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index ffd9fc6..d5812ba 100644
+index 8c130c0..ffd9fc6 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1544,6 +1544,158 @@ static int _mv88e6xxx_vtu_loadpurge(struct dsa_switch *ds,
- 	return _mv88e6xxx_vtu_cmd(ds, GLOBAL_VTU_OP_VTU_LOAD_PURGE);
+@@ -2,6 +2,9 @@
+  * net/dsa/mv88e6xxx.c - Marvell 88e6xxx switch chip support
+  * Copyright (c) 2008 Marvell Semiconductor
+  *
++ * Copyright (c) 2015 CMC Electronics, Inc.
++ *	Added support for 802.1Q VLAN Table Unit
++ *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+@@ -1366,6 +1369,181 @@ static void mv88e6xxx_bridge_work(struct work_struct *work)
+ 	}
  }
  
-+int mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port, u16 vid,
-+			    u16 bridge_flags)
++static int _mv88e6xxx_vtu_wait(struct dsa_switch *ds)
 +{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	struct mv88e6xxx_vtu_entry entry = { 0 };
-+	int prev_vid = vid ? vid - 1 : 0xfff;
-+	int i, ret;
++	return _mv88e6xxx_wait(ds, REG_GLOBAL, GLOBAL_VTU_OP,
++			       GLOBAL_VTU_OP_BUSY);
++}
 +
-+	mutex_lock(&ps->smi_mutex);
-+	ret = _mv88e6xxx_vtu_getnext(ds, prev_vid, &entry);
++static int _mv88e6xxx_vtu_cmd(struct dsa_switch *ds, u16 op)
++{
++	int ret;
++
++	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_OP, op);
 +	if (ret < 0)
-+		goto unlock;
++		return ret;
 +
-+	/* If the VLAN does not exist, re-initialize the entry for addition */
-+	if (entry.vid != vid || !entry.valid) {
-+		memset(&entry, 0, sizeof(entry));
-+		entry.valid = true;
-+		entry.vid = vid;
-+		entry.fid = vid; /* We use one FID per VLAN at the moment */
-+		entry.sid = 0; /* We don't use 802.1s (yet) */
++	return _mv88e6xxx_vtu_wait(ds);
++}
 +
-+		/* The DSA port-based VLAN setup also reserves one FID per port;
-+		 * thus, warn when requesting one of the first num_ports VIDs.
-+		 */
-+		if (entry.fid < ps->num_ports)
-+			netdev_warn(ds->ports[vid], "using reserved FID\n");
++static int _mv88e6xxx_stu_loadpurge(struct dsa_switch *ds, u8 sid, bool valid)
++{
++	int ret, data;
++
++	ret = _mv88e6xxx_vtu_wait(ds);
++	if (ret < 0)
++		return ret;
++
++	data = sid & GLOBAL_VTU_SID_MASK;
++	if (valid)
++		data |= GLOBAL_VTU_VID_VALID;
++
++	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_VID, data);
++	if (ret < 0)
++		return ret;
++
++	/* Unused (yet) data registers */
++	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_DATA_0_3, 0);
++	if (ret < 0)
++		return ret;
++
++	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_DATA_4_7, 0);
++	if (ret < 0)
++		return ret;
++
++	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_DATA_8_11, 0);
++	if (ret < 0)
++		return ret;
++
++	return _mv88e6xxx_vtu_cmd(ds, GLOBAL_VTU_OP_STU_LOAD_PURGE);
++}
++
++static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds, u16 vid,
++				  struct mv88e6xxx_vtu_entry *entry)
++{
++	int ret, i;
++
++	ret = _mv88e6xxx_vtu_wait(ds);
++	if (ret < 0)
++		return ret;
++
++	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_VID,
++				   vid & GLOBAL_VTU_VID_MASK);
++	if (ret < 0)
++		return ret;
++
++	ret = _mv88e6xxx_vtu_cmd(ds, GLOBAL_VTU_OP_VTU_GET_NEXT);
++	if (ret < 0)
++		return ret;
++
++	ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_VID);
++	if (ret < 0)
++		return ret;
++
++	entry->vid = ret & GLOBAL_VTU_VID_MASK;
++	entry->valid = !!(ret & GLOBAL_VTU_VID_VALID);
++
++	if (entry->valid) {
++		/* Ports 0-3, offsets 0, 4, 8, 12 */
++		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_DATA_0_3);
++		if (ret < 0)
++			return ret;
++
++		for (i = 0; i < 4; ++i)
++			entry->tags[i] = (ret >> (i * 4)) & 3;
++
++		/* Ports 4-6, offsets 0, 4, 8 */
++		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_DATA_4_7);
++		if (ret < 0)
++			return ret;
++
++		for (i = 4; i < 7; ++i)
++			entry->tags[i] = (ret >> ((i - 4) * 4)) & 3;
 +
 +		if (mv88e6xxx_6097_family(ds) || mv88e6xxx_6165_family(ds) ||
 +		    mv88e6xxx_6351_family(ds) || mv88e6xxx_6352_family(ds)) {
-+			/* A VTU entry need a valid STU entry (undocumented).
-+			 * The default STU pointer for a VTU entry is 0. If per
-+			 * VLAN spanning tree is not used then only one STU
-+			 * entry is needed to cover all VTU entries. Thus,
-+			 * validate the STU entry 0.
-+			 */
-+			ret = _mv88e6xxx_stu_loadpurge(ds, 0, true);
++			ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL,
++						  GLOBAL_VTU_FID);
 +			if (ret < 0)
-+				goto unlock;
-+		}
++				return ret;
 +
-+		for (i = 0; i < ps->num_ports; ++i)
-+			entry.tags[i] = dsa_is_cpu_port(ds, i) ?
-+				GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED :
-+				GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER;
-+	}
++			entry->fid = ret & GLOBAL_VTU_FID_MASK;
 +
-+	entry.tags[port] = bridge_flags & BRIDGE_VLAN_INFO_UNTAGGED ?
-+		GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED :
-+		GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED;
++			ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL,
++						  GLOBAL_VTU_SID);
++			if (ret < 0)
++				return ret;
 +
-+	ret = _mv88e6xxx_vtu_loadpurge(ds, &entry);
-+
-+	/* Set port default VID */
-+	if (bridge_flags & BRIDGE_VLAN_INFO_PVID)
-+		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port),
-+					   PORT_DEFAULT_VLAN,
-+					   vid & PORT_DEFAULT_VLAN_MASK);
-+unlock:
-+	mutex_unlock(&ps->smi_mutex);
-+
-+	return ret;
-+}
-+
-+int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port, u16 vid)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	struct mv88e6xxx_vtu_entry entry = { 0 };
-+	int i, ret, prev_vid = vid ? vid - 1 : 0xfff;
-+	bool keep = false;
-+
-+	mutex_lock(&ps->smi_mutex);
-+	ret = _mv88e6xxx_vtu_getnext(ds, prev_vid, &entry);
-+	if (ret < 0)
-+		goto unlock;
-+
-+	if (entry.vid != vid || !entry.valid) {
-+		ret = -ENOENT;
-+		goto unlock;
-+	}
-+
-+	entry.tags[port] = GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER;
-+
-+	/* keep the VLAN unless all ports are excluded */
-+	for (i = 0; i < ps->num_ports; ++i) {
-+		if (dsa_is_cpu_port(ds, i))
-+			continue;
-+
-+		if (entry.tags[i] != GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER) {
-+			keep = true;
-+			break;
++			entry->sid = ret & GLOBAL_VTU_SID_MASK;
++		} else {
++			entry->fid = 0;
++			entry->sid = 0;
 +		}
 +	}
 +
-+	entry.valid = keep;
-+	ret = _mv88e6xxx_vtu_loadpurge(ds, &entry);
-+	if (ret < 0)
-+		goto unlock;
-+
-+	/* TODO reset PVID if it was this VID? */
-+
-+	if (!keep)
-+		ret = _mv88e6xxx_update_bridge_config(ds, entry.fid);
-+unlock:
-+	mutex_unlock(&ps->smi_mutex);
-+
-+	return ret;
++	return 0;
 +}
 +
-+int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port, u16 vid,
-+			     u16 *bridge_flags)
++static int _mv88e6xxx_vtu_loadpurge(struct dsa_switch *ds,
++				    struct mv88e6xxx_vtu_entry *entry)
 +{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	struct mv88e6xxx_vtu_entry entry = { 0 };
-+	int prev_vid = vid ? vid - 1 : 0xfff;
-+	int ret;
++	u16 data = 0;
++	int ret, i;
 +
-+	mutex_lock(&ps->smi_mutex);
-+	ret = _mv88e6xxx_vtu_getnext(ds, prev_vid, &entry);
++	ret = _mv88e6xxx_vtu_wait(ds);
 +	if (ret < 0)
-+		goto unlock;
++		return ret;
 +
-+	if (entry.vid != vid || !entry.valid) {
-+		ret = -ENOENT;
-+		goto unlock;
++	if (entry->valid) {
++		/* Set Data Register, ports 0-3, offsets 0, 4, 8, 12 */
++		for (data = i = 0; i < 4; ++i)
++			data |= entry->tags[i] << (i * 4);
++		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_DATA_0_3,
++					   data);
++		if (ret < 0)
++			return ret;
++
++		/* Set Data Register, ports 4-6, offsets 0, 4, 8 */
++		for (data = 0, i = 4; i < 7; ++i)
++			data |= entry->tags[i] << ((i - 4) * 4);
++		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_DATA_4_7,
++					   data);
++		if (ret < 0)
++			return ret;
++
++		/* Unused Data Register */
++		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_DATA_8_11,
++					   0);
++		if (ret < 0)
++			return ret;
++
++		if (mv88e6xxx_6097_family(ds) || mv88e6xxx_6165_family(ds) ||
++		    mv88e6xxx_6351_family(ds) || mv88e6xxx_6352_family(ds)) {
++			data = entry->sid & GLOBAL_VTU_SID_MASK;
++			ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL,
++						   GLOBAL_VTU_SID, data);
++			if (ret < 0)
++				return ret;
++
++			data = entry->fid & GLOBAL_VTU_FID_MASK;
++			ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL,
++						   GLOBAL_VTU_FID, data);
++			if (ret < 0)
++				return ret;
++		}
++
++		/* Valid bit set means load, unset means purge */
++		data = GLOBAL_VTU_VID_VALID;
 +	}
 +
-+	switch (entry.tags[port]) {
-+	case GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED:
-+		*bridge_flags |= BRIDGE_VLAN_INFO_UNTAGGED;
-+		break;
-+	case GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED:
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		goto unlock;
-+	}
-+
-+	/* check PVID */
-+	ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_DEFAULT_VLAN);
++	data |= entry->vid & GLOBAL_VTU_VID_MASK;
++	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_VID, data);
 +	if (ret < 0)
-+		goto unlock;
++		return ret;
 +
-+	if ((ret & PORT_DEFAULT_VLAN_MASK) == vid)
-+		*bridge_flags |= BRIDGE_VLAN_INFO_PVID;
-+
-+	ret = 0;
-+unlock:
-+	mutex_unlock(&ps->smi_mutex);
-+
-+	return ret;
++	return _mv88e6xxx_vtu_cmd(ds, GLOBAL_VTU_OP_VTU_LOAD_PURGE);
 +}
 +
  static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
  {
  	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+@@ -1739,6 +1917,136 @@ static const struct file_operations mv88e6xxx_atu_fops = {
+ 	.owner  = THIS_MODULE,
+ };
+ 
++static int mv88e6xxx_vtu_show(struct seq_file *s, void *p)
++{
++	struct dsa_switch *ds = s->private;
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	int port, ret = 0, vid = 0xfff; /* find the first or lowest VID */
++
++	seq_puts(s, " VID  FID  SID");
++	for (port = 0; port < ps->num_ports; ++port)
++		seq_printf(s, " %2d", port);
++	seq_puts(s, "\n");
++
++	mutex_lock(&ps->smi_mutex);
++
++	do {
++		struct mv88e6xxx_vtu_entry next = { 0 };
++
++		ret = _mv88e6xxx_vtu_getnext(ds, vid, &next);
++		if (ret < 0)
++			goto unlock;
++
++		if (!next.valid)
++			break;
++
++		seq_printf(s, "%4d %4d   %2d", next.vid, next.fid, next.sid);
++		for (port = 0; port < ps->num_ports; ++port) {
++			switch (next.tags[port]) {
++			case GLOBAL_VTU_DATA_MEMBER_TAG_UNMODIFIED:
++				seq_puts(s, "  -");
++				break;
++			case GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED:
++				seq_puts(s, "  u");
++				break;
++			case GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED:
++				seq_puts(s, "  t");
++				break;
++			case GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER:
++				seq_puts(s, "  x");
++				break;
++			default:
++				seq_puts(s, "  ?");
++				break;
++			}
++		}
++		seq_puts(s, "\n");
++
++		vid = next.vid;
++	} while (vid < 0xfff);
++
++unlock:
++	mutex_unlock(&ps->smi_mutex);
++
++	return ret;
++}
++
++static ssize_t mv88e6xxx_vtu_write(struct file *file, const char __user *buf,
++				   size_t count, loff_t *ppos)
++{
++	struct seq_file *s = file->private_data;
++	struct dsa_switch *ds = s->private;
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	struct mv88e6xxx_vtu_entry entry = { 0 };
++	bool valid = true;
++	char tags[12]; /* DSA_MAX_PORTS */
++	int vid, fid, sid, port, ret;
++
++	/* scan 12 chars instead of num_ports to avoid dynamic scanning... */
++	ret = sscanf(buf, "%d %d %d %c %c %c %c %c %c %c %c %c %c %c %c", &vid,
++		     &fid, &sid, &tags[0], &tags[1], &tags[2], &tags[3],
++		     &tags[4], &tags[5], &tags[6], &tags[7], &tags[8], &tags[9],
++		     &tags[10], &tags[11]);
++	if (ret == 1)
++		valid = false;
++	else if (ret != 3 + ps->num_ports)
++		return -EINVAL;
++
++	entry.vid = vid;
++	entry.valid = valid;
++
++	if (valid) {
++		entry.fid = fid;
++		entry.sid = sid;
++		/* Note: The VTU entry pointed by VID will be loaded but not
++		 * considered valid until the STU entry pointed by SID is valid.
++		 */
++
++		for (port = 0; port < ps->num_ports; ++port) {
++			u8 tag;
++
++			switch (tags[port]) {
++			case 'u':
++				tag = GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED;
++				break;
++			case 't':
++				tag = GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED;
++				break;
++			case 'x':
++				tag = GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER;
++				break;
++			case '-':
++				tag = GLOBAL_VTU_DATA_MEMBER_TAG_UNMODIFIED;
++				break;
++			default:
++				return -EINVAL;
++			}
++
++			entry.tags[port] = tag;
++		}
++	}
++
++	mutex_lock(&ps->smi_mutex);
++	ret = _mv88e6xxx_vtu_loadpurge(ds, &entry);
++	mutex_unlock(&ps->smi_mutex);
++
++	return ret < 0 ? ret : count;
++}
++
++static int mv88e6xxx_vtu_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, mv88e6xxx_vtu_show, inode->i_private);
++}
++
++static const struct file_operations mv88e6xxx_vtu_fops = {
++	.open		= mv88e6xxx_vtu_open,
++	.read		= seq_read,
++	.write		= mv88e6xxx_vtu_write,
++	.llseek		= no_llseek,
++	.release	= single_release,
++	.owner		= THIS_MODULE,
++};
++
+ static void mv88e6xxx_stats_show_header(struct seq_file *s,
+ 					struct mv88e6xxx_priv_state *ps)
+ {
+@@ -1901,6 +2209,9 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
+ 	debugfs_create_file("atu", S_IRUGO, ps->dbgfs, ds,
+ 			    &mv88e6xxx_atu_fops);
+ 
++	debugfs_create_file("vtu", S_IRUGO | S_IWUSR, ps->dbgfs, ds,
++			    &mv88e6xxx_vtu_fops);
++
+ 	debugfs_create_file("stats", S_IRUGO, ps->dbgfs, ds,
+ 			    &mv88e6xxx_stats_fops);
+ 
 diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 65645b7..be8b6cc 100644
+index 1bc5a3e..65645b7 100644
 --- a/drivers/net/dsa/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -440,6 +440,11 @@ int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
- int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg);
- int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
- 			     int reg, int val);
-+int mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port, u16 vid,
-+			    u16 bridge_flags);
-+int mv88e6xxx_port_vlan_del(struct dsa_switch *ds,int port, u16 vid);
-+int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds,int port, u16 vid,
-+			     u16 *bridge_flags);
- extern struct dsa_switch_driver mv88e6131_switch_driver;
- extern struct dsa_switch_driver mv88e6123_61_65_switch_driver;
- extern struct dsa_switch_driver mv88e6352_switch_driver;
+@@ -124,6 +124,7 @@
+ #define PORT_CONTROL_1		0x05
+ #define PORT_BASE_VLAN		0x06
+ #define PORT_DEFAULT_VLAN	0x07
++#define PORT_DEFAULT_VLAN_MASK	0xfff
+ #define PORT_CONTROL_2		0x08
+ #define PORT_CONTROL_2_IGNORE_FCS	BIT(15)
+ #define PORT_CONTROL_2_VTU_PRI_OVERRIDE	BIT(14)
+@@ -170,6 +171,10 @@
+ #define GLOBAL_MAC_01		0x01
+ #define GLOBAL_MAC_23		0x02
+ #define GLOBAL_MAC_45		0x03
++#define GLOBAL_VTU_FID		0x02	/* 6097 6165 6351 6352 */
++#define GLOBAL_VTU_FID_MASK	0xfff
++#define GLOBAL_VTU_SID		0x03	/* 6097 6165 6351 6352 */
++#define GLOBAL_VTU_SID_MASK	0x3f
+ #define GLOBAL_CONTROL		0x04
+ #define GLOBAL_CONTROL_SW_RESET		BIT(15)
+ #define GLOBAL_CONTROL_PPU_ENABLE	BIT(14)
+@@ -186,9 +191,20 @@
+ #define GLOBAL_CONTROL_TCAM_EN		BIT(1)
+ #define GLOBAL_CONTROL_EEPROM_DONE_EN	BIT(0)
+ #define GLOBAL_VTU_OP		0x05
++#define GLOBAL_VTU_OP_BUSY	BIT(15)
++#define GLOBAL_VTU_OP_FLUSH_ALL		((1 << 12) | GLOBAL_VTU_OP_BUSY)
++#define GLOBAL_VTU_OP_VTU_LOAD_PURGE	((3 << 12) | GLOBAL_VTU_OP_BUSY)
++#define GLOBAL_VTU_OP_VTU_GET_NEXT	((4 << 12) | GLOBAL_VTU_OP_BUSY)
++#define GLOBAL_VTU_OP_STU_LOAD_PURGE	((5 << 12) | GLOBAL_VTU_OP_BUSY)
+ #define GLOBAL_VTU_VID		0x06
++#define GLOBAL_VTU_VID_MASK	0xfff
++#define GLOBAL_VTU_VID_VALID	BIT(12)
+ #define GLOBAL_VTU_DATA_0_3	0x07
+ #define GLOBAL_VTU_DATA_4_7	0x08
++#define GLOBAL_VTU_DATA_MEMBER_TAG_UNMODIFIED	0
++#define GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED	1
++#define GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED	2
++#define GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER	3
+ #define GLOBAL_VTU_DATA_8_11	0x09
+ #define GLOBAL_ATU_CONTROL	0x0a
+ #define GLOBAL_ATU_CONTROL_LEARN2ALL	BIT(3)
+@@ -310,6 +326,14 @@
+ #define GLOBAL2_QOS_WEIGHT	0x1c
+ #define GLOBAL2_MISC		0x1d
+ 
++struct mv88e6xxx_vtu_entry {
++	u16	vid;
++	u16	fid;
++	u8	sid;
++	bool	valid;
++	u8	tags[DSA_MAX_PORTS];
++};
++
+ struct mv88e6xxx_priv_state {
+ 	/* When using multi-chip addressing, this mutex protects
+ 	 * access to the indirect access registers.  (In single-chip
 -- 
 2.4.5
