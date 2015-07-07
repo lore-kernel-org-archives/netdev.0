@@ -1,47 +1,42 @@
-From: Nicholas Krause <xerofoify@gmail.com>
-Subject: [PATCH] freescale:Make the function ucc_geth_tx have a return type of
- void
-Date: Tue,  7 Jul 2015 15:36:29 -0400
-Message-ID: <1436297789-31422-1-git-send-email-xerofoify@gmail.com>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH] freescale:Make the function
+ gfar_configure_coalescing_all static
+Date: Tue, 7 Jul 2015 21:53:17 +0200
+Message-ID: <20150707195317.GJ9671@pengutronix.de>
+References: <1436298573-28541-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
- linux-kernel@vger.kernel.org
-To: leoli@freescale.com
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, claudiu.manoil@freescale.com,
+	haokexin@gmail.com, matei.pavaluca@freescale.com,
+	jingchang.lu@freescale.com, tobias@waldekranz.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicholas Krause <xerofoify@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1436298573-28541-1-git-send-email-xerofoify@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-VGhpcyBtYWtlcyB0aGUgZnVuY3Rpb24gdWNjX2dldGhfdHggaGF2ZSBhIHJldHVybiB0eXBlIG9m
-IHZvaWQgbm93CmR1ZSB0byB0aGlzIHBhcnRpY3VsYXIgZnVuY3Rpb24gYWx3YXlzIGNvbXBsZXRp
-bmcgd2l0aG91dCBldmVyCmV4ZWN1dGluZyBhIG5vbiByZWNvdmVyYWJsZSBlcnJvci4KClNpZ25l
-ZC1vZmYtYnk6IE5pY2hvbGFzIEtyYXVzZSA8eGVyb2ZvaWZ5QGdtYWlsLmNvbT4KLS0tCiBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYyB8IDMgKy0tCiAxIGZpbGUgY2hh
-bmdlZCwgMSBpbnNlcnRpb24oKyksIDIgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19nZXRoLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9mcmVlc2NhbGUvdWNjX2dldGguYwppbmRleCA3OGViZDczLi43MGYzMDQ1IDEwMDY0NAotLS0g
-YS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYworKysgYi9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYwpAQCAtMzIyNiw3ICszMjI2LDcgQEAg
-c3RhdGljIGludCB1Y2NfZ2V0aF9yeChzdHJ1Y3QgdWNjX2dldGhfcHJpdmF0ZSAqdWdldGgsIHU4
-IHJ4USwgaW50IHJ4X3dvcmtfbGltaXQKIAlyZXR1cm4gaG93bWFueTsKIH0KIAotc3RhdGljIGlu
-dCB1Y2NfZ2V0aF90eChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1OCB0eFEpCitzdGF0aWMgdm9p
-ZCB1Y2NfZ2V0aF90eChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1OCB0eFEpCiB7CiAJLyogU3Rh
-cnQgZnJvbSB0aGUgbmV4dCBCRCB0aGF0IHNob3VsZCBiZSBmaWxsZWQgKi8KIAlzdHJ1Y3QgdWNj
-X2dldGhfcHJpdmF0ZSAqdWdldGggPSBuZXRkZXZfcHJpdihkZXYpOwpAQCAtMzI2OSw3ICszMjY5
-LDYgQEAgc3RhdGljIGludCB1Y2NfZ2V0aF90eChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1OCB0
-eFEpCiAJCWJkX3N0YXR1cyA9IGluX2JlMzIoKHUzMiBfX2lvbWVtICopYmQpOwogCX0KIAl1Z2V0
-aC0+Y29uZkJkW3R4UV0gPSBiZDsKLQlyZXR1cm4gMDsKIH0KIAogc3RhdGljIGludCB1Y2NfZ2V0
-aF9wb2xsKHN0cnVjdCBuYXBpX3N0cnVjdCAqbmFwaSwgaW50IGJ1ZGdldCkKLS0gCjIuMS40Cgpf
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1k
-ZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlz
-dHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
+On Tue, Jul 07, 2015 at 03:49:33PM -0400, Nicholas Krause wrote:
+> This makes the function gfar_configure_coalescing_all static
+> and removes its function prototype from the header file, gianfar.h
+really? Looking at the diffstat I dare to disagree.
+
+> due to this function only ever being called in its definition and
+> declaration file of gainfar.c.
+>=20
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+> ---
+>  drivers/net/ethernet/freescale/gianfar.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+
+Best regards
+Uwe
+
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
