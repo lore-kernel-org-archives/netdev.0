@@ -1,31 +1,36 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH v3 0/3] net: dsa: mv88e6xxx: add support for VLAN Table Unit
-Date: Tue, 7 Jul 2015 13:00:41 -0700
-Message-ID: <CAE4R7bCpij0sKQDbm3cLBXkCNcCtNGDpurcQnJxiYX-yA=cgTA@mail.gmail.com>
-References: <1436148893-14379-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <20150706233804.GE469@lunn.ch> <20150707020047.GA5540@lunn.ch>
- <CAE4R7bALqVsV7nTH0r+AqbxE8z2ScG=_FfaBkpzrfXyw0A9DJg@mail.gmail.com> <1594179899.212564.1436285877003.JavaMail.zimbra@savoirfairelinux.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: Re: [PATCH V2] cdc_ncm: Add support for moving NDP to end of NCM
+ frame
+Date: Tue, 7 Jul 2015 22:50:41 +0200 (CEST)
+Message-ID: <alpine.LNX.2.20.1507072243460.9655@localhost.localdomain>
+References: <1435787748-30393-1-git-send-email-mrkiko.rs@gmail.com> <alpine.LNX.2.20.1507051219280.12595@archiso.lan> <1436177296.8225.25.camel@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
-	David <davem@davemloft.net>, Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:34755 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932425AbbGGUBB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 16:01:01 -0400
-In-Reply-To: <1594179899.212564.1436285877003.JavaMail.zimbra@savoirfairelinux.com>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:33144 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932713AbbGGUus (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 16:50:48 -0400
+In-Reply-To: <1436177296.8225.25.camel@suse.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 7, 2015 at 9:17 AM, Vivien Didelot
-<vivien.didelot@savoirfairelinux.com> wrote:
-> Hi Andrew, Scott,
-> Does this fixup http://ix.io/jxq look good to you?
+Hi Oliver, hello to who is reading this message.
 
-Yes.
+i was re-reading the code and the oops, without understanding what's the 
+problem. Still: what impressed me is the fact that at some point you see NULL 
+ptr dereference in unrelated code (fbcon). Is it possible that at some point 
+the memory portion (172 bytes if device is affected by NCM errata, and mine 
+is), that the portion of memory to which ctx->delayed_ndp16 points to is 
+somehow moved / thrown away?
+It doesn't make sense, because otherwise even accesses to the ctx variable 
+would give problems. And they don't.
+Looking around then, I see kzalloc() / kmalloc (kzalloc =kmalloc | __GFP_ZERO) 
+are used to allocate any size of memory (with the only requirement for it to be 
+small). In rndis_host.c 1025 bytes (not 1024) are allocated, so I am excluding 
+any kind of alignment problem here.
+
+Thank you,
+Enrico
