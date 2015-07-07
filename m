@@ -1,141 +1,32 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH v3 1/3] net: dsa: mv88e6xxx: add debugfs interface for
- VTU
-Date: Tue, 7 Jul 2015 11:52:29 -0400 (EDT)
-Message-ID: <1165322565.210276.1436284349938.JavaMail.zimbra@savoirfairelinux.com>
-References: <1436148893-14379-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1436148893-14379-2-git-send-email-vivien.didelot@savoirfairelinux.com> <20150707020818.GB5540@lunn.ch>
+From: Vasily Averin <vvs@virtuozzo.com>
+Subject: [PATCH 0/3] rtnl_lock fixes
+Date: Tue, 07 Jul 2015 18:53:28 +0300
+Message-ID: <559BF5F8.2000500@virtuozzo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: intel-wired-lan@lists.osuosl.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:58120 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758183AbbGGPwf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 11:52:35 -0400
-In-Reply-To: <20150707020818.GB5540@lunn.ch>
+Received: from mailhub.sw.ru ([195.214.232.25]:44712 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758038AbbGGPye (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jul 2015 11:54:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+While investigation possible reasons of net_todo_list corruption 
+on rhel6 based OpenVZ kernel I've found few places not fixed in mainline.
 
-On Jul 6, 2015, at 10:08 PM, Andrew Lunn andrew@lunn.ch wrote:
+Vasily Averin (3):
+  missing rtnl_unlock in i40evf_resume()
+  missing rtnl_unlock in igb_sriov_reinit()
+  ipmr_free_table() should be called under taken rtnl_lock
 
->> +static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds, u16 vid,
->> +				  struct mv88e6xxx_vtu_entry *entry)
->> +{
->> +	int ret, i;
->> +
->> +	ret = _mv88e6xxx_vtu_wait(ds);
->> +	if (ret < 0)
->> +		return ret;
->> +
->> +	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_VID,
->> +				   vid & GLOBAL_VTU_VID_MASK);
->> +	if (ret < 0)
->> +		return ret;
->> +
->> +	ret = _mv88e6xxx_vtu_cmd(ds, GLOBAL_VTU_OP_VTU_GET_NEXT);
->> +	if (ret < 0)
->> +		return ret;
->> +
->> +	ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_VID);
->> +	if (ret < 0)
->> +		return ret;
->> +
->> +	entry->vid = ret & GLOBAL_VTU_VID_MASK;
->> +	entry->valid = !!(ret & GLOBAL_VTU_VID_VALID);
->> +
->> +	if (entry->valid) {
->> +		/* Ports 0-3, offsets 0, 4, 8, 12 */
->> +		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_DATA_0_3);
->> +		if (ret < 0)
->> +			return ret;
->> +
->> +		for (i = 0; i < 4; ++i)
->> +			entry->tags[i] = (ret >> (i * 4)) & 3;
->> +
->> +		/* Ports 4-6, offsets 0, 4, 8 */
->> +		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_DATA_4_7);
->> +		if (ret < 0)
->> +			return ret;
->> +
->> +		for (i = 4; i < 7; ++i)
->> +			entry->tags[i] = (ret >> ((i - 4) * 4)) & 3;
-> 
-> Hi Vivien
-> 
-> It looks like you still have up to 7 ports, rather than use
-> ps->num_ports. I have a ten port switch i would like to use VLANs with
-> :-)
-> 
->> +
->> +		if (mv88e6xxx_6097_family(ds) || mv88e6xxx_6165_family(ds) ||
->> +		    mv88e6xxx_6351_family(ds) || mv88e6xxx_6352_family(ds)) {
->> +			ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL,
->> +						  GLOBAL_VTU_FID);
->> +			if (ret < 0)
->> +				return ret;
->> +
->> +			entry->fid = ret & GLOBAL_VTU_FID_MASK;
->> +
->> +			ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL,
->> +						  GLOBAL_VTU_SID);
->> +			if (ret < 0)
->> +				return ret;
->> +
->> +			entry->sid = ret & GLOBAL_VTU_SID_MASK;
->> +		} else {
->> +			entry->fid = 0;
->> +			entry->sid = 0;
->> +		}
->> +	}
->> +
->> +	return 0;
->> +}
->> +
->> +static int _mv88e6xxx_vtu_loadpurge(struct dsa_switch *ds,
->> +				    struct mv88e6xxx_vtu_entry *entry)
->> +{
->> +	u16 data = 0;
->> +	int ret, i;
->> +
->> +	ret = _mv88e6xxx_vtu_wait(ds);
->> +	if (ret < 0)
->> +		return ret;
->> +
->> +	if (entry->valid) {
->> +		/* Set Data Register, ports 0-3, offsets 0, 4, 8, 12 */
->> +		for (data = i = 0; i < 4; ++i)
->> +			data |= entry->tags[i] << (i * 4);
->> +		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_DATA_0_3,
->> +					   data);
->> +		if (ret < 0)
->> +			return ret;
->> +
->> +		/* Set Data Register, ports 4-6, offsets 0, 4, 8 */
->> +		for (data = 0, i = 4; i < 7; ++i)
->> +			data |= entry->tags[i] << ((i - 4) * 4);
->> +		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_DATA_4_7,
->> +					   data);
-> 
-> Same again here.
-> 
->      Andrew
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 1 +
+ drivers/net/ethernet/intel/igb/igb_main.c       | 1 +
+ net/ipv6/ip6mr.c                                | 2 ++
+ 3 files changed, 4 insertions(+)
 
-Indeed, I intentionally kept it as is, since the 88E6352 datasheet is not
-really clear about this. I see that the register 0x09 (called
-GLOBAL_VTU_DATA_8_11 in mv88e6xxx.h) only contains VID priority related bits in
-15:12, in my case. As bits 11:0 are reserved, I suspect that the offsets of
-Member TagP7, Member TagP8 and Member TagP9 are respectively 0, 4 and 8 for
-you. Can you confirm? If so, I'll make that generic with these values.
-
-Thanks,
--v
+-- 
+1.9.1
