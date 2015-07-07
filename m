@@ -1,42 +1,38 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH 3/3] ipmr_free_table() should be called under taken rtnl_lock
-Date: Tue, 7 Jul 2015 10:30:36 -0700
-Message-ID: <CAM_iQpX=_chUgfy39ifgKkygYKVnh-r9WXK4P6q70xR_Oczv=g@mail.gmail.com>
-References: <559BF613.7090904@virtuozzo.com>
-	<CAM_iQpW1zo4T3AyZsv7ofLLsFtAfnqzGuDcqcFKxw9uuRNk_vA@mail.gmail.com>
-	<559C0B7E.8010108@virtuozzo.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Broadcom BCM54610 Linux support
+Date: Tue, 07 Jul 2015 10:34:56 -0700
+Message-ID: <559C0DC0.9070003@gmail.com>
+References: <20150707105824.GK4552@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Vasily Averin <vvs@virtuozzo.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>
+To: Markus Pargmann <mpa@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f50.google.com ([209.85.218.50]:36164 "EHLO
-	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932484AbbGGRai (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 13:30:38 -0400
-Received: by oiaf66 with SMTP id f66so115291475oia.3
-        for <netdev@vger.kernel.org>; Tue, 07 Jul 2015 10:30:36 -0700 (PDT)
-In-Reply-To: <559C0B7E.8010108@virtuozzo.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:35169 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932237AbbGGRgj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 13:36:39 -0400
+Received: by pactm7 with SMTP id tm7so116571807pac.2
+        for <netdev@vger.kernel.org>; Tue, 07 Jul 2015 10:36:38 -0700 (PDT)
+In-Reply-To: <20150707105824.GK4552@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 7, 2015 at 10:25 AM, Vasily Averin <vvs@virtuozzo.com> wrote:
-> On 07.07.2015 20:13, Cong Wang wrote:
->> On Tue, Jul 7, 2015 at 8:53 AM, Vasily Averin <vvs@virtuozzo.com> wrote:
->>> ipmr_free_table() calls unregister_netdevice_many() inside
->>> and changes net_todo_list protected by rtnl_lock
->>
->> Did you see any real bug?
->
-> No, it was result of manual code review.
->
->> ipmr_free_table() is called in failure path, in this case there is no
->> device registered yet, so unregister should be just a nop?
->
-> However may be it's better to mark this place for future anyway?
+(adding Michael)
 
-Then add a comment there. ;)
+On 07/07/15 03:58, Markus Pargmann wrote:
+> Hi,
+> 
+> I found the phy driver which supports broadcom BCM5461. But I am not
+> sure if this driver does support BCM54610 in fiber mode as well? Or if
+> there are any open datasheets which could be used to write a mainline
+> driver for it. I would appretiate any information about this.
+
+There are not publicly available datasheets as far as I can tell, the
+current driver does not support anything but copper modes.
+
+If you have reference code from somewhere else (e.g: bootloader or a
+Broadcom SDK), I would be inclined to port it over the Linux PHY driver.
+-- 
+Florian
