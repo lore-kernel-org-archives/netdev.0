@@ -1,61 +1,81 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] ifb: add multiqueue operation
-Date: Mon, 06 Jul 2015 17:19:59 -0700
-Message-ID: <559B1B2F.5050300@plumgrid.com>
-References: <1436213128.4571.14.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3 0/3] net: dsa: mv88e6xxx: add support for VLAN Table
+ Unit
+Date: Tue, 7 Jul 2015 04:00:47 +0200
+Message-ID: <20150707020047.GA5540@lunn.ch>
+References: <1436148893-14379-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <20150706233804.GE469@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.fastabend@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:33988 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754812AbbGGAUB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 20:20:01 -0400
-Received: by pabvl15 with SMTP id vl15so103088666pab.1
-        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 17:20:00 -0700 (PDT)
-In-Reply-To: <1436213128.4571.14.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150706233804.GE469@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 7/6/15 1:05 PM, Eric Dumazet wrote:
-> Add multiqueue capabilities to ifb netdevice.
->
-> This removes last bottleneck for ingress when mq qdisc can be used
-> to shard load from multiple RX queues on physical device.
-...
-> Signed-off-by: Eric Dumazet<edumazet@google.com>
-> Cc: Alexei Starovoitov<ast@plumgrid.com>
-> Cc: Jamal Hadi Salim<jhs@mojatatu.com>
-> Cc: John Fastabend<john.fastabend@gmail.com>
-> ---
->   drivers/net/ifb.c |  207 +++++++++++++++++++++++++-------------------
->   1 file changed, 120 insertions(+), 87 deletions(-)
-...
-> -struct ifb_private {
-> +struct ifb_q_private {
-...
-> -};
-> +} ____cacheline_aligned_in_smp;
-...
-> +static int ifb_dev_init(struct net_device *dev)
-> +{
-> +	struct ifb_dev_private *dp = netdev_priv(dev);
-> +	struct ifb_q_private *txp;
-> +	int i;
-> +
-> +	txp = kcalloc(dev->num_tx_queues, sizeof(*txp), GFP_KERNEL);
-...
->   static netdev_tx_t ifb_xmit(struct sk_buff *skb, struct net_device *dev)
->   {
-> -	struct ifb_private *dp = netdev_priv(dev);
-> +	struct ifb_dev_private *dp = netdev_priv(dev);
->   	u32 from = G_TC_FROM(skb->tc_verd);
-> +	struct ifb_q_private *txp = dp->tx_private + skb_get_queue_mapping(skb);
+On Tue, Jul 07, 2015 at 01:38:04AM +0200, Andrew Lunn wrote:
+> On Sun, Jul 05, 2015 at 10:14:50PM -0400, Vivien Didelot wrote:
+> > Hi all,
+> > 
+> > This patchset brings full support for hardware VLANs in DSA, and the Marvell
+> > 88E6xxx compatible switch chips.
+> 
+> Hi Vivien
+> 
+> I just booted these patches on my board, and i'm getting WARNINGS:
+> 
+> [   61.111302] WARNING: CPU: 0 PID: 2751 at net/switchdev/switchdev.c:265 switchdev_port_obj_add+0xd4/0xdc()
 
-All makes sense. Nicely done!
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+Hi Vivien
+
+I debugged this a bit.
+
+The problem comes from:
+
+static int dsa_slave_port_obj_add(struct net_device *dev,
+                                  struct switchdev_obj *obj)
+{
+        int err;
+
+        /*                                                                                                               
+         * Skip the prepare phase, since currently the DSA drivers don't need to                                         
+         * allocate any memory for operations and they will not fail to HW                                               
+         * (unless something horrible goes wrong on the MDIO bus, in which case                                          
+         * the prepare phase wouldn't have been able to predict anyway).                                                 
+         */
+        if (obj->trans != SWITCHDEV_TRANS_COMMIT)
+                return 0;
+
+        switch (obj->id) {
+        case SWITCHDEV_OBJ_PORT_VLAN:
+                err = dsa_slave_port_vlans_add(dev, obj);
+                break;
+        default:
+                err = -EOPNOTSUPP;
+                break;
+        }
+
+        return err;
+}
+
+It is being called with obj->id of 2, which is
+SWITCHDEV_OBJ_IPV4_FIB. This function is called twice. The first time
+it is with SWITCHDEV_TRANS_PREPARE and we are allowed to return an
+error. The second time, with SWITCHDEV_TRANS_COMMIT, errors are not
+allowed.
+
+EOPNOTSUPP is considered an error, so since we don't support
+SWITCHDEV_OBJ_IPV4_FIB we error out the COMMIT phase.
+
+Not sure which is cleaner. Test to see if we support the object during
+the prepare, or allow the commit to accept EOPNOTSUPP as not being an
+error?
+
+	Andrew
