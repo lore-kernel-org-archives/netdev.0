@@ -1,38 +1,44 @@
 From: Vasily Averin <vvs@virtuozzo.com>
-Subject: [PATCH 2/3] missing rtnl_unlock in igb_sriov_reinit()
-Date: Tue, 07 Jul 2015 18:53:45 +0300
-Message-ID: <559BF609.4020705@virtuozzo.com>
+Subject: [PATCH 3/3] ipmr_free_table() should be called under taken rtnl_lock
+Date: Tue, 07 Jul 2015 18:53:55 +0300
+Message-ID: <559BF613.7090904@virtuozzo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 Cc: intel-wired-lan@lists.osuosl.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Todd Fujinaka <todd.fujinaka@intel.com>
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Cong Wang <xiyou.wangcong@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:35851 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:20581 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758245AbbGGPyu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jul 2015 11:54:50 -0400
+	id S1757897AbbGGPzN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jul 2015 11:55:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+ipmr_free_table() calls unregister_netdevice_many() inside
+and changes net_todo_list protected by rtnl_lock
+
 Signed-off-by: Vasily Averin <vvs@virtuozzo.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/ipv6/ip6mr.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 2f70a9b..5881458 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -7538,6 +7538,7 @@ static int igb_sriov_reinit(struct pci_dev *dev)
- 	igb_init_queue_configuration(adapter);
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 74ceb73..9108636 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -250,7 +250,9 @@ static int __net_init ip6mr_rules_init(struct net *net)
+ 	return 0;
  
- 	if (igb_init_interrupt_scheme(adapter, true)) {
-+		rtnl_unlock();
- 		dev_err(&pdev->dev, "Unable to allocate memory for queues\n");
- 		return -ENOMEM;
- 	}
+ err2:
++	rtnl_lock();
+ 	ip6mr_free_table(mrt);
++	rtnl_unlock();
+ err1:
+ 	fib_rules_unregister(ops);
+ 	return err;
 -- 
 1.9.1
