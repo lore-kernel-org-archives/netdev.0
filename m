@@ -1,54 +1,26 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [ANNOUNCE] iproute2 4.1.1
-Date: Tue, 7 Jul 2015 11:14:46 -0700
-Message-ID: <20150707111446.5505db4a@urahara>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: Performance bottleneck with ndo_start_xmit
+Date: Tue, 7 Jul 2015 20:14:42 +0200
+Message-ID: <CAHmME9qzeMBPbxJug9FWCNW2iZ1CpkOcM_UGeECB7MAur0-KKw@mail.gmail.com>
+References: <CAHmME9rfOqA1mYmFDomcG+G55dV7it5406vL02ZRWcr0PmVbQg@mail.gmail.com>
+	<20150707111031.4ebabd36@urahara>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:33891 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932391AbbGGSOh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 14:14:37 -0400
-Received: by pdbep18 with SMTP id ep18so129959840pdb.1
-        for <netdev@vger.kernel.org>; Tue, 07 Jul 2015 11:14:37 -0700 (PDT)
-Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
-        by mx.google.com with ESMTPSA id js8sm22573152pbb.9.2015.07.07.11.14.36
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Tue, 07 Jul 2015 11:14:36 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150707111031.4ebabd36@urahara>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Maintenance release of iproute2 for Linux 4.1
+On Tue, Jul 7, 2015 at 8:10 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> Is it open source, is the source available to look at?
+> If not, please solve your own problems.
 
-This fixes issues affecting some environments with iproute2 4.1.
-The MPLS support was missing one patch, and the introduction of
-TIPC made build difficult in environments without proper libmnl.
-
-Source:
-  http://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-4.1.1.tar=
-=2Egz
-
-Repository:
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
-
-Report problems (or enhancements) to the netdev@vger.kernel.org mailing=
- list.
-
----
-Gustavo Zacarias (1):
-      tipc: make build conditional on having libmnl
-
-Jan Engelhardt (1):
-      build: must honor pkg-config flags for libmnl
-
-Michal Kube=C4=8Dek (1):
-      include: add copy of tipc.h
-
-Roopa Prabhu (1):
-      mpls: always set type RTN_UNICAST and scope RT_SCOPE_UNIVERSE for
-
-Stephen Hemminger (1):
-      v4.1.1
+Yes it is. Right now the repo is under password because it's supposed
+to keep your data secure, but I haven't audited it yet, and I don't
+want someone to rely on the software erroneously before I've made sure
+it's safe. If my general question here doesn't turn up any good
+pointers, I'll take the password off the repo and just add some
+massive "do not use!" warnings.
