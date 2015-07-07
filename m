@@ -1,41 +1,46 @@
-From: Olaf Hering <olaf@aepfle.de>
-Subject: Re: [PATCH 6/7] hvsock: introduce Hyper-V VM Sockets feature
-Date: Tue, 7 Jul 2015 12:58:37 +0200
-Message-ID: <20150707105836.GA19818@aepfle.de>
-References: <1436194049-27829-1-git-send-email-decui@microsoft.com>
- <1436261876.20057.132.camel@tiscali.nl>
- <20150707101025.GA5003@aepfle.de>
- <cf30a808b461480d8c399e556ddef513@SIXPR30MB031.064d.mgd.msft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Paul Bolle <pebolle@tiscali.nl>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	KY Srinivasan <kys@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>
-To: Dexuan Cui <decui@microsoft.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 0/4] Cleanup, T6 changes and register range update
+Date: Tue,  7 Jul 2015 21:49:17 +0530
+Message-ID: <1436285961-8674-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.163]:32631 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756808AbbGGK6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 06:58:39 -0400
-Content-Disposition: inline
-In-Reply-To: <cf30a808b461480d8c399e556ddef513@SIXPR30MB031.064d.mgd.msft.net>
+Received: from stargate.chelsio.com ([67.207.112.58]:5324 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754520AbbGGLF3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 07:05:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 07, Dexuan Cui wrote:
+Hi,
 
-> OK, removing the line seems better than 'default n', though both reproduce
-> the same "# CONFIG_HYPERV_SOCK is not set".
+This patch series adds the following:
+Don't use entire L2T table, update register ranges for T6 adapter,
+read stats for only available channels for T6 and enable cim_la dump for
+T6 adapter also.
 
-Perhaps "default VMBUS" (or whatever syntax is needed) may be the way to
-enable it conditionally.
+This patch series has been created against net-next tree and includes
+patches on cxgb4 driver.
 
-Olaf
+We have included all the maintainers of respective drivers. Kindly review
+the change and let us know in case of any review comments.
+
+Thanks
+
+Hariprasad Shenai (4):
+  cxgb4: Don't use entire L2T table, use only its slice
+  cxgb4: Update register ranges for T6 adapter
+  cxgb4: Read stats for only available channels
+  cxgb4: Enable cim_la dump to support T6
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 54 ++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  2 +-
+ drivers/net/ethernet/chelsio/cxgb4/l2t.c           | 94 +++++++++++++---------
+ drivers/net/ethernet/chelsio/cxgb4/l2t.h           | 18 ++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         | 89 ++++++++------------
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.h         |  1 -
+ 6 files changed, 157 insertions(+), 101 deletions(-)
+
+-- 
+2.3.4
