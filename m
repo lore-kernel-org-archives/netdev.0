@@ -1,57 +1,79 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Performance bottleneck with ndo_start_xmit
-Date: Tue, 7 Jul 2015 18:32:22 +0200
-Message-ID: <CAHmME9rfOqA1mYmFDomcG+G55dV7it5406vL02ZRWcr0PmVbQg@mail.gmail.com>
+From: Thomas Huth <thuth@redhat.com>
+Subject: Re: [PULL] virtio/vhost: cross endian support
+Date: Tue, 7 Jul 2015 18:36:53 +0200
+Message-ID: <20150707183653.462b5df0@thh440s>
+References: <20150701113150-mutt-send-email-mst@redhat.com>
+	<CA+55aFwE+vO2xevQ5jpyC0uJ7gASDwMS4=aDb=78RsJNA-wN1Q@mail.gmail.com>
+	<20150702071412-mutt-send-email-mst@redhat.com>
+	<20150702111256.13f8ea71@bahia.local>
+	<20150702112809-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Greg Kurz <gkurz@linux.vnet.ibm.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	KVM list <kvm@vger.kernel.org>,
+	virtualization <virtualization@lists.linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Cornelia Huck <cornelia.huck@de.ibm.com>, kraxel@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20150702112809-mutt-send-email-mst@redhat.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi folks,
+On Thu, 2 Jul 2015 11:32:52 +0200
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-I'm writing a kernel module that creates a virtual network device with
-rtnl_link_register. At initialization time, it creates a UDP socket
-with sock_create_kern. On ndo_start_xmit, it passes the data of the
-skb to the UDP socket's sendmsg, after some minimal crypto and
-processing. The device's MTU takes things into account properly. In
-other words: it's a UDP-based tunnel device. And it works.
+> On Thu, Jul 02, 2015 at 11:12:56AM +0200, Greg Kurz wrote:
+> > On Thu, 2 Jul 2015 08:01:28 +0200
+> > "Michael S. Tsirkin" <mst@redhat.com> wrote:
+...
+> > > Yea, well - support for legacy BE guests on the new LE hosts is
+> > > exactly the motivation for this.
+> > > 
+> > > I dislike it too, but there are two redeeming properties that
+> > > made me merge this:
+> > > 
+> > > 1.  It's a trivial amount of code: since we wrap host/guest accesses
+> > >     anyway, almost all of it is well hidden from drivers.
+> > > 
+> > > 2.  Sane platforms would never set flags like VHOST_CROSS_ENDIAN_LEGACY -
+> > >     and when it's clear, there's zero overhead (as some point it was
+> > >     tested by compiling with and without the patches, got the same
+> > >     stripped binary).
+> > > 
+> > > Maybe we could create a Kconfig symbol to enforce point (2): prevent
+> > > people from enabling it e.g. on x86. I will look into this - but it can
+> > > be done by a patch on top, so I think this can be merged as is.
+> > > 
+> > 
+> > This cross-endian *oddity* is targeting PowerPC book3s_64 processors... I
+> > am not aware of any other users. Maybe create a symbol that would
+> > be only selected by PPC_BOOK3S_64 ?
+> 
+> I think some ARM systems are trying to support cross-endian
+> configurations as well.
+> 
+> Besides that, yes, this is more or less what I had in mind.
 
-But I'm hitting a bottleneck in the send path (ndo_start_xmit) that I
-can't seem to figure out. None of the aforementioned crypto or
-processing contributes significantly. I boot up two virtual machines,
-configure the tunnel on them, and run iperf to test bandwidth. Using
-the tunnel device I get around 450mbps. Without using the tunnel
-device, I get around 5gbps. These performance characteristics remain
-the same for 1 CPU and for 4 CPUs and for 8 CPUs.
+Would something simple like this already do the job:
 
-When it maxes out at ~5gbps without using the tunnel device, the CPU
-is at around 80%. When it maxes out at ~450mbps using the tunnel
-device, the CPU is at 100%. Running perf top indicates that most the
-kernel time is spent in e1000_xmit, or the xmit function of whichever
-driver underlies the UDP socket. Very little percent of time is spent
-in any functions related to my module or even inside UDP's sendmsg
-call tree.
+diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
+--- a/drivers/vhost/Kconfig
++++ b/drivers/vhost/Kconfig
+@@ -35,6 +35,7 @@ config VHOST
+ 
+ config VHOST_CROSS_ENDIAN_LEGACY
+ 	bool "Cross-endian support for vhost"
++	depends on KVM_BOOK3S_64 || KVM_ARM_HOST
+ 	default n
+ 	---help---
+ 	  This option allows vhost to support guests with a different byte
 
-I'm stumped. I've tried workqueues, tasklets, all sorts of deferal.
-I've tried not using a UDP _socket_ and instead constructing an
-Ethernet, IP, and UDP header myself, checksumming it, computing the
-flowi4s,  getting the macs, and passing it to dev_queue_xmit. But in
-all cases, the bandwidth stays the same: 450mbps at 100% CPU
-utilization with the e1000_xmit (or vmxnet3_xmit if I'm using that
-driver instead) function at the top of the list in perf top.
+?
 
-I can confirm that the receive path never reaches 100% CPU
-utilization, and hence the bottleneck is in the send path, described
-above.
+If that looks acceptable, I can submit a proper patch if you like.
 
-Can anyone help? Or point me in the right direction of where to learn?
-I have exhausted all of the documentation resources I've been able to
-find, and my eyes hurt from reading tens of thousands of lines of
-kernel code trying to figure this out. I'm at a loss.
-
-Any pointers would be greatly appreciated.
-
-Regards,
-Jason
+ Thomas
