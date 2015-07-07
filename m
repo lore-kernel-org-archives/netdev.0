@@ -1,52 +1,65 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net 3/3] sfc: suppress handled MCDI failures when changing
- the MAC address
-Date: Tue, 7 Jul 2015 11:37:33 +0100
-Message-ID: <559BABED.4010300@solarflare.com>
-References: <559BAB66.1080905@solarflare.com>
+From: Markus Pargmann <mpa@pengutronix.de>
+Subject: Broadcom BCM54610 Linux support
+Date: Tue, 7 Jul 2015 12:58:24 +0200
+Message-ID: <20150707105824.GK4552@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="ZG5hGh9V5E9QzVHS"
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:43372 "EHLO
-	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755475AbbGGKhj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 06:37:39 -0400
-In-Reply-To: <559BAB66.1080905@solarflare.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:45704 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756407AbbGGK63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 06:58:29 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Pieczko <dpieczko@solarflare.com>
 
-Signed-off-by: Shradha Shah <sshah@solarflare.com>
----
- drivers/net/ethernet/sfc/ef10.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+--ZG5hGh9V5E9QzVHS
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index e0cb361..605cc89 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -3933,8 +3933,8 @@ static int efx_ef10_set_mac_address(struct efx_nic *efx)
- 			efx->net_dev->dev_addr);
- 	MCDI_SET_DWORD(inbuf, VADAPTOR_SET_MAC_IN_UPSTREAM_PORT_ID,
- 		       nic_data->vport_id);
--	rc = efx_mcdi_rpc(efx, MC_CMD_VADAPTOR_SET_MAC, inbuf,
--			  sizeof(inbuf), NULL, 0, NULL);
-+	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_VADAPTOR_SET_MAC, inbuf,
-+				sizeof(inbuf), NULL, 0, NULL);
- 
- 	efx_ef10_filter_table_probe(efx);
- 	up_write(&efx->filter_sem);
-@@ -3986,6 +3986,9 @@ static int efx_ef10_set_mac_address(struct efx_nic *efx)
- 		 * MCFW do not support VFs.
- 		 */
- 		rc = efx_ef10_vport_set_mac_address(efx);
-+	} else {
-+		efx_mcdi_display_error(efx, MC_CMD_VADAPTOR_SET_MAC,
-+				       sizeof(inbuf), NULL, 0, rc);
- 	}
- 
- 	return rc;
+Hi,
+
+I found the phy driver which supports broadcom BCM5461. But I am not
+sure if this driver does support BCM54610 in fiber mode as well? Or if
+there are any open datasheets which could be used to write a mainline
+driver for it. I would appretiate any information about this.
+
+Thanks,
+
+Markus
+
+--=20
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+
+--ZG5hGh9V5E9QzVHS
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJVm7DQAAoJEEpcgKtcEGQQj4wQAK75CyU04n5i/plqpyh1T3Vp
+MSA7xDb4yZ+9neLeFygWq/HNF2q+22atKeQ9JRZp35onagf0qAbXQeiakNzglPQr
+GMFacEI6kn6YFRyzWeJIGrG5Wh/OUS31ingoPfBBGKxmruQBaLYTpoWnYVH/6oeQ
+zUn/yE8JTlNQXU2ilFqzL/FjAUC2qiEq6fOX0M6H3UWwR5VdroWVx4CR3Fmk8si+
+j2jgt8Ox/gf1tz003JMTjO1/fAzDFNFwI+AbhcFr93BnXJ619aowrwEw7UZ/g+if
+3D7TreAS/WA0kpnPjlQIuc5Gn3Wc2sIlJuPvGKkS7/9aM7RjqL1kTBPq6EZB8zvI
+Kbc2W5pxNXPfJaHNMVVNOn9nevIt9JKqytjsSuwLC4VscikrRcNrNDpIONMha/3c
+pAdz5OfEmGwouO6/24BKz3Crhyqj+nYadE/BnHp+kMz4K/x66rYfGRKcXhTW0E6w
+/DodoNkCOXyA99fakzbhnVN31mszxu+goHKBx1RDNoPOlHm4fwPPK56hlRyxM4Vt
+VPQbtCGUdesEB39rsi1/eQuGrBgC/BasPE8iffGj1QQquafB9sausJPDIfYVYY3d
+K43IQMxTfYtKjco24EQ2lIwS+tQP/KiOUiP2QxzaRVnjk1hCMLQpky+xXFT97Clf
+gSMyK3XzlXALFMaz2qZp
+=HS1a
+-----END PGP SIGNATURE-----
+
+--ZG5hGh9V5E9QzVHS--
