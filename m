@@ -1,49 +1,68 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: [PATCH] net/tipc: initialize security state for new connection socket
-Date: Tue,  7 Jul 2015 09:43:45 -0400
-Message-ID: <1436276625-3325-1-git-send-email-sds@tycho.nsa.gov>
-Cc: paul@paul-moore.com, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>
-To: jon.maloy@ericsson.com, ying.xue@windriver.com
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net] bridge: mdb: zero out the local br_ip variable before use
+Date: Tue,  7 Jul 2015 15:55:56 +0200
+Message-ID: <1436277356-21404-1-git-send-email-razor@blackwall.org>
+Cc: bridge@lists.linux-foundation.org, stephen@networkplumber.org,
+	davem@davemloft.net, vyasevich@gmail.com,
+	Nikolay Aleksandrov <razor@blackwall.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emvm-gh1-uea08.nsa.gov ([63.239.67.9]:62331 "EHLO
-	emvm-gh1-uea08.nsa.gov" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757369AbbGGNpB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 09:45:01 -0400
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:32977 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756815AbbGGN4t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 09:56:49 -0400
+Received: by wiwl6 with SMTP id l6so315551440wiw.0
+        for <netdev@vger.kernel.org>; Tue, 07 Jul 2015 06:56:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Calling connect() with an AF_TIPC socket would trigger a series
-of error messages from SELinux along the lines of:
-SELinux: Invalid class 0
-type=AVC msg=audit(1434126658.487:34500): avc:  denied  { <unprintable> }
-  for pid=292 comm="kworker/u16:5" scontext=system_u:system_r:kernel_t:s0
-  tcontext=system_u:object_r:unlabeled_t:s0 tclass=<unprintable>
-  permissive=0
+Since commit b0e9a30dd669 ("bridge: Add vlan id to multicast groups")
+there's a check in br_ip_equal() for a matching vlan id, but the mdb
+functions were not modified to use (or at least zero it) so when an
+entry was added it would have a garbage vlan id (from the local br_ip
+variable in __br_mdb_add/del) and this would prevent it from being
+matched and also deleted. So zero out the whole local ip var to protect
+ourselves from future changes and also to fix the current bug, since
+there's no vlan id support in the mdb uapi - use always vlan id 0.
+Example before patch:
+root@debian:~# bridge mdb add dev br0 port eth1 grp 239.0.0.1 permanent
+root@debian:~# bridge mdb
+dev br0 port eth1 grp 239.0.0.1 permanent
+root@debian:~# bridge mdb del dev br0 port eth1 grp 239.0.0.1 permanent
+RTNETLINK answers: Invalid argument
 
-This was due to a failure to initialize the security state of the new
-connection sock by the tipc code, leaving it with junk in the security
-class field and an unlabeled secid.  Add a call to security_sk_clone()
-to inherit the security state from the parent socket.
+After patch:
+root@debian:~# bridge mdb add dev br0 port eth1 grp 239.0.0.1 permanent
+root@debian:~# bridge mdb
+dev br0 port eth1 grp 239.0.0.1 permanent
+root@debian:~# bridge mdb del dev br0 port eth1 grp 239.0.0.1 permanent
+root@debian:~# bridge mdb
 
-Reported-by: Tim Shearer <tim.shearer@overturenetworks.com>
-Signed-off-by: Stephen Smalley <sds@tycho.nsa.gov>
-Acked-by: Paul Moore <paul@paul-moore.com>
+Signed-off-by: Nikolay Aleksandrov <razor@blackwall.org>
+Fixes: b0e9a30dd669 ("bridge: Add vlan id to multicast groups")
 ---
- net/tipc/socket.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/bridge/br_mdb.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 46b6ed5..3a7567f 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -2007,6 +2007,7 @@ static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags)
- 	res = tipc_sk_create(sock_net(sock->sk), new_sock, 0, 1);
- 	if (res)
- 		goto exit;
-+	security_sk_clone(sock->sk, new_sock->sk);
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index e29ad70b3000..cc00066c0622 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -371,6 +371,7 @@ static int __br_mdb_add(struct net *net, struct net_bridge *br,
+ 	if (!p || p->br != br || p->state == BR_STATE_DISABLED)
+ 		return -EINVAL;
  
- 	new_sk = new_sock->sk;
- 	new_tsock = tipc_sk(new_sk);
++	memset(&ip, 0, sizeof(ip));
+ 	ip.proto = entry->addr.proto;
+ 	if (ip.proto == htons(ETH_P_IP))
+ 		ip.u.ip4 = entry->addr.u.ip4;
+@@ -417,6 +418,7 @@ static int __br_mdb_del(struct net_bridge *br, struct br_mdb_entry *entry)
+ 	if (!netif_running(br->dev) || br->multicast_disabled)
+ 		return -EINVAL;
+ 
++	memset(&ip, 0, sizeof(ip));
+ 	ip.proto = entry->addr.proto;
+ 	if (ip.proto == htons(ETH_P_IP)) {
+ 		if (timer_pending(&br->ip4_other_query.timer))
 -- 
-2.1.0
+1.9.3
