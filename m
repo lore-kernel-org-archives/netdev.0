@@ -1,74 +1,285 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2] net/bridge: Use __in6_dev_get rather than
- in6_dev_get in br_validate_ipv6
-Date: Tue, 7 Jul 2015 11:34:34 -0700
-Message-ID: <20150707113434.25f77b1e@urahara>
-References: <1436280921-2795-1-git-send-email-julien.grall@citrix.com>
+From: Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
+Subject: Re: [PATCH v2 06/22] fjes: buffer address regist/unregistration
+ routine
+Date: Tue, 07 Jul 2015 11:35:52 -0700 (PDT)
+Message-ID: <559c1c08.4a838c0a.a48ee.ffffe74d@mx.google.com>
+References: <1435114351-6961-1-git-send-email-izumi.taku@jp.fujitsu.com>
+	<1435114554-7151-7-git-send-email-izumi.taku@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, ian.campbell@citrix.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, fw@strlen.de,
-	linux-kernel@vger.kernel.org, kaber@trash.net,
-	Bob Liu <bob.liu@oracle.com>, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org,
-	Bernhard Thaler <bernhard.thaler@wvnet.at>,
-	kadlec@blackhole.kfki.hu, xen-devel@lists.xenproject.org,
-	davem@davemloft.net, pablo@netfilter.org
-To: Julien Grall <julien.grall@citrix.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1436280921-2795-1-git-send-email-julien.grall@citrix.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
+	rkhan@redhat.com, alexander.h.duyck@redhat.com,
+	linux-acpi@vger.kernel.org, joe@perches.com,
+	sergei.shtylyov@cogentembedded.com, stephen@networkplumber.org
+To: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
+In-Reply-To: <1435114554-7151-7-git-send-email-izumi.taku@jp.fujitsu.com>
+Sender: platform-driver-x86-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 7 Jul 2015 15:55:21 +0100
-Julien Grall <julien.grall@citrix.com> wrote:
 
-> The commit efb6de9b4ba0092b2c55f6a52d16294a8a698edd "netfilter: bridge:
-> forward IPv6 fragmented packets" introduced a new function
-> br_validate_ipv6 which take a reference on the inet6 device. Although,
-> the reference is not released at the end.
+On Wed, 24 Jun 2015 11:55:38 +0900
+Taku Izumi <izumi.taku@jp.fujitsu.com> wrote:
+
+> This patch adds buffer address regist/unregistration routine.
 > 
-> This will result to the impossibility to destroy any netdevice using
-> ipv6 and bridge.
+> This function is mainly invoked when network device's
+> activation (open) and deactivation (close)
+> in order to retist/unregist shared buffer address.
 > 
-> It's possible to directly retrieve the inet6 device without taking a
-> reference as all netfilter hooks are protected by rcu_read_lock via
-> nf_hook_slow.
-> 
-> Spotted while trying to destroy a Xen guest on the upstream Linux:
-> "unregister_netdevice: waiting for vif1.0 to become free. Usage count = 1"
-> 
-> Signed-off-by: Julien Grall <julien.grall@citrix.com>
-> Cc: Bernhard Thaler <bernhard.thaler@wvnet.at>
-> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-> Cc: fw@strlen.de
-> Cc: ian.campbell@citrix.com
-> Cc: wei.liu2@citrix.com
-> Cc: Bob Liu <bob.liu@oracle.com>
-> 
+> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 > ---
->     Note that it's impossible to create new guest after this message.
->     I'm not sure if it's normal.
+>  drivers/net/fjes/fjes_hw.c | 187 +++++++++++++++++++++++++++++++++++++++++++++
+>  drivers/net/fjes/fjes_hw.h |   9 ++-
+>  2 files changed, 195 insertions(+), 1 deletion(-)
 > 
->     Changes in v2:
->         - Don't take a reference to inet6.
->         - This was "net/bridge: Add missing in6_dev_put in
->         br_validate_ipv6" [0]
+> diff --git a/drivers/net/fjes/fjes_hw.c b/drivers/net/fjes/fjes_hw.c
+> index 1ffa62e..4451e70 100644
+> --- a/drivers/net/fjes/fjes_hw.c
+> +++ b/drivers/net/fjes/fjes_hw.c
+> @@ -453,6 +453,193 @@ int fjes_hw_request_info(struct fjes_hw *hw)
+>  	return result;
+>  }
+>  
+> +int fjes_hw_register_buff_addr(struct fjes_hw *hw, int dest_epid,
+> +			       struct ep_share_mem_info *buf_pair)
+> +{
+> +	union fjes_device_command_req *req_buf = hw->hw_info.req_buf;
+> +	union fjes_device_command_res *res_buf = hw->hw_info.res_buf;
+> +	enum fjes_dev_command_response_e ret;
+> +	int i, idx;
+> +	int page_count;
+> +	void *addr;
+> +	int timeout;
+> +	int result;
+> +
+> +	if (test_bit(dest_epid, &hw->hw_info.buffer_share_bit))
+> +		return 0;
+> +
+> +	memset(req_buf, 0, hw->hw_info.req_buf_size);
+> +	memset(res_buf, 0, hw->hw_info.res_buf_size);
+> +
+> +	req_buf->share_buffer.length =
+> +	FJES_DEV_COMMAND_SHARE_BUFFER_REQ_LEN(buf_pair->tx.size,
+> +					      buf_pair->rx.size);
+> +	req_buf->share_buffer.epid = dest_epid;
+> +
+> +	idx = 0;
+> +	req_buf->share_buffer.buffer[idx++] = buf_pair->tx.size;
+> +	page_count = buf_pair->tx.size / EP_BUFFER_INFO_SIZE;
+> +	for (i = 0; i < page_count; i++) {
+> +		addr = ((u8 *)(buf_pair->tx.buffer)) +
+> +				(i * EP_BUFFER_INFO_SIZE);
+> +		req_buf->share_buffer.buffer[idx++] =
+> +				(__le64)(page_to_phys(vmalloc_to_page(addr)) +
+> +						offset_in_page(addr));
+> +	}
+> +
+> +	req_buf->share_buffer.buffer[idx++] = buf_pair->rx.size;
+> +	page_count = buf_pair->rx.size / EP_BUFFER_INFO_SIZE;
+> +	for (i = 0; i < page_count; i++) {
+> +		addr = ((u8 *)(buf_pair->rx.buffer)) +
+> +				(i * EP_BUFFER_INFO_SIZE);
+> +		req_buf->share_buffer.buffer[idx++] =
+> +				(__le64)(page_to_phys(vmalloc_to_page(addr)) +
+> +						offset_in_page(addr));
+> +	}
+> +
+
+> +	res_buf->share_buffer.length = 0;
+> +	res_buf->share_buffer.code = 0;
+> +
+> +	ret = fjes_hw_issue_request_command(hw, FJES_CMD_REQ_SHARE_BUFFER);
+> +
+> +	timeout = FJES_COMMAND_REQ_BUFF_TIMEOUT * 1000;
+> +	while ((ret == FJES_CMD_STATUS_NORMAL) &&
+> +	       (res_buf->share_buffer.length ==
+> +		FJES_DEV_COMMAND_SHARE_BUFFER_RES_LEN) &&
+> +	       (res_buf->share_buffer.code == FJES_CMD_REQ_RES_CODE_BUSY) &&
+> +	       (timeout > 0)) {
+> +			msleep(200 + hw->my_epid * 20);
+> +			timeout -= (200 + hw->my_epid * 20);
+> +
+> +			res_buf->share_buffer.length = 0;
+> +			res_buf->share_buffer.code = 0;
+> +
+> +			ret =
+> +			fjes_hw_issue_request_command(hw,
+> +						      FJES_CMD_REQ_SHARE_BUFFER);
+> +	}
+> +
+> +	result = 0;
+> +
+> +	if (res_buf->share_buffer.length !=
+> +			FJES_DEV_COMMAND_SHARE_BUFFER_RES_LEN)
+> +		result = -ENOMSG;
+> +	else if (ret == FJES_CMD_STATUS_NORMAL) {
+> +		switch (res_buf->share_buffer.code) {
+> +		case FJES_CMD_REQ_RES_CODE_NORMAL:
+> +			result = 0;
+> +			set_bit(dest_epid, &hw->hw_info.buffer_share_bit);
+> +			break;
+> +		case FJES_CMD_REQ_RES_CODE_BUSY:
+> +			result = -EBUSY;
+> +			break;
+> +		default:
+> +			result = -EPERM;
+> +			break;
+> +		}
+> +	} else {
+> +		switch (ret) {
+> +		case FJES_CMD_STATUS_UNKNOWN:
+> +			result = -EPERM;
+> +			break;
+> +		case FJES_CMD_STATUS_TIMEOUT:
+> +			result = -EBUSY;
+> +			break;
+> +		case FJES_CMD_STATUS_ERROR_PARAM:
+> +		case FJES_CMD_STATUS_ERROR_STATUS:
+> +		default:
+> +			result = -EPERM;
+> +			break;
+> +		}
+> +	}
+> +
+> +	return result;
+
+fjes_hw_unregister_buff_addr() has same implemetation.
+How about preparing new function to unify them?
+
+Thanks,
+Yasuaki Ishimatsu
+
+> +}
+> +
+> +int fjes_hw_unregister_buff_addr(struct fjes_hw *hw, int dest_epid)
+> +{
+> +	union fjes_device_command_req *req_buf = hw->hw_info.req_buf;
+> +	union fjes_device_command_res *res_buf = hw->hw_info.res_buf;
+> +	struct fjes_device_shared_info *share = hw->hw_info.share;
+> +	enum fjes_dev_command_response_e ret;
+> +	int result;
+> +	int timeout;
+> +
+> +	if (!hw->base)
+> +		return -EPERM;
+> +
+> +	if (!req_buf || !res_buf || !share)
+> +		return -EPERM;
+> +
+> +	if (!test_bit(dest_epid, &hw->hw_info.buffer_share_bit))
+> +		return 0;
+> +
+> +	memset(req_buf, 0, hw->hw_info.req_buf_size);
+> +	memset(res_buf, 0, hw->hw_info.res_buf_size);
+> +
+> +	req_buf->unshare_buffer.length =
+> +			FJES_DEV_COMMAND_UNSHARE_BUFFER_REQ_LEN;
+> +	req_buf->unshare_buffer.epid = dest_epid;
+> +
+> +	res_buf->unshare_buffer.length = 0;
+> +	res_buf->unshare_buffer.code = 0;
+> +
+> +	ret = fjes_hw_issue_request_command(hw, FJES_CMD_REQ_UNSHARE_BUFFER);
+> +
+> +	timeout = FJES_COMMAND_REQ_BUFF_TIMEOUT * 1000;
+> +	while ((ret == FJES_CMD_STATUS_NORMAL) &&
+> +	       (res_buf->unshare_buffer.length ==
+> +		FJES_DEV_COMMAND_UNSHARE_BUFFER_RES_LEN) &&
+> +	       (res_buf->unshare_buffer.code ==
+> +		FJES_CMD_REQ_RES_CODE_BUSY) &&
+> +	       (timeout > 0)) {
+> +		msleep(200 + hw->my_epid * 20);
+> +			timeout -= (200 + hw->my_epid * 20);
+> +
+> +		res_buf->unshare_buffer.length = 0;
+> +		res_buf->unshare_buffer.code = 0;
+> +
+> +		ret =
+> +		fjes_hw_issue_request_command(hw, FJES_CMD_REQ_UNSHARE_BUFFER);
+> +	}
+> +
+> +	result = 0;
+> +
+> +	if (res_buf->unshare_buffer.length !=
+> +			FJES_DEV_COMMAND_UNSHARE_BUFFER_RES_LEN) {
+> +		result = -ENOMSG;
+> +	} else if (ret == FJES_CMD_STATUS_NORMAL) {
+> +		switch (res_buf->unshare_buffer.code) {
+> +		case FJES_CMD_REQ_RES_CODE_NORMAL:
+> +			result = 0;
+> +			clear_bit(dest_epid, &hw->hw_info.buffer_share_bit);
+> +			break;
+> +		case FJES_CMD_REQ_RES_CODE_BUSY:
+> +			result = -EBUSY;
+> +			break;
+> +		default:
+> +			result = -EPERM;
+> +			break;
+> +		}
+> +	} else {
+> +		switch (ret) {
+> +		case FJES_CMD_STATUS_UNKNOWN:
+> +			result = -EPERM;
+> +			break;
+> +		case FJES_CMD_STATUS_TIMEOUT:
+> +			result = -EBUSY;
+> +			break;
+> +		case FJES_CMD_STATUS_ERROR_PARAM:
+> +		case FJES_CMD_STATUS_ERROR_STATUS:
+> +		default:
+> +			result = -EPERM;
+> +			break;
+> +		}
+> +	}
+> +
+> +	return result;
+> +}
+> +
+>  void fjes_hw_set_irqmask(struct fjes_hw *hw,
+>  			 enum REG_ICTL_MASK intr_mask, bool mask)
+>  {
+> diff --git a/drivers/net/fjes/fjes_hw.h b/drivers/net/fjes/fjes_hw.h
+> index 2ee166a..d1321e8 100644
+> --- a/drivers/net/fjes/fjes_hw.h
+> +++ b/drivers/net/fjes/fjes_hw.h
+> @@ -34,11 +34,13 @@ struct fjes_hw;
+>  
+>  #define FJES_DEVICE_RESET_TIMEOUT  ((17 + 1) * 3) /* sec */
+>  #define FJES_COMMAND_REQ_TIMEOUT  (5 + 1) /* sec */
+> +#define FJES_COMMAND_REQ_BUFF_TIMEOUT	(8 * 3) /* sec */
+>  
+>  #define FJES_CMD_REQ_ERR_INFO_PARAM  (0x0001)
+>  #define FJES_CMD_REQ_ERR_INFO_STATUS (0x0002)
+>  
+>  #define FJES_CMD_REQ_RES_CODE_NORMAL (0)
+> +#define FJES_CMD_REQ_RES_CODE_BUSY   (1)
+>  
+>  #define EP_BUFFER_SIZE \
+>  	(((sizeof(union ep_buffer_info) + (128 * (64 * 1024))) \
+> @@ -59,6 +61,9 @@ struct fjes_hw;
+>  #define FJES_DEV_COMMAND_INFO_RES_LEN(epnum) (8 + 2 * (epnum))
+>  #define FJES_DEV_COMMAND_SHARE_BUFFER_REQ_LEN(txb, rxb) \
+>  	(24 + (8 * ((txb) / EP_BUFFER_INFO_SIZE + (rxb) / EP_BUFFER_INFO_SIZE)))
+> +#define FJES_DEV_COMMAND_SHARE_BUFFER_RES_LEN	(8)
+> +#define FJES_DEV_COMMAND_UNSHARE_BUFFER_REQ_LEN	(8)
+> +#define FJES_DEV_COMMAND_UNSHARE_BUFFER_RES_LEN	(8)
+>  
+>  #define FJES_DEV_REQ_BUF_SIZE(maxep) \
+>  	FJES_DEV_COMMAND_SHARE_BUFFER_REQ_LEN(EP_BUFFER_SIZE, EP_BUFFER_SIZE)
+> @@ -266,7 +271,9 @@ int fjes_hw_init(struct fjes_hw *);
+>  void fjes_hw_exit(struct fjes_hw *);
+>  int fjes_hw_reset(struct fjes_hw *);
+>  int fjes_hw_request_info(struct fjes_hw *);
+> -
+> +int fjes_hw_register_buff_addr(struct fjes_hw *, int,
+> +			       struct ep_share_mem_info *);
+> +int fjes_hw_unregister_buff_addr(struct fjes_hw *, int);
+>  void fjes_hw_init_command_registers(struct fjes_hw *,
+>  				    struct fjes_device_command_param *);
+>  void fjes_hw_setup_epbuf(struct epbuf_handler *, u8 *, u32);
+> -- 
+> 1.8.3.1
 > 
->     [0] https://lkml.org/lkml/2015/7/3/443
-> ---
->  net/bridge/br_netfilter_ipv6.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-
-I like this simple solution
-
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
