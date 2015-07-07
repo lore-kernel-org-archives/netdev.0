@@ -1,82 +1,61 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] vmxnet3: prevent receive getting out of sequence on napi poll
-Date: Tue,  7 Jul 2015 14:02:18 -0400
-Message-ID: <1436292138-18190-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:54836 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932515AbbGGSCm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 14:02:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicholas Krause <xerofoify@gmail.com>
+Subject: [PATCH] freescale:Make receive and transmit functions have a return
+ type of void
+Date: Tue,  7 Jul 2015 14:07:12 -0400
+Message-ID: <1436292432-1933-1-git-send-email-xerofoify@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ linux-kernel@vger.kernel.org
+To: leoli@freescale.com
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-vmxnet3's current napi path is built to count every rx descriptor we recieve,
-and use that as a count of the napi budget.  That means its possible to return
-from a napi poll halfway through recieving a fragmented packet accross multiple
-dma descriptors.  If that happens, the next napi poll will start with the
-descriptor ring in an improper state (e.g. the first descriptor we look at may
-have the end-of-packet bit set), which will cause a BUG halt in the driver.
-
-Fix the issue by only counting whole received packets in the napi poll and
-returning that value, rather than the descriptor count.
-
-Tested by the reporter and myself, successfully
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Shreyas Bhatewara <sbhatewara@vmware.com>
-CC: "David S. Miller" <davem@davemloft.net>
----
- drivers/net/vmxnet3/vmxnet3_drv.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index da11bb5..46f4cad 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -1216,7 +1216,7 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
- 	static const u32 rxprod_reg[2] = {
- 		VMXNET3_REG_RXPROD, VMXNET3_REG_RXPROD2
- 	};
--	u32 num_rxd = 0;
-+	u32 num_pkts = 0;
- 	bool skip_page_frags = false;
- 	struct Vmxnet3_RxCompDesc *rcd;
- 	struct vmxnet3_rx_ctx *ctx = &rq->rx_ctx;
-@@ -1235,13 +1235,12 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
- 		struct Vmxnet3_RxDesc *rxd;
- 		u32 idx, ring_idx;
- 		struct vmxnet3_cmd_ring	*ring = NULL;
--		if (num_rxd >= quota) {
-+		if (num_pkts >= quota) {
- 			/* we may stop even before we see the EOP desc of
- 			 * the current pkt
- 			 */
- 			break;
- 		}
--		num_rxd++;
- 		BUG_ON(rcd->rqID != rq->qid && rcd->rqID != rq->qid2);
- 		idx = rcd->rxdIdx;
- 		ring_idx = rcd->rqID < adapter->num_rx_queues ? 0 : 1;
-@@ -1413,6 +1412,7 @@ not_lro:
- 				napi_gro_receive(&rq->napi, skb);
- 
- 			ctx->skb = NULL;
-+			num_pkts++;
- 		}
- 
- rcd_done:
-@@ -1443,7 +1443,7 @@ rcd_done:
- 				  &rq->comp_ring.base[rq->comp_ring.next2proc].rcd, &rxComp);
- 	}
- 
--	return num_rxd;
-+	return num_pkts;
- }
- 
- 
--- 
-2.1.0
+VGhpcyBtYWtlcyB2YXJpb3VzIHJlY2VpdmUgYW5kIHRyYW5zbWl0IGZ1bmN0aW9ucyB0aGF0IGFs
+d2F5cyBydW4Kc3VjY2Vzc2Z1bGx5IHRvIGJlIGRlY2xhcmVkIHRvIGhhdmUgYSByZXR1cm4gb2Yg
+dm9pZCBmb3IgdGhlIGRyaXZlcgpmaWxlLCB1Y2NfZ2V0aC5jLgoKU2lnbmVkLW9mZi1ieTogTmlj
+aG9sYXMgS3JhdXNlIDx4ZXJvZm9pZnlAZ21haWwuY29tPgotLS0KIGRyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ZyZWVzY2FsZS91Y2NfZ2V0aC5jIHwgMTIgKysrLS0tLS0tLS0tCiAxIGZpbGUgY2hhbmdl
+ZCwgMyBpbnNlcnRpb25zKCspLCA5IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS91Y2NfZ2V0aC5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+ZnJlZXNjYWxlL3VjY19nZXRoLmMKaW5kZXggNGRkNDBlMC4uNzhlYmQ3MyAxMDA2NDQKLS0tIGEv
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19nZXRoLmMKKysrIGIvZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19nZXRoLmMKQEAgLTEzOTgsNyArMTM5OCw3IEBAIHN0
+YXRpYyBpbnQgYWRqdXN0X2VuZXRfaW50ZXJmYWNlKHN0cnVjdCB1Y2NfZ2V0aF9wcml2YXRlICp1
+Z2V0aCkKIAlyZXR1cm4gMDsKIH0KIAotc3RhdGljIGludCB1Z2V0aF9ncmFjZWZ1bF9zdG9wX3R4
+KHN0cnVjdCB1Y2NfZ2V0aF9wcml2YXRlICp1Z2V0aCkKK3N0YXRpYyB2b2lkIHVnZXRoX2dyYWNl
+ZnVsX3N0b3BfdHgoc3RydWN0IHVjY19nZXRoX3ByaXZhdGUgKnVnZXRoKQogewogCXN0cnVjdCB1
+Y2NfZmFzdF9wcml2YXRlICp1Y2NmOwogCXUzMiBjZWNyX3N1YmJsb2NrOwpAQCAtMTQyNCwxMSAr
+MTQyNCw5IEBAIHN0YXRpYyBpbnQgdWdldGhfZ3JhY2VmdWxfc3RvcF90eChzdHJ1Y3QgdWNjX2dl
+dGhfcHJpdmF0ZSAqdWdldGgpCiAJfSB3aGlsZSAoISh0ZW1wICYgVUNDX0dFVEhfVUNDRV9HUkEp
+ICYmIC0taSk7CiAKIAl1Y2NmLT5zdG9wcGVkX3R4ID0gMTsKLQotCXJldHVybiAwOwogfQogCi1z
+dGF0aWMgaW50IHVnZXRoX2dyYWNlZnVsX3N0b3Bfcngoc3RydWN0IHVjY19nZXRoX3ByaXZhdGUg
+KnVnZXRoKQorc3RhdGljIHZvaWQgdWdldGhfZ3JhY2VmdWxfc3RvcF9yeChzdHJ1Y3QgdWNjX2dl
+dGhfcHJpdmF0ZSAqdWdldGgpCiB7CiAJc3RydWN0IHVjY19mYXN0X3ByaXZhdGUgKnVjY2Y7CiAJ
+dTMyIGNlY3Jfc3ViYmxvY2s7CkBAIC0xNDU2LDExICsxNDU0LDkgQEAgc3RhdGljIGludCB1Z2V0
+aF9ncmFjZWZ1bF9zdG9wX3J4KHN0cnVjdCB1Y2NfZ2V0aF9wcml2YXRlICp1Z2V0aCkKIAl9IHdo
+aWxlICghKHRlbXAgJiBHUkFDRUZVTF9TVE9QX0FDS05PV0xFREdFX1JYKSAmJiAtLWkpOwogCiAJ
+dWNjZi0+c3RvcHBlZF9yeCA9IDE7Ci0KLQlyZXR1cm4gMDsKIH0KIAotc3RhdGljIGludCB1Z2V0
+aF9yZXN0YXJ0X3R4KHN0cnVjdCB1Y2NfZ2V0aF9wcml2YXRlICp1Z2V0aCkKK3N0YXRpYyB2b2lk
+IHVnZXRoX3Jlc3RhcnRfdHgoc3RydWN0IHVjY19nZXRoX3ByaXZhdGUgKnVnZXRoKQogewogCXN0
+cnVjdCB1Y2NfZmFzdF9wcml2YXRlICp1Y2NmOwogCXUzMiBjZWNyX3N1YmJsb2NrOwpAQCAtMTQ3
+MSw4ICsxNDY3LDYgQEAgc3RhdGljIGludCB1Z2V0aF9yZXN0YXJ0X3R4KHN0cnVjdCB1Y2NfZ2V0
+aF9wcml2YXRlICp1Z2V0aCkKIAkgICAgdWNjX2Zhc3RfZ2V0X3FlX2NyX3N1YmJsb2NrKHVnZXRo
+LT51Z19pbmZvLT51Zl9pbmZvLnVjY19udW0pOwogCXFlX2lzc3VlX2NtZChRRV9SRVNUQVJUX1RY
+LCBjZWNyX3N1YmJsb2NrLCBRRV9DUl9QUk9UT0NPTF9FVEhFUk5FVCwgMCk7CiAJdWNjZi0+c3Rv
+cHBlZF90eCA9IDA7Ci0KLQlyZXR1cm4gMDsKIH0KIAogc3RhdGljIGludCB1Z2V0aF9yZXN0YXJ0
+X3J4KHN0cnVjdCB1Y2NfZ2V0aF9wcml2YXRlICp1Z2V0aCkKLS0gCjIuMS40CgpfX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGlu
+ZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJz
+Lm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
