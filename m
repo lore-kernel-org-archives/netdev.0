@@ -1,36 +1,73 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: Re: [PATCH V2] cdc_ncm: Add support for moving NDP to end of NCM
- frame
-Date: Tue, 7 Jul 2015 22:50:41 +0200 (CEST)
-Message-ID: <alpine.LNX.2.20.1507072243460.9655@localhost.localdomain>
-References: <1435787748-30393-1-git-send-email-mrkiko.rs@gmail.com> <alpine.LNX.2.20.1507051219280.12595@archiso.lan> <1436177296.8225.25.camel@suse.com>
+From: Zheng Liu <zhliu@nvidia.com>
+Subject: [PATCH net 1/1] drivers/net/usb: add device id for NVIDIA Tegra USB 3.0 Ethernet
+Date: Tue, 7 Jul 2015 13:54:12 -0700
+Message-ID: <1436302452-6448-1-git-send-email-zhliu@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, Zheng Liu <zhliu@nvidia.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:33144 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932713AbbGGUus (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 16:50:48 -0400
-In-Reply-To: <1436177296.8225.25.camel@suse.com>
+Received: from hqemgate14.nvidia.com ([216.228.121.143]:8614 "EHLO
+	hqemgate14.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933035AbbGGUye (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 16:54:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Oliver, hello to who is reading this message.
+This device is sold as 'NVIDIA Tegra USB 3.0 Ethernet'.
+Chipset is RTL8153 and works with r8152.
 
-i was re-reading the code and the oops, without understanding what's the 
-problem. Still: what impressed me is the fact that at some point you see NULL 
-ptr dereference in unrelated code (fbcon). Is it possible that at some point 
-the memory portion (172 bytes if device is affected by NCM errata, and mine 
-is), that the portion of memory to which ctx->delayed_ndp16 points to is 
-somehow moved / thrown away?
-It doesn't make sense, because otherwise even accesses to the ctx variable 
-would give problems. And they don't.
-Looking around then, I see kzalloc() / kmalloc (kzalloc =kmalloc | __GFP_ZERO) 
-are used to allocate any size of memory (with the only requirement for it to be 
-small). In rndis_host.c 1025 bytes (not 1024) are allocated, so I am excluding 
-any kind of alignment problem here.
+Signed-off-by: Zheng Liu <zhliu@nvidia.com>
+---
+ drivers/net/usb/cdc_ether.c | 8 ++++++++
+ drivers/net/usb/r8152.c     | 2 ++
+ 2 files changed, 10 insertions(+)
 
-Thank you,
-Enrico
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 4545e78840b0..35a2bffe848a 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -523,6 +523,7 @@ static const struct driver_info wwan_info = {
+ #define REALTEK_VENDOR_ID	0x0bda
+ #define SAMSUNG_VENDOR_ID	0x04e8
+ #define LENOVO_VENDOR_ID	0x17ef
++#define NVIDIA_VENDOR_ID	0x0955
+ 
+ static const struct usb_device_id	products[] = {
+ /* BLACKLIST !!
+@@ -710,6 +711,13 @@ static const struct usb_device_id	products[] = {
+ 	.driver_info = 0,
+ },
+ 
++/* NVIDIA Tegra USB 3.0 Ethernet Adapters (based on Realtek RTL8153) */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(NVIDIA_VENDOR_ID, 0x09ff, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info = 0,
++},
++
+ /* WHITELIST!!!
+  *
+  * CDC Ether uses two interfaces, not necessarily consecutive.
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index aafa1a1898e4..7f6419ebb5e1 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -494,6 +494,7 @@ enum rtl8152_flags {
+ #define VENDOR_ID_REALTEK		0x0bda
+ #define VENDOR_ID_SAMSUNG		0x04e8
+ #define VENDOR_ID_LENOVO		0x17ef
++#define VENDOR_ID_NVIDIA		0x0955
+ 
+ #define MCU_TYPE_PLA			0x0100
+ #define MCU_TYPE_USB			0x0000
+@@ -4117,6 +4118,7 @@ static struct usb_device_id rtl8152_table[] = {
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_SAMSUNG, 0xa101)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x7205)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x304f)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_NVIDIA,  0x09ff)},
+ 	{}
+ };
+ 
+-- 
+2.1.4
