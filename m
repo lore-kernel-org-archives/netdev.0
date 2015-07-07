@@ -1,133 +1,82 @@
-From: Jon Maxwell <jmaxwell37@gmail.com>
-Subject: [PATCH net-next] tcp: always send a quick ack when quickacks are enabled
-Date: Tue,  7 Jul 2015 14:22:06 +1000
-Message-ID: <1436242926-21416-1-git-send-email-jmaxwell37@gmail.com>
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jmaxwell@redhat.com,
-	Jon Maxwell <jmaxwell37@gmail.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
+Subject: [PATCH net,v2] ip_tunnel: fix ipv4 pmtu check to honor inner ip header df
+Date: Tue,  7 Jul 2015 08:34:13 +0300
+Message-ID: <1436247253-6466-1-git-send-email-timo.teras@iki.fi>
+References: <20150707033906.GF1173@brightrain.aerifal.cx>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:33093 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751391AbbGGFeU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 01:34:20 -0400
+Received: by laar3 with SMTP id r3so181624521laa.0
+        for <netdev@vger.kernel.org>; Mon, 06 Jul 2015 22:34:19 -0700 (PDT)
+In-Reply-To: <20150707033906.GF1173@brightrain.aerifal.cx>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I ran some tests and after setting the "ip route change quickack 1" 
-knob there were still many delayed ACKs sent. This occured 
-because when icsk_ack.quick=0 the !icsk_ack.pingpong value is 
-subsequently ignored as tcp_in_quickack_mode() checks both these 
-values. The condition for a quick ack to trigger requires 
-that both icsk_ack.quick != 0 and icsk_ack.pingpong=0. Currently 
-only icsk_ack.pingpong is controlled by the knob. But the 
-icsk_ack.quick value changes dynamically depending on heuristics. 
-The crux of the matter is that delayed acks still cannot be entirely 
-disabled even with the RTAX_QUICKACK per dst knob enabled. This 
-patch ensures that a quick ack is always sent when the RTAX_QUICKACK 
-per dst knob is turned on. 
+=46rag needed should be sent only if the inner header asked
+to not fragment. Currently fragmentation is broken if the
+tunnel has df set, but df was not asked in the original
+packet. The tunnel's df needs to be still checked to update
+internally the pmtu cache.
 
-The "ip route change quickack 1" knob was recently added to enable 
-quickacks. It was modeled around the TCP_QUICKACK setsockopt() option.
-This issue is that even with "ip route change quickack 1" enabled
-we still see delayed ACKs under some conditions. It would be nice
-to be able to completely disable delayed ACKs. 
+Commit 23a3647bc4f93bac broke it, and this commit fixes
+the ipv4 df check back to the way it was.
 
-Here is an example:
-
-# netstat -s|grep dela
-    3 delayed acks sent
-
-For all routes enable the knob
-
-# ip route change quickack 1
-
-Generate some traffic across a slow link and we still see the delayed
-acks.
-
-# netstat -s|grep dela
-    106 delayed acks sent
-    1 delayed acks further delayed because of locked socket
-
-The issue is that both the "ip route change quickack 1" knob and 
-the TCP_QUICKACK option set the icsk_ack.pingpong variable to 0. 
-However at the business end in the __tcp_ack_snd_check() routine, 
-tcp_in_quickack_mode() checks that both icsk_ack.quick != 0 
-and icsk_ack.pingpong=0 in order to trigger a quickack. As 
-icsk_ack.quick is determined by heuristics it can be 0. When 
-that occurs the icsk_ack.pingpong value is ignored and a delayed 
-ACK is sent regardless. 
-
-This patch moves the RTAX_QUICKACK per dst check into the 
-__tcp_ack_snd_check() routine which ensures that a quickack is 
-always sent when the quickack knob is enabled for that dst.
-
-Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
+=46ixes: 23a3647bc4f93bac ("ip_tunnels: Use skb-len to PMTU check.")
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
 ---
- net/ipv4/tcp_input.c  | 8 ++++----
- net/ipv4/tcp_output.c | 6 ++----
- 2 files changed, 6 insertions(+), 8 deletions(-)
+Should go to -stable queues (3.12.y and newer).
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 684f095..1af7d74 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3948,7 +3948,6 @@ void tcp_reset(struct sock *sk)
- static void tcp_fin(struct sock *sk)
+v2: revised commit message wording a bit, and added
+signed-off-by line that was forgotten accidentally.
+
+ net/ipv4/ip_tunnel.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 4c2c3ba..626d9e5 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -586,7 +586,8 @@ int ip_tunnel_encap(struct sk_buff *skb, struct ip_=
+tunnel *t,
+ EXPORT_SYMBOL(ip_tunnel_encap);
+=20
+ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb=
+,
+-			    struct rtable *rt, __be16 df)
++			    struct rtable *rt, __be16 df,
++			    const struct iphdr *inner_iph)
  {
- 	struct tcp_sock *tp = tcp_sk(sk);
--	const struct dst_entry *dst;
- 
- 	inet_csk_schedule_ack(sk);
- 
-@@ -3960,9 +3959,7 @@ static void tcp_fin(struct sock *sk)
- 	case TCP_ESTABLISHED:
- 		/* Move to CLOSE_WAIT */
- 		tcp_set_state(sk, TCP_CLOSE_WAIT);
--		dst = __sk_dst_get(sk);
--		if (!dst || !dst_metric(dst, RTAX_QUICKACK))
--			inet_csk(sk)->icsk_ack.pingpong = 1;
-+		inet_csk(sk)->icsk_ack.pingpong = 1;
- 		break;
- 
- 	case TCP_CLOSE_WAIT:
-@@ -4887,6 +4884,7 @@ static inline void tcp_data_snd_check(struct sock *sk)
- static void __tcp_ack_snd_check(struct sock *sk, int ofo_possible)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	const struct dst_entry *dst = __sk_dst_get(sk);
- 
- 	    /* More than one full frame received... */
- 	if (((tp->rcv_nxt - tp->rcv_wup) > inet_csk(sk)->icsk_ack.rcv_mss &&
-@@ -4896,6 +4894,8 @@ static void __tcp_ack_snd_check(struct sock *sk, int ofo_possible)
- 	     __tcp_select_window(sk) >= tp->rcv_wnd) ||
- 	    /* We ACK each frame or... */
- 	    tcp_in_quickack_mode(sk) ||
-+	    /* quickack on dst */
-+	    (dst && dst_metric(dst, RTAX_QUICKACK)) ||
- 	    /* We have out of order data. */
- 	    (ofo_possible && skb_peek(&tp->out_of_order_queue))) {
- 		/* Then ack it now */
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index b1c218d..7105784 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -163,7 +163,6 @@ static void tcp_event_data_sent(struct tcp_sock *tp,
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	const u32 now = tcp_time_stamp;
--	const struct dst_entry *dst = __sk_dst_get(sk);
- 
- 	if (sysctl_tcp_slow_start_after_idle &&
- 	    (!tp->packets_out && (s32)(now - tp->lsndtime) > icsk->icsk_rto))
-@@ -174,9 +173,8 @@ static void tcp_event_data_sent(struct tcp_sock *tp,
- 	/* If it is a reply for ato after last received
- 	 * packet, enter pingpong mode.
- 	 */
--	if ((u32)(now - icsk->icsk_ack.lrcvtime) < icsk->icsk_ack.ato &&
--	    (!dst || !dst_metric(dst, RTAX_QUICKACK)))
--			icsk->icsk_ack.pingpong = 1;
-+	if ((u32)(now - icsk->icsk_ack.lrcvtime) < icsk->icsk_ack.ato)
-+		icsk->icsk_ack.pingpong = 1;
- }
- 
- /* Account for an ACK we sent. */
--- 
-1.8.3.1
+ 	struct ip_tunnel *tunnel =3D netdev_priv(dev);
+ 	int pkt_size =3D skb->len - tunnel->hlen - dev->hard_header_len;
+@@ -603,7 +604,8 @@ static int tnl_update_pmtu(struct net_device *dev, =
+struct sk_buff *skb,
+=20
+ 	if (skb->protocol =3D=3D htons(ETH_P_IP)) {
+ 		if (!skb_is_gso(skb) &&
+-		    (df & htons(IP_DF)) && mtu < pkt_size) {
++		    (inner_iph->frag_off & htons(IP_DF)) &&
++		    mtu < pkt_size) {
+ 			memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+ 			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
+ 			return -E2BIG;
+@@ -737,7 +739,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net=
+_device *dev,
+ 		goto tx_error;
+ 	}
+=20
+-	if (tnl_update_pmtu(dev, skb, rt, tnl_params->frag_off)) {
++	if (tnl_update_pmtu(dev, skb, rt, tnl_params->frag_off, inner_iph)) {
+ 		ip_rt_put(rt);
+ 		goto tx_error;
+ 	}
+--=20
+2.4.5
