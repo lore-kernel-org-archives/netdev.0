@@ -1,33 +1,47 @@
-From: David Binderman <dcb314@hotmail.com>
-Subject: RE: linux-4.2-rc1/samples/bpf/sockex3_kern.c: bad expression ?
-Date: Tue, 7 Jul 2015 19:24:56 +0000
-Message-ID: <DUB128-W42D5F7B52C9C5EA1338B739C920@phx.gbl>
-References: <DUB128-W38D412CB6F86AA3D6084F49C920@phx.gbl>,<20150707191437.GA6040@Alexeis-MBP.westell.com>
+From: Nicholas Krause <xerofoify@gmail.com>
+Subject: [PATCH] freescale:Make the function ucc_geth_tx have a return type of
+ void
+Date: Tue,  7 Jul 2015 15:36:29 -0400
+Message-ID: <1436297789-31422-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Alexei Starovoitov <ast@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dub004-omc3s14.hotmail.com ([157.55.2.23]:62427 "EHLO
-	DUB004-OMC3S14.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932886AbbGGT37 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jul 2015 15:29:59 -0400
-In-Reply-To: <20150707191437.GA6040@Alexeis-MBP.westell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ linux-kernel@vger.kernel.org
+To: leoli@freescale.com
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-Hello there Alexei,
-
-----------------------------------------
-> oops, yes. Could you please send a patch to fix it. 
-
-Sorry, but I gave up trying to do kernel patches many years ago.
-
-Regards
-
-David Binderman
-
- 		 	   		  
+VGhpcyBtYWtlcyB0aGUgZnVuY3Rpb24gdWNjX2dldGhfdHggaGF2ZSBhIHJldHVybiB0eXBlIG9m
+IHZvaWQgbm93CmR1ZSB0byB0aGlzIHBhcnRpY3VsYXIgZnVuY3Rpb24gYWx3YXlzIGNvbXBsZXRp
+bmcgd2l0aG91dCBldmVyCmV4ZWN1dGluZyBhIG5vbiByZWNvdmVyYWJsZSBlcnJvci4KClNpZ25l
+ZC1vZmYtYnk6IE5pY2hvbGFzIEtyYXVzZSA8eGVyb2ZvaWZ5QGdtYWlsLmNvbT4KLS0tCiBkcml2
+ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYyB8IDMgKy0tCiAxIGZpbGUgY2hh
+bmdlZCwgMSBpbnNlcnRpb24oKyksIDIgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19nZXRoLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9mcmVlc2NhbGUvdWNjX2dldGguYwppbmRleCA3OGViZDczLi43MGYzMDQ1IDEwMDY0NAotLS0g
+YS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYworKysgYi9kcml2ZXJz
+L25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYwpAQCAtMzIyNiw3ICszMjI2LDcgQEAg
+c3RhdGljIGludCB1Y2NfZ2V0aF9yeChzdHJ1Y3QgdWNjX2dldGhfcHJpdmF0ZSAqdWdldGgsIHU4
+IHJ4USwgaW50IHJ4X3dvcmtfbGltaXQKIAlyZXR1cm4gaG93bWFueTsKIH0KIAotc3RhdGljIGlu
+dCB1Y2NfZ2V0aF90eChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1OCB0eFEpCitzdGF0aWMgdm9p
+ZCB1Y2NfZ2V0aF90eChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1OCB0eFEpCiB7CiAJLyogU3Rh
+cnQgZnJvbSB0aGUgbmV4dCBCRCB0aGF0IHNob3VsZCBiZSBmaWxsZWQgKi8KIAlzdHJ1Y3QgdWNj
+X2dldGhfcHJpdmF0ZSAqdWdldGggPSBuZXRkZXZfcHJpdihkZXYpOwpAQCAtMzI2OSw3ICszMjY5
+LDYgQEAgc3RhdGljIGludCB1Y2NfZ2V0aF90eChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1OCB0
+eFEpCiAJCWJkX3N0YXR1cyA9IGluX2JlMzIoKHUzMiBfX2lvbWVtICopYmQpOwogCX0KIAl1Z2V0
+aC0+Y29uZkJkW3R4UV0gPSBiZDsKLQlyZXR1cm4gMDsKIH0KIAogc3RhdGljIGludCB1Y2NfZ2V0
+aF9wb2xsKHN0cnVjdCBuYXBpX3N0cnVjdCAqbmFwaSwgaW50IGJ1ZGdldCkKLS0gCjIuMS40Cgpf
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1k
+ZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlz
+dHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
