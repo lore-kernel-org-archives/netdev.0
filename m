@@ -1,44 +1,140 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH v3 1/3] net: dsa: mv88e6xxx: add debugfs interface for
- VTU
-Date: Tue, 7 Jul 2015 12:19:29 -0400 (EDT)
-Message-ID: <1021310176.218025.1436285969810.JavaMail.zimbra@savoirfairelinux.com>
-References: <1436148893-14379-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1436148893-14379-2-git-send-email-vivien.didelot@savoirfairelinux.com> <20150707020818.GB5540@lunn.ch> <1165322565.210276.1436284349938.JavaMail.zimbra@savoirfairelinux.com> <20150707160744.GA13230@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>
-To: Andrew Lunn <andrew@lunn.ch>, Guenter Roeck <linux@roeck-us.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:50711 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751688AbbGGQTd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 12:19:33 -0400
-In-Reply-To: <20150707160744.GA13230@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH v3] bonding: "primary_reselect" with "failure" is not working properly
+Date: Tue, 07 Jul 2015 09:22:55 -0700
+Message-ID: <3202.1436286175@famine>
+References: <1436261690-1121-1-git-send-email-ranamazharp@gmail.com>
+Cc: Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Mazhar Rana <mazhar.rana@cyberoam.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	sanket.shah@cyberoam.com
+To: Mazhar Rana <ranamazharp@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <1436261690-1121-1-git-send-email-ranamazharp@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Guenter, Andrew,
+Mazhar Rana <ranamazharp@gmail.com> wrote:
 
------ On Jul 7, 2015, at 12:07 PM, Andrew Lunn andrew@lunn.ch wrote:
+>From: Mazhar Rana <mazhar.rana@cyberoam.com>
+>
+>When "primary_reselect" is set to "failure", primary interface should
+>not become active until current active slave is down. But if we set first
+>member of bond device as a "primary" interface and "primary_reselect"
+>is set to "failure" then whenever primary interface's link get back(up)
+>it become active slave even if current active slave is still up.
+>
+>With this patch, "bond_find_best_slave" will not traverse members if
+>primary interface is not candidate for failover/reselection and current
+>active slave is still up.
+>
+>Signed-off-by: Mazhar Rana <mazhar.rana@cyberoam.com>
+>Signed-off-by: Jay Vosburgh <j.vosburgh@gmail.com>
 
->> Indeed, I intentionally kept it as is, since the 88E6352 datasheet is not
->> really clear about this. I see that the register 0x09 (called
->> GLOBAL_VTU_DATA_8_11 in mv88e6xxx.h) only contains VID priority related bits in
->> 15:12, in my case. As bits 11:0 are reserved, I suspect that the offsets of
->> Member TagP7, Member TagP8 and Member TagP9 are respectively 0, 4 and 8 for
->> you. Can you confirm? If so, I'll make that generic with these values.
+	I don't believe I posted a Signed-off-by, so you really
+shouldn't include one for me without it being explicitly stated.
+
+	In any event, I'm good with the patch, so:
+
+Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+
+	-J
+
+>---
+>
+>v1->v2: 
+>return "curr" instead of "bond->curr_active_slave".
+>
+>v2->v3: 
+>To make code more clear, replaced function bond_should_change_active
+>with bond_choose_primary_or_current which will return slave device.
+>
+> drivers/net/bonding/bond_main.c | 51 +++++++++++++++++++++++++++--------------
+> 1 file changed, 34 insertions(+), 17 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 19eb990..317a494 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -689,40 +689,57 @@ out:
 > 
-> Yes, the pattern continues for up to 11 ports, if you look at the DSDT
-> sources from Marvell. The mv88e6131.c driver has one device, the 6095,
-> with 11 ports.
-
-Thanks for the details. I make the change and send a v4 asap.
-
-Best,
--v
+> }
+> 
+>-static bool bond_should_change_active(struct bonding *bond)
+>+static struct slave *bond_choose_primary_or_current(struct bonding *bond)
+> {
+> 	struct slave *prim = rtnl_dereference(bond->primary_slave);
+> 	struct slave *curr = rtnl_dereference(bond->curr_active_slave);
+> 
+>-	if (!prim || !curr || curr->link != BOND_LINK_UP)
+>-		return true;
+>+	if (!prim || prim->link != BOND_LINK_UP) {
+>+		if (!curr || curr->link != BOND_LINK_UP)
+>+			return NULL;
+>+		return curr;
+>+	}
+>+
+> 	if (bond->force_primary) {
+> 		bond->force_primary = false;
+>-		return true;
+>+		return prim;
+>+	}
+>+
+>+	if (!curr || curr->link != BOND_LINK_UP)
+>+		return prim;
+>+
+>+	/* At this point, prim and curr are both up */
+>+	switch (bond->params.primary_reselect) {
+>+	case BOND_PRI_RESELECT_ALWAYS:
+>+		return prim;
+>+	case BOND_PRI_RESELECT_BETTER:
+>+		if (prim->speed < curr->speed)
+>+			return curr;
+>+		if (prim->speed == curr->speed && prim->duplex <= curr->duplex)
+>+			return curr;
+>+		return prim;
+>+	case BOND_PRI_RESELECT_FAILURE:
+>+		return curr;
+>+	default:
+>+		netdev_err(bond->dev, "impossible primary_reselect %d\n",
+>+			   bond->params.primary_reselect);
+>+		return curr;
+> 	}
+>-	if (bond->params.primary_reselect == BOND_PRI_RESELECT_BETTER &&
+>-	    (prim->speed < curr->speed ||
+>-	     (prim->speed == curr->speed && prim->duplex <= curr->duplex)))
+>-		return false;
+>-	if (bond->params.primary_reselect == BOND_PRI_RESELECT_FAILURE)
+>-		return false;
+>-	return true;
+> }
+> 
+> /**
+>- * find_best_interface - select the best available slave to be the active one
+>+ * bond_find_best_slave - select the best available slave to be the active one
+>  * @bond: our bonding struct
+>  */
+> static struct slave *bond_find_best_slave(struct bonding *bond)
+> {
+>-	struct slave *slave, *bestslave = NULL, *primary;
+>+	struct slave *slave, *bestslave = NULL;
+> 	struct list_head *iter;
+> 	int mintime = bond->params.updelay;
+> 
+>-	primary = rtnl_dereference(bond->primary_slave);
+>-	if (primary && primary->link == BOND_LINK_UP &&
+>-	    bond_should_change_active(bond))
+>-		return primary;
+>+	slave = bond_choose_primary_or_current(bond);
+>+	if (slave)
+>+		return slave;
+> 
+> 	bond_for_each_slave(bond, slave, iter) {
+> 		if (slave->link == BOND_LINK_UP)
+>-- 
+>1.9.1
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
