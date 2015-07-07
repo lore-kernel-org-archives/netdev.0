@@ -1,80 +1,40 @@
-From: Julien Grall <julien.grall@citrix.com>
-Subject: [PATCH v2] net/bridge: Use __in6_dev_get rather than
-	in6_dev_get in br_validate_ipv6
-Date: Tue, 7 Jul 2015 15:55:21 +0100
-Message-ID: <1436280921-2795-1-git-send-email-julien.grall@citrix.com>
+From: Matteo Croce <matteo@openwrt.org>
+Subject: Re: [PATCH v2] add stealth mode
+Date: Tue, 7 Jul 2015 17:24:07 +0200
+Message-ID: <CAFnufp292vwyoSJKK6smF55cFerxbCC_5pg_9NbRsvnRC7VH6A@mail.gmail.com>
+References: <CAFnufp059tojfKYBye4eayOCvNNkAE9w_s_6E-PiG-EYp9K0Gg@mail.gmail.com>
+ <21611.1436179798@turing-police.cc.vt.edu> <559B7943.3070807@ladisch.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: wei.liu2@citrix.com, ian.campbell@citrix.com, fw@strlen.de,
-	linux-kernel@vger.kernel.org, Julien Grall <julien.grall@citrix.com>,
-	Bob Liu <bob.liu@oracle.com>, Bernhard Thaler <bernhard.thaler@wvnet.at>
-To: <xen-devel@lists.xenproject.org>, <pablo@netfilter.org>,
-	<kaber@trash.net>, <kadlec@blackhole.kfki.hu>,
-	<stephen@networkplumber.org>,
-	<davem@davemloft.net>, <netfilter-devel@vger.kernel.org>,
-	<coreteam@netfilter.org>, <bridge@lists.linux-foundation.org>,
-	<netdev@vger.kernel.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Clemens Ladisch <clemens@ladisch.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:35130 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756969AbbGGPYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 11:24:48 -0400
+In-Reply-To: <559B7943.3070807@ladisch.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The commit efb6de9b4ba0092b2c55f6a52d16294a8a698edd "netfilter: bridge:
-forward IPv6 fragmented packets" introduced a new function
-br_validate_ipv6 which take a reference on the inet6 device. Although,
-the reference is not released at the end.
+2015-07-07 9:01 GMT+02:00 Clemens Ladisch <clemens@ladisch.de>:
+> Valdis.Kletnieks@vt.edu wrote:
+>> On Thu, 02 Jul 2015 10:56:01 +0200, Matteo Croce said:
+>>> Add option to disable any reply not related to a listening socket
+>>
+>> 2) You *do* realize that this isn't anywhere near sufficient in order
+>> to actually make your machine "invisible", right?  (Hint: What *other*
+>> packets can be sent to a machine to provoke a response?)
+>
+> Even worse: if you want to pretend that the entire machine is "not there",
+> you must make the router in front on you reply with an ICMP "destination
+> unreachable" message.
 
-This will result to the impossibility to destroy any netdevice using
-ipv6 and bridge.
+You can't do sometimes, like in DSL lines where the router in front of
+you is an ISP owned DSLAM
 
-It's possible to directly retrieve the inet6 device without taking a
-reference as all netfilter hooks are protected by rcu_read_lock via
-nf_hook_slow.
-
-Spotted while trying to destroy a Xen guest on the upstream Linux:
-"unregister_netdevice: waiting for vif1.0 to become free. Usage count = 1"
-
-Signed-off-by: Julien Grall <julien.grall@citrix.com>
-Cc: Bernhard Thaler <bernhard.thaler@wvnet.at>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: fw@strlen.de
-Cc: ian.campbell@citrix.com
-Cc: wei.liu2@citrix.com
-Cc: Bob Liu <bob.liu@oracle.com>
-
----
-    Note that it's impossible to create new guest after this message.
-    I'm not sure if it's normal.
-
-    Changes in v2:
-        - Don't take a reference to inet6.
-        - This was "net/bridge: Add missing in6_dev_put in
-        br_validate_ipv6" [0]
-
-    [0] https://lkml.org/lkml/2015/7/3/443
----
- net/bridge/br_netfilter_ipv6.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/bridge/br_netfilter_ipv6.c b/net/bridge/br_netfilter_ipv6.c
-index 6d12d26..13b7d1e 100644
---- a/net/bridge/br_netfilter_ipv6.c
-+++ b/net/bridge/br_netfilter_ipv6.c
-@@ -104,7 +104,7 @@ int br_validate_ipv6(struct sk_buff *skb)
- {
- 	const struct ipv6hdr *hdr;
- 	struct net_device *dev = skb->dev;
--	struct inet6_dev *idev = in6_dev_get(skb->dev);
-+	struct inet6_dev *idev = __in6_dev_get(skb->dev);
- 	u32 pkt_len;
- 	u8 ip6h_len = sizeof(struct ipv6hdr);
- 
 -- 
-2.1.4
+Matteo Croce
+OpenWrt Developer
