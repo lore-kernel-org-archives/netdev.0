@@ -1,42 +1,31 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH] freescale:Make the function
- gfar_configure_coalescing_all static
-Date: Tue, 7 Jul 2015 21:53:17 +0200
-Message-ID: <20150707195317.GJ9671@pengutronix.de>
-References: <1436298573-28541-1-git-send-email-xerofoify@gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH v3 0/3] net: dsa: mv88e6xxx: add support for VLAN Table Unit
+Date: Tue, 7 Jul 2015 13:00:41 -0700
+Message-ID: <CAE4R7bCpij0sKQDbm3cLBXkCNcCtNGDpurcQnJxiYX-yA=cgTA@mail.gmail.com>
+References: <1436148893-14379-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <20150706233804.GE469@lunn.ch> <20150707020047.GA5540@lunn.ch>
+ <CAE4R7bALqVsV7nTH0r+AqbxE8z2ScG=_FfaBkpzrfXyw0A9DJg@mail.gmail.com> <1594179899.212564.1436285877003.JavaMail.zimbra@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, claudiu.manoil@freescale.com,
-	haokexin@gmail.com, matei.pavaluca@freescale.com,
-	jingchang.lu@freescale.com, tobias@waldekranz.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicholas Krause <xerofoify@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1436298573-28541-1-git-send-email-xerofoify@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
+	David <davem@davemloft.net>, Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:34755 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932425AbbGGUBB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 16:01:01 -0400
+In-Reply-To: <1594179899.212564.1436285877003.JavaMail.zimbra@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 07, 2015 at 03:49:33PM -0400, Nicholas Krause wrote:
-> This makes the function gfar_configure_coalescing_all static
-> and removes its function prototype from the header file, gianfar.h
-really? Looking at the diffstat I dare to disagree.
+On Tue, Jul 7, 2015 at 9:17 AM, Vivien Didelot
+<vivien.didelot@savoirfairelinux.com> wrote:
+> Hi Andrew, Scott,
+> Does this fixup http://ix.io/jxq look good to you?
 
-> due to this function only ever being called in its definition and
-> declaration file of gainfar.c.
->=20
-> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
-> ---
->  drivers/net/ethernet/freescale/gianfar.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-
-Best regards
-Uwe
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+Yes.
