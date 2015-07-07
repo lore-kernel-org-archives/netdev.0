@@ -1,122 +1,45 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v3 1/3] net: dsa: mv88e6xxx: add debugfs interface for VTU
-Date: Tue, 7 Jul 2015 04:08:18 +0200
-Message-ID: <20150707020818.GB5540@lunn.ch>
-References: <1436148893-14379-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1436148893-14379-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] add stealth mode
+Date: Mon, 06 Jul 2015 19:34:56 -0700 (PDT)
+Message-ID: <20150706.193456.1294570536559039749.davem@davemloft.net>
+References: <CAFnufp059tojfKYBye4eayOCvNNkAE9w_s_6E-PiG-EYp9K0Gg@mail.gmail.com>
+	<21611.1436179798@turing-police.cc.vt.edu>
+	<CAFnufp3xP3xjd8zy0uLKEGgbBAb0motLva=f1EbMJCfcKG=Y-w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1436148893-14379-2-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Valdis.Kletnieks@vt.edu, nicolas.dichtel@6wind.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: matteo@openwrt.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51226 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751289AbbGGCWi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2015 22:22:38 -0400
+In-Reply-To: <CAFnufp3xP3xjd8zy0uLKEGgbBAb0motLva=f1EbMJCfcKG=Y-w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> +static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds, u16 vid,
-> +				  struct mv88e6xxx_vtu_entry *entry)
-> +{
-> +	int ret, i;
-> +
-> +	ret = _mv88e6xxx_vtu_wait(ds);
-> +	if (ret < 0)
-> +		return ret;
-> +
-> +	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_VID,
-> +				   vid & GLOBAL_VTU_VID_MASK);
-> +	if (ret < 0)
-> +		return ret;
-> +
-> +	ret = _mv88e6xxx_vtu_cmd(ds, GLOBAL_VTU_OP_VTU_GET_NEXT);
-> +	if (ret < 0)
-> +		return ret;
-> +
-> +	ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_VID);
-> +	if (ret < 0)
-> +		return ret;
-> +
-> +	entry->vid = ret & GLOBAL_VTU_VID_MASK;
-> +	entry->valid = !!(ret & GLOBAL_VTU_VID_VALID);
-> +
-> +	if (entry->valid) {
-> +		/* Ports 0-3, offsets 0, 4, 8, 12 */
-> +		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_DATA_0_3);
-> +		if (ret < 0)
-> +			return ret;
-> +
-> +		for (i = 0; i < 4; ++i)
-> +			entry->tags[i] = (ret >> (i * 4)) & 3;
-> +
-> +		/* Ports 4-6, offsets 0, 4, 8 */
-> +		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_VTU_DATA_4_7);
-> +		if (ret < 0)
-> +			return ret;
-> +
-> +		for (i = 4; i < 7; ++i)
-> +			entry->tags[i] = (ret >> ((i - 4) * 4)) & 3;
+From: Matteo Croce <matteo@openwrt.org>
+Date: Mon, 6 Jul 2015 21:44:06 +0200
 
-Hi Vivien
+> 2015-07-06 12:49 GMT+02:00  <Valdis.Kletnieks@vt.edu>:
+>> On Thu, 02 Jul 2015 10:56:01 +0200, Matteo Croce said:
+>>> Add option to disable any reply not related to a listening socket,
+>>> like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
+>>> Also disables ICMP replies to echo request and timestamp.
+>>> The stealth mode can be enabled selectively for a single interface.
+>>
+>> A few notes.....
+>>
+>> 1) Do you have an actual use case where an iptables '-j DROP' isn't usable?
+> 
+> If you mean using a default DROP policy and allowing only the traffic
+> do you want,
+> then the use case is where the port can change at runtime and you may not want
+> to update the firewall every time
 
-It looks like you still have up to 7 ports, rather than use
-ps->num_ports. I have a ten port switch i would like to use VLANs with
-:-)
+Dynamically updated firewalls are "a thing" and quite effective for
+solving problems like this one.
 
-> +
-> +		if (mv88e6xxx_6097_family(ds) || mv88e6xxx_6165_family(ds) ||
-> +		    mv88e6xxx_6351_family(ds) || mv88e6xxx_6352_family(ds)) {
-> +			ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL,
-> +						  GLOBAL_VTU_FID);
-> +			if (ret < 0)
-> +				return ret;
-> +
-> +			entry->fid = ret & GLOBAL_VTU_FID_MASK;
-> +
-> +			ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL,
-> +						  GLOBAL_VTU_SID);
-> +			if (ret < 0)
-> +				return ret;
-> +
-> +			entry->sid = ret & GLOBAL_VTU_SID_MASK;
-> +		} else {
-> +			entry->fid = 0;
-> +			entry->sid = 0;
-> +		}
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static int _mv88e6xxx_vtu_loadpurge(struct dsa_switch *ds,
-> +				    struct mv88e6xxx_vtu_entry *entry)
-> +{
-> +	u16 data = 0;
-> +	int ret, i;
-> +
-> +	ret = _mv88e6xxx_vtu_wait(ds);
-> +	if (ret < 0)
-> +		return ret;
-> +
-> +	if (entry->valid) {
-> +		/* Set Data Register, ports 0-3, offsets 0, 4, 8, 12 */
-> +		for (data = i = 0; i < 4; ++i)
-> +			data |= entry->tags[i] << (i * 4);
-> +		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_DATA_0_3,
-> +					   data);
-> +		if (ret < 0)
-> +			return ret;
-> +
-> +		/* Set Data Register, ports 4-6, offsets 0, 4, 8 */
-> +		for (data = 0, i = 4; i < 7; ++i)
-> +			data |= entry->tags[i] << ((i - 4) * 4);
-> +		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_DATA_4_7,
-> +					   data);
-
-Same again here.
-
-     Andrew
+With nftables such updates are even extremely efficient.
