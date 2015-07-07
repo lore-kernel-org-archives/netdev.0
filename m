@@ -1,98 +1,82 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: [PATCH net-next v2] ipv4: add support for linkdown sysctl to netconf
-Date: Tue,  7 Jul 2015 13:56:57 -0400
-Message-ID: <1436291817-1555-1-git-send-email-gospo@cumulusnetworks.com>
-Cc: nicolas.dichtel@6wind.com,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] vmxnet3: prevent receive getting out of sequence on napi poll
+Date: Tue,  7 Jul 2015 14:02:18 -0400
+Message-ID: <1436292138-18190-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:36309 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932393AbbGGR5p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 13:57:45 -0400
-Received: by qgeg89 with SMTP id g89so88063978qge.3
-        for <netdev@vger.kernel.org>; Tue, 07 Jul 2015 10:57:44 -0700 (PDT)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:54836 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932515AbbGGSCm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 14:02:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This kernel patch exports the value of the new
-ignore_routes_with_linkdown via netconf.
+vmxnet3's current napi path is built to count every rx descriptor we recieve,
+and use that as a count of the napi budget.  That means its possible to return
+from a napi poll halfway through recieving a fragmented packet accross multiple
+dma descriptors.  If that happens, the next napi poll will start with the
+descriptor ring in an improper state (e.g. the first descriptor we look at may
+have the end-of-packet bit set), which will cause a BUG halt in the driver.
 
-v2: changes to notify userspace via netlink when sysctl values change
-and proposed for 'net' since this could be considered a bugfix
+Fix the issue by only counting whole received packets in the napi poll and
+returning that value, rather than the descriptor count.
 
-Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-Suggested-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Tested by the reporter and myself, successfully
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Shreyas Bhatewara <sbhatewara@vmware.com>
+CC: "David S. Miller" <davem@davemloft.net>
 ---
-I realize two of these changes result in lines >80 chars, but this is to
-keep the coding-style used by the surrounding code.
+ drivers/net/vmxnet3/vmxnet3_drv.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-There are multiple ways to resolve this, but one would be to shorten the
-defines used for this feature as "IGNORE_ROUTES_WITH_LINKDOWN" is a
-mouthful.  I would propose dropping "_WITH_" from all the defines and
-have only "IGNORE_ROUTES_LINKDOWN" everywhere.  Doing this now in 'net'
-would be ideal before a release happens and it cannot be changed.
-
- include/uapi/linux/netconf.h |  1 +
- net/ipv4/devinet.c           | 13 +++++++++++++
- 2 files changed, 14 insertions(+)
-
-diff --git a/include/uapi/linux/netconf.h b/include/uapi/linux/netconf.h
-index 669a1f0..23cbd34 100644
---- a/include/uapi/linux/netconf.h
-+++ b/include/uapi/linux/netconf.h
-@@ -15,6 +15,7 @@ enum {
- 	NETCONFA_RP_FILTER,
- 	NETCONFA_MC_FORWARDING,
- 	NETCONFA_PROXY_NEIGH,
-+	NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN,
- 	__NETCONFA_MAX
- };
- #define NETCONFA_MAX	(__NETCONFA_MAX - 1)
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 7498716..e813196 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1740,6 +1740,8 @@ static int inet_netconf_msgsize_devconf(int type)
- 		size += nla_total_size(4);
- 	if (type == -1 || type == NETCONFA_PROXY_NEIGH)
- 		size += nla_total_size(4);
-+	if (type == -1 || type == NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN)
-+		size += nla_total_size(4);
- 
- 	return size;
- }
-@@ -1780,6 +1782,10 @@ static int inet_netconf_fill_devconf(struct sk_buff *skb, int ifindex,
- 	    nla_put_s32(skb, NETCONFA_PROXY_NEIGH,
- 			IPV4_DEVCONF(*devconf, PROXY_ARP)) < 0)
- 		goto nla_put_failure;
-+	if ((type == -1 || type == NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN) &&
-+	    nla_put_s32(skb, NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN,
-+			IPV4_DEVCONF(*devconf, IGNORE_ROUTES_WITH_LINKDOWN)) < 0)
-+		goto nla_put_failure;
- 
- 	nlmsg_end(skb, nlh);
- 	return 0;
-@@ -1819,6 +1825,7 @@ static const struct nla_policy devconf_ipv4_policy[NETCONFA_MAX+1] = {
- 	[NETCONFA_FORWARDING]	= { .len = sizeof(int) },
- 	[NETCONFA_RP_FILTER]	= { .len = sizeof(int) },
- 	[NETCONFA_PROXY_NEIGH]	= { .len = sizeof(int) },
-+	[NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN]	= { .len = sizeof(int) },
- };
- 
- static int inet_netconf_get_devconf(struct sk_buff *in_skb,
-@@ -2048,6 +2055,12 @@ static int devinet_conf_proc(struct ctl_table *ctl, int write,
- 			inet_netconf_notify_devconf(net, NETCONFA_PROXY_NEIGH,
- 						    ifindex, cnf);
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index da11bb5..46f4cad 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1216,7 +1216,7 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 	static const u32 rxprod_reg[2] = {
+ 		VMXNET3_REG_RXPROD, VMXNET3_REG_RXPROD2
+ 	};
+-	u32 num_rxd = 0;
++	u32 num_pkts = 0;
+ 	bool skip_page_frags = false;
+ 	struct Vmxnet3_RxCompDesc *rcd;
+ 	struct vmxnet3_rx_ctx *ctx = &rq->rx_ctx;
+@@ -1235,13 +1235,12 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 		struct Vmxnet3_RxDesc *rxd;
+ 		u32 idx, ring_idx;
+ 		struct vmxnet3_cmd_ring	*ring = NULL;
+-		if (num_rxd >= quota) {
++		if (num_pkts >= quota) {
+ 			/* we may stop even before we see the EOP desc of
+ 			 * the current pkt
+ 			 */
+ 			break;
  		}
-+		if (i == IPV4_DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN - 1 &&
-+		    new_value != old_value) {
-+			ifindex = devinet_conf_ifindex(net, cnf);
-+			inet_netconf_notify_devconf(net, NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN,
-+						    ifindex, cnf);
-+		}
+-		num_rxd++;
+ 		BUG_ON(rcd->rqID != rq->qid && rcd->rqID != rq->qid2);
+ 		idx = rcd->rxdIdx;
+ 		ring_idx = rcd->rqID < adapter->num_rx_queues ? 0 : 1;
+@@ -1413,6 +1412,7 @@ not_lro:
+ 				napi_gro_receive(&rq->napi, skb);
+ 
+ 			ctx->skb = NULL;
++			num_pkts++;
+ 		}
+ 
+ rcd_done:
+@@ -1443,7 +1443,7 @@ rcd_done:
+ 				  &rq->comp_ring.base[rq->comp_ring.next2proc].rcd, &rxComp);
  	}
  
- 	return ret;
+-	return num_rxd;
++	return num_pkts;
+ }
+ 
+ 
 -- 
-1.9.3
+2.1.0
