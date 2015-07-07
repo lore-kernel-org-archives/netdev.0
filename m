@@ -1,38 +1,33 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: linux-4.2-rc1/samples/bpf/sockex3_kern.c: bad expression ?
-Date: Tue, 7 Jul 2015 12:14:38 -0700
-Message-ID: <20150707191437.GA6040@Alexeis-MBP.westell.com>
-References: <DUB128-W38D412CB6F86AA3D6084F49C920@phx.gbl>
+From: David Binderman <dcb314@hotmail.com>
+Subject: RE: linux-4.2-rc1/samples/bpf/sockex3_kern.c: bad expression ?
+Date: Tue, 7 Jul 2015 19:24:56 +0000
+Message-ID: <DUB128-W42D5F7B52C9C5EA1338B739C920@phx.gbl>
+References: <DUB128-W38D412CB6F86AA3D6084F49C920@phx.gbl>,<20150707191437.GA6040@Alexeis-MBP.westell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Cc: Alexei Starovoitov <ast@kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Binderman <dcb314@hotmail.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:34856 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932407AbbGGTOm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 15:14:42 -0400
-Received: by pdbci14 with SMTP id ci14so130722709pdb.2
-        for <netdev@vger.kernel.org>; Tue, 07 Jul 2015 12:14:42 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <DUB128-W38D412CB6F86AA3D6084F49C920@phx.gbl>
+Received: from dub004-omc3s14.hotmail.com ([157.55.2.23]:62427 "EHLO
+	DUB004-OMC3S14.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932886AbbGGT37 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jul 2015 15:29:59 -0400
+In-Reply-To: <20150707191437.GA6040@Alexeis-MBP.westell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 07, 2015 at 11:27:55AM +0000, David Binderman wrote:
-> Hello there,
->=20
-> [linux-4.2-rc1/samples/bpf/sockex3_kern.c:268]: (style) Expression '(=
-X & 0xf0) =3D=3D 0x4' is always false.
->=20
-> Source code is
->=20
-> =A0=A0 if ((verlen & 0xF0) =3D=3D 4)
->=20
-> Maybe
->=20
-> =A0=A0 if ((verlen & 0xF0) =3D=3D 0x40)
+Hello there Alexei,
 
-oops, yes. Could you please send a patch to fix it. Thx
+----------------------------------------
+> oops, yes. Could you please send a patch to fix it. 
+
+Sorry, but I gave up trying to do kernel patches many years ago.
+
+Regards
+
+David Binderman
+
+ 		 	   		  
