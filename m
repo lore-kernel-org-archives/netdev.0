@@ -1,61 +1,29 @@
-From: Nicholas Krause <xerofoify@gmail.com>
-Subject: [PATCH] freescale:Make receive and transmit functions have a return
- type of void
-Date: Tue,  7 Jul 2015 14:07:12 -0400
-Message-ID: <1436292432-1933-1-git-send-email-xerofoify@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: Performance bottleneck with ndo_start_xmit
+Date: Tue, 7 Jul 2015 11:10:31 -0700
+Message-ID: <20150707111031.4ebabd36@urahara>
+References: <CAHmME9rfOqA1mYmFDomcG+G55dV7it5406vL02ZRWcr0PmVbQg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
- linux-kernel@vger.kernel.org
-To: leoli@freescale.com
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:32897 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932443AbbGGSKX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 14:10:23 -0400
+Received: by pacws9 with SMTP id ws9so118391264pac.0
+        for <netdev@vger.kernel.org>; Tue, 07 Jul 2015 11:10:22 -0700 (PDT)
+In-Reply-To: <CAHmME9rfOqA1mYmFDomcG+G55dV7it5406vL02ZRWcr0PmVbQg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhpcyBtYWtlcyB2YXJpb3VzIHJlY2VpdmUgYW5kIHRyYW5zbWl0IGZ1bmN0aW9ucyB0aGF0IGFs
-d2F5cyBydW4Kc3VjY2Vzc2Z1bGx5IHRvIGJlIGRlY2xhcmVkIHRvIGhhdmUgYSByZXR1cm4gb2Yg
-dm9pZCBmb3IgdGhlIGRyaXZlcgpmaWxlLCB1Y2NfZ2V0aC5jLgoKU2lnbmVkLW9mZi1ieTogTmlj
-aG9sYXMgS3JhdXNlIDx4ZXJvZm9pZnlAZ21haWwuY29tPgotLS0KIGRyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ZyZWVzY2FsZS91Y2NfZ2V0aC5jIHwgMTIgKysrLS0tLS0tLS0tCiAxIGZpbGUgY2hhbmdl
-ZCwgMyBpbnNlcnRpb25zKCspLCA5IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMv
-bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS91Y2NfZ2V0aC5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQv
-ZnJlZXNjYWxlL3VjY19nZXRoLmMKaW5kZXggNGRkNDBlMC4uNzhlYmQ3MyAxMDA2NDQKLS0tIGEv
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19nZXRoLmMKKysrIGIvZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19nZXRoLmMKQEAgLTEzOTgsNyArMTM5OCw3IEBAIHN0
-YXRpYyBpbnQgYWRqdXN0X2VuZXRfaW50ZXJmYWNlKHN0cnVjdCB1Y2NfZ2V0aF9wcml2YXRlICp1
-Z2V0aCkKIAlyZXR1cm4gMDsKIH0KIAotc3RhdGljIGludCB1Z2V0aF9ncmFjZWZ1bF9zdG9wX3R4
-KHN0cnVjdCB1Y2NfZ2V0aF9wcml2YXRlICp1Z2V0aCkKK3N0YXRpYyB2b2lkIHVnZXRoX2dyYWNl
-ZnVsX3N0b3BfdHgoc3RydWN0IHVjY19nZXRoX3ByaXZhdGUgKnVnZXRoKQogewogCXN0cnVjdCB1
-Y2NfZmFzdF9wcml2YXRlICp1Y2NmOwogCXUzMiBjZWNyX3N1YmJsb2NrOwpAQCAtMTQyNCwxMSAr
-MTQyNCw5IEBAIHN0YXRpYyBpbnQgdWdldGhfZ3JhY2VmdWxfc3RvcF90eChzdHJ1Y3QgdWNjX2dl
-dGhfcHJpdmF0ZSAqdWdldGgpCiAJfSB3aGlsZSAoISh0ZW1wICYgVUNDX0dFVEhfVUNDRV9HUkEp
-ICYmIC0taSk7CiAKIAl1Y2NmLT5zdG9wcGVkX3R4ID0gMTsKLQotCXJldHVybiAwOwogfQogCi1z
-dGF0aWMgaW50IHVnZXRoX2dyYWNlZnVsX3N0b3Bfcngoc3RydWN0IHVjY19nZXRoX3ByaXZhdGUg
-KnVnZXRoKQorc3RhdGljIHZvaWQgdWdldGhfZ3JhY2VmdWxfc3RvcF9yeChzdHJ1Y3QgdWNjX2dl
-dGhfcHJpdmF0ZSAqdWdldGgpCiB7CiAJc3RydWN0IHVjY19mYXN0X3ByaXZhdGUgKnVjY2Y7CiAJ
-dTMyIGNlY3Jfc3ViYmxvY2s7CkBAIC0xNDU2LDExICsxNDU0LDkgQEAgc3RhdGljIGludCB1Z2V0
-aF9ncmFjZWZ1bF9zdG9wX3J4KHN0cnVjdCB1Y2NfZ2V0aF9wcml2YXRlICp1Z2V0aCkKIAl9IHdo
-aWxlICghKHRlbXAgJiBHUkFDRUZVTF9TVE9QX0FDS05PV0xFREdFX1JYKSAmJiAtLWkpOwogCiAJ
-dWNjZi0+c3RvcHBlZF9yeCA9IDE7Ci0KLQlyZXR1cm4gMDsKIH0KIAotc3RhdGljIGludCB1Z2V0
-aF9yZXN0YXJ0X3R4KHN0cnVjdCB1Y2NfZ2V0aF9wcml2YXRlICp1Z2V0aCkKK3N0YXRpYyB2b2lk
-IHVnZXRoX3Jlc3RhcnRfdHgoc3RydWN0IHVjY19nZXRoX3ByaXZhdGUgKnVnZXRoKQogewogCXN0
-cnVjdCB1Y2NfZmFzdF9wcml2YXRlICp1Y2NmOwogCXUzMiBjZWNyX3N1YmJsb2NrOwpAQCAtMTQ3
-MSw4ICsxNDY3LDYgQEAgc3RhdGljIGludCB1Z2V0aF9yZXN0YXJ0X3R4KHN0cnVjdCB1Y2NfZ2V0
-aF9wcml2YXRlICp1Z2V0aCkKIAkgICAgdWNjX2Zhc3RfZ2V0X3FlX2NyX3N1YmJsb2NrKHVnZXRo
-LT51Z19pbmZvLT51Zl9pbmZvLnVjY19udW0pOwogCXFlX2lzc3VlX2NtZChRRV9SRVNUQVJUX1RY
-LCBjZWNyX3N1YmJsb2NrLCBRRV9DUl9QUk9UT0NPTF9FVEhFUk5FVCwgMCk7CiAJdWNjZi0+c3Rv
-cHBlZF90eCA9IDA7Ci0KLQlyZXR1cm4gMDsKIH0KIAogc3RhdGljIGludCB1Z2V0aF9yZXN0YXJ0
-X3J4KHN0cnVjdCB1Y2NfZ2V0aF9wcml2YXRlICp1Z2V0aCkKLS0gCjIuMS40CgpfX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGlu
-ZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJz
-Lm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
+On Tue, 7 Jul 2015 18:32:22 +0200
+"Jason A. Donenfeld" <Jason@zx2c4.com> wrote:
+
+> I'm writing a kernel module that creates a virtual network device with
+> rtnl_link_register.
+
+Is it open source, is the source available to look at?
+If not, please solve your own problems.
