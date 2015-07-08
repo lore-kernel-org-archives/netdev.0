@@ -1,50 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bridge: mdb: zero out the local br_ip variable
- before use
-Date: Wed, 08 Jul 2015 16:11:26 -0700 (PDT)
-Message-ID: <20150708.161126.397827455847313183.davem@davemloft.net>
-References: <1436277356-21404-1-git-send-email-razor@blackwall.org>
+Subject: Re: [PATCH net-next] net: igb: implement high frequency periodic
+ output signals
+Date: Wed, 08 Jul 2015 16:11:50 -0700 (PDT)
+Message-ID: <20150708.161150.1028571714100873421.davem@davemloft.net>
+References: <1436280102-30310-1-git-send-email-richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	stephen@networkplumber.org, vyasevich@gmail.com
-To: razor@blackwall.org
+Cc: netdev@vger.kernel.org, jacob.e.keller@intel.com,
+	jeffrey.t.kirsher@intel.com, matthew.vick@intel.com
+To: richardcochran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38296 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38304 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751141AbbGHXL1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 19:11:27 -0400
-In-Reply-To: <1436277356-21404-1-git-send-email-razor@blackwall.org>
+	with ESMTP id S1751316AbbGHXLv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 19:11:51 -0400
+In-Reply-To: <1436280102-30310-1-git-send-email-richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Date: Tue,  7 Jul 2015 15:55:56 +0200
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Tue,  7 Jul 2015 16:41:42 +0200
 
-> Since commit b0e9a30dd669 ("bridge: Add vlan id to multicast groups")
-> there's a check in br_ip_equal() for a matching vlan id, but the mdb
-> functions were not modified to use (or at least zero it) so when an
-> entry was added it would have a garbage vlan id (from the local br_ip
-> variable in __br_mdb_add/del) and this would prevent it from being
-> matched and also deleted. So zero out the whole local ip var to protect
-> ourselves from future changes and also to fix the current bug, since
-> there's no vlan id support in the mdb uapi - use always vlan id 0.
-> Example before patch:
-> root@debian:~# bridge mdb add dev br0 port eth1 grp 239.0.0.1 permanent
-> root@debian:~# bridge mdb
-> dev br0 port eth1 grp 239.0.0.1 permanent
-> root@debian:~# bridge mdb del dev br0 port eth1 grp 239.0.0.1 permanent
-> RTNETLINK answers: Invalid argument
+> In addition to interrupt driven target time output events, the i210
+> also has two programmable clock outputs.  These clocks support periods
+> between 16 nanoseconds and 140 milliseconds.  This patch implements
+> the periodic output function using the clock outputs when possible,
+> falling back to the target time for longer periods.
 > 
-> After patch:
-> root@debian:~# bridge mdb add dev br0 port eth1 grp 239.0.0.1 permanent
-> root@debian:~# bridge mdb
-> dev br0 port eth1 grp 239.0.0.1 permanent
-> root@debian:~# bridge mdb del dev br0 port eth1 grp 239.0.0.1 permanent
-> root@debian:~# bridge mdb
-> 
-> Signed-off-by: Nikolay Aleksandrov <razor@blackwall.org>
-> Fixes: b0e9a30dd669 ("bridge: Add vlan id to multicast groups")
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 
-Applied and queued up for -stable.
+I assume I will get this via the Intel folks in a future pull request.
