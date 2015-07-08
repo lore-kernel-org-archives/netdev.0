@@ -1,53 +1,73 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] rtlwifi: rtl8821ae: Fix an expression that is always false
-Date: Wed,  8 Jul 2015 10:18:50 -0500
-Message-ID: <1436368730-636-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>,
-	David Binderman <dcb314@hotmail.com>
-To: kvalo@codeaurora.org
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: ip_forward_use_pmtu and forwarding to xfrm'ed gre
+Date: Wed, 08 Jul 2015 17:52:32 +0200
+Message-ID: <1436370752.3846.36.camel@stressinduktion.org>
+References: <20150708163032.5b5df2ec@vostro>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Timo Teras <timo.teras@iki.fi>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:38251 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932855AbbGHPwj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 11:52:39 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id 9669520DC2
+	for <netdev@vger.kernel.org>; Wed,  8 Jul 2015 11:52:37 -0400 (EDT)
+In-Reply-To: <20150708163032.5b5df2ec@vostro>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In routine _rtl8821ae_set_media_status(), an incorrect mask results in a test
-for AP status to always be false. Similar bugs were fixed in rtl8192cu and
-rtl8192de, but this instance was missed at that time.
+Hello,
 
-Reported-by: David Binderman <dcb314@hotmail.com>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Stable <stable@vger.kernel.org> [3.18+]
-Cc: David Binderman <dcb314@hotmail.com>
----
- drivers/net/wireless/rtlwifi/rtl8821ae/hw.c  | 2 +-
- drivers/net/wireless/rtlwifi/rtl8821ae/reg.h | 1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
+On Wed, 2015-07-08 at 16:30 +0300, Timo Teras wrote:
+> Hi,
+> 
+> It seems ip_forward_use_pmtu commit log says:
+>     Tunnel and ipsec output paths clear IPCB again, thus 
+> IPSKB_FORWARDED
+>     won't be set and further fragmentation logic will use the path mtu
+>     to determine the fragmentation size. They also recheck packet size
+>     with help of path mtu discovery and report appropriate errors.
+> 
+> But this does not seem to be true in all paths. For example, I'm
+> forwarding from ethX -> greX (with gre having ttl 64; and thus
+> setting DF on tunnel always) and then gre output is finally IPsec
+> encrypted. But fragmentation does not work. Setting 
+> ip_forward_use_pmtu
+> makes it work again. tcpdump says the packet is fragmented based on 
+> the
+> greX device mtu, not the path mtu in this case.
+> 
+> This probably is due to the way how the xfrm+gre work together. On
+> first packet, the gre tunnel driver updates pmtu for the inner flow,
+> which is expected to be honored always. And if the 'ttl' value is set
+> for gre tunnel, no re-fragmentation is allowed as the inner flow
+> should know better. This does how the side effect that if the very
+> first packet is large, it'll be dropped to 'learn' the pmtu. 
+> 
+> It's probably not possible to detect this kind of target easily, as 
+> the
+> xfrm can be applied or not even on per inner target IP basis (as then
+> tunnel destination IP can be dynamic for nbma tunnels).
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
-index 3236d44..b7f18e21 100644
---- a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
-@@ -2180,7 +2180,7 @@ static int _rtl8821ae_set_media_status(struct ieee80211_hw *hw,
- 
- 	rtl_write_byte(rtlpriv, MSR, bt_msr);
- 	rtlpriv->cfg->ops->led_control(hw, ledaction);
--	if ((bt_msr & 0xfc) == MSR_AP)
-+	if ((bt_msr & MSR_MASK) == MSR_AP)
- 		rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x00);
- 	else
- 		rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x66);
-diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/reg.h b/drivers/net/wireless/rtlwifi/rtl8821ae/reg.h
-index 53668fc..1d6110f 100644
---- a/drivers/net/wireless/rtlwifi/rtl8821ae/reg.h
-+++ b/drivers/net/wireless/rtlwifi/rtl8821ae/reg.h
-@@ -429,6 +429,7 @@
- #define	MSR_ADHOC				0x01
- #define	MSR_INFRA				0x02
- #define	MSR_AP					0x03
-+#define MSR_MASK				0x03
- 
- #define	RRSR_RSC_OFFSET				21
- #define	RRSR_SHORT_OFFSET			23
--- 
-2.1.4
+I am currently not sure if we actually have resolved the xfrm path at
+the time we enter ip_forward, I actually thought we do. In this case we
+should be able to use skb_dst->dst->path->header_len and substract it
+before using it to fragment the packets. I hope it is so easy... :)
+
+I would actually avoid telling anyone to enable using the path mtu
+information in forwarding ever again.
+
+
+> So I wonder if ip_gre driver can workaround this somehow, by e.g.
+> refragmenting if necessary. Or if we just should update the sysctl's
+> help text to say that this another scenario where it needs to be
+> turned on.
+
+If above idea does not work, we could simply add an option to gre driver
+to set skb->ignore_df, but I don't like that much.
+
+Bye,
+Hannes
