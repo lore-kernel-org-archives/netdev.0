@@ -1,60 +1,40 @@
-From: Josh Cartwright <joshc@ni.com>
-Subject: Re: [PATCH v2 1/1] Added additional callback to ptp_clock_info:
-Date: Wed, 8 Jul 2015 07:17:37 -0500
-Message-ID: <20150708121737.GN25028@jcartwri.amer.corp.natinst.com>
-References: <1435886088-13890-1-git-send-email-christopher.s.hall@intel.com>
- <1435886088-13890-2-git-send-email-christopher.s.hall@intel.com>
- <20150706204458.GE25028@jcartwri.amer.corp.natinst.com>
- <20150708115434.GA17012@localhost.localdomain>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next] ifb: add multiqueue operation
+Date: Wed, 08 Jul 2015 08:29:46 -0400
+Message-ID: <559D17BA.50105@mojatatu.com>
+References: <1436213128.4571.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Christopher Hall <christopher.s.hall@intel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	john.ronciak@intel.com, john.stultz@linaro.org, tglx@linutronix.de
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150708115434.GA17012@localhost.localdomain>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	John Fastabend <john.fastabend@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:35124 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758518AbbGHM3z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 08:29:55 -0400
+Received: by igcqs7 with SMTP id qs7so54765099igc.0
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 05:29:54 -0700 (PDT)
+In-Reply-To: <1436213128.4571.14.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 08, 2015 at 01:54:34PM +0200, Richard Cochran wrote:
-> On Mon, Jul 06, 2015 at 03:44:58PM -0500, Josh Cartwright wrote:
-> > It's difficult to make too many judgements without seeing how a driver
-> > might implement this; is there another patchset that shows how a driver
-> > implements this?
-> 
-> The interface is certainly clear enough to me.  The details of
-> obtaining a cross time stamp from the hardware will remain hidden
-> behind the interface in any case.
-
-It's unusual to see interfaces added like this without also seeing users
-at the same time to see how the pieces fit together.  Should I have
-assumed this was a PATCH RFC for just the API?
-
-I'm afraid this is the tip of a much larger iceberg.  If a device is
-doing hardware crosstimestamping, what is the hardwares view of this
-"system clock"?  How is it tied into the kernels' timekeeping?  How is
-it ensured that same clock the hardware sees is the kernel's actively
-selected clocksource?
-
-You get this for free in software with getnstimeofday(), by pushing it
-to hardware, the boundaries of responsibilities are all
-unclear...without seeing the whole picture.
-
-> > > -	int rsv[14];   /* Reserved for future use. */
-> > > +	/* Whether the clock supports precise system-device cross timestamps */
-> > > +	int precise_timestamping;
-> >
-> > Perhaps now is a good time to add an unsigned int 'flags' member instead,
-> > and start allocating bits.
+On 07/06/15 16:05, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
-> Considering the rate of growth for the PHC stuff, I am not worried
-> about spending a whole 'int' on this.
+> Add multiqueue capabilities to ifb netdevice.
+>
+> This removes last bottleneck for ingress when mq qdisc can be used
+> to shard load from multiple RX queues on physical device.
+>
 
-Fair enough!
+Looks good to me ;->
+Any perf numbers before/after the change?
 
-Thanks,
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-  Josh
+cheers,
+jamal
