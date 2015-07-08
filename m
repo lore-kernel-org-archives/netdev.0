@@ -1,46 +1,48 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH v1 02/12] IB/core: Find the network device matching
- connection parameters
-Date: Wed, 8 Jul 2015 14:33:25 -0600
-Message-ID: <20150708203325.GB16812@obsidianresearch.com>
-References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
- <1434976961-27424-3-git-send-email-haggaie@mellanox.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH v4 0/3] net: dsa: mv88e6xxx: add support for VLAN Table
+ Unit
+Date: Wed, 8 Jul 2015 16:34:33 -0400 (EDT)
+Message-ID: <707426774.108902.1436387673690.JavaMail.zimbra@savoirfairelinux.com>
+References: <1436303900-24259-1-git-send-email-vivien.didelot@savoirfairelinux.com> <20150708143805.GA32208@lunn.ch> <894793886.88178.1436375596747.JavaMail.zimbra@savoirfairelinux.com> <20150708173216.GB1357@lunn.ch> <1831874541.91682.1436379099609.JavaMail.zimbra@savoirfairelinux.com> <20150708201244.GE1357@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, Liran Liss <liranl@mellanox.com>,
-	Guy Shapiro <guysh@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
-	Yotam Kenneth <yotamke@mellanox.com>
-To: Haggai Eran <haggaie@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:60313 "EHLO quartz.orcorp.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933000AbbGHUd1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jul 2015 16:33:27 -0400
-Content-Disposition: inline
-In-Reply-To: <1434976961-27424-3-git-send-email-haggaie@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150708201244.GE1357@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 22, 2015 at 03:42:31PM +0300, Haggai Eran wrote:
-> +/**
-> + * ib_get_net_dev_by_params() - Return the appropriate net_dev
-> + * for a received CM request
-> + * @dev:	An RDMA device on which the request has been received.
-> + * @port:	Port number on the RDMA device.
-> + * @pkey:	The Pkey the request came on.
-> + * @gid:	A GID that the net_dev uses to communicate.
-> + * @addr:	Contains the IP address that the request specified as its
-> + *		destination.
-> + */
-> +struct net_device *ib_get_net_dev_by_params(struct ib_device *dev, u8 port,
-> +					    u16 pkey, const union ib_gid *gid,
-> +					    const struct sockaddr *addr);
+Hi Andrew,
 
-I feel like this has been repated a few times now, but kdocs should be
-with the function body, not in the header.
+----- On Jul 8, 2015, at 4:12 PM, Andrew Lunn andrew@lunn.ch wrote:
 
-Reviewed-By: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+>> I understand. However this whole VLAN thing represents a lot of code.
+>> Some other work depends on portions of it. Do you think it'd be OK if I
+>> resend the patch 1/3 alone? Having only the VTU operations and "vtu"
+>> debugfs file does not break the actual behavior, and will lighten up the
+>> following patchsets.
+> 
+> It might be a bit early for that. All the previous versions of 1/3
+> have had issues with number of ports. I've not had time to take a
+> close look to see if there are other problems.
+> 
+> If somebody else does a proper review and says its O.K, them i'm
+> O.K. with that. But until that happens, i don't think it should go in.
+> 
+>      Andrew
 
-Jason
+OK, then I'll send right away smaller debugfs patches that I need.
+Hopefully you'll have time to review it before your holidays ;-)
+
+Also, I'll resend the VTU debugfs support later then.
+
+Thanks,
+-v
