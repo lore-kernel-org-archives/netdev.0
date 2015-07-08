@@ -1,39 +1,71 @@
 From: anuradhak@cumulusnetworks.com
-Subject: [PATCH net-next v4 2/4] netlink: changes for setting and clearing protodown via netlink.
-Date: Wed,  8 Jul 2015 14:04:23 -0700
-Message-ID: <1436389465-3077-3-git-send-email-anuradhak@cumulusnetworks.com>
+Subject: [PATCH net-next v4 4/4] ip link: proto_down config and display.
+Date: Wed,  8 Jul 2015 14:04:25 -0700
+Message-ID: <1436389465-3077-5-git-send-email-anuradhak@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com,
 	anuradhak@cumulusnetworks.com
 To: davem@davemloft.net, sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:33020 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758261AbbGHVEk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 17:04:40 -0400
-Received: by pdbqm3 with SMTP id qm3so8378987pdb.0
-        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 14:04:39 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:33040 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932623AbbGHVEo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 17:04:44 -0400
+Received: by pacws9 with SMTP id ws9so139186964pac.0
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 14:04:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 
-A nested attribute has been added allowing apps to update bits
-(IF_PROTOF_DOWN) in the proto_flags field.
+This patch adds support to set and display the IF_PROTOF_DOWN proto_flag.
+One example user space application setting this flag is a multi-chassis
+LAG application to handle split-brain situation on peer-link failure.
+
+Example:
+root@net-next:~# ip link set eth1 protodown on
+root@net-next:~# ip link show eth1
+4: eth1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000 proto_flags <DOWN>
+    link/ether 52:54:00:12:35:01 brd ff:ff:ff:ff:ff:ff
+root@net-next:~# ip link set eth1 protodown off
+root@net-next:~# ip link show eth1
+4: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT group default qlen 1000
+    link/ether 52:54:00:12:35:01 brd ff:ff:ff:ff:ff:ff
+root@net-next:~#
 
 Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
 ---
- include/uapi/linux/if_link.h |   10 ++++++++
- net/core/rtnetlink.c         |   57 +++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 66 insertions(+), 1 deletion(-)
+ include/linux/if.h      |    6 ++++++
+ include/linux/if_link.h |   12 ++++++++++++
+ ip/ipaddress.c          |   27 +++++++++++++++++++++++++++
+ ip/iplink.c             |   18 ++++++++++++++++++
+ man/man8/ip-link.8.in   |    8 ++++++++
+ 5 files changed, 71 insertions(+)
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 2c7e8e3..cadfc1a 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
+diff --git a/include/linux/if.h b/include/linux/if.h
+index a55a9e0..97f53d8 100644
+--- a/include/linux/if.h
++++ b/include/linux/if.h
+@@ -156,6 +156,12 @@ enum {
+ 	IF_LINK_MODE_DORMANT,	/* limit upward transition to dormant */
+ };
+ 
++/* proto_flags - port state information can be passed to the switch driver and
++ * used to determine the phys state of the switch port */
++enum {
++	IF_PROTOF_DOWN		= 1<<0	/* set switch port phys state down */
++};
++
+ /*
+  *	Device mapping structure. I'd just gone off and designed a 
+  *	beautiful scheme using only loadable modules with arguments
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 3d0d613..1d07f3f 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
 @@ -148,6 +148,7 @@ enum {
  	IFLA_PHYS_SWITCH_ID,
  	IFLA_LINK_NETNSID,
@@ -42,10 +74,11 @@ index 2c7e8e3..cadfc1a 100644
  	__IFLA_MAX
  };
  
-@@ -651,4 +652,13 @@ enum {
+@@ -620,4 +621,15 @@ enum {
  
  #define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
  
++
 +/* proto_flags section */
 +enum {
 +	IFLA_PROTO_FLAGS_UNSPEC,
@@ -55,116 +88,107 @@ index 2c7e8e3..cadfc1a 100644
 +};
 +
 +#define IFLA_PROTO_FLAGS_MAX (__IFLA_PROTO_FLAGS_MAX - 1)
- #endif /* _UAPI_LINUX_IF_LINK_H */
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 01ced4a..3a49d45 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -864,6 +864,16 @@ static size_t rtnl_port_size(const struct net_device *dev,
- 		return port_self_size;
++
+ #endif /* _LINUX_IF_LINK_H */
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 340e1c9..4078023 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -556,6 +556,30 @@ static void print_link_stats(FILE *fp, struct nlmsghdr *n)
+ 	fprintf(fp, "%s", _SL_);
  }
  
-+static size_t rtnl_proto_flags_info_size(const struct net_device *dev)
++static void print_proto_flags(FILE *fp, struct rtattr *tb)
 +{
-+	size_t proto_flags_size =
-+		nla_total_size(sizeof(struct nlattr))
-+		+ nla_total_size(4)	/* IFLA_PROTO_FLAGS_VAL */
-+		+ nla_total_size(4);	/* IFLA_PROTO_FLAGS_CHANGE */
++	struct rtattr *proto_info[IFLA_INFO_MAX+1];
++	uint32_t proto_flags;
 +
-+	return proto_flags_size;
++	parse_rtattr_nested(proto_info, IFLA_PROTO_FLAGS_MAX, tb);
++
++	if (proto_info[IFLA_PROTO_FLAGS_VAL]) {
++		proto_flags = *(uint32_t *)RTA_DATA(
++				proto_info[IFLA_PROTO_FLAGS_VAL]);
++		if (proto_flags) {
++			fprintf(fp, " proto_flags <");
++#define _PROTOF(f) if (proto_flags & IF_PROTOF_##f) { \
++		      proto_flags &= ~IF_PROTOF_##f ; \
++		      fprintf(fp, #f "%s", proto_flags ? "," : ""); }
++			_PROTOF(DOWN);
++#undef _PROTOF
++			if (proto_flags)
++				fprintf(fp, "%x", proto_flags);
++			fprintf(fp, "> ");
++		}
++	}
 +}
 +
- static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 				     u32 ext_filter_mask)
+ int print_linkinfo(const struct sockaddr_nl *who,
+ 		   struct nlmsghdr *n, void *arg)
  {
-@@ -896,7 +906,9 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
- 	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
- 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
--	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_SWITCH_ID */
-+	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_SWITCH_ID */
-+	       + rtnl_proto_flags_info_size(dev); /* IFLA_PROTO_FLAGS_INFO */
+@@ -669,6 +693,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 	if (filter.showqueue)
+ 		print_queuelen(fp, tb);
+ 
++	if (tb[IFLA_PROTO_FLAGS_INFO])
++		print_proto_flags(fp, tb[IFLA_PROTO_FLAGS_INFO]);
 +
- }
- 
- static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
-@@ -1046,6 +1058,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	struct nlattr *attr, *af_spec;
- 	struct rtnl_af_ops *af_ops;
- 	struct net_device *upper_dev = netdev_master_upper_dev_get(dev);
-+	struct nlattr *proto_flags_info;
- 
- 	ASSERT_RTNL();
- 	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ifm), flags);
-@@ -1282,6 +1295,14 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 
- 	nla_nest_end(skb, af_spec);
- 
-+	proto_flags_info = nla_nest_start(skb, IFLA_PROTO_FLAGS_INFO);
-+	if (!proto_flags_info)
-+		goto nla_put_failure;
-+	if (nla_put_u32(skb, IFLA_PROTO_FLAGS_VAL, dev->proto_flags) ||
-+	    nla_put_u32(skb, IFLA_PROTO_FLAGS_CHANGE, ~0))
-+		goto nla_put_failure;
-+	nla_nest_end(skb, proto_flags_info);
+ 	if (!filter.family || filter.family == AF_PACKET || show_details) {
+ 		SPRINT_BUF(b1);
+ 		fprintf(fp, "%s", _SL_);
+diff --git a/ip/iplink.c b/ip/iplink.c
+index a4a4980..29cb8ce 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -611,6 +611,24 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+ 				invarg("Invalid \"link-netnsid\" value\n", *argv);
+ 			addattr32(&req->n, sizeof(*req), IFLA_LINK_NETNSID,
+ 				  link_netnsid);
++		} else if (strcmp(*argv, "protodown") == 0) {
++			struct rtattr *proto_info;
++			unsigned int proto_flags = 0;
 +
- 	nlmsg_end(skb, nlh);
- 	return 0;
- 
-@@ -1319,6 +1340,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
- 	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
- 	[IFLA_LINK_NETNSID]	= { .type = NLA_S32 },
-+	[IFLA_PROTO_FLAGS_INFO]	= {. type = NLA_NESTED },
- };
- 
- static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
-@@ -1366,6 +1388,12 @@ static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
- 	[IFLA_PORT_RESPONSE]	= { .type = NLA_U16, },
- };
- 
-+static const struct nla_policy
-+	ifla_proto_flags_policy[IFLA_PROTO_FLAGS_MAX + 1] = {
-+	[IFLA_PROTO_FLAGS_VAL]		= { .type = NLA_U32 },
-+	[IFLA_PROTO_FLAGS_CHANGE]	= { .type = NLA_U32 },
-+};
++			NEXT_ARG();
++			if (strcmp(*argv, "on") == 0)
++				proto_flags |= IF_PROTOF_DOWN;
++			else if (strcmp(*argv, "off") != 0)
++				return on_off("protodown", *argv);
++			proto_info = addattr_nest(&req->n,
++						  sizeof(*req),
++						  IFLA_PROTO_FLAGS_INFO);
++			addattr32(&req->n, sizeof(*req),
++				  IFLA_PROTO_FLAGS_VAL, proto_flags);
++			addattr32(&req->n, sizeof(*req),
++				  IFLA_PROTO_FLAGS_CHANGE, IF_PROTOF_DOWN);
 +
- static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	struct net *net = sock_net(skb->sk);
-@@ -1853,6 +1881,33 @@ static int do_setlink(const struct sk_buff *skb,
- 	}
- 	err = 0;
++			addattr_nest_end(&req->n, proto_info);
+ 		} else {
+ 			if (strcmp(*argv, "dev") == 0) {
+ 				NEXT_ARG();
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 714aab4..479f652 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -100,6 +100,8 @@ ip-link \- network device configuration
+ .br
+ .BR multicast " { " on " | " off " } |"
+ .br
++.BR protodown " { " on " | " off " } |"
++.br
+ .B  txqueuelen
+ .IR PACKETS " |"
+ .br
+@@ -645,6 +647,12 @@ change the
+ flag on the device.
  
-+	if (tb[IFLA_PROTO_FLAGS_INFO]) {
-+		struct nlattr *proto_flags[IFLA_PROTO_FLAGS_MAX + 1];
-+		int rem;
-+		unsigned int pflags;
-+		unsigned int pchange;
+ .TP
++.BR "protodown on " or " protodown off"
++change the
++.B PROTODOWN
++proto_flag on the device.
 +
-+		err = nla_parse_nested(proto_flags, IFLA_PROTO_FLAGS_MAX,
-+				       tb[IFLA_PROTO_FLAGS_INFO],
-+				       ifla_proto_flags_policy);
-+		if (err < 0)
-+			goto errout;
-+
-+		if (!proto_flags[IFLA_PROTO_FLAGS_VAL] ||
-+		    !proto_flags[IFLA_PROTO_FLAGS_CHANGE]) {
-+			err = -EOPNOTSUPP;
-+			goto errout;
-+		}
-+		pflags = nla_get_u32(proto_flags[IFLA_PROTO_FLAGS_VAL]);
-+		pchange = nla_get_u32(proto_flags[IFLA_PROTO_FLAGS_CHANGE]);
-+		pflags = (pflags & pchange) | (dev->proto_flags & ~pchange);
-+		err = dev_change_proto_flags(dev, pflags);
-+		if (err < 0)
-+			goto errout;
-+
-+		status |= DO_SETLINK_NOTIFY;
-+	}
-+	err = 0;
- errout:
- 	if (status & DO_SETLINK_MODIFIED) {
- 		if (status & DO_SETLINK_NOTIFY)
++.TP
+ .BR "dynamic on " or " dynamic off"
+ change the
+ .B DYNAMIC
 -- 
 1.7.10.4
