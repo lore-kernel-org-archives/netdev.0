@@ -1,59 +1,47 @@
-From: Emmanuel Grumbach <egrumbach@gmail.com>
-Subject: Re: [PATCH] mac80211: Use kstrdup to simplify code
-Date: Wed, 8 Jul 2015 22:53:51 +0300
-Message-ID: <CANUX_P2djxM92BZX=0O7Zmb+0Y7Gs9xpbfUgPnCB0gnDwfSJuQ@mail.gmail.com>
-References: <1436383927-14010-1-git-send-email-christophe.jaillet@wanadoo.fr>
+From: Marian Corcodel <corcodel.marian@gmail.com>
+Subject: Re: [net-next]Disable writting on reg config1 value is read-only
+Date: Wed, 8 Jul 2015 23:07:56 +0300
+Message-ID: <CAGg4U=F3u3pfOQ6zaeEmQxCE87ireKRLNkm4T-gp__Q7GbYaJA@mail.gmail.com>
+References: <CAGg4U=GvLSYKU8nrNq9VmEyS1jZ9ZUtrVo-KMzR1Nd-ULVKMvw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kalle Valo <kvalo@codeaurora.org>, brudley@broadcom.com,
-	Arend van Spriel <arend@broadcom.com>, frankyl@broadcom.com,
-	meuleman@broadcom.com,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	brcm80211-dev-list@broadcom.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Content-Type: multipart/mixed; boundary=089e01229aaae2d9b4051a62b1fc
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:34813 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755061AbbGHTxx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 15:53:53 -0400
-In-Reply-To: <1436383927-14010-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:37840 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758144AbbGHUH5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 16:07:57 -0400
+Received: by igau2 with SMTP id u2so72583854iga.0
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 13:07:57 -0700 (PDT)
+In-Reply-To: <CAGg4U=GvLSYKU8nrNq9VmEyS1jZ9ZUtrVo-KMzR1Nd-ULVKMvw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The subject is wrong. You are not patch mac80211, but bcrmsmac.
+--089e01229aaae2d9b4051a62b1fc
+Content-Type: text/plain; charset=UTF-8
 
-On Wed, Jul 8, 2015 at 10:32 PM, Christophe JAILLET
-<christophe.jaillet@wanadoo.fr> wrote:
-> Replace a kmalloc+strcpy by an equivalent kstrdup in order to improve
-> readability.
->
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-> ---
->  drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c | 4 +---
->  1 file changed, 1 insertion(+), 3 deletions(-)
->
-> diff --git a/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c b/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
-> index 4813506..8a6c077 100644
-> --- a/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
-> +++ b/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
-> @@ -1476,9 +1476,7 @@ struct brcms_timer *brcms_init_timer(struct brcms_info *wl,
->         wl->timers = t;
->
->  #ifdef DEBUG
-> -       t->name = kmalloc(strlen(name) + 1, GFP_ATOMIC);
-> -       if (t->name)
-> -               strcpy(t->name, name);
-> +       t->name = kstrdup(name, GFP_ATOMIC);
->  #endif
->
->         return t;
-> --
-> 2.1.4
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+[net-next]resend Disable writting on reg config1 value is read-only
+On rtl8101/8102 MEMMAP | IOMAP | VPD | PMEnable is enabled on default
+and is read-only  and is not need to write on these.
+
+2015-07-08 21:55 GMT+03:00 Marian Corcodel <corcodel.marian@gmail.com>:
+> On rtl8101/8102 MEMMAP | IOMAP | VPD | PMEnable is enabled on default
+> and is read-only  and is not need to write on these.
+
+--089e01229aaae2d9b4051a62b1fc
+Content-Type: text/x-patch; charset=US-ASCII; name="disable_writing_ro_reg.patch"
+Content-Disposition: attachment; filename="disable_writing_ro_reg.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ibv7692v1
+
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYyBiL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYwppbmRleCAxYTU1MDU3Li5jMjg1MDI4IDEw
+MDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4MTY5LmMKKysrIGIvZHJp
+dmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jCkBAIC02NDE3LDcgKzY0MTcsNyBAQCBz
+dGF0aWMgdm9pZCBydGxfaHdfc3RhcnRfODEwMmVfMihzdHJ1Y3QgcnRsODE2OV9wcml2YXRlICp0
+cCkKIAogCXJ0bF90eF9wZXJmb3JtYW5jZV90d2VhayhwZGV2LCAweDUgPDwgTUFYX1JFQURfUkVR
+VUVTVF9TSElGVCk7CiAKLQlSVExfVzgoQ29uZmlnMSwgTUVNTUFQIHwgSU9NQVAgfCBWUEQgfCBQ
+TUVuYWJsZSk7CisJLy9SVExfVzgoQ29uZmlnMSwgTUVNTUFQIHwgSU9NQVAgfCBWUEQgfCBQTUVu
+YWJsZSk7CiAJUlRMX1c4KENvbmZpZzMsIFJUTF9SOChDb25maWczKSAmIH5CZWFjb25fZW4pOwog
+fQogCg==
+--089e01229aaae2d9b4051a62b1fc--
