@@ -1,77 +1,53 @@
-From: Johannes Thumshirn <jthumshirn@suse.de>
-Subject: [PATCH] macvtap: Destroy minor_idr on module_exit
-Date: Wed,  8 Jul 2015 17:16:49 +0200
-Message-ID: <1436368609-30777-1-git-send-email-jthumshirn@suse.de>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Johannes Thumshirn <jthumshirn@suse.de>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] rtlwifi: rtl8821ae: Fix an expression that is always false
+Date: Wed,  8 Jul 2015 10:18:50 -0500
+Message-ID: <1436368730-636-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>,
+	David Binderman <dcb314@hotmail.com>
+To: kvalo@codeaurora.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Destroy minor_idr on module_exit, reclaiming the allocated memory.
+In routine _rtl8821ae_set_media_status(), an incorrect mask results in a test
+for AP status to always be false. Similar bugs were fixed in rtl8192cu and
+rtl8192de, but this instance was missed at that time.
 
-This was detected by the following semantic patch (written by Luis Rodriguez
-<mcgrof@suse.com>)
-<SmPL>
-@ defines_module_init @
-declarer name module_init, module_exit;
-declarer name DEFINE_IDR;
-identifier init;
-@@
-
-module_init(init);
-
-@ defines_module_exit @
-identifier exit;
-@@
-
-module_exit(exit);
-
-@ declares_idr depends on defines_module_init && defines_module_exit @
-identifier idr;
-@@
-
-DEFINE_IDR(idr);
-
-@ on_exit_calls_destroy depends on declares_idr && defines_module_exit @
-identifier declares_idr.idr, defines_module_exit.exit;
-@@
-
-exit(void)
-{
- ...
- idr_destroy(&idr);
- ...
-}
-
-@ missing_module_idr_destroy depends on declares_idr && defines_module_exit && !on_exit_calls_destroy @
-identifier declares_idr.idr, defines_module_exit.exit;
-@@
-
-exit(void)
-{
- ...
- +idr_destroy(&idr);
-}
-</SmPL>
-
-Signed-off-by: Johannes Thumshirn <jthumshirn@suse.de>
+Reported-by: David Binderman <dcb314@hotmail.com>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Stable <stable@vger.kernel.org> [3.18+]
+Cc: David Binderman <dcb314@hotmail.com>
 ---
- drivers/net/macvtap.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/wireless/rtlwifi/rtl8821ae/hw.c  | 2 +-
+ drivers/net/wireless/rtlwifi/rtl8821ae/reg.h | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index f837080..3b933bb 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -1355,6 +1355,7 @@ static void macvtap_exit(void)
- 	class_unregister(macvtap_class);
- 	cdev_del(&macvtap_cdev);
- 	unregister_chrdev_region(macvtap_major, MACVTAP_NUM_DEVS);
-+	idr_destroy(&minor_idr);
- }
- module_exit(macvtap_exit);
+diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+index 3236d44..b7f18e21 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+@@ -2180,7 +2180,7 @@ static int _rtl8821ae_set_media_status(struct ieee80211_hw *hw,
  
+ 	rtl_write_byte(rtlpriv, MSR, bt_msr);
+ 	rtlpriv->cfg->ops->led_control(hw, ledaction);
+-	if ((bt_msr & 0xfc) == MSR_AP)
++	if ((bt_msr & MSR_MASK) == MSR_AP)
+ 		rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x00);
+ 	else
+ 		rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x66);
+diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/reg.h b/drivers/net/wireless/rtlwifi/rtl8821ae/reg.h
+index 53668fc..1d6110f 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8821ae/reg.h
++++ b/drivers/net/wireless/rtlwifi/rtl8821ae/reg.h
+@@ -429,6 +429,7 @@
+ #define	MSR_ADHOC				0x01
+ #define	MSR_INFRA				0x02
+ #define	MSR_AP					0x03
++#define MSR_MASK				0x03
+ 
+ #define	RRSR_RSC_OFFSET				21
+ #define	RRSR_SHORT_OFFSET			23
 -- 
-2.4.3
+2.1.4
