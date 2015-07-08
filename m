@@ -1,55 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 1/2] net: dsa: mv88e6xxx: add write access to debugfs
- regs file
-Date: Wed, 8 Jul 2015 22:53:48 +0200
-Message-ID: <20150708205348.GH1357@lunn.ch>
-References: <1436387779-23407-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1436387779-23407-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xi Wang <xi.wang@gmail.com>
+Subject: [PATCH net-next RESEND] test_bpf: extend tests for 32-bit endianness conversion
+Date: Wed,  8 Jul 2015 14:00:56 -0700
+Message-ID: <1436389256-28483-1-git-send-email-xi.wang@gmail.com>
+Cc: Xi Wang <xi.wang@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:36324 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755208AbbGHVBc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 17:01:32 -0400
+Received: by pddu5 with SMTP id u5so64428764pdd.3
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 14:01:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 08, 2015 at 04:36:18PM -0400, Vivien Didelot wrote:
-> Allow write access to the regs file in the debugfs interface, with the
-> following parameters:
-> 
->     echo <name> <reg> <value> > regs
-> 
-> Where "name" is the register name (as shown in the header row), "reg" is
-> the register address (as shown in the first column) and "value" is the
-> 16-bit value. e.g.:
-> 
->     echo GLOBAL 1a 5550 > regs
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->  drivers/net/dsa/mv88e6xxx.c | 32 +++++++++++++++++++++++++++++++-
->  1 file changed, 31 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-> index 8c130c0..04e6eb6 100644
-> --- a/drivers/net/dsa/mv88e6xxx.c
-> +++ b/drivers/net/dsa/mv88e6xxx.c
-> @@ -1648,6 +1648,35 @@ static int mv88e6xxx_regs_show(struct seq_file *s, void *p)
->  	return 0;
->  }
->  
-> +static ssize_t mv88e6xxx_regs_write(struct file *file, const char __user *buf,
-> +				    size_t count, loff_t *ppos)
-> +{
-> +	struct seq_file *s = file->private_data;
-> +	struct dsa_switch *ds = s->private;
-> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-> +	char name[count];
+Currently "ALU_END_FROM_BE 32" and "ALU_END_FROM_LE 32" do not test if
+the upper bits of the result are zeros (the arm64 JIT had such bugs).
+Extend the two tests to catch this.
 
-Is this safe? Is count somehow limited? If i was to echo 8K to the
-file would i not exceed the kernel stack space?
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+Signed-off-by: Xi Wang <xi.wang@gmail.com>
+---
+See the arm64 JIT bugs:
 
-     Andrew
+https://lkml.org/lkml/2015/6/25/721
+---
+ lib/test_bpf.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/lib/test_bpf.c b/lib/test_bpf.c
+index 7f58c73..9198f28 100644
+--- a/lib/test_bpf.c
++++ b/lib/test_bpf.c
+@@ -3674,6 +3674,9 @@ static struct bpf_test tests[] = {
+ 		.u.insns_int = {
+ 			BPF_LD_IMM64(R0, 0x0123456789abcdefLL),
+ 			BPF_ENDIAN(BPF_FROM_BE, R0, 32),
++			BPF_ALU64_REG(BPF_MOV, R1, R0),
++			BPF_ALU64_IMM(BPF_RSH, R1, 32),
++			BPF_ALU32_REG(BPF_ADD, R0, R1), /* R1 = 0 */
+ 			BPF_EXIT_INSN(),
+ 		},
+ 		INTERNAL,
+@@ -3708,6 +3711,9 @@ static struct bpf_test tests[] = {
+ 		.u.insns_int = {
+ 			BPF_LD_IMM64(R0, 0x0123456789abcdefLL),
+ 			BPF_ENDIAN(BPF_FROM_LE, R0, 32),
++			BPF_ALU64_REG(BPF_MOV, R1, R0),
++			BPF_ALU64_IMM(BPF_RSH, R1, 32),
++			BPF_ALU32_REG(BPF_ADD, R0, R1), /* R1 = 0 */
+ 			BPF_EXIT_INSN(),
+ 		},
+ 		INTERNAL,
+-- 
+2.1.4
