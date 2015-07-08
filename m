@@ -1,85 +1,114 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH 6/7] hvsock: introduce Hyper-V VM Sockets feature
-Date: Wed, 8 Jul 2015 03:56:52 +0000
-Message-ID: <31d2369255894515bd040d22452d9df8@SIXPR30MB031.064d.mgd.msft.net>
-References: <1436194049-27829-1-git-send-email-decui@microsoft.com>
- <20150707113112.408b6c5d@urahara>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH v2 1/5] ipvlan: remove counters of ipv4 and ipv6 addresses
+Date: Tue, 7 Jul 2015 20:59:30 -0700
+Message-ID: <CAF2d9jhTv9gimJPF+xbf=gK32t2suy2Hb0eeqcfJeYbXbvV-wQ@mail.gmail.com>
+References: <20150703125132.24121.50592.stgit@buzz> <20150703125836.24121.15213.stgit@buzz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- Haiyang Zhang <haiyangz@microsoft.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20150707113112.408b6c5d@urahara>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Benc <jbenc@redhat.com>
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f176.google.com ([209.85.160.176]:36046 "EHLO
+	mail-yk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757370AbbGHD7v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2015 23:59:51 -0400
+Received: by ykey15 with SMTP id y15so735042yke.3
+        for <netdev@vger.kernel.org>; Tue, 07 Jul 2015 20:59:50 -0700 (PDT)
+In-Reply-To: <20150703125836.24121.15213.stgit@buzz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Stephen Hemminger
-> Sent: Wednesday, July 8, 2015 2:31
-> Subject: Re: [PATCH 6/7] hvsock: introduce Hyper-V VM Sockets feature
+On Fri, Jul 3, 2015 at 5:58 AM, Konstantin Khlebnikov
+<khlebnikov@yandex-team.ru> wrote:
+> They are unused after commit f631c44bbe15 ("ipvlan: Always set broadcast bit in
+> multicast filter").
 >
-> On Mon,  6 Jul 2015 07:47:29 -0700
-> Dexuan Cui <decui@microsoft.com> wrote:
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+> ---
+>  drivers/net/ipvlan/ipvlan.h      |    2 -
+>  drivers/net/ipvlan/ipvlan_main.c |   65 +++++++++++++++-----------------------
+>  2 files changed, 26 insertions(+), 41 deletions(-)
 >
-> > Hyper-V VM sockets (hvsock) supplies a byte-stream based communication
-> > mechanism between the host and a guest. It's kind of TCP over VMBus, but
-> > the transportation layer (VMBus) is much simpler than IP. With Hyper-V VM
-> > Sockets, applications between the host and a guest can talk with each
-> > other directly by the traditional BSD-style socket APIs.
-> >
-> > Hyper-V VM Sockets is only available on Windows 10 host and later. The
-> > patch implements the necessary support in the guest side by introducing
-> > a new socket address family AF_HYPERV.
-> >
-> > Signed-off-by: Dexuan Cui <decui@microsoft.com>
+
+> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+> index 1acc283160d9..62577b3f01f2 100644
+> --- a/drivers/net/ipvlan/ipvlan_main.c
+> +++ b/drivers/net/ipvlan/ipvlan_main.c
+> @@ -627,8 +622,9 @@ static int ipvlan_add_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
+>         memcpy(&addr->ip6addr, ip6_addr, sizeof(struct in6_addr));
+>         addr->atype = IPVL_IPV6;
+>         list_add_tail(&addr->anode, &ipvlan->addrs);
+> -       ipvlan->ipv6cnt++;
+> -       /* If the interface is not up, the address will be added to the hash
+> +
+> +       /*
+> +        * If the interface is not up, the address will be added to the hash
+Why? Preferred commenting style in net is
+      /* multi-line
+       * comment
+       */
+>          * list by ipvlan_open.
+>          */
+>         if (netif_running(ipvlan->dev))
+> @@ -642,16 +638,11 @@ static void ipvlan_del_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
+>         struct ipvl_addr *addr;
 >
-> Is there any chance that AF_VSOCK could be used with different transport
-> for VMware and Hyper-V. Better to make guest applications host independent.
-
-Hi Stephen,
-Thanks for the question. I tried to do that (since AF_HYPERV and AF_VSOCK
-are conceptually similar), but I found it would be impractical: I listed the
-reasons in my cover letter of the patchset:
-https://lkml.org/lkml/2015/7/6/431
-
-IMO the biggest difference is the size of the endpoint (u128 vs. u32):
-<u32 ContextID, u32 Port> in AF_VOSCK
-vs.
-<u128 GUID_VM_ID, u128 GUID_ServiceID> in AF_HYPERV.
-
-In the current code of AF_VSOCK and the related transport layer (the wrapper
-ops of VMware's VMCI), the size is widely used by "struct sockaddr_vm" (this
-struct is also exported to the user space).
-
-So, anyway, the user space application has to explicitly handle the different
-endpoint size.
-
-And in the driver side, I'm afraid there is no way to directly reuse the code of
-AF_VSOCK with trivial change :-( , because we would have to make the
-AF_VSOCK code be able to know the real sockaddr type (sockaddr_vm or
-sockaddr_hv? The two structs have different layout and different field names)
-at runtime and behave differently. This would make the code a mess, IMO.
-
-That's why I think it would be better to introduce a new address family.
-
-Thanks,
--- Dexuan
+>         addr = ipvlan_find_addr(ipvlan, ip6_addr, true);
+> -       if (!addr)
+> -               return;
+> -
+> -       ipvlan_ht_addr_del(addr, true);
+> -       list_del(&addr->anode);
+> -       ipvlan->ipv6cnt--;
+> -       WARN_ON(ipvlan->ipv6cnt < 0);
+> -       kfree_rcu(addr, rcu);
+> -
+> -       return;
+> +       if (addr) {
+> +               ipvlan_ht_addr_del(addr, true);
+> +               list_del(&addr->anode);
+> +               kfree_rcu(addr, rcu);
+> +       }
+This delta is unnecessarily big and can be reduced to deleting just two lines.
+>  }
+>
+>  static int ipvlan_addr6_event(struct notifier_block *unused,
+> @@ -699,8 +690,9 @@ static int ipvlan_add_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
+>         memcpy(&addr->ip4addr, ip4_addr, sizeof(struct in_addr));
+>         addr->atype = IPVL_IPV4;
+>         list_add_tail(&addr->anode, &ipvlan->addrs);
+> -       ipvlan->ipv4cnt++;
+> -       /* If the interface is not up, the address will be added to the hash
+> +
+> +       /*
+> +        * If the interface is not up, the address will be added to the hash
+same here (multi line comments)
+>          * list by ipvlan_open.
+>          */
+>         if (netif_running(ipvlan->dev))
+> @@ -714,16 +706,11 @@ static void ipvlan_del_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
+>         struct ipvl_addr *addr;
+>
+>         addr = ipvlan_find_addr(ipvlan, ip4_addr, false);
+> -       if (!addr)
+> -               return;
+> -
+> -       ipvlan_ht_addr_del(addr, true);
+> -       list_del(&addr->anode);
+> -       ipvlan->ipv4cnt--;
+> -       WARN_ON(ipvlan->ipv4cnt < 0);
+> -       kfree_rcu(addr, rcu);
+> -
+> -       return;
+> +       if (addr) {
+> +               ipvlan_ht_addr_del(addr, true);
+> +               list_del(&addr->anode);
+> +               kfree_rcu(addr, rcu);
+> +       }
+This delta is unnecessarily big and can be reduced to deleting just two lines.
+>  }
+>
+>  static int ipvlan_addr4_event(struct notifier_block *unused,
+>
