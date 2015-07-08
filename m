@@ -1,70 +1,63 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2] add stealth mode
-Date: Wed, 08 Jul 2015 10:02:01 +0200
-Message-ID: <1436342521.2928.4.camel@stressinduktion.org>
-References: <CAFnufp059tojfKYBye4eayOCvNNkAE9w_s_6E-PiG-EYp9K0Gg@mail.gmail.com>
-	 <21611.1436179798@turing-police.cc.vt.edu>
-	 <CAFnufp3xP3xjd8zy0uLKEGgbBAb0motLva=f1EbMJCfcKG=Y-w@mail.gmail.com>
-	 <1436256473.3809610.317083993.4E2A41A3@webmail.messagingengine.com>
-	 <CAFnufp14J0jmXRy+AgNDyJYSC7OKup-S8ahrrZVFFXF6KDQsRg@mail.gmail.com>
+Subject: Re: [PATCH net-next v2] ipv6: sysctl to restrict candidate source
+ addresses
+Date: Wed, 08 Jul 2015 10:09:48 +0200
+Message-ID: <1436342988.2928.9.camel@stressinduktion.org>
+References: <1436151944-21072-1-git-send-email-ek@google.com>
+	 <CAKD1Yr02efR=-PxKsR0nhpJyXJBSMmTvRctcJnoqqkfreUpAig@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Matteo Croce <matteo@openwrt.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFnufp14J0jmXRy+AgNDyJYSC7OKup-S8ahrrZVFFXF6KDQsRg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<hideaki.yoshifuji@miraclelinux.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Lorenzo Colitti <lorenzo@google.com>, Erik Kline <ek@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:41981 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932693AbbGHIJw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 04:09:52 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id EF7B020876
+	for <netdev@vger.kernel.org>; Wed,  8 Jul 2015 04:09:51 -0400 (EDT)
+In-Reply-To: <CAKD1Yr02efR=-PxKsR0nhpJyXJBSMmTvRctcJnoqqkfreUpAig@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-07-07 at 17:27 +0200, Matteo Croce wrote:
-> 2015-07-07 10:07 GMT+02:00 Hannes Frederic Sowa <
-> hannes@stressinduktion.org>:
+On Wed, 2015-07-08 at 10:29 +0900, Lorenzo Colitti wrote:
+> On Mon, Jul 6, 2015 at 12:05 PM, Erik Kline <ek@google.com> wrote:
+> > Per RFC 6724, section 4, "Candidate Source Addresses":
 > > 
+> >     It is RECOMMENDED that the candidate source addresses be the set
+> >     of unicast addresses assigned to the interface that will be used
+> >     to send to the destination (the "outgoing" interface).
 > > 
-> > On Mon, Jul 6, 2015, at 21:44, Matteo Croce wrote:
-> > > 2015-07-06 12:49 GMT+02:00  <Valdis.Kletnieks@vt.edu>:
-> > > > On Thu, 02 Jul 2015 10:56:01 +0200, Matteo Croce said:
-> > > > > Add option to disable any reply not related to a listening 
-> > > > > socket,
-> > > > > like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
-> > > > > Also disables ICMP replies to echo request and timestamp.
-> > > > > The stealth mode can be enabled selectively for a single 
-> > > > > interface.
-> > > > 
-> > > > A few notes.....
-> > > > 
-> > > > 1) Do you have an actual use case where an iptables '-j DROP' 
-> > > > isn't usable?
-> > > 
-> > > If you mean using a default DROP policy and allowing only the 
-> > > traffic
-> > > do you want,
-> > > then the use case is where the port can change at runtime and you 
-> > > may not
-> > > want
-> > > to update the firewall every time
+> > Add a sysctl to enable this behaviour.
 > > 
-> > Can't you use socket match in netfilter to accomplish exactly that?
+> > Signed-off-by: Erik Kline <ek@google.com>
 > 
-> You mean the owner --uid match?
-> Yes  sort of, but my was a different goal, I want just to disable any
-> kind of reply from a specific interface (usually WAN) unless there is
-> a listening socket, to mitigate port scanning and flood attacks
-> without having a firewall.
+> I think this is useful, because it ensures that devices with a working
+> IPv6 configuration on interface A, and a partial IPv6 configuration on
+> interface B do not attempt to send packets on interface B using
+> interface A's source address.
+> 
+> Example: there are home routers in the wild that send out an IPv6
+> router advertisement that configures a default route but no IPv6
+> address. This change makes it so that the host does not attempt to use
+> an IPv6 address from another network (e.g., a cellular data
+> connection) on the home network.
+> 
+> It is also what the RFC recommends.
+> 
+> Acked-by: Lorenzo Colitti <lorenzo@google.com>
 
-I was more thinking about the xt_socket match:
+I wonder a little bit, because addresses which match the outgoing
+interface should get a higher score in saddr_eval, thus be automatically
+preferred. Is this check not strong enough?
 
--m socket in the INPUT chain.
-
-> Obviously you can do it with a firewall,
-> but why do we have /proc/sys/net/ipv4/icmp_echo_ignore_all when we can
-> drop ICMP echoes?
-
-Same arguments apply to that knob, but it is already imported and cannot
-be changed anymore. Nowadays we try to avoid adding new sysctls.
+I really wonder if we can improve source address selection and make this
+behavior a default without introducing a new sysctl.
 
 Bye,
 Hannes
