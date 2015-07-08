@@ -1,72 +1,175 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next] net: igb: implement high frequency periodic
- output signals
-Date: Wed, 08 Jul 2015 16:14:17 -0700
-Message-ID: <1436397257.3214.14.camel@intel.com>
-References: <1436280102-30310-1-git-send-email-richardcochran@gmail.com>
-	 <20150708.161150.1028571714100873421.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-R8ARDUDxK8Fly0z+Pz+b"
-Cc: richardcochran@gmail.com, netdev@vger.kernel.org,
-	jacob.e.keller@intel.com, matthew.vick@intel.com
-To: David Miller <davem@davemloft.net>
+From: sfeldma@gmail.com
+Subject: [PATCH net-next 3/5] switchdev: add offload_fwd_mark generator helper
+Date: Wed,  8 Jul 2015 16:16:41 -0700
+Message-ID: <1436397403-62412-4-git-send-email-sfeldma@gmail.com>
+References: <1436397403-62412-1-git-send-email-sfeldma@gmail.com>
+Cc: jiri@resnulli.us, roopa@cumulusnetworks.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:53713 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751299AbbGHXOU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jul 2015 19:14:20 -0400
-In-Reply-To: <20150708.161150.1028571714100873421.davem@davemloft.net>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35078 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750817AbbGHXOQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 19:14:16 -0400
+Received: by pactm7 with SMTP id tm7so139231861pac.2
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 16:14:15 -0700 (PDT)
+In-Reply-To: <1436397403-62412-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Scott Feldman <sfeldma@gmail.com>
 
---=-R8ARDUDxK8Fly0z+Pz+b
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+skb->offload_fwd_mark and dev->offload_fwd_mark are 32-bit and should be
+unique for device and may even be unique for a sub-set of ports within
+device, so add switchdev helper function to generate unique marks based on
+port's switch ID and group_ifindex.  group_ifindex would typically be the
+container dev's ifindex, such as the bridge's ifindex.
 
-On Wed, 2015-07-08 at 16:11 -0700, David Miller wrote:
-> From: Richard Cochran <richardcochran@gmail.com>
-> Date: Tue,  7 Jul 2015 16:41:42 +0200
->=20
-> > In addition to interrupt driven target time output events, the i210
-> > also has two programmable clock outputs.  These clocks support
-> periods
-> > between 16 nanoseconds and 140 milliseconds.  This patch implements
-> > the periodic output function using the clock outputs when possible,
-> > falling back to the target time for longer periods.
-> >=20
-> > Signed-off-by: Richard Cochran <richardcochran@gmail.com>
->=20
-> I assume I will get this via the Intel folks in a future pull request.
+The generator uses a global hash table to store offload_fwd_marks hashed by
+{switch ID, group_ifindex} key.
 
-Correct, I will be adding it to my queue.
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+---
+ include/net/switchdev.h   |    9 ++++
+ net/switchdev/switchdev.c |  103 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 112 insertions(+)
 
-Richard- FYI for the future, could you at least CC
-intel-wired-lan@lists.osuosl.org on the Intel wired LAN patches.  It
-helps me keep track of patches against our drivers. Thanks!
-
---=-R8ARDUDxK8Fly0z+Pz+b
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJVna7JAAoJEOVv75VaS+3O87kP/R3WFqZVxQSxMUbZo4n1sECT
-IMsz49zzxjrbZvCd07Dtjn+jOm4EVbuTCUSpXE1orPaMvatrDw1FXO55Mzs8nMZk
-Is6FaI0O877IAb2N4yvIA67gkzbf3qZJGaC5KXq5DLdpojn06paqEW8lm0D1pbH5
-ZxzhGmQ1VFyezuNotzg4ateehArL/yx/mhK4CJuZPDMDWseYYAP95cSF/V4lDU3w
-3cO5A2jKGIoLbk2RDzEiVnSeNE2B+so+LMoVmBax9oKSeOInFdIWg1O4NMDnukoI
-qCVjy8pqsUwEv8tKtJZrhOqUPqr+m2sFMYQQjRHWfA7KubFW2waCMB7xCKtxZ/Rc
-iWhsjBXI/WV9bOy7oj+moycYr7fwUgWUSzWpRhrkg8uBygQ/yeyqbgDH93R1z/fL
-yVhga1SiXPIBLdwJ9w18lmUU8OSQgcwUTKiThppsOiNrvVuSkpCdR9/So9nE8OpM
-Gz8Jusj/nhSzP38qLU/UmT0c7/tLUEbclxcyeqPTZtDx/QeAal8UWm2Wrke+s5tM
-ubtHoyCDTb+HS5iLuDY0IQd463RMRoKQAh1XYh4aNXeqiDmO7L9n7v7RP6OiM33X
-TIkXr032L/+0rDsjHVKGvdBWahCoSL/tIXkUaydhkAsQHxliJvJoNkcnCZ9YvB68
-BUIGLvssdVq4TNo67bce
-=9Pgy
------END PGP SIGNATURE-----
-
---=-R8ARDUDxK8Fly0z+Pz+b--
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index d5671f1..89da893 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -157,6 +157,9 @@ int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+ int switchdev_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+ 			    struct net_device *dev,
+ 			    struct net_device *filter_dev, int idx);
++void switchdev_port_fwd_mark_set(struct net_device *dev,
++				 struct net_device *group_dev,
++				 bool joining);
+ 
+ #else
+ 
+@@ -271,6 +274,12 @@ static inline int switchdev_port_fdb_dump(struct sk_buff *skb,
+ 	return -EOPNOTSUPP;
+ }
+ 
++static inline void switchdev_port_fwd_mark_set(struct net_device *dev,
++					       struct net_device *group_dev,
++					       bool joining)
++{
++}
++
+ #endif
+ 
+ #endif /* _LINUX_SWITCHDEV_H_ */
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index e16586f..6de147d 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -1035,3 +1035,106 @@ void switchdev_fib_ipv4_abort(struct fib_info *fi)
+ 	fi->fib_net->ipv4.fib_offload_disabled = true;
+ }
+ EXPORT_SYMBOL_GPL(switchdev_fib_ipv4_abort);
++
++static bool switchdev_port_same_parent_id(struct net_device *a,
++					  struct net_device *b)
++{
++	struct switchdev_attr a_attr = {
++		.id = SWITCHDEV_ATTR_PORT_PARENT_ID,
++		.flags = SWITCHDEV_F_NO_RECURSE,
++	};
++	struct switchdev_attr b_attr = {
++		.id = SWITCHDEV_ATTR_PORT_PARENT_ID,
++		.flags = SWITCHDEV_F_NO_RECURSE,
++	};
++
++	if (switchdev_port_attr_get(a, &a_attr) ||
++	    switchdev_port_attr_get(b, &b_attr))
++		return false;
++
++	return netdev_phys_item_id_same(&a_attr.u.ppid, &b_attr.u.ppid);
++}
++
++static u32 switchdev_port_fwd_mark_get(struct net_device *dev,
++				       struct net_device *group_dev)
++{
++	struct net_device *lower_dev;
++	struct list_head *iter;
++
++	netdev_for_each_lower_dev(group_dev, lower_dev, iter) {
++		if (lower_dev == dev)
++			continue;
++		if (switchdev_port_same_parent_id(dev, lower_dev))
++			return lower_dev->offload_fwd_mark;
++		return switchdev_port_fwd_mark_get(dev, lower_dev);
++	}
++
++	return dev->ifindex;
++}
++
++static void switchdev_port_fwd_mark_reset(struct net_device *group_dev,
++					  u32 old_mark, u32 *reset_mark)
++{
++	struct net_device *lower_dev;
++	struct list_head *iter;
++
++	netdev_for_each_lower_dev(group_dev, lower_dev, iter) {
++		if (lower_dev->offload_fwd_mark == old_mark) {
++			if (!*reset_mark)
++				*reset_mark = lower_dev->ifindex;
++			lower_dev->offload_fwd_mark = *reset_mark;
++		}
++		switchdev_port_fwd_mark_reset(lower_dev, old_mark, reset_mark);
++	}
++}
++
++/**
++ *	switchdev_port_fwd_mark_set - Set port offload forwarding mark
++ *
++ *	@dev: port device
++ *	@group_dev: containing device
++ *	@joining: true if dev is joining group; false if leaving group
++ *
++ *	An ungrouped port's offload mark is just its ifindex.  A grouped
++ *	port's (member of a bridge, for example) offload mark is the ifindex
++ *	of one of the ports in the group with the same parent (switch) ID.
++ *	Ports on the same device in the same group will have the same mark.
++ *
++ *	Example:
++ *
++ *		br0		ifindex=9
++ *		  sw1p1		ifindex=2	mark=2
++ *		  sw1p2		ifindex=3	mark=2
++ *		  sw2p1		ifindex=4	mark=5
++ *		  sw2p2		ifindex=5	mark=5
++ *
++ *	If sw2p2 leaves the bridge, we'll have:
++ *
++ *		br0		ifindex=9
++ *		  sw1p1		ifindex=2	mark=2
++ *		  sw1p2		ifindex=3	mark=2
++ *		  sw2p1		ifindex=4	mark=4
++ *		sw2p2		ifindex=5	mark=5
++ */
++void switchdev_port_fwd_mark_set(struct net_device *dev,
++				 struct net_device *group_dev,
++				 bool joining)
++{
++	u32 mark = dev->ifindex;
++	u32 reset_mark = 0;
++
++	if (group_dev && joining) {
++		mark = switchdev_port_fwd_mark_get(dev, group_dev);
++	} else if (group_dev && !joining) {
++		if (dev->offload_fwd_mark == mark)
++			/* Ohoh, this port was the mark reference port,
++			 * but it's leaving the group, so reset the
++			 * mark for the remaining ports in the group.
++			 */
++			switchdev_port_fwd_mark_reset(group_dev, mark,
++						      &reset_mark);
++	}
++
++	dev->offload_fwd_mark = mark;
++}
++EXPORT_SYMBOL_GPL(switchdev_port_fwd_mark_set);
+-- 
+1.7.10.4
