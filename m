@@ -1,44 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v4 0/3] net: dsa: mv88e6xxx: add support for VLAN Table
- Unit
-Date: Wed, 8 Jul 2015 22:12:44 +0200
-Message-ID: <20150708201244.GE1357@lunn.ch>
-References: <1436303900-24259-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <20150708143805.GA32208@lunn.ch>
- <894793886.88178.1436375596747.JavaMail.zimbra@savoirfairelinux.com>
- <20150708173216.GB1357@lunn.ch>
- <1831874541.91682.1436379099609.JavaMail.zimbra@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:36532 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758638AbbGHUTD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jul 2015 16:19:03 -0400
-Content-Disposition: inline
-In-Reply-To: <1831874541.91682.1436379099609.JavaMail.zimbra@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+Subject: [PATCH v2] brcmsmac: Use kstrdup to simplify code
+Date: Wed,  8 Jul 2015 22:22:46 +0200
+Message-ID: <1436386966-16148-1-git-send-email-christophe.jaillet@wanadoo.fr>
+References: <1436383927-14010-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1436383927-14010-1-git-send-email-christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> I understand. However this whole VLAN thing represents a lot of code.
-> Some other work depends on portions of it. Do you think it'd be OK if I
-> resend the patch 1/3 alone? Having only the VTU operations and "vtu"
-> debugfs file does not break the actual behavior, and will lighten up the
-> following patchsets.
+Replace a kmalloc+strcpy by an equivalent kstrdup in order to improve
+readability.
 
-It might be a bit early for that. All the previous versions of 1/3
-have had issues with number of ports. I've not had time to take a
-close look to see if there are other problems.
+Signed-off-by: Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+---
+v2: fix the subject
 
-If somebody else does a proper review and says its O.K, them i'm
-O.K. with that. But until that happens, i don't think it should go in.
+ drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-     Andrew
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c b/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
+index 4813506..8a6c077 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
++++ b/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
+@@ -1476,9 +1476,7 @@ struct brcms_timer *brcms_init_timer(struct brcms_info *wl,
+ 	wl->timers = t;
+ 
+ #ifdef DEBUG
+-	t->name = kmalloc(strlen(name) + 1, GFP_ATOMIC);
+-	if (t->name)
+-		strcpy(t->name, name);
++	t->name = kstrdup(name, GFP_ATOMIC);
+ #endif
+ 
+ 	return t;
+-- 
+2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
