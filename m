@@ -1,100 +1,64 @@
-From: Marian Corcodel <corcodel.marian@gmail.com>
-Subject: [net-next]Add Maximum Rx packet size supported(rx_buf_sz) variable on
- main structure
-Date: Wed, 8 Jul 2015 21:25:57 +0300
-Message-ID: <CAGg4U=HsHML2CKm0fgGoi=AZwXDeZpiGJigodAHJP-ehP58pHw@mail.gmail.com>
+From: Sowmini Varadhan <sowmini05@gmail.com>
+Subject: Re: [RFC net-next 3/6] net: Introduce VRF device driver - v2
+Date: Wed, 8 Jul 2015 20:34:09 +0200
+Message-ID: <CACP96tTyw+J7swi-+GJMwKKVjE9Uk1dJ3m_JKg2o1tyZup+p0w@mail.gmail.com>
+References: <1436195001-4818-1-git-send-email-dsa@cumulusnetworks.com>
+	<1436195001-4818-4-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a113fd378221938051a61453c
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, shm@cumulusnetworks.com,
+	roopa@cumulusnetworks.com,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	ddutt@cumulusnetworks.com,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	hadi@mojatatu.com, "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:35505 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758207AbbGHSZ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 14:25:58 -0400
-Received: by iecuq6 with SMTP id uq6so161414492iec.2
-        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 11:25:57 -0700 (PDT)
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:35883 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758299AbbGHSeL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 14:34:11 -0400
+Received: by wgxm20 with SMTP id m20so20202789wgx.3
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 11:34:09 -0700 (PDT)
+In-Reply-To: <1436195001-4818-4-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001a113fd378221938051a61453c
-Content-Type: text/plain; charset=UTF-8
+On Mon, Jul 6, 2015 at 5:03 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> This driver borrows heavily from IPvlan and teaming drivers.
+>
+> Routing domains (VRF-lite) are created by instantiating a device
+> and enslaving all routed interfaces that participate in the domain.
+> As part of the enslavement, all local routes pointing to enslaved
+> devices are re-pointed to the vrf device, thus forcing outgoing
+> sockets to bind to the vrf to function.
+>
+> Standard FIB rules can then bind the VRF device to tables and regular
+> fib rule processing is followed.
 
-Variable  rx_buf_sz have different values on rt8101/8102 is 16000
-bytes instead of 16383 and now is ready do set these.
+Perhaps I misunderstand the design proposal here, but a switch's VRF
+is essentially just a separate routing table, whose input and output interfaces
+are exclusively bound to the VRF.
 
---001a113fd378221938051a61453c
-Content-Type: text/x-patch; charset=US-ASCII; name="add_rx_buf_sz_main_struct.patch"
-Content-Disposition: attachment; filename="add_rx_buf_sz_main_struct.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ibv3j3x80
+Can an application in the model above get visibiltiy into the (enslaved?)
+interfaces in the vrf? Can an application use IP_PKTINFO to send a packet out of
+a specific interface on a selected VRF? What about receiving
+IP_PKTINFO about input interface?
+What about setting ipsec policy for interfaces in the vrf?
 
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYyBiL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYwppbmRleCA5MTg5ZGEzLi4xYTU1MDU3IDEw
-MDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4MTY5LmMKKysrIGIvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jCkBAIC0zNDQsNyArMzQ0LDcgQEAgc3Rh
-dGljIGNvbnN0IHN0cnVjdCBwY2lfZGV2aWNlX2lkIHJ0bDgxNjlfcGNpX3RibFtdID0gewogCiBN
-T0RVTEVfREVWSUNFX1RBQkxFKHBjaSwgcnRsODE2OV9wY2lfdGJsKTsKIAotc3RhdGljIGludCBy
-eF9idWZfc3ogPSAxNjM4MzsKKy8vc3RhdGljIGludCByeF9idWZfc3ogPSAxNjM4MzsKIHN0YXRp
-YyBpbnQgdXNlX2RhYzsKIHN0YXRpYyBzdHJ1Y3QgewogCXUzMiBtc2dfZW5hYmxlOwpAQCAtNzg1
-LDYgKzc4NSw4IEBAIHN0cnVjdCBydGw4MTY5X3ByaXZhdGUgewogCiAJdTE2IGV2ZW50X3Nsb3c7
-CiAKKwl1MTYgcnhfYnVmX3N6OyAvKiBNYXhpbXVtIFJ4IHBhY2tldCBzaXplIHN1cHBvcnRlZCAq
-LworCiAJc3RydWN0IG1kaW9fb3BzIHsKIAkJdm9pZCAoKndyaXRlKShzdHJ1Y3QgcnRsODE2OV9w
-cml2YXRlICosIGludCwgaW50KTsKIAkJaW50ICgqcmVhZCkoc3RydWN0IHJ0bDgxNjlfcHJpdmF0
-ZSAqLCBpbnQpOwpAQCAtNTMyMSw3ICs1MzIzLDcgQEAgc3RhdGljIHZvaWQgcnRsX2h3X3N0YXJ0
-XzgxNjkoc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIAogCVJUTF9XOChFYXJseVR4VGhyZXMsIE5v
-RWFybHlUeCk7CiAKLQlydGxfc2V0X3J4X21heF9zaXplKGlvYWRkciwgcnhfYnVmX3N6KTsKKwly
-dGxfc2V0X3J4X21heF9zaXplKGlvYWRkciwgdHAtPnJ4X2J1Zl9zeik7CiAKIAlpZiAodHAtPm1h
-Y192ZXJzaW9uID09IFJUTF9HSUdBX01BQ19WRVJfMDEgfHwKIAkgICAgdHAtPm1hY192ZXJzaW9u
-ID09IFJUTF9HSUdBX01BQ19WRVJfMDIgfHwKQEAgLTYyMjksNyArNjIzMSw3IEBAIHN0YXRpYyB2
-b2lkIHJ0bF9od19zdGFydF84MTY4KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiAKIAlSVExfVzgo
-TWF4VHhQYWNrZXRTaXplLCBUeFBhY2tldE1heCk7CiAKLQlydGxfc2V0X3J4X21heF9zaXplKGlv
-YWRkciwgcnhfYnVmX3N6KTsKKwlydGxfc2V0X3J4X21heF9zaXplKGlvYWRkciwgdHAtPnJ4X2J1
-Zl9zeik7CiAKIAl0cC0+Y3BfY21kIHw9IFJUTF9SMTYoQ1BsdXNDbWQpIHwgUGt0Q250ckRpc2Fi
-bGUgfCBJTlRUXzE7CiAKQEAgLTY1MjMsNyArNjUyNSw3IEBAIHN0YXRpYyB2b2lkIHJ0bF9od19z
-dGFydF84MTAxKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiAKIAlSVExfVzgoTWF4VHhQYWNrZXRT
-aXplLCBUeFBhY2tldE1heCk7CiAKLQlydGxfc2V0X3J4X21heF9zaXplKGlvYWRkciwgcnhfYnVm
-X3N6KTsKKwlydGxfc2V0X3J4X21heF9zaXplKGlvYWRkciwgdHAtPnJ4X2J1Zl9zeik7CiAKIAl0
-cC0+Y3BfY21kICY9IH5SODEwWF9DUENNRF9RVUlSS19NQVNLOwogCVJUTF9XMTYoQ1BsdXNDbWQs
-IHRwLT5jcF9jbWQpOwpAQCAtNjYwOSw3ICs2NjExLDcgQEAgc3RhdGljIGlubGluZSB2b2lkIHJ0
-bDgxNjlfbWFrZV91bnVzYWJsZV9ieV9hc2ljKHN0cnVjdCBSeERlc2MgKmRlc2MpCiBzdGF0aWMg
-dm9pZCBydGw4MTY5X2ZyZWVfcnhfZGF0YWJ1ZmYoc3RydWN0IHJ0bDgxNjlfcHJpdmF0ZSAqdHAs
-CiAJCQkJICAgICB2b2lkICoqZGF0YV9idWZmLCBzdHJ1Y3QgUnhEZXNjICpkZXNjKQogewotCWRt
-YV91bm1hcF9zaW5nbGUoJnRwLT5wY2lfZGV2LT5kZXYsIGxlNjRfdG9fY3B1KGRlc2MtPmFkZHIp
-LCByeF9idWZfc3osCisJZG1hX3VubWFwX3NpbmdsZSgmdHAtPnBjaV9kZXYtPmRldiwgbGU2NF90
-b19jcHUoZGVzYy0+YWRkciksIHRwLT5yeF9idWZfc3osCiAJCQkgRE1BX0ZST01fREVWSUNFKTsK
-IAogCWtmcmVlKCpkYXRhX2J1ZmYpOwpAQCAtNjY0OCwxOCArNjY1MCwxOCBAQCBzdGF0aWMgc3Ry
-dWN0IHNrX2J1ZmYgKnJ0bDgxNjlfYWxsb2NfcnhfZGF0YShzdHJ1Y3QgcnRsODE2OV9wcml2YXRl
-ICp0cCwKIAlzdHJ1Y3QgbmV0X2RldmljZSAqZGV2ID0gdHAtPmRldjsKIAlpbnQgbm9kZSA9IGRl
-di0+ZGV2LnBhcmVudCA/IGRldl90b19ub2RlKGRldi0+ZGV2LnBhcmVudCkgOiAtMTsKIAotCWRh
-dGEgPSBrbWFsbG9jX25vZGUocnhfYnVmX3N6LCBHRlBfS0VSTkVMLCBub2RlKTsKKwlkYXRhID0g
-a21hbGxvY19ub2RlKHRwLT5yeF9idWZfc3osIEdGUF9LRVJORUwsIG5vZGUpOwogCWlmICghZGF0
-YSkKIAkJcmV0dXJuIE5VTEw7CiAKIAlpZiAocnRsODE2OV9hbGlnbihkYXRhKSAhPSBkYXRhKSB7
-CiAJCWtmcmVlKGRhdGEpOwotCQlkYXRhID0ga21hbGxvY19ub2RlKHJ4X2J1Zl9zeiArIDE1LCBH
-RlBfS0VSTkVMLCBub2RlKTsKKwkJZGF0YSA9IGttYWxsb2Nfbm9kZSh0cC0+cnhfYnVmX3N6ICsg
-MTUsIEdGUF9LRVJORUwsIG5vZGUpOwogCQlpZiAoIWRhdGEpCiAJCQlyZXR1cm4gTlVMTDsKIAl9
-CiAKLQltYXBwaW5nID0gZG1hX21hcF9zaW5nbGUoZCwgcnRsODE2OV9hbGlnbihkYXRhKSwgcnhf
-YnVmX3N6LAorCW1hcHBpbmcgPSBkbWFfbWFwX3NpbmdsZShkLCBydGw4MTY5X2FsaWduKGRhdGEp
-LCB0cC0+cnhfYnVmX3N6LAogCQkJCSBETUFfRlJPTV9ERVZJQ0UpOwogCWlmICh1bmxpa2VseShk
-bWFfbWFwcGluZ19lcnJvcihkLCBtYXBwaW5nKSkpIHsKIAkJaWYgKG5ldF9yYXRlbGltaXQoKSkK
-QEAgLTY2NjcsNyArNjY2OSw3IEBAIHN0YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqcnRsODE2OV9hbGxv
-Y19yeF9kYXRhKHN0cnVjdCBydGw4MTY5X3ByaXZhdGUgKnRwLAogCQlnb3RvIGVycl9vdXQ7CiAJ
-fQogCi0JcnRsODE2OV9tYXBfdG9fYXNpYyhkZXNjLCBtYXBwaW5nLCByeF9idWZfc3opOworCXJ0
-bDgxNjlfbWFwX3RvX2FzaWMoZGVzYywgbWFwcGluZywgdHAtPnJ4X2J1Zl9zeik7CiAJcmV0dXJu
-IGRhdGE7CiAKIGVycl9vdXQ6CkBAIC02Nzg1LDcgKzY3ODcsNyBAQCBzdGF0aWMgdm9pZCBydGxf
-cmVzZXRfd29yayhzdHJ1Y3QgcnRsODE2OV9wcml2YXRlICp0cCkKIAlydGw4MTY5X2h3X3Jlc2V0
-KHRwKTsKIAogCWZvciAoaSA9IDA7IGkgPCBOVU1fUlhfREVTQzsgaSsrKQotCQlydGw4MTY5X21h
-cmtfdG9fYXNpYyh0cC0+UnhEZXNjQXJyYXkgKyBpLCByeF9idWZfc3opOworCQlydGw4MTY5X21h
-cmtfdG9fYXNpYyh0cC0+UnhEZXNjQXJyYXkgKyBpLCB0cC0+cnhfYnVmX3N6KTsKIAogCXJ0bDgx
-NjlfdHhfY2xlYXIodHApOwogCXJ0bDgxNjlfaW5pdF9yaW5nX2luZGV4ZXModHApOwpAQCAtNzM2
-OCw3ICs3MzcwLDcgQEAgcHJvY2Vzc19wa3Q6CiAJCX0KIHJlbGVhc2VfZGVzY3JpcHRvcjoKIAkJ
-ZGVzYy0+b3B0czIgPSAwOwotCQlydGw4MTY5X21hcmtfdG9fYXNpYyhkZXNjLCByeF9idWZfc3op
-OworCQlydGw4MTY5X21hcmtfdG9fYXNpYyhkZXNjLCB0cC0+cnhfYnVmX3N6KTsKIAl9CiAKIAlj
-b3VudCA9IGN1cl9yeCAtIHRwLT5jdXJfcng7CkBAIC04MTU2LDYgKzgxNTgsMTIgQEAgc3RhdGlj
-IGludCBydGxfaW5pdF9vbmUoc3RydWN0IHBjaV9kZXYgKnBkZXYsIGNvbnN0IHN0cnVjdCBwY2lf
-ZGV2aWNlX2lkICplbnQpCiAJLyogSWRlbnRpZnkgY2hpcCBhdHRhY2hlZCB0byBib2FyZCAqLwog
-CXJ0bDgxNjlfZ2V0X21hY192ZXJzaW9uKHRwLCBkZXYsIGNmZy0+ZGVmYXVsdF92ZXIpOwogCisJ
-LyogQWRkIFJlY2VpdmUgUGFja2V0IE1heGltaW0gU2l6ZSBvbiBtYWluIHN0cnVjdHVyZSAqLwor
-CWlmICh0cC0+bWFjX3ZlcnNpb24gPT0gUlRMX0dJR0FfTUFDX1ZFUl8wOSkKKwkJdHAtPnJ4X2J1
-Zl9zeiA9IDE2MDAwOworCWVsc2UKKwkJdHAtPnJ4X2J1Zl9zeiA9IDE2MzgzOworCiAJcnRsX2lu
-aXRfcnhjZmcodHApOwogCiAJcnRsX2lycV9kaXNhYmxlKHRwKTsK
---001a113fd378221938051a61453c--
+> Routed traffic through the box, is fwded by using the VRF device as
+> the IIF and following the IIF rule to a table which is mated with
+> the VRF.
+>
+> Locally originated traffic is directed at the VRF device using
+> SO_BINDTODEVICE or cmsg headers. This in turn drops the packet into
+> the xmit function of the vrf driver, which then completes the ip lookup
+> and output.
+>
+> This solution is completely orthogonal to namespaces and allow the L3
+> equivalent of vlans to exist allowing the routing space to be
+> partitioned.
