@@ -1,35 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ifb: add multiqueue operation
-Date: Wed, 08 Jul 2015 16:00:31 -0700 (PDT)
-Message-ID: <20150708.160031.2291130777687277659.davem@davemloft.net>
-References: <1436213128.4571.14.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next,v2] hv_netvsc: Add support to set MTU
+ reservation from guest side
+Date: Wed, 08 Jul 2015 16:01:14 -0700 (PDT)
+Message-ID: <20150708.160114.358447538011441747.davem@davemloft.net>
+References: <1436217097-31102-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@plumgrid.com, jhs@mojatatu.com,
-	john.fastabend@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38174 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751014AbbGHXAc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 19:00:32 -0400
-In-Reply-To: <1436213128.4571.14.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1436217097-31102-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 06 Jul 2015 22:05:28 +0200
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Mon,  6 Jul 2015 14:11:37 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> When packet encapsulation is in use, the MTU needs to be reduced for
+> headroom reservation.
+> The existing code takes the updated MTU value only from the host side.
+> But vSwitch extensions, such as Open vSwitch, require the flexibility
+> to change the MTU to different values from within a guest during the
+> lifecycle of a vNIC, when the encapsulation protocol is changed. The
+> patch supports this kind of MTU changes.
 > 
-> Add multiqueue capabilities to ifb netdevice.
-> 
-> This removes last bottleneck for ingress when mq qdisc can be used
-> to shard load from multiple RX queues on physical device.
-> 
-> Tested:
-...
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Applied, thanks Eric.
+Applied, thanks.
