@@ -1,100 +1,63 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/7] netfilter: arptables: use percpu jumpstack
-Date: Wed,  8 Jul 2015 11:48:16 +0200
-Message-ID: <1436348900-13130-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/7] netfilter: bridge: fix CONFIG_NF_DEFRAG_IPV4/6 related warnings/errors
+Date: Wed,  8 Jul 2015 11:48:15 +0200
+Message-ID: <1436348900-13130-3-git-send-email-pablo@netfilter.org>
 References: <1436348900-13130-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:51693 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933849AbbGHJnN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jul 2015 05:43:13 -0400
 In-Reply-To: <1436348900-13130-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Bernhard Thaler <bernhard.thaler@wvnet.at>
 
-commit 482cfc318559 ("netfilter: xtables: avoid percpu ruleset duplication")
+br_nf_ip_fragment() is not needed when neither CONFIG_NF_DEFRAG_IPV4 nor
+CONFIG_NF_DEFRAG_IPV6 is set.
 
-Unlike ip and ip6tables, arp tables were never converted to use the percpu
-jump stack.
+struct brnf_frag_data must be available if either CONFIG_NF_DEFRAG_IPV4
+or CONFIG_NF_DEFRAG_IPV6 is set.
 
-It still uses the rule blob to store return address, which isn't safe
-anymore since we now share this blob among all processors.
-
-Because there is no TEE support for arptables, we don't need to cope
-with reentrancy, so we can use loocal variable to hold stack offset.
-
-Fixes: 482cfc318559 ("netfilter: xtables: avoid percpu ruleset duplication")
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Fixes: efb6de9b4ba0 ("netfilter: bridge: forward IPv6 fragmented packets")
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Bernhard Thaler <bernhard.thaler@wvnet.at>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/arp_tables.c |   25 ++++++++++++++++---------
- 1 file changed, 16 insertions(+), 9 deletions(-)
+ net/bridge/br_netfilter_hooks.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 95c9b6e..92305a1 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -254,9 +254,10 @@ unsigned int arpt_do_table(struct sk_buff *skb,
- 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
- 	unsigned int verdict = NF_DROP;
- 	const struct arphdr *arp;
--	struct arpt_entry *e, *back;
-+	struct arpt_entry *e, **jumpstack;
- 	const char *indev, *outdev;
- 	const void *table_base;
-+	unsigned int cpu, stackidx = 0;
- 	const struct xt_table_info *private;
- 	struct xt_action_param acpar;
- 	unsigned int addend;
-@@ -270,15 +271,16 @@ unsigned int arpt_do_table(struct sk_buff *skb,
- 	local_bh_disable();
- 	addend = xt_write_recseq_begin();
- 	private = table->private;
-+	cpu     = smp_processor_id();
- 	/*
- 	 * Ensure we load private-> members after we've fetched the base
- 	 * pointer.
- 	 */
- 	smp_read_barrier_depends();
- 	table_base = private->entries;
-+	jumpstack  = (struct arpt_entry **)private->jumpstack[cpu];
+diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
+index d89f4fa..8a394bd 100644
+--- a/net/bridge/br_netfilter_hooks.c
++++ b/net/bridge/br_netfilter_hooks.c
+@@ -111,7 +111,7 @@ static inline __be16 pppoe_proto(const struct sk_buff *skb)
+ /* largest possible L2 header, see br_nf_dev_queue_xmit() */
+ #define NF_BRIDGE_MAX_MAC_HEADER_LENGTH (PPPOE_SES_HLEN + ETH_HLEN)
  
- 	e = get_entry(table_base, private->hook_entry[hook]);
--	back = get_entry(table_base, private->underflow[hook]);
+-#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
++#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4) || IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+ struct brnf_frag_data {
+ 	char mac[NF_BRIDGE_MAX_MAC_HEADER_LENGTH];
+ 	u8 encap_size;
+@@ -694,6 +694,7 @@ static int br_nf_push_frag_xmit(struct sock *sk, struct sk_buff *skb)
+ }
+ #endif
  
- 	acpar.in      = state->in;
- 	acpar.out     = state->out;
-@@ -312,18 +314,23 @@ unsigned int arpt_do_table(struct sk_buff *skb,
- 					verdict = (unsigned int)(-v) - 1;
- 					break;
- 				}
--				e = back;
--				back = get_entry(table_base, back->comefrom);
-+				if (stackidx == 0) {
-+					e = get_entry(table_base,
-+						      private->underflow[hook]);
-+				} else {
-+					e = jumpstack[--stackidx];
-+					e = arpt_next_entry(e);
-+				}
- 				continue;
- 			}
- 			if (table_base + v
- 			    != arpt_next_entry(e)) {
--				/* Save old back ptr in next entry */
--				struct arpt_entry *next = arpt_next_entry(e);
--				next->comefrom = (void *)back - table_base;
++#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
+ static int br_nf_ip_fragment(struct sock *sk, struct sk_buff *skb,
+ 			     int (*output)(struct sock *, struct sk_buff *))
+ {
+@@ -712,6 +713,7 @@ static int br_nf_ip_fragment(struct sock *sk, struct sk_buff *skb,
  
--				/* set back pointer to next entry */
--				back = next;
-+				if (stackidx >= private->stacksize) {
-+					verdict = NF_DROP;
-+					break;
-+				}
-+				jumpstack[stackidx++] = e;
- 			}
+ 	return ip_do_fragment(sk, skb, output);
+ }
++#endif
  
- 			e = get_entry(table_base, v);
+ static unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
+ {
 -- 
 1.7.10.4
-
