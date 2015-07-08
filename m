@@ -1,75 +1,76 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v2] ipv6: sysctl to restrict candidate source
- addresses
-Date: Wed, 08 Jul 2015 10:43:34 +0200
-Message-ID: <1436345014.3846.11.camel@stressinduktion.org>
-References: <1436151944-21072-1-git-send-email-ek@google.com>
-	 <CAKD1Yr02efR=-PxKsR0nhpJyXJBSMmTvRctcJnoqqkfreUpAig@mail.gmail.com>
-	 <1436342988.2928.9.camel@stressinduktion.org>
-	 <CAKD1Yr1RMjQ=VD=V4Vr4gdUDa6_ZT62SEdKBSUP3PogQMRYyUA@mail.gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [net PATCH 1/1] drivers: net: cpsw: fix disabling of tx interrupt
+ in rx isr
+Date: Wed, 8 Jul 2015 14:21:27 +0530
+Message-ID: <559CE48F.1070802@ti.com>
+References: <1436338066-7685-1-git-send-email-mugunthanvnm@ti.com> <20150708073855.GA7277@saruman.tx.rr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Erik Kline <ek@google.com>,
-	=?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<hideaki.yoshifuji@miraclelinux.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:37795 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933657AbbGHIni (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 04:43:38 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 8FC592083C
-	for <netdev@vger.kernel.org>; Wed,  8 Jul 2015 04:43:37 -0400 (EDT)
-In-Reply-To: <CAKD1Yr1RMjQ=VD=V4Vr4gdUDa6_ZT62SEdKBSUP3PogQMRYyUA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<stable@vger.kernel.org>
+To: <balbi@ti.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20150708073855.GA7277@saruman.tx.rr.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-07-08 at 17:19 +0900, Lorenzo Colitti wrote:
-> On Wed, Jul 8, 2015 at 5:09 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > I wonder a little bit, because addresses which match the outgoing
-> > interface should get a higher score in saddr_eval, thus be 
-> > automatically
-> > preferred. Is this check not strong enough?
+On Wednesday 08 July 2015 01:08 PM, Felipe Balbi wrote:
+> Hi,
 > 
-> It isn't strong enough because the "prefer outgoing interface" rule is
-> lower priority than other rules such as "prefer deprecated addresses"
-> and "prefer matching scope".
+> On Wed, Jul 08, 2015 at 12:17:46PM +0530, Mugunthan V N wrote:
+>> With the below commit, common isr is split into tx and rx, but in
+>> rx isr tx interrupt is also disabled. So tx packets are not handled
+>> during rx interrupts and rx napi completion. Fixing by disabling on
+>> rx interrupt in rx isr.
+>>
+>> Fixes: c03abd84634d ("net: ethernet: cpsw: don't requests IRQs we don't use")
 > 
-> For example, consider the case where you have an IPv6 default route
-> but not an IPv6 address on one interface (e.g., wifi), and a working
-> configuration (IPv6 default route and IPv6 address) on another
-> interface (e.g., cellular data). In this situation, the host will send
-> the packet out on the wifi interface using the source address from the
-> the cellular interface to try to talk to wifi. This will not work
-> because the wifi network will almost certainly drop the packet due to
-> BCP-38 ingress filtering.
+> why does this fix that commit ? What was the regression ? So RX IRQ fire
+> and both RX and TX are disabled, sure that's bad. But it should cause
+> lower throughput. At a minimum, I think your commit log needs some work.
 
-So in this case we report errors to user space instead of picking an
-address from another interface. If we turn on this knob unconditionally
-we cannot leave the set of possible source addresses empty, this will
-change application behavior and admin habits too much, I fear.
+Agreed, will change the commit and resubmit the patch as it affects
+performance only and not a regression.
 
-> > I really wonder if we can improve source address selection and make 
-> > this
-> > behavior a default without introducing a new sysctl.
 > 
-> Another option I see is to change the behaviour to follow the RFC
-> recommendation, and thus always use the matching interface. Is that a
-> better option?
+> Also, disable_irq_nosync() shouldn't really be needed, you could just
+> mask the IRQ in the IRQ Enable register, but I guess that'd be v4.3
+> material.
+
+This was needed because there is a latch inbetween CPSW interrupt line
+and Interrupt Controller (to convert from pulse interrupt to level
+interrupt), because of this even though interrupt is disabled from the
+IP, CPU is held up in isr as it is not cleared or masked to Interrupt
+controller. Because of disable_irq_nosync() was added initially. I will
+revisit this but as you said it will be for 4.3
+
 > 
-> At the moment, we're going against the explicit recommendation of the
-> RFC, and I don't see a good reason for that.
 
-I really would like to come up with a sane works-always behavior for
-this, but besides doing a retry on the complete source address selection
-algorithm I currently cannot come up with an idea.
+With this patch I am able to see +3 Mbps with omap2plus_defconfig and
++40Mbps with having AM43xx SoC only and removing some kernel debugging
+options.
 
-Maybe we can tweak saddr_eval a bit.
+*with omap2plus_defconfig*
+[  5] local 192.168.10.116 port 5001 connected with 192.168.10.118 port
+46470
+[  5]  0.0-60.0 sec  1.03 GBytes   147 Mbits/sec
 
-Thanks,
-Hannes
+[  4] local 192.168.10.116 port 5001 connected with 192.168.10.118 port
+45968
+[ ID] Interval       Transfer     Bandwidth
+[  4]  0.0-60.0 sec  1.05 GBytes   150 Mbits/sec
+
+
+*with omap2plus_defconfig + removing other SoCs and Some debug options*
+[  5] local 192.168.10.116 port 5001 connected with 192.168.10.118 port
+53272
+[  5]  0.0-60.0 sec  2.11 GBytes   302 Mbits/sec
+
+
+[  4] local 192.168.10.116 port 5001 connected with 192.168.10.118 port
+51896
+[  4]  0.0-60.0 sec  2.40 GBytes   343 Mbits/sec
+
+Regards
+Mugunthan V N
