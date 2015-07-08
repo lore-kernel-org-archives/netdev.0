@@ -1,73 +1,100 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: ip_forward_use_pmtu and forwarding to xfrm'ed gre
-Date: Wed, 08 Jul 2015 17:52:32 +0200
-Message-ID: <1436370752.3846.36.camel@stressinduktion.org>
-References: <20150708163032.5b5df2ec@vostro>
+From: Felipe Balbi <balbi@ti.com>
+Subject: Re: [net PATCH 1/1] drivers: net: cpsw: fix disabling of tx
+ interrupt in rx isr
+Date: Wed, 8 Jul 2015 11:10:22 -0500
+Message-ID: <20150708161022.GA10350@saruman.tx.rr.com>
+References: <1436338066-7685-1-git-send-email-mugunthanvnm@ti.com>
+ <20150708073855.GA7277@saruman.tx.rr.com>
+ <559CE48F.1070802@ti.com>
+Reply-To: <balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Timo Teras <timo.teras@iki.fi>, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="J/dobhs11T7y2rNN"
+Cc: <balbi@ti.com>, <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<stable@vger.kernel.org>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:38251 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932855AbbGHPwj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 11:52:39 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 9669520DC2
-	for <netdev@vger.kernel.org>; Wed,  8 Jul 2015 11:52:37 -0400 (EDT)
-In-Reply-To: <20150708163032.5b5df2ec@vostro>
+Received: from comal.ext.ti.com ([198.47.26.152]:36883 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758692AbbGHQK0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jul 2015 12:10:26 -0400
+Content-Disposition: inline
+In-Reply-To: <559CE48F.1070802@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+--J/dobhs11T7y2rNN
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2015-07-08 at 16:30 +0300, Timo Teras wrote:
-> Hi,
-> 
-> It seems ip_forward_use_pmtu commit log says:
->     Tunnel and ipsec output paths clear IPCB again, thus 
-> IPSKB_FORWARDED
->     won't be set and further fragmentation logic will use the path mtu
->     to determine the fragmentation size. They also recheck packet size
->     with help of path mtu discovery and report appropriate errors.
-> 
-> But this does not seem to be true in all paths. For example, I'm
-> forwarding from ethX -> greX (with gre having ttl 64; and thus
-> setting DF on tunnel always) and then gre output is finally IPsec
-> encrypted. But fragmentation does not work. Setting 
-> ip_forward_use_pmtu
-> makes it work again. tcpdump says the packet is fragmented based on 
-> the
-> greX device mtu, not the path mtu in this case.
-> 
-> This probably is due to the way how the xfrm+gre work together. On
-> first packet, the gre tunnel driver updates pmtu for the inner flow,
-> which is expected to be honored always. And if the 'ttl' value is set
-> for gre tunnel, no re-fragmentation is allowed as the inner flow
-> should know better. This does how the side effect that if the very
-> first packet is large, it'll be dropped to 'learn' the pmtu. 
-> 
-> It's probably not possible to detect this kind of target easily, as 
-> the
-> xfrm can be applied or not even on per inner target IP basis (as then
-> tunnel destination IP can be dynamic for nbma tunnels).
+Hi,
 
-I am currently not sure if we actually have resolved the xfrm path at
-the time we enter ip_forward, I actually thought we do. In this case we
-should be able to use skb_dst->dst->path->header_len and substract it
-before using it to fragment the packets. I hope it is so easy... :)
+On Wed, Jul 08, 2015 at 02:21:27PM +0530, Mugunthan V N wrote:
+> On Wednesday 08 July 2015 01:08 PM, Felipe Balbi wrote:
+> > Hi,
+> >=20
+> > On Wed, Jul 08, 2015 at 12:17:46PM +0530, Mugunthan V N wrote:
+> >> With the below commit, common isr is split into tx and rx, but in
+> >> rx isr tx interrupt is also disabled. So tx packets are not handled
+> >> during rx interrupts and rx napi completion. Fixing by disabling on
+> >> rx interrupt in rx isr.
+> >>
+> >> Fixes: c03abd84634d ("net: ethernet: cpsw: don't requests IRQs we don'=
+t use")
+> >=20
+> > why does this fix that commit ? What was the regression ? So RX IRQ fire
+> > and both RX and TX are disabled, sure that's bad. But it should cause
+> > lower throughput. At a minimum, I think your commit log needs some work.
+>=20
+> Agreed, will change the commit and resubmit the patch as it affects
+> performance only and not a regression.
 
-I would actually avoid telling anyone to enable using the path mtu
-information in forwarding ever again.
+thanks
 
+> > Also, disable_irq_nosync() shouldn't really be needed, you could just
+> > mask the IRQ in the IRQ Enable register, but I guess that'd be v4.3
+> > material.
+>=20
+> This was needed because there is a latch inbetween CPSW interrupt line
+> and Interrupt Controller (to convert from pulse interrupt to level
+> interrupt), because of this even though interrupt is disabled from the
+> IP, CPU is held up in isr as it is not cleared or masked to Interrupt
+> controller. Because of disable_irq_nosync() was added initially. I will
+> revisit this but as you said it will be for 4.3
 
-> So I wonder if ip_gre driver can workaround this somehow, by e.g.
-> refragmenting if necessary. Or if we just should update the sysctl's
-> help text to say that this another scenario where it needs to be
-> turned on.
+still, that shouldn't be needed. Just mask and clear the IRQ straight
+away, then handle it.
 
-If above idea does not work, we could simply add an option to gre driver
-to set skb->ignore_df, but I don't like that much.
+> With this patch I am able to see +3 Mbps with omap2plus_defconfig and
+> +40Mbps with having AM43xx SoC only and removing some kernel debugging
+> options.
 
-Bye,
-Hannes
+looks like this should be in commit log in some shape or form.
+
+--=20
+balbi
+
+--J/dobhs11T7y2rNN
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJVnUtuAAoJEIaOsuA1yqREyXkP/3Dq0EFfIqEHzd7dOO+E70Kp
+yeZUaj5mt6OCkYpaul3G0eNlMvBOWwhjWgV8nP2o6iKcN8zDPnDo47H3LMw6lh6q
+BivOi88jVjGPdF3Fj4HTdudE1K0M6XNpFKyKOk46fKiFVa1rjyF6CUW1GylLFAqn
+7f1kQ1nbIPPL/5cBa+jHypvry3AUbTwPE6dVE/8P6MGZB5hCqCExjm15QLAB5yMP
+EUrxXwzux7w6fVbTJd/p1cNCyL7g93ZWSLDm8CUMhPh56YXDbPpGvRub99lj0HpM
+2cGTjwZ6OrLMPklTMlZqHMyZvPSdqwt4GlXkPETQogB8HV/KEq5heImWay400NrQ
+DZ93pju+dArxLKwDq9fSkT6zMRtMDssIK7H0+ukP5OiYRRNhES0HxFKTGK5j4136
+aMcQJsPLsA9+RE//m4bok2aXr5WVyWfWiO2/vFAl8JqPMTATdm44h/J2aAQ3rN9t
+2/jjkYpN/GyZYtXYXrgbcdy4GCxcdJJyysdR82GmxBlVJUWiOISin6Z2n7Ly2Keh
+cF26glYlb2WKSAydpA/n9FHj7SBIyGOJfAd1ScpJo/ZAvrSppOXOGnEJvt758oyZ
+tHA7aO3LjyVkZz6WdUhToys+MAclNIVO5rxfovgOBYJjk0jfiVf27L61AXdygwo7
+ZCo2xrnhisLjIPEzD08m
+=KWYu
+-----END PGP SIGNATURE-----
+
+--J/dobhs11T7y2rNN--
