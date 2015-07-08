@@ -1,40 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,v2] hv_netvsc: Add support to set MTU
- reservation from guest side
-Date: Wed, 08 Jul 2015 16:01:14 -0700 (PDT)
-Message-ID: <20150708.160114.358447538011441747.davem@davemloft.net>
-References: <1436217097-31102-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH net] rtnetlink: verify IFLA_VF_INFO attributes before
+ passing them to driver
+Date: Wed, 08 Jul 2015 16:02:37 -0700 (PDT)
+Message-ID: <20150708.160237.452927104948461108.davem@davemloft.net>
+References: <9b88c7217fcbf771efc162d51e3d6d1957707aa7.1436220184.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1436217097-31102-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, chrisw@sous-sol.org,
+	sucheta.chakraborty@qlogic.com, gregory.v.rose@intel.com,
+	jeffrey.t.kirsher@intel.com, ronye@mellanox.com,
+	vladz@cloudius-systems.com, nicolas.dichtel@6wind.com,
+	tgraf@suug.ch, jgunthorpe@obsidianresearch.com
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38190 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751014AbbGHXCj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 19:02:39 -0400
+In-Reply-To: <9b88c7217fcbf771efc162d51e3d6d1957707aa7.1436220184.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Mon,  6 Jul 2015 14:11:37 -0700
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Tue,  7 Jul 2015 00:07:52 +0200
 
-> When packet encapsulation is in use, the MTU needs to be reduced for
-> headroom reservation.
-> The existing code takes the updated MTU value only from the host side.
-> But vSwitch extensions, such as Open vSwitch, require the flexibility
-> to change the MTU to different values from within a guest during the
-> lifecycle of a vNIC, when the encapsulation protocol is changed. The
-> patch supports this kind of MTU changes.
+> Jason Gunthorpe reported that since commit c02db8c6290b ("rtnetlink: make
+> SR-IOV VF interface symmetric"), we don't verify IFLA_VF_INFO attributes
+> anymore with respect to their policy, that is, ifla_vfinfo_policy[].
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> Before, they were part of ifla_policy[], but they have been nested since
+> placed under IFLA_VFINFO_LIST, that contains the attribute IFLA_VF_INFO,
+> which is another nested attribute for the actual VF attributes such as
+> IFLA_VF_MAC, IFLA_VF_VLAN, etc.
+> 
+> Despite the policy being split out from ifla_policy[] in this commit,
+> it's never applied anywhere. nla_for_each_nested() only does basic nla_ok()
+> testing for struct nlattr, but it doesn't know about the data context and
+> their requirements.
+> 
+> Fix, on top of Jason's initial work, does 1) parsing of the attributes
+> with the right policy, and 2) using the resulting parsed attribute table
+> from 1) instead of the nla_for_each_nested() loop (just like we used to
+> do when still part of ifla_policy[]).
+> 
+> Reference: http://thread.gmane.org/gmane.linux.network/368913
+> Fixes: c02db8c6290b ("rtnetlink: make SR-IOV VF interface symmetric")
+> Reported-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+> Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
