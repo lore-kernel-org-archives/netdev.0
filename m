@@ -1,35 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] Cleanup, T6 changes and register range
- update
-Date: Wed, 08 Jul 2015 16:15:12 -0700 (PDT)
-Message-ID: <20150708.161512.1358417601226538118.davem@davemloft.net>
-References: <1436285961-8674-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [PATCH 0/3] rtnl_lock fixes
+Date: Wed, 08 Jul 2015 16:15:33 -0700 (PDT)
+Message-ID: <20150708.161533.531768243562810631.davem@davemloft.net>
+References: <559BF5F8.2000500@virtuozzo.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
-To: hariprasad@chelsio.com
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
+To: vvs@virtuozzo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38355 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38372 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751676AbbGHXPN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 19:15:13 -0400
-In-Reply-To: <1436285961-8674-1-git-send-email-hariprasad@chelsio.com>
+	with ESMTP id S1751224AbbGHXPd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 19:15:33 -0400
+In-Reply-To: <559BF5F8.2000500@virtuozzo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Tue,  7 Jul 2015 21:49:17 +0530
+From: Vasily Averin <vvs@virtuozzo.com>
+Date: Tue, 07 Jul 2015 18:53:28 +0300
 
-> This patch series adds the following:
-> Don't use entire L2T table, update register ranges for T6 adapter,
-> read stats for only available channels for T6 and enable cim_la dump for
-> T6 adapter also.
-> 
-> This patch series has been created against net-next tree and includes
-> patches on cxgb4 driver.
-> 
-> We have included all the maintainers of respective drivers. Kindly review
-> the change and let us know in case of any review comments.
+> While investigation possible reasons of net_todo_list corruption 
+> on rhel6 based OpenVZ kernel I've found few places not fixed in mainline.
 
-Series applied, thank you.
+I'm assuming the Intel folks will pick these up.
