@@ -1,57 +1,89 @@
-From: Xi Wang <xi.wang@gmail.com>
-Subject: [PATCH net-next RESEND] test_bpf: extend tests for 32-bit endianness conversion
-Date: Wed,  8 Jul 2015 14:00:56 -0700
-Message-ID: <1436389256-28483-1-git-send-email-xi.wang@gmail.com>
-Cc: Xi Wang <xi.wang@gmail.com>
-To: netdev@vger.kernel.org
+From: anuradhak@cumulusnetworks.com
+Subject: [PATCH net-next v4 0/4] net: Introduce protodown flag.
+Date: Wed,  8 Jul 2015 14:04:21 -0700
+Message-ID: <1436389465-3077-1-git-send-email-anuradhak@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com,
+	anuradhak@cumulusnetworks.com
+To: davem@davemloft.net, sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:36324 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755208AbbGHVBc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 17:01:32 -0400
-Received: by pddu5 with SMTP id u5so64428764pdd.3
-        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 14:01:31 -0700 (PDT)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35664 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758261AbbGHVEf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 17:04:35 -0400
+Received: by pactm7 with SMTP id tm7so137742461pac.2
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 14:04:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently "ALU_END_FROM_BE 32" and "ALU_END_FROM_LE 32" do not test if
-the upper bits of the result are zeros (the arm64 JIT had such bugs).
-Extend the two tests to catch this.
+From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
-Signed-off-by: Xi Wang <xi.wang@gmail.com>
----
-See the arm64 JIT bugs:
+User space daemons can detect errors in the network that need to be
+notified to the switch device drivers.
 
-https://lkml.org/lkml/2015/6/25/721
----
- lib/test_bpf.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+Drivers can react to this error state by doing a phy-down on the
+switch-port which would result in a carrier-off locally and on the
+directly connected switch. Doing that would prevent loops and
+black-holes in the network.
 
-diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-index 7f58c73..9198f28 100644
---- a/lib/test_bpf.c
-+++ b/lib/test_bpf.c
-@@ -3674,6 +3674,9 @@ static struct bpf_test tests[] = {
- 		.u.insns_int = {
- 			BPF_LD_IMM64(R0, 0x0123456789abcdefLL),
- 			BPF_ENDIAN(BPF_FROM_BE, R0, 32),
-+			BPF_ALU64_REG(BPF_MOV, R1, R0),
-+			BPF_ALU64_IMM(BPF_RSH, R1, 32),
-+			BPF_ALU32_REG(BPF_ADD, R0, R1), /* R1 = 0 */
- 			BPF_EXIT_INSN(),
- 		},
- 		INTERNAL,
-@@ -3708,6 +3711,9 @@ static struct bpf_test tests[] = {
- 		.u.insns_int = {
- 			BPF_LD_IMM64(R0, 0x0123456789abcdefLL),
- 			BPF_ENDIAN(BPF_FROM_LE, R0, 32),
-+			BPF_ALU64_REG(BPF_MOV, R1, R0),
-+			BPF_ALU64_IMM(BPF_RSH, R1, 32),
-+			BPF_ALU32_REG(BPF_ADD, R0, R1), /* R1 = 0 */
- 			BPF_EXIT_INSN(),
- 		},
- 		INTERNAL,
+One such use case is the multi-chassis LAG application -
+1. The MLAG application runs on peer switches (say Switch0 and Switch1)
+   synchronizing states, forwarding entries etc. between the two
+   switches over the peer-link (this is a link directly connecting the
+   two switches).
+2. An MLAG election process designates one of the switches as a primary
+   (for e.g. Switch0 is primary and Switch1 is secondary).
+3. The peer link plays a critical role in allowing Switch0-Switch1 to
+   function as a single LAG partner to the downstream dual-connected
+   servers. When the peer-link between the switches goes down we have a
+   split-brain situation. Switch0 and Switch1 are no longer in sync and
+   are acting independently. This can result in traffic loops and
+   traffic black-holing in the network.
+4. To prevent these problems the MLAG application on the secondary
+   switch phy-downs the MLAG ports on detecting the peer-link down.
+   This will be seen as a carrier down on servers that are
+   dual-connected to Switch0 and Switch1.
+5. Specifically a dual-connected server will see a carrier-down on the
+   port connected to the MLAG secondary, Switch1, and will stop using
+   that port for traffic TX. So traffic black holing is prevented.
+
+v3 to v4:
+   I have moved protodown out of IFF_XXX and introduced a separate
+   proto_flags field with IF_PROTOF_DOWN bit being used by apps to notify
+   switch port errors. This is in response to Stephen's comments that
+   adding a new IFF_XXX may break user space.
+
+   I have used rocker as the sample switch driver. And to test this
+   functionality I used the qemu-rocker patch that Scott sent out in response
+   to the v3 posting (needed to set link up/down when phy is
+   enabled/disabled).
+
+v1 to v2:
+   Based on Dave's suggestion I have moved out aggregating of error bits
+   across applications to a user space framework. This patch now simply
+   notifies an aggregated error bit to drivers enabling them to handle
+   the error gracefully.
+
+
+Anuradha Karuppiah (4):
+  net core: Add protodown support.
+  netlink: changes for setting and clearing protodown via netlink.
+  rocker: Handle protodown notifications.
+  ip link: proto_down config and display.
+
+Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+
+ drivers/net/ethernet/rocker/rocker.c |   19 +++++++++++-
+ include/linux/netdevice.h            |   13 ++++++++
+ include/uapi/linux/if.h              |    6 ++++
+ include/uapi/linux/if_link.h         |   10 ++++++
+ net/core/dev.c                       |   20 ++++++++++++
+ net/core/net-sysfs.c                 |   14 +++++++++
+ net/core/rtnetlink.c                 |   57 +++++++++++++++++++++++++++++++++-
+ 7 files changed, 137 insertions(+), 2 deletions(-)
+
 -- 
-2.1.4
+1.7.10.4
