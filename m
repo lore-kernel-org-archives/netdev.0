@@ -1,39 +1,49 @@
-From: Manoil Claudiu <claudiu.manoil@freescale.com>
-Subject: RE: [PATCH] freescale:Make the function gfar_configure_coalescing_all
- static
-Date: Wed, 8 Jul 2015 07:40:41 +0000
-Message-ID: <DM2PR03MB4145FD22BB042875B68AC5F9C910@DM2PR03MB414.namprd03.prod.outlook.com>
-References: <1436300035-26092-1-git-send-email-xerofoify@gmail.com>
+From: Duan Andy <fugang.duan@freescale.com>
+Subject: RE: [PATCH v5] net: fec: Ensure clocks are enabled while using mdio
+ bus
+Date: Wed, 8 Jul 2015 07:52:49 +0000
+Message-ID: <BLUPR03MB373367558B55CA2778FB772F5910@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1436207695-652-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Nicholas Krause <xerofoify@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Cc: Cory Tusar <cory.tusar@pid1solutions.com>,
+	netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0123.outbound.protection.outlook.com ([65.55.169.123]:35136
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1on0138.outbound.protection.outlook.com ([157.56.110.138]:53347
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S934036AbbGHHkn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 03:40:43 -0400
-In-Reply-To: <1436300035-26092-1-git-send-email-xerofoify@gmail.com>
+	id S933648AbbGHHww convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 03:52:52 -0400
+In-Reply-To: <1436207695-652-1-git-send-email-andrew@lunn.ch>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Nicholas Krause [mailto:xerofoify@gmail.com]
-> Sent: Tuesday, July 07, 2015 11:14 PM
-> To: davem@davemloft.net
-> Cc: Manoil Claudiu-B08782; haokexin@gmail.com;
-> matei.pavaluca@freescale.com; u.kleine-koenig@pengutronix.de;
-> jingchang.lu@freescale.com; tobias@waldekranz.com;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Subject: [PATCH] freescale:Make the function gfar_configure_coalescing_all
-> static
+From: Andrew Lunn <andrew@lunn.ch> Sent: Tuesday, July 07, 2015 2:35 AM
+> To: David Miller
+> Cc: Duan Fugang-B38611; Cory Tusar; netdev; Andrew Lunn
+> Subject: [PATCH v5] net: fec: Ensure clocks are enabled while using mdio
+> bus
+> 
+> When a switch is attached to the mdio bus, the mdio bus can be used while
+> the interface is not open. If the IPG clock is not enabled, MDIO
+> reads/writes will simply time out.
+> 
+> Add support for runtime PM to control this clock. Enable/disable this
+> clock using runtime PM, with open()/close() and mdio read()/write()
+> function triggering runtime PM operations. Since PM is optional, the IPG
+> clock is enabled at probe and is no longer modified by
+> fec_enet_clk_enable(), thus if PM is not enabled in the kernel, it is
+> guaranteed the clock is running when MDIO operations are performed.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
+> v5:
+> Rewrite to use runtime PM with fec_runtime_suspend and fec_runtime_resume
 > 
 
-Ditto, "gianfar: [...]" in the subject.
-I could incorporate this to my set of patches I'm planning to send soon.
+The version is fine for me.
 
-Claudiu
+Acked-by: Fugang Duan <B38611@freescale.com>
