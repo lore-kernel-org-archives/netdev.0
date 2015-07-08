@@ -1,37 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bridge: mdb: start delete timer for temp
- static entries
-Date: Wed, 08 Jul 2015 14:53:17 -0700 (PDT)
-Message-ID: <20150708.145317.1856923513879691253.davem@davemloft.net>
-References: <1436187215-4973-1-git-send-email-nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH v2] rhashtable: fix for resize events during table walk
+Date: Wed, 08 Jul 2015 14:55:06 -0700 (PDT)
+Message-ID: <20150708.145506.1343225462680114617.davem@davemloft.net>
+References: <1436190680-21887-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	amwang@redhat.com
-To: nikolay@cumulusnetworks.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1436187215-4973-1-git-send-email-nikolay@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: tgraf@suug.ch, sparclinux@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au, daniel@iogearbox.net,
+	geert@linux-m68k.org, mroos@linux.ee
+To: phil@nwl.cc
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37780 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751797AbbGHVzI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 17:55:08 -0400
+In-Reply-To: <1436190680-21887-1-git-send-email-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Mon,  6 Jul 2015 05:53:35 -0700
+From: Phil Sutter <phil@nwl.cc>
+Date: Mon,  6 Jul 2015 15:51:20 +0200
 
-> From: Satish Ashok <sashok@cumulusnetworks.com>
+> If rhashtable_walk_next detects a resize operation in progress, it jumps
+> to the new table and continues walking that one. But it misses to drop
+> the reference to it's current item, leading it to continue traversing
+> the new table's bucket in which the current item is sorted into, and
+> after reaching that bucket's end continues traversing the new table's
+> second bucket instead of the first one, thereby potentially missing
+> items.
 > 
-> Start the delete timer when adding temp static entries so they can expire.
+> This fixes the rhashtable runtime test for me. Bug probably introduced
+> by Herbert Xu's patch eddee5ba ("rhashtable: Fix walker behaviour during
+> rehash") although not explicitly tested.
 > 
-> Signed-off-by: Satish Ashok <sashok@cumulusnetworks.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Fixes: ccb1c31a7a87 ("bridge: add flags to distinguish permanent mdb entires")
+> Fixes: eddee5ba ("rhashtable: Fix walker behaviour during rehash")
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
