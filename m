@@ -1,41 +1,34 @@
-From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v4 1/4] net core: Add protodown support.
-Date: Wed, 08 Jul 2015 19:07:28 -0400
-Message-ID: <559DAD30.20806@cumulusnetworks.com>
-References: <1436389465-3077-2-git-send-email-anuradhak@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/3] sfc: compat for lack of VADAPTOR_SET_MAC in
+ adaptor_firmware <= 4.1.1.1023
+Date: Wed, 08 Jul 2015 16:07:47 -0700 (PDT)
+Message-ID: <20150708.160747.125026767371942405.davem@davemloft.net>
+References: <559BAB66.1080905@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com
-To: anuradhak@cumulusnetworks.com, davem@davemloft.net,
-	sfeldma@gmail.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: sshah@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f43.google.com ([209.85.192.43]:35435 "EHLO
-	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751224AbbGHXHa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 19:07:30 -0400
-Received: by qget71 with SMTP id t71so107784655qge.2
-        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 16:07:30 -0700 (PDT)
-In-Reply-To: <1436389465-3077-2-git-send-email-anuradhak@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38266 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751224AbbGHXHs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 19:07:48 -0400
+In-Reply-To: <559BAB66.1080905@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/8/15 5:04 PM, anuradhak@cumulusnetworks.com wrote:
-> diff --git a/include/uapi/linux/if.h b/include/uapi/linux/if.h
-> index 9cf2394..8d60fe7 100644
-> --- a/include/uapi/linux/if.h
-> +++ b/include/uapi/linux/if.h
-> @@ -156,6 +156,12 @@ enum {
->   	IF_LINK_MODE_DORMANT,	/* limit upward transition to dormant */
->   };
->
-> +/* proto_flags - port state information can be passed to the switch driver and
-> + * used to determine the phys state of the switch port */
-> +enum {
-> +	IF_PROTOF_DOWN		= 1<<0	/* set switch port phys state down */
+From: Shradha Shah <sshah@solarflare.com>
+Date: Tue, 7 Jul 2015 11:35:18 +0100
 
-It might be better to use BIT(0) provided by linux/bitopts.h
+> This patch series resolves an incompatibility with legacy
+> firmware due to the lack of MC_CMD_VADAPTOR_SET_MAC in
+> adaptor_firmware <= 4.1.1.1023
+> 
+> Unless this patch series is applied there will be a compatibility
+> issue between the driver and Solarflare adapters running older
+> firmware. 
+> 
+> Tested with and without CONFIG_SFC_SRIOV
 
-> +};
-> +
+Series applied, thanks.
