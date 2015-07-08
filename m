@@ -1,66 +1,32 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: Re: [PATCH 4.1 11/56] mvneta: add forgotten initialization of autonegotiation bits
-Date: Wed, 08 Jul 2015 21:36:38 +0200
-Message-ID: <87k2uasapl.fsf@natisbad.org>
-References: <20150708073237.780280770@linuxfoundation.org>
-	<20150708073238.389781888@linuxfoundation.org>
-	<559D5996.5080506@list.ru> <20150708173655.GA16101@kroah.com>
-	<559D6DBE.4040900@list.ru>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: [PATCH 0/2] net: pktgen: fix race between pktgen_thread_worker()
+	and kthread_stop()
+Date: Wed, 8 Jul 2015 21:41:54 +0200
+Message-ID: <20150708194154.GA26534@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev@vger.kernel.org, Stas Sergeev <stsp@users.sourceforge.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Jan Stancek <jstancek@redhat.com>,
+	Marcelo Leitner <mleitner@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Sebastien Rannou <mxs@sbrk.org>
-To: Stas Sergeev <stsp@list.ru>
+	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 36.223.133.77.rev.sfr.net ([77.133.223.36]:33382 "EHLO
-	smtp.natisbad.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754384AbbGHTg5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 15:36:57 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:37656 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758659AbbGHTn2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jul 2015 15:43:28 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hello,
 
-Stas Sergeev <stsp@list.ru> writes:
+I am not familiar with this code and I have no idea how to test
+these changes, so 2/2 comes as a separate change. 1/2 looks like
+the obvious bugfix, and probably candidate for -stable.
 
->>> Another problem was reported:
->>> https://lkml.org/lkml/2015/7/8/865
->>>
->>> So, while the above patch is correct and fixes what
->>> it should, the original patch has more problems to deal
->>> with. Maybe for stable it would be better to just revert
->>> the whole thing?
->> No, you will have to fix this in Linus's tree, right?  So I'll take the
->> patch that you get into there when that happens, I don't want to diverge
->> from what is in that tree.
-> For Linus tree I am planning a new DT property to explicitly
-> enable the inband status. I don't see any quick fix suitable for
-> -stable, and new DT property will likely not be quickly accepted.
-> If you don't want a revert, then the stable will likely have that
-> regression for quite long, that's the warning.
+Oleg.
 
-I do not think the problem is to have a revert in -stable, it's more
-having in in Linus tree *first* ;-)
-
-> OTOH, the revert will remove the support for my board, so I
-> won't be able to even test it, which is also not perfect.
-
-ATM, the priority is more on fixing the regressions the initial patch
-caused *for existing boards*. There were at least three boards which got
-hit by first regression during 4.1-rc and a new one on the table now
-that 4.1 is out. I understand your reluctance to revert the patch that
-made mvneta work for your custom board but it's unfair for others that
-are hit by the regressions it causes and have to spend time
-bisecting/fixing it.
-
-Anyway, if you come w/ a fix, I can commit to test it on the boards I
-have.
-
-Cheers,
-
-a+
+ net/core/pktgen.c |    9 ++-------
+ 1 files changed, 2 insertions(+), 7 deletions(-)
