@@ -1,64 +1,45 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: problems with L2TP
-Date: Wed, 08 Jul 2015 11:02:27 +0100
-Message-ID: <559CF533.2060204@katalix.com>
-References: <CAKaJLVuu8vZ8fq32jqbC0MKRms9ikmT_d9KKA+hJ8kwpEYBhmA@mail.gmail.com>	<20150703154155.GA19294@jackdaw> <CAKaJLVss0SMqf5hcBCdBuwa7+3_iBh527DW4+2Vb-RUPcb9Ffg@mail.gmail.com>
+From: Vasily Averin <vvs@virtuozzo.com>
+Subject: Re: [PATCH 3/3] ipmr_free_table() should be called under taken rtnl_lock
+Date: Wed, 08 Jul 2015 13:29:43 +0300
+Message-ID: <559CFB97.4020701@virtuozzo.com>
+References: <559BF613.7090904@virtuozzo.com>	<CAM_iQpW1zo4T3AyZsv7ofLLsFtAfnqzGuDcqcFKxw9uuRNk_vA@mail.gmail.com>	<559C0B7E.8010108@virtuozzo.com> <CAM_iQpX=_chUgfy39ifgKkygYKVnh-r9WXK4P6q70xR_Oczv=g@mail.gmail.com> <559C120F.7020709@virtuozzo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Tom Parkin <tparkin@katalix.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Sumit Semwal <sumit.semwal@linaro.org>
-To: Sam Protsenko <semen.protsenko@linaro.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:58264 "EHLO mail.katalix.com"
+Received: from mailhub.sw.ru ([195.214.232.25]:21727 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758184AbbGHKKd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jul 2015 06:10:33 -0400
-In-Reply-To: <CAKaJLVss0SMqf5hcBCdBuwa7+3_iBh527DW4+2Vb-RUPcb9Ffg@mail.gmail.com>
+	id S932693AbbGHKal (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jul 2015 06:30:41 -0400
+In-Reply-To: <559C120F.7020709@virtuozzo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/07/15 17:16, Sam Protsenko wrote:
-> Thanks for your reply, Tom!
->
->> How are you deriving the session and tunnel IDs?
-> If you mean how they are generated at client side -- they are
-> basically random values (I'm using modified "mtpd" tool from Android):
->  - session ID -- see "local_session" variable at [5]
->  - tunnel ID -- see "local_tunnel" variable at [6].
->
-> I will try to play with tunnel_id/session_id values for both tunnel
-> and session sockets (in code from my first message) and see if it
-> helps.
->
-> Thanks!
->
-> References:
->
-> [1] https://github.com/xelerance/xl2tpd/blob/master/xl2tpd.c#L421
-> [2] xl2tpd log (with debug options enabled): http://pastebin.com/f0kfz37E
-> [3] https://github.com/xelerance/xl2tpd/blob/master/control.c#L998
-> [4] https://github.com/xelerance/xl2tpd/blob/master/network.c#L597
-> [5] https://android.googlesource.com/platform/external/mtpd/+/0269612ac00a0700997dda333faf0a3c33a388b8/l2tp.c#479
-> [6] https://android.googlesource.com/platform/external/mtpd/+/0269612ac00a0700997dda333faf0a3c33a388b8/l2tp.c#319
+On 07.07.2015 20:53, Vasily Averin wrote:
+> On 07.07.2015 20:30, Cong Wang wrote:
+>> On Tue, Jul 7, 2015 at 10:25 AM, Vasily Averin <vvs@virtuozzo.com> wrote:
+>>> On 07.07.2015 20:13, Cong Wang wrote:
+>>>> On Tue, Jul 7, 2015 at 8:53 AM, Vasily Averin <vvs@virtuozzo.com> wrote:
+>>>>> ipmr_free_table() calls unregister_netdevice_many() inside
+>>>>> and changes net_todo_list protected by rtnl_lock
+>>>>
+>>>> Did you see any real bug?
+>>>
+>>> No, it was result of manual code review.
+>>>
+>>>> ipmr_free_table() is called in failure path, in this case there is no
+>>>> device registered yet, so unregister should be just a nop?
+>>>
+>>> However may be it's better to mark this place for future anyway?
+>>
+>> Then add a comment there. ;)
+> 
+> As you can see I'm not familiar with this code,
+> so I would like to ask you to do it. :)
 
-Tom and I discussed this and we're not clear what you are running. Have
-you changed create_pppox() in mtpd with the code fragment from your
-original mail? Are you sure that your modified mtpd gets the correct
-local/remote tunnel-id and session-id to make its connect() call?
-
-Use l2tp_debugfs to get information from debugfs about the l2tp state in
-the kernel. Check that this matches what your app has configured.
-
-Several open source projects use the l2tp driver so these might be
-useful as a reference:
-
-[a] pppd's pppol2tp plugin - http://download.samba.org/pub/ppp/
-[b] accel-ppp - http://accel-ppp.org
-
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+Seems I've found a better idea:
+to add ASSERT_RTNL() into unregister_netdevice_many()
