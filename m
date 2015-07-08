@@ -1,53 +1,44 @@
-From: Vasily Averin <vvs@virtuozzo.com>
-Subject: Re: [PATCH 3/3] ipmr_free_table() should be called under taken rtnl_lock
-Date: Wed, 08 Jul 2015 14:46:34 +0300
-Message-ID: <559D0D9A.6050401@virtuozzo.com>
-References: <559BF613.7090904@virtuozzo.com>	<CAM_iQpW1zo4T3AyZsv7ofLLsFtAfnqzGuDcqcFKxw9uuRNk_vA@mail.gmail.com>	<559C0B7E.8010108@virtuozzo.com> <CAM_iQpX=_chUgfy39ifgKkygYKVnh-r9WXK4P6q70xR_Oczv=g@mail.gmail.com> <559C120F.7020709@virtuozzo.com> <559CFB97.4020701@virtuozzo.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v2 1/1] Added additional callback to ptp_clock_info:
+Date: Wed, 8 Jul 2015 13:54:34 +0200
+Message-ID: <20150708115434.GA17012@localhost.localdomain>
+References: <1435886088-13890-1-git-send-email-christopher.s.hall@intel.com>
+ <1435886088-13890-2-git-send-email-christopher.s.hall@intel.com>
+ <20150706204458.GE25028@jcartwri.amer.corp.natinst.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christopher Hall <christopher.s.hall@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	john.ronciak@intel.com, john.stultz@linaro.org, tglx@linutronix.de
+To: Josh Cartwright <joshc@ni.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:36295 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754251AbbGHLrb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jul 2015 07:47:31 -0400
-In-Reply-To: <559CFB97.4020701@virtuozzo.com>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:33605 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932745AbbGHLyk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 07:54:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20150706204458.GE25028@jcartwri.amer.corp.natinst.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Jul 06, 2015 at 03:44:58PM -0500, Josh Cartwright wrote:
+> It's difficult to make too many judgements without seeing how a driver
+> might implement this; is there another patchset that shows how a driver
+> implements this?
 
+The interface is certainly clear enough to me.  The details of
+obtaining a cross time stamp from the hardware will remain hidden
+behind the interface in any case.
 
-On 08.07.2015 13:29, Vasily Averin wrote:
-> On 07.07.2015 20:53, Vasily Averin wrote:
->> On 07.07.2015 20:30, Cong Wang wrote:
->>> On Tue, Jul 7, 2015 at 10:25 AM, Vasily Averin <vvs@virtuozzo.com> wrote:
->>>> On 07.07.2015 20:13, Cong Wang wrote:
->>>>> On Tue, Jul 7, 2015 at 8:53 AM, Vasily Averin <vvs@virtuozzo.com> wrote:
->>>>>> ipmr_free_table() calls unregister_netdevice_many() inside
->>>>>> and changes net_todo_list protected by rtnl_lock
->>>>>
->>>>> Did you see any real bug?
->>>>
->>>> No, it was result of manual code review.
->>>>
->>>>> ipmr_free_table() is called in failure path, in this case there is no
->>>>> device registered yet, so unregister should be just a nop?
->>>>
->>>> However may be it's better to mark this place for future anyway?
->>>
->>> Then add a comment there. ;)
->>
->> As you can see I'm not familiar with this code,
->> so I would like to ask you to do it. :)
+> > -	int rsv[14];   /* Reserved for future use. */
+> > +	/* Whether the clock supports precise system-device cross timestamps */
+> > +	int precise_timestamping;
 > 
-> Seems I've found a better idea:
-> to add ASSERT_RTNL() into unregister_netdevice_many()
+> Perhaps now is a good time to add an unsigned int 'flags' member instead,
+> and start allocating bits.
 
-It was done already,
-there is ASSERT_RTNL() in rollback_registered_many() called from unregister_netdevice_many().
+Considering the rate of growth for the PHC stuff, I am not worried
+about spending a whole 'int' on this.
 
-Please drop this patch, seems it isn't required. 
+Thanks,
+Richard
