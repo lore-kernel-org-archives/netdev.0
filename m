@@ -1,117 +1,63 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 4.1 11/56] mvneta: add forgotten initialization of
- autonegotiation bits
-Date: Wed, 8 Jul 2015 14:31:16 -0700
-Message-ID: <20150708213116.GA31433@kroah.com>
-References: <20150708073237.780280770@linuxfoundation.org>
- <20150708073238.389781888@linuxfoundation.org>
- <559D5996.5080506@list.ru>
- <20150708173655.GA16101@kroah.com>
- <559D6DBE.4040900@list.ru>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH v1 01/12] IB/core: pass client data to remove() callbacks
+Date: Wed, 8 Jul 2015 15:34:10 -0600
+Message-ID: <20150708213410.GA19624@obsidianresearch.com>
+References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
+ <1434976961-27424-2-git-send-email-haggaie@mellanox.com>
+ <20150708202910.GA16812@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev@vger.kernel.org, Stas Sergeev <stsp@users.sourceforge.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Sebastien Rannou <mxs@sbrk.org>
-To: Stas Sergeev <stsp@list.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, Liran Liss <liranl@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Yotam Kenneth <yotamke@mellanox.com>
+To: Haggai Eran <haggaie@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:42578 "EHLO quartz.orcorp.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758892AbbGHVeO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jul 2015 17:34:14 -0400
 Content-Disposition: inline
-In-Reply-To: <559D6DBE.4040900@list.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20150708202910.GA16812@obsidianresearch.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 08, 2015 at 09:36:46PM +0300, Stas Sergeev wrote:
-> 08.07.2015 20:36, Greg Kroah-Hartman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> >On Wed, Jul 08, 2015 at 08:10:46PM +0300, Stas Sergeev wrote:
-> >>08.07.2015 10:35, Greg Kroah-Hartman =D0=BF=D0=B8=D1=88=D0=B5=D1=82=
-:
-> >>>4.1-stable review patch.  If anyone has any objections, please let=
- me know.
-> >>>
-> >>>------------------
-> >>>
-> >>>From: Stas Sergeev <stsp@list.ru>
-> >>>
-> >>>[ Upstream commit 538761b794c1542f1c6e31eadd9d7aae118889f7 ]
-> >>>
-> >>>The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band li=
-nk state
-> >>>signaling")
-> >>>changed mvneta_adjust_link() so that it does not clear the auto-ne=
-gotiation
-> >>>bits in MVNETA_GMAC_AUTONEG_CONFIG register. This was necessary fo=
-r
-> >>>auto-negotiation mode to work.
-> >>>Unfortunately I haven't checked if these bits are ever initialized=
-=2E
-> >>>It appears they are not.
-> >>>This patch adds the missing initialization of the auto-negotiation=
- bits
-> >>>in the MVNETA_GMAC_AUTONEG_CONFIG register.
-> >>>It fixes the following regression:
-> >>>https://www.mail-archive.com/netdev@vger.kernel.org/msg67928.html
-> >>>
-> >>>Since the patch was tested to fix a regression, it should be appli=
-ed to
-> >>>stable tree.
-> >>>
-> >>>Tested-by: Arnaud Ebalard <arno@natisbad.org>
-> >>>
-> >>>CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> >>>CC: Florian Fainelli <f.fainelli@gmail.com>
-> >>>CC: netdev@vger.kernel.org
-> >>>CC: linux-kernel@vger.kernel.org
-> >>>CC: stable@vger.kernel.org
-> >>>
-> >>>Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
-> >>>Signed-off-by: David S. Miller <davem@davemloft.net>
-> >>>Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> >>>---
-> >>>  drivers/net/ethernet/marvell/mvneta.c |    6 ++++++
-> >>>  1 file changed, 6 insertions(+)
-> >>>
-> >>>--- a/drivers/net/ethernet/marvell/mvneta.c
-> >>>+++ b/drivers/net/ethernet/marvell/mvneta.c
-> >>>@@ -1013,6 +1013,12 @@ static void mvneta_defaults_set(struct m
-> >>>  		val =3D mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
-> >>>  		val |=3D MVNETA_GMAC_1MS_CLOCK_ENABLE;
-> >>>  		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
-> >>>+	} else {
-> >>>+		val =3D mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
-> >>>+		val &=3D ~(MVNETA_GMAC_INBAND_AN_ENABLE |
-> >>>+		       MVNETA_GMAC_AN_SPEED_EN |
-> >>>+		       MVNETA_GMAC_AN_DUPLEX_EN);
-> >>>+		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
-> >>>  	}
-> >>>  	mvneta_set_ucast_table(pp, -1);
-> >>Hi Greg.
-> >>
-> >>Another problem was reported:
-> >>https://lkml.org/lkml/2015/7/8/865
-> >>
-> >>So, while the above patch is correct and fixes what
-> >>it should, the original patch has more problems to deal
-> >>with. Maybe for stable it would be better to just revert
-> >>the whole thing?
-> >No, you will have to fix this in Linus's tree, right?  So I'll take =
-the
-> >patch that you get into there when that happens, I don't want to div=
-erge
-> >from what is in that tree.
-> For Linus tree I am planning a new DT property to explicitly
-> enable the inband status. I don't see any quick fix suitable for
-> -stable, and new DT property will likely not be quickly accepted.
-> If you don't want a revert, then the stable will likely have that
-> regression for quite long, that's the warning.
+On Wed, Jul 08, 2015 at 02:29:10PM -0600, Jason Gunthorpe wrote:
+> On Mon, Jun 22, 2015 at 03:42:30PM +0300, Haggai Eran wrote:
+> > An ib_client callback that is called with the lists_rwsem locked only for
+> > read is protected from changes to the IB client lists, but not from
+> > ib_unregister_device() freeing its client data. This is because
+> > ib_unregister_device() will remove the device from the device list with
+> > lists_rwsem locked for write, but perform the rest of the cleanup,
+> > including the call to remove() without that lock.
+> 
+> I was going to look at this, but, uh.. it seems mangled, doesn't
+> apply, doesn't seem fixable from here.
 
-That's fine, we will be in sync with Linus's tree, so all is fine, and
-it might spur people to get the thing fixed properly faster :)
+Okay, I see, it sits on top of the patch from Matan's last
+posting.. My bad.
 
-thanks,
+Hum... I have to say I don't really like this, changing the ordering
+of client_data = NULL with respect to client->remove doesn't seem like
+a great idea - and the rds changes look scary to me, at least I
+couldn't confidently say they were OK..
 
-greg k-h
+And that isn't really the issue - this has nothing to do with
+client_data, it is all about not having a callback running when doing
+remove.
+
+It looks like the way out of this is to have ib_get_net_dev_by_params
+iterate over the client_data_list and use a dedicated flag in that
+struct to indicate that client&device combination is
+remove-in-progress.
+
+This would be a bit more efficient as well, and I would suggest
+passing the context in as an arg to the callback.
+
+client_data_list would change a bit to become write locked first by
+write(lists_rwsem), and then second by the spin lock, so holding
+read(lists_rwsem) while iterating is enough locking, and you'd hold
+lists_rwsem while kfreeing.
+
+Jason
