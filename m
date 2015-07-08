@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/6] genirq: Fix the documentation of request_percpu_irq
-Date: Wed, 08 Jul 2015 14:05:18 -0700 (PDT)
-Message-ID: <20150708.140518.1912932449236610733.davem@davemloft.net>
-References: <1435933551-28696-1-git-send-email-maxime.ripard@free-electrons.com>
-	<1435933551-28696-3-git-send-email-maxime.ripard@free-electrons.com>
+Subject: Re: [PATCH] NET: hamradio: Fix IP over bpq encapsulation.
+Date: Wed, 08 Jul 2015 14:09:54 -0700 (PDT)
+Message-ID: <20150708.140954.1631566627371698945.davem@davemloft.net>
+References: <20150704092230.GN5255@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, gregory.clement@free-electrons.com,
-	jason@lakedaemon.net, andrew@lunn.ch,
-	sebastian.hesselbarth@gmail.com,
-	thomas.petazzoni@free-electrons.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: maxime.ripard@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1435933551-28696-3-git-send-email-maxime.ripard@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org,
+	stable@vger.kernel.org, ebiederm@xmission.com
+To: ralf@linux-mips.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <20150704092230.GN5255@linux-mips.org>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Date: Fri,  3 Jul 2015 16:25:47 +0200
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Sat, 4 Jul 2015 11:22:30 +0200
 
-> The documentation of request_percpu_irq is confusing and suggest that the
-> interrupt is not enabled at all, while it is actually enabled on the local
-> CPU.
+> Since 1d5da757da860a6916adbf68b09e868062b4b3b8 (ax25: Stop using magic
+> neighbour cache operations.) any attempt to transmit IP packets over
+> a bpqether device will result in a message like "Dead loop on virtual
+> device bpq0, fix it urgently!"
 > 
-> Clarify that.
+> Fix suggested by Eric W. Biederman <ebiederm@xmission.com>.
 > 
-> Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> Cc: <stable@vger.kernel.org> # 4.1
 
-You should submit this separately to the IRQ layer maintainers, rather
-than try to include it in an unrelated set of changes targetting net-next.
-
-Thanks.
+Applied, thanks Ralf.
