@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/7] netfilter: nf_queue: Don't recompute the hook_list head
-Date: Wed,  8 Jul 2015 11:48:14 +0200
-Message-ID: <1436348900-13130-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 6/7] MAINTAINER: add bridge netfilter
+Date: Wed,  8 Jul 2015 11:48:19 +0200
+Message-ID: <1436348900-13130-7-git-send-email-pablo@netfilter.org>
 References: <1436348900-13130-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,34 +10,26 @@ In-Reply-To: <1436348900-13130-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Eric W. Biederman" <ebiederm@xmission.com>
+So scripts/get_maintainer.pl shows the Netfilter mailing lists.
 
-If someone sends packets from one of the netdevice ingress hooks to
-the a userspace queue, and then userspace later accepts the packet,
-the netfilter code can enter an infinite loop as the list head will
-never be found.
-
-Pass in the saved list_head to avoid this.
-
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Reported-by: Julien Grall <julien.grall@citrix.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_queue.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ MAINTAINERS |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
-index cd60d39..8a8b2ab 100644
---- a/net/netfilter/nf_queue.c
-+++ b/net/netfilter/nf_queue.c
-@@ -213,7 +213,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 993d4cf..8183b465 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -6996,6 +6996,7 @@ F:	include/uapi/linux/netfilter/
+ F:	net/*/netfilter.c
+ F:	net/*/netfilter/
+ F:	net/netfilter/
++F:	net/bridge/br_netfilter*.c
  
- 	if (verdict == NF_ACCEPT) {
- 	next_hook:
--		verdict = nf_iterate(&nf_hooks[entry->state.pf][entry->state.hook],
-+		verdict = nf_iterate(entry->state.hook_list,
- 				     skb, &entry->state, &elem);
- 	}
- 
+ NETLABEL
+ M:	Paul Moore <paul@paul-moore.com>
 -- 
 1.7.10.4
 
