@@ -1,51 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net_sched: gen_estimator: extend pps limit
-Date: Wed, 08 Jul 2015 13:59:56 -0700 (PDT)
-Message-ID: <20150708.135956.157230596810615593.davem@davemloft.net>
-References: <1435845439.11970.25.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/2] net: dsa: mv88e6xxx: add write access to debugfs
+ regs file
+Date: Wed, 8 Jul 2015 22:53:48 +0200
+Message-ID: <20150708205348.GH1357@lunn.ch>
+References: <1436387779-23407-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@plumgrid.com, jhs@mojatatu.com,
-	john.fastabend@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37400 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754851AbbGHU75 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 16:59:57 -0400
-In-Reply-To: <1435845439.11970.25.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1436387779-23407-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 02 Jul 2015 15:57:19 +0200
+On Wed, Jul 08, 2015 at 04:36:18PM -0400, Vivien Didelot wrote:
+> Allow write access to the regs file in the debugfs interface, with the
+> following parameters:
+> 
+>     echo <name> <reg> <value> > regs
+> 
+> Where "name" is the register name (as shown in the header row), "reg" is
+> the register address (as shown in the first column) and "value" is the
+> 16-bit value. e.g.:
+> 
+>     echo GLOBAL 1a 5550 > regs
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  drivers/net/dsa/mv88e6xxx.c | 32 +++++++++++++++++++++++++++++++-
+>  1 file changed, 31 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+> index 8c130c0..04e6eb6 100644
+> --- a/drivers/net/dsa/mv88e6xxx.c
+> +++ b/drivers/net/dsa/mv88e6xxx.c
+> @@ -1648,6 +1648,35 @@ static int mv88e6xxx_regs_show(struct seq_file *s, void *p)
+>  	return 0;
+>  }
+>  
+> +static ssize_t mv88e6xxx_regs_write(struct file *file, const char __user *buf,
+> +				    size_t count, loff_t *ppos)
+> +{
+> +	struct seq_file *s = file->private_data;
+> +	struct dsa_switch *ds = s->private;
+> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+> +	char name[count];
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> rate estimators are limited to 4 Mpps, which was fine years ago, but
-> too small with current hardware generation.
-> 
-> Lets use 2^5 scaling instead of 2^10 to get 128 Mpps new limit.
-> 
-> On 64bit arch, use an "unsigned long" for temp storage and remove limit.
-> (We do not expect 32bit arches to be able to reach this point)
-> 
-> Tested:
-> 
-> tc -s -d filter sh dev eth0 parent ffff:
-> 
-> filter protocol ip pref 1 u32 
-> filter protocol ip pref 1 u32 fh 800: ht divisor 1 
-> filter protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:15 
->   match 07000000/ff000000 at 12
-> 	action order 1: gact action drop
-> 	 random type none pass val 0
-> 	 index 1 ref 1 bind 1 installed 166 sec
->  	Action statistics:
-> 	Sent 39734251496 bytes 863788076 pkt (dropped 863788117, overlimits 0 requeues 0) 
-> 	rate 4067Mbit 11053596pps backlog 0b 0p requeues 0 
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Is this safe? Is count somehow limited? If i was to echo 8K to the
+file would i not exceed the kernel stack space?
 
-Applied, thanks.
+     Andrew
