@@ -1,66 +1,72 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next 2/5] net: add phys ID compare helper to test if two IDs are the same
-Date: Wed,  8 Jul 2015 16:16:40 -0700
-Message-ID: <1436397403-62412-3-git-send-email-sfeldma@gmail.com>
-References: <1436397403-62412-1-git-send-email-sfeldma@gmail.com>
-Cc: jiri@resnulli.us, roopa@cumulusnetworks.com
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] net: igb: implement high frequency periodic
+ output signals
+Date: Wed, 08 Jul 2015 16:14:17 -0700
+Message-ID: <1436397257.3214.14.camel@intel.com>
+References: <1436280102-30310-1-git-send-email-richardcochran@gmail.com>
+	 <20150708.161150.1028571714100873421.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-R8ARDUDxK8Fly0z+Pz+b"
+Cc: richardcochran@gmail.com, netdev@vger.kernel.org,
+	jacob.e.keller@intel.com, matthew.vick@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:36293 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751364AbbGHXOP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 19:14:15 -0400
-Received: by pddu5 with SMTP id u5so66028433pdd.3
-        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 16:14:14 -0700 (PDT)
-In-Reply-To: <1436397403-62412-1-git-send-email-sfeldma@gmail.com>
+Received: from mga14.intel.com ([192.55.52.115]:53713 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751299AbbGHXOU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jul 2015 19:14:20 -0400
+In-Reply-To: <20150708.161150.1028571714100873421.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
----
- include/linux/netdevice.h |    7 +++++++
- net/switchdev/switchdev.c |    8 ++------
- 2 files changed, 9 insertions(+), 6 deletions(-)
+--=-R8ARDUDxK8Fly0z+Pz+b
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 7be616e1..89db412 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -766,6 +766,13 @@ struct netdev_phys_item_id {
- 	unsigned char id_len;
- };
- 
-+static inline bool netdev_phys_item_id_same(struct netdev_phys_item_id *a,
-+					    struct netdev_phys_item_id *b)
-+{
-+	return a->id_len == b->id_len &&
-+	       memcmp(a->id, b->id, a->id_len) == 0;
-+}
-+
- typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
- 				       struct sk_buff *skb);
- 
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 84f77a0..e16586f 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -906,13 +906,9 @@ static struct net_device *switchdev_get_dev_by_nhs(struct fib_info *fi)
- 		if (switchdev_port_attr_get(dev, &attr))
- 			return NULL;
- 
--		if (nhsel > 0) {
--			if (prev_attr.u.ppid.id_len != attr.u.ppid.id_len)
-+		if (nhsel > 0 &&
-+		    !netdev_phys_item_id_same(&prev_attr.u.ppid, &attr.u.ppid))
- 				return NULL;
--			if (memcmp(prev_attr.u.ppid.id, attr.u.ppid.id,
--				   attr.u.ppid.id_len))
--				return NULL;
--		}
- 
- 		prev_attr = attr;
- 	}
--- 
-1.7.10.4
+On Wed, 2015-07-08 at 16:11 -0700, David Miller wrote:
+> From: Richard Cochran <richardcochran@gmail.com>
+> Date: Tue,  7 Jul 2015 16:41:42 +0200
+>=20
+> > In addition to interrupt driven target time output events, the i210
+> > also has two programmable clock outputs.  These clocks support
+> periods
+> > between 16 nanoseconds and 140 milliseconds.  This patch implements
+> > the periodic output function using the clock outputs when possible,
+> > falling back to the target time for longer periods.
+> >=20
+> > Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+>=20
+> I assume I will get this via the Intel folks in a future pull request.
+
+Correct, I will be adding it to my queue.
+
+Richard- FYI for the future, could you at least CC
+intel-wired-lan@lists.osuosl.org on the Intel wired LAN patches.  It
+helps me keep track of patches against our drivers. Thanks!
+
+--=-R8ARDUDxK8Fly0z+Pz+b
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJVna7JAAoJEOVv75VaS+3O87kP/R3WFqZVxQSxMUbZo4n1sECT
+IMsz49zzxjrbZvCd07Dtjn+jOm4EVbuTCUSpXE1orPaMvatrDw1FXO55Mzs8nMZk
+Is6FaI0O877IAb2N4yvIA67gkzbf3qZJGaC5KXq5DLdpojn06paqEW8lm0D1pbH5
+ZxzhGmQ1VFyezuNotzg4ateehArL/yx/mhK4CJuZPDMDWseYYAP95cSF/V4lDU3w
+3cO5A2jKGIoLbk2RDzEiVnSeNE2B+so+LMoVmBax9oKSeOInFdIWg1O4NMDnukoI
+qCVjy8pqsUwEv8tKtJZrhOqUPqr+m2sFMYQQjRHWfA7KubFW2waCMB7xCKtxZ/Rc
+iWhsjBXI/WV9bOy7oj+moycYr7fwUgWUSzWpRhrkg8uBygQ/yeyqbgDH93R1z/fL
+yVhga1SiXPIBLdwJ9w18lmUU8OSQgcwUTKiThppsOiNrvVuSkpCdR9/So9nE8OpM
+Gz8Jusj/nhSzP38qLU/UmT0c7/tLUEbclxcyeqPTZtDx/QeAal8UWm2Wrke+s5tM
+ubtHoyCDTb+HS5iLuDY0IQd463RMRoKQAh1XYh4aNXeqiDmO7L9n7v7RP6OiM33X
+TIkXr032L/+0rDsjHVKGvdBWahCoSL/tIXkUaydhkAsQHxliJvJoNkcnCZ9YvB68
+BUIGLvssdVq4TNo67bce
+=9Pgy
+-----END PGP SIGNATURE-----
+
+--=-R8ARDUDxK8Fly0z+Pz+b--
