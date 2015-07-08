@@ -1,36 +1,53 @@
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [BUG ?] brcmsmac: condition with no effect
-Date: Wed,  8 Jul 2015 15:17:40 +0200
-Message-ID: <1436361460-30554-1-git-send-email-hofrat@osadl.org>
-Cc: Brett Rudley <brudley@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Joe Perches <joe@perches.com>, linux-wireless@vger.kernel.org,
-	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Timo Teras <timo.teras@iki.fi>
+Subject: ip_forward_use_pmtu and forwarding to xfrm'ed gre
+Date: Wed, 8 Jul 2015 16:30:32 +0300
+Message-ID: <20150708163032.5b5df2ec@vostro>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:36863 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932672AbbGHNai (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 09:30:38 -0400
+Received: by lagc2 with SMTP id c2so222508143lag.3
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 06:30:36 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicholas Mc Guire <hofrat@osadl.org>                                      
+Hi,
 
-scanning for trivial bug-patters with coccinelle spatches returned:
-drivers/net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c:3391
-        WARNING: condition with no effect (if branch == else)
+It seems ip_forward_use_pmtu commit log says:
+    Tunnel and ipsec output paths clear IPCB again, thus IPSKB_FORWARDED
+    won't be set and further fragmentation logic will use the path mtu
+    to determine the fragmentation size. They also recheck packet size
+    with help of path mtu discovery and report appropriate errors.
 
-added in 'commit 5b435de0d786 ("net: wireless: add brcm80211 drivers")'
+But this does not seem to be true in all paths. For example, I'm
+forwarding from ethX -> greX (with gre having ttl 64; and thus
+setting DF on tunnel always) and then gre output is finally IPsec
+encrypted. But fragmentation does not work. Setting ip_forward_use_pmtu
+makes it work again. tcpdump says the packet is fragmented based on the
+greX device mtu, not the path mtu in this case.
 
-drivers/net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c:wlc_lcnphy_deaf_mode()
-(line numbers are from linux-next v4.2-rc2)
-3391         if (LCNREV_LT(pi->pubpi.phy_rev, 2)) {
-3392                 mod_phy_reg(pi, 0x4b0, (0x1 << 5), (mode) << 5);                                       
-3393                 mod_phy_reg(pi, 0x4b1, (0x1 << 9), 0 << 9);
-3394         } else {
-3395                 mod_phy_reg(pi, 0x4b0, (0x1 << 5), (mode) << 5);
-3396                 mod_phy_reg(pi, 0x4b1, (0x1 << 9), 0 << 9);
-3397         }
+This probably is due to the way how the xfrm+gre work together. On
+first packet, the gre tunnel driver updates pmtu for the inner flow,
+which is expected to be honored always. And if the 'ttl' value is set
+for gre tunnel, no re-fragmentation is allowed as the inner flow
+should know better. This does how the side effect that if the very
+first packet is large, it'll be dropped to 'learn' the pmtu. 
 
-Can't figure out what the intent of this condition is but it currently has
-no effect as if == else and this most likely is not the intent.
+It's probably not possible to detect this kind of target easily, as the
+xfrm can be applied or not even on per inner target IP basis (as then
+tunnel destination IP can be dynamic for nbma tunnels).
+
+So I wonder if ip_gre driver can workaround this somehow, by e.g.
+refragmenting if necessary. Or if we just should update the sysctl's
+help text to say that this another scenario where it needs to be
+turned on.
+
+Thanks,
+Timo
+ 
