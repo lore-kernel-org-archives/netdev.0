@@ -1,100 +1,39 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next] ipv6: use flag instead of u16 for hop in inet6_skb_parm
-Date: Wed,  8 Jul 2015 23:32:12 +0200
-Message-ID: <1436391132-5199-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 0/3] inet: timewait cleanups
+Date: Wed,  8 Jul 2015 14:28:27 -0700
+Message-ID: <1436390910-13117-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Eric Dumazet <edumazet@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:37588 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754153AbbGHVYo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 17:24:44 -0400
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:35390 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759162AbbGHV2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 17:28:37 -0400
+Received: by iecuq6 with SMTP id uq6so164614400iec.2
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 14:28:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hop was always either 0 or sizeof(struct ipv6hdr).
+Another round of patches to make tw handling simpler.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- include/linux/ipv6.h | 2 +-
- net/ipv6/af_inet6.c  | 4 ++--
- net/ipv6/datagram.c  | 8 ++++----
- net/ipv6/exthdrs.c   | 2 +-
- 4 files changed, 8 insertions(+), 8 deletions(-)
+Eric Dumazet (3):
+  inet: remove BUG_ON() in twsk_destructor()
+  inet: simplify timewait refcounting
+  inet: inet_twsk_deschedule factorization
 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 4d5169f..61b9169 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -90,7 +90,6 @@ static inline struct ipv6hdr *ipipv6_hdr(const struct sk_buff *skb)
- struct inet6_skb_parm {
- 	int			iif;
- 	__be16			ra;
--	__u16			hop;
- 	__u16			dst0;
- 	__u16			srcrt;
- 	__u16			dst1;
-@@ -107,6 +106,7 @@ struct inet6_skb_parm {
- #define IP6SKB_REROUTED		4
- #define IP6SKB_ROUTERALERT	8
- #define IP6SKB_FRAGMENTED      16
-+#define IP6SKB_HOPBYHOP        32
- };
- 
- #define IP6CB(skb)	((struct inet6_skb_parm*)((skb)->cb))
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 6bafcc2..b96dd8d 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -678,8 +678,8 @@ bool ipv6_opt_accepted(const struct sock *sk, const struct sk_buff *skb,
- 	const struct ipv6_pinfo *np = inet6_sk(sk);
- 
- 	if (np->rxopt.all) {
--		if ((opt->hop && (np->rxopt.bits.hopopts ||
--				  np->rxopt.bits.ohopopts)) ||
-+		if (((opt->flags & IP6SKB_HOPBYHOP) &&
-+		     (np->rxopt.bits.hopopts || np->rxopt.bits.ohopopts)) ||
- 		    (ip6_flowinfo((struct ipv6hdr *) skb_network_header(skb)) &&
- 		     np->rxopt.bits.rxflow) ||
- 		    (opt->srcrt && (np->rxopt.bits.srcrt ||
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index ace8dac..e734bae 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -548,8 +548,8 @@ void ip6_datagram_recv_specific_ctl(struct sock *sk, struct msghdr *msg,
- 	}
- 
- 	/* HbH is allowed only once */
--	if (np->rxopt.bits.hopopts && opt->hop) {
--		u8 *ptr = nh + opt->hop;
-+	if (np->rxopt.bits.hopopts && (opt->flags & IP6SKB_HOPBYHOP)) {
-+		u8 *ptr = nh + sizeof(struct ipv6hdr);
- 		put_cmsg(msg, SOL_IPV6, IPV6_HOPOPTS, (ptr[1]+1)<<3, ptr);
- 	}
- 
-@@ -610,8 +610,8 @@ void ip6_datagram_recv_specific_ctl(struct sock *sk, struct msghdr *msg,
- 		int hlim = ipv6_hdr(skb)->hop_limit;
- 		put_cmsg(msg, SOL_IPV6, IPV6_2292HOPLIMIT, sizeof(hlim), &hlim);
- 	}
--	if (np->rxopt.bits.ohopopts && opt->hop) {
--		u8 *ptr = nh + opt->hop;
-+	if (np->rxopt.bits.ohopopts && (opt->flags & IP6SKB_HOPBYHOP)) {
-+		u8 *ptr = nh + sizeof(struct ipv6hdr);
- 		put_cmsg(msg, SOL_IPV6, IPV6_2292HOPOPTS, (ptr[1]+1)<<3, ptr);
- 	}
- 	if (np->rxopt.bits.odstopts && opt->dst0) {
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index a7bbbe4..ce203b0 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -632,7 +632,7 @@ int ipv6_parse_hopopts(struct sk_buff *skb)
- 		return -1;
- 	}
- 
--	opt->hop = sizeof(struct ipv6hdr);
-+	opt->flags |= IP6SKB_HOPBYHOP;
- 	if (ip6_parse_tlv(tlvprochopopt_lst, skb)) {
- 		skb->transport_header += (skb_transport_header(skb)[1] + 1) << 3;
- 		opt = IP6CB(skb);
+ include/net/inet_hashtables.h    |  4 +--
+ include/net/inet_timewait_sock.h |  8 +++---
+ include/net/timewait_sock.h      |  3 ---
+ net/ipv4/inet_hashtables.c       | 38 +++++++++------------------
+ net/ipv4/inet_timewait_sock.c    | 55 ++++++++++------------------------------
+ net/ipv4/tcp_ipv4.c              |  3 +--
+ net/ipv4/tcp_minisocks.c         |  6 ++---
+ net/ipv6/inet6_hashtables.c      |  9 ++-----
+ net/ipv6/tcp_ipv6.c              |  3 +--
+ net/netfilter/xt_TPROXY.c        |  6 ++---
+ 10 files changed, 39 insertions(+), 96 deletions(-)
+
 -- 
-2.1.0
+2.4.3.573.g4eafbef
