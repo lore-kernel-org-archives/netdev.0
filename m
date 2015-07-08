@@ -1,68 +1,59 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: [PATCH 2/2] net: pktgen: kill the "Wait for kthread_stop" code in
-	pktgen_thread_worker()
-Date: Wed, 8 Jul 2015 21:42:13 +0200
-Message-ID: <20150708194213.GA26555@redhat.com>
-References: <20150708194154.GA26534@redhat.com>
+From: Emmanuel Grumbach <egrumbach@gmail.com>
+Subject: Re: [PATCH] mac80211: Use kstrdup to simplify code
+Date: Wed, 8 Jul 2015 22:53:51 +0300
+Message-ID: <CANUX_P2djxM92BZX=0O7Zmb+0Y7Gs9xpbfUgPnCB0gnDwfSJuQ@mail.gmail.com>
+References: <1436383927-14010-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jan Stancek <jstancek@redhat.com>,
-	Marcelo Leitner <mleitner@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150708194154.GA26534@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kvalo@codeaurora.org>, brudley@broadcom.com,
+	Arend van Spriel <arend@broadcom.com>, frankyl@broadcom.com,
+	meuleman@broadcom.com,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	brcm80211-dev-list@broadcom.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:34813 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755061AbbGHTxx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 15:53:53 -0400
+In-Reply-To: <1436383927-14010-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-pktgen_thread_worker() doesn't need to wait for kthread_stop(), it
-can simply exit. Just pktgen_create_thread() and pg_net_exit() should
-do get_task_struct()/put_task_struct(). kthread_stop(dead_thread) is
-fine.
+The subject is wrong. You are not patch mac80211, but bcrmsmac.
 
-Signed-off-by: Oleg Nesterov <oleg@redhat.com>
----
- net/core/pktgen.c |   11 ++---------
- 1 files changed, 2 insertions(+), 9 deletions(-)
-
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 043ea18..8e0181a 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -3489,15 +3489,6 @@ static int pktgen_thread_worker(void *arg)
- 	pr_debug("%s removing thread\n", t->tsk->comm);
- 	pktgen_rem_thread(t);
- 
--	/* Wait for kthread_stop */
--	for (;;) {
--		set_current_state(TASK_INTERRUPTIBLE);
--		if (kthread_should_stop())
--			break;
--		schedule();
--	}
--	__set_current_state(TASK_RUNNING);
--
- 	return 0;
- }
- 
-@@ -3689,6 +3680,7 @@ static int __net_init pktgen_create_thread(int cpu, struct pktgen_net *pn)
- 	}
- 
- 	t->net = pn;
-+	get_task_struct(p);
- 	wake_up_process(p);
- 	wait_for_completion(&t->start_done);
- 
-@@ -3811,6 +3803,7 @@ static void __net_exit pg_net_exit(struct net *net)
- 		t = list_entry(q, struct pktgen_thread, th_list);
- 		list_del(&t->th_list);
- 		kthread_stop(t->tsk);
-+		put_task_struct(t->tsk);
- 		kfree(t);
- 	}
- 
--- 
-1.5.5.1
+On Wed, Jul 8, 2015 at 10:32 PM, Christophe JAILLET
+<christophe.jaillet@wanadoo.fr> wrote:
+> Replace a kmalloc+strcpy by an equivalent kstrdup in order to improve
+> readability.
+>
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> ---
+>  drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c | 4 +---
+>  1 file changed, 1 insertion(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c b/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
+> index 4813506..8a6c077 100644
+> --- a/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
+> +++ b/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
+> @@ -1476,9 +1476,7 @@ struct brcms_timer *brcms_init_timer(struct brcms_info *wl,
+>         wl->timers = t;
+>
+>  #ifdef DEBUG
+> -       t->name = kmalloc(strlen(name) + 1, GFP_ATOMIC);
+> -       if (t->name)
+> -               strcpy(t->name, name);
+> +       t->name = kstrdup(name, GFP_ATOMIC);
+>  #endif
+>
+>         return t;
+> --
+> 2.1.4
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
