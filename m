@@ -1,29 +1,70 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: Re: [PATCH V2] cdc_ncm: Add support for moving NDP to end of NCM
- frame
-Date: Wed, 8 Jul 2015 09:54:02 +0200 (CEST)
-Message-ID: <alpine.LNX.2.20.1507080949470.1204@localhost.localdomain>
-References: <1435787748-30393-1-git-send-email-mrkiko.rs@gmail.com> <alpine.LNX.2.20.1507051219280.12595@archiso.lan> <1436177296.8225.25.camel@suse.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2] add stealth mode
+Date: Wed, 08 Jul 2015 10:02:01 +0200
+Message-ID: <1436342521.2928.4.camel@stressinduktion.org>
+References: <CAFnufp059tojfKYBye4eayOCvNNkAE9w_s_6E-PiG-EYp9K0Gg@mail.gmail.com>
+	 <21611.1436179798@turing-police.cc.vt.edu>
+	 <CAFnufp3xP3xjd8zy0uLKEGgbBAb0motLva=f1EbMJCfcKG=Y-w@mail.gmail.com>
+	 <1436256473.3809610.317083993.4E2A41A3@webmail.messagingengine.com>
+	 <CAFnufp14J0jmXRy+AgNDyJYSC7OKup-S8ahrrZVFFXF6KDQsRg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Cc: Enrico Mioso <mrkiko.rs@gmail.com>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:34802 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964814AbbGHHyH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 03:54:07 -0400
-In-Reply-To: <1436177296.8225.25.camel@suse.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Matteo Croce <matteo@openwrt.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFnufp14J0jmXRy+AgNDyJYSC7OKup-S8ahrrZVFFXF6KDQsRg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-So, here is what I tried so far:
-1 - Check if the pointer gets corrupted somehow (address change): it seems this 
-doesn't happen at all.
-2 - Size problems: I tried setting higher values of the size just in case, with 
-absolutely no changei n behaviour.
+On Tue, 2015-07-07 at 17:27 +0200, Matteo Croce wrote:
+> 2015-07-07 10:07 GMT+02:00 Hannes Frederic Sowa <
+> hannes@stressinduktion.org>:
+> > 
+> > 
+> > On Mon, Jul 6, 2015, at 21:44, Matteo Croce wrote:
+> > > 2015-07-06 12:49 GMT+02:00  <Valdis.Kletnieks@vt.edu>:
+> > > > On Thu, 02 Jul 2015 10:56:01 +0200, Matteo Croce said:
+> > > > > Add option to disable any reply not related to a listening 
+> > > > > socket,
+> > > > > like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
+> > > > > Also disables ICMP replies to echo request and timestamp.
+> > > > > The stealth mode can be enabled selectively for a single 
+> > > > > interface.
+> > > > 
+> > > > A few notes.....
+> > > > 
+> > > > 1) Do you have an actual use case where an iptables '-j DROP' 
+> > > > isn't usable?
+> > > 
+> > > If you mean using a default DROP policy and allowing only the 
+> > > traffic
+> > > do you want,
+> > > then the use case is where the port can change at runtime and you 
+> > > may not
+> > > want
+> > > to update the firewall every time
+> > 
+> > Can't you use socket match in netfilter to accomplish exactly that?
+> 
+> You mean the owner --uid match?
+> Yes  sort of, but my was a different goal, I want just to disable any
+> kind of reply from a specific interface (usually WAN) unless there is
+> a listening socket, to mitigate port scanning and flood attacks
+> without having a firewall.
 
-The code that assigns the pointer the address returned by kzalloc is after all 
-the other function invocations in _bind(), so I don't know where to look 
-exactly.
+I was more thinking about the xt_socket match:
+
+-m socket in the INPUT chain.
+
+> Obviously you can do it with a firewall,
+> but why do we have /proc/sys/net/ipv4/icmp_echo_ignore_all when we can
+> drop ICMP echoes?
+
+Same arguments apply to that knob, but it is already imported and cannot
+be changed anymore. Nowadays we try to avoid adding new sysctls.
+
+Bye,
+Hannes
