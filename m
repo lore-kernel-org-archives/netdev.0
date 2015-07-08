@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: graceful exit from netif_alloc_netdev_queues()
-Date: Wed, 08 Jul 2015 15:50:41 -0700 (PDT)
-Message-ID: <20150708.155041.406258593466011752.davem@davemloft.net>
-References: <1436195606.4571.3.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net] Revert "dev: set iflink to 0 for virtual
+ interfaces"
+Date: Wed, 08 Jul 2015 15:52:59 -0700 (PDT)
+Message-ID: <20150708.155259.2222933180114223309.davem@davemloft.net>
+References: <5589959A.8060600@hartkopp.net>
+	<1436196310-4090-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: socketcan@hartkopp.net, ulrich.gemkow@ikr.uni-stuttgart.de,
+	netdev@vger.kernel.org, shemminger@vyatta.com
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38098 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38108 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750915AbbGHWuo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 18:50:44 -0400
-In-Reply-To: <1436195606.4571.3.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1751041AbbGHWxB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 18:53:01 -0400
+In-Reply-To: <1436196310-4090-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 06 Jul 2015 17:13:26 +0200
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Mon,  6 Jul 2015 17:25:10 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> This reverts commit e1622baf54df8cc958bf29d71de5ad545ea7d93c.
 > 
-> User space can crash kernel with
+> The side effect of this commit is to add a '@NONE' after each virtual
+> interface name with a 'ip link'. It may break existing scripts.
 > 
-> ip link add ifb10 numtxqueues 100000 type ifb
-> 
-> We must replace a BUG_ON() by proper test and return -EINVAL for
-> crazy values.
-> 
-> Fixes: 60877a32bce00 ("net: allow large number of tx queues")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Olivier Hartkopp <socketcan@hartkopp.net>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
 Applied and queued up for -stable, thanks.
