@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/mlx4_core: Add extra check for total vfs
- for SRIOV
-Date: Wed, 08 Jul 2015 15:20:06 -0700 (PDT)
-Message-ID: <20150708.152006.2183671569620167581.davem@davemloft.net>
-References: <1436192419-25303-1-git-send-email-clsoto@linux.vnet.ibm.com>
+Subject: Re: [PATCH net] net: graceful exit from netif_alloc_netdev_queues()
+Date: Wed, 08 Jul 2015 15:50:41 -0700 (PDT)
+Message-ID: <20150708.155041.406258593466011752.davem@davemloft.net>
+References: <1436195606.4571.3.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	brking@linux.vnet.ibm.com, jackm@mellanox.com
-To: clsoto@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37917 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38098 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751082AbbGHWUH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 18:20:07 -0400
-In-Reply-To: <1436192419-25303-1-git-send-email-clsoto@linux.vnet.ibm.com>
+	with ESMTP id S1750915AbbGHWuo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 18:50:44 -0400
+In-Reply-To: <1436195606.4571.3.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: clsoto@linux.vnet.ibm.com
-Date: Mon,  6 Jul 2015 09:20:19 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 06 Jul 2015 17:13:26 +0200
 
-> From: Carol Soto <clsoto@linux.vnet.ibm.com>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Add extra check for total vfs for SRIOV to check if that value is 
-> bigger than total vfs in pci SRIOV capabalities. Fix a check and 
-> print of the number of maximum vfs that hw can handle. Fix a check 
-> and print of the number of maximum vfs per port that driver can handle. 
+> User space can crash kernel with
 > 
-> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
+> ip link add ifb10 numtxqueues 100000 type ifb
+> 
+> We must replace a BUG_ON() by proper test and return -EINVAL for
+> crazy values.
+> 
+> Fixes: 60877a32bce00 ("net: allow large number of tx queues")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
