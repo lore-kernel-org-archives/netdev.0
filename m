@@ -1,48 +1,47 @@
-From: Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
-Subject: [PATCH v2] brcmsmac: Use kstrdup to simplify code
-Date: Wed,  8 Jul 2015 22:22:46 +0200
-Message-ID: <1436386966-16148-1-git-send-email-christophe.jaillet@wanadoo.fr>
-References: <1436383927-14010-1-git-send-email-christophe.jaillet@wanadoo.fr>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1436383927-14010-1-git-send-email-christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH v1 01/12] IB/core: pass client data to remove() callbacks
+Date: Wed, 8 Jul 2015 14:29:10 -0600
+Message-ID: <20150708202910.GA16812@obsidianresearch.com>
+References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
+ <1434976961-27424-2-git-send-email-haggaie@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, Liran Liss <liranl@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Yotam Kenneth <yotamke@mellanox.com>
+To: Haggai Eran <haggaie@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:58081 "EHLO quartz.orcorp.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758382AbbGHU3O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jul 2015 16:29:14 -0400
+Content-Disposition: inline
+In-Reply-To: <1434976961-27424-2-git-send-email-haggaie@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Replace a kmalloc+strcpy by an equivalent kstrdup in order to improve
-readability.
+On Mon, Jun 22, 2015 at 03:42:30PM +0300, Haggai Eran wrote:
+> An ib_client callback that is called with the lists_rwsem locked only for
+> read is protected from changes to the IB client lists, but not from
+> ib_unregister_device() freeing its client data. This is because
+> ib_unregister_device() will remove the device from the device list with
+> lists_rwsem locked for write, but perform the rest of the cleanup,
+> including the call to remove() without that lock.
 
-Signed-off-by: Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
----
-v2: fix the subject
+I was going to look at this, but, uh.. it seems mangled, doesn't
+apply, doesn't seem fixable from here.
 
- drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+It isn't on top of any of Doug's trees that I can find and it has
+this:
 
-diff --git a/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c b/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
-index 4813506..8a6c077 100644
---- a/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
-+++ b/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
-@@ -1476,9 +1476,7 @@ struct brcms_timer *brcms_init_timer(struct brcms_info *wl,
- 	wl->timers = t;
- 
- #ifdef DEBUG
--	t->name = kmalloc(strlen(name) + 1, GFP_ATOMIC);
--	if (t->name)
--		strcpy(t->name, name);
-+	t->name = kstrdup(name, GFP_ATOMIC);
- #endif
- 
- 	return t;
--- 
-2.1.4
+> @@ -348,21 +348,22 @@ void ib_unregister_device(struct ib_device *device)
+>  
+>  	down_write(&lists_rwsem);
+>  	list_del(&device->core_list);
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+..  lists_rwsem is what this patch is supposed to be adding, so I
+don't know what went wrong here....
+
+Jason
