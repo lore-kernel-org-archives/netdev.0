@@ -1,30 +1,51 @@
-From: Alex Gartrell <alexgartrell@gmail.com>
-Subject: Re: [PATCH,v2 net-next] ipvs: skb_orphan in case of forwarding
-Date: Wed, 8 Jul 2015 13:56:39 -0700
-Message-ID: <CALCkm3f0NTwUugb=sWVWQ2bJdecmZR_LFHocznuVR8fKRtRLkQ@mail.gmail.com>
-References: <1436131706-1559824-1-git-send-email-agartrell@fb.com>
- <alpine.LFD.2.11.1507060105470.12815@ja.home.ssi.bg> <CALCkm3eyEbHpzfF1zk0OUnGaSf51=r9DmZs_2Xq4fTtOed3nNQ@mail.gmail.com>
- <20150706035019.GA9155@verge.net.au> <CALCkm3d4Xqq+eWryejKhi84rM_fS4QRyu8Fn_Z7RHZv+zbv3_Q@mail.gmail.com>
- <20150708013355.GE28100@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net_sched: gen_estimator: extend pps limit
+Date: Wed, 08 Jul 2015 13:59:56 -0700 (PDT)
+Message-ID: <20150708.135956.157230596810615593.davem@davemloft.net>
+References: <1435845439.11970.25.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Julian Anastasov <ja@ssi.bg>, Alex Gartrell <agartrell@fb.com>,
-	lvs-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	kernel-team <kernel-team@fb.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20150708013355.GE28100@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ast@plumgrid.com, jhs@mojatatu.com,
+	john.fastabend@gmail.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37400 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754851AbbGHU75 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 16:59:57 -0400
+In-Reply-To: <1435845439.11970.25.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 7, 2015 at 6:33 PM, Simon Horman <horms@verge.net.au> wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 02 Jul 2015 15:57:19 +0200
 
-> Is there any possibility you could investigate which stable trees are
-> effected by this bug?
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> rate estimators are limited to 4 Mpps, which was fine years ago, but
+> too small with current hardware generation.
+> 
+> Lets use 2^5 scaling instead of 2^10 to get 128 Mpps new limit.
+> 
+> On 64bit arch, use an "unsigned long" for temp storage and remove limit.
+> (We do not expect 32bit arches to be able to reach this point)
+> 
+> Tested:
+> 
+> tc -s -d filter sh dev eth0 parent ffff:
+> 
+> filter protocol ip pref 1 u32 
+> filter protocol ip pref 1 u32 fh 800: ht divisor 1 
+> filter protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:15 
+>   match 07000000/ff000000 at 12
+> 	action order 1: gact action drop
+> 	 random type none pass val 0
+> 	 index 1 ref 1 bind 1 installed 166 sec
+>  	Action statistics:
+> 	Sent 39734251496 bytes 863788076 pkt (dropped 863788117, overlimits 0 requeues 0) 
+> 	rate 4067Mbit 11053596pps backlog 0b 0p requeues 0 
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Well this was certainly a problem in 3.10 (we had our own hacky
-solution at the time) and every kernel since then would have also had
-this problem.  I'm pretty sure this isn't a problem in 3.4 or before.
-
--- 
-Alex Gartrell <agartrell@fb.com>
+Applied, thanks.
