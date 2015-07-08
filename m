@@ -1,106 +1,76 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [PATCH 4.1 11/56] mvneta: add forgotten initialization of
- autonegotiation bits
-Date: Wed, 8 Jul 2015 21:36:46 +0300
-Message-ID: <559D6DBE.4040900@list.ru>
-References: <20150708073237.780280770@linuxfoundation.org>
- <20150708073238.389781888@linuxfoundation.org> <559D5996.5080506@list.ru>
- <20150708173655.GA16101@kroah.com>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: ip_forward_use_pmtu and forwarding to xfrm'ed gre
+Date: Wed, 8 Jul 2015 21:51:56 +0300
+Message-ID: <20150708215156.7007eb09@vostro>
+References: <20150708163032.5b5df2ec@vostro>
+	<1436370752.3846.36.camel@stressinduktion.org>
+	<20150708191751.3fc42725@vostro>
+	<1436377198.3846.46.camel@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev@vger.kernel.org, Stas Sergeev <stsp@users.sourceforge.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Sebastien Rannou <mxs@sbrk.org>
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150708173655.GA16101@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:33986 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751757AbbGHSwA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 14:52:00 -0400
+Received: by lbnk3 with SMTP id k3so61827490lbn.1
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 11:51:59 -0700 (PDT)
+In-Reply-To: <1436377198.3846.46.camel@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-08.07.2015 20:36, Greg Kroah-Hartman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Wed, Jul 08, 2015 at 08:10:46PM +0300, Stas Sergeev wrote:
->> 08.07.2015 10:35, Greg Kroah-Hartman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>> 4.1-stable review patch.  If anyone has any objections, please let =
-me know.
->>>
->>> ------------------
->>>
->>> From: Stas Sergeev <stsp@list.ru>
->>>
->>> [ Upstream commit 538761b794c1542f1c6e31eadd9d7aae118889f7 ]
->>>
->>> The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band lin=
-k state
->>> signaling")
->>> changed mvneta_adjust_link() so that it does not clear the auto-neg=
-otiation
->>> bits in MVNETA_GMAC_AUTONEG_CONFIG register. This was necessary for
->>> auto-negotiation mode to work.
->>> Unfortunately I haven't checked if these bits are ever initialized.
->>> It appears they are not.
->>> This patch adds the missing initialization of the auto-negotiation =
-bits
->>> in the MVNETA_GMAC_AUTONEG_CONFIG register.
->>> It fixes the following regression:
->>> https://www.mail-archive.com/netdev@vger.kernel.org/msg67928.html
->>>
->>> Since the patch was tested to fix a regression, it should be applie=
-d to
->>> stable tree.
->>>
->>> Tested-by: Arnaud Ebalard <arno@natisbad.org>
->>>
->>> CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
->>> CC: Florian Fainelli <f.fainelli@gmail.com>
->>> CC: netdev@vger.kernel.org
->>> CC: linux-kernel@vger.kernel.org
->>> CC: stable@vger.kernel.org
->>>
->>> Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
->>> Signed-off-by: David S. Miller <davem@davemloft.net>
->>> Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
->>> ---
->>>   drivers/net/ethernet/marvell/mvneta.c |    6 ++++++
->>>   1 file changed, 6 insertions(+)
->>>
->>> --- a/drivers/net/ethernet/marvell/mvneta.c
->>> +++ b/drivers/net/ethernet/marvell/mvneta.c
->>> @@ -1013,6 +1013,12 @@ static void mvneta_defaults_set(struct m
->>>   		val =3D mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
->>>   		val |=3D MVNETA_GMAC_1MS_CLOCK_ENABLE;
->>>   		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
->>> +	} else {
->>> +		val =3D mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
->>> +		val &=3D ~(MVNETA_GMAC_INBAND_AN_ENABLE |
->>> +		       MVNETA_GMAC_AN_SPEED_EN |
->>> +		       MVNETA_GMAC_AN_DUPLEX_EN);
->>> +		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
->>>   	}
->>>   	mvneta_set_ucast_table(pp, -1);
->> Hi Greg.
->>
->> Another problem was reported:
->> https://lkml.org/lkml/2015/7/8/865
->>
->> So, while the above patch is correct and fixes what
->> it should, the original patch has more problems to deal
->> with. Maybe for stable it would be better to just revert
->> the whole thing?
-> No, you will have to fix this in Linus's tree, right?  So I'll take t=
-he
-> patch that you get into there when that happens, I don't want to dive=
-rge
-> from what is in that tree.
-=46or Linus tree I am planning a new DT property to explicitly
-enable the inband status. I don't see any quick fix suitable for
--stable, and new DT property will likely not be quickly accepted.
-If you don't want a revert, then the stable will likely have that
-regression for quite long, that's the warning.
-OTOH, the revert will remove the support for my board, so I
-won't be able to even test it, which is also not perfect.
+Hi,
+
+On Wed, 08 Jul 2015 19:39:58 +0200
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+
+> On Wed, 2015-07-08 at 19:17 +0300, Timo Teras wrote:
+> > On Wed, 08 Jul 2015 17:52:32 +0200
+> > Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> > 
+> > > On Wed, 2015-07-08 at 16:30 +0300, Timo Teras wrote:
+> > > If above idea does not work, we could simply add an option to gre
+> > > driver to set skb->ignore_df, but I don't like that much.
+> > 
+> > This is not acceptable. The gre driver has two operating modes: DF
+> > and non-DF mode (which is triggered by 'ttl inherit' or 'ttl
+> > <number>' option on tunnel creation). The DF mode intentionally
+> > sets DF on all tunnel packets so the pmtu is learned and relayed up
+> > the stack. In non-DF mode the tunnel packets DF is derived from
+> > encapsulated packet.
+> > 
+> > Basically this info could be used. If the target is gre1 in DF
+> > mode, we
+> > should be trusting the pmtu. Otherwise the existing internal
+> > mechanism breaks.
+> > 
+> > Thoughts?
+> 
+> At least we know which interface the packet would leave. Should we
+> override this behavior on a per-interface basis?
+
+That would be one option. We could also make the exception just for GRE
+interface in the DF mode. Or some sort of per-interface flag that is
+set internally by the driver.
+
+> (Although I am in favor of admins just correcting the mtu by hand and
+> documenting this as you proposed earlier. I really don't know if it is
+> worth the effort to propagate those information.).
+
+The problem with GRE + DF is that the internal packet is no-DF and
+potentially fragmented, but the tunneled packets (fragments) do have DF
+set. So no interim router can defrag+frag if needed. This means pmtu
+must be honored. And on nbma gre tunnels (target tunnel address depends
+on encapsulated packet's address) the path mtu needs to be propagated
+back to the sender.
+
+In this configuration ip_forward_use_pmtu needs to be enabled (system
+wide, per-interface config, or implicitly by interface flags). Or
+alternatively the trusted pmtu needs to be propagated via alternate
+mechanism. But that might be quite tricky to implement.
+
+I believe other tunnels have similar mechanism. E.g. ipip tunnels seems
+to share same DF vs. non-DF mode based on 'ttl' setting.
