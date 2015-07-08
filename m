@@ -1,49 +1,72 @@
-From: Duan Andy <fugang.duan@freescale.com>
-Subject: RE: [PATCH v5] net: fec: Ensure clocks are enabled while using mdio
- bus
-Date: Wed, 8 Jul 2015 07:52:49 +0000
-Message-ID: <BLUPR03MB373367558B55CA2778FB772F5910@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <1436207695-652-1-git-send-email-andrew@lunn.ch>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [PATCH 4.1 11/56] mvneta: add forgotten initialization of autonegotiation bits
+Date: Wed,  8 Jul 2015 00:35:00 -0700
+Message-ID: <20150708073238.389781888@linuxfoundation.org>
+References: <20150708073237.780280770@linuxfoundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Cory Tusar <cory.tusar@pid1solutions.com>,
-	netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0138.outbound.protection.outlook.com ([157.56.110.138]:53347
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933648AbbGHHww convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 03:52:52 -0400
-In-Reply-To: <1436207695-652-1-git-send-email-andrew@lunn.ch>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	stable@vger.kernel.org, Arnaud Ebalard <arno@natisbad.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, Stas Sergeev <stsp@users.sourceforge.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20150708073237.780280770@linuxfoundation.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew@lunn.ch> Sent: Tuesday, July 07, 2015 2:35 AM
-> To: David Miller
-> Cc: Duan Fugang-B38611; Cory Tusar; netdev; Andrew Lunn
-> Subject: [PATCH v5] net: fec: Ensure clocks are enabled while using mdio
-> bus
-> 
-> When a switch is attached to the mdio bus, the mdio bus can be used while
-> the interface is not open. If the IPG clock is not enabled, MDIO
-> reads/writes will simply time out.
-> 
-> Add support for runtime PM to control this clock. Enable/disable this
-> clock using runtime PM, with open()/close() and mdio read()/write()
-> function triggering runtime PM operations. Since PM is optional, the IPG
-> clock is enabled at probe and is no longer modified by
-> fec_enet_clk_enable(), thus if PM is not enabled in the kernel, it is
-> guaranteed the clock is running when MDIO operations are performed.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> ---
-> v5:
-> Rewrite to use runtime PM with fec_runtime_suspend and fec_runtime_resume
-> 
+4.1-stable review patch.  If anyone has any objections, please let me know.
 
-The version is fine for me.
+------------------
 
-Acked-by: Fugang Duan <B38611@freescale.com>
+From: Stas Sergeev <stsp@list.ru>
+
+[ Upstream commit 538761b794c1542f1c6e31eadd9d7aae118889f7 ]
+
+The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band link state
+signaling")
+changed mvneta_adjust_link() so that it does not clear the auto-negotiation
+bits in MVNETA_GMAC_AUTONEG_CONFIG register. This was necessary for
+auto-negotiation mode to work.
+Unfortunately I haven't checked if these bits are ever initialized.
+It appears they are not.
+This patch adds the missing initialization of the auto-negotiation bits
+in the MVNETA_GMAC_AUTONEG_CONFIG register.
+It fixes the following regression:
+https://www.mail-archive.com/netdev@vger.kernel.org/msg67928.html
+
+Since the patch was tested to fix a regression, it should be applied to
+stable tree.
+
+Tested-by: Arnaud Ebalard <arno@natisbad.org>
+
+CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+CC: Florian Fainelli <f.fainelli@gmail.com>
+CC: netdev@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+CC: stable@vger.kernel.org
+
+Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ drivers/net/ethernet/marvell/mvneta.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
+
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -1013,6 +1013,12 @@ static void mvneta_defaults_set(struct m
+ 		val = mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
+ 		val |= MVNETA_GMAC_1MS_CLOCK_ENABLE;
+ 		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
++	} else {
++		val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
++		val &= ~(MVNETA_GMAC_INBAND_AN_ENABLE |
++		       MVNETA_GMAC_AN_SPEED_EN |
++		       MVNETA_GMAC_AN_DUPLEX_EN);
++		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
+ 	}
+ 
+ 	mvneta_set_ucast_table(pp, -1);
