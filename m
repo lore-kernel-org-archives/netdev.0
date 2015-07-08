@@ -1,35 +1,37 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [linuxwifi] [PATCH] iwlwifi:Make various functions void in the
- file rs.c
-Date: Wed, 8 Jul 2015 16:41:58 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32E7A24CF@hasmsx107.ger.corp.intel.com>
-References: <1436367735-27148-1-git-send-email-xerofoify@gmail.com>
+From: Chris Metcalf <cmetcalf@ezchip.com>
+Subject: Re: [PATCH] tile:Remove unused marcos from the file tilepro.c
+Date: Wed, 8 Jul 2015 12:47:22 -0400
+Message-ID: <559D541A.5050504@ezchip.com>
+References: <1436232151-24185-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Berg, Johannes" <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Nicholas Krause <xerofoify@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1436232151-24185-1-git-send-email-xerofoify@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On 07/06/2015 09:22 PM, Nicholas Krause wrote:
+> This removes no longer used marcos at the top of the driver
+> due tilepro.c due to having no proper values nor never being
+> used by this driver code.
+>
+> Signed-off-by: Nicholas Krause<xerofoify@gmail.com>
+> ---
+>   drivers/net/ethernet/tile/tilepro.c | 13 -------------
+>   1 file changed, 13 deletions(-)
 
-On 07/08/2015 06:03 PM, Nicholas Krause wrote:
-> This makes various functions in the file rs.c void due to these
-> functions never returning a error code to signal to their callers
-> if and how they have failed to complete their intended work.
-> 
-> Signed-off-by: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+I'm not sure what you mean by "no longer used".  They are all
+potentially usable to enable chunks of code lower down in
+the driver, they're just not enabled by default.  So, nack.
 
-I picked it up in our internal repository.
-Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Also, "no proper values" doesn't make a lot of sense; if you
+specify "#define FOO" it implicitly defines it to the empty
+string.  Regardless, it doesn't matter what value it is
+defined to if the only uses are "#ifdef", as is true here.
+
+-- 
+Chris Metcalf, EZChip Semiconductor
+http://www.ezchip.com
