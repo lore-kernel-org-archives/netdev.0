@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] sfc: Ensure down_write(&filter_sem) and
- up_write() are matched before calling efx_net_open()
-Date: Wed, 08 Jul 2015 16:19:17 -0700 (PDT)
-Message-ID: <20150708.161917.1393136055881992750.davem@davemloft.net>
-References: <559CE98D.1070703@solarflare.com>
+Subject: Re: [PATCH net-next RESEND] test_bpf: extend tests for 32-bit
+ endianness conversion
+Date: Wed, 08 Jul 2015 16:20:15 -0700 (PDT)
+Message-ID: <20150708.162015.1661691563042525402.davem@davemloft.net>
+References: <1436389256-28483-1-git-send-email-xi.wang@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: sshah@solarflare.com
+Cc: netdev@vger.kernel.org
+To: xi.wang@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38383 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38388 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751279AbbGHXTS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 19:19:18 -0400
-In-Reply-To: <559CE98D.1070703@solarflare.com>
+	with ESMTP id S1751082AbbGHXUQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 19:20:16 -0400
+In-Reply-To: <1436389256-28483-1-git-send-email-xi.wang@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shradha Shah <sshah@solarflare.com>
-Date: Wed, 8 Jul 2015 10:12:45 +0100
+From: Xi Wang <xi.wang@gmail.com>
+Date: Wed,  8 Jul 2015 14:00:56 -0700
 
-> This patch avoids the double up_write to filter_sem if
-> efx_net_open() fails.
+> Currently "ALU_END_FROM_BE 32" and "ALU_END_FROM_LE 32" do not test if
+> the upper bits of the result are zeros (the arm64 JIT had such bugs).
+> Extend the two tests to catch this.
 > 
-> Resolves: 2d432f20d27c1813a2746008e16dd6ce12a14dc1
-> 
-> Signed-off-by: Shradha Shah <sshah@solarflare.com>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+> Signed-off-by: Xi Wang <xi.wang@gmail.com>
 
 Applied, thanks.
