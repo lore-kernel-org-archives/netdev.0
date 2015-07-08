@@ -1,76 +1,40 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: ip_forward_use_pmtu and forwarding to xfrm'ed gre
-Date: Wed, 8 Jul 2015 21:51:56 +0300
-Message-ID: <20150708215156.7007eb09@vostro>
-References: <20150708163032.5b5df2ec@vostro>
-	<1436370752.3846.36.camel@stressinduktion.org>
-	<20150708191751.3fc42725@vostro>
-	<1436377198.3846.46.camel@stressinduktion.org>
+From: Marian Corcodel <corcodel.marian@gmail.com>
+Subject: [net-next]Disable writting on reg config1 value is read-only
+Date: Wed, 8 Jul 2015 21:55:49 +0300
+Message-ID: <CAGg4U=GvLSYKU8nrNq9VmEyS1jZ9ZUtrVo-KMzR1Nd-ULVKMvw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: multipart/mixed; boundary=089e011609fceed3a9051a61afba
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:33986 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751757AbbGHSwA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 14:52:00 -0400
-Received: by lbnk3 with SMTP id k3so61827490lbn.1
-        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 11:51:59 -0700 (PDT)
-In-Reply-To: <1436377198.3846.46.camel@stressinduktion.org>
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:35151 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753749AbbGHSzt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 14:55:49 -0400
+Received: by iecuq6 with SMTP id uq6so161961497iec.2
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 11:55:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+--089e011609fceed3a9051a61afba
+Content-Type: text/plain; charset=UTF-8
 
-On Wed, 08 Jul 2015 19:39:58 +0200
-Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+On rtl8101/8102 MEMMAP | IOMAP | VPD | PMEnable is enabled on default
+and is read-only  and is not need to write on these.
 
-> On Wed, 2015-07-08 at 19:17 +0300, Timo Teras wrote:
-> > On Wed, 08 Jul 2015 17:52:32 +0200
-> > Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> > 
-> > > On Wed, 2015-07-08 at 16:30 +0300, Timo Teras wrote:
-> > > If above idea does not work, we could simply add an option to gre
-> > > driver to set skb->ignore_df, but I don't like that much.
-> > 
-> > This is not acceptable. The gre driver has two operating modes: DF
-> > and non-DF mode (which is triggered by 'ttl inherit' or 'ttl
-> > <number>' option on tunnel creation). The DF mode intentionally
-> > sets DF on all tunnel packets so the pmtu is learned and relayed up
-> > the stack. In non-DF mode the tunnel packets DF is derived from
-> > encapsulated packet.
-> > 
-> > Basically this info could be used. If the target is gre1 in DF
-> > mode, we
-> > should be trusting the pmtu. Otherwise the existing internal
-> > mechanism breaks.
-> > 
-> > Thoughts?
-> 
-> At least we know which interface the packet would leave. Should we
-> override this behavior on a per-interface basis?
+--089e011609fceed3a9051a61afba
+Content-Type: text/x-patch; charset=US-ASCII; name="disable_writing_ro_reg.patch"
+Content-Disposition: attachment; filename="disable_writing_ro_reg.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ibv4lh1l0
 
-That would be one option. We could also make the exception just for GRE
-interface in the DF mode. Or some sort of per-interface flag that is
-set internally by the driver.
-
-> (Although I am in favor of admins just correcting the mtu by hand and
-> documenting this as you proposed earlier. I really don't know if it is
-> worth the effort to propagate those information.).
-
-The problem with GRE + DF is that the internal packet is no-DF and
-potentially fragmented, but the tunneled packets (fragments) do have DF
-set. So no interim router can defrag+frag if needed. This means pmtu
-must be honored. And on nbma gre tunnels (target tunnel address depends
-on encapsulated packet's address) the path mtu needs to be propagated
-back to the sender.
-
-In this configuration ip_forward_use_pmtu needs to be enabled (system
-wide, per-interface config, or implicitly by interface flags). Or
-alternatively the trusted pmtu needs to be propagated via alternate
-mechanism. But that might be quite tricky to implement.
-
-I believe other tunnels have similar mechanism. E.g. ipip tunnels seems
-to share same DF vs. non-DF mode based on 'ttl' setting.
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYyBiL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYwppbmRleCAxYTU1MDU3Li5jMjg1MDI4IDEw
+MDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4MTY5LmMKKysrIGIvZHJp
+dmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jCkBAIC02NDE3LDcgKzY0MTcsNyBAQCBz
+dGF0aWMgdm9pZCBydGxfaHdfc3RhcnRfODEwMmVfMihzdHJ1Y3QgcnRsODE2OV9wcml2YXRlICp0
+cCkKIAogCXJ0bF90eF9wZXJmb3JtYW5jZV90d2VhayhwZGV2LCAweDUgPDwgTUFYX1JFQURfUkVR
+VUVTVF9TSElGVCk7CiAKLQlSVExfVzgoQ29uZmlnMSwgTUVNTUFQIHwgSU9NQVAgfCBWUEQgfCBQ
+TUVuYWJsZSk7CisJLy9SVExfVzgoQ29uZmlnMSwgTUVNTUFQIHwgSU9NQVAgfCBWUEQgfCBQTUVu
+YWJsZSk7CiAJUlRMX1c4KENvbmZpZzMsIFJUTF9SOChDb25maWczKSAmIH5CZWFjb25fZW4pOwog
+fQogCg==
+--089e011609fceed3a9051a61afba--
