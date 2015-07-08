@@ -1,159 +1,100 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH v4 0/3] net: dsa: mv88e6xxx: add support for VLAN Table
- Unit
-Date: Wed, 8 Jul 2015 14:11:39 -0400 (EDT)
-Message-ID: <1831874541.91682.1436379099609.JavaMail.zimbra@savoirfairelinux.com>
-References: <1436303900-24259-1-git-send-email-vivien.didelot@savoirfairelinux.com> <20150708143805.GA32208@lunn.ch> <894793886.88178.1436375596747.JavaMail.zimbra@savoirfairelinux.com> <20150708173216.GB1357@lunn.ch>
+From: Marian Corcodel <corcodel.marian@gmail.com>
+Subject: [net-next]Add Maximum Rx packet size supported(rx_buf_sz) variable on
+ main structure
+Date: Wed, 8 Jul 2015 21:25:57 +0300
+Message-ID: <CAGg4U=HsHML2CKm0fgGoi=AZwXDeZpiGJigodAHJP-ehP58pHw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: multipart/mixed; boundary=001a113fd378221938051a61453c
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:50792 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932998AbbGHSLo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 14:11:44 -0400
-In-Reply-To: <20150708173216.GB1357@lunn.ch>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:35505 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758207AbbGHSZ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 14:25:58 -0400
+Received: by iecuq6 with SMTP id uq6so161414492iec.2
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 11:25:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+--001a113fd378221938051a61453c
+Content-Type: text/plain; charset=UTF-8
 
-On Jul 8, 2015, at 1:32 PM, Andrew Lunn andrew@lunn.ch wrote:
+Variable  rx_buf_sz have different values on rt8101/8102 is 16000
+bytes instead of 16383 and now is ready do set these.
 
-> Vivien Didelot wrote:
->> Hi Andrew,
->> 
->> On Jul 8, 2015, at 10:38 AM, Andrew Lunn andrew@lunn.ch wrote:
->> 
->> > On Tue, Jul 07, 2015 at 05:18:17PM -0400, Vivien Didelot wrote:
->> >> Hi all,
->> >> 
->> >> This patchset brings full support for hardware VLANs in DSA, and the Marvell
->> >> 88E6xxx compatible switch chips.
->> > 
->> > Hi Vivien
->> > 
->> > I would like to do a proper review and testing of these patchset, but
->> > i go on vacation this afternoon. So it will be in about 2 weeks time.
->> > 
->> > I spent 15 minutes tests just now. I spotted two things:
->> > 
->> > 1) I played with a configuration, and then rebooted the machine. After
->> > login i see:
->> > 
->> > Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
->> > permitted by applicable law.
->> > # cat /sys/kernel/debug/dsa0/vtu
->> > VID  FID  SID  0  1  2  3  4  5  6
->> >   1    1    0  u  u  u  u  x  x  t
->> > 500  500    0  t  t  t  t  x  x  t
->> > 550  550    0  t  x  x  x  x  x  t
->> > # bridge vlan show
->> > port    vlan ids
->> > lan0     1 PVID Egress Untagged
->> > 
->> > lan0     1 PVID Egress Untagged
->> > 
->> > lan1
->> > lan2
->> > lan3
->> > lan4
->> > lan5
->> > lan6
->> > lan7
->> > lan8     1 PVID Egress Untagged
->> > 
->> > lan8     1 PVID Egress Untagged
->> > 
->> > optical3
->> > optical4
->> > br0      1 PVID Egress Untagged
->> > 
->> > 
->> > So the switch seems to have some VTU table entries, but the bridge
->> > command does not show them. I suspect that a warm boot does not clear
->> > out the VTU entries in the switch.
->> > 
->> > Until recently we had a similar problem with the statistics
->> > counters. I wounder if we have the same problem with other tables? Do
->> > static ATU entries get removed on a reboot?
->> > 
->> 
->> You're right. There's a single operation to clear the STU and VTU. I
->> will send a follow-up patch to send this command during the switch
->> setup.
->> 
->> > 2) I cold booted the machine, to be sure to have a clean state. Then:
->> > 
->> > # cat /sys/kernel/debug/dsa0/vtu
->> > VID  FID  SID  0  1  2  3  4  5  6
->> >   1    1    0  u  x  x  x  x  x  t
->> > 
->> > So a good initial state. I then configure two bridges:
->> > 
->> > # brctl show
->> > bridge name     bridge id               STP enabled     interfaces
->> > br0             8000.92647a2160c4       yes             lan0
->> >                                                        lan1
->> > br1             8000.92647a2160c4       yes             lan2
->> >                                                        lan3
->> > 
->> > and then add vlan 500 to the four interfaces.
->> > 
->> > # bridge vlan add vid 500 dev lan0 master
->> > # bridge vlan add vid 500 dev lan1 master
->> > # bridge vlan add vid 500 dev lan2 master
->> > # bridge vlan add vid 500 dev lan3 master
->> > 
->> > # cat /sys/kernel/debug/dsa0/vtu
->> > VID  FID  SID  0  1  2  3  4  5  6
->> >   1    1    0  u  u  u  u  x  x  t
->> > 500  500    0  t  t  t  t  x  x  t
->> > 
->> > Does this mean we have one hardware bridge? All four ports can talk to
->> > each other? I've not actually sent any frames to test this, so i'm
->> > just speculating. Given that i have two software bridges, this is not
->> > what i would expect, if frames from lan0 or lan1, also went out lan2
->> > or lan3.
->> 
->> Indeed, with the "master" keyword, we ask switchdev to populate the
->> parent's (i.e. the switch chip) to create VLANs. Marvell switch such as
->> the 88E66352 can only have a single VLAN table entry for a given VID.
-> 
-> Hi Vivien
-> 
-> We are using the switch to perform hardware acceleration of things
-> that Linux does already in software. We have to keep with the
-> semantics of what is already supported in software. The patch in its
-> current state breaks the accepted behaviour.
+--001a113fd378221938051a61453c
+Content-Type: text/x-patch; charset=US-ASCII; name="add_rx_buf_sz_main_struct.patch"
+Content-Disposition: attachment; filename="add_rx_buf_sz_main_struct.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ibv3j3x80
 
-I understand. However this whole VLAN thing represents a lot of code.
-Some other work depends on portions of it. Do you think it'd be OK if I
-resend the patch 1/3 alone? Having only the VTU operations and "vtu"
-debugfs file does not break the actual behavior, and will lighten up the
-following patchsets.
-
-The patch 2/3 is ready and doesn't break anything either, but Jiri and
-David suggested to send this patch with some actual implementation. Even
-if the patch 3/3 shows that this switchdev/DSA glue is functional, I
-understand that both have to be sent together later.
-
-> This is a limitation of the switch. So the driver needs to keep track
-> of which bridge a VLAN belongs to, if it is asked to accelerate the
-> same VLAN for a different bridge, it needs to say to the kernel,
-> sorry, cannot do that, and leave the kernel to do it in software.
-
-Scott, how do you think this must be done? Returning a different error
-code when trying to add a SWITCHDEV_OBJ_PORT_VLAN object?
-Not sure how to query this fallback. Is -EOPNOTSUPP enough?
-
-Thanks,
--v
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYyBiL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYwppbmRleCA5MTg5ZGEzLi4xYTU1MDU3IDEw
+MDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4MTY5LmMKKysrIGIvZHJp
+dmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jCkBAIC0zNDQsNyArMzQ0LDcgQEAgc3Rh
+dGljIGNvbnN0IHN0cnVjdCBwY2lfZGV2aWNlX2lkIHJ0bDgxNjlfcGNpX3RibFtdID0gewogCiBN
+T0RVTEVfREVWSUNFX1RBQkxFKHBjaSwgcnRsODE2OV9wY2lfdGJsKTsKIAotc3RhdGljIGludCBy
+eF9idWZfc3ogPSAxNjM4MzsKKy8vc3RhdGljIGludCByeF9idWZfc3ogPSAxNjM4MzsKIHN0YXRp
+YyBpbnQgdXNlX2RhYzsKIHN0YXRpYyBzdHJ1Y3QgewogCXUzMiBtc2dfZW5hYmxlOwpAQCAtNzg1
+LDYgKzc4NSw4IEBAIHN0cnVjdCBydGw4MTY5X3ByaXZhdGUgewogCiAJdTE2IGV2ZW50X3Nsb3c7
+CiAKKwl1MTYgcnhfYnVmX3N6OyAvKiBNYXhpbXVtIFJ4IHBhY2tldCBzaXplIHN1cHBvcnRlZCAq
+LworCiAJc3RydWN0IG1kaW9fb3BzIHsKIAkJdm9pZCAoKndyaXRlKShzdHJ1Y3QgcnRsODE2OV9w
+cml2YXRlICosIGludCwgaW50KTsKIAkJaW50ICgqcmVhZCkoc3RydWN0IHJ0bDgxNjlfcHJpdmF0
+ZSAqLCBpbnQpOwpAQCAtNTMyMSw3ICs1MzIzLDcgQEAgc3RhdGljIHZvaWQgcnRsX2h3X3N0YXJ0
+XzgxNjkoc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIAogCVJUTF9XOChFYXJseVR4VGhyZXMsIE5v
+RWFybHlUeCk7CiAKLQlydGxfc2V0X3J4X21heF9zaXplKGlvYWRkciwgcnhfYnVmX3N6KTsKKwly
+dGxfc2V0X3J4X21heF9zaXplKGlvYWRkciwgdHAtPnJ4X2J1Zl9zeik7CiAKIAlpZiAodHAtPm1h
+Y192ZXJzaW9uID09IFJUTF9HSUdBX01BQ19WRVJfMDEgfHwKIAkgICAgdHAtPm1hY192ZXJzaW9u
+ID09IFJUTF9HSUdBX01BQ19WRVJfMDIgfHwKQEAgLTYyMjksNyArNjIzMSw3IEBAIHN0YXRpYyB2
+b2lkIHJ0bF9od19zdGFydF84MTY4KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiAKIAlSVExfVzgo
+TWF4VHhQYWNrZXRTaXplLCBUeFBhY2tldE1heCk7CiAKLQlydGxfc2V0X3J4X21heF9zaXplKGlv
+YWRkciwgcnhfYnVmX3N6KTsKKwlydGxfc2V0X3J4X21heF9zaXplKGlvYWRkciwgdHAtPnJ4X2J1
+Zl9zeik7CiAKIAl0cC0+Y3BfY21kIHw9IFJUTF9SMTYoQ1BsdXNDbWQpIHwgUGt0Q250ckRpc2Fi
+bGUgfCBJTlRUXzE7CiAKQEAgLTY1MjMsNyArNjUyNSw3IEBAIHN0YXRpYyB2b2lkIHJ0bF9od19z
+dGFydF84MTAxKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiAKIAlSVExfVzgoTWF4VHhQYWNrZXRT
+aXplLCBUeFBhY2tldE1heCk7CiAKLQlydGxfc2V0X3J4X21heF9zaXplKGlvYWRkciwgcnhfYnVm
+X3N6KTsKKwlydGxfc2V0X3J4X21heF9zaXplKGlvYWRkciwgdHAtPnJ4X2J1Zl9zeik7CiAKIAl0
+cC0+Y3BfY21kICY9IH5SODEwWF9DUENNRF9RVUlSS19NQVNLOwogCVJUTF9XMTYoQ1BsdXNDbWQs
+IHRwLT5jcF9jbWQpOwpAQCAtNjYwOSw3ICs2NjExLDcgQEAgc3RhdGljIGlubGluZSB2b2lkIHJ0
+bDgxNjlfbWFrZV91bnVzYWJsZV9ieV9hc2ljKHN0cnVjdCBSeERlc2MgKmRlc2MpCiBzdGF0aWMg
+dm9pZCBydGw4MTY5X2ZyZWVfcnhfZGF0YWJ1ZmYoc3RydWN0IHJ0bDgxNjlfcHJpdmF0ZSAqdHAs
+CiAJCQkJICAgICB2b2lkICoqZGF0YV9idWZmLCBzdHJ1Y3QgUnhEZXNjICpkZXNjKQogewotCWRt
+YV91bm1hcF9zaW5nbGUoJnRwLT5wY2lfZGV2LT5kZXYsIGxlNjRfdG9fY3B1KGRlc2MtPmFkZHIp
+LCByeF9idWZfc3osCisJZG1hX3VubWFwX3NpbmdsZSgmdHAtPnBjaV9kZXYtPmRldiwgbGU2NF90
+b19jcHUoZGVzYy0+YWRkciksIHRwLT5yeF9idWZfc3osCiAJCQkgRE1BX0ZST01fREVWSUNFKTsK
+IAogCWtmcmVlKCpkYXRhX2J1ZmYpOwpAQCAtNjY0OCwxOCArNjY1MCwxOCBAQCBzdGF0aWMgc3Ry
+dWN0IHNrX2J1ZmYgKnJ0bDgxNjlfYWxsb2NfcnhfZGF0YShzdHJ1Y3QgcnRsODE2OV9wcml2YXRl
+ICp0cCwKIAlzdHJ1Y3QgbmV0X2RldmljZSAqZGV2ID0gdHAtPmRldjsKIAlpbnQgbm9kZSA9IGRl
+di0+ZGV2LnBhcmVudCA/IGRldl90b19ub2RlKGRldi0+ZGV2LnBhcmVudCkgOiAtMTsKIAotCWRh
+dGEgPSBrbWFsbG9jX25vZGUocnhfYnVmX3N6LCBHRlBfS0VSTkVMLCBub2RlKTsKKwlkYXRhID0g
+a21hbGxvY19ub2RlKHRwLT5yeF9idWZfc3osIEdGUF9LRVJORUwsIG5vZGUpOwogCWlmICghZGF0
+YSkKIAkJcmV0dXJuIE5VTEw7CiAKIAlpZiAocnRsODE2OV9hbGlnbihkYXRhKSAhPSBkYXRhKSB7
+CiAJCWtmcmVlKGRhdGEpOwotCQlkYXRhID0ga21hbGxvY19ub2RlKHJ4X2J1Zl9zeiArIDE1LCBH
+RlBfS0VSTkVMLCBub2RlKTsKKwkJZGF0YSA9IGttYWxsb2Nfbm9kZSh0cC0+cnhfYnVmX3N6ICsg
+MTUsIEdGUF9LRVJORUwsIG5vZGUpOwogCQlpZiAoIWRhdGEpCiAJCQlyZXR1cm4gTlVMTDsKIAl9
+CiAKLQltYXBwaW5nID0gZG1hX21hcF9zaW5nbGUoZCwgcnRsODE2OV9hbGlnbihkYXRhKSwgcnhf
+YnVmX3N6LAorCW1hcHBpbmcgPSBkbWFfbWFwX3NpbmdsZShkLCBydGw4MTY5X2FsaWduKGRhdGEp
+LCB0cC0+cnhfYnVmX3N6LAogCQkJCSBETUFfRlJPTV9ERVZJQ0UpOwogCWlmICh1bmxpa2VseShk
+bWFfbWFwcGluZ19lcnJvcihkLCBtYXBwaW5nKSkpIHsKIAkJaWYgKG5ldF9yYXRlbGltaXQoKSkK
+QEAgLTY2NjcsNyArNjY2OSw3IEBAIHN0YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqcnRsODE2OV9hbGxv
+Y19yeF9kYXRhKHN0cnVjdCBydGw4MTY5X3ByaXZhdGUgKnRwLAogCQlnb3RvIGVycl9vdXQ7CiAJ
+fQogCi0JcnRsODE2OV9tYXBfdG9fYXNpYyhkZXNjLCBtYXBwaW5nLCByeF9idWZfc3opOworCXJ0
+bDgxNjlfbWFwX3RvX2FzaWMoZGVzYywgbWFwcGluZywgdHAtPnJ4X2J1Zl9zeik7CiAJcmV0dXJu
+IGRhdGE7CiAKIGVycl9vdXQ6CkBAIC02Nzg1LDcgKzY3ODcsNyBAQCBzdGF0aWMgdm9pZCBydGxf
+cmVzZXRfd29yayhzdHJ1Y3QgcnRsODE2OV9wcml2YXRlICp0cCkKIAlydGw4MTY5X2h3X3Jlc2V0
+KHRwKTsKIAogCWZvciAoaSA9IDA7IGkgPCBOVU1fUlhfREVTQzsgaSsrKQotCQlydGw4MTY5X21h
+cmtfdG9fYXNpYyh0cC0+UnhEZXNjQXJyYXkgKyBpLCByeF9idWZfc3opOworCQlydGw4MTY5X21h
+cmtfdG9fYXNpYyh0cC0+UnhEZXNjQXJyYXkgKyBpLCB0cC0+cnhfYnVmX3N6KTsKIAogCXJ0bDgx
+NjlfdHhfY2xlYXIodHApOwogCXJ0bDgxNjlfaW5pdF9yaW5nX2luZGV4ZXModHApOwpAQCAtNzM2
+OCw3ICs3MzcwLDcgQEAgcHJvY2Vzc19wa3Q6CiAJCX0KIHJlbGVhc2VfZGVzY3JpcHRvcjoKIAkJ
+ZGVzYy0+b3B0czIgPSAwOwotCQlydGw4MTY5X21hcmtfdG9fYXNpYyhkZXNjLCByeF9idWZfc3op
+OworCQlydGw4MTY5X21hcmtfdG9fYXNpYyhkZXNjLCB0cC0+cnhfYnVmX3N6KTsKIAl9CiAKIAlj
+b3VudCA9IGN1cl9yeCAtIHRwLT5jdXJfcng7CkBAIC04MTU2LDYgKzgxNTgsMTIgQEAgc3RhdGlj
+IGludCBydGxfaW5pdF9vbmUoc3RydWN0IHBjaV9kZXYgKnBkZXYsIGNvbnN0IHN0cnVjdCBwY2lf
+ZGV2aWNlX2lkICplbnQpCiAJLyogSWRlbnRpZnkgY2hpcCBhdHRhY2hlZCB0byBib2FyZCAqLwog
+CXJ0bDgxNjlfZ2V0X21hY192ZXJzaW9uKHRwLCBkZXYsIGNmZy0+ZGVmYXVsdF92ZXIpOwogCisJ
+LyogQWRkIFJlY2VpdmUgUGFja2V0IE1heGltaW0gU2l6ZSBvbiBtYWluIHN0cnVjdHVyZSAqLwor
+CWlmICh0cC0+bWFjX3ZlcnNpb24gPT0gUlRMX0dJR0FfTUFDX1ZFUl8wOSkKKwkJdHAtPnJ4X2J1
+Zl9zeiA9IDE2MDAwOworCWVsc2UKKwkJdHAtPnJ4X2J1Zl9zeiA9IDE2MzgzOworCiAJcnRsX2lu
+aXRfcnhjZmcodHApOwogCiAJcnRsX2lycV9kaXNhYmxlKHRwKTsK
+--001a113fd378221938051a61453c--
