@@ -1,63 +1,58 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/7] netfilter: bridge: fix CONFIG_NF_DEFRAG_IPV4/6 related warnings/errors
-Date: Wed,  8 Jul 2015 11:48:15 +0200
-Message-ID: <1436348900-13130-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 7/7] netfilter: bridge: Use __in6_dev_get rather than in6_dev_get in br_validate_ipv6
+Date: Wed,  8 Jul 2015 11:48:20 +0200
+Message-ID: <1436348900-13130-8-git-send-email-pablo@netfilter.org>
 References: <1436348900-13130-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:51693 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933849AbbGHJnN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jul 2015 05:43:13 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1436348900-13130-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Bernhard Thaler <bernhard.thaler@wvnet.at>
+From: Julien Grall <julien.grall@citrix.com>
 
-br_nf_ip_fragment() is not needed when neither CONFIG_NF_DEFRAG_IPV4 nor
-CONFIG_NF_DEFRAG_IPV6 is set.
+The commit efb6de9b4ba0092b2c55f6a52d16294a8a698edd "netfilter: bridge:
+forward IPv6 fragmented packets" introduced a new function
+br_validate_ipv6 which take a reference on the inet6 device. Although,
+the reference is not released at the end.
 
-struct brnf_frag_data must be available if either CONFIG_NF_DEFRAG_IPV4
-or CONFIG_NF_DEFRAG_IPV6 is set.
+This will result to the impossibility to destroy any netdevice using
+ipv6 and bridge.
 
-Fixes: efb6de9b4ba0 ("netfilter: bridge: forward IPv6 fragmented packets")
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Bernhard Thaler <bernhard.thaler@wvnet.at>
+It's possible to directly retrieve the inet6 device without taking a
+reference as all netfilter hooks are protected by rcu_read_lock via
+nf_hook_slow.
+
+Spotted while trying to destroy a Xen guest on the upstream Linux:
+"unregister_netdevice: waiting for vif1.0 to become free. Usage count = 1"
+
+Signed-off-by: Julien Grall <julien.grall@citrix.com>
+Cc: Bernhard Thaler <bernhard.thaler@wvnet.at>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: fw@strlen.de
+Cc: ian.campbell@citrix.com
+Cc: wei.liu2@citrix.com
+Cc: Bob Liu <bob.liu@oracle.com>
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/bridge/br_netfilter_hooks.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/bridge/br_netfilter_ipv6.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
-index d89f4fa..8a394bd 100644
---- a/net/bridge/br_netfilter_hooks.c
-+++ b/net/bridge/br_netfilter_hooks.c
-@@ -111,7 +111,7 @@ static inline __be16 pppoe_proto(const struct sk_buff *skb)
- /* largest possible L2 header, see br_nf_dev_queue_xmit() */
- #define NF_BRIDGE_MAX_MAC_HEADER_LENGTH (PPPOE_SES_HLEN + ETH_HLEN)
- 
--#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
-+#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4) || IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
- struct brnf_frag_data {
- 	char mac[NF_BRIDGE_MAX_MAC_HEADER_LENGTH];
- 	u8 encap_size;
-@@ -694,6 +694,7 @@ static int br_nf_push_frag_xmit(struct sock *sk, struct sk_buff *skb)
- }
- #endif
- 
-+#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
- static int br_nf_ip_fragment(struct sock *sk, struct sk_buff *skb,
- 			     int (*output)(struct sock *, struct sk_buff *))
+diff --git a/net/bridge/br_netfilter_ipv6.c b/net/bridge/br_netfilter_ipv6.c
+index 6d12d26..13b7d1e 100644
+--- a/net/bridge/br_netfilter_ipv6.c
++++ b/net/bridge/br_netfilter_ipv6.c
+@@ -104,7 +104,7 @@ int br_validate_ipv6(struct sk_buff *skb)
  {
-@@ -712,6 +713,7 @@ static int br_nf_ip_fragment(struct sock *sk, struct sk_buff *skb,
+ 	const struct ipv6hdr *hdr;
+ 	struct net_device *dev = skb->dev;
+-	struct inet6_dev *idev = in6_dev_get(skb->dev);
++	struct inet6_dev *idev = __in6_dev_get(skb->dev);
+ 	u32 pkt_len;
+ 	u8 ip6h_len = sizeof(struct ipv6hdr);
  
- 	return ip_do_fragment(sk, skb, output);
- }
-+#endif
- 
- static unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
- {
 -- 
 1.7.10.4
+
