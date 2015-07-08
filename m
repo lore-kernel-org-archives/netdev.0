@@ -1,44 +1,51 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: Stable request for gso feature flag and error handling fixes
-Date: Tue, 07 Jul 2015 22:10:53 -0700
-Message-ID: <15445.1436332253@famine>
-References: <12864.1436315930@famine> <20150707.192046.476835168911462262.davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:44353 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750828AbbGHFK5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 01:10:57 -0400
-In-reply-to: <20150707.192046.476835168911462262.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vaishali Thakkar <vthakkar1994@gmail.com>
+Subject: [PATCH] net: systemport: Use eth_hw_addr_random
+Date: Wed, 8 Jul 2015 10:49:30 +0530
+Message-ID: <20150708051930.GA13317@vaishali-Ideapad-Z570>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
+Use eth_hw_addr_random() instead of calling random_ether_addr().
+Here, this change is setting addr_assign_type to NET_ADDR_RANDOM.
 
->From: Jay Vosburgh <jay.vosburgh@canonical.com>
->Date: Tue, 07 Jul 2015 17:38:50 -0700
->
->> 	Please consider commit
->
->When you ask me to consider commits for -stable you have to tell
->me what -stable releases you want me to submit them for.
->
->Currently I am only doing -stable submissions for 4.1.x, 3.18.x
->and 3.14.x
+The Coccinelle semantic patch that performs this transformation
+is as follows:
 
-	I did say:
+@@
+identifier a,b;
+@@
 
->	for -stable kernels prior to 3.18 back to 3.10.
+-random_ether_addr(a->b);
++eth_hw_addr_random(a);
 
-	So, this would be just for 3.14.x.  My apologies if I buried
-that too far into the message.
-
-	Are the other -stable tree maintainers picking up patches after
-you've submitted to 4.1/3.18/3.14, or is it necessary to make separate
-requests?
-
-	-J
-
+Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
 ---
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+Note that this patch is compile tested only and I have used file
+drivers/net/ethernet/hisilicon/hix5hd2_gmac.c as a reference.
+Also, original call didn't make assignment to NET_ADDR_RANDOM. So,
+it would be good if someone can test this change.
+---
+ drivers/net/ethernet/broadcom/bcmsysport.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index 909ad7a..4566cdf 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -1793,7 +1793,7 @@ static int bcm_sysport_probe(struct platform_device *pdev)
+ 	macaddr = of_get_mac_address(dn);
+ 	if (!macaddr || !is_valid_ether_addr(macaddr)) {
+ 		dev_warn(&pdev->dev, "using random Ethernet MAC\n");
+-		random_ether_addr(dev->dev_addr);
++		eth_hw_addr_random(dev);
+ 	} else {
+ 		ether_addr_copy(dev->dev_addr, macaddr);
+ 	}
+-- 
+1.9.1
