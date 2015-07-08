@@ -1,55 +1,117 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [patch iproute2] iproute2: ipa: show switch id
-Date: Wed, 08 Jul 2015 15:29:42 -0600
-Message-ID: <559D9646.8090203@gmail.com>
-References: <1436368098-21358-1-git-send-email-jiri@resnulli.us>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 4.1 11/56] mvneta: add forgotten initialization of
+ autonegotiation bits
+Date: Wed, 8 Jul 2015 14:31:16 -0700
+Message-ID: <20150708213116.GA31433@kroah.com>
+References: <20150708073237.780280770@linuxfoundation.org>
+ <20150708073238.389781888@linuxfoundation.org>
+ <559D5996.5080506@list.ru>
+ <20150708173655.GA16101@kroah.com>
+ <559D6DBE.4040900@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:34988 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759025AbbGHV3o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 17:29:44 -0400
-Received: by iecuq6 with SMTP id uq6so164631620iec.2
-        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 14:29:44 -0700 (PDT)
-In-Reply-To: <1436368098-21358-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	Arnaud Ebalard <arno@natisbad.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, Stas Sergeev <stsp@users.sourceforge.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Sebastien Rannou <mxs@sbrk.org>
+To: Stas Sergeev <stsp@list.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <559D6DBE.4040900@list.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 7/8/15 9:08 AM, Jiri Pirko wrote:
-> We forgot to include this patch somehow. So do it now.
->
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->   ip/ipaddress.c | 8 ++++++++
->   1 file changed, 8 insertions(+)
->
-> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-> index 85a81ba..b7b4e3e 100644
-> --- a/ip/ipaddress.c
-> +++ b/ip/ipaddress.c
-> @@ -688,6 +688,14 @@ int print_linkinfo(const struct sockaddr_nl *who,
->   				      b1, sizeof(b1)));
->   	}
->
-> +	if (tb[IFLA_PHYS_SWITCH_ID]) {
-> +		SPRINT_BUF(b1);
-> +		fprintf(fp, "switchid %s ",
-> +			hexstring_n2a(RTA_DATA(tb[IFLA_PHYS_SWITCH_ID]),
-> +				      RTA_PAYLOAD(tb[IFLA_PHYS_SWITCH_ID]),
-> +				      b1, sizeof(b1)));
-> +	}
-> +
->   	if (tb[IFLA_OPERSTATE])
->   		print_operstate(fp, rta_getattr_u8(tb[IFLA_OPERSTATE]));
->
->
+On Wed, Jul 08, 2015 at 09:36:46PM +0300, Stas Sergeev wrote:
+> 08.07.2015 20:36, Greg Kroah-Hartman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> >On Wed, Jul 08, 2015 at 08:10:46PM +0300, Stas Sergeev wrote:
+> >>08.07.2015 10:35, Greg Kroah-Hartman =D0=BF=D0=B8=D1=88=D0=B5=D1=82=
+:
+> >>>4.1-stable review patch.  If anyone has any objections, please let=
+ me know.
+> >>>
+> >>>------------------
+> >>>
+> >>>From: Stas Sergeev <stsp@list.ru>
+> >>>
+> >>>[ Upstream commit 538761b794c1542f1c6e31eadd9d7aae118889f7 ]
+> >>>
+> >>>The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band li=
+nk state
+> >>>signaling")
+> >>>changed mvneta_adjust_link() so that it does not clear the auto-ne=
+gotiation
+> >>>bits in MVNETA_GMAC_AUTONEG_CONFIG register. This was necessary fo=
+r
+> >>>auto-negotiation mode to work.
+> >>>Unfortunately I haven't checked if these bits are ever initialized=
+=2E
+> >>>It appears they are not.
+> >>>This patch adds the missing initialization of the auto-negotiation=
+ bits
+> >>>in the MVNETA_GMAC_AUTONEG_CONFIG register.
+> >>>It fixes the following regression:
+> >>>https://www.mail-archive.com/netdev@vger.kernel.org/msg67928.html
+> >>>
+> >>>Since the patch was tested to fix a regression, it should be appli=
+ed to
+> >>>stable tree.
+> >>>
+> >>>Tested-by: Arnaud Ebalard <arno@natisbad.org>
+> >>>
+> >>>CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> >>>CC: Florian Fainelli <f.fainelli@gmail.com>
+> >>>CC: netdev@vger.kernel.org
+> >>>CC: linux-kernel@vger.kernel.org
+> >>>CC: stable@vger.kernel.org
+> >>>
+> >>>Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
+> >>>Signed-off-by: David S. Miller <davem@davemloft.net>
+> >>>Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> >>>---
+> >>>  drivers/net/ethernet/marvell/mvneta.c |    6 ++++++
+> >>>  1 file changed, 6 insertions(+)
+> >>>
+> >>>--- a/drivers/net/ethernet/marvell/mvneta.c
+> >>>+++ b/drivers/net/ethernet/marvell/mvneta.c
+> >>>@@ -1013,6 +1013,12 @@ static void mvneta_defaults_set(struct m
+> >>>  		val =3D mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
+> >>>  		val |=3D MVNETA_GMAC_1MS_CLOCK_ENABLE;
+> >>>  		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
+> >>>+	} else {
+> >>>+		val =3D mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
+> >>>+		val &=3D ~(MVNETA_GMAC_INBAND_AN_ENABLE |
+> >>>+		       MVNETA_GMAC_AN_SPEED_EN |
+> >>>+		       MVNETA_GMAC_AN_DUPLEX_EN);
+> >>>+		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
+> >>>  	}
+> >>>  	mvneta_set_ucast_table(pp, -1);
+> >>Hi Greg.
+> >>
+> >>Another problem was reported:
+> >>https://lkml.org/lkml/2015/7/8/865
+> >>
+> >>So, while the above patch is correct and fixes what
+> >>it should, the original patch has more problems to deal
+> >>with. Maybe for stable it would be better to just revert
+> >>the whole thing?
+> >No, you will have to fix this in Linus's tree, right?  So I'll take =
+the
+> >patch that you get into there when that happens, I don't want to div=
+erge
+> >from what is in that tree.
+> For Linus tree I am planning a new DT property to explicitly
+> enable the inband status. I don't see any quick fix suitable for
+> -stable, and new DT property will likely not be quickly accepted.
+> If you don't want a revert, then the stable will likely have that
+> regression for quite long, that's the warning.
 
-Do Stephen's comments about port-name apply here?
-    http://www.spinics.net/lists/netdev/msg322693.html
+That's fine, we will be in sync with Linus's tree, so all is fine, and
+it might spur people to get the thing fixed properly faster :)
 
-I was wondering if this should go into -details output rather than the 
-default.
+thanks,
+
+greg k-h
