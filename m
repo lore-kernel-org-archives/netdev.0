@@ -1,100 +1,120 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [net PATCH 1/1] drivers: net: cpsw: fix disabling of tx
- interrupt in rx isr
-Date: Wed, 8 Jul 2015 11:10:22 -0500
-Message-ID: <20150708161022.GA10350@saruman.tx.rr.com>
-References: <1436338066-7685-1-git-send-email-mugunthanvnm@ti.com>
- <20150708073855.GA7277@saruman.tx.rr.com>
- <559CE48F.1070802@ti.com>
-Reply-To: <balbi@ti.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [RFC net-next 2/6] net: Preparation for vrf device
+Date: Wed, 08 Jul 2015 10:10:57 -0600
+Message-ID: <559D4B91.7020600@cumulusnetworks.com>
+References: <1436195001-4818-1-git-send-email-dsa@cumulusnetworks.com> <1436195001-4818-3-git-send-email-dsa@cumulusnetworks.com> <559CE136.7060407@6wind.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="J/dobhs11T7y2rNN"
-Cc: <balbi@ti.com>, <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<stable@vger.kernel.org>
-To: Mugunthan V N <mugunthanvnm@ti.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
+	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
+	nikolay@cumulusnetworks.com, ddutt@cumulusnetworks.com,
+	hannes@stressinduktion.org, stephen@networkplumber.org,
+	hadi@mojatatu.com, ebiederm@xmission.com, davem@davemloft.net
+To: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:36883 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758692AbbGHQK0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jul 2015 12:10:26 -0400
-Content-Disposition: inline
-In-Reply-To: <559CE48F.1070802@ti.com>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:36428 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758299AbbGHQLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 12:11:01 -0400
+Received: by igrv9 with SMTP id v9so203556859igr.1
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 09:11:00 -0700 (PDT)
+In-Reply-To: <559CE136.7060407@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---J/dobhs11T7y2rNN
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-Hi,
+On 7/8/15 2:37 AM, Nicolas Dichtel wrote:
+> Le 06/07/2015 17:03, David Ahern a =C3=A9crit :
+>> Add a VRF_MASTER flag for interfaces and helper functions for determ=
+ining
+>> if a device is a VRF_MASTER.
+>>
+>> Also, add link attribute for passing VRF_TABLE id.
+>>
+>> Both are used in the following patch that adds a VRF device driver.
+>>
+>> Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
+>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+>> ---
+>>   include/linux/netdevice.h    | 21 +++++++++++++++++++++
+>>   include/uapi/linux/if_link.h |  9 +++++++++
+>>   2 files changed, 30 insertions(+)
+>>
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index e20979dfd6a9..142cb64f139c 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -1274,6 +1274,7 @@ enum netdev_priv_flags {
+>>       IFF_XMIT_DST_RELEASE_PERM    =3D 1<<22,
+>>       IFF_IPVLAN_MASTER        =3D 1<<23,
+>>       IFF_IPVLAN_SLAVE        =3D 1<<24,
+>> +    IFF_VRF_MASTER                =3D 1<<25,
+> nit: use tab instead space here  ^^^^^^^
+>
+> Also, why calling this '_MASTER', is there a notion of SLAVE?
+>
+>>   };
+>>
+>>   #define IFF_802_1Q_VLAN            IFF_802_1Q_VLAN
+>> @@ -1301,6 +1302,7 @@ enum netdev_priv_flags {
+>>   #define IFF_XMIT_DST_RELEASE_PERM    IFF_XMIT_DST_RELEASE_PERM
+>>   #define IFF_IPVLAN_MASTER        IFF_IPVLAN_MASTER
+>>   #define IFF_IPVLAN_SLAVE        IFF_IPVLAN_SLAVE
+>> +#define IFF_VRF_MASTER                IFF_VRF_MASTER
+> nit: use tab instead space here          ^^^^^^^
+>
+>>
+>>   /**
+>>    *    struct net_device - The DEVICE structure.
+>> @@ -1417,6 +1419,7 @@ enum netdev_priv_flags {
+>>    *    @dn_ptr:    DECnet specific data
+>>    *    @ip6_ptr:    IPv6 specific data
+>>    *    @ax25_ptr:    AX.25 specific data
+>> + *    @vrf_ptr:    VRF specific data
+>>    *    @ieee80211_ptr:    IEEE 802.11 specific data, assign before
+>> registering
+>>    *
+>>    *    @last_rx:    Time of last Rx
+>> @@ -1629,6 +1632,7 @@ struct net_device {
+>>       struct dn_dev __rcu     *dn_ptr;
+>>       struct inet6_dev __rcu    *ip6_ptr;
+>>       void            *ax25_ptr;
+>> +    struct net_vrf_dev      *vrf_ptr;
+> nit: use tab here         ^^^^^^
+>
+>>       struct wireless_dev    *ieee80211_ptr;
+>>       struct wpan_dev        *ieee802154_ptr;
+>>   #if IS_ENABLED(CONFIG_MPLS_ROUTING)
+>> @@ -3781,6 +3785,23 @@ static inline bool netif_supports_nofcs(struc=
+t
+>> net_device *dev)
+>>       return dev->priv_flags & IFF_SUPP_NOFCS;
+>>   }
+>>
+>> +static inline bool netif_is_vrf(struct net_device *dev)
+>> +{
+>> +    return dev->priv_flags & IFF_VRF_MASTER;
+>> +}
+>> +
+>> +static inline bool netif_idx_is_vrf(struct net *net, int idx)
+> Usally, the index of an interface is named 'ifindex', it eases code r=
+eading
+> to keep the same name. Something like:
+> netif_index_is_vrf(struct net *net, int ifindex)
+>
+>> +{
+>> +    struct net_device *dev =3D dev_get_by_index(net, idx);
+>> +    bool rc =3D false;
+>> +
+>> +    if (dev) {
+>> +        rc =3D netif_is_vrf(dev);
+>> +        dev_put(dev);
+>> +    }
+>> +    return rc;
+>> +}
+>> +
+> [snip]
 
-On Wed, Jul 08, 2015 at 02:21:27PM +0530, Mugunthan V N wrote:
-> On Wednesday 08 July 2015 01:08 PM, Felipe Balbi wrote:
-> > Hi,
-> >=20
-> > On Wed, Jul 08, 2015 at 12:17:46PM +0530, Mugunthan V N wrote:
-> >> With the below commit, common isr is split into tx and rx, but in
-> >> rx isr tx interrupt is also disabled. So tx packets are not handled
-> >> during rx interrupts and rx napi completion. Fixing by disabling on
-> >> rx interrupt in rx isr.
-> >>
-> >> Fixes: c03abd84634d ("net: ethernet: cpsw: don't requests IRQs we don'=
-t use")
-> >=20
-> > why does this fix that commit ? What was the regression ? So RX IRQ fire
-> > and both RX and TX are disabled, sure that's bad. But it should cause
-> > lower throughput. At a minimum, I think your commit log needs some work.
->=20
-> Agreed, will change the commit and resubmit the patch as it affects
-> performance only and not a regression.
-
-thanks
-
-> > Also, disable_irq_nosync() shouldn't really be needed, you could just
-> > mask the IRQ in the IRQ Enable register, but I guess that'd be v4.3
-> > material.
->=20
-> This was needed because there is a latch inbetween CPSW interrupt line
-> and Interrupt Controller (to convert from pulse interrupt to level
-> interrupt), because of this even though interrupt is disabled from the
-> IP, CPU is held up in isr as it is not cleared or masked to Interrupt
-> controller. Because of disable_irq_nosync() was added initially. I will
-> revisit this but as you said it will be for 4.3
-
-still, that shouldn't be needed. Just mask and clear the IRQ straight
-away, then handle it.
-
-> With this patch I am able to see +3 Mbps with omap2plus_defconfig and
-> +40Mbps with having AM43xx SoC only and removing some kernel debugging
-> options.
-
-looks like this should be in commit log in some shape or form.
-
---=20
-balbi
-
---J/dobhs11T7y2rNN
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJVnUtuAAoJEIaOsuA1yqREyXkP/3Dq0EFfIqEHzd7dOO+E70Kp
-yeZUaj5mt6OCkYpaul3G0eNlMvBOWwhjWgV8nP2o6iKcN8zDPnDo47H3LMw6lh6q
-BivOi88jVjGPdF3Fj4HTdudE1K0M6XNpFKyKOk46fKiFVa1rjyF6CUW1GylLFAqn
-7f1kQ1nbIPPL/5cBa+jHypvry3AUbTwPE6dVE/8P6MGZB5hCqCExjm15QLAB5yMP
-EUrxXwzux7w6fVbTJd/p1cNCyL7g93ZWSLDm8CUMhPh56YXDbPpGvRub99lj0HpM
-2cGTjwZ6OrLMPklTMlZqHMyZvPSdqwt4GlXkPETQogB8HV/KEq5heImWay400NrQ
-DZ93pju+dArxLKwDq9fSkT6zMRtMDssIK7H0+ukP5OiYRRNhES0HxFKTGK5j4136
-aMcQJsPLsA9+RE//m4bok2aXr5WVyWfWiO2/vFAl8JqPMTATdm44h/J2aAQ3rN9t
-2/jjkYpN/GyZYtXYXrgbcdy4GCxcdJJyysdR82GmxBlVJUWiOISin6Z2n7Ly2Keh
-cF26glYlb2WKSAydpA/n9FHj7SBIyGOJfAd1ScpJo/ZAvrSppOXOGnEJvt758oyZ
-tHA7aO3LjyVkZz6WdUhToys+MAclNIVO5rxfovgOBYJjk0jfiVf27L61AXdygwo7
-ZCo2xrnhisLjIPEzD08m
-=KWYu
------END PGP SIGNATURE-----
-
---J/dobhs11T7y2rNN--
+ack on all comments. Updated patch.
