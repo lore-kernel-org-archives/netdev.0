@@ -1,38 +1,100 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH,v2 net-next] ipvs: skb_orphan in case of forwarding
-Date: Wed, 08 Jul 2015 23:17:52 +0200
-Message-ID: <1436390272.24939.10.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1436131706-1559824-1-git-send-email-agartrell@fb.com>
-	 <alpine.LFD.2.11.1507060105470.12815@ja.home.ssi.bg>
-	 <CALCkm3eyEbHpzfF1zk0OUnGaSf51=r9DmZs_2Xq4fTtOed3nNQ@mail.gmail.com>
-	 <20150706035019.GA9155@verge.net.au>
-	 <CALCkm3d4Xqq+eWryejKhi84rM_fS4QRyu8Fn_Z7RHZv+zbv3_Q@mail.gmail.com>
-	 <20150708013355.GE28100@verge.net.au>
-	 <CALCkm3f0NTwUugb=sWVWQ2bJdecmZR_LFHocznuVR8fKRtRLkQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>,
-	Alex Gartrell <agartrell@fb.com>, lvs-devel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>, kernel-team <kernel-team@fb.com>
-To: Alex Gartrell <alexgartrell@gmail.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <CALCkm3f0NTwUugb=sWVWQ2bJdecmZR_LFHocznuVR8fKRtRLkQ@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH -next] ipv6: use flag instead of u16 for hop in inet6_skb_parm
+Date: Wed,  8 Jul 2015 23:32:12 +0200
+Message-ID: <1436391132-5199-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:37588 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754153AbbGHVYo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 17:24:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-07-08 at 13:56 -0700, Alex Gartrell wrote:
-> On Tue, Jul 7, 2015 at 6:33 PM, Simon Horman <horms@verge.net.au> wrote:
-> 
-> > Is there any possibility you could investigate which stable trees are
-> > effected by this bug?
-> 
-> Well this was certainly a problem in 3.10 (we had our own hacky
-> solution at the time) and every kernel since then would have also had
-> this problem.  I'm pretty sure this isn't a problem in 3.4 or before.
-> 
+Hop was always either 0 or sizeof(struct ipv6hdr).
 
-early demux was added in 3.6
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ include/linux/ipv6.h | 2 +-
+ net/ipv6/af_inet6.c  | 4 ++--
+ net/ipv6/datagram.c  | 8 ++++----
+ net/ipv6/exthdrs.c   | 2 +-
+ 4 files changed, 8 insertions(+), 8 deletions(-)
 
-Fixes: 41063e9dd119 ("ipv4: Early TCP socket demux.")
-
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 4d5169f..61b9169 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -90,7 +90,6 @@ static inline struct ipv6hdr *ipipv6_hdr(const struct sk_buff *skb)
+ struct inet6_skb_parm {
+ 	int			iif;
+ 	__be16			ra;
+-	__u16			hop;
+ 	__u16			dst0;
+ 	__u16			srcrt;
+ 	__u16			dst1;
+@@ -107,6 +106,7 @@ struct inet6_skb_parm {
+ #define IP6SKB_REROUTED		4
+ #define IP6SKB_ROUTERALERT	8
+ #define IP6SKB_FRAGMENTED      16
++#define IP6SKB_HOPBYHOP        32
+ };
+ 
+ #define IP6CB(skb)	((struct inet6_skb_parm*)((skb)->cb))
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 6bafcc2..b96dd8d 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -678,8 +678,8 @@ bool ipv6_opt_accepted(const struct sock *sk, const struct sk_buff *skb,
+ 	const struct ipv6_pinfo *np = inet6_sk(sk);
+ 
+ 	if (np->rxopt.all) {
+-		if ((opt->hop && (np->rxopt.bits.hopopts ||
+-				  np->rxopt.bits.ohopopts)) ||
++		if (((opt->flags & IP6SKB_HOPBYHOP) &&
++		     (np->rxopt.bits.hopopts || np->rxopt.bits.ohopopts)) ||
+ 		    (ip6_flowinfo((struct ipv6hdr *) skb_network_header(skb)) &&
+ 		     np->rxopt.bits.rxflow) ||
+ 		    (opt->srcrt && (np->rxopt.bits.srcrt ||
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index ace8dac..e734bae 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -548,8 +548,8 @@ void ip6_datagram_recv_specific_ctl(struct sock *sk, struct msghdr *msg,
+ 	}
+ 
+ 	/* HbH is allowed only once */
+-	if (np->rxopt.bits.hopopts && opt->hop) {
+-		u8 *ptr = nh + opt->hop;
++	if (np->rxopt.bits.hopopts && (opt->flags & IP6SKB_HOPBYHOP)) {
++		u8 *ptr = nh + sizeof(struct ipv6hdr);
+ 		put_cmsg(msg, SOL_IPV6, IPV6_HOPOPTS, (ptr[1]+1)<<3, ptr);
+ 	}
+ 
+@@ -610,8 +610,8 @@ void ip6_datagram_recv_specific_ctl(struct sock *sk, struct msghdr *msg,
+ 		int hlim = ipv6_hdr(skb)->hop_limit;
+ 		put_cmsg(msg, SOL_IPV6, IPV6_2292HOPLIMIT, sizeof(hlim), &hlim);
+ 	}
+-	if (np->rxopt.bits.ohopopts && opt->hop) {
+-		u8 *ptr = nh + opt->hop;
++	if (np->rxopt.bits.ohopopts && (opt->flags & IP6SKB_HOPBYHOP)) {
++		u8 *ptr = nh + sizeof(struct ipv6hdr);
+ 		put_cmsg(msg, SOL_IPV6, IPV6_2292HOPOPTS, (ptr[1]+1)<<3, ptr);
+ 	}
+ 	if (np->rxopt.bits.odstopts && opt->dst0) {
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index a7bbbe4..ce203b0 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -632,7 +632,7 @@ int ipv6_parse_hopopts(struct sk_buff *skb)
+ 		return -1;
+ 	}
+ 
+-	opt->hop = sizeof(struct ipv6hdr);
++	opt->flags |= IP6SKB_HOPBYHOP;
+ 	if (ip6_parse_tlv(tlvprochopopt_lst, skb)) {
+ 		skb->transport_header += (skb_transport_header(skb)[1] + 1) << 3;
+ 		opt = IP6CB(skb);
+-- 
+2.1.0
