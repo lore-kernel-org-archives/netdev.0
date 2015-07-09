@@ -1,55 +1,52 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 2/5] net: add phys ID compare helper to test if
- two IDs are the same
-Date: Thu, 9 Jul 2015 15:15:35 +0300
-Message-ID: <559E65E7.3040607@cogentembedded.com>
-References: <1436397403-62412-1-git-send-email-sfeldma@gmail.com>
- <1436397403-62412-3-git-send-email-sfeldma@gmail.com>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH] KVM: Add Kconfig option to signal cross-endian guests
+Date: Thu, 9 Jul 2015 14:21:54 +0200
+Message-ID: <20150709142154.5561fa16.cornelia.huck@de.ibm.com>
+References: <20150707195012-mutt-send-email-mst@redhat.com>
+ <1436428145-29823-1-git-send-email-thuth@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, roopa@cumulusnetworks.com
-To: sfeldma@gmail.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:34748 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751065AbbGIMPi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 08:15:38 -0400
-Received: by lagx9 with SMTP id x9so244912221lag.1
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 05:15:36 -0700 (PDT)
-In-Reply-To: <1436397403-62412-3-git-send-email-sfeldma@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kraxel@redhat.com, kvm@vger.kernel.org,
+ "Michael S. Tsirkin" <mst@redhat.com>, Gleb Natapov <gleb@kernel.org>,
+ linux-kernel@vger.kernel.org, kvm-ppc@vger.kernel.org,
+ virtualization@lists.linux-foundation.org, Marc Zyngier <marc.zyngier@arm.com>,
+ Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org,
+ Paolo Bonzini <pbonzini@redhat.com>,
+ Linus Torvalds <torvalds@linux-foundation.org>, kvmarm@lists.cs.columbia.edu,
+ linux-arm-kernel@lists.infradead.org, Greg Kurz <gkurz@linux.vnet.ibm.com>
+To: Thomas Huth <thuth@redhat.com>
+Return-path: <kvmarm-bounces@lists.cs.columbia.edu>
+In-Reply-To: <1436428145-29823-1-git-send-email-thuth@redhat.com>
+List-Unsubscribe: <https://lists.cs.columbia.edu/mailman/options/kvmarm>,
+ <mailto:kvmarm-request@lists.cs.columbia.edu?subject=unsubscribe>
+List-Archive: <https://lists.cs.columbia.edu/pipermail/kvmarm>
+List-Post: <mailto:kvmarm@lists.cs.columbia.edu>
+List-Help: <mailto:kvmarm-request@lists.cs.columbia.edu?subject=help>
+List-Subscribe: <https://lists.cs.columbia.edu/mailman/listinfo/kvmarm>,
+ <mailto:kvmarm-request@lists.cs.columbia.edu?subject=subscribe>
+Errors-To: kvmarm-bounces@lists.cs.columbia.edu
+Sender: kvmarm-bounces@lists.cs.columbia.edu
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Thu,  9 Jul 2015 09:49:05 +0200
+Thomas Huth <thuth@redhat.com> wrote:
 
-On 7/9/2015 2:16 AM, sfeldma@gmail.com wrote:
+> The option for supporting cross-endianness legacy guests in
 
-> From: Scott Feldman <sfeldma@gmail.com>
+s/cross-endianness/cross-endian/ ?
 
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> the vhost and tun code should only be available on systems
+> that support cross-endian guests.
+> 
+> Signed-off-by: Thomas Huth <thuth@redhat.com>
 > ---
->   include/linux/netdevice.h |    7 +++++++
->   net/switchdev/switchdev.c |    8 ++------
->   2 files changed, 9 insertions(+), 6 deletions(-)
+>  arch/arm/kvm/Kconfig     | 1 +
+>  arch/arm64/kvm/Kconfig   | 1 +
+>  arch/powerpc/kvm/Kconfig | 1 +
+>  drivers/net/Kconfig      | 1 +
+>  drivers/vhost/Kconfig    | 1 +
+>  virt/kvm/Kconfig         | 3 +++
+>  6 files changed, 8 insertions(+)
 
-[...]
-> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-> index 84f77a0..e16586f 100644
-> --- a/net/switchdev/switchdev.c
-> +++ b/net/switchdev/switchdev.c
-> @@ -906,13 +906,9 @@ static struct net_device *switchdev_get_dev_by_nhs(struct fib_info *fi)
->   		if (switchdev_port_attr_get(dev, &attr))
->   			return NULL;
->
-> -		if (nhsel > 0) {
-> -			if (prev_attr.u.ppid.id_len != attr.u.ppid.id_len)
-> +		if (nhsel > 0 &&
-> +		    !netdev_phys_item_id_same(&prev_attr.u.ppid, &attr.u.ppid))
->   				return NULL;
-
-    This line should be re-indented now, it starts too far to the right.
-
-[...]
-
-WBR, Sergei
+Acked-by: Cornelia Huck <cornelia.huck@de.ibm.com>
