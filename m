@@ -1,38 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vmxnet3: prevent receive getting out of sequence on
- napi poll
-Date: Wed, 08 Jul 2015 23:37:13 -0700 (PDT)
-Message-ID: <20150708.233713.1843115462537095124.davem@davemloft.net>
-References: <1436292138-18190-1-git-send-email-nhorman@tuxdriver.com>
+Subject: Re: [PATCH] 3c59x: Fix shared IRQ handling
+Date: Wed, 08 Jul 2015 23:37:48 -0700 (PDT)
+Message-ID: <20150708.233748.252170826314642014.davem@davemloft.net>
+References: <1436294935-21777-1-git-send-email-dvlasenk@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sbhatewara@vmware.com
-To: nhorman@tuxdriver.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dvlasenk@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40413 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40417 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751917AbbGIGhO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 02:37:14 -0400
-In-Reply-To: <1436292138-18190-1-git-send-email-nhorman@tuxdriver.com>
+	with ESMTP id S1751312AbbGIGhs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 02:37:48 -0400
+In-Reply-To: <1436294935-21777-1-git-send-email-dvlasenk@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Tue,  7 Jul 2015 14:02:18 -0400
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Date: Tue,  7 Jul 2015 20:48:55 +0200
 
-> vmxnet3's current napi path is built to count every rx descriptor we recieve,
-> and use that as a count of the napi budget.  That means its possible to return
-> from a napi poll halfway through recieving a fragmented packet accross multiple
-> dma descriptors.  If that happens, the next napi poll will start with the
-> descriptor ring in an improper state (e.g. the first descriptor we look at may
-> have the end-of-packet bit set), which will cause a BUG halt in the driver.
+> As its first order of business, boomerang_interrupt() checks whether
+> the device really has any pending interrupts. If it does not,
+> it does nothing and returns, but it still returns IRQ_HANDLED.
 > 
-> Fix the issue by only counting whole received packets in the napi poll and
-> returning that value, rather than the descriptor count.
+> This is wrong: interrupt was not handled, IRQ handlers of other
+> devices sharing this IRQ line need to be called.
 > 
-> Tested by the reporter and myself, successfully
+> vortex_interrupt() has it right: it returns IRQ_NONE in this case
+> via IRQ_RETVAL(0).
 > 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> Do the same in boomerang_interrupt().
+> 
+> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
 
-Applied, thanks Neil.
+Looks good, applied, thanks Denys.
