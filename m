@@ -1,48 +1,173 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: inet_diag: always export IPV6_V6ONLY sockopt
-Date: Thu, 09 Jul 2015 19:30:30 +0200
-Message-ID: <1436463030.24939.47.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1436431347-720-1-git-send-email-phil@nwl.cc>
-	 <1436446677.24939.20.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150709163829.GB1911@orbit.nwl.cc>
+From: Stas Sergeev <stsp@list.ru>
+Subject: [PATCH 1/2] of_mdio: add new DT property 'link' for fixed-link
+Date: Thu, 09 Jul 2015 20:38:46 +0300
+Message-ID: <559EB1A6.1090008@list.ru>
+References: <559EB0A4.5080101@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Phil Sutter <phil@nwl.cc>
+Cc: Linux kernel <linux-kernel@vger.kernel.org>,
+	Sebastien Rannou <mxs@sbrk.org>,
+	Arnaud Ebalard <arno@natisbad.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: linux-net@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:33525 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752918AbbGIRaf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 13:30:35 -0400
-Received: by wiwl6 with SMTP id l6so25260920wiw.0
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 10:30:34 -0700 (PDT)
-In-Reply-To: <20150709163829.GB1911@orbit.nwl.cc>
+Received: from smtp53.i.mail.ru ([94.100.177.113]:39170 "EHLO smtp53.i.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751976AbbGIRi6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jul 2015 13:38:58 -0400
+In-Reply-To: <559EB0A4.5080101@list.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-07-09 at 18:38 +0200, Phil Sutter wrote:
-> Is it possible to select that in a generic way? If I didn't misread the
-> code, 'ss -l' filters them out locally. It looks like sk->sk_state can
-> be used to determine that, but it seems to be used for TCP states only?
-> Or is the value 10 (TCP_LISTEN) used for e.g. UDP as well?
 
-You could specifically filter TCP_LISTEN | TCP_CLOSE
+Currently for fixed-link the link state is always set to UP.
+This patch introduces the new property 'link' that accepts the
+following string arguments: "up", "down" and "auto".
+"down" may be needed if the link is physically unconnected.
+"auto" is needed to enable the link paramaters auto-negotiation,
+that is built into some MII protocols, namely SGMII.
+The appropriate documentation is added and explicitly states that
+"auto" is very specific (protocol, HW and driver-specific), and
+is therefore should be used with care.
 
-Like in :
+Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 9bc26677058e..c3b1f3a0f4cf 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -152,8 +152,8 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
- 				       inet6_sk(sk)->tclass) < 0)
- 				goto errout;
- 
--		if (ipv6_only_sock(sk) &&
--		    nla_put_u8(skb, INET_DIAG_SKV6ONLY, 1))
-+		if (((1 << sk->sk_state) & (TCPF_LISTEN | TCPF_CLOSE)) &&
-+		    nla_put_u8(skb, INET_DIAG_SKV6ONLY, ipv6_only_sock(sk)))
- 			goto errout;
- 	}
+CC: Rob Herring <robh+dt@kernel.org>
+CC: Pawel Moll <pawel.moll@arm.com>
+CC: Mark Rutland <mark.rutland@arm.com>
+CC: Ian Campbell <ijc+devicetree@hellion.org.uk>
+CC: Kumar Gala <galak@codeaurora.org>
+CC: Florian Fainelli <f.fainelli@gmail.com>
+CC: Grant Likely <grant.likely@linaro.org>
+CC: devicetree@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+CC: netdev@vger.kernel.org
+---
+ .../devicetree/bindings/net/fixed-link.txt         |  8 +++-
+ drivers/of/of_mdio.c                               | 48 ++++++++++++++++++++--
+ include/linux/of_mdio.h                            |  5 +++
+ 3 files changed, 57 insertions(+), 4 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/net/fixed-link.txt b/Documentation/devicetree/bindings/net/fixed-link.txt
+index 82bf7e0..070f554 100644
+--- a/Documentation/devicetree/bindings/net/fixed-link.txt
++++ b/Documentation/devicetree/bindings/net/fixed-link.txt
+@@ -9,8 +9,14 @@ Such a fixed link situation is described by creating a 'fixed-link'
+ sub-node of the Ethernet MAC device node, with the following
+ properties:
+
++* 'link' (string, optional), to indicate the link state. Accepted
++  values are "up", "down" and "auto". "auto" means auto-negotiation of
++  link parameters. Auto-negotiation is MII protocol, HW and driver-specific
++  and is not supported in many cases, so use it only when you know what
++  you do.
+ * 'speed' (integer, mandatory), to indicate the link speed. Accepted
+-  values are 10, 100 and 1000
++  values are 10, 100 and 1000. If the 'link' property is set to 'auto',
++  'speed' may not be set. It will then be auto-negotiated, if possible.
+ * 'full-duplex' (boolean, optional), to indicate that full duplex is
+   used. When absent, half duplex is assumed.
+ * 'pause' (boolean, optional), to indicate that pause should be
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index 1bd4305..2152cf8 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -280,6 +280,26 @@ bool of_phy_is_fixed_link(struct device_node *np)
+ }
+ EXPORT_SYMBOL(of_phy_is_fixed_link);
+
++bool of_phy_is_autoneg_link(struct device_node *np)
++{
++	struct device_node *dn;
++	const char *link_str;
++	int rc;
++	bool ret = false;
++
++	dn = of_get_child_by_name(np, "fixed-link");
++	if (!dn)
++		return false;
++
++	rc = of_property_read_string(dn, "link", &link_str);
++	if (rc == 0 && strcmp(link_str, "auto") == 0)
++		ret = true;
++
++	of_node_put(dn);
++	return ret;
++}
++EXPORT_SYMBOL(of_phy_is_autoneg_link);
++
+ int of_phy_register_fixed_link(struct device_node *np)
+ {
+ 	struct fixed_phy_status status = {};
+@@ -291,11 +311,33 @@ int of_phy_register_fixed_link(struct device_node *np)
+ 	/* New binding */
+ 	fixed_link_node = of_get_child_by_name(np, "fixed-link");
+ 	if (fixed_link_node) {
+-		status.link = 1;
++		const char *link_str;
++		int ret;
++		bool link_auto = false;
++
++		ret = of_property_read_string(fixed_link_node, "link",
++					      &link_str);
++		if (ret == 0) {
++			if (strcmp(link_str, "up") == 0)
++				status.link = 1;
++			else
++				status.link = 0;
++			if (strcmp(link_str, "auto") == 0)
++				link_auto = true;
++		} else {
++			status.link = 1;
++		}
+ 		status.duplex = of_property_read_bool(fixed_link_node,
+ 						      "full-duplex");
+-		if (of_property_read_u32(fixed_link_node, "speed", &status.speed))
+-			return -EINVAL;
++		if (of_property_read_u32(fixed_link_node, "speed",
++					 &status.speed) != 0) {
++			/* in auto mode just set to some sane value:
++			 * it will be changed by MAC later */
++			if (link_auto)
++				status.speed = 1000;
++			else
++				return -EINVAL;
++		}
+ 		status.pause = of_property_read_bool(fixed_link_node, "pause");
+ 		status.asym_pause = of_property_read_bool(fixed_link_node,
+ 							  "asym-pause");
+diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
+index d449018..647f348 100644
+--- a/include/linux/of_mdio.h
++++ b/include/linux/of_mdio.h
+@@ -65,6 +65,7 @@ static inline struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np)
+ #if defined(CONFIG_OF) && defined(CONFIG_FIXED_PHY)
+ extern int of_phy_register_fixed_link(struct device_node *np);
+ extern bool of_phy_is_fixed_link(struct device_node *np);
++extern bool of_phy_is_autoneg_link(struct device_node *np);
+ #else
+ static inline int of_phy_register_fixed_link(struct device_node *np)
+ {
+@@ -74,6 +75,10 @@ static inline bool of_phy_is_fixed_link(struct device_node *np)
+ {
+ 	return false;
+ }
++static inline bool of_phy_is_autoneg_link(struct device_node *np)
++{
++	return false;
++}
  #endif
+
+
+-- 
+1.9.1
