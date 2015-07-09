@@ -1,111 +1,106 @@
 From: Roy Pledge <Roy.Pledge@freescale.com>
-Subject: [PATCH 01/11] powerpc: re-add devm_ioremap_prot()
-Date: Thu, 9 Jul 2015 16:21:52 -0400
-Message-ID: <1436473322-21247-2-git-send-email-Roy.Pledge@freescale.com>
+Subject: [PATCH 09/11] soc/bman: Add HOTPLUG_CPU support to the BMan driver
+Date: Thu, 9 Jul 2015 16:22:00 -0400
+Message-ID: <1436473322-21247-10-git-send-email-Roy.Pledge@freescale.com>
 References: <1436473322-21247-1-git-send-email-Roy.Pledge@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 To: <linuxppc-dev@lists.ozlabs.org>, <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bbn0104.outbound.protection.outlook.com ([157.56.111.104]:24117
+Received: from mail-bn1bon0142.outbound.protection.outlook.com ([157.56.111.142]:39327
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753805AbbGIUWG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jul 2015 16:22:06 -0400
+	id S1753931AbbGIUWM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jul 2015 16:22:12 -0400
 In-Reply-To: <1436473322-21247-1-git-send-email-Roy.Pledge@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Medve <Emilian.Medve@Freescale.com>
+From: Hai-Ying Wang <Haiying.Wang@freescale.com>
 
-devm_ioremap_prot() was removed in commit dedd24a12,
-and was introduced in commit b41e5fffe8.
+Add support for CPU hotplug for the DPAA 1.0 Buffer Manager
+driver
 
-This reverts commit dedd24a12fe6735898feeb06184ee346907abb5d.
-
+Signed-off-by: Hai-Ying Wang <Haiying.Wang@freescale.com>
 Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
+Signed-off-by: Roy Pledge <Roy.Pledge@freescale.com>
 ---
- arch/powerpc/include/asm/io.h |    3 +++
- arch/powerpc/lib/Makefile     |    1 +
- arch/powerpc/lib/devres.c     |   43 +++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 47 insertions(+)
- create mode 100644 arch/powerpc/lib/devres.c
+ drivers/soc/fsl/qbman/bman_portal.c |   40 +++++++++++++++++++++++++++++++++++
+ drivers/soc/fsl/qbman/dpaa_sys.h    |    3 +++
+ 2 files changed, 43 insertions(+)
 
-diff --git a/arch/powerpc/include/asm/io.h b/arch/powerpc/include/asm/io.h
-index a8d2ef3..9eaf301 100644
---- a/arch/powerpc/include/asm/io.h
-+++ b/arch/powerpc/include/asm/io.h
-@@ -855,6 +855,9 @@ static inline void * bus_to_virt(unsigned long address)
+diff --git a/drivers/soc/fsl/qbman/bman_portal.c b/drivers/soc/fsl/qbman/bman_portal.c
+index 62d8f64..f33d671 100644
+--- a/drivers/soc/fsl/qbman/bman_portal.c
++++ b/drivers/soc/fsl/qbman/bman_portal.c
+@@ -129,6 +129,42 @@ static void __cold bman_offline_cpu(unsigned int cpu)
+ 	}
+ }
  
- #define clrsetbits_8(addr, clear, set) clrsetbits(8, addr, clear, set)
- 
-+void __iomem *devm_ioremap_prot(struct device *dev, resource_size_t offset,
-+				size_t size, unsigned long flags);
-+
- #endif /* __KERNEL__ */
- 
- #endif /* _ASM_POWERPC_IO_H */
-diff --git a/arch/powerpc/lib/Makefile b/arch/powerpc/lib/Makefile
-index a47e142..7ae60f0 100644
---- a/arch/powerpc/lib/Makefile
-+++ b/arch/powerpc/lib/Makefile
-@@ -13,6 +13,7 @@ obj-y += string.o alloc.o crtsavres.o ppc_ksyms.o code-patching.o \
- 	 feature-fixups.o
- 
- obj-$(CONFIG_PPC32)	+= div64.o copy_32.o
-+obj-$(CONFIG_HAS_IOMEM)	+= devres.o
- 
- obj64-y	+= copypage_64.o copyuser_64.o usercopy_64.o mem_64.o hweight_64.o \
- 	   copyuser_power7.o string_64.o copypage_power7.o memcpy_power7.o \
-diff --git a/arch/powerpc/lib/devres.c b/arch/powerpc/lib/devres.c
-new file mode 100644
-index 0000000..8df55fc
---- /dev/null
-+++ b/arch/powerpc/lib/devres.c
-@@ -0,0 +1,43 @@
-+/*
-+ * Copyright (C) 2008 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/device.h>	/* devres_*(), devm_ioremap_release() */
-+#include <linux/gfp.h>
-+#include <linux/io.h>		/* ioremap_prot() */
-+#include <linux/export.h>	/* EXPORT_SYMBOL() */
-+
-+/**
-+ * devm_ioremap_prot - Managed ioremap_prot()
-+ * @dev: Generic device to remap IO address for
-+ * @offset: BUS offset to map
-+ * @size: Size of map
-+ * @flags: Page flags
-+ *
-+ * Managed ioremap_prot().  Map is automatically unmapped on driver
-+ * detach.
-+ */
-+void __iomem *devm_ioremap_prot(struct device *dev, resource_size_t offset,
-+				 size_t size, unsigned long flags)
++#ifdef CONFIG_HOTPLUG_CPU
++static void __cold bman_online_cpu(unsigned int cpu)
 +{
-+	void __iomem **ptr, *addr;
++	struct bman_portal *p = (struct bman_portal *)affine_bportals[cpu];
++	const struct bm_portal_config *pcfg;
 +
-+	ptr = devres_alloc(devm_ioremap_release, sizeof(*ptr), GFP_KERNEL);
-+	if (!ptr)
-+		return NULL;
-+
-+	addr = ioremap_prot(offset, size, flags);
-+	if (addr) {
-+		*ptr = addr;
-+		devres_add(dev, ptr);
-+	} else
-+		devres_free(ptr);
-+
-+	return addr;
++	if (p) {
++		pcfg = bman_get_bm_portal_config(p);
++		if (pcfg)
++			irq_set_affinity(pcfg->public_cfg.irq, cpumask_of(cpu));
++	}
 +}
-+EXPORT_SYMBOL(devm_ioremap_prot);
++
++static int __cold bman_hotplug_cpu_callback(struct notifier_block *nfb,
++					    unsigned long action, void *hcpu)
++{
++	unsigned int cpu = (unsigned long)hcpu;
++
++	switch (action) {
++	case CPU_ONLINE:
++	case CPU_ONLINE_FROZEN:
++		bman_online_cpu(cpu);
++		break;
++	case CPU_DOWN_PREPARE:
++	case CPU_DOWN_PREPARE_FROZEN:
++		bman_offline_cpu(cpu);
++	}
++
++	return NOTIFY_OK;
++}
++
++static struct notifier_block bman_hotplug_cpu_notifier = {
++	.notifier_call = bman_hotplug_cpu_callback,
++};
++#endif /* CONFIG_HOTPLUG_CPU */
++
+ static int __cold bman_portal_probe(struct platform_device *of_dev)
+ {
+ 	struct device *dev = &of_dev->dev;
+@@ -342,6 +378,10 @@ static int __init bman_portal_driver_register(struct platform_driver *drv)
+ 	for_each_cpu(cpu, &offline_cpus)
+ 		bman_offline_cpu(cpu);
+ 
++#ifdef CONFIG_HOTPLUG_CPU
++	register_hotcpu_notifier(&bman_hotplug_cpu_notifier);
++#endif
++
+ 	bman_seed_bpid_range(0, bman_pool_max);
+ 
+ 	return 0;
+diff --git a/drivers/soc/fsl/qbman/dpaa_sys.h b/drivers/soc/fsl/qbman/dpaa_sys.h
+index 3758f96..930a4d3 100644
+--- a/drivers/soc/fsl/qbman/dpaa_sys.h
++++ b/drivers/soc/fsl/qbman/dpaa_sys.h
+@@ -43,6 +43,9 @@
+ #include <linux/vmalloc.h>
+ #include <linux/platform_device.h>
+ #include <linux/ctype.h>
++#ifdef CONFIG_HOTPLUG_CPU
++#include <linux/cpu.h>
++#endif
+ 
+ #include <asm/pgtable.h>
+ 
 -- 
 1.7.9.5
