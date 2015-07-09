@@ -1,83 +1,81 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH 2/2] dlm: avoid using sctp_do_peeloff directly
-Date: Thu,  9 Jul 2015 11:15:20 -0300
-Message-ID: <a5b66c7f050a17cd2b8f0f4d6bbb3a5837d593f5.1434645734.git.marcelo.leitner@gmail.com>
-References: <4dfd0ee7ac0aac0791812217e990e2ae7ff86955.1434645734.git.marcelo.leitner@gmail.com>
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: netdev@vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net V1] ethtool: Support for configurable RSS hash function
+Date: Thu, 9 Jul 2015 16:41:59 +0300
+Message-ID: <CAPcc5Pjs16aQKvoDmCRvvC+M0E2+Ki-rfEaPRBVcuycm1ydn0g@mail.gmail.com>
+References: <1430133773-11613-1-git-send-email-amirv@mellanox.com>
+	<CAPcc5PigfcBCZV=z+Q15+0xBXh_GEyGEz6RASPCXtQvTXadP0w@mail.gmail.com>
+	<1433102761.6319.111.camel@decadent.org.uk>
+	<CAPcc5PgiKoT4=9u3J7Dcmt_Fy7Wc+wPk5p3=qeK2tQRpCzVQbg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	netdev <netdev@vger.kernel.org>,
+	"Or Gerlitz" <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>, Eyal Perry <eyalpe@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44399 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751298AbbGIOPb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jul 2015 10:15:31 -0400
-In-Reply-To: <4dfd0ee7ac0aac0791812217e990e2ae7ff86955.1434645734.git.marcelo.leitner@gmail.com>
+Received: from mail-am1on0093.outbound.protection.outlook.com ([157.56.112.93]:26688
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751993AbbGIOPl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jul 2015 10:15:41 -0400
+Received: by wifm2 with SMTP id m2so19148153wif.1
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 06:41:59 -0700 (PDT)
+In-Reply-To: <CAPcc5PgiKoT4=9u3J7Dcmt_Fy7Wc+wPk5p3=qeK2tQRpCzVQbg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch reverts 2f2d76cc3e93 ("dlm: Do not allocate a fd for
-peeloff") but also takes benefit on an updated sockopt
-SCTP_SOCKOPT_PEELOFF, which now avoids allocating file descriptors for
-kernel users.
+On Tue, Jun 2, 2015 at 9:31 AM, Amir Vadai <amirv@mellanox.com> wrote:
+> On Sun, May 31, 2015 at 11:09 PM Ben Hutchings <ben@decadent.org.uk> wrote:
+>>
+>> On Tue, 2015-05-05 at 18:48 +0300, Amir Vadai wrote:
+>> > On Mon, Apr 27, 2015 at 2:22 PM, Amir Vadai <amirv@mellanox.com> wrote:
+>> > > From: Eyal Perry <eyalpe@mellanox.com>
+>> > >
+>> > > This ethtool patch adds support to set and get the current RSS hash
+>> > > function for the device through through the new hfunc field in the
+>> > > ethtool_rxfh struct. Kernel supported hash function names are queried
+>> > > with ETHTOOL_GSTRINGS (value 0 is reserved and skipped).
+>> > >
+>> > > Although currently no device supports a combination of hash
+>> > > functions/attributes, this ethtool implementation will support it. Both in the
+>> > > set and in the get.
+>> > > The device driver declares the functions and/or attributes that it supports,
+>> > > and ethtool will show it correctly and enable the user to set those
+>> > > combinations.
+>> > > If a combination is not supported - the device driver will fail the operation
+>> > > and ethtool will print an error message.
+>> > >
+>> > > Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
+>> > > Signed-off-by: Amir Vadai <amirv@mellanox.com>
+>> > > ---
+>> > > Changes from V1:
+>> > > - Fixed some English mistakes
+>> > > - Fixed the complicated way to write '= req_hfunc;'...
+>> > > - Better support in combination of hash functions/attributes
+>> >
+>> > Ben Hi,
+>> >
+>> > Could you take a look at this patch?
+>>
+>> Didn't we agree that only one hash function should be selected at once?
+>> Can you send a new version that implements that?
+> Yeh, and actually I did send a V1 according to that approach, but Dave
+> Miller has suggested [1] that we might add control attributes in
+> combination to the hash function.
+>
+> [1] - http://permalink.gmane.org/gmane.linux.network/360812
+>
+> Amir
+>
+>>
+>> Ben.
+>>
+>> --
+>> Ben Hutchings
+>> Reality is just a crutch for people who can't handle science fiction.
+Hi Ben,
 
-By this we avoid creating a direct dependency from dlm to sctp module,
-which can then be left unloaded if dlm is not really using it.
+Does my answer satisfies you?
 
-Note that this was preferred other than a module split as it once was
-split and was merged back in 2007 by commit 6ed7257b4670 ("[DLM]
-Consolidate transport protocols") so that we don't revert it.
-
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- fs/dlm/lowcomms.c | 17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
-
-diff --git a/fs/dlm/lowcomms.c b/fs/dlm/lowcomms.c
-index 754fd6c0b7470bab272b071e6ca6e4969e4e4209..fb094b5ab0347a7b8659c2dc6cc3b32638d63638 100644
---- a/fs/dlm/lowcomms.c
-+++ b/fs/dlm/lowcomms.c
-@@ -52,7 +52,6 @@
- #include <linux/mutex.h>
- #include <linux/sctp.h>
- #include <linux/slab.h>
--#include <net/sctp/sctp.h>
- #include <net/ipv6.h>
- 
- #include "dlm_internal.h"
-@@ -671,6 +670,8 @@ static void process_sctp_notification(struct connection *con,
- 			int prim_len, ret;
- 			int addr_len;
- 			struct connection *new_con;
-+			sctp_peeloff_arg_t parg;
-+			int parglen = sizeof(parg);
- 
- 			/*
- 			 * We get this before any data for an association.
-@@ -719,19 +720,17 @@ static void process_sctp_notification(struct connection *con,
- 				return;
- 
- 			/* Peel off a new sock */
--			lock_sock(con->sock->sk);
--			ret = sctp_do_peeloff(con->sock->sk,
--				sn->sn_assoc_change.sac_assoc_id,
--				&new_con->sock);
--			release_sock(con->sock->sk);
-+			parg.associd = sn->sn_assoc_change.sac_assoc_id;
-+			ret = kernel_getsockopt(con->sock, IPPROTO_SCTP,
-+						SCTP_SOCKOPT_PEELOFF,
-+						(void *)&parg, &parglen);
- 			if (ret < 0) {
- 				log_print("Can't peel off a socket for "
- 					  "connection %d to node %d: err=%d",
--					  (int)sn->sn_assoc_change.sac_assoc_id,
--					  nodeid, ret);
-+					  parg.associd, nodeid, ret);
- 				return;
- 			}
--			add_sock(new_con->sock, new_con);
-+			add_sock(parg.sock, new_con);
- 
- 			linger.l_onoff = 1;
- 			linger.l_linger = 0;
--- 
-2.4.1
+Amir
