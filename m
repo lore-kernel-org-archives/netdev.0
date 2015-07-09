@@ -1,41 +1,46 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH] dsa: mv88e6352/mv88e6xxx: Add support for Marvell
- 88E6320 and 88E6321
-Date: Thu, 09 Jul 2015 10:53:23 +0200
-Message-ID: <1436432003.20619.102.camel@tiscali.nl>
-References: <1436326695-18666-1-git-send-email-linux@roeck-us.net>
+From: Sebastien Rannou <mxs@sbrk.org>
+Subject: Re: [5/6] mvneta: implement SGMII-based in-band link state
+ signaling
+Date: Thu, 9 Jul 2015 11:03:26 +0200 (CEST)
+Message-ID: <alpine.LNX.2.02.1507091040530.23853@sbrk.org>
+References: <55155D9D.6070800@list.ru> <alpine.LNX.2.02.1507081757260.28659@sbrk.org> <559D5520.3030700@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	"Aleksey S. Kazantsev" <ioctl@yandex.ru>
-To: Guenter Roeck <linux@roeck-us.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="2036029021-485324858-1436432606=:23853"
+Cc: netdev@vger.kernel.org,
+	Linux kernel <linux-kernel@vger.kernel.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: Stas Sergeev <stsp@list.ru>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1436326695-18666-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <559D5520.3030700@list.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On di, 2015-07-07 at 20:38 -0700, Guenter Roeck wrote:
-> --- a/drivers/net/dsa/mv88e6352.c
-> +++ b/drivers/net/dsa/mv88e6352.c
- 
-> -MODULE_ALIAS("platform:mv88e6352");
->  MODULE_ALIAS("platform:mv88e6172");
-> +MODULE_ALIAS("platform:mv88e6176");
-> +MODULE_ALIAS("platform:mv88e6320");
-> +MODULE_ALIAS("platform:mv88e6321");
-> +MODULE_ALIAS("platform:mv88e6352");
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Naive question: there are quite a few similar MODULE_ALIAS() macros in
-drivers/net/dsa. That is, macros using "platform:mv88e6[...]". But I
-couldn't find the struct platform_device's that would, in short, fire
-off the corresponding "MODALIAS=platform:mv88e6[...]" uevent when
-they're created. Where should I look for those struct platform_device's?
+--2036029021-485324858-1436432606=:23853
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: 8BIT
 
-Thanks,
+On Wed, 8 Jul 2015, Stas Sergeev wrote:
 
+> What is there? A phy chip, or something else?
 
-Paul Bolle
+It's "something else", there's a phy which aggregates 4xSGMIIs to
+1xQSGMII, we are on the media side here, the MAC side is connected
+to the switch through QSGMII.
+
+> Perhaps some DT property should be added to explicitly
+> enable the use of the inband status...
+
+Yes, that would be fine.
+
+> I'll try to come up with the patch tomorrow that adds such
+> property.
+
+Thanks! I can help for testing.
+
+-- 
+Sébastien
+--2036029021-485324858-1436432606=:23853--
