@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] net: pktgen: fix race between
- pktgen_thread_worker() and kthread_stop()
-Date: Thu, 09 Jul 2015 15:06:10 -0700 (PDT)
-Message-ID: <20150709.150610.1320631571607151185.davem@davemloft.net>
-References: <20150708194154.GA26534@redhat.com>
+Subject: Re: [PATCH -next] ipv6: use flag instead of u16 for hop in
+ inet6_skb_parm
+Date: Thu, 09 Jul 2015 15:09:37 -0700 (PDT)
+Message-ID: <20150709.150937.189941526500062648.davem@davemloft.net>
+References: <1436391132-5199-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, edumazet@google.com, jstancek@redhat.com,
-	mleitner@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: oleg@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150708194154.GA26534@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46018 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750855AbbGIWJi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 18:09:38 -0400
+In-Reply-To: <1436391132-5199-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oleg Nesterov <oleg@redhat.com>
-Date: Wed, 8 Jul 2015 21:41:54 +0200
+From: Florian Westphal <fw@strlen.de>
+Date: Wed,  8 Jul 2015 23:32:12 +0200
 
-> I am not familiar with this code and I have no idea how to test
-> these changes, so 2/2 comes as a separate change. 1/2 looks like
-> the obvious bugfix, and probably candidate for -stable.
+> Hop was always either 0 or sizeof(struct ipv6hdr).
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-These look fine to me, applied and patch #1 queued up for -stable.
-
-Thanks.
+Looks good, applied, thanks Florian.
