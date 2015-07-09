@@ -1,65 +1,87 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: systemport: Use eth_hw_addr_random
-Date: Wed, 08 Jul 2015 22:01:49 -0700
-Message-ID: <559E003D.3050101@gmail.com>
-References: <20150708051930.GA13317@vaishali-Ideapad-Z570>
+Subject: Re: [PATCH net] net: bcmgenet: fix accounting of packet drops vs
+ errors
+Date: Wed, 08 Jul 2015 22:02:39 -0700
+Message-ID: <559E006F.4010900@gmail.com>
+References: <089e0122a88432eb63051a678bba@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Vaishali Thakkar <vthakkar1994@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: davem@davemloft.net
+To: Petri Gynther <pgynther@google.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:33139 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752329AbbGIFBz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 01:01:55 -0400
-In-Reply-To: <20150708051930.GA13317@vaishali-Ideapad-Z570>
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:35456 "EHLO
+	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753092AbbGIFCl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 01:02:41 -0400
+Received: by oihr66 with SMTP id r66so125738951oih.2
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 22:02:41 -0700 (PDT)
+In-Reply-To: <089e0122a88432eb63051a678bba@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 07/07/15 22:19, Vaishali Thakkar a =C3=A9crit :
-> Use eth_hw_addr_random() instead of calling random_ether_addr().
-> Here, this change is setting addr_assign_type to NET_ADDR_RANDOM.
+Le 07/08/15 18:55, Petri Gynther a =C3=A9crit :
+> bcmgenet driver needs to separate packet drops from packet errors.
 >=20
-> The Coccinelle semantic patch that performs this transformation
-> is as follows:
+> When the driver has to drop a *good* packet, due to lack of buffers o=
+r
+> replacement skbs, increment only dev->stats.[rx|tx]_dropped.
 >=20
-> @@
-> identifier a,b;
-> @@
+> When the driver encounters a bad Rx packet or Tx error, increment onl=
+y
+> dev->stats.[rx|tx]_errors + relevant detailed error counter.
 >=20
-> -random_ether_addr(a->b);
-> +eth_hw_addr_random(a);
->=20
-> Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
-> ---
-> Note that this patch is compile tested only and I have used file
-> drivers/net/ethernet/hisilicon/hix5hd2_gmac.c as a reference.
-> Also, original call didn't make assignment to NET_ADDR_RANDOM. So,
-> it would be good if someone can test this change.
+> Signed-off-by: Petri Gynther <pgynther@google.com>
 
-Thanks, I will give this a try and report.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
 > ---
->  drivers/net/ethernet/broadcom/bcmsysport.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 4 ----
+>  1 file changed, 4 deletions(-)
 >=20
-> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net=
-/ethernet/broadcom/bcmsysport.c
-> index 909ad7a..4566cdf 100644
-> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
-> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-> @@ -1793,7 +1793,7 @@ static int bcm_sysport_probe(struct platform_de=
-vice *pdev)
->  	macaddr =3D of_get_mac_address(dn);
->  	if (!macaddr || !is_valid_ether_addr(macaddr)) {
->  		dev_warn(&pdev->dev, "using random Ethernet MAC\n");
-> -		random_ether_addr(dev->dev_addr);
-> +		eth_hw_addr_random(dev);
->  	} else {
->  		ether_addr_copy(dev->dev_addr, macaddr);
->  	}
+> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> index b43b2cb..64c1e9d 100644
+> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> @@ -1230,7 +1230,6 @@ static struct sk_buff *bcmgenet_put_tx_csum(str=
+uct
+> net_device *dev,
+>          new_skb =3D skb_realloc_headroom(skb, sizeof(*status));
+>          dev_kfree_skb(skb);
+>          if (!new_skb) {
+> -            dev->stats.tx_errors++;
+>              dev->stats.tx_dropped++;
+>              return NULL;
+>          }
+> @@ -1465,7 +1464,6 @@ static unsigned int bcmgenet_desc_rx(struct
+> bcmgenet_rx_ring *ring,
 >=20
+>          if (unlikely(!skb)) {
+>              dev->stats.rx_dropped++;
+> -            dev->stats.rx_errors++;
+>              goto next;
+>          }
+>=20
+> @@ -1493,7 +1491,6 @@ static unsigned int bcmgenet_desc_rx(struct
+> bcmgenet_rx_ring *ring,
+>          if (unlikely(!(dma_flag & DMA_EOP) || !(dma_flag & DMA_SOP))=
+) {
+>              netif_err(priv, rx_status, dev,
+>                    "dropping fragmented packet!\n");
+> -            dev->stats.rx_dropped++;
+>              dev->stats.rx_errors++;
+>              dev_kfree_skb_any(skb);
+>              goto next;
+> @@ -1515,7 +1512,6 @@ static unsigned int bcmgenet_desc_rx(struct
+> bcmgenet_rx_ring *ring,
+>                  dev->stats.rx_frame_errors++;
+>              if (dma_flag & DMA_RX_LG)
+>                  dev->stats.rx_length_errors++;
+> -            dev->stats.rx_dropped++;
+>              dev->stats.rx_errors++;
+>              dev_kfree_skb_any(skb);
+>              goto next;
 
 
 --=20
