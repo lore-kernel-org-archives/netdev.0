@@ -1,85 +1,60 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH/RFC net-next] rocker: forward packets to CPU when a port
- in promiscuous mode
-Date: Wed, 08 Jul 2015 22:38:51 -0700
-Message-ID: <559E08EB.1000402@gmail.com>
-References: <1436415931-16469-1-git-send-email-simon.horman@netronome.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: Fighting out-of-order reception with RPS?
+Date: Thu, 09 Jul 2015 07:55:43 +0200
+Message-ID: <559E0CDF.7080309@hartkopp.net>
+References: <559D628C.5020100@hartkopp.net> <CALx6S35OJHyr6iwfdtYW6P-ke2pmsmQ9BjO-D=qjgCHxwF7oew@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Simon Horman <simon.horman@netronome.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:35277 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750721AbbGIFim (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 01:38:42 -0400
-Received: by obbop1 with SMTP id op1so165231463obb.2
-        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 22:38:41 -0700 (PDT)
-In-Reply-To: <1436415931-16469-1-git-send-email-simon.horman@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	sunil.kovvuri@gmail.com, jonathon.reinhart@gmail.com
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <CALx6S35OJHyr6iwfdtYW6P-ke2pmsmQ9BjO-D=qjgCHxwF7oew@mail.gmail.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 15-07-08 09:25 PM, Simon Horman wrote:
-> This change allows the CPU to see all packets seen by a port when the
-> netdev associated with the port is in promiscuous mode.
->=20
-> This change was previously posted as part of a larger patch and in tu=
-rn
-> patchset which also aimed to allow rocker interfaces to receive packe=
-ts
-> when not bridged. That problem has subsequently been addressed in a
-> different way by Scott Feldman.
->=20
-> When this change was previously posted Scott indicated that he had so=
-me
-> reservations about sending all packets from a switch to the CPU. The
-> purpose of posting this patch is to start discussion of weather this
-> approach is appropriate and if not how else we might move forwards.
->=20
-> In my opinion if host doesn't want all packets its shouldn't put a po=
-rt
-> in promiscuous mode. But perhaps that is an overly na=EFve view to ta=
-ke.
->=20
-> My main motivation for this change at this time is to allow rocker to
-> work with Open vSwitch and it appears that this change is sufficient =
-to
-> reach that goal. Another approach might be to teach
-> rocker_port_master_changed() about Open vSwitch.
->=20
 
-My opinion would be to not confuse a host concept 'promiscuous mode'
-and allow it to impact how the forwarding is done by the hardware. I
-think a better approach would be to put a default low priority rule in
-one of the hardware match action tables to mirror all traffic to the
-port you want to mirror traffic to. And if it happens to be a CPU port
-then it will be pushed to the host.
+On 08.07.2015 23:17, Tom Herbert wrote:
+> On Wed, Jul 8, 2015 at 10:49 AM, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
+(..)
+>> When receiving CAN frames from a specific CAN network interface (e.g. can0)
+>> the frames are sporadically out-of-order on SMP systems like my Core i7 laptop
+>> with 4 CPUs. This out-of-order reception kills reliable communication e.g. for
+>> CAN transport protocols.
+>>
+>> First approach was to set the smp_affinity for the USB adapter on irq 28 with:
+(..)
+>> Next idea was to use RPS after reading Documentation/networking/scaling.txt
+(..)
+>>
+>> My two questions:
+>>
+>> 1. Is there any better solution to meet the described requirements?
+>
+> I would suggest that you look into how there are OOO packets in the
+> first place. Even if the interrupts is allowed to happen on different
+> CPUs by sm_affinity, NAPI execution should be serialized for the
+> device so that OOO shouldn't happen. The result of your RPS setting
+> should be all packets go to the same queue, this shouldn't normally
+> affect the ordering. Looking at drivers/net/can there are apparently
+> several variants of the driver. Do you know which one you're running?
 
-My problem with the semantics here is it seems overload how we use
-promiscuous mode in the NIC today. For example I don't see how to use
-it in an SR-IOV case or multi-function device. How would you handle
-this if more than one port was put in promiscuous mode? Mirror to both
-ports? Today when we put a device in a promiscuous mode behind a
-switch we don't expect to start receiving all traffic.
+I have two CAN hardware interfaces I can test together with a SMP system:
 
-I think at very least we need to be very specific about how we define
-it and when it applies if we overload promisc field. Also wouldn't
-it break any 'bridge/vswitch' software that puts the port in promisc
-mode by default.
+1. PCAN-USB using the driver at drivers/net/can/usb/peak_usb/
+2. PCAN Compact PCIe using drivers/net/can/sja1000/(peak_pci.c / sja1000.c)
 
-> In the longer term I believe Open vSwitch should be able to program
-> flows into rocker 'hardware' and thus not all packets would reach the=
- CPU.
+Both drivers do not use NAPI. The just follow the way
 
-Agree with this point.
+interrupt -> alloc_skb() -> fill skb -> netif_rx(skb)
 
->=20
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> ---
->  drivers/net/ethernet/rocker/rocker.c | 33 ++++++++++++++++++++++++++=
-+++----
->  1 file changed, 29 insertions(+), 4 deletions(-)
->=20
+I'm usually testing with the USB adapters as the PCIe setup is not very handy.
+
+Best regards,
+Oliver
+
+>
+>> 2. If not: How can enable this RPS solution by default for CAN interfaces?
+
