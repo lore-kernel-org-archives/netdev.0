@@ -1,46 +1,41 @@
-From: Jan Blunck <jblunck@infradead.org>
-Subject: Re: [PATCH] team: set IFF_SLAVE on team ports
-Date: Thu, 9 Jul 2015 17:36:55 +0200
-Message-ID: <CALe+Z03R_MPcgUSa8xoMeT5Sv3z8KwFhrtoYYzON=prfR-7hxQ@mail.gmail.com>
-References: <1436435914-8903-1-git-send-email-jblunck@infradead.org>
-	<20150709100727.GE2270@nanopsycho.orion>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: do not export tcp_init_xmit_timers()
+Date: Thu, 09 Jul 2015 18:01:40 +0200
+Message-ID: <1436457700.24939.36.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150709100727.GE2270@nanopsycho.orion>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:38412 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753398AbbGIQBp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 12:01:45 -0400
+Received: by wicmv11 with SMTP id mv11so5021904wic.1
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 09:01:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 9, 2015 at 12:07 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Thu, Jul 09, 2015 at 11:58:34AM CEST, jblunck@infradead.org wrote:
->>The code in net/ipv6/addrconf.c:addrconf_notify() tests for IFF_SLAVE to
->>decide if it should start the address configuration. Since team ports
->>shouldn't get link-local addresses assigned lets set IFF_SLAVE when linking
->>a port to the team master.
->
-> I don't want to use IFF_SLAVE in team. Other master-slave devices are
-> not using that as well, for example bridge, ovs, etc.
->
+From: Eric Dumazet <edumazet@google.com>
 
-Maybe they need to get fixed too. I've used that flag because it is
-documented as
-a "slave of a load balancer" which describes what a team port is.
+After commit 900f65d361d3 ("tcp: move duplicate code from
+tcp_v4_init_sock()/tcp_v6_init_sock()"), we no longer
+need to export tcp_init_xmit_timers()
 
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_timer.c |    1 -
+ 1 file changed, 1 deletion(-)
 
-> I think that this should be fixed in addrconf_notify. It should lookup
-> if there is a master on top and bail out in that case.
-
-There are other virtual interfaces that have a master assigned and want to
-participate in IPv6 address configuration.
-
-Unless we want to have a cascade of conditionals testing the priv_flags in
-addrconf_notify() this is asking for a new net_device_flags flag.
-Maybe something
-generic like IFF_L2PORT ?
-
-Thanks,
-Jan
-
-[ Jiri, sorry for getting that mail twice ]
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 5b752f58a900..7149ebc820c7 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -649,4 +649,3 @@ void tcp_init_xmit_timers(struct sock *sk)
+ 	inet_csk_init_xmit_timers(sk, &tcp_write_timer, &tcp_delack_timer,
+ 				  &tcp_keepalive_timer);
+ }
+-EXPORT_SYMBOL(tcp_init_xmit_timers);
