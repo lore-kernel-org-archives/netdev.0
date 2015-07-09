@@ -1,77 +1,126 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: ip_forward_use_pmtu and forwarding to xfrm'ed gre
-Date: Thu, 9 Jul 2015 17:48:46 +0300
-Message-ID: <20150709174847.334f58ad@vostro>
-References: <20150708163032.5b5df2ec@vostro>
-	<1436370752.3846.36.camel@stressinduktion.org>
-	<20150708191751.3fc42725@vostro>
-	<1436377198.3846.46.camel@stressinduktion.org>
-	<20150708215156.7007eb09@vostro>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [BUG] "$ ss -a" incorrectly displays raw sockets as udp sockets
+Date: Thu, 09 Jul 2015 16:50:06 +0200
+Message-ID: <559E8A1E.1060002@cumulusnetworks.com>
+References: <559E8178.9080808@beyondsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: multipart/mixed;
+ boundary="------------080600080103080600080808"
+To: Miha Marolt <miham@beyondsemi.com>, netdev@vger.kernel.org,
+	vadim4j@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:33431 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751430AbbGIOsw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 10:48:52 -0400
-Received: by laar3 with SMTP id r3so248315268laa.0
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 07:48:51 -0700 (PDT)
-In-Reply-To: <20150708215156.7007eb09@vostro>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:38102 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751125AbbGIOuz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 10:50:55 -0400
+Received: by wicmv11 with SMTP id mv11so3323190wic.1
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 07:50:54 -0700 (PDT)
+In-Reply-To: <559E8178.9080808@beyondsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+This is a multi-part message in MIME format.
+--------------080600080103080600080808
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 
-On Wed, 8 Jul 2015 21:51:56 +0300
-Timo Teras <timo.teras@iki.fi> wrote:
-
-> On Wed, 08 Jul 2015 19:39:58 +0200
-> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> > 
-> > At least we know which interface the packet would leave. Should we
-> > override this behavior on a per-interface basis?
+On 07/09/2015 04:13 PM, Miha Marolt wrote:
+> Hi!
 > 
-> That would be one option. We could also make the exception just for
-> GRE interface in the DF mode. Or some sort of per-interface flag that
-> is set internally by the driver.
+> I hope this is the right place to reports bugs. I apologize if it isn't.
 > 
-> > (Although I am in favor of admins just correcting the mtu by hand
-> > and documenting this as you proposed earlier. I really don't know
-> > if it is worth the effort to propagate those information.).
+> I have written a C program (see below for source code) that opens a raw socket on CentOS 7.1 Linux and binds it to some address (it doesn't use the port that I supplied, but that is not the point here). The "netstat" program correctly recognizes the socket as "raw", while "ss" program says it is "udp". Here are the relevant lines from the ss and netstat commands:
 > 
-> The problem with GRE + DF is that the internal packet is no-DF and
-> potentially fragmented, but the tunneled packets (fragments) do have
-> DF set. So no interim router can defrag+frag if needed. This means
-> pmtu must be honored. And on nbma gre tunnels (target tunnel address
-> depends on encapsulated packet's address) the path mtu needs to be
-> propagated back to the sender.
+> $ netstat -an
+> raw        0      0 127.0.0.1:6             0.0.0.0:* 7
 > 
-> In this configuration ip_forward_use_pmtu needs to be enabled (system
-> wide, per-interface config, or implicitly by interface flags). Or
-> alternatively the trusted pmtu needs to be propagated via alternate
-> mechanism. But that might be quite tricky to implement.
+> $ ./ss -an
+> udp    UNCONN     21569  0      127.0.0.1:6 *:*
 > 
-> I believe other tunnels have similar mechanism. E.g. ipip tunnels
-> seems to share same DF vs. non-DF mode based on 'ttl' setting.
+> Here is the version information
+> 
+> $ netstat --version  # From CentOS 7.1.
+> net-tools 2.10-alpha
+> 
+> $ ./ss --version  # Built from git.
+> ss utility, iproute2-ss150626
+> 
+> 
+> C source follows. If you store it in "main.c", then compile it with "$ gcc main.c -o main" and then run it by executing "$ sudo ./main".
+> 
+> #include <arpa/inet.h>
+> #include <assert.h>
+> #include <sys/socket.h>
+> #include <stdio.h>
+> #include <unistd.h>
+> 
+> 
+> int main(void)
+> {
+>     // Create a raw socket.
+>     int sock = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
+>     if (sock == -1) { perror(NULL); goto exc_cleanup; }
+> 
+>     // Bind socket to an address.
+>     struct sockaddr_in addr;
+>     addr.sin_family = AF_INET;
+>     inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
+>     addr.sin_port = htons(27183);
+> 
+>     int rc = bind(sock, (struct sockaddr*)&addr, sizeof(addr));
+>     if (rc != 0) { perror(NULL); goto exc_cleanup; }
+> 
+>     // Wait until user presses <ENTER>.
+>     printf("\nPress <ENTER> to quit the program.\n");
+>     getchar();
+> 
+> exc_cleanup:
+>     assert(!close(sock));
+> }
+> 
+> 
+> Best regards,
+> Miha
 
-Thinking more on this, the issue happens even without XFRM. XFRM just
-makes it pretty much immediate to happen.
 
-Basically tunnel devices with 'pmtudisc' flag set (default for many,
-and especially if 'ttl' parameter is used), have the issue always. As
-the tunnel header has DF always set the routers handling tunnel packets
-cannot really re-fragment.
+Hi,
+I think this was changed by commit:
+8250bc9ff4e5 ("ss: Unify inet sockets output")
+Because dgram_show_line() is used for both UDP and RAW sockets
+IPPROTO_UDP is used for both now and proto_name() returns "udp".
+CCed the patch author and attached a possible solution.
 
-I believe we should have a flag describing this functionality, and
-enable ip_forward_use_pmtu for those interface. IFF_XMIT_DST_RELEASE is
-a prerequisite to update the inner flow pmtu, so it might be used as
-hint. Though, it's set even if 'nopmtudisc' was configured. So I
-suppose this would deserve it's own flag. Grepping for drivers calling
-netif_keep_dst() gives a list of drivers which need to be checked if
-they rely on this behaviour.
+Cheers,
+ Nik
 
-Thanks,
-Timo
+--------------080600080103080600080808
+Content-Type: text/x-patch;
+ name="ss-raw.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="ss-raw.patch"
+
+diff --git a/misc/ss.c b/misc/ss.c
+index 870cad185341..4de77e92c319 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1554,6 +1554,8 @@ out:
+ static char *proto_name(int protocol)
+ {
+ 	switch (protocol) {
++	case IPPROTO_RAW:
++		return "raw";
+ 	case IPPROTO_UDP:
+ 		return "udp";
+ 	case IPPROTO_TCP:
+@@ -2398,7 +2400,7 @@ static int dgram_show_line(char *line, const struct filter *f, int family)
+ 	if (n < 9)
+ 		opt[0] = 0;
+ 
+-	inet_stats_print(&s, IPPROTO_UDP);
++	inet_stats_print(&s, dg_proto == UDP_PROTO ? IPPROTO_UDP : IPPROTO_RAW);
+ 
+ 	if (show_details && opt[0])
+ 		printf(" opt:\"%s\"", opt);
+
+--------------080600080103080600080808--
