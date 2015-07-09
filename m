@@ -1,47 +1,116 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [PATCH 2/2] mvneta: use inband status only when link type is
- "auto"
-Date: Thu, 9 Jul 2015 23:26:25 +0300
-Message-ID: <559ED8F1.7050609@list.ru>
-References: <559EB0A4.5080101@list.ru> <559EB22E.7070607@list.ru>
- <559EBAFE.6040705@gmail.com>
+From: Roy Pledge <Roy.Pledge@freescale.com>
+Subject: [PATCH 00/11] Freescale DPAA QBMan Drivers
+Date: Thu, 9 Jul 2015 16:18:10 -0400
+Message-ID: <1436473101-21202-1-git-send-email-Roy.Pledge@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	netdev <netdev@vger.kernel.org>, stable@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <559EBAFE.6040705@gmail.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Roy Pledge <Roy.Pledge@freescale.com>
+To: <linuxppc-dev@lists.ozlabs.org>, <scottwood@freescale.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-09.07.2015 21:18, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On 09/07/15 10:41, Stas Sergeev wrote:
->> The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band link=
- state
->> signaling") implemented the link parameters auto-negotiation uncondi=
-tionally.
->> Unfortunately it appears that some HW that implements SGMII protocol=
-,
->> doesn't generate the inband status, so it is not possible to auto-ne=
-gotiate
->> anything with such HW.
-> What is the purpose of using the in-band status in the first place if
-> you end-up having to specify a 'fixed-link' property which contains m=
-ost
-> of the link parameters: speed, duplex etc...?
-You don't have to.
-My config from today is as simple as:
 
-fixed-link {
-   link =3D "auto";
-};
+The Freescale Data Path Acceleration Architecture (DPAA) is a set of hardware components on specific QorIQ multicore processors. This architecture provides the infrastructure to support simplified sharing of networking interfaces and accelerators by multiple CPU cores and the accelerators.
 
-and that's all.
-Without my today's patch, only 'speed' is a mandatory - not too much.
+The Queue Manager (QMan) is a hardware queue management block that allows software and accelerators on the datapath to enqueue and dequeue frames in order to communicate.
+
+The Buffer Manager (BMan) is a hardware buffer pool management block that allows software and accelerators on the datapath to acquire and release buffers in order to build frames.
+
+This patch set introduces the QBMan driver code that configures initializes the QBMan hardware and provides APIs for software to use the frame queues and buffer pools the blocks provide.  These drivers provide the base fuctionality for software to communicate with the other DPAA accelerators on Freescale QorIQ processors.
+
+
+Emil Medve (1):
+  powerpc: re-add devm_ioremap_prot()
+
+Geoff Thorpe (7):
+  soc/fsl: Introduce DPAA BMan device management driver
+  soc/fsl: Introduce the DPAA BMan portal driver
+  soc/fsl: Introduce drivers for the DPAA QMan
+  soc/bman: Add self-tester for BMan driver
+  soc/qman: Add self-tester for QMan driver
+  soc/bman: Add debugfs support for the BMan driver
+  soc/qman: Add debugfs support for the QMan driver
+
+Hai-Ying Wang (2):
+  soc/bman: Add HOTPLUG_CPU support to the BMan driver
+  soc/qman: Add HOTPLUG_CPU support to the QMan driver
+
+Madalin Bucur (1):
+  soc/qman: add qman_delete_cgr_safe()
+
+ arch/powerpc/include/asm/io.h                 |    3 +
+ arch/powerpc/lib/Makefile                     |    1 +
+ arch/powerpc/lib/devres.c                     |   43 +
+ arch/powerpc/platforms/85xx/corenet_generic.c |   16 +
+ arch/powerpc/platforms/85xx/p1023_rdb.c       |   14 +
+ drivers/soc/Kconfig                           |    1 +
+ drivers/soc/Makefile                          |    1 +
+ drivers/soc/fsl/Kconfig                       |    5 +
+ drivers/soc/fsl/Makefile                      |    3 +
+ drivers/soc/fsl/qbman/Kconfig                 |  192 ++
+ drivers/soc/fsl/qbman/Makefile                |   20 +
+ drivers/soc/fsl/qbman/bman-debugfs.c          |  117 +
+ drivers/soc/fsl/qbman/bman.c                  |  554 +++++
+ drivers/soc/fsl/qbman/bman.h                  |  542 +++++
+ drivers/soc/fsl/qbman/bman_api.c              | 1070 +++++++++
+ drivers/soc/fsl/qbman/bman_portal.c           |  391 ++++
+ drivers/soc/fsl/qbman/bman_priv.h             |  134 ++
+ drivers/soc/fsl/qbman/bman_test.c             |   56 +
+ drivers/soc/fsl/qbman/bman_test.h             |   34 +
+ drivers/soc/fsl/qbman/bman_test_api.c         |  184 ++
+ drivers/soc/fsl/qbman/bman_test_thresh.c      |  198 ++
+ drivers/soc/fsl/qbman/bman_utils.c            |   72 +
+ drivers/soc/fsl/qbman/dpaa_resource.c         |  359 +++
+ drivers/soc/fsl/qbman/dpaa_sys.h              |  301 +++
+ drivers/soc/fsl/qbman/qman-debugfs.c          | 1313 +++++++++++
+ drivers/soc/fsl/qbman/qman.c                  | 1015 +++++++++
+ drivers/soc/fsl/qbman/qman.h                  | 1128 ++++++++++
+ drivers/soc/fsl/qbman/qman_api.c              | 2917 +++++++++++++++++++++++++
+ drivers/soc/fsl/qbman/qman_driver.c           |   83 +
+ drivers/soc/fsl/qbman/qman_portal.c           |  673 ++++++
+ drivers/soc/fsl/qbman/qman_priv.h             |  290 +++
+ drivers/soc/fsl/qbman/qman_test.c             |   57 +
+ drivers/soc/fsl/qbman/qman_test.h             |   44 +
+ drivers/soc/fsl/qbman/qman_test_api.c         |  216 ++
+ drivers/soc/fsl/qbman/qman_test_stash.c       |  502 +++++
+ drivers/soc/fsl/qbman/qman_utils.c            |  305 +++
+ include/soc/fsl/bman.h                        |  514 +++++
+ include/soc/fsl/qman.h                        | 1968 +++++++++++++++++
+ 38 files changed, 15336 insertions(+)
+ create mode 100644 arch/powerpc/lib/devres.c
+ create mode 100644 drivers/soc/fsl/Kconfig
+ create mode 100644 drivers/soc/fsl/Makefile
+ create mode 100644 drivers/soc/fsl/qbman/Kconfig
+ create mode 100644 drivers/soc/fsl/qbman/Makefile
+ create mode 100644 drivers/soc/fsl/qbman/bman-debugfs.c
+ create mode 100644 drivers/soc/fsl/qbman/bman.c
+ create mode 100644 drivers/soc/fsl/qbman/bman.h
+ create mode 100644 drivers/soc/fsl/qbman/bman_api.c
+ create mode 100644 drivers/soc/fsl/qbman/bman_portal.c
+ create mode 100644 drivers/soc/fsl/qbman/bman_priv.h
+ create mode 100644 drivers/soc/fsl/qbman/bman_test.c
+ create mode 100644 drivers/soc/fsl/qbman/bman_test.h
+ create mode 100644 drivers/soc/fsl/qbman/bman_test_api.c
+ create mode 100644 drivers/soc/fsl/qbman/bman_test_thresh.c
+ create mode 100644 drivers/soc/fsl/qbman/bman_utils.c
+ create mode 100644 drivers/soc/fsl/qbman/dpaa_resource.c
+ create mode 100644 drivers/soc/fsl/qbman/dpaa_sys.h
+ create mode 100644 drivers/soc/fsl/qbman/qman-debugfs.c
+ create mode 100644 drivers/soc/fsl/qbman/qman.c
+ create mode 100644 drivers/soc/fsl/qbman/qman.h
+ create mode 100644 drivers/soc/fsl/qbman/qman_api.c
+ create mode 100644 drivers/soc/fsl/qbman/qman_driver.c
+ create mode 100644 drivers/soc/fsl/qbman/qman_portal.c
+ create mode 100644 drivers/soc/fsl/qbman/qman_priv.h
+ create mode 100644 drivers/soc/fsl/qbman/qman_test.c
+ create mode 100644 drivers/soc/fsl/qbman/qman_test.h
+ create mode 100644 drivers/soc/fsl/qbman/qman_test_api.c
+ create mode 100644 drivers/soc/fsl/qbman/qman_test_stash.c
+ create mode 100644 drivers/soc/fsl/qbman/qman_utils.c
+ create mode 100644 include/soc/fsl/bman.h
+ create mode 100644 include/soc/fsl/qman.h
+
+--
+1.7.9.5
