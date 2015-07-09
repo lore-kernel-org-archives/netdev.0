@@ -1,105 +1,66 @@
-From: Vaishali Thakkar <vthakkar1994@gmail.com>
-Subject: [PATCH] neterion: s2io: Use module_pci_driver
-Date: Thu, 9 Jul 2015 10:25:39 +0530
-Message-ID: <20150709045539.GA7052@vaishali-Ideapad-Z570>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: systemport: Use eth_hw_addr_random
+Date: Wed, 08 Jul 2015 22:01:49 -0700
+Message-ID: <559E003D.3050101@gmail.com>
+References: <20150708051930.GA13317@vaishali-Ideapad-Z570>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jon Mason <jdmason@kudzu.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Vaishali Thakkar <vthakkar1994@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:33139 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752329AbbGIFBz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 01:01:55 -0400
+In-Reply-To: <20150708051930.GA13317@vaishali-Ideapad-Z570>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use module_pci_driver for drivers whose init and exit functions
-only register and unregister, respectively.
+Le 07/07/15 22:19, Vaishali Thakkar a =C3=A9crit :
+> Use eth_hw_addr_random() instead of calling random_ether_addr().
+> Here, this change is setting addr_assign_type to NET_ADDR_RANDOM.
+>=20
+> The Coccinelle semantic patch that performs this transformation
+> is as follows:
+>=20
+> @@
+> identifier a,b;
+> @@
+>=20
+> -random_ether_addr(a->b);
+> +eth_hw_addr_random(a);
+>=20
+> Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
+> ---
+> Note that this patch is compile tested only and I have used file
+> drivers/net/ethernet/hisilicon/hix5hd2_gmac.c as a reference.
+> Also, original call didn't make assignment to NET_ADDR_RANDOM. So,
+> it would be good if someone can test this change.
 
-A simplified version of the Coccinelle semantic patch that performs
-this transformation is as follows:
+Thanks, I will give this a try and report.
 
-@a@
-identifier f, x;
-@@
--static f(...) { return pci_register_driver(&x); }
+> ---
+>  drivers/net/ethernet/broadcom/bcmsysport.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net=
+/ethernet/broadcom/bcmsysport.c
+> index 909ad7a..4566cdf 100644
+> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
+> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+> @@ -1793,7 +1793,7 @@ static int bcm_sysport_probe(struct platform_de=
+vice *pdev)
+>  	macaddr =3D of_get_mac_address(dn);
+>  	if (!macaddr || !is_valid_ether_addr(macaddr)) {
+>  		dev_warn(&pdev->dev, "using random Ethernet MAC\n");
+> -		random_ether_addr(dev->dev_addr);
+> +		eth_hw_addr_random(dev);
+>  	} else {
+>  		ether_addr_copy(dev->dev_addr, macaddr);
+>  	}
+>=20
 
-@b depends on a@
-identifier e, a.x;
-statement S;
-@@
--static e(...) {
--pci_unregister_driver(&x);
--DBG_PRINT(INIT_DBG,"S");
-- }
 
-@c depends on a && b@
-identifier a.f;
-declarer name module_init;
-@@
--module_init(f);
-
-@d depends on a && b && c@
-identifier b.e, a.x;
-declarer name module_exit;
-declarer name module_pci_driver;
-@@
--module_exit(e);
-+module_pci_driver(x);
-
-Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
----
- drivers/net/ethernet/neterion/s2io.c | 26 +-------------------------
- drivers/net/ethernet/neterion/s2io.h |  2 --
- 2 files changed, 1 insertion(+), 27 deletions(-)
-
-diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
-index c281117..2d1b942 100644
---- a/drivers/net/ethernet/neterion/s2io.c
-+++ b/drivers/net/ethernet/neterion/s2io.c
-@@ -8226,31 +8226,7 @@ static void s2io_rem_nic(struct pci_dev *pdev)
- 	pci_disable_device(pdev);
- }
- 
--/**
-- * s2io_starter - Entry point for the driver
-- * Description: This function is the entry point for the driver. It verifies
-- * the module loadable parameters and initializes PCI configuration space.
-- */
--
--static int __init s2io_starter(void)
--{
--	return pci_register_driver(&s2io_driver);
--}
--
--/**
-- * s2io_closer - Cleanup routine for the driver
-- * Description: This function is the cleanup routine for the driver. It
-- * unregisters the driver.
-- */
--
--static __exit void s2io_closer(void)
--{
--	pci_unregister_driver(&s2io_driver);
--	DBG_PRINT(INIT_DBG, "cleanup done\n");
--}
--
--module_init(s2io_starter);
--module_exit(s2io_closer);
-+module_pci_driver(s2io_driver);
- 
- static int check_L2_lro_capable(u8 *buffer, struct iphdr **ip,
- 				struct tcphdr **tcp, struct RxD_t *rxdp,
-diff --git a/drivers/net/ethernet/neterion/s2io.h b/drivers/net/ethernet/neterion/s2io.h
-index d89b6ed..6c5997d 100644
---- a/drivers/net/ethernet/neterion/s2io.h
-+++ b/drivers/net/ethernet/neterion/s2io.h
-@@ -1085,8 +1085,6 @@ static void s2io_txpic_intr_handle(struct s2io_nic *sp);
- static void tx_intr_handler(struct fifo_info *fifo_data);
- static void s2io_handle_errors(void * dev_id);
- 
--static int s2io_starter(void);
--static void s2io_closer(void);
- static void s2io_tx_watchdog(struct net_device *dev);
- static void s2io_set_multicast(struct net_device *dev);
- static int rx_osm_handler(struct ring_info *ring_data, struct RxD_t * rxdp);
--- 
-1.9.1
+--=20
+=46lorian
