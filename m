@@ -1,74 +1,65 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [PATCH 2/2] mvneta: use inband status only when link type is
- "auto"
-Date: Fri, 10 Jul 2015 00:31:22 +0300
-Message-ID: <559EE82A.60505@list.ru>
-References: <559EB0A4.5080101@list.ru> <559EB22E.7070607@list.ru>
- <559EBAFE.6040705@gmail.com> <559ED8F1.7050609@list.ru>
- <559EE423.9060503@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: systemport: Use eth_hw_addr_random
+Date: Thu, 09 Jul 2015 14:31:11 -0700
+Message-ID: <559EE81F.20900@gmail.com>
+References: <20150708051930.GA13317@vaishali-Ideapad-Z570>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	netdev <netdev@vger.kernel.org>, stable@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <559EE423.9060503@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Vaishali Thakkar <vthakkar1994@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:36075 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754080AbbGIVcz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 17:32:55 -0400
+In-Reply-To: <20150708051930.GA13317@vaishali-Ideapad-Z570>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-10.07.2015 00:14, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On 09/07/15 13:26, Stas Sergeev wrote:
->> 09.07.2015 21:18, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>> On 09/07/15 10:41, Stas Sergeev wrote:
->>>> The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band li=
-nk
->>>> state
->>>> signaling") implemented the link parameters auto-negotiation
->>>> unconditionally.
->>>> Unfortunately it appears that some HW that implements SGMII protoc=
-ol,
->>>> doesn't generate the inband status, so it is not possible to
->>>> auto-negotiate
->>>> anything with such HW.
->>> What is the purpose of using the in-band status in the first place =
-if
->>> you end-up having to specify a 'fixed-link' property which contains=
- most
->>> of the link parameters: speed, duplex etc...?
->> You don't have to.
->> My config from today is as simple as:
->>
->> fixed-link {
->>    link =3D "auto";
->> };
->>
->> and that's all.
->> Without my today's patch, only 'speed' is a mandatory - not too much=
-=2E
-> That makes me think that 'fixed-link' is not exactly what you want th=
-en,
-> you would probably want something like "marvell,use-in-band-status" o=
-r
-> something like this. It could be a more generic property that is not
-> Marvell specific after all, that would be fine.
-I think there is some confusion around fixed-link, because
-of its name. This is what fixed-link is:
----
-Some Ethernet MACs have a "fixed link", and are not connected to a
-normal MDIO-managed PHY device.
----
-A bit vague, but to me it means "non-MDIO", and that's all.
-If we make it like "marvell,use-in-band-status", then it will
-suddenly cancel everything in a fixed-link definition, which
-is non obvious. Or, if we make it so that fixed-link def is
-not needed in presence of "marvell,use-in-band-status", then
-this "marvell,use-in-band-status" will have to silently enable
-the fixed-phy driver the way fixed-link does.
-If we just view fixed-link as non-MDIO link, then everything
-fits, IMHO.
+On 07/07/15 22:19, Vaishali Thakkar wrote:
+> Use eth_hw_addr_random() instead of calling random_ether_addr().
+> Here, this change is setting addr_assign_type to NET_ADDR_RANDOM.
+> 
+> The Coccinelle semantic patch that performs this transformation
+> is as follows:
+> 
+> @@
+> identifier a,b;
+> @@
+> 
+> -random_ether_addr(a->b);
+> +eth_hw_addr_random(a);
+> 
+> Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
+
+Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+
+> ---
+> Note that this patch is compile tested only and I have used file
+> drivers/net/ethernet/hisilicon/hix5hd2_gmac.c as a reference.
+> Also, original call didn't make assignment to NET_ADDR_RANDOM. So,
+> it would be good if someone can test this change.
+> ---
+>  drivers/net/ethernet/broadcom/bcmsysport.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+> index 909ad7a..4566cdf 100644
+> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
+> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+> @@ -1793,7 +1793,7 @@ static int bcm_sysport_probe(struct platform_device *pdev)
+>  	macaddr = of_get_mac_address(dn);
+>  	if (!macaddr || !is_valid_ether_addr(macaddr)) {
+>  		dev_warn(&pdev->dev, "using random Ethernet MAC\n");
+> -		random_ether_addr(dev->dev_addr);
+> +		eth_hw_addr_random(dev);
+>  	} else {
+>  		ether_addr_copy(dev->dev_addr, macaddr);
+>  	}
+> 
+
+
+-- 
+Florian
