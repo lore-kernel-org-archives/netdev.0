@@ -1,28 +1,49 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [net-next]Add Maximum Rx packet size supported(rx_buf_sz)
- variable on main structure
-Date: Fri, 10 Jul 2015 00:21:58 +0200
-Message-ID: <20150709222158.GC12705@electric-eye.fr.zoreil.com>
-References: <CAGg4U=HsHML2CKm0fgGoi=AZwXDeZpiGJigodAHJP-ehP58pHw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/5] net: don't reforward packets already
+ forwarded by offload device
+Date: Thu, 09 Jul 2015 15:22:19 -0700 (PDT)
+Message-ID: <20150709.152219.296131629520319694.davem@davemloft.net>
+References: <1436397403-62412-1-git-send-email-sfeldma@gmail.com>
+	<1436397403-62412-2-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Marian Corcodel <corcodel.marian@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, roopa@cumulusnetworks.com
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:57031 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754251AbbGIWWL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 18:22:11 -0400
-Content-Disposition: inline
-In-Reply-To: <CAGg4U=HsHML2CKm0fgGoi=AZwXDeZpiGJigodAHJP-ehP58pHw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46062 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754251AbbGIWWU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 18:22:20 -0400
+In-Reply-To: <1436397403-62412-2-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marian Corcodel <corcodel.marian@gmail.com> :
-> Variable  rx_buf_sz have different values on rt8101/8102 is 16000
-> bytes instead of 16383 and now is ready do set these.
+From: sfeldma@gmail.com
+Date: Wed,  8 Jul 2015 16:16:39 -0700
 
-Where does this come from ? Datasheet ? Experimental evidence ?
+> @@ -653,6 +654,9 @@ struct sk_buff {
+>  #ifdef CONFIG_NETWORK_SECMARK
+>  	__u32			secmark;
+>  #endif
+> +#ifdef CONFIG_NET_SWITCHDEV
+> +	__u32			offload_fwd_mark;
+> +#endif
 
--- 
-Ueimor
+May I humbly suggest:
+
+	union {
+#ifdef CONFIG_NETWORK_SECMARK
+		__u32	secmark;
+#endif
+#ifdef CONFIG_NET_SWITCHDEV
+		__u32	offload_fwd_mark;
+#endif
+	};
+
+After some studying, I'm largely convinced that these two values are
+used in non-conflicting contexts.
+
+Let me know if you can find an exception to this.
+
+Thanks.
