@@ -1,96 +1,56 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v2] net: dsa: mv88e6xxx: add write access to debugfs regs file
-Date: Thu,  9 Jul 2015 17:13:29 -0400
-Message-ID: <1436476409-5033-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:55151 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753503AbbGIVNf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 17:13:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 2/2] mvneta: use inband status only when link type is
+ "auto"
+Date: Thu, 09 Jul 2015 14:14:11 -0700
+Message-ID: <559EE423.9060503@gmail.com>
+References: <559EB0A4.5080101@list.ru> <559EB22E.7070607@list.ru> <559EBAFE.6040705@gmail.com> <559ED8F1.7050609@list.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux kernel <linux-kernel@vger.kernel.org>,
+	Sebastien Rannou <mxs@sbrk.org>,
+	Arnaud Ebalard <arno@natisbad.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	netdev <netdev@vger.kernel.org>, stable@vger.kernel.org
+To: Stas Sergeev <stsp@list.ru>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <559ED8F1.7050609@list.ru>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Allow write access to the regs file in the debugfs interface, with the
-following parameters:
+On 09/07/15 13:26, Stas Sergeev wrote:
+> 09.07.2015 21:18, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>> On 09/07/15 10:41, Stas Sergeev wrote:
+>>> The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band lin=
+k
+>>> state
+>>> signaling") implemented the link parameters auto-negotiation
+>>> unconditionally.
+>>> Unfortunately it appears that some HW that implements SGMII protoco=
+l,
+>>> doesn't generate the inband status, so it is not possible to
+>>> auto-negotiate
+>>> anything with such HW.
+>> What is the purpose of using the in-band status in the first place i=
+f
+>> you end-up having to specify a 'fixed-link' property which contains =
+most
+>> of the link parameters: speed, duplex etc...?
+> You don't have to.
+> My config from today is as simple as:
+>=20
+> fixed-link {
+>   link =3D "auto";
+> };
+>=20
+> and that's all.
+> Without my today's patch, only 'speed' is a mandatory - not too much.
 
-    echo <name> <reg> <value> > regs
-
-Where "name" is the register name (as shown in the header row), "reg" is
-the register address (as shown in the first column) and "value" is the
-16-bit value. e.g.:
-
-    echo GLOBAL 1a 5550 > regs
-
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 35 ++++++++++++++++++++++++++++++++++-
- 1 file changed, 34 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 8c130c0..9d14b1a 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1648,6 +1648,38 @@ static int mv88e6xxx_regs_show(struct seq_file *s, void *p)
- 	return 0;
- }
- 
-+static ssize_t mv88e6xxx_regs_write(struct file *file, const char __user *buf,
-+				    size_t count, loff_t *ppos)
-+{
-+	struct seq_file *s = file->private_data;
-+	struct dsa_switch *ds = s->private;
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	char name[32] = { 0 };
-+	unsigned int port, reg, val;
-+	int ret;
-+
-+	if (count > sizeof(name) - 1)
-+		return -EINVAL;
-+
-+	ret = sscanf(buf, "%s %x %x", name, &reg, &val);
-+	if (ret != 3)
-+		return -EINVAL;
-+
-+	if (reg > 0x1f || val > 0xffff)
-+		return -ERANGE;
-+
-+	if (strcasecmp(name, "GLOBAL") == 0)
-+		ret = mv88e6xxx_reg_write(ds, REG_GLOBAL, reg, val);
-+	else if (strcasecmp(name, "GLOBAL2") == 0)
-+		ret = mv88e6xxx_reg_write(ds, REG_GLOBAL2, reg, val);
-+	else if (kstrtouint(name, 10, &port) == 0 && port < ps->num_ports)
-+		ret = mv88e6xxx_reg_write(ds, REG_PORT(port), reg, val);
-+	else
-+		return -EINVAL;
-+
-+	return ret < 0 ? ret : count;
-+}
-+
- static int mv88e6xxx_regs_open(struct inode *inode, struct file *file)
- {
- 	return single_open(file, mv88e6xxx_regs_show, inode->i_private);
-@@ -1656,6 +1688,7 @@ static int mv88e6xxx_regs_open(struct inode *inode, struct file *file)
- static const struct file_operations mv88e6xxx_regs_fops = {
- 	.open   = mv88e6xxx_regs_open,
- 	.read   = seq_read,
-+	.write	= mv88e6xxx_regs_write,
- 	.llseek = no_llseek,
- 	.release = single_release,
- 	.owner  = THIS_MODULE,
-@@ -1895,7 +1928,7 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
- 	ps->dbgfs = debugfs_create_dir(name, NULL);
- 	kfree(name);
- 
--	debugfs_create_file("regs", S_IRUGO, ps->dbgfs, ds,
-+	debugfs_create_file("regs", S_IRUGO | S_IWUSR, ps->dbgfs, ds,
- 			    &mv88e6xxx_regs_fops);
- 
- 	debugfs_create_file("atu", S_IRUGO, ps->dbgfs, ds,
--- 
-2.4.5
+That makes me think that 'fixed-link' is not exactly what you want then=
+,
+you would probably want something like "marvell,use-in-band-status" or
+something like this. It could be a more generic property that is not
+Marvell specific after all, that would be fine.
+--=20
+=46lorian
