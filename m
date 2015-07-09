@@ -1,46 +1,42 @@
-From: Sebastien Rannou <mxs@sbrk.org>
-Subject: Re: [5/6] mvneta: implement SGMII-based in-band link state
- signaling
-Date: Thu, 9 Jul 2015 11:03:26 +0200 (CEST)
-Message-ID: <alpine.LNX.2.02.1507091040530.23853@sbrk.org>
-References: <55155D9D.6070800@list.ru> <alpine.LNX.2.02.1507081757260.28659@sbrk.org> <559D5520.3030700@list.ru>
+From: Damian Hobson-Garcia <dhobsong@igel.co.jp>
+Subject: Re: [PATCH v3 1/1] eventfd: implementation of EFD_MASK flag
+Date: Thu, 9 Jul 2015 18:06:52 +0900
+Message-ID: <559E39AC.1010408@igel.co.jp>
+References: <1361187290-11759-1-git-send-email-sustrik@250bpm.com>
+ <559E296A.6040606@igel.co.jp>
+ <8bb2fb10a310dc3e1eddb851aba93054@imap.lucina.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="2036029021-485324858-1436432606=:23853"
-Cc: netdev@vger.kernel.org,
-	Linux kernel <linux-kernel@vger.kernel.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: Stas Sergeev <stsp@list.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <559D5520.3030700@list.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Martin Sustrik <sustrik@250bpm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:33512 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751298AbbGIJGt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 05:06:49 -0400
+Received: by pdbqm3 with SMTP id qm3so18292356pdb.0
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 02:06:49 -0700 (PDT)
+In-Reply-To: <8bb2fb10a310dc3e1eddb851aba93054@imap.lucina.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hi Martin,
 
---2036029021-485324858-1436432606=:23853
-Content-Type: TEXT/PLAIN; charset=utf-8
-Content-Transfer-Encoding: 8BIT
+On 2015-07-09 5:41 PM, Martin Sustrik wrote:
+> Hi Damian,
+> 
+> Yes, this patch would be geneally useful for implementing stuff in user
+> space that otherwise would have to live in kernelspace.
+> 
+> Unfortunately, I have no cycles left to pursue getting it to the
+> mainline. If you feel like you can take care of it, that would be great.
+I'll see what I can do. I'll rebase it and resubmit it.
+Unless there are major changes (which I highly doubt), I'll keep you as
+the author, if that's ok with you.
+> 
+> I can help with the documentation, if needed.
+Thank you, that would be very much appreciated.
 
-On Wed, 8 Jul 2015, Stas Sergeev wrote:
-
-> What is there? A phy chip, or something else?
-
-It's "something else", there's a phy which aggregates 4xSGMIIs to
-1xQSGMII, we are on the media side here, the MAC side is connected
-to the switch through QSGMII.
-
-> Perhaps some DT property should be added to explicitly
-> enable the use of the inband status...
-
-Yes, that would be fine.
-
-> I'll try to come up with the patch tomorrow that adds such
-> property.
-
-Thanks! I can help for testing.
-
--- 
-Sébastien
---2036029021-485324858-1436432606=:23853--
+Damian
