@@ -1,173 +1,41 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: [PATCH 1/2] of_mdio: add new DT property 'link' for fixed-link
-Date: Thu, 09 Jul 2015 20:38:46 +0300
-Message-ID: <559EB1A6.1090008@list.ru>
-References: <559EB0A4.5080101@list.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-next is OPEN
+Date: Thu, 09 Jul 2015 10:40:19 -0700 (PDT)
+Message-ID: <20150709.104019.370940061164391476.davem@davemloft.net>
+References: <20150708.133041.2042093870138764891.davem@davemloft.net>
+	<559E5FCE.6010301@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: linux-net@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp53.i.mail.ru ([94.100.177.113]:39170 "EHLO smtp53.i.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751976AbbGIRi6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jul 2015 13:38:58 -0400
-In-Reply-To: <559EB0A4.5080101@list.ru>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44183 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751976AbbGIRkU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 13:40:20 -0400
+In-Reply-To: <559E5FCE.6010301@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Thu, 9 Jul 2015 14:49:34 +0300
 
-Currently for fixed-link the link state is always set to UP.
-This patch introduces the new property 'link' that accepts the
-following string arguments: "up", "down" and "auto".
-"down" may be needed if the link is physically unconnected.
-"auto" is needed to enable the link paramaters auto-negotiation,
-that is built into some MII protocols, namely SGMII.
-The appropriate documentation is added and explicitly states that
-"auto" is very specific (protocol, HW and driver-specific), and
-is therefore should be used with care.
+> Hello.
+> 
+> On 7/8/2015 11:30 PM, David Miller wrote:
+> 
+>> Please feel free to bombard me with net-next changes, which some of
+>> you
+>> have been doing already ;-(, as net-next is now open.
+> 
+>    Hm, I pulled and didn't see 4.2-rc1 tag. Is it normal?
 
-Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
+Why does it have to be there?
 
-CC: Rob Herring <robh+dt@kernel.org>
-CC: Pawel Moll <pawel.moll@arm.com>
-CC: Mark Rutland <mark.rutland@arm.com>
-CC: Ian Campbell <ijc+devicetree@hellion.org.uk>
-CC: Kumar Gala <galak@codeaurora.org>
-CC: Florian Fainelli <f.fainelli@gmail.com>
-CC: Grant Likely <grant.likely@linaro.org>
-CC: devicetree@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
-CC: netdev@vger.kernel.org
----
- .../devicetree/bindings/net/fixed-link.txt         |  8 +++-
- drivers/of/of_mdio.c                               | 48 ++++++++++++++++++++--
- include/linux/of_mdio.h                            |  5 +++
- 3 files changed, 57 insertions(+), 4 deletions(-)
+I build net-next by pulling net into net-next.
 
-diff --git a/Documentation/devicetree/bindings/net/fixed-link.txt b/Documentation/devicetree/bindings/net/fixed-link.txt
-index 82bf7e0..070f554 100644
---- a/Documentation/devicetree/bindings/net/fixed-link.txt
-+++ b/Documentation/devicetree/bindings/net/fixed-link.txt
-@@ -9,8 +9,14 @@ Such a fixed link situation is described by creating a 'fixed-link'
- sub-node of the Ethernet MAC device node, with the following
- properties:
+Since 'net' is based upon Linus's tree before he added that tag
+there is no reason for it to have that tag at all.
 
-+* 'link' (string, optional), to indicate the link state. Accepted
-+  values are "up", "down" and "auto". "auto" means auto-negotiation of
-+  link parameters. Auto-negotiation is MII protocol, HW and driver-specific
-+  and is not supported in many cases, so use it only when you know what
-+  you do.
- * 'speed' (integer, mandatory), to indicate the link speed. Accepted
--  values are 10, 100 and 1000
-+  values are 10, 100 and 1000. If the 'link' property is set to 'auto',
-+  'speed' may not be set. It will then be auto-negotiated, if possible.
- * 'full-duplex' (boolean, optional), to indicate that full duplex is
-   used. When absent, half duplex is assumed.
- * 'pause' (boolean, optional), to indicate that pause should be
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 1bd4305..2152cf8 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -280,6 +280,26 @@ bool of_phy_is_fixed_link(struct device_node *np)
- }
- EXPORT_SYMBOL(of_phy_is_fixed_link);
-
-+bool of_phy_is_autoneg_link(struct device_node *np)
-+{
-+	struct device_node *dn;
-+	const char *link_str;
-+	int rc;
-+	bool ret = false;
-+
-+	dn = of_get_child_by_name(np, "fixed-link");
-+	if (!dn)
-+		return false;
-+
-+	rc = of_property_read_string(dn, "link", &link_str);
-+	if (rc == 0 && strcmp(link_str, "auto") == 0)
-+		ret = true;
-+
-+	of_node_put(dn);
-+	return ret;
-+}
-+EXPORT_SYMBOL(of_phy_is_autoneg_link);
-+
- int of_phy_register_fixed_link(struct device_node *np)
- {
- 	struct fixed_phy_status status = {};
-@@ -291,11 +311,33 @@ int of_phy_register_fixed_link(struct device_node *np)
- 	/* New binding */
- 	fixed_link_node = of_get_child_by_name(np, "fixed-link");
- 	if (fixed_link_node) {
--		status.link = 1;
-+		const char *link_str;
-+		int ret;
-+		bool link_auto = false;
-+
-+		ret = of_property_read_string(fixed_link_node, "link",
-+					      &link_str);
-+		if (ret == 0) {
-+			if (strcmp(link_str, "up") == 0)
-+				status.link = 1;
-+			else
-+				status.link = 0;
-+			if (strcmp(link_str, "auto") == 0)
-+				link_auto = true;
-+		} else {
-+			status.link = 1;
-+		}
- 		status.duplex = of_property_read_bool(fixed_link_node,
- 						      "full-duplex");
--		if (of_property_read_u32(fixed_link_node, "speed", &status.speed))
--			return -EINVAL;
-+		if (of_property_read_u32(fixed_link_node, "speed",
-+					 &status.speed) != 0) {
-+			/* in auto mode just set to some sane value:
-+			 * it will be changed by MAC later */
-+			if (link_auto)
-+				status.speed = 1000;
-+			else
-+				return -EINVAL;
-+		}
- 		status.pause = of_property_read_bool(fixed_link_node, "pause");
- 		status.asym_pause = of_property_read_bool(fixed_link_node,
- 							  "asym-pause");
-diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
-index d449018..647f348 100644
---- a/include/linux/of_mdio.h
-+++ b/include/linux/of_mdio.h
-@@ -65,6 +65,7 @@ static inline struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np)
- #if defined(CONFIG_OF) && defined(CONFIG_FIXED_PHY)
- extern int of_phy_register_fixed_link(struct device_node *np);
- extern bool of_phy_is_fixed_link(struct device_node *np);
-+extern bool of_phy_is_autoneg_link(struct device_node *np);
- #else
- static inline int of_phy_register_fixed_link(struct device_node *np)
- {
-@@ -74,6 +75,10 @@ static inline bool of_phy_is_fixed_link(struct device_node *np)
- {
- 	return false;
- }
-+static inline bool of_phy_is_autoneg_link(struct device_node *np)
-+{
-+	return false;
-+}
- #endif
-
-
--- 
-1.9.1
+I really have no idea why you expect it to be there.
