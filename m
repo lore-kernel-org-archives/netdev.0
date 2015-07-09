@@ -1,117 +1,33 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [BUG] "$ ss -a" incorrectly displays raw sockets as udp sockets
-Date: Thu, 9 Jul 2015 17:55:17 +0300
-Message-ID: <20150709145517.GA12466@angus-think.lan>
-References: <559E8178.9080808@beyondsemi.com>
- <559E8A1E.1060002@cumulusnetworks.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v3] Add support for driver cross-timestamp to
+ PTP_SYS_OFFSET ioctl
+Date: Thu, 9 Jul 2015 16:57:48 +0200
+Message-ID: <20150709145748.GC3243@netboy>
+References: <1436388401-32168-1-git-send-email-christopher.s.hall@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Miha Marolt <miham@beyondsemi.com>, netdev@vger.kernel.org,
-	vadim4j@gmail.com
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Cc: tglx@linutronix.de, john.stultz@linaro.org, john.ronciak@intel.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Christopher Hall <christopher.s.hall@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:36605 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752179AbbGIO5K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 10:57:10 -0400
-Received: by lagc2 with SMTP id c2so245057325lag.3
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 07:57:08 -0700 (PDT)
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:33812 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751154AbbGIO5x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 10:57:53 -0400
 Content-Disposition: inline
-In-Reply-To: <559E8A1E.1060002@cumulusnetworks.com>
+In-Reply-To: <1436388401-32168-1-git-send-email-christopher.s.hall@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 09, 2015 at 04:50:06PM +0200, Nikolay Aleksandrov wrote:
-> On 07/09/2015 04:13 PM, Miha Marolt wrote:
-> > Hi!
-> > 
-> > I hope this is the right place to reports bugs. I apologize if it isn't.
-> > 
-> > I have written a C program (see below for source code) that opens a raw socket on CentOS 7.1 Linux and binds it to some address (it doesn't use the port that I supplied, but that is not the point here). The "netstat" program correctly recognizes the socket as "raw", while "ss" program says it is "udp". Here are the relevant lines from the ss and netstat commands:
-> > 
-> > $ netstat -an
-> > raw        0      0 127.0.0.1:6             0.0.0.0:* 7
-> > 
-> > $ ./ss -an
-> > udp    UNCONN     21569  0      127.0.0.1:6 *:*
-> > 
-> > Here is the version information
-> > 
-> > $ netstat --version  # From CentOS 7.1.
-> > net-tools 2.10-alpha
-> > 
-> > $ ./ss --version  # Built from git.
-> > ss utility, iproute2-ss150626
-> > 
-> > 
-> > C source follows. If you store it in "main.c", then compile it with "$ gcc main.c -o main" and then run it by executing "$ sudo ./main".
-> > 
-> > #include <arpa/inet.h>
-> > #include <assert.h>
-> > #include <sys/socket.h>
-> > #include <stdio.h>
-> > #include <unistd.h>
-> > 
-> > 
-> > int main(void)
-> > {
-> >     // Create a raw socket.
-> >     int sock = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
-> >     if (sock == -1) { perror(NULL); goto exc_cleanup; }
-> > 
-> >     // Bind socket to an address.
-> >     struct sockaddr_in addr;
-> >     addr.sin_family = AF_INET;
-> >     inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
-> >     addr.sin_port = htons(27183);
-> > 
-> >     int rc = bind(sock, (struct sockaddr*)&addr, sizeof(addr));
-> >     if (rc != 0) { perror(NULL); goto exc_cleanup; }
-> > 
-> >     // Wait until user presses <ENTER>.
-> >     printf("\nPress <ENTER> to quit the program.\n");
-> >     getchar();
-> > 
-> > exc_cleanup:
-> >     assert(!close(sock));
-> > }
-> > 
-> > 
-> > Best regards,
-> > Miha
-> 
-> 
-> Hi,
-> I think this was changed by commit:
-> 8250bc9ff4e5 ("ss: Unify inet sockets output")
-> Because dgram_show_line() is used for both UDP and RAW sockets
-> IPPROTO_UDP is used for both now and proto_name() returns "udp".
-> CCed the patch author and attached a possible solution.
-> 
-> Cheers,
->  Nik
+On Wed, Jul 08, 2015 at 01:46:41PM -0700, Christopher Hall wrote:
+> This patch allows system and device time ("cross-timestamp") to be
+> performed by the driver. Currently, the cross-timestamping is performed
+> in the PTP_SYS_OFFSET ioctl.  The PTP clock driver reads gettimeofday()
+> and the gettime64() callback provided by the driver. The cross-timestamp
+> is best effort where the latency between the capture of system time
+> (getnstimeofday()) and the device time (driver callback) may be
+> significant.
 
-> diff --git a/misc/ss.c b/misc/ss.c
-> index 870cad185341..4de77e92c319 100644
-> --- a/misc/ss.c
-> +++ b/misc/ss.c
-> @@ -1554,6 +1554,8 @@ out:
->  static char *proto_name(int protocol)
->  {
->  	switch (protocol) {
-> +	case IPPROTO_RAW:
-> +		return "raw";
->  	case IPPROTO_UDP:
->  		return "udp";
->  	case IPPROTO_TCP:
-> @@ -2398,7 +2400,7 @@ static int dgram_show_line(char *line, const struct filter *f, int family)
->  	if (n < 9)
->  		opt[0] = 0;
->  
-> -	inet_stats_print(&s, IPPROTO_UDP);
-> +	inet_stats_print(&s, dg_proto == UDP_PROTO ? IPPROTO_UDP : IPPROTO_RAW);
->  
->  	if (show_details && opt[0])
->  		printf(" opt:\"%s\"", opt);
+The interface looks okay to me.  Now all we need is a user of it...
 
-Yeah, it fixed the issue, just tested the fix.
+Acked-by: Richard Cochran <richardcochran@gmail.com>
