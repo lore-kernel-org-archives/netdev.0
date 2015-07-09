@@ -1,53 +1,36 @@
-From: Marian Corcodel <corcodel.marian@gmail.com>
-Subject: [net-next] Ignore commands and config which is not fit on 8101/8102 chip
-Date: Thu, 9 Jul 2015 11:27:23 +0300
-Message-ID: <CAGg4U=HTksdudMviWnirnW2O_RxMSZxWEkqKcErsUySoR+0tmQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next] Ignore commands and config which is not fit on
+ 8101/8102 chip
+Date: Thu, 09 Jul 2015 01:29:58 -0700 (PDT)
+Message-ID: <20150709.012958.1561564703927025957.davem@davemloft.net>
+References: <CAGg4U=HTksdudMviWnirnW2O_RxMSZxWEkqKcErsUySoR+0tmQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=047d7bea42944fb4bf051a6d06ca
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: corcodel.marian@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:34446 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750915AbbGII1Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 04:27:24 -0400
-Received: by igoe12 with SMTP id e12so8996683igo.1
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 01:27:23 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:41024 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750799AbbGIIaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 04:30:03 -0400
+In-Reply-To: <CAGg4U=HTksdudMviWnirnW2O_RxMSZxWEkqKcErsUySoR+0tmQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---047d7bea42944fb4bf051a6d06ca
-Content-Type: text/plain; charset=UTF-8
 
-Simply this commnads not fit in chip 8101/8102 and was ignored by code.
+None of these r8169 patch submissions are being submitted properly.
 
---047d7bea42944fb4bf051a6d06ca
-Content-Type: text/x-patch; charset=US-ASCII; name="ign_nonfit_comm_on_intr.patch"
-Content-Disposition: attachment; filename="ign_nonfit_comm_on_intr.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ibvxlbbt0
+First, please do not use attachments.
 
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYyBiL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYwppbmRleCBiYzJlNWNlLi40MTBjMWVlIDEw
-MDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4MTY5LmMKKysrIGIvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jCkBAIC02NTI5LDcgKzY1MjksNyBAQCBz
-dGF0aWMgdm9pZCBydGxfaHdfc3RhcnRfODEwMShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCXJ0
-bF9zZXRfcnhfbWF4X3NpemUoaW9hZGRyLCB0cC0+cnhfYnVmX3N6KTsKIAkKIAlpZiAodHAtPm1h
-Y192ZXJzaW9uID09IFJUTF9HSUdBX01BQ19WRVJfMDkpCi0JCXRwLT5jcF9jbWQgJj0gUnhWbGFu
-IHwgUnhDaGtzdW07CisJCXRwLT5jcF9jbWQgJj0gUnhWbGFuIHwgUnhDaGtTdW07CiAJZWxzZQog
-CQl0cC0+Y3BfY21kICY9IH5SODEwWF9DUENNRF9RVUlSS19NQVNLOwogCkBAIC02NTQ4LDkgKzY1
-NDgsOSBAQCBzdGF0aWMgdm9pZCBydGxfaHdfc3RhcnRfODEwMShzdHJ1Y3QgbmV0X2RldmljZSAq
-ZGV2KQogCQlydGxfaHdfc3RhcnRfODEwMmVfMyh0cCk7CiAJCWJyZWFrOwogCi0JY2FzZSBSVExf
-R0lHQV9NQUNfVkVSXzA5OgorICAgICAgIC8qIGNhc2UgUlRMX0dJR0FfTUFDX1ZFUl8wOToKIAkJ
-cnRsX2h3X3N0YXJ0XzgxMDJlXzIodHApOwotCQlicmVhazsKKwkJYnJlYWs7ICovCiAKIAljYXNl
-IFJUTF9HSUdBX01BQ19WRVJfMjk6CiAJCXJ0bF9od19zdGFydF84MTA1ZV8xKHRwKTsKQEAgLTY1
-NzYsMTYgKzY1NzYsMTcgQEAgc3RhdGljIHZvaWQgcnRsX2h3X3N0YXJ0XzgxMDEoc3RydWN0IG5l
-dF9kZXZpY2UgKmRldikKIAl9CiAKIAlSVExfVzgoQ2ZnOTM0NiwgQ2ZnOTM0Nl9Mb2NrKTsKLQot
-CVJUTF9XMTYoSW50ck1pdGlnYXRlLCAweDAwMDApOworCWlmICghdHAtPm1hY192ZXJzaW9uID09
-IFJUTF9HSUdBX01BQ19WRVJfMDkpCisJCVJUTF9XMTYoSW50ck1pdGlnYXRlLCAweDAwMDApOwog
-CiAJUlRMX1c4KENoaXBDbWQsIENtZFR4RW5iIHwgQ21kUnhFbmIpOwogCiAJLy9ydGxfc2V0X3J4
-X21vZGUoZGV2KTsKIAogCS8vUlRMX1I4KEludHJNYXNrKTsKKwlpZiAoIXRwLT5tYWNfdmVyc2lv
-biA9PSBSVExfR0lHQV9NQUNfVkVSXzA5KQorCQlSVExfVzE2KE11bHRpSW50ciwgUlRMX1IxNihN
-dWx0aUludHIpICYgMHhmMDAwKTsKIAotCVJUTF9XMTYoTXVsdGlJbnRyLCBSVExfUjE2KE11bHRp
-SW50cikgJiAweGYwMDApOwogfQogCiBzdGF0aWMgaW50IHJ0bDgxNjlfY2hhbmdlX210dShzdHJ1
-Y3QgbmV0X2RldmljZSAqZGV2LCBpbnQgbmV3X210dSkK
---047d7bea42944fb4bf051a6d06ca--
+Only provide exactly your commit message, full signoff, and the patch
+in plain ASCII text, in the body of your message.
+
+Also, please format your Subject line properly.  It should be of the
+form "[PATCH net-next] $SUBSYSTEM: $DESCRIPTION"
+
+Where $SUBSYSTEM here should be "r8169: "
+
+Basically, you should look carefully and in detail how other developers
+sucessfully post patches to the netdev list and mimick them as closely
+as possible.
