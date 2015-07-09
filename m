@@ -1,63 +1,55 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC net-next 1/1] : sctp: denoise deprecation log on SCTP_EVENTS
-Date: Thu, 09 Jul 2015 13:54:37 +0200
-Message-ID: <559E60FD.5040708@iogearbox.net>
-References: <559E4F17.9090107@mojatatu.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 2/5] net: add phys ID compare helper to test if
+ two IDs are the same
+Date: Thu, 9 Jul 2015 15:15:35 +0300
+Message-ID: <559E65E7.3040607@cogentembedded.com>
+References: <1436397403-62412-1-git-send-email-sfeldma@gmail.com>
+ <1436397403-62412-3-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	mleitner@redhat.com, tuexen@fh-muenster.de
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: jiri@resnulli.us, roopa@cumulusnetworks.com
+To: sfeldma@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:50059 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751803AbbGILyu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 07:54:50 -0400
-In-Reply-To: <559E4F17.9090107@mojatatu.com>
+Received: from mail-la0-f41.google.com ([209.85.215.41]:34748 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751065AbbGIMPi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 08:15:38 -0400
+Received: by lagx9 with SMTP id x9so244912221lag.1
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 05:15:36 -0700 (PDT)
+In-Reply-To: <1436397403-62412-3-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/09/2015 12:38 PM, Jamal Hadi Salim wrote:
-...
-> In the newer kernels this message is extremely noisy. After a quick
-> discussion with Daniel it seems to me it will be very hard to get
-> existing apps that nobody is going to update to continue to work
-> (i.e no forward compat). And newer apps that desire to play in both
-> older kernels and new kernels will have to play some tricks to work
-> (i.e weak backward compatibility).  These are good reasons
-> to totally get rid of this message. At minimal to neutre it.
+Hello.
 
-To put some more context into this, here was the past discussion
-on this topic:
+On 7/9/2015 2:16 AM, sfeldma@gmail.com wrote:
 
-   http://www.spinics.net/lists/linux-sctp/msg03596.html
+> From: Scott Feldman <sfeldma@gmail.com>
 
-This begs the question, which we need to clarify:
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> ---
+>   include/linux/netdevice.h |    7 +++++++
+>   net/switchdev/switchdev.c |    8 ++------
+>   2 files changed, 9 insertions(+), 6 deletions(-)
 
-   Can we *ever* get rid of the old UAPI that the RFC proposed
-   and later on deprecated?
-
-In the thread, there was a mentioning of 5-6 years schedule, but
-I honestly doubt that this would be enough, i.e. for people only
-upgrading their kernels, but not being able to touch their legacy
-SCTP apps (maybe due to proprietary appliance crap, etc).
-
-A pr_warn_once() would only warn for the first app triggering this
-(and not for follow-ups), it would surely take incentives away to
-update their code since less annoying, but if the uapi in fact
-could never be removed, then why bothering spamming the klog in
-the first place? ;) I can understand the deprecation dilemma, but
-personally, I would have no problem if we just want to remove the
-pr_warn_ratelimited() altogether ...
-
-> The attached change tries to do that. However, if you had multiple
-> apps, you will only get warning for the first one.
+[...]
+> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+> index 84f77a0..e16586f 100644
+> --- a/net/switchdev/switchdev.c
+> +++ b/net/switchdev/switchdev.c
+> @@ -906,13 +906,9 @@ static struct net_device *switchdev_get_dev_by_nhs(struct fib_info *fi)
+>   		if (switchdev_port_attr_get(dev, &attr))
+>   			return NULL;
 >
-> Will send proper patch when theres some consensus.
->
-> cheers,
-> jamal
+> -		if (nhsel > 0) {
+> -			if (prev_attr.u.ppid.id_len != attr.u.ppid.id_len)
+> +		if (nhsel > 0 &&
+> +		    !netdev_phys_item_id_same(&prev_attr.u.ppid, &attr.u.ppid))
+>   				return NULL;
+
+    This line should be re-indented now, it starts too far to the right.
+
+[...]
+
+WBR, Sergei
