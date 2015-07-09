@@ -1,102 +1,52 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next] bridge: mdb: fill state in br_mdb_notify
-Date: Thu,  9 Jul 2015 03:11:10 -0700
-Message-ID: <1436436670-28859-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	bridge@lists.linux-foundation.org, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v1 02/12] IB/core: Find the network device matching connection
+ parameters
+Date: Thu, 9 Jul 2015 13:18:36 +0300
+Message-ID: <559E4A7C.8020606@mellanox.com>
+References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
+ <1434976961-27424-3-git-send-email-haggaie@mellanox.com>
+ <20150708203325.GB16812@obsidianresearch.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150708203325.GB16812-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Fill also the port group state when sending notifications.
+On 08/07/2015 23:33, Jason Gunthorpe wrote:
+> On Mon, Jun 22, 2015 at 03:42:31PM +0300, Haggai Eran wrote:
+>> +/**
+>> + * ib_get_net_dev_by_params() - Return the appropriate net_dev
+>> + * for a received CM request
+>> + * @dev:	An RDMA device on which the request has been received.
+>> + * @port:	Port number on the RDMA device.
+>> + * @pkey:	The Pkey the request came on.
+>> + * @gid:	A GID that the net_dev uses to communicate.
+>> + * @addr:	Contains the IP address that the request specified as its
+>> + *		destination.
+>> + */
+>> +struct net_device *ib_get_net_dev_by_params(struct ib_device *dev, u8 port,
+>> +					    u16 pkey, const union ib_gid *gid,
+>> +					    const struct sockaddr *addr);
+> 
+> I feel like this has been repated a few times now, but kdocs should be
+> with the function body, not in the header.
+Right. I fixed it in the IB/addr patch, but missed it here. I'll move it
+to the function's definition.
 
-Signed-off-by: Satish Ashok <sashok@cumulusnetworks.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-Note: I know that I didn't need to move the notification before the
-      call_rcu_bh call since we're running with bh-disabled but I did
-      it for consistency.
+> Reviewed-By: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Thanks,
 
- net/bridge/br_mdb.c       | 5 +++--
- net/bridge/br_multicast.c | 5 +++--
- net/bridge/br_private.h   | 2 +-
- 3 files changed, 7 insertions(+), 5 deletions(-)
+Haggai
 
-diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
-index e29ad70b3000..1fb7d076f15c 100644
---- a/net/bridge/br_mdb.c
-+++ b/net/bridge/br_mdb.c
-@@ -230,7 +230,7 @@ errout:
- }
- 
- void br_mdb_notify(struct net_device *dev, struct net_bridge_port *port,
--		   struct br_ip *group, int type)
-+		   struct br_ip *group, int type, u8 state)
- {
- 	struct br_mdb_entry entry;
- 
-@@ -241,6 +241,7 @@ void br_mdb_notify(struct net_device *dev, struct net_bridge_port *port,
- #if IS_ENABLED(CONFIG_IPV6)
- 	entry.addr.u.ip6 = group->u.ip6;
- #endif
-+	entry.state = state;
- 	__br_mdb_notify(dev, &entry, type);
- }
- 
-@@ -348,7 +349,7 @@ static int br_mdb_add_group(struct net_bridge *br, struct net_bridge_port *port,
- 		return -ENOMEM;
- 	rcu_assign_pointer(*pp, p);
- 
--	br_mdb_notify(br->dev, port, group, RTM_NEWMDB);
-+	br_mdb_notify(br->dev, port, group, RTM_NEWMDB, state);
- 	return 0;
- }
- 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 742a6c27d7a2..5a44cd9473f2 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -694,7 +694,7 @@ static int br_multicast_add_group(struct net_bridge *br,
- 	if (unlikely(!p))
- 		goto err;
- 	rcu_assign_pointer(*pp, p);
--	br_mdb_notify(br->dev, port, group, RTM_NEWMDB);
-+	br_mdb_notify(br->dev, port, group, RTM_NEWMDB, MDB_TEMPORARY);
- 
- found:
- 	mod_timer(&p->timer, now + br->multicast_membership_interval);
-@@ -1439,8 +1439,9 @@ br_multicast_leave_group(struct net_bridge *br,
- 			rcu_assign_pointer(*pp, p->next);
- 			hlist_del_init(&p->mglist);
- 			del_timer(&p->timer);
-+			br_mdb_notify(br->dev, port, group, RTM_DELMDB,
-+				      p->state);
- 			call_rcu_bh(&p->rcu, br_multicast_free_pg);
--			br_mdb_notify(br->dev, port, group, RTM_DELMDB);
- 
- 			if (!mp->ports && !mp->mglist &&
- 			    netif_running(br->dev))
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 8b21146b24a0..c73fd785654d 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -488,7 +488,7 @@ br_multicast_new_port_group(struct net_bridge_port *port, struct br_ip *group,
- void br_mdb_init(void);
- void br_mdb_uninit(void);
- void br_mdb_notify(struct net_device *dev, struct net_bridge_port *port,
--		   struct br_ip *group, int type);
-+		   struct br_ip *group, int type, u8 state);
- 
- #define mlock_dereference(X, br) \
- 	rcu_dereference_protected(X, lockdep_is_held(&br->multicast_lock))
--- 
-1.9.1
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
