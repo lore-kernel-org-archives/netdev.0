@@ -1,95 +1,53 @@
-From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
-Subject: [PATCH 2/3] brcmfmac: dhd_sdio.c: use existing atomic_or primitive
-Date: Thu, 9 Jul 2015 13:43:18 +0530
-Message-ID: <1436429599-10762-3-git-send-email-vgupta@synopsys.com>
-References: <1436429599-10762-1-git-send-email-vgupta@synopsys.com>
+From: Marian Corcodel <corcodel.marian@gmail.com>
+Subject: [net-next] Ignore commands and config which is not fit on 8101/8102 chip
+Date: Thu, 9 Jul 2015 11:27:23 +0300
+Message-ID: <CAGg4U=HTksdudMviWnirnW2O_RxMSZxWEkqKcErsUySoR+0tmQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-arch@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	"Hante Meuleman" <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	Daniel Kim <dekim@broadcom.com>,
-	<linux-wireless@vger.kernel.org>,
-	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>
-To: Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>, Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1436429599-10762-1-git-send-email-vgupta@synopsys.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=047d7bea42944fb4bf051a6d06ca
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:34446 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750915AbbGII1Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 04:27:24 -0400
+Received: by igoe12 with SMTP id e12so8996683igo.1
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 01:27:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There's already a generic implementation so use that instead.
----
-I'm not sure if the driver usage of atomic_or?() is correct in terms of
-storage size of @val for 64 bit arches.
+--047d7bea42944fb4bf051a6d06ca
+Content-Type: text/plain; charset=UTF-8
 
-Assuming LP64 programming model for linux on say x86_64: atomic_or()
-callers in this driver use long (sana 64 bit) storage and pass it to
-atomic_orr/atomic_or which downcasts it to 32 bits. Is that OK ?
----
-Cc: Brett Rudley <brudley@broadcom.com>
-Cc: Arend van Spriel <arend@broadcom.com>
-Cc: "Franky (Zhenhui) Lin" <frankyl@broadcom.com>
-Cc: Hante Meuleman <meuleman@broadcom.com>
-Cc: Kalle Valo <kvalo@codeaurora.org>
-Cc: Pieter-Paul Giesberts <pieterpg@broadcom.com>
-Cc: Daniel Kim <dekim@broadcom.com>
-Cc: linux-wireless@vger.kernel.org
-Cc: brcm80211-dev-list@broadcom.com
-Cc: Peter Zijlstra <peterz@infradead.org>
-Cc: Ingo Molnar <mingo@kernel.org>
-Cc: netdev@vger.kernel.org
-Cc: linux-arch@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
+Simply this commnads not fit in chip 8101/8102 and was ignored by code.
 
-Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
----
- drivers/net/wireless/brcm80211/brcmfmac/sdio.c | 13 ++-----------
- 1 file changed, 2 insertions(+), 11 deletions(-)
+--047d7bea42944fb4bf051a6d06ca
+Content-Type: text/x-patch; charset=US-ASCII; name="ign_nonfit_comm_on_intr.patch"
+Content-Disposition: attachment; filename="ign_nonfit_comm_on_intr.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ibvxlbbt0
 
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-index d36f5f3d931b..f990e3d0e696 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-@@ -2564,15 +2564,6 @@ static inline void brcmf_sdio_clrintr(struct brcmf_sdio *bus)
- 	}
- }
- 
--static void atomic_orr(int val, atomic_t *v)
--{
--	int old_val;
--
--	old_val = atomic_read(v);
--	while (atomic_cmpxchg(v, old_val, val | old_val) != old_val)
--		old_val = atomic_read(v);
--}
--
- static int brcmf_sdio_intr_rstatus(struct brcmf_sdio *bus)
- {
- 	struct brcmf_core *buscore;
-@@ -2595,7 +2586,7 @@ static int brcmf_sdio_intr_rstatus(struct brcmf_sdio *bus)
- 	if (val) {
- 		brcmf_sdiod_regwl(bus->sdiodev, addr, val, &ret);
- 		bus->sdcnt.f1regdata++;
--		atomic_orr(val, &bus->intstatus);
-+		atomic_or(val, &bus->intstatus);
- 	}
- 
- 	return ret;
-@@ -2712,7 +2703,7 @@ static void brcmf_sdio_dpc(struct brcmf_sdio *bus)
- 
- 	/* Keep still-pending events for next scheduling */
- 	if (intstatus)
--		atomic_orr(intstatus, &bus->intstatus);
-+		atomic_or(intstatus, &bus->intstatus);
- 
- 	brcmf_sdio_clrintr(bus);
- 
--- 
-1.9.1
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYyBiL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYwppbmRleCBiYzJlNWNlLi40MTBjMWVlIDEw
+MDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4MTY5LmMKKysrIGIvZHJp
+dmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jCkBAIC02NTI5LDcgKzY1MjksNyBAQCBz
+dGF0aWMgdm9pZCBydGxfaHdfc3RhcnRfODEwMShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCXJ0
+bF9zZXRfcnhfbWF4X3NpemUoaW9hZGRyLCB0cC0+cnhfYnVmX3N6KTsKIAkKIAlpZiAodHAtPm1h
+Y192ZXJzaW9uID09IFJUTF9HSUdBX01BQ19WRVJfMDkpCi0JCXRwLT5jcF9jbWQgJj0gUnhWbGFu
+IHwgUnhDaGtzdW07CisJCXRwLT5jcF9jbWQgJj0gUnhWbGFuIHwgUnhDaGtTdW07CiAJZWxzZQog
+CQl0cC0+Y3BfY21kICY9IH5SODEwWF9DUENNRF9RVUlSS19NQVNLOwogCkBAIC02NTQ4LDkgKzY1
+NDgsOSBAQCBzdGF0aWMgdm9pZCBydGxfaHdfc3RhcnRfODEwMShzdHJ1Y3QgbmV0X2RldmljZSAq
+ZGV2KQogCQlydGxfaHdfc3RhcnRfODEwMmVfMyh0cCk7CiAJCWJyZWFrOwogCi0JY2FzZSBSVExf
+R0lHQV9NQUNfVkVSXzA5OgorICAgICAgIC8qIGNhc2UgUlRMX0dJR0FfTUFDX1ZFUl8wOToKIAkJ
+cnRsX2h3X3N0YXJ0XzgxMDJlXzIodHApOwotCQlicmVhazsKKwkJYnJlYWs7ICovCiAKIAljYXNl
+IFJUTF9HSUdBX01BQ19WRVJfMjk6CiAJCXJ0bF9od19zdGFydF84MTA1ZV8xKHRwKTsKQEAgLTY1
+NzYsMTYgKzY1NzYsMTcgQEAgc3RhdGljIHZvaWQgcnRsX2h3X3N0YXJ0XzgxMDEoc3RydWN0IG5l
+dF9kZXZpY2UgKmRldikKIAl9CiAKIAlSVExfVzgoQ2ZnOTM0NiwgQ2ZnOTM0Nl9Mb2NrKTsKLQot
+CVJUTF9XMTYoSW50ck1pdGlnYXRlLCAweDAwMDApOworCWlmICghdHAtPm1hY192ZXJzaW9uID09
+IFJUTF9HSUdBX01BQ19WRVJfMDkpCisJCVJUTF9XMTYoSW50ck1pdGlnYXRlLCAweDAwMDApOwog
+CiAJUlRMX1c4KENoaXBDbWQsIENtZFR4RW5iIHwgQ21kUnhFbmIpOwogCiAJLy9ydGxfc2V0X3J4
+X21vZGUoZGV2KTsKIAogCS8vUlRMX1I4KEludHJNYXNrKTsKKwlpZiAoIXRwLT5tYWNfdmVyc2lv
+biA9PSBSVExfR0lHQV9NQUNfVkVSXzA5KQorCQlSVExfVzE2KE11bHRpSW50ciwgUlRMX1IxNihN
+dWx0aUludHIpICYgMHhmMDAwKTsKIAotCVJUTF9XMTYoTXVsdGlJbnRyLCBSVExfUjE2KE11bHRp
+SW50cikgJiAweGYwMDApOwogfQogCiBzdGF0aWMgaW50IHJ0bDgxNjlfY2hhbmdlX210dShzdHJ1
+Y3QgbmV0X2RldmljZSAqZGV2LCBpbnQgbmV3X210dSkK
+--047d7bea42944fb4bf051a6d06ca--
