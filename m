@@ -1,42 +1,42 @@
-From: Damian Hobson-Garcia <dhobsong@igel.co.jp>
-Subject: Re: [PATCH v3 1/1] eventfd: implementation of EFD_MASK flag
-Date: Thu, 9 Jul 2015 18:06:52 +0900
-Message-ID: <559E39AC.1010408@igel.co.jp>
-References: <1361187290-11759-1-git-send-email-sustrik@250bpm.com>
- <559E296A.6040606@igel.co.jp>
- <8bb2fb10a310dc3e1eddb851aba93054@imap.lucina.net>
+From: Sam Protsenko <semen.protsenko@linaro.org>
+Subject: Re: problems with L2TP
+Date: Thu, 9 Jul 2015 12:16:47 +0300
+Message-ID: <CAKaJLVvft6HjFH+qAr4taD4bEis4SCtTSbvmDYuGz9=1boQvJA@mail.gmail.com>
+References: <CAKaJLVuu8vZ8fq32jqbC0MKRms9ikmT_d9KKA+hJ8kwpEYBhmA@mail.gmail.com>
+	<20150703154155.GA19294@jackdaw>
+	<CAKaJLVss0SMqf5hcBCdBuwa7+3_iBh527DW4+2Vb-RUPcb9Ffg@mail.gmail.com>
+	<559CF533.2060204@katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Martin Sustrik <sustrik@250bpm.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Parkin <tparkin@katalix.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Sumit Semwal <sumit.semwal@linaro.org>
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:33512 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751298AbbGIJGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 05:06:49 -0400
-Received: by pdbqm3 with SMTP id qm3so18292356pdb.0
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 02:06:49 -0700 (PDT)
-In-Reply-To: <8bb2fb10a310dc3e1eddb851aba93054@imap.lucina.net>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:37541 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750805AbbGIJQs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 05:16:48 -0400
+Received: by igau2 with SMTP id u2so84663333iga.0
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 02:16:48 -0700 (PDT)
+In-Reply-To: <559CF533.2060204@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Martin,
+> Tom and I discussed this and we're not clear what you are running. Have
+> you changed create_pppox() in mtpd with the code fragment from your
+> original mail?
 
-On 2015-07-09 5:41 PM, Martin Sustrik wrote:
-> Hi Damian,
-> 
-> Yes, this patch would be geneally useful for implementing stuff in user
-> space that otherwise would have to live in kernelspace.
-> 
-> Unfortunately, I have no cycles left to pursue getting it to the
-> mainline. If you feel like you can take care of it, that would be great.
-I'll see what I can do. I'll rebase it and resubmit it.
-Unless there are major changes (which I highly doubt), I'll keep you as
-the author, if that's ok with you.
-> 
-> I can help with the documentation, if needed.
-Thank you, that would be very much appreciated.
+Here is the commit for mtpd where I'm changing Android L2TP
+implementation to mainline implementation:
+http://git.linaro.org/people/semen.protsenko/mtpd.git/blobdiff/27a25e28b7c84d3f49c50a3e7b1fc3a46ac4ff51..01265f20617e7f3ca041e55dbf557912a0ecebd5:/l2tp_up.c
 
-Damian
+> Are you sure that your modified mtpd gets the correct
+> local/remote tunnel-id and session-id to make its connect() call?
+
+Judging from xl2tpd and mtpd logs, they are actually different. Seems
+like this is actual issue. But I still didn't figured why it's
+happening.
+As I understand, mtpd should have the same values for remote
+tunnel-id/session-id as xl2tpd has for local ones, but it's not the
+case for my code.
