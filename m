@@ -1,85 +1,83 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH 1/2] sctp: SCTP_SOCKOPT_PEELOFF return socket pointer for kernel users
-Date: Thu,  9 Jul 2015 11:15:19 -0300
-Message-ID: <4dfd0ee7ac0aac0791812217e990e2ae7ff86955.1434645734.git.marcelo.leitner@gmail.com>
+Subject: [PATCH 2/2] dlm: avoid using sctp_do_peeloff directly
+Date: Thu,  9 Jul 2015 11:15:20 -0300
+Message-ID: <a5b66c7f050a17cd2b8f0f4d6bbb3a5837d593f5.1434645734.git.marcelo.leitner@gmail.com>
+References: <4dfd0ee7ac0aac0791812217e990e2ae7ff86955.1434645734.git.marcelo.leitner@gmail.com>
 Cc: Vlad Yasevich <vyasevich@gmail.com>,
 	Neil Horman <nhorman@tuxdriver.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44390 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44399 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751146AbbGIOP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jul 2015 10:15:29 -0400
+	id S1751298AbbGIOPb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jul 2015 10:15:31 -0400
+In-Reply-To: <4dfd0ee7ac0aac0791812217e990e2ae7ff86955.1434645734.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SCTP has this operation to peel off associations from a given socket and
-create a new socket using this association. We currently have two ways
-to use this operation:
-- via getsockopt(), on which it will also create and return a file
-  descriptor for this new socket
-- via sctp_do_peeloff(), which is for kernel only
+This patch reverts 2f2d76cc3e93 ("dlm: Do not allocate a fd for
+peeloff") but also takes benefit on an updated sockopt
+SCTP_SOCKOPT_PEELOFF, which now avoids allocating file descriptors for
+kernel users.
 
-The caveat with using sctp_do_peeloff() directly is that it creates a
-dependency to SCTP module, while all other operations are handled via
-kernel_{socket,sendmsg,getsockopt...}() interface. This causes the
-kernel to load SCTP module even when it's not directly used
+By this we avoid creating a direct dependency from dlm to sctp module,
+which can then be left unloaded if dlm is not really using it.
 
-This patch then updates SCTP_SOCKOPT_PEELOFF so that for kernel users of
-this protocol it will not allocate a file descriptor but instead just
-return the socket pointer directly.
-
-If called by an user application it will work as before.
+Note that this was preferred other than a module split as it once was
+split and was merged back in 2007 by commit 6ed7257b4670 ("[DLM]
+Consolidate transport protocols") so that we don't revert it.
 
 Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 ---
- include/uapi/linux/sctp.h |  9 ++++++---
- net/sctp/socket.c         | 13 +++++++++++++
- 2 files changed, 19 insertions(+), 3 deletions(-)
+ fs/dlm/lowcomms.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
-diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-index ce70fe6b45df3e841c35accbdb6379c16563893c..9e15fc06ba553c7e33f729872bb2dfaa2e21b0d8 100644
---- a/include/uapi/linux/sctp.h
-+++ b/include/uapi/linux/sctp.h
-@@ -887,9 +887,12 @@ struct sctp_assoc_stats {
- /* This is the structure that is passed as an argument(optval) to
-  * getsockopt(SCTP_SOCKOPT_PEELOFF).
-  */
--typedef struct {
--	sctp_assoc_t associd;
--	int sd;
-+typedef union {
-+	struct {
-+		sctp_assoc_t associd;
-+		int sd;
-+	};
-+	void *sock;
- } sctp_peeloff_arg_t;
+diff --git a/fs/dlm/lowcomms.c b/fs/dlm/lowcomms.c
+index 754fd6c0b7470bab272b071e6ca6e4969e4e4209..fb094b5ab0347a7b8659c2dc6cc3b32638d63638 100644
+--- a/fs/dlm/lowcomms.c
++++ b/fs/dlm/lowcomms.c
+@@ -52,7 +52,6 @@
+ #include <linux/mutex.h>
+ #include <linux/sctp.h>
+ #include <linux/slab.h>
+-#include <net/sctp/sctp.h>
+ #include <net/ipv6.h>
  
- /*
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index f09de7fac2e6acddad8b2e046dbf626e329cb674..ff1138558687e15ee486e84c0916ad81f01ca734 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -4465,6 +4465,19 @@ static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval
- 	if (retval < 0)
- 		goto out;
+ #include "dlm_internal.h"
+@@ -671,6 +670,8 @@ static void process_sctp_notification(struct connection *con,
+ 			int prim_len, ret;
+ 			int addr_len;
+ 			struct connection *new_con;
++			sctp_peeloff_arg_t parg;
++			int parglen = sizeof(parg);
  
-+	/* If the owner of parent sock is the kernel, that is, if a file
-+	 * descriptor wasn't allocated to it, return the socket pointer
-+	 * directly instead of allocating a file descriptor.
-+	 */
-+	if (!sk->sk_socket->file) {
-+		peeloff.sock = newsock;
-+		if (copy_to_user(optval, &peeloff, len)) {
-+			sock_release(newsock);
-+			return -EFAULT;
-+		}
-+		return retval;
-+	}
-+
- 	/* Map the socket to an unused fd that can be returned to the user.  */
- 	retval = get_unused_fd_flags(0);
- 	if (retval < 0) {
+ 			/*
+ 			 * We get this before any data for an association.
+@@ -719,19 +720,17 @@ static void process_sctp_notification(struct connection *con,
+ 				return;
+ 
+ 			/* Peel off a new sock */
+-			lock_sock(con->sock->sk);
+-			ret = sctp_do_peeloff(con->sock->sk,
+-				sn->sn_assoc_change.sac_assoc_id,
+-				&new_con->sock);
+-			release_sock(con->sock->sk);
++			parg.associd = sn->sn_assoc_change.sac_assoc_id;
++			ret = kernel_getsockopt(con->sock, IPPROTO_SCTP,
++						SCTP_SOCKOPT_PEELOFF,
++						(void *)&parg, &parglen);
+ 			if (ret < 0) {
+ 				log_print("Can't peel off a socket for "
+ 					  "connection %d to node %d: err=%d",
+-					  (int)sn->sn_assoc_change.sac_assoc_id,
+-					  nodeid, ret);
++					  parg.associd, nodeid, ret);
+ 				return;
+ 			}
+-			add_sock(new_con->sock, new_con);
++			add_sock(parg.sock, new_con);
+ 
+ 			linger.l_onoff = 1;
+ 			linger.l_linger = 0;
 -- 
 2.4.1
