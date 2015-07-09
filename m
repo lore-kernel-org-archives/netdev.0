@@ -1,53 +1,48 @@
-From: Sowmini Varadhan <sowmini05@gmail.com>
-Subject: Re: [RFC net-next 3/6] net: Introduce VRF device driver - v2
-Date: Thu, 9 Jul 2015 19:28:58 +0200
-Message-ID: <CACP96tSp91XYo_UasZexb6c6Krru3LEJvDwEWSgKYgPHJmTkHw@mail.gmail.com>
-References: <1436195001-4818-1-git-send-email-dsa@cumulusnetworks.com>
-	<1436195001-4818-4-git-send-email-dsa@cumulusnetworks.com>
-	<CACP96tTyw+J7swi-+GJMwKKVjE9Uk1dJ3m_JKg2o1tyZup+p0w@mail.gmail.com>
-	<559EAD2A.2090002@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: inet_diag: always export IPV6_V6ONLY sockopt
+Date: Thu, 09 Jul 2015 19:30:30 +0200
+Message-ID: <1436463030.24939.47.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1436431347-720-1-git-send-email-phil@nwl.cc>
+	 <1436446677.24939.20.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150709163829.GB1911@orbit.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	ddutt@cumulusnetworks.com,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	hadi@mojatatu.com, "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:35755 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751619AbbGIR27 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 13:28:59 -0400
-Received: by wiga1 with SMTP id a1so319066060wig.0
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 10:28:58 -0700 (PDT)
-In-Reply-To: <559EAD2A.2090002@cumulusnetworks.com>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:33525 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752918AbbGIRaf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 13:30:35 -0400
+Received: by wiwl6 with SMTP id l6so25260920wiw.0
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 10:30:34 -0700 (PDT)
+In-Reply-To: <20150709163829.GB1911@orbit.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 9, 2015 at 7:19 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+On Thu, 2015-07-09 at 18:38 +0200, Phil Sutter wrote:
+> Is it possible to select that in a generic way? If I didn't misread the
+> code, 'ss -l' filters them out locally. It looks like sk->sk_state can
+> be used to determine that, but it seems to be used for TCP states only?
+> Or is the value 10 (TCP_LISTEN) used for e.g. UDP as well?
 
-> On the to-do list to use cmsg to specify a VRF for outbound packets using
-> non-connected sockets. I do not believe it is going to work, but need to
-> look into it.
->
->> What about setting ipsec policy for interfaces in the vrf?
+You could specifically filter TCP_LISTEN | TCP_CLOSE
 
->From a purely parochial standpoint, how would rds sockets work in this model?
-Would the tcp encaps happen before or after the the vrf "driver" output?
-Same problem for NFS.
+Like in :
 
->From a non-parochial standpoint. There are a *lot* of routing apps that actually
-need more visibility into many details about the "slave" interface: e.g., OSPF,
-ARP snoop, IPSLA.. the list is pretty long.
-
-I think it's a bad idea to use a "driver" to represent a table lookup. Too many
-hacks will become necessary.
-
---Sowmini
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 9bc26677058e..c3b1f3a0f4cf 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -152,8 +152,8 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 				       inet6_sk(sk)->tclass) < 0)
+ 				goto errout;
+ 
+-		if (ipv6_only_sock(sk) &&
+-		    nla_put_u8(skb, INET_DIAG_SKV6ONLY, 1))
++		if (((1 << sk->sk_state) & (TCPF_LISTEN | TCPF_CLOSE)) &&
++		    nla_put_u8(skb, INET_DIAG_SKV6ONLY, ipv6_only_sock(sk)))
+ 			goto errout;
+ 	}
+ #endif
