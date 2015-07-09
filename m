@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] neterion: s2io: Use module_pci_driver
-Date: Thu, 09 Jul 2015 00:19:24 -0700 (PDT)
-Message-ID: <20150709.001924.1336350289907335948.davem@davemloft.net>
-References: <20150709045539.GA7052@vaishali-Ideapad-Z570>
+Subject: Re: [PATCH net-next] rocker: add change MTU support
+Date: Thu, 09 Jul 2015 00:31:35 -0700 (PDT)
+Message-ID: <20150709.003135.1668058882729062782.davem@davemloft.net>
+References: <1436396807-62275-1-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jdmason@kudzu.us, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: vthakkar1994@gmail.com
+Cc: netdev@vger.kernel.org, jiri@resnulli.us
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40672 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40754 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751125AbbGIHTZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 03:19:25 -0400
-In-Reply-To: <20150709045539.GA7052@vaishali-Ideapad-Z570>
+	with ESMTP id S1751066AbbGIHbh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 03:31:37 -0400
+In-Reply-To: <1436396807-62275-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vaishali Thakkar <vthakkar1994@gmail.com>
-Date: Thu, 9 Jul 2015 10:25:39 +0530
+From: sfeldma@gmail.com
+Date: Wed,  8 Jul 2015 16:06:47 -0700
 
-> Use module_pci_driver for drivers whose init and exit functions
-> only register and unregister, respectively.
+> From: Scott Feldman <sfeldma@gmail.com>
 > 
-> A simplified version of the Coccinelle semantic patch that performs
-> this transformation is as follows:
- ...
-> Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
+> Implement ndo_change_mtu: on MTU change, reallocate Rx ring bufs and signal
+> HW of new port MTU value.
+> 
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 
-Applied, thanks.
+Applied, thanks Scott.
