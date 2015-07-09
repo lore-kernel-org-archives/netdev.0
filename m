@@ -1,45 +1,209 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH,v2 net-next] ipvs: skb_orphan in case of forwarding
-Date: Thu, 9 Jul 2015 09:29:27 +0900
-Message-ID: <20150709002925.GA24713@verge.net.au>
-References: <1436131706-1559824-1-git-send-email-agartrell@fb.com>
- <alpine.LFD.2.11.1507060105470.12815@ja.home.ssi.bg>
- <CALCkm3eyEbHpzfF1zk0OUnGaSf51=r9DmZs_2Xq4fTtOed3nNQ@mail.gmail.com>
- <20150706035019.GA9155@verge.net.au>
- <CALCkm3d4Xqq+eWryejKhi84rM_fS4QRyu8Fn_Z7RHZv+zbv3_Q@mail.gmail.com>
- <20150708013355.GE28100@verge.net.au>
- <CALCkm3f0NTwUugb=sWVWQ2bJdecmZR_LFHocznuVR8fKRtRLkQ@mail.gmail.com>
- <1436390272.24939.10.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next v4 4/4] ip link: proto_down config and display.
+Date: Wed, 8 Jul 2015 18:01:14 -0700
+Message-ID: <20150708180114.7828cfea@urahara>
+References: <1436389465-3077-5-git-send-email-anuradhak@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alex Gartrell <alexgartrell@gmail.com>,
-	Julian Anastasov <ja@ssi.bg>, Alex Gartrell <agartrell@fb.com>,
-	lvs-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	kernel-team <kernel-team@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1436390272.24939.10.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, sfeldma@gmail.com, netdev@vger.kernel.org,
+	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
+	wkok@cumulusnetworks.com
+To: anuradhak@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35064 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753109AbbGIBBK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2015 21:01:10 -0400
+Received: by pactm7 with SMTP id tm7so140533043pac.2
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 18:01:10 -0700 (PDT)
+In-Reply-To: <1436389465-3077-5-git-send-email-anuradhak@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 08, 2015 at 11:17:52PM +0200, Eric Dumazet wrote:
-> On Wed, 2015-07-08 at 13:56 -0700, Alex Gartrell wrote:
-> > On Tue, Jul 7, 2015 at 6:33 PM, Simon Horman <horms@verge.net.au> wrote:
-> > 
-> > > Is there any possibility you could investigate which stable trees are
-> > > effected by this bug?
-> > 
-> > Well this was certainly a problem in 3.10 (we had our own hacky
-> > solution at the time) and every kernel since then would have also had
-> > this problem.  I'm pretty sure this isn't a problem in 3.4 or before.
-> > 
+On Wed,  8 Jul 2015 14:04:25 -0700
+anuradhak@cumulusnetworks.com wrote:
+
+> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 > 
-> early demux was added in 3.6
+> This patch adds support to set and display the IF_PROTOF_DOWN proto_flag.
+> One example user space application setting this flag is a multi-chassis
+> LAG application to handle split-brain situation on peer-link failure.
 > 
-> Fixes: 41063e9dd119 ("ipv4: Early TCP socket demux.")
+> Example:
+> root@net-next:~# ip link set eth1 protodown on
+> root@net-next:~# ip link show eth1
+> 4: eth1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000 proto_flags <DOWN>
+>     link/ether 52:54:00:12:35:01 brd ff:ff:ff:ff:ff:ff
+> root@net-next:~# ip link set eth1 protodown off
+> root@net-next:~# ip link show eth1
+> 4: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT group default qlen 1000
+>     link/ether 52:54:00:12:35:01 brd ff:ff:ff:ff:ff:ff
+> root@net-next:~#
+> 
+> Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+> ---
+>  include/linux/if.h      |    6 ++++++
+>  include/linux/if_link.h |   12 ++++++++++++
+>  ip/ipaddress.c          |   27 +++++++++++++++++++++++++++
+>  ip/iplink.c             |   18 ++++++++++++++++++
+>  man/man8/ip-link.8.in   |    8 ++++++++
+>  5 files changed, 71 insertions(+)
+> 
+> diff --git a/include/linux/if.h b/include/linux/if.h
+> index a55a9e0..97f53d8 100644
+> --- a/include/linux/if.h
+> +++ b/include/linux/if.h
+> @@ -156,6 +156,12 @@ enum {
+>  	IF_LINK_MODE_DORMANT,	/* limit upward transition to dormant */
+>  };
+>  
+> +/* proto_flags - port state information can be passed to the switch driver and
+> + * used to determine the phys state of the switch port */
+> +enum {
+> +	IF_PROTOF_DOWN		= 1<<0	/* set switch port phys state down */
+> +};
+> +
+>  /*
+>   *	Device mapping structure. I'd just gone off and designed a 
+>   *	beautiful scheme using only loadable modules with arguments
+> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+> index 3d0d613..1d07f3f 100644
+> --- a/include/linux/if_link.h
+> +++ b/include/linux/if_link.h
+> @@ -148,6 +148,7 @@ enum {
+>  	IFLA_PHYS_SWITCH_ID,
+>  	IFLA_LINK_NETNSID,
+>  	IFLA_PHYS_PORT_NAME,
+> +	IFLA_PROTO_FLAGS_INFO,
+>  	__IFLA_MAX
+>  };
+>  
+> @@ -620,4 +621,15 @@ enum {
+>  
+>  #define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
+>  
+> +
+> +/* proto_flags section */
+> +enum {
+> +	IFLA_PROTO_FLAGS_UNSPEC,
+> +	IFLA_PROTO_FLAGS_VAL,
+> +	IFLA_PROTO_FLAGS_CHANGE,
+> +	__IFLA_PROTO_FLAGS_MAX,
+> +};
+> +
+> +#define IFLA_PROTO_FLAGS_MAX (__IFLA_PROTO_FLAGS_MAX - 1)
+> +
+>  #endif /* _LINUX_IF_LINK_H */
+> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+> index 340e1c9..4078023 100644
+> --- a/ip/ipaddress.c
+> +++ b/ip/ipaddress.c
+> @@ -556,6 +556,30 @@ static void print_link_stats(FILE *fp, struct nlmsghdr *n)
+>  	fprintf(fp, "%s", _SL_);
+>  }
+>  
+> +static void print_proto_flags(FILE *fp, struct rtattr *tb)
+> +{
+> +	struct rtattr *proto_info[IFLA_INFO_MAX+1];
+> +	uint32_t proto_flags;
+> +
+> +	parse_rtattr_nested(proto_info, IFLA_PROTO_FLAGS_MAX, tb);
+> +
+> +	if (proto_info[IFLA_PROTO_FLAGS_VAL]) {
+> +		proto_flags = *(uint32_t *)RTA_DATA(
+> +				proto_info[IFLA_PROTO_FLAGS_VAL]);
+> +		if (proto_flags) {
+> +			fprintf(fp, " proto_flags <");
+> +#define _PROTOF(f) if (proto_flags & IF_PROTOF_##f) { \
+> +		      proto_flags &= ~IF_PROTOF_##f ; \
+> +		      fprintf(fp, #f "%s", proto_flags ? "," : ""); }
+> +			_PROTOF(DOWN);
+> +#undef _PROTOF
+> +			if (proto_flags)
+> +				fprintf(fp, "%x", proto_flags);
+> +			fprintf(fp, "> ");
+> +		}
+> +	}
+> +}
+> +
+>  int print_linkinfo(const struct sockaddr_nl *who,
+>  		   struct nlmsghdr *n, void *arg)
+>  {
+> @@ -669,6 +693,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
+>  	if (filter.showqueue)
+>  		print_queuelen(fp, tb);
+>  
+> +	if (tb[IFLA_PROTO_FLAGS_INFO])
+> +		print_proto_flags(fp, tb[IFLA_PROTO_FLAGS_INFO]);
+> +
+>  	if (!filter.family || filter.family == AF_PACKET || show_details) {
+>  		SPRINT_BUF(b1);
+>  		fprintf(fp, "%s", _SL_);
+> diff --git a/ip/iplink.c b/ip/iplink.c
+> index a4a4980..29cb8ce 100644
+> --- a/ip/iplink.c
+> +++ b/ip/iplink.c
+> @@ -611,6 +611,24 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+>  				invarg("Invalid \"link-netnsid\" value\n", *argv);
+>  			addattr32(&req->n, sizeof(*req), IFLA_LINK_NETNSID,
+>  				  link_netnsid);
+> +		} else if (strcmp(*argv, "protodown") == 0) {
+> +			struct rtattr *proto_info;
+> +			unsigned int proto_flags = 0;
+> +
+> +			NEXT_ARG();
+> +			if (strcmp(*argv, "on") == 0)
+> +				proto_flags |= IF_PROTOF_DOWN;
+> +			else if (strcmp(*argv, "off") != 0)
+> +				return on_off("protodown", *argv);
+> +			proto_info = addattr_nest(&req->n,
+> +						  sizeof(*req),
+> +						  IFLA_PROTO_FLAGS_INFO);
+> +			addattr32(&req->n, sizeof(*req),
+> +				  IFLA_PROTO_FLAGS_VAL, proto_flags);
+> +			addattr32(&req->n, sizeof(*req),
+> +				  IFLA_PROTO_FLAGS_CHANGE, IF_PROTOF_DOWN);
+> +
+> +			addattr_nest_end(&req->n, proto_info);
+>  		} else {
+>  			if (strcmp(*argv, "dev") == 0) {
+>  				NEXT_ARG();
+> diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+> index 714aab4..479f652 100644
+> --- a/man/man8/ip-link.8.in
+> +++ b/man/man8/ip-link.8.in
+> @@ -100,6 +100,8 @@ ip-link \- network device configuration
+>  .br
+>  .BR multicast " { " on " | " off " } |"
+>  .br
+> +.BR protodown " { " on " | " off " } |"
+> +.br
+>  .B  txqueuelen
+>  .IR PACKETS " |"
+>  .br
+> @@ -645,6 +647,12 @@ change the
+>  flag on the device.
+>  
+>  .TP
+> +.BR "protodown on " or " protodown off"
+> +change the
+> +.B PROTODOWN
+> +proto_flag on the device.
+> +
+> +.TP
+>  .BR "dynamic on " or " dynamic off"
+>  change the
+>  .B DYNAMIC
 
-Thanks Eric, Thanks Alex,
+It is good to see support for all features in iproute2 and adding it to ip link
+is the right place.
 
-I think things are as clear as they need to be.
-I'll add the above Fixes tag and get things queued up.
+The problem is the syntax.
+With the iproute commands the display and set format should be the same.
+The format of the proto flags display does not match the required input.
+
+Please redo the format of the show to match the set and resubmit.
