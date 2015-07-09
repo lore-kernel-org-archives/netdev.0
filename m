@@ -1,60 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: v1 always send a quick ack when
- quickacks are enabled
-Date: Thu, 09 Jul 2015 14:16:18 -0700 (PDT)
-Message-ID: <20150709.141618.71467123946708533.davem@davemloft.net>
-References: <1436314348-25577-1-git-send-email-jmaxwell37@gmail.com>
+Subject: Re: [net-next PATCH] net: skb_defer_rx_timestamp should check for
+ phydev before setting up classify
+Date: Thu, 09 Jul 2015 14:17:40 -0700 (PDT)
+Message-ID: <20150709.141740.665818246418073474.davem@davemloft.net>
+References: <20150709180252.1686.56670.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, edumazet@google.com, ncardwell@google.com,
-	ycheng@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jmaxwell@redhat.com
-To: jmaxwell37@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1436314348-25577-1-git-send-email-jmaxwell37@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: alexander.h.duyck@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45639 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754403AbbGIVRk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 17:17:40 -0400
+In-Reply-To: <20150709180252.1686.56670.stgit@ahduyck-vm-fedora22>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maxwell <jmaxwell37@gmail.com>
-Date: Wed,  8 Jul 2015 10:12:28 +1000
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Date: Thu, 09 Jul 2015 11:02:52 -0700
 
-> V1 of this patch contains Eric Dumazet's suggestion to move the per
-> dst RTAX_QUICKACK check into tcp_in_quickack_mode(). Thanks Eric.
+> This change makes it so that the call skb_defer_rx_timestamp will first
+> check for a phydev before going in and manipulating the skb->data and
+> skb->len values.  By doing this we can avoid unnecessary work on network
+> devices that don't support phydev.  As a result we reduce the total
+> instruction count needed to process this on most devices.
 > 
-> I ran some tests and after setting the "ip route change quickack 1"
-> knob there were still many delayed ACKs sent. This occured
-> because when icsk_ack.quick=0 the !icsk_ack.pingpong value is
-> subsequently ignored as tcp_in_quickack_mode() checks both these
-> values. The condition for a quick ack to trigger requires
-> that both icsk_ack.quick != 0 and icsk_ack.pingpong=0. Currently
-> only icsk_ack.pingpong is controlled by the knob. But the
-> icsk_ack.quick value changes dynamically depending on heuristics.
-> The crux of the matter is that delayed acks still cannot be entirely
-> disabled even with the RTAX_QUICKACK per dst knob enabled. This
-> patch ensures that a quick ack is always sent when the RTAX_QUICKACK
-> per dst knob is turned on.
-> 
-> The "ip route change quickack 1" knob was recently added to enable
-> quickacks. It was modeled around the TCP_QUICKACK setsockopt() option.
-> This issue is that even with "ip route change quickack 1" enabled
-> we still see delayed ACKs under some conditions. It would be nice
-> to be able to completely disable delayed ACKs.
- ...
-> The issue is that both the "ip route change quickack 1" knob and
-> the TCP_QUICKACK option set the icsk_ack.pingpong variable to 0.
-> However at the business end in the __tcp_ack_snd_check() routine,
-> tcp_in_quickack_mode() checks that both icsk_ack.quick != 0
-> and icsk_ack.pingpong=0 in order to trigger a quickack. As
-> icsk_ack.quick is determined by heuristics it can be 0. When
-> that occurs the icsk_ack.pingpong value is ignored and a delayed
-> ACK is sent regardless.
-> 
-> This patch moves the RTAX_QUICKACK per dst check into the
-> tcp_in_quickack_mode() routine which ensures that a quickack is
-> always sent when the quickack knob is enabled for that dst.
-> 
-> Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-Looks good, applied, thanks Jon.
+This looks fine, applied, thanks Alex.
