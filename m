@@ -1,50 +1,93 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next 5/5] switchdev: update documentation for offload_fwd_mark
-Date: Wed, 8 Jul 2015 22:57:09 -0700
-Message-ID: <CAE4R7bDf=ZZgv+4KHCLOkQjxWYmF8P7oo1_2rUkpnYnguZJQuA@mail.gmail.com>
-References: <1436397403-62412-1-git-send-email-sfeldma@gmail.com>
- <1436397403-62412-6-git-send-email-sfeldma@gmail.com> <20150709042723.GB16603@vergenet.net>
+From: Nicholas Mc Guire <der.herr-kA1LtwSENNE@public.gmane.org>
+Subject: Re: [PATCH] mwifiex: drop condition with no effect
+Date: Thu, 9 Jul 2015 07:57:47 +0200
+Message-ID: <20150709055747.GA22159@opentech.at>
+References: <1436364902-28943-1-git-send-email-hofrat@osadl.org> <CAJwzM1kvWfP1VB4wUoT74F-Ons1R3cpoBEAdfm37sh1p5vhh+A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Simon Horman <simon.horman@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:35579 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752329AbbGIF5a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 01:57:30 -0400
-Received: by oihr66 with SMTP id r66so126383656oih.2
-        for <netdev@vger.kernel.org>; Wed, 08 Jul 2015 22:57:29 -0700 (PDT)
-In-Reply-To: <20150709042723.GB16603@vergenet.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicholas Mc Guire <hofrat-Q945KHDl0DbYtjvyW6yDsg@public.gmane.org>,
+	Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+To: Avinash Patil <avinashapatil-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAJwzM1kvWfP1VB4wUoT74F-Ons1R3cpoBEAdfm37sh1p5vhh+A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 8, 2015 at 9:27 PM, Simon Horman <simon.horman@netronome.com> wrote:
-> On Wed, Jul 08, 2015 at 04:16:43PM -0700, sfeldma@gmail.com wrote:
->> From: Scott Feldman <sfeldma@gmail.com>
->>
->> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->> ---
->>  Documentation/networking/switchdev.txt |   14 ++++++++++++--
->>  1 file changed, 12 insertions(+), 2 deletions(-)
->>
->> diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
->> index c5d7ade..b864e47 100644
->> --- a/Documentation/networking/switchdev.txt
->> +++ b/Documentation/networking/switchdev.txt
->> @@ -279,8 +279,18 @@ and unknown unicast packets to all ports in domain, if allowed by port's
->>  current STP state.  The switch driver, knowing which ports are within which
->>  vlan L2 domain, can program the switch device for flooding.  The packet should
->>  also be sent to the port netdev for processing by the bridge driver.  The
->> -bridge should not reflood the packet to the same ports the device flooded.
->> -XXX: the mechanism to avoid duplicate flood packets is being discuseed.
->> +bridge should not reflood the packet to the same ports the device flooded,
->> +otherwise there will be duplicate packets on the wire.
->> +
->> +To avoid duplicate packets, the device/driver can mark a packet as already
+On Wed, 08 Jul 2015, Avinash Patil wrote:
+
+> Hi Nicholas,
+> 
+> On Wed, Jul 8, 2015 at 7:15 AM, Nicholas Mc Guire <hofrat-Q945KHDl0DbYtjvyW6yDsg@public.gmane.org> wrote:
+> > scanning for trivial bug-patters with coccinelle spatches returned:
+> > ./drivers/net/wireless/mwifiex/sta_cmdresp.c:895
+> >         WARNING: condition with no effect (if branch == else)
+> >
+> > originally added in 'commit d8d2f19feb16 ("mwifiex: silence TDLS link
+> > delete failure for nonexistent link")' with dev_dbg/dev_err (though
+> > with the same message) to differentiate severity and then in 'commit
+> > acebe8c10a6e ("mwifiex: change dbg print func to mwifiex_dbg")' all
+> > dev_dbg,dev_warn and dev_err got converted to mwifiex_dbg which should
+> > thus probably drop this if/else as well.
+> >
+> > Signed-off-by: Nicholas Mc Guire <hofrat-Q945KHDl0DbYtjvyW6yDsg@public.gmane.org>
+> > ---
+> >
+> > If dropping the if/else is not the right thing to do then commit
+> > acebe8c10a6e "mwifiex: change dbg print func to mwifiex_dbg" probably
+> > needs a review as well.
+> >
+> > Patch was compile tested with x86_64_defconfig + CONFIG_MWIFIEX=m
+> >
+> > Patch is against 4.2-rc1 (localversion-next is -next-20150708)
+> >
+> >  drivers/net/wireless/mwifiex/sta_cmdresp.c |   11 +++--------
+> >  1 file changed, 3 insertions(+), 8 deletions(-)
+> >
+> > diff --git a/drivers/net/wireless/mwifiex/sta_cmdresp.c b/drivers/net/wireless/mwifiex/sta_cmdresp.c
+> > index b645884..e58f900 100644
+> > --- a/drivers/net/wireless/mwifiex/sta_cmdresp.c
+> > +++ b/drivers/net/wireless/mwifiex/sta_cmdresp.c
+> > @@ -892,14 +892,9 @@ static int mwifiex_ret_tdls_oper(struct mwifiex_private *priv,
+> >         switch (action) {
+> >         case ACT_TDLS_DELETE:
+> >                 if (reason) {
+> > -                       if (!node || reason == TDLS_ERR_LINK_NONEXISTENT)
+> > -                               mwifiex_dbg(priv->adapter, ERROR,
+> > -                                           "TDLS link delete for %pM failed: reason %d\n",
+> > -                                           cmd_tdls_oper->peer_mac, reason);
+> > -                       else
+> > -                               mwifiex_dbg(priv->adapter, ERROR,
+> > -                                           "TDLS link delete for %pM failed: reason %d\n",
+> > -                                           cmd_tdls_oper->peer_mac, reason);
+> > +                       mwifiex_dbg(priv->adapter, ERROR,
+> > +                                   "TDLS link delete for %pM failed: reason %d\n",
+> > +                                   cmd_tdls_oper->peer_mac, reason);
+> 
+> I think reason why we had these 2 different prints is for first
+> occurrence in "if" which may be not so serious we used to print with
+> dev_dbg and second occurrence in "else" is more serious issue which
+> was under dev_err.
+> It would be better to use mwifiex_dbg with DBG/MSG in"if" condition
+> instead of removing whole if/else.
 >
-> I wonder if  'should' or 'may' would be clearer than 'can'.
 
-'should' sounds better; v2.
+ok - it seemed to me that since the reason was being printed it would be
+clear from the error message which case was triggering this message but
+you are right that the initial intent to differentiate severity levels
+(from 'commit d8d2f19feb16 ("mwifiex: silence TDLS link delete failure
+for nonexistent link")' would be better served with your suggestion - I 
+just was not clear if this initial reason still holds.
+
+will fix it up and resend.
+
+thx!
+hofrat
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
