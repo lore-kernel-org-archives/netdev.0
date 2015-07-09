@@ -1,81 +1,46 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: [PATCH 2/2] mvneta: use inband status only when link type is "auto"
-Date: Thu, 09 Jul 2015 20:41:02 +0300
-Message-ID: <559EB22E.7070607@list.ru>
-References: <559EB0A4.5080101@list.ru>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: net-next is OPEN
+Date: Thu, 09 Jul 2015 20:48:36 +0300
+Message-ID: <559EB3F4.3060000@cogentembedded.com>
+References: <20150708.133041.2042093870138764891.davem@davemloft.net>	<559E5FCE.6010301@cogentembedded.com> <20150709.104019.370940061164391476.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	netdev <netdev@vger.kernel.org>,
-	Linux kernel <linux-kernel@vger.kernel.org>,
-	stable@vger.kernel.org
-To: linux-net@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <559EB0A4.5080101@list.ru>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:35736 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751885AbbGIRsl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 13:48:41 -0400
+Received: by lblf12 with SMTP id f12so9886703lbl.2
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 10:48:39 -0700 (PDT)
+In-Reply-To: <20150709.104019.370940061164391476.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 07/09/2015 08:40 PM, David Miller wrote:
 
-The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band link state
-signaling") implemented the link parameters auto-negotiation unconditionally.
-Unfortunately it appears that some HW that implements SGMII protocol,
-doesn't generate the inband status, so it is not possible to auto-negotiate
-anything with such HW.
+>>> Please feel free to bombard me with net-next changes, which some of
+>>> you have been doing already ;-(, as net-next is now open.
 
-This patch enables the auto-negotiation only if the 'link' DT property
-is set to "auto".
-For old configurations where the 'link' property is not specified, the
-default is to not use auto-negotiation.
+>>     Hm, I pulled and didn't see 4.2-rc1 tag. Is it normal?
 
-This patch fixes the following regression:
-https://lkml.org/lkml/2015/7/8/865
-and is therefore CCed to stable.
+> Why does it have to be there?
 
-Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
+    I thought your pause during the merge window is caused by you wanting for 
+-rc1 tagging in order for the possible conflicts to be resolved...
 
-CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-CC: netdev@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
-CC: stable@vger.kernel.org
----
- drivers/net/ethernet/marvell/mvneta.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+> I build net-next by pulling net into net-next.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 74176ec..b7f4d7f 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -3009,7 +3009,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 	char hw_mac_addr[ETH_ALEN];
- 	const char *mac_from;
- 	int phy_mode;
--	int fixed_phy = 0;
-+	int autoneg_link = 0;
- 	int err;
+    Well, that merge you do quite routinely. :-)
 
- 	/* Our multiqueue support is not complete, so for now, only
-@@ -3043,7 +3043,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 			dev_err(&pdev->dev, "cannot register fixed PHY\n");
- 			goto err_free_irq;
- 		}
--		fixed_phy = 1;
-+		autoneg_link = of_phy_is_autoneg_link(dn);
+> Since 'net' is based upon Linus's tree before he added that tag
+> there is no reason for it to have that tag at all.
 
- 		/* In the case of a fixed PHY, the DT node associated
- 		 * to the PHY is the Ethernet MAC DT node.
-@@ -3068,7 +3068,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 	pp->phy_node = phy_node;
- 	pp->phy_interface = phy_mode;
- 	pp->use_inband_status = (phy_mode == PHY_INTERFACE_MODE_SGMII) &&
--				fixed_phy;
-+				autoneg_link;
+> I really have no idea why you expect it to be there.
 
- 	pp->clk = devm_clk_get(&pdev->dev, NULL);
- 	if (IS_ERR(pp->clk)) {
--- 
-1.9.1
+    I then don't quite understand why you close net-next during the merge 
+window and beyond.
+
+WBR, Sergei
