@@ -1,52 +1,45 @@
-From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v1 02/12] IB/core: Find the network device matching connection
- parameters
-Date: Thu, 9 Jul 2015 13:18:36 +0300
-Message-ID: <559E4A7C.8020606@mellanox.com>
-References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
- <1434976961-27424-3-git-send-email-haggaie@mellanox.com>
- <20150708203325.GB16812@obsidianresearch.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: problems with L2TP
+Date: Thu, 09 Jul 2015 11:33:41 +0100
+Message-ID: <559E4E05.3090902@katalix.com>
+References: <CAKaJLVuu8vZ8fq32jqbC0MKRms9ikmT_d9KKA+hJ8kwpEYBhmA@mail.gmail.com>	<20150703154155.GA19294@jackdaw>	<CAKaJLVss0SMqf5hcBCdBuwa7+3_iBh527DW4+2Vb-RUPcb9Ffg@mail.gmail.com>	<559CF533.2060204@katalix.com> <CAKaJLVvft6HjFH+qAr4taD4bEis4SCtTSbvmDYuGz9=1boQvJA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150708203325.GB16812-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Tom Parkin <tparkin@katalix.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Sumit Semwal <sumit.semwal@linaro.org>
+To: Sam Protsenko <semen.protsenko@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from katalix.com ([82.103.140.233]:58295 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750943AbbGIKdp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 06:33:45 -0400
+In-Reply-To: <CAKaJLVvft6HjFH+qAr4taD4bEis4SCtTSbvmDYuGz9=1boQvJA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/07/2015 23:33, Jason Gunthorpe wrote:
-> On Mon, Jun 22, 2015 at 03:42:31PM +0300, Haggai Eran wrote:
->> +/**
->> + * ib_get_net_dev_by_params() - Return the appropriate net_dev
->> + * for a received CM request
->> + * @dev:	An RDMA device on which the request has been received.
->> + * @port:	Port number on the RDMA device.
->> + * @pkey:	The Pkey the request came on.
->> + * @gid:	A GID that the net_dev uses to communicate.
->> + * @addr:	Contains the IP address that the request specified as its
->> + *		destination.
->> + */
->> +struct net_device *ib_get_net_dev_by_params(struct ib_device *dev, u8 port,
->> +					    u16 pkey, const union ib_gid *gid,
->> +					    const struct sockaddr *addr);
-> 
-> I feel like this has been repated a few times now, but kdocs should be
-> with the function body, not in the header.
-Right. I fixed it in the IB/addr patch, but missed it here. I'll move it
-to the function's definition.
+On 09/07/15 10:16, Sam Protsenko wrote:
+>> Tom and I discussed this and we're not clear what you are running. Have
+>> you changed create_pppox() in mtpd with the code fragment from your
+>> original mail?
+> Here is the commit for mtpd where I'm changing Android L2TP
+> implementation to mainline implementation:
+> http://git.linaro.org/people/semen.protsenko/mtpd.git/blobdiff/27a25e28b7c84d3f49c50a3e7b1fc3a46ac4ff51..01265f20617e7f3ca041e55dbf557912a0ecebd5:/l2tp_up.c
+>
+>> Are you sure that your modified mtpd gets the correct
+>> local/remote tunnel-id and session-id to make its connect() call?
+> Judging from xl2tpd and mtpd logs, they are actually different. Seems
+> like this is actual issue. But I still didn't figured why it's
+> happening.
+> As I understand, mtpd should have the same values for remote
+> tunnel-id/session-id as xl2tpd has for local ones, but it's not the
+> case for my code.
+That's correct. This is a control protocol implementation issue, not a
+kernel issue.
 
-> Reviewed-By: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Thanks,
-
-Haggai
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
