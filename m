@@ -1,60 +1,32 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net] bridge: mdb: allow the user to delete mdb
-	entry if there's a querier
-Date: Thu,  9 Jul 2015 04:12:45 -0700
-Message-ID: <1436440365-909-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: bridge@lists.linux-foundation.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: net-next is OPEN
+Date: Thu, 9 Jul 2015 14:49:34 +0300
+Message-ID: <559E5FCE.6010301@cogentembedded.com>
+References: <20150708.133041.2042093870138764891.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:33466 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752999AbbGILti (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 07:49:38 -0400
+Received: by lbzd8 with SMTP id d8so28163013lbz.0
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 04:49:36 -0700 (PDT)
+In-Reply-To: <20150708.133041.2042093870138764891.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Satish Ashok <sashok@cumulusnetworks.com>
+Hello.
 
-Until now when a querier was present static entries couldn't be deleted.
-Fix this and allow the user to manipulate the mdb with or without a
-querier.
+On 7/8/2015 11:30 PM, David Miller wrote:
 
-Signed-off-by: Satish Ashok <sashok@cumulusnetworks.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/bridge/br_mdb.c | 11 ++---------
- 1 file changed, 2 insertions(+), 9 deletions(-)
+> Please feel free to bombard me with net-next changes, which some of you
+> have been doing already ;-(, as net-next is now open.
 
-diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
-index 60868c212679..c11cf2611db0 100644
---- a/net/bridge/br_mdb.c
-+++ b/net/bridge/br_mdb.c
-@@ -423,19 +423,12 @@ static int __br_mdb_del(struct net_bridge *br, struct br_mdb_entry *entry)
- 
- 	memset(&ip, 0, sizeof(ip));
- 	ip.proto = entry->addr.proto;
--	if (ip.proto == htons(ETH_P_IP)) {
--		if (timer_pending(&br->ip4_other_query.timer))
--			return -EBUSY;
--
-+	if (ip.proto == htons(ETH_P_IP))
- 		ip.u.ip4 = entry->addr.u.ip4;
- #if IS_ENABLED(CONFIG_IPV6)
--	} else {
--		if (timer_pending(&br->ip6_other_query.timer))
--			return -EBUSY;
--
-+	else
- 		ip.u.ip6 = entry->addr.u.ip6;
- #endif
--	}
- 
- 	spin_lock_bh(&br->multicast_lock);
- 	mdb = mlock_dereference(br->mdb, br);
--- 
-1.9.1
+    Hm, I pulled and didn't see 4.2-rc1 tag. Is it normal?
+
+> Thanks.
+
+WBR, Sergei
