@@ -1,93 +1,189 @@
 From: anuradhak@cumulusnetworks.com
-Subject: [PATCH net-next v5 0/4] net: Introduce protodown flag.
-Date: Thu,  9 Jul 2015 15:35:26 -0700
-Message-ID: <1436481330-4599-1-git-send-email-anuradhak@cumulusnetworks.com>
+Subject: [PATCH net-next v5 4/4] ip link: proto_down config and display.
+Date: Thu,  9 Jul 2015 15:35:30 -0700
+Message-ID: <1436481330-4599-5-git-send-email-anuradhak@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com,
 	anuradhak@cumulusnetworks.com
 To: davem@davemloft.net, sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:35762 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750800AbbGIWfh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 18:35:37 -0400
-Received: by pdrg1 with SMTP id g1so40593367pdr.2
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 15:35:37 -0700 (PDT)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35299 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751685AbbGIWfo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 18:35:44 -0400
+Received: by pactm7 with SMTP id tm7so157314162pac.2
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 15:35:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 
-User space daemons can detect errors in the network that need to be
-notified to the switch device drivers.
+This patch adds support to set and display the IF_PROTOF_DOWN proto_flag.
+One example user space application setting this flag is a multi-chassis
+LAG application to handle split-brain situation on peer-link failure.
 
-Drivers can react to this error state by doing a phy-down on the
-switch-port which would result in a carrier-off locally and on the
-directly connected switch. Doing that would prevent loops and
-black-holes in the network.
+Example:
+root@net-next:~# ip link set eth1 protodown on
+root@net-next:~/iproute2# ip link show eth1
+4: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 52:54:00:12:35:01 brd ff:ff:ff:ff:ff:ff protodown on
+root@net-next:~/iproute2# ip link set eth1 protodown off
+root@net-next:~/iproute2# ip link show eth1
+4: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 52:54:00:12:35:01 brd ff:ff:ff:ff:ff:ff
+root@net-next:~/iproute2#
+---
+ include/linux/if.h      |    6 ++++++
+ include/linux/if_link.h |   12 ++++++++++++
+ ip/ipaddress.c          |   19 +++++++++++++++++++
+ ip/iplink.c             |   19 +++++++++++++++++++
+ man/man8/ip-link.8.in   |    8 ++++++++
+ 5 files changed, 64 insertions(+)
 
-One such use case is the multi-chassis LAG application -
-1. The MLAG application runs on peer switches (say Switch0 and Switch1)
-   synchronizing states, forwarding entries etc. between the two
-   switches over the peer-link (this is a link directly connecting the
-   two switches).
-2. An MLAG election process designates one of the switches as a primary
-   (for e.g. Switch0 is primary and Switch1 is secondary).
-3. The peer link plays a critical role in allowing Switch0-Switch1 to
-   function as a single LAG partner to the downstream dual-connected
-   servers. When the peer-link between the switches goes down we have a
-   split-brain situation. Switch0 and Switch1 are no longer in sync and
-   are acting independently. This can result in traffic loops and
-   traffic black-holing in the network.
-4. To prevent these problems the MLAG application on the secondary
-   switch phy-downs the MLAG ports on detecting the peer-link down.
-   This will be seen as a carrier down on servers that are
-   dual-connected to Switch0 and Switch1.
-5. Specifically a dual-connected server will see a carrier-down on the
-   port connected to the MLAG secondary, Switch1, and will stop using
-   that port for traffic TX. So traffic black holing is prevented.
-
-v4 to v5:
-   Changed the ip link display format for protodown to match the set as
-   recommended by Stephen. 
-
-v3 to v4:
-   I have moved protodown out of IFF_XXX and introduced a separate
-   proto_flags field with IF_PROTOF_DOWN bit being used by apps to notify
-   switch port errors. This is in response to Stephen's comments that
-   adding a new IFF_XXX may break user space.
-
-   I have used rocker as the sample switch driver. And to test this
-   functionality I used the qemu-rocker patch that Scott sent out in response
-   to the v3 posting (needed to set link up/down when phy is
-   enabled/disabled).
-
-v1 to v2:
-   Based on Dave's suggestion I have moved out aggregating of error bits
-   across applications to a user space framework. This patch now simply
-   notifies an aggregated error bit to drivers enabling them to handle
-   the error gracefully.
-
-
-Anuradha Karuppiah (4):
-  net core: Add protodown support.
-  netlink: changes for setting and clearing protodown via netlink.
-  rocker: Handle protodown notifications.
-  ip link: proto_down config and display.
-
-Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
-Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
-
- drivers/net/ethernet/rocker/rocker.c |   19 +++++++++++-
- include/linux/netdevice.h            |   13 ++++++++
- include/uapi/linux/if.h              |    6 ++++
- include/uapi/linux/if_link.h         |   10 ++++++
- net/core/dev.c                       |   20 ++++++++++++
- net/core/net-sysfs.c                 |   14 +++++++++
- net/core/rtnetlink.c                 |   57 +++++++++++++++++++++++++++++++++-
- 7 files changed, 137 insertions(+), 2 deletions(-)
-
+diff --git a/include/linux/if.h b/include/linux/if.h
+index a55a9e0..97f53d8 100644
+--- a/include/linux/if.h
++++ b/include/linux/if.h
+@@ -156,6 +156,12 @@ enum {
+ 	IF_LINK_MODE_DORMANT,	/* limit upward transition to dormant */
+ };
+ 
++/* proto_flags - port state information can be passed to the switch driver and
++ * used to determine the phys state of the switch port */
++enum {
++	IF_PROTOF_DOWN		= 1<<0	/* set switch port phys state down */
++};
++
+ /*
+  *	Device mapping structure. I'd just gone off and designed a 
+  *	beautiful scheme using only loadable modules with arguments
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 8df6a84..f6e26ae 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -148,6 +148,7 @@ enum {
+ 	IFLA_PHYS_SWITCH_ID,
+ 	IFLA_LINK_NETNSID,
+ 	IFLA_PHYS_PORT_NAME,
++	IFLA_PROTO_FLAGS_INFO,
+ 	__IFLA_MAX
+ };
+ 
+@@ -649,4 +650,15 @@ enum {
+ 
+ #define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
+ 
++
++/* proto_flags section */
++enum {
++	IFLA_PROTO_FLAGS_UNSPEC,
++	IFLA_PROTO_FLAGS_VAL,
++	IFLA_PROTO_FLAGS_CHANGE,
++	__IFLA_PROTO_FLAGS_MAX,
++};
++
++#define IFLA_PROTO_FLAGS_MAX (__IFLA_PROTO_FLAGS_MAX - 1)
++
+ #endif /* _LINUX_IF_LINK_H */
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 85a81ba..78c473a 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -590,6 +590,22 @@ static void print_link_stats(FILE *fp, struct nlmsghdr *n)
+ 	fprintf(fp, "%s", _SL_);
+ }
+ 
++static void print_proto_flags(FILE *fp, struct rtattr *tb)
++{
++	struct rtattr *proto_info[IFLA_INFO_MAX+1];
++	uint32_t proto_flags;
++
++	parse_rtattr_nested(proto_info, IFLA_PROTO_FLAGS_MAX, tb);
++
++	if (proto_info[IFLA_PROTO_FLAGS_VAL]) {
++		proto_flags = *(uint32_t *)RTA_DATA(
++				proto_info[IFLA_PROTO_FLAGS_VAL]);
++		if (proto_flags & IF_PROTOF_DOWN) {
++			fprintf(fp, " protodown on");
++		}
++	}
++}
++
+ int print_linkinfo(const struct sockaddr_nl *who,
+ 		   struct nlmsghdr *n, void *arg)
+ {
+@@ -736,6 +752,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 			fprintf(fp, " link-netnsid unknown");
+ 	}
+ 
++	if (tb[IFLA_PROTO_FLAGS_INFO])
++		print_proto_flags(fp, tb[IFLA_PROTO_FLAGS_INFO]);
++
+ 	if (tb[IFLA_PROMISCUITY] && show_details)
+ 		fprintf(fp, " promiscuity %u ",
+ 			*(int*)RTA_DATA(tb[IFLA_PROMISCUITY]));
+diff --git a/ip/iplink.c b/ip/iplink.c
+index e296e6f..3471ca9 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -85,6 +85,7 @@ void iplink_usage(void)
+ 	fprintf(stderr, "			  [ master DEVICE ]\n");
+ 	fprintf(stderr, "			  [ nomaster ]\n");
+ 	fprintf(stderr, "			  [ addrgenmode { eui64 | none } ]\n");
++	fprintf(stderr, "	                  [ protodown { on | off } ]\n");
+ 	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up] [master DEV] [type TYPE]\n");
+ 
+ 	if (iplink_have_newlink()) {
+@@ -612,6 +613,24 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+ 				invarg("Invalid \"link-netnsid\" value\n", *argv);
+ 			addattr32(&req->n, sizeof(*req), IFLA_LINK_NETNSID,
+ 				  link_netnsid);
++		} else if (strcmp(*argv, "protodown") == 0) {
++			struct rtattr *proto_info;
++			unsigned int proto_flags = 0;
++
++			NEXT_ARG();
++			if (strcmp(*argv, "on") == 0)
++				proto_flags |= IF_PROTOF_DOWN;
++			else if (strcmp(*argv, "off") != 0)
++				return on_off("protodown", *argv);
++			proto_info = addattr_nest(&req->n,
++						  sizeof(*req),
++						  IFLA_PROTO_FLAGS_INFO);
++			addattr32(&req->n, sizeof(*req),
++				  IFLA_PROTO_FLAGS_VAL, proto_flags);
++			addattr32(&req->n, sizeof(*req),
++				  IFLA_PROTO_FLAGS_CHANGE, IF_PROTOF_DOWN);
++
++			addattr_nest_end(&req->n, proto_info);
+ 		} else {
+ 			if (strcmp(*argv, "dev") == 0) {
+ 				NEXT_ARG();
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 372e6c6..f35f6df 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -101,6 +101,8 @@ ip-link \- network device configuration
+ .br
+ .BR multicast " { " on " | " off " } |"
+ .br
++.BR protodown " { " on " | " off " } |"
++.br
+ .B  txqueuelen
+ .IR PACKETS " |"
+ .br
+@@ -682,6 +684,12 @@ change the
+ flag on the device.
+ 
+ .TP
++.BR "protodown on " or " protodown off"
++change the
++.B PROTODOWN
++proto_flag on the device.
++
++.TP
+ .BR "dynamic on " or " dynamic off"
+ change the
+ .B DYNAMIC
 -- 
 1.7.10.4
