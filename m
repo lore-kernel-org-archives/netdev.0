@@ -1,65 +1,52 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: systemport: Use eth_hw_addr_random
-Date: Thu, 09 Jul 2015 14:31:11 -0700
-Message-ID: <559EE81F.20900@gmail.com>
-References: <20150708051930.GA13317@vaishali-Ideapad-Z570>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] dsa: mv88e6352/mv88e6xxx: Add support for Marvell
+ 88E6320 and 88E6321
+Date: Thu, 09 Jul 2015 14:37:01 -0700 (PDT)
+Message-ID: <20150709.143701.1788505384324235588.davem@davemloft.net>
+References: <1436326695-18666-1-git-send-email-linux@roeck-us.net>
+	<20150708145234.GB32208@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Vaishali Thakkar <vthakkar1994@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36075 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754080AbbGIVcz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 17:32:55 -0400
-In-Reply-To: <20150708051930.GA13317@vaishali-Ideapad-Z570>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux@roeck-us.net, netdev@vger.kernel.org, f.fainelli@gmail.com,
+	linux-kernel@vger.kernel.org, ioctl@yandex.ru
+To: andrew@lunn.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150708145234.GB32208@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/07/15 22:19, Vaishali Thakkar wrote:
-> Use eth_hw_addr_random() instead of calling random_ether_addr().
-> Here, this change is setting addr_assign_type to NET_ADDR_RANDOM.
-> 
-> The Coccinelle semantic patch that performs this transformation
-> is as follows:
-> 
-> @@
-> identifier a,b;
-> @@
-> 
-> -random_ether_addr(a->b);
-> +eth_hw_addr_random(a);
-> 
-> Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed, 8 Jul 2015 16:52:34 +0200
 
-Tested-by: Florian Fainelli <f.fainelli@gmail.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> ---
-> Note that this patch is compile tested only and I have used file
-> drivers/net/ethernet/hisilicon/hix5hd2_gmac.c as a reference.
-> Also, original call didn't make assignment to NET_ADDR_RANDOM. So,
-> it would be good if someone can test this change.
-> ---
->  drivers/net/ethernet/broadcom/bcmsysport.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> On Tue, Jul 07, 2015 at 08:38:15PM -0700, Guenter Roeck wrote:
+>> From: "Aleksey S. Kazantsev" <ioctl@yandex.ru>
+>> 
+>> MV88E6320 and MV88E6321 are largely compatible to MV886352,
+>> but are members of a different chip family.
+>> 
+>> Signed-off-by: Aleksey S. Kazantsev <ioctl@yandex.ru>
+>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 > 
-> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-> index 909ad7a..4566cdf 100644
-> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
-> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-> @@ -1793,7 +1793,7 @@ static int bcm_sysport_probe(struct platform_device *pdev)
->  	macaddr = of_get_mac_address(dn);
->  	if (!macaddr || !is_valid_ether_addr(macaddr)) {
->  		dev_warn(&pdev->dev, "using random Ethernet MAC\n");
-> -		random_ether_addr(dev->dev_addr);
-> +		eth_hw_addr_random(dev);
->  	} else {
->  		ether_addr_copy(dev->dev_addr, macaddr);
->  	}
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 > 
+> One thing we might want to consider, is moving the temperate sensor
+> code into mv88e6xxx. It seems likely future devices will also have the
+> same sensor, so moving it to the shared code would make sense. We can
+> then keep all mv88e6xxx_XXXX_family() stuff in a single file.
+> 
+> I don't see this as a blocker for this patchset, but now might be the
+> right time to do this.
 
+Please do not quote an entire patch just to add a reviewed-by or
+acked-by tag.   If you have to quote some of the patch to comment
+on specific portions, only quote exactly the hunks of the patch
+relevant to what you want to discuss.
 
--- 
-Florian
+It doesn't take much effort to properly clip all except the most
+relevant quoted text in your reply, and doing so I consider a very
+basic common courtesy to everyone else on this mailing list.  It's
+especially a courtesy to me as I have to scroll through the threads
+and patchwork entries for every single patch posted here.
+
+Thanks in advance for your consideration.
