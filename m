@@ -1,323 +1,313 @@
 From: Julien Grall <julien.grall@citrix.com>
-Subject: [PATCH v2 18/20] net/xen-netback: Make it running on 64KB page granularity
-Date: Thu, 9 Jul 2015 21:42:30 +0100
-Message-ID: <1436474552-31789-19-git-send-email-julien.grall@citrix.com>
+Subject: [PATCH v2 17/20] net/xen-netfront: Make it running on 64KB page
+ granularity
+Date: Thu, 9 Jul 2015 21:42:29 +0100
+Message-ID: <1436474552-31789-18-git-send-email-julien.grall@citrix.com>
 References: <1436474552-31789-1-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-arm-kernel@lists.infradead.org>, <ian.campbell@citrix.com>,
-	<stefano.stabellini@eu.citrix.com>, <linux-kernel@vger.kernel.org>,
-	"Julien Grall" <julien.grall@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ian.campbell@citrix.com, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+ netdev@vger.kernel.org, stefano.stabellini@eu.citrix.com,
+ linux-kernel@vger.kernel.org, Julien
+ Grall <julien.grall@citrix.com>, David Vrabel <david.vrabel@citrix.com>,
+ Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+ linux-arm-kernel@lists.infradead.org
 To: <xen-devel@lists.xenproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1436474552-31789-1-git-send-email-julien.grall@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 The PV network protocol is using 4KB page granularity. The goal of this
-patch is to allow a Linux using 64KB page granularity working as a
-network backend on a non-modified Xen.
+patch is to allow a Linux using 64KB page granularity using network
+device on a non-modified Xen.
 
 It's only necessary to adapt the ring size and break skb data in small
 chunk of 4KB. The rest of the code is relying on the grant table code.
 
+Note that we allocate a Linux page for each rx skb but only the first
+4KB is used. We may improve the memory usage by extending the size of
+the rx skb.
+
 Signed-off-by: Julien Grall <julien.grall@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
 Cc: netdev@vger.kernel.org
 ---
 
 Improvement such as support of 64KB grant is not taken into
-consideration in this patch because we have the requirement to run a
-Linux using 64KB pages on a non-modified Xen.
+consideration in this patch because we have the requirement to run a Linux
+using 64KB pages on a non-modified Xen.
+
+Tested with workload such as ping, ssh, wget, git... I would happy if
+someone give details how to test all the path.
 
     Changes in v2:
-        - Correctly set MAX_GRANT_COPY_OPS and XEN_NETBK_RX_SLOTS_MAX
-        - Don't use XEN_PAGE_SIZE in handle_frag_list as we coalesce
-        fragment into a new skb
-        - Use gnntab_foreach_grant to split a Linux page into grant
+        - Use gnttab_foreach_grant to split a Linux page in grant
+        - Fix count slots
 ---
- drivers/net/xen-netback/common.h  |  15 +++--
- drivers/net/xen-netback/netback.c | 138 +++++++++++++++++++++++---------------
- 2 files changed, 93 insertions(+), 60 deletions(-)
+ drivers/net/xen-netfront.c | 121 ++++++++++++++++++++++++++++++++-------------
+ 1 file changed, 87 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 8a495b3..bb68211 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -44,6 +44,7 @@
- #include <xen/interface/grant_table.h>
- #include <xen/grant_table.h>
- #include <xen/xenbus.h>
-+#include <xen/page.h>
- #include <linux/debugfs.h>
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index f948c46..7233b09 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -74,8 +74,8 @@ struct netfront_cb {
  
- typedef unsigned int pending_ring_idx_t;
-@@ -64,8 +65,8 @@ struct pending_tx_info {
- 	struct ubuf_info callback_struct;
- };
+ #define GRANT_INVALID_REF	0
  
--#define XEN_NETIF_TX_RING_SIZE __CONST_RING_SIZE(xen_netif_tx, PAGE_SIZE)
--#define XEN_NETIF_RX_RING_SIZE __CONST_RING_SIZE(xen_netif_rx, PAGE_SIZE)
-+#define XEN_NETIF_TX_RING_SIZE __CONST_RING_SIZE(xen_netif_tx, XEN_PAGE_SIZE)
-+#define XEN_NETIF_RX_RING_SIZE __CONST_RING_SIZE(xen_netif_rx, XEN_PAGE_SIZE)
+-#define NET_TX_RING_SIZE __CONST_RING_SIZE(xen_netif_tx, PAGE_SIZE)
+-#define NET_RX_RING_SIZE __CONST_RING_SIZE(xen_netif_rx, PAGE_SIZE)
++#define NET_TX_RING_SIZE __CONST_RING_SIZE(xen_netif_tx, XEN_PAGE_SIZE)
++#define NET_RX_RING_SIZE __CONST_RING_SIZE(xen_netif_rx, XEN_PAGE_SIZE)
  
- struct xenvif_rx_meta {
- 	int id;
-@@ -80,16 +81,18 @@ struct xenvif_rx_meta {
- /* Discriminate from any valid pending_idx value. */
- #define INVALID_PENDING_IDX 0xFFFF
+ /* Minimum number of Rx slots (includes slot for GSO metadata). */
+ #define NET_RX_SLOTS_MIN (XEN_NETIF_NR_SLOTS_MIN + 1)
+@@ -291,7 +291,7 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
+ 		struct sk_buff *skb;
+ 		unsigned short id;
+ 		grant_ref_t ref;
+-		unsigned long pfn;
++		struct page *page;
+ 		struct xen_netif_rx_request *req;
  
--#define MAX_BUFFER_OFFSET PAGE_SIZE
-+#define MAX_BUFFER_OFFSET XEN_PAGE_SIZE
+ 		skb = xennet_alloc_one_rx_buffer(queue);
+@@ -307,14 +307,13 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
+ 		BUG_ON((signed short)ref < 0);
+ 		queue->grant_rx_ref[id] = ref;
  
- #define MAX_PENDING_REQS XEN_NETIF_TX_RING_SIZE
+-		pfn = page_to_pfn(skb_frag_page(&skb_shinfo(skb)->frags[0]));
++		page = skb_frag_page(&skb_shinfo(skb)->frags[0]);
  
-+#define MAX_XEN_SKB_FRAGS (65536 / XEN_PAGE_SIZE + 1)
-+
- /* It's possible for an skb to have a maximal number of frags
-  * but still be less than MAX_BUFFER_OFFSET in size. Thus the
-- * worst-case number of copy operations is MAX_SKB_FRAGS per
-+ * worst-case number of copy operations is MAX_XEN_SKB_FRAGS per
-  * ring slot.
-  */
--#define MAX_GRANT_COPY_OPS (MAX_SKB_FRAGS * XEN_NETIF_RX_RING_SIZE)
-+#define MAX_GRANT_COPY_OPS (MAX_XEN_SKB_FRAGS * XEN_NETIF_RX_RING_SIZE)
- 
- #define NETBACK_INVALID_HANDLE -1
- 
-@@ -203,7 +206,7 @@ struct xenvif_queue { /* Per-queue data for xenvif */
- /* Maximum number of Rx slots a to-guest packet may use, including the
-  * slot needed for GSO meta-data.
-  */
--#define XEN_NETBK_RX_SLOTS_MAX (MAX_SKB_FRAGS + 1)
-+#define XEN_NETBK_RX_SLOTS_MAX ((MAX_XEN_SKB_FRAGS + 1))
- 
- enum state_bit_shift {
- 	/* This bit marks that the vif is connected */
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 3f77030..828085b 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -263,6 +263,65 @@ static struct xenvif_rx_meta *get_next_rx_buffer(struct xenvif_queue *queue,
- 	return meta;
+ 		req = RING_GET_REQUEST(&queue->rx, req_prod);
+-		gnttab_grant_foreign_access_ref(ref,
+-						queue->info->xbdev->otherend_id,
+-						pfn_to_mfn(pfn),
+-						0);
+-
++		gnttab_page_grant_foreign_access_ref(ref,
++						     queue->info->xbdev->otherend_id,
++						     page,
++						     0);
+ 		req->id = id;
+ 		req->gref = ref;
+ 	}
+@@ -415,15 +414,26 @@ static void xennet_tx_buf_gc(struct netfront_queue *queue)
+ 	xennet_maybe_wake_tx(queue);
  }
  
-+struct gop_frag_copy
+-static struct xen_netif_tx_request *xennet_make_one_txreq(
+-	struct netfront_queue *queue, struct sk_buff *skb,
+-	struct page *page, unsigned int offset, unsigned int len)
++struct xennet_gnttab_make_txreq
 +{
-+	struct xenvif_queue *queue;
-+	struct netrx_pending_operations *npo;
-+	struct xenvif_rx_meta *meta;
-+	int head;
-+	int gso_type;
-+
++	struct netfront_queue *queue;
++	struct sk_buff *skb;
 +	struct page *page;
++	struct xen_netif_tx_request *tx; /* Last request */
++	unsigned int size;
 +};
 +
-+static void xenvif_gop_frag_copy_grant(unsigned long mfn, unsigned int offset,
-+				       unsigned int *len, void *data)
-+{
-+	struct gop_frag_copy *info = data;
-+	struct gnttab_copy *copy_gop;
-+	struct xen_page_foreign *foreign;
-+	/* Convenient aliases */
-+	struct xenvif_queue *queue = info->queue;
-+	struct netrx_pending_operations *npo = info->npo;
++static void xennet_tx_setup_grant(unsigned long mfn, unsigned int offset,
++				  unsigned int *len, void *data)
+ {
++	struct xennet_gnttab_make_txreq *info = data;
+ 	unsigned int id;
+ 	struct xen_netif_tx_request *tx;
+ 	grant_ref_t ref;
+-
+-	len = min_t(unsigned int, PAGE_SIZE - offset, len);
++	/* convenient aliases */
 +	struct page *page = info->page;
-+
-+	BUG_ON(npo->copy_off > MAX_BUFFER_OFFSET);
-+
-+	if (npo->copy_off == MAX_BUFFER_OFFSET)
-+		info->meta = get_next_rx_buffer(queue, npo);
-+
-+	if (npo->copy_off + *len > MAX_BUFFER_OFFSET)
-+		*len = MAX_BUFFER_OFFSET - npo->copy_off;
-+
-+	copy_gop = npo->copy + npo->copy_prod++;
-+	copy_gop->flags = GNTCOPY_dest_gref;
-+	copy_gop->len = *len;
-+
-+	foreign = xen_page_foreign(page);
-+	if (foreign) {
-+		copy_gop->source.domid = foreign->domid;
-+		copy_gop->source.u.ref = foreign->gref;
-+		copy_gop->flags |= GNTCOPY_source_gref;
-+	} else {
-+		copy_gop->source.domid = DOMID_SELF;
-+		copy_gop->source.u.gmfn = mfn;
-+	}
-+	copy_gop->source.offset = offset;
-+
-+	copy_gop->dest.domid = queue->vif->domid;
-+	copy_gop->dest.offset = npo->copy_off;
-+	copy_gop->dest.u.ref = npo->copy_gref;
-+
-+	npo->copy_off += *len;
-+	info->meta->size += *len;
-+
-+	/* Leave a gap for the GSO descriptor. */
-+	if (info->head && ((1 << info->gso_type) & queue->vif->gso_mask))
-+		queue->rx.req_cons++;
-+
-+	info->head = 0; /* There must be something in this buffer now */
++	struct netfront_queue *queue = info->queue;
++	struct sk_buff *skb = info->skb;
+ 
+ 	id = get_id_from_freelist(&queue->tx_skb_freelist, queue->tx_skbs);
+ 	tx = RING_GET_REQUEST(&queue->tx, queue->tx.req_prod_pvt++);
+@@ -431,7 +441,7 @@ static struct xen_netif_tx_request *xennet_make_one_txreq(
+ 	BUG_ON((signed short)ref < 0);
+ 
+ 	gnttab_grant_foreign_access_ref(ref, queue->info->xbdev->otherend_id,
+-					page_to_mfn(page), GNTMAP_readonly);
++					mfn, GNTMAP_readonly);
+ 
+ 	queue->tx_skbs[id].skb = skb;
+ 	queue->grant_tx_page[id] = page;
+@@ -440,10 +450,37 @@ static struct xen_netif_tx_request *xennet_make_one_txreq(
+ 	tx->id = id;
+ 	tx->gref = ref;
+ 	tx->offset = offset;
+-	tx->size = len;
++	tx->size = *len;
+ 	tx->flags = 0;
+ 
+-	return tx;
++	info->tx = tx;
++	info->size += tx->size;
 +}
 +
- /*
-  * Set up the grant operations for this fragment. If it's a flipping
-  * interface, we also set up the unmap request from here.
-@@ -272,83 +331,54 @@ static void xenvif_gop_frag_copy(struct xenvif_queue *queue, struct sk_buff *skb
- 				 struct page *page, unsigned long size,
- 				 unsigned long offset, int *head)
- {
--	struct gnttab_copy *copy_gop;
--	struct xenvif_rx_meta *meta;
-+	struct gop_frag_copy info =
-+	{
++static struct xen_netif_tx_request *xennet_make_first_txreq(
++	struct netfront_queue *queue, struct sk_buff *skb,
++	struct page *page, unsigned int offset, unsigned int len)
++{
++	struct xennet_gnttab_make_txreq info = {
 +		.queue = queue,
-+		.npo = npo,
-+		.head = *head,
-+		.gso_type = XEN_NETIF_GSO_TYPE_NONE,
++		.skb = skb,
++		.page = page,
++		.size = 0,
 +	};
- 	unsigned long bytes;
--	int gso_type = XEN_NETIF_GSO_TYPE_NONE;
++
++	gnttab_one_grant(page, offset, len, xennet_tx_setup_grant, &info);
++
++	return info.tx;
++}
++
++static void xennet_make_one_txreq(unsigned long mfn, unsigned int offset,
++				  unsigned int *len, void *data)
++{
++	struct xennet_gnttab_make_txreq *info = data;
++
++	info->tx->flags |= XEN_NETTXF_more_data;
++	skb_get(info->skb);
++	xennet_make_one_txreq(mfn, offset, len, data);
+ }
  
- 	if (skb_is_gso(skb)) {
- 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
--			gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
-+			info.gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
- 		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
--			gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
-+			info.gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
- 	}
- 
- 	/* Data must not cross a page boundary. */
- 	BUG_ON(size + offset > PAGE_SIZE<<compound_order(page));
- 
--	meta = npo->meta + npo->meta_prod - 1;
-+	info.meta = npo->meta + npo->meta_prod - 1;
- 
+ static struct xen_netif_tx_request *xennet_make_txreqs(
+@@ -451,20 +488,30 @@ static struct xen_netif_tx_request *xennet_make_txreqs(
+ 	struct sk_buff *skb, struct page *page,
+ 	unsigned int offset, unsigned int len)
+ {
++	struct xennet_gnttab_make_txreq info = {
++		.queue = queue,
++		.skb = skb,
++		.tx = tx,
++	};
++
  	/* Skip unused frames from start of page */
  	page += offset >> PAGE_SHIFT;
  	offset &= ~PAGE_MASK;
  
- 	while (size > 0) {
--		struct xen_page_foreign *foreign;
--
- 		BUG_ON(offset >= PAGE_SIZE);
--		BUG_ON(npo->copy_off > MAX_BUFFER_OFFSET);
--
--		if (npo->copy_off == MAX_BUFFER_OFFSET)
--			meta = get_next_rx_buffer(queue, npo);
- 
- 		bytes = PAGE_SIZE - offset;
- 		if (bytes > size)
- 			bytes = size;
- 
--		if (npo->copy_off + bytes > MAX_BUFFER_OFFSET)
--			bytes = MAX_BUFFER_OFFSET - npo->copy_off;
- 
--		copy_gop = npo->copy + npo->copy_prod++;
--		copy_gop->flags = GNTCOPY_dest_gref;
--		copy_gop->len = bytes;
--
--		foreign = xen_page_foreign(page);
--		if (foreign) {
--			copy_gop->source.domid = foreign->domid;
--			copy_gop->source.u.ref = foreign->gref;
--			copy_gop->flags |= GNTCOPY_source_gref;
--		} else {
--			copy_gop->source.domid = DOMID_SELF;
--			copy_gop->source.u.gmfn =
--				virt_to_mfn(page_address(page));
--		}
--		copy_gop->source.offset = offset;
--
--		copy_gop->dest.domid = queue->vif->domid;
--		copy_gop->dest.offset = npo->copy_off;
--		copy_gop->dest.u.ref = npo->copy_gref;
--
--		npo->copy_off += bytes;
--		meta->size += bytes;
--
--		offset += bytes;
+ 	while (len) {
+-		tx->flags |= XEN_NETTXF_more_data;
+-		tx = xennet_make_one_txreq(queue, skb_get(skb),
+-					   page, offset, len);
 +		info.page = page;
-+		gnttab_foreach_grant(page, offset, bytes,
-+				     xenvif_gop_frag_copy_grant,
-+				     &info);
- 		size -= bytes;
-+		offset = 0;
- 
--		/* Next frame */
--		if (offset == PAGE_SIZE && size) {
-+		/* Next page */
-+		if (size) {
- 			BUG_ON(!PageCompound(page));
- 			page++;
--			offset = 0;
- 		}
--
--		/* Leave a gap for the GSO descriptor. */
--		if (*head && ((1 << gso_type) & queue->vif->gso_mask))
--			queue->rx.req_cons++;
--
--		*head = 0; /* There must be something in this buffer now. */
--
- 	}
++		info.size = 0;
 +
-+	*head = info.head;
++		gnttab_foreach_grant(page, offset, len,
++				     xennet_make_one_txreq,
++				     &info);
++
+ 		page++;
+ 		offset = 0;
+-		len -= tx->size;
++		len -= info.size;
+ 	}
+ 
+-	return tx;
++	return info.tx;
  }
  
  /*
-@@ -747,7 +777,7 @@ static int xenvif_count_requests(struct xenvif_queue *queue,
- 		first->size -= txp->size;
- 		slots++;
+@@ -474,9 +521,10 @@ static struct xen_netif_tx_request *xennet_make_txreqs(
+ static int xennet_count_skb_slots(struct sk_buff *skb)
+ {
+ 	int i, frags = skb_shinfo(skb)->nr_frags;
+-	int pages;
++	int slots;
  
--		if (unlikely((txp->offset + txp->size) > PAGE_SIZE)) {
-+		if (unlikely((txp->offset + txp->size) > XEN_PAGE_SIZE)) {
- 			netdev_err(queue->vif->dev, "Cross page boundary, txp->offset: %u, size: %u\n",
- 				 txp->offset, txp->size);
- 			xenvif_fatal_tx_err(queue->vif);
-@@ -1241,11 +1271,11 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
- 		}
+-	pages = PFN_UP(offset_in_page(skb->data) + skb_headlen(skb));
++	slots = gnttab_count_grant(offset_in_page(skb->data),
++				   skb_headlen(skb));
  
- 		/* No crossing a page as the payload mustn't fragment. */
--		if (unlikely((txreq.offset + txreq.size) > PAGE_SIZE)) {
-+		if (unlikely((txreq.offset + txreq.size) > XEN_PAGE_SIZE)) {
- 			netdev_err(queue->vif->dev,
- 				   "txreq.offset: %u, size: %u, end: %lu\n",
- 				   txreq.offset, txreq.size,
--				   (unsigned long)(txreq.offset&~PAGE_MASK) + txreq.size);
-+				   (unsigned long)(txreq.offset&~XEN_PAGE_MASK) + txreq.size);
- 			xenvif_fatal_tx_err(queue->vif);
- 			break;
- 		}
-@@ -1287,7 +1317,7 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
- 			virt_to_mfn(skb->data);
- 		queue->tx_copy_ops[*copy_ops].dest.domid = DOMID_SELF;
- 		queue->tx_copy_ops[*copy_ops].dest.offset =
--			offset_in_page(skb->data);
-+			offset_in_page(skb->data) & ~XEN_PAGE_MASK;
+ 	for (i = 0; i < frags; i++) {
+ 		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
+@@ -486,10 +534,10 @@ static int xennet_count_skb_slots(struct sk_buff *skb)
+ 		/* Skip unused frames from start of page */
+ 		offset &= ~PAGE_MASK;
  
- 		queue->tx_copy_ops[*copy_ops].len = data_len;
- 		queue->tx_copy_ops[*copy_ops].flags = GNTCOPY_source_gref;
-@@ -1780,7 +1810,7 @@ int xenvif_map_frontend_rings(struct xenvif_queue *queue,
- 		goto err;
+-		pages += PFN_UP(offset + size);
++		slots += gnttab_count_grant(offset, size);
+ 	}
  
- 	txs = (struct xen_netif_tx_sring *)addr;
--	BACK_RING_INIT(&queue->tx, txs, PAGE_SIZE);
-+	BACK_RING_INIT(&queue->tx, txs, XEN_PAGE_SIZE);
+-	return pages;
++	return slots;
+ }
  
- 	err = xenbus_map_ring_valloc(xenvif_to_xenbus_device(queue->vif),
- 				     &rx_ring_ref, 1, &addr);
-@@ -1788,7 +1818,7 @@ int xenvif_map_frontend_rings(struct xenvif_queue *queue,
- 		goto err;
+ static u16 xennet_select_queue(struct net_device *dev, struct sk_buff *skb,
+@@ -510,6 +558,8 @@ static u16 xennet_select_queue(struct net_device *dev, struct sk_buff *skb,
+ 	return queue_idx;
+ }
  
- 	rxs = (struct xen_netif_rx_sring *)addr;
--	BACK_RING_INIT(&queue->rx, rxs, PAGE_SIZE);
-+	BACK_RING_INIT(&queue->rx, rxs, XEN_PAGE_SIZE);
++#define MAX_XEN_SKB_FRAGS (65536 / XEN_PAGE_SIZE + 1)
++
+ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct netfront_info *np = netdev_priv(dev);
+@@ -544,7 +594,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
  
- 	return 0;
+ 	slots = xennet_count_skb_slots(skb);
+-	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
++	if (unlikely(slots > MAX_XEN_SKB_FRAGS + 1)) {
+ 		net_dbg_ratelimited("xennet: skb rides the rocket: %d slots, %d bytes\n",
+ 				    slots, skb->len);
+ 		if (skb_linearize(skb))
+@@ -565,10 +615,13 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
  
+ 	/* First request for the linear area. */
+-	first_tx = tx = xennet_make_one_txreq(queue, skb,
+-					      page, offset, len);
+-	page++;
+-	offset = 0;
++	first_tx = tx = xennet_make_first_txreq(queue, skb,
++					        page, offset, len);
++	offset += tx->size;
++	if (offset == PAGE_SIZE) {
++		page++;
++		offset = 0;
++	}
+ 	len -= tx->size;
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL)
+@@ -730,7 +783,7 @@ static int xennet_get_responses(struct netfront_queue *queue,
+ 
+ 	for (;;) {
+ 		if (unlikely(rx->status < 0 ||
+-			     rx->offset + rx->status > PAGE_SIZE)) {
++			     rx->offset + rx->status > XEN_PAGE_SIZE)) {
+ 			if (net_ratelimit())
+ 				dev_warn(dev, "rx->offset: %u, size: %d\n",
+ 					 rx->offset, rx->status);
+@@ -1493,7 +1546,7 @@ static int setup_netfront(struct xenbus_device *dev,
+ 		goto fail;
+ 	}
+ 	SHARED_RING_INIT(txs);
+-	FRONT_RING_INIT(&queue->tx, txs, PAGE_SIZE);
++	FRONT_RING_INIT(&queue->tx, txs, XEN_PAGE_SIZE);
+ 
+ 	err = xenbus_grant_ring(dev, txs, 1, &gref);
+ 	if (err < 0)
+@@ -1507,7 +1560,7 @@ static int setup_netfront(struct xenbus_device *dev,
+ 		goto alloc_rx_ring_fail;
+ 	}
+ 	SHARED_RING_INIT(rxs);
+-	FRONT_RING_INIT(&queue->rx, rxs, PAGE_SIZE);
++	FRONT_RING_INIT(&queue->rx, rxs, XEN_PAGE_SIZE);
+ 
+ 	err = xenbus_grant_ring(dev, rxs, 1, &gref);
+ 	if (err < 0)
 -- 
 2.1.4
