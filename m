@@ -1,44 +1,57 @@
-From: Masatake YAMATO <yamato@redhat.com>
-Subject: [PATCH] route: remove unsed variable in __mkroute_input
-Date: Thu,  9 Jul 2015 12:46:35 +0900
-Message-ID: <1436413595-21154-1-git-send-email-yamato@redhat.com>
-Cc: yamato@redhat.com
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next] cxgb4vf: Fix check to use new User Doorbell mechanism
+Date: Thu,  9 Jul 2015 14:55:46 +0530
+Message-ID: <1436433946-10735-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46045 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751683AbbGIDqp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jul 2015 23:46:45 -0400
+Received: from stargate.chelsio.com ([67.207.112.58]:10036 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750791AbbGIEM0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 00:12:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-flags local variable in __mkroute_input is not used as a variable.
+If we don't have access to the new User GTS (T5+), use the old doorbell
+mechanism; otherwise use the new BAR2 mechanism.
 
-Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- net/ipv4/route.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index d0362a2..04c83de 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1546,7 +1546,6 @@ static int __mkroute_input(struct sk_buff *skb,
- 	struct rtable *rth;
- 	int err;
- 	struct in_device *out_dev;
--	unsigned int flags = 0;
- 	bool do_cache;
- 	u32 itag = 0;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+index ad53e5a..1d5e77a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+@@ -1898,7 +1898,10 @@ static int napi_rx_handler(struct napi_struct *napi, int budget)
+ 		rspq->unhandled_irqs++;
  
-@@ -1610,7 +1609,7 @@ static int __mkroute_input(struct sk_buff *skb,
+ 	val = CIDXINC_V(work_done) | SEINTARM_V(intr_params);
+-	if (is_t4(rspq->adapter->params.chip)) {
++	/* If we don't have access to the new User GTS (T5+), use the old
++	 * doorbell mechanism; otherwise use the new BAR2 mechanism.
++	 */
++	if (unlikely(!rspq->bar2_addr)) {
+ 		t4_write_reg(rspq->adapter,
+ 			     T4VF_SGE_BASE_ADDR + SGE_VF_GTS,
+ 			     val | INGRESSQID_V((u32)rspq->cntxt_id));
+@@ -1998,10 +2001,13 @@ static unsigned int process_intrq(struct adapter *adapter)
  	}
  
- 	rth->rt_genid = rt_genid_ipv4(dev_net(rth->dst.dev));
--	rth->rt_flags = flags;
-+	rth->rt_flags = 0;
- 	rth->rt_type = res->type;
- 	rth->rt_is_input = 1;
- 	rth->rt_iif 	= 0;
+ 	val = CIDXINC_V(work_done) | SEINTARM_V(intrq->intr_params);
+-	if (is_t4(adapter->params.chip))
++	/* If we don't have access to the new User GTS (T5+), use the old
++	 * doorbell mechanism; otherwise use the new BAR2 mechanism.
++	 */
++	if (unlikely(!intrq->bar2_addr)) {
+ 		t4_write_reg(adapter, T4VF_SGE_BASE_ADDR + SGE_VF_GTS,
+ 			     val | INGRESSQID_V(intrq->cntxt_id));
+-	else {
++	} else {
+ 		writel(val | INGRESSQID_V(intrq->bar2_qid),
+ 		       intrq->bar2_addr + SGE_UDB_GTS);
+ 		wmb();
 -- 
-2.4.3
+2.3.4
