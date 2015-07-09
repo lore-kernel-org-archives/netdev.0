@@ -1,107 +1,171 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH 2/3] brcmfmac: dhd_sdio.c: use existing atomic_or primitive
-Date: Thu, 9 Jul 2015 20:25:21 +0200
-Message-ID: <559EBC91.2070600@broadcom.com>
-References: <1436429599-10762-1-git-send-email-vgupta@synopsys.com> <1436429599-10762-3-git-send-email-vgupta@synopsys.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 1/2] of_mdio: add new DT property 'link' for fixed-link
+Date: Thu, 09 Jul 2015 11:24:25 -0700
+Message-ID: <559EBC59.6020003@gmail.com>
+References: <559EB0A4.5080101@list.ru> <559EB1A6.1090008@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: <linux-arch@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Brett Rudley <brudley@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	Daniel Kim <dekim@broadcom.com>,
-	<linux-wireless@vger.kernel.org>,
-	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>
-To: Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>, Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1436429599-10762-3-git-send-email-vgupta@synopsys.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux kernel <linux-kernel@vger.kernel.org>,
+	Sebastien Rannou <mxs@sbrk.org>,
+	Arnaud Ebalard <arno@natisbad.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Grant Likely <grant.likely@linaro.org>,
+	devicetree@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Stas Sergeev <stsp@list.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:35074 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753787AbbGIS0L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 14:26:11 -0400
+In-Reply-To: <559EB1A6.1090008@list.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/09/2015 10:13 AM, Vineet Gupta wrote:
-> There's already a generic implementation so use that instead.
+(there is no such thing as linux-net@vger.kernel.org, please remove it
+from your future submissions).
 
-There is or there was? If there is now I am fine with this patch, but if 
-it already was there the author might have had a reason for adding a 
-local function and I would like to hear that reason.
+On 09/07/15 10:38, Stas Sergeev wrote:
+> 
+> Currently for fixed-link the link state is always set to UP.
 
+Not quite true, this is always a driver decision to make.
+
+> This patch introduces the new property 'link' that accepts the
+> following string arguments: "up", "down" and "auto".
+> "down" may be needed if the link is physically unconnected.
+
+In which case you probably do not even care about inserting such a
+property in the first place, do you? What would be the value of forcibly
+having a link permanently down (not counting loopback)?
+
+> "auto" is needed to enable the link paramaters auto-negotiation,
+> that is built into some MII protocols, namely SGMII.
+
+RGMII also has an in-band status FWIW.
+
+> The appropriate documentation is added and explicitly states that
+> "auto" is very specific (protocol, HW and driver-specific), and
+> is therefore should be used with care.
+
+And therefore probably be made a device (and driver) specific decision
+whether this is the right thing to do.
+
+I do no think this addition to the "fixed-link" property is desirable
+the way you have defined it.
+
+More comments below.
+
+> 
+> Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
+> 
+> CC: Rob Herring <robh+dt@kernel.org>
+> CC: Pawel Moll <pawel.moll@arm.com>
+> CC: Mark Rutland <mark.rutland@arm.com>
+> CC: Ian Campbell <ijc+devicetree@hellion.org.uk>
+> CC: Kumar Gala <galak@codeaurora.org>
+> CC: Florian Fainelli <f.fainelli@gmail.com>
+> CC: Grant Likely <grant.likely@linaro.org>
+> CC: devicetree@vger.kernel.org
+> CC: linux-kernel@vger.kernel.org
+> CC: netdev@vger.kernel.org
 > ---
-> I'm not sure if the driver usage of atomic_or?() is correct in terms of
-> storage size of @val for 64 bit arches.
->
-> Assuming LP64 programming model for linux on say x86_64: atomic_or()
-> callers in this driver use long (sana 64 bit) storage and pass it to
-> atomic_orr/atomic_or which downcasts it to 32 bits. Is that OK ?
+>  .../devicetree/bindings/net/fixed-link.txt         |  8 +++-
+>  drivers/of/of_mdio.c                               | 48 ++++++++++++++++++++--
+>  include/linux/of_mdio.h                            |  5 +++
+>  3 files changed, 57 insertions(+), 4 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/fixed-link.txt b/Documentation/devicetree/bindings/net/fixed-link.txt
+> index 82bf7e0..070f554 100644
+> --- a/Documentation/devicetree/bindings/net/fixed-link.txt
+> +++ b/Documentation/devicetree/bindings/net/fixed-link.txt
+> @@ -9,8 +9,14 @@ Such a fixed link situation is described by creating a 'fixed-link'
+>  sub-node of the Ethernet MAC device node, with the following
+>  properties:
+> 
+> +* 'link' (string, optional), to indicate the link state. Accepted
+> +  values are "up", "down" and "auto". "auto" means auto-negotiation of
+> +  link parameters. Auto-negotiation is MII protocol, HW and driver-specific
+> +  and is not supported in many cases, so use it only when you know what
+> +  you do.
+>  * 'speed' (integer, mandatory), to indicate the link speed. Accepted
+> -  values are 10, 100 and 1000
+> +  values are 10, 100 and 1000. If the 'link' property is set to 'auto',
+> +  'speed' may not be set. It will then be auto-negotiated, if possible.
+>  * 'full-duplex' (boolean, optional), to indicate that full duplex is
+>    used. When absent, half duplex is assumed.
+>  * 'pause' (boolean, optional), to indicate that pause should be
+> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+> index 1bd4305..2152cf8 100644
+> --- a/drivers/of/of_mdio.c
+> +++ b/drivers/of/of_mdio.c
+> @@ -280,6 +280,26 @@ bool of_phy_is_fixed_link(struct device_node *np)
+>  }
+>  EXPORT_SYMBOL(of_phy_is_fixed_link);
+> 
+> +bool of_phy_is_autoneg_link(struct device_node *np)
+> +{
+> +	struct device_node *dn;
+> +	const char *link_str;
+> +	int rc;
+> +	bool ret = false;
+> +
+> +	dn = of_get_child_by_name(np, "fixed-link");
+> +	if (!dn)
+> +		return false;
+> +
+> +	rc = of_property_read_string(dn, "link", &link_str);
+> +	if (rc == 0 && strcmp(link_str, "auto") == 0)
+> +		ret = true;
+> +
+> +	of_node_put(dn);
+> +	return ret;
+> +}
+> +EXPORT_SYMBOL(of_phy_is_autoneg_link);
+> +
+>  int of_phy_register_fixed_link(struct device_node *np)
+>  {
+>  	struct fixed_phy_status status = {};
+> @@ -291,11 +311,33 @@ int of_phy_register_fixed_link(struct device_node *np)
+>  	/* New binding */
+>  	fixed_link_node = of_get_child_by_name(np, "fixed-link");
+>  	if (fixed_link_node) {
+> -		status.link = 1;
+> +		const char *link_str;
+> +		int ret;
+> +		bool link_auto = false;
+> +
+> +		ret = of_property_read_string(fixed_link_node, "link",
+> +					      &link_str);
+> +		if (ret == 0) {
+> +			if (strcmp(link_str, "up") == 0)
+> +				status.link = 1;
+> +			else
+> +				status.link = 0;
+> +			if (strcmp(link_str, "auto") == 0)
+> +				link_auto = true;
+> +		} else {
+> +			status.link = 1;
+> +		}
+>  		status.duplex = of_property_read_bool(fixed_link_node,
+>  						      "full-duplex");
+> -		if (of_property_read_u32(fixed_link_node, "speed", &status.speed))
+> -			return -EINVAL;
+> +		if (of_property_read_u32(fixed_link_node, "speed",
+> +					 &status.speed) != 0) {
+> +			/* in auto mode just set to some sane value:
+> +			 * it will be changed by MAC later */
+> +			if (link_auto)
+> +				status.speed = 1000;
 
-The function is used with 32bit register value from the device so I 
-think it is ok.
-
-Regards,
-Arend
-
-> ---
-> Cc: Brett Rudley <brudley@broadcom.com>
-> Cc: Arend van Spriel <arend@broadcom.com>
-> Cc: "Franky (Zhenhui) Lin" <frankyl@broadcom.com>
-> Cc: Hante Meuleman <meuleman@broadcom.com>
-> Cc: Kalle Valo <kvalo@codeaurora.org>
-> Cc: Pieter-Paul Giesberts <pieterpg@broadcom.com>
-> Cc: Daniel Kim <dekim@broadcom.com>
-> Cc: linux-wireless@vger.kernel.org
-> Cc: brcm80211-dev-list@broadcom.com
-> Cc: Peter Zijlstra <peterz@infradead.org>
-> Cc: Ingo Molnar <mingo@kernel.org>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-arch@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
->
-> Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
-> ---
->   drivers/net/wireless/brcm80211/brcmfmac/sdio.c | 13 ++-----------
->   1 file changed, 2 insertions(+), 11 deletions(-)
->
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-> index d36f5f3d931b..f990e3d0e696 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-> @@ -2564,15 +2564,6 @@ static inline void brcmf_sdio_clrintr(struct brcmf_sdio *bus)
->   	}
->   }
->
-> -static void atomic_orr(int val, atomic_t *v)
-> -{
-> -	int old_val;
-> -
-> -	old_val = atomic_read(v);
-> -	while (atomic_cmpxchg(v, old_val, val | old_val) != old_val)
-> -		old_val = atomic_read(v);
-> -}
-> -
->   static int brcmf_sdio_intr_rstatus(struct brcmf_sdio *bus)
->   {
->   	struct brcmf_core *buscore;
-> @@ -2595,7 +2586,7 @@ static int brcmf_sdio_intr_rstatus(struct brcmf_sdio *bus)
->   	if (val) {
->   		brcmf_sdiod_regwl(bus->sdiodev, addr, val, &ret);
->   		bus->sdcnt.f1regdata++;
-> -		atomic_orr(val, &bus->intstatus);
-> +		atomic_or(val, &bus->intstatus);
->   	}
->
->   	return ret;
-> @@ -2712,7 +2703,7 @@ static void brcmf_sdio_dpc(struct brcmf_sdio *bus)
->
->   	/* Keep still-pending events for next scheduling */
->   	if (intstatus)
-> -		atomic_orr(intstatus, &bus->intstatus);
-> +		atomic_or(intstatus, &bus->intstatus);
->
->   	brcmf_sdio_clrintr(bus);
->
->
+This is a completely arbitrary speed, that does not more or less sense
+than defaulting to 100 or anything else, a driver should be able to set
+the speed it wants, based on the parsing of a 'phy-mode' property for
+instance. 1000 does not make sense on e.g: MII links.
+-- 
+Florian
