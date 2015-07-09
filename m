@@ -1,46 +1,44 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: net-next is OPEN
-Date: Thu, 09 Jul 2015 20:48:36 +0300
-Message-ID: <559EB3F4.3060000@cogentembedded.com>
-References: <20150708.133041.2042093870138764891.davem@davemloft.net>	<559E5FCE.6010301@cogentembedded.com> <20150709.104019.370940061164391476.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 0/3] net: dsa: mv88e6xxx: add support for VLAN Table
+ Unit
+Date: Thu, 09 Jul 2015 11:01:35 -0700 (PDT)
+Message-ID: <20150709.110135.225522890258902682.davem@davemloft.net>
+References: <1436303900-24259-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+	<20150708143805.GA32208@lunn.ch>
+	<894793886.88178.1436375596747.JavaMail.zimbra@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: andrew@lunn.ch, netdev@vger.kernel.org, sfeldma@gmail.com,
+	jiri@resnulli.us, f.fainelli@gmail.com, linux@roeck-us.net,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:35736 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751885AbbGIRsl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 13:48:41 -0400
-Received: by lblf12 with SMTP id f12so9886703lbl.2
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 10:48:39 -0700 (PDT)
-In-Reply-To: <20150709.104019.370940061164391476.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44417 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753648AbbGISBh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 14:01:37 -0400
+In-Reply-To: <894793886.88178.1436375596747.JavaMail.zimbra@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/09/2015 08:40 PM, David Miller wrote:
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Wed, 8 Jul 2015 13:13:16 -0400 (EDT)
 
->>> Please feel free to bombard me with net-next changes, which some of
->>> you have been doing already ;-(, as net-next is now open.
+> You're right. There's a single operation to clear the STU and VTU. I
+> will send a follow-up patch to send this command during the switch
+> setup.
 
->>     Hm, I pulled and didn't see 4.2-rc1 tag. Is it normal?
+Fix known bugs in the patch series, within the patch series, since it
+hasn't been merged yet.
 
-> Why does it have to be there?
+Don't say "I'll fix this bug later", because we can fix it now.
 
-    I thought your pause during the merge window is caused by you wanting for 
--rc1 tagging in order for the possible conflicts to be resolved...
+Also as others have noted, this patch set creates an intermediate
+state where functionality is effectively broken.  So it is illogical
+to knowingly merge this patch series as-is.  You'll have to piece
+together all of the changes necessary such that the series is fully
+bisectable, which means at every patch along the way things function
+properly and do not break.
 
-> I build net-next by pulling net into net-next.
-
-    Well, that merge you do quite routinely. :-)
-
-> Since 'net' is based upon Linus's tree before he added that tag
-> there is no reason for it to have that tag at all.
-
-> I really have no idea why you expect it to be there.
-
-    I then don't quite understand why you close net-next during the merge 
-window and beyond.
-
-WBR, Sergei
+Thanks.
