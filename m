@@ -1,53 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] bridge: fix potential crash in __netdev_pick_tx()
-Date: Thu, 09 Jul 2015 18:56:07 +0200
-Message-ID: <1436460967.24939.44.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <559A3B9C.90905@oracle.com>
-	 <1436179279.25714.3.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [RFC net-next 3/6] net: Introduce VRF device driver - v2
+Date: Thu, 09 Jul 2015 11:19:38 -0600
+Message-ID: <559EAD2A.2090002@cumulusnetworks.com>
+References: <1436195001-4818-1-git-send-email-dsa@cumulusnetworks.com>	<1436195001-4818-4-git-send-email-dsa@cumulusnetworks.com> <CACP96tTyw+J7swi-+GJMwKKVjE9Uk1dJ3m_JKg2o1tyZup+p0w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Bob Liu <bob.liu@oracle.com>, David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>, shm@cumulusnetworks.com,
+	roopa@cumulusnetworks.com,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	ddutt@cumulusnetworks.com,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	hadi@mojatatu.com, "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>
+To: Sowmini Varadhan <sowmini05@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:33578 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753407AbbGIQ4L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 12:56:11 -0400
-Received: by wgck11 with SMTP id k11so228987679wgc.0
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 09:56:10 -0700 (PDT)
-In-Reply-To: <1436179279.25714.3.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:32830 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752738AbbGIRTl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 13:19:41 -0400
+Received: by ietj16 with SMTP id j16so7902677iet.0
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 10:19:40 -0700 (PDT)
+In-Reply-To: <CACP96tTyw+J7swi-+GJMwKKVjE9Uk1dJ3m_JKg2o1tyZup+p0w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hi Sowmini:
 
-Commit c29390c6dfee ("xps: must clear sender_cpu before forwarding")
-fixed an issue in normal forward path, caused by sender_cpu & napi_id
-skb fields being an union.
+On 7/8/15 12:34 PM, Sowmini Varadhan wrote:
+> Perhaps I misunderstand the design proposal here, but a switch's VRF
+> is essentially just a separate routing table, whose input and output interfaces
+> are exclusively bound to the VRF.
 
-Bridge is another point where skb can be forwarded, so we need
-the same cure.
+yes, and this model follows that.
 
-Bug triggers if packet was received on a NIC using skb_mark_napi_id()
+>
+> Can an application in the model above get visibiltiy into the (enslaved?)
+> interfaces in the vrf?
 
-Fixes: 2bd82484bb4c ("xps: fix xps for stacked devices")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Bob Liu <bob.liu@oracle.com>
-Tested-by: Bob Liu <bob.liu@oracle.com>
----
- net/bridge/br_forward.c |    1 +
- 1 file changed, 1 insertion(+)
+yes. e.g., 'ip link show' prints the vrf device it is enslaved to:
 
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index e97572b5d2cc..0ff6e1bbca91 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -42,6 +42,7 @@ int br_dev_queue_push_xmit(struct sock *sk, struct sk_buff *skb)
- 	} else {
- 		skb_push(skb, ETH_HLEN);
- 		br_drop_fake_rtable(skb);
-+		skb_sender_cpu_clear(skb);
- 		dev_queue_xmit(skb);
- 	}
- 
+6: swp3: <BROADCAST,MULTICAST,SLAVE> mtu 1500 qdisc noop master vrf10 
+state DOWN mode DEFAULT group default qlen 1000
+     link/ether 52:54:00:12:35:03 brd ff:ff:ff:ff:ff:ff
+7: swp4: <BROADCAST,MULTICAST,SLAVE> mtu 1500 qdisc noop master vrf10 
+state DOWN mode DEFAULT group default qlen 1000
+     link/ether 52:54:00:12:35:04 brd ff:ff:ff:ff:ff:ff
+8: swp5: <BROADCAST,MULTICAST,SLAVE> mtu 1500 qdisc noop master vrf10 
+state DOWN mode DEFAULT group default qlen 1000
+     link/ether 52:54:00:12:35:05 brd ff:ff:ff:ff:ff:ff
+9: swp6: <BROADCAST,MULTICAST,SLAVE> mtu 1500 qdisc noop master vrf10 
+state DOWN mode DEFAULT group default qlen 1000
+
+
+> Can an application use IP_PKTINFO to send a packet out of
+> a specific interface on a selected VRF? What about receiving
+> IP_PKTINFO about input interface?
+
+On the to-do list to use cmsg to specify a VRF for outbound packets 
+using non-connected sockets. I do not believe it is going to work, but 
+need to look into it.
+
+> What about setting ipsec policy for interfaces in the vrf?
+>
+
+similarly, need to look at ipsec use cases with this vrf model.
+
+David
