@@ -1,258 +1,120 @@
 From: Roy Pledge <Roy.Pledge@freescale.com>
-Subject: [PATCH 07/11] soc/bman: Add debugfs support for the BMan driver
-Date: Thu, 9 Jul 2015 16:21:58 -0400
-Message-ID: <1436473322-21247-8-git-send-email-Roy.Pledge@freescale.com>
-References: <1436473322-21247-1-git-send-email-Roy.Pledge@freescale.com>
+Subject: [PATCH 00/11] Freescale DPAA QBMan Drivers
+Date: Thu, 9 Jul 2015 16:21:51 -0400
+Message-ID: <1436473322-21247-1-git-send-email-Roy.Pledge@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 To: <linuxppc-dev@lists.ozlabs.org>, <scottwood@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1436473322-21247-1-git-send-email-Roy.Pledge@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0103.outbound.protection.outlook.com ([207.46.100.103]:63168
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753902AbbGIUhK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jul 2015 16:37:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geoff Thorpe <Geoff.Thorpe@freescale.com>
 
-Add debugfs support for querying the state of hardware based
-Buffer Manager pools used in DPAA 1.0.
+The Freescale Data Path Acceleration Architecture (DPAA) is a set of hardware components on specific QorIQ multicore processors. This architecture provides the infrastructure to support simplified sharing of networking interfaces and accelerators by multiple CPU cores and the accelerators.
 
-Signed-off-by: Geoff Thorpe <Geoff.Thorpe@freescale.com>
-Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
-Signed-off-by: Roy Pledge <Roy.Pledge@freescale.com>
----
- drivers/soc/fsl/qbman/Kconfig        |    7 ++
- drivers/soc/fsl/qbman/Makefile       |    1 +
- drivers/soc/fsl/qbman/bman-debugfs.c |  117 ++++++++++++++++++++++++++++++++++
- drivers/soc/fsl/qbman/bman_api.c     |   19 ++++++
- drivers/soc/fsl/qbman/dpaa_sys.h     |    7 +-
- 5 files changed, 145 insertions(+), 6 deletions(-)
+The Queue Manager (QMan) is a hardware queue management block that allows software and accelerators on the datapath to enqueue and dequeue frames in order to communicate.
+
+The Buffer Manager (BMan) is a hardware buffer pool management block that allows software and accelerators on the datapath to acquire and release buffers in order to build frames.
+
+This patch set introduces the QBMan driver code that configures initializes the QBMan hardware and provides APIs for software to use the frame queues and buffer pools the blocks provide.  These drivers provide the base fuctionality for software to communicate with the other DPAA accelerators on Freescale QorIQ processors.
+
+
+Emil Medve (1):
+  powerpc: re-add devm_ioremap_prot()
+
+Geoff Thorpe (7):
+  soc/fsl: Introduce DPAA BMan device management driver
+  soc/fsl: Introduce the DPAA BMan portal driver
+  soc/fsl: Introduce drivers for the DPAA QMan
+  soc/bman: Add self-tester for BMan driver
+  soc/qman: Add self-tester for QMan driver
+  soc/bman: Add debugfs support for the BMan driver
+  soc/qman: Add debugfs support for the QMan driver
+
+Hai-Ying Wang (2):
+  soc/bman: Add HOTPLUG_CPU support to the BMan driver
+  soc/qman: Add HOTPLUG_CPU support to the QMan driver
+
+Madalin Bucur (1):
+  soc/qman: add qman_delete_cgr_safe()
+
+ arch/powerpc/include/asm/io.h                 |    3 +
+ arch/powerpc/lib/Makefile                     |    1 +
+ arch/powerpc/lib/devres.c                     |   43 +
+ arch/powerpc/platforms/85xx/corenet_generic.c |   16 +
+ arch/powerpc/platforms/85xx/p1023_rdb.c       |   14 +
+ drivers/soc/Kconfig                           |    1 +
+ drivers/soc/Makefile                          |    1 +
+ drivers/soc/fsl/Kconfig                       |    5 +
+ drivers/soc/fsl/Makefile                      |    3 +
+ drivers/soc/fsl/qbman/Kconfig                 |  192 ++
+ drivers/soc/fsl/qbman/Makefile                |   20 +
+ drivers/soc/fsl/qbman/bman-debugfs.c          |  117 +
+ drivers/soc/fsl/qbman/bman.c                  |  554 +++++
+ drivers/soc/fsl/qbman/bman.h                  |  542 +++++
+ drivers/soc/fsl/qbman/bman_api.c              | 1070 +++++++++
+ drivers/soc/fsl/qbman/bman_portal.c           |  391 ++++
+ drivers/soc/fsl/qbman/bman_priv.h             |  134 ++
+ drivers/soc/fsl/qbman/bman_test.c             |   56 +
+ drivers/soc/fsl/qbman/bman_test.h             |   34 +
+ drivers/soc/fsl/qbman/bman_test_api.c         |  184 ++
+ drivers/soc/fsl/qbman/bman_test_thresh.c      |  198 ++
+ drivers/soc/fsl/qbman/bman_utils.c            |   72 +
+ drivers/soc/fsl/qbman/dpaa_resource.c         |  359 +++
+ drivers/soc/fsl/qbman/dpaa_sys.h              |  301 +++
+ drivers/soc/fsl/qbman/qman-debugfs.c          | 1313 +++++++++++
+ drivers/soc/fsl/qbman/qman.c                  | 1015 +++++++++
+ drivers/soc/fsl/qbman/qman.h                  | 1128 ++++++++++
+ drivers/soc/fsl/qbman/qman_api.c              | 2917 +++++++++++++++++++++++++
+ drivers/soc/fsl/qbman/qman_driver.c           |   83 +
+ drivers/soc/fsl/qbman/qman_portal.c           |  673 ++++++
+ drivers/soc/fsl/qbman/qman_priv.h             |  290 +++
+ drivers/soc/fsl/qbman/qman_test.c             |   57 +
+ drivers/soc/fsl/qbman/qman_test.h             |   44 +
+ drivers/soc/fsl/qbman/qman_test_api.c         |  216 ++
+ drivers/soc/fsl/qbman/qman_test_stash.c       |  502 +++++
+ drivers/soc/fsl/qbman/qman_utils.c            |  305 +++
+ include/soc/fsl/bman.h                        |  514 +++++
+ include/soc/fsl/qman.h                        | 1968 +++++++++++++++++
+ 38 files changed, 15336 insertions(+)
+ create mode 100644 arch/powerpc/lib/devres.c
+ create mode 100644 drivers/soc/fsl/Kconfig
+ create mode 100644 drivers/soc/fsl/Makefile
+ create mode 100644 drivers/soc/fsl/qbman/Kconfig
+ create mode 100644 drivers/soc/fsl/qbman/Makefile
  create mode 100644 drivers/soc/fsl/qbman/bman-debugfs.c
+ create mode 100644 drivers/soc/fsl/qbman/bman.c
+ create mode 100644 drivers/soc/fsl/qbman/bman.h
+ create mode 100644 drivers/soc/fsl/qbman/bman_api.c
+ create mode 100644 drivers/soc/fsl/qbman/bman_portal.c
+ create mode 100644 drivers/soc/fsl/qbman/bman_priv.h
+ create mode 100644 drivers/soc/fsl/qbman/bman_test.c
+ create mode 100644 drivers/soc/fsl/qbman/bman_test.h
+ create mode 100644 drivers/soc/fsl/qbman/bman_test_api.c
+ create mode 100644 drivers/soc/fsl/qbman/bman_test_thresh.c
+ create mode 100644 drivers/soc/fsl/qbman/bman_utils.c
+ create mode 100644 drivers/soc/fsl/qbman/dpaa_resource.c
+ create mode 100644 drivers/soc/fsl/qbman/dpaa_sys.h
+ create mode 100644 drivers/soc/fsl/qbman/qman-debugfs.c
+ create mode 100644 drivers/soc/fsl/qbman/qman.c
+ create mode 100644 drivers/soc/fsl/qbman/qman.h
+ create mode 100644 drivers/soc/fsl/qbman/qman_api.c
+ create mode 100644 drivers/soc/fsl/qbman/qman_driver.c
+ create mode 100644 drivers/soc/fsl/qbman/qman_portal.c
+ create mode 100644 drivers/soc/fsl/qbman/qman_priv.h
+ create mode 100644 drivers/soc/fsl/qbman/qman_test.c
+ create mode 100644 drivers/soc/fsl/qbman/qman_test.h
+ create mode 100644 drivers/soc/fsl/qbman/qman_test_api.c
+ create mode 100644 drivers/soc/fsl/qbman/qman_test_stash.c
+ create mode 100644 drivers/soc/fsl/qbman/qman_utils.c
+ create mode 100644 include/soc/fsl/bman.h
+ create mode 100644 include/soc/fsl/qman.h
 
-diff --git a/drivers/soc/fsl/qbman/Kconfig b/drivers/soc/fsl/qbman/Kconfig
-index 8259eb8..35947e7 100644
---- a/drivers/soc/fsl/qbman/Kconfig
-+++ b/drivers/soc/fsl/qbman/Kconfig
-@@ -75,6 +75,13 @@ config FSL_BMAN_TEST_THRESH
- 	  "drainer" thread, and the other threads that they observe exactly
- 	  the depletion state changes that are expected.
- 
-+config FSL_BMAN_DEBUGFS
-+	tristate "BMan debugfs support"
-+	depends on DEBUG_FS
-+	default n
-+	help
-+		BMan debugfs support
-+
- config FSL_QMAN
- 	tristate "QMan device management"
- 	default n
-diff --git a/drivers/soc/fsl/qbman/Makefile b/drivers/soc/fsl/qbman/Makefile
-index 82f5482..2b53fbc 100644
---- a/drivers/soc/fsl/qbman/Makefile
-+++ b/drivers/soc/fsl/qbman/Makefile
-@@ -9,6 +9,7 @@ obj-$(CONFIG_FSL_BMAN_TEST)			+= bman-test.o
- bman-test-y					 = bman_test.o
- bman-test-$(CONFIG_FSL_BMAN_TEST_API)		+= bman_test_api.o
- bman-test-$(CONFIG_FSL_BMAN_TEST_THRESH)	+= bman_test_thresh.o
-+obj-$(CONFIG_FSL_BMAN_DEBUGFS)			+= bman-debugfs.o
- 
- obj-$(CONFIG_FSL_QMAN)				+= qman_api.o qman_utils.o qman_driver.o
- obj-$(CONFIG_FSL_QMAN_CONFIG)			+= qman.o qman_portal.o
-diff --git a/drivers/soc/fsl/qbman/bman-debugfs.c b/drivers/soc/fsl/qbman/bman-debugfs.c
-new file mode 100644
-index 0000000..b384f47
---- /dev/null
-+++ b/drivers/soc/fsl/qbman/bman-debugfs.c
-@@ -0,0 +1,117 @@
-+/* Copyright 2010 - 2015 Freescale Semiconductor, Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *	 notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *	 notice, this list of conditions and the following disclaimer in the
-+ *	 documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *	 names of its contributors may be used to endorse or promote products
-+ *	 derived from this software without specific prior written permission.
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#include "bman_priv.h"
-+
-+static struct dentry *dfs_root; /* debugfs root directory */
-+
-+/* Query Buffer Pool State */
-+
-+static int query_bp_state_show(struct seq_file *file, void *offset)
-+{
-+	int ret;
-+	struct bm_pool_state state;
-+	int i, j;
-+	u32 mask;
-+
-+	memset(&state, 0, sizeof(state));
-+	ret = bman_query_pools(&state);
-+	if (ret) {
-+		seq_printf(file, "Error %d\n", ret);
-+		return ret;
-+	}
-+
-+	seq_puts(file, "bp_id  free_buffers_avail  bp_depleted\n");
-+	for (i = 0; i < 2; i++) {
-+		mask = 0x80000000;
-+		for (j = 0; j < 32; j++) {
-+			seq_printf(file,
-+			 "  %-2u	   %-3s		    %-3s\n",
-+			 (i * 32) + j,
-+			 state.as.state.__state[i] & mask ? "no" : "yes",
-+			 state.ds.state.__state[i] & mask ? "yes" : "no");
-+			 mask >>= 1;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static int query_bp_state_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, query_bp_state_show, NULL);
-+}
-+
-+static const struct file_operations query_bp_state_fops = {
-+	.owner		= THIS_MODULE,
-+	.open		= query_bp_state_open,
-+	.read		= seq_read,
-+	.release	= single_release,
-+};
-+
-+static int __init bman_debugfs_init(void)
-+{
-+	int ret = 0;
-+	struct dentry *d;
-+
-+	dfs_root = debugfs_create_dir("bman", NULL);
-+	if (dfs_root == NULL) {
-+		pr_err("Cannot create dir\n");
-+		return -ENOMEM;
-+	}
-+
-+	d = debugfs_create_file("query_bp_state",
-+		S_IRUGO,
-+		dfs_root,
-+		NULL,
-+		&query_bp_state_fops);
-+	if (d == NULL) {
-+		ret = -ENOMEM;
-+		pr_err("Cannot create query_bp_state\n");
-+		goto _return;
-+	}
-+
-+	return 0;
-+
-+_return:
-+	debugfs_remove_recursive(dfs_root);
-+
-+	return ret;
-+}
-+
-+static void __exit bman_debugfs_exit(void)
-+{
-+	debugfs_remove_recursive(dfs_root);
-+}
-+
-+module_init(bman_debugfs_init);
-+module_exit(bman_debugfs_exit);
-+
-+MODULE_LICENSE("Dual BSD/GPL");
-diff --git a/drivers/soc/fsl/qbman/bman_api.c b/drivers/soc/fsl/qbman/bman_api.c
-index fe1c593..781d969 100644
---- a/drivers/soc/fsl/qbman/bman_api.c
-+++ b/drivers/soc/fsl/qbman/bman_api.c
-@@ -1012,6 +1012,25 @@ int bman_flush_stockpile(struct bman_pool *pool, u32 flags)
- }
- EXPORT_SYMBOL(bman_flush_stockpile);
- 
-+int bman_query_pools(struct bm_pool_state *state)
-+{
-+	struct bman_portal *p = get_affine_portal();
-+	struct bm_mc_result *mcr;
-+	__maybe_unused unsigned long irqflags;
-+
-+	PORTAL_IRQ_LOCK(p, irqflags);
-+	bm_mc_start(&p->p);
-+	bm_mc_commit(&p->p, BM_MCC_VERB_CMD_QUERY);
-+	while (!(mcr = bm_mc_result(&p->p)))
-+		cpu_relax();
-+	DPA_ASSERT((mcr->verb & BM_MCR_VERB_CMD_MASK) == BM_MCR_VERB_CMD_QUERY);
-+	*state = mcr->query;
-+	PORTAL_IRQ_UNLOCK(p, irqflags);
-+	put_affine_portal();
-+	return 0;
-+}
-+EXPORT_SYMBOL(bman_query_pools);
-+
- #ifdef CONFIG_FSL_BMAN
- u32 bman_query_free_buffers(struct bman_pool *pool)
- {
-diff --git a/drivers/soc/fsl/qbman/dpaa_sys.h b/drivers/soc/fsl/qbman/dpaa_sys.h
-index c8d7aad..31ff7a8 100644
---- a/drivers/soc/fsl/qbman/dpaa_sys.h
-+++ b/drivers/soc/fsl/qbman/dpaa_sys.h
-@@ -38,6 +38,7 @@
- #include <linux/of_irq.h>
- #include <linux/of_reserved_mem.h>
- #include <linux/kthread.h>
-+#include <linux/debugfs.h>
- #include <linux/platform_device.h>
- #include <linux/ctype.h>
- 
-@@ -76,9 +77,7 @@ int dpaa_resource_reserve(struct dpaa_resource *alloc, u32 base, u32 num);
- #define DPA_PORTAL_CE 0
- #define DPA_PORTAL_CI 1
- 
--/***********************/
- /* Misc inline assists */
--/***********************/
- 
- /* TODO: NB, we currently assume that hwsync() and lwsync() imply compiler
-  * barriers and that dcb*() won't fall victim to compiler or execution
-@@ -187,9 +186,7 @@ static inline void copy_bytes(void *dest, const void *src, size_t sz)
- #define copy_bytes memcpy
- #endif
- 
--/************/
- /* RB-trees */
--/************/
- 
- /* We encapsulate RB-trees so that its easier to use non-linux forms in
-  * non-linux systems. This also encapsulates the extra plumbing that linux code
-@@ -245,9 +242,7 @@ static inline type *name##_find(struct dpa_rbtree *tree, u32 val) \
- 	return NULL; \
- }
- 
--/************/
- /* Bootargs */
--/************/
- 
- /* QMan has "qportals=" and BMan has "bportals=", they use the same syntax
-  * though; a comma-separated list of items, each item being a cpu index and/or a
--- 
+--
 1.7.9.5
