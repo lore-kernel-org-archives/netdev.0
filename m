@@ -1,55 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Vadim Kochan <vadim4j@gmail.com>
 Subject: Re: [BUG] "$ ss -a" incorrectly displays raw sockets as udp sockets
-Date: Thu, 09 Jul 2015 17:21:10 +0200
-Message-ID: <1436455270.24939.32.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Thu, 9 Jul 2015 18:28:04 +0300
+Message-ID: <20150709152804.GA16132@angus-think.lan>
 References: <559E8178.9080808@beyondsemi.com>
-	 <1436454853.24939.31.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1436454853.24939.31.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1436455270.24939.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Vadim Kochan <vadim4j@gmail.com>
-To: Miha Marolt <miham@beyondsemi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Miha Marolt <miham@beyondsemi.com>, netdev@vger.kernel.org,
+	Vadim Kochan <vadim4j@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:34962 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751296AbbGIPVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 11:21:14 -0400
-Received: by wgjx7 with SMTP id x7so226359845wgj.2
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 08:21:13 -0700 (PDT)
-In-Reply-To: <1436454853.24939.31.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-la0-f47.google.com ([209.85.215.47]:32985 "EHLO
+	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751216AbbGIP35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 11:29:57 -0400
+Received: by laar3 with SMTP id r3so249106245laa.0
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 08:29:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1436455270.24939.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-07-09 at 17:14 +0200, Eric Dumazet wrote:
-
+On Thu, Jul 09, 2015 at 05:21:10PM +0200, Eric Dumazet wrote:
+> On Thu, 2015-07-09 at 17:14 +0200, Eric Dumazet wrote:
 > 
-> If I checkout iproute2 tree to db08bdb816d337102c5486744008db9c9faa43bf
-> (before buggy commit) we indeed had this result :
+> > 
+> > If I checkout iproute2 tree to db08bdb816d337102c5486744008db9c9faa43bf
+> > (before buggy commit) we indeed had this result :
+> > 
+> > # ./ss -an | grep 127.0.0.1
+> > raw    UNCONN     213486 0      127.0.0.1:6                     *:*                  
 > 
-> # ./ss -an | grep 127.0.0.1
-> raw    UNCONN     213486 0      127.0.0.1:6                     *:*                  
+> Maybe following patch would fix the issue.
+> 
+> diff --git a/misc/ss.c b/misc/ss.c
+> index 03f92fa69270..9b7dad00290c 100644
+> --- a/misc/ss.c
+> +++ b/misc/ss.c
+> @@ -1552,6 +1552,8 @@ out:
+>  static char *proto_name(int protocol)
+>  {
+>  	switch (protocol) {
+> +	case 0:
+> +		return "raw";
+>  	case IPPROTO_UDP:
+>  		return "udp";
+>  	case IPPROTO_TCP:
+> @@ -2416,7 +2418,7 @@ static int dgram_show_line(char *line, const struct filter *f, int family)
+>  	if (n < 9)
+>  		opt[0] = 0;
+>  
+> -	inet_stats_print(&s, IPPROTO_UDP);
+> +	inet_stats_print(&s, 0);
+>  
+>  	if (show_details && opt[0])
+>  		printf(" opt:\"%s\"", opt);
+> 
+> 
 
-Maybe following patch would fix the issue.
-
-diff --git a/misc/ss.c b/misc/ss.c
-index 03f92fa69270..9b7dad00290c 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1552,6 +1552,8 @@ out:
- static char *proto_name(int protocol)
- {
- 	switch (protocol) {
-+	case 0:
-+		return "raw";
- 	case IPPROTO_UDP:
- 		return "udp";
- 	case IPPROTO_TCP:
-@@ -2416,7 +2418,7 @@ static int dgram_show_line(char *line, const struct filter *f, int family)
- 	if (n < 9)
- 		opt[0] = 0;
- 
--	inet_stats_print(&s, IPPROTO_UDP);
-+	inet_stats_print(&s, 0);
- 
- 	if (show_details && opt[0])
- 		printf(" opt:\"%s\"", opt);
+Yes, it fixes the issue too.
