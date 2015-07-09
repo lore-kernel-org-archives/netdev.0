@@ -1,116 +1,498 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next 0/4] gianfar: Add Rx S/G
-Date: Thu, 9 Jul 2015 19:24:40 +0300
-Message-ID: <1436459084-14103-1-git-send-email-claudiu.manoil@freescale.com>
+Subject: [PATCH net-next 1/4] gianfar: Bundle Rx allocation, cleanup
+Date: Thu, 9 Jul 2015 19:24:41 +0300
+Message-ID: <1436459084-14103-2-git-send-email-claudiu.manoil@freescale.com>
+References: <1436459084-14103-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: "David S. Miller" <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0107.outbound.protection.outlook.com ([207.46.100.107]:8384
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+Received: from mail-bl2on0109.outbound.protection.outlook.com ([65.55.169.109]:26584
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751976AbbGIQlN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jul 2015 12:41:13 -0400
+	id S1751866AbbGIQlf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jul 2015 12:41:35 -0400
+In-Reply-To: <1436459084-14103-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
-This patch-set introduces scatter/gather support
-on the Rx side, addressing Rx path performance
-issues in the driver.
-Thanks.
+Use a more common consumer/ producer index design to improve
+rx buffer allocation.  Instead of allocating a single new buffer
+(skb) on each iteration, bundle the allocation of several rx
+buffers at a time.  This also opens the path for further memory
+optimizations.
 
-As an example, two boards connected back-to-back
-were used to measure the throughput, running the
-same kernel 4.1, before and after applying these
-patches.
-The netperf UDP_STREAM results below show that the
-bottleneck lies on the Rx side BEFORE applying the
-patches, and that the Rx throughput is even lower
-with a larger MTU.  AFTER applying the patches the
-Rx bottleneck is gone (Rx throughput matches the
-Tx one) and the RX throughput is not influenced by
-MTU size any longer (as expected).
+Remove useless check of rxq->rfbptr, since this patch touches
+rx pause frame handling code as well.  rxq->rfbptr is always
+initialized as part of Rx BD ring init.
+Remove redundant (and misleading) 'amount_pull' parameter.
 
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+---
+ drivers/net/ethernet/freescale/gianfar.c         | 201 ++++++++++++-----------
+ drivers/net/ethernet/freescale/gianfar.h         |  39 +++--
+ drivers/net/ethernet/freescale/gianfar_ethtool.c |   3 +
+ 3 files changed, 136 insertions(+), 107 deletions(-)
 
-BEFORE:
-
-1) MTU 1500 (default)
-
-root@p1010rdb-pb:~# netperf -l 150 -cC -H 192.85.1.1 -p 12867 -t UDP_STREAM -- -m 512
-MIGRATED UDP STREAM TEST from 0.0.0.0 () port 0 AF_INET to 192.85.1.1 () port 0 AF_INET
-Socket  Message  Elapsed      Messages                   CPU      Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
-
-163840     512   150.00    20119124      0      549.4     100.00   14.911
-163840           150.00    14057349             383.9     100.00   14.911
-
-root@p1010rdb-pb:~# netperf -l 150 -cC -H 192.85.1.1 -p 12867 -t UDP_STREAM -- -m 64
-MIGRATED UDP STREAM TEST from 0.0.0.0 () port 0 AF_INET to 192.85.1.1 () port 0 AF_INET
-Socket  Message  Elapsed      Messages                   CPU      Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
-
-163840      64   150.00    23654013      0       80.7     100.00   101.463
-163840           150.00    15875288              54.2     100.00   101.463
-
-2) MTU 8000
-
-root@p1010rdb-pb:~# netperf -l 150 -cC -H 192.85.1.1 -p 12867 -t UDP_STREAM -- -m 512
-MIGRATED UDP STREAM TEST from 0.0.0.0 () port 0 AF_INET to 192.85.1.1 () port 0 AF_INET
-Socket  Message  Elapsed      Messages                   CPU      Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
-
-163840     512   150.00    20067232      0      548.0     100.00   14.950
-163840           150.00    6113498             166.9     99.95    14.942
-
-root@p1010rdb-pb:~# netperf -l 150 -cC -H 192.85.1.1 -p 12867 -t UDP_STREAM -- -m 64
-MIGRATED UDP STREAM TEST from 0.0.0.0 () port 0 AF_INET to 192.85.1.1 () port 0 AF_INET
-Socket  Message  Elapsed      Messages                   CPU      Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
-
-163840      64   150.00    23621279      0       80.6     100.00   101.604
-163840           150.00    5868602              20.0     99.96    101.563
-
-
-AFTER:
-(both MTU 1500 and MTU 8000)
-
-root@p1010rdb-pb:~# netperf -l 150 -cC -H 192.85.1.1 -p 12867 -t UDP_STREAM -- -m 512
-MIGRATED UDP STREAM TEST from 0.0.0.0 () port 0 AF_INET to 192.85.1.1 () port 0 AF_INET
-Socket  Message  Elapsed      Messages                   CPU      Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
-
-163840     512   150.00    19914969      0      543.8     100.00   15.064
-163840           150.00    19914969             543.8     99.35    14.966
-
-root@p1010rdb-pb:~# netperf -l 150 -cC -H 192.85.1.1 -p 12867 -t UDP_STREAM -- -m 64
-MIGRATED UDP STREAM TEST from 0.0.0.0 () port 0 AF_INET to 192.85.1.1 () port 0 AF_INET
-Socket  Message  Elapsed      Messages                   CPU      Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
-
-163840      64   150.00    23433989      0       80.0     100.00   102.416
-163840           150.00    23433989              80.0     99.62    102.023
-
-
-
-
-Claudiu Manoil (4):
-  gianfar: Bundle Rx allocation, cleanup
-  gianfar: Fix and cleanup rxbd status handling
-  gianfar: Use ndev, more Rx path cleanup
-  gianfar: Add paged allocation and Rx S/G
-
- drivers/net/ethernet/freescale/gianfar.c         | 496 +++++++++++++----------
- drivers/net/ethernet/freescale/gianfar.h         |  72 ++--
- drivers/net/ethernet/freescale/gianfar_ethtool.c |   4 +-
- 3 files changed, 331 insertions(+), 241 deletions(-)
-
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index ff87502..b35bf3d 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -116,8 +116,8 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev);
+ static void gfar_reset_task(struct work_struct *work);
+ static void gfar_timeout(struct net_device *dev);
+ static int gfar_close(struct net_device *dev);
+-static struct sk_buff *gfar_new_skb(struct net_device *dev,
+-				    dma_addr_t *bufaddr);
++static void gfar_alloc_rx_buffs(struct gfar_priv_rx_q *rx_queue,
++				int alloc_cnt);
+ static int gfar_set_mac_address(struct net_device *dev);
+ static int gfar_change_mtu(struct net_device *dev, int new_mtu);
+ static irqreturn_t gfar_error(int irq, void *dev_id);
+@@ -142,7 +142,7 @@ static void gfar_netpoll(struct net_device *dev);
+ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit);
+ static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue);
+ static void gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
+-			       int amount_pull, struct napi_struct *napi);
++			       struct napi_struct *napi);
+ static void gfar_halt_nodisable(struct gfar_private *priv);
+ static void gfar_clear_exact_match(struct net_device *dev);
+ static void gfar_set_mac_for_addr(struct net_device *dev, int num,
+@@ -169,17 +169,15 @@ static void gfar_init_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
+ 	bdp->lstatus = cpu_to_be32(lstatus);
+ }
+ 
+-static int gfar_init_bds(struct net_device *ndev)
++static void gfar_init_bds(struct net_device *ndev)
+ {
+ 	struct gfar_private *priv = netdev_priv(ndev);
+ 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+ 	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	struct txbd8 *txbdp;
+-	struct rxbd8 *rxbdp;
+ 	u32 __iomem *rfbptr;
+ 	int i, j;
+-	dma_addr_t bufaddr;
+ 
+ 	for (i = 0; i < priv->num_tx_queues; i++) {
+ 		tx_queue = priv->tx_queue[i];
+@@ -207,33 +205,18 @@ static int gfar_init_bds(struct net_device *ndev)
+ 	rfbptr = &regs->rfbptr0;
+ 	for (i = 0; i < priv->num_rx_queues; i++) {
+ 		rx_queue = priv->rx_queue[i];
+-		rx_queue->cur_rx = rx_queue->rx_bd_base;
+-		rx_queue->skb_currx = 0;
+-		rxbdp = rx_queue->rx_bd_base;
+-
+-		for (j = 0; j < rx_queue->rx_ring_size; j++) {
+-			struct sk_buff *skb = rx_queue->rx_skbuff[j];
+ 
+-			if (skb) {
+-				bufaddr = be32_to_cpu(rxbdp->bufPtr);
+-			} else {
+-				skb = gfar_new_skb(ndev, &bufaddr);
+-				if (!skb) {
+-					netdev_err(ndev, "Can't allocate RX buffers\n");
+-					return -ENOMEM;
+-				}
+-				rx_queue->rx_skbuff[j] = skb;
+-			}
++		rx_queue->next_to_clean = 0;
++		rx_queue->next_to_use = 0;
+ 
+-			gfar_init_rxbdp(rx_queue, rxbdp, bufaddr);
+-			rxbdp++;
+-		}
++		/* make sure next_to_clean != next_to_use after this
++		 * by leaving at least 1 unused descriptor
++		 */
++		gfar_alloc_rx_buffs(rx_queue, gfar_rxbd_unused(rx_queue));
+ 
+ 		rx_queue->rfbptr = rfbptr;
+ 		rfbptr += 2;
+ 	}
+-
+-	return 0;
+ }
+ 
+ static int gfar_alloc_skb_resources(struct net_device *ndev)
+@@ -311,8 +294,7 @@ static int gfar_alloc_skb_resources(struct net_device *ndev)
+ 			rx_queue->rx_skbuff[j] = NULL;
+ 	}
+ 
+-	if (gfar_init_bds(ndev))
+-		goto cleanup;
++	gfar_init_bds(ndev);
+ 
+ 	return 0;
+ 
+@@ -1639,10 +1621,7 @@ static int gfar_restore(struct device *dev)
+ 		return 0;
+ 	}
+ 
+-	if (gfar_init_bds(ndev)) {
+-		free_skb_resources(priv);
+-		return -ENOMEM;
+-	}
++	gfar_init_bds(ndev);
+ 
+ 	gfar_mac_reset(priv);
+ 
+@@ -2704,30 +2683,19 @@ static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ 	netdev_tx_completed_queue(txq, howmany, bytes_sent);
+ }
+ 
+-static struct sk_buff *gfar_alloc_skb(struct net_device *dev)
++static struct sk_buff *gfar_new_skb(struct net_device *ndev,
++				    dma_addr_t *bufaddr)
+ {
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(ndev);
+ 	struct sk_buff *skb;
++	dma_addr_t addr;
+ 
+-	skb = netdev_alloc_skb(dev, priv->rx_buffer_size + RXBUF_ALIGNMENT);
++	skb = netdev_alloc_skb(ndev, priv->rx_buffer_size + RXBUF_ALIGNMENT);
+ 	if (!skb)
+ 		return NULL;
+ 
+ 	gfar_align_skb(skb);
+ 
+-	return skb;
+-}
+-
+-static struct sk_buff *gfar_new_skb(struct net_device *dev, dma_addr_t *bufaddr)
+-{
+-	struct gfar_private *priv = netdev_priv(dev);
+-	struct sk_buff *skb;
+-	dma_addr_t addr;
+-
+-	skb = gfar_alloc_skb(dev);
+-	if (!skb)
+-		return NULL;
+-
+ 	addr = dma_map_single(priv->dev, skb->data,
+ 			      priv->rx_buffer_size, DMA_FROM_DEVICE);
+ 	if (unlikely(dma_mapping_error(priv->dev, addr))) {
+@@ -2739,6 +2707,55 @@ static struct sk_buff *gfar_new_skb(struct net_device *dev, dma_addr_t *bufaddr)
+ 	return skb;
+ }
+ 
++static void gfar_rx_alloc_err(struct gfar_priv_rx_q *rx_queue)
++{
++	struct gfar_private *priv = netdev_priv(rx_queue->dev);
++	struct gfar_extra_stats *estats = &priv->extra_stats;
++
++	netdev_err(rx_queue->dev, "Can't alloc RX buffers\n");
++	atomic64_inc(&estats->rx_alloc_err);
++}
++
++static void gfar_alloc_rx_buffs(struct gfar_priv_rx_q *rx_queue,
++				int alloc_cnt)
++{
++	struct net_device *ndev = rx_queue->dev;
++	struct rxbd8 *bdp, *base;
++	dma_addr_t bufaddr;
++	int i;
++
++	i = rx_queue->next_to_use;
++	base = rx_queue->rx_bd_base;
++	bdp = &rx_queue->rx_bd_base[i];
++
++	while (alloc_cnt--) {
++		struct sk_buff *skb = rx_queue->rx_skbuff[i];
++
++		if (likely(!skb)) {
++			skb = gfar_new_skb(ndev, &bufaddr);
++			if (unlikely(!skb)) {
++				gfar_rx_alloc_err(rx_queue);
++				break;
++			}
++		} else { /* restore from sleep state */
++			bufaddr = be32_to_cpu(bdp->bufPtr);
++		}
++
++		rx_queue->rx_skbuff[i] = skb;
++
++		/* Setup the new RxBD */
++		gfar_init_rxbdp(rx_queue, bdp, bufaddr);
++
++		/* Update to the next pointer */
++		bdp = next_bd(bdp, base, rx_queue->rx_ring_size);
++
++		if (unlikely(++i == rx_queue->rx_ring_size))
++			i = 0;
++	}
++
++	rx_queue->next_to_use = i;
++}
++
+ static inline void count_errors(unsigned short status, struct net_device *dev)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+@@ -2838,7 +2855,7 @@ static inline void gfar_rx_checksum(struct sk_buff *skb, struct rxfcb *fcb)
+ 
+ /* gfar_process_frame() -- handle one incoming packet if skb isn't NULL. */
+ static void gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
+-			       int amount_pull, struct napi_struct *napi)
++			       struct napi_struct *napi)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	struct rxfcb *fcb = NULL;
+@@ -2849,9 +2866,9 @@ static void gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
+ 	/* Remove the FCB from the skb
+ 	 * Remove the padded bytes, if there are any
+ 	 */
+-	if (amount_pull) {
++	if (priv->uses_rxfcb) {
+ 		skb_record_rx_queue(skb, fcb->rq);
+-		skb_pull(skb, amount_pull);
++		skb_pull(skb, GMAC_FCB_LEN);
+ 	}
+ 
+ 	/* Get receive timestamp from the skb */
+@@ -2895,27 +2912,30 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+ 	struct net_device *dev = rx_queue->dev;
+ 	struct rxbd8 *bdp, *base;
+ 	struct sk_buff *skb;
+-	int pkt_len;
+-	int amount_pull;
+-	int howmany = 0;
++	int i, howmany = 0;
++	int cleaned_cnt = gfar_rxbd_unused(rx_queue);
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 
+ 	/* Get the first full descriptor */
+-	bdp = rx_queue->cur_rx;
+ 	base = rx_queue->rx_bd_base;
++	i = rx_queue->next_to_clean;
+ 
+-	amount_pull = priv->uses_rxfcb ? GMAC_FCB_LEN : 0;
++	while (rx_work_limit--) {
+ 
+-	while (!(be16_to_cpu(bdp->status) & RXBD_EMPTY) && rx_work_limit--) {
+-		struct sk_buff *newskb;
+-		dma_addr_t bufaddr;
++		if (cleaned_cnt >= GFAR_RX_BUFF_ALLOC) {
++			gfar_alloc_rx_buffs(rx_queue, cleaned_cnt);
++			cleaned_cnt = 0;
++		}
+ 
+-		rmb();
++		bdp = &rx_queue->rx_bd_base[i];
++		if (be16_to_cpu(bdp->status) & RXBD_EMPTY)
++			break;
+ 
+-		/* Add another skb for the future */
+-		newskb = gfar_new_skb(dev, &bufaddr);
++		/* order rx buffer descriptor reads */
++		rmb();
+ 
+-		skb = rx_queue->rx_skbuff[rx_queue->skb_currx];
++		/* fetch next to clean buffer from the ring */
++		skb = rx_queue->rx_skbuff[i];
+ 
+ 		dma_unmap_single(priv->dev, be32_to_cpu(bdp->bufPtr),
+ 				 priv->rx_buffer_size, DMA_FROM_DEVICE);
+@@ -2924,30 +2944,26 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+ 			     be16_to_cpu(bdp->length) > priv->rx_buffer_size))
+ 			bdp->status = cpu_to_be16(RXBD_LARGE);
+ 
+-		/* We drop the frame if we failed to allocate a new buffer */
+-		if (unlikely(!newskb ||
+-			     !(be16_to_cpu(bdp->status) & RXBD_LAST) ||
++		if (unlikely(!(be16_to_cpu(bdp->status) & RXBD_LAST) ||
+ 			     be16_to_cpu(bdp->status) & RXBD_ERR)) {
+ 			count_errors(be16_to_cpu(bdp->status), dev);
+ 
+-			if (unlikely(!newskb)) {
+-				newskb = skb;
+-				bufaddr = be32_to_cpu(bdp->bufPtr);
+-			} else if (skb)
+-				dev_kfree_skb(skb);
++			/* discard faulty buffer */
++			dev_kfree_skb(skb);
++
+ 		} else {
+ 			/* Increment the number of packets */
+ 			rx_queue->stats.rx_packets++;
+ 			howmany++;
+ 
+ 			if (likely(skb)) {
+-				pkt_len = be16_to_cpu(bdp->length) -
++				int pkt_len = be16_to_cpu(bdp->length) -
+ 					  ETH_FCS_LEN;
+ 				/* Remove the FCS from the packet length */
+ 				skb_put(skb, pkt_len);
+ 				rx_queue->stats.rx_bytes += pkt_len;
+ 				skb_record_rx_queue(skb, rx_queue->qindex);
+-				gfar_process_frame(dev, skb, amount_pull,
++				gfar_process_frame(dev, skb,
+ 						   &rx_queue->grp->napi_rx);
+ 
+ 			} else {
+@@ -2958,26 +2974,23 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+ 
+ 		}
+ 
+-		rx_queue->rx_skbuff[rx_queue->skb_currx] = newskb;
+-
+-		/* Setup the new bdp */
+-		gfar_init_rxbdp(rx_queue, bdp, bufaddr);
++		rx_queue->rx_skbuff[i] = NULL;
++		cleaned_cnt++;
++		if (unlikely(++i == rx_queue->rx_ring_size))
++			i = 0;
++	}
+ 
+-		/* Update Last Free RxBD pointer for LFC */
+-		if (unlikely(rx_queue->rfbptr && priv->tx_actual_en))
+-			gfar_write(rx_queue->rfbptr, (u32)bdp);
++	rx_queue->next_to_clean = i;
+ 
+-		/* Update to the next pointer */
+-		bdp = next_bd(bdp, base, rx_queue->rx_ring_size);
++	if (cleaned_cnt)
++		gfar_alloc_rx_buffs(rx_queue, cleaned_cnt);
+ 
+-		/* update to point at the next skb */
+-		rx_queue->skb_currx = (rx_queue->skb_currx + 1) &
+-				      RX_RING_MOD_MASK(rx_queue->rx_ring_size);
++	/* Update Last Free RxBD pointer for LFC */
++	if (unlikely(priv->tx_actual_en)) {
++		bdp = gfar_rxbd_lastfree(rx_queue);
++		gfar_write(rx_queue->rfbptr, (u32)bdp);
+ 	}
+ 
+-	/* Update the current rxbd pointer to be the next one */
+-	rx_queue->cur_rx = bdp;
+-
+ 	return howmany;
+ }
+ 
+@@ -3552,14 +3565,8 @@ static noinline void gfar_update_link_state(struct gfar_private *priv)
+ 		if ((tempval1 & MACCFG1_TX_FLOW) && !tx_flow_oldval) {
+ 			for (i = 0; i < priv->num_rx_queues; i++) {
+ 				rx_queue = priv->rx_queue[i];
+-				bdp = rx_queue->cur_rx;
+-				/* skip to previous bd */
+-				bdp = skip_bd(bdp, rx_queue->rx_ring_size - 1,
+-					      rx_queue->rx_bd_base,
+-					      rx_queue->rx_ring_size);
+-
+-				if (rx_queue->rfbptr)
+-					gfar_write(rx_queue->rfbptr, (u32)bdp);
++				bdp = gfar_rxbd_lastfree(rx_queue);
++				gfar_write(rx_queue->rfbptr, (u32)bdp);
+ 			}
+ 
+ 			priv->tx_actual_en = 1;
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index daa1d37..cadb068 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -92,6 +92,8 @@ extern const char gfar_driver_version[];
+ #define DEFAULT_TX_RING_SIZE	256
+ #define DEFAULT_RX_RING_SIZE	256
+ 
++#define GFAR_RX_BUFF_ALLOC	16
++
+ #define GFAR_RX_MAX_RING_SIZE   256
+ #define GFAR_TX_MAX_RING_SIZE   256
+ 
+@@ -640,6 +642,7 @@ struct rmon_mib
+ };
+ 
+ struct gfar_extra_stats {
++	atomic64_t rx_alloc_err;
+ 	atomic64_t rx_large;
+ 	atomic64_t rx_short;
+ 	atomic64_t rx_nonoctet;
+@@ -1015,9 +1018,9 @@ struct rx_q_stats {
+ /**
+  *	struct gfar_priv_rx_q - per rx queue structure
+  *	@rx_skbuff: skb pointers
+- *	@skb_currx: currently use skb pointer
+  *	@rx_bd_base: First rx buffer descriptor
+- *	@cur_rx: Next free rx ring entry
++ *	@next_to_use: index of the next buffer to be alloc'd
++ *	@next_to_clean: index of the next buffer to be cleaned
+  *	@qindex: index of this queue
+  *	@dev: back pointer to the dev structure
+  *	@rx_ring_size: Rx ring size
+@@ -1027,19 +1030,18 @@ struct rx_q_stats {
+ 
+ struct gfar_priv_rx_q {
+ 	struct	sk_buff **rx_skbuff __aligned(SMP_CACHE_BYTES);
+-	dma_addr_t rx_bd_dma_base;
+ 	struct	rxbd8 *rx_bd_base;
+-	struct	rxbd8 *cur_rx;
+ 	struct	net_device *dev;
+-	struct gfar_priv_grp *grp;
++	struct	gfar_priv_grp *grp;
++	u16 rx_ring_size;
++	u16 qindex;
++	u16 next_to_clean;
++	u16 next_to_use;
+ 	struct rx_q_stats stats;
+-	u16	skb_currx;
+-	u16	qindex;
+-	unsigned int	rx_ring_size;
+-	/* RX Coalescing values */
++	u32 __iomem *rfbptr;
+ 	unsigned char rxcoalescing;
+ 	unsigned long rxic;
+-	u32 __iomem *rfbptr;
++	dma_addr_t rx_bd_dma_base;
+ };
+ 
+ enum gfar_irqinfo_id {
+@@ -1295,6 +1297,23 @@ static inline void gfar_clear_txbd_status(struct txbd8 *bdp)
+ 	bdp->lstatus = cpu_to_be32(lstatus);
+ }
+ 
++static inline int gfar_rxbd_unused(struct gfar_priv_rx_q *rxq)
++{
++	if (rxq->next_to_clean > rxq->next_to_use)
++		return rxq->next_to_clean - rxq->next_to_use - 1;
++
++	return rxq->rx_ring_size + rxq->next_to_clean - rxq->next_to_use - 1;
++}
++
++static inline struct rxbd8 *gfar_rxbd_lastfree(struct gfar_priv_rx_q *rxq)
++{
++	int i;
++
++	i = rxq->next_to_use ? rxq->next_to_use - 1 : rxq->rx_ring_size - 1;
++
++	return &rxq->rx_bd_base[i];
++}
++
+ irqreturn_t gfar_receive(int irq, void *dev_id);
+ int startup_gfar(struct net_device *dev);
+ void stop_gfar(struct net_device *dev);
+diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+index fda12fb..012fa4e 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
++++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+@@ -61,6 +61,8 @@ static void gfar_gdrvinfo(struct net_device *dev,
+ 			  struct ethtool_drvinfo *drvinfo);
+ 
+ static const char stat_gstrings[][ETH_GSTRING_LEN] = {
++	/* extra stats */
++	"rx-allocation-errors",
+ 	"rx-large-frame-errors",
+ 	"rx-short-frame-errors",
+ 	"rx-non-octet-errors",
+@@ -74,6 +76,7 @@ static const char stat_gstrings[][ETH_GSTRING_LEN] = {
+ 	"tx-underrun-errors",
+ 	"rx-skb-missing-errors",
+ 	"tx-timeout-errors",
++	/* rmon stats */
+ 	"tx-rx-64-frames",
+ 	"tx-rx-65-127-frames",
+ 	"tx-rx-128-255-frames",
 -- 
 1.7.11.7
