@@ -1,227 +1,206 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next 3/4] gianfar: Use ndev, more Rx path cleanup
-Date: Thu, 9 Jul 2015 19:24:43 +0300
-Message-ID: <1436459084-14103-4-git-send-email-claudiu.manoil@freescale.com>
-References: <1436459084-14103-1-git-send-email-claudiu.manoil@freescale.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [RFC PATCH net-next] sctp: fix src address selection if using
+ secondary addresses
+Date: Thu, 9 Jul 2015 13:54:58 -0300
+Message-ID: <20150709165458.GA1855@localhost.localdomain>
+References: <81786a31f7f143e1d229de9a9f909d5f83fa9bb2.1436279035.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>, tuexen@fh-muenster.de
+To: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0118.outbound.protection.outlook.com ([157.56.110.118]:48895
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753052AbbGIQlw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jul 2015 12:41:52 -0400
-In-Reply-To: <1436459084-14103-1-git-send-email-claudiu.manoil@freescale.com>
+Received: from mx1.redhat.com ([209.132.183.28]:47430 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753605AbbGIQzC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jul 2015 12:55:02 -0400
+Content-Disposition: inline
+In-Reply-To: <81786a31f7f143e1d229de9a9f909d5f83fa9bb2.1436279035.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use "ndev" instead of "dev", as the rx queue back pointer
-to a net_device struct, to avoid name clashing with a
-"struct device" reference.  This prepares the addition of a
-"struct device" back pointer to the rx queue structure.
+Cc'ing Michael too.
 
-Remove duplicated rxq registration in the process.
-Move napi_gro_receive() outside gfar_process_frame().
-
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
- drivers/net/ethernet/freescale/gianfar.c | 54 ++++++++++++++------------------
- drivers/net/ethernet/freescale/gianfar.h |  4 +--
- 2 files changed, 26 insertions(+), 32 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index b25cccd..2b9409f 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -141,8 +141,7 @@ static void gfar_netpoll(struct net_device *dev);
- #endif
- int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit);
- static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue);
--static void gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
--			       struct napi_struct *napi);
-+static void gfar_process_frame(struct net_device *ndev, struct sk_buff *skb);
- static void gfar_halt_nodisable(struct gfar_private *priv);
- static void gfar_clear_exact_match(struct net_device *dev);
- static void gfar_set_mac_for_addr(struct net_device *dev, int num,
-@@ -262,7 +261,7 @@ static int gfar_alloc_skb_resources(struct net_device *ndev)
- 		rx_queue = priv->rx_queue[i];
- 		rx_queue->rx_bd_base = vaddr;
- 		rx_queue->rx_bd_dma_base = addr;
--		rx_queue->dev = ndev;
-+		rx_queue->ndev = ndev;
- 		addr  += sizeof(struct rxbd8) * rx_queue->rx_ring_size;
- 		vaddr += sizeof(struct rxbd8) * rx_queue->rx_ring_size;
- 	}
-@@ -593,7 +592,7 @@ static int gfar_alloc_rx_queues(struct gfar_private *priv)
- 
- 		priv->rx_queue[i]->rx_skbuff = NULL;
- 		priv->rx_queue[i]->qindex = i;
--		priv->rx_queue[i]->dev = priv->ndev;
-+		priv->rx_queue[i]->ndev = priv->ndev;
- 	}
- 	return 0;
- }
-@@ -1913,7 +1912,7 @@ static void free_skb_tx_queue(struct gfar_priv_tx_q *tx_queue)
- static void free_skb_rx_queue(struct gfar_priv_rx_q *rx_queue)
- {
- 	struct rxbd8 *rxbdp;
--	struct gfar_private *priv = netdev_priv(rx_queue->dev);
-+	struct gfar_private *priv = netdev_priv(rx_queue->ndev);
- 	int i;
- 
- 	rxbdp = rx_queue->rx_bd_base;
-@@ -2709,17 +2708,17 @@ static struct sk_buff *gfar_new_skb(struct net_device *ndev,
- 
- static void gfar_rx_alloc_err(struct gfar_priv_rx_q *rx_queue)
- {
--	struct gfar_private *priv = netdev_priv(rx_queue->dev);
-+	struct gfar_private *priv = netdev_priv(rx_queue->ndev);
- 	struct gfar_extra_stats *estats = &priv->extra_stats;
- 
--	netdev_err(rx_queue->dev, "Can't alloc RX buffers\n");
-+	netdev_err(rx_queue->ndev, "Can't alloc RX buffers\n");
- 	atomic64_inc(&estats->rx_alloc_err);
- }
- 
- static void gfar_alloc_rx_buffs(struct gfar_priv_rx_q *rx_queue,
- 				int alloc_cnt)
- {
--	struct net_device *ndev = rx_queue->dev;
-+	struct net_device *ndev = rx_queue->ndev;
- 	struct rxbd8 *bdp, *base;
- 	dma_addr_t bufaddr;
- 	int i;
-@@ -2756,10 +2755,10 @@ static void gfar_alloc_rx_buffs(struct gfar_priv_rx_q *rx_queue,
- 	rx_queue->next_to_use = i;
- }
- 
--static void count_errors(unsigned long lstatus, struct net_device *dev)
-+static void count_errors(unsigned long lstatus, struct net_device *ndev)
- {
--	struct gfar_private *priv = netdev_priv(dev);
--	struct net_device_stats *stats = &dev->stats;
-+	struct gfar_private *priv = netdev_priv(ndev);
-+	struct net_device_stats *stats = &ndev->stats;
- 	struct gfar_extra_stats *estats = &priv->extra_stats;
- 
- 	/* If the packet was truncated, none of the other errors matter */
-@@ -2854,10 +2853,9 @@ static inline void gfar_rx_checksum(struct sk_buff *skb, struct rxfcb *fcb)
- }
- 
- /* gfar_process_frame() -- handle one incoming packet if skb isn't NULL. */
--static void gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
--			       struct napi_struct *napi)
-+static void gfar_process_frame(struct net_device *ndev, struct sk_buff *skb)
- {
--	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_private *priv = netdev_priv(ndev);
- 	struct rxfcb *fcb = NULL;
- 
- 	/* fcb is at the beginning if exists */
-@@ -2866,10 +2864,8 @@ static void gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
- 	/* Remove the FCB from the skb
- 	 * Remove the padded bytes, if there are any
- 	 */
--	if (priv->uses_rxfcb) {
--		skb_record_rx_queue(skb, fcb->rq);
-+	if (priv->uses_rxfcb)
- 		skb_pull(skb, GMAC_FCB_LEN);
--	}
- 
- 	/* Get receive timestamp from the skb */
- 	if (priv->hwts_rx_en) {
-@@ -2883,24 +2879,20 @@ static void gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
- 	if (priv->padding)
- 		skb_pull(skb, priv->padding);
- 
--	if (dev->features & NETIF_F_RXCSUM)
-+	if (ndev->features & NETIF_F_RXCSUM)
- 		gfar_rx_checksum(skb, fcb);
- 
- 	/* Tell the skb what kind of packet this is */
--	skb->protocol = eth_type_trans(skb, dev);
-+	skb->protocol = eth_type_trans(skb, ndev);
- 
- 	/* There's need to check for NETIF_F_HW_VLAN_CTAG_RX here.
- 	 * Even if vlan rx accel is disabled, on some chips
- 	 * RXFCB_VLN is pseudo randomly set.
- 	 */
--	if (dev->features & NETIF_F_HW_VLAN_CTAG_RX &&
-+	if (ndev->features & NETIF_F_HW_VLAN_CTAG_RX &&
- 	    be16_to_cpu(fcb->flags) & RXFCB_VLN)
- 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
- 				       be16_to_cpu(fcb->vlctl));
--
--	/* Send the packet up the stack */
--	napi_gro_receive(napi, skb);
--
- }
- 
- /* gfar_clean_rx_ring() -- Processes each frame in the rx ring
-@@ -2909,12 +2901,12 @@ static void gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
-  */
- int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- {
--	struct net_device *dev = rx_queue->dev;
-+	struct net_device *ndev = rx_queue->ndev;
- 	struct rxbd8 *bdp, *base;
- 	struct sk_buff *skb;
- 	int i, howmany = 0;
- 	int cleaned_cnt = gfar_rxbd_unused(rx_queue);
--	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_private *priv = netdev_priv(ndev);
- 
- 	/* Get the first full descriptor */
- 	base = rx_queue->rx_bd_base;
-@@ -2948,7 +2940,7 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- 
- 		if (unlikely(!(lstatus & BD_LFLAG(RXBD_LAST)) ||
- 			     (lstatus & BD_LFLAG(RXBD_ERR)))) {
--			count_errors(lstatus, dev);
-+			count_errors(lstatus, ndev);
- 
- 			/* discard faulty buffer */
- 			dev_kfree_skb(skb);
-@@ -2965,11 +2957,13 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- 				skb_put(skb, pkt_len);
- 				rx_queue->stats.rx_bytes += pkt_len;
- 				skb_record_rx_queue(skb, rx_queue->qindex);
--				gfar_process_frame(dev, skb,
--						   &rx_queue->grp->napi_rx);
-+				gfar_process_frame(ndev, skb);
-+
-+				/* Send the packet up the stack */
-+				napi_gro_receive(&rx_queue->grp->napi_rx, skb);
- 
- 			} else {
--				netif_warn(priv, rx_err, dev, "Missing skb!\n");
-+				netif_warn(priv, rx_err, ndev, "Missing skb!\n");
- 				rx_queue->stats.rx_dropped++;
- 				atomic64_inc(&priv->extra_stats.rx_skbmissing);
- 			}
-diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index cadb068..edf8529 100644
---- a/drivers/net/ethernet/freescale/gianfar.h
-+++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -1022,7 +1022,7 @@ struct rx_q_stats {
-  *	@next_to_use: index of the next buffer to be alloc'd
-  *	@next_to_clean: index of the next buffer to be cleaned
-  *	@qindex: index of this queue
-- *	@dev: back pointer to the dev structure
-+ *	@ndev: back pointer to net_device
-  *	@rx_ring_size: Rx ring size
-  *	@rxcoalescing: enable/disable rx-coalescing
-  *	@rxic: receive interrupt coalescing vlaue
-@@ -1031,7 +1031,7 @@ struct rx_q_stats {
- struct gfar_priv_rx_q {
- 	struct	sk_buff **rx_skbuff __aligned(SMP_CACHE_BYTES);
- 	struct	rxbd8 *rx_bd_base;
--	struct	net_device *dev;
-+	struct	net_device *ndev;
- 	struct	gfar_priv_grp *grp;
- 	u16 rx_ring_size;
- 	u16 qindex;
--- 
-1.7.11.7
+On Tue, Jul 07, 2015 at 02:42:25PM -0300, Marcelo Ricardo Leitner wrote:
+> Hi folks,
+> 
+> This is an attempt to better choose a src address for sctp packets as
+> peers with rp_filter could be dropping our packets in some situations.
+> With this patch, we try to respect and use a src address that belongs to
+> the interface we are putting the packet out.
+> 
+> I have that feeling that there is be a better way to do this, but I
+> just couldn't see it.
+> 
+> This patch has been tested with and without gateways between the peers
+> and also just two peers connected via two subnets and results were
+> pretty good.
+> 
+> One could think that this limits the address combination we can use, but
+> such combinations probably are just bogus anyway. Like, if you have an
+> host with address A1 and B1 and another with A2 and B2, you cannot
+> expect that A can use A1 to reach B2 through subnet B, because the
+> return path would be via the other link which, when this switch happens,
+> we are thinking it's broken.
+> 
+> Thanks,
+> Marcelo
+> 
+> ---8<---
+> 
+> In short, sctp is likely to incorrectly choose src address if socket is
+> bound to secondary addresses. This patch fixes it by adding a new check
+> that tries to anticipate if the src address would be expected by the
+> next hop/peer on this interface by doing reverse routing.
+> 
+> Also took the shot to reduce the indentation level on this code.
+> 
+> Details:
+> 
+> Currently, sctp will do a routing attempt without specifying the src
+> address and compare the returned value (preferred source) with the
+> addresses that the socket is bound to. When using secondary addresses,
+> this will not match.
+> 
+> Then it will try specifying each of the addresses that the socket is
+> bound to and re-routing, checking if that address is valid as src for
+> that dst. Thing is, this check alone is weak:
+> 
+> # ip r l
+> 192.168.100.0/24 dev eth1  proto kernel  scope link  src 192.168.100.149
+> 192.168.122.0/24 dev eth0  proto kernel  scope link  src 192.168.122.147
+> 
+> # ip a l
+> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default
+>     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+>     inet 127.0.0.1/8 scope host lo
+>        valid_lft forever preferred_lft forever
+>     inet6 ::1/128 scope host
+>        valid_lft forever preferred_lft forever
+> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+>     link/ether 52:54:00:15:18:6a brd ff:ff:ff:ff:ff:ff
+>     inet 192.168.122.147/24 brd 192.168.122.255 scope global dynamic eth0
+>        valid_lft 2160sec preferred_lft 2160sec
+>     inet 192.168.122.148/24 scope global secondary eth0
+>        valid_lft forever preferred_lft forever
+>     inet6 fe80::5054:ff:fe15:186a/64 scope link
+>        valid_lft forever preferred_lft forever
+> 3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+>     link/ether 52:54:00:b3:91:46 brd ff:ff:ff:ff:ff:ff
+>     inet 192.168.100.149/24 brd 192.168.100.255 scope global dynamic eth1
+>        valid_lft 2162sec preferred_lft 2162sec
+>     inet 192.168.100.148/24 scope global secondary eth1
+>        valid_lft forever preferred_lft forever
+>     inet6 fe80::5054:ff:feb3:9146/64 scope link
+>        valid_lft forever preferred_lft forever
+> 4: ens9: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+>     link/ether 52:54:00:05:47:ee brd ff:ff:ff:ff:ff:ff
+>     inet6 fe80::5054:ff:fe05:47ee/64 scope link
+>        valid_lft forever preferred_lft forever
+> 
+> # ip r g 192.168.100.193 from 192.168.122.148
+> 192.168.100.193 from 192.168.122.148 dev eth1
+>     cache
+> 
+> Even if you specify an interface:
+> 
+> # ip r g 192.168.100.193 from 192.168.122.148 oif eth1
+> 192.168.100.193 from 192.168.122.148 dev eth1
+>     cache
+> 
+> Although this would be valid, peers using rp_filter will drop such
+> packets as their src doesn't match the routes for that interface.
+> 
+> So we fix this by adding an extra check, we try to do the reverse
+> routing and check if the interface used would be the same. If not, we
+> skip such address. If yes, we use it.
+> 
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> ---
+>  net/sctp/protocol.c | 55 +++++++++++++++++++++++++++++++++++++++--------------
+>  1 file changed, 41 insertions(+), 14 deletions(-)
+> 
+> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+> index 59e80356672bdf89777265ae1f8c384792dfb98c..e52fd6f77963426a7cf3e83ca01a9cdae1cb2c01 100644
+> --- a/net/sctp/protocol.c
+> +++ b/net/sctp/protocol.c
+> @@ -53,6 +53,7 @@
+>  #include <net/net_namespace.h>
+>  #include <net/protocol.h>
+>  #include <net/ip.h>
+> +#include <net/ip_fib.h>
+>  #include <net/ipv6.h>
+>  #include <net/route.h>
+>  #include <net/sctp/sctp.h>
+> @@ -487,23 +488,49 @@ static void sctp_v4_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+>  	 */
+>  	rcu_read_lock();
+>  	list_for_each_entry_rcu(laddr, &bp->address_list, list) {
+> +		struct flowi4 in;
+> +		struct fib_result res;
+> +
+>  		if (!laddr->valid)
+>  			continue;
+> -		if ((laddr->state == SCTP_ADDR_SRC) &&
+> -		    (AF_INET == laddr->a.sa.sa_family)) {
+> -			fl4->fl4_sport = laddr->a.v4.sin_port;
+> -			flowi4_update_output(fl4,
+> -					     asoc->base.sk->sk_bound_dev_if,
+> -					     RT_CONN_FLAGS(asoc->base.sk),
+> -					     daddr->v4.sin_addr.s_addr,
+> -					     laddr->a.v4.sin_addr.s_addr);
+> -
+> -			rt = ip_route_output_key(sock_net(sk), fl4);
+> -			if (!IS_ERR(rt)) {
+> -				dst = &rt->dst;
+> -				goto out_unlock;
+> -			}
+> +		if (laddr->state != SCTP_ADDR_SRC ||
+> +		    AF_INET != laddr->a.sa.sa_family)
+> +			continue;
+> +
+> +		fl4->fl4_sport = laddr->a.v4.sin_port;
+> +		flowi4_update_output(fl4,
+> +				     asoc->base.sk->sk_bound_dev_if,
+> +				     RT_CONN_FLAGS(asoc->base.sk),
+> +				     daddr->v4.sin_addr.s_addr,
+> +				     laddr->a.v4.sin_addr.s_addr);
+> +
+> +		rt = ip_route_output_key(sock_net(sk), fl4);
+> +		if (IS_ERR(rt))
+> +			continue;
+> +
+> +		dst = &rt->dst;
+> +
+> +		/* Double check if this is really expected. We simulate
+> +		 * rp_filter by swapping src and dst.  If interfaces are
+> +		 * different, means that this src wouldn't be expected
+> +		 * by the other host on this interface.
+> +		 */
+> +		memcpy(&in, fl4, sizeof(in));
+> +		in.daddr = fl4->saddr;
+> +		in.saddr = fl4->daddr;
+> +		in.flowi4_iif = fl4->flowi4_oif;
+> +		in.flowi4_oif = 0;
+> +
+> +		if (fib_lookup(sock_net(sk), &in, &res) ||
+> +		    res.type != RTN_LOCAL ||
+> +		    fl4->flowi4_oif != FIB_RES_DEV(res)->ifindex) {
+> +			/* Failed, so this was a false hit */
+> +			dst_release(dst);
+> +			dst = NULL;
+> +			continue;
+>  		}
+> +
+> +		break;
+>  	}
+>  
+>  out_unlock:
+> -- 
+> 2.4.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
