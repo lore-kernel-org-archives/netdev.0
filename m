@@ -1,49 +1,47 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [5/6] mvneta: implement SGMII-based in-band link state
- signaling
-Date: Thu, 9 Jul 2015 11:19:41 +0200
-Message-ID: <20150709111941.6a49091f@free-electrons.com>
-References: <55155D9D.6070800@list.ru>
-	<alpine.LNX.2.02.1507081757260.28659@sbrk.org>
-	<559D5520.3030700@list.ru>
-	<alpine.LNX.2.02.1507091040530.23853@sbrk.org>
+From: Martin Sustrik <sustrik@250bpm.com>
+Subject: Re: [PATCH v3 1/1] eventfd: implementation of EFD_MASK flag
+Date: Thu, 09 Jul 2015 11:22:32 +0200
+Message-ID: <c1a7500e31bbe8595f30e272e6cc9a85@imap.lucina.net>
+References: <1361187290-11759-1-git-send-email-sustrik@250bpm.com>
+ <559E296A.6040606@igel.co.jp>
+ <8bb2fb10a310dc3e1eddb851aba93054@imap.lucina.net>
+ <559E39AC.1010408@igel.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stas Sergeev <stsp@list.ru>, netdev@vger.kernel.org,
-	Linux kernel <linux-kernel@vger.kernel.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>
-To: Sebastien Rannou <mxs@sbrk.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:42740 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750893AbbGIJTp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 05:19:45 -0400
-In-Reply-To: <alpine.LNX.2.02.1507091040530.23853@sbrk.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Damian Hobson-Garcia <dhobsong@igel.co.jp>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <559E39AC.1010408@igel.co.jp>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sebastien, Stas,
+On 2015-07-09 11:06, Damian Hobson-Garcia wrote:
+> Hi Martin,
+> 
+> On 2015-07-09 5:41 PM, Martin Sustrik wrote:
+>> Hi Damian,
+>> 
+>> Yes, this patch would be geneally useful for implementing stuff in 
+>> user
+>> space that otherwise would have to live in kernelspace.
+>> 
+>> Unfortunately, I have no cycles left to pursue getting it to the
+>> mainline. If you feel like you can take care of it, that would be 
+>> great.
+> I'll see what I can do. I'll rebase it and resubmit it.
+> Unless there are major changes (which I highly doubt), I'll keep you as
+> the author, if that's ok with you.
 
-On Thu, 9 Jul 2015 11:03:26 +0200 (CEST), Sebastien Rannou wrote:
-> On Wed, 8 Jul 2015, Stas Sergeev wrote:
-> 
-> > What is there? A phy chip, or something else?
-> 
-> It's "something else", there's a phy which aggregates 4xSGMIIs to
-> 1xQSGMII, we are on the media side here, the MAC side is connected
-> to the switch through QSGMII.
-> 
-> > Perhaps some DT property should be added to explicitly
-> > enable the use of the inband status...
-> 
-> Yes, that would be fine.
+Sure. No problem.
 
-Isn't it a bit weird to need a new DT property for this? Shouldn't
-fixed-link always imply this inband status thing?
+>> 
+>> I can help with the documentation, if needed.
+> Thank you, that would be very much appreciated.
 
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+Ok, ping me when it's needed.
+
+Thanks!
+Martin
