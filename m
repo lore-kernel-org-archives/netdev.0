@@ -1,170 +1,172 @@
 From: anuradhak@cumulusnetworks.com
-Subject: [PATCH net-next v5 2/4] netlink: changes for setting and clearing protodown via netlink.
-Date: Thu,  9 Jul 2015 15:35:28 -0700
-Message-ID: <1436481330-4599-3-git-send-email-anuradhak@cumulusnetworks.com>
+Subject: [PATCH net-next v5 1/4] net core: Add protodown support.
+Date: Thu,  9 Jul 2015 15:35:27 -0700
+Message-ID: <1436481330-4599-2-git-send-email-anuradhak@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com,
 	anuradhak@cumulusnetworks.com
 To: davem@davemloft.net, sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:35274 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751556AbbGIWfk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 18:35:40 -0400
-Received: by pactm7 with SMTP id tm7so157313576pac.2
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 15:35:40 -0700 (PDT)
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:34371 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750708AbbGIWfj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 18:35:39 -0400
+Received: by pabvl15 with SMTP id vl15so157048095pab.1
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 15:35:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 
-A nested attribute has been added allowing apps to update bits
-(IF_PROTOF_DOWN) in the proto_flags field.
+This patch introduces the IF_PROTOF_DOWN flag via proto_flags that can be
+used by user space applications to notify switch drivers that errors have
+been detected on the device.
+
+The switch driver can react to protodown notification by doing a phys down
+on the associated switch port.
 
 Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
 ---
- include/uapi/linux/if_link.h |   10 ++++++++
- net/core/rtnetlink.c         |   57 +++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 66 insertions(+), 1 deletion(-)
+ include/linux/netdevice.h |   13 +++++++++++++
+ include/uapi/linux/if.h   |    6 ++++++
+ net/core/dev.c            |   20 ++++++++++++++++++++
+ net/core/net-sysfs.c      |   14 ++++++++++++++
+ 4 files changed, 53 insertions(+)
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 2c7e8e3..cadfc1a 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -148,6 +148,7 @@ enum {
- 	IFLA_PHYS_SWITCH_ID,
- 	IFLA_LINK_NETNSID,
- 	IFLA_PHYS_PORT_NAME,
-+	IFLA_PROTO_FLAGS_INFO,
- 	__IFLA_MAX
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e20979d..99ebb01 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1041,6 +1041,11 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+  *	TX queue.
+  * int (*ndo_get_iflink)(const struct net_device *dev);
+  *	Called to get the iflink value of this device.
++ * void (*ndo_change_proto_flags)(struct net_device *dev,
++ *				  unsigned int proto_flags);
++ *	This function is used to pass protocol port state information
++ *	to the switch driver.
++ *
+  */
+ struct net_device_ops {
+ 	int			(*ndo_init)(struct net_device *dev);
+@@ -1211,6 +1216,8 @@ struct net_device_ops {
+ 						      int queue_index,
+ 						      u32 maxrate);
+ 	int			(*ndo_get_iflink)(const struct net_device *dev);
++	int			(*ndo_change_proto_flags)(struct net_device *dev,
++							  unsigned int proto_flags);
  };
  
-@@ -651,4 +652,13 @@ enum {
+ /**
+@@ -1502,6 +1509,10 @@ enum netdev_priv_flags {
+  *
+  *	@qdisc_tx_busylock:	XXX: need comments on this one
+  *
++ *	@proto_flags:	protocol port state information can be sent to the
++ *			switch driver and used to set the phys state of the
++ *			switch port.
++ *
+  *	FIXME: cleanup struct net_device such that network protocol info
+  *	moves out.
+  */
+@@ -1762,6 +1773,7 @@ struct net_device {
+ #endif
+ 	struct phy_device *phydev;
+ 	struct lock_class_key *qdisc_tx_busylock;
++	unsigned int proto_flags;
+ };
+ #define to_net_dev(d) container_of(d, struct net_device, dev)
  
- #define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
+@@ -2982,6 +2994,7 @@ int dev_get_phys_port_id(struct net_device *dev,
+ 			 struct netdev_phys_item_id *ppid);
+ int dev_get_phys_port_name(struct net_device *dev,
+ 			   char *name, size_t len);
++int dev_change_proto_flags(struct net_device *dev, unsigned int proto_flags);
+ struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *dev);
+ struct sk_buff *dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 				    struct netdev_queue *txq, int *ret);
+diff --git a/include/uapi/linux/if.h b/include/uapi/linux/if.h
+index 9cf2394..8d60fe7 100644
+--- a/include/uapi/linux/if.h
++++ b/include/uapi/linux/if.h
+@@ -156,6 +156,12 @@ enum {
+ 	IF_LINK_MODE_DORMANT,	/* limit upward transition to dormant */
+ };
  
-+/* proto_flags section */
++/* proto_flags - port state information can be passed to the switch driver and
++ * used to determine the phys state of the switch port */
 +enum {
-+	IFLA_PROTO_FLAGS_UNSPEC,
-+	IFLA_PROTO_FLAGS_VAL,
-+	IFLA_PROTO_FLAGS_CHANGE,
-+	__IFLA_PROTO_FLAGS_MAX,
++	IF_PROTOF_DOWN		= 1<<0	/* set switch port phys state down */
 +};
 +
-+#define IFLA_PROTO_FLAGS_MAX (__IFLA_PROTO_FLAGS_MAX - 1)
- #endif /* _UAPI_LINUX_IF_LINK_H */
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 01ced4a..3a49d45 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -864,6 +864,16 @@ static size_t rtnl_port_size(const struct net_device *dev,
- 		return port_self_size;
- }
+ /*
+  *	Device mapping structure. I'd just gone off and designed a 
+  *	beautiful scheme using only loadable modules with arguments
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6778a99..87571c4 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6076,6 +6076,26 @@ int dev_get_phys_port_name(struct net_device *dev,
+ EXPORT_SYMBOL(dev_get_phys_port_name);
  
-+static size_t rtnl_proto_flags_info_size(const struct net_device *dev)
+ /**
++ *	dev_change_proto_flags - update protocol port state information
++ *	@dev: device
++ *	@proto_flags: new value
++ *
++ *	This info can be used by switch drivers to set the phys state of the
++ *	port.
++ */
++int dev_change_proto_flags(struct net_device *dev, unsigned int proto_flags)
 +{
-+	size_t proto_flags_size =
-+		nla_total_size(sizeof(struct nlattr))
-+		+ nla_total_size(4)	/* IFLA_PROTO_FLAGS_VAL */
-+		+ nla_total_size(4);	/* IFLA_PROTO_FLAGS_CHANGE */
++	const struct net_device_ops *ops = dev->netdev_ops;
 +
-+	return proto_flags_size;
++	if (dev->proto_flags == proto_flags)
++		return 0;
++	if (!ops->ndo_change_proto_flags)
++		return -EOPNOTSUPP;
++	return ops->ndo_change_proto_flags(dev, proto_flags);
++}
++EXPORT_SYMBOL(dev_change_proto_flags);
++
++/**
+  *	dev_new_index	-	allocate an ifindex
+  *	@net: the applicable net namespace
+  *
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 18b34d7..06f355e 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -404,6 +404,19 @@ static ssize_t group_store(struct device *dev, struct device_attribute *attr,
+ NETDEVICE_SHOW(group, fmt_dec);
+ static DEVICE_ATTR(netdev_group, S_IRUGO | S_IWUSR, group_show, group_store);
+ 
++static int change_proto_flags(struct net_device *dev, unsigned long proto_flags)
++{
++	return dev_change_proto_flags(dev, (unsigned int)proto_flags);
 +}
 +
- static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 				     u32 ext_filter_mask)
++static ssize_t proto_flags_store(struct device *dev,
++				 struct device_attribute *attr,
++				 const char *buf, size_t len)
++{
++	return netdev_store(dev, attr, buf, len, change_proto_flags);
++}
++NETDEVICE_SHOW_RW(proto_flags, fmt_hex);
++
+ static ssize_t phys_port_id_show(struct device *dev,
+ 				 struct device_attribute *attr, char *buf)
  {
-@@ -896,7 +906,9 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
- 	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
- 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
--	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_SWITCH_ID */
-+	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_SWITCH_ID */
-+	       + rtnl_proto_flags_info_size(dev); /* IFLA_PROTO_FLAGS_INFO */
-+
- }
- 
- static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
-@@ -1046,6 +1058,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	struct nlattr *attr, *af_spec;
- 	struct rtnl_af_ops *af_ops;
- 	struct net_device *upper_dev = netdev_master_upper_dev_get(dev);
-+	struct nlattr *proto_flags_info;
- 
- 	ASSERT_RTNL();
- 	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ifm), flags);
-@@ -1282,6 +1295,14 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 
- 	nla_nest_end(skb, af_spec);
- 
-+	proto_flags_info = nla_nest_start(skb, IFLA_PROTO_FLAGS_INFO);
-+	if (!proto_flags_info)
-+		goto nla_put_failure;
-+	if (nla_put_u32(skb, IFLA_PROTO_FLAGS_VAL, dev->proto_flags) ||
-+	    nla_put_u32(skb, IFLA_PROTO_FLAGS_CHANGE, ~0))
-+		goto nla_put_failure;
-+	nla_nest_end(skb, proto_flags_info);
-+
- 	nlmsg_end(skb, nlh);
- 	return 0;
- 
-@@ -1319,6 +1340,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
- 	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
- 	[IFLA_LINK_NETNSID]	= { .type = NLA_S32 },
-+	[IFLA_PROTO_FLAGS_INFO]	= {. type = NLA_NESTED },
+@@ -501,6 +514,7 @@ static struct attribute *net_class_attrs[] = {
+ 	&dev_attr_phys_port_id.attr,
+ 	&dev_attr_phys_port_name.attr,
+ 	&dev_attr_phys_switch_id.attr,
++	&dev_attr_proto_flags.attr,
+ 	NULL,
  };
- 
- static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
-@@ -1366,6 +1388,12 @@ static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
- 	[IFLA_PORT_RESPONSE]	= { .type = NLA_U16, },
- };
- 
-+static const struct nla_policy
-+	ifla_proto_flags_policy[IFLA_PROTO_FLAGS_MAX + 1] = {
-+	[IFLA_PROTO_FLAGS_VAL]		= { .type = NLA_U32 },
-+	[IFLA_PROTO_FLAGS_CHANGE]	= { .type = NLA_U32 },
-+};
-+
- static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	struct net *net = sock_net(skb->sk);
-@@ -1853,6 +1881,33 @@ static int do_setlink(const struct sk_buff *skb,
- 	}
- 	err = 0;
- 
-+	if (tb[IFLA_PROTO_FLAGS_INFO]) {
-+		struct nlattr *proto_flags[IFLA_PROTO_FLAGS_MAX + 1];
-+		int rem;
-+		unsigned int pflags;
-+		unsigned int pchange;
-+
-+		err = nla_parse_nested(proto_flags, IFLA_PROTO_FLAGS_MAX,
-+				       tb[IFLA_PROTO_FLAGS_INFO],
-+				       ifla_proto_flags_policy);
-+		if (err < 0)
-+			goto errout;
-+
-+		if (!proto_flags[IFLA_PROTO_FLAGS_VAL] ||
-+		    !proto_flags[IFLA_PROTO_FLAGS_CHANGE]) {
-+			err = -EOPNOTSUPP;
-+			goto errout;
-+		}
-+		pflags = nla_get_u32(proto_flags[IFLA_PROTO_FLAGS_VAL]);
-+		pchange = nla_get_u32(proto_flags[IFLA_PROTO_FLAGS_CHANGE]);
-+		pflags = (pflags & pchange) | (dev->proto_flags & ~pchange);
-+		err = dev_change_proto_flags(dev, pflags);
-+		if (err < 0)
-+			goto errout;
-+
-+		status |= DO_SETLINK_NOTIFY;
-+	}
-+	err = 0;
- errout:
- 	if (status & DO_SETLINK_MODIFIED) {
- 		if (status & DO_SETLINK_NOTIFY)
+ ATTRIBUTE_GROUPS(net_class);
 -- 
 1.7.10.4
