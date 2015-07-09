@@ -1,57 +1,56 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] team: set IFF_SLAVE on team ports
-Date: Thu, 9 Jul 2015 12:07:27 +0200
-Message-ID: <20150709100727.GE2270@nanopsycho.orion>
-References: <1436435914-8903-1-git-send-email-jblunck@infradead.org>
+From: Stas Sergeev <stsp@list.ru>
+Subject: Re: [5/6] mvneta: implement SGMII-based in-band link state signaling
+Date: Thu, 09 Jul 2015 13:11:10 +0300
+Message-ID: <559E48BE.5010801@list.ru>
+References: <55155D9D.6070800@list.ru>	<alpine.LNX.2.02.1507081757260.28659@sbrk.org>	<559D5520.3030700@list.ru>	<alpine.LNX.2.02.1507091040530.23853@sbrk.org> <20150709111941.6a49091f@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jan Blunck <jblunck@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1436435914-8903-1-git-send-email-jblunck@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Linux kernel <linux-kernel@vger.kernel.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Sebastien Rannou <mxs@sbrk.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp31.i.mail.ru ([94.100.177.91]:59399 "EHLO smtp31.i.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751154AbbGIKLS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jul 2015 06:11:18 -0400
+In-Reply-To: <20150709111941.6a49091f@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thu, Jul 09, 2015 at 11:58:34AM CEST, jblunck@infradead.org wrote:
->The code in net/ipv6/addrconf.c:addrconf_notify() tests for IFF_SLAVE to
->decide if it should start the address configuration. Since team ports
->shouldn't get link-local addresses assigned lets set IFF_SLAVE when linking
->a port to the team master.
+09.07.2015 12:19, Thomas Petazzoni =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> Sebastien, Stas,
+>=20
+> On Thu, 9 Jul 2015 11:03:26 +0200 (CEST), Sebastien Rannou wrote:
+>> On Wed, 8 Jul 2015, Stas Sergeev wrote:
+>>
+>>> What is there? A phy chip, or something else?
+>>
+>> It's "something else", there's a phy which aggregates 4xSGMIIs to
+>> 1xQSGMII, we are on the media side here, the MAC side is connected
+>> to the switch through QSGMII.
+>>
+>>> Perhaps some DT property should be added to explicitly
+>>> enable the use of the inband status...
+>>
+>> Yes, that would be fine.
+>=20
+> Isn't it a bit weird to need a new DT property for this? Shouldn't
+> fixed-link always imply this inband status thing?
+That's how it is currently implemented. I thought its safe.
+But what if the device on the other end does not generate the
+inband status? I think this device is doing the wrong thing,
+but nevertheless we have a regression at hands.
 
-I don't want to use IFF_SLAVE in team. Other master-slave devices are
-not using that as well, for example bridge, ovs, etc.
+Currently the link status cannot be specified for fixed-link,
+at all.
+What I am going to code up, is the new property, like this:
 
-I think that this should be fixed in addrconf_notify. It should lookup
-if there is a master on top and bail out in that case.
+fixed-link {
+  link =3D "up" | "down" | "auto";
+};
 
-
->
->Signed-off-by: Jan Blunck <jblunck@infradead.org>
->---
-> drivers/net/team/team.c | 2 ++
-> 1 file changed, 2 insertions(+)
->
->diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
->index daa054b..4cd02c8 100644
->--- a/drivers/net/team/team.c
->+++ b/drivers/net/team/team.c
->@@ -1086,6 +1086,7 @@ static int team_upper_dev_link(struct net_device *dev,
-> 	err = netdev_master_upper_dev_link(port_dev, dev);
-> 	if (err)
-> 		return err;
->+	port_dev->flags |= IFF_SLAVE;
-> 	port_dev->priv_flags |= IFF_TEAM_PORT;
-> 	return 0;
-> }
->@@ -1094,6 +1095,7 @@ static void team_upper_dev_unlink(struct net_device *dev,
-> 				  struct net_device *port_dev)
-> {
-> 	netdev_upper_dev_unlink(port_dev, dev);
->+	port_dev->flags &= ~IFF_SLAVE;
-> 	port_dev->priv_flags &= ~IFF_TEAM_PORT;
-> }
-> 
->-- 
->2.1.4
->
+"auto" will mean the inband status.
+Looks like a simple solution.
