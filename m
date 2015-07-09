@@ -1,61 +1,53 @@
-From: Krzysztof Kozlowski <k.kozlowski.k@gmail.com>
-Subject: [RFT PATCH] net: axienet: Fix devm_ioremap_resource return value check
-Date: Thu,  9 Jul 2015 22:21:20 +0900
-Message-ID: <1436448080-24775-1-git-send-email-k.kozlowski.k@gmail.com>
-Cc: Krzysztof Kozlowski <k.kozlowski.k@gmail.com>,
-	<stable@vger.kernel.org>
-To: Anirudha Sarangi <anirudh@xilinx.com>,
-	John Linn <John.Linn@xilinx.com>,
-	Michal Simek <michal.simek@xilinx.com>,
-	=?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCH] net: wireless: reduce log level of CRDA related messages
+Date: Thu,  9 Jul 2015 15:35:15 +0200
+Message-ID: <1436448915-31724-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from down.free-electrons.com ([37.187.137.238]:49841 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752946AbbGINfV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 09:35:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Value returned by devm_ioremap_resource() was checked for non-NULL but
-devm_ioremap_resource() returns IOMEM_ERR_PTR, not NULL. In case of
-error this could lead to dereference of ERR_PTR.
+With a basic Linux userspace, the messages "Calling CRDA to update
+world regulatory domain" appears 10 times after boot every second or
+so, followed by a final "Exceeded CRDA call max attempts. Not calling
+CRDA". For those of us not having the corresponding userspace parts,
+having those messages repeatedly displayed at boot time is a bit
+annoying, so this commit reduces their log level to pr_debug().
 
-Signed-off-by: Krzysztof Kozlowski <k.kozlowski.k@gmail.com>
-Cc: <stable@vger.kernel.org>
-Fixes: 46aa27df8853 ("net: axienet: Use devm_* calls")
-
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
+ net/wireless/reg.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Patch only compile tested.
----
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-index 4208dd7ef101..d95f9aae95e7 100644
---- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -1530,9 +1530,9 @@ static int axienet_probe(struct platform_device *pdev)
- 	/* Map device registers */
- 	ethres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	lp->regs = devm_ioremap_resource(&pdev->dev, ethres);
--	if (!lp->regs) {
-+	if (IS_ERR(lp->regs)) {
- 		dev_err(&pdev->dev, "could not map Axi Ethernet regs.\n");
--		ret = -ENOMEM;
-+		ret = PTR_ERR(lp->regs);
- 		goto free_netdev;
+diff --git a/net/wireless/reg.c b/net/wireless/reg.c
+index d359e06..29134c8 100644
+--- a/net/wireless/reg.c
++++ b/net/wireless/reg.c
+@@ -544,15 +544,15 @@ static int call_crda(const char *alpha2)
+ 	reg_regdb_query(alpha2);
+ 
+ 	if (reg_crda_timeouts > REG_MAX_CRDA_TIMEOUTS) {
+-		pr_info("Exceeded CRDA call max attempts. Not calling CRDA\n");
++		pr_debug("Exceeded CRDA call max attempts. Not calling CRDA\n");
+ 		return -EINVAL;
  	}
  
-@@ -1599,9 +1599,9 @@ static int axienet_probe(struct platform_device *pdev)
- 		goto free_netdev;
- 	}
- 	lp->dma_regs = devm_ioremap_resource(&pdev->dev, &dmares);
--	if (!lp->dma_regs) {
-+	if (IS_ERR(lp->dma_regs)) {
- 		dev_err(&pdev->dev, "could not map DMA regs\n");
--		ret = -ENOMEM;
-+		ret = PTR_ERR(lp->dma_regs);
- 		goto free_netdev;
- 	}
- 	lp->rx_irq = irq_of_parse_and_map(np, 1);
+ 	if (!is_world_regdom((char *) alpha2))
+-		pr_info("Calling CRDA for country: %c%c\n",
++		pr_debug("Calling CRDA for country: %c%c\n",
+ 			alpha2[0], alpha2[1]);
+ 	else
+-		pr_info("Calling CRDA to update world regulatory domain\n");
++		pr_debug("Calling CRDA to update world regulatory domain\n");
+ 
+ 	return kobject_uevent_env(&reg_pdev->dev.kobj, KOBJ_CHANGE, env);
+ }
 -- 
-2.1.4
+2.4.5
