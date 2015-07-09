@@ -1,33 +1,96 @@
-From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
-Subject: Re: [RFT PATCH] net: axienet: Fix devm_ioremap_resource return value
- check
-Date: Thu, 9 Jul 2015 14:03:58 -0700
-Message-ID: <20150709210358.GG3129@xsjsorenbubuntu>
-References: <1436448080-24775-1-git-send-email-k.kozlowski.k@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Anirudha Sarangi <anirudh@xilinx.com>,
-	John Linn <John.Linn@xilinx.com>,
-	Michal Simek <michal.simek@xilinx.com>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org
-To: Krzysztof Kozlowski <k.kozlowski.k@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1436448080-24775-1-git-send-email-k.kozlowski.k@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v2] net: dsa: mv88e6xxx: add write access to debugfs regs file
+Date: Thu,  9 Jul 2015 17:13:29 -0400
+Message-ID: <1436476409-5033-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:55151 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753503AbbGIVNf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 17:13:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-07-09 at 10:21PM +0900, Krzysztof Kozlowski wrote:
-> Value returned by devm_ioremap_resource() was checked for non-NULL bu=
-t
-> devm_ioremap_resource() returns IOMEM_ERR_PTR, not NULL. In case of
-> error this could lead to dereference of ERR_PTR.
->=20
-> Signed-off-by: Krzysztof Kozlowski <k.kozlowski.k@gmail.com>
-> Cc: <stable@vger.kernel.org>
-> Fixes: 46aa27df8853 ("net: axienet: Use devm_* calls")
-Reviewed-by: S=C3=B6ren Brinkmann <soren.brinkmann@xilinx.com>
+Allow write access to the regs file in the debugfs interface, with the
+following parameters:
 
-	S=C3=B6ren
+    echo <name> <reg> <value> > regs
+
+Where "name" is the register name (as shown in the header row), "reg" is
+the register address (as shown in the first column) and "value" is the
+16-bit value. e.g.:
+
+    echo GLOBAL 1a 5550 > regs
+
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 35 ++++++++++++++++++++++++++++++++++-
+ 1 file changed, 34 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 8c130c0..9d14b1a 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1648,6 +1648,38 @@ static int mv88e6xxx_regs_show(struct seq_file *s, void *p)
+ 	return 0;
+ }
+ 
++static ssize_t mv88e6xxx_regs_write(struct file *file, const char __user *buf,
++				    size_t count, loff_t *ppos)
++{
++	struct seq_file *s = file->private_data;
++	struct dsa_switch *ds = s->private;
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	char name[32] = { 0 };
++	unsigned int port, reg, val;
++	int ret;
++
++	if (count > sizeof(name) - 1)
++		return -EINVAL;
++
++	ret = sscanf(buf, "%s %x %x", name, &reg, &val);
++	if (ret != 3)
++		return -EINVAL;
++
++	if (reg > 0x1f || val > 0xffff)
++		return -ERANGE;
++
++	if (strcasecmp(name, "GLOBAL") == 0)
++		ret = mv88e6xxx_reg_write(ds, REG_GLOBAL, reg, val);
++	else if (strcasecmp(name, "GLOBAL2") == 0)
++		ret = mv88e6xxx_reg_write(ds, REG_GLOBAL2, reg, val);
++	else if (kstrtouint(name, 10, &port) == 0 && port < ps->num_ports)
++		ret = mv88e6xxx_reg_write(ds, REG_PORT(port), reg, val);
++	else
++		return -EINVAL;
++
++	return ret < 0 ? ret : count;
++}
++
+ static int mv88e6xxx_regs_open(struct inode *inode, struct file *file)
+ {
+ 	return single_open(file, mv88e6xxx_regs_show, inode->i_private);
+@@ -1656,6 +1688,7 @@ static int mv88e6xxx_regs_open(struct inode *inode, struct file *file)
+ static const struct file_operations mv88e6xxx_regs_fops = {
+ 	.open   = mv88e6xxx_regs_open,
+ 	.read   = seq_read,
++	.write	= mv88e6xxx_regs_write,
+ 	.llseek = no_llseek,
+ 	.release = single_release,
+ 	.owner  = THIS_MODULE,
+@@ -1895,7 +1928,7 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
+ 	ps->dbgfs = debugfs_create_dir(name, NULL);
+ 	kfree(name);
+ 
+-	debugfs_create_file("regs", S_IRUGO, ps->dbgfs, ds,
++	debugfs_create_file("regs", S_IRUGO | S_IWUSR, ps->dbgfs, ds,
+ 			    &mv88e6xxx_regs_fops);
+ 
+ 	debugfs_create_file("atu", S_IRUGO, ps->dbgfs, ds,
+-- 
+2.4.5
