@@ -1,93 +1,113 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/2] of_mdio: add new DT property 'link' for fixed-link
-Date: Fri, 10 Jul 2015 11:22:52 -0700
-Message-ID: <55A00D7C.9090807@gmail.com>
-References: <559EB0A4.5080101@list.ru> <559EB1A6.1090008@list.ru> <559EBC59.6020003@gmail.com> <559EDD0C.7020907@list.ru> <559EE45C.4040408@gmail.com> <559EEAE9.4000806@list.ru> <alpine.LNX.2.02.1507100940530.15010@sbrk.org> <559FAA71.2030209@list.ru>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [RFC PATCH net-next] sctp: fix src address selection if using
+ secondary addresses
+Date: Fri, 10 Jul 2015 15:27:02 -0300
+Message-ID: <20150710182702.GQ1841@localhost.localdomain>
+References: <81786a31f7f143e1d229de9a9f909d5f83fa9bb2.1436279035.git.marcelo.leitner@gmail.com>
+ <20150709165458.GA1855@localhost.localdomain>
+ <27EB7D25-A947-4C75-B25B-03BFAD48EC64@fh-muenster.de>
+ <20150710115305.GB1855@localhost.localdomain>
+ <559FE640.5070008@gmail.com>
+ <20150710161718.GP1841@localhost.localdomain>
+ <559FFD6D.8090407@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Grant Likely <grant.likely@linaro.org>,
-	devicetree@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: Stas Sergeev <stsp@list.ru>, Sebastien Rannou <mxs@sbrk.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <559FAA71.2030209@list.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Tuexen <tuexen@fh-muenster.de>, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40203 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754423AbbGJS1F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jul 2015 14:27:05 -0400
+Content-Disposition: inline
+In-Reply-To: <559FFD6D.8090407@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/07/15 04:20, Stas Sergeev wrote:
-> 10.07.2015 11:46, Sebastien Rannou =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->> On Fri, 10 Jul 2015, Stas Sergeev wrote:
->>
->>> 10.07.2015 00:15, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>>> Then, if the in-band status indication is not reliable (which real=
-ly
->>>> should be completely understood),
->>> Agree!
->>> But this is not something I can help with.
->>> Sebastien Rannou reports the problem, please ask him whatever
->>> you see fits to get a better understanding of a problem.
->>> The fact that his HW does not generate the inband status, is
->>> _my own guess_.
->>
->> Yes, I confirm that my HW does not generate an in-band status. AFAIK=
-, it's
->> a PHY that aggregates 4xSGMIIs to 1xQSGMII ; the MAC side of the PHY=
- (with
->> inband status) is connected to the switch through QSGMII, and in thi=
-s context
->> we are on the media side of the PHY.
-> Hmm, interesting.
-> So if I parse the above correctly, you have something like 88E1340S s=
-et
-> up into a mode when SGMII is used as media interface and QSGMII as sy=
-stem
-> interface (terms are from datasheet page 5), then you connect the med=
-ia
-> interface to armada-xp and system interface to the switch.
->=20
-> I wonder if it is the right thing to do.
-> AFAIK you could as well set up armada-xp into QSGMII mode and connect
-> that to switch. The driver would then disable the use of inband statu=
-s
-> and everything would be fine.
-> Either way, your use-case proves that only DT can decide the use of a=
-n
-> inband status.
+On Fri, Jul 10, 2015 at 01:14:21PM -0400, Vlad Yasevich wrote:
+> On 07/10/2015 12:17 PM, Marcelo Ricardo Leitner wrote:
+> > On Fri, Jul 10, 2015 at 11:35:28AM -0400, Vlad Yasevich wrote:
+> >> On 07/10/2015 07:53 AM, Marcelo Ricardo Leitner wrote:
+> >>> On Thu, Jul 09, 2015 at 09:55:19PM +0200, Michael Tuexen wrote:
+> >>>>> On 09 Jul 2015, at 18:54, Marcelo Ricardo Leitner <mleitner@redhat.com> wrote:
+> >>>>>
+> >>>>> Cc'ing Michael too.
+> >>>> I'm not familiar with the Linux kernel code, so I can't comment on it.
+> >>>> But making sure to use a source address belonging to the emitting
+> >>>> interface makes sense for me.
+> >>>>
+> >>>> Best regards
+> >>>> Michael
+> >>>
+> >>> That's pretty much what I was looking for, in case I missed something on
+> >>> SCTP RFCs. 
+> >>>
+> >>
+> >> Well, the RFCs do not really specify what the source address should be, and there
+> > 
+> > That's why I was afraid of having missed something ;)
+> > 
+> >> have been numerous times where I've seen weak host model in use on the wire
+> >> even with a BSD peer.
+> >>
+> >> This also puts a very big nail through many suggestions we've had over the years
+> >> to allow source based path multihoming in addition to destination based multihoming
+> >> we currently support.
+> >>
+> >> It might be a good idea to make rp-filter like behavior best effort, and have
+> >> the old behavior as fallback.  I am still trying to think up different scenarios
+> >> where rp-filter behavior will cause things to fail prematurely...
+> > 
+> > The old behavior is like "if we don't have a src yet and can't find a
+> > preferred src for this dst, use the 1st bound address". We can add it
+> > but as I said, I'm afraid it is just doing wrong and not worth. If such
+> > randomly src addressed packet is meant to be routed, the router will
+> > likely drop it as it is seen as a spoof. And if it reaches the peer, it
+> > will probably come back through a different path.
+> > 
+> > I'm tempted to say that current usual use cases are handled by the first
+> > check on this function, which returns the preferred/primary address for
+> > the interface and checks against bound addresses. Whenever you reach the
+> > second check, it just allows you to use that 1st bound address that is
+> > checked. I mean, I can't see use cases that we would be breaking with
+> > this change. 
+> 
+> Yes,  the secondary check didn't amount to much, but we've kept it since 2.5
+> days (when sctp was introduced).  I've made attempts over the years to
+> try to make it stricter, but that never amounted to anything that worked well.
+> 
+> > 
+> > But yeah, it impacts source based routing, and I'm not aware of previous
+> > discussions on it. I'll try to dig some up but if possible, please share
+> > some pointers on it.
+> 
+> It's been suggested a few times that we should support source based multihoming
+> particularly for the case where one peer has only 1 address.
+> We've always punted on this, but people still ask every now and then.
 
-I do not think there is any debate around the need for a property that
-defines whether in-band-status is both reliable and usable, the debate
-is about *where* to put it.
+Ah okay, now I see it.
+ 
+> I do have a question about the code though.. Have you tried with mutlipath routing
+> enabled.  I see rp_filter checks have special code to handle that.  Seem like we
+> might get false negatives in sctp.
 
-I still think this does not belong in the fixed-link property, but now
-that you have explained a bit more in the other patch what your
-understanding of "fixed-link" is, I can see the confusion.
+In the sense of CONFIG_IP_ROUTE_MULTIPATH=y, yes, but just that. My
+routes were simple ones, either 2 peers attaches to 2 local subnets, or
+with a gateway in the middle (with 2 subnets on each side, but mapped
+1-1, no crossing. Aka subnet1<->subnet2 and subnet3<->subnet4 while not
+(subnet1<->subnet4 or subnet3<->subnet2).
 
-Instead of having a link =3D "auto", property, how about just something
-like this:
+Note that this is not rp_filter strictly speaking, as it's mirrored.
+rp_filter needs to calculate all possible output routes (actually until
+it finds a valid one) for finding one that would match the one used for
+incoming. 
 
-fixed-link {
-	speed =3D <1000>;
-	full-duplex;
-	use-in-band-status;
-};
+This check already has an output path, and it's calculating if such
+input would be acceptable. We can't really expect/check for other hits
+because it invalidates the chosen output path.
 
-or event this:
+Hmmm... but we could support multipath in the output selection, ie in
+the outputs of ip_route_output_key(), probably in another patch then?
 
-fixed-link {
-	use-in-band-status;
-};
-
-If you parse the 'use-in-band-status' which means that it is reliable
-information, then you can override whatever was defined in the DT under
-the 'fixed-link' property?
---=20
-=46lorian
+  Marcelo
