@@ -1,65 +1,53 @@
-From: Krzysztof Kozlowski <k.kozlowski@samsung.com>
-Subject: [PATCH] net: Drop owner assignment from platform_driver
-Date: Fri, 10 Jul 2015 15:29:23 +0900
-Message-ID: <1436509763-23980-1-git-send-email-k.kozlowski@samsung.com>
-Cc: Krzysztof Kozlowski <k.kozlowski@samsung.com>
-To: Wingman Kwok <w-kwok2@ti.com>,
-	Murali Karicheri <m-karicheri2@ti.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] team: set IFF_SLAVE on team ports
+Date: Fri, 10 Jul 2015 08:41:47 +0200
+Message-ID: <20150710064147.GA2204@nanopsycho.orion>
+References: <1436435914-8903-1-git-send-email-jblunck@infradead.org>
+ <20150709100727.GE2270@nanopsycho.orion>
+ <CALe+Z03R_MPcgUSa8xoMeT5Sv3z8KwFhrtoYYzON=prfR-7hxQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Jan Blunck <jblunck@infradead.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CALe+Z03R_MPcgUSa8xoMeT5Sv3z8KwFhrtoYYzON=prfR-7hxQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-platform_driver does not need to set an owner because
-platform_driver_register() will set it.
+Thu, Jul 09, 2015 at 05:36:55PM CEST, jblunck@infradead.org wrote:
+>On Thu, Jul 9, 2015 at 12:07 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Thu, Jul 09, 2015 at 11:58:34AM CEST, jblunck@infradead.org wrote:
+>>>The code in net/ipv6/addrconf.c:addrconf_notify() tests for IFF_SLAVE to
+>>>decide if it should start the address configuration. Since team ports
+>>>shouldn't get link-local addresses assigned lets set IFF_SLAVE when linking
+>>>a port to the team master.
+>>
+>> I don't want to use IFF_SLAVE in team. Other master-slave devices are
+>> not using that as well, for example bridge, ovs, etc.
+>>
+>
+>Maybe they need to get fixed too. I've used that flag because it is
+>documented as
+>a "slave of a load balancer" which describes what a team port is.
+>
+>
+>> I think that this should be fixed in addrconf_notify. It should lookup
+>> if there is a master on top and bail out in that case.
+>
+>There are other virtual interfaces that have a master assigned and want to
+>participate in IPv6 address configuration.
 
-Signed-off-by: Krzysztof Kozlowski <k.kozlowski@samsung.com>
+Can you give me an example?
 
----
 
-The coccinelle script which generated the patch was sent here:
-http://www.spinics.net/lists/kernel/msg2029903.html
----
- drivers/net/ethernet/hisilicon/hip04_eth.c  | 1 -
- drivers/net/ethernet/hisilicon/hip04_mdio.c | 1 -
- drivers/net/ethernet/ti/netcp_core.c        | 1 -
- 3 files changed, 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
-index d49bee38cd31..cc2d8b4b18e3 100644
---- a/drivers/net/ethernet/hisilicon/hip04_eth.c
-+++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
-@@ -965,7 +965,6 @@ static struct platform_driver hip04_mac_driver = {
- 	.remove	= hip04_remove,
- 	.driver	= {
- 		.name		= DRV_NAME,
--		.owner		= THIS_MODULE,
- 		.of_match_table	= hip04_mac_match,
- 	},
- };
-diff --git a/drivers/net/ethernet/hisilicon/hip04_mdio.c b/drivers/net/ethernet/hisilicon/hip04_mdio.c
-index b3bac25db99c..fca0a5be1f0f 100644
---- a/drivers/net/ethernet/hisilicon/hip04_mdio.c
-+++ b/drivers/net/ethernet/hisilicon/hip04_mdio.c
-@@ -174,7 +174,6 @@ static struct platform_driver hip04_mdio_driver = {
- 	.remove = hip04_mdio_remove,
- 	.driver = {
- 		.name = "hip04-mdio",
--		.owner = THIS_MODULE,
- 		.of_match_table = hip04_mdio_match,
- 	},
- };
-diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index 5ec4ed3f6c8d..3e47202b9010 100644
---- a/drivers/net/ethernet/ti/netcp_core.c
-+++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -2142,7 +2142,6 @@ MODULE_DEVICE_TABLE(of, of_match);
- static struct platform_driver netcp_driver = {
- 	.driver = {
- 		.name		= "netcp-1.0",
--		.owner		= THIS_MODULE,
- 		.of_match_table	= of_match,
- 	},
- 	.probe = netcp_probe,
--- 
-1.9.1
+>
+>Unless we want to have a cascade of conditionals testing the priv_flags in
+>addrconf_notify() this is asking for a new net_device_flags flag.
+>Maybe something
+>generic like IFF_L2PORT ?
+>
+>Thanks,
+>Jan
+>
+>[ Jiri, sorry for getting that mail twice ]
