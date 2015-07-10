@@ -1,66 +1,72 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: [PATCH] ixgbe: Remove bimodal SR-IOV disabling
-Date: Fri, 10 Jul 2015 15:31:34 -0600
-Message-ID: <20150710212710.9501.14320.stgit@gimli.home>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [PATCH] ixgbe: Remove bimodal SR-IOV disabling
+Date: Fri, 10 Jul 2015 21:36:09 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0789336065@ORSMSX108.amr.corp.intel.com>
+References: <20150710212710.9501.14320.stgit@gimli.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	gregory.v.rose@intel.com
-To: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48969 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932830AbbGJVbg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jul 2015 17:31:36 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alex Williamson <alex.williamson@redhat.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150710212710.9501.14320.stgit@gimli.home>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When unbinding an SR-IOV device with VFs configured from ixgbe, the
-driver behaves in one of two ways.  If max_vfs was specified, the
-SR-IOV state is disabled, removing the VFs.  The occurs regardless of
-whether the VF count was later modified through sysfs.  If however
-max_vfs is zero, such as by not specifying the module parameter, the
-VFs persist after the PF is unbound from ixgbe.  If the PF is then
-bound to vfio-pci to be assigned to a VM, the PF is non-functional.
-
->From the comment, commit da36b64736cf ("ixgbe: Implement PCI SR-IOV
-sysfs callback operation") clearly intended this alternate behavior,
-but probably didn't realize the PF doesn't work in this mode.
-
-This bimodal behavior is confusing to users and results in a state
-where the PF is broken for other uses unless the user sets
-sriov_numvfs to zero prior to unbinding the device.  Remove this
-behavior so that VFs are removed and the PF is functional for other
-uses after unbind, regardless of the way VFs are enabled.
-
-Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
-I can only think that not disabling SR-IOV was meant to enable some
-sort of persistence for VFs, but that's probably better accomplished
-with either udev rules and/or modprobe.d install scripts.
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 5be12a0..de04e3e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8810,12 +8810,7 @@ static void ixgbe_remove(struct pci_dev *pdev)
- 		unregister_netdev(netdev);
- 
- #ifdef CONFIG_PCI_IOV
--	/*
--	 * Only disable SR-IOV on unload if the user specified the now
--	 * deprecated max_vfs module parameter.
--	 */
--	if (max_vfs)
--		ixgbe_disable_sriov(adapter);
-+	ixgbe_disable_sriov(adapter);
- #endif
- 	ixgbe_clear_interrupt_scheme(adapter);
- 
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEFsZXggV2lsbGlhbXNvbiBb
+bWFpbHRvOmFsZXgud2lsbGlhbXNvbkByZWRoYXQuY29tXQ0KPiBTZW50OiBGcmlkYXksIEp1bHkg
+MTAsIDIwMTUgMjozMiBQTQ0KPiBUbzogaW50ZWwtd2lyZWQtbGFuQGxpc3RzLm9zdW9zbC5vcmc7
+IEtpcnNoZXIsIEplZmZyZXkgVA0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgt
+a2VybmVsQHZnZXIua2VybmVsLm9yZzsgUm9zZSwgR3JlZ29yeSBWDQo+IFN1YmplY3Q6IFtQQVRD
+SF0gaXhnYmU6IFJlbW92ZSBiaW1vZGFsIFNSLUlPViBkaXNhYmxpbmcNCj4gDQo+IFdoZW4gdW5i
+aW5kaW5nIGFuIFNSLUlPViBkZXZpY2Ugd2l0aCBWRnMgY29uZmlndXJlZCBmcm9tIGl4Z2JlLCB0
+aGUgZHJpdmVyDQo+IGJlaGF2ZXMgaW4gb25lIG9mIHR3byB3YXlzLiAgSWYgbWF4X3ZmcyB3YXMg
+c3BlY2lmaWVkLCB0aGUgU1ItSU9WIHN0YXRlIGlzDQo+IGRpc2FibGVkLCByZW1vdmluZyB0aGUg
+VkZzLiAgVGhlIG9jY3VycyByZWdhcmRsZXNzIG9mIHdoZXRoZXIgdGhlIFZGIGNvdW50DQo+IHdh
+cyBsYXRlciBtb2RpZmllZCB0aHJvdWdoIHN5c2ZzLiAgSWYgaG93ZXZlciBtYXhfdmZzIGlzIHpl
+cm8sIHN1Y2ggYXMgYnkNCj4gbm90IHNwZWNpZnlpbmcgdGhlIG1vZHVsZSBwYXJhbWV0ZXIsIHRo
+ZSBWRnMgcGVyc2lzdCBhZnRlciB0aGUgUEYgaXMNCj4gdW5ib3VuZCBmcm9tIGl4Z2JlLiAgSWYg
+dGhlIFBGIGlzIHRoZW4gYm91bmQgdG8gdmZpby1wY2kgdG8gYmUgYXNzaWduZWQgdG8NCj4gYSBW
+TSwgdGhlIFBGIGlzIG5vbi1mdW5jdGlvbmFsLg0KPiANCj4gPkZyb20gdGhlIGNvbW1lbnQsIGNv
+bW1pdCBkYTM2YjY0NzM2Y2YgKCJpeGdiZTogSW1wbGVtZW50IFBDSSBTUi1JT1YNCj4gc3lzZnMg
+Y2FsbGJhY2sgb3BlcmF0aW9uIikgY2xlYXJseSBpbnRlbmRlZCB0aGlzIGFsdGVybmF0ZSBiZWhh
+dmlvciwgYnV0DQo+IHByb2JhYmx5IGRpZG4ndCByZWFsaXplIHRoZSBQRiBkb2Vzbid0IHdvcmsg
+aW4gdGhpcyBtb2RlLg0KPiANCj4gVGhpcyBiaW1vZGFsIGJlaGF2aW9yIGlzIGNvbmZ1c2luZyB0
+byB1c2VycyBhbmQgcmVzdWx0cyBpbiBhIHN0YXRlIHdoZXJlDQo+IHRoZSBQRiBpcyBicm9rZW4g
+Zm9yIG90aGVyIHVzZXMgdW5sZXNzIHRoZSB1c2VyIHNldHMgc3Jpb3ZfbnVtdmZzIHRvIHplcm8N
+Cj4gcHJpb3IgdG8gdW5iaW5kaW5nIHRoZSBkZXZpY2UuICBSZW1vdmUgdGhpcyBiZWhhdmlvciBz
+byB0aGF0IFZGcyBhcmUNCj4gcmVtb3ZlZCBhbmQgdGhlIFBGIGlzIGZ1bmN0aW9uYWwgZm9yIG90
+aGVyIHVzZXMgYWZ0ZXIgdW5iaW5kLCByZWdhcmRsZXNzDQo+IG9mIHRoZSB3YXkgVkZzIGFyZSBl
+bmFibGVkLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogQWxleCBXaWxsaWFtc29uIDxhbGV4LndpbGxp
+YW1zb25AcmVkaGF0LmNvbT4NCj4gQ2M6IEdyZWcgUm9zZSA8Z3JlZ29yeS52LnJvc2VAaW50ZWwu
+Y29tPg0KPiBDYzogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+DQo+
+IC0tLQ0KPiANCj4gSSBjYW4gb25seSB0aGluayB0aGF0IG5vdCBkaXNhYmxpbmcgU1ItSU9WIHdh
+cyBtZWFudCB0byBlbmFibGUgc29tZSBzb3J0DQo+IG9mIHBlcnNpc3RlbmNlIGZvciBWRnMsIGJ1
+dCB0aGF0J3MgcHJvYmFibHkgYmV0dGVyIGFjY29tcGxpc2hlZCB3aXRoDQo+IGVpdGhlciB1ZGV2
+IHJ1bGVzIGFuZC9vciBtb2Rwcm9iZS5kIGluc3RhbGwgc2NyaXB0cy4NCj4gDQo+ICBkcml2ZXJz
+L25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMgfCAgICA3ICstLS0tLS0NCj4g
+IDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgNiBkZWxldGlvbnMoLSkNCj4gDQo+IGRp
+ZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMN
+Cj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMNCj4gaW5k
+ZXggNWJlMTJhMC4uZGUwNGUzZSAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+aW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
+dGVsL2l4Z2JlL2l4Z2JlX21haW4uYw0KPiBAQCAtODgxMCwxMiArODgxMCw3IEBAIHN0YXRpYyB2
+b2lkIGl4Z2JlX3JlbW92ZShzdHJ1Y3QgcGNpX2RldiAqcGRldikNCj4gIAkJdW5yZWdpc3Rlcl9u
+ZXRkZXYobmV0ZGV2KTsNCj4gDQo+ICAjaWZkZWYgQ09ORklHX1BDSV9JT1YNCj4gLQkvKg0KPiAt
+CSAqIE9ubHkgZGlzYWJsZSBTUi1JT1Ygb24gdW5sb2FkIGlmIHRoZSB1c2VyIHNwZWNpZmllZCB0
+aGUgbm93DQo+IC0JICogZGVwcmVjYXRlZCBtYXhfdmZzIG1vZHVsZSBwYXJhbWV0ZXIuDQo+IC0J
+ICovDQo+IC0JaWYgKG1heF92ZnMpDQo+IC0JCWl4Z2JlX2Rpc2FibGVfc3Jpb3YoYWRhcHRlcik7
+DQo+ICsJaXhnYmVfZGlzYWJsZV9zcmlvdihhZGFwdGVyKTsNCj4gICNlbmRpZg0KPiAgCWl4Z2Jl
+X2NsZWFyX2ludGVycnVwdF9zY2hlbWUoYWRhcHRlcik7DQo+IA0KDQpQbGVhc2UgcmVtb3ZlIG1h
+eF92ZnMgbW9kdWxlIHBhcmFtZXRlciAtIGl0IGlzIGRlcHJlY2F0ZWQgYW5kIHNob3VsZCBiZSBy
+ZW1vdmVkIGZyb20gdXBzdHJlYW0gYnVpbGRzLiAgRGF2ZSBsZXQgdXMgZ2V0IGF3YXkgd2l0aCBh
+IGtlcm5lbCBtb2R1bGUgYSBmZXcgeWVhcnMgYWdvIGJlY2F1c2UgdGhlIG90aGVyIG5lY2Vzc2Fy
+eSBpbmZyYXN0cnVjdHVyZSB0byBlbmFibGUgU1ItSU9WIHZpcnR1YWwgZnVuY3Rpb25zIHZpYSB0
+aGUgUENJZSBpbnRlcmZhY2Ugd2FzIG5vdCBhdmFpbGFibGUuICBOb3cgdGhhdCBpdCdzIHRoZXJl
+IGl0IHNob3VsZCBiZSByZW1vdmVkIGFuZCB2ZW5kb3JzL2VuZCB1c2VycyBzaG91bGQgYmUgZm9y
+Y2VkIHRvIG1vdmUgYXdheSBmcm9tIHRoaXMuDQoNClRoYW5rcywNCg0KLSBHcmVnIFJvc2UNCklu
+dGVsIENvcnAuDQpOZXR3b3JraW5nIERpdmlzaW9uDQoNCg==
