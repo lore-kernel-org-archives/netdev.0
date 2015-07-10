@@ -1,69 +1,54 @@
-From: Josh Cartwright <joshc@ni.com>
-Subject: Re: [PATCH v2] nohz: prevent tilegx network driver interrupts
-Date: Fri, 10 Jul 2015 18:12:58 -0500
-Message-ID: <20150710231258.GB25028@jcartwri.amer.corp.natinst.com>
-References: <55A0175E.2010200@ezchip.com>
- <1436557045-5392-1-git-send-email-cmetcalf@ezchip.com>
- <20150710224500.GA25028@jcartwri.amer.corp.natinst.com>
- <55A04FEF.2000204@ezchip.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH -next 0/6] Per network namespace netfilter chains
+Date: Fri, 10 Jul 2015 18:11:46 -0500
+Message-ID: <878uansj4d.fsf_-_@x220.int.ebiederm.org>
+References: <87616ppt3h.fsf@x220.int.ebiederm.org>
+	<87r3pae5hn.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="j2Klb18PAKd8hQ5U"
-Cc: Frederic Weisbecker <fweisbec@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chris Metcalf <cmetcalf@ezchip.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from skprod2.natinst.com ([130.164.80.23]:49642 "EHLO ni.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751737AbbGJXND (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jul 2015 19:13:03 -0400
-In-Reply-To: <55A04FEF.2000204@ezchip.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Juanjo Ciarlante <jjciarla@raiz.uncu.edu.ar>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <87r3pae5hn.fsf@x220.int.ebiederm.org> (Eric W. Biederman's
+	message of "Wed, 17 Jun 2015 10:09:40 -0500")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---j2Klb18PAKd8hQ5U
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+By maintining a set of functions to register and unregister netfilter
+hooks both globally and per network namespace I have managed to write a
+compact patchset that maintain per network netfilter chains, and
+registers the nftables netfilter hooks per network namespace.
 
-On Fri, Jul 10, 2015 at 07:06:23PM -0400, Chris Metcalf wrote:
-> On 7/10/2015 6:45 PM, Josh Cartwright wrote:
-> >>+static inline const struct cpumask *housekeeping_cpumask(void)
-> >>>+{
-> >>>+#ifdef CONFIG_NO_HZ_FULL
-> >>>+	if (tick_nohz_full_enabled())
-> >>>+		return housekeeping_mask;
-> >>>+#endif
-> >Just a small comment:
-> >
-> >We can take these checks out from under a #ifdef CONFIG_NO_HZ_FULL
-> >check, given that are stubbed tick_nohz_full_enabled() defined above.
->=20
-> True for the "if" clause, but the "housekeeping_mask" variable is only de=
-fined
-> under CONFIG_NO_HZ_FULL.
+There are lots of other possible and desirable cleanups but this one is
+a core change needed to make the other changes independent small
+changes.
 
-Indeed!  I should have read more carefully.
+Eric W. Biederman (6):
+      netfilter: nf_queue: Don't recompute the hook_list head
+      netfilter: kill nf_hooks_active
+      netfilter: Simply the tests for enabling and disabling the ingress queue hook
+      netfilter: Factor out the hook list selection from nf_register_hook
+      netfilter: Per network namespace netfilter hooks.
+      netfilter: nftables: Only run the nftables chains in the proper netns
 
-Sorry for the noise.
+ include/linux/netfilter.h      |  23 +++--
+ include/net/netns/netfilter.h  |   1 +
+ net/netfilter/core.c           | 221 +++++++++++++++++++++++++++++++++--------
+ net/netfilter/nf_queue.c       |   2 +-
+ net/netfilter/nf_tables_api.c  |   6 +-
+ net/netfilter/nf_tables_core.c |   5 -
+ 6 files changed, 200 insertions(+), 58 deletions(-)
 
-  Josh
-
---j2Klb18PAKd8hQ5U
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAABCAAGBQJVoFF3AAoJEKp7ZBKwQFArqaAH/Aw9Ij2iCX5FoDthulkyAkLT
-ycISKWXpI8gXElHLQN27TSrB8YbOFUdBGKff0IlbwoK2qnAUgbY0w5TjQc/wXPXE
-DWsSEBoonLq5ST69SgaJUQBYbGgaptc/RHjTGBUwqup2TLZEchkdIxc4e9kgkzPv
-qd1rVDvIG9iFPWgAcTv1jcTOy3DRb7haLCc43YdvlgyYU9i5hSRuwJ3VNEDw5xyW
-MfoHXuePNh43TXAUqPr0cm3/NQCZTV1dbU14riAxcjyBqDJox3haCyIB4g/wcuf8
-uli8cTLaTL2te6zU15oXhCPugi20IZ9a9l9puERExk2pW1Yk0NRXI4BAnvaSGHU=
-=Mn5H
------END PGP SIGNATURE-----
-
---j2Klb18PAKd8hQ5U--
+Eric
