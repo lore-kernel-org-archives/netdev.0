@@ -1,101 +1,127 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Fighting out-of-order reception with RPS?
-Date: Thu, 9 Jul 2015 19:48:03 -0700
-Message-ID: <CALx6S37JjusJ=+L3mXT0Dzf8XuU0+dgJQ7_Xn4U0nBtkf0gCHQ@mail.gmail.com>
-References: <559D628C.5020100@hartkopp.net>
-	<CALx6S35OJHyr6iwfdtYW6P-ke2pmsmQ9BjO-D=qjgCHxwF7oew@mail.gmail.com>
-	<559E0CDF.7080309@hartkopp.net>
+From: Sony Chacko <sony.chacko@qlogic.com>
+Subject: RE: [PATCH] bnx2:Make various functions to have a return type of
+ void in the file bnx2.c
+Date: Fri, 10 Jul 2015 03:20:56 +0000
+Message-ID: <0EA5B226BC5C7B45A71BF612AA8A019E01947ACBF7@AVMB1.qlogic.org>
+References: <1436380260-19221-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	Sunil Kovvuri <sunil.kovvuri@gmail.com>,
-	Jonathon Reinhart <jonathon.reinhart@gmail.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Nicholas Krause <xerofoify@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:34019 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751229AbbGJCsE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 22:48:04 -0400
-Received: by iebmu5 with SMTP id mu5so188066282ieb.1
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 19:48:03 -0700 (PDT)
-In-Reply-To: <559E0CDF.7080309@hartkopp.net>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:33355 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751293AbbGJDVC convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jul 2015 23:21:02 -0400
+In-Reply-To: <1436380260-19221-1-git-send-email-xerofoify@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 8, 2015 at 10:55 PM, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
->
-> On 08.07.2015 23:17, Tom Herbert wrote:
->>
->> On Wed, Jul 8, 2015 at 10:49 AM, Oliver Hartkopp <socketcan@hartkopp.net>
->> wrote:
->
-> (..)
->>>
->>> When receiving CAN frames from a specific CAN network interface (e.g.
->>> can0)
->>> the frames are sporadically out-of-order on SMP systems like my Core i7
->>> laptop
->>> with 4 CPUs. This out-of-order reception kills reliable communication
->>> e.g. for
->>> CAN transport protocols.
->>>
->>> First approach was to set the smp_affinity for the USB adapter on irq 28
->>> with:
->
-> (..)
->>>
->>> Next idea was to use RPS after reading
->>> Documentation/networking/scaling.txt
->
-> (..)
->>>
->>>
->>> My two questions:
->>>
->>> 1. Is there any better solution to meet the described requirements?
->>
->>
->> I would suggest that you look into how there are OOO packets in the
->> first place. Even if the interrupts is allowed to happen on different
->> CPUs by sm_affinity, NAPI execution should be serialized for the
->> device so that OOO shouldn't happen. The result of your RPS setting
->> should be all packets go to the same queue, this shouldn't normally
->> affect the ordering. Looking at drivers/net/can there are apparently
->> several variants of the driver. Do you know which one you're running?
->
->
-> I have two CAN hardware interfaces I can test together with a SMP system:
->
-> 1. PCAN-USB using the driver at drivers/net/can/usb/peak_usb/
-> 2. PCAN Compact PCIe using drivers/net/can/sja1000/(peak_pci.c / sja1000.c)
->
-> Both drivers do not use NAPI. The just follow the way
->
-> interrupt -> alloc_skb() -> fill skb -> netif_rx(skb)
->
-> I'm usually testing with the USB adapters as the PCIe setup is not very
-> handy.
->
-Okay, I see what is happening. In netif_rx when RPS is not enabled
-that packet is queued to the backlog queue for the local CPU. Since
-you're doing round robin on the interrupts then OOO packets can be a
-result. Unfortunately, this is the expected behavior. The correct
-kernel fix would be to move to these drivers to use NAPI. RPS
-eliminates the OOO, but if there is no ability to derive a flow hash
-from packets everything will wind up one queue without load balancing.
-Besides that, automatically setting RPS in drivers is a difficult
-proposition since there is no definitively "correct" way to do that in
-an arbitrary configuration.
+> -----Original Message-----
+> From: Nicholas Krause [mailto:xerofoify@gmail.com]
+> Sent: Wednesday, July 08, 2015 11:31 AM
+> To: Sony Chacko
+> Cc: Dept-GE Linux NIC Dev; netdev; linux-kernel
+> Subject: [PATCH] bnx2:Make various functions to have a return
+> type of void in the file bnx2.c
+> 
+> This makes various functions that never fail nor signal their caller
+> with a error code when a failure occurs to now have a return
+> type of void for the file bnx2.c.
+> 
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2.c | 18 ++++++------------
+>  1 file changed, 6 insertions(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnx2.c
+> b/drivers/net/ethernet/broadcom/bnx2.c
+> index 2b66ef3..ddf0ccc 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2.c
+> @@ -1087,7 +1087,7 @@ bnx2_resolve_flow_ctrl(struct bnx2
+> *bp)
+>  	}
+>  }
+> 
+> -static int
+> +static void
+>  bnx2_5709s_linkup(struct bnx2 *bp)
+>  {
+>  	u32 val, speed;
+> @@ -1101,7 +1101,7 @@ bnx2_5709s_linkup(struct bnx2 *bp)
+>  	if ((bp->autoneg & AUTONEG_SPEED) == 0) {
+>  		bp->line_speed = bp->req_line_speed;
+>  		bp->duplex = bp->req_duplex;
+> -		return 0;
+> +		return;
+>  	}
+>  	speed = val & MII_BNX2_GP_TOP_AN_SPEED_MSK;
+>  	switch (speed) {
+> @@ -1123,10 +1123,9 @@ bnx2_5709s_linkup(struct bnx2 *bp)
+>  		bp->duplex = DUPLEX_FULL;
+>  	else
+>  		bp->duplex = DUPLEX_HALF;
+> -	return 0;
+>  }
+> 
+> -static int
+> +static void
+>  bnx2_5708s_linkup(struct bnx2 *bp)
+>  {
+>  	u32 val;
+> @@ -1152,10 +1151,9 @@ bnx2_5708s_linkup(struct bnx2 *bp)
+>  	else
+>  		bp->duplex = DUPLEX_HALF;
+> 
+> -	return 0;
+>  }
+> 
+> -static int
+> +static void
+>  bnx2_5706s_linkup(struct bnx2 *bp)
+>  {
+>  	u32 bmcr, local_adv, remote_adv, common; @@ -1172,7
+> +1170,7 @@ bnx2_5706s_linkup(struct bnx2 *bp)
+>  	}
+> 
+>  	if (!(bmcr & BMCR_ANENABLE)) {
+> -		return 0;
+> +		return;
+>  	}
+> 
+>  	bnx2_read_phy(bp, bp->mii_adv, &local_adv); @@ -1188,11
+> +1186,9 @@ bnx2_5706s_linkup(struct bnx2 *bp)
+>  			bp->duplex = DUPLEX_HALF;
+>  		}
+>  	}
+> -
+> -	return 0;
+>  }
+> 
+> -static int
+> +static void
+>  bnx2_copper_linkup(struct bnx2 *bp)
+>  {
+>  	u32 bmcr;
+> @@ -1264,8 +1260,6 @@ bnx2_copper_linkup(struct bnx2 *bp)
+>  		if (ext_status & EXT_STATUS_MDIX)
+>  			bp->phy_flags |= BNX2_PHY_FLAG_MDIX;
+>  	}
+> -
+> -	return 0;
+>  }
+> 
+>  static void
+> --
+> 2.1.4
 
-Tom
+Acked-by: Sony Chacko <sony.chacko@qlogic.com>
 
-> Best regards,
-> Oliver
->
->
->>
->>> 2. If not: How can enable this RPS solution by default for CAN
->>> interfaces?
->
->
+Thanks,
+Sony
