@@ -1,80 +1,58 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: [PATCH 3/3] mvneta: use inband status only when explicitly enabled
-Date: Fri, 10 Jul 2015 19:45:27 +0300
-Message-ID: <559FF6A7.3090401@list.ru>
-References: <559FF511.5080102@list.ru>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 03/11] soc/fsl: Introduce the DPAA BMan portal driver
+Date: Fri, 10 Jul 2015 18:47:16 +0200
+Message-ID: <1436546836.20619.231.camel@tiscali.nl>
+References: <1436473322-21247-1-git-send-email-Roy.Pledge@freescale.com>
+	 <1436473322-21247-4-git-send-email-Roy.Pledge@freescale.com>
+	 <1436535163.20619.216.camel@tiscali.nl>
+	 <BN3PR0301MB1267A318EF9DB3C193DA9FA08C9F0@BN3PR0301MB1267.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	stable@vger.kernel.org
-To: netdev <netdev@vger.kernel.org>
+Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	Scott Wood <scottwood@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Roy Pledge <roy.pledge@freescale.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <559FF511.5080102@list.ru>
+In-Reply-To: <BN3PR0301MB1267A318EF9DB3C193DA9FA08C9F0@BN3PR0301MB1267.namprd03.prod.outlook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Roy,
 
-The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band link state
-signaling") implemented the link parameters auto-negotiation unconditionally.
-Unfortunately it appears that some HW that implements SGMII protocol,
-doesn't generate the inband status, so it is not possible to auto-negotiate
-anything with such HW.
+On vr, 2015-07-10 at 15:19 +0000, Roy Pledge wrote:
+> Thanks you for your valuable feedback so far.
 
-This patch enables the auto-negotiation only if the 'autoneg' DT property
-is set to 1.
-For old configurations where the 'autoneg' property is not specified, the
-default is to not use auto-negotiation.
+You're welcome. Please note that I just scan for, well, common build
+issues. Ie, stuff that requires no domain specific knowledge.
 
-This patch fixes the following regression:
-https://lkml.org/lkml/2015/7/8/865
-and is therefore CCed to stable.
+> Let me try to address a general issue you mention below: unused 
+> exported APIs.
 
-Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
+Good timing. I was pondering how to handle 04/11, a big patch that
+exports 79 (!) symbols. Many of those appear to have no users.
 
-CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-CC: netdev@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
-CC: stable@vger.kernel.org
----
- drivers/net/ethernet/marvell/mvneta.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+> The QMan and BMan drivers provide a base layer for other blocks built 
+> on top of them, for instance an Ethernet Driver, an Encrypt/Decrypt 
+> Engine,  a pattern matcher, a compress/decompress engine, etc...
+> Some of these drivers will be presented for review in the near future, 
+> but in order to try and layer the review/up streaming process we're 
+> presenting each layer as independently as possible.
+> If you really were to start dissecting which APIs are called you would 
+> come to a very small set of pieces that merely initialize the hardware 
+> but don't provide any opportunity for other users to invoke that HW. 
+> 
+> I hope that this helps you understand our goals in trying to upstream 
+> these drivers.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 74176ec..d4c29a3 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -3009,7 +3009,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 	char hw_mac_addr[ETH_ALEN];
- 	const char *mac_from;
- 	int phy_mode;
--	int fixed_phy = 0;
-+	int autoneg_link = 0;
- 	int err;
+At the end of the day, what matters is what the people that need to sign
+off on these drivers (ppc? netdev?) are comfortable with. I know that
+some maintainers won't even bother looking at code that has no callers.
 
- 	/* Our multiqueue support is not complete, so for now, only
-@@ -3043,7 +3043,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 			dev_err(&pdev->dev, "cannot register fixed PHY\n");
- 			goto err_free_irq;
- 		}
--		fixed_phy = 1;
-+		autoneg_link = of_phy_is_autoneg_link(dn);
+In the mean time I'll skip the exports for the remainder of this series.
 
- 		/* In the case of a fixed PHY, the DT node associated
- 		 * to the PHY is the Ethernet MAC DT node.
-@@ -3067,8 +3067,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 	pp = netdev_priv(dev);
- 	pp->phy_node = phy_node;
- 	pp->phy_interface = phy_mode;
--	pp->use_inband_status = (phy_mode == PHY_INTERFACE_MODE_SGMII) &&
--				fixed_phy;
-+	pp->use_inband_status = autoneg_link;
+Thanks,
 
- 	pp->clk = devm_clk_get(&pdev->dev, NULL);
- 	if (IS_ERR(pp->clk)) {
--- 
-1.9.1
+
+Paul Bolle
