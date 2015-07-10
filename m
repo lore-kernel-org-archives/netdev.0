@@ -1,75 +1,100 @@
-From: Josh Cartwright <joshc@ni.com>
-Subject: Re: [PATCH v2] nohz: prevent tilegx network driver interrupts
-Date: Fri, 10 Jul 2015 17:45:00 -0500
-Message-ID: <20150710224500.GA25028@jcartwri.amer.corp.natinst.com>
-References: <55A0175E.2010200@ezchip.com>
- <1436557045-5392-1-git-send-email-cmetcalf@ezchip.com>
+From: Ming Lin <mlin@kernel.org>
+Subject: Re: [PATCH] vhost-blk: Add vhost-blk support v6
+Date: Fri, 10 Jul 2015 15:50:33 -0700
+Message-ID: <CAF1ivSZMseSWkwDJEmviHRDPLxEtPnkZZ0WL8qtZJYb7RaU-rA@mail.gmail.com>
+References: <1354412033-32372-1-git-send-email-asias@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="SZSwH5G1FJ2Fz+jP"
-Cc: Frederic Weisbecker <fweisbec@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chris Metcalf <cmetcalf@ezchip.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from skprod3.natinst.com ([130.164.80.24]:48011 "EHLO ni.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751918AbbGJWpG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jul 2015 18:45:06 -0400
-In-Reply-To: <1436557045-5392-1-git-send-email-cmetcalf@ezchip.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Jens Axboe <axboe@kernel.dk>,
+	Christoph Hellwig <hch@infradead.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	KVM General <kvm@vger.kernel.org>,
+	virtualization@lists.linux-foundation.org,
+	lkml <linux-kernel@vger.kernel.org>,
+	networking <netdev@vger.kernel.org>
+To: Asias He <asias@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1354412033-32372-1-git-send-email-asias@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Sat, Dec 1, 2012 at 5:33 PM, Asias He <asias@redhat.com> wrote:
+> vhost-blk is an in-kernel virito-blk device accelerator.
+>
+> Due to lack of proper in-kernel AIO interface, this version converts
+> guest's I/O request to bio and use submit_bio() to submit I/O directly.
+> So this version any supports raw block device as guest's disk image,
+> e.g. /dev/sda, /dev/ram0. We can add file based image support to
+> vhost-blk once we have in-kernel AIO interface. There are some work in
+> progress for in-kernel AIO interface from Dave Kleikamp and Zach Brown:
+>
+>    http://marc.info/?l=linux-fsdevel&m=133312234313122
+>
+> Performance evaluation:
+> -----------------------------
+> LKVM: Fio with libaio ioengine on 1 Fusion IO device
+> IOPS(k)    Before    After    Improvement
+> seq-read   107       121      +13.0%
+> seq-write  130       179      +37.6%
+> rnd-read   102       122      +19.6%
+> rnd-write  125       159      +27.0%
+>
+> QEMU: Fio with libaio ioengine on 1 Fusion IO device
+> IOPS(k)    Before    After    Improvement
+> seq-read   76        123      +61.8%
+> seq-write  139       173      +24.4%
+> rnd-read   73        120      +64.3%
+> rnd-write  75        156      +108.0%
+>
+> QEMU: Fio with libaio ioengine on 1 Ramdisk device
+> IOPS(k)    Before    After    Improvement
+> seq-read   138       437      +216%
+> seq-write  191       436      +128%
+> rnd-read   137       426      +210%
+> rnd-write  140       415      +196%
+>
+> QEMU: Fio with libaio ioengine on 8 Ramdisk device
+> 50% read + 50% write
+> IOPS(k)    Before    After    Improvement
+> randrw     64/64     189/189  +195%/+195%
+>
+> Userspace bits:
+> -----------------------------
+> 1) LKVM
+> The latest vhost-blk userspace bits for kvm tool can be found here:
+> git@github.com:asias/linux-kvm.git blk.vhost-blk
+>
+> 2) QEMU
+> The latest vhost-blk userspace prototype for QEMU can be found here:
+> git@github.com:asias/qemu.git blk.vhost-blk
+>
+> Changes in v6:
+> - Use inline req_page_list to reduce kmalloc
+> - Switch to single thread model, thanks mst!
+> - Wait until requests fired before vhost_blk_flush to be finished
+>
+> Changes in v5:
+> - Do not assume the buffer layout
+> - Fix wakeup race
+>
+> Changes in v4:
+> - Mark req->status as userspace pointer
+> - Use __copy_to_user() instead of copy_to_user() in vhost_blk_set_status()
+> - Add if (need_resched()) schedule() in blk thread
+> - Kill vhost_blk_stop_vq() and move it into vhost_blk_stop()
+> - Use vq_err() instead of pr_warn()
+> - Fail un Unsupported request
+> - Add flush in vhost_blk_set_features()
+>
+> Changes in v3:
+> - Sending REQ_FLUSH bio instead of vfs_fsync, thanks Christoph!
+> - Check file passed by user is a raw block device file
+>
+> Acked-by: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Asias He <asias@redhat.com>
 
---SZSwH5G1FJ2Fz+jP
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hi Asias,
 
-On Fri, Jul 10, 2015 at 03:37:25PM -0400, Chris Metcalf wrote:
-> Normally the tilegx networking shim sends irqs to all the cores
-> to distribute the load of processing incoming-packet interrupts,
-> so that you can get to multiple Gb's of traffic inbound.
->=20
-> However, in nohz_full mode we don't want to interrupt the
-> nohz_full cores by default, so we limit the set of cores we use
-> to only the online housekeeping cores.
->=20
-> To make client code easier to read, we introduce a new nohz_full
-> accessor, housekeeping_cpumask(), which returns a pointer to the
-> housekeeping_mask if nohz_full is enabled, and otherwise returns
-> the cpu_possible_mask.
->=20
-> Signed-off-by: Chris Metcalf <cmetcalf@ezchip.com>
-> ---
-[..]
-> +static inline const struct cpumask *housekeeping_cpumask(void)
-> +{
-> +#ifdef CONFIG_NO_HZ_FULL
-> +	if (tick_nohz_full_enabled())
-> +		return housekeeping_mask;
-> +#endif
-
-Just a small comment:
-
-We can take these checks out from under a #ifdef CONFIG_NO_HZ_FULL
-check, given that are stubbed tick_nohz_full_enabled() defined above.
-
-  Josh
-
---SZSwH5G1FJ2Fz+jP
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAABCAAGBQJVoErpAAoJEKp7ZBKwQFAr2J0IAKZ+LFQe7XEqsIl6SW0xeM2e
-QIIIexwOfTYQ7H+OrL7N2/RHvylPC0FuZAdq2+jMX0t5I5LAo2C7QN2h3ubF1fyb
-B9OyshJZrnQ+ssacx5z5HkbjOq3bCQvb+d/AIBiWg3ItuPlUBl7QeN3kXQ+/yWvn
-4lXxicM2A+p3sf4tziGW+MBG9o2AkAp+ZsuX4/qhaFlqR/Ci7Fi8FpfzVj6PySic
-2mVvbSCx3+esKATUbajdScnoTYjEaBPui8Bgd0gQednvkOyGrD9ZGtruyM8Phz2E
-fcx/QhaMnBHe/pUPpc24dLOoO6yqnFESUaeA5o/yVUzegAYNP1qymHtqi16572Y=
-=2Zbf
------END PGP SIGNATURE-----
-
---SZSwH5G1FJ2Fz+jP--
+Is this still under development or stopped?
