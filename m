@@ -1,96 +1,86 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH -next 6/6] netfilter: nftables: Only run the nftables chains in the proper netns
-Date: Fri, 10 Jul 2015 18:15:44 -0500
-Message-ID: <87a8v3r4db.fsf_-_@x220.int.ebiederm.org>
-References: <87616ppt3h.fsf@x220.int.ebiederm.org>
-	<87r3pae5hn.fsf@x220.int.ebiederm.org>
-	<878uansj4d.fsf_-_@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Juanjo Ciarlante <jjciarla@raiz.uncu.edu.ar>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <878uansj4d.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
-	message of "Fri, 10 Jul 2015 18:11:46 -0500")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH -next] Revert "ipv4: use skb coalescing in defragmentation"
+Date: Sat, 11 Jul 2015 01:37:36 +0200
+Message-ID: <1436571456-27905-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>, Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42952 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754386AbbGJXho (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 19:37:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This reverts commit 3cc4949269e01f39443d0fcfffb5bc6b47878d45.
 
-- Register the nftables chains in the network namespace that they need
-  to run in.
+There is nothing wrong with coalescing during defragmentation, it
+reduces truesize overhead and simplifies things for the receiving
+socket (no fraglist walk needed).
 
-- Remove the hacks that stopped chains running in the wrong network
-  namespace.
+However, it also destroys geometry of the original fragments.
+While that doesn't cause any breakage (we make sure to not exceed largest
+original size) ip_do_fragment contains a 'fastpath' that takes advantage
+of a present frag list and results in fragments that (in most cases)
+match what was received.
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+In case its needed the coalescing could be done later, when we're sure
+the skb is not forwarded.  But discussion during NFWS resulted in
+'lets just remove this for now'.
+
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- net/netfilter/nf_tables_api.c  | 6 ++++--
- net/netfilter/nf_tables_core.c | 5 -----
- 2 files changed, 4 insertions(+), 7 deletions(-)
-
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index cfe636808541..12e65ec46bd4 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -130,20 +130,22 @@ static void nft_trans_destroy(struct nft_trans *trans)
- int nft_register_basechain(struct nft_base_chain *basechain,
- 			   unsigned int hook_nops)
- {
-+	struct net *net = read_pnet(&basechain->pnet);
- 	if (basechain->flags & NFT_BASECHAIN_DISABLED)
- 		return 0;
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index a50dc6d..4d3fffa 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -522,7 +522,6 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+ 	int len;
+ 	int ihlen;
+ 	int err;
+-	int sum_truesize;
+ 	u8 ecn;
  
--	return nf_register_hooks(basechain->ops, hook_nops);
-+	return nf_register_net_hooks(net, basechain->ops, hook_nops);
- }
- EXPORT_SYMBOL_GPL(nft_register_basechain);
+ 	ipq_kill(qp);
+@@ -590,32 +589,19 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+ 		add_frag_mem_limit(&qp->q, clone->truesize);
+ 	}
  
- void nft_unregister_basechain(struct nft_base_chain *basechain,
- 			      unsigned int hook_nops)
- {
-+	struct net *net = read_pnet(&basechain->pnet);
- 	if (basechain->flags & NFT_BASECHAIN_DISABLED)
- 		return;
++	skb_shinfo(head)->frag_list = head->next;
+ 	skb_push(head, head->data - skb_network_header(head));
  
--	nf_unregister_hooks(basechain->ops, hook_nops);
-+	nf_unregister_net_hooks(net, basechain->ops, hook_nops);
- }
- EXPORT_SYMBOL_GPL(nft_unregister_basechain);
- 
-diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
-index f77bad46ac68..05d0b03530f6 100644
---- a/net/netfilter/nf_tables_core.c
-+++ b/net/netfilter/nf_tables_core.c
-@@ -114,7 +114,6 @@ unsigned int
- nft_do_chain(struct nft_pktinfo *pkt, const struct nf_hook_ops *ops)
- {
- 	const struct nft_chain *chain = ops->priv, *basechain = chain;
--	const struct net *chain_net = read_pnet(&nft_base_chain(basechain)->pnet);
- 	const struct net *net = dev_net(pkt->in ? pkt->in : pkt->out);
- 	const struct nft_rule *rule;
- 	const struct nft_expr *expr, *last;
-@@ -125,10 +124,6 @@ nft_do_chain(struct nft_pktinfo *pkt, const struct nf_hook_ops *ops)
- 	int rulenum;
- 	unsigned int gencursor = nft_genmask_cur(net);
- 
--	/* Ignore chains that are not for the current network namespace */
--	if (!net_eq(net, chain_net))
--		return NF_ACCEPT;
+-	sum_truesize = head->truesize;
+-	for (fp = head->next; fp;) {
+-		bool headstolen;
+-		int delta;
+-		struct sk_buff *next = fp->next;
 -
- do_chain:
- 	rulenum = 0;
- 	rule = list_entry(&chain->rules, struct nft_rule, list);
+-		sum_truesize += fp->truesize;
++	for (fp=head->next; fp; fp = fp->next) {
++		head->data_len += fp->len;
++		head->len += fp->len;
+ 		if (head->ip_summed != fp->ip_summed)
+ 			head->ip_summed = CHECKSUM_NONE;
+ 		else if (head->ip_summed == CHECKSUM_COMPLETE)
+ 			head->csum = csum_add(head->csum, fp->csum);
+-
+-		if (skb_try_coalesce(head, fp, &headstolen, &delta)) {
+-			kfree_skb_partial(fp, headstolen);
+-		} else {
+-			if (!skb_shinfo(head)->frag_list)
+-				skb_shinfo(head)->frag_list = fp;
+-			head->data_len += fp->len;
+-			head->len += fp->len;
+-			head->truesize += fp->truesize;
+-		}
+-		fp = next;
++		head->truesize += fp->truesize;
+ 	}
+-	sub_frag_mem_limit(&qp->q, sum_truesize);
++	sub_frag_mem_limit(&qp->q, head->truesize);
+ 
+ 	head->next = NULL;
+ 	head->dev = dev;
 -- 
-2.2.1
-
+2.0.5
