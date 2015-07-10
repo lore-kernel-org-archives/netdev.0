@@ -1,41 +1,123 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [PATCH 0/2] net: pktgen: fix race between pktgen_thread_worker()
- and kthread_stop()
-Date: Fri, 10 Jul 2015 08:32:47 -0300
-Message-ID: <20150710113247.GI1841@localhost.localdomain>
-References: <20150708194154.GA26534@redhat.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 02/11] soc/fsl: Introduce DPAA BMan device management
+ driver
+Date: Fri, 10 Jul 2015 13:36:00 +0200
+Message-ID: <1436528160.20619.159.camel@tiscali.nl>
+References: <1436473322-21247-1-git-send-email-Roy.Pledge@freescale.com>
+	 <1436473322-21247-3-git-send-email-Roy.Pledge@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jan Stancek <jstancek@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Oleg Nesterov <oleg@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@lists.ozlabs.org, scottwood@freescale.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Roy Pledge <Roy.Pledge@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45766 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752728AbbGJLcu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jul 2015 07:32:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20150708194154.GA26534@redhat.com>
+Received: from lb2-smtp-cloud2.xs4all.net ([194.109.24.25]:44455 "EHLO
+	lb2-smtp-cloud2.xs4all.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751679AbbGJLgF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 07:36:05 -0400
+In-Reply-To: <1436473322-21247-3-git-send-email-Roy.Pledge@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 08, 2015 at 09:41:54PM +0200, Oleg Nesterov wrote:
-> Hello,
-> 
-> I am not familiar with this code and I have no idea how to test
-> these changes, so 2/2 comes as a separate change. 1/2 looks like
-> the obvious bugfix, and probably candidate for -stable.
-> 
-> Oleg.
-> 
->  net/core/pktgen.c |    9 ++-------
->  1 files changed, 2 insertions(+), 7 deletions(-)
-> 
+On do, 2015-07-09 at 16:21 -0400, Roy Pledge wrote:
+> --- /dev/null
+> +++ b/drivers/soc/fsl/qbman/Kconfig
 
-Both patches tested here, works for me.
+> +menuconfig FSL_DPA
+> +	bool "Freescale DPAA support"
+> +	depends on FSL_SOC || COMPILE_TEST
+
+(I already commented on COMPILE_TEST in a separate mail.)
+
+> +	default n
+> +	help
+> +		FSL Data-Path Acceleration Architecture drivers
+> +
+> +		These are not the actual Ethernet driver(s)
+> +
+> +if FSL_DPA
+> +
+> +config FSL_DPA_CHECKING
+> +	bool "additional driver checking"
+> +	default n
+> +	help
+> +		Compiles in additional checks to sanity-check the drivers and
+> +		any use of it by other code. Not recommended for performance
+
+Only recommended for people that are certain none of the 100+ asserts
+will ever trigger. See below.
+
+> +config FSL_DPA_CAN_WAIT
+> +	bool
+> +	default y
+> +
+> +config FSL_DPA_CAN_WAIT_SYNC
+> +	bool
+> +	default y
+
+Both these aren't actually used in this patch. The first patch that uses
+them is 3/11.
+
+Besides, the way these two symbols are implemented makes them function
+as aliases for FSL_DPA. So why are they needed?
+
+> +config FSL_BMAN
+> +	tristate "BMan device management"
+> +	default n
+> +	help
+> +		FSL DPAA BMan driver
+
+(Will readers know what BMan means?)
+
+> +endif # FSL_DPA
+
+> --- /dev/null
+> +++ b/drivers/soc/fsl/qbman/Makefile
+
+> +obj-$(CONFIG_FSL_BMAN)				+= bman.o
+
+> --- /dev/null
+> +++ b/drivers/soc/fsl/qbman/bman.c
+
+> +int bm_pool_set(u32 bpid, const u32 *thresholds)
+> +{
+> +	if (!bm)
+> +		return -ENODEV;
+> +	bm_set_pool(bm, bpid, thresholds[0], thresholds[1],
+> +		thresholds[2], thresholds[3]);
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL(bm_pool_set);
+
+Nit: the first (caller of this function and) user of this export is
+added in 3/11.
+
+I couldn't find a MODULE_LICENSE() in bman.c. So building this as a
+module and loading that module will generate a warning and taint the
+kernel.
+
+> --- /dev/null
+> +++ b/drivers/soc/fsl/qbman/dpaa_sys.h
+
+> +#ifdef CONFIG_FSL_DPA_CHECKING
+> +#define DPA_ASSERT(x) \
+> +	do { \
+> +		if (!(x)) { \
+> +			pr_crit("ASSERT: (%s:%d) %s\n", __FILE__, __LINE__, \
+> +				__stringify_1(x)); \
+> +			dump_stack(); \
+> +			panic("assertion failure"); \
+
+Not my call, but why panic() here?
+
+> +		} \
+> +	} while (0)
+> +#else
+> +#define DPA_ASSERT(x)
+> +#endif
 
 Thanks,
-Marcelo
+
+
+Paul Bolle
