@@ -1,47 +1,83 @@
-From: Guenter <linux@roeck-us.net>
-Subject: Re: [PATCH 1/2] net: dsa: mv88e6xxx: sleep in _mv88e6xxx_stats_wait
-Date: Fri, 10 Jul 2015 13:05:15 -0700
-Message-ID: <20150710200514.GA9469@groeck-UX31A>
-References: <1436547449-26927-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <20150710171027.GB6585@groeck-UX31A>
- <1055594065.210272.1436552447158.JavaMail.zimbra@savoirfairelinux.com>
- <20150710183623.GB19854@roeck-us.net>
- <645518234.216003.1436556107630.JavaMail.zimbra@savoirfairelinux.com>
+From: Stas Sergeev <stsp@list.ru>
+Subject: Re: [PATCH 2/3] of_mdio: add new DT property 'autoneg' for fixed-link
+Date: Fri, 10 Jul 2015 23:08:54 +0300
+Message-ID: <55A02656.7020508@list.ru>
+References: <559FF511.5080102@list.ru> <559FF63E.8020209@list.ru>
+ <55A010F9.7030808@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	David <davem@davemloft.net>, Andrew Lunn <andrew@lunn.ch>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33541 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932641AbbGJUFT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 16:05:19 -0400
-Content-Disposition: inline
-In-Reply-To: <645518234.216003.1436556107630.JavaMail.zimbra@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux kernel <linux-kernel@vger.kernel.org>,
+	Sebastien Rannou <mxs@sbrk.org>,
+	Arnaud Ebalard <arno@natisbad.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Grant Likely <grant.likely@linaro.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55A010F9.7030808@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Vivien,
+10.07.2015 21:37, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On 10/07/15 09:43, Stas Sergeev wrote:
+>> Currently for fixed-link the MAC driver decides whether to use the
+>> link status auto-negotiation or not.
+>> Unfortunately the auto-negotiation may not work when expected by
+>> the MAC driver. Sebastien Rannou explains:
+>> << Yes, I confirm that my HW does not generate an in-band status. AF=
+AIK, it's
+>> a PHY that aggregates 4xSGMIIs to 1xQSGMII ; the MAC side of the PHY=
+ (with
+>> inband status) is connected to the switch through QSGMII, and in thi=
+s context
+>> we are on the media side of the PHY. >>
+>> https://lkml.org/lkml/2015/7/10/206
+>>
+>> This patch introduces the new boolean property 'autoneg' that allows
+>> the user to request the auto-negotiation explicitly.
+> The implementation looks better, but the name might still be slightly
+> controversial. I would go with "use-in-band-status" which is more
+> strictly defined than "autoneg" which could mean anything and everyth=
+ing.
+>
+> What do you think?
+I actually think autoneg is a bit better.
 
-On Fri, Jul 10, 2015 at 03:21:47PM -0400, Vivien Didelot wrote:
-> Hi Guenter,
-> >> I must have missed where is the benefit from spin reading 10 times this
-> >> register, rather than sleeping 1ms between tests. Does this busy bit
-> >> behaves differently from the phy, atu, scratch, or vtu busy bits?
-> >> 
-> > Benefit is reaction time, mostly. If the result isn't ready after the
-> > first spin, the new code path adds a mandatory 1-2ms delay. This could
-> > add up to a lot if that kind of retry is seen a lot.
-> 
-> To me, it looks like if this mandatory 1-2ms delay is an issue, then
-> _mv88e6xxx_wait must be fixed. Maybe reducing this delay is an option?
-> 
-Good point. The timeout is most definitely quite large and for sure on
-the safe side. It might make sense to add some statistics gathering to
-see how long the maximum observed delay actually is.
+- Autonegotiation is a widely used and known term:
+https://en.wikipedia.org/wiki/Autonegotiation
+And who knows what in-band status is?
+And, more importantly, who knows what is it used for?
+Who even knows it is used for autonegotiation?
 
-Guenter
+- When we set autoneg for fixed-link, we basically just
+say "no MDIO here, but please do autoneg by any other
+means, if possible".
+
+- in-band status is an implementation delail, and it is
+specific to a particular protocols. If you request the
+in-band status for some protocol that doesn't support
+it, perhaps you should get -EINVAL, because such a
+config makes no sense. With autonegotiation, the rules
+are not that strict: it can be "unimplemented", which doesn't
+necessary mean nonsense in the config.
+
+- autonegotiation is a wider term, and may be implemented
+by some other means than the in-band status (which is
+probably impossible for a fixed-link though).
+
+- In the terms that the driver uses, it is autonegotiation, eg
+MVNETA_GMAC_AUTONEG_CONFIG. And when you go down
+the implementation details, you see MVNETA_GMAC_INBAND_AN_ENABLE,
+which is just one AN bit of many.
+
+So I really would prefer to keep things as is.
+But if you insist, I can rename, but there will still be no
+-EINVAL checks for obviously wrong configs.
