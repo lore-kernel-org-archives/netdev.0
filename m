@@ -1,60 +1,72 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC net-next 11/22] dst: Metadata destinations
-Date: Fri, 10 Jul 2015 21:19:50 +0200
-Message-ID: <20150710191950.GA15042@pox.localdomain>
-References: <cover.1436537414.git.tgraf@suug.ch>
- <1b20319e1ff0f2be28e783b90ac48738d6a8b72b.1436537414.git.tgraf@suug.ch>
- <alpine.LFD.2.11.1507102139530.1754@ja.home.ssi.bg>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH 1/2] net: dsa: mv88e6xxx: sleep in _mv88e6xxx_stats_wait
+Date: Fri, 10 Jul 2015 15:21:47 -0400 (EDT)
+Message-ID: <645518234.216003.1436556107630.JavaMail.zimbra@savoirfairelinux.com>
+References: <1436547449-26927-1-git-send-email-vivien.didelot@savoirfairelinux.com> <20150710171027.GB6585@groeck-UX31A> <1055594065.210272.1436552447158.JavaMail.zimbra@savoirfairelinux.com> <20150710183623.GB19854@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
-	ebiederm@xmission.com, hannes@stressinduktion.org,
-	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
-	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
-	jiri@resnulli.us, marcelo.leitner@gmail.com,
-	stephen@networkplumber.org, jpettit@nicira.com, kaber@trash.net,
-	netdev@vger.kernel.org, dev@openvswitch.org
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	David <davem@davemloft.net>, Andrew Lunn <andrew@lunn.ch>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>
+To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:35903 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932536AbbGJTTy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 15:19:54 -0400
-Received: by widjy10 with SMTP id jy10so23225702wid.1
-        for <netdev@vger.kernel.org>; Fri, 10 Jul 2015 12:19:53 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.11.1507102139530.1754@ja.home.ssi.bg>
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:62089 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932290AbbGJTVv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 15:21:51 -0400
+In-Reply-To: <20150710183623.GB19854@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/10/15 at 09:57pm, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Fri, 10 Jul 2015, Thomas Graf wrote:
-> 
-> > --- a/net/ipv4/route.c
-> > +++ b/net/ipv4/route.c
-> > @@ -1691,6 +1691,8 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
-> >  	   by fib_lookup.
-> >  	 */
-> >  
-> > +	skb_dst_drop(skb);
-> > +
-> 
-> 	This is not very safe. There are places that
-> call ip_route_input() for temporary lookups and they
-> do not set NULL. For example, icmp_route_lookup(),
-> may be there are other such places...
+Hi Guenter,
 
-Wow. What a tremendous hack ;-) It saves and restores the original
-dst ref to avoid the leaked reference.
+On Jul 10, 2015, at 2:36 PM, Guenter Roeck linux@roeck-us.net wrote:
 
-> 	OTOH, ip_options_rcv_srr() looks correct to use
-> skb_dst_set(skb, NULL), may be such call should be
-> added if it is missing...
+> Hi Vivien,
+> 
+> On Fri, Jul 10, 2015 at 02:20:47PM -0400, Vivien Didelot wrote:
+>> > 
+>> > is this really beneficial and/or needed ?
+>> 
+>> Except using existing generic code, no.
+>> 
+>> > It adds at least 1ms delay to a loop which did not have any delay at
+>> > all unless the register read itself was sleeping.
+>> 
+>> I must have missed where is the benefit from spin reading 10 times this
+>> register, rather than sleeping 1ms between tests. Does this busy bit
+>> behaves differently from the phy, atu, scratch, or vtu busy bits?
+>> 
+> Benefit is reaction time, mostly. If the result isn't ready after the
+> first spin, the new code path adds a mandatory 1-2ms delay. This could
+> add up to a lot if that kind of retry is seen a lot.
 
-Agreed. This seems to be the right fix. I'll apply to this
-icmp_route_lookup() as well.
+To me, it looks like if this mandatory 1-2ms delay is an issue, then
+_mv88e6xxx_wait must be fixed. Maybe reducing this delay is an option?
 
-Thanks!
+> I don't now if there is a specific time limit for this busy bit,
+> and/or if it behaves differently than the others in terms of timing.
+> 
+>> > Is the original function seen to return a timeout error under some
+>> > circumstances ?
+>> 
+>> I didn't experience it myself, but I guess it may happen. In addition to
+>> that, the current implementation doesn't check eventual read error.
+>> That's why I saw a benefit in using _mv88e6xxx_wait().
+> 
+> Checking for a read error (or a timeout) is definitely a good thing.
+> I could also imagine that, for example, a "clear statistics" request
+> takes more time than currently supported. This is why I asked if you
+> had seen a timeout with the old code.
+> 
+> Personally I'd rather leave the wait loop alone and only introduce
+> error checking unless there is a reason to introduce a sleep,
+> but I'd like to hear Andrew's and/or Florian's opinion.
+
+Andrew may not reply since he's on vacation, but I add Florian in Cc.
+
+Thanks,
+-v
