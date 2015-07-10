@@ -1,62 +1,126 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: Fighting out-of-order reception with RPS?
-Date: Fri, 10 Jul 2015 22:36:43 +0200
-Message-ID: <55A02CDB.6000302@hartkopp.net>
-References: <559D628C.5020100@hartkopp.net>	<CALx6S35OJHyr6iwfdtYW6P-ke2pmsmQ9BjO-D=qjgCHxwF7oew@mail.gmail.com>	<559E0CDF.7080309@hartkopp.net> <CALx6S37JjusJ=+L3mXT0Dzf8XuU0+dgJQ7_Xn4U0nBtkf0gCHQ@mail.gmail.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 2/3] of_mdio: add new DT property 'autoneg' for fixed-link
+Date: Fri, 10 Jul 2015 13:39:44 -0700
+Message-ID: <55A02D90.8090903@gmail.com>
+References: <559FF511.5080102@list.ru> <559FF63E.8020209@list.ru> <55A010F9.7030808@gmail.com> <55A02656.7020508@list.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	Sunil Kovvuri <sunil.kovvuri@gmail.com>,
-	Jonathon Reinhart <jonathon.reinhart@gmail.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <CALx6S37JjusJ=+L3mXT0Dzf8XuU0+dgJQ7_Xn4U0nBtkf0gCHQ@mail.gmail.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Sebastien Rannou <mxs-i6rsG8ix9II@public.gmane.org>,
+	Arnaud Ebalard <arno-LkuqDEemtHBg9hUCZPvPmw@public.gmane.org>,
+	Stas Sergeev <stsp-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Stas Sergeev <stsp-cmBhpYW9OiY@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <55A02656.7020508-cmBhpYW9OiY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 07/10/2015 04:48 AM, Tom Herbert wrote:
-> On Wed, Jul 8, 2015 at 10:55 PM, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
->> Both drivers do not use NAPI. The just follow the way
+On 10/07/15 13:08, Stas Sergeev wrote:
+> 10.07.2015 21:37, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>> On 10/07/15 09:43, Stas Sergeev wrote:
+>>> Currently for fixed-link the MAC driver decides whether to use the
+>>> link status auto-negotiation or not.
+>>> Unfortunately the auto-negotiation may not work when expected by
+>>> the MAC driver. Sebastien Rannou explains:
+>>> << Yes, I confirm that my HW does not generate an in-band status.
+>>> AFAIK, it's
+>>> a PHY that aggregates 4xSGMIIs to 1xQSGMII ; the MAC side of the PH=
+Y
+>>> (with
+>>> inband status) is connected to the switch through QSGMII, and in th=
+is
+>>> context
+>>> we are on the media side of the PHY. >>
+>>> https://lkml.org/lkml/2015/7/10/206
+>>>
+>>> This patch introduces the new boolean property 'autoneg' that allow=
+s
+>>> the user to request the auto-negotiation explicitly.
+>> The implementation looks better, but the name might still be slightl=
+y
+>> controversial. I would go with "use-in-band-status" which is more
+>> strictly defined than "autoneg" which could mean anything and everyt=
+hing.
 >>
->> interrupt -> alloc_skb() -> fill skb -> netif_rx(skb)
->>
->> I'm usually testing with the USB adapters as the PCIe setup is not very
->> handy.
->>
-> Okay, I see what is happening. In netif_rx when RPS is not enabled
-> that packet is queued to the backlog queue for the local CPU. Since
-> you're doing round robin on the interrupts then OOO packets can be a
-> result. Unfortunately, this is the expected behavior. The correct
-> kernel fix would be to move to these drivers to use NAPI.
+>> What do you think?
+> I actually think autoneg is a bit better.
+>=20
+> - Autonegotiation is a widely used and known term:
+> https://en.wikipedia.org/wiki/Autonegotiation
+> And who knows what in-band status is?
 
-Hm. Doesn't sound like a good solution when there's a difference between NAPI
-and non-NAPI drivers in matters of OOO, right?
+You and I apparently do because otherwise you would not have ran into
+this problem and more generally, anyone having some mild exposure to th=
+e
+(S|R)GMII protocols should at some point, but that is a pointless argum=
+ent.
 
-> RPS
-> eliminates the OOO, but if there is no ability to derive a flow hash
-> from packets everything will wind up one queue without load balancing.
+> And, more importantly, who knows what is it used for?
+> Who even knows it is used for autonegotiation?
 
-Correct.
+It is not about what do people know most, it is about being accurate an=
+d
+specific.
 
-That's why I added
+>=20
+> - When we set autoneg for fixed-link, we basically just
+> say "no MDIO here, but please do autoneg by any other
+> means, if possible".
 
-	skb_set_hash(skb, dev->ifindex, PKT_HASH_TYPE_L2);
+I agree with this.
 
-in my driver, because the only relevant flow identifiction is the number of
-the incoming CAN interface.
+>=20
+> - in-band status is an implementation delail, and it is
+> specific to a particular protocols. If you request the
+> in-band status for some protocol that doesn't support
+> it, perhaps you should get -EINVAL, because such a
+> config makes no sense. With autonegotiation, the rules
+> are not that strict: it can be "unimplemented", which doesn't
+> necessary mean nonsense in the config.
 
-> Besides that, automatically setting RPS in drivers is a difficult
-> proposition since there is no definitively "correct" way to do that in
-> an arbitrary configuration.
+So by specifying "autoneg", you are not specific about the kind of
+auto-negotiation protocol available, which is precisely my point: you
+need to go down to that level of detail for this to be useful. So maybe
+something like:
 
-What about checking in netif_rx() if the non-NAPI driver has set a hash (aka
-the driver is OOO sensitive)?
-And if so we could automatically set rps_cpus for this interface in a way that
-all CPUs are enabled to take skbs following the hash.
+autoneg =3D "in-band-status" would actually be a better thing in terms =
+of
+description because then you would tell what can be made available/work=
+ing?
 
-Best regards,
-Oliver
+>=20
+> - autonegotiation is a wider term, and may be implemented
+> by some other means than the in-band status (which is
+> probably impossible for a fixed-link though).
+>=20
+> - In the terms that the driver uses, it is autonegotiation, eg
+> MVNETA_GMAC_AUTONEG_CONFIG. And when you go down
+> the implementation details, you see MVNETA_GMAC_INBAND_AN_ENABLE,
+> which is just one AN bit of many.
+
+But arguably, there could be another auto-negotiation method, which is
+not in-band status related, which means that you would need a way to
+distinguish between using in-band status, or using something else or
+nothing, would not you?
+
+>=20
+> So I really would prefer to keep things as is.
+> But if you insist, I can rename, but there will still be no
+> -EINVAL checks for obviously wrong configs.
 
 
+--=20
+=46lorian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
