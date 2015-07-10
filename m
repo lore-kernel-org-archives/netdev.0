@@ -1,141 +1,244 @@
-From: Roy Pledge <roy.pledge@freescale.com>
-Subject: RE: [PATCH 03/11] soc/fsl: Introduce the DPAA BMan portal driver
-Date: Fri, 10 Jul 2015 15:19:11 +0000
-Message-ID: <BN3PR0301MB1267A318EF9DB3C193DA9FA08C9F0@BN3PR0301MB1267.namprd03.prod.outlook.com>
-References: <1436473322-21247-1-git-send-email-Roy.Pledge@freescale.com>
-	 <1436473322-21247-4-git-send-email-Roy.Pledge@freescale.com>
- <1436535163.20619.216.camel@tiscali.nl>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [RFC PATCH net-next] sctp: fix src address selection if using
+ secondary addresses
+Date: Fri, 10 Jul 2015 11:35:28 -0400
+Message-ID: <559FE640.5070008@gmail.com>
+References: <81786a31f7f143e1d229de9a9f909d5f83fa9bb2.1436279035.git.marcelo.leitner@gmail.com> <20150709165458.GA1855@localhost.localdomain> <27EB7D25-A947-4C75-B25B-03BFAD48EC64@fh-muenster.de> <20150710115305.GB1855@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"Scott Wood" <scottwood@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Paul Bolle <pebolle@tiscali.nl>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	Michael Tuexen <tuexen@fh-muenster.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0140.outbound.protection.outlook.com ([65.55.169.140]:11776
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754033AbbGJPTO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jul 2015 11:19:14 -0400
-In-Reply-To: <1436535163.20619.216.camel@tiscali.nl>
-Content-Language: en-US
+Received: from mail-qk0-f176.google.com ([209.85.220.176]:36400 "EHLO
+	mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754853AbbGJPfb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 11:35:31 -0400
+In-Reply-To: <20150710115305.GB1855@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UGF1bCwNCg0KVGhhbmtzIHlvdSBmb3IgeW91ciB2YWx1YWJsZSBmZWVkYmFjayBzbyBmYXIuICBM
-ZXQgbWUgdHJ5IHRvIGFkZHJlc3MgYSBnZW5lcmFsIGlzc3VlIHlvdSBtZW50aW9uIGJlbG93OiB1
-bnVzZWQgZXhwb3J0ZWQgQVBJcy4NCg0KVGhlIFFNYW4gYW5kIEJNYW4gZHJpdmVycyBwcm92aWRl
-IGEgYmFzZSBsYXllciBmb3Igb3RoZXIgYmxvY2tzIGJ1aWx0IG9uIHRvcCBvZiB0aGVtLCBmb3Ig
-aW5zdGFuY2UgYW4gRXRoZXJuZXQgRHJpdmVyLCBhbiBFbmNyeXB0L0RlY3J5cHQgRW5naW5lLCAg
-YSBwYXR0ZXJuIG1hdGNoZXIsIGEgY29tcHJlc3MvZGVjb21wcmVzcyBlbmdpbmUsIGV0Yy4uLg0K
-U29tZSBvZiB0aGVzZSBkcml2ZXJzIHdpbGwgYmUgcHJlc2VudGVkIGZvciByZXZpZXcgaW4gdGhl
-IG5lYXIgZnV0dXJlLCBidXQgaW4gb3JkZXIgdG8gdHJ5IGFuZCBsYXllciB0aGUgcmV2aWV3L3Vw
-IHN0cmVhbWluZyBwcm9jZXNzIHdlJ3JlIHByZXNlbnRpbmcgZWFjaCBsYXllciBhcyBpbmRlcGVu
-ZGVudGx5IGFzIHBvc3NpYmxlLg0KSWYgeW91IHJlYWxseSB3ZXJlIHRvIHN0YXJ0IGRpc3NlY3Rp
-bmcgd2hpY2ggQVBJcyBhcmUgY2FsbGVkIHlvdSB3b3VsZCBjb21lIHRvIGEgdmVyeSBzbWFsbCBz
-ZXQgb2YgcGllY2VzIHRoYXQgbWVyZWx5IGluaXRpYWxpemUgdGhlIGhhcmR3YXJlIGJ1dCBkb24n
-dCBwcm92aWRlIGFueSBvcHBvcnR1bml0eSBmb3Igb3RoZXIgdXNlcnMgdG8gaW52b2tlIHRoYXQg
-SFcuIA0KDQpJIGhvcGUgdGhhdCB0aGlzIGhlbHBzIHlvdSB1bmRlcnN0YW5kIG91ciBnb2FscyBp
-biB0cnlpbmcgdG8gdXBzdHJlYW0gdGhlc2UgZHJpdmVycy4NCg0KDQpSb3kNCg0KPiAtLS0tLU9y
-aWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBQYXVsIEJvbGxlIFttYWlsdG86cGVib2xsZUB0
-aXNjYWxpLm5sXQ0KPiBTZW50OiBGcmlkYXksIEp1bHkgMTAsIDIwMTUgOTozMyBBTQ0KPiBUbzog
-UGxlZGdlIFJveS1SMDEzNTYNCj4gQ2M6IGxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnOyBX
-b29kIFNjb3R0LUIwNzQyMTsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVs
-QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIDAzLzExXSBzb2MvZnNsOiBJ
-bnRyb2R1Y2UgdGhlIERQQUEgQk1hbiBwb3J0YWwgZHJpdmVyDQo+IA0KPiBPbiBkbywgMjAxNS0w
-Ny0wOSBhdCAxNjoyMSAtMDQwMCwgUm95IFBsZWRnZSB3cm90ZToNCj4gPiAtLS0gYS9kcml2ZXJz
-L3NvYy9mc2wvcWJtYW4vS2NvbmZpZw0KPiA+ICsrKyBiL2RyaXZlcnMvc29jL2ZzbC9xYm1hbi9L
-Y29uZmlnDQo+IA0KPiA+ICtjb25maWcgRlNMX0RQQV9QSVJRX0ZBU1QNCj4gPiArCWJvb2wNCj4g
-PiArCWRlZmF1bHQgeQ0KPiANCj4gRmlyc3QgdXNlZCBpbiAwNC8xMS4NCj4gDQo+ID4gK2NvbmZp
-ZyBGU0xfRFBBX1BJUlFfU0xPVw0KPiA+ICsJYm9vbA0KPiA+ICsJZGVmYXVsdCB5DQo+ID4gKw0K
-PiA+ICtjb25maWcgRlNMX0RQQV9QT1JUQUxfU0hBUkUNCj4gPiArCWJvb2wNCj4gPiArCWRlZmF1
-bHQgeQ0KPiANCj4gQXMgaW4gMDIvMTE6IHRoZXNlIHRocmVlIHN5bWJvbHMgZnVuY3Rpb24gYXMg
-YWxpYXNlcyBmb3IgRlNMX0RQQS4gV2h5IGFyZQ0KPiB0aGV5IG5lZWRlZD8NCj4gDQo+ID4gIGNv
-bmZpZyBGU0xfQk1BTg0KPiA+ICAJdHJpc3RhdGUgIkJNYW4gZGV2aWNlIG1hbmFnZW1lbnQiDQo+
-ID4gIAlkZWZhdWx0IG4NCj4gPiAgCWhlbHANCj4gPiAgCQlGU0wgRFBBQSBCTWFuIGRyaXZlcg0K
-PiA+DQo+ID4gK2NvbmZpZyBGU0xfQk1BTl9QT1JUQUwNCj4gPiArCXRyaXN0YXRlICJCTWFuIHBv
-cnRhbChzKSINCj4gPiArCWRlZmF1bHQgbg0KPiA+ICsJaGVscA0KPiA+ICsJCUZTTCBCTWFuIHBv
-cnRhbCBkcml2ZXINCj4gDQo+ID4gLS0tIC9kZXYvbnVsbA0KPiA+ICsrKyBiL2RyaXZlcnMvc29j
-L2ZzbC9xYm1hbi9ibWFuX2FwaS5jDQo+IA0KPiA+ICtzdHJ1Y3QgYm1hbl9wb3J0YWwgew0KPiA+
-ICsJWy4uLl0NCj4gPiArI2lmZGVmIENPTkZJR19GU0xfRFBBX0NBTl9XQUlUX1NZTkMNCj4gDQo+
-IFRoaXMgY2hlY2sgd2lsbCBhbHdheXMgZXZhbHVhdGUgdG8gdHJ1ZSwgcmlnaHQ/IChJJ2xsIG9u
-bHkgcmVwb3J0IHRoaXMNCj4gb25jZS4pDQo+IA0KPiA+ICsJc3RydWN0IGJtYW5fcG9vbCAqcmNy
-aV9vd25lZDsgLyogb25seSAxIHJlbGVhc2UgV0FJVF9TWU5DIGF0DQo+ID4gYSB0aW1lICovDQo+
-ID4gKyNlbmRpZg0KPiA+ICsjaWZkZWYgQ09ORklHX0ZTTF9EUEFfUE9SVEFMX1NIQVJFDQo+IA0K
-PiBEaXR0by4NCj4gDQo+ID4gKwlyYXdfc3BpbmxvY2tfdCBzaGFyaW5nX2xvY2s7IC8qIG9ubHkg
-dXNlZCBpZiBpc19zaGFyZWQgKi8NCj4gPiArCWludCBpc19zaGFyZWQ7DQo+ID4gKwlzdHJ1Y3Qg
-Ym1hbl9wb3J0YWwgKnNoYXJpbmdfcmVkaXJlY3Q7ICNlbmRpZg0KPiA+ICsJWy4uLl0NCj4gPiAr
-fTsNCj4gDQo+ID4gK2NvbnN0IHN0cnVjdCBibWFuX3BvcnRhbF9jb25maWcgKmJtYW5fZ2V0X3Bv
-cnRhbF9jb25maWcodm9pZCkgew0KPiA+ICsJWy4uLl0NCj4gPiArfQ0KPiANCj4gSSBjb3VsZG4n
-dCBmaW5kIGNhbGxlcnMgb2YgdGhpcyBmdW5jdGlvbi4NCj4gDQo+ID4gK0VYUE9SVF9TWU1CT0wo
-Ym1hbl9nZXRfcG9ydGFsX2NvbmZpZyk7DQo+IA0KPiBOb3IgdXNlcnMgb2YgdGhpcyBleHBvcnQs
-IG9idmlvdXNseS4NCj4gDQo+ID4gKw0KPiA+ICt1MzIgYm1hbl9pcnFzb3VyY2VfZ2V0KHZvaWQp
-DQo+ID4gK3sNCj4gPiArCVsuLi5dDQo+ID4gK30NCj4gDQo+IERpdHRvLg0KPiANCj4gPiArRVhQ
-T1JUX1NZTUJPTChibWFuX2lycXNvdXJjZV9nZXQpOw0KPiANCj4gRGl0dG8uDQo+IA0KPiA+ICtp
-bnQgYm1hbl9wX2lycXNvdXJjZV9hZGQoc3RydWN0IGJtYW5fcG9ydGFsICpwLCBfX21heWJlX3Vu
-dXNlZCB1MzINCj4gPiArYml0cykgew0KPiA+ICsJWy4uLl0NCj4gPiArfQ0KPiA+ICtFWFBPUlRf
-U1lNQk9MKGJtYW5fcF9pcnFzb3VyY2VfYWRkKTsNCj4gDQo+IFRoZXJlIHNlZW0gdG8gYmUgbm8g
-dXNlcnMgb2YgdGhpcyBleHBvcnQuDQo+IA0KPiA+ICtpbnQgYm1hbl9pcnFzb3VyY2VfYWRkKF9f
-bWF5YmVfdW51c2VkIHUzMiBiaXRzKSB7DQo+ID4gKwlbLi4uXQ0KPiA+ICt9DQo+IA0KPiBVbnVz
-ZWQuDQo+IA0KPiA+ICtFWFBPUlRfU1lNQk9MKGJtYW5faXJxc291cmNlX2FkZCk7DQo+IA0KPiBE
-aXR0by4NCj4gDQo+ID4gK2ludCBibWFuX2lycXNvdXJjZV9yZW1vdmUodTMyIGJpdHMpDQo+ID4g
-K3sNCj4gPiArCVsuLi5dDQo+ID4gK30NCj4gDQo+IERpdHRvLg0KPiANCj4gPiArRVhQT1JUX1NZ
-TUJPTChibWFuX2lycXNvdXJjZV9yZW1vdmUpOw0KPiANCj4gRGl0dG8uDQo+IA0KPiA+ICt1MzIg
-Ym1hbl9wb2xsX3Nsb3codm9pZCkNCj4gPiArew0KPiA+ICsJWy4uLl0NCj4gPiArfQ0KPiANCj4g
-RGl0dG8uDQo+IA0KPiA+ICtFWFBPUlRfU1lNQk9MKGJtYW5fcG9sbF9zbG93KTsNCj4gDQo+IERp
-dHRvLg0KPiANCj4gPiArdm9pZCBibWFuX3BvbGwodm9pZCkNCj4gPiArew0KPiA+ICsJWy4uLl0N
-Cj4gPiArfQ0KPiANCj4gRGl0dG8uDQo+IA0KPiA+ICtFWFBPUlRfU1lNQk9MKGJtYW5fcG9sbCk7
-DQo+IA0KPiBEaXR0by4NCj4gDQo+ID4gK3N0YXRpYyBpbmxpbmUgc3RydWN0IGJtX3Jjcl9lbnRy
-eSAqdHJ5X3JlbF9zdGFydChzdHJ1Y3QgYm1hbl9wb3J0YWwNCj4gPiArKipwLCAjaWZkZWYgQ09O
-RklHX0ZTTF9EUEFfQ0FOX1dBSVQNCj4gDQo+IEFsd2F5cyB0cnVlLCByaWdodD8NCj4gDQo+ID4g
-KwkJCQkJX19tYXliZV91bnVzZWQgc3RydWN0IGJtYW5fcG9vbA0KPiAqcG9vbCwgI2VuZGlmDQo+
-ID4gKwkJCQkJX19tYXliZV91bnVzZWQgdW5zaWduZWQgbG9uZw0KPiAqaXJxZmxhZ3MsDQo+ID4g
-KwkJCQkJX19tYXliZV91bnVzZWQgdTMyIGZsYWdzKQ0KPiANCj4gQW5kIHRoaXMgaXMgYSwgd2Vs
-bCwgbm92ZWwgd2F5IHRvIGRlY2xhcmUgYSBmdW5jdGlvbi4NCj4gDQo+ID4gK3sNCj4gPiArCVsu
-Li5dDQo+ID4gK30NCj4gDQo+ID4gK2ludCBibWFuX2ZsdXNoX3N0b2NrcGlsZShzdHJ1Y3QgYm1h
-bl9wb29sICpwb29sLCB1MzIgZmxhZ3MpIHsNCj4gPiArCVsuLi5dDQo+ID4gK30NCj4gDQo+IFVu
-dXNlZCBmdW5jdGlvbi4NCj4gDQo+ID4gK0VYUE9SVF9TWU1CT0woYm1hbl9mbHVzaF9zdG9ja3Bp
-bGUpOw0KPiANCj4gU28gdW51c2VkIGV4cG9ydCB0b28uDQo+IA0KPiA+ICsjaWZkZWYgQ09ORklH
-X0ZTTF9CTUFODQo+ID4gK3UzMiBibWFuX3F1ZXJ5X2ZyZWVfYnVmZmVycyhzdHJ1Y3QgYm1hbl9w
-b29sICpwb29sKSB7DQo+ID4gKwlyZXR1cm4gYm1fcG9vbF9mcmVlX2J1ZmZlcnMocG9vbC0+cGFy
-YW1zLmJwaWQpOw0KPiA+ICt9DQo+ID4gK0VYUE9SVF9TWU1CT0woYm1hbl9xdWVyeV9mcmVlX2J1
-ZmZlcnMpOw0KPiA+ICsNCj4gPiAraW50IGJtYW5fdXBkYXRlX3Bvb2xfdGhyZXNob2xkcyhzdHJ1
-Y3QgYm1hbl9wb29sICpwb29sLCBjb25zdCB1MzINCj4gPiArKnRocmVzaG9sZHMpIHsNCj4gPiAr
-CXUzMiBicGlkOw0KPiA+ICsNCj4gPiArCWJwaWQgPSBibWFuX2dldF9wYXJhbXMocG9vbCktPmJw
-aWQ7DQo+ID4gKw0KPiA+ICsJcmV0dXJuIGJtX3Bvb2xfc2V0KGJwaWQsIHRocmVzaG9sZHMpOyB9
-DQo+ID4gK0VYUE9SVF9TWU1CT0woYm1hbl91cGRhdGVfcG9vbF90aHJlc2hvbGRzKTsNCj4gDQo+
-IE1vcmUgb2YgdGhlIHNhbWUuDQo+IA0KPiA+ICsjZW5kaWYNCj4gDQo+ID4gLS0tIC9kZXYvbnVs
-bA0KPiA+ICsrKyBiL2RyaXZlcnMvc29jL2ZzbC9xYm1hbi9ibWFuX3BvcnRhbC5jDQo+ID4NCj4g
-PiArbW9kdWxlX2RyaXZlcihibWFuX3BvcnRhbF9kcml2ZXIsDQo+ID4gKwkgICAgICAgYm1hbl9w
-b3J0YWxfZHJpdmVyX3JlZ2lzdGVyLCBwbGF0Zm9ybV9kcml2ZXJfdW5yZWdpc3Rlcik7DQo+IA0K
-PiBObyBNT0RVTEVfTElDRU5TRSgpIGhlcmUsIG5vciBpbiB0aGUgb3RoZXIgZmlsZXMgdGhhdCBt
-YWtlIHVwIHRoaXMgbW9kdWxlLg0KPiBTbyBsb2FkaW5nIHRoaXMgbW9kdWxlIHdpbGwgdHJpZ2dl
-ciBhIHdhcm5pbmcgYW5kIHRhaW50IHRoZSBrZXJuZWwuDQo+IA0KPiA+IC0tLSAvZGV2L251bGwN
-Cj4gPiArKysgYi9kcml2ZXJzL3NvYy9mc2wvcWJtYW4vYm1hbl91dGlscy5jDQo+IA0KPiA+ICtF
-WFBPUlRfU1lNQk9MKGJtYW5fYWxsb2NfYnBpZF9yYW5nZSk7DQo+IA0KPiBVbnVzZWQgZXhwb3J0
-Lg0KPiANCj4gPiArRVhQT1JUX1NZTUJPTChibWFuX3JlbGVhc2VfYnBpZF9yYW5nZSk7DQo+IA0K
-PiBEaXR0by4NCj4gDQo+ID4gK0VYUE9SVF9TWU1CT0woYm1hbl9zZWVkX2JwaWRfcmFuZ2UpOw0K
-PiANCj4gRGl0dG8uDQo+IA0KPiA+ICtpbnQgYm1hbl9yZXNlcnZlX2JwaWRfcmFuZ2UodTMyIGJw
-aWQsIHUzMiBjb3VudCkgew0KPiA+ICsJcmV0dXJuIGRwYWFfcmVzb3VyY2VfcmVzZXJ2ZSgmYnBh
-bGxvYywgYnBpZCwgY291bnQpOyB9DQo+ID4gK0VYUE9SVF9TWU1CT0woYm1hbl9yZXNlcnZlX2Jw
-aWRfcmFuZ2UpOw0KPiANCj4gQmVjYXVzZSBibWFuX3Jlc2VydmVfYnBpZCgpIGlzIHVudXNlZCwg
-c2VlIGJlbG93LCB0aGlzIGZ1bmN0aW9uIGFuZCB0aGlzDQo+IGV4cG9ydCBhcmUgdW51c2VkIHRv
-by4NCj4gDQo+ID4gLS0tIC9kZXYvbnVsbA0KPiA+ICsrKyBiL2RyaXZlcnMvc29jL2ZzbC9xYm1h
-bi9kcGFhX3Jlc291cmNlLmMNCj4gPg0KPiA+ICsjaWYgZGVmaW5lZChDT05GSUdfRlNMX0JNQU5f
-UE9SVEFMKSB8fA0KPiA+ICtkZWZpbmVkKENPTkZJR19GU0xfQk1BTl9QT1JUQUxfTU9EVUxFKQ0K
-PiANCj4gI2lmIElTX0VOQUJMRUQoQ09ORklHX0ZTTF9CTUFOX1BPUlRBTCkNCj4gDQo+ID4gKyNp
-ZmRlZiBEUEFBX1JFU09VUkNFX0RFQlVHDQo+IA0KPiBOZXZlciBkZWZpbmVkLiBTbyBEVU1QKCkg
-aXMgZGVhZCBjb2RlLg0KPiANCj4gPiAtLS0gYS9kcml2ZXJzL3NvYy9mc2wvcWJtYW4vZHBhYV9z
-eXMuaA0KPiA+ICsrKyBiL2RyaXZlcnMvc29jL2ZzbC9xYm1hbi9kcGFhX3N5cy5oDQo+ID4NCj4g
-PiArI2RlZmluZSBDT05GSUdfVFJZX0JFVFRFUl9NRU1DUFkNCj4gDQo+IFBsZWFzZSByZXBsYWNl
-IHRoZSBDT05GSUdfIHByZWZpeCB3aXRoIHNvbWV0aGluZyBlbHNlLg0KPiANCj4gPiArI2lmZGVm
-IENPTkZJR19UUllfQkVUVEVSX01FTUNQWQ0KPiANCj4gVGhpcyB3aWxsIGFsd2F5cyBiZSB0cnVl
-LCByaWdodD8NCj4gDQo+ID4gWy4uLl0NCj4gPiArI2Vsc2UNCj4gPiArI2RlZmluZSBjb3B5X3dv
-cmRzIG1lbWNweQ0KPiA+ICsjZGVmaW5lIGNvcHlfc2hvcnRzIG1lbWNweQ0KPiA+ICsjZGVmaW5l
-IGNvcHlfYnl0ZXMgbWVtY3B5DQo+ID4gKyNlbmRpZg0KPiANCj4gPiAtLS0gL2Rldi9udWxsDQo+
-ID4gKysrIGIvaW5jbHVkZS9zb2MvZnNsL2JtYW4uaA0KPiANCj4gPiArc3RhdGljIGlubGluZSBp
-bnQgYm1hbl9yZXNlcnZlX2JwaWQodTMyIGJwaWQpIHsNCj4gPiArCXJldHVybiBibWFuX3Jlc2Vy
-dmVfYnBpZF9yYW5nZShicGlkLCAxKTsgfQ0KPiANCj4gVW51c2VkLg0KPiANCj4gVGhhbmtzLA0K
-PiANCj4gDQo+IFBhdWwgQm9sbGUNCg==
+On 07/10/2015 07:53 AM, Marcelo Ricardo Leitner wrote:
+> On Thu, Jul 09, 2015 at 09:55:19PM +0200, Michael Tuexen wrote:
+>>> On 09 Jul 2015, at 18:54, Marcelo Ricardo Leitner <mleitner@redhat.com> wrote:
+>>>
+>>> Cc'ing Michael too.
+>> I'm not familiar with the Linux kernel code, so I can't comment on it.
+>> But making sure to use a source address belonging to the emitting
+>> interface makes sense for me.
+>>
+>> Best regards
+>> Michael
+> 
+> That's pretty much what I was looking for, in case I missed something on
+> SCTP RFCs. 
+> 
+
+Well, the RFCs do not really specify what the source address should be, and there
+have been numerous times where I've seen weak host model in use on the wire
+even with a BSD peer.
+
+This also puts a very big nail through many suggestions we've had over the years
+to allow source based path multihoming in addition to destination based multihoming
+we currently support.
+
+It might be a good idea to make rp-filter like behavior best effort, and have
+the old behavior as fallback.  I am still trying to think up different scenarios
+where rp-filter behavior will cause things to fail prematurely...
+
+-vlad
+
+> Thanks Michael!
+> 
+>>> On Tue, Jul 07, 2015 at 02:42:25PM -0300, Marcelo Ricardo Leitner wrote:
+>>>> Hi folks,
+>>>>
+>>>> This is an attempt to better choose a src address for sctp packets as
+>>>> peers with rp_filter could be dropping our packets in some situations.
+>>>> With this patch, we try to respect and use a src address that belongs to
+>>>> the interface we are putting the packet out.
+>>>>
+>>>> I have that feeling that there is be a better way to do this, but I
+>>>> just couldn't see it.
+>>>>
+>>>> This patch has been tested with and without gateways between the peers
+>>>> and also just two peers connected via two subnets and results were
+>>>> pretty good.
+>>>>
+>>>> One could think that this limits the address combination we can use, but
+>>>> such combinations probably are just bogus anyway. Like, if you have an
+>>>> host with address A1 and B1 and another with A2 and B2, you cannot
+>>>> expect that A can use A1 to reach B2 through subnet B, because the
+>>>> return path would be via the other link which, when this switch happens,
+>>>> we are thinking it's broken.
+>>>>
+>>>> Thanks,
+>>>> Marcelo
+>>>>
+>>>> ---8<---
+>>>>
+>>>> In short, sctp is likely to incorrectly choose src address if socket is
+>>>> bound to secondary addresses. This patch fixes it by adding a new check
+>>>> that tries to anticipate if the src address would be expected by the
+>>>> next hop/peer on this interface by doing reverse routing.
+>>>>
+>>>> Also took the shot to reduce the indentation level on this code.
+>>>>
+>>>> Details:
+>>>>
+>>>> Currently, sctp will do a routing attempt without specifying the src
+>>>> address and compare the returned value (preferred source) with the
+>>>> addresses that the socket is bound to. When using secondary addresses,
+>>>> this will not match.
+>>>>
+>>>> Then it will try specifying each of the addresses that the socket is
+>>>> bound to and re-routing, checking if that address is valid as src for
+>>>> that dst. Thing is, this check alone is weak:
+>>>>
+>>>> # ip r l
+>>>> 192.168.100.0/24 dev eth1  proto kernel  scope link  src 192.168.100.149
+>>>> 192.168.122.0/24 dev eth0  proto kernel  scope link  src 192.168.122.147
+>>>>
+>>>> # ip a l
+>>>> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default
+>>>>    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+>>>>    inet 127.0.0.1/8 scope host lo
+>>>>       valid_lft forever preferred_lft forever
+>>>>    inet6 ::1/128 scope host
+>>>>       valid_lft forever preferred_lft forever
+>>>> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+>>>>    link/ether 52:54:00:15:18:6a brd ff:ff:ff:ff:ff:ff
+>>>>    inet 192.168.122.147/24 brd 192.168.122.255 scope global dynamic eth0
+>>>>       valid_lft 2160sec preferred_lft 2160sec
+>>>>    inet 192.168.122.148/24 scope global secondary eth0
+>>>>       valid_lft forever preferred_lft forever
+>>>>    inet6 fe80::5054:ff:fe15:186a/64 scope link
+>>>>       valid_lft forever preferred_lft forever
+>>>> 3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+>>>>    link/ether 52:54:00:b3:91:46 brd ff:ff:ff:ff:ff:ff
+>>>>    inet 192.168.100.149/24 brd 192.168.100.255 scope global dynamic eth1
+>>>>       valid_lft 2162sec preferred_lft 2162sec
+>>>>    inet 192.168.100.148/24 scope global secondary eth1
+>>>>       valid_lft forever preferred_lft forever
+>>>>    inet6 fe80::5054:ff:feb3:9146/64 scope link
+>>>>       valid_lft forever preferred_lft forever
+>>>> 4: ens9: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+>>>>    link/ether 52:54:00:05:47:ee brd ff:ff:ff:ff:ff:ff
+>>>>    inet6 fe80::5054:ff:fe05:47ee/64 scope link
+>>>>       valid_lft forever preferred_lft forever
+>>>>
+>>>> # ip r g 192.168.100.193 from 192.168.122.148
+>>>> 192.168.100.193 from 192.168.122.148 dev eth1
+>>>>    cache
+>>>>
+>>>> Even if you specify an interface:
+>>>>
+>>>> # ip r g 192.168.100.193 from 192.168.122.148 oif eth1
+>>>> 192.168.100.193 from 192.168.122.148 dev eth1
+>>>>    cache
+>>>>
+>>>> Although this would be valid, peers using rp_filter will drop such
+>>>> packets as their src doesn't match the routes for that interface.
+>>>>
+>>>> So we fix this by adding an extra check, we try to do the reverse
+>>>> routing and check if the interface used would be the same. If not, we
+>>>> skip such address. If yes, we use it.
+>>>>
+>>>> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+>>>> ---
+>>>> net/sctp/protocol.c | 55 +++++++++++++++++++++++++++++++++++++++--------------
+>>>> 1 file changed, 41 insertions(+), 14 deletions(-)
+>>>>
+>>>> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+>>>> index 59e80356672bdf89777265ae1f8c384792dfb98c..e52fd6f77963426a7cf3e83ca01a9cdae1cb2c01 100644
+>>>> --- a/net/sctp/protocol.c
+>>>> +++ b/net/sctp/protocol.c
+>>>> @@ -53,6 +53,7 @@
+>>>> #include <net/net_namespace.h>
+>>>> #include <net/protocol.h>
+>>>> #include <net/ip.h>
+>>>> +#include <net/ip_fib.h>
+>>>> #include <net/ipv6.h>
+>>>> #include <net/route.h>
+>>>> #include <net/sctp/sctp.h>
+>>>> @@ -487,23 +488,49 @@ static void sctp_v4_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+>>>> 	 */
+>>>> 	rcu_read_lock();
+>>>> 	list_for_each_entry_rcu(laddr, &bp->address_list, list) {
+>>>> +		struct flowi4 in;
+>>>> +		struct fib_result res;
+>>>> +
+>>>> 		if (!laddr->valid)
+>>>> 			continue;
+>>>> -		if ((laddr->state == SCTP_ADDR_SRC) &&
+>>>> -		    (AF_INET == laddr->a.sa.sa_family)) {
+>>>> -			fl4->fl4_sport = laddr->a.v4.sin_port;
+>>>> -			flowi4_update_output(fl4,
+>>>> -					     asoc->base.sk->sk_bound_dev_if,
+>>>> -					     RT_CONN_FLAGS(asoc->base.sk),
+>>>> -					     daddr->v4.sin_addr.s_addr,
+>>>> -					     laddr->a.v4.sin_addr.s_addr);
+>>>> -
+>>>> -			rt = ip_route_output_key(sock_net(sk), fl4);
+>>>> -			if (!IS_ERR(rt)) {
+>>>> -				dst = &rt->dst;
+>>>> -				goto out_unlock;
+>>>> -			}
+>>>> +		if (laddr->state != SCTP_ADDR_SRC ||
+>>>> +		    AF_INET != laddr->a.sa.sa_family)
+>>>> +			continue;
+>>>> +
+>>>> +		fl4->fl4_sport = laddr->a.v4.sin_port;
+>>>> +		flowi4_update_output(fl4,
+>>>> +				     asoc->base.sk->sk_bound_dev_if,
+>>>> +				     RT_CONN_FLAGS(asoc->base.sk),
+>>>> +				     daddr->v4.sin_addr.s_addr,
+>>>> +				     laddr->a.v4.sin_addr.s_addr);
+>>>> +
+>>>> +		rt = ip_route_output_key(sock_net(sk), fl4);
+>>>> +		if (IS_ERR(rt))
+>>>> +			continue;
+>>>> +
+>>>> +		dst = &rt->dst;
+>>>> +
+>>>> +		/* Double check if this is really expected. We simulate
+>>>> +		 * rp_filter by swapping src and dst.  If interfaces are
+>>>> +		 * different, means that this src wouldn't be expected
+>>>> +		 * by the other host on this interface.
+>>>> +		 */
+>>>> +		memcpy(&in, fl4, sizeof(in));
+>>>> +		in.daddr = fl4->saddr;
+>>>> +		in.saddr = fl4->daddr;
+>>>> +		in.flowi4_iif = fl4->flowi4_oif;
+>>>> +		in.flowi4_oif = 0;
+>>>> +
+>>>> +		if (fib_lookup(sock_net(sk), &in, &res) ||
+>>>> +		    res.type != RTN_LOCAL ||
+>>>> +		    fl4->flowi4_oif != FIB_RES_DEV(res)->ifindex) {
+>>>> +			/* Failed, so this was a false hit */
+>>>> +			dst_release(dst);
+>>>> +			dst = NULL;
+>>>> +			continue;
+>>>> 		}
+>>>> +
+>>>> +		break;
+>>>> 	}
+>>>>
+>>>> out_unlock:
+>>>> -- 
+>>>> 2.4.1
+>>>>
+>>>> --
+>>>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>>>> the body of a message to majordomo@vger.kernel.org
+>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>>
+>>>
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
