@@ -1,48 +1,58 @@
-From: roopa <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Subject: Re: [RFC net-next 03/22] ipv4: support for fib route
- lwtunnel encap attributes
-Date: Fri, 10 Jul 2015 09:56:56 -0700
-Message-ID: <559FF958.1020403@cumulusnetworks.com>
-References: <cover.1436537414.git.tgraf@suug.ch>
- <8ebc9066754f07003d54c3ac64d8c46f9c1c570b.1436537414.git.tgraf@suug.ch>
- <1436542616.24939.52.camel@edumazet-glaptop2.roam.corp.google.com>
- <20150710165436.GC11654@pox.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
- daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
- stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
- hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, rshearma-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20150710165436.GC11654-4EA/1caXOu0mYvmMESoHnA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH 2/2] net: dsa: mv88e6xxx: call _mv88e6xxx_stats_wait with SMI lock held
+Date: Fri, 10 Jul 2015 12:57:29 -0400
+Message-ID: <1436547449-26927-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1436547449-26927-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Guenter Roeck <linux@roeck-us.net>,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:64467 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754395AbbGJQ5f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 12:57:35 -0400
+In-Reply-To: <1436547449-26927-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gNy8xMC8xNSwgOTo1NCBBTSwgVGhvbWFzIEdyYWYgd3JvdGU6Cj4gT24gMDcvMTAvMTUgYXQg
-MDU6MzZwbSwgRXJpYyBEdW1hemV0IHdyb3RlOgo+PiBPbiBGcmksIDIwMTUtMDctMTAgYXQgMTY6
-MTkgKzAyMDAsIFRob21hcyBHcmFmIHdyb3RlOgo+Pj4gRnJvbTogUm9vcGEgUHJhYmh1IDxyb29w
-YUBjdW11bHVzbmV0d29ya3MuY29tPgo+Pgo+Pj4gKwlpZiAob2lmKQo+Pj4gKwkJZGV2ID0gX19k
-ZXZfZ2V0X2J5X2luZGV4KG5ldCwgb2lmKTsKPj4+ICsJcmV0ID0gbHd0dW5uZWxfYnVpbGRfc3Rh
-dGUoZGV2LCBlbmNhcF90eXBlLAo+Pj4gKwkJCQkgICBlbmNhcCwgJmx3dHN0YXRlKTsKPj4+ICsJ
-aWYgKCFyZXQpIHsKPj4+ICsJCWx3dHVubmVsX3N0YXRlX2dldChsd3RzdGF0ZSk7Cj4+PiArCQly
-ZXQgPSBsd3R1bm5lbF9jbXBfZW5jYXAobHd0c3RhdGUsIG5oLT5uaF9sd3RzdGF0ZSk7Cj4+PiAr
-CQlsd3R1bm5lbF9zdGF0ZV9wdXQobHd0c3RhdGUpOwo+Pj4gKwo+Pj4gKwkJcmV0dXJuIHJldDsK
-Pj4KPj4gVGhlc2UgX2dldCgpL19wdXQoKSBjYWxscyBkbyBub3Qgc2VlbSBuZWNlc3NhcnksIG9y
-IGJ1Z2d5Lgo+Pgo+PiBJZiByZWZjb3VudGluZyBpcyBuZWVkZWQgdGhlIF9nZXQoKSBzaG91bGQg
-YmUgZG9uZSBhdCB0aGUgdGltZSBsd3N0YXRlCj4+IGlzIGZldGNoZWQuCj4gSSdsbCBsZXQgUm9v
-cGEgY29tbWVudCBidXQgaXQgc2VlbXMgbGlrZSB0aGVzZSBjYW4ganVzdCBiZSByZW1vdmVkLgpB
-Z3JlZSwgVGhleSBkbyBzZWVtIHVubmVjZXNzYXJ5IGhlcmUuICBJIHdpbGwgZ2V0IHJpZCBvZiB0
-aGVtLiB0aGFua3MuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0
-Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+At switch setup, _mv88e6xxx_stats_wait was called without holding the
+SMI mutex. Fix this by requesting the lock for this call.
+
+Also, return the _mv88e6xxx_stats_wait code, since it may fail.
+
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 7753db1..cbbc33a 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1961,6 +1961,7 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
+ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	int ret;
+ 	int i;
+ 
+ 	/* Set the default address aging time to 5 minutes, and
+@@ -2059,9 +2060,11 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+ 	REG_WRITE(REG_GLOBAL, GLOBAL_STATS_OP, GLOBAL_STATS_OP_FLUSH_ALL);
+ 
+ 	/* Wait for the flush to complete. */
+-	_mv88e6xxx_stats_wait(ds);
++	mutex_lock(&ps->smi_mutex);
++	ret = _mv88e6xxx_stats_wait(ds);
++	mutex_unlock(&ps->smi_mutex);
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active)
+-- 
+2.4.5
