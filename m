@@ -1,45 +1,66 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [PATCH 1/3] fixed_phy: handle link-down case
-Date: Sat, 11 Jul 2015 00:14:10 +0300
-Message-ID: <55A035A2.2040404@list.ru>
-References: <559FF511.5080102@list.ru> <559FF5A3.2030607@list.ru>
- <55A02E90.1090602@gmail.com>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: [PATCH] ixgbe: Remove bimodal SR-IOV disabling
+Date: Fri, 10 Jul 2015 15:31:34 -0600
+Message-ID: <20150710212710.9501.14320.stgit@gimli.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55A02E90.1090602@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gregory.v.rose@intel.com
+To: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48969 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932830AbbGJVbg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jul 2015 17:31:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-10.07.2015 23:44, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On 10/07/15 09:41, Stas Sergeev wrote:
->> Currently fixed_phy driver recognizes only the link-up state.
->> This simple patch adds an implementation of link-down state.
->> The actual change is 1-line, the rest is an indentation.
-> It is not clear to me how this is useful, if you have a link_update
-> callback manipulating the link state, the fixed PHY driver returns
-> appropriate MII_BMSR values and always re-initializes everything.
-It returns the appropriate values only for link status (when its down),
-but it still returns speed, duplex etc as if the link is up. I had hard
-times finding the relevant specs, but from what I have googled,
-when link is down, the speed/duplex/etc status fields should _also_
-be zero, which is what my patch does.
-What is more important is that fixed_phy_add() would return
--EINVAL if you didn't specify speed while the link is down.
-This is an absolute must-fix, or I will have to add an arbitrary
-speed value again, on which you already objected.
+When unbinding an SR-IOV device with VFs configured from ixgbe, the
+driver behaves in one of two ways.  If max_vfs was specified, the
+SR-IOV state is disabled, removing the VFs.  The occurs regardless of
+whether the VF count was later modified through sysfs.  If however
+max_vfs is zero, such as by not specifying the module parameter, the
+VFs persist after the PF is unbound from ixgbe.  If the PF is then
+bound to vfio-pci to be assigned to a VM, the PF is non-functional.
 
-> Is this meant to be some sort of optimization? If so, you could just
-> avoid the re-intendation completely and do a goto instead?
-Oh, c'mon... Adding goto just to keep the _patch_ smaller?
-(not smaller code, just a smaller patch)
-Well, this is certainly something that can be done, feel free
-to request that explicitly and I'll release v3 next week.
+>From the comment, commit da36b64736cf ("ixgbe: Implement PCI SR-IOV
+sysfs callback operation") clearly intended this alternate behavior,
+but probably didn't realize the PF doesn't work in this mode.
+
+This bimodal behavior is confusing to users and results in a state
+where the PF is broken for other uses unless the user sets
+sriov_numvfs to zero prior to unbinding the device.  Remove this
+behavior so that VFs are removed and the PF is functional for other
+uses after unbind, regardless of the way VFs are enabled.
+
+Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+I can only think that not disabling SR-IOV was meant to enable some
+sort of persistence for VFs, but that's probably better accomplished
+with either udev rules and/or modprobe.d install scripts.
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 5be12a0..de04e3e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -8810,12 +8810,7 @@ static void ixgbe_remove(struct pci_dev *pdev)
+ 		unregister_netdev(netdev);
+ 
+ #ifdef CONFIG_PCI_IOV
+-	/*
+-	 * Only disable SR-IOV on unload if the user specified the now
+-	 * deprecated max_vfs module parameter.
+-	 */
+-	if (max_vfs)
+-		ixgbe_disable_sriov(adapter);
++	ixgbe_disable_sriov(adapter);
+ #endif
+ 	ixgbe_clear_interrupt_scheme(adapter);
+ 
