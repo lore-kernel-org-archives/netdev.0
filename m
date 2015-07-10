@@ -1,37 +1,71 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH 02/11] soc/fsl: Introduce DPAA BMan device management
- driver
-Date: Fri, 10 Jul 2015 12:33:15 -0500
-Message-ID: <1436549595.2658.159.camel@freescale.com>
-References: <1436473322-21247-1-git-send-email-Roy.Pledge@freescale.com>
-	 <1436473322-21247-3-git-send-email-Roy.Pledge@freescale.com>
-	 <1436528160.20619.159.camel@tiscali.nl>
+From: Chris Metcalf <cmetcalf@ezchip.com>
+Subject: [PATCH] nohz: prevent tilegx network driver interrupts
+Date: Fri, 10 Jul 2015 13:33:44 -0400
+Message-ID: <1436549624-16104-1-git-send-email-cmetcalf@ezchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Roy Pledge <Roy.Pledge@freescale.com>,
-	<linuxppc-dev@lists.ozlabs.org>, <netdev@vger.kernel.org>,
+Content-Type: text/plain
+Cc: Chris Metcalf <cmetcalf@ezchip.com>
+To: Frederic Weisbecker <fweisbec@gmail.com>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1436528160.20619.159.camel@tiscali.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1on0078.outbound.protection.outlook.com ([157.56.112.78]:25136
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932256AbbGJRd4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jul 2015 13:33:56 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-07-10 at 13:36 +0200, Paul Bolle wrote:
-> On do, 2015-07-09 at 16:21 -0400, Roy Pledge wrote:
-> > +#ifdef CONFIG_FSL_DPA_CHECKING
-> > +#define DPA_ASSERT(x) \
-> > +   do { \
-> > +           if (!(x)) { \
-> > +                   pr_crit("ASSERT: (%s:%d) %s\n", __FILE__, __LINE__, \
-> > +                           __stringify_1(x)); \
-> > +                   dump_stack(); \
-> > +                   panic("assertion failure"); \
-> 
-> Not my call, but why panic() here?
+In nohz_full mode, by default distribute networking shim
+interrupts across the housekeeping cores, not all the cores.
 
-I'm pretty sure I've complained about this before (as well as all the 
-BUG_ONs).
+Signed-off-by: Chris Metcalf <cmetcalf@ezchip.com>
+---
+The alternate approaches to this might be:
 
--Scott
+1. "#define housekeeping_mask cpu_online_mask" in the non-nohz_full
+   arm in <linux/tick.h>, then just unconditionally use
+   "housekeeping_mask".
+
+2. Provide an accessor that returns the cpumask to use for housekeeping
+   chores and implement it in the obvious ways for both nohz_full
+   and non-nohz_full.
+
+The latter seems like arguably the most satisfying approach, but
+the patch below is, if nothing else, suitable to push for 4.3
+without any further API development work.
+
+Frederic (or others), comments?
+
+ drivers/net/ethernet/tile/tilegx.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
+index a3f7610002aa..7687c62e7d75 100644
+--- a/drivers/net/ethernet/tile/tilegx.c
++++ b/drivers/net/ethernet/tile/tilegx.c
+@@ -40,6 +40,7 @@
+ #include <linux/tcp.h>
+ #include <linux/net_tstamp.h>
+ #include <linux/ptp_clock_kernel.h>
++#include <linux/tick.h>
+ 
+ #include <asm/checksum.h>
+ #include <asm/homecache.h>
+@@ -2272,8 +2273,13 @@ static int __init tile_net_init_module(void)
+ 	for (i = 0; gxio_mpipe_link_enumerate_mac(i, name, mac) >= 0; i++)
+ 		tile_net_dev_init(name, mac);
+ 
+-	if (!network_cpus_init())
++	if (!network_cpus_init()) {
++#ifdef CONFIG_NO_HZ_FULL
++		network_cpus_map = *housekeeping_mask;
++#else
+ 		network_cpus_map = *cpu_online_mask;
++#endif
++	}
+ 
+ 	return 0;
+ }
+-- 
+2.1.2
