@@ -1,100 +1,100 @@
-From: Ming Lin <mlin@kernel.org>
-Subject: Re: [PATCH] vhost-blk: Add vhost-blk support v6
-Date: Fri, 10 Jul 2015 15:50:33 -0700
-Message-ID: <CAF1ivSZMseSWkwDJEmviHRDPLxEtPnkZZ0WL8qtZJYb7RaU-rA@mail.gmail.com>
-References: <1354412033-32372-1-git-send-email-asias@redhat.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [PATCH] ixgbe: Remove bimodal SR-IOV disabling
+Date: Fri, 10 Jul 2015 23:00:59 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A07893361ED@ORSMSX108.amr.corp.intel.com>
+References: <20150710212710.9501.14320.stgit@gimli.home>
+	 <C5551D9AAB213A418B7FD5E4A6F30A0789336065@ORSMSX108.amr.corp.intel.com>
+ <1436568256.1391.328.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Jens Axboe <axboe@kernel.dk>,
-	Christoph Hellwig <hch@infradead.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	KVM General <kvm@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org,
-	lkml <linux-kernel@vger.kernel.org>,
-	networking <netdev@vger.kernel.org>
-To: Asias He <asias@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1354412033-32372-1-git-send-email-asias@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alex Williamson <alex.williamson@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:46410 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751286AbbGJXBE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jul 2015 19:01:04 -0400
+In-Reply-To: <1436568256.1391.328.camel@redhat.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 1, 2012 at 5:33 PM, Asias He <asias@redhat.com> wrote:
-> vhost-blk is an in-kernel virito-blk device accelerator.
->
-> Due to lack of proper in-kernel AIO interface, this version converts
-> guest's I/O request to bio and use submit_bio() to submit I/O directly.
-> So this version any supports raw block device as guest's disk image,
-> e.g. /dev/sda, /dev/ram0. We can add file based image support to
-> vhost-blk once we have in-kernel AIO interface. There are some work in
-> progress for in-kernel AIO interface from Dave Kleikamp and Zach Brown:
->
->    http://marc.info/?l=linux-fsdevel&m=133312234313122
->
-> Performance evaluation:
-> -----------------------------
-> LKVM: Fio with libaio ioengine on 1 Fusion IO device
-> IOPS(k)    Before    After    Improvement
-> seq-read   107       121      +13.0%
-> seq-write  130       179      +37.6%
-> rnd-read   102       122      +19.6%
-> rnd-write  125       159      +27.0%
->
-> QEMU: Fio with libaio ioengine on 1 Fusion IO device
-> IOPS(k)    Before    After    Improvement
-> seq-read   76        123      +61.8%
-> seq-write  139       173      +24.4%
-> rnd-read   73        120      +64.3%
-> rnd-write  75        156      +108.0%
->
-> QEMU: Fio with libaio ioengine on 1 Ramdisk device
-> IOPS(k)    Before    After    Improvement
-> seq-read   138       437      +216%
-> seq-write  191       436      +128%
-> rnd-read   137       426      +210%
-> rnd-write  140       415      +196%
->
-> QEMU: Fio with libaio ioengine on 8 Ramdisk device
-> 50% read + 50% write
-> IOPS(k)    Before    After    Improvement
-> randrw     64/64     189/189  +195%/+195%
->
-> Userspace bits:
-> -----------------------------
-> 1) LKVM
-> The latest vhost-blk userspace bits for kvm tool can be found here:
-> git@github.com:asias/linux-kvm.git blk.vhost-blk
->
-> 2) QEMU
-> The latest vhost-blk userspace prototype for QEMU can be found here:
-> git@github.com:asias/qemu.git blk.vhost-blk
->
-> Changes in v6:
-> - Use inline req_page_list to reduce kmalloc
-> - Switch to single thread model, thanks mst!
-> - Wait until requests fired before vhost_blk_flush to be finished
->
-> Changes in v5:
-> - Do not assume the buffer layout
-> - Fix wakeup race
->
-> Changes in v4:
-> - Mark req->status as userspace pointer
-> - Use __copy_to_user() instead of copy_to_user() in vhost_blk_set_status()
-> - Add if (need_resched()) schedule() in blk thread
-> - Kill vhost_blk_stop_vq() and move it into vhost_blk_stop()
-> - Use vq_err() instead of pr_warn()
-> - Fail un Unsupported request
-> - Add flush in vhost_blk_set_features()
->
-> Changes in v3:
-> - Sending REQ_FLUSH bio instead of vfs_fsync, thanks Christoph!
-> - Check file passed by user is a raw block device file
->
-> Acked-by: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Asias He <asias@redhat.com>
-
-Hi Asias,
-
-Is this still under development or stopped?
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEFsZXggV2lsbGlhbXNvbiBb
+bWFpbHRvOmFsZXgud2lsbGlhbXNvbkByZWRoYXQuY29tXQ0KPiBTZW50OiBGcmlkYXksIEp1bHkg
+MTAsIDIwMTUgMzo0NCBQTQ0KPiBUbzogUm9zZSwgR3JlZ29yeSBWDQo+IENjOiBpbnRlbC13aXJl
+ZC1sYW5AbGlzdHMub3N1b3NsLm9yZzsgS2lyc2hlciwgSmVmZnJleSBUOw0KPiBuZXRkZXZAdmdl
+ci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJl
+OiBbUEFUQ0hdIGl4Z2JlOiBSZW1vdmUgYmltb2RhbCBTUi1JT1YgZGlzYWJsaW5nDQo+IA0KPiBP
+biBGcmksIDIwMTUtMDctMTAgYXQgMjE6MzYgKzAwMDAsIFJvc2UsIEdyZWdvcnkgViB3cm90ZToN
+Cj4gPg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+IEZyb206IEFsZXgg
+V2lsbGlhbXNvbiBbbWFpbHRvOmFsZXgud2lsbGlhbXNvbkByZWRoYXQuY29tXQ0KPiA+ID4gU2Vu
+dDogRnJpZGF5LCBKdWx5IDEwLCAyMDE1IDI6MzIgUE0NCj4gPiA+IFRvOiBpbnRlbC13aXJlZC1s
+YW5AbGlzdHMub3N1b3NsLm9yZzsgS2lyc2hlciwgSmVmZnJleSBUDQo+ID4gPiBDYzogbmV0ZGV2
+QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgUm9zZSwNCj4g
+PiA+IEdyZWdvcnkgVg0KPiA+ID4gU3ViamVjdDogW1BBVENIXSBpeGdiZTogUmVtb3ZlIGJpbW9k
+YWwgU1ItSU9WIGRpc2FibGluZw0KPiA+ID4NCj4gPiA+IFdoZW4gdW5iaW5kaW5nIGFuIFNSLUlP
+ViBkZXZpY2Ugd2l0aCBWRnMgY29uZmlndXJlZCBmcm9tIGl4Z2JlLCB0aGUNCj4gPiA+IGRyaXZl
+ciBiZWhhdmVzIGluIG9uZSBvZiB0d28gd2F5cy4gIElmIG1heF92ZnMgd2FzIHNwZWNpZmllZCwg
+dGhlDQo+ID4gPiBTUi1JT1Ygc3RhdGUgaXMgZGlzYWJsZWQsIHJlbW92aW5nIHRoZSBWRnMuICBU
+aGUgb2NjdXJzIHJlZ2FyZGxlc3MNCj4gPiA+IG9mIHdoZXRoZXIgdGhlIFZGIGNvdW50IHdhcyBs
+YXRlciBtb2RpZmllZCB0aHJvdWdoIHN5c2ZzLiAgSWYNCj4gPiA+IGhvd2V2ZXIgbWF4X3ZmcyBp
+cyB6ZXJvLCBzdWNoIGFzIGJ5IG5vdCBzcGVjaWZ5aW5nIHRoZSBtb2R1bGUNCj4gPiA+IHBhcmFt
+ZXRlciwgdGhlIFZGcyBwZXJzaXN0IGFmdGVyIHRoZSBQRiBpcyB1bmJvdW5kIGZyb20gaXhnYmUu
+ICBJZg0KPiA+ID4gdGhlIFBGIGlzIHRoZW4gYm91bmQgdG8gdmZpby1wY2kgdG8gYmUgYXNzaWdu
+ZWQgdG8gYSBWTSwgdGhlIFBGIGlzDQo+IG5vbi1mdW5jdGlvbmFsLg0KPiA+ID4NCj4gPiA+ID5G
+cm9tIHRoZSBjb21tZW50LCBjb21taXQgZGEzNmI2NDczNmNmICgiaXhnYmU6IEltcGxlbWVudCBQ
+Q0kgU1ItSU9WDQo+ID4gPiBzeXNmcyBjYWxsYmFjayBvcGVyYXRpb24iKSBjbGVhcmx5IGludGVu
+ZGVkIHRoaXMgYWx0ZXJuYXRlIGJlaGF2aW9yLA0KPiA+ID4gYnV0IHByb2JhYmx5IGRpZG4ndCBy
+ZWFsaXplIHRoZSBQRiBkb2Vzbid0IHdvcmsgaW4gdGhpcyBtb2RlLg0KPiA+ID4NCj4gPiA+IFRo
+aXMgYmltb2RhbCBiZWhhdmlvciBpcyBjb25mdXNpbmcgdG8gdXNlcnMgYW5kIHJlc3VsdHMgaW4g
+YSBzdGF0ZQ0KPiA+ID4gd2hlcmUgdGhlIFBGIGlzIGJyb2tlbiBmb3Igb3RoZXIgdXNlcyB1bmxl
+c3MgdGhlIHVzZXIgc2V0cw0KPiA+ID4gc3Jpb3ZfbnVtdmZzIHRvIHplcm8gcHJpb3IgdG8gdW5i
+aW5kaW5nIHRoZSBkZXZpY2UuICBSZW1vdmUgdGhpcw0KPiA+ID4gYmVoYXZpb3Igc28gdGhhdCBW
+RnMgYXJlIHJlbW92ZWQgYW5kIHRoZSBQRiBpcyBmdW5jdGlvbmFsIGZvciBvdGhlcg0KPiA+ID4g
+dXNlcyBhZnRlciB1bmJpbmQsIHJlZ2FyZGxlc3Mgb2YgdGhlIHdheSBWRnMgYXJlIGVuYWJsZWQu
+DQo+ID4gPg0KPiA+ID4gU2lnbmVkLW9mZi1ieTogQWxleCBXaWxsaWFtc29uIDxhbGV4LndpbGxp
+YW1zb25AcmVkaGF0LmNvbT4NCj4gPiA+IENjOiBHcmVnIFJvc2UgPGdyZWdvcnkudi5yb3NlQGlu
+dGVsLmNvbT4NCj4gPiA+IENjOiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVs
+LmNvbT4NCj4gPiA+IC0tLQ0KPiA+ID4NCj4gPiA+IEkgY2FuIG9ubHkgdGhpbmsgdGhhdCBub3Qg
+ZGlzYWJsaW5nIFNSLUlPViB3YXMgbWVhbnQgdG8gZW5hYmxlIHNvbWUNCj4gPiA+IHNvcnQgb2Yg
+cGVyc2lzdGVuY2UgZm9yIFZGcywgYnV0IHRoYXQncyBwcm9iYWJseSBiZXR0ZXIgYWNjb21wbGlz
+aGVkDQo+ID4gPiB3aXRoIGVpdGhlciB1ZGV2IHJ1bGVzIGFuZC9vciBtb2Rwcm9iZS5kIGluc3Rh
+bGwgc2NyaXB0cy4NCj4gPiA+DQo+ID4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhn
+YmUvaXhnYmVfbWFpbi5jIHwgICAgNyArLS0tLS0tDQo+ID4gPiAgMSBmaWxlIGNoYW5nZWQsIDEg
+aW5zZXJ0aW9uKCspLCA2IGRlbGV0aW9ucygtKQ0KPiA+ID4NCj4gPiA+IGRpZmYgLS1naXQgYS9k
+cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMNCj4gPiA+IGIvZHJp
+dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jDQo+ID4gPiBpbmRleCA1
+YmUxMmEwLi5kZTA0ZTNlIDEwMDY0NA0KPiA+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+aW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jDQo+ID4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMNCj4gPiA+IEBAIC04ODEwLDEyICs4ODEwLDcgQEAg
+c3RhdGljIHZvaWQgaXhnYmVfcmVtb3ZlKHN0cnVjdCBwY2lfZGV2ICpwZGV2KQ0KPiA+ID4gIAkJ
+dW5yZWdpc3Rlcl9uZXRkZXYobmV0ZGV2KTsNCj4gPiA+DQo+ID4gPiAgI2lmZGVmIENPTkZJR19Q
+Q0lfSU9WDQo+ID4gPiAtCS8qDQo+ID4gPiAtCSAqIE9ubHkgZGlzYWJsZSBTUi1JT1Ygb24gdW5s
+b2FkIGlmIHRoZSB1c2VyIHNwZWNpZmllZCB0aGUgbm93DQo+ID4gPiAtCSAqIGRlcHJlY2F0ZWQg
+bWF4X3ZmcyBtb2R1bGUgcGFyYW1ldGVyLg0KPiA+ID4gLQkgKi8NCj4gPiA+IC0JaWYgKG1heF92
+ZnMpDQo+ID4gPiAtCQlpeGdiZV9kaXNhYmxlX3NyaW92KGFkYXB0ZXIpOw0KPiA+ID4gKwlpeGdi
+ZV9kaXNhYmxlX3NyaW92KGFkYXB0ZXIpOw0KPiA+ID4gICNlbmRpZg0KPiA+ID4gIAlpeGdiZV9j
+bGVhcl9pbnRlcnJ1cHRfc2NoZW1lKGFkYXB0ZXIpOw0KPiA+ID4NCj4gPg0KPiA+IFBsZWFzZSBy
+ZW1vdmUgbWF4X3ZmcyBtb2R1bGUgcGFyYW1ldGVyIC0gaXQgaXMgZGVwcmVjYXRlZCBhbmQgc2hv
+dWxkIGJlDQo+IHJlbW92ZWQgZnJvbSB1cHN0cmVhbSBidWlsZHMuICBEYXZlIGxldCB1cyBnZXQg
+YXdheSB3aXRoIGEga2VybmVsIG1vZHVsZSBhDQo+IGZldyB5ZWFycyBhZ28gYmVjYXVzZSB0aGUg
+b3RoZXIgbmVjZXNzYXJ5IGluZnJhc3RydWN0dXJlIHRvIGVuYWJsZSBTUi1JT1YNCj4gdmlydHVh
+bCBmdW5jdGlvbnMgdmlhIHRoZSBQQ0llIGludGVyZmFjZSB3YXMgbm90IGF2YWlsYWJsZS4gIE5v
+dyB0aGF0IGl0J3MNCj4gdGhlcmUgaXQgc2hvdWxkIGJlIHJlbW92ZWQgYW5kIHZlbmRvcnMvZW5k
+IHVzZXJzIHNob3VsZCBiZSBmb3JjZWQgdG8gbW92ZQ0KPiBhd2F5IGZyb20gdGhpcy4NCj4gDQo+
+IEkgY2FuJ3QgcmVhbGx5IHNheSBJJ20gaW4gZmF2b3Igb2YgcmVtb3ZpbmcgdGhhdCBvcHRpb24u
+ICBJdCdzIHByb2JhYmx5DQo+IGdvaW5nIHRvIGJyZWFrIGEgbG90IG9mIHBlb3BsZSBiZWNhdXNl
+IGRvaW5nIHRoZSB1ZGV2IHJ1bGVzIHJpZ2h0IGlzIGhhcmQuDQo+IFRoZSBzeXNmcyBzcmlvdiBp
+bnRlcmZhY2UgaGFzIGJlZW4gdG9zc2VkIG92ZXIgdGhlIHdhbGwgYXMgdGhlIHJpZ2h0IHdheQ0K
+PiB0byBkbyB0aGluZ3MsIGJ1dCB0aGVyZSdzIHJlYWxseSBubyBpbmZyYXN0cnVjdHVyZSB0byBm
+YWNpbGl0YXRlIGV2ZW4gdGhlDQo+IHNpbXBsZSBwZWFudXQgYnV0dGVyLCBldmVyeWJvZHkgZ2V0
+cyB0aGUgc2FtZSBudW1iZXIgb2YgVkZzLCBpbnRlcmZhY2UNCj4gdGhhdCBtYXhfdmZzIHByb3Zp
+ZGVzLiAgSSB0aGluayB0aGUgZXhpc3RlbmNlIG9mIHRoaXMgYnVnIGlzIHByb2JhYmx5IGENCj4g
+Z29vZCBpbmRpY2F0aW9uIHRoYXQgdGhlIHN5c2ZzIGludGVyZmFjZSBoYXMgbm90IHJlYWxseSBi
+ZWVuIGFkb3B0ZWQgeWV0Lg0KPiBUaGFua3MsDQoNCkFscmlnaHQsIEknbGwgZ28gd2l0aCB0aGF0
+IHJlYXNvbmluZy4NCg0KQWNrZWQtYnk6IEdyZWcgUm9zZSA8Z3JlZ29yeS52LnJvc2VAaW50ZWwu
+Y29tPg0KDQoNCj4gDQo+IEFsZXgNCg0K
