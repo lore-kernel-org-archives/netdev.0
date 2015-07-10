@@ -1,9 +1,10 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH -next 0/6] Per network namespace netfilter chains
-Date: Fri, 10 Jul 2015 18:11:46 -0500
-Message-ID: <878uansj4d.fsf_-_@x220.int.ebiederm.org>
+Subject: [PATCH -next 1/6] netfilter: nf_queue: Don't recompute the hook_list head
+Date: Fri, 10 Jul 2015 18:12:50 -0500
+Message-ID: <87380vsj2l.fsf_-_@x220.int.ebiederm.org>
 References: <87616ppt3h.fsf@x220.int.ebiederm.org>
 	<87r3pae5hn.fsf@x220.int.ebiederm.org>
+	<878uansj4d.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>,
@@ -19,36 +20,41 @@ Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	David Miller <davem@davemloft.net>
 To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <87r3pae5hn.fsf@x220.int.ebiederm.org> (Eric W. Biederman's
-	message of "Wed, 17 Jun 2015 10:09:40 -0500")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:55270 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752023AbbGJXS2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 19:18:28 -0400
+In-Reply-To: <878uansj4d.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
+	message of "Fri, 10 Jul 2015 18:11:46 -0500")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-By maintining a set of functions to register and unregister netfilter
-hooks both globally and per network namespace I have managed to write a
-compact patchset that maintain per network netfilter chains, and
-registers the nftables netfilter hooks per network namespace.
+If someone sends packets from one of the netdevice ingress hooks to
+the a userspace queue, and then userspace later accepts the packet,
+the netfilter code can enter an infinite loop as the list head will
+never be found.
 
-There are lots of other possible and desirable cleanups but this one is
-a core change needed to make the other changes independent small
-changes.
+Pass in the saved list_head to avoid this.
 
-Eric W. Biederman (6):
-      netfilter: nf_queue: Don't recompute the hook_list head
-      netfilter: kill nf_hooks_active
-      netfilter: Simply the tests for enabling and disabling the ingress queue hook
-      netfilter: Factor out the hook list selection from nf_register_hook
-      netfilter: Per network namespace netfilter hooks.
-      netfilter: nftables: Only run the nftables chains in the proper netns
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ net/netfilter/nf_queue.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- include/linux/netfilter.h      |  23 +++--
- include/net/netns/netfilter.h  |   1 +
- net/netfilter/core.c           | 221 +++++++++++++++++++++++++++++++++--------
- net/netfilter/nf_queue.c       |   2 +-
- net/netfilter/nf_tables_api.c  |   6 +-
- net/netfilter/nf_tables_core.c |   5 -
- 6 files changed, 200 insertions(+), 58 deletions(-)
-
-Eric
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index cd60d397fe05..8a8b2abc35ff 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -213,7 +213,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ 
+ 	if (verdict == NF_ACCEPT) {
+ 	next_hook:
+-		verdict = nf_iterate(&nf_hooks[entry->state.pf][entry->state.hook],
++		verdict = nf_iterate(entry->state.hook_list,
+ 				     skb, &entry->state, &elem);
+ 	}
+ 
+-- 
+2.2.1
