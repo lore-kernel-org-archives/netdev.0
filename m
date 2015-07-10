@@ -1,78 +1,70 @@
-From: Dmitry Torokhov <dtor@google.com>
-Subject: [PATCH] nf: IDLETIMER: fix lockdep warning
-Date: Thu, 9 Jul 2015 17:15:01 -0700
-Message-ID: <20150710001501.GA32570@dtor-ws>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC net-next 3/6] net: Introduce VRF device driver - v2
+Date: Thu, 09 Jul 2015 20:36:03 -0500
+Message-ID: <877fq894l8.fsf@x220.int.ebiederm.org>
+References: <1436195001-4818-1-git-send-email-dsa@cumulusnetworks.com>
+	<1436195001-4818-4-git-send-email-dsa@cumulusnetworks.com>
+	<CACP96tTyw+J7swi-+GJMwKKVjE9Uk1dJ3m_JKg2o1tyZup+p0w@mail.gmail.com>
+	<559EAD2A.2090002@cumulusnetworks.com>
+	<CACP96tSp91XYo_UasZexb6c6Krru3LEJvDwEWSgKYgPHJmTkHw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+	netdev <netdev@vger.kernel.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	ddutt@cumulusnetworks.com,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	hadi@mojatatu.com, David Miller <davem@davemloft.net>
+To: Sowmini Varadhan <sowmini05@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:35609 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751299AbbGJAPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 20:15:04 -0400
-Received: by igcqs7 with SMTP id qs7so2100130igc.0
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 17:15:03 -0700 (PDT)
-Content-Disposition: inline
+Received: from out03.mta.xmission.com ([166.70.13.233]:56291 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751346AbbGJBll (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 21:41:41 -0400
+In-Reply-To: <CACP96tSp91XYo_UasZexb6c6Krru3LEJvDwEWSgKYgPHJmTkHw@mail.gmail.com>
+	(Sowmini Varadhan's message of "Thu, 9 Jul 2015 19:28:58 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dynamically allocated sysfs attributes should be initialized with
-sysfs_attr_init() otherwise lockdep will be angry with us:
+Sowmini Varadhan <sowmini05@gmail.com> writes:
 
-[   45.468653] BUG: key ffffffc030fad4e0 not in .data!
-[   45.468655] ------------[ cut here ]------------
-[   45.468666] WARNING: CPU: 0 PID: 1176 at /mnt/host/source/src/third_party/kernel/v3.18/kernel/locking/lockdep.c:2991 lockdep_init_map+0x12c/0x490()
-[   45.468672] DEBUG_LOCKS_WARN_ON(1)
-[   45.468672] CPU: 0 PID: 1176 Comm: iptables Tainted: G     U  W 3.18.0 #43
-[   45.468674] Hardware name: XXX
-[   45.468675] Call trace:
-[   45.468680] [<ffffffc0002072b4>] dump_backtrace+0x0/0x10c
-[   45.468683] [<ffffffc0002073d0>] show_stack+0x10/0x1c
-[   45.468688] [<ffffffc000a86cd4>] dump_stack+0x74/0x94
-[   45.468692] [<ffffffc000217ae0>] warn_slowpath_common+0x84/0xb0
-[   45.468694] [<ffffffc000217b84>] warn_slowpath_fmt+0x4c/0x58
-[   45.468697] [<ffffffc0002530a4>] lockdep_init_map+0x128/0x490
-[   45.468701] [<ffffffc000367ef0>] __kernfs_create_file+0x80/0xe4
-[   45.468704] [<ffffffc00036862c>] sysfs_add_file_mode_ns+0x104/0x170
-[   45.468706] [<ffffffc00036870c>] sysfs_create_file_ns+0x58/0x64
-[   45.468711] [<ffffffc000930430>] idletimer_tg_checkentry+0x14c/0x324
-[   45.468714] [<ffffffc00092a728>] xt_check_target+0x170/0x198
-[   45.468717] [<ffffffc000993efc>] check_target+0x58/0x6c
-[   45.468720] [<ffffffc000994c64>] translate_table+0x30c/0x424
-[   45.468723] [<ffffffc00099529c>] do_ipt_set_ctl+0x144/0x1d0
-[   45.468728] [<ffffffc0009079f0>] nf_setsockopt+0x50/0x60
-[   45.468732] [<ffffffc000946870>] ip_setsockopt+0x8c/0xb4
-[   45.468735] [<ffffffc0009661c0>] raw_setsockopt+0x10/0x50
-[   45.468739] [<ffffffc0008c1550>] sock_common_setsockopt+0x14/0x20
-[   45.468742] [<ffffffc0008bd190>] SyS_setsockopt+0x88/0xb8
-[   45.468744] ---[ end trace 41d156354d18c039 ]---
+> On Thu, Jul 9, 2015 at 7:19 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+>
+>> On the to-do list to use cmsg to specify a VRF for outbound packets using
+>> non-connected sockets. I do not believe it is going to work, but need to
+>> look into it.
+>>
+>>> What about setting ipsec policy for interfaces in the vrf?
+>
+> From a purely parochial standpoint, how would rds sockets work in this model?
+> Would the tcp encaps happen before or after the the vrf "driver" output?
+> Same problem for NFS.
+>
+> From a non-parochial standpoint. There are a *lot* of routing apps that actually
+> need more visibility into many details about the "slave" interface: e.g., OSPF,
+> ARP snoop, IPSLA.. the list is pretty long.
+>
+> I think it's a bad idea to use a "driver" to represent a table lookup. Too many
+> hacks will become necessary.
 
-Change-Id: I1da5cd96fc8e1e1e4209e81eba1165a42d4d45e9
-Signed-off-by: Dmitry Torokhov <dtor@google.com>
----
- net/netfilter/xt_IDLETIMER.c | 1 +
- 1 file changed, 1 insertion(+)
+With respect to sockets there is also the issue that ip addresses are
+not per vrf.  Which means things like packet fragmentation reassembly
+can easily do the wrong thing.  Similarly things like the xfrm for ipsec
+tunnels are not hooked into this mix.
 
-diff --git a/net/netfilter/xt_IDLETIMER.c b/net/netfilter/xt_IDLETIMER.c
-index 31f76cd..0975c993 100644
---- a/net/netfilter/xt_IDLETIMER.c
-+++ b/net/netfilter/xt_IDLETIMER.c
-@@ -286,6 +286,7 @@ static int idletimer_tg_create(struct idletimer_tg_info *info)
- 		goto out;
- 	}
- 
-+	sysfs_attr_init(&info->timer->attr.attr);
- 	info->timer->attr.attr.name = kstrdup(info->label, GFP_KERNEL);
- 	if (!info->timer->attr.attr.name) {
- 		ret = -ENOMEM;
--- 
-2.4.3.573.g4eafbef
+So I really do not see how this VRF/MRF thing as designed can support
+general purpose sockets.  I am not certain it can correctly support any
+kind of socket except perhaps SOCK_RAW.
 
+Which strongly suggests to me you can leave off the magic network device
+and simply add the fib_lookup logic that finds the base fib table by
+looking at the in coming network device.  That seems a whole lot simpler
+and a whole lot less surprising.  The better routing will work and
+people playing with sockets will clearly see the dangers.
 
--- 
-Dmitry
+Eric
