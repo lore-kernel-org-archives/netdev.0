@@ -1,7 +1,7 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [RFC net-next 11/22] dst: Metadata destinations
-Date: Fri, 10 Jul 2015 16:19:13 +0200
-Message-ID: <1b20319e1ff0f2be28e783b90ac48738d6a8b72b.1436537414.git.tgraf@suug.ch>
+Subject: [RFC net-next 18/22] openvswitch: Make tunnel set action attach a metadata dst
+Date: Fri, 10 Jul 2015 16:19:20 +0200
+Message-ID: <db45b60a2ab4aa0d6dde363558ebe3e46edb0e81.1436537414.git.tgraf@suug.ch>
 References: <cover.1436537414.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org
 To: roopa@cumulusnetworks.com, rshearma@brocade.com,
@@ -11,278 +11,232 @@ To: roopa@cumulusnetworks.com, rshearma@brocade.com,
 	jiri@resnulli.us, marcelo.leitner@gmail.com,
 	stephen@networkplumber.org, jpettit@nicira.com, kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:40619 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:40721 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932653AbbGJOTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 10:19:43 -0400
+	with ESMTP id S932667AbbGJOTt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 10:19:49 -0400
 In-Reply-To: <cover.1436537414.git.tgraf@suug.ch>
 In-Reply-To: <cover.1436537414.git.tgraf@suug.ch>
 References: <cover.1436537414.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduces a new dst_metadata which enables to carry per packet metadata
-between forwarding and processing elements via the skb->dst pointer.
-
-The structure is set up to be a union. Thus, each separate type of
-metadata requires its own dst instance. If demand arises to carry
-multiple types of metadata concurrently, metadata dst entries can be
-made stackable.
-
-The metadata dst entry is refcnt'ed as expected for now but a non
-reference counted use is possible if the reference is forced before
-queueing the skb.
-
-In order to allow allocating dsts with variable length, the existing
-dst_alloc() is split into a dst_alloc() and dst_init() function. The
-existing dst_init() function to initialize the subsystem is being
-renamed to dst_subsys_init() to make it clear what is what.
-
-The check before ip_route_input() is changed to ignore metadata dsts
-and drop the dst inside the routing function thus allowing to interpret
-metadata in a later commit.
+Utilize the new metadata dst to attach encapsulation instructions to
+the skb. The existing egress_tun_info via the OVS_CB() is left in
+place until all tunnel vports have been converted to the new method.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- include/net/dst.h          |  5 ++-
- include/net/dst_metadata.h | 32 +++++++++++++++++++
- net/core/dev.c             |  2 +-
- net/core/dst.c             | 76 ++++++++++++++++++++++++++++++++++++++--------
- net/ipv4/ip_input.c        |  3 +-
- net/ipv4/route.c           |  2 ++
- 6 files changed, 104 insertions(+), 16 deletions(-)
- create mode 100644 include/net/dst_metadata.h
+ net/openvswitch/actions.c      | 10 ++++++-
+ net/openvswitch/datapath.c     |  8 +++---
+ net/openvswitch/flow.h         |  6 +++++
+ net/openvswitch/flow_netlink.c | 61 +++++++++++++++++++++++++++++++++++++-----
+ net/openvswitch/flow_netlink.h |  1 +
+ 5 files changed, 74 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 2bc73f8a..fd69bb9 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -57,6 +57,7 @@ struct dst_entry {
- #define DST_FAKE_RTABLE		0x0040
- #define DST_XFRM_TUNNEL		0x0080
- #define DST_XFRM_QUEUE		0x0100
-+#define DST_METADATA		0x0200
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 27c1687..cf04c2f 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -733,7 +733,15 @@ static int execute_set_action(struct sk_buff *skb,
+ {
+ 	/* Only tunnel set execution is supported without a mask. */
+ 	if (nla_type(a) == OVS_KEY_ATTR_TUNNEL_INFO) {
+-		OVS_CB(skb)->egress_tun_info = nla_data(a);
++		struct ovs_tunnel_info *tun = nla_data(a);
++
++		skb_dst_drop(skb);
++		dst_hold((struct dst_entry *)tun->tun_dst);
++		skb_dst_set(skb, (struct dst_entry *)tun->tun_dst);
++
++		/* FIXME: Remove when all vports have been converted */
++		OVS_CB(skb)->egress_tun_info = &tun->tun_dst->u.tun_info;
++
+ 		return 0;
+ 	}
  
- 	unsigned short		pending_confirm;
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index ff8c4a4..0208210 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -1018,7 +1018,7 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 		}
+ 		ovs_unlock();
  
-@@ -356,6 +357,8 @@ static inline int dst_discard(struct sk_buff *skb)
+-		ovs_nla_free_flow_actions(old_acts);
++		ovs_nla_free_flow_actions_rcu(old_acts);
+ 		ovs_flow_free(new_flow, false);
+ 	}
+ 
+@@ -1030,7 +1030,7 @@ err_unlock_ovs:
+ 	ovs_unlock();
+ 	kfree_skb(reply);
+ err_kfree_acts:
+-	kfree(acts);
++	ovs_nla_free_flow_actions(acts);
+ err_kfree_flow:
+ 	ovs_flow_free(new_flow, false);
+ error:
+@@ -1157,7 +1157,7 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ 	if (reply)
+ 		ovs_notify(&dp_flow_genl_family, reply, info);
+ 	if (old_acts)
+-		ovs_nla_free_flow_actions(old_acts);
++		ovs_nla_free_flow_actions_rcu(old_acts);
+ 
+ 	return 0;
+ 
+@@ -1165,7 +1165,7 @@ err_unlock_ovs:
+ 	ovs_unlock();
+ 	kfree_skb(reply);
+ err_kfree_acts:
+-	kfree(acts);
++	ovs_nla_free_flow_actions(acts);
+ error:
+ 	return error;
  }
- void *dst_alloc(struct dst_ops *ops, struct net_device *dev, int initial_ref,
- 		int initial_obsolete, unsigned short flags);
-+void dst_init(struct dst_entry *dst, struct dst_ops *ops, struct net_device *dev,
-+	      int initial_ref, int initial_obsolete, unsigned short flags);
- void __dst_free(struct dst_entry *dst);
- struct dst_entry *dst_destroy(struct dst_entry *dst);
- 
-@@ -457,7 +460,7 @@ static inline struct dst_entry *dst_check(struct dst_entry *dst, u32 cookie)
- 	return dst;
- }
- 
--void dst_init(void);
-+void dst_subsys_init(void);
- 
- /* Flags for xfrm_lookup flags argument. */
- enum {
-diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
-new file mode 100644
-index 0000000..4f7694f
---- /dev/null
-+++ b/include/net/dst_metadata.h
-@@ -0,0 +1,32 @@
-+#ifndef __NET_DST_METADATA_H
-+#define __NET_DST_METADATA_H 1
-+
-+#include <linux/skbuff.h>
-+#include <net/ip_tunnels.h>
-+#include <net/dst.h>
-+
-+struct metadata_dst {
-+	struct dst_entry		dst;
-+	size_t				opts_len;
-+};
-+
-+static inline struct metadata_dst *skb_metadata_dst(struct sk_buff *skb)
-+{
-+	struct metadata_dst *md_dst = (struct metadata_dst *) skb_dst(skb);
-+
-+	if (md_dst && md_dst->dst.flags & DST_METADATA)
-+		return md_dst;
-+
-+	return NULL;
-+}
-+
-+static inline bool skb_valid_dst(const struct sk_buff *skb)
-+{
-+	struct dst_entry *dst = skb_dst(skb);
-+
-+	return dst && !(dst->flags & DST_METADATA);
-+}
-+
-+struct metadata_dst *metadata_dst_alloc(u8 optslen, gfp_t flags);
-+
-+#endif /* __NET_DST_METADATA_H */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6778a99..97f6d47 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7640,7 +7640,7 @@ static int __init net_dev_init(void)
- 	open_softirq(NET_RX_SOFTIRQ, net_rx_action);
- 
- 	hotcpu_notifier(dev_cpu_callback, 0);
--	dst_init();
-+	dst_subsys_init();
- 	rc = 0;
- out:
- 	return rc;
-diff --git a/net/core/dst.c b/net/core/dst.c
-index e956ce6..5372450 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -22,6 +22,7 @@
- #include <linux/prefetch.h>
- 
- #include <net/dst.h>
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index cadc6c5..3fbf874 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -33,6 +33,7 @@
+ #include <linux/flex_array.h>
+ #include <net/inet_ecn.h>
+ #include <net/ip_tunnels.h>
 +#include <net/dst_metadata.h>
  
- /*
-  * Theory of operations:
-@@ -158,19 +159,9 @@ const u32 dst_default_metrics[RTAX_MAX + 1] = {
- 	[RTAX_MAX] = 0xdeadbeef,
- };
+ struct sk_buff;
  
--
--void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
--		int initial_ref, int initial_obsolete, unsigned short flags)
-+void dst_init(struct dst_entry *dst, struct dst_ops *ops, struct net_device *dev,
-+	      int initial_ref, int initial_obsolete, unsigned short flags)
- {
--	struct dst_entry *dst;
--
--	if (ops->gc && dst_entries_get_fast(ops) > ops->gc_thresh) {
--		if (ops->gc(ops))
--			return NULL;
--	}
--	dst = kmem_cache_alloc(ops->kmem_cachep, GFP_ATOMIC);
--	if (!dst)
--		return NULL;
- 	dst->child = NULL;
- 	dst->dev = dev;
- 	if (dev)
-@@ -200,6 +191,25 @@ void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
- 	dst->next = NULL;
- 	if (!(flags & DST_NOCOUNT))
- 		dst_entries_add(ops, 1);
-+}
-+EXPORT_SYMBOL(dst_init);
-+
-+void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
-+		int initial_ref, int initial_obsolete, unsigned short flags)
+@@ -45,6 +46,11 @@ struct sk_buff;
+ #define TUN_METADATA_OPTS(flow_key, opt_len) \
+ 	((void *)((flow_key)->tun_opts + TUN_METADATA_OFFSET(opt_len)))
+ 
++struct ovs_tunnel_info
 +{
-+	struct dst_entry *dst;
++	struct metadata_dst	*tun_dst;
++};
 +
-+	if (ops->gc && dst_entries_get_fast(ops) > ops->gc_thresh) {
-+		if (ops->gc(ops))
-+			return NULL;
+ #define OVS_SW_FLOW_KEY_METADATA_SIZE			\
+ 	(offsetof(struct sw_flow_key, recirc_id) +	\
+ 	FIELD_SIZEOF(struct sw_flow_key, recirc_id))
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index ecfa530..05fe46b 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -1548,11 +1548,45 @@ static struct sw_flow_actions *nla_alloc_flow_actions(int size, bool log)
+ 	return sfa;
+ }
+ 
++static void ovs_nla_free_set_action(const struct nlattr *a)
++{
++	const struct nlattr *ovs_key = nla_data(a);
++	struct ovs_tunnel_info *ovs_tun;
++
++	switch (nla_type(ovs_key)) {
++	case OVS_KEY_ATTR_TUNNEL_INFO:
++		ovs_tun = nla_data(ovs_key);
++		dst_release((struct dst_entry *)ovs_tun->tun_dst);
++		break;
++	}
++}
++
++void ovs_nla_free_flow_actions(struct sw_flow_actions *sf_acts)
++{
++	const struct nlattr *a;
++	int rem;
++
++	nla_for_each_attr(a, sf_acts->actions, sf_acts->actions_len, rem) {
++		switch (nla_type(a)) {
++		case OVS_ACTION_ATTR_SET:
++			ovs_nla_free_set_action(a);
++			break;
++		}
 +	}
 +
-+	dst = kmem_cache_alloc(ops->kmem_cachep, GFP_ATOMIC);
-+	if (!dst)
-+		return NULL;
-+
-+	dst_init(dst, ops, dev, initial_ref, initial_obsolete, flags);
-+
- 	return dst;
- }
- EXPORT_SYMBOL(dst_alloc);
-@@ -327,6 +337,46 @@ void __dst_destroy_metrics_generic(struct dst_entry *dst, unsigned long old)
- }
- EXPORT_SYMBOL(__dst_destroy_metrics_generic);
- 
-+static struct dst_ops md_dst_ops = {
-+	.family =		AF_UNSPEC,
-+};
-+
-+static int dst_md_discard_sk(struct sock *sk, struct sk_buff *skb)
-+{
-+	WARN_ONCE(1, "Attempting to call output on metadata dst\n");
-+	kfree_skb(skb);
-+	return 0;
++	kfree(sf_acts);
 +}
 +
-+static int dst_md_discard(struct sk_buff *skb)
++static void __ovs_nla_free_flow_actions(struct rcu_head *head)
 +{
-+	WARN_ONCE(1, "Attempting to call input on metadata dst\n");
-+	kfree_skb(skb);
-+	return 0;
++	ovs_nla_free_flow_actions(container_of(head, struct sw_flow_actions, rcu));
 +}
 +
-+struct metadata_dst *metadata_dst_alloc(u8 optslen, gfp_t flags)
-+{
-+	struct metadata_dst *md_dst;
-+	struct dst_entry *dst;
-+
-+	md_dst = kmalloc(sizeof(*md_dst) + optslen, flags);
-+	if (!md_dst)
-+		return ERR_PTR(-ENOMEM);
-+
-+	dst = &md_dst->dst;
-+	dst_init(dst, &md_dst_ops, NULL, 1, DST_OBSOLETE_NONE, DST_METADATA);
-+
-+	dst->input = dst_md_discard;
-+	dst->output = dst_md_discard_sk;
-+
-+	memset(dst + 1, 0, sizeof(*md_dst) + optslen - sizeof(*dst));
-+	md_dst->opts_len = optslen;
-+
-+	return md_dst;
-+}
-+EXPORT_SYMBOL_GPL(metadata_dst_alloc);
-+
- /* Dirty hack. We did it in 2.2 (in __dst_free),
-  * we have _very_ good reasons not to repeat
-  * this mistake in 2.3, but we have no choice
-@@ -391,7 +441,7 @@ static struct notifier_block dst_dev_notifier = {
- 	.priority = -10, /* must be called after other network notifiers */
- };
- 
--void __init dst_init(void)
-+void __init dst_subsys_init(void)
+ /* Schedules 'sf_acts' to be freed after the next RCU grace period.
+  * The caller must hold rcu_read_lock for this to be sensible. */
+-void ovs_nla_free_flow_actions(struct sw_flow_actions *sf_acts)
++void ovs_nla_free_flow_actions_rcu(struct sw_flow_actions *sf_acts)
  {
- 	register_netdevice_notifier(&dst_dev_notifier);
+-	kfree_rcu(sf_acts, rcu);
++	call_rcu(&sf_acts->rcu, __ovs_nla_free_flow_actions);
  }
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index 2db4c87..f4fc8a7 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -146,6 +146,7 @@
- #include <net/xfrm.h>
- #include <linux/mroute.h>
- #include <linux/netlink.h>
-+#include <net/dst_metadata.h>
  
- /*
-  *	Process Router Attention IP option (RFC 2113)
-@@ -331,7 +332,7 @@ static int ip_rcv_finish(struct sock *sk, struct sk_buff *skb)
- 	 *	Initialise the virtual path cache for the packet. It describes
- 	 *	how the packet travels inside Linux networking.
- 	 */
--	if (!skb_dst(skb)) {
-+	if (!skb_valid_dst(skb)) {
- 		int err = ip_route_input_noref(skb, iph->daddr, iph->saddr,
- 					       iph->tos, skb->dev);
- 		if (unlikely(err)) {
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index d3964fa..ea48880 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1691,6 +1691,8 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	   by fib_lookup.
- 	 */
+ static struct nlattr *reserve_sfa_size(struct sw_flow_actions **sfa,
+@@ -1746,7 +1780,9 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ {
+ 	struct sw_flow_match match;
+ 	struct sw_flow_key key;
++	struct metadata_dst *tun_dst;
+ 	struct ip_tunnel_info *tun_info;
++	struct ovs_tunnel_info *ovs_tun;
+ 	struct nlattr *a;
+ 	int err = 0, start, opts_type;
  
-+	skb_dst_drop(skb);
+@@ -1771,12 +1807,22 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 	if (start < 0)
+ 		return start;
+ 
++	tun_dst = metadata_dst_alloc(key.tun_opts_len, GFP_KERNEL);
++	if (!tun_dst)
++		return -ENOMEM;
 +
- 	if (ipv4_is_multicast(saddr) || ipv4_is_lbcast(saddr))
- 		goto martian_source;
+ 	a = __add_action(sfa, OVS_KEY_ATTR_TUNNEL_INFO, NULL,
+-			 sizeof(*tun_info) + key.tun_opts_len, log);
+-	if (IS_ERR(a))
++			 sizeof(*ovs_tun), log);
++	if (IS_ERR(a)) {
++		dst_release((struct dst_entry *)tun_dst);
+ 		return PTR_ERR(a);
++	}
++
++	ovs_tun = nla_data(a);
++	ovs_tun->tun_dst = tun_dst;
  
+-	tun_info = nla_data(a);
++	tun_info = &tun_dst->u.tun_info;
++	tun_info->mode = IP_TUNNEL_INFO_TX;
+ 	tun_info->key = key.tun_key;
+ 	tun_info->options_len = key.tun_opts_len;
+ 
+@@ -2177,7 +2223,7 @@ int ovs_nla_copy_actions(const struct nlattr *attr,
+ 	err = __ovs_nla_copy_actions(attr, key, 0, sfa, key->eth.type,
+ 				     key->eth.tci, log);
+ 	if (err)
+-		kfree(*sfa);
++		ovs_nla_free_flow_actions(*sfa);
+ 
+ 	return err;
+ }
+@@ -2227,7 +2273,8 @@ static int set_action_to_attr(const struct nlattr *a, struct sk_buff *skb)
+ 
+ 	switch (key_type) {
+ 	case OVS_KEY_ATTR_TUNNEL_INFO: {
+-		struct ip_tunnel_info *tun_info = nla_data(ovs_key);
++		struct ovs_tunnel_info *ovs_tun = nla_data(ovs_key);
++		struct ip_tunnel_info *tun_info = &ovs_tun->tun_dst->u.tun_info;
+ 
+ 		start = nla_nest_start(skb, OVS_ACTION_ATTR_SET);
+ 		if (!start)
+diff --git a/net/openvswitch/flow_netlink.h b/net/openvswitch/flow_netlink.h
+index ec53eb6..acd0744 100644
+--- a/net/openvswitch/flow_netlink.h
++++ b/net/openvswitch/flow_netlink.h
+@@ -69,5 +69,6 @@ int ovs_nla_put_actions(const struct nlattr *attr,
+ 			int len, struct sk_buff *skb);
+ 
+ void ovs_nla_free_flow_actions(struct sw_flow_actions *);
++void ovs_nla_free_flow_actions_rcu(struct sw_flow_actions *);
+ 
+ #endif /* flow_netlink.h */
 -- 
 2.4.3
