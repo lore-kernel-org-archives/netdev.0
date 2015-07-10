@@ -1,93 +1,93 @@
-From: Frederic Weisbecker <fweisbec@gmail.com>
-Subject: Re: [PATCH] nohz: prevent tilegx network driver interrupts
-Date: Fri, 10 Jul 2015 20:24:07 +0200
-Message-ID: <20150710182406.GC26428@lerouge>
-References: <1436549624-16104-1-git-send-email-cmetcalf@ezchip.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 1/2] of_mdio: add new DT property 'link' for fixed-link
+Date: Fri, 10 Jul 2015 11:22:52 -0700
+Message-ID: <55A00D7C.9090807@gmail.com>
+References: <559EB0A4.5080101@list.ru> <559EB1A6.1090008@list.ru> <559EBC59.6020003@gmail.com> <559EDD0C.7020907@list.ru> <559EE45C.4040408@gmail.com> <559EEAE9.4000806@list.ru> <alpine.LNX.2.02.1507100940530.15010@sbrk.org> <559FAA71.2030209@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Chris Metcalf <cmetcalf@ezchip.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:36101 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932290AbbGJSYL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 14:24:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1436549624-16104-1-git-send-email-cmetcalf@ezchip.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux kernel <linux-kernel@vger.kernel.org>,
+	Arnaud Ebalard <arno@natisbad.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Grant Likely <grant.likely@linaro.org>,
+	devicetree@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: Stas Sergeev <stsp@list.ru>, Sebastien Rannou <mxs@sbrk.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <559FAA71.2030209@list.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 10, 2015 at 01:33:44PM -0400, Chris Metcalf wrote:
-> In nohz_full mode, by default distribute networking shim
-> interrupts across the housekeeping cores, not all the cores.
+On 10/07/15 04:20, Stas Sergeev wrote:
+> 10.07.2015 11:46, Sebastien Rannou =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>> On Fri, 10 Jul 2015, Stas Sergeev wrote:
+>>
+>>> 10.07.2015 00:15, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>>>> Then, if the in-band status indication is not reliable (which real=
+ly
+>>>> should be completely understood),
+>>> Agree!
+>>> But this is not something I can help with.
+>>> Sebastien Rannou reports the problem, please ask him whatever
+>>> you see fits to get a better understanding of a problem.
+>>> The fact that his HW does not generate the inband status, is
+>>> _my own guess_.
+>>
+>> Yes, I confirm that my HW does not generate an in-band status. AFAIK=
+, it's
+>> a PHY that aggregates 4xSGMIIs to 1xQSGMII ; the MAC side of the PHY=
+ (with
+>> inband status) is connected to the switch through QSGMII, and in thi=
+s context
+>> we are on the media side of the PHY.
+> Hmm, interesting.
+> So if I parse the above correctly, you have something like 88E1340S s=
+et
+> up into a mode when SGMII is used as media interface and QSGMII as sy=
+stem
+> interface (terms are from datasheet page 5), then you connect the med=
+ia
+> interface to armada-xp and system interface to the switch.
+>=20
+> I wonder if it is the right thing to do.
+> AFAIK you could as well set up armada-xp into QSGMII mode and connect
+> that to switch. The driver would then disable the use of inband statu=
+s
+> and everything would be fine.
+> Either way, your use-case proves that only DT can decide the use of a=
+n
+> inband status.
 
-I can't really tell, I have no idea what this driver does. It seems
-to be about networking CPUs but I have no idea what we are affining
-here. Whether it is task, interrupt, ... And what those affine things do,
-if it is safe to do that reduce affinity etc..
+I do not think there is any debate around the need for a property that
+defines whether in-band-status is both reliable and usable, the debate
+is about *where* to put it.
 
-I looked at the driver but I can't make my way there. I think you
-need a more detailed changelog :-)
+I still think this does not belong in the fixed-link property, but now
+that you have explained a bit more in the other patch what your
+understanding of "fixed-link" is, I can see the confusion.
 
-> Signed-off-by: Chris Metcalf <cmetcalf@ezchip.com>
-> ---
-> The alternate approaches to this might be:
-> 
-> 1. "#define housekeeping_mask cpu_online_mask" in the non-nohz_full
->    arm in <linux/tick.h>, then just unconditionally use
->    "housekeeping_mask".
+Instead of having a link =3D "auto", property, how about just something
+like this:
 
-Indeed we are doing more and more references on housekeeping_mask, so
-we should probably think about an off-case.
+fixed-link {
+	speed =3D <1000>;
+	full-duplex;
+	use-in-band-status;
+};
 
-Now the nohz-full off-case should rather be cpu_possible_mask than
-cpu_online_mask. housekeeping_mask doesn't take into account onlining
-at all.
+or event this:
 
-> 
-> 2. Provide an accessor that returns the cpumask to use for housekeeping
->    chores and implement it in the obvious ways for both nohz_full
->    and non-nohz_full.
-> 
-> The latter seems like arguably the most satisfying approach, but
-> the patch below is, if nothing else, suitable to push for 4.3
-> without any further API development work.
+fixed-link {
+	use-in-band-status;
+};
 
-I don't know. 1) looks easier.
-
-> 
-> Frederic (or others), comments?
-> 
->  drivers/net/ethernet/tile/tilegx.c | 8 +++++++-
->  1 file changed, 7 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
-> index a3f7610002aa..7687c62e7d75 100644
-> --- a/drivers/net/ethernet/tile/tilegx.c
-> +++ b/drivers/net/ethernet/tile/tilegx.c
-> @@ -40,6 +40,7 @@
->  #include <linux/tcp.h>
->  #include <linux/net_tstamp.h>
->  #include <linux/ptp_clock_kernel.h>
-> +#include <linux/tick.h>
->  
->  #include <asm/checksum.h>
->  #include <asm/homecache.h>
-> @@ -2272,8 +2273,13 @@ static int __init tile_net_init_module(void)
->  	for (i = 0; gxio_mpipe_link_enumerate_mac(i, name, mac) >= 0; i++)
->  		tile_net_dev_init(name, mac);
->  
-> -	if (!network_cpus_init())
-> +	if (!network_cpus_init()) {
-> +#ifdef CONFIG_NO_HZ_FULL
-> +		network_cpus_map = *housekeeping_mask;
-> +#else
->  		network_cpus_map = *cpu_online_mask;
-> +#endif
-> +	}
->  
->  	return 0;
->  }
-> -- 
-> 2.1.2
-> 
+If you parse the 'use-in-band-status' which means that it is reliable
+information, then you can override whatever was defined in the DT under
+the 'fixed-link' property?
+--=20
+=46lorian
