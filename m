@@ -1,99 +1,141 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next] bridge: mdb: add vlan support for user
-	entries
-Date: Fri, 10 Jul 2015 08:02:08 -0700
-Message-ID: <1436540528-42334-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	bridge@lists.linux-foundation.org, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Roy Pledge <roy.pledge@freescale.com>
+Subject: RE: [PATCH 03/11] soc/fsl: Introduce the DPAA BMan portal driver
+Date: Fri, 10 Jul 2015 15:19:11 +0000
+Message-ID: <BN3PR0301MB1267A318EF9DB3C193DA9FA08C9F0@BN3PR0301MB1267.namprd03.prod.outlook.com>
+References: <1436473322-21247-1-git-send-email-Roy.Pledge@freescale.com>
+	 <1436473322-21247-4-git-send-email-Roy.Pledge@freescale.com>
+ <1436535163.20619.216.camel@tiscali.nl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"Scott Wood" <scottwood@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0140.outbound.protection.outlook.com ([65.55.169.140]:11776
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754033AbbGJPTO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jul 2015 11:19:14 -0400
+In-Reply-To: <1436535163.20619.216.camel@tiscali.nl>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Until now all user mdb entries were added in vlan 0, this patch adds
-support to allow the user to specify the vlan for the entry.
-About the uapi change a hole in struct br_mdb_entry is used so the size
-and offsets are kept the same (verified with pahole and tested with older
-iproute2).
-
-Example:
-$ bridge mdb
-dev br0 port eth1 grp 239.0.0.1 permanent vlan 2000
-dev br0 port eth1 grp 239.0.0.1 permanent vlan 200
-dev br0 port eth1 grp 239.0.0.1 permanent
-
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-note: an iproute2 patch will follow if this one is accepted
-
- include/uapi/linux/if_bridge.h | 1 +
- net/bridge/br_mdb.c            | 6 ++++++
- 2 files changed, 7 insertions(+)
-
-diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
-index eaaea6208b42..3635b7797508 100644
---- a/include/uapi/linux/if_bridge.h
-+++ b/include/uapi/linux/if_bridge.h
-@@ -182,6 +182,7 @@ struct br_mdb_entry {
- #define MDB_TEMPORARY 0
- #define MDB_PERMANENT 1
- 	__u8 state;
-+	__u16 vid;
- 	struct {
- 		union {
- 			__be32	ip4;
-diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
-index 1fb7d076f15c..a8d0e93d43f2 100644
---- a/net/bridge/br_mdb.c
-+++ b/net/bridge/br_mdb.c
-@@ -85,6 +85,7 @@ static int br_mdb_fill_info(struct sk_buff *skb, struct netlink_callback *cb,
- 					memset(&e, 0, sizeof(e));
- 					e.ifindex = port->dev->ifindex;
- 					e.state = p->state;
-+					e.vid = p->addr.vid;
- 					if (p->addr.proto == htons(ETH_P_IP))
- 						e.addr.u.ip4 = p->addr.u.ip4;
- #if IS_ENABLED(CONFIG_IPV6)
-@@ -242,6 +243,7 @@ void br_mdb_notify(struct net_device *dev, struct net_bridge_port *port,
- 	entry.addr.u.ip6 = group->u.ip6;
- #endif
- 	entry.state = state;
-+	entry.vid = group->vid;
- 	__br_mdb_notify(dev, &entry, type);
- }
- 
-@@ -264,6 +266,8 @@ static bool is_valid_mdb_entry(struct br_mdb_entry *entry)
- 		return false;
- 	if (entry->state != MDB_PERMANENT && entry->state != MDB_TEMPORARY)
- 		return false;
-+	if (entry->vid >= VLAN_VID_MASK)
-+		return false;
- 
- 	return true;
- }
-@@ -372,6 +376,7 @@ static int __br_mdb_add(struct net *net, struct net_bridge *br,
- 	if (!p || p->br != br || p->state == BR_STATE_DISABLED)
- 		return -EINVAL;
- 
-+	ip.vid = entry->vid;
- 	ip.proto = entry->addr.proto;
- 	if (ip.proto == htons(ETH_P_IP))
- 		ip.u.ip4 = entry->addr.u.ip4;
-@@ -418,6 +423,7 @@ static int __br_mdb_del(struct net_bridge *br, struct br_mdb_entry *entry)
- 	if (!netif_running(br->dev) || br->multicast_disabled)
- 		return -EINVAL;
- 
-+	ip.vid = entry->vid;
- 	ip.proto = entry->addr.proto;
- 	if (ip.proto == htons(ETH_P_IP)) {
- 		if (timer_pending(&br->ip4_other_query.timer))
--- 
-1.9.1
+UGF1bCwNCg0KVGhhbmtzIHlvdSBmb3IgeW91ciB2YWx1YWJsZSBmZWVkYmFjayBzbyBmYXIuICBM
+ZXQgbWUgdHJ5IHRvIGFkZHJlc3MgYSBnZW5lcmFsIGlzc3VlIHlvdSBtZW50aW9uIGJlbG93OiB1
+bnVzZWQgZXhwb3J0ZWQgQVBJcy4NCg0KVGhlIFFNYW4gYW5kIEJNYW4gZHJpdmVycyBwcm92aWRl
+IGEgYmFzZSBsYXllciBmb3Igb3RoZXIgYmxvY2tzIGJ1aWx0IG9uIHRvcCBvZiB0aGVtLCBmb3Ig
+aW5zdGFuY2UgYW4gRXRoZXJuZXQgRHJpdmVyLCBhbiBFbmNyeXB0L0RlY3J5cHQgRW5naW5lLCAg
+YSBwYXR0ZXJuIG1hdGNoZXIsIGEgY29tcHJlc3MvZGVjb21wcmVzcyBlbmdpbmUsIGV0Yy4uLg0K
+U29tZSBvZiB0aGVzZSBkcml2ZXJzIHdpbGwgYmUgcHJlc2VudGVkIGZvciByZXZpZXcgaW4gdGhl
+IG5lYXIgZnV0dXJlLCBidXQgaW4gb3JkZXIgdG8gdHJ5IGFuZCBsYXllciB0aGUgcmV2aWV3L3Vw
+IHN0cmVhbWluZyBwcm9jZXNzIHdlJ3JlIHByZXNlbnRpbmcgZWFjaCBsYXllciBhcyBpbmRlcGVu
+ZGVudGx5IGFzIHBvc3NpYmxlLg0KSWYgeW91IHJlYWxseSB3ZXJlIHRvIHN0YXJ0IGRpc3NlY3Rp
+bmcgd2hpY2ggQVBJcyBhcmUgY2FsbGVkIHlvdSB3b3VsZCBjb21lIHRvIGEgdmVyeSBzbWFsbCBz
+ZXQgb2YgcGllY2VzIHRoYXQgbWVyZWx5IGluaXRpYWxpemUgdGhlIGhhcmR3YXJlIGJ1dCBkb24n
+dCBwcm92aWRlIGFueSBvcHBvcnR1bml0eSBmb3Igb3RoZXIgdXNlcnMgdG8gaW52b2tlIHRoYXQg
+SFcuIA0KDQpJIGhvcGUgdGhhdCB0aGlzIGhlbHBzIHlvdSB1bmRlcnN0YW5kIG91ciBnb2FscyBp
+biB0cnlpbmcgdG8gdXBzdHJlYW0gdGhlc2UgZHJpdmVycy4NCg0KDQpSb3kNCg0KPiAtLS0tLU9y
+aWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBQYXVsIEJvbGxlIFttYWlsdG86cGVib2xsZUB0
+aXNjYWxpLm5sXQ0KPiBTZW50OiBGcmlkYXksIEp1bHkgMTAsIDIwMTUgOTozMyBBTQ0KPiBUbzog
+UGxlZGdlIFJveS1SMDEzNTYNCj4gQ2M6IGxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnOyBX
+b29kIFNjb3R0LUIwNzQyMTsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVs
+QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIDAzLzExXSBzb2MvZnNsOiBJ
+bnRyb2R1Y2UgdGhlIERQQUEgQk1hbiBwb3J0YWwgZHJpdmVyDQo+IA0KPiBPbiBkbywgMjAxNS0w
+Ny0wOSBhdCAxNjoyMSAtMDQwMCwgUm95IFBsZWRnZSB3cm90ZToNCj4gPiAtLS0gYS9kcml2ZXJz
+L3NvYy9mc2wvcWJtYW4vS2NvbmZpZw0KPiA+ICsrKyBiL2RyaXZlcnMvc29jL2ZzbC9xYm1hbi9L
+Y29uZmlnDQo+IA0KPiA+ICtjb25maWcgRlNMX0RQQV9QSVJRX0ZBU1QNCj4gPiArCWJvb2wNCj4g
+PiArCWRlZmF1bHQgeQ0KPiANCj4gRmlyc3QgdXNlZCBpbiAwNC8xMS4NCj4gDQo+ID4gK2NvbmZp
+ZyBGU0xfRFBBX1BJUlFfU0xPVw0KPiA+ICsJYm9vbA0KPiA+ICsJZGVmYXVsdCB5DQo+ID4gKw0K
+PiA+ICtjb25maWcgRlNMX0RQQV9QT1JUQUxfU0hBUkUNCj4gPiArCWJvb2wNCj4gPiArCWRlZmF1
+bHQgeQ0KPiANCj4gQXMgaW4gMDIvMTE6IHRoZXNlIHRocmVlIHN5bWJvbHMgZnVuY3Rpb24gYXMg
+YWxpYXNlcyBmb3IgRlNMX0RQQS4gV2h5IGFyZQ0KPiB0aGV5IG5lZWRlZD8NCj4gDQo+ID4gIGNv
+bmZpZyBGU0xfQk1BTg0KPiA+ICAJdHJpc3RhdGUgIkJNYW4gZGV2aWNlIG1hbmFnZW1lbnQiDQo+
+ID4gIAlkZWZhdWx0IG4NCj4gPiAgCWhlbHANCj4gPiAgCQlGU0wgRFBBQSBCTWFuIGRyaXZlcg0K
+PiA+DQo+ID4gK2NvbmZpZyBGU0xfQk1BTl9QT1JUQUwNCj4gPiArCXRyaXN0YXRlICJCTWFuIHBv
+cnRhbChzKSINCj4gPiArCWRlZmF1bHQgbg0KPiA+ICsJaGVscA0KPiA+ICsJCUZTTCBCTWFuIHBv
+cnRhbCBkcml2ZXINCj4gDQo+ID4gLS0tIC9kZXYvbnVsbA0KPiA+ICsrKyBiL2RyaXZlcnMvc29j
+L2ZzbC9xYm1hbi9ibWFuX2FwaS5jDQo+IA0KPiA+ICtzdHJ1Y3QgYm1hbl9wb3J0YWwgew0KPiA+
+ICsJWy4uLl0NCj4gPiArI2lmZGVmIENPTkZJR19GU0xfRFBBX0NBTl9XQUlUX1NZTkMNCj4gDQo+
+IFRoaXMgY2hlY2sgd2lsbCBhbHdheXMgZXZhbHVhdGUgdG8gdHJ1ZSwgcmlnaHQ/IChJJ2xsIG9u
+bHkgcmVwb3J0IHRoaXMNCj4gb25jZS4pDQo+IA0KPiA+ICsJc3RydWN0IGJtYW5fcG9vbCAqcmNy
+aV9vd25lZDsgLyogb25seSAxIHJlbGVhc2UgV0FJVF9TWU5DIGF0DQo+ID4gYSB0aW1lICovDQo+
+ID4gKyNlbmRpZg0KPiA+ICsjaWZkZWYgQ09ORklHX0ZTTF9EUEFfUE9SVEFMX1NIQVJFDQo+IA0K
+PiBEaXR0by4NCj4gDQo+ID4gKwlyYXdfc3BpbmxvY2tfdCBzaGFyaW5nX2xvY2s7IC8qIG9ubHkg
+dXNlZCBpZiBpc19zaGFyZWQgKi8NCj4gPiArCWludCBpc19zaGFyZWQ7DQo+ID4gKwlzdHJ1Y3Qg
+Ym1hbl9wb3J0YWwgKnNoYXJpbmdfcmVkaXJlY3Q7ICNlbmRpZg0KPiA+ICsJWy4uLl0NCj4gPiAr
+fTsNCj4gDQo+ID4gK2NvbnN0IHN0cnVjdCBibWFuX3BvcnRhbF9jb25maWcgKmJtYW5fZ2V0X3Bv
+cnRhbF9jb25maWcodm9pZCkgew0KPiA+ICsJWy4uLl0NCj4gPiArfQ0KPiANCj4gSSBjb3VsZG4n
+dCBmaW5kIGNhbGxlcnMgb2YgdGhpcyBmdW5jdGlvbi4NCj4gDQo+ID4gK0VYUE9SVF9TWU1CT0wo
+Ym1hbl9nZXRfcG9ydGFsX2NvbmZpZyk7DQo+IA0KPiBOb3IgdXNlcnMgb2YgdGhpcyBleHBvcnQs
+IG9idmlvdXNseS4NCj4gDQo+ID4gKw0KPiA+ICt1MzIgYm1hbl9pcnFzb3VyY2VfZ2V0KHZvaWQp
+DQo+ID4gK3sNCj4gPiArCVsuLi5dDQo+ID4gK30NCj4gDQo+IERpdHRvLg0KPiANCj4gPiArRVhQ
+T1JUX1NZTUJPTChibWFuX2lycXNvdXJjZV9nZXQpOw0KPiANCj4gRGl0dG8uDQo+IA0KPiA+ICtp
+bnQgYm1hbl9wX2lycXNvdXJjZV9hZGQoc3RydWN0IGJtYW5fcG9ydGFsICpwLCBfX21heWJlX3Vu
+dXNlZCB1MzINCj4gPiArYml0cykgew0KPiA+ICsJWy4uLl0NCj4gPiArfQ0KPiA+ICtFWFBPUlRf
+U1lNQk9MKGJtYW5fcF9pcnFzb3VyY2VfYWRkKTsNCj4gDQo+IFRoZXJlIHNlZW0gdG8gYmUgbm8g
+dXNlcnMgb2YgdGhpcyBleHBvcnQuDQo+IA0KPiA+ICtpbnQgYm1hbl9pcnFzb3VyY2VfYWRkKF9f
+bWF5YmVfdW51c2VkIHUzMiBiaXRzKSB7DQo+ID4gKwlbLi4uXQ0KPiA+ICt9DQo+IA0KPiBVbnVz
+ZWQuDQo+IA0KPiA+ICtFWFBPUlRfU1lNQk9MKGJtYW5faXJxc291cmNlX2FkZCk7DQo+IA0KPiBE
+aXR0by4NCj4gDQo+ID4gK2ludCBibWFuX2lycXNvdXJjZV9yZW1vdmUodTMyIGJpdHMpDQo+ID4g
+K3sNCj4gPiArCVsuLi5dDQo+ID4gK30NCj4gDQo+IERpdHRvLg0KPiANCj4gPiArRVhQT1JUX1NZ
+TUJPTChibWFuX2lycXNvdXJjZV9yZW1vdmUpOw0KPiANCj4gRGl0dG8uDQo+IA0KPiA+ICt1MzIg
+Ym1hbl9wb2xsX3Nsb3codm9pZCkNCj4gPiArew0KPiA+ICsJWy4uLl0NCj4gPiArfQ0KPiANCj4g
+RGl0dG8uDQo+IA0KPiA+ICtFWFBPUlRfU1lNQk9MKGJtYW5fcG9sbF9zbG93KTsNCj4gDQo+IERp
+dHRvLg0KPiANCj4gPiArdm9pZCBibWFuX3BvbGwodm9pZCkNCj4gPiArew0KPiA+ICsJWy4uLl0N
+Cj4gPiArfQ0KPiANCj4gRGl0dG8uDQo+IA0KPiA+ICtFWFBPUlRfU1lNQk9MKGJtYW5fcG9sbCk7
+DQo+IA0KPiBEaXR0by4NCj4gDQo+ID4gK3N0YXRpYyBpbmxpbmUgc3RydWN0IGJtX3Jjcl9lbnRy
+eSAqdHJ5X3JlbF9zdGFydChzdHJ1Y3QgYm1hbl9wb3J0YWwNCj4gPiArKipwLCAjaWZkZWYgQ09O
+RklHX0ZTTF9EUEFfQ0FOX1dBSVQNCj4gDQo+IEFsd2F5cyB0cnVlLCByaWdodD8NCj4gDQo+ID4g
+KwkJCQkJX19tYXliZV91bnVzZWQgc3RydWN0IGJtYW5fcG9vbA0KPiAqcG9vbCwgI2VuZGlmDQo+
+ID4gKwkJCQkJX19tYXliZV91bnVzZWQgdW5zaWduZWQgbG9uZw0KPiAqaXJxZmxhZ3MsDQo+ID4g
+KwkJCQkJX19tYXliZV91bnVzZWQgdTMyIGZsYWdzKQ0KPiANCj4gQW5kIHRoaXMgaXMgYSwgd2Vs
+bCwgbm92ZWwgd2F5IHRvIGRlY2xhcmUgYSBmdW5jdGlvbi4NCj4gDQo+ID4gK3sNCj4gPiArCVsu
+Li5dDQo+ID4gK30NCj4gDQo+ID4gK2ludCBibWFuX2ZsdXNoX3N0b2NrcGlsZShzdHJ1Y3QgYm1h
+bl9wb29sICpwb29sLCB1MzIgZmxhZ3MpIHsNCj4gPiArCVsuLi5dDQo+ID4gK30NCj4gDQo+IFVu
+dXNlZCBmdW5jdGlvbi4NCj4gDQo+ID4gK0VYUE9SVF9TWU1CT0woYm1hbl9mbHVzaF9zdG9ja3Bp
+bGUpOw0KPiANCj4gU28gdW51c2VkIGV4cG9ydCB0b28uDQo+IA0KPiA+ICsjaWZkZWYgQ09ORklH
+X0ZTTF9CTUFODQo+ID4gK3UzMiBibWFuX3F1ZXJ5X2ZyZWVfYnVmZmVycyhzdHJ1Y3QgYm1hbl9w
+b29sICpwb29sKSB7DQo+ID4gKwlyZXR1cm4gYm1fcG9vbF9mcmVlX2J1ZmZlcnMocG9vbC0+cGFy
+YW1zLmJwaWQpOw0KPiA+ICt9DQo+ID4gK0VYUE9SVF9TWU1CT0woYm1hbl9xdWVyeV9mcmVlX2J1
+ZmZlcnMpOw0KPiA+ICsNCj4gPiAraW50IGJtYW5fdXBkYXRlX3Bvb2xfdGhyZXNob2xkcyhzdHJ1
+Y3QgYm1hbl9wb29sICpwb29sLCBjb25zdCB1MzINCj4gPiArKnRocmVzaG9sZHMpIHsNCj4gPiAr
+CXUzMiBicGlkOw0KPiA+ICsNCj4gPiArCWJwaWQgPSBibWFuX2dldF9wYXJhbXMocG9vbCktPmJw
+aWQ7DQo+ID4gKw0KPiA+ICsJcmV0dXJuIGJtX3Bvb2xfc2V0KGJwaWQsIHRocmVzaG9sZHMpOyB9
+DQo+ID4gK0VYUE9SVF9TWU1CT0woYm1hbl91cGRhdGVfcG9vbF90aHJlc2hvbGRzKTsNCj4gDQo+
+IE1vcmUgb2YgdGhlIHNhbWUuDQo+IA0KPiA+ICsjZW5kaWYNCj4gDQo+ID4gLS0tIC9kZXYvbnVs
+bA0KPiA+ICsrKyBiL2RyaXZlcnMvc29jL2ZzbC9xYm1hbi9ibWFuX3BvcnRhbC5jDQo+ID4NCj4g
+PiArbW9kdWxlX2RyaXZlcihibWFuX3BvcnRhbF9kcml2ZXIsDQo+ID4gKwkgICAgICAgYm1hbl9w
+b3J0YWxfZHJpdmVyX3JlZ2lzdGVyLCBwbGF0Zm9ybV9kcml2ZXJfdW5yZWdpc3Rlcik7DQo+IA0K
+PiBObyBNT0RVTEVfTElDRU5TRSgpIGhlcmUsIG5vciBpbiB0aGUgb3RoZXIgZmlsZXMgdGhhdCBt
+YWtlIHVwIHRoaXMgbW9kdWxlLg0KPiBTbyBsb2FkaW5nIHRoaXMgbW9kdWxlIHdpbGwgdHJpZ2dl
+ciBhIHdhcm5pbmcgYW5kIHRhaW50IHRoZSBrZXJuZWwuDQo+IA0KPiA+IC0tLSAvZGV2L251bGwN
+Cj4gPiArKysgYi9kcml2ZXJzL3NvYy9mc2wvcWJtYW4vYm1hbl91dGlscy5jDQo+IA0KPiA+ICtF
+WFBPUlRfU1lNQk9MKGJtYW5fYWxsb2NfYnBpZF9yYW5nZSk7DQo+IA0KPiBVbnVzZWQgZXhwb3J0
+Lg0KPiANCj4gPiArRVhQT1JUX1NZTUJPTChibWFuX3JlbGVhc2VfYnBpZF9yYW5nZSk7DQo+IA0K
+PiBEaXR0by4NCj4gDQo+ID4gK0VYUE9SVF9TWU1CT0woYm1hbl9zZWVkX2JwaWRfcmFuZ2UpOw0K
+PiANCj4gRGl0dG8uDQo+IA0KPiA+ICtpbnQgYm1hbl9yZXNlcnZlX2JwaWRfcmFuZ2UodTMyIGJw
+aWQsIHUzMiBjb3VudCkgew0KPiA+ICsJcmV0dXJuIGRwYWFfcmVzb3VyY2VfcmVzZXJ2ZSgmYnBh
+bGxvYywgYnBpZCwgY291bnQpOyB9DQo+ID4gK0VYUE9SVF9TWU1CT0woYm1hbl9yZXNlcnZlX2Jw
+aWRfcmFuZ2UpOw0KPiANCj4gQmVjYXVzZSBibWFuX3Jlc2VydmVfYnBpZCgpIGlzIHVudXNlZCwg
+c2VlIGJlbG93LCB0aGlzIGZ1bmN0aW9uIGFuZCB0aGlzDQo+IGV4cG9ydCBhcmUgdW51c2VkIHRv
+by4NCj4gDQo+ID4gLS0tIC9kZXYvbnVsbA0KPiA+ICsrKyBiL2RyaXZlcnMvc29jL2ZzbC9xYm1h
+bi9kcGFhX3Jlc291cmNlLmMNCj4gPg0KPiA+ICsjaWYgZGVmaW5lZChDT05GSUdfRlNMX0JNQU5f
+UE9SVEFMKSB8fA0KPiA+ICtkZWZpbmVkKENPTkZJR19GU0xfQk1BTl9QT1JUQUxfTU9EVUxFKQ0K
+PiANCj4gI2lmIElTX0VOQUJMRUQoQ09ORklHX0ZTTF9CTUFOX1BPUlRBTCkNCj4gDQo+ID4gKyNp
+ZmRlZiBEUEFBX1JFU09VUkNFX0RFQlVHDQo+IA0KPiBOZXZlciBkZWZpbmVkLiBTbyBEVU1QKCkg
+aXMgZGVhZCBjb2RlLg0KPiANCj4gPiAtLS0gYS9kcml2ZXJzL3NvYy9mc2wvcWJtYW4vZHBhYV9z
+eXMuaA0KPiA+ICsrKyBiL2RyaXZlcnMvc29jL2ZzbC9xYm1hbi9kcGFhX3N5cy5oDQo+ID4NCj4g
+PiArI2RlZmluZSBDT05GSUdfVFJZX0JFVFRFUl9NRU1DUFkNCj4gDQo+IFBsZWFzZSByZXBsYWNl
+IHRoZSBDT05GSUdfIHByZWZpeCB3aXRoIHNvbWV0aGluZyBlbHNlLg0KPiANCj4gPiArI2lmZGVm
+IENPTkZJR19UUllfQkVUVEVSX01FTUNQWQ0KPiANCj4gVGhpcyB3aWxsIGFsd2F5cyBiZSB0cnVl
+LCByaWdodD8NCj4gDQo+ID4gWy4uLl0NCj4gPiArI2Vsc2UNCj4gPiArI2RlZmluZSBjb3B5X3dv
+cmRzIG1lbWNweQ0KPiA+ICsjZGVmaW5lIGNvcHlfc2hvcnRzIG1lbWNweQ0KPiA+ICsjZGVmaW5l
+IGNvcHlfYnl0ZXMgbWVtY3B5DQo+ID4gKyNlbmRpZg0KPiANCj4gPiAtLS0gL2Rldi9udWxsDQo+
+ID4gKysrIGIvaW5jbHVkZS9zb2MvZnNsL2JtYW4uaA0KPiANCj4gPiArc3RhdGljIGlubGluZSBp
+bnQgYm1hbl9yZXNlcnZlX2JwaWQodTMyIGJwaWQpIHsNCj4gPiArCXJldHVybiBibWFuX3Jlc2Vy
+dmVfYnBpZF9yYW5nZShicGlkLCAxKTsgfQ0KPiANCj4gVW51c2VkLg0KPiANCj4gVGhhbmtzLA0K
+PiANCj4gDQo+IFBhdWwgQm9sbGUNCg==
