@@ -1,99 +1,68 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH -next 4/6] netfilter: Factor out the hook list selection from nf_register_hook
-Date: Fri, 10 Jul 2015 18:14:30 -0500
-Message-ID: <87lhenr4fd.fsf_-_@x220.int.ebiederm.org>
-References: <87616ppt3h.fsf@x220.int.ebiederm.org>
-	<87r3pae5hn.fsf@x220.int.ebiederm.org>
-	<878uansj4d.fsf_-_@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Juanjo Ciarlante <jjciarla@raiz.uncu.edu.ar>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Petri Gynther <pgynther@google.com>
+Subject: [PATCH net v2] net: bcmgenet: fix accounting of packet drops vs errors
+Date: Fri, 10 Jul 2015 16:20:00 -0700
+Message-ID: <1436570400-23652-1-git-send-email-pgynther@google.com>
+Cc: f.fainelli@gmail.com, davem@davemloft.net,
+	Petri Gynther <pgynther@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:55467 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753115AbbGJXUK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 19:20:10 -0400
-In-Reply-To: <878uansj4d.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
-	message of "Fri, 10 Jul 2015 18:11:46 -0500")
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:34096 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752952AbbGJXUd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 19:20:33 -0400
+Received: by igvi1 with SMTP id i1so773900igv.1
+        for <netdev@vger.kernel.org>; Fri, 10 Jul 2015 16:20:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+bcmgenet driver needs to separate packet drops from packet errors.
 
-- Add a new function find_nf_hook_list to select the nf_hook_list
+When the driver has to drop a *good* packet, due to lack of buffers or
+replacement skbs, increment only dev->stats.[rx|tx]_dropped.
 
-- Fail nf_register_hook when asked for a per netdevice hook list when
-  support for per netdevice hook lists is not built into the kernel.
+When the driver encounters a bad Rx packet or Tx error, increment only
+dev->stats.[rx|tx]_errors + relevant detailed error counter.
 
-- Move the hook list head selection outside of nf_hook_mutex as
-  nothing in the selection requires the hook list, and error handling
-  is simpler if a mutex is not held.
-
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Petri Gynther <pgynther@google.com>
 ---
- net/netfilter/core.c | 32 ++++++++++++++++++--------------
- 1 file changed, 18 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index 7e3bc12f1c62..8bbcdfcdbfbd 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -62,27 +62,31 @@ EXPORT_SYMBOL(nf_hooks_needed);
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index b43b2cb..64c1e9d 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -1230,7 +1230,6 @@ static struct sk_buff *bcmgenet_put_tx_csum(struct net_device *dev,
+ 		new_skb = skb_realloc_headroom(skb, sizeof(*status));
+ 		dev_kfree_skb(skb);
+ 		if (!new_skb) {
+-			dev->stats.tx_errors++;
+ 			dev->stats.tx_dropped++;
+ 			return NULL;
+ 		}
+@@ -1465,7 +1464,6 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_rx_ring *ring,
  
- static DEFINE_MUTEX(nf_hook_mutex);
+ 		if (unlikely(!skb)) {
+ 			dev->stats.rx_dropped++;
+-			dev->stats.rx_errors++;
+ 			goto next;
+ 		}
  
--int nf_register_hook(struct nf_hook_ops *reg)
-+static struct list_head *find_nf_hook_list(const struct nf_hook_ops *reg)
- {
--	struct list_head *nf_hook_list;
--	struct nf_hook_ops *elem;
-+	struct list_head *nf_hook_list = NULL;
- 
--	mutex_lock(&nf_hook_mutex);
--	switch (reg->pf) {
--	case NFPROTO_NETDEV:
-+	if (reg->pf != NFPROTO_NETDEV)
-+		nf_hook_list = &nf_hooks[reg->pf][reg->hooknum];
-+	else if (reg->hooknum == NF_NETDEV_INGRESS) {
- #ifdef CONFIG_NETFILTER_INGRESS
--		if (reg->hooknum == NF_NETDEV_INGRESS) {
--			BUG_ON(reg->dev == NULL);
-+		if (reg->dev)
- 			nf_hook_list = &reg->dev->nf_hooks_ingress;
--			break;
--		}
- #endif
--		/* Fall through. */
--	default:
--		nf_hook_list = &nf_hooks[reg->pf][reg->hooknum];
--		break;
- 	}
-+	return nf_hook_list;
-+}
-+
-+int nf_register_hook(struct nf_hook_ops *reg)
-+{
-+	struct list_head *nf_hook_list;
-+	struct nf_hook_ops *elem;
- 
-+	nf_hook_list = find_nf_hook_list(reg);
-+	if (!nf_hook_list)
-+		return -ENOENT;
-+
-+	mutex_lock(&nf_hook_mutex);
- 	list_for_each_entry(elem, nf_hook_list, list) {
- 		if (reg->priority < elem->priority)
- 			break;
+@@ -1493,7 +1491,6 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_rx_ring *ring,
+ 		if (unlikely(!(dma_flag & DMA_EOP) || !(dma_flag & DMA_SOP))) {
+ 			netif_err(priv, rx_status, dev,
+ 				  "dropping fragmented packet!\n");
+-			dev->stats.rx_dropped++;
+ 			dev->stats.rx_errors++;
+ 			dev_kfree_skb_any(skb);
+ 			goto next;
+@@ -1515,7 +1512,6 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_rx_ring *ring,
+ 				dev->stats.rx_frame_errors++;
+ 			if (dma_flag & DMA_RX_LG)
+ 				dev->stats.rx_length_errors++;
+-			dev->stats.rx_dropped++;
+ 			dev->stats.rx_errors++;
+ 			dev_kfree_skb_any(skb);
+ 			goto next;
 -- 
-2.2.1
+2.4.3.573.g4eafbef
