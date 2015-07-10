@@ -1,43 +1,76 @@
-From: Julian Anastasov <ja-FgGsKACvmQM@public.gmane.org>
-Subject: Re: [RFC net-next 11/22] dst: Metadata destinations
-Date: Fri, 10 Jul 2015 21:57:31 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1507102139530.1754@ja.home.ssi.bg>
-References: <cover.1436537414.git.tgraf@suug.ch>
- <1b20319e1ff0f2be28e783b90ac48738d6a8b72b.1436537414.git.tgraf@suug.ch>
+From: Chris Metcalf <cmetcalf@ezchip.com>
+Subject: Re: [PATCH] nohz: prevent tilegx network driver interrupts
+Date: Fri, 10 Jul 2015 15:05:02 -0400
+Message-ID: <55A0175E.2010200@ezchip.com>
+References: <1436549624-16104-1-git-send-email-cmetcalf@ezchip.com> <20150710182406.GC26428@lerouge>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
- daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
- edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
- rshearma-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1b20319e1ff0f2be28e783b90ac48738d6a8b72b.1436537414.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Frederic Weisbecker <fweisbec@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150710182406.GC26428@lerouge>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CglIZWxsbywKCk9uIEZyaSwgMTAgSnVsIDIwMTUsIFRob21hcyBHcmFmIHdyb3RlOgoKPiAtLS0g
-YS9uZXQvaXB2NC9yb3V0ZS5jCj4gKysrIGIvbmV0L2lwdjQvcm91dGUuYwo+IEBAIC0xNjkxLDYg
-KzE2OTEsOCBAQCBzdGF0aWMgaW50IGlwX3JvdXRlX2lucHV0X3Nsb3coc3RydWN0IHNrX2J1ZmYg
-KnNrYiwgX19iZTMyIGRhZGRyLCBfX2JlMzIgc2FkZHIsCj4gIAkgICBieSBmaWJfbG9va3VwLgo+
-ICAJICovCj4gIAo+ICsJc2tiX2RzdF9kcm9wKHNrYik7Cj4gKwoKCVRoaXMgaXMgbm90IHZlcnkg
-c2FmZS4gVGhlcmUgYXJlIHBsYWNlcyB0aGF0CmNhbGwgaXBfcm91dGVfaW5wdXQoKSBmb3IgdGVt
-cG9yYXJ5IGxvb2t1cHMgYW5kIHRoZXkKZG8gbm90IHNldCBOVUxMLiBGb3IgZXhhbXBsZSwgaWNt
-cF9yb3V0ZV9sb29rdXAoKSwKbWF5IGJlIHRoZXJlIGFyZSBvdGhlciBzdWNoIHBsYWNlcy4uLgoK
-CU9UT0gsIGlwX29wdGlvbnNfcmN2X3NycigpIGxvb2tzIGNvcnJlY3QgdG8gdXNlCnNrYl9kc3Rf
-c2V0KHNrYiwgTlVMTCksIG1heSBiZSBzdWNoIGNhbGwgc2hvdWxkIGJlCmFkZGVkIGlmIGl0IGlz
-IG1pc3NpbmcuLi4KCj4gIAlpZiAoaXB2NF9pc19tdWx0aWNhc3Qoc2FkZHIpIHx8IGlwdjRfaXNf
-bGJjYXN0KHNhZGRyKSkKPiAgCQlnb3RvIG1hcnRpYW5fc291cmNlOwoKUmVnYXJkcwoKLS0KSnVs
-aWFuIEFuYXN0YXNvdiA8amFAc3NpLmJnPgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0
-cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+On 07/10/2015 02:24 PM, Frederic Weisbecker wrote:
+> On Fri, Jul 10, 2015 at 01:33:44PM -0400, Chris Metcalf wrote:
+>> In nohz_full mode, by default distribute networking shim
+>> interrupts across the housekeeping cores, not all the cores.
+> I can't really tell, I have no idea what this driver does. It seems
+> to be about networking CPUs but I have no idea what we are affining
+> here. Whether it is task, interrupt, ... And what those affine things do,
+> if it is safe to do that reduce affinity etc..
+>
+> I looked at the driver but I can't make my way there. I think you
+> need a more detailed changelog :-)
+
+Fair enough! :-)  See updated changelog to follow.
+
+>> Signed-off-by: Chris Metcalf <cmetcalf@ezchip.com>
+>> ---
+>> The alternate approaches to this might be:
+>>
+>> 1. "#define housekeeping_mask cpu_online_mask" in the non-nohz_full
+>>     arm in <linux/tick.h>, then just unconditionally use
+>>     "housekeeping_mask".
+> Indeed we are doing more and more references on housekeeping_mask, so
+> we should probably think about an off-case.
+>
+> Now the nohz-full off-case should rather be cpu_possible_mask than
+> cpu_online_mask. housekeeping_mask doesn't take into account onlining
+> at all.
+
+That suggests that in this case, we might want to default to
+something like "housekeeping_mask & cpu_online_mask",
+since you really don't want to send irqs to offline cores to
+process your packets :-)
+
+The tilegx chips typically don't do cpu offlining anyway, since
+we've never really found a usecase, so whatever you boot with
+you always have available.  We do have support for a bare-metal
+mode which you can run on some of the cores, so you may start
+with fewer than cpu_possible actually running, but it will always
+be that same set of cores.
+
+So this does suggest that my original patch is wrong for that
+same reason.
+
+>> 2. Provide an accessor that returns the cpumask to use for housekeeping
+>>     chores and implement it in the obvious ways for both nohz_full
+>>     and non-nohz_full.
+>>
+>> The latter seems like arguably the most satisfying approach, but
+>> the patch below is, if nothing else, suitable to push for 4.3
+>> without any further API development work.
+> I don't know. 1) looks easier.
+
+On reflection, the problem with (1) is that if you are in NO_HZ_FULL
+mode but !tick_nohz_full_enabled(), you want to fall back to just
+using cpu_possible_mask anyway.  So I think a simple accessor that
+returns an appropriate cpumask pointer is probably the best bet
+(along the lines of the existing is_housekeeping_cpu() accessor).
+
+-- 
+Chris Metcalf, EZChip Semiconductor
+http://www.ezchip.com
