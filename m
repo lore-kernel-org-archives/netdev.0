@@ -1,264 +1,135 @@
-From: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kvGyRCNUhGIzFRTEAbKEI=?=
-	<hideaki.yoshifuji@miraclelinux.com>
-Subject: [PATCH net-next] ipv6: Do not iterate over all interfaces when finding
- source address on specific interface.
-Date: Fri, 10 Jul 2015 15:50:22 +0900
-Message-ID: <559F6B2E.8010408@miraclelinux.com>
+From: Miha Marolt <miham@beyondsemi.com>
+Subject: Re: [BUG] "$ ss -a" incorrectly displays raw sockets as udp sockets
+Date: Fri, 10 Jul 2015 09:09:46 +0200
+Message-ID: <559F6FBA.9080807@beyondsemi.com>
+References: <559E8178.9080808@beyondsemi.com> <559E8A1E.1060002@cumulusnetworks.com> <20150709145517.GA12466@angus-think.lan> <559E8BE2.20404@cumulusnetworks.com> <559E8EA7.2060600@beyondsemi.com> <20150709151506.GA15350@angus-think.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, lorenzo@google.com,
-	=?ISO-2022-JP?B?WU9TSA==?=
-	 =?ISO-2022-JP?B?SUZVSkkgSGlkZWFraS8bJEI1SEYjMVFMQBsoQg==?=
-	<hideaki.yoshifuji@miraclelinux.com>
-To: davem@davemloft.net, netdev@vger.kernel.org, ek@google.com
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:36489 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751618AbbGJGu0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 02:50:26 -0400
-Received: by pacgz10 with SMTP id gz10so90206061pac.3
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 23:50:26 -0700 (PDT)
+Received: from bsemi.com ([84.255.202.183]:43789 "EHLO mail.beyondsemi.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751739AbbGJHJt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jul 2015 03:09:49 -0400
+In-Reply-To: <20150709151506.GA15350@angus-think.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If outgoing interface is specified and the candidate addresses
-are restricted to the outgoing interface, it is enough to iterate
-over that given interface only.
 
-Signed-off-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
----
- net/ipv6/addrconf.c | 201 +++++++++++++++++++++++++++++-----------------------
- 1 file changed, 111 insertions(+), 90 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 21c2c81..b4c82d8 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1358,15 +1358,94 @@ out:
- 	return ret;
- }
- 
-+static void __ipv6_dev_get_saddr(struct net *net,
-+				 struct ipv6_saddr_dst *dst,
-+				 unsigned int prefs,
-+				 const struct in6_addr *saddr,
-+				 struct inet6_dev *idev,
-+				 struct ipv6_saddr_score *scores)
-+{
-+	struct ipv6_saddr_score *score = &scores[0], *hiscore = &scores[1];
-+
-+	read_lock_bh(&idev->lock);
-+	list_for_each_entry(score->ifa, &idev->addr_list, if_list) {
-+		int i;
-+
-+		/*
-+		 * - Tentative Address (RFC2462 section 5.4)
-+		 *  - A tentative address is not considered
-+		 *    "assigned to an interface" in the traditional
-+		 *    sense, unless it is also flagged as optimistic.
-+		 * - Candidate Source Address (section 4)
-+		 *  - In any case, anycast addresses, multicast
-+		 *    addresses, and the unspecified address MUST
-+		 *    NOT be included in a candidate set.
-+		 */
-+		if ((score->ifa->flags & IFA_F_TENTATIVE) &&
-+		    (!(score->ifa->flags & IFA_F_OPTIMISTIC)))
-+			continue;
-+
-+		score->addr_type = __ipv6_addr_type(&score->ifa->addr);
-+
-+		if (unlikely(score->addr_type == IPV6_ADDR_ANY ||
-+			     score->addr_type & IPV6_ADDR_MULTICAST)) {
-+			net_dbg_ratelimited("ADDRCONF: unspecified / multicast address assigned as unicast address on %s",
-+					    idev->dev->name);
-+			continue;
-+		}
-+
-+		score->rule = -1;
-+		bitmap_zero(score->scorebits, IPV6_SADDR_RULE_MAX);
-+
-+		for (i = 0; i < IPV6_SADDR_RULE_MAX; i++) {
-+			int minihiscore, miniscore;
-+
-+			minihiscore = ipv6_get_saddr_eval(net, hiscore, dst, i);
-+			miniscore = ipv6_get_saddr_eval(net, score, dst, i);
-+
-+			if (minihiscore > miniscore) {
-+				if (i == IPV6_SADDR_RULE_SCOPE &&
-+				    score->scopedist > 0) {
-+					/*
-+					 * special case:
-+					 * each remaining entry
-+					 * has too small (not enough)
-+					 * scope, because ifa entries
-+					 * are sorted by their scope
-+					 * values.
-+					 */
-+					goto out;
-+				}
-+				break;
-+			} else if (minihiscore < miniscore) {
-+				if (hiscore->ifa)
-+					in6_ifa_put(hiscore->ifa);
-+
-+				in6_ifa_hold(score->ifa);
-+
-+				swap(hiscore, score);
-+
-+				/* restore our iterator */
-+				score->ifa = hiscore->ifa;
-+
-+				break;
-+			}
-+		}
-+	}
-+out:
-+	read_unlock_bh(&idev->lock);
-+}
-+
- int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
- 		       const struct in6_addr *daddr, unsigned int prefs,
- 		       struct in6_addr *saddr)
- {
--	struct ipv6_saddr_score scores[2],
--				*score = &scores[0], *hiscore = &scores[1];
-+	struct ipv6_saddr_score scores[2], *hiscore = &scores[1];
- 	struct ipv6_saddr_dst dst;
-+	struct inet6_dev *idev;
- 	struct net_device *dev;
- 	int dst_type;
-+	bool use_oif_addr = false;
- 
- 	dst_type = __ipv6_addr_type(daddr);
- 	dst.addr = daddr;
-@@ -1380,97 +1459,39 @@ int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
- 
- 	rcu_read_lock();
- 
--	for_each_netdev_rcu(net, dev) {
--		struct inet6_dev *idev;
--
--		/* Candidate Source Address (section 4)
--		 *  - multicast and link-local destination address,
--		 *    the set of candidate source address MUST only
--		 *    include addresses assigned to interfaces
--		 *    belonging to the same link as the outgoing
--		 *    interface.
--		 * (- For site-local destination addresses, the
--		 *    set of candidate source addresses MUST only
--		 *    include addresses assigned to interfaces
--		 *    belonging to the same site as the outgoing
--		 *    interface.)
--		 */
--		if (((dst_type & IPV6_ADDR_MULTICAST) ||
--		     dst.scope <= IPV6_ADDR_SCOPE_LINKLOCAL) &&
--		    dst.ifindex && dev->ifindex != dst.ifindex)
--			continue;
--
--		idev = __in6_dev_get(dev);
--		if (!idev)
--			continue;
--
--		read_lock_bh(&idev->lock);
--		list_for_each_entry(score->ifa, &idev->addr_list, if_list) {
--			int i;
--
--			/*
--			 * - Tentative Address (RFC2462 section 5.4)
--			 *  - A tentative address is not considered
--			 *    "assigned to an interface" in the traditional
--			 *    sense, unless it is also flagged as optimistic.
--			 * - Candidate Source Address (section 4)
--			 *  - In any case, anycast addresses, multicast
--			 *    addresses, and the unspecified address MUST
--			 *    NOT be included in a candidate set.
--			 */
--			if ((score->ifa->flags & IFA_F_TENTATIVE) &&
--			    (!(score->ifa->flags & IFA_F_OPTIMISTIC)))
--				continue;
--
--			score->addr_type = __ipv6_addr_type(&score->ifa->addr);
-+	/* Candidate Source Address (section 4)
-+	 *  - multicast and link-local destination address,
-+	 *    the set of candidate source address MUST only
-+	 *    include addresses assigned to interfaces
-+	 *    belonging to the same link as the outgoing
-+	 *    interface.
-+	 * (- For site-local destination addresses, the
-+	 *    set of candidate source addresses MUST only
-+	 *    include addresses assigned to interfaces
-+	 *    belonging to the same site as the outgoing
-+	 *    interface.)
-+	 *  - "It is RECOMMENDED that the candidate source addresses
-+	 *    be the set of unicast addresses assigned to the
-+	 *    interface that will be used to send to the destination
-+	 *    (the 'outgoing' interface)." (RFC 6724)
-+	 */
-+	if (dst_dev) {
-+		if ((dst_type & IPV6_ADDR_MULTICAST) ||
-+		    dst.scope <= IPV6_ADDR_SCOPE_LINKLOCAL) {
-+			idev = __in6_dev_get(dst_dev);
-+			use_oif_addr = true;
-+		}
-+	}
- 
--			if (unlikely(score->addr_type == IPV6_ADDR_ANY ||
--				     score->addr_type & IPV6_ADDR_MULTICAST)) {
--				net_dbg_ratelimited("ADDRCONF: unspecified / multicast address assigned as unicast address on %s",
--						    dev->name);
-+	if (use_oif_addr) {
-+		__ipv6_dev_get_saddr(net, &dst, prefs, saddr, idev, scores);
-+	} else {
-+		for_each_netdev_rcu(net, dev) {
-+			idev = __in6_dev_get(dev);
-+			if (!idev)
- 				continue;
--			}
--
--			score->rule = -1;
--			bitmap_zero(score->scorebits, IPV6_SADDR_RULE_MAX);
--
--			for (i = 0; i < IPV6_SADDR_RULE_MAX; i++) {
--				int minihiscore, miniscore;
--
--				minihiscore = ipv6_get_saddr_eval(net, hiscore, &dst, i);
--				miniscore = ipv6_get_saddr_eval(net, score, &dst, i);
--
--				if (minihiscore > miniscore) {
--					if (i == IPV6_SADDR_RULE_SCOPE &&
--					    score->scopedist > 0) {
--						/*
--						 * special case:
--						 * each remaining entry
--						 * has too small (not enough)
--						 * scope, because ifa entries
--						 * are sorted by their scope
--						 * values.
--						 */
--						goto try_nextdev;
--					}
--					break;
--				} else if (minihiscore < miniscore) {
--					if (hiscore->ifa)
--						in6_ifa_put(hiscore->ifa);
--
--					in6_ifa_hold(score->ifa);
--
--					swap(hiscore, score);
--
--					/* restore our iterator */
--					score->ifa = hiscore->ifa;
--
--					break;
--				}
--			}
-+			__ipv6_dev_get_saddr(net, &dst, prefs, saddr, idev, scores);
- 		}
--try_nextdev:
--		read_unlock_bh(&idev->lock);
- 	}
- 	rcu_read_unlock();
- 
--- 
-1.9.1
+On 07/09/2015 05:15 PM, Vadim Kochan wrote:
+> On Thu, Jul 09, 2015 at 05:09:27PM +0200, Miha Marolt wrote:
+>>
+>> On 07/09/2015 04:57 PM, Nikolay Aleksandrov wrote:
+>>> On 07/09/2015 04:55 PM, Vadim Kochan wrote:
+>>>> On Thu, Jul 09, 2015 at 04:50:06PM +0200, Nikolay Aleksandrov wrote:
+>>>>> On 07/09/2015 04:13 PM, Miha Marolt wrote:
+>>>>>> Hi!
+>>>>>>
+>>>>>> I hope this is the right place to reports bugs. I apologize if it isn't.
+>>>>>>
+>>>>>> I have written a C program (see below for source code) that opens a raw socket on CentOS 7.1 Linux and binds it to some address (it doesn't use the port that I supplied, but that is not the point here). The "netstat" program correctly recognizes the socket as "raw", while "ss" program says it is "udp". Here are the relevant lines from the ss and netstat commands:
+>>>>>>
+>>>>>> $ netstat -an
+>>>>>> raw        0      0 127.0.0.1:6             0.0.0.0:* 7
+>>>>>>
+>>>>>> $ ./ss -an
+>>>>>> udp    UNCONN     21569  0      127.0.0.1:6 *:*
+>>>>>>
+>>>>>> Here is the version information
+>>>>>>
+>>>>>> $ netstat --version  # From CentOS 7.1.
+>>>>>> net-tools 2.10-alpha
+>>>>>>
+>>>>>> $ ./ss --version  # Built from git.
+>>>>>> ss utility, iproute2-ss150626
+>>>>>>
+>>>>>>
+>>>>>> C source follows. If you store it in "main.c", then compile it with "$ gcc main.c -o main" and then run it by executing "$ sudo ./main".
+>>>>>>
+>>>>>> #include <arpa/inet.h>
+>>>>>> #include <assert.h>
+>>>>>> #include <sys/socket.h>
+>>>>>> #include <stdio.h>
+>>>>>> #include <unistd.h>
+>>>>>>
+>>>>>>
+>>>>>> int main(void)
+>>>>>> {
+>>>>>>      // Create a raw socket.
+>>>>>>      int sock = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
+>>>>>>      if (sock == -1) { perror(NULL); goto exc_cleanup; }
+>>>>>>
+>>>>>>      // Bind socket to an address.
+>>>>>>      struct sockaddr_in addr;
+>>>>>>      addr.sin_family = AF_INET;
+>>>>>>      inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
+>>>>>>      addr.sin_port = htons(27183);
+>>>>>>
+>>>>>>      int rc = bind(sock, (struct sockaddr*)&addr, sizeof(addr));
+>>>>>>      if (rc != 0) { perror(NULL); goto exc_cleanup; }
+>>>>>>
+>>>>>>      // Wait until user presses <ENTER>.
+>>>>>>      printf("\nPress <ENTER> to quit the program.\n");
+>>>>>>      getchar();
+>>>>>>
+>>>>>> exc_cleanup:
+>>>>>>      assert(!close(sock));
+>>>>>> }
+>>>>>>
+>>>>>>
+>>>>>> Best regards,
+>>>>>> Miha
+>>>>> Hi,
+>>>>> I think this was changed by commit:
+>>>>> 8250bc9ff4e5 ("ss: Unify inet sockets output")
+>>>>> Because dgram_show_line() is used for both UDP and RAW sockets
+>>>>> IPPROTO_UDP is used for both now and proto_name() returns "udp".
+>>>>> CCed the patch author and attached a possible solution.
+>>>>>
+>>>>> Cheers,
+>>>>>   Nik
+>>>>> diff --git a/misc/ss.c b/misc/ss.c
+>>>>> index 870cad185341..4de77e92c319 100644
+>>>>> --- a/misc/ss.c
+>>>>> +++ b/misc/ss.c
+>>>>> @@ -1554,6 +1554,8 @@ out:
+>>>>>   static char *proto_name(int protocol)
+>>>>>   {
+>>>>>   	switch (protocol) {
+>>>>> +	case IPPROTO_RAW:
+>>>>> +		return "raw";
+>>>>>   	case IPPROTO_UDP:
+>>>>>   		return "udp";
+>>>>>   	case IPPROTO_TCP:
+>>>>> @@ -2398,7 +2400,7 @@ static int dgram_show_line(char *line, const struct filter *f, int family)
+>>>>>   	if (n < 9)
+>>>>>   		opt[0] = 0;
+>>>>> -	inet_stats_print(&s, IPPROTO_UDP);
+>>>>> +	inet_stats_print(&s, dg_proto == UDP_PROTO ? IPPROTO_UDP : IPPROTO_RAW);
+>>>>>   	if (show_details && opt[0])
+>>>>>   		printf(" opt:\"%s\"", opt);
+>>>> Yeah, it fixed the issue, just tested the fix.
+>>>>
+>>> Great, I'll submit it in a minute.
+>>> Thanks for testing!
+>> Thank you very much for the fast fix!
+>>
+>> I've found another bug: command "$ ss" doesn't display only tcp sockets as
+>> the man page ss(8) says (file man/man8/ss.8 in iproute2 git repo). It also
+>> displays e.g. unix sockets. The man page says "When no option is used ss
+>> displays a list of open non-listening TCP sockets that have established
+>> connection.".
+>>
+>>
+>> Regards,
+>> Miha
+> That seems OK, I see that unix stream sockets are displayed which are
+> connection oriented, and UDP can also have established state.
+
+According to the man page, **only** TCP sockets should be listed by "$ 
+ss". In reality, also Unix and UDP sockets are listed, so there is a 
+discrepancy between what man page says and what actually happens.
