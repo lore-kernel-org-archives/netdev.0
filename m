@@ -1,71 +1,71 @@
-From: Chris Metcalf <cmetcalf@ezchip.com>
-Subject: [PATCH] nohz: prevent tilegx network driver interrupts
-Date: Fri, 10 Jul 2015 13:33:44 -0400
-Message-ID: <1436549624-16104-1-git-send-email-cmetcalf@ezchip.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] ravb: kill usless initializers
+Date: Fri, 10 Jul 2015 20:44:39 +0300
+Message-ID: <6091630.MmiAo8Envs@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Chris Metcalf <cmetcalf@ezchip.com>
-To: Frederic Weisbecker <fweisbec@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0078.outbound.protection.outlook.com ([157.56.112.78]:25136
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932256AbbGJRd4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jul 2015 13:33:56 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In nohz_full mode, by default distribute networking shim
-interrupts across the housekeeping cores, not all the cores.
+Some of the local variable intializers in the driver turned out to be pointless,
+kill them.
 
-Signed-off-by: Chris Metcalf <cmetcalf@ezchip.com>
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
 ---
-The alternate approaches to this might be:
+The patch is against the Dave Miller's 'net-next.git' repo.
 
-1. "#define housekeeping_mask cpu_online_mask" in the non-nohz_full
-   arm in <linux/tick.h>, then just unconditionally use
-   "housekeeping_mask".
+ drivers/net/ethernet/renesas/ravb_main.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-2. Provide an accessor that returns the cpumask to use for housekeeping
-   chores and implement it in the obvious ways for both nohz_full
-   and non-nohz_full.
-
-The latter seems like arguably the most satisfying approach, but
-the patch below is, if nothing else, suitable to push for 4.3
-without any further API development work.
-
-Frederic (or others), comments?
-
- drivers/net/ethernet/tile/tilegx.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
-index a3f7610002aa..7687c62e7d75 100644
---- a/drivers/net/ethernet/tile/tilegx.c
-+++ b/drivers/net/ethernet/tile/tilegx.c
-@@ -40,6 +40,7 @@
- #include <linux/tcp.h>
- #include <linux/net_tstamp.h>
- #include <linux/ptp_clock_kernel.h>
-+#include <linux/tick.h>
+Index: net-next/drivers/net/ethernet/renesas/ravb_main.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/ravb_main.c
++++ net-next/drivers/net/ethernet/renesas/ravb_main.c
+@@ -223,9 +223,9 @@ static void ravb_ring_free(struct net_de
+ static void ravb_ring_format(struct net_device *ndev, int q)
+ {
+ 	struct ravb_private *priv = netdev_priv(ndev);
+-	struct ravb_ex_rx_desc *rx_desc = NULL;
+-	struct ravb_tx_desc *tx_desc = NULL;
+-	struct ravb_desc *desc = NULL;
++	struct ravb_ex_rx_desc *rx_desc;
++	struct ravb_tx_desc *tx_desc;
++	struct ravb_desc *desc;
+ 	int rx_ring_size = sizeof(*rx_desc) * priv->num_rx_ring[q];
+ 	int tx_ring_size = sizeof(*tx_desc) * priv->num_tx_ring[q];
+ 	struct sk_buff *skb;
+@@ -435,7 +435,7 @@ static int ravb_tx_free(struct net_devic
+ 	struct net_device_stats *stats = &priv->stats[q];
+ 	struct ravb_tx_desc *desc;
+ 	int free_num = 0;
+-	int entry = 0;
++	int entry;
+ 	u32 size;
  
- #include <asm/checksum.h>
- #include <asm/homecache.h>
-@@ -2272,8 +2273,13 @@ static int __init tile_net_init_module(void)
- 	for (i = 0; gxio_mpipe_link_enumerate_mac(i, name, mac) >= 0; i++)
- 		tile_net_dev_init(name, mac);
+ 	for (; priv->cur_tx[q] - priv->dirty_tx[q] > 0; priv->dirty_tx[q]++) {
+@@ -508,8 +508,8 @@ static bool ravb_rx(struct net_device *n
+ 	struct sk_buff *skb;
+ 	dma_addr_t dma_addr;
+ 	struct timespec64 ts;
+-	u16 pkt_len = 0;
+ 	u8  desc_status;
++	u16 pkt_len;
+ 	int limit;
  
--	if (!network_cpus_init())
-+	if (!network_cpus_init()) {
-+#ifdef CONFIG_NO_HZ_FULL
-+		network_cpus_map = *housekeeping_mask;
-+#else
- 		network_cpus_map = *cpu_online_mask;
-+#endif
-+	}
- 
- 	return 0;
- }
--- 
-2.1.2
+ 	boguscnt = min(boguscnt, *quota);
+@@ -1272,8 +1272,8 @@ static void ravb_tx_timeout_work(struct
+ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ {
+ 	struct ravb_private *priv = netdev_priv(ndev);
+-	struct ravb_tstamp_skb *ts_skb = NULL;
+ 	u16 q = skb_get_queue_mapping(skb);
++	struct ravb_tstamp_skb *ts_skb;
+ 	struct ravb_tx_desc *desc;
+ 	unsigned long flags;
+ 	u32 dma_addr;
+
