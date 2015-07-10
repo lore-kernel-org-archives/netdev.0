@@ -1,49 +1,64 @@
-From: Roy Pledge <roy.pledge@freescale.com>
-Subject: RE: [PATCH 02/11] soc/fsl: Introduce DPAA BMan device management
- driver
-Date: Fri, 10 Jul 2015 18:29:08 +0000
-Message-ID: <BN3PR0301MB1267E9EFD8CBC294275028B68C9F0@BN3PR0301MB1267.namprd03.prod.outlook.com>
-References: <1436473322-21247-1-git-send-email-Roy.Pledge@freescale.com>
-	 <1436473322-21247-3-git-send-email-Roy.Pledge@freescale.com>
-	 <1436517510.20619.123.camel@tiscali.nl>
- <1436549503.2658.157.camel@freescale.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 1/2] net: dsa: mv88e6xxx: sleep in _mv88e6xxx_stats_wait
+Date: Fri, 10 Jul 2015 11:36:23 -0700
+Message-ID: <20150710183623.GB19854@roeck-us.net>
+References: <1436547449-26927-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <20150710171027.GB6585@groeck-UX31A>
+ <1055594065.210272.1436552447158.JavaMail.zimbra@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Scott Wood <scottwood@freescale.com>,
-	Paul Bolle <pebolle@tiscali.nl>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0145.outbound.protection.outlook.com ([157.56.111.145]:51520
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932661AbbGJS3M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jul 2015 14:29:12 -0400
-In-Reply-To: <1436549503.2658.157.camel@freescale.com>
-Content-Language: en-US
+Received: from bh-25.webhostbox.net ([208.91.199.152]:59905 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933068AbbGJSg0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 14:36:26 -0400
+Content-Disposition: inline
+In-Reply-To: <1055594065.210272.1436552447158.JavaMail.zimbra@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAgIHJldHVybiBpbl9iZTMyKCh2b2lkICopYm0gKyBvZmZzZXQpOw0KPiA+ICAgICAgICAgIF4N
-Cj4gPiBbLi4uXS9kcml2ZXJzL3NvYy9mc2wvcWJtYW4vYm1hbi5jOiBJbiBmdW5jdGlvbiDigJhf
-X2JtX291dOKAmToNCj4gPiBbLi4uXS9kcml2ZXJzL3NvYy9mc2wvcWJtYW4vYm1hbi5jOjE3Mjoy
-OiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24NCj4gPiBvZiBmdW5jdGlvbiDigJhvdXRfYmUz
-MuKAmSBbLVdlcnJvcj1pbXBsaWNpdC1mdW5jdGlvbi1kZWNsYXJhdGlvbl0NCj4gPiAgIG91dF9i
-ZTMyKCh2b2lkICopYm0gKyBvZmZzZXQsIHZhbCk7DQo+IA0KPiBUaGVzZSBQUENpc21zIHdpbGwg
-bmVlZCB0byBiZSBmaXhlZC4gIExTMTA0M0EgaXMgYW4gQVJNIGNoaXAgd2l0aCBEUEFBIDEuMC4N
-Cg0KTFMxMDQzIChBUk0sIExpdHRsZSBFbmRpYW4pIHN1cHBvcnQgaXMgc3RpbGwgd29yayBpbiBw
-cm9ncmVzcy4gIFRoZSBwYXRjaGVzIGZvciB0aGF0IGFyZSBiZWluZyB0ZXN0ZWQgbm93IGJ1dCBh
-cmUgYmFzZWQgb24gdGhlIFNESyB2ZXJzaW9uIG9mIHRoZSBkcml2ZXIgYW5kIHdpbGwgbmVlZCB0
-byBiZSBtYXNzYWdlZCBpbiBvcmRlciB0byBnZXQgdGhlbSBhcHBsaWVkIGhlcmUuICBPdXIgcGxh
-biBvZiByZWNvcmQgaXMgdG8gYWRkIHVwc3RyZWFtIHN1cHBvcnQgZm9yIHRoaXMgYXQgYSBsYXRl
-ciB0aW1lLg0KDQo+IA0KPiA+ICAgXg0KPiA+IFsuLi5dL2RyaXZlcnMvc29jL2ZzbC9xYm1hbi9i
-bWFuLmM6IEluIGZ1bmN0aW9uIOKAmG9mX2ZzbF9ibWFuX3Byb2Jl4oCZOg0KPiA+IFsuLi5dL2Ry
-aXZlcnMvc29jL2ZzbC9xYm1hbi9ibWFuLmM6NDYzOjE3OiBlcnJvcjog4oCYTk9fSVJR4oCZIHVu
-ZGVjbGFyZWQNCj4gPiAoZmlyc3QgdXNlIGluIHRoaXMgZnVuY3Rpb24pDQo+ID4gICBpZiAoZXJy
-X2lycSA9PSBOT19JUlEpIHsNCj4gDQo+IFRoaXMgaXNuJ3QgZXZlbiBhIFBQQ2lzbS4gIEl0J3Mg
-anVzdCB3cm9uZy4gIENvbXBhcmUgdG8gemVybyBpbnN0ZWFkLg0KDQpZZWFoIC0gSSByZWNhbGwg
-Zml4aW5nIHRoaXMgd2hlbiBkb2luZyB0aGUgQVJNIHBvcnQgYnV0IEkgZ3Vlc3MgSSBkaWRuJ3Qg
-bWFrZSB0aGUgc2FtZSBjaGFuZ2UgaW4gdGhpcyB2ZXJzaW9uLiAgSSB3aWxsIGFkZHJlc3MgdGhp
-cyBpbiB0aGUgbmV4dCB2ZXJzaW9uLg0KDQoNCj4gDQo+IC1TY290dA0KDQo=
+Hi Vivien,
+
+On Fri, Jul 10, 2015 at 02:20:47PM -0400, Vivien Didelot wrote:
+> > 
+> > is this really beneficial and/or needed ?
+> 
+> Except using existing generic code, no.
+> 
+> > It adds at least 1ms delay to a loop which did not have any delay at
+> > all unless the register read itself was sleeping.
+> 
+> I must have missed where is the benefit from spin reading 10 times this
+> register, rather than sleeping 1ms between tests. Does this busy bit
+> behaves differently from the phy, atu, scratch, or vtu busy bits?
+> 
+Benefit is reaction time, mostly. If the result isn't ready after the
+first spin, the new code path adds a mandatory 1-2ms delay. This could
+add up to a lot if that kind of retry is seen a lot.
+
+I don't now if there is a specific time limit for this busy bit,
+and/or if it behaves differently than the others in terms of timing.
+
+> > Is the original function seen to return a timeout error under some
+> > circumstances ?
+> 
+> I didn't experience it myself, but I guess it may happen. In addition to
+> that, the current implementation doesn't check eventual read error.
+> That's why I saw a benefit in using _mv88e6xxx_wait().
+
+Checking for a read error (or a timeout) is definitely a good thing.
+I could also imagine that, for example, a "clear statistics" request
+takes more time than currently supported. This is why I asked if you
+had seen a timeout with the old code.
+
+Personally I'd rather leave the wait loop alone and only introduce
+error checking unless there is a reason to introduce a sleep,
+but I'd like to hear Andrew's and/or Florian's opinion.
+
+Thanks,
+Guenter
