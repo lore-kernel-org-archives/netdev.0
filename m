@@ -1,40 +1,76 @@
-From: "Hang Seng Bank Ltd,Sai Wan Ho Branch." <indoma@indoma.local>
-Subject: Hang Seng Bank Ltd,Sai Wan Ho Branch.
-Date: Mon, 8 Jun 2015 23:29:18 -0700
-Message-ID: <f5d020e6-d61d-48c1-9a9f-afb4f0cfcfa4@EXCH.indoma.local>
-Reply-To: <smithlee2016b@yandex.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [RFC PATCH net-next] sctp: fix src address selection if using
+ secondary addresses
+Date: Fri, 10 Jul 2015 13:17:18 -0300
+Message-ID: <20150710161718.GP1841@localhost.localdomain>
+References: <81786a31f7f143e1d229de9a9f909d5f83fa9bb2.1436279035.git.marcelo.leitner@gmail.com>
+ <20150709165458.GA1855@localhost.localdomain>
+ <27EB7D25-A947-4C75-B25B-03BFAD48EC64@fh-muenster.de>
+ <20150710115305.GB1855@localhost.localdomain>
+ <559FE640.5070008@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-To: Undisclosed recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Tuexen <tuexen@fh-muenster.de>, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from posta.indoma.si ([213.157.251.251]:19188 "EHLO posta.indoma.si"
+Received: from mx1.redhat.com ([209.132.183.28]:37980 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754078AbbGJPjl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jul 2015 11:39:41 -0400
+	id S1754033AbbGJQRU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jul 2015 12:17:20 -0400
+Content-Disposition: inline
+In-Reply-To: <559FE640.5070008@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jul 10, 2015 at 11:35:28AM -0400, Vlad Yasevich wrote:
+> On 07/10/2015 07:53 AM, Marcelo Ricardo Leitner wrote:
+> > On Thu, Jul 09, 2015 at 09:55:19PM +0200, Michael Tuexen wrote:
+> >>> On 09 Jul 2015, at 18:54, Marcelo Ricardo Leitner <mleitner@redhat.com> wrote:
+> >>>
+> >>> Cc'ing Michael too.
+> >> I'm not familiar with the Linux kernel code, so I can't comment on it.
+> >> But making sure to use a source address belonging to the emitting
+> >> interface makes sense for me.
+> >>
+> >> Best regards
+> >> Michael
+> > 
+> > That's pretty much what I was looking for, in case I missed something on
+> > SCTP RFCs. 
+> > 
+> 
+> Well, the RFCs do not really specify what the source address should be, and there
 
+That's why I was afraid of having missed something ;)
 
-Hello,
-I have a proposition for you, this however is not mandatory nor will I in any manner compel you to honor against your will.Let me start by introducing myself. I am Dr. Smith Lee, Director of Operations of the Hang Seng Bank Ltd,Sai Wan Ho Branch. I have a mutual beneficial business suggestion for you.
+> have been numerous times where I've seen weak host model in use on the wire
+> even with a BSD peer.
+> 
+> This also puts a very big nail through many suggestions we've had over the years
+> to allow source based path multihoming in addition to destination based multihoming
+> we currently support.
+> 
+> It might be a good idea to make rp-filter like behavior best effort, and have
+> the old behavior as fallback.  I am still trying to think up different scenarios
+> where rp-filter behavior will cause things to fail prematurely...
 
-1. Can you handle this project?
-2. Can I give you this trust ?
+The old behavior is like "if we don't have a src yet and can't find a
+preferred src for this dst, use the 1st bound address". We can add it
+but as I said, I'm afraid it is just doing wrong and not worth. If such
+randomly src addressed packet is meant to be routed, the router will
+likely drop it as it is seen as a spoof. And if it reaches the peer, it
+will probably come back through a different path.
 
-Absolute confidentiality is required from you.Besides,I will use my connection to get some documents to back up the fund so that the fund can not be question by any authority.
+I'm tempted to say that current usual use cases are handled by the first
+check on this function, which returns the preferred/primary address for
+the interface and checks against bound addresses. Whenever you reach the
+second check, it just allows you to use that 1st bound address that is
+checked. I mean, I can't see use cases that we would be breaking with
+this change. 
 
-More information await you in my next response to your email message.
+But yeah, it impacts source based routing, and I'm not aware of previous
+discussions on it. I'll try to dig some up but if possible, please share
+some pointers on it.
 
-Treat as very urgent.
-
-Yours Faithfully,
-Dr. Smith Lee.
-
-REPLY TO
-smithlee2016a@yandex.com
-smithlee2016b@yandex.com
-
-------------------------
-This email was scanned by BitDefender.
+  Marcelo
