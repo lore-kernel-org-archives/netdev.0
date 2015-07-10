@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH -next 1/6] netfilter: nf_queue: Don't recompute the hook_list head
-Date: Fri, 10 Jul 2015 18:12:50 -0500
-Message-ID: <87380vsj2l.fsf_-_@x220.int.ebiederm.org>
+Subject: [PATCH -next 2/6] netfilter: kill nf_hooks_active
+Date: Fri, 10 Jul 2015 18:13:20 -0500
+Message-ID: <87wpy7r4hb.fsf_-_@x220.int.ebiederm.org>
 References: <87616ppt3h.fsf@x220.int.ebiederm.org>
 	<87r3pae5hn.fsf@x220.int.ebiederm.org>
 	<878uansj4d.fsf_-_@x220.int.ebiederm.org>
@@ -20,41 +20,51 @@ Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	David Miller <davem@davemloft.net>
 To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:55270 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752023AbbGJXS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 19:18:28 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <878uansj4d.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
 	message of "Fri, 10 Jul 2015 18:11:46 -0500")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-If someone sends packets from one of the netdevice ingress hooks to
-the a userspace queue, and then userspace later accepts the packet,
-the netfilter code can enter an infinite loop as the list head will
-never be found.
-
-Pass in the saved list_head to avoid this.
+The function obscures what is going on in nf_hook_thresh and it's existence
+requires computing the hook list twice.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/netfilter/nf_queue.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/linux/netfilter.h | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
 
-diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
-index cd60d397fe05..8a8b2abc35ff 100644
---- a/net/netfilter/nf_queue.c
-+++ b/net/netfilter/nf_queue.c
-@@ -213,7 +213,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 00050dfd9f23..d7826e59779e 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -150,11 +150,6 @@ static inline bool nf_hook_list_active(struct list_head *nf_hook_list,
+ }
+ #endif
  
- 	if (verdict == NF_ACCEPT) {
- 	next_hook:
--		verdict = nf_iterate(&nf_hooks[entry->state.pf][entry->state.hook],
-+		verdict = nf_iterate(entry->state.hook_list,
- 				     skb, &entry->state, &elem);
+-static inline bool nf_hooks_active(u_int8_t pf, unsigned int hook)
+-{
+-	return nf_hook_list_active(&nf_hooks[pf][hook], pf, hook);
+-}
+-
+ int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state);
+ 
+ /**
+@@ -172,10 +167,11 @@ static inline int nf_hook_thresh(u_int8_t pf, unsigned int hook,
+ 				 int (*okfn)(struct sock *, struct sk_buff *),
+ 				 int thresh)
+ {
+-	if (nf_hooks_active(pf, hook)) {
++	struct list_head *nf_hook_list = &nf_hooks[pf][hook];
++	if (nf_hook_list_active(nf_hook_list, pf, hook)) {
+ 		struct nf_hook_state state;
+ 
+-		nf_hook_state_init(&state, &nf_hooks[pf][hook], hook, thresh,
++		nf_hook_state_init(&state, nf_hook_list, hook, thresh,
+ 				   pf, indev, outdev, sk, okfn);
+ 		return nf_hook_slow(skb, &state);
  	}
- 
 -- 
 2.2.1
+
