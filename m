@@ -1,7 +1,7 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [RFC net-next 20/22] openvswitch: Abstract vport name through ovs_vport_name()
-Date: Fri, 10 Jul 2015 16:19:22 +0200
-Message-ID: <7f3dcd10bdc36c6bc0b63dde2e4cf6b83bd133f4.1436537414.git.tgraf@suug.ch>
+Subject: [RFC net-next 11/22] dst: Metadata destinations
+Date: Fri, 10 Jul 2015 16:19:13 +0200
+Message-ID: <1b20319e1ff0f2be28e783b90ac48738d6a8b72b.1436537414.git.tgraf@suug.ch>
 References: <cover.1436537414.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org
 To: roopa@cumulusnetworks.com, rshearma@brocade.com,
@@ -11,135 +11,278 @@ To: roopa@cumulusnetworks.com, rshearma@brocade.com,
 	jiri@resnulli.us, marcelo.leitner@gmail.com,
 	stephen@networkplumber.org, jpettit@nicira.com, kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:40765 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:40619 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932700AbbGJOTw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 10:19:52 -0400
+	with ESMTP id S932653AbbGJOTn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 10:19:43 -0400
 In-Reply-To: <cover.1436537414.git.tgraf@suug.ch>
 In-Reply-To: <cover.1436537414.git.tgraf@suug.ch>
 References: <cover.1436537414.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This allows to get rid of the get_name() vport ops later on.
+Introduces a new dst_metadata which enables to carry per packet metadata
+between forwarding and processing elements via the skb->dst pointer.
+
+The structure is set up to be a union. Thus, each separate type of
+metadata requires its own dst instance. If demand arises to carry
+multiple types of metadata concurrently, metadata dst entries can be
+made stackable.
+
+The metadata dst entry is refcnt'ed as expected for now but a non
+reference counted use is possible if the reference is forced before
+queueing the skb.
+
+In order to allow allocating dsts with variable length, the existing
+dst_alloc() is split into a dst_alloc() and dst_init() function. The
+existing dst_init() function to initialize the subsystem is being
+renamed to dst_subsys_init() to make it clear what is what.
+
+The check before ip_route_input() is changed to ignore metadata dsts
+and drop the dst inside the routing function thus allowing to interpret
+metadata in a later commit.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- net/openvswitch/datapath.c           | 4 ++--
- net/openvswitch/vport-internal_dev.c | 1 -
- net/openvswitch/vport-netdev.c       | 6 ------
- net/openvswitch/vport-netdev.h       | 1 -
- net/openvswitch/vport.c              | 4 ++--
- net/openvswitch/vport.h              | 5 +++++
- 6 files changed, 9 insertions(+), 12 deletions(-)
+ include/net/dst.h          |  5 ++-
+ include/net/dst_metadata.h | 32 +++++++++++++++++++
+ net/core/dev.c             |  2 +-
+ net/core/dst.c             | 76 ++++++++++++++++++++++++++++++++++++++--------
+ net/ipv4/ip_input.c        |  3 +-
+ net/ipv4/route.c           |  2 ++
+ 6 files changed, 104 insertions(+), 16 deletions(-)
+ create mode 100644 include/net/dst_metadata.h
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 19df28e..ffe984f 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -176,7 +176,7 @@ static inline struct datapath *get_dp(struct net *net, int dp_ifindex)
- const char *ovs_dp_name(const struct datapath *dp)
- {
- 	struct vport *vport = ovs_vport_ovsl_rcu(dp, OVSP_LOCAL);
--	return vport->ops->get_name(vport);
-+	return ovs_vport_name(vport);
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 2bc73f8a..fd69bb9 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -57,6 +57,7 @@ struct dst_entry {
+ #define DST_FAKE_RTABLE		0x0040
+ #define DST_XFRM_TUNNEL		0x0080
+ #define DST_XFRM_QUEUE		0x0100
++#define DST_METADATA		0x0200
+ 
+ 	unsigned short		pending_confirm;
+ 
+@@ -356,6 +357,8 @@ static inline int dst_discard(struct sk_buff *skb)
+ }
+ void *dst_alloc(struct dst_ops *ops, struct net_device *dev, int initial_ref,
+ 		int initial_obsolete, unsigned short flags);
++void dst_init(struct dst_entry *dst, struct dst_ops *ops, struct net_device *dev,
++	      int initial_ref, int initial_obsolete, unsigned short flags);
+ void __dst_free(struct dst_entry *dst);
+ struct dst_entry *dst_destroy(struct dst_entry *dst);
+ 
+@@ -457,7 +460,7 @@ static inline struct dst_entry *dst_check(struct dst_entry *dst, u32 cookie)
+ 	return dst;
  }
  
- static int get_dpifindex(const struct datapath *dp)
-@@ -1800,7 +1800,7 @@ static int ovs_vport_cmd_fill_info(struct vport *vport, struct sk_buff *skb,
- 	if (nla_put_u32(skb, OVS_VPORT_ATTR_PORT_NO, vport->port_no) ||
- 	    nla_put_u32(skb, OVS_VPORT_ATTR_TYPE, vport->ops->type) ||
- 	    nla_put_string(skb, OVS_VPORT_ATTR_NAME,
--			   vport->ops->get_name(vport)))
-+			   ovs_vport_name(vport)))
- 		goto nla_put_failure;
+-void dst_init(void);
++void dst_subsys_init(void);
  
- 	ovs_vport_get_stats(vport, &vport_stats);
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index a2c205d..c058bbf 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -242,7 +242,6 @@ static struct vport_ops ovs_internal_vport_ops = {
- 	.type		= OVS_VPORT_TYPE_INTERNAL,
- 	.create		= internal_dev_create,
- 	.destroy	= internal_dev_destroy,
--	.get_name	= ovs_netdev_get_name,
- 	.send		= internal_dev_recv,
- };
- 
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index 1c96966..e682bdc 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -171,11 +171,6 @@ static void netdev_destroy(struct vport *vport)
- 	call_rcu(&vport->rcu, free_port_rcu);
- }
- 
--const char *ovs_netdev_get_name(const struct vport *vport)
--{
--	return vport->dev->name;
--}
--
- static unsigned int packet_length(const struct sk_buff *skb)
- {
- 	unsigned int length = skb->len - ETH_HLEN;
-@@ -223,7 +218,6 @@ static struct vport_ops ovs_netdev_vport_ops = {
- 	.type		= OVS_VPORT_TYPE_NETDEV,
- 	.create		= netdev_create,
- 	.destroy	= netdev_destroy,
--	.get_name	= ovs_netdev_get_name,
- 	.send		= netdev_send,
- };
- 
-diff --git a/net/openvswitch/vport-netdev.h b/net/openvswitch/vport-netdev.h
-index 1c52aed..684fb88 100644
---- a/net/openvswitch/vport-netdev.h
-+++ b/net/openvswitch/vport-netdev.h
-@@ -26,7 +26,6 @@
- 
- struct vport *ovs_netdev_get_vport(struct net_device *dev);
- 
--const char *ovs_netdev_get_name(const struct vport *);
- void ovs_netdev_detach_dev(struct vport *);
- 
- int __init ovs_netdev_init(void);
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index af23ba0..d14f594 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -113,7 +113,7 @@ struct vport *ovs_vport_locate(const struct net *net, const char *name)
- 	struct vport *vport;
- 
- 	hlist_for_each_entry_rcu(vport, bucket, hash_node)
--		if (!strcmp(name, vport->ops->get_name(vport)) &&
-+		if (!strcmp(name, ovs_vport_name(vport)) &&
- 		    net_eq(ovs_dp_get_net(vport->dp), net))
- 			return vport;
- 
-@@ -226,7 +226,7 @@ struct vport *ovs_vport_add(const struct vport_parms *parms)
- 		}
- 
- 		bucket = hash_bucket(ovs_dp_get_net(vport->dp),
--				     vport->ops->get_name(vport));
-+				     ovs_vport_name(vport));
- 		hlist_add_head_rcu(&vport->hash_node, bucket);
- 		return vport;
- 	}
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index e05ec68..1a689c2 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -237,6 +237,11 @@ static inline void ovs_skb_postpush_rcsum(struct sk_buff *skb,
- 		skb->csum = csum_add(skb->csum, csum_partial(start, len, 0));
- }
- 
-+static inline const char *ovs_vport_name(struct vport *vport)
+ /* Flags for xfrm_lookup flags argument. */
+ enum {
+diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
+new file mode 100644
+index 0000000..4f7694f
+--- /dev/null
++++ b/include/net/dst_metadata.h
+@@ -0,0 +1,32 @@
++#ifndef __NET_DST_METADATA_H
++#define __NET_DST_METADATA_H 1
++
++#include <linux/skbuff.h>
++#include <net/ip_tunnels.h>
++#include <net/dst.h>
++
++struct metadata_dst {
++	struct dst_entry		dst;
++	size_t				opts_len;
++};
++
++static inline struct metadata_dst *skb_metadata_dst(struct sk_buff *skb)
 +{
-+	return vport->dev ? vport->dev->name : vport->ops->get_name(vport);
++	struct metadata_dst *md_dst = (struct metadata_dst *) skb_dst(skb);
++
++	if (md_dst && md_dst->dst.flags & DST_METADATA)
++		return md_dst;
++
++	return NULL;
 +}
 +
- int ovs_vport_ops_register(struct vport_ops *ops);
- void ovs_vport_ops_unregister(struct vport_ops *ops);
++static inline bool skb_valid_dst(const struct sk_buff *skb)
++{
++	struct dst_entry *dst = skb_dst(skb);
++
++	return dst && !(dst->flags & DST_METADATA);
++}
++
++struct metadata_dst *metadata_dst_alloc(u8 optslen, gfp_t flags);
++
++#endif /* __NET_DST_METADATA_H */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6778a99..97f6d47 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -7640,7 +7640,7 @@ static int __init net_dev_init(void)
+ 	open_softirq(NET_RX_SOFTIRQ, net_rx_action);
+ 
+ 	hotcpu_notifier(dev_cpu_callback, 0);
+-	dst_init();
++	dst_subsys_init();
+ 	rc = 0;
+ out:
+ 	return rc;
+diff --git a/net/core/dst.c b/net/core/dst.c
+index e956ce6..5372450 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -22,6 +22,7 @@
+ #include <linux/prefetch.h>
+ 
+ #include <net/dst.h>
++#include <net/dst_metadata.h>
+ 
+ /*
+  * Theory of operations:
+@@ -158,19 +159,9 @@ const u32 dst_default_metrics[RTAX_MAX + 1] = {
+ 	[RTAX_MAX] = 0xdeadbeef,
+ };
+ 
+-
+-void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
+-		int initial_ref, int initial_obsolete, unsigned short flags)
++void dst_init(struct dst_entry *dst, struct dst_ops *ops, struct net_device *dev,
++	      int initial_ref, int initial_obsolete, unsigned short flags)
+ {
+-	struct dst_entry *dst;
+-
+-	if (ops->gc && dst_entries_get_fast(ops) > ops->gc_thresh) {
+-		if (ops->gc(ops))
+-			return NULL;
+-	}
+-	dst = kmem_cache_alloc(ops->kmem_cachep, GFP_ATOMIC);
+-	if (!dst)
+-		return NULL;
+ 	dst->child = NULL;
+ 	dst->dev = dev;
+ 	if (dev)
+@@ -200,6 +191,25 @@ void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
+ 	dst->next = NULL;
+ 	if (!(flags & DST_NOCOUNT))
+ 		dst_entries_add(ops, 1);
++}
++EXPORT_SYMBOL(dst_init);
++
++void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
++		int initial_ref, int initial_obsolete, unsigned short flags)
++{
++	struct dst_entry *dst;
++
++	if (ops->gc && dst_entries_get_fast(ops) > ops->gc_thresh) {
++		if (ops->gc(ops))
++			return NULL;
++	}
++
++	dst = kmem_cache_alloc(ops->kmem_cachep, GFP_ATOMIC);
++	if (!dst)
++		return NULL;
++
++	dst_init(dst, ops, dev, initial_ref, initial_obsolete, flags);
++
+ 	return dst;
+ }
+ EXPORT_SYMBOL(dst_alloc);
+@@ -327,6 +337,46 @@ void __dst_destroy_metrics_generic(struct dst_entry *dst, unsigned long old)
+ }
+ EXPORT_SYMBOL(__dst_destroy_metrics_generic);
+ 
++static struct dst_ops md_dst_ops = {
++	.family =		AF_UNSPEC,
++};
++
++static int dst_md_discard_sk(struct sock *sk, struct sk_buff *skb)
++{
++	WARN_ONCE(1, "Attempting to call output on metadata dst\n");
++	kfree_skb(skb);
++	return 0;
++}
++
++static int dst_md_discard(struct sk_buff *skb)
++{
++	WARN_ONCE(1, "Attempting to call input on metadata dst\n");
++	kfree_skb(skb);
++	return 0;
++}
++
++struct metadata_dst *metadata_dst_alloc(u8 optslen, gfp_t flags)
++{
++	struct metadata_dst *md_dst;
++	struct dst_entry *dst;
++
++	md_dst = kmalloc(sizeof(*md_dst) + optslen, flags);
++	if (!md_dst)
++		return ERR_PTR(-ENOMEM);
++
++	dst = &md_dst->dst;
++	dst_init(dst, &md_dst_ops, NULL, 1, DST_OBSOLETE_NONE, DST_METADATA);
++
++	dst->input = dst_md_discard;
++	dst->output = dst_md_discard_sk;
++
++	memset(dst + 1, 0, sizeof(*md_dst) + optslen - sizeof(*dst));
++	md_dst->opts_len = optslen;
++
++	return md_dst;
++}
++EXPORT_SYMBOL_GPL(metadata_dst_alloc);
++
+ /* Dirty hack. We did it in 2.2 (in __dst_free),
+  * we have _very_ good reasons not to repeat
+  * this mistake in 2.3, but we have no choice
+@@ -391,7 +441,7 @@ static struct notifier_block dst_dev_notifier = {
+ 	.priority = -10, /* must be called after other network notifiers */
+ };
+ 
+-void __init dst_init(void)
++void __init dst_subsys_init(void)
+ {
+ 	register_netdevice_notifier(&dst_dev_notifier);
+ }
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 2db4c87..f4fc8a7 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -146,6 +146,7 @@
+ #include <net/xfrm.h>
+ #include <linux/mroute.h>
+ #include <linux/netlink.h>
++#include <net/dst_metadata.h>
+ 
+ /*
+  *	Process Router Attention IP option (RFC 2113)
+@@ -331,7 +332,7 @@ static int ip_rcv_finish(struct sock *sk, struct sk_buff *skb)
+ 	 *	Initialise the virtual path cache for the packet. It describes
+ 	 *	how the packet travels inside Linux networking.
+ 	 */
+-	if (!skb_dst(skb)) {
++	if (!skb_valid_dst(skb)) {
+ 		int err = ip_route_input_noref(skb, iph->daddr, iph->saddr,
+ 					       iph->tos, skb->dev);
+ 		if (unlikely(err)) {
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index d3964fa..ea48880 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1691,6 +1691,8 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	   by fib_lookup.
+ 	 */
+ 
++	skb_dst_drop(skb);
++
+ 	if (ipv4_is_multicast(saddr) || ipv4_is_lbcast(saddr))
+ 		goto martian_source;
  
 -- 
 2.4.3
