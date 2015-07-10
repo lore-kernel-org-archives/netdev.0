@@ -1,153 +1,111 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 2/3] of_mdio: add new DT property 'autoneg' for fixed-link
-Date: Fri, 10 Jul 2015 11:37:45 -0700
-Message-ID: <55A010F9.7030808@gmail.com>
-References: <559FF511.5080102@list.ru> <559FF63E.8020209@list.ru>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [RFC net-next 3/6] net: Introduce VRF device driver - v2
+Date: Fri, 10 Jul 2015 12:42:35 -0600
+Message-ID: <55A0121B.8090408@cumulusnetworks.com>
+References: <1436195001-4818-1-git-send-email-dsa@cumulusnetworks.com>	<1436195001-4818-4-git-send-email-dsa@cumulusnetworks.com>	<CACP96tTyw+J7swi-+GJMwKKVjE9Uk1dJ3m_JKg2o1tyZup+p0w@mail.gmail.com>	<559EAD2A.2090002@cumulusnetworks.com>	<CACP96tSp91XYo_UasZexb6c6Krru3LEJvDwEWSgKYgPHJmTkHw@mail.gmail.com>	<877fq894l8.fsf@x220.int.ebiederm.org>	<559F29FD.6090705@cumulusnetworks.com>	<87vbds64z4.fsf@x220.int.ebiederm.org>	<559F4814.70306@cumulusnetworks.com> <87wpy84nlb.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Grant Likely <grant.likely@linaro.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Stas Sergeev <stsp@list.ru>, netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <559FF63E.8020209@list.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Sowmini Varadhan <sowmini05@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	ddutt@cumulusnetworks.com,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	hadi@mojatatu.com, David Miller <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:37851 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933107AbbGJSmi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 14:42:38 -0400
+Received: by igpy18 with SMTP id y18so19309715igp.0
+        for <netdev@vger.kernel.org>; Fri, 10 Jul 2015 11:42:38 -0700 (PDT)
+In-Reply-To: <87wpy84nlb.fsf@x220.int.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/07/15 09:43, Stas Sergeev wrote:
-> 
-> Currently for fixed-link the MAC driver decides whether to use the
-> link status auto-negotiation or not.
-> Unfortunately the auto-negotiation may not work when expected by
-> the MAC driver. Sebastien Rannou explains:
-> << Yes, I confirm that my HW does not generate an in-band status. AFAIK, it's
-> a PHY that aggregates 4xSGMIIs to 1xQSGMII ; the MAC side of the PHY (with
-> inband status) is connected to the switch through QSGMII, and in this context
-> we are on the media side of the PHY. >>
-> https://lkml.org/lkml/2015/7/10/206
-> 
-> This patch introduces the new boolean property 'autoneg' that allows
-> the user to request the auto-negotiation explicitly.
+On 7/9/15 10:56 PM, Eric W. Biederman wrote:
+> I have given specific areas of concern, and explained myself and you are
+> blowing me off.
 
-The implementation looks better, but the name might still be slightly
-controversial. I would go with "use-in-band-status" which is more
-strictly defined than "autoneg" which could mean anything and everything.
+You have not had answered my question with any additional details or 
+code references -- ie., a specific example. Asking you for clarification 
+and details is not blowing you off.
 
-What do you think?
+To recap:
 
-> 
-> Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
-> 
-> CC: Rob Herring <robh+dt@kernel.org>
-> CC: Pawel Moll <pawel.moll@arm.com>
-> CC: Mark Rutland <mark.rutland@arm.com>
-> CC: Ian Campbell <ijc+devicetree@hellion.org.uk>
-> CC: Kumar Gala <galak@codeaurora.org>
-> CC: Florian Fainelli <f.fainelli@gmail.com>
-> CC: Grant Likely <grant.likely@linaro.org>
-> CC: devicetree@vger.kernel.org
-> CC: linux-kernel@vger.kernel.org
-> CC: netdev@vger.kernel.org
-> ---
->  .../devicetree/bindings/net/fixed-link.txt         |  6 +++++-
->  drivers/of/of_mdio.c                               | 23 ++++++++++++++++++++--
->  include/linux/of_mdio.h                            |  5 +++++
->  3 files changed, 31 insertions(+), 3 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/fixed-link.txt b/Documentation/devicetree/bindings/net/fixed-link.txt
-> index 82bf7e0..e2959a8 100644
-> --- a/Documentation/devicetree/bindings/net/fixed-link.txt
-> +++ b/Documentation/devicetree/bindings/net/fixed-link.txt
-> @@ -9,8 +9,12 @@ Such a fixed link situation is described by creating a 'fixed-link'
->  sub-node of the Ethernet MAC device node, with the following
->  properties:
-> 
-> +* 'autoneg' (boolean, optional), to enable the auto-negotiation of link
-> +  state. Auto-negotiation is MII protocol, HW and driver-specific and is
-> +  not supported in many cases, so use it only when you know what you do.
->  * 'speed' (integer, mandatory), to indicate the link speed. Accepted
-> -  values are 10, 100 and 1000
-> +  values are 10, 100 and 1000. If the auto-negotiation is enabled,
-> +  'speed' may not be set. It will then be auto-negotiated, if possible.
->  * 'full-duplex' (boolean, optional), to indicate that full duplex is
->    used. When absent, half duplex is assumed.
->  * 'pause' (boolean, optional), to indicate that pause should be
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index 1bd4305..12b2ede 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -280,6 +280,22 @@ bool of_phy_is_fixed_link(struct device_node *np)
->  }
->  EXPORT_SYMBOL(of_phy_is_fixed_link);
-> 
-> +bool of_phy_is_autoneg_link(struct device_node *np)
-> +{
-> +	struct device_node *dn;
-> +	bool ret;
-> +
-> +	dn = of_get_child_by_name(np, "fixed-link");
-> +	if (!dn)
-> +		return false;
-> +
-> +	ret = of_property_read_bool(dn, "autoneg");
-> +
-> +	of_node_put(dn);
-> +	return ret;
-> +}
-> +EXPORT_SYMBOL(of_phy_is_autoneg_link);
-> +
->  int of_phy_register_fixed_link(struct device_node *np)
->  {
->  	struct fixed_phy_status status = {};
-> @@ -291,10 +307,13 @@ int of_phy_register_fixed_link(struct device_node *np)
->  	/* New binding */
->  	fixed_link_node = of_get_child_by_name(np, "fixed-link");
->  	if (fixed_link_node) {
-> -		status.link = 1;
-> +		bool autoneg = of_property_read_bool(fixed_link_node,
-> +						     "autoneg");
-> +		status.link = !autoneg;
->  		status.duplex = of_property_read_bool(fixed_link_node,
->  						      "full-duplex");
-> -		if (of_property_read_u32(fixed_link_node, "speed", &status.speed))
-> +		if (of_property_read_u32(fixed_link_node, "speed",
-> +					 &status.speed) != 0 && !autoneg)
->  			return -EINVAL;
->  		status.pause = of_property_read_bool(fixed_link_node, "pause");
->  		status.asym_pause = of_property_read_bool(fixed_link_node,
-> diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
-> index d449018..647f348 100644
-> --- a/include/linux/of_mdio.h
-> +++ b/include/linux/of_mdio.h
-> @@ -65,6 +65,7 @@ static inline struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np)
->  #if defined(CONFIG_OF) && defined(CONFIG_FIXED_PHY)
->  extern int of_phy_register_fixed_link(struct device_node *np);
->  extern bool of_phy_is_fixed_link(struct device_node *np);
-> +extern bool of_phy_is_autoneg_link(struct device_node *np);
->  #else
->  static inline int of_phy_register_fixed_link(struct device_node *np)
->  {
-> @@ -74,6 +75,10 @@ static inline bool of_phy_is_fixed_link(struct device_node *np)
->  {
->  	return false;
->  }
-> +static inline bool of_phy_is_autoneg_link(struct device_node *np)
-> +{
-> +	return false;
-> +}
->  #endif
-> 
-> 
+Eric: "With respect to sockets there is also the issue that ip addresses 
+are not per vrf."
 
+David: "IP addresses are per interface and interfaces are uniquely 
+assigned to a VRF so why do you think IP addresses are not per VRF?"
 
--- 
-Florian
+Eric: "I have read large swaths of the linux networking code over the 
+years. Further I was thinking more about non-local addresses ip 
+addresses, but I would not be surprised if there are also issues with 
+local addresses."
+
+David: "Well, if someone has a specific example I'll take a look."
+
+So, let me try this again: All of the IPv4 and IPv6 addresses I am aware 
+of are held in structs linked to a specific netdevice. Can you give me a 
+specific example of what you mean here? I can't respond to your feedback 
+based on the little information you have given me.
+
+>
+> Besides the fragment reassembly and xfrm there are things like the
+> ineetpeer cache.
+
+noted.
+
+>
+>>>>>    Which means things like packet fragmentation reassembly
+>>>>> can easily do the wrong thing.  Similarly things like the xfrm for ipsec
+>>>>> tunnels are not hooked into this mix.
+>>>>>
+>>>>> So I really do not see how this VRF/MRF thing as designed can support
+>>>>> general purpose sockets.  I am not certain it can correctly support any
+>>>>> kind of socket except perhaps SOCK_RAW.
+>>>>
+>>>> Sockets bound to the VRF device work properly. Why do you think they won't?
+>>>
+>>> Because there are many locations in the network stack (like fragment
+>>> reassembly) that make the assumption that ip addresses are unique and
+>>> do not bother looking at network device or anything else.  If fragments
+>>> manage to come into play I don't expect it would be hard to poision a
+>>> connections with fragments from another routing domain with overlapping
+>>> ip addresses.
+>>
+>> If that is true it is a problem with the networking stack today and is
+>> completely independent of this VRF proposal.
+>
+> Not at all.  It is required functionality for reassembly of ip fragments
+> when the packets come in via different paths.  This is required to
+> support multi-path ip reception.
+>
+> This only becomes a bug in the scenario you have proposed.
+
+Can you please point to a specific line in one of these patches that 
+impacts fragmentation?
+
+This patch -- patch 3 -- adds a VRF driver. It has not mucked with 
+packets at all.
+
+Patch 4 (again I have a better split in a forthcoming revision) tweaks a 
+few places in the IPv4 stack with respect to socket lookups (dif 
+modified) and FIB table lookups (specifying a table to use or tweaking 
+oif/iif).
+
+Since the VRF device has not touched the packet and does not introduce a 
+tunnel how has its use/existence impacted fragmentation?
+
+I do plan tests to include ipsec for example and fragmentation; it's a 
+matter of time. If you have suggestions on a setup/test case I should 
+include please let me know.
+
+David
