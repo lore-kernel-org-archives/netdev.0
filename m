@@ -1,8 +1,8 @@
 From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: [PATCH] netlink: reset skb->peeked when reuse orphan skb for next
+Subject: [PATCH] netlink: enable skb header refcounting before sending first
  broadcast
-Date: Fri, 10 Jul 2015 14:51:45 +0300
-Message-ID: <20150710115145.13008.14667.stgit@buzz>
+Date: Fri, 10 Jul 2015 14:51:41 +0300
+Message-ID: <20150710115141.12980.88829.stgit@buzz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,30 +10,39 @@ Cc: Eric Dumazet <edumazet@google.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward-corp1g.mail.yandex.net ([95.108.253.251]:54116 "EHLO
-	forward-corp1g.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754296AbbGJLvt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 07:51:49 -0400
+Received: from forward-corp1m.cmail.yandex.net ([5.255.216.100]:49501 "EHLO
+	forward-corp1m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754208AbbGJLvq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 07:51:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch clears skb->peeked set by previous recipient of broadcast.
+This fixes race between non-atomic updates of adjacent bit-fields:
+skb->cloned could be lost because netlink broadcast clones skb after
+sending it to the first listener who sets skb->peeked at the same skb.
+As a result atomic refcounting of skb header stays disabled and
+skb_release_data() frees it twice. Race leads to double-free in kmalloc-xxx.
 
 Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Fixes: add05ad4e9f5 ("unix/dgram: peek beyond 0-sized skbs")
+Fixes: b19372273164 ("net: reorganize sk_buff for faster __copy_skb_header()")
 ---
- net/netlink/af_netlink.c |    1 +
- 1 file changed, 1 insertion(+)
+ net/netlink/af_netlink.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
 diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 921e0d8dfe3a..4e5c298c88b5 100644
+index dea925388a5b..921e0d8dfe3a 100644
 --- a/net/netlink/af_netlink.c
 +++ b/net/netlink/af_netlink.c
-@@ -1967,6 +1967,7 @@ static void do_one_broadcast(struct sock *sk,
- 			 * delivered to a previous socket.
- 			 */
- 			skb_orphan(p->skb2);
-+			skb->peeked = 0;
- 		}
- 	}
- 	if (p->skb2 == NULL) {
+@@ -2028,6 +2028,12 @@ int netlink_broadcast_filtered(struct sock *ssk, struct sk_buff *skb, u32 portid
+ 	info.tx_filter = filter;
+ 	info.tx_data = filter_data;
+ 
++	/* Enable atomic refcounting in skb_release_data() before first send:
++	 * non-atomic set of that bit-field in __skb_clone() could race with
++	 * __skb_recv_datagram() which touches the same set of bit-fields.
++	 */
++	skb->cloned = 1;
++
+ 	/* While we sleep in clone, do not allow to change socket list */
+ 
+ 	netlink_lock_table();
