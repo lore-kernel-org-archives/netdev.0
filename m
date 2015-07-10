@@ -1,83 +1,47 @@
-From: Chris Metcalf <cmetcalf@ezchip.com>
-Subject: [PATCH v2] nohz: prevent tilegx network driver interrupts
-Date: Fri, 10 Jul 2015 15:37:25 -0400
-Message-ID: <1436557045-5392-1-git-send-email-cmetcalf@ezchip.com>
-References: <55A0175E.2010200@ezchip.com>
+From: Guenter <linux@roeck-us.net>
+Subject: Re: [PATCH 1/2] net: dsa: mv88e6xxx: sleep in _mv88e6xxx_stats_wait
+Date: Fri, 10 Jul 2015 13:05:15 -0700
+Message-ID: <20150710200514.GA9469@groeck-UX31A>
+References: <1436547449-26927-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <20150710171027.GB6585@groeck-UX31A>
+ <1055594065.210272.1436552447158.JavaMail.zimbra@savoirfairelinux.com>
+ <20150710183623.GB19854@roeck-us.net>
+ <645518234.216003.1436556107630.JavaMail.zimbra@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Chris Metcalf <cmetcalf@ezchip.com>
-To: Frederic Weisbecker <fweisbec@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	David <davem@davemloft.net>, Andrew Lunn <andrew@lunn.ch>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0093.outbound.protection.outlook.com ([157.56.112.93]:65302
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932615AbbGJTj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jul 2015 15:39:27 -0400
-In-Reply-To: <55A0175E.2010200@ezchip.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:33541 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932641AbbGJUFT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 16:05:19 -0400
+Content-Disposition: inline
+In-Reply-To: <645518234.216003.1436556107630.JavaMail.zimbra@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Normally the tilegx networking shim sends irqs to all the cores
-to distribute the load of processing incoming-packet interrupts,
-so that you can get to multiple Gb's of traffic inbound.
+Hi Vivien,
 
-However, in nohz_full mode we don't want to interrupt the
-nohz_full cores by default, so we limit the set of cores we use
-to only the online housekeeping cores.
+On Fri, Jul 10, 2015 at 03:21:47PM -0400, Vivien Didelot wrote:
+> Hi Guenter,
+> >> I must have missed where is the benefit from spin reading 10 times this
+> >> register, rather than sleeping 1ms between tests. Does this busy bit
+> >> behaves differently from the phy, atu, scratch, or vtu busy bits?
+> >> 
+> > Benefit is reaction time, mostly. If the result isn't ready after the
+> > first spin, the new code path adds a mandatory 1-2ms delay. This could
+> > add up to a lot if that kind of retry is seen a lot.
+> 
+> To me, it looks like if this mandatory 1-2ms delay is an issue, then
+> _mv88e6xxx_wait must be fixed. Maybe reducing this delay is an option?
+> 
+Good point. The timeout is most definitely quite large and for sure on
+the safe side. It might make sense to add some statistics gathering to
+see how long the maximum observed delay actually is.
 
-To make client code easier to read, we introduce a new nohz_full
-accessor, housekeeping_cpumask(), which returns a pointer to the
-housekeeping_mask if nohz_full is enabled, and otherwise returns
-the cpu_possible_mask.
-
-Signed-off-by: Chris Metcalf <cmetcalf@ezchip.com>
----
- drivers/net/ethernet/tile/tilegx.c | 4 +++-
- include/linux/tick.h               | 9 +++++++++
- 2 files changed, 12 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
-index a3f7610002aa..0a15acc075b3 100644
---- a/drivers/net/ethernet/tile/tilegx.c
-+++ b/drivers/net/ethernet/tile/tilegx.c
-@@ -40,6 +40,7 @@
- #include <linux/tcp.h>
- #include <linux/net_tstamp.h>
- #include <linux/ptp_clock_kernel.h>
-+#include <linux/tick.h>
- 
- #include <asm/checksum.h>
- #include <asm/homecache.h>
-@@ -2273,7 +2274,8 @@ static int __init tile_net_init_module(void)
- 		tile_net_dev_init(name, mac);
- 
- 	if (!network_cpus_init())
--		network_cpus_map = *cpu_online_mask;
-+		cpumask_and(&network_cpus_map, housekeeping_cpumask(),
-+			    cpu_online_mask);
- 
- 	return 0;
- }
-diff --git a/include/linux/tick.h b/include/linux/tick.h
-index 3741ba1a652c..d3b00f0b2221 100644
---- a/include/linux/tick.h
-+++ b/include/linux/tick.h
-@@ -160,6 +160,15 @@ static inline void tick_nohz_full_kick_all(void) { }
- static inline void __tick_nohz_task_switch(struct task_struct *tsk) { }
- #endif
- 
-+static inline const struct cpumask *housekeeping_cpumask(void)
-+{
-+#ifdef CONFIG_NO_HZ_FULL
-+	if (tick_nohz_full_enabled())
-+		return housekeeping_mask;
-+#endif
-+	return cpu_possible_mask;
-+}
-+
- static inline bool is_housekeeping_cpu(int cpu)
- {
- #ifdef CONFIG_NO_HZ_FULL
--- 
-2.1.2
+Guenter
