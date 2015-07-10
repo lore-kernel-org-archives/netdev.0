@@ -1,43 +1,60 @@
-From: Tyler Baker <tyler.baker@linaro.org>
-Subject: re: net: fec: Ensure clocks are enabled while using mdio bus
-Date: Fri, 10 Jul 2015 12:07:29 -0700
-Message-ID: <CANMBJr7XML6v5_75LmD7ARMHaAJo9YBodv13jCcdN2mL7Vu0ZQ@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC net-next 11/22] dst: Metadata destinations
+Date: Fri, 10 Jul 2015 21:19:50 +0200
+Message-ID: <20150710191950.GA15042@pox.localdomain>
+References: <cover.1436537414.git.tgraf@suug.ch>
+ <1b20319e1ff0f2be28e783b90ac48738d6a8b72b.1436537414.git.tgraf@suug.ch>
+ <alpine.LFD.2.11.1507102139530.1754@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Fugang Duan <B38611@freescale.com>,
-	"Kevin's boot bot" <khilman@kernel.org>,
-	Olof Johansson <olof@lixom.net>,
-	netdev <netdev@vger.kernel.org>, Shawn Guo <shawn.guo@linaro.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
+	ebiederm@xmission.com, hannes@stressinduktion.org,
+	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
+	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
+	jiri@resnulli.us, marcelo.leitner@gmail.com,
+	stephen@networkplumber.org, jpettit@nicira.com, kaber@trash.net,
+	netdev@vger.kernel.org, dev@openvswitch.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f47.google.com ([209.85.192.47]:34570 "EHLO
-	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932545AbbGJTHa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 15:07:30 -0400
-Received: by qgep37 with SMTP id p37so41527601qge.1
-        for <netdev@vger.kernel.org>; Fri, 10 Jul 2015 12:07:30 -0700 (PDT)
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:35903 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932536AbbGJTTy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 15:19:54 -0400
+Received: by widjy10 with SMTP id jy10so23225702wid.1
+        for <netdev@vger.kernel.org>; Fri, 10 Jul 2015 12:19:53 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1507102139530.1754@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On 07/10/15 at 09:57pm, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Fri, 10 Jul 2015, Thomas Graf wrote:
+> 
+> > --- a/net/ipv4/route.c
+> > +++ b/net/ipv4/route.c
+> > @@ -1691,6 +1691,8 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+> >  	   by fib_lookup.
+> >  	 */
+> >  
+> > +	skb_dst_drop(skb);
+> > +
+> 
+> 	This is not very safe. There are places that
+> call ip_route_input() for temporary lookups and they
+> do not set NULL. For example, icmp_route_lookup(),
+> may be there are other such places...
 
-The kernelci.org system reported[1][2][3] new imx6 boot failures in
-next-20150710. I've bisected[4] these failures to 6c3e921b18ed "net:
-fec: Ensure clocks are enabled while using mdio bus". Reverting this
-commit on top of next-20150710, resolves the boot failures. I have not
-investigated any further, but did add the imx maintainer to the CC
-list. Apologies in advanced for not replying to the original thread,
-as I was not subscribed to the netdev list until now.
+Wow. What a tremendous hack ;-) It saves and restores the original
+dst ref to avoid the leaked reference.
 
-Any chance you can confirm this regression on your end?
+> 	OTOH, ip_options_rcv_srr() looks correct to use
+> skb_dst_set(skb, NULL), may be such call should be
+> added if it is missing...
 
-Cheers,
+Agreed. This seems to be the right fix. I'll apply to this
+icmp_route_lookup() as well.
 
-Tyler
-
-[1] http://kernelci.org/boot/all/job/next/kernel/next-20150710/
-[2] http://storage.kernelci.org/next/next-20150710/arm-multi_v7_defconfig/lab-collabora/boot-imx6q-sabrelite.html
-[3] http://storage.kernelci.org/next/next-20150710/arm-imx_v6_v7_defconfig/lab-tbaker/boot-imx6q-cm-fx6.html
-[4] http://hastebin.com/uzofovupey.pas
+Thanks!
