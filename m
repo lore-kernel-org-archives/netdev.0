@@ -1,58 +1,46 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 03/11] soc/fsl: Introduce the DPAA BMan portal driver
-Date: Fri, 10 Jul 2015 18:47:16 +0200
-Message-ID: <1436546836.20619.231.camel@tiscali.nl>
-References: <1436473322-21247-1-git-send-email-Roy.Pledge@freescale.com>
-	 <1436473322-21247-4-git-send-email-Roy.Pledge@freescale.com>
-	 <1436535163.20619.216.camel@tiscali.nl>
-	 <BN3PR0301MB1267A318EF9DB3C193DA9FA08C9F0@BN3PR0301MB1267.namprd03.prod.outlook.com>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: Re: [RFC net-next 03/22] ipv4: support for fib route
+ lwtunnel encap attributes
+Date: Fri, 10 Jul 2015 18:54:36 +0200
+Message-ID: <20150710165436.GC11654@pox.localdomain>
+References: <cover.1436537414.git.tgraf@suug.ch>
+ <8ebc9066754f07003d54c3ac64d8c46f9c1c570b.1436537414.git.tgraf@suug.ch>
+ <1436542616.24939.52.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	Scott Wood <scottwood@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Roy Pledge <roy.pledge@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BN3PR0301MB1267A318EF9DB3C193DA9FA08C9F0@BN3PR0301MB1267.namprd03.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
+ daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
+ edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
+ rshearma-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1436542616.24939.52.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hi Roy,
-
-On vr, 2015-07-10 at 15:19 +0000, Roy Pledge wrote:
-> Thanks you for your valuable feedback so far.
-
-You're welcome. Please note that I just scan for, well, common build
-issues. Ie, stuff that requires no domain specific knowledge.
-
-> Let me try to address a general issue you mention below: unused 
-> exported APIs.
-
-Good timing. I was pondering how to handle 04/11, a big patch that
-exports 79 (!) symbols. Many of those appear to have no users.
-
-> The QMan and BMan drivers provide a base layer for other blocks built 
-> on top of them, for instance an Ethernet Driver, an Encrypt/Decrypt 
-> Engine,  a pattern matcher, a compress/decompress engine, etc...
-> Some of these drivers will be presented for review in the near future, 
-> but in order to try and layer the review/up streaming process we're 
-> presenting each layer as independently as possible.
-> If you really were to start dissecting which APIs are called you would 
-> come to a very small set of pieces that merely initialize the hardware 
-> but don't provide any opportunity for other users to invoke that HW. 
-> 
-> I hope that this helps you understand our goals in trying to upstream 
-> these drivers.
-
-At the end of the day, what matters is what the people that need to sign
-off on these drivers (ppc? netdev?) are comfortable with. I know that
-some maintainers won't even bother looking at code that has no callers.
-
-In the mean time I'll skip the exports for the remainder of this series.
-
-Thanks,
-
-
-Paul Bolle
+T24gMDcvMTAvMTUgYXQgMDU6MzZwbSwgRXJpYyBEdW1hemV0IHdyb3RlOgo+IE9uIEZyaSwgMjAx
+NS0wNy0xMCBhdCAxNjoxOSArMDIwMCwgVGhvbWFzIEdyYWYgd3JvdGU6Cj4gPiBGcm9tOiBSb29w
+YSBQcmFiaHUgPHJvb3BhQGN1bXVsdXNuZXR3b3Jrcy5jb20+Cj4gCj4gCj4gPiArCWlmIChvaWYp
+Cj4gPiArCQlkZXYgPSBfX2Rldl9nZXRfYnlfaW5kZXgobmV0LCBvaWYpOwo+ID4gKwlyZXQgPSBs
+d3R1bm5lbF9idWlsZF9zdGF0ZShkZXYsIGVuY2FwX3R5cGUsCj4gPiArCQkJCSAgIGVuY2FwLCAm
+bHd0c3RhdGUpOwo+ID4gKwlpZiAoIXJldCkgewo+ID4gKwkJbHd0dW5uZWxfc3RhdGVfZ2V0KGx3
+dHN0YXRlKTsKPiA+ICsJCXJldCA9IGx3dHVubmVsX2NtcF9lbmNhcChsd3RzdGF0ZSwgbmgtPm5o
+X2x3dHN0YXRlKTsKPiA+ICsJCWx3dHVubmVsX3N0YXRlX3B1dChsd3RzdGF0ZSk7Cj4gPiArCj4g
+PiArCQlyZXR1cm4gcmV0Owo+IAo+IAo+IFRoZXNlIF9nZXQoKS9fcHV0KCkgY2FsbHMgZG8gbm90
+IHNlZW0gbmVjZXNzYXJ5LCBvciBidWdneS4KPiAKPiBJZiByZWZjb3VudGluZyBpcyBuZWVkZWQg
+dGhlIF9nZXQoKSBzaG91bGQgYmUgZG9uZSBhdCB0aGUgdGltZSBsd3N0YXRlCj4gaXMgZmV0Y2hl
+ZC4KCkknbGwgbGV0IFJvb3BhIGNvbW1lbnQgYnV0IGl0IHNlZW1zIGxpa2UgdGhlc2UgY2FuIGp1
+c3QgYmUgcmVtb3ZlZC4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3
+aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
