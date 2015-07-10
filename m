@@ -1,259 +1,108 @@
-From: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kvGyRCNUhGIzFRTEAbKEI=?=
-	<hideaki.yoshifuji@miraclelinux.com>
-Subject: [PATCH net-next v2] ipv6: Do not iterate over all interfaces when
- finding source address on specific interface.
-Date: Fri, 10 Jul 2015 16:58:31 +0900
-Message-ID: <559F7B27.6030205@miraclelinux.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 02/11] soc/fsl: Introduce DPAA BMan device management
+ driver
+Date: Fri, 10 Jul 2015 10:38:30 +0200
+Message-ID: <1436517510.20619.123.camel@tiscali.nl>
+References: <1436473322-21247-1-git-send-email-Roy.Pledge@freescale.com>
+	 <1436473322-21247-3-git-send-email-Roy.Pledge@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, lorenzo@google.com,
-	hideaki.yoshifuji@miraclelinux.com
-To: davem@davemloft.net, netdev@vger.kernel.org, ek@google.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linuxppc-dev@lists.ozlabs.org, scottwood@freescale.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Roy Pledge <Roy.Pledge@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36015 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753425AbbGJH6g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 03:58:36 -0400
-Received: by pacgz10 with SMTP id gz10so91176828pac.3
-        for <netdev@vger.kernel.org>; Fri, 10 Jul 2015 00:58:35 -0700 (PDT)
+Received: from lb3-smtp-cloud6.xs4all.net ([194.109.24.31]:53413 "EHLO
+	lb3-smtp-cloud6.xs4all.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751838AbbGJIie (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 04:38:34 -0400
+In-Reply-To: <1436473322-21247-3-git-send-email-Roy.Pledge@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If outgoing interface is specified and the candidate address is
-restricted to the outgoing interface, it is enough to iterate
-over that given interface only.
+On do, 2015-07-09 at 16:21 -0400, Roy Pledge wrote:
+> --- /dev/null
+> +++ b/drivers/soc/fsl/qbman/Kconfig
+> @@ -0,0 +1,33 @@
+> +menuconfig FSL_DPA
+> +	bool "Freescale DPAA support"
+> +	depends on FSL_SOC || COMPILE_TEST
 
-Signed-off-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Acked-by: Erik Kline <ek@google.com>
----
- net/ipv6/addrconf.c | 197 ++++++++++++++++++++++++++++------------------------
- 1 file changed, 107 insertions(+), 90 deletions(-)
+Are you sure about COMPILE_TEST?
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 21c2c81..4ab74d5 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1358,15 +1358,94 @@ out:
- 	return ret;
- }
- 
-+static void __ipv6_dev_get_saddr(struct net *net,
-+				 struct ipv6_saddr_dst *dst,
-+				 unsigned int prefs,
-+				 const struct in6_addr *saddr,
-+				 struct inet6_dev *idev,
-+				 struct ipv6_saddr_score *scores)
-+{
-+	struct ipv6_saddr_score *score = &scores[0], *hiscore = &scores[1];
-+
-+	read_lock_bh(&idev->lock);
-+	list_for_each_entry(score->ifa, &idev->addr_list, if_list) {
-+		int i;
-+
-+		/*
-+		 * - Tentative Address (RFC2462 section 5.4)
-+		 *  - A tentative address is not considered
-+		 *    "assigned to an interface" in the traditional
-+		 *    sense, unless it is also flagged as optimistic.
-+		 * - Candidate Source Address (section 4)
-+		 *  - In any case, anycast addresses, multicast
-+		 *    addresses, and the unspecified address MUST
-+		 *    NOT be included in a candidate set.
-+		 */
-+		if ((score->ifa->flags & IFA_F_TENTATIVE) &&
-+		    (!(score->ifa->flags & IFA_F_OPTIMISTIC)))
-+			continue;
-+
-+		score->addr_type = __ipv6_addr_type(&score->ifa->addr);
-+
-+		if (unlikely(score->addr_type == IPV6_ADDR_ANY ||
-+			     score->addr_type & IPV6_ADDR_MULTICAST)) {
-+			net_dbg_ratelimited("ADDRCONF: unspecified / multicast address assigned as unicast address on %s",
-+					    idev->dev->name);
-+			continue;
-+		}
-+
-+		score->rule = -1;
-+		bitmap_zero(score->scorebits, IPV6_SADDR_RULE_MAX);
-+
-+		for (i = 0; i < IPV6_SADDR_RULE_MAX; i++) {
-+			int minihiscore, miniscore;
-+
-+			minihiscore = ipv6_get_saddr_eval(net, hiscore, dst, i);
-+			miniscore = ipv6_get_saddr_eval(net, score, dst, i);
-+
-+			if (minihiscore > miniscore) {
-+				if (i == IPV6_SADDR_RULE_SCOPE &&
-+				    score->scopedist > 0) {
-+					/*
-+					 * special case:
-+					 * each remaining entry
-+					 * has too small (not enough)
-+					 * scope, because ifa entries
-+					 * are sorted by their scope
-+					 * values.
-+					 */
-+					goto out;
-+				}
-+				break;
-+			} else if (minihiscore < miniscore) {
-+				if (hiscore->ifa)
-+					in6_ifa_put(hiscore->ifa);
-+
-+				in6_ifa_hold(score->ifa);
-+
-+				swap(hiscore, score);
-+
-+				/* restore our iterator */
-+				score->ifa = hiscore->ifa;
-+
-+				break;
-+			}
-+		}
-+	}
-+out:
-+	read_unlock_bh(&idev->lock);
-+}
-+
- int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
- 		       const struct in6_addr *daddr, unsigned int prefs,
- 		       struct in6_addr *saddr)
- {
--	struct ipv6_saddr_score scores[2],
--				*score = &scores[0], *hiscore = &scores[1];
-+	struct ipv6_saddr_score scores[2], *hiscore = &scores[1];
- 	struct ipv6_saddr_dst dst;
-+	struct inet6_dev *idev;
- 	struct net_device *dev;
- 	int dst_type;
-+	bool use_oif_addr = false;
- 
- 	dst_type = __ipv6_addr_type(daddr);
- 	dst.addr = daddr;
-@@ -1380,97 +1459,35 @@ int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
- 
- 	rcu_read_lock();
- 
--	for_each_netdev_rcu(net, dev) {
--		struct inet6_dev *idev;
--
--		/* Candidate Source Address (section 4)
--		 *  - multicast and link-local destination address,
--		 *    the set of candidate source address MUST only
--		 *    include addresses assigned to interfaces
--		 *    belonging to the same link as the outgoing
--		 *    interface.
--		 * (- For site-local destination addresses, the
--		 *    set of candidate source addresses MUST only
--		 *    include addresses assigned to interfaces
--		 *    belonging to the same site as the outgoing
--		 *    interface.)
--		 */
--		if (((dst_type & IPV6_ADDR_MULTICAST) ||
--		     dst.scope <= IPV6_ADDR_SCOPE_LINKLOCAL) &&
--		    dst.ifindex && dev->ifindex != dst.ifindex)
--			continue;
--
--		idev = __in6_dev_get(dev);
--		if (!idev)
--			continue;
--
--		read_lock_bh(&idev->lock);
--		list_for_each_entry(score->ifa, &idev->addr_list, if_list) {
--			int i;
--
--			/*
--			 * - Tentative Address (RFC2462 section 5.4)
--			 *  - A tentative address is not considered
--			 *    "assigned to an interface" in the traditional
--			 *    sense, unless it is also flagged as optimistic.
--			 * - Candidate Source Address (section 4)
--			 *  - In any case, anycast addresses, multicast
--			 *    addresses, and the unspecified address MUST
--			 *    NOT be included in a candidate set.
--			 */
--			if ((score->ifa->flags & IFA_F_TENTATIVE) &&
--			    (!(score->ifa->flags & IFA_F_OPTIMISTIC)))
--				continue;
--
--			score->addr_type = __ipv6_addr_type(&score->ifa->addr);
-+	/* Candidate Source Address (section 4)
-+	 *  - multicast and link-local destination address,
-+	 *    the set of candidate source address MUST only
-+	 *    include addresses assigned to interfaces
-+	 *    belonging to the same link as the outgoing
-+	 *    interface.
-+	 * (- For site-local destination addresses, the
-+	 *    set of candidate source addresses MUST only
-+	 *    include addresses assigned to interfaces
-+	 *    belonging to the same site as the outgoing
-+	 *    interface.)
-+	 */
-+	if (dst_dev) {
-+		if ((dst_type & IPV6_ADDR_MULTICAST) ||
-+		    dst.scope <= IPV6_ADDR_SCOPE_LINKLOCAL) {
-+			idev = __in6_dev_get(dst_dev);
-+			use_oif_addr = true;
-+		}
-+	}
- 
--			if (unlikely(score->addr_type == IPV6_ADDR_ANY ||
--				     score->addr_type & IPV6_ADDR_MULTICAST)) {
--				net_dbg_ratelimited("ADDRCONF: unspecified / multicast address assigned as unicast address on %s",
--						    dev->name);
-+	if (use_oif_addr) {
-+		__ipv6_dev_get_saddr(net, &dst, prefs, saddr, idev, scores);
-+	} else {
-+		for_each_netdev_rcu(net, dev) {
-+			idev = __in6_dev_get(dev);
-+			if (!idev)
- 				continue;
--			}
--
--			score->rule = -1;
--			bitmap_zero(score->scorebits, IPV6_SADDR_RULE_MAX);
--
--			for (i = 0; i < IPV6_SADDR_RULE_MAX; i++) {
--				int minihiscore, miniscore;
--
--				minihiscore = ipv6_get_saddr_eval(net, hiscore, &dst, i);
--				miniscore = ipv6_get_saddr_eval(net, score, &dst, i);
--
--				if (minihiscore > miniscore) {
--					if (i == IPV6_SADDR_RULE_SCOPE &&
--					    score->scopedist > 0) {
--						/*
--						 * special case:
--						 * each remaining entry
--						 * has too small (not enough)
--						 * scope, because ifa entries
--						 * are sorted by their scope
--						 * values.
--						 */
--						goto try_nextdev;
--					}
--					break;
--				} else if (minihiscore < miniscore) {
--					if (hiscore->ifa)
--						in6_ifa_put(hiscore->ifa);
--
--					in6_ifa_hold(score->ifa);
--
--					swap(hiscore, score);
--
--					/* restore our iterator */
--					score->ifa = hiscore->ifa;
--
--					break;
--				}
--			}
-+			__ipv6_dev_get_saddr(net, &dst, prefs, saddr, idev, scores);
- 		}
--try_nextdev:
--		read_unlock_bh(&idev->lock);
- 	}
- 	rcu_read_unlock();
- 
--- 
-1.9.1
+> +	default n
+> +	help
+> +		FSL Data-Path Acceleration Architecture drivers
+> +
+> +		These are not the actual Ethernet driver(s)
+> +
+> +if FSL_DPA
+
+[...]
+
+> +config FSL_BMAN
+> +	tristate "BMan device management"
+> +	default n
+> +	help
+> +		FSL DPAA BMan driver
+> +
+> +endif # FSL_DPA
+
+Because with FSL_BMAN set to 'm' testing things with
+    make -C ../../../.. M=3D$PWD bman.ko   =20
+
+will not actually compile on x86_64:
+
+make: Entering directory '[...]'
+  CC [M]  [...]/drivers/soc/fsl/qbman/bman.o
+In file included from [...]/drivers/soc/fsl/qbman/bman_priv.h:33:0,
+                 from [...]/drivers/soc/fsl/qbman/bman.c:31:
+[...]/drivers/soc/fsl/qbman/dpaa_sys.h: In function =E2=80=98mfatb=E2=80=
+=99:
+[...]/drivers/soc/fsl/qbman/dpaa_sys.h:134:8: error: implicit declarati=
+on of function =E2=80=98mfspr=E2=80=99 [-Werror=3Dimplicit-function-dec=
+laration]
+   hi =3D mfspr(SPRN_ATBU);
+        ^
+[...]/drivers/soc/fsl/qbman/dpaa_sys.h:134:14: error: =E2=80=98SPRN_ATB=
+U=E2=80=99 undeclared (first use in this function)
+   hi =3D mfspr(SPRN_ATBU);
+              ^
+[...]/drivers/soc/fsl/qbman/dpaa_sys.h:134:14: note: each undeclared id=
+entifier is reported only once for each function it appears in
+[...]/drivers/soc/fsl/qbman/dpaa_sys.h:135:14: error: =E2=80=98SPRN_ATB=
+L=E2=80=99 undeclared (first use in this function)
+   lo =3D mfspr(SPRN_ATBL);
+              ^
+[...]/drivers/soc/fsl/qbman/bman.c: In function =E2=80=98__bm_in=E2=80=99=
+:
+[...]/drivers/soc/fsl/qbman/bman.c:168:9: error: implicit declaration o=
+f function =E2=80=98in_be32=E2=80=99 [-Werror=3Dimplicit-function-decla=
+ration]
+  return in_be32((void *)bm + offset);
+         ^
+[...]/drivers/soc/fsl/qbman/bman.c: In function =E2=80=98__bm_out=E2=80=
+=99:
+[...]/drivers/soc/fsl/qbman/bman.c:172:2: error: implicit declaration o=
+f function =E2=80=98out_be32=E2=80=99 [-Werror=3Dimplicit-function-decl=
+aration]
+  out_be32((void *)bm + offset, val);
+  ^
+[...]/drivers/soc/fsl/qbman/bman.c: In function =E2=80=98of_fsl_bman_pr=
+obe=E2=80=99:
+[...]/drivers/soc/fsl/qbman/bman.c:463:17: error: =E2=80=98NO_IRQ=E2=80=
+=99 undeclared (first use in this function)
+  if (err_irq =3D=3D NO_IRQ) {
+                 ^
+cc1: some warnings being treated as errors
+scripts/Makefile.build:264: recipe for target '[...]/drivers/soc/fsl/qb=
+man/bman.o' failed
+make[1]: *** [[...]/drivers/soc/fsl/qbman/bman.o] Error 1
+Makefile:1568: recipe for target 'bman.ko' failed
+make: *** [bman.ko] Error 2
+make: Leaving directory '[...]'
+
+Thanks,
+
+
+Paul Bolle
