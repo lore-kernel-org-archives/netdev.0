@@ -1,84 +1,78 @@
-From: anuradhak@cumulusnetworks.com
-Subject: [PATCH net-next v5 3/4] rocker: Handle protodown notifications.
-Date: Thu,  9 Jul 2015 15:35:29 -0700
-Message-ID: <1436481330-4599-4-git-send-email-anuradhak@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com,
-	anuradhak@cumulusnetworks.com
-To: davem@davemloft.net, sfeldma@gmail.com
+From: Dmitry Torokhov <dtor@google.com>
+Subject: [PATCH] nf: IDLETIMER: fix lockdep warning
+Date: Thu, 9 Jul 2015 17:15:01 -0700
+Message-ID: <20150710001501.GA32570@dtor-ws>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:36697 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751624AbbGIWfm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 18:35:42 -0400
-Received: by pdjr16 with SMTP id r16so11192753pdj.3
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 15:35:41 -0700 (PDT)
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:35609 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751299AbbGJAPE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2015 20:15:04 -0400
+Received: by igcqs7 with SMTP id qs7so2100130igc.0
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 17:15:03 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+Dynamically allocated sysfs attributes should be initialized with
+sysfs_attr_init() otherwise lockdep will be angry with us:
 
-protodown can be set by user space applications like MLAG on detecting
-errors on a switch port. This patch provides sample switch driver changes
-for handling protodown. Rocker PHYS disables the port in response to
-protodown.
+[   45.468653] BUG: key ffffffc030fad4e0 not in .data!
+[   45.468655] ------------[ cut here ]------------
+[   45.468666] WARNING: CPU: 0 PID: 1176 at /mnt/host/source/src/third_party/kernel/v3.18/kernel/locking/lockdep.c:2991 lockdep_init_map+0x12c/0x490()
+[   45.468672] DEBUG_LOCKS_WARN_ON(1)
+[   45.468672] CPU: 0 PID: 1176 Comm: iptables Tainted: G     U  W 3.18.0 #43
+[   45.468674] Hardware name: XXX
+[   45.468675] Call trace:
+[   45.468680] [<ffffffc0002072b4>] dump_backtrace+0x0/0x10c
+[   45.468683] [<ffffffc0002073d0>] show_stack+0x10/0x1c
+[   45.468688] [<ffffffc000a86cd4>] dump_stack+0x74/0x94
+[   45.468692] [<ffffffc000217ae0>] warn_slowpath_common+0x84/0xb0
+[   45.468694] [<ffffffc000217b84>] warn_slowpath_fmt+0x4c/0x58
+[   45.468697] [<ffffffc0002530a4>] lockdep_init_map+0x128/0x490
+[   45.468701] [<ffffffc000367ef0>] __kernfs_create_file+0x80/0xe4
+[   45.468704] [<ffffffc00036862c>] sysfs_add_file_mode_ns+0x104/0x170
+[   45.468706] [<ffffffc00036870c>] sysfs_create_file_ns+0x58/0x64
+[   45.468711] [<ffffffc000930430>] idletimer_tg_checkentry+0x14c/0x324
+[   45.468714] [<ffffffc00092a728>] xt_check_target+0x170/0x198
+[   45.468717] [<ffffffc000993efc>] check_target+0x58/0x6c
+[   45.468720] [<ffffffc000994c64>] translate_table+0x30c/0x424
+[   45.468723] [<ffffffc00099529c>] do_ipt_set_ctl+0x144/0x1d0
+[   45.468728] [<ffffffc0009079f0>] nf_setsockopt+0x50/0x60
+[   45.468732] [<ffffffc000946870>] ip_setsockopt+0x8c/0xb4
+[   45.468735] [<ffffffc0009661c0>] raw_setsockopt+0x10/0x50
+[   45.468739] [<ffffffc0008c1550>] sock_common_setsockopt+0x14/0x20
+[   45.468742] [<ffffffc0008bd190>] SyS_setsockopt+0x88/0xb8
+[   45.468744] ---[ end trace 41d156354d18c039 ]---
 
-To test this unctionality I used the qemu-rocker patch that Scott sent out
-in response to the v3 posting (needed to set link up/down when phy is
-nabled/disabled).
-
-
-Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
-Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+Change-Id: I1da5cd96fc8e1e1e4209e81eba1165a42d4d45e9
+Signed-off-by: Dmitry Torokhov <dtor@google.com>
 ---
- drivers/net/ethernet/rocker/rocker.c |   19 ++++++++++++++++++-
- 1 file changed, 18 insertions(+), 1 deletion(-)
+ net/netfilter/xt_IDLETIMER.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 2d8578cade..10051fa 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -3983,7 +3983,8 @@ static int rocker_port_open(struct net_device *dev)
+diff --git a/net/netfilter/xt_IDLETIMER.c b/net/netfilter/xt_IDLETIMER.c
+index 31f76cd..0975c993 100644
+--- a/net/netfilter/xt_IDLETIMER.c
++++ b/net/netfilter/xt_IDLETIMER.c
+@@ -286,6 +286,7 @@ static int idletimer_tg_create(struct idletimer_tg_info *info)
+ 		goto out;
+ 	}
  
- 	napi_enable(&rocker_port->napi_tx);
- 	napi_enable(&rocker_port->napi_rx);
--	rocker_port_set_enable(rocker_port, true);
-+	if (!(dev->proto_flags & IF_PROTOF_DOWN))
-+		rocker_port_set_enable(rocker_port, true);
- 	netif_start_queue(dev);
- 	return 0;
- 
-@@ -4167,6 +4168,21 @@ static int rocker_port_get_phys_port_name(struct net_device *dev,
- 	return err ? -EOPNOTSUPP : 0;
- }
- 
-+static int rocker_port_change_proto_flags(struct net_device *dev,
-+					  unsigned int flags)
-+{
-+	struct rocker_port *rocker_port = netdev_priv(dev);
-+
-+	if (rocker_port->dev->flags & IFF_UP) {
-+		if (flags & IF_PROTOF_DOWN)
-+			rocker_port_set_enable(rocker_port, false);
-+		else
-+			rocker_port_set_enable(rocker_port, true);
-+	}
-+	rocker_port->dev->proto_flags = flags;
-+	return 0;
-+}
-+
- static const struct net_device_ops rocker_port_netdev_ops = {
- 	.ndo_open			= rocker_port_open,
- 	.ndo_stop			= rocker_port_stop,
-@@ -4179,6 +4195,7 @@ static const struct net_device_ops rocker_port_netdev_ops = {
- 	.ndo_fdb_del			= switchdev_port_fdb_del,
- 	.ndo_fdb_dump			= switchdev_port_fdb_dump,
- 	.ndo_get_phys_port_name		= rocker_port_get_phys_port_name,
-+	.ndo_change_proto_flags		= rocker_port_change_proto_flags,
- };
- 
- /********************
++	sysfs_attr_init(&info->timer->attr.attr);
+ 	info->timer->attr.attr.name = kstrdup(info->label, GFP_KERNEL);
+ 	if (!info->timer->attr.attr.name) {
+ 		ret = -ENOMEM;
 -- 
-1.7.10.4
+2.4.3.573.g4eafbef
+
+
+-- 
+Dmitry
