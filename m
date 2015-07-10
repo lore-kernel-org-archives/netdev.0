@@ -1,13 +1,13 @@
 From: Sathya Perla <sathya.perla@avagotech.com>
-Subject: [PATCH net-next 1/9] be2net: remove duplicate code in be_setup_wol()
-Date: Fri, 10 Jul 2015 05:32:43 -0400
-Message-ID: <1436520771-11656-2-git-send-email-sathya.perla@avagotech.com>
+Subject: [PATCH net-next 2/9] be2net: query FW to check if EVB is enabled
+Date: Fri, 10 Jul 2015 05:32:44 -0400
+Message-ID: <1436520771-11656-3-git-send-email-sathya.perla@avagotech.com>
 References: <1436520771-11656-1-git-send-email-sathya.perla@avagotech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cmrelayp1.emulex.com ([138.239.112.140]:56755 "EHLO
 	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753390AbbGJJ0c (ORCPT
+	by vger.kernel.org with ESMTP id S1753397AbbGJJ0c (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 05:26:32 -0400
 In-Reply-To: <1436520771-11656-1-git-send-email-sathya.perla@avagotech.com>
 Sender: netdev-owner@vger.kernel.org
@@ -15,70 +15,52 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Kalesh Purayil <kalesh.purayil@avagotech.com>
 
-This change will make be_setup_wol() routine more compact and readable
-by removing some duplicate code.
+The current code assumes that bridge functionality (EVB) in the adapter
+is enabled only when SR-IOV is enabled. This is not always true.
+This patch uses the GET_HSW_CONFIG FW cmd to query this from the FW.
 
 Signed-off-by: Kalesh AP <kalesh.purayil@avagotech.com>
 Signed-off-by: Sathya Perla <sathya.perla@avagotech.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c | 28 +++++++++++-----------------
- 1 file changed, 11 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.h | 1 +
+ drivers/net/ethernet/emulex/benet/be_main.c | 6 +++---
+ 2 files changed, 4 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 2716e6f..f0a92b7 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -1758,6 +1758,7 @@ struct be_cmd_req_set_mac_list {
+ /*********************** HSW Config ***********************/
+ #define PORT_FWD_TYPE_VEPA		0x3
+ #define PORT_FWD_TYPE_VEB		0x2
++#define PORT_FWD_TYPE_PASSTHRU		0x1
+ 
+ #define ENABLE_MAC_SPOOFCHK		0x2
+ #define DISABLE_MAC_SPOOFCHK		0x3
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 6f64242..635c62f 100644
+index 635c62f..f21c56a 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3529,15 +3529,15 @@ err:
+@@ -5073,9 +5073,6 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+ 	int status = 0;
+ 	u8 hsw_mode;
  
- static int be_setup_wol(struct be_adapter *adapter, bool enable)
- {
-+	struct device *dev = &adapter->pdev->dev;
- 	struct be_dma_mem cmd;
--	int status = 0;
- 	u8 mac[ETH_ALEN];
-+	int status;
- 
- 	eth_zero_addr(mac);
- 
- 	cmd.size = sizeof(struct be_cmd_req_acpi_wol_magic_config);
--	cmd.va = dma_zalloc_coherent(&adapter->pdev->dev, cmd.size, &cmd.dma,
--				     GFP_KERNEL);
-+	cmd.va = dma_zalloc_coherent(dev, cmd.size, &cmd.dma, GFP_KERNEL);
- 	if (!cmd.va)
- 		return -ENOMEM;
- 
-@@ -3546,24 +3546,18 @@ static int be_setup_wol(struct be_adapter *adapter, bool enable)
- 						PCICFG_PM_CONTROL_OFFSET,
- 						PCICFG_PM_CONTROL_MASK);
- 		if (status) {
--			dev_err(&adapter->pdev->dev,
--				"Could not enable Wake-on-lan\n");
--			dma_free_coherent(&adapter->pdev->dev, cmd.size, cmd.va,
--					  cmd.dma);
--			return status;
-+			dev_err(dev, "Could not enable Wake-on-lan\n");
-+			goto err;
- 		}
--		status = be_cmd_enable_magic_wol(adapter,
--						 adapter->netdev->dev_addr,
--						 &cmd);
--		pci_enable_wake(adapter->pdev, PCI_D3hot, 1);
--		pci_enable_wake(adapter->pdev, PCI_D3cold, 1);
- 	} else {
--		status = be_cmd_enable_magic_wol(adapter, mac, &cmd);
--		pci_enable_wake(adapter->pdev, PCI_D3hot, 0);
--		pci_enable_wake(adapter->pdev, PCI_D3cold, 0);
-+		ether_addr_copy(mac, adapter->netdev->dev_addr);
+-	if (!sriov_enabled(adapter))
+-		return 0;
+-
+ 	/* BE and Lancer chips support VEB mode only */
+ 	if (BEx_chip(adapter) || lancer_chip(adapter)) {
+ 		hsw_mode = PORT_FWD_TYPE_VEB;
+@@ -5085,6 +5082,9 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+ 					       NULL);
+ 		if (status)
+ 			return 0;
++
++		if (hsw_mode == PORT_FWD_TYPE_PASSTHRU)
++			return 0;
  	}
  
--	dma_free_coherent(&adapter->pdev->dev, cmd.size, cmd.va, cmd.dma);
-+	status = be_cmd_enable_magic_wol(adapter, mac, &cmd);
-+	pci_enable_wake(adapter->pdev, PCI_D3hot, enable);
-+	pci_enable_wake(adapter->pdev, PCI_D3cold, enable);
-+err:
-+	dma_free_coherent(dev, cmd.size, cmd.va, cmd.dma);
- 	return status;
- }
- 
+ 	return ndo_dflt_bridge_getlink(skb, pid, seq, dev,
 -- 
 2.4.1
