@@ -1,73 +1,97 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] ravb: kill useless initializers
-Date: Fri, 10 Jul 2015 21:10:10 +0300
-Message-ID: <3087282.SVZhuJYtXK@wasted.cogentembedded.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH 1/2] net: dsa: mv88e6xxx: sleep in _mv88e6xxx_stats_wait
+Date: Fri, 10 Jul 2015 14:20:47 -0400 (EDT)
+Message-ID: <1055594065.210272.1436552447158.JavaMail.zimbra@savoirfairelinux.com>
+References: <1436547449-26927-1-git-send-email-vivien.didelot@savoirfairelinux.com> <20150710171027.GB6585@groeck-UX31A>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150710171027.GB6585@groeck-UX31A>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some of the local variable intializers in the driver turned out to be pointless,
-kill them.
+Hi Guenter,
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+On Jul 10, 2015, at 1:10 PM, Guenter Roeck linux@roeck-us.net wrote:
 
----
-The patch is against the Dave Miller's 'net-next.git' repo.
+> On Fri, Jul 10, 2015 at 12:57:28PM -0400, Vivien Didelot wrote:
+>> The current _mv88e6xxx_stats_wait function does not sleep while testing
+>> the stats busy bit. Fix this by using the generic _mv88e6xxx_wait
+>> function.
+>> 
+>> Note that it requires to move _mv88e6xxx_wait on top of
+>> _mv88e6xxx_stats_wait to avoid undefined reference compilation error.
+>> 
+>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>> ---
+>>  drivers/net/dsa/mv88e6xxx.c | 52 +++++++++++++++++++--------------------------
+>>  1 file changed, 22 insertions(+), 30 deletions(-)
+>> 
+>> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+>> index f6c7409..7753db1 100644
+>> --- a/drivers/net/dsa/mv88e6xxx.c
+>> +++ b/drivers/net/dsa/mv88e6xxx.c
+>> @@ -557,19 +557,31 @@ static bool mv88e6xxx_6352_family(struct dsa_switch *ds)
+>>  	return false;
+>>  }
+>>  
+>> +/* Must be called with SMI lock held */
+>> +static int _mv88e6xxx_wait(struct dsa_switch *ds, int reg, int offset,
+>> +			   u16 mask)
+>> +{
+>> +	unsigned long timeout = jiffies + HZ / 10;
+>> +
+>> +	while (time_before(jiffies, timeout)) {
+>> +		int ret;
+>> +
+>> +		ret = _mv88e6xxx_reg_read(ds, reg, offset);
+>> +		if (ret < 0)
+>> +			return ret;
+>> +		if (!(ret & mask))
+>> +			return 0;
+>> +
+>> +		usleep_range(1000, 2000);
+>> +	}
+>> +	return -ETIMEDOUT;
+>> +}
+>> +
+>>  /* Must be called with SMI mutex held */
+>>  static int _mv88e6xxx_stats_wait(struct dsa_switch *ds)
+>>  {
+>> -	int ret;
+>> -	int i;
+>> -
+>> -	for (i = 0; i < 10; i++) {
+>> -		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_STATS_OP);
+>> -		if ((ret & GLOBAL_STATS_OP_BUSY) == 0)
+>> -			return 0;
+>> -	}
+> 
+> Hi Vivien,
+> 
+> is this really beneficial and/or needed ?
 
-Changes in version 2:
-- fixed typo in the subject.
+Except using existing generic code, no.
 
- drivers/net/ethernet/renesas/ravb_main.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+> It adds at least 1ms delay to a loop which did not have any delay at
+> all unless the register read itself was sleeping.
 
-Index: net-next/drivers/net/ethernet/renesas/ravb_main.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/ravb_main.c
-+++ net-next/drivers/net/ethernet/renesas/ravb_main.c
-@@ -223,9 +223,9 @@ static void ravb_ring_free(struct net_de
- static void ravb_ring_format(struct net_device *ndev, int q)
- {
- 	struct ravb_private *priv = netdev_priv(ndev);
--	struct ravb_ex_rx_desc *rx_desc = NULL;
--	struct ravb_tx_desc *tx_desc = NULL;
--	struct ravb_desc *desc = NULL;
-+	struct ravb_ex_rx_desc *rx_desc;
-+	struct ravb_tx_desc *tx_desc;
-+	struct ravb_desc *desc;
- 	int rx_ring_size = sizeof(*rx_desc) * priv->num_rx_ring[q];
- 	int tx_ring_size = sizeof(*tx_desc) * priv->num_tx_ring[q];
- 	struct sk_buff *skb;
-@@ -435,7 +435,7 @@ static int ravb_tx_free(struct net_devic
- 	struct net_device_stats *stats = &priv->stats[q];
- 	struct ravb_tx_desc *desc;
- 	int free_num = 0;
--	int entry = 0;
-+	int entry;
- 	u32 size;
- 
- 	for (; priv->cur_tx[q] - priv->dirty_tx[q] > 0; priv->dirty_tx[q]++) {
-@@ -508,8 +508,8 @@ static bool ravb_rx(struct net_device *n
- 	struct sk_buff *skb;
- 	dma_addr_t dma_addr;
- 	struct timespec64 ts;
--	u16 pkt_len = 0;
- 	u8  desc_status;
-+	u16 pkt_len;
- 	int limit;
- 
- 	boguscnt = min(boguscnt, *quota);
-@@ -1272,8 +1272,8 @@ static void ravb_tx_timeout_work(struct
- static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- {
- 	struct ravb_private *priv = netdev_priv(ndev);
--	struct ravb_tstamp_skb *ts_skb = NULL;
- 	u16 q = skb_get_queue_mapping(skb);
-+	struct ravb_tstamp_skb *ts_skb;
- 	struct ravb_tx_desc *desc;
- 	unsigned long flags;
- 	u32 dma_addr;
+I must have missed where is the benefit from spin reading 10 times this
+register, rather than sleeping 1ms between tests. Does this busy bit
+behaves differently from the phy, atu, scratch, or vtu busy bits?
+
+> Is the original function seen to return a timeout error under some
+> circumstances ?
+
+I didn't experience it myself, but I guess it may happen. In addition to
+that, the current implementation doesn't check eventual read error.
+That's why I saw a benefit in using _mv88e6xxx_wait().
+
+Thanks,
+-v
