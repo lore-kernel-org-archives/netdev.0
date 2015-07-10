@@ -1,44 +1,83 @@
-From: Roy Pledge <roy.pledge@freescale.com>
-Subject: RE: [PATCH 02/11] soc/fsl: Introduce DPAA BMan device management
- driver
-Date: Fri, 10 Jul 2015 20:57:53 +0000
-Message-ID: <BN3PR0301MB12673A340E327986F0BC39E58C9F0@BN3PR0301MB1267.namprd03.prod.outlook.com>
-References: <1436473322-21247-1-git-send-email-Roy.Pledge@freescale.com>
-	 <1436473322-21247-3-git-send-email-Roy.Pledge@freescale.com>
-	 <1436528160.20619.159.camel@tiscali.nl>
- <1436549595.2658.159.camel@freescale.com>
+From: Stas Sergeev <stsp-cmBhpYW9OiY@public.gmane.org>
+Subject: Re: [PATCH 2/3] of_mdio: add new DT property 'autoneg' for fixed-link
+Date: Sat, 11 Jul 2015 00:02:45 +0300
+Message-ID: <55A032F5.8020801@list.ru>
+References: <559FF511.5080102@list.ru> <559FF63E.8020209@list.ru>
+ <55A010F9.7030808@gmail.com> <55A02656.7020508@list.ru>
+ <55A02D90.8090903@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Scott Wood <scottwood@freescale.com>,
-	Paul Bolle <pebolle@tiscali.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0129.outbound.protection.outlook.com ([65.55.169.129]:11136
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754253AbbGJU55 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jul 2015 16:57:57 -0400
-In-Reply-To: <1436549595.2658.159.camel@freescale.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Sebastien Rannou <mxs-i6rsG8ix9II@public.gmane.org>,
+	Arnaud Ebalard <arno-LkuqDEemtHBg9hUCZPvPmw@public.gmane.org>,
+	Stas Sergeev <stsp-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <55A02D90.8090903-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-PiANCj4gT24gRnJpLCAyMDE1LTA3LTEwIGF0IDEzOjM2ICswMjAwLCBQYXVsIEJvbGxlIHdyb3Rl
-Og0KPiA+IE9uIGRvLCAyMDE1LTA3LTA5IGF0IDE2OjIxIC0wNDAwLCBSb3kgUGxlZGdlIHdyb3Rl
-Og0KPiA+ID4gKyNpZmRlZiBDT05GSUdfRlNMX0RQQV9DSEVDS0lORw0KPiA+ID4gKyNkZWZpbmUg
-RFBBX0FTU0VSVCh4KSBcDQo+ID4gPiArICAgZG8geyBcDQo+ID4gPiArICAgICAgICAgICBpZiAo
-ISh4KSkgeyBcDQo+ID4gPiArICAgICAgICAgICAgICAgICAgIHByX2NyaXQoIkFTU0VSVDogKCVz
-OiVkKSAlc1xuIiwgX19GSUxFX18sIF9fTElORV9fLCBcDQo+ID4gPiArICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgX19zdHJpbmdpZnlfMSh4KSk7IFwNCj4gPiA+ICsgICAgICAgICAgICAgICAg
-ICAgZHVtcF9zdGFjaygpOyBcDQo+ID4gPiArICAgICAgICAgICAgICAgICAgIHBhbmljKCJhc3Nl
-cnRpb24gZmFpbHVyZSIpOyBcDQo+ID4NCj4gPiBOb3QgbXkgY2FsbCwgYnV0IHdoeSBwYW5pYygp
-IGhlcmU/DQo+IA0KPiBJJ20gcHJldHR5IHN1cmUgSSd2ZSBjb21wbGFpbmVkIGFib3V0IHRoaXMg
-YmVmb3JlIChhcyB3ZWxsIGFzIGFsbCB0aGUNCj4gQlVHX09OcykuDQo+IA0KSXMgdGhlIGNvbmNl
-cm4gaGVyZSBqdXN0IHRoZSBjYWxsIHRvIHBhbmljKCk/ICBJJ20gaGFwcHkgdG8gY2hhbmdlIHdo
-YXQgaGFwcGVucyB3aGVuIGFuIGlzc3VlIGlzIGRldGVjdGVkIGJ1dCB0aGUgRFBBX0FTU0VSVCgp
-IGNhbGxzIGFyZSB2ZXJ5IHVzZWZ1bCB3aGVuIHRlc3RpbmcgY2hhbmdlcyB0byB0aGUgZHJpdmVy
-IGFuZCB3aGVuIGJyaW5naW5nIHVwIHRoZSBkcml2ZXJzIG9uIG5ldyBzaWxpY29uIHZhcmlhbnRz
-LiANCg==
+10.07.2015 23:39, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>> - in-band status is an implementation delail, and it is
+>> specific to a particular protocols. If you request the
+>> in-band status for some protocol that doesn't support
+>> it, perhaps you should get -EINVAL, because such a
+>> config makes no sense. With autonegotiation, the rules
+>> are not that strict: it can be "unimplemented", which doesn't
+>> necessary mean nonsense in the config.
+> So by specifying "autoneg", you are not specific about the kind of
+> auto-negotiation protocol available, which is precisely my point: you
+> need to go down to that level of detail for this to be useful. So may=
+be
+> something like:
+>
+> autoneg =3D "in-band-status" would actually be a better thing in term=
+s of
+> description because then you would tell what can be made available/wo=
+rking?
+I would agree with this if your argument below is true (see below).
+
+>> - autonegotiation is a wider term, and may be implemented
+>> by some other means than the in-band status (which is
+>> probably impossible for a fixed-link though).
+>>
+>> - In the terms that the driver uses, it is autonegotiation, eg
+>> MVNETA_GMAC_AUTONEG_CONFIG. And when you go down
+>> the implementation details, you see MVNETA_GMAC_INBAND_AN_ENABLE,
+>> which is just one AN bit of many.
+> But arguably, there could be another auto-negotiation method, which i=
+s
+> not in-band status related, which means that you would need a way to
+> distinguish between using in-band status, or using something else or
+> nothing, would not you?
+"something else" is a big question here.
+Can you think of _any_ other way that is both not an MDIO
+(suits to fixed-link) and not an in-band?
+If the answer is yes (even theoretically), then
+autoneg =3D "in-band" | "off"
+may make sense. Otherwise boolean just looks enough.
+If we would implement autoneg outside of the fixed-link,
+then its semantic would likely be
+autoneg =3D "mdio" | "in-band" | "off"
+But the fact that we put it under fixed-link where only a
+single AN possibility exist, may probably be underlined by
+a semantic specific to fixed-link.
+
+One may also argue that
+autoneg =3D "any-possible-autoneg-that-works" is better than
+specifying it explicitly, which is exactly what the boolean does.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
