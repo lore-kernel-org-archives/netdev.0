@@ -1,56 +1,41 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [RFC net-next 0/6] Proposal for VRF-lite - v2
-Date: Thu, 9 Jul 2015 22:14:05 -0700
-Message-ID: <CAE4R7bBuiXb=2qV+x4Fke5P_R6=C_=TxNfY0feOzbp44PNxKYg@mail.gmail.com>
-References: <1436195001-4818-1-git-send-email-dsa@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] bridge: fix potential crash in __netdev_pick_tx()
+Date: Thu, 09 Jul 2015 22:49:21 -0700 (PDT)
+Message-ID: <20150709.224921.97621113448468249.davem@davemloft.net>
+References: <559A3B9C.90905@oracle.com>
+	<1436179279.25714.3.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1436460967.24939.44.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jonathan Toppins <jtoppins@cumulusnetworks.com>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	ddutt@cumulusnetworks.com,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	Jamal Hadi Salim <hadi@mojatatu.com>,
-	"ebiederm@xmission.com" <ebiederm@xmission.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bob.liu@oracle.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f42.google.com ([209.85.218.42]:35494 "EHLO
-	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751526AbbGJFOZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 01:14:25 -0400
-Received: by oihr66 with SMTP id r66so148295281oih.2
-        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 22:14:25 -0700 (PDT)
-In-Reply-To: <1436195001-4818-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47873 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752509AbbGJFtY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 01:49:24 -0400
+In-Reply-To: <1436460967.24939.44.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 6, 2015 at 8:03 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> In the context of internet scale routing a requirement that always
-> comes up is the need to partition the available routing tables into
-> disjoint routing planes. A specific use case is the multi-tenancy
-> problem where each tenant has their own unique routing tables and in
-> the very least need different default gateways.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 09 Jul 2015 18:56:07 +0200
 
-Based on this problem statement, netns would be the answer: to
-partition the physical router into N virtual routers.  If routing is
-offloaded, the offload device is netns-aware to preserve the
-partitioning down to the HW level.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Commit c29390c6dfee ("xps: must clear sender_cpu before forwarding")
+> fixed an issue in normal forward path, caused by sender_cpu & napi_id
+> skb fields being an union.
+> 
+> Bridge is another point where skb can be forwarded, so we need
+> the same cure.
+> 
+> Bug triggers if packet was received on a NIC using skb_mark_napi_id()
+> 
+> Fixes: 2bd82484bb4c ("xps: fix xps for stacked devices")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Bob Liu <bob.liu@oracle.com>
+> Tested-by: Bob Liu <bob.liu@oracle.com>
 
-I see from earlier discussions on VRF that netns is no good because
-it's an inefficient use of resources.  I wonder if that's true in a
-practical way?  If I have a 48-port router, I could create 24 2-port
-virtual routers using netns, each running routing stuff (bgp, lldp,
-ospf, etc).  Is the netns overhead plus the routing sw duplication not
-going to fit on a Cumulus-class router?
-
-In other words, if noone had ever heard of VRF, we'd conclude netns
-given the problem statement.  And then focus on inefficiencies in
-netns, if the implementation didn't fit a particular target.
-
-So my C in RFC is what's wrong with using netns?  And can those wrongs be fixed?
+Applied and queued up for -stable, thanks.
