@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bridge: mdb: fill state in
-	br_mdb_notify
-Date: Thu, 09 Jul 2015 21:41:55 -0700 (PDT)
-Message-ID: <20150709.214155.32188836452637862.davem@davemloft.net>
-References: <1436436670-28859-1-git-send-email-nikolay@cumulusnetworks.com>
+Subject: Re: [RFT PATCH] net: axienet: Fix devm_ioremap_resource return
+ value check
+Date: Thu, 09 Jul 2015 21:44:05 -0700 (PDT)
+Message-ID: <20150709.214405.325044957551402588.davem@davemloft.net>
+References: <1436448080-24775-1-git-send-email-k.kozlowski.k@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: nikolay@cumulusnetworks.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1436436670-28859-1-git-send-email-nikolay@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: anirudh@xilinx.com, John.Linn@xilinx.com, michal.simek@xilinx.com,
+	soren.brinkmann@xilinx.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org
+To: k.kozlowski.k@gmail.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1436448080-24775-1-git-send-email-k.kozlowski.k@gmail.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Thu,  9 Jul 2015 03:11:10 -0700
+From: Krzysztof Kozlowski <k.kozlowski.k@gmail.com>
+Date: Thu,  9 Jul 2015 22:21:20 +0900
 
-> Fill also the port group state when sending notifications.
+> Value returned by devm_ioremap_resource() was checked for non-NULL but
+> devm_ioremap_resource() returns IOMEM_ERR_PTR, not NULL. In case of
+> error this could lead to dereference of ERR_PTR.
 > 
-> Signed-off-by: Satish Ashok <sashok@cumulusnetworks.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Signed-off-by: Krzysztof Kozlowski <k.kozlowski.k@gmail.com>
+> Cc: <stable@vger.kernel.org>
+> Fixes: 46aa27df8853 ("net: axienet: Use devm_* calls")
 
-This looks fine, applied, thanks.
+Applied, thanks.
