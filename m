@@ -1,39 +1,52 @@
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: [PATCH v2] netlink: reset skb->peeked when reuse orphan skb for
- next broadcast
-Date: Fri, 10 Jul 2015 15:21:34 +0300
-Message-ID: <20150710122134.21653.46736.stgit@buzz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+From: Stefan Assmann <sassmann@kpanic.de>
+Subject: [PATCH] igb: do not re-init SR-IOV during probe
+Date: Fri, 10 Jul 2015 15:01:12 +0200
+Message-ID: <1436533272-18070-1-git-send-email-sassmann@kpanic.de>
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	sassmann@kpanic.de
+To: intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward-corp1f.mail.yandex.net ([95.108.130.40]:51559 "EHLO
-	forward-corp1f.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754721AbbGJMVj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 08:21:39 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:48401 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932198AbbGJNEQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jul 2015 09:04:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch clears skb->peeked set by previous recipient of broadcast.
+During driver probing the following code path is triggered.
+igb_probe
+->igb_sw_init
+  ->igb_probe_vfs
+    ->igb_pci_enable_sriov
+      ->igb_sriov_reinit
 
-Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Fixes: add05ad4e9f5 ("unix/dgram: peek beyond 0-sized skbs")
+Doing the SR-IOV re-init is not necessary during probing since we're
+starting from scratch. Here we can call igb_enable_sriov() right away.
+
+Running igb_sriov_reinit() during igb_probe() also seems to cause
+occasional packet loss on some onboard 82576 NICs. Reproduced on
+Dell and HP servers with onboard 82576 NICs.
+Example:
+Intel Corporation 82576 Gigabit Network Connection [8086:10c9] (rev 01)
+Subsystem: Dell Device [1028:0481]
+
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 ---
- net/netlink/af_netlink.c |    1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/intel/igb/igb_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 921e0d8dfe3a..f4427f4bf223 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1967,6 +1967,7 @@ static void do_one_broadcast(struct sock *sk,
- 			 * delivered to a previous socket.
- 			 */
- 			skb_orphan(p->skb2);
-+			p->skb2->peeked = 0;
- 		}
- 	}
- 	if (p->skb2 == NULL) {
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index f287186..7f41237 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2847,7 +2847,7 @@ static void igb_probe_vfs(struct igb_adapter *adapter)
+ 		return;
+ 
+ 	pci_sriov_set_totalvfs(pdev, 7);
+-	igb_pci_enable_sriov(pdev, max_vfs);
++	igb_enable_sriov(pdev, max_vfs);
+ 
+ #endif /* CONFIG_PCI_IOV */
+ }
+-- 
+2.4.3
