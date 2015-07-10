@@ -1,46 +1,41 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH nf-next] net-ipvs: Delete an unnecessary check before the function call "module_put"
-Date: Fri, 10 Jul 2015 15:42:49 +0900
-Message-ID: <1436510569-10752-2-git-send-email-horms@verge.net.au>
-References: <1436510569-10752-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Markus Elfring <elfring@users.sourceforge.net>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1436510569-10752-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH net-next v2] ipv6: sysctl to restrict candidate source
+ addresses
+Date: Fri, 10 Jul 2015 15:47:45 +0900
+Message-ID: <559F6A91.7060502@miraclelinux.com>
+References: <CAKD1Yr1RMjQ=VD=V4Vr4gdUDa6_ZT62SEdKBSUP3PogQMRYyUA@mail.gmail.com>	<1436345014.3846.11.camel@stressinduktion.org>	<CAAedzxqvEx+dMCmM5YLbnmd9REpcWFi=+nZ4s0EaBe8mxSKKgQ@mail.gmail.com> <20150708.144108.1074660115445698837.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: ek@google.com, hideaki.yoshifuji@miraclelinux.com,
+	hannes@stressinduktion.org, lorenzo@google.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:34709 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752996AbbGJGrt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 02:47:49 -0400
+Received: by pabvl15 with SMTP id vl15so163273505pab.1
+        for <netdev@vger.kernel.org>; Thu, 09 Jul 2015 23:47:49 -0700 (PDT)
+In-Reply-To: <20150708.144108.1074660115445698837.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
+David Miller wrote:
 
-The module_put() function tests whether its argument is NULL and then
-returns immediately. Thus the test around the call is not needed.
+> So we should look at a way at making the new behavior the default, and
+> in fact that makes sense and we can even optimize this piece of saddr
+> selection code to not do an iteration over all devices in the system
+> for no reason at all.  It can just do a quick dev_get_by_index() and
+> work with that.
+> 
 
-This issue was detected by using the Coccinelle software.
+I agree.  I've cooked up a patch for that optimization, so that Eric
+can rebase his patch.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_sched.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Regards,
 
-diff --git a/net/netfilter/ipvs/ip_vs_sched.c b/net/netfilter/ipvs/ip_vs_sched.c
-index 199760c71f39..e50221b9d95f 100644
---- a/net/netfilter/ipvs/ip_vs_sched.c
-+++ b/net/netfilter/ipvs/ip_vs_sched.c
-@@ -137,7 +137,7 @@ struct ip_vs_scheduler *ip_vs_scheduler_get(const char *sched_name)
- 
- void ip_vs_scheduler_put(struct ip_vs_scheduler *scheduler)
- {
--	if (scheduler && scheduler->module)
-+	if (scheduler)
- 		module_put(scheduler->module);
- }
- 
 -- 
-2.1.4
-
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
