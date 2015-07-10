@@ -1,377 +1,83 @@
-From: Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
-Subject: Re: [PATCH v2 08/22] fjes: net_device_ops.ndo_start_xmit
-Date: Fri, 10 Jul 2015 12:21:57 -0700 (PDT)
-Message-ID: <55a01b55.88da8c0a.8b52.ffffe04e@mx.google.com>
-References: <1435114351-6961-1-git-send-email-izumi.taku@jp.fujitsu.com>
-	<1435114554-7151-9-git-send-email-izumi.taku@jp.fujitsu.com>
+From: Chris Metcalf <cmetcalf@ezchip.com>
+Subject: [PATCH v2] nohz: prevent tilegx network driver interrupts
+Date: Fri, 10 Jul 2015 15:37:25 -0400
+Message-ID: <1436557045-5392-1-git-send-email-cmetcalf@ezchip.com>
+References: <55A0175E.2010200@ezchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
-	rkhan@redhat.com, alexander.h.duyck@redhat.com,
-	linux-acpi@vger.kernel.org, joe@perches.com,
-	sergei.shtylyov@cogentembedded.com, stephen@networkplumber.org,
-	Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
-To: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Return-path: <platform-driver-x86-owner@vger.kernel.org>
-In-Reply-To: <1435114554-7151-9-git-send-email-izumi.taku@jp.fujitsu.com>
-Sender: platform-driver-x86-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Chris Metcalf <cmetcalf@ezchip.com>
+To: Frederic Weisbecker <fweisbec@gmail.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1on0093.outbound.protection.outlook.com ([157.56.112.93]:65302
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932615AbbGJTj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jul 2015 15:39:27 -0400
+In-Reply-To: <55A0175E.2010200@ezchip.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Izumi-san,
+Normally the tilegx networking shim sends irqs to all the cores
+to distribute the load of processing incoming-packet interrupts,
+so that you can get to multiple Gb's of traffic inbound.
 
-On Wed, 24 Jun 2015 11:55:40 +0900
-Taku Izumi <izumi.taku@jp.fujitsu.com> wrote:
+However, in nohz_full mode we don't want to interrupt the
+nohz_full cores by default, so we limit the set of cores we use
+to only the online housekeeping cores.
 
-> This patch adds net_device_ops.ndo_start_xmit callback,
-> which is called when sending packets.
-> 
-> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
-> ---
->  drivers/net/fjes/fjes.h      |   1 +
->  drivers/net/fjes/fjes_hw.c   |  58 ++++++++++++++
->  drivers/net/fjes/fjes_hw.h   |  12 +++
->  drivers/net/fjes/fjes_main.c | 177 +++++++++++++++++++++++++++++++++++++++++++
->  4 files changed, 248 insertions(+)
-> 
-> diff --git a/drivers/net/fjes/fjes.h b/drivers/net/fjes/fjes.h
-> index f182ed3..7af4304 100644
-> --- a/drivers/net/fjes/fjes.h
-> +++ b/drivers/net/fjes/fjes.h
-> @@ -29,6 +29,7 @@
->  #define FJES_ACPI_SYMBOL	"Extended Socket"
->  #define FJES_MAX_QUEUES		1
->  #define FJES_TX_RETRY_INTERVAL	(20 * HZ)
-> +#define FJES_TX_RETRY_TIMEOUT	(100)
->  #define FJES_OPEN_ZONE_UPDATE_WAIT	(300) /* msec */
->  
->  /* board specific private data structure */
-> diff --git a/drivers/net/fjes/fjes_hw.c b/drivers/net/fjes/fjes_hw.c
-> index a17cb96..b2e7509 100644
-> --- a/drivers/net/fjes/fjes_hw.c
-> +++ b/drivers/net/fjes/fjes_hw.c
-> @@ -793,3 +793,61 @@ int fjes_hw_wait_epstop(struct fjes_hw *hw)
->  	return (wait_time < FJES_COMMAND_EPSTOP_WAIT_TIMEOUT * 1000)
->  			? 0 : -EBUSY;
->  }
-> +
-> +bool fjes_hw_check_epbuf_version(struct epbuf_handler *epbh, u32 version)
-> +{
-> +	union ep_buffer_info *info = epbh->info;
-> +
-> +	return (info->common.version == version);
-> +}
-> +
-> +bool fjes_hw_check_mtu(struct epbuf_handler *epbh, u32 mtu)
-> +{
-> +	union ep_buffer_info *info = epbh->info;
-> +
-> +	return (info->v1i.frame_max == FJES_MTU_TO_FRAME_SIZE(mtu));
-> +}
-> +
-> +bool fjes_hw_check_vlan_id(struct epbuf_handler *epbh, u16 vlan_id)
-> +{
-> +	union ep_buffer_info *info = epbh->info;
-> +	int i;
-> +	bool ret = false;
-> +
-> +	if (vlan_id == 0) {
-> +		ret = true;
-> +	} else {
-> +		for (i = 0; i < EP_BUFFER_SUPPORT_VLAN_MAX; i++) {
-> +			if (vlan_id == info->v1i.vlan_id[i]) {
-> +				ret = true;
-> +				break;
-> +			}
-> +		}
-> +	}
-> +	return ret;
-> +}
-> +
-> +int fjes_hw_epbuf_tx_pkt_send(struct epbuf_handler *epbh,
-> +			      void *frame, size_t size)
-> +{
-> +	union ep_buffer_info *info = epbh->info;
-> +	struct esmem_frame *ring_frame;
-> +
-> +	if (EP_RING_FULL(info->v1i.head, info->v1i.tail, info->v1i.count_max))
-> +		return -ENOBUFS;
-> +
-> +	ring_frame =
-> +	    (struct esmem_frame *)&(epbh->
-> +				      ring[EP_RING_INDEX
-> +					   (info->v1i.tail - 1,
-> +					    info->v1i.count_max) *
-> +					   info->v1i.frame_max]);
-> +
-> +	ring_frame->frame_size = size;
-> +	memcpy((void *)(ring_frame->frame_data), (void *)frame, size);
-> +
-> +	EP_RING_INDEX_INC(epbh->info->v1i.tail, info->v1i.count_max);
-> +
-> +	return 0;
-> +}
-> +
-> diff --git a/drivers/net/fjes/fjes_hw.h b/drivers/net/fjes/fjes_hw.h
-> index 823d802..95b9732 100644
-> --- a/drivers/net/fjes/fjes_hw.h
-> +++ b/drivers/net/fjes/fjes_hw.h
-> @@ -49,6 +49,9 @@ struct fjes_hw;
->  
->  #define FJES_ZONING_ZONE_TYPE_NONE (0xFF)
->  
-> +#define FJES_TX_DELAY_SEND_NONE		(0)
-> +#define FJES_TX_DELAY_SEND_PENDING	(1)
-> +
->  #define FJES_RX_STOP_REQ_NONE		(0x0)
->  #define FJES_RX_STOP_REQ_DONE		(0x1)
->  #define FJES_RX_STOP_REQ_REQUEST	(0x2)
-> @@ -60,6 +63,11 @@ struct fjes_hw;
->  
->  #define EP_RING_NUM(buffer_size, frame_size) \
->  		(u32)((buffer_size) / (frame_size))
-> +#define EP_RING_INDEX(_num, _max) (((_num) + (_max)) % (_max))
-> +#define EP_RING_INDEX_INC(_num, _max) \
-> +	((_num) = EP_RING_INDEX((_num) + 1, (_max)))
-> +#define EP_RING_FULL(_head, _tail, _max)				\
-> +	(0 == EP_RING_INDEX(((_tail) - (_head)), (_max)))
->  
->  #define FJES_MTU_TO_BUFFER_SIZE(mtu) \
->  	(ETH_HLEN + VLAN_HLEN + (mtu) + ETH_FCS_LEN)
-> @@ -308,5 +316,9 @@ enum ep_partner_status
->  
->  bool fjes_hw_epid_is_same_zone(struct fjes_hw *, int);
->  int fjes_hw_epid_is_shared(struct fjes_device_shared_info *, int);
-> +bool fjes_hw_check_epbuf_version(struct epbuf_handler *, u32);
-> +bool fjes_hw_check_mtu(struct epbuf_handler *, u32);
-> +bool fjes_hw_check_vlan_id(struct epbuf_handler *, u16);
-> +int fjes_hw_epbuf_tx_pkt_send(struct epbuf_handler *, void *, size_t);
->  
->  #endif /* FJES_HW_H_ */
-> diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-> index 832439b..f2ef286 100644
-> --- a/drivers/net/fjes/fjes_main.c
-> +++ b/drivers/net/fjes/fjes_main.c
-> @@ -51,6 +51,7 @@ static int fjes_open(struct net_device *);
->  static int fjes_close(struct net_device *);
->  static int fjes_setup_resources(struct fjes_adapter *);
->  static void fjes_free_resources(struct fjes_adapter *);
-> +static netdev_tx_t fjes_xmit_frame(struct sk_buff *, struct net_device *);
->  static irqreturn_t fjes_intr(int, void*);
->  
->  static int fjes_acpi_add(struct acpi_device *);
-> @@ -215,6 +216,7 @@ static void fjes_free_irq(struct fjes_adapter *adapter)
->  static const struct net_device_ops fjes_netdev_ops = {
->  	.ndo_open		= fjes_open,
->  	.ndo_stop		= fjes_close,
-> +	.ndo_start_xmit		= fjes_xmit_frame,
->  };
->  
->  /* fjes_open - Called when a network interface is made active */
-> @@ -405,6 +407,181 @@ static void fjes_free_resources(struct fjes_adapter *adapter)
->  	}
->  }
->  
-> +static int fjes_tx_send(struct fjes_adapter *adapter, int dest,
-> +			void *data, size_t len)
-> +{
-> +	int retval;
-> +
-> +	retval =
-> +	fjes_hw_epbuf_tx_pkt_send(&adapter->hw.ep_shm_info[dest].tx,
-> +				  data, len);
-> +	if (retval)
-> +		return retval;
-> +
-> +	adapter->hw.ep_shm_info[dest].tx.info->v1i.tx_status =
-> +		FJES_TX_DELAY_SEND_PENDING;
-> +
-> +	retval = 0;
-> +	return retval;
-> +}
-> +
-> +static netdev_tx_t
-> +fjes_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
-> +{
-> +	struct fjes_adapter *adapter = netdev_priv(netdev);
-> +	struct fjes_hw *hw = &adapter->hw;
-> +	enum ep_partner_status pstatus;
-> +
-> +	int len;
-> +	char *data, shortpkt[VLAN_ETH_HLEN];
-> +
-> +	u16 queue_no = 0;
-> +	struct netdev_queue *cur_queue = netdev_get_tx_queue(netdev, queue_no);
-> +	netdev_tx_t ret = NETDEV_TX_OK;
-> +	struct ethhdr *eth;
-> +	int dest_epid;
-> +
-> +	int max_epid, my_epid;
-> +	u16 vlan_id = 0;
-> +	bool vlan = false;
-> +	bool is_multi = false;
-> +
-> +	eth = (struct ethhdr *)skb->data;
-> +	my_epid = hw->my_epid;
-> +
-> +	vlan = (vlan_get_tag(skb, &vlan_id) == 0) ? true : false;
-> +
-> +	data = skb->data;
-> +	len = skb->len;
-> +
-> +	if (is_multicast_ether_addr(eth->h_dest)) {
-> +		dest_epid = 0;
-> +		max_epid = hw->max_epid;
-> +		is_multi = true;
-> +	} else if (is_local_ether_addr(eth->h_dest)) {
-> +		dest_epid = eth->h_dest[ETH_ALEN - 1];
-> +		max_epid = dest_epid + 1;
-> +
-> +		if ((eth->h_dest[0] == 0x02) &&
-> +		    (0x00 == (eth->h_dest[1] | eth->h_dest[2] |
-> +			      eth->h_dest[3] | eth->h_dest[4])) &&
-> +		    (dest_epid < hw->max_epid)) {
-> +			;
-> +		} else {
-> +			dest_epid = 0;
-> +			max_epid = 0;
-> +			ret = NETDEV_TX_OK;
-> +
+To make client code easier to read, we introduce a new nohz_full
+accessor, housekeeping_cpumask(), which returns a pointer to the
+housekeeping_mask if nohz_full is enabled, and otherwise returns
+the cpu_possible_mask.
 
-> +			adapter->stats64.tx_packets += 1;
-> +			hw->ep_shm_info[my_epid].net_stats.tx_packets += 1;
-> +			adapter->stats64.tx_bytes += len;
-> +			hw->ep_shm_info[my_epid].net_stats.tx_bytes += len;
+Signed-off-by: Chris Metcalf <cmetcalf@ezchip.com>
+---
+ drivers/net/ethernet/tile/tilegx.c | 4 +++-
+ include/linux/tick.h               | 9 +++++++++
+ 2 files changed, 12 insertions(+), 1 deletion(-)
 
-There are same codes in the fjes_xmit_frame().
-How about create a new function to unify them?
-
-> +		}
-> +	} else {
-> +		dest_epid = 0;
-> +		max_epid = 0;
-> +		ret = NETDEV_TX_OK;
-> +
-> +		adapter->stats64.tx_packets += 1;
-> +		hw->ep_shm_info[my_epid].net_stats.tx_packets += 1;
-> +		adapter->stats64.tx_bytes += len;
-> +		hw->ep_shm_info[my_epid].net_stats.tx_bytes += len;
-> +	}
-> +
-> +	for (; dest_epid < max_epid; dest_epid++) {
-> +		if (my_epid == dest_epid)
-> +			continue;
-> +
-> +		pstatus = fjes_hw_get_partner_ep_status(hw, dest_epid);
-> +		if (pstatus != EP_PARTNER_SHARED) {
-> +			ret = NETDEV_TX_OK;
-> +		} else if (!fjes_hw_check_epbuf_version(
-> +				&adapter->hw.ep_shm_info[dest_epid].rx, 0)) {
-> +			/* version is NOT 0 */
-> +			adapter->stats64.tx_carrier_errors += 1;
-> +			hw->ep_shm_info[my_epid].net_stats
-> +						.tx_carrier_errors += 1;
-> +
-> +			ret = NETDEV_TX_OK;
-> +		} else if (!fjes_hw_check_mtu(
-> +				&adapter->hw.ep_shm_info[dest_epid].rx,
-> +				netdev->mtu)) {
-
-> +			adapter->stats64.tx_dropped += 1;
-> +			hw->ep_shm_info[my_epid].net_stats.tx_dropped += 1;
-> +			adapter->stats64.tx_errors += 1;
-> +			hw->ep_shm_info[my_epid].net_stats.tx_errors += 1;
-
-There are same codes in the fjes_xmit_frame().
-How about create a new function to unify them?
-
-> +
-> +			ret = NETDEV_TX_OK;
-> +		} else if (vlan &&
-> +			   !fjes_hw_check_vlan_id(
-> +				&adapter->hw.ep_shm_info[dest_epid].rx,
-> +				vlan_id)) {
-> +			ret = NETDEV_TX_OK;
-> +		} else {
-> +			if (len < VLAN_ETH_HLEN) {
-> +				memset(shortpkt, 0, VLAN_ETH_HLEN);
-> +				memcpy(shortpkt, skb->data, skb->len);
-> +				len = VLAN_ETH_HLEN;
-> +				data = shortpkt;
-> +			}
-> +
-> +			if (adapter->tx_retry_count == 0) {
-> +				adapter->tx_start_jiffies = jiffies;
-> +				adapter->tx_retry_count = 1;
-> +			} else {
-> +				adapter->tx_retry_count++;
-> +			}
-> +
-> +			if (fjes_tx_send(adapter, dest_epid, data, len)) {
-> +				if (is_multi) {
-> +					ret = NETDEV_TX_OK;
-> +				} else if (
-> +					   ((long)jiffies -
-> +					    (long)adapter->tx_start_jiffies) >=
-> +					    FJES_TX_RETRY_TIMEOUT) {
-> +					adapter->stats64.tx_fifo_errors += 1;
-> +					hw->ep_shm_info[my_epid].net_stats
-> +								.tx_fifo_errors += 1;
-> +					adapter->stats64.tx_errors += 1;
-> +					hw->ep_shm_info[my_epid].net_stats
-> +								.tx_errors += 1;
-> +
-> +					ret = NETDEV_TX_OK;
-> +				} else {
-> +					netdev->trans_start = jiffies;
-> +					netif_tx_stop_queue(cur_queue);
-> +
-
-> +					ret = NETDEV_TX_BUSY;
-
-Even if ret set NETDEV_TX_BUSY, it may be changed to NETDEV_TX_OK
-in the for loop. Is it OK?
-
-> +				}
-> +			} else {
-> +				if (!is_multi) {
-> +					adapter->stats64.tx_packets += 1;
-> +					hw->ep_shm_info[my_epid].net_stats
-> +								.tx_packets += 1;
-> +					adapter->stats64.tx_bytes += len;
-> +					hw->ep_shm_info[my_epid].net_stats
-> +								.tx_bytes += len;
-> +				}
-> +
-> +				adapter->tx_retry_count = 0;
-> +				ret = NETDEV_TX_OK;
-> +			}
-> +		}
-> +	}
-> +
-> +	if (ret == NETDEV_TX_OK) {
-> +		dev_kfree_skb(skb);
-> +		if (is_multi) {
-> +			adapter->stats64.tx_packets += 1;
-> +			hw->ep_shm_info[my_epid].net_stats.tx_packets += 1;
-
-> +			adapter->stats64.tx_bytes += 1;
-			adapter->stats64.tx_bytes +=len?
-
-Thanks,
-Yasuaki Ishimatsu
-
-> +			hw->ep_shm_info[my_epid].net_stats.tx_bytes += len;
-> +		}
-> +	}
-> +
-> +	return ret;
-> +}
-> +
->  static irqreturn_t fjes_intr(int irq, void *data)
->  {
->  	struct fjes_adapter *adapter = data;
-> -- 
-> 1.8.3.1
-> 
+diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
+index a3f7610002aa..0a15acc075b3 100644
+--- a/drivers/net/ethernet/tile/tilegx.c
++++ b/drivers/net/ethernet/tile/tilegx.c
+@@ -40,6 +40,7 @@
+ #include <linux/tcp.h>
+ #include <linux/net_tstamp.h>
+ #include <linux/ptp_clock_kernel.h>
++#include <linux/tick.h>
+ 
+ #include <asm/checksum.h>
+ #include <asm/homecache.h>
+@@ -2273,7 +2274,8 @@ static int __init tile_net_init_module(void)
+ 		tile_net_dev_init(name, mac);
+ 
+ 	if (!network_cpus_init())
+-		network_cpus_map = *cpu_online_mask;
++		cpumask_and(&network_cpus_map, housekeeping_cpumask(),
++			    cpu_online_mask);
+ 
+ 	return 0;
+ }
+diff --git a/include/linux/tick.h b/include/linux/tick.h
+index 3741ba1a652c..d3b00f0b2221 100644
+--- a/include/linux/tick.h
++++ b/include/linux/tick.h
+@@ -160,6 +160,15 @@ static inline void tick_nohz_full_kick_all(void) { }
+ static inline void __tick_nohz_task_switch(struct task_struct *tsk) { }
+ #endif
+ 
++static inline const struct cpumask *housekeeping_cpumask(void)
++{
++#ifdef CONFIG_NO_HZ_FULL
++	if (tick_nohz_full_enabled())
++		return housekeeping_mask;
++#endif
++	return cpu_possible_mask;
++}
++
+ static inline bool is_housekeeping_cpu(int cpu)
+ {
+ #ifdef CONFIG_NO_HZ_FULL
+-- 
+2.1.2
