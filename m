@@ -1,32 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: do not export tcp_init_xmit_timers()
-Date: Thu, 09 Jul 2015 21:45:07 -0700 (PDT)
-Message-ID: <20150709.214507.2219737597864839946.davem@davemloft.net>
-References: <1436457700.24939.36.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Subject: Re: [PATCH 2/3] brcmfmac: dhd_sdio.c: use existing atomic_or
+ primitive
+Date: Fri, 10 Jul 2015 04:49:04 +0000
+Message-ID: <C2D7FE5348E1B147BCA15975FBA23075665AD26A@IN01WEMBXB.internal.synopsys.com>
+References: <1436429599-10762-1-git-send-email-vgupta@synopsys.com>
+ <1436429599-10762-3-git-send-email-vgupta@synopsys.com>
+ <559EBC91.2070600@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47583 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751010AbbGJEpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 00:45:07 -0400
-In-Reply-To: <1436457700.24939.36.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Brett Rudley <brudley@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Daniel Kim <dekim@broadcom.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"brcm80211-dev-list@broadcom.com" <brcm80211-dev-list@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Arend van Spriel <arend@broadcom.com>,
+	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	"Ingo Molnar" <mingo@kernel.org>, Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 09 Jul 2015 18:01:40 +0200
+On Thursday 09 July 2015 11:55 PM, Arend van Spriel wrote:
+> On 07/09/2015 10:13 AM, Vineet Gupta wrote:
+>> > There's already a generic implementation so use that instead.
+> There is or there was? If there is now I am fine with this patch, but if 
+> it already was there the author might have had a reason for adding a 
+> local function and I would like to hear that reason.
+>
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> After commit 900f65d361d3 ("tcp: move duplicate code from
-> tcp_v4_init_sock()/tcp_v6_init_sock()"), we no longer
-> need to export tcp_init_xmit_timers()
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
+atomic_orr() was introduced to this driver with
 
-Applied, thanks.
+2014-03-06 5cbb9c285bdc brcmfmac: Use atomic functions for intstatus update. 
+
+as it seems atomic_set_mask() was not available cross arch. And atomic_or() in
+generic code was indeed introduced after that
+
+2014-04-23 560cb12a4080 locking,arch: Rewrite generic atomic support 
+
+Hence likely the reason author went with home grown atomic_orr()
+
+-Vineet
