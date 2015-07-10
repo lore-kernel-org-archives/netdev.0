@@ -1,97 +1,93 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH 1/2] net: dsa: mv88e6xxx: sleep in _mv88e6xxx_stats_wait
-Date: Fri, 10 Jul 2015 14:20:47 -0400 (EDT)
-Message-ID: <1055594065.210272.1436552447158.JavaMail.zimbra@savoirfairelinux.com>
-References: <1436547449-26927-1-git-send-email-vivien.didelot@savoirfairelinux.com> <20150710171027.GB6585@groeck-UX31A>
+From: Frederic Weisbecker <fweisbec@gmail.com>
+Subject: Re: [PATCH] nohz: prevent tilegx network driver interrupts
+Date: Fri, 10 Jul 2015 20:24:07 +0200
+Message-ID: <20150710182406.GC26428@lerouge>
+References: <1436549624-16104-1-git-send-email-cmetcalf@ezchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150710171027.GB6585@groeck-UX31A>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Chris Metcalf <cmetcalf@ezchip.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:36101 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932290AbbGJSYL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2015 14:24:11 -0400
+Content-Disposition: inline
+In-Reply-To: <1436549624-16104-1-git-send-email-cmetcalf@ezchip.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Guenter,
+On Fri, Jul 10, 2015 at 01:33:44PM -0400, Chris Metcalf wrote:
+> In nohz_full mode, by default distribute networking shim
+> interrupts across the housekeeping cores, not all the cores.
 
-On Jul 10, 2015, at 1:10 PM, Guenter Roeck linux@roeck-us.net wrote:
+I can't really tell, I have no idea what this driver does. It seems
+to be about networking CPUs but I have no idea what we are affining
+here. Whether it is task, interrupt, ... And what those affine things do,
+if it is safe to do that reduce affinity etc..
 
-> On Fri, Jul 10, 2015 at 12:57:28PM -0400, Vivien Didelot wrote:
->> The current _mv88e6xxx_stats_wait function does not sleep while testing
->> the stats busy bit. Fix this by using the generic _mv88e6xxx_wait
->> function.
->> 
->> Note that it requires to move _mv88e6xxx_wait on top of
->> _mv88e6xxx_stats_wait to avoid undefined reference compilation error.
->> 
->> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->> ---
->>  drivers/net/dsa/mv88e6xxx.c | 52 +++++++++++++++++++--------------------------
->>  1 file changed, 22 insertions(+), 30 deletions(-)
->> 
->> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
->> index f6c7409..7753db1 100644
->> --- a/drivers/net/dsa/mv88e6xxx.c
->> +++ b/drivers/net/dsa/mv88e6xxx.c
->> @@ -557,19 +557,31 @@ static bool mv88e6xxx_6352_family(struct dsa_switch *ds)
->>  	return false;
->>  }
->>  
->> +/* Must be called with SMI lock held */
->> +static int _mv88e6xxx_wait(struct dsa_switch *ds, int reg, int offset,
->> +			   u16 mask)
->> +{
->> +	unsigned long timeout = jiffies + HZ / 10;
->> +
->> +	while (time_before(jiffies, timeout)) {
->> +		int ret;
->> +
->> +		ret = _mv88e6xxx_reg_read(ds, reg, offset);
->> +		if (ret < 0)
->> +			return ret;
->> +		if (!(ret & mask))
->> +			return 0;
->> +
->> +		usleep_range(1000, 2000);
->> +	}
->> +	return -ETIMEDOUT;
->> +}
->> +
->>  /* Must be called with SMI mutex held */
->>  static int _mv88e6xxx_stats_wait(struct dsa_switch *ds)
->>  {
->> -	int ret;
->> -	int i;
->> -
->> -	for (i = 0; i < 10; i++) {
->> -		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_STATS_OP);
->> -		if ((ret & GLOBAL_STATS_OP_BUSY) == 0)
->> -			return 0;
->> -	}
+I looked at the driver but I can't make my way there. I think you
+need a more detailed changelog :-)
+
+> Signed-off-by: Chris Metcalf <cmetcalf@ezchip.com>
+> ---
+> The alternate approaches to this might be:
 > 
-> Hi Vivien,
+> 1. "#define housekeeping_mask cpu_online_mask" in the non-nohz_full
+>    arm in <linux/tick.h>, then just unconditionally use
+>    "housekeeping_mask".
+
+Indeed we are doing more and more references on housekeeping_mask, so
+we should probably think about an off-case.
+
+Now the nohz-full off-case should rather be cpu_possible_mask than
+cpu_online_mask. housekeeping_mask doesn't take into account onlining
+at all.
+
 > 
-> is this really beneficial and/or needed ?
+> 2. Provide an accessor that returns the cpumask to use for housekeeping
+>    chores and implement it in the obvious ways for both nohz_full
+>    and non-nohz_full.
+> 
+> The latter seems like arguably the most satisfying approach, but
+> the patch below is, if nothing else, suitable to push for 4.3
+> without any further API development work.
 
-Except using existing generic code, no.
+I don't know. 1) looks easier.
 
-> It adds at least 1ms delay to a loop which did not have any delay at
-> all unless the register read itself was sleeping.
-
-I must have missed where is the benefit from spin reading 10 times this
-register, rather than sleeping 1ms between tests. Does this busy bit
-behaves differently from the phy, atu, scratch, or vtu busy bits?
-
-> Is the original function seen to return a timeout error under some
-> circumstances ?
-
-I didn't experience it myself, but I guess it may happen. In addition to
-that, the current implementation doesn't check eventual read error.
-That's why I saw a benefit in using _mv88e6xxx_wait().
-
-Thanks,
--v
+> 
+> Frederic (or others), comments?
+> 
+>  drivers/net/ethernet/tile/tilegx.c | 8 +++++++-
+>  1 file changed, 7 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
+> index a3f7610002aa..7687c62e7d75 100644
+> --- a/drivers/net/ethernet/tile/tilegx.c
+> +++ b/drivers/net/ethernet/tile/tilegx.c
+> @@ -40,6 +40,7 @@
+>  #include <linux/tcp.h>
+>  #include <linux/net_tstamp.h>
+>  #include <linux/ptp_clock_kernel.h>
+> +#include <linux/tick.h>
+>  
+>  #include <asm/checksum.h>
+>  #include <asm/homecache.h>
+> @@ -2272,8 +2273,13 @@ static int __init tile_net_init_module(void)
+>  	for (i = 0; gxio_mpipe_link_enumerate_mac(i, name, mac) >= 0; i++)
+>  		tile_net_dev_init(name, mac);
+>  
+> -	if (!network_cpus_init())
+> +	if (!network_cpus_init()) {
+> +#ifdef CONFIG_NO_HZ_FULL
+> +		network_cpus_map = *housekeeping_mask;
+> +#else
+>  		network_cpus_map = *cpu_online_mask;
+> +#endif
+> +	}
+>  
+>  	return 0;
+>  }
+> -- 
+> 2.1.2
+> 
