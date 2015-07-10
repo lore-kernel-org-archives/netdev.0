@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] ravb: kill usless initializers
-Date: Fri, 10 Jul 2015 20:44:39 +0300
-Message-ID: <6091630.MmiAo8Envs@wasted.cogentembedded.com>
+Subject: [PATCH] ravb: kill useless initializers
+Date: Fri, 10 Jul 2015 21:10:10 +0300
+Message-ID: <3087282.SVZhuJYtXK@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
@@ -18,6 +18,9 @@ Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
 The patch is against the Dave Miller's 'net-next.git' repo.
+
+Changes in version 2:
+- fixed typo in the subject.
 
  drivers/net/ethernet/renesas/ravb_main.c |   12 ++++++------
  1 file changed, 6 insertions(+), 6 deletions(-)
@@ -68,4 +71,3 @@ Index: net-next/drivers/net/ethernet/renesas/ravb_main.c
  	struct ravb_tx_desc *desc;
  	unsigned long flags;
  	u32 dma_addr;
-
