@@ -1,75 +1,106 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net-next] tc: fix tc actions in case of shared skb
-Date: Fri, 10 Jul 2015 17:10:11 -0700
-Message-ID: <1436573411-5021-1-git-send-email-ast@plumgrid.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:35383 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752317AbbGKHEc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jul 2015 03:04:32 -0400
-Received: by pdrg1 with SMTP id g1so63729437pdr.2
-        for <netdev@vger.kernel.org>; Sat, 11 Jul 2015 00:04:32 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 2/3] of_mdio: add new DT property 'autoneg' for fixed-link
+Date: Fri, 10 Jul 2015 17:22:36 -0700
+Message-ID: <55A061CC.8060504@gmail.com>
+References: <559FF511.5080102@list.ru> <559FF63E.8020209@list.ru> <55A010F9.7030808@gmail.com> <55A02656.7020508@list.ru> <55A02D90.8090903@gmail.com> <55A032F5.8020801@list.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Sebastien Rannou <mxs-i6rsG8ix9II@public.gmane.org>,
+	Arnaud Ebalard <arno-LkuqDEemtHBg9hUCZPvPmw@public.gmane.org>,
+	Stas Sergeev <stsp-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Stas Sergeev <stsp-cmBhpYW9OiY@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <55A032F5.8020801-cmBhpYW9OiY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-TC actions need to check for very unlikely event skb->users != 1,
-otherwise subsequent pskb_may_pull/pskb_expand_head will crash.
-When skb_shared() just drop the packet, since in the middle of actions
-it's too late to call skb_share_check(), since classifiers/actions assume
-the same skb pointer.
+On 10/07/15 14:02, Stas Sergeev wrote:
+> 10.07.2015 23:39, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>>> - in-band status is an implementation delail, and it is
+>>> specific to a particular protocols. If you request the
+>>> in-band status for some protocol that doesn't support
+>>> it, perhaps you should get -EINVAL, because such a
+>>> config makes no sense. With autonegotiation, the rules
+>>> are not that strict: it can be "unimplemented", which doesn't
+>>> necessary mean nonsense in the config.
+>> So by specifying "autoneg", you are not specific about the kind of
+>> auto-negotiation protocol available, which is precisely my point: yo=
+u
+>> need to go down to that level of detail for this to be useful. So ma=
+ybe
+>> something like:
+>>
+>> autoneg =3D "in-band-status" would actually be a better thing in ter=
+ms of
+>> description because then you would tell what can be made
+>> available/working?
+> I would agree with this if your argument below is true (see below).
+>=20
+>>> - autonegotiation is a wider term, and may be implemented
+>>> by some other means than the in-band status (which is
+>>> probably impossible for a fixed-link though).
+>>>
+>>> - In the terms that the driver uses, it is autonegotiation, eg
+>>> MVNETA_GMAC_AUTONEG_CONFIG. And when you go down
+>>> the implementation details, you see MVNETA_GMAC_INBAND_AN_ENABLE,
+>>> which is just one AN bit of many.
+>> But arguably, there could be another auto-negotiation method, which =
+is
+>> not in-band status related, which means that you would need a way to
+>> distinguish between using in-band status, or using something else or
+>> nothing, would not you?
+> "something else" is a big question here.
+> Can you think of _any_ other way that is both not an MDIO
+> (suits to fixed-link) and not an in-band?
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
- net/sched/act_csum.c |    3 +++
- net/sched/act_nat.c  |    3 +++
- net/sched/act_vlan.c |    3 +++
- 3 files changed, 9 insertions(+)
+Yes, I could think about I2C or SPI PHYs that you could use alongside a=
+n
+Ethernet controller that would qualify for out-of-band, not in-band, ye=
+t
+could still provide auto-negotiation. You may have special hardware wit=
+h
+such a SPI or I2C controller which provides automatic decoding of the
+auto-neg registers. Have not looked at e.g: SFP form factors or fiber
+links, but they could also have additional out-of-band type of
+auto-negotiation available.
 
-diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
-index b07c535ba8e7..ac150bdc24f4 100644
---- a/net/sched/act_csum.c
-+++ b/net/sched/act_csum.c
-@@ -510,6 +510,9 @@ static int tcf_csum(struct sk_buff *skb,
- 	if (unlikely(action == TC_ACT_SHOT))
- 		goto drop;
- 
-+	if (unlikely(skb_shared(skb)))
-+		goto drop;
-+
- 	switch (tc_skb_protocol(skb)) {
- 	case cpu_to_be16(ETH_P_IP):
- 		if (!tcf_csum_ipv4(skb, update_flags))
-diff --git a/net/sched/act_nat.c b/net/sched/act_nat.c
-index 5be0b3c1c5b0..8bb2657de635 100644
---- a/net/sched/act_nat.c
-+++ b/net/sched/act_nat.c
-@@ -114,6 +114,9 @@ static int tcf_nat(struct sk_buff *skb, const struct tc_action *a,
- 	if (unlikely(action == TC_ACT_SHOT))
- 		goto drop;
- 
-+	if (unlikely(skb_shared(skb)))
-+		goto drop;
-+
- 	noff = skb_network_offset(skb);
- 	if (!pskb_may_pull(skb, sizeof(*iph) + noff))
- 		goto drop;
-diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
-index 796785e0bf96..6365ae036c6e 100644
---- a/net/sched/act_vlan.c
-+++ b/net/sched/act_vlan.c
-@@ -33,6 +33,9 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
- 	bstats_update(&v->tcf_bstats, skb);
- 	action = v->tcf_action;
- 
-+	if (unlikely(skb_shared(skb)))
-+		goto drop;
-+
- 	switch (v->tcfv_action) {
- 	case TCA_VLAN_ACT_POP:
- 		err = skb_vlan_pop(skb);
--- 
-1.7.9.5
+> If the answer is yes (even theoretically), then
+> autoneg =3D "in-band" | "off"
+> may make sense. Otherwise boolean just looks enough.
+
+I think the answer is yes.
+
+> If we would implement autoneg outside of the fixed-link,
+> then its semantic would likely be
+> autoneg =3D "mdio" | "in-band" | "off"
+> But the fact that we put it under fixed-link where only a
+> single AN possibility exist, may probably be underlined by
+> a semantic specific to fixed-link.
+
+Right, if auto-negotiation was defined outside of fixed-link, that is
+indeed how I would also specify this.
+
+>=20
+> One may also argue that
+> autoneg =3D "any-possible-autoneg-that-works" is better than
+> specifying it explicitly, which is exactly what the boolean does.
+
+I prefer excess of information rather than lack of information, because
+you can always choose what to do with it. Especially when it comes to
+Device Tree, plan carefully :)
+--=20
+=46lorian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
