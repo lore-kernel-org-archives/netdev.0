@@ -1,25 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Drop owner assignment from platform_driver
-Date: Fri, 10 Jul 2015 23:18:42 -0700 (PDT)
-Message-ID: <20150710.231842.1899405994565422319.davem@davemloft.net>
-References: <1436509763-23980-1-git-send-email-k.kozlowski@samsung.com>
+Subject: Re: [PATCH net-next v2] ipv6: Do not iterate over all interfaces
+ when finding source address on specific interface.
+Date: Fri, 10 Jul 2015 23:19:43 -0700 (PDT)
+Message-ID: <20150710.231943.1262522002810525503.davem@davemloft.net>
+References: <559F7B27.6030205@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: w-kwok2@ti.com, m-karicheri2@ti.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: k.kozlowski@samsung.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1436509763-23980-1-git-send-email-k.kozlowski@samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ek@google.com, hannes@stressinduktion.org,
+	lorenzo@google.com
+To: hideaki.yoshifuji@miraclelinux.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55680 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752008AbbGKGTo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jul 2015 02:19:44 -0400
+In-Reply-To: <559F7B27.6030205@miraclelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Krzysztof Kozlowski <k.kozlowski@samsung.com>
-Date: Fri, 10 Jul 2015 15:29:23 +0900
+From: YOSHIFUJI Hideaki/吉藤英明 <hideaki.yoshifuji@miraclelinux.com>
+Date: Fri, 10 Jul 2015 16:58:31 +0900
 
-> platform_driver does not need to set an owner because
-> platform_driver_register() will set it.
+> If outgoing interface is specified and the candidate address is
+> restricted to the outgoing interface, it is enough to iterate
+> over that given interface only.
 > 
-> Signed-off-by: Krzysztof Kozlowski <k.kozlowski@samsung.com>
+> Signed-off-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+> Acked-by: Erik Kline <ek@google.com>
 
-Applied to net-next, thanks.
+Applied, thanks!
