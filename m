@@ -1,38 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: inet_diag: always export IPV6_V6ONLY sockopt
- for listening sockets
-Date: Fri, 10 Jul 2015 23:25:48 -0700 (PDT)
-Message-ID: <20150710.232548.357031018488272501.davem@davemloft.net>
-References: <1436463030.24939.47.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1436521197-912-1-git-send-email-phil@nwl.cc>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Fighting out-of-order reception with RPS?
+Date: Sat, 11 Jul 2015 06:35:45 +0200
+Message-ID: <1436589345.24939.56.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <559D628C.5020100@hartkopp.net>
+		<CALx6S35OJHyr6iwfdtYW6P-ke2pmsmQ9BjO-D=qjgCHxwF7oew@mail.gmail.com>
+		<559E0CDF.7080309@hartkopp.net>
+	 <CALx6S37JjusJ=+L3mXT0Dzf8XuU0+dgJQ7_Xn4U0nBtkf0gCHQ@mail.gmail.com>
+	 <55A02CDB.6000302@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: phil@nwl.cc
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55701 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752062AbbGKGZt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jul 2015 02:25:49 -0400
-In-Reply-To: <1436521197-912-1-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tom Herbert <tom@herbertland.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	Sunil Kovvuri <sunil.kovvuri@gmail.com>,
+	Jonathon Reinhart <jonathon.reinhart@gmail.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <55A02CDB.6000302@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Phil Sutter <phil@nwl.cc>
-Date: Fri, 10 Jul 2015 11:39:57 +0200
-
-> Reconsidering my commit 20462155 "net: inet_diag: export IPV6_V6ONLY
-> sockopt", I am not happy with the limitations it causes for socket
-> analysing code in userspace. Exporting the value only if it is set makes
-> it hard for userspace to decide whether the option is not set or the
-> kernel does not support exporting the option at all.
+On Fri, 2015-07-10 at 22:36 +0200, Oliver Hartkopp wrote:
+> On 07/10/2015 04:48 AM, Tom Herbert wrote:
+> > On Wed, Jul 8, 2015 at 10:55 PM, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
+> >> Both drivers do not use NAPI. The just follow the way
+> >>
+> >> interrupt -> alloc_skb() -> fill skb -> netif_rx(skb)
+> >>
+> >> I'm usually testing with the USB adapters as the PCIe setup is not very
+> >> handy.
+> >>
+> > Okay, I see what is happening. In netif_rx when RPS is not enabled
+> > that packet is queued to the backlog queue for the local CPU. Since
+> > you're doing round robin on the interrupts then OOO packets can be a
+> > result. Unfortunately, this is the expected behavior. The correct
+> > kernel fix would be to move to these drivers to use NAPI.
 > 
-> From an auditor's perspective, the interesting question for listening
-> AF_INET6 sockets is: "Does it NOT have IPV6_V6ONLY set?" Because it is
-> the unexpected case. This patch allows to answer this question reliably.
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> Cc: Eric Dumazet <edumazet@google.com>
+> Hm. Doesn't sound like a good solution when there's a difference between NAPI
+> and non-NAPI drivers in matters of OOO, right?
 
-Applied, thanks.
+Isn't OOO a problem for you ? Then you either have to :
+
+1) Use a single CPU to handle IRQ from the device
+2) Use NAPI
+
+> 
+> > RPS
+> > eliminates the OOO, but if there is no ability to derive a flow hash
+> > from packets everything will wind up one queue without load balancing.
+> 
+> Correct.
+> 
+> That's why I added
+> 
+> 	skb_set_hash(skb, dev->ifindex, PKT_HASH_TYPE_L2);
+> 
+> in my driver, because the only relevant flow identifiction is the number of
+> the incoming CAN interface.
+> 
+> > Besides that, automatically setting RPS in drivers is a difficult
+> > proposition since there is no definitively "correct" way to do that in
+> > an arbitrary configuration.
+> 
+> What about checking in netif_rx() if the non-NAPI driver has set a hash (aka
+> the driver is OOO sensitive)?
+> And if so we could automatically set rps_cpus for this interface in a way that
+> all CPUs are enabled to take skbs following the hash.
+
+Wow, netif_rx() is packet processing fast path, certainly not the place
+to add controlling path decisions.
+
+Please convert your driver to NAPI. You might then even benefit from
+GRO.
+
+
