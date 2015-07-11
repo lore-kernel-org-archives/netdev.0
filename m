@@ -1,122 +1,72 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 04/11] soc/fsl: Introduce drivers for the DPAA QMan
-Date: Sat, 11 Jul 2015 12:34:08 +0200
-Message-ID: <1436610848.20619.258.camel@tiscali.nl>
-References: <1436473322-21247-1-git-send-email-Roy.Pledge@freescale.com>
-	 <1436473322-21247-5-git-send-email-Roy.Pledge@freescale.com>
+From: Frederic Weisbecker <fweisbec@gmail.com>
+Subject: Re: [PATCH] nohz: prevent tilegx network driver interrupts
+Date: Sat, 11 Jul 2015 16:30:34 +0200
+Message-ID: <20150711143033.GE10257@lerouge>
+References: <1436549624-16104-1-git-send-email-cmetcalf@ezchip.com>
+ <20150710182406.GC26428@lerouge>
+ <55A0175E.2010200@ezchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@lists.ozlabs.org, scottwood@freescale.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Roy Pledge <Roy.Pledge@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1436473322-21247-5-git-send-email-Roy.Pledge@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Chris Metcalf <cmetcalf@ezchip.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:33880 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750751AbbGKOah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jul 2015 10:30:37 -0400
+Content-Disposition: inline
+In-Reply-To: <55A0175E.2010200@ezchip.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On do, 2015-07-09 at 16:21 -0400, Roy Pledge wrote:
-> --- a/drivers/soc/fsl/qbman/Kconfig
-> +++ b/drivers/soc/fsl/qbman/Kconfig
- 
-> +config FSL_QMAN
-> +	tristate "QMan device management"
-> +	default n
-> +	help
-> +		FSL DPAA QMan driver
+On Fri, Jul 10, 2015 at 03:05:02PM -0400, Chris Metcalf wrote:
+> On 07/10/2015 02:24 PM, Frederic Weisbecker wrote:
+> >Indeed we are doing more and more references on housekeeping_mask, so
+> >we should probably think about an off-case.
+> >
+> >Now the nohz-full off-case should rather be cpu_possible_mask than
+> >cpu_online_mask. housekeeping_mask doesn't take into account onlining
+> >at all.
+> 
+> That suggests that in this case, we might want to default to
+> something like "housekeeping_mask & cpu_online_mask",
+> since you really don't want to send irqs to offline cores to
+> process your packets :-)
 
-> +config FSL_QMAN_POLL_LIMIT
-> +	int
-> +	default 32
+In any case it must be up to the drivers to do that. Define
+housekeeping_mask as a subset of the online mask complicates a lot
+of things. It pushes hotplug complexity to the nohz code for no
+reasons. It's up to the drivers and subsystems to handle that really.
 
-This Kconfig symbol will always be set to its default (32). So why
-bother with a Kconfig symbol. Can't you use, say, a preprocessor define
-directly?
+> 
+> The tilegx chips typically don't do cpu offlining anyway, since
+> we've never really found a usecase, so whatever you boot with
+> you always have available.  We do have support for a bare-metal
+> mode which you can run on some of the cores, so you may start
+> with fewer than cpu_possible actually running, but it will always
+> be that same set of cores.
 
-> +config FSL_QMAN_CONFIG
-> +	bool "QMan device management"
-> +	default y
-> +	help
-> +	  If this linux image is running natively, you need this option. If this
-> +	  linux image is running as a guest OS under the hypervisor, only one
-> +	  guest OS ("the control plane") needs this option.
+And that bare metal mode runs out of Linux?
 
-> +config FSL_QMAN_CI_SCHED_CFG_SRCCIV
-> +	int
-> +	depends on FSL_QMAN_CONFIG
-> +	default 4
-> +
-> +config FSL_QMAN_CI_SCHED_CFG_SRQ_W
-> +	int
-> +	depends on FSL_QMAN_CONFIG
-> +	default 3
-> +
-> +config FSL_QMAN_CI_SCHED_CFG_RW_W
-> +	int
-> +	depends on FSL_QMAN_CONFIG
-> +	default 2
-> +
-> +config FSL_QMAN_CI_SCHED_CFG_BMAN_W
-> +	int
-> +	depends on FSL_QMAN_CONFIG
-> +	default 2
+Note that in nohz_full, The boot CPU can't be offline anyway.
 
-Ditto.
+> 
+> So this does suggest that my original patch is wrong for that
+> same reason.
+> 
+> >>2. Provide an accessor that returns the cpumask to use for housekeeping
+> >>    chores and implement it in the obvious ways for both nohz_full
+> >>    and non-nohz_full.
+> >>
+> >>The latter seems like arguably the most satisfying approach, but
+> >>the patch below is, if nothing else, suitable to push for 4.3
+> >>without any further API development work.
+> >I don't know. 1) looks easier.
+> 
+> On reflection, the problem with (1) is that if you are in NO_HZ_FULL
+> mode but !tick_nohz_full_enabled(), you want to fall back to just
+> using cpu_possible_mask anyway.  So I think a simple accessor that
+> returns an appropriate cpumask pointer is probably the best bet
+> (along the lines of the existing is_housekeeping_cpu() accessor).
 
-> +config FSL_QMAN_PIRQ_DQRR_ITHRESH
-> +	int
-> +	default 12
-> +
-> +config FSL_QMAN_PIRQ_MR_ITHRESH
-> +	int
-> +	default 4
-> +
-> +config FSL_QMAN_PIRQ_IPERIOD
-> +	int
-> +	default 100
-
-Ditto.
-
-> --- a/drivers/soc/fsl/qbman/Makefile
-> +++ b/drivers/soc/fsl/qbman/Makefile
-
-> +obj-$(CONFIG_FSL_QMAN)				+= qman_api.o qman_utils.o qman_driver.o
-
-If FSL_QMAN is set to 'm' this should generate three modules. Is three
-modules what you want? (Just to be safe: cross compiling ran into
-problems, even for PPC64, probably because of silliness on my side. So I
-couldn't check this. And I trust make's results more than I trust my
-ability to parse Makefiles.)
- 
-Besides, there's no MODULE_LICENSE() in any of their source files. So,
-whether you create one or three modules, loading a module will trigger a
-warning and taint the kernel.
-
-> +obj-$(CONFIG_FSL_QMAN_CONFIG)			+= qman.o qman_portal.o
-
-> --- /dev/null
-> +++ b/drivers/soc/fsl/qbman/qman.c
-
-> +MODULE_DEVICE_TABLE(of, of_fsl_qman_ids);
-
-qman.o is built if FSL_QMAN_CONFIG is set. FSL_QMAN_CONFIG is a bool
-symbol. The net effect is that MODULE_DEVICE_TABLE is preprocessed away.
-
-> +static struct platform_driver of_fsl_qman_driver = {
-> +	.driver = {
-> +		.name = DRV_NAME,
-> +		.of_match_table = of_fsl_qman_ids,
-> +	},
-> +	.probe = of_fsl_qman_probe,
-> +	.remove	= of_fsl_qman_remove,
-> +};
-> +
-> +module_platform_driver(of_fsl_qman_driver);
-
-As of v4.2-rc1 you can use builtin_platform_driver() for built-in only
-code.
-
-Thanks,
-
-
-Paul Bolle
+Ok!
