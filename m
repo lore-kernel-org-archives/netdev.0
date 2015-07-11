@@ -1,109 +1,49 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [PATCH 2/3] of_mdio: add new DT property 'autoneg' for fixed-link
-Date: Sat, 11 Jul 2015 12:15:24 +0300
-Message-ID: <55A0DEAC.3020801@list.ru>
-References: <559FF511.5080102@list.ru> <559FF63E.8020209@list.ru>
- <55A010F9.7030808@gmail.com> <55A02656.7020508@list.ru>
- <55A02D90.8090903@gmail.com> <55A032F5.8020801@list.ru>
- <55A061CC.8060504@gmail.com>
+From: Erik Kline <ek@google.com>
+Subject: Re: [PATCH net-next v2] ipv6: Do not iterate over all interfaces when
+ finding source address on specific interface.
+Date: Sat, 11 Jul 2015 18:21:10 +0900
+Message-ID: <CAAedzxpMP-DmKOy-BfQkReGWmbujGqM_JsdmYtcuxVDqAdXNKg@mail.gmail.com>
+References: <559F7B27.6030205@miraclelinux.com> <20150710.231943.1262522002810525503.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Grant Likely <grant.likely@linaro.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55A061CC.8060504@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: =?UTF-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>,
+	netdev <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Lorenzo Colitti <lorenzo@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:36052 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753397AbbGKJVg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jul 2015 05:21:36 -0400
+Received: by widjy10 with SMTP id jy10so32526147wid.1
+        for <netdev@vger.kernel.org>; Sat, 11 Jul 2015 02:21:35 -0700 (PDT)
+In-Reply-To: <20150710.231943.1262522002810525503.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-11.07.2015 03:22, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On 10/07/15 14:02, Stas Sergeev wrote:
->> 10.07.2015 23:39, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>>> - in-band status is an implementation delail, and it is
->>>> specific to a particular protocols. If you request the
->>>> in-band status for some protocol that doesn't support
->>>> it, perhaps you should get -EINVAL, because such a
->>>> config makes no sense. With autonegotiation, the rules
->>>> are not that strict: it can be "unimplemented", which doesn't
->>>> necessary mean nonsense in the config.
->>> So by specifying "autoneg", you are not specific about the kind of
->>> auto-negotiation protocol available, which is precisely my point: y=
-ou
->>> need to go down to that level of detail for this to be useful. So m=
-aybe
->>> something like:
->>>
->>> autoneg =3D "in-band-status" would actually be a better thing in te=
-rms of
->>> description because then you would tell what can be made
->>> available/working?
->> I would agree with this if your argument below is true (see below).
+Hmm, when I run a UML linux with this patch (which, I'm ashamed to
+say, I failed to do before) I get these kinds of errors:
+
+    unregister_netdevice: waiting for <TAPdevice> to become free.
+Usage count =3D 1
+    unregister_netdevice: waiting for <TAPdevice> to become free.
+Usage count =3D 1
+
+Perhaps they're unrelated... I'm still investigating.
+
+On 11 July 2015 at 15:19, David Miller <davem@davemloft.net> wrote:
+> From: YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <hideaki=
+=2Eyoshifuji@miraclelinux.com>
+> Date: Fri, 10 Jul 2015 16:58:31 +0900
+>
+>> If outgoing interface is specified and the candidate address is
+>> restricted to the outgoing interface, it is enough to iterate
+>> over that given interface only.
 >>
->>>> - autonegotiation is a wider term, and may be implemented
->>>> by some other means than the in-band status (which is
->>>> probably impossible for a fixed-link though).
->>>>
->>>> - In the terms that the driver uses, it is autonegotiation, eg
->>>> MVNETA_GMAC_AUTONEG_CONFIG. And when you go down
->>>> the implementation details, you see MVNETA_GMAC_INBAND_AN_ENABLE,
->>>> which is just one AN bit of many.
->>> But arguably, there could be another auto-negotiation method, which=
- is
->>> not in-band status related, which means that you would need a way t=
-o
->>> distinguish between using in-band status, or using something else o=
-r
->>> nothing, would not you?
->> "something else" is a big question here.
->> Can you think of _any_ other way that is both not an MDIO
->> (suits to fixed-link) and not an in-band?
-> Yes, I could think about I2C or SPI PHYs that you could use alongside=
- an
-> Ethernet controller that would qualify for out-of-band, not in-band, =
-yet
-> could still provide auto-negotiation. You may have special hardware w=
-ith
-> such a SPI or I2C controller which provides automatic decoding of the
-> auto-neg registers. Have not looked at e.g: SFP form factors or fiber
-> links, but they could also have additional out-of-band type of
-> auto-negotiation available.
+>> Signed-off-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com=
 >
->> If the answer is yes (even theoretically), then
->> autoneg =3D "in-band" | "off"
->> may make sense. Otherwise boolean just looks enough.
-> I think the answer is yes.
+>> Acked-by: Erik Kline <ek@google.com>
 >
->> If we would implement autoneg outside of the fixed-link,
->> then its semantic would likely be
->> autoneg =3D "mdio" | "in-band" | "off"
->> But the fact that we put it under fixed-link where only a
->> single AN possibility exist, may probably be underlined by
->> a semantic specific to fixed-link.
-> Right, if auto-negotiation was defined outside of fixed-link, that is
-> indeed how I would also specify this.
-Hmm, okey.
-But then this all doesn't fit into a fixed-link. The inband autoneg
-is a very small xtension, it only allows to notify MAC about some
-changes on the other end, but never control such changes, so
-from some POV it is still pretty much fixed. And it also built into
-the protocols that fixed-link already use, so that looked like a
-natural xtension to me. But if there are so many possible ways
-to abuse fixed-link making it _fully managed_, I am really starting
-to think about the possibility of defining the autoneg outside of it,
-and leave the poor fixed-link alone.
-The patch will be bigger, but... what do you think?
-This will of course first require defining the fixed-link in the
-docs more strictly, as currently it is (vaguely) defined as
-"non-MDIO", which leaves a lot to speculate and abuse.
+> Applied, thanks!
