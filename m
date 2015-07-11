@@ -1,57 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: dsa: mv88e6xxx: add write access to debugfs
- regs file
-Date: Fri, 10 Jul 2015 23:01:20 -0700 (PDT)
-Message-ID: <20150710.230120.1590955832899872718.davem@davemloft.net>
-References: <1436476409-5033-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 2/4] gianfar: Fix and cleanup rxbd status
+ handling
+Date: Fri, 10 Jul 2015 18:25:16 -0700 (PDT)
+Message-ID: <20150710.182516.1107515769111345392.davem@davemloft.net>
+References: <1436459084-14103-1-git-send-email-claudiu.manoil@freescale.com>
+	<1436459084-14103-3-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@roeck-us.net, andrew@lunn.ch,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1436476409-5033-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: claudiu.manoil@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55631 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752632AbbGKGKa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jul 2015 02:10:30 -0400
+In-Reply-To: <1436459084-14103-3-git-send-email-claudiu.manoil@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Thu,  9 Jul 2015 17:13:29 -0400
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Date: Thu, 9 Jul 2015 19:24:42 +0300
 
-> Allow write access to the regs file in the debugfs interface, with the
-> following parameters:
-> 
->     echo <name> <reg> <value> > regs
-> 
-> Where "name" is the register name (as shown in the header row), "reg" is
-> the register address (as shown in the first column) and "value" is the
-> 16-bit value. e.g.:
-> 
->     echo GLOBAL 1a 5550 > regs
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> @@ -2921,6 +2921,7 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+>  	i = rx_queue->next_to_clean;
+>  
+>  	while (rx_work_limit--) {
+> +		unsigned long lstatus;
+>  
+>  		if (cleaned_cnt >= GFAR_RX_BUFF_ALLOC) {
+>  			gfar_alloc_rx_buffs(rx_queue, cleaned_cnt);
+> @@ -2928,7 +2929,8 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+>  		}
+>  
+>  		bdp = &rx_queue->rx_bd_base[i];
+> -		if (be16_to_cpu(bdp->status) & RXBD_EMPTY)
+> +		lstatus = be32_to_cpu(bdp->lstatus);
+> +		if (lstatus & BD_LFLAG(RXBD_EMPTY))
+>  			break;
+>  
+>  		/* order rx buffer descriptor reads */
 
-I don't know about this.
+"lstatus" is not an "unsigned long", it's a "u32".
 
-This starts to smell like a back door for proprietary userspace SDKs to
-program the switch hardware.
-
-Yes, they can do it via other mechanisms, but we don't have to make it
-any eaiser for them either.
-
-If you want to poke registers, hack the module just like any other
-person with appropriate privileges can do.
-
-Frankly, all of this debugfs crap in the DSA drivers smells like poo.
-I don't like it _AT_ _ALL_, and I shouldn't have allowed any of it
-into the tree in the first place.
-
-I might just remove it all myself, it bothers me so much.
-
-Fetching information should be done by well typed, generic, interfaces
-that apply to any similar device or object.  All of this debugfs stuff
-smells of hacks and special case crap that's only usable for one
-device type and that makes it the single most terrible interface to
-give to users.
-
-Thanks.
+Don't use ambiguous types for objects with exact known sizes.
