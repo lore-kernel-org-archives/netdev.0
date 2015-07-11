@@ -1,54 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] sctp: SCTP_SOCKOPT_PEELOFF return socket pointer
- for kernel users
-Date: Fri, 10 Jul 2015 18:21:14 -0700 (PDT)
-Message-ID: <20150710.182114.1532697560595947999.davem@davemloft.net>
-References: <4dfd0ee7ac0aac0791812217e990e2ae7ff86955.1434645734.git.marcelo.leitner@gmail.com>
+Subject: Re: [PATCH v2] net: dsa: mv88e6xxx: add write access to debugfs
+ regs file
+Date: Fri, 10 Jul 2015 23:01:20 -0700 (PDT)
+Message-ID: <20150710.230120.1590955832899872718.davem@davemloft.net>
+References: <1436476409-5033-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com, nhorman@tuxdriver.com
-To: marcelo.leitner@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55623 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752329AbbGKGKa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jul 2015 02:10:30 -0400
-In-Reply-To: <4dfd0ee7ac0aac0791812217e990e2ae7ff86955.1434645734.git.marcelo.leitner@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux@roeck-us.net, andrew@lunn.ch,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1436476409-5033-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Thu,  9 Jul 2015 11:15:19 -0300
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Thu,  9 Jul 2015 17:13:29 -0400
 
-> SCTP has this operation to peel off associations from a given socket and
-> create a new socket using this association. We currently have two ways
-> to use this operation:
-> - via getsockopt(), on which it will also create and return a file
->   descriptor for this new socket
-> - via sctp_do_peeloff(), which is for kernel only
+> Allow write access to the regs file in the debugfs interface, with the
+> following parameters:
 > 
-> The caveat with using sctp_do_peeloff() directly is that it creates a
-> dependency to SCTP module, while all other operations are handled via
-> kernel_{socket,sendmsg,getsockopt...}() interface. This causes the
-> kernel to load SCTP module even when it's not directly used
+>     echo <name> <reg> <value> > regs
 > 
-> This patch then updates SCTP_SOCKOPT_PEELOFF so that for kernel users of
-> this protocol it will not allocate a file descriptor but instead just
-> return the socket pointer directly.
+> Where "name" is the register name (as shown in the header row), "reg" is
+> the register address (as shown in the first column) and "value" is the
+> 16-bit value. e.g.:
 > 
-> If called by an user application it will work as before.
+>     echo GLOBAL 1a 5550 > regs
 > 
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-I do not like this at all.
+I don't know about this.
 
-Socket option implementations should not change their behavior or what
-datastructures they consume or return just because the socket happens
-to be a kernel socket.
+This starts to smell like a back door for proprietary userspace SDKs to
+program the switch hardware.
 
-I'm not applying this series, sorry.
+Yes, they can do it via other mechanisms, but we don't have to make it
+any eaiser for them either.
 
-Also, your patch series lacked an intial "PATCH 0/N" posting, so you
-could at least spend the time to discuss this patch series at a high
-level and explain your overall motivations.
+If you want to poke registers, hack the module just like any other
+person with appropriate privileges can do.
+
+Frankly, all of this debugfs crap in the DSA drivers smells like poo.
+I don't like it _AT_ _ALL_, and I shouldn't have allowed any of it
+into the tree in the first place.
+
+I might just remove it all myself, it bothers me so much.
+
+Fetching information should be done by well typed, generic, interfaces
+that apply to any similar device or object.  All of this debugfs stuff
+smells of hacks and special case crap that's only usable for one
+device type and that makes it the single most terrible interface to
+give to users.
+
+Thanks.
