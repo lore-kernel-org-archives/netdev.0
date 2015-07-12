@@ -1,150 +1,80 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [except_nonlink net-next]r8169:Add exception when missing link
-Date: Sun, 12 Jul 2015 20:20:07 +0200
-Message-ID: <20150712182006.GA21621@electric-eye.fr.zoreil.com>
-References: <CAGg4U=EF+_8qLW_K=ZYtLSjC75RSrVywsMVswua0YpM91GYZog@mail.gmail.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: Fighting out-of-order reception with RPS?
+Date: Sun, 12 Jul 2015 21:15:36 +0200
+Message-ID: <55A2BCD8.4020303@hartkopp.net>
+References: <559D628C.5020100@hartkopp.net>		<CALx6S35OJHyr6iwfdtYW6P-ke2pmsmQ9BjO-D=qjgCHxwF7oew@mail.gmail.com>		<559E0CDF.7080309@hartkopp.net>	 <CALx6S37JjusJ=+L3mXT0Dzf8XuU0+dgJQ7_Xn4U0nBtkf0gCHQ@mail.gmail.com>	 <55A02CDB.6000302@hartkopp.net> <1436589345.24939.56.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>
-To: Marian Corcodel <corcodel.marian@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:33462 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750954AbbGLSUW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jul 2015 14:20:22 -0400
-Content-Disposition: inline
-In-Reply-To: <CAGg4U=EF+_8qLW_K=ZYtLSjC75RSrVywsMVswua0YpM91GYZog@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	Sunil Kovvuri <sunil.kovvuri@gmail.com>,
+	Jonathon Reinhart <jonathon.reinhart@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1436589345.24939.56.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Marian Corcodel <corcodel.marian@gmail.com> :
-> Add exception when missing link because original function "
-> rtl8169_check_link_status" must be int instead of void.
+Hello Eric,
 
-You explain why the patch is done this way but you don't explain
-why it is needed/useful.
+On 07/11/2015 06:35 AM, Eric Dumazet wrote:
+> On Fri, 2015-07-10 at 22:36 +0200, Oliver Hartkopp wrote:
 
-> commit 21d27973b264192a4ccd6488b1487f07293b11c8
-> Author: Corcodel Marian <asu@192-168-0-3.rdsnet.ro>
-> Date:   Sat Jul 11 21:19:57 2015 +0300
+>> Hm. Doesn't sound like a good solution when there's a difference between NAPI
+>> and non-NAPI drivers in matters of OOO, right?
 > 
->      Committer: Corcodel Marian <asu@192-168-0-3.rdsnet.ro>
->      Add exception when nonexistent link occur because orig func
->      is void format instead of int.
-[...]
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 410c1ee..7465ec4 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -7643,6 +7643,12 @@ static int rtl_open(struct net_device *dev)
->  
->  	tp->saved_wolopts = 0;
->  	pm_runtime_put_noidle(&pdev->dev);
-> +	if (!tp->link_ok(ioaddr)) {
-> +			netif_carrier_off(dev);
-> +		netif_info(tp, ifdown, dev, "link down\n");
-> +		pm_schedule_suspend(&tp->pci_dev->dev, 200);
+> Isn't OOO a problem for you ? Then you either have to :
+> 
+> 1) Use a single CPU to handle IRQ from the device
+> 2) Use NAPI
+> 
 
-(nit: &tp->pci_dev->dev == &pdev->dev from a few lines above)
+See below ...
 
-> +	  goto out; 
-> +	}
->  
->  	rtl8169_check_link_status(dev, tp, ioaddr);
->  out:
+>> What about checking in netif_rx() if the non-NAPI driver has set a hash (aka
+>> the driver is OOO sensitive)?
+>> And if so we could automatically set rps_cpus for this interface in a way that
+>> all CPUs are enabled to take skbs following the hash.
+> 
+> Wow, netif_rx() is packet processing fast path, certainly not the place
+> to add controlling path decisions.
 
-You're (partly) reverting the change below without any sensible
-explanation.
+My only requirement is to be able to pick CAN frames (contained in skbs) from
+the socket in the same order they have been received.
 
-You should elaborate which problem you are trying to address.
+> Please convert your driver to NAPI. You might then even benefit from
+> GRO.
 
-Btw I can't help thinking that the style is terrible and the
-whole stuff ought to stay in rtl8169_check_link_status.
+Just some remarks about CAN and CAN frames as you suggest GRO which is
+completely pointless for CAN.
 
-commit e4fbce740f078bbc925ba5c86648d9c883968479
-Author: Rafael J. Wysocki <rjw@sisk.pl>
-Date:   Wed Dec 8 15:32:14 2010 +0000
+CAN frames have a 11 or 29 bit CAN Identifier (no MAC but content addressing)
+and 0 to 64 bytes of payload. Therefore the MTU for CAN interfaces is 16 or 72
+byte (see struct can(fd)_frame). Each skbuff contains a single CAN frame.
 
-    r8169: Fix runtime power management
-    
-    I noticed that one of the post-2.6.36 patches broke runtime PM of the
-    r8169 on my MSI Wind test machine in such a way that the link was not
-    brought up after reconnecting the network cable.
-    
-    In the process of debugging the issue I realized that we only should
-    invoke the runtime PM functions in rtl8169_check_link_status() when
-    link change is reported and if we do so, the problem goes away.
-    Moreover, this allows rtl8169_runtime_idle() to be simplified quite
-    a bit.
-    
-    Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-    Acked-by: Francois Romieu <romieu@fr.zoreil.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+There are CAN controllers which have a FIFO for up to 32 CAN frames, e.g.
+flexcan.c which also implements NAPI. Others (e.g. sja1000.c) don't have any
+FIFO and the reading of the CAN frame from the memory mapped registers needs
+to be processed in the irq context instantly. So 'fast path' netif_rx() is
+reasonable, right?
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 7d33ef4..53b13de 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -744,26 +744,36 @@ static void rtl8169_xmii_reset_enable(void __iomem *ioaddr)
- 	mdio_write(ioaddr, MII_BMCR, val & 0xffff);
- }
- 
--static void rtl8169_check_link_status(struct net_device *dev,
-+static void __rtl8169_check_link_status(struct net_device *dev,
- 				      struct rtl8169_private *tp,
--				      void __iomem *ioaddr)
-+				      void __iomem *ioaddr,
-+				      bool pm)
- {
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&tp->lock, flags);
- 	if (tp->link_ok(ioaddr)) {
- 		/* This is to cancel a scheduled suspend if there's one. */
--		pm_request_resume(&tp->pci_dev->dev);
-+		if (pm)
-+			pm_request_resume(&tp->pci_dev->dev);
- 		netif_carrier_on(dev);
- 		netif_info(tp, ifup, dev, "link up\n");
- 	} else {
- 		netif_carrier_off(dev);
- 		netif_info(tp, ifdown, dev, "link down\n");
--		pm_schedule_suspend(&tp->pci_dev->dev, 100);
-+		if (pm)
-+			pm_schedule_suspend(&tp->pci_dev->dev, 100);
- 	}
- 	spin_unlock_irqrestore(&tp->lock, flags);
- }
- 
-+static void rtl8169_check_link_status(struct net_device *dev,
-+				      struct rtl8169_private *tp,
-+				      void __iomem *ioaddr)
-+{
-+	__rtl8169_check_link_status(dev, tp, ioaddr, false);
-+}
-+
- #define WAKE_ANY (WAKE_PHY | WAKE_MAGIC | WAKE_UCAST | WAKE_BCAST | WAKE_MCAST)
- 
- static u32 __rtl8169_get_wol(struct rtl8169_private *tp)
-@@ -4600,7 +4610,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 		}
- 
- 		if (status & LinkChg)
--			rtl8169_check_link_status(dev, tp, ioaddr);
-+			__rtl8169_check_link_status(dev, tp, ioaddr, true);
- 
- 		/* We need to see the lastest version of tp->intr_mask to
- 		 * avoid ignoring an MSI interrupt and having to wait for
-@@ -4890,11 +4900,7 @@ static int rtl8169_runtime_idle(struct device *device)
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 
--	if (!tp->TxDescArray)
--		return 0;
--
--	rtl8169_check_link_status(dev, tp, tp->mmio_addr);
--	return -EBUSY;
-+	return tp->TxDescArray ? -EBUSY : 0;
- }
- 
- static const struct dev_pm_ops rtl8169_pm_ops = {
+So why is it not possible to pass netif_rx() skbs from a specific CAN network
+interface to whatever queue where they are processed in order?
+
+E.g. with
+
+	skb_set_hash(skb, dev->ifindex, PKT_HASH_TYPE_L2);
+
+and
+
+	echo f > /sys/class/net/can0/queues/rx-0/rps_cpus
+
+I get properly ordered CAN frames - even with netif_rx() processed skbs. I
+just want to have this stuff to be enabled by default for CAN interfaces to
+kill the OOO frame issue.
+
+Regards,
+Oliver
+
