@@ -1,80 +1,74 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: Fighting out-of-order reception with RPS?
-Date: Sun, 12 Jul 2015 21:15:36 +0200
-Message-ID: <55A2BCD8.4020303@hartkopp.net>
-References: <559D628C.5020100@hartkopp.net>		<CALx6S35OJHyr6iwfdtYW6P-ke2pmsmQ9BjO-D=qjgCHxwF7oew@mail.gmail.com>		<559E0CDF.7080309@hartkopp.net>	 <CALx6S37JjusJ=+L3mXT0Dzf8XuU0+dgJQ7_Xn4U0nBtkf0gCHQ@mail.gmail.com>	 <55A02CDB.6000302@hartkopp.net> <1436589345.24939.56.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	Sunil Kovvuri <sunil.kovvuri@gmail.com>,
-	Jonathon Reinhart <jonathon.reinhart@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1436589345.24939.56.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2015-07-12
+Date: Sun, 12 Jul 2015 21:18:03 +0200
+Message-ID: <1436728691-1145-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:54985 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751148AbbGLTSQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jul 2015 15:18:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Eric,
+Hello David,
 
-On 07/11/2015 06:35 AM, Eric Dumazet wrote:
-> On Fri, 2015-07-10 at 22:36 +0200, Oliver Hartkopp wrote:
+this is a pull request of 8 patchs for net/master.
 
->> Hm. Doesn't sound like a good solution when there's a difference between NAPI
->> and non-NAPI drivers in matters of OOO, right?
-> 
-> Isn't OOO a problem for you ? Then you either have to :
-> 
-> 1) Use a single CPU to handle IRQ from the device
-> 2) Use NAPI
-> 
+Sergei Shtylyov contributes 5 patches for the rcar_can driver, fixing the IRQ
+check and several info and error messages. There are two patches by J.D.
+Schroeder and Roger Quadros for the c_can driver and dra7x-evm device tree,
+which precent a glitch in the DCAN1 pinmux. Oliver Hartkopp provides a better
+approach to make the CAN skbs unique, the timestamp is replaced by a counter.
 
-See below ...
+regards,
+Marc
 
->> What about checking in netif_rx() if the non-NAPI driver has set a hash (aka
->> the driver is OOO sensitive)?
->> And if so we could automatically set rps_cpus for this interface in a way that
->> all CPUs are enabled to take skbs following the hash.
-> 
-> Wow, netif_rx() is packet processing fast path, certainly not the place
-> to add controlling path decisions.
+---
 
-My only requirement is to be able to pick CAN frames (contained in skbs) from
-the socket in the same order they have been received.
+The following changes since commit 2ee94014d9bd3868b1c0d17405f96d63bec83f28:
 
-> Please convert your driver to NAPI. You might then even benefit from
-> GRO.
+  net: switchdev: don't abort unsupported operations (2015-07-11 21:29:55 -0700)
 
-Just some remarks about CAN and CAN frames as you suggest GRO which is
-completely pointless for CAN.
+are available in the git repository at:
 
-CAN frames have a 11 or 29 bit CAN Identifier (no MAC but content addressing)
-and 0 to 64 bytes of payload. Therefore the MTU for CAN interfaces is 16 or 72
-byte (see struct can(fd)_frame). Each skbuff contains a single CAN frame.
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.2-20150712
 
-There are CAN controllers which have a FIFO for up to 32 CAN frames, e.g.
-flexcan.c which also implements NAPI. Others (e.g. sja1000.c) don't have any
-FIFO and the reading of the CAN frame from the memory mapped registers needs
-to be processed in the irq context instantly. So 'fast path' netif_rx() is
-reasonable, right?
+for you to fetch changes up to d3b58c47d330de8c29898fe9746f7530408f8a59:
 
-So why is it not possible to pass netif_rx() skbs from a specific CAN network
-interface to whatever queue where they are processed in order?
+  can: replace timestamp as unique skb attribute (2015-07-12 21:13:22 +0200)
 
-E.g. with
+----------------------------------------------------------------
+linux-can-fixes-for-4.2-20150712
 
-	skb_set_hash(skb, dev->ifindex, PKT_HASH_TYPE_L2);
+----------------------------------------------------------------
+J.D. Schroeder (1):
+      can: c_can: Fix default pinmux glitch at init
 
-and
+Oliver Hartkopp (1):
+      can: replace timestamp as unique skb attribute
 
-	echo f > /sys/class/net/can0/queues/rx-0/rps_cpus
+Roger Quadros (1):
+      ARM: dts: dra7x-evm: Prevent glitch on DCAN1 pinmux
 
-I get properly ordered CAN frames - even with netif_rx() processed skbs. I
-just want to have this stuff to be enabled by default for CAN interfaces to
-kill the OOO frame issue.
+Sergei Shtylyov (5):
+      can: rcar_can: fix IRQ check
+      can: rcar_can: print signed IRQ #
+      can: rcar_can: fix typo in error message
+      can: rcar_can: print request_irq() error code
+      can: rcar_can: unify error messages
 
-Regards,
-Oliver
-
+ arch/arm/boot/dts/dra7-evm.dts  |  5 +++--
+ arch/arm/boot/dts/dra72-evm.dts |  5 +++--
+ drivers/net/can/c_can/c_can.c   | 10 ++++++++--
+ drivers/net/can/dev.c           |  7 ++-----
+ drivers/net/can/rcar_can.c      | 16 ++++++++++------
+ drivers/net/can/slcan.c         |  2 +-
+ drivers/net/can/vcan.c          |  3 ---
+ include/linux/can/skb.h         |  2 ++
+ net/can/af_can.c                | 12 +++++++-----
+ net/can/bcm.c                   |  2 ++
+ net/can/raw.c                   |  7 ++++---
+ 11 files changed, 42 insertions(+), 29 deletions(-)
