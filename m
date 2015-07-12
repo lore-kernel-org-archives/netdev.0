@@ -1,62 +1,78 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] rtnetlink: reject non-IFLA_VF_PORT attributes inside IFLA_VF_PORTS
-Date: Mon, 13 Jul 2015 00:06:02 +0200
-Message-ID: <b6917238569c4f53d4516b71b8206e8d02e2ac21.1436736717.git.daniel@iogearbox.net>
-Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36650 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751364AbbGLWGJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jul 2015 18:06:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Matteo Croce <matteo@openwrt.org>
+Subject: Re: [PATCH v2] add stealth mode
+Date: Mon, 13 Jul 2015 01:13:44 +0200
+Message-ID: <CAFnufp1_JAutAm7LZsQXXPspipUy4n2C9K3Li+jsWzNpgqYBJw@mail.gmail.com>
+References: <CAFnufp059tojfKYBye4eayOCvNNkAE9w_s_6E-PiG-EYp9K0Gg@mail.gmail.com>
+ <21611.1436179798@turing-police.cc.vt.edu> <CAFnufp3xP3xjd8zy0uLKEGgbBAb0motLva=f1EbMJCfcKG=Y-w@mail.gmail.com>
+ <559D2688.5020302@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Austin S Hemmelgarn <ahferroin7@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <559D2688.5020302@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Similarly as in commit 4f7d2cdfdde7 ("rtnetlink: verify IFLA_VF_INFO
-attributes before passing them to driver"), we have a double nesting
-of netlink attributes, i.e. IFLA_VF_PORTS only contains IFLA_VF_PORT
-that is nested itself. While IFLA_VF_PORTS is a verified attribute
-from ifla_policy[], we only check if the IFLA_VF_PORTS container has
-IFLA_VF_PORT attributes and then pass the attribute's content itself
-via nla_parse_nested(). It would be more correct to reject inner types
-other than IFLA_VF_PORT instead of continuing parsing and also similarly
-as in commit 4f7d2cdfdde7, to check for a minimum of NLA_HDRLEN.
+2015-07-08 15:32 GMT+02:00 Austin S Hemmelgarn <ahferroin7@gmail.com>:
+> On 2015-07-06 15:44, Matteo Croce wrote:
+> Just to name a few that I know of off the top of my head:
+> 1. IP packets with any protocol number not supported by your current kernel
+> (these return a special ICMP message).
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
-Cc: Scott Feldman <sfeldma@gmail.com>
-Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
----
- ( This was still a follow-up I found while working on 4f7d2cdfdde7,
-   could also go to net-next, at your preference. )
+Right, I'll handle them
 
- net/core/rtnetlink.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+> 2. SCTP INIT and COOKIE_ECHO chunks when you have SCTP enabled in the
+> kernel.
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 9e433d5..dc004b1 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1804,10 +1804,13 @@ static int do_setlink(const struct sk_buff *skb,
- 			goto errout;
- 
- 		nla_for_each_nested(attr, tb[IFLA_VF_PORTS], rem) {
--			if (nla_type(attr) != IFLA_VF_PORT)
--				continue;
--			err = nla_parse_nested(port, IFLA_PORT_MAX,
--				attr, ifla_port_policy);
-+			if (nla_type(attr) != IFLA_VF_PORT ||
-+			    nla_len(attr) < NLA_HDRLEN) {
-+				err = -EINVAL;
-+				goto errout;
-+			}
-+			err = nla_parse_nested(port, IFLA_PORT_MAX, attr,
-+					       ifla_port_policy);
- 			if (err < 0)
- 				goto errout;
- 			if (!port[IFLA_PORT_VF]) {
+Well, I've never played with SCTP before
+
+> 3. Theoretically, some IGMP messages.
+> 4. NDP messages.
+> 5. ARP queries looking for the machine's IP addresses.
+
+Yes I know, but it's unlikely to receive this packets from WAN, right?
+My flag is intended to be used mostly on WAN interfaces,
+machines in LAN should be easily discoverable IMHO
+
+> 6. Certain odd flag combinations on single TCP packets (check the
+> documentation for Nmap for more info regarding these), which I believe
+> (although I may be reading the code wrong) you aren't accounting for.
+
+I've tried many TCP flags combination with hping3, NUL, SYN/ACK, ACK,
+SYN/FIN, etc.
+They doesn't get any response when the flag is set
+
+> 7. DAD queries.
+
+Never looked at this packets, are a subset of NDP?
+
+> 8. ICMP address mask queries (which you also don't appear to account for).
+
+It's deprecated and actually it doesn't get any response already
+
+> This is by no means an exhaustive list, but all of them really should be
+> addressed if you want to do this properly.
+>
+>
+
+Thank you,
 -- 
-1.9.3
+Matteo Croce
+OpenWrt Developer
+  _______                     ________        __
+ |       |.-----.-----.-----.|  |  |  |.----.|  |_
+ |   -   ||  _  |  -__|     ||  |  |  ||   _||   _|
+ |_______||   __|_____|__|__||________||__|  |____|
+          |__| W I R E L E S S   F R E E D O M
+ -----------------------------------------------------
+ CHAOS CALMER
+ -----------------------------------------------------
+  * 1 1/2 oz Gin            Shake with a glassful
+  * 1/4 oz Triple Sec       of broken ice and pour
+  * 3/4 oz Lime Juice       unstrained into a goblet.
+  * 1 1/2 oz Orange Juice
+  * 1 tsp. Grenadine Syrup
+ -----------------------------------------------------
