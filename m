@@ -1,11 +1,12 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 4/8] can: rcar_can: print request_irq() error code
-Date: Sun, 12 Jul 2015 21:18:07 +0200
-Message-ID: <1436728691-1145-5-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 6/8] can: c_can: Fix default pinmux glitch at init
+Date: Sun, 12 Jul 2015 21:18:09 +0200
+Message-ID: <1436728691-1145-7-git-send-email-mkl@pengutronix.de>
 References: <1436728691-1145-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	kernel@pengutronix.de, "J.D. Schroeder" <jay.schroeder@garmin.com>,
+	Roger Quadros <rogerq@ti.com>,
+	linux-stable <stable@vger.kernel.org>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <linux-can-owner@vger.kernel.org>
@@ -13,31 +14,57 @@ In-Reply-To: <1436728691-1145-1-git-send-email-mkl@pengutronix.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+From: "J.D. Schroeder" <jay.schroeder@garmin.com>
 
-Also print the error code when the request_irq() call fails in rcar_can_open(),
-rewording  the error message...
+The previous change 3973c526ae9c (net: can: c_can: Disable pins when CAN
+interface is down) causes a slight glitch on the pinctrl settings when used.
+Since commit ab78029 (drivers/pinctrl: grab default handles from device core),
+the device core will automatically set the default pins. This causes the pins
+to be momentarily set to the default and then to the sleep state in
+register_c_can_dev(). By adding an optional "enable" state, boards can set the
+default pin state to be disabled and avoid the glitch when the switch from
+default to sleep first occurs. If the "enable" state is not available
+c_can_pinctrl_select_state() falls back to using the "default" pinctrl state.
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+[Roger Q] - Forward port to v4.2 and use pinctrl_get_select().
+
+Signed-off-by: J.D. Schroeder <jay.schroeder@garmin.com>
+Signed-off-by: Roger Quadros <rogerq@ti.com>
+Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
+Cc: linux-stable <stable@vger.kernel.org>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/rcar_can.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/can/c_can/c_can.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/can/rcar_can.c b/drivers/net/can/rcar_can.c
-index 310a0cd20679..5e81afffc073 100644
---- a/drivers/net/can/rcar_can.c
-+++ b/drivers/net/can/rcar_can.c
-@@ -527,7 +527,8 @@ static int rcar_can_open(struct net_device *ndev)
- 	napi_enable(&priv->napi);
- 	err = request_irq(ndev->irq, rcar_can_interrupt, 0, ndev->name, ndev);
- 	if (err) {
--		netdev_err(ndev, "error requesting interrupt %d\n", ndev->irq);
-+		netdev_err(ndev, "request_irq(%d) failed, error %d\n",
-+			   ndev->irq, err);
- 		goto out_close;
- 	}
- 	can_led_event(ndev, CAN_LED_EVENT_OPEN);
+diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+index 041525d2595c..5d214d135332 100644
+--- a/drivers/net/can/c_can/c_can.c
++++ b/drivers/net/can/c_can/c_can.c
+@@ -592,6 +592,7 @@ static int c_can_start(struct net_device *dev)
+ {
+ 	struct c_can_priv *priv = netdev_priv(dev);
+ 	int err;
++	struct pinctrl *p;
+ 
+ 	/* basic c_can configuration */
+ 	err = c_can_chip_config(dev);
+@@ -604,8 +605,13 @@ static int c_can_start(struct net_device *dev)
+ 
+ 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
+ 
+-	/* activate pins */
+-	pinctrl_pm_select_default_state(dev->dev.parent);
++	/* Attempt to use "active" if available else use "default" */
++	p = pinctrl_get_select(priv->device, "active");
++	if (!IS_ERR(p))
++		pinctrl_put(p);
++	else
++		pinctrl_pm_select_default_state(priv->device);
++
+ 	return 0;
+ }
+ 
 -- 
 2.1.4
 
