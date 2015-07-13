@@ -1,38 +1,58 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next] tc: fix tc actions in case of shared skb
-Date: Mon, 13 Jul 2015 09:13:58 -0400
-Message-ID: <55A3B996.6090501@mojatatu.com>
-References: <1436573411-5021-1-git-send-email-ast@plumgrid.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] nf: IDLETIMER: fix lockdep warning
+Date: Mon, 13 Jul 2015 15:20:25 +0200
+Message-ID: <20150713132025.GA4071@salvia>
+References: <20150710001501.GA32570@dtor-ws>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:36287 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751284AbbGMNOH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 09:14:07 -0400
-Received: by ieik3 with SMTP id k3so21654924iei.3
-        for <netdev@vger.kernel.org>; Mon, 13 Jul 2015 06:14:05 -0700 (PDT)
-In-Reply-To: <1436573411-5021-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Dmitry Torokhov <dtor@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150710001501.GA32570@dtor-ws>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/10/15 20:10, Alexei Starovoitov wrote:
-> TC actions need to check for very unlikely event skb->users != 1,
-> otherwise subsequent pskb_may_pull/pskb_expand_head will crash.
-> When skb_shared() just drop the packet, since in the middle of actions
-> it's too late to call skb_share_check(), since classifiers/actions assume
-> the same skb pointer.
->
+On Thu, Jul 09, 2015 at 05:15:01PM -0700, Dmitry Torokhov wrote:
+> Dynamically allocated sysfs attributes should be initialized with
+> sysfs_attr_init() otherwise lockdep will be angry with us:
+> 
+> [   45.468653] BUG: key ffffffc030fad4e0 not in .data!
+> [   45.468655] ------------[ cut here ]------------
+> [   45.468666] WARNING: CPU: 0 PID: 1176 at /mnt/host/source/src/third_party/kernel/v3.18/kernel/locking/lockdep.c:2991 lockdep_init_map+0x12c/0x490()
+> [   45.468672] DEBUG_LOCKS_WARN_ON(1)
+> [   45.468672] CPU: 0 PID: 1176 Comm: iptables Tainted: G     U  W 3.18.0 #43
+> [   45.468674] Hardware name: XXX
+> [   45.468675] Call trace:
+> [   45.468680] [<ffffffc0002072b4>] dump_backtrace+0x0/0x10c
+> [   45.468683] [<ffffffc0002073d0>] show_stack+0x10/0x1c
+> [   45.468688] [<ffffffc000a86cd4>] dump_stack+0x74/0x94
+> [   45.468692] [<ffffffc000217ae0>] warn_slowpath_common+0x84/0xb0
+> [   45.468694] [<ffffffc000217b84>] warn_slowpath_fmt+0x4c/0x58
+> [   45.468697] [<ffffffc0002530a4>] lockdep_init_map+0x128/0x490
+> [   45.468701] [<ffffffc000367ef0>] __kernfs_create_file+0x80/0xe4
+> [   45.468704] [<ffffffc00036862c>] sysfs_add_file_mode_ns+0x104/0x170
+> [   45.468706] [<ffffffc00036870c>] sysfs_create_file_ns+0x58/0x64
+> [   45.468711] [<ffffffc000930430>] idletimer_tg_checkentry+0x14c/0x324
+> [   45.468714] [<ffffffc00092a728>] xt_check_target+0x170/0x198
+> [   45.468717] [<ffffffc000993efc>] check_target+0x58/0x6c
+> [   45.468720] [<ffffffc000994c64>] translate_table+0x30c/0x424
+> [   45.468723] [<ffffffc00099529c>] do_ipt_set_ctl+0x144/0x1d0
+> [   45.468728] [<ffffffc0009079f0>] nf_setsockopt+0x50/0x60
+> [   45.468732] [<ffffffc000946870>] ip_setsockopt+0x8c/0xb4
+> [   45.468735] [<ffffffc0009661c0>] raw_setsockopt+0x10/0x50
+> [   45.468739] [<ffffffc0008c1550>] sock_common_setsockopt+0x14/0x20
+> [   45.468742] [<ffffffc0008bd190>] SyS_setsockopt+0x88/0xb8
+> [   45.468744] ---[ end trace 41d156354d18c039 ]---
 
-Alexei,
-To add to what Dave said - are the rules specified here:
-Documentation/networking/tc-actions-env-rules.txt
-insufficient?
+Applied, thanks.
 
-cheers,
-jamal
+One question:
+
+> Change-Id: I1da5cd96fc8e1e1e4209e81eba1165a42d4d45e9
+
+BTW, does this gerrit change ID provide any public information? Thanks.
