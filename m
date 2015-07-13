@@ -1,38 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: dsa: mv88e6xxx: add write access to debugfs
- regs file
-Date: Sun, 12 Jul 2015 20:25:13 -0700 (PDT)
-Message-ID: <20150712.202513.301354636371108143.davem@davemloft.net>
-References: <1092744390.7730.1436639772848.JavaMail.zimbra@savoirfairelinux.com>
-	<20150711.190822.1431177169987395247.davem@davemloft.net>
-	<1788707459.58885.1436751570981.JavaMail.zimbra@savoirfairelinux.com>
+From: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>
+Subject: [RFC PATCH 0/2] net: macb: Add mdio driver for accessing multiple phy devices
+Date: Mon, 13 Jul 2015 09:05:35 +0530
+Message-ID: <1436758537-24202-1-git-send-email-punnaia@xilinx.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@roeck-us.net, andrew@lunn.ch,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
-To: vivien.didelot@savoirfairelinux.com
+Content-Type: text/plain
+Cc: harinik@xilinx.com, kpc528@gmail.com,
+	kalluripunnaiahchoudary@gmail.com, netdev@vger.kernel.org,
+	Punnaiah Choudary Kalluri <punnaia@xilinx.com>
+To: nicolas.ferre@atmel.com, michals@xilinx.com, anirudh@xilinx.com,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38857 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751729AbbGMDZO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jul 2015 23:25:14 -0400
-In-Reply-To: <1788707459.58885.1436751570981.JavaMail.zimbra@savoirfairelinux.com>
+Received: from mail-bl2on0062.outbound.protection.outlook.com ([65.55.169.62]:1799
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751726AbbGMDfu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Jul 2015 23:35:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Sun, 12 Jul 2015 21:39:30 -0400 (EDT)
+This patch is to add support for the design that has multiple ethernet
+mac controllers and single mdio bus connected to multiple phy devices.
+i.e mdio lines are connected to any of the ethernet mac controller and
+all the phy devices will be accessed using the phy maintenance interface
+in that mac controller.
 
-> I hardly see how this debug interface can be made generic to other
-> DSA drivers, since the format of hardware tables or some registers
-> seem very specific to the switch chip.
+ ______                   _____
+|      |                 |PHY0 |
+| MAC0 |-----------------|     |
+|______|       |         |_____|
+               |           
+ ______        |          _____
+|      |       |         |     |
+| MAC1 |       |_________|PHY1 | 
+|______|                 |____ |
 
-You feel this way because you are focusing on register values and not what
-those values represent.
+So, i come up with two implementations for addressing the above configuration.
 
-Ie. could you export the values in those registers in a generic format
-that other devices could convert their register values to as well?
+Implementation 1:
+ Have separate driver for mdio bus
+ Create a DT node for all the PHY devices connected to the mdio bus
+ This driver will share the register space of the mac controller that has
+ mdio bus connected.  
 
-Stop focusing so tightly on the exact thing you've implemented and
-consider things on a much higher level.
+Implementation 2:
+ Add new property "has-mdio" and it should be 1 for the mac that has mdio bus
+ connected.
+ Create the mdio bus only when the has-mdio property is 1
+
+Please review the two implementations and suggest which one is better to proceed
+further. In my opinion implementation 1 will be the ideal one.
+
+Currently i have tested the patches with single mac and single phy
+configuration. I need to take care of few more cases before releasing the final patch
+but before that i would like to have your opinion on the above implementations
+and finalize one implementation. so that i can enhance it further.
+
+Punnaiah Choudary Kalluri (1):
+  net: macb: Add mdio driver for accessing multiple phy devices
+  net: macb: Add support for single mac managing more than one phy
+
+
+ drivers/net/ethernet/cadence/Makefile    |    2 +-
+ drivers/net/ethernet/cadence/macb.c      |   93 +-------------
+ drivers/net/ethernet/cadence/macb.h      |    3 +-
+ drivers/net/ethernet/cadence/macb_mdio.c |  204 ++++++++++++++++++++++++++++++
+ 4 files changed, 211 insertions(+), 91 deletions(-)
+ create mode 100644 drivers/net/ethernet/cadence/macb_mdio.c
+
+-- 
+1.7.4
