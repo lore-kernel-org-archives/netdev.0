@@ -1,60 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/16] i40e/i40evf: improve Tx performance with a small tweak
-Date: Mon, 13 Jul 2015 02:08:25 -0700
-Message-ID: <1436778517-16254-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/16] i40e: ignore duplicate port VLAN requests
+Date: Mon, 13 Jul 2015 02:08:27 -0700
+Message-ID: <1436778517-16254-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1436778517-16254-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:28267 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:21760 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751117AbbGMJIp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jul 2015 05:08:45 -0400
+	id S1751915AbbGMJIq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jul 2015 05:08:46 -0400
 In-Reply-To: <1436778517-16254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Add a prefetch for the next Tx descriptor to be used when we know
-there are more coming.
+If user attempts to set a port VLAN on a VF that already has the same
+port VLAN configured, the driver will go through a completely
+unnecessary flurry of filter removals and filter adds. Just check for
+this condition and return success instead of doing a bunch of busywork.
 
-Change-ID: Ibb9acab11d508eec2db7da795df74debc16eeacb
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: Ia1a9e83e6ed48b3f4658bc20dfc6af0cf525d54a
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 2 ++
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 2 ++
- 2 files changed, 4 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 9a4f2bc..1fe230d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2616,6 +2616,8 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	    netif_xmit_stopped(netdev_get_tx_queue(tx_ring->netdev,
- 						   tx_ring->queue_index)))
- 		writel(i, tx_ring->tail);
-+	else
-+		prefetchw(tx_desc + 1);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 23f95cd..433e803 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -2088,6 +2088,10 @@ int i40e_ndo_set_vf_port_vlan(struct net_device *netdev,
+ 		goto error_pvid;
+ 	}
  
- 	return;
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 395f32f..0f0e185 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1841,6 +1841,8 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	    netif_xmit_stopped(netdev_get_tx_queue(tx_ring->netdev,
- 						   tx_ring->queue_index)))
- 		writel(i, tx_ring->tail);
-+	else
-+		prefetchw(tx_desc + 1);
- 
- 	return;
- 
++	if (vsi->info.pvid == (vlan_id | (qos << I40E_VLAN_PRIORITY_SHIFT)))
++		/* duplicate request, so just return success */
++		goto error_pvid;
++
+ 	if (vsi->info.pvid == 0 && i40e_is_vsi_in_vlan(vsi)) {
+ 		dev_err(&pf->pdev->dev,
+ 			"VF %d has already configured VLAN filters and the administrator is requesting a port VLAN override.\nPlease unload and reload the VF driver for this change to take effect.\n",
 -- 
 2.4.3
