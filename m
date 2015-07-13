@@ -1,75 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] netlink: enable skb header refcounting before sending
- first broadcast
-Date: Mon, 13 Jul 2015 15:23:52 +0800
-Message-ID: <20150713072352.GA8485@gondor.apana.org.au>
-References: <20150710115141.12980.88829.stgit@buzz>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: net: fec: Ensure clocks are enabled while using mdio bus
+Date: Mon, 13 Jul 2015 15:40:00 +0800
+Message-ID: <CAAQ0ZWStX30cCZR9Midzz-_0N7C=_pX3O=D4nwq0j1u5SxY2JA@mail.gmail.com>
+References: <CANMBJr7XML6v5_75LmD7ARMHaAJo9YBodv13jCcdN2mL7Vu0ZQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>
-To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:57695 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751463AbbGMHX7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 03:23:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20150710115141.12980.88829.stgit@buzz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrew Lunn <andrew@lunn.ch>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Fugang Duan <B38611@freescale.com>,
+	"Kevin's boot bot" <khilman@kernel.org>,
+	Olof Johansson <olof@lixom.net>,
+	netdev <netdev@vger.kernel.org>
+To: Tyler Baker <tyler.baker@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANMBJr7XML6v5_75LmD7ARMHaAJo9YBodv13jCcdN2mL7Vu0ZQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 10, 2015 at 02:51:41PM +0300, Konstantin Khlebnikov wrote:
-> This fixes race between non-atomic updates of adjacent bit-fields:
-> skb->cloned could be lost because netlink broadcast clones skb after
-> sending it to the first listener who sets skb->peeked at the same skb.
-> As a result atomic refcounting of skb header stays disabled and
-> skb_release_data() frees it twice. Race leads to double-free in kmalloc-xxx.
-> 
-> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-> Fixes: b19372273164 ("net: reorganize sk_buff for faster __copy_skb_header()")
-> ---
->  net/netlink/af_netlink.c |    6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index dea925388a5b..921e0d8dfe3a 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -2028,6 +2028,12 @@ int netlink_broadcast_filtered(struct sock *ssk, struct sk_buff *skb, u32 portid
->  	info.tx_filter = filter;
->  	info.tx_data = filter_data;
->  
-> +	/* Enable atomic refcounting in skb_release_data() before first send:
-> +	 * non-atomic set of that bit-field in __skb_clone() could race with
-> +	 * __skb_recv_datagram() which touches the same set of bit-fields.
-> +	 */
-> +	skb->cloned = 1;
-> +
->  	/* While we sleep in clone, do not allow to change socket list */
->  
->  	netlink_lock_table();
+On Sat, Jul 11, 2015 at 3:07 AM, Tyler Baker <tyler.baker@linaro.org> wrote:
+> Hi Andrew,
+>
+> The kernelci.org system reported[1][2][3] new imx6 boot failures in
+> next-20150710. I've bisected[4] these failures to 6c3e921b18ed "net:
+> fec: Ensure clocks are enabled while using mdio bus". Reverting this
+> commit on top of next-20150710, resolves the boot failures. I have not
+> investigated any further, but did add the imx maintainer to the CC
+> list. Apologies in advanced for not replying to the original thread,
+> as I was not subscribed to the netdev list until now.
 
-Your effort in finding this bug is wonderful.  However I think
-the fix is a bit dirty.
+I just confirmed that the commit breaks my i.MX6Q board from booting here.
 
-The real issue here is that the recv path no longer handles shared
-skbs.  So either we need to fix the recv path to not touch skbs
-without cloning them, or we need to get rid of the use of shared
-skbs in netlink.
-
-In fact it looks I introduced the bug way back in
-
-commit a59322be07c964e916d15be3df473fb7ba20c41e
-Author: Herbert Xu <herbert@gondor.apana.org.au>
-Date:   Wed Dec 5 01:53:40 2007 -0800
-
-    [UDP]: Only increment counter on first peek/recv
-
-I will try to mend this error :)
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Shawn
