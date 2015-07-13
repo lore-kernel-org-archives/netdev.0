@@ -1,28 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2015-07-12
-Date: Sun, 12 Jul 2015 22:24:29 -0700 (PDT)
-Message-ID: <20150712.222429.1727959876058548308.davem@davemloft.net>
-References: <1436728691-1145-1-git-send-email-mkl@pengutronix.de>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH] bnx2x: Update to FW version 7.12.30
+Date: Mon, 13 Jul 2015 05:39:40 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63DE5037@avmb3.qlogic.org>
+References: <1434866091-30087-1-git-send-email-Yuval.Mintz@qlogic.com>
+ <B5657A6538887040AD3A81F1008BEC63DD93BB@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1436728691-1145-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
+	netdev <netdev@vger.kernel.org>
+To: "dwmw2@infradead.org" <dwmw2@infradead.org>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:36130 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750804AbbGMFkN convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jul 2015 01:40:13 -0400
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63DD93BB@avmb3.qlogic.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Sun, 12 Jul 2015 21:18:03 +0200
-
-> this is a pull request of 8 patchs for net/master.
+> > The new FW will allow us to utilize some new features in our driver,
+> > mainly adding vlan filtering offload and vxlan offload support.
+> >
+> > In addition, this fixes several issues:
+> > 1. Packets from a VF with pvid configured which were sent with a
+> >    different vlan were transmitted instead of being discarded.
+> >
+> > 2. FCoE traffic might not recover after a failue while there's traffic
+> >    to another function.
+> >
+> > Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 > 
-> Sergei Shtylyov contributes 5 patches for the rcar_can driver, fixing the IRQ
-> check and several info and error messages. There are two patches by J.D.
-> Schroeder and Roger Quadros for the c_can driver and dra7x-evm device tree,
-> which precent a glitch in the DCAN1 pinmux. Oliver Hartkopp provides a better
-> approach to make the CAN skbs unique, the timestamp is replaced by a counter.
+> Hi, any news about this one?
+> Thanks, Yuval
 
-Pulled, thanks Marc.
+Any updates? I've sent this 3-weeks ago and haven't seen any reply.
+
+Thanks,
+Yuval
