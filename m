@@ -1,93 +1,55 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Fighting out-of-order reception with RPS?
-Date: Mon, 13 Jul 2015 12:08:26 -0700
-Message-ID: <CALx6S36G1hkS+Fg5joSiMHNo+UvJ2DBsTp91kyr3eqm2vuLq0Q@mail.gmail.com>
-References: <559D628C.5020100@hartkopp.net>
-	<CALx6S35OJHyr6iwfdtYW6P-ke2pmsmQ9BjO-D=qjgCHxwF7oew@mail.gmail.com>
-	<559E0CDF.7080309@hartkopp.net>
-	<CALx6S37JjusJ=+L3mXT0Dzf8XuU0+dgJQ7_Xn4U0nBtkf0gCHQ@mail.gmail.com>
-	<55A02CDB.6000302@hartkopp.net>
-	<1436589345.24939.56.camel@edumazet-glaptop2.roam.corp.google.com>
-	<55A2BCD8.4020303@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	Sunil Kovvuri <sunil.kovvuri@gmail.com>,
-	Jonathon Reinhart <jonathon.reinhart@gmail.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <55A2BCD8.4020303@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net] tcp: don't use F-RTO on non-recurring timeouts
+Date: Mon, 13 Jul 2015 12:10:20 -0700
+Message-ID: <1436814620-5889-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:33934 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752024AbbGMTK3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 15:10:29 -0400
+Received: by iebmu5 with SMTP id mu5so241117545ieb.1
+        for <netdev@vger.kernel.org>; Mon, 13 Jul 2015 12:10:29 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 12, 2015 at 12:15 PM, Oliver Hartkopp
-<socketcan@hartkopp.net> wrote:
-> Hello Eric,
->
-> On 07/11/2015 06:35 AM, Eric Dumazet wrote:
->> On Fri, 2015-07-10 at 22:36 +0200, Oliver Hartkopp wrote:
->
->>> Hm. Doesn't sound like a good solution when there's a difference between NAPI
->>> and non-NAPI drivers in matters of OOO, right?
->>
->> Isn't OOO a problem for you ? Then you either have to :
->>
->> 1) Use a single CPU to handle IRQ from the device
->> 2) Use NAPI
->>
->
-> See below ...
->
->>> What about checking in netif_rx() if the non-NAPI driver has set a hash (aka
->>> the driver is OOO sensitive)?
->>> And if so we could automatically set rps_cpus for this interface in a way that
->>> all CPUs are enabled to take skbs following the hash.
->>
->> Wow, netif_rx() is packet processing fast path, certainly not the place
->> to add controlling path decisions.
->
-> My only requirement is to be able to pick CAN frames (contained in skbs) from
-> the socket in the same order they have been received.
->
->> Please convert your driver to NAPI. You might then even benefit from
->> GRO.
->
-> Just some remarks about CAN and CAN frames as you suggest GRO which is
-> completely pointless for CAN.
->
-> CAN frames have a 11 or 29 bit CAN Identifier (no MAC but content addressing)
-> and 0 to 64 bytes of payload. Therefore the MTU for CAN interfaces is 16 or 72
-> byte (see struct can(fd)_frame). Each skbuff contains a single CAN frame.
->
-> There are CAN controllers which have a FIFO for up to 32 CAN frames, e.g.
-> flexcan.c which also implements NAPI. Others (e.g. sja1000.c) don't have any
-> FIFO and the reading of the CAN frame from the memory mapped registers needs
-> to be processed in the irq context instantly. So 'fast path' netif_rx() is
-> reasonable, right?
->
-> So why is it not possible to pass netif_rx() skbs from a specific CAN network
-> interface to whatever queue where they are processed in order?
->
-> E.g. with
->
->         skb_set_hash(skb, dev->ifindex, PKT_HASH_TYPE_L2);
->
-> and
->
->         echo f > /sys/class/net/can0/queues/rx-0/rps_cpus
->
-> I get properly ordered CAN frames - even with netif_rx() processed skbs. I
-> just want to have this stuff to be enabled by default for CAN interfaces to
-> kill the OOO frame issue.
->
-If you really must process the CAN FIFO in the hard interrupt then
-create a private sk_buf queue. In the interrupt, dequeue from FIFO and
-enqueue on the sk_buf queue. Then schedule NAPI, and when that runs
-process the sk_buf queue calling call netif_receive_skb for each
-enqueued skb. Pretty simple actually :-)
+Currently F-RTO may repeatedly send new data packets on non-recurring
+timeouts in CA_Loss mode. This is a bug because F-RTO (RFC5682)
+should only be used on either new recovery or recurring timeouts.
 
-> Regards,
-> Oliver
->
+This exacerbates the recovery progress during frequent timeout &
+repair, because we prioritize sending new data packets instead of
+repairing the holes when the bandwidth is already scarce.
+
+Fix it by correcting the test of a new recovery episode.
+
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_input.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 1578fc2..0cef1af 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1920,14 +1920,13 @@ void tcp_enter_loss(struct sock *sk)
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct sk_buff *skb;
+-	bool new_recovery = false;
++	bool new_recovery = icsk->icsk_ca_state < TCP_CA_Recovery;
+ 	bool is_reneg;			/* is receiver reneging on SACKs? */
+ 
+ 	/* Reduce ssthresh if it has not yet been made inside this window. */
+ 	if (icsk->icsk_ca_state <= TCP_CA_Disorder ||
+ 	    !after(tp->high_seq, tp->snd_una) ||
+ 	    (icsk->icsk_ca_state == TCP_CA_Loss && !icsk->icsk_retransmits)) {
+-		new_recovery = true;
+ 		tp->prior_ssthresh = tcp_current_ssthresh(sk);
+ 		tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
+ 		tcp_ca_event(sk, CA_EVENT_LOSS);
+-- 
+2.4.3.573.g4eafbef
