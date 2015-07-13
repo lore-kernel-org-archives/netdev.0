@@ -1,43 +1,75 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [RFC net-next] net: Build IPv6 into kernel by default
-Date: Mon, 13 Jul 2015 15:53:43 +0900
-Message-ID: <55A36077.5020703@miraclelinux.com>
-References: <1436474549-491618-1-git-send-email-tom@herbertland.com> <20150710.225709.1099075922833429830.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] netlink: enable skb header refcounting before sending
+ first broadcast
+Date: Mon, 13 Jul 2015 15:23:52 +0800
+Message-ID: <20150713072352.GA8485@gondor.apana.org.au>
+References: <20150710115141.12980.88829.stgit@buzz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com, netdev@vger.kernel.org,
-	kernel-team@fb.com
-To: David Miller <davem@davemloft.net>, tom@herbertland.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:33449 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751168AbbGMGxq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 02:53:46 -0400
-Received: by padck2 with SMTP id ck2so37670624pad.0
-        for <netdev@vger.kernel.org>; Sun, 12 Jul 2015 23:53:46 -0700 (PDT)
-In-Reply-To: <20150710.225709.1099075922833429830.davem@davemloft.net>
+Received: from helcar.hengli.com.au ([209.40.204.226]:57695 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751463AbbGMHX7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 03:23:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20150710115141.12980.88829.stgit@buzz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-David Miller wrote:
-> From: Tom Herbert <tom@herbertland.com>
-> Date: Thu, 9 Jul 2015 13:42:29 -0700
+On Fri, Jul 10, 2015 at 02:51:41PM +0300, Konstantin Khlebnikov wrote:
+> This fixes race between non-atomic updates of adjacent bit-fields:
+> skb->cloned could be lost because netlink broadcast clones skb after
+> sending it to the first listener who sets skb->peeked at the same skb.
+> As a result atomic refcounting of skb header stays disabled and
+> skb_release_data() frees it twice. Race leads to double-free in kmalloc-xxx.
 > 
->> This patch makes the default to build IPv6 into the kernel. IPv6
->> now has significant traction and any remaining vestiges of IPv6
->> not being provided parity with IPv4 should be swept away. IPv6 is now
->> core to the Internet and kernel.
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+> Fixes: b19372273164 ("net: reorganize sk_buff for faster __copy_skb_header()")
+> ---
+>  net/netlink/af_netlink.c |    6 ++++++
+>  1 file changed, 6 insertions(+)
 > 
-> I guess I'm fine with this, just fix up the doc error Dave Jones
-> pointed out.
+> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> index dea925388a5b..921e0d8dfe3a 100644
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+> @@ -2028,6 +2028,12 @@ int netlink_broadcast_filtered(struct sock *ssk, struct sk_buff *skb, u32 portid
+>  	info.tx_filter = filter;
+>  	info.tx_data = filter_data;
+>  
+> +	/* Enable atomic refcounting in skb_release_data() before first send:
+> +	 * non-atomic set of that bit-field in __skb_clone() could race with
+> +	 * __skb_recv_datagram() which touches the same set of bit-fields.
+> +	 */
+> +	skb->cloned = 1;
+> +
+>  	/* While we sleep in clone, do not allow to change socket list */
+>  
+>  	netlink_lock_table();
 
-I am deeply moved.
+Your effort in finding this bug is wonderful.  However I think
+the fix is a bit dirty.
 
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+The real issue here is that the recv path no longer handles shared
+skbs.  So either we need to fix the recv path to not touch skbs
+without cloning them, or we need to get rid of the use of shared
+skbs in netlink.
 
+In fact it looks I introduced the bug way back in
+
+commit a59322be07c964e916d15be3df473fb7ba20c41e
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Wed Dec 5 01:53:40 2007 -0800
+
+    [UDP]: Only increment counter on first peek/recv
+
+I will try to mend this error :)
+
+Cheers,
 -- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
