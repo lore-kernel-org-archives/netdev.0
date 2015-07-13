@@ -1,78 +1,55 @@
-From: Matteo Croce <matteo@openwrt.org>
-Subject: Re: [PATCH v2] add stealth mode
-Date: Mon, 13 Jul 2015 01:13:44 +0200
-Message-ID: <CAFnufp1_JAutAm7LZsQXXPspipUy4n2C9K3Li+jsWzNpgqYBJw@mail.gmail.com>
-References: <CAFnufp059tojfKYBye4eayOCvNNkAE9w_s_6E-PiG-EYp9K0Gg@mail.gmail.com>
- <21611.1436179798@turing-police.cc.vt.edu> <CAFnufp3xP3xjd8zy0uLKEGgbBAb0motLva=f1EbMJCfcKG=Y-w@mail.gmail.com>
- <559D2688.5020302@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH v2] net: dsa: mv88e6xxx: add write access to debugfs
+ regs file
+Date: Sun, 12 Jul 2015 21:39:30 -0400 (EDT)
+Message-ID: <1788707459.58885.1436751570981.JavaMail.zimbra@savoirfairelinux.com>
+References: <1436476409-5033-1-git-send-email-vivien.didelot@savoirfairelinux.com> <20150710.230120.1590955832899872718.davem@davemloft.net> <1092744390.7730.1436639772848.JavaMail.zimbra@savoirfairelinux.com> <20150711.190822.1431177169987395247.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Austin S Hemmelgarn <ahferroin7@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Guenter Roeck <linux@roeck-us.net>, andrew@lunn.ch,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>
+To: David <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <559D2688.5020302@gmail.com>
+In-Reply-To: <20150711.190822.1431177169987395247.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2015-07-08 15:32 GMT+02:00 Austin S Hemmelgarn <ahferroin7@gmail.com>:
-> On 2015-07-06 15:44, Matteo Croce wrote:
-> Just to name a few that I know of off the top of my head:
-> 1. IP packets with any protocol number not supported by your current kernel
-> (these return a special ICMP message).
+Hi David,
 
-Right, I'll handle them
+On Jul 11, 2015, at 10:08 PM, David davem@davemloft.net wrote:
 
-> 2. SCTP INIT and COOKIE_ECHO chunks when you have SCTP enabled in the
-> kernel.
+> From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Date: Sat, 11 Jul 2015 14:36:12 -0400 (EDT)
+> 
+>> In the meantime, this is really useful for development. i.e. ensuring a good
+>> switchdev/DSA interaction without being able to read and write directly the
+>> hardware VLAN table, is a bit a PITA. A dynamic debugfs looked appropriate.
+> 
+> For "development" you can hack the driver, add tracepoints, or use
+> another mechanism anyone hacking the kernel (which by definition
+> someone doing "development" is doing) can do.
+> 
+> I do not buy any of your arguments, and you really miss the grand
+> opportunity to export the knobs and values in a way which are going
+> to:
+> 
+> 1) Be useful to users
+> 
+> 2) Be usable by any similar DSA driver, not just _yours_
 
-Well, I've never played with SCTP before
+I hardly see how this debug interface can be made generic to other DSA drivers,
+since the format of hardware tables or some registers seem very specific to the
+switch chip.
 
-> 3. Theoretically, some IGMP messages.
-> 4. NDP messages.
-> 5. ARP queries looking for the machine's IP addresses.
+> So please stop this myopic narrow thinking when you add facilities for
+> development or export values.  Think of the big picture and long term,
+> not just your personal perceived immediate needs of today.
 
-Yes I know, but it's unlikely to receive this packets from WAN, right?
-My flag is intended to be used mostly on WAN interfaces,
-machines in LAN should be easily discoverable IMHO
+I understand. So it looks like the only reasonable solution here is to revert
+this support for the debugfs interface.
 
-> 6. Certain odd flag combinations on single TCP packets (check the
-> documentation for Nmap for more info regarding these), which I believe
-> (although I may be reading the code wrong) you aren't accounting for.
-
-I've tried many TCP flags combination with hping3, NUL, SYN/ACK, ACK,
-SYN/FIN, etc.
-They doesn't get any response when the flag is set
-
-> 7. DAD queries.
-
-Never looked at this packets, are a subset of NDP?
-
-> 8. ICMP address mask queries (which you also don't appear to account for).
-
-It's deprecated and actually it doesn't get any response already
-
-> This is by no means an exhaustive list, but all of them really should be
-> addressed if you want to do this properly.
->
->
-
-Thank you,
--- 
-Matteo Croce
-OpenWrt Developer
-  _______                     ________        __
- |       |.-----.-----.-----.|  |  |  |.----.|  |_
- |   -   ||  _  |  -__|     ||  |  |  ||   _||   _|
- |_______||   __|_____|__|__||________||__|  |____|
-          |__| W I R E L E S S   F R E E D O M
- -----------------------------------------------------
- CHAOS CALMER
- -----------------------------------------------------
-  * 1 1/2 oz Gin            Shake with a glassful
-  * 1/4 oz Triple Sec       of broken ice and pour
-  * 3/4 oz Lime Juice       unstrained into a goblet.
-  * 1 1/2 oz Orange Juice
-  * 1 tsp. Grenadine Syrup
- -----------------------------------------------------
+Thanks,
+-v
