@@ -1,63 +1,53 @@
-From: Brian Rak <brak@gameservers.com>
-Subject: virtio-net TSO Lockup
-Date: Mon, 13 Jul 2015 16:31:12 -0400
-Message-ID: <55A42010.5020802@gameservers.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] tc: fix tc actions in case of shared skb
+Date: Mon, 13 Jul 2015 22:55:32 +0200
+Message-ID: <55A425C4.60301@iogearbox.net>
+References: <1436573411-5021-1-git-send-email-ast@plumgrid.com>	<20150711.212917.1463596559900301434.davem@davemloft.net>	<55A415DE.8020806@plumgrid.com> <20150713.130438.1857789246357119116.davem@davemloft.net> <55A41CE9.8050907@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, jhs@mojatatu.com,
+	jiri@resnulli.us, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2015.choopa.net ([208.167.225.251]:43943 "EHLO
-	mail2015.choopa.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752883AbbGMUha (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 16:37:30 -0400
-Received: from [IPv6:2001:19f0:1000:5123:197d:772f:d7d6:81d9] (unknown [IPv6:2001:19f0:1000:5123:197d:772f:d7d6:81d9])
-	by mail2015.choopa.net (Postfix) with ESMTPSA id C598F3B1FA81
-	for <netdev@vger.kernel.org>; Mon, 13 Jul 2015 16:31:12 -0400 (EDT)
+Received: from www62.your-server.de ([213.133.104.62]:47493 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752918AbbGMUzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 16:55:40 -0400
+In-Reply-To: <55A41CE9.8050907@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We've been encountering an issue in the virtio-net driver that cause it 
-to become unresponsive after a period of high load.  This issue goes 
-away if we disable TSO on the interface.
+On 07/13/2015 10:17 PM, Alexei Starovoitov wrote:
+...
+> We cannot check tc actions from pktgen, since they can be added
+> dynamically.
+> So I see three options:
+> 1 get rid of burst hack for both RX and TX in pktgen (kills performance)
+> 2 add unlikely(skb_shread) check to few tc actions
+> 3 do nothing
+>
+> I think 2 isn't that bad after all if properly documented with
+> "because pktgen is doing this hack for performance" ?
+>
+> I'm fine with 3 too, since the whole pktgen business is for root
+> and for kernel hackers who suppose to know what they're doing.
 
-Once this issue has been triggered, the interface can still receive 
-traffic, but will not transmit anything.
+Hmm, one thing for option 3 could be that we add a modinfo tag
+"experimental", so that on loading of pktgen module, we trigger
+(like in case of staging) ...
 
-Specifically:
-* Initially the machine will still try to respond to packets (I say try, 
-because I see the packets in tcpdump, but the counters shown by 'ip -s 
--d link show eth1' do not increment.  I also do not see the packets make 
-it to the upstream network interface)
-* After a little while (1-2 minutes), I stop seeing the response packets 
-in tcpdump.  (In this case I'm looking for ARP request/replies, so the 
-requests still come in, but the responses do not go out.  This is not 
-limited to just ARP, the interface will not respond at all)
-* If I leave a ping running while the interface is broken, eventually I 
-start seeing 'ping: sendmsg: No buffer space available'
+   add_taint_module(mod, TAINT_CRAP, LOCKDEP_STILL_OK);
 
-I've reproduced this on a few Ubuntu kernel builds (3.13.0-53-generic 
-and 4.0.7-040007-generic), and a few CentOS kernels 
-(2.6.32-504.16.2.el6.x86_64, 4.1.1-1.el6.elrepo.x86_64) so I do not 
-believe this to be distribution specific.
+... and add a pr_warn() to the user, it may be more visible/clear
+than the "Packet Generator (USE WITH CAUTION)" Kconfig title? ;)
 
-If I restart the machine (just issuing a server level 'reboot' command, 
-not restarting qemu itself), the adapter starts working properly again.
+It'd be a pity that we'd need the extra atomic read only for the
+pktgen case. :/ With regards to option 2, you could hide that behind
+a static inline helper wrapped in IS_ENABLED(CONFIG_NET_PKTGEN), but
+that is a veeeery ugly workaround/hack as well (and distros might
+even ship it nevertheless). I wouldn't be surprised if there are
+other usage combinations with pktgen that would crash your box. :/
 
-Interestingly, these machines have two virtio NICs, and this only seems 
-to occur for one of them (by this, I mean eth0 always works, and eth1 
-always breaks.  If I remove eth0 from the machine, eth1 still breaks). 
-On the host level, the broken one is a macvtap interface, while the 
-working one is an tap device.   We've seen this in the past with a 
-different interface type (the qemu multicast NIC type), so I do not 
-believe this is really relevant.  If I switch the machines to using 
-emulated e1000 nics, I can no longer reproduce the issue.
-
-Reproduction is fairly easy, with two machines run `nc -lk 1818 | pv > 
-/dev/null` on one, and `cat /dev/zero | pv | nc 10.99.0.100 1818` (the 
-machine sending traffic will break within a minute or two).  I can 
-easily provide access to machines where the problem manifests, if that 
-would be helpful.
-
-I'm not really sure where to go from here.  Tracking down a bug in the 
-virtio driver is a bit above my skill level.
+Best,
+Daniel
