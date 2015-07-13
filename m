@@ -1,7 +1,8 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next 0/4 v2] gianfar: Add Rx S/G
-Date: Mon, 13 Jul 2015 16:22:02 +0300
-Message-ID: <1436793726-13310-1-git-send-email-claudiu.manoil@freescale.com>
+Subject: [PATCH net-next 2/4 v2] gianfar: Fix and cleanup rxbd status handling
+Date: Mon, 13 Jul 2015 16:22:04 +0300
+Message-ID: <1436793726-13310-3-git-send-email-claudiu.manoil@freescale.com>
+References: <1436793726-13310-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: "David S. Miller" <davem@davemloft.net>
@@ -10,107 +11,138 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-by2on0135.outbound.protection.outlook.com ([207.46.100.135]:52512
 	"EHLO na01-by2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752464AbbGMNYK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jul 2015 09:24:10 -0400
+	id S1752559AbbGMNYN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jul 2015 09:24:13 -0400
+In-Reply-To: <1436793726-13310-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
-This patch-set introduces scatter/gather support
-on the Rx side, addressing Rx path performance
-issues in the driver.
-Thanks.
+There are several (long standing) problems about how the status
+field of the rx buffer descriptor (rxbd) is currently handled on
+the error path:
+- too many unnecessary 16bit reads of the two halves of the rxbd
+status field (32bit), also resulting in overuse of endianness
+convesion macros;
+- "bdp->status = RXBD_LARGE" makes no sense, since the "large"
+flag is read only (only eTSEC can write it), and trying to clear
+the other status bits is also error prone in this context
+(most of the rx status bits are read only anyway).
 
-As an example, two boards connected back-to-back
-were used to measure the throughput, running the
-same kernel 4.1, before and after applying these
-patches.
-The netperf UDP_STREAM results below show that the
-bottleneck lies on the Rx side BEFORE applying the
-patches, and that the Rx throughput is even lower
-with a larger MTU.  AFTER applying the patches the
-Rx bottleneck is gone (Rx throughput matches the
-Tx one) and the RX throughput is not influenced by
-MTU size any longer (as expected).
+This is fixed with a single 32bit read of the "status" field,
+and then the appropriate 16bit shifting is applied to access
+the various status bits or the rx frame length. Also corrected
+the use of the RXBD_LARGE flag.
 
+Additional fix:
+"rx_over_errors" stat is incremented instead of "rx_crc_errors"
+in case of RXBD_OVERRUN occurrence.
 
-BEFORE:
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+---
+v2: lstatus is "u32", not "unsigned long"
 
-1) MTU 1500 (default)
+ drivers/net/ethernet/freescale/gianfar.c | 34 +++++++++++++++++---------------
+ 1 file changed, 18 insertions(+), 16 deletions(-)
 
-root@p1010rdb-pb:~# netperf -l 150 -cC -H 192.85.1.1 -p 12867 -t UDP_STREAM -- -m 512
-MIGRATED UDP STREAM TEST from 0.0.0.0 () port 0 AF_INET to 192.85.1.1 () port 0 AF_INET
-Socket  Message  Elapsed      Messages                   CPU      Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
-
-163840     512   150.00    20119124      0      549.4     100.00   14.911
-163840           150.00    14057349             383.9     100.00   14.911
-
-root@p1010rdb-pb:~# netperf -l 150 -cC -H 192.85.1.1 -p 12867 -t UDP_STREAM -- -m 64
-MIGRATED UDP STREAM TEST from 0.0.0.0 () port 0 AF_INET to 192.85.1.1 () port 0 AF_INET
-Socket  Message  Elapsed      Messages                   CPU      Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
-
-163840      64   150.00    23654013      0       80.7     100.00   101.463
-163840           150.00    15875288              54.2     100.00   101.463
-
-2) MTU 8000
-
-root@p1010rdb-pb:~# netperf -l 150 -cC -H 192.85.1.1 -p 12867 -t UDP_STREAM -- -m 512
-MIGRATED UDP STREAM TEST from 0.0.0.0 () port 0 AF_INET to 192.85.1.1 () port 0 AF_INET
-Socket  Message  Elapsed      Messages                   CPU      Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
-
-163840     512   150.00    20067232      0      548.0     100.00   14.950
-163840           150.00    6113498             166.9     99.95    14.942
-
-root@p1010rdb-pb:~# netperf -l 150 -cC -H 192.85.1.1 -p 12867 -t UDP_STREAM -- -m 64
-MIGRATED UDP STREAM TEST from 0.0.0.0 () port 0 AF_INET to 192.85.1.1 () port 0 AF_INET
-Socket  Message  Elapsed      Messages                   CPU      Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
-
-163840      64   150.00    23621279      0       80.6     100.00   101.604
-163840           150.00    5868602              20.0     99.96    101.563
-
-
-AFTER:
-(both MTU 1500 and MTU 8000)
-
-root@p1010rdb-pb:~# netperf -l 150 -cC -H 192.85.1.1 -p 12867 -t UDP_STREAM -- -m 512
-MIGRATED UDP STREAM TEST from 0.0.0.0 () port 0 AF_INET to 192.85.1.1 () port 0 AF_INET
-Socket  Message  Elapsed      Messages                   CPU      Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
-
-163840     512   150.00    19914969      0      543.8     100.00   15.064
-163840           150.00    19914969             543.8     99.35    14.966
-
-root@p1010rdb-pb:~# netperf -l 150 -cC -H 192.85.1.1 -p 12867 -t UDP_STREAM -- -m 64
-MIGRATED UDP STREAM TEST from 0.0.0.0 () port 0 AF_INET to 192.85.1.1 () port 0 AF_INET
-Socket  Message  Elapsed      Messages                   CPU      Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
-
-163840      64   150.00    23433989      0       80.0     100.00   102.416
-163840           150.00    23433989              80.0     99.62    102.023
-
-
-
-
-Claudiu Manoil (4):
-  gianfar: Bundle Rx allocation, cleanup
-  gianfar: Fix and cleanup rxbd status handling
-  gianfar: Use ndev, more Rx path cleanup
-  gianfar: Add paged allocation and Rx S/G
-
- drivers/net/ethernet/freescale/gianfar.c         | 496 +++++++++++++----------
- drivers/net/ethernet/freescale/gianfar.h         |  72 ++--
- drivers/net/ethernet/freescale/gianfar_ethtool.c |   4 +-
- 3 files changed, 331 insertions(+), 241 deletions(-)
-
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index b35bf3d..c839e76 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -2756,14 +2756,14 @@ static void gfar_alloc_rx_buffs(struct gfar_priv_rx_q *rx_queue,
+ 	rx_queue->next_to_use = i;
+ }
+ 
+-static inline void count_errors(unsigned short status, struct net_device *dev)
++static void count_errors(u32 lstatus, struct net_device *dev)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	struct net_device_stats *stats = &dev->stats;
+ 	struct gfar_extra_stats *estats = &priv->extra_stats;
+ 
+ 	/* If the packet was truncated, none of the other errors matter */
+-	if (status & RXBD_TRUNCATED) {
++	if (lstatus & BD_LFLAG(RXBD_TRUNCATED)) {
+ 		stats->rx_length_errors++;
+ 
+ 		atomic64_inc(&estats->rx_trunc);
+@@ -2771,25 +2771,25 @@ static inline void count_errors(unsigned short status, struct net_device *dev)
+ 		return;
+ 	}
+ 	/* Count the errors, if there were any */
+-	if (status & (RXBD_LARGE | RXBD_SHORT)) {
++	if (lstatus & BD_LFLAG(RXBD_LARGE | RXBD_SHORT)) {
+ 		stats->rx_length_errors++;
+ 
+-		if (status & RXBD_LARGE)
++		if (lstatus & BD_LFLAG(RXBD_LARGE))
+ 			atomic64_inc(&estats->rx_large);
+ 		else
+ 			atomic64_inc(&estats->rx_short);
+ 	}
+-	if (status & RXBD_NONOCTET) {
++	if (lstatus & BD_LFLAG(RXBD_NONOCTET)) {
+ 		stats->rx_frame_errors++;
+ 		atomic64_inc(&estats->rx_nonoctet);
+ 	}
+-	if (status & RXBD_CRCERR) {
++	if (lstatus & BD_LFLAG(RXBD_CRCERR)) {
+ 		atomic64_inc(&estats->rx_crcerr);
+ 		stats->rx_crc_errors++;
+ 	}
+-	if (status & RXBD_OVERRUN) {
++	if (lstatus & BD_LFLAG(RXBD_OVERRUN)) {
+ 		atomic64_inc(&estats->rx_overrun);
+-		stats->rx_crc_errors++;
++		stats->rx_over_errors++;
+ 	}
+ }
+ 
+@@ -2921,6 +2921,7 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+ 	i = rx_queue->next_to_clean;
+ 
+ 	while (rx_work_limit--) {
++		u32 lstatus;
+ 
+ 		if (cleaned_cnt >= GFAR_RX_BUFF_ALLOC) {
+ 			gfar_alloc_rx_buffs(rx_queue, cleaned_cnt);
+@@ -2928,7 +2929,8 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+ 		}
+ 
+ 		bdp = &rx_queue->rx_bd_base[i];
+-		if (be16_to_cpu(bdp->status) & RXBD_EMPTY)
++		lstatus = be32_to_cpu(bdp->lstatus);
++		if (lstatus & BD_LFLAG(RXBD_EMPTY))
+ 			break;
+ 
+ 		/* order rx buffer descriptor reads */
+@@ -2940,13 +2942,13 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+ 		dma_unmap_single(priv->dev, be32_to_cpu(bdp->bufPtr),
+ 				 priv->rx_buffer_size, DMA_FROM_DEVICE);
+ 
+-		if (unlikely(!(be16_to_cpu(bdp->status) & RXBD_ERR) &&
+-			     be16_to_cpu(bdp->length) > priv->rx_buffer_size))
+-			bdp->status = cpu_to_be16(RXBD_LARGE);
++		if (unlikely(!(lstatus & BD_LFLAG(RXBD_ERR)) &&
++			     (lstatus & BD_LENGTH_MASK) > priv->rx_buffer_size))
++			lstatus |= BD_LFLAG(RXBD_LARGE);
+ 
+-		if (unlikely(!(be16_to_cpu(bdp->status) & RXBD_LAST) ||
+-			     be16_to_cpu(bdp->status) & RXBD_ERR)) {
+-			count_errors(be16_to_cpu(bdp->status), dev);
++		if (unlikely(!(lstatus & BD_LFLAG(RXBD_LAST)) ||
++			     (lstatus & BD_LFLAG(RXBD_ERR)))) {
++			count_errors(lstatus, dev);
+ 
+ 			/* discard faulty buffer */
+ 			dev_kfree_skb(skb);
+@@ -2957,7 +2959,7 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+ 			howmany++;
+ 
+ 			if (likely(skb)) {
+-				int pkt_len = be16_to_cpu(bdp->length) -
++				int pkt_len = (lstatus & BD_LENGTH_MASK) -
+ 					  ETH_FCS_LEN;
+ 				/* Remove the FCS from the packet length */
+ 				skb_put(skb, pkt_len);
 -- 
 1.7.11.7
