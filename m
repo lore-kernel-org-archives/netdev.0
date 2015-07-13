@@ -1,34 +1,32 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] ebpf: remove self-assignment in interpreter's
- tail call
-Date: Mon, 13 Jul 2015 11:53:59 -0700
-Message-ID: <55A40947.2000706@plumgrid.com>
-References: <6586042063b52e17a355fce15460ee16c1ee95bf.1436812762.git.daniel@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] sctp: SCTP_SOCKOPT_PEELOFF return socket pointer
+ for kernel users
+Date: Mon, 13 Jul 2015 11:59:12 -0700 (PDT)
+Message-ID: <20150713.115912.324798425601463403.davem@davemloft.net>
+References: <4dfd0ee7ac0aac0791812217e990e2ae7ff86955.1434645734.git.marcelo.leitner@gmail.com>
+	<20150710.182114.1532697560595947999.davem@davemloft.net>
+	<20150713103911.GA9631@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Cc: marcelo.leitner@gmail.com, netdev@vger.kernel.org,
+	vyasevich@gmail.com
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:32993 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751664AbbGMSxs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 14:53:48 -0400
-Received: by pdbqm3 with SMTP id qm3so84645788pdb.0
-        for <netdev@vger.kernel.org>; Mon, 13 Jul 2015 11:53:47 -0700 (PDT)
-In-Reply-To: <6586042063b52e17a355fce15460ee16c1ee95bf.1436812762.git.daniel@iogearbox.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43166 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752947AbbGMS7P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 14:59:15 -0400
+In-Reply-To: <20150713103911.GA9631@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/13/15 11:49 AM, Daniel Borkmann wrote:
-> ARG1 = BPF_R1 as it stands, evaluates to regs[BPF_REG_1] = regs[BPF_REG_1]
-> and thus has no effect. Add a comment instead, explaining what happens and
-> why it's okay to just remove it. Since from user space side, a tail call is
-> invoked as a pseudo helper function via bpf_tail_call_proto, the verifier
-> checks the arguments just like with any other helper function and makes
-> sure that the first argument (regs[BPF_REG_1])'s type is ARG_PTR_TO_CTX.
->
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Mon, 13 Jul 2015 06:39:11 -0400
 
-Thanks!
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+> Initially Marcelo had created duplicate code paths, one to return an
+> fd, one to return a file struct.  If you would rather go in that
+> direction, I'm sure he can propose it again, but that seems less
+> correct to me than this solution.
+
+That's much better.
