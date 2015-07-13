@@ -1,47 +1,33 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH 1/2] sctp: SCTP_SOCKOPT_PEELOFF return socket pointer
- for kernel users
-Date: Mon, 13 Jul 2015 17:06:42 -0300
-Message-ID: <55A41A52.8040906@gmail.com>
-References: <20150713103911.GA9631@hmsreliant.think-freely.org> <20150713.115912.324798425601463403.davem@davemloft.net> <55A40BF7.7060803@gmail.com> <20150713.125852.915617134904684689.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Revert "net: fec: Ensure clocks are enabled while
+ using mdio bus"
+Date: Mon, 13 Jul 2015 13:08:04 -0700 (PDT)
+Message-ID: <20150713.130804.1129494283244919678.davem@davemloft.net>
+References: <1436786032-7533-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org, vyasevich@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: B38611@freescale.com, andrew@lunn.ch, shawn.guo@linaro.org,
+	tyler.baker@linaro.org, netdev@vger.kernel.org
+To: fabio.estevam@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f169.google.com ([209.85.220.169]:35007 "EHLO
-	mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751115AbbGMUGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 16:06:49 -0400
-Received: by qkbp125 with SMTP id p125so262282496qkb.2
-        for <netdev@vger.kernel.org>; Mon, 13 Jul 2015 13:06:48 -0700 (PDT)
-In-Reply-To: <20150713.125852.915617134904684689.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43781 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752588AbbGMUIG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 16:08:06 -0400
+In-Reply-To: <1436786032-7533-1-git-send-email-fabio.estevam@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-07-2015 16:58, David Miller wrote:
-> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Date: Mon, 13 Jul 2015 16:05:27 -0300
->
->> On 13-07-2015 15:59, David Miller wrote:
->>> From: Neil Horman <nhorman@tuxdriver.com>
->>> Date: Mon, 13 Jul 2015 06:39:11 -0400
->>>
->>>> Initially Marcelo had created duplicate code paths, one to return an
->>>> fd, one to return a file struct.  If you would rather go in that
->>>> direction, I'm sure he can propose it again, but that seems less
->>>> correct to me than this solution.
->>>
->>> That's much better.
->>
->> I'm not sure what you mean. Is the new option better or the
->> history/description?
->
-> I mean that adding an explicit function for these internal kernel
-> users to call is better.
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Date: Mon, 13 Jul 2015 08:13:52 -0300
 
-Okay. I'll try to minimize that code duplication then.
+> This reverts commit 6c3e921b18edca290099adfddde8a50236bf2d80.
+> 
+> commit 6c3e921b18ed ("net: fec: Ensure clocks are enabled while using mdio
+>  bus") prevents the kernel to boot on mx6 boards, so let's revert it.
+> 
+> Reported-by: Tyler Baker <tyler.baker@linaro.org>
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 
-Thanks
-Marcelo
+Andrew, please review.
