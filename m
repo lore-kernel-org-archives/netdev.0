@@ -1,177 +1,62 @@
-From: Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
-Subject: Re: [PATCH v2 10/22] fjes: tx_stall_task
-Date: Mon, 13 Jul 2015 09:03:24 -0700 (PDT)
-Message-ID: <55a3e14c.53918c0a.fe0e.6179@mx.google.com>
-References: <1435114351-6961-1-git-send-email-izumi.taku@jp.fujitsu.com>
-	<1435114554-7151-11-git-send-email-izumi.taku@jp.fujitsu.com>
+From: Akemi Yagi <amyagi@gmail.com>
+Subject: Re: Linux 4.2 build error in
+ net/netfilter/ipset/ip_set_hash_netnet.c
+Date: Mon, 13 Jul 2015 16:13:31 +0000 (UTC)
+Message-ID: <mo0o3b$g5d$1@ger.gmane.org>
+References: <CAHTgTXUmreHAqPfgGEd+GJNb_OEzaCuytqBTjZsE2GDqiy3TCw@mail.gmail.com>
+	<20150705153520.GA23589@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
-	rkhan@redhat.com, alexander.h.duyck@redhat.com,
-	linux-acpi@vger.kernel.org, joe@perches.com,
-	sergei.shtylyov@cogentembedded.com, stephen@networkplumber.org,
-	Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
-To: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1435114554-7151-11-git-send-email-izumi.taku@jp.fujitsu.com>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Izum-san,
+On Sun, 05 Jul 2015 08:35:20 -0700, Guenter Roeck wrote:
 
-On Wed, 24 Jun 2015 11:55:42 +0900
-Taku Izumi <izumi.taku@jp.fujitsu.com> wrote:
+> On Sat, Jul 04, 2015 at 12:44:36AM -0700, Vinson Lee wrote:
+>> Hi.
+>>=20
+>> With the latest Linux 4.2-rc1, I am hitting this build error with GC=
+C
+>> 4.4.7 on CentOS 6.
+>>=20
+>>   CC      net/netfilter/ipset/ip_set_hash_netnet.o
+>> net/netfilter/ipset/ip_set_hash_netnet.c: In function
+>> =E2=80=98hash_netnet4_uadt=E2=80=99:
+>> net/netfilter/ipset/ip_set_hash_netnet.c:163: error: unknown field
+>> =E2=80=98cidr=E2=80=99 specified in initializer
+>> net/netfilter/ipset/ip_set_hash_netnet.c:163: warning: missing brace=
+s
+>> around initializer net/netfilter/ipset/ip_set_hash_netnet.c:163:
+>> warning: (near initialization for =E2=80=98e.<anonymous>.ip=E2=80=99=
+)
+>> net/netfilter/ipset/ip_set_hash_netnet.c: In function
+>> =E2=80=98hash_netnet6_uadt=E2=80=99:
+>> net/netfilter/ipset/ip_set_hash_netnet.c:388: error: unknown field
+>> =E2=80=98cidr=E2=80=99 specified in initializer
+>> net/netfilter/ipset/ip_set_hash_netnet.c:388: warning: missing brace=
+s
+>> around initializer net/netfilter/ipset/ip_set_hash_netnet.c:388:
+>> warning: (near initialization for =E2=80=98e.ip[0]=E2=80=99)
+>>=20
+> Previously fixed with commit 1a869205c75cb ("netfilter: ipset: The
+> unnamed union initialization may lead to compilation error"),
+> reintroduced with commit aff227581ed1a ("netfilter: ipset: Check CIDR
+> value only when attribute is given").
+>=20
+> Guenter
 
-> This patch adds tx_stall_task.
-> When receiver's buffer is full, sender stops
-> its tx queue. This task is used to monitor
-> receiver's status and when receiver's buffer
-> is avairable, it resumes tx queue.
-> 
-> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
-> ---
->  drivers/net/fjes/fjes.h      |  2 ++
->  drivers/net/fjes/fjes_main.c | 63 ++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 65 insertions(+)
-> 
-> diff --git a/drivers/net/fjes/fjes.h b/drivers/net/fjes/fjes.h
-> index 8e9899e..b04ea9d 100644
-> --- a/drivers/net/fjes/fjes.h
-> +++ b/drivers/net/fjes/fjes.h
-> @@ -30,6 +30,7 @@
->  #define FJES_MAX_QUEUES		1
->  #define FJES_TX_RETRY_INTERVAL	(20 * HZ)
->  #define FJES_TX_RETRY_TIMEOUT	(100)
-> +#define FJES_TX_TX_STALL_TIMEOUT	(FJES_TX_RETRY_INTERVAL / 2)
->  #define FJES_OPEN_ZONE_UPDATE_WAIT	(300) /* msec */
->  
->  /* board specific private data structure */
-> @@ -52,6 +53,7 @@ struct fjes_adapter {
->  
->  	struct workqueue_struct *txrx_wq;
->  
-> +	struct work_struct tx_stall_task;
->  	struct work_struct raise_intr_rxdata_task;
->  
->  	struct fjes_hw hw;
-> diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-> index 735aa5e..f4c2445 100644
-> --- a/drivers/net/fjes/fjes_main.c
-> +++ b/drivers/net/fjes/fjes_main.c
-> @@ -53,6 +53,7 @@ static int fjes_setup_resources(struct fjes_adapter *);
->  static void fjes_free_resources(struct fjes_adapter *);
->  static netdev_tx_t fjes_xmit_frame(struct sk_buff *, struct net_device *);
->  static void fjes_raise_intr_rxdata_task(struct work_struct *);
-> +static void fjes_tx_stall_task(struct work_struct *);
->  static irqreturn_t fjes_intr(int, void*);
->  
->  static int fjes_acpi_add(struct acpi_device *);
-> @@ -281,6 +282,7 @@ static int fjes_close(struct net_device *netdev)
->  	fjes_free_irq(adapter);
->  
->  	cancel_work_sync(&adapter->raise_intr_rxdata_task);
-> +	cancel_work_sync(&adapter->tx_stall_task);
->  
->  	fjes_hw_wait_epstop(hw);
->  
-> @@ -410,6 +412,61 @@ static void fjes_free_resources(struct fjes_adapter *adapter)
->  	}
->  }
->  
-> +static void fjes_tx_stall_task(struct work_struct *work)
-> +{
-> +	struct fjes_adapter *adapter = container_of(work,
-> +			struct fjes_adapter, tx_stall_task);
-> +	struct fjes_hw *hw = &adapter->hw;
-> +	struct net_device *netdev = adapter->netdev;
-> +	enum ep_partner_status pstatus;
-> +	int epid;
-> +	int max_epid, my_epid;
-> +	union ep_buffer_info *info;
-> +	int all_queue_available;
-> +	int i;
-> +	int sendable;
-> +
-> +	if (((long)jiffies -
-> +		(long)(netdev->trans_start)) > FJES_TX_TX_STALL_TIMEOUT) {
-> +		netif_wake_queue(netdev);
-> +		return;
-> +	}
-> +
-> +	my_epid = hw->my_epid;
-> +	max_epid = hw->max_epid;
-> +
+I wonder what can be done to get this issue fixed. This problem was see=
+n=20
+in 4.2-rc1 and now in 4.2-rc2 on RHEL-6.6.
 
-> +	for (i = 0; i < 5; i++) {
+$ gcc --version
+gcc (GCC) 4.4.7 20120313 (Red Hat 4.4.7-11)
 
-Why do you loop 5 times?
+Please advise.
 
-Thanks,
-Yasuaki Ishimatsu
-
-> +		all_queue_available = 1;
-> +
-> +		for (epid = 0; epid < max_epid; epid++) {
-> +			if (my_epid == epid)
-> +				continue;
-> +
-> +			pstatus = fjes_hw_get_partner_ep_status(hw, epid);
-> +			sendable = (pstatus == EP_PARTNER_SHARED);
-> +			if (!sendable)
-> +				continue;
-> +
-> +			info = adapter->hw.ep_shm_info[epid].tx.info;
-> +
-> +			if (EP_RING_FULL(info->v1i.head, info->v1i.tail,
-> +					 info->v1i.count_max)) {
-> +				all_queue_available = 0;
-> +				break;
-> +			}
-> +		}
-> +
-> +		if (all_queue_available) {
-> +			netif_wake_queue(netdev);
-> +			return;
-> +		}
-> +	}
-> +
-> +	usleep_range(50, 100);
-> +
-> +	queue_work(adapter->txrx_wq, &adapter->tx_stall_task);
-> +}
-> +
->  static void fjes_raise_intr_rxdata_task(struct work_struct *work)
->  {
->  	struct fjes_adapter *adapter = container_of(work,
-> @@ -606,6 +663,10 @@ fjes_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
->  					netdev->trans_start = jiffies;
->  					netif_tx_stop_queue(cur_queue);
->  
-> +					if (!work_pending(&adapter->tx_stall_task))
-> +						queue_work(adapter->txrx_wq,
-> +							   &adapter->tx_stall_task);
-> +
->  					ret = NETDEV_TX_BUSY;
->  				}
->  			} else {
-> @@ -690,6 +751,7 @@ static int fjes_probe(struct platform_device *plat_dev)
->  
->  	adapter->txrx_wq = create_workqueue(DRV_NAME "/txrx");
->  
-> +	INIT_WORK(&adapter->tx_stall_task, fjes_tx_stall_task);
->  	INIT_WORK(&adapter->raise_intr_rxdata_task,
->  		  fjes_raise_intr_rxdata_task);
->  
-> @@ -734,6 +796,7 @@ static int fjes_remove(struct platform_device *plat_dev)
->  	struct fjes_hw *hw = &adapter->hw;
->  
->  	cancel_work_sync(&adapter->raise_intr_rxdata_task);
-> +	cancel_work_sync(&adapter->tx_stall_task);
->  	if (adapter->txrx_wq)
->  		destroy_workqueue(adapter->txrx_wq);
->  
-> -- 
-> 1.8.3.1
-> 
+Akemi
