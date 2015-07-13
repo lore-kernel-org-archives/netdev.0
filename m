@@ -1,131 +1,68 @@
-From: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kvGyRCNUhGIzFRTEAbKEI=?=
-	<hideaki.yoshifuji@miraclelinux.com>
-Subject: [PATCH] ipv6: Fix finding best source address in ipv6_dev_get_saddr().
-Date: Mon, 13 Jul 2015 23:28:10 +0900
-Message-ID: <55A3CAFA.3060404@miraclelinux.com>
+From: Dmitry Torokhov <dtor@google.com>
+Subject: Re: [PATCH] nf: IDLETIMER: fix lockdep warning
+Date: Mon, 13 Jul 2015 08:02:36 -0700
+Message-ID: <CAE_wzQ-_bca+xowzFj0QZ11eXELftBVB+Lizeh=j-6pzWBdT_w@mail.gmail.com>
+References: <20150710001501.GA32570@dtor-ws>
+	<20150713132025.GA4071@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: ek@google.com, thehajime@gmail.com,
-	=?ISO-2022-JP?B?WU9TSElGVUpJIEhpZA==?=
-	 =?ISO-2022-JP?B?ZWFraS8bJEI1SEYjMVFMQBsoQg==?=
-	<hideaki.yoshifuji@miraclelinux.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:36660 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752069AbbGMO2P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 10:28:15 -0400
-Received: by pdjr16 with SMTP id r16so63806878pdj.3
-        for <netdev@vger.kernel.org>; Mon, 13 Jul 2015 07:28:14 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20150713132025.GA4071@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 9131f3de2 ("ipv6: Do not iterate over all interfaces when
-finding source address on specific interface.") did not properly
-update best source address available.  Plus, it introduced
-possible NULL pointer dereference.
+On Mon, Jul 13, 2015 at 6:20 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Thu, Jul 09, 2015 at 05:15:01PM -0700, Dmitry Torokhov wrote:
+>> Dynamically allocated sysfs attributes should be initialized with
+>> sysfs_attr_init() otherwise lockdep will be angry with us:
+>>
+>> [   45.468653] BUG: key ffffffc030fad4e0 not in .data!
+>> [   45.468655] ------------[ cut here ]------------
+>> [   45.468666] WARNING: CPU: 0 PID: 1176 at /mnt/host/source/src/third_party/kernel/v3.18/kernel/locking/lockdep.c:2991 lockdep_init_map+0x12c/0x490()
+>> [   45.468672] DEBUG_LOCKS_WARN_ON(1)
+>> [   45.468672] CPU: 0 PID: 1176 Comm: iptables Tainted: G     U  W 3.18.0 #43
+>> [   45.468674] Hardware name: XXX
+>> [   45.468675] Call trace:
+>> [   45.468680] [<ffffffc0002072b4>] dump_backtrace+0x0/0x10c
+>> [   45.468683] [<ffffffc0002073d0>] show_stack+0x10/0x1c
+>> [   45.468688] [<ffffffc000a86cd4>] dump_stack+0x74/0x94
+>> [   45.468692] [<ffffffc000217ae0>] warn_slowpath_common+0x84/0xb0
+>> [   45.468694] [<ffffffc000217b84>] warn_slowpath_fmt+0x4c/0x58
+>> [   45.468697] [<ffffffc0002530a4>] lockdep_init_map+0x128/0x490
+>> [   45.468701] [<ffffffc000367ef0>] __kernfs_create_file+0x80/0xe4
+>> [   45.468704] [<ffffffc00036862c>] sysfs_add_file_mode_ns+0x104/0x170
+>> [   45.468706] [<ffffffc00036870c>] sysfs_create_file_ns+0x58/0x64
+>> [   45.468711] [<ffffffc000930430>] idletimer_tg_checkentry+0x14c/0x324
+>> [   45.468714] [<ffffffc00092a728>] xt_check_target+0x170/0x198
+>> [   45.468717] [<ffffffc000993efc>] check_target+0x58/0x6c
+>> [   45.468720] [<ffffffc000994c64>] translate_table+0x30c/0x424
+>> [   45.468723] [<ffffffc00099529c>] do_ipt_set_ctl+0x144/0x1d0
+>> [   45.468728] [<ffffffc0009079f0>] nf_setsockopt+0x50/0x60
+>> [   45.468732] [<ffffffc000946870>] ip_setsockopt+0x8c/0xb4
+>> [   45.468735] [<ffffffc0009661c0>] raw_setsockopt+0x10/0x50
+>> [   45.468739] [<ffffffc0008c1550>] sock_common_setsockopt+0x14/0x20
+>> [   45.468742] [<ffffffc0008bd190>] SyS_setsockopt+0x88/0xb8
+>> [   45.468744] ---[ end trace 41d156354d18c039 ]---
+>
+> Applied, thanks.
+>
+> One question:
+>
+>> Change-Id: I1da5cd96fc8e1e1e4209e81eba1165a42d4d45e9
+>
+> BTW, does this gerrit change ID provide any public information? Thanks.
 
-Bug was reported by Erik Kline <ek@google.com>.
-Based on patch proposed by Hajime Tazaki <thehajime@gmail.com>.
+Argh, I am sorry, I forgot to clean this out when mailing the patch.
+In this particular case you can find the change in AOSP gerrit at
+https://android-review.googlesource.com but without such context this
+change-id is of course useless.
 
-Fixes: 9131f3de24db4dc12199aede7d931e6703e97f3b ("ipv6: Do not
-	iterate over all interfaces when finding source address
-	on specific interface.")
-Signed-off-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
----
- net/ipv6/addrconf.c | 30 ++++++++++++++++++------------
- 1 file changed, 18 insertions(+), 12 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 4ab74d5..4c9a024 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1358,14 +1358,15 @@ out:
- 	return ret;
- }
- 
--static void __ipv6_dev_get_saddr(struct net *net,
--				 struct ipv6_saddr_dst *dst,
--				 unsigned int prefs,
--				 const struct in6_addr *saddr,
--				 struct inet6_dev *idev,
--				 struct ipv6_saddr_score *scores)
-+static int __ipv6_dev_get_saddr(struct net *net,
-+				struct ipv6_saddr_dst *dst,
-+				unsigned int prefs,
-+				const struct in6_addr *saddr,
-+				struct inet6_dev *idev,
-+				struct ipv6_saddr_score *scores,
-+				int hiscore_idx)
- {
--	struct ipv6_saddr_score *score = &scores[0], *hiscore = &scores[1];
-+	struct ipv6_saddr_score *score = &scores[1 - hiscore_idx], *hiscore = &scores[hiscore_idx];
- 
- 	read_lock_bh(&idev->lock);
- 	list_for_each_entry(score->ifa, &idev->addr_list, if_list) {
-@@ -1424,6 +1425,7 @@ static void __ipv6_dev_get_saddr(struct net *net,
- 				in6_ifa_hold(score->ifa);
- 
- 				swap(hiscore, score);
-+				hiscore_idx = 1 - hiscore_idx;
- 
- 				/* restore our iterator */
- 				score->ifa = hiscore->ifa;
-@@ -1434,18 +1436,20 @@ static void __ipv6_dev_get_saddr(struct net *net,
- 	}
- out:
- 	read_unlock_bh(&idev->lock);
-+	return hiscore_idx;
- }
- 
- int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
- 		       const struct in6_addr *daddr, unsigned int prefs,
- 		       struct in6_addr *saddr)
- {
--	struct ipv6_saddr_score scores[2], *hiscore = &scores[1];
-+	struct ipv6_saddr_score scores[2], *hiscore;
- 	struct ipv6_saddr_dst dst;
- 	struct inet6_dev *idev;
- 	struct net_device *dev;
- 	int dst_type;
- 	bool use_oif_addr = false;
-+	int hiscore_idx = 0;
- 
- 	dst_type = __ipv6_addr_type(daddr);
- 	dst.addr = daddr;
-@@ -1454,8 +1458,8 @@ int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
- 	dst.label = ipv6_addr_label(net, daddr, dst_type, dst.ifindex);
- 	dst.prefs = prefs;
- 
--	hiscore->rule = -1;
--	hiscore->ifa = NULL;
-+	scores[hiscore_idx].rule = -1;
-+	scores[hiscore_idx].ifa = NULL;
- 
- 	rcu_read_lock();
- 
-@@ -1480,17 +1484,19 @@ int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
- 	}
- 
- 	if (use_oif_addr) {
--		__ipv6_dev_get_saddr(net, &dst, prefs, saddr, idev, scores);
-+		if (idev)
-+			hiscore_idx = __ipv6_dev_get_saddr(net, &dst, prefs, saddr, idev, scores, hiscore_idx);
- 	} else {
- 		for_each_netdev_rcu(net, dev) {
- 			idev = __in6_dev_get(dev);
- 			if (!idev)
- 				continue;
--			__ipv6_dev_get_saddr(net, &dst, prefs, saddr, idev, scores);
-+			hiscore_idx = __ipv6_dev_get_saddr(net, &dst, prefs, saddr, idev, scores, hiscore_idx);
- 		}
- 	}
- 	rcu_read_unlock();
- 
-+	hiscore = &scores[hiscore_idx];
- 	if (!hiscore->ifa)
- 		return -EADDRNOTAVAIL;
- 
--- 
-1.9.1
+Thanks,
+Dmitry
