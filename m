@@ -1,53 +1,107 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] tc: fix tc actions in case of shared skb
-Date: Mon, 13 Jul 2015 22:55:32 +0200
-Message-ID: <55A425C4.60301@iogearbox.net>
-References: <1436573411-5021-1-git-send-email-ast@plumgrid.com>	<20150711.212917.1463596559900301434.davem@davemloft.net>	<55A415DE.8020806@plumgrid.com> <20150713.130438.1857789246357119116.davem@davemloft.net> <55A41CE9.8050907@plumgrid.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH] net/bonding: Add function bond_remove_proc_entry at __bond_release_one
+Date: Mon, 13 Jul 2015 23:05:46 +0200
+Message-ID: <55A4282A.1060401@cumulusnetworks.com>
+References: <1436813848-30995-1-git-send-email-clsoto@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jhs@mojatatu.com,
-	jiri@resnulli.us, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+Cc: netdev@vger.kernel.org, brking@linux.vnet.ibm.com,
+	j.vosburgh@gmail.com, gospo@cumulusnetworks.com
+To: clsoto@linux.vnet.ibm.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:47493 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752918AbbGMUzk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 16:55:40 -0400
-In-Reply-To: <55A41CE9.8050907@plumgrid.com>
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:35342 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751451AbbGMVFu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 17:05:50 -0400
+Received: by wgjx7 with SMTP id x7so305583852wgj.2
+        for <netdev@vger.kernel.org>; Mon, 13 Jul 2015 14:05:49 -0700 (PDT)
+In-Reply-To: <1436813848-30995-1-git-send-email-clsoto@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/13/2015 10:17 PM, Alexei Starovoitov wrote:
-...
-> We cannot check tc actions from pktgen, since they can be added
-> dynamically.
-> So I see three options:
-> 1 get rid of burst hack for both RX and TX in pktgen (kills performance)
-> 2 add unlikely(skb_shread) check to few tc actions
-> 3 do nothing
->
-> I think 2 isn't that bad after all if properly documented with
-> "because pktgen is doing this hack for performance" ?
->
-> I'm fine with 3 too, since the whole pktgen business is for root
-> and for kernel hackers who suppose to know what they're doing.
+On 07/13/2015 08:57 PM, clsoto@linux.vnet.ibm.com wrote:
+> From: Carol L Soto <clsoto@linux.vnet.ibm.com>
+> 
+> Add function bond_remove_proc_entry at __bond_release_one to avoid stack 
+> trace at rmmod bonding.
+> 
+> [68830.202239] remove_proc_entry: removing non-empty directory
+> 'net/bonding', leaking at least 'bond0'
+> [68830.202257] ------------[ cut here ]------------
+> [68830.202260] WARNING: at fs/proc/generic.c:562
+> [68830.202412] NIP [c0000000002abf6c] .remove_proc_entry+0x1fc/0x240
+> [68830.202416] LR [c0000000002abf68] .remove_proc_entry+0x1f8/0x240
+> [68830.202419] PACATMSCRATCH [8000000000009032]
+> [68830.202421] Call Trace:
+> [68830.202424] [c000000179277940] [c0000000002abf68] 
+> .remove_proc_entry+0x1f8/0x240 (unreliable)
+> [68830.202434] [c0000001792779f0] [d0000000053229a4] 
+> .bond_destroy_proc_dir+0x34/0x54 [bonding]
+> [68830.202440] [c000000179277a70] [d0000000053130e0] 
+> .bond_net_exit+0x90/0x120 [bonding]
+> [68830.202445] [c000000179277b10] [c00000000059944c] 
+> .ops_exit_list.isra.0+0x6c/0xd0
+> [68830.202450] [c000000179277ba0] [c000000000599774] 
+> .unregister_pernet_operations+0x94/0x100
+> [68830.202454] [c000000179277c40] [c000000000599814] 
+> .unregister_pernet_subsys+0x34/0x60
+> [68830.202460] [c000000179277cc0] [d000000005323758] 
+> .bonding_exit+0x48/0x2328 [bonding]
+> [68830.202466] [c000000179277d30] [c00000000010dcc4] 
+> .SyS_delete_module+0x1f4/0x340
+> [68830.202471] [c000000179277e30] [c000000000009e7c] 
+> syscall_exit+0x0/0x7c
+> [68830.202491] ---[ end trace 9bd1d810219c9875 ]---
+> 
+> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 19eb990..ace105a 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1870,6 +1870,8 @@ static int __bond_release_one(struct net_device *bond_dev,
+>  		dev_set_mac_address(slave_dev, &addr);
+>  	}
+>  
+> +	bond_remove_proc_entry(bond);
+> +
+>  	dev_set_mtu(slave_dev, slave->original_mtu);
+>  
+>  	slave_dev->priv_flags &= ~IFF_BONDING;
+> 
 
-Hmm, one thing for option 3 could be that we add a modinfo tag
-"experimental", so that on loading of pktgen module, we trigger
-(like in case of staging) ...
+This is incorrect, it tries to remove the bond entry on every slave release
+so if we have a bonding device with >= 2 slaves and release one of them then
+the whole bond device entry will be removed from /proc/net/bonding.
+You can hit this case only if you had created a bonding device while doing the
+rmmod bonding (it's an old race condition which was fixed long time ago, but
+the procfs was apparently missed) and only after the notifier has been
+unregistered but before the sysfs has been removed.
 
-   add_taint_module(mod, TAINT_CRAP, LOCKDEP_STILL_OK);
+Since the bonding netdevice notifier is handling the procfs creation/destruction
+we could try moving the unregister after the pernet destruction which should
+help avoid such problems. Could you try the following patch:
 
-... and add a pr_warn() to the user, it may be more visible/clear
-than the "Packet Generator (USE WITH CAUTION)" Kconfig title? ;)
 
-It'd be a pity that we'd need the extra atomic read only for the
-pktgen case. :/ With regards to option 2, you could hide that behind
-a static inline helper wrapped in IS_ENABLED(CONFIG_NET_PKTGEN), but
-that is a veeeery ugly workaround/hack as well (and distros might
-even ship it nevertheless). I wouldn't be surprised if there are
-other usage combinations with pktgen that would crash your box. :/
-
-Best,
-Daniel
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 19eb990d398c..d515ee38b77f 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4682,12 +4682,10 @@ err_link:
+ 
+ static void __exit bonding_exit(void)
+ {
+-	unregister_netdevice_notifier(&bond_netdev_notifier);
+-
+ 	bond_destroy_debugfs();
+-
+ 	bond_netlink_fini();
+ 	unregister_pernet_subsys(&bond_net_ops);
++	unregister_netdevice_notifier(&bond_netdev_notifier);
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	/* Make sure we don't have an imbalance on our netpoll blocking */
