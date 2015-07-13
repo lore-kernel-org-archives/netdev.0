@@ -1,41 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] sctp: SCTP_SOCKOPT_PEELOFF return socket pointer
- for kernel users
-Date: Mon, 13 Jul 2015 12:58:52 -0700 (PDT)
-Message-ID: <20150713.125852.915617134904684689.davem@davemloft.net>
-References: <20150713103911.GA9631@hmsreliant.think-freely.org>
-	<20150713.115912.324798425601463403.davem@davemloft.net>
-	<55A40BF7.7060803@gmail.com>
+Subject: Re: [PATCH net-next] tc: fix tc actions in case of shared skb
+Date: Mon, 13 Jul 2015 13:04:38 -0700 (PDT)
+Message-ID: <20150713.130438.1857789246357119116.davem@davemloft.net>
+References: <1436573411-5021-1-git-send-email-ast@plumgrid.com>
+	<20150711.212917.1463596559900301434.davem@davemloft.net>
+	<55A415DE.8020806@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org, vyasevich@gmail.com
-To: marcelo.leitner@gmail.com
+Cc: jhs@mojatatu.com, daniel@iogearbox.net, jiri@resnulli.us,
+	netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43679 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43758 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752406AbbGMT6z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 15:58:55 -0400
-In-Reply-To: <55A40BF7.7060803@gmail.com>
+	with ESMTP id S1751760AbbGMUEk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 16:04:40 -0400
+In-Reply-To: <55A415DE.8020806@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Mon, 13 Jul 2015 16:05:27 -0300
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Mon, 13 Jul 2015 12:47:42 -0700
 
-> On 13-07-2015 15:59, David Miller wrote:
->> From: Neil Horman <nhorman@tuxdriver.com>
->> Date: Mon, 13 Jul 2015 06:39:11 -0400
->>
->>> Initially Marcelo had created duplicate code paths, one to return an
->>> fd, one to return a file struct.  If you would rather go in that
->>> direction, I'm sure he can propose it again, but that seems less
->>> correct to me than this solution.
->>
->> That's much better.
-> 
-> I'm not sure what you mean. Is the new option better or the
-> history/description?
+> In all normal cases skb->users == 1, but pktgen is using trick:
+> atomic_add(burst, &skb->users);
+> so when testing something like:
 
-I mean that adding an explicit function for these internal kernel
-users to call is better.
+You can want pktgen rx (which is the only buggy case as far as I can
+see, TX is fine) to run fast, but you must do so by abiding by the
+appropriate SKB sharing rules.
+
+You can't do an optimization in pktgen for RX processing that works
+"some of the time".  We have shared SKB rules for a reason.
+
+And I don't want to have to explain to someone in the future why that
+drop check is there, and have to tell them "because pktgen is broken
+and we decided to add a hack here rather than make pktgen send
+properly formed SKBs into the RX path"
+
+Ok?
