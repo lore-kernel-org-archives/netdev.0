@@ -1,64 +1,71 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 12/16] i40evf: don't delete all the filters
-Date: Mon, 13 Jul 2015 15:51:08 +0300
-Message-ID: <55A3B43C.5010806@cogentembedded.com>
-References: <1436778517-16254-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1436778517-16254-13-git-send-email-jeffrey.t.kirsher@intel.com>
+From: "pengyi Peng(Yi)" <pengyi.pengyi@huawei.com>
+Subject: add some more infomation RE: Issue with active-backup mode bond and
+ bridge
+Date: Mon, 13 Jul 2015 12:58:29 +0000
+Message-ID: <572BE4EE0DE0E74EAE41F3932BDE6AB839189817@SZXEMA510-MBS.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Lichunhe <lichunhe@huawei.com>,
+	"Zhangwei (FF)" <zw.zhang@huawei.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f48.google.com ([209.85.215.48]:35303 "EHLO
-	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751716AbbGMMvP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 08:51:15 -0400
-Received: by lahh5 with SMTP id h5so15761790lah.2
-        for <netdev@vger.kernel.org>; Mon, 13 Jul 2015 05:51:14 -0700 (PDT)
-In-Reply-To: <1436778517-16254-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:16716 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751876AbbGMM6n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 08:58:43 -0400
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 7/13/2015 12:08 PM, Jeff Kirsher wrote:
-
-> From: Mitch Williams <mitch.a.williams@intel.com>
-
-> Due to an inverted conditional, the driver was marking all of its MAC
-> filters for deletion every time set_rx_mode was called. Depending upon
-> the timing of the calls to set_rx_mode and the processing of the admin
-> queue, the driver would (accidentally) end up with a varying number of
-> functional filters.
-
-> Correct this logic so that MAC filters are added and removed correctly.
-> Add a check for the driver's "hardware" MAC address so that this filter
-> doesn't get removed incorrectly.
-
-> Change-ID: Ib3e7c4a5b53df6835f164fe44cb778cb71f8aff8
-> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-> Tested-by: Jim Young <james.m.young@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->   drivers/net/ethernet/intel/i40evf/i40evf_main.c | 4 +++-
->   1 file changed, 3 insertions(+), 1 deletion(-)
-
-> diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-> index 94eff4a..07f6052 100644
-> --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-> +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-> @@ -892,8 +892,10 @@ static void i40evf_set_rx_mode(struct net_device *netdev)
->   					break;
->   				}
->   			}
-> +			if (ether_addr_equal(f->macaddr, adapter->hw.mac.addr))
-> +					found = true;
-
-    This line is indented too much.
-
-[...]
-
-WBR, Sergei
+SSB0ZXN0IHRoaXMgaXNzdWUgaW4ga2VybmVsIDMuMC45My4gVGhpcyBpc3N1ZSBpcyBhIHJlcHJv
+ZHVjdGlvbiBwcm9ibGVtLg0KDQpTdGVwIDEuIENyZWF0ZSBhIGFjdGl2ZS1iYWNrdXAgbW9kZSBi
+b25kIHdpdGggdHdvIG5pY3MgYW5kIG1ha2Ugc3VyZSB0aGUgSVAgaXMgaW4gdGhlIGJvbmQuDQpT
+dGVwIDIuIENyZWF0ZSBhIGJyaWRnZSB3aXRoIGJyY3RsIGNvbW1hbmQNClN0ZXAgMy4gSm9pbiB0
+aGUgYm9uZCB0byB0aGUgYnJpZGdlIGFuZCBtYWtlIHRoZSBJUCBpbiB0aGUgYnJpZGdlIGRldmlj
+ZQ0KU3RlcCA0LiB1c2UgInRjcGR1bXAgLWkgYm9uZCIgdG8gZW5zdXJlIHRoZSBwYWNrZXRzIGFj
+cm9zcyB0aGUgYm9uZA0KU3RlcCA1LiBVc2UgImlmY29uZmlnIGV0aFggZG93biAiLCBtYWtlIHRo
+ZSBhY3RpdmUgc2xhdmUgZG93biwgY2hlY2sgd2hldGhlciB0aGVyZSBpcyBncmF0dWl0b3VzIEFS
+UHMgb3Igbm90Lg0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogcGVuZ3lpIFBl
+bmcoWWkpIA0KU2VudDogVGh1cnNkYXksIEp1bHkgMDIsIDIwMTUgMTE6MDUgQU0NClRvOiAnbmV0
+ZGV2QHZnZXIua2VybmVsLm9yZycNCkNjOiBMaWNodW5oZTsgWmhhbmd3ZWkgKEZGKQ0KU3ViamVj
+dDogSXNzdWUgd2l0aCBhY3RpdmUtYmFja3VwIG1vZGUgYm9uZCBhbmQgYnJpZGdlDQoNCkkgZmlu
+ZCB0aGF0IGtlcm5lbCBzZWVtcyB0byBiZSBub3Qgd2VsbCBoYW5kbGVkIHdpdGggdGhlIGNvbWJp
+bmF0aW9uIG9mIGJvbmRpbmcgYW5kIGJyaWRnZSBtb2R1bGUuIEkgaGF2ZSBhIHBoeXNpY2FsIGhv
+c3Qgd2l0aCB0d28gbmljcyB0aGF0IGFyZSBib25kZWQgdG9nZXRoZXIgKGFjdGl2ZSBiYWNrdXAg
+bW9kZSkuICBFYWNoIG5pYyBpcyBjb25uZWN0ZWQgdG8gYSBzZXBhcmF0ZSBMMiBzd2l0Y2guIEFu
+ZCB0aGUgdHdvIEwyIHN3aXRjaHMgYXJlIGNvbm5lY3RlZCB0byBhIEwzIHN3aXRjaC4NCg0KSWYg
+dGhlIGhvc3Qgb25seSBoYXMgdGhlIGJvbmQgZGV2aWNlLCB3aGVuIEkgbWFudWFsbHkgbWFrZSB0
+aGUgYWN0aXZlIHNsYXZlIGRvd24sIGJvbmRpbmcgd2lsbCBpc3N1ZSBvbmUgb3IgbW9yZSBncmF0
+dWl0b3VzIEFSUHMgb24gdGhlIG5ld2x5IGFjdGl2ZSBzbGF2ZS4gT25lIGdyYXR1aXRvdXMgQVJQ
+IGlzIGlzc3VlZCBmb3IgdGhlIGJvbmRpbmcgbWFzdGVyIGludGVyZmFjZSwgcHJvdmlkZWQgdGhh
+dCB0aGUgaW50ZXJmYWNlIGhhcyBhdCBsZWFzdCBvbmUgSVAgYWRkcmVzcyBjb25maWd1cmVkLiAN
+Cg0KSG93ZXZlciwgaWYgdGhlcmUgaXMgYSBicmlkZ2UgbmFtZWQgYnIwIGFuZCB0aGUgYm9uZCBk
+ZXZpY2Ugam9pbnMgaW4gdGhlIGJyaWRnZSBicjAsIHRoZSBJUCBhZGRyZXNzIG9mIHRoZSBib25k
+IG1vdmVzIHRvIHRoZSBicjAgZGV2aWNlLiBGaXJzdCwgSSBtYWtlIHR3byBuaWNzIHVwLiBCdXQg
+dGhpcyB0aW1lLCB3aGVuIEkgYWdhaW4gbWFrZSB0aGUgYWN0aXZlIHNsYXZlIGRvd24sIEkgY2Fu
+J3QgY2FwdHVyZSB0aGUgZ3JhdHVpdG91cyBBUlAgaW4gdGhlIGJvbmQgZGV2aWNlIHdpdGggdGNw
+ZHVtcC4gQW5kIHRoaXMgY2FuIHJlc3VsdCBpbiB0aGUgYmFkIGNvbm5lY3QgdG8gdGhlIGhvc3Qs
+IGJlY2F1c2Ugd2l0aCBubyBBUlAgcGFja2V0IHNlbmRlZCBvdXQgb2YgdGhlIGhvc3QsIHRoZSBM
+MyBzd2l0Y2ggbWF5IHN0aWxsIHNlbmQgdGhlIHBhY2tldHMgZnJvbSBvdXRzaWRlIHRvIHRoZSBv
+bGQgTDIgc3dpdGNoIHdoaWNoIGNvbm5lY3QgdG8gdGhlIG5ldyBiYWNrdXAgbmljLiBUaGVzZSBw
+YWNrZXRzIGNhbid0IGdldCBhbnkgcmVzcG9uc2VzLg0KDQpJIHJlYWQgdGhlIGtlcm5lbCBjb2Rl
+LiANCldoZW4gY2hhbmdlIHRoZSBhY3RpdmUgc2xhdmUgaW50byB0aGUgc3BlY2lmaWVkIG9uZSwg
+aW4gYm9uZF9jaGFuZ2VfYWN0aXZlX3NsYXZlIGZ1bmN0aW9uLCBib25kIHdpbGwgc2VuZCB0aGUg
+TkVUREVWX05PVElGWV9QRUVSUyBldmVudDoNCgkJCW5ldGRldl9ib25kaW5nX2NoYW5nZShib25k
+LT5kZXYsIE5FVERFVl9CT05ESU5HX0ZBSUxPVkVSKTsNCgkJCWlmIChzaG91bGRfbm90aWZ5X3Bl
+ZXJzKQ0KCQkJCW5ldGRldl9ib25kaW5nX2NoYW5nZShib25kLT5kZXYsDQoJCQkJCQkgICAgICBO
+RVRERVZfTk9USUZZX1BFRVJTKTsNCgkJCQkJCQkgIAkJCQkJCQkgIA0KQW5kIGluIGluZXRkZXZf
+ZXZlbnQgZnVuY3Rpb24sIGlmIGV2ZW50IGlzIE5FVERFVl9OT1RJRllfUEVFUlMsIGl0IHdpbGwg
+Y2FsbCBpbmV0ZGV2X3NlbmRfZ3JhdHVpdG91c19hcnAgdG8gc2VuZCBncmF0dWl0b3VzIEFSUC4N
+CgljYXNlIE5FVERFVl9OT1RJRllfUEVFUlM6DQoJCS8qIFNlbmQgZ3JhdHVpdG91cyBBUlAgdG8g
+bm90aWZ5IG9mIGxpbmsgY2hhbmdlICovDQoJCWluZXRkZXZfc2VuZF9ncmF0dWl0b3VzX2FycChk
+ZXYsIGluX2Rldik7DQoJCWJyZWFrOw0KDQpCdXQgd2hlbiB0aGUgYm9uZCBpcyBpbiB0aGUgYnJp
+ZGdlLCB0aGUgY29kZSB3b24ndCBjaGFuZ2UgdGhlIGRldiB0byB0aGUgYnJpZGdlIGRldmljZSwg
+YW5kIHRoZXJlIGlzIG5vIElQIGFkZHJlc3MgaW4gYm9uZCBkZXZpY2UsIHNvIHRoZXJlIGlzIG5v
+IGdyYXR1aXRvdXMgQVJQLg0KCQkNCk15IHF1ZXN0aW9uIGlzLCB3aHkgdGhlIGxhdGVzdCBrZXJu
+ZWwoNC4xKSBzdGlsbCBkb2VzIG5vdCBjb25zaWRlciB0aGlzIGNvbmRpdG9pbiA/DQoNCg0KLS0N
+ClRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmli
+ZSBuZXRkZXYiIGluDQp0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHh4eHh4eHh4
+eHh4eHh4eA0KTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9t
+YWpvcmRvbW8taW5mby5odG1sDQo=
