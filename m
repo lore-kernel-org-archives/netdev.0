@@ -1,147 +1,87 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next] hv_netvsc: Add close of RNDIS filter into change mtu
- call
-Date: Mon, 13 Jul 2015 13:09:16 -0700
-Message-ID: <1436818156-13674-1-git-send-email-haiyangz@microsoft.com>
+From: Sony Chacko <sony.chacko@qlogic.com>
+Subject: RE: [PATCH] bnx2:Make various functions to have a return type of
+ void in the file bnx2.c
+Date: Mon, 13 Jul 2015 18:44:03 +0000
+Message-ID: <0EA5B226BC5C7B45A71BF612AA8A019E01947C68AA@AVMB1.qlogic.org>
+References: <1436380260-19221-1-git-send-email-xerofoify@gmail.com>
+ <0EA5B226BC5C7B45A71BF612AA8A019E01947ACBF7@AVMB1.qlogic.org>
+ <559FB62C.2080900@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"Nilesh Javali" <nilesh.javali@qlogic.com>
+To: nick <xerofoify@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:6832 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751630AbbGMSqK convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jul 2015 14:46:10 -0400
+In-Reply-To: <559FB62C.2080900@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The current change mtu call only stops tx before removing RNDIS filter.
-In case ringbufer is not empty, the rndis_filter_device_remove() may
-hang on removing the buffers.
+> Sony,
+> I also sent this patch and was wondering if I can get a reply on it.
+> From 4a607447562bec161fd947caae5eb02c2365c58a Mon Sep
+> 17 00:00:00 2001
+> From: Nicholas Krause <xerofoify@gmail.com>
+> Date: Wed, 8 Jul 2015 08:29:07 -0400
+> Subject: [PATCH] bnx2i:Fix backwards locking scenario in the
+> function  bnx2i_cleanup_task
+> 
+> This fixes the backwards locking scenario for unlocking the
+> bottom half spinlock before calling the
+> wait_for_completion_timeout on the structure pointer
+> bnx2i_conn's member cmd_cleanup_cmpl for the critical region
+> of this function to lock the spin_lock bottom half before
+> unlocking it after the call to this function in order to have actual
+> protection for the function bnx2i_cleanup_task's critical region.
+> 
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+> ---
+>  drivers/scsi/bnx2i/bnx2i_iscsi.c | 8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/scsi/bnx2i/bnx2i_iscsi.c
+> b/drivers/scsi/bnx2i/bnx2i_iscsi.c
+> index 7289437..619a26f 100644
+> --- a/drivers/scsi/bnx2i/bnx2i_iscsi.c
+> +++ b/drivers/scsi/bnx2i/bnx2i_iscsi.c
+> @@ -1172,12 +1172,12 @@ static void
+> bnx2i_cleanup_task(struct iscsi_task *task)
+>  	if (task->state == ISCSI_TASK_ABRT_TMF) {
+>  		bnx2i_send_cmd_cleanup_req(hba, task->dd_data);
+> 
+> -		spin_unlock_bh(&conn->session->back_lock);
+> -		spin_unlock_bh(&conn->session->frwd_lock);
+> +		spin_lock_bh(&conn->session->back_lock);
+> +		spin_lock_bh(&conn->session->frwd_lock);
+>  		wait_for_completion_timeout(&bnx2i_conn-
+> >cmd_cleanup_cmpl,
+> 
+> 	msecs_to_jiffies(ISCSI_CMD_CLEANUP_TIMEOUT));
+> -		spin_lock_bh(&conn->session->frwd_lock);
+> -		spin_lock_bh(&conn->session->back_lock);
+> +		spin_unlock_bh(&conn->session->frwd_lock);
+> +		spin_unlock_bh(&conn->session->back_lock);
+>  	}
+>  	bnx2i_iscsi_unmap_sg_list(task->dd_data);
+>  }
+> --
+> 2.1.4
+> I am assuming it's wrong but you never known.
+> Nick
 
-This patch adds close of RNDIS filter before removing it, also a
-gradual waiting loop until the ring is empty. The change_mtu hang
-issue under heavy traffic is solved by this patch.
+Nick,
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/netvsc_drv.c |   58 +++++++++++++++++++++++++++++++++++----
- 1 files changed, 52 insertions(+), 6 deletions(-)
+I have included the Qlogic ISCSI engineer to the mailing list to
+review and ACK the patch. I will also follow it up with the 
+ISCSI team.
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index b855ba9..7b36d5f 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -106,7 +106,7 @@ static int netvsc_open(struct net_device *net)
- 		return ret;
- 	}
- 
--	netif_tx_start_all_queues(net);
-+	netif_tx_wake_all_queues(net);
- 
- 	nvdev = hv_get_drvdata(device_obj);
- 	rdev = nvdev->extension;
-@@ -120,15 +120,56 @@ static int netvsc_close(struct net_device *net)
- {
- 	struct net_device_context *net_device_ctx = netdev_priv(net);
- 	struct hv_device *device_obj = net_device_ctx->device_ctx;
-+	struct netvsc_device *nvdev = hv_get_drvdata(device_obj);
- 	int ret;
-+	u32 aread, awrite, i, msec = 10, retry = 0, retry_max = 20;
-+	struct vmbus_channel *chn;
- 
- 	netif_tx_disable(net);
- 
- 	/* Make sure netvsc_set_multicast_list doesn't re-enable filter! */
- 	cancel_work_sync(&net_device_ctx->work);
- 	ret = rndis_filter_close(device_obj);
--	if (ret != 0)
-+	if (ret != 0) {
- 		netdev_err(net, "unable to close device (ret %d).\n", ret);
-+		return ret;
-+	}
-+
-+	/* Ensure pending bytes in ring are read */
-+	while (true) {
-+		aread = 0;
-+		for (i = 0; i < nvdev->num_chn; i++) {
-+			chn = nvdev->chn_table[i];
-+			if (!chn)
-+				continue;
-+
-+			hv_get_ringbuffer_availbytes(&chn->inbound, &aread,
-+						     &awrite);
-+
-+			if (aread)
-+				break;
-+
-+			hv_get_ringbuffer_availbytes(&chn->outbound, &aread,
-+						     &awrite);
-+
-+			if (aread)
-+				break;
-+		}
-+
-+		retry++;
-+		if (retry > retry_max || aread == 0)
-+			break;
-+
-+		msleep(msec);
-+
-+		if (msec < 1000)
-+			msec *= 2;
-+	}
-+
-+	if (aread) {
-+		netdev_err(net, "Ring buffer not empty after closing rndis\n");
-+		ret = -ETIMEDOUT;
-+	}
- 
- 	return ret;
- }
-@@ -736,6 +777,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 	struct netvsc_device *nvdev = hv_get_drvdata(hdev);
- 	struct netvsc_device_info device_info;
- 	int limit = ETH_DATA_LEN;
-+	int ret = 0;
- 
- 	if (nvdev == NULL || nvdev->destroy)
- 		return -ENODEV;
-@@ -746,9 +788,11 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 	if (mtu < NETVSC_MTU_MIN || mtu > limit)
- 		return -EINVAL;
- 
-+	ret = netvsc_close(ndev);
-+	if (ret)
-+		goto out;
-+
- 	nvdev->start_remove = true;
--	cancel_work_sync(&ndevctx->work);
--	netif_tx_disable(ndev);
- 	rndis_filter_device_remove(hdev);
- 
- 	ndev->mtu = mtu;
-@@ -758,9 +802,11 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 	device_info.ring_size = ring_size;
- 	device_info.max_num_vrss_chns = max_num_vrss_chns;
- 	rndis_filter_device_add(hdev, &device_info);
--	netif_tx_wake_all_queues(ndev);
- 
--	return 0;
-+out:
-+	netvsc_open(ndev);
-+
-+	return ret;
- }
- 
- static struct rtnl_link_stats64 *netvsc_get_stats64(struct net_device *net,
--- 
-1.7.4.1
+Thanks,
+Sony
