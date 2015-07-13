@@ -1,466 +1,403 @@
-From: Bandan Das <bsd@redhat.com>
-Subject: [RFC PATCH 1/4] vhost: Introduce a universal thread to serve all users
-Date: Mon, 13 Jul 2015 00:07:32 -0400
-Message-ID: <1436760455-5686-2-git-send-email-bsd@redhat.com>
-References: <1436760455-5686-1-git-send-email-bsd@redhat.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com, Eyal Moscovici <EYALMO@il.ibm.com>,
-	Razya Ladelsky <RAZYA@il.ibm.com>, cgroups@vger.kernel.org,
-	jasowang@redhat.com
-To: kvm@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1436760455-5686-1-git-send-email-bsd@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>
+Subject: [RFC PATCH] net: macb: Add mdio driver for accessing multiple phy devices
+Date: Mon, 13 Jul 2015 09:05:36 +0530
+Message-ID: <1436758537-24202-2-git-send-email-punnaia@xilinx.com>
+References: <1436758537-24202-1-git-send-email-punnaia@xilinx.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: harinik@xilinx.com, kpc528@gmail.com,
+	kalluripunnaiahchoudary@gmail.com, netdev@vger.kernel.org,
+	Punnaiah Choudary Kalluri <punnaia@xilinx.com>
+To: nicolas.ferre@atmel.com, michals@xilinx.com, anirudh@xilinx.com,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0065.outbound.protection.outlook.com ([65.55.169.65]:40736
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751043AbbGMEIV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jul 2015 00:08:21 -0400
+In-Reply-To: <1436758537-24202-1-git-send-email-punnaia@xilinx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-vhost threads are per-device, but in most cases a single thread
-is enough. This change creates a single thread that is used to
-serve all guests.
+This patch is to add spoort for the design that has multiple ethernet
+mac controllers and single mdio bus connected to multiple phy devices.
+i.e mdio lines are connected to any of the ethernet mac controller and
+all the phy devices will be accessed using the phy maintainance interface
+in that mac controller.
 
-However, this complicates cgroups associations. The current policy
-is to attach the per-device thread to all cgroups of the parent process
-that the device is associated it. This is no longer possible if we
-have a single thread. So, we end up moving the thread around to
-cgroups of whichever device that needs servicing. This is a very
-inefficient protocol but seems to be the only way to integrate
-cgroups support.
-
-Signed-off-by: Razya Ladelsky <razya@il.ibm.com>
-Signed-off-by: Bandan Das <bsd@redhat.com>
+Signed-off-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
 ---
- drivers/vhost/scsi.c  |  15 +++--
- drivers/vhost/vhost.c | 150 ++++++++++++++++++++++++--------------------------
- drivers/vhost/vhost.h |  19 +++++--
- 3 files changed, 97 insertions(+), 87 deletions(-)
+ drivers/net/ethernet/cadence/Makefile    |    2 +-
+ drivers/net/ethernet/cadence/macb.c      |   93 +-------------
+ drivers/net/ethernet/cadence/macb.h      |    3 +-
+ drivers/net/ethernet/cadence/macb_mdio.c |  204 ++++++++++++++++++++++++++++++
+ 4 files changed, 211 insertions(+), 91 deletions(-)
+ create mode 100644 drivers/net/ethernet/cadence/macb_mdio.c
 
-diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-index ea32b38..6c42936 100644
---- a/drivers/vhost/scsi.c
-+++ b/drivers/vhost/scsi.c
-@@ -535,7 +535,7 @@ static void vhost_scsi_complete_cmd(struct vhost_scsi_cmd *cmd)
+diff --git a/drivers/net/ethernet/cadence/Makefile b/drivers/net/ethernet/cadence/Makefile
+index 9068b83..73504f4 100644
+--- a/drivers/net/ethernet/cadence/Makefile
++++ b/drivers/net/ethernet/cadence/Makefile
+@@ -3,4 +3,4 @@
+ #
  
- 	llist_add(&cmd->tvc_completion_list, &vs->vs_completion_list);
+ obj-$(CONFIG_ARM_AT91_ETHER) += at91_ether.o
+-obj-$(CONFIG_MACB) += macb.o
++obj-$(CONFIG_MACB) += macb.o macb_mdio.o
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 4833ba1..df1b928 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -320,7 +320,7 @@ static int macb_mii_probe(struct net_device *dev)
+ 	int phy_irq;
+ 	int ret;
  
--	vhost_work_queue(&vs->dev, &vs->vs_completion_work);
-+	vhost_work_queue(vs->dev.worker, &vs->vs_completion_work);
- }
- 
- static int vhost_scsi_queue_data_in(struct se_cmd *se_cmd)
-@@ -1282,7 +1282,7 @@ vhost_scsi_send_evt(struct vhost_scsi *vs,
- 	}
- 
- 	llist_add(&evt->list, &vs->vs_event_list);
--	vhost_work_queue(&vs->dev, &vs->vs_event_work);
-+	vhost_work_queue(vs->dev.worker, &vs->vs_event_work);
- }
- 
- static void vhost_scsi_evt_handle_kick(struct vhost_work *work)
-@@ -1335,8 +1335,8 @@ static void vhost_scsi_flush(struct vhost_scsi *vs)
- 	/* Flush both the vhost poll and vhost work */
- 	for (i = 0; i < VHOST_SCSI_MAX_VQ; i++)
- 		vhost_scsi_flush_vq(vs, i);
--	vhost_work_flush(&vs->dev, &vs->vs_completion_work);
--	vhost_work_flush(&vs->dev, &vs->vs_event_work);
-+	vhost_work_flush(vs->dev.worker, &vs->vs_completion_work);
-+	vhost_work_flush(vs->dev.worker, &vs->vs_event_work);
- 
- 	/* Wait for all reqs issued before the flush to be finished */
- 	for (i = 0; i < VHOST_SCSI_MAX_VQ; i++)
-@@ -1584,8 +1584,11 @@ static int vhost_scsi_open(struct inode *inode, struct file *f)
- 	if (!vqs)
- 		goto err_vqs;
- 
--	vhost_work_init(&vs->vs_completion_work, vhost_scsi_complete_cmd_work);
--	vhost_work_init(&vs->vs_event_work, vhost_scsi_evt_work);
-+	vhost_work_init(&vs->dev, &vs->vs_completion_work,
-+			vhost_scsi_complete_cmd_work);
-+
-+	vhost_work_init(&vs->dev, &vs->vs_event_work,
-+			vhost_scsi_evt_work);
- 
- 	vs->vs_events_nr = 0;
- 	vs->vs_events_missed = false;
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 2ee2826..951c96b 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -11,6 +11,8 @@
-  * Generic code for virtio server in host kernel.
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/eventfd.h>
- #include <linux/vhost.h>
- #include <linux/uio.h>
-@@ -28,6 +30,9 @@
- 
- #include "vhost.h"
- 
-+/* Just one worker thread to service all devices */
-+static struct vhost_worker *worker;
-+
- enum {
- 	VHOST_MEMORY_MAX_NREGIONS = 64,
- 	VHOST_MEMORY_F_LOG = 0x1,
-@@ -58,13 +63,15 @@ static int vhost_poll_wakeup(wait_queue_t *wait, unsigned mode, int sync,
+-	phydev = phy_find_first(bp->mii_bus);
++	phydev = of_phy_find_device(bp->phy_node);
+ 	if (!phydev) {
+ 		netdev_err(dev, "no PHY found\n");
+ 		return -ENXIO;
+@@ -359,89 +359,6 @@ static int macb_mii_probe(struct net_device *dev)
  	return 0;
  }
  
--void vhost_work_init(struct vhost_work *work, vhost_work_fn_t fn)
-+void vhost_work_init(struct vhost_dev *dev,
-+		     struct vhost_work *work, vhost_work_fn_t fn)
- {
- 	INIT_LIST_HEAD(&work->node);
- 	work->fn = fn;
- 	init_waitqueue_head(&work->done);
- 	work->flushing = 0;
- 	work->queue_seq = work->done_seq = 0;
-+	work->dev = dev;
- }
- EXPORT_SYMBOL_GPL(vhost_work_init);
- 
-@@ -78,7 +85,7 @@ void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
- 	poll->dev = dev;
- 	poll->wqh = NULL;
- 
--	vhost_work_init(&poll->work, fn);
-+	vhost_work_init(dev, &poll->work, fn);
- }
- EXPORT_SYMBOL_GPL(vhost_poll_init);
- 
-@@ -116,30 +123,30 @@ void vhost_poll_stop(struct vhost_poll *poll)
- }
- EXPORT_SYMBOL_GPL(vhost_poll_stop);
- 
--static bool vhost_work_seq_done(struct vhost_dev *dev, struct vhost_work *work,
--				unsigned seq)
-+static bool vhost_work_seq_done(struct vhost_worker *worker,
-+				struct vhost_work *work, unsigned seq)
- {
- 	int left;
- 
--	spin_lock_irq(&dev->work_lock);
-+	spin_lock_irq(&worker->work_lock);
- 	left = seq - work->done_seq;
--	spin_unlock_irq(&dev->work_lock);
-+	spin_unlock_irq(&worker->work_lock);
- 	return left <= 0;
- }
- 
--void vhost_work_flush(struct vhost_dev *dev, struct vhost_work *work)
-+void vhost_work_flush(struct vhost_worker *worker, struct vhost_work *work)
- {
- 	unsigned seq;
- 	int flushing;
- 
--	spin_lock_irq(&dev->work_lock);
-+	spin_lock_irq(&worker->work_lock);
- 	seq = work->queue_seq;
- 	work->flushing++;
--	spin_unlock_irq(&dev->work_lock);
--	wait_event(work->done, vhost_work_seq_done(dev, work, seq));
--	spin_lock_irq(&dev->work_lock);
-+	spin_unlock_irq(&worker->work_lock);
-+	wait_event(work->done, vhost_work_seq_done(worker, work, seq));
-+	spin_lock_irq(&worker->work_lock);
- 	flushing = --work->flushing;
--	spin_unlock_irq(&dev->work_lock);
-+	spin_unlock_irq(&worker->work_lock);
- 	BUG_ON(flushing < 0);
- }
- EXPORT_SYMBOL_GPL(vhost_work_flush);
-@@ -148,29 +155,30 @@ EXPORT_SYMBOL_GPL(vhost_work_flush);
-  * locks that are also used by the callback. */
- void vhost_poll_flush(struct vhost_poll *poll)
- {
--	vhost_work_flush(poll->dev, &poll->work);
-+	vhost_work_flush(poll->dev->worker, &poll->work);
- }
- EXPORT_SYMBOL_GPL(vhost_poll_flush);
- 
--void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work)
-+void vhost_work_queue(struct vhost_worker *worker,
-+		      struct vhost_work *work)
- {
- 	unsigned long flags;
- 
--	spin_lock_irqsave(&dev->work_lock, flags);
-+	spin_lock_irqsave(&worker->work_lock, flags);
- 	if (list_empty(&work->node)) {
--		list_add_tail(&work->node, &dev->work_list);
-+		list_add_tail(&work->node, &worker->work_list);
- 		work->queue_seq++;
--		spin_unlock_irqrestore(&dev->work_lock, flags);
--		wake_up_process(dev->worker);
-+		spin_unlock_irqrestore(&worker->work_lock, flags);
-+		wake_up_process(worker->thread);
- 	} else {
--		spin_unlock_irqrestore(&dev->work_lock, flags);
-+		spin_unlock_irqrestore(&worker->work_lock, flags);
- 	}
- }
- EXPORT_SYMBOL_GPL(vhost_work_queue);
- 
- void vhost_poll_queue(struct vhost_poll *poll)
- {
--	vhost_work_queue(poll->dev, &poll->work);
-+	vhost_work_queue(poll->dev->worker, &poll->work);
- }
- EXPORT_SYMBOL_GPL(vhost_poll_queue);
- 
-@@ -203,19 +211,18 @@ static void vhost_vq_reset(struct vhost_dev *dev,
- 
- static int vhost_worker(void *data)
- {
--	struct vhost_dev *dev = data;
-+	struct vhost_worker *worker = data;
- 	struct vhost_work *work = NULL;
- 	unsigned uninitialized_var(seq);
- 	mm_segment_t oldfs = get_fs();
- 
- 	set_fs(USER_DS);
--	use_mm(dev->mm);
- 
- 	for (;;) {
- 		/* mb paired w/ kthread_stop */
- 		set_current_state(TASK_INTERRUPTIBLE);
- 
--		spin_lock_irq(&dev->work_lock);
-+		spin_lock_irq(&worker->work_lock);
- 		if (work) {
- 			work->done_seq = seq;
- 			if (work->flushing)
-@@ -223,21 +230,35 @@ static int vhost_worker(void *data)
- 		}
- 
- 		if (kthread_should_stop()) {
--			spin_unlock_irq(&dev->work_lock);
-+			spin_unlock_irq(&worker->work_lock);
- 			__set_current_state(TASK_RUNNING);
- 			break;
- 		}
--		if (!list_empty(&dev->work_list)) {
--			work = list_first_entry(&dev->work_list,
-+		if (!list_empty(&worker->work_list)) {
-+			work = list_first_entry(&worker->work_list,
- 						struct vhost_work, node);
- 			list_del_init(&work->node);
- 			seq = work->queue_seq;
- 		} else
- 			work = NULL;
--		spin_unlock_irq(&dev->work_lock);
-+		spin_unlock_irq(&worker->work_lock);
- 
- 		if (work) {
-+			struct vhost_dev *dev = work->dev;
-+
- 			__set_current_state(TASK_RUNNING);
-+
-+			if (current->mm != dev->mm) {
-+				unuse_mm(current->mm);
-+				use_mm(dev->mm);
-+			}
-+
-+			/* TODO: Consider a more elegant solution */
-+			if (worker->owner != dev->owner) {
-+				/* Should check for return value */
-+				cgroup_attach_task_all(dev->owner, current);
-+				worker->owner = dev->owner;
-+			}
- 			work->fn(work);
- 			if (need_resched())
- 				schedule();
-@@ -245,7 +266,6 @@ static int vhost_worker(void *data)
- 			schedule();
- 
- 	}
--	unuse_mm(dev->mm);
- 	set_fs(oldfs);
- 	return 0;
- }
-@@ -304,9 +324,8 @@ void vhost_dev_init(struct vhost_dev *dev,
- 	dev->log_file = NULL;
- 	dev->memory = NULL;
- 	dev->mm = NULL;
--	spin_lock_init(&dev->work_lock);
--	INIT_LIST_HEAD(&dev->work_list);
--	dev->worker = NULL;
-+	dev->worker = worker;
-+	dev->owner = current;
- 
- 	for (i = 0; i < dev->nvqs; ++i) {
- 		vq = dev->vqs[i];
-@@ -331,31 +350,6 @@ long vhost_dev_check_owner(struct vhost_dev *dev)
- }
- EXPORT_SYMBOL_GPL(vhost_dev_check_owner);
- 
--struct vhost_attach_cgroups_struct {
--	struct vhost_work work;
--	struct task_struct *owner;
--	int ret;
--};
--
--static void vhost_attach_cgroups_work(struct vhost_work *work)
+-int macb_mii_init(struct macb *bp)
 -{
--	struct vhost_attach_cgroups_struct *s;
+-	struct macb_platform_data *pdata;
+-	struct device_node *np;
+-	int err = -ENXIO, i;
 -
--	s = container_of(work, struct vhost_attach_cgroups_struct, work);
--	s->ret = cgroup_attach_task_all(s->owner, current);
--}
+-	/* Enable management port */
+-	macb_writel(bp, NCR, MACB_BIT(MPE));
 -
--static int vhost_attach_cgroups(struct vhost_dev *dev)
--{
--	struct vhost_attach_cgroups_struct attach;
--
--	attach.owner = current;
--	vhost_work_init(&attach.work, vhost_attach_cgroups_work);
--	vhost_work_queue(dev, &attach.work);
--	vhost_work_flush(dev, &attach.work);
--	return attach.ret;
--}
--
- /* Caller should have device mutex */
- bool vhost_dev_has_owner(struct vhost_dev *dev)
- {
-@@ -366,7 +360,6 @@ EXPORT_SYMBOL_GPL(vhost_dev_has_owner);
- /* Caller should have device mutex */
- long vhost_dev_set_owner(struct vhost_dev *dev)
- {
--	struct task_struct *worker;
- 	int err;
- 
- 	/* Is there an owner already? */
-@@ -377,28 +370,15 @@ long vhost_dev_set_owner(struct vhost_dev *dev)
- 
- 	/* No owner, become one */
- 	dev->mm = get_task_mm(current);
--	worker = kthread_create(vhost_worker, dev, "vhost-%d", current->pid);
--	if (IS_ERR(worker)) {
--		err = PTR_ERR(worker);
--		goto err_worker;
+-	bp->mii_bus = mdiobus_alloc();
+-	if (bp->mii_bus == NULL) {
+-		err = -ENOMEM;
+-		goto err_out;
 -	}
 -
- 	dev->worker = worker;
--	wake_up_process(worker);	/* avoid contributing to loadavg */
+-	bp->mii_bus->name = "MACB_mii_bus";
+-	bp->mii_bus->read = &macb_mdio_read;
+-	bp->mii_bus->write = &macb_mdio_write;
+-	snprintf(bp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
+-		bp->pdev->name, bp->pdev->id);
+-	bp->mii_bus->priv = bp;
+-	bp->mii_bus->parent = &bp->dev->dev;
+-	pdata = dev_get_platdata(&bp->pdev->dev);
 -
--	err = vhost_attach_cgroups(dev);
+-	bp->mii_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
+-	if (!bp->mii_bus->irq) {
+-		err = -ENOMEM;
+-		goto err_out_free_mdiobus;
+-	}
+-
+-	dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
+-
+-	np = bp->pdev->dev.of_node;
+-	if (np) {
+-		/* try dt phy registration */
+-		err = of_mdiobus_register(bp->mii_bus, np);
+-
+-		/* fallback to standard phy registration if no phy were
+-		   found during dt phy registration */
+-		if (!err && !phy_find_first(bp->mii_bus)) {
+-			for (i = 0; i < PHY_MAX_ADDR; i++) {
+-				struct phy_device *phydev;
+-
+-				phydev = mdiobus_scan(bp->mii_bus, i);
+-				if (IS_ERR(phydev)) {
+-					err = PTR_ERR(phydev);
+-					break;
+-				}
+-			}
+-
+-			if (err)
+-				goto err_out_unregister_bus;
+-		}
+-	} else {
+-		for (i = 0; i < PHY_MAX_ADDR; i++)
+-			bp->mii_bus->irq[i] = PHY_POLL;
+-
+-		if (pdata)
+-			bp->mii_bus->phy_mask = pdata->phy_mask;
+-
+-		err = mdiobus_register(bp->mii_bus);
+-	}
+-
 -	if (err)
--		goto err_cgroup;
+-		goto err_out_free_mdio_irq;
+-
+-	err = macb_mii_probe(bp->dev);
+-	if (err)
+-		goto err_out_unregister_bus;
+-
+-	return 0;
+-
+-err_out_unregister_bus:
+-	mdiobus_unregister(bp->mii_bus);
+-err_out_free_mdio_irq:
+-	kfree(bp->mii_bus->irq);
+-err_out_free_mdiobus:
+-	mdiobus_free(bp->mii_bus);
+-err_out:
+-	return err;
+-}
+-EXPORT_SYMBOL_GPL(macb_mii_init);
+-
+ static void macb_update_stats(struct macb *bp)
+ {
+ 	u32 __iomem *reg = bp->regs + MACB_PFR;
+@@ -2480,7 +2397,10 @@ static int macb_probe(struct platform_device *pdev)
+ 		goto err_out_free_netdev;
+ 	}
  
- 	err = vhost_dev_alloc_iovecs(dev);
+-	err = macb_mii_init(bp);
++	bp->phy_node = of_parse_phandle(bp->pdev->dev.of_node,
++						"phy-handle", 0);
++
++	err = macb_mii_probe(bp->dev);
  	if (err)
--		goto err_cgroup;
-+		goto err_alloc;
+ 		goto err_out_unregister_netdev;
  
- 	return 0;
--err_cgroup:
--	kthread_stop(worker);
-+err_alloc:
- 	dev->worker = NULL;
--err_worker:
- 	if (dev->mm)
- 		mmput(dev->mm);
- 	dev->mm = NULL;
-@@ -472,11 +452,6 @@ void vhost_dev_cleanup(struct vhost_dev *dev, bool locked)
- 	/* No one will access memory at this point */
- 	kfree(dev->memory);
- 	dev->memory = NULL;
--	WARN_ON(!list_empty(&dev->work_list));
--	if (dev->worker) {
--		kthread_stop(dev->worker);
--		dev->worker = NULL;
--	}
- 	if (dev->mm)
- 		mmput(dev->mm);
- 	dev->mm = NULL;
-@@ -1567,11 +1542,32 @@ EXPORT_SYMBOL_GPL(vhost_disable_notify);
- 
- static int __init vhost_init(void)
- {
-+	struct vhost_worker *w =
-+		kzalloc(sizeof(*w), GFP_KERNEL);
-+	if (!w)
-+		return -ENOMEM;
-+
-+	w->thread = kthread_create(vhost_worker,
-+				   w, "vhost-worker");
-+	if (IS_ERR(w->thread))
-+		return PTR_ERR(w->thread);
-+
-+	worker = w;
-+	spin_lock_init(&worker->work_lock);
-+	INIT_LIST_HEAD(&worker->work_list);
-+	wake_up_process(worker->thread);
-+	pr_info("Created universal thread to service requests\n");
-+
- 	return 0;
- }
- 
- static void __exit vhost_exit(void)
- {
-+	if (worker) {
-+		kthread_stop(worker->thread);
-+		WARN_ON(!list_empty(&worker->work_list));
-+		kfree(worker);
-+	}
- }
- 
- module_init(vhost_init);
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index 8c1c792..2f204ce 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -22,6 +22,7 @@ struct vhost_work {
- 	int			  flushing;
- 	unsigned		  queue_seq;
- 	unsigned		  done_seq;
-+	struct vhost_dev          *dev;
+@@ -2524,9 +2444,6 @@ static int macb_remove(struct platform_device *pdev)
+ 		bp = netdev_priv(dev);
+ 		if (bp->phy_dev)
+ 			phy_disconnect(bp->phy_dev);
+-		mdiobus_unregister(bp->mii_bus);
+-		kfree(bp->mii_bus->irq);
+-		mdiobus_free(bp->mii_bus);
+ 		unregister_netdev(dev);
+ 		if (!IS_ERR(bp->tx_clk))
+ 			clk_disable_unprepare(bp->tx_clk);
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index f0aa177..ba515ab 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -825,13 +825,12 @@ struct macb {
+ 	unsigned int		rx_frm_len_mask;
+ 	unsigned int		jumbo_max_len;
+ 	bool			isjumbo;
+-
++	struct device_node *phy_node;
+ 	u64			ethtool_stats[GEM_STATS_LEN];
  };
  
- /* Poll a file (eventfd or socket) */
-@@ -35,8 +36,8 @@ struct vhost_poll {
- 	struct vhost_dev	 *dev;
- };
+ extern const struct ethtool_ops macb_ethtool_ops;
  
--void vhost_work_init(struct vhost_work *work, vhost_work_fn_t fn);
--void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work);
-+void vhost_work_init(struct vhost_dev *dev,
-+		     struct vhost_work *work, vhost_work_fn_t fn);
- 
- void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
- 		     unsigned long mask, struct vhost_dev *dev);
-@@ -44,7 +45,6 @@ int vhost_poll_start(struct vhost_poll *poll, struct file *file);
- void vhost_poll_stop(struct vhost_poll *poll);
- void vhost_poll_flush(struct vhost_poll *poll);
- void vhost_poll_queue(struct vhost_poll *poll);
--void vhost_work_flush(struct vhost_dev *dev, struct vhost_work *work);
- long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp);
- 
- struct vhost_log {
-@@ -116,11 +116,22 @@ struct vhost_dev {
- 	int nvqs;
- 	struct file *log_file;
- 	struct eventfd_ctx *log_ctx;
-+	/* vhost shared worker */
-+	struct vhost_worker *worker;
-+	/* for cgroup support */
-+	struct task_struct *owner;
+-int macb_mii_init(struct macb *bp);
+ int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+ struct net_device_stats *macb_get_stats(struct net_device *dev);
+ void macb_set_rx_mode(struct net_device *dev);
+diff --git a/drivers/net/ethernet/cadence/macb_mdio.c b/drivers/net/ethernet/cadence/macb_mdio.c
+new file mode 100644
+index 0000000..563ac52
+--- /dev/null
++++ b/drivers/net/ethernet/cadence/macb_mdio.c
+@@ -0,0 +1,204 @@
++/*
++ * Cadence Macb mdio controller driver
++ *
++ * Copyright (C) 2014 - 2015 Xilinx, Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it under
++ * the terms of the GNU General Public License version 2 as published by the
++ * Free Software Foundation; either version 2 of the License, or (at your
++ * option) any later version.
++ */
++#include <linux/clk.h>
++#include <linux/delay.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/netdevice.h>
++#include <linux/of_address.h>
++#include <linux/of_mdio.h>
++#include <linux/phy.h>
++#include <linux/platform_device.h>
++#include "macb.h"
++
++struct macb_mdio_data {
++	void __iomem *regs;
++	struct clk *pclk;
++	struct clk *hclk;
 +};
 +
-+struct vhost_worker {
- 	spinlock_t work_lock;
- 	struct list_head work_list;
--	struct task_struct *worker;
-+	struct task_struct *thread;
-+	struct task_struct *owner;
- };
- 
-+void vhost_work_queue(struct vhost_worker *worker,
-+		      struct vhost_work *work);
-+void vhost_work_flush(struct vhost_worker *worker, struct vhost_work *work);
- void vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue **vqs, int nvqs);
- long vhost_dev_set_owner(struct vhost_dev *dev);
- bool vhost_dev_has_owner(struct vhost_dev *dev);
++static int macb_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
++{
++	struct macb_mdio_data *bp = bus->priv;
++	int value;
++
++	macb_writel(bp, MAN, (MACB_BF(SOF, MACB_MAN_SOF)
++			      | MACB_BF(RW, MACB_MAN_READ)
++			      | MACB_BF(PHYA, mii_id)
++			      | MACB_BF(REGA, regnum)
++			      | MACB_BF(CODE, MACB_MAN_CODE)));
++
++	/* wait for end of transfer */
++	while (!MACB_BFEXT(IDLE, macb_readl(bp, NSR)))
++		cpu_relax();
++
++	value = MACB_BFEXT(DATA, macb_readl(bp, MAN));
++
++	return value;
++}
++
++static int macb_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
++			   u16 value)
++{
++	struct macb_mdio_data *bp = bus->priv;
++
++	macb_writel(bp, MAN, (MACB_BF(SOF, MACB_MAN_SOF)
++			      | MACB_BF(RW, MACB_MAN_WRITE)
++			      | MACB_BF(PHYA, mii_id)
++			      | MACB_BF(REGA, regnum)
++			      | MACB_BF(CODE, MACB_MAN_CODE)
++			      | MACB_BF(DATA, value)));
++
++	/* wait for end of transfer */
++	while (!MACB_BFEXT(IDLE, macb_readl(bp, NSR)))
++		cpu_relax();
++
++	return 0;
++}
++
++static u32 gem_mdc_clk_div(struct macb_mdio_data *bp)
++{
++	u32 config;
++	unsigned long pclk_hz = clk_get_rate(bp->pclk);
++
++	if (pclk_hz <= 20000000)
++		config = GEM_BF(CLK, GEM_CLK_DIV8);
++	else if (pclk_hz <= 40000000)
++		config = GEM_BF(CLK, GEM_CLK_DIV16);
++	else if (pclk_hz <= 80000000)
++		config = GEM_BF(CLK, GEM_CLK_DIV32);
++	else if (pclk_hz <= 120000000)
++		config = GEM_BF(CLK, GEM_CLK_DIV48);
++	else if (pclk_hz <= 160000000)
++		config = GEM_BF(CLK, GEM_CLK_DIV64);
++	else
++		config = GEM_BF(CLK, GEM_CLK_DIV96);
++
++	return config;
++}
++
++static int macb_mdio_probe(struct platform_device *pdev)
++{
++	struct device_node *np = pdev->dev.of_node;
++	struct mii_bus *bus;
++	struct macb_mdio_data *bp;
++	struct resource *res;
++	int ret;
++	u32 config, i;
++
++	bus = mdiobus_alloc_size(sizeof(*bp));
++	if (!bus)
++		return -ENOMEM;
++
++	bus->name = "macb_mii_bus";
++	bus->read = &macb_mdio_read;
++	bus->write = &macb_mdio_write;
++	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-mii", dev_name(&pdev->dev));
++	bus->parent = &pdev->dev;
++	bus->irq = devm_kzalloc(&pdev->dev, sizeof(int) * PHY_MAX_ADDR,
++				GFP_KERNEL);
++	if (!bus->irq) {
++		ret = -ENOMEM;
++		goto err_out_free_mdiobus;
++	}
++
++	for (i = 0; i < PHY_MAX_ADDR; i++)
++		bus->irq[i] = PHY_POLL;
++
++	bp = bus->priv;
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	bp->regs = devm_ioremap_resource(&pdev->dev, res);
++	if (IS_ERR(bp->regs)) {
++		ret = PTR_ERR(bp->regs);
++		goto err_out_free_mdiobus;
++	}
++
++	bp->pclk = devm_clk_get(&pdev->dev, "pclk");
++	if (IS_ERR(bp->pclk)) {
++		ret = PTR_ERR(bp->pclk);
++		dev_err(&pdev->dev, "failed to get macb_clk (%u)\n", ret);
++		goto err_out_free_mdiobus;
++	}
++
++	bp->hclk = devm_clk_get(&pdev->dev, "hclk");
++	if (IS_ERR(bp->hclk)) {
++		ret = PTR_ERR(bp->hclk);
++		dev_err(&pdev->dev, "failed to get hclk (%u)\n", ret);
++		goto err_out_free_mdiobus;
++	}
++
++	ret = clk_prepare_enable(bp->pclk);
++	if (ret) {
++		dev_err(&pdev->dev, "failed to enable pclk (%u)\n", ret);
++		goto err_out_free_mdiobus;
++	}
++
++	ret = clk_prepare_enable(bp->hclk);
++	if (ret) {
++		dev_err(&pdev->dev, "failed to enable hclk (%u)\n", ret);
++		goto err_disable_pclk;
++	}
++
++	/* Enable management port */
++	macb_writel(bp, NCR, MACB_BIT(MPE));
++	config = gem_mdc_clk_div(bp);
++	macb_writel(bp, NCFGR, config);
++
++	ret = of_mdiobus_register(bus, np);
++	if (ret < 0)
++		goto err_out_free_mdiobus;
++
++	platform_set_drvdata(pdev, bus);
++
++	return 0;
++
++err_disable_pclk:
++	clk_disable_unprepare(bp->pclk);
++
++err_out_free_mdiobus:
++	mdiobus_free(bus);
++	return ret;
++}
++
++static int macb_mdio_remove(struct platform_device *pdev)
++{
++	struct mii_bus *bus = platform_get_drvdata(pdev);
++	struct macb_mdio_data *bp = bus->priv;
++
++	mdiobus_unregister(bus);
++	clk_disable_unprepare(bp->hclk);
++	clk_disable_unprepare(bp->pclk);
++	mdiobus_free(bus);
++
++	return 0;
++}
++
++static const struct of_device_id macb_mdio_dt_ids[] = {
++	{ .compatible = "cdns,macb-mdio" },
++
++};
++MODULE_DEVICE_TABLE(of, macb_mdio_dt_ids);
++
++static struct platform_driver macb_mdio_driver = {
++	.probe = macb_mdio_probe,
++	.remove = macb_mdio_remove,
++	.driver = {
++		.name = "macb-mdio",
++		.of_match_table = macb_mdio_dt_ids,
++	},
++};
++
++module_platform_driver(macb_mdio_driver);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Cadence MACB/GEM Ethernet driver");
++MODULE_AUTHOR("Xilinx");
 -- 
-2.4.3
+1.7.4
