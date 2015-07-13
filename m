@@ -1,55 +1,36 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH v2] net: dsa: mv88e6xxx: add write access to debugfs
- regs file
-Date: Sun, 12 Jul 2015 21:39:30 -0400 (EDT)
-Message-ID: <1788707459.58885.1436751570981.JavaMail.zimbra@savoirfairelinux.com>
-References: <1436476409-5033-1-git-send-email-vivien.didelot@savoirfairelinux.com> <20150710.230120.1590955832899872718.davem@davemloft.net> <1092744390.7730.1436639772848.JavaMail.zimbra@savoirfairelinux.com> <20150711.190822.1431177169987395247.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Fighting out-of-order reception with RPS?
+Date: Sun, 12 Jul 2015 20:22:41 -0700 (PDT)
+Message-ID: <20150712.202241.2051134175805521232.davem@davemloft.net>
+References: <55A02CDB.6000302@hartkopp.net>
+	<1436589345.24939.56.camel@edumazet-glaptop2.roam.corp.google.com>
+	<55A2BCD8.4020303@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Guenter Roeck <linux@roeck-us.net>, andrew@lunn.ch,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>
-To: David <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150711.190822.1431177169987395247.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, tom@herbertland.com,
+	netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	sunil.kovvuri@gmail.com, jonathon.reinhart@gmail.com
+To: socketcan@hartkopp.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38847 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751605AbbGMDWo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jul 2015 23:22:44 -0400
+In-Reply-To: <55A2BCD8.4020303@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Sun, 12 Jul 2015 21:15:36 +0200
 
-On Jul 11, 2015, at 10:08 PM, David davem@davemloft.net wrote:
+> Just some remarks about CAN and CAN frames as you suggest GRO which is
+> completely pointless for CAN.
 
-> From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> Date: Sat, 11 Jul 2015 14:36:12 -0400 (EDT)
-> 
->> In the meantime, this is really useful for development. i.e. ensuring a good
->> switchdev/DSA interaction without being able to read and write directly the
->> hardware VLAN table, is a bit a PITA. A dynamic debugfs looked appropriate.
-> 
-> For "development" you can hack the driver, add tracepoints, or use
-> another mechanism anyone hacking the kernel (which by definition
-> someone doing "development" is doing) can do.
-> 
-> I do not buy any of your arguments, and you really miss the grand
-> opportunity to export the knobs and values in a way which are going
-> to:
-> 
-> 1) Be useful to users
-> 
-> 2) Be usable by any similar DSA driver, not just _yours_
+GRO may be pointless for CAN, but NAPI _definitely_ is useful for every
+single network device, period.
 
-I hardly see how this debug interface can be made generic to other DSA drivers,
-since the format of hardware tables or some registers seem very specific to the
-switch chip.
+So you should do NAPI for reasons outside of packet receive ordering,
+and in return you'll have your packet ordering problem solved as well.
 
-> So please stop this myopic narrow thinking when you add facilities for
-> development or export values.  Think of the big picture and long term,
-> not just your personal perceived immediate needs of today.
-
-I understand. So it looks like the only reasonable solution here is to revert
-this support for the debugfs interface.
-
-Thanks,
--v
+I really am stumped as to why you are avoiding NAPI so vehemently.
