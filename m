@@ -1,102 +1,116 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/16] i40e/i40evf: Add stats to track FD ATR and SB dynamic enable state
-Date: Mon, 13 Jul 2015 02:08:23 -0700
-Message-ID: <1436778517-16254-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1436778517-16254-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/16][pull request] Intel Wired LAN Driver Updates 2015-07-13
+Date: Mon, 13 Jul 2015 02:08:21 -0700
+Message-ID: <1436778517-16254-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:28267 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:40574 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751117AbbGMJIn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jul 2015 05:08:43 -0400
-In-Reply-To: <1436778517-16254-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751701AbbGMJIp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jul 2015 05:08:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+This series contains updates to i40e and i40evf only.
 
-Since the driver can dynamically enable/disable FD ATR and SB features,
-these stats help keep track of the current state and along with
-fd_flush count provide a means to debug what could be going on
-with the flow director filters. This will take away the need for
-being verbose in our debug logs with respect to FD.
+Joe Stringer and Jesse Gross add a ndo_features_check function to ensure
+that the i40e driver does not try to offload packets that exceed 80 bytes
+in length.
 
-Change-ID: I29224f750fe6602391043655d18996570720377d
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Tested-by: Jim Young <james.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  2 ++
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 12 ++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_type.h    |  2 ++
- drivers/net/ethernet/intel/i40evf/i40e_type.h  |  2 ++
- 4 files changed, 18 insertions(+)
+Anjali adds additional stats to track flow director ATR and SB current
+state and flow director flush count which will help the need for verbose
+debug logs with respect to flow director.  Also refines an error message
+to avoid confusion, so that it indicates what may have really happened
+when the init_shared_code() call possibly fails.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 9a68c65..0b68f61 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -148,7 +148,9 @@ static struct i40e_stats i40e_gstrings_stats[] = {
- 	I40E_PF_STAT("fdir_flush_cnt", fd_flush_cnt),
- 	I40E_PF_STAT("fdir_atr_match", stats.fd_atr_match),
- 	I40E_PF_STAT("fdir_atr_tunnel_match", stats.fd_atr_tunnel_match),
-+	I40E_PF_STAT("fdir_atr_status", stats.fd_atr_status),
- 	I40E_PF_STAT("fdir_sb_match", stats.fd_sb_match),
-+	I40E_PF_STAT("fdir_sb_status", stats.fd_sb_status),
- 
- 	/* LPI stats */
- 	I40E_PF_STAT("tx_lpi_status", stats.tx_lpi_status),
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b44eb35..b5fc654 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1123,6 +1123,18 @@ static void i40e_update_pf_stats(struct i40e_pf *pf)
- 			   pf->stat_offsets_loaded,
- 			   &osd->rx_lpi_count, &nsd->rx_lpi_count);
- 
-+	if (pf->flags & I40E_FLAG_FD_SB_ENABLED &&
-+	    !(pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED))
-+		nsd->fd_sb_status = true;
-+	else
-+		nsd->fd_sb_status = false;
-+
-+	if (pf->flags & I40E_FLAG_FD_ATR_ENABLED &&
-+	    !(pf->auto_disable_flags & I40E_FLAG_FD_ATR_ENABLED))
-+		nsd->fd_atr_status = true;
-+	else
-+		nsd->fd_atr_status = false;
-+
- 	pf->stat_offsets_loaded = true;
- }
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 9a5a75b..350c5ee 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -1134,6 +1134,8 @@ struct i40e_hw_port_stats {
- 	u64 fd_atr_match;
- 	u64 fd_sb_match;
- 	u64 fd_atr_tunnel_match;
-+	u32 fd_atr_status;
-+	u32 fd_sb_status;
- 	/* EEE LPI */
- 	u32 tx_lpi_status;
- 	u32 rx_lpi_status;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index c463ec4..068813d 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -1109,6 +1109,8 @@ struct i40e_hw_port_stats {
- 	u64 fd_atr_match;
- 	u64 fd_sb_match;
- 	u64 fd_atr_tunnel_match;
-+	u32 fd_atr_status;
-+	u32 fd_sb_status;
- 	/* EEE LPI */
- 	u32 tx_lpi_status;
- 	u32 rx_lpi_status;
+Pawel adds new fields to the capabilities structures to handle Flex-10
+device/function capabilities which is needed to support Flex-10 configs.
+
+Jesse improves the transmit performance by added a prefetch for the
+next transmit descriptor to be used when we know there are more coming.
+
+Mitch modifies i40evf driver to handle/allow an abundance of vectors.
+Currently the driver only maps transmit and receive queues to a single
+MSI-X vector per queue if there are exactly enough vectors for this, but
+if we have too many vectors, it will fail and allocate queues to vectors
+in a suboptimal manner.  So change the condition check to allow for an
+excess number of vectors and won't use the extras.  Also update the
+driver to just return success if the user attempts to set a port VLAN on
+a VF that already has the same port VLAN configured, instead of going
+through unnecessary filter removals & adds.  Fix the MAC filters for VFs,
+which were being programmed with 0 for the VLAN value when there was no
+VLAN assigned.  Instead, we must use -1 to indicate that no VLAN is in
+use.  Fix the VF disable code, which was not properly cleaning up the VF
+and would leave the VF in an indeterminate state, so fix this by
+notifying the VF and then call the normal VF reset routine.  Fix the
+logic in the driver so that MAC filters are added and removed correctly
+and added a check for the driver's hardware MAC address so that this
+filter does not get removed incorrectly.
+
+Carolyn removes incorrect #ifdef's which should not have been added in
+the first place and with the #ifdef's removed, make the necessary
+changes in the driver to resolve compile errors.
+
+Greg updates the admin queue command header defines.
+
+The following are changes since commit 14fe22e334623e451b5592193415c644005461ea:
+  Revert "ipv4: use skb coalescing in defragmentation"
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
+
+Anjali Singhai Jain (2):
+  i40e/i40evf: Add stats to track FD ATR and SB dynamic enable state
+  i40e: Refine an error message to avoid confusion
+
+Carolyn Wyborny (1):
+  i40e: Remove incorrect #ifdef's
+
+Catherine Sullivan (1):
+  i40e/i40evf: Bump version to 1.3.6 for i40e and 1.3.2 for i40evf
+
+Faisal Latif (1):
+  i40e/i40evf: Add support for pre-allocated pages for PD
+
+Greg Rose (1):
+  i40e/i40evf: Update the admin queue command header
+
+Jesse Brandeburg (1):
+  i40e/i40evf: improve Tx performance with a small tweak
+
+Joe Stringer (1):
+  i40e: Implement ndo_features_check()
+
+Mitch Williams (7):
+  i40evf: Allow for an abundance of vectors
+  i40e: ignore duplicate port VLAN requests
+  i40e: correctly program filters for VFs
+  i40e: do a proper reset when disabling a VF
+  i40e: un-disable VF after reset
+  i40evf: don't delete all the filters
+  i40evf: add MAC address filter in open, not init
+
+Pawel Orlowski (1):
+  i40e/i40evf: Update Flex-10 related device/function capabilities
+
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 24 +++++-----
+ drivers/net/ethernet/intel/i40e/i40e_common.c      | 24 +++++++---
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  2 +
+ drivers/net/ethernet/intel/i40e/i40e_hmc.c         | 30 ++++++++-----
+ drivers/net/ethernet/intel/i40e/i40e_hmc.h         |  4 +-
+ drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c     |  2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 51 ++++++++++++++++------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  2 +
+ drivers/net/ethernet/intel/i40e/i40e_type.h        | 14 +++++-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 23 +++++-----
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 18 +++-----
+ drivers/net/ethernet/intel/i40evf/i40e_hmc.h       |  4 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  2 +
+ drivers/net/ethernet/intel/i40evf/i40e_type.h      | 14 +++++-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 20 +++------
+ 15 files changed, 155 insertions(+), 79 deletions(-)
+
 -- 
 2.4.3
