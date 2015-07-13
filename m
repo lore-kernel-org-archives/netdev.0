@@ -1,38 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bridge: mdb: add vlan support for user entries
-Date: Mon, 13 Jul 2015 14:41:40 -0700 (PDT)
-Message-ID: <20150713.144140.2082284542914664511.davem@davemloft.net>
-References: <1436540528-42334-1-git-send-email-nikolay@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	stephen@networkplumber.org
-To: nikolay@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44324 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752100AbbGMVll (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 17:41:41 -0400
-In-Reply-To: <1436540528-42334-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrea Parri <parri.andrea@gmail.com>
+Subject: [PATCH] pkt_sched: sch_qfq: remove unused member of struct qfq_sched
+Date: Tue, 14 Jul 2015 00:12:05 +0200
+Message-ID: <1436825525-13506-1-git-send-email-parri.andrea@gmail.com>
+Cc: Paolo Valente <paolo.valente@unimore.it>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Andrea Parri <parri.andrea@gmail.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Fri, 10 Jul 2015 08:02:08 -0700
+The member (u32) "num_active_agg" of struct qfq_sched has been unused
+since its introduction in 462dbc9101acd38e92eda93c0726857517a24bbd
+"pkt_sched: QFQ Plus: fair-queueing service at DRR cost" and (AFAICT)
+there is no active plan to use it; this removes the member.
 
-> Until now all user mdb entries were added in vlan 0, this patch adds
-> support to allow the user to specify the vlan for the entry.
-> About the uapi change a hole in struct br_mdb_entry is used so the size
-> and offsets are kept the same (verified with pahole and tested with older
-> iproute2).
-> 
-> Example:
-> $ bridge mdb
-> dev br0 port eth1 grp 239.0.0.1 permanent vlan 2000
-> dev br0 port eth1 grp 239.0.0.1 permanent vlan 200
-> dev br0 port eth1 grp 239.0.0.1 permanent
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Signed-off-by: Andrea Parri <parri.andrea@gmail.com>
+Acked-by: Paolo Valente <paolo.valente@unimore.it>
+---
+ net/sched/sch_qfq.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-This looks ok, applied thanks Nikolay.
+diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+index b8d73bc..ffaeea6 100644
+--- a/net/sched/sch_qfq.c
++++ b/net/sched/sch_qfq.c
+@@ -186,7 +186,6 @@ struct qfq_sched {
+ 
+ 	u64			oldV, V;	/* Precise virtual times. */
+ 	struct qfq_aggregate	*in_serv_agg;   /* Aggregate being served. */
+-	u32			num_active_agg; /* Num. of active aggregates */
+ 	u32			wsum;		/* weight sum */
+ 	u32			iwsum;		/* inverse weight sum */
+ 
+-- 
+1.9.1
