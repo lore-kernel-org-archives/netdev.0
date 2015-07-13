@@ -1,51 +1,74 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] tc: fix tc actions in case of shared skb
-Date: Mon, 13 Jul 2015 15:26:46 -0700
-Message-ID: <55A43B26.1010009@plumgrid.com>
-References: <1436573411-5021-1-git-send-email-ast@plumgrid.com>	<20150711.212917.1463596559900301434.davem@davemloft.net>	<55A415DE.8020806@plumgrid.com> <20150713.130438.1857789246357119116.davem@davemloft.net> <55A41CE9.8050907@plumgrid.com> <55A425C4.60301@iogearbox.net>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [RFC net-next 18/22] openvswitch: Make tunnel set action attach a
+ metadata dst
+Date: Mon, 13 Jul 2015 15:55:10 -0700
+Message-ID: <CANr6G5zNyGsx590AqAjYmYeXu0bktnqzO0d-=Yh2_u+iq=LCww@mail.gmail.com>
+References: <cover.1436537414.git.tgraf@suug.ch> <db45b60a2ab4aa0d6dde363558ebe3e46edb0e81.1436537414.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jhs@mojatatu.com,
-	jiri@resnulli.us, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
+	ebiederm@xmission.com, hannes@stressinduktion.org,
+	Pravin Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>,
+	David Miller <davem@davemloft.net>, daniel@iogearbox.net,
+	tom@herbertland.com, edumazet@google.com, jiri@resnulli.us,
+	marcelo.leitner@gmail.com, stephen@networkplumber.org,
+	Justin Pettit <jpettit@nicira.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:34723 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751357AbbGMW0r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 18:26:47 -0400
-Received: by pdbep18 with SMTP id ep18so232698051pdb.1
-        for <netdev@vger.kernel.org>; Mon, 13 Jul 2015 15:26:47 -0700 (PDT)
-In-Reply-To: <55A425C4.60301@iogearbox.net>
+Received: from mail-yk0-f173.google.com ([209.85.160.173]:33524 "EHLO
+	mail-yk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752808AbbGMWza (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 18:55:30 -0400
+Received: by ykeo3 with SMTP id o3so207822949yke.0
+        for <netdev@vger.kernel.org>; Mon, 13 Jul 2015 15:55:30 -0700 (PDT)
+In-Reply-To: <db45b60a2ab4aa0d6dde363558ebe3e46edb0e81.1436537414.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/13/15 1:55 PM, Daniel Borkmann wrote:
-> On 07/13/2015 10:17 PM, Alexei Starovoitov wrote:
-> ...
->> We cannot check tc actions from pktgen, since they can be added
->> dynamically.
->> So I see three options:
->> 1 get rid of burst hack for both RX and TX in pktgen (kills performance)
->> 2 add unlikely(skb_shread) check to few tc actions
->> 3 do nothing
-...
-> pktgen case. :/ With regards to option 2, you could hide that behind
-> a static inline helper wrapped in IS_ENABLED(CONFIG_NET_PKTGEN), but
-> that is a veeeery ugly workaround/hack as well (and distros might
-> even ship it nevertheless).
+Hi Thomas,
 
-naming such helper is a headache as well.
-static inline bool is_pktgen_shared_skb(struct sk_buff *skb)
-{
-#if IS_ENABLED(CONFIG_NET_PKTGEN)
-	/* pktgen uses skb->users += burst trick to reuse skb */
-	return skb_shared(skb);
-#else
-	return false;
-#endif
-}
-and in actions:
-if (unlikely(is_pktgen_shared_skb(skb))) goto drop;
+On 10 July 2015 at 07:19, Thomas Graf <tgraf@suug.ch> wrote:
+> diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+> index ecfa530..05fe46b 100644
+> --- a/net/openvswitch/flow_netlink.c
+> +++ b/net/openvswitch/flow_netlink.c
+> @@ -1548,11 +1548,45 @@ static struct sw_flow_actions *nla_alloc_flow_actions(int size, bool log)
+>         return sfa;
+>  }
+>
+> +static void ovs_nla_free_set_action(const struct nlattr *a)
+> +{
+> +       const struct nlattr *ovs_key = nla_data(a);
+> +       struct ovs_tunnel_info *ovs_tun;
+> +
+> +       switch (nla_type(ovs_key)) {
+> +       case OVS_KEY_ATTR_TUNNEL_INFO:
+> +               ovs_tun = nla_data(ovs_key);
+> +               dst_release((struct dst_entry *)ovs_tun->tun_dst);
+> +               break;
+> +       }
+> +}
+> +
+> +void ovs_nla_free_flow_actions(struct sw_flow_actions *sf_acts)
+> +{
+> +       const struct nlattr *a;
+> +       int rem;
+> +
+> +       nla_for_each_attr(a, sf_acts->actions, sf_acts->actions_len, rem) {
+> +               switch (nla_type(a)) {
+> +               case OVS_ACTION_ATTR_SET:
+> +                       ovs_nla_free_set_action(a);
+> +                       break;
+> +               }
+> +       }
+> +
+> +       kfree(sf_acts);
+> +}
 
-thoughts?
+It doesn't look like flow_free() is using this new function to
+properly free the actions. Also, some of the error cases that hit this
+code have sf_acts=NULL.
