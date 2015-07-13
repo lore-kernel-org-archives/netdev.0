@@ -1,35 +1,43 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [PATCH v2 0/2] net: enable inband link state negotiation only
- when explicitly requested
-Date: Mon, 13 Jul 2015 12:59:33 +0300
-Message-ID: <55A38C05.1050707@list.ru>
-References: <559FF511.5080102@list.ru> <alpine.LNX.2.02.1507131151330.25599@sbrk.org>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH] bnx2x: Update to FW version 7.12.30
+Date: Mon, 13 Jul 2015 10:17:24 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63DE54D0@avmb3.qlogic.org>
+References: <1434866091-30087-1-git-send-email-Yuval.Mintz@qlogic.com>
+ <B5657A6538887040AD3A81F1008BEC63DD93BB@avmb3.qlogic.org>
+ <B5657A6538887040AD3A81F1008BEC63DE5037@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Linux kernel <linux-kernel@vger.kernel.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>
-To: Sebastien Rannou <mxs@sbrk.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.02.1507131151330.25599@sbrk.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
+	netdev <netdev@vger.kernel.org>
+To: "linux-firmware@kernel.org" <linux-firmware@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:63283 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751636AbbGMKR2 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jul 2015 06:17:28 -0400
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63DE5037@avmb3.qlogic.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-13.07.2015 12:54, Sebastien Rannou =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> Hi Stas,
->=20
-> On Fri, 10 Jul 2015, Stas Sergeev wrote:
->=20
->> Those who were affected by the change, please send your Tested-by,
->> Thanks!
->=20
-> I also confirm that this version of the patch solves the issue:
->=20
-> Tested-by: Sebastien Rannou <mxs@sbrk.org>
-Thanks Sebastien!
-Unfortunately, there will be v3 in a few days.
-Perhaps you should not rush with the tests until the
-things are settled, or who knows how many iterations
-you'll have to test...
+> > > The new FW will allow us to utilize some new features in our driver,
+> > > mainly adding vlan filtering offload and vxlan offload support.
+> > >
+> > > In addition, this fixes several issues:
+> > > 1. Packets from a VF with pvid configured which were sent with a
+> > >    different vlan were transmitted instead of being discarded.
+> > >
+> > > 2. FCoE traffic might not recover after a failue while there's traffic
+> > >    to another function.
+> > >
+> > > Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+> >
+> > Hi, any news about this one?
+> > Thanks, Yuval
+> 
+> Any updates? I've sent this 3-weeks ago and haven't seen any reply.
+
+Apparently the destination E-mail has changed and I was unaware.
+Is anyone here? ;-)
