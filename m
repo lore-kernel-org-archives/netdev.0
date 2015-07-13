@@ -1,65 +1,121 @@
-From: Manoil Claudiu <claudiu.manoil@freescale.com>
-Subject: RE: [PATCH net-next 2/4] gianfar: Fix and cleanup rxbd status
- handling
-Date: Mon, 13 Jul 2015 07:43:59 +0000
-Message-ID: <DM2PR03MB4142B3022ACA285C0DC261D9C9C0@DM2PR03MB414.namprd03.prod.outlook.com>
-References: <1436459084-14103-1-git-send-email-claudiu.manoil@freescale.com>
-	<1436459084-14103-3-git-send-email-claudiu.manoil@freescale.com>
- <20150710.182516.1107515769111345392.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: net: Clone skb before setting peeked flag
+Date: Mon, 13 Jul 2015 16:04:13 +0800
+Message-ID: <20150713080413.GA8901@gondor.apana.org.au>
+References: <20150710115141.12980.88829.stgit@buzz>
+ <20150713072352.GA8485@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0114.outbound.protection.outlook.com ([65.55.169.114]:28272
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751608AbbGMHoC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 03:44:02 -0400
-In-Reply-To: <20150710.182516.1107515769111345392.davem@davemloft.net>
-Content-Language: en-US
+Received: from helcar.hengli.com.au ([209.40.204.226]:42350 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751415AbbGMIET (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 04:04:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20150713072352.GA8485@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Saturday, July 11, 2015 4:25 AM
-> To: Manoil Claudiu-B08782
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [PATCH net-next 2/4] gianfar: Fix and cleanup rxbd status
-> handling
-> 
-> From: Claudiu Manoil <claudiu.manoil@freescale.com>
-> Date: Thu, 9 Jul 2015 19:24:42 +0300
-> 
-> > @@ -2921,6 +2921,7 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q
-> *rx_queue, int rx_work_limit)
-> >  	i = rx_queue->next_to_clean;
-> >
-> >  	while (rx_work_limit--) {
-> > +		unsigned long lstatus;
-> >
-> >  		if (cleaned_cnt >= GFAR_RX_BUFF_ALLOC) {
-> >  			gfar_alloc_rx_buffs(rx_queue, cleaned_cnt);
-> > @@ -2928,7 +2929,8 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q
-> *rx_queue, int rx_work_limit)
-> >  		}
-> >
-> >  		bdp = &rx_queue->rx_bd_base[i];
-> > -		if (be16_to_cpu(bdp->status) & RXBD_EMPTY)
-> > +		lstatus = be32_to_cpu(bdp->lstatus);
-> > +		if (lstatus & BD_LFLAG(RXBD_EMPTY))
-> >  			break;
-> >
-> >  		/* order rx buffer descriptor reads */
-> 
-> "lstatus" is not an "unsigned long", it's a "u32".
-> 
-> Don't use ambiguous types for objects with exact known sizes.
+Shared skbs must not be modified and this is crucial for broadcast
+and/or multicast paths where we use it as an optimisation to avoid
+unnecessary cloning.
 
-I agree, will send v2.  Maybe I thought it would be safe enough
-since old "status" was "unsigned short", but I agree about dispelling
-the ambiguity by using u32.  Thanks.
+The function skb_recv_datagram breaks this rule by setting peeked
+without cloning the skb first.  This causes funky races which leads
+to double-free.
 
-Claudiu
+This patch fixes this by cloning the skb and replacing the skb
+in the list when setting skb->peeked.
+
+Fixes: a59322be07c9 ("[UDP]: Only increment counter on first peek/recv")
+Reported-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index b80fb91..4e9a3f6 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -131,6 +131,35 @@ out_noerr:
+ 	goto out;
+ }
+ 
++static int skb_set_peeked(struct sk_buff *skb)
++{
++	struct sk_buff *nskb;
++
++	if (skb->peeked)
++		return 0;
++
++	/* We have to unshare an skb before modifying it. */
++	if (!skb_shared(skb))
++		goto done;
++
++	nskb = skb_clone(skb, GFP_ATOMIC);
++	if (!nskb)
++		return -ENOMEM;
++
++	skb->prev->next = nskb;
++	skb->next->prev = nskb;
++	nskb->prev = skb->prev;
++	nskb->next = skb->next;
++
++	consume_skb(skb);
++	skb = nskb;
++
++done:
++	skb->peeked = 1;
++
++	return 0;
++}
++
+ /**
+  *	__skb_recv_datagram - Receive a datagram skbuff
+  *	@sk: socket
+@@ -165,7 +194,9 @@ out_noerr:
+ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+ 				    int *peeked, int *off, int *err)
+ {
++	struct sk_buff_head *queue = &sk->sk_receive_queue;
+ 	struct sk_buff *skb, *last;
++	unsigned long cpu_flags;
+ 	long timeo;
+ 	/*
+ 	 * Caller is allowed not to check sk->sk_err before skb_recv_datagram()
+@@ -184,8 +215,6 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+ 		 * Look at current nfs client by the way...
+ 		 * However, this function was correct in any case. 8)
+ 		 */
+-		unsigned long cpu_flags;
+-		struct sk_buff_head *queue = &sk->sk_receive_queue;
+ 		int _off = *off;
+ 
+ 		last = (struct sk_buff *)queue;
+@@ -199,7 +228,11 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+ 					_off -= skb->len;
+ 					continue;
+ 				}
+-				skb->peeked = 1;
++
++				error = skb_set_peeked(skb);
++				if (error)
++					goto unlock_err;
++
+ 				atomic_inc(&skb->users);
+ 			} else
+ 				__skb_unlink(skb, queue);
+@@ -223,6 +256,8 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+ 
+ 	return NULL;
+ 
++unlock_err:
++	spin_unlock_irqrestore(&queue->lock, cpu_flags);
+ no_packet:
+ 	*err = error;
+ 	return NULL;
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
