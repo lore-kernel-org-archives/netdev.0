@@ -1,171 +1,39 @@
-From: Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
-Subject: Re: [PATCH v2 15/22] fjes: net_device_ops.ndo_vlan_rx_add/kill_vid
-Date: Mon, 13 Jul 2015 09:54:20 -0700 (PDT)
-Message-ID: <55a3ed3c.24658c0a.695c.6f9f@mx.google.com>
-References: <1435114351-6961-1-git-send-email-izumi.taku@jp.fujitsu.com>
-	<1435114554-7151-16-git-send-email-izumi.taku@jp.fujitsu.com>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: request for -stable: "route: Use ipv4_mtu instead of raw rt_pmtu"
+Date: Mon, 13 Jul 2015 20:26:54 +0300
+Message-ID: <20150713202654.26868008@vostro>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
-	rkhan@redhat.com, alexander.h.duyck@redhat.com,
-	linux-acpi@vger.kernel.org, joe@perches.com,
-	sergei.shtylyov@cogentembedded.com, stephen@networkplumber.org,
-	Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
-To: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Return-path: <platform-driver-x86-owner@vger.kernel.org>
-In-Reply-To: <1435114554-7151-16-git-send-email-izumi.taku@jp.fujitsu.com>
-Sender: platform-driver-x86-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Li Wei <lw@cn.fujitsu.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:33675 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751442AbbGMR05 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 13:26:57 -0400
+Received: by lbbyj8 with SMTP id yj8so44268407lbb.0
+        for <netdev@vger.kernel.org>; Mon, 13 Jul 2015 10:26:56 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Izumi-san,
+Hi,
 
-On Wed, 24 Jun 2015 11:55:47 +0900
-Taku Izumi <izumi.taku@jp.fujitsu.com> wrote:
+Can you queue for active older -stables up to 3.18:
 
-> This patch adds net_device_ops.ndo_vlan_rx_add_vid and
-> net_device_ops.ndo_vlan_rx_kill_vid callback.
-> 
-> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
-> ---
->  drivers/net/fjes/fjes_hw.c   | 27 +++++++++++++++++++++++++++
->  drivers/net/fjes/fjes_hw.h   |  2 ++
->  drivers/net/fjes/fjes_main.c | 40 ++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 69 insertions(+)
-> 
-> diff --git a/drivers/net/fjes/fjes_hw.c b/drivers/net/fjes/fjes_hw.c
-> index 5e3f847..8363e22 100644
-> --- a/drivers/net/fjes/fjes_hw.c
-> +++ b/drivers/net/fjes/fjes_hw.c
-> @@ -827,6 +827,33 @@ bool fjes_hw_check_vlan_id(struct epbuf_handler *epbh, u16 vlan_id)
->  	return ret;
->  }
->  
-> +bool fjes_hw_set_vlan_id(struct epbuf_handler *epbh, u16 vlan_id)
-> +{
-> +	union ep_buffer_info *info = epbh->info;
-> +	int i;
-> +
-> +	for (i = 0; i < EP_BUFFER_SUPPORT_VLAN_MAX; i++) {
-> +		if (info->v1i.vlan_id[i] == 0) {
-> +			info->v1i.vlan_id[i] = vlan_id;
-> +			return true;
-> +		}
-> +	}
-> +	return false;
-> +}
-> +
-> +void fjes_hw_del_vlan_id(struct epbuf_handler *epbh, u16 vlan_id)
-> +{
-> +	union ep_buffer_info *info = epbh->info;
-> +	int i;
-> +
+commit 3cdaa5be9e81 "ipv4: Don't increase PMTU with Datagram Too Big message"
+commit cb6ccf09d6b9 "route: Use ipv4_mtu instead of raw rt_pmtu"
 
-> +	if (0 != vlan_id) {
+commit 3cdaa5be9e81 made it to 3.19.y and was later fixed additionally
+with conversion to ipv4_mtu() in the second referenced commit.
 
-How about using the following if statement so than you can delete
-indent?
-
-	if (vlan_id == 0)
-		return;
-
-> +		for (i = 0; i < EP_BUFFER_SUPPORT_VLAN_MAX; i++) {
-> +			if (vlan_id == info->v1i.vlan_id[i])
-> +				info->v1i.vlan_id[i] = 0;
-> +		}
-> +	}
-> +}
-> +
->  bool fjes_hw_epbuf_rx_is_empty(struct epbuf_handler *epbh)
->  {
->  	union ep_buffer_info *info = epbh->info;
-> diff --git a/drivers/net/fjes/fjes_hw.h b/drivers/net/fjes/fjes_hw.h
-> index ea30aeb..afad03e 100644
-> --- a/drivers/net/fjes/fjes_hw.h
-> +++ b/drivers/net/fjes/fjes_hw.h
-> @@ -321,6 +321,8 @@ int fjes_hw_epid_is_shared(struct fjes_device_shared_info *, int);
->  bool fjes_hw_check_epbuf_version(struct epbuf_handler *, u32);
->  bool fjes_hw_check_mtu(struct epbuf_handler *, u32);
->  bool fjes_hw_check_vlan_id(struct epbuf_handler *, u16);
-> +bool fjes_hw_set_vlan_id(struct epbuf_handler *, u16);
-> +void fjes_hw_del_vlan_id(struct epbuf_handler *, u16);
->  bool fjes_hw_epbuf_rx_is_empty(struct epbuf_handler *);
->  void *fjes_hw_epbuf_rx_curpkt_get_addr(struct epbuf_handler *, size_t *);
->  void fjes_hw_epbuf_rx_curpkt_drop(struct epbuf_handler *);
-> diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-> index e2e69e0..bb4c8e4 100644
-> --- a/drivers/net/fjes/fjes_main.c
-> +++ b/drivers/net/fjes/fjes_main.c
-> @@ -58,6 +58,8 @@ static irqreturn_t fjes_intr(int, void*);
->  static struct rtnl_link_stats64 *
->  fjes_get_stats64(struct net_device *, struct rtnl_link_stats64 *);
->  static int fjes_change_mtu(struct net_device *, int);
-> +static int fjes_vlan_rx_add_vid(struct net_device *, __be16 proto, u16);
-> +static int fjes_vlan_rx_kill_vid(struct net_device *, __be16 proto, u16);
->  static void fjes_tx_retry(struct net_device *);
->  
->  static int fjes_acpi_add(struct acpi_device *);
-> @@ -229,6 +231,8 @@ static const struct net_device_ops fjes_netdev_ops = {
->  	.ndo_get_stats64	= fjes_get_stats64,
->  	.ndo_change_mtu		= fjes_change_mtu,
->  	.ndo_tx_timeout		= fjes_tx_retry,
-> +	.ndo_vlan_rx_add_vid	= fjes_vlan_rx_add_vid,
-> +	.ndo_vlan_rx_kill_vid = fjes_vlan_rx_kill_vid,
->  };
->  
->  /* fjes_open - Called when a network interface is made active */
-> @@ -757,6 +761,42 @@ static int fjes_change_mtu(struct net_device *netdev, int new_mtu)
->  	return -EINVAL;
->  }
->  
-> +static int fjes_vlan_rx_add_vid(struct net_device *netdev,
-> +				__be16 proto, u16 vid)
-> +{
-> +	struct fjes_adapter *adapter = netdev_priv(netdev);
-> +	bool ret = true;
-> +	int epid;
-> +
-> +	for (epid = 0; epid < adapter->hw.max_epid; epid++) {
-> +		if (epid == adapter->hw.my_epid)
-> +			continue;
-> +
-> +		if (!fjes_hw_check_vlan_id(
-> +			&adapter->hw.ep_shm_info[epid].tx, vid))
-> +			ret = fjes_hw_set_vlan_id(
-> +				&adapter->hw.ep_shm_info[epid].tx, vid);
-> +	}
-> +
-> +	return ret ? 0 : -ENOSPC;
-> +}
-> +
-
-> +static int fjes_vlan_rx_kill_vid(struct net_device *netdev,
-> +				 __be16 proto, u16 vid)
-
-The function always returns 0. So how about defining the function
-as void?
+However, these patches together will fix another case that is not so
+obvious: the case if the original route had MTU set on it. Previously
+it was ignored but using ipv4_mtu as the first check will also check
+RTAX_MTU on metrics. This fixes the nasty issue that PMTU can trigger
+to send larger packets then what was explicitly configured via a static
+route mtu.
 
 Thanks,
-Ysauaki Ishimatsu
-
-> +{
-> +	struct fjes_adapter *adapter = netdev_priv(netdev);
-> +	int epid;
-> +
-> +	for (epid = 0; epid < adapter->hw.max_epid; epid++) {
-> +		if (epid == adapter->hw.my_epid)
-> +			continue;
-> +
-> +		fjes_hw_del_vlan_id(&adapter->hw.ep_shm_info[epid].tx, vid);
-> +	}
-> +
-> +	return 0;
-> +}
-> +
->  static irqreturn_t fjes_intr(int irq, void *data)
->  {
->  	struct fjes_adapter *adapter = data;
-> -- 
-> 1.8.3.1
-> 
+Timo
