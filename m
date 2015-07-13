@@ -1,96 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/16] i40e: Remove incorrect #ifdef's
-Date: Mon, 13 Jul 2015 02:08:28 -0700
-Message-ID: <1436778517-16254-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/16] i40evf: Allow for an abundance of vectors
+Date: Mon, 13 Jul 2015 02:08:26 -0700
+Message-ID: <1436778517-16254-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1436778517-16254-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:28267 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:40574 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751972AbbGMJIq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751770AbbGMJIq (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 13 Jul 2015 05:08:46 -0400
 In-Reply-To: <1436778517-16254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-This patch removes some #ifdef's that should not be there. They
-were stopping code that is needed from being compiled in.
+The driver currently only maps TX and RX queues to a single MSI-X vector
+per queue pair if there are exactly enough vectors for this.
+Unfortunately, if we have too many vectors it will fail and allocate
+queues to vectors in a suboptimal manner. Change the condition check to
+allow for excess vectors. In this case, the extras just won't be used.
 
-With these #ifdef's removed, changes are needed in the driver
-to fix some compile errors: adding missing parameters to
-the definition of ndo_bridge_setlink and a ndo_dflt_brige_getlink call.
-
-Change-ID: I5516614e1bc50b6bca0647cef971bc96161ba2de
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Change-ID: I23e1e2955c64739c86612db88a25583e6a7e0b17
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 12 ++----------
- 1 file changed, 2 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index ed6fc52..c7f2a0a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7993,7 +7993,6 @@ static int i40e_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 	return err;
- }
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 4ab4ebb..94eff4a 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -406,7 +406,7 @@ static int i40evf_map_rings_to_vectors(struct i40evf_adapter *adapter)
+ 	/* The ideal configuration...
+ 	 * We have enough vectors to map one per queue.
+ 	 */
+-	if (q_vectors == (rxr_remaining * 2)) {
++	if (q_vectors >= (rxr_remaining * 2)) {
+ 		for (; rxr_idx < rxr_remaining; v_start++, rxr_idx++)
+ 			i40evf_map_vector_to_rxq(adapter, v_start, rxr_idx);
  
--#ifdef HAVE_BRIDGE_ATTRIBS
- /**
-  * i40e_ndo_bridge_setlink - Set the hardware bridge mode
-  * @dev: the netdev being configured
-@@ -8007,7 +8006,8 @@ static int i40e_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
-  * bridge mode enabled.
-  **/
- static int i40e_ndo_bridge_setlink(struct net_device *dev,
--				   struct nlmsghdr *nlh)
-+				   struct nlmsghdr *nlh,
-+				   u16 flags)
- {
- 	struct i40e_netdev_priv *np = netdev_priv(dev);
- 	struct i40e_vsi *vsi = np->vsi;
-@@ -8078,14 +8078,9 @@ static int i40e_ndo_bridge_setlink(struct net_device *dev,
-  * Return the mode in which the hardware bridge is operating in
-  * i.e VEB or VEPA.
-  **/
--#ifdef HAVE_BRIDGE_FILTER
- static int i40e_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 				   struct net_device *dev,
- 				   u32 filter_mask, int nlflags)
--#else
--static int i40e_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
--				   struct net_device *dev, int nlflags)
--#endif /* HAVE_BRIDGE_FILTER */
- {
- 	struct i40e_netdev_priv *np = netdev_priv(dev);
- 	struct i40e_vsi *vsi = np->vsi;
-@@ -8109,7 +8104,6 @@ static int i40e_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, veb->bridge_mode,
- 				       nlflags, 0, 0, filter_mask, NULL);
- }
--#endif /* HAVE_BRIDGE_ATTRIBS */
- 
- #define I40E_MAX_TUNNEL_HDR_LEN 80
- /**
-@@ -8165,10 +8159,8 @@ static const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_get_phys_port_id	= i40e_get_phys_port_id,
- 	.ndo_fdb_add		= i40e_ndo_fdb_add,
- 	.ndo_features_check	= i40e_features_check,
--#ifdef HAVE_BRIDGE_ATTRIBS
- 	.ndo_bridge_getlink	= i40e_ndo_bridge_getlink,
- 	.ndo_bridge_setlink	= i40e_ndo_bridge_setlink,
--#endif /* HAVE_BRIDGE_ATTRIBS */
- };
- 
- /**
 -- 
 2.4.3
