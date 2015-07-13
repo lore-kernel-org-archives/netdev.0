@@ -1,32 +1,41 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH] Logically DeadCode
-Date: Mon, 13 Jul 2015 21:58:16 +0200
-Message-ID: <CACna6rxRFzjs+rxP30wY-xyDmoDysbutA=xAVteWTcDR0i-oAw@mail.gmail.com>
-References: <893988929.229281435899150021.JavaMail.weblogic@ep2mlwas07a>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] sctp: SCTP_SOCKOPT_PEELOFF return socket pointer
+ for kernel users
+Date: Mon, 13 Jul 2015 12:58:52 -0700 (PDT)
+Message-ID: <20150713.125852.915617134904684689.davem@davemloft.net>
+References: <20150713103911.GA9631@hmsreliant.think-freely.org>
+	<20150713.115912.324798425601463403.davem@davemloft.net>
+	<55A40BF7.7060803@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Nitin Jhanwar <nitin.j@samsung.com>,
-	"hemanshu.s@samsung.com" <hemanshu.s@samsung.com>,
-	Amit Khatri <amit.khatri@samsung.com>
-To: rahul.jain@samsung.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <893988929.229281435899150021.JavaMail.weblogic@ep2mlwas07a>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org, vyasevich@gmail.com
+To: marcelo.leitner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43679 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752406AbbGMT6z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 15:58:55 -0400
+In-Reply-To: <55A40BF7.7060803@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 3 July 2015 at 06:52, Rahul Jain <rahul.jain@samsung.com> wrote:
-> From 0c34030166a150d6d9f1ab52e7bb40a5440a68c2 Mon Sep 17 00:00:00 2001
-> From: Rahul Jain <rahul.jain@samsung.com>
-> Date: Fri, 3 Jul 2015 10:19:12 +0530
-> Subject: [PATCH] Logically DeadCode
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Mon, 13 Jul 2015 16:05:27 -0300
 
-You didn't use any prefix for the commit message, it's unclear
-(Logically DeadCode what?), no description, you touch two code places
-at once.
+> On 13-07-2015 15:59, David Miller wrote:
+>> From: Neil Horman <nhorman@tuxdriver.com>
+>> Date: Mon, 13 Jul 2015 06:39:11 -0400
+>>
+>>> Initially Marcelo had created duplicate code paths, one to return an
+>>> fd, one to return a file struct.  If you would rather go in that
+>>> direction, I'm sure he can propose it again, but that seems less
+>>> correct to me than this solution.
+>>
+>> That's much better.
+> 
+> I'm not sure what you mean. Is the new option better or the
+> history/description?
 
-Please fix above problems and resend.
+I mean that adding an explicit function for these internal kernel
+users to call is better.
