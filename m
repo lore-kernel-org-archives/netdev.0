@@ -1,7 +1,7 @@
 From: Bandan Das <bsd@redhat.com>
-Subject: [RFC PATCH 3/4] cgroup: Introduce a function to compare cgroups
-Date: Mon, 13 Jul 2015 00:07:34 -0400
-Message-ID: <1436760455-5686-4-git-send-email-bsd@redhat.com>
+Subject: [RFC PATCH 4/4] vhost: Add cgroup-aware creation of worker threads
+Date: Mon, 13 Jul 2015 00:07:35 -0400
+Message-ID: <1436760455-5686-5-git-send-email-bsd@redhat.com>
 References: <1436760455-5686-1-git-send-email-bsd@redhat.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	mst@redhat.com, Eyal Moscovici <EYALMO@il.ibm.com>,
@@ -13,81 +13,96 @@ In-Reply-To: <1436760455-5686-1-git-send-email-bsd@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This function takes two tasks and iterates through all
-hierarchies to check if they belong to the same cgroups.
-It ignores the check for default hierarchies or for
-hierarchies with no subsystems attached. This function
-will be used by the next patch to add rudimentary cgroup support
-with vhost workers.
+With the help of the cgroup function to compare groups introduced
+in the previous patch, this changes worker creation policy.
+If the new device belongs to different cgroups than any of the
+devices we are currently serving, we end up creating a new worker
+thread even if we haven't reached the devs_per_worker threshold
 
 Signed-off-by: Bandan Das <bsd@redhat.com>
 ---
- include/linux/cgroup.h |  1 +
- kernel/cgroup.c        | 40 ++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 41 insertions(+)
+ drivers/vhost/vhost.c | 47 +++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 39 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
-index b9cb94c..606fb5b 100644
---- a/include/linux/cgroup.h
-+++ b/include/linux/cgroup.h
-@@ -933,6 +933,7 @@ void css_task_iter_start(struct cgroup_subsys_state *css,
- struct task_struct *css_task_iter_next(struct css_task_iter *it);
- void css_task_iter_end(struct css_task_iter *it);
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 6a5d4c0..dc0fa37 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -261,12 +261,6 @@ static int vhost_worker(void *data)
+ 				use_mm(dev->mm);
+ 			}
  
-+int cgroup_match_groups(struct task_struct *tsk1, struct task_struct *tsk2);
- int cgroup_attach_task_all(struct task_struct *from, struct task_struct *);
- int cgroup_transfer_tasks(struct cgroup *to, struct cgroup *from);
- 
-diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-index 469dd54..ba4121e 100644
---- a/kernel/cgroup.c
-+++ b/kernel/cgroup.c
-@@ -2465,6 +2465,46 @@ out_unlock_cgroup:
+-			/* TODO: Consider a more elegant solution */
+-			if (worker->owner != dev->owner) {
+-				/* Should check for return value */
+-				cgroup_attach_task_all(dev->owner, current);
+-				worker->owner = dev->owner;
+-			}
+ 			work->fn(work);
+ 			if (need_resched())
+ 				schedule();
+@@ -278,6 +272,36 @@ static int vhost_worker(void *data)
+ 	return 0;
  }
  
- /**
-+ * cgroup_match_groups - check if tsk1 and tsk2 belong to
-+ * same cgroups in all hierarchies
-+ * Returns 0 on success
-+ */
-+int cgroup_match_groups(struct task_struct *tsk1, struct task_struct *tsk2)
++struct vhost_attach_cgroups_struct {
++	struct vhost_work work;
++	struct task_struct *owner;
++	int ret;
++};
++
++static void vhost_attach_cgroups_work(struct vhost_work *work)
 +{
-+	struct cgroup_root *root;
-+	int retval = 0;
++	struct vhost_attach_cgroups_struct *s;
 +
-+	WARN_ON(!tsk1 || !tsk2);
-+
-+	mutex_lock(&cgroup_mutex);
-+	for_each_root(root) {
-+		struct cgroup *cg_tsk1;
-+		struct cgroup *cg_tsk2;
-+
-+		/* Default hierarchy */
-+		if (root == &cgrp_dfl_root)
-+			continue;
-+		/* No subsystems attached */
-+		if (!root->subsys_mask)
-+			continue;
-+
-+		down_read(&css_set_rwsem);
-+		cg_tsk1 = task_cgroup_from_root(tsk1, root);
-+		cg_tsk2 = task_cgroup_from_root(tsk2, root);
-+		up_read(&css_set_rwsem);
-+
-+		if (cg_tsk1 != cg_tsk2) {
-+			retval = 1;
-+			break;
-+		}
-+	}
-+	mutex_unlock(&cgroup_mutex);
-+
-+	return retval;
++	s = container_of(work, struct vhost_attach_cgroups_struct, work);
++	s->ret = cgroup_attach_task_all(s->owner, current);
 +}
-+EXPORT_SYMBOL_GPL(cgroup_match_groups);
 +
-+/**
-  * cgroup_attach_task_all - attach task 'tsk' to all cgroups of task 'from'
-  * @from: attach to all cgroups of a given task
-  * @tsk: the task to be attached
++static void vhost_attach_cgroups(struct vhost_dev *dev,
++				struct vhost_worker *worker)
++{
++	struct vhost_attach_cgroups_struct attach;
++
++	attach.owner = dev->owner;
++	vhost_work_init(dev, &attach.work, vhost_attach_cgroups_work);
++	vhost_work_queue(worker, &attach.work);
++	vhost_work_flush(worker, &attach.work);
++
++	if (!attach.ret)
++		worker->owner = dev->owner;
++
++	dev->err = attach.ret;
++}
++
+ static void vhost_create_worker(struct vhost_dev *dev)
+ {
+ 	struct vhost_worker *worker;
+@@ -300,8 +324,14 @@ static void vhost_create_worker(struct vhost_dev *dev)
+ 
+ 	spin_lock_init(&worker->work_lock);
+ 	INIT_LIST_HEAD(&worker->work_list);
++
++	/* attach to the cgroups of the process that created us */
++	vhost_attach_cgroups(dev, worker);
++	if (dev->err)
++		goto therror;
++	worker->owner = dev->owner;
++
+ 	list_add(&worker->node, &pool->workers);
+-	worker->owner = NULL;
+ 	worker->num_devices++;
+ 	total_vhost_workers++;
+ 	dev->worker = worker;
+@@ -320,7 +350,8 @@ static int vhost_dev_assign_worker(struct vhost_dev *dev)
+ 
+ 	mutex_lock(&vhost_pool->pool_lock);
+ 	list_for_each_entry(worker, &vhost_pool->workers, node) {
+-		if (worker->num_devices < devs_per_worker) {
++		if (worker->num_devices < devs_per_worker &&
++		    (!cgroup_match_groups(dev->owner, worker->owner))) {
+ 			dev->worker = worker;
+ 			dev->worker_assigned = true;
+ 			worker->num_devices++;
 -- 
 2.4.3
