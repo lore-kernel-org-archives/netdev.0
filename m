@@ -1,62 +1,171 @@
-From: Akemi Yagi <amyagi@gmail.com>
-Subject: Re: Linux 4.2 build error in
- net/netfilter/ipset/ip_set_hash_netnet.c
-Date: Mon, 13 Jul 2015 16:13:31 +0000 (UTC)
-Message-ID: <mo0o3b$g5d$1@ger.gmane.org>
-References: <CAHTgTXUmreHAqPfgGEd+GJNb_OEzaCuytqBTjZsE2GDqiy3TCw@mail.gmail.com>
-	<20150705153520.GA23589@roeck-us.net>
+From: Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
+Subject: Re: [PATCH v2 15/22] fjes: net_device_ops.ndo_vlan_rx_add/kill_vid
+Date: Mon, 13 Jul 2015 09:54:20 -0700 (PDT)
+Message-ID: <55a3ed3c.24658c0a.695c.6f9f@mx.google.com>
+References: <1435114351-6961-1-git-send-email-izumi.taku@jp.fujitsu.com>
+	<1435114554-7151-16-git-send-email-izumi.taku@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Cc: netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
+	rkhan@redhat.com, alexander.h.duyck@redhat.com,
+	linux-acpi@vger.kernel.org, joe@perches.com,
+	sergei.shtylyov@cogentembedded.com, stephen@networkplumber.org,
+	Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
+To: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
+In-Reply-To: <1435114554-7151-16-git-send-email-izumi.taku@jp.fujitsu.com>
+Sender: platform-driver-x86-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 05 Jul 2015 08:35:20 -0700, Guenter Roeck wrote:
+Hi Izumi-san,
 
-> On Sat, Jul 04, 2015 at 12:44:36AM -0700, Vinson Lee wrote:
->> Hi.
->>=20
->> With the latest Linux 4.2-rc1, I am hitting this build error with GC=
-C
->> 4.4.7 on CentOS 6.
->>=20
->>   CC      net/netfilter/ipset/ip_set_hash_netnet.o
->> net/netfilter/ipset/ip_set_hash_netnet.c: In function
->> =E2=80=98hash_netnet4_uadt=E2=80=99:
->> net/netfilter/ipset/ip_set_hash_netnet.c:163: error: unknown field
->> =E2=80=98cidr=E2=80=99 specified in initializer
->> net/netfilter/ipset/ip_set_hash_netnet.c:163: warning: missing brace=
-s
->> around initializer net/netfilter/ipset/ip_set_hash_netnet.c:163:
->> warning: (near initialization for =E2=80=98e.<anonymous>.ip=E2=80=99=
-)
->> net/netfilter/ipset/ip_set_hash_netnet.c: In function
->> =E2=80=98hash_netnet6_uadt=E2=80=99:
->> net/netfilter/ipset/ip_set_hash_netnet.c:388: error: unknown field
->> =E2=80=98cidr=E2=80=99 specified in initializer
->> net/netfilter/ipset/ip_set_hash_netnet.c:388: warning: missing brace=
-s
->> around initializer net/netfilter/ipset/ip_set_hash_netnet.c:388:
->> warning: (near initialization for =E2=80=98e.ip[0]=E2=80=99)
->>=20
-> Previously fixed with commit 1a869205c75cb ("netfilter: ipset: The
-> unnamed union initialization may lead to compilation error"),
-> reintroduced with commit aff227581ed1a ("netfilter: ipset: Check CIDR
-> value only when attribute is given").
->=20
-> Guenter
+On Wed, 24 Jun 2015 11:55:47 +0900
+Taku Izumi <izumi.taku@jp.fujitsu.com> wrote:
 
-I wonder what can be done to get this issue fixed. This problem was see=
-n=20
-in 4.2-rc1 and now in 4.2-rc2 on RHEL-6.6.
+> This patch adds net_device_ops.ndo_vlan_rx_add_vid and
+> net_device_ops.ndo_vlan_rx_kill_vid callback.
+> 
+> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+> ---
+>  drivers/net/fjes/fjes_hw.c   | 27 +++++++++++++++++++++++++++
+>  drivers/net/fjes/fjes_hw.h   |  2 ++
+>  drivers/net/fjes/fjes_main.c | 40 ++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 69 insertions(+)
+> 
+> diff --git a/drivers/net/fjes/fjes_hw.c b/drivers/net/fjes/fjes_hw.c
+> index 5e3f847..8363e22 100644
+> --- a/drivers/net/fjes/fjes_hw.c
+> +++ b/drivers/net/fjes/fjes_hw.c
+> @@ -827,6 +827,33 @@ bool fjes_hw_check_vlan_id(struct epbuf_handler *epbh, u16 vlan_id)
+>  	return ret;
+>  }
+>  
+> +bool fjes_hw_set_vlan_id(struct epbuf_handler *epbh, u16 vlan_id)
+> +{
+> +	union ep_buffer_info *info = epbh->info;
+> +	int i;
+> +
+> +	for (i = 0; i < EP_BUFFER_SUPPORT_VLAN_MAX; i++) {
+> +		if (info->v1i.vlan_id[i] == 0) {
+> +			info->v1i.vlan_id[i] = vlan_id;
+> +			return true;
+> +		}
+> +	}
+> +	return false;
+> +}
+> +
+> +void fjes_hw_del_vlan_id(struct epbuf_handler *epbh, u16 vlan_id)
+> +{
+> +	union ep_buffer_info *info = epbh->info;
+> +	int i;
+> +
 
-$ gcc --version
-gcc (GCC) 4.4.7 20120313 (Red Hat 4.4.7-11)
+> +	if (0 != vlan_id) {
 
-Please advise.
+How about using the following if statement so than you can delete
+indent?
 
-Akemi
+	if (vlan_id == 0)
+		return;
+
+> +		for (i = 0; i < EP_BUFFER_SUPPORT_VLAN_MAX; i++) {
+> +			if (vlan_id == info->v1i.vlan_id[i])
+> +				info->v1i.vlan_id[i] = 0;
+> +		}
+> +	}
+> +}
+> +
+>  bool fjes_hw_epbuf_rx_is_empty(struct epbuf_handler *epbh)
+>  {
+>  	union ep_buffer_info *info = epbh->info;
+> diff --git a/drivers/net/fjes/fjes_hw.h b/drivers/net/fjes/fjes_hw.h
+> index ea30aeb..afad03e 100644
+> --- a/drivers/net/fjes/fjes_hw.h
+> +++ b/drivers/net/fjes/fjes_hw.h
+> @@ -321,6 +321,8 @@ int fjes_hw_epid_is_shared(struct fjes_device_shared_info *, int);
+>  bool fjes_hw_check_epbuf_version(struct epbuf_handler *, u32);
+>  bool fjes_hw_check_mtu(struct epbuf_handler *, u32);
+>  bool fjes_hw_check_vlan_id(struct epbuf_handler *, u16);
+> +bool fjes_hw_set_vlan_id(struct epbuf_handler *, u16);
+> +void fjes_hw_del_vlan_id(struct epbuf_handler *, u16);
+>  bool fjes_hw_epbuf_rx_is_empty(struct epbuf_handler *);
+>  void *fjes_hw_epbuf_rx_curpkt_get_addr(struct epbuf_handler *, size_t *);
+>  void fjes_hw_epbuf_rx_curpkt_drop(struct epbuf_handler *);
+> diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
+> index e2e69e0..bb4c8e4 100644
+> --- a/drivers/net/fjes/fjes_main.c
+> +++ b/drivers/net/fjes/fjes_main.c
+> @@ -58,6 +58,8 @@ static irqreturn_t fjes_intr(int, void*);
+>  static struct rtnl_link_stats64 *
+>  fjes_get_stats64(struct net_device *, struct rtnl_link_stats64 *);
+>  static int fjes_change_mtu(struct net_device *, int);
+> +static int fjes_vlan_rx_add_vid(struct net_device *, __be16 proto, u16);
+> +static int fjes_vlan_rx_kill_vid(struct net_device *, __be16 proto, u16);
+>  static void fjes_tx_retry(struct net_device *);
+>  
+>  static int fjes_acpi_add(struct acpi_device *);
+> @@ -229,6 +231,8 @@ static const struct net_device_ops fjes_netdev_ops = {
+>  	.ndo_get_stats64	= fjes_get_stats64,
+>  	.ndo_change_mtu		= fjes_change_mtu,
+>  	.ndo_tx_timeout		= fjes_tx_retry,
+> +	.ndo_vlan_rx_add_vid	= fjes_vlan_rx_add_vid,
+> +	.ndo_vlan_rx_kill_vid = fjes_vlan_rx_kill_vid,
+>  };
+>  
+>  /* fjes_open - Called when a network interface is made active */
+> @@ -757,6 +761,42 @@ static int fjes_change_mtu(struct net_device *netdev, int new_mtu)
+>  	return -EINVAL;
+>  }
+>  
+> +static int fjes_vlan_rx_add_vid(struct net_device *netdev,
+> +				__be16 proto, u16 vid)
+> +{
+> +	struct fjes_adapter *adapter = netdev_priv(netdev);
+> +	bool ret = true;
+> +	int epid;
+> +
+> +	for (epid = 0; epid < adapter->hw.max_epid; epid++) {
+> +		if (epid == adapter->hw.my_epid)
+> +			continue;
+> +
+> +		if (!fjes_hw_check_vlan_id(
+> +			&adapter->hw.ep_shm_info[epid].tx, vid))
+> +			ret = fjes_hw_set_vlan_id(
+> +				&adapter->hw.ep_shm_info[epid].tx, vid);
+> +	}
+> +
+> +	return ret ? 0 : -ENOSPC;
+> +}
+> +
+
+> +static int fjes_vlan_rx_kill_vid(struct net_device *netdev,
+> +				 __be16 proto, u16 vid)
+
+The function always returns 0. So how about defining the function
+as void?
+
+Thanks,
+Ysauaki Ishimatsu
+
+> +{
+> +	struct fjes_adapter *adapter = netdev_priv(netdev);
+> +	int epid;
+> +
+> +	for (epid = 0; epid < adapter->hw.max_epid; epid++) {
+> +		if (epid == adapter->hw.my_epid)
+> +			continue;
+> +
+> +		fjes_hw_del_vlan_id(&adapter->hw.ep_shm_info[epid].tx, vid);
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+>  static irqreturn_t fjes_intr(int irq, void *data)
+>  {
+>  	struct fjes_adapter *adapter = data;
+> -- 
+> 1.8.3.1
+> 
