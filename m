@@ -1,74 +1,76 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [RFC net-next 18/22] openvswitch: Make tunnel set action attach a
- metadata dst
-Date: Mon, 13 Jul 2015 15:55:10 -0700
-Message-ID: <CANr6G5zNyGsx590AqAjYmYeXu0bktnqzO0d-=Yh2_u+iq=LCww@mail.gmail.com>
-References: <cover.1436537414.git.tgraf@suug.ch> <db45b60a2ab4aa0d6dde363558ebe3e46edb0e81.1436537414.git.tgraf@suug.ch>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: Re: [PATCH 1/2] isdn/gigaset: reset tty->receive_room when attaching
+ ser_gigaset
+Date: Mon, 13 Jul 2015 19:14:42 -0400
+Message-ID: <55A44662.4080706@hurleysoftware.com>
+References: <cover.1436826434.git.tilman@imap.cc> <ff18ec15ffc6347cd5574a66eb67cc9483361afa.1436826434.git.tilman@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
-	ebiederm@xmission.com, hannes@stressinduktion.org,
-	Pravin Shelar <pshelar@nicira.com>,
-	Jesse Gross <jesse@nicira.com>,
-	David Miller <davem@davemloft.net>, daniel@iogearbox.net,
-	tom@herbertland.com, edumazet@google.com, jiri@resnulli.us,
-	marcelo.leitner@gmail.com, stephen@networkplumber.org,
-	Justin Pettit <jpettit@nicira.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f173.google.com ([209.85.160.173]:33524 "EHLO
-	mail-yk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752808AbbGMWza (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 18:55:30 -0400
-Received: by ykeo3 with SMTP id o3so207822949yke.0
-        for <netdev@vger.kernel.org>; Mon, 13 Jul 2015 15:55:30 -0700 (PDT)
-In-Reply-To: <db45b60a2ab4aa0d6dde363558ebe3e46edb0e81.1436537414.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Hansjoerg Lipp <hjlipp@web.de>, linux-kernel@vger.kernel.org
+To: Tilman Schmidt <tilman@imap.cc>, Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ff18ec15ffc6347cd5574a66eb67cc9483361afa.1436826434.git.tilman@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Thomas,
+On 07/13/2015 06:37 PM, Tilman Schmidt wrote:
+> Commit 79901317ce80 ("n_tty: Don't flush buffer when closing ldisc"),
+> first merged in kernel release 3.10, caused the following regression
+> in the Gigaset M101 driver:
+> 
+> Before that commit, when closing the N_TTY line discipline in
+> preparation to switching to N_GIGASET_M101, receive_room would be
+> reset to a non-zero value by the call to n_tty_flush_buffer() in
+> n_tty's close method. With the removal of that call, receive_room
+> might be left at zero, blocking data reception on the serial line.
 
-On 10 July 2015 at 07:19, Thomas Graf <tgraf@suug.ch> wrote:
-> diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-> index ecfa530..05fe46b 100644
-> --- a/net/openvswitch/flow_netlink.c
-> +++ b/net/openvswitch/flow_netlink.c
-> @@ -1548,11 +1548,45 @@ static struct sw_flow_actions *nla_alloc_flow_actions(int size, bool log)
->         return sfa;
->  }
->
-> +static void ovs_nla_free_set_action(const struct nlattr *a)
-> +{
-> +       const struct nlattr *ovs_key = nla_data(a);
-> +       struct ovs_tunnel_info *ovs_tun;
-> +
-> +       switch (nla_type(ovs_key)) {
-> +       case OVS_KEY_ATTR_TUNNEL_INFO:
-> +               ovs_tun = nla_data(ovs_key);
-> +               dst_release((struct dst_entry *)ovs_tun->tun_dst);
-> +               break;
-> +       }
-> +}
-> +
-> +void ovs_nla_free_flow_actions(struct sw_flow_actions *sf_acts)
-> +{
-> +       const struct nlattr *a;
-> +       int rem;
-> +
-> +       nla_for_each_attr(a, sf_acts->actions, sf_acts->actions_len, rem) {
-> +               switch (nla_type(a)) {
-> +               case OVS_ACTION_ATTR_SET:
-> +                       ovs_nla_free_set_action(a);
-> +                       break;
-> +               }
-> +       }
-> +
-> +       kfree(sf_acts);
-> +}
+That commit didn't cause the problem; it was a bug all along.
 
-It doesn't look like flow_free() is using this new function to
-properly free the actions. Also, some of the error cases that hit this
-code have sf_acts=NULL.
+For example, if the tty had first been hooked up to some other line
+discipline which consumed most of tty->receive_room, _then_
+switched to N_GIGASET_M101 line discipline, the same problem would
+have occurred.
+
+Non-flow controlling line disciplines _must_ set tty->receive_room
+on line discipline open because they are declaring that every
+input they can accept that much data.
+
+Regards,
+Peter Hurley
+
+> The present patch fixes that regression by setting receive_room
+> to an appropriate value in the ldisc open method.
+> 
+> Fixes: 79901317ce80 ("n_tty: Don't flush buffer when closing ldisc")
+> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+> ---
+>  drivers/isdn/gigaset/ser-gigaset.c |   11 ++++++++++-
+>  1 files changed, 10 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
+> index 8c91fd5..3ac9c41 100644
+> --- a/drivers/isdn/gigaset/ser-gigaset.c
+> +++ b/drivers/isdn/gigaset/ser-gigaset.c
+> @@ -524,9 +524,18 @@ gigaset_tty_open(struct tty_struct *tty)
+>  	cs->hw.ser->tty = tty;
+>  	atomic_set(&cs->hw.ser->refcnt, 1);
+>  	init_completion(&cs->hw.ser->dead_cmp);
+> -
+>  	tty->disc_data = cs;
+>  
+> +	/* Set the amount of data we're willing to receive per call
+> +	 * from the hardware driver to half of the input buffer size
+> +	 * to leave some reserve.
+> +	 * Note: We don't do flow control towards the hardware driver.
+> +	 * If more data is received than will fit into the input buffer,
+> +	 * it will be dropped and an error will be logged. This should
+> +	 * never happen as the device is slow and the buffer size ample.
+> +	 */
+> +	tty->receive_room = RBUFSIZE/2;
+> +
+>  	/* OK.. Initialization of the datastructures and the HW is done.. Now
+>  	 * startup system and notify the LL that we are ready to run
+>  	 */
+> 
