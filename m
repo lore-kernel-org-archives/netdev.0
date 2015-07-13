@@ -1,46 +1,39 @@
-From: David Binderman <dcb314@hotmail.com>
-Subject: linux-4.2-rc2/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:1993:
- possible bad error checking ?
-Date: Mon, 13 Jul 2015 09:48:59 +0000
-Message-ID: <DUB128-W847EC851814161BB5A100A9C9C0@phx.gbl>
+From: Sebastien Rannou <mxs@sbrk.org>
+Subject: Re: [PATCH v2 0/2] net: enable inband link state negotiation only
+ when explicitly requested
+Date: Mon, 13 Jul 2015 11:54:17 +0200 (CEST)
+Message-ID: <alpine.LNX.2.02.1507131151330.25599@sbrk.org>
+References: <559FF511.5080102@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dub004-omc3s19.hotmail.com ([157.55.2.28]:51424 "EHLO
-	DUB004-OMC3S19.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751019AbbGMJtB convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jul 2015 05:49:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="2036029021-491946755-1436781257=:25599"
+Cc: netdev <netdev@vger.kernel.org>,
+	Linux kernel <linux-kernel@vger.kernel.org>,
+	Arnaud Ebalard <arno@natisbad.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>
+To: Stas Sergeev <stsp@list.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <559FF511.5080102@list.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello there,
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-[linux-4.2-rc2/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:1993]:=
- (style) Checking if unsigned variable 'entry' is less than zero.
+--2036029021-491946755-1436781257=:25599
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: 8BIT
 
-Source code is
+Hi Stas,
 
-=A0=A0=A0=A0=A0=A0=A0 entry =3D priv->hw->mode->jumbo_frm(priv, skb, cs=
-um_insertion);
-=A0=A0=A0=A0=A0=A0=A0 if (unlikely(entry < 0))
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 goto dma_map_err;
+On Fri, 10 Jul 2015, Stas Sergeev wrote:
 
-but
+> Those who were affected by the change, please send your Tested-by,
+> Thanks!
 
-=A0=A0=A0 unsigned int entry;
+I also confirm that this version of the patch solves the issue:
 
-So the error checking from the function call looks broken to me.
+Tested-by: Sebastien Rannou <mxs@sbrk.org>
 
-If the return value from the function call to jumbo_frm is a plain sign=
-ed integer, suggest
-sanity check that *before* assigning into an unsigned integer.
-
-Regards
-
-David Binderman
-
- 		 	   		  
+-- 
+Sébastien
+--2036029021-491946755-1436781257=:25599--
