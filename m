@@ -1,23 +1,40 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [rhashtable] WARNING: CPU: 0 PID: 1 at lib/debugobjects.c:301
- __debug_object_init()
-Date: Tue, 14 Jul 2015 10:50:26 +0200
-Message-ID: <55A4CD52.5060104@iogearbox.net>
-References: <20150714051957.GB19723@wfg-t540p.sh.intel.com> <20150714052136.GA20251@wfg-t540p.sh.intel.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC net-next 18/22] openvswitch: Make tunnel set action attach
+ a metadata dst
+Date: Tue, 14 Jul 2015 11:30:00 +0200
+Message-ID: <20150714093000.GB20597@pox.localdomain>
+References: <cover.1436537414.git.tgraf@suug.ch>
+ <db45b60a2ab4aa0d6dde363558ebe3e46edb0e81.1436537414.git.tgraf@suug.ch>
+ <CANr6G5zNyGsx590AqAjYmYeXu0bktnqzO0d-=Yh2_u+iq=LCww@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	LKP <lkp@01.org>
-To: Fengguang Wu <fengguang.wu@intel.com>, Thomas Graf <tgraf@suug.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150714052136.GA20251@wfg-t540p.sh.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
+	ebiederm@xmission.com, hannes@stressinduktion.org,
+	Pravin Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>,
+	David Miller <davem@davemloft.net>, daniel@iogearbox.net,
+	tom@herbertland.com, edumazet@google.com, jiri@resnulli.us,
+	marcelo.leitner@gmail.com, stephen@networkplumber.org,
+	Justin Pettit <jpettit@nicira.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Joe Stringer <joestringer@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:33269 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751020AbbGNJaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 05:30:03 -0400
+Received: by wgmn9 with SMTP id n9so3875857wgm.0
+        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 02:30:02 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CANr6G5zNyGsx590AqAjYmYeXu0bktnqzO0d-=Yh2_u+iq=LCww@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/14/2015 07:21 AM, Fengguang Wu wrote:
-> Sorry please ignore -- this no longer happen in linux-next, so should be fine.
+On 07/13/15 at 03:55pm, Joe Stringer wrote:
+> It doesn't look like flow_free() is using this new function to
+> properly free the actions. Also, some of the error cases that hit this
+> code have sf_acts=NULL.
 
-Seen this before, this fixed it back then:
-
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/lib/test_rhashtable.c?id=b7f5e5c7f8cedf6b69c9702d448cdf78ffc45c7b
+Good catch. Will fix in next iteration.
