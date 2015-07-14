@@ -1,37 +1,62 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH v2] rhashtable: fix for resize events during table walk
-Date: Tue, 14 Jul 2015 23:48:40 +0200
-Message-ID: <20150714214840.GB20648@pox.localdomain>
-References: <1436190680-21887-1-git-send-email-phil@nwl.cc>
- <alpine.LRH.2.11.1507150031550.15113@math.ut.ee>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] ravb: do not invalidate cache for RX buffer twice
+Date: Wed, 15 Jul 2015 00:56:52 +0300
+Message-ID: <4759713.2ulGRKsd9L@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Phil Sutter <phil@nwl.cc>, sparclinux@vger.kernel.org,
-	Linux Kernel list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	herbert@gondor.apana.org.au, daniel@iogearbox.net,
-	geert@linux-m68k.org
-To: mroos@linux.ee
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:34619 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753140AbbGNVsn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 17:48:43 -0400
-Received: by wibud3 with SMTP id ud3so65966342wib.1
-        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 14:48:42 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <alpine.LRH.2.11.1507150031550.15113@math.ut.ee>
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:33060 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750835AbbGNV44 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 17:56:56 -0400
+Received: by lbbyj8 with SMTP id yj8so14109926lbb.0
+        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 14:56:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/15/15 at 12:35am, mroos@linux.ee wrote:
-> Yes, this fixes the error, thank you.
-> 
-> The new problem with the test - soft lockup - CPU#0 stuck for 22s! is 
-> still there on 360 MHz UltraSparc IIi. I understand it is harmless but 
-> is there some easy way to make the test avoid NMI watchdog?
-> 
-> [   58.374173] NMI watchdog: BUG: soft lockup - CPU#0 stuck for 22s! [swapper:1]
+First, dma_sync_single_for_cpu() shouldn't have been called in the first place
+(it's a streaming DMA API). dma_unmap_single() should have been called instead.
+Second, dma_unmap_single() call after handing the buffer to napi_gro_receive()
+makes little sense.
 
-They don't show up on my system. I will add a schedule() call to the
-long loops.
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+---
+The patch is against Dave Miller's 'net.git' repo.
+
+Don't know why I missed this DMA API misuse while working on the driver. :-<
+
+ drivers/net/ethernet/renesas/ravb_main.c |   10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
+
+Index: net/drivers/net/ethernet/renesas/ravb_main.c
+===================================================================
+--- net.orig/drivers/net/ethernet/renesas/ravb_main.c
++++ net/drivers/net/ethernet/renesas/ravb_main.c
+@@ -543,10 +543,9 @@ static bool ravb_rx(struct net_device *n
+ 
+ 			skb = priv->rx_skb[q][entry];
+ 			priv->rx_skb[q][entry] = NULL;
+-			dma_sync_single_for_cpu(&ndev->dev,
+-						le32_to_cpu(desc->dptr),
+-						ALIGN(PKT_BUF_SZ, 16),
+-						DMA_FROM_DEVICE);
++			dma_unmap_single(&ndev->dev, le32_to_cpu(desc->dptr),
++					 ALIGN(PKT_BUF_SZ, 16),
++					 DMA_FROM_DEVICE);
+ 			get_ts &= (q == RAVB_NC) ?
+ 					RAVB_RXTSTAMP_TYPE_V2_L2_EVENT :
+ 					~RAVB_RXTSTAMP_TYPE_V2_L2_EVENT;
+@@ -584,9 +583,6 @@ static bool ravb_rx(struct net_device *n
+ 			if (!skb)
+ 				break;	/* Better luck next round. */
+ 			ravb_set_buffer_align(skb);
+-			dma_unmap_single(&ndev->dev, le32_to_cpu(desc->dptr),
+-					 ALIGN(PKT_BUF_SZ, 16),
+-					 DMA_FROM_DEVICE);
+ 			dma_addr = dma_map_single(&ndev->dev, skb->data,
+ 						  le16_to_cpu(desc->ds_cc),
+ 						  DMA_FROM_DEVICE);
