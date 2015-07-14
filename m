@@ -1,96 +1,50 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 net-next 1/3] rhashtable: Allow lookup function to have compare function agument
-Date: Tue, 14 Jul 2015 16:45:47 -0700
-Message-ID: <1436917549-3666965-2-git-send-email-tom@herbertland.com>
-References: <1436917549-3666965-1-git-send-email-tom@herbertland.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next 1/3] rhashtable: Add a function for in order
+ insertion in buckets
+Date: Wed, 15 Jul 2015 07:58:37 +0800
+Message-ID: <20150714235837.GA29279@gondor.apana.org.au>
+References: <1436834353-1851565-2-git-send-email-tom@herbertland.com>
+ <20150714095721.GA22264@gondor.apana.org.au>
+ <CALx6S34mGfzUbmPvsxTZDSJX7tehoh4j3nee3C33a57_FFnerw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>, <tgraf@suug.ch>,
-	<herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>, Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:63551 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752558AbbGNXqJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 19:46:09 -0400
-Received: from pps.filterd (m0044012 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t6ENfNoo021945
-	for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 16:46:09 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1vnbcsg4dm-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 16:46:09 -0700
-Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.223.101.97) with ESMTP	id
- 7f830ad22a8211e59dab24be0595f910-e5fd3270 for <netdev@vger.kernel.org>;	Tue,
- 14 Jul 2015 16:46:08 -0700
-In-Reply-To: <1436917549-3666965-1-git-send-email-tom@herbertland.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:58441 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751863AbbGNX6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 19:58:49 -0400
+Content-Disposition: inline
+In-Reply-To: <CALx6S34mGfzUbmPvsxTZDSJX7tehoh4j3nee3C33a57_FFnerw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added rhashtable_lookup_fast_cmpfn which does a lookup in an rhash table
-with the compare function being taken from an argument. This allows
-different compare functions to be used on the same table.
+On Tue, Jul 14, 2015 at 09:42:49AM -0700, Tom Herbert wrote:
+>
+> Scored lookups can provides the same functionality, but requires that
+> we scan all the elements so I see some overhead compared to doing
+> ordered insertion. One way to resolve the rehash problem is search any
+> future table after we find a hit in the first table to see if there
+> are any entries that would precede the element already found. So in
+> the common non-rehash case lookup happens as it does now except that
+> we would always check for future_tbl.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- include/linux/rhashtable.h | 20 +++++++++++++++-----
- 1 file changed, 15 insertions(+), 5 deletions(-)
+There is another problem with this approach and that is it breaks
+the logic for determining hash collission attack.  Since you're
+intentionally inserting multiple elements with the same hash, the
+chain length would be inflated.
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 843ceca..78a4e9b 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -513,19 +513,21 @@ static inline int rhashtable_compare(struct rhashtable_compare_arg *arg,
- }
- 
- /**
-- * rhashtable_lookup_fast - search hash table, inlined version
-+ * rhashtable_lookup_fast_cmpfn - search hash table, inlined version
-  * @ht:		hash table
-  * @key:	the pointer to the key
-  * @params:	hash table parameters
-+ * @obj_cmpfn:	compare function
-  *
-  * Computes the hash value for the key and traverses the bucket chain looking
-  * for a entry with an identical key. The first matching entry is returned.
-  *
-  * Returns the first entry on which the compare function returned true.
-  */
--static inline void *rhashtable_lookup_fast(
-+static inline void *rhashtable_lookup_fast_cmpfn(
- 	struct rhashtable *ht, const void *key,
--	const struct rhashtable_params params)
-+	const struct rhashtable_params params,
-+	rht_obj_cmpfn_t obj_cmpfn)
- {
- 	struct rhashtable_compare_arg arg = {
- 		.ht = ht,
-@@ -541,8 +543,8 @@ static inline void *rhashtable_lookup_fast(
- restart:
- 	hash = rht_key_hashfn(ht, tbl, key, params);
- 	rht_for_each_rcu(he, tbl, hash) {
--		if (params.obj_cmpfn ?
--		    params.obj_cmpfn(&arg, rht_obj(ht, he)) :
-+		if (obj_cmpfn ?
-+		    obj_cmpfn(&arg, rht_obj(ht, he)) :
- 		    rhashtable_compare(&arg, rht_obj(ht, he)))
- 			continue;
- 		rcu_read_unlock();
-@@ -560,6 +562,14 @@ restart:
- 	return NULL;
- }
- 
-+static inline void *rhashtable_lookup_fast(
-+	struct rhashtable *ht, const void *key,
-+	const struct rhashtable_params params)
-+{
-+	return rhashtable_lookup_fast_cmpfn(ht, key, params,
-+					    params.obj_cmpfn);
-+}
-+
- /* Internal function, please use rhashtable_insert_fast() instead */
- static inline int __rhashtable_insert_fast(
- 	struct rhashtable *ht, const void *key, struct rhash_head *obj,
+The other reason I wanted to have this logic outside of rhashtable
+is because for IPsec, the wildcards may in fact change after a
+"rehash".  For example we may move from a /32 granularity to a
+/31 granlarity at the requst of the admin.  In that case you can't
+just mix the chain from the old table with the new.
+
+Cheers,
 -- 
-1.8.1
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
