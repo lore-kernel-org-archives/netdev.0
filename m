@@ -1,8 +1,8 @@
 From: Stas Sergeev <stsp@list.ru>
-Subject: [PATCH v3 0/3] net: enable inband link state negotiation only when
- explicitly requested
-Date: Tue, 14 Jul 2015 20:09:33 +0300
-Message-ID: <55A5424D.4030809@list.ru>
+Subject: [PATCH 1/3] fixed_phy: handle link-down case
+Date: Tue, 14 Jul 2015 20:11:00 +0300
+Message-ID: <55A542A4.80700@list.ru>
+References: <55A5424D.4030809@list.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -13,24 +13,56 @@ Cc: Linux kernel <linux-kernel@vger.kernel.org>,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55A5424D.4030809@list.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
 
-Currently the link status auto-negotiation is enabled
-for any SGMII link with fixed-link DT binding.
-The regression was reported:
-https://lkml.org/lkml/2015/7/8/865
-Apparently not all HW that implements SGMII protocol, generates the
-inband status for the auto-negotiation to work.
-More details here:
-https://lkml.org/lkml/2015/7/10/206
+Currently fixed_phy driver recognizes only the link-up state.
+This simple patch adds an implementation of link-down state.
+It fixes the status registers when link is down, and also allows
+to register the fixed-phy with link down without specifying the speed.
 
-The following patches reverts to the old behavior by default,
-which is to not enable the auto-negotiation for fixed-link.
-The new DT property is added that allows to explicitly request
-the auto-negotiation.
+Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
 
-Those who were affected by the change, please send your Tested-by,
-Thanks!
+CC: Florian Fainelli <f.fainelli@gmail.com>
+CC: netdev@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+---
+ drivers/net/phy/fixed_phy.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
+index 1960b46..479b93f 100644
+--- a/drivers/net/phy/fixed_phy.c
++++ b/drivers/net/phy/fixed_phy.c
+@@ -52,6 +52,10 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
+ 	u16 lpagb = 0;
+ 	u16 lpa = 0;
+
++	if (!fp->status.link)
++		goto done;
++	bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
++
+ 	if (fp->status.duplex) {
+ 		bmcr |= BMCR_FULLDPLX;
+
+@@ -96,15 +100,13 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
+ 		}
+ 	}
+
+-	if (fp->status.link)
+-		bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
+-
+ 	if (fp->status.pause)
+ 		lpa |= LPA_PAUSE_CAP;
+
+ 	if (fp->status.asym_pause)
+ 		lpa |= LPA_PAUSE_ASYM;
+
++done:
+ 	fp->regs[MII_PHYSID1] = 0;
+ 	fp->regs[MII_PHYSID2] = 0;
+
+-- 
+1.9.1
