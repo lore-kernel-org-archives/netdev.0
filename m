@@ -1,41 +1,79 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] tc: fix tc actions in case of shared skb
-Date: Tue, 14 Jul 2015 16:08:07 -0700
-Message-ID: <55A59657.2050100@plumgrid.com>
-References: <55A41CE9.8050907@plumgrid.com> <55A425C4.60301@iogearbox.net>
- <55A43B26.1010009@plumgrid.com>
- <20150714.153422.914759715820927338.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next]r8169: Serialise some operations from open close
+Date: Wed, 15 Jul 2015 01:40:05 +0200
+Message-ID: <20150714234005.GA9052@electric-eye.fr.zoreil.com>
+References: <20150714202311.GA5189@192-168-0-3.rdsnet.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, jhs@mojatatu.com, jiri@resnulli.us,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Corcodel Marian <corcodel.marian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34773 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752939AbbGNXIJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 19:08:09 -0400
-Received: by pacan13 with SMTP id an13so12774154pac.1
-        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 16:08:09 -0700 (PDT)
-In-Reply-To: <20150714.153422.914759715820927338.davem@davemloft.net>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:40218 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751241AbbGNXkU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 19:40:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20150714202311.GA5189@192-168-0-3.rdsnet.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/14/15 3:34 PM, David Miller wrote:
->>>> 1 get rid of burst hack for both RX and TX in pktgen (kills
->>>> >>>performance)
-> #1 is a serious consideration if you don't come up with better ideas,
-> since an optimization is for nothing if it knowingly breaks things.
+Corcodel Marian <corcodel.marian@gmail.com> :
+[...]
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index 410c1ee..be67873 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -7555,11 +7555,13 @@ static int rtl8169_close(struct net_device *dev)
+>  
+>  	rtl_lock_work(tp);
+>  	clear_bit(RTL_FLAG_TASK_ENABLED, tp->wk.flags);
+> -
+> -	rtl8169_down(dev);
+>  	rtl_unlock_work(tp);
+>  
+> +	rtl8169_down(dev);
+> +	//rtl_unlock_work(tp);
+> +        rtl_lock_work(tp);
+>  	cancel_work_sync(&tp->wk.work);
+> +	rtl_unlock_work(tp);
+>  
+>  	free_irq(pdev->irq, dev);
 
-I've dug up the pktgen source from 2002 and see:
-   atomic_inc(&skb->users);
-   odev->hard_start_xmit(skb, odev);
-so it did this trick forever.
-Looks like it's a fundamental way how pktgen was working
-and working still. Even when new 'burst' feature is not used,
-pktgen still increments skb->users to hold skb.
-At present I don't have good ideas how to redesign pktgen
-and since apparently no one noticed this tc_action+pktgen
-breakage for years, it's probably ok to leave everything as-is until
-better ideas come. I'm not giving up yet. Just ran out of ideas.
+tab/spaces mix. Stray commented code.
+
+rtl_lock_work/cancel_work_sync/rtl_unlock_work makes no sense.
+
+[...]
+> @@ -7611,10 +7614,12 @@ static int rtl_open(struct net_device *dev)
+>  	if (retval < 0)
+>  		goto err_free_rx_1;
+>  
+> +        rtl_lock_work(tp);
+>  	INIT_WORK(&tp->wk.work, rtl_task);
+> -
+> +        rtl_unlock_work(tp);
+>  	smp_mb();
+
+?
+
+Irq has not been requested : this code isn't racing with NAPI.
+
+I don't see either how it could race with a runtime resume handler.
+
+Care to elaborate what it is supposed to race with ?
+
+>  
+> +        rtl_lock_work(tp);
+>  	rtl_request_firmware(tp);
+>  
+>  	retval = request_irq(pdev->irq, rtl8169_interrupt,
+> @@ -7623,7 +7628,7 @@ static int rtl_open(struct net_device *dev)
+>  	if (retval < 0)
+>  		goto err_release_fw_2;
+
+You forgot to balance rtl_lock_work after the err_release_fw_2 label.
+
+:o/
+
+-- 
+Ueimor
