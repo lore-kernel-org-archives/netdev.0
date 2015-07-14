@@ -1,51 +1,52 @@
-From: Rahul Jain <rahul.jain@samsung.com>
-Subject: [PATCH v2] cfg80211-wext: deleting dead code
-Date: Tue, 14 Jul 2015 08:46:43 +0000 (GMT)
-Message-ID: <10994553.722921436863601814.JavaMail.weblogic@ep2mlwas06c>
-Reply-To: rahul.jain@samsung.com
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: RE: [PATCH] net: qlcnic: Deletion of unnecessary memset
+Date: Tue, 14 Jul 2015 08:48:10 +0000
+Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A472C2759@avmb2.qlogic.org>
+References: <fad6a2ad1e78d8e2624903524548f8d806bf1ef0.1436816968.git.christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Nitin Jhanwar <nitin.j@samsung.com>,
-	HEMANSHU SRIVASTAVA <hemanshu.s@samsung.com>,
-	Amit Khatri <amit.khatri@samsung.com>
-To: =?windows-1252?Q?Rafa=3F_Mi=3Fecki?= <zajec5@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>,
+	Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@qlogic.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-MIME-version: 1.0
+In-Reply-To: <fad6a2ad1e78d8e2624903524548f8d806bf1ef0.1436816968.git.christophe.jaillet@wanadoo.fr>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbSBlOTQ1NzM3ZWYyZTNhNWI3MTk4Yjk3OTVkNjM3NWRlODViMmZhYzA4IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQ0KRnJvbTogUmFodWwgSmFpbiA8cmFodWwuamFpbkBzYW1zdW5nLmNvbT4N
-CkRhdGU6IFR1ZSwgMTQgSnVsIDIwMTUgMTQ6MDQ6MDkgKzA1MzANClN1YmplY3Q6IFtQQVRDSF0g
-Y2ZnODAyMTEtd2V4dDogZGVsZXRpbmcgZGVhZCBjb2RlDQoNCkluIGZ1bmMgY2ZnODAyMTFfd2V4
-dF9zaXdyZXRyeSgpLCB0aGUgdmFsdWUgb2YgY2hhbmdlZCBpcyBnZXR0aW5nDQptb2RpZmllZCB0
-byBub24temVybyB2YWx1ZSB3aXRoaW4gaWYtZWxzZSBjb25kaXRpb24gYW5kIGl0IGlzIGJlY29t
-aW5nIGEgbm9uLXplcm8gdmFsdWUuDQpTbywgdGhlIGNvbmRpdGlvbiAiaWYgKCFjaGFuZ2VkKSIg
-YmVjb21lcyB1bnJlYWNoYWJsZS4NCg0KU2lnbmVkLW9mZi1ieTogUmFodWwgSmFpbiA8cmFodWwu
-amFpbkBzYW1zdW5nLmNvbT4NClNpZ25lZC1vZmYtYnk6IEFtaXQgS2hhdHJpIDxhbWl0LmtoYXRy
-aUBzYW1zdW5nLmNvbT4NCi0tLQ0KIG5ldC93aXJlbGVzcy93ZXh0LWNvbXBhdC5jIHwgMyAtLS0N
-CiAxIGZpbGUgY2hhbmdlZCwgMyBkZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBhL25ldC93aXJl
-bGVzcy93ZXh0LWNvbXBhdC5jIGIvbmV0L3dpcmVsZXNzL3dleHQtY29tcGF0LmMNCmluZGV4IGZk
-NjgyODMuLjhkZTFiNjQgMTAwNjQ0DQotLS0gYS9uZXQvd2lyZWxlc3Mvd2V4dC1jb21wYXQuYw0K
-KysrIGIvbmV0L3dpcmVsZXNzL3dleHQtY29tcGF0LmMNCkBAIC0zODcsOSArMzg3LDYgQEAgc3Rh
-dGljIGludCBjZmc4MDIxMV93ZXh0X3Npd3JldHJ5KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQog
-CQljaGFuZ2VkIHw9IFdJUEhZX1BBUkFNX1JFVFJZX1NIT1JUOw0KIAl9DQogDQotCWlmICghY2hh
-bmdlZCkNCi0JCXJldHVybiAwOw0KLQ0KIAllcnIgPSByZGV2X3NldF93aXBoeV9wYXJhbXMocmRl
-diwgY2hhbmdlZCk7DQogCWlmIChlcnIpIHsNCiAJCXdkZXYtPndpcGh5LT5yZXRyeV9zaG9ydCA9
-IG9zaG9ydDsNCi0tIA0KMS45LjENCg0KLS0tLS0tLSBPcmlnaW5hbCBNZXNzYWdlIC0tLS0tLS0N
-ClNlbmRlciA6IFJhZmE/IE1pP2Vja2k8emFqZWM1QGdtYWlsLmNvbT4NCkRhdGUgOiBKdWwgMTQs
-IDIwMTUgMDE6MjggKEdNVCswNTozMCkNClRpdGxlIDogUmU6IFtQQVRDSF0gTG9naWNhbGx5IERl
-YWRDb2RlDQoNCk9uIDMgSnVseSAyMDE1IGF0IDA2OjUyLCBSYWh1bCBKYWluIHdyb3RlOg0KPiBG
-cm9tIDBjMzQwMzAxNjZhMTUwZDZkOWYxYWI1MmU3YmI0MGE1NDQwYTY4YzIgTW9uIFNlcCAxNyAw
-MDowMDowMCAyMDAxDQo+IEZyb206IFJhaHVsIEphaW4gDQo+IERhdGU6IEZyaSwgMyBKdWwgMjAx
-NSAxMDoxOToxMiArMDUzMA0KPiBTdWJqZWN0OiBbUEFUQ0hdIExvZ2ljYWxseSBEZWFkQ29kZQ0K
-DQpZb3UgZGlkbid0IHVzZSBhbnkgcHJlZml4IGZvciB0aGUgY29tbWl0IG1lc3NhZ2UsIGl0J3Mg
-dW5jbGVhcg0KKExvZ2ljYWxseSBEZWFkQ29kZSB3aGF0PyksIG5vIGRlc2NyaXB0aW9uLCB5b3Ug
-dG91Y2ggdHdvIGNvZGUgcGxhY2VzDQphdCBvbmNlLg0KDQpQbGVhc2UgZml4IGFib3ZlIHByb2Js
-ZW1zIGFuZCByZXNlbmQu
+> -----Original Message-----
+> From: Christophe JAILLET [mailto:christophe.jaillet@wanadoo.fr]
+> Sent: Tuesday, July 14, 2015 1:22 AM
+> To: Shahed Shaikh; Dept-GE Linux NIC Dev
+> Cc: netdev; linux-kernel; kernel-janitors@vger.kernel.org; Christophe JAILLET
+> Subject: [PATCH] net: qlcnic: Deletion of unnecessary memset
+> 
+> There is no need to memset memory allocated with vzalloc.
+> 
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> ---
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> index 2f6cc42..7dbab3c 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> @@ -2403,7 +2403,6 @@ int qlcnic_alloc_tx_rings(struct qlcnic_adapter
+> *adapter,
+>  			qlcnic_free_tx_rings(adapter);
+>  			return -ENOMEM;
+>  		}
+> -		memset(cmd_buf_arr, 0, TX_BUFF_RINGSIZE(tx_ring));
+>  		tx_ring->cmd_buf_arr = cmd_buf_arr;
+>  		spin_lock_init(&tx_ring->tx_clean_lock);
+>  	}
+
+Acked-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+
+Thanks,
+Shahed
