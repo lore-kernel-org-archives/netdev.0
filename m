@@ -1,33 +1,56 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next 2/3] rhashtable: allow lookup function to have
- compare function agument
-Date: Tue, 14 Jul 2015 11:44:49 +0200
-Message-ID: <20150714094449.GD20597@pox.localdomain>
-References: <1436834353-1851565-1-git-send-email-tom@herbertland.com>
- <1436834353-1851565-3-git-send-email-tom@herbertland.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: mmap()ed AF_NETLINK: lockdep and sleep-in-atomic warnings
+Date: Tue, 14 Jul 2015 11:50:37 +0200
+Message-ID: <20150714095037.GB25674@breakpoint.cc>
+References: <20150713131825.GA16186@node.dhcp.inet.fi>
+ <CAHA+R7OPHFjL83RKkTmso3s25_f7TKA=HhFKU_yOnRhsn1WxQg@mail.gmail.com>
+ <20150714093825.GC20597@pox.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com,
-	herbert@gondor.apana.org.au
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:34935 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754554AbbGNJox (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 05:44:53 -0400
-Received: by wiga1 with SMTP id a1so93968356wig.0
-        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 02:44:52 -0700 (PDT)
+Cc: Cong Wang <cwang@twopensource.com>,
+	"Kirill A. Shutemov" <kirill@shutemov.name>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1436834353-1851565-3-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20150714093825.GC20597@pox.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/13/15 at 05:39pm, Tom Herbert wrote:
-> Added rhashtable_lookup_fast_cmpfn which does a lookup in an rhash table
-> with the compare function being taken from an argument. This allows
-> different compare functions to be used on the same table.
+Thomas Graf <tgraf@suug.ch> wrote:
+> On 07/13/15 at 10:11pm, Cong Wang wrote:
+> > Caused by:
+> > 
+> > commit 21e4902aea80ef35afc00ee8d2abdea4f519b7f7
+> > Author: Thomas Graf <tgraf@suug.ch>
+> > Date:   Fri Jan 2 23:00:22 2015 +0100
+> > 
+> >     netlink: Lockless lookup with RCU grace period in socket release
+> > 
+> >     Defers the release of the socket reference using call_rcu() to
+> >     allow using an RCU read-side protected call to rhashtable_lookup()
+> > 
+> >     This restores behaviour and performance gains as previously
+> >     introduced by e341694 ("netlink: Convert netlink_lookup() to use
+> >     RCU protected hash table") without the side effect of severely
+> >     delayed socket destruction.
+> > 
+> >     Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> >     Signed-off-by: David S. Miller <davem@davemloft.net>
+> > 
+> > 
+> > We can't hold mutex lock in a rcu callback, perhaps we could
+> > defer the mmap ring cleanup to a workqueue.
 > 
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> The socket should be dead at this point. It might be simpler to
+> add a netlink_release_ring() function which doesn't require
+> locking at all. It would also get rid of all the special handling
+> for closing vs. non-closing.
 
-Does this preserve the inlining guarantee? I remember Herbert had
-to write this carefully in order to avoid indirect calls.
+Do you know of any users of mmap'd netlink?
+Support for this was never added to libmnl; given the fact that netlink
+mmap doesn't have any advantages vs. socket interface i'd just revert it
+(or mark CONFIG_NETLINK_MMAP broken -- although I don't see
+ how the unconditional copy on tx could ever be avoided).
