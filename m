@@ -1,61 +1,39 @@
-From: Andy Lutomirski <luto@kernel.org>
-Subject: [PATCH] x86: Wire up 32-bit direct socket calls
-Date: Tue, 14 Jul 2015 15:24:24 -0700
-Message-ID: <cb5138299d37d5800e2d135b01a7667fa6115854.1436912629.git.luto@kernel.org>
-Cc: Tulio Magno Quites Machado Filho <tuliom@linux.vnet.ibm.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Alexander Larsson <alexl@redhat.com>,
-	Cosimo Cecchi <cosimo@endlessm.com>,
-	Dan Nicholson <nicholson@endlessm.com>,
-	libc-alpha <libc-alpha@sourceware.org>,
-	Rajalakshmi Srinivasaraghavan <raji@linux.vnet.ibm.com>,
-	Andy Lutomirski <luto@kernel.org>
-To: X86 ML <x86@kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-Return-path: <libc-alpha-return-60952-glibc-alpha=m.gmane.org@sourceware.org>
-List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
-List-Archive: <http://sourceware.org/ml/libc-alpha/>
-List-Post: <mailto:libc-alpha@sourceware.org>
-List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
-Sender: libc-alpha-owner@sourceware.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: stop endless flood about dst entry refcount
+ underflow or overflow
+Date: Tue, 14 Jul 2015 15:30:56 -0700 (PDT)
+Message-ID: <20150714.153056.1150026369732009178.davem@davemloft.net>
+References: <1436875454.1374.9.camel@edumazet-glaptop2.roam.corp.google.com>
+	<55A4FD76.7050606@yandex-team.ru>
+	<1436876767.1374.13.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: khlebnikov@yandex-team.ru, netdev@vger.kernel.org,
+	edumazet@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53224 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751724AbbGNWa7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 18:30:59 -0400
+In-Reply-To: <1436876767.1374.13.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On x86_64, there's no socketcall syscall; instead all of the socket
-calls are real syscalls.  For 32-bit programs, we're stuck offering
-the socketcall syscall, but it would be nice to expose the direct
-calls as well.  This will enable seccomp to filter socket calls (for
-new userspace only, but that's fine for some applications) and it
-will provide a tiny performance boost.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 14 Jul 2015 14:26:07 +0200
 
-Signed-off-by: Andy Lutomirski <luto@kernel.org>
----
- arch/x86/entry/syscalls/syscall_32.tbl | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
+> On Tue, 2015-07-14 at 15:15 +0300, Konstantin Khlebnikov wrote:
+> 
+>> Simple warn-once will hide a lot of information which could be useful.
+>> Also dst entry leak is better than freeing actually active entry.
+> 
+> Then BUG_ON() .
+> 
+> Really, we need to fix leaks, not brown paper them.
 
-diff --git a/arch/x86/entry/syscalls/syscall_32.tbl b/arch/x86/entry/syscalls/syscall_32.tbl
-index ef8187f9d28d..25e3cf1cd8fd 100644
---- a/arch/x86/entry/syscalls/syscall_32.tbl
-+++ b/arch/x86/entry/syscalls/syscall_32.tbl
-@@ -365,3 +365,18 @@
- 356	i386	memfd_create		sys_memfd_create
- 357	i386	bpf			sys_bpf
- 358	i386	execveat		sys_execveat			stub32_execveat
-+359	i386	socket			sys_socket
-+360	i386	socketpair		sys_socketpair
-+361	i386	bind			sys_bind
-+362	i386	connect			sys_connect
-+363	i386	listen			sys_listen
-+364	i386	accept4			sys_accept4
-+365	i386	getsockopt		sys_getsockopt			compat_sys_getsockopt
-+366	i386	setsockopt		sys_setsockopt			compat_sys_setsockopt
-+367	i386	getsockname		sys_getsockname
-+368	i386	getpeername		sys_getpeername
-+369	i386	sendto			sys_sendto
-+370	i386	sendmsg			sys_sendmsg			compat_sys_sendmsg
-+371	i386	recvfrom		sys_recvfrom			compat_sys_recvfrom
-+372	i386	recvmsg			sys_recvmsg			compat_sys_recvmsg
-+373	i386	shutdown		sys_shutdown
--- 
-2.4.3
+No, killing the machine is not the answer.
+
+If you want to rate limit this message, do it on a per-device basis,
+but without corrupting the netdev state in the process.
