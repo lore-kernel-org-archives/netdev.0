@@ -1,70 +1,36 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: Fighting out-of-order reception with RPS?
-Date: Tue, 14 Jul 2015 19:09:31 +0200
-Message-ID: <55A5424B.2000803@hartkopp.net>
-References: <559D628C.5020100@hartkopp.net>	 <CALx6S35OJHyr6iwfdtYW6P-ke2pmsmQ9BjO-D=qjgCHxwF7oew@mail.gmail.com>	 <559E0CDF.7080309@hartkopp.net>	 <CALx6S37JjusJ=+L3mXT0Dzf8XuU0+dgJQ7_Xn4U0nBtkf0gCHQ@mail.gmail.com>	 <55A02CDB.6000302@hartkopp.net>	 <1436589345.24939.56.camel@edumazet-glaptop2.roam.corp.google.com>	 <55A2BCD8.4020303@hartkopp.net> <1436763470.24939.66.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stas Sergeev <stsp@list.ru>
+Subject: [PATCH v3 0/3] net: enable inband link state negotiation only when
+ explicitly requested
+Date: Tue, 14 Jul 2015 20:09:33 +0300
+Message-ID: <55A5424D.4030809@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	Sunil Kovvuri <sunil.kovvuri@gmail.com>,
-	Jonathon Reinhart <jonathon.reinhart@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.160]:65416 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751740AbbGNRJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 13:09:35 -0400
-In-Reply-To: <1436763470.24939.66.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux kernel <linux-kernel@vger.kernel.org>,
+	Sebastien Rannou <mxs@sbrk.org>,
+	Arnaud Ebalard <arno@natisbad.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 13.07.2015 06:57, Eric Dumazet wrote:
-> On Sun, 2015-07-12 at 21:15 +0200, Oliver Hartkopp wrote:
->
->> E.g. with
->>
->> 	skb_set_hash(skb, dev->ifindex, PKT_HASH_TYPE_L2);
->>
->> and
->>
->> 	echo f > /sys/class/net/can0/queues/rx-0/rps_cpus
->>
->> I get properly ordered CAN frames - even with netif_rx() processed skbs. I
->> just want to have this stuff to be enabled by default for CAN interfaces to
->> kill the OOO frame issue.
->
-> I doubt your skb_set_hash() makes any difference.
->
-> RPS prefers a L4 hash anyway (skb_get_hash()), so flow dissection
-> happens.
->
+Hello.
 
-Please take a look into netif_rx_internal() in net/core/dev.c
+Currently the link status auto-negotiation is enabled
+for any SGMII link with fixed-link DT binding.
+The regression was reported:
+https://lkml.org/lkml/2015/7/8/865
+Apparently not all HW that implements SGMII protocol, generates the
+inband status for the auto-negotiation to work.
+More details here:
+https://lkml.org/lkml/2015/7/10/206
 
-http://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/tree/net/core/dev.c?id=v4.2-rc1#n3486
+The following patches reverts to the old behavior by default,
+which is to not enable the auto-negotiation for fixed-link.
+The new DT property is added that allows to explicitly request
+the auto-negotiation.
 
-with CONFIG_RPS netif_rx() takes care about the rps cpu and puts the skb into 
-the correct hash specific queue.
-
-As we usually have several PF_CAN sockets which get CAN frames from a specific 
-CAN interface it makes no sense to enqueue packets into queues sorted by 
-receiving sockets or L4 hash (we don't have L4 addressing on CAN).
-
-The skb_set_hash(skb, dev->ifindex, PKT_HASH_TYPE_L2) makes sure that the skbs 
-from a specific CAN netdev are always processed in the same queue.
-
-When this is not wanted in 'fastpath netif_rx()' why is the CONFIG_RPS section 
-in there?
-
-What is the advantage of implementing NAPI and a 'private sk_buf queue' 
-suggested by Tom in http://marc.info/?l=linux-can&m=143681458003381&w=2 to set 
-the hash as shown and enable rps_cpus?
-
-The latter just looks just like a complexity boost to have a functionality 
-that already exists in netif_rx(). I just want to understand it.
-
-Regards,
-Oliver
+Those who were affected by the change, please send your Tested-by,
+Thanks!
