@@ -1,83 +1,82 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH v2 2/2] dlm: avoid using sctp_do_peeloff directly
-Date: Tue, 14 Jul 2015 14:13:25 -0300
-Message-ID: <3c7c8a7a413146c661ef3df5346becf03f626e32.1436891629.git.marcelo.leitner@gmail.com>
-References: <cover.1436891629.git.marcelo.leitner@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59370 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753118AbbGNROA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jul 2015 13:14:00 -0400
-In-Reply-To: <cover.1436891629.git.marcelo.leitner@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stas Sergeev <stsp@list.ru>
+Subject: [PATCH 3/3] mvneta: use inband status only when explicitly enabled
+Date: Tue, 14 Jul 2015 20:14:55 +0300
+Message-ID: <55A5438F.8070903@list.ru>
+References: <55A5424D.4030809@list.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Linux kernel <linux-kernel@vger.kernel.org>,
+	Sebastien Rannou <mxs@sbrk.org>,
+	Arnaud Ebalard <arno@natisbad.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	stable@vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55A5424D.4030809@list.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch reverts 2f2d76cc3e93 ("dlm: Do not allocate a fd for
-peeloff") but also makes use of a new sockopt:
-SCTP_SOCKOPT_PEELOFF_KERNEL, which avoids allocating file descriptors
-while doing this operation.
 
-By this we avoid creating a direct dependency from dlm to sctp module,
-which can then be left unloaded if dlm is not really using it.
+The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band link state
+signaling") implemented the link parameters auto-negotiation unconditionally.
+Unfortunately it appears that some HW that implements SGMII protocol,
+doesn't generate the inband status, so it is not possible to auto-negotiate
+anything with such HW.
 
-Note that this was preferred other than a module split as it once was
-split and was merged back in 2007 by commit 6ed7257b4670 ("[DLM]
-Consolidate transport protocols") so that we don't revert it.
+This patch enables the auto-negotiation only if explicitly requested with
+the 'managed' DT property.
 
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+This patch fixes the following regression:
+https://lkml.org/lkml/2015/7/8/865
+and is therefore CCed to stable.
+
+Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
+
+CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+CC: netdev@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+CC: stable@vger.kernel.org
 ---
- fs/dlm/lowcomms.c | 17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/fs/dlm/lowcomms.c b/fs/dlm/lowcomms.c
-index d08e079ea5d3aa37cf685cce89eb00122fe7ba02..dd14fe05a69565d9ec061fc2c93671c49d12fdcb 100644
---- a/fs/dlm/lowcomms.c
-+++ b/fs/dlm/lowcomms.c
-@@ -52,7 +52,6 @@
- #include <linux/mutex.h>
- #include <linux/sctp.h>
- #include <linux/slab.h>
--#include <net/sctp/sctp.h>
- #include <net/ipv6.h>
- 
- #include "dlm_internal.h"
-@@ -671,6 +670,8 @@ static void process_sctp_notification(struct connection *con,
- 			int prim_len, ret;
- 			int addr_len;
- 			struct connection *new_con;
-+			sctp_peeloff_kernel_arg_t parg;
-+			int parglen = sizeof(parg);
- 
- 			/*
- 			 * We get this before any data for an association.
-@@ -719,19 +720,17 @@ static void process_sctp_notification(struct connection *con,
- 				return;
- 
- 			/* Peel off a new sock */
--			lock_sock(con->sock->sk);
--			ret = sctp_do_peeloff(con->sock->sk,
--				sn->sn_assoc_change.sac_assoc_id,
--				&new_con->sock);
--			release_sock(con->sock->sk);
-+			parg.associd = sn->sn_assoc_change.sac_assoc_id;
-+			ret = kernel_getsockopt(con->sock, IPPROTO_SCTP,
-+						SCTP_SOCKOPT_PEELOFF_KERNEL,
-+						(void *)&parg, &parglen);
- 			if (ret < 0) {
- 				log_print("Can't peel off a socket for "
- 					  "connection %d to node %d: err=%d",
--					  (int)sn->sn_assoc_change.sac_assoc_id,
--					  nodeid, ret);
-+					  parg.associd, nodeid, ret);
- 				return;
- 			}
--			add_sock(new_con->sock, new_con);
-+			add_sock(parg.socket, new_con);
- 
- 			linger.l_onoff = 1;
- 			linger.l_linger = 0;
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 74176ec..7a1deee 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3008,8 +3008,8 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	const char *dt_mac_addr;
+ 	char hw_mac_addr[ETH_ALEN];
+ 	const char *mac_from;
++	const char *managed;
+ 	int phy_mode;
+-	int fixed_phy = 0;
+ 	int err;
+
+ 	/* Our multiqueue support is not complete, so for now, only
+@@ -3043,7 +3043,6 @@ static int mvneta_probe(struct platform_device *pdev)
+ 			dev_err(&pdev->dev, "cannot register fixed PHY\n");
+ 			goto err_free_irq;
+ 		}
+-		fixed_phy = 1;
+
+ 		/* In the case of a fixed PHY, the DT node associated
+ 		 * to the PHY is the Ethernet MAC DT node.
+@@ -3067,8 +3066,10 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	pp = netdev_priv(dev);
+ 	pp->phy_node = phy_node;
+ 	pp->phy_interface = phy_mode;
+-	pp->use_inband_status = (phy_mode == PHY_INTERFACE_MODE_SGMII) &&
+-				fixed_phy;
++
++	err = of_property_read_string(dn, "managed", &managed);
++	pp->use_inband_status = (err == 0 &&
++				 strcmp(managed, "in-band-status") == 0);
+
+ 	pp->clk = devm_clk_get(&pdev->dev, NULL);
+ 	if (IS_ERR(pp->clk)) {
 -- 
-2.4.1
+1.9.1
