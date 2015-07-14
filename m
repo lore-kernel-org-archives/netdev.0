@@ -1,141 +1,71 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: [PATCH 2/3] of_mdio: add new DT property 'managed' to specify the
- PHY management type
-Date: Tue, 14 Jul 2015 20:13:16 +0300
-Message-ID: <55A5432C.1080609@list.ru>
-References: <55A5424D.4030809@list.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55A5424D.4030809@list.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH v2 0/2] Avoid link dependency of dlm on sctp module
+Date: Tue, 14 Jul 2015 14:13:23 -0300
+Message-ID: <cover.1436891629.git.marcelo.leitner@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49827 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751885AbbGNRN4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jul 2015 13:13:56 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hi,
+
+I'm trying to remove a direct dependency of dlm module on sctp one.
+Currently dlm code is calling sctp_do_peeloff() directly and this call
+only is causing the load of sctp module together with dlm. For that, we
+have basically 3 options:
+- Doing a module split on dlm
+  - which I'm avoiding because it was already split and was merged (more
+    info on patch2 changelog)
+  - and the sctp code on it is rather small if compared with sctp module
+    itself
+- Using some other infra that gets indirectly activated, like getsockopt()
+  - It was like this before, but the exposed sockopt created a file
+    descriptor for the new socket and that create some serious issues.
+    More info on 2f2d76cc3e93 ("dlm: Do not allocate a fd for peeloff")
+- Doing something like ipv6_stub (which is used by vxlan) or similar
+  - but I don't feel that's a good way out here, it doesn't feel right.
+
+So I'm approaching this by going with 2nd option again but this time
+also creating a new sockopt that is only accessible for kernel users of
+this protocol, so that we are safe to directly return a struct socket *
+via getsockopt() results.
+
+"Kernel users" are identified by sockets that don't have a file
+descriptor attached to it, as only kernel users are allowed to do that
+and, if original socket has a file descriptor, one should just use the
+original option.
+
+I kept __user marker on sctp_getsockopt_peeloff_kernel() prototype and
+its helpers just to avoid issues with static checkers.
+
+I tried minimizing the code duplication while adding the new option, but
+it's just better to add a whole new function to handle it. As the
+sockopt arguments are different, the only thing in common between both
+call handlers is the call to sctp_do_peeloff(). All rest would have to
+have checks around it.
+
+RFC->v1, from Neil:
+ - For identifying kernel users, switched from segment_eq() to fd check
+ - Reused original option to avoid code duplication
+v1->v2, from David:
+ - Back to new sockopt implementation, to avoid changing sockopt arg
+   format.
 
 
-Currently the PHY management type is selected by the MAC driver arbitrary.
-The decision is based on the presence of the "fixed-link" node and on a
-will of the driver's authors.
-This caused a regression recently, when mvneta driver suddenly started
-to use the in-band status for auto-negotiation on fixed links.
-It appears the auto-negotiation may not work when expected by the MAC driver.
-Sebastien Rannou explains:
-<< Yes, I confirm that my HW does not generate an in-band status. AFAIK, it's
-a PHY that aggregates 4xSGMIIs to 1xQSGMII ; the MAC side of the PHY (with
-inband status) is connected to the switch through QSGMII, and in this context
-we are on the media side of the PHY. >>
-https://lkml.org/lkml/2015/7/10/206
+Marcelo Ricardo Leitner (2):
+  sctp: add new getsockopt option SCTP_SOCKOPT_PEELOFF_KERNEL
+  dlm: avoid using sctp_do_peeloff directly
 
-This patch introduces the new string property 'managed' that allows
-the user to set the management type explicitly.
-The supported values are:
-"auto" - default. Uses either MDIO or nothing, depending on the presence
-of the fixed-link node
-"mdio" - use MDIO
-"in-band-status" - use in-band status
-"none" - use fixed-link description
+ fs/dlm/lowcomms.c         | 17 ++++++++---------
+ include/uapi/linux/sctp.h | 12 ++++++++++++
+ net/sctp/socket.c         | 37 +++++++++++++++++++++++++++++++++++++
+ 3 files changed, 57 insertions(+), 9 deletions(-)
 
-Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
-
-CC: Rob Herring <robh+dt@kernel.org>
-CC: Pawel Moll <pawel.moll@arm.com>
-CC: Mark Rutland <mark.rutland@arm.com>
-CC: Ian Campbell <ijc+devicetree@hellion.org.uk>
-CC: Kumar Gala <galak@codeaurora.org>
-CC: Florian Fainelli <f.fainelli@gmail.com>
-CC: Grant Likely <grant.likely@linaro.org>
-CC: devicetree@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
-CC: netdev@vger.kernel.org
----
- Documentation/devicetree/bindings/net/ethernet.txt |  5 ++++
- drivers/of/of_mdio.c                               | 28 ++++++++++++++++++++--
- 2 files changed, 31 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
-index 3fc3605..23743e9 100644
---- a/Documentation/devicetree/bindings/net/ethernet.txt
-+++ b/Documentation/devicetree/bindings/net/ethernet.txt
-@@ -19,7 +19,12 @@ The following properties are common to the Ethernet controllers:
- - phy: the same as "phy-handle" property, not recommended for new bindings.
- - phy-device: the same as "phy-handle" property, not recommended for new
-   bindings.
-+- managed: string, specifies the PHY management type. Supported values are:
-+  "auto", "mdio", "in-band-status", "none". "auto" is the default, and it
-+  sets the management type to either "mdio" or "none", depending on the
-+  presence of the "fixed-link" child node.
-
- Child nodes of the Ethernet controller are typically the individual PHY devices
- connected via the MDIO bus (sometimes the MDIO bus controller is separate).
- They are described in the phy.txt file in this same directory.
-+For non-MDIO PHY management see fixed-link.txt.
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 1bd4305..a460812 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -262,7 +262,16 @@ EXPORT_SYMBOL(of_phy_attach);
- bool of_phy_is_fixed_link(struct device_node *np)
- {
- 	struct device_node *dn;
--	int len;
-+	int len, m_err;
-+	const char *managed;
-+
-+	m_err = of_property_read_string(np, "managed", &managed);
-+	if (m_err == 0) {
-+		if (strcmp(managed, "none") == 0)
-+			return true;
-+		if (strcmp(managed, "mdio") == 0)
-+			return false;
-+	}
-
- 	/* New binding */
- 	dn = of_get_child_by_name(np, "fixed-link");
-@@ -271,6 +280,9 @@ bool of_phy_is_fixed_link(struct device_node *np)
- 		return true;
- 	}
-
-+	if (m_err == 0 && strcmp(managed, "auto") != 0)
-+		return true;
-+
- 	/* Old binding */
- 	if (of_get_property(np, "fixed-link", &len) &&
- 	    len == (5 * sizeof(__be32)))
-@@ -285,8 +297,20 @@ int of_phy_register_fixed_link(struct device_node *np)
- 	struct fixed_phy_status status = {};
- 	struct device_node *fixed_link_node;
- 	const __be32 *fixed_link_prop;
--	int len;
-+	int len, err;
- 	struct phy_device *phy;
-+	const char *managed;
-+
-+	err = of_property_read_string(np, "managed", &managed);
-+	if (err == 0) {
-+		if (strcmp(managed, "mdio") == 0)
-+			return -EINVAL;
-+		if (strcmp(managed, "in-band-status") == 0) {
-+			status.link = 0;
-+			phy = fixed_phy_register(PHY_POLL, &status, np);
-+			return IS_ERR(phy) ? PTR_ERR(phy) : 0;
-+		}
-+	}
-
- 	/* New binding */
- 	fixed_link_node = of_get_child_by_name(np, "fixed-link");
 -- 
-1.9.1
+2.4.1
