@@ -1,32 +1,38 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 2/2] isdn/gigaset: drop unused ldisc methods
-Date: Tue, 14 Jul 2015 21:03:24 +0200
-Message-ID: <1436900604.2679.49.camel@tiscali.nl>
-References: <cover.1436826434.git.tilman@imap.cc>
-	 <40ceea060d328b84da061f115e7ed9b99d28cf74.1436826434.git.tilman@imap.cc>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: Fighting out-of-order reception with RPS?
+Date: Tue, 14 Jul 2015 21:05:17 +0200
+Message-ID: <55A55D6D.7090805@hartkopp.net>
+References: <1436763470.24939.66.camel@edumazet-glaptop2.roam.corp.google.com>	<55A5424B.2000803@hartkopp.net>	<CALx6S37TMbi0s4LK_j=VyZB0-vEHBWF4nFJsNSfQOz5D-Q0ksw@mail.gmail.com> <20150714.120315.218180667705835403.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Hansjoerg Lipp <hjlipp@web.de>, linux-kernel@vger.kernel.org
-To: Tilman Schmidt <tilman@imap.cc>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <40ceea060d328b84da061f115e7ed9b99d28cf74.1436826434.git.tilman@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On di, 2015-07-14 at 00:37 +0200, Tilman Schmidt wrote:
-> The line discipline read and write methods are optional so the dummy
-> methods in ser_gigaset are unnecessary and can be removed.
-> 
-> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
-
-Applied.
-
-I hope to forward this in a few weeks so that it might be in time for
-v4.3.
-
-Thanks,
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, sunil.kovvuri@gmail.com,
+	jonathon.reinhart@gmail.com
+To: David Miller <davem@davemloft.net>, tom@herbertland.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.216]:58762 "EHLO
+	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753132AbbGNTFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 15:05:30 -0400
+In-Reply-To: <20150714.120315.218180667705835403.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Paul Bolle
+
+On 14.07.2015 21:03, David Miller wrote:
+> From: Tom Herbert <tom@herbertland.com>
+> Date: Tue, 14 Jul 2015 11:02:16 -0700
+>
+>> then implement NAPI for CAN drivers as has been suggested now by
+>> three very experienced developers. This solves the your OOO problem
+>> and moves drivers to NAPI which is the greatly preferred interface.
+>
+> +1
+>
+> +1
+>
+> +1
+
+ok got it :-)
