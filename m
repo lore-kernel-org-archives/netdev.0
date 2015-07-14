@@ -1,47 +1,51 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH 1/2] isdn/gigaset: reset tty->receive_room when attaching
- ser_gigaset
-Date: Tue, 14 Jul 2015 01:58:24 +0200
-Message-ID: <55A450A0.4080806@imap.cc>
-References: <cover.1436826434.git.tilman@imap.cc> <ff18ec15ffc6347cd5574a66eb67cc9483361afa.1436826434.git.tilman@imap.cc> <55A44662.4080706@hurleysoftware.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net-next 0/3] rhashtable: Wildcard and scored lookups
+Date: Mon, 13 Jul 2015 17:39:10 -0700
+Message-ID: <1436834353-1851565-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Hansjoerg Lipp <hjlipp@web.de>, linux-kernel@vger.kernel.org
-To: Peter Hurley <peter@hurleysoftware.com>,
-	Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55A44662.4080706@hurleysoftware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>, <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:54598 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752812AbbGNAj3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 20:39:29 -0400
+Received: from pps.filterd (m0004346 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t6E0dSid029451
+	for <netdev@vger.kernel.org>; Mon, 13 Jul 2015 17:39:28 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 1vmpssg5ba-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 13 Jul 2015 17:39:28 -0700
+Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
+ mx-out.facebook.com (10.223.100.99) with ESMTP	id
+ c5a95e8e29c011e58ecb24be05956610-c0da2b0 for <netdev@vger.kernel.org>;	Mon,
+ 13 Jul 2015 17:39:23 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 14.07.2015 um 01:14 schrieb Peter Hurley:
-> On 07/13/2015 06:37 PM, Tilman Schmidt wrote:
->> Commit 79901317ce80 ("n_tty: Don't flush buffer when closing ldisc"),
->> first merged in kernel release 3.10, caused the following regression
->> in the Gigaset M101 driver:
->>
->> Before that commit, when closing the N_TTY line discipline in
->> preparation to switching to N_GIGASET_M101, receive_room would be
->> reset to a non-zero value by the call to n_tty_flush_buffer() in
->> n_tty's close method. With the removal of that call, receive_room
->> might be left at zero, blocking data reception on the serial line.
-> 
-> That commit didn't cause the problem; it was a bug all along.
+This patch set implements:
+  - A compare function can be passed in the lookup. This allows for
+    comparison to include "wildcard fields"
+  - Order insertion within a bucket, so that entries with more specific
+    information can be matched first.
+  - Scored lookups. This is like the socket lookups. It allows
+    different levels of matching, and returning one of N possible
+    best matches with a uniform distribution based on flow hash.
 
-Sure. That's why it is correctly fixed in the Gigaset driver.
-But before that commit the bug was never actually triggered.
-So that commit defines the point in the commit history from
-which the fix is needed, and therefore needs to be mentioned
-in order to decide which stable releases will need the fix.
+Testing: Tested this in conjunction with ILA development. Will be
+posting ILA patches shortly.
 
-> Non-flow controlling line disciplines _must_ set tty->receive_room
-> on line discipline open because they are declaring that every
-> input they can accept that much data.
 
-I have submitted a corresponding fix to the line discipline
-documentation separately.
+Tom Herbert (3):
+  rhashtable: Add a function for in order insertion in buckets
+  rhashtable: allow lookup function to have compare function agument
+  rhashtable: Add scored lookups
 
-Thanks,
-Tilman
+ include/linux/rhashtable.h | 122 ++++++++++++++++++++++++++++++++++++++++++---
+ lib/rhashtable.c           |  20 ++++----
+ 2 files changed, 125 insertions(+), 17 deletions(-)
+
+-- 
+1.8.1
