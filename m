@@ -1,81 +1,70 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v6 3/4] rocker: Handle protodown notifications.
-Date: Tue, 14 Jul 2015 19:42:51 +0300
-Message-ID: <55A53C0B.6010807@cogentembedded.com>
-References: <1436887930-3067-4-git-send-email-anuradhak@cumulusnetworks.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: Fighting out-of-order reception with RPS?
+Date: Tue, 14 Jul 2015 19:09:31 +0200
+Message-ID: <55A5424B.2000803@hartkopp.net>
+References: <559D628C.5020100@hartkopp.net>	 <CALx6S35OJHyr6iwfdtYW6P-ke2pmsmQ9BjO-D=qjgCHxwF7oew@mail.gmail.com>	 <559E0CDF.7080309@hartkopp.net>	 <CALx6S37JjusJ=+L3mXT0Dzf8XuU0+dgJQ7_Xn4U0nBtkf0gCHQ@mail.gmail.com>	 <55A02CDB.6000302@hartkopp.net>	 <1436589345.24939.56.camel@edumazet-glaptop2.roam.corp.google.com>	 <55A2BCD8.4020303@hartkopp.net> <1436763470.24939.66.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com
-To: anuradhak@cumulusnetworks.com, davem@davemloft.net,
-	sfeldma@gmail.com
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	Sunil Kovvuri <sunil.kovvuri@gmail.com>,
+	Jonathon Reinhart <jonathon.reinhart@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:36511 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753096AbbGNQmz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 12:42:55 -0400
-Received: by lbbpo10 with SMTP id po10so9613021lbb.3
-        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 09:42:54 -0700 (PDT)
-In-Reply-To: <1436887930-3067-4-git-send-email-anuradhak@cumulusnetworks.com>
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.160]:65416 "EHLO
+	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751740AbbGNRJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 13:09:35 -0400
+In-Reply-To: <1436763470.24939.66.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 07/14/2015 06:32 PM, anuradhak@cumulusnetworks.com wrote:
-
-> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
-
-> protodown can be set by user space applications like MLAG on detecting
-> errors on a switch port. This patch provides sample switch driver changes
-> for handling protodown. Rocker PHYS disables the port in response to
-> protodown.
-
-> Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
-> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
-> ---
->   drivers/net/ethernet/rocker/rocker.c |   19 ++++++++++++++++++-
->   1 file changed, 18 insertions(+), 1 deletion(-)
-
-> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-> index 2d8578cade..ec950d9 100644
-> --- a/drivers/net/ethernet/rocker/rocker.c
-> +++ b/drivers/net/ethernet/rocker/rocker.c
-> @@ -3983,7 +3983,8 @@ static int rocker_port_open(struct net_device *dev)
+On 13.07.2015 06:57, Eric Dumazet wrote:
+> On Sun, 2015-07-12 at 21:15 +0200, Oliver Hartkopp wrote:
 >
->   	napi_enable(&rocker_port->napi_tx);
->   	napi_enable(&rocker_port->napi_rx);
-> -	rocker_port_set_enable(rocker_port, true);
-> +	if (!(dev->proto_down))
-
-    Inner parens not needed.
-
-> +		rocker_port_set_enable(rocker_port, true);
->   	netif_start_queue(dev);
->   	return 0;
+>> E.g. with
+>>
+>> 	skb_set_hash(skb, dev->ifindex, PKT_HASH_TYPE_L2);
+>>
+>> and
+>>
+>> 	echo f > /sys/class/net/can0/queues/rx-0/rps_cpus
+>>
+>> I get properly ordered CAN frames - even with netif_rx() processed skbs. I
+>> just want to have this stuff to be enabled by default for CAN interfaces to
+>> kill the OOO frame issue.
 >
-> @@ -4167,6 +4168,21 @@ static int rocker_port_get_phys_port_name(struct net_device *dev,
->   	return err ? -EOPNOTSUPP : 0;
->   }
+> I doubt your skb_set_hash() makes any difference.
 >
-> +static int rocker_port_change_proto_down(struct net_device *dev,
-> +					 bool proto_down)
-> +{
-> +	struct rocker_port *rocker_port = netdev_priv(dev);
-> +
-> +	if (rocker_port->dev->flags & IFF_UP) {
-> +		if (proto_down)
-> +			rocker_port_set_enable(rocker_port, false);
-> +		else
-> +			rocker_port_set_enable(rocker_port, true);
+> RPS prefers a L4 hash anyway (skb_get_hash()), so flow dissection
+> happens.
+>
 
-    Why not:
+Please take a look into netif_rx_internal() in net/core/dev.c
 
-		rocker_port_set_enable(rocker_port, !proto_down);
+http://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/tree/net/core/dev.c?id=v4.2-rc1#n3486
 
-[...]
+with CONFIG_RPS netif_rx() takes care about the rps cpu and puts the skb into 
+the correct hash specific queue.
 
-MBR, Sergei
+As we usually have several PF_CAN sockets which get CAN frames from a specific 
+CAN interface it makes no sense to enqueue packets into queues sorted by 
+receiving sockets or L4 hash (we don't have L4 addressing on CAN).
+
+The skb_set_hash(skb, dev->ifindex, PKT_HASH_TYPE_L2) makes sure that the skbs 
+from a specific CAN netdev are always processed in the same queue.
+
+When this is not wanted in 'fastpath netif_rx()' why is the CONFIG_RPS section 
+in there?
+
+What is the advantage of implementing NAPI and a 'private sk_buf queue' 
+suggested by Tom in http://marc.info/?l=linux-can&m=143681458003381&w=2 to set 
+the hash as shown and enable rps_cpus?
+
+The latter just looks just like a complexity boost to have a functionality 
+that already exists in netif_rx(). I just want to understand it.
+
+Regards,
+Oliver
