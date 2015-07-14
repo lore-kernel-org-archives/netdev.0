@@ -1,87 +1,51 @@
-From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v1 05/12] IB/cm: Share listening CM IDs
-Date: Tue, 14 Jul 2015 11:45:15 +0300
-Message-ID: <55A4CC1B.1060201@mellanox.com>
-References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
- <1434976961-27424-6-git-send-email-haggaie@mellanox.com>
- <20150713174837.GH23832@obsidianresearch.com>
+From: Rahul Jain <rahul.jain@samsung.com>
+Subject: [PATCH v2] cfg80211-wext: deleting dead code
+Date: Tue, 14 Jul 2015 08:46:43 +0000 (GMT)
+Message-ID: <10994553.722921436863601814.JavaMail.weblogic@ep2mlwas06c>
+Reply-To: rahul.jain@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150713174837.GH23832-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	Nitin Jhanwar <nitin.j@samsung.com>,
+	HEMANSHU SRIVASTAVA <hemanshu.s@samsung.com>,
+	Amit Khatri <amit.khatri@samsung.com>
+To: =?windows-1252?Q?Rafa=3F_Mi=3Fecki?= <zajec5@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+MIME-version: 1.0
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 13/07/2015 20:48, Jason Gunthorpe wrote:
-> On Mon, Jun 22, 2015 at 03:42:34PM +0300, Haggai Eran wrote:
->>  		spin_lock_irq(&cm.lock);
->> +		if (--cm_id_priv->listen_sharecount > 0) {
->> +			/* The id is still shared. */
->> +			atomic_dec(&cm_id_priv->refcount);
-> 
-> Nit: This looks very strange not to be cm_deref_id .. Looks OK as is
-> because we are sure refcount cannot be 0 here?
-
-Yes, and because of the spin lock. But I'll change it to cm_deref_id()
-so that it's more uniform.
-
-> 
->> @@ -958,8 +988,10 @@ int ib_cm_listen(struct ib_cm_id *cm_id, __be64 service_id, __be64 service_mask,
->>  	}
->>  
->>  	cm_id->state = IB_CM_LISTEN;
->> +	++cm_id_priv->listen_sharecount;
->>
->> -	spin_lock_irqsave(&cm.lock, flags);
->> +	if (lock)
->> +		spin_lock_irqsave(&cm.lock, flags);
-> 
-> Hmm, I'd like to see the listen_sharecount consistently locked, so it
-> should be manipulated only while cm.lock is held..
-
-You're right. I'll move it inside the lock.
-
-> 
->>  	if (service_id == IB_CM_ASSIGN_SERVICE_ID) {
->>  		cm_id->service_id = cpu_to_be64(cm.listen_service_id++);
->>  		cm_id->service_mask = ~cpu_to_be64(0);
->> @@ -968,18 +1000,98 @@ int ib_cm_listen(struct ib_cm_id *cm_id, __be64 service_id, __be64 service_mask,
->>  		cm_id->service_mask = service_mask;
->>  	}
->>  	cur_cm_id_priv = cm_insert_listen(cm_id_priv);
->> -	spin_unlock_irqrestore(&cm.lock, flags);
->> +	if (lock)
->> +		spin_unlock_irqrestore(&cm.lock, flags);
->>  
->>  	if (cur_cm_id_priv) {
->>  		cm_id->state = IB_CM_IDLE;
->> +		--cm_id_priv->listen_sharecount;
-> 
-> Ditto
-Okay. I'll move the lock release to the end of the function.
-
-> 
-> Otherwise I don't see any other mechanical problems with this. Sean
-> said he was happy with the idea right?
-I assume he is, since he reviewed the patch and found that
-listen_sharecount leak, but he can speak for himself.
-
-> 
-> Reviewed-By: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Thanks.
-Can I add it with the modifications above?
-
-Haggai
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+RnJvbSBlOTQ1NzM3ZWYyZTNhNWI3MTk4Yjk3OTVkNjM3NWRlODViMmZhYzA4IE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQ0KRnJvbTogUmFodWwgSmFpbiA8cmFodWwuamFpbkBzYW1zdW5nLmNvbT4N
+CkRhdGU6IFR1ZSwgMTQgSnVsIDIwMTUgMTQ6MDQ6MDkgKzA1MzANClN1YmplY3Q6IFtQQVRDSF0g
+Y2ZnODAyMTEtd2V4dDogZGVsZXRpbmcgZGVhZCBjb2RlDQoNCkluIGZ1bmMgY2ZnODAyMTFfd2V4
+dF9zaXdyZXRyeSgpLCB0aGUgdmFsdWUgb2YgY2hhbmdlZCBpcyBnZXR0aW5nDQptb2RpZmllZCB0
+byBub24temVybyB2YWx1ZSB3aXRoaW4gaWYtZWxzZSBjb25kaXRpb24gYW5kIGl0IGlzIGJlY29t
+aW5nIGEgbm9uLXplcm8gdmFsdWUuDQpTbywgdGhlIGNvbmRpdGlvbiAiaWYgKCFjaGFuZ2VkKSIg
+YmVjb21lcyB1bnJlYWNoYWJsZS4NCg0KU2lnbmVkLW9mZi1ieTogUmFodWwgSmFpbiA8cmFodWwu
+amFpbkBzYW1zdW5nLmNvbT4NClNpZ25lZC1vZmYtYnk6IEFtaXQgS2hhdHJpIDxhbWl0LmtoYXRy
+aUBzYW1zdW5nLmNvbT4NCi0tLQ0KIG5ldC93aXJlbGVzcy93ZXh0LWNvbXBhdC5jIHwgMyAtLS0N
+CiAxIGZpbGUgY2hhbmdlZCwgMyBkZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBhL25ldC93aXJl
+bGVzcy93ZXh0LWNvbXBhdC5jIGIvbmV0L3dpcmVsZXNzL3dleHQtY29tcGF0LmMNCmluZGV4IGZk
+NjgyODMuLjhkZTFiNjQgMTAwNjQ0DQotLS0gYS9uZXQvd2lyZWxlc3Mvd2V4dC1jb21wYXQuYw0K
+KysrIGIvbmV0L3dpcmVsZXNzL3dleHQtY29tcGF0LmMNCkBAIC0zODcsOSArMzg3LDYgQEAgc3Rh
+dGljIGludCBjZmc4MDIxMV93ZXh0X3Npd3JldHJ5KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQog
+CQljaGFuZ2VkIHw9IFdJUEhZX1BBUkFNX1JFVFJZX1NIT1JUOw0KIAl9DQogDQotCWlmICghY2hh
+bmdlZCkNCi0JCXJldHVybiAwOw0KLQ0KIAllcnIgPSByZGV2X3NldF93aXBoeV9wYXJhbXMocmRl
+diwgY2hhbmdlZCk7DQogCWlmIChlcnIpIHsNCiAJCXdkZXYtPndpcGh5LT5yZXRyeV9zaG9ydCA9
+IG9zaG9ydDsNCi0tIA0KMS45LjENCg0KLS0tLS0tLSBPcmlnaW5hbCBNZXNzYWdlIC0tLS0tLS0N
+ClNlbmRlciA6IFJhZmE/IE1pP2Vja2k8emFqZWM1QGdtYWlsLmNvbT4NCkRhdGUgOiBKdWwgMTQs
+IDIwMTUgMDE6MjggKEdNVCswNTozMCkNClRpdGxlIDogUmU6IFtQQVRDSF0gTG9naWNhbGx5IERl
+YWRDb2RlDQoNCk9uIDMgSnVseSAyMDE1IGF0IDA2OjUyLCBSYWh1bCBKYWluIHdyb3RlOg0KPiBG
+cm9tIDBjMzQwMzAxNjZhMTUwZDZkOWYxYWI1MmU3YmI0MGE1NDQwYTY4YzIgTW9uIFNlcCAxNyAw
+MDowMDowMCAyMDAxDQo+IEZyb206IFJhaHVsIEphaW4gDQo+IERhdGU6IEZyaSwgMyBKdWwgMjAx
+NSAxMDoxOToxMiArMDUzMA0KPiBTdWJqZWN0OiBbUEFUQ0hdIExvZ2ljYWxseSBEZWFkQ29kZQ0K
+DQpZb3UgZGlkbid0IHVzZSBhbnkgcHJlZml4IGZvciB0aGUgY29tbWl0IG1lc3NhZ2UsIGl0J3Mg
+dW5jbGVhcg0KKExvZ2ljYWxseSBEZWFkQ29kZSB3aGF0PyksIG5vIGRlc2NyaXB0aW9uLCB5b3Ug
+dG91Y2ggdHdvIGNvZGUgcGxhY2VzDQphdCBvbmNlLg0KDQpQbGVhc2UgZml4IGFib3ZlIHByb2Js
+ZW1zIGFuZCByZXNlbmQu
