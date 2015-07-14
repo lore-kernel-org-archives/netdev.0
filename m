@@ -1,45 +1,41 @@
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: [PATCH] net: stop endless flood about dst entry refcount underflow
- or overflow
-Date: Tue, 14 Jul 2015 14:43:05 +0300
-Message-ID: <20150714114305.17434.53731.stgit@buzz>
+From: "Yigal Reiss (yreiss)" <yreiss@cisco.com>
+Subject: RE: [PATCH] brouted packet identified as PACKET_OTHERHOST blocked
+ by higher protocol
+Date: Tue, 14 Jul 2015 11:52:13 +0000
+Message-ID: <3167EFAB95044A4EB6B134B9A39AA98A055B60A2@xmb-rcd-x05.cisco.com>
+References: <3167EFAB95044A4EB6B134B9A39AA98A055B5DBE@xmb-rcd-x05.cisco.com>
+ <20150714110501.GC25674@breakpoint.cc>
+ <3167EFAB95044A4EB6B134B9A39AA98A055B5E50@xmb-rcd-x05.cisco.com>
+ <20150714113531.GD25674@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward-corp1g.mail.yandex.net ([95.108.253.251]:50189 "EHLO
-	forward-corp1g.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751519AbbGNLnI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 07:43:08 -0400
+Received: from rcdn-iport-7.cisco.com ([173.37.86.78]:35003 "EHLO
+	rcdn-iport-7.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751503AbbGNLwO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 07:52:14 -0400
+Received: from xhc-aln-x08.cisco.com (xhc-aln-x08.cisco.com [173.36.12.82])
+	by alln-core-4.cisco.com (8.14.5/8.14.5) with ESMTP id t6EBqEcM011514
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=FAIL)
+	for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 11:52:14 GMT
+In-Reply-To: <20150714113531.GD25674@breakpoint.cc>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kernel generates a lot of warnings when dst entry reference counter
-overflows and becomes negative. This patch prints address of dst entry,
-its refcount and then resets reference counter to INT_MAX/2.
+Florian Westphal [mailto:fw@strlen.de] wrote:
+> Maybe, but if you broute everything you might as well just remove the
+> bridge...
+I want to be selective. My setup is a home router. So I can have ebtables rules for 
+which traffic to (b)route and which to bridge, based on security/performance criteria.
 
-That bug was seen several times at machines with outdated 3.10.y kernels.
-Most like it's already fixed in upstream. Anyway flood of that warnings
-completely kills machine and makes further debugging impossible.
-
-Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
----
- net/core/dst.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/dst.c b/net/core/dst.c
-index e956ce6d1378..2ed91082b3cf 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -284,7 +284,8 @@ void dst_release(struct dst_entry *dst)
- 		int newrefcnt;
- 
- 		newrefcnt = atomic_dec_return(&dst->__refcnt);
--		WARN_ON(newrefcnt < 0);
-+		if (WARN(newrefcnt < 0, "dst: %p refcnt: %d\n", dst, newrefcnt))
-+			atomic_set(&dst->__refcnt, INT_MAX / 2);
- 		if (unlikely(dst->flags & DST_NOCACHE) && !newrefcnt)
- 			call_rcu(&dst->rcu_head, dst_destroy_rcu);
- 	}
+> You can use -j redirect in ebtables broute table to force local MAC dnat
+> (this also 'fixes' the pkttype to _HOST) if you really want to broute.
+I may be missing something obvious, but what is the normal case where using an 
+ebtables 'broute' "-j DROP" rule does work? It seemed to me that without the 
+fix all (b)routed packets would get lost in IP layer
+(unless also dnat or something is done in addition which changes the pkt_type value). 
+What is the original intention of this table/chain if not pulling packets between 
+"other hosts" out of the bridge and passing them through the IP and higher layers?
