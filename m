@@ -1,91 +1,79 @@
 From: anuradhak@cumulusnetworks.com
-Subject: [PATCH net-next v6 2/4] netlink: changes for setting and clearing protodown via netlink.
-Date: Tue, 14 Jul 2015 08:32:07 -0700
-Message-ID: <1436887930-3067-3-git-send-email-anuradhak@cumulusnetworks.com>
+Subject: [PATCH net-next v6 3/4] rocker: Handle protodown notifications.
+Date: Tue, 14 Jul 2015 08:32:08 -0700
+Message-ID: <1436887930-3067-4-git-send-email-anuradhak@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com,
 	anuradhak@cumulusnetworks.com
 To: davem@davemloft.net, sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36564 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752162AbbGNPcU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 11:32:20 -0400
-Received: by pachj5 with SMTP id hj5so7442058pac.3
-        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 08:32:19 -0700 (PDT)
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:36578 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752638AbbGNPcV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 11:32:21 -0400
+Received: by pachj5 with SMTP id hj5so7442398pac.3
+        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 08:32:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+
+protodown can be set by user space applications like MLAG on detecting
+errors on a switch port. This patch provides sample switch driver changes
+for handling protodown. Rocker PHYS disables the port in response to
+protodown.
 
 Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
 ---
- include/uapi/linux/if_link.h |    1 +
- net/core/rtnetlink.c         |   16 ++++++++++++++--
- 2 files changed, 15 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/rocker/rocker.c |   19 ++++++++++++++++++-
+ 1 file changed, 18 insertions(+), 1 deletion(-)
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 2c7e8e3..24d68b7 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -148,6 +148,7 @@ enum {
- 	IFLA_PHYS_SWITCH_ID,
- 	IFLA_LINK_NETNSID,
- 	IFLA_PHYS_PORT_NAME,
-+	IFLA_PROTO_DOWN,
- 	__IFLA_MAX
- };
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 2d8578cade..ec950d9 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -3983,7 +3983,8 @@ static int rocker_port_open(struct net_device *dev)
  
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 01ced4a..4104e27 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -896,7 +896,9 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
- 	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
- 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
--	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_SWITCH_ID */
-+	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_SWITCH_ID */
-+	       + nla_total_size(1); /* IFLA_PROTO_DOWN */
-+
+ 	napi_enable(&rocker_port->napi_tx);
+ 	napi_enable(&rocker_port->napi_rx);
+-	rocker_port_set_enable(rocker_port, true);
++	if (!(dev->proto_down))
++		rocker_port_set_enable(rocker_port, true);
+ 	netif_start_queue(dev);
+ 	return 0;
+ 
+@@ -4167,6 +4168,21 @@ static int rocker_port_get_phys_port_name(struct net_device *dev,
+ 	return err ? -EOPNOTSUPP : 0;
  }
  
- static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
-@@ -1082,7 +1084,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	    (dev->ifalias &&
- 	     nla_put_string(skb, IFLA_IFALIAS, dev->ifalias)) ||
- 	    nla_put_u32(skb, IFLA_CARRIER_CHANGES,
--			atomic_read(&dev->carrier_changes)))
-+			atomic_read(&dev->carrier_changes)) ||
-+	    nla_put_u8(skb, IFLA_PROTO_DOWN, dev->proto_down))
- 		goto nla_put_failure;
- 
- 	if (1) {
-@@ -1319,6 +1322,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
- 	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
- 	[IFLA_LINK_NETNSID]	= { .type = NLA_S32 },
-+	[IFLA_PROTO_DOWN]	= { .type = NLA_U8 },
++static int rocker_port_change_proto_down(struct net_device *dev,
++					 bool proto_down)
++{
++	struct rocker_port *rocker_port = netdev_priv(dev);
++
++	if (rocker_port->dev->flags & IFF_UP) {
++		if (proto_down)
++			rocker_port_set_enable(rocker_port, false);
++		else
++			rocker_port_set_enable(rocker_port, true);
++	}
++	rocker_port->dev->proto_down = proto_down;
++	return 0;
++}
++
+ static const struct net_device_ops rocker_port_netdev_ops = {
+ 	.ndo_open			= rocker_port_open,
+ 	.ndo_stop			= rocker_port_stop,
+@@ -4179,6 +4195,7 @@ static const struct net_device_ops rocker_port_netdev_ops = {
+ 	.ndo_fdb_del			= switchdev_port_fdb_del,
+ 	.ndo_fdb_dump			= switchdev_port_fdb_dump,
+ 	.ndo_get_phys_port_name		= rocker_port_get_phys_port_name,
++	.ndo_change_proto_down		= rocker_port_change_proto_down,
  };
  
- static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
-@@ -1853,6 +1857,14 @@ static int do_setlink(const struct sk_buff *skb,
- 	}
- 	err = 0;
- 
-+	if (tb[IFLA_PROTO_DOWN]) {
-+		err = dev_change_proto_down(dev,
-+					    nla_get_u8(tb[IFLA_PROTO_DOWN]));
-+		if (err)
-+			goto errout;
-+		status |= DO_SETLINK_NOTIFY;
-+	}
-+
- errout:
- 	if (status & DO_SETLINK_MODIFIED) {
- 		if (status & DO_SETLINK_NOTIFY)
+ /********************
 -- 
 1.7.10.4
