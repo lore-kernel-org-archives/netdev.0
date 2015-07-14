@@ -1,45 +1,84 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net] tc: act_bpf: fix memory leak
-Date: Tue, 14 Jul 2015 12:15:19 -0700
-Message-ID: <1436901319-705-1-git-send-email-ast@plumgrid.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: bcmgenet: Remove excessive PHY reset
+Date: Tue, 14 Jul 2015 12:37:58 -0700
+Message-ID: <1436902678-19028-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:35467 "EHLO
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:32940 "EHLO
 	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752395AbbGNTP1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 15:15:27 -0400
-Received: by pactm7 with SMTP id tm7so10219869pac.2
-        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 12:15:26 -0700 (PDT)
+	with ESMTP id S1752269AbbGNTju (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 15:39:50 -0400
+Received: by padck2 with SMTP id ck2so10438219pad.0
+        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 12:39:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-prog->bpf_ops is populated when act_bpf is used with classic BPF and
-prog->bpf_name is optionally used with extended BPF.
-Fix memory leak when act_bpf is released.
+We are currently issuing multiple PHY resets during a suspend/resume,
+first during bcmgenet_power_up() which does a hardware reset, then a
+software reset by calling bcmgenet_mii_reset(). This is both unnecessary
+and can take as long as 10ms per MDIO transactions while we re-apply
+workarounds because we do not yet have MDIO interrupts enabled.
 
-Fixes: d23b8ad8ab23 ("tc: add BPF based action")
-Fixes: a8cb5f556b56 ("act_bpf: add initial eBPF support for actions")
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+phy_resume() takes care of re-apply our workarounds in case we need any,
+and bcmgenet_power_up() does a PHY hardware reset, all of this is more
+than enough to guarantee that the PHY operates correctly.
+
+Fixes: 1c1008c793fa4 ("net: bcmgenet: add main driver file")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- net/sched/act_bpf.c |    3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c |  3 ---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |  1 -
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   | 10 ----------
+ 3 files changed, 14 deletions(-)
 
-diff --git a/net/sched/act_bpf.c b/net/sched/act_bpf.c
-index 1d56903fd4c7..1df78289e248 100644
---- a/net/sched/act_bpf.c
-+++ b/net/sched/act_bpf.c
-@@ -339,6 +339,9 @@ static void tcf_bpf_cleanup(struct tc_action *act, int bind)
- 		bpf_prog_put(prog->filter);
- 	else
- 		bpf_prog_destroy(prog->filter);
-+
-+	kfree(prog->bpf_ops);
-+	kfree(prog->bpf_name);
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 64c1e9db6b0b..674f374dceee 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -907,9 +907,6 @@ static void bcmgenet_power_up(struct bcmgenet_priv *priv,
+ 	}
+ 
+ 	bcmgenet_ext_writel(priv, reg, EXT_EXT_PWR_MGMT);
+-
+-	if (mode == GENET_POWER_PASSIVE)
+-		bcmgenet_mii_reset(priv->dev);
  }
  
- static struct tc_action_ops act_bpf_ops __read_mostly = {
+ /* ioctl handle special commands that are not present in ethtool. */
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index 6159deab8c98..9f9ac0089d4d 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -672,7 +672,6 @@ GENET_IO_MACRO(rbuf, GENET_RBUF_OFF);
+ int bcmgenet_mii_init(struct net_device *dev);
+ int bcmgenet_mii_config(struct net_device *dev, bool init);
+ void bcmgenet_mii_exit(struct net_device *dev);
+-void bcmgenet_mii_reset(struct net_device *dev);
+ void bcmgenet_phy_power_set(struct net_device *dev, bool enable);
+ void bcmgenet_mii_setup(struct net_device *dev);
+ 
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+index adf23d2ac488..2a8f97299b13 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+@@ -163,16 +163,6 @@ void bcmgenet_mii_setup(struct net_device *dev)
+ 	phy_print_status(phydev);
+ }
+ 
+-void bcmgenet_mii_reset(struct net_device *dev)
+-{
+-	struct bcmgenet_priv *priv = netdev_priv(dev);
+-
+-	if (priv->phydev) {
+-		phy_init_hw(priv->phydev);
+-		phy_start_aneg(priv->phydev);
+-	}
+-}
+-
+ void bcmgenet_phy_power_set(struct net_device *dev, bool enable)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
 -- 
-1.7.9.5
+2.1.0
