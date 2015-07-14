@@ -1,137 +1,60 @@
-From: anuradhak@cumulusnetworks.com
-Subject: [PATCH iproute2 v6 4/4] ip link: proto_down config and display.
-Date: Tue, 14 Jul 2015 08:32:09 -0700
-Message-ID: <1436887930-3067-5-git-send-email-anuradhak@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com,
-	anuradhak@cumulusnetworks.com
-To: davem@davemloft.net, sfeldma@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:36593 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752162AbbGNPcX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 11:32:23 -0400
-Received: by pachj5 with SMTP id hj5so7442747pac.3
-        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 08:32:22 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Subject: Re: [PATCH nf-next] netfilter: nf_ct_sctp: minimal multihoming
+ support
+Date: Tue, 14 Jul 2015 17:38:47 +0200
+Message-ID: <20150714153847.GA3507@salvia>
+References: <20150714122311.8DA8EA0C9A@unicorn.suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
+	Jozsef Kadlecsik <kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Michal Kubecek <mkubecek-AlSwsSmVLrQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20150714122311.8DA8EA0C9A-OEaqT8BN2ewCVLCxKZUutA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+On Tue, Jul 14, 2015 at 02:23:11PM +0200, Michal Kubecek wrote:
+> @@ -658,6 +696,18 @@ static struct ctl_table sctp_sysctl_table[] = {
+>  		.mode		= 0644,
+>  		.proc_handler	= proc_dointvec_jiffies,
+>  	},
+> +	{
+> +		.procname	= "nf_conntrack_sctp_timeout_heartbeat_sent",
+> +		.maxlen		= sizeof(unsigned int),
+> +		.mode		= 0644,
+> +		.proc_handler	= proc_dointvec_jiffies,
+> +	},
+> +	{
+> +		.procname	= "nf_conntrack_sctp_timeout_heartbeat_acked",
+> +		.maxlen		= sizeof(unsigned int),
+> +		.mode		= 0644,
+> +		.proc_handler	= proc_dointvec_jiffies,
+> +	},
+>  	{ }
+>  };
+>  
+> @@ -705,6 +755,18 @@ static struct ctl_table sctp_compat_sysctl_table[] = {
+>  		.mode		= 0644,
+>  		.proc_handler	= proc_dointvec_jiffies,
+>  	},
+> +	{
+> +		.procname	= "ip_conntrack_sctp_timeout_heartbeat_sent",
+> +		.maxlen		= sizeof(unsigned int),
+> +		.mode		= 0644,
+> +		.proc_handler	= proc_dointvec_jiffies,
+> +	},
+> +	{
+> +		.procname	= "ip_conntrack_sctp_timeout_heartbeat_acked",
+> +		.maxlen		= sizeof(unsigned int),
+> +		.mode		= 0644,
+> +		.proc_handler	= proc_dointvec_jiffies,
+> +	},
+>  	{ }
 
-This patch adds support to set and display protodown on a switch port. The
-switch driver can handle this error state by doing a phys down on the port.
-
-One example user space application setting this flag is a multi-chassis
-LAG application to handle split-brain situation on peer-link failure.
-
-Example:
-root@net-next:~# ip link set eth1 protodown on
-root@net-next:~/iproute2# ip link show eth1
-4: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-    link/ether 52:54:00:12:35:01 brd ff:ff:ff:ff:ff:ff protodown on
-root@net-next:~/iproute2# ip link set eth1 protodown off
-root@net-next:~/iproute2# ip link show eth1
-4: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-    link/ether 52:54:00:12:35:01 brd ff:ff:ff:ff:ff:ff
-root@net-next:~/iproute2#
-
-Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
-Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
----
- include/linux/if_link.h |    1 +
- ip/ipaddress.c          |    7 +++++++
- ip/iplink.c             |   13 +++++++++++++
- man/man8/ip-link.8.in   |    8 ++++++++
- 4 files changed, 29 insertions(+)
-
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 8df6a84..a06a461 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -148,6 +148,7 @@ enum {
- 	IFLA_PHYS_SWITCH_ID,
- 	IFLA_LINK_NETNSID,
- 	IFLA_PHYS_PORT_NAME,
-+	IFLA_PROTO_DOWN,
- 	__IFLA_MAX
- };
- 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 85a81ba..0459442 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -736,6 +736,13 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 			fprintf(fp, " link-netnsid unknown");
- 	}
- 
-+	if (tb[IFLA_PROTO_DOWN]) {
-+		unsigned int proto_down = rta_getattr_u8(tb[IFLA_PROTO_DOWN]);
-+
-+		if (proto_down)
-+			fprintf(fp, " protodown on ");
-+	}
-+
- 	if (tb[IFLA_PROMISCUITY] && show_details)
- 		fprintf(fp, " promiscuity %u ",
- 			*(int*)RTA_DATA(tb[IFLA_PROMISCUITY]));
-diff --git a/ip/iplink.c b/ip/iplink.c
-index e296e6f..369d50e 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -85,6 +85,7 @@ void iplink_usage(void)
- 	fprintf(stderr, "			  [ master DEVICE ]\n");
- 	fprintf(stderr, "			  [ nomaster ]\n");
- 	fprintf(stderr, "			  [ addrgenmode { eui64 | none } ]\n");
-+	fprintf(stderr, "	                  [ protodown { on | off } ]\n");
- 	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up] [master DEV] [type TYPE]\n");
- 
- 	if (iplink_have_newlink()) {
-@@ -612,6 +613,18 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 				invarg("Invalid \"link-netnsid\" value\n", *argv);
- 			addattr32(&req->n, sizeof(*req), IFLA_LINK_NETNSID,
- 				  link_netnsid);
-+		} else if (strcmp(*argv, "protodown") == 0) {
-+			unsigned int proto_down;
-+
-+			NEXT_ARG();
-+			if (strcmp(*argv, "on") == 0)
-+				proto_down = 1;
-+			else if (strcmp(*argv, "off") == 0)
-+				proto_down = 0;
-+			else
-+				return on_off("protodown", *argv);
-+			addattr8(&req->n, sizeof(*req), IFLA_PROTO_DOWN,
-+				 proto_down);
- 		} else {
- 			if (strcmp(*argv, "dev") == 0) {
- 				NEXT_ARG();
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 372e6c6..c123fcc 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -101,6 +101,8 @@ ip-link \- network device configuration
- .br
- .BR multicast " { " on " | " off " } |"
- .br
-+.BR protodown " { " on " | " off " } |"
-+.br
- .B  txqueuelen
- .IR PACKETS " |"
- .br
-@@ -682,6 +684,12 @@ change the
- flag on the device.
- 
- .TP
-+.BR "protodown on " or " protodown off"
-+change the
-+.B PROTODOWN
-+state on the device. Indicates that a protocol error has been detected on the port. Switch drivers can react to this error by doing a phys down on the switch port.
-+
-+.TP
- .BR "dynamic on " or " dynamic off"
- change the
- .B DYNAMIC
--- 
-1.7.10.4
+I don't see the nla_policy updates for the netlink cttimeout
+interface.
