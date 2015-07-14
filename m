@@ -1,60 +1,42 @@
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Subject: Re: [PATCH nf-next] netfilter: nf_ct_sctp: minimal multihoming
- support
-Date: Tue, 14 Jul 2015 17:38:47 +0200
-Message-ID: <20150714153847.GA3507@salvia>
-References: <20150714122311.8DA8EA0C9A@unicorn.suse.cz>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 2/3] rhashtable: allow lookup function to have
+ compare function agument
+Date: Tue, 14 Jul 2015 08:43:52 -0700
+Message-ID: <CALx6S35rcBJtLeUQEnD3yc3nY2HC_KW_3b+pb8RFHt=GTx1Zng@mail.gmail.com>
+References: <1436834353-1851565-1-git-send-email-tom@herbertland.com>
+	<1436834353-1851565-3-git-send-email-tom@herbertland.com>
+	<20150714094449.GD20597@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
-	Jozsef Kadlecsik <kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Michal Kubecek <mkubecek-AlSwsSmVLrQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20150714122311.8DA8EA0C9A-OEaqT8BN2ewCVLCxKZUutA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:35391 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751900AbbGNPnx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 11:43:53 -0400
+Received: by iecuq6 with SMTP id uq6so14136665iec.2
+        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 08:43:53 -0700 (PDT)
+In-Reply-To: <20150714094449.GD20597@pox.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 14, 2015 at 02:23:11PM +0200, Michal Kubecek wrote:
-> @@ -658,6 +696,18 @@ static struct ctl_table sctp_sysctl_table[] = {
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec_jiffies,
->  	},
-> +	{
-> +		.procname	= "nf_conntrack_sctp_timeout_heartbeat_sent",
-> +		.maxlen		= sizeof(unsigned int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec_jiffies,
-> +	},
-> +	{
-> +		.procname	= "nf_conntrack_sctp_timeout_heartbeat_acked",
-> +		.maxlen		= sizeof(unsigned int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec_jiffies,
-> +	},
->  	{ }
->  };
->  
-> @@ -705,6 +755,18 @@ static struct ctl_table sctp_compat_sysctl_table[] = {
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec_jiffies,
->  	},
-> +	{
-> +		.procname	= "ip_conntrack_sctp_timeout_heartbeat_sent",
-> +		.maxlen		= sizeof(unsigned int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec_jiffies,
-> +	},
-> +	{
-> +		.procname	= "ip_conntrack_sctp_timeout_heartbeat_acked",
-> +		.maxlen		= sizeof(unsigned int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec_jiffies,
-> +	},
->  	{ }
+On Tue, Jul 14, 2015 at 2:44 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 07/13/15 at 05:39pm, Tom Herbert wrote:
+>> Added rhashtable_lookup_fast_cmpfn which does a lookup in an rhash table
+>> with the compare function being taken from an argument. This allows
+>> different compare functions to be used on the same table.
+>>
+>> Signed-off-by: Tom Herbert <tom@herbertland.com>
+>
+> Does this preserve the inlining guarantee? I remember Herbert had
+> to write this carefully in order to avoid indirect calls.
 
-I don't see the nla_policy updates for the netlink cttimeout
-interface.
+It looks like the compare functions are still being properly inlined.
+This is gcc 4.4.7.
+
+Thanks,
+Tom
