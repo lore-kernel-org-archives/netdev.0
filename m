@@ -1,97 +1,36 @@
-From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v6 3/4] rocker: Handle protodown notifications.
-Date: Tue, 14 Jul 2015 13:30:23 -0700
-Message-ID: <CACcJQnQXL-LhA-fBK4NhPJbONPfRJ9G2QAvH5Nm42n6++0DHEg@mail.gmail.com>
-References: <1436887930-3067-4-git-send-email-anuradhak@cumulusnetworks.com>
-	<55A53C0B.6010807@cogentembedded.com>
+From: Kyle McMartin <kyle@infradead.org>
+Subject: Re: [PATCH v2] README: clarify redistribution requirements covering
+ patents
+Date: Tue, 14 Jul 2015 16:39:02 -0400
+Message-ID: <20150714203902.GN13281@merlin.infradead.org>
+References: <1432066951-27346-1-git-send-email-mcgrof@do-not-panic.com>
+ <CAB=NE6XdnUhXb++ic2Gr1Ktb17fJPXc2tuLy=6e7yX=+xQQakQ@mail.gmail.com>
+ <CAB=NE6VMudGsfuv==9Got9N63Ni9v9dMu-8Sy2y5XVB5tvCZtA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Kyle McMartin <kyle@kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Wilson Kok <wkok@cumulusnetworks.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:33568 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752781AbbGNUaY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 16:30:24 -0400
-Received: by lbbyj8 with SMTP id yj8so13033793lbb.0
-        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 13:30:23 -0700 (PDT)
-In-Reply-To: <55A53C0B.6010807@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+To: "Luis R. Rodriguez" <mcgrof@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAB=NE6VMudGsfuv==9Got9N63Ni9v9dMu-8Sy2y5XVB5tvCZtA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 14, 2015 at 9:42 AM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Hello.
->
-> On 07/14/2015 06:32 PM, anuradhak@cumulusnetworks.com wrote:
->
->> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
->
->
->> protodown can be set by user space applications like MLAG on detecting
->> errors on a switch port. This patch provides sample switch driver changes
->> for handling protodown. Rocker PHYS disables the port in response to
->> protodown.
->
->
->> Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
->> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
->> ---
->>   drivers/net/ethernet/rocker/rocker.c |   19 ++++++++++++++++++-
->>   1 file changed, 18 insertions(+), 1 deletion(-)
->
->
->> diff --git a/drivers/net/ethernet/rocker/rocker.c
->> b/drivers/net/ethernet/rocker/rocker.c
->> index 2d8578cade..ec950d9 100644
->> --- a/drivers/net/ethernet/rocker/rocker.c
->> +++ b/drivers/net/ethernet/rocker/rocker.c
->> @@ -3983,7 +3983,8 @@ static int rocker_port_open(struct net_device *dev)
->>
->>         napi_enable(&rocker_port->napi_tx);
->>         napi_enable(&rocker_port->napi_rx);
->> -       rocker_port_set_enable(rocker_port, true);
->> +       if (!(dev->proto_down))
->
->
->    Inner parens not needed.
-Ack.
+On Thu, Jun 11, 2015 at 06:02:56PM -0700, Luis R. Rodriguez wrote:
+> On Thu, May 28, 2015 at 5:48 PM, Luis R. Rodriguez <mcgrof@suse.com> wrote:
+> > On Tue, May 19, 2015 at 1:22 PM, Luis R. Rodriguez
+> > <mcgrof@do-not-panic.com> wrote:
+> >> This v2 just changes "licence" to "license" as requested by Arend.
+> >
+> > Please let me know if there is anything else needed.
+> 
+> Just a friendly reminder.
+> 
 
->
->> +               rocker_port_set_enable(rocker_port, true);
->>         netif_start_queue(dev);
->>         return 0;
->>
->> @@ -4167,6 +4168,21 @@ static int rocker_port_get_phys_port_name(struct
->> net_device *dev,
->>         return err ? -EOPNOTSUPP : 0;
->>   }
->>
->> +static int rocker_port_change_proto_down(struct net_device *dev,
->> +                                        bool proto_down)
->> +{
->> +       struct rocker_port *rocker_port = netdev_priv(dev);
->> +
->> +       if (rocker_port->dev->flags & IFF_UP) {
->> +               if (proto_down)
->> +                       rocker_port_set_enable(rocker_port, false);
->> +               else
->> +                       rocker_port_set_enable(rocker_port, true);
->
->
->    Why not:
->
->                 rocker_port_set_enable(rocker_port, !proto_down);
-yes, that would be better. thanks for the review.
->
-> [...]
->
-> MBR, Sergei
->
+Pulled, sorry.
+
+--Kyle
