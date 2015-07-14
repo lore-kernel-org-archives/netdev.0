@@ -1,41 +1,58 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net] rtnetlink: reject non-IFLA_VF_PORT attributes inside
- IFLA_VF_PORTS
-Date: Tue, 14 Jul 2015 07:49:24 -0700
-Message-ID: <55A52174.1040600@cumulusnetworks.com>
-References: <b6917238569c4f53d4516b71b8206e8d02e2ac21.1436736717.git.daniel@iogearbox.net>
+From: Matteo Croce <matteo@openwrt.org>
+Subject: Re: [PATCH v2] add stealth mode
+Date: Tue, 14 Jul 2015 16:51:57 +0200
+Message-ID: <CAFnufp1Fds_VUPARWJceu5GdLcpR1N-N3gWo6zOPwdPVdR-dEQ@mail.gmail.com>
+References: <CAFnufp059tojfKYBye4eayOCvNNkAE9w_s_6E-PiG-EYp9K0Gg@mail.gmail.com>
+ <21611.1436179798@turing-police.cc.vt.edu> <CAFnufp3xP3xjd8zy0uLKEGgbBAb0motLva=f1EbMJCfcKG=Y-w@mail.gmail.com>
+ <559D2688.5020302@gmail.com> <CAFnufp1_JAutAm7LZsQXXPspipUy4n2C9K3Li+jsWzNpgqYBJw@mail.gmail.com>
+ <55A3B73C.4090507@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Austin S Hemmelgarn <ahferroin7@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35153 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751892AbbGNOt0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 10:49:26 -0400
-Received: by pactm7 with SMTP id tm7so6923948pac.2
-        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 07:49:26 -0700 (PDT)
-In-Reply-To: <b6917238569c4f53d4516b71b8206e8d02e2ac21.1436736717.git.daniel@iogearbox.net>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:33699 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751799AbbGNOwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 10:52:38 -0400
+In-Reply-To: <55A3B73C.4090507@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/12/15, 3:06 PM, Daniel Borkmann wrote:
-> Similarly as in commit 4f7d2cdfdde7 ("rtnetlink: verify IFLA_VF_INFO
-> attributes before passing them to driver"), we have a double nesting
-> of netlink attributes, i.e. IFLA_VF_PORTS only contains IFLA_VF_PORT
-> that is nested itself. While IFLA_VF_PORTS is a verified attribute
-> from ifla_policy[], we only check if the IFLA_VF_PORTS container has
-> IFLA_VF_PORT attributes and then pass the attribute's content itself
-> via nla_parse_nested(). It would be more correct to reject inner types
-> other than IFLA_VF_PORT instead of continuing parsing and also similarly
-> as in commit 4f7d2cdfdde7, to check for a minimum of NLA_HDRLEN.
->
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Cc: Scott Feldman <sfeldma@gmail.com>
-> Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
->
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+2015-07-13 15:03 GMT+02:00 Austin S Hemmelgarn <ahferroin7@gmail.com>:
+> How about FIN/ACK and FIN/PSH/URG?
+
+Silent:
+
+root@debian64:~# hping3 192.168.0.2 -p 32 -FA
+HPING 192.168.0.2 (eth0 192.168.0.2): AF set, 40 headers + 0 data bytes
+^C
+--- 192.168.0.2 hping statistic ---
+3 packets transmitted, 0 packets received, 100% packet loss
+round-trip min/avg/max = 0.0/0.0/0.0 ms
+root@debian64:~# hping3 192.168.0.2 -p 32 -FPU
+HPING 192.168.0.2 (eth0 192.168.0.2): FPU set, 40 headers + 0 data bytes
+^C
+--- 192.168.0.2 hping statistic ---
+3 packets transmitted, 0 packets received, 100% packet loss
+round-trip min/avg/max = 0.0/0.0/0.0 ms
+
+
+Matteo Croce
+OpenWrt Developer
+  _______                     ________        __
+ |       |.-----.-----.-----.|  |  |  |.----.|  |_
+ |   -   ||  _  |  -__|     ||  |  |  ||   _||   _|
+ |_______||   __|_____|__|__||________||__|  |____|
+          |__| W I R E L E S S   F R E E D O M
+ -----------------------------------------------------
+ CHAOS CALMER
+ -----------------------------------------------------
+  * 1 1/2 oz Gin            Shake with a glassful
+  * 1/4 oz Triple Sec       of broken ice and pour
+  * 3/4 oz Lime Juice       unstrained into a goblet.
+  * 1 1/2 oz Orange Juice
+  * 1 tsp. Grenadine Syrup
+ -----------------------------------------------------
