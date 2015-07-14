@@ -1,96 +1,97 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [PATCH 2/3] of_mdio: add new DT property 'managed' to specify the
- PHY management type
-Date: Tue, 14 Jul 2015 23:26:10 +0300
-Message-ID: <55A57062.80703@list.ru>
-References: <55A5424D.4030809@list.ru> <55A5432C.1080609@list.ru>
- <55A54C3A.1040403@gmail.com>
+From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v6 3/4] rocker: Handle protodown notifications.
+Date: Tue, 14 Jul 2015 13:30:23 -0700
+Message-ID: <CACcJQnQXL-LhA-fBK4NhPJbONPfRJ9G2QAvH5Nm42n6++0DHEg@mail.gmail.com>
+References: <1436887930-3067-4-git-send-email-anuradhak@cumulusnetworks.com>
+	<55A53C0B.6010807@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Grant Likely <grant.likely@linaro.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Wilson Kok <wkok@cumulusnetworks.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.mail.ru ([94.100.179.58]:44117 "EHLO smtp3.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752666AbbGNU2v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jul 2015 16:28:51 -0400
-In-Reply-To: <55A54C3A.1040403@gmail.com>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:33568 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752781AbbGNUaY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 16:30:24 -0400
+Received: by lbbyj8 with SMTP id yj8so13033793lbb.0
+        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 13:30:23 -0700 (PDT)
+In-Reply-To: <55A53C0B.6010807@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-14.07.2015 20:51, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On 14/07/15 10:13, Stas Sergeev wrote:
->> Currently the PHY management type is selected by the MAC driver arbi=
-trary.
->> The decision is based on the presence of the "fixed-link" node and o=
-n a
->> will of the driver's authors.
->> This caused a regression recently, when mvneta driver suddenly start=
-ed
->> to use the in-band status for auto-negotiation on fixed links.
->> It appears the auto-negotiation may not work when expected by the MA=
-C driver.
->> Sebastien Rannou explains:
->> << Yes, I confirm that my HW does not generate an in-band status. AF=
-AIK, it's
->> a PHY that aggregates 4xSGMIIs to 1xQSGMII ; the MAC side of the PHY=
- (with
->> inband status) is connected to the switch through QSGMII, and in thi=
-s context
->> we are on the media side of the PHY. >>
->> https://lkml.org/lkml/2015/7/10/206
+On Tue, Jul 14, 2015 at 9:42 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
+>
+> On 07/14/2015 06:32 PM, anuradhak@cumulusnetworks.com wrote:
+>
+>> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+>
+>
+>> protodown can be set by user space applications like MLAG on detecting
+>> errors on a switch port. This patch provides sample switch driver changes
+>> for handling protodown. Rocker PHYS disables the port in response to
+>> protodown.
+>
+>
+>> Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+>> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+>> ---
+>>   drivers/net/ethernet/rocker/rocker.c |   19 ++++++++++++++++++-
+>>   1 file changed, 18 insertions(+), 1 deletion(-)
+>
+>
+>> diff --git a/drivers/net/ethernet/rocker/rocker.c
+>> b/drivers/net/ethernet/rocker/rocker.c
+>> index 2d8578cade..ec950d9 100644
+>> --- a/drivers/net/ethernet/rocker/rocker.c
+>> +++ b/drivers/net/ethernet/rocker/rocker.c
+>> @@ -3983,7 +3983,8 @@ static int rocker_port_open(struct net_device *dev)
 >>
->> This patch introduces the new string property 'managed' that allows
->> the user to set the management type explicitly.
->> The supported values are:
->> "auto" - default. Uses either MDIO or nothing, depending on the pres=
-ence
->> of the fixed-link node
->> "mdio" - use MDIO
->> "in-band-status" - use in-band status
->> "none" - use fixed-link description
-> I thought we agreed in the last thread that "mdio" was implied whenev=
-er
-> a proper PHY phandle to a device sitting on MDIO bus is used and that
-> "auto" did not make much sense unless we were also describing how to =
-do
-> this auto-negotiation completely?
-Exactly not:
----
-> If we would implement autoneg outside of the fixed-link,
-> then its semantic would likely be
-> autoneg =3D "mdio" | "in-band" | "off"
+>>         napi_enable(&rocker_port->napi_tx);
+>>         napi_enable(&rocker_port->napi_rx);
+>> -       rocker_port_set_enable(rocker_port, true);
+>> +       if (!(dev->proto_down))
+>
+>
+>    Inner parens not needed.
+Ack.
 
-Right, if auto-negotiation was defined outside of fixed-link, that is
-indeed how I would also specify this.
----
-
-That's why I implemented it the way you see.
-But as you changed your mind, I'll remove "mdio".
-
-> As mentioned below, "mdio" is redundant with finding a "phy-handle",=20
-> and "auto" is not specific enough to be useful to a consumer of this=20
-> information.=20
-I prefer to keep "auto", as otherwise we'll have the default
-value (when the option is not specified) never achievable
-when the option _is_ specified, which is probably not very
-good. But I can remove "none" instead, leaving only
-"in-band-status" and "auto". Ok?
-Of course one can propose to completely ignore that option
-in presence of MDIO, but I wonder why not to allow for
-example to opt for in-band status even if you have MDIO?
-So if we want this option to play nicely with MDIO, as opposed
-to being entirely overridden, then "auto" still makes sense IMO.
+>
+>> +               rocker_port_set_enable(rocker_port, true);
+>>         netif_start_queue(dev);
+>>         return 0;
+>>
+>> @@ -4167,6 +4168,21 @@ static int rocker_port_get_phys_port_name(struct
+>> net_device *dev,
+>>         return err ? -EOPNOTSUPP : 0;
+>>   }
+>>
+>> +static int rocker_port_change_proto_down(struct net_device *dev,
+>> +                                        bool proto_down)
+>> +{
+>> +       struct rocker_port *rocker_port = netdev_priv(dev);
+>> +
+>> +       if (rocker_port->dev->flags & IFF_UP) {
+>> +               if (proto_down)
+>> +                       rocker_port_set_enable(rocker_port, false);
+>> +               else
+>> +                       rocker_port_set_enable(rocker_port, true);
+>
+>
+>    Why not:
+>
+>                 rocker_port_set_enable(rocker_port, !proto_down);
+yes, that would be better. thanks for the review.
+>
+> [...]
+>
+> MBR, Sergei
+>
