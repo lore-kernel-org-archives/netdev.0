@@ -1,48 +1,38 @@
-From: Kyle McMartin <kyle@infradead.org>
-Subject: Re: [PATCH] bnx2x: Update to FW version 7.12.30
-Date: Tue, 14 Jul 2015 17:04:49 -0400
-Message-ID: <20150714210449.GV13281@merlin.infradead.org>
-References: <1434866091-30087-1-git-send-email-Yuval.Mintz@qlogic.com>
- <B5657A6538887040AD3A81F1008BEC63DD93BB@avmb3.qlogic.org>
- <B5657A6538887040AD3A81F1008BEC63DE5037@avmb3.qlogic.org>
- <B5657A6538887040AD3A81F1008BEC63DE54D0@avmb3.qlogic.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next]r8169: Serialise some operations from open
+ close
+Date: Tue, 14 Jul 2015 14:29:21 -0700 (PDT)
+Message-ID: <20150714.142921.309696508310966246.davem@davemloft.net>
+References: <20150714202311.GA5189@192-168-0-3.rdsnet.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
-	netdev <netdev@vger.kernel.org>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: corcodel.marian@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:56567 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752683AbbGNVEx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 17:04:53 -0400
-Content-Disposition: inline
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63DE54D0@avmb3.qlogic.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52833 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753533AbbGNV3Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 17:29:24 -0400
+In-Reply-To: <20150714202311.GA5189@192-168-0-3.rdsnet.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 13, 2015 at 10:17:24AM +0000, Yuval Mintz wrote:
-> > > > The new FW will allow us to utilize some new features in our driver,
-> > > > mainly adding vlan filtering offload and vxlan offload support.
-> > > >
-> > > > In addition, this fixes several issues:
-> > > > 1. Packets from a VF with pvid configured which were sent with a
-> > > >    different vlan were transmitted instead of being discarded.
-> > > >
-> > > > 2. FCoE traffic might not recover after a failue while there's traffic
-> > > >    to another function.
-> > > >
-> > > > Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-> > >
-> > > Hi, any news about this one?
-> > > Thanks, Yuval
-> > 
-> > Any updates? I've sent this 3-weeks ago and haven't seen any reply.
-> 
-> Apparently the destination E-mail has changed and I was unaware.
-> Is anyone here? ;-)
-> 
 
-Hmm?
+Please do not post patches as attachments.
 
---Kyle
+Instead, inline them as unmolested ASCII text in the main message
+body along with your commit message.
+
+>From Documentation/email-clients.txt:
+
+====================
+General Preferences
+----------------------------------------------------------------------
+Patches for the Linux kernel are submitted via email, preferably as
+inline text in the body of the email.  Some maintainers accept
+attachments, but then the attachments should have content-type
+"text/plain".  However, attachments are generally frowned upon because
+it makes quoting portions of the patch more difficult in the patch
+review process.
+====================
