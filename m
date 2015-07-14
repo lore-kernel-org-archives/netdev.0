@@ -1,33 +1,23 @@
-From: Haggai Eran <haggaie@mellanox.com>
-Subject: Re: [PATCH v1 11/12] IB/cma: Share ib_cm_ids between rdma_cm_ids
-Date: Tue, 14 Jul 2015 11:47:58 +0300
-Message-ID: <55A4CCBE.3060403@mellanox.com>
-References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
- <1434976961-27424-12-git-send-email-haggaie@mellanox.com>
- <20150713180605.GI23832@obsidianresearch.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [rhashtable] WARNING: CPU: 0 PID: 1 at lib/debugobjects.c:301
+ __debug_object_init()
+Date: Tue, 14 Jul 2015 10:50:26 +0200
+Message-ID: <55A4CD52.5060104@iogearbox.net>
+References: <20150714051957.GB19723@wfg-t540p.sh.intel.com> <20150714052136.GA20251@wfg-t540p.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Doug Ledford <dledford@redhat.com>, <linux-rdma@vger.kernel.org>,
-	<netdev@vger.kernel.org>, Liran Liss <liranl@mellanox.com>,
-	Guy Shapiro <guysh@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
-	Yotam Kenneth <yotamke@mellanox.com>
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0078.outbound.protection.outlook.com ([157.55.234.78]:3824
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752049AbbGNIsq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jul 2015 04:48:46 -0400
-In-Reply-To: <20150713180605.GI23832@obsidianresearch.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	LKP <lkp@01.org>
+To: Fengguang Wu <fengguang.wu@intel.com>, Thomas Graf <tgraf@suug.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150714052136.GA20251@wfg-t540p.sh.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 13/07/2015 21:06, Jason Gunthorpe wrote:
-> On Mon, Jun 22, 2015 at 03:42:40PM +0300, Haggai Eran wrote:
->> Use ib_cm_id_create_and_listen to create listening IB CM IDs or share
->       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> Is that the wrong name? ib_cm_insert_listen perhaps?
+On 07/14/2015 07:21 AM, Fengguang Wu wrote:
+> Sorry please ignore -- this no longer happen in linux-next, so should be fine.
 
-Yes, I missed that. Thanks.
+Seen this before, this fixed it back then:
+
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/lib/test_rhashtable.c?id=b7f5e5c7f8cedf6b69c9702d448cdf78ffc45c7b
