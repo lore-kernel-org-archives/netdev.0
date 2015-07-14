@@ -1,58 +1,71 @@
-From: Matteo Croce <matteo@openwrt.org>
-Subject: Re: [PATCH v2] add stealth mode
-Date: Tue, 14 Jul 2015 16:51:57 +0200
-Message-ID: <CAFnufp1Fds_VUPARWJceu5GdLcpR1N-N3gWo6zOPwdPVdR-dEQ@mail.gmail.com>
-References: <CAFnufp059tojfKYBye4eayOCvNNkAE9w_s_6E-PiG-EYp9K0Gg@mail.gmail.com>
- <21611.1436179798@turing-police.cc.vt.edu> <CAFnufp3xP3xjd8zy0uLKEGgbBAb0motLva=f1EbMJCfcKG=Y-w@mail.gmail.com>
- <559D2688.5020302@gmail.com> <CAFnufp1_JAutAm7LZsQXXPspipUy4n2C9K3Li+jsWzNpgqYBJw@mail.gmail.com>
- <55A3B73C.4090507@gmail.com>
+From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v1 01/12] IB/core: pass client data to remove() callbacks
+Date: Tue, 14 Jul 2015 17:54:40 +0300
+Message-ID: <55A522B0.6050207@mellanox.com>
+References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
+ <1434976961-27424-2-git-send-email-haggaie@mellanox.com>
+ <20150708202910.GA16812@obsidianresearch.com>
+ <20150708213410.GA19624@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Austin S Hemmelgarn <ahferroin7@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:33699 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751799AbbGNOwi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 10:52:38 -0400
-In-Reply-To: <55A3B73C.4090507@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150708213410.GA19624-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-2015-07-13 15:03 GMT+02:00 Austin S Hemmelgarn <ahferroin7@gmail.com>:
-> How about FIN/ACK and FIN/PSH/URG?
+On 09/07/2015 00:34, Jason Gunthorpe wrote:
+> On Wed, Jul 08, 2015 at 02:29:10PM -0600, Jason Gunthorpe wrote:
+>> On Mon, Jun 22, 2015 at 03:42:30PM +0300, Haggai Eran wrote:
+>>> An ib_client callback that is called with the lists_rwsem locked only for
+>>> read is protected from changes to the IB client lists, but not from
+>>> ib_unregister_device() freeing its client data. This is because
+>>> ib_unregister_device() will remove the device from the device list with
+>>> lists_rwsem locked for write, but perform the rest of the cleanup,
+>>> including the call to remove() without that lock.
+>>
+>> I was going to look at this, but, uh.. it seems mangled, doesn't
+>> apply, doesn't seem fixable from here.
+> 
+> Okay, I see, it sits on top of the patch from Matan's last
+> posting.. My bad.
+No problem.
 
-Silent:
+> Hum... I have to say I don't really like this, changing the ordering
+> of client_data = NULL with respect to client->remove doesn't seem like
+> a great idea - and the rds changes look scary to me, at least I
+> couldn't confidently say they were OK..
+> 
+> And that isn't really the issue - this has nothing to do with
+> client_data, it is all about not having a callback running when doing
+> remove.
+> 
+> It looks like the way out of this is to have ib_get_net_dev_by_params
+> iterate over the client_data_list and use a dedicated flag in that
+> struct to indicate that client&device combination is
+> remove-in-progress.
+> 
+> This would be a bit more efficient as well, and I would suggest
+> passing the context in as an arg to the callback.
+>
+> client_data_list would change a bit to become write locked first by
+> write(lists_rwsem), and then second by the spin lock, so holding
+> read(lists_rwsem) while iterating is enough locking, and you'd hold
+> lists_rwsem while kfreeing.
 
-root@debian64:~# hping3 192.168.0.2 -p 32 -FA
-HPING 192.168.0.2 (eth0 192.168.0.2): AF set, 40 headers + 0 data bytes
-^C
---- 192.168.0.2 hping statistic ---
-3 packets transmitted, 0 packets received, 100% packet loss
-round-trip min/avg/max = 0.0/0.0/0.0 ms
-root@debian64:~# hping3 192.168.0.2 -p 32 -FPU
-HPING 192.168.0.2 (eth0 192.168.0.2): FPU set, 40 headers + 0 data bytes
-^C
---- 192.168.0.2 hping statistic ---
-3 packets transmitted, 0 packets received, 100% packet loss
-round-trip min/avg/max = 0.0/0.0/0.0 ms
+So, I don't want to keep lists_rwsem for write while calling add() and
+remove(). This would cause the deadlock that required the lists_rwsem
+patch in the first place. I guess I can drop lists_rwsem before the
+add/remove call and take it afterwards.
 
-
-Matteo Croce
-OpenWrt Developer
-  _______                     ________        __
- |       |.-----.-----.-----.|  |  |  |.----.|  |_
- |   -   ||  _  |  -__|     ||  |  |  ||   _||   _|
- |_______||   __|_____|__|__||________||__|  |____|
-          |__| W I R E L E S S   F R E E D O M
- -----------------------------------------------------
- CHAOS CALMER
- -----------------------------------------------------
-  * 1 1/2 oz Gin            Shake with a glassful
-  * 1/4 oz Triple Sec       of broken ice and pour
-  * 3/4 oz Lime Juice       unstrained into a goblet.
-  * 1 1/2 oz Orange Juice
-  * 1 tsp. Grenadine Syrup
- -----------------------------------------------------
+Haggai
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
