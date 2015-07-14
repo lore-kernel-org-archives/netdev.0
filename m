@@ -1,48 +1,42 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: [PATCH] e1000e: Move e1000e_disable_aspm_locked() inside CONFIG_PM
-Date: Tue, 14 Jul 2015 13:54:35 +1000
-Message-ID: <1436846075-29366-1-git-send-email-mpe@ellerman.id.au>
-Cc: <linux-kernel@vger.kernel.org>, intel-wired-lan@lists.osuosl.org,
-	jeffrey.t.kirsher@intel.com, aaron.f.brown@intel.com,
-	yanirx.lubetkin@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com
-To: <netdev@vger.kernel.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 4/6] net: ieee802154: Remove redundant spi driver bus initialization
+Date: Tue, 14 Jul 2015 07:07:31 +0200
+Message-ID: <37171F2A-C41E-476A-A07C-72249A1757A5@holtmann.org>
+References: <1435070714-24174-1-git-send-email-borneo.antonio@gmail.com> <1435071172-24542-1-git-send-email-borneo.antonio@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2102\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Alan Ott <alan@signal11.us>,
+	Alexander Aring <alex.aring@gmail.com>,
+	Varka Bhadram <varkabhadram@gmail.com>,
+	linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Antonio Borneo <borneo.antonio@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1435071172-24542-1-git-send-email-borneo.antonio@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-e1000e_disable_aspm_locked() is only used in __e1000_resume() which is
-inside CONFIG_PM. So when CONFIG_PM=n we get a "defined but not used"
-warning for e1000e_disable_aspm_locked().
+Hi Antonio,
 
-Move it inside the existing CONFIG_PM block to avoid the warning.
+> In ancient times it was necessary to manually initialize the bus
+> field of an spi_driver to spi_bus_type. These days this is done in
+> spi_register_driver(), so we can drop the manual assignment.
+> 
+> Signed-off-by: Antonio Borneo <borneo.antonio@gmail.com>
+> To: Alan Ott <alan@signal11.us>
+> To: Alexander Aring <alex.aring@gmail.com>
+> To: Varka Bhadram <varkabhadram@gmail.com>
+> To: linux-wpan@vger.kernel.org
+> To: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> ---
+> drivers/net/ieee802154/cc2520.c   | 1 -
+> drivers/net/ieee802154/mrf24j40.c | 1 -
+> 2 files changed, 2 deletions(-)
 
-Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
----
- drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+patch has been applied to bluetooth-next tree.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 89d788d8f263..f1d7fe2ea183 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -6439,6 +6439,7 @@ static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
- 	__e1000e_disable_aspm(pdev, state, 0);
- }
- 
-+#ifdef CONFIG_PM
- /**
-  * e1000e_disable_aspm_locked   Disable ASPM states.
-  * @pdev: pointer to PCI device struct
-@@ -6452,7 +6453,6 @@ static void e1000e_disable_aspm_locked(struct pci_dev *pdev, u16 state)
- 	__e1000e_disable_aspm(pdev, state, 1);
- }
- 
--#ifdef CONFIG_PM
- static int __e1000_resume(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
--- 
-2.1.0
+Regards
+
+Marcel
