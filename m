@@ -1,82 +1,87 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: [V2 7/7] Drivers: hv: vmbus: disable local interrupt when hvsock's
- callback is running
-Date: Tue, 14 Jul 2015 03:01:28 -0700
-Message-ID: <1436868088-17917-1-git-send-email-decui@microsoft.com>
+From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v1 05/12] IB/cm: Share listening CM IDs
+Date: Tue, 14 Jul 2015 11:45:15 +0300
+Message-ID: <55A4CC1B.1060201@mellanox.com>
+References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
+ <1434976961-27424-6-git-send-email-haggaie@mellanox.com>
+ <20150713174837.GH23832@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-To: gregkh@linuxfoundation.org, davem@davemloft.net,
- stephen@networkplumber.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, driverdev-devel@linuxdriverproject.org,
- olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com, kys@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150713174837.GH23832-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-In the SMP guest case, when the per-channel callback hvsock_events() is
-running on virtual CPU A, if the guest tries to close the connection on
-virtual CPU B: we invoke vmbus_close() -> vmbus_close_internal(),
-then we can have trouble: on B, vmbus_close_internal() will send IPI
-reset_channel_cb() to A, trying to set channel->onchannel_callbackto NULL;
-on A, if the IPI handler happens between
-"if (channel->onchannel_callback != NULL)" and invoking
-channel->onchannel_callback, we'll invoke a function pointer of NULL.
+On 13/07/2015 20:48, Jason Gunthorpe wrote:
+> On Mon, Jun 22, 2015 at 03:42:34PM +0300, Haggai Eran wrote:
+>>  		spin_lock_irq(&cm.lock);
+>> +		if (--cm_id_priv->listen_sharecount > 0) {
+>> +			/* The id is still shared. */
+>> +			atomic_dec(&cm_id_priv->refcount);
+> 
+> Nit: This looks very strange not to be cm_deref_id .. Looks OK as is
+> because we are sure refcount cannot be 0 here?
 
-This is why the patch is necessary.
+Yes, and because of the spin lock. But I'll change it to cm_deref_id()
+so that it's more uniform.
 
-Signed-off-by: Dexuan Cui <decui@microsoft.com>
----
- drivers/hv/connection.c | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+> 
+>> @@ -958,8 +988,10 @@ int ib_cm_listen(struct ib_cm_id *cm_id, __be64 service_id, __be64 service_mask,
+>>  	}
+>>  
+>>  	cm_id->state = IB_CM_LISTEN;
+>> +	++cm_id_priv->listen_sharecount;
+>>
+>> -	spin_lock_irqsave(&cm.lock, flags);
+>> +	if (lock)
+>> +		spin_lock_irqsave(&cm.lock, flags);
+> 
+> Hmm, I'd like to see the listen_sharecount consistently locked, so it
+> should be manipulated only while cm.lock is held..
 
-diff --git a/drivers/hv/connection.c b/drivers/hv/connection.c
-index 4fc2e88..4766fd8 100644
---- a/drivers/hv/connection.c
-+++ b/drivers/hv/connection.c
-@@ -319,6 +319,9 @@ static void process_chn_event(u32 relid)
- 	void *arg;
- 	bool read_state;
- 	u32 bytes_to_read;
-+	bool is_hvsock = false;
-+
-+	local_irq_disable();
- 
- 	/*
- 	 * Find the channel based on this relid and invokes the
-@@ -327,7 +330,11 @@ static void process_chn_event(u32 relid)
- 	channel = pcpu_relid2channel(relid);
- 
- 	if (!channel)
--		return;
-+		goto out;
-+
-+	is_hvsock = is_hvsock_channel(channel);
-+	if (!is_hvsock)
-+		local_irq_enable();
- 
- 	/*
- 	 * A channel once created is persistent even when there
-@@ -363,6 +370,12 @@ static void process_chn_event(u32 relid)
- 				bytes_to_read = 0;
- 		} while (read_state && (bytes_to_read != 0));
- 	}
-+
-+	/* local_irq_enable() is alredy invoked above */
-+	if (!is_hvsock)
-+		return;
-+out:
-+	local_irq_enable();
- }
- 
- /*
--- 
-2.1.0
+You're right. I'll move it inside the lock.
+
+> 
+>>  	if (service_id == IB_CM_ASSIGN_SERVICE_ID) {
+>>  		cm_id->service_id = cpu_to_be64(cm.listen_service_id++);
+>>  		cm_id->service_mask = ~cpu_to_be64(0);
+>> @@ -968,18 +1000,98 @@ int ib_cm_listen(struct ib_cm_id *cm_id, __be64 service_id, __be64 service_mask,
+>>  		cm_id->service_mask = service_mask;
+>>  	}
+>>  	cur_cm_id_priv = cm_insert_listen(cm_id_priv);
+>> -	spin_unlock_irqrestore(&cm.lock, flags);
+>> +	if (lock)
+>> +		spin_unlock_irqrestore(&cm.lock, flags);
+>>  
+>>  	if (cur_cm_id_priv) {
+>>  		cm_id->state = IB_CM_IDLE;
+>> +		--cm_id_priv->listen_sharecount;
+> 
+> Ditto
+Okay. I'll move the lock release to the end of the function.
+
+> 
+> Otherwise I don't see any other mechanical problems with this. Sean
+> said he was happy with the idea right?
+I assume he is, since he reviewed the patch and found that
+listen_sharecount leak, but he can speak for himself.
+
+> 
+> Reviewed-By: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Thanks.
+Can I add it with the modifications above?
+
+Haggai
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
