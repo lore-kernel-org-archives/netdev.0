@@ -1,38 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net] ipv6: lock socket in ip6_datagram_connect()
-Date: Tue, 14 Jul 2015 15:56:32 +0800
-Message-ID: <20150714075632.GA21140@gondor.apana.org.au>
-References: <1436854222.1374.4.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Tue, 14 Jul 2015 10:23:22 +0200
+Message-ID: <55A4C6FA.7090200@cumulusnetworks.com>
+References: <20150714114617.1eae8765@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:58056 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751708AbbGNH4i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 03:56:38 -0400
-Content-Disposition: inline
-In-Reply-To: <1436854222.1374.4.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20150714114617.1eae8765@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On 07/14/2015 03:46 AM, Stephen Rothwell wrote:
+> Hi all,
 > 
-> ip6_datagram_connect() is doing a lot of socket changes without
-> socket being locked.
+> Today's linux-next merge of the net-next tree got a conflict in:
 > 
-> This looks wrong, at least for udp_lib_rehash() which could corrupt
-> lists because of concurrent udp_sk(sk)->udp_portaddr_hash accesses.
+>   net/bridge/br_mdb.c
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> between commit:
+> 
+>   f1158b74e54f ("bridge: mdb: zero out the local br_ip variable before use")
+> 
+> from Linus' tree and commit:
+> 
+>   74fe61f17e99 ("bridge: mdb: add vlan support for user entries")
+> 
+> from the net-next tree.
+> 
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
+> 
 
-Good find! This goes all the way back to 1.3 it seems :)
+Looks good to me, thanks Stephen!
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Cheers,
+ Nik
