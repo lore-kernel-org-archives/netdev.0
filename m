@@ -1,82 +1,37 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: [PATCH 3/3] mvneta: use inband status only when explicitly enabled
-Date: Tue, 14 Jul 2015 20:14:55 +0300
-Message-ID: <55A5438F.8070903@list.ru>
-References: <55A5424D.4030809@list.ru>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH v1 05/12] IB/cm: Share listening CM IDs
+Date: Tue, 14 Jul 2015 11:38:39 -0600
+Message-ID: <20150714173839.GA25330@obsidianresearch.com>
+References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
+ <1434976961-27424-6-git-send-email-haggaie@mellanox.com>
+ <20150713174837.GH23832@obsidianresearch.com>
+ <55A4CC1B.1060201@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	stable@vger.kernel.org
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55A5424D.4030809@list.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <55A4CC1B.1060201-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Jul 14, 2015 at 11:45:15AM +0300, Haggai Eran wrote:
 
-The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band link state
-signaling") implemented the link parameters auto-negotiation unconditionally.
-Unfortunately it appears that some HW that implements SGMII protocol,
-doesn't generate the inband status, so it is not possible to auto-negotiate
-anything with such HW.
+> > Reviewed-By: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+> Thanks.
+> Can I add it with the modifications above?
 
-This patch enables the auto-negotiation only if explicitly requested with
-the 'managed' DT property.
+Yep
 
-This patch fixes the following regression:
-https://lkml.org/lkml/2015/7/8/865
-and is therefore CCed to stable.
-
-Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
-
-CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-CC: netdev@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
-CC: stable@vger.kernel.org
----
- drivers/net/ethernet/marvell/mvneta.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 74176ec..7a1deee 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -3008,8 +3008,8 @@ static int mvneta_probe(struct platform_device *pdev)
- 	const char *dt_mac_addr;
- 	char hw_mac_addr[ETH_ALEN];
- 	const char *mac_from;
-+	const char *managed;
- 	int phy_mode;
--	int fixed_phy = 0;
- 	int err;
-
- 	/* Our multiqueue support is not complete, so for now, only
-@@ -3043,7 +3043,6 @@ static int mvneta_probe(struct platform_device *pdev)
- 			dev_err(&pdev->dev, "cannot register fixed PHY\n");
- 			goto err_free_irq;
- 		}
--		fixed_phy = 1;
-
- 		/* In the case of a fixed PHY, the DT node associated
- 		 * to the PHY is the Ethernet MAC DT node.
-@@ -3067,8 +3066,10 @@ static int mvneta_probe(struct platform_device *pdev)
- 	pp = netdev_priv(dev);
- 	pp->phy_node = phy_node;
- 	pp->phy_interface = phy_mode;
--	pp->use_inband_status = (phy_mode == PHY_INTERFACE_MODE_SGMII) &&
--				fixed_phy;
-+
-+	err = of_property_read_string(dn, "managed", &managed);
-+	pp->use_inband_status = (err == 0 &&
-+				 strcmp(managed, "in-band-status") == 0);
-
- 	pp->clk = devm_clk_get(&pdev->dev, NULL);
- 	if (IS_ERR(pp->clk)) {
--- 
-1.9.1
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
