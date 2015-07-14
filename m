@@ -1,95 +1,64 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Fighting out-of-order reception with RPS?
-Date: Tue, 14 Jul 2015 11:02:16 -0700
-Message-ID: <CALx6S37TMbi0s4LK_j=VyZB0-vEHBWF4nFJsNSfQOz5D-Q0ksw@mail.gmail.com>
-References: <559D628C.5020100@hartkopp.net>
-	<CALx6S35OJHyr6iwfdtYW6P-ke2pmsmQ9BjO-D=qjgCHxwF7oew@mail.gmail.com>
-	<559E0CDF.7080309@hartkopp.net>
-	<CALx6S37JjusJ=+L3mXT0Dzf8XuU0+dgJQ7_Xn4U0nBtkf0gCHQ@mail.gmail.com>
-	<55A02CDB.6000302@hartkopp.net>
-	<1436589345.24939.56.camel@edumazet-glaptop2.roam.corp.google.com>
-	<55A2BCD8.4020303@hartkopp.net>
-	<1436763470.24939.66.camel@edumazet-glaptop2.roam.corp.google.com>
-	<55A5424B.2000803@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	Sunil Kovvuri <sunil.kovvuri@gmail.com>,
-	Jonathon Reinhart <jonathon.reinhart@gmail.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <55A5424B.2000803@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] fq_codel: fix return value of fq_codel_drop()
+Date: Tue, 14 Jul 2015 11:21:58 -0700
+Message-ID: <1436898118-30804-2-git-send-email-xiyou.wangcong@gmail.com>
+References: <1436898118-30804-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Cong Wang <cwang@twopensource.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34930 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752125AbbGNSW0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 14:22:26 -0400
+Received: by pactm7 with SMTP id tm7so9592795pac.2
+        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 11:22:25 -0700 (PDT)
+In-Reply-To: <1436898118-30804-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 14, 2015 at 10:09 AM, Oliver Hartkopp
-<socketcan@hartkopp.net> wrote:
-> On 13.07.2015 06:57, Eric Dumazet wrote:
->>
->> On Sun, 2015-07-12 at 21:15 +0200, Oliver Hartkopp wrote:
->>
->>> E.g. with
->>>
->>>         skb_set_hash(skb, dev->ifindex, PKT_HASH_TYPE_L2);
->>>
->>> and
->>>
->>>         echo f > /sys/class/net/can0/queues/rx-0/rps_cpus
->>>
->>> I get properly ordered CAN frames - even with netif_rx() processed skbs.
->>> I
->>> just want to have this stuff to be enabled by default for CAN interfaces
->>> to
->>> kill the OOO frame issue.
->>
->>
->> I doubt your skb_set_hash() makes any difference.
->>
->> RPS prefers a L4 hash anyway (skb_get_hash()), so flow dissection
->> happens.
->>
->
-> Please take a look into netif_rx_internal() in net/core/dev.c
->
-> http://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/tree/net/core/dev.c?id=v4.2-rc1#n3486
->
-> with CONFIG_RPS netif_rx() takes care about the rps cpu and puts the skb
-> into the correct hash specific queue.
->
-> As we usually have several PF_CAN sockets which get CAN frames from a
-> specific CAN interface it makes no sense to enqueue packets into queues
-> sorted by receiving sockets or L4 hash (we don't have L4 addressing on CAN).
->
-> The skb_set_hash(skb, dev->ifindex, PKT_HASH_TYPE_L2) makes sure that the
-> skbs from a specific CAN netdev are always processed in the same queue.
->
-> When this is not wanted in 'fastpath netif_rx()' why is the CONFIG_RPS
-> section in there?
->
-> What is the advantage of implementing NAPI and a 'private sk_buf queue'
-> suggested by Tom in http://marc.info/?l=linux-can&m=143681458003381&w=2 to
-> set the hash as shown and enable rps_cpus?
->
-> The latter just looks just like a complexity boost to have a functionality
-> that already exists in netif_rx(). I just want to understand it.
->
+The ->drop() is supposed to return the number of bytes it dropped,
+however fq_codel_drop() returns the index of the flow where it drops
+a packet from.
 
-netif_rx allows OOO packets and the way you're fixing that with RPS
-and setting a "flow hash" are nothing more than hacks. Sorry, but
-there is no way we are going to change RPS just to satisfy this your
-case. If you want to do this right and get something in the kernel,
-then implement NAPI for CAN drivers as has been suggested now by three
-very experienced developers. This solves the your OOO problem and
-moves drivers to NAPI which is the greatly preferred interface. I
-really don't see why there needs to be any more discussion on this.
+Fix this by introducing a helper to wrap fq_codel_drop().
 
-Tom
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Cong Wang <cwang@twopensource.com>
+---
+ net/sched/sch_fq_codel.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
-
-
-> Regards,
-> Oliver
->
->
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index 06e7c84..21ca33c 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -163,6 +163,15 @@ static unsigned int fq_codel_drop(struct Qdisc *sch)
+ 	return idx;
+ }
+ 
++static unsigned int fq_codel_qdisc_drop(struct Qdisc *sch)
++{
++	unsigned int prev_backlog;
++
++	prev_backlog = sch->qstats.backlog;
++	fq_codel_drop(sch);
++	return prev_backlog - sch->qstats.backlog;
++}
++
+ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ {
+ 	struct fq_codel_sched_data *q = qdisc_priv(sch);
+@@ -604,7 +613,7 @@ static struct Qdisc_ops fq_codel_qdisc_ops __read_mostly = {
+ 	.enqueue	=	fq_codel_enqueue,
+ 	.dequeue	=	fq_codel_dequeue,
+ 	.peek		=	qdisc_peek_dequeued,
+-	.drop		=	fq_codel_drop,
++	.drop		=	fq_codel_qdisc_drop,
+ 	.init		=	fq_codel_init,
+ 	.reset		=	fq_codel_reset,
+ 	.destroy	=	fq_codel_destroy,
+-- 
+1.8.3.1
