@@ -1,174 +1,63 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/3] fixed_phy: handle link-down case
-Date: Tue, 14 Jul 2015 11:28:30 -0700
-Message-ID: <55A554CE.4010002@gmail.com>
-References: <55A5424D.4030809@list.ru> <55A542A4.80700@list.ru>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: mmap()ed AF_NETLINK: lockdep and sleep-in-atomic warnings
+Date: Tue, 14 Jul 2015 11:40:40 -0700
+Message-ID: <20150714114040.58dd5bf5@urahara>
+References: <20150713131825.GA16186@node.dhcp.inet.fi>
+	<CAHA+R7OPHFjL83RKkTmso3s25_f7TKA=HhFKU_yOnRhsn1WxQg@mail.gmail.com>
+	<20150714093825.GC20597@pox.localdomain>
+	<20150714095037.GB25674@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>
-To: Stas Sergeev <stsp@list.ru>, netdev <netdev@vger.kernel.org>
+Cc: Thomas Graf <tgraf@suug.ch>, Cong Wang <cwang@twopensource.com>,
+	"Kirill A. Shutemov" <kirill@shutemov.name>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55A542A4.80700@list.ru>
+In-Reply-To: <20150714095037.GB25674@breakpoint.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 14/07/15 10:11, Stas Sergeev wrote:
+On Tue, 14 Jul 2015 11:50:37 +0200
+Florian Westphal <fw@strlen.de> wrote:
+
+> Thomas Graf <tgraf@suug.ch> wrote:
+> > On 07/13/15 at 10:11pm, Cong Wang wrote:
+> > > Caused by:
+> > > 
+> > > commit 21e4902aea80ef35afc00ee8d2abdea4f519b7f7
+> > > Author: Thomas Graf <tgraf@suug.ch>
+> > > Date:   Fri Jan 2 23:00:22 2015 +0100
+> > > 
+> > >     netlink: Lockless lookup with RCU grace period in socket release
+> > > 
+> > >     Defers the release of the socket reference using call_rcu() to
+> > >     allow using an RCU read-side protected call to rhashtable_lookup()
+> > > 
+> > >     This restores behaviour and performance gains as previously
+> > >     introduced by e341694 ("netlink: Convert netlink_lookup() to use
+> > >     RCU protected hash table") without the side effect of severely
+> > >     delayed socket destruction.
+> > > 
+> > >     Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> > >     Signed-off-by: David S. Miller <davem@davemloft.net>
+> > > 
+> > > 
+> > > We can't hold mutex lock in a rcu callback, perhaps we could
+> > > defer the mmap ring cleanup to a workqueue.
+> > 
+> > The socket should be dead at this point. It might be simpler to
+> > add a netlink_release_ring() function which doesn't require
+> > locking at all. It would also get rid of all the special handling
+> > for closing vs. non-closing.
 > 
-> Currently fixed_phy driver recognizes only the link-up state.
-> This simple patch adds an implementation of link-down state.
-> It fixes the status registers when link is down, and also allows
-> to register the fixed-phy with link down without specifying the speed.
-> 
-> Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
+> Do you know of any users of mmap'd netlink?
+> Support for this was never added to libmnl; given the fact that netlink
+> mmap doesn't have any advantages vs. socket interface i'd just revert it
+> (or mark CONFIG_NETLINK_MMAP broken -- although I don't see
+>  how the unconditional copy on tx could ever be avoided).
 
-This does not quite seem to work for me here on two different setups
-that use fixed PHYs:
-
-Before patch link up:
-
-# ethtool moca
-Settings for moca:
-        Supported ports: [ TP AUI BNC MII FIBRE ]
-        Supported link modes:   1000baseT/Half 1000baseT/Full
-        Supported pause frame use: No
-        Supports auto-negotiation: Yes
-        Advertised link modes:  1000baseT/Half 1000baseT/Full
-        Advertised pause frame use: No
-        Advertised auto-negotiation: Yes
-        Link partner advertised link modes:  1000baseT/Full
-        Link partner advertised pause frame use: No
-        Link partner advertised auto-negotiation: No
-        Speed: 1000Mb/s
-        Duplex: Full
-        Port: BNC
-        PHYAD: 2
-        Transceiver: external
-        Auto-negotiation: on
-        Supports Wake-on: gs
-        Wake-on: d
-        SecureOn password: 00:00:00:00:00:00
-        Link detected: yes
-#
-
-Before patch link down:
-# ethtool moca
-Settings for moca:
-        Supported ports: [ TP AUI BNC MII FIBRE ]
-        Supported link modes:   1000baseT/Half 1000baseT/Full
-        Supported pause frame use: No
-        Supports auto-negotiation: Yes
-        Advertised link modes:  1000baseT/Half 1000baseT/Full
-        Advertised pause frame use: No
-        Advertised auto-negotiation: No
-        Speed: 1000Mb/s
-        Duplex: Full
-        Port: BNC
-        PHYAD: 2
-        Transceiver: external
-        Auto-negotiation: off
-        Supports Wake-on: gs
-        Wake-on: d
-        SecureOn password: 00:00:00:00:00:00
-        Link detected: no
-#
-
-After patch link up:
-# ethtool moca
-Settings for moca:
-        Supported ports: [ TP AUI BNC MII FIBRE ]
-        Supported link modes:   1000baseT/Half 1000baseT/Full
-        Supported pause frame use: No
-        Supports auto-negotiation: Yes
-        Advertised link modes:  1000baseT/Half 1000baseT/Full
-        Advertised pause frame use: No
-        Advertised auto-negotiation: Yes
-        Link partner advertised link modes:  10baseT/Full
-        Link partner advertised pause frame use: No
-        Link partner advertised auto-negotiation: No
-        Speed: 10Mb/s <---- this is not quite the speed we want
-        Duplex: Full
-        Port: BNC
-        PHYAD: 2
-        Transceiver: external
-        Auto-negotiation: on
-        Supports Wake-on: gs
-        Wake-on: d
-        SecureOn password: 00:00:00:00:00:00
-        Link detected: yes
-#
-
-
-After patch link down:
-
-# ethtool moca
-Settings for moca:
-        Supported ports: [ TP AUI BNC MII FIBRE ]
-        Supported link modes:   1000baseT/Half 1000baseT/Full
-        Supported pause frame use: No
-        Supports auto-negotiation: Yes
-        Advertised link modes:  1000baseT/Half 1000baseT/Full
-        Advertised pause frame use: No
-        Advertised auto-negotiation: No
-        Speed: 10Mb/s
-        Duplex: Half
-        Port: BNC
-        PHYAD: 2
-        Transceiver: external
-        Auto-negotiation: off
-        Supports Wake-on: gs
-        Wake-on: d
-        SecureOn password: 00:00:00:00:00:00
-        Link detected: no
-#
-
-
-Does it behave properly for you?
-
-> 
-> CC: Florian Fainelli <f.fainelli@gmail.com>
-> CC: netdev@vger.kernel.org
-> CC: linux-kernel@vger.kernel.org
-> ---
->  drivers/net/phy/fixed_phy.c | 8 +++++---
->  1 file changed, 5 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
-> index 1960b46..479b93f 100644
-> --- a/drivers/net/phy/fixed_phy.c
-> +++ b/drivers/net/phy/fixed_phy.c
-> @@ -52,6 +52,10 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
->  	u16 lpagb = 0;
->  	u16 lpa = 0;
-> 
-> +	if (!fp->status.link)
-> +		goto done;
-> +	bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
-> +
->  	if (fp->status.duplex) {
->  		bmcr |= BMCR_FULLDPLX;
-> 
-> @@ -96,15 +100,13 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
->  		}
->  	}
-> 
-> -	if (fp->status.link)
-> -		bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
-> -
->  	if (fp->status.pause)
->  		lpa |= LPA_PAUSE_CAP;
-> 
->  	if (fp->status.asym_pause)
->  		lpa |= LPA_PAUSE_ASYM;
-> 
-> +done:
->  	fp->regs[MII_PHYSID1] = 0;
->  	fp->regs[MII_PHYSID2] = 0;
-> 
-
-
--- 
-Florian
+We use netlink mmap because it gives slightly better performance
+when processing a route flap.
