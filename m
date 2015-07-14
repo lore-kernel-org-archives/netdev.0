@@ -1,62 +1,39 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] ravb: do not invalidate cache for RX buffer twice
-Date: Wed, 15 Jul 2015 00:56:52 +0300
-Message-ID: <4759713.2ulGRKsd9L@wasted.cogentembedded.com>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: GRO: forwading ISATAP packets is very slow with kernel 4.1
+Date: Wed, 15 Jul 2015 00:16:30 +0200
+Message-ID: <17762800.UBb5paxXY3@h2o.as.studentenwerk.mhn.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:33060 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750835AbbGNV44 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 17:56:56 -0400
-Received: by lbbyj8 with SMTP id yj8so14109926lbb.0
-        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 14:56:55 -0700 (PDT)
+Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:37843 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751863AbbGNWXE convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jul 2015 18:23:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-First, dma_sync_single_for_cpu() shouldn't have been called in the first place
-(it's a streaming DMA API). dma_unmap_single() should have been called instead.
-Second, dma_unmap_single() call after handing the buffer to napi_gro_receive()
-makes little sense.
+Hello,
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+I upgraded routers from 3.14.x to 4.1.2. Forwarding ISATAP-packets (IPv=
+4=20
+packets with IPv6 payload) is very slow with 4.1 if GRO is enabled (you=
+tube=20
+for example about 64kbit). Disabling GRO on the interfaces restores=20
+performance to values comparable to 3.14.x.
 
----
-The patch is against Dave Miller's 'net.git' repo.
+The kernel is build with IPv6 support but IPv6 is disabled via kernel c=
+ommand=20
+line. The router is not a tunnel endpoint, it only forwards the ISATAP-
+packets. MTU is 1500 on both interfaces. Netfilter conntrack is not use=
+d and=20
+disabling netfilter has no effect.
 
-Don't know why I missed this DMA API misuse while working on the driver. :-<
-
- drivers/net/ethernet/renesas/ravb_main.c |   10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
-
-Index: net/drivers/net/ethernet/renesas/ravb_main.c
-===================================================================
---- net.orig/drivers/net/ethernet/renesas/ravb_main.c
-+++ net/drivers/net/ethernet/renesas/ravb_main.c
-@@ -543,10 +543,9 @@ static bool ravb_rx(struct net_device *n
- 
- 			skb = priv->rx_skb[q][entry];
- 			priv->rx_skb[q][entry] = NULL;
--			dma_sync_single_for_cpu(&ndev->dev,
--						le32_to_cpu(desc->dptr),
--						ALIGN(PKT_BUF_SZ, 16),
--						DMA_FROM_DEVICE);
-+			dma_unmap_single(&ndev->dev, le32_to_cpu(desc->dptr),
-+					 ALIGN(PKT_BUF_SZ, 16),
-+					 DMA_FROM_DEVICE);
- 			get_ts &= (q == RAVB_NC) ?
- 					RAVB_RXTSTAMP_TYPE_V2_L2_EVENT :
- 					~RAVB_RXTSTAMP_TYPE_V2_L2_EVENT;
-@@ -584,9 +583,6 @@ static bool ravb_rx(struct net_device *n
- 			if (!skb)
- 				break;	/* Better luck next round. */
- 			ravb_set_buffer_align(skb);
--			dma_unmap_single(&ndev->dev, le32_to_cpu(desc->dptr),
--					 ALIGN(PKT_BUF_SZ, 16),
--					 DMA_FROM_DEVICE);
- 			dma_addr = dma_map_single(&ndev->dev, skb->data,
- 						  le16_to_cpu(desc->ds_cc),
- 						  DMA_FROM_DEVICE);
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
