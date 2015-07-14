@@ -1,65 +1,73 @@
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: Re: [PATCH] net: stop endless flood about dst entry refcount underflow
- or overflow
-Date: Tue, 14 Jul 2015 15:15:50 +0300
-Message-ID: <55A4FD76.7050606@yandex-team.ru>
-References: <20150714114305.17434.53731.stgit@buzz> <1436875454.1374.9.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] tc: fix tc actions in case of shared skb
+Date: Tue, 14 Jul 2015 14:19:34 +0200
+Message-ID: <55A4FE56.90605@iogearbox.net>
+References: <1436573411-5021-1-git-send-email-ast@plumgrid.com>	<20150711.212917.1463596559900301434.davem@davemloft.net>	<55A415DE.8020806@plumgrid.com> <20150713.130438.1857789246357119116.davem@davemloft.net> <55A41CE9.8050907@plumgrid.com> <55A425C4.60301@iogearbox.net> <55A43B26.1010009@plumgrid.com> <55A4E479.8080101@iogearbox.net> <55A4F92E.1020908@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Miller <davem@davemloft.net>, jiri@resnulli.us,
+	netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward-corp1g.mail.yandex.net ([95.108.253.251]:58022 "EHLO
-	forward-corp1g.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751554AbbGNMPx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 08:15:53 -0400
-In-Reply-To: <1436875454.1374.9.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from www62.your-server.de ([213.133.104.62]:32989 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751736AbbGNMTq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 08:19:46 -0400
+In-Reply-To: <55A4F92E.1020908@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14.07.2015 15:04, Eric Dumazet wrote:
-> On Tue, 2015-07-14 at 14:43 +0300, Konstantin Khlebnikov wrote:
->> Kernel generates a lot of warnings when dst entry reference counter
->> overflows and becomes negative. This patch prints address of dst entry,
->> its refcount and then resets reference counter to INT_MAX/2.
+On 07/14/2015 01:57 PM, Jamal Hadi Salim wrote:
+> On 07/14/15 06:29, Daniel Borkmann wrote:
+>> On 07/14/2015 12:26 AM, Alexei Starovoitov wrote:
+>>> On 7/13/15 1:55 PM, Daniel Borkmann wrote:
+>>>> On 07/13/2015 10:17 PM, Alexei Starovoitov wrote:
+>>>> ...
+>>>>> We cannot check tc actions from pktgen, since they can be added
+>>>>> dynamically.
+>>>>> So I see three options:
+>>>>> 1 get rid of burst hack for both RX and TX in pktgen (kills
+>>>>> performance)
+>>>>> 2 add unlikely(skb_shread) check to few tc actions
+>>>>> 3 do nothing
+>>> ...
+>>>> pktgen case. :/ With regards to option 2, you could hide that behind
+>>>> a static inline helper wrapped in IS_ENABLED(CONFIG_NET_PKTGEN), but
+>>>> that is a veeeery ugly workaround/hack as well (and distros might
+>>>> even ship it nevertheless).
+>>>
+>>> naming such helper is a headache as well.
+>>> static inline bool is_pktgen_shared_skb(struct sk_buff *skb)
+>>> {
+>>> #if IS_ENABLED(CONFIG_NET_PKTGEN)
+>>>      /* pktgen uses skb->users += burst trick to reuse skb */
+>>>      return skb_shared(skb);
+>>> #else
+>>>      return false;
+>>> #endif
+>>> }
+>>> and in actions:
+>>> if (unlikely(is_pktgen_shared_skb(skb))) goto drop;
+>>>
+>>> thoughts?
 >>
->> That bug was seen several times at machines with outdated 3.10.y kernels.
->> Most like it's already fixed in upstream. Anyway flood of that warnings
->> completely kills machine and makes further debugging impossible.
+>> As I mentioned above, so Fedora, for example, ships pktgen by default.
+>> That means, we'd run into the above test for shared skb in every case,
+>> meaning it won't help much and it's also a pretty nasty hack. ;)
 >>
->> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
->> ---
->>   net/core/dst.c |    3 ++-
->>   1 file changed, 2 insertions(+), 1 deletion(-)
+>> One other thing that comes to mind, not sure if it's worth it though,
+>> would be to split the skb->tc_verd's TC_NCLS itself into TC_NCLS/TC_NACT,
+>> so that you can go into the classifier, but skip the action part.
 >>
->> diff --git a/net/core/dst.c b/net/core/dst.c
->> index e956ce6d1378..2ed91082b3cf 100644
->> --- a/net/core/dst.c
->> +++ b/net/core/dst.c
->> @@ -284,7 +284,8 @@ void dst_release(struct dst_entry *dst)
->>   		int newrefcnt;
->>
->>   		newrefcnt = atomic_dec_return(&dst->__refcnt);
->> -		WARN_ON(newrefcnt < 0);
->> +		if (WARN(newrefcnt < 0, "dst: %p refcnt: %d\n", dst, newrefcnt))
->> +			atomic_set(&dst->__refcnt, INT_MAX / 2);
->>   		if (unlikely(dst->flags & DST_NOCACHE) && !newrefcnt)
->>   			call_rcu(&dst->rcu_head, dst_destroy_rcu);
->>   	}
+>> Since in tcf_action_exec(), we already test for that, you might be able
+>> to add this with no extra cost. pktgen would then need to tag its skb
+>> with TC_NACT, so that you'll always return with TC_ACT_OK. And if you
+>> really would want to test tc actions, then w/o pktgen bursting ...
 >
->
-> WARN_ON_ONCE() if you want, but setting __refcnt like this is absolutely
-> a dirty hack.
+> Would just a simple skb->mark not work? Drop if skb->mark = x
+> using skbedit. Or a brand new pktgen_burst_mode action that drops?
 
-Simple warn-once will hide a lot of information which could be useful.
-Also dst entry leak is better than freeing actually active entry.
-
->
->
->
-
-
--- 
-Konstantin
+I think it's more about the fact that something could BUG() when used with
+pktgen, otherwise you could just generally drop after classification.
