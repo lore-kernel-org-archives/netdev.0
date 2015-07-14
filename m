@@ -1,8 +1,8 @@
 From: Dexuan Cui <decui@microsoft.com>
-Subject: [V2 3/7] Drivers: hv: vmbus: add APIs to send/recv hvsock packet and
- get the r/w-ability
-Date: Tue, 14 Jul 2015 02:58:56 -0700
-Message-ID: <1436867936-17765-1-git-send-email-decui@microsoft.com>
+Subject: [V2 4/7] Drivers: hv: vmbus: add APIs to register callbacks to
+ process hvsock connection
+Date: Tue, 14 Jul 2015 02:59:11 -0700
+Message-ID: <1436867951-17801-1-git-send-email-decui@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -22,257 +22,157 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-This will be used by the coming net/hvsock driver.
+With the 2 APIs supplied by the VMBus driver, the coming net/hvsock driver
+can register 2 callbacks and can know when a new hvsock connection is
+offered by the host, and when a hvsock connection is being closed by the
+host.
 
 Signed-off-by: Dexuan Cui <decui@microsoft.com>
 ---
- drivers/hv/channel.c      | 131 ++++++++++++++++++++++++++++++++++++++++++++++
- drivers/hv/hyperv_vmbus.h |   4 ++
- drivers/hv/ring_buffer.c  |  14 +++++
- include/linux/hyperv.h    |  33 ++++++++++++
- 4 files changed, 182 insertions(+)
+ drivers/hv/Makefile           |  4 ++-
+ drivers/hv/channel_mgmt.c     |  9 ++++++
+ drivers/hv/hvsock_callbacks.c | 71 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/hyperv.h        |  9 ++++++
+ 4 files changed, 92 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/hv/hvsock_callbacks.c
 
-diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
-index b09d1b7..9c3727a 100644
---- a/drivers/hv/channel.c
-+++ b/drivers/hv/channel.c
-@@ -758,6 +758,53 @@ int vmbus_sendpacket_pagebuffer_ctl(struct vmbus_channel *channel,
- EXPORT_SYMBOL_GPL(vmbus_sendpacket_pagebuffer_ctl);
+diff --git a/drivers/hv/Makefile b/drivers/hv/Makefile
+index 39c9b2c..ef6f8a8 100644
+--- a/drivers/hv/Makefile
++++ b/drivers/hv/Makefile
+@@ -4,5 +4,7 @@ obj-$(CONFIG_HYPERV_BALLOON)	+= hv_balloon.o
  
- /*
-+ * vmbus_sendpacket_hvsock - Send the hvsock payload 'buf' into the vmbus
-+ * ringbuffer
+ hv_vmbus-y := vmbus_drv.o \
+ 		 hv.o connection.o channel.o \
+-		 channel_mgmt.o ring_buffer.o
++		 channel_mgmt.o ring_buffer.o \
++		 hvsock_callbacks.o
++
+ hv_utils-y := hv_util.o hv_kvp.o hv_snapshot.o hv_fcopy.o hv_utils_transport.o
+diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+index 7018c53..a8b1e61 100644
+--- a/drivers/hv/channel_mgmt.c
++++ b/drivers/hv/channel_mgmt.c
+@@ -300,6 +300,12 @@ static void vmbus_process_offer(struct vmbus_channel *newchannel)
+ 		return;
+ 	}
+ 
++	if (is_hvsock_channel(newchannel)) {
++		if (hvsock_process_offer(newchannel) != 0)
++			goto err_deq_chan;
++		return;
++	}
++
+ 	/*
+ 	 * Start the process of binding this offer to the driver
+ 	 * We need to set the DeviceObject field before calling
+@@ -564,7 +570,10 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
+ 			vmbus_device_unregister(channel->device_obj);
+ 			put_device(dev);
+ 		}
++	} else if (is_hvsock_channel(channel)) {
++		hvsock_process_offer_rescind(channel);
+ 	} else {
++		/* it is a sub-channel. */
+ 		hv_process_channel_removal(channel,
+ 			channel->offermsg.child_relid);
+ 	}
+diff --git a/drivers/hv/hvsock_callbacks.c b/drivers/hv/hvsock_callbacks.c
+new file mode 100644
+index 0000000..28f7b75
+--- /dev/null
++++ b/drivers/hv/hvsock_callbacks.c
+@@ -0,0 +1,71 @@
++/*
++ * Copyright (c) 2015, Microsoft Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
 + */
-+int vmbus_sendpacket_hvsock(struct vmbus_channel *channel, void *buf, u32 len)
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/hyperv.h>
++
++/* We should hold the mutex when getting/setting the function pointers */
++static DEFINE_MUTEX(hvsock_cb_mutex);
++static int (*__process_offer)(struct vmbus_channel *channel);
++static void (*__process_offer_rescind)(struct vmbus_channel *channel);
++
++int hvsock_process_offer(struct vmbus_channel *channel)
 +{
-+	struct vmpacket_descriptor desc;
-+	struct vmpipe_proto_header pipe_hdr;
-+	u32 packetlen;
-+	u32 packetlen_aligned;
-+	struct kvec bufferlist[4];
-+	u64 aligned_data = 0;
-+	int ret;
-+	bool signal = false;
++	int ret = -ENODEV;
 +
-+	packetlen = HVSOCK_HEADER_LEN + len;
-+	packetlen_aligned = ALIGN(packetlen, sizeof(u64));
++	mutex_lock(&hvsock_cb_mutex);
 +
-+	/* Setup the descriptor */
-+	desc.type = VM_PKT_DATA_INBAND;
-+	/* in 8-bytes granularity */
-+	desc.offset8 = sizeof(struct vmpacket_descriptor) >> 3;
-+	desc.len8 = (u16)(packetlen_aligned >> 3);
-+	desc.flags = 0;
-+	desc.trans_id = 0;
++	if (__process_offer != NULL)
++		ret = __process_offer(channel);
 +
-+	pipe_hdr.pkt_type = 1;
-+	pipe_hdr.data_size = len;
-+
-+	bufferlist[0].iov_base = &desc;
-+	bufferlist[0].iov_len  = sizeof(struct vmpacket_descriptor);
-+	bufferlist[1].iov_base = &pipe_hdr;
-+	bufferlist[1].iov_len  = sizeof(struct vmpipe_proto_header);
-+	bufferlist[2].iov_base = buf;
-+	bufferlist[2].iov_len  = len;
-+	bufferlist[3].iov_base = &aligned_data;
-+	bufferlist[3].iov_len  = packetlen_aligned - packetlen;
-+
-+	ret = hv_ringbuffer_write(&channel->outbound, bufferlist, 4, &signal);
-+
-+	if (ret == 0 && signal)
-+		vmbus_setevent(channel);
++	mutex_unlock(&hvsock_cb_mutex);
 +
 +	return ret;
 +}
-+EXPORT_SYMBOL(vmbus_sendpacket_hvsock);
 +
-+/*
-  * vmbus_sendpacket_pagebuffer - Send a range of single-page buffer
-  * packets using a GPADL Direct packet type.
-  */
-@@ -978,3 +1025,87 @@ int vmbus_recvpacket_raw(struct vmbus_channel *channel, void *buffer,
- 	return ret;
- }
- EXPORT_SYMBOL_GPL(vmbus_recvpacket_raw);
-+
-+/*
-+ * vmbus_recvpacket_hvsock - Receive the hvsock payload from the vmbus
-+ * ringbuffer into the 'buffer'.
-+ */
-+int vmbus_recvpacket_hvsock(struct vmbus_channel *channel, void *buffer,
-+				u32 bufferlen, u32 *buffer_actual_len)
++void hvsock_process_offer_rescind(struct vmbus_channel *channel)
 +{
-+	struct vmpacket_descriptor *desc;
-+	struct vmpipe_proto_header *pipe_hdr;
-+	u32 packet_len, payload_len;
-+	int ret;
-+	bool signal = false;
++	mutex_lock(&hvsock_cb_mutex);
 +
-+	*buffer_actual_len = 0;
++	if (__process_offer_rescind != NULL)
++		__process_offer_rescind(channel);
++	else
++		hv_process_channel_removal(channel,
++			channel->offermsg.child_relid);
 +
-+	if (bufferlen < HVSOCK_HEADER_LEN)
-+		return -ENOBUFS;
-+
-+	ret = hv_ringbuffer_peek(&channel->inbound, buffer,
-+				 HVSOCK_HEADER_LEN);
-+	if (ret != 0)
-+		return 0;
-+
-+	desc = (struct vmpacket_descriptor *)buffer;
-+	packet_len = desc->len8 << 3;
-+	if (desc->type != VM_PKT_DATA_INBAND ||
-+		desc->offset8 != (sizeof(*desc) / 8) ||
-+		packet_len < HVSOCK_HEADER_LEN)
-+		return -EIO;
-+
-+	pipe_hdr = (struct vmpipe_proto_header *)(desc + 1);
-+	payload_len = pipe_hdr->data_size;
-+
-+	if (pipe_hdr->pkt_type != 1 || payload_len == 0)
-+		return -EIO;
-+
-+	if (HVSOCK_PKT_LEN(payload_len) != packet_len + PREV_INDICES_LEN)
-+		return -EIO;
-+
-+	if (bufferlen < packet_len - HVSOCK_HEADER_LEN)
-+		return -ENOBUFS;
-+
-+	/* Copy over the hvsock payload to the user buffer */
-+	ret = hv_ringbuffer_read(&channel->inbound, buffer,
-+				 packet_len - HVSOCK_HEADER_LEN,
-+				 HVSOCK_HEADER_LEN, &signal);
-+	if (ret != 0)
-+		return ret;
-+
-+	*buffer_actual_len = payload_len;
-+
-+	if (signal)
-+		vmbus_setevent(channel);
-+
-+	return 0;
++	mutex_unlock(&hvsock_cb_mutex);
 +}
-+EXPORT_SYMBOL_GPL(vmbus_recvpacket_hvsock);
 +
-+/*
-+ * vmbus_get_hvsock_rw_status - can the ringbuffer be read/written?
-+ */
-+void vmbus_get_hvsock_rw_status(struct vmbus_channel *channel,
-+			   bool *can_read, bool *can_write)
++void vmbus_register_hvsock_callbacks(
++	int (*process_offer)(struct vmbus_channel *),
++	void (*process_offer_rescind)(struct vmbus_channel *))
 +{
-+	u32 avl_read_bytes, avl_write_bytes, dummy;
++	mutex_lock(&hvsock_cb_mutex);
 +
-+	if (can_read != NULL) {
-+		hv_get_ringbuffer_space(&channel->inbound, &avl_read_bytes,
-+					&dummy);
-+		*can_read = avl_read_bytes >= HVSOCK_MIN_PKT_LEN;
-+	}
++	__process_offer = process_offer;
++	__process_offer_rescind = process_offer_rescind;
 +
-+	/* We write into the ringbuffer only when we're able to write a
-+	 * a payload of 4096 bytes (the actual written payload's length may be
-+	 * less than 4096).
-+	 */
-+	if (can_write != NULL) {
-+		hv_get_ringbuffer_space(&channel->outbound, &dummy,
-+					&avl_write_bytes);
-+		*can_write = avl_write_bytes > HVSOCK_PKT_LEN(PAGE_SIZE);
-+	}
++	mutex_unlock(&hvsock_cb_mutex);
 +}
-+EXPORT_SYMBOL_GPL(vmbus_get_hvsock_rw_status);
-diff --git a/drivers/hv/hyperv_vmbus.h b/drivers/hv/hyperv_vmbus.h
-index cddc0c9..d1787d0 100644
---- a/drivers/hv/hyperv_vmbus.h
-+++ b/drivers/hv/hyperv_vmbus.h
-@@ -608,6 +608,10 @@ int hv_ringbuffer_write(struct hv_ring_buffer_info *ring_info,
- int hv_ringbuffer_peek(struct hv_ring_buffer_info *ring_info, void *buffer,
- 		   u32 buflen);
- 
-+void hv_get_ringbuffer_space(struct hv_ring_buffer_info *inring_info,
-+				u32 *bytes_avail_toread,
-+				u32 *bytes_avail_towrite);
++EXPORT_SYMBOL_GPL(vmbus_register_hvsock_callbacks);
 +
- int hv_ringbuffer_read(struct hv_ring_buffer_info *ring_info,
- 		   void *buffer,
- 		   u32 buflen,
-diff --git a/drivers/hv/ring_buffer.c b/drivers/hv/ring_buffer.c
-index 6361d12..250d4ab 100644
---- a/drivers/hv/ring_buffer.c
-+++ b/drivers/hv/ring_buffer.c
-@@ -501,6 +501,20 @@ int hv_ringbuffer_peek(struct hv_ring_buffer_info *Inring_info,
- 	return 0;
- }
- 
-+void hv_get_ringbuffer_space(struct hv_ring_buffer_info *inring_info,
-+				u32 *bytes_avail_toread,
-+				u32 *bytes_avail_towrite)
++void vmbus_unregister_hvsock_callbacks(void)
 +{
-+	unsigned long flags;
++	mutex_lock(&hvsock_cb_mutex);
 +
-+	spin_lock_irqsave(&inring_info->ring_lock, flags);
++	__process_offer = NULL;
++	__process_offer_rescind = NULL;
 +
-+	hv_get_ringbuffer_availbytes(inring_info,
-+				bytes_avail_toread,
-+				bytes_avail_towrite);
-+
-+	spin_unlock_irqrestore(&inring_info->ring_lock, flags);
++	mutex_unlock(&hvsock_cb_mutex);
 +}
- 
- /*
-  *
++EXPORT_SYMBOL_GPL(vmbus_unregister_hvsock_callbacks);
 diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index 8799948..1e4c58e 100644
+index 1e4c58e..307910b3 100644
 --- a/include/linux/hyperv.h
 +++ b/include/linux/hyperv.h
-@@ -885,6 +885,9 @@ extern int vmbus_sendpacket_ctl(struct vmbus_channel *channel,
- 				  u32 flags,
- 				  bool kick_q);
- 
-+extern int vmbus_sendpacket_hvsock(struct vmbus_channel *channel,
-+					void *buf, u32 len);
-+
- extern int vmbus_sendpacket_pagebuffer(struct vmbus_channel *channel,
- 					    struct hv_page_buffer pagebuffers[],
- 					    u32 pagecount,
-@@ -934,6 +937,11 @@ extern int vmbus_recvpacket_raw(struct vmbus_channel *channel,
- 				     u32 *buffer_actual_len,
- 				     u64 *requestid);
- 
-+extern int vmbus_recvpacket_hvsock(struct vmbus_channel *channel, void *buffer,
-+				u32 bufferlen, u32 *buffer_actual_len);
-+
-+extern void vmbus_get_hvsock_rw_status(struct vmbus_channel *channel,
-+			   bool *can_read, bool *can_write);
- 
- extern void vmbus_ontimer(unsigned long data);
- 
-@@ -1261,4 +1269,29 @@ extern __u32 vmbus_proto_version;
- 
+@@ -1270,6 +1270,15 @@ extern __u32 vmbus_proto_version;
  int vmbus_send_tl_connect_request(const uuid_le *shv_guest_servie_id,
  				const uuid_le *shv_host_servie_id);
+ 
++extern int hvsock_process_offer(struct vmbus_channel *channel);
++extern void hvsock_process_offer_rescind(struct vmbus_channel *channel);
 +
-+struct vmpipe_proto_header {
-+	u32 pkt_type;
++extern void vmbus_register_hvsock_callbacks(
++	int (*process_offer)(struct vmbus_channel *),
++	void (*process_offer_rescind)(struct vmbus_channel *));
 +
-+	union {
-+		u32 data_size;
-+		struct {
-+			u16 data_size;
-+			u16 offset;
-+		} partial;
-+	};
-+} __packed;
++void vmbus_unregister_hvsock_callbacks(void);
 +
-+/* see hv_ringbuffer_read() and hv_ringbuffer_write() */
-+#define PREV_INDICES_LEN	(sizeof(u64))
-+
-+#define HVSOCK_HEADER_LEN	(sizeof(struct vmpacket_descriptor) + \
-+				 sizeof(struct vmpipe_proto_header))
-+
-+#define HVSOCK_PKT_LEN(payload_len)	(HVSOCK_HEADER_LEN + \
-+					ALIGN((payload_len), 8) + \
-+					PREV_INDICES_LEN)
-+
-+#define HVSOCK_MIN_PKT_LEN	HVSOCK_PKT_LEN(1)
-+
- #endif /* _HYPERV_H */
+ struct vmpipe_proto_header {
+ 	u32 pkt_type;
+ 
 -- 
 2.1.0
