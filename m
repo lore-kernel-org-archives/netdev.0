@@ -1,63 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: mmap()ed AF_NETLINK: lockdep and sleep-in-atomic warnings
-Date: Tue, 14 Jul 2015 11:40:40 -0700
-Message-ID: <20150714114040.58dd5bf5@urahara>
-References: <20150713131825.GA16186@node.dhcp.inet.fi>
-	<CAHA+R7OPHFjL83RKkTmso3s25_f7TKA=HhFKU_yOnRhsn1WxQg@mail.gmail.com>
-	<20150714093825.GC20597@pox.localdomain>
-	<20150714095037.GB25674@breakpoint.cc>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 1/2] isdn/gigaset: reset tty->receive_room when
+ attaching ser_gigaset
+Date: Tue, 14 Jul 2015 21:01:20 +0200
+Message-ID: <1436900480.2679.47.camel@tiscali.nl>
+References: <cover.1436826434.git.tilman@imap.cc>
+	 <ff18ec15ffc6347cd5574a66eb67cc9483361afa.1436826434.git.tilman@imap.cc>
+	 <55A44662.4080706@hurleysoftware.com> <55A450A0.4080806@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, Cong Wang <cwang@twopensource.com>,
-	"Kirill A. Shutemov" <kirill@shutemov.name>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150714095037.GB25674@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Hansjoerg Lipp <hjlipp@web.de>, linux-kernel@vger.kernel.org
+To: Tilman Schmidt <tilman@imap.cc>,
+	Peter Hurley <peter@hurleysoftware.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lb1-smtp-cloud3.xs4all.net ([194.109.24.22]:49106 "EHLO
+	lb1-smtp-cloud3.xs4all.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753121AbbGNTBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 15:01:24 -0400
+In-Reply-To: <55A450A0.4080806@imap.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 14 Jul 2015 11:50:37 +0200
-Florian Westphal <fw@strlen.de> wrote:
-
-> Thomas Graf <tgraf@suug.ch> wrote:
-> > On 07/13/15 at 10:11pm, Cong Wang wrote:
-> > > Caused by:
-> > > 
-> > > commit 21e4902aea80ef35afc00ee8d2abdea4f519b7f7
-> > > Author: Thomas Graf <tgraf@suug.ch>
-> > > Date:   Fri Jan 2 23:00:22 2015 +0100
-> > > 
-> > >     netlink: Lockless lookup with RCU grace period in socket release
-> > > 
-> > >     Defers the release of the socket reference using call_rcu() to
-> > >     allow using an RCU read-side protected call to rhashtable_lookup()
-> > > 
-> > >     This restores behaviour and performance gains as previously
-> > >     introduced by e341694 ("netlink: Convert netlink_lookup() to use
-> > >     RCU protected hash table") without the side effect of severely
-> > >     delayed socket destruction.
-> > > 
-> > >     Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> > >     Signed-off-by: David S. Miller <davem@davemloft.net>
-> > > 
-> > > 
-> > > We can't hold mutex lock in a rcu callback, perhaps we could
-> > > defer the mmap ring cleanup to a workqueue.
-> > 
-> > The socket should be dead at this point. It might be simpler to
-> > add a netlink_release_ring() function which doesn't require
-> > locking at all. It would also get rid of all the special handling
-> > for closing vs. non-closing.
+On di, 2015-07-14 at 01:58 +0200, Tilman Schmidt wrote:
+> Am 14.07.2015 um 01:14 schrieb Peter Hurley:
+> > That commit didn't cause the problem; it was a bug all along.
 > 
-> Do you know of any users of mmap'd netlink?
-> Support for this was never added to libmnl; given the fact that netlink
-> mmap doesn't have any advantages vs. socket interface i'd just revert it
-> (or mark CONFIG_NETLINK_MMAP broken -- although I don't see
->  how the unconditional copy on tx could ever be avoided).
+> Sure. That's why it is correctly fixed in the Gigaset driver.
+> But before that commit the bug was never actually triggered.
+> So that commit defines the point in the commit history from
+> which the fix is needed, and therefore needs to be mentioned
+> in order to decide which stable releases will need the fix.
 
-We use netlink mmap because it gives slightly better performance
-when processing a route flap.
+Yes, this seems a classic example of a bugfix that reveals another bug.
+So the Fixes: tag, which does sound a bit awkward, really is
+appropriate.
+
+For ser-gigaset about the only line discipline change that will be
+triggered, in practice, is from N_TTY to N_GIGASET_M101. Until commit
+79901317ce80 ("n_tty: Don't flush buffer when closing ldisc") that
+change would set receive_room to N_TTY_BUF_SIZE (ie, 4096). This patch
+will set receive_room for ser-gigaset to RBUFSIZE/2 (ie, again 4096). So
+we're back at the pre v3.10 behavior.
+
+I'm really thankful that Tilman managed to bisect this and subsequently
+saw how it could be properly fixed. I hope to forward this patch in a
+few weeks so that it might finally be fixed in v4.3.
+
+Applied.
+
+
+Paul Bolle
