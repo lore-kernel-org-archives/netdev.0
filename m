@@ -1,62 +1,48 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net] bridge: mdb: fix double add notification
-Date: Mon, 13 Jul 2015 20:53:38 -0700
-Message-ID: <CAHA+R7OJ0bQ_vG7Tt8jZ8gkdjevjXL-4ER7ZhTjL1CmARsFqgw@mail.gmail.com>
-References: <1436794579-4188-1-git-send-email-nikolay@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"bridge@lists.linux-foundation.org"
-	<bridge@lists.linux-foundation.org>, Cong Wang <amwang@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f173.google.com ([209.85.160.173]:35887 "EHLO
-	mail-yk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751595AbbGNDxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2015 23:53:39 -0400
-Received: by ykay190 with SMTP id y190so56998827yka.3
-        for <netdev@vger.kernel.org>; Mon, 13 Jul 2015 20:53:38 -0700 (PDT)
-In-Reply-To: <1436794579-4188-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: [PATCH] e1000e: Move e1000e_disable_aspm_locked() inside CONFIG_PM
+Date: Tue, 14 Jul 2015 13:54:35 +1000
+Message-ID: <1436846075-29366-1-git-send-email-mpe@ellerman.id.au>
+Cc: <linux-kernel@vger.kernel.org>, intel-wired-lan@lists.osuosl.org,
+	jeffrey.t.kirsher@intel.com, aaron.f.brown@intel.com,
+	yanirx.lubetkin@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 13, 2015 at 6:36 AM, Nikolay Aleksandrov
-<nikolay@cumulusnetworks.com> wrote:
-> Since the mdb add/del code was introduced there have been 2 br_mdb_notify
-> calls when doing br_mdb_add() resulting in 2 notifications on each add.
->
-> Example:
->  Command: bridge mdb add dev br0 port eth1 grp 239.0.0.1 permanent
->  Before patch:
->  root@debian:~# bridge monitor all
->  [MDB]dev br0 port eth1 grp 239.0.0.1 permanent
->  [MDB]dev br0 port eth1 grp 239.0.0.1 permanent
->
->  After patch:
->  root@debian:~# bridge monitor all
->  [MDB]dev br0 port eth1 grp 239.0.0.1 permanent
->
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Fixes: cfd567543590 ("bridge: add support of adding and deleting mdb entries")
-> ---
->  net/bridge/br_mdb.c | 1 -
->  1 file changed, 1 deletion(-)
->
-> diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
-> index c11cf2611db0..1198a3dbad95 100644
-> --- a/net/bridge/br_mdb.c
-> +++ b/net/bridge/br_mdb.c
-> @@ -351,7 +351,6 @@ static int br_mdb_add_group(struct net_bridge *br, struct net_bridge_port *port,
->         if (state == MDB_TEMPORARY)
->                 mod_timer(&p->timer, now + br->multicast_membership_interval);
->
-> -       br_mdb_notify(br->dev, port, group, RTM_NEWMDB);
->         return 0;
->  }
+e1000e_disable_aspm_locked() is only used in __e1000_resume() which is
+inside CONFIG_PM. So when CONFIG_PM=n we get a "defined but not used"
+warning for e1000e_disable_aspm_locked().
 
-Looks good to me.
+Move it inside the existing CONFIG_PM block to avoid the warning.
 
-And probably we can convert existing __br_mdb_notify() to using
-non-atomic allocation too, but that is for net-next.
+Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 89d788d8f263..f1d7fe2ea183 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -6439,6 +6439,7 @@ static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
+ 	__e1000e_disable_aspm(pdev, state, 0);
+ }
+ 
++#ifdef CONFIG_PM
+ /**
+  * e1000e_disable_aspm_locked   Disable ASPM states.
+  * @pdev: pointer to PCI device struct
+@@ -6452,7 +6453,6 @@ static void e1000e_disable_aspm_locked(struct pci_dev *pdev, u16 state)
+ 	__e1000e_disable_aspm(pdev, state, 1);
+ }
+ 
+-#ifdef CONFIG_PM
+ static int __e1000_resume(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+-- 
+2.1.0
