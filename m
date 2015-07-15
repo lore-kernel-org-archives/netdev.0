@@ -1,77 +1,65 @@
-From: Corcodel Marian <corcodel.marian@gmail.com>
-Subject: [PATCH net-next]r8169:Remove SYSErr bit add FEmp bit and more on
- RTL_CFG_2
-Date: Wed, 15 Jul 2015 10:22:29 +0300
-Message-ID: <20150715072229.GA3749@192-168-0-3.rdsnet.ro>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH/RFC net-next] rocker: forward packets to CPU when a port
+ in promiscuous mode
+Date: Wed, 15 Jul 2015 16:54:08 +0900
+Message-ID: <20150715075406.GA25954@vergenet.net>
+References: <1436415931-16469-1-git-send-email-simon.horman@netronome.com>
+ <CAE4R7bChu5sAKpU5tUkENfWZMhaWSs3EQZeggUxR=BjKSOqOeg@mail.gmail.com>
+ <20150715044521.GA7603@vergenet.net>
+ <CAE4R7bBH3dTfivKqo9qzRVhtpUiDzGdDmoeceY5YBq6A3VR03g@mail.gmail.com>
+ <20150715063453.GB7603@vergenet.net>
+ <CAE4R7bAy4WKaScamnJJR-bQR4n+=sqKBoR7B=saXCY989+2+3A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+	john fastabend <john.fastabend@gmail.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:36266 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984AbbGOHWd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 03:22:33 -0400
-Received: by widjy10 with SMTP id jy10so119858542wid.1
-        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 00:22:32 -0700 (PDT)
-Received: from 192-168-0-3 (5-14-229-57.residential.rdsnet.ro. [5.14.229.57])
-        by smtp.gmail.com with ESMTPSA id uo6sm6420130wjc.1.2015.07.15.00.22.30
-        for <netdev@vger.kernel.org>
-        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
-        Wed, 15 Jul 2015 00:22:31 -0700 (PDT)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:35938 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751640AbbGOHyS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 03:54:18 -0400
+Received: by pachj5 with SMTP id hj5so19859828pac.3
+        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 00:54:18 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <CAE4R7bAy4WKaScamnJJR-bQR4n+=sqKBoR7B=saXCY989+2+3A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------mine-boundary-string
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
+On Wed, Jul 15, 2015 at 12:18:20AM -0700, Scott Feldman wrote:
+> On Tue, Jul 14, 2015 at 11:34 PM, Simon Horman
+> <simon.horman@netronome.com> wrote:
+> > On Tue, Jul 14, 2015 at 10:32:54PM -0700, Scott Feldman wrote:
+> 
+> >> > @@ -5263,11 +5301,16 @@ static int rocker_port_master_changed(struct net_device *dev)
+> >> >          * 3. Other, e.g. being added to or removed from a bond or openvswitch,
+> >> >          *    in which case nothing is done
+> >> >          */
+> >>
+> >> Maybe comment above needs adjusting?
+> >
+> > Indeed, sorry for missing that.
+> > How about this?
+> >
+> >
+> >         /* There are currently five cases handled here:
+> >          * 1. Joining a bridge
+> >          * 2. Joining a Open vSwitch datapath
+> >          * 3. Leaving a previously joined bridge
+> >          * 4. Leaving a previously joined Open vSwitch datapath
+> >          * 5. Other, e.g. being added to or removed from a bond,
+> >          *    in which case nothing is done
+> >          */
+> 
+> Seems like one of those comments that needs adjusting each time the
+> code changes, which isn't good.  Maybe just kill the comment or write
+> in a generic way saying what code is doing.  Code seems obvious enough
+> to me to not require a comment.
 
+My purpose in adding the comment in the first place was
+to document the "other" case, as it wasn't handled and thus
+didn't seem obvious.
 
-Add new bit interrupt FEmp, on RTL_CFG_2 bit SYSErr is reserved and add
- rests  bits.
- Committer: Corcodel Marian <corcodel.marian@gmail.com>
+Perhaps something like this would work.
 
- On branch master
- Your branch is ahead of 'origin/master' by 15 commits.
-   (use "git push" to publish your local commits)
-
- Changes to be committed:
-	modified:   drivers/net/ethernet/realtek/r8169.c
-
-Signed-off-by: Corcodel Marian <asu@192-168-0-3.rdsnet.ro>
----
- drivers/net/ethernet/realtek/r8169.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-
---------------mine-boundary-string
-Content-Type: text/x-patch; name="0001-Signed-off-by-Corcodel-Marian-corcodel.marian-gmail..patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0001-Signed-off-by-Corcodel-Marian-corcodel.marian-gmail..patch"
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index be67873..fc14a08 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -515,6 +515,7 @@ enum rtl_register_content {
- 	/* InterruptStatusBits */
- 	SYSErr		= 0x8000,
- 	PCSTimeout	= 0x4000,
-+	FEmp		= 0x0200,
- 	SWInt		= 0x0100,
- 	TxDescUnavail	= 0x0080,
- 	RxFIFOOver	= 0x0040,
-@@ -7962,8 +7963,8 @@ static const struct rtl_cfg_info {
- 		.hw_start	= rtl_hw_start_8101,
- 		.region		= 2,
- 		.align		= 8,
--		.event_slow	= SYSErr | LinkChg | RxOverflow | RxFIFOOver |
--				  PCSTimeout,
-+		.event_slow	= LinkChg | RxOverflow | RxFIFOOver |
-+				  PCSTimeout | FEmp | SWInt | TxDescUnavail,
- 		.features	= RTL_FEATURE_MSI,
- 		.default_ver	= RTL_GIGA_MAC_VER_13,
- 	}
-
---------------mine-boundary-string--
+	/* N.B: Do nothing if the type of master is not supported */
