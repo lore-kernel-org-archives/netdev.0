@@ -1,89 +1,81 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH/RFC net-next] rocker: forward packets to CPU when a port
- in promiscuous mode
-Date: Wed, 15 Jul 2015 15:34:55 +0900
-Message-ID: <20150715063453.GB7603@vergenet.net>
-References: <1436415931-16469-1-git-send-email-simon.horman@netronome.com>
- <CAE4R7bChu5sAKpU5tUkENfWZMhaWSs3EQZeggUxR=BjKSOqOeg@mail.gmail.com>
- <20150715044521.GA7603@vergenet.net>
- <CAE4R7bBH3dTfivKqo9qzRVhtpUiDzGdDmoeceY5YBq6A3VR03g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	john fastabend <john.fastabend@gmail.com>
-To: Scott Feldman <sfeldma@gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH 01/12] can: at91_can: don't touch skb after netif_receive_skb()/netif_rx()
+Date: Wed, 15 Jul 2015 09:09:38 +0200
+Message-ID: <1436944189-26618-2-git-send-email-mkl@pengutronix.de>
+References: <1436944189-26618-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:36712 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752084AbbGOGfG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 02:35:06 -0400
-Received: by pdjr16 with SMTP id r16so19388936pdj.3
-        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 23:35:06 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bBH3dTfivKqo9qzRVhtpUiDzGdDmoeceY5YBq6A3VR03g@mail.gmail.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:36906 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751689AbbGOHJz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 03:09:55 -0400
+In-Reply-To: <1436944189-26618-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 14, 2015 at 10:32:54PM -0700, Scott Feldman wrote:
-> On Tue, Jul 14, 2015 at 9:45 PM, Simon Horman
+There is no guarantee that the skb is in the same state after calling
+net_receive_skb() or netif_rx(). It might be freed or reused. Not really
+harmful as its a read access, except you turn on the proper debugging options
+which catch a use after free.
 
-[snip]
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ drivers/net/can/at91_can.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-> > How about this?
-> 
-> Looks good, some inline comments...
-
-[snip]
-
-> > @@ -321,9 +322,21 @@ static u16 rocker_port_vlan_to_vid(const struct rocker_port *rocker_port,
-> >         return ntohs(vlan_id);
-> >  }
-> >
-> > +static bool rocker_port_is_bridged__(const struct rocker_port *rocker_port,
-> > +                                    const char *kind)
-> 
-> Maybe use __rocker_port_is_bridged?  (leading '__'; I've not seen use
-> of trailing '__').  Or __rocker_port_is_slave(port, kind)?
-
-Perhaps rocker_port_is_slave() would be a good choice?
-
-> > +{
-> > +       return rocker_port->bridge_dev &&
-> > +               !strcmp(rocker_port->bridge_dev->rtnl_link_ops->kind, kind);
-> > +}
-> > +
-> >  static bool rocker_port_is_bridged(const struct rocker_port *rocker_port)
-> >  {
-> > -       return !!rocker_port->bridge_dev;
-> > +       return rocker_port_is_bridged__(rocker_port, "bridge");
-> > +}
-> > +
-> > +static bool rocker_port_is_ovs(const struct rocker_port *rocker_port)
-> 
-> rocker_port_is_ovsed?  Just to be consistent with is_bridged.
-
-Sure, for the sake of consistency I'll change things as you suggest.
-
-[snip]
-
-> > @@ -5263,11 +5301,16 @@ static int rocker_port_master_changed(struct net_device *dev)
-> >          * 3. Other, e.g. being added to or removed from a bond or openvswitch,
-> >          *    in which case nothing is done
-> >          */
-> 
-> Maybe comment above needs adjusting?
-
-Indeed, sorry for missing that.
-How about this?
-
-
-        /* There are currently five cases handled here:
-         * 1. Joining a bridge
-         * 2. Joining a Open vSwitch datapath
-         * 3. Leaving a previously joined bridge
-         * 4. Leaving a previously joined Open vSwitch datapath
-         * 5. Other, e.g. being added to or removed from a bond,
-         *    in which case nothing is done
-         */
-
-[snip]
+diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
+index f4e40aa4d2a2..945c0955a967 100644
+--- a/drivers/net/can/at91_can.c
++++ b/drivers/net/can/at91_can.c
+@@ -577,10 +577,10 @@ static void at91_rx_overflow_err(struct net_device *dev)
+ 
+ 	cf->can_id |= CAN_ERR_CRTL;
+ 	cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
+-	netif_receive_skb(skb);
+ 
+ 	stats->rx_packets++;
+ 	stats->rx_bytes += cf->can_dlc;
++	netif_receive_skb(skb);
+ }
+ 
+ /**
+@@ -642,10 +642,10 @@ static void at91_read_msg(struct net_device *dev, unsigned int mb)
+ 	}
+ 
+ 	at91_read_mb(dev, mb, cf);
+-	netif_receive_skb(skb);
+ 
+ 	stats->rx_packets++;
+ 	stats->rx_bytes += cf->can_dlc;
++	netif_receive_skb(skb);
+ 
+ 	can_led_event(dev, CAN_LED_EVENT_RX);
+ }
+@@ -802,10 +802,10 @@ static int at91_poll_err(struct net_device *dev, int quota, u32 reg_sr)
+ 		return 0;
+ 
+ 	at91_poll_err_frame(dev, cf, reg_sr);
+-	netif_receive_skb(skb);
+ 
+ 	dev->stats.rx_packets++;
+ 	dev->stats.rx_bytes += cf->can_dlc;
++	netif_receive_skb(skb);
+ 
+ 	return 1;
+ }
+@@ -1067,10 +1067,10 @@ static void at91_irq_err(struct net_device *dev)
+ 		return;
+ 
+ 	at91_irq_err_state(dev, cf, new_state);
+-	netif_rx(skb);
+ 
+ 	dev->stats.rx_packets++;
+ 	dev->stats.rx_bytes += cf->can_dlc;
++	netif_rx(skb);
+ 
+ 	priv->can.state = new_state;
+ }
+-- 
+2.1.4
