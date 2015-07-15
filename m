@@ -1,172 +1,190 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 14/16] i40e/i40evf: Add support for pre-allocated pages for PD
-Date: Tue, 14 Jul 2015 18:30:38 -0700
-Message-ID: <1436923840-24455-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 08/16] i40e/i40evf: Update the admin queue command header
+Date: Tue, 14 Jul 2015 18:30:32 -0700
+Message-ID: <1436923840-24455-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1436923840-24455-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Faisal Latif <faisal.latif@intel.com>, netdev@vger.kernel.org,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:55935 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:15732 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752594AbbGOBat (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jul 2015 21:30:49 -0400
+	id S1752599AbbGOBar (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jul 2015 21:30:47 -0400
 In-Reply-To: <1436923840-24455-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Faisal Latif <faisal.latif@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-The i40e_add_pd_table_entry() routine is being modified to handle both
-cases where a backing page is passed and where backing page is allocated
-in i40e_add_pd_table_entry().
+Make the necessary updates to i40e_adminq_cmd.h.
 
-For PBLE resource management, it is more efficient for it to manage its
-backing pages. For VF, PBLE backing page addresses will be send to PF
-driver for PBLE resource.
-
-The i40e_remove_pd_bp() is also modified to not free pre-allocated pages and
-free only ones which were allocated in i40e_add_pd_table_entry().
-
-Change-ID: Ie673f0403f22979e9406f5a94048dceb91bcf9a8
-Signed-off-by: Faisal Latif <faisal.latif@intel.com>
+Change-ID: Ib031c86cc6cab78e5aa44c64d8ce5474be8d7e42
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_hmc.c     | 30 +++++++++++++++++---------
- drivers/net/ethernet/intel/i40e/i40e_hmc.h     |  4 +++-
- drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c |  2 +-
- drivers/net/ethernet/intel/i40evf/i40e_hmc.h   |  4 +++-
- 4 files changed, 27 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 24 ++++++++++++----------
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 18 +++++++---------
+ 2 files changed, 20 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_hmc.c
-index 9b987cc..b89856a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_hmc.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_hmc.c
-@@ -116,6 +116,7 @@ exit:
-  * @hw: pointer to our HW structure
-  * @hmc_info: pointer to the HMC configuration information structure
-  * @pd_index: which page descriptor index to manipulate
-+ * @rsrc_pg: if not NULL, use preallocated page instead of allocating new one.
-  *
-  * This function:
-  *	1. Initializes the pd entry
-@@ -129,12 +130,14 @@ exit:
-  **/
- i40e_status i40e_add_pd_table_entry(struct i40e_hw *hw,
- 					      struct i40e_hmc_info *hmc_info,
--					      u32 pd_index)
-+					      u32 pd_index,
-+					      struct i40e_dma_mem *rsrc_pg)
- {
- 	i40e_status ret_code = 0;
- 	struct i40e_hmc_pd_table *pd_table;
- 	struct i40e_hmc_pd_entry *pd_entry;
- 	struct i40e_dma_mem mem;
-+	struct i40e_dma_mem *page = &mem;
- 	u32 sd_idx, rel_pd_idx;
- 	u64 *pd_addr;
- 	u64 page_desc;
-@@ -155,18 +158,24 @@ i40e_status i40e_add_pd_table_entry(struct i40e_hw *hw,
- 	pd_table = &hmc_info->sd_table.sd_entry[sd_idx].u.pd_table;
- 	pd_entry = &pd_table->pd_entry[rel_pd_idx];
- 	if (!pd_entry->valid) {
--		/* allocate a 4K backing page */
--		ret_code = i40e_allocate_dma_mem(hw, &mem, i40e_mem_bp,
--						 I40E_HMC_PAGED_BP_SIZE,
--						 I40E_HMC_PD_BP_BUF_ALIGNMENT);
--		if (ret_code)
--			goto exit;
-+		if (rsrc_pg) {
-+			pd_entry->rsrc_pg = true;
-+			page = rsrc_pg;
-+		} else {
-+			/* allocate a 4K backing page */
-+			ret_code = i40e_allocate_dma_mem(hw, page, i40e_mem_bp,
-+						I40E_HMC_PAGED_BP_SIZE,
-+						I40E_HMC_PD_BP_BUF_ALIGNMENT);
-+			if (ret_code)
-+				goto exit;
-+			pd_entry->rsrc_pg = false;
-+		}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index 929e3d7..9101f5c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -34,7 +34,7 @@
+  */
  
--		pd_entry->bp.addr = mem;
-+		pd_entry->bp.addr = *page;
- 		pd_entry->bp.sd_pd_index = pd_index;
- 		pd_entry->bp.entry_type = I40E_SD_TYPE_PAGED;
- 		/* Set page address and valid bit */
--		page_desc = mem.pa | 0x1;
-+		page_desc = page->pa | 0x1;
+ #define I40E_FW_API_VERSION_MAJOR	0x0001
+-#define I40E_FW_API_VERSION_MINOR	0x0002
++#define I40E_FW_API_VERSION_MINOR	0x0004
  
- 		pd_addr = (u64 *)pd_table->pd_page_addr.va;
- 		pd_addr += rel_pd_idx;
-@@ -240,7 +249,8 @@ i40e_status i40e_remove_pd_bp(struct i40e_hw *hw,
- 	I40E_INVALIDATE_PF_HMC_PD(hw, sd_idx, idx);
+ struct i40e_aq_desc {
+ 	__le16 flags;
+@@ -132,12 +132,7 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_list_func_capabilities	= 0x000A,
+ 	i40e_aqc_opc_list_dev_capabilities	= 0x000B,
  
- 	/* free memory here */
--	ret_code = i40e_free_dma_mem(hw, &(pd_entry->bp.addr));
-+	if (!pd_entry->rsrc_pg)
-+		ret_code = i40e_free_dma_mem(hw, &pd_entry->bp.addr);
- 	if (ret_code)
- 		goto exit;
- 	if (!pd_table->ref_cnt)
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_hmc.h b/drivers/net/ethernet/intel/i40e/i40e_hmc.h
-index 732a026..386416b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_hmc.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_hmc.h
-@@ -62,6 +62,7 @@ struct i40e_hmc_bp {
- struct i40e_hmc_pd_entry {
- 	struct i40e_hmc_bp bp;
- 	u32 sd_index;
-+	bool rsrc_pg;
- 	bool valid;
+-	i40e_aqc_opc_set_cppm_configuration	= 0x0103,
+-	i40e_aqc_opc_set_arp_proxy_entry	= 0x0104,
+-	i40e_aqc_opc_set_ns_proxy_entry		= 0x0105,
+-
+ 	/* LAA */
+-	i40e_aqc_opc_mng_laa		= 0x0106,   /* AQ obsolete */
+ 	i40e_aqc_opc_mac_address_read	= 0x0107,
+ 	i40e_aqc_opc_mac_address_write	= 0x0108,
+ 
+@@ -262,7 +257,6 @@ enum i40e_admin_queue_opc {
+ 	/* Tunnel commands */
+ 	i40e_aqc_opc_add_udp_tunnel	= 0x0B00,
+ 	i40e_aqc_opc_del_udp_tunnel	= 0x0B01,
+-	i40e_aqc_opc_tunnel_key_structure	= 0x0B10,
+ 
+ 	/* Async Events */
+ 	i40e_aqc_opc_event_lan_overflow		= 0x1001,
+@@ -274,8 +268,6 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_oem_ocbb_initialize	= 0xFE03,
+ 
+ 	/* debug commands */
+-	i40e_aqc_opc_debug_get_deviceid		= 0xFF00,
+-	i40e_aqc_opc_debug_set_mode		= 0xFF01,
+ 	i40e_aqc_opc_debug_read_reg		= 0xFF03,
+ 	i40e_aqc_opc_debug_write_reg		= 0xFF04,
+ 	i40e_aqc_opc_debug_modify_reg		= 0xFF07,
+@@ -509,7 +501,8 @@ struct i40e_aqc_mac_address_read {
+ #define I40E_AQC_SAN_ADDR_VALID		0x20
+ #define I40E_AQC_PORT_ADDR_VALID	0x40
+ #define I40E_AQC_WOL_ADDR_VALID		0x80
+-#define I40E_AQC_ADDR_VALID_MASK	0xf0
++#define I40E_AQC_MC_MAG_EN_VALID	0x100
++#define I40E_AQC_ADDR_VALID_MASK	0x1F0
+ 	u8	reserved[6];
+ 	__le32	addr_high;
+ 	__le32	addr_low;
+@@ -532,7 +525,9 @@ struct i40e_aqc_mac_address_write {
+ #define I40E_AQC_WRITE_TYPE_LAA_ONLY	0x0000
+ #define I40E_AQC_WRITE_TYPE_LAA_WOL	0x4000
+ #define I40E_AQC_WRITE_TYPE_PORT	0x8000
+-#define I40E_AQC_WRITE_TYPE_MASK	0xc000
++#define I40E_AQC_WRITE_TYPE_UPDATE_MC_MAG	0xC000
++#define I40E_AQC_WRITE_TYPE_MASK	0xC000
++
+ 	__le16	mac_sah;
+ 	__le32	mac_sal;
+ 	u8	reserved[8];
+@@ -1068,6 +1063,7 @@ struct i40e_aqc_set_vsi_promiscuous_modes {
+ 	__le16	seid;
+ #define I40E_AQC_VSI_PROM_CMD_SEID_MASK		0x3FF
+ 	__le16	vlan_tag;
++#define I40E_AQC_SET_VSI_VLAN_MASK		0x0FFF
+ #define I40E_AQC_SET_VSI_VLAN_VALID		0x8000
+ 	u8	reserved[8];
  };
+@@ -2064,6 +2060,12 @@ I40E_CHECK_CMD_LENGTH(i40e_aqc_lldp_start);
+ #define I40E_AQC_CEE_PFC_STATUS_MASK	(0x7 << I40E_AQC_CEE_PFC_STATUS_SHIFT)
+ #define I40E_AQC_CEE_APP_STATUS_SHIFT	0x8
+ #define I40E_AQC_CEE_APP_STATUS_MASK	(0x7 << I40E_AQC_CEE_APP_STATUS_SHIFT)
++#define I40E_AQC_CEE_FCOE_STATUS_SHIFT	0x8
++#define I40E_AQC_CEE_FCOE_STATUS_MASK	(0x7 << I40E_AQC_CEE_FCOE_STATUS_SHIFT)
++#define I40E_AQC_CEE_ISCSI_STATUS_SHIFT	0xA
++#define I40E_AQC_CEE_ISCSI_STATUS_MASK	(0x7 << I40E_AQC_CEE_ISCSI_STATUS_SHIFT)
++#define I40E_AQC_CEE_FIP_STATUS_SHIFT	0x10
++#define I40E_AQC_CEE_FIP_STATUS_MASK	(0x7 << I40E_AQC_CEE_FIP_STATUS_SHIFT)
+ struct i40e_aqc_get_cee_dcb_cfg_v1_resp {
+ 	u8	reserved1;
+ 	u8	oper_num_tc;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+index e715bcc..d5bd6f0 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+@@ -34,7 +34,7 @@
+  */
  
-@@ -218,7 +219,8 @@ i40e_status i40e_add_sd_table_entry(struct i40e_hw *hw,
+ #define I40E_FW_API_VERSION_MAJOR	0x0001
+-#define I40E_FW_API_VERSION_MINOR	0x0002
++#define I40E_FW_API_VERSION_MINOR	0x0004
+ #define I40E_FW_API_VERSION_A0_MINOR  0x0000
  
- i40e_status i40e_add_pd_table_entry(struct i40e_hw *hw,
- 					      struct i40e_hmc_info *hmc_info,
--					      u32 pd_index);
-+					      u32 pd_index,
-+					      struct i40e_dma_mem *rsrc_pg);
- i40e_status i40e_remove_pd_bp(struct i40e_hw *hw,
- 					struct i40e_hmc_info *hmc_info,
- 					u32 idx);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
-index 0079ad7..d399eaf 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
-@@ -387,7 +387,7 @@ static i40e_status i40e_create_lan_hmc_object(struct i40e_hw *hw,
- 				/* update the pd table entry */
- 				ret_code = i40e_add_pd_table_entry(hw,
- 								info->hmc_info,
--								i);
-+								i, NULL);
- 				if (ret_code) {
- 					pd_error = true;
- 					break;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_hmc.h b/drivers/net/ethernet/intel/i40evf/i40e_hmc.h
-index 931c880..adc6f71 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_hmc.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_hmc.h
-@@ -62,6 +62,7 @@ struct i40e_hmc_bp {
- struct i40e_hmc_pd_entry {
- 	struct i40e_hmc_bp bp;
- 	u32 sd_index;
-+	bool rsrc_pg;
- 	bool valid;
+ struct i40e_aq_desc {
+@@ -133,12 +133,7 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_list_func_capabilities	= 0x000A,
+ 	i40e_aqc_opc_list_dev_capabilities	= 0x000B,
+ 
+-	i40e_aqc_opc_set_cppm_configuration	= 0x0103,
+-	i40e_aqc_opc_set_arp_proxy_entry	= 0x0104,
+-	i40e_aqc_opc_set_ns_proxy_entry		= 0x0105,
+-
+ 	/* LAA */
+-	i40e_aqc_opc_mng_laa		= 0x0106,   /* AQ obsolete */
+ 	i40e_aqc_opc_mac_address_read	= 0x0107,
+ 	i40e_aqc_opc_mac_address_write	= 0x0108,
+ 
+@@ -260,7 +255,6 @@ enum i40e_admin_queue_opc {
+ 	/* Tunnel commands */
+ 	i40e_aqc_opc_add_udp_tunnel	= 0x0B00,
+ 	i40e_aqc_opc_del_udp_tunnel	= 0x0B01,
+-	i40e_aqc_opc_tunnel_key_structure	= 0x0B10,
+ 
+ 	/* Async Events */
+ 	i40e_aqc_opc_event_lan_overflow		= 0x1001,
+@@ -272,8 +266,6 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_oem_ocbb_initialize	= 0xFE03,
+ 
+ 	/* debug commands */
+-	i40e_aqc_opc_debug_get_deviceid		= 0xFF00,
+-	i40e_aqc_opc_debug_set_mode		= 0xFF01,
+ 	i40e_aqc_opc_debug_read_reg		= 0xFF03,
+ 	i40e_aqc_opc_debug_write_reg		= 0xFF04,
+ 	i40e_aqc_opc_debug_modify_reg		= 0xFF07,
+@@ -507,7 +499,8 @@ struct i40e_aqc_mac_address_read {
+ #define I40E_AQC_SAN_ADDR_VALID		0x20
+ #define I40E_AQC_PORT_ADDR_VALID	0x40
+ #define I40E_AQC_WOL_ADDR_VALID		0x80
+-#define I40E_AQC_ADDR_VALID_MASK	0xf0
++#define I40E_AQC_MC_MAG_EN_VALID	0x100
++#define I40E_AQC_ADDR_VALID_MASK	0x1F0
+ 	u8	reserved[6];
+ 	__le32	addr_high;
+ 	__le32	addr_low;
+@@ -530,7 +523,9 @@ struct i40e_aqc_mac_address_write {
+ #define I40E_AQC_WRITE_TYPE_LAA_ONLY	0x0000
+ #define I40E_AQC_WRITE_TYPE_LAA_WOL	0x4000
+ #define I40E_AQC_WRITE_TYPE_PORT	0x8000
+-#define I40E_AQC_WRITE_TYPE_MASK	0xc000
++#define I40E_AQC_WRITE_TYPE_UPDATE_MC_MAG	0xC000
++#define I40E_AQC_WRITE_TYPE_MASK	0xC000
++
+ 	__le16	mac_sah;
+ 	__le32	mac_sal;
+ 	u8	reserved[8];
+@@ -1066,6 +1061,7 @@ struct i40e_aqc_set_vsi_promiscuous_modes {
+ 	__le16	seid;
+ #define I40E_AQC_VSI_PROM_CMD_SEID_MASK		0x3FF
+ 	__le16	vlan_tag;
++#define I40E_AQC_SET_VSI_VLAN_MASK		0x0FFF
+ #define I40E_AQC_SET_VSI_VLAN_VALID		0x8000
+ 	u8	reserved[8];
  };
- 
-@@ -218,7 +219,8 @@ i40e_status i40e_add_sd_table_entry(struct i40e_hw *hw,
- 
- i40e_status i40e_add_pd_table_entry(struct i40e_hw *hw,
- 					      struct i40e_hmc_info *hmc_info,
--					      u32 pd_index);
-+					      u32 pd_index,
-+					      struct i40e_dma_mem *rsrc_pg);
- i40e_status i40e_remove_pd_bp(struct i40e_hw *hw,
- 					struct i40e_hmc_info *hmc_info,
- 					u32 idx);
 -- 
 2.4.3
