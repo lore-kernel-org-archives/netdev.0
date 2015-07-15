@@ -1,59 +1,84 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ravb: do not invalidate cache for RX buffer twice
-Date: Wed, 15 Jul 2015 13:45:34 +0300
-Message-ID: <55A639CE.2030201@cogentembedded.com>
-References: <4759713.2ulGRKsd9L@wasted.cogentembedded.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL] vhost: cleanups and fixes
+Date: Wed, 15 Jul 2015 13:50:24 +0300
+Message-ID: <20150715135024-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <4759713.2ulGRKsd9L@wasted.cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: sfr@canb.auug.org.au, thuth@redhat.com, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, pmorel@linux.vnet.ibm.com,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	borntraeger@de.ibm.com, yan@daynix.com, imammedo@redhat.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+The following changes since commit 59a5b0f7bf74f88da6670bcbf924d8cc1e75b1ee:
 
-On 7/15/2015 12:56 AM, Sergei Shtylyov wrote:
+  virtio-pci: alloc only resources actually used. (2015-06-24 08:15:09 +0200)
 
-> First, dma_sync_single_for_cpu() shouldn't have been called in the first place
-> (it's a streaming DMA API). dma_unmap_single() should have been called instead.
-                             ^
-    Oops, I meant comma here.
+are available in the git repository at:
 
-> Second, dma_unmap_single() call after handing the buffer to napi_gro_receive()
-> makes little sense.
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
 
-    Moreover, 'desc->dptr' may not be valid at this point...
+for you to fetch changes up to c9ce42f72fd0ba180fd35539829e4139dca31494:
 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->
-> ---
-> The patch is against Dave Miller's 'net.git' repo.
+  vhost: add max_mem_regions module parameter (2015-07-13 23:17:19 +0300)
 
-> Don't know why I missed this DMA API misuse while working on the driver. :-<
+----------------------------------------------------------------
+virtio/vhost: fixes for 4.2
 
-    Dave, do you want me to resend the patch with fixed up changelog?
+Bugfixes and documentation fixes. Igor's patch that allows
+users to tweak memory table size is borderline,
+but it does fix known crashes, so I merged it.
 
->   drivers/net/ethernet/renesas/ravb_main.c |   10 +++-------
->   1 file changed, 3 insertions(+), 7 deletions(-)
->
-> Index: net/drivers/net/ethernet/renesas/ravb_main.c
-> ===================================================================
-> --- net.orig/drivers/net/ethernet/renesas/ravb_main.c
-> +++ net/drivers/net/ethernet/renesas/ravb_main.c
-[...]
-> @@ -584,9 +583,6 @@ static bool ravb_rx(struct net_device *n
->   			if (!skb)
->   				break;	/* Better luck next round. */
->   			ravb_set_buffer_align(skb);
-> -			dma_unmap_single(&ndev->dev, le32_to_cpu(desc->dptr),
-> -					 ALIGN(PKT_BUF_SZ, 16),
-> -					 DMA_FROM_DEVICE);
->   			dma_addr = dma_map_single(&ndev->dev, skb->data,
->   						  le16_to_cpu(desc->ds_cc),
->   						  DMA_FROM_DEVICE);
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-WBR, Sergei
+----------------------------------------------------------------
+Cornelia Huck (2):
+      MAINTAINERS: separate section for s390 virtio drivers
+      virtio/s390: rename drivers/s390/kvm -> drivers/s390/virtio
 
+Igor Mammedov (3):
+      vhost: use binary search instead of linear in find_region()
+      vhost: extend memory regions allocation to vmalloc
+      vhost: add max_mem_regions module parameter
+
+Michael S. Tsirkin (2):
+      virtio_net: document VIRTIO_NET_CTRL_GUEST_OFFLOADS
+      virtio: define virtio_pci_cfg_cap in header.
+
+Pierre Morel (1):
+      9p/trans_virtio: reset virtio device on remove
+
+Stephen Rothwell (1):
+      virtio scsi: fix unused variable warning
+
+Thomas Huth (1):
+      virtio: Fix typecast of pointer in vring_init()
+
+ include/uapi/linux/virtio_net.h           | 16 ++++++++
+ include/uapi/linux/virtio_pci.h           |  6 +++
+ include/uapi/linux/virtio_ring.h          |  5 ++-
+ drivers/s390/{kvm => virtio}/kvm_virtio.c |  0
+ drivers/s390/{kvm => virtio}/virtio_ccw.c |  0
+ drivers/scsi/virtio_scsi.c                |  4 +-
+ drivers/vhost/vhost.c                     | 67 +++++++++++++++++++++++--------
+ net/9p/trans_virtio.c                     |  1 +
+ MAINTAINERS                               | 10 ++++-
+ drivers/s390/Makefile                     |  2 +-
+ drivers/s390/{kvm => virtio}/Makefile     |  0
+ 11 files changed, 91 insertions(+), 20 deletions(-)
+ rename drivers/s390/{kvm => virtio}/kvm_virtio.c (100%)
+ rename drivers/s390/{kvm => virtio}/virtio_ccw.c (100%)
+ rename drivers/s390/{kvm => virtio}/Makefile (100%)
