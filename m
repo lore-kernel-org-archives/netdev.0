@@ -1,85 +1,67 @@
-From: Jordi Clariana <jclariana@trovit.com>
-Subject: page allocation failure. order:2, mode:0x204020 with tg3 driver
-Date: Wed, 15 Jul 2015 16:48:44 +0200
-Message-ID: <CAPi8NDn5Mq57_+jkYRWoZRchW5NDguAatRTAHO0x2Yu271U=Aw@mail.gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH/RFC net-next] rocker: forward packets to CPU when a port
+ in promiscuous mode
+Date: Wed, 15 Jul 2015 07:50:32 -0700
+Message-ID: <CAE4R7bBmxq6pqBsW1tS6w4YRZE2mCfuyd+VBa4-2Lx4fASKH3w@mail.gmail.com>
+References: <1436415931-16469-1-git-send-email-simon.horman@netronome.com>
+ <CAE4R7bChu5sAKpU5tUkENfWZMhaWSs3EQZeggUxR=BjKSOqOeg@mail.gmail.com>
+ <20150715044521.GA7603@vergenet.net> <CAE4R7bBH3dTfivKqo9qzRVhtpUiDzGdDmoeceY5YBq6A3VR03g@mail.gmail.com>
+ <20150715063453.GB7603@vergenet.net> <CAE4R7bAy4WKaScamnJJR-bQR4n+=sqKBoR7B=saXCY989+2+3A@mail.gmail.com>
+ <20150715075406.GA25954@vergenet.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+	john fastabend <john.fastabend@gmail.com>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:36509 "EHLO
-	mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751732AbbGOOs7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 10:48:59 -0400
-Received: by qkdv3 with SMTP id v3so29650312qkd.3
-        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 07:48:59 -0700 (PDT)
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:36472 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752969AbbGOOuw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 10:50:52 -0400
+Received: by obnw1 with SMTP id w1so27941572obn.3
+        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 07:50:52 -0700 (PDT)
+In-Reply-To: <20150715075406.GA25954@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, Jul 15, 2015 at 12:54 AM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> On Wed, Jul 15, 2015 at 12:18:20AM -0700, Scott Feldman wrote:
+>> On Tue, Jul 14, 2015 at 11:34 PM, Simon Horman
+>> <simon.horman@netronome.com> wrote:
+>> > On Tue, Jul 14, 2015 at 10:32:54PM -0700, Scott Feldman wrote:
+>>
+>> >> > @@ -5263,11 +5301,16 @@ static int rocker_port_master_changed(struct net_device *dev)
+>> >> >          * 3. Other, e.g. being added to or removed from a bond or openvswitch,
+>> >> >          *    in which case nothing is done
+>> >> >          */
+>> >>
+>> >> Maybe comment above needs adjusting?
+>> >
+>> > Indeed, sorry for missing that.
+>> > How about this?
+>> >
+>> >
+>> >         /* There are currently five cases handled here:
+>> >          * 1. Joining a bridge
+>> >          * 2. Joining a Open vSwitch datapath
+>> >          * 3. Leaving a previously joined bridge
+>> >          * 4. Leaving a previously joined Open vSwitch datapath
+>> >          * 5. Other, e.g. being added to or removed from a bond,
+>> >          *    in which case nothing is done
+>> >          */
+>>
+>> Seems like one of those comments that needs adjusting each time the
+>> code changes, which isn't good.  Maybe just kill the comment or write
+>> in a generic way saying what code is doing.  Code seems obvious enough
+>> to me to not require a comment.
+>
+> My purpose in adding the comment in the first place was
+> to document the "other" case, as it wasn't handled and thus
+> didn't seem obvious.
+>
+> Perhaps something like this would work.
+>
+>         /* N.B: Do nothing if the type of master is not supported */
 
-I have the same problem described here:
-http://www.spinics.net/lists/netdev/msg295266.html
-but with the tg3 driver. Anyone know if this can be or is fixed? I'm
-using Debian 7 and kernel 3.16.7-ckt11-1~bpo70+1 from backports. I'm
-using jumbo frames too, and haven't tried to disable it because the
-server is in production environment.
-
-Here it is the relevant log fragment:
-
-Jul 15 15:49:22 XXXXXX kernel: [767403.170053] warn_alloc_failed: 20
-callbacks suppressed
-Jul 15 15:49:22 XXXXXX kernel: [767403.170059] java: page allocation
-failure: order:2, mode:0x204020
-Jul 15 15:49:22 XXXXXX kernel: [767403.170063] CPU: 20 PID: 146117
-Comm: java Not tainted 3.16.0-0.bpo.4-amd64 #1 Debian
-3.16.7-ckt11-1~bpo70+1
-Jul 15 15:49:22 XXXXXX kernel: [767403.170065] Hardware name: Dell
-Inc. PowerEdge R630/0CNCJW, BIOS 1.2.10 03/09/2015
-Jul 15 15:49:22 XXXXXX kernel: [767403.170068]  0000000000000000
-0000000000000002 ffffffff815458b4 0000000000204020
-Jul 15 15:49:22 XXXXXX kernel: [767403.170073]  ffffffff811530cd
-0000000000000002 ffff88047fffcc00 0000000000000002
-Jul 15 15:49:22 XXXXXX kernel: [767403.170076]  ffffffff818e2410
-0000000100000002 ffff88047fffcc08 0000000000000000
-Jul 15 15:49:22 XXXXXX kernel: [767403.170080] Call Trace:
-Jul 15 15:49:22 XXXXXX kernel: [767403.170082]  <IRQ>
-[<ffffffff815458b4>] ? dump_stack+0x41/0x51
-Jul 15 15:49:22 XXXXXX kernel: [767403.170099]  [<ffffffff811530cd>] ?
-warn_alloc_failed+0xfd/0x160
-Jul 15 15:49:22 XXXXXX kernel: [767403.170102]  [<ffffffff8115771f>] ?
-__alloc_pages_nodemask+0x91f/0xbb0
-Jul 15 15:49:22 XXXXXX kernel: [767403.170109]  [<ffffffff811a17c0>] ?
-kmem_getpages+0x60/0x110
-Jul 15 15:49:22 XXXXXX kernel: [767403.170112]  [<ffffffff811a3008>] ?
-fallback_alloc+0x158/0x220
-Jul 15 15:49:22 XXXXXX kernel: [767403.170115]  [<ffffffff811a3334>] ?
-__kmalloc+0x1b4/0x200
-Jul 15 15:49:22 XXXXXX kernel: [767403.170182]  [<ffffffffa019c9d2>] ?
-tg3_alloc_rx_data+0x112/0x270 [tg3]
-Jul 15 15:49:22 XXXXXX kernel: [767403.170189]  [<ffffffffa019c9d2>] ?
-tg3_alloc_rx_data+0x112/0x270 [tg3]
-Jul 15 15:49:22 XXXXXX kernel: [767403.170197]  [<ffffffffa019d2c3>] ?
-tg3_poll_work+0x603/0xec0 [tg3]
-Jul 15 15:49:22 XXXXXX kernel: [767403.170202]  [<ffffffff8144d82f>] ?
-netif_receive_skb_internal+0x1f/0x90
-Jul 15 15:49:22 XXXXXX kernel: [767403.170209]  [<ffffffffa019dbc6>] ?
-tg3_poll_msix+0x46/0x160 [tg3]
-Jul 15 15:49:22 XXXXXX kernel: [767403.170212]  [<ffffffff8144e891>] ?
-net_rx_action+0x121/0x230
-Jul 15 15:49:22 XXXXXX kernel: [767403.170217]  [<ffffffff813b92b1>] ?
-add_interrupt_randomness+0x51/0x200
-Jul 15 15:49:22 XXXXXX kernel: [767403.170221]  [<ffffffff81072cce>] ?
-__do_softirq+0xde/0x2e0
-Jul 15 15:49:22 XXXXXX kernel: [767403.170224]  [<ffffffff81073126>] ?
-irq_exit+0x86/0xb0
-Jul 15 15:49:22 XXXXXX kernel: [767403.170228]  [<ffffffff8154ec56>] ?
-do_IRQ+0x66/0x110
-Jul 15 15:49:22 XXXXXX kernel: [767403.170233]  [<ffffffff8154caed>] ?
-common_interrupt+0x6d/0x6d
-Jul 15 15:49:22 XXXXXX kernel: [767403.170234]  <EOI> Mem-Info:
-Jul 15 15:49:22 XXXXXX kernel: [767403.170239] Node 0 DMA per-cpu:
-Jul 15 15:49:22 XXXXXX kernel: [767403.170242] CPU    0: hi:    0,
-btch:   1 usd:   0
-[...]
-
-Thanks!
+Ack
