@@ -1,162 +1,68 @@
-From: Carol Soto <clsoto@linux.vnet.ibm.com>
-Subject: Re: [PATCH net] bonding: fix destruction of bond with devices
- different from arphrd_ether
-Date: Wed, 15 Jul 2015 17:58:59 -0500
-Message-ID: <55A6E5B3.2060608@linux.vnet.ibm.com>
-References: <55A69D17.5030800@cumulusnetworks.com>
- <1436989971-32761-1-git-send-email-razor@blackwall.org>
- <87io9lcag3.fsf@x220.int.ebiederm.org> <55A6E48E.3020206@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com,
-	gospo@cumulusnetworks.com, vfalico@gmail.com, davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Nikolay Aleksandrov <razor@blackwall.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: dsa: bcm_sf2: do not use indirect reads and writes for 7445E0
+Date: Wed, 15 Jul 2015 16:09:32 -0700
+Message-ID: <1437001772-17511-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:41447 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752590AbbGOW7B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 18:59:01 -0400
-Received: from /spool/local
-	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <clsoto@linux.vnet.ibm.com>;
-	Wed, 15 Jul 2015 16:59:01 -0600
-Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id E355B3E4003E
-	for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 16:58:59 -0600 (MDT)
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by b03cxnp07028.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t6FMuRhg41484450
-	for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 15:56:27 -0700
-Received: from d03av01.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t6FMwwIe003310
-	for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 16:58:59 -0600
-In-Reply-To: <55A6E48E.3020206@cumulusnetworks.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:36288 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753132AbbGOXLY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 19:11:24 -0400
+Received: by pachj5 with SMTP id hj5so31625977pac.3
+        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 16:11:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+7445E0 contains an ECO which disconnected the internal SF2 pseudo-PHY which was
+known to conflict with the external pseudo-PHY of BCM53125 switches. This
+motivated the need to utilize the internal SF2 MDIO controller via indirect
+register reads/writes to control external Broadcom switches due to this address
+conflict (both responded at address 30d).
 
+For 7445E0, the internal pseudo-PHY of the SF2 switch got disconnected, and as
+a consequence this prevents the internal SF2 MDIO bus controller from reading
+data (reads back everything as 0) since the MDI line is tied low.
 
-On 7/15/2015 5:54 PM, Nikolay Aleksandrov wrote:
-> On 07/16/2015 12:39 AM, Eric W. Biederman wrote:
->> Nikolay Aleksandrov <razor@blackwall.org> writes:
->>
->>> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->>>
->>> When the bonding is being unloaded and the netdevice notifier is
->>> unregistered it executes NETDEV_UNREGISTER for each device which should
->>> remove the bond's proc entry but if the device enslaved is not of
->>> ARPHRD_ETHER type and is in front of the bonding, it may execute
->>> bond_release_and_destroy() first which would release the last slave and
->>> destroy the bond device leaving the proc entry and thus we will get the
->>> following error (with dynamic debug on for bond_netdev_event to see the
->>> events order):
->> I see the failure below.  I am perplexed at the description.  Does the
->> bonding driver actually make sense on a non-ethernet device?
->>
-> Sometimes it does, I've seen it used with infiniband devices a lot, also
-> there were cases of some ppp users.
->
->> Would it not be better to make more sense to limit bonding to ethernet
->> devices so we don't get weird behavior?  I imagine there might be other
->> problems with bonding non-ethernet devices that no one has spotted,
->> or cares about.
->>
->> Eric
->>
->>
-> My personal opinion would be to disable non-ethernet devices, but support was
-> already added and has been there for a long time so we have to fix this for
-> the older releases, I don't mind removing non-ethernet device support for net-next
-> but I'm guessing there're people still using that like the case that started
-> this thread.
->
-> Cheers,
->   Nik
-Yes, there are Infiniband users that uses bonding.
+Fix this by making the indirect register reads and writes conditional to
+7445D0, on 7445E0 we can utilize the SWITCH_MDIO controller (backed by
+mdio-unimac and not the DSA created slave MII bus).
 
-Carol
->>> [  908.963051] eql: event: 9
->>> [  908.963052] eql: IFF_SLAVE
->>> [  908.963054] eql: event: 2
->>> [  908.963056] eql: IFF_SLAVE
->>> [  908.963058] eql: event: 6
->>> [  908.963059] eql: IFF_SLAVE
->>> [  908.963110] bond0: Releasing active interface eql
->>> [  908.976168] bond0: Destroying bond bond0
->>> [  908.976266] bond0 (unregistering): Released all slaves
->>> [  908.984097] ------------[ cut here ]------------
->>> [  908.984107] WARNING: CPU: 0 PID: 1787 at fs/proc/generic.c:575
->>> remove_proc_entry+0x112/0x160()
->>> [  908.984110] remove_proc_entry: removing non-empty directory
->>> 'net/bonding', leaking at least 'bond0'
->>> [  908.984111] Modules linked in: bonding(-) eql(O) 9p nfsd auth_rpcgss
->>> oid_registry nfs_acl nfs lockd grace fscache sunrpc crct10dif_pclmul
->>> crc32_pclmul crc32c_intel ghash_clmulni_intel ppdev qxl drm_kms_helper
->>> snd_hda_codec_generic aesni_intel ttm aes_x86_64 glue_helper pcspkr lrw
->>> gf128mul ablk_helper cryptd snd_hda_intel virtio_console snd_hda_codec
->>> psmouse serio_raw snd_hwdep snd_hda_core 9pnet_virtio 9pnet evdev joydev
->>> drm virtio_balloon snd_pcm snd_timer snd soundcore i2c_piix4 i2c_core
->>> pvpanic acpi_cpufreq parport_pc parport processor thermal_sys button
->>> autofs4 ext4 crc16 mbcache jbd2 hid_generic usbhid hid sg sr_mod cdrom
->>> ata_generic virtio_blk virtio_net floppy ata_piix e1000 libata ehci_pci
->>> virtio_pci scsi_mod uhci_hcd ehci_hcd virtio_ring virtio usbcore
->>> usb_common [last unloaded: bonding]
->>>
->>> [  908.984168] CPU: 0 PID: 1787 Comm: rmmod Tainted: G        W  O
->>> 4.2.0-rc2+ #8
->>> [  908.984170] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
->>> [  908.984172]  0000000000000000 ffffffff81732d41 ffffffff81525b34
->>> ffff8800358dfda8
->>> [  908.984175]  ffffffff8106c521 ffff88003595af78 ffff88003595af40
->>> ffff88003e3a4280
->>> [  908.984178]  ffffffffa058d040 0000000000000000 ffffffff8106c59a
->>> ffffffff8172ebd0
->>> [  908.984181] Call Trace:
->>> [  908.984188]  [<ffffffff81525b34>] ? dump_stack+0x40/0x50
->>> [  908.984193]  [<ffffffff8106c521>] ? warn_slowpath_common+0x81/0xb0
->>> [  908.984196]  [<ffffffff8106c59a>] ? warn_slowpath_fmt+0x4a/0x50
->>> [  908.984199]  [<ffffffff81218352>] ? remove_proc_entry+0x112/0x160
->>> [  908.984205]  [<ffffffffa05850e6>] ? bond_destroy_proc_dir+0x26/0x30
->>> [bonding]
->>> [  908.984208]  [<ffffffffa057540e>] ? bond_net_exit+0x8e/0xa0 [bonding]
->>> [  908.984217]  [<ffffffff8142f407>] ? ops_exit_list.isra.4+0x37/0x70
->>> [  908.984225]  [<ffffffff8142f52d>] ?
->>> unregister_pernet_operations+0x8d/0xd0
->>> [  908.984228]  [<ffffffff8142f58d>] ?
->>> unregister_pernet_subsys+0x1d/0x30
->>> [  908.984232]  [<ffffffffa0585269>] ? bonding_exit+0x23/0xdba [bonding]
->>> [  908.984236]  [<ffffffff810e28ba>] ? SyS_delete_module+0x18a/0x250
->>> [  908.984241]  [<ffffffff81086f99>] ? task_work_run+0x89/0xc0
->>> [  908.984244]  [<ffffffff8152b732>] ?
->>> entry_SYSCALL_64_fastpath+0x16/0x75
->>> [  908.984247] ---[ end trace 7c006ed4abbef24b ]---
->>>
->>> Thus remove the proc entry manually if bond_release_and_destroy() is
->>> used. Because of the checks in bond_remove_proc_entry() it's not a
->>> problem for a bond device to change namespaces (the bug fixed by the
->>> Fixes commit) but since commit
->>> f9399814927ad ("bonding: Don't allow bond devices to change network
->>> namespaces.") that can't happen anyway.
->>>
->>> Reported-by: Carol Soto <clsoto@linux.vnet.ibm.com>
->>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->>> Fixes: a64d49c3dd50 ("bonding: Manage /proc/net/bonding/ entries from
->>>                        the netdev events")
->>> ---
->>>   drivers/net/bonding/bond_main.c | 1 +
->>>   1 file changed, 1 insertion(+)
->>>
->>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->>> index 317a49480475..ec1404ec4d2f 100644
->>> --- a/drivers/net/bonding/bond_main.c
->>> +++ b/drivers/net/bonding/bond_main.c
->>> @@ -1916,6 +1916,7 @@ static int  bond_release_and_destroy(struct net_device *bond_dev,
->>>   		bond_dev->priv_flags |= IFF_DISABLE_NETPOLL;
->>>   		netdev_info(bond_dev, "Destroying bond %s\n",
->>>   			    bond_dev->name);
->>> +		bond_remove_proc_entry(bond);
->>>   		unregister_netdevice(bond_dev);
->>>   	}
->>>   	return ret;
+We utilize of_machine_is_compatible() here since this is the only way for use
+to differentiate between these two chips in a way that does not violate layers
+or becomes (too) vendor-specific.
+
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/bcm_sf2.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 972982f8bea7..079897b3a955 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -696,9 +696,20 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
+ 	}
+ 
+ 	/* Include the pseudo-PHY address and the broadcast PHY address to
+-	 * divert reads towards our workaround
++	 * divert reads towards our workaround. This is only required for
++	 * 7445D0, since 7445E0 disconnects the internal switch pseudo-PHY such
++	 * that we can use the regular SWITCH_MDIO master controller instead.
++	 *
++	 * By default, DSA initializes ds->phys_mii_mask to ds->phys_port_mask
++	 * to have a 1:1 mapping between Port address and PHY address in order
++	 * to utilize the slave_mii_bus instance to read from Port PHYs. This is
++	 * not what we want here, so we initialize phys_mii_mask 0 to always
++	 * utilize the "master" MDIO bus backed by the "mdio-unimac" driver.
+ 	 */
+-	ds->phys_mii_mask |= ((1 << BRCM_PSEUDO_PHY_ADDR) | (1 << 0));
++	if (of_machine_is_compatible("brcm,bcm7445d0"))
++		ds->phys_mii_mask |= ((1 << BRCM_PSEUDO_PHY_ADDR) | (1 << 0));
++	else
++		ds->phys_mii_mask = 0;
+ 
+ 	rev = reg_readl(priv, REG_SWITCH_REVISION);
+ 	priv->hw_params.top_rev = (rev >> SWITCH_TOP_REV_SHIFT) &
+-- 
+2.1.0
