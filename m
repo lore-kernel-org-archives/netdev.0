@@ -1,56 +1,69 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v7 0/4] net: Introduce protodown flag.
-Date: Wed, 15 Jul 2015 12:24:35 -0400
-Message-ID: <20150715162434.GE588@gospo.home.greyhouse.net>
-References: <1436906602-2958-1-git-send-email-anuradhak@cumulusnetworks.com>
- <CAE4R7bC2WPDfJiT7Av8YYUybvc0D1cakKBgDsL+mystM33guFw@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Subject: Re: [PATCH nf-next] netfilter: nf_ct_sctp: minimal multihoming
+ support
+Date: Wed, 15 Jul 2015 18:45:40 +0200
+Message-ID: <20150715164540.GA4047@salvia>
+References: <20150714122311.8DA8EA0C9A@unicorn.suse.cz>
+ <20150714153847.GA3507@salvia>
+ <20150714162850.GA8478@unicorn.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Wilson Kok <wkok@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:33445 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752679AbbGOQYj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 12:24:39 -0400
-Received: by qgef3 with SMTP id f3so20543352qge.0
-        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 09:24:38 -0700 (PDT)
+Cc: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
+	Jozsef Kadlecsik <kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Michal Kubecek <mkubecek-AlSwsSmVLrQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <CAE4R7bC2WPDfJiT7Av8YYUybvc0D1cakKBgDsL+mystM33guFw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20150714162850.GA8478-OEaqT8BN2ewCVLCxKZUutA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 14, 2015 at 10:08:35PM -0700, Scott Feldman wrote:
-> On Tue, Jul 14, 2015 at 1:43 PM,  <anuradhak@cumulusnetworks.com> wrote:
-> > From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
-> >
-> > User space daemons can detect errors in the network that need to be
-> > notified to the switch device drivers.
-> >
-> > Drivers can react to this error state by doing a phy-down on the
-> > switch-port which would result in a carrier-off locally and on the directly
-> > connected switch. Doing that would prevent loops and black-holes in the
-> > network.
+On Tue, Jul 14, 2015 at 06:28:50PM +0200, Michal Kubecek wrote:
+> On Tue, Jul 14, 2015 at 05:38:47PM +0200, Pablo Neira Ayuso wrote:
+> > On Tue, Jul 14, 2015 at 02:23:11PM +0200, Michal Kubecek wrote:
+> > > @@ -658,6 +696,18 @@ static struct ctl_table sctp_sysctl_table[] = {
+> > >  		.mode		= 0644,
+> > >  		.proc_handler	= proc_dointvec_jiffies,
+> > >  	},
+> > > +	{
+> > > +		.procname	= "nf_conntrack_sctp_timeout_heartbeat_sent",
+> > > +		.maxlen		= sizeof(unsigned int),
+> > > +		.mode		= 0644,
+> > > +		.proc_handler	= proc_dointvec_jiffies,
+> > > +	},
+> > > +	{
+> > > +		.procname	= "nf_conntrack_sctp_timeout_heartbeat_acked",
+> > > +		.maxlen		= sizeof(unsigned int),
+> > > +		.mode		= 0644,
+> > > +		.proc_handler	= proc_dointvec_jiffies,
+> > > +	},
+> > >  	{ }
+> > >  };
+> > >  
+> > > @@ -705,6 +755,18 @@ static struct ctl_table sctp_compat_sysctl_table[] = {
+> > >  		.mode		= 0644,
+> > >  		.proc_handler	= proc_dointvec_jiffies,
+> > >  	},
+> > > +	{
+> > > +		.procname	= "ip_conntrack_sctp_timeout_heartbeat_sent",
+> > > +		.maxlen		= sizeof(unsigned int),
+> > > +		.mode		= 0644,
+> > > +		.proc_handler	= proc_dointvec_jiffies,
+> > > +	},
+> > > +	{
+> > > +		.procname	= "ip_conntrack_sctp_timeout_heartbeat_acked",
+> > > +		.maxlen		= sizeof(unsigned int),
+> > > +		.mode		= 0644,
+> > > +		.proc_handler	= proc_dointvec_jiffies,
+> > > +	},
+> > >  	{ }
+> > 
+> > I don't see the nla_policy updates for the netlink cttimeout
+> > interface.
 > 
-> Hi Anuradha,
-> 
-> Since this is a switch-thingy, can you move this to switchdev port
-> attribute rather than adding another ndo op?  I know you started this
-> patch set before switchdev port attrs, but I think it's worthwhile
-> moving it to switchdev since clearly the use-case is switch device
-> drivers.   Let me know if you need help converting over to switchdev
-> port attr.
+> I didn't realize those were needed. It means adding two entries to
+> sctp_timeout_nla_policy and two values to enum ctattr_timeout_sctp?
 
-If it is switchdev-only that would prevent people from using commodity
-hardware (classic servers + NICs) from being able to build something
-similar to what can be done with rocker.
-
-It is a fact that many smaller providers build forwarding devices like
-this, so I'd hate to limit functionality to just switchdev-based
-devices.
-
-My vote would be to keep this as a base netdev function as proposed.
+Exactly.
