@@ -1,41 +1,32 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ravb: do not invalidate cache for RX buffer twice
-Date: Wed, 15 Jul 2015 15:11:07 +0300
-Message-ID: <55A64DDB.4010108@cogentembedded.com>
-References: <4759713.2ulGRKsd9L@wasted.cogentembedded.com>
- <55A639CE.2030201@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <55A639CE.2030201@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 0/2] BPF update
+Date: Wed, 15 Jul 2015 14:21:40 +0200
+Message-ID: <cover.1436961536.git.daniel@iogearbox.net>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:37684 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753510AbbGOMVq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 08:21:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 7/15/2015 1:45 PM, Sergei Shtylyov wrote:
+This small helper allows for accessing net_cls cgroups classid. Please
+see individual patches for more details.
 
->> First, dma_sync_single_for_cpu() shouldn't have been called in the first place
->> (it's a streaming DMA API). dma_unmap_single() should have been called instead.
->                            ^
->     Oops, I meant comma here.
+Thanks!
 
->> Second, dma_unmap_single() call after handing the buffer to napi_gro_receive()
->> makes little sense.
+Daniel Borkmann (2):
+  cls_cgroup: factor out classid retrieval
+  ebpf: add helper to retrieve net_cls cgroup id
 
->     Moreover, 'desc->dptr' may not be valid at this point...
+ include/net/cls_cgroup.h | 29 +++++++++++++++++++++++++++++
+ include/uapi/linux/bpf.h |  7 +++++++
+ net/core/filter.c        | 15 +++++++++++++++
+ net/sched/cls_cgroup.c   | 23 ++---------------------
+ 4 files changed, 53 insertions(+), 21 deletions(-)
 
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
->> ---
->> The patch is against Dave Miller's 'net.git' repo.
-
->> Don't know why I missed this DMA API misuse while working on the driver. :-<
-
->     Dave, do you want me to resend the patch with fixed up changelog?
-
-    Oops, forgot to CC Dave. :-(
-
-WBR, Sergei
-
+-- 
+1.9.3
