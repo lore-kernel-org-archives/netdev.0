@@ -1,181 +1,73 @@
-From: Denys Vlasenko <dvlasenk@redhat.com>
-Subject: [PATCH] mac80211: Deinline rate_control_rate_init, rate_control_rate_update
-Date: Wed, 15 Jul 2015 14:56:06 +0200
-Message-ID: <1436964966-2441-2-git-send-email-dvlasenk@redhat.com>
-References: <1436964966-2441-1-git-send-email-dvlasenk@redhat.com>
-Cc: Denys Vlasenko <dvlasenk@redhat.com>,
-	Michal Kazior <michal.kazior@tieto.com>,
-	Johannes Berg <johannes.berg@intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: John Linville <linville@tuxdriver.com>
+From: Stefan Agner <stefan@agner.ch>
+Subject: Re: [PATCH 1/2] can: mcp251x: fix resume when device is down
+Date: Wed, 15 Jul 2015 15:05:35 +0200
+Message-ID: <a52e25bc10d3d669b41f19faedf82d57@agner.ch>
+References: <1431966808-26213-1-git-send-email-stefan@agner.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: chripell@fsfe.org, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: wg@grandegger.com, mkl@pengutronix.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1436964966-2441-1-git-send-email-dvlasenk@redhat.com>
+In-Reply-To: <1431966808-26213-1-git-send-email-stefan@agner.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With this .config: http://busybox.net/~vda/kernel_config,
-after deinlining these functions have sizes and callsite counts
-as follows:
+Hi Marc, hi Wolfgang,
 
-rate_control_rate_init: 554 bytes, 8 calls
-rate_control_rate_update: 1596 bytes, 5 calls
+Any comment on this two patches? I don't think these have made it in any
+tree...
 
-Total size reduction: about 11 kbytes.
+--
+Stefan
 
-Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
-CC: John Linville <linville@tuxdriver.com>
-CC: Michal Kazior <michal.kazior@tieto.com>
-CC: Johannes Berg <johannes.berg@intel.com>
-Cc: linux-wireless@vger.kernel.org
-Cc: netdev@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
----
- net/mac80211/rate.c | 59 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/mac80211/rate.h | 60 +++--------------------------------------------------
- 2 files changed, 62 insertions(+), 57 deletions(-)
-
-diff --git a/net/mac80211/rate.c b/net/mac80211/rate.c
-index fda33f9..03687d2 100644
---- a/net/mac80211/rate.c
-+++ b/net/mac80211/rate.c
-@@ -29,6 +29,65 @@ module_param(ieee80211_default_rc_algo, charp, 0644);
- MODULE_PARM_DESC(ieee80211_default_rc_algo,
- 		 "Default rate control algorithm for mac80211 to use");
- 
-+void rate_control_rate_init(struct sta_info *sta)
-+{
-+	struct ieee80211_local *local = sta->sdata->local;
-+	struct rate_control_ref *ref = sta->rate_ctrl;
-+	struct ieee80211_sta *ista = &sta->sta;
-+	void *priv_sta = sta->rate_ctrl_priv;
-+	struct ieee80211_supported_band *sband;
-+	struct ieee80211_chanctx_conf *chanctx_conf;
-+
-+	ieee80211_sta_set_rx_nss(sta);
-+
-+	if (!ref)
-+		return;
-+
-+	rcu_read_lock();
-+
-+	chanctx_conf = rcu_dereference(sta->sdata->vif.chanctx_conf);
-+	if (WARN_ON(!chanctx_conf)) {
-+		rcu_read_unlock();
-+		return;
-+	}
-+
-+	sband = local->hw.wiphy->bands[chanctx_conf->def.chan->band];
-+
-+	spin_lock_bh(&sta->rate_ctrl_lock);
-+	ref->ops->rate_init(ref->priv, sband, &chanctx_conf->def, ista,
-+			    priv_sta);
-+	spin_unlock_bh(&sta->rate_ctrl_lock);
-+	rcu_read_unlock();
-+	set_sta_flag(sta, WLAN_STA_RATE_CONTROL);
-+}
-+
-+void rate_control_rate_update(struct ieee80211_local *local,
-+				    struct ieee80211_supported_band *sband,
-+				    struct sta_info *sta, u32 changed)
-+{
-+	struct rate_control_ref *ref = local->rate_ctrl;
-+	struct ieee80211_sta *ista = &sta->sta;
-+	void *priv_sta = sta->rate_ctrl_priv;
-+	struct ieee80211_chanctx_conf *chanctx_conf;
-+
-+	if (ref && ref->ops->rate_update) {
-+		rcu_read_lock();
-+
-+		chanctx_conf = rcu_dereference(sta->sdata->vif.chanctx_conf);
-+		if (WARN_ON(!chanctx_conf)) {
-+			rcu_read_unlock();
-+			return;
-+		}
-+
-+		spin_lock_bh(&sta->rate_ctrl_lock);
-+		ref->ops->rate_update(ref->priv, sband, &chanctx_conf->def,
-+				      ista, priv_sta, changed);
-+		spin_unlock_bh(&sta->rate_ctrl_lock);
-+		rcu_read_unlock();
-+	}
-+	drv_sta_rc_update(local, sta->sdata, &sta->sta, changed);
-+}
-+
- int ieee80211_rate_control_register(const struct rate_control_ops *ops)
- {
- 	struct rate_control_alg *alg;
-diff --git a/net/mac80211/rate.h b/net/mac80211/rate.h
-index 25c9be5..624fe5b 100644
---- a/net/mac80211/rate.h
-+++ b/net/mac80211/rate.h
-@@ -71,64 +71,10 @@ rate_control_tx_status_noskb(struct ieee80211_local *local,
- 	spin_unlock_bh(&sta->rate_ctrl_lock);
- }
- 
--static inline void rate_control_rate_init(struct sta_info *sta)
--{
--	struct ieee80211_local *local = sta->sdata->local;
--	struct rate_control_ref *ref = sta->rate_ctrl;
--	struct ieee80211_sta *ista = &sta->sta;
--	void *priv_sta = sta->rate_ctrl_priv;
--	struct ieee80211_supported_band *sband;
--	struct ieee80211_chanctx_conf *chanctx_conf;
--
--	ieee80211_sta_set_rx_nss(sta);
--
--	if (!ref)
--		return;
--
--	rcu_read_lock();
--
--	chanctx_conf = rcu_dereference(sta->sdata->vif.chanctx_conf);
--	if (WARN_ON(!chanctx_conf)) {
--		rcu_read_unlock();
--		return;
--	}
--
--	sband = local->hw.wiphy->bands[chanctx_conf->def.chan->band];
--
--	spin_lock_bh(&sta->rate_ctrl_lock);
--	ref->ops->rate_init(ref->priv, sband, &chanctx_conf->def, ista,
--			    priv_sta);
--	spin_unlock_bh(&sta->rate_ctrl_lock);
--	rcu_read_unlock();
--	set_sta_flag(sta, WLAN_STA_RATE_CONTROL);
--}
--
--static inline void rate_control_rate_update(struct ieee80211_local *local,
-+void rate_control_rate_init(struct sta_info *sta);
-+void rate_control_rate_update(struct ieee80211_local *local,
- 				    struct ieee80211_supported_band *sband,
--				    struct sta_info *sta, u32 changed)
--{
--	struct rate_control_ref *ref = local->rate_ctrl;
--	struct ieee80211_sta *ista = &sta->sta;
--	void *priv_sta = sta->rate_ctrl_priv;
--	struct ieee80211_chanctx_conf *chanctx_conf;
--
--	if (ref && ref->ops->rate_update) {
--		rcu_read_lock();
--
--		chanctx_conf = rcu_dereference(sta->sdata->vif.chanctx_conf);
--		if (WARN_ON(!chanctx_conf)) {
--			rcu_read_unlock();
--			return;
--		}
--
--		spin_lock_bh(&sta->rate_ctrl_lock);
--		ref->ops->rate_update(ref->priv, sband, &chanctx_conf->def,
--				      ista, priv_sta, changed);
--		spin_unlock_bh(&sta->rate_ctrl_lock);
--		rcu_read_unlock();
--	}
--	drv_sta_rc_update(local, sta->sdata, &sta->sta, changed);
--}
-+				    struct sta_info *sta, u32 changed);
- 
- static inline void *rate_control_alloc_sta(struct rate_control_ref *ref,
- 					   struct sta_info *sta, gfp_t gfp)
--- 
-1.8.1.4
+On 2015-05-18 18:33, Stefan Agner wrote:
+> If a valid power regulator or a dummy regulator is used (which
+> happens to be the case when no regulator is specified), restart_work
+> is queued no matter whether the device was running or not at suspend
+> time. Since work queues get initialized in the ndo_open callback,
+> resuming leads to a NULL pointer exception.
+> 
+> Reverse exactly the steps executed at suspend time:
+> - Enable the power regulator in any case
+> - Enable the transceiver regulator if the device was running, even in
+>   case we have a power regulator
+> - Queue restart_work only in case the device was running
+> 
+> Fixes: bf66f3736a94 ("can: mcp251x: Move to threaded interrupts
+> instead of workqueues.")
+> Signed-off-by: Stefan Agner <stefan@agner.ch>
+> ---
+>  drivers/net/can/spi/mcp251x.c | 13 ++++++-------
+>  1 file changed, 6 insertions(+), 7 deletions(-)
+> 
+> diff --git a/drivers/net/can/spi/mcp251x.c b/drivers/net/can/spi/mcp251x.c
+> index bf63fee..34c625e 100644
+> --- a/drivers/net/can/spi/mcp251x.c
+> +++ b/drivers/net/can/spi/mcp251x.c
+> @@ -1221,17 +1221,16 @@ static int __maybe_unused
+> mcp251x_can_resume(struct device *dev)
+>  	struct spi_device *spi = to_spi_device(dev);
+>  	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+>  
+> -	if (priv->after_suspend & AFTER_SUSPEND_POWER) {
+> +	if (priv->after_suspend & AFTER_SUSPEND_POWER)
+>  		mcp251x_power_enable(priv->power, 1);
+> +
+> +	if (priv->after_suspend & AFTER_SUSPEND_UP) {
+> +		mcp251x_power_enable(priv->transceiver, 1);
+>  		queue_work(priv->wq, &priv->restart_work);
+>  	} else {
+> -		if (priv->after_suspend & AFTER_SUSPEND_UP) {
+> -			mcp251x_power_enable(priv->transceiver, 1);
+> -			queue_work(priv->wq, &priv->restart_work);
+> -		} else {
+> -			priv->after_suspend = 0;
+> -		}
+> +		priv->after_suspend = 0;
+>  	}
+> +
+>  	priv->force_quit = 0;
+>  	enable_irq(spi->irq);
+>  	return 0;
