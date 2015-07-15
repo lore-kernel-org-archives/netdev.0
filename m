@@ -1,56 +1,85 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net] bonding: fix bond dev flags after convert to arphrd_ether
-Date: Wed, 15 Jul 2015 22:55:55 +0200
-Message-ID: <55A6C8DB.30904@cumulusnetworks.com>
-References: <1436990983-1406-1-git-send-email-razor@blackwall.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net] bonding: correctly handle bonding type change on enslave failure
+Date: Wed, 15 Jul 2015 22:57:01 +0200
+Message-ID: <1436993821-4114-1-git-send-email-razor@blackwall.org>
 Cc: monis@voltaire.com, j.vosburgh@gmail.com,
-	gospo@cumulusnetworks.com, vfalico@gmail.com, davem@davemloft.net
-To: Nikolay Aleksandrov <razor@blackwall.org>, netdev@vger.kernel.org
+	gospo@cumulusnetworks.com, vfalico@gmail.com, davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:35439 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753239AbbGOUz6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 16:55:58 -0400
-Received: by wiga1 with SMTP id a1so11134054wig.0
-        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 13:55:57 -0700 (PDT)
-In-Reply-To: <1436990983-1406-1-git-send-email-razor@blackwall.org>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:35431 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752581AbbGOU5I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 16:57:08 -0400
+Received: by wgjx7 with SMTP id x7so42869619wgj.2
+        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 13:57:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/15/2015 10:09 PM, Nikolay Aleksandrov wrote:
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
-> If a bonding device enslaves devices != arphrd_ether it'll change types
-> and if later these devices are released, it can enslave an arphrd_ether
-> device and switch back calling ether_setup() which resets dev->flags to
-> IFF_BROADCAST|IFF_MULTICAST and clears IFF_MASTER which then could lead
-> to many different bugs. This bug seems to have been there since the
-> introduction of ether_setup() in bond_enslave().
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Fixes: e36b9d16c6a6 ("bonding: clean muticast addresses when device changes type")
-> ---
->  drivers/net/bonding/bond_main.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 317a49480475..8ba119896e55 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1368,6 +1368,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
->  				bond_setup_by_slave(bond_dev, slave_dev);
->  			else {
->  				ether_setup(bond_dev);
-> +				bond_dev->flags |= IFF_MASTER;
->  				bond_dev->priv_flags &= ~IFF_TX_SKB_SHARING;
->  			}
->  
-> 
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Dave please ignore this patch, I'll send a better fix.
+If the bond is enslaving a device with different type it will be setup
+by it, but if after being setup the enslave fails the bond doesn't
+switch back its type and also keeps pointers to foreign structures that can
+be long gone. Thus revert back any type changes if the enslave failed and
+the bond had to change its type.
+Example:
+ Before patch:
+$ echo lo > bond0/bonding/slaves
+-bash: echo: write error: Cannot assign requested address
+$ ip l sh bond0
+20: bond0: <BROADCAST,MULTICAST,MASTER> mtu 1500 qdisc noop state DOWN
+mode DEFAULT group default
+    link/loopback 16:54:78:34:bd:41 brd 00:00:00:00:00:00
+$ echo +eth1 > bond0/bonding/slaves
+$ ip l sh bond0
+20: bond0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
+DEFAULT group default qlen 1000
+    link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
+(notice the MASTER flag is gone)
 
-Thanks,
- Nik
+ After patch:
+$ echo lo > bond0/bonding/slaves
+-bash: echo: write error: Cannot assign requested address
+$ ip l sh bond0
+21: bond0: <BROADCAST,MULTICAST,MASTER> mtu 1500 qdisc noop state DOWN
+mode DEFAULT group default qlen 1000
+    link/ether 6e:66:94:f6:07:fc brd ff:ff:ff:ff:ff:ff
+$ echo +eth1 > bond0/bonding/slaves
+$ ip l sh bond0
+21: bond0: <BROADCAST,MULTICAST,MASTER> mtu 1500 qdisc noop state DOWN
+mode DEFAULT group default qlen 1000
+    link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
+
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Fixes: e36b9d16c6a6 ("bonding: clean muticast addresses when device changes type")
+---
+ drivers/net/bonding/bond_main.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index ec1404ec4d2f..1d26d6700c1d 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1725,9 +1725,16 @@ err_free:
+ 
+ err_undo_flags:
+ 	/* Enslave of first slave has failed and we need to fix master's mac */
+-	if (!bond_has_slaves(bond) &&
+-	    ether_addr_equal_64bits(bond_dev->dev_addr, slave_dev->dev_addr))
+-		eth_hw_addr_random(bond_dev);
++	if (!bond_has_slaves(bond)) {
++		if (ether_addr_equal_64bits(bond_dev->dev_addr,
++					    slave_dev->dev_addr))
++			eth_hw_addr_random(bond_dev);
++		if (bond_dev->type != ARPHRD_ETHER) {
++			ether_setup(bond_dev);
++			bond_dev->flags |= IFF_MASTER;
++			bond_dev->priv_flags &= ~IFF_TX_SKB_SHARING;
++		}
++	}
+ 
+ 	return res;
+ }
+-- 
+1.9.3
