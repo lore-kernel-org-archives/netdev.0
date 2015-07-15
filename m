@@ -1,101 +1,44 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 2/2] ebpf: add helper to retrieve net_cls's classid cookie
-Date: Wed, 15 Jul 2015 14:21:42 +0200
-Message-ID: <9862a6b8778d344e8e10380060f09b161caac12f.1436961536.git.daniel@iogearbox.net>
-References: <cover.1436961536.git.daniel@iogearbox.net>
-Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Thomas Graf <tgraf@suug.ch>
-To: davem@davemloft.net
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: GRO: forwading ISATAP packets is very slow with kernel 4.1
+Date: Wed, 15 Jul 2015 14:25:59 +0200
+Message-ID: <2477915.Hv2mXUtnDZ@stwm.de>
+References: <17762800.UBb5paxXY3@h2o.as.studentenwerk.mhn.de> <8145949.lUzHGl5xdY@h2o.as.studentenwerk.mhn.de> <20150715095019.GA881@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:37690 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752900AbbGOMVr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 08:21:47 -0400
-In-Reply-To: <cover.1436961536.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1436961536.git.daniel@iogearbox.net>
-References: <cover.1436961536.git.daniel@iogearbox.net>
+Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:42165 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751014AbbGOM0B convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jul 2015 08:26:01 -0400
+In-Reply-To: <20150715095019.GA881@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It would be very useful to retrieve the net_cls's classid from an eBPF
-program to allow for a more fine-grained classification, it could be
-directly used or in conjunction with additional policies. I.e. docker,
-but also tooling such as cgexec, can easily run applications via net_cls
-cgroups:
+Am Mittwoch, 15. Juli 2015, 17:50:20 schrieb Herbert Xu:
+> On Wed, Jul 15, 2015 at 02:34:41AM +0200, Wolfgang Walter wrote:
+> > I wonder if the router may treat all ipv6-tcp connections of a host=
+ as a
+> > single flow as all those ipv6-packets are embedded in ipv4-packets =
+with
+> > the
+> > ipv4-address of the host and the ipv4-address of the isatap-gateway=
+ and
+> > next- header is 41. It may only looks at those?
+>=20
+> I think GRO is actually working fine.  Can you show me the output
+> of ethtool -k eth1? If hardware TSO is enabled can you try disabling
+> it to see if it helps?
+>=20
+> Thanks,
 
-  cgcreate -g net_cls:/foo
-  echo 42 > foo/net_cls.classid
-  cgexec -g net_cls:foo <prog>
+Yes. Switching TSO off and leaving GRO on works, too.
 
-Thus, their respecitve classid cookie of foo can then be looked up on
-the egress path to apply further policies. The helper is desigend such
-that a non-zero value returns the cgroup id.
-
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Thomas Graf <tgraf@suug.ch>
----
- include/uapi/linux/bpf.h |  7 +++++++
- net/core/filter.c        | 15 +++++++++++++++
- 2 files changed, 22 insertions(+)
-
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 29ef6f9..2de87e5 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -249,6 +249,13 @@ enum bpf_func_id {
- 	 * Return: 0 on success
- 	 */
- 	BPF_FUNC_get_current_comm,
-+
-+	/**
-+	 * bpf_get_cgroup_classid(skb) - retrieve a proc's classid
-+	 * @skb: pointer to skb
-+	 * Return: classid if != 0
-+	 */
-+	BPF_FUNC_get_cgroup_classid,
- 	__BPF_FUNC_MAX_ID,
- };
- 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index be3098f..247450a 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -47,6 +47,7 @@
- #include <linux/if_vlan.h>
- #include <linux/bpf.h>
- #include <net/sch_generic.h>
-+#include <net/cls_cgroup.h>
- 
- /**
-  *	sk_filter - run a packet through a socket filter
-@@ -1424,6 +1425,18 @@ const struct bpf_func_proto bpf_clone_redirect_proto = {
- 	.arg3_type      = ARG_ANYTHING,
- };
- 
-+static u64 bpf_get_cgroup_classid(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-+{
-+	return task_get_classid((struct sk_buff *) (unsigned long) r1);
-+}
-+
-+static const struct bpf_func_proto bpf_get_cgroup_classid_proto = {
-+	.func           = bpf_get_cgroup_classid,
-+	.gpl_only       = false,
-+	.ret_type       = RET_INTEGER,
-+	.arg1_type      = ARG_PTR_TO_CTX,
-+};
-+
- static const struct bpf_func_proto *
- sk_filter_func_proto(enum bpf_func_id func_id)
- {
-@@ -1461,6 +1474,8 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
- 		return &bpf_l4_csum_replace_proto;
- 	case BPF_FUNC_clone_redirect:
- 		return &bpf_clone_redirect_proto;
-+	case BPF_FUNC_get_cgroup_classid:
-+		return &bpf_get_cgroup_classid_proto;
- 	default:
- 		return sk_filter_func_proto(func_id);
- 	}
--- 
-1.9.3
+Thanks,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
