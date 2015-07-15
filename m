@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/2] Avoid link dependency of dlm on sctp module
-Date: Wed, 15 Jul 2015 13:59:18 -0700 (PDT)
-Message-ID: <20150715.135918.1121936842089030351.davem@davemloft.net>
-References: <cover.1436891629.git.marcelo.leitner@gmail.com>
-	<20150715135714.GB24091@hmsreliant.think-freely.org>
+Subject: Re: [PATCH net-next v7 0/4] net: Introduce protodown flag.
+Date: Wed, 15 Jul 2015 14:01:16 -0700 (PDT)
+Message-ID: <20150715.140116.83712075690751658.davem@davemloft.net>
+References: <1436906602-2958-1-git-send-email-anuradhak@cumulusnetworks.com>
+	<CAE4R7bC2WPDfJiT7Av8YYUybvc0D1cakKBgDsL+mystM33guFw@mail.gmail.com>
+	<20150715162434.GE588@gospo.home.greyhouse.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: marcelo.leitner@gmail.com, netdev@vger.kernel.org,
-	vyasevich@gmail.com, linux-sctp@vger.kernel.org
-To: nhorman@tuxdriver.com
+Cc: sfeldma@gmail.com, anuradhak@cumulusnetworks.com,
+	netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	wkok@cumulusnetworks.com
+To: gospo@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32779 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:32793 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753777AbbGOU7T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 16:59:19 -0400
-In-Reply-To: <20150715135714.GB24091@hmsreliant.think-freely.org>
+	with ESMTP id S1753426AbbGOVBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 17:01:17 -0400
+In-Reply-To: <20150715162434.GE588@gospo.home.greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Wed, 15 Jul 2015 09:57:14 -0400
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Date: Wed, 15 Jul 2015 12:24:35 -0400
 
-> Series
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> If it is switchdev-only that would prevent people from using commodity
+> hardware (classic servers + NICs) from being able to build something
+> similar to what can be done with rocker.
 
-I don't like this at all.
-
-I know it's a pain in the ass to have this dependency on SCTP, but
-calling exported functions is absolutely the right way to handle
-this kind of situation.
+Agreed, this isn't switchdev specific at all.
