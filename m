@@ -1,46 +1,47 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH net-next] net/ipv6: update flowi6_oif in ip6_dst_lookup_flow if not set
-Date: Wed, 15 Jul 2015 21:56:26 +0200
-Message-ID: <1436990186-31586-1-git-send-email-phil@nwl.cc>
-Cc: David Miller <davem@davemloft.net>, Florian Westphal <fw@strlen.de>
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net] bonding: fix bond dev flags after convert to arphrd_ether
+Date: Wed, 15 Jul 2015 22:09:43 +0200
+Message-ID: <1436990983-1406-1-git-send-email-razor@blackwall.org>
+Cc: monis@voltaire.com, j.vosburgh@gmail.com,
+	gospo@cumulusnetworks.com, vfalico@gmail.com, davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:36788 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753313AbbGOT42 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jul 2015 15:56:28 -0400
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:36762 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753487AbbGOUJs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 16:09:48 -0400
+Received: by wgxm20 with SMTP id m20so42118440wgx.3
+        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 13:09:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Newly created flows don't have flowi6_oif set (at least if the
-associated socket is not interface-bound). This leads to a mismatch in
-__xfrm6_selector_match() for policies which specify an interface in the
-selector (sel->ifindex != 0).
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Backtracing shows this happens in code-paths originating from e.g.
-ip6_datagram_connect(), rawv6_sendmsg() or tcp_v6_connect(). (UDP was
-not tested for.)
+If a bonding device enslaves devices != arphrd_ether it'll change types
+and if later these devices are released, it can enslave an arphrd_ether
+device and switch back calling ether_setup() which resets dev->flags to
+IFF_BROADCAST|IFF_MULTICAST and clears IFF_MASTER which then could lead
+to many different bugs. This bug seems to have been there since the
+introduction of ether_setup() in bond_enslave().
 
-In summary, this patch fixes policy matching on outgoing interface for
-locally generated packets.
-
-Signed-off-by: Phil Sutter <phil@nwl.cc>
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Fixes: e36b9d16c6a6 ("bonding: clean muticast addresses when device changes type")
 ---
- net/ipv6/ip6_output.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/bonding/bond_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index d5f7716..c5fc852 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1023,6 +1023,8 @@ struct dst_entry *ip6_dst_lookup_flow(struct sock *sk, struct flowi6 *fl6,
- 		return ERR_PTR(err);
- 	if (final_dst)
- 		fl6->daddr = *final_dst;
-+	if (!fl6->flowi6_oif)
-+		fl6->flowi6_oif = dst->dev->ifindex;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 317a49480475..8ba119896e55 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1368,6 +1368,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 				bond_setup_by_slave(bond_dev, slave_dev);
+ 			else {
+ 				ether_setup(bond_dev);
++				bond_dev->flags |= IFF_MASTER;
+ 				bond_dev->priv_flags &= ~IFF_TX_SKB_SHARING;
+ 			}
  
- 	return xfrm_lookup_route(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
- }
 -- 
-2.1.2
+1.9.3
