@@ -1,73 +1,58 @@
-From: Stefan Agner <stefan@agner.ch>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
 Subject: Re: [PATCH 1/2] can: mcp251x: fix resume when device is down
-Date: Wed, 15 Jul 2015 15:05:35 +0200
-Message-ID: <a52e25bc10d3d669b41f19faedf82d57@agner.ch>
+Date: Wed, 15 Jul 2015 15:15:01 +0200
+Message-ID: <55A65CD5.20300@pengutronix.de>
 References: <1431966808-26213-1-git-send-email-stefan@agner.ch>
+ <a52e25bc10d3d669b41f19faedf82d57@agner.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="ta4lgplOx05dcDUVXb7GqPv4QSpDwtmWP"
 Cc: chripell@fsfe.org, linux-can@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: wg@grandegger.com, mkl@pengutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431966808-26213-1-git-send-email-stefan@agner.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Stefan Agner <stefan@agner.ch>, wg@grandegger.com
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <a52e25bc10d3d669b41f19faedf82d57@agner.ch>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Marc, hi Wolfgang,
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--ta4lgplOx05dcDUVXb7GqPv4QSpDwtmWP
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Any comment on this two patches? I don't think these have made it in any
-tree...
+On 07/15/2015 03:05 PM, Stefan Agner wrote:
+> Hi Marc, hi Wolfgang,
+>=20
+> Any comment on this two patches? I don't think these have made it in an=
+y
+> tree...
 
---
-Stefan
+Sorry - Should I add stable in Cc for 1/2 or even both?
 
-On 2015-05-18 18:33, Stefan Agner wrote:
-> If a valid power regulator or a dummy regulator is used (which
-> happens to be the case when no regulator is specified), restart_work
-> is queued no matter whether the device was running or not at suspend
-> time. Since work queues get initialized in the ndo_open callback,
-> resuming leads to a NULL pointer exception.
-> 
-> Reverse exactly the steps executed at suspend time:
-> - Enable the power regulator in any case
-> - Enable the transceiver regulator if the device was running, even in
->   case we have a power regulator
-> - Queue restart_work only in case the device was running
-> 
-> Fixes: bf66f3736a94 ("can: mcp251x: Move to threaded interrupts
-> instead of workqueues.")
-> Signed-off-by: Stefan Agner <stefan@agner.ch>
-> ---
->  drivers/net/can/spi/mcp251x.c | 13 ++++++-------
->  1 file changed, 6 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/can/spi/mcp251x.c b/drivers/net/can/spi/mcp251x.c
-> index bf63fee..34c625e 100644
-> --- a/drivers/net/can/spi/mcp251x.c
-> +++ b/drivers/net/can/spi/mcp251x.c
-> @@ -1221,17 +1221,16 @@ static int __maybe_unused
-> mcp251x_can_resume(struct device *dev)
->  	struct spi_device *spi = to_spi_device(dev);
->  	struct mcp251x_priv *priv = spi_get_drvdata(spi);
->  
-> -	if (priv->after_suspend & AFTER_SUSPEND_POWER) {
-> +	if (priv->after_suspend & AFTER_SUSPEND_POWER)
->  		mcp251x_power_enable(priv->power, 1);
-> +
-> +	if (priv->after_suspend & AFTER_SUSPEND_UP) {
-> +		mcp251x_power_enable(priv->transceiver, 1);
->  		queue_work(priv->wq, &priv->restart_work);
->  	} else {
-> -		if (priv->after_suspend & AFTER_SUSPEND_UP) {
-> -			mcp251x_power_enable(priv->transceiver, 1);
-> -			queue_work(priv->wq, &priv->restart_work);
-> -		} else {
-> -			priv->after_suspend = 0;
-> -		}
-> +		priv->after_suspend = 0;
->  	}
-> +
->  	priv->force_quit = 0;
->  	enable_irq(spi->irq);
->  	return 0;
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--ta4lgplOx05dcDUVXb7GqPv4QSpDwtmWP
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJVplzVAAoJEP5prqPJtc/HszIH/3zVZTCDu1ewMvRYTIoOWAbX
+u/RO1kkMbqXwjhvCpF1/qlT0X34lHtQmf9T0rfewWw1WJDmQflPo/tRVa5XKydVA
+iLJJxKkU0Im5JoZ2skdTfN2OtKlbqQV/Kha17pp5X02YYEgvHYfgYDq9NIWqbK5z
+1DXtn2yngJgyCzMWd9sWncpO9MU19buEPRGLtsxhmb/tH+jeAG33FPgaeVl4EgU3
+Z0J6hLsoBz5TW+3fIJ+eiUWOABWw4eKCNu13ksaAF/4KZpNjzejUl32fNAz0NSFK
+BbVBu+9t311LCko9tAFLczW6KDPoZvf4TbHXOiS0y3txlardr6VQhWyId8npgXo=
+=OI8Z
+-----END PGP SIGNATURE-----
+
+--ta4lgplOx05dcDUVXb7GqPv4QSpDwtmWP--
