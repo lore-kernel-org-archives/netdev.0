@@ -1,84 +1,68 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] vhost: cleanups and fixes
-Date: Wed, 15 Jul 2015 13:50:24 +0300
-Message-ID: <20150715135024-mutt-send-email-mst@redhat.com>
+From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v1 08/12] IB/cma: Add net_dev and private data checks
+ to RDMA CM
+Date: Wed, 15 Jul 2015 13:57:48 +0300
+Message-ID: <55A63CAC.60603@mellanox.com>
+References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
+ <1434976961-27424-9-git-send-email-haggaie@mellanox.com>
+ <20150713181414.GJ23832@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, thuth@redhat.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, pmorel@linux.vnet.ibm.com,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	borntraeger@de.ibm.com, yan@daynix.com, imammedo@redhat.com
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150713181414.GJ23832-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The following changes since commit 59a5b0f7bf74f88da6670bcbf924d8cc1e75b1ee:
+On 13/07/2015 21:14, Jason Gunthorpe wrote:
+> On Mon, Jun 22, 2015 at 03:42:37PM +0300, Haggai Eran wrote:
+>> +	switch (ib_event->event) {
+>> +	case IB_CM_REQ_RECEIVED:
+>> +		req->device	= req_param->listen_id->device;
+>> +		req->port	= req_param->port;
+>> +		req->local_gid	= &req_param->primary_path->sgid;
+>> +		req->service_id	= req_param->primary_path->service_id;
+>> +		req->pkey	= be16_to_cpu(req_param->primary_path->pkey);
+> 
+> I feel pretty strongly that we should be using the pkey from the work
+> completion, not the pkey in the message.
+> 
+> The reason, if someone is using pkey like vlan, and expecting a
+> container to never receive packets outside the assigned pkey, then we
+> need to check each and every packet for the correct pkey before
+> associating it with that container.
 
-  virtio-pci: alloc only resources actually used. (2015-06-24 08:15:09 +0200)
+The way I see it is that you have one RDMA CM agent in the system, and
+the header parameters address it. This agent allows addressing several
+namespaces, and they are de-muxed according to the parameters in the
+payload.
 
-are available in the git repository at:
+So a container never receives a packet outside of its assigned pkeys,
+but the pkey you look at (as well as the GID, and possibly the IP
+address) all come from the payload.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+> When doing the namespace patches you should probably also look at
+> other CM GMPs than just the REQ and how the paths are setup and
+> consider what to do with the pkey. I'd probably suggest that the pkey
+> should be forced throughout the entire process to ensure it always
+> matches the ip device - at least for containers that is the right
+> thing.. I probably wouldn't turn it on for the root namespace though..
 
-for you to fetch changes up to c9ce42f72fd0ba180fd35539829e4139dca31494:
+Once a connection has been established, following GMPs use a unique ID
+to address this connection, so no more de-muxing is needed. What is
+really missing here I guess is a mechanism that would enforce containers
+to only use certain pkeys - perhaps with something like an RDMA cgroup.
+It could force containers to only use approved pkeys not only with RDMA
+CM, but through uverbs, and other user-space interfaces.
 
-  vhost: add max_mem_regions module parameter (2015-07-13 23:17:19 +0300)
-
-----------------------------------------------------------------
-virtio/vhost: fixes for 4.2
-
-Bugfixes and documentation fixes. Igor's patch that allows
-users to tweak memory table size is borderline,
-but it does fix known crashes, so I merged it.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Cornelia Huck (2):
-      MAINTAINERS: separate section for s390 virtio drivers
-      virtio/s390: rename drivers/s390/kvm -> drivers/s390/virtio
-
-Igor Mammedov (3):
-      vhost: use binary search instead of linear in find_region()
-      vhost: extend memory regions allocation to vmalloc
-      vhost: add max_mem_regions module parameter
-
-Michael S. Tsirkin (2):
-      virtio_net: document VIRTIO_NET_CTRL_GUEST_OFFLOADS
-      virtio: define virtio_pci_cfg_cap in header.
-
-Pierre Morel (1):
-      9p/trans_virtio: reset virtio device on remove
-
-Stephen Rothwell (1):
-      virtio scsi: fix unused variable warning
-
-Thomas Huth (1):
-      virtio: Fix typecast of pointer in vring_init()
-
- include/uapi/linux/virtio_net.h           | 16 ++++++++
- include/uapi/linux/virtio_pci.h           |  6 +++
- include/uapi/linux/virtio_ring.h          |  5 ++-
- drivers/s390/{kvm => virtio}/kvm_virtio.c |  0
- drivers/s390/{kvm => virtio}/virtio_ccw.c |  0
- drivers/scsi/virtio_scsi.c                |  4 +-
- drivers/vhost/vhost.c                     | 67 +++++++++++++++++++++++--------
- net/9p/trans_virtio.c                     |  1 +
- MAINTAINERS                               | 10 ++++-
- drivers/s390/Makefile                     |  2 +-
- drivers/s390/{kvm => virtio}/Makefile     |  0
- 11 files changed, 91 insertions(+), 20 deletions(-)
- rename drivers/s390/{kvm => virtio}/kvm_virtio.c (100%)
- rename drivers/s390/{kvm => virtio}/virtio_ccw.c (100%)
- rename drivers/s390/{kvm => virtio}/Makefile (100%)
+Haggai
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
