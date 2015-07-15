@@ -1,56 +1,88 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2 net-next 2/3] rhashtable: Add a function for in order
- insertion and lookup in buckets
-Date: Wed, 15 Jul 2015 13:54:12 +0800
-Message-ID: <20150715055411.GA31926@gondor.apana.org.au>
-References: <1436917549-3666965-1-git-send-email-tom@herbertland.com>
- <1436917549-3666965-3-git-send-email-tom@herbertland.com>
+From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Subject: next-20150714 - busted IPv6 source address selection...
+Date: Wed, 15 Jul 2015 02:13:00 -0400
+Message-ID: <3528.1436940780@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, tgraf@suug.ch,
-	kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:39289 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751205AbbGOFyY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 01:54:24 -0400
-Content-Disposition: inline
-In-Reply-To: <1436917549-3666965-3-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; boundary="==_Exmh_1436940780_3381P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: hideaki.yoshifuji@miraclelinux.com, ek@google.com,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 14, 2015 at 04:45:48PM -0700, Tom Herbert wrote:
-> The obj_orderfn function may be specified in the parameters for a
-> rhashtable. When inserting an element this function is used to order
-> objects in a bucket list (greatest to least ordering value).This
-> allows entries to have wild card fields, where entries with
-> more specific information match are placed first in the bucket.
-> When a lookup is done, the first match found will contain
-> the most specific match.
-> 
-> In order to maintain ordering guarantees during rehash, the
-> rhashtable_lookup_ordered_cmpfn was added. This function will check
-> future tables for matches that would have a greater insertion order
-> than a match found in an older table.
-> 
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
+--==_Exmh_1436940780_3381P
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-There is another problem with exposing rhashtable directly to these
-duplicate entries.  It breaks the logic on when to resize.  In the
-worst case on a server with a single port you can end up with a
-large hash table where everything is stored in a single chain.
+next-20150714 w/ one ethernet commit reverted. -0706 w/ same revert works=
+.
 
-Granted you can work around this by teaching rhashtable to count
-identical entries as a single entry.  But I really think it's much
-easier to just have this logic sit on top of rhashtable instead of
-inside it.
+=22ip addr show=22 for the wireless says:
 
-The memory cost is merely 8 bytes per local port, is it really too
-much?
+5: wlp3s0b1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel st=
+ate UP group default qlen 1000
+    link/ether bc:85:56:1f:4f:6d brd ff:ff:ff:ff:ff:ff
+    inet 172.30.42.75/27 brd 172.30.42.95 scope global dynamic wlp3s0b1
+       valid_lft 80952sec preferred_lft 80952sec
+    inet6 2601:5c0:c100:9243:449b:a30:2f54:5b/64 scope global temporary d=
+ynamic=20
+       valid_lft 7181sec preferred_lft 1781sec
+    inet6 2601:5c0:c100:9243:be85:56ff:fe1f:4f6d/64 scope global mngtmpad=
+dr dynamic=20
+       valid_lft 7181sec preferred_lft 1781sec
+    inet6 fe80::be85:56ff:fe1f:4f6d/64 scope link=20
+       valid_lft forever preferred_lft forever
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+but outbound packets have a bogus source address:
+
+23:01:52.938986 IP6 a835::100:0:200:0.41360 > 2001:500:19::1.domain: 4183=
+5% =5B1au=5D AAAA? c0.info.afilias-nst.info. (53)
+23:05:54.131991 IP6 a835::100:0:200:0 > 2001:468:c80:2105:211:43ff:feda:d=
+769: ICMP6, echo request, seq 56, length 64
+
+Interestingly enough, link-local addresses manage to get it wrong
+in another fashion:
+
+23:02:52.806011 IP6 fe80::120d:7fff:fe64:ca0b.60625 > ff02::c.ssdp: UDP, =
+length 411
+
+I suspected this commit mostly because it's the only one that seems to
+touch source selection recebntly...
+
+commit 9131f3de24db4dc12199aede7d931e6703e97f3b
+Author: YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <hideaki.y=
+oshifuji=40miraclelinux.com>
+Date:   Fri Jul 10 16:58:31 2015 +0900
+
+    ipv6: Do not iterate over all interfaces when finding source address =
+on specific interface.
+
+Reverting this commit make things work again.
+
+
+--==_Exmh_1436940780_3381P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBVaX57AdmEQWDXROgAQIHDRAAs0g6G+3N7iQ1hV+iDNAO+M/KWL3mx43Q
+91HgRwBlHtFMwOl7hUGAR22toO4eTMr+dxVr4Z6Juj4IasrRJUTqKJ9AvFKslbtc
+3YlVhn1+0a3aWH2jORnfu+Ja8g6DNCTBCp4RavzPUHtNGkv0ZYouBiMa8oDnnrIl
+OqzApzQnBMnQwKuMeaR7s7oR+7WzY0E5I43DOlAH845Hs9N5oPHBWTqEWZ7CrK/X
+M6nBObsmkoPo1S8l6CrKIk7kT0bEa/d2H3eT4Q1NKNai5hcSd/wEC3AVl67TB3Yq
+6w2Dc5HJwtCMCehnVaC327p+ikCTW2BAlQfot9FAUuhIaEiFts18tiqDQvh6q7By
+E2cSQAhLnmhBmlc3EKO05ukBccJ0QggDV3sEMMtyLAP3JZmd1d1N/F7VUJrGqcf/
+V7d5y+TkJnfcn9G90ovygV7l6KZtx+wKlaFV7L7mNFKy1cvu2MkHsW/Ao7D3wfPO
+EL0p/doTYDH/X45q+ChGzW5GkoSFoQf5AKFN/idWwqb5gLfzTTXhvhetFrzuk1Ym
+q8/5jTS2PcQpbbX2TEgeZmQ8kRGgXn1qDrRoAyPNbW8WpGUdS+Vzb4JW1x63UnO3
+6oM2lKVU6cGMmKF2NovOx7O/91M8kLC55/xjRB821klJDYJs9ALcimz3PLMINFDh
+gcM7sjenm2c=
+=Pbbo
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1436940780_3381P--
