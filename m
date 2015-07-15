@@ -1,160 +1,68 @@
-From: Erik Kline <ek@google.com>
-Subject: Re: [PATCH] ipv6: Fix finding best source address in ipv6_dev_get_saddr().
-Date: Wed, 15 Jul 2015 19:22:40 +0900
-Message-ID: <CAAedzxruyuKWDm4diX79kupRRFJnBd=Y1fj1sK1wz9mPD9EBfg@mail.gmail.com>
-References: <55A3CAFA.3060404@miraclelinux.com> <CAAedzxp=ARvnYZ9fSLfyLZr-qju3MtZcjGoo0QKCvyybpC3-MA@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] e1000e: Move e1000e_disable_aspm_locked() inside
+ CONFIG_PM
+Date: Wed, 15 Jul 2015 03:30:16 -0700
+Message-ID: <1436956216.13597.8.camel@intel.com>
+References: <1436846075-29366-1-git-send-email-mpe@ellerman.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Hajime Tazaki <thehajime@gmail.com>
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kv5ZCJ6Jek6Iux5piO?=
-	<hideaki.yoshifuji@miraclelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:35005 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750861AbbGOKXB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 06:23:01 -0400
-Received: by wiga1 with SMTP id a1so124465837wig.0
-        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 03:23:00 -0700 (PDT)
-In-Reply-To: <CAAedzxp=ARvnYZ9fSLfyLZr-qju3MtZcjGoo0QKCvyybpC3-MA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-VTmvpgczFj7nlI2vzPPt"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org, aaron.f.brown@intel.com,
+	yanirx.lubetkin@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com
+To: Michael Ellerman <mpe@ellerman.id.au>,
+	"Avargil, Raanan" <raanan.avargil@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1436846075-29366-1-git-send-email-mpe@ellerman.id.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-And I now have a use_oif_addr sysctl patch that, on top if this one,
-passes all my tests.
 
-On 15 July 2015 at 18:15, Erik Kline <ek@google.com> wrote:
-> All my tests pass with this applied to net-next/master.
->
-> Many thanks!
->
-> Acked-by: Erik Kline <ek@google.com>
->
-> On 13 July 2015 at 23:28, YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=
-=E6=98=8E
-> <hideaki.yoshifuji@miraclelinux.com> wrote:
->> Commit 9131f3de2 ("ipv6: Do not iterate over all interfaces when
->> finding source address on specific interface.") did not properly
->> update best source address available.  Plus, it introduced
->> possible NULL pointer dereference.
->>
->> Bug was reported by Erik Kline <ek@google.com>.
->> Based on patch proposed by Hajime Tazaki <thehajime@gmail.com>.
->>
->> Fixes: 9131f3de24db4dc12199aede7d931e6703e97f3b ("ipv6: Do not
->>         iterate over all interfaces when finding source address
->>         on specific interface.")
->> Signed-off-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com=
->
->> ---
->>  net/ipv6/addrconf.c | 30 ++++++++++++++++++------------
->>  1 file changed, 18 insertions(+), 12 deletions(-)
->>
->> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->> index 4ab74d5..4c9a024 100644
->> --- a/net/ipv6/addrconf.c
->> +++ b/net/ipv6/addrconf.c
->> @@ -1358,14 +1358,15 @@ out:
->>         return ret;
->>  }
->>
->> -static void __ipv6_dev_get_saddr(struct net *net,
->> -                                struct ipv6_saddr_dst *dst,
->> -                                unsigned int prefs,
->> -                                const struct in6_addr *saddr,
->> -                                struct inet6_dev *idev,
->> -                                struct ipv6_saddr_score *scores)
->> +static int __ipv6_dev_get_saddr(struct net *net,
->> +                               struct ipv6_saddr_dst *dst,
->> +                               unsigned int prefs,
->> +                               const struct in6_addr *saddr,
->> +                               struct inet6_dev *idev,
->> +                               struct ipv6_saddr_score *scores,
->> +                               int hiscore_idx)
->>  {
->> -       struct ipv6_saddr_score *score =3D &scores[0], *hiscore =3D =
-&scores[1];
->> +       struct ipv6_saddr_score *score =3D &scores[1 - hiscore_idx],=
- *hiscore =3D &scores[hiscore_idx];
->>
->>         read_lock_bh(&idev->lock);
->>         list_for_each_entry(score->ifa, &idev->addr_list, if_list) {
->> @@ -1424,6 +1425,7 @@ static void __ipv6_dev_get_saddr(struct net *n=
-et,
->>                                 in6_ifa_hold(score->ifa);
->>
->>                                 swap(hiscore, score);
->> +                               hiscore_idx =3D 1 - hiscore_idx;
->>
->>                                 /* restore our iterator */
->>                                 score->ifa =3D hiscore->ifa;
->> @@ -1434,18 +1436,20 @@ static void __ipv6_dev_get_saddr(struct net =
-*net,
->>         }
->>  out:
->>         read_unlock_bh(&idev->lock);
->> +       return hiscore_idx;
->>  }
->>
->>  int ipv6_dev_get_saddr(struct net *net, const struct net_device *ds=
-t_dev,
->>                        const struct in6_addr *daddr, unsigned int pr=
-efs,
->>                        struct in6_addr *saddr)
->>  {
->> -       struct ipv6_saddr_score scores[2], *hiscore =3D &scores[1];
->> +       struct ipv6_saddr_score scores[2], *hiscore;
->>         struct ipv6_saddr_dst dst;
->>         struct inet6_dev *idev;
->>         struct net_device *dev;
->>         int dst_type;
->>         bool use_oif_addr =3D false;
->> +       int hiscore_idx =3D 0;
->>
->>         dst_type =3D __ipv6_addr_type(daddr);
->>         dst.addr =3D daddr;
->> @@ -1454,8 +1458,8 @@ int ipv6_dev_get_saddr(struct net *net, const =
-struct net_device *dst_dev,
->>         dst.label =3D ipv6_addr_label(net, daddr, dst_type, dst.ifin=
-dex);
->>         dst.prefs =3D prefs;
->>
->> -       hiscore->rule =3D -1;
->> -       hiscore->ifa =3D NULL;
->> +       scores[hiscore_idx].rule =3D -1;
->> +       scores[hiscore_idx].ifa =3D NULL;
->>
->>         rcu_read_lock();
->>
->> @@ -1480,17 +1484,19 @@ int ipv6_dev_get_saddr(struct net *net, cons=
-t struct net_device *dst_dev,
->>         }
->>
->>         if (use_oif_addr) {
->> -               __ipv6_dev_get_saddr(net, &dst, prefs, saddr, idev, =
-scores);
->> +               if (idev)
->> +                       hiscore_idx =3D __ipv6_dev_get_saddr(net, &d=
-st, prefs, saddr, idev, scores, hiscore_idx);
->>         } else {
->>                 for_each_netdev_rcu(net, dev) {
->>                         idev =3D __in6_dev_get(dev);
->>                         if (!idev)
->>                                 continue;
->> -                       __ipv6_dev_get_saddr(net, &dst, prefs, saddr=
-, idev, scores);
->> +                       hiscore_idx =3D __ipv6_dev_get_saddr(net, &d=
-st, prefs, saddr, idev, scores, hiscore_idx);
->>                 }
->>         }
->>         rcu_read_unlock();
->>
->> +       hiscore =3D &scores[hiscore_idx];
->>         if (!hiscore->ifa)
->>                 return -EADDRNOTAVAIL;
->>
->> --
->> 1.9.1
->>
+--=-VTmvpgczFj7nlI2vzPPt
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2015-07-14 at 13:54 +1000, Michael Ellerman wrote:
+> e1000e_disable_aspm_locked() is only used in __e1000_resume() which is
+> inside CONFIG_PM. So when CONFIG_PM=3Dn we get a "defined but not used"
+> warning for e1000e_disable_aspm_locked().
+>=20
+> Move it inside the existing CONFIG_PM block to avoid the warning.
+>=20
+> Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
+> ---
+>  drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+
+NACK, this is already fixed in my next-queue tree.  Raanan submitted a
+patch back on July 6th to resolve this issue, see commit id
+a75787d2246a93d256061db602f252703559af65 in my dev-queue branch of my
+next-queue tree.
+
+--=-VTmvpgczFj7nlI2vzPPt
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJVpjY4AAoJEOVv75VaS+3O/W8P/2uoSYqLpIaS+AcDevRk8ZGF
+sXzubM8BaL6TFWTQmpNXXVXnwl0uusdUP10+p+s2ngmU/0DLNAGVo1TvkAM+MoJ0
+9EasSsiNE9+WwSgUnLA8U1MdxXcMsbGA38n7QzBf8YzdVdNPmJ5owaXhO5ipjVyj
+OPO25UpgoWkERGm8qWgnHIt4jrwPx0GYHU9LR2reUOZALosU4tGzQhprwSDwCmZy
+m4Nf25h7w59y+PsnrYAiGN0ENsuP8sE8HtE6QekFWDfTP5YBXM43d7uxsUL3TLsl
+TfwlXkaPpcAQX9bLv7hUD9vifGTY+wlVftBx8JgP5YyXX0BtGZyusD4YT4Go1lnb
+iv7A7OSA1UYtGAx5trABtvzfkJSUJrgAnoVMUHMk80iqDBUuhOc1RrrNkzCBAFMx
+vyE8AlZ9V+0GSjgJglYGAbmdVI4iOUu+ptDWwBNpGp8yEf+KpJjnHmKuXlmxgFeq
+PnlAWm5GaD321BCLDxrMpLe/mtSyeZ8YTpVSZQHumJNMblcMDtykCM56F5ms6AhY
+SLEB1rR7LXokKkqUeQfX2DxPx//kIjOZRn2IZpuzUIxLtvs1l87HQOJhmqbR+NP8
+N2GinMMlzhy4KWMvwZIoiDlzZ8Ul+/OsAJty62LUNwqBVNky0CdQ3jA9T6hVYJT3
+DJ4zSfWUtaBw+JI4FP14
+=52GT
+-----END PGP SIGNATURE-----
+
+--=-VTmvpgczFj7nlI2vzPPt--
