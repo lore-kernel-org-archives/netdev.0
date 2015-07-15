@@ -1,76 +1,154 @@
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Subject: pull request: bluetooth 2015-07-15
-Date: Wed, 15 Jul 2015 11:43:55 +0300
-Message-ID: <20150715084355.GA13429@t440s.lan>
+From: Erik Kline <ek@google.com>
+Subject: Re: [PATCH] ipv6: Fix finding best source address in ipv6_dev_get_saddr().
+Date: Wed, 15 Jul 2015 18:15:44 +0900
+Message-ID: <CAAedzxp=ARvnYZ9fSLfyLZr-qju3MtZcjGoo0QKCvyybpC3-MA@mail.gmail.com>
+References: <55A3CAFA.3060404@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="oyUTqETQ0mS9luUI"
-Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, thehajime@gmail.com
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kv5ZCJ6Jek6Iux5piO?=
+	<hideaki.yoshifuji@miraclelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:34298 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751583AbbGOIoK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 04:44:10 -0400
-Content-Disposition: inline
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:33183 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753962AbbGOJQF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 05:16:05 -0400
+Received: by widic2 with SMTP id ic2so58060922wid.0
+        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 02:16:04 -0700 (PDT)
+In-Reply-To: <55A3CAFA.3060404@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+All my tests pass with this applied to net-next/master.
 
---oyUTqETQ0mS9luUI
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Many thanks!
 
-Hi Dave,
+Acked-by: Erik Kline <ek@google.com>
 
-Here's a regression fix for Broadcom Bluetooth adapters found at least
-in certain Apple laptops. The issue was introduced in 4.1 so there's the
-appropriate "Cc: stable" entry for it.
-
-Let me know if there are any issues pulling. Thanks.
-
-Johan
-
----
-The following changes since commit f760b87f8f12eb262f14603e65042996fe03720e:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2015-07-13 11:18:25 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
-
-for you to fetch changes up to 7bee8b08c428b63aa4a3765bb907602e36355378:
-
-  Bluetooth: btbcm: allow btbcm_read_verbose_config to fail on Apple (2015-07-14 22:54:55 +0200)
-
-----------------------------------------------------------------
-Chris Mason (1):
-      Bluetooth: btbcm: allow btbcm_read_verbose_config to fail on Apple
-
- drivers/bluetooth/btbcm.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
-
-
---oyUTqETQ0mS9luUI
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJVph1LAAoJECQj9vv5qNQSPzAP/RRFl+oyNaQIU6TjTO+mIled
-lZQxIT1YmTRZ73P7LAACOe13zNqHgi8voFLoDKucMnvii4vQWdX0Mvb9I74rUMZN
-KOFyBIFNGEHOtxqkz2QjfoLsNhwBhCAHJssUqi6mDGvouF6deO3VCvPBsPj+lxu2
-D5DMLGDa5aK48KmyG1ZI2V1C/p/rgijdw+YhJPBjEfjYrmEQFX1ctsg+GUqKJQsH
-DGEXMM18W3rpRBqxTwETh937bNk7EZoPVyqRqRO9V4Si/n9HvhB2/43cDTUvhBd4
-C0cKdeDkgrP6TJZ7QiYm20Mo8B3nuoEyJXfGSkRCRS7TFJPgZfuCV098qAoraw/o
-fLB6bsxw5qA99BTShb35k8Lek3pxUqU1lnAlbLI+Nq0we04erUTyeNEV0rreEnzo
-jxtlnMEnE+z/X6b0WNx8ZlF6oRsIFIO/Dx5/3d366hJw9cJlJzICAqOOnx/K8ZjJ
-rnogZI+cdI9ukrXR7JAAvPl/Jw667BQhw/nz7J0JcsRjzFQnp2gpyxdUfPE1GLdT
-A6Ix97L6fdR73qQ64fzv95jqv2tjjnWplf4kFlF3ExchzX6JK6YTscNabTImv5QS
-/JiGYFJqlV8I1GyuYQFgtMnzIpzeYzo6lfGu0QDmxZclK7t8+iDxIlX5uOkkcRHs
-CE4dB8w6chQ7liIzWEsI
-=iB/i
------END PGP SIGNATURE-----
-
---oyUTqETQ0mS9luUI--
+On 13 July 2015 at 23:28, YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=
+=E6=98=8E
+<hideaki.yoshifuji@miraclelinux.com> wrote:
+> Commit 9131f3de2 ("ipv6: Do not iterate over all interfaces when
+> finding source address on specific interface.") did not properly
+> update best source address available.  Plus, it introduced
+> possible NULL pointer dereference.
+>
+> Bug was reported by Erik Kline <ek@google.com>.
+> Based on patch proposed by Hajime Tazaki <thehajime@gmail.com>.
+>
+> Fixes: 9131f3de24db4dc12199aede7d931e6703e97f3b ("ipv6: Do not
+>         iterate over all interfaces when finding source address
+>         on specific interface.")
+> Signed-off-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+> ---
+>  net/ipv6/addrconf.c | 30 ++++++++++++++++++------------
+>  1 file changed, 18 insertions(+), 12 deletions(-)
+>
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 4ab74d5..4c9a024 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -1358,14 +1358,15 @@ out:
+>         return ret;
+>  }
+>
+> -static void __ipv6_dev_get_saddr(struct net *net,
+> -                                struct ipv6_saddr_dst *dst,
+> -                                unsigned int prefs,
+> -                                const struct in6_addr *saddr,
+> -                                struct inet6_dev *idev,
+> -                                struct ipv6_saddr_score *scores)
+> +static int __ipv6_dev_get_saddr(struct net *net,
+> +                               struct ipv6_saddr_dst *dst,
+> +                               unsigned int prefs,
+> +                               const struct in6_addr *saddr,
+> +                               struct inet6_dev *idev,
+> +                               struct ipv6_saddr_score *scores,
+> +                               int hiscore_idx)
+>  {
+> -       struct ipv6_saddr_score *score =3D &scores[0], *hiscore =3D &=
+scores[1];
+> +       struct ipv6_saddr_score *score =3D &scores[1 - hiscore_idx], =
+*hiscore =3D &scores[hiscore_idx];
+>
+>         read_lock_bh(&idev->lock);
+>         list_for_each_entry(score->ifa, &idev->addr_list, if_list) {
+> @@ -1424,6 +1425,7 @@ static void __ipv6_dev_get_saddr(struct net *ne=
+t,
+>                                 in6_ifa_hold(score->ifa);
+>
+>                                 swap(hiscore, score);
+> +                               hiscore_idx =3D 1 - hiscore_idx;
+>
+>                                 /* restore our iterator */
+>                                 score->ifa =3D hiscore->ifa;
+> @@ -1434,18 +1436,20 @@ static void __ipv6_dev_get_saddr(struct net *=
+net,
+>         }
+>  out:
+>         read_unlock_bh(&idev->lock);
+> +       return hiscore_idx;
+>  }
+>
+>  int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst=
+_dev,
+>                        const struct in6_addr *daddr, unsigned int pre=
+fs,
+>                        struct in6_addr *saddr)
+>  {
+> -       struct ipv6_saddr_score scores[2], *hiscore =3D &scores[1];
+> +       struct ipv6_saddr_score scores[2], *hiscore;
+>         struct ipv6_saddr_dst dst;
+>         struct inet6_dev *idev;
+>         struct net_device *dev;
+>         int dst_type;
+>         bool use_oif_addr =3D false;
+> +       int hiscore_idx =3D 0;
+>
+>         dst_type =3D __ipv6_addr_type(daddr);
+>         dst.addr =3D daddr;
+> @@ -1454,8 +1458,8 @@ int ipv6_dev_get_saddr(struct net *net, const s=
+truct net_device *dst_dev,
+>         dst.label =3D ipv6_addr_label(net, daddr, dst_type, dst.ifind=
+ex);
+>         dst.prefs =3D prefs;
+>
+> -       hiscore->rule =3D -1;
+> -       hiscore->ifa =3D NULL;
+> +       scores[hiscore_idx].rule =3D -1;
+> +       scores[hiscore_idx].ifa =3D NULL;
+>
+>         rcu_read_lock();
+>
+> @@ -1480,17 +1484,19 @@ int ipv6_dev_get_saddr(struct net *net, const=
+ struct net_device *dst_dev,
+>         }
+>
+>         if (use_oif_addr) {
+> -               __ipv6_dev_get_saddr(net, &dst, prefs, saddr, idev, s=
+cores);
+> +               if (idev)
+> +                       hiscore_idx =3D __ipv6_dev_get_saddr(net, &ds=
+t, prefs, saddr, idev, scores, hiscore_idx);
+>         } else {
+>                 for_each_netdev_rcu(net, dev) {
+>                         idev =3D __in6_dev_get(dev);
+>                         if (!idev)
+>                                 continue;
+> -                       __ipv6_dev_get_saddr(net, &dst, prefs, saddr,=
+ idev, scores);
+> +                       hiscore_idx =3D __ipv6_dev_get_saddr(net, &ds=
+t, prefs, saddr, idev, scores, hiscore_idx);
+>                 }
+>         }
+>         rcu_read_unlock();
+>
+> +       hiscore =3D &scores[hiscore_idx];
+>         if (!hiscore->ifa)
+>                 return -EADDRNOTAVAIL;
+>
+> --
+> 1.9.1
+>
