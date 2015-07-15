@@ -1,54 +1,139 @@
-From: Paolo Bonzini <pbonzini@redhat.com>
-Subject: Re: [virtio-dev] [PATCH] virtio_net: don't require ANY_LAYOUT with
-	VERSION_1
-Date: Wed, 15 Jul 2015 14:55:11 +0200
-Message-ID: <55A6582F.5070500@redhat.com>
-References: <1436963135-16592-1-git-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtio-dev@lists.oasis-open.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1436963135-16592-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Subject: [PATCH] mac80211: Deinline drv_sta_state
+Date: Wed, 15 Jul 2015 14:56:05 +0200
+Message-ID: <1436964966-2441-1-git-send-email-dvlasenk@redhat.com>
+Cc: Denys Vlasenko <dvlasenk@redhat.com>,
+	Michal Kazior <michal.kazior@tieto.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: John Linville <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+With this .config: http://busybox.net/~vda/kernel_config,
+after deinlining the function size is 3132 bytes and there are
+7 callsites.
 
+Total size reduction: about 20 kbytes.
 
-On 15/07/2015 14:26, Michael S. Tsirkin wrote:
-> ANY_LAYOUT is a compatibility feature. It's implied
-> for VERSION_1 devices, and non-transitional devices
-> might not offer it. Change code to behave accordingly.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->  drivers/net/virtio_net.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 63c7810..7fbca37 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1828,7 +1828,8 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	else
->  		vi->hdr_len = sizeof(struct virtio_net_hdr);
->  
-> -	if (virtio_has_feature(vdev, VIRTIO_F_ANY_LAYOUT))
-> +	if (virtio_has_feature(vdev, VIRTIO_F_ANY_LAYOUT) ||
-> +	    virtio_has_feature(vdev, VIRTIO_F_VERSION_1))
->  		vi->any_header_sg = true;
->  
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
-> 
+Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+CC: John Linville <linville@tuxdriver.com>
+CC: Michal Kazior <michal.kazior@tieto.com>
+Cc: Johannes Berg <johannes.berg@intel.com>
+Cc: linux-wireless@vger.kernel.org
+Cc: netdev@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+---
+ net/mac80211/Makefile     |  1 +
+ net/mac80211/driver-ops.c | 41 +++++++++++++++++++++++++++++++++++++++++
+ net/mac80211/driver-ops.h | 29 ++---------------------------
+ 3 files changed, 44 insertions(+), 27 deletions(-)
+ create mode 100644 net/mac80211/driver-ops.c
 
-Reviewed-by: Paolo Bonzini <pbonzini@redhat.com>
+diff --git a/net/mac80211/Makefile b/net/mac80211/Makefile
+index 3275f01..783e891 100644
+--- a/net/mac80211/Makefile
++++ b/net/mac80211/Makefile
+@@ -3,6 +3,7 @@ obj-$(CONFIG_MAC80211) += mac80211.o
+ # mac80211 objects
+ mac80211-y := \
+ 	main.o status.o \
++	driver-ops.o \
+ 	sta_info.o \
+ 	wep.o \
+ 	wpa.o \
+diff --git a/net/mac80211/driver-ops.c b/net/mac80211/driver-ops.c
+new file mode 100644
+index 0000000..267c3b1
+--- /dev/null
++++ b/net/mac80211/driver-ops.c
+@@ -0,0 +1,41 @@
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++#include <net/mac80211.h>
++#include "ieee80211_i.h"
++#include "trace.h"
++#include "driver-ops.h"
++
++__must_check
++int drv_sta_state(struct ieee80211_local *local,
++		  struct ieee80211_sub_if_data *sdata,
++		  struct sta_info *sta,
++		  enum ieee80211_sta_state old_state,
++		  enum ieee80211_sta_state new_state)
++{
++	int ret = 0;
++
++	might_sleep();
++
++	sdata = get_bss_sdata(sdata);
++	if (!check_sdata_in_driver(sdata))
++		return -EIO;
++
++	trace_drv_sta_state(local, sdata, &sta->sta, old_state, new_state);
++	if (local->ops->sta_state) {
++		ret = local->ops->sta_state(&local->hw, &sdata->vif, &sta->sta,
++					    old_state, new_state);
++	} else if (old_state == IEEE80211_STA_AUTH &&
++		   new_state == IEEE80211_STA_ASSOC) {
++		ret = drv_sta_add(local, sdata, &sta->sta);
++		if (ret == 0)
++			sta->uploaded = true;
++	} else if (old_state == IEEE80211_STA_ASSOC &&
++		   new_state == IEEE80211_STA_AUTH) {
++		drv_sta_remove(local, sdata, &sta->sta);
++	}
++	trace_drv_return_int(local, ret);
++	return ret;
++}
+diff --git a/net/mac80211/driver-ops.h b/net/mac80211/driver-ops.h
+index 32a2e70..02d9133 100644
+--- a/net/mac80211/driver-ops.h
++++ b/net/mac80211/driver-ops.h
+@@ -573,37 +573,12 @@ static inline void drv_sta_pre_rcu_remove(struct ieee80211_local *local,
+ 	trace_drv_return_void(local);
+ }
+ 
+-static inline __must_check
++__must_check
+ int drv_sta_state(struct ieee80211_local *local,
+ 		  struct ieee80211_sub_if_data *sdata,
+ 		  struct sta_info *sta,
+ 		  enum ieee80211_sta_state old_state,
+-		  enum ieee80211_sta_state new_state)
+-{
+-	int ret = 0;
+-
+-	might_sleep();
+-
+-	sdata = get_bss_sdata(sdata);
+-	if (!check_sdata_in_driver(sdata))
+-		return -EIO;
+-
+-	trace_drv_sta_state(local, sdata, &sta->sta, old_state, new_state);
+-	if (local->ops->sta_state) {
+-		ret = local->ops->sta_state(&local->hw, &sdata->vif, &sta->sta,
+-					    old_state, new_state);
+-	} else if (old_state == IEEE80211_STA_AUTH &&
+-		   new_state == IEEE80211_STA_ASSOC) {
+-		ret = drv_sta_add(local, sdata, &sta->sta);
+-		if (ret == 0)
+-			sta->uploaded = true;
+-	} else if (old_state == IEEE80211_STA_ASSOC &&
+-		   new_state == IEEE80211_STA_AUTH) {
+-		drv_sta_remove(local, sdata, &sta->sta);
+-	}
+-	trace_drv_return_int(local, ret);
+-	return ret;
+-}
++		  enum ieee80211_sta_state new_state);
+ 
+ static inline void drv_sta_rc_update(struct ieee80211_local *local,
+ 				     struct ieee80211_sub_if_data *sdata,
+-- 
+1.8.1.4
