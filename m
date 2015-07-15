@@ -1,41 +1,50 @@
-From: Kyle McMartin <kyle@infradead.org>
-Subject: Re: [PATCH] bnx2x: Update to FW version 7.12.30
-Date: Wed, 15 Jul 2015 10:03:21 -0400
-Message-ID: <20150715140321.GA28956@merlin.infradead.org>
-References: <1434866091-30087-1-git-send-email-Yuval.Mintz@qlogic.com>
- <B5657A6538887040AD3A81F1008BEC63DD93BB@avmb3.qlogic.org>
- <B5657A6538887040AD3A81F1008BEC63DE5037@avmb3.qlogic.org>
- <B5657A6538887040AD3A81F1008BEC63DE54D0@avmb3.qlogic.org>
- <20150714210449.GV13281@merlin.infradead.org>
- <B5657A6538887040AD3A81F1008BEC63DE80A2@avmb3.qlogic.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kyle McMartin <kyle@infradead.org>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	netdev <netdev@vger.kernel.org>, linux-firmware@kernel.org
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:57412 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751954AbbGOODX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 10:03:23 -0400
-Content-Disposition: inline
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63DE80A2@avmb3.qlogic.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH] net: dsa: mv88e6xxx: fix fid_mask when leaving bridge
+Date: Wed, 15 Jul 2015 10:07:07 -0400
+Message-ID: <1436969227-30006-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: Guenter Roeck <linux@roeck-us.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 15, 2015 at 04:50:55AM +0000, Yuval Mintz wrote:
-> Hi Kyle,
-> 
-> I've sent a new bnx2x FW ~3 weeks ago, but I wasn't aware of the
-> change in E-mails and that I was supposed to send it to linux-firmware,
-> so I addressed it to David/Ben as I used to in the past.
-> And I haven't seen any reply to it.
-> 
-> Should I re-send the FW patch to linux-firmware?
-> 
+The mv88e6xxx_priv_state structure contains an fid_mask, where 1 means
+the FID is free to use, 0 means the FID is in use.
 
-Yes, please. It's unlikely David or Ben would have time to get around to
-it.
+This patch fixes the bit clear in mv88e6xxx_leave_bridge() when
+assigning a new FID to a port.
 
-regards, --Kyle
+Example scenario: I have 7 ports, port 5 is CPU, port 6 is unused (no
+PHY). After setting the ports 0, 1 and 2 in bridge br0, and ports 3 and
+4 in bridge br1, I have the following fid_mask: 0b111110010110 (0xf96).
+
+Indeed, br0 uses FID 0, and br1 uses FID 3.
+
+After setting nomaster for port 0, I get the wrong fid_mask: 0b10 (0x2).
+
+With this patch we correctly get 0b111110010100 (0xf94), meaning port 0
+uses FID 1, br0 uses FID 0, and br1 uses FID 3.
+
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index bb03c5f..e3ea40e 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1170,7 +1170,7 @@ int mv88e6xxx_leave_bridge(struct dsa_switch *ds, int port, u32 br_port_mask)
+ 
+ 	newfid = __ffs(ps->fid_mask);
+ 	ps->fid[port] = newfid;
+-	ps->fid_mask &= (1 << newfid);
++	ps->fid_mask &= ~(1 << newfid);
+ 	ps->bridge_mask[fid] &= ~(1 << port);
+ 	ps->bridge_mask[newfid] = 1 << port;
+ 
+-- 
+2.4.5
