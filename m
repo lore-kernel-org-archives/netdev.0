@@ -1,38 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net] fq_codel: fix return value of fq_codel_drop()
-Date: Wed, 15 Jul 2015 08:27:35 +0200
-Message-ID: <1436941655.1026.1.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1436898118-30804-1-git-send-email-xiyou.wangcong@gmail.com>
-	 <1436898118-30804-2-git-send-email-xiyou.wangcong@gmail.com>
+From: Bastien Nocera <hadess@hadess.net>
+Subject: Re: [PATCH] rfkill-gpio: Add support for the Realtek 8723 BT
+Date: Wed, 15 Jul 2015 08:27:51 +0200
+Message-ID: <1436941671.20249.60.camel@hadess.net>
+References: <1436825494.20249.47.camel@hadess.net>
+	 <A2E649D0-855C-4DBC-8A23-7D2CF2747530@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Cong Wang <cwang@twopensource.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:36360 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751519AbbGOG1j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 02:27:39 -0400
-Received: by wgxm20 with SMTP id m20so24796967wgx.3
-        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 23:27:38 -0700 (PDT)
-In-Reply-To: <1436898118-30804-2-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <A2E649D0-855C-4DBC-8A23-7D2CF2747530@holtmann.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-07-14 at 11:21 -0700, Cong Wang wrote:
-> The ->drop() is supposed to return the number of bytes it dropped,
-> however fq_codel_drop() returns the index of the flow where it drops
-> a packet from.
+On Tue, 2015-07-14 at 17:29 +0200, Marcel Holtmann wrote:
+> Hi Bastien,
 > 
-> Fix this by introducing a helper to wrap fq_codel_drop().
+> > http://thread.gmane.org/gmane.linux.kernel.wireless.general/127706/
+> > focu
+> > s=127896
+> > 
+> > Signed-off-by: Bastien Nocera <hadess@hadess.net>
+> > 
+> > ---
+> > net/rfkill/rfkill-gpio.c | 1 +
+> > 1 file changed, 1 insertion(+)
+> > 
+> > diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
+> > index d5d58d9..9471024 100644
+> > --- a/net/rfkill/rfkill-gpio.c
+> > +++ b/net/rfkill/rfkill-gpio.c
+> > @@ -168,6 +168,7 @@ static const struct acpi_device_id
+> > rfkill_acpi_match[] = {
+> > 	{ "BCM2E3D", RFKILL_TYPE_BLUETOOTH },
+> > 	{ "BCM2E40", RFKILL_TYPE_BLUETOOTH },
+> > 	{ "BCM2E64", RFKILL_TYPE_BLUETOOTH },
+> > +	{ "OBDA8723", RFKILL_TYPE_BLUETOOTH },
+> > 	{ "BCM4752", RFKILL_TYPE_GPS },
+> > 	{ "LNV4752", RFKILL_TYPE_GPS },
+> > 	{ },
 > 
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
-> ---
+> while this is most likely a good start to get people going and 
+> testing the hardware, I think long-term some these IDs have to move 
+> out of this driver and into a Realtek specific UART slave driver 
+> (once we get such a thing upstream).
+> 
+> I think one example would be what Fred is currently doing for the 
+> Broadcom UART devices. Essentially we are currently misusing the 
+> RFKILL switch for an on/off switch of the GPIO lines. This would be 
+> better handled by the Bluetooth subsystem itself when you power on 
+> the controller.
 
-SGTM, thanks Cong.
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+Duly noted. I'll postpone that until I have time to do hardware
+enablement on the Bluetooth side of that chipset.
