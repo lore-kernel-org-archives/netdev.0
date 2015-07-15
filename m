@@ -1,161 +1,86 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH v2 1/2] sctp: add new getsockopt option SCTP_SOCKOPT_PEELOFF_KERNEL
-Date: Wed, 15 Jul 2015 10:24:41 -0300
-Message-ID: <55A65F19.5030403@gmail.com>
-References: <cover.1436891629.git.marcelo.leitner@gmail.com> <6091a8542d13f43fbe1abfa25062d28d15b15e66.1436891629.git.marcelo.leitner@gmail.com> <20150715131827.GA24091@hmsreliant.think-freely.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2 0/2] Avoid link dependency of dlm on sctp module
+Date: Wed, 15 Jul 2015 09:57:14 -0400
+Message-ID: <20150715135714.GB24091@hmsreliant.think-freely.org>
+References: <cover.1436891629.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
 	linux-sctp@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f49.google.com ([209.85.192.49]:36173 "EHLO
-	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751818AbbGONYs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 09:24:48 -0400
-In-Reply-To: <20150715131827.GA24091@hmsreliant.think-freely.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:37157 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752169AbbGON5T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 09:57:19 -0400
+Content-Disposition: inline
+In-Reply-To: <cover.1436891629.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15-07-2015 10:18, Neil Horman wrote:
-> On Tue, Jul 14, 2015 at 02:13:24PM -0300, Marcelo Ricardo Leitner wrote:
->> SCTP has this operation to peel off associations from a given socket and
->> create a new socket using this association. We currently have two ways
->> to use this operation:
->> - via getsockopt(), on which it will also create and return a file
->>    descriptor for this new socket
->> - via sctp_do_peeloff(), which is for kernel only
->>
->> The caveat with using sctp_do_peeloff() directly is that it creates a
->> dependency to SCTP module, while all other operations are handled via
->> kernel_{socket,sendmsg,getsockopt...}() interface. This causes the
->> kernel to load SCTP module even when it's not really used.
->>
->> This patch then creates a new sockopt that is to be used only by kernel
->> users of this protocol. This new sockopt will not allocate a file
->> descriptor but instead just return the socket pointer directly.
->>
->> Kernel users are actually identified by if the parent socket has or not
->> a fd attached to it. If not, it's a kernel a user.
->>
->> If called by an user application, it will just return -EPERM.
->>
->> Even though it's not intended for user applications, it's listed under
->> uapi header. That's because hidding this wouldn't add any extra security
->> and to keep the sockopt list in one place, so it's easy to check
->> available numbers to use.
->>
->> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
->> ---
->>   include/uapi/linux/sctp.h | 12 ++++++++++++
->>   net/sctp/socket.c         | 37 +++++++++++++++++++++++++++++++++++++
->>   2 files changed, 49 insertions(+)
->>
->> diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
->> index ce70fe6b45df3e841c35accbdb6379c16563893c..b3aad3ce456ab3c1ebf4d81fdb7269ba40b3d92a 100644
->> --- a/include/uapi/linux/sctp.h
->> +++ b/include/uapi/linux/sctp.h
->> @@ -105,6 +105,10 @@ typedef __s32 sctp_assoc_t;
->>   #define SCTP_SOCKOPT_BINDX_ADD	100	/* BINDX requests for adding addrs */
->>   #define SCTP_SOCKOPT_BINDX_REM	101	/* BINDX requests for removing addrs. */
->>   #define SCTP_SOCKOPT_PEELOFF	102	/* peel off association. */
->> +#define SCTP_SOCKOPT_PEELOFF_KERNEL	103	/* peel off association.
->> +						 * only valid for kernel
->> +						 * users
->> +						 */
->>   /* Options 104-106 are deprecated and removed. Do not use this space */
->>   #define SCTP_SOCKOPT_CONNECTX_OLD	107	/* CONNECTX old requests. */
->>   #define SCTP_GET_PEER_ADDRS	108		/* Get all peer address. */
->> @@ -892,6 +896,14 @@ typedef struct {
->>   	int sd;
->>   } sctp_peeloff_arg_t;
->>
->> +/* This is the union that is passed as an argument(optval) to
->> + * getsockopt(SCTP_SOCKOPT_PEELOFF_KERNEL).
->> + */
->> +typedef union {
->> +	sctp_assoc_t associd;
->> +	struct socket *socket;
->> +} sctp_peeloff_kernel_arg_t;
->> +
->>   /*
->>    *  Peer Address Thresholds socket option
->>    */
->> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
->> index f1a65398f3118ab5d3a884e9c875620560e6b5ef..7968de7a1aeabd5cd0a0398461dbf2081bd4c5b7 100644
->> --- a/net/sctp/socket.c
->> +++ b/net/sctp/socket.c
->> @@ -4504,6 +4504,39 @@ out:
->>   	return retval;
->>   }
->>
->> +static int sctp_getsockopt_peeloff_kernel(struct sock *sk, int len,
->> +					  char __user *optval, int __user *optlen)
->> +{
->> +	sctp_peeloff_kernel_arg_t peeloff;
->> +	struct socket *newsock;
->> +	int retval = 0;
->> +
->> +	/* We only allow this operation if parent socket also hadn't a
->> +	 * file descriptor allocated to it, mainly as a way to make sure
->> +	 * that this is really a kernel socket.
->> +	 */
->> +	if (sk->sk_socket->file)
->> +		return -EPERM;
+On Tue, Jul 14, 2015 at 02:13:23PM -0300, Marcelo Ricardo Leitner wrote:
+> Hi,
+> 
+> I'm trying to remove a direct dependency of dlm module on sctp one.
+> Currently dlm code is calling sctp_do_peeloff() directly and this call
+> only is causing the load of sctp module together with dlm. For that, we
+> have basically 3 options:
+> - Doing a module split on dlm
+>   - which I'm avoiding because it was already split and was merged (more
+>     info on patch2 changelog)
+>   - and the sctp code on it is rather small if compared with sctp module
+>     itself
+> - Using some other infra that gets indirectly activated, like getsockopt()
+>   - It was like this before, but the exposed sockopt created a file
+>     descriptor for the new socket and that create some serious issues.
+>     More info on 2f2d76cc3e93 ("dlm: Do not allocate a fd for peeloff")
+> - Doing something like ipv6_stub (which is used by vxlan) or similar
+>   - but I don't feel that's a good way out here, it doesn't feel right.
+> 
+> So I'm approaching this by going with 2nd option again but this time
+> also creating a new sockopt that is only accessible for kernel users of
+> this protocol, so that we are safe to directly return a struct socket *
+> via getsockopt() results.
+> 
+> "Kernel users" are identified by sockets that don't have a file
+> descriptor attached to it, as only kernel users are allowed to do that
+> and, if original socket has a file descriptor, one should just use the
+> original option.
+> 
+> I kept __user marker on sctp_getsockopt_peeloff_kernel() prototype and
+> its helpers just to avoid issues with static checkers.
+> 
+> I tried minimizing the code duplication while adding the new option, but
+> it's just better to add a whole new function to handle it. As the
+> sockopt arguments are different, the only thing in common between both
+> call handlers is the call to sctp_do_peeloff(). All rest would have to
+> have checks around it.
+> 
+> RFC->v1, from Neil:
+>  - For identifying kernel users, switched from segment_eq() to fd check
+>  - Reused original option to avoid code duplication
+> v1->v2, from David:
+>  - Back to new sockopt implementation, to avoid changing sockopt arg
+>    format.
+> 
+> 
+> Marcelo Ricardo Leitner (2):
+>   sctp: add new getsockopt option SCTP_SOCKOPT_PEELOFF_KERNEL
+>   dlm: avoid using sctp_do_peeloff directly
+> 
+>  fs/dlm/lowcomms.c         | 17 ++++++++---------
+>  include/uapi/linux/sctp.h | 12 ++++++++++++
+>  net/sctp/socket.c         | 37 +++++++++++++++++++++++++++++++++++++
+>  3 files changed, 57 insertions(+), 9 deletions(-)
+> 
+> -- 
+> 2.4.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-(A) --^
-
->> +
->> +	if (len < sizeof(sctp_peeloff_kernel_arg_t))
->> +		return -EINVAL;
->> +	len = sizeof(sctp_peeloff_kernel_arg_t);
->> +	if (copy_from_user(&peeloff, optval, len))
->> +		return -EFAULT;
->> +
->> +	retval = sctp_do_peeloff(sk, peeloff.associd, &newsock);
->> +	if (retval < 0)
->> +		goto out;
->> +
->> +	peeloff.socket = newsock;
->> +	if (copy_to_user(optval, &peeloff, len)) {
->> +		sock_release(newsock);
->> +		return -EFAULT;
->> +	}
->> +out:
->> +	return retval;
->> +}
->> +
->>   /* 7.1.13 Peer Address Parameters (SCTP_PEER_ADDR_PARAMS)
->>    *
->>    * Applications can enable or disable heartbeats for any peer address of
->> @@ -5991,6 +6024,10 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
->>   	case SCTP_SOCKOPT_PEELOFF:
->>   		retval = sctp_getsockopt_peeloff(sk, len, optval, optlen);
->>   		break;
->> +	case SCTP_SOCKOPT_PEELOFF_KERNEL:
->> +		retval = sctp_getsockopt_peeloff_kernel(sk, len, optval,
->> +							optlen);
->> +		break;
-> Do we need to do something here to prevent user space calls from inadvertently
-> accessing this option?
->
-> Neil
-
-No because such protection is inside sctp_getsockopt_peeloff_kernel() 
-now, on point (A) above. It seemed better to keep this switch case 
-aligned and move this protection inside it.
-
-   Marcelo
-
->>   	case SCTP_PEER_ADDR_PARAMS:
->>   		retval = sctp_getsockopt_peer_addr_params(sk, len, optval,
->>   							  optlen);
->> --
->> 2.4.1
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
+Series
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
