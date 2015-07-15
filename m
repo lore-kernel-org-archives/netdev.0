@@ -1,75 +1,43 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v1 08/12] IB/cma: Add net_dev and private data checks to
- RDMA CM
-Date: Wed, 15 Jul 2015 15:03:42 -0600
-Message-ID: <20150715210342.GA32516@obsidianresearch.com>
-References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
- <1434976961-27424-9-git-send-email-haggaie@mellanox.com>
- <20150713181414.GJ23832@obsidianresearch.com>
- <55A63CAC.60603@mellanox.com>
- <20150715184934.GD23588@obsidianresearch.com>
- <HE1PR05MB1418C82958B3CCF0D3531E5BB19A0@HE1PR05MB1418.eurprd05.prod.outlook.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 2/2] ebpf: add helper to retrieve net_cls's
+ classid cookie
+Date: Wed, 15 Jul 2015 14:06:22 -0700
+Message-ID: <55A6CB4E.1080307@plumgrid.com>
+References: <cover.1436961536.git.daniel@iogearbox.net>
+ <9862a6b8778d344e8e10380060f09b161caac12f.1436961536.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <HE1PR05MB1418C82958B3CCF0D3531E5BB19A0-eBadYZ65MZ87O8BmmlM1zNqRiQSDpxhJvxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:33778 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753442AbbGOVGV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 17:06:21 -0400
+Received: by pdbqm3 with SMTP id qm3so31236082pdb.0
+        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 14:06:21 -0700 (PDT)
+In-Reply-To: <9862a6b8778d344e8e10380060f09b161caac12f.1436961536.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 15, 2015 at 08:27:06PM +0000, Liran Liss wrote:
-> If you want to restrict a container to a specific set of pkeys, use
-> cgroups.
+On 7/15/15 5:21 AM, Daniel Borkmann wrote:
+> It would be very useful to retrieve the net_cls's classid from an eBPF
+> program to allow for a more fine-grained classification, it could be
+> directly used or in conjunction with additional policies. I.e. docker,
+> but also tooling such as cgexec, can easily run applications via net_cls
+> cgroups:
+>
+>    cgcreate -g net_cls:/foo
+>    echo 42 > foo/net_cls.classid
+>    cgexec -g net_cls:foo <prog>
+>
+> Thus, their respecitve classid cookie of foo can then be looked up on
+> the egress path to apply further policies. The helper is desigend such
+> that a non-zero value returns the cgroup id.
+>
+> Signed-off-by: Daniel Borkmann<daniel@iogearbox.net>
+> Cc: Thomas Graf<tgraf@suug.ch>
 
-Ideally yes, but in the absence of a cgroup the set of pkeys assigned
-to the container via ipoib is a reasonable alternate.
-
-> This would apply both to CM MADs and QPs.
-> - In the MAD case, CM MADs would be first matched to a namespace and rdma_id and dropped upon pkey conflict (with either the headers or the payload).
-> - In the QP case, modify_qp() would fail on conflict.
-> Partitioning needs to be enforced also for applications that don't use the CM at all...
-
-Yep, that is how pkey checking should work, cgroup or not.
-
-So, you agree with me.
-
-I say that until we get a cgroup capability, the pkey list of the
-container is the set of IPoIB interfaces associated with it, and we
-still have to do the various checks above. The first check is relavent
-to this patchset and should be done by using the GMP's headers to
-locate the net device.
-
-> For namespaces, it seems more natural to lookup the namespace based
-> solely on the CM payload.
-
-How so? Which payload content do you use? The primary path? The
-alternate path?
-
-> After all, it is the payload that designates the entity that you
-> want to establish a connection to, rather than the packet headers,
-> which are just meant to relay the packet to the proper CM
-
-No, that isn't right. The IBA uses the GMP's destination first, then
-serviceID as the demux. Services IDs are not globally unique, they are
-scoped by the destination.
-
-The path data is just *routing* it doesn't describe at all the entity
-we want to talk to, it is only a proposal for how to flow data to it.
-
-In any event, both the GMP headers and the path data needs to be
-checked against the container's pkey list. I don't know why this is so
-contentions.
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+looks good to me.
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
