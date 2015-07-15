@@ -1,237 +1,141 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: "ss -p" segfaults
-Date: Wed, 15 Jul 2015 18:12:04 +0300
-Message-ID: <20150715151204.GB28525@angus-think.wlc.globallogic.com>
-References: <2282663.K45lFmE7Zp@fb07-iapwap2>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Marc Dietrich <marvin24@gmx.de>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH iproute2 net-next] bridge: mdb: add support for vlans
+Date: Wed, 15 Jul 2015 08:45:20 -0700
+Message-ID: <1436975120-41319-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: stephen@networkplumber.org, davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:33920 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751014AbbGOPOJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 11:14:09 -0400
-Received: by wgkl9 with SMTP id l9so36292935wgk.1
-        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 08:14:08 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <2282663.K45lFmE7Zp@fb07-iapwap2>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:32983 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751638AbbGOPpe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 11:45:34 -0400
+Received: by pdbqm3 with SMTP id qm3so27085793pdb.0
+        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 08:45:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 15, 2015 at 04:09:03PM +0200, Marc Dietrich wrote:
-> Hi,
->=20
-> ss -p segfaults here with some kind of memory corruption:
->=20
-> *** Error in `/work/iproute2/misc/ss': free(): invalid pointer:=20
-> 0x0000000000623000 ***
-> =3D=3D=3D=3D=3D=3D=3D Backtrace: =3D=3D=3D=3D=3D=3D=3D=3D=3D
-> /lib64/libc.so.6(+0x71c6d)[0x7ffff7885c6d]
-> /lib64/libc.so.6(+0x771be)[0x7ffff788b1be]
-> /lib64/libc.so.6(+0x7799b)[0x7ffff788b99b]
-> /work/iproute2/misc/ss[0x403de1]
-> /work/iproute2/misc/ss[0x408247]
-> /work/iproute2/misc/ss[0x403295]
-> /lib64/libc.so.6(__libc_start_main+0xf0)[0x7ffff7834790]
-> /work/iproute2/misc/ss[0x4037f9]
-> =3D=3D=3D=3D=3D=3D=3D Memory map: =3D=3D=3D=3D=3D=3D=3D=3D
-> 00400000-00416000 r-xp 00000000 00:33 4207305                        =
-   =20
-> /work/iproute2/misc/ss
-> 00616000-00617000 r--p 00016000 00:33 4207305                        =
-   =20
-> /work/iproute2/misc/ss
-> 00617000-0061b000 rw-p 00017000 00:33 4207305                        =
-   =20
-> /work/iproute2/misc/ss
-> 0061b000-0065f000 rw-p 00000000 00:00 0                              =
-   =20
-> [heap]
-> 7ffff6f6d000-7ffff6f83000 r-xp 00000000 00:21 16154175               =
-   =20
-> /lib64/libgcc_s.so.1
-> 7ffff6f83000-7ffff7182000 ---p 00016000 00:21 16154175               =
-   =20
-> /lib64/libgcc_s.so.1
-> 7ffff7182000-7ffff7183000 r--p 00015000 00:21 16154175               =
-   =20
-> /lib64/libgcc_s.so.1
-> 7ffff7183000-7ffff7184000 rw-p 00016000 00:21 16154175               =
-   =20
-> /lib64/libgcc_s.so.1
-> 7ffff7184000-7ffff719c000 r-xp 00000000 00:21 16694826               =
-   =20
-> /lib64/libpthread-2.21.so
-> 7ffff719c000-7ffff739b000 ---p 00018000 00:21 16694826               =
-   =20
-> /lib64/libpthread-2.21.so
-> 7ffff739b000-7ffff739c000 r--p 00017000 00:21 16694826               =
-   =20
-> /lib64/libpthread-2.21.so
-> 7ffff739c000-7ffff739d000 rw-p 00018000 00:21 16694826               =
-   =20
-> /lib64/libpthread-2.21.so
-> 7ffff739d000-7ffff73a1000 rw-p 00000000 00:00 0=20
-> 7ffff73a1000-7ffff73a4000 r-xp 00000000 00:21 16694804               =
-   =20
-> /lib64/libdl-2.21.so
-> 7ffff73a4000-7ffff75a3000 ---p 00003000 00:21 16694804               =
-   =20
-> /lib64/libdl-2.21.so
-> 7ffff75a3000-7ffff75a4000 r--p 00002000 00:21 16694804               =
-   =20
-> /lib64/libdl-2.21.so
-> 7ffff75a4000-7ffff75a5000 rw-p 00003000 00:21 16694804               =
-   =20
-> /lib64/libdl-2.21.so
-> 7ffff75a5000-7ffff7613000 r-xp 00000000 00:21 16153198               =
-   =20
-> /usr/lib64/libpcre.so.1.2.5
-> 7ffff7613000-7ffff7812000 ---p 0006e000 00:21 16153198               =
-   =20
-> /usr/lib64/libpcre.so.1.2.5
-> 7ffff7812000-7ffff7813000 r--p 0006d000 00:21 16153198               =
-   =20
-> /usr/lib64/libpcre.so.1.2.5
-> 7ffff7813000-7ffff7814000 rw-p 0006e000 00:21 16153198               =
-   =20
-> /usr/lib64/libpcre.so.1.2.5
-> 7ffff7814000-7ffff79ad000 r-xp 00000000 00:21 16694798               =
-   =20
-> /lib64/libc-2.21.so
-> 7ffff79ad000-7ffff7bac000 ---p 00199000 00:21 16694798               =
-   =20
-> /lib64/libc-2.21.so
-> 7ffff7bac000-7ffff7bb1000 r--p 00198000 00:21 16694798               =
-   =20
-> /lib64/libc-2.21.so
-> 7ffff7bb1000-7ffff7bb3000 rw-p 0019d000 00:21 16694798               =
-   =20
-> /lib64/libc-2.21.so
-> 7ffff7bb3000-7ffff7bb7000 rw-p 00000000 00:00 0=20
-> 7ffff7bb7000-7ffff7bd8000 r-xp 00000000 00:21 16155991               =
-   =20
-> /lib64/libselinux.so.1
-> 7ffff7bd8000-7ffff7dd7000 ---p 00021000 00:21 16155991               =
-   =20
-> /lib64/libselinux.so.1
-> 7ffff7dd7000-7ffff7dd8000 r--p 00020000 00:21 16155991               =
-   =20
-> /lib64/libselinux.so.1
-> 7ffff7dd8000-7ffff7dd9000 rw-p 00021000 00:21 16155991               =
-   =20
-> /lib64/libselinux.so.1
-> 7ffff7dd9000-7ffff7ddb000 rw-p 00000000 00:00 0=20
-> 7ffff7ddb000-7ffff7dfc000 r-xp 00000000 00:21 16694791               =
-   =20
-> /lib64/ld-2.21.so
-> 7ffff7fb5000-7ffff7fba000 rw-p 00000000 00:00 0=20
-> 7ffff7ff5000-7ffff7ff8000 rw-p 00000000 00:00 0=20
-> 7ffff7ff8000-7ffff7ffa000 r--p 00000000 00:00 0                      =
-   =20
-> [vvar]
-> 7ffff7ffa000-7ffff7ffc000 r-xp 00000000 00:00 0                      =
-   =20
-> [vdso]
-> 7ffff7ffc000-7ffff7ffd000 r--p 00021000 00:21 16694791               =
-   =20
-> /lib64/ld-2.21.so
-> 7ffff7ffd000-7ffff7ffe000 rw-p 00022000 00:21 16694791               =
-   =20
-> /lib64/ld-2.21.so
-> 7ffff7ffe000-7ffff7fff000 rw-p 00000000 00:00 0=20
-> 7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                      =
-   =20
-> [stack]
-> ffffffffff600000-ffffffffff601000 r-xp 00000000 00:00 0              =
-   =20
-> [vsyscall]
->=20
-> Program received signal SIGABRT, Aborted.
-> 0x00007ffff7847638 in raise () from /lib64/libc.so.6
-> Missing separate debuginfos, use: zypper install libgcc_s1-
-> debuginfo-5.1.1+r224716-1.2.x86_64 libpcre1-debuginfo-8.37-1.18.x86_6=
-4=20
-> libselinux1-debuginfo-2.3-5.18.x86_64
-> (gdb) bt full
-> #0  0x00007ffff7847638 in raise () from /lib64/libc.so.6
-> No symbol table info available.
-> #1  0x00007ffff7848a1a in abort () from /lib64/libc.so.6
-> No symbol table info available.
-> #2  0x00007ffff7885c72 in __libc_message () from /lib64/libc.so.6
-> No symbol table info available.
-> #3  0x00007ffff788b1be in malloc_printerr () from /lib64/libc.so.6
-> No symbol table info available.
-> #4  0x00007ffff788b99b in _int_free () from /lib64/libc.so.6
-> No symbol table info available.
-> #5  0x0000000000403de1 in unix_list_free (list=3D0x6251a0, list@entry=
-=3D0x645b50)=20
-> at ss.c:2516
->         s =3D 0x623010
->         name =3D 0x272 <error: Cannot access memory at address 0x272>
-> #6  0x0000000000408247 in unix_show (f=3D0x61cdf0 <current_filter>) a=
-t ss.c:2798
->         buf =3D "ffff880205a15b00: 00000003 00000000 00000000 0001 03=
-=20
-> 84307\n\000/tmp/.X11-
-> unix/X0\n\000/stdout\n\000adiserver.socket\n\000\n\000c\n\000cket\n",=
- '\000'=20
-> <repeats 12 times>,=20
-> "q\017A\000\000\000\000\000p\205\201\367\377\177\000\000x\323\377\377=
-\377\177\000\000\067\v\000\000\000\000\000\000h\323\377\377\377\177\000=
-\000\060\374\336\367\377\177\000\000\000U\000\000\005\000\000\000\277\0=
-00\000\000;
-> \212\000\000\000\003\034\177\025\004\000\001"...
->         name =3D "\000/tmp/.X11-
-> unix/X0\000l/stdout\000nadiserver.socket\000\071\000ec\000ocket\000\0=
-21@\000\000\000\000\000\377\377\377\377\000\000\000\000\b\321\377\377\3=
-77\177\000\000p\205\201\367\377\177\000\000=D0=94\373\367\377\177\000\0=
-00\330|
-> \335\367\377\177\000\000\226\226\204\367\377\177\000\000\370\n@\000\0=
-00\000\000\000\070\254a\000\000\000\000"
->         newformat =3D 0
->         cnt =3D 734
->         list =3D <optimized out>
-> #7  0x0000000000403295 in main (argc=3D<optimized out>, argv=3D0x7fff=
-ffffd378) at=20
-> ss.c:3921
->         saw_states =3D <optimized out>
->         saw_query =3D 0
->         do_summary =3D <optimized out>
->         dump_tcpdiag =3D 0x0
->         filter_fp =3D 0x0
->         ch =3D <optimized out>
->         state_filter =3D 2871
-> (gdb)=20
->=20
-> git bisect shows bad commit ec4d0d8 (ss: Replace unixstat struct by n=
-ew=20
-> sockstat struct)
->=20
-> This is with a 4.1.2 kernel. Strange thing is, that this segfault doe=
-s not=20
-> happen on my distro kernel (also v4.1) (openSUSE). Seems to be some r=
-andom=20
-> stuff or kernel config problem maybe.
->=20
-> Marc
-Would you please check this fix ?
+This patch allows the user to specify the vlan of the mdb group being
+added or deleted and adds support for displaying the vlan when
+dumping mdb information or monitoring it. It also updates the man page
+to reflect the new "vid" argument for mdb.
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 03f92fa..3a826e4 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -683,8 +683,8 @@ static inline void sock_addr_set_str(inet_prefix *p=
-refix, char **ptr)
-=20
- static inline char *sock_addr_get_str(const inet_prefix *prefix)
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+note: the cast in print_mdb_entry() was necessary to shut the compiler
+
+ bridge/mdb.c              | 31 +++++++++++++++++++------------
+ include/linux/if_bridge.h |  1 +
+ man/man8/bridge.8         |  8 +++++++-
+ 3 files changed, 27 insertions(+), 13 deletions(-)
+
+diff --git a/bridge/mdb.c b/bridge/mdb.c
+index 9a8ed540ce64..ea169b9c2e4d 100644
+--- a/bridge/mdb.c
++++ b/bridge/mdb.c
+@@ -28,7 +28,7 @@ static unsigned int filter_index;
+ 
+ static void usage(void)
  {
--    char *tmp ;
--    memcpy(&tmp, prefix->data, sizeof(char *));
-+    char *tmp;
-+    memcpy(&tmp, &prefix->data[0], sizeof(char *));
-     return tmp;
+-	fprintf(stderr, "Usage: bridge mdb { add | del } dev DEV port PORT grp GROUP [permanent | temp]\n");
++	fprintf(stderr, "Usage: bridge mdb { add | del } dev DEV port PORT grp GROUP [permanent | temp] [vid VID]\n");
+ 	fprintf(stderr, "       bridge mdb {show} [ dev DEV ]\n");
+ 	exit(-1);
  }
-=20
+@@ -51,17 +51,19 @@ static void br_print_router_ports(FILE *f, struct rtattr *attr)
+ static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e)
+ {
+ 	SPRINT_BUF(abuf);
+-
+-	if (e->addr.proto == htons(ETH_P_IP))
+-		fprintf(f, "dev %s port %s grp %s %s\n", ll_index_to_name(ifindex),
+-			ll_index_to_name(e->ifindex),
+-			inet_ntop(AF_INET, &e->addr.u.ip4, abuf, sizeof(abuf)),
+-			(e->state & MDB_PERMANENT) ? "permanent" : "temp");
+-	else
+-		fprintf(f, "dev %s port %s grp %s %s\n", ll_index_to_name(ifindex),
+-			ll_index_to_name(e->ifindex),
+-			inet_ntop(AF_INET6, &e->addr.u.ip6, abuf, sizeof(abuf)),
+-			(e->state & MDB_PERMANENT) ? "permanent" : "temp");
++	const void *src;
++	int af;
++
++	af = e->addr.proto == htons(ETH_P_IP) ? AF_INET : AF_INET6;
++	src = af == AF_INET ? (const void *)&e->addr.u.ip4 :
++			      (const void *)&e->addr.u.ip6;
++	fprintf(f, "dev %s port %s grp %s %s", ll_index_to_name(ifindex),
++		ll_index_to_name(e->ifindex),
++		inet_ntop(af, src, abuf, sizeof(abuf)),
++		(e->state & MDB_PERMANENT) ? "permanent" : "temp");
++	if (e->vid)
++		fprintf(f, " vid %hu", e->vid);
++	fprintf(f, "\n");
+ }
+ 
+ static void br_print_mdb_entry(FILE *f, int ifindex, struct rtattr *attr)
+@@ -165,6 +167,7 @@ static int mdb_modify(int cmd, int flags, int argc, char **argv)
+ 	} req;
+ 	struct br_mdb_entry entry;
+ 	char *d = NULL, *p = NULL, *grp = NULL;
++	short vid = 0;
+ 
+ 	memset(&req, 0, sizeof(req));
+ 	memset(&entry, 0, sizeof(entry));
+@@ -189,6 +192,9 @@ static int mdb_modify(int cmd, int flags, int argc, char **argv)
+ 				entry.state |= MDB_PERMANENT;
+ 		} else if (strcmp(*argv, "temp") == 0) {
+ 			;/* nothing */
++		} else if (strcmp(*argv, "vid") == 0) {
++			NEXT_ARG();
++			vid = atoi(*argv);
+ 		} else {
+ 			if (matches(*argv, "help") == 0)
+ 				usage();
+@@ -222,6 +228,7 @@ static int mdb_modify(int cmd, int flags, int argc, char **argv)
+ 	} else
+ 		entry.addr.proto = htons(ETH_P_IP);
+ 
++	entry.vid = vid;
+ 	addattr_l(&req.n, sizeof(req), MDBA_SET_ENTRY, &entry, sizeof(entry));
+ 
+ 	if (rtnl_talk(&rth, &req.n, NULL, 0) < 0)
+diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
+index 913bd8e3d406..f24050ba71bc 100644
+--- a/include/linux/if_bridge.h
++++ b/include/linux/if_bridge.h
+@@ -182,6 +182,7 @@ struct br_mdb_entry {
+ #define MDB_TEMPORARY 0
+ #define MDB_PERMANENT 1
+ 	__u8 state;
++	__u16 vid;
+ 	struct {
+ 		union {
+ 			__be32	ip4;
+diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
+index 4135d01a08bc..8922bf6f332b 100644
+--- a/man/man8/bridge.8
++++ b/man/man8/bridge.8
+@@ -77,7 +77,9 @@ bridge \- show / manipulate bridge addresses and devices
+ .IR PORT
+ .B grp
+ .IR GROUP " [ "
+-.BR permanent " | " temp " ]"
++.BR permanent " | " temp " ] [ "
++.B vid
++.IR VID " ] "
+ 
+ .ti -8
+ .BR "bridge mdb show " [ "
+@@ -426,6 +428,10 @@ the port.
+ - the mdb entry is temporary (default)
+ .sp
+ 
++.TP
++.BI vid " VID"
++the VLAN ID which is known to have members of this multicast group.
++
+ .in -8
+ .SS bridge mdb delete - delete a multicast group database entry
+ This command removes an existing mdb entry.
+-- 
+1.9.3
