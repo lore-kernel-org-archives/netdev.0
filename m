@@ -1,47 +1,128 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net] bonding: fix bond dev flags after convert to arphrd_ether
-Date: Wed, 15 Jul 2015 22:09:43 +0200
-Message-ID: <1436990983-1406-1-git-send-email-razor@blackwall.org>
-Cc: monis@voltaire.com, j.vosburgh@gmail.com,
-	gospo@cumulusnetworks.com, vfalico@gmail.com, davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH -next 0/6] Per network namespace netfilter chains
+Date: Wed, 15 Jul 2015 15:05:00 -0500
+Message-ID: <87vbdljifn.fsf@x220.int.ebiederm.org>
+References: <87616ppt3h.fsf@x220.int.ebiederm.org>
+	<87r3pae5hn.fsf@x220.int.ebiederm.org>
+	<878uansj4d.fsf_-_@x220.int.ebiederm.org>
+	<20150715172038.GA4319@salvia>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Juanjo Ciarlante <jjciarla@raiz.uncu.edu.ar>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:36762 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753487AbbGOUJs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 16:09:48 -0400
-Received: by wgxm20 with SMTP id m20so42118440wgx.3
-        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 13:09:47 -0700 (PDT)
+Received: from out01.mta.xmission.com ([166.70.13.231]:33721 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753506AbbGOULd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 16:11:33 -0400
+In-Reply-To: <20150715172038.GA4319@salvia> (Pablo Neira Ayuso's message of
+	"Wed, 15 Jul 2015 19:20:38 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Pablo Neira Ayuso <pablo@netfilter.org> writes:
 
-If a bonding device enslaves devices != arphrd_ether it'll change types
-and if later these devices are released, it can enslave an arphrd_ether
-device and switch back calling ether_setup() which resets dev->flags to
-IFF_BROADCAST|IFF_MULTICAST and clears IFF_MASTER which then could lead
-to many different bugs. This bug seems to have been there since the
-introduction of ether_setup() in bond_enslave().
+> On Fri, Jul 10, 2015 at 06:11:46PM -0500, Eric W. Biederman wrote:
+>> 
+>> By maintining a set of functions to register and unregister netfilter
+>> hooks both globally and per network namespace I have managed to write a
+>> compact patchset that maintain per network netfilter chains, and
+>> registers the nftables netfilter hooks per network namespace.
+>
+> Nice, thank you.
+>
+> It would be great to convert this to the for_each_net_rcu variant once
+> we're sure this is safe.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Fixes: e36b9d16c6a6 ("bonding: clean muticast addresses when device changes type")
----
- drivers/net/bonding/bond_main.c | 1 +
- 1 file changed, 1 insertion(+)
+That seems reasonable.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 317a49480475..8ba119896e55 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1368,6 +1368,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 				bond_setup_by_slave(bond_dev, slave_dev);
- 			else {
- 				ether_setup(bond_dev);
-+				bond_dev->flags |= IFF_MASTER;
- 				bond_dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- 			}
- 
--- 
-1.9.3
+>> There are lots of other possible and desirable cleanups but this one is
+>> a core change needed to make the other changes independent small
+>> changes.
+>
+> The state->net field will kill that dev_net(...) ? x : y; all over the
+> code, that would be nice.
+
+Yes it will.  I intend to do that after this patchset settles so I am
+not dealing with more than one issue at a time.  Otherwise there
+is too much work at once.
+
+
+> Some comments on your patchset:
+>
+> * 1/6 netfilter: nf_queue: Don't recompute the hook_list head
+>
+> I already passed this to current nf as you insisted on getting this,
+> and for the sake of correctness, so it's basically already in David's
+> net tree.
+
+I would have expected this patch to be somewhere.  I did not see
+this change in net-next when I wrote the patchset (which seemed
+like a good approximation of the latest thing available).  If I
+overlooked and the patch has already made it to Dave then my apologies
+for being redundant.
+
+I still don't see this patch in your pending branch.
+
+Am I missing something?
+
+> * From 2 to 6, I have applied these series with small coding style
+>   cleanups.
+>
+> - Add line break between variable declaration and body:
+>
+>  +      struct list_head *nf_hook_list = &nf_hooks[pf][hook];
+> -+
+>  +      if (nf_hook_list_active(nf_hook_list, pf, hook)) {
+>
+> and here:
+>
+>  int nft_register_basechain(struct nft_base_chain *basechain,
+>                            unsigned int hook_nops)
+>   {
+>  +      struct net *net = read_pnet(&basechain->pnet);
+> ++
+>
+> - Get rid of unnecessary parens:
+>
+> -+      if ((reg->pf == NFPROTO_NETDEV) && (reg->hooknum == NF_NETDEV_INGRESS))
+> ++      if (reg->pf == NFPROTO_NETDEV && reg->hooknum == NF_NETDEV_INGRESS)
+
+Fair enough.  For me those parens are necessary to trust the compiler is
+doing the right thing.  I can never remember the C operator precedence
+rules.
+
+> - Get rid of unnecesary brackets:
+>
+> -+      for_each_net(net) {
+> ++      for_each_net(net)
+>  +              nf_unregister_net_hook(net, reg);
+> -+      }
+>
+> and here:
+>
+> -+      list_for_each_entry_continue_reverse(elem, &nf_hook_list, list) {
+> ++      list_for_each_entry_continue_reverse(elem, &nf_hook_list, list)
+>  +              nf_unregister_net_hook(net, elem);
+> -+      }
+>
+> I have pushed this to:
+>
+> http://git.kernel.org/cgit/linux/kernel/git/pablo/nf-next.git/log/?h=pending
+>
+> in case you want to have a closer look. Thank you.
+
+Thank you.
+
+Eric
