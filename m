@@ -1,192 +1,210 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next 2/2] enic: allow adaptive coalesce setting for msi/legacy intr
-Date: Wed, 15 Jul 2015 15:34:40 +0530
-Message-ID: <1436954680-10248-2-git-send-email-_govind@gmx.com>
-References: <1436954680-10248-1-git-send-email-_govind@gmx.com>
+Subject: [PATCH net-next 1/2] enic: add adaptive coalescing intr for intx and msi poll
+Date: Wed, 15 Jul 2015 15:34:39 +0530
+Message-ID: <1436954680-10248-1-git-send-email-_govind@gmx.com>
 Cc: ssujith@cisco.com, benve@cisco.com,
 	Govindarajulu Varadarajan <_govind@gmx.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:59320 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.15.19]:59117 "EHLO mout.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756028AbbGOKFS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jul 2015 06:05:18 -0400
-In-Reply-To: <1436954680-10248-1-git-send-email-_govind@gmx.com>
+	id S1751991AbbGOKFM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jul 2015 06:05:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Allow setting of adaptive coalescing setting for all types of interrupt.
+Adaptive interrupt coalescing is available for msix. This patch adds the support
+for msi poll. Interface for adaptive interrupt coalescing is already added in
+driver. We just did not enable it for legacy intr & msi.
 
-* In msi & legacy intr, we use single interrupt for rx & tx. In this case
-  tx_coalesce_usecs is invalid. We should use only rx_coalesce_usecs.
-  Do not display tx_coal values for msi/intx. And do not allow user to set
-  this as well.
-
-* Driver supports only tx/rx_coalesce_usec and adaptive coalesce settings.
-  For other values, driver does not return error. So ethtool succeeds for
-  unsupported values. Introduce enic_coalesce_valid() function to validate
-  the coalescing values.
-
-* If user requests for coalesce value greater than what adaptor supports,
-  driver uses the max value. We should at least log this.
+enic_calc_int_moderation() & enic_set_int_moderation() are defined as static
+after enic_poll. Since enic_poll needs it, move both of these function
+definitions above enic_poll. No change in functionality.
 
 Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 ---
- drivers/net/ethernet/cisco/enic/enic_ethtool.c | 113 ++++++++++++++-----------
- 1 file changed, 65 insertions(+), 48 deletions(-)
+ drivers/net/ethernet/cisco/enic/enic_main.c | 135 ++++++++++++++--------------
+ 1 file changed, 67 insertions(+), 68 deletions(-)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-index f3f1601..f44a39c 100644
---- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-@@ -224,7 +224,8 @@ static int enic_get_coalesce(struct net_device *netdev,
- 	struct enic *enic = netdev_priv(netdev);
- 	struct enic_rx_coal *rxcoal = &enic->rx_coalesce_setting;
- 
--	ecmd->tx_coalesce_usecs = enic->tx_coalesce_usecs;
-+	if (vnic_dev_get_intr_mode(enic->vdev) == VNIC_DEV_INTR_MODE_MSIX)
-+		ecmd->tx_coalesce_usecs = enic->tx_coalesce_usecs;
- 	ecmd->rx_coalesce_usecs = enic->rx_coalesce_usecs;
- 	if (rxcoal->use_adaptive_rx_coalesce)
- 		ecmd->use_adaptive_rx_coalesce = 1;
-@@ -234,6 +235,53 @@ static int enic_get_coalesce(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 918a8e4..8f646e4 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -1149,6 +1149,64 @@ static int enic_rq_service(struct vnic_dev *vdev, struct cq_desc *cq_desc,
  	return 0;
  }
  
-+static int enic_coalesce_valid(struct enic *enic,
-+			       struct ethtool_coalesce *ec)
++static void enic_set_int_moderation(struct enic *enic, struct vnic_rq *rq)
 +{
-+	u32 coalesce_usecs_max = vnic_dev_get_intr_coal_timer_max(enic->vdev);
-+	u32 rx_coalesce_usecs_high = min_t(u32, coalesce_usecs_max,
-+					   ec->rx_coalesce_usecs_high);
-+	u32 rx_coalesce_usecs_low = min_t(u32, coalesce_usecs_max,
-+					  ec->rx_coalesce_usecs_low);
++	unsigned int intr = enic_msix_rq_intr(enic, rq->index);
++	struct vnic_cq *cq = &enic->cq[enic_cq_rq(enic, rq->index)];
++	u32 timer = cq->tobe_rx_coal_timeval;
 +
-+	if (ec->rx_max_coalesced_frames		||
-+	    ec->rx_coalesce_usecs_irq		||
-+	    ec->rx_max_coalesced_frames_irq	||
-+	    ec->tx_max_coalesced_frames		||
-+	    ec->tx_coalesce_usecs_irq		||
-+	    ec->tx_max_coalesced_frames_irq	||
-+	    ec->stats_block_coalesce_usecs	||
-+	    ec->use_adaptive_tx_coalesce	||
-+	    ec->pkt_rate_low			||
-+	    ec->rx_max_coalesced_frames_low	||
-+	    ec->tx_coalesce_usecs_low		||
-+	    ec->tx_max_coalesced_frames_low	||
-+	    ec->pkt_rate_high			||
-+	    ec->rx_max_coalesced_frames_high	||
-+	    ec->tx_coalesce_usecs_high		||
-+	    ec->tx_max_coalesced_frames_high	||
-+	    ec->rate_sample_interval)
-+		return -EINVAL;
-+
-+	if ((vnic_dev_get_intr_mode(enic->vdev) != VNIC_DEV_INTR_MODE_MSIX) &&
-+	    ec->tx_coalesce_usecs)
-+		return -EINVAL;
-+
-+	if ((ec->tx_coalesce_usecs > coalesce_usecs_max)	||
-+	    (ec->rx_coalesce_usecs > coalesce_usecs_max)	||
-+	    (ec->rx_coalesce_usecs_low > coalesce_usecs_max)	||
-+	    (ec->rx_coalesce_usecs_high > coalesce_usecs_max))
-+		netdev_info(enic->netdev, "ethtool_set_coalesce: adaptor supports max coalesce value of %d. Setting max value.\n",
-+			    coalesce_usecs_max);
-+
-+	if (ec->rx_coalesce_usecs_high &&
-+	    (rx_coalesce_usecs_high <
-+	     rx_coalesce_usecs_low + ENIC_AIC_LARGE_PKT_DIFF))
-+		return -EINVAL;
-+
-+	return 0;
++	if (cq->tobe_rx_coal_timeval != cq->cur_rx_coal_timeval) {
++		vnic_intr_coalescing_timer_set(&enic->intr[intr], timer);
++		cq->cur_rx_coal_timeval = cq->tobe_rx_coal_timeval;
++	}
 +}
 +
- static int enic_set_coalesce(struct net_device *netdev,
- 	struct ethtool_coalesce *ecmd)
++static void enic_calc_int_moderation(struct enic *enic, struct vnic_rq *rq)
++{
++	struct enic_rx_coal *rx_coal = &enic->rx_coalesce_setting;
++	struct vnic_cq *cq = &enic->cq[enic_cq_rq(enic, rq->index)];
++	struct vnic_rx_bytes_counter *pkt_size_counter = &cq->pkt_size_counter;
++	int index;
++	u32 timer;
++	u32 range_start;
++	u32 traffic;
++	u64 delta;
++	ktime_t now = ktime_get();
++
++	delta = ktime_us_delta(now, cq->prev_ts);
++	if (delta < ENIC_AIC_TS_BREAK)
++		return;
++	cq->prev_ts = now;
++
++	traffic = pkt_size_counter->large_pkt_bytes_cnt +
++		  pkt_size_counter->small_pkt_bytes_cnt;
++	/* The table takes Mbps
++	 * traffic *= 8    => bits
++	 * traffic *= (10^6 / delta)    => bps
++	 * traffic /= 10^6     => Mbps
++	 *
++	 * Combining, traffic *= (8 / delta)
++	 */
++
++	traffic <<= 3;
++	traffic = delta > UINT_MAX ? 0 : traffic / (u32)delta;
++
++	for (index = 0; index < ENIC_MAX_COALESCE_TIMERS; index++)
++		if (traffic < mod_table[index].rx_rate)
++			break;
++	range_start = (pkt_size_counter->small_pkt_bytes_cnt >
++		       pkt_size_counter->large_pkt_bytes_cnt << 1) ?
++		      rx_coal->small_pkt_range_start :
++		      rx_coal->large_pkt_range_start;
++	timer = range_start + ((rx_coal->range_end - range_start) *
++			       mod_table[index].range_percent / 100);
++	/* Damping */
++	cq->tobe_rx_coal_timeval = (timer + cq->tobe_rx_coal_timeval) >> 1;
++
++	pkt_size_counter->large_pkt_bytes_cnt = 0;
++	pkt_size_counter->small_pkt_bytes_cnt = 0;
++}
++
+ static int enic_poll(struct napi_struct *napi, int budget)
  {
-@@ -244,8 +292,12 @@ static int enic_set_coalesce(struct net_device *netdev,
- 	u32 rx_coalesce_usecs_high;
- 	u32 coalesce_usecs_max;
- 	unsigned int i, intr;
-+	int ret;
- 	struct enic_rx_coal *rxcoal = &enic->rx_coalesce_setting;
+ 	struct net_device *netdev = napi->dev;
+@@ -1199,6 +1257,11 @@ static int enic_poll(struct napi_struct *napi, int budget)
  
-+	ret = enic_coalesce_valid(enic, ecmd);
-+	if (ret)
-+		return ret;
- 	coalesce_usecs_max = vnic_dev_get_intr_coal_timer_max(enic->vdev);
- 	tx_coalesce_usecs = min_t(u32, ecmd->tx_coalesce_usecs,
- 				  coalesce_usecs_max);
-@@ -257,59 +309,24 @@ static int enic_set_coalesce(struct net_device *netdev,
- 	rx_coalesce_usecs_high = min_t(u32, ecmd->rx_coalesce_usecs_high,
- 				       coalesce_usecs_max);
+ 	if (err)
+ 		rq_work_done = rq_work_to_do;
++	if (enic->rx_coalesce_setting.use_adaptive_rx_coalesce)
++		/* Call the function which refreshes the intr coalescing timer
++		 * value based on the traffic.
++		 */
++		enic_calc_int_moderation(enic, &enic->rq[0]);
  
--	switch (vnic_dev_get_intr_mode(enic->vdev)) {
--	case VNIC_DEV_INTR_MODE_INTX:
--		if (tx_coalesce_usecs != rx_coalesce_usecs)
--			return -EINVAL;
--		if (ecmd->use_adaptive_rx_coalesce	||
--		    ecmd->rx_coalesce_usecs_low		||
--		    ecmd->rx_coalesce_usecs_high)
--			return -EINVAL;
--
--		intr = enic_legacy_io_intr();
--		vnic_intr_coalescing_timer_set(&enic->intr[intr],
--			tx_coalesce_usecs);
--		break;
--	case VNIC_DEV_INTR_MODE_MSI:
--		if (tx_coalesce_usecs != rx_coalesce_usecs)
--			return -EINVAL;
--		if (ecmd->use_adaptive_rx_coalesce	||
--		    ecmd->rx_coalesce_usecs_low		||
--		    ecmd->rx_coalesce_usecs_high)
--			return -EINVAL;
--
--		vnic_intr_coalescing_timer_set(&enic->intr[0],
--			tx_coalesce_usecs);
--		break;
--	case VNIC_DEV_INTR_MODE_MSIX:
--		if (ecmd->rx_coalesce_usecs_high &&
--		    (rx_coalesce_usecs_high <
--		     rx_coalesce_usecs_low + ENIC_AIC_LARGE_PKT_DIFF))
--				return -EINVAL;
--
-+	if (vnic_dev_get_intr_mode(enic->vdev) == VNIC_DEV_INTR_MODE_MSIX) {
- 		for (i = 0; i < enic->wq_count; i++) {
- 			intr = enic_msix_wq_intr(enic, i);
- 			vnic_intr_coalescing_timer_set(&enic->intr[intr],
--				tx_coalesce_usecs);
--		}
--
--		rxcoal->use_adaptive_rx_coalesce =
--					!!ecmd->use_adaptive_rx_coalesce;
--		if (!rxcoal->use_adaptive_rx_coalesce)
--			enic_intr_coal_set_rx(enic, rx_coalesce_usecs);
--
--		if (ecmd->rx_coalesce_usecs_high) {
--			rxcoal->range_end = rx_coalesce_usecs_high;
--			rxcoal->small_pkt_range_start = rx_coalesce_usecs_low;
--			rxcoal->large_pkt_range_start = rx_coalesce_usecs_low +
--							ENIC_AIC_LARGE_PKT_DIFF;
-+						       tx_coalesce_usecs);
- 		}
--		break;
--	default:
--		break;
-+		enic->tx_coalesce_usecs = tx_coalesce_usecs;
-+	}
-+	rxcoal->use_adaptive_rx_coalesce = !!ecmd->use_adaptive_rx_coalesce;
-+	if (!rxcoal->use_adaptive_rx_coalesce)
-+		enic_intr_coal_set_rx(enic, rx_coalesce_usecs);
-+	if (ecmd->rx_coalesce_usecs_high) {
-+		rxcoal->range_end = rx_coalesce_usecs_high;
-+		rxcoal->small_pkt_range_start = rx_coalesce_usecs_low;
-+		rxcoal->large_pkt_range_start = rx_coalesce_usecs_low +
-+						ENIC_AIC_LARGE_PKT_DIFF;
+ 	if (rq_work_done < rq_work_to_do) {
+ 
+@@ -1207,70 +1270,14 @@ static int enic_poll(struct napi_struct *napi, int budget)
+ 		 */
+ 
+ 		napi_complete(napi);
++		if (enic->rx_coalesce_setting.use_adaptive_rx_coalesce)
++			enic_set_int_moderation(enic, &enic->rq[0]);
+ 		vnic_intr_unmask(&enic->intr[intr]);
  	}
  
--	enic->tx_coalesce_usecs = tx_coalesce_usecs;
- 	enic->rx_coalesce_usecs = rx_coalesce_usecs;
+ 	return rq_work_done;
+ }
  
- 	return 0;
+-static void enic_set_int_moderation(struct enic *enic, struct vnic_rq *rq)
+-{
+-	unsigned int intr = enic_msix_rq_intr(enic, rq->index);
+-	struct vnic_cq *cq = &enic->cq[enic_cq_rq(enic, rq->index)];
+-	u32 timer = cq->tobe_rx_coal_timeval;
+-
+-	if (cq->tobe_rx_coal_timeval != cq->cur_rx_coal_timeval) {
+-		vnic_intr_coalescing_timer_set(&enic->intr[intr], timer);
+-		cq->cur_rx_coal_timeval = cq->tobe_rx_coal_timeval;
+-	}
+-}
+-
+-static void enic_calc_int_moderation(struct enic *enic, struct vnic_rq *rq)
+-{
+-	struct enic_rx_coal *rx_coal = &enic->rx_coalesce_setting;
+-	struct vnic_cq *cq = &enic->cq[enic_cq_rq(enic, rq->index)];
+-	struct vnic_rx_bytes_counter *pkt_size_counter = &cq->pkt_size_counter;
+-	int index;
+-	u32 timer;
+-	u32 range_start;
+-	u32 traffic;
+-	u64 delta;
+-	ktime_t now = ktime_get();
+-
+-	delta = ktime_us_delta(now, cq->prev_ts);
+-	if (delta < ENIC_AIC_TS_BREAK)
+-		return;
+-	cq->prev_ts = now;
+-
+-	traffic = pkt_size_counter->large_pkt_bytes_cnt +
+-		  pkt_size_counter->small_pkt_bytes_cnt;
+-	/* The table takes Mbps
+-	 * traffic *= 8    => bits
+-	 * traffic *= (10^6 / delta)    => bps
+-	 * traffic /= 10^6     => Mbps
+-	 *
+-	 * Combining, traffic *= (8 / delta)
+-	 */
+-
+-	traffic <<= 3;
+-	traffic = delta > UINT_MAX ? 0 : traffic / (u32)delta;
+-
+-	for (index = 0; index < ENIC_MAX_COALESCE_TIMERS; index++)
+-		if (traffic < mod_table[index].rx_rate)
+-			break;
+-	range_start = (pkt_size_counter->small_pkt_bytes_cnt >
+-		       pkt_size_counter->large_pkt_bytes_cnt << 1) ?
+-		      rx_coal->small_pkt_range_start :
+-		      rx_coal->large_pkt_range_start;
+-	timer = range_start + ((rx_coal->range_end - range_start) *
+-			       mod_table[index].range_percent / 100);
+-	/* Damping */
+-	cq->tobe_rx_coal_timeval = (timer + cq->tobe_rx_coal_timeval) >> 1;
+-
+-	pkt_size_counter->large_pkt_bytes_cnt = 0;
+-	pkt_size_counter->small_pkt_bytes_cnt = 0;
+-}
+-
+ #ifdef CONFIG_RFS_ACCEL
+ static void enic_free_rx_cpu_rmap(struct enic *enic)
+ {
+@@ -1407,10 +1414,8 @@ static int enic_poll_msix_rq(struct napi_struct *napi, int budget)
+ 	if (err)
+ 		work_done = work_to_do;
+ 	if (enic->rx_coalesce_setting.use_adaptive_rx_coalesce)
+-		/* Call the function which refreshes
+-		 * the intr coalescing timer value based on
+-		 * the traffic.  This is supported only in
+-		 * the case of MSI-x mode
++		/* Call the function which refreshes the intr coalescing timer
++		 * value based on the traffic.
+ 		 */
+ 		enic_calc_int_moderation(enic, &enic->rq[rq]);
+ 
+@@ -1569,12 +1574,6 @@ static void enic_set_rx_coal_setting(struct enic *enic)
+ 	int index = -1;
+ 	struct enic_rx_coal *rx_coal = &enic->rx_coalesce_setting;
+ 
+-	/* If intr mode is not MSIX, do not do adaptive coalescing */
+-	if (VNIC_DEV_INTR_MODE_MSIX != vnic_dev_get_intr_mode(enic->vdev)) {
+-		netdev_info(enic->netdev, "INTR mode is not MSIX, Not initializing adaptive coalescing");
+-		return;
+-	}
+-
+ 	/* 1. Read the link speed from fw
+ 	 * 2. Pick the default range for the speed
+ 	 * 3. Update it in enic->rx_coalesce_setting
 -- 
 2.4.5
