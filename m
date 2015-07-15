@@ -1,47 +1,57 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v2 net-next 3/3] rhashtable: Add scored lookups
-Date: Tue, 14 Jul 2015 17:25:33 -0700
-Message-ID: <CALx6S37ce-WF922inJ=JsUEFWL5UiT2=qqDC3UqVGtPFUnpJ+w@mail.gmail.com>
-References: <1436917549-3666965-1-git-send-email-tom@herbertland.com>
-	<1436917549-3666965-4-git-send-email-tom@herbertland.com>
-	<20150715001854.GA29934@gondor.apana.org.au>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: GRO: forwading ISATAP packets is very slow with kernel 4.1
+Date: Wed, 15 Jul 2015 02:34:41 +0200
+Message-ID: <8145949.lUzHGl5xdY@h2o.as.studentenwerk.mhn.de>
+References: <17762800.UBb5paxXY3@h2o.as.studentenwerk.mhn.de> <20150715000848.GC29279@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>, Kernel Team <kernel-team@fb.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:37546 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751813AbbGOAZe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2015 20:25:34 -0400
-Received: by igbpg9 with SMTP id pg9so24722573igb.0
-        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 17:25:33 -0700 (PDT)
-In-Reply-To: <20150715001854.GA29934@gondor.apana.org.au>
+Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:38025 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752625AbbGOAeo convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jul 2015 20:34:44 -0400
+In-Reply-To: <20150715000848.GC29279@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 14, 2015 at 5:18 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> On Tue, Jul 14, 2015 at 04:45:49PM -0700, Tom Herbert wrote:
->>
->> +             } else if (score == best_score) {
->> +                     matches++;
->> +                     if (reciprocal_scale(khash, matches) == 0)
->> +                             result = he;
->> +                     khash = next_pseudo_random32(khash);
->> +             }
->
-> Note that during a rehash you can encounter the same object multiple
-> times, does this logic still work in that case?
->
-I would think. The property being supported here is uniform
-distribution, *not* consistency.
+Am Mittwoch, 15. Juli 2015, 08:08:49 schrieben Sie:
+> On Wed, Jul 15, 2015 at 12:16:30AM +0200, Wolfgang Walter wrote:
+> > Hello,
+> >=20
+> > I upgraded routers from 3.14.x to 4.1.2. Forwarding ISATAP-packets =
+(IPv4
+> > packets with IPv6 payload) is very slow with 4.1 if GRO is enabled
+> > (youtube
+> > for example about 64kbit). Disabling GRO on the interfaces restores
+> > performance to values comparable to 3.14.x.
+> >=20
+> > The kernel is build with IPv6 support but IPv6 is disabled via kern=
+el
+> > command line. The router is not a tunnel endpoint, it only forwards=
+ the
+> > ISATAP- packets. MTU is 1500 on both interfaces. Netfilter conntrac=
+k is
+> > not used and disabling netfilter has no effect.
+>=20
+> Can you run some tcpdumps and post the results in the two cases?
+>=20
 
-Tom
+Yes, but I need the cooperation of one of our customers.
 
-> Cheers,
-> --
-> Email: Herbert Xu <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I wonder if the router may treat all ipv6-tcp connections of a host as =
+a=20
+single flow as all those ipv6-packets are embedded in ipv4-packets with=
+ the=20
+ipv4-address of the host and the ipv4-address of the isatap-gateway and=
+ next-
+header is 41. It may only looks at those?
+
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
