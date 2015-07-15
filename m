@@ -1,62 +1,92 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: rfc: making rds-tcp netns aware
-Date: Wed, 15 Jul 2015 13:04:53 +0200
-Message-ID: <20150715110453.GH6541@oracle.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PULL] vhost: cleanups and fixes
+Date: Wed, 15 Jul 2015 14:26:43 +0300
+Message-ID: <20150715142438-mutt-send-email-mst@redhat.com>
+References: <20150715135024-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sowmini.varadhan@oracle.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:47856 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752850AbbGOLFA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 07:05:00 -0400
-Received: from aserv0021.oracle.com (aserv0021.oracle.com [141.146.126.233])
-	by userp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t6FB4xYN030300
-	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 11:04:59 GMT
-Received: from userv0122.oracle.com (userv0122.oracle.com [156.151.31.75])
-	by aserv0021.oracle.com (8.13.8/8.13.8) with ESMTP id t6FB4whX025736
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 11:04:59 GMT
-Received: from abhmp0005.oracle.com (abhmp0005.oracle.com [141.146.116.11])
-	by userv0122.oracle.com (8.13.8/8.13.8) with ESMTP id t6FB4wC5010925
-	for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 11:04:58 GMT
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, thuth@redhat.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, pmorel@linux.vnet.ibm.com,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	borntraeger@de.ibm.com, yan@daynix.com, imammedo@redhat.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20150715135024-mutt-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Jul 15, 2015 at 01:50:24PM +0300, Michael S. Tsirkin wrote:
+> The following changes since commit 59a5b0f7bf74f88da6670bcbf924d8cc1e75b1ee:
+> 
+>   virtio-pci: alloc only resources actually used. (2015-06-24 08:15:09 +0200)
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+> 
+> for you to fetch changes up to c9ce42f72fd0ba180fd35539829e4139dca31494:
+> 
+>   vhost: add max_mem_regions module parameter (2015-07-13 23:17:19 +0300)
+> 
+> ----------------------------------------------------------------
+> virtio/vhost: fixes for 4.2
+> 
+> Bugfixes and documentation fixes. Igor's patch that allows
+> users to tweak memory table size is borderline,
+> but it does fix known crashes, so I merged it.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-I am working on making rds-tcp to be netns-aware, and in addition
-to a few bug fixes that I'm lining up, there's a basic issue with 
-the way rds-tcp sets up the listen socket that is causing problems
+Ouch.  Turns out there was a bug in error handling here.
+Linus, please don't pull this one yet, I will fix it up and
+resend. I've deleted the tag for now so it won't get pulled
+by mistake.
 
-The RDS tcp listen endpoint is created as part of module init.
-(rds_tcp_init -> rds_tcp_listen_init()). So this means that
-if I create a "blue" netns, and 'modprobe rds_tcp' within that netns,
-I get a kernel socket attached to the blue netns (which is good),
-but then I cannot use the same technique to set up a socket
-for a different netns ('modprobe rds_tcp' in that netns 
-will return silently, as it should). 
-
-And there's another downside to this design: the socket wont
-get released till the module is unloaed, so it ends up holding
-the reference on the net.
-
-So perhaps it was not a good idea to set up the listen socket
-as part of module init, but I'm trying to figure out a clean
-design for setting up the listen socket.
-
-Some uspace daemon that listens for changes to namespaces and
-reacts appropriately? A separate sysctl that sets up the listen
-endpoint in each namespace? 
-
-Are there other subsystems that have to handle a similar case?  
-I suspect that RDS-TCP is somewhat unusual here- I think most other
-similar encaps protocols like vxlan etc are associated with a network 
-driver, so the listen endpoint is created as part of the ->ndo_open
-
-Suggestions for other modules that have to deal with a similar
-situation that I can refer to are invited..
-
---Sowmini
+> ----------------------------------------------------------------
+> Cornelia Huck (2):
+>       MAINTAINERS: separate section for s390 virtio drivers
+>       virtio/s390: rename drivers/s390/kvm -> drivers/s390/virtio
+> 
+> Igor Mammedov (3):
+>       vhost: use binary search instead of linear in find_region()
+>       vhost: extend memory regions allocation to vmalloc
+>       vhost: add max_mem_regions module parameter
+> 
+> Michael S. Tsirkin (2):
+>       virtio_net: document VIRTIO_NET_CTRL_GUEST_OFFLOADS
+>       virtio: define virtio_pci_cfg_cap in header.
+> 
+> Pierre Morel (1):
+>       9p/trans_virtio: reset virtio device on remove
+> 
+> Stephen Rothwell (1):
+>       virtio scsi: fix unused variable warning
+> 
+> Thomas Huth (1):
+>       virtio: Fix typecast of pointer in vring_init()
+> 
+>  include/uapi/linux/virtio_net.h           | 16 ++++++++
+>  include/uapi/linux/virtio_pci.h           |  6 +++
+>  include/uapi/linux/virtio_ring.h          |  5 ++-
+>  drivers/s390/{kvm => virtio}/kvm_virtio.c |  0
+>  drivers/s390/{kvm => virtio}/virtio_ccw.c |  0
+>  drivers/scsi/virtio_scsi.c                |  4 +-
+>  drivers/vhost/vhost.c                     | 67 +++++++++++++++++++++++--------
+>  net/9p/trans_virtio.c                     |  1 +
+>  MAINTAINERS                               | 10 ++++-
+>  drivers/s390/Makefile                     |  2 +-
+>  drivers/s390/{kvm => virtio}/Makefile     |  0
+>  11 files changed, 91 insertions(+), 20 deletions(-)
+>  rename drivers/s390/{kvm => virtio}/kvm_virtio.c (100%)
+>  rename drivers/s390/{kvm => virtio}/virtio_ccw.c (100%)
+>  rename drivers/s390/{kvm => virtio}/Makefile (100%)
