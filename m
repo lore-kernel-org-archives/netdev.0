@@ -1,231 +1,66 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH/RFC net-next] rocker: forward packets to CPU when a port
- in promiscuous mode
-Date: Wed, 15 Jul 2015 13:45:23 +0900
-Message-ID: <20150715044521.GA7603@vergenet.net>
-References: <1436415931-16469-1-git-send-email-simon.horman@netronome.com>
- <CAE4R7bChu5sAKpU5tUkENfWZMhaWSs3EQZeggUxR=BjKSOqOeg@mail.gmail.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH] bnx2x: Update to FW version 7.12.30
+Date: Wed, 15 Jul 2015 04:50:55 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63DE80A2@avmb3.qlogic.org>
+References: <1434866091-30087-1-git-send-email-Yuval.Mintz@qlogic.com>
+ <B5657A6538887040AD3A81F1008BEC63DD93BB@avmb3.qlogic.org>
+ <B5657A6538887040AD3A81F1008BEC63DE5037@avmb3.qlogic.org>
+ <B5657A6538887040AD3A81F1008BEC63DE54D0@avmb3.qlogic.org>
+ <20150714210449.GV13281@merlin.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	john fastabend <john.fastabend@gmail.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
+	netdev <netdev@vger.kernel.org>
+To: Kyle McMartin <kyle@infradead.org>,
+	"linux-firmware@kernel.org" <linux-firmware@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34888 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750972AbbGOEpf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 00:45:35 -0400
-Received: by pactm7 with SMTP id tm7so17137513pac.2
-        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 21:45:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bChu5sAKpU5tUkENfWZMhaWSs3EQZeggUxR=BjKSOqOeg@mail.gmail.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:48497 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751365AbbGOEvW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jul 2015 00:51:22 -0400
+In-Reply-To: <20150714210449.GV13281@merlin.infradead.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Scott,
-
-On Mon, Jul 13, 2015 at 11:37:59PM -0700, Scott Feldman wrote:
-> On Wed, Jul 8, 2015 at 9:25 PM, Simon Horman <simon.horman@netronome.=
-com> wrote:
-> > This change allows the CPU to see all packets seen by a port when t=
-he
-> > netdev associated with the port is in promiscuous mode.
+> Subject: Re: [PATCH] bnx2x: Update to FW version 7.12.30
+> 
+> On Mon, Jul 13, 2015 at 10:17:24AM +0000, Yuval Mintz wrote:
+> > > > > The new FW will allow us to utilize some new features in our
+> > > > > driver, mainly adding vlan filtering offload and vxlan offload support.
+> > > > >
+> > > > > In addition, this fixes several issues:
+> > > > > 1. Packets from a VF with pvid configured which were sent with a
+> > > > >    different vlan were transmitted instead of being discarded.
+> > > > >
+> > > > > 2. FCoE traffic might not recover after a failue while there's traffic
+> > > > >    to another function.
+> > > > >
+> > > > > Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+> > > >
+> > > > Hi, any news about this one?
+> > > > Thanks, Yuval
+> > >
+> > > Any updates? I've sent this 3-weeks ago and haven't seen any reply.
 > >
-> > This change was previously posted as part of a larger patch and in =
-turn
-> > patchset which also aimed to allow rocker interfaces to receive pac=
-kets
-> > when not bridged. That problem has subsequently been addressed in a
-> > different way by Scott Feldman.
+> > Apparently the destination E-mail has changed and I was unaware.
+> > Is anyone here? ;-)
 > >
-> > When this change was previously posted Scott indicated that he had =
-some
-> > reservations about sending all packets from a switch to the CPU. Th=
-e
-> > purpose of posting this patch is to start discussion of weather thi=
-s
-> > approach is appropriate and if not how else we might move forwards.
-> >
-> > In my opinion if host doesn't want all packets its shouldn't put a =
-port
-> > in promiscuous mode. But perhaps that is an overly na=C3=AFve view =
-to take.
-> >
-> > My main motivation for this change at this time is to allow rocker =
-to
-> > work with Open vSwitch and it appears that this change is sufficien=
-t to
-> > reach that goal. Another approach might be to teach
-> > rocker_port_master_changed() about Open vSwitch.
-> >
-> > In the longer term I believe Open vSwitch should be able to program
-> > flows into rocker 'hardware' and thus not all packets would reach t=
-he CPU.
->=20
-> Hi Simon,
->=20
-> I like your alternate approach to teach rocker about Open vSwitch
-> using rocker_port_master_change() and only when port is captured by
-> OVS would we install the "promisc" filter to pass all traffic up.
-> (Maybe call it ROCKER_CTRL_DFLT_OVS rule?).
->=20
-> Putting a non-bridged, non-ovs port into promisc is kind of weird for
-> a switch port.  I think of the port in L3 mode by default, where the
-> port is locked down for all but some selective mcasts, and only opene=
-d
-> up by installing explicit routes.  (Unlike a bridged port where we
-> flood everything L2 we don't understand).
->=20
-> So maybe first pass is to pass up everything when port is captured by
-> OVS, and then later refine what's passed up per ovs flows on that
-> port.
+> 
+> Hmm?
+> 
+> --Kyle
 
-That sounds reasonable to me. Its pretty clear to me from the responses
-from John and yourself that my approach to the promiscuous flag isn't
-as clean-cut as I had hoped. And it seems that we have a nice way to
-move forwards on supporting Open vSwitch.
+Hi Kyle,
 
-How about this?
+I've sent a new bnx2x FW ~3 weeks ago, but I wasn't aware of the
+change in E-mails and that I was supposed to send it to linux-firmware,
+so I addressed it to David/Ben as I used to in the past.
+And I haven't seen any reply to it.
 
--- >8 --
+Should I re-send the FW patch to linux-firmware?
 
-=46rom: Simon Horman <simon.horman@netronome.com>
-
-Subject: rocker: forward packets to CPU when port is joined to openvswi=
-tch
-
-Teach rocker to forward packets to CPU when a port is joined to Open vS=
-witch.
-There is scope to later refine what is passed up as per Open vSwitch fl=
-ows
-on a port.
-
-This does not change the behaviour of rocker ports that are
-not joined to Open vSwitch.
-
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
- drivers/net/ethernet/rocker/rocker.c | 55 ++++++++++++++++++++++++++++=
-++++----
- 1 file changed, 49 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/etherne=
-t/rocker/rocker.c
-index c0051673c9fa..8c53d6839260 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -202,6 +202,7 @@ enum {
- 	ROCKER_CTRL_IPV4_MCAST,
- 	ROCKER_CTRL_IPV6_MCAST,
- 	ROCKER_CTRL_DFLT_BRIDGING,
-+	ROCKER_CTRL_DFLT_OVS,
- 	ROCKER_CTRL_MAX,
- };
-=20
-@@ -321,9 +322,21 @@ static u16 rocker_port_vlan_to_vid(const struct ro=
-cker_port *rocker_port,
- 	return ntohs(vlan_id);
- }
-=20
-+static bool rocker_port_is_bridged__(const struct rocker_port *rocker_=
-port,
-+				     const char *kind)
-+{
-+	return rocker_port->bridge_dev &&
-+		!strcmp(rocker_port->bridge_dev->rtnl_link_ops->kind, kind);
-+}
-+
- static bool rocker_port_is_bridged(const struct rocker_port *rocker_po=
-rt)
- {
--	return !!rocker_port->bridge_dev;
-+	return rocker_port_is_bridged__(rocker_port, "bridge");
-+}
-+
-+static bool rocker_port_is_ovs(const struct rocker_port *rocker_port)
-+{
-+	return rocker_port_is_bridged__(rocker_port, "openvswitch");
- }
-=20
- #define ROCKER_OP_FLAG_REMOVE		BIT(0)
-@@ -3275,6 +3288,12 @@ static struct rocker_ctrl {
- 		.bridge =3D true,
- 		.copy_to_cpu =3D true,
- 	},
-+	[ROCKER_CTRL_DFLT_OVS] =3D {
-+		/* pass all pkts up to CPU */
-+		.eth_dst =3D zero_mac,
-+		.eth_dst_mask =3D zero_mac,
-+		.acl =3D true,
-+	},
- };
-=20
- static int rocker_port_ctrl_vlan_acl(struct rocker_port *rocker_port,
-@@ -3787,11 +3806,14 @@ static int rocker_port_stp_update(struct rocker=
-_port *rocker_port,
- 		break;
- 	case BR_STATE_LEARNING:
- 	case BR_STATE_FORWARDING:
--		want[ROCKER_CTRL_LINK_LOCAL_MCAST] =3D true;
-+		if (!rocker_port_is_ovs(rocker_port))
-+			want[ROCKER_CTRL_LINK_LOCAL_MCAST] =3D true;
- 		want[ROCKER_CTRL_IPV4_MCAST] =3D true;
- 		want[ROCKER_CTRL_IPV6_MCAST] =3D true;
- 		if (rocker_port_is_bridged(rocker_port))
- 			want[ROCKER_CTRL_DFLT_BRIDGING] =3D true;
-+		else if (rocker_port_is_ovs(rocker_port))
-+			want[ROCKER_CTRL_DFLT_OVS] =3D true;
- 		else
- 			want[ROCKER_CTRL_LOCAL_ARP] =3D true;
- 		break;
-@@ -5251,6 +5273,22 @@ static int rocker_port_bridge_leave(struct rocke=
-r_port *rocker_port)
- 	return err;
- }
-=20
-+
-+static int rocker_port_ovs_changed(struct rocker_port *rocker_port,
-+				   struct net_device *master)
-+{
-+	int err;
-+
-+	rocker_port->bridge_dev =3D master;
-+
-+	err =3D rocker_port_fwd_disable(rocker_port, SWITCHDEV_TRANS_NONE, 0)=
-;
-+	if (err)
-+		return err;
-+	err =3D rocker_port_fwd_enable(rocker_port, SWITCHDEV_TRANS_NONE, 0);
-+
-+	return err;
-+}
-+
- static int rocker_port_master_changed(struct net_device *dev)
- {
- 	struct rocker_port *rocker_port =3D netdev_priv(dev);
-@@ -5263,11 +5301,16 @@ static int rocker_port_master_changed(struct ne=
-t_device *dev)
- 	 * 3. Other, e.g. being added to or removed from a bond or openvswitc=
-h,
- 	 *    in which case nothing is done
- 	 */
--	if (master && master->rtnl_link_ops &&
--	    !strcmp(master->rtnl_link_ops->kind, "bridge"))
--		err =3D rocker_port_bridge_join(rocker_port, master);
--	else if (rocker_port_is_bridged(rocker_port))
-+	if (master && master->rtnl_link_ops) {
-+		if (!strcmp(master->rtnl_link_ops->kind, "bridge"))
-+			err =3D rocker_port_bridge_join(rocker_port, master);
-+		else if (!strcmp(master->rtnl_link_ops->kind, "openvswitch"))
-+			err =3D rocker_port_ovs_changed(rocker_port, master);
-+	} else if (rocker_port_is_bridged(rocker_port)) {
- 		err =3D rocker_port_bridge_leave(rocker_port);
-+	} else if (rocker_port_is_ovs(rocker_port)) {
-+		err =3D rocker_port_ovs_changed(rocker_port, NULL);
-+	}
-=20
- 	return err;
- }
---=20
-2.1.4
+Thanks,
+Yuval
