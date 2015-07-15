@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] NET: AX.25: Stop heartbeat timer on disconnect.
-Date: Wed, 15 Jul 2015 16:13:50 -0700 (PDT)
-Message-ID: <20150715.161350.1694501935758582003.davem@davemloft.net>
-References: <20150713093824.GA32732@linux-mips.org>
+Subject: Re: [PATCH] Revert "net: fec: Ensure clocks are enabled while
+ using mdio bus"
+Date: Wed, 15 Jul 2015 16:13:56 -0700 (PDT)
+Message-ID: <20150715.161356.846982552968347710.davem@davemloft.net>
+References: <1436786032-7533-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, richard@rns-stearn.demon.co.uk,
-	f6bvp@free.fr, thomas@osterried.de, linux-hams@vger.kernel.org,
-	stable@vger.kernel.org
-To: ralf@linux-mips.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20150713093824.GA32732@linux-mips.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: B38611@freescale.com, andrew@lunn.ch, shawn.guo@linaro.org,
+	tyler.baker@linaro.org, netdev@vger.kernel.org
+To: fabio.estevam@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33515 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753768AbbGOXN5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 19:13:57 -0400
+In-Reply-To: <1436786032-7533-1-git-send-email-fabio.estevam@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Mon, 13 Jul 2015 11:38:24 +0200
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Date: Mon, 13 Jul 2015 08:13:52 -0300
 
-> From: Richard Stearn <richard@rns-stearn.demon.co.uk>
+> This reverts commit 6c3e921b18edca290099adfddde8a50236bf2d80.
 > 
-> This may result in a kernel panic.  The bug has always existed but
-> somehow we've run out of luck now and it bites.
+> commit 6c3e921b18ed ("net: fec: Ensure clocks are enabled while using mdio
+>  bus") prevents the kernel to boot on mx6 boards, so let's revert it.
 > 
-> Signed-off-by: Richard Stearn <richard@rns-stearn.demon.co.uk>
-> Cc: stable@vger.kernel.org	# all branches
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
-> ---
-> v2: Correctly attribute the patch to Richard Stearn in the From: line
+> Reported-by: Tyler Baker <tyler.baker@linaro.org>
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 
 Applied.
