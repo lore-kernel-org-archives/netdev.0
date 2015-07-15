@@ -1,128 +1,59 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH -next 0/6] Per network namespace netfilter chains
-Date: Wed, 15 Jul 2015 15:05:00 -0500
-Message-ID: <87vbdljifn.fsf@x220.int.ebiederm.org>
-References: <87616ppt3h.fsf@x220.int.ebiederm.org>
-	<87r3pae5hn.fsf@x220.int.ebiederm.org>
-	<878uansj4d.fsf_-_@x220.int.ebiederm.org>
-	<20150715172038.GA4319@salvia>
+From: Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: RE: [PATCH v1 08/12] IB/cma: Add net_dev and private data checks to
+ RDMA CM
+Date: Wed, 15 Jul 2015 20:27:06 +0000
+Message-ID: <HE1PR05MB1418C82958B3CCF0D3531E5BB19A0@HE1PR05MB1418.eurprd05.prod.outlook.com>
+References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
+ <1434976961-27424-9-git-send-email-haggaie@mellanox.com>
+ <20150713181414.GJ23832@obsidianresearch.com> <55A63CAC.60603@mellanox.com>
+ <20150715184934.GD23588@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Juanjo Ciarlante <jjciarla@raiz.uncu.edu.ar>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:33721 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753506AbbGOULd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 16:11:33 -0400
-In-Reply-To: <20150715172038.GA4319@salvia> (Pablo Neira Ayuso's message of
-	"Wed, 15 Jul 2015 19:20:38 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150715184934.GD23588-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Pablo Neira Ayuso <pablo@netfilter.org> writes:
+> From: Jason Gunthorpe [mailto:jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org]
+ 
+> 
+> > What is really missing here I guess is a mechanism that would
+> > enforce containers to only use certain pkeys - perhaps with
+> > something like an RDMA cgroup.  It could force containers to only
+> > use approved pkeys not only with RDMA CM, but through uverbs, and
+> > other user-space interfaces.
+> 
+> Ideally yes. Without that it just means you can't use pkey
+> meaningfully with containers..
+> 
 
-> On Fri, Jul 10, 2015 at 06:11:46PM -0500, Eric W. Biederman wrote:
->> 
->> By maintining a set of functions to register and unregister netfilter
->> hooks both globally and per network namespace I have managed to write a
->> compact patchset that maintain per network netfilter chains, and
->> registers the nftables netfilter hooks per network namespace.
->
-> Nice, thank you.
->
-> It would be great to convert this to the for_each_net_rcu variant once
-> we're sure this is safe.
+That's why partition enforcement should be separated from namespaces.
 
-That seems reasonable.
+If you want to restrict a container to a specific set of pkeys, use cgroups.
+This would apply both to CM MADs and QPs.
+- In the MAD case, CM MADs would be first matched to a namespace and rdma_id and dropped upon pkey conflict (with either the headers or the payload).
+- In the QP case, modify_qp() would fail on conflict.
+Partitioning needs to be enforced also for applications that don't use the CM at all...
 
->> There are lots of other possible and desirable cleanups but this one is
->> a core change needed to make the other changes independent small
->> changes.
->
-> The state->net field will kill that dev_net(...) ? x : y; all over the
-> code, that would be nice.
+For namespaces, it seems more natural to lookup the namespace based solely on the CM payload.
+After all, it is the payload that designates the entity that you want to establish a connection to, rather than the packet headers, which are just meant to relay the packet to the proper CM agent. (Spec-wise, it is even possible to use completely different node to open a connection on behalf of another node.)
+So, the sole role of pkeys in the context of namespaces is to locate the proper namespace; not for partition isolation.
 
-Yes it will.  I intend to do that after this patchset settles so I am
-not dealing with more than one issue at a time.  Otherwise there
-is too much work at once.
+So, as a first step, let's get the namespace lookup in place.
+Next, add an rdma crgoup, which would control pkeys, as well as resource counts (you don't want one container to rob the whole system from all QPs...).
 
-
-> Some comments on your patchset:
->
-> * 1/6 netfilter: nf_queue: Don't recompute the hook_list head
->
-> I already passed this to current nf as you insisted on getting this,
-> and for the sake of correctness, so it's basically already in David's
-> net tree.
-
-I would have expected this patch to be somewhere.  I did not see
-this change in net-next when I wrote the patchset (which seemed
-like a good approximation of the latest thing available).  If I
-overlooked and the patch has already made it to Dave then my apologies
-for being redundant.
-
-I still don't see this patch in your pending branch.
-
-Am I missing something?
-
-> * From 2 to 6, I have applied these series with small coding style
->   cleanups.
->
-> - Add line break between variable declaration and body:
->
->  +      struct list_head *nf_hook_list = &nf_hooks[pf][hook];
-> -+
->  +      if (nf_hook_list_active(nf_hook_list, pf, hook)) {
->
-> and here:
->
->  int nft_register_basechain(struct nft_base_chain *basechain,
->                            unsigned int hook_nops)
->   {
->  +      struct net *net = read_pnet(&basechain->pnet);
-> ++
->
-> - Get rid of unnecessary parens:
->
-> -+      if ((reg->pf == NFPROTO_NETDEV) && (reg->hooknum == NF_NETDEV_INGRESS))
-> ++      if (reg->pf == NFPROTO_NETDEV && reg->hooknum == NF_NETDEV_INGRESS)
-
-Fair enough.  For me those parens are necessary to trust the compiler is
-doing the right thing.  I can never remember the C operator precedence
-rules.
-
-> - Get rid of unnecesary brackets:
->
-> -+      for_each_net(net) {
-> ++      for_each_net(net)
->  +              nf_unregister_net_hook(net, reg);
-> -+      }
->
-> and here:
->
-> -+      list_for_each_entry_continue_reverse(elem, &nf_hook_list, list) {
-> ++      list_for_each_entry_continue_reverse(elem, &nf_hook_list, list)
->  +              nf_unregister_net_hook(net, elem);
-> -+      }
->
-> I have pushed this to:
->
-> http://git.kernel.org/cgit/linux/kernel/git/pablo/nf-next.git/log/?h=pending
->
-> in case you want to have a closer look. Thank you.
-
-Thank you.
-
-Eric
+> Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
