@@ -1,66 +1,48 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH] bnx2x: Update to FW version 7.12.30
-Date: Wed, 15 Jul 2015 04:50:55 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63DE80A2@avmb3.qlogic.org>
-References: <1434866091-30087-1-git-send-email-Yuval.Mintz@qlogic.com>
- <B5657A6538887040AD3A81F1008BEC63DD93BB@avmb3.qlogic.org>
- <B5657A6538887040AD3A81F1008BEC63DE5037@avmb3.qlogic.org>
- <B5657A6538887040AD3A81F1008BEC63DE54D0@avmb3.qlogic.org>
- <20150714210449.GV13281@merlin.infradead.org>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v7 0/4] net: Introduce protodown flag.
+Date: Tue, 14 Jul 2015 22:08:35 -0700
+Message-ID: <CAE4R7bC2WPDfJiT7Av8YYUybvc0D1cakKBgDsL+mystM33guFw@mail.gmail.com>
+References: <1436906602-2958-1-git-send-email-anuradhak@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
-	netdev <netdev@vger.kernel.org>
-To: Kyle McMartin <kyle@infradead.org>,
-	"linux-firmware@kernel.org" <linux-firmware@kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Wilson Kok <wkok@cumulusnetworks.com>
+To: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:48497 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751365AbbGOEvW convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jul 2015 00:51:22 -0400
-In-Reply-To: <20150714210449.GV13281@merlin.infradead.org>
-Content-Language: en-US
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:35777 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751689AbbGOFIz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 01:08:55 -0400
+Received: by obbop1 with SMTP id op1so19527508obb.2
+        for <netdev@vger.kernel.org>; Tue, 14 Jul 2015 22:08:54 -0700 (PDT)
+In-Reply-To: <1436906602-2958-1-git-send-email-anuradhak@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Subject: Re: [PATCH] bnx2x: Update to FW version 7.12.30
-> 
-> On Mon, Jul 13, 2015 at 10:17:24AM +0000, Yuval Mintz wrote:
-> > > > > The new FW will allow us to utilize some new features in our
-> > > > > driver, mainly adding vlan filtering offload and vxlan offload support.
-> > > > >
-> > > > > In addition, this fixes several issues:
-> > > > > 1. Packets from a VF with pvid configured which were sent with a
-> > > > >    different vlan were transmitted instead of being discarded.
-> > > > >
-> > > > > 2. FCoE traffic might not recover after a failue while there's traffic
-> > > > >    to another function.
-> > > > >
-> > > > > Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-> > > >
-> > > > Hi, any news about this one?
-> > > > Thanks, Yuval
-> > >
-> > > Any updates? I've sent this 3-weeks ago and haven't seen any reply.
-> >
-> > Apparently the destination E-mail has changed and I was unaware.
-> > Is anyone here? ;-)
-> >
-> 
-> Hmm?
-> 
-> --Kyle
+On Tue, Jul 14, 2015 at 1:43 PM,  <anuradhak@cumulusnetworks.com> wrote:
+> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+>
+> User space daemons can detect errors in the network that need to be
+> notified to the switch device drivers.
+>
+> Drivers can react to this error state by doing a phy-down on the
+> switch-port which would result in a carrier-off locally and on the directly
+> connected switch. Doing that would prevent loops and black-holes in the
+> network.
 
-Hi Kyle,
+Hi Anuradha,
 
-I've sent a new bnx2x FW ~3 weeks ago, but I wasn't aware of the
-change in E-mails and that I was supposed to send it to linux-firmware,
-so I addressed it to David/Ben as I used to in the past.
-And I haven't seen any reply to it.
+Since this is a switch-thingy, can you move this to switchdev port
+attribute rather than adding another ndo op?  I know you started this
+patch set before switchdev port attrs, but I think it's worthwhile
+moving it to switchdev since clearly the use-case is switch device
+drivers.   Let me know if you need help converting over to switchdev
+port attr.
 
-Should I re-send the FW patch to linux-firmware?
+Also, is the sysfs interface necessary?  The netlink/iproute2
+interface seems sufficient.
 
-Thanks,
-Yuval
+-scott
