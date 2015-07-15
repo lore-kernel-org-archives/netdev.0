@@ -1,116 +1,46 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net] bonding: fix destruction of bond with devices different from arphrd_ether
-Date: Wed, 15 Jul 2015 21:52:51 +0200
-Message-ID: <1436989971-32761-1-git-send-email-razor@blackwall.org>
-References: <55A69D17.5030800@cumulusnetworks.com>
-Cc: j.vosburgh@gmail.com, gospo@cumulusnetworks.com, vfalico@gmail.com,
-	clsoto@linux.vnet.ibm.com, ebiederm@xmission.com,
-	davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH net-next] net/ipv6: update flowi6_oif in ip6_dst_lookup_flow if not set
+Date: Wed, 15 Jul 2015 21:56:26 +0200
+Message-ID: <1436990186-31586-1-git-send-email-phil@nwl.cc>
+Cc: David Miller <davem@davemloft.net>, Florian Westphal <fw@strlen.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:35373 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753139AbbGOTw5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 15:52:57 -0400
-Received: by wgjx7 with SMTP id x7so41754573wgj.2
-        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 12:52:56 -0700 (PDT)
-In-Reply-To: <55A69D17.5030800@cumulusnetworks.com>
+Received: from orbit.nwl.cc ([176.31.251.142]:36788 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753313AbbGOT42 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jul 2015 15:56:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Newly created flows don't have flowi6_oif set (at least if the
+associated socket is not interface-bound). This leads to a mismatch in
+__xfrm6_selector_match() for policies which specify an interface in the
+selector (sel->ifindex != 0).
 
-When the bonding is being unloaded and the netdevice notifier is
-unregistered it executes NETDEV_UNREGISTER for each device which should
-remove the bond's proc entry but if the device enslaved is not of
-ARPHRD_ETHER type and is in front of the bonding, it may execute
-bond_release_and_destroy() first which would release the last slave and
-destroy the bond device leaving the proc entry and thus we will get the
-following error (with dynamic debug on for bond_netdev_event to see the
-events order):
-[  908.963051] eql: event: 9
-[  908.963052] eql: IFF_SLAVE
-[  908.963054] eql: event: 2
-[  908.963056] eql: IFF_SLAVE
-[  908.963058] eql: event: 6
-[  908.963059] eql: IFF_SLAVE
-[  908.963110] bond0: Releasing active interface eql
-[  908.976168] bond0: Destroying bond bond0
-[  908.976266] bond0 (unregistering): Released all slaves
-[  908.984097] ------------[ cut here ]------------
-[  908.984107] WARNING: CPU: 0 PID: 1787 at fs/proc/generic.c:575
-remove_proc_entry+0x112/0x160()
-[  908.984110] remove_proc_entry: removing non-empty directory
-'net/bonding', leaking at least 'bond0'
-[  908.984111] Modules linked in: bonding(-) eql(O) 9p nfsd auth_rpcgss
-oid_registry nfs_acl nfs lockd grace fscache sunrpc crct10dif_pclmul
-crc32_pclmul crc32c_intel ghash_clmulni_intel ppdev qxl drm_kms_helper
-snd_hda_codec_generic aesni_intel ttm aes_x86_64 glue_helper pcspkr lrw
-gf128mul ablk_helper cryptd snd_hda_intel virtio_console snd_hda_codec
-psmouse serio_raw snd_hwdep snd_hda_core 9pnet_virtio 9pnet evdev joydev
-drm virtio_balloon snd_pcm snd_timer snd soundcore i2c_piix4 i2c_core
-pvpanic acpi_cpufreq parport_pc parport processor thermal_sys button
-autofs4 ext4 crc16 mbcache jbd2 hid_generic usbhid hid sg sr_mod cdrom
-ata_generic virtio_blk virtio_net floppy ata_piix e1000 libata ehci_pci
-virtio_pci scsi_mod uhci_hcd ehci_hcd virtio_ring virtio usbcore
-usb_common [last unloaded: bonding]
+Backtracing shows this happens in code-paths originating from e.g.
+ip6_datagram_connect(), rawv6_sendmsg() or tcp_v6_connect(). (UDP was
+not tested for.)
 
-[  908.984168] CPU: 0 PID: 1787 Comm: rmmod Tainted: G        W  O
-4.2.0-rc2+ #8
-[  908.984170] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[  908.984172]  0000000000000000 ffffffff81732d41 ffffffff81525b34
-ffff8800358dfda8
-[  908.984175]  ffffffff8106c521 ffff88003595af78 ffff88003595af40
-ffff88003e3a4280
-[  908.984178]  ffffffffa058d040 0000000000000000 ffffffff8106c59a
-ffffffff8172ebd0
-[  908.984181] Call Trace:
-[  908.984188]  [<ffffffff81525b34>] ? dump_stack+0x40/0x50
-[  908.984193]  [<ffffffff8106c521>] ? warn_slowpath_common+0x81/0xb0
-[  908.984196]  [<ffffffff8106c59a>] ? warn_slowpath_fmt+0x4a/0x50
-[  908.984199]  [<ffffffff81218352>] ? remove_proc_entry+0x112/0x160
-[  908.984205]  [<ffffffffa05850e6>] ? bond_destroy_proc_dir+0x26/0x30
-[bonding]
-[  908.984208]  [<ffffffffa057540e>] ? bond_net_exit+0x8e/0xa0 [bonding]
-[  908.984217]  [<ffffffff8142f407>] ? ops_exit_list.isra.4+0x37/0x70
-[  908.984225]  [<ffffffff8142f52d>] ?
-unregister_pernet_operations+0x8d/0xd0
-[  908.984228]  [<ffffffff8142f58d>] ?
-unregister_pernet_subsys+0x1d/0x30
-[  908.984232]  [<ffffffffa0585269>] ? bonding_exit+0x23/0xdba [bonding]
-[  908.984236]  [<ffffffff810e28ba>] ? SyS_delete_module+0x18a/0x250
-[  908.984241]  [<ffffffff81086f99>] ? task_work_run+0x89/0xc0
-[  908.984244]  [<ffffffff8152b732>] ?
-entry_SYSCALL_64_fastpath+0x16/0x75
-[  908.984247] ---[ end trace 7c006ed4abbef24b ]---
+In summary, this patch fixes policy matching on outgoing interface for
+locally generated packets.
 
-Thus remove the proc entry manually if bond_release_and_destroy() is
-used. Because of the checks in bond_remove_proc_entry() it's not a
-problem for a bond device to change namespaces (the bug fixed by the
-Fixes commit) but since commit
-f9399814927ad ("bonding: Don't allow bond devices to change network
-namespaces.") that can't happen anyway.
-
-Reported-by: Carol Soto <clsoto@linux.vnet.ibm.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Fixes: a64d49c3dd50 ("bonding: Manage /proc/net/bonding/ entries from
-                      the netdev events")
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- drivers/net/bonding/bond_main.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/ipv6/ip6_output.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 317a49480475..ec1404ec4d2f 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1916,6 +1916,7 @@ static int  bond_release_and_destroy(struct net_device *bond_dev,
- 		bond_dev->priv_flags |= IFF_DISABLE_NETPOLL;
- 		netdev_info(bond_dev, "Destroying bond %s\n",
- 			    bond_dev->name);
-+		bond_remove_proc_entry(bond);
- 		unregister_netdevice(bond_dev);
- 	}
- 	return ret;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index d5f7716..c5fc852 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1023,6 +1023,8 @@ struct dst_entry *ip6_dst_lookup_flow(struct sock *sk, struct flowi6 *fl6,
+ 		return ERR_PTR(err);
+ 	if (final_dst)
+ 		fl6->daddr = *final_dst;
++	if (!fl6->flowi6_oif)
++		fl6->flowi6_oif = dst->dev->ifindex;
+ 
+ 	return xfrm_lookup_route(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
+ }
 -- 
-1.9.3
+2.1.2
