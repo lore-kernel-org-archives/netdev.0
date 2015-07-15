@@ -1,133 +1,75 @@
-From: Carol Soto <clsoto@linux.vnet.ibm.com>
-Subject: Re: [PATCH net] bonding: fix destruction of bond with devices
- different from arphrd_ether
-Date: Wed, 15 Jul 2015 16:01:20 -0500
-Message-ID: <55A6CA20.8050609@linux.vnet.ibm.com>
-References: <55A69D17.5030800@cumulusnetworks.com>
- <1436989971-32761-1-git-send-email-razor@blackwall.org>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH v1 08/12] IB/cma: Add net_dev and private data checks to
+ RDMA CM
+Date: Wed, 15 Jul 2015 15:03:42 -0600
+Message-ID: <20150715210342.GA32516@obsidianresearch.com>
+References: <1434976961-27424-1-git-send-email-haggaie@mellanox.com>
+ <1434976961-27424-9-git-send-email-haggaie@mellanox.com>
+ <20150713181414.GJ23832@obsidianresearch.com>
+ <55A63CAC.60603@mellanox.com>
+ <20150715184934.GD23588@obsidianresearch.com>
+ <HE1PR05MB1418C82958B3CCF0D3531E5BB19A0@HE1PR05MB1418.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, gospo@cumulusnetworks.com, vfalico@gmail.com,
-	ebiederm@xmission.com, davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Nikolay Aleksandrov <razor@blackwall.org>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:39788 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753787AbbGOVBX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 17:01:23 -0400
-Received: from /spool/local
-	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <clsoto@linux.vnet.ibm.com>;
-	Wed, 15 Jul 2015 15:01:23 -0600
-Received: from b03cxnp07029.gho.boulder.ibm.com (b03cxnp07029.gho.boulder.ibm.com [9.17.130.16])
-	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id DE5E719D8040
-	for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 14:52:19 -0600 (MDT)
-Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
-	by b03cxnp07029.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t6FL1KaF42401910
-	for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 14:01:20 -0700
-Received: from d03av05.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av05.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t6FL1JJd027056
-	for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 15:01:20 -0600
-In-Reply-To: <1436989971-32761-1-git-send-email-razor@blackwall.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <HE1PR05MB1418C82958B3CCF0D3531E5BB19A0-eBadYZ65MZ87O8BmmlM1zNqRiQSDpxhJvxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Jul 15, 2015 at 08:27:06PM +0000, Liran Liss wrote:
+> If you want to restrict a container to a specific set of pkeys, use
+> cgroups.
 
+Ideally yes, but in the absence of a cgroup the set of pkeys assigned
+to the container via ipoib is a reasonable alternate.
 
-On 7/15/2015 2:52 PM, Nikolay Aleksandrov wrote:
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->
-> When the bonding is being unloaded and the netdevice notifier is
-> unregistered it executes NETDEV_UNREGISTER for each device which should
-> remove the bond's proc entry but if the device enslaved is not of
-> ARPHRD_ETHER type and is in front of the bonding, it may execute
-> bond_release_and_destroy() first which would release the last slave and
-> destroy the bond device leaving the proc entry and thus we will get the
-> following error (with dynamic debug on for bond_netdev_event to see the
-> events order):
-> [  908.963051] eql: event: 9
-> [  908.963052] eql: IFF_SLAVE
-> [  908.963054] eql: event: 2
-> [  908.963056] eql: IFF_SLAVE
-> [  908.963058] eql: event: 6
-> [  908.963059] eql: IFF_SLAVE
-> [  908.963110] bond0: Releasing active interface eql
-> [  908.976168] bond0: Destroying bond bond0
-> [  908.976266] bond0 (unregistering): Released all slaves
-> [  908.984097] ------------[ cut here ]------------
-> [  908.984107] WARNING: CPU: 0 PID: 1787 at fs/proc/generic.c:575
-> remove_proc_entry+0x112/0x160()
-> [  908.984110] remove_proc_entry: removing non-empty directory
-> 'net/bonding', leaking at least 'bond0'
-> [  908.984111] Modules linked in: bonding(-) eql(O) 9p nfsd auth_rpcgss
-> oid_registry nfs_acl nfs lockd grace fscache sunrpc crct10dif_pclmul
-> crc32_pclmul crc32c_intel ghash_clmulni_intel ppdev qxl drm_kms_helper
-> snd_hda_codec_generic aesni_intel ttm aes_x86_64 glue_helper pcspkr lrw
-> gf128mul ablk_helper cryptd snd_hda_intel virtio_console snd_hda_codec
-> psmouse serio_raw snd_hwdep snd_hda_core 9pnet_virtio 9pnet evdev joydev
-> drm virtio_balloon snd_pcm snd_timer snd soundcore i2c_piix4 i2c_core
-> pvpanic acpi_cpufreq parport_pc parport processor thermal_sys button
-> autofs4 ext4 crc16 mbcache jbd2 hid_generic usbhid hid sg sr_mod cdrom
-> ata_generic virtio_blk virtio_net floppy ata_piix e1000 libata ehci_pci
-> virtio_pci scsi_mod uhci_hcd ehci_hcd virtio_ring virtio usbcore
-> usb_common [last unloaded: bonding]
->
-> [  908.984168] CPU: 0 PID: 1787 Comm: rmmod Tainted: G        W  O
-> 4.2.0-rc2+ #8
-> [  908.984170] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-> [  908.984172]  0000000000000000 ffffffff81732d41 ffffffff81525b34
-> ffff8800358dfda8
-> [  908.984175]  ffffffff8106c521 ffff88003595af78 ffff88003595af40
-> ffff88003e3a4280
-> [  908.984178]  ffffffffa058d040 0000000000000000 ffffffff8106c59a
-> ffffffff8172ebd0
-> [  908.984181] Call Trace:
-> [  908.984188]  [<ffffffff81525b34>] ? dump_stack+0x40/0x50
-> [  908.984193]  [<ffffffff8106c521>] ? warn_slowpath_common+0x81/0xb0
-> [  908.984196]  [<ffffffff8106c59a>] ? warn_slowpath_fmt+0x4a/0x50
-> [  908.984199]  [<ffffffff81218352>] ? remove_proc_entry+0x112/0x160
-> [  908.984205]  [<ffffffffa05850e6>] ? bond_destroy_proc_dir+0x26/0x30
-> [bonding]
-> [  908.984208]  [<ffffffffa057540e>] ? bond_net_exit+0x8e/0xa0 [bonding]
-> [  908.984217]  [<ffffffff8142f407>] ? ops_exit_list.isra.4+0x37/0x70
-> [  908.984225]  [<ffffffff8142f52d>] ?
-> unregister_pernet_operations+0x8d/0xd0
-> [  908.984228]  [<ffffffff8142f58d>] ?
-> unregister_pernet_subsys+0x1d/0x30
-> [  908.984232]  [<ffffffffa0585269>] ? bonding_exit+0x23/0xdba [bonding]
-> [  908.984236]  [<ffffffff810e28ba>] ? SyS_delete_module+0x18a/0x250
-> [  908.984241]  [<ffffffff81086f99>] ? task_work_run+0x89/0xc0
-> [  908.984244]  [<ffffffff8152b732>] ?
-> entry_SYSCALL_64_fastpath+0x16/0x75
-> [  908.984247] ---[ end trace 7c006ed4abbef24b ]---
->
-> Thus remove the proc entry manually if bond_release_and_destroy() is
-> used. Because of the checks in bond_remove_proc_entry() it's not a
-> problem for a bond device to change namespaces (the bug fixed by the
-> Fixes commit) but since commit
-> f9399814927ad ("bonding: Don't allow bond devices to change network
-> namespaces.") that can't happen anyway.
->
-> Reported-by: Carol Soto <clsoto@linux.vnet.ibm.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Fixes: a64d49c3dd50 ("bonding: Manage /proc/net/bonding/ entries from
->                        the netdev events")
-> ---
->   drivers/net/bonding/bond_main.c | 1 +
->   1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 317a49480475..ec1404ec4d2f 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1916,6 +1916,7 @@ static int  bond_release_and_destroy(struct net_device *bond_dev,
->   		bond_dev->priv_flags |= IFF_DISABLE_NETPOLL;
->   		netdev_info(bond_dev, "Destroying bond %s\n",
->   			    bond_dev->name);
-> +		bond_remove_proc_entry(bond);
->   		unregister_netdevice(bond_dev);
->   	}
->   	return ret;
-Tested-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
+> This would apply both to CM MADs and QPs.
+> - In the MAD case, CM MADs would be first matched to a namespace and rdma_id and dropped upon pkey conflict (with either the headers or the payload).
+> - In the QP case, modify_qp() would fail on conflict.
+> Partitioning needs to be enforced also for applications that don't use the CM at all...
+
+Yep, that is how pkey checking should work, cgroup or not.
+
+So, you agree with me.
+
+I say that until we get a cgroup capability, the pkey list of the
+container is the set of IPoIB interfaces associated with it, and we
+still have to do the various checks above. The first check is relavent
+to this patchset and should be done by using the GMP's headers to
+locate the net device.
+
+> For namespaces, it seems more natural to lookup the namespace based
+> solely on the CM payload.
+
+How so? Which payload content do you use? The primary path? The
+alternate path?
+
+> After all, it is the payload that designates the entity that you
+> want to establish a connection to, rather than the packet headers,
+> which are just meant to relay the packet to the proper CM
+
+No, that isn't right. The IBA uses the GMP's destination first, then
+serviceID as the demux. Services IDs are not globally unique, they are
+scoped by the destination.
+
+The path data is just *routing* it doesn't describe at all the entity
+we want to talk to, it is only a proposal for how to flow data to it.
+
+In any event, both the GMP headers and the path data needs to be
+checked against the container's pkey list. I don't know why this is so
+contentions.
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
