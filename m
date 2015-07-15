@@ -1,210 +1,160 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next 1/2] enic: add adaptive coalescing intr for intx and msi poll
-Date: Wed, 15 Jul 2015 15:34:39 +0530
-Message-ID: <1436954680-10248-1-git-send-email-_govind@gmx.com>
-Cc: ssujith@cisco.com, benve@cisco.com,
-	Govindarajulu Varadarajan <_govind@gmx.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Erik Kline <ek@google.com>
+Subject: Re: [PATCH] ipv6: Fix finding best source address in ipv6_dev_get_saddr().
+Date: Wed, 15 Jul 2015 19:22:40 +0900
+Message-ID: <CAAedzxruyuKWDm4diX79kupRRFJnBd=Y1fj1sK1wz9mPD9EBfg@mail.gmail.com>
+References: <55A3CAFA.3060404@miraclelinux.com> <CAAedzxp=ARvnYZ9fSLfyLZr-qju3MtZcjGoo0QKCvyybpC3-MA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Hajime Tazaki <thehajime@gmail.com>
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kv5ZCJ6Jek6Iux5piO?=
+	<hideaki.yoshifuji@miraclelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.19]:59117 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751991AbbGOKFM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jul 2015 06:05:12 -0400
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:35005 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750861AbbGOKXB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 06:23:01 -0400
+Received: by wiga1 with SMTP id a1so124465837wig.0
+        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 03:23:00 -0700 (PDT)
+In-Reply-To: <CAAedzxp=ARvnYZ9fSLfyLZr-qju3MtZcjGoo0QKCvyybpC3-MA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adaptive interrupt coalescing is available for msix. This patch adds the support
-for msi poll. Interface for adaptive interrupt coalescing is already added in
-driver. We just did not enable it for legacy intr & msi.
+And I now have a use_oif_addr sysctl patch that, on top if this one,
+passes all my tests.
 
-enic_calc_int_moderation() & enic_set_int_moderation() are defined as static
-after enic_poll. Since enic_poll needs it, move both of these function
-definitions above enic_poll. No change in functionality.
-
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
----
- drivers/net/ethernet/cisco/enic/enic_main.c | 135 ++++++++++++++--------------
- 1 file changed, 67 insertions(+), 68 deletions(-)
-
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 918a8e4..8f646e4 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -1149,6 +1149,64 @@ static int enic_rq_service(struct vnic_dev *vdev, struct cq_desc *cq_desc,
- 	return 0;
- }
- 
-+static void enic_set_int_moderation(struct enic *enic, struct vnic_rq *rq)
-+{
-+	unsigned int intr = enic_msix_rq_intr(enic, rq->index);
-+	struct vnic_cq *cq = &enic->cq[enic_cq_rq(enic, rq->index)];
-+	u32 timer = cq->tobe_rx_coal_timeval;
-+
-+	if (cq->tobe_rx_coal_timeval != cq->cur_rx_coal_timeval) {
-+		vnic_intr_coalescing_timer_set(&enic->intr[intr], timer);
-+		cq->cur_rx_coal_timeval = cq->tobe_rx_coal_timeval;
-+	}
-+}
-+
-+static void enic_calc_int_moderation(struct enic *enic, struct vnic_rq *rq)
-+{
-+	struct enic_rx_coal *rx_coal = &enic->rx_coalesce_setting;
-+	struct vnic_cq *cq = &enic->cq[enic_cq_rq(enic, rq->index)];
-+	struct vnic_rx_bytes_counter *pkt_size_counter = &cq->pkt_size_counter;
-+	int index;
-+	u32 timer;
-+	u32 range_start;
-+	u32 traffic;
-+	u64 delta;
-+	ktime_t now = ktime_get();
-+
-+	delta = ktime_us_delta(now, cq->prev_ts);
-+	if (delta < ENIC_AIC_TS_BREAK)
-+		return;
-+	cq->prev_ts = now;
-+
-+	traffic = pkt_size_counter->large_pkt_bytes_cnt +
-+		  pkt_size_counter->small_pkt_bytes_cnt;
-+	/* The table takes Mbps
-+	 * traffic *= 8    => bits
-+	 * traffic *= (10^6 / delta)    => bps
-+	 * traffic /= 10^6     => Mbps
-+	 *
-+	 * Combining, traffic *= (8 / delta)
-+	 */
-+
-+	traffic <<= 3;
-+	traffic = delta > UINT_MAX ? 0 : traffic / (u32)delta;
-+
-+	for (index = 0; index < ENIC_MAX_COALESCE_TIMERS; index++)
-+		if (traffic < mod_table[index].rx_rate)
-+			break;
-+	range_start = (pkt_size_counter->small_pkt_bytes_cnt >
-+		       pkt_size_counter->large_pkt_bytes_cnt << 1) ?
-+		      rx_coal->small_pkt_range_start :
-+		      rx_coal->large_pkt_range_start;
-+	timer = range_start + ((rx_coal->range_end - range_start) *
-+			       mod_table[index].range_percent / 100);
-+	/* Damping */
-+	cq->tobe_rx_coal_timeval = (timer + cq->tobe_rx_coal_timeval) >> 1;
-+
-+	pkt_size_counter->large_pkt_bytes_cnt = 0;
-+	pkt_size_counter->small_pkt_bytes_cnt = 0;
-+}
-+
- static int enic_poll(struct napi_struct *napi, int budget)
- {
- 	struct net_device *netdev = napi->dev;
-@@ -1199,6 +1257,11 @@ static int enic_poll(struct napi_struct *napi, int budget)
- 
- 	if (err)
- 		rq_work_done = rq_work_to_do;
-+	if (enic->rx_coalesce_setting.use_adaptive_rx_coalesce)
-+		/* Call the function which refreshes the intr coalescing timer
-+		 * value based on the traffic.
-+		 */
-+		enic_calc_int_moderation(enic, &enic->rq[0]);
- 
- 	if (rq_work_done < rq_work_to_do) {
- 
-@@ -1207,70 +1270,14 @@ static int enic_poll(struct napi_struct *napi, int budget)
- 		 */
- 
- 		napi_complete(napi);
-+		if (enic->rx_coalesce_setting.use_adaptive_rx_coalesce)
-+			enic_set_int_moderation(enic, &enic->rq[0]);
- 		vnic_intr_unmask(&enic->intr[intr]);
- 	}
- 
- 	return rq_work_done;
- }
- 
--static void enic_set_int_moderation(struct enic *enic, struct vnic_rq *rq)
--{
--	unsigned int intr = enic_msix_rq_intr(enic, rq->index);
--	struct vnic_cq *cq = &enic->cq[enic_cq_rq(enic, rq->index)];
--	u32 timer = cq->tobe_rx_coal_timeval;
--
--	if (cq->tobe_rx_coal_timeval != cq->cur_rx_coal_timeval) {
--		vnic_intr_coalescing_timer_set(&enic->intr[intr], timer);
--		cq->cur_rx_coal_timeval = cq->tobe_rx_coal_timeval;
--	}
--}
--
--static void enic_calc_int_moderation(struct enic *enic, struct vnic_rq *rq)
--{
--	struct enic_rx_coal *rx_coal = &enic->rx_coalesce_setting;
--	struct vnic_cq *cq = &enic->cq[enic_cq_rq(enic, rq->index)];
--	struct vnic_rx_bytes_counter *pkt_size_counter = &cq->pkt_size_counter;
--	int index;
--	u32 timer;
--	u32 range_start;
--	u32 traffic;
--	u64 delta;
--	ktime_t now = ktime_get();
--
--	delta = ktime_us_delta(now, cq->prev_ts);
--	if (delta < ENIC_AIC_TS_BREAK)
--		return;
--	cq->prev_ts = now;
--
--	traffic = pkt_size_counter->large_pkt_bytes_cnt +
--		  pkt_size_counter->small_pkt_bytes_cnt;
--	/* The table takes Mbps
--	 * traffic *= 8    => bits
--	 * traffic *= (10^6 / delta)    => bps
--	 * traffic /= 10^6     => Mbps
--	 *
--	 * Combining, traffic *= (8 / delta)
--	 */
--
--	traffic <<= 3;
--	traffic = delta > UINT_MAX ? 0 : traffic / (u32)delta;
--
--	for (index = 0; index < ENIC_MAX_COALESCE_TIMERS; index++)
--		if (traffic < mod_table[index].rx_rate)
--			break;
--	range_start = (pkt_size_counter->small_pkt_bytes_cnt >
--		       pkt_size_counter->large_pkt_bytes_cnt << 1) ?
--		      rx_coal->small_pkt_range_start :
--		      rx_coal->large_pkt_range_start;
--	timer = range_start + ((rx_coal->range_end - range_start) *
--			       mod_table[index].range_percent / 100);
--	/* Damping */
--	cq->tobe_rx_coal_timeval = (timer + cq->tobe_rx_coal_timeval) >> 1;
--
--	pkt_size_counter->large_pkt_bytes_cnt = 0;
--	pkt_size_counter->small_pkt_bytes_cnt = 0;
--}
--
- #ifdef CONFIG_RFS_ACCEL
- static void enic_free_rx_cpu_rmap(struct enic *enic)
- {
-@@ -1407,10 +1414,8 @@ static int enic_poll_msix_rq(struct napi_struct *napi, int budget)
- 	if (err)
- 		work_done = work_to_do;
- 	if (enic->rx_coalesce_setting.use_adaptive_rx_coalesce)
--		/* Call the function which refreshes
--		 * the intr coalescing timer value based on
--		 * the traffic.  This is supported only in
--		 * the case of MSI-x mode
-+		/* Call the function which refreshes the intr coalescing timer
-+		 * value based on the traffic.
- 		 */
- 		enic_calc_int_moderation(enic, &enic->rq[rq]);
- 
-@@ -1569,12 +1574,6 @@ static void enic_set_rx_coal_setting(struct enic *enic)
- 	int index = -1;
- 	struct enic_rx_coal *rx_coal = &enic->rx_coalesce_setting;
- 
--	/* If intr mode is not MSIX, do not do adaptive coalescing */
--	if (VNIC_DEV_INTR_MODE_MSIX != vnic_dev_get_intr_mode(enic->vdev)) {
--		netdev_info(enic->netdev, "INTR mode is not MSIX, Not initializing adaptive coalescing");
--		return;
--	}
--
- 	/* 1. Read the link speed from fw
- 	 * 2. Pick the default range for the speed
- 	 * 3. Update it in enic->rx_coalesce_setting
--- 
-2.4.5
+On 15 July 2015 at 18:15, Erik Kline <ek@google.com> wrote:
+> All my tests pass with this applied to net-next/master.
+>
+> Many thanks!
+>
+> Acked-by: Erik Kline <ek@google.com>
+>
+> On 13 July 2015 at 23:28, YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=
+=E6=98=8E
+> <hideaki.yoshifuji@miraclelinux.com> wrote:
+>> Commit 9131f3de2 ("ipv6: Do not iterate over all interfaces when
+>> finding source address on specific interface.") did not properly
+>> update best source address available.  Plus, it introduced
+>> possible NULL pointer dereference.
+>>
+>> Bug was reported by Erik Kline <ek@google.com>.
+>> Based on patch proposed by Hajime Tazaki <thehajime@gmail.com>.
+>>
+>> Fixes: 9131f3de24db4dc12199aede7d931e6703e97f3b ("ipv6: Do not
+>>         iterate over all interfaces when finding source address
+>>         on specific interface.")
+>> Signed-off-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com=
+>
+>> ---
+>>  net/ipv6/addrconf.c | 30 ++++++++++++++++++------------
+>>  1 file changed, 18 insertions(+), 12 deletions(-)
+>>
+>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>> index 4ab74d5..4c9a024 100644
+>> --- a/net/ipv6/addrconf.c
+>> +++ b/net/ipv6/addrconf.c
+>> @@ -1358,14 +1358,15 @@ out:
+>>         return ret;
+>>  }
+>>
+>> -static void __ipv6_dev_get_saddr(struct net *net,
+>> -                                struct ipv6_saddr_dst *dst,
+>> -                                unsigned int prefs,
+>> -                                const struct in6_addr *saddr,
+>> -                                struct inet6_dev *idev,
+>> -                                struct ipv6_saddr_score *scores)
+>> +static int __ipv6_dev_get_saddr(struct net *net,
+>> +                               struct ipv6_saddr_dst *dst,
+>> +                               unsigned int prefs,
+>> +                               const struct in6_addr *saddr,
+>> +                               struct inet6_dev *idev,
+>> +                               struct ipv6_saddr_score *scores,
+>> +                               int hiscore_idx)
+>>  {
+>> -       struct ipv6_saddr_score *score =3D &scores[0], *hiscore =3D =
+&scores[1];
+>> +       struct ipv6_saddr_score *score =3D &scores[1 - hiscore_idx],=
+ *hiscore =3D &scores[hiscore_idx];
+>>
+>>         read_lock_bh(&idev->lock);
+>>         list_for_each_entry(score->ifa, &idev->addr_list, if_list) {
+>> @@ -1424,6 +1425,7 @@ static void __ipv6_dev_get_saddr(struct net *n=
+et,
+>>                                 in6_ifa_hold(score->ifa);
+>>
+>>                                 swap(hiscore, score);
+>> +                               hiscore_idx =3D 1 - hiscore_idx;
+>>
+>>                                 /* restore our iterator */
+>>                                 score->ifa =3D hiscore->ifa;
+>> @@ -1434,18 +1436,20 @@ static void __ipv6_dev_get_saddr(struct net =
+*net,
+>>         }
+>>  out:
+>>         read_unlock_bh(&idev->lock);
+>> +       return hiscore_idx;
+>>  }
+>>
+>>  int ipv6_dev_get_saddr(struct net *net, const struct net_device *ds=
+t_dev,
+>>                        const struct in6_addr *daddr, unsigned int pr=
+efs,
+>>                        struct in6_addr *saddr)
+>>  {
+>> -       struct ipv6_saddr_score scores[2], *hiscore =3D &scores[1];
+>> +       struct ipv6_saddr_score scores[2], *hiscore;
+>>         struct ipv6_saddr_dst dst;
+>>         struct inet6_dev *idev;
+>>         struct net_device *dev;
+>>         int dst_type;
+>>         bool use_oif_addr =3D false;
+>> +       int hiscore_idx =3D 0;
+>>
+>>         dst_type =3D __ipv6_addr_type(daddr);
+>>         dst.addr =3D daddr;
+>> @@ -1454,8 +1458,8 @@ int ipv6_dev_get_saddr(struct net *net, const =
+struct net_device *dst_dev,
+>>         dst.label =3D ipv6_addr_label(net, daddr, dst_type, dst.ifin=
+dex);
+>>         dst.prefs =3D prefs;
+>>
+>> -       hiscore->rule =3D -1;
+>> -       hiscore->ifa =3D NULL;
+>> +       scores[hiscore_idx].rule =3D -1;
+>> +       scores[hiscore_idx].ifa =3D NULL;
+>>
+>>         rcu_read_lock();
+>>
+>> @@ -1480,17 +1484,19 @@ int ipv6_dev_get_saddr(struct net *net, cons=
+t struct net_device *dst_dev,
+>>         }
+>>
+>>         if (use_oif_addr) {
+>> -               __ipv6_dev_get_saddr(net, &dst, prefs, saddr, idev, =
+scores);
+>> +               if (idev)
+>> +                       hiscore_idx =3D __ipv6_dev_get_saddr(net, &d=
+st, prefs, saddr, idev, scores, hiscore_idx);
+>>         } else {
+>>                 for_each_netdev_rcu(net, dev) {
+>>                         idev =3D __in6_dev_get(dev);
+>>                         if (!idev)
+>>                                 continue;
+>> -                       __ipv6_dev_get_saddr(net, &dst, prefs, saddr=
+, idev, scores);
+>> +                       hiscore_idx =3D __ipv6_dev_get_saddr(net, &d=
+st, prefs, saddr, idev, scores, hiscore_idx);
+>>                 }
+>>         }
+>>         rcu_read_unlock();
+>>
+>> +       hiscore =3D &scores[hiscore_idx];
+>>         if (!hiscore->ifa)
+>>                 return -EADDRNOTAVAIL;
+>>
+>> --
+>> 1.9.1
+>>
