@@ -1,29 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] fq_codel: fix a use-after-free
-Date: Wed, 15 Jul 2015 17:20:20 -0700 (PDT)
-Message-ID: <20150715.172020.1245902684197191732.davem@davemloft.net>
-References: <1436815807-25359-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] net: qlcnic: Deletion of unnecessary memset
+Date: Wed, 15 Jul 2015 17:20:46 -0700 (PDT)
+Message-ID: <20150715.172046.1479959081115644674.davem@davemloft.net>
+References: <fad6a2ad1e78d8e2624903524548f8d806bf1ef0.1436816968.git.christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.fastabend@gmail.com,
-	cwang@twopensource.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33891 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753516AbbGPAUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 20:20:21 -0400
-In-Reply-To: <1436815807-25359-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: shahed.shaikh@qlogic.com, Dept-GELinuxNICDev@qlogic.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: christophe.jaillet@wanadoo.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <fad6a2ad1e78d8e2624903524548f8d806bf1ef0.1436816968.git.christophe.jaillet@wanadoo.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Mon, 13 Jul 2015 12:30:07 -0700
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Mon, 13 Jul 2015 21:51:38 +0200
 
-> Fixes: 25331d6ce42b ("net: sched: implement qstat helper routines")
-> Cc: John Fastabend <john.fastabend@gmail.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
+> There is no need to memset memory allocated with vzalloc.
+> 
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
 Applied and queued up for -stable, thanks.
