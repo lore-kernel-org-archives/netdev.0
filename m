@@ -1,74 +1,51 @@
-From: Wolfgang Walter <linux@stwm.de>
-Subject: Re: sit: Set SKB_GSO_SIT bit when performing GRO
-Date: Thu, 16 Jul 2015 12:58:45 +0200
-Message-ID: <2115027.IFUsFvOUns@stwm.de>
-References: <17762800.UBb5paxXY3@h2o.as.studentenwerk.mhn.de> <2477915.Hv2mXUtnDZ@stwm.de> <20150716002350.GA7529@gondor.apana.org.au>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2 0/2] Avoid link dependency of dlm on sctp module
+Date: Thu, 16 Jul 2015 07:18:03 -0400
+Message-ID: <20150716111803.GA31148@hmsreliant.think-freely.org>
+References: <cover.1436891629.git.marcelo.leitner@gmail.com>
+ <20150715135714.GB24091@hmsreliant.think-freely.org>
+ <20150715.135918.1121936842089030351.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: marcelo.leitner@gmail.com, netdev@vger.kernel.org,
+	vyasevich@gmail.com, linux-sctp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:48144 "EHLO
-	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751572AbbGPK6r convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jul 2015 06:58:47 -0400
-In-Reply-To: <20150716002350.GA7529@gondor.apana.org.au>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55491 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753851AbbGPLSP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 07:18:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20150715.135918.1121936842089030351.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Donnerstag, 16. Juli 2015, 08:23:50 schrieb Herbert Xu:
-> On Wed, Jul 15, 2015 at 02:25:59PM +0200, Wolfgang Walter wrote:
-> > Yes. Switching TSO off and leaving GRO on works, too.
->=20
-> OK, could you please try this patch?
+On Wed, Jul 15, 2015 at 01:59:18PM -0700, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Wed, 15 Jul 2015 09:57:14 -0400
+> 
+> > Series
+> > Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+> I don't like this at all.
+> 
+> I know it's a pain in the ass to have this dependency on SCTP, but
+> calling exported functions is absolutely the right way to handle
+> this kind of situation.
 
-Patch works here.
+I have to disagree.  Its certainly true that a direct call from the kernel is
+the right current way to handle a need for functionality in an external module,
+but I think its important to offer a mechanism that allows for modules to not
+load functionality that they don't need at run time (that is to say, if dlm
+decides to use tcp rather than sctp, the sctp module shouldn't be loaded).
 
-Thanks,
+Its not a crisis in either case, but it sure would be nice to not load a module
+just because a symbol reference exists.
 
-Wolfgang
+Neil
 
->=20
-> ---8<---
-> We need to set the SKB_GSO_SIT bit if we detect a 6-in-4 tunnel
-> when doing GRO.  Otherwise we may throw a packet at TSO hardware
-> that doesn't know what to do with it.
->=20
-> Fixes: 19424e052fb4 ("sit: Add gro callbacks to sit_offload")
-> Reported-by: Wolfgang Walter <linux@stwm.de>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->=20
-> diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-> index e893cd1..1252eac 100644
-> --- a/net/ipv6/ip6_offload.c
-> +++ b/net/ipv6/ip6_offload.c
-> @@ -289,11 +289,21 @@ static struct packet_offload ipv6_packet_offloa=
-d
-> __read_mostly =3D { },
->  };
->=20
-> +static int sit_gro_complete(struct sk_buff *skb, int nhoff)
-> +{
-> +	int err =3D ipv6_gro_complete(skb, nhoff);
-> +
-> +	skb->encapsulation =3D 1;
-> +	skb_shinfo(skb)->gso_type |=3D SKB_GSO_SIT;
-> +
-> +	return err;
-> +}
-> +
->  static const struct net_offload sit_offload =3D {
->  	.callbacks =3D {
->  		.gso_segment	=3D ipv6_gso_segment,
->  		.gro_receive	=3D ipv6_gro_receive,
-> -		.gro_complete	=3D ipv6_gro_complete,
-> +		.gro_complete	=3D sit_gro_complete,
->  	},
->  };
-
---=20
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
