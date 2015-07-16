@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 13/13] tipc: reduce locking scope during packet reception
-Date: Thu, 16 Jul 2015 16:54:31 -0400
-Message-ID: <1437080071-6686-14-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 12/13] tipc: introduce node contact FSM
+Date: Thu, 16 Jul 2015 16:54:30 -0400
+Message-ID: <1437080071-6686-13-git-send-email-jon.maloy@ericsson.com>
 References: <1437080071-6686-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,1224 +10,459 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp102.biz.mail.bf1.yahoo.com ([98.139.221.61]:39394 "EHLO
+Received: from smtp102.biz.mail.bf1.yahoo.com ([98.139.221.61]:39374 "EHLO
 	smtp102.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756241AbbGPUyv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 16:54:51 -0400
+	by vger.kernel.org with ESMTP id S1756256AbbGPUyt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 16:54:49 -0400
 In-Reply-To: <1437080071-6686-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We convert packet/message reception according to the same principle
-we have been using for message sending and timeout handling:
+The logics for determining when a node is permitted to establish
+and maintain contact with its peer node becomes non-trivial in the
+presence of multiple parallel links that may come and go independently.
 
-We move the function tipc_rcv() to node.c, hence handling the initial
-packet reception at the link aggregation level. The function grabs
-the node lock, selects the receiving link, and accesses it via a new
-call tipc_link_rcv(). This function appends buffers to the input
-queue for delivery upwards, but it may also append outgoing packets
-to the xmit queue, just as we do during regular message sending. The
-latter will happen when buffers are forwarded from the link backlog,
-or when retransmission is requested.
+A known failure scenario is that one endpoint registers both its links
+to the peer lost, cleans up it binding table, and prepares for a table
+update once contact is re-establihed, while the other endpoint may
+see its links reset and re-established one by one, hence seeing
+no need to re-synchronize the binding table. To avoid this, a node
+must not allow re-establishing contact until it has confirmation that
+even the peer has lost both links.
 
-Upon return of this function, and after having released the node lock,
-tipc_rcv() delivers/tranmsits the contents of those queues, but it may
-also perform actions such as link activation or reset, as indicated by
-the return flags from the link.
+Currently, the mechanism for handling this consists of setting and
+resetting two state flags from different locations in the code. This
+solution is hard to understand and maintain. A closer analysis even
+reveals that it is not completely safe.
 
-This reduces the number of cpu cycles spent inside the node spinlock,
-and reduces contention on that lock.
+In this commit we do instead introduce an FSM that keeps track of
+the conditions for when the node can establish and maintain links.
+It has six states and four events, and is strictly based on explicit
+knowledge about the own node's and the peer node's contact states.
+Only events leading to state change are shown as edges in the figure
+below.
+
+                             +--------------+
+                             | SELF_UP/     |
+           +---------------->| PEER_COMING  |-----------------+
+    SELF_  |                 +--------------+                 |PEER_
+    ESTBL_ |                        |                         |ESTBL_
+    CONTACT|      SELF_LOST_CONTACT |                         |CONTACT
+           |                        v                         |
+           |                 +--------------+                 |
+           |      PEER_      | SELF_DOWN/   |     SELF_       |
+           |      LOST_   +--| PEER_LEAVING |<--+ LOST_       v
++-------------+   CONTACT |  +--------------+   | CONTACT  +-----------+
+| SELF_DOWN/  |<----------+                     +----------| SELF_UP/  |
+| PEER_DOWN   |<----------+                     +----------| PEER_UP   |
++-------------+   SELF_   |  +--------------+   | PEER_    +-----------+
+           |      LOST_   +--| SELF_LEAVING/|<--+ LOST_       A
+           |      CONTACT    | PEER_DOWN    |     CONTACT     |
+           |                 +--------------+                 |
+           |                         A                        |
+    PEER_  |       PEER_LOST_CONTACT |                        |SELF_
+    ESTBL_ |                         |                        |ESTBL_
+    CONTACT|                 +--------------+                 |CONTACT
+           +---------------->| PEER_UP/     |-----------------+
+                             | SELF_COMING  |
+                             +--------------+
 
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/bcast.c |  23 ++
- net/tipc/bcast.h |   1 +
- net/tipc/core.h  |   5 +
- net/tipc/link.c  | 673 +++++++++++++++++++++++++------------------------------
- net/tipc/link.h  |   6 +-
- net/tipc/msg.h   |  50 ++++-
- net/tipc/node.c  | 105 ++++++++-
- net/tipc/node.h  |   4 -
- 8 files changed, 478 insertions(+), 389 deletions(-)
+ net/tipc/link.c |  74 ++++++++++++++------------------
+ net/tipc/msg.h  |   7 +++
+ net/tipc/node.c | 130 +++++++++++++++++++++++++++++++++++++++++++++++++++++---
+ net/tipc/node.h |  28 +++++++++---
+ 4 files changed, 185 insertions(+), 54 deletions(-)
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index aab4e8d..8b010c9 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -316,6 +316,29 @@ void tipc_bclink_update_link_state(struct tipc_node *n_ptr,
- 	}
- }
- 
-+void tipc_bclink_sync_state(struct tipc_node *n, struct tipc_msg *hdr)
-+{
-+	u16 last = msg_last_bcast(hdr);
-+	int mtyp = msg_type(hdr);
-+
-+	if (unlikely(msg_user(hdr) != LINK_PROTOCOL))
-+		return;
-+	if (mtyp == STATE_MSG) {
-+		tipc_bclink_update_link_state(n, last);
-+		return;
-+	}
-+	/* Compatibility: older nodes don't know BCAST_PROTOCOL synchronization,
-+	 * and transfer synch info in LINK_PROTOCOL messages.
-+	 */
-+	if (tipc_node_is_up(n))
-+		return;
-+	if ((mtyp != RESET_MSG) && (mtyp != ACTIVATE_MSG))
-+		return;
-+	n->bclink.last_sent = last;
-+	n->bclink.last_in = last;
-+	n->bclink.oos_state = 0;
-+}
-+
- /**
-  * bclink_peek_nack - monitor retransmission requests sent by other nodes
-  *
-diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
-index 3c290a48..d74c69b 100644
---- a/net/tipc/bcast.h
-+++ b/net/tipc/bcast.h
-@@ -133,5 +133,6 @@ void tipc_bclink_wakeup_users(struct net *net);
- int tipc_nl_add_bc_link(struct net *net, struct tipc_nl_msg *msg);
- int tipc_nl_bc_link_set(struct net *net, struct nlattr *attrs[]);
- void tipc_bclink_input(struct net *net);
-+void tipc_bclink_sync_state(struct tipc_node *n, struct tipc_msg *msg);
- 
- #endif
-diff --git a/net/tipc/core.h b/net/tipc/core.h
-index 0fcf133..f4ed677 100644
---- a/net/tipc/core.h
-+++ b/net/tipc/core.h
-@@ -129,6 +129,11 @@ static inline int less(u16 left, u16 right)
- 	return less_eq(left, right) && (mod(right) != mod(left));
- }
- 
-+static inline int in_range(u16 val, u16 min, u16 max)
-+{
-+	return !less(val, min) && !more(val, max);
-+}
-+
- #ifdef CONFIG_SYSCTL
- int tipc_register_sysctl(void);
- void tipc_unregister_sysctl(void);
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index eaccf45..55b675d 100644
+index 5b4609b..eaccf45 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -77,6 +77,10 @@ static const struct nla_policy tipc_nl_prop_policy[TIPC_NLA_PROP_MAX + 1] = {
- };
+@@ -911,9 +911,13 @@ static void link_retransmit_failure(struct tipc_link *l_ptr,
  
- /*
-+ * Interval between NACKs when packets arrive out of order
-+ */
-+#define TIPC_NACK_INTV (TIPC_MIN_LINK_WIN * 2)
-+/*
-  * Out-of-range value for link session numbers
-  */
- #define WILDCARD_SESSION 0x10000
-@@ -123,22 +127,19 @@ static int link_establishing(struct tipc_link *l)
- 	return l->state == TIPC_LINK_ESTABLISHING;
- }
+ 	if (l_ptr->addr) {
+ 		/* Handle failure on standard link */
+-		link_print(l_ptr, "Resetting link\n");
++		link_print(l_ptr, "Resetting link ");
++		pr_info("Failed msg: usr %u, typ %u, len %u, err %u\n",
++			msg_user(msg), msg_type(msg), msg_size(msg),
++			msg_errcode(msg));
++		pr_info("sqno %u, prev: %x, src: %x\n",
++			msg_seqno(msg), msg_prevnode(msg), msg_orignode(msg));
+ 		tipc_link_reset(l_ptr);
+-
+ 	} else {
+ 		/* Handle failure on broadcast link */
+ 		struct tipc_node *n_ptr;
+@@ -1067,15 +1071,8 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b_ptr)
+ 		if (unlikely(!l_ptr))
+ 			goto unlock;
  
--static void link_handle_out_of_seq_msg(struct tipc_link *link,
--				       struct sk_buff *skb);
--static void tipc_link_proto_rcv(struct tipc_link *link,
--				struct sk_buff *skb);
--static void link_state_event(struct tipc_link *l_ptr, u32 event);
-+static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
-+			       struct sk_buff_head *xmitq);
- static void tipc_link_build_proto_msg(struct tipc_link *l, int mtyp, bool probe,
- 				      u16 rcvgap, int tolerance, int priority,
- 				      struct sk_buff_head *xmitq);
- static void link_reset_statistics(struct tipc_link *l_ptr);
- static void link_print(struct tipc_link *l_ptr, const char *str);
--static void tipc_link_sync_xmit(struct tipc_link *l);
-+static void tipc_link_build_bcast_sync_msg(struct tipc_link *l,
-+					   struct sk_buff_head *xmitq);
- static void tipc_link_sync_rcv(struct tipc_node *n, struct sk_buff *buf);
- static void tipc_link_input(struct tipc_link *l, struct sk_buff *skb);
- static bool tipc_data_input(struct tipc_link *l, struct sk_buff *skb);
- static bool tipc_link_failover_rcv(struct tipc_link *l, struct sk_buff **skb);
--static void link_activate(struct tipc_link *link);
+-		/* Verify that communication with node is currently allowed */
+-		if ((n_ptr->action_flags & TIPC_WAIT_PEER_LINKS_DOWN) &&
+-		    msg_user(msg) == LINK_PROTOCOL &&
+-		    (msg_type(msg) == RESET_MSG ||
+-		    msg_type(msg) == ACTIVATE_MSG) &&
+-		    !msg_redundant_link(msg))
+-			n_ptr->action_flags &= ~TIPC_WAIT_PEER_LINKS_DOWN;
+-
+-		if (tipc_node_blocked(n_ptr))
++		/* Is reception of this pkt permitted at the moment ? */
++		if (!tipc_node_filter_skb(n_ptr, msg))
+ 			goto unlock;
  
- /*
-  *  Simple link routines
-@@ -283,6 +284,26 @@ void tipc_link_delete_list(struct net *net, unsigned int bearer_id)
- 	rcu_read_unlock();
- }
+ 		/* Validate message sequence number info */
+@@ -1371,15 +1368,6 @@ static void tipc_link_proto_rcv(struct tipc_link *l_ptr,
+ 			if (less_eq(msg_session(msg), l_ptr->peer_session))
+ 				break; /* duplicate or old reset: ignore */
+ 		}
+-
+-		if (!msg_redundant_link(msg) && (link_working(l_ptr) ||
+-						 link_probing(l_ptr))) {
+-			/* peer has lost contact -- don't allow peer's links
+-			 * to reactivate before we recognize loss & clean up
+-			 */
+-			l_ptr->owner->action_flags |= TIPC_WAIT_OWN_LINKS_DOWN;
+-		}
+-
+ 		link_state_event(l_ptr, RESET_MSG);
  
-+/* tipc_link_build_bcast_sync_msg() - synchronize broadcast link endpoints.
-+ *
-+ * Give a newly added peer node the sequence number where it should
-+ * start receiving and acking broadcast packets.
-+ */
-+static void tipc_link_build_bcast_sync_msg(struct tipc_link *l,
-+					   struct sk_buff_head *xmitq)
-+{
-+	struct sk_buff *skb;
-+	struct sk_buff_head list;
-+
-+	skb = tipc_msg_create(BCAST_PROTOCOL, STATE_MSG, INT_H_SIZE,
-+			      0, l->addr, link_own_addr(l), 0, 0, 0);
-+	if (!skb)
-+		return;
-+	__skb_queue_head_init(&list);
-+	__skb_queue_tail(&list, skb);
-+	tipc_link_xmit(l, &list, xmitq);
-+}
-+
- /**
-  * tipc_link_fsm_evt - link finite state machine
-  * @l: pointer to link
-@@ -295,12 +316,13 @@ static int tipc_link_fsm_evt(struct tipc_link *l, int evt,
- 	int mtyp = 0, rc = 0;
- 	struct tipc_link *pl;
- 	enum {
--		LINK_RESET    = 1,
--		LINK_ACTIVATE = (1 << 1),
--		SND_PROBE     = (1 << 2),
--		SND_STATE     = (1 << 3),
--		SND_RESET     = (1 << 4),
--		SND_ACTIVATE  = (1 << 5)
-+		LINK_RESET     = 1,
-+		LINK_ACTIVATE  = (1 << 1),
-+		SND_PROBE      = (1 << 2),
-+		SND_STATE      = (1 << 3),
-+		SND_RESET      = (1 << 4),
-+		SND_ACTIVATE   = (1 << 5),
-+		SND_BCAST_SYNC = (1 << 6)
- 	} actions = 0;
+ 		/* fall thru' */
+@@ -1408,6 +1396,8 @@ static void tipc_link_proto_rcv(struct tipc_link *l_ptr,
+ 		l_ptr->peer_session = msg_session(msg);
+ 		l_ptr->peer_bearer_id = msg_bearer_id(msg);
  
- 	if (l->exec_mode == TIPC_LINK_BLOCKED)
-@@ -352,8 +374,8 @@ static int tipc_link_fsm_evt(struct tipc_link *l, int evt,
- 			if (pl && link_probing(pl))
- 				break;
- 			actions |= LINK_ACTIVATE;
--			if (l->owner->working_links == 1)
--				tipc_link_sync_xmit(l);
-+			if (!l->owner->working_links)
-+				actions |= SND_BCAST_SYNC;
++		if (!msg_peer_is_up(msg))
++			tipc_node_fsm_evt(l_ptr->owner, PEER_LOST_CONTACT_EVT);
+ 		if (msg_type(msg) == ACTIVATE_MSG)
+ 			link_state_event(l_ptr, ACTIVATE_MSG);
+ 		break;
+@@ -1419,11 +1409,11 @@ static void tipc_link_proto_rcv(struct tipc_link *l_ptr,
+ 
+ 		if (msg_linkprio(msg) &&
+ 		    (msg_linkprio(msg) != l_ptr->priority)) {
+-			pr_debug("%s<%s>, priority change %u->%u\n",
+-				 link_rst_msg, l_ptr->name,
+-				 l_ptr->priority, msg_linkprio(msg));
++			pr_info("%s<%s>, priority change %u->%u\n",
++				link_rst_msg, l_ptr->name,
++				l_ptr->priority, msg_linkprio(msg));
+ 			l_ptr->priority = msg_linkprio(msg);
+-			tipc_link_reset(l_ptr); /* Enforce change to take effect */
++			tipc_link_reset(l_ptr);
  			break;
- 		case PEER_RESET_EVT:
- 			l->state = TIPC_LINK_ESTABLISHING;
-@@ -374,8 +396,8 @@ static int tipc_link_fsm_evt(struct tipc_link *l, int evt,
- 			if (pl && link_probing(pl))
- 				break;
- 			actions |= LINK_ACTIVATE;
--			if (l->owner->working_links == 1)
--				tipc_link_sync_xmit(l);
-+			if (!l->owner->working_links)
-+				actions |= SND_BCAST_SYNC;
- 			break;
- 		case PEER_RESET_EVT:
- 			break;
-@@ -408,6 +430,8 @@ static int tipc_link_fsm_evt(struct tipc_link *l, int evt,
- 	if (actions & (SND_PROBE | SND_STATE | SND_RESET | SND_ACTIVATE))
- 		tipc_link_build_proto_msg(l, mtyp, actions & SND_PROBE,
- 					  0, 0, 0, xmitq);
-+	if (actions & SND_BCAST_SYNC)
-+		tipc_link_build_bcast_sync_msg(l, xmitq);
- 	return rc;
- }
+ 		}
  
-@@ -605,12 +629,14 @@ void tipc_link_reset(struct tipc_link *l_ptr)
- 	l_ptr->reasm_buf = NULL;
- 	l_ptr->rcv_unacked = 0;
- 	l_ptr->snd_nxt = 1;
-+	l_ptr->rcv_nxt = 1;
- 	l_ptr->silent_intv_cnt = 0;
-+	l_ptr->stats.recv_info = 0;
- 	l_ptr->stale_count = 0;
- 	link_reset_statistics(l_ptr);
- }
+@@ -1446,15 +1436,18 @@ static void tipc_link_proto_rcv(struct tipc_link *l_ptr,
+ 			tipc_bclink_update_link_state(l_ptr->owner,
+ 						      msg_last_bcast(msg));
  
--static void link_activate(struct tipc_link *link)
-+void tipc_link_activate(struct tipc_link *link)
- {
- 	struct tipc_node *node = link->owner;
- 
-@@ -624,36 +650,6 @@ static void link_activate(struct tipc_link *link)
- }
- 
- /**
-- * link_state_event - link finite state machine
-- * @l_ptr: pointer to link
-- * @event: state machine event to process
-- */
--static void link_state_event(struct tipc_link *l, unsigned int evt)
--{
--	int rc;
--	struct sk_buff_head xmitq;
--	struct sk_buff *skb;
--
--	if (l->exec_mode == TIPC_LINK_BLOCKED)
--		return;
--
--	__skb_queue_head_init(&xmitq);
--
--	rc = tipc_link_fsm_evt(l, evt, &xmitq);
--
--	if (rc & TIPC_LINK_UP_EVT)
--		link_activate(l);
--
--	if (rc & TIPC_LINK_DOWN_EVT)
--		tipc_link_reset(l);
--
--	skb = __skb_dequeue(&xmitq);
--	if (!skb)
--		return;
--	tipc_bearer_send(l->owner->net, l->bearer_id, skb, &l->media_addr);
--}
--
--/**
-  * __tipc_link_xmit(): same as tipc_link_xmit, but destlink is known & locked
-  * @link: link to use
-  * @list: chain of buffers containing message
-@@ -808,30 +804,6 @@ static int __tipc_link_xmit_skb(struct tipc_link *link, struct sk_buff *skb)
- }
- 
- /*
-- * tipc_link_sync_xmit - synchronize broadcast link endpoints.
-- *
-- * Give a newly added peer node the sequence number where it should
-- * start receiving and acking broadcast packets.
-- *
-- * Called with node locked
-- */
--static void tipc_link_sync_xmit(struct tipc_link *link)
--{
--	struct sk_buff *skb;
--	struct tipc_msg *msg;
--
--	skb = tipc_buf_acquire(INT_H_SIZE);
--	if (!skb)
--		return;
--
--	msg = buf_msg(skb);
--	tipc_msg_init(link_own_addr(link), msg, BCAST_PROTOCOL, STATE_MSG,
--		      INT_H_SIZE, link->addr);
--	msg_set_last_bcast(msg, link->owner->bclink.acked);
--	__tipc_link_xmit_skb(link, skb);
--}
--
--/*
-  * tipc_link_sync_rcv - synchronize broadcast link endpoints.
-  * Receive the sequence number where we should start receiving and
-  * acking broadcast packets from a newly added peer node, and open
-@@ -881,6 +853,34 @@ void tipc_link_push_packets(struct tipc_link *link)
- 	link->snd_nxt = seqno;
- }
- 
-+void tipc_link_advance_backlog(struct tipc_link *l, struct sk_buff_head *xmitq)
-+{
-+	struct sk_buff *skb, *_skb;
-+	struct tipc_msg *hdr;
-+	u16 seqno = l->snd_nxt;
-+	u16 ack = l->rcv_nxt - 1;
+-		if (rec_gap || (msg_probe(msg))) {
++		if (rec_gap || (msg_probe(msg)))
+ 			tipc_link_proto_xmit(l_ptr, STATE_MSG, 0,
+ 					     rec_gap, 0, 0);
+-		}
 +
-+	while (skb_queue_len(&l->transmq) < l->window) {
-+		skb = skb_peek(&l->backlogq);
-+		if (!skb)
-+			break;
-+		_skb = skb_clone(skb, GFP_ATOMIC);
-+		if (!_skb)
-+			break;
-+		__skb_dequeue(&l->backlogq);
-+		hdr = buf_msg(skb);
-+		l->backlog[msg_importance(hdr)].len--;
-+		__skb_queue_tail(&l->transmq, skb);
-+		__skb_queue_tail(xmitq, _skb);
-+		msg_set_ack(hdr, ack);
-+		msg_set_seqno(hdr, seqno);
-+		msg_set_bcast_ack(hdr, l->owner->bclink.last_in);
-+		l->rcv_unacked = 0;
-+		seqno++;
-+	}
-+	l->snd_nxt = seqno;
-+}
-+
- void tipc_link_reset_all(struct tipc_node *node)
- {
- 	char addr_string[16];
-@@ -978,6 +978,41 @@ void tipc_link_retransmit(struct tipc_link *l_ptr, struct sk_buff *skb,
+ 		if (msg_seq_gap(msg)) {
+ 			l_ptr->stats.recv_nacks++;
+ 			tipc_link_retransmit(l_ptr, skb_peek(&l_ptr->transmq),
+ 					     msg_seq_gap(msg));
+ 		}
++		if (tipc_link_is_up(l_ptr))
++			tipc_node_fsm_evt(l_ptr->owner,
++					  PEER_ESTABL_CONTACT_EVT);
+ 		break;
  	}
- }
+ exit:
+@@ -1478,10 +1471,6 @@ static void tipc_link_build_proto_msg(struct tipc_link *l, int mtyp, bool probe,
+ 	if (l->exec_mode == TIPC_LINK_BLOCKED)
+ 		return;
  
-+static int tipc_link_retransm(struct tipc_link *l, int retransm,
-+			      struct sk_buff_head *xmitq)
-+{
-+	struct sk_buff *_skb, *skb = skb_peek(&l->transmq);
-+	struct tipc_msg *hdr;
-+
-+	if (!skb)
-+		return 0;
-+
-+	/* Detect repeated retransmit failures on same packet */
-+	if (likely(l->last_retransm != buf_seqno(skb))) {
-+		l->last_retransm = buf_seqno(skb);
-+		l->stale_count = 1;
-+	} else if (++l->stale_count > 100) {
-+		link_retransmit_failure(l, skb);
-+		return TIPC_LINK_DOWN_EVT;
-+	}
-+	skb_queue_walk(&l->transmq, skb) {
-+		if (!retransm)
-+			return 0;
-+		hdr = buf_msg(skb);
-+		_skb = __pskb_copy(skb, MIN_H_SIZE, GFP_ATOMIC);
-+		if (!_skb)
-+			return 0;
-+		hdr = buf_msg(_skb);
-+		msg_set_ack(hdr, l->rcv_nxt - 1);
-+		msg_set_bcast_ack(hdr, l->owner->bclink.last_in);
-+		_skb->priority = TC_PRIO_CONTROL;
-+		__skb_queue_tail(xmitq, _skb);
-+		retransm--;
-+		l->stats.retransmitted++;
-+	}
-+	return 0;
-+}
-+
- /* link_synch(): check if all packets arrived before the synch
-  *               point have been consumed
-  * Returns true if the parallel links are synched, otherwise false
-@@ -1004,155 +1039,6 @@ synched:
- 	return true;
- }
- 
--static void link_retrieve_defq(struct tipc_link *link,
--			       struct sk_buff_head *list)
--{
--	u16 seq_no;
--
--	if (skb_queue_empty(&link->deferdq))
+-	/* Abort non-RESET send if communication with node is prohibited */
+-	if ((tipc_node_blocked(l->owner)) && (mtyp != RESET_MSG))
 -		return;
 -
--	seq_no = buf_seqno(skb_peek(&link->deferdq));
--	if (seq_no == link->rcv_nxt)
--		skb_queue_splice_tail_init(&link->deferdq, list);
--}
--
--/**
-- * tipc_rcv - process TIPC packets/messages arriving from off-node
-- * @net: the applicable net namespace
-- * @skb: TIPC packet
-- * @b_ptr: pointer to bearer message arrived on
-- *
-- * Invoked with no locks held.  Bearer pointer must point to a valid bearer
-- * structure (i.e. cannot be NULL), but bearer can be inactive.
-- */
--void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b_ptr)
--{
--	struct tipc_net *tn = net_generic(net, tipc_net_id);
--	struct sk_buff_head head;
--	struct tipc_node *n_ptr;
--	struct tipc_link *l_ptr;
--	struct sk_buff *skb1, *tmp;
--	struct tipc_msg *msg;
--	u16 seq_no;
--	u16 ackd;
--	u32 released;
--
--	skb2list(skb, &head);
--
--	while ((skb = __skb_dequeue(&head))) {
--		/* Ensure message is well-formed */
--		if (unlikely(!tipc_msg_validate(skb)))
--			goto discard;
--
--		/* Handle arrival of a non-unicast link message */
--		msg = buf_msg(skb);
--		if (unlikely(msg_non_seq(msg))) {
--			if (msg_user(msg) ==  LINK_CONFIG)
--				tipc_disc_rcv(net, skb, b_ptr);
--			else
--				tipc_bclink_rcv(net, skb);
--			continue;
--		}
--
--		/* Discard unicast link messages destined for another node */
--		if (unlikely(!msg_short(msg) &&
--			     (msg_destnode(msg) != tn->own_addr)))
--			goto discard;
--
--		/* Locate neighboring node that sent message */
--		n_ptr = tipc_node_find(net, msg_prevnode(msg));
--		if (unlikely(!n_ptr))
--			goto discard;
--
--		tipc_node_lock(n_ptr);
--		/* Locate unicast link endpoint that should handle message */
--		l_ptr = n_ptr->links[b_ptr->identity].link;
--		if (unlikely(!l_ptr))
--			goto unlock;
--
--		/* Is reception of this pkt permitted at the moment ? */
--		if (!tipc_node_filter_skb(n_ptr, msg))
--			goto unlock;
--
--		/* Validate message sequence number info */
--		seq_no = msg_seqno(msg);
--		ackd = msg_ack(msg);
--
--		/* Release acked messages */
--		if (unlikely(n_ptr->bclink.acked != msg_bcast_ack(msg)))
--			tipc_bclink_acknowledge(n_ptr, msg_bcast_ack(msg));
--
--		released = 0;
--		skb_queue_walk_safe(&l_ptr->transmq, skb1, tmp) {
--			if (more(buf_seqno(skb1), ackd))
--				break;
--			 __skb_unlink(skb1, &l_ptr->transmq);
--			 kfree_skb(skb1);
--			 released = 1;
--		}
--
--		/* Try sending any messages link endpoint has pending */
--		if (unlikely(skb_queue_len(&l_ptr->backlogq)))
--			tipc_link_push_packets(l_ptr);
--
--		if (released && !skb_queue_empty(&l_ptr->wakeupq))
--			link_prepare_wakeup(l_ptr);
--
--		/* Process the incoming packet */
--		if (unlikely(!link_working(l_ptr))) {
--			if (msg_user(msg) == LINK_PROTOCOL) {
--				tipc_link_proto_rcv(l_ptr, skb);
--				link_retrieve_defq(l_ptr, &head);
--				skb = NULL;
--				goto unlock;
--			}
--
--			/* Traffic message. Conditionally activate link */
--			link_state_event(l_ptr, TRAFFIC_EVT);
--
--			if (link_working(l_ptr)) {
--				/* Re-insert buffer in front of queue */
--				__skb_queue_head(&head, skb);
--				skb = NULL;
--				goto unlock;
--			}
--			goto unlock;
--		}
--
--		/* Link is now in state TIPC_LINK_WORKING */
--		if (unlikely(seq_no != l_ptr->rcv_nxt)) {
--			link_handle_out_of_seq_msg(l_ptr, skb);
--			link_retrieve_defq(l_ptr, &head);
--			skb = NULL;
--			goto unlock;
--		}
--		l_ptr->silent_intv_cnt = 0;
--
--		/* Synchronize with parallel link if applicable */
--		if (unlikely((l_ptr->exec_mode == TIPC_LINK_TUNNEL) &&
--			     !msg_dup(msg))) {
--			if (!link_synch(l_ptr))
--				goto unlock;
--		}
--		l_ptr->rcv_nxt++;
--		if (unlikely(!skb_queue_empty(&l_ptr->deferdq)))
--			link_retrieve_defq(l_ptr, &head);
--		if (unlikely(++l_ptr->rcv_unacked >= TIPC_MIN_LINK_WIN)) {
--			l_ptr->stats.sent_acks++;
--			tipc_link_proto_xmit(l_ptr, STATE_MSG, 0, 0, 0, 0);
--		}
--		tipc_link_input(l_ptr, skb);
--		skb = NULL;
--unlock:
--		tipc_node_unlock(n_ptr);
--		tipc_node_put(n_ptr);
--discard:
--		if (unlikely(skb))
--			kfree_skb(skb);
--	}
--}
--
- /* tipc_data_input - deliver data and name distr msgs to upper layer
-  *
-  * Consumes buffer if message is of right type
-@@ -1206,9 +1092,6 @@ static void tipc_link_input(struct tipc_link *link, struct sk_buff *skb)
- 	struct sk_buff *iskb;
- 	int pos = 0;
- 
--	if (likely(tipc_data_input(link, skb)))
--		return;
--
- 	switch (msg_user(msg)) {
- 	case TUNNEL_PROTOCOL:
- 		if (msg_dup(msg)) {
-@@ -1247,6 +1130,110 @@ static void tipc_link_input(struct tipc_link *link, struct sk_buff *skb)
- 	};
+ 	msg_set_type(hdr, mtyp);
+ 	msg_set_net_plane(hdr, l->net_plane);
+ 	msg_set_bcast_ack(hdr, l->owner->bclink.last_in);
+@@ -1799,27 +1788,28 @@ static void link_reset_statistics(struct tipc_link *l_ptr)
+ 	l_ptr->stats.recv_info = l_ptr->rcv_nxt;
  }
  
-+static bool tipc_link_release_pkts(struct tipc_link *l, u16 acked)
-+{
-+	bool released = false;
-+	struct sk_buff *skb, *tmp;
-+
-+	skb_queue_walk_safe(&l->transmq, skb, tmp) {
-+		if (more(buf_seqno(skb), acked))
-+			break;
-+		__skb_unlink(skb, &l->transmq);
-+		kfree_skb(skb);
-+		released = true;
-+	}
-+	return released;
-+}
-+
-+/* tipc_link_rcv - process TIPC packets/messages arriving from off-node
-+ * @link: the link that should handle the message
-+ * @skb: TIPC packet
-+ * @xmitq: queue to place packets to be sent after this call
-+ */
-+int tipc_link_rcv(struct tipc_link *l, struct sk_buff *skb,
-+		  struct sk_buff_head *xmitq)
-+{
-+	struct sk_buff_head *arrvq = &l->deferdq;
-+	struct sk_buff *tmp;
-+	struct tipc_msg *hdr;
-+	u16 seqno, rcv_nxt;
-+	int rc = 0;
-+
-+	if (unlikely(!__tipc_skb_queue_sorted(arrvq, skb))) {
-+		if (!(skb_queue_len(arrvq) % TIPC_NACK_INTV))
-+			tipc_link_build_proto_msg(l, STATE_MSG, 0,
-+						  0, 0, 0, xmitq);
-+		return rc;
-+	}
-+
-+	skb_queue_walk_safe(arrvq, skb, tmp) {
-+		hdr = buf_msg(skb);
-+
-+		/* Verify and update link state */
-+		if (unlikely(msg_user(hdr) == LINK_PROTOCOL)) {
-+			__skb_dequeue(arrvq);
-+			rc |= tipc_link_proto_rcv(l, skb, xmitq);
-+			continue;
-+		}
-+
-+		if (unlikely(!link_working(l))) {
-+			rc |= tipc_link_fsm_evt(l, TRAFFIC_EVT, xmitq);
-+			if (!link_working(l)) {
-+				kfree_skb(__skb_dequeue(arrvq));
-+				return rc;
-+			}
-+		}
-+
-+		l->silent_intv_cnt = 0;
-+
-+		/* Forward queues and wake up waiting users */
-+		if (likely(tipc_link_release_pkts(l, msg_ack(hdr)))) {
-+			tipc_link_advance_backlog(l, xmitq);
-+			if (unlikely(!skb_queue_empty(&l->wakeupq)))
-+				link_prepare_wakeup(l);
-+		}
-+
-+		/* Defer reception if there is a gap in the sequence */
-+		seqno = msg_seqno(hdr);
-+		rcv_nxt = l->rcv_nxt;
-+		if (unlikely(less(rcv_nxt, seqno))) {
-+			l->stats.deferred_recv++;
-+			return rc;
-+		}
-+
-+		__skb_dequeue(arrvq);
-+
-+		/* Drop if packet already received */
-+		if (unlikely(more(rcv_nxt, seqno))) {
-+			l->stats.duplicates++;
-+			kfree_skb(skb);
-+			return rc;
-+		}
-+
-+		/* Synchronize with parallel link if applicable */
-+		if (unlikely(l->exec_mode == TIPC_LINK_TUNNEL))
-+			if (!msg_dup(hdr) && !link_synch(l)) {
-+				kfree_skb(skb);
-+				return rc;
-+			}
-+
-+		/* Packet can be delivered */
-+		l->rcv_nxt++;
-+		l->stats.recv_info++;
-+		if (unlikely(!tipc_data_input(l, skb)))
-+			tipc_link_input(l, skb);
-+
-+		/* Ack at regular intervals */
-+		if (unlikely(++l->rcv_unacked >= TIPC_MIN_LINK_WIN)) {
-+			l->rcv_unacked = 0;
-+			l->stats.sent_acks++;
-+			tipc_link_build_proto_msg(l, STATE_MSG,
-+						  0, 0, 0, 0, xmitq);
-+		}
-+	}
-+	return rc;
-+}
-+
- /**
-  * tipc_link_defer_pkt - Add out-of-sequence message to deferred reception queue
-  *
-@@ -1287,41 +1274,6 @@ u32 tipc_link_defer_pkt(struct sk_buff_head *list, struct sk_buff *skb)
- }
- 
- /*
-- * link_handle_out_of_seq_msg - handle arrival of out-of-sequence packet
-- */
--static void link_handle_out_of_seq_msg(struct tipc_link *l_ptr,
--				       struct sk_buff *buf)
--{
--	u32 seq_no = buf_seqno(buf);
--
--	if (likely(msg_user(buf_msg(buf)) == LINK_PROTOCOL)) {
--		tipc_link_proto_rcv(l_ptr, buf);
--		return;
--	}
--
--	/* Record OOS packet arrival */
--	l_ptr->silent_intv_cnt = 0;
--
--	/*
--	 * Discard packet if a duplicate; otherwise add it to deferred queue
--	 * and notify peer of gap as per protocol specification
--	 */
--	if (less(seq_no, l_ptr->rcv_nxt)) {
--		l_ptr->stats.duplicates++;
--		kfree_skb(buf);
--		return;
--	}
--
--	if (tipc_link_defer_pkt(&l_ptr->deferdq, buf)) {
--		l_ptr->stats.deferred_recv++;
--		if ((skb_queue_len(&l_ptr->deferdq) % TIPC_MIN_LINK_WIN) == 1)
--			tipc_link_proto_xmit(l_ptr, STATE_MSG, 0, 0, 0, 0);
--	} else {
--		l_ptr->stats.duplicates++;
--	}
--}
--
--/*
-  * Send protocol message to the other endpoint.
-  */
- void tipc_link_proto_xmit(struct tipc_link *l, u32 msg_typ, int probe_msg,
-@@ -1341,119 +1293,6 @@ void tipc_link_proto_xmit(struct tipc_link *l, u32 msg_typ, int probe_msg,
- 	kfree_skb(skb);
- }
- 
--/*
-- * Receive protocol message :
-- * Note that network plane id propagates through the network, and may
-- * change at any time. The node with lowest address rules
-- */
--static void tipc_link_proto_rcv(struct tipc_link *l_ptr,
--				struct sk_buff *buf)
--{
--	u32 rec_gap = 0;
--	u32 msg_tol;
--	struct tipc_msg *msg = buf_msg(buf);
--
--	if (l_ptr->exec_mode == TIPC_LINK_BLOCKED)
--		goto exit;
--
--	if (l_ptr->net_plane != msg_net_plane(msg))
--		if (link_own_addr(l_ptr) > msg_prevnode(msg))
--			l_ptr->net_plane = msg_net_plane(msg);
--
--	switch (msg_type(msg)) {
--
--	case RESET_MSG:
--		if (!link_probing(l_ptr) &&
--		    (l_ptr->peer_session != WILDCARD_SESSION)) {
--			if (less_eq(msg_session(msg), l_ptr->peer_session))
--				break; /* duplicate or old reset: ignore */
--		}
--		link_state_event(l_ptr, RESET_MSG);
--
--		/* fall thru' */
--	case ACTIVATE_MSG:
--		/* Update link settings according other endpoint's values */
--		strcpy((strrchr(l_ptr->name, ':') + 1), (char *)msg_data(msg));
--
--		msg_tol = msg_link_tolerance(msg);
--		if (msg_tol > l_ptr->tolerance)
--			l_ptr->tolerance = msg_tol;
--
--		if (msg_linkprio(msg) > l_ptr->priority)
--			l_ptr->priority = msg_linkprio(msg);
--
--		if (l_ptr->mtu > msg_max_pkt(msg))
--			l_ptr->mtu = msg_max_pkt(msg);
--
--		/* Synchronize broadcast link info, if not done previously */
--		if (!tipc_node_is_up(l_ptr->owner)) {
--			l_ptr->owner->bclink.last_sent =
--				l_ptr->owner->bclink.last_in =
--				msg_last_bcast(msg);
--			l_ptr->owner->bclink.oos_state = 0;
--		}
--
--		l_ptr->peer_session = msg_session(msg);
--		l_ptr->peer_bearer_id = msg_bearer_id(msg);
--
--		if (!msg_peer_is_up(msg))
--			tipc_node_fsm_evt(l_ptr->owner, PEER_LOST_CONTACT_EVT);
--		if (msg_type(msg) == ACTIVATE_MSG)
--			link_state_event(l_ptr, ACTIVATE_MSG);
--		break;
--	case STATE_MSG:
--
--		msg_tol = msg_link_tolerance(msg);
--		if (msg_tol)
--			l_ptr->tolerance = msg_tol;
--
--		if (msg_linkprio(msg) &&
--		    (msg_linkprio(msg) != l_ptr->priority)) {
--			pr_info("%s<%s>, priority change %u->%u\n",
--				link_rst_msg, l_ptr->name,
--				l_ptr->priority, msg_linkprio(msg));
--			l_ptr->priority = msg_linkprio(msg);
--			tipc_link_reset(l_ptr);
--			break;
--		}
--
--		/* Record reception; force mismatch at next timeout: */
--		l_ptr->silent_intv_cnt = 0;
--
--		link_state_event(l_ptr, TRAFFIC_EVT);
--		l_ptr->stats.recv_states++;
--		if (link_resetting(l_ptr))
--			break;
--
--		if (less_eq(l_ptr->rcv_nxt, msg_next_sent(msg)))
--			rec_gap = mod(msg_next_sent(msg) - l_ptr->rcv_nxt);
--
--		if (msg_probe(msg))
--			l_ptr->stats.recv_probes++;
--
--		/* Protocol message before retransmits, reduce loss risk */
--		if (l_ptr->owner->bclink.recv_permitted)
--			tipc_bclink_update_link_state(l_ptr->owner,
--						      msg_last_bcast(msg));
--
--		if (rec_gap || (msg_probe(msg)))
--			tipc_link_proto_xmit(l_ptr, STATE_MSG, 0,
--					     rec_gap, 0, 0);
--
--		if (msg_seq_gap(msg)) {
--			l_ptr->stats.recv_nacks++;
--			tipc_link_retransmit(l_ptr, skb_peek(&l_ptr->transmq),
--					     msg_seq_gap(msg));
--		}
--		if (tipc_link_is_up(l_ptr))
--			tipc_node_fsm_evt(l_ptr->owner,
--					  PEER_ESTABL_CONTACT_EVT);
--		break;
--	}
--exit:
--	kfree_skb(buf);
--}
--
- /* tipc_link_build_proto_msg: prepare link protocol message for transmission
-  */
- static void tipc_link_build_proto_msg(struct tipc_link *l, int mtyp, bool probe,
-@@ -1727,6 +1566,96 @@ exit:
- 	return *skb;
- }
- 
-+/* tipc_link_proto_rcv(): receive link level protocol message :
-+ * Note that network plane id propagates through the network, and may
-+ * change at any time. The node with lowest numerical id determines
-+ * network plane
-+ */
-+static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
-+			       struct sk_buff_head *xmitq)
-+{
-+	struct tipc_msg *hdr = buf_msg(skb);
-+	u16 rcvgap = 0;
-+	u16 nacked_gap = msg_seq_gap(hdr);
-+	u16 peers_snd_nxt =  msg_next_sent(hdr);
-+	u16 peers_tol = msg_link_tolerance(hdr);
-+	u16 peers_prio = msg_linkprio(hdr);
-+	char *if_name;
-+	int rc = 0;
-+
-+	if (l->exec_mode == TIPC_LINK_BLOCKED)
-+		goto exit;
-+
-+	if (link_own_addr(l) > msg_prevnode(hdr))
-+		l->net_plane = msg_net_plane(hdr);
-+
-+	switch (msg_type(hdr)) {
-+	case RESET_MSG:
-+
-+		/* Ignore duplicate RESET with old session number */
-+		if ((less_eq(msg_session(hdr), l->peer_session)) &&
-+		    (l->peer_session != WILDCARD_SESSION))
-+			break;
-+		/* fall thru' */
-+	case ACTIVATE_MSG:
-+
-+		/* Complete own link name with peer's interface name */
-+		if_name =  strrchr(l->name, ':') + 1;
-+		if (sizeof(l->name) - (if_name - l->name) <= TIPC_MAX_IF_NAME)
-+			break;
-+		if (msg_data_sz(hdr) < TIPC_MAX_IF_NAME)
-+			break;
-+		strncpy(if_name, msg_data(hdr),	TIPC_MAX_IF_NAME);
-+
-+		/* Update own tolerance if peer indicates a non-zero value */
-+		if (in_range(peers_tol, TIPC_MIN_LINK_TOL, TIPC_MAX_LINK_TOL))
-+			l->tolerance = peers_tol;
-+
-+		/* Update own priority if peer's priority is higher */
-+		if (in_range(peers_prio, l->priority + 1, TIPC_MAX_LINK_PRI))
-+			l->priority = peers_prio;
-+
-+		l->peer_session = msg_session(hdr);
-+		l->peer_bearer_id = msg_bearer_id(hdr);
-+		rc = tipc_link_fsm_evt(l, msg_type(hdr), xmitq);
-+		if (l->mtu > msg_max_pkt(hdr))
-+			l->mtu = msg_max_pkt(hdr);
-+		break;
-+	case STATE_MSG:
-+		/* Update own tolerance if peer indicates a non-zero value */
-+		if (in_range(peers_tol, TIPC_MIN_LINK_TOL, TIPC_MAX_LINK_TOL))
-+			l->tolerance = peers_tol;
-+
-+		l->silent_intv_cnt = 0;
-+		l->stats.recv_states++;
-+		if (msg_probe(hdr))
-+			l->stats.recv_probes++;
-+		rc = tipc_link_fsm_evt(l, TRAFFIC_EVT, xmitq);
-+		if (!tipc_link_is_up(l))
-+			break;
-+
-+		/* Has peer sent packets we haven't received yet ? */
-+		if (more(peers_snd_nxt, l->rcv_nxt))
-+			rcvgap = peers_snd_nxt - l->rcv_nxt;
-+		if (rcvgap || (msg_probe(hdr)))
-+			tipc_link_build_proto_msg(l, STATE_MSG, 0, rcvgap,
-+						  0, l->mtu, xmitq);
-+		tipc_link_release_pkts(l, msg_ack(hdr));
-+
-+		/* If NACK, retransmit will now start at right position */
-+		if (nacked_gap) {
-+			rc |= tipc_link_retransm(l, nacked_gap, xmitq);
-+			l->stats.recv_nacks++;
-+		}
-+		tipc_link_advance_backlog(l, xmitq);
-+		if (unlikely(!skb_queue_empty(&l->wakeupq)))
-+			link_prepare_wakeup(l);
-+	}
-+exit:
-+	kfree_skb(skb);
-+	return rc;
-+}
-+
- void tipc_link_set_queue_limits(struct tipc_link *l, u32 win)
+-static void link_print(struct tipc_link *l_ptr, const char *str)
++static void link_print(struct tipc_link *l, const char *str)
  {
- 	int max_bulk = TIPC_MAX_PUBLICATIONS / (l->mtu / ITEM_SIZE);
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 0cf7d2b..37cfd7d 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -58,7 +58,7 @@ enum {
- 	TIPC_LINK_TUNNEL
- };
+-	struct tipc_net *tn = net_generic(l_ptr->owner->net, tipc_net_id);
+-	struct tipc_bearer *b_ptr;
++	struct sk_buff *hskb = skb_peek(&l->transmq);
++	u16 head = hskb ? msg_seqno(buf_msg(hskb)) : l->snd_nxt;
++	u16 tail = l->snd_nxt - 1;
  
--/* Events occurring at packet reception or at timeout
-+/* Events returned from link at packet reception or at timeout
-  */
- enum {
- 	TIPC_LINK_UP_EVT       = 1,
-@@ -223,6 +223,7 @@ void tipc_link_purge_queues(struct tipc_link *l_ptr);
- void tipc_link_purge_backlog(struct tipc_link *l);
- void tipc_link_reset_all(struct tipc_node *node);
- void tipc_link_reset(struct tipc_link *l_ptr);
-+void tipc_link_activate(struct tipc_link *link);
- int __tipc_link_xmit(struct net *net, struct tipc_link *link,
- 		     struct sk_buff_head *list);
- int tipc_link_xmit(struct tipc_link *link,	struct sk_buff_head *list,
-@@ -244,7 +245,8 @@ int tipc_nl_link_reset_stats(struct sk_buff *skb, struct genl_info *info);
- int tipc_nl_parse_link_prop(struct nlattr *prop, struct nlattr *props[]);
- void link_prepare_wakeup(struct tipc_link *l);
- int tipc_link_timeout(struct tipc_link *l, struct sk_buff_head *xmitq);
--
-+int tipc_link_rcv(struct tipc_link *l, struct sk_buff *skb,
-+		  struct sk_buff_head *xmitq);
- static inline u32 link_own_addr(struct tipc_link *l)
- {
- 	return msg_prevnode(l->pmsg);
+-	rcu_read_lock();
+-	b_ptr = rcu_dereference_rtnl(tn->bearer_list[l_ptr->bearer_id]);
+-	if (b_ptr)
+-		pr_info("%s Link %x<%s>:", str, l_ptr->addr, b_ptr->name);
+-	rcu_read_unlock();
++	pr_info("%s Link <%s>:", str, l->name);
+ 
+-	if (link_probing(l_ptr))
++	if (link_probing(l))
+ 		pr_cont(":P\n");
+-	else if (link_establishing(l_ptr))
++	else if (link_establishing(l))
+ 		pr_cont(":E\n");
+-	else if (link_resetting(l_ptr))
++	else if (link_resetting(l))
+ 		pr_cont(":R\n");
+-	else if (link_working(l_ptr))
++	else if (link_working(l))
+ 		pr_cont(":W\n");
+ 	else
+ 		pr_cont("\n");
++
++	pr_info("XMTQ: %u [%u-%u], BKLGQ: %u, SNDNX: %u, RCVNX: %u\n",
++		skb_queue_len(&l->transmq), head, tail,
++		skb_queue_len(&l->backlogq), l->snd_nxt, l->rcv_nxt);
+ }
+ 
+ /* Parse and validate nested (link) properties valid for media, bearer and link
 diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 4dc66d9..2f1563b 100644
+index 19c45fb..4dc66d9 100644
 --- a/net/tipc/msg.h
 +++ b/net/tipc/msg.h
-@@ -38,6 +38,7 @@
- #define _TIPC_MSG_H
- 
- #include <linux/tipc.h>
-+#include "core.h"
- 
- /*
-  * Constants and routines used to read and write TIPC payload message headers
-@@ -658,12 +659,12 @@ static inline void msg_set_link_selector(struct tipc_msg *m, u32 n)
- /*
-  * Word 5
-  */
--static inline u32 msg_session(struct tipc_msg *m)
-+static inline u16 msg_session(struct tipc_msg *m)
- {
- 	return msg_bits(m, 5, 16, 0xffff);
- }
- 
--static inline void msg_set_session(struct tipc_msg *m, u32 n)
-+static inline void msg_set_session(struct tipc_msg *m, u16 n)
- {
- 	msg_set_bits(m, 5, 16, 0xffff, n);
- }
-@@ -766,10 +767,19 @@ static inline void msg_set_link_tolerance(struct tipc_msg *m, u32 n)
+@@ -766,6 +766,13 @@ static inline void msg_set_link_tolerance(struct tipc_msg *m, u32 n)
  	msg_set_bits(m, 9, 0, 0xffff, n);
  }
  
--static inline bool msg_peer_is_up(struct tipc_msg *m)
-+static inline bool msg_is_traffic(struct tipc_msg *m)
- {
--	if (likely(msg_user(m) != LINK_PROTOCOL) || (msg_type(m) == STATE_MSG))
-+	if (likely(msg_user(m) != LINK_PROTOCOL))
- 		return true;
-+	if ((msg_type(m) == RESET_MSG) || (msg_type(m) == ACTIVATE_MSG))
-+		return false;
-+	return true;
-+}
-+
 +static inline bool msg_peer_is_up(struct tipc_msg *m)
 +{
-+	if (likely(msg_is_traffic(m)))
-+		return false;
- 	return msg_redundant_link(m);
- }
- 
-@@ -886,4 +896,36 @@ static inline bool tipc_skb_queue_tail(struct sk_buff_head *list,
- 	return rv;
- }
- 
-+/* tipc_skb_queue_sorted(); sort pkt into list according to sequence number
-+ * @list: list to be appended to
-+ * @skb: buffer to add
-+ * Returns true if queue should treated further, otherwise false
-+ */
-+static inline bool __tipc_skb_queue_sorted(struct sk_buff_head *list,
-+					   struct sk_buff *skb)
-+{
-+	struct sk_buff *_skb, *tmp;
-+	struct tipc_msg *hdr = buf_msg(skb);
-+	u16 seqno = msg_seqno(hdr);
-+
-+	if (skb_queue_empty(list) || (msg_user(hdr) == LINK_PROTOCOL)) {
-+		__skb_queue_head(list, skb);
++	if (likely(msg_user(m) != LINK_PROTOCOL) || (msg_type(m) == STATE_MSG))
 +		return true;
-+	}
-+	if (likely(less(seqno, buf_seqno(skb_peek(list))))) {
-+		__skb_queue_head(list, skb);
-+		return true;
-+	}
-+	if (!more(seqno, buf_seqno(skb_peek_tail(list)))) {
-+		skb_queue_walk_safe(list, _skb, tmp) {
-+			if (likely(less(seqno, buf_seqno(_skb)))) {
-+				__skb_queue_before(list, _skb, skb);
-+				return true;
-+			}
-+		}
-+	}
-+	__skb_queue_tail(list, skb);
-+	return false;
++	return msg_redundant_link(m);
 +}
 +
- #endif
+ struct sk_buff *tipc_buf_acquire(u32 size);
+ bool tipc_msg_validate(struct sk_buff *skb);
+ bool tipc_msg_reverse(u32 own_addr, struct sk_buff *buf, u32 *dnode,
 diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 9dbbb5d..e92f84a 100644
+index 77effb2..9dbbb5d 100644
 --- a/net/tipc/node.c
 +++ b/net/tipc/node.c
-@@ -40,11 +40,13 @@
- #include "name_distr.h"
- #include "socket.h"
- #include "bcast.h"
-+#include "discover.h"
- 
- static void node_lost_contact(struct tipc_node *n_ptr);
- static void node_established_contact(struct tipc_node *n_ptr);
- static void tipc_node_delete(struct tipc_node *node);
- static void tipc_node_timeout(unsigned long data);
-+static void tipc_node_fsm_evt(struct tipc_node *n, int evt);
- 
- struct tipc_sock_conn {
- 	u32 port;
-@@ -141,7 +143,7 @@ struct tipc_node *tipc_node_create(struct net *net, u32 addr)
+@@ -141,7 +141,7 @@ struct tipc_node *tipc_node_create(struct net *net, u32 addr)
  			break;
  	}
  	list_add_tail_rcu(&n_ptr->list, &temp_node->list);
--	n_ptr->state = SELF_DOWN_PEER_DOWN;
-+	n_ptr->state = SELF_DOWN_PEER_LEAVING;
+-	n_ptr->action_flags = TIPC_WAIT_PEER_LINKS_DOWN;
++	n_ptr->state = SELF_DOWN_PEER_DOWN;
  	n_ptr->signature = INVALID_NODE_SIG;
  	n_ptr->active_links[0] = INVALID_BEARER_ID;
  	n_ptr->active_links[1] = INVALID_BEARER_ID;
-@@ -424,7 +426,7 @@ void tipc_node_detach_link(struct tipc_node *n_ptr, struct tipc_link *l_ptr)
- /* tipc_node_fsm_evt - node finite state machine
-  * Determines when contact is allowed with peer node
-  */
--void tipc_node_fsm_evt(struct tipc_node *n, int evt)
-+static void tipc_node_fsm_evt(struct tipc_node *n, int evt)
- {
- 	int state = n->state;
- 
-@@ -523,23 +525,36 @@ void tipc_node_fsm_evt(struct tipc_node *n, int evt)
- 	n->state = state;
+@@ -421,8 +421,131 @@ void tipc_node_detach_link(struct tipc_node *n_ptr, struct tipc_link *l_ptr)
+ 	}
  }
  
--bool tipc_node_filter_skb(struct tipc_node *n, struct tipc_msg *hdr)
-+bool tipc_node_filter_skb(struct tipc_node *n, struct tipc_link *l,
-+			  struct tipc_msg *hdr)
- {
- 	int state = n->state;
- 
- 	if (likely(state == SELF_UP_PEER_UP))
- 		return true;
-+
- 	if (state == SELF_DOWN_PEER_DOWN)
- 		return true;
--	if (state == SELF_UP_PEER_COMING)
-+
-+	if (state == SELF_UP_PEER_COMING) {
-+		/* If not traffic msg, peer may still be ESTABLISHING */
-+		if (tipc_link_is_up(l) && msg_is_traffic(hdr))
-+			tipc_node_fsm_evt(n, PEER_ESTABL_CONTACT_EVT);
- 		return true;
-+	}
-+
- 	if (state == SELF_COMING_PEER_UP)
- 		return true;
-+
- 	if (state == SELF_LEAVING_PEER_DOWN)
- 		return false;
--	if (state == SELF_DOWN_PEER_LEAVING)
--		if (!msg_peer_is_up(hdr))
--			return true;
-+
-+	if (state == SELF_DOWN_PEER_LEAVING) {
-+		if (msg_peer_is_up(hdr))
-+			return false;
-+		tipc_node_fsm_evt(n, PEER_LOST_CONTACT_EVT);
-+		return true;
-+	}
- 	return false;
- }
- 
-@@ -819,6 +834,82 @@ int tipc_node_xmit_skb(struct net *net, struct sk_buff *skb, u32 dnode,
- 	return 0;
- }
- 
-+/**
-+ * tipc_rcv - process TIPC packets/messages arriving from off-node
-+ * @net: the applicable net namespace
-+ * @skb: TIPC packet
-+ * @bearer: pointer to bearer message arrived on
-+ *
-+ * Invoked with no locks held. Bearer pointer must point to a valid bearer
-+ * structure (i.e. cannot be NULL), but bearer can be inactive.
++/* tipc_node_fsm_evt - node finite state machine
++ * Determines when contact is allowed with peer node
 + */
-+void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b)
++void tipc_node_fsm_evt(struct tipc_node *n, int evt)
 +{
-+	struct sk_buff_head xmitq;
-+	struct tipc_node *n;
-+	struct tipc_link *l;
-+	struct tipc_msg *hdr;
-+	struct tipc_media_addr *maddr;
-+	int bearer_id = b->identity;
-+	int rc = 0;
++	int state = n->state;
 +
-+	__skb_queue_head_init(&xmitq);
-+
-+	/* Ensure message is well-formed */
-+	if (unlikely(!tipc_msg_validate(skb)))
-+		goto discard;
-+
-+	/* Handle arrival of a non-unicast link packet */
-+	hdr = buf_msg(skb);
-+	if (unlikely(msg_non_seq(hdr))) {
-+		if (msg_user(hdr) ==  LINK_CONFIG)
-+			tipc_disc_rcv(net, skb, b);
-+		else
-+			tipc_bclink_rcv(net, skb);
-+		return;
++	switch (state) {
++	case SELF_DOWN_PEER_DOWN:
++		switch (evt) {
++		case SELF_ESTABL_CONTACT_EVT:
++			state = SELF_UP_PEER_COMING;
++			break;
++		case PEER_ESTABL_CONTACT_EVT:
++			state = SELF_COMING_PEER_UP;
++			break;
++		case SELF_LOST_CONTACT_EVT:
++		case PEER_LOST_CONTACT_EVT:
++			break;
++		default:
++			pr_err("Unknown node fsm evt %x/%x\n", state, evt);
++		}
++		break;
++	case SELF_UP_PEER_UP:
++		switch (evt) {
++		case SELF_LOST_CONTACT_EVT:
++			state = SELF_DOWN_PEER_LEAVING;
++			break;
++		case PEER_LOST_CONTACT_EVT:
++			state = SELF_LEAVING_PEER_DOWN;
++			break;
++		case SELF_ESTABL_CONTACT_EVT:
++		case PEER_ESTABL_CONTACT_EVT:
++			break;
++		default:
++			pr_err("Unknown node fsm evt %x/%x\n", state, evt);
++		}
++		break;
++	case SELF_DOWN_PEER_LEAVING:
++		switch (evt) {
++		case PEER_LOST_CONTACT_EVT:
++			state = SELF_DOWN_PEER_DOWN;
++			break;
++		case SELF_ESTABL_CONTACT_EVT:
++		case PEER_ESTABL_CONTACT_EVT:
++		case SELF_LOST_CONTACT_EVT:
++			break;
++		default:
++			pr_err("Unknown node fsm evt %x/%x\n", state, evt);
++		}
++		break;
++	case SELF_UP_PEER_COMING:
++		switch (evt) {
++		case PEER_ESTABL_CONTACT_EVT:
++			state = SELF_UP_PEER_UP;
++			break;
++		case SELF_LOST_CONTACT_EVT:
++			state = SELF_DOWN_PEER_LEAVING;
++			break;
++		case SELF_ESTABL_CONTACT_EVT:
++		case PEER_LOST_CONTACT_EVT:
++			break;
++		default:
++			pr_err("Unknown node fsm evt %x/%x\n", state, evt);
++		}
++		break;
++	case SELF_COMING_PEER_UP:
++		switch (evt) {
++		case SELF_ESTABL_CONTACT_EVT:
++			state = SELF_UP_PEER_UP;
++			break;
++		case PEER_LOST_CONTACT_EVT:
++			state = SELF_LEAVING_PEER_DOWN;
++			break;
++		case SELF_LOST_CONTACT_EVT:
++		case PEER_ESTABL_CONTACT_EVT:
++			break;
++		default:
++			pr_err("Unknown node fsm evt %x/%x\n", state, evt);
++		}
++		break;
++	case SELF_LEAVING_PEER_DOWN:
++		switch (evt) {
++		case SELF_LOST_CONTACT_EVT:
++			state = SELF_DOWN_PEER_DOWN;
++			break;
++		case SELF_ESTABL_CONTACT_EVT:
++		case PEER_ESTABL_CONTACT_EVT:
++		case PEER_LOST_CONTACT_EVT:
++			break;
++		default:
++			pr_err("Unknown node fsm evt %x/%x\n", state, evt);
++		}
++		break;
++	default:
++		pr_err("Unknown node fsm state %x\n", state);
++		break;
 +	}
 +
-+	/* Locate neighboring node that sent packet */
-+	n = tipc_node_find(net, msg_prevnode(hdr));
-+	if (unlikely(!n))
-+		goto discard;
-+	tipc_node_lock(n);
-+
-+	/* Locate link endpoint that should handle packet */
-+	l = n->links[bearer_id].link;
-+	if (unlikely(!l))
-+		goto unlock;
-+
-+	/* Is reception of this packet permitted at the moment ? */
-+	if (unlikely(n->state != SELF_UP_PEER_UP))
-+		if (!tipc_node_filter_skb(n, l, hdr))
-+			goto unlock;
-+
-+	if (unlikely(msg_user(hdr) == LINK_PROTOCOL))
-+		tipc_bclink_sync_state(n, hdr);
-+
-+	/* Release acked broadcast messages */
-+	if (unlikely(n->bclink.acked != msg_bcast_ack(hdr)))
-+		tipc_bclink_acknowledge(n, msg_bcast_ack(hdr));
-+
-+	/* Check protocol and update link state */
-+	rc = tipc_link_rcv(l, skb, &xmitq);
-+
-+	if (unlikely(rc & TIPC_LINK_UP_EVT))
-+		tipc_link_activate(l);
-+	if (unlikely(rc & TIPC_LINK_DOWN_EVT))
-+		tipc_link_reset(l);
-+	skb = NULL;
-+unlock:
-+	tipc_node_unlock(n);
-+	tipc_sk_rcv(net, &n->links[bearer_id].inputq);
-+	maddr = &n->links[bearer_id].maddr;
-+	tipc_bearer_xmit(net, bearer_id, &xmitq, maddr);
-+	tipc_node_put(n);
-+discard:
-+	kfree_skb(skb);
++	n->state = state;
 +}
 +
- int tipc_nl_node_dump(struct sk_buff *skb, struct netlink_callback *cb)
++bool tipc_node_filter_skb(struct tipc_node *n, struct tipc_msg *hdr)
++{
++	int state = n->state;
++
++	if (likely(state == SELF_UP_PEER_UP))
++		return true;
++	if (state == SELF_DOWN_PEER_DOWN)
++		return true;
++	if (state == SELF_UP_PEER_COMING)
++		return true;
++	if (state == SELF_COMING_PEER_UP)
++		return true;
++	if (state == SELF_LEAVING_PEER_DOWN)
++		return false;
++	if (state == SELF_DOWN_PEER_LEAVING)
++		if (!msg_peer_is_up(hdr))
++			return true;
++	return false;
++}
++
+ static void node_established_contact(struct tipc_node *n_ptr)
  {
- 	int err;
++	tipc_node_fsm_evt(n_ptr, SELF_ESTABL_CONTACT_EVT);
+ 	n_ptr->action_flags |= TIPC_NOTIFY_NODE_UP;
+ 	n_ptr->bclink.oos_state = 0;
+ 	n_ptr->bclink.acked = tipc_bclink_get_last_sent(n_ptr->net);
+@@ -468,11 +591,8 @@ static void node_lost_contact(struct tipc_node *n_ptr)
+ 		l_ptr->failover_skb = NULL;
+ 		tipc_link_reset_fragments(l_ptr);
+ 	}
+-
+-	n_ptr->action_flags &= ~TIPC_WAIT_OWN_LINKS_DOWN;
+-
+ 	/* Prevent re-contact with node until cleanup is done */
+-	n_ptr->action_flags |= TIPC_WAIT_PEER_LINKS_DOWN;
++	tipc_node_fsm_evt(n_ptr, SELF_LOST_CONTACT_EVT);
+ 
+ 	/* Notify publications from this node */
+ 	n_ptr->action_flags |= TIPC_NOTIFY_NODE_DOWN;
 diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 270256e..5e70168 100644
+index 2d56344..270256e 100644
 --- a/net/tipc/node.h
 +++ b/net/tipc/node.h
-@@ -185,7 +185,6 @@ int tipc_node_xmit_skb(struct net *net, struct sk_buff *skb, u32 dest,
- 		       u32 selector);
- int tipc_node_add_conn(struct net *net, u32 dnode, u32 port, u32 peer_port);
- void tipc_node_remove_conn(struct net *net, u32 dnode, u32 port);
--
- int tipc_nl_node_dump(struct sk_buff *skb, struct netlink_callback *cb);
+@@ -47,6 +47,24 @@
  
- static inline void tipc_node_lock(struct tipc_node *node)
-@@ -193,9 +192,6 @@ static inline void tipc_node_lock(struct tipc_node *node)
+ #define INVALID_BEARER_ID -1
+ 
++/* Node FSM states and events:
++ */
++enum {
++	SELF_DOWN_PEER_DOWN    = 0xdd,
++	SELF_UP_PEER_UP        = 0xaa,
++	SELF_DOWN_PEER_LEAVING = 0xd1,
++	SELF_UP_PEER_COMING    = 0xac,
++	SELF_COMING_PEER_UP    = 0xca,
++	SELF_LEAVING_PEER_DOWN = 0x1d,
++};
++
++enum {
++	SELF_ESTABL_CONTACT_EVT = 0xec,
++	SELF_LOST_CONTACT_EVT   = 0x1c,
++	PEER_ESTABL_CONTACT_EVT = 0xfec,
++	PEER_LOST_CONTACT_EVT   = 0xf1c
++};
++
+ /* Flags used to take different actions according to flag type
+  * TIPC_WAIT_PEER_LINKS_DOWN: wait to see that peer's links are down
+  * TIPC_WAIT_OWN_LINKS_DOWN: wait until peer node is declared down
+@@ -56,8 +74,6 @@
+  */
+ enum {
+ 	TIPC_MSG_EVT                    = 1,
+-	TIPC_WAIT_PEER_LINKS_DOWN	= (1 << 1),
+-	TIPC_WAIT_OWN_LINKS_DOWN	= (1 << 2),
+ 	TIPC_NOTIFY_NODE_DOWN		= (1 << 3),
+ 	TIPC_NOTIFY_NODE_UP		= (1 << 4),
+ 	TIPC_WAKEUP_BCAST_USERS		= (1 << 5),
+@@ -133,6 +149,7 @@ struct tipc_node {
+ 	int action_flags;
+ 	struct tipc_node_bclink bclink;
+ 	struct list_head list;
++	int state;
+ 	int link_cnt;
+ 	u16 working_links;
+ 	u16 capabilities;
+@@ -176,11 +193,8 @@ static inline void tipc_node_lock(struct tipc_node *node)
  	spin_lock_bh(&node->lock);
  }
  
--void tipc_node_fsm_evt(struct tipc_node *n, int evt);
--bool tipc_node_filter_skb(struct tipc_node *n, struct tipc_msg *hdr);
--
+-static inline bool tipc_node_blocked(struct tipc_node *node)
+-{
+-	return (node->action_flags & (TIPC_WAIT_PEER_LINKS_DOWN |
+-		TIPC_NOTIFY_NODE_DOWN | TIPC_WAIT_OWN_LINKS_DOWN));
+-}
++void tipc_node_fsm_evt(struct tipc_node *n, int evt);
++bool tipc_node_filter_skb(struct tipc_node *n, struct tipc_msg *hdr);
+ 
  static inline struct tipc_link *node_active_link(struct tipc_node *n, int sel)
  {
- 	int bearer_id = n->active_links[sel & 1];
 -- 
 1.9.1
