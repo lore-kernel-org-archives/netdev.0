@@ -1,64 +1,27 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [V2 6/7] hvsock: introduce Hyper-V VM Sockets feature
-Date: Thu, 16 Jul 2015 11:19:01 +0000
-Message-ID: <d1e303ece500475b8e422d55f82fbffd@SIXPR30MB031.064d.mgd.msft.net>
-References: <1436868048-17875-1-git-send-email-decui@microsoft.com>
- <20150715.211916.1258342954251964451.davem@davemloft.net>
+From: "Motejlek, Petr" <pmotejle@akamai.com>
+Subject: What queues/buffers does tc-netem use?
+Date: Thu, 16 Jul 2015 11:28:11 +0000
+Message-ID: <ed5152b6a0e746b08b00c2dc8270afbc@ustx2ex-dag1mb3.msg.corp.akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	KY Srinivasan <kys@microsoft.com>,
-	"pebolle@tiscali.nl" <pebolle@tiscali.nl>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150715.211916.1258342954251964451.davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netem@osdl.org" <netem@osdl.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a23-79-238-175.deploy.static.akamaitechnologies.com ([23.79.238.175]:64946
+	"EHLO prod-mail-xrelay07.akamai.com" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755702AbbGPLee (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 07:34:34 -0400
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: David Miller
-> Sent: Thursday, July 16, 2015 12:19
-> 
-> From: Dexuan Cui
-> Date: Tue, 14 Jul 2015 03:00:48 -0700
-> 
-> > +	pr_debug("hvsock_sk_destruct: called\n");
-> 
-> Debug logging just to state that a function is called is not appropriate,
-> we have very sophisticated tracing facilities in the kernel that can do
-> that transparently, and more.
-> 
-> Please remove this.
-OK. 
- 
-> > +	if (hvsk->channel) {
-> > +		pr_debug("hvsock_sk_destruct: calling vmbus_close()\n");
-> 
-> Likewise, these kinds of debug logs are totally inappropriate.
-OK, I'll remove all the pr_debug() in the patch.
- 
-> > +static int hvsock_release(struct socket *sock)
-> > +{
-> > +	/* sock->sk is NULL, if accept() is interrupted by a signal */
-> > +	if (sock->sk) {
-> > +		__hvsock_release(sock->sk);
-> > +		sock->sk = NULL;
-> > +	}
-> > +
-> > +	sock->state = SS_FREE;
-> > +	pr_debug("hvsock_release called\n\n");
-> 
-> Likewise.
-OK. Will fix it.
-
-Thanks,
--- Dexuan
+SGVsbG8sCgpJIHdhcyB3b25kZXJpbmcgd2hhdCBxdWV1ZXMvYnVmZmVycyBkb2VzIG5ldGVtIHVz
+ZSBhbmQgaG93IGRvZXMgb25lIGNvbnRyb2wgb3IgbW9uaXRvciB0aGVtPwoKSSBjb3VsZCBub3Qg
+ZmluZCB0aGlzIGluZm9ybWF0aW9uIGFueXdoZXJlIGFuZCBJIGFtIG5vdCB0aGF0IGdvb2QgaW4g
+cmVhZGluZyB0aGUgc291cmNlcyB0byBiZSBhYmxlIHRvIHRlbGwgZW5vdWdoIGFib3V0IHRoaXMg
+OikgSWYgd2UgdGFsayBvbmx5IGFib3V0IHRoZSBzaXR1YXRpb24gd2hlcmUgbmV0ZW0gaXMgdGhl
+IHJvb3QgcWRpc2MgZm9yIGEgcGFydGljdWxhciBpbnRlcmZhY2UsIEkgd291bGQgaW1hZ2luZSBp
+dCBtaWdodCBiZSB1c2luZyB0aGUgdHhxdWV1ZSBvZiB0aGF0IGludGVyZmFjZSwgYnV0IEkgYW0g
+bm90IHN1cmUgaWYgdGhhdCdzIHJlYWxseSB0aGUgY2FzZS4uLgoKVGhhbmtz4oCLLApQZXRyIE1P
+VEVKTEVLCgoK
