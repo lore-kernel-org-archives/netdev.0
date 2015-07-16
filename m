@@ -1,43 +1,51 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: [PATCH] net: netcp: fix improper initialization in netcp_ndo_open()
-Date: Thu, 16 Jul 2015 15:32:14 -0400
-Message-ID: <1437075134-24423-1-git-send-email-m-karicheri2@ti.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net:bcmgent:Return the variable ret rather then zero
+ for the function bcmgenet_power_down
+Date: Thu, 16 Jul 2015 12:35:30 -0700
+Message-ID: <55A80782.9050907@gmail.com>
+References: <1437075256-21395-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <w-kwok2@ti.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicholas Krause <xerofoify@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437075256-21395-1-git-send-email-xerofoify@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The keystone qmss will raise interrupt when packet arrive at the
-receive queue. Only control available to avoid interrupt from happening
-is to keep the free descriptor queue (FDQ) empty in the receive side.
-So the filling of descriptors into the FDQ has to happen after
-request_irq() call is made as part of knav_queue_enable_notify(). So
-move the function netcp_rxpool_refill() after this call.
+On 16/07/15 12:34, Nicholas Krause wrote:
+> This makes the function bcmgenet_power_down return the variable ret
+> rather then zero in order to make this function be able to signal its
+> caller with a error code when a failure occurs internally rather then
+> always appearing to run successfully to its caller.
 
-Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
----
- drivers/net/ethernet/ti/netcp_core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Still not quite the right subject (missing spaces, typos), copy/paste this:
 
-diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index 5ec4ed3..ec8ed30 100644
---- a/drivers/net/ethernet/ti/netcp_core.c
-+++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -1617,11 +1617,11 @@ static int netcp_ndo_open(struct net_device *ndev)
- 	}
- 	mutex_unlock(&netcp_modules_lock);
- 
--	netcp_rxpool_refill(netcp);
- 	napi_enable(&netcp->rx_napi);
- 	napi_enable(&netcp->tx_napi);
- 	knav_queue_enable_notify(netcp->tx_compl_q);
- 	knav_queue_enable_notify(netcp->rx_queue);
-+	netcp_rxpool_refill(netcp);
- 	netif_tx_wake_all_queues(ndev);
- 	dev_dbg(netcp->ndev_dev, "netcp device %s opened\n", ndev->name);
- 	return 0;
+net: bcmgenet: Return the variable ret rather then zero for the function
+bcmgenet_power_down
+
+> 
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> index 64c1e9d..129e5b5 100644
+> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> @@ -877,7 +877,7 @@ static int bcmgenet_power_down(struct bcmgenet_priv *priv,
+>  		break;
+>  	}
+>  
+> -	return 0;
+> +	return ret;
+>  }
+>  
+>  static void bcmgenet_power_up(struct bcmgenet_priv *priv,
+> 
+
+
 -- 
-1.9.1
+Florian
