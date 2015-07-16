@@ -1,7 +1,8 @@
 From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: [PATCH 0/6] BPF JIT fixes and features for ARM
-Date: Thu, 16 Jul 2015 18:46:29 +0200
-Message-ID: <1437065195-10887-1-git-send-email-nschichan@freebox.fr>
+Subject: [PATCH 4/6] ARM: net: add support for BPF_ANC | SKF_AD_PKTTYPE in ARM JIT.
+Date: Thu, 16 Jul 2015 18:46:33 +0200
+Message-ID: <1437065195-10887-5-git-send-email-nschichan@freebox.fr>
+References: <1437065195-10887-1-git-send-email-nschichan@freebox.fr>
 Cc: Russell King <linux@arm.linux.org.uk>,
 	Alexei Starovoitov <ast@plumgrid.com>
 To: "David S. Miller" <davem@davemloft.net>,
@@ -11,43 +12,36 @@ To: "David S. Miller" <davem@davemloft.net>,
 	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437065195-10887-1-git-send-email-nschichan@freebox.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
+---
+ arch/arm/net/bpf_jit_32.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-This serie fixes issues with the ARM BPF JIT and adds support for more
-instructions to the ARM BPF JIT.
-
-The first three patches are fixing bugs in the ARM JIT and should
-probably find their way to a stable kernel.
-
-The last three patches add support to the ARM JIT for more BPF
-instructions, namely skb netdevice type retrieval, skb payload offset
-retrieval, and skb packet type retrieval.
-
-With the first three patches, all 60 test_bpf tests in Linux 4.1 release
-are now passing OK (was 54 out of 60 before).
-
-The last three patches allow 35 tests to use the JIT instead of 29
-before.
-
-Like previous ARM JIT patches this should go via the net tree.
-
-Regards,
-
-Nicolas Schichan (6):
-  ARM: net: fix condition for load_order > 0 when translating load
-    instructions.
-  ARM: net: handle negative offsets in BPF JIT.
-  ARM: net: fix vlan access instructions in ARM JIT.
-  ARM: net: add support for BPF_ANC | SKF_AD_PKTTYPE in ARM JIT.
-  ARM: net: add support for BPF_ANC | SKF_AD_PAY_OFFSET in ARM JIT.
-  ARM: net: add support for BPF_ANC | SKF_AD_HATYPE in ARM JIT.
-
- arch/arm/net/bpf_jit_32.c | 98 +++++++++++++++++++++++++++++++++++++++--------
- arch/arm/net/bpf_jit_32.h |  3 ++
- 2 files changed, 86 insertions(+), 15 deletions(-)
-
+diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+index c011e22..6ff248c 100644
+--- a/arch/arm/net/bpf_jit_32.c
++++ b/arch/arm/net/bpf_jit_32.c
+@@ -895,6 +895,17 @@ b_epilogue:
+ 				OP_IMM3(ARM_AND, r_A, r_A, 0x1, ctx);
+ 			}
+ 			break;
++		case BPF_ANC | SKF_AD_PKTTYPE:
++			ctx->seen |= SEEN_SKB;
++			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff,
++						  __pkt_type_offset[0]) != 1);
++			off = PKT_TYPE_OFFSET();
++			emit(ARM_LDRB_I(r_A, r_skb, off), ctx);
++			emit(ARM_AND_I(r_A, r_A, PKT_TYPE_MAX), ctx);
++#ifdef __BIG_ENDIAN_BITFIELD
++			emit(ARM_LSR_I(r_A, r_A, 5), ctx);
++#endif
++			break;
+ 		case BPF_ANC | SKF_AD_QUEUE:
+ 			ctx->seen |= SEEN_SKB;
+ 			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff,
 -- 
 1.9.1
