@@ -1,40 +1,22 @@
-From: "Motejlek, Petr" <pmotejle@akamai.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
 Subject: Re: What queues/buffers does tc-netem use?
-Date: Thu, 16 Jul 2015 12:48:33 +0000
-Message-ID: <1437050912759.32788@akamai.com>
-References: <ed5152b6a0e746b08b00c2dc8270afbc@ustx2ex-dag1mb3.msg.corp.akamai.com>,<116464048.2486.1437050567469.JavaMail.open-xchange@ox1app>
+Date: Thu, 16 Jul 2015 14:42:47 +0200 (CEST)
+Message-ID: <116464048.2486.1437050567469.JavaMail.open-xchange@ox1app>
+References: <ed5152b6a0e746b08b00c2dc8270afbc@ustx2ex-dag1mb3.msg.corp.akamai.com>
+Reply-To: Hagen Paul Pfeifer <hagen@jauu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netem@osdl.org" <netem@osdl.org>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Hagen Paul Pfeifer <hagen@jauu.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netem@osdl.org
+To: netdev@vger.kernel.org, "Motejlek, Petr" <pmotejle@akamai.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay08.akamai.com ([96.6.114.112]:59232 "EHLO
-	prod-mail-xrelay08.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751048AbbGPMsp convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jul 2015 08:48:45 -0400
-In-Reply-To: <116464048.2486.1437050567469.JavaMail.open-xchange@ox1app>
-Content-Language: en-US
+Received: from mx1.mailbox.org ([80.241.60.212]:58269 "EHLO mx1.mailbox.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751048AbbGPMwq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jul 2015 08:52:46 -0400
+In-Reply-To: <ed5152b6a0e746b08b00c2dc8270afbc@ustx2ex-dag1mb3.msg.corp.akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-Hello Hagen,
-
-Could you please give me some example of such a tc command that would tell me the statistics? I am not sure what you mean.
-
-Is there a way I can manipulate the internal rbtree queue size, please?
-
-Thank you
-
-Petr MOTEJLEK
-________________________________________
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Sent: Thursday, July 16, 2015 2:42 PM
-To: netdev@vger.kernel.org; Motejlek, Petr
-Cc: netem@osdl.org
-Subject: Re: What queues/buffers does tc-netem use?
 
 > On July 16, 2015 at 1:28 PM "Motejlek, Petr" <pmotejle@akamai.com>
 > wrote:
