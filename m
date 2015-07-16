@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: Fix finding best source address in
- ipv6_dev_get_saddr().
-Date: Wed, 15 Jul 2015 21:07:17 -0700 (PDT)
-Message-ID: <20150715.210717.43770639330208104.davem@davemloft.net>
-References: <55A3CAFA.3060404@miraclelinux.com>
-	<CALx6S34Bj_YtRqqL5U0zJ9RKEu_Uvp9zYyNJLgvjEqX9jNrYqA@mail.gmail.com>
+Subject: Re: [PATCH net-next] hv_netvsc: Add close of RNDIS filter into
+ change mtu call
+Date: Wed, 15 Jul 2015 21:12:25 -0700 (PDT)
+Message-ID: <20150715.211225.1168237758074370336.davem@davemloft.net>
+References: <1436818156-13674-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com, netdev@vger.kernel.org,
-	ek@google.com, thehajime@gmail.com
-To: tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35106 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750720AbbGPEHU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 00:07:20 -0400
-In-Reply-To: <CALx6S34Bj_YtRqqL5U0zJ9RKEu_Uvp9zYyNJLgvjEqX9jNrYqA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
+	jasowang@redhat.com, linux-kernel@vger.kernel.org,
+	driverdev-devel@linuxdriverproject.org
+To: haiyangz@microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1436818156-13674-1-git-send-email-haiyangz@microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Mon, 13 Jul 2015 08:31:05 -0700
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Mon, 13 Jul 2015 13:09:16 -0700
 
-> I am testing this patch which may be a little simpler. Also idev needs
-> to be checked after __in6_dev_get
+> The current change mtu call only stops tx before removing RNDIS filter.
+> In case ringbufer is not empty, the rndis_filter_device_remove() may
+> hang on removing the buffers.
+> 
+> This patch adds close of RNDIS filter before removing it, also a
+> gradual waiting loop until the ring is empty. The change_mtu hang
+> issue under heavy traffic is solved by this patch.
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Tom, I'm applying Hideaki's fix for now.
-
-If you want to simplify the code, feel free to submit that as a
-follow-up, thank you!
+Applied, thanks.
