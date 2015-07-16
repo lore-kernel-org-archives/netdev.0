@@ -1,31 +1,61 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: Sending IPv6 packets broken in net-next
-Date: Thu, 16 Jul 2015 09:47:19 +0200
-Message-ID: <20150716074719.GA14916@orbit.nwl.cc>
-References: <20150715222046.GE14670@orbit.nwl.cc>
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: [PATCH net-next] ipv6: Remove unused arguments for __ipv6_dev_get_saddr().
+Date: Thu, 16 Jul 2015 16:51:30 +0900
+Message-ID: <55A76282.9030806@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org,
-	YOSHIFUJI =?utf-8?B?SGlkZWFraS/lkInol6Toi7HmmI4=?=
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kvGyRCNUhGIzFRTEAbKEI=?=
 	<hideaki.yoshifuji@miraclelinux.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:59803 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752468AbbGPHrV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jul 2015 03:47:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20150715222046.GE14670@orbit.nwl.cc>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:33661 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752520AbbGPHve (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 03:51:34 -0400
+Received: by pdbqm3 with SMTP id qm3so40000362pdb.0
+        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 00:51:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 16, 2015 at 12:20:46AM +0200, Phil Sutter wrote:
-> Commit 9131f3d ("ipv6: Do not iterate over all interfaces when finding
-> source address on specific interface") breaks local output of IPv6
-> packets. Here is a simple reproducer:
+Signed-off-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+---
+ net/ipv6/addrconf.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-I just noticed, a patch fixing the issue has already been sent to this
-list[1]. So nevermind and sorry for the traffic!
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 4c9a024..32153c2 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1360,8 +1360,6 @@ out:
+ 
+ static int __ipv6_dev_get_saddr(struct net *net,
+ 				struct ipv6_saddr_dst *dst,
+-				unsigned int prefs,
+-				const struct in6_addr *saddr,
+ 				struct inet6_dev *idev,
+ 				struct ipv6_saddr_score *scores,
+ 				int hiscore_idx)
+@@ -1485,13 +1483,13 @@ int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
+ 
+ 	if (use_oif_addr) {
+ 		if (idev)
+-			hiscore_idx = __ipv6_dev_get_saddr(net, &dst, prefs, saddr, idev, scores, hiscore_idx);
++			hiscore_idx = __ipv6_dev_get_saddr(net, &dst, idev, scores, hiscore_idx);
+ 	} else {
+ 		for_each_netdev_rcu(net, dev) {
+ 			idev = __in6_dev_get(dev);
+ 			if (!idev)
+ 				continue;
+-			hiscore_idx = __ipv6_dev_get_saddr(net, &dst, prefs, saddr, idev, scores, hiscore_idx);
++			hiscore_idx = __ipv6_dev_get_saddr(net, &dst, idev, scores, hiscore_idx);
+ 		}
+ 	}
+ 	rcu_read_unlock();
+-- 
+1.9.1
 
-Cheers, Phil
 
-[1]: http://www.spinics.net/lists/netdev/msg335586.html
+-- 
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
