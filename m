@@ -1,40 +1,49 @@
-From: Reinhard Speyerer <rspmn@arcor.de>
-Subject: [PATCH] qmi_wwan: add the second QMI/network interface for Sierra
- Wireless MC7305/MC7355
-Date: Thu, 16 Jul 2015 23:28:14 +0200
-Message-ID: <20150716212813.GA2904@arcor.de>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] ravb: fix race updating TCCR
+Date: Fri, 17 Jul 2015 00:28:38 +0300
+Message-ID: <6587398.M5V25fvqHl@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bjorn@mork.no
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-in-04.arcor-online.net ([151.189.21.44]:56089 "EHLO
-	mail-in-04.arcor-online.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755926AbbGPV2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 17:28:30 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sierra Wireless MC7305/MC7355 with USB ID 1199:9041 also provide a
-second QMI/network interface like the MC73xx with USB ID 1199:68c0 on
-USB interface #10 when used in the appropriate USB configuration.
-Add the corresponding QMI_FIXED_INTF entry to the qmi_wwan driver.
+The TCCR.TSRQn bit may get clearead after TCCR gets read, so that TCCR write
+would get skipped. We don't need to check this bit before setting.
 
-Please note that the second QMI/network interface is not working for
-early MC73xx firmware versions like 01.08.x as the device does not
-respond to QMI messages on the second /dev/cdc-wdm port.
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Signed-off-by: Reinhard Speyerer <rspmn@arcor.de>
 ---
-diff -uprN linux-4.2-rc2/drivers/net/usb/qmi_wwan.c linux-4.2-rc2-with-mc73xx-patch/drivers/net/usb/qmi_wwan.c
---- linux-4.2-rc2/drivers/net/usb/qmi_wwan.c	2015-07-13 00:10:30.000000000 +0200
-+++ linux-4.2-rc2-with-mc73xx-patch/drivers/net/usb/qmi_wwan.c	2015-07-16 21:35:26.000000000 +0200
-@@ -757,6 +757,7 @@ static const struct usb_device_id produc
- 	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700 */
- 	{QMI_FIXED_INTF(0x1199, 0x901f, 8)},    /* Sierra Wireless EM7355 */
- 	{QMI_FIXED_INTF(0x1199, 0x9041, 8)},	/* Sierra Wireless MC7305/MC7355 */
-+	{QMI_FIXED_INTF(0x1199, 0x9041, 10)},	/* Sierra Wireless MC7305/MC7355 */
- 	{QMI_FIXED_INTF(0x1199, 0x9051, 8)},	/* Netgear AirCard 340U */
- 	{QMI_FIXED_INTF(0x1199, 0x9053, 8)},	/* Sierra Wireless Modem */
- 	{QMI_FIXED_INTF(0x1199, 0x9054, 8)},	/* Sierra Wireless Modem */
+The patch is against Dave Miller's 'net.git' repo plus the patch I sent on
+Tuesday.
+
+ drivers/net/ethernet/renesas/ravb_main.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+Index: net/drivers/net/ethernet/renesas/ravb_main.c
+===================================================================
+--- net.orig/drivers/net/ethernet/renesas/ravb_main.c
++++ net/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1275,7 +1275,6 @@ static netdev_tx_t ravb_start_xmit(struc
+ 	u32 dma_addr;
+ 	void *buffer;
+ 	u32 entry;
+-	u32 tccr;
+ 
+ 	spin_lock_irqsave(&priv->lock, flags);
+ 	if (priv->cur_tx[q] - priv->dirty_tx[q] >= priv->num_tx_ring[q]) {
+@@ -1324,9 +1323,7 @@ static netdev_tx_t ravb_start_xmit(struc
+ 	dma_wmb();
+ 	desc->die_dt = DT_FSINGLE;
+ 
+-	tccr = ravb_read(ndev, TCCR);
+-	if (!(tccr & (TCCR_TSRQ0 << q)))
+-		ravb_write(ndev, tccr | (TCCR_TSRQ0 << q), TCCR);
++	ravb_write(ndev, ravb_read(ndev, TCCR) | (TCCR_TSRQ0 << q), TCCR);
+ 
+ 	priv->cur_tx[q]++;
+ 	if (priv->cur_tx[q] - priv->dirty_tx[q] >= priv->num_tx_ring[q] &&
+
