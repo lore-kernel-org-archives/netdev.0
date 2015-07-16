@@ -1,75 +1,90 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH/RFC net-next] rocker: forward packets to CPU when a port
- in promiscuous mode
-Date: Thu, 16 Jul 2015 10:41:06 +0900
-Message-ID: <20150716014104.GA29449@vergenet.net>
-References: <1436415931-16469-1-git-send-email-simon.horman@netronome.com>
- <CAE4R7bChu5sAKpU5tUkENfWZMhaWSs3EQZeggUxR=BjKSOqOeg@mail.gmail.com>
- <20150715044521.GA7603@vergenet.net>
- <CAE4R7bBH3dTfivKqo9qzRVhtpUiDzGdDmoeceY5YBq6A3VR03g@mail.gmail.com>
- <20150715063453.GB7603@vergenet.net>
- <CAE4R7bAy4WKaScamnJJR-bQR4n+=sqKBoR7B=saXCY989+2+3A@mail.gmail.com>
- <20150715075406.GA25954@vergenet.net>
- <CAE4R7bBmxq6pqBsW1tS6w4YRZE2mCfuyd+VBa4-2Lx4fASKH3w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	john fastabend <john.fastabend@gmail.com>
-To: Scott Feldman <sfeldma@gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH nf 0/6] IPVS Fixes for v4.2
+Date: Thu, 16 Jul 2015 11:14:07 +0900
+Message-ID: <1437012853-7318-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:33111 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754849AbbGPBlQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 21:41:16 -0400
-Received: by pdbqm3 with SMTP id qm3so34707956pdb.0
-        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 18:41:16 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bBmxq6pqBsW1tS6w4YRZE2mCfuyd+VBa4-2Lx4fASKH3w@mail.gmail.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:60199 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753337AbbGPCOW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 22:14:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 15, 2015 at 07:50:32AM -0700, Scott Feldman wrote:
-> On Wed, Jul 15, 2015 at 12:54 AM, Simon Horman
-> <simon.horman@netronome.com> wrote:
-> > On Wed, Jul 15, 2015 at 12:18:20AM -0700, Scott Feldman wrote:
-> >> On Tue, Jul 14, 2015 at 11:34 PM, Simon Horman
-> >> <simon.horman@netronome.com> wrote:
-> >> > On Tue, Jul 14, 2015 at 10:32:54PM -0700, Scott Feldman wrote:
-> >>
-> >> >> > @@ -5263,11 +5301,16 @@ static int rocker_port_master_changed(struct net_device *dev)
-> >> >> >          * 3. Other, e.g. being added to or removed from a bond or openvswitch,
-> >> >> >          *    in which case nothing is done
-> >> >> >          */
-> >> >>
-> >> >> Maybe comment above needs adjusting?
-> >> >
-> >> > Indeed, sorry for missing that.
-> >> > How about this?
-> >> >
-> >> >
-> >> >         /* There are currently five cases handled here:
-> >> >          * 1. Joining a bridge
-> >> >          * 2. Joining a Open vSwitch datapath
-> >> >          * 3. Leaving a previously joined bridge
-> >> >          * 4. Leaving a previously joined Open vSwitch datapath
-> >> >          * 5. Other, e.g. being added to or removed from a bond,
-> >> >          *    in which case nothing is done
-> >> >          */
-> >>
-> >> Seems like one of those comments that needs adjusting each time the
-> >> code changes, which isn't good.  Maybe just kill the comment or write
-> >> in a generic way saying what code is doing.  Code seems obvious enough
-> >> to me to not require a comment.
-> >
-> > My purpose in adding the comment in the first place was
-> > to document the "other" case, as it wasn't handled and thus
-> > didn't seem obvious.
-> >
-> > Perhaps something like this would work.
-> >
-> >         /* N.B: Do nothing if the type of master is not supported */
-> 
-> Ack
+Hi Pablo,
 
-Thanks. I've made a formal submission of the path with the
-changes you suggested earlier in this thread.
+please consider this fix for v4.2.
+For reasons that are not clear to me it is a bumper crop.
+
+It seems to me that they are all relevant to stable.
+Please let me know if you need my help to get the fixes into stable.
+
+* ipvs: fix ipv6 route unreach panic
+
+  This problem appears to be present since IPv6 support was added to
+  IPVS in v2.6.28.
+
+* ipvs: skb_orphan in case of forwarding
+
+  This appears to resolve a problem resulting from a side effect of
+  41063e9dd119 ("ipv4: Early TCP socket demux.") which was included in v3.6.
+
+* ipvs: do not use random local source address for tunnels
+
+  This appears to resolve a problem introduced by
+  026ace060dfe ("ipvs: optimize dst usage for real server") in v3.10.
+
+* ipvs: fix crash if scheduler is changed
+
+  This appears to resolve a problem introduced by
+  ceec4c381681 ("ipvs: convert services to rcu") in v3.10.
+
+  Julian has provided backports of the fix:
+  * [PATCHv2 3.10.81] ipvs: fix crash if scheduler is changed
+    http://www.spinics.net/lists/lvs-devel/msg04008.html
+  * [PATCHv2 3.12.44,3.14.45,3.18.16,4.0.6] ipvs: fix crash if scheduler is changed
+    http://www.spinics.net/lists/lvs-devel/msg04007.html
+
+  Please let me know how you would like to handle guiding these
+  backports into stable.
+
+* ipvs: fix crash with sync protocol v0 and FTP
+
+  This appears to resolve a problem introduced by
+  749c42b620a9 ("ipvs: reduce sync rate with time thresholds") in v3.5
+
+
+
+The following changes since commit 484836ec2de24d9a7c6471f022b746d947698725:
+
+  netfilter: IDLETIMER: fix lockdep warning (2015-07-13 17:23:25 +0200)
+
+are available in the git repository at:
+
+  https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes-for-v4.2
+
+for you to fetch changes up to e3895c0334d0ef46e80f22eaf2a52401ff6d5a67:
+
+  ipvs: call skb_sender_cpu_clear (2015-07-14 16:41:27 +0900)
+
+----------------------------------------------------------------
+Alex Gartrell (2):
+      ipvs: fix ipv6 route unreach panic
+      ipvs: skb_orphan in case of forwarding
+
+Julian Anastasov (4):
+      ipvs: do not use random local source address for tunnels
+      ipvs: fix crash if scheduler is changed
+      ipvs: fix crash with sync protocol v0 and FTP
+      ipvs: call skb_sender_cpu_clear
+
+ net/netfilter/ipvs/ip_vs_core.c  | 16 +++++++--
+ net/netfilter/ipvs/ip_vs_ctl.c   | 78 +++++++++++++++++++++++++---------------
+ net/netfilter/ipvs/ip_vs_sched.c | 12 +++----
+ net/netfilter/ipvs/ip_vs_sync.c  |  2 +-
+ net/netfilter/ipvs/ip_vs_xmit.c  | 41 ++++++++++++++++++++-
+ 5 files changed, 110 insertions(+), 39 deletions(-)
