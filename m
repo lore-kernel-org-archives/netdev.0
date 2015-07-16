@@ -1,10 +1,10 @@
 From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [V2 1/7] Drivers: hv: vmbus: define the new offer type for
- Hyper-V socket (hvsock)
-Date: Thu, 16 Jul 2015 11:18:44 +0000
-Message-ID: <4eb229b0935b4a42b126325c95bf7a2d@SIXPR30MB031.064d.mgd.msft.net>
-References: <1436867883-17692-1-git-send-email-decui@microsoft.com>
- <20150715.211306.576715827080894506.davem@davemloft.net>
+Subject: RE: [V2 3/7] Drivers: hv: vmbus: add APIs to send/recv hvsock packet
+ and get the r/w-ability
+Date: Thu, 16 Jul 2015 11:18:52 +0000
+Message-ID: <5b373066598044ae8a15a87e99e485c6@SIXPR30MB031.064d.mgd.msft.net>
+References: <1436867936-17765-1-git-send-email-decui@microsoft.com>
+ <20150715.211608.1179325069980931613.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -20,46 +20,86 @@ Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
 	KY Srinivasan <kys@microsoft.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150715.211306.576715827080894506.davem@davemloft.net>
+In-Reply-To: <20150715.211608.1179325069980931613.davem@davemloft.net>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> -----Original Message-----
 > From: David Miller
-> Sent: Thursday, July 16, 2015 12:13
+> Sent: Thursday, July 16, 2015 12:16
 > 
 > From: Dexuan Cui
-> Date: Tue, 14 Jul 2015 02:58:03 -0700
+> Date: Tue, 14 Jul 2015 02:58:56 -0700
 > 
-> > A helper function is also added.
-> >
-> > diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-> > @@ -236,6 +236,7 @@ struct vmbus_channel_offer {
-> >  #define VMBUS_CHANNEL_LOOPBACK_OFFER			0x100
-> >  #define VMBUS_CHANNEL_PARENT_OFFER			0x200
-> >  #define VMBUS_CHANNEL_REQUEST_MONITORED_NOTIFICATION	0x400
-> > +#define VMBUS_CHANNEL_TLNPI_PROVIDER_OFFER		0x2000
-> >
-> >  struct vmpacket_descriptor {
-> >  	u16 type;
-> > @@ -758,6 +759,12 @@ struct vmbus_channel {
-> >  	struct list_head percpu_list;
-> >  };
-> >
-> > +static inline bool is_hvsock_channel(const struct vmbus_channel *c)
+> > +int vmbus_sendpacket_hvsock(struct vmbus_channel *channel, void *buf,
+> u32 len)
 > > +{
-> > +	return !!(c->offermsg.offer.chn_flags &
-> > +		VMBUS_CHANNEL_TLNPI_PROVIDER_OFFER);
-> > +}
+> > +	struct vmpacket_descriptor desc;
+> > +	struct vmpipe_proto_header pipe_hdr;
+> > +	u32 packetlen;
+> > +	u32 packetlen_aligned;
+> > +	struct kvec bufferlist[4];
+> > +	u64 aligned_data = 0;
+> > +	int ret;
+> > +	bool signal = false;
+> 
+> Reverse christmas-tree (longest to shortest line) order these local
+> variables, please.
+OK.
+
+> 
+> > +EXPORT_SYMBOL(vmbus_sendpacket_hvsock);
+> 
+> EXPORT_SYMBOL_GPL()
+Oh, sorry. I'll fix it.
+ 
+> > +int vmbus_recvpacket_hvsock(struct vmbus_channel *channel, void *buffer,
+> > +				u32 bufferlen, u32 *buffer_actual_len)
+> > +{
+> > +	struct vmpacket_descriptor *desc;
+> > +	struct vmpipe_proto_header *pipe_hdr;
+> > +	u32 packet_len, payload_len;
+> > +	int ret;
+> > +	bool signal = false;
+> 
+> Again, please use reverse christmas-tree order.
+OK.
+
+
+> > +void vmbus_get_hvsock_rw_status(struct vmbus_channel *channel,
+> > +			   bool *can_read, bool *can_write)
+> 
+> Second line is not properly indented, it should start exactly one
+> column after the openning parenthesis on the previous line.
+OK.
+I didn't realize this issue. Thanks for reminding me!
+The patch did pass the check of scripts/checkpatch.pl. :-)
+I found scripts/Lindent can detect such kind of issue.
+I'll run scripts/Lindent against my code and fix all of them in V3.
+
+> > +	hv_get_ringbuffer_availbytes(inring_info,
+> > +				bytes_avail_toread,
+> > +				bytes_avail_towrite);
+> 
+> Again, improperly indented.
+OK. will fix it.
+
+> > +extern int vmbus_sendpacket_hvsock(struct vmbus_channel *channel,
+> > +					void *buf, u32 len);
 > > +
 > 
-> This is not indented properly, plus it makes no sense to add a flag before
-> anyone even sets the flag.
+> Likewise.
+OK. will fix it.
 
-Hi David,
-Thanks for pointing out the indentation issue!  I'll fix it in V3.
-
-The flag is set by the host: the c->offermsg is in the shared VMBus ringbuffer
-between the host and the guest, so it makes sense for us to check the flag. :-)
+> > +extern int vmbus_recvpacket_hvsock(struct vmbus_channel *channel, void
+> *buffer,
+> > +				u32 bufferlen, u32 *buffer_actual_len);
+> > +
+> > +extern void vmbus_get_hvsock_rw_status(struct vmbus_channel *channel,
+> > +			   bool *can_read, bool *can_write);
+> 
+> Likewise.
+OK. will fix it.
 
 -- Dexuan
