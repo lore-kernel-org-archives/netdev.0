@@ -1,50 +1,48 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 3/6] net: bcmgenet: Power on integrated GPHY in bcmgenet_power_up()
-Date: Thu, 16 Jul 2015 15:51:16 -0700
-Message-ID: <1437087079-21678-4-git-send-email-f.fainelli@gmail.com>
-References: <1437087079-21678-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/6] net: bcmgenet: PHY initialization rework
+Date: Thu, 16 Jul 2015 15:51:13 -0700
+Message-ID: <1437087079-21678-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:35501 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751586AbbGPWxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 18:53:22 -0400
-Received: by pdrg1 with SMTP id g1so51151110pdr.2
-        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 15:53:22 -0700 (PDT)
-In-Reply-To: <1437087079-21678-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:32885 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751006AbbGPWxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 18:53:19 -0400
+Received: by padck2 with SMTP id ck2so49662502pad.0
+        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 15:53:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are currently disabling the GPHY interface during bcmgenet_close(),
-and attempting to power it back on during bcmgenet_open(). This works
-fine for the first time, because we called bcmgenet_mii_config() which
-took care of enabling the interface, however, bcmgenet_power_up() really
-needs to power on the GPHY for correctness.
+Hi David, Petri, Jaedon,
 
-This will be particularly important as we want to move
-bcmgenet_mii_probe() down to bcmgenet_open() to avoid seeing the "PHY
-already attached" message.
+This patch series reworks how we perform PHY initialization and resets in the
+GENET driver. Although this contains mostly fixes, some of the changes are a
+bit too intrusive to be backported to 'net' at the moment.
 
-Fixes: a642c4f7906f36 ("net: bcmgenet: power up and down integrated GPHY when unused")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 2 ++
- 1 file changed, 2 insertions(+)
+Some of the motivations behind these changes were to reduce the time spent in how
+performing MDIO transactions, since it is better to perform then when we have
+interrupts enabled. This reduces the bring-up time of GENET from ~600 msecs down
+to ~8 msecs, and about the same time for suspend/resume.
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index c634ddbbd21d..2efe72f94869 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -907,6 +907,8 @@ static void bcmgenet_power_up(struct bcmgenet_priv *priv,
- 	}
- 
- 	bcmgenet_ext_writel(priv, reg, EXT_EXT_PWR_MGMT);
-+	if (mode == GENET_POWER_PASSIVE)
-+		bcmgenet_phy_power_set(priv->dev, true);
- }
- 
- /* ioctl handle special commands that are not present in ethtool. */
+Since I do not currently have a system which is not DT-aware, can you (Petri,
+Jaedon) give this a try and confirm things keep working as expected?
+
+Thanks!
+
+Florian Fainelli (6):
+  net: bcmgenet: Remove excessive PHY reset
+  net: bcmgenet: Use correct dev_id for free_irq
+  net: bcmgenet: Power on integrated GPHY in bcmgenet_power_up()
+  net: bcmgenet: Determine PHY type before scanning MDIO bus
+  net: bcmgenet: Delay PHY initialization to bcmgenet_open()
+  net: bcmgenet: Remove init parameter from bcmgenet_mii_config
+
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 33 +++++-----
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |  5 +-
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   | 84 ++++++++++++--------------
+ 3 files changed, 59 insertions(+), 63 deletions(-)
+
 -- 
 2.1.0
