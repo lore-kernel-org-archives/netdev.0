@@ -1,163 +1,391 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH] bonding: correct the MAC address for "follow" fail_over_mac
- policy
-Date: Thu, 16 Jul 2015 20:02:00 +0800
-Message-ID: <55A79D38.2000205@huawei.com>
-References: <55A76B8A.5040804@huawei.com> <55A77840.5010506@cumulusnetworks.com> <55A799F7.8080904@huawei.com> <55A79A7A.3000204@cumulusnetworks.com> <55A79B74.1000701@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	"j.vosburgh@gmail.com >> Jay Vosburgh" <j.vosburgh@gmail.com>,
-	"vfalico@gmail.com >> Veaceslav Falico" <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, <fengtiantian@huawei.com>,
-	"hahaer.guo@huawei.com >> Guozhibin (Hahaer)" <hahaer.guo@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:37114 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755039AbbGPMFn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 08:05:43 -0400
-In-Reply-To: <55A79B74.1000701@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Subject: [PATCH v2] jhash: Deinline jhash, jhash2 and __jhash_nwords
+Date: Thu, 16 Jul 2015 14:40:16 +0200
+Message-ID: <1437050416-13295-1-git-send-email-dvlasenk@redhat.com>
+Cc: Denys Vlasenko <dvlasenk@redhat.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2015/7/16 19:54, Nikolay Aleksandrov wrote:
-> On 07/16/2015 01:50 PM, Nikolay Aleksandrov wrote:
->> On 07/16/2015 01:48 PM, Ding Tianhong wrote:
->>> On 2015/7/16 17:24, Nikolay Aleksandrov wrote:
->>>> On 07/16/2015 10:30 AM, Ding Tianhong wrote:
->>>>> The "follow" fail_over_mac policy is useful for multiport devices that
->>>>> either become confused or incur a performance penalty when multiple
->>>>> ports are programmed with the same MAC address, but the same MAC
->>>>> address still may happened by this steps for this policy:
->>>>>
->>>>> 1) echo +eth0 > /sys/class/net/bond0/bonding/slaves
->>>>>    bond0 has the same mac address with eth0, it is MAC1.
->>>>>
->>>>> 2) echo +eth1 > /sys/class/net/bond0/bonding/slaves
->>>>>    eth1 is backup, eth1 has MAC2.
->>>>>
->>>>> 3) ifconfig eth0 down
->>>>>    eth1 became active slave, bond will swap MAC for eth0 and eth1,
->>>>>    so eth1 has MAC1, and eth0 has MAC2.
->>>>>
->>>>> 4) ifconfig eth1 down
->>>>>    there is no active slave, and eth1 still has MAC1, eth2 has MAC2.
->>>>>
->>>>> 5) ifconfig eth0 up
->>>>>    the eth0 became active slave again, the bond set eth0 to MAC1.
->>>>>
->>>>> Something wrong here, then if you set eth1 up, the eth0 and eth1 will have the same
->>>>> MAC address, it will break this policy for ACTIVE_BACKUP mode.
->>>>>
->>>>> This patch will fix this problem by finding the old active slave and
->>>>> swap them MAC address before change active slave.
->>>>>
->>>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>>>> ---
->>>>>  drivers/net/bonding/bond_main.c | 20 ++++++++++++++++++++
->>>>>  1 file changed, 20 insertions(+)
->>>>>
->>>>
->>>> This doesn't seem to be true:
->>>> ~# cat /sys/class/net/bond0/bonding/fail_over_mac 
->>>> follow 2
->>>> root@debian:~# ip l sh eth1
->>>> 3: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 state UP mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>> root@debian:~# ip l sh eth2
->>>> 4: eth2: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 state UP mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:4f:a5:99 brd ff:ff:ff:ff:ff:ff
->>>> root@debian:~# ip l sh bond0
->>>> 26: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default 
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>>
->>>> *eth1 is the first and active slave and bond0 has taken its mac.
->>>> Now trying your steps:
->>>> Step 3) (bringing down the active eth1)
->>>> root@debian:~# ip l set eth1 down
->>>> root@debian:~# ip l sh bond0
->>>> 26: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default 
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>> root@debian:~# ip l sh eth1
->>>> 3: eth1: <BROADCAST,MULTICAST,SLAVE> mtu 1500 qdisc pfifo_fast master bond0 state DOWN mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:4f:a5:99 brd ff:ff:ff:ff:ff:ff
->>>> root@debian:~# ip l sh eth2
->>>> 4: eth2: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 state UP mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>>
->>>> *The mac addresses of eth1 and eth2 are correctly swapped, so far so good.
->>>>
->>>> Step 4) (bringing down the active eth2)
->>>> root@debian:~# ip l set eth2 down
->>>> 3: eth1: <BROADCAST,MULTICAST,SLAVE> mtu 1500 qdisc pfifo_fast master bond0 state DOWN mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:4f:a5:99 brd ff:ff:ff:ff:ff:ff
->>>> 4: eth2: <BROADCAST,MULTICAST,SLAVE> mtu 1500 qdisc pfifo_fast master bond0 state DOWN mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>> 26: bond0: <NO-CARRIER,BROADCAST,MULTICAST,MASTER,UP> mtu 1500 qdisc noqueue state DOWN mode DEFAULT group default 
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>>
->>>> *eth2 has kept the mac address of the bond and they're both down now
->>>>
->>>> Step 5) (bring eth1 up again and observe the macs)
->>>> ~# ip l set eth1 up
->>>> 3: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 state UP mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>> 4: eth2: <BROADCAST,MULTICAST,SLAVE> mtu 1500 qdisc pfifo_fast master bond0 state DOWN mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:4f:a5:99 brd ff:ff:ff:ff:ff:ff
->>>> 26: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default 
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>>
->>>> *The macs are correctly swapped and there's no such bug. 
->>>>
->>>> Step 6(?) bring eth2 up
->>>> ~# ip l set eth2 up
->>>> 3: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 state UP mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>> 4: eth2: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 state UP mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:4f:a5:99 brd ff:ff:ff:ff:ff:ff
->>>> 26: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default 
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>>
->>>> *Still correct.
->>>>
->>>> Also the mac address that gets set is dev_addr which is changed when
->>>> the swapping is done, if you'd like to get the original mac address
->>>> you should be using slave->perm_hwaddr.
->>>>
->>>
->>> Hi Nik:
->>>
->>> Which kernel version do you use, I test this on kernel 3.19.8 and 4.2-rc2, this problem exist on both version,
->>> maybe I miss something?
->>>
->>> Ding
->>>
->>>
->>
->> It's current net-next.
->> ~# uname -a
->> Linux debian 4.2.0-rc2+ #8 SMP Wed Jul 15 21:22:14 CEST 2015 x86_64 GNU/Linux
->>
-> 
-> Ah this is my bad, my setup was polluted from previous tests and the bonding wasn't
-> clean, you're right - this does reproduce.
-> Sorry about that
-> 
+This patch deinlines jhash, jhash2 and __jhash_nwords.
 
-:)
+It also removes rhashtable_jhash2(key, length, seed)
+because it was merely calling jhash2(key, length, seed).
 
->>>> Cheers,
->>>>  Nik
->>>>
->>>> .
->>>>
->>>
->>>
->>
-> 
-> 
-> .
-> 
+With this .config: http://busybox.net/~vda/kernel_config,
+after deinlining these functions have sizes and callsite counts
+as follows:
+
+__jhash_nwords: 72 bytes, 75 calls
+jhash: 297 bytes, 111 calls
+jhash2: 205 bytes, 136 calls
+
+Total size decrease is about 38,000 bytes:
+
+    text     data      bss       dec     hex filename
+90663567 17221960 36659200 144544727 89d93d7 vmlinux5
+90625577 17221864 36659200 144506641 89cff11 vmlinux.after
+
+Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+CC: Thomas Graf <tgraf@suug.ch>
+CC: Alexander Duyck <alexander.h.duyck@redhat.com>
+CC: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+CC: Herbert Xu <herbert@gondor.apana.org.au>
+CC: netdev@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+---
+Changes in v2: created a new source file, jhash.c
+
+ include/linux/jhash.h | 123 +----------------------------------------
+ lib/Makefile          |   2 +-
+ lib/jhash.c           | 149 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ lib/rhashtable.c      |  13 +++--
+ 4 files changed, 160 insertions(+), 127 deletions(-)
+ create mode 100644 lib/jhash.c
+
+diff --git a/include/linux/jhash.h b/include/linux/jhash.h
+index 348c6f4..0b3f55d 100644
+--- a/include/linux/jhash.h
++++ b/include/linux/jhash.h
+@@ -31,131 +31,14 @@
+ /* Mask the hash value, i.e (value & jhash_mask(n)) instead of (value % n) */
+ #define jhash_mask(n)   (jhash_size(n)-1)
+ 
+-/* __jhash_mix -- mix 3 32-bit values reversibly. */
+-#define __jhash_mix(a, b, c)			\
+-{						\
+-	a -= c;  a ^= rol32(c, 4);  c += b;	\
+-	b -= a;  b ^= rol32(a, 6);  a += c;	\
+-	c -= b;  c ^= rol32(b, 8);  b += a;	\
+-	a -= c;  a ^= rol32(c, 16); c += b;	\
+-	b -= a;  b ^= rol32(a, 19); a += c;	\
+-	c -= b;  c ^= rol32(b, 4);  b += a;	\
+-}
+-
+-/* __jhash_final - final mixing of 3 32-bit values (a,b,c) into c */
+-#define __jhash_final(a, b, c)			\
+-{						\
+-	c ^= b; c -= rol32(b, 14);		\
+-	a ^= c; a -= rol32(c, 11);		\
+-	b ^= a; b -= rol32(a, 25);		\
+-	c ^= b; c -= rol32(b, 16);		\
+-	a ^= c; a -= rol32(c, 4);		\
+-	b ^= a; b -= rol32(a, 14);		\
+-	c ^= b; c -= rol32(b, 24);		\
+-}
+-
+ /* An arbitrary initial parameter */
+ #define JHASH_INITVAL		0xdeadbeef
+ 
+-/* jhash - hash an arbitrary key
+- * @k: sequence of bytes as key
+- * @length: the length of the key
+- * @initval: the previous hash, or an arbitray value
+- *
+- * The generic version, hashes an arbitrary sequence of bytes.
+- * No alignment or length assumptions are made about the input key.
+- *
+- * Returns the hash value of the key. The result depends on endianness.
+- */
+-static inline u32 jhash(const void *key, u32 length, u32 initval)
+-{
+-	u32 a, b, c;
+-	const u8 *k = key;
+-
+-	/* Set up the internal state */
+-	a = b = c = JHASH_INITVAL + length + initval;
+-
+-	/* All but the last block: affect some 32 bits of (a,b,c) */
+-	while (length > 12) {
+-		a += __get_unaligned_cpu32(k);
+-		b += __get_unaligned_cpu32(k + 4);
+-		c += __get_unaligned_cpu32(k + 8);
+-		__jhash_mix(a, b, c);
+-		length -= 12;
+-		k += 12;
+-	}
+-	/* Last block: affect all 32 bits of (c) */
+-	/* All the case statements fall through */
+-	switch (length) {
+-	case 12: c += (u32)k[11]<<24;
+-	case 11: c += (u32)k[10]<<16;
+-	case 10: c += (u32)k[9]<<8;
+-	case 9:  c += k[8];
+-	case 8:  b += (u32)k[7]<<24;
+-	case 7:  b += (u32)k[6]<<16;
+-	case 6:  b += (u32)k[5]<<8;
+-	case 5:  b += k[4];
+-	case 4:  a += (u32)k[3]<<24;
+-	case 3:  a += (u32)k[2]<<16;
+-	case 2:  a += (u32)k[1]<<8;
+-	case 1:  a += k[0];
+-		 __jhash_final(a, b, c);
+-	case 0: /* Nothing left to add */
+-		break;
+-	}
+-
+-	return c;
+-}
+-
+-/* jhash2 - hash an array of u32's
+- * @k: the key which must be an array of u32's
+- * @length: the number of u32's in the key
+- * @initval: the previous hash, or an arbitray value
+- *
+- * Returns the hash value of the key.
+- */
+-static inline u32 jhash2(const u32 *k, u32 length, u32 initval)
+-{
+-	u32 a, b, c;
+-
+-	/* Set up the internal state */
+-	a = b = c = JHASH_INITVAL + (length<<2) + initval;
+-
+-	/* Handle most of the key */
+-	while (length > 3) {
+-		a += k[0];
+-		b += k[1];
+-		c += k[2];
+-		__jhash_mix(a, b, c);
+-		length -= 3;
+-		k += 3;
+-	}
+-
+-	/* Handle the last 3 u32's: all the case statements fall through */
+-	switch (length) {
+-	case 3: c += k[2];
+-	case 2: b += k[1];
+-	case 1: a += k[0];
+-		__jhash_final(a, b, c);
+-	case 0:	/* Nothing left to add */
+-		break;
+-	}
+-
+-	return c;
+-}
+-
++u32 jhash(const void *key, u32 length, u32 initval);
++u32 jhash2(const u32 *k, u32 length, u32 initval);
+ 
+ /* __jhash_nwords - hash exactly 3, 2 or 1 word(s) */
+-static inline u32 __jhash_nwords(u32 a, u32 b, u32 c, u32 initval)
+-{
+-	a += initval;
+-	b += initval;
+-	c += initval;
+-
+-	__jhash_final(a, b, c);
+-
+-	return c;
+-}
++u32 __jhash_nwords(u32 a, u32 b, u32 c, u32 initval);
+ 
+ static inline u32 jhash_3words(u32 a, u32 b, u32 c, u32 initval)
+ {
+diff --git a/lib/Makefile b/lib/Makefile
+index 6897b52..978be53 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -26,7 +26,7 @@ obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
+ 	 bust_spinlocks.o kasprintf.o bitmap.o scatterlist.o \
+ 	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iov_iter.o clz_ctz.o \
+ 	 bsearch.o find_bit.o llist.o memweight.o kfifo.o \
+-	 percpu-refcount.o percpu_ida.o rhashtable.o reciprocal_div.o
++	 percpu-refcount.o percpu_ida.o jhash.o rhashtable.o reciprocal_div.o
+ obj-y += string_helpers.o
+ obj-$(CONFIG_TEST_STRING_HELPERS) += test-string_helpers.o
+ obj-y += hexdump.o
+diff --git a/lib/jhash.c b/lib/jhash.c
+new file mode 100644
+index 0000000..cf3c277
+--- /dev/null
++++ b/lib/jhash.c
+@@ -0,0 +1,149 @@
++/* Jenkins hash support.
++ *
++ * Copyright (C) 2006. Bob Jenkins (bob_jenkins@burtleburtle.net)
++ *
++ * http://burtleburtle.net/bob/hash/
++ *
++ * These are the credits from Bob's sources:
++ *
++ * lookup3.c, by Bob Jenkins, May 2006, Public Domain.
++ *
++ * These are functions for producing 32-bit hashes for hash table lookup.
++ * hashword(), hashlittle(), hashlittle2(), hashbig(), mix(), and final()
++ * are externally useful functions.  Routines to test the hash are included
++ * if SELF_TEST is defined.  You can use this free for any purpose.  It's in
++ * the public domain.  It has no warranty.
++ *
++ * Copyright (C) 2009-2010 Jozsef Kadlecsik (kadlec@blackhole.kfki.hu)
++ *
++ * I've modified Bob's hash to be useful in the Linux kernel, and
++ * any bugs present are my fault.
++ * Jozsef
++ */
++#include <linux/export.h>
++#include <linux/jhash.h>
++
++/* __jhash_mix -- mix 3 32-bit values reversibly. */
++#define __jhash_mix(a, b, c)			\
++{						\
++	a -= c;  a ^= rol32(c, 4);  c += b;	\
++	b -= a;  b ^= rol32(a, 6);  a += c;	\
++	c -= b;  c ^= rol32(b, 8);  b += a;	\
++	a -= c;  a ^= rol32(c, 16); c += b;	\
++	b -= a;  b ^= rol32(a, 19); a += c;	\
++	c -= b;  c ^= rol32(b, 4);  b += a;	\
++}
++
++/* __jhash_final - final mixing of 3 32-bit values (a,b,c) into c */
++#define __jhash_final(a, b, c)			\
++{						\
++	c ^= b; c -= rol32(b, 14);		\
++	a ^= c; a -= rol32(c, 11);		\
++	b ^= a; b -= rol32(a, 25);		\
++	c ^= b; c -= rol32(b, 16);		\
++	a ^= c; a -= rol32(c, 4);		\
++	b ^= a; b -= rol32(a, 14);		\
++	c ^= b; c -= rol32(b, 24);		\
++}
++
++/* jhash - hash an arbitrary key
++ * @k: sequence of bytes as key
++ * @length: the length of the key
++ * @initval: the previous hash, or an arbitray value
++ *
++ * The generic version, hashes an arbitrary sequence of bytes.
++ * No alignment or length assumptions are made about the input key.
++ *
++ * Returns the hash value of the key. The result depends on endianness.
++ */
++u32 jhash(const void *key, u32 length, u32 initval)
++{
++	u32 a, b, c;
++	const u8 *k = key;
++
++	/* Set up the internal state */
++	a = b = c = JHASH_INITVAL + length + initval;
++
++	/* All but the last block: affect some 32 bits of (a,b,c) */
++	while (length > 12) {
++		a += __get_unaligned_cpu32(k);
++		b += __get_unaligned_cpu32(k + 4);
++		c += __get_unaligned_cpu32(k + 8);
++		__jhash_mix(a, b, c);
++		length -= 12;
++		k += 12;
++	}
++	/* Last block: affect all 32 bits of (c) */
++	/* All the case statements fall through */
++	switch (length) {
++	case 12: c += (u32)k[11]<<24;
++	case 11: c += (u32)k[10]<<16;
++	case 10: c += (u32)k[9]<<8;
++	case 9:  c += k[8];
++	case 8:  b += (u32)k[7]<<24;
++	case 7:  b += (u32)k[6]<<16;
++	case 6:  b += (u32)k[5]<<8;
++	case 5:  b += k[4];
++	case 4:  a += (u32)k[3]<<24;
++	case 3:  a += (u32)k[2]<<16;
++	case 2:  a += (u32)k[1]<<8;
++	case 1:  a += k[0];
++		 __jhash_final(a, b, c);
++	case 0: /* Nothing left to add */
++		break;
++	}
++
++	return c;
++}
++EXPORT_SYMBOL_GPL(jhash);
++
++/* jhash2 - hash an array of u32's
++ * @k: the key which must be an array of u32's
++ * @length: the number of u32's in the key
++ * @initval: the previous hash, or an arbitray value
++ *
++ * Returns the hash value of the key.
++ */
++u32 jhash2(const u32 *k, u32 length, u32 initval)
++{
++	u32 a, b, c;
++
++	/* Set up the internal state */
++	a = b = c = JHASH_INITVAL + (length<<2) + initval;
++
++	/* Handle most of the key */
++	while (length > 3) {
++		a += k[0];
++		b += k[1];
++		c += k[2];
++		__jhash_mix(a, b, c);
++		length -= 3;
++		k += 3;
++	}
++
++	/* Handle the last 3 u32's: all the case statements fall through */
++	switch (length) {
++	case 3: c += k[2];
++	case 2: b += k[1];
++	case 1: a += k[0];
++		__jhash_final(a, b, c);
++	case 0:	/* Nothing left to add */
++		break;
++	}
++
++	return c;
++}
++EXPORT_SYMBOL_GPL(jhash2);
++
++/* __jhash_nwords - hash exactly 3, 2 or 1 word(s) */
++u32 __jhash_nwords(u32 a, u32 b, u32 c, u32 initval)
++{
++	a += initval;
++	b += initval;
++	c += initval;
++
++	__jhash_final(a, b, c);
++
++	return c;
++}
++EXPORT_SYMBOL_GPL(__jhash_nwords);
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index cc0c697..cf429c5 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -663,11 +663,6 @@ static size_t rounded_hashtable_size(const struct rhashtable_params *params)
+ 		   (unsigned long)params->min_size);
+ }
+ 
+-static u32 rhashtable_jhash2(const void *key, u32 length, u32 seed)
+-{
+-	return jhash2(key, length, seed);
+-}
+-
+ /**
+  * rhashtable_init - initialize a new hash table
+  * @ht:		hash table to be initialized
+@@ -773,8 +768,14 @@ int rhashtable_init(struct rhashtable *ht,
+ 		ht->p.hashfn = jhash;
+ 
+ 		if (!(ht->key_len & (sizeof(u32) - 1))) {
++			typedef u32 (*hashfunc)(const void *k, u32 length, u32 initval);
++
+ 			ht->key_len /= sizeof(u32);
+-			ht->p.hashfn = rhashtable_jhash2;
++			/*
++			 * jhash2() 1st param is const u32*,
++			 * p.hashfn wants const void*. Hence the cast:
++			 */
++			ht->p.hashfn = (hashfunc)jhash2;
+ 		}
+ 	}
+ 
+-- 
+1.8.1.4
