@@ -1,20 +1,31 @@
-From: Clemens Gruber <clemens.gruber@pqgruber.com>
-Subject: (unknown)
-Date: Thu, 16 Jul 2015 09:16:24 +0200
-Message-ID: <20150716071624.GB871@pqgruber.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: Sending IPv6 packets broken in net-next
+Date: Thu, 16 Jul 2015 09:47:19 +0200
+Message-ID: <20150716074719.GA14916@orbit.nwl.cc>
+References: <20150715222046.GE14670@orbit.nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+To: netdev@vger.kernel.org,
+	YOSHIFUJI =?utf-8?B?SGlkZWFraS/lkInol6Toi7HmmI4=?=
+	<hideaki.yoshifuji@miraclelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pqgruber.com ([178.189.19.235]:60877 "EHLO
-	mail.pqgruber.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752161AbbGPHQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 03:16:28 -0400
-Received: from pqgruber.com (chello213047168109.15.14.vie.surfer.at [213.47.168.109])
-	by mail.pqgruber.com (Postfix) with ESMTPSA id 216CB9CCE2
-	for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 09:16:26 +0200 (CEST)
+Received: from orbit.nwl.cc ([176.31.251.142]:59803 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752468AbbGPHrV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jul 2015 03:47:21 -0400
 Content-Disposition: inline
+In-Reply-To: <20150715222046.GE14670@orbit.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-unsubscribe
+On Thu, Jul 16, 2015 at 12:20:46AM +0200, Phil Sutter wrote:
+> Commit 9131f3d ("ipv6: Do not iterate over all interfaces when finding
+> source address on specific interface") breaks local output of IPv6
+> packets. Here is a simple reproducer:
+
+I just noticed, a patch fixing the issue has already been sent to this
+list[1]. So nevermind and sorry for the traffic!
+
+Cheers, Phil
+
+[1]: http://www.spinics.net/lists/netdev/msg335586.html
