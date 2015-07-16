@@ -1,51 +1,45 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net:bcmgent:Return the variable ret rather then zero
- for the function bcmgenet_power_down
-Date: Thu, 16 Jul 2015 12:35:30 -0700
-Message-ID: <55A80782.9050907@gmail.com>
-References: <1437075256-21395-1-git-send-email-xerofoify@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicholas Krause <xerofoify@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1437075256-21395-1-git-send-email-xerofoify@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next] net: remove skb_frag_add_head
+Date: Thu, 16 Jul 2015 21:50:50 +0200
+Message-ID: <ff65957de15c76dc2e3a939d513bfe50c8b52855.1437076234.git.jbenc@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49626 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755404AbbGPTvR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jul 2015 15:51:17 -0400
+Received: from int-mx13.intmail.prod.int.phx2.redhat.com (int-mx13.intmail.prod.int.phx2.redhat.com [10.5.11.26])
+	by mx1.redhat.com (Postfix) with ESMTPS id 7D9038AE72
+	for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 19:51:17 +0000 (UTC)
+Received: from griffin.upir.cz (ovpn-204-45.brq.redhat.com [10.40.204.45])
+	by int-mx13.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t6GJpG8F022357
+	for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 15:51:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16/07/15 12:34, Nicholas Krause wrote:
-> This makes the function bcmgenet_power_down return the variable ret
-> rather then zero in order to make this function be able to signal its
-> caller with a error code when a failure occurs internally rather then
-> always appearing to run successfully to its caller.
+It's not used anywhere.
 
-Still not quite the right subject (missing spaces, typos), copy/paste this:
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+ include/linux/skbuff.h | 6 ------
+ 1 file changed, 6 deletions(-)
 
-net: bcmgenet: Return the variable ret rather then zero for the function
-bcmgenet_power_down
-
-> 
-> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
-> ---
->  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> index 64c1e9d..129e5b5 100644
-> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> @@ -877,7 +877,7 @@ static int bcmgenet_power_down(struct bcmgenet_priv *priv,
->  		break;
->  	}
->  
-> -	return 0;
-> +	return ret;
->  }
->  
->  static void bcmgenet_power_up(struct bcmgenet_priv *priv,
-> 
-
-
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index d6cdd6e87d53..a5395be9fe7b 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2671,12 +2671,6 @@ static inline void skb_frag_list_init(struct sk_buff *skb)
+ 	skb_shinfo(skb)->frag_list = NULL;
+ }
+ 
+-static inline void skb_frag_add_head(struct sk_buff *skb, struct sk_buff *frag)
+-{
+-	frag->next = skb_shinfo(skb)->frag_list;
+-	skb_shinfo(skb)->frag_list = frag;
+-}
+-
+ #define skb_walk_frags(skb, iter)	\
+ 	for (iter = skb_shinfo(skb)->frag_list; iter; iter = iter->next)
+ 
 -- 
-Florian
+1.8.3.1
