@@ -1,153 +1,119 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH] bonding: correct the MAC address for "follow" fail_over_mac
- policy
-Date: Thu, 16 Jul 2015 14:04:39 +0200
-Message-ID: <55A79DD7.8050602@cumulusnetworks.com>
-References: <55A76B8A.5040804@huawei.com> <55A77840.5010506@cumulusnetworks.com> <55A799F7.8080904@huawei.com> <55A79A7A.3000204@cumulusnetworks.com> <55A79B74.1000701@cumulusnetworks.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH nf-next] netfilter: nf_ct_sctp: minimal multihoming
+ support
+Date: Thu, 16 Jul 2015 14:05:12 +0200
+Message-ID: <20150716120512.GA7200@unicorn.suse.cz>
+References: <20150714122311.8DA8EA0C9A@unicorn.suse.cz>
+ <20150714134203.GG25674@breakpoint.cc>
+ <20150714164225.GB8478@unicorn.suse.cz>
+ <20150715203508.GA14704@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Ding Tianhong <dingtianhong@huawei.com>,
-	"j.vosburgh@gmail.com >> Jay Vosburgh" <j.vosburgh@gmail.com>,
-	"vfalico@gmail.com >> Veaceslav Falico" <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, fengtiantian@huawei.com,
-	"hahaer.guo@huawei.com >> Guozhibin (Hahaer)" <hahaer.guo@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:33130 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752180AbbGPMEm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 08:04:42 -0400
-Received: by widic2 with SMTP id ic2so13342089wid.0
-        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 05:04:41 -0700 (PDT)
-In-Reply-To: <55A79B74.1000701@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150715203508.GA14704@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/16/2015 01:54 PM, Nikolay Aleksandrov wrote:
-> On 07/16/2015 01:50 PM, Nikolay Aleksandrov wrote:
->> On 07/16/2015 01:48 PM, Ding Tianhong wrote:
->>> On 2015/7/16 17:24, Nikolay Aleksandrov wrote:
->>>> On 07/16/2015 10:30 AM, Ding Tianhong wrote:
->>>>> The "follow" fail_over_mac policy is useful for multiport devices that
->>>>> either become confused or incur a performance penalty when multiple
->>>>> ports are programmed with the same MAC address, but the same MAC
->>>>> address still may happened by this steps for this policy:
->>>>>
->>>>> 1) echo +eth0 > /sys/class/net/bond0/bonding/slaves
->>>>>    bond0 has the same mac address with eth0, it is MAC1.
->>>>>
->>>>> 2) echo +eth1 > /sys/class/net/bond0/bonding/slaves
->>>>>    eth1 is backup, eth1 has MAC2.
->>>>>
->>>>> 3) ifconfig eth0 down
->>>>>    eth1 became active slave, bond will swap MAC for eth0 and eth1,
->>>>>    so eth1 has MAC1, and eth0 has MAC2.
->>>>>
->>>>> 4) ifconfig eth1 down
->>>>>    there is no active slave, and eth1 still has MAC1, eth2 has MAC2.
->>>>>
->>>>> 5) ifconfig eth0 up
->>>>>    the eth0 became active slave again, the bond set eth0 to MAC1.
->>>>>
->>>>> Something wrong here, then if you set eth1 up, the eth0 and eth1 will have the same
->>>>> MAC address, it will break this policy for ACTIVE_BACKUP mode.
->>>>>
->>>>> This patch will fix this problem by finding the old active slave and
->>>>> swap them MAC address before change active slave.
->>>>>
->>>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>>>> ---
->>>>>  drivers/net/bonding/bond_main.c | 20 ++++++++++++++++++++
->>>>>  1 file changed, 20 insertions(+)
->>>>>
->>>>
->>>> This doesn't seem to be true:
->>>> ~# cat /sys/class/net/bond0/bonding/fail_over_mac 
->>>> follow 2
->>>> root@debian:~# ip l sh eth1
->>>> 3: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 state UP mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>> root@debian:~# ip l sh eth2
->>>> 4: eth2: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 state UP mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:4f:a5:99 brd ff:ff:ff:ff:ff:ff
->>>> root@debian:~# ip l sh bond0
->>>> 26: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default 
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>>
->>>> *eth1 is the first and active slave and bond0 has taken its mac.
->>>> Now trying your steps:
->>>> Step 3) (bringing down the active eth1)
->>>> root@debian:~# ip l set eth1 down
->>>> root@debian:~# ip l sh bond0
->>>> 26: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default 
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>> root@debian:~# ip l sh eth1
->>>> 3: eth1: <BROADCAST,MULTICAST,SLAVE> mtu 1500 qdisc pfifo_fast master bond0 state DOWN mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:4f:a5:99 brd ff:ff:ff:ff:ff:ff
->>>> root@debian:~# ip l sh eth2
->>>> 4: eth2: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 state UP mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>>
->>>> *The mac addresses of eth1 and eth2 are correctly swapped, so far so good.
->>>>
->>>> Step 4) (bringing down the active eth2)
->>>> root@debian:~# ip l set eth2 down
->>>> 3: eth1: <BROADCAST,MULTICAST,SLAVE> mtu 1500 qdisc pfifo_fast master bond0 state DOWN mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:4f:a5:99 brd ff:ff:ff:ff:ff:ff
->>>> 4: eth2: <BROADCAST,MULTICAST,SLAVE> mtu 1500 qdisc pfifo_fast master bond0 state DOWN mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>> 26: bond0: <NO-CARRIER,BROADCAST,MULTICAST,MASTER,UP> mtu 1500 qdisc noqueue state DOWN mode DEFAULT group default 
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>>
->>>> *eth2 has kept the mac address of the bond and they're both down now
->>>>
->>>> Step 5) (bring eth1 up again and observe the macs)
->>>> ~# ip l set eth1 up
->>>> 3: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 state UP mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>> 4: eth2: <BROADCAST,MULTICAST,SLAVE> mtu 1500 qdisc pfifo_fast master bond0 state DOWN mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:4f:a5:99 brd ff:ff:ff:ff:ff:ff
->>>> 26: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default 
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>>
->>>> *The macs are correctly swapped and there's no such bug. 
->>>>
->>>> Step 6(?) bring eth2 up
->>>> ~# ip l set eth2 up
->>>> 3: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 state UP mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>> 4: eth2: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 state UP mode DEFAULT group default qlen 1000
->>>>     link/ether 52:54:00:4f:a5:99 brd ff:ff:ff:ff:ff:ff
->>>> 26: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default 
->>>>     link/ether 52:54:00:3f:47:69 brd ff:ff:ff:ff:ff:ff
->>>>
->>>> *Still correct.
->>>>
->>>> Also the mac address that gets set is dev_addr which is changed when
->>>> the swapping is done, if you'd like to get the original mac address
->>>> you should be using slave->perm_hwaddr.
->>>>
->>>
->>> Hi Nik:
->>>
->>> Which kernel version do you use, I test this on kernel 3.19.8 and 4.2-rc2, this problem exist on both version,
->>> maybe I miss something?
->>>
->>> Ding
->>>
->>>
->>
->> It's current net-next.
->> ~# uname -a
->> Linux debian 4.2.0-rc2+ #8 SMP Wed Jul 15 21:22:14 CEST 2015 x86_64 GNU/Linux
->>
+On Wed, Jul 15, 2015 at 05:35:08PM -0300, Marcelo Ricardo Leitner wrote:
+> Hi,
 > 
-> Ah this is my bad, my setup was polluted from previous tests and the bonding wasn't
-> clean, you're right - this does reproduce.
-> Sorry about that
+> On Tue, Jul 14, 2015 at 06:42:25PM +0200, Michal Kubecek wrote:
+> > On Tue, Jul 14, 2015 at 03:42:03PM +0200, Florian Westphal wrote:
+> > > Michal Kubecek <mkubecek@suse.cz> wrote:
+> > > > +	case SCTP_CID_HEARTBEAT:
+> > > > +		pr_debug("SCTP_CID_HEARTBEAT");
+> > > > +		i = 9;
+> > > > +		break;
+> > > > +	case SCTP_CID_HEARTBEAT_ACK:
+> > > > +		pr_debug("SCTP_CID_HEARTBEAT_ACK");
+> > > > +		i = 10;
+> > > > +		break;
+> > > >  	default:
+> > > >  		/* Other chunks like DATA, SACK, HEARTBEAT and
+> > > >  		its ACK do not cause a change in state */
+> > > > @@ -329,6 +351,8 @@ static int sctp_packet(struct nf_conn *ct,
+> > > >  	    !test_bit(SCTP_CID_COOKIE_ECHO, map) &&
+> > > >  	    !test_bit(SCTP_CID_ABORT, map) &&
+> > > >  	    !test_bit(SCTP_CID_SHUTDOWN_ACK, map) &&
+> > > > +	    !test_bit(SCTP_CID_HEARTBEAT, map) &&
+> > > > +	    !test_bit(SCTP_CID_HEARTBEAT_ACK, map) &&
+> > > >  	    sh->vtag != ct->proto.sctp.vtag[dir]) {
+> > > >  		pr_debug("Verification tag check failed\n");
+> > > >  		goto out;
+> > > > @@ -357,6 +381,16 @@ static int sctp_packet(struct nf_conn *ct,
+> > > >  			/* Sec 8.5.1 (D) */
+> > > >  			if (sh->vtag != ct->proto.sctp.vtag[dir])
+> > > >  				goto out_unlock;
+> > > > +		} else if (sch->type == SCTP_CID_HEARTBEAT ||
+> > > > +			   sch->type == SCTP_CID_HEARTBEAT_ACK) {
+> > > > +			if (ct->proto.sctp.vtag[dir] == 0) {
+> > > > +				pr_debug("Setting vtag %x for dir %d\n",
+> > > > +					 sh->vtag, dir);
+> > > > +				ct->proto.sctp.vtag[dir] = sh->vtag;
+> > > 
+> > > Could you please elaborate on the [dir] == 0 test?
+> > > 
+> > > I see this might happen for SCTP_CID_HEARTBEAT_ACK, but why is this
+> > > needed for SCTP_CID_HEARTBEAT ?
+> > > 
+> > > We found a conntrack entry so shouldn't the vtag[dir] already be > 0?
+> > 
+> > Yes, you are right. This was originally intended to handle the case when
+> > a HEARTBEAT in the reply direction is seen before the HEARTBEAT-ACK but
+> > such HEARTBEAT would be dropped anyway in current version.
 > 
+> And we have to keep the first vtag attempted because otherwise an
+> attacker could just probe for the right one until she gets a reply.
+> 
+> IOW, if a different vtag is attempted, we should drop it as the packet
+> doesn't belong to that association/conntrack entry.
+> 
+> As vtags are always != 0 in such case, that's a way to know if we
+> already have that information or not.
+> 
+> > On the other hand, an alternative would be
+> > 
+> > 		} else if (sch->type == SCTP_CID_HEARTBEAT_ACK &&
+> > 			   ct->proto.sctp.vtag[dir] == 0) {
+> > 			pr_debug("Setting vtag %x for dir %d\n",
+> > 				 sh->vtag, dir);
+> > 			ct->proto.sctp.vtag[dir] = sh->vtag;
+> > 		} else if ((sch->type == SCTP_CID_HEARTBEAT ||
+> > 			    sch->type == SCTP_CID_HEARTBEAT_ACK) &&
+> > 			   sh->vtag != ct->proto.sctp.vtag[dir]) {
+> > 			pr_debug("Verification tag check failed\n");
+> > 			goto out_unlock;
+> > 		}
+> > 
+> > I'm not sure it looks better.
+> 
+> Now it seems swapped, we should save the tag on HB and check on
+> HB_ACK only and would have to check against !dir entry. Like:
 
-Just tried it and it fixes it for me so
-Tested-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+I forgot to include the explanation of vtag setting/checking logic into
+the commit message. It is supposed to work like this:
+
+Normally, vtag is set from the INIT chunk for the reply direction and
+from the INIT-ACK chunk for the originating direction (i.e. each of
+these defines vtag value for the opposite direction). For secondary
+conntracks, we can't rely on seeing INIT/INIT-ACK and even if we have
+seen them, we would need to connect two different conntracks. Therefore
+simplified logic is applied: vtag of first packet in each direction
+(HEARTBEAT in the originating and HEARTBEAT-ACK in reply direction) is
+saved and all following packets in that direction are compared with this
+saved value. While INIT and INIT-ACK define vtag for the opposite
+direction (that's where "!dir" comes from), vtags extracted from
+HEARTBEAT and HEARTBEAT-ACK are always for their direction. And we have
+to check vtags on packets with HEARTBEAT chunks as well because their
+vtags should match vtag of the first (set in sctp_new()).
+
+                                                          Michal Kubecek
