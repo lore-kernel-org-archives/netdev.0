@@ -1,50 +1,42 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next]r8169: set bits on Register Interrupt status
- on limit
-Date: Thu, 16 Jul 2015 10:07:30 -0700
-Message-ID: <55A7E4D2.3020706@gmail.com>
-References: <1437041934-2587-1-git-send-email-corcodel.marian@gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH 0/6] BPF JIT fixes and features for ARM
+Date: Thu, 16 Jul 2015 10:35:34 -0700
+Message-ID: <55A7EB66.7030700@plumgrid.com>
+References: <1437065195-10887-1-git-send-email-nschichan@freebox.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Corcodel Marian <corcodel.marian@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35027 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753081AbbGPRJX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 13:09:23 -0400
-Received: by pactm7 with SMTP id tm7so46092574pac.2
-        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 10:09:23 -0700 (PDT)
-In-Reply-To: <1437041934-2587-1-git-send-email-corcodel.marian@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Russell King <linux@arm.linux.org.uk>
+To: Nicolas Schichan <nschichan@freebox.fr>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Mircea Gherzan <mgherzan@gmail.com>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437065195-10887-1-git-send-email-nschichan@freebox.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16/07/15 03:18, Corcodel Marian wrote:
-> 
->  Set bits on register Interrupt status on limits by
-> configuration(critical).
->  On chips not alls bits is in use and some is reserved this patch solve this issue.
-> 
->  Committer: Corcodel Marian <asu@192-168-0-3.rdsnet.ro>
->  Changes to be committed:
-> 	modified:   drivers/net/ethernet/realtek/r8169.c
+On 7/16/15 9:46 AM, Nicolas Schichan wrote:
+> This serie fixes issues with the ARM BPF JIT and adds support for more
+> instructions to the ARM BPF JIT.
+>
+> The first three patches are fixing bugs in the ARM JIT and should
+> probably find their way to a stable kernel.
+>
+> The last three patches add support to the ARM JIT for more BPF
+> instructions, namely skb netdevice type retrieval, skb payload offset
+> retrieval, and skb packet type retrieval.
+>
+> With the first three patches, all 60 test_bpf tests in Linux 4.1 release
+> are now passing OK (was 54 out of 60 before).
+>
+> The last three patches allow 35 tests to use the JIT instead of 29
+> before.
 
-Unfortunately, this still does not look like a proper patch submission,
-please take the time to read through Documentation/SubmittingPatches,
-and also browse the netdev mailing-list for examples on what other
-patches submission look like, e.g:
-http://marc.info/?l=linux-netdev&m=143701078222680&w=2
+looks good to me.
+For the series:
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 
-If you use git format-patch and git send-email, things are made largely
-easier than trying to manually do this.
-
-> 
-> Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
-> ---
->  drivers/net/ethernet/realtek/r8169.c | 7 +++++--
->  1 file changed, 5 insertions(+), 2 deletions(-)
-> 
-
-
--- 
-Florian
+you might want to try the latest 4.2-rc, since it has 238 tests :)
