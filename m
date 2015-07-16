@@ -1,373 +1,91 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v2] jhash: Deinline jhash, jhash2 and __jhash_nwords
-Date: Thu, 16 Jul 2015 07:26:21 -0700
-Message-ID: <55A7BF0D.9050505@gmail.com>
-References: <1437050416-13295-1-git-send-email-dvlasenk@redhat.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next] rocker: forward packets to CPU when port is
+ joined to openvswitch
+Date: Thu, 16 Jul 2015 07:41:05 -0700
+Message-ID: <55A7C281.9000207@gmail.com>
+References: <1437010754-29038-1-git-send-email-simon.horman@netronome.com> <CAE4R7bCBaMZKAhUbW4MC3Z5hmic2kUZuBn94zB6j+kY1Z2piag@mail.gmail.com> <20150716065827.GA2145@nanopsycho.orion> <CAE4R7bANdQqxkU_0yUh1W0+o2bPvTnw7u_3ruNsfaPFm-Vs=Yg@mail.gmail.com> <20150716081441.GB2145@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Denys Vlasenko <dvlasenk@redhat.com>, Thomas Graf <tgraf@suug.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1437050416-13295-1-git-send-email-dvlasenk@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Simon Horman <simon.horman@netronome.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>, Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:34667 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752086AbbGPOku (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 10:40:50 -0400
+Received: by obre1 with SMTP id e1so48163079obr.1
+        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 07:40:49 -0700 (PDT)
+In-Reply-To: <20150716081441.GB2145@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/16/2015 05:40 AM, Denys Vlasenko wrote:
-> This patch deinlines jhash, jhash2 and __jhash_nwords.
->
-> It also removes rhashtable_jhash2(key, length, seed)
-> because it was merely calling jhash2(key, length, seed).
->
-> With this .config: http://busybox.net/~vda/kernel_config,
-> after deinlining these functions have sizes and callsite counts
-> as follows:
->
-> __jhash_nwords: 72 bytes, 75 calls
-> jhash: 297 bytes, 111 calls
-> jhash2: 205 bytes, 136 calls
->
-> Total size decrease is about 38,000 bytes:
->
->      text     data      bss       dec     hex filename
-> 90663567 17221960 36659200 144544727 89d93d7 vmlinux5
-> 90625577 17221864 36659200 144506641 89cff11 vmlinux.after
->
-> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
-> CC: Thomas Graf <tgraf@suug.ch>
-> CC: Alexander Duyck <alexander.h.duyck@redhat.com>
-> CC: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-> CC: Herbert Xu <herbert@gondor.apana.org.au>
-> CC: netdev@vger.kernel.org
-> CC: linux-kernel@vger.kernel.org
-> ---
-> Changes in v2: created a new source file, jhash.c
->
->   include/linux/jhash.h | 123 +----------------------------------------
->   lib/Makefile          |   2 +-
->   lib/jhash.c           | 149 ++++++++++++++++++++++++++++++++++++++++++++++++++
->   lib/rhashtable.c      |  13 +++--
->   4 files changed, 160 insertions(+), 127 deletions(-)
->   create mode 100644 lib/jhash.c
->
-> diff --git a/include/linux/jhash.h b/include/linux/jhash.h
-> index 348c6f4..0b3f55d 100644
-> --- a/include/linux/jhash.h
-> +++ b/include/linux/jhash.h
-> @@ -31,131 +31,14 @@
->   /* Mask the hash value, i.e (value & jhash_mask(n)) instead of (value % n) */
->   #define jhash_mask(n)   (jhash_size(n)-1)
->   
-> -/* __jhash_mix -- mix 3 32-bit values reversibly. */
-> -#define __jhash_mix(a, b, c)			\
-> -{						\
-> -	a -= c;  a ^= rol32(c, 4);  c += b;	\
-> -	b -= a;  b ^= rol32(a, 6);  a += c;	\
-> -	c -= b;  c ^= rol32(b, 8);  b += a;	\
-> -	a -= c;  a ^= rol32(c, 16); c += b;	\
-> -	b -= a;  b ^= rol32(a, 19); a += c;	\
-> -	c -= b;  c ^= rol32(b, 4);  b += a;	\
-> -}
-> -
-> -/* __jhash_final - final mixing of 3 32-bit values (a,b,c) into c */
-> -#define __jhash_final(a, b, c)			\
-> -{						\
-> -	c ^= b; c -= rol32(b, 14);		\
-> -	a ^= c; a -= rol32(c, 11);		\
-> -	b ^= a; b -= rol32(a, 25);		\
-> -	c ^= b; c -= rol32(b, 16);		\
-> -	a ^= c; a -= rol32(c, 4);		\
-> -	b ^= a; b -= rol32(a, 14);		\
-> -	c ^= b; c -= rol32(b, 24);		\
-> -}
-> -
->   /* An arbitrary initial parameter */
->   #define JHASH_INITVAL		0xdeadbeef
->   
-> -/* jhash - hash an arbitrary key
-> - * @k: sequence of bytes as key
-> - * @length: the length of the key
-> - * @initval: the previous hash, or an arbitray value
-> - *
-> - * The generic version, hashes an arbitrary sequence of bytes.
-> - * No alignment or length assumptions are made about the input key.
-> - *
-> - * Returns the hash value of the key. The result depends on endianness.
-> - */
-> -static inline u32 jhash(const void *key, u32 length, u32 initval)
-> -{
-> -	u32 a, b, c;
-> -	const u8 *k = key;
-> -
-> -	/* Set up the internal state */
-> -	a = b = c = JHASH_INITVAL + length + initval;
-> -
-> -	/* All but the last block: affect some 32 bits of (a,b,c) */
-> -	while (length > 12) {
-> -		a += __get_unaligned_cpu32(k);
-> -		b += __get_unaligned_cpu32(k + 4);
-> -		c += __get_unaligned_cpu32(k + 8);
-> -		__jhash_mix(a, b, c);
-> -		length -= 12;
-> -		k += 12;
-> -	}
-> -	/* Last block: affect all 32 bits of (c) */
-> -	/* All the case statements fall through */
-> -	switch (length) {
-> -	case 12: c += (u32)k[11]<<24;
-> -	case 11: c += (u32)k[10]<<16;
-> -	case 10: c += (u32)k[9]<<8;
-> -	case 9:  c += k[8];
-> -	case 8:  b += (u32)k[7]<<24;
-> -	case 7:  b += (u32)k[6]<<16;
-> -	case 6:  b += (u32)k[5]<<8;
-> -	case 5:  b += k[4];
-> -	case 4:  a += (u32)k[3]<<24;
-> -	case 3:  a += (u32)k[2]<<16;
-> -	case 2:  a += (u32)k[1]<<8;
-> -	case 1:  a += k[0];
-> -		 __jhash_final(a, b, c);
-> -	case 0: /* Nothing left to add */
-> -		break;
-> -	}
-> -
-> -	return c;
-> -}
-> -
-> -/* jhash2 - hash an array of u32's
-> - * @k: the key which must be an array of u32's
-> - * @length: the number of u32's in the key
-> - * @initval: the previous hash, or an arbitray value
-> - *
-> - * Returns the hash value of the key.
-> - */
-> -static inline u32 jhash2(const u32 *k, u32 length, u32 initval)
-> -{
-> -	u32 a, b, c;
-> -
-> -	/* Set up the internal state */
-> -	a = b = c = JHASH_INITVAL + (length<<2) + initval;
-> -
-> -	/* Handle most of the key */
-> -	while (length > 3) {
-> -		a += k[0];
-> -		b += k[1];
-> -		c += k[2];
-> -		__jhash_mix(a, b, c);
-> -		length -= 3;
-> -		k += 3;
-> -	}
-> -
-> -	/* Handle the last 3 u32's: all the case statements fall through */
-> -	switch (length) {
-> -	case 3: c += k[2];
-> -	case 2: b += k[1];
-> -	case 1: a += k[0];
-> -		__jhash_final(a, b, c);
-> -	case 0:	/* Nothing left to add */
-> -		break;
-> -	}
-> -
-> -	return c;
-> -}
-> -
-> +u32 jhash(const void *key, u32 length, u32 initval);
-> +u32 jhash2(const u32 *k, u32 length, u32 initval);
->   
->   /* __jhash_nwords - hash exactly 3, 2 or 1 word(s) */
-> -static inline u32 __jhash_nwords(u32 a, u32 b, u32 c, u32 initval)
-> -{
-> -	a += initval;
-> -	b += initval;
-> -	c += initval;
-> -
-> -	__jhash_final(a, b, c);
-> -
-> -	return c;
-> -}
-> +u32 __jhash_nwords(u32 a, u32 b, u32 c, u32 initval);
->   
->   static inline u32 jhash_3words(u32 a, u32 b, u32 c, u32 initval)
->   {
-> diff --git a/lib/Makefile b/lib/Makefile
-> index 6897b52..978be53 100644
-> --- a/lib/Makefile
-> +++ b/lib/Makefile
-> @@ -26,7 +26,7 @@ obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
->   	 bust_spinlocks.o kasprintf.o bitmap.o scatterlist.o \
->   	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iov_iter.o clz_ctz.o \
->   	 bsearch.o find_bit.o llist.o memweight.o kfifo.o \
-> -	 percpu-refcount.o percpu_ida.o rhashtable.o reciprocal_div.o
-> +	 percpu-refcount.o percpu_ida.o jhash.o rhashtable.o reciprocal_div.o
->   obj-y += string_helpers.o
->   obj-$(CONFIG_TEST_STRING_HELPERS) += test-string_helpers.o
->   obj-y += hexdump.o
-> diff --git a/lib/jhash.c b/lib/jhash.c
-> new file mode 100644
-> index 0000000..cf3c277
-> --- /dev/null
-> +++ b/lib/jhash.c
-> @@ -0,0 +1,149 @@
-> +/* Jenkins hash support.
-> + *
-> + * Copyright (C) 2006. Bob Jenkins (bob_jenkins@burtleburtle.net)
-> + *
-> + * http://burtleburtle.net/bob/hash/
-> + *
-> + * These are the credits from Bob's sources:
-> + *
-> + * lookup3.c, by Bob Jenkins, May 2006, Public Domain.
-> + *
-> + * These are functions for producing 32-bit hashes for hash table lookup.
-> + * hashword(), hashlittle(), hashlittle2(), hashbig(), mix(), and final()
-> + * are externally useful functions.  Routines to test the hash are included
-> + * if SELF_TEST is defined.  You can use this free for any purpose.  It's in
-> + * the public domain.  It has no warranty.
-> + *
-> + * Copyright (C) 2009-2010 Jozsef Kadlecsik (kadlec@blackhole.kfki.hu)
-> + *
-> + * I've modified Bob's hash to be useful in the Linux kernel, and
-> + * any bugs present are my fault.
-> + * Jozsef
-> + */
-> +#include <linux/export.h>
-> +#include <linux/jhash.h>
-> +
-> +/* __jhash_mix -- mix 3 32-bit values reversibly. */
-> +#define __jhash_mix(a, b, c)			\
-> +{						\
-> +	a -= c;  a ^= rol32(c, 4);  c += b;	\
-> +	b -= a;  b ^= rol32(a, 6);  a += c;	\
-> +	c -= b;  c ^= rol32(b, 8);  b += a;	\
-> +	a -= c;  a ^= rol32(c, 16); c += b;	\
-> +	b -= a;  b ^= rol32(a, 19); a += c;	\
-> +	c -= b;  c ^= rol32(b, 4);  b += a;	\
-> +}
-> +
-> +/* __jhash_final - final mixing of 3 32-bit values (a,b,c) into c */
-> +#define __jhash_final(a, b, c)			\
-> +{						\
-> +	c ^= b; c -= rol32(b, 14);		\
-> +	a ^= c; a -= rol32(c, 11);		\
-> +	b ^= a; b -= rol32(a, 25);		\
-> +	c ^= b; c -= rol32(b, 16);		\
-> +	a ^= c; a -= rol32(c, 4);		\
-> +	b ^= a; b -= rol32(a, 14);		\
-> +	c ^= b; c -= rol32(b, 24);		\
-> +}
-> +
-> +/* jhash - hash an arbitrary key
-> + * @k: sequence of bytes as key
-> + * @length: the length of the key
-> + * @initval: the previous hash, or an arbitray value
-> + *
-> + * The generic version, hashes an arbitrary sequence of bytes.
-> + * No alignment or length assumptions are made about the input key.
-> + *
-> + * Returns the hash value of the key. The result depends on endianness.
-> + */
-> +u32 jhash(const void *key, u32 length, u32 initval)
-> +{
-> +	u32 a, b, c;
-> +	const u8 *k = key;
-> +
-> +	/* Set up the internal state */
-> +	a = b = c = JHASH_INITVAL + length + initval;
-> +
-> +	/* All but the last block: affect some 32 bits of (a,b,c) */
-> +	while (length > 12) {
-> +		a += __get_unaligned_cpu32(k);
-> +		b += __get_unaligned_cpu32(k + 4);
-> +		c += __get_unaligned_cpu32(k + 8);
-> +		__jhash_mix(a, b, c);
-> +		length -= 12;
-> +		k += 12;
-> +	}
-> +	/* Last block: affect all 32 bits of (c) */
-> +	/* All the case statements fall through */
-> +	switch (length) {
-> +	case 12: c += (u32)k[11]<<24;
-> +	case 11: c += (u32)k[10]<<16;
-> +	case 10: c += (u32)k[9]<<8;
-> +	case 9:  c += k[8];
-> +	case 8:  b += (u32)k[7]<<24;
-> +	case 7:  b += (u32)k[6]<<16;
-> +	case 6:  b += (u32)k[5]<<8;
-> +	case 5:  b += k[4];
-> +	case 4:  a += (u32)k[3]<<24;
-> +	case 3:  a += (u32)k[2]<<16;
-> +	case 2:  a += (u32)k[1]<<8;
-> +	case 1:  a += k[0];
-> +		 __jhash_final(a, b, c);
-> +	case 0: /* Nothing left to add */
-> +		break;
-> +	}
-> +
-> +	return c;
-> +}
-> +EXPORT_SYMBOL_GPL(jhash);
-> +
+On 15-07-16 01:14 AM, Jiri Pirko wrote:
+> Thu, Jul 16, 2015 at 09:09:39AM CEST, sfeldma@gmail.com wrote:
+>> On Wed, Jul 15, 2015 at 11:58 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> Thu, Jul 16, 2015 at 08:40:31AM CEST, sfeldma@gmail.com wrote:
+>>>> On Wed, Jul 15, 2015 at 6:39 PM, Simon Horman
+>>>> <simon.horman@netronome.com> wrote:
+>>>>> Teach rocker to forward packets to CPU when a port is joined to Open vSwitch.
+>>>>> There is scope to later refine what is passed up as per Open vSwitch flows
+>>>>> on a port.
+>>>>>
+>>>>> This does not change the behaviour of rocker ports that are
+>>>>> not joined to Open vSwitch.
+>>>>>
+>>>>> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+>>>>
+>>>> Acked-by: Scott Feldman <sfeldma@gmail.com>
+>>>>
+>>>> Now, OVS flows on a port.  Strange enough, that was the first RFC
+>>>> implementation for switchdev/rocker where we hooked into ovs-kernel
+>>>> module and programmed flows into hw.  We pulled all of that code
+>>>> because, IIRC, the ovs folks didn't want us hooking into the kernel
+>>>> module directly.  We dropped the ovs hooks and focused on hooking
+>>>> kernel's L2/L3.  The device (rocker) didn't really change: OF-DPA
+>>>> pipeline was used for both.  Might be interesting to try hooking it
+>>>> again.
+>>>
+>>>
+>>> I think that now we have an infrastructure prepared for that. I mean,
+>>> what we need to do is to introduce another generic switchdev object
+>>> called "ntupleflow" and hook-up again into ovs datapath and cls_flower
+>>> and insert/remove the object from those codes. Should be pretty easy to do.
+>>
+>> That sounds right.  Is the ovs datapath hooking still happening in the
+>> ovs-kernel module?  Remind me again, what was the objection the last
+>> time we tried that?
+> 
+> Yep, we need to hook there. Otherwise it won't be transparent.
+> 
+> Last time the objection was that this would be ovs specific. But that is
+> passed today. We have switchdev infra with objects, we have cls_flower
+> which would use the same object. I say let's do this now.
+> 
 
-I think this should really be EXPORT_SYMBOL, not EXPORT_SYMBOL_GPL. The 
-fact is the code this is based on is public domain so there isn't much 
-point in requiring GPL as they could just go grab Bob's original code 
-and have a hash function put together pretty quick.
+My objection wasn't that it was OVS specific but based on two
+observations. First the user-kernel interface for OVS would need
+to changed to optimally use hardware and then userspace would need
+to be changed to pack rules optimally for hardware. The reason is
+hardware has wildcards _and_ priority fields typically. This is a
+different structure than we would want to use in software. Maybe
+there is value in having a sub-optimal 'transparent' implementation
+though. Note I can't see how you can possibly reverse engineer this
+from what the kernel gets from userspace today and build out an
+optimal solution.
 
-> +/* jhash2 - hash an array of u32's
-> + * @k: the key which must be an array of u32's
-> + * @length: the number of u32's in the key
-> + * @initval: the previous hash, or an arbitray value
-> + *
-> + * Returns the hash value of the key.
-> + */
-> +u32 jhash2(const u32 *k, u32 length, u32 initval)
-> +{
-> +	u32 a, b, c;
-> +
-> +	/* Set up the internal state */
-> +	a = b = c = JHASH_INITVAL + (length<<2) + initval;
-> +
-> +	/* Handle most of the key */
-> +	while (length > 3) {
-> +		a += k[0];
-> +		b += k[1];
-> +		c += k[2];
-> +		__jhash_mix(a, b, c);
-> +		length -= 3;
-> +		k += 3;
-> +	}
-> +
-> +	/* Handle the last 3 u32's: all the case statements fall through */
-> +	switch (length) {
-> +	case 3: c += k[2];
-> +	case 2: b += k[1];
-> +	case 1: a += k[0];
-> +		__jhash_final(a, b, c);
-> +	case 0:	/* Nothing left to add */
-> +		break;
-> +	}
-> +
-> +	return c;
-> +}
-> +EXPORT_SYMBOL_GPL(jhash2);
-> +
+Second I was hoping to use the interface as a "better" ethtool flow
+classifier with a control plane in user space that controllers in the
+network could interface with. In this mode I'm not running on a TOR but
+at the edge. In this case I want to do some pre-processing of packets
+before sending them up to the kernel to complete processing. Examples
+like partial completion of classification and rule chaining where I
+implement some rules in software and others in hardware. Perhaps this is
+not OVS and I should just write a better ethtool flow classifier. But
+with a 'bit' similar to how we do L2 I would get this.
 
-Same thing here.
+All that said seeing a switchdev infra object could be interesting.
 
-> +/* __jhash_nwords - hash exactly 3, 2 or 1 word(s) */
-> +u32 __jhash_nwords(u32 a, u32 b, u32 c, u32 initval)
-> +{
-> +	a += initval;
-> +	b += initval;
-> +	c += initval;
-> +
-> +	__jhash_final(a, b, c);
-> +
-> +	return c;
-> +}
-> +EXPORT_SYMBOL_GPL(__jhash_nwords);
-
-This one too.
+.John
