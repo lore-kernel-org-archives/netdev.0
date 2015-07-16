@@ -1,61 +1,50 @@
-From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: [PATCH 1/6] ARM: net: fix condition for load_order > 0 when
- translating load instructions.
-Date: Thu, 16 Jul 2015 18:46:30 +0200
-Message-ID: <1437065195-10887-2-git-send-email-nschichan@freebox.fr>
-References: <1437065195-10887-1-git-send-email-nschichan@freebox.fr>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next]r8169: set bits on Register Interrupt status
+ on limit
+Date: Thu, 16 Jul 2015 10:07:30 -0700
+Message-ID: <55A7E4D2.3020706@gmail.com>
+References: <1437041934-2587-1-git-send-email-corcodel.marian@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Russell King <linux@arm.linux.org.uk>,
- Alexei Starovoitov <ast@plumgrid.com>
-To: "David S. Miller" <davem@davemloft.net>,
- Daniel Borkmann <dborkman@redhat.com>,
- Nicolas Schichan <nschichan@freebox.fr>,
- Mircea Gherzan <mgherzan@gmail.com>, linux-arm-kernel@lists.infradead.org,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1437065195-10887-1-git-send-email-nschichan@freebox.fr>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+To: Corcodel Marian <corcodel.marian@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35027 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753081AbbGPRJX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 13:09:23 -0400
+Received: by pactm7 with SMTP id tm7so46092574pac.2
+        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 10:09:23 -0700 (PDT)
+In-Reply-To: <1437041934-2587-1-git-send-email-corcodel.marian@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-To check whether the load should take the fast path or not, the code
-would check that (r_skb_hlen - load_order) is greater than the offset
-of the access using an "Unsigned higher or same" condition. For
-halfword accesses and an skb length of 1 at offset 0, that test is
-valid, as we end up comparing 0xffffffff(-1) and 0, so the fast path
-is taken and the filter allows the load to wrongly succeed. A similar
-issue exists for word loads at offset 0 and an skb length of less than
-4.
+On 16/07/15 03:18, Corcodel Marian wrote:
+> 
+>  Set bits on register Interrupt status on limits by
+> configuration(critical).
+>  On chips not alls bits is in use and some is reserved this patch solve this issue.
+> 
+>  Committer: Corcodel Marian <asu@192-168-0-3.rdsnet.ro>
+>  Changes to be committed:
+> 	modified:   drivers/net/ethernet/realtek/r8169.c
 
-Fix that by using the condition "Signed greater than or equal"
-condition for the fast path code for load orders greater than 0.
+Unfortunately, this still does not look like a proper patch submission,
+please take the time to read through Documentation/SubmittingPatches,
+and also browse the netdev mailing-list for examples on what other
+patches submission look like, e.g:
+http://marc.info/?l=linux-netdev&m=143701078222680&w=2
 
-Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
----
- arch/arm/net/bpf_jit_32.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+If you use git format-patch and git send-email, things are made largely
+easier than trying to manually do this.
 
-diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
-index 4550d24..21f5ace 100644
---- a/arch/arm/net/bpf_jit_32.c
-+++ b/arch/arm/net/bpf_jit_32.c
-@@ -547,7 +547,7 @@ load_common:
- 				emit(ARM_SUB_I(r_scratch, r_skb_hl,
- 					       1 << load_order), ctx);
- 				emit(ARM_CMP_R(r_scratch, r_off), ctx);
--				condt = ARM_COND_HS;
-+				condt = ARM_COND_GE;
- 			} else {
- 				emit(ARM_CMP_R(r_skb_hl, r_off), ctx);
- 				condt = ARM_COND_HI;
+> 
+> Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
+> ---
+>  drivers/net/ethernet/realtek/r8169.c | 7 +++++--
+>  1 file changed, 5 insertions(+), 2 deletions(-)
+> 
+
+
 -- 
-1.9.1
+Florian
