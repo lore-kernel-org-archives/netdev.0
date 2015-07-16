@@ -1,77 +1,54 @@
-From: Corcodel Marian <corcodel.marian@gmail.com>
-Subject: [PATCH net-next]r8169: set bits on Register Interrupt status on limit
-Date: Thu, 16 Jul 2015 13:18:54 +0300
-Message-ID: <1437041934-2587-1-git-send-email-corcodel.marian@gmail.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [virtio-dev] [PATCH] virtio_net: don't require ANY_LAYOUT with
+ VERSION_1
+Date: Thu, 16 Jul 2015 11:29:17 +0100
+Message-ID: <20150716102917.GE3963@stefanha-thinkpad.redhat.com>
+References: <1436963135-16592-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------mine-boundary-string"
-Cc: Corcodel Marian <corcodel.marian@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:33440 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754726AbbGPKTO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 06:19:14 -0400
-Received: by wgmn9 with SMTP id n9so54536729wgm.0
-        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 03:19:13 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------mine-boundary-string
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="dFWYt1i2NyOo1oI9"
+Cc: linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	Jason Wang <jasowang@redhat.com>,
+	virtio-dev@lists.oasis-open.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1436963135-16592-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
- Set bits on register Interrupt status on limits by
-configuration(critical).
- On chips not alls bits is in use and some is reserved this patch solve this issue.
+--dFWYt1i2NyOo1oI9
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
- Committer: Corcodel Marian <asu@192-168-0-3.rdsnet.ro>
- Changes to be committed:
-	modified:   drivers/net/ethernet/realtek/r8169.c
+On Wed, Jul 15, 2015 at 03:26:19PM +0300, Michael S. Tsirkin wrote:
+> ANY_LAYOUT is a compatibility feature. It's implied
+> for VERSION_1 devices, and non-transitional devices
+> might not offer it. Change code to behave accordingly.
+>=20
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  drivers/net/virtio_net.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
 
-Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
----
- drivers/net/ethernet/realtek/r8169.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
 
+--dFWYt1i2NyOo1oI9
+Content-Type: application/pgp-signature
 
---------------mine-boundary-string
-Content-Type: text/x-patch; name="0001-Signed-off-by-Corcodel-Marian-corcodel.marian-gmail..patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0001-Signed-off-by-Corcodel-Marian-corcodel.marian-gmail..patch"
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 744f90a..714af89 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -8181,6 +8181,9 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	else
- 		tp->rx_buf_sz = 16383;
- 
-+	tp->event_slow = cfg->event_slow;
-+
-+
- 	rtl_init_rxcfg(tp);
- 
- 	rtl_irq_disable(tp);
-@@ -8189,7 +8192,7 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	rtl_hw_reset(tp);
- 
--	rtl_ack_events(tp, 0xffff);
-+	rtl_ack_events(tp, 0xffff & tp->event_slow);
- 
- 	pci_set_master(pdev);
- 
-@@ -8325,7 +8328,7 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	dev->hw_features |= NETIF_F_RXFCS;
- 
- 	tp->hw_start = cfg->hw_start;
--	tp->event_slow = cfg->event_slow;
-+	//tp->event_slow = cfg->event_slow;
- 
- 	tp->opts1_mask = (tp->mac_version != RTL_GIGA_MAC_VER_01) ?
- 		~(RxBOVF | RxFOVF) : ~0;
+iQEcBAEBAgAGBQJVp4d9AAoJEJykq7OBq3PIG94H/iJAu4wJ2KIg5FJc2zF8CWKg
+JJfR9Fej2SHIkIyE/7AqNNaqUtAWoyFvHwRByVOaa2p+1Hck0vAbnRf2HQwkmmR4
+nBM3jrots8M0iGZsXYug/Us5PLkP36Ehgjo4XDrNbZ7jfP7oLQYpfs80y4K8Rxnp
+CwKjWmPflAlQqUkKgzWU4qzWuwF9b/kxKiRHETJ1fygwLlZw65GuhqpnQOWqVbQ2
+GoBOliTS19jfkh/EoS21PkqKLHP9gGWlIV5aFDPxuFdlvZ79+QNrYq7pMwL3QkE4
+MxQoScSBdrqRljsvGKLrNOKuZYQVCeIGr7qXZ4DnSL4C6H5y4nyLebK4BBNlHN8=
+=L1ou
+-----END PGP SIGNATURE-----
 
---------------mine-boundary-string--
+--dFWYt1i2NyOo1oI9--
