@@ -1,60 +1,55 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2] jhash: Deinline jhash, jhash2 and __jhash_nwords
-Date: Thu, 16 Jul 2015 12:23:31 -0700
-Message-ID: <1437074611.2495.39.camel@perches.com>
-References: <1437050416-13295-1-git-send-email-dvlasenk@redhat.com>
-	 <CALx6S367jArRC3eKSKsv7gFrgPxyDHWdtvfeO1SmQR91eYxwSw@mail.gmail.com>
-	 <20150716.111729.822179499552193763.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] genet:Return the variable ret rather then zero for the
+ function bcmgenet_power_down
+Date: Thu, 16 Jul 2015 12:24:53 -0700
+Message-ID: <55A80505.8010009@gmail.com>
+References: <1436972983-2820-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, dvlasenk@redhat.com, tgraf@suug.ch,
-	alexander.h.duyck@redhat.com, kadlec@blackhole.kfki.hu,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150716.111729.822179499552193763.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicholas Krause <xerofoify@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:36208 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753858AbbGPT0q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 15:26:46 -0400
+In-Reply-To: <1436972983-2820-1-git-send-email-xerofoify@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-07-16 at 11:17 -0700, David Miller wrote:
-> From: Tom Herbert <tom@herbertland.com>
-> Date: Thu, 16 Jul 2015 08:43:25 -0700
-> 
-> > On Thu, Jul 16, 2015 at 5:40 AM, Denys Vlasenko <dvlasenk@redhat.com> wrote:
-> >> This patch deinlines jhash, jhash2 and __jhash_nwords.
-> >>
-> >> It also removes rhashtable_jhash2(key, length, seed)
-> >> because it was merely calling jhash2(key, length, seed).
-> >>
-> >> With this .config: http://busybox.net/~vda/kernel_config,
-> >> after deinlining these functions have sizes and callsite counts
-> >> as follows:
-> >>
-> >> __jhash_nwords: 72 bytes, 75 calls
-> >> jhash: 297 bytes, 111 calls
-> >> jhash2: 205 bytes, 136 calls
-> >>
-> > jhash is used in several places in the critical data path. Does the
-> > decrease in text size justify performance impact of not inlining it?
-> 
-> Tom took the words right out of my mouth.
-> 
-> Denys, you keep making deinlining changes like this all the time, like
-> a robot.  But I never see you make any effort to look into the performance
-> nor code generation ramifications of your changes.
-> 
-> And frankly that makes your patches quite tiring to deal with.
-> 
-> Your changes potentially have large performance implications, yet you
-> don't put any effort into considering that aspect at all.
+On 15/07/15 08:09, Nicholas Krause wrote:
+> This makes the function bcmgenet_power_down return the variable ret
+> rather then zero in order to make this function be able to signal its
+> caller with a error code when a failure occurs internally rather then
+> always appearing to run successfully to its caller.
 
-It might be useful to have these performance impacting
-changes guarded by something like CONFIG_CC_OPTIMIZE_FOR_SIZE
-with another static __always_inline __<func> and a function &
-EXPORT_SYMBOL or just a static inline so that where code size
-is critical it's uninlined.
+Please adjust the subject to be "net: bcmgenet: blah blah", just to
+conform to the style used for all other changes.
 
-Though even for tiny embedded uses, the additional code
-complexity might not be worth it.
+This seems fine otherwise...
+
+> 
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> index 64c1e9d..129e5b5 100644
+> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> @@ -877,7 +877,7 @@ static int bcmgenet_power_down(struct bcmgenet_priv *priv,
+>  		break;
+>  	}
+>  
+> -	return 0;
+> +	return ret;
+>  }
+>  
+>  static void bcmgenet_power_up(struct bcmgenet_priv *priv,
+> 
+
+
+-- 
+Florian
