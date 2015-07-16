@@ -1,37 +1,30 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next]r8169: set bits on Register Interrupt status on
- limit
-Date: Thu, 16 Jul 2015 23:44:15 +0200
-Message-ID: <20150716214415.GA8407@electric-eye.fr.zoreil.com>
-References: <1437041934-2587-1-git-send-email-corcodel.marian@gmail.com>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH 2/8] cdc-ncm: use common CDC parser
+Date: Fri, 17 Jul 2015 00:09:15 +0200
+Message-ID: <1437084555.2259.0.camel@suse.com>
+References: <1437074680-3515-1-git-send-email-oneukum@suse.com>
+	 <1437074680-3515-2-git-send-email-oneukum@suse.com>
+	 <B0A92094-0F80-4B93-9CC0-274C75E6B095@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Corcodel Marian <corcodel.marian@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:46945 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756461AbbGPVob (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 17:44:31 -0400
-Content-Disposition: inline
-In-Reply-To: <1437041934-2587-1-git-send-email-corcodel.marian@gmail.com>
+Received: from cantor2.suse.de ([195.135.220.15]:46281 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751528AbbGPWKW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jul 2015 18:10:22 -0400
+In-Reply-To: <B0A92094-0F80-4B93-9CC0-274C75E6B095@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Corcodel Marian <corcodel.marian@gmail.com> :
-> Set bits on register Interrupt status on limits by
-> configuration(critical).
-> On chips not alls bits is in use and some is reserved this patch solve
-> this issue.
+On Thu, 2015-07-16 at 22:18 +0200, Bj=C3=B8rn Mork wrote:
+> I'm on vacation without any usable Internet or other code access, so =
+you'll have to excuse me if I'm missing something.  But this seems to l=
+eave union_desc uninitialized, doesn't it?
 
-Did you experience a real bug or is it a theoretical issue ?
+Yes, good catch. I'll make a new version.
 
-I don't mind experimental stuff provided:
-- it's tested
-- it's explained
-- some effort has been done to know what Realtek has to say about it
-
-Call me retentive but the explanations are mildly clear.
-
--- 
-Ueimor
+	Thanks
+		Oliver
