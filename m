@@ -1,41 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bridge: multicast: treat igmpv3 report
- with INCLUDE and no sources as a leave
-Date: Wed, 15 Jul 2015 17:10:57 -0700 (PDT)
-Message-ID: <20150715.171057.1821073433510335063.davem@davemloft.net>
-References: <1436790517-30266-1-git-send-email-nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/4 v2] gianfar: Add Rx S/G
+Date: Wed, 15 Jul 2015 17:14:10 -0700 (PDT)
+Message-ID: <20150715.171410.40836088136904600.davem@davemloft.net>
+References: <1436793726-13310-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	herbert@gondor.apana.org.au
-To: nikolay@cumulusnetworks.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1436790517-30266-1-git-send-email-nikolay@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: claudiu.manoil@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33828 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752840AbbGPAOL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 20:14:11 -0400
+In-Reply-To: <1436793726-13310-1-git-send-email-claudiu.manoil@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Mon, 13 Jul 2015 05:28:37 -0700
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Date: Mon, 13 Jul 2015 16:22:02 +0300
 
-> From: Satish Ashok <sashok@cumulusnetworks.com>
-> 
-> A report with INCLUDE/Change_to_include and empty source list should be
-> treated as a leave, specified by RFC 3376, section 3.1:
-> "If the requested filter mode is INCLUDE *and* the requested source
->  list is empty, then the entry corresponding to the requested
->  interface and multicast address is deleted if present.  If no such
->  entry is present, the request is ignored."
-> 
-> Signed-off-by: Satish Ashok <sashok@cumulusnetworks.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> This patch-set introduces scatter/gather support
+> on the Rx side, addressing Rx path performance
+> issues in the driver.
 
-Applied, thanks.
+Series applied, thanks.
