@@ -1,179 +1,173 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH v2 1/2] sctp: add new getsockopt option
- SCTP_SOCKOPT_PEELOFF_KERNEL
-Date: Thu, 16 Jul 2015 11:03:14 -0300
-Message-ID: <20150716140314.GC1855@localhost.localdomain>
-References: <cover.1436891629.git.marcelo.leitner@gmail.com>
- <6091a8542d13f43fbe1abfa25062d28d15b15e66.1436891629.git.marcelo.leitner@gmail.com>
- <55A7B698.8080409@gmail.com>
+Subject: Re: [RFC PATCH net-next] sctp: fix src address selection if using
+ secondary addresses
+Date: Thu, 16 Jul 2015 11:06:42 -0300
+Message-ID: <20150716140642.GD1855@localhost.localdomain>
+References: <81786a31f7f143e1d229de9a9f909d5f83fa9bb2.1436279035.git.marcelo.leitner@gmail.com>
+ <20150709165458.GA1855@localhost.localdomain>
+ <27EB7D25-A947-4C75-B25B-03BFAD48EC64@fh-muenster.de>
+ <20150710115305.GB1855@localhost.localdomain>
+ <559FE640.5070008@gmail.com>
+ <20150710161718.GP1841@localhost.localdomain>
+ <559FFD6D.8090407@gmail.com>
+ <20150710182702.GQ1841@localhost.localdomain>
+ <20150715184921.GA13095@localhost.localdomain>
+ <55A7AD25.4020000@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-	linux-sctp@vger.kernel.org
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Michael Tuexen <tuexen@fh-muenster.de>, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
 To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49626 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39234 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754222AbbGPODQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jul 2015 10:03:16 -0400
+	id S1753702AbbGPOGq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jul 2015 10:06:46 -0400
 Content-Disposition: inline
-In-Reply-To: <55A7B698.8080409@gmail.com>
+In-Reply-To: <55A7AD25.4020000@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 16, 2015 at 09:50:16AM -0400, Vlad Yasevich wrote:
-> On 07/14/2015 01:13 PM, Marcelo Ricardo Leitner wrote:
-> > SCTP has this operation to peel off associations from a given socket and
-> > create a new socket using this association. We currently have two ways
-> > to use this operation:
-> > - via getsockopt(), on which it will also create and return a file
-> >   descriptor for this new socket
-> > - via sctp_do_peeloff(), which is for kernel only
+On Thu, Jul 16, 2015 at 09:09:57AM -0400, Vlad Yasevich wrote:
+> On 07/15/2015 03:03 PM, Marcelo Ricardo Leitner wrote:
+> > On Fri, Jul 10, 2015 at 03:27:02PM -0300, Marcelo Ricardo Leitner wrote:
+> >> On Fri, Jul 10, 2015 at 01:14:21PM -0400, Vlad Yasevich wrote:
+> >>> On 07/10/2015 12:17 PM, Marcelo Ricardo Leitner wrote:
+> >>>> On Fri, Jul 10, 2015 at 11:35:28AM -0400, Vlad Yasevich wrote:
+> > ...
+> >>>>> have been numerous times where I've seen weak host model in use on the wire
+> >>>>> even with a BSD peer.
+> >>>>>
+> >>>>> This also puts a very big nail through many suggestions we've had over the years
+> >>>>> to allow source based path multihoming in addition to destination based multihoming
+> >>>>> we currently support.
+> >>>>>
+> >>>>> It might be a good idea to make rp-filter like behavior best effort, and have
+> >>>>> the old behavior as fallback.  I am still trying to think up different scenarios
+> >>>>> where rp-filter behavior will cause things to fail prematurely...
+> >>>>
+> >>>> The old behavior is like "if we don't have a src yet and can't find a
+> >>>> preferred src for this dst, use the 1st bound address". We can add it
+> >>>> but as I said, I'm afraid it is just doing wrong and not worth. If such
+> >>>> randomly src addressed packet is meant to be routed, the router will
+> >>>> likely drop it as it is seen as a spoof. And if it reaches the peer, it
+> >>>> will probably come back through a different path.
+> >>>>
+> >>>> I'm tempted to say that current usual use cases are handled by the first
+> >>>> check on this function, which returns the preferred/primary address for
+> >>>> the interface and checks against bound addresses. Whenever you reach the
+> >>>> second check, it just allows you to use that 1st bound address that is
+> >>>> checked. I mean, I can't see use cases that we would be breaking with
+> >>>> this change. 
+> >>>
+> >>> Yes,  the secondary check didn't amount to much, but we've kept it since 2.5
+> >>> days (when sctp was introduced).  I've made attempts over the years to
+> >>> try to make it stricter, but that never amounted to anything that worked well.
+> >>>
+> >>>>
+> >>>> But yeah, it impacts source based routing, and I'm not aware of previous
+> >>>> discussions on it. I'll try to dig some up but if possible, please share
+> >>>> some pointers on it.
+> >>>
+> >>> It's been suggested a few times that we should support source based multihoming
+> >>> particularly for the case where one peer has only 1 address.
+> >>> We've always punted on this, but people still ask every now and then.
+> >>
+> >> Ah okay, now I see it.
+> >>  
+> >>> I do have a question about the code though.. Have you tried with mutlipath routing
+> >>> enabled.  I see rp_filter checks have special code to handle that.  Seem like we
+> >>> might get false negatives in sctp.
+> >>
+> >> In the sense of CONFIG_IP_ROUTE_MULTIPATH=y, yes, but just that. My
+> >> routes were simple ones, either 2 peers attaches to 2 local subnets, or
+> >> with a gateway in the middle (with 2 subnets on each side, but mapped
+> >> 1-1, no crossing. Aka subnet1<->subnet2 and subnet3<->subnet4 while not
+> >> (subnet1<->subnet4 or subnet3<->subnet2).
+> >>
+> >> Note that this is not rp_filter strictly speaking, as it's mirrored.
+> >> rp_filter needs to calculate all possible output routes (actually until
+> >> it finds a valid one) for finding one that would match the one used for
+> >> incoming. 
+> >>
+> >> This check already has an output path, and it's calculating if such
+> >> input would be acceptable. We can't really expect/check for other hits
+> >> because it invalidates the chosen output path.
+> >>
+> >> Hmmm... but we could support multipath in the output selection, ie in
+> >> the outputs of ip_route_output_key(), probably in another patch then?
 > > 
-> > The caveat with using sctp_do_peeloff() directly is that it creates a
-> > dependency to SCTP module, while all other operations are handled via
-> > kernel_{socket,sendmsg,getsockopt...}() interface. This causes the
-> > kernel to load SCTP module even when it's not really used.
+> > Thinking further.. we could just compare it with the addresses assigned to the
+> > interface instead of doing a whole new routing. Cheaper/faster, provides the
+> > results I'm looking for and the consequences are easier to see.
 > > 
-> > This patch then creates a new sockopt that is to be used only by kernel
-> > users of this protocol. This new sockopt will not allocate a file
-> > descriptor but instead just return the socket pointer directly.
+> > Something like (not tested, just illustrating the idea):
 > > 
-> > Kernel users are actually identified by if the parent socket has or not
-> > a fd attached to it. If not, it's a kernel a user.
+> > --- a/net/sctp/protocol.c
+> > +++ b/net/sctp/protocol.c
+> > @@ -489,22 +489,33 @@ static void sctp_v4_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+> >         list_for_each_entry_rcu(laddr, &bp->address_list, list) {
+> >                 if (!laddr->valid)
+> >                         continue;
+> >                 if ((laddr->state == SCTP_ADDR_SRC) &&
+> >                     (AF_INET == laddr->a.sa.sa_family)) {
+> > +                       struct net_device *odev;
+> > +
+> >                         fl4->fl4_sport = laddr->a.v4.sin_port;
+> >                         flowi4_update_output(fl4,
+> >                                              asoc->base.sk->sk_bound_dev_if,
+> >                                              RT_CONN_FLAGS(asoc->base.sk),
+> >                                              daddr->v4.sin_addr.s_addr,
+> >                                              laddr->a.v4.sin_addr.s_addr);
+> >  
+> >                         rt = ip_route_output_key(sock_net(sk), fl4);
+> > -                       if (!IS_ERR(rt)) {
+> > -                               dst = &rt->dst;
+> > -                               goto out_unlock;
+> > -                       }
+> > +                       if (IS_ERR(rt))
+> > +                               continue;
+> > +
+> > +                       /* Ensure the src address belongs to the output
+> > +                        * interface.
+> > +                        */
+> > +                       odev = __ip_dev_find(net, laddr->a.v4.sin_addr.s_addr,
+> > +                                            false);
+> > +                       if (odev->if_index != fl4->flowi4_oif)
+> > +                               continue;
+> > +
+> > +                       dst = &rt->dst;
+> > +                       goto out_unlock;
+> >                 }
+> >         }
+> >  
+> >  out_unlock:
+> >         rcu_read_unlock();
 > > 
-> > If called by an user application, it will just return -EPERM.
 > > 
-> > Even though it's not intended for user applications, it's listed under
-> > uapi header. That's because hidding this wouldn't add any extra security
-> > and to keep the sockopt list in one place, so it's easy to check
-> > available numbers to use.
-> > 
-> > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > ---
-> >  include/uapi/linux/sctp.h | 12 ++++++++++++
-> >  net/sctp/socket.c         | 37 +++++++++++++++++++++++++++++++++++++
-> >  2 files changed, 49 insertions(+)
-> > 
-> > diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-> > index ce70fe6b45df3e841c35accbdb6379c16563893c..b3aad3ce456ab3c1ebf4d81fdb7269ba40b3d92a 100644
-> > --- a/include/uapi/linux/sctp.h
-> > +++ b/include/uapi/linux/sctp.h
-> > @@ -105,6 +105,10 @@ typedef __s32 sctp_assoc_t;
-> >  #define SCTP_SOCKOPT_BINDX_ADD	100	/* BINDX requests for adding addrs */
-> >  #define SCTP_SOCKOPT_BINDX_REM	101	/* BINDX requests for removing addrs. */
-> >  #define SCTP_SOCKOPT_PEELOFF	102	/* peel off association. */
-> > +#define SCTP_SOCKOPT_PEELOFF_KERNEL	103	/* peel off association.
-> > +						 * only valid for kernel
-> > +						 * users
-> > +						 */
+> > I like this better than my 1st attempt. What do you think?
 > 
-> I am not sure how much I like stuff this like in the uapi.  This stuff is
-> exposed to the user and I'd much rather we try and hide this from
-> the user completely.
+> Looks better.  Have to drop the ref on the dev since __ip_dev_find takes one.
 
-We can hide it, but as is it would create hidden IDs and adding new gets
-complicated, one would have to check two different lists to find free
-IDs. Neil's suggestion is much cleaner on this aspect, but has the
-caveat on changing sockopt arg format.
+Cool. I'll go that way then.
 
-> I understand that you are dealing with a rather ugly dependency, but this is
-> not the only one in the kernel.  There are dependencies like this elsewhere
-> as well.
-
-Doesn't mean we cannot fix one or another every now and then, right?
-
-> I am not familiar enough with DLM and its history, but my question is this:
-> If dlm always peels off a socket for a new associations, why is it using
-> 1-to-many api in the first place?  Doing a quick scan of DLM lowcoms code
-> for sctp specific things, I see nothing that has specific dependencies
-> on 1-to-many api.  It might be simpler to switch to using 1-to-1 api, similar
-> to dlm tcp and eliminate this dependency.
-> 
-> Is that a naive point of view?
-
-Not at all, that's a very good question. I also don't know much of DLM
-code itself, I'll check that.
+Regarding the ref, not really, because above code is under
+rcu_read_lock() already and thne I passed false on its 3rd argument,
+avoiding that ref.
 
 Thanks,
 Marcelo
 
-> Thanks
+> > 
+> > I'll split the refactoring from this fix on v2, so it's easier to review.
+> > 
+> 
+> Sounds good.
+> 
 > -vlad
 > 
-> >  /* Options 104-106 are deprecated and removed. Do not use this space */
-> >  #define SCTP_SOCKOPT_CONNECTX_OLD	107	/* CONNECTX old requests. */
-> >  #define SCTP_GET_PEER_ADDRS	108		/* Get all peer address. */
-> > @@ -892,6 +896,14 @@ typedef struct {
-> >  	int sd;
-> >  } sctp_peeloff_arg_t;
-> >  
-> > +/* This is the union that is passed as an argument(optval) to
-> > + * getsockopt(SCTP_SOCKOPT_PEELOFF_KERNEL).
-> > + */
-> > +typedef union {
-> > +	sctp_assoc_t associd;
-> > +	struct socket *socket;
-> > +} sctp_peeloff_kernel_arg_t;
-> > +
-> >  /*
-> >   *  Peer Address Thresholds socket option
-> >   */
-> > diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> > index f1a65398f3118ab5d3a884e9c875620560e6b5ef..7968de7a1aeabd5cd0a0398461dbf2081bd4c5b7 100644
-> > --- a/net/sctp/socket.c
-> > +++ b/net/sctp/socket.c
-> > @@ -4504,6 +4504,39 @@ out:
-> >  	return retval;
-> >  }
-> >  
-> > +static int sctp_getsockopt_peeloff_kernel(struct sock *sk, int len,
-> > +					  char __user *optval, int __user *optlen)
-> > +{
-> > +	sctp_peeloff_kernel_arg_t peeloff;
-> > +	struct socket *newsock;
-> > +	int retval = 0;
-> > +
-> > +	/* We only allow this operation if parent socket also hadn't a
-> > +	 * file descriptor allocated to it, mainly as a way to make sure
-> > +	 * that this is really a kernel socket.
-> > +	 */
-> > +	if (sk->sk_socket->file)
-> > +		return -EPERM;
-> > +
-> > +	if (len < sizeof(sctp_peeloff_kernel_arg_t))
-> > +		return -EINVAL;
-> > +	len = sizeof(sctp_peeloff_kernel_arg_t);
-> > +	if (copy_from_user(&peeloff, optval, len))
-> > +		return -EFAULT;
-> > +
-> > +	retval = sctp_do_peeloff(sk, peeloff.associd, &newsock);
-> > +	if (retval < 0)
-> > +		goto out;
-> > +
-> > +	peeloff.socket = newsock;
-> > +	if (copy_to_user(optval, &peeloff, len)) {
-> > +		sock_release(newsock);
-> > +		return -EFAULT;
-> > +	}
-> > +out:
-> > +	return retval;
-> > +}
-> > +
-> >  /* 7.1.13 Peer Address Parameters (SCTP_PEER_ADDR_PARAMS)
-> >   *
-> >   * Applications can enable or disable heartbeats for any peer address of
-> > @@ -5991,6 +6024,10 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
-> >  	case SCTP_SOCKOPT_PEELOFF:
-> >  		retval = sctp_getsockopt_peeloff(sk, len, optval, optlen);
-> >  		break;
-> > +	case SCTP_SOCKOPT_PEELOFF_KERNEL:
-> > +		retval = sctp_getsockopt_peeloff_kernel(sk, len, optval,
-> > +							optlen);
-> > +		break;
-> >  	case SCTP_PEER_ADDR_PARAMS:
-> >  		retval = sctp_getsockopt_peer_addr_params(sk, len, optval,
-> >  							  optlen);
+> >   Marcelo
 > > 
 > 
 > --
