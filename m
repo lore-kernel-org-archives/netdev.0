@@ -1,53 +1,38 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH linux-3.18.y] rtnl: restore notifications for deleted interfaces
-Date: Thu, 16 Jul 2015 11:31:43 +0200
-Message-ID: <1437039103-4288-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <55A77422.8010305@6wind.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	kristian.evensen@gmail.com, jiri@resnulli.us, j.vosburgh@gmail.com,
-	vfalico@gmail.com, gospo@cumulusnetworks.com,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: sasha.levin@oracle.com, stable@vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net-next v2 0/5] switchdev: avoid duplicate packet
+ forwarding
+Date: Thu, 16 Jul 2015 18:33:57 +0900
+Message-ID: <20150716093355.GA13462@penelope.isobedori.kobe.vergenet.net>
+References: <1437033897-8050-1-git-send-email-sfeldma@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, roopa@cumulusnetworks.com
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:44210 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752840AbbGPJcG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 05:32:06 -0400
-In-Reply-To: <55A77422.8010305@6wind.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:32907 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753922AbbGPJeI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 05:34:08 -0400
+Received: by padck2 with SMTP id ck2so39876538pad.0
+        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 02:34:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1437033897-8050-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commit 984ff7a3e060 is an upstream backport. In fact, it depends on
-commit 395eea6ccf2b ("rtnetlink: delay RTM_DELLINK notification until after ndo_uninit()")
-which has not been backported in 3.18.y.
+On Thu, Jul 16, 2015 at 01:04:52AM -0700, sfeldma@gmail.com wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
 
-Before commit 395eea6ccf2b, rollback_registered_many() uses rtmsg_ifinfo().
-The call to this function is done with dev->reg_state set to
-NETREG_UNREGISTERING, thus testing this reg_state in rtmsg_ifinfo() is
-wrong.
+[snip]
 
-This patch partially reverts commit 984ff7a3e060.
+> Scott Feldman (5):
+>   net: don't reforward packets already forwarded by offload device
+>   net: add phys ID compare helper to test if two IDs are the same
+>   switchdev: add offload_fwd_mark generator helper
+>   rocker: add offload_fwd_mark support
+>   switchdev: update documentation for offload_fwd_mark
 
-Fixes: 984ff7a3e060 ("rtnl/bond: don't send rtnl msg for unregistered iface")
-Reported-by: Kristian Evensen <kristian.evensen@gmail.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/core/rtnetlink.c | 3 ---
- 1 file changed, 3 deletions(-)
+[snip]
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 24d3242f0e01..c522f7a00eab 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2229,9 +2229,6 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
- 	int err = -ENOBUFS;
- 	size_t if_info_size;
- 
--	if (dev->reg_state != NETREG_REGISTERED)
--		return;
--
- 	skb = nlmsg_new((if_info_size = if_nlmsg_size(dev, 0)), flags);
- 	if (skb == NULL)
- 		goto errout;
--- 
-2.4.2
+All patches:
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
