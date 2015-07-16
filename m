@@ -1,68 +1,132 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: [PATCH 1/3] fixed_phy: handle link-down case
-Date: Thu, 16 Jul 2015 17:50:06 +0300
-Message-ID: <55A7C49E.2020803@list.ru>
+From: Stas Sergeev <stsp-cmBhpYW9OiY@public.gmane.org>
+Subject: [PATCH 2/3] of_mdio: add new DT property 'managed' to specify the
+ PHY management type
+Date: Thu, 16 Jul 2015 17:52:01 +0300
+Message-ID: <55A7C511.5070409@list.ru>
 References: <55A7C45F.1070501@list.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55A7C45F.1070501@list.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Linux kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Sebastien Rannou <mxs-i6rsG8ix9II@public.gmane.org>,
+	Arnaud Ebalard <arno-LkuqDEemtHBg9hUCZPvPmw@public.gmane.org>,
+	Stas Sergeev <stsp-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <55A7C45F.1070501-cmBhpYW9OiY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
-Currently fixed_phy driver recognizes only the link-up state.
-This simple patch adds an implementation of link-down state.
-It fixes the status registers when link is down, and also allows
-to register the fixed-phy with link down without specifying the speed.
+Currently the PHY management type is selected by the MAC driver arbitrary.
+The decision is based on the presence of the "fixed-link" node and on a
+will of the driver's authors.
+This caused a regression recently, when mvneta driver suddenly started
+to use the in-band status for auto-negotiation on fixed links.
+It appears the auto-negotiation may not work when expected by the MAC driver.
+Sebastien Rannou explains:
+<< Yes, I confirm that my HW does not generate an in-band status. AFAIK, it's
+a PHY that aggregates 4xSGMIIs to 1xQSGMII ; the MAC side of the PHY (with
+inband status) is connected to the switch through QSGMII, and in this context
+we are on the media side of the PHY. >>
+https://lkml.org/lkml/2015/7/10/206
 
-Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
+This patch introduces the new string property 'managed' that allows
+the user to set the management type explicitly.
+The supported values are:
+"auto" - default. Uses either MDIO or nothing, depending on the presence
+of the fixed-link node
+"in-band-status" - use in-band status
 
-CC: Florian Fainelli <f.fainelli@gmail.com>
-CC: netdev@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
+Signed-off-by: Stas Sergeev <stsp-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+
+CC: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+CC: Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>
+CC: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+CC: Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>
+CC: Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+CC: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+CC: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+CC: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+CC: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+CC: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 ---
- drivers/net/phy/fixed_phy.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ Documentation/devicetree/bindings/net/ethernet.txt |  4 ++++
+ drivers/of/of_mdio.c                               | 19 +++++++++++++++++--
+ 2 files changed, 21 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
-index 1960b46..479b93f 100644
---- a/drivers/net/phy/fixed_phy.c
-+++ b/drivers/net/phy/fixed_phy.c
-@@ -52,6 +52,10 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
- 	u16 lpagb = 0;
- 	u16 lpa = 0;
+diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
+index 3fc3605..cb115a3 100644
+--- a/Documentation/devicetree/bindings/net/ethernet.txt
++++ b/Documentation/devicetree/bindings/net/ethernet.txt
+@@ -19,7 +19,11 @@ The following properties are common to the Ethernet controllers:
+ - phy: the same as "phy-handle" property, not recommended for new bindings.
+ - phy-device: the same as "phy-handle" property, not recommended for new
+   bindings.
++- managed: string, specifies the PHY management type. Supported values are:
++  "auto", "in-band-status". "auto" is the default, it usess MDIO for
++  management if fixed-link is not specified.
 
-+	if (!fp->status.link)
-+		goto done;
-+	bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
-+
- 	if (fp->status.duplex) {
- 		bmcr |= BMCR_FULLDPLX;
+ Child nodes of the Ethernet controller are typically the individual PHY devices
+ connected via the MDIO bus (sometimes the MDIO bus controller is separate).
+ They are described in the phy.txt file in this same directory.
++For non-MDIO PHY management see fixed-link.txt.
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index 1bd4305..5dc1ef95 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -262,7 +262,8 @@ EXPORT_SYMBOL(of_phy_attach);
+ bool of_phy_is_fixed_link(struct device_node *np)
+ {
+ 	struct device_node *dn;
+-	int len;
++	int len, err;
++	const char *managed;
 
-@@ -96,15 +100,13 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
- 		}
+ 	/* New binding */
+ 	dn = of_get_child_by_name(np, "fixed-link");
+@@ -271,6 +272,10 @@ bool of_phy_is_fixed_link(struct device_node *np)
+ 		return true;
  	}
 
--	if (fp->status.link)
--		bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
--
- 	if (fp->status.pause)
- 		lpa |= LPA_PAUSE_CAP;
++	err = of_property_read_string(np, "managed", &managed);
++	if (err == 0 && strcmp(managed, "auto") != 0)
++		return true;
++
+ 	/* Old binding */
+ 	if (of_get_property(np, "fixed-link", &len) &&
+ 	    len == (5 * sizeof(__be32)))
+@@ -285,8 +290,18 @@ int of_phy_register_fixed_link(struct device_node *np)
+ 	struct fixed_phy_status status = {};
+ 	struct device_node *fixed_link_node;
+ 	const __be32 *fixed_link_prop;
+-	int len;
++	int len, err;
+ 	struct phy_device *phy;
++	const char *managed;
++
++	err = of_property_read_string(np, "managed", &managed);
++	if (err == 0) {
++		if (strcmp(managed, "in-band-status") == 0) {
++			/* status is zeroed, namely its .link member */
++			phy = fixed_phy_register(PHY_POLL, &status, np);
++			return IS_ERR(phy) ? PTR_ERR(phy) : 0;
++		}
++	}
 
- 	if (fp->status.asym_pause)
- 		lpa |= LPA_PAUSE_ASYM;
-
-+done:
- 	fp->regs[MII_PHYSID1] = 0;
- 	fp->regs[MII_PHYSID2] = 0;
-
+ 	/* New binding */
+ 	fixed_link_node = of_get_child_by_name(np, "fixed-link");
 -- 
 1.9.1
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
