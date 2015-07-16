@@ -1,142 +1,67 @@
-From: Erik Kline <ek@google.com>
-Subject: [PATCH net-next v3] ipv6: sysctl to restrict candidate source addresses
-Date: Thu, 16 Jul 2015 17:10:36 +0900
-Message-ID: <1437034236-11305-1-git-send-email-ek@google.com>
-Cc: hannes@stressinduktion.org, lorenzo@google.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	Erik Kline <ek@google.com>
-To: hideaki.yoshifuji@miraclelinux.com
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] rocker: forward packets to CPU when port is
+ joined to openvswitch
+Date: Thu, 16 Jul 2015 10:14:41 +0200
+Message-ID: <20150716081441.GB2145@nanopsycho.orion>
+References: <1437010754-29038-1-git-send-email-simon.horman@netronome.com>
+ <CAE4R7bCBaMZKAhUbW4MC3Z5hmic2kUZuBn94zB6j+kY1Z2piag@mail.gmail.com>
+ <20150716065827.GA2145@nanopsycho.orion>
+ <CAE4R7bANdQqxkU_0yUh1W0+o2bPvTnw7u_3ruNsfaPFm-Vs=Yg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <simon.horman@netronome.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:36454 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752681AbbGPIK7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 04:10:59 -0400
-Received: by pachj5 with SMTP id hj5so38897587pac.3
-        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 01:10:58 -0700 (PDT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:33833 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752515AbbGPIOo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 04:14:44 -0400
+Received: by wibud3 with SMTP id ud3so8403480wib.1
+        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 01:14:43 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bANdQqxkU_0yUh1W0+o2bPvTnw7u_3ruNsfaPFm-Vs=Yg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Per RFC 6724, section 4, "Candidate Source Addresses":
+Thu, Jul 16, 2015 at 09:09:39AM CEST, sfeldma@gmail.com wrote:
+>On Wed, Jul 15, 2015 at 11:58 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Thu, Jul 16, 2015 at 08:40:31AM CEST, sfeldma@gmail.com wrote:
+>>>On Wed, Jul 15, 2015 at 6:39 PM, Simon Horman
+>>><simon.horman@netronome.com> wrote:
+>>>> Teach rocker to forward packets to CPU when a port is joined to Open vSwitch.
+>>>> There is scope to later refine what is passed up as per Open vSwitch flows
+>>>> on a port.
+>>>>
+>>>> This does not change the behaviour of rocker ports that are
+>>>> not joined to Open vSwitch.
+>>>>
+>>>> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+>>>
+>>>Acked-by: Scott Feldman <sfeldma@gmail.com>
+>>>
+>>>Now, OVS flows on a port.  Strange enough, that was the first RFC
+>>>implementation for switchdev/rocker where we hooked into ovs-kernel
+>>>module and programmed flows into hw.  We pulled all of that code
+>>>because, IIRC, the ovs folks didn't want us hooking into the kernel
+>>>module directly.  We dropped the ovs hooks and focused on hooking
+>>>kernel's L2/L3.  The device (rocker) didn't really change: OF-DPA
+>>>pipeline was used for both.  Might be interesting to try hooking it
+>>>again.
+>>
+>>
+>> I think that now we have an infrastructure prepared for that. I mean,
+>> what we need to do is to introduce another generic switchdev object
+>> called "ntupleflow" and hook-up again into ovs datapath and cls_flower
+>> and insert/remove the object from those codes. Should be pretty easy to do.
+>
+>That sounds right.  Is the ovs datapath hooking still happening in the
+>ovs-kernel module?  Remind me again, what was the objection the last
+>time we tried that?
 
-    It is RECOMMENDED that the candidate source addresses be the set
-    of unicast addresses assigned to the interface that will be used
-    to send to the destination (the "outgoing" interface).
+Yep, we need to hook there. Otherwise it won't be transparent.
 
-Add a sysctl to enable this behaviour.
-
-Signed-off-by: Erik Kline <ek@google.com>
----
- Documentation/networking/ip-sysctl.txt |  7 +++++++
- include/linux/ipv6.h                   |  1 +
- include/uapi/linux/ipv6.h              |  1 +
- net/ipv6/addrconf.c                    | 22 +++++++++++++++++++---
- 4 files changed, 28 insertions(+), 3 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index f63aeef..27007c5 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1460,6 +1460,13 @@ router_solicitations - INTEGER
- 	routers are present.
- 	Default: 3
- 
-+use_oif_addr - BOOLEAN
-+	When enabled, the candidate source addresses for destinations
-+	routed via this interface are restricted to the set of addresses
-+	configured on this interface (vis. RFC 6724, section 4).
-+
-+	Default: false
-+
- use_tempaddr - INTEGER
- 	Preference for Privacy Extensions (RFC3041).
- 	  <= 0 : disable Privacy Extensions
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 1319a6b..190b22b 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -57,6 +57,7 @@ struct ipv6_devconf {
- 		bool initialized;
- 		struct in6_addr secret;
- 	} stable_secret;
-+	__s32		use_oif_addr;
- 	void		*sysctl;
- };
- 
-diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index 5efa54a..cf9d65a 100644
---- a/include/uapi/linux/ipv6.h
-+++ b/include/uapi/linux/ipv6.h
-@@ -171,6 +171,7 @@ enum {
- 	DEVCONF_USE_OPTIMISTIC,
- 	DEVCONF_ACCEPT_RA_MTU,
- 	DEVCONF_STABLE_SECRET,
-+	DEVCONF_USE_OIF_ADDR,
- 	DEVCONF_MAX
- };
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 4c9a024..a7c49bb 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -211,7 +211,8 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
- 	.accept_ra_mtu		= 1,
- 	.stable_secret		= {
- 		.initialized = false,
--	}
-+	},
-+	.use_oif_addr		= 0,
- };
- 
- static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
-@@ -253,6 +254,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
- 	.stable_secret		= {
- 		.initialized = false,
- 	},
-+	.use_oif_addr		= 0,
- };
- 
- /* Check if a valid qdisc is available */
-@@ -1474,11 +1476,16 @@ int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
- 	 *    include addresses assigned to interfaces
- 	 *    belonging to the same site as the outgoing
- 	 *    interface.)
-+	 *  - "It is RECOMMENDED that the candidate source addresses
-+	 *    be the set of unicast addresses assigned to the
-+	 *    interface that will be used to send to the destination
-+	 *    (the 'outgoing' interface)." (RFC 6724)
- 	 */
- 	if (dst_dev) {
-+		idev = __in6_dev_get(dst_dev);
- 		if ((dst_type & IPV6_ADDR_MULTICAST) ||
--		    dst.scope <= IPV6_ADDR_SCOPE_LINKLOCAL) {
--			idev = __in6_dev_get(dst_dev);
-+		    dst.scope <= IPV6_ADDR_SCOPE_LINKLOCAL ||
-+		    (idev && idev->cnf.use_oif_addr)) {
- 			use_oif_addr = true;
- 		}
- 	}
-@@ -4609,6 +4616,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] = cnf->accept_ra_from_local;
- 	array[DEVCONF_ACCEPT_RA_MTU] = cnf->accept_ra_mtu;
- 	/* we omit DEVCONF_STABLE_SECRET for now */
-+	array[DEVCONF_USE_OIF_ADDR] = cnf->use_oif_addr;
- }
- 
- static inline size_t inet6_ifla6_size(void)
-@@ -5608,6 +5616,14 @@ static struct addrconf_sysctl_table
- 			.proc_handler	= addrconf_sysctl_stable_secret,
- 		},
- 		{
-+			.procname       = "use_oif_addr",
-+			.data           = &ipv6_devconf.use_oif_addr,
-+			.maxlen         = sizeof(int),
-+			.mode           = 0644,
-+			.proc_handler   = proc_dointvec,
-+
-+		},
-+		{
- 			/* sentinel */
- 		}
- 	},
--- 
-2.4.3.573.g4eafbef
+Last time the objection was that this would be ovs specific. But that is
+passed today. We have switchdev infra with objects, we have cls_flower
+which would use the same object. I say let's do this now.
