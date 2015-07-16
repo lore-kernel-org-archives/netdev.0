@@ -1,275 +1,40 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 04/13] tipc: use bearer index when looking up active links
-Date: Thu, 16 Jul 2015 16:54:22 -0400
-Message-ID: <1437080071-6686-5-git-send-email-jon.maloy@ericsson.com>
-References: <1437080071-6686-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
+From: Reinhard Speyerer <rspmn@arcor.de>
+Subject: [PATCH] qmi_wwan: add the second QMI/network interface for Sierra
+ Wireless MC7305/MC7355
+Date: Thu, 16 Jul 2015 23:28:14 +0200
+Message-ID: <20150716212813.GA2904@arcor.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bjorn@mork.no
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp102.biz.mail.bf1.yahoo.com ([98.139.221.61]:39255 "EHLO
-	smtp102.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756227AbbGPUyk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 16:54:40 -0400
-In-Reply-To: <1437080071-6686-1-git-send-email-jon.maloy@ericsson.com>
+Received: from mail-in-04.arcor-online.net ([151.189.21.44]:56089 "EHLO
+	mail-in-04.arcor-online.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755926AbbGPV2a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 17:28:30 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-struct tipc_node currently holds two arrays of link pointers; one,
-indexed by bearer identity, which contains all links irrespective of
-current state, and one two-slot array for the currently active link
-or links. The latter array contains direct pointers into the elements
-of the former. This has the effect that we cannot know the bearer id of
-a link when accessing it via the "active_links[]" array without actually
-dereferencing the pointer, something we want to avoid in some cases.
+Sierra Wireless MC7305/MC7355 with USB ID 1199:9041 also provide a
+second QMI/network interface like the MC73xx with USB ID 1199:68c0 on
+USB interface #10 when used in the appropriate USB configuration.
+Add the corresponding QMI_FIXED_INTF entry to the qmi_wwan driver.
 
-In this commit, we do instead store the bearer identity in the
-"active_links" array, and use this as an index to find the right element
-in the overall link entry array. This change should be seen as a
-preparation for the later commits in this series.
+Please note that the second QMI/network interface is not working for
+early MC73xx firmware versions like 01.08.x as the device does not
+respond to QMI messages on the second /dev/cdc-wdm port.
 
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Reinhard Speyerer <rspmn@arcor.de>
 ---
- net/tipc/node.c | 106 +++++++++++++++++++++++---------------------------------
- net/tipc/node.h |  26 ++++++++------
- 2 files changed, 59 insertions(+), 73 deletions(-)
-
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 20ec61c..1972964 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -142,6 +142,8 @@ struct tipc_node *tipc_node_create(struct net *net, u32 addr)
- 	list_add_tail_rcu(&n_ptr->list, &temp_node->list);
- 	n_ptr->action_flags = TIPC_WAIT_PEER_LINKS_DOWN;
- 	n_ptr->signature = INVALID_NODE_SIG;
-+	n_ptr->active_links[0] = INVALID_BEARER_ID;
-+	n_ptr->active_links[1] = INVALID_BEARER_ID;
- 	tipc_node_get(n_ptr);
- exit:
- 	spin_unlock_bh(&tn->node_list_lock);
-@@ -227,12 +229,13 @@ void tipc_node_remove_conn(struct net *net, u32 dnode, u32 port)
-  */
- void tipc_node_link_up(struct tipc_node *n, int bearer_id)
- {
--	struct tipc_link_entry **actv = &n->active_links[0];
--	struct tipc_link_entry *le = &n->links[bearer_id];
--	struct tipc_link *l = le->link;
-+	int *slot0 = &n->active_links[0];
-+	int *slot1 = &n->active_links[1];
-+	struct tipc_link_entry *links = n->links;
-+	struct tipc_link *l = n->links[bearer_id].link;
- 
- 	/* Leave room for tunnel header when returning 'mtu' to users: */
--	n->links[bearer_id].mtu = l->mtu - INT_H_SIZE;
-+	links[bearer_id].mtu = l->mtu - INT_H_SIZE;
- 
- 	n->working_links++;
- 	n->action_flags |= TIPC_NOTIFY_LINK_UP;
-@@ -242,55 +245,30 @@ void tipc_node_link_up(struct tipc_node *n, int bearer_id)
- 		 l->name, l->net_plane);
- 
- 	/* No active links ? => take both active slots */
--	if (!actv[0]) {
--		actv[0] = le;
--		actv[1] = le;
-+	if (*slot0 < 0) {
-+		*slot0 = bearer_id;
-+		*slot1 = bearer_id;
- 		node_established_contact(n);
- 		return;
- 	}
--	if (l->priority < actv[0]->link->priority) {
-+
-+	/* Lower prio than current active ? => no slot */
-+	if (l->priority < links[*slot0].link->priority) {
- 		pr_debug("New link <%s> becomes standby\n", l->name);
- 		return;
- 	}
--	tipc_link_dup_queue_xmit(actv[0]->link, l);
-+	tipc_link_dup_queue_xmit(links[*slot0].link, l);
- 
--	/* Take one active slot if applicable */
--	if (l->priority == actv[0]->link->priority) {
--		actv[0] = le;
-+	/* Same prio as current active ? => take one slot */
-+	if (l->priority == links[*slot0].link->priority) {
-+		*slot0 = bearer_id;
- 		return;
- 	}
--	/* Higher prio than current active? => take both active slots */
--	pr_debug("Old l <%s> becomes standby\n", actv[0]->link->name);
--	if (actv[1] != actv[0])
--		pr_debug("Old link <%s> now standby\n", actv[1]->link->name);
--	actv[0] = le;
--	actv[1] = le;
--}
--
--/**
-- * node_select_active_links - select which working links should be active
-- */
--static void node_select_active_links(struct tipc_node *n)
--{
--	struct tipc_link_entry **actv = &n->active_links[0];
--	struct tipc_link *l;
--	u32 b, highest = 0;
- 
--	actv[0] = NULL;
--	actv[1] = NULL;
--
--	for (b = 0; b < MAX_BEARERS; b++) {
--		l = n->links[b].link;
--		if (!l || !tipc_link_is_up(l) || (l->priority < highest))
--			continue;
--		if (l->priority > highest) {
--			highest = l->priority;
--			actv[0] = &n->links[b];
--			actv[1] = &n->links[b];
--			continue;
--		}
--		actv[1] = &n->links[b];
--	}
-+	/* Higher prio than current active => take both active slots */
-+	pr_debug("Old link <%s> now standby\n", links[*slot0].link->name);
-+	*slot0 = bearer_id;
-+	*slot1 = bearer_id;
- }
- 
- /**
-@@ -298,32 +276,36 @@ static void node_select_active_links(struct tipc_node *n)
-  */
- void tipc_node_link_down(struct tipc_node *n, int bearer_id)
- {
--	struct tipc_link_entry **actv = &n->active_links[0];
--	struct tipc_link_entry *le = &n->links[bearer_id];
--	struct tipc_link *l = le->link;
-+	int *slot0 = &n->active_links[0];
-+	int *slot1 = &n->active_links[1];
-+	int i, highest = 0;
-+	struct tipc_link *l, *_l;
- 
-+	l = n->links[bearer_id].link;
- 	n->working_links--;
- 	n->action_flags |= TIPC_NOTIFY_LINK_DOWN;
- 	n->link_id = l->peer_bearer_id << 16 | l->bearer_id;
- 
--	if (!tipc_link_is_active(l)) {
--		pr_debug("Lost standby link <%s> on network plane %c\n",
--			 l->name, l->net_plane);
--		return;
--	}
- 	pr_debug("Lost link <%s> on network plane %c\n",
- 		 l->name, l->net_plane);
- 
--	/* Resdistribute active slots if applicable */
--	if (actv[0] == le)
--		actv[0] = actv[1];
--	if (actv[1] == le)
--		actv[1] = actv[0];
--
--	/* Last link of this priority? => select other ones if available */
--	if (actv[0] == le)
--		node_select_active_links(n);
--
-+	/* Select new active link if any available */
-+	*slot0 = INVALID_BEARER_ID;
-+	*slot1 = INVALID_BEARER_ID;
-+	for (i = 0; i < MAX_BEARERS; i++) {
-+		_l = n->links[i].link;
-+		if (!_l || !tipc_link_is_up(_l))
-+			continue;
-+		if (_l->priority < highest)
-+			continue;
-+		if (_l->priority > highest) {
-+			highest = _l->priority;
-+			*slot0 = i;
-+			*slot1 = i;
-+			continue;
-+		}
-+		*slot1 = i;
-+	}
- 	if (tipc_node_is_up(n))
- 		tipc_link_failover_send_queue(l);
- 	else
-@@ -332,7 +314,7 @@ void tipc_node_link_down(struct tipc_node *n, int bearer_id)
- 
- bool tipc_node_is_up(struct tipc_node *n)
- {
--	return n->active_links[0];
-+	return n->active_links[0] != INVALID_BEARER_ID;
- }
- 
- void tipc_node_check_dest(struct tipc_node *n, struct tipc_bearer *b,
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 0657cbf..74f278a 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -45,6 +45,8 @@
- /* Out-of-range value for node signature */
- #define INVALID_NODE_SIG	0x10000
- 
-+#define INVALID_BEARER_ID -1
-+
- /* Flags used to take different actions according to flag type
-  * TIPC_WAIT_PEER_LINKS_DOWN: wait to see that peer's links are down
-  * TIPC_WAIT_OWN_LINKS_DOWN: wait until peer node is declared down
-@@ -105,7 +107,7 @@ struct tipc_link_entry {
-  * @hash: links to adjacent nodes in unsorted hash chain
-  * @inputq: pointer to input queue containing messages for msg event
-  * @namedq: pointer to name table input queue with name table messages
-- * @active_links: pointer into links[] array, identifying which links are active
-+ * @active_links: bearer ids of active links, used as index into links[] array
-  * @links: array containing references to all links to node
-  * @action_flags: bit mask of different types of node actions
-  * @bclink: broadcast-related info
-@@ -126,7 +128,7 @@ struct tipc_node {
- 	struct hlist_node hash;
- 	struct sk_buff_head *inputq;
- 	struct sk_buff_head *namedq;
--	struct tipc_link_entry *active_links[2];
-+	int active_links[2];
- 	struct tipc_link_entry links[MAX_BEARERS];
- 	int action_flags;
- 	struct tipc_node_bclink bclink;
-@@ -176,25 +178,27 @@ static inline bool tipc_node_blocked(struct tipc_node *node)
- 
- static inline struct tipc_link *node_active_link(struct tipc_node *n, int sel)
- {
--	struct tipc_link_entry *le = n->active_links[sel & 1];
-+	int bearer_id = n->active_links[sel & 1];
-+
-+	if (unlikely(bearer_id == INVALID_BEARER_ID))
-+		return NULL;
- 
--	if (likely(le))
--		return le->link;
--	return NULL;
-+	return n->links[bearer_id].link;
- }
- 
--static inline uint tipc_node_get_mtu(struct net *net, u32 addr, u32 selector)
-+static inline unsigned int tipc_node_get_mtu(struct net *net, u32 addr, u32 sel)
- {
- 	struct tipc_node *n;
--	struct tipc_link_entry *le;
-+	int bearer_id;
- 	unsigned int mtu = MAX_MSG_SIZE;
- 
- 	n = tipc_node_find(net, addr);
- 	if (unlikely(!n))
- 		return mtu;
--	le = n->active_links[selector & 1];
--	if (likely(le))
--		mtu = le->mtu;
-+
-+	bearer_id = n->active_links[sel & 1];
-+	if (likely(bearer_id != INVALID_BEARER_ID))
-+		mtu = n->links[bearer_id].mtu;
- 	tipc_node_put(n);
- 	return mtu;
- }
--- 
-1.9.1
+diff -uprN linux-4.2-rc2/drivers/net/usb/qmi_wwan.c linux-4.2-rc2-with-mc73xx-patch/drivers/net/usb/qmi_wwan.c
+--- linux-4.2-rc2/drivers/net/usb/qmi_wwan.c	2015-07-13 00:10:30.000000000 +0200
++++ linux-4.2-rc2-with-mc73xx-patch/drivers/net/usb/qmi_wwan.c	2015-07-16 21:35:26.000000000 +0200
+@@ -757,6 +757,7 @@ static const struct usb_device_id produc
+ 	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700 */
+ 	{QMI_FIXED_INTF(0x1199, 0x901f, 8)},    /* Sierra Wireless EM7355 */
+ 	{QMI_FIXED_INTF(0x1199, 0x9041, 8)},	/* Sierra Wireless MC7305/MC7355 */
++	{QMI_FIXED_INTF(0x1199, 0x9041, 10)},	/* Sierra Wireless MC7305/MC7355 */
+ 	{QMI_FIXED_INTF(0x1199, 0x9051, 8)},	/* Netgear AirCard 340U */
+ 	{QMI_FIXED_INTF(0x1199, 0x9053, 8)},	/* Sierra Wireless Modem */
+ 	{QMI_FIXED_INTF(0x1199, 0x9054, 8)},	/* Sierra Wireless Modem */
