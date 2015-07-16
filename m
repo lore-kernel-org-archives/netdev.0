@@ -1,57 +1,108 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH nf 2/6] ipvs: do not use random local source address for tunnels
-Date: Thu, 16 Jul 2015 11:14:09 +0900
-Message-ID: <1437012853-7318-3-git-send-email-horms@verge.net.au>
-References: <1437012853-7318-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Josh Hunt <johunt@akamai.com>
+Subject: [RFC] show socket info in fdinfo
+Date: Wed, 15 Jul 2015 22:50:19 -0400
+Message-ID: <1437015019-311-1-git-send-email-johunt@akamai.com>
+Cc: Josh Hunt <johunt@akamai.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:60205 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753337AbbGPCO0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 22:14:26 -0400
-In-Reply-To: <1437012853-7318-1-git-send-email-horms@verge.net.au>
+Received: from prod-mail-xrelay02.akamai.com ([72.246.2.14]:35523 "EHLO
+	prod-mail-xrelay02.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752861AbbGPCuX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2015 22:50:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+When sockets are unhashed they are no longer visible through the normal
+methods. Provide a way to see all sockets in the system by dumping some
+basic socket information in fdinfo.
 
-Michael Vallaly reports about wrong source address used
-in rare cases for tunneled traffic. Looks like
-__ip_vs_get_out_rt in 3.10+ is providing uninitialized
-dest_dst->dst_saddr.ip because ip_vs_dest_dst_alloc uses
-kmalloc. While we retry after seeing EINVAL from routing
-for data that does not look like valid local address, it
-still succeeded when this memory was previously used from
-other dests and with different local addresses. As result,
-we can use valid local address that is not suitable for
-our real server.
-
-Fix it by providing 0.0.0.0 every time our cache is refreshed.
-By this way we will get preferred source address from routing.
-
-Reported-by: Michael Vallaly <lvs@nolatency.com>
-Fixes: 026ace060dfe ("ipvs: optimize dst usage for real server")
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Josh Hunt <johunt@akamai.com>
 ---
- net/netfilter/ipvs/ip_vs_xmit.c | 1 -
- 1 file changed, 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index b99d80695b1f..ec30d68ccc0b 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -130,7 +130,6 @@ static struct rtable *do_output_route4(struct net *net, __be32 daddr,
+When trying to debug an application issue which wound up not closing sockets
+properly we found there was no easy way through existing tools to show sockets
+which have been unhashed. In order to get some basic information about all
+allocated sockets on the system we'd like to dump this info into fdinfo.
+
+ net/socket.c |   52 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 52 insertions(+)
+
+diff --git a/net/socket.c b/net/socket.c
+index 9963a0b..eced913 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -131,6 +131,9 @@ static ssize_t sock_sendpage(struct file *file, struct page *page,
+ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
+ 				struct pipe_inode_info *pipe, size_t len,
+ 				unsigned int flags);
++#ifdef CONFIG_PROC_FS
++static void sock_show_fdinfo(struct seq_file *m, struct file *file);
++#endif
  
- 	memset(&fl4, 0, sizeof(fl4));
- 	fl4.daddr = daddr;
--	fl4.saddr = (rt_mode & IP_VS_RT_MODE_CONNECT) ? *saddr : 0;
- 	fl4.flowi4_flags = (rt_mode & IP_VS_RT_MODE_KNOWN_NH) ?
- 			   FLOWI_FLAG_KNOWN_NH : 0;
+ /*
+  *	Socket files have a set of 'special' operations as well as the generic file ones. These don't appear
+@@ -153,6 +156,9 @@ static const struct file_operations socket_file_ops = {
+ 	.sendpage =	sock_sendpage,
+ 	.splice_write = generic_splice_sendpage,
+ 	.splice_read =	sock_splice_read,
++#ifdef CONFIG_PROC_FS
++	.show_fdinfo =	sock_show_fdinfo,
++#endif
+ };
  
+ /*
+@@ -777,6 +783,52 @@ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
+ 	return sock->ops->splice_read(sock, ppos, pipe, len, flags);
+ }
+ 
++#ifdef CONFIG_PROC_FS
++static void sock_show_fdinfo(struct seq_file *m, struct file *file)
++{
++	struct socket *sock = NULL;
++	struct sock *sk = NULL;
++	int err;
++
++	sock = sock_from_file(file, &err);
++	if (sock) {
++		sk = sock->sk;
++		sock_hold(sk);
++		seq_printf(m, "state:\t%d\n"
++				"type:\t0x%x\n"
++				"flags\t%lu\n"
++				"sk_rcvbuf:\t%d\n"
++				"sk_sndbuf:\t%d\n"
++				"sk_forward_alloc:\t%d\n"
++				"sk_rmem_alloc:\t%d\n"
++				"sk_wmem_alloc:\t%d\n"
++				"sk_wmem_queued:\t%d\n"
++				"sk_err:\t%d\n"
++				"sk_state:\t0x%x\n"
++				"sk_flags:\t0x%lx\n"
++				"sk_unhashed:\t%d\n"
++				"sk_protocol:\t0x%x\n"
++				"sk_family:\t0x%x\n",
++				sock->state,
++				sock->type,
++				sock->flags,
++				sk->sk_rcvbuf,
++				sk->sk_sndbuf,
++				sk->sk_forward_alloc,
++				atomic_read(&sk->sk_rmem_alloc),
++				atomic_read(&sk->sk_wmem_alloc),
++				sk->sk_wmem_queued,
++				sk->sk_err,
++				sk->sk_state,
++				sk->sk_flags,
++				sk_unhashed(sk),
++				sk->sk_protocol,
++				sk->sk_family);
++		sock_put(sk);
++	}
++}
++#endif
++
+ static ssize_t sock_read_iter(struct kiocb *iocb, struct iov_iter *to)
+ {
+ 	struct file *file = iocb->ki_filp;
 -- 
-2.1.4
+1.7.9.5
