@@ -1,48 +1,53 @@
-From: Michal Kubecek <mkubecek-AlSwsSmVLrQ@public.gmane.org>
-Subject: Re: [PATCH nf-next] netfilter: nf_ct_sctp: minimal multihoming
- support
-Date: Thu, 16 Jul 2015 18:13:42 +0200
-Message-ID: <20150716161342.GA17960@unicorn.suse.cz>
-References: <20150714122311.8DA8EA0C9A@unicorn.suse.cz>
- <20150716135059.GB14704@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
-	Jozsef Kadlecsik <kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Marcelo Ricardo Leitner <marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20150716135059.GB14704-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Nicolas Schichan <nschichan@freebox.fr>
+Subject: [PATCH 0/6] BPF JIT fixes and features for ARM
+Date: Thu, 16 Jul 2015 18:46:29 +0200
+Message-ID: <1437065195-10887-1-git-send-email-nschichan@freebox.fr>
+Cc: Russell King <linux@arm.linux.org.uk>,
+	Alexei Starovoitov <ast@plumgrid.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Nicolas Schichan <nschichan@freebox.fr>,
+	Mircea Gherzan <mgherzan@gmail.com>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 16, 2015 at 10:50:59AM -0300, Marcelo Ricardo Leitner wrote:
-> On Tue, Jul 14, 2015 at 02:23:11PM +0200, Michal Kubecek wrote:
-> > @@ -278,6 +292,14 @@ static int sctp_new_state(enum ip_conntrack_dir dir,
-> >  		pr_debug("SCTP_CID_SHUTDOWN_COMPLETE\n");
-> >  		i = 8;
-> >  		break;
-> > +	case SCTP_CID_HEARTBEAT:
-> > +		pr_debug("SCTP_CID_HEARTBEAT");
-> > +		i = 9;
-> > +		break;
-> > +	case SCTP_CID_HEARTBEAT_ACK:
-> > +		pr_debug("SCTP_CID_HEARTBEAT_ACK");
-> > +		i = 10;
-> > +		break;
-> >  	default:
-> >  		/* Other chunks like DATA, SACK, HEARTBEAT and
-> >  		its ACK do not cause a change in state */
-> 
-> Would you update this comment on default case please? As with this
-> patch, HB and its ACK may cause a change in state.
+Hello,
 
-Thank you for catching this. I'll update the comment in v2 I'm going to
-send tomorrow after some testing.
+This serie fixes issues with the ARM BPF JIT and adds support for more
+instructions to the ARM BPF JIT.
 
-                                                         Michal Kubecek
+The first three patches are fixing bugs in the ARM JIT and should
+probably find their way to a stable kernel.
+
+The last three patches add support to the ARM JIT for more BPF
+instructions, namely skb netdevice type retrieval, skb payload offset
+retrieval, and skb packet type retrieval.
+
+With the first three patches, all 60 test_bpf tests in Linux 4.1 release
+are now passing OK (was 54 out of 60 before).
+
+The last three patches allow 35 tests to use the JIT instead of 29
+before.
+
+Like previous ARM JIT patches this should go via the net tree.
+
+Regards,
+
+Nicolas Schichan (6):
+  ARM: net: fix condition for load_order > 0 when translating load
+    instructions.
+  ARM: net: handle negative offsets in BPF JIT.
+  ARM: net: fix vlan access instructions in ARM JIT.
+  ARM: net: add support for BPF_ANC | SKF_AD_PKTTYPE in ARM JIT.
+  ARM: net: add support for BPF_ANC | SKF_AD_PAY_OFFSET in ARM JIT.
+  ARM: net: add support for BPF_ANC | SKF_AD_HATYPE in ARM JIT.
+
+ arch/arm/net/bpf_jit_32.c | 98 +++++++++++++++++++++++++++++++++++++++--------
+ arch/arm/net/bpf_jit_32.h |  3 ++
+ 2 files changed, 86 insertions(+), 15 deletions(-)
+
+-- 
+1.9.1
