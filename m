@@ -1,44 +1,94 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2015-07-16
-Date: Thu, 16 Jul 2015 10:33:53 +0200
-Message-ID: <1437035635-18635-1-git-send-email-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH] bonding: correct the MAC address for "follow" fail_over_mac
+ policy
+Date: Thu, 16 Jul 2015 16:30:02 +0800
+Message-ID: <55A76B8A.5040804@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: "j.vosburgh@gmail.com >> Jay Vosburgh" <j.vosburgh@gmail.com>,
+	"vfalico@gmail.com >> Veaceslav Falico" <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, <fengtiantian@huawei.com>,
+	"hahaer.guo@huawei.com >> Guozhibin (Hahaer)" <hahaer.guo@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:50971 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753342AbbGPIeT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 04:34:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+The "follow" fail_over_mac policy is useful for multiport devices that
+either become confused or incur a performance penalty when multiple
+ports are programmed with the same MAC address, but the same MAC
+address still may happened by this steps for this policy:
 
-this is a pull request of 2 patches by Stefan Agner. He fixes the resume
-operation in the mcp251x driver.
+1) echo +eth0 > /sys/class/net/bond0/bonding/slaves
+   bond0 has the same mac address with eth0, it is MAC1.
 
-regards,
-Marc
+2) echo +eth1 > /sys/class/net/bond0/bonding/slaves
+   eth1 is backup, eth1 has MAC2.
 
+3) ifconfig eth0 down
+   eth1 became active slave, bond will swap MAC for eth0 and eth1,
+   so eth1 has MAC1, and eth0 has MAC2.
+
+4) ifconfig eth1 down
+   there is no active slave, and eth1 still has MAC1, eth2 has MAC2.
+
+5) ifconfig eth0 up
+   the eth0 became active slave again, the bond set eth0 to MAC1.
+
+Something wrong here, then if you set eth1 up, the eth0 and eth1 will have the same
+MAC address, it will break this policy for ACTIVE_BACKUP mode.
+
+This patch will fix this problem by finding the old active slave and
+swap them MAC address before change active slave.
+
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
+ drivers/net/bonding/bond_main.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
 
-The following changes since commit 15afb10df4a3f1bd781373ffd968e70cc4b21a42:
-
-  Merge branch 'for-upstream' of git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth (2015-07-15 21:59:23 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.2-20150716
-
-for you to fetch changes up to 69da3f2ac528642acbd06ed14564ac1b9a918394:
-
-  can: mcp251x: get regulators optionally (2015-07-16 09:04:22 +0200)
-
-----------------------------------------------------------------
-linux-can-fixes-for-4.2-20150716
-
-----------------------------------------------------------------
-Stefan Agner (2):
-      can: mcp251x: fix resume when device is down
-      can: mcp251x: get regulators optionally
-
- drivers/net/can/spi/mcp251x.c | 17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
-
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 317a494..efdb6a4 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -625,6 +625,23 @@ static void bond_set_dev_addr(struct net_device *bond_dev,
+ 	call_netdevice_notifiers(NETDEV_CHANGEADDR, bond_dev);
+ }
+ 
++static struct slave *bond_get_old_active(struct bonding *bond,
++					 struct slave *new_active)
++{
++	struct slave *slave;
++	struct list_head *iter;
++
++	bond_for_each_slave(bond, slave, iter) {
++		if (slave == new_active)
++			continue;
++
++		if (ether_addr_equal(bond->dev->dev_addr, slave->dev->dev_addr))
++			return slave;
++	}
++
++	return NULL;
++}
++
+ /* bond_do_fail_over_mac
+  *
+  * Perform special MAC address swapping for fail_over_mac settings
+@@ -652,6 +669,9 @@ static void bond_do_fail_over_mac(struct bonding *bond,
+ 		if (!new_active)
+ 			return;
+ 
++		if (!old_active)
++			old_active = bond_get_old_active(bond, new_active);
++
+ 		if (old_active) {
+ 			ether_addr_copy(tmp_mac, new_active->dev->dev_addr);
+ 			ether_addr_copy(saddr.sa_data,
+-- 
+1.8.0
