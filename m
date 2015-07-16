@@ -1,40 +1,99 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: Re: [PATCH net] bonding: fix destruction of bond with devices
- different from arphrd_ether
-Date: Thu, 16 Jul 2015 08:14:31 +0200
-Message-ID: <20150716061431.GA19448@vps.falico.eu>
-References: <55A69D17.5030800@cumulusnetworks.com>
- <1436989971-32761-1-git-send-email-razor@blackwall.org>
- <87io9lcag3.fsf@x220.int.ebiederm.org>
- <55A6E48E.3020206@cumulusnetworks.com>
+From: Marc Dietrich <marvin24@gmx.de>
+Subject: Re: "ss -p" segfaults
+Date: Thu, 16 Jul 2015 08:37:49 +0200
+Message-ID: <1587116.GuyXMaAcLE@fb07-iapwap2>
+References: <2282663.K45lFmE7Zp@fb07-iapwap2> <20150715185751.GA19820@angus-think.lan> <20150715222238.GA13019@angus-think.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Nikolay Aleksandrov <razor@blackwall.org>,
-	netdev@vger.kernel.org, j.vosburgh@gmail.com,
-	gospo@cumulusnetworks.com, clsoto@linux.vnet.ibm.com,
-	davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Content-Type: multipart/signed; boundary="nextPart3199073.lAOluJaUMV"; micalg="pgp-sha256"; protocol="application/pgp-signature"
+Cc: "Rustad, Mark D" <mark.d.rustad@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:33161 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751403AbbGPGOf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 02:14:35 -0400
-Received: by iggp10 with SMTP id p10so6401201igg.0
-        for <netdev@vger.kernel.org>; Wed, 15 Jul 2015 23:14:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <55A6E48E.3020206@cumulusnetworks.com>
+Received: from mout.gmx.net ([212.227.17.21]:52088 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751476AbbGPGiG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jul 2015 02:38:06 -0400
+In-Reply-To: <20150715222238.GA13019@angus-think.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 16, 2015 at 12:54:06AM +0200, Nikolay Aleksandrov wrote:
-...snip...
->My personal opinion would be to disable non-ethernet devices, but support was
->already added and has been there for a long time so we have to fix this for
->the older releases, I don't mind removing non-ethernet device support for net-next
->but I'm guessing there're people still using that like the case that started
->this thread.
+--nextPart3199073.lAOluJaUMV
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="us-ascii"
 
-Yep, last time non-ethernet devices broke there were quite a few reports
-for ppp users, and infiniband is indeed used a lot too. No options here, we
-must support it...
+Am Donnerstag, 16. Juli 2015, 01:22:38 schrieb Vadim Kochan:
+> On Wed, Jul 15, 2015 at 09:57:51PM +0300, Vadim Kochan wrote:
+> > On Wed, Jul 15, 2015 at 06:52:49PM +0000, Rustad, Mark D wrote:
+> > > > On Jul 15, 2015, at 9:49 AM, Rustad, Mark D <mark.d.rustad@intel.com> 
+wrote:
+> > > >> On Jul 15, 2015, at 8:12 AM, Vadim Kochan <vadim4j@gmail.com> wrote:
+> > > >> Would you please check this fix ?
+> > > >> 
+> > > >> diff --git a/misc/ss.c b/misc/ss.c
+> > > >> index 03f92fa..3a826e4 100644
+> > > >> --- a/misc/ss.c
+> > > >> +++ b/misc/ss.c
+> > > >> @@ -683,8 +683,8 @@ static inline void sock_addr_set_str(inet_prefix
+> > > >> *prefix, char **ptr)
+> > > >> 
+> > > >> static inline char *sock_addr_get_str(const inet_prefix *prefix)
+> > > >> {
+> > > >> -    char *tmp ;
+> > > >> -    memcpy(&tmp, prefix->data, sizeof(char *));
+> > > >> +    char *tmp;
+> > > >> +    memcpy(&tmp, &prefix->data[0], sizeof(char *));
+> > > >> 
+> > > >>    return tmp;
+> > > >> 
+> > > >> }
+> > > > 
+> > > > That surely is not a fix! The destination of the memcpy is the address
+> > > > of an uninitialized stack variable! Both versions are equally bad.> > 
+> > > I probably over-reacted, but using memcpy to access a pointer in this
+> > > way is just ugly. For one thing, it circumvents any sanity-checking
+> > > that the compiler can do. And changing the prefix->data to
+> > > &prefix->data[0] should be exactly the same thing and therefore should
+> > > not fix anything. Anyway, never mind that.
+> > > 
+> > > Looking at more of the code, it looks to me like the the string pointer
+> > > in data can sometimes point to a literal string instead of allocated
+> > > memory when proc is in use. Free would not be happy with that. Look at
+> > > the use of variable peer in function unix_stats_print.> 
+> > Yes that right, I am already looking on this ...
+> > 
+> > > --
+> > > Mark Rustad, Networking Division, Intel Corporation
+> 
+> I did partially revert of the buggy commit and it does not crash, but I will
+> do more testing, and after will send the patch and will try to prepare some
+> test scripts for ss.
+> 
+> The crash appears only if to dump processes info from /proc, which might
+> be caused that netlink stats returned error, probably by wrong request
+> (not supported attribute or flag ?).
+
+the reason it uses proc for me is my self compiled (and trimmed) kernel which 
+disabled all *_diag modules which seem to be required by ss. I didn't know 
+this. On the other hand, I managed to find a bug this way :-)
+
+Marc
+
+
+--nextPart3199073.lAOluJaUMV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAABCAAGBQJVp1E9AAoJEKyeR39HFBto3YcH/0KTGaMu7WLeezfiWHJHXeb9
+QuC/QSzT2/P/kIbdsWrIMTfE4d9juRF5MQ51FgKOpHpNUf3xgNvcLfHAx3gNjE6a
+e3BcXZgTC99XDphhfaA16BzL+GodiK+DJ9rnVZxciD7HAy7wej1Qn888eU3OiIFm
+cKESULddTCvJnIql61tQPS3l5VZBkuGrg/Ui4YB1JTq8QhvNdwE4gYHQWQAPcNkH
+MAybpg0cbvOgV9KOvuU5ryJOjlArLbYoN0W5mGH6bqvcWvR4p6g9GIlxMBhsxIF3
+oHR18BKfZCt2ZmBva5Q9mrTOwo7zBfncrT3lLHKrnpNriGly4r/f+Buc2qTgQEU=
+=MNEH
+-----END PGP SIGNATURE-----
+
+--nextPart3199073.lAOluJaUMV--
