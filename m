@@ -1,70 +1,74 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH -next 0/6] Per network namespace netfilter chains
-Date: Thu, 16 Jul 2015 13:01:46 +0200
-Message-ID: <20150716110146.GA3920@salvia>
-References: <87616ppt3h.fsf@x220.int.ebiederm.org>
- <87r3pae5hn.fsf@x220.int.ebiederm.org>
- <878uansj4d.fsf_-_@x220.int.ebiederm.org>
- <20150715172038.GA4319@salvia>
- <87vbdljifn.fsf@x220.int.ebiederm.org>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: sit: Set SKB_GSO_SIT bit when performing GRO
+Date: Thu, 16 Jul 2015 12:58:45 +0200
+Message-ID: <2115027.IFUsFvOUns@stwm.de>
+References: <17762800.UBb5paxXY3@h2o.as.studentenwerk.mhn.de> <2477915.Hv2mXUtnDZ@stwm.de> <20150716002350.GA7529@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Juanjo Ciarlante <jjciarla@raiz.uncu.edu.ar>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87vbdljifn.fsf@x220.int.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:48144 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751572AbbGPK6r convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jul 2015 06:58:47 -0400
+In-Reply-To: <20150716002350.GA7529@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 15, 2015 at 03:05:00PM -0500, Eric W. Biederman wrote:
-> Pablo Neira Ayuso <pablo@netfilter.org> writes:
-[...]
-> >> There are lots of other possible and desirable cleanups but this one is
-> >> a core change needed to make the other changes independent small
-> >> changes.
-> >
-> > The state->net field will kill that dev_net(...) ? x : y; all over the
-> > code, that would be nice.
-> 
-> Yes it will.  I intend to do that after this patchset settles so I am
-> not dealing with more than one issue at a time.  Otherwise there
-> is too much work at once.
+Am Donnerstag, 16. Juli 2015, 08:23:50 schrieb Herbert Xu:
+> On Wed, Jul 15, 2015 at 02:25:59PM +0200, Wolfgang Walter wrote:
+> > Yes. Switching TSO off and leaving GRO on works, too.
+>=20
+> OK, could you please try this patch?
 
-Sure, thanks.
+Patch works here.
 
-> > Some comments on your patchset:
-> >
-> > * 1/6 netfilter: nf_queue: Don't recompute the hook_list head
-> >
-> > I already passed this to current nf as you insisted on getting this,
-> > and for the sake of correctness, so it's basically already in David's
-> > net tree.
-> 
-> I would have expected this patch to be somewhere.  I did not see
-> this change in net-next when I wrote the patchset (which seemed
-> like a good approximation of the latest thing available).  If I
-> overlooked and the patch has already made it to Dave then my apologies
-> for being redundant.
-> 
-> I still don't see this patch in your pending branch.
-> 
-> Am I missing something?
+Thanks,
 
-It doesn't show yet in net-next, but it's already in net:
+Wolfgang
 
-http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=f307170d6e591a48529425b1ed6ca835790995a9
+>=20
+> ---8<---
+> We need to set the SKB_GSO_SIT bit if we detect a 6-in-4 tunnel
+> when doing GRO.  Otherwise we may throw a packet at TSO hardware
+> that doesn't know what to do with it.
+>=20
+> Fixes: 19424e052fb4 ("sit: Add gro callbacks to sit_offload")
+> Reported-by: Wolfgang Walter <linux@stwm.de>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>=20
+> diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+> index e893cd1..1252eac 100644
+> --- a/net/ipv6/ip6_offload.c
+> +++ b/net/ipv6/ip6_offload.c
+> @@ -289,11 +289,21 @@ static struct packet_offload ipv6_packet_offloa=
+d
+> __read_mostly =3D { },
+>  };
+>=20
+> +static int sit_gro_complete(struct sk_buff *skb, int nhoff)
+> +{
+> +	int err =3D ipv6_gro_complete(skb, nhoff);
+> +
+> +	skb->encapsulation =3D 1;
+> +	skb_shinfo(skb)->gso_type |=3D SKB_GSO_SIT;
+> +
+> +	return err;
+> +}
+> +
+>  static const struct net_offload sit_offload =3D {
+>  	.callbacks =3D {
+>  		.gso_segment	=3D ipv6_gso_segment,
+>  		.gro_receive	=3D ipv6_gro_receive,
+> -		.gro_complete	=3D ipv6_gro_complete,
+> +		.gro_complete	=3D sit_gro_complete,
+>  	},
+>  };
 
-David periodically pulls net into net-next, so it will show there too
-at some point.
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
