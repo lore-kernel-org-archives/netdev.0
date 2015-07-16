@@ -1,176 +1,114 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v2 3/5] switchdev: add offload_fwd_mark generator helper
-Date: Thu, 16 Jul 2015 01:04:55 -0700
-Message-ID: <1437033897-8050-4-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v2 1/5] net: don't reforward packets already forwarded by offload device
+Date: Thu, 16 Jul 2015 01:04:53 -0700
+Message-ID: <1437033897-8050-2-git-send-email-sfeldma@gmail.com>
 References: <1437033897-8050-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com,
 	simon.horman@netronome.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36159 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752168AbbGPICq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 04:02:46 -0400
-Received: by pachj5 with SMTP id hj5so38778824pac.3
-        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 01:02:46 -0700 (PDT)
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:33014 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753147AbbGPICo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 04:02:44 -0400
+Received: by pdbqm3 with SMTP id qm3so40166706pdb.0
+        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 01:02:43 -0700 (PDT)
 In-Reply-To: <1437033897-8050-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-skb->offload_fwd_mark and dev->offload_fwd_mark are 32-bit and should be
-unique for device and may even be unique for a sub-set of ports within
-device, so add switchdev helper function to generate unique marks based on
-port's switch ID and group_ifindex.  group_ifindex would typically be the
-container dev's ifindex, such as the bridge's ifindex.
-
-The generator uses a global hash table to store offload_fwd_marks hashed by
-{switch ID, group_ifindex} key.
+Just before queuing skb for xmit on port, check if skb has been marked by
+switchdev port driver as already fordwarded by device.  If so, drop skb.  A
+non-zero skb->offload_fwd_mark field is set by the switchdev port
+driver/device on ingress to indicate the skb has already been forwarded by
+the device to egress ports with matching dev->skb_mark.  The switchdev port
+driver would assign a non-zero dev->skb_mark for each device port netdev
+during registration, for example.
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
- include/net/switchdev.h   |    9 ++++
- net/switchdev/switchdev.c |  103 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 112 insertions(+)
+ include/linux/netdevice.h |    6 ++++++
+ include/linux/skbuff.h    |   11 ++++++++++-
+ net/core/dev.c            |   10 ++++++++++
+ 3 files changed, 26 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index d5671f1..89da893 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -157,6 +157,9 @@ int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
- int switchdev_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
- 			    struct net_device *dev,
- 			    struct net_device *filter_dev, int idx);
-+void switchdev_port_fwd_mark_set(struct net_device *dev,
-+				 struct net_device *group_dev,
-+				 bool joining);
- 
- #else
- 
-@@ -271,6 +274,12 @@ static inline int switchdev_port_fdb_dump(struct sk_buff *skb,
- 	return -EOPNOTSUPP;
- }
- 
-+static inline void switchdev_port_fwd_mark_set(struct net_device *dev,
-+					       struct net_device *group_dev,
-+					       bool joining)
-+{
-+}
-+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 45cfd79..8364f29 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1456,6 +1456,8 @@ enum netdev_priv_flags {
+  *
+  *	@xps_maps:	XXX: need comments on this one
+  *
++ *	@offload_fwd_mark:	Offload device fwding mark
++ *
+  *	@trans_start:		Time (in jiffies) of last Tx
+  *	@watchdog_timeo:	Represents the timeout that is used by
+  *				the watchdog ( see dev_watchdog() )
+@@ -1697,6 +1699,10 @@ struct net_device {
+ 	struct xps_dev_maps __rcu *xps_maps;
  #endif
  
- #endif /* _LINUX_SWITCHDEV_H_ */
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 4e5bba5..33bafa2 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -1039,3 +1039,106 @@ void switchdev_fib_ipv4_abort(struct fib_info *fi)
- 	fi->fib_net->ipv4.fib_offload_disabled = true;
- }
- EXPORT_SYMBOL_GPL(switchdev_fib_ipv4_abort);
++#ifdef CONFIG_NET_SWITCHDEV
++	u32			offload_fwd_mark;
++#endif
 +
-+static bool switchdev_port_same_parent_id(struct net_device *a,
-+					  struct net_device *b)
-+{
-+	struct switchdev_attr a_attr = {
-+		.id = SWITCHDEV_ATTR_PORT_PARENT_ID,
-+		.flags = SWITCHDEV_F_NO_RECURSE,
+ 	/* These may be needed for future network-power-down code. */
+ 
+ 	/*
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index d6cdd6e..2edcf50 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -506,6 +506,7 @@ static inline u32 skb_mstamp_us_delta(const struct skb_mstamp *t1,
+  *	@no_fcs:  Request NIC to treat last 4 bytes as Ethernet FCS
+   *	@napi_id: id of the NAPI struct this skb came from
+  *	@secmark: security marking
++ *	@offload_fwd_mark: fwding offload mark
+  *	@mark: Generic packet mark
+  *	@vlan_proto: vlan encapsulation protocol
+  *	@vlan_tci: vlan tag control information
+@@ -650,9 +651,17 @@ struct sk_buff {
+ 		unsigned int	sender_cpu;
+ 	};
+ #endif
++	union {
+ #ifdef CONFIG_NETWORK_SECMARK
+-	__u32			secmark;
++		__u32		secmark;
++#endif
++#ifdef CONFIG_NET_SWITCHDEV
++		__u32		offload_fwd_mark;
+ #endif
 +	};
-+	struct switchdev_attr b_attr = {
-+		.id = SWITCHDEV_ATTR_PORT_PARENT_ID,
-+		.flags = SWITCHDEV_F_NO_RECURSE,
-+	};
 +
-+	if (switchdev_port_attr_get(a, &a_attr) ||
-+	    switchdev_port_attr_get(b, &b_attr))
-+		return false;
++	union {};
 +
-+	return netdev_phys_item_id_same(&a_attr.u.ppid, &b_attr.u.ppid);
-+}
-+
-+static u32 switchdev_port_fwd_mark_get(struct net_device *dev,
-+				       struct net_device *group_dev)
-+{
-+	struct net_device *lower_dev;
-+	struct list_head *iter;
-+
-+	netdev_for_each_lower_dev(group_dev, lower_dev, iter) {
-+		if (lower_dev == dev)
-+			continue;
-+		if (switchdev_port_same_parent_id(dev, lower_dev))
-+			return lower_dev->offload_fwd_mark;
-+		return switchdev_port_fwd_mark_get(dev, lower_dev);
+ 	union {
+ 		__u32		mark;
+ 		__u32		reserved_tailroom;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8810b6b..2ee15af 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3061,6 +3061,16 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
+ 	else
+ 		skb_dst_force(skb);
+ 
++#ifdef CONFIG_NET_SWITCHDEV
++	/* Don't forward if offload device already forwarded */
++	if (skb->offload_fwd_mark &&
++	    skb->offload_fwd_mark == dev->offload_fwd_mark) {
++		consume_skb(skb);
++		rc = NET_XMIT_SUCCESS;
++		goto out;
 +	}
++#endif
 +
-+	return dev->ifindex;
-+}
-+
-+static void switchdev_port_fwd_mark_reset(struct net_device *group_dev,
-+					  u32 old_mark, u32 *reset_mark)
-+{
-+	struct net_device *lower_dev;
-+	struct list_head *iter;
-+
-+	netdev_for_each_lower_dev(group_dev, lower_dev, iter) {
-+		if (lower_dev->offload_fwd_mark == old_mark) {
-+			if (!*reset_mark)
-+				*reset_mark = lower_dev->ifindex;
-+			lower_dev->offload_fwd_mark = *reset_mark;
-+		}
-+		switchdev_port_fwd_mark_reset(lower_dev, old_mark, reset_mark);
-+	}
-+}
-+
-+/**
-+ *	switchdev_port_fwd_mark_set - Set port offload forwarding mark
-+ *
-+ *	@dev: port device
-+ *	@group_dev: containing device
-+ *	@joining: true if dev is joining group; false if leaving group
-+ *
-+ *	An ungrouped port's offload mark is just its ifindex.  A grouped
-+ *	port's (member of a bridge, for example) offload mark is the ifindex
-+ *	of one of the ports in the group with the same parent (switch) ID.
-+ *	Ports on the same device in the same group will have the same mark.
-+ *
-+ *	Example:
-+ *
-+ *		br0		ifindex=9
-+ *		  sw1p1		ifindex=2	mark=2
-+ *		  sw1p2		ifindex=3	mark=2
-+ *		  sw2p1		ifindex=4	mark=5
-+ *		  sw2p2		ifindex=5	mark=5
-+ *
-+ *	If sw2p2 leaves the bridge, we'll have:
-+ *
-+ *		br0		ifindex=9
-+ *		  sw1p1		ifindex=2	mark=2
-+ *		  sw1p2		ifindex=3	mark=2
-+ *		  sw2p1		ifindex=4	mark=4
-+ *		sw2p2		ifindex=5	mark=5
-+ */
-+void switchdev_port_fwd_mark_set(struct net_device *dev,
-+				 struct net_device *group_dev,
-+				 bool joining)
-+{
-+	u32 mark = dev->ifindex;
-+	u32 reset_mark = 0;
-+
-+	if (group_dev && joining) {
-+		mark = switchdev_port_fwd_mark_get(dev, group_dev);
-+	} else if (group_dev && !joining) {
-+		if (dev->offload_fwd_mark == mark)
-+			/* Ohoh, this port was the mark reference port,
-+			 * but it's leaving the group, so reset the
-+			 * mark for the remaining ports in the group.
-+			 */
-+			switchdev_port_fwd_mark_reset(group_dev, mark,
-+						      &reset_mark);
-+	}
-+
-+	dev->offload_fwd_mark = mark;
-+}
-+EXPORT_SYMBOL_GPL(switchdev_port_fwd_mark_set);
+ 	txq = netdev_pick_tx(dev, skb, accel_priv);
+ 	q = rcu_dereference_bh(txq->qdisc);
+ 
 -- 
 1.7.10.4
