@@ -1,52 +1,39 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH v7 1/3] if_link: Add control trust VF
-Date: Thu, 16 Jul 2015 17:58:19 +0300
-Message-ID: <CAJ3xEMig4ZBV3Uwt_EPG6W_AWrqJinGr=ziBSpCqFPpXuaUPUw@mail.gmail.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05F039BA@BPXM14GP.gisp.nec.co.jp>
+From: Kyle McMartin <kyle@infradead.org>
+Subject: Re: [PATCH] bnx2x: Update to FW version 7.12.30
+Date: Thu, 16 Jul 2015 11:20:10 -0400
+Message-ID: <20150716152010.GC28956@merlin.infradead.org>
+References: <1437030643-19731-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ariel.Elior@qlogic.com, netdev@vger.kernel.org,
+	linux-firmware@kernel.org
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:35529 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751879AbbGPO6T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 10:58:19 -0400
-Received: by obbop1 with SMTP id op1so48357455obb.2
-        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 07:58:19 -0700 (PDT)
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05F039BA@BPXM14GP.gisp.nec.co.jp>
+Received: from merlin.infradead.org ([205.233.59.134]:58679 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751434AbbGPPUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 11:20:12 -0400
+Content-Disposition: inline
+In-Reply-To: <1437030643-19731-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 16, 2015 at 1:33 PM, Hiroshi Shimamoto
-<h-shimamoto@ct.jp.nec.com> wrote:
-> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
->
-> Add netlink directives and ndo entry to trust VF user.
+On Thu, Jul 16, 2015 at 10:10:43AM +0300, Yuval Mintz wrote:
+> The new FW will allow us to utilize some new features in our driver,
+> mainly adding vlan stripping offload and vxlan offload support.
+> 
+> In addition, this fixes several issues:
+>  - Packets from a VF with pvid configured which were sent with a
+>    different vlan were transmitted instead of being discarded.
+> 
+>  - FCoE traffic might not recover after a failue while there's traffic
+>    to another function.
+> 
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+> ---
+> As mentioned, this was previously sent only to Ben/David.
+> Now designating it to the proper mailing list.
 
-You haven't posted cover letter stating the V7 --> V6 and V6 --> older
-versions changes
+applied.
 
-Or.
-
-
-> This controls the special permission of VF user.
-> The administrator will dedicatedly trust VF user to use some features
-> which impacts security and/or performance.
->
-> The administrator never turn it on unless VF user is fully trusted.
->
-> Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-> CC: Choi, Sy Jong <sy.jong.choi@intel.com>
+regards, kyle
