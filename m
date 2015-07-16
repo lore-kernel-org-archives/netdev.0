@@ -1,25 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: qlcnic: Deletion of unnecessary memset
-Date: Wed, 15 Jul 2015 17:20:46 -0700 (PDT)
-Message-ID: <20150715.172046.1479959081115644674.davem@davemloft.net>
-References: <fad6a2ad1e78d8e2624903524548f8d806bf1ef0.1436816968.git.christophe.jaillet@wanadoo.fr>
+Subject: Re: [PATCH] pkt_sched: sch_qfq: remove unused member of struct
+ qfq_sched
+Date: Wed, 15 Jul 2015 17:21:58 -0700 (PDT)
+Message-ID: <20150715.172158.1153564265452027383.davem@davemloft.net>
+References: <1436825525-13506-1-git-send-email-parri.andrea@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shahed.shaikh@qlogic.com, Dept-GELinuxNICDev@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: christophe.jaillet@wanadoo.fr
+Cc: jhs@mojatatu.com, paolo.valente@unimore.it, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: parri.andrea@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <fad6a2ad1e78d8e2624903524548f8d806bf1ef0.1436816968.git.christophe.jaillet@wanadoo.fr>
+In-Reply-To: <1436825525-13506-1-git-send-email-parri.andrea@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Date: Mon, 13 Jul 2015 21:51:38 +0200
+From: Andrea Parri <parri.andrea@gmail.com>
+Date: Tue, 14 Jul 2015 00:12:05 +0200
 
-> There is no need to memset memory allocated with vzalloc.
+> The member (u32) "num_active_agg" of struct qfq_sched has been unused
+> since its introduction in 462dbc9101acd38e92eda93c0726857517a24bbd
+> "pkt_sched: QFQ Plus: fair-queueing service at DRR cost" and (AFAICT)
+> there is no active plan to use it; this removes the member.
 > 
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> Signed-off-by: Andrea Parri <parri.andrea@gmail.com>
+> Acked-by: Paolo Valente <paolo.valente@unimore.it>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
