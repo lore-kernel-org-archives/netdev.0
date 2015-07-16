@@ -1,177 +1,373 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [RFC PATCH net-next] sctp: fix src address selection if using
- secondary addresses
-Date: Thu, 16 Jul 2015 11:06:42 -0300
-Message-ID: <20150716140642.GD1855@localhost.localdomain>
-References: <81786a31f7f143e1d229de9a9f909d5f83fa9bb2.1436279035.git.marcelo.leitner@gmail.com>
- <20150709165458.GA1855@localhost.localdomain>
- <27EB7D25-A947-4C75-B25B-03BFAD48EC64@fh-muenster.de>
- <20150710115305.GB1855@localhost.localdomain>
- <559FE640.5070008@gmail.com>
- <20150710161718.GP1841@localhost.localdomain>
- <559FFD6D.8090407@gmail.com>
- <20150710182702.GQ1841@localhost.localdomain>
- <20150715184921.GA13095@localhost.localdomain>
- <55A7AD25.4020000@gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v2] jhash: Deinline jhash, jhash2 and __jhash_nwords
+Date: Thu, 16 Jul 2015 07:26:21 -0700
+Message-ID: <55A7BF0D.9050505@gmail.com>
+References: <1437050416-13295-1-git-send-email-dvlasenk@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Michael Tuexen <tuexen@fh-muenster.de>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39234 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753702AbbGPOGq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jul 2015 10:06:46 -0400
-Content-Disposition: inline
-In-Reply-To: <55A7AD25.4020000@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Denys Vlasenko <dvlasenk@redhat.com>, Thomas Graf <tgraf@suug.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437050416-13295-1-git-send-email-dvlasenk@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 16, 2015 at 09:09:57AM -0400, Vlad Yasevich wrote:
-> On 07/15/2015 03:03 PM, Marcelo Ricardo Leitner wrote:
-> > On Fri, Jul 10, 2015 at 03:27:02PM -0300, Marcelo Ricardo Leitner wrote:
-> >> On Fri, Jul 10, 2015 at 01:14:21PM -0400, Vlad Yasevich wrote:
-> >>> On 07/10/2015 12:17 PM, Marcelo Ricardo Leitner wrote:
-> >>>> On Fri, Jul 10, 2015 at 11:35:28AM -0400, Vlad Yasevich wrote:
-> > ...
-> >>>>> have been numerous times where I've seen weak host model in use on the wire
-> >>>>> even with a BSD peer.
-> >>>>>
-> >>>>> This also puts a very big nail through many suggestions we've had over the years
-> >>>>> to allow source based path multihoming in addition to destination based multihoming
-> >>>>> we currently support.
-> >>>>>
-> >>>>> It might be a good idea to make rp-filter like behavior best effort, and have
-> >>>>> the old behavior as fallback.  I am still trying to think up different scenarios
-> >>>>> where rp-filter behavior will cause things to fail prematurely...
-> >>>>
-> >>>> The old behavior is like "if we don't have a src yet and can't find a
-> >>>> preferred src for this dst, use the 1st bound address". We can add it
-> >>>> but as I said, I'm afraid it is just doing wrong and not worth. If such
-> >>>> randomly src addressed packet is meant to be routed, the router will
-> >>>> likely drop it as it is seen as a spoof. And if it reaches the peer, it
-> >>>> will probably come back through a different path.
-> >>>>
-> >>>> I'm tempted to say that current usual use cases are handled by the first
-> >>>> check on this function, which returns the preferred/primary address for
-> >>>> the interface and checks against bound addresses. Whenever you reach the
-> >>>> second check, it just allows you to use that 1st bound address that is
-> >>>> checked. I mean, I can't see use cases that we would be breaking with
-> >>>> this change. 
-> >>>
-> >>> Yes,  the secondary check didn't amount to much, but we've kept it since 2.5
-> >>> days (when sctp was introduced).  I've made attempts over the years to
-> >>> try to make it stricter, but that never amounted to anything that worked well.
-> >>>
-> >>>>
-> >>>> But yeah, it impacts source based routing, and I'm not aware of previous
-> >>>> discussions on it. I'll try to dig some up but if possible, please share
-> >>>> some pointers on it.
-> >>>
-> >>> It's been suggested a few times that we should support source based multihoming
-> >>> particularly for the case where one peer has only 1 address.
-> >>> We've always punted on this, but people still ask every now and then.
-> >>
-> >> Ah okay, now I see it.
-> >>  
-> >>> I do have a question about the code though.. Have you tried with mutlipath routing
-> >>> enabled.  I see rp_filter checks have special code to handle that.  Seem like we
-> >>> might get false negatives in sctp.
-> >>
-> >> In the sense of CONFIG_IP_ROUTE_MULTIPATH=y, yes, but just that. My
-> >> routes were simple ones, either 2 peers attaches to 2 local subnets, or
-> >> with a gateway in the middle (with 2 subnets on each side, but mapped
-> >> 1-1, no crossing. Aka subnet1<->subnet2 and subnet3<->subnet4 while not
-> >> (subnet1<->subnet4 or subnet3<->subnet2).
-> >>
-> >> Note that this is not rp_filter strictly speaking, as it's mirrored.
-> >> rp_filter needs to calculate all possible output routes (actually until
-> >> it finds a valid one) for finding one that would match the one used for
-> >> incoming. 
-> >>
-> >> This check already has an output path, and it's calculating if such
-> >> input would be acceptable. We can't really expect/check for other hits
-> >> because it invalidates the chosen output path.
-> >>
-> >> Hmmm... but we could support multipath in the output selection, ie in
-> >> the outputs of ip_route_output_key(), probably in another patch then?
-> > 
-> > Thinking further.. we could just compare it with the addresses assigned to the
-> > interface instead of doing a whole new routing. Cheaper/faster, provides the
-> > results I'm looking for and the consequences are easier to see.
-> > 
-> > Something like (not tested, just illustrating the idea):
-> > 
-> > --- a/net/sctp/protocol.c
-> > +++ b/net/sctp/protocol.c
-> > @@ -489,22 +489,33 @@ static void sctp_v4_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
-> >         list_for_each_entry_rcu(laddr, &bp->address_list, list) {
-> >                 if (!laddr->valid)
-> >                         continue;
-> >                 if ((laddr->state == SCTP_ADDR_SRC) &&
-> >                     (AF_INET == laddr->a.sa.sa_family)) {
-> > +                       struct net_device *odev;
-> > +
-> >                         fl4->fl4_sport = laddr->a.v4.sin_port;
-> >                         flowi4_update_output(fl4,
-> >                                              asoc->base.sk->sk_bound_dev_if,
-> >                                              RT_CONN_FLAGS(asoc->base.sk),
-> >                                              daddr->v4.sin_addr.s_addr,
-> >                                              laddr->a.v4.sin_addr.s_addr);
-> >  
-> >                         rt = ip_route_output_key(sock_net(sk), fl4);
-> > -                       if (!IS_ERR(rt)) {
-> > -                               dst = &rt->dst;
-> > -                               goto out_unlock;
-> > -                       }
-> > +                       if (IS_ERR(rt))
-> > +                               continue;
-> > +
-> > +                       /* Ensure the src address belongs to the output
-> > +                        * interface.
-> > +                        */
-> > +                       odev = __ip_dev_find(net, laddr->a.v4.sin_addr.s_addr,
-> > +                                            false);
-> > +                       if (odev->if_index != fl4->flowi4_oif)
-> > +                               continue;
-> > +
-> > +                       dst = &rt->dst;
-> > +                       goto out_unlock;
-> >                 }
-> >         }
-> >  
-> >  out_unlock:
-> >         rcu_read_unlock();
-> > 
-> > 
-> > I like this better than my 1st attempt. What do you think?
-> 
-> Looks better.  Have to drop the ref on the dev since __ip_dev_find takes one.
+On 07/16/2015 05:40 AM, Denys Vlasenko wrote:
+> This patch deinlines jhash, jhash2 and __jhash_nwords.
+>
+> It also removes rhashtable_jhash2(key, length, seed)
+> because it was merely calling jhash2(key, length, seed).
+>
+> With this .config: http://busybox.net/~vda/kernel_config,
+> after deinlining these functions have sizes and callsite counts
+> as follows:
+>
+> __jhash_nwords: 72 bytes, 75 calls
+> jhash: 297 bytes, 111 calls
+> jhash2: 205 bytes, 136 calls
+>
+> Total size decrease is about 38,000 bytes:
+>
+>      text     data      bss       dec     hex filename
+> 90663567 17221960 36659200 144544727 89d93d7 vmlinux5
+> 90625577 17221864 36659200 144506641 89cff11 vmlinux.after
+>
+> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+> CC: Thomas Graf <tgraf@suug.ch>
+> CC: Alexander Duyck <alexander.h.duyck@redhat.com>
+> CC: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+> CC: Herbert Xu <herbert@gondor.apana.org.au>
+> CC: netdev@vger.kernel.org
+> CC: linux-kernel@vger.kernel.org
+> ---
+> Changes in v2: created a new source file, jhash.c
+>
+>   include/linux/jhash.h | 123 +----------------------------------------
+>   lib/Makefile          |   2 +-
+>   lib/jhash.c           | 149 ++++++++++++++++++++++++++++++++++++++++++++++++++
+>   lib/rhashtable.c      |  13 +++--
+>   4 files changed, 160 insertions(+), 127 deletions(-)
+>   create mode 100644 lib/jhash.c
+>
+> diff --git a/include/linux/jhash.h b/include/linux/jhash.h
+> index 348c6f4..0b3f55d 100644
+> --- a/include/linux/jhash.h
+> +++ b/include/linux/jhash.h
+> @@ -31,131 +31,14 @@
+>   /* Mask the hash value, i.e (value & jhash_mask(n)) instead of (value % n) */
+>   #define jhash_mask(n)   (jhash_size(n)-1)
+>   
+> -/* __jhash_mix -- mix 3 32-bit values reversibly. */
+> -#define __jhash_mix(a, b, c)			\
+> -{						\
+> -	a -= c;  a ^= rol32(c, 4);  c += b;	\
+> -	b -= a;  b ^= rol32(a, 6);  a += c;	\
+> -	c -= b;  c ^= rol32(b, 8);  b += a;	\
+> -	a -= c;  a ^= rol32(c, 16); c += b;	\
+> -	b -= a;  b ^= rol32(a, 19); a += c;	\
+> -	c -= b;  c ^= rol32(b, 4);  b += a;	\
+> -}
+> -
+> -/* __jhash_final - final mixing of 3 32-bit values (a,b,c) into c */
+> -#define __jhash_final(a, b, c)			\
+> -{						\
+> -	c ^= b; c -= rol32(b, 14);		\
+> -	a ^= c; a -= rol32(c, 11);		\
+> -	b ^= a; b -= rol32(a, 25);		\
+> -	c ^= b; c -= rol32(b, 16);		\
+> -	a ^= c; a -= rol32(c, 4);		\
+> -	b ^= a; b -= rol32(a, 14);		\
+> -	c ^= b; c -= rol32(b, 24);		\
+> -}
+> -
+>   /* An arbitrary initial parameter */
+>   #define JHASH_INITVAL		0xdeadbeef
+>   
+> -/* jhash - hash an arbitrary key
+> - * @k: sequence of bytes as key
+> - * @length: the length of the key
+> - * @initval: the previous hash, or an arbitray value
+> - *
+> - * The generic version, hashes an arbitrary sequence of bytes.
+> - * No alignment or length assumptions are made about the input key.
+> - *
+> - * Returns the hash value of the key. The result depends on endianness.
+> - */
+> -static inline u32 jhash(const void *key, u32 length, u32 initval)
+> -{
+> -	u32 a, b, c;
+> -	const u8 *k = key;
+> -
+> -	/* Set up the internal state */
+> -	a = b = c = JHASH_INITVAL + length + initval;
+> -
+> -	/* All but the last block: affect some 32 bits of (a,b,c) */
+> -	while (length > 12) {
+> -		a += __get_unaligned_cpu32(k);
+> -		b += __get_unaligned_cpu32(k + 4);
+> -		c += __get_unaligned_cpu32(k + 8);
+> -		__jhash_mix(a, b, c);
+> -		length -= 12;
+> -		k += 12;
+> -	}
+> -	/* Last block: affect all 32 bits of (c) */
+> -	/* All the case statements fall through */
+> -	switch (length) {
+> -	case 12: c += (u32)k[11]<<24;
+> -	case 11: c += (u32)k[10]<<16;
+> -	case 10: c += (u32)k[9]<<8;
+> -	case 9:  c += k[8];
+> -	case 8:  b += (u32)k[7]<<24;
+> -	case 7:  b += (u32)k[6]<<16;
+> -	case 6:  b += (u32)k[5]<<8;
+> -	case 5:  b += k[4];
+> -	case 4:  a += (u32)k[3]<<24;
+> -	case 3:  a += (u32)k[2]<<16;
+> -	case 2:  a += (u32)k[1]<<8;
+> -	case 1:  a += k[0];
+> -		 __jhash_final(a, b, c);
+> -	case 0: /* Nothing left to add */
+> -		break;
+> -	}
+> -
+> -	return c;
+> -}
+> -
+> -/* jhash2 - hash an array of u32's
+> - * @k: the key which must be an array of u32's
+> - * @length: the number of u32's in the key
+> - * @initval: the previous hash, or an arbitray value
+> - *
+> - * Returns the hash value of the key.
+> - */
+> -static inline u32 jhash2(const u32 *k, u32 length, u32 initval)
+> -{
+> -	u32 a, b, c;
+> -
+> -	/* Set up the internal state */
+> -	a = b = c = JHASH_INITVAL + (length<<2) + initval;
+> -
+> -	/* Handle most of the key */
+> -	while (length > 3) {
+> -		a += k[0];
+> -		b += k[1];
+> -		c += k[2];
+> -		__jhash_mix(a, b, c);
+> -		length -= 3;
+> -		k += 3;
+> -	}
+> -
+> -	/* Handle the last 3 u32's: all the case statements fall through */
+> -	switch (length) {
+> -	case 3: c += k[2];
+> -	case 2: b += k[1];
+> -	case 1: a += k[0];
+> -		__jhash_final(a, b, c);
+> -	case 0:	/* Nothing left to add */
+> -		break;
+> -	}
+> -
+> -	return c;
+> -}
+> -
+> +u32 jhash(const void *key, u32 length, u32 initval);
+> +u32 jhash2(const u32 *k, u32 length, u32 initval);
+>   
+>   /* __jhash_nwords - hash exactly 3, 2 or 1 word(s) */
+> -static inline u32 __jhash_nwords(u32 a, u32 b, u32 c, u32 initval)
+> -{
+> -	a += initval;
+> -	b += initval;
+> -	c += initval;
+> -
+> -	__jhash_final(a, b, c);
+> -
+> -	return c;
+> -}
+> +u32 __jhash_nwords(u32 a, u32 b, u32 c, u32 initval);
+>   
+>   static inline u32 jhash_3words(u32 a, u32 b, u32 c, u32 initval)
+>   {
+> diff --git a/lib/Makefile b/lib/Makefile
+> index 6897b52..978be53 100644
+> --- a/lib/Makefile
+> +++ b/lib/Makefile
+> @@ -26,7 +26,7 @@ obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
+>   	 bust_spinlocks.o kasprintf.o bitmap.o scatterlist.o \
+>   	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iov_iter.o clz_ctz.o \
+>   	 bsearch.o find_bit.o llist.o memweight.o kfifo.o \
+> -	 percpu-refcount.o percpu_ida.o rhashtable.o reciprocal_div.o
+> +	 percpu-refcount.o percpu_ida.o jhash.o rhashtable.o reciprocal_div.o
+>   obj-y += string_helpers.o
+>   obj-$(CONFIG_TEST_STRING_HELPERS) += test-string_helpers.o
+>   obj-y += hexdump.o
+> diff --git a/lib/jhash.c b/lib/jhash.c
+> new file mode 100644
+> index 0000000..cf3c277
+> --- /dev/null
+> +++ b/lib/jhash.c
+> @@ -0,0 +1,149 @@
+> +/* Jenkins hash support.
+> + *
+> + * Copyright (C) 2006. Bob Jenkins (bob_jenkins@burtleburtle.net)
+> + *
+> + * http://burtleburtle.net/bob/hash/
+> + *
+> + * These are the credits from Bob's sources:
+> + *
+> + * lookup3.c, by Bob Jenkins, May 2006, Public Domain.
+> + *
+> + * These are functions for producing 32-bit hashes for hash table lookup.
+> + * hashword(), hashlittle(), hashlittle2(), hashbig(), mix(), and final()
+> + * are externally useful functions.  Routines to test the hash are included
+> + * if SELF_TEST is defined.  You can use this free for any purpose.  It's in
+> + * the public domain.  It has no warranty.
+> + *
+> + * Copyright (C) 2009-2010 Jozsef Kadlecsik (kadlec@blackhole.kfki.hu)
+> + *
+> + * I've modified Bob's hash to be useful in the Linux kernel, and
+> + * any bugs present are my fault.
+> + * Jozsef
+> + */
+> +#include <linux/export.h>
+> +#include <linux/jhash.h>
+> +
+> +/* __jhash_mix -- mix 3 32-bit values reversibly. */
+> +#define __jhash_mix(a, b, c)			\
+> +{						\
+> +	a -= c;  a ^= rol32(c, 4);  c += b;	\
+> +	b -= a;  b ^= rol32(a, 6);  a += c;	\
+> +	c -= b;  c ^= rol32(b, 8);  b += a;	\
+> +	a -= c;  a ^= rol32(c, 16); c += b;	\
+> +	b -= a;  b ^= rol32(a, 19); a += c;	\
+> +	c -= b;  c ^= rol32(b, 4);  b += a;	\
+> +}
+> +
+> +/* __jhash_final - final mixing of 3 32-bit values (a,b,c) into c */
+> +#define __jhash_final(a, b, c)			\
+> +{						\
+> +	c ^= b; c -= rol32(b, 14);		\
+> +	a ^= c; a -= rol32(c, 11);		\
+> +	b ^= a; b -= rol32(a, 25);		\
+> +	c ^= b; c -= rol32(b, 16);		\
+> +	a ^= c; a -= rol32(c, 4);		\
+> +	b ^= a; b -= rol32(a, 14);		\
+> +	c ^= b; c -= rol32(b, 24);		\
+> +}
+> +
+> +/* jhash - hash an arbitrary key
+> + * @k: sequence of bytes as key
+> + * @length: the length of the key
+> + * @initval: the previous hash, or an arbitray value
+> + *
+> + * The generic version, hashes an arbitrary sequence of bytes.
+> + * No alignment or length assumptions are made about the input key.
+> + *
+> + * Returns the hash value of the key. The result depends on endianness.
+> + */
+> +u32 jhash(const void *key, u32 length, u32 initval)
+> +{
+> +	u32 a, b, c;
+> +	const u8 *k = key;
+> +
+> +	/* Set up the internal state */
+> +	a = b = c = JHASH_INITVAL + length + initval;
+> +
+> +	/* All but the last block: affect some 32 bits of (a,b,c) */
+> +	while (length > 12) {
+> +		a += __get_unaligned_cpu32(k);
+> +		b += __get_unaligned_cpu32(k + 4);
+> +		c += __get_unaligned_cpu32(k + 8);
+> +		__jhash_mix(a, b, c);
+> +		length -= 12;
+> +		k += 12;
+> +	}
+> +	/* Last block: affect all 32 bits of (c) */
+> +	/* All the case statements fall through */
+> +	switch (length) {
+> +	case 12: c += (u32)k[11]<<24;
+> +	case 11: c += (u32)k[10]<<16;
+> +	case 10: c += (u32)k[9]<<8;
+> +	case 9:  c += k[8];
+> +	case 8:  b += (u32)k[7]<<24;
+> +	case 7:  b += (u32)k[6]<<16;
+> +	case 6:  b += (u32)k[5]<<8;
+> +	case 5:  b += k[4];
+> +	case 4:  a += (u32)k[3]<<24;
+> +	case 3:  a += (u32)k[2]<<16;
+> +	case 2:  a += (u32)k[1]<<8;
+> +	case 1:  a += k[0];
+> +		 __jhash_final(a, b, c);
+> +	case 0: /* Nothing left to add */
+> +		break;
+> +	}
+> +
+> +	return c;
+> +}
+> +EXPORT_SYMBOL_GPL(jhash);
+> +
 
-Cool. I'll go that way then.
+I think this should really be EXPORT_SYMBOL, not EXPORT_SYMBOL_GPL. The 
+fact is the code this is based on is public domain so there isn't much 
+point in requiring GPL as they could just go grab Bob's original code 
+and have a hash function put together pretty quick.
 
-Regarding the ref, not really, because above code is under
-rcu_read_lock() already and thne I passed false on its 3rd argument,
-avoiding that ref.
+> +/* jhash2 - hash an array of u32's
+> + * @k: the key which must be an array of u32's
+> + * @length: the number of u32's in the key
+> + * @initval: the previous hash, or an arbitray value
+> + *
+> + * Returns the hash value of the key.
+> + */
+> +u32 jhash2(const u32 *k, u32 length, u32 initval)
+> +{
+> +	u32 a, b, c;
+> +
+> +	/* Set up the internal state */
+> +	a = b = c = JHASH_INITVAL + (length<<2) + initval;
+> +
+> +	/* Handle most of the key */
+> +	while (length > 3) {
+> +		a += k[0];
+> +		b += k[1];
+> +		c += k[2];
+> +		__jhash_mix(a, b, c);
+> +		length -= 3;
+> +		k += 3;
+> +	}
+> +
+> +	/* Handle the last 3 u32's: all the case statements fall through */
+> +	switch (length) {
+> +	case 3: c += k[2];
+> +	case 2: b += k[1];
+> +	case 1: a += k[0];
+> +		__jhash_final(a, b, c);
+> +	case 0:	/* Nothing left to add */
+> +		break;
+> +	}
+> +
+> +	return c;
+> +}
+> +EXPORT_SYMBOL_GPL(jhash2);
+> +
 
-Thanks,
-Marcelo
+Same thing here.
 
-> > 
-> > I'll split the refactoring from this fix on v2, so it's easier to review.
-> > 
-> 
-> Sounds good.
-> 
-> -vlad
-> 
-> >   Marcelo
-> > 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> +/* __jhash_nwords - hash exactly 3, 2 or 1 word(s) */
+> +u32 __jhash_nwords(u32 a, u32 b, u32 c, u32 initval)
+> +{
+> +	a += initval;
+> +	b += initval;
+> +	c += initval;
+> +
+> +	__jhash_final(a, b, c);
+> +
+> +	return c;
+> +}
+> +EXPORT_SYMBOL_GPL(__jhash_nwords);
+
+This one too.
