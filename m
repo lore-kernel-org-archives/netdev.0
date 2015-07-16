@@ -1,33 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v7 0/4] net: Introduce protodown flag.
-Date: Wed, 15 Jul 2015 21:40:01 -0700 (PDT)
-Message-ID: <20150715.214001.1210964588957604209.davem@davemloft.net>
-References: <1436906602-2958-1-git-send-email-anuradhak@cumulusnetworks.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: bluetooth 2015-07-15
+Date: Wed, 15 Jul 2015 21:59:46 -0700 (PDT)
+Message-ID: <20150715.215946.1783281432851121337.davem@davemloft.net>
+References: <20150715084355.GA13429@t440s.lan>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org,
-	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
-	wkok@cumulusnetworks.com
-To: anuradhak@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35366 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753822AbbGPEkC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 00:40:02 -0400
-In-Reply-To: <1436906602-2958-1-git-send-email-anuradhak@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150715084355.GA13429-ypHiNAJIRA7/PtFMR13I2A@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: anuradhak@cumulusnetworks.com
-Date: Tue, 14 Jul 2015 13:43:18 -0700
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Wed, 15 Jul 2015 11:43:55 +0300
 
-> User space daemons can detect errors in the network that need to be
-> notified to the switch device drivers.
+> Here's a regression fix for Broadcom Bluetooth adapters found at least
+> in certain Apple laptops. The issue was introduced in 4.1 so there's the
+> appropriate "Cc: stable" entry for it.
 > 
-> Drivers can react to this error state by doing a phy-down on the
-> switch-port which would result in a carrier-off locally and on the directly
-> connected switch. Doing that would prevent loops and black-holes in the
-> network.
+> Let me know if there are any issues pulling. Thanks.
 
-Series applied, thanks.
+Pulled, thanks.
