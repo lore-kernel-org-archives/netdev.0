@@ -1,208 +1,183 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH nf-next] netfilter: nf_ct_sctp: minimal multihoming
- support
-Date: Thu, 16 Jul 2015 10:50:59 -0300
-Message-ID: <20150716135059.GB14704@localhost.localdomain>
-References: <20150714122311.8DA8EA0C9A@unicorn.suse.cz>
+Subject: Re: [PATCH v2 1/2] sctp: add new getsockopt option
+ SCTP_SOCKOPT_PEELOFF_KERNEL
+Date: Thu, 16 Jul 2015 11:03:14 -0300
+Message-ID: <20150716140314.GC1855@localhost.localdomain>
+References: <cover.1436891629.git.marcelo.leitner@gmail.com>
+ <6091a8542d13f43fbe1abfa25062d28d15b15e66.1436891629.git.marcelo.leitner@gmail.com>
+ <55A7B698.8080409@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49626 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754222AbbGPODQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jul 2015 10:03:16 -0400
 Content-Disposition: inline
-In-Reply-To: <20150714122311.8DA8EA0C9A@unicorn.suse.cz>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <55A7B698.8080409@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 14, 2015 at 02:23:11PM +0200, Michal Kubecek wrote:
-> Currently nf_conntrack_proto_sctp module handles only packets between
-> primary addresses used to establish the connection. Any packets between
-> secondary addresses are classified as invalid so that usual firewall
-> configurations drop them. Allowing HEARTBEAT and HEARTBEAT-ACK chunks to
-> establish a new conntrack would allow traffic between secondary
-> addresses to pass through. A more sophisticated solution based on the
-> addresses advertised in the initial handshake (and possibly also later
-> dynamic address addition and removal) would be much harder to implement.
-> Moreover, in general we cannot assume to always see the initial
-> handshake as it can be routed through a different path.
+On Thu, Jul 16, 2015 at 09:50:16AM -0400, Vlad Yasevich wrote:
+> On 07/14/2015 01:13 PM, Marcelo Ricardo Leitner wrote:
+> > SCTP has this operation to peel off associations from a given socket and
+> > create a new socket using this association. We currently have two ways
+> > to use this operation:
+> > - via getsockopt(), on which it will also create and return a file
+> >   descriptor for this new socket
+> > - via sctp_do_peeloff(), which is for kernel only
+> > 
+> > The caveat with using sctp_do_peeloff() directly is that it creates a
+> > dependency to SCTP module, while all other operations are handled via
+> > kernel_{socket,sendmsg,getsockopt...}() interface. This causes the
+> > kernel to load SCTP module even when it's not really used.
+> > 
+> > This patch then creates a new sockopt that is to be used only by kernel
+> > users of this protocol. This new sockopt will not allocate a file
+> > descriptor but instead just return the socket pointer directly.
+> > 
+> > Kernel users are actually identified by if the parent socket has or not
+> > a fd attached to it. If not, it's a kernel a user.
+> > 
+> > If called by an user application, it will just return -EPERM.
+> > 
+> > Even though it's not intended for user applications, it's listed under
+> > uapi header. That's because hidding this wouldn't add any extra security
+> > and to keep the sockopt list in one place, so it's easy to check
+> > available numbers to use.
+> > 
+> > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> > ---
+> >  include/uapi/linux/sctp.h | 12 ++++++++++++
+> >  net/sctp/socket.c         | 37 +++++++++++++++++++++++++++++++++++++
+> >  2 files changed, 49 insertions(+)
+> > 
+> > diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
+> > index ce70fe6b45df3e841c35accbdb6379c16563893c..b3aad3ce456ab3c1ebf4d81fdb7269ba40b3d92a 100644
+> > --- a/include/uapi/linux/sctp.h
+> > +++ b/include/uapi/linux/sctp.h
+> > @@ -105,6 +105,10 @@ typedef __s32 sctp_assoc_t;
+> >  #define SCTP_SOCKOPT_BINDX_ADD	100	/* BINDX requests for adding addrs */
+> >  #define SCTP_SOCKOPT_BINDX_REM	101	/* BINDX requests for removing addrs. */
+> >  #define SCTP_SOCKOPT_PEELOFF	102	/* peel off association. */
+> > +#define SCTP_SOCKOPT_PEELOFF_KERNEL	103	/* peel off association.
+> > +						 * only valid for kernel
+> > +						 * users
+> > +						 */
 > 
-> The patch adds two new conntrack states:
-> 
->   SCTP_CONNTRACK_HB_SENT  - a HEARTBEAT chunk seen but not acked
->   SCTP_CONNTRACK_HB_ACKED - a HEARTBEAT acked by HEARTBEAT-ACK
-> 
-> State transition rules:
-> 
-> - HB_SENT responds to usual chunks the same way as NONE (so that the
->   behaviour changes as little as possible)
-> - HB_ACKED responds to usual chunks the same way as ESTABLISHED does,
->   except the resulting state is HB_ACKED rather than ESTABLISHED
-> - previously existing states except NONE are preserved when HEARTBEAT or
->   HEARTBEAT-ACK is seen
-> - NONE (in the initial direction) changes to HB_SENT on HEARTBEAT
->   and to CLOSED on HEARTBEAT-ACK
-> - HB_SENT changes to HB_ACKED on HEARTBEAT-ACK in the reply direction
-> - HB_SENT and HB_ACKED are preserved on HEARTBEAT/HEARTBEAT-ACK
->   otherwise
-> 
-> Default timeout values for new states are
-> 
->   HB_SENT: 30 seconds (default hb_interval)
->   HB_ACKED: 210 seconds (hb_interval * path_max_retry + max_rto)
-> 
-> (We cannot expect to see the shutdown sequence so that the HB_ACKED
-> timeout shouldn't be too long.)
-> 
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-> ---
->  include/uapi/linux/netfilter/nf_conntrack_sctp.h |   2 +
->  net/netfilter/nf_conntrack_proto_sctp.c          | 110 ++++++++++++++++++-----
->  2 files changed, 90 insertions(+), 22 deletions(-)
-> 
-> diff --git a/include/uapi/linux/netfilter/nf_conntrack_sctp.h b/include/uapi/linux/netfilter/nf_conntrack_sctp.h
-> index ceeefe6681b5..3ec7a6082457 100644
-> --- a/include/uapi/linux/netfilter/nf_conntrack_sctp.h
-> +++ b/include/uapi/linux/netfilter/nf_conntrack_sctp.h
-> @@ -13,6 +13,8 @@ enum sctp_conntrack {
->  	SCTP_CONNTRACK_SHUTDOWN_SENT,
->  	SCTP_CONNTRACK_SHUTDOWN_RECD,
->  	SCTP_CONNTRACK_SHUTDOWN_ACK_SENT,
-> +	SCTP_CONNTRACK_HB_SENT,
-> +	SCTP_CONNTRACK_HB_ACKED,
->  	SCTP_CONNTRACK_MAX
->  };
->  
-> diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
-> index b45da90fad32..efb6d5b16393 100644
-> --- a/net/netfilter/nf_conntrack_proto_sctp.c
-> +++ b/net/netfilter/nf_conntrack_proto_sctp.c
-> @@ -42,6 +42,8 @@ static const char *const sctp_conntrack_names[] = {
->  	"SHUTDOWN_SENT",
->  	"SHUTDOWN_RECD",
->  	"SHUTDOWN_ACK_SENT",
-> +	"HEARTBEAT_SENT",
-> +	"HEARTBEAT_ACKED",
->  };
->  
->  #define SECS  * HZ
-> @@ -57,6 +59,8 @@ static unsigned int sctp_timeouts[SCTP_CONNTRACK_MAX] __read_mostly = {
->  	[SCTP_CONNTRACK_SHUTDOWN_SENT]		= 300 SECS / 1000,
->  	[SCTP_CONNTRACK_SHUTDOWN_RECD]		= 300 SECS / 1000,
->  	[SCTP_CONNTRACK_SHUTDOWN_ACK_SENT]	= 3 SECS,
-> +	[SCTP_CONNTRACK_HB_SENT]		= 30 SECS,
-> +	[SCTP_CONNTRACK_HB_ACKED]		= 210 SECS,
->  };
->  
->  #define sNO SCTP_CONNTRACK_NONE
-> @@ -67,6 +71,8 @@ static unsigned int sctp_timeouts[SCTP_CONNTRACK_MAX] __read_mostly = {
->  #define	sSS SCTP_CONNTRACK_SHUTDOWN_SENT
->  #define	sSR SCTP_CONNTRACK_SHUTDOWN_RECD
->  #define	sSA SCTP_CONNTRACK_SHUTDOWN_ACK_SENT
-> +#define	sHS SCTP_CONNTRACK_HB_SENT
-> +#define	sHA SCTP_CONNTRACK_HB_ACKED
->  #define	sIV SCTP_CONNTRACK_MAX
->  
->  /*
-> @@ -88,6 +94,10 @@ SHUTDOWN_ACK_SENT - We have seen a SHUTDOWN_ACK chunk in the direction opposite
->  		    to that of the SHUTDOWN chunk.
->  CLOSED            - We have seen a SHUTDOWN_COMPLETE chunk in the direction of
->  		    the SHUTDOWN chunk. Connection is closed.
-> +HEARTBEAT_SENT    - We have seen a HEARTBEAT in a new flow.
-> +HEARTBEAT_ACKED   - We have seen a HEARTBEAT-ACK in the direction opposite to
-> +		    that of the HEARTBEAT chunk. Secondary connection is
-> +		    established.
->  */
->  
->  /* TODO
-> @@ -97,36 +107,40 @@ CLOSED            - We have seen a SHUTDOWN_COMPLETE chunk in the direction of
->   - Check the error type in the reply dir before transitioning from
->  cookie echoed to closed.
->   - Sec 5.2.4 of RFC 2960
-> - - Multi Homing support.
-> + - Full Multi Homing support.
->  */
->  
->  /* SCTP conntrack state transitions */
-> -static const u8 sctp_conntracks[2][9][SCTP_CONNTRACK_MAX] = {
-> +static const u8 sctp_conntracks[2][11][SCTP_CONNTRACK_MAX] = {
->  	{
->  /*	ORIGINAL	*/
-> -/*                  sNO, sCL, sCW, sCE, sES, sSS, sSR, sSA */
-> -/* init         */ {sCW, sCW, sCW, sCE, sES, sSS, sSR, sSA},
-> -/* init_ack     */ {sCL, sCL, sCW, sCE, sES, sSS, sSR, sSA},
-> -/* abort        */ {sCL, sCL, sCL, sCL, sCL, sCL, sCL, sCL},
-> -/* shutdown     */ {sCL, sCL, sCW, sCE, sSS, sSS, sSR, sSA},
-> -/* shutdown_ack */ {sSA, sCL, sCW, sCE, sES, sSA, sSA, sSA},
-> -/* error        */ {sCL, sCL, sCW, sCE, sES, sSS, sSR, sSA},/* Can't have Stale cookie*/
-> -/* cookie_echo  */ {sCL, sCL, sCE, sCE, sES, sSS, sSR, sSA},/* 5.2.4 - Big TODO */
-> -/* cookie_ack   */ {sCL, sCL, sCW, sCE, sES, sSS, sSR, sSA},/* Can't come in orig dir */
-> -/* shutdown_comp*/ {sCL, sCL, sCW, sCE, sES, sSS, sSR, sCL}
-> +/*                  sNO, sCL, sCW, sCE, sES, sSS, sSR, sSA, sHS, sHA */
-> +/* init         */ {sCW, sCW, sCW, sCE, sES, sSS, sSR, sSA, sCW, sHA},
-> +/* init_ack     */ {sCL, sCL, sCW, sCE, sES, sSS, sSR, sSA, sCL, sHA},
-> +/* abort        */ {sCL, sCL, sCL, sCL, sCL, sCL, sCL, sCL, sCL, sCL},
-> +/* shutdown     */ {sCL, sCL, sCW, sCE, sSS, sSS, sSR, sSA, sCL, sSS},
-> +/* shutdown_ack */ {sSA, sCL, sCW, sCE, sES, sSA, sSA, sSA, sSA, sHA},
-> +/* error        */ {sCL, sCL, sCW, sCE, sES, sSS, sSR, sSA, sCL, sHA},/* Can't have Stale cookie*/
-> +/* cookie_echo  */ {sCL, sCL, sCE, sCE, sES, sSS, sSR, sSA, sCL, sHA},/* 5.2.4 - Big TODO */
-> +/* cookie_ack   */ {sCL, sCL, sCW, sCE, sES, sSS, sSR, sSA, sCL, sHA},/* Can't come in orig dir */
-> +/* shutdown_comp*/ {sCL, sCL, sCW, sCE, sES, sSS, sSR, sCL, sCL, sHA},
-> +/* heartbeat    */ {sHS, sCL, sCW, sCE, sES, sSS, sSR, sSA, sHS, sHA},
-> +/* heartbeat_ack*/ {sCL, sCL, sCW, sCE, sES, sSS, sSR, sSA, sHS, sHA}
->  	},
->  	{
->  /*	REPLY	*/
-> -/*                  sNO, sCL, sCW, sCE, sES, sSS, sSR, sSA */
-> -/* init         */ {sIV, sCL, sCW, sCE, sES, sSS, sSR, sSA},/* INIT in sCL Big TODO */
-> -/* init_ack     */ {sIV, sCL, sCW, sCE, sES, sSS, sSR, sSA},
-> -/* abort        */ {sIV, sCL, sCL, sCL, sCL, sCL, sCL, sCL},
-> -/* shutdown     */ {sIV, sCL, sCW, sCE, sSR, sSS, sSR, sSA},
-> -/* shutdown_ack */ {sIV, sCL, sCW, sCE, sES, sSA, sSA, sSA},
-> -/* error        */ {sIV, sCL, sCW, sCL, sES, sSS, sSR, sSA},
-> -/* cookie_echo  */ {sIV, sCL, sCW, sCE, sES, sSS, sSR, sSA},/* Can't come in reply dir */
-> -/* cookie_ack   */ {sIV, sCL, sCW, sES, sES, sSS, sSR, sSA},
-> -/* shutdown_comp*/ {sIV, sCL, sCW, sCE, sES, sSS, sSR, sCL}
-> +/*                  sNO, sCL, sCW, sCE, sES, sSS, sSR, sSA, sHS, sHA */
-> +/* init         */ {sIV, sCL, sCW, sCE, sES, sSS, sSR, sSA, sIV, sHA},/* INIT in sCL Big TODO */
-> +/* init_ack     */ {sIV, sCL, sCW, sCE, sES, sSS, sSR, sSA, sIV, sHA},
-> +/* abort        */ {sIV, sCL, sCL, sCL, sCL, sCL, sCL, sCL, sIV, sCL},
-> +/* shutdown     */ {sIV, sCL, sCW, sCE, sSR, sSS, sSR, sSA, sIV, sSR},
-> +/* shutdown_ack */ {sIV, sCL, sCW, sCE, sES, sSA, sSA, sSA, sIV, sHA},
-> +/* error        */ {sIV, sCL, sCW, sCL, sES, sSS, sSR, sSA, sIV, sHA},
-> +/* cookie_echo  */ {sIV, sCL, sCW, sCE, sES, sSS, sSR, sSA, sIV, sHA},/* Can't come in reply dir */
-> +/* cookie_ack   */ {sIV, sCL, sCW, sES, sES, sSS, sSR, sSA, sIV, sHA},
-> +/* shutdown_comp*/ {sIV, sCL, sCW, sCE, sES, sSS, sSR, sCL, sIV, sHA},
-> +/* heartbeat    */ {sIV, sCL, sCW, sCE, sES, sSS, sSR, sSA, sHS, sHA},
-> +/* heartbeat_ack*/ {sIV, sCL, sCW, sCE, sES, sSS, sSR, sSA, sHA, sHA}
->  	}
->  };
->  
-> @@ -278,6 +292,14 @@ static int sctp_new_state(enum ip_conntrack_dir dir,
->  		pr_debug("SCTP_CID_SHUTDOWN_COMPLETE\n");
->  		i = 8;
->  		break;
-> +	case SCTP_CID_HEARTBEAT:
-> +		pr_debug("SCTP_CID_HEARTBEAT");
-> +		i = 9;
-> +		break;
-> +	case SCTP_CID_HEARTBEAT_ACK:
-> +		pr_debug("SCTP_CID_HEARTBEAT_ACK");
-> +		i = 10;
-> +		break;
->  	default:
->  		/* Other chunks like DATA, SACK, HEARTBEAT and
->  		its ACK do not cause a change in state */
+> I am not sure how much I like stuff this like in the uapi.  This stuff is
+> exposed to the user and I'd much rather we try and hide this from
+> the user completely.
 
-Would you update this comment on default case please? As with this
-patch, HB and its ACK may cause a change in state.
+We can hide it, but as is it would create hidden IDs and adding new gets
+complicated, one would have to check two different lists to find free
+IDs. Neil's suggestion is much cleaner on this aspect, but has the
+caveat on changing sockopt arg format.
 
-Other than this, sctp-wise, patch looks good to me. Thanks Michal.
+> I understand that you are dealing with a rather ugly dependency, but this is
+> not the only one in the kernel.  There are dependencies like this elsewhere
+> as well.
 
-  Marcelo
+Doesn't mean we cannot fix one or another every now and then, right?
 
+> I am not familiar enough with DLM and its history, but my question is this:
+> If dlm always peels off a socket for a new associations, why is it using
+> 1-to-many api in the first place?  Doing a quick scan of DLM lowcoms code
+> for sctp specific things, I see nothing that has specific dependencies
+> on 1-to-many api.  It might be simpler to switch to using 1-to-1 api, similar
+> to dlm tcp and eliminate this dependency.
+> 
+> Is that a naive point of view?
+
+Not at all, that's a very good question. I also don't know much of DLM
+code itself, I'll check that.
+
+Thanks,
+Marcelo
+
+> Thanks
+> -vlad
+> 
+> >  /* Options 104-106 are deprecated and removed. Do not use this space */
+> >  #define SCTP_SOCKOPT_CONNECTX_OLD	107	/* CONNECTX old requests. */
+> >  #define SCTP_GET_PEER_ADDRS	108		/* Get all peer address. */
+> > @@ -892,6 +896,14 @@ typedef struct {
+> >  	int sd;
+> >  } sctp_peeloff_arg_t;
+> >  
+> > +/* This is the union that is passed as an argument(optval) to
+> > + * getsockopt(SCTP_SOCKOPT_PEELOFF_KERNEL).
+> > + */
+> > +typedef union {
+> > +	sctp_assoc_t associd;
+> > +	struct socket *socket;
+> > +} sctp_peeloff_kernel_arg_t;
+> > +
+> >  /*
+> >   *  Peer Address Thresholds socket option
+> >   */
+> > diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> > index f1a65398f3118ab5d3a884e9c875620560e6b5ef..7968de7a1aeabd5cd0a0398461dbf2081bd4c5b7 100644
+> > --- a/net/sctp/socket.c
+> > +++ b/net/sctp/socket.c
+> > @@ -4504,6 +4504,39 @@ out:
+> >  	return retval;
+> >  }
+> >  
+> > +static int sctp_getsockopt_peeloff_kernel(struct sock *sk, int len,
+> > +					  char __user *optval, int __user *optlen)
+> > +{
+> > +	sctp_peeloff_kernel_arg_t peeloff;
+> > +	struct socket *newsock;
+> > +	int retval = 0;
+> > +
+> > +	/* We only allow this operation if parent socket also hadn't a
+> > +	 * file descriptor allocated to it, mainly as a way to make sure
+> > +	 * that this is really a kernel socket.
+> > +	 */
+> > +	if (sk->sk_socket->file)
+> > +		return -EPERM;
+> > +
+> > +	if (len < sizeof(sctp_peeloff_kernel_arg_t))
+> > +		return -EINVAL;
+> > +	len = sizeof(sctp_peeloff_kernel_arg_t);
+> > +	if (copy_from_user(&peeloff, optval, len))
+> > +		return -EFAULT;
+> > +
+> > +	retval = sctp_do_peeloff(sk, peeloff.associd, &newsock);
+> > +	if (retval < 0)
+> > +		goto out;
+> > +
+> > +	peeloff.socket = newsock;
+> > +	if (copy_to_user(optval, &peeloff, len)) {
+> > +		sock_release(newsock);
+> > +		return -EFAULT;
+> > +	}
+> > +out:
+> > +	return retval;
+> > +}
+> > +
+> >  /* 7.1.13 Peer Address Parameters (SCTP_PEER_ADDR_PARAMS)
+> >   *
+> >   * Applications can enable or disable heartbeats for any peer address of
+> > @@ -5991,6 +6024,10 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
+> >  	case SCTP_SOCKOPT_PEELOFF:
+> >  		retval = sctp_getsockopt_peeloff(sk, len, optval, optlen);
+> >  		break;
+> > +	case SCTP_SOCKOPT_PEELOFF_KERNEL:
+> > +		retval = sctp_getsockopt_peeloff_kernel(sk, len, optval,
+> > +							optlen);
+> > +		break;
+> >  	case SCTP_PEER_ADDR_PARAMS:
+> >  		retval = sctp_getsockopt_peer_addr_params(sk, len, optval,
+> >  							  optlen);
+> > 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
