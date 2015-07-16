@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/5] ipvlan: cleanups and fixes
-Date: Wed, 15 Jul 2015 21:33:58 -0700 (PDT)
-Message-ID: <20150715.213358.1587367132067004244.davem@davemloft.net>
-References: <20150714132941.22448.42175.stgit@buzz>
+Subject: Re: [PATCH net-next] ibmveth: add support for TSO6
+Date: Wed, 15 Jul 2015 21:35:18 -0700 (PDT)
+Message-ID: <20150715.213518.1391748312035384335.davem@davemloft.net>
+References: <1436889111-10509-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maheshb@google.com, jbenc@redhat.com
-To: khlebnikov@yandex-team.ru
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	nfont@linux.vnet.ibm.com, brking@linux.vnet.ibm.com
+To: tlfalcon@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35289 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35293 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751502AbbGPEd7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 00:33:59 -0400
-In-Reply-To: <20150714132941.22448.42175.stgit@buzz>
+	with ESMTP id S1750761AbbGPEfT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 00:35:19 -0400
+In-Reply-To: <1436889111-10509-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Date: Tue, 14 Jul 2015 16:35:49 +0300
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Date: Tue, 14 Jul 2015 10:51:51 -0500
 
-> v1: http://comments.gmane.org/gmane.linux.network/363346
-> v2: http://comments.gmane.org/gmane.linux.network/369086
+> This patch adds support for a new method of signalling the firmware
+> that TSO packets are being sent. The new method removes the need to
+> alter the ip and tcp checksums and allows TSO6 support.
 > 
-> v3 has reduced set of patches from "ipvlan: fix ipv6 autoconfiguration".
-> Here just cleanups and patch which ignores ipv6 notifications from RA.
+> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 
-Series applied, thanks.
+Applied.
