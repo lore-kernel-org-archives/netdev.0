@@ -1,306 +1,70 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: [PATCH v7 3/3] ixgbe, ixgbevf: Add new mbox API xcast mode
-Date: Thu, 16 Jul 2015 10:36:18 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05F03A05@BPXM14GP.gisp.nec.co.jp>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH -next 0/6] Per network namespace netfilter chains
+Date: Thu, 16 Jul 2015 13:01:46 +0200
+Message-ID: <20150716110146.GA3920@salvia>
+References: <87616ppt3h.fsf@x220.int.ebiederm.org>
+ <87r3pae5hn.fsf@x220.int.ebiederm.org>
+ <878uansj4d.fsf_-_@x220.int.ebiederm.org>
+ <20150715172038.GA4319@salvia>
+ <87vbdljifn.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 8BIT
-Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([210.143.35.52]:42399 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752330AbbGPKhZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 06:37:25 -0400
-Content-Language: ja-JP
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Juanjo Ciarlante <jjciarla@raiz.uncu.edu.ar>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87vbdljifn.fsf@x220.int.ebiederm.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+On Wed, Jul 15, 2015 at 03:05:00PM -0500, Eric W. Biederman wrote:
+> Pablo Neira Ayuso <pablo@netfilter.org> writes:
+[...]
+> >> There are lots of other possible and desirable cleanups but this one is
+> >> a core change needed to make the other changes independent small
+> >> changes.
+> >
+> > The state->net field will kill that dev_net(...) ? x : y; all over the
+> > code, that would be nice.
+> 
+> Yes it will.  I intend to do that after this patchset settles so I am
+> not dealing with more than one issue at a time.  Otherwise there
+> is too much work at once.
 
-The limitation of the number of multicast address for VF is not enough
-for the large scale server with SR-IOV feature. IPv6 requires the multicast
-MAC address for each IP address to handle the Neighbor Solicitation
-message. We couldn't assign over 30 IPv6 addresses to a single VF.
+Sure, thanks.
 
-This patch introduces the new mailbox API, IXGBE_VF_UPDATE_XCAST_MODE,
-to update multicast mode of VF. This adds 3 modes;
-  - NONE     only L2 exact match addresses or Flow Director enabled
-  - MULTI    BAM and ROMPE set
-  - ALLMULTI BAM, ROMPE and MPE set
+> > Some comments on your patchset:
+> >
+> > * 1/6 netfilter: nf_queue: Don't recompute the hook_list head
+> >
+> > I already passed this to current nf as you insisted on getting this,
+> > and for the sake of correctness, so it's basically already in David's
+> > net tree.
+> 
+> I would have expected this patch to be somewhere.  I did not see
+> this change in net-next when I wrote the patchset (which seemed
+> like a good approximation of the latest thing available).  If I
+> overlooked and the patch has already made it to Dave then my apologies
+> for being redundant.
+> 
+> I still don't see this patch in your pending branch.
+> 
+> Am I missing something?
 
-If a guest VF user wants over 30 MAC multicast addresses, set IFF_ALLMULTI
-to request PF to update xcast mode to enable VF multicast promiscuous mode.
+It doesn't show yet in net-next, but it's already in net:
 
-On the other hand, enabling VF multicast promiscuous mode may affect
-security and performance in the network of the NIC. Only trusted VF can
-enable multicast promiscuous mode. The behavior of untrusted VF is the
-same as previous version.
+http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=f307170d6e591a48529425b1ed6ca835790995a9
 
-Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h          |  7 +++
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |  2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    | 59 +++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  6 +++
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  8 +++
- drivers/net/ethernet/intel/ixgbevf/mbx.h          |  2 +
- drivers/net/ethernet/intel/ixgbevf/vf.c           | 41 ++++++++++++++++
- drivers/net/ethernet/intel/ixgbevf/vf.h           |  1 +
- 8 files changed, 126 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index fb72622..17250ef 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -153,9 +153,16 @@ struct vf_data_storage {
- 	u8 spoofchk_enabled;
- 	bool rss_query_enabled;
- 	u8 trusted;
-+	int xcast_mode;
- 	unsigned int vf_api;
- };
- 
-+enum ixgbevf_xcast_modes {
-+	IXGBEVF_XCAST_MODE_NONE = 0,
-+	IXGBEVF_XCAST_MODE_MULTI,
-+	IXGBEVF_XCAST_MODE_ALLMULTI,
-+};
-+
- struct vf_macvlans {
- 	struct list_head l;
- 	int vf;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-index b1e4703..8daa95f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-@@ -102,6 +102,8 @@ enum ixgbe_pfvf_api_rev {
- #define IXGBE_VF_GET_RETA	0x0a	/* VF request for RETA */
- #define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS key */
- 
-+#define IXGBE_VF_UPDATE_XCAST_MODE	0x0c
-+
- /* length of permanent address message returned from PF */
- #define IXGBE_VF_PERMADDR_MSG_LEN 4
- /* word in permanent address message with the current multicast type */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 65aeb58..ac071e5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -119,6 +119,9 @@ static int __ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
- 
- 			/* Untrust all VFs */
- 			adapter->vfinfo[i].trusted = false;
-+
-+			/* set the default xcast mode */
-+			adapter->vfinfo[i].xcast_mode = IXGBEVF_XCAST_MODE_NONE;
- 		}
- 
- 		return 0;
-@@ -1004,6 +1007,59 @@ static int ixgbe_get_vf_rss_key(struct ixgbe_adapter *adapter,
- 	return 0;
- }
- 
-+static int ixgbe_update_vf_xcast_mode(struct ixgbe_adapter *adapter,
-+				      u32 *msgbuf, u32 vf)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int xcast_mode = msgbuf[1];
-+	u32 vmolr, disable, enable;
-+
-+	/* verify the PF is supporting the correct APIs */
-+	switch (adapter->vfinfo[vf].vf_api) {
-+	case ixgbe_mbox_api_12:
-+		break;
-+	default:
-+		return -1;
-+	}
-+
-+	if (xcast_mode > IXGBEVF_XCAST_MODE_MULTI &&
-+	    !adapter->vfinfo[vf].trusted) {
-+		xcast_mode = IXGBEVF_XCAST_MODE_MULTI;
-+	}
-+
-+	if (adapter->vfinfo[vf].xcast_mode == xcast_mode)
-+		goto out;
-+
-+	switch (xcast_mode) {
-+	case IXGBEVF_XCAST_MODE_NONE:
-+		disable = IXGBE_VMOLR_BAM | IXGBE_VMOLR_ROMPE | IXGBE_VMOLR_MPE;
-+		enable = 0;
-+		break;
-+	case IXGBEVF_XCAST_MODE_MULTI:
-+		disable = IXGBE_VMOLR_MPE;
-+		enable = IXGBE_VMOLR_BAM | IXGBE_VMOLR_ROMPE;
-+		break;
-+	case IXGBEVF_XCAST_MODE_ALLMULTI:
-+		disable = 0;
-+		enable = IXGBE_VMOLR_BAM | IXGBE_VMOLR_ROMPE | IXGBE_VMOLR_MPE;
-+		break;
-+	default:
-+		return -1;
-+	}
-+
-+	vmolr = IXGBE_READ_REG(hw, IXGBE_VMOLR(vf));
-+	vmolr &= ~disable;
-+	vmolr |= enable;
-+	IXGBE_WRITE_REG(hw, IXGBE_VMOLR(vf), vmolr);
-+
-+	adapter->vfinfo[vf].xcast_mode = xcast_mode;
-+
-+out:
-+	msgbuf[1] = xcast_mode;
-+
-+	return 0;
-+}
-+
- static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- {
- 	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
-@@ -1066,6 +1122,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- 	case IXGBE_VF_GET_RSS_KEY:
- 		retval = ixgbe_get_vf_rss_key(adapter, msgbuf, vf);
- 		break;
-+	case IXGBE_VF_UPDATE_XCAST_MODE:
-+		retval = ixgbe_update_vf_xcast_mode(adapter, msgbuf, vf);
-+		break;
- 	default:
- 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
- 		retval = IXGBE_ERR_MBX;
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index 04c7ec8..ec31472 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -471,6 +471,12 @@ enum ixgbevf_boards {
- 	board_X550EM_x_vf,
- };
- 
-+enum ixgbevf_xcast_modes {
-+	IXGBEVF_XCAST_MODE_NONE = 0,
-+	IXGBEVF_XCAST_MODE_MULTI,
-+	IXGBEVF_XCAST_MODE_ALLMULTI,
-+};
-+
- extern const struct ixgbevf_info ixgbevf_82599_vf_info;
- extern const struct ixgbevf_info ixgbevf_X540_vf_info;
- extern const struct ixgbevf_info ixgbevf_X550_vf_info;
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 88298a3..a9fed92 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1892,9 +1892,17 @@ static void ixgbevf_set_rx_mode(struct net_device *netdev)
- {
- 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
-+	unsigned int flags = netdev->flags;
-+	int xcast_mode;
-+
-+	xcast_mode = (flags & IFF_ALLMULTI) ? IXGBEVF_XCAST_MODE_ALLMULTI :
-+		     (flags & (IFF_BROADCAST | IFF_MULTICAST)) ?
-+		     IXGBEVF_XCAST_MODE_MULTI : IXGBEVF_XCAST_MODE_NONE;
- 
- 	spin_lock_bh(&adapter->mbx_lock);
- 
-+	hw->mac.ops.update_xcast_mode(hw, netdev, xcast_mode);
-+
- 	/* reprogram multicast list */
- 	hw->mac.ops.update_mc_addr_list(hw, netdev);
- 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.h b/drivers/net/ethernet/intel/ixgbevf/mbx.h
-index 82f44e0..340cdd4 100644
---- a/drivers/net/ethernet/intel/ixgbevf/mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/mbx.h
-@@ -112,6 +112,8 @@ enum ixgbe_pfvf_api_rev {
- #define IXGBE_VF_GET_RETA	0x0a	/* VF request for RETA */
- #define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS hash key */
- 
-+#define IXGBE_VF_UPDATE_XCAST_MODE	0x0c
-+
- /* length of permanent address message returned from PF */
- #define IXGBE_VF_PERMADDR_MSG_LEN	4
- /* word in permanent address message with the current multicast type */
-diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
-index d1339b0..427f360 100644
---- a/drivers/net/ethernet/intel/ixgbevf/vf.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
-@@ -469,6 +469,46 @@ static s32 ixgbevf_update_mc_addr_list_vf(struct ixgbe_hw *hw,
- }
- 
- /**
-+ *  ixgbevf_update_xcast_mode - Update Multicast mode
-+ *  @hw: pointer to the HW structure
-+ *  @netdev: pointer to net device structure
-+ *  @xcast_mode: new multicast mode
-+ *
-+ *  Updates the Multicast Mode of VF.
-+ **/
-+static s32 ixgbevf_update_xcast_mode(struct ixgbe_hw *hw,
-+				     struct net_device *netdev, int xcast_mode)
-+{
-+	struct ixgbe_mbx_info *mbx = &hw->mbx;
-+	u32 msgbuf[2];
-+	s32 err;
-+
-+	switch (hw->api_version) {
-+	case ixgbe_mbox_api_12:
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	msgbuf[0] = IXGBE_VF_UPDATE_XCAST_MODE;
-+	msgbuf[1] = xcast_mode;
-+
-+	err = mbx->ops.write_posted(hw, msgbuf, 2);
-+	if (err)
-+		return err;
-+
-+	err = mbx->ops.read_posted(hw, msgbuf, 2);
-+	if (err)
-+		return err;
-+
-+	msgbuf[0] &= ~IXGBE_VT_MSGTYPE_CTS;
-+	if (msgbuf[0] == (IXGBE_VF_UPDATE_XCAST_MODE | IXGBE_VT_MSGTYPE_NACK))
-+		return -EPERM;
-+
-+	return 0;
-+}
-+
-+/**
-  *  ixgbevf_set_vfta_vf - Set/Unset VLAN filter table address
-  *  @hw: pointer to the HW structure
-  *  @vlan: 12 bit VLAN ID
-@@ -727,6 +767,7 @@ static const struct ixgbe_mac_operations ixgbevf_mac_ops = {
- 	.check_link		= ixgbevf_check_mac_link_vf,
- 	.set_rar		= ixgbevf_set_rar_vf,
- 	.update_mc_addr_list	= ixgbevf_update_mc_addr_list_vf,
-+	.update_xcast_mode	= ixgbevf_update_xcast_mode,
- 	.set_uc_addr		= ixgbevf_set_uc_addr_vf,
- 	.set_vfta		= ixgbevf_set_vfta_vf,
- };
-diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
-index d40f036..ef9f773 100644
---- a/drivers/net/ethernet/intel/ixgbevf/vf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
-@@ -63,6 +63,7 @@ struct ixgbe_mac_operations {
- 	s32 (*set_uc_addr)(struct ixgbe_hw *, u32, u8 *);
- 	s32 (*init_rx_addrs)(struct ixgbe_hw *);
- 	s32 (*update_mc_addr_list)(struct ixgbe_hw *, struct net_device *);
-+	s32 (*update_xcast_mode)(struct ixgbe_hw *, struct net_device *, int);
- 	s32 (*enable_mc)(struct ixgbe_hw *);
- 	s32 (*disable_mc)(struct ixgbe_hw *);
- 	s32 (*clear_vfta)(struct ixgbe_hw *);
--- 
-1.8.3.1
+David periodically pulls net into net-next, so it will show there too
+at some point.
