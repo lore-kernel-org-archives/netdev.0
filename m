@@ -1,68 +1,60 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: Re: [PATCH] tg3:Add error handling to the function
- tg3_test_loopback
-Date: Thu, 16 Jul 2015 12:20:35 -0700
-Message-ID: <1437074435.3152.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1437072690-21048-1-git-send-email-xerofoify@gmail.com>
-	 <1437074332.3152.0.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2] jhash: Deinline jhash, jhash2 and __jhash_nwords
+Date: Thu, 16 Jul 2015 12:23:31 -0700
+Message-ID: <1437074611.2495.39.camel@perches.com>
+References: <1437050416-13295-1-git-send-email-dvlasenk@redhat.com>
+	 <CALx6S367jArRC3eKSKsv7gFrgPxyDHWdtvfeO1SmQR91eYxwSw@mail.gmail.com>
+	 <20150716.111729.822179499552193763.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="cp1252"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <prashant@broadcom.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Nicholas Krause <xerofoify@gmail.com>
+Cc: tom@herbertland.com, dvlasenk@redhat.com, tgraf@suug.ch,
+	alexander.h.duyck@redhat.com, kadlec@blackhole.kfki.hu,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1437074332.3152.0.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+In-Reply-To: <20150716.111729.822179499552193763.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-07-16 at 12:18 -0700, Michael Chan wrote: 
-> On Thu, 2015-07-16 at 14:51 -0400, Nicholas Krause wrote: 
-> > This adds proper error handling for if the calls to the function
-> > tg3_phy_lpbk_set fail by returning -EIO by assigning the return
-> > value to the variable err and if it equals anything other then
-> > zero jumps to the goto label done as no other work can be handled
-> > internally in the function tg3_test_loopback.
-> > 
-> > Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+On Thu, 2015-07-16 at 11:17 -0700, David Miller wrote:
+> From: Tom Herbert <tom@herbertland.com>
+> Date: Thu, 16 Jul 2015 08:43:25 -0700
 > 
-> Acked-by: Michael Chan <mchan@broadcom.com>
+> > On Thu, Jul 16, 2015 at 5:40 AM, Denys Vlasenko <dvlasenk@redhat.com> wrote:
+> >> This patch deinlines jhash, jhash2 and __jhash_nwords.
+> >>
+> >> It also removes rhashtable_jhash2(key, length, seed)
+> >> because it was merely calling jhash2(key, length, seed).
+> >>
+> >> With this .config: http://busybox.net/~vda/kernel_config,
+> >> after deinlining these functions have sizes and callsite counts
+> >> as follows:
+> >>
+> >> __jhash_nwords: 72 bytes, 75 calls
+> >> jhash: 297 bytes, 111 calls
+> >> jhash2: 205 bytes, 136 calls
+> >>
+> > jhash is used in several places in the critical data path. Does the
+> > decrease in text size justify performance impact of not inlining it?
+> 
+> Tom took the words right out of my mouth.
+> 
+> Denys, you keep making deinlining changes like this all the time, like
+> a robot.  But I never see you make any effort to look into the performance
+> nor code generation ramifications of your changes.
+> 
+> And frankly that makes your patches quite tiring to deal with.
+> 
+> Your changes potentially have large performance implications, yet you
+> don't put any effort into considering that aspect at all.
 
-Your indentation doesn't look right.  Other than that, it is ok.
+It might be useful to have these performance impacting
+changes guarded by something like CONFIG_CC_OPTIMIZE_FOR_SIZE
+with another static __always_inline __<func> and a function &
+EXPORT_SYMBOL or just a static inline so that where code size
+is critical it's uninlined.
 
-> 
-> > ---
-> >  drivers/net/ethernet/broadcom/tg3.c | 12 ++++++++----
-> >  1 file changed, 8 insertions(+), 4 deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-> > index 73c934c..8584cb7 100644
-> > --- a/drivers/net/ethernet/broadcom/tg3.c
-> > +++ b/drivers/net/ethernet/broadcom/tg3.c
-> > @@ -13625,8 +13625,10 @@ static int tg3_test_loopback(struct tg3 *tp, u64 *data, bool do_extlpbk)
-> >  	    !tg3_flag(tp, USE_PHYLIB)) {
-> >  		int i;
-> >  
-> > -		tg3_phy_lpbk_set(tp, 0, false);
-> > -
-> > +		err = tg3_phy_lpbk_set(tp, 0, false);
-> > +			if (err)
-> > +				goto done;
-> > +
-> >  		/* Wait for link */
-> >  		for (i = 0; i < 100; i++) {
-> >  			if (tr32(MAC_TX_STATUS) & TX_STATUS_LINK_UP)
-> > @@ -13644,8 +13646,10 @@ static int tg3_test_loopback(struct tg3 *tp, u64 *data, bool do_extlpbk)
-> >  			data[TG3_PHY_LOOPB_TEST] |= TG3_JMB_LOOPBACK_FAILED;
-> >  
-> >  		if (do_extlpbk) {
-> > -			tg3_phy_lpbk_set(tp, 0, true);
-> > -
-> > +			err = tg3_phy_lpbk_set(tp, 0, true);
-> > +
-> > +				if (err)
-> > +					goto done;
-> >  			/* All link indications report up, but the hardware
-> >  			 * isn't really ready for about 20 msec.  Double it
-> >  			 * to be sure.
-> 
+Though even for tiny embedded uses, the additional code
+complexity might not be worth it.
