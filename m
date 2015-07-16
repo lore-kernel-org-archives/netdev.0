@@ -1,128 +1,160 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH nf-next] netfilter: nf_ct_sctp: minimal multihoming
- support
-Date: Thu, 16 Jul 2015 10:18:40 -0300
-Message-ID: <20150716131839.GA21634@localhost.localdomain>
-References: <20150714122311.8DA8EA0C9A@unicorn.suse.cz>
- <20150714134203.GG25674@breakpoint.cc>
- <20150714164225.GB8478@unicorn.suse.cz>
- <20150715203508.GA14704@localhost.localdomain>
- <20150716120512.GA7200@unicorn.suse.cz>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH v2 1/2] sctp: add new getsockopt option SCTP_SOCKOPT_PEELOFF_KERNEL
+Date: Thu, 16 Jul 2015 09:50:16 -0400
+Message-ID: <55A7B698.8080409@gmail.com>
+References: <cover.1436891629.git.marcelo.leitner@gmail.com> <6091a8542d13f43fbe1abfa25062d28d15b15e66.1436891629.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
-	Jozsef Kadlecsik <kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Michal Kubecek <mkubecek-AlSwsSmVLrQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20150716120512.GA7200-OEaqT8BN2ewCVLCxKZUutA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Neil Horman <nhorman@tuxdriver.com>, linux-sctp@vger.kernel.org
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f42.google.com ([209.85.192.42]:33672 "EHLO
+	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752186AbbGPNuT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 09:50:19 -0400
+In-Reply-To: <6091a8542d13f43fbe1abfa25062d28d15b15e66.1436891629.git.marcelo.leitner@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 16, 2015 at 02:05:12PM +0200, Michal Kubecek wrote:
-> On Wed, Jul 15, 2015 at 05:35:08PM -0300, Marcelo Ricardo Leitner wrote:
-> > Hi,
-> > 
-> > On Tue, Jul 14, 2015 at 06:42:25PM +0200, Michal Kubecek wrote:
-> > > On Tue, Jul 14, 2015 at 03:42:03PM +0200, Florian Westphal wrote:
-> > > > Michal Kubecek <mkubecek-AlSwsSmVLrQ@public.gmane.org> wrote:
-> > > > > +	case SCTP_CID_HEARTBEAT:
-> > > > > +		pr_debug("SCTP_CID_HEARTBEAT");
-> > > > > +		i = 9;
-> > > > > +		break;
-> > > > > +	case SCTP_CID_HEARTBEAT_ACK:
-> > > > > +		pr_debug("SCTP_CID_HEARTBEAT_ACK");
-> > > > > +		i = 10;
-> > > > > +		break;
-> > > > >  	default:
-> > > > >  		/* Other chunks like DATA, SACK, HEARTBEAT and
-> > > > >  		its ACK do not cause a change in state */
-> > > > > @@ -329,6 +351,8 @@ static int sctp_packet(struct nf_conn *ct,
-> > > > >  	    !test_bit(SCTP_CID_COOKIE_ECHO, map) &&
-> > > > >  	    !test_bit(SCTP_CID_ABORT, map) &&
-> > > > >  	    !test_bit(SCTP_CID_SHUTDOWN_ACK, map) &&
-> > > > > +	    !test_bit(SCTP_CID_HEARTBEAT, map) &&
-> > > > > +	    !test_bit(SCTP_CID_HEARTBEAT_ACK, map) &&
-> > > > >  	    sh->vtag != ct->proto.sctp.vtag[dir]) {
-> > > > >  		pr_debug("Verification tag check failed\n");
-> > > > >  		goto out;
-> > > > > @@ -357,6 +381,16 @@ static int sctp_packet(struct nf_conn *ct,
-> > > > >  			/* Sec 8.5.1 (D) */
-> > > > >  			if (sh->vtag != ct->proto.sctp.vtag[dir])
-> > > > >  				goto out_unlock;
-> > > > > +		} else if (sch->type == SCTP_CID_HEARTBEAT ||
-> > > > > +			   sch->type == SCTP_CID_HEARTBEAT_ACK) {
-> > > > > +			if (ct->proto.sctp.vtag[dir] == 0) {
-> > > > > +				pr_debug("Setting vtag %x for dir %d\n",
-> > > > > +					 sh->vtag, dir);
-> > > > > +				ct->proto.sctp.vtag[dir] = sh->vtag;
-> > > > 
-> > > > Could you please elaborate on the [dir] == 0 test?
-> > > > 
-> > > > I see this might happen for SCTP_CID_HEARTBEAT_ACK, but why is this
-> > > > needed for SCTP_CID_HEARTBEAT ?
-> > > > 
-> > > > We found a conntrack entry so shouldn't the vtag[dir] already be > 0?
-> > > 
-> > > Yes, you are right. This was originally intended to handle the case when
-> > > a HEARTBEAT in the reply direction is seen before the HEARTBEAT-ACK but
-> > > such HEARTBEAT would be dropped anyway in current version.
-> > 
-> > And we have to keep the first vtag attempted because otherwise an
-> > attacker could just probe for the right one until she gets a reply.
-> > 
-> > IOW, if a different vtag is attempted, we should drop it as the packet
-> > doesn't belong to that association/conntrack entry.
-> > 
-> > As vtags are always != 0 in such case, that's a way to know if we
-> > already have that information or not.
-> > 
-> > > On the other hand, an alternative would be
-> > > 
-> > > 		} else if (sch->type == SCTP_CID_HEARTBEAT_ACK &&
-> > > 			   ct->proto.sctp.vtag[dir] == 0) {
-> > > 			pr_debug("Setting vtag %x for dir %d\n",
-> > > 				 sh->vtag, dir);
-> > > 			ct->proto.sctp.vtag[dir] = sh->vtag;
-> > > 		} else if ((sch->type == SCTP_CID_HEARTBEAT ||
-> > > 			    sch->type == SCTP_CID_HEARTBEAT_ACK) &&
-> > > 			   sh->vtag != ct->proto.sctp.vtag[dir]) {
-> > > 			pr_debug("Verification tag check failed\n");
-> > > 			goto out_unlock;
-> > > 		}
-> > > 
-> > > I'm not sure it looks better.
-> > 
-> > Now it seems swapped, we should save the tag on HB and check on
-> > HB_ACK only and would have to check against !dir entry. Like:
+On 07/14/2015 01:13 PM, Marcelo Ricardo Leitner wrote:
+> SCTP has this operation to peel off associations from a given socket and
+> create a new socket using this association. We currently have two ways
+> to use this operation:
+> - via getsockopt(), on which it will also create and return a file
+>   descriptor for this new socket
+> - via sctp_do_peeloff(), which is for kernel only
 > 
-> I forgot to include the explanation of vtag setting/checking logic into
-> the commit message. It is supposed to work like this:
+> The caveat with using sctp_do_peeloff() directly is that it creates a
+> dependency to SCTP module, while all other operations are handled via
+> kernel_{socket,sendmsg,getsockopt...}() interface. This causes the
+> kernel to load SCTP module even when it's not really used.
 > 
-> Normally, vtag is set from the INIT chunk for the reply direction and
-> from the INIT-ACK chunk for the originating direction (i.e. each of
-> these defines vtag value for the opposite direction). For secondary
+> This patch then creates a new sockopt that is to be used only by kernel
+> users of this protocol. This new sockopt will not allocate a file
+> descriptor but instead just return the socket pointer directly.
+> 
+> Kernel users are actually identified by if the parent socket has or not
+> a fd attached to it. If not, it's a kernel a user.
+> 
+> If called by an user application, it will just return -EPERM.
+> 
+> Even though it's not intended for user applications, it's listed under
+> uapi header. That's because hidding this wouldn't add any extra security
+> and to keep the sockopt list in one place, so it's easy to check
+> available numbers to use.
+> 
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> ---
+>  include/uapi/linux/sctp.h | 12 ++++++++++++
+>  net/sctp/socket.c         | 37 +++++++++++++++++++++++++++++++++++++
+>  2 files changed, 49 insertions(+)
+> 
+> diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
+> index ce70fe6b45df3e841c35accbdb6379c16563893c..b3aad3ce456ab3c1ebf4d81fdb7269ba40b3d92a 100644
+> --- a/include/uapi/linux/sctp.h
+> +++ b/include/uapi/linux/sctp.h
+> @@ -105,6 +105,10 @@ typedef __s32 sctp_assoc_t;
+>  #define SCTP_SOCKOPT_BINDX_ADD	100	/* BINDX requests for adding addrs */
+>  #define SCTP_SOCKOPT_BINDX_REM	101	/* BINDX requests for removing addrs. */
+>  #define SCTP_SOCKOPT_PEELOFF	102	/* peel off association. */
+> +#define SCTP_SOCKOPT_PEELOFF_KERNEL	103	/* peel off association.
+> +						 * only valid for kernel
+> +						 * users
+> +						 */
 
-Erf, indeed. I totally confused it and thought they would be equal on
-both directions.
+I am not sure how much I like stuff this like in the uapi.  This stuff is
+exposed to the user and I'd much rather we try and hide this from
+the user completely.
 
-> conntracks, we can't rely on seeing INIT/INIT-ACK and even if we have
-> seen them, we would need to connect two different conntracks. Therefore
-> simplified logic is applied: vtag of first packet in each direction
-> (HEARTBEAT in the originating and HEARTBEAT-ACK in reply direction) is
-> saved and all following packets in that direction are compared with this
-> saved value. While INIT and INIT-ACK define vtag for the opposite
-> direction (that's where "!dir" comes from), vtags extracted from
-> HEARTBEAT and HEARTBEAT-ACK are always for their direction. And we have
-> to check vtags on packets with HEARTBEAT chunks as well because their
-> vtags should match vtag of the first (set in sctp_new()).
+I understand that you are dealing with a rather ugly dependency, but this is
+not the only one in the kernel.  There are dependencies like this elsewhere
+as well.
 
-Yes, that's pretty much it. Original code reads better here then.
+I am not familiar enough with DLM and its history, but my question is this:
+If dlm always peels off a socket for a new associations, why is it using
+1-to-many api in the first place?  Doing a quick scan of DLM lowcoms code
+for sctp specific things, I see nothing that has specific dependencies
+on 1-to-many api.  It might be simpler to switch to using 1-to-1 api, similar
+to dlm tcp and eliminate this dependency.
 
-Thanks,
-Marcelo
+Is that a naive point of view?
+
+Thanks
+-vlad
+
+>  /* Options 104-106 are deprecated and removed. Do not use this space */
+>  #define SCTP_SOCKOPT_CONNECTX_OLD	107	/* CONNECTX old requests. */
+>  #define SCTP_GET_PEER_ADDRS	108		/* Get all peer address. */
+> @@ -892,6 +896,14 @@ typedef struct {
+>  	int sd;
+>  } sctp_peeloff_arg_t;
+>  
+> +/* This is the union that is passed as an argument(optval) to
+> + * getsockopt(SCTP_SOCKOPT_PEELOFF_KERNEL).
+> + */
+> +typedef union {
+> +	sctp_assoc_t associd;
+> +	struct socket *socket;
+> +} sctp_peeloff_kernel_arg_t;
+> +
+>  /*
+>   *  Peer Address Thresholds socket option
+>   */
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index f1a65398f3118ab5d3a884e9c875620560e6b5ef..7968de7a1aeabd5cd0a0398461dbf2081bd4c5b7 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4504,6 +4504,39 @@ out:
+>  	return retval;
+>  }
+>  
+> +static int sctp_getsockopt_peeloff_kernel(struct sock *sk, int len,
+> +					  char __user *optval, int __user *optlen)
+> +{
+> +	sctp_peeloff_kernel_arg_t peeloff;
+> +	struct socket *newsock;
+> +	int retval = 0;
+> +
+> +	/* We only allow this operation if parent socket also hadn't a
+> +	 * file descriptor allocated to it, mainly as a way to make sure
+> +	 * that this is really a kernel socket.
+> +	 */
+> +	if (sk->sk_socket->file)
+> +		return -EPERM;
+> +
+> +	if (len < sizeof(sctp_peeloff_kernel_arg_t))
+> +		return -EINVAL;
+> +	len = sizeof(sctp_peeloff_kernel_arg_t);
+> +	if (copy_from_user(&peeloff, optval, len))
+> +		return -EFAULT;
+> +
+> +	retval = sctp_do_peeloff(sk, peeloff.associd, &newsock);
+> +	if (retval < 0)
+> +		goto out;
+> +
+> +	peeloff.socket = newsock;
+> +	if (copy_to_user(optval, &peeloff, len)) {
+> +		sock_release(newsock);
+> +		return -EFAULT;
+> +	}
+> +out:
+> +	return retval;
+> +}
+> +
+>  /* 7.1.13 Peer Address Parameters (SCTP_PEER_ADDR_PARAMS)
+>   *
+>   * Applications can enable or disable heartbeats for any peer address of
+> @@ -5991,6 +6024,10 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
+>  	case SCTP_SOCKOPT_PEELOFF:
+>  		retval = sctp_getsockopt_peeloff(sk, len, optval, optlen);
+>  		break;
+> +	case SCTP_SOCKOPT_PEELOFF_KERNEL:
+> +		retval = sctp_getsockopt_peeloff_kernel(sk, len, optval,
+> +							optlen);
+> +		break;
+>  	case SCTP_PEER_ADDR_PARAMS:
+>  		retval = sctp_getsockopt_peer_addr_params(sk, len, optval,
+>  							  optlen);
+> 
