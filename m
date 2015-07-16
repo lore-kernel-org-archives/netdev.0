@@ -1,33 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hv_netvsc: Add close of RNDIS filter into
- change mtu call
-Date: Wed, 15 Jul 2015 21:12:25 -0700 (PDT)
-Message-ID: <20150715.211225.1168237758074370336.davem@davemloft.net>
-References: <1436818156-13674-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [V2 1/7] Drivers: hv: vmbus: define the new offer type for
+ Hyper-V socket (hvsock)
+Date: Wed, 15 Jul 2015 21:13:06 -0700 (PDT)
+Message-ID: <20150715.211306.576715827080894506.davem@davemloft.net>
+References: <1436867883-17692-1-git-send-email-decui@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
-	jasowang@redhat.com, linux-kernel@vger.kernel.org,
-	driverdev-devel@linuxdriverproject.org
-To: haiyangz@microsoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1436818156-13674-1-git-send-email-haiyangz@microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: gregkh@linuxfoundation.org, stephen@networkplumber.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	driverdev-devel@linuxdriverproject.org, olaf@aepfle.de,
+	apw@canonical.com, jasowang@redhat.com, kys@microsoft.com
+To: decui@microsoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35148 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752439AbbGPENH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 00:13:07 -0400
+In-Reply-To: <1436867883-17692-1-git-send-email-decui@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Mon, 13 Jul 2015 13:09:16 -0700
+From: Dexuan Cui <decui@microsoft.com>
+Date: Tue, 14 Jul 2015 02:58:03 -0700
 
-> The current change mtu call only stops tx before removing RNDIS filter.
-> In case ringbufer is not empty, the rndis_filter_device_remove() may
-> hang on removing the buffers.
+> A helper function is also added.
 > 
-> This patch adds close of RNDIS filter before removing it, also a
-> gradual waiting loop until the ring is empty. The change_mtu hang
-> issue under heavy traffic is solved by this patch.
+> Signed-off-by: Dexuan Cui <decui@microsoft.com>
+> ---
+>  include/linux/hyperv.h | 7 +++++++
+>  1 file changed, 7 insertions(+)
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+> index 30d3a1f..aa21814 100644
+> --- a/include/linux/hyperv.h
+> +++ b/include/linux/hyperv.h
+> @@ -236,6 +236,7 @@ struct vmbus_channel_offer {
+>  #define VMBUS_CHANNEL_LOOPBACK_OFFER			0x100
+>  #define VMBUS_CHANNEL_PARENT_OFFER			0x200
+>  #define VMBUS_CHANNEL_REQUEST_MONITORED_NOTIFICATION	0x400
+> +#define VMBUS_CHANNEL_TLNPI_PROVIDER_OFFER		0x2000
+>  
+>  struct vmpacket_descriptor {
+>  	u16 type;
+> @@ -758,6 +759,12 @@ struct vmbus_channel {
+>  	struct list_head percpu_list;
+>  };
+>  
+> +static inline bool is_hvsock_channel(const struct vmbus_channel *c)
+> +{
+> +	return !!(c->offermsg.offer.chn_flags &
+> +		VMBUS_CHANNEL_TLNPI_PROVIDER_OFFER);
+> +}
+> +
 
-Applied, thanks.
+This is not indented properly, plus it makes no sense to add a flag before
+anyone even sets the flag.
