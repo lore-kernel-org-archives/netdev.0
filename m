@@ -1,58 +1,79 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC net-next 22/22] openvswitch: Use regular GRE net_device
- instead of vport
-Date: Thu, 16 Jul 2015 16:52:46 +0200
-Message-ID: <20150716145246.GC22603@pox.localdomain>
-References: <cover.1436537414.git.tgraf@suug.ch>
- <74f200a9e634a9fefd6de85265f54b8a6697ab72.1436537414.git.tgraf@suug.ch>
- <20150716085915.GA11294@penelope.isobedori.kobe.vergenet.net>
+From: Stas Sergeev <stsp@list.ru>
+Subject: [PATCH 3/3] mvneta: use inband status only when explicitly enabled
+Date: Thu, 16 Jul 2015 17:53:12 +0300
+Message-ID: <55A7C558.2030302@list.ru>
+References: <55A7C45F.1070501@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
-	ebiederm@xmission.com, hannes@stressinduktion.org,
-	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
-	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
-	jiri@resnulli.us, marcelo.leitner@gmail.com,
-	stephen@networkplumber.org, jpettit@nicira.com, kaber@trash.net,
-	netdev@vger.kernel.org, dev@openvswitch.org
-To: Simon Horman <simon.horman@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:32934 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754714AbbGPOwt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 10:52:49 -0400
-Received: by widic2 with SMTP id ic2so17445498wid.0
-        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 07:52:48 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150716085915.GA11294@penelope.isobedori.kobe.vergenet.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Linux kernel <linux-kernel@vger.kernel.org>,
+	Sebastien Rannou <mxs@sbrk.org>,
+	Arnaud Ebalard <arno@natisbad.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55A7C45F.1070501@list.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/16/15 at 05:59pm, Simon Horman wrote:
-> On Fri, Jul 10, 2015 at 04:19:24PM +0200, Thomas Graf wrote:
-> >  static void ipgre_tap_setup(struct net_device *dev)
-> >  {
-> >  	ether_setup(dev);
-> > -	dev->netdev_ops		= &gre_tap_netdev_ops;
-> >  	dev->priv_flags 	|= IFF_LIVE_ADDR_CHANGE;
-> >  	ip_tunnel_setup(dev, gre_tap_net_id);
-> > +
-> > +	if (!strcmp(dev->name, GRE_TAP_FB_NAME))
-> > +		dev->netdev_ops		= &gre_fb_netdev_ops;
-> > +	else
-> > +		dev->netdev_ops		= &gre_tap_netdev_ops;
-> >  }
-> >  
-> >  static int ipgre_newlink(struct net *src_net, struct net_device *dev,
-> 
-> [snip]
-> 
-> Is there a side-effect of the above that if a user creates a gretap device
-> whose name is "gretap0" then the device will use gre_fb_netdev_ops instead
-> of gre_tap_netdev_ops. If so, does that imply a change in behaviour for
-> gretap devices created with that name?
 
-I'm inclined to change this and use an in-kernel API as well to
-create the net_device just like VXLAN does in patch 21.
+The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band link state
+signaling") implemented the link parameters auto-negotiation unconditionally.
+Unfortunately it appears that some HW that implements SGMII protocol,
+doesn't generate the inband status, so it is not possible to auto-negotiate
+anything with such HW.
 
-Pravin, what do you think?
+This patch enables the auto-negotiation only if explicitly requested with
+the 'managed' DT property.
+
+This patch fixes the following regression:
+https://lkml.org/lkml/2015/7/8/865
+
+Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
+
+CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+CC: netdev@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+---
+ drivers/net/ethernet/marvell/mvneta.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 74176ec..7a1deee 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3008,8 +3008,8 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	const char *dt_mac_addr;
+ 	char hw_mac_addr[ETH_ALEN];
+ 	const char *mac_from;
++	const char *managed;
+ 	int phy_mode;
+-	int fixed_phy = 0;
+ 	int err;
+
+ 	/* Our multiqueue support is not complete, so for now, only
+@@ -3043,7 +3043,6 @@ static int mvneta_probe(struct platform_device *pdev)
+ 			dev_err(&pdev->dev, "cannot register fixed PHY\n");
+ 			goto err_free_irq;
+ 		}
+-		fixed_phy = 1;
+
+ 		/* In the case of a fixed PHY, the DT node associated
+ 		 * to the PHY is the Ethernet MAC DT node.
+@@ -3067,8 +3066,10 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	pp = netdev_priv(dev);
+ 	pp->phy_node = phy_node;
+ 	pp->phy_interface = phy_mode;
+-	pp->use_inband_status = (phy_mode == PHY_INTERFACE_MODE_SGMII) &&
+-				fixed_phy;
++
++	err = of_property_read_string(dn, "managed", &managed);
++	pp->use_inband_status = (err == 0 &&
++				 strcmp(managed, "in-band-status") == 0);
+
+ 	pp->clk = devm_clk_get(&pdev->dev, NULL);
+ 	if (IS_ERR(pp->clk)) {
+-- 
+1.9.1
