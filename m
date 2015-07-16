@@ -1,51 +1,65 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2 0/2] Avoid link dependency of dlm on sctp module
-Date: Thu, 16 Jul 2015 07:18:03 -0400
-Message-ID: <20150716111803.GA31148@hmsreliant.think-freely.org>
-References: <cover.1436891629.git.marcelo.leitner@gmail.com>
- <20150715135714.GB24091@hmsreliant.think-freely.org>
- <20150715.135918.1121936842089030351.davem@davemloft.net>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [V2 1/7] Drivers: hv: vmbus: define the new offer type for
+ Hyper-V socket (hvsock)
+Date: Thu, 16 Jul 2015 11:18:44 +0000
+Message-ID: <4eb229b0935b4a42b126325c95bf7a2d@SIXPR30MB031.064d.mgd.msft.net>
+References: <1436867883-17692-1-git-send-email-decui@microsoft.com>
+ <20150715.211306.576715827080894506.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: marcelo.leitner@gmail.com, netdev@vger.kernel.org,
-	vyasevich@gmail.com, linux-sctp@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"driverdev-devel@linuxdriverproject.org"
+	<driverdev-devel@linuxdriverproject.org>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	KY Srinivasan <kys@microsoft.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:55491 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753851AbbGPLSP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 07:18:15 -0400
-Content-Disposition: inline
-In-Reply-To: <20150715.135918.1121936842089030351.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150715.211306.576715827080894506.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 15, 2015 at 01:59:18PM -0700, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Wed, 15 Jul 2015 09:57:14 -0400
+> From: David Miller
+> Sent: Thursday, July 16, 2015 12:13
 > 
-> > Series
-> > Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> From: Dexuan Cui
+> Date: Tue, 14 Jul 2015 02:58:03 -0700
 > 
-> I don't like this at all.
+> > A helper function is also added.
+> >
+> > diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+> > @@ -236,6 +236,7 @@ struct vmbus_channel_offer {
+> >  #define VMBUS_CHANNEL_LOOPBACK_OFFER			0x100
+> >  #define VMBUS_CHANNEL_PARENT_OFFER			0x200
+> >  #define VMBUS_CHANNEL_REQUEST_MONITORED_NOTIFICATION	0x400
+> > +#define VMBUS_CHANNEL_TLNPI_PROVIDER_OFFER		0x2000
+> >
+> >  struct vmpacket_descriptor {
+> >  	u16 type;
+> > @@ -758,6 +759,12 @@ struct vmbus_channel {
+> >  	struct list_head percpu_list;
+> >  };
+> >
+> > +static inline bool is_hvsock_channel(const struct vmbus_channel *c)
+> > +{
+> > +	return !!(c->offermsg.offer.chn_flags &
+> > +		VMBUS_CHANNEL_TLNPI_PROVIDER_OFFER);
+> > +}
+> > +
 > 
-> I know it's a pain in the ass to have this dependency on SCTP, but
-> calling exported functions is absolutely the right way to handle
-> this kind of situation.
+> This is not indented properly, plus it makes no sense to add a flag before
+> anyone even sets the flag.
 
-I have to disagree.  Its certainly true that a direct call from the kernel is
-the right current way to handle a need for functionality in an external module,
-but I think its important to offer a mechanism that allows for modules to not
-load functionality that they don't need at run time (that is to say, if dlm
-decides to use tcp rather than sctp, the sctp module shouldn't be loaded).
+Hi David,
+Thanks for pointing out the indentation issue!  I'll fix it in V3.
 
-Its not a crisis in either case, but it sure would be nice to not load a module
-just because a symbol reference exists.
+The flag is set by the host: the c->offermsg is in the shared VMBus ringbuffer
+between the host and the guest, so it makes sense for us to check the flag. :-)
 
-Neil
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+-- Dexuan
