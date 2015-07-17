@@ -1,43 +1,45 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: pull-request: mac80211 2015-07-17
-Date: Fri, 17 Jul 2015 15:35:04 +0200
-Message-ID: <1437140104.1933.19.camel@sipsolutions.net>
-References: <1437139894.1933.16.camel@sipsolutions.net>
-	 (sfid-20150717_153149_337845_B05B138A)
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH v2] jhash: Deinline jhash, jhash2 and __jhash_nwords
+Date: Fri, 17 Jul 2015 15:44:45 +0200 (CEST)
+Message-ID: <2035533471.2349.1437140685694.JavaMail.open-xchange@ox1app>
+References: <1437050416-13295-1-git-send-email-dvlasenk@redhat.com> <CALx6S367jArRC3eKSKsv7gFrgPxyDHWdtvfeO1SmQR91eYxwSw@mail.gmail.com> <20150716.111729.822179499552193763.davem@davemloft.net> <1437074611.2495.39.camel@perches.com>
+Reply-To: Hagen Paul Pfeifer <hagen@jauu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1437139894.1933.16.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> (sfid-20150717_153149_337845_B05B138A)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: tom <tom@herbertland.com>, herbert <herbert@gondor.apana.org.au>,
+	tgraf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	dvlasenk <dvlasenk@redhat.com>,
+	"alexander.h.duyck" <alexander.h.duyck@redhat.com>,
+	kadlec <kadlec@blackhole.kfki.hu>
+To: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437074611.2495.39.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-07-17 at 15:31 +0200, Johannes Berg wrote:
-> Hi Dave,
+> On July 16, 2015 at 9:23 PM Joe Perches <joe@perches.com> wrote:
 > 
-> We've accumulated some wireless fixes, please pull. Arik's fix is a 
-> bit
-> bigger than I might like, but it fixes a real locking issue and we
-> didn't really see a good way to make a smaller version.
-> 
-> Let me know if there's any problem.
+> It might be useful to have these performance impacting
+> changes guarded by something like CONFIG_CC_OPTIMIZE_FOR_SIZE
+> with another static __always_inline __<func> and a function &
+> EXPORT_SYMBOL or just a static inline so that where code size
+> is critical it's uninlined.
 
-Also, I'm going to be on vacation starting Tuesday, back on August 10.
+But keep in mind that jhash, jhash2 and __jhash_nwords are *not*
+one-instruction long functions. We duplicate code over and over resulting
+probably in more cache misses. __always_inline__ is probably too strict
+and a vanilla inline is already for 99% of all distribution builds a
+ __always_inline__, see ARCH_SUPPORTS_OPTIMIZED_INLINING and
+CONFIG_CC_OPTIMIZE_FOR_SIZE.
 
-I'm merging things to mac80211-next, but I'll hold the pull request
-until after I return so I can deal with any possible issues in net-next
-more quickly.
+The answer depends on the specific workload. Sometimes an enforced inline
+perform better and sometimes a call is the better solution (read: less
+cache misses). General purpose vendors with a larger working set size
+should reduce cache misses by deinline many functions. For
+high-performance special fast-path operations a strong inlined kernel
+build is probably faster. __always_inline__ makes it impossible for the
+user to deinline functions or not.
 
-Kalle has graciously agreed to handle any urgent bugfixes to mac80211
-while I'm out, and will probably send them to you as patches (if
-necessary.)
-
-johannes
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hagen
