@@ -1,8 +1,8 @@
 From: Dexuan Cui <decui@microsoft.com>
 Subject: RE: [PATCH net-next 1/1] hv_netvsc: Wait for sub-channels to be
  processed during probe
-Date: Fri, 17 Jul 2015 10:00:43 +0000
-Message-ID: <4fd650437f864cf2a58e8334253f5dcd@SIXPR30MB031.064d.mgd.msft.net>
+Date: Fri, 17 Jul 2015 10:07:03 +0000
+Message-ID: <ed6433db194c4f2393cc462b538d9b2f@SIXPR30MB031.064d.mgd.msft.net>
 References: <1437074222-13020-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,50 +28,27 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-> From: K. Y. Srinivasan 
+> From: K. Y. Srinivasan
 > Sent: Friday, July 17, 2015 3:17
 > Subject: [PATCH net-next 1/1] hv_netvsc: Wait for sub-channels to be processed
 > during probe
-> diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-> ...
-> @@ -1116,6 +1127,9 @@ int rndis_filter_device_add(struct hv_device *dev,
->  	num_possible_rss_qs = cpumask_weight(node_cpu_mask);
->  	net_device->num_chn = min(num_possible_rss_qs, num_rss_qs);
 > 
-> +	num_rss_qs = net_device->num_chn - 1;
-> +	net_device->num_sc_offered = num_rss_qs;
-> +
->  	if (net_device->num_chn == 1)
->  		goto out;
+> The current code returns from probe without waiting for the proper handling
+> of subchannels that may be requested. If the netvsc driver were to be rapidly
+> loaded/unloaded, we can  trigger a panic as the unload will be tearing
+> down state that may not have been fully setup yet. We fix this issue by making
+> sure that we return from the probe call only after ensuring that the
+> sub-channel offers in flight are properly handled.
 > 
-> @@ -1157,11 +1171,22 @@ int rndis_filter_device_add(struct hv_device *dev,
-> 
->  	ret = rndis_filter_set_rss_param(rndis_device, net_device->num_chn);
-> 
-> +	/*
-> +	 * Wait for the host to send us the sub-channel offers.
-> +	 */
-> +	spin_lock_irqsave(&net_device->sc_lock, flags);
-> +	sc_delta = net_device->num_chn - 1 - num_rss_qs;
-> +	net_device->num_sc_offered -= sc_delta;
+> ---
+>  drivers/net/hyperv/hyperv_net.h   |    2 ++
+>  drivers/net/hyperv/rndis_filter.c |   25 +++++++++++++++++++++++++
+>  2 files changed, 27 insertions(+), 0 deletions(-)
 
-Hi KY,
-IMO here the "-= " should be "+="?
+BTW, not sure if we should make the same fix to storvsc.
 
-I think sc_delta is usually <= 0, meaning the host may allocate less subchannels than
-we expect.
-With "-=", net_device->num_sc_offered can become bigger -- this doesn't seem correct.
+IMO storvsc should have the same issue, at least in theory, though usually it's
+unlikely to unload storvsc.  :-)
 
-Why not use 
-"net_device->num_sc_offered = net_device->num_chn - 1;" directly?
-At this point, net_device->num_chn has been the number of the actual channels.
-
-
-> +	spin_unlock_irqrestore(&net_device->sc_lock, flags);
-> +
-> +	if (net_device->num_sc_offered != 0)
-> +		wait_for_completion(&net_device->channel_init_wait);
-
-BTW, I also tested the patch and I can confirm the panic I saw disappeared with the patch.
-
+Thanks,
 -- Dexuan
