@@ -1,32 +1,55 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] net: wireless: reduce log level of CRDA related messages
-Date: Fri, 17 Jul 2015 14:37:44 +0200
-Message-ID: <1437136664.1933.10.camel@sipsolutions.net>
-References: <1436448915-31724-1-git-send-email-thomas.petazzoni@free-electrons.com>
-	 (sfid-20150709_153528_507259_B4073E38)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next 01/22] rtnetlink: introduce new RTA_ENCAP_TYPE and RTA_ENCAP attributes
+Date: Fri, 17 Jul 2015 14:55:20 +0200
+Message-ID: <be8e680fbe388d799a5d90b728f180e50fcd4a9d.1437137396.git.tgraf@suug.ch>
+References: <cover.1437137396.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: roopa@cumulusnetworks.com, rshearma@brocade.com,
+	ebiederm@xmission.com, hannes@stressinduktion.org,
+	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
+	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
+	jiri@resnulli.us, marcelo.leitner@gmail.com,
+	stephen@networkplumber.org, jpettit@nicira.com, kaber@trash.net,
+	simon.horman@netronome.com, joestringer@nicira.com, ja@ssi.bg,
+	ast@plumgrid.com, weichunc@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:52707 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757205AbbGQMhv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jul 2015 08:37:51 -0400
-In-Reply-To: <1436448915-31724-1-git-send-email-thomas.petazzoni@free-electrons.com> (sfid-20150709_153528_507259_B4073E38)
+Received: from casper.infradead.org ([85.118.1.10]:49391 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757919AbbGQMzv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 08:55:51 -0400
+In-Reply-To: <cover.1437137396.git.tgraf@suug.ch>
+In-Reply-To: <cover.1437137396.git.tgraf@suug.ch>
+References: <cover.1437137396.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-07-09 at 15:35 +0200, Thomas Petazzoni wrote:
-> With a basic Linux userspace, the messages "Calling CRDA to update
-> world regulatory domain" appears 10 times after boot every second or
-> so, followed by a final "Exceeded CRDA call max attempts. Not calling
-> CRDA". For those of us not having the corresponding userspace parts,
-> having those messages repeatedly displayed at boot time is a bit
-> annoying, so this commit reduces their log level to pr_debug().
-> 
-Applied.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-johannes
+This patch introduces two new RTA attributes to attach encap
+data to fib routes.
+
+Example iproute2 command to attach mpls encap data to ipv4 routes
+
+$ip route add 10.1.1.0/30 encap mpls 200 via inet 10.1.1.1 dev swp1
+
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Suggested-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ include/uapi/linux/rtnetlink.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index fdd8f07..0d3d3cc 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -308,6 +308,8 @@ enum rtattr_type_t {
+ 	RTA_VIA,
+ 	RTA_NEWDST,
+ 	RTA_PREF,
++	RTA_ENCAP_TYPE,
++	RTA_ENCAP,
+ 	__RTA_MAX
+ };
+ 
+-- 
+2.4.3
