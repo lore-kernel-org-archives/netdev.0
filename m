@@ -1,7 +1,7 @@
-From: Phil Sutter <phil@nwl.cc>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: 4.1 regression in resizable hashtable tests
-Date: Fri, 17 Jul 2015 12:29:45 +0200
-Message-ID: <20150717102945.GB21732@orbit.nwl.cc>
+Date: Fri, 17 Jul 2015 12:31:07 +0200
+Message-ID: <20150717103107.GA18033@pox.localdomain>
 References: <alpine.LRH.2.11.1507011259180.4092@math.ut.ee>
  <20150702123130.GA20843@pox.localdomain>
  <alpine.LRH.2.11.1507022208200.28236@math.ut.ee>
@@ -9,20 +9,19 @@ References: <alpine.LRH.2.11.1507011259180.4092@math.ut.ee>
  <20150717102636.GA21732@orbit.nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Thomas Graf <tgraf@suug.ch>, Meelis Roos <mroos@linux.ee>,
-	sparclinux@vger.kernel.org,
+To: Meelis Roos <mroos@linux.ee>, sparclinux@vger.kernel.org,
 	Linux Kernel list <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	Daniel Borkmann <daniel@iogearbox.net>,
 	Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <sparclinux-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <20150717102636.GA21732@orbit.nwl.cc>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 17, 2015 at 12:26:36PM +0200, Phil Sutter wrote:
+On 07/17/15 at 12:26pm, Phil Sutter wrote:
 > On Fri, Jul 17, 2015 at 10:04:56AM +0200, Thomas Graf wrote:
 > > On 07/02/15 at 10:09pm, Meelis Roos wrote:
 > > > [   33.425061] Running rhashtable test nelem=8, max_size=65536, shrinking=0
@@ -57,5 +56,10 @@ On Fri, Jul 17, 2015 at 12:26:36PM +0200, Phil Sutter wrote:
 > stating it fixes that problem for him. Though he's still waiting for
 > your proposed patch to add a schedule() call so the kernel won't
 > complain on his slow UltraSparc. :)
+> 
+> Cheers, Phil
+> 
+> [1]: http://www.spinics.net/lists/netdev/msg335767.html
 
-Ah, nevermind. You sent it already with him in Cc.
+OK, good to know. I've posted the schedule patch today:
+https://patchwork.ozlabs.org/patch/497035/
