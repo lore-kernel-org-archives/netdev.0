@@ -1,89 +1,147 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: [PATCH net-next 05/22] lwtunnel: support dst output
-	redirect function
-Date: Fri, 17 Jul 2015 14:55:24 +0200
-Message-ID: <c671f60e1ecf0ef03a765f82947e538431c2a79f.1437137396.git.tgraf@suug.ch>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next 21/22] openvswitch: Abstract vport name through ovs_vport_name()
+Date: Fri, 17 Jul 2015 14:55:40 +0200
+Message-ID: <1bada01dac99af844fb7fc305b23a8eaa5c8b734.1437137396.git.tgraf@suug.ch>
 References: <cover.1437137396.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, rshearma-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
- hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org,
- edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
- simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, ja-FgGsKACvmQM@public.gmane.org,
- ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, weichunc-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1437137396.git.tgraf-G/eBtMaohhA@public.gmane.org>
-In-Reply-To: <cover.1437137396.git.tgraf-G/eBtMaohhA@public.gmane.org>
-References: <cover.1437137396.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: roopa@cumulusnetworks.com, rshearma@brocade.com,
+	ebiederm@xmission.com, hannes@stressinduktion.org,
+	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
+	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
+	jiri@resnulli.us, marcelo.leitner@gmail.com,
+	stephen@networkplumber.org, jpettit@nicira.com, kaber@trash.net,
+	simon.horman@netronome.com, joestringer@nicira.com, ja@ssi.bg,
+	ast@plumgrid.com, weichunc@plumgrid.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:49722 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945903AbbGQM4L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 08:56:11 -0400
+In-Reply-To: <cover.1437137396.git.tgraf@suug.ch>
+In-Reply-To: <cover.1437137396.git.tgraf@suug.ch>
+References: <cover.1437137396.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUm9vcGEgUHJhYmh1IDxyb29wYUBjdW11bHVzbmV0d29ya3MuY29tPgoKVGhpcyBwYXRj
-aCBpbnRyb2R1Y2VzIGx3dHVubmVsX291dHB1dCBmdW5jdGlvbiB0byBjYWxsIGNvcnJlc3BvbmRp
-bmcKbHd0dW5uZWxzIG91dHB1dCBmdW5jdGlvbiB0byB4bWl0IHRoZSBwYWNrZXQuCgpJdCBhZGRz
-IHR3byB2YXJpYW50cyBsd3R1bm5lbF9vdXRwdXQgYW5kIGx3dHVubmVsX291dHB1dDYgZm9yIGlw
-djQgYW5kCmlwdjYgcmVzcGVjdGl2ZWx5IHRvZGF5LiBCdXQgdGhpcyBpcyBzdWJqZWN0IHRvIGNo
-YW5nZSB3aGVuIGx3dHN0YXRlIHdpbGwKcmVzaWRlIGluIGRzdCBvciBkc3RfbWV0YWRhdGEgKGFz
-IHBlciB1cHN0cmVhbSBkaXNjdXNzaW9ucykuCgpTaWduZWQtb2ZmLWJ5OiBSb29wYSBQcmFiaHUg
-PHJvb3BhQGN1bXVsdXNuZXR3b3Jrcy5jb20+Ci0tLQogaW5jbHVkZS9uZXQvbHd0dW5uZWwuaCB8
-IDEyICsrKysrKysrKysrCiBuZXQvY29yZS9sd3R1bm5lbC5jICAgIHwgNTYgKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysKIDIgZmlsZXMgY2hhbmdlZCwg
-NjggaW5zZXJ0aW9ucygrKQoKZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2x3dHVubmVsLmggYi9p
-bmNsdWRlL25ldC9sd3R1bm5lbC5oCmluZGV4IGRmMjRiMzYuLjkxOGUwM2MgMTAwNjQ0Ci0tLSBh
-L2luY2x1ZGUvbmV0L2x3dHVubmVsLmgKKysrIGIvaW5jbHVkZS9uZXQvbHd0dW5uZWwuaApAQCAt
-NjksNiArNjksOCBAQCBpbnQgbHd0dW5uZWxfZmlsbF9lbmNhcChzdHJ1Y3Qgc2tfYnVmZiAqc2ti
-LAogaW50IGx3dHVubmVsX2dldF9lbmNhcF9zaXplKHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAqbHd0
-c3RhdGUpOwogc3RydWN0IGx3dHVubmVsX3N0YXRlICpsd3R1bm5lbF9zdGF0ZV9hbGxvYyhpbnQg
-aGRyX2xlbik7CiBpbnQgbHd0dW5uZWxfY21wX2VuY2FwKHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAq
-YSwgc3RydWN0IGx3dHVubmVsX3N0YXRlICpiKTsKK2ludCBsd3R1bm5lbF9vdXRwdXQoc3RydWN0
-IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsKK2ludCBsd3R1bm5lbF9vdXRwdXQ2KHN0
-cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYik7CiAKICNlbHNlCiAKQEAgLTEyNyw2
-ICsxMjksMTYgQEAgc3RhdGljIGlubGluZSBpbnQgbHd0dW5uZWxfY21wX2VuY2FwKHN0cnVjdCBs
-d3R1bm5lbF9zdGF0ZSAqYSwKIAlyZXR1cm4gMDsKIH0KIAorc3RhdGljIGlubGluZSBpbnQgbHd0
-dW5uZWxfb3V0cHV0KHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYikKK3sKKwly
-ZXR1cm4gLUVPUE5PVFNVUFA7Cit9CisKK3N0YXRpYyBpbmxpbmUgaW50IGx3dHVubmVsX291dHB1
-dDYoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQoreworCXJldHVybiAtRU9Q
-Tk9UU1VQUDsKK30KKwogI2VuZGlmCiAKICNlbmRpZiAvKiBfX05FVF9MV1RVTk5FTF9IICovCmRp
-ZmYgLS1naXQgYS9uZXQvY29yZS9sd3R1bm5lbC5jIGIvbmV0L2NvcmUvbHd0dW5uZWwuYwppbmRl
-eCBkN2FlM2EyLi5iYjU4ODI2IDEwMDY0NAotLS0gYS9uZXQvY29yZS9sd3R1bm5lbC5jCisrKyBi
-L25ldC9jb3JlL2x3dHVubmVsLmMKQEAgLTI1LDYgKzI1LDcgQEAKIAogI2luY2x1ZGUgPG5ldC9s
-d3R1bm5lbC5oPgogI2luY2x1ZGUgPG5ldC9ydG5ldGxpbmsuaD4KKyNpbmNsdWRlIDxuZXQvaXA2
-X2ZpYi5oPgogCiBzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmx3dHVubmVsX3N0YXRlX2FsbG9jKGlu
-dCBlbmNhcF9sZW4pCiB7CkBAIC0xNzcsMyArMTc4LDU4IEBAIGludCBsd3R1bm5lbF9jbXBfZW5j
-YXAoc3RydWN0IGx3dHVubmVsX3N0YXRlICphLCBzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmIpCiAJ
-cmV0dXJuIHJldDsKIH0KIEVYUE9SVF9TWU1CT0wobHd0dW5uZWxfY21wX2VuY2FwKTsKKworaW50
-IF9fbHd0dW5uZWxfb3V0cHV0KHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYiwK
-KwkJICAgICAgc3RydWN0IGx3dHVubmVsX3N0YXRlICpsd3RzdGF0ZSkKK3sKKwljb25zdCBzdHJ1
-Y3QgbHd0dW5uZWxfZW5jYXBfb3BzICpvcHM7CisJaW50IHJldCA9IC1FSU5WQUw7CisKKwlpZiAo
-IWx3dHN0YXRlKQorCQlnb3RvIGRyb3A7CisKKwlpZiAobHd0c3RhdGUtPnR5cGUgPT0gTFdUVU5O
-RUxfRU5DQVBfTk9ORSB8fAorCSAgICBsd3RzdGF0ZS0+dHlwZSA+IExXVFVOTkVMX0VOQ0FQX01B
-WCkKKwkJcmV0dXJuIDA7CisKKwlyZXQgPSAtRU9QTk9UU1VQUDsKKwlyY3VfcmVhZF9sb2NrKCk7
-CisJb3BzID0gcmN1X2RlcmVmZXJlbmNlKGx3dHVuX2VuY2Fwc1tsd3RzdGF0ZS0+dHlwZV0pOwor
-CWlmIChsaWtlbHkob3BzICYmIG9wcy0+b3V0cHV0KSkKKwkJcmV0ID0gb3BzLT5vdXRwdXQoc2ss
-IHNrYik7CisJcmN1X3JlYWRfdW5sb2NrKCk7CisKKwlpZiAocmV0ID09IC1FT1BOT1RTVVBQKQor
-CQlnb3RvIGRyb3A7CisKKwlyZXR1cm4gcmV0OworCitkcm9wOgorCWtmcmVlKHNrYik7CisKKwly
-ZXR1cm4gcmV0OworfQorCitpbnQgbHd0dW5uZWxfb3V0cHV0NihzdHJ1Y3Qgc29jayAqc2ssIHN0
-cnVjdCBza19idWZmICpza2IpCit7CisJc3RydWN0IHJ0Nl9pbmZvICpydCA9IChzdHJ1Y3QgcnQ2
-X2luZm8gKilza2JfZHN0KHNrYik7CisJc3RydWN0IGx3dHVubmVsX3N0YXRlICpsd3RzdGF0ZSA9
-IE5VTEw7CisKKwlpZiAocnQpCisJCWx3dHN0YXRlID0gcnQtPnJ0NmlfbHd0c3RhdGU7CisKKwly
-ZXR1cm4gX19sd3R1bm5lbF9vdXRwdXQoc2ssIHNrYiwgbHd0c3RhdGUpOworfQorRVhQT1JUX1NZ
-TUJPTChsd3R1bm5lbF9vdXRwdXQ2KTsKKworaW50IGx3dHVubmVsX291dHB1dChzdHJ1Y3Qgc29j
-ayAqc2ssIHN0cnVjdCBza19idWZmICpza2IpCit7CisJc3RydWN0IHJ0YWJsZSAqcnQgPSAoc3Ry
-dWN0IHJ0YWJsZSAqKXNrYl9kc3Qoc2tiKTsKKwlzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmx3dHN0
-YXRlID0gTlVMTDsKKworCWlmIChydCkKKwkJbHd0c3RhdGUgPSBydC0+cnRfbHd0c3RhdGU7CisK
-KwlyZXR1cm4gX19sd3R1bm5lbF9vdXRwdXQoc2ssIHNrYiwgbHd0c3RhdGUpOworfQorRVhQT1JU
-X1NZTUJPTChsd3R1bm5lbF9vdXRwdXQpOwotLSAKMi40LjMKCl9fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dp
-dGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+This allows to get rid of the get_name() vport ops later on.
+
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ net/openvswitch/datapath.c           | 4 ++--
+ net/openvswitch/vport-internal_dev.c | 1 -
+ net/openvswitch/vport-netdev.c       | 6 ------
+ net/openvswitch/vport-netdev.h       | 1 -
+ net/openvswitch/vport.c              | 4 ++--
+ net/openvswitch/vport.h              | 5 +++++
+ 6 files changed, 9 insertions(+), 12 deletions(-)
+
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 19df28e..ffe984f 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -176,7 +176,7 @@ static inline struct datapath *get_dp(struct net *net, int dp_ifindex)
+ const char *ovs_dp_name(const struct datapath *dp)
+ {
+ 	struct vport *vport = ovs_vport_ovsl_rcu(dp, OVSP_LOCAL);
+-	return vport->ops->get_name(vport);
++	return ovs_vport_name(vport);
+ }
+ 
+ static int get_dpifindex(const struct datapath *dp)
+@@ -1800,7 +1800,7 @@ static int ovs_vport_cmd_fill_info(struct vport *vport, struct sk_buff *skb,
+ 	if (nla_put_u32(skb, OVS_VPORT_ATTR_PORT_NO, vport->port_no) ||
+ 	    nla_put_u32(skb, OVS_VPORT_ATTR_TYPE, vport->ops->type) ||
+ 	    nla_put_string(skb, OVS_VPORT_ATTR_NAME,
+-			   vport->ops->get_name(vport)))
++			   ovs_vport_name(vport)))
+ 		goto nla_put_failure;
+ 
+ 	ovs_vport_get_stats(vport, &vport_stats);
+diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+index a2c205d..c058bbf 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -242,7 +242,6 @@ static struct vport_ops ovs_internal_vport_ops = {
+ 	.type		= OVS_VPORT_TYPE_INTERNAL,
+ 	.create		= internal_dev_create,
+ 	.destroy	= internal_dev_destroy,
+-	.get_name	= ovs_netdev_get_name,
+ 	.send		= internal_dev_recv,
+ };
+ 
+diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
+index 1c96966..e682bdc 100644
+--- a/net/openvswitch/vport-netdev.c
++++ b/net/openvswitch/vport-netdev.c
+@@ -171,11 +171,6 @@ static void netdev_destroy(struct vport *vport)
+ 	call_rcu(&vport->rcu, free_port_rcu);
+ }
+ 
+-const char *ovs_netdev_get_name(const struct vport *vport)
+-{
+-	return vport->dev->name;
+-}
+-
+ static unsigned int packet_length(const struct sk_buff *skb)
+ {
+ 	unsigned int length = skb->len - ETH_HLEN;
+@@ -223,7 +218,6 @@ static struct vport_ops ovs_netdev_vport_ops = {
+ 	.type		= OVS_VPORT_TYPE_NETDEV,
+ 	.create		= netdev_create,
+ 	.destroy	= netdev_destroy,
+-	.get_name	= ovs_netdev_get_name,
+ 	.send		= netdev_send,
+ };
+ 
+diff --git a/net/openvswitch/vport-netdev.h b/net/openvswitch/vport-netdev.h
+index 1c52aed..684fb88 100644
+--- a/net/openvswitch/vport-netdev.h
++++ b/net/openvswitch/vport-netdev.h
+@@ -26,7 +26,6 @@
+ 
+ struct vport *ovs_netdev_get_vport(struct net_device *dev);
+ 
+-const char *ovs_netdev_get_name(const struct vport *);
+ void ovs_netdev_detach_dev(struct vport *);
+ 
+ int __init ovs_netdev_init(void);
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index af23ba0..d14f594 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -113,7 +113,7 @@ struct vport *ovs_vport_locate(const struct net *net, const char *name)
+ 	struct vport *vport;
+ 
+ 	hlist_for_each_entry_rcu(vport, bucket, hash_node)
+-		if (!strcmp(name, vport->ops->get_name(vport)) &&
++		if (!strcmp(name, ovs_vport_name(vport)) &&
+ 		    net_eq(ovs_dp_get_net(vport->dp), net))
+ 			return vport;
+ 
+@@ -226,7 +226,7 @@ struct vport *ovs_vport_add(const struct vport_parms *parms)
+ 		}
+ 
+ 		bucket = hash_bucket(ovs_dp_get_net(vport->dp),
+-				     vport->ops->get_name(vport));
++				     ovs_vport_name(vport));
+ 		hlist_add_head_rcu(&vport->hash_node, bucket);
+ 		return vport;
+ 	}
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index e05ec68..1a689c2 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -237,6 +237,11 @@ static inline void ovs_skb_postpush_rcsum(struct sk_buff *skb,
+ 		skb->csum = csum_add(skb->csum, csum_partial(start, len, 0));
+ }
+ 
++static inline const char *ovs_vport_name(struct vport *vport)
++{
++	return vport->dev ? vport->dev->name : vport->ops->get_name(vport);
++}
++
+ int ovs_vport_ops_register(struct vport_ops *ops);
+ void ovs_vport_ops_unregister(struct vport_ops *ops);
+ 
+-- 
+2.4.3
