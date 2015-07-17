@@ -1,40 +1,193 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 1/5] net: don't reforward packets already
- forwarded by offload device
-Date: Thu, 16 Jul 2015 20:32:14 -0700
-Message-ID: <55A8773E.2020607@cumulusnetworks.com>
-References: <1437033897-8050-1-git-send-email-sfeldma@gmail.com> <1437033897-8050-2-git-send-email-sfeldma@gmail.com>
+From: <shh.xie@gmail.com>
+Subject: [PATCH] phylib: add driver for Teranetics TN2020
+Date: Fri, 17 Jul 2015 11:19:46 +0800
+Message-ID: <1437103186-48034-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us,
-	simon.horman@netronome.com
-To: sfeldma@gmail.com
+Content-Type: text/plain
+Cc: Shaohui Xie <Shaohui.Xie@freescale.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:35499 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753392AbbGQDcR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2015 23:32:17 -0400
-Received: by pactm7 with SMTP id tm7so53612016pac.2
-        for <netdev@vger.kernel.org>; Thu, 16 Jul 2015 20:32:16 -0700 (PDT)
-In-Reply-To: <1437033897-8050-2-git-send-email-sfeldma@gmail.com>
+Received: from mail-bl2on0055.outbound.protection.outlook.com ([65.55.169.55]:50586
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752124AbbGQD6M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jul 2015 23:58:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/16/15, 1:04 AM, sfeldma@gmail.com wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
->
-> Just before queuing skb for xmit on port, check if skb has been marked by
-> switchdev port driver as already fordwarded by device.  If so, drop skb.  A
-> non-zero skb->offload_fwd_mark field is set by the switchdev port
-> driver/device on ingress to indicate the skb has already been forwarded by
-> the device to egress ports with matching dev->skb_mark.  The switchdev port
-> driver would assign a non-zero dev->skb_mark for each device port netdev
-typo: dev->offload_fwd_mark
-> during registration, for example.
->
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
 
-Thanks scott!
+Teranetics TN2020 is compliant with IEEE 802.3an 10 Gigabit.
+
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+---
+ drivers/net/phy/Kconfig      |   5 ++
+ drivers/net/phy/Makefile     |   1 +
+ drivers/net/phy/teranetics.c | 128 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 134 insertions(+)
+ create mode 100644 drivers/net/phy/teranetics.c
+
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index cf18940..a8225c5 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -54,6 +54,11 @@ config VITESSE_PHY
+         ---help---
+           Currently supports the vsc8244
+ 
++config TERANETICS_PHY
++        tristate "Drivers for the Teranetics PHYs"
++        ---help---
++          Currently supports the Teranetics TN2020
++
+ config SMSC_PHY
+ 	tristate "Drivers for SMSC PHYs"
+ 	---help---
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index fcc25a0..16aac1c 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -9,6 +9,7 @@ obj-$(CONFIG_CICADA_PHY)	+= cicada.o
+ obj-$(CONFIG_LXT_PHY)		+= lxt.o
+ obj-$(CONFIG_QSEMI_PHY)		+= qsemi.o
+ obj-$(CONFIG_SMSC_PHY)		+= smsc.o
++obj-$(CONFIG_TERANETICS_PHY)	+= teranetics.o
+ obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
+ obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
+ obj-$(CONFIG_BCM63XX_PHY)	+= bcm63xx.o
+diff --git a/drivers/net/phy/teranetics.c b/drivers/net/phy/teranetics.c
+new file mode 100644
+index 0000000..7dcb5aa
+--- /dev/null
++++ b/drivers/net/phy/teranetics.c
+@@ -0,0 +1,128 @@
++/*
++ * Driver for Teranetics PHY
++ *
++ * Author: Shaohui Xie <Shaohui.Xie@freescale.com>
++ *
++ * Copyright 2015 Freescale Semiconductor, Inc.
++ *
++ * This file is licensed under the terms of the GNU General Public License
++ * version 2.  This program is licensed "as is" without any warranty of any
++ * kind, whether express or implied.
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mii.h>
++#include <linux/ethtool.h>
++#include <linux/mdio.h>
++#include <linux/phy.h>
++
++MODULE_DESCRIPTION("Teranetics PHY driver");
++MODULE_AUTHOR("Shaohui Xie <Shaohui.Xie@freescale.com>");
++MODULE_LICENSE("GPL v2");
++
++#define PHY_ID_TN2020	0x00a19410
++#define MDIO_PHYXS_LNSTAT_SYNC0	0x0001
++#define MDIO_PHYXS_LNSTAT_SYNC1	0x0002
++#define MDIO_PHYXS_LNSTAT_SYNC2	0x0004
++#define MDIO_PHYXS_LNSTAT_SYNC3	0x0008
++#define MDIO_PHYXS_LNSTAT_ALIGN 0x1000
++
++#define MDIO_PHYXS_LANE_READY	(MDIO_PHYXS_LNSTAT_SYNC0 | \
++				MDIO_PHYXS_LNSTAT_SYNC1 | \
++				MDIO_PHYXS_LNSTAT_SYNC2 | \
++				MDIO_PHYXS_LNSTAT_SYNC3 | \
++				MDIO_PHYXS_LNSTAT_ALIGN)
++
++static int teranetics_config_init(struct phy_device *phydev)
++{
++	phydev->supported = SUPPORTED_10000baseT_Full;
++	phydev->advertising = SUPPORTED_10000baseT_Full;
++
++	return 0;
++}
++
++static int teranetics_soft_reset(struct phy_device *phydev)
++{
++	return 0;
++}
++
++static int teranetics_aneg_done(struct phy_device *phydev)
++{
++	int reg;
++
++	reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
++	return (reg < 0) ? reg : (reg & BMSR_ANEGCOMPLETE);
++}
++
++static int teranetics_config_aneg(struct phy_device *phydev)
++{
++	return 0;
++}
++
++static int teranetics_read_status(struct phy_device *phydev)
++{
++	int reg;
++
++	phydev->link = 1;
++
++	phydev->speed = SPEED_10000;
++	phydev->duplex = DUPLEX_FULL;
++
++	if (!phy_read_mmd(phydev, MDIO_MMD_VEND1, 93)) {
++		reg = phy_read_mmd(phydev, MDIO_MMD_PHYXS, MDIO_PHYXS_LNSTAT);
++		if (reg < 0 ||
++		    !((reg & MDIO_PHYXS_LANE_READY) == MDIO_PHYXS_LANE_READY)) {
++			phydev->link = 0;
++			return 0;
++		}
++
++		reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
++		if (reg < 0 || !(reg & MDIO_STAT1_LSTATUS))
++			phydev->link = 0;
++	}
++
++	return 0;
++}
++
++static int teranetics_match_phy_device(struct phy_device *phydev)
++{
++	return phydev->c45_ids.device_ids[3] == PHY_ID_TN2020;
++}
++
++static struct phy_driver teranetics_driver[] = {
++{
++	.phy_id		= PHY_ID_TN2020,
++	.phy_id_mask	= 0xffffffff,
++	.name		= "Teranetics TN2020",
++	.soft_reset	= teranetics_soft_reset,
++	.aneg_done	= teranetics_aneg_done,
++	.config_init    = teranetics_config_init,
++	.config_aneg    = teranetics_config_aneg,
++	.read_status	= teranetics_read_status,
++	.match_phy_device = teranetics_match_phy_device,
++	.driver		= { .owner = THIS_MODULE,},
++},
++};
++
++static int __init teranetics_init(void)
++{
++	return phy_drivers_register(teranetics_driver,
++				    ARRAY_SIZE(teranetics_driver));
++}
++
++static void __exit teranetics_exit(void)
++{
++	return phy_drivers_unregister(teranetics_driver,
++				      ARRAY_SIZE(teranetics_driver));
++}
++
++module_init(teranetics_init);
++module_exit(teranetics_exit);
++
++static struct mdio_device_id __maybe_unused teranetics_tbl[] = {
++	{ PHY_ID_TN2020, 0xffffffff },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(mdio, teranetics_tbl);
+-- 
+2.1.0.27.g96db324
