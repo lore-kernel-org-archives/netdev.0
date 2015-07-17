@@ -1,177 +1,119 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next] net: fib: use fib result when zero-length prefix aliases exist
-Date: Fri, 17 Jul 2015 17:17:28 +0200
-Message-ID: <1437146248-21311-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:58991 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756760AbbGQPRu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 11:17:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH net-next 1/1] hv_netvsc: Wait for sub-channels to be
+ processed during probe
+Date: Fri, 17 Jul 2015 15:33:04 +0000
+Message-ID: <BY2PR0301MB1654D90488532EDD2318B7B3A0980@BY2PR0301MB1654.namprd03.prod.outlook.com>
+References: <1437074222-13020-1-git-send-email-kys@microsoft.com>
+ <4fd650437f864cf2a58e8334253f5dcd@SIXPR30MB031.064d.mgd.msft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Dexuan Cui <decui@microsoft.com>, "davem@davemloft.net"
+ <davem@davemloft.net>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "olaf@aepfle.de" <olaf@aepfle.de>, "apw@canonical.com" <apw@canonical.com>,
+ "jasowang@redhat.com" <jasowang@redhat.com>, "vkuznets@redhat.com"
+ <vkuznets@redhat.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <4fd650437f864cf2a58e8334253f5dcd@SIXPR30MB031.064d.mgd.msft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-default route selection is not deterministic when TOS keys are used:
 
-ip route del default
 
-ip route add tos 0x00 via 10.2.100.100
-ip route add tos 0x04 via 10.2.100.101
-ip route add tos 0x08 via 10.2.100.102
-ip route add tos 0x0C via 10.2.100.103
-ip route add tos 0x10 via 10.2.100.104
+> -----Original Message-----
+> From: Dexuan Cui
+> Sent: Friday, July 17, 2015 3:01 AM
+> To: KY Srinivasan; davem@davemloft.net; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
+> apw@canonical.com; jasowang@redhat.com; vkuznets@redhat.com
+> Cc: KY Srinivasan
+> Subject: RE: [PATCH net-next 1/1] hv_netvsc: Wait for sub-channels to be
+> processed during probe
+> 
+> > From: K. Y. Srinivasan
+> > Sent: Friday, July 17, 2015 3:17
+> > Subject: [PATCH net-next 1/1] hv_netvsc: Wait for sub-channels to be
+> processed
+> > during probe
+> > diff --git a/drivers/net/hyperv/hyperv_net.h
+> b/drivers/net/hyperv/hyperv_net.h
+> > ...
+> > @@ -1116,6 +1127,9 @@ int rndis_filter_device_add(struct hv_device
+> *dev,
+> >  	num_possible_rss_qs = cpumask_weight(node_cpu_mask);
+> >  	net_device->num_chn = min(num_possible_rss_qs, num_rss_qs);
+> >
+> > +	num_rss_qs = net_device->num_chn - 1;
+> > +	net_device->num_sc_offered = num_rss_qs;
+> > +
+> >  	if (net_device->num_chn == 1)
+> >  		goto out;
+> >
+> > @@ -1157,11 +1171,22 @@ int rndis_filter_device_add(struct hv_device
+> *dev,
+> >
+> >  	ret = rndis_filter_set_rss_param(rndis_device, net_device-
+> >num_chn);
+> >
+> > +	/*
+> > +	 * Wait for the host to send us the sub-channel offers.
+> > +	 */
+> > +	spin_lock_irqsave(&net_device->sc_lock, flags);
+> > +	sc_delta = net_device->num_chn - 1 - num_rss_qs;
+> > +	net_device->num_sc_offered -= sc_delta;
+> 
+> Hi KY,
+> IMO here the "-= " should be "+="?
+> 
+> I think sc_delta is usually <= 0, meaning the host may allocate less
+> subchannels than
+> we expect.
+> With "-=", net_device->num_sc_offered can become bigger -- this doesn't
+> seem correct.
+We control how many sub-channels we want the host to offer (say sc_requested). Based on this
+number we begin to track how many have actually been processed - we decrement sc_requested
+each time a sub-channel offer is processed. If the host were to actually offer all that we have requested,
+then checking for sc_requested to be zero is sufficient to ensure that we have processed all the
+potentially in-flight sub-channels. However, the host  may choose to offer less than what we had asked for
+and the variable "delta" is tracking this difference. Since we are counting down from what we had asked for
+we have to subtract "delta" for proper accounting.
+  
+> 
+> Why not use
+> "net_device->num_sc_offered = net_device->num_chn - 1;" directly?
+> At this point, net_device->num_chn has been the number of the actual
+> channels.
 
-[ i.e. 5 routes with prefix length 0, differentiated via TOS key ]
+I am not sure what the question here is. num_sc_offered is initialized to the number we
+are going to ask and this is the number that will be decremented each time a sub-channel 
+is processed. Since the host may decide to offer us less than what we had asked and some 
+sub-channels may have already been processed (num_sc_offerred decremented accordingly)
+by the time we discover that the host has offered us less than what we asked for, we adjust
+num_sc_offered accordingly.
 
-ip route get 10.3.1.1 tos 0x4
--> 10.2.100.101
-ip route get 10.3.1.1 tos 0x8
--> 10.2.100.102
-ip route get tos 0x0C
--> 10.2.100.103
+> 
+> 
+> > +	spin_unlock_irqrestore(&net_device->sc_lock, flags);
+> > +
+> > +	if (net_device->num_sc_offered != 0)
+> > +		wait_for_completion(&net_device->channel_init_wait);
+> 
+> BTW, I also tested the patch and I can confirm the panic I saw disappeared
+> with the patch.
 
-But for 0x10, we'll get round-robin results among all the aliases.
-Repeated queries return .100, 101, 102, etc. in turn.
+Thank you.
 
-This behaviour is not new  -- fib_select_default can be traced back to
-fn_hash_select_default in CVS history.
-
-Routing cache made 'round-robin' behaviour less visible.
-
-This changes fib_select_default to not change the FIB chosen result EXCEPT
-if this nexthop appears to be unreachable.
-
-fib_detect_death() logic is reversed -- we consider a nexthop 'dead' only
-if it has a neigh entry in unreachable state.
-
-Only then we search fib_aliases for an alternative and use one of these in
-a round-robin fashion.  If all are believed to be unreachable, no change is
-made and fib-chosen nh_gw is used.
-
-Reported-by: Hagen Paul Pfeifer <hagen@jauu.net>
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/ipv4/fib_semantics.c | 71 ++++++++++++++++++++++++------------------------
- 1 file changed, 36 insertions(+), 35 deletions(-)
-
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index c7358ea..83b485b 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -410,28 +410,24 @@ errout:
- 		rtnl_set_sk_err(info->nl_net, RTNLGRP_IPV4_ROUTE, err);
- }
- 
--static int fib_detect_death(struct fib_info *fi, int order,
--			    struct fib_info **last_resort, int *last_idx,
--			    int dflt)
-+static bool fib_nud_is_unreach(const struct fib_info *fi)
- {
- 	struct neighbour *n;
- 	int state = NUD_NONE;
- 
--	n = neigh_lookup(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
--	if (n) {
-+	local_bh_disable();
-+
-+	n = __neigh_lookup_noref(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
-+	if (n)
- 		state = n->nud_state;
--		neigh_release(n);
--	}
--	if (state == NUD_REACHABLE)
--		return 0;
--	if ((state & NUD_VALID) && order != dflt)
--		return 0;
--	if ((state & NUD_VALID) ||
--	    (*last_idx < 0 && order > dflt)) {
--		*last_resort = fi;
--		*last_idx = order;
--	}
--	return 1;
-+
-+	local_bh_enable();
-+
-+	/* Caller might be able to find alternate (reachable) nexthop */
-+	if (state & (NUD_INCOMPLETE | NUD_FAILED))
-+		return true;
-+
-+	return false;
- }
- 
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
-@@ -1204,12 +1200,17 @@ int fib_sync_down_dev(struct net_device *dev, unsigned long event)
- /* Must be invoked inside of an RCU protected region.  */
- void fib_select_default(struct fib_result *res)
- {
--	struct fib_info *fi = NULL, *last_resort = NULL;
- 	struct hlist_head *fa_head = res->fa_head;
-+	struct fib_info *last_resort = NULL;
- 	struct fib_table *tb = res->table;
- 	int order = -1, last_idx = -1;
- 	struct fib_alias *fa;
-+	bool unreach = fib_nud_is_unreach(res->fi);
- 
-+	if (likely(!unreach))
-+		return;
-+
-+	/* attempt to pick another nexthop */
- 	hlist_for_each_entry_rcu(fa, fa_head, fa_list) {
- 		struct fib_info *next_fi = fa->fa_info;
- 
-@@ -1223,33 +1224,33 @@ void fib_select_default(struct fib_result *res)
- 		    next_fi->fib_nh[0].nh_scope != RT_SCOPE_LINK)
- 			continue;
- 
-+		order++;
-+
-+		if (next_fi == res->fi) /* already tested, not reachable */
-+			continue;
-+
- 		fib_alias_accessed(fa);
- 
--		if (!fi) {
--			if (next_fi != res->fi)
-+		unreach = fib_nud_is_unreach(next_fi);
-+		if (unreach)
-+			continue;
-+
-+		/* try to round-robin among all fa_aliases in case
-+		 * res->fi nexthop is unreachable.
-+		 */
-+		if (last_idx < 0 || order > tb->tb_default) {
-+			last_resort = next_fi;
-+			last_idx = order;
-+			if (order > tb->tb_default)
- 				break;
--		} else if (!fib_detect_death(fi, order, &last_resort,
--					     &last_idx, tb->tb_default)) {
--			fib_result_assign(res, fi);
--			tb->tb_default = order;
--			goto out;
- 		}
--		fi = next_fi;
--		order++;
- 	}
- 
--	if (order <= 0 || !fi) {
-+	if (order < 0) {
- 		tb->tb_default = -1;
- 		goto out;
- 	}
- 
--	if (!fib_detect_death(fi, order, &last_resort, &last_idx,
--				tb->tb_default)) {
--		fib_result_assign(res, fi);
--		tb->tb_default = order;
--		goto out;
--	}
--
- 	if (last_idx >= 0)
- 		fib_result_assign(res, last_resort);
- 	tb->tb_default = last_idx;
--- 
-2.0.5
+K. Y
+> 
+> -- Dexuan
