@@ -1,115 +1,172 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/3] fixed_phy: handle link-down case
-Date: Fri, 17 Jul 2015 15:01:53 -0700
-Message-ID: <55A97B51.3030508@gmail.com>
-References: <55A7C45F.1070501@list.ru> <55A7C49E.2020803@list.ru> <55A83D86.2030505@gmail.com> <55A8E64A.3040009@list.ru> <55A94E5A.9010104@gmail.com> <55A95F83.8010900@list.ru>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v2 -next] net: fib: use fib result when zero-length prefix
+ aliases exist
+Date: Sat, 18 Jul 2015 01:47:46 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1507180045330.2410@ja.home.ssi.bg>
+References: <1437154621-18180-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>
-To: Stas Sergeev <stsp@list.ru>, netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55A95F83.8010900@list.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:59876 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751190AbbGQWsI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jul 2015 18:48:08 -0400
+In-Reply-To: <1437154621-18180-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 17/07/15 13:03, Stas Sergeev wrote:
-> 17.07.2015 21:50, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->> On 17/07/15 04:26, Stas Sergeev wrote:
->>> 17.07.2015 02:25, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>>> On 16/07/15 07:50, Stas Sergeev wrote:
->>>>> Currently fixed_phy driver recognizes only the link-up state.
->>>>> This simple patch adds an implementation of link-down state.
->>>>> It fixes the status registers when link is down, and also allows
->>>>> to register the fixed-phy with link down without specifying the s=
-peed.
->>>> This patch still breaks my setups here, e.g: drivers/net/dsa/bcm_s=
-f2.c,
->>>> but I will look into it.
->>>>
->>>> Do we really need this for now for your two other patches to work
->>>> properly, or is it just nicer to have?
->>> Yes, absolutely.
->>> Otherwise registering fixed phy will return -EINVAL
->>> because of the missing link speed (even though the link
->>> is down).
->> Ok, I see the problem that you have now. Arguably you could say that
->> according to the fixed-link binding, speed needs to be specified and=
- the
->> code correctly errors out with such an error if you do not specify i=
-t. I
-> Aren't you missing the fact that .link=3D0?
-> I think what you say is true only for the link-up case, no?
-> .speed=3D=3D0 is valid for link-down IMHO: no link - zero speed.
 
-Pardon me being very dense and stupid here, but your problem is that th=
-e
-"speed" parameter is not specified in your DT, and we end-up returning
--EINVAL from of_phy_register_fixed_link(), is that what is happening?
+	Hello,
 
-And even if we silenced that error, we would end-up calling
-fixed_phy_add() which would also return -EINVAL because then, we would
-have status.link =3D 1, but no speed. So I better understand what is it
-that you are after here, and that is also a broken Device Tree, is not
-it? So this was the reason why in earlier versions of the patchset you
-ended-up with a given speed which would make us pass this condition, ri=
-ght?
+On Fri, 17 Jul 2015, Florian Westphal wrote:
 
->=20
->> So is different is that I use a link_update callback, and so we rely=
- on
->> at least one call of this function to initialize the hardware in
->> drivers/net/dsa/bcm_sf2.c
-> Do you mean this?:
-> core_writel(priv, reg, CORE_STS_OVERRIDE_GMIIP_PORT(port));
-> Maybe just moving the HW initialization bits to some init func
-> will be a quick fix?
+> default route selection is not deterministic when TOS keys are used:
 
-Well, the problem with that is that to know how we should be configurin=
-g
-the hardware in the adjust_link function, we need to run the link_updat=
-e
-function first. By default, there is no auto-negotiation on these fixed
-links at all, so we cannot rely on any value being programmed other tha=
-n
-those specified in DT.
+	In fact, TOS should be matched just like in
+fib_table_lookup but it is not.
 
->=20
->>   for this to work, after that, the hardware
->> reflects the fixed link parameters we configured, and we feed the
->> fixed_phy_status information from the hardware directly.
->>
->> >From there I see two different ways to fix this:
->>
->> - we ignore the fixed_phy_update_regs return value in fixed_phy_add(=
-),
->> but that will make us avoid doing verification on the speed, which i=
-s
->> not so great, but is essentially what your patch does anyway
-> No, it does not. All it does is to allow no speed _when link is down_=
-,
-> which is IMHO a very logical fix. The speed checks for the link-up
-> case are all still there.
->=20
->> - we update the use of the fixed PHY link_update in drivers using it
-> IMHO just 2 drivers: bcmii.c and bcm_sf2.c, and the change
-> is likely trivial, although of course I am not sure in details.
+> This changes fib_select_default to not change the FIB chosen result EXCEPT
+> if this nexthop appears to be unreachable.
+> 
+> fib_detect_death() logic is reversed -- we consider a nexthop 'dead' only
+> if it has a neigh entry in unreachable state.
 
-The changes are not trivial, it took a while to get that logic done
-correctly, and this would increase the number of patches to backport to
--stable, which is not ideal.
+	The only difference I see is that NUD_NODE is
+declared by fib_nud_is_unreach() as reachable. May be
+it is better, for example, new route in NUD_NONE state
+will be tried for a while, until its state is determined.
 
->=20
->>   and
->> convert them to use fixed_phy_update_state instead, which can take s=
-ome
->> time and effort to convert
-> Maybe just move the initialization bits out of the link_update
-> callback, but still use the callback for now? Should be simple, no?
+> +	if (likely(!fib_nud_is_unreach(res->fi)))
+> +		return;
 
-Let me see if I have a smart idea other the weekend on how to do this.
---=20
-=46lorian
+	here first is unreachable...
+
+> +
+> +	/* attempt to pick another nexthop */
+>  	hlist_for_each_entry_rcu(fa, fa_head, fa_list) {
+>  		struct fib_info *next_fi = fa->fa_info;
+>  
+> @@ -1223,38 +1223,30 @@ void fib_select_default(struct fib_result *res)
+>  		    next_fi->fib_nh[0].nh_scope != RT_SCOPE_LINK)
+>  			continue;
+>  
+> +		order++;
+> +
+> +		if (next_fi == res->fi) /* already tested, not reachable */
+> +			continue;
+> +
+>  		fib_alias_accessed(fa);
+>  
+> -		if (!fi) {
+> -			if (next_fi != res->fi)
+> +		if (fib_nud_is_unreach(next_fi))
+
+			all others are unreachable too...
+
+> +			continue;
+> +
+> +		/* try to round-robin among all fa_aliases in case
+> +		 * res->fi nexthop is unreachable.
+
+	round-robin only among reachables? But original algorithm
+can round-robin among unreachables. State will not change
+without trying some packets to unreachable dests.
+
+> +		 */
+> +		if (fi == NULL || order > tb->tb_default) {
+> +			fi = next_fi;
+> +			fi_idx = order;
+> +			if (order > tb->tb_default)
+>  				break;
+
+	1=unreac, 2=reach, 3=tb_default(reach), 4=reach.
+We like 2 (fi == NULL), why we continue after 2, skip
+default 3 (because order > tb->tb_default is false) and
+finally select 4 (order=4 > tb->tb_default=3)?
+
+> +	tb->tb_default = fi_idx;
+
+	And we do not round-robin if all look unreachable?
+
+	I'm not yet sure if fib_detect_death logic should
+be changed. What is strange is that we can switch between
+two NUD_VALID entries...
+
+	The __neigh_lookup_noref usage looks ok.
+Not sure about the NUD_NODE change, may be it is ok to
+be added in fib_detect_death. As for fib_select_default,
+may be only change like below is needed. It additionally
+restricts the alternative routes to same prefix, same TOS.
+The TOS restriction was missing from long time but the
+prefix check was lost recently when fa_head was changed
+to contain aliases from different prefixes.
+
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 49c142b..0b1af68 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -290,7 +290,7 @@ __be32 fib_compute_spec_dst(struct sk_buff *skb);
+ int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
+ 			u8 tos, int oif, struct net_device *dev,
+ 			struct in_device *idev, u32 *itag);
+-void fib_select_default(struct fib_result *res);
++void fib_select_default(const struct flowi4 *flp, struct fib_result *res);
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+ static inline int fib_num_tclassid_users(struct net *net)
+ {
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index c7358ea..088b2a5 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -1202,21 +1202,29 @@ int fib_sync_down_dev(struct net_device *dev, unsigned long event)
+ }
+ 
+ /* Must be invoked inside of an RCU protected region.  */
+-void fib_select_default(struct fib_result *res)
++void fib_select_default(const struct flowi4 *flp, struct fib_result *res)
+ {
+ 	struct fib_info *fi = NULL, *last_resort = NULL;
+ 	struct hlist_head *fa_head = res->fa_head;
+ 	struct fib_table *tb = res->table;
++	u8 slen = 32 - res->prefixlen;
+ 	int order = -1, last_idx = -1;
+ 	struct fib_alias *fa;
+ 
+ 	hlist_for_each_entry_rcu(fa, fa_head, fa_list) {
+ 		struct fib_info *next_fi = fa->fa_info;
+ 
++		if (fa->fa_slen != slen)
++			continue;
+ 		if (next_fi->fib_scope != res->scope ||
+ 		    fa->fa_type != RTN_UNICAST)
+ 			continue;
+ 
++		if (fa->tb_id != tb->tb_id)
++			continue;
++		if (fa->fa_tos && fa->fa_tos != flp->flowi4_tos)
++			continue;
++
+ 		if (next_fi->fib_priority > res->fi->fib_priority)
+ 			break;
+ 		if (!next_fi->fib_nh[0].nh_gw ||
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index d0362a2..e681b85 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2176,7 +2176,7 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
+ 	if (!res.prefixlen &&
+ 	    res.table->tb_num_default > 1 &&
+ 	    res.type == RTN_UNICAST && !fl4->flowi4_oif)
+-		fib_select_default(&res);
++		fib_select_default(fl4, &res);
+ 
+ 	if (!fl4->saddr)
+ 		fl4->saddr = FIB_RES_PREFSRC(net, res);
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
