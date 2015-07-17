@@ -1,324 +1,212 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 16/22] route: Per route IP tunnel metadata via lightweight tunnel
-Date: Fri, 17 Jul 2015 14:55:35 +0200
-Message-ID: <8f6d80b8479e4af7eb3ba1f73e65f41df228c96d.1437137396.git.tgraf@suug.ch>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: [PATCH net-next 03/22] ipv4: support for fib route
+	lwtunnel encap attributes
+Date: Fri, 17 Jul 2015 14:55:22 +0200
+Message-ID: <425d63ff0095f043a49d2f4fe218210ef03f947a.1437137396.git.tgraf@suug.ch>
 References: <cover.1437137396.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: roopa@cumulusnetworks.com, rshearma@brocade.com,
-	ebiederm@xmission.com, hannes@stressinduktion.org,
-	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
-	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
-	jiri@resnulli.us, marcelo.leitner@gmail.com,
-	stephen@networkplumber.org, jpettit@nicira.com, kaber@trash.net,
-	simon.horman@netronome.com, joestringer@nicira.com, ja@ssi.bg,
-	ast@plumgrid.com, weichunc@plumgrid.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:49631 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758016AbbGQM4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 08:56:05 -0400
-In-Reply-To: <cover.1437137396.git.tgraf@suug.ch>
-In-Reply-To: <cover.1437137396.git.tgraf@suug.ch>
-References: <cover.1437137396.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, rshearma-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+ hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org,
+ edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+ simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, ja-FgGsKACvmQM@public.gmane.org,
+ ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, weichunc-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <cover.1437137396.git.tgraf-G/eBtMaohhA@public.gmane.org>
+In-Reply-To: <cover.1437137396.git.tgraf-G/eBtMaohhA@public.gmane.org>
+References: <cover.1437137396.git.tgraf-G/eBtMaohhA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-This introduces a new IP tunnel lightweight tunnel type which allows
-to specify IP tunnel instructions per route. Only IPv4 is supported
-at this point.
-
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- drivers/net/vxlan.c            |  10 +++-
- include/net/dst_metadata.h     |  12 ++++-
- include/net/ip_tunnels.h       |   7 ++-
- include/uapi/linux/lwtunnel.h  |   1 +
- include/uapi/linux/rtnetlink.h |  15 ++++++
- net/ipv4/ip_tunnel_core.c      | 114 +++++++++++++++++++++++++++++++++++++++++
- net/ipv4/route.c               |   2 +-
- net/openvswitch/vport.h        |   1 +
- 8 files changed, 157 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 994d89c..a350afb 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1935,7 +1935,7 @@ static void vxlan_encap_bypass(struct sk_buff *skb, struct vxlan_dev *src_vxlan,
- static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 			   struct vxlan_rdst *rdst, bool did_rsc)
- {
--	struct ip_tunnel_info *info = skb_tunnel_info(skb);
-+	struct ip_tunnel_info *info;
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 	struct sock *sk = vxlan->vn_sock->sock->sk;
- 	struct rtable *rt = NULL;
-@@ -1952,6 +1952,9 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	int err;
- 	u32 flags = vxlan->flags;
- 
-+	/* FIXME: Support IPv6 */
-+	info = skb_tunnel_info(skb, AF_INET);
-+
- 	if (rdst) {
- 		dst_port = rdst->remote_port ? rdst->remote_port : vxlan->dst_port;
- 		vni = rdst->remote_vni;
-@@ -2141,12 +2144,15 @@ tx_free:
- static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
--	const struct ip_tunnel_info *info = skb_tunnel_info(skb);
-+	const struct ip_tunnel_info *info;
- 	struct ethhdr *eth;
- 	bool did_rsc = false;
- 	struct vxlan_rdst *rdst, *fdst = NULL;
- 	struct vxlan_fdb *f;
- 
-+	/* FIXME: Support IPv6 */
-+	info = skb_tunnel_info(skb, AF_INET);
-+
- 	skb_reset_mac_header(skb);
- 	eth = eth_hdr(skb);
- 
-diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
-index e843937..7b03068 100644
---- a/include/net/dst_metadata.h
-+++ b/include/net/dst_metadata.h
-@@ -23,13 +23,23 @@ static inline struct metadata_dst *skb_metadata_dst(struct sk_buff *skb)
- 	return NULL;
- }
- 
--static inline struct ip_tunnel_info *skb_tunnel_info(struct sk_buff *skb)
-+static inline struct ip_tunnel_info *skb_tunnel_info(struct sk_buff *skb,
-+						     int family)
- {
- 	struct metadata_dst *md_dst = skb_metadata_dst(skb);
-+	struct rtable *rt;
- 
- 	if (md_dst)
- 		return &md_dst->u.tun_info;
- 
-+	switch (family) {
-+	case AF_INET:
-+		rt = (struct rtable *)skb_dst(skb);
-+		if (rt && rt->rt_lwtstate)
-+			return lwt_tun_info(rt->rt_lwtstate);
-+		break;
-+	}
-+
- 	return NULL;
- }
- 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index d11530f..0b7e18c 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -9,9 +9,9 @@
- #include <net/dsfield.h>
- #include <net/gro_cells.h>
- #include <net/inet_ecn.h>
--#include <net/ip.h>
- #include <net/netns/generic.h>
- #include <net/rtnetlink.h>
-+#include <net/lwtunnel.h>
- 
- #if IS_ENABLED(CONFIG_IPV6)
- #include <net/ipv6.h>
-@@ -298,6 +298,11 @@ static inline void *ip_tunnel_info_opts(struct ip_tunnel_info *info, size_t n)
- 	return info + 1;
- }
- 
-+static inline struct ip_tunnel_info *lwt_tun_info(struct lwtunnel_state *lwtstate)
-+{
-+	return (struct ip_tunnel_info *)lwtstate->data;
-+}
-+
- #endif /* CONFIG_INET */
- 
- #endif /* __NET_IP_TUNNELS_H */
-diff --git a/include/uapi/linux/lwtunnel.h b/include/uapi/linux/lwtunnel.h
-index aa611d9..31377bb 100644
---- a/include/uapi/linux/lwtunnel.h
-+++ b/include/uapi/linux/lwtunnel.h
-@@ -6,6 +6,7 @@
- enum lwtunnel_encap_types {
- 	LWTUNNEL_ENCAP_NONE,
- 	LWTUNNEL_ENCAP_MPLS,
-+	LWTUNNEL_ENCAP_IP,
- 	__LWTUNNEL_ENCAP_MAX,
- };
- 
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 0d3d3cc..47d24cb 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -286,6 +286,21 @@ enum rt_class_t {
- 
- /* Routing message attributes */
- 
-+enum ip_tunnel_t {
-+	IP_TUN_UNSPEC,
-+	IP_TUN_ID,
-+	IP_TUN_DST,
-+	IP_TUN_SRC,
-+	IP_TUN_TTL,
-+	IP_TUN_TOS,
-+	IP_TUN_SPORT,
-+	IP_TUN_DPORT,
-+	IP_TUN_FLAGS,
-+	__IP_TUN_MAX,
-+};
-+
-+#define IP_TUN_MAX (__IP_TUN_MAX - 1)
-+
- enum rtattr_type_t {
- 	RTA_UNSPEC,
- 	RTA_DST,
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 6a51a71..025b76e 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -190,3 +190,117 @@ struct rtnl_link_stats64 *ip_tunnel_get_stats64(struct net_device *dev,
- 	return tot;
- }
- EXPORT_SYMBOL_GPL(ip_tunnel_get_stats64);
-+
-+static const struct nla_policy ip_tun_policy[IP_TUN_MAX + 1] = {
-+	[IP_TUN_ID]		= { .type = NLA_U64 },
-+	[IP_TUN_DST]		= { .type = NLA_U32 },
-+	[IP_TUN_SRC]		= { .type = NLA_U32 },
-+	[IP_TUN_TTL]		= { .type = NLA_U8 },
-+	[IP_TUN_TOS]		= { .type = NLA_U8 },
-+	[IP_TUN_SPORT]		= { .type = NLA_U16 },
-+	[IP_TUN_DPORT]		= { .type = NLA_U16 },
-+	[IP_TUN_FLAGS]		= { .type = NLA_U16 },
-+};
-+
-+static int ip_tun_build_state(struct net_device *dev, struct nlattr *attr,
-+			      struct lwtunnel_state **ts)
-+{
-+	struct ip_tunnel_info *tun_info;
-+	struct lwtunnel_state *new_state;
-+	struct nlattr *tb[IP_TUN_MAX + 1];
-+	int err;
-+
-+	err = nla_parse_nested(tb, IP_TUN_MAX, attr, ip_tun_policy);
-+	if (err < 0)
-+		return err;
-+
-+	new_state = lwtunnel_state_alloc(sizeof(*tun_info));
-+	if (!new_state)
-+		return -ENOMEM;
-+
-+	new_state->type = LWTUNNEL_ENCAP_IP;
-+
-+	tun_info = lwt_tun_info(new_state);
-+
-+	if (tb[IP_TUN_ID])
-+		tun_info->key.tun_id = nla_get_u64(tb[IP_TUN_ID]);
-+
-+	if (tb[IP_TUN_DST])
-+		tun_info->key.ipv4_dst = nla_get_be32(tb[IP_TUN_DST]);
-+
-+	if (tb[IP_TUN_SRC])
-+		tun_info->key.ipv4_src = nla_get_be32(tb[IP_TUN_SRC]);
-+
-+	if (tb[IP_TUN_TTL])
-+		tun_info->key.ipv4_ttl = nla_get_u8(tb[IP_TUN_TTL]);
-+
-+	if (tb[IP_TUN_TOS])
-+		tun_info->key.ipv4_tos = nla_get_u8(tb[IP_TUN_TOS]);
-+
-+	if (tb[IP_TUN_SPORT])
-+		tun_info->key.tp_src = nla_get_be16(tb[IP_TUN_SPORT]);
-+
-+	if (tb[IP_TUN_DPORT])
-+		tun_info->key.tp_dst = nla_get_be16(tb[IP_TUN_DPORT]);
-+
-+	if (tb[IP_TUN_FLAGS])
-+		tun_info->key.tun_flags = nla_get_u16(tb[IP_TUN_FLAGS]);
-+
-+	tun_info->mode = IP_TUNNEL_INFO_TX;
-+	tun_info->options = NULL;
-+	tun_info->options_len = 0;
-+
-+	*ts = new_state;
-+
-+	return 0;
-+}
-+
-+static int ip_tun_fill_encap_info(struct sk_buff *skb,
-+				  struct lwtunnel_state *lwtstate)
-+{
-+	struct ip_tunnel_info *tun_info = lwt_tun_info(lwtstate);
-+
-+	if (nla_put_u64(skb, IP_TUN_ID, tun_info->key.tun_id) ||
-+	    nla_put_be32(skb, IP_TUN_DST, tun_info->key.ipv4_dst) ||
-+	    nla_put_be32(skb, IP_TUN_SRC, tun_info->key.ipv4_src) ||
-+	    nla_put_u8(skb, IP_TUN_TOS, tun_info->key.ipv4_tos) ||
-+	    nla_put_u8(skb, IP_TUN_TTL, tun_info->key.ipv4_ttl) ||
-+	    nla_put_u16(skb, IP_TUN_SPORT, tun_info->key.tp_src) ||
-+	    nla_put_u16(skb, IP_TUN_DPORT, tun_info->key.tp_dst) ||
-+	    nla_put_u16(skb, IP_TUN_FLAGS, tun_info->key.tun_flags))
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+static int ip_tun_encap_nlsize(struct lwtunnel_state *lwtstate)
-+{
-+	return nla_total_size(8)	/* IP_TUN_ID */
-+		+ nla_total_size(4)	/* IP_TUN_DST */
-+		+ nla_total_size(4)	/* IP_TUN_SRC */
-+		+ nla_total_size(1)	/* IP_TUN_TOS */
-+		+ nla_total_size(1)	/* IP_TUN_TTL */
-+		+ nla_total_size(2)	/* IP_TUN_SPORT */
-+		+ nla_total_size(2)	/* IP_TUN_DPORT */
-+		+ nla_total_size(2);	/* IP_TUN_FLAGS */
-+}
-+
-+static const struct lwtunnel_encap_ops ip_tun_lwt_ops = {
-+	.build_state = ip_tun_build_state,
-+	.fill_encap = ip_tun_fill_encap_info,
-+	.get_encap_size = ip_tun_encap_nlsize,
-+};
-+
-+static int __init ip_tunnel_core_init(void)
-+{
-+	lwtunnel_encap_add_ops(&ip_tun_lwt_ops, LWTUNNEL_ENCAP_IP);
-+
-+	return 0;
-+}
-+module_init(ip_tunnel_core_init);
-+
-+static void __exit ip_tunnel_core_exit(void)
-+{
-+	lwtunnel_encap_del_ops(&ip_tun_lwt_ops, LWTUNNEL_ENCAP_IP);
-+}
-+module_exit(ip_tunnel_core_exit);
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 931015c..2380208 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1693,7 +1693,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	   by fib_lookup.
- 	 */
- 
--	tun_info = skb_tunnel_info(skb);
-+	tun_info = skb_tunnel_info(skb, AF_INET);
- 	if (tun_info && tun_info->mode == IP_TUNNEL_INFO_RX)
- 		fl4.flowi4_tun_key.tun_id = tun_info->key.tun_id;
- 	skb_dst_drop(skb);
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index 4750fb6..75d6824 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -27,6 +27,7 @@
- #include <linux/skbuff.h>
- #include <linux/spinlock.h>
- #include <linux/u64_stats_sync.h>
-+#include <net/route.h>
- 
- #include "datapath.h"
- 
--- 
-2.4.3
+RnJvbTogUm9vcGEgUHJhYmh1IDxyb29wYUBjdW11bHVzbmV0d29ya3MuY29tPgoKVGhpcyBwYXRj
+aCBhZGRzIHN1cHBvcnQgaW4gaXB2NCBmaWIgZnVuY3Rpb25zIHRvIHBhcnNlIHVzZXIKcHJvdmlk
+ZWQgZW5jYXAgYXR0cmlidXRlcyBhbmQgYXR0YWNoIGVuY2FwIHN0YXRlIGRhdGEgdG8gZmliX25o
+CmFuZCBydGFibGUuCgpTaWduZWQtb2ZmLWJ5OiBSb29wYSBQcmFiaHUgPHJvb3BhQGN1bXVsdXNu
+ZXR3b3Jrcy5jb20+Ci0tLQogaW5jbHVkZS9uZXQvaXBfZmliLmggICAgIHwgIDUgKystCiBpbmNs
+dWRlL25ldC9yb3V0ZS5oICAgICAgfCAgMSArCiBuZXQvaXB2NC9maWJfZnJvbnRlbmQuYyAgfCAg
+OCArKysrCiBuZXQvaXB2NC9maWJfc2VtYW50aWNzLmMgfCA5NiArKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrKysrKysrKy0KIG5ldC9pcHY0L3JvdXRlLmMgICAgICAgICB8
+IDE2ICsrKysrKystCiA1IGZpbGVzIGNoYW5nZWQsIDEyMiBpbnNlcnRpb25zKCspLCA0IGRlbGV0
+aW9ucygtKQoKZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2lwX2ZpYi5oIGIvaW5jbHVkZS9uZXQv
+aXBfZmliLmgKaW5kZXggNDljMTQyYi4uNWUwMTk2MCAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQv
+aXBfZmliLmgKKysrIGIvaW5jbHVkZS9uZXQvaXBfZmliLmgKQEAgLTQ0LDcgKzQ0LDkgQEAgc3Ry
+dWN0IGZpYl9jb25maWcgewogCXUzMgkJCWZjX2Zsb3c7CiAJdTMyCQkJZmNfbmxmbGFnczsKIAlz
+dHJ1Y3QgbmxfaW5mbwkJZmNfbmxpbmZvOwotIH07CisJc3RydWN0IG5sYXR0cgkJKmZjX2VuY2Fw
+OworCXUxNgkJCWZjX2VuY2FwX3R5cGU7Cit9OwogCiBzdHJ1Y3QgZmliX2luZm87CiBzdHJ1Y3Qg
+cnRhYmxlOwpAQCAtODksNiArOTEsNyBAQCBzdHJ1Y3QgZmliX25oIHsKIAlzdHJ1Y3QgcnRhYmxl
+IF9fcmN1ICogX19wZXJjcHUgKm5oX3BjcHVfcnRoX291dHB1dDsKIAlzdHJ1Y3QgcnRhYmxlIF9f
+cmN1CSpuaF9ydGhfaW5wdXQ7CiAJc3RydWN0IGZuaGVfaGFzaF9idWNrZXQJX19yY3UgKm5oX2V4
+Y2VwdGlvbnM7CisJc3RydWN0IGx3dHVubmVsX3N0YXRlCSpuaF9sd3RzdGF0ZTsKIH07CiAKIC8q
+CmRpZmYgLS1naXQgYS9pbmNsdWRlL25ldC9yb3V0ZS5oIGIvaW5jbHVkZS9uZXQvcm91dGUuaApp
+bmRleCBmZTIyZDAzLi4yZDQ1ZjQxIDEwMDY0NAotLS0gYS9pbmNsdWRlL25ldC9yb3V0ZS5oCisr
+KyBiL2luY2x1ZGUvbmV0L3JvdXRlLmgKQEAgLTY2LDYgKzY2LDcgQEAgc3RydWN0IHJ0YWJsZSB7
+CiAKIAlzdHJ1Y3QgbGlzdF9oZWFkCXJ0X3VuY2FjaGVkOwogCXN0cnVjdCB1bmNhY2hlZF9saXN0
+CSpydF91bmNhY2hlZF9saXN0OworCXN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAgICpydF9sd3RzdGF0
+ZTsKIH07CiAKIHN0YXRpYyBpbmxpbmUgYm9vbCBydF9pc19pbnB1dF9yb3V0ZShjb25zdCBzdHJ1
+Y3QgcnRhYmxlICpydCkKZGlmZiAtLWdpdCBhL25ldC9pcHY0L2ZpYl9mcm9udGVuZC5jIGIvbmV0
+L2lwdjQvZmliX2Zyb250ZW5kLmMKaW5kZXggNmJiYzU0OS4uOWIyMDE5YyAxMDA2NDQKLS0tIGEv
+bmV0L2lwdjQvZmliX2Zyb250ZW5kLmMKKysrIGIvbmV0L2lwdjQvZmliX2Zyb250ZW5kLmMKQEAg
+LTU5MSw2ICs1OTEsOCBAQCBjb25zdCBzdHJ1Y3QgbmxhX3BvbGljeSBydG1faXB2NF9wb2xpY3lb
+UlRBX01BWCArIDFdID0gewogCVtSVEFfTUVUUklDU10JCT0geyAudHlwZSA9IE5MQV9ORVNURUQg
+fSwKIAlbUlRBX01VTFRJUEFUSF0JCT0geyAubGVuID0gc2l6ZW9mKHN0cnVjdCBydG5leHRob3Ap
+IH0sCiAJW1JUQV9GTE9XXQkJPSB7IC50eXBlID0gTkxBX1UzMiB9LAorCVtSVEFfRU5DQVBfVFlQ
+RV0JPSB7IC50eXBlID0gTkxBX1UxNiB9LAorCVtSVEFfRU5DQVBdCQk9IHsgLnR5cGUgPSBOTEFf
+TkVTVEVEIH0sCiB9OwogCiBzdGF0aWMgaW50IHJ0bV90b19maWJfY29uZmlnKHN0cnVjdCBuZXQg
+Km5ldCwgc3RydWN0IHNrX2J1ZmYgKnNrYiwKQEAgLTY1Niw2ICs2NTgsMTIgQEAgc3RhdGljIGlu
+dCBydG1fdG9fZmliX2NvbmZpZyhzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBza19idWZmICpza2Is
+CiAJCWNhc2UgUlRBX1RBQkxFOgogCQkJY2ZnLT5mY190YWJsZSA9IG5sYV9nZXRfdTMyKGF0dHIp
+OwogCQkJYnJlYWs7CisJCWNhc2UgUlRBX0VOQ0FQOgorCQkJY2ZnLT5mY19lbmNhcCA9IGF0dHI7
+CisJCQlicmVhazsKKwkJY2FzZSBSVEFfRU5DQVBfVFlQRToKKwkJCWNmZy0+ZmNfZW5jYXBfdHlw
+ZSA9IG5sYV9nZXRfdTE2KGF0dHIpOworCQkJYnJlYWs7CiAJCX0KIAl9CiAKZGlmZiAtLWdpdCBh
+L25ldC9pcHY0L2ZpYl9zZW1hbnRpY3MuYyBiL25ldC9pcHY0L2ZpYl9zZW1hbnRpY3MuYwppbmRl
+eCBjNzM1OGVhLi42NzU0YzY0IDEwMDY0NAotLS0gYS9uZXQvaXB2NC9maWJfc2VtYW50aWNzLmMK
+KysrIGIvbmV0L2lwdjQvZmliX3NlbWFudGljcy5jCkBAIC00Miw2ICs0Miw3IEBACiAjaW5jbHVk
+ZSA8bmV0L2lwX2ZpYi5oPgogI2luY2x1ZGUgPG5ldC9uZXRsaW5rLmg+CiAjaW5jbHVkZSA8bmV0
+L25leHRob3AuaD4KKyNpbmNsdWRlIDxuZXQvbHd0dW5uZWwuaD4KIAogI2luY2x1ZGUgImZpYl9s
+b29rdXAuaCIKIApAQCAtMjA4LDYgKzIwOSw3IEBAIHN0YXRpYyB2b2lkIGZyZWVfZmliX2luZm9f
+cmN1KHN0cnVjdCByY3VfaGVhZCAqaGVhZCkKIAljaGFuZ2VfbmV4dGhvcHMoZmkpIHsKIAkJaWYg
+KG5leHRob3BfbmgtPm5oX2RldikKIAkJCWRldl9wdXQobmV4dGhvcF9uaC0+bmhfZGV2KTsKKwkJ
+bHd0dW5uZWxfc3RhdGVfcHV0KG5leHRob3BfbmgtPm5oX2x3dHN0YXRlKTsKIAkJZnJlZV9uaF9l
+eGNlcHRpb25zKG5leHRob3BfbmgpOwogCQlydF9maWJpbmZvX2ZyZWVfY3B1cyhuZXh0aG9wX25o
+LT5uaF9wY3B1X3J0aF9vdXRwdXQpOwogCQlydF9maWJpbmZvX2ZyZWUoJm5leHRob3BfbmgtPm5o
+X3J0aF9pbnB1dCk7CkBAIC0yNjYsNiArMjY4LDcgQEAgc3RhdGljIGlubGluZSBpbnQgbmhfY29t
+cChjb25zdCBzdHJ1Y3QgZmliX2luZm8gKmZpLCBjb25zdCBzdHJ1Y3QgZmliX2luZm8gKm9maSkK
+ICNpZmRlZiBDT05GSUdfSVBfUk9VVEVfQ0xBU1NJRAogCQkgICAgbmgtPm5oX3RjbGFzc2lkICE9
+IG9uaC0+bmhfdGNsYXNzaWQgfHwKICNlbmRpZgorCQkgICAgbHd0dW5uZWxfY21wX2VuY2FwKG5o
+LT5uaF9sd3RzdGF0ZSwgb25oLT5uaF9sd3RzdGF0ZSkgfHwKIAkJICAgICgobmgtPm5oX2ZsYWdz
+IF4gb25oLT5uaF9mbGFncykgJiB+UlROSF9DT01QQVJFX01BU0spKQogCQkJcmV0dXJuIC0xOwog
+CQlvbmgrKzsKQEAgLTM2Niw2ICszNjksNyBAQCBzdGF0aWMgaW5saW5lIHNpemVfdCBmaWJfbmxt
+c2dfc2l6ZShzdHJ1Y3QgZmliX2luZm8gKmZpKQogCXBheWxvYWQgKz0gbmxhX3RvdGFsX3NpemUo
+KFJUQVhfTUFYICogbmxhX3RvdGFsX3NpemUoNCkpKTsKIAogCWlmIChmaS0+ZmliX25ocykgewor
+CQlzaXplX3QgbmhfZW5jYXBzaXplID0gMDsKIAkJLyogQWxzbyBoYW5kbGVzIHRoZSBzcGVjaWFs
+IGNhc2UgZmliX25ocyA9PSAxICovCiAKIAkJLyogZWFjaCBuZXh0aG9wIGlzIHBhY2tlZCBpbiBh
+biBhdHRyaWJ1dGUgKi8KQEAgLTM3NCw4ICszNzgsMjEgQEAgc3RhdGljIGlubGluZSBzaXplX3Qg
+ZmliX25sbXNnX3NpemUoc3RydWN0IGZpYl9pbmZvICpmaSkKIAkJLyogbWF5IGNvbnRhaW4gZmxv
+dyBhbmQgZ2F0ZXdheSBhdHRyaWJ1dGUgKi8KIAkJbmhzaXplICs9IDIgKiBubGFfdG90YWxfc2l6
+ZSg0KTsKIAorCQkvKiBncmFiIGVuY2FwIGluZm8gKi8KKwkJZm9yX25leHRob3BzKGZpKSB7CisJ
+CQlpZiAobmgtPm5oX2x3dHN0YXRlKSB7CisJCQkJLyogUlRBX0VOQ0FQX1RZUEUgKi8KKwkJCQlu
+aF9lbmNhcHNpemUgKz0gbHd0dW5uZWxfZ2V0X2VuY2FwX3NpemUoCisJCQkJCQluaC0+bmhfbHd0
+c3RhdGUpOworCQkJCS8qIFJUQV9FTkNBUCAqLworCQkJCW5oX2VuY2Fwc2l6ZSArPSAgbmxhX3Rv
+dGFsX3NpemUoMik7CisJCQl9CisJCX0gZW5kZm9yX25leHRob3BzKGZpKTsKKwogCQkvKiBhbGwg
+bmV4dGhvcHMgYXJlIHBhY2tlZCBpbiBhIG5lc3RlZCBhdHRyaWJ1dGUgKi8KLQkJcGF5bG9hZCAr
+PSBubGFfdG90YWxfc2l6ZShmaS0+ZmliX25ocyAqIG5oc2l6ZSk7CisJCXBheWxvYWQgKz0gbmxh
+X3RvdGFsX3NpemUoKGZpLT5maWJfbmhzICogbmhzaXplKSArCisJCQkJCSAgbmhfZW5jYXBzaXpl
+KTsKKwogCX0KIAogCXJldHVybiBwYXlsb2FkOwpAQCAtNDUyLDYgKzQ2OSw5IEBAIHN0YXRpYyBp
+bnQgZmliX2NvdW50X25leHRob3BzKHN0cnVjdCBydG5leHRob3AgKnJ0bmgsIGludCByZW1haW5p
+bmcpCiBzdGF0aWMgaW50IGZpYl9nZXRfbmhzKHN0cnVjdCBmaWJfaW5mbyAqZmksIHN0cnVjdCBy
+dG5leHRob3AgKnJ0bmgsCiAJCSAgICAgICBpbnQgcmVtYWluaW5nLCBzdHJ1Y3QgZmliX2NvbmZp
+ZyAqY2ZnKQogeworCXN0cnVjdCBuZXQgKm5ldCA9IGNmZy0+ZmNfbmxpbmZvLm5sX25ldDsKKwlp
+bnQgcmV0OworCiAJY2hhbmdlX25leHRob3BzKGZpKSB7CiAJCWludCBhdHRybGVuOwogCkBAIC00
+NzUsMTggKzQ5NSw2NiBAQCBzdGF0aWMgaW50IGZpYl9nZXRfbmhzKHN0cnVjdCBmaWJfaW5mbyAq
+ZmksIHN0cnVjdCBydG5leHRob3AgKnJ0bmgsCiAJCQlpZiAobmV4dGhvcF9uaC0+bmhfdGNsYXNz
+aWQpCiAJCQkJZmktPmZpYl9uZXQtPmlwdjQuZmliX251bV90Y2xhc3NpZF91c2VycysrOwogI2Vu
+ZGlmCisJCQlubGEgPSBubGFfZmluZChhdHRycywgYXR0cmxlbiwgUlRBX0VOQ0FQKTsKKwkJCWlm
+IChubGEpIHsKKwkJCQlzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmx3dHN0YXRlOworCQkJCXN0cnVj
+dCBuZXRfZGV2aWNlICpkZXYgPSBOVUxMOworCQkJCXN0cnVjdCBubGF0dHIgKm5sYV9lbnR5cGU7
+CisKKwkJCQlubGFfZW50eXBlID0gbmxhX2ZpbmQoYXR0cnMsIGF0dHJsZW4sCisJCQkJCQkgICAg
+ICBSVEFfRU5DQVBfVFlQRSk7CisJCQkJaWYgKCFubGFfZW50eXBlKQorCQkJCQlnb3RvIGVycl9p
+bnZhbDsKKwkJCQlpZiAoY2ZnLT5mY19vaWYpCisJCQkJCWRldiA9IF9fZGV2X2dldF9ieV9pbmRl
+eChuZXQsIGNmZy0+ZmNfb2lmKTsKKwkJCQlyZXQgPSBsd3R1bm5lbF9idWlsZF9zdGF0ZShkZXYs
+IG5sYV9nZXRfdTE2KAorCQkJCQkJCSAgIG5sYV9lbnR5cGUpLAorCQkJCQkJCSAgIG5sYSwgJmx3
+dHN0YXRlKTsKKwkJCQlpZiAocmV0KQorCQkJCQlnb3RvIGVycm91dDsKKwkJCQlsd3R1bm5lbF9z
+dGF0ZV9nZXQobHd0c3RhdGUpOworCQkJCW5leHRob3BfbmgtPm5oX2x3dHN0YXRlID0gbHd0c3Rh
+dGU7CisJCQl9CiAJCX0KIAogCQlydG5oID0gcnRuaF9uZXh0KHJ0bmgsICZyZW1haW5pbmcpOwog
+CX0gZW5kZm9yX25leHRob3BzKGZpKTsKIAogCXJldHVybiAwOworCitlcnJfaW52YWw6CisJcmV0
+ID0gLUVJTlZBTDsKKworZXJyb3V0OgorCXJldHVybiByZXQ7CiB9CiAKICNlbmRpZgogCitpbnQg
+ZmliX2VuY2FwX21hdGNoKHN0cnVjdCBuZXQgKm5ldCwgdTE2IGVuY2FwX3R5cGUsCisJCSAgICBz
+dHJ1Y3QgbmxhdHRyICplbmNhcCwKKwkJICAgIGludCBvaWYsIGNvbnN0IHN0cnVjdCBmaWJfbmgg
+Km5oKQoreworCXN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAqbHd0c3RhdGU7CisJc3RydWN0IG5ldF9k
+ZXZpY2UgKmRldiA9IE5VTEw7CisJaW50IHJldDsKKworCWlmIChlbmNhcF90eXBlID09IExXVFVO
+TkVMX0VOQ0FQX05PTkUpCisJCXJldHVybiAwOworCisJaWYgKG9pZikKKwkJZGV2ID0gX19kZXZf
+Z2V0X2J5X2luZGV4KG5ldCwgb2lmKTsKKwlyZXQgPSBsd3R1bm5lbF9idWlsZF9zdGF0ZShkZXYs
+IGVuY2FwX3R5cGUsCisJCQkJICAgZW5jYXAsICZsd3RzdGF0ZSk7CisJaWYgKCFyZXQpCisJCXJl
+dHVybiBsd3R1bm5lbF9jbXBfZW5jYXAobHd0c3RhdGUsIG5oLT5uaF9sd3RzdGF0ZSk7CisKKwly
+ZXR1cm4gMDsKK30KKwogaW50IGZpYl9uaF9tYXRjaChzdHJ1Y3QgZmliX2NvbmZpZyAqY2ZnLCBz
+dHJ1Y3QgZmliX2luZm8gKmZpKQogeworCXN0cnVjdCBuZXQgKm5ldCA9IGNmZy0+ZmNfbmxpbmZv
+Lm5sX25ldDsKICNpZmRlZiBDT05GSUdfSVBfUk9VVEVfTVVMVElQQVRICiAJc3RydWN0IHJ0bmV4
+dGhvcCAqcnRuaDsKIAlpbnQgcmVtYWluaW5nOwpAQCAtNDk2LDYgKzU2NCwxMiBAQCBpbnQgZmli
+X25oX21hdGNoKHN0cnVjdCBmaWJfY29uZmlnICpjZmcsIHN0cnVjdCBmaWJfaW5mbyAqZmkpCiAJ
+CXJldHVybiAxOwogCiAJaWYgKGNmZy0+ZmNfb2lmIHx8IGNmZy0+ZmNfZ3cpIHsKKwkJaWYgKGNm
+Zy0+ZmNfZW5jYXApIHsKKwkJCWlmIChmaWJfZW5jYXBfbWF0Y2gobmV0LCBjZmctPmZjX2VuY2Fw
+X3R5cGUsCisJCQkJCSAgICBjZmctPmZjX2VuY2FwLCBjZmctPmZjX29pZiwKKwkJCQkJICAgIGZp
+LT5maWJfbmgpKQorCQkJICAgIHJldHVybiAxOworCQl9CiAJCWlmICgoIWNmZy0+ZmNfb2lmIHx8
+IGNmZy0+ZmNfb2lmID09IGZpLT5maWJfbmgtPm5oX29pZikgJiYKIAkJICAgICghY2ZnLT5mY19n
+dyAgfHwgY2ZnLT5mY19ndyA9PSBmaS0+ZmliX25oLT5uaF9ndykpCiAJCQlyZXR1cm4gMDsKQEAg
+LTg4Miw2ICs5NTYsMjIgQEAgc3RydWN0IGZpYl9pbmZvICpmaWJfY3JlYXRlX2luZm8oc3RydWN0
+IGZpYl9jb25maWcgKmNmZykKIAl9IGVsc2UgewogCQlzdHJ1Y3QgZmliX25oICpuaCA9IGZpLT5m
+aWJfbmg7CiAKKwkJaWYgKGNmZy0+ZmNfZW5jYXApIHsKKwkJCXN0cnVjdCBsd3R1bm5lbF9zdGF0
+ZSAqbHd0c3RhdGU7CisJCQlzdHJ1Y3QgbmV0X2RldmljZSAqZGV2ID0gTlVMTDsKKworCQkJaWYg
+KGNmZy0+ZmNfZW5jYXBfdHlwZSA9PSBMV1RVTk5FTF9FTkNBUF9OT05FKQorCQkJCWdvdG8gZXJy
+X2ludmFsOworCQkJaWYgKGNmZy0+ZmNfb2lmKQorCQkJCWRldiA9IF9fZGV2X2dldF9ieV9pbmRl
+eChuZXQsIGNmZy0+ZmNfb2lmKTsKKwkJCWVyciA9IGx3dHVubmVsX2J1aWxkX3N0YXRlKGRldiwg
+Y2ZnLT5mY19lbmNhcF90eXBlLAorCQkJCQkJICAgY2ZnLT5mY19lbmNhcCwgJmx3dHN0YXRlKTsK
+KwkJCWlmIChlcnIpCisJCQkJZ290byBmYWlsdXJlOworCisJCQlsd3R1bm5lbF9zdGF0ZV9nZXQo
+bHd0c3RhdGUpOworCQkJbmgtPm5oX2x3dHN0YXRlID0gbHd0c3RhdGU7CisJCX0KIAkJbmgtPm5o
+X29pZiA9IGNmZy0+ZmNfb2lmOwogCQluaC0+bmhfZ3cgPSBjZmctPmZjX2d3OwogCQluaC0+bmhf
+ZmxhZ3MgPSBjZmctPmZjX2ZsYWdzOwpAQCAtMTA1NSw2ICsxMTQ1LDggQEAgaW50IGZpYl9kdW1w
+X2luZm8oc3RydWN0IHNrX2J1ZmYgKnNrYiwgdTMyIHBvcnRpZCwgdTMyIHNlcSwgaW50IGV2ZW50
+LAogCQkgICAgbmxhX3B1dF91MzIoc2tiLCBSVEFfRkxPVywgZmktPmZpYl9uaFswXS5uaF90Y2xh
+c3NpZCkpCiAJCQlnb3RvIG5sYV9wdXRfZmFpbHVyZTsKICNlbmRpZgorCQlpZiAoZmktPmZpYl9u
+aC0+bmhfbHd0c3RhdGUpCisJCQlsd3R1bm5lbF9maWxsX2VuY2FwKHNrYiwgZmktPmZpYl9uaC0+
+bmhfbHd0c3RhdGUpOwogCX0KICNpZmRlZiBDT05GSUdfSVBfUk9VVEVfTVVMVElQQVRICiAJaWYg
+KGZpLT5maWJfbmhzID4gMSkgewpAQCAtMTA5MCw2ICsxMTgyLDggQEAgaW50IGZpYl9kdW1wX2lu
+Zm8oc3RydWN0IHNrX2J1ZmYgKnNrYiwgdTMyIHBvcnRpZCwgdTMyIHNlcSwgaW50IGV2ZW50LAog
+CQkJICAgIG5sYV9wdXRfdTMyKHNrYiwgUlRBX0ZMT1csIG5oLT5uaF90Y2xhc3NpZCkpCiAJCQkJ
+Z290byBubGFfcHV0X2ZhaWx1cmU7CiAjZW5kaWYKKwkJCWlmIChuaC0+bmhfbHd0c3RhdGUpCisJ
+CQkJbHd0dW5uZWxfZmlsbF9lbmNhcChza2IsIG5oLT5uaF9sd3RzdGF0ZSk7CiAJCQkvKiBsZW5n
+dGggb2YgcnRuZXRsaW5rIGhlYWRlciArIGF0dHJpYnV0ZXMgKi8KIAkJCXJ0bmgtPnJ0bmhfbGVu
+ID0gbmxtc2dfZ2V0X3Bvcyhza2IpIC0gKHZvaWQgKikgcnRuaDsKIAkJfSBlbmRmb3JfbmV4dGhv
+cHMoZmkpOwpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvcm91dGUuYyBiL25ldC9pcHY0L3JvdXRlLmMK
+aW5kZXggMDRjODNkZS4uMjI2NTcwYiAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvcm91dGUuYworKysg
+Yi9uZXQvaXB2NC9yb3V0ZS5jCkBAIC0xMDIsNiArMTAyLDcgQEAKICNpbmNsdWRlIDxuZXQvdGNw
+Lmg+CiAjaW5jbHVkZSA8bmV0L2ljbXAuaD4KICNpbmNsdWRlIDxuZXQveGZybS5oPgorI2luY2x1
+ZGUgPG5ldC9sd3R1bm5lbC5oPgogI2luY2x1ZGUgPG5ldC9uZXRldmVudC5oPgogI2luY2x1ZGUg
+PG5ldC9ydG5ldGxpbmsuaD4KICNpZmRlZiBDT05GSUdfU1lTQ1RMCkBAIC0xMzU1LDYgKzEzNTYs
+NyBAQCBzdGF0aWMgdm9pZCBpcHY0X2RzdF9kZXN0cm95KHN0cnVjdCBkc3RfZW50cnkgKmRzdCkK
+IAkJbGlzdF9kZWwoJnJ0LT5ydF91bmNhY2hlZCk7CiAJCXNwaW5fdW5sb2NrX2JoKCZ1bC0+bG9j
+ayk7CiAJfQorCWx3dHVubmVsX3N0YXRlX3B1dChydC0+cnRfbHd0c3RhdGUpOwogfQogCiB2b2lk
+IHJ0X2ZsdXNoX2RldihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQpAQCAtMTQwMyw2ICsxNDA1LDEy
+IEBAIHN0YXRpYyB2b2lkIHJ0X3NldF9uZXh0aG9wKHN0cnVjdCBydGFibGUgKnJ0LCBfX2JlMzIg
+ZGFkZHIsCiAjaWZkZWYgQ09ORklHX0lQX1JPVVRFX0NMQVNTSUQKIAkJcnQtPmRzdC50Y2xhc3Np
+ZCA9IG5oLT5uaF90Y2xhc3NpZDsKICNlbmRpZgorCQlpZiAobmgtPm5oX2x3dHN0YXRlKSB7CisJ
+CQlsd3R1bm5lbF9zdGF0ZV9nZXQobmgtPm5oX2x3dHN0YXRlKTsKKwkJCXJ0LT5ydF9sd3RzdGF0
+ZSA9IG5oLT5uaF9sd3RzdGF0ZTsKKwkJfSBlbHNlIHsKKwkJCXJ0LT5ydF9sd3RzdGF0ZSA9IE5V
+TEw7CisJCX0KIAkJaWYgKHVubGlrZWx5KGZuaGUpKQogCQkJY2FjaGVkID0gcnRfYmluZF9leGNl
+cHRpb24ocnQsIGZuaGUsIGRhZGRyKTsKIAkJZWxzZSBpZiAoIShydC0+ZHN0LmZsYWdzICYgRFNU
+X05PQ0FDSEUpKQpAQCAtMTQ4OCw2ICsxNDk2LDcgQEAgc3RhdGljIGludCBpcF9yb3V0ZV9pbnB1
+dF9tYyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBfX2JlMzIgZGFkZHIsIF9fYmUzMiBzYWRkciwKIAly
+dGgtPnJ0X2dhdGV3YXkJPSAwOwogCXJ0aC0+cnRfdXNlc19nYXRld2F5ID0gMDsKIAlJTklUX0xJ
+U1RfSEVBRCgmcnRoLT5ydF91bmNhY2hlZCk7CisJcnRoLT5ydF9sd3RzdGF0ZSA9IE5VTEw7CiAJ
+aWYgKG91cikgewogCQlydGgtPmRzdC5pbnB1dD0gaXBfbG9jYWxfZGVsaXZlcjsKIAkJcnRoLT5y
+dF9mbGFncyB8PSBSVENGX0xPQ0FMOwpAQCAtMTYxNyw2ICsxNjI2LDcgQEAgc3RhdGljIGludCBf
+X21rcm91dGVfaW5wdXQoc3RydWN0IHNrX2J1ZmYgKnNrYiwKIAlydGgtPnJ0X2dhdGV3YXkJPSAw
+OwogCXJ0aC0+cnRfdXNlc19nYXRld2F5ID0gMDsKIAlJTklUX0xJU1RfSEVBRCgmcnRoLT5ydF91
+bmNhY2hlZCk7CisJcnRoLT5ydF9sd3RzdGF0ZSA9IE5VTEw7CiAJUlRfQ0FDSEVfU1RBVF9JTkMo
+aW5fc2xvd190b3QpOwogCiAJcnRoLT5kc3QuaW5wdXQgPSBpcF9mb3J3YXJkOwpAQCAtMTc5MSw2
+ICsxODAxLDggQEAgbG9jYWxfaW5wdXQ6CiAJcnRoLT5ydF9nYXRld2F5CT0gMDsKIAlydGgtPnJ0
+X3VzZXNfZ2F0ZXdheSA9IDA7CiAJSU5JVF9MSVNUX0hFQUQoJnJ0aC0+cnRfdW5jYWNoZWQpOwor
+CXJ0aC0+cnRfbHd0c3RhdGUgPSBOVUxMOworCiAJUlRfQ0FDSEVfU1RBVF9JTkMoaW5fc2xvd190
+b3QpOwogCWlmIChyZXMudHlwZSA9PSBSVE5fVU5SRUFDSEFCTEUpIHsKIAkJcnRoLT5kc3QuaW5w
+dXQ9IGlwX2Vycm9yOwpAQCAtMTk4MCw3ICsxOTkyLDcgQEAgYWRkOgogCXJ0aC0+cnRfZ2F0ZXdh
+eSA9IDA7CiAJcnRoLT5ydF91c2VzX2dhdGV3YXkgPSAwOwogCUlOSVRfTElTVF9IRUFEKCZydGgt
+PnJ0X3VuY2FjaGVkKTsKLQorCXJ0aC0+cnRfbHd0c3RhdGUgPSBOVUxMOwogCVJUX0NBQ0hFX1NU
+QVRfSU5DKG91dF9zbG93X3RvdCk7CiAKIAlpZiAoZmxhZ3MgJiBSVENGX0xPQ0FMKQpAQCAtMjI2
+MCw3ICsyMjcyLDcgQEAgc3RydWN0IGRzdF9lbnRyeSAqaXB2NF9ibGFja2hvbGVfcm91dGUoc3Ry
+dWN0IG5ldCAqbmV0LCBzdHJ1Y3QgZHN0X2VudHJ5ICpkc3Rfb3IKIAkJcnQtPnJ0X3VzZXNfZ2F0
+ZXdheSA9IG9ydC0+cnRfdXNlc19nYXRld2F5OwogCiAJCUlOSVRfTElTVF9IRUFEKCZydC0+cnRf
+dW5jYWNoZWQpOwotCisJCXJ0LT5ydF9sd3RzdGF0ZSA9IE5VTEw7CiAJCWRzdF9mcmVlKG5ldyk7
+CiAJfQogCi0tIAoyLjQuMwoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVu
+dnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
