@@ -1,50 +1,62 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: 4.1 regression in resizable hashtable tests
-Date: Fri, 17 Jul 2015 10:04:56 +0200
-Message-ID: <20150717080456.GA13814@pox.localdomain>
-References: <alpine.LRH.2.11.1507011259180.4092@math.ut.ee>
- <20150702123130.GA20843@pox.localdomain>
- <alpine.LRH.2.11.1507022208200.28236@math.ut.ee>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sparclinux@vger.kernel.org,
-	Linux Kernel list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Meelis Roos <mroos@linux.ee>
-Return-path: <sparclinux-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LRH.2.11.1507022208200.28236@math.ut.ee>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH net-next] rhashtable: Allow other tasks to be scheduled in large lookup loops
+Date: Fri, 17 Jul 2015 10:07:46 +0200
+Message-ID: <2dcec22264c46d248e4f56ac5dfd6a8d321b162f.1437120351.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, mroos@linux.ee, herbert@gondor.apana.org.au
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:47817 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753284AbbGQIHv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 04:07:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/02/15 at 10:09pm, Meelis Roos wrote:
-> [   33.425061] Running rhashtable test nelem=8, max_size=65536, shrinking=0
-> [   33.425154] Test 00:
-> [   33.534470]   Adding 50000 keys
-> [   34.743553] Info: encountered resize
-> [   34.743698] Info: encountered resize
-> [   34.743838] Info: encountered resize
-> [   34.744057] Info: encountered resize
-> [   34.744430] Info: encountered resize
-> [   34.745139] Info: encountered resize
-> [   34.746441] Info: encountered resize
-> [   34.749055] Info: encountered resize
-> [   34.754469] Info: encountered resize
-> [   34.764836] Info: encountered resize
-> [   34.785696] Info: encountered resize
-> [   34.827448] Info: encountered resize
-> [   34.896936]   Traversal complete: counted=49993, nelems=50000, entries=50000, table-jumps=12
-> [   34.897056] Test failed: Total count mismatch ^^^
+Depending on system speed, the large lookup loop can take a considerable
+amount of time to complete causing watchdog warnings to appear. Allow
+other tasks to be scheduled after every batch of 1000 lookups.
 
-I do see count mismatches as well due to the design of the walker
-which restarts and thus sees certain entries multiple times.
+Reported-by: Meelis Roos <mroos@linux.ee>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ lib/test_rhashtable.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-Do you have this commit as well?
-
-Author: Phil Sutter <phil@nwl.cc>
-Date:   Mon Jul 6 15:51:20 2015 +0200
-
-    rhashtable: fix for resize events during table walk
+diff --git a/lib/test_rhashtable.c b/lib/test_rhashtable.c
+index c90777e..5ed6211 100644
+--- a/lib/test_rhashtable.c
++++ b/lib/test_rhashtable.c
+@@ -20,8 +20,10 @@
+ #include <linux/rcupdate.h>
+ #include <linux/rhashtable.h>
+ #include <linux/slab.h>
++#include <linux/sched.h>
+ 
+ #define MAX_ENTRIES	1000000
++#define RELAX_CPU_AFTER	1000
+ #define TEST_INSERT_FAIL INT_MAX
+ 
+ static int entries = 50000;
+@@ -61,7 +63,7 @@ static struct rhashtable_params test_rht_params = {
+ 
+ static int __init test_rht_lookup(struct rhashtable *ht)
+ {
+-	unsigned int i;
++	unsigned int i, relax_cnt = RELAX_CPU_AFTER;
+ 
+ 	for (i = 0; i < entries * 2; i++) {
+ 		struct test_obj *obj;
+@@ -87,6 +89,11 @@ static int __init test_rht_lookup(struct rhashtable *ht)
+ 				return -EINVAL;
+ 			}
+ 		}
++
++		if (!relax_cnt--) {
++			schedule();
++			relax_cnt = RELAX_CPU_AFTER;
++		}
+ 	}
+ 
+ 	return 0;
+-- 
+2.4.3
