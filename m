@@ -1,65 +1,39 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: 4.1 regression in resizable hashtable tests
-Date: Fri, 17 Jul 2015 12:31:07 +0200
-Message-ID: <20150717103107.GA18033@pox.localdomain>
-References: <alpine.LRH.2.11.1507011259180.4092@math.ut.ee>
- <20150702123130.GA20843@pox.localdomain>
- <alpine.LRH.2.11.1507022208200.28236@math.ut.ee>
- <20150717080456.GA13814@pox.localdomain>
- <20150717102636.GA21732@orbit.nwl.cc>
+From: =?UTF-8?Q?J=C3=B6rg_Pommnitz?= <jpo234@netscape.net>
+Subject: Blackhole route not enough for proxy-arp
+Date: Fri, 17 Jul 2015 12:33:08 +0200
+Message-ID: <CAEvAWuFLexokRTSAmO70XR5S_qW3yyjmnxRo3uKi_6R2r1Lirg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Meelis Roos <mroos@linux.ee>, sparclinux@vger.kernel.org,
-	Linux Kernel list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <sparclinux-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150717102636.GA21732@orbit.nwl.cc>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from omr-m06.mx.aol.com ([64.12.143.80]:39296 "EHLO
+	omr-m06.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945920AbbGQKil (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 06:38:41 -0400
+Received: from mtaout-aab02.mx.aol.com (mtaout-aab02.mx.aol.com [172.26.126.206])
+	by omr-m06.mx.aol.com (Outbound Mail Relay) with ESMTP id B6042700308CC
+	for <netdev@vger.kernel.org>; Fri, 17 Jul 2015 06:33:10 -0400 (EDT)
+Received: from mail-la0-f52.google.com (mail-la0-f52.google.com [209.85.215.52])
+	(using TLSv1 with cipher RC4-SHA (128/128 bits))
+	(No client certificate requested)
+	by mtaout-aab02.mx.aol.com (MUA/Third Party Client Interface) with ESMTPSA id 5359738000087
+	for <netdev@vger.kernel.org>; Fri, 17 Jul 2015 06:33:10 -0400 (EDT)
+Received: by laem6 with SMTP id m6so58757902lae.0
+        for <netdev@vger.kernel.org>; Fri, 17 Jul 2015 03:33:08 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/17/15 at 12:26pm, Phil Sutter wrote:
-> On Fri, Jul 17, 2015 at 10:04:56AM +0200, Thomas Graf wrote:
-> > On 07/02/15 at 10:09pm, Meelis Roos wrote:
-> > > [   33.425061] Running rhashtable test nelem=8, max_size=65536, shrinking=0
-> > > [   33.425154] Test 00:
-> > > [   33.534470]   Adding 50000 keys
-> > > [   34.743553] Info: encountered resize
-> > > [   34.743698] Info: encountered resize
-> > > [   34.743838] Info: encountered resize
-> > > [   34.744057] Info: encountered resize
-> > > [   34.744430] Info: encountered resize
-> > > [   34.745139] Info: encountered resize
-> > > [   34.746441] Info: encountered resize
-> > > [   34.749055] Info: encountered resize
-> > > [   34.754469] Info: encountered resize
-> > > [   34.764836] Info: encountered resize
-> > > [   34.785696] Info: encountered resize
-> > > [   34.827448] Info: encountered resize
-> > > [   34.896936]   Traversal complete: counted=49993, nelems=50000, entries=50000, table-jumps=12
-> > > [   34.897056] Test failed: Total count mismatch ^^^
-> > 
-> > I do see count mismatches as well due to the design of the walker
-> > which restarts and thus sees certain entries multiple times.
-> > 
-> > Do you have this commit as well?
-> > 
-> > Author: Phil Sutter <phil@nwl.cc>
-> > Date:   Mon Jul 6 15:51:20 2015 +0200
-> > 
-> >     rhashtable: fix for resize events during table walk
-> 
-> Thomas, this should be resolved already. Meelis replied[1] to my patch,
-> stating it fixes that problem for him. Though he's still waiting for
-> your proposed patch to add a schedule() call so the kernel won't
-> complain on his slow UltraSparc. :)
-> 
-> Cheers, Phil
-> 
-> [1]: http://www.spinics.net/lists/netdev/msg335767.html
+Hello all,
+it seems that a blackhole route is not enough to enable proxy arp for
+the routing target.
+I tried
+ip route add blackhole 192.168.66.3/32
+and
+ip route add 192.168.66.3/32 dev lo
 
-OK, good to know. I've posted the schedule patch today:
-https://patchwork.ozlabs.org/patch/497035/
+arping failed with the blackhole route but got responses with the
+route through the loopback interface.
+Is this behaviour a bug or a feature?
+
+-- Regards
+Joerg
