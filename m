@@ -1,70 +1,138 @@
-From: Jaedon Shin <jaedon.shin@gmail.com>
-Subject: Re: [PATCH net-next 0/6] net: bcmgenet: PHY initialization rework
-Date: Fri, 17 Jul 2015 22:53:08 +0900
-Message-ID: <BA3C0C60-58CC-4D5F-9FD0-201E29F5542F@gmail.com>
-References: <1437087079-21678-1-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2102\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Petri Gynther <pgynther@google.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36437 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750795AbbGQNxP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 09:53:15 -0400
-Received: by pachj5 with SMTP id hj5so61429105pac.3
-        for <netdev@vger.kernel.org>; Fri, 17 Jul 2015 06:53:14 -0700 (PDT)
-In-Reply-To: <1437087079-21678-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH net-next 1/1] hv_netvsc: Wait for sub-channels to be processed during probe
+Date: Fri, 17 Jul 2015 16:12:50 +0200
+Message-ID: <87a8uuoot9.fsf@vitty.brq.redhat.com>
+References: <1437074222-13020-1-git-send-email-kys@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com,
+	decui@microsoft.com
+To: "K. Y. Srinivasan" <kys@microsoft.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437074222-13020-1-git-send-email-kys@microsoft.com>
+	(K. Y. Srinivasan's message of "Thu, 16 Jul 2015 12:17:02 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> On Jul 17, 2015, at 7:51 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> 
-> Hi David, Petri, Jaedon,
-> 
-> This patch series reworks how we perform PHY initialization and resets in the
-> GENET driver. Although this contains mostly fixes, some of the changes are a
-> bit too intrusive to be backported to 'net' at the moment.
-> 
-> Some of the motivations behind these changes were to reduce the time spent in how
-> performing MDIO transactions, since it is better to perform then when we have
-> interrupts enabled. This reduces the bring-up time of GENET from ~600 msecs down
-> to ~8 msecs, and about the same time for suspend/resume.
-> 
-> Since I do not currently have a system which is not DT-aware, can you (Petri,
-> Jaedon) give this a try and confirm things keep working as expected?
-> 
-> Thanks!
-> 
+"K. Y. Srinivasan" <kys@microsoft.com> writes:
 
-I tested your patch series on Broadcom 40nm set-top box platform that used
-internal phy. I did not have the exact measurements. but I expect it to improve
-on the interface-up or link-up time. and I compared the changes roughly from
-kernel print time. please see below.
+> The current code returns from probe without waiting for the proper handling
+> of subchannels that may be requested. If the netvsc driver were to be rapidly
+> loaded/unloaded, we can  trigger a panic as the unload will be tearing
+> down state that may not have been fully setup yet. We fix this issue by making
+> sure that we return from the probe call only after ensuring that the
+> sub-channel offers in flight are properly handled.
+>
+> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+> Reviewed-and-tested-by: Haiyang Zhang <haiyangz@microsoft.com
+> ---
+>  drivers/net/hyperv/hyperv_net.h   |    2 ++
+>  drivers/net/hyperv/rndis_filter.c |   25 +++++++++++++++++++++++++
+>  2 files changed, 27 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+> index 26cd14c..925b75d 100644
+> --- a/drivers/net/hyperv/hyperv_net.h
+> +++ b/drivers/net/hyperv/hyperv_net.h
+> @@ -671,6 +671,8 @@ struct netvsc_device {
+>  	u32 send_table[VRSS_SEND_TAB_SIZE];
+>  	u32 max_chn;
+>  	u32 num_chn;
+> +	spinlock_t sc_lock; /* Protects num_sc_offered variable */
+> +	u32 num_sc_offered;
+>  	atomic_t queue_sends[NR_CPUS];
+>
+>  	/* Holds rndis device info */
+> diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+> index 2e40417..2e09f3f 100644
+> --- a/drivers/net/hyperv/rndis_filter.c
+> +++ b/drivers/net/hyperv/rndis_filter.c
+> @@ -984,9 +984,16 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+>  	struct netvsc_device *nvscdev;
+>  	u16 chn_index = new_sc->offermsg.offer.sub_channel_index;
+>  	int ret;
+> +	unsigned long flags;
+>
+>  	nvscdev = hv_get_drvdata(new_sc->primary_channel->device_obj);
+>
+> +	spin_lock_irqsave(&nvscdev->sc_lock, flags);
+> +	nvscdev->num_sc_offered--;
+> +	spin_unlock_irqrestore(&nvscdev->sc_lock, flags);
+> +	if (nvscdev->num_sc_offered == 0)
+> +		complete(&nvscdev->channel_init_wait);
+> +
+>  	if (chn_index >= nvscdev->num_chn)
+>  		return;
+>
+> @@ -1015,8 +1022,10 @@ int rndis_filter_device_add(struct hv_device *dev,
+>  	u32 rsscap_size = sizeof(struct ndis_recv_scale_cap);
+>  	u32 mtu, size;
+>  	u32 num_rss_qs;
+> +	u32 sc_delta;
+>  	const struct cpumask *node_cpu_mask;
+>  	u32 num_possible_rss_qs;
+> +	unsigned long flags;
+>
+>  	rndis_device = get_rndis_device();
+>  	if (!rndis_device)
+> @@ -1039,6 +1048,8 @@ int rndis_filter_device_add(struct hv_device *dev,
+>  	net_device->max_chn = 1;
+>  	net_device->num_chn = 1;
+>
+> +	spin_lock_init(&net_device->sc_lock);
+> +
+>  	net_device->extension = rndis_device;
+>  	rndis_device->net_dev = net_device;
+>
+> @@ -1116,6 +1127,9 @@ int rndis_filter_device_add(struct hv_device *dev,
+>  	num_possible_rss_qs = cpumask_weight(node_cpu_mask);
+>  	net_device->num_chn = min(num_possible_rss_qs, num_rss_qs);
+>
+> +	num_rss_qs = net_device->num_chn - 1;
+> +	net_device->num_sc_offered = num_rss_qs;
+> +
+>  	if (net_device->num_chn == 1)
+>  		goto out;
+>
+> @@ -1157,11 +1171,22 @@ int rndis_filter_device_add(struct hv_device *dev,
+>
+>  	ret = rndis_filter_set_rss_param(rndis_device, net_device->num_chn);
+>
+> +	/*
+> +	 * Wait for the host to send us the sub-channel offers.
+> +	 */
+> +	spin_lock_irqsave(&net_device->sc_lock, flags);
+> +	sc_delta = net_device->num_chn - 1 - num_rss_qs;
+> +	net_device->num_sc_offered -= sc_delta;
+> +	spin_unlock_irqrestore(&net_device->sc_lock, flags);
+> +
+> +	if (net_device->num_sc_offered != 0)
+> +		wait_for_completion(&net_device->channel_init_wait);
 
-- before patching
-[    1.865126] bcmgenet 10430000.ethernet eth0: Link is Down
-[    3.941132] bcmgenet 10430000.ethernet eth0: Link is Up - 100Mbps/Full - flow control rx/tx
+I'd suggest we add an essentian timeout (big, let's say 30 sec.)
+here. In case something goes wrong we don't really want to hang the
+whole kernel for forever. Such bugs are hard to debug as if a 'kernel
+hangs' is reported we can't be sure which wait caused it. We can even
+have something like:
 
-- after patching
-[    3.145127] bcmgenet 10430000.ethernet eth0: Link is Down
-[    4.189140] bcmgenet 10430000.ethernet eth0: Link is Up - 100Mbps/Full - flow control rx/tx
+ t = wait_for_completion_timeout(&net_device->channel_init_wait, 30*HZ);
+ BUG_ON(t == 0);
 
-> Florian Fainelli (6):
->  net: bcmgenet: Remove excessive PHY reset
->  net: bcmgenet: Use correct dev_id for free_irq
->  net: bcmgenet: Power on integrated GPHY in bcmgenet_power_up()
->  net: bcmgenet: Determine PHY type before scanning MDIO bus
->  net: bcmgenet: Delay PHY initialization to bcmgenet_open()
->  net: bcmgenet: Remove init parameter from bcmgenet_mii_config
-> 
-> drivers/net/ethernet/broadcom/genet/bcmgenet.c | 33 +++++-----
-> drivers/net/ethernet/broadcom/genet/bcmgenet.h |  5 +-
-> drivers/net/ethernet/broadcom/genet/bcmmii.c   | 84 ++++++++++++--------------
-> 3 files changed, 59 insertions(+), 63 deletions(-)
-> 
-> -- 
-> 2.1.0
-> 
+This is much better as we'll be sure what went wrong. (I know other
+pieces of hyper-v code use wait_for_completion() without a timeout, this
+is rather a general suggestion for all of them).
+
+>  out:
+>  	if (ret) {
+>  		net_device->max_chn = 1;
+>  		net_device->num_chn = 1;
+>  	}
+> +
+>  	return 0; /* return 0 because primary channel can be used alone */
+>
+>  err_dev_remv:
+
+-- 
+  Vitaly
