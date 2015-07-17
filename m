@@ -1,26 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ravb: do not invalidate cache for RX buffer twice
-Date: Fri, 17 Jul 2015 00:11:41 -0700 (PDT)
-Message-ID: <20150717.001141.1945286438330434553.davem@davemloft.net>
-References: <4759713.2ulGRKsd9L@wasted.cogentembedded.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: 4.1 regression in resizable hashtable tests
+Date: Fri, 17 Jul 2015 10:04:56 +0200
+Message-ID: <20150717080456.GA13814@pox.localdomain>
+References: <alpine.LRH.2.11.1507011259180.4092@math.ut.ee>
+ <20150702123130.GA20843@pox.localdomain>
+ <alpine.LRH.2.11.1507022208200.28236@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <4759713.2ulGRKsd9L@wasted.cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: sparclinux@vger.kernel.org,
+	Linux Kernel list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Meelis Roos <mroos@linux.ee>
+Return-path: <sparclinux-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LRH.2.11.1507022208200.28236@math.ut.ee>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Wed, 15 Jul 2015 00:56:52 +0300
+On 07/02/15 at 10:09pm, Meelis Roos wrote:
+> [   33.425061] Running rhashtable test nelem=8, max_size=65536, shrinking=0
+> [   33.425154] Test 00:
+> [   33.534470]   Adding 50000 keys
+> [   34.743553] Info: encountered resize
+> [   34.743698] Info: encountered resize
+> [   34.743838] Info: encountered resize
+> [   34.744057] Info: encountered resize
+> [   34.744430] Info: encountered resize
+> [   34.745139] Info: encountered resize
+> [   34.746441] Info: encountered resize
+> [   34.749055] Info: encountered resize
+> [   34.754469] Info: encountered resize
+> [   34.764836] Info: encountered resize
+> [   34.785696] Info: encountered resize
+> [   34.827448] Info: encountered resize
+> [   34.896936]   Traversal complete: counted=49993, nelems=50000, entries=50000, table-jumps=12
+> [   34.897056] Test failed: Total count mismatch ^^^
 
-> First, dma_sync_single_for_cpu() shouldn't have been called in the first place
-> (it's a streaming DMA API). dma_unmap_single() should have been called instead.
-> Second, dma_unmap_single() call after handing the buffer to napi_gro_receive()
-> makes little sense.
-> 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+I do see count mismatches as well due to the design of the walker
+which restarts and thus sees certain entries multiple times.
 
-Applied with fixed up commit log message, thanks.
+Do you have this commit as well?
+
+Author: Phil Sutter <phil@nwl.cc>
+Date:   Mon Jul 6 15:51:20 2015 +0200
+
+    rhashtable: fix for resize events during table walk
