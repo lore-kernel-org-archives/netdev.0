@@ -1,320 +1,78 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: 4.1.0, kernel panic, pppoe_release
-Date: Fri, 17 Jul 2015 10:36:40 -0500
-Message-ID: <1437147400.5437.4.camel@redhat.com>
-References: <677da51dbac367fcb7a456de2789334b@visp.net.lb>
-	 <c6e2cb4002bf11ad7a25be8eeded2dc1@visp.net.lb>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: sit: Set SKB_GSO_SIT bit when performing GRO
+Date: Fri, 17 Jul 2015 17:38:30 +0200
+Message-ID: <10491450.MOzxZjY76n@stwm.de>
+References: <17762800.UBb5paxXY3@h2o.as.studentenwerk.mhn.de> <2115027.IFUsFvOUns@stwm.de> <20150717015651.GA19315@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, ebiederm@xmission.com,
-	davem@davemloft.net, simon@farnz.org.uk, develop@kristov.de
-To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Tom Herbert <tom@herbertland.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51711 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758253AbbGQPgn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jul 2015 11:36:43 -0400
-In-Reply-To: <c6e2cb4002bf11ad7a25be8eeded2dc1@visp.net.lb>
+Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:57354 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758446AbbGQPid convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jul 2015 11:38:33 -0400
+In-Reply-To: <20150717015651.GA19315@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-07-17 at 12:24 +0300, Denys Fedoryshchenko wrote:
-> As i suspect, this kernel panic caused by recent changes to pppoe.
-> This problem appearing in accel-pppd (server), on loaded servers (2k 
-> users and more).
-> Most probably related to changed "pppoe: Use workqueue to die properly 
-> when a PADT is received"
-> I will try to reverse this and related patches.
+Am Freitag, 17. Juli 2015, 09:56:51 schrieb Herbert Xu:
+> On Thu, Jul 16, 2015 at 12:58:45PM +0200, Wolfgang Walter wrote:
+> > Am Donnerstag, 16. Juli 2015, 08:23:50 schrieb Herbert Xu:
+> > > On Wed, Jul 15, 2015 at 02:25:59PM +0200, Wolfgang Walter wrote:
+> > > > Yes. Switching TSO off and leaving GRO on works, too.
+> > >=20
+> > > OK, could you please try this patch?
+> >=20
+> > Patch works here.
+>=20
+> Thanks for the confirmation.  Let's add a tag for patchwork:
+>=20
+> Tested-by: Wolfgang Walter <linux@stwm.de>
 
-While I didn't write the patch, I'm the one that started the process
-that got it submitted...  Could you review the patch quickly too to see
-if you can spot anything amiss with it, so that it could get fixed up?
-The original patch does fix a real problem so ideally we don't have to
-revert the whole thing upstream.
+It seems that this patch may cause a problem with another one of our ro=
+uters.=20
+Without the patch it had no problem, so I didn't tested it there.
 
-Dan
+With that patch one interface blocks after some time. Not even arp requ=
+ests=20
+get answered. It still receives packets though. Restarting the interfac=
+e fixes=20
+the problem.
 
-> On 2015-07-14 13:57, Denys Fedoryshchenko wrote:
-> > Here is panic message from netconsole. Please let me know if any
-> > additional information required.
-> > 
-> > Jul 14 13:49:16 10.0.252.10 [76078.867822] BUG: unable to handle kernel
-> > Jul 14 13:49:16 10.0.252.10 NULL pointer dereference
-> > Jul 14 13:49:16 10.0.252.10 at 00000000000003f0
-> > Jul 14 13:49:16 10.0.252.10 [76078.868280] IP:
-> > Jul 14 13:49:16 10.0.252.10 [<ffffffffa011e12a>]
-> > pppoe_release+0x56/0x142 [pppoe]
-> > Jul 14 13:49:16 10.0.252.10 [76078.868541] PGD 336e4a067
-> > Jul 14 13:49:16 10.0.252.10 PUD 333f17067
-> > Jul 14 13:49:16 10.0.252.10 PMD 0
-> > Jul 14 13:49:16 10.0.252.10
-> > Jul 14 13:49:16 10.0.252.10 [76078.868918] Oops: 0000 [#1]
-> > Jul 14 13:49:16 10.0.252.10 SMP
-> > Jul 14 13:49:16 10.0.252.10
-> > Jul 14 13:49:16 10.0.252.10 [76078.869226] Modules linked in:
-> > Jul 14 13:49:16 10.0.252.10 netconsole
-> > Jul 14 13:49:16 10.0.252.10 configfs
-> > Jul 14 13:49:16 10.0.252.10 coretemp
-> > Jul 14 13:49:16 10.0.252.10 sch_fq
-> > Jul 14 13:49:16 10.0.252.10 cls_fw
-> > Jul 14 13:49:16 10.0.252.10 act_police
-> > Jul 14 13:49:16 10.0.252.10 cls_u32
-> > Jul 14 13:49:16 10.0.252.10 sch_ingress
-> > Jul 14 13:49:16 10.0.252.10 sch_sfq
-> > Jul 14 13:49:16 10.0.252.10 sch_htb
-> > Jul 14 13:49:16 10.0.252.10 pppoe
-> > Jul 14 13:49:16 10.0.252.10 pppox
-> > Jul 14 13:49:16 10.0.252.10 ppp_generic
-> > Jul 14 13:49:16 10.0.252.10 slhc
-> > Jul 14 13:49:16 10.0.252.10 nf_nat_pptp
-> > Jul 14 13:49:16 10.0.252.10 nf_nat_proto_gre
-> > Jul 14 13:49:16 10.0.252.10 nf_conntrack_pptp
-> > Jul 14 13:49:16 10.0.252.10 nf_conntrack_proto_gre
-> > Jul 14 13:49:16 10.0.252.10 tun
-> > Jul 14 13:49:16 10.0.252.10 xt_REDIRECT
-> > Jul 14 13:49:16 10.0.252.10 nf_nat_redirect
-> > Jul 14 13:49:16 10.0.252.10 xt_set
-> > Jul 14 13:49:16 10.0.252.10 xt_TCPMSS
-> > Jul 14 13:49:16 10.0.252.10 ipt_REJECT
-> > Jul 14 13:49:16 10.0.252.10 nf_reject_ipv4
-> > Jul 14 13:49:16 10.0.252.10 ts_bm
-> > Jul 14 13:49:16 10.0.252.10 xt_string
-> > Jul 14 13:49:16 10.0.252.10 xt_connmark
-> > Jul 14 13:49:16 10.0.252.10 xt_DSCP
-> > Jul 14 13:49:16 10.0.252.10 xt_mark
-> > Jul 14 13:49:16 10.0.252.10 xt_tcpudp
-> > Jul 14 13:49:16 10.0.252.10 iptable_mangle
-> > Jul 14 13:49:16 10.0.252.10 iptable_filter
-> > Jul 14 13:49:16 10.0.252.10 iptable_nat
-> > Jul 14 13:49:16 10.0.252.10 nf_conntrack_ipv4
-> > Jul 14 13:49:16 10.0.252.10 nf_defrag_ipv4
-> > Jul 14 13:49:16 10.0.252.10 nf_nat_ipv4
-> > Jul 14 13:49:16 10.0.252.10 nf_nat
-> > Jul 14 13:49:16 10.0.252.10 nf_conntrack
-> > Jul 14 13:49:16 10.0.252.10 ip_tables
-> > Jul 14 13:49:16 10.0.252.10 x_tables
-> > Jul 14 13:49:16 10.0.252.10 ip_set_hash_ip
-> > Jul 14 13:49:16 10.0.252.10 ip_set
-> > Jul 14 13:49:16 10.0.252.10 nfnetlink
-> > Jul 14 13:49:16 10.0.252.10 8021q
-> > Jul 14 13:49:16 10.0.252.10 garp
-> > Jul 14 13:49:16 10.0.252.10 mrp
-> > Jul 14 13:49:16 10.0.252.10 stp
-> > Jul 14 13:49:16 10.0.252.10 llc
-> > Jul 14 13:49:16 10.0.252.10 [last unloaded: netconsole]
-> > Jul 14 13:49:16 10.0.252.10
-> > Jul 14 13:49:16 10.0.252.10 [76078.873195] CPU: 3 PID: 2940 Comm:
-> > accel-pppd Not tainted 4.1.0-build-0074 #7
-> > Jul 14 13:49:16 10.0.252.10 [76078.873396] Hardware name: HP ProLiant
-> > DL320e Gen8 v2, BIOS P80 04/02/2015
-> > Jul 14 13:49:16 10.0.252.10 [76078.873598] task: ffff8800b1886ba0 ti:
-> > ffff8800b09f4000 task.ti: ffff8800b09f4000
-> > Jul 14 13:49:16 10.0.252.10 [76078.873929] RIP: 
-> > 0010:[<ffffffffa011e12a>]
-> > Jul 14 13:49:16 10.0.252.10 [<ffffffffa011e12a>]
-> > pppoe_release+0x56/0x142 [pppoe]
-> > Jul 14 13:49:16 10.0.252.10 [76078.874317] RSP: 0018:ffff8800b09f7e28
-> > EFLAGS: 00010202
-> > Jul 14 13:49:16 10.0.252.10 [76078.874512] RAX: 0000000000000000 RBX:
-> > ffff88032a214400 RCX: 0000000000000000
-> > Jul 14 13:49:16 10.0.252.10 [76078.874709] RDX: 000000000000000d RSI:
-> > 00000000fffffe01 RDI: ffffffff8180d6da
-> > Jul 14 13:49:16 10.0.252.10 [76078.874906] RBP: ffff8800b09f7e68 R08:
-> > 0000000000000000 R09: 0000000000000000
-> > Jul 14 13:49:16 10.0.252.10 [76078.875102] R10: ffff88031ef6a110 R11:
-> > 0000000000000293 R12: ffff88030f8d8fc0
-> > Jul 14 13:49:16 10.0.252.10 [76078.875299] R13: ffff88030f8d8ff0 R14:
-> > ffff88033115ee40 R15: ffff8803394e4920
-> > Jul 14 13:49:16 10.0.252.10 [76078.875499] FS:  00007f79b602c700(0000)
-> > GS:ffff880347460000(0000) knlGS:0000000000000000
-> > Jul 14 13:49:16 10.0.252.10 [76078.875837] CS:  0010 DS: 0000 ES: 0000
-> > CR0: 0000000080050033
-> > Jul 14 13:49:16 10.0.252.10 [76078.876036] CR2: 00000000000003f0 CR3:
-> > 0000000335425000 CR4: 00000000001407e0
-> > Jul 14 13:49:16 10.0.252.10 [76078.876239] Stack:
-> > Jul 14 13:49:16 10.0.252.10 [76078.876434]  ffff88033ac45c80
-> > Jul 14 13:49:16 10.0.252.10 0000000000000000
-> > Jul 14 13:49:16 10.0.252.10 0000000100000000
-> > Jul 14 13:49:16 10.0.252.10 ffff88030f8d8fc0
-> > Jul 14 13:49:16 10.0.252.10
-> > Jul 14 13:49:16 10.0.252.10 [76078.877001]  ffffffffa0120260
-> > Jul 14 13:49:16 10.0.252.10 ffff88030f8d8ff0
-> > Jul 14 13:49:16 10.0.252.10 ffff88033115ee40
-> > Jul 14 13:49:16 10.0.252.10 ffff8803394e4920
-> > Jul 14 13:49:16 10.0.252.10
-> > Jul 14 13:49:16 10.0.252.10 [76078.877564]  ffff8800b09f7e88
-> > Jul 14 13:49:16 10.0.252.10 ffffffff81809e2e
-> > Jul 14 13:49:16 10.0.252.10 ffff88031ef6a100
-> > Jul 14 13:49:16 10.0.252.10 0000000000000008
-> > Jul 14 13:49:16 10.0.252.10
-> > Jul 14 13:49:16 10.0.252.10 [76078.878128] Call Trace:
-> > Jul 14 13:49:16 10.0.252.10 [76078.878327]  [<ffffffff81809e2e>]
-> > sock_release+0x1a/0x78
-> > Jul 14 13:49:16 10.0.252.10 [76078.878528]  [<ffffffff81809e99>]
-> > sock_close+0xd/0x11
-> > Jul 14 13:49:16 10.0.252.10 [76078.878728]  [<ffffffff81150395>]
-> > __fput+0xdf/0x193
-> > Jul 14 13:49:16 10.0.252.10 [76078.878926]  [<ffffffff81150477>]
-> > ____fput+0x9/0xb
-> > Jul 14 13:49:16 10.0.252.10 [76078.879124]  [<ffffffff810cfa95>]
-> > task_work_run+0x85/0x9c
-> > Jul 14 13:49:16 10.0.252.10 [76078.879326]  [<ffffffff81002979>]
-> > do_notify_resume+0x40/0x4e
-> > Jul 14 13:49:16 10.0.252.10 [76078.879527]  [<ffffffff818a4a0a>]
-> > int_signal+0x12/0x17
-> > Jul 14 13:49:16 10.0.252.10 [76078.879726] Code:
-> > Jul 14 13:49:16 10.0.252.10 48
-> > Jul 14 13:49:16 10.0.252.10 8b
-> > Jul 14 13:49:16 10.0.252.10 83
-> > Jul 14 13:49:16 10.0.252.10 e0
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10 a8
-> > Jul 14 13:49:16 10.0.252.10 01
-> > Jul 14 13:49:16 10.0.252.10 74
-> > Jul 14 13:49:16 10.0.252.10 12
-> > Jul 14 13:49:16 10.0.252.10 48
-> > Jul 14 13:49:16 10.0.252.10 89
-> > Jul 14 13:49:16 10.0.252.10 df
-> > Jul 14 13:49:16 10.0.252.10 e8
-> > Jul 14 13:49:16 10.0.252.10 87
-> > Jul 14 13:49:16 10.0.252.10 f9
-> > Jul 14 13:49:16 10.0.252.10 6e
-> > Jul 14 13:49:16 10.0.252.10 e1
-> > Jul 14 13:49:16 10.0.252.10 b8
-> > Jul 14 13:49:16 10.0.252.10 f7
-> > Jul 14 13:49:16 10.0.252.10 ff
-> > Jul 14 13:49:16 10.0.252.10 ff
-> > Jul 14 13:49:16 10.0.252.10 ff
-> > Jul 14 13:49:16 10.0.252.10 e9
-> > Jul 14 13:49:16 10.0.252.10 eb
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10 8a
-> > Jul 14 13:49:16 10.0.252.10 43
-> > Jul 14 13:49:16 10.0.252.10 12
-> > Jul 14 13:49:16 10.0.252.10 a8
-> > Jul 14 13:49:16 10.0.252.10 0b
-> > Jul 14 13:49:16 10.0.252.10 74
-> > Jul 14 13:49:16 10.0.252.10 1c
-> > Jul 14 13:49:16 10.0.252.10 48
-> > Jul 14 13:49:16 10.0.252.10 8b
-> > Jul 14 13:49:16 10.0.252.10 83
-> > Jul 14 13:49:16 10.0.252.10 b0
-> > Jul 14 13:49:16 10.0.252.10 02
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10
-> > Jul 14 13:49:16 10.0.252.10 8b
-> > Jul 14 13:49:16 10.0.252.10 80
-> > Jul 14 13:49:16 10.0.252.10 f0
-> > Jul 14 13:49:16 10.0.252.10 03
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10 65
-> > Jul 14 13:49:16 10.0.252.10 ff
-> > Jul 14 13:49:16 10.0.252.10 08
-> > Jul 14 13:49:16 10.0.252.10 48
-> > Jul 14 13:49:16 10.0.252.10 c7
-> > Jul 14 13:49:16 10.0.252.10 83
-> > Jul 14 13:49:16 10.0.252.10 b0
-> > Jul 14 13:49:16 10.0.252.10 02
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10 00
-> > Jul 14 13:49:16 10.0.252.10
-> > Jul 14 13:49:16 10.0.252.10 [76078.883913] RIP
-> > Jul 14 13:49:16 10.0.252.10 [<ffffffffa011e12a>]
-> > pppoe_release+0x56/0x142 [pppoe]
-> > Jul 14 13:49:16 10.0.252.10 [76078.884171]  RSP <ffff8800b09f7e28>
-> > Jul 14 13:49:16 10.0.252.10 [76078.884368] CR2: 00000000000003f0
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.867822] BUG: unable to
-> > handle kernel NULL pointer dereference at 00000000000003f0
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.868280] IP:
-> > [<ffffffffa011e12a>] pppoe_release+0x56/0x142 [pppoe]
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.868541] PGD 336e4a067 PUD
-> > 333f17067 PMD 0
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.868918] Oops: 0000 [#1] SMP
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.869226] Modules linked in:
-> > netconsole configfs coretemp sch_fq cls_fw act_police cls_u32
-> > sch_ingress sch_sfq sch_htb pppoe pppox ppp_generic slhc nf_nat_pptp
-> > nf_nat_proto_gre nf_conntrack_pptp nf_conntrack_proto_gre tun
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.873195] CPU: 3 PID: 2940
-> > Comm: accel-pppd Not tainted 4.1.0-build-0074 #7
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.873396] Hardware name: HP
-> > ProLiant DL320e Gen8 v2, BIOS P80 04/02/2015
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.873598] task:
-> > ffff8800b1886ba0 ti: ffff8800b09f4000 task.ti: ffff8800b09f4000
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.873929] RIP:
-> > 0010:[<ffffffffa011e12a>]  [<ffffffffa011e12a>]
-> > pppoe_release+0x56/0x142 [pppoe]
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.874317] RSP:
-> > 0018:ffff8800b09f7e28  EFLAGS: 00010202
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.874512] RAX:
-> > 0000000000000000 RBX: ffff88032a214400 RCX: 0000000000000000
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.874709] RDX:
-> > 000000000000000d RSI: 00000000fffffe01 RDI: ffffffff8180d6da
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.874906] RBP:
-> > ffff8800b09f7e68 R08: 0000000000000000 R09: 0000000000000000
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.875102] R10:
-> > ffff88031ef6a110 R11: 0000000000000293 R12: ffff88030f8d8fc0
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.875299] R13:
-> > ffff88030f8d8ff0 R14: ffff88033115ee40 R15: ffff8803394e4920
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.875499] FS:
-> > 00007f79b602c700(0000) GS:ffff880347460000(0000)
-> > knlGS:0000000000000000
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.875837] CS:  0010 DS: 0000
-> > ES: 0000 CR0: 0000000080050033
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.876036] CR2:
-> > 00000000000003f0 CR3: 0000000335425000 CR4: 00000000001407e0
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.876239] Stack:
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.876434]  ffff88033ac45c80
-> > 0000000000000000 0000000100000000 ffff88030f8d8fc0
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.877001]  ffffffffa0120260
-> > ffff88030f8d8ff0 ffff88033115ee40 ffff8803394e4920
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.877564]  ffff8800b09f7e88
-> > ffffffff81809e2e ffff88031ef6a100 0000000000000008
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.878128] Call Trace:
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.878327]
-> > [<ffffffff81809e2e>] sock_release+0x1a/0x78
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.878528]
-> > [<ffffffff81809e99>] sock_close+0xd/0x11
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.878728]
-> > [<ffffffff81150395>] __fput+0xdf/0x193
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.878926]
-> > [<ffffffff81150477>] ____fput+0x9/0xb
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.879124]
-> > [<ffffffff810cfa95>] task_work_run+0x85/0x9c
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.879326]
-> > [<ffffffff81002979>] do_notify_resume+0x40/0x4e
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.879527]
-> > [<ffffffff818a4a0a>] int_signal+0x12/0x17
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.879726] Code: 48 8b 83 e0
-> > 00 00 00 a8 01 74 12 48 89 df e8 87 f9 6e e1 b8 f7 ff ff ff e9 eb 00
-> > 00 00 8a 43 12 a8 0b 74 1c 48 8b 83 b0 02 00 00 <48> 8b 80 f0 03 00 00
-> > 65 ff 08 48 c7 83 b0 02 00 00 00 00 00 00
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.883913] RIP
-> > [<ffffffffa011e12a>] pppoe_release+0x56/0x142 [pppoe]
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.884171]  RSP 
-> > <ffff8800b09f7e28>
-> > Jul 14 10:49:16 10.0.252.10 kernel: [76078.884368] CR2: 
-> > 00000000000003f0
-> > Jul 14 13:49:16 10.0.252.10 [76078.884972] ---[ end trace 
-> > 7fa41f8b4758f1fa ]---
-> > Jul 14 10:49:16 10.0.252.10 accel-pppd: pppoe: discard PADR packet
-> > (incorrect AC-Cookie)
-> > Jul 14 10:49:17 10.0.252.10 kernel: [76078.884972] ---[ end trace
-> > 7fa41f8b4758f1fa ]---
-> > Jul 14 13:49:17 10.0.252.10 [76078.936849] Kernel panic - not syncing:
-> > Fatal exception
-> > Jul 14 13:49:17 10.0.252.10 [76078.937054] Kernel Offset: disabled
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Switching off gro for the other interface helps.
+
+This router is different from the other ones. It does not directly rout=
+e=20
+isatap packets. It may routes isatap packets encapsulated in GRE packet=
+s,=20
+though. It is itself not an GRE-endpoint.
+
+The router does NAT. Basically it routes the GRE-tunnel packets unatted=
+ and=20
+NATs most of the rest.
+Not doing NAT and conntrack (and unloading all modules like nf_conntrac=
+k_ipv4,=20
+nf_defrag_ipv4) does not help.
+
+eth0: extern
+eth1: intern
+
+One (IPv4) GRE-tunnel is routed between eth0 und eth1.
+IPv6 ESP-tunnels are routed between eth0 and eth1
+IPv4 UDP/TCP/ICMP from intern is natted with netfilter.
+
+eth1 stops sending with the patch after some time
+disabling gro on eth0 helps
+disabling tso or gso on eth0 and/or eth1 or both does not help
+
+eth0 and eth1 are both intel I350.
+
+
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
