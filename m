@@ -1,70 +1,69 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH net-next 1/1] hv_netvsc: Wait for sub-channels to be
- processed during probe
-Date: Fri, 17 Jul 2015 15:34:21 +0000
-Message-ID: <BY2PR0301MB16548DDDA965459CCD308983A0980@BY2PR0301MB1654.namprd03.prod.outlook.com>
-References: <1437074222-13020-1-git-send-email-kys@microsoft.com>
- <ed6433db194c4f2393cc462b538d9b2f@SIXPR30MB031.064d.mgd.msft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Dexuan Cui <decui@microsoft.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"vkuznets@redhat.com" <vkuznets@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ed6433db194c4f2393cc462b538d9b2f@SIXPR30MB031.064d.mgd.msft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH v2 1/2] sctp: reduce indent level on sctp_v4_get_dst
+Date: Fri, 17 Jul 2015 12:34:17 -0300
+Message-ID: <3ad52d0eb6028974a0b6c9010de44772bf181169.1437145508.git.marcelo.leitner@gmail.com>
+References: <cover.1437145508.git.marcelo.leitner@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>
+To: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51084 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758681AbbGQPe2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jul 2015 11:34:28 -0400
+In-Reply-To: <cover.1437145508.git.marcelo.leitner@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Paves the day for the next patch. Functionality stays untouched.
 
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ net/sctp/protocol.c | 32 +++++++++++++++++---------------
+ 1 file changed, 17 insertions(+), 15 deletions(-)
 
-> -----Original Message-----
-> From: Dexuan Cui
-> Sent: Friday, July 17, 2015 3:07 AM
-> To: KY Srinivasan; davem@davemloft.net; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
-> apw@canonical.com; jasowang@redhat.com; vkuznets@redhat.com
-> Cc: KY Srinivasan
-> Subject: RE: [PATCH net-next 1/1] hv_netvsc: Wait for sub-channels to be
-> processed during probe
-> 
-> > From: K. Y. Srinivasan
-> > Sent: Friday, July 17, 2015 3:17
-> > Subject: [PATCH net-next 1/1] hv_netvsc: Wait for sub-channels to be
-> processed
-> > during probe
-> >
-> > The current code returns from probe without waiting for the proper
-> handling
-> > of subchannels that may be requested. If the netvsc driver were to be
-> rapidly
-> > loaded/unloaded, we can  trigger a panic as the unload will be tearing
-> > down state that may not have been fully setup yet. We fix this issue by
-> making
-> > sure that we return from the probe call only after ensuring that the
-> > sub-channel offers in flight are properly handled.
-> >
-> > ---
-> >  drivers/net/hyperv/hyperv_net.h   |    2 ++
-> >  drivers/net/hyperv/rndis_filter.c |   25 +++++++++++++++++++++++++
-> >  2 files changed, 27 insertions(+), 0 deletions(-)
-> 
-> BTW, not sure if we should make the same fix to storvsc.
-> 
-> IMO storvsc should have the same issue, at least in theory, though usually it's
-> unlikely to unload storvsc.  :-)
-
-You are right; I am planning to submit a similar patch for storvsc. As you note,
-this scenario is unlikely for sorvsc.
-
-K. Y
-> 
-> Thanks,
-> -- Dexuan
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 59e80356672bdf89777265ae1f8c384792dfb98c..fa80fe4f23629fc3c3f5c44f99dbf3cc524cc6a0 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -489,21 +489,23 @@ static void sctp_v4_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+ 	list_for_each_entry_rcu(laddr, &bp->address_list, list) {
+ 		if (!laddr->valid)
+ 			continue;
+-		if ((laddr->state == SCTP_ADDR_SRC) &&
+-		    (AF_INET == laddr->a.sa.sa_family)) {
+-			fl4->fl4_sport = laddr->a.v4.sin_port;
+-			flowi4_update_output(fl4,
+-					     asoc->base.sk->sk_bound_dev_if,
+-					     RT_CONN_FLAGS(asoc->base.sk),
+-					     daddr->v4.sin_addr.s_addr,
+-					     laddr->a.v4.sin_addr.s_addr);
+-
+-			rt = ip_route_output_key(sock_net(sk), fl4);
+-			if (!IS_ERR(rt)) {
+-				dst = &rt->dst;
+-				goto out_unlock;
+-			}
+-		}
++		if (laddr->state != SCTP_ADDR_SRC ||
++		    AF_INET != laddr->a.sa.sa_family)
++			continue;
++
++		fl4->fl4_sport = laddr->a.v4.sin_port;
++		flowi4_update_output(fl4,
++				     asoc->base.sk->sk_bound_dev_if,
++				     RT_CONN_FLAGS(asoc->base.sk),
++				     daddr->v4.sin_addr.s_addr,
++				     laddr->a.v4.sin_addr.s_addr);
++
++		rt = ip_route_output_key(sock_net(sk), fl4);
++		if (IS_ERR(rt))
++			continue;
++
++		dst = &rt->dst;
++		break;
+ 	}
+ 
+ out_unlock:
+-- 
+2.4.1
