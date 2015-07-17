@@ -1,40 +1,32 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [PATCH 1/3] fixed_phy: handle link-down case
-Date: Fri, 17 Jul 2015 14:26:02 +0300
-Message-ID: <55A8E64A.3040009@list.ru>
-References: <55A7C45F.1070501@list.ru> <55A7C49E.2020803@list.ru> <55A83D86.2030505@gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH v2 net-next 1/3] rhashtable: Allow lookup function to
+ have compare function agument
+Date: Fri, 17 Jul 2015 14:08:22 +0200
+Message-ID: <20150717120822.GD18033@pox.localdomain>
+References: <1436917549-3666965-1-git-send-email-tom@herbertland.com>
+ <1436917549-3666965-2-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55A83D86.2030505@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au, kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:37139 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754465AbbGQMI0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 08:08:26 -0400
+Received: by wibud3 with SMTP id ud3so40992881wib.0
+        for <netdev@vger.kernel.org>; Fri, 17 Jul 2015 05:08:24 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1436917549-3666965-2-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-17.07.2015 02:25, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On 16/07/15 07:50, Stas Sergeev wrote:
->>
->> Currently fixed_phy driver recognizes only the link-up state.
->> This simple patch adds an implementation of link-down state.
->> It fixes the status registers when link is down, and also allows
->> to register the fixed-phy with link down without specifying the spee=
-d.
->=20
-> This patch still breaks my setups here, e.g: drivers/net/dsa/bcm_sf2.=
-c,
-> but I will look into it.
->=20
-> Do we really need this for now for your two other patches to work
-> properly, or is it just nicer to have?
-Yes, absolutely.
-Otherwise registering fixed phy will return -EINVAL
-because of the missing link speed (even though the link
-is down).
+On 07/14/15 at 04:45pm, Tom Herbert wrote:
+> Added rhashtable_lookup_fast_cmpfn which does a lookup in an rhash table
+> with the compare function being taken from an argument. This allows
+> different compare functions to be used on the same table.
+> 
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
 
-Please, see what makes a problem. I can't reproduce what you report.
+Acked-by: Thomas Graf <tgraf@suug.ch>
