@@ -1,188 +1,52 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH v2 -next] net: fib: use fib result when zero-length prefix aliases exist
-Date: Fri, 17 Jul 2015 19:37:01 +0200
-Message-ID: <1437154621-18180-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: <netdev@vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: bcmgenet: Return the variable ret rather then zero
+ for the function bcmgenet_power_down
+Date: Fri, 17 Jul 2015 10:55:41 -0700
+Message-ID: <55A9419D.1040708@gmail.com>
+References: <1437075530-21552-1-git-send-email-xerofoify@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicholas Krause <xerofoify@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:59288 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753145AbbGQRhI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 13:37:08 -0400
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33193 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755021AbbGQR5d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 13:57:33 -0400
+In-Reply-To: <1437075530-21552-1-git-send-email-xerofoify@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-default route selection is not deterministic when TOS keys are used:
+On 16/07/15 12:38, Nicholas Krause wrote:
+> This makes the function bcmgenet_power_down return the variable ret
+> rather then zero in order to make this function be able to signal its
+> caller with a error code when a failure occurs internally rather then
+> always appearing to run successfully to its caller.
+> 
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
 
-ip route del default
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
-ip route add tos 0x00 via 10.2.100.100
-ip route add tos 0x04 via 10.2.100.101
-ip route add tos 0x08 via 10.2.100.102
-ip route add tos 0x0C via 10.2.100.103
-ip route add tos 0x10 via 10.2.100.104
+> ---
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> index 64c1e9d..129e5b5 100644
+> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> @@ -877,7 +877,7 @@ static int bcmgenet_power_down(struct bcmgenet_priv *priv,
+>  		break;
+>  	}
+>  
+> -	return 0;
+> +	return ret;
+>  }
+>  
+>  static void bcmgenet_power_up(struct bcmgenet_priv *priv,
+> 
 
-[ i.e. 5 routes with prefix length 0, differentiated via TOS key ]
 
-ip route get 10.3.1.1 tos 0x4
--> 10.2.100.101
-ip route get 10.3.1.1 tos 0x8
--> 10.2.100.102
-ip route get tos 0x0C
--> 10.2.100.103
-
-But for 0x10, we'll get round-robin behavour among all the aliases.
-Repeated invocations return .100, 101, 102, etc. in turn.
-
-This behaviour is not new  -- fib_select_default can be traced back to
-fn_hash_select_default in CVS history.
-
-Routing cache made 'round-robin' behaviour less visible.
-
-This changes fib_select_default to not change the FIB chosen result EXCEPT
-if this nexthop appears to be unreachable.
-
-fib_detect_death() logic is reversed -- we consider a nexthop 'dead' only
-if it has a neigh entry in unreachable state.
-
-Only then we search fib_aliases for an alternative and use one of these in
-a round-robin fashion.  If all are believed to be unreachable, no change is
-made and fib-chosen nh_gw is used.
-
-Reported-by: Hagen Paul Pfeifer <hagen@jauu.net>
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- Changes since v1:
-  Address comments from Alex Duyck:
-  - use if (fib_nud_is_unreach( .. rather than temporary boolean retval
-  - rename last_* varibles to fi_, they're not the last item in the list...
-  - kill pointless if() statement, if order < 0, then fi_last is < 0 too
-
- net/ipv4/fib_semantics.c | 80 ++++++++++++++++++++++--------------------------
- 1 file changed, 36 insertions(+), 44 deletions(-)
-
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index c7358ea..2cdf8d7 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -410,28 +410,24 @@ errout:
- 		rtnl_set_sk_err(info->nl_net, RTNLGRP_IPV4_ROUTE, err);
- }
- 
--static int fib_detect_death(struct fib_info *fi, int order,
--			    struct fib_info **last_resort, int *last_idx,
--			    int dflt)
-+static bool fib_nud_is_unreach(const struct fib_info *fi)
- {
- 	struct neighbour *n;
- 	int state = NUD_NONE;
- 
--	n = neigh_lookup(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
--	if (n) {
-+	local_bh_disable();
-+
-+	n = __neigh_lookup_noref(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
-+	if (n)
- 		state = n->nud_state;
--		neigh_release(n);
--	}
--	if (state == NUD_REACHABLE)
--		return 0;
--	if ((state & NUD_VALID) && order != dflt)
--		return 0;
--	if ((state & NUD_VALID) ||
--	    (*last_idx < 0 && order > dflt)) {
--		*last_resort = fi;
--		*last_idx = order;
--	}
--	return 1;
-+
-+	local_bh_enable();
-+
-+	/* Caller might be able to find alternate (reachable) nexthop */
-+	if (state & (NUD_INCOMPLETE | NUD_FAILED))
-+		return true;
-+
-+	return false;
- }
- 
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
-@@ -1204,12 +1200,16 @@ int fib_sync_down_dev(struct net_device *dev, unsigned long event)
- /* Must be invoked inside of an RCU protected region.  */
- void fib_select_default(struct fib_result *res)
- {
--	struct fib_info *fi = NULL, *last_resort = NULL;
- 	struct hlist_head *fa_head = res->fa_head;
-+	struct fib_info *fi = NULL;
- 	struct fib_table *tb = res->table;
--	int order = -1, last_idx = -1;
-+	int order = -1, fi_idx = -1;
- 	struct fib_alias *fa;
- 
-+	if (likely(!fib_nud_is_unreach(res->fi)))
-+		return;
-+
-+	/* attempt to pick another nexthop */
- 	hlist_for_each_entry_rcu(fa, fa_head, fa_list) {
- 		struct fib_info *next_fi = fa->fa_info;
- 
-@@ -1223,38 +1223,30 @@ void fib_select_default(struct fib_result *res)
- 		    next_fi->fib_nh[0].nh_scope != RT_SCOPE_LINK)
- 			continue;
- 
-+		order++;
-+
-+		if (next_fi == res->fi) /* already tested, not reachable */
-+			continue;
-+
- 		fib_alias_accessed(fa);
- 
--		if (!fi) {
--			if (next_fi != res->fi)
-+		if (fib_nud_is_unreach(next_fi))
-+			continue;
-+
-+		/* try to round-robin among all fa_aliases in case
-+		 * res->fi nexthop is unreachable.
-+		 */
-+		if (fi == NULL || order > tb->tb_default) {
-+			fi = next_fi;
-+			fi_idx = order;
-+			if (order > tb->tb_default)
- 				break;
--		} else if (!fib_detect_death(fi, order, &last_resort,
--					     &last_idx, tb->tb_default)) {
--			fib_result_assign(res, fi);
--			tb->tb_default = order;
--			goto out;
- 		}
--		fi = next_fi;
--		order++;
- 	}
- 
--	if (order <= 0 || !fi) {
--		tb->tb_default = -1;
--		goto out;
--	}
--
--	if (!fib_detect_death(fi, order, &last_resort, &last_idx,
--				tb->tb_default)) {
-+	if (fi)
- 		fib_result_assign(res, fi);
--		tb->tb_default = order;
--		goto out;
--	}
--
--	if (last_idx >= 0)
--		fib_result_assign(res, last_resort);
--	tb->tb_default = last_idx;
--out:
--	return;
-+	tb->tb_default = fi_idx;
- }
- 
- /*
 -- 
-2.0.5
+Florian
