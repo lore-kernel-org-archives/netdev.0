@@ -1,44 +1,40 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH RFC net-next] net/vxlan: Fix kernel unaligned access in
- __vxlan_find_mac
-Date: Fri, 17 Jul 2015 13:07:31 +0200
-Message-ID: <20150717110731.GA30336@oracle.com>
+From: Stas Sergeev <stsp@list.ru>
+Subject: Re: [PATCH 1/3] fixed_phy: handle link-down case
+Date: Fri, 17 Jul 2015 14:26:02 +0300
+Message-ID: <55A8E64A.3040009@list.ru>
+References: <55A7C45F.1070501@list.ru> <55A7C49E.2020803@list.ru> <55A83D86.2030505@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, sowmini.varadhan@oracle.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:30946 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757544AbbGQLHy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 07:07:54 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux kernel <linux-kernel@vger.kernel.org>,
+	Sebastien Rannou <mxs@sbrk.org>,
+	Arnaud Ebalard <arno@natisbad.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55A83D86.2030505@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+17.07.2015 02:25, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On 16/07/15 07:50, Stas Sergeev wrote:
+>>
+>> Currently fixed_phy driver recognizes only the link-up state.
+>> This simple patch adds an implementation of link-down state.
+>> It fixes the status registers when link is down, and also allows
+>> to register the fixed-phy with link down without specifying the spee=
+d.
+>=20
+> This patch still breaks my setups here, e.g: drivers/net/dsa/bcm_sf2.=
+c,
+> but I will look into it.
+>=20
+> Do we really need this for now for your two other patches to work
+> properly, or is it just nicer to have?
+Yes, absolutely.
+Otherwise registering fixed phy will return -EINVAL
+because of the missing link speed (even though the link
+is down).
 
-__vxlan_find_mac invokes ether_addr_equal on the eth_addr field,
-which triggers unaligned access messages, so rearrange vxlan_fdb
-to avoid this as non-intrusively as possible. 
-
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
- drivers/net/vxlan.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 34c519e..c9790a2 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -107,8 +107,8 @@ struct vxlan_fdb {
- 	unsigned long	  used;
- 	struct list_head  remotes;
- 	u16		  state;	/* see ndm_state */
--	u8		  flags;	/* see ndm_flags */
- 	u8		  eth_addr[ETH_ALEN];
-+	u8		  flags;	/* see ndm_flags */
- };
- 
- /* Pseudo network device */
--- 
-1.7.1
+Please, see what makes a problem. I can't reproduce what you report.
