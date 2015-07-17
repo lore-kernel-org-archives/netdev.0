@@ -1,172 +1,80 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2 -next] net: fib: use fib result when zero-length prefix
- aliases exist
-Date: Sat, 18 Jul 2015 01:47:46 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1507180045330.2410@ja.home.ssi.bg>
-References: <1437154621-18180-1-git-send-email-fw@strlen.de>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2] jhash: Deinline jhash, jhash2 and __jhash_nwords
+Date: Fri, 17 Jul 2015 15:53:59 -0700
+Message-ID: <1437173639.2495.74.camel@perches.com>
+References: <1437050416-13295-1-git-send-email-dvlasenk@redhat.com>
+	 <CALx6S367jArRC3eKSKsv7gFrgPxyDHWdtvfeO1SmQR91eYxwSw@mail.gmail.com>
+	 <20150716.111729.822179499552193763.davem@davemloft.net>
+	 <1437074611.2495.39.camel@perches.com>
+	 <2035533471.2349.1437140685694.JavaMail.open-xchange@ox1app>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:59876 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751190AbbGQWsI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jul 2015 18:48:08 -0400
-In-Reply-To: <1437154621-18180-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, tom <tom@herbertland.com>,
+	herbert <herbert@gondor.apana.org.au>, tgraf <tgraf@suug.ch>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	dvlasenk <dvlasenk@redhat.com>,
+	"alexander.h.duyck" <alexander.h.duyck@redhat.com>,
+	kadlec <kadlec@blackhole.kfki.hu>
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2035533471.2349.1437140685694.JavaMail.open-xchange@ox1app>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Fri, 17 Jul 2015, Florian Westphal wrote:
-
-> default route selection is not deterministic when TOS keys are used:
-
-	In fact, TOS should be matched just like in
-fib_table_lookup but it is not.
-
-> This changes fib_select_default to not change the FIB chosen result EXCEPT
-> if this nexthop appears to be unreachable.
+On Fri, 2015-07-17 at 15:44 +0200, Hagen Paul Pfeifer wrote:
+> > On July 16, 2015 at 9:23 PM Joe Perches <joe@perches.com> wrote:
+> > 
+> > It might be useful to have these performance impacting
+> > changes guarded by something like CONFIG_CC_OPTIMIZE_FOR_SIZE
+> > with another static __always_inline __<func> and a function &
+> > EXPORT_SYMBOL or just a static inline so that where code size
+> > is critical it's uninlined.
 > 
-> fib_detect_death() logic is reversed -- we consider a nexthop 'dead' only
-> if it has a neigh entry in unreachable state.
+> But keep in mind that jhash, jhash2 and __jhash_nwords are *not*
+> one-instruction long functions. We duplicate code over and over resulting
+> probably in more cache misses. __always_inline__ is probably too strict
+> and a vanilla inline is already for 99% of all distribution builds a
+>  __always_inline__, see ARCH_SUPPORTS_OPTIMIZED_INLINING and
+> CONFIG_CC_OPTIMIZE_FOR_SIZE.
 
-	The only difference I see is that NUD_NODE is
-declared by fib_nud_is_unreach() as reachable. May be
-it is better, for example, new route in NUD_NONE state
-will be tried for a while, until its state is determined.
+Hello.
 
-> +	if (likely(!fib_nud_is_unreach(res->fi)))
-> +		return;
+Perhaps I wasn't clear/explicit enough.
 
-	here first is unreachable...
+I tried to suggest using a single __always_inline like this:
 
-> +
-> +	/* attempt to pick another nexthop */
->  	hlist_for_each_entry_rcu(fa, fa_head, fa_list) {
->  		struct fib_info *next_fi = fa->fa_info;
->  
-> @@ -1223,38 +1223,30 @@ void fib_select_default(struct fib_result *res)
->  		    next_fi->fib_nh[0].nh_scope != RT_SCOPE_LINK)
->  			continue;
->  
-> +		order++;
-> +
-> +		if (next_fi == res->fi) /* already tested, not reachable */
-> +			continue;
-> +
->  		fib_alias_accessed(fa);
->  
-> -		if (!fi) {
-> -			if (next_fi != res->fi)
-> +		if (fib_nud_is_unreach(next_fi))
+Two #ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE (or some other
+CONFIG_FOO) functions, one in a .h for the existing behavior
+and another in a .c for more code space compact uses.
 
-			all others are unreachable too...
+jhash.h
 
-> +			continue;
-> +
-> +		/* try to round-robin among all fa_aliases in case
-> +		 * res->fi nexthop is unreachable.
+static __always_inline u32 __jhash(const void *key, u32 length, u32 initval)
+{
+	[current jhash implementation...]
+}
 
-	round-robin only among reachables? But original algorithm
-can round-robin among unreachables. State will not change
-without trying some packets to unreachable dests.
+#ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
+u32 jhash(const void *key, u32 length, u32 initval);
+#else
+static inline u32 jhash(const void *key, u32 length, u32 initval)
+{
+	return __jhash(key, length, initval);	
+}
+#endif
 
-> +		 */
-> +		if (fi == NULL || order > tb->tb_default) {
-> +			fi = next_fi;
-> +			fi_idx = order;
-> +			if (order > tb->tb_default)
->  				break;
+jhash.c:
 
-	1=unreac, 2=reach, 3=tb_default(reach), 4=reach.
-We like 2 (fi == NULL), why we continue after 2, skip
-default 3 (because order > tb->tb_default is false) and
-finally select 4 (order=4 > tb->tb_default=3)?
+#ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
+u32 jhash(const void *key, u32 length, u32 initval)
+{
+	return __jhash(key, length, initval);	
+}
+EXPORT_SYMBOL(jhash)
+#endif
 
-> +	tb->tb_default = fi_idx;
+etc...
 
-	And we do not round-robin if all look unreachable?
-
-	I'm not yet sure if fib_detect_death logic should
-be changed. What is strange is that we can switch between
-two NUD_VALID entries...
-
-	The __neigh_lookup_noref usage looks ok.
-Not sure about the NUD_NODE change, may be it is ok to
-be added in fib_detect_death. As for fib_select_default,
-may be only change like below is needed. It additionally
-restricts the alternative routes to same prefix, same TOS.
-The TOS restriction was missing from long time but the
-prefix check was lost recently when fa_head was changed
-to contain aliases from different prefixes.
-
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 49c142b..0b1af68 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -290,7 +290,7 @@ __be32 fib_compute_spec_dst(struct sk_buff *skb);
- int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
- 			u8 tos, int oif, struct net_device *dev,
- 			struct in_device *idev, u32 *itag);
--void fib_select_default(struct fib_result *res);
-+void fib_select_default(const struct flowi4 *flp, struct fib_result *res);
- #ifdef CONFIG_IP_ROUTE_CLASSID
- static inline int fib_num_tclassid_users(struct net *net)
- {
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index c7358ea..088b2a5 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -1202,21 +1202,29 @@ int fib_sync_down_dev(struct net_device *dev, unsigned long event)
- }
- 
- /* Must be invoked inside of an RCU protected region.  */
--void fib_select_default(struct fib_result *res)
-+void fib_select_default(const struct flowi4 *flp, struct fib_result *res)
- {
- 	struct fib_info *fi = NULL, *last_resort = NULL;
- 	struct hlist_head *fa_head = res->fa_head;
- 	struct fib_table *tb = res->table;
-+	u8 slen = 32 - res->prefixlen;
- 	int order = -1, last_idx = -1;
- 	struct fib_alias *fa;
- 
- 	hlist_for_each_entry_rcu(fa, fa_head, fa_list) {
- 		struct fib_info *next_fi = fa->fa_info;
- 
-+		if (fa->fa_slen != slen)
-+			continue;
- 		if (next_fi->fib_scope != res->scope ||
- 		    fa->fa_type != RTN_UNICAST)
- 			continue;
- 
-+		if (fa->tb_id != tb->tb_id)
-+			continue;
-+		if (fa->fa_tos && fa->fa_tos != flp->flowi4_tos)
-+			continue;
-+
- 		if (next_fi->fib_priority > res->fi->fib_priority)
- 			break;
- 		if (!next_fi->fib_nh[0].nh_gw ||
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index d0362a2..e681b85 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2176,7 +2176,7 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
- 	if (!res.prefixlen &&
- 	    res.table->tb_num_default > 1 &&
- 	    res.type == RTN_UNICAST && !fl4->flowi4_oif)
--		fib_select_default(&res);
-+		fib_select_default(fl4, &res);
- 
- 	if (!fl4->saddr)
- 		fl4->saddr = FIB_RES_PREFSRC(net, res);
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Perhaps the additional code complexity is not worth it.
