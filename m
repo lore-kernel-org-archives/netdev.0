@@ -1,50 +1,54 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net 1/3] sched: cls_bpf: fix panic on filter replace
-Date: Fri, 17 Jul 2015 14:31:02 -0700
-Message-ID: <55A97416.60709@plumgrid.com>
-References: <cover.1437163466.git.daniel@iogearbox.net>
- <094e34b7e8d45a323c5cf18a366665654b3f3e45.1437163466.git.daniel@iogearbox.net>
- <55A96E05.2090002@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, jhs@mojatatu.com, edumazet@google.com,
-	netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+From: Joachim Eastwood <manabian@gmail.com>
+Subject: [PATCH net] stmmac: fix setting of driver data in stmmac_dvr_probe
+Date: Fri, 17 Jul 2015 23:48:17 +0200
+Message-ID: <1437169697-20388-1-git-send-email-manabian@gmail.com>
+Cc: netdev@vger.kernel.org, Joachim Eastwood <manabian@gmail.com>
+To: davem@davemloft.net, peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:32817 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751977AbbGQVbG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 17:31:06 -0400
-Received: by padck2 with SMTP id ck2so66501677pad.0
-        for <netdev@vger.kernel.org>; Fri, 17 Jul 2015 14:31:05 -0700 (PDT)
-In-Reply-To: <55A96E05.2090002@gmail.com>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:36169 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752007AbbGQVsk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 17:48:40 -0400
+Received: by lagw2 with SMTP id w2so68019354lag.3
+        for <netdev@vger.kernel.org>; Fri, 17 Jul 2015 14:48:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/17/15 2:05 PM, John Fastabend wrote:
-> On 15-07-17 01:38 PM, Daniel Borkmann wrote:
->> >The following test case causes a NULL pointer dereference in cls_bpf:
->> >
->> >   FOO="1,6 0 0 4294967295,"
->> >   tc filter add dev foo parent 1: bpf bytecode "$FOO" flowid 1:1 action ok
->> >   tc filter replace dev foo parent 1: pref 49152 handle 0x1 \
->> >             bpf bytecode "$FOO" flowid 1:1 action drop
->> >
->> >The problem is that commit 1f947bf151e9 ("net: sched: rcu'ify cls_bpf")
->> >accidentally swapped the arguments of list_replace_rcu(), the old
->> >element needs to be the first argument and the new element the second.
->> >
->> >Fixes: 1f947bf151e9 ("net: sched: rcu'ify cls_bpf")
->> >Signed-off-by: Daniel Borkmann<daniel@iogearbox.net>
->> >---
-> Thanks Daniel. Apparently I got this right in cls_basic but botched it
-> here and in cls_flow.
->
-> FWIW,
->
-> Acked-by: John Fastabend<john.r.fastabend@intel.com>
+Commit 803f8fc46274b ("stmmac: move driver data setting into
+stmmac_dvr_probe") mistakenly set priv and not priv->dev as
+driver data. This meant that the remove, resume and suspend
+callbacks that fetched and tried to use this data would most
+likely explode. Fix the issue by using the correct variable.
 
-Thanks for the quick fix.
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+Fixes: 803f8fc46274b ("stmmac: move driver data setting into stmmac_dvr_probe")
+Signed-off-by: Joachim Eastwood <manabian@gmail.com>
+---
+Hi,
+
+I have no idea why I didn't notice (or anyone else for that
+matter) this issue before now. Looking at 803f8fc46274b
+it's pretty obvious and I should have spotted the mistake
+when I sent the orignal patch. Anyway it's good to get this
+fixed before 4.2 is released.
+
+This should not conflict with any of the patches I sent for
+net-next, btw.
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 50f7a7a26821..864b476f7fd5 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2843,7 +2843,7 @@ int stmmac_dvr_probe(struct device *device,
+ 	if (res->mac)
+ 		memcpy(priv->dev->dev_addr, res->mac, ETH_ALEN);
+ 
+-	dev_set_drvdata(device, priv);
++	dev_set_drvdata(device, priv->dev);
+ 
+ 	/* Verify driver arguments */
+ 	stmmac_verify_args();
+-- 
+1.8.0
