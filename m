@@ -1,210 +1,306 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: [PATCH net-next 09/22] mpls: ip tunnel support
-Date: Fri, 17 Jul 2015 14:55:28 +0200
-Message-ID: <739942c0032036e8a89657b9a905735ddd56d11a.1437137396.git.tgraf@suug.ch>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next 12/22] dst: Metadata destinations
+Date: Fri, 17 Jul 2015 14:55:31 +0200
+Message-ID: <3c8071815f514b07ee1b918f03f04b369349662a.1437137396.git.tgraf@suug.ch>
 References: <cover.1437137396.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, rshearma-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
- hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org,
- edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
- simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, ja-FgGsKACvmQM@public.gmane.org,
- ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, weichunc-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1437137396.git.tgraf-G/eBtMaohhA@public.gmane.org>
-In-Reply-To: <cover.1437137396.git.tgraf-G/eBtMaohhA@public.gmane.org>
-References: <cover.1437137396.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: roopa@cumulusnetworks.com, rshearma@brocade.com,
+	ebiederm@xmission.com, hannes@stressinduktion.org,
+	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
+	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
+	jiri@resnulli.us, marcelo.leitner@gmail.com,
+	stephen@networkplumber.org, jpettit@nicira.com, kaber@trash.net,
+	simon.horman@netronome.com, joestringer@nicira.com, ja@ssi.bg,
+	ast@plumgrid.com, weichunc@plumgrid.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:49557 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757993AbbGQM4A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 08:56:00 -0400
+In-Reply-To: <cover.1437137396.git.tgraf@suug.ch>
+In-Reply-To: <cover.1437137396.git.tgraf@suug.ch>
+References: <cover.1437137396.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUm9vcGEgUHJhYmh1IDxyb29wYUBjdW11bHVzbmV0d29ya3MuY29tPgoKVGhpcyBpbXBs
-ZW1lbnRhdGlvbiB1c2VzIGx3dHVubmVsIGluZnJhc3RydWN0dXJlIHRvIHJlZ2lzdGVyCmhvb2tz
-IGZvciBtcGxzIHR1bm5lbCBlbmNhcHMuCgpJdCBwaWNrcyBjdWVzIGZyb20gaXB0dW5uZWxfZW5j
-YXBzIGluZnJhc3RydWN0dXJlIGFuZCBwcmV2aW91cwptcGxzIGlwdHVubmVsIFJGQyBwYXRjaGVz
-IGZyb20gRXJpYyBXLiBCaWVkZXJtYW4gYW5kIFJvYmVydCBTaGVhcm1hbgoKU2lnbmVkLW9mZi1i
-eTogUm9vcGEgUHJhYmh1IDxyb29wYUBjdW11bHVzbmV0d29ya3MuY29tPgotLS0KIGluY2x1ZGUv
-bGludXgvbXBsc19pcHR1bm5lbC5oICAgICAgfCAgIDYgKwogaW5jbHVkZS9uZXQvbXBsc19pcHR1
-bm5lbC5oICAgICAgICB8ICAyOSArKysrKwogaW5jbHVkZS91YXBpL2xpbnV4L21wbHNfaXB0dW5u
-ZWwuaCB8ICAyOCArKysrKwogbmV0L21wbHMvS2NvbmZpZyAgICAgICAgICAgICAgICAgICB8ICAg
-OCArLQogbmV0L21wbHMvTWFrZWZpbGUgICAgICAgICAgICAgICAgICB8ICAgMSArCiBuZXQvbXBs
-cy9tcGxzX2lwdHVubmVsLmMgICAgICAgICAgIHwgMjMzICsrKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKysKIDYgZmlsZXMgY2hhbmdlZCwgMzA0IGluc2VydGlvbnMoKyksIDEgZGVs
-ZXRpb24oLSkKIGNyZWF0ZSBtb2RlIDEwMDY0NCBpbmNsdWRlL2xpbnV4L21wbHNfaXB0dW5uZWwu
-aAogY3JlYXRlIG1vZGUgMTAwNjQ0IGluY2x1ZGUvbmV0L21wbHNfaXB0dW5uZWwuaAogY3JlYXRl
-IG1vZGUgMTAwNjQ0IGluY2x1ZGUvdWFwaS9saW51eC9tcGxzX2lwdHVubmVsLmgKIGNyZWF0ZSBt
-b2RlIDEwMDY0NCBuZXQvbXBscy9tcGxzX2lwdHVubmVsLmMKCmRpZmYgLS1naXQgYS9pbmNsdWRl
-L2xpbnV4L21wbHNfaXB0dW5uZWwuaCBiL2luY2x1ZGUvbGludXgvbXBsc19pcHR1bm5lbC5oCm5l
-dyBmaWxlIG1vZGUgMTAwNjQ0CmluZGV4IDAwMDAwMDAuLmVmMjllYjIKLS0tIC9kZXYvbnVsbAor
-KysgYi9pbmNsdWRlL2xpbnV4L21wbHNfaXB0dW5uZWwuaApAQCAtMCwwICsxLDYgQEAKKyNpZm5k
-ZWYgX0xJTlVYX01QTFNfSVBUVU5ORUxfSAorI2RlZmluZSBfTElOVVhfTVBMU19JUFRVTk5FTF9I
-CisKKyNpbmNsdWRlIDx1YXBpL2xpbnV4L21wbHNfaXB0dW5uZWwuaD4KKworI2VuZGlmICAvKiBf
-TElOVVhfTVBMU19JUFRVTk5FTF9IICovCmRpZmYgLS1naXQgYS9pbmNsdWRlL25ldC9tcGxzX2lw
-dHVubmVsLmggYi9pbmNsdWRlL25ldC9tcGxzX2lwdHVubmVsLmgKbmV3IGZpbGUgbW9kZSAxMDA2
-NDQKaW5kZXggMDAwMDAwMC4uNDc1Nzk5NwotLS0gL2Rldi9udWxsCisrKyBiL2luY2x1ZGUvbmV0
-L21wbHNfaXB0dW5uZWwuaApAQCAtMCwwICsxLDI5IEBACisvKgorICogQ29weXJpZ2h0IChjKSAy
-MDE1IEN1bXVsdXMgTmV0d29ya3MsIEluYy4KKyAqCisgKiBUaGlzIHByb2dyYW0gaXMgZnJlZSBz
-b2Z0d2FyZTsgeW91IGNhbiByZWRpc3RyaWJ1dGUgaXQgYW5kL29yCisgKiBtb2RpZnkgaXQgdW5k
-ZXIgdGhlIHRlcm1zIG9mIHZlcnNpb24gMiBvZiB0aGUgR05VIEdlbmVyYWwgUHVibGljCisgKiBM
-aWNlbnNlIGFzIHB1Ymxpc2hlZCBieSB0aGUgRnJlZSBTb2Z0d2FyZSBGb3VuZGF0aW9uLgorICoK
-KyAqIFRoaXMgcHJvZ3JhbSBpcyBkaXN0cmlidXRlZCBpbiB0aGUgaG9wZSB0aGF0IGl0IHdpbGwg
-YmUgdXNlZnVsLCBidXQKKyAqIFdJVEhPVVQgQU5ZIFdBUlJBTlRZOyB3aXRob3V0IGV2ZW4gdGhl
-IGltcGxpZWQgd2FycmFudHkgb2YKKyAqIE1FUkNIQU5UQUJJTElUWSBvciBGSVRORVNTIEZPUiBB
-IFBBUlRJQ1VMQVIgUFVSUE9TRS4gU2VlIHRoZSBHTlUKKyAqIEdlbmVyYWwgUHVibGljIExpY2Vu
-c2UgZm9yIG1vcmUgZGV0YWlscy4KKyAqLworCisjaWZuZGVmIF9ORVRfTVBMU19JUFRVTk5FTF9I
-CisjZGVmaW5lIF9ORVRfTVBMU19JUFRVTk5FTF9IIDEKKworI2RlZmluZSBNQVhfTkVXX0xBQkVM
-UyAyCisKK3N0cnVjdCBtcGxzX2lwdHVubmVsX2VuY2FwIHsKKwl1MzIJbGFiZWxbTUFYX05FV19M
-QUJFTFNdOworCXUzMglsYWJlbHM7Cit9OworCitzdGF0aWMgaW5saW5lIHN0cnVjdCBtcGxzX2lw
-dHVubmVsX2VuY2FwICptcGxzX2x3dHVubmVsX2VuY2FwKHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAq
-bHd0c3RhdGUpCit7CisJcmV0dXJuIChzdHJ1Y3QgbXBsc19pcHR1bm5lbF9lbmNhcCAqKWx3dHN0
-YXRlLT5kYXRhOworfQorCisjZW5kaWYKZGlmZiAtLWdpdCBhL2luY2x1ZGUvdWFwaS9saW51eC9t
-cGxzX2lwdHVubmVsLmggYi9pbmNsdWRlL3VhcGkvbGludXgvbXBsc19pcHR1bm5lbC5oCm5ldyBm
-aWxlIG1vZGUgMTAwNjQ0CmluZGV4IDAwMDAwMDAuLmQ4MGEwNDkKLS0tIC9kZXYvbnVsbAorKysg
-Yi9pbmNsdWRlL3VhcGkvbGludXgvbXBsc19pcHR1bm5lbC5oCkBAIC0wLDAgKzEsMjggQEAKKy8q
-CisgKgltcGxzIHR1bm5lbCBhcGkKKyAqCisgKglBdXRob3JzOgorICoJCVJvb3BhIFByYWJodSA8
-cm9vcGFAY3VtdWx1c25ldHdvcmtzLmNvbT4KKyAqCisgKglUaGlzIHByb2dyYW0gaXMgZnJlZSBz
-b2Z0d2FyZTsgeW91IGNhbiByZWRpc3RyaWJ1dGUgaXQgYW5kL29yCisgKgltb2RpZnkgaXQgdW5k
-ZXIgdGhlIHRlcm1zIG9mIHRoZSBHTlUgR2VuZXJhbCBQdWJsaWMgTGljZW5zZQorICoJYXMgcHVi
-bGlzaGVkIGJ5IHRoZSBGcmVlIFNvZnR3YXJlIEZvdW5kYXRpb247IGVpdGhlciB2ZXJzaW9uCisg
-KgkyIG9mIHRoZSBMaWNlbnNlLCBvciAoYXQgeW91ciBvcHRpb24pIGFueSBsYXRlciB2ZXJzaW9u
-LgorICovCisKKyNpZm5kZWYgX1VBUElfTElOVVhfTVBMU19JUFRVTk5FTF9ICisjZGVmaW5lIF9V
-QVBJX0xJTlVYX01QTFNfSVBUVU5ORUxfSAorCisvKiBNUExTIHR1bm5lbCBhdHRyaWJ1dGVzCisg
-KiBbUlRBX0VOQ0FQXSA9IHsKKyAqICAgICBbTVBMU19JUFRVTk5FTF9EU1RdCisgKiB9CisgKi8K
-K2VudW0geworCU1QTFNfSVBUVU5ORUxfVU5TUEVDLAorCU1QTFNfSVBUVU5ORUxfRFNULAorCV9f
-TVBMU19JUFRVTk5FTF9NQVgsCit9OworI2RlZmluZSBNUExTX0lQVFVOTkVMX01BWCAoX19NUExT
-X0lQVFVOTkVMX01BWCAtIDEpCisKKyNlbmRpZiAvKiBfVUFQSV9MSU5VWF9NUExTX0lQVFVOTkVM
-X0ggKi8KZGlmZiAtLWdpdCBhL25ldC9tcGxzL0tjb25maWcgYi9uZXQvbXBscy9LY29uZmlnCmlu
-ZGV4IDE3YmRlNzkuLjVjNDY3ZWYgMTAwNjQ0Ci0tLSBhL25ldC9tcGxzL0tjb25maWcKKysrIGIv
-bmV0L21wbHMvS2NvbmZpZwpAQCAtMjQsNyArMjQsMTMgQEAgY29uZmlnIE5FVF9NUExTX0dTTwog
-CiBjb25maWcgTVBMU19ST1VUSU5HCiAJdHJpc3RhdGUgIk1QTFM6IHJvdXRpbmcgc3VwcG9ydCIK
-LQloZWxwCisJLS0taGVscC0tLQogCSBBZGQgc3VwcG9ydCBmb3IgZm9yd2FyZGluZyBvZiBtcGxz
-IHBhY2tldHMuCiAKK2NvbmZpZyBNUExTX0lQVFVOTkVMCisJdHJpc3RhdGUgIk1QTFM6IElQIG92
-ZXIgTVBMUyB0dW5uZWwgc3VwcG9ydCIKKwlkZXBlbmRzIG9uIExXVFVOTkVMICYmIE1QTFNfUk9V
-VElORworCS0tLWhlbHAtLS0KKwkgbXBscyBpcCB0dW5uZWwgc3VwcG9ydC4KKwogZW5kaWYgIyBN
-UExTCmRpZmYgLS1naXQgYS9uZXQvbXBscy9NYWtlZmlsZSBiL25ldC9tcGxzL01ha2VmaWxlCmlu
-ZGV4IDY1YmJlNjguLjljYTkyMzYgMTAwNjQ0Ci0tLSBhL25ldC9tcGxzL01ha2VmaWxlCisrKyBi
-L25ldC9tcGxzL01ha2VmaWxlCkBAIC0zLDUgKzMsNiBAQAogIwogb2JqLSQoQ09ORklHX05FVF9N
-UExTX0dTTykgKz0gbXBsc19nc28ubwogb2JqLSQoQ09ORklHX01QTFNfUk9VVElORykgKz0gbXBs
-c19yb3V0ZXIubworb2JqLSQoQ09ORklHX01QTFNfSVBUVU5ORUwpICs9IG1wbHNfaXB0dW5uZWwu
-bwogCiBtcGxzX3JvdXRlci15IDo9IGFmX21wbHMubwpkaWZmIC0tZ2l0IGEvbmV0L21wbHMvbXBs
-c19pcHR1bm5lbC5jIGIvbmV0L21wbHMvbXBsc19pcHR1bm5lbC5jCm5ldyBmaWxlIG1vZGUgMTAw
-NjQ0CmluZGV4IDAwMDAwMDAuLmVlYTA5NmYKLS0tIC9kZXYvbnVsbAorKysgYi9uZXQvbXBscy9t
-cGxzX2lwdHVubmVsLmMKQEAgLTAsMCArMSwyMzMgQEAKKy8qCisgKiBtcGxzIHR1bm5lbHMJQW4g
-aW1wbGVtZW50YXRpb24gbXBscyB0dW5uZWxzIHVzaW5nIHRoZSBsaWdodCB3ZWlnaHQgdHVubmVs
-CisgKgkJaW5mcmFzdHJ1Y3R1cmUKKyAqCisgKiBBdXRob3JzOglSb29wYSBQcmFiaHUsIDxyb29w
-YUBjdW11bHVzbmV0d29ya3MuY29tPgorICoKKyAqCQlUaGlzIHByb2dyYW0gaXMgZnJlZSBzb2Z0
-d2FyZTsgeW91IGNhbiByZWRpc3RyaWJ1dGUgaXQgYW5kL29yCisgKgkJbW9kaWZ5IGl0IHVuZGVy
-IHRoZSB0ZXJtcyBvZiB0aGUgR05VIEdlbmVyYWwgUHVibGljIExpY2Vuc2UKKyAqCQlhcyBwdWJs
-aXNoZWQgYnkgdGhlIEZyZWUgU29mdHdhcmUgRm91bmRhdGlvbjsgZWl0aGVyIHZlcnNpb24KKyAq
-CQkyIG9mIHRoZSBMaWNlbnNlLCBvciAoYXQgeW91ciBvcHRpb24pIGFueSBsYXRlciB2ZXJzaW9u
-LgorICoKKyAqLworI2luY2x1ZGUgPGxpbnV4L3R5cGVzLmg+CisjaW5jbHVkZSA8bGludXgvc2ti
-dWZmLmg+CisjaW5jbHVkZSA8bGludXgvbmV0Lmg+CisjaW5jbHVkZSA8bGludXgvbW9kdWxlLmg+
-CisjaW5jbHVkZSA8bGludXgvbXBscy5oPgorI2luY2x1ZGUgPGxpbnV4L3ZtYWxsb2MuaD4KKyNp
-bmNsdWRlIDxuZXQvaXAuaD4KKyNpbmNsdWRlIDxuZXQvZHN0Lmg+CisjaW5jbHVkZSA8bmV0L2x3
-dHVubmVsLmg+CisjaW5jbHVkZSA8bmV0L25ldGV2ZW50Lmg+CisjaW5jbHVkZSA8bmV0L25ldG5z
-L2dlbmVyaWMuaD4KKyNpbmNsdWRlIDxuZXQvaXA2X2ZpYi5oPgorI2luY2x1ZGUgPG5ldC9yb3V0
-ZS5oPgorI2luY2x1ZGUgPG5ldC9tcGxzX2lwdHVubmVsLmg+CisjaW5jbHVkZSA8bGludXgvbXBs
-c19pcHR1bm5lbC5oPgorI2luY2x1ZGUgImludGVybmFsLmgiCisKK3N0YXRpYyBjb25zdCBzdHJ1
-Y3QgbmxhX3BvbGljeSBtcGxzX2lwdHVubmVsX3BvbGljeVtNUExTX0lQVFVOTkVMX01BWCArIDFd
-ID0geworCVtNUExTX0lQVFVOTkVMX0RTVF0JPSB7IC50eXBlID0gTkxBX1UzMiB9LAorfTsKKwor
-c3RhdGljIHVuc2lnbmVkIGludCBtcGxzX2VuY2FwX3NpemUoc3RydWN0IG1wbHNfaXB0dW5uZWxf
-ZW5jYXAgKmVuKQoreworCS8qIFRoZSBzaXplIG9mIHRoZSBsYXllciAyLjUgbGFiZWxzIHRvIGJl
-IGFkZGVkIGZvciB0aGlzIHJvdXRlICovCisJcmV0dXJuIGVuLT5sYWJlbHMgKiBzaXplb2Yoc3Ry
-dWN0IG1wbHNfc2hpbV9oZHIpOworfQorCitpbnQgbXBsc19vdXRwdXQoc3RydWN0IHNvY2sgKnNr
-LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQoreworCXN0cnVjdCBtcGxzX2lwdHVubmVsX2VuY2FwICp0
-dW5fZW5jYXBfaW5mbzsKKwlzdHJ1Y3QgbXBsc19zaGltX2hkciAqaGRyOworCXN0cnVjdCBuZXRf
-ZGV2aWNlICpvdXRfZGV2OworCXVuc2lnbmVkIGludCBoaF9sZW47CisJdW5zaWduZWQgaW50IG5l
-d19oZWFkZXJfc2l6ZTsKKwl1bnNpZ25lZCBpbnQgbXR1OworCXN0cnVjdCBkc3RfZW50cnkgKmRz
-dCA9IHNrYl9kc3Qoc2tiKTsKKwlzdHJ1Y3QgcnRhYmxlICpydCA9IE5VTEw7CisJc3RydWN0IHJ0
-Nl9pbmZvICpydDYgPSBOVUxMOworCXN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAqbHd0c3RhdGUgPSBO
-VUxMOworCWludCBlcnIgPSAwOworCWJvb2wgYm9zOworCWludCBpOworCXVuc2lnbmVkIGludCB0
-dGw7CisKKwkvKiBPYnRhaW4gdGhlIHR0bCAqLworCWlmIChza2ItPnByb3RvY29sID09IGh0b25z
-KEVUSF9QX0lQKSkgeworCQl0dGwgPSBpcF9oZHIoc2tiKS0+dHRsOworCQlydCA9IChzdHJ1Y3Qg
-cnRhYmxlICopZHN0OworCQlsd3RzdGF0ZSA9IHJ0LT5ydF9sd3RzdGF0ZTsKKwl9IGVsc2UgaWYg
-KHNrYi0+cHJvdG9jb2wgPT0gaHRvbnMoRVRIX1BfSVBWNikpIHsKKwkJdHRsID0gaXB2Nl9oZHIo
-c2tiKS0+aG9wX2xpbWl0OworCQlydDYgPSAoc3RydWN0IHJ0Nl9pbmZvICopZHN0OworCQlsd3Rz
-dGF0ZSA9IHJ0Ni0+cnQ2aV9sd3RzdGF0ZTsKKwl9IGVsc2UgeworCQlnb3RvIGRyb3A7CisJfQor
-CisJc2tiX29ycGhhbihza2IpOworCisJLyogRmluZCB0aGUgb3V0cHV0IGRldmljZSAqLworCW91
-dF9kZXYgPSByY3VfZGVyZWZlcmVuY2UoZHN0LT5kZXYpOworCWlmICghbXBsc19vdXRwdXRfcG9z
-c2libGUob3V0X2RldikgfHwKKwkgICAgIWx3dHN0YXRlIHx8IHNrYl93YXJuX2lmX2xybyhza2Ip
-KQorCQlnb3RvIGRyb3A7CisKKwlza2JfZm9yd2FyZF9jc3VtKHNrYik7CisKKwl0dW5fZW5jYXBf
-aW5mbyA9IG1wbHNfbHd0dW5uZWxfZW5jYXAobHd0c3RhdGUpOworCisJLyogVmVyaWZ5IHRoZSBk
-ZXN0aW5hdGlvbiBjYW4gaG9sZCB0aGUgcGFja2V0ICovCisJbmV3X2hlYWRlcl9zaXplID0gbXBs
-c19lbmNhcF9zaXplKHR1bl9lbmNhcF9pbmZvKTsKKwltdHUgPSBtcGxzX2Rldl9tdHUob3V0X2Rl
-dik7CisJaWYgKG1wbHNfcGt0X3Rvb19iaWcoc2tiLCBtdHUgLSBuZXdfaGVhZGVyX3NpemUpKQor
-CQlnb3RvIGRyb3A7CisKKwloaF9sZW4gPSBMTF9SRVNFUlZFRF9TUEFDRShvdXRfZGV2KTsKKwlp
-ZiAoIW91dF9kZXYtPmhlYWRlcl9vcHMpCisJCWhoX2xlbiA9IDA7CisKKwkvKiBFbnN1cmUgdGhl
-cmUgaXMgZW5vdWdoIHNwYWNlIGZvciB0aGUgaGVhZGVycyBpbiB0aGUgc2tiICovCisJaWYgKHNr
-Yl9jb3coc2tiLCBoaF9sZW4gKyBuZXdfaGVhZGVyX3NpemUpKQorCQlnb3RvIGRyb3A7CisKKwlz
-a2JfcHVzaChza2IsIG5ld19oZWFkZXJfc2l6ZSk7CisJc2tiX3Jlc2V0X25ldHdvcmtfaGVhZGVy
-KHNrYik7CisKKwlza2ItPmRldiA9IG91dF9kZXY7CisJc2tiLT5wcm90b2NvbCA9IGh0b25zKEVU
-SF9QX01QTFNfVUMpOworCisJLyogUHVzaCB0aGUgbmV3IGxhYmVscyAqLworCWhkciA9IG1wbHNf
-aGRyKHNrYik7CisJYm9zID0gdHJ1ZTsKKwlmb3IgKGkgPSB0dW5fZW5jYXBfaW5mby0+bGFiZWxz
-IC0gMTsgaSA+PSAwOyBpLS0pIHsKKwkJaGRyW2ldID0gbXBsc19lbnRyeV9lbmNvZGUodHVuX2Vu
-Y2FwX2luZm8tPmxhYmVsW2ldLAorCQkJCQkgICB0dGwsIDAsIGJvcyk7CisJCWJvcyA9IGZhbHNl
-OworCX0KKworCWlmIChydCkKKwkJZXJyID0gbmVpZ2hfeG1pdChORUlHSF9BUlBfVEFCTEUsIG91
-dF9kZXYsICZydC0+cnRfZ2F0ZXdheSwKKwkJCQkgc2tiKTsKKwllbHNlIGlmIChydDYpCisJCWVy
-ciA9IG5laWdoX3htaXQoTkVJR0hfTkRfVEFCTEUsIG91dF9kZXYsICZydDYtPnJ0NmlfZ2F0ZXdh
-eSwKKwkJCQkgc2tiKTsKKwlpZiAoZXJyKQorCQluZXRfZGJnX3JhdGVsaW1pdGVkKCIlczogcGFj
-a2V0IHRyYW5zbWlzc2lvbiBmYWlsZWQ6ICVkXG4iLAorCQkJCSAgICBfX2Z1bmNfXywgZXJyKTsK
-KworCXJldHVybiAwOworCitkcm9wOgorCWtmcmVlX3NrYihza2IpOworCXJldHVybiAtRUlOVkFM
-OworfQorCitzdGF0aWMgaW50IG1wbHNfYnVpbGRfc3RhdGUoc3RydWN0IG5ldF9kZXZpY2UgKmRl
-diwgc3RydWN0IG5sYXR0ciAqbmxhLAorCQkJICAgIHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAqKnRz
-KQoreworCXN0cnVjdCBtcGxzX2lwdHVubmVsX2VuY2FwICp0dW5fZW5jYXBfaW5mbzsKKwlzdHJ1
-Y3QgbmxhdHRyICp0YltNUExTX0lQVFVOTkVMX01BWCArIDFdOworCXN0cnVjdCBsd3R1bm5lbF9z
-dGF0ZSAqbmV3dHM7CisJaW50IHR1bl9lbmNhcF9pbmZvX2xlbjsKKwlpbnQgcmV0OworCisJcmV0
-ID0gbmxhX3BhcnNlX25lc3RlZCh0YiwgTVBMU19JUFRVTk5FTF9NQVgsIG5sYSwKKwkJCSAgICAg
-ICBtcGxzX2lwdHVubmVsX3BvbGljeSk7CisJaWYgKHJldCA8IDApCisJCXJldHVybiByZXQ7CisK
-KwlpZiAoIXRiW01QTFNfSVBUVU5ORUxfRFNUXSkKKwkJcmV0dXJuIC1FSU5WQUw7CisKKwl0dW5f
-ZW5jYXBfaW5mb19sZW4gPSBzaXplb2YoKnR1bl9lbmNhcF9pbmZvKTsKKworCW5ld3RzID0gbHd0
-dW5uZWxfc3RhdGVfYWxsb2ModHVuX2VuY2FwX2luZm9fbGVuKTsKKwlpZiAoIW5ld3RzKQorCQly
-ZXR1cm4gLUVOT01FTTsKKworCW5ld3RzLT5sZW4gPSB0dW5fZW5jYXBfaW5mb19sZW47CisJdHVu
-X2VuY2FwX2luZm8gPSBtcGxzX2x3dHVubmVsX2VuY2FwKG5ld3RzKTsKKwlyZXQgPSBubGFfZ2V0
-X2xhYmVscyh0YltNUExTX0lQVFVOTkVMX0RTVF0sIE1BWF9ORVdfTEFCRUxTLAorCQkJICAgICAm
-dHVuX2VuY2FwX2luZm8tPmxhYmVscywgdHVuX2VuY2FwX2luZm8tPmxhYmVsKTsKKwlpZiAocmV0
-KQorCQlnb3RvIGVycm91dDsKKwluZXd0cy0+dHlwZSA9IExXVFVOTkVMX0VOQ0FQX01QTFM7CisJ
-bmV3dHMtPmZsYWdzIHw9IExXVFVOTkVMX1NUQVRFX09VVFBVVF9SRURJUkVDVDsKKworCSp0cyA9
-IG5ld3RzOworCisJcmV0dXJuIDA7CisKK2Vycm91dDoKKwlrZnJlZShuZXd0cyk7CisJKnRzID0g
-TlVMTDsKKworCXJldHVybiByZXQ7Cit9CisKK3N0YXRpYyBpbnQgbXBsc19maWxsX2VuY2FwX2lu
-Zm8oc3RydWN0IHNrX2J1ZmYgKnNrYiwKKwkJCQlzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmx3dHN0
-YXRlKQoreworCXN0cnVjdCBtcGxzX2lwdHVubmVsX2VuY2FwICp0dW5fZW5jYXBfaW5mbzsKKwkK
-Kwl0dW5fZW5jYXBfaW5mbyA9IG1wbHNfbHd0dW5uZWxfZW5jYXAobHd0c3RhdGUpOworCisJaWYg
-KG5sYV9wdXRfbGFiZWxzKHNrYiwgTVBMU19JUFRVTk5FTF9EU1QsIHR1bl9lbmNhcF9pbmZvLT5s
-YWJlbHMsCisJCQkgICB0dW5fZW5jYXBfaW5mby0+bGFiZWwpKQorCQlnb3RvIG5sYV9wdXRfZmFp
-bHVyZTsKKworCXJldHVybiAwOworCitubGFfcHV0X2ZhaWx1cmU6CisJcmV0dXJuIC1FTVNHU0la
-RTsKK30KKworc3RhdGljIGludCBtcGxzX2VuY2FwX25sc2l6ZShzdHJ1Y3QgbHd0dW5uZWxfc3Rh
-dGUgKmx3dHN0YXRlKQoreworCXN0cnVjdCBtcGxzX2lwdHVubmVsX2VuY2FwICp0dW5fZW5jYXBf
-aW5mbzsKKworCXR1bl9lbmNhcF9pbmZvID0gbXBsc19sd3R1bm5lbF9lbmNhcChsd3RzdGF0ZSk7
-CisKKwlyZXR1cm4gbmxhX3RvdGFsX3NpemUodHVuX2VuY2FwX2luZm8tPmxhYmVscyAqIDQpOwor
-fQorCitzdGF0aWMgaW50IG1wbHNfZW5jYXBfY21wKHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAqYSwg
-c3RydWN0IGx3dHVubmVsX3N0YXRlICpiKQoreworCXN0cnVjdCBtcGxzX2lwdHVubmVsX2VuY2Fw
-ICphX2hkciA9IG1wbHNfbHd0dW5uZWxfZW5jYXAoYSk7CisJc3RydWN0IG1wbHNfaXB0dW5uZWxf
-ZW5jYXAgKmJfaGRyID0gbXBsc19sd3R1bm5lbF9lbmNhcChiKTsKKwlpbnQgbDsKKworCWlmIChh
-X2hkci0+bGFiZWxzICE9IGJfaGRyLT5sYWJlbHMpCisJCXJldHVybiAxOworCisJZm9yIChsID0g
-MDsgbCA8IE1BWF9ORVdfTEFCRUxTOyBsKyspCisJCWlmIChhX2hkci0+bGFiZWxbbF0gIT0gYl9o
-ZHItPmxhYmVsW2xdKQorCQkJcmV0dXJuIDE7CisJcmV0dXJuIDA7Cit9CisKK3N0YXRpYyBjb25z
-dCBzdHJ1Y3QgbHd0dW5uZWxfZW5jYXBfb3BzIG1wbHNfaXB0dW5fb3BzID0geworCS5idWlsZF9z
-dGF0ZSA9IG1wbHNfYnVpbGRfc3RhdGUsCisJLm91dHB1dCA9IG1wbHNfb3V0cHV0LAorCS5maWxs
-X2VuY2FwID0gbXBsc19maWxsX2VuY2FwX2luZm8sCisJLmdldF9lbmNhcF9zaXplID0gbXBsc19l
-bmNhcF9ubHNpemUsCisJLmNtcF9lbmNhcCA9IG1wbHNfZW5jYXBfY21wLAorfTsKKworc3RhdGlj
-IGludCBfX2luaXQgbXBsc19pcHR1bm5lbF9pbml0KHZvaWQpCit7CisJcmV0dXJuIGx3dHVubmVs
-X2VuY2FwX2FkZF9vcHMoJm1wbHNfaXB0dW5fb3BzLCBMV1RVTk5FTF9FTkNBUF9NUExTKTsKK30K
-K21vZHVsZV9pbml0KG1wbHNfaXB0dW5uZWxfaW5pdCk7CisKK3N0YXRpYyB2b2lkIF9fZXhpdCBt
-cGxzX2lwdHVubmVsX2V4aXQodm9pZCkKK3sKKwlsd3R1bm5lbF9lbmNhcF9kZWxfb3BzKCZtcGxz
-X2lwdHVuX29wcywgTFdUVU5ORUxfRU5DQVBfTVBMUyk7Cit9Cittb2R1bGVfZXhpdChtcGxzX2lw
-dHVubmVsX2V4aXQpOworCitNT0RVTEVfREVTQ1JJUFRJT04oIk11bHRpUHJvdG9jb2wgTGFiZWwg
-U3dpdGNoaW5nIElQIFR1bm5lbHMiKTsKK01PRFVMRV9MSUNFTlNFKCJHUEwgdjIiKTsKLS0gCjIu
-NC4zCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYg
-bWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9t
-YWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Introduces a new dst_metadata which enables to carry per packet metadata
+between forwarding and processing elements via the skb->dst pointer.
+
+The structure is set up to be a union. Thus, each separate type of
+metadata requires its own dst instance. If demand arises to carry
+multiple types of metadata concurrently, metadata dst entries can be
+made stackable.
+
+The metadata dst entry is refcnt'ed as expected for now but a non
+reference counted use is possible if the reference is forced before
+queueing the skb.
+
+In order to allow allocating dsts with variable length, the existing
+dst_alloc() is split into a dst_alloc() and dst_init() function. The
+existing dst_init() function to initialize the subsystem is being
+renamed to dst_subsys_init() to make it clear what is what.
+
+The check before ip_route_input() is changed to ignore metadata dsts
+and drop the dst inside the routing function thus allowing to interpret
+metadata in a later commit.
+
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ include/net/dst.h          |  6 +++-
+ include/net/dst_metadata.h | 32 ++++++++++++++++++
+ net/core/dev.c             |  2 +-
+ net/core/dst.c             | 84 ++++++++++++++++++++++++++++++++++++++--------
+ net/ipv4/ip_input.c        |  3 +-
+ net/ipv4/route.c           |  2 ++
+ 6 files changed, 112 insertions(+), 17 deletions(-)
+ create mode 100644 include/net/dst_metadata.h
+
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 2bc73f8a..2578811 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -57,6 +57,7 @@ struct dst_entry {
+ #define DST_FAKE_RTABLE		0x0040
+ #define DST_XFRM_TUNNEL		0x0080
+ #define DST_XFRM_QUEUE		0x0100
++#define DST_METADATA		0x0200
+ 
+ 	unsigned short		pending_confirm;
+ 
+@@ -356,6 +357,9 @@ static inline int dst_discard(struct sk_buff *skb)
+ }
+ void *dst_alloc(struct dst_ops *ops, struct net_device *dev, int initial_ref,
+ 		int initial_obsolete, unsigned short flags);
++void dst_init(struct dst_entry *dst, struct dst_ops *ops,
++	      struct net_device *dev, int initial_ref, int initial_obsolete,
++	      unsigned short flags);
+ void __dst_free(struct dst_entry *dst);
+ struct dst_entry *dst_destroy(struct dst_entry *dst);
+ 
+@@ -457,7 +461,7 @@ static inline struct dst_entry *dst_check(struct dst_entry *dst, u32 cookie)
+ 	return dst;
+ }
+ 
+-void dst_init(void);
++void dst_subsys_init(void);
+ 
+ /* Flags for xfrm_lookup flags argument. */
+ enum {
+diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
+new file mode 100644
+index 0000000..4f7694f
+--- /dev/null
++++ b/include/net/dst_metadata.h
+@@ -0,0 +1,32 @@
++#ifndef __NET_DST_METADATA_H
++#define __NET_DST_METADATA_H 1
++
++#include <linux/skbuff.h>
++#include <net/ip_tunnels.h>
++#include <net/dst.h>
++
++struct metadata_dst {
++	struct dst_entry		dst;
++	size_t				opts_len;
++};
++
++static inline struct metadata_dst *skb_metadata_dst(struct sk_buff *skb)
++{
++	struct metadata_dst *md_dst = (struct metadata_dst *) skb_dst(skb);
++
++	if (md_dst && md_dst->dst.flags & DST_METADATA)
++		return md_dst;
++
++	return NULL;
++}
++
++static inline bool skb_valid_dst(const struct sk_buff *skb)
++{
++	struct dst_entry *dst = skb_dst(skb);
++
++	return dst && !(dst->flags & DST_METADATA);
++}
++
++struct metadata_dst *metadata_dst_alloc(u8 optslen, gfp_t flags);
++
++#endif /* __NET_DST_METADATA_H */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8810b6b..61e3dcb 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -7659,7 +7659,7 @@ static int __init net_dev_init(void)
+ 	open_softirq(NET_RX_SOFTIRQ, net_rx_action);
+ 
+ 	hotcpu_notifier(dev_cpu_callback, 0);
+-	dst_init();
++	dst_subsys_init();
+ 	rc = 0;
+ out:
+ 	return rc;
+diff --git a/net/core/dst.c b/net/core/dst.c
+index e956ce6..917364f 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -22,6 +22,7 @@
+ #include <linux/prefetch.h>
+ 
+ #include <net/dst.h>
++#include <net/dst_metadata.h>
+ 
+ /*
+  * Theory of operations:
+@@ -158,19 +159,10 @@ const u32 dst_default_metrics[RTAX_MAX + 1] = {
+ 	[RTAX_MAX] = 0xdeadbeef,
+ };
+ 
+-
+-void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
+-		int initial_ref, int initial_obsolete, unsigned short flags)
++void dst_init(struct dst_entry *dst, struct dst_ops *ops,
++	      struct net_device *dev, int initial_ref, int initial_obsolete,
++	      unsigned short flags)
+ {
+-	struct dst_entry *dst;
+-
+-	if (ops->gc && dst_entries_get_fast(ops) > ops->gc_thresh) {
+-		if (ops->gc(ops))
+-			return NULL;
+-	}
+-	dst = kmem_cache_alloc(ops->kmem_cachep, GFP_ATOMIC);
+-	if (!dst)
+-		return NULL;
+ 	dst->child = NULL;
+ 	dst->dev = dev;
+ 	if (dev)
+@@ -200,6 +192,25 @@ void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
+ 	dst->next = NULL;
+ 	if (!(flags & DST_NOCOUNT))
+ 		dst_entries_add(ops, 1);
++}
++EXPORT_SYMBOL(dst_init);
++
++void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
++		int initial_ref, int initial_obsolete, unsigned short flags)
++{
++	struct dst_entry *dst;
++
++	if (ops->gc && dst_entries_get_fast(ops) > ops->gc_thresh) {
++		if (ops->gc(ops))
++			return NULL;
++	}
++
++	dst = kmem_cache_alloc(ops->kmem_cachep, GFP_ATOMIC);
++	if (!dst)
++		return NULL;
++
++	dst_init(dst, ops, dev, initial_ref, initial_obsolete, flags);
++
+ 	return dst;
+ }
+ EXPORT_SYMBOL(dst_alloc);
+@@ -248,7 +259,11 @@ again:
+ 		dst->ops->destroy(dst);
+ 	if (dst->dev)
+ 		dev_put(dst->dev);
+-	kmem_cache_free(dst->ops->kmem_cachep, dst);
++
++	if (dst->flags & DST_METADATA)
++		kfree(dst);
++	else
++		kmem_cache_free(dst->ops->kmem_cachep, dst);
+ 
+ 	dst = child;
+ 	if (dst) {
+@@ -327,6 +342,47 @@ void __dst_destroy_metrics_generic(struct dst_entry *dst, unsigned long old)
+ }
+ EXPORT_SYMBOL(__dst_destroy_metrics_generic);
+ 
++static struct dst_ops md_dst_ops = {
++	.family =		AF_UNSPEC,
++};
++
++static int dst_md_discard_sk(struct sock *sk, struct sk_buff *skb)
++{
++	WARN_ONCE(1, "Attempting to call output on metadata dst\n");
++	kfree_skb(skb);
++	return 0;
++}
++
++static int dst_md_discard(struct sk_buff *skb)
++{
++	WARN_ONCE(1, "Attempting to call input on metadata dst\n");
++	kfree_skb(skb);
++	return 0;
++}
++
++struct metadata_dst *metadata_dst_alloc(u8 optslen, gfp_t flags)
++{
++	struct metadata_dst *md_dst;
++	struct dst_entry *dst;
++
++	md_dst = kmalloc(sizeof(*md_dst) + optslen, flags);
++	if (!md_dst)
++		return ERR_PTR(-ENOMEM);
++
++	dst = &md_dst->dst;
++	dst_init(dst, &md_dst_ops, NULL, 1, DST_OBSOLETE_NONE,
++		 DST_METADATA | DST_NOCACHE | DST_NOCOUNT);
++
++	dst->input = dst_md_discard;
++	dst->output = dst_md_discard_sk;
++
++	memset(dst + 1, 0, sizeof(*md_dst) + optslen - sizeof(*dst));
++	md_dst->opts_len = optslen;
++
++	return md_dst;
++}
++EXPORT_SYMBOL_GPL(metadata_dst_alloc);
++
+ /* Dirty hack. We did it in 2.2 (in __dst_free),
+  * we have _very_ good reasons not to repeat
+  * this mistake in 2.3, but we have no choice
+@@ -391,7 +447,7 @@ static struct notifier_block dst_dev_notifier = {
+ 	.priority = -10, /* must be called after other network notifiers */
+ };
+ 
+-void __init dst_init(void)
++void __init dst_subsys_init(void)
+ {
+ 	register_netdevice_notifier(&dst_dev_notifier);
+ }
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 2db4c87..f4fc8a7 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -146,6 +146,7 @@
+ #include <net/xfrm.h>
+ #include <linux/mroute.h>
+ #include <linux/netlink.h>
++#include <net/dst_metadata.h>
+ 
+ /*
+  *	Process Router Attention IP option (RFC 2113)
+@@ -331,7 +332,7 @@ static int ip_rcv_finish(struct sock *sk, struct sk_buff *skb)
+ 	 *	Initialise the virtual path cache for the packet. It describes
+ 	 *	how the packet travels inside Linux networking.
+ 	 */
+-	if (!skb_dst(skb)) {
++	if (!skb_valid_dst(skb)) {
+ 		int err = ip_route_input_noref(skb, iph->daddr, iph->saddr,
+ 					       iph->tos, skb->dev);
+ 		if (unlikely(err)) {
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index cd3157c..4c8e84e 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1690,6 +1690,8 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	   by fib_lookup.
+ 	 */
+ 
++	skb_dst_drop(skb);
++
+ 	if (ipv4_is_multicast(saddr) || ipv4_is_lbcast(saddr))
+ 		goto martian_source;
+ 
+-- 
+2.4.3
