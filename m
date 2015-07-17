@@ -1,77 +1,115 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/3] fixed_phy: handle link-down case
-Date: Thu, 16 Jul 2015 16:25:58 -0700
-Message-ID: <55A83D86.2030505@gmail.com>
-References: <55A7C45F.1070501@list.ru> <55A7C49E.2020803@list.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>
-To: Stas Sergeev <stsp@list.ru>, netdev <netdev@vger.kernel.org>
+From: Laura Abbott <labbott@fedoraproject.org>
+Subject: [RFC][NOT TESTED][PATCH] vsock: Fix blocking ops call in prepare_to_wait
+Date: Thu, 16 Jul 2015 17:31:45 -0700
+Message-ID: <1437093105-32420-1-git-send-email-labbott@fedoraproject.org>
+Cc: Laura Abbott <labbott@fedoraproject.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Andy King <acking@vmware.com>,
+	Dmitry Torokhov <dtor@vmware.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55A7C49E.2020803@list.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 16/07/15 07:50, Stas Sergeev wrote:
-> 
-> Currently fixed_phy driver recognizes only the link-up state.
-> This simple patch adds an implementation of link-down state.
-> It fixes the status registers when link is down, and also allows
-> to register the fixed-phy with link down without specifying the speed.
 
-This patch still breaks my setups here, e.g: drivers/net/dsa/bcm_sf2.c,
-but I will look into it.
+We receoved a bug report from someone using vmware:
 
-Do we really need this for now for your two other patches to work
-properly, or is it just nicer to have?
+WARNING: CPU: 3 PID: 660 at kernel/sched/core.c:7389
+__might_sleep+0x7d/0x90()
+do not call blocking ops when !TASK_RUNNING; state=1 set at
+[<ffffffff810fa68d>] prepare_to_wait+0x2d/0x90
+Modules linked in: vmw_vsock_vmci_transport vsock snd_seq_midi
+snd_seq_midi_event snd_ens1371 iosf_mbi gameport snd_rawmidi
+snd_ac97_codec ac97_bus snd_seq coretemp snd_seq_device snd_pcm
+snd_timer snd soundcore ppdev crct10dif_pclmul crc32_pclmul
+ghash_clmulni_intel vmw_vmci vmw_balloon i2c_piix4 shpchp parport_pc
+parport acpi_cpufreq nfsd auth_rpcgss nfs_acl lockd grace sunrpc btrfs
+xor raid6_pq 8021q garp stp llc mrp crc32c_intel serio_raw mptspi vmwgfx
+drm_kms_helper ttm drm scsi_transport_spi mptscsih e1000 ata_generic
+mptbase pata_acpi
+CPU: 3 PID: 660 Comm: vmtoolsd Not tainted
+4.2.0-0.rc1.git3.1.fc23.x86_64 #1
+Hardware name: VMware, Inc. VMware Virtual Platform/440BX Desktop
+Reference Platform, BIOS 6.00 05/20/2014
+ 0000000000000000 0000000049e617f3 ffff88006ac37ac8 ffffffff818641f5
+ 0000000000000000 ffff88006ac37b20 ffff88006ac37b08 ffffffff810ab446
+ ffff880068009f40 ffffffff81c63bc0 0000000000000061 0000000000000000
+Call Trace:
+ [<ffffffff818641f5>] dump_stack+0x4c/0x65
+ [<ffffffff810ab446>] warn_slowpath_common+0x86/0xc0
+ [<ffffffff810ab4d5>] warn_slowpath_fmt+0x55/0x70
+ [<ffffffff8112551d>] ? debug_lockdep_rcu_enabled+0x1d/0x20
+ [<ffffffff810fa68d>] ? prepare_to_wait+0x2d/0x90
+ [<ffffffff810fa68d>] ? prepare_to_wait+0x2d/0x90
+ [<ffffffff810da2bd>] __might_sleep+0x7d/0x90
+ [<ffffffff812163b3>] __might_fault+0x43/0xa0
+ [<ffffffff81430477>] copy_from_iter+0x87/0x2a0
+ [<ffffffffa039460a>] __qp_memcpy_to_queue+0x9a/0x1b0 [vmw_vmci]
+ [<ffffffffa0394740>] ? qp_memcpy_to_queue+0x20/0x20 [vmw_vmci]
+ [<ffffffffa0394757>] qp_memcpy_to_queue_iov+0x17/0x20 [vmw_vmci]
+ [<ffffffffa0394d50>] qp_enqueue_locked+0xa0/0x140 [vmw_vmci]
+ [<ffffffffa039593f>] vmci_qpair_enquev+0x4f/0xd0 [vmw_vmci]
+ [<ffffffffa04847bb>] vmci_transport_stream_enqueue+0x1b/0x20
+[vmw_vsock_vmci_transport]
+ [<ffffffffa047ae05>] vsock_stream_sendmsg+0x2c5/0x320 [vsock]
+ [<ffffffff810fabd0>] ? wake_atomic_t_function+0x70/0x70
+ [<ffffffff81702af8>] sock_sendmsg+0x38/0x50
+ [<ffffffff81702ff4>] SYSC_sendto+0x104/0x190
+ [<ffffffff8126e25a>] ? vfs_read+0x8a/0x140
+ [<ffffffff817042ee>] SyS_sendto+0xe/0x10
+ [<ffffffff8186d9ae>] entry_SYSCALL_64_fastpath+0x12/0x76
 
-> 
-> Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
-> 
-> CC: Florian Fainelli <f.fainelli@gmail.com>
-> CC: netdev@vger.kernel.org
-> CC: linux-kernel@vger.kernel.org
-> ---
->  drivers/net/phy/fixed_phy.c | 8 +++++---
->  1 file changed, 5 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
-> index 1960b46..479b93f 100644
-> --- a/drivers/net/phy/fixed_phy.c
-> +++ b/drivers/net/phy/fixed_phy.c
-> @@ -52,6 +52,10 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
->  	u16 lpagb = 0;
->  	u16 lpa = 0;
-> 
-> +	if (!fp->status.link)
-> +		goto done;
-> +	bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
-> +
->  	if (fp->status.duplex) {
->  		bmcr |= BMCR_FULLDPLX;
-> 
-> @@ -96,15 +100,13 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
->  		}
->  	}
-> 
-> -	if (fp->status.link)
-> -		bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
-> -
->  	if (fp->status.pause)
->  		lpa |= LPA_PAUSE_CAP;
-> 
->  	if (fp->status.asym_pause)
->  		lpa |= LPA_PAUSE_ASYM;
-> 
-> +done:
->  	fp->regs[MII_PHYSID1] = 0;
->  	fp->regs[MII_PHYSID2] = 0;
-> 
+transport->stream_enqueue may call copy_to_user so it should
+not be called inside a prepare_to_wait. Narrow the scope of
+the prepare_to_wait to avoid the bad call.
 
+Signed-off-by: Laura Abbott <labbott@fedoraproject.org>
+---
+The bug report looks valid but I haven't heard back from the reporter whether
+or not it fixed the problem, hence the submit as an RFC.
+---
+ net/vmw_vsock/af_vsock.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index df5fc6b..fd68c88 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -1558,8 +1558,6 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+ 	if (err < 0)
+ 		goto out;
+ 
+-	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+-
+ 	while (total_written < len) {
+ 		ssize_t written;
+ 
+@@ -1579,7 +1577,9 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+ 				goto out_wait;
+ 
+ 			release_sock(sk);
++			prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 			timeout = schedule_timeout(timeout);
++			finish_wait(sk_sleep(sk), &wait);
+ 			lock_sock(sk);
+ 			if (signal_pending(current)) {
+ 				err = sock_intr_errno(timeout);
+@@ -1589,8 +1589,6 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+ 				goto out_wait;
+ 			}
+ 
+-			prepare_to_wait(sk_sleep(sk), &wait,
+-					TASK_INTERRUPTIBLE);
+ 		}
+ 
+ 		/* These checks occur both as part of and after the loop
+@@ -1636,7 +1634,6 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+ out_wait:
+ 	if (total_written > 0)
+ 		err = total_written;
+-	finish_wait(sk_sleep(sk), &wait);
+ out:
+ 	release_sock(sk);
+ 	return err;
 -- 
-Florian
+2.4.3
