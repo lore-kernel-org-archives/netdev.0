@@ -1,59 +1,177 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [V2 6/7] hvsock: introduce Hyper-V VM Sockets feature
-Date: Fri, 17 Jul 2015 17:04:10 +0200
-Message-ID: <87fv4mn7v9.fsf@vitty.brq.redhat.com>
-References: <1436868048-17875-1-git-send-email-decui@microsoft.com>
-	<20150715.211916.1258342954251964451.davem@davemloft.net>
-	<d1e303ece500475b8e422d55f82fbffd@SIXPR30MB031.064d.mgd.msft.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>,
-	"olaf\@aepfle.de" <olaf@aepfle.de>,
-	"gregkh\@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"jasowang\@redhat.com" <jasowang@redhat.com>,
-	"driverdev-devel\@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"stephen\@networkplumber.org" <stephen@networkplumber.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"apw\@canonical.com" <apw@canonical.com>,
-	"pebolle\@tiscali.nl" <pebolle@tiscali.nl>
-To: Dexuan Cui <decui@microsoft.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d1e303ece500475b8e422d55f82fbffd@SIXPR30MB031.064d.mgd.msft.net>
-	(Dexuan Cui's message of "Thu, 16 Jul 2015 11:19:01 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH -next] net: fib: use fib result when zero-length prefix aliases exist
+Date: Fri, 17 Jul 2015 17:17:28 +0200
+Message-ID: <1437146248-21311-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:58991 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756760AbbGQPRu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 11:17:50 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dexuan Cui <decui@microsoft.com> writes:
+default route selection is not deterministic when TOS keys are used:
 
->> From: David Miller
->> Sent: Thursday, July 16, 2015 12:19
->> 
->> From: Dexuan Cui
->> Date: Tue, 14 Jul 2015 03:00:48 -0700
->> 
->> > +	pr_debug("hvsock_sk_destruct: called\n");
->> 
->> Debug logging just to state that a function is called is not appropriate,
->> we have very sophisticated tracing facilities in the kernel that can do
->> that transparently, and more.
->> 
->> Please remove this.
-> OK. 
->
->> > +	if (hvsk->channel) {
->> > +		pr_debug("hvsock_sk_destruct: calling vmbus_close()\n");
->> 
->> Likewise, these kinds of debug logs are totally inappropriate.
-> OK, I'll remove all the pr_debug() in the patch.
->
+ip route del default
 
-I'd suggest we rather use something like net_dbg_ratelimited()
-intead. The driver is new so issues are expected. Some debugging may
-be useful)
+ip route add tos 0x00 via 10.2.100.100
+ip route add tos 0x04 via 10.2.100.101
+ip route add tos 0x08 via 10.2.100.102
+ip route add tos 0x0C via 10.2.100.103
+ip route add tos 0x10 via 10.2.100.104
 
-[...]
+[ i.e. 5 routes with prefix length 0, differentiated via TOS key ]
 
+ip route get 10.3.1.1 tos 0x4
+-> 10.2.100.101
+ip route get 10.3.1.1 tos 0x8
+-> 10.2.100.102
+ip route get tos 0x0C
+-> 10.2.100.103
+
+But for 0x10, we'll get round-robin results among all the aliases.
+Repeated queries return .100, 101, 102, etc. in turn.
+
+This behaviour is not new  -- fib_select_default can be traced back to
+fn_hash_select_default in CVS history.
+
+Routing cache made 'round-robin' behaviour less visible.
+
+This changes fib_select_default to not change the FIB chosen result EXCEPT
+if this nexthop appears to be unreachable.
+
+fib_detect_death() logic is reversed -- we consider a nexthop 'dead' only
+if it has a neigh entry in unreachable state.
+
+Only then we search fib_aliases for an alternative and use one of these in
+a round-robin fashion.  If all are believed to be unreachable, no change is
+made and fib-chosen nh_gw is used.
+
+Reported-by: Hagen Paul Pfeifer <hagen@jauu.net>
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/ipv4/fib_semantics.c | 71 ++++++++++++++++++++++++------------------------
+ 1 file changed, 36 insertions(+), 35 deletions(-)
+
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index c7358ea..83b485b 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -410,28 +410,24 @@ errout:
+ 		rtnl_set_sk_err(info->nl_net, RTNLGRP_IPV4_ROUTE, err);
+ }
+ 
+-static int fib_detect_death(struct fib_info *fi, int order,
+-			    struct fib_info **last_resort, int *last_idx,
+-			    int dflt)
++static bool fib_nud_is_unreach(const struct fib_info *fi)
+ {
+ 	struct neighbour *n;
+ 	int state = NUD_NONE;
+ 
+-	n = neigh_lookup(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
+-	if (n) {
++	local_bh_disable();
++
++	n = __neigh_lookup_noref(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
++	if (n)
+ 		state = n->nud_state;
+-		neigh_release(n);
+-	}
+-	if (state == NUD_REACHABLE)
+-		return 0;
+-	if ((state & NUD_VALID) && order != dflt)
+-		return 0;
+-	if ((state & NUD_VALID) ||
+-	    (*last_idx < 0 && order > dflt)) {
+-		*last_resort = fi;
+-		*last_idx = order;
+-	}
+-	return 1;
++
++	local_bh_enable();
++
++	/* Caller might be able to find alternate (reachable) nexthop */
++	if (state & (NUD_INCOMPLETE | NUD_FAILED))
++		return true;
++
++	return false;
+ }
+ 
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+@@ -1204,12 +1200,17 @@ int fib_sync_down_dev(struct net_device *dev, unsigned long event)
+ /* Must be invoked inside of an RCU protected region.  */
+ void fib_select_default(struct fib_result *res)
+ {
+-	struct fib_info *fi = NULL, *last_resort = NULL;
+ 	struct hlist_head *fa_head = res->fa_head;
++	struct fib_info *last_resort = NULL;
+ 	struct fib_table *tb = res->table;
+ 	int order = -1, last_idx = -1;
+ 	struct fib_alias *fa;
++	bool unreach = fib_nud_is_unreach(res->fi);
+ 
++	if (likely(!unreach))
++		return;
++
++	/* attempt to pick another nexthop */
+ 	hlist_for_each_entry_rcu(fa, fa_head, fa_list) {
+ 		struct fib_info *next_fi = fa->fa_info;
+ 
+@@ -1223,33 +1224,33 @@ void fib_select_default(struct fib_result *res)
+ 		    next_fi->fib_nh[0].nh_scope != RT_SCOPE_LINK)
+ 			continue;
+ 
++		order++;
++
++		if (next_fi == res->fi) /* already tested, not reachable */
++			continue;
++
+ 		fib_alias_accessed(fa);
+ 
+-		if (!fi) {
+-			if (next_fi != res->fi)
++		unreach = fib_nud_is_unreach(next_fi);
++		if (unreach)
++			continue;
++
++		/* try to round-robin among all fa_aliases in case
++		 * res->fi nexthop is unreachable.
++		 */
++		if (last_idx < 0 || order > tb->tb_default) {
++			last_resort = next_fi;
++			last_idx = order;
++			if (order > tb->tb_default)
+ 				break;
+-		} else if (!fib_detect_death(fi, order, &last_resort,
+-					     &last_idx, tb->tb_default)) {
+-			fib_result_assign(res, fi);
+-			tb->tb_default = order;
+-			goto out;
+ 		}
+-		fi = next_fi;
+-		order++;
+ 	}
+ 
+-	if (order <= 0 || !fi) {
++	if (order < 0) {
+ 		tb->tb_default = -1;
+ 		goto out;
+ 	}
+ 
+-	if (!fib_detect_death(fi, order, &last_resort, &last_idx,
+-				tb->tb_default)) {
+-		fib_result_assign(res, fi);
+-		tb->tb_default = order;
+-		goto out;
+-	}
+-
+ 	if (last_idx >= 0)
+ 		fib_result_assign(res, last_resort);
+ 	tb->tb_default = last_idx;
 -- 
-  Vitaly
+2.0.5
