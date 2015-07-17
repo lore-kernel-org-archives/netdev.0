@@ -1,61 +1,52 @@
-From: Julian Anastasov <ja-FgGsKACvmQM@public.gmane.org>
-Subject: Re: [PATCH net-next 15/22] route: Extend flow
- representation with tunnel key
-Date: Fri, 17 Jul 2015 23:25:21 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1507172320520.2410@ja.home.ssi.bg>
-References: <cover.1437137396.git.tgraf@suug.ch>
- <d8d4304d6c32149bdf34466925b520f82a024ec2.1437137396.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
- weichunc-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org,
- roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org,
- kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
- hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rshearma-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <d8d4304d6c32149bdf34466925b520f82a024ec2.1437137396.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net 1/3] sched: cls_bpf: fix panic on filter replace
+Date: Fri, 17 Jul 2015 22:38:43 +0200
+Message-ID: <094e34b7e8d45a323c5cf18a366665654b3f3e45.1437163466.git.daniel@iogearbox.net>
+References: <cover.1437163466.git.daniel@iogearbox.net>
+Cc: ast@plumgrid.com, jiri@resnulli.us, jhs@mojatatu.com,
+	edumazet@google.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:56595 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751964AbbGQUiy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 16:38:54 -0400
+In-Reply-To: <cover.1437163466.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1437163466.git.daniel@iogearbox.net>
+References: <cover.1437163466.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CglIZWxsbywKCk9uIEZyaSwgMTcgSnVsIDIwMTUsIFRob21hcyBHcmFmIHdyb3RlOgoKPiBBZGQg
-YSBuZXcgZmxvd2lfdHVubmVsIHN0cnVjdHVyZSB3aGljaCBpcyBhIHN1YnNldCBvZiBpcF90dW5u
-ZWxfa2V5IHRvCj4gYWxsb3cgcm91dGVzIHRvIG1hdGNoIG9uIHR1bm5lbCBtZXRhZGF0YS4gRm9y
-IG5vdywgdGhlIHR1bm5lbCBpZCBpcwo+IGFkZGVkIHRvIGZsb3dpX3R1bm5lbCB3aGljaCBhbGxv
-d3MgZm9yIHJvdXRlcyB0byBiZSBib3VuZCB0byBzcGVjaWZpYwo+IHZpcnR1YWwgdHVubmVscy4K
-PiAKPiBTaWduZWQtb2ZmLWJ5OiBUaG9tYXMgR3JhZiA8dGdyYWZAc3V1Zy5jaD4KPiAtLS0KCj4g
-K3N0cnVjdCBmbG93aV90dW5uZWwgewo+ICsJX19iZTY0CQkJdHVuX2lkOwo+ICt9Owo+ICsKPiAg
-c3RydWN0IGZsb3dpX2NvbW1vbiB7Cj4gIAlpbnQJZmxvd2ljX29pZjsKPiAgCWludAlmbG93aWNf
-aWlmOwo+IEBAIC0zMCw2ICszNCw3IEBAIHN0cnVjdCBmbG93aV9jb21tb24gewo+ICAjZGVmaW5l
-IEZMT1dJX0ZMQUdfQU5ZU1JDCQkweDAxCj4gICNkZWZpbmUgRkxPV0lfRkxBR19LTk9XTl9OSAkJ
-MHgwMgo+ICAJX191MzIJZmxvd2ljX3NlY2lkOwo+ICsJc3RydWN0IGZsb3dpX3R1bm5lbCBmbG93
-aWNfdHVuX2tleTsKCglOZXcgaW5wdXQga2V5IGZvciBmaWIgcnVsZXM/IEl0IHNob3VsZCBiZSBp
-bml0aWFsaXplZAphdCBzb21lIHBsYWNlcywgd2Ugc2hvdWxkIG5vdCBwcm92aWRlIHJhbmRvbSB2
-YWx1ZXM6CgotIGZsb3dpNF9pbml0X291dHB1dAoKLSBmaWJfY29tcHV0ZV9zcGVjX2RzdAoKLSBf
-X2ZpYl92YWxpZGF0ZV9zb3VyY2UKCi0gaXBfcm91dGVfaW5wdXRfc2xvdzogd2l0aCAwIGlmIG5v
-IHR1bl9pbmZvLCBsaWtlIGJlbG93Cgo+ICB9Owo+ICAKPiAgdW5pb24gZmxvd2lfdWxpIHsKPiBA
-QCAtNjYsNiArNzEsNyBAQCBzdHJ1Y3QgZmxvd2k0IHsKPiAgI2RlZmluZSBmbG93aTRfcHJvdG8J
-CV9fZmxfY29tbW9uLmZsb3dpY19wcm90bwo+ICAjZGVmaW5lIGZsb3dpNF9mbGFncwkJX19mbF9j
-b21tb24uZmxvd2ljX2ZsYWdzCj4gICNkZWZpbmUgZmxvd2k0X3NlY2lkCQlfX2ZsX2NvbW1vbi5m
-bG93aWNfc2VjaWQKPiArI2RlZmluZSBmbG93aTRfdHVuX2tleQkJX19mbF9jb21tb24uZmxvd2lj
-X3R1bl9rZXkKCj4gQEAgLTE2OTAsNiArMTY5Myw5IEBAIHN0YXRpYyBpbnQgaXBfcm91dGVfaW5w
-dXRfc2xvdyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBfX2JlMzIgZGFkZHIsIF9fYmUzMiBzYWRkciwK
-PiAgCSAgIGJ5IGZpYl9sb29rdXAuCj4gIAkgKi8KPiAgCj4gKwl0dW5faW5mbyA9IHNrYl90dW5u
-ZWxfaW5mbyhza2IpOwo+ICsJaWYgKHR1bl9pbmZvICYmIHR1bl9pbmZvLT5tb2RlID09IElQX1RV
-Tk5FTF9JTkZPX1JYKQo+ICsJCWZsNC5mbG93aTRfdHVuX2tleS50dW5faWQgPSB0dW5faW5mby0+
-a2V5LnR1bl9pZDsKCgllbHNlCgkJZmw0LmZsb3dpNF90dW5fa2V5LnR1bl9pZCA9IDA7Cgo+ICAJ
-c2tiX2RzdF9kcm9wKHNrYik7Cj4gIAo+ICAJaWYgKGlwdjRfaXNfbXVsdGljYXN0KHNhZGRyKSB8
-fCBpcHY0X2lzX2xiY2FzdChzYWRkcikpCj4gLS0gCj4gMi40LjMKClJlZ2FyZHMKCi0tCkp1bGlh
-biBBbmFzdGFzb3YgPGphQHNzaS5iZz4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6
-Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+The following test case causes a NULL pointer dereference in cls_bpf:
+
+  FOO="1,6 0 0 4294967295,"
+  tc filter add dev foo parent 1: bpf bytecode "$FOO" flowid 1:1 action ok
+  tc filter replace dev foo parent 1: pref 49152 handle 0x1 \
+            bpf bytecode "$FOO" flowid 1:1 action drop
+
+The problem is that commit 1f947bf151e9 ("net: sched: rcu'ify cls_bpf")
+accidentally swapped the arguments of list_replace_rcu(), the old
+element needs to be the first argument and the new element the second.
+
+Fixes: 1f947bf151e9 ("net: sched: rcu'ify cls_bpf")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ net/sched/cls_bpf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index c79ecfd..e5168f8 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -378,7 +378,7 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
+ 		goto errout;
+ 
+ 	if (oldprog) {
+-		list_replace_rcu(&prog->link, &oldprog->link);
++		list_replace_rcu(&oldprog->link, &prog->link);
+ 		tcf_unbind_filter(tp, &oldprog->res);
+ 		call_rcu(&oldprog->rcu, __cls_bpf_delete_prog);
+ 	} else {
+-- 
+1.9.3
