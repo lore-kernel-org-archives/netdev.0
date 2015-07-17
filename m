@@ -1,7 +1,7 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 06/22] ipv4: redirect dst output to lwtunnel output
-Date: Fri, 17 Jul 2015 14:55:25 +0200
-Message-ID: <b1dfe2fda87e5929f9f73b1ac3d6f56e73a8ff15.1437137396.git.tgraf@suug.ch>
+Subject: [PATCH net-next 08/22] mpls: export mpls functions for use by mpls iptunnels
+Date: Fri, 17 Jul 2015 14:55:27 +0200
+Message-ID: <f246c34c65e1f66d6fcab7571f1b83e93764c64b.1437137396.git.tgraf@suug.ch>
 References: <cover.1437137396.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org
 To: roopa@cumulusnetworks.com, rshearma@brocade.com,
@@ -13,10 +13,10 @@ To: roopa@cumulusnetworks.com, rshearma@brocade.com,
 	simon.horman@netronome.com, joestringer@nicira.com, ja@ssi.bg,
 	ast@plumgrid.com, weichunc@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:49442 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:49471 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757919AbbGQMzx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 08:55:53 -0400
+	with ESMTP id S1757963AbbGQMz4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 08:55:56 -0400
 In-Reply-To: <cover.1437137396.git.tgraf@suug.ch>
 In-Reply-To: <cover.1437137396.git.tgraf@suug.ch>
 References: <cover.1437137396.git.tgraf@suug.ch>
@@ -25,34 +25,88 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-For input routes with tunnel encap state this patch redirects
-dst output functions to lwtunnel_output which later resolves to
-the corresponding lwtunnel output function.
-
-This has been tested to work with mpls ip tunnels.
-
-Open items: Support for tunnel mtu, pmtu, fragmentation can be
-added by hooking into the corresponding (ipv4, ipv6) dst ops.
-We may do this differently when lwtstate moves to dst or dst_metadata
-as per upstream discussions.
-
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- net/ipv4/route.c | 2 ++
- 1 file changed, 2 insertions(+)
+ net/mpls/af_mpls.c  | 11 ++++++++---
+ net/mpls/internal.h |  9 +++++++--
+ 2 files changed, 15 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 226570b..cd3157c 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1633,6 +1633,8 @@ static int __mkroute_input(struct sk_buff *skb,
- 	rth->dst.output = ip_output;
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 1f93a59..6e66911 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -58,10 +58,11 @@ static inline struct mpls_dev *mpls_dev_get(const struct net_device *dev)
+ 	return rcu_dereference_rtnl(dev->mpls_ptr);
+ }
  
- 	rt_set_nexthop(rth, daddr, res, fnhe, res->fi, res->type, itag);
-+	if (lwtunnel_output_redirect(rth->rt_lwtstate))
-+		rth->dst.output = lwtunnel_output;
- 	skb_dst_set(skb, &rth->dst);
- out:
- 	err = 0;
+-static bool mpls_output_possible(const struct net_device *dev)
++bool mpls_output_possible(const struct net_device *dev)
+ {
+ 	return dev && (dev->flags & IFF_UP) && netif_carrier_ok(dev);
+ }
++EXPORT_SYMBOL_GPL(mpls_output_possible);
+ 
+ static unsigned int mpls_rt_header_size(const struct mpls_route *rt)
+ {
+@@ -69,13 +70,14 @@ static unsigned int mpls_rt_header_size(const struct mpls_route *rt)
+ 	return rt->rt_labels * sizeof(struct mpls_shim_hdr);
+ }
+ 
+-static unsigned int mpls_dev_mtu(const struct net_device *dev)
++unsigned int mpls_dev_mtu(const struct net_device *dev)
+ {
+ 	/* The amount of data the layer 2 frame can hold */
+ 	return dev->mtu;
+ }
++EXPORT_SYMBOL_GPL(mpls_dev_mtu);
+ 
+-static bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
++bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
+ {
+ 	if (skb->len <= mtu)
+ 		return false;
+@@ -85,6 +87,7 @@ static bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
+ 
+ 	return true;
+ }
++EXPORT_SYMBOL_GPL(mpls_pkt_too_big);
+ 
+ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+ 			struct mpls_entry_decoded dec)
+@@ -626,6 +629,7 @@ int nla_put_labels(struct sk_buff *skb, int attrtype,
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(nla_put_labels);
+ 
+ int nla_get_labels(const struct nlattr *nla,
+ 		   u32 max_labels, u32 *labels, u32 label[])
+@@ -671,6 +675,7 @@ int nla_get_labels(const struct nlattr *nla,
+ 	*labels = nla_labels;
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(nla_get_labels);
+ 
+ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
+ 			       struct mpls_route_config *cfg)
+diff --git a/net/mpls/internal.h b/net/mpls/internal.h
+index 8cabeb5..2681a4b 100644
+--- a/net/mpls/internal.h
++++ b/net/mpls/internal.h
+@@ -50,7 +50,12 @@ static inline struct mpls_entry_decoded mpls_entry_decode(struct mpls_shim_hdr *
+ 	return result;
+ }
+ 
+-int nla_put_labels(struct sk_buff *skb, int attrtype,  u8 labels, const u32 label[]);
+-int nla_get_labels(const struct nlattr *nla, u32 max_labels, u32 *labels, u32 label[]);
++int nla_put_labels(struct sk_buff *skb, int attrtype,  u8 labels,
++		   const u32 label[]);
++int nla_get_labels(const struct nlattr *nla, u32 max_labels, u32 *labels,
++		   u32 label[]);
++bool mpls_output_possible(const struct net_device *dev);
++unsigned int mpls_dev_mtu(const struct net_device *dev);
++bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu);
+ 
+ #endif /* MPLS_INTERNAL_H */
 -- 
 2.4.3
