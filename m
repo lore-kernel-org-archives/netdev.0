@@ -1,38 +1,57 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH] sctp: fix cut and paste issue in comment
-Date: Fri, 17 Jul 2015 13:50:21 -0300
-Message-ID: <c77ce1886beb4879f76bf7ca47b0d801609296df.1437151659.git.marcelo.leitner@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44329 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752456AbbGQQud (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jul 2015 12:50:33 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] bcmsysport:Fix error handling in the function bcm_sysport_init_rx_ring
+Date: Fri, 17 Jul 2015 10:08:13 -0700
+Message-ID: <55A9367D.6040001@gmail.com>
+References: <1437135231-27511-1-git-send-email-xerofoify@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicholas Krause <xerofoify@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437135231-27511-1-git-send-email-xerofoify@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cookie ACK is always received by the association initiator, so fix the
-comment to avoid confusion.
+On 17/07/15 05:13, Nicholas Krause wrote:
+> This fixes the error handling in the function bcm_sysport_init_rx_ringi
+> after calling the function rdma_enable_set to make sure the return value 
+> is equal to zero and if not print on the console failed to enable RDMA
+> for the device and return the failed error code returned by
+> rdma_enable_set.
 
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- net/sctp/sm_statefuns.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Subject should be starting with "net: systemport: ", otherwise, this
+looks good to me:
 
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 3ee27b7704ffb95430541507e83973e9207f9672..d7eaa7354cf76148d1a2c9ee3af4fff9a24990fb 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -853,7 +853,7 @@ nomem:
- 
- /*
-  * Respond to a normal COOKIE ACK chunk.
-- * We are the side that is being asked for an association.
-+ * We are the side that is asking for an association.
-  *
-  * RFC 2960 5.1 Normal Establishment of an Association
-  *
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+
+> 
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/bcmsysport.c | 7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+> index 4566cdf..27a7b36 100644
+> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
+> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+> @@ -1365,7 +1365,12 @@ static int bcm_sysport_init_rx_ring(struct bcm_sysport_priv *priv)
+>  	/* Initialize HW, ensure RDMA is disabled */
+>  	reg = rdma_readl(priv, RDMA_STATUS);
+>  	if (!(reg & RDMA_DISABLED))
+> -		rdma_enable_set(priv, 0);
+> +		ret = rdma_enable_set(priv, 0);
+> +
+> +	if (ret) {
+> +		netif_err(priv, hw, priv->netdev, "failed to enable RDMA\n");
+> +		return ret;
+> +	}
+>  
+>  	rdma_writel(priv, 0, RDMA_WRITE_PTR_LO);
+>  	rdma_writel(priv, 0, RDMA_WRITE_PTR_HI);
+> 
+
+
 -- 
-2.4.1
+Florian
