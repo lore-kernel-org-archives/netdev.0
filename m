@@ -1,33 +1,115 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH v2 0/2] sctp: fix src address selection if using secondary address
-Date: Fri, 17 Jul 2015 12:34:16 -0300
-Message-ID: <cover.1437145508.git.marcelo.leitner@gmail.com>
+Subject: [PATCH v2 2/2] sctp: fix src address selection if using secondary addresses
+Date: Fri, 17 Jul 2015 12:34:18 -0300
+Message-ID: <53d841d90dee5e1e621f9e8e3c07ef3154491128.1437145508.git.marcelo.leitner@gmail.com>
+References: <cover.1437145508.git.marcelo.leitner@gmail.com>
 Cc: Neil Horman <nhorman@tuxdriver.com>,
 	Vlad Yasevich <vyasevich@gmail.com>
 To: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45444 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54906 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757964AbbGQPe1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jul 2015 11:34:27 -0400
+	id S1757964AbbGQPea (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jul 2015 11:34:30 -0400
+In-Reply-To: <cover.1437145508.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series improves the way SCTP chooses its src address so that the
-choosen one will always belong to the interface being used for output.
+In short, sctp is likely to incorrectly choose src address if socket is
+bound to secondary addresses. This patch fixes it by adding a new check
+that checks if such src address belongs to the interface that routing
+identified as output.
 
-v1->v2:
- - split out the refactoring from the fix itself
- - Doing a full reverse routing as in v1 is not necessary. Only looking
-   for the interface that has the address and comparing its number is
-   enough.
+This is enough to avoid rp_filter drops on remote peer.
 
-Marcelo Ricardo Leitner (2):
-  sctp: reduce indent level on sctp_v4_get_dst
-  sctp: fix src address selection if using secondary addresses
+Details:
 
- net/sctp/protocol.c | 42 +++++++++++++++++++++++++++---------------
- 1 file changed, 27 insertions(+), 15 deletions(-)
+Currently, sctp will do a routing attempt without specifying the src
+address and compare the returned value (preferred source) with the
+addresses that the socket is bound to. When using secondary addresses,
+this will not match.
 
+Then it will try specifying each of the addresses that the socket is
+bound to and re-routing, checking if that address is valid as src for
+that dst. Thing is, this check alone is weak:
+
+# ip r l
+192.168.100.0/24 dev eth1  proto kernel  scope link  src 192.168.100.149
+192.168.122.0/24 dev eth0  proto kernel  scope link  src 192.168.122.147
+
+# ip a l
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 52:54:00:15:18:6a brd ff:ff:ff:ff:ff:ff
+    inet 192.168.122.147/24 brd 192.168.122.255 scope global dynamic eth0
+       valid_lft 2160sec preferred_lft 2160sec
+    inet 192.168.122.148/24 scope global secondary eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::5054:ff:fe15:186a/64 scope link
+       valid_lft forever preferred_lft forever
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 52:54:00:b3:91:46 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.100.149/24 brd 192.168.100.255 scope global dynamic eth1
+       valid_lft 2162sec preferred_lft 2162sec
+    inet 192.168.100.148/24 scope global secondary eth1
+       valid_lft forever preferred_lft forever
+    inet6 fe80::5054:ff:feb3:9146/64 scope link
+       valid_lft forever preferred_lft forever
+4: ens9: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 52:54:00:05:47:ee brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::5054:ff:fe05:47ee/64 scope link
+       valid_lft forever preferred_lft forever
+
+# ip r g 192.168.100.193 from 192.168.122.148
+192.168.100.193 from 192.168.122.148 dev eth1
+    cache
+
+Even if you specify an interface:
+
+# ip r g 192.168.100.193 from 192.168.122.148 oif eth1
+192.168.100.193 from 192.168.122.148 dev eth1
+    cache
+
+Although this would be valid, peers using rp_filter will drop such
+packets as their src doesn't match the routes for that interface.
+
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ net/sctp/protocol.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index fa80fe4f23629fc3c3f5c44f99dbf3cc524cc6a0..4345790ad3266c353eeac5398593c2a9ce4effda 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -487,6 +487,8 @@ static void sctp_v4_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+ 	 */
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(laddr, &bp->address_list, list) {
++		struct net_device *odev;
++
+ 		if (!laddr->valid)
+ 			continue;
+ 		if (laddr->state != SCTP_ADDR_SRC ||
+@@ -504,6 +506,14 @@ static void sctp_v4_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+ 		if (IS_ERR(rt))
+ 			continue;
+ 
++		/* Ensure the src address belongs to the output
++		 * interface.
++		 */
++		odev = __ip_dev_find(sock_net(sk), laddr->a.v4.sin_addr.s_addr,
++				     false);
++		if (!odev || odev->ifindex != fl4->flowi4_oif)
++			continue;
++
+ 		dst = &rt->dst;
+ 		break;
+ 	}
 -- 
 2.4.1
