@@ -1,44 +1,44 @@
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: [PATCH v2] net: ratelimit warnings about dst entry refcount
- underflow or overflow
-Date: Fri, 17 Jul 2015 14:01:11 +0300
-Message-ID: <20150717110111.16718.77665.stgit@buzz>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH RFC net-next] net/vxlan: Fix kernel unaligned access in
+ __vxlan_find_mac
+Date: Fri, 17 Jul 2015 13:07:31 +0200
+Message-ID: <20150717110731.GA30336@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, sowmini.varadhan@oracle.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward-corp1m.cmail.yandex.net ([5.255.216.100]:42359 "EHLO
-	forward-corp1m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757746AbbGQLBP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 07:01:15 -0400
+Received: from aserp1040.oracle.com ([141.146.126.69]:30946 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757544AbbGQLHy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 07:07:54 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kernel generates a lot of warnings when dst entry reference counter
-overflows and becomes negative. That bug was seen several times at
-machines with outdated 3.10.y kernels. Most like it's already fixed
-in upstream. Anyway that flood completely kills machine and makes
-further debugging impossible.
 
-Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+__vxlan_find_mac invokes ether_addr_equal on the eth_addr field,
+which triggers unaligned access messages, so rearrange vxlan_fdb
+to avoid this as non-intrusively as possible. 
+
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 ---
- net/core/dst.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/vxlan.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/core/dst.c b/net/core/dst.c
-index e956ce6d1378..002144bea935 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -284,7 +284,9 @@ void dst_release(struct dst_entry *dst)
- 		int newrefcnt;
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 34c519e..c9790a2 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -107,8 +107,8 @@ struct vxlan_fdb {
+ 	unsigned long	  used;
+ 	struct list_head  remotes;
+ 	u16		  state;	/* see ndm_state */
+-	u8		  flags;	/* see ndm_flags */
+ 	u8		  eth_addr[ETH_ALEN];
++	u8		  flags;	/* see ndm_flags */
+ };
  
- 		newrefcnt = atomic_dec_return(&dst->__refcnt);
--		WARN_ON(newrefcnt < 0);
-+		if (unlikely(newrefcnt < 0))
-+			net_warn_ratelimited("%s: dst:%p refcnt:%d\n",
-+					     __func__, dst, newrefcnt);
- 		if (unlikely(dst->flags & DST_NOCACHE) && !newrefcnt)
- 			call_rcu(&dst->rcu_head, dst_destroy_rcu);
- 	}
+ /* Pseudo network device */
+-- 
+1.7.1
