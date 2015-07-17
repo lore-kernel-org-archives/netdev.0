@@ -1,64 +1,188 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [RFC net-next 22/22] openvswitch: Use regular GRE net_device
- instead of vport
-Date: Fri, 17 Jul 2015 10:10:50 -0700
-Message-ID: <CALnjE+oW2Fwao-b_Dq_UGdS+1BPMRHthyrZxcnbzsxpk4VqB4w@mail.gmail.com>
-References: <cover.1436537414.git.tgraf@suug.ch>
-	<74f200a9e634a9fefd6de85265f54b8a6697ab72.1436537414.git.tgraf@suug.ch>
-	<20150716085915.GA11294@penelope.isobedori.kobe.vergenet.net>
-	<20150716145246.GC22603@pox.localdomain>
-	<CALnjE+omzvWop3T2bD_Yp9gW3XN-9NbeEnCmh615iNqJH2dvog@mail.gmail.com>
-	<20150717105853.GB18033@pox.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Simon Horman <simon.horman@netronome.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>, rshearma@brocade.com,
-	ebiederm <ebiederm@xmission.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Jesse Gross <jesse@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Tom Herbert <tom@herbertland.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"Ji???? P??rko" <jiri@resnulli.us>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Justin Pettit <jpettit@nicira.com>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Thomas Graf <tgraf@suug.ch>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH v2 -next] net: fib: use fib result when zero-length prefix aliases exist
+Date: Fri, 17 Jul 2015 19:37:01 +0200
+Message-ID: <1437154621-18180-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:35902 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753770AbbGQRKv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 13:10:51 -0400
-Received: by igbij6 with SMTP id ij6so41963480igb.1
-        for <netdev@vger.kernel.org>; Fri, 17 Jul 2015 10:10:50 -0700 (PDT)
-In-Reply-To: <20150717105853.GB18033@pox.localdomain>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:59288 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753145AbbGQRhI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 13:37:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 17, 2015 at 3:58 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> On 07/16/15 at 02:36pm, Pravin Shelar wrote:
->> On Thu, Jul 16, 2015 at 7:52 AM, Thomas Graf <tgraf@suug.ch> wrote:
->> > I'm inclined to change this and use an in-kernel API as well to
->> > create the net_device just like VXLAN does in patch 21.
->> >
->> > Pravin, what do you think?
->>
->> About the vxlan APIs we also need to direct netlink interface for
->> userspace to configure vxlan device. This will allow us to remove
->> vxlan compat code from ovs vport-netdev.c in future.
->
-> Do you mean creating the tunnel devices from user space? This would
-> break existing users of the OVS Netlink interface. How do you want
-> to prevent that?
-To handle old interface there is compat code in netdev-vport in patch 22.
+default route selection is not deterministic when TOS keys are used:
 
-OVS userspace should be able to create any type of tunneling device
-and then add it as netdev type vport. so that OVS has two types of
-vport i.e. netdev and internal, rather than vport for each type of
-tunnel.
-This way we can keep compat code simple. All enhancements can be
-directly done to new interface.
+ip route del default
+
+ip route add tos 0x00 via 10.2.100.100
+ip route add tos 0x04 via 10.2.100.101
+ip route add tos 0x08 via 10.2.100.102
+ip route add tos 0x0C via 10.2.100.103
+ip route add tos 0x10 via 10.2.100.104
+
+[ i.e. 5 routes with prefix length 0, differentiated via TOS key ]
+
+ip route get 10.3.1.1 tos 0x4
+-> 10.2.100.101
+ip route get 10.3.1.1 tos 0x8
+-> 10.2.100.102
+ip route get tos 0x0C
+-> 10.2.100.103
+
+But for 0x10, we'll get round-robin behavour among all the aliases.
+Repeated invocations return .100, 101, 102, etc. in turn.
+
+This behaviour is not new  -- fib_select_default can be traced back to
+fn_hash_select_default in CVS history.
+
+Routing cache made 'round-robin' behaviour less visible.
+
+This changes fib_select_default to not change the FIB chosen result EXCEPT
+if this nexthop appears to be unreachable.
+
+fib_detect_death() logic is reversed -- we consider a nexthop 'dead' only
+if it has a neigh entry in unreachable state.
+
+Only then we search fib_aliases for an alternative and use one of these in
+a round-robin fashion.  If all are believed to be unreachable, no change is
+made and fib-chosen nh_gw is used.
+
+Reported-by: Hagen Paul Pfeifer <hagen@jauu.net>
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ Changes since v1:
+  Address comments from Alex Duyck:
+  - use if (fib_nud_is_unreach( .. rather than temporary boolean retval
+  - rename last_* varibles to fi_, they're not the last item in the list...
+  - kill pointless if() statement, if order < 0, then fi_last is < 0 too
+
+ net/ipv4/fib_semantics.c | 80 ++++++++++++++++++++++--------------------------
+ 1 file changed, 36 insertions(+), 44 deletions(-)
+
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index c7358ea..2cdf8d7 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -410,28 +410,24 @@ errout:
+ 		rtnl_set_sk_err(info->nl_net, RTNLGRP_IPV4_ROUTE, err);
+ }
+ 
+-static int fib_detect_death(struct fib_info *fi, int order,
+-			    struct fib_info **last_resort, int *last_idx,
+-			    int dflt)
++static bool fib_nud_is_unreach(const struct fib_info *fi)
+ {
+ 	struct neighbour *n;
+ 	int state = NUD_NONE;
+ 
+-	n = neigh_lookup(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
+-	if (n) {
++	local_bh_disable();
++
++	n = __neigh_lookup_noref(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
++	if (n)
+ 		state = n->nud_state;
+-		neigh_release(n);
+-	}
+-	if (state == NUD_REACHABLE)
+-		return 0;
+-	if ((state & NUD_VALID) && order != dflt)
+-		return 0;
+-	if ((state & NUD_VALID) ||
+-	    (*last_idx < 0 && order > dflt)) {
+-		*last_resort = fi;
+-		*last_idx = order;
+-	}
+-	return 1;
++
++	local_bh_enable();
++
++	/* Caller might be able to find alternate (reachable) nexthop */
++	if (state & (NUD_INCOMPLETE | NUD_FAILED))
++		return true;
++
++	return false;
+ }
+ 
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+@@ -1204,12 +1200,16 @@ int fib_sync_down_dev(struct net_device *dev, unsigned long event)
+ /* Must be invoked inside of an RCU protected region.  */
+ void fib_select_default(struct fib_result *res)
+ {
+-	struct fib_info *fi = NULL, *last_resort = NULL;
+ 	struct hlist_head *fa_head = res->fa_head;
++	struct fib_info *fi = NULL;
+ 	struct fib_table *tb = res->table;
+-	int order = -1, last_idx = -1;
++	int order = -1, fi_idx = -1;
+ 	struct fib_alias *fa;
+ 
++	if (likely(!fib_nud_is_unreach(res->fi)))
++		return;
++
++	/* attempt to pick another nexthop */
+ 	hlist_for_each_entry_rcu(fa, fa_head, fa_list) {
+ 		struct fib_info *next_fi = fa->fa_info;
+ 
+@@ -1223,38 +1223,30 @@ void fib_select_default(struct fib_result *res)
+ 		    next_fi->fib_nh[0].nh_scope != RT_SCOPE_LINK)
+ 			continue;
+ 
++		order++;
++
++		if (next_fi == res->fi) /* already tested, not reachable */
++			continue;
++
+ 		fib_alias_accessed(fa);
+ 
+-		if (!fi) {
+-			if (next_fi != res->fi)
++		if (fib_nud_is_unreach(next_fi))
++			continue;
++
++		/* try to round-robin among all fa_aliases in case
++		 * res->fi nexthop is unreachable.
++		 */
++		if (fi == NULL || order > tb->tb_default) {
++			fi = next_fi;
++			fi_idx = order;
++			if (order > tb->tb_default)
+ 				break;
+-		} else if (!fib_detect_death(fi, order, &last_resort,
+-					     &last_idx, tb->tb_default)) {
+-			fib_result_assign(res, fi);
+-			tb->tb_default = order;
+-			goto out;
+ 		}
+-		fi = next_fi;
+-		order++;
+ 	}
+ 
+-	if (order <= 0 || !fi) {
+-		tb->tb_default = -1;
+-		goto out;
+-	}
+-
+-	if (!fib_detect_death(fi, order, &last_resort, &last_idx,
+-				tb->tb_default)) {
++	if (fi)
+ 		fib_result_assign(res, fi);
+-		tb->tb_default = order;
+-		goto out;
+-	}
+-
+-	if (last_idx >= 0)
+-		fib_result_assign(res, last_resort);
+-	tb->tb_default = last_idx;
+-out:
+-	return;
++	tb->tb_default = fi_idx;
+ }
+ 
+ /*
+-- 
+2.0.5
