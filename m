@@ -1,243 +1,201 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH net-next 1/1] hv_netvsc: Wait for sub-channels to be
- processed during probe
-Date: Fri, 17 Jul 2015 16:13:02 +0000
-Message-ID: <BY2PR0301MB16546E727D80CD40E2BBC733A0980@BY2PR0301MB1654.namprd03.prod.outlook.com>
-References: <1437074222-13020-1-git-send-email-kys@microsoft.com>
- <87a8uuoot9.fsf@vitty.brq.redhat.com>
- <BY2PR0301MB16542B6DF558055287B1B7F1A0980@BY2PR0301MB1654.namprd03.prod.outlook.com>
- <877fpyn4tz.fsf@vitty.brq.redhat.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [PATCH -next] net: fib: use fib result when zero-length prefix
+ aliases exist
+Date: Fri, 17 Jul 2015 09:36:18 -0700
+Message-ID: <55A92F02.5010306@redhat.com>
+References: <1437146248-21311-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Vitaly Kuznetsov <vkuznets@redhat.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <877fpyn4tz.fsf@vitty.brq.redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35834 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751689AbbGQQgT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jul 2015 12:36:19 -0400
+In-Reply-To: <1437146248-21311-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 07/17/2015 08:17 AM, Florian Westphal wrote:
+> default route selection is not deterministic when TOS keys are used:
+>
+> ip route del default
+>
+> ip route add tos 0x00 via 10.2.100.100
+> ip route add tos 0x04 via 10.2.100.101
+> ip route add tos 0x08 via 10.2.100.102
+> ip route add tos 0x0C via 10.2.100.103
+> ip route add tos 0x10 via 10.2.100.104
+>
+> [ i.e. 5 routes with prefix length 0, differentiated via TOS key ]
+>
+> ip route get 10.3.1.1 tos 0x4
+> -> 10.2.100.101
+> ip route get 10.3.1.1 tos 0x8
+> -> 10.2.100.102
+> ip route get tos 0x0C
+> -> 10.2.100.103
+>
+> But for 0x10, we'll get round-robin results among all the aliases.
+> Repeated queries return .100, 101, 102, etc. in turn.
+>
+> This behaviour is not new  -- fib_select_default can be traced back to
+> fn_hash_select_default in CVS history.
+>
+> Routing cache made 'round-robin' behaviour less visible.
+>
+> This changes fib_select_default to not change the FIB chosen result EXCEPT
+> if this nexthop appears to be unreachable.
+>
+> fib_detect_death() logic is reversed -- we consider a nexthop 'dead' only
+> if it has a neigh entry in unreachable state.
+>
+> Only then we search fib_aliases for an alternative and use one of these in
+> a round-robin fashion.  If all are believed to be unreachable, no change is
+> made and fib-chosen nh_gw is used.
+>
+> Reported-by: Hagen Paul Pfeifer <hagen@jauu.net>
+> Cc: Alexander Duyck <alexander.h.duyck@redhat.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
+>   net/ipv4/fib_semantics.c | 71 ++++++++++++++++++++++++------------------------
+>   1 file changed, 36 insertions(+), 35 deletions(-)
+>
+> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+> index c7358ea..83b485b 100644
+> --- a/net/ipv4/fib_semantics.c
+> +++ b/net/ipv4/fib_semantics.c
+> @@ -410,28 +410,24 @@ errout:
+>   		rtnl_set_sk_err(info->nl_net, RTNLGRP_IPV4_ROUTE, err);
+>   }
+>
+> -static int fib_detect_death(struct fib_info *fi, int order,
+> -			    struct fib_info **last_resort, int *last_idx,
+> -			    int dflt)
+> +static bool fib_nud_is_unreach(const struct fib_info *fi)
+>   {
+>   	struct neighbour *n;
+>   	int state = NUD_NONE;
+>
+> -	n = neigh_lookup(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
+> -	if (n) {
+> +	local_bh_disable();
+> +
+> +	n = __neigh_lookup_noref(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
+> +	if (n)
+>   		state = n->nud_state;
+> -		neigh_release(n);
+> -	}
+> -	if (state == NUD_REACHABLE)
+> -		return 0;
+> -	if ((state & NUD_VALID) && order != dflt)
+> -		return 0;
+> -	if ((state & NUD_VALID) ||
+> -	    (*last_idx < 0 && order > dflt)) {
+> -		*last_resort = fi;
+> -		*last_idx = order;
+> -	}
+> -	return 1;
+> +
+> +	local_bh_enable();
+> +
+> +	/* Caller might be able to find alternate (reachable) nexthop */
+> +	if (state & (NUD_INCOMPLETE | NUD_FAILED))
+> +		return true;
+> +
+> +	return false;
+>   }
+>
+>   #ifdef CONFIG_IP_ROUTE_MULTIPATH
+> @@ -1204,12 +1200,17 @@ int fib_sync_down_dev(struct net_device *dev, unsigned long event)
+>   /* Must be invoked inside of an RCU protected region.  */
+>   void fib_select_default(struct fib_result *res)
+>   {
+> -	struct fib_info *fi = NULL, *last_resort = NULL;
+>   	struct hlist_head *fa_head = res->fa_head;
+> +	struct fib_info *last_resort = NULL;
+>   	struct fib_table *tb = res->table;
+>   	int order = -1, last_idx = -1;
+>   	struct fib_alias *fa;
+> +	bool unreach = fib_nud_is_unreach(res->fi);
+>
+> +	if (likely(!unreach))
+> +		return;
+> +
 
+There probably isn't any need for the boolean variable.  You could just 
+place the function in the if statement itself.
 
-> -----Original Message-----
-> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
-> Sent: Friday, July 17, 2015 9:10 AM
-> To: KY Srinivasan
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
-> apw@canonical.com; jasowang@redhat.com; Dexuan Cui
-> Subject: Re: [PATCH net-next 1/1] hv_netvsc: Wait for sub-channels to be
-> processed during probe
-> 
-> KY Srinivasan <kys@microsoft.com> writes:
-> 
-> >> -----Original Message-----
-> >> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
-> >> Sent: Friday, July 17, 2015 7:13 AM
-> >> To: KY Srinivasan
-> >> Cc: davem@davemloft.net; netdev@vger.kernel.org; linux-
-> >> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
-> >> apw@canonical.com; jasowang@redhat.com; Dexuan Cui
-> >> Subject: Re: [PATCH net-next 1/1] hv_netvsc: Wait for sub-channels to be
-> >> processed during probe
-> >>
-> >> "K. Y. Srinivasan" <kys@microsoft.com> writes:
-> >>
-> >> > The current code returns from probe without waiting for the proper
-> >> handling
-> >> > of subchannels that may be requested. If the netvsc driver were to be
-> >> rapidly
-> >> > loaded/unloaded, we can  trigger a panic as the unload will be tearing
-> >> > down state that may not have been fully setup yet. We fix this issue by
-> >> making
-> >> > sure that we return from the probe call only after ensuring that the
-> >> > sub-channel offers in flight are properly handled.
-> >> >
-> >> > Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-> >> > Reviewed-and-tested-by: Haiyang Zhang <haiyangz@microsoft.com
-> >> > ---
-> >> >  drivers/net/hyperv/hyperv_net.h   |    2 ++
-> >> >  drivers/net/hyperv/rndis_filter.c |   25 +++++++++++++++++++++++++
-> >> >  2 files changed, 27 insertions(+), 0 deletions(-)
-> >> >
-> >> > diff --git a/drivers/net/hyperv/hyperv_net.h
-> >> b/drivers/net/hyperv/hyperv_net.h
-> >> > index 26cd14c..925b75d 100644
-> >> > --- a/drivers/net/hyperv/hyperv_net.h
-> >> > +++ b/drivers/net/hyperv/hyperv_net.h
-> >> > @@ -671,6 +671,8 @@ struct netvsc_device {
-> >> >  	u32 send_table[VRSS_SEND_TAB_SIZE];
-> >> >  	u32 max_chn;
-> >> >  	u32 num_chn;
-> >> > +	spinlock_t sc_lock; /* Protects num_sc_offered variable */
-> >> > +	u32 num_sc_offered;
-> >> >  	atomic_t queue_sends[NR_CPUS];
-> >> >
-> >> >  	/* Holds rndis device info */
-> >> > diff --git a/drivers/net/hyperv/rndis_filter.c
-> >> b/drivers/net/hyperv/rndis_filter.c
-> >> > index 2e40417..2e09f3f 100644
-> >> > --- a/drivers/net/hyperv/rndis_filter.c
-> >> > +++ b/drivers/net/hyperv/rndis_filter.c
-> >> > @@ -984,9 +984,16 @@ static void netvsc_sc_open(struct
-> vmbus_channel
-> >> *new_sc)
-> >> >  	struct netvsc_device *nvscdev;
-> >> >  	u16 chn_index = new_sc->offermsg.offer.sub_channel_index;
-> >> >  	int ret;
-> >> > +	unsigned long flags;
-> >> >
-> >> >  	nvscdev = hv_get_drvdata(new_sc->primary_channel->device_obj);
-> >> >
-> >> > +	spin_lock_irqsave(&nvscdev->sc_lock, flags);
-> >> > +	nvscdev->num_sc_offered--;
-> >> > +	spin_unlock_irqrestore(&nvscdev->sc_lock, flags);
-> >> > +	if (nvscdev->num_sc_offered == 0)
-> >> > +		complete(&nvscdev->channel_init_wait);
-> >> > +
-> >> >  	if (chn_index >= nvscdev->num_chn)
-> >> >  		return;
-> >> >
-> >> > @@ -1015,8 +1022,10 @@ int rndis_filter_device_add(struct hv_device
-> >> *dev,
-> >> >  	u32 rsscap_size = sizeof(struct ndis_recv_scale_cap);
-> >> >  	u32 mtu, size;
-> >> >  	u32 num_rss_qs;
-> >> > +	u32 sc_delta;
-> >> >  	const struct cpumask *node_cpu_mask;
-> >> >  	u32 num_possible_rss_qs;
-> >> > +	unsigned long flags;
-> >> >
-> >> >  	rndis_device = get_rndis_device();
-> >> >  	if (!rndis_device)
-> >> > @@ -1039,6 +1048,8 @@ int rndis_filter_device_add(struct hv_device
-> >> *dev,
-> >> >  	net_device->max_chn = 1;
-> >> >  	net_device->num_chn = 1;
-> >> >
-> >> > +	spin_lock_init(&net_device->sc_lock);
-> >> > +
-> >> >  	net_device->extension = rndis_device;
-> >> >  	rndis_device->net_dev = net_device;
-> >> >
-> >> > @@ -1116,6 +1127,9 @@ int rndis_filter_device_add(struct hv_device
-> >> *dev,
-> >> >  	num_possible_rss_qs = cpumask_weight(node_cpu_mask);
-> >> >  	net_device->num_chn = min(num_possible_rss_qs, num_rss_qs);
-> >> >
-> >> > +	num_rss_qs = net_device->num_chn - 1;
-> >> > +	net_device->num_sc_offered = num_rss_qs;
-> >> > +
-> >> >  	if (net_device->num_chn == 1)
-> >> >  		goto out;
-> >> >
-> >> > @@ -1157,11 +1171,22 @@ int rndis_filter_device_add(struct hv_device
-> >> *dev,
-> >> >
-> >> >  	ret = rndis_filter_set_rss_param(rndis_device, net_device-
-> >> >num_chn);
-> >> >
-> >> > +	/*
-> >> > +	 * Wait for the host to send us the sub-channel offers.
-> >> > +	 */
-> >> > +	spin_lock_irqsave(&net_device->sc_lock, flags);
-> >> > +	sc_delta = net_device->num_chn - 1 - num_rss_qs;
-> >> > +	net_device->num_sc_offered -= sc_delta;
-> >> > +	spin_unlock_irqrestore(&net_device->sc_lock, flags);
-> >> > +
-> >> > +	if (net_device->num_sc_offered != 0)
-> >> > +		wait_for_completion(&net_device->channel_init_wait);
-> >>
-> >> I'd suggest we add an essentian timeout (big, let's say 30 sec.)
-> >> here. In case something goes wrong we don't really want to hang the
-> >> whole kernel for forever. Such bugs are hard to debug as if a 'kernel
-> >> hangs' is reported we can't be sure which wait caused it. We can even
-> >> have something like:
-> >>
-> >>  t = wait_for_completion_timeout(&net_device->channel_init_wait,
-> 30*HZ);
-> >>  BUG_ON(t == 0);
-> >>
-> >> This is much better as we'll be sure what went wrong. (I know other
-> >> pieces of hyper-v code use wait_for_completion() without a timeout, this
-> >> is rather a general suggestion for all of them).
-> >
-> > There is some history here. Initially, I had timeout for calls where we could
-> reasonably
-> > rollback state if we timed out. Some calls were subsequently changed to
-> unconditional
-> > wait because under some load conditions, these timeouts would trigger
-> (granted I did not
-> > have 30 second timeout; it was a 5 second timeout).
-> >
-> > Greg was opposed to calls to BUG_ON() in general for drivers.
-> 
-> Even WARN() in my opinion should do the job: we'll at least have
-> something in the log.
-> 
-> > Consequently, I have chosen to
-> > wait unconditionally in cases where there is no sensible rollback if we were
-> to timeout (rather
-> > thank bug checking).
-> 
-> (irrelevant to this patch but) in that case I'd suggest we have
-> something like:
-> 
-> while (1) {
->      t = wait_for_completion_timeout(&..., 10*HZ);
->      if (t)
->          break;
->      WARN(1, "Timeout while waiting for hypervisor to reply! Keep waiting...");
-> }
-> 
-> The sole purpose of that is to have something in dmesg.
+> +	/* attempt to pick another nexthop */
+>   	hlist_for_each_entry_rcu(fa, fa_head, fa_list) {
+>   		struct fib_info *next_fi = fa->fa_info;
+>
+> @@ -1223,33 +1224,33 @@ void fib_select_default(struct fib_result *res)
+>   		    next_fi->fib_nh[0].nh_scope != RT_SCOPE_LINK)
+>   			continue;
+>
+> +		order++;
+> +
+> +		if (next_fi == res->fi) /* already tested, not reachable */
+> +			continue;
+> +
+>   		fib_alias_accessed(fa);
+>
+> -		if (!fi) {
+> -			if (next_fi != res->fi)
+> +		unreach = fib_nud_is_unreach(next_fi);
+> +		if (unreach)
+> +			continue;
+> +
 
-Agreed; I will resubmit with these changes.
+Same here.  It seems like this is just an extra variable that isn't 
+really needed.
 
-Thanks,
+> +		/* try to round-robin among all fa_aliases in case
+> +		 * res->fi nexthop is unreachable.
+> +		 */
+> +		if (last_idx < 0 || order > tb->tb_default) {
+> +			last_resort = next_fi;
+> +			last_idx = order;
+> +			if (order > tb->tb_default)
+>   				break;
 
-K. Y
-> 
-> >
-> > In this specific case though, we can have a timeout and we don't need to
-> bug check if we timeout.
-> >
-> > I will make this change and resubmit.
-> 
-> Thanks!
-> 
-> >
-> > Thanks,
-> >
-> > K. Y
-> >>
-> >> >  out:
-> >> >  	if (ret) {
-> >> >  		net_device->max_chn = 1;
-> >> >  		net_device->num_chn = 1;
-> >> >  	}
-> >> > +
-> >> >  	return 0; /* return 0 because primary channel can be used alone */
-> >> >
-> >> >  err_dev_remv:
-> >>
-> >> --
-> >>   Vitaly
-> 
-> --
->   Vitaly
+You might want to update the variable naming as it can be a bit 
+confusing.  The last_resort and last_idx represent either the first 
+fib_info and index, or the next one after current entry in tb_default. 
+Since you aren't using fi anymore you might use that variable name 
+instead just to make this more readable.
+
+> -		} else if (!fib_detect_death(fi, order, &last_resort,
+> -					     &last_idx, tb->tb_default)) {
+> -			fib_result_assign(res, fi);
+> -			tb->tb_default = order;
+> -			goto out;
+>   		}
+> -		fi = next_fi;
+> -		order++;
+>   	}
+>
+> -	if (order <= 0 || !fi) {
+> +	if (order < 0) {
+>   		tb->tb_default = -1;
+>   		goto out;
+>   	}
+>
+
+You can probably just get rid of this statement entirely.  If order < 0 
+then last_idx should be -1 as well.  In which case the code below should 
+handle it correctly anyway.
+
+> -	if (!fib_detect_death(fi, order, &last_resort, &last_idx,
+> -				tb->tb_default)) {
+> -		fib_result_assign(res, fi);
+> -		tb->tb_default = order;
+> -		goto out;
+> -	}
+> -
+>   	if (last_idx >= 0)
+>   		fib_result_assign(res, last_resort);
+>   	tb->tb_default = last_idx;
+>
