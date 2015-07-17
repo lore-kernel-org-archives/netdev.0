@@ -1,7 +1,7 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 21/22] openvswitch: Abstract vport name through ovs_vport_name()
-Date: Fri, 17 Jul 2015 14:55:40 +0200
-Message-ID: <1bada01dac99af844fb7fc305b23a8eaa5c8b734.1437137396.git.tgraf@suug.ch>
+Subject: [PATCH net-next 13/22] arp: Inherit metadata dst when creating ARP requests
+Date: Fri, 17 Jul 2015 14:55:32 +0200
+Message-ID: <65d77b18abc90fe7c55788e4aa77d3e3b49a5825.1437137396.git.tgraf@suug.ch>
 References: <cover.1437137396.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org
 To: roopa@cumulusnetworks.com, rshearma@brocade.com,
@@ -13,135 +13,113 @@ To: roopa@cumulusnetworks.com, rshearma@brocade.com,
 	simon.horman@netronome.com, joestringer@nicira.com, ja@ssi.bg,
 	ast@plumgrid.com, weichunc@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:49722 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:49586 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945903AbbGQM4L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 08:56:11 -0400
+	with ESMTP id S1758015AbbGQM4C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 08:56:02 -0400
 In-Reply-To: <cover.1437137396.git.tgraf@suug.ch>
 In-Reply-To: <cover.1437137396.git.tgraf@suug.ch>
 References: <cover.1437137396.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This allows to get rid of the get_name() vport ops later on.
+If output device wants to see the dst, inherit the dst of the
+original skb and pass it on to generate the ARP request.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- net/openvswitch/datapath.c           | 4 ++--
- net/openvswitch/vport-internal_dev.c | 1 -
- net/openvswitch/vport-netdev.c       | 6 ------
- net/openvswitch/vport-netdev.h       | 1 -
- net/openvswitch/vport.c              | 4 ++--
- net/openvswitch/vport.h              | 5 +++++
- 6 files changed, 9 insertions(+), 12 deletions(-)
+ net/ipv4/arp.c | 65 +++++++++++++++++++++++++++++++++-------------------------
+ 1 file changed, 37 insertions(+), 28 deletions(-)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 19df28e..ffe984f 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -176,7 +176,7 @@ static inline struct datapath *get_dp(struct net *net, int dp_ifindex)
- const char *ovs_dp_name(const struct datapath *dp)
- {
- 	struct vport *vport = ovs_vport_ovsl_rcu(dp, OVSP_LOCAL);
--	return vport->ops->get_name(vport);
-+	return ovs_vport_name(vport);
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 933a928..1d59e50 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -291,6 +291,40 @@ static void arp_error_report(struct neighbour *neigh, struct sk_buff *skb)
+ 	kfree_skb(skb);
  }
  
- static int get_dpifindex(const struct datapath *dp)
-@@ -1800,7 +1800,7 @@ static int ovs_vport_cmd_fill_info(struct vport *vport, struct sk_buff *skb,
- 	if (nla_put_u32(skb, OVS_VPORT_ATTR_PORT_NO, vport->port_no) ||
- 	    nla_put_u32(skb, OVS_VPORT_ATTR_TYPE, vport->ops->type) ||
- 	    nla_put_string(skb, OVS_VPORT_ATTR_NAME,
--			   vport->ops->get_name(vport)))
-+			   ovs_vport_name(vport)))
- 		goto nla_put_failure;
- 
- 	ovs_vport_get_stats(vport, &vport_stats);
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index a2c205d..c058bbf 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -242,7 +242,6 @@ static struct vport_ops ovs_internal_vport_ops = {
- 	.type		= OVS_VPORT_TYPE_INTERNAL,
- 	.create		= internal_dev_create,
- 	.destroy	= internal_dev_destroy,
--	.get_name	= ovs_netdev_get_name,
- 	.send		= internal_dev_recv,
- };
- 
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index 1c96966..e682bdc 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -171,11 +171,6 @@ static void netdev_destroy(struct vport *vport)
- 	call_rcu(&vport->rcu, free_port_rcu);
- }
- 
--const char *ovs_netdev_get_name(const struct vport *vport)
--{
--	return vport->dev->name;
--}
--
- static unsigned int packet_length(const struct sk_buff *skb)
- {
- 	unsigned int length = skb->len - ETH_HLEN;
-@@ -223,7 +218,6 @@ static struct vport_ops ovs_netdev_vport_ops = {
- 	.type		= OVS_VPORT_TYPE_NETDEV,
- 	.create		= netdev_create,
- 	.destroy	= netdev_destroy,
--	.get_name	= ovs_netdev_get_name,
- 	.send		= netdev_send,
- };
- 
-diff --git a/net/openvswitch/vport-netdev.h b/net/openvswitch/vport-netdev.h
-index 1c52aed..684fb88 100644
---- a/net/openvswitch/vport-netdev.h
-+++ b/net/openvswitch/vport-netdev.h
-@@ -26,7 +26,6 @@
- 
- struct vport *ovs_netdev_get_vport(struct net_device *dev);
- 
--const char *ovs_netdev_get_name(const struct vport *);
- void ovs_netdev_detach_dev(struct vport *);
- 
- int __init ovs_netdev_init(void);
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index af23ba0..d14f594 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -113,7 +113,7 @@ struct vport *ovs_vport_locate(const struct net *net, const char *name)
- 	struct vport *vport;
- 
- 	hlist_for_each_entry_rcu(vport, bucket, hash_node)
--		if (!strcmp(name, vport->ops->get_name(vport)) &&
-+		if (!strcmp(name, ovs_vport_name(vport)) &&
- 		    net_eq(ovs_dp_get_net(vport->dp), net))
- 			return vport;
- 
-@@ -226,7 +226,7 @@ struct vport *ovs_vport_add(const struct vport_parms *parms)
- 		}
- 
- 		bucket = hash_bucket(ovs_dp_get_net(vport->dp),
--				     vport->ops->get_name(vport));
-+				     ovs_vport_name(vport));
- 		hlist_add_head_rcu(&vport->hash_node, bucket);
- 		return vport;
- 	}
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index e05ec68..1a689c2 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -237,6 +237,11 @@ static inline void ovs_skb_postpush_rcsum(struct sk_buff *skb,
- 		skb->csum = csum_add(skb->csum, csum_partial(start, len, 0));
- }
- 
-+static inline const char *ovs_vport_name(struct vport *vport)
++/* Create and send an arp packet. */
++static void arp_send_dst(int type, int ptype, __be32 dest_ip,
++			 struct net_device *dev, __be32 src_ip,
++			 const unsigned char *dest_hw,
++			 const unsigned char *src_hw,
++			 const unsigned char *target_hw, struct sk_buff *oskb)
 +{
-+	return vport->dev ? vport->dev->name : vport->ops->get_name(vport);
++	struct sk_buff *skb;
++
++	/* arp on this interface. */
++	if (dev->flags & IFF_NOARP)
++		return;
++
++	skb = arp_create(type, ptype, dest_ip, dev, src_ip,
++			 dest_hw, src_hw, target_hw);
++	if (!skb)
++		return;
++
++	if (oskb)
++		skb_dst_copy(skb, oskb);
++
++	arp_xmit(skb);
 +}
 +
- int ovs_vport_ops_register(struct vport_ops *ops);
- void ovs_vport_ops_unregister(struct vport_ops *ops);
++void arp_send(int type, int ptype, __be32 dest_ip,
++	      struct net_device *dev, __be32 src_ip,
++	      const unsigned char *dest_hw, const unsigned char *src_hw,
++	      const unsigned char *target_hw)
++{
++	arp_send_dst(type, ptype, dest_ip, dev, src_ip, dest_hw, src_hw,
++		     target_hw, NULL);
++}
++EXPORT_SYMBOL(arp_send);
++
+ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ {
+ 	__be32 saddr = 0;
+@@ -346,8 +380,9 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 		}
+ 	}
+ 
+-	arp_send(ARPOP_REQUEST, ETH_P_ARP, target, dev, saddr,
+-		 dst_hw, dev->dev_addr, NULL);
++	arp_send_dst(ARPOP_REQUEST, ETH_P_ARP, target, dev, saddr,
++		     dst_hw, dev->dev_addr, NULL,
++		     dev->priv_flags & IFF_XMIT_DST_RELEASE ? NULL : skb);
+ }
+ 
+ static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
+@@ -597,32 +632,6 @@ void arp_xmit(struct sk_buff *skb)
+ EXPORT_SYMBOL(arp_xmit);
+ 
+ /*
+- *	Create and send an arp packet.
+- */
+-void arp_send(int type, int ptype, __be32 dest_ip,
+-	      struct net_device *dev, __be32 src_ip,
+-	      const unsigned char *dest_hw, const unsigned char *src_hw,
+-	      const unsigned char *target_hw)
+-{
+-	struct sk_buff *skb;
+-
+-	/*
+-	 *	No arp on this interface.
+-	 */
+-
+-	if (dev->flags&IFF_NOARP)
+-		return;
+-
+-	skb = arp_create(type, ptype, dest_ip, dev, src_ip,
+-			 dest_hw, src_hw, target_hw);
+-	if (!skb)
+-		return;
+-
+-	arp_xmit(skb);
+-}
+-EXPORT_SYMBOL(arp_send);
+-
+-/*
+  *	Process an arp request.
+  */
  
 -- 
 2.4.3
