@@ -1,135 +1,51 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH 1/2] net: dsa: mv88e6xxx: sleep in _mv88e6xxx_stats_wait
-Date: Sat, 18 Jul 2015 11:23:19 -0400 (EDT)
-Message-ID: <1971016402.292095.1437232999941.JavaMail.zimbra@savoirfairelinux.com>
-References: <1436547449-26927-1-git-send-email-vivien.didelot@savoirfairelinux.com> <20150710171027.GB6585@groeck-UX31A> <1055594065.210272.1436552447158.JavaMail.zimbra@savoirfairelinux.com> <20150710183623.GB19854@roeck-us.net> <645518234.216003.1436556107630.JavaMail.zimbra@savoirfairelinux.com> <20150710200514.GA9469@groeck-UX31A> <20150718145830.GA17961@lunn.ch>
+From: Johan Schuijt <johan@transip.nl>
+Subject: Re: reproducable panic eviction work queue
+Date: Sat, 18 Jul 2015 15:28:02 +0000
+Message-ID: <22C5EB62-8974-432D-9C3B-45F4E4067A45@transip.nl>
+References: <F8D94413-90A2-4F80-AAA2-7A6AB57DF314@transip.nl>
+ <1437209795.1026.31.camel@edumazet-glaptop2.roam.corp.google.com>
+ <5FD5C17E-B321-404E-80A2-EE46BB8AA746@transip.nl>
+ <55AA243D.5020306@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Guenter Roeck <linux@roeck-us.net>,
-	netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	David <davem@davemloft.net>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150718145830.GA17961@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"nikolay@redhat.com" <nikolay@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"fw@strlen.de" <fw@strlen.de>,
+	"chutzpah@gentoo.org" <chutzpah@gentoo.org>,
+	Robin Geuze <robing@transip.nl>,
+	Frank Schreuder <fschreuder@transip.nl>,
+	netdev <netdev@vger.kernel.org>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3on0118.outbound.protection.outlook.com ([157.55.234.118]:31452
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751313AbbGRP2I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Jul 2015 11:28:08 -0400
+In-Reply-To: <55AA243D.5020306@cumulusnetworks.com>
+Content-Language: en-US
+Content-ID: <54AED697B1716943B4B91ECEC7F71A81@eurprd02.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
-
------ On Jul 18, 2015, at 10:58 AM, Andrew Lunn andrew@lunn.ch wrote:
-
->> Good point. The timeout is most definitely quite large and for sure on
->> the safe side. It might make sense to add some statistics gathering to
->> see how long the maximum observed delay actually is.
-> 
-> Hi All
-> 
-> Statistics are something which can be used a lot, i bursts and
-> interactivily. ATU, VTU etc, are much less often used. So different
-> delays might be justified.
-> 
-> I agree about doing some statistics gathering to determine actual
-> delays needed.
-> 
->        Andrew
-
-What do you think about something like this?
-
-Thanks,
--v
-
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 4f3701f..6471807 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -563,9 +563,10 @@ static bool mv88e6xxx_6352_family(struct dsa_switch *ds)
- 
- /* Must be called with SMI lock held */
- static int _mv88e6xxx_wait(struct dsa_switch *ds, int reg, int offset,
--			   u16 mask)
-+			   u16 mask, unsigned int msecs)
- {
- 	unsigned long timeout = jiffies + HZ / 10;
-+	unsigned long usecs = msecs * 1000;
- 
- 	while (time_before(jiffies, timeout)) {
- 		int ret;
-@@ -576,7 +577,8 @@ static int _mv88e6xxx_wait(struct dsa_switch *ds, int reg, int offset,
- 		if (!(ret & mask))
- 			return 0;
- 
--		usleep_range(1000, 2000);
-+		if (usecs)
-+			usleep_range(usecs, usecs + 1000);
- 	}
- 	return -ETIMEDOUT;
- }
-@@ -585,7 +587,7 @@ static int _mv88e6xxx_wait(struct dsa_switch *ds, int reg, int offset,
- static int _mv88e6xxx_stats_wait(struct dsa_switch *ds)
- {
- 	return _mv88e6xxx_wait(ds, REG_GLOBAL, GLOBAL_STATS_OP,
--			       GLOBAL_STATS_OP_BUSY);
-+			       GLOBAL_STATS_OP_BUSY, 0);
- }
- 
- /* Must be called with SMI mutex held */
-@@ -872,13 +874,14 @@ error:
- }
- #endif /* CONFIG_NET_DSA_HWMON */
- 
--static int mv88e6xxx_wait(struct dsa_switch *ds, int reg, int offset, u16 mask)
-+static int mv88e6xxx_wait(struct dsa_switch *ds, int reg, int offset, u16 mask,
-+			  unsigned int msecs)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
- 
- 	mutex_lock(&ps->smi_mutex);
--	ret = _mv88e6xxx_wait(ds, reg, offset, mask);
-+	ret = _mv88e6xxx_wait(ds, reg, offset, mask, msecs);
- 	mutex_unlock(&ps->smi_mutex);
- 
- 	return ret;
-@@ -887,33 +890,33 @@ static int mv88e6xxx_wait(struct dsa_switch *ds, int reg, int offset, u16 mask)
- static int _mv88e6xxx_phy_wait(struct dsa_switch *ds)
- {
- 	return _mv88e6xxx_wait(ds, REG_GLOBAL2, GLOBAL2_SMI_OP,
--			       GLOBAL2_SMI_OP_BUSY);
-+			       GLOBAL2_SMI_OP_BUSY, 1);
- }
- 
- int mv88e6xxx_eeprom_load_wait(struct dsa_switch *ds)
- {
- 	return mv88e6xxx_wait(ds, REG_GLOBAL2, GLOBAL2_EEPROM_OP,
--			      GLOBAL2_EEPROM_OP_LOAD);
-+			      GLOBAL2_EEPROM_OP_LOAD, 1);
- }
- 
- int mv88e6xxx_eeprom_busy_wait(struct dsa_switch *ds)
- {
- 	return mv88e6xxx_wait(ds, REG_GLOBAL2, GLOBAL2_EEPROM_OP,
--			      GLOBAL2_EEPROM_OP_BUSY);
-+			      GLOBAL2_EEPROM_OP_BUSY, 1);
- }
- 
- /* Must be called with SMI lock held */
- static int _mv88e6xxx_atu_wait(struct dsa_switch *ds)
- {
- 	return _mv88e6xxx_wait(ds, REG_GLOBAL, GLOBAL_ATU_OP,
--			       GLOBAL_ATU_OP_BUSY);
-+			       GLOBAL_ATU_OP_BUSY, 1);
- }
- 
- /* Must be called with SMI lock held */
- static int _mv88e6xxx_scratch_wait(struct dsa_switch *ds)
- {
- 	return _mv88e6xxx_wait(ds, REG_GLOBAL2, GLOBAL2_SCRATCH_MISC,
--			       GLOBAL2_SCRATCH_BUSY);
-+			       GLOBAL2_SCRATCH_BUSY, 1);
- }
- 
- /* Must be called with SMI mutex held */
+VGh4IGZvciB5b3VyIGxvb2tpbmcgaW50byB0aGlzIQ0KDQo+IA0KPiBUaGFuayB5b3UgZm9yIHRo
+ZSByZXBvcnQsIEkgd2lsbCB0cnkgdG8gcmVwcm9kdWNlIHRoaXMgbG9jYWxseQ0KPiBDb3VsZCB5
+b3UgcGxlYXNlIHBvc3QgdGhlIGZ1bGwgY3Jhc2ggbG9nID8NCg0KT2YgY291cnNlLCBwbGVhc2Ug
+c2VlIGF0dGFjaGVkIGZpbGUuDQoNCj4gQWxzbyBjb3VsZCB5b3UgdGVzdA0KPiB3aXRoIGEgY2xl
+YW4gY3VycmVudCBrZXJuZWwgZnJvbSBMaW51cycgdHJlZSBvciBEYXZlJ3MgLW5ldCA/DQoNCldp
+bGwgZG8uDQoNCj4gVGhlc2UgYXJlIGF2YWlsYWJsZSBhdDoNCj4gZ2l0Oi8vZ2l0Lmtlcm5lbC5v
+cmcvcHViL3NjbS9saW51eC9rZXJuZWwvZ2l0L3RvcnZhbGRzL2xpbnV4LmdpdA0KPiBnaXQ6Ly9n
+aXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvZGF2ZW0vbmV0DQo+IHJlc3Bl
+Y3RpdmVseS4NCj4gDQo+IE9uZSBsYXN0IHF1ZXN0aW9uIGhvdyBtYW55IElSUXMgZG8geW91IHBp
+biBpLmUuIGhvdyBtYW55IGNvcmVzDQo+IGRvIHlvdSBhY3RpdmVseSB1c2UgZm9yIHJlY2VpdmUg
+Pw0KDQpUaGlzIHZhcmllcyBhIGJpdCBhY3Jvc3Mgb3VyIHN5c3RlbXMsIGJ1dCB3ZeKAmXZlIG1h
+bmFnZWQgdG8gcmVwcm9kdWNlIHRoaXMgd2l0aCBJUlFzIHBpbm5lZCBvbiBhcyBtYW55IGFzIDIs
+NCw4IG9yIDIwIGNvcmVzLg0KDQpJIHdvbuKAmXQgaGF2ZSBhY2Nlc3MgdG8gb3VyIHRlc3Qtc2V0
+dXAgdGlsbCBNb25kYXkgYWdhaW4sIHNvIEnigJlsbCBiZSB0ZXN0aW5nIDMgc2NlbmFyaW/igJlz
+IHRoZW46DQotIFlvdXIgcGF0Y2gNCi0gTGludXggdHJlZQ0KLSBEYXZl4oCZcyAtbmV0IHRyZWUN
+Cg0KSeKAmWxsIG1ha2Ugc3VyZSB0byBrZWVwIHlvdSBwb3N0ZWQgb24gYWxsIHRoZSByZXN1bHRz
+IHRoZW4uIFdlIGhhdmUgYSBrZXJuZWwgZHVtcCBvZiB0aGUgcGFuaWMsIHNvIGlmIHlvdSBuZWVk
+IG1lIHRvIGV4dHJhY3QgYW55IGRhdGEgZnJvbSB0aGVyZSBqdXN0IGxldCBtZSBrbm93ISAoU29t
+ZSBpbnN0cnVjdGlvbnMgbWlnaHQgYmUgbmVlZGVkKQ0KDQotIEpvaGFu
