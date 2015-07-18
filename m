@@ -1,11 +1,12 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Johan Schuijt <johan@transip.nl>
 Subject: Re: reproducable panic eviction work queue
-Date: Sat, 18 Jul 2015 10:56:35 +0200
-Message-ID: <1437209795.1026.31.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Sat, 18 Jul 2015 09:01:40 +0000
+Message-ID: <5FD5C17E-B321-404E-80A2-EE46BB8AA746@transip.nl>
 References: <F8D94413-90A2-4F80-AAA2-7A6AB57DF314@transip.nl>
+ <1437209795.1026.31.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "nikolay@redhat.com" <nikolay@redhat.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"fw@strlen.de" <fw@strlen.de>,
@@ -13,88 +14,68 @@ Cc: "nikolay@redhat.com" <nikolay@redhat.com>,
 	Robin Geuze <robing@transip.nl>,
 	Frank Schreuder <fschreuder@transip.nl>,
 	netdev <netdev@vger.kernel.org>
-To: Johan Schuijt <johan@transip.nl>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:34751 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751080AbbGRI4k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jul 2015 04:56:40 -0400
-Received: by wibud3 with SMTP id ud3so54182771wib.1
-        for <netdev@vger.kernel.org>; Sat, 18 Jul 2015 01:56:39 -0700 (PDT)
-In-Reply-To: <F8D94413-90A2-4F80-AAA2-7A6AB57DF314@transip.nl>
+Received: from mail-db3on0141.outbound.protection.outlook.com ([157.55.234.141]:32818
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752756AbbGRJRm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Jul 2015 05:17:42 -0400
+In-Reply-To: <1437209795.1026.31.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Content-ID: <9F22DB6F1CA3E445A7DB265FB76B4506@eurprd02.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-07-17 at 21:18 +0000, Johan Schuijt wrote:
-> Hey guys,=20
->=20
->=20
-> We=E2=80=99re currently running into a reproducible panic in the evic=
-tion work
-> queue code when we pin al our eth* IRQ to different CPU cores (in
-> order to scale our networking performance for our virtual servers).
-> This only occurs in kernels >=3D 3.17 and is a result of the followin=
-g
-> change:
-> https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/=
-commit/?h=3Dlinux-3.18.y&id=3Db13d3cbfb8e8a8f53930af67d1ebf05149f32c24
->=20
->=20
-> The race/panic we see seems to be the same as, or similar to:
-> https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/=
-commit/?h=3Dlinux-3.18.y&id=3D65ba1f1ec0eff1c25933468e1d238201c0c2cb29
->=20
->=20
-> We can confirm that this is directly exposed by the IRQ pinning since
-> disabling this stops us from being able to reproduce this case :)
->=20
->=20
-> How te reproduce: in our test-setup we have 4 machines generating UDP
-> packets which are send to the vulnerable host. These all have a MTU o=
-f
-> 100 (for test purposes) and send UDP packets of a size of 256 bytes.
-> Within half an hour you will see the following panic:
->=20
->=20
-> crash> bt
-> PID: 56     TASK: ffff885f3d9fc210  CPU: 9   COMMAND: "kworker/9:0"
->  #0 [ffff885f3da03b60] machine_kexec at ffffffff8104a1f7
->  #1 [ffff885f3da03bb0] crash_kexec at ffffffff810db187
->  #2 [ffff885f3da03c80] oops_end at ffffffff81015140
->  #3 [ffff885f3da03ca0] general_protection at ffffffff814f6c88
->     [exception RIP: inet_evict_bucket+281]
->     RIP: ffffffff81480699  RSP: ffff885f3da03d58  RFLAGS: 00010292
->     RAX: ffff885f3da03d08  RBX: dead0000001000a8  RCX:
-> ffff885f3da03d08
->     RDX: 0000000000000006  RSI: ffff885f3da03ce8  RDI:
-> dead0000001000a8
->     RBP: 0000000000000002   R8: 0000000000000286   R9:
-> ffff88302f401640
->     R10: 0000000080000000  R11: ffff88602ec0c138  R12:
-> ffffffff81a8d8c0
->     R13: ffff885f3da03d70  R14: 0000000000000000  R15:
-> ffff881d6efe1a00
->     ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018
->  #4 [ffff885f3da03db0] inet_frag_worker at ffffffff8148075a
->  #5 [ffff885f3da03e10] process_one_work at ffffffff8107be19
->  #6 [ffff885f3da03e60] worker_thread at ffffffff8107c6e3
->  #7 [ffff885f3da03ed0] kthread at ffffffff8108103e
->  #8 [ffff885f3da03f50] ret_from_fork at ffffffff814f4d7c
->=20
->=20
-> We would love to receive your input on this matter.
->=20
->=20
-> Thx in advance,
->=20
->=20
-> - Johan
-
-Check commits 65ba1f1ec0eff1c25933468e1d238201c0c2cb29 &
-d70127e8a942364de8dd140fe73893efda363293
-
-Also please send your mails in text format, not html, and CC netdev ( I
-did here)
-
->=20
->=20
+WWVzLCB3ZSBhbHJlYWR5IGZvdW5kIHRoZXNlIGFuZCBhcmUgaW5jbHVkZWQgaW4gb3VyIGtlcm5l
+bCwgYnV0IGV2ZW4gd2l0aCB0aGVzZSBwYXRjaGVzIHdlIHN0aWxsIHJlY2VpdmUgdGhlIHBhbmlj
+Lg0KDQotIEpvaGFuDQoNCg0KPiBPbiAxOCBKdWwgMjAxNSwgYXQgMTA6NTYsIEVyaWMgRHVtYXpl
+dCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4gd3JvdGU6DQo+IA0KPiBPbiBGcmksIDIwMTUtMDct
+MTcgYXQgMjE6MTggKzAwMDAsIEpvaGFuIFNjaHVpanQgd3JvdGU6DQo+PiBIZXkgZ3V5cywgDQo+
+PiANCj4+IA0KPj4gV2XigJlyZSBjdXJyZW50bHkgcnVubmluZyBpbnRvIGEgcmVwcm9kdWNpYmxl
+IHBhbmljIGluIHRoZSBldmljdGlvbiB3b3JrDQo+PiBxdWV1ZSBjb2RlIHdoZW4gd2UgcGluIGFs
+IG91ciBldGgqIElSUSB0byBkaWZmZXJlbnQgQ1BVIGNvcmVzIChpbg0KPj4gb3JkZXIgdG8gc2Nh
+bGUgb3VyIG5ldHdvcmtpbmcgcGVyZm9ybWFuY2UgZm9yIG91ciB2aXJ0dWFsIHNlcnZlcnMpLg0K
+Pj4gVGhpcyBvbmx5IG9jY3VycyBpbiBrZXJuZWxzID49IDMuMTcgYW5kIGlzIGEgcmVzdWx0IG9m
+IHRoZSBmb2xsb3dpbmcNCj4+IGNoYW5nZToNCj4+IGh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dp
+dC9saW51eC9rZXJuZWwvZ2l0L3N0YWJsZS9saW51eC1zdGFibGUuZ2l0L2NvbW1pdC8/aD1saW51
+eC0zLjE4LnkmaWQ9YjEzZDNjYmZiOGU4YThmNTM5MzBhZjY3ZDFlYmYwNTE0OWYzMmMyNA0KPj4g
+DQo+PiANCj4+IFRoZSByYWNlL3BhbmljIHdlIHNlZSBzZWVtcyB0byBiZSB0aGUgc2FtZSBhcywg
+b3Igc2ltaWxhciB0bzoNCj4+IGh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9rZXJu
+ZWwvZ2l0L3N0YWJsZS9saW51eC1zdGFibGUuZ2l0L2NvbW1pdC8/aD1saW51eC0zLjE4LnkmaWQ9
+NjViYTFmMWVjMGVmZjFjMjU5MzM0NjhlMWQyMzgyMDFjMGMyY2IyOQ0KPj4gDQo+PiANCj4+IFdl
+IGNhbiBjb25maXJtIHRoYXQgdGhpcyBpcyBkaXJlY3RseSBleHBvc2VkIGJ5IHRoZSBJUlEgcGlu
+bmluZyBzaW5jZQ0KPj4gZGlzYWJsaW5nIHRoaXMgc3RvcHMgdXMgZnJvbSBiZWluZyBhYmxlIHRv
+IHJlcHJvZHVjZSB0aGlzIGNhc2UgOikNCj4+IA0KPj4gDQo+PiBIb3cgdGUgcmVwcm9kdWNlOiBp
+biBvdXIgdGVzdC1zZXR1cCB3ZSBoYXZlIDQgbWFjaGluZXMgZ2VuZXJhdGluZyBVRFANCj4+IHBh
+Y2tldHMgd2hpY2ggYXJlIHNlbmQgdG8gdGhlIHZ1bG5lcmFibGUgaG9zdC4gVGhlc2UgYWxsIGhh
+dmUgYSBNVFUgb2YNCj4+IDEwMCAoZm9yIHRlc3QgcHVycG9zZXMpIGFuZCBzZW5kIFVEUCBwYWNr
+ZXRzIG9mIGEgc2l6ZSBvZiAyNTYgYnl0ZXMuDQo+PiBXaXRoaW4gaGFsZiBhbiBob3VyIHlvdSB3
+aWxsIHNlZSB0aGUgZm9sbG93aW5nIHBhbmljOg0KPj4gDQo+PiANCj4+IGNyYXNoPiBidA0KPj4g
+UElEOiA1NiAgICAgVEFTSzogZmZmZjg4NWYzZDlmYzIxMCAgQ1BVOiA5ICAgQ09NTUFORDogImt3
+b3JrZXIvOTowIg0KPj4gIzAgW2ZmZmY4ODVmM2RhMDNiNjBdIG1hY2hpbmVfa2V4ZWMgYXQgZmZm
+ZmZmZmY4MTA0YTFmNw0KPj4gIzEgW2ZmZmY4ODVmM2RhMDNiYjBdIGNyYXNoX2tleGVjIGF0IGZm
+ZmZmZmZmODEwZGIxODcNCj4+ICMyIFtmZmZmODg1ZjNkYTAzYzgwXSBvb3BzX2VuZCBhdCBmZmZm
+ZmZmZjgxMDE1MTQwDQo+PiAjMyBbZmZmZjg4NWYzZGEwM2NhMF0gZ2VuZXJhbF9wcm90ZWN0aW9u
+IGF0IGZmZmZmZmZmODE0ZjZjODgNCj4+ICAgIFtleGNlcHRpb24gUklQOiBpbmV0X2V2aWN0X2J1
+Y2tldCsyODFdDQo+PiAgICBSSVA6IGZmZmZmZmZmODE0ODA2OTkgIFJTUDogZmZmZjg4NWYzZGEw
+M2Q1OCAgUkZMQUdTOiAwMDAxMDI5Mg0KPj4gICAgUkFYOiBmZmZmODg1ZjNkYTAzZDA4ICBSQlg6
+IGRlYWQwMDAwMDAxMDAwYTggIFJDWDoNCj4+IGZmZmY4ODVmM2RhMDNkMDgNCj4+ICAgIFJEWDog
+MDAwMDAwMDAwMDAwMDAwNiAgUlNJOiBmZmZmODg1ZjNkYTAzY2U4ICBSREk6DQo+PiBkZWFkMDAw
+MDAwMTAwMGE4DQo+PiAgICBSQlA6IDAwMDAwMDAwMDAwMDAwMDIgICBSODogMDAwMDAwMDAwMDAw
+MDI4NiAgIFI5Og0KPj4gZmZmZjg4MzAyZjQwMTY0MA0KPj4gICAgUjEwOiAwMDAwMDAwMDgwMDAw
+MDAwICBSMTE6IGZmZmY4ODYwMmVjMGMxMzggIFIxMjoNCj4+IGZmZmZmZmZmODFhOGQ4YzANCj4+
+ICAgIFIxMzogZmZmZjg4NWYzZGEwM2Q3MCAgUjE0OiAwMDAwMDAwMDAwMDAwMDAwICBSMTU6DQo+
+PiBmZmZmODgxZDZlZmUxYTAwDQo+PiAgICBPUklHX1JBWDogZmZmZmZmZmZmZmZmZmZmZiAgQ1M6
+IDAwMTAgIFNTOiAwMDE4DQo+PiAjNCBbZmZmZjg4NWYzZGEwM2RiMF0gaW5ldF9mcmFnX3dvcmtl
+ciBhdCBmZmZmZmZmZjgxNDgwNzVhDQo+PiAjNSBbZmZmZjg4NWYzZGEwM2UxMF0gcHJvY2Vzc19v
+bmVfd29yayBhdCBmZmZmZmZmZjgxMDdiZTE5DQo+PiAjNiBbZmZmZjg4NWYzZGEwM2U2MF0gd29y
+a2VyX3RocmVhZCBhdCBmZmZmZmZmZjgxMDdjNmUzDQo+PiAjNyBbZmZmZjg4NWYzZGEwM2VkMF0g
+a3RocmVhZCBhdCBmZmZmZmZmZjgxMDgxMDNlDQo+PiAjOCBbZmZmZjg4NWYzZGEwM2Y1MF0gcmV0
+X2Zyb21fZm9yayBhdCBmZmZmZmZmZjgxNGY0ZDdjDQo+PiANCj4+IA0KPj4gV2Ugd291bGQgbG92
+ZSB0byByZWNlaXZlIHlvdXIgaW5wdXQgb24gdGhpcyBtYXR0ZXIuDQo+PiANCj4+IA0KPj4gVGh4
+IGluIGFkdmFuY2UsDQo+PiANCj4+IA0KPj4gLSBKb2hhbg0KPiANCj4gQ2hlY2sgY29tbWl0cyA2
+NWJhMWYxZWMwZWZmMWMyNTkzMzQ2OGUxZDIzODIwMWMwYzJjYjI5ICYNCj4gZDcwMTI3ZThhOTQy
+MzY0ZGU4ZGQxNDBmZTczODkzZWZkYTM2MzI5Mw0KPiANCj4gQWxzbyBwbGVhc2Ugc2VuZCB5b3Vy
+IG1haWxzIGluIHRleHQgZm9ybWF0LCBub3QgaHRtbCwgYW5kIENDIG5ldGRldiAoIEkNCj4gZGlk
+IGhlcmUpDQo+IA0KPj4gDQo+PiANCj4gDQo+IA0KDQo=
