@@ -1,81 +1,21 @@
-From: Johan Schuijt <johan@transip.nl>
-Subject: Re: reproducable panic eviction work queue
-Date: Sat, 18 Jul 2015 09:01:40 +0000
-Message-ID: <5FD5C17E-B321-404E-80A2-EE46BB8AA746@transip.nl>
-References: <F8D94413-90A2-4F80-AAA2-7A6AB57DF314@transip.nl>
- <1437209795.1026.31.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "GORDON CHANG" <info@arenadigital.hu>
+Subject: INFO FOR YOU!!!!
+Date: Sat, 18 Jul 2015 17:55:47 +0800
+Message-ID: <20150718094637.0B972717DE@sirius.bluehosting.hu>
+Reply-To: <gordch101@yahoo.com.hk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "nikolay@redhat.com" <nikolay@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"fw@strlen.de" <fw@strlen.de>,
-	"chutzpah@gentoo.org" <chutzpah@gentoo.org>,
-	Robin Geuze <robing@transip.nl>,
-	Frank Schreuder <fschreuder@transip.nl>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0141.outbound.protection.outlook.com ([157.55.234.141]:32818
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752756AbbGRJRm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Jul 2015 05:17:42 -0400
-In-Reply-To: <1437209795.1026.31.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Content-ID: <9F22DB6F1CA3E445A7DB265FB76B4506@eurprd02.prod.outlook.com>
+Received: from sirius.bluehosting.hu ([91.82.84.115]:40618 "EHLO
+	sirius.bluehosting.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751414AbbGRJxf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jul 2015 05:53:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-WWVzLCB3ZSBhbHJlYWR5IGZvdW5kIHRoZXNlIGFuZCBhcmUgaW5jbHVkZWQgaW4gb3VyIGtlcm5l
-bCwgYnV0IGV2ZW4gd2l0aCB0aGVzZSBwYXRjaGVzIHdlIHN0aWxsIHJlY2VpdmUgdGhlIHBhbmlj
-Lg0KDQotIEpvaGFuDQoNCg0KPiBPbiAxOCBKdWwgMjAxNSwgYXQgMTA6NTYsIEVyaWMgRHVtYXpl
-dCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4gd3JvdGU6DQo+IA0KPiBPbiBGcmksIDIwMTUtMDct
-MTcgYXQgMjE6MTggKzAwMDAsIEpvaGFuIFNjaHVpanQgd3JvdGU6DQo+PiBIZXkgZ3V5cywgDQo+
-PiANCj4+IA0KPj4gV2XigJlyZSBjdXJyZW50bHkgcnVubmluZyBpbnRvIGEgcmVwcm9kdWNpYmxl
-IHBhbmljIGluIHRoZSBldmljdGlvbiB3b3JrDQo+PiBxdWV1ZSBjb2RlIHdoZW4gd2UgcGluIGFs
-IG91ciBldGgqIElSUSB0byBkaWZmZXJlbnQgQ1BVIGNvcmVzIChpbg0KPj4gb3JkZXIgdG8gc2Nh
-bGUgb3VyIG5ldHdvcmtpbmcgcGVyZm9ybWFuY2UgZm9yIG91ciB2aXJ0dWFsIHNlcnZlcnMpLg0K
-Pj4gVGhpcyBvbmx5IG9jY3VycyBpbiBrZXJuZWxzID49IDMuMTcgYW5kIGlzIGEgcmVzdWx0IG9m
-IHRoZSBmb2xsb3dpbmcNCj4+IGNoYW5nZToNCj4+IGh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dp
-dC9saW51eC9rZXJuZWwvZ2l0L3N0YWJsZS9saW51eC1zdGFibGUuZ2l0L2NvbW1pdC8/aD1saW51
-eC0zLjE4LnkmaWQ9YjEzZDNjYmZiOGU4YThmNTM5MzBhZjY3ZDFlYmYwNTE0OWYzMmMyNA0KPj4g
-DQo+PiANCj4+IFRoZSByYWNlL3BhbmljIHdlIHNlZSBzZWVtcyB0byBiZSB0aGUgc2FtZSBhcywg
-b3Igc2ltaWxhciB0bzoNCj4+IGh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9rZXJu
-ZWwvZ2l0L3N0YWJsZS9saW51eC1zdGFibGUuZ2l0L2NvbW1pdC8/aD1saW51eC0zLjE4LnkmaWQ9
-NjViYTFmMWVjMGVmZjFjMjU5MzM0NjhlMWQyMzgyMDFjMGMyY2IyOQ0KPj4gDQo+PiANCj4+IFdl
-IGNhbiBjb25maXJtIHRoYXQgdGhpcyBpcyBkaXJlY3RseSBleHBvc2VkIGJ5IHRoZSBJUlEgcGlu
-bmluZyBzaW5jZQ0KPj4gZGlzYWJsaW5nIHRoaXMgc3RvcHMgdXMgZnJvbSBiZWluZyBhYmxlIHRv
-IHJlcHJvZHVjZSB0aGlzIGNhc2UgOikNCj4+IA0KPj4gDQo+PiBIb3cgdGUgcmVwcm9kdWNlOiBp
-biBvdXIgdGVzdC1zZXR1cCB3ZSBoYXZlIDQgbWFjaGluZXMgZ2VuZXJhdGluZyBVRFANCj4+IHBh
-Y2tldHMgd2hpY2ggYXJlIHNlbmQgdG8gdGhlIHZ1bG5lcmFibGUgaG9zdC4gVGhlc2UgYWxsIGhh
-dmUgYSBNVFUgb2YNCj4+IDEwMCAoZm9yIHRlc3QgcHVycG9zZXMpIGFuZCBzZW5kIFVEUCBwYWNr
-ZXRzIG9mIGEgc2l6ZSBvZiAyNTYgYnl0ZXMuDQo+PiBXaXRoaW4gaGFsZiBhbiBob3VyIHlvdSB3
-aWxsIHNlZSB0aGUgZm9sbG93aW5nIHBhbmljOg0KPj4gDQo+PiANCj4+IGNyYXNoPiBidA0KPj4g
-UElEOiA1NiAgICAgVEFTSzogZmZmZjg4NWYzZDlmYzIxMCAgQ1BVOiA5ICAgQ09NTUFORDogImt3
-b3JrZXIvOTowIg0KPj4gIzAgW2ZmZmY4ODVmM2RhMDNiNjBdIG1hY2hpbmVfa2V4ZWMgYXQgZmZm
-ZmZmZmY4MTA0YTFmNw0KPj4gIzEgW2ZmZmY4ODVmM2RhMDNiYjBdIGNyYXNoX2tleGVjIGF0IGZm
-ZmZmZmZmODEwZGIxODcNCj4+ICMyIFtmZmZmODg1ZjNkYTAzYzgwXSBvb3BzX2VuZCBhdCBmZmZm
-ZmZmZjgxMDE1MTQwDQo+PiAjMyBbZmZmZjg4NWYzZGEwM2NhMF0gZ2VuZXJhbF9wcm90ZWN0aW9u
-IGF0IGZmZmZmZmZmODE0ZjZjODgNCj4+ICAgIFtleGNlcHRpb24gUklQOiBpbmV0X2V2aWN0X2J1
-Y2tldCsyODFdDQo+PiAgICBSSVA6IGZmZmZmZmZmODE0ODA2OTkgIFJTUDogZmZmZjg4NWYzZGEw
-M2Q1OCAgUkZMQUdTOiAwMDAxMDI5Mg0KPj4gICAgUkFYOiBmZmZmODg1ZjNkYTAzZDA4ICBSQlg6
-IGRlYWQwMDAwMDAxMDAwYTggIFJDWDoNCj4+IGZmZmY4ODVmM2RhMDNkMDgNCj4+ICAgIFJEWDog
-MDAwMDAwMDAwMDAwMDAwNiAgUlNJOiBmZmZmODg1ZjNkYTAzY2U4ICBSREk6DQo+PiBkZWFkMDAw
-MDAwMTAwMGE4DQo+PiAgICBSQlA6IDAwMDAwMDAwMDAwMDAwMDIgICBSODogMDAwMDAwMDAwMDAw
-MDI4NiAgIFI5Og0KPj4gZmZmZjg4MzAyZjQwMTY0MA0KPj4gICAgUjEwOiAwMDAwMDAwMDgwMDAw
-MDAwICBSMTE6IGZmZmY4ODYwMmVjMGMxMzggIFIxMjoNCj4+IGZmZmZmZmZmODFhOGQ4YzANCj4+
-ICAgIFIxMzogZmZmZjg4NWYzZGEwM2Q3MCAgUjE0OiAwMDAwMDAwMDAwMDAwMDAwICBSMTU6DQo+
-PiBmZmZmODgxZDZlZmUxYTAwDQo+PiAgICBPUklHX1JBWDogZmZmZmZmZmZmZmZmZmZmZiAgQ1M6
-IDAwMTAgIFNTOiAwMDE4DQo+PiAjNCBbZmZmZjg4NWYzZGEwM2RiMF0gaW5ldF9mcmFnX3dvcmtl
-ciBhdCBmZmZmZmZmZjgxNDgwNzVhDQo+PiAjNSBbZmZmZjg4NWYzZGEwM2UxMF0gcHJvY2Vzc19v
-bmVfd29yayBhdCBmZmZmZmZmZjgxMDdiZTE5DQo+PiAjNiBbZmZmZjg4NWYzZGEwM2U2MF0gd29y
-a2VyX3RocmVhZCBhdCBmZmZmZmZmZjgxMDdjNmUzDQo+PiAjNyBbZmZmZjg4NWYzZGEwM2VkMF0g
-a3RocmVhZCBhdCBmZmZmZmZmZjgxMDgxMDNlDQo+PiAjOCBbZmZmZjg4NWYzZGEwM2Y1MF0gcmV0
-X2Zyb21fZm9yayBhdCBmZmZmZmZmZjgxNGY0ZDdjDQo+PiANCj4+IA0KPj4gV2Ugd291bGQgbG92
-ZSB0byByZWNlaXZlIHlvdXIgaW5wdXQgb24gdGhpcyBtYXR0ZXIuDQo+PiANCj4+IA0KPj4gVGh4
-IGluIGFkdmFuY2UsDQo+PiANCj4+IA0KPj4gLSBKb2hhbg0KPiANCj4gQ2hlY2sgY29tbWl0cyA2
-NWJhMWYxZWMwZWZmMWMyNTkzMzQ2OGUxZDIzODIwMWMwYzJjYjI5ICYNCj4gZDcwMTI3ZThhOTQy
-MzY0ZGU4ZGQxNDBmZTczODkzZWZkYTM2MzI5Mw0KPiANCj4gQWxzbyBwbGVhc2Ugc2VuZCB5b3Vy
-IG1haWxzIGluIHRleHQgZm9ybWF0LCBub3QgaHRtbCwgYW5kIENDIG5ldGRldiAoIEkNCj4gZGlk
-IGhlcmUpDQo+IA0KPj4gDQo+PiANCj4gDQo+IA0KDQo=
+I have a transaction I want us to discuss. Can you please confirm your email address.
+
+Gordon
