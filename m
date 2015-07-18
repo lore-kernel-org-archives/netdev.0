@@ -1,56 +1,50 @@
-From: Cong Wang <cwang@twopensource.com>
+From: Alex Gartrell <alexgartrell@gmail.com>
 Subject: Re: [RGC PATCH v3.10] net: sched: validate that class is found in qdisc_tree_decrease_qlen
-Date: Fri, 17 Jul 2015 17:10:51 -0700
-Message-ID: <CAHA+R7NgdD8xgi=RGcN7NjoL+p0M6vDxBPEwCjj3LZ9SWS5Yhw@mail.gmail.com>
-References: <1437175677-1252239-1-git-send-email-agartrell@fb.com>
+Date: Fri, 17 Jul 2015 17:27:01 -0700
+Message-ID: <CALCkm3fPck6QKRRqOUxwB18WMG8wAqGyRR+bMKPtu8mn2apbww@mail.gmail.com>
+References: <1437175677-1252239-1-git-send-email-agartrell@fb.com> <CAHA+R7NgdD8xgi=RGcN7NjoL+p0M6vDxBPEwCjj3LZ9SWS5Yhw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+Cc: Alex Gartrell <agartrell@fb.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
 	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, kernel-team@fb.com
-To: Alex Gartrell <agartrell@fb.com>
+	David Miller <davem@davemloft.net>,
+	kernel-team <kernel-team@fb.com>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f180.google.com ([209.85.160.180]:33818 "EHLO
-	mail-yk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752002AbbGRAKv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 20:10:51 -0400
-Received: by ykax123 with SMTP id x123so102162162yka.1
-        for <netdev@vger.kernel.org>; Fri, 17 Jul 2015 17:10:51 -0700 (PDT)
-In-Reply-To: <1437175677-1252239-1-git-send-email-agartrell@fb.com>
+Received: from mail-qk0-f177.google.com ([209.85.220.177]:34605 "EHLO
+	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752958AbbGRA1V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2015 20:27:21 -0400
+Received: by qkfc129 with SMTP id c129so36671858qkf.1
+        for <netdev@vger.kernel.org>; Fri, 17 Jul 2015 17:27:20 -0700 (PDT)
+In-Reply-To: <CAHA+R7NgdD8xgi=RGcN7NjoL+p0M6vDxBPEwCjj3LZ9SWS5Yhw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 17, 2015 at 4:27 PM, Alex Gartrell <agartrell@fb.com> wrote:
-> To my understanding, the following situation is taking place.
+On Fri, Jul 17, 2015 at 5:10 PM, Cong Wang <cwang@twopensource.com> wrote:
+> Hmm, but in htb_delete() we do reset the leaf qdisc before removing the
+> class from ha
 >
->   tc_ctl_tclass
->    -> htb_delete
->      -> class is deleted from clhash
->    -> htb_put
->      -> qdisc_destroy
->        -> fq_codel_reset
->          -> fq_codel_dequeue
->            -> qdidsc_tree_decrease_qlen
->              -> cl = htb_get # returns NULL, removed in htb_delete
->                -> htb_qlen_notify(sch, NULL) # BOOM
+>         if (!cl->level) {
+>                 qlen = cl->un.leaf.q->q.qlen;
+>                 qdisc_reset(cl->un.leaf.q);
+>                 qdisc_tree_decrease_qlen(cl->un.leaf.q, qlen);
+>         }
 >
-> This patch checks cl for 0 before invoking qlen_notify and put.  The notify
-> is not necessary in this case, as the parent has already been deactivated
-> anyway.
+> therefore, the leaf fq_codel qdisc is supposed to have 0 skb after that,
+> that is, the second fq_codel_reset() is supposed to return NULL immediately?
+> Why is qdidsc_tree_decrease_qlen() called in the second fq_codel_reset()?
 >
+> Or there is a race condition between ->delete() and ->put()? In which new
+> skb can be enqueued?
 
-Hmm, but in htb_delete() we do reset the leaf qdisc before removing the
-class from hash:
+This makes the most sense to me, but I have ~32 hours of experience
+with this subsystem :)
 
-        if (!cl->level) {
-                qlen = cl->un.leaf.q->q.qlen;
-                qdisc_reset(cl->un.leaf.q);
-                qdisc_tree_decrease_qlen(cl->un.leaf.q, qlen);
-        }
+Taking that for granted, it seems like it'd be appropriate to note the
+invariant in the code i've changed with a WARN_ON and to skip it, and
+then to otherwise find a way to close the hole.  Do you agree?
 
-therefore, the leaf fq_codel qdisc is supposed to have 0 skb after that,
-that is, the second fq_codel_reset() is supposed to return NULL immediately?
-Why is qdidsc_tree_decrease_qlen() called in the second fq_codel_reset()?
-
-Or there is a race condition between ->delete() and ->put()? In which new
-skb can be enqueued?
+-- 
+Alex Gartrell <agartrell@fb.com>
