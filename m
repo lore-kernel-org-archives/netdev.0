@@ -1,15 +1,11 @@
-From: Johan Schuijt <johan@transip.nl>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Subject: Re: reproducable panic eviction work queue
-Date: Sat, 18 Jul 2015 15:30:13 +0000
-Message-ID: <C85B4DFF-440D-4ED3-BABA-2272A9E8BF07@transip.nl>
-References: <F8D94413-90A2-4F80-AAA2-7A6AB57DF314@transip.nl>
- <1437209795.1026.31.camel@edumazet-glaptop2.roam.corp.google.com>
- <5FD5C17E-B321-404E-80A2-EE46BB8AA746@transip.nl>
- <55AA243D.5020306@cumulusnetworks.com>
- <22C5EB62-8974-432D-9C3B-45F4E4067A45@transip.nl>
+Date: Sat, 18 Jul 2015 17:32:13 +0200
+Message-ID: <55AA717D.8080800@cumulusnetworks.com>
+References: <F8D94413-90A2-4F80-AAA2-7A6AB57DF314@transip.nl> <1437209795.1026.31.camel@edumazet-glaptop2.roam.corp.google.com> <5FD5C17E-B321-404E-80A2-EE46BB8AA746@transip.nl> <55AA243D.5020306@cumulusnetworks.com> <22C5EB62-8974-432D-9C3B-45F4E4067A45@transip.nl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_002_C85B4DFF440D4ED3BABA2272A9E8BF07transipnl_"
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	"nikolay@redhat.com" <nikolay@redhat.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
@@ -18,123 +14,58 @@ Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Robin Geuze <robing@transip.nl>,
 	Frank Schreuder <fschreuder@transip.nl>,
 	netdev <netdev@vger.kernel.org>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Johan Schuijt <johan@transip.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0119.outbound.protection.outlook.com ([157.55.234.119]:47031
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751128AbbGRPaT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Jul 2015 11:30:19 -0400
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:36630 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751437AbbGRPcQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jul 2015 11:32:16 -0400
+Received: by wgbcc4 with SMTP id cc4so8368481wgb.3
+        for <netdev@vger.kernel.org>; Sat, 18 Jul 2015 08:32:15 -0700 (PDT)
 In-Reply-To: <22C5EB62-8974-432D-9C3B-45F4E4067A45@transip.nl>
-Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---_002_C85B4DFF440D4ED3BABA2272A9E8BF07transipnl_
-Content-Type: text/plain; charset="utf-8"
-Content-ID: <DDA170D71DEBD24AB84E3A97B819CAF6@eurprd02.prod.outlook.com>
-Content-Transfer-Encoding: base64
+On 07/18/2015 05:28 PM, Johan Schuijt wrote:
+> Thx for your looking into this!
+>=20
+>>
+>> Thank you for the report, I will try to reproduce this locally
+>> Could you please post the full crash log ?
+>=20
+> Of course, please see attached file.
+>=20
+>> Also could you test
+>> with a clean current kernel from Linus' tree or Dave's -net ?
+>=20
+> Will do.
+>=20
+>> These are available at:
+>> git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+>> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+>> respectively.
+>>
+>> One last question how many IRQs do you pin i.e. how many cores
+>> do you actively use for receive ?
+>=20
+> This varies a bit across our systems, but we=E2=80=99ve managed to re=
+produce this with IRQs pinned on as many as 2,4,8 or 20 cores.
+>=20
+> I won=E2=80=99t have access to our test-setup till Monday again, so I=
+=E2=80=99ll be testing 3 scenario=E2=80=99s then:
+> - Your patch
+-----
+> - Linux tree
+> - Dave=E2=80=99s -net tree
+Just one of these two would be enough. I couldn't reproduce it here but
+I don't have as many machines to test right now and had to improvise wi=
+th VMs. :-)
 
-V2l0aCBhdHRhY2htZW50IHRoaXMgdGltZSwgYWxzbyBub3Qgc3VyZSB3ZXRoZXIgdGhpcyBpcyB3
-aGF0IHlvdSB3ZXJlIHJlZmVycmluZyB0bywgc28gbGV0IG1lIGtub3cgaWYgYW55dGhpbmcgZWxz
-ZSBuZWVkZWQhDQoNCi0gSm9oYW4NCg0KDQo+IE9uIDE4IEp1bCAyMDE1LCBhdCAxNzoyOCwgSm9o
-YW4gU2NodWlqdC1MaSA8am9oYW5AdHJhbnNpcC5ubD4gd3JvdGU6DQo+IA0KPiBUaHggZm9yIHlv
-dXIgbG9va2luZyBpbnRvIHRoaXMhDQo+IA0KPj4gDQo+PiBUaGFuayB5b3UgZm9yIHRoZSByZXBv
-cnQsIEkgd2lsbCB0cnkgdG8gcmVwcm9kdWNlIHRoaXMgbG9jYWxseQ0KPj4gQ291bGQgeW91IHBs
-ZWFzZSBwb3N0IHRoZSBmdWxsIGNyYXNoIGxvZyA/DQo+IA0KPiBPZiBjb3Vyc2UsIHBsZWFzZSBz
-ZWUgYXR0YWNoZWQgZmlsZS4NCj4gDQo+PiBBbHNvIGNvdWxkIHlvdSB0ZXN0DQo+PiB3aXRoIGEg
-Y2xlYW4gY3VycmVudCBrZXJuZWwgZnJvbSBMaW51cycgdHJlZSBvciBEYXZlJ3MgLW5ldCA/DQo+
-IA0KPiBXaWxsIGRvLg0KPiANCj4+IFRoZXNlIGFyZSBhdmFpbGFibGUgYXQ6DQo+PiBnaXQ6Ly9n
-aXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvdG9ydmFsZHMvbGludXguZ2l0
-DQo+PiBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvZGF2ZW0v
-bmV0DQo+PiByZXNwZWN0aXZlbHkuDQo+PiANCj4+IE9uZSBsYXN0IHF1ZXN0aW9uIGhvdyBtYW55
-IElSUXMgZG8geW91IHBpbiBpLmUuIGhvdyBtYW55IGNvcmVzDQo+PiBkbyB5b3UgYWN0aXZlbHkg
-dXNlIGZvciByZWNlaXZlID8NCj4gDQo+IFRoaXMgdmFyaWVzIGEgYml0IGFjcm9zcyBvdXIgc3lz
-dGVtcywgYnV0IHdl4oCZdmUgbWFuYWdlZCB0byByZXByb2R1Y2UgdGhpcyB3aXRoIElSUXMgcGlu
-bmVkIG9uIGFzIG1hbnkgYXMgMiw0LDggb3IgMjAgY29yZXMuDQo+IA0KPiBJIHdvbuKAmXQgaGF2
-ZSBhY2Nlc3MgdG8gb3VyIHRlc3Qtc2V0dXAgdGlsbCBNb25kYXkgYWdhaW4sIHNvIEnigJlsbCBi
-ZSB0ZXN0aW5nIDMgc2NlbmFyaW/igJlzIHRoZW46DQo+IC0gWW91ciBwYXRjaA0KPiAtIExpbnV4
-IHRyZWUNCj4gLSBEYXZl4oCZcyAtbmV0IHRyZWUNCj4gDQo+IEnigJlsbCBtYWtlIHN1cmUgdG8g
-a2VlcCB5b3UgcG9zdGVkIG9uIGFsbCB0aGUgcmVzdWx0cyB0aGVuLiBXZSBoYXZlIGEga2VybmVs
-IGR1bXAgb2YgdGhlIHBhbmljLCBzbyBpZiB5b3UgbmVlZCBtZSB0byBleHRyYWN0IGFueSBkYXRh
-IGZyb20gdGhlcmUganVzdCBsZXQgbWUga25vdyEgKFNvbWUgaW5zdHJ1Y3Rpb25zIG1pZ2h0IGJl
-IG5lZWRlZCkNCj4gDQo+IC0gSm9oYW4NCg0K
-
---_002_C85B4DFF440D4ED3BABA2272A9E8BF07transipnl_
-Content-Type: text/plain; name="log.txt"
-Content-Description: log.txt
-Content-Disposition: attachment; filename="log.txt"; size=3772;
-	creation-date="Sat, 18 Jul 2015 15:30:12 GMT";
-	modification-date="Sat, 18 Jul 2015 15:30:12 GMT"
-Content-ID: <0951A6170A1EA9498D37CF71392146DA@eurprd02.prod.outlook.com>
-Content-Transfer-Encoding: base64
-
-WzI4NzMyLjI4NTYxMV0gZ2VuZXJhbCBwcm90ZWN0aW9uIGZhdWx0OiAwMDAwIFsjMV0gU01QIA0K
-WzI4NzMyLjI4NTY2NV0gTW9kdWxlcyBsaW5rZWQgaW46IHZob3N0X25ldCB2aG9zdCBtYWN2dGFw
-IG1hY3ZsYW4gYWN0X3BvbGljZSBjbHNfdTMyIHNjaF9pbmdyZXNzIGNsc19mdyBzY2hfc2ZxIHNj
-aF9odGIgbmZfY29ubnRyYWNrX2lwdjYgbmZfZGVmcmFnX2lwdjYgeHRfY29ubnRyYWNrIHh0X3Bo
-eXNkZXYgYnJfbmV0ZmlsdGVyIGVidF9hcnAgZWJ0X2lwNiBlYnRfaXAgZWJ0YWJsZV9uYXQgdHVu
-IHJwY3NlY19nc3Nfa3JiNSBuZnN2NCBkbnNfcmVzb2x2ZXIgZWJ0YWJsZV9maWx0ZXIgZWJ0YWJs
-ZXMgaXA2dGFibGVfcmF3IGlwNnRhYmxlX21hbmdsZSBpcDZ0YWJsZV9maWx0ZXIgaXA2X3RhYmxl
-cyBuZnNkIGF1dGhfcnBjZ3NzIG9pZF9yZWdpc3RyeSBuZnNfYWNsIG5mcyBsb2NrZCBncmFjZSBm
-c2NhY2hlIHN1bnJwYyBicmlkZ2UgODAyMXEgZ2FycCBtcnAgc3RwIGxsYyBib25kaW5nIHh0X0NU
-IHh0X0RTQ1AgaXB0YWJsZV9tYW5nbGUgaXB0X1JFSkVDVCBuZl9yZWplY3RfaXB2NCB4dF9wa3R0
-eXBlIHh0X3RjcHVkcCBuZl9sb2dfaXB2NCBuZl9sb2dfY29tbW9uIHh0X0xPRyB4dF9saW1pdCB4
-dF9jb21tZW50IG5mX2Nvbm50cmFja19pcHY0IG5mX2RlZnJhZ19pcHY0IHh0X3N0YXRlIG5mX2Nv
-bm50cmFjayB4dF9vd25lciBpcHRhYmxlX2ZpbHRlciBpcHRhYmxlX3JhdyBpcF90YWJsZXMgeF90
-YWJsZXMgbG9vcCBqb3lkZXYgaGlkX2dlbmVyaWMgdXNiaGlkIGhpZCB4ODZfcGtnX3RlbXBfdGhl
-cm1hbCBpbnRlbF9wb3dlcmNsYW1wIGNvcmV0ZW1wIGt2bV9pbnRlbCBrdm0gdHRtIGNyY3QxMGRp
-Zl9wY2xtdWwgY3JjMzJfcGNsbXVsDQpbMjg3MzIuMjg2NDIxXSAgZ2hhc2hfY2xtdWxuaV9pbnRl
-bCBhZXNuaV9pbnRlbCBkcm1fa21zX2hlbHBlciBkcm0gaTJjX2FsZ29fYml0IGFlc194ODZfNjQg
-bHJ3IGdmMTI4bXVsIGRjZGJhcyBpcG1pX3NpIGkyY19jb3JlIGV2ZGV2IGdsdWVfaGVscGVyIGFi
-bGtfaGVscGVyIHRwbV90aXMgbWVpX21lIHRwbSBlaGNpX3BjaSBlaGNpX2hjZCBtZWkgY3J5cHRk
-IHVzYmNvcmUgaVRDT193ZHQgaVRDT192ZW5kb3Jfc3VwcG9ydCBpcG1pX21zZ2hhbmRsZXIgbHBj
-X2ljaCBtZmRfY29yZSB3bWkgcGNzcGtyIHVzYl9jb21tb24gc2hwY2hwIHNiX2VkYWMgZWRhY19j
-b3JlIGFjcGlfcG93ZXJfbWV0ZXIgYWNwaV9wYWQgYnV0dG9uIHByb2Nlc3NvciB0aGVybWFsX3N5
-cyBleHQ0IGNyYzE2IG1iY2FjaGUgamJkMiBkbV9tb2Qgc2cgc2RfbW9kIGFoY2kgbGliYWhjaSBi
-bngyeCBsaWJhdGEgcHRwIHBwc19jb3JlIG1kaW8gY3JjMzJjX2dlbmVyaWMgbWVnYXJhaWRfc2Fz
-IGNyYzMyY19pbnRlbCBzY3NpX21vZCBsaWJjcmMzMmMNClsyODczMi4yODY5NTVdIENQVTogOSBQ
-SUQ6IDU2IENvbW06IGt3b3JrZXIvOTowIE5vdCB0YWludGVkIDMuMTguNy10cmFuc2lwLTIuMCAj
-MQ0KWzI4NzMyLjI4NzAyM10gSGFyZHdhcmUgbmFtZTogRGVsbCBJbmMuIFBvd2VyRWRnZSBNNjIw
-LzBWSFJONywgQklPUyAyLjUuMiAwMi8wMy8yMDE1DQpbMjg3MzIuMjg3MDk2XSBXb3JrcXVldWU6
-IGV2ZW50cyBpbmV0X2ZyYWdfd29ya2VyDQpbMjg3MzIuMjg3MTM5XSB0YXNrOiBmZmZmODg1ZjNk
-OWZjMjEwIHRpOiBmZmZmODg1ZjNkYTAwMDAwIHRhc2sudGk6IGZmZmY4ODVmM2RhMDAwMDANClsy
-ODczMi4yODcyMDVdIFJJUDogMDAxMDpbPGZmZmZmZmZmODE0ODA2OTk+XSAgWzxmZmZmZmZmZjgx
-NDgwNjk5Pl0gaW5ldF9ldmljdF9idWNrZXQrMHgxMTkvMHgxODANClsyODczMi4yODcyNzhdIFJT
-UDogMDAxODpmZmZmODg1ZjNkYTAzZDU4ICBFRkxBR1M6IDAwMDEwMjkyDQpbMjg3MzIuMjg3MzE4
-XSBSQVg6IGZmZmY4ODVmM2RhMDNkMDggUkJYOiBkZWFkMDAwMDAwMTAwMGE4IFJDWDogZmZmZjg4
-NWYzZGEwM2QwOA0KWzI4NzMyLjI4NzM2Ml0gUkRYOiAwMDAwMDAwMDAwMDAwMDA2IFJTSTogZmZm
-Zjg4NWYzZGEwM2NlOCBSREk6IGRlYWQwMDAwMDAxMDAwYTgNClsyODczMi4yODc0MDZdIFJCUDog
-MDAwMDAwMDAwMDAwMDAwMiBSMDg6IDAwMDAwMDAwMDAwMDAyODYgUjA5OiBmZmZmODgzMDJmNDAx
-NjQwDQpbMjg3MzIuMjg3NDUwXSBSMTA6IDAwMDAwMDAwODAwMDAwMDAgUjExOiBmZmZmODg2MDJl
-YzBjMTM4IFIxMjogZmZmZmZmZmY4MWE4ZDhjMA0KWzI4NzMyLjI4NzQ5NF0gUjEzOiBmZmZmODg1
-ZjNkYTAzZDcwIFIxNDogMDAwMDAwMDAwMDAwMDAwMCBSMTU6IGZmZmY4ODFkNmVmZTFhMDANClsy
-ODczMi4yODc1MzhdIEZTOiAgMDAwMDAwMDAwMDAwMDAwMCgwMDAwKSBHUzpmZmZmODg2MDJmMjgw
-MDAwKDAwMDApIGtubEdTOjAwMDAwMDAwMDAwMDAwMDANClsyODczMi4yODc2MDZdIENTOiAgMDAx
-MCBEUzogMDAwMCBFUzogMDAwMCBDUjA6IDAwMDAwMDAwODAwNTAwMzMNClsyODczMi4yODc2NDdd
-IENSMjogMDAwMDAwMDAwMGIxMTAwMCBDUjM6IDAwMDAwMDRmMDViMjQwMDAgQ1I0OiAwMDAwMDAw
-MDAwMDQyN2UwDQpbMjg3MzIuMjg3NjkxXSBTdGFjazoNClsyODczMi4yODc3MjJdICBmZmZmZmZm
-ZjgxYTkwNWUwIGZmZmZmZmZmODFhOTA1ZTggZmZmZmZmZmY4MTRmNDU5OSBmZmZmODgxZDZlZmUx
-YTU4DQpbMjg3MzIuMjg3ODA3XSAgMDAwMDAwMDAwMDAwMDI0NiAwMDAwMDAwMDAwMDAwMDJlIGZm
-ZmZmZmZmODFhOGQ4YzAgZmZmZmZmZmY4MWE5MThjMA0KWzI4NzMyLjI4Nzg5MV0gIDAwMDAwMDAw
-MDAwMDAyZDMgMDAwMDAwMDAwMDAwMDAxOSAwMDAwMDAwMDAwMDAwMjQwIGZmZmZmZmZmODE0ODA3
-NWENClsyODczMi4yODc5NzVdIENhbGwgVHJhY2U6DQpbMjg3MzIuMjg4MDEzXSAgWzxmZmZmZmZm
-ZjgxNGY0NTk5Pl0gPyBfcmF3X3NwaW5fdW5sb2NrX2lycXJlc3RvcmUrMHg5LzB4MTANClsyODcz
-Mi4yODgwNTZdICBbPGZmZmZmZmZmODE0ODA3NWE+XSA/IGluZXRfZnJhZ193b3JrZXIrMHg1YS8w
-eDI1MA0KWzI4NzMyLjI4ODEwM10gIFs8ZmZmZmZmZmY4MTA3YmUxOT5dID8gcHJvY2Vzc19vbmVf
-d29yaysweDE0OS8weDNmMA0KWzI4NzMyLjI4ODE0Nl0gIFs8ZmZmZmZmZmY4MTA3YzZlMz5dID8g
-d29ya2VyX3RocmVhZCsweDYzLzB4NDkwDQpbMjg3MzIuMjg4MTg3XSAgWzxmZmZmZmZmZjgxMDdj
-NjgwPl0gPyByZXNjdWVyX3RocmVhZCsweDI5MC8weDI5MA0KWzI4NzMyLjI4ODIyOV0gIFs8ZmZm
-ZmZmZmY4MTA4MTAzZT5dID8ga3RocmVhZCsweGNlLzB4ZjANClsyODczMi4yODgyNjldICBbPGZm
-ZmZmZmZmODEwODBmNzA+XSA/IGt0aHJlYWRfY3JlYXRlX29uX25vZGUrMHgxODAvMHgxODANClsy
-ODczMi4yODgzMTNdICBbPGZmZmZmZmZmODE0ZjRkN2M+XSA/IHJldF9mcm9tX2ZvcmsrMHg3Yy8w
-eGIwDQpbMjg3MzIuMjg4MzUzXSAgWzxmZmZmZmZmZjgxMDgwZjcwPl0gPyBrdGhyZWFkX2NyZWF0
-ZV9vbl9ub2RlKzB4MTgwLzB4MTgwDQpbMjg3MzIuMjg4Mzk2XSBDb2RlOiA4YiAwNCAyNCA2NiA4
-MyA0MCAwOCAwMSA0OCA4YiA3YyAyNCAxOCA0OCA4NSBmZiA3NCAyYSA0OCA4MyBlZiA1OCA3NSAx
-MyBlYiAyMiAwZiAxZiA4NCAwMCAwMCAwMCAwMCAwMCA0OCA4MyBlYiA1OCA0OCA4OSBkZiA3NCAx
-MSA8NDg+IDhiIDVmIDU4IDQxIGZmIDk0IDI0IDcwIDQwIDAwIDAwIDQ4IDg1IGRiIDc1IGU2IDQ4
-IDgzIGM0IDI4IA0KWzI4NzMyLjI4ODgyN10gUklQICBbPGZmZmZmZmZmODE0ODA2OTk+XSBpbmV0
-X2V2aWN0X2J1Y2tldCsweDExOS8weDE4MA0KWzI4NzMyLjI4ODg3M10gIFJTUCA8ZmZmZjg4NWYz
-ZGEwM2Q1OD4NCg==
-
---_002_C85B4DFF440D4ED3BABA2272A9E8BF07transipnl_--
+>=20
+> I=E2=80=99ll make sure to keep you posted on all the results then. We=
+ have a kernel dump of the panic, so if you need me to extract any data=
+ from there just let me know! (Some instructions might be needed)
+>=20
+> - Johan
+>=20
+Great, thank you!
