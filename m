@@ -1,51 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 RFC net-next] net/vxlan: Fix kernel unaligned access
- in __vxlan_find_mac
-Date: Sun, 19 Jul 2015 11:38:34 -0700 (PDT)
-Message-ID: <20150719.113834.2117166333832979820.davem@davemloft.net>
-References: <20150717.181825.641987192390100037.davem@davemloft.net>
-	<1437242786.24289.11.camel@perches.com>
-	<55AB919E.8030505@oracle.com>
+Subject: Re: [PATCH v2] jhash: Deinline jhash, jhash2 and __jhash_nwords
+Date: Sun, 19 Jul 2015 11:40:45 -0700 (PDT)
+Message-ID: <20150719.114045.240943295841151182.davem@davemloft.net>
+References: <CALx6S367jArRC3eKSKsv7gFrgPxyDHWdtvfeO1SmQR91eYxwSw@mail.gmail.com>
+	<20150716.111729.822179499552193763.davem@davemloft.net>
+	<55ABBEED.2000707@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org, alexander.duyck@gmail.com
-To: sowmini.varadhan@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37676 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753047AbbGSSih (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jul 2015 14:38:37 -0400
-In-Reply-To: <55AB919E.8030505@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tom@herbertland.com, tgraf@suug.ch, alexander.h.duyck@redhat.com,
+	kadlec@blackhole.kfki.hu, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: dvlasenk@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55ABBEED.2000707@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Sun, 19 Jul 2015 14:01:34 +0200
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Date: Sun, 19 Jul 2015 17:14:53 +0200
 
-> On 07/18/2015 08:06 PM, Joe Perches wrote:
+> On 07/16/2015 08:17 PM, David Miller wrote:
+>> From: Tom Herbert <tom@herbertland.com>
+>> Date: Thu, 16 Jul 2015 08:43:25 -0700
+>> 
+>>> On Thu, Jul 16, 2015 at 5:40 AM, Denys Vlasenko <dvlasenk@redhat.com> wrote:
+>>>> This patch deinlines jhash, jhash2 and __jhash_nwords.
+>>>>
+>>>> It also removes rhashtable_jhash2(key, length, seed)
+>>>> because it was merely calling jhash2(key, length, seed).
+>>>>
+>>>> With this .config: http://busybox.net/~vda/kernel_config,
+>>>> after deinlining these functions have sizes and callsite counts
+>>>> as follows:
+>>>>
+>>>> __jhash_nwords: 72 bytes, 75 calls
+>>>> jhash: 297 bytes, 111 calls
+>>>> jhash2: 205 bytes, 136 calls
+>>>>
+>>> jhash is used in several places in the critical data path. Does the
+>>> decrease in text size justify performance impact of not inlining it?
+>> 
+>> Tom took the words right out of my mouth.
+>> 
+>> Denys, you keep making deinlining changes like this all the time, like
+>> a robot.  But I never see you make any effort to look into the performance
+>> nor code generation ramifications of your changes.
 > 
->> It seems that this code has had unaligned accesses
->> on this field even before compare_ether_addr was
->> converted to ether_addr_equal.
->>
->> Is sparc64 the only one that emits / ratelimits that
->> unaligned access message?  I looked a little, but I
->> didn't find a fixup message when MIPS does unaligned
->> accesses.  Are all the other arches silent when
->> fixing up unaligned accesses?  Maye adding a generic
->> debug only ratelimited message might help remove
->> more of these.  As it's not fatal, naybe the sparc64
->> message should be KERN_DEBUG/pr_debug.
-> 
-> I'm confused, are we suggesting that we "fix" the unaligned
-> access by snuffing out the message that complains loudly and correctly
-> about it?
-> 
-> See also: large block comment above __pksb_trim
-> about correctly using skb_reserve(). Evidently not being
-> correctly done for the IPv6-vxlan code path (and possibly
-> for other encaps too?)
+> The performance impact of the call/ret pair on modern x86
+> CPUs is only 5 cycles. To make a real difference in execution
+> speed, the function has to be less than 100 bytes of code.
 
-We should fix the unaligned accesses, rather than quiet the
-warning.
+What performance metrics have you collected to assert that deinlining
+doesn't matter?  What networking tests have you done which stress the
+socket demux path?
+
+You still aren't addressing any of my concerns.
