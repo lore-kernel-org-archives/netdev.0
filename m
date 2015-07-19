@@ -1,46 +1,38 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCHv2 RFC net-next] net/vxlan: Fix kernel unaligned access
- in __vxlan_find_mac
-Date: Sun, 19 Jul 2015 14:01:34 +0200
-Message-ID: <55AB919E.8030505@oracle.com>
-References: <20150717200031.GB30336@oracle.com>	 <1437174422.2495.75.camel@perches.com>	 <20150717.181825.641987192390100037.davem@davemloft.net> <1437242786.24289.11.camel@perches.com>
-Reply-To: sowmini.varadhan@oracle.com
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH 1/2] bnx2x:Fix error handling in the function
+ bnxc2x_dbcx_set_params
+Date: Sun, 19 Jul 2015 12:25:36 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63DEBF6C@avmb3.qlogic.org>
+References: <1437225397-26079-1-git-send-email-xerofoify@gmail.com>
+ <B5657A6538887040AD3A81F1008BEC63DEB75E@avmb3.qlogic.org>
+ <55AB9673.7060704@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com
-To: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:30886 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753067AbbGSMBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jul 2015 08:01:45 -0400
-In-Reply-To: <1437242786.24289.11.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: nick <xerofoify@gmail.com>, Ariel Elior <Ariel.Elior@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55AB9673.7060704@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/18/2015 08:06 PM, Joe Perches wrote:
+> I am used to sending out one patch per each fix like this for each function.
+> If you don't like me doing this I don't when sending patches for your
+> subsystem(s).
 
-> It seems that this code has had unaligned accesses
-> on this field even before compare_ether_addr was
-> converted to ether_addr_equal.
->
-> Is sparc64 the only one that emits / ratelimits that
-> unaligned access message?  I looked a little, but I
-> didn't find a fixup message when MIPS does unaligned
-> accesses.  Are all the other arches silent when
-> fixing up unaligned accesses?  Maye adding a generic
-> debug only ratelimited message might help remove
-> more of these.  As it's not fatal, naybe the sparc64
-> message should be KERN_DEBUG/pr_debug.
+I think that would be preferable.
 
-I'm confused, are we suggesting that we "fix" the unaligned
-access by snuffing out the message that complains loudly and correctly
-about it?
+> In addition would something like this fix your complains about not fixing error
+> handling in bnx2x_dcbnl_update_applist.
+> int bnx2x_dcbnl_update_applist(struct bnx2x *bp, bool delall) {
+>  	int i, err = 0;
+> 
+>  	for (i = 0; i < DCBX_MAX_APP_PROTOCOL && err == 0; i++) {
+...
+> 				err = dcb_setapp(bp->dev, &app);
+> +				if (err)
+> +					break;
 
-See also: large block comment above __pksb_trim
-about correctly using skb_reserve(). Evidently not being
-correctly done for the IPv6-vxlan code path (and possibly
-for other encaps too?)
-
---Sowmini
+Well, either that or retain the fact there's an error and return it at the end.
