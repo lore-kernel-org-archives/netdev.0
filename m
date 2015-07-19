@@ -1,79 +1,49 @@
-From: subashab@codeaurora.org
-Subject: [PATCH net-next] inet: Always increment refcount in
- inet_twsk_schedule
-Date: Sun, 19 Jul 2015 03:31:44 -0000
-Message-ID: <d6222bf87f44ca3adf3988202bd31a3c.squirrel@www.codeaurora.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next]r8169:Disable advertise full duplex on chip id
+ RTL_GIGA_MAC_VER_09. Disable advertise full duplex on chip id
+ RTL_GIGA_MAC_VER_09 wich support random full duplex.(very sad) On branch
+ master Your branch is ahead of 'origin/master' by 18 commits. (use "git
+ push" to publish your local commits)
+Date: Sat, 18 Jul 2015 22:21:14 -0700 (PDT)
+Message-ID: <20150718.222114.714819532825166156.davem@davemloft.net>
+References: <1437213838-29318-1-git-send-email-corcodel.marian@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, asu@192-168-0-3.rdsnet.ro
+To: corcodel.marian@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:58827 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752610AbbGSDbq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jul 2015 23:31:46 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:59139 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750758AbbGSFVR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jul 2015 01:21:17 -0400
+In-Reply-To: <1437213838-29318-1-git-send-email-corcodel.marian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am seeing an issue with the reference count of time wait sockets which
-leads to freeing of active timer object. This occurs in some data stress
-test setups, so I am unable to determine the exact step when it occured.
-However, I logged the refcount and was able to find out the code path
-which leads to this problem.
 
-//Initialize time wait socket and setup timer
-inet_twsk_alloc() tw_refcnt = 0
-__inet_twsk_hashdance() tw_refcnt = 3
-inet_twsk_schedule() tw_refcnt = 4
-inet_twsk_put() tw_refcnt = 3
+This is still ver far from acceptable.  You aren't even talking to us when
+we ask you questions and ask you to make changes, you just make another
+improperly formatted submission of a bad patch all over again.
 
-//Receive packet 1 in timewait state
-tcp_timewait_state_process() -> inet_twsk_schedule tw_refcnt = 3 (no change)
-TCP: tcp_v4_timewait_ack() -> inet_twsk_put() tw_refcnt = 2
+Your entire description is in your Subject line, and it insufficiently
+describes your change.
 
-//Receive packet 2 in timewait state
-tcp_timewait_state_process() -> inet_twsk_schedule tw_refcnt = 2 (no change)
-TCP: tcp_v4_timewait_ack() -> inet_twsk_put() tw_refcnt = 1
+Frankly, I am very sick and tired of these low quality submissions.  I want to
+know where these changes are coming from, who they are important to, and most
+importantly why it is so difficult for you to submit your changes properly.
 
-//Receive packet 3 in timewait state
-tcp_timewait_state_process() -> inet_twsk_schedule tw_refcnt = 1 (no change)
-TCP: tcp_v4_timewait_ack() -> inet_twsk_put() tw_refcnt = 0
+Just simply _LOOK_ at postings by other developers who submit changes
+that successfully get accepted by us.
 
-After this step, the time wait socket is destroyed along with the active
-timer object. This leads to a warning being printed which eventually leads
-to a crash.
+_LOOK_ at how their Subject line looks, and mimick what they do _EXACTLY_
 
-ODEBUG: free active (active state 0) object type: timer_list hint:
-tw_timer_handler+0x0/0x68
+_LOOK_ at how their commit messages look, how detailed they are, how
+descriptive they are, and how they are formatted and composed, and
+mimick _EACTLY_ what they are doing.
 
-It appears that inet_twsk_schedule needs to increment the reference count
-unconditionally, otherwise the socket will be destroyed since reference
-count will be decremented each time an ack is sent out as a response for
-an incoming packet.
+This isn't rocket science, if you want us to take your changes seriously
+you _MUST_ learn how to conform to our patch submission methods and
+expectations.
 
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
----
- net/ipv4/inet_timewait_sock.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
-index cbeb022..99c349a 100644
---- a/net/ipv4/inet_timewait_sock.c
-+++ b/net/ipv4/inet_timewait_sock.c
-@@ -246,9 +246,9 @@ void inet_twsk_schedule(struct inet_timewait_sock *tw,
-const int timeo)
-
- 	tw->tw_kill = timeo <= 4*HZ;
- 	if (!mod_timer_pinned(&tw->tw_timer, jiffies + timeo)) {
--		atomic_inc(&tw->tw_refcnt);
- 		atomic_inc(&tw->tw_dr->tw_count);
- 	}
-+	atomic_inc(&tw->tw_refcnt);
- }
- EXPORT_SYMBOL_GPL(inet_twsk_schedule);
-
---
-Employee of Qualcomm Innovation Center, Inc.
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux
-Foundation Collaborative Project
+Thanks.
