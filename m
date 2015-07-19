@@ -1,109 +1,79 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next v3 0/5] switchdev: avoid duplicate packet forwarding
-Date: Sat, 18 Jul 2015 18:24:47 -0700
-Message-ID: <1437269092-17669-1-git-send-email-sfeldma@gmail.com>
-Cc: jiri@resnulli.us, roopa@cumulusnetworks.com,
-	simon.horman@netronome.com, nicolas.dichtel@6wind.com
+From: subashab@codeaurora.org
+Subject: [PATCH net-next] inet: Always increment refcount in
+ inet_twsk_schedule
+Date: Sun, 19 Jul 2015 03:31:44 -0000
+Message-ID: <d6222bf87f44ca3adf3988202bd31a3c.squirrel@www.codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: eric.dumazet@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:35166 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752102AbbGSBWe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jul 2015 21:22:34 -0400
-Received: by pabkd10 with SMTP id kd10so9501497pab.2
-        for <netdev@vger.kernel.org>; Sat, 18 Jul 2015 18:22:34 -0700 (PDT)
+Received: from smtp.codeaurora.org ([198.145.29.96]:58827 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752610AbbGSDbq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jul 2015 23:31:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
+I am seeing an issue with the reference count of time wait sockets which
+leads to freeing of active timer object. This occurs in some data stress
+test setups, so I am unable to determine the exact step when it occured.
+However, I logged the refcount and was able to find out the code path
+which leads to this problem.
 
-v3:
+//Initialize time wait socket and setup timer
+inet_twsk_alloc() tw_refcnt = 0
+__inet_twsk_hashdance() tw_refcnt = 3
+inet_twsk_schedule() tw_refcnt = 4
+inet_twsk_put() tw_refcnt = 3
 
- - Per Nicolas Dichtel review: remove errant empty union.
+//Receive packet 1 in timewait state
+tcp_timewait_state_process() -> inet_twsk_schedule tw_refcnt = 3 (no change)
+TCP: tcp_v4_timewait_ack() -> inet_twsk_put() tw_refcnt = 2
 
-v2:
+//Receive packet 2 in timewait state
+tcp_timewait_state_process() -> inet_twsk_schedule tw_refcnt = 2 (no change)
+TCP: tcp_v4_timewait_ack() -> inet_twsk_put() tw_refcnt = 1
 
- - Per davem review: in sk_buff, union fwd_mark with secmark to save space
-   since features appear to be mutually exclusive.
- - Per Simon Horman review:
-   - fix grammar in switchdev.txt wrt fwd_mark
-   - remove some unrelated changes that snuck in
+//Receive packet 3 in timewait state
+tcp_timewait_state_process() -> inet_twsk_schedule tw_refcnt = 1 (no change)
+TCP: tcp_v4_timewait_ack() -> inet_twsk_put() tw_refcnt = 0
 
-v1:
+After this step, the time wait socket is destroyed along with the active
+timer object. This leads to a warning being printed which eventually leads
+to a crash.
 
-This patchset was previously submitted as RFC.  No changes from the last
-version (v2) sent under RFC.  Including RFC version history here for reference.
+ODEBUG: free active (active state 0) object type: timer_list hint:
+tw_timer_handler+0x0/0x68
 
-RFC v2:
+It appears that inet_twsk_schedule needs to increment the reference count
+unconditionally, otherwise the socket will be destroyed since reference
+count will be decremented each time an ack is sent out as a response for
+an incoming packet.
 
- - s/fwd_mark/offload_fwd_mark
- - use consume_skb rather than kfree_skb when dropping pkt on egress.
- - Use Jiri's suggestion to use ifindex of one of the ports in a group
-   as the mark for all the ports in the group.  This can be done with
-   no additional storage (no hashtable from v1).  To pull it off, we
-   need some simple recursive routines to walk the netdev tree ensuring
-   all leaves in the tree (ports) in the same group (e.g. bridge)
-   belonging to the same switch device will have the same offload fwd mark.
-   Maybe someone sees a better design for the recusive routines?  They're
-   not too bad, and should cover the stacked driver cases.
+Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+---
+ net/ipv4/inet_timewait_sock.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-RFC v1:
+diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
+index cbeb022..99c349a 100644
+--- a/net/ipv4/inet_timewait_sock.c
++++ b/net/ipv4/inet_timewait_sock.c
+@@ -246,9 +246,9 @@ void inet_twsk_schedule(struct inet_timewait_sock *tw,
+const int timeo)
 
-With switchdev support for offloading L2/L3 forwarding data path to a
-switch device, we have a general problem where both the device and the
-kernel may forward the packet, resulting in duplicate packets on the wire.
-Anytime a packet is forwarded by the device and a copy is sent to the CPU,
-there is potential for duplicate forwarding, as the kernel may also do a
-forwarding lookup and send the packet on the wire.
+ 	tw->tw_kill = timeo <= 4*HZ;
+ 	if (!mod_timer_pinned(&tw->tw_timer, jiffies + timeo)) {
+-		atomic_inc(&tw->tw_refcnt);
+ 		atomic_inc(&tw->tw_dr->tw_count);
+ 	}
++	atomic_inc(&tw->tw_refcnt);
+ }
+ EXPORT_SYMBOL_GPL(inet_twsk_schedule);
 
-The specific problem this patch series is interested in solving is avoiding
-duplicate packets on bridged ports.  There was a previous RFC from Roopa
-(http://marc.info/?l=linux-netdev&m=142687073314252&w=2) to address this
-problem, but didn't solve the problem of mixed ports in the bridge from
-different devices; there was no way to exclude some ports from forwarding
-and include others.  This RFC solves that problem by tagging the ingressing
-packet with a unique mark, and then comparing the packet mark with the
-egress port mark, and skip forwarding when there is a match.  For the mixed
-ports bridge case, only those ports with matching marks are skipped.
-
-The switchdev port driver must do two things:
-
-1) Generate a fwd_mark for each switch port, using some unique key of the
-   switch device (and optionally port).  This is done when the port netdev
-   is registered or if the port's group membership changes (joins/leaves
-   a bridge, for example).
-
-2) On packet ingress from port, mark the skb with the ingress port's
-   fwd_mark.  If the device supports it, it's useful to only mark skbs
-   which were already forwarded by the device.  If the device does not
-   support such indication, all skbs can be marked, even if they're
-   local dst.
-
-Two new 32-bit fields are added to struct sk_buff and struct netdevice to
-hold the fwd_mark.  I've wrapped these with CONFIG_NET_SWITCHDEV for now. I
-tried using skb->mark for this purpose, but ebtables can overwrite the
-skb->mark before the bridge gets it, so that will not work.
-
-In general, this fwd_mark can be used for any case where a packet is
-forwarded by the device and a copy is sent to the CPU, to avoid the kernel
-re-forwarding the packet.  sFlow is another use-case that comes to mind,
-but I haven't explored the details.
-Scott Feldman (5):
-  net: don't reforward packets already forwarded by offload device
-  net: add phys ID compare helper to test if two IDs are the same
-  switchdev: add offload_fwd_mark generator helper
-  rocker: add offload_fwd_mark support
-  switchdev: update documentation for offload_fwd_mark
-
- Documentation/networking/switchdev.txt |   14 +++-
- drivers/net/ethernet/rocker/rocker.c   |   11 ++++
- drivers/net/ethernet/rocker/rocker.h   |    1 +
- include/linux/netdevice.h              |   13 ++++
- include/linux/skbuff.h                 |    9 ++-
- include/net/switchdev.h                |    9 +++
- net/core/dev.c                         |   10 +++
- net/switchdev/switchdev.c              |  111 ++++++++++++++++++++++++++++++--
- 8 files changed, 169 insertions(+), 9 deletions(-)
-
--- 
-1.7.10.4
+--
+Employee of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux
+Foundation Collaborative Project
