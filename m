@@ -1,108 +1,54 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v3 4/5] rocker: add offload_fwd_mark support
-Date: Sat, 18 Jul 2015 18:24:51 -0700
-Message-ID: <1437269092-17669-5-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v3 5/5] switchdev: update documentation for offload_fwd_mark
+Date: Sat, 18 Jul 2015 18:24:52 -0700
+Message-ID: <1437269092-17669-6-git-send-email-sfeldma@gmail.com>
 References: <1437269092-17669-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com,
 	simon.horman@netronome.com, nicolas.dichtel@6wind.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:34757 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752368AbbGSBWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jul 2015 21:22:40 -0400
-Received: by pacan13 with SMTP id an13so82089760pac.1
-        for <netdev@vger.kernel.org>; Sat, 18 Jul 2015 18:22:40 -0700 (PDT)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35200 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752773AbbGSBWm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jul 2015 21:22:42 -0400
+Received: by pabkd10 with SMTP id kd10so9502406pab.2
+        for <netdev@vger.kernel.org>; Sat, 18 Jul 2015 18:22:41 -0700 (PDT)
 In-Reply-To: <1437269092-17669-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-If device flags ingress packet as "fwd offload", mark the
-skb->offlaod_fwd_mark using the ingress port's dev->offlaod_fwd_mark.  This
-will be the hint to the kernel that this packet has already been forwarded
-by device to egress ports matching skb->offlaod_fwd_mark.
-
-For rocker, derive port dev->offlaod_fwd_mark based on device switch ID and
-port ifindex.  If port is bridged, use the bridge ifindex rather than the
-port ifindex.
-
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 Acked-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/ethernet/rocker/rocker.c |   11 +++++++++++
- drivers/net/ethernet/rocker/rocker.h |    1 +
- 2 files changed, 12 insertions(+)
+ Documentation/networking/switchdev.txt |   14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 9324283..0fdfa47 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4800,6 +4800,7 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
- 	const struct rocker_tlv *attrs[ROCKER_TLV_RX_MAX + 1];
- 	struct sk_buff *skb = rocker_desc_cookie_ptr_get(desc_info);
- 	size_t rx_len;
-+	u16 rx_flags = 0;
- 
- 	if (!skb)
- 		return -ENOENT;
-@@ -4807,6 +4808,8 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
- 	rocker_tlv_parse_desc(attrs, ROCKER_TLV_RX_MAX, desc_info);
- 	if (!attrs[ROCKER_TLV_RX_FRAG_LEN])
- 		return -EINVAL;
-+	if (attrs[ROCKER_TLV_RX_FLAGS])
-+		rx_flags = rocker_tlv_get_u16(attrs[ROCKER_TLV_RX_FLAGS]);
- 
- 	rocker_dma_rx_ring_skb_unmap(rocker, attrs);
- 
-@@ -4814,6 +4817,9 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
- 	skb_put(skb, rx_len);
- 	skb->protocol = eth_type_trans(skb, rocker_port->dev);
- 
-+	if (rx_flags & ROCKER_RX_FLAGS_FWD_OFFLOAD)
-+		skb->offload_fwd_mark = rocker_port->dev->offload_fwd_mark;
+diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
+index c5d7ade..9825f32 100644
+--- a/Documentation/networking/switchdev.txt
++++ b/Documentation/networking/switchdev.txt
+@@ -279,8 +279,18 @@ and unknown unicast packets to all ports in domain, if allowed by port's
+ current STP state.  The switch driver, knowing which ports are within which
+ vlan L2 domain, can program the switch device for flooding.  The packet should
+ also be sent to the port netdev for processing by the bridge driver.  The
+-bridge should not reflood the packet to the same ports the device flooded.
+-XXX: the mechanism to avoid duplicate flood packets is being discuseed.
++bridge should not reflood the packet to the same ports the device flooded,
++otherwise there will be duplicate packets on the wire.
 +
- 	rocker_port->dev->stats.rx_packets++;
- 	rocker_port->dev->stats.rx_bytes += skb->len;
++To avoid duplicate packets, the device/driver should mark a packet as already
++forwarded using skb->offload_fwd_mark.  The same mark is set on the device
++ports in the domain using dev->offload_fwd_mark.  If the skb->offload_fwd_mark
++is non-zero and matches the forwarding egress port's dev->skb_mark, the kernel
++will drop the skb right before transmit on the egress port, with the
++understanding that the device already forwarded the packet on same egress port.
++The driver can use switchdev_port_fwd_mark_set() to set a globally unique mark
++for port's dev->offload_fwd_mark, based on the port's parent ID (switch ID) and
++a group ifindex.
  
-@@ -4951,6 +4957,8 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
- 	}
- 	rocker->ports[port_number] = rocker_port;
- 
-+	switchdev_port_fwd_mark_set(rocker_port->dev, NULL, false);
-+
- 	rocker_port_set_learning(rocker_port, SWITCHDEV_TRANS_NONE);
- 
- 	err = rocker_port_ig_tbl(rocker_port, SWITCHDEV_TRANS_NONE, 0);
-@@ -5230,6 +5238,7 @@ static int rocker_port_bridge_join(struct rocker_port *rocker_port,
- 		rocker_port_internal_vlan_id_get(rocker_port, bridge->ifindex);
- 
- 	rocker_port->bridge_dev = bridge;
-+	switchdev_port_fwd_mark_set(rocker_port->dev, bridge, true);
- 
- 	return rocker_port_vlan_add(rocker_port, SWITCHDEV_TRANS_NONE,
- 				    untagged_vid, 0);
-@@ -5250,6 +5259,8 @@ static int rocker_port_bridge_leave(struct rocker_port *rocker_port)
- 		rocker_port_internal_vlan_id_get(rocker_port,
- 						 rocker_port->dev->ifindex);
- 
-+	switchdev_port_fwd_mark_set(rocker_port->dev, rocker_port->bridge_dev,
-+				    false);
- 	rocker_port->bridge_dev = NULL;
- 
- 	err = rocker_port_vlan_add(rocker_port, SWITCHDEV_TRANS_NONE,
-diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
-index 08b2c3d..12490b2 100644
---- a/drivers/net/ethernet/rocker/rocker.h
-+++ b/drivers/net/ethernet/rocker/rocker.h
-@@ -246,6 +246,7 @@ enum {
- #define ROCKER_RX_FLAGS_TCP			BIT(5)
- #define ROCKER_RX_FLAGS_UDP			BIT(6)
- #define ROCKER_RX_FLAGS_TCP_UDP_CSUM_GOOD	BIT(7)
-+#define ROCKER_RX_FLAGS_FWD_OFFLOAD		BIT(8)
- 
- enum {
- 	ROCKER_TLV_TX_UNSPEC,
+ It is possible for the switch device to not handle flooding and push the
+ packets up to the bridge driver for flooding.  This is not ideal as the number
 -- 
 1.7.10.4
