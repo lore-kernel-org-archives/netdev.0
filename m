@@ -1,59 +1,51 @@
-From: Mathias Krause <minipli@googlemail.com>
-Subject: [PATCH net-next] net: #ifdefify sk_classid member of struct sock
-Date: Sun, 19 Jul 2015 20:17:41 +0200
-Message-ID: <1437329861-11758-1-git-send-email-minipli@googlemail.com>
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Mathias Krause <minipli@googlemail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 RFC net-next] net/vxlan: Fix kernel unaligned access
+ in __vxlan_find_mac
+Date: Sun, 19 Jul 2015 11:38:34 -0700 (PDT)
+Message-ID: <20150719.113834.2117166333832979820.davem@davemloft.net>
+References: <20150717.181825.641987192390100037.davem@davemloft.net>
+	<1437242786.24289.11.camel@perches.com>
+	<55AB919E.8030505@oracle.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: joe@perches.com, netdev@vger.kernel.org, alexander.duyck@gmail.com
+To: sowmini.varadhan@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37676 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753047AbbGSSih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jul 2015 14:38:37 -0400
+In-Reply-To: <55AB919E.8030505@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The sk_classid member is only required when CONFIG_CGROUP_NET_CLASSID is
-enabled. #ifdefify it to reduce the size of struct sock on 32 bit
-systems, at least.
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Sun, 19 Jul 2015 14:01:34 +0200
 
-Signed-off-by: Mathias Krause <minipli@googlemail.com>
----
- include/net/sock.h       |    2 ++
- net/netfilter/nft_meta.c |    2 ++
- 2 files changed, 4 insertions(+)
+> On 07/18/2015 08:06 PM, Joe Perches wrote:
+> 
+>> It seems that this code has had unaligned accesses
+>> on this field even before compare_ether_addr was
+>> converted to ether_addr_equal.
+>>
+>> Is sparc64 the only one that emits / ratelimits that
+>> unaligned access message?  I looked a little, but I
+>> didn't find a fixup message when MIPS does unaligned
+>> accesses.  Are all the other arches silent when
+>> fixing up unaligned accesses?  Maye adding a generic
+>> debug only ratelimited message might help remove
+>> more of these.  As it's not fatal, naybe the sparc64
+>> message should be KERN_DEBUG/pr_debug.
+> 
+> I'm confused, are we suggesting that we "fix" the unaligned
+> access by snuffing out the message that complains loudly and correctly
+> about it?
+> 
+> See also: large block comment above __pksb_trim
+> about correctly using skb_reserve(). Evidently not being
+> correctly done for the IPv6-vxlan code path (and possibly
+> for other encaps too?)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 05a8c1aea251..4353ef70bf48 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -429,7 +429,9 @@ struct sock {
- 	void			*sk_security;
- #endif
- 	__u32			sk_mark;
-+#ifdef CONFIG_CGROUP_NET_CLASSID
- 	u32			sk_classid;
-+#endif
- 	struct cg_proto		*sk_cgrp;
- 	void			(*sk_state_change)(struct sock *sk);
- 	void			(*sk_data_ready)(struct sock *sk);
-diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
-index 52561e1c31e2..005b374d1967 100644
---- a/net/netfilter/nft_meta.c
-+++ b/net/netfilter/nft_meta.c
-@@ -166,11 +166,13 @@ void nft_meta_get_eval(const struct nft_expr *expr,
- 			goto err;
- 		*dest = out->group;
- 		break;
-+#ifdef CONFIG_CGROUP_NET_CLASSID
- 	case NFT_META_CGROUP:
- 		if (skb->sk == NULL || !sk_fullsock(skb->sk))
- 			goto err;
- 		*dest = skb->sk->sk_classid;
- 		break;
-+#endif
- 	default:
- 		WARN_ON(1);
- 		goto err;
--- 
-1.7.10.4
-
+We should fix the unaligned accesses, rather than quiet the
+warning.
