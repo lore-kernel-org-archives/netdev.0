@@ -1,116 +1,108 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [PATCH 1/3] fixed_phy: handle link-down case
-Date: Sun, 19 Jul 2015 00:16:25 +0300
-Message-ID: <55AAC229.9070903@list.ru>
-References: <55A7C45F.1070501@list.ru> <55A7C49E.2020803@list.ru>
- <55A83D86.2030505@gmail.com> <55A8E64A.3040009@list.ru>
- <55A94E5A.9010104@gmail.com> <55A95F83.8010900@list.ru>
- <55A97B51.3030508@gmail.com> <55A98EC5.4040805@list.ru>
- <55A99138.2030905@gmail.com> <55A9956E.4070205@list.ru>
- <55A9B9EF.2030308@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Sebastien Rannou <mxs@sbrk.org>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>
+From: sfeldma@gmail.com
+Subject: [PATCH net-next v3 4/5] rocker: add offload_fwd_mark support
+Date: Sat, 18 Jul 2015 18:24:51 -0700
+Message-ID: <1437269092-17669-5-git-send-email-sfeldma@gmail.com>
+References: <1437269092-17669-1-git-send-email-sfeldma@gmail.com>
+Cc: jiri@resnulli.us, roopa@cumulusnetworks.com,
+	simon.horman@netronome.com, nicolas.dichtel@6wind.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp44.i.mail.ru ([94.100.177.104]:46270 "EHLO smtp44.i.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750853AbbGRVQg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Jul 2015 17:16:36 -0400
-In-Reply-To: <55A9B9EF.2030308@gmail.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:34757 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752368AbbGSBWk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jul 2015 21:22:40 -0400
+Received: by pacan13 with SMTP id an13so82089760pac.1
+        for <netdev@vger.kernel.org>; Sat, 18 Jul 2015 18:22:40 -0700 (PDT)
+In-Reply-To: <1437269092-17669-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-18.07.2015 05:29, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> Le 07/17/15 16:53, Stas Sergeev a =C3=A9crit :
->> 18.07.2015 02:35, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>> On 17/07/15 16:24, Stas Sergeev wrote:
->>>> 18.07.2015 01:01, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>>>> On 17/07/15 13:03, Stas Sergeev wrote:
->>>>>> 17.07.2015 21:50, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82=
-:
->>>>>>> On 17/07/15 04:26, Stas Sergeev wrote:
->>>>>>>> 17.07.2015 02:25, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=
-=82:
->>>>>>>>> On 16/07/15 07:50, Stas Sergeev wrote:
->>>>>>>>>> Currently fixed_phy driver recognizes only the link-up state=
-=2E
->>>>>>>>>> This simple patch adds an implementation of link-down state.
->>>>>>>>>> It fixes the status registers when link is down, and also al=
-lows
->>>>>>>>>> to register the fixed-phy with link down without specifying =
-the
->>>>>>>>>> speed.
->>>>>>>>> This patch still breaks my setups here, e.g:
->>>>>>>>> drivers/net/dsa/bcm_sf2.c,
->>>>>>>>> but I will look into it.
->>>>>>>>>
->>>>>>>>> Do we really need this for now for your two other patches to =
-work
->>>>>>>>> properly, or is it just nicer to have?
->>>>>>>> Yes, absolutely.
->>>>>>>> Otherwise registering fixed phy will return -EINVAL
->>>>>>>> because of the missing link speed (even though the link
->>>>>>>> is down).
->>>>>>> Ok, I see the problem that you have now. Arguably you could say=
- that
->>>>>>> according to the fixed-link binding, speed needs to be specifie=
-d and
->>>>>>> the
->>>>>>> code correctly errors out with such an error if you do not spec=
-ify
->>>>>>> it. I
->>>>>> Aren't you missing the fact that .link=3D0?
->>>>>> I think what you say is true only for the link-up case, no?
->>>>>> .speed=3D=3D0 is valid for link-down IMHO: no link - zero speed.
->>>>> Pardon me being very dense and stupid here, but your problem is t=
-hat
->>>>> the
->>>>> "speed" parameter is not specified in your DT,
->>>> Not even a fixed-link at all, since the latest patches.
->>>> I removed fixed-link defs from my DT.
->>> Hummm, okay, so you just have the inband-status property and that's=
- it,
->>> not even a fixed-link node anymore, right? How does
->>> mvneta_fixed_link_update() work then since it needs a fixed PHY to =
-be
->>> registered?
->> You can see it from my patch:
->> ---
->>
->> +    err =3D of_property_read_string(np, "managed", &managed);
->> +    if (err =3D=3D 0) {
->> +        if (strcmp(managed, "in-band-status") =3D=3D 0) {
->> +            /* status is zeroed, namely its .link member */
->> +            phy =3D fixed_phy_register(PHY_POLL, &status, np);
->> +            return IS_ERR(phy) ? PTR_ERR(phy) : 0;
->> +        }
->> +    }
->>
->> ---
->> which is the hunk added to the of_phy_register_fixed_link().
->> So in that case we register fixed-phy, but do not parse the fixed-li=
-nk.
-> Ok, I missed that part. Could not you just override everything that i=
-s
-> needed here to get past the point where you register your fixed PHY e=
-ven
-> with link =3D 0, this will be discarded anyway once you start in-band
-> negotiation.
-Maybe my English is bad, but I have problems understanding
-some of your senteneces. What do you mean?
-If you meant to re-use the existing registration code instead
-of adding a new hunk, please note that there is no fixed-link
-node at all, so we do not even enter the parsing code block.
-As such, there is nothing to override.
+From: Scott Feldman <sfeldma@gmail.com>
 
-> I will work on something anyway.=20
-Thanks, hope to hear from you soon.
-This stream of regressions is disturbing. :)
-Should finally be fixed for real.
+If device flags ingress packet as "fwd offload", mark the
+skb->offlaod_fwd_mark using the ingress port's dev->offlaod_fwd_mark.  This
+will be the hint to the kernel that this packet has already been forwarded
+by device to egress ports matching skb->offlaod_fwd_mark.
+
+For rocker, derive port dev->offlaod_fwd_mark based on device switch ID and
+port ifindex.  If port is bridged, use the bridge ifindex rather than the
+port ifindex.
+
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+Acked-by: Jiri Pirko <jiri@resnulli.us>
+---
+ drivers/net/ethernet/rocker/rocker.c |   11 +++++++++++
+ drivers/net/ethernet/rocker/rocker.h |    1 +
+ 2 files changed, 12 insertions(+)
+
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 9324283..0fdfa47 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -4800,6 +4800,7 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
+ 	const struct rocker_tlv *attrs[ROCKER_TLV_RX_MAX + 1];
+ 	struct sk_buff *skb = rocker_desc_cookie_ptr_get(desc_info);
+ 	size_t rx_len;
++	u16 rx_flags = 0;
+ 
+ 	if (!skb)
+ 		return -ENOENT;
+@@ -4807,6 +4808,8 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
+ 	rocker_tlv_parse_desc(attrs, ROCKER_TLV_RX_MAX, desc_info);
+ 	if (!attrs[ROCKER_TLV_RX_FRAG_LEN])
+ 		return -EINVAL;
++	if (attrs[ROCKER_TLV_RX_FLAGS])
++		rx_flags = rocker_tlv_get_u16(attrs[ROCKER_TLV_RX_FLAGS]);
+ 
+ 	rocker_dma_rx_ring_skb_unmap(rocker, attrs);
+ 
+@@ -4814,6 +4817,9 @@ static int rocker_port_rx_proc(const struct rocker *rocker,
+ 	skb_put(skb, rx_len);
+ 	skb->protocol = eth_type_trans(skb, rocker_port->dev);
+ 
++	if (rx_flags & ROCKER_RX_FLAGS_FWD_OFFLOAD)
++		skb->offload_fwd_mark = rocker_port->dev->offload_fwd_mark;
++
+ 	rocker_port->dev->stats.rx_packets++;
+ 	rocker_port->dev->stats.rx_bytes += skb->len;
+ 
+@@ -4951,6 +4957,8 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+ 	}
+ 	rocker->ports[port_number] = rocker_port;
+ 
++	switchdev_port_fwd_mark_set(rocker_port->dev, NULL, false);
++
+ 	rocker_port_set_learning(rocker_port, SWITCHDEV_TRANS_NONE);
+ 
+ 	err = rocker_port_ig_tbl(rocker_port, SWITCHDEV_TRANS_NONE, 0);
+@@ -5230,6 +5238,7 @@ static int rocker_port_bridge_join(struct rocker_port *rocker_port,
+ 		rocker_port_internal_vlan_id_get(rocker_port, bridge->ifindex);
+ 
+ 	rocker_port->bridge_dev = bridge;
++	switchdev_port_fwd_mark_set(rocker_port->dev, bridge, true);
+ 
+ 	return rocker_port_vlan_add(rocker_port, SWITCHDEV_TRANS_NONE,
+ 				    untagged_vid, 0);
+@@ -5250,6 +5259,8 @@ static int rocker_port_bridge_leave(struct rocker_port *rocker_port)
+ 		rocker_port_internal_vlan_id_get(rocker_port,
+ 						 rocker_port->dev->ifindex);
+ 
++	switchdev_port_fwd_mark_set(rocker_port->dev, rocker_port->bridge_dev,
++				    false);
+ 	rocker_port->bridge_dev = NULL;
+ 
+ 	err = rocker_port_vlan_add(rocker_port, SWITCHDEV_TRANS_NONE,
+diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
+index 08b2c3d..12490b2 100644
+--- a/drivers/net/ethernet/rocker/rocker.h
++++ b/drivers/net/ethernet/rocker/rocker.h
+@@ -246,6 +246,7 @@ enum {
+ #define ROCKER_RX_FLAGS_TCP			BIT(5)
+ #define ROCKER_RX_FLAGS_UDP			BIT(6)
+ #define ROCKER_RX_FLAGS_TCP_UDP_CSUM_GOOD	BIT(7)
++#define ROCKER_RX_FLAGS_FWD_OFFLOAD		BIT(8)
+ 
+ enum {
+ 	ROCKER_TLV_TX_UNSPEC,
+-- 
+1.7.10.4
