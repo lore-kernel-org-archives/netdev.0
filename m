@@ -1,152 +1,321 @@
 From: Denys Vlasenko <dvlasenk@redhat.com>
-Subject: Re: [PATCH v2] jhash: Deinline jhash, jhash2 and __jhash_nwords
-Date: Sun, 19 Jul 2015 17:14:53 +0200
-Message-ID: <55ABBEED.2000707@redhat.com>
-References: <1437050416-13295-1-git-send-email-dvlasenk@redhat.com>	<CALx6S367jArRC3eKSKsv7gFrgPxyDHWdtvfeO1SmQR91eYxwSw@mail.gmail.com> <20150716.111729.822179499552193763.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, alexander.h.duyck@redhat.com,
-	kadlec@blackhole.kfki.hu, herbert@gondor.apana.org.au,
+Subject: [PATCH v3] jhash: Deinline jhash and jhash2
+Date: Sun, 19 Jul 2015 17:36:00 +0200
+Message-ID: <1437320160-13290-1-git-send-email-dvlasenk@redhat.com>
+Cc: Denys Vlasenko <dvlasenk@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Tom Herbert <tom@herbertland.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, tom@herbertland.com
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150716.111729.822179499552193763.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/16/2015 08:17 PM, David Miller wrote:
-> From: Tom Herbert <tom@herbertland.com>
-> Date: Thu, 16 Jul 2015 08:43:25 -0700
-> 
->> On Thu, Jul 16, 2015 at 5:40 AM, Denys Vlasenko <dvlasenk@redhat.com> wrote:
->>> This patch deinlines jhash, jhash2 and __jhash_nwords.
->>>
->>> It also removes rhashtable_jhash2(key, length, seed)
->>> because it was merely calling jhash2(key, length, seed).
->>>
->>> With this .config: http://busybox.net/~vda/kernel_config,
->>> after deinlining these functions have sizes and callsite counts
->>> as follows:
->>>
->>> __jhash_nwords: 72 bytes, 75 calls
->>> jhash: 297 bytes, 111 calls
->>> jhash2: 205 bytes, 136 calls
->>>
->> jhash is used in several places in the critical data path. Does the
->> decrease in text size justify performance impact of not inlining it?
-> 
-> Tom took the words right out of my mouth.
-> 
-> Denys, you keep making deinlining changes like this all the time, like
-> a robot.  But I never see you make any effort to look into the performance
-> nor code generation ramifications of your changes.
+This patch deinlines jhash and jhash2.
 
-The performance impact of the call/ret pair on modern x86
-CPUs is only 5 cycles. To make a real difference in execution
-speed, the function has to be less than 100 bytes of code.
+It also removes rhashtable_jhash2(key, length, seed)
+because it was merely calling jhash2(key, length, seed).
 
-jhash and jhash2, at more than 200 bytes of code, are definitely
-far too large for inlining. Here is the smaller of two, jhash2:
+With this .config: http://busybox.net/~vda/kernel_config,
+after deinlining these functions have sizes and callsite counts
+as follows:
 
-<jhash2>:
-       8d 84 b2 ef be ad de    lea    -0x21524111(%rdx,%rsi,4),%eax
-       55                      push   %rbp
-       89 c1                   mov    %eax,%ecx
-       48 89 e5                mov    %rsp,%rbp
-       89 c2                   mov    %eax,%edx
-       eb 62                   jmp    ffffffff81a0d204 <jhash2+0x73>
-       03 47 08                add    0x8(%rdi),%eax
-       03 17                   add    (%rdi),%edx
-       83 ee 03                sub    $0x3,%esi
-       03 4f 04                add    0x4(%rdi),%ecx
-       48 83 c7 0c             add    $0xc,%rdi
-       41 89 c0                mov    %eax,%r8d
-       29 c2                   sub    %eax,%edx
-       41 c1 c8 1c             ror    $0x1c,%r8d
-       01 c8                   add    %ecx,%eax
-       44 31 c2                xor    %r8d,%edx
-       41 89 d0                mov    %edx,%r8d
-       29 d1                   sub    %edx,%ecx
-       01 c2                   add    %eax,%edx
-       41 c1 c8 1a             ror    $0x1a,%r8d
-       41 31 c8                xor    %ecx,%r8d
-       44 89 c1                mov    %r8d,%ecx
-       44 29 c0                sub    %r8d,%eax
-       41 01 d0                add    %edx,%r8d
-       c1 c9 18                ror    $0x18,%ecx
-       31 c1                   xor    %eax,%ecx
-       89 c8                   mov    %ecx,%eax
-       29 ca                   sub    %ecx,%edx
-       46 8d 0c 01             lea    (%rcx,%r8,1),%r9d
-       c1 c8 10                ror    $0x10,%eax
-       31 d0                   xor    %edx,%eax
-       89 c1                   mov    %eax,%ecx
-       41 29 c0                sub    %eax,%r8d
-       42 8d 14 08             lea    (%rax,%r9,1),%edx
-       c1 c9 0d                ror    $0xd,%ecx
-       44 31 c1                xor    %r8d,%ecx
-       89 c8                   mov    %ecx,%eax
-       41 29 c9                sub    %ecx,%r9d
-       01 d1                   add    %edx,%ecx
-       c1 c8 1c                ror    $0x1c,%eax
-       44 31 c8                xor    %r9d,%eax
-       83 fe 03                cmp    $0x3,%esi
-       77 99                   ja     ffffffff81a0d1a2 <jhash2+0x11>
-       83 fe 02                cmp    $0x2,%esi
-       74 0e                   je     ffffffff81a0d21c <jhash2+0x8b>
-       83 fe 03                cmp    $0x3,%esi
-       74 06                   je     ffffffff81a0d219 <jhash2+0x88>
-       ff ce                   dec    %esi
-       75 45                   jne    ffffffff81a0d25c <jhash2+0xcb>
-       eb 06                   jmp    ffffffff81a0d21f <jhash2+0x8e>
-       03 47 08                add    0x8(%rdi),%eax
-       03 4f 04                add    0x4(%rdi),%ecx
-       89 ce                   mov    %ecx,%esi
-       03 17                   add    (%rdi),%edx
-       31 c8                   xor    %ecx,%eax
-       c1 ce 12                ror    $0x12,%esi
-       29 f0                   sub    %esi,%eax
-       89 c6                   mov    %eax,%esi
-       31 c2                   xor    %eax,%edx
-       c1 ce 15                ror    $0x15,%esi
-       29 f2                   sub    %esi,%edx
-       89 d6                   mov    %edx,%esi
-       31 d1                   xor    %edx,%ecx
-       c1 ce 07                ror    $0x7,%esi
-       29 f1                   sub    %esi,%ecx
-       89 ce                   mov    %ecx,%esi
-       31 c8                   xor    %ecx,%eax
-       c1 ce 10                ror    $0x10,%esi
-       29 f0                   sub    %esi,%eax
-       89 c6                   mov    %eax,%esi
-       31 c2                   xor    %eax,%edx
-       c1 ce 1c                ror    $0x1c,%esi
-       29 f2                   sub    %esi,%edx
-       31 d1                   xor    %edx,%ecx
-       c1 ca 12                ror    $0x12,%edx
-       29 d1                   sub    %edx,%ecx
-       31 c8                   xor    %ecx,%eax
-       c1 c9 08                ror    $0x8,%ecx
-       29 c8                   sub    %ecx,%eax
-       5d                      pop    %rbp
-       c3                      retq
+jhash: 297 bytes, 111 calls
+jhash2: 205 bytes, 136 calls
 
-Yes, I do think that this much code should not be inlined.
+Total size decrease is about 33,000 bytes:
 
-__jhash_nwords is smaller and it is used for hashing 2 or 3 32-bit words,
-it may be reasonable to inline it.
-I'll send a new patch which keeps it inlined.
+    text     data      bss       dec     hex filename
+90663567 17221960 36659200 144544727 89d93d7 vmlinux5
+90630370 17221864 36659200 144511434 89d11ca vmlinux.after
 
-> Your changes potentially have large performance implications, yet you
-> don't put any effort into considering that aspect at all.
+Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+CC: Thomas Graf <tgraf@suug.ch>
+CC: David Miller <davem@davemloft.net>
+CC: Tom Herbert <tom@herbertland.com>
+CC: Alexander Duyck <alexander.h.duyck@redhat.com>
+CC: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+CC: Herbert Xu <herbert@gondor.apana.org.au>
+CC: netdev@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+---
+Changes in v2: created a new source file, jhash.c
+Changes in v3: do not deinline __jhash_nwords;
+  use EXPORT_SYMBOL instead of EXPORT_SYMBOL_GPL
 
-I don't know why you think I'm some sort of zealot hell-bent
-on deinlining everything. I'm not. I do listen to other people.
+ include/linux/jhash.h |  89 +--------------------------------------
+ lib/Makefile          |   2 +-
+ lib/jhash.c           | 113 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ lib/rhashtable.c      |  13 +++---
+ 4 files changed, 123 insertions(+), 94 deletions(-)
+ create mode 100644 lib/jhash.c
 
-For example:
-One of my patches was deninlining net_generic(), you proposed
-to drop some BUG_ONs in it instead.
-I wasn't insisting to have it "my way".
-I sent you a patch which removed BUG_ON but left net_generic()
-inlined, and you took the patch.
+diff --git a/include/linux/jhash.h b/include/linux/jhash.h
+index 348c6f4..847c1aa 100644
+--- a/include/linux/jhash.h
++++ b/include/linux/jhash.h
+@@ -57,93 +57,8 @@
+ /* An arbitrary initial parameter */
+ #define JHASH_INITVAL		0xdeadbeef
+ 
+-/* jhash - hash an arbitrary key
+- * @k: sequence of bytes as key
+- * @length: the length of the key
+- * @initval: the previous hash, or an arbitray value
+- *
+- * The generic version, hashes an arbitrary sequence of bytes.
+- * No alignment or length assumptions are made about the input key.
+- *
+- * Returns the hash value of the key. The result depends on endianness.
+- */
+-static inline u32 jhash(const void *key, u32 length, u32 initval)
+-{
+-	u32 a, b, c;
+-	const u8 *k = key;
+-
+-	/* Set up the internal state */
+-	a = b = c = JHASH_INITVAL + length + initval;
+-
+-	/* All but the last block: affect some 32 bits of (a,b,c) */
+-	while (length > 12) {
+-		a += __get_unaligned_cpu32(k);
+-		b += __get_unaligned_cpu32(k + 4);
+-		c += __get_unaligned_cpu32(k + 8);
+-		__jhash_mix(a, b, c);
+-		length -= 12;
+-		k += 12;
+-	}
+-	/* Last block: affect all 32 bits of (c) */
+-	/* All the case statements fall through */
+-	switch (length) {
+-	case 12: c += (u32)k[11]<<24;
+-	case 11: c += (u32)k[10]<<16;
+-	case 10: c += (u32)k[9]<<8;
+-	case 9:  c += k[8];
+-	case 8:  b += (u32)k[7]<<24;
+-	case 7:  b += (u32)k[6]<<16;
+-	case 6:  b += (u32)k[5]<<8;
+-	case 5:  b += k[4];
+-	case 4:  a += (u32)k[3]<<24;
+-	case 3:  a += (u32)k[2]<<16;
+-	case 2:  a += (u32)k[1]<<8;
+-	case 1:  a += k[0];
+-		 __jhash_final(a, b, c);
+-	case 0: /* Nothing left to add */
+-		break;
+-	}
+-
+-	return c;
+-}
+-
+-/* jhash2 - hash an array of u32's
+- * @k: the key which must be an array of u32's
+- * @length: the number of u32's in the key
+- * @initval: the previous hash, or an arbitray value
+- *
+- * Returns the hash value of the key.
+- */
+-static inline u32 jhash2(const u32 *k, u32 length, u32 initval)
+-{
+-	u32 a, b, c;
+-
+-	/* Set up the internal state */
+-	a = b = c = JHASH_INITVAL + (length<<2) + initval;
+-
+-	/* Handle most of the key */
+-	while (length > 3) {
+-		a += k[0];
+-		b += k[1];
+-		c += k[2];
+-		__jhash_mix(a, b, c);
+-		length -= 3;
+-		k += 3;
+-	}
+-
+-	/* Handle the last 3 u32's: all the case statements fall through */
+-	switch (length) {
+-	case 3: c += k[2];
+-	case 2: b += k[1];
+-	case 1: a += k[0];
+-		__jhash_final(a, b, c);
+-	case 0:	/* Nothing left to add */
+-		break;
+-	}
+-
+-	return c;
+-}
+-
++u32 jhash(const void *key, u32 length, u32 initval);
++u32 jhash2(const u32 *k, u32 length, u32 initval);
+ 
+ /* __jhash_nwords - hash exactly 3, 2 or 1 word(s) */
+ static inline u32 __jhash_nwords(u32 a, u32 b, u32 c, u32 initval)
+diff --git a/lib/Makefile b/lib/Makefile
+index 6897b52..978be53 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -26,7 +26,7 @@ obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
+ 	 bust_spinlocks.o kasprintf.o bitmap.o scatterlist.o \
+ 	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iov_iter.o clz_ctz.o \
+ 	 bsearch.o find_bit.o llist.o memweight.o kfifo.o \
+-	 percpu-refcount.o percpu_ida.o rhashtable.o reciprocal_div.o
++	 percpu-refcount.o percpu_ida.o jhash.o rhashtable.o reciprocal_div.o
+ obj-y += string_helpers.o
+ obj-$(CONFIG_TEST_STRING_HELPERS) += test-string_helpers.o
+ obj-y += hexdump.o
+diff --git a/lib/jhash.c b/lib/jhash.c
+new file mode 100644
+index 0000000..880a7c8
+--- /dev/null
++++ b/lib/jhash.c
+@@ -0,0 +1,113 @@
++/* Jenkins hash support.
++ *
++ * Copyright (C) 2006. Bob Jenkins (bob_jenkins@burtleburtle.net)
++ *
++ * http://burtleburtle.net/bob/hash/
++ *
++ * These are the credits from Bob's sources:
++ *
++ * lookup3.c, by Bob Jenkins, May 2006, Public Domain.
++ *
++ * These are functions for producing 32-bit hashes for hash table lookup.
++ * hashword(), hashlittle(), hashlittle2(), hashbig(), mix(), and final()
++ * are externally useful functions.  Routines to test the hash are included
++ * if SELF_TEST is defined.  You can use this free for any purpose.  It's in
++ * the public domain.  It has no warranty.
++ *
++ * Copyright (C) 2009-2010 Jozsef Kadlecsik (kadlec@blackhole.kfki.hu)
++ *
++ * I've modified Bob's hash to be useful in the Linux kernel, and
++ * any bugs present are my fault.
++ * Jozsef
++ */
++#include <linux/export.h>
++#include <linux/jhash.h>
++
++/* jhash - hash an arbitrary key
++ * @k: sequence of bytes as key
++ * @length: the length of the key
++ * @initval: the previous hash, or an arbitray value
++ *
++ * The generic version, hashes an arbitrary sequence of bytes.
++ * No alignment or length assumptions are made about the input key.
++ *
++ * Returns the hash value of the key. The result depends on endianness.
++ */
++u32 jhash(const void *key, u32 length, u32 initval)
++{
++	u32 a, b, c;
++	const u8 *k = key;
++
++	/* Set up the internal state */
++	a = b = c = JHASH_INITVAL + length + initval;
++
++	/* All but the last block: affect some 32 bits of (a,b,c) */
++	while (length > 12) {
++		a += __get_unaligned_cpu32(k);
++		b += __get_unaligned_cpu32(k + 4);
++		c += __get_unaligned_cpu32(k + 8);
++		__jhash_mix(a, b, c);
++		length -= 12;
++		k += 12;
++	}
++	/* Last block: affect all 32 bits of (c) */
++	/* All the case statements fall through */
++	switch (length) {
++	case 12: c += (u32)k[11]<<24;
++	case 11: c += (u32)k[10]<<16;
++	case 10: c += (u32)k[9]<<8;
++	case 9:  c += k[8];
++	case 8:  b += (u32)k[7]<<24;
++	case 7:  b += (u32)k[6]<<16;
++	case 6:  b += (u32)k[5]<<8;
++	case 5:  b += k[4];
++	case 4:  a += (u32)k[3]<<24;
++	case 3:  a += (u32)k[2]<<16;
++	case 2:  a += (u32)k[1]<<8;
++	case 1:  a += k[0];
++		 __jhash_final(a, b, c);
++	case 0: /* Nothing left to add */
++		break;
++	}
++
++	return c;
++}
++EXPORT_SYMBOL(jhash);
++
++/* jhash2 - hash an array of u32's
++ * @k: the key which must be an array of u32's
++ * @length: the number of u32's in the key
++ * @initval: the previous hash, or an arbitray value
++ *
++ * Returns the hash value of the key.
++ */
++u32 jhash2(const u32 *k, u32 length, u32 initval)
++{
++	u32 a, b, c;
++
++	/* Set up the internal state */
++	a = b = c = JHASH_INITVAL + (length<<2) + initval;
++
++	/* Handle most of the key */
++	while (length > 3) {
++		a += k[0];
++		b += k[1];
++		c += k[2];
++		__jhash_mix(a, b, c);
++		length -= 3;
++		k += 3;
++	}
++
++	/* Handle the last 3 u32's: all the case statements fall through */
++	switch (length) {
++	case 3: c += k[2];
++	case 2: b += k[1];
++	case 1: a += k[0];
++		__jhash_final(a, b, c);
++	case 0:	/* Nothing left to add */
++		break;
++	}
++
++	return c;
++}
++EXPORT_SYMBOL(jhash2);
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index cc0c697..cf429c5 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -663,11 +663,6 @@ static size_t rounded_hashtable_size(const struct rhashtable_params *params)
+ 		   (unsigned long)params->min_size);
+ }
+ 
+-static u32 rhashtable_jhash2(const void *key, u32 length, u32 seed)
+-{
+-	return jhash2(key, length, seed);
+-}
+-
+ /**
+  * rhashtable_init - initialize a new hash table
+  * @ht:		hash table to be initialized
+@@ -773,8 +768,14 @@ int rhashtable_init(struct rhashtable *ht,
+ 		ht->p.hashfn = jhash;
+ 
+ 		if (!(ht->key_len & (sizeof(u32) - 1))) {
++			typedef u32 (*hashfunc)(const void *k, u32 length, u32 initval);
++
+ 			ht->key_len /= sizeof(u32);
+-			ht->p.hashfn = rhashtable_jhash2;
++			/*
++			 * jhash2() 1st param is const u32*,
++			 * p.hashfn wants const void*. Hence the cast:
++			 */
++			ht->p.hashfn = (hashfunc)jhash2;
+ 		}
+ 	}
+ 
+-- 
+1.8.1.4
