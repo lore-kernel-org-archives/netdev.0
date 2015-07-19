@@ -1,18 +1,18 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v3 5/5] switchdev: update documentation for offload_fwd_mark
-Date: Sat, 18 Jul 2015 18:24:52 -0700
-Message-ID: <1437269092-17669-6-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v3 2/5] net: add phys ID compare helper to test if two IDs are the same
+Date: Sat, 18 Jul 2015 18:24:49 -0700
+Message-ID: <1437269092-17669-3-git-send-email-sfeldma@gmail.com>
 References: <1437269092-17669-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com,
 	simon.horman@netronome.com, nicolas.dichtel@6wind.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35200 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752773AbbGSBWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jul 2015 21:22:42 -0400
-Received: by pabkd10 with SMTP id kd10so9502406pab.2
-        for <netdev@vger.kernel.org>; Sat, 18 Jul 2015 18:22:41 -0700 (PDT)
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:36813 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752368AbbGSBWi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jul 2015 21:22:38 -0400
+Received: by pdjr16 with SMTP id r16so83495228pdj.3
+        for <netdev@vger.kernel.org>; Sat, 18 Jul 2015 18:22:37 -0700 (PDT)
 In-Reply-To: <1437269092-17669-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -22,33 +22,47 @@ From: Scott Feldman <sfeldma@gmail.com>
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 Acked-by: Jiri Pirko <jiri@resnulli.us>
 ---
- Documentation/networking/switchdev.txt |   14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+ include/linux/netdevice.h |    7 +++++++
+ net/switchdev/switchdev.c |    8 ++------
+ 2 files changed, 9 insertions(+), 6 deletions(-)
 
-diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
-index c5d7ade..9825f32 100644
---- a/Documentation/networking/switchdev.txt
-+++ b/Documentation/networking/switchdev.txt
-@@ -279,8 +279,18 @@ and unknown unicast packets to all ports in domain, if allowed by port's
- current STP state.  The switch driver, knowing which ports are within which
- vlan L2 domain, can program the switch device for flooding.  The packet should
- also be sent to the port netdev for processing by the bridge driver.  The
--bridge should not reflood the packet to the same ports the device flooded.
--XXX: the mechanism to avoid duplicate flood packets is being discuseed.
-+bridge should not reflood the packet to the same ports the device flooded,
-+otherwise there will be duplicate packets on the wire.
-+
-+To avoid duplicate packets, the device/driver should mark a packet as already
-+forwarded using skb->offload_fwd_mark.  The same mark is set on the device
-+ports in the domain using dev->offload_fwd_mark.  If the skb->offload_fwd_mark
-+is non-zero and matches the forwarding egress port's dev->skb_mark, the kernel
-+will drop the skb right before transmit on the egress port, with the
-+understanding that the device already forwarded the packet on same egress port.
-+The driver can use switchdev_port_fwd_mark_set() to set a globally unique mark
-+for port's dev->offload_fwd_mark, based on the port's parent ID (switch ID) and
-+a group ifindex.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 8364f29..607b5f4 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -766,6 +766,13 @@ struct netdev_phys_item_id {
+ 	unsigned char id_len;
+ };
  
- It is possible for the switch device to not handle flooding and push the
- packets up to the bridge driver for flooding.  This is not ideal as the number
++static inline bool netdev_phys_item_id_same(struct netdev_phys_item_id *a,
++					    struct netdev_phys_item_id *b)
++{
++	return a->id_len == b->id_len &&
++	       memcmp(a->id, b->id, a->id_len) == 0;
++}
++
+ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+ 				       struct sk_buff *skb);
+ 
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 9f2add3..4e5bba5 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -910,13 +910,9 @@ static struct net_device *switchdev_get_dev_by_nhs(struct fib_info *fi)
+ 		if (switchdev_port_attr_get(dev, &attr))
+ 			return NULL;
+ 
+-		if (nhsel > 0) {
+-			if (prev_attr.u.ppid.id_len != attr.u.ppid.id_len)
++		if (nhsel > 0 &&
++		    !netdev_phys_item_id_same(&prev_attr.u.ppid, &attr.u.ppid))
+ 				return NULL;
+-			if (memcmp(prev_attr.u.ppid.id, attr.u.ppid.id,
+-				   attr.u.ppid.id_len))
+-				return NULL;
+-		}
+ 
+ 		prev_attr = attr;
+ 	}
 -- 
 1.7.10.4
