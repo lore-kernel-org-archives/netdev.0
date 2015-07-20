@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] bridge: multicast: temp and perm entries
- behaviour enhancements
-Date: Mon, 20 Jul 2015 12:49:39 -0700 (PDT)
-Message-ID: <20150720.124939.1328394717828737521.davem@davemloft.net>
-References: <1436969811-13237-1-git-send-email-nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bonding: trivial: remove unused variables
+Date: Mon, 20 Jul 2015 12:50:56 -0700 (PDT)
+Message-ID: <20150720.125056.656737696122728451.davem@davemloft.net>
+References: <1436970669-31169-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	herbert@gondor.apana.org.au, stephen@networkplumber.org,
-	sashok@cumulusnetworks.com
-To: nikolay@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
+	gospo@cumulusnetworks.com, nikolay@cumulusnetworks.com
+To: razor@blackwall.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50492 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50519 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756481AbbGTTtk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 15:49:40 -0400
-In-Reply-To: <1436969811-13237-1-git-send-email-nikolay@cumulusnetworks.com>
+	with ESMTP id S1752455AbbGTTu5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 15:50:57 -0400
+In-Reply-To: <1436970669-31169-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Wed, 15 Jul 2015 07:16:49 -0700
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Date: Wed, 15 Jul 2015 16:31:09 +0200
 
-> Hi,
-> Patch 01 adds a notify when a group is deleted via br_multicast_del_pg()
-> (on expire, on device delete or on device down).
-> Patch 02 changes how bridge device and bridge port delete and down/up are
-> handled. Until now on bridge down all groups were flushed, now only the
-> temp ones are (same for port), perm entries are flushed only on port or
-> bridge removal.
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> 
+> Get rid of these:
+ ...
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Series applied, but if patch #2 breaks things for anyone depending upon the
-old behavior of flushing all entries I will have to revert.
+Applied.
