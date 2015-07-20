@@ -1,60 +1,94 @@
-From: Hariprasad S <hariprasad@chelsio.com>
-Subject: RE: [PATCH net-next] cxgb4: Add debugfs entry to enable/disable
- backdoor access
-Date: Mon, 20 Jul 2015 13:03:10 +0000
-Message-ID: <26E3F92EC670BD429DB5CB319D773C13CD476E@nice.asicdesigners.com>
-References: <1437404051-7020-1-git-send-email-hariprasad@chelsio.com>,<55ACE5ED.1030304@cogentembedded.com>
+From: Frank Schreuder <fschreuder@transip.nl>
+Subject: Re: reproducable panic eviction work queue
+Date: Mon, 20 Jul 2015 14:47:37 +0200
+Message-ID: <55ACEDE9.3090205@transip.nl>
+References: <F8D94413-90A2-4F80-AAA2-7A6AB57DF314@transip.nl>
+ <1437209795.1026.31.camel@edumazet-glaptop2.roam.corp.google.com>
+ <5FD5C17E-B321-404E-80A2-EE46BB8AA746@transip.nl>
+ <55AA243D.5020306@cumulusnetworks.com>
+ <22C5EB62-8974-432D-9C3B-45F4E4067A45@transip.nl>
+ <55AA717D.8080800@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	Casey Leedom <leedom@chelsio.com>,
-	Nirranjan Kirubaharan <nirranjan@chelsio.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"nikolay@redhat.com" <nikolay@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"fw@strlen.de" <fw@strlen.de>,
+	"chutzpah@gentoo.org" <chutzpah@gentoo.org>,
+	Robin Geuze <robing@transip.nl>,
+	netdev <netdev@vger.kernel.org>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Johan Schuijt <johan@transip.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:3453 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756003AbbGTNDO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 09:03:14 -0400
-In-Reply-To: <55ACE5ED.1030304@cogentembedded.com>
-Content-Language: en-US
+Received: from mail-am1on0116.outbound.protection.outlook.com ([157.56.112.116]:16304
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753249AbbGTNUK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jul 2015 09:20:10 -0400
+In-Reply-To: <55AA717D.8080800@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-________________________________________
-From: Sergei Shtylyov [sergei.shtylyov@cogentembedded.com]
-Sent: Monday, July 20, 2015 5:43 PM
-To: Hariprasad S; netdev@vger.kernel.org
-Cc: davem@davemloft.net; Casey Leedom; Nirranjan Kirubaharan
-Subject: Re: [PATCH net-next] cxgb4: Add debugfs entry to enable/disable backdoor access
-
-Hello.
-
-On 7/20/2015 5:54 PM, Hariprasad Shenai wrote:
-
-> Add debugfs entry 'use_backdoor' to enable/disable backdoor access
-> to read sge context. By default, we read sge context's via firmware. In
-> case of FW issues, one can enable backdoor access via debugfs to dump
-> sge context for debugging purpose.
-
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
-[...]
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-> index b135d05..5b525a7 100644
-> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-> @@ -2386,8 +2386,11 @@ int t4_setup_debugfs(struct adapter *adap)
->                                       EXT_MEM_SIZE_G(size));
->       }
+On 7/18/2015  05:32 PM, Nikolay Aleksandrov wrote:
+> On 07/18/2015 05:28 PM, Johan Schuijt wrote:
+>> Thx for your looking into this!
+>>
+>>> Thank you for the report, I will try to reproduce this locally
+>>> Could you please post the full crash log ?
+>> Of course, please see attached file.
+>>
+>>> Also could you test
+>>> with a clean current kernel from Linus' tree or Dave's -net ?
+>> Will do.
+>>
+>>> These are available at:
+>>> git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+>>> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+>>> respectively.
+>>>
+>>> One last question how many IRQs do you pin i.e. how many cores
+>>> do you actively use for receive ?
+>> This varies a bit across our systems, but we=E2=80=99ve managed to r=
+eproduce this with IRQs pinned on as many as 2,4,8 or 20 cores.
+>>
+>> I won=E2=80=99t have access to our test-setup till Monday again, so =
+I=E2=80=99ll be testing 3 scenario=E2=80=99s then:
+>> - Your patch
+> -----
+>> - Linux tree
+>> - Dave=E2=80=99s -net tree
+> Just one of these two would be enough. I couldn't reproduce it here b=
+ut
+> I don't have as many machines to test right now and had to improvise =
+with VMs. :-)
 >
-> -     de = debugfs_create_file_size("flash", S_IRUSR, adap->debugfs_root, adap,
-> -                                   &flash_debugfs_fops, adap->params.sf_size);
-> +     de = debugfs_create_file_size("flash", S_IRUSR, adap->debugfs_root,
-> +                                   adap, &flash_debugfs_fops,
-> +                                   adap->params.sf_size);
+>> I=E2=80=99ll make sure to keep you posted on all the results then. W=
+e have a kernel dump of the panic, so if you need me to extract any dat=
+a from there just let me know! (Some instructions might be needed)
+>>
+>> - Johan
+>>
+> Great, thank you!
+>
+I'm able to reproduce this panic on the following kernel builds:
+- 3.18.7
+- 3.18.18
+- 3.18.18 + patch from Nikolay Aleksandrov
+- 4.1.0
 
->    What was the point reformatting this call?
+Would you happen to have any more suggestions we can try?
 
-It was done to silence checkpatch.pl warnings
+Thanks,
+=46rank
+
+--=20
+
+TransIP BV
+
+Schipholweg 11E
+2316XB Leiden
+E: fschreuder@transip.nl
+I: https://www.transip.nl
