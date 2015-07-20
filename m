@@ -1,55 +1,38 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: [PATCH RFC 02/10] dpaa_eth: add support for DPAA Ethernet
-Date: Mon, 20 Jul 2015 07:57:06 +0000
-Message-ID: <1437379026.10831.14.camel@transmode.se>
-References: <1427905196-27778-1-git-send-email-madalin.bucur@freescale.com>
-	 <1437378870.10831.12.camel@transmode.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"madalin.bucur@freescale.com" <madalin.bucur@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1437378870.10831.12.camel@transmode.se>
-Content-Language: en-US
-Content-ID: <52AB016A5E264742BA88C9CBA3200037@transmode.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pieter Hollants <pieter@hollants.com>
+Subject: [PATCH net-next] qmi_wwan: Add support for Dell Wireless 5809e 4G Modem
+Date: Mon, 20 Jul 2015 10:14:13 +0200
+Message-ID: <1437380053-5444-1-git-send-email-pieter@hollants.com>
+Cc: bjorn@mork.no, Pieter Hollants <pieter@hollants.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from koog.hollants.com ([95.156.193.13]:41473 "EHLO
+	mail.hollants.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756323AbbGTIU5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 04:20:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-07-20 at 09:54 +0200, Joakim Tjernlund wrote:
-> On Wed, 2015-04-01 at 19:19 +0300, Madalin Bucur wrote:
-> > This introduces the Freescale Data Path Acceleration Architecture
-> > (DPAA) Ethernet driver (dpaa_eth) that builds upon the DPAA QMan,
-> > BMan, PAMU and FMan drivers to deliver Ethernet connectivity on
-> > the Freescale DPAA QorIQ platforms.
-> > 
-> > Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
-> > ---
-> ....
-> > +	net_dev = alloc_etherdev_mq(sizeof(*priv), DPAA_ETH_TX_QUEUES);
-> > +	if (!net_dev) {
-> > +		dev_err(dev, "alloc_etherdev_mq() failed\n");
-> > +		goto alloc_etherdev_mq_failed;
-> > +	}
-> > +
-> > +	snprintf(net_dev->name, IFNAMSIZ, "fm%d-mac%d",
-> > +		 dpa_mac_fman_index_get(pdev),
-> > +		 dpa_mac_hw_index_get(pdev));
-> 
-> Should ethernet drivers dictate interface name in user space nowadays?
-> I would prefer if you didn't.
-> 
-> I am trying these patches on a custom T1042 board using Linux 4.1 but
-> I cannot get Fixed PHY to work:
-> libphy: PHY fixed-0:00 not found
-> fsl_dpa dpaa-ethernet.2 eth2: Could not connect to PHY fixed-0:00
-> fsl_dpa dpaa-ethernet.2 eth2: init_phy() = -19
-> 
-> Not sure what I have missed here, any ideas?
+Added the USB IDs 0x413c:0x81b1 for the "Dell Wireless 5809e Gobi(TM) 4G
+LTE Mobile Broadband Card", a Dell-branded Sierra Wireless EM7305 LTE
+card in M.2 form factor, used eg. in Dell's Latitude E7540 Notebook
+series.
 
-I meant I am using http://git.freescale.com/git/cgit.cgi/ppc/upstream/linux.git/
-on top of 4.1
+Signed-off-by: Pieter Hollants <pieter@hollants.com>
+---
+ drivers/net/usb/qmi_wwan.c | 1 +
+ 1 file changed, 1 insertion(+)
 
- Jocke
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index f603f36..f06c687 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -784,6 +784,7 @@ static const struct usb_device_id products[] = {
+ 	{QMI_FIXED_INTF(0x413c, 0x81a4, 8)},	/* Dell Wireless 5570e HSPA+ (42Mbps) Mobile Broadband Card */
+ 	{QMI_FIXED_INTF(0x413c, 0x81a8, 8)},	/* Dell Wireless 5808 Gobi(TM) 4G LTE Mobile Broadband Card */
+ 	{QMI_FIXED_INTF(0x413c, 0x81a9, 8)},	/* Dell Wireless 5808e Gobi(TM) 4G LTE Mobile Broadband Card */
++	{QMI_FIXED_INTF(0x413c, 0x81b1, 8)},	/* Dell Wireless 5809e Gobi(TM) 4G LTE Mobile Broadband Card */
+ 	{QMI_FIXED_INTF(0x03f0, 0x581d, 4)},	/* HP lt4112 LTE/HSPA+ Gobi 4G Module (Huawei me906e) */
+ 
+ 	/* 4. Gobi 1000 devices */
+-- 
+2.4.5
