@@ -1,53 +1,70 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net-next 14/22] vxlan: Flow based tunneling
-Date: Mon, 20 Jul 2015 14:41:05 -0300
-Message-ID: <20150720174105.GA21405@localhost.localdomain>
-References: <cover.1437137396.git.tgraf@suug.ch>
- <f5cf9490a8f114416ec24e9e1de190d6640f25f0.1437137396.git.tgraf@suug.ch>
- <20150720171522.GA14393@localhost.localdomain>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: drivers/net/phy/dp83867.c:167: possible bad if ?
+Date: Mon, 20 Jul 2015 10:40:26 -0700
+Message-ID: <55AD328A.9040106@gmail.com>
+References: <DUB128-W6216BE4A8E21E94EEB06DE9C850@phx.gbl> <55AD2FC6.60508@gmail.com> <55AD31E1.6010506@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
-	ebiederm@xmission.com, hannes@stressinduktion.org,
-	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
-	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
-	jiri@resnulli.us, stephen@networkplumber.org, jpettit@nicira.com,
-	kaber@trash.net, simon.horman@netronome.com,
-	joestringer@nicira.com, ja@ssi.bg, ast@plumgrid.com,
-	weichunc@plumgrid.com, netdev@vger.kernel.org, dev@openvswitch.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Dan Murphy <dmurphy@ti.com>, David Binderman <dcb314@hotmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38623 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756611AbbGTRlR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jul 2015 13:41:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20150720171522.GA14393@localhost.localdomain>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:34761 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754379AbbGTRmW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 13:42:22 -0400
+Received: by pdbbh15 with SMTP id bh15so59342097pdb.1
+        for <netdev@vger.kernel.org>; Mon, 20 Jul 2015 10:42:22 -0700 (PDT)
+In-Reply-To: <55AD31E1.6010506@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 20, 2015 at 02:15:22PM -0300, Marcelo Ricardo Leitner wrote:
-> On Fri, Jul 17, 2015 at 02:55:33PM +0200, Thomas Graf wrote:
-> 
-> [ snip ]
-> 
-> > @@ -2373,6 +2470,12 @@ static void vxlan_setup(struct net_device *dev)
-> >  	netif_keep_dst(dev);                     ---> (a)
-> >  	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
-> >  
-> > +	/* If in flow based mode, keep the dst including encapsulation
-> > +	 * instructions for vxlan_xmit().
-> > +	 */
-> > +	if (vxlan->flags & VXLAN_F_FLOW_BASED)
-> > +		netif_keep_dst(dev);             ---> (b)
-> > +
-> >  	INIT_LIST_HEAD(&vxlan->next);
-> >  	spin_lock_init(&vxlan->hash_lock);
-> >  
-> 
-> Sounds like after 0287587884b1 ("net: better IFF_XMIT_DST_RELEASE
-> support"), which introduced (a) above, (b) is not needed?
+On 20/07/15 10:37, Dan Murphy wrote:
+> Florian
+>=20
+> On 07/20/2015 12:28 PM, Florian Fainelli wrote:
+>> Adding Dan,
+>>
+>> On 20/07/15 05:37, David Binderman wrote:
+>>> Hello there,
+>>>
+>>> drivers/net/phy/dp83867.c:167:57: warning: logical =E2=80=98or=E2=80=
+=99 of collectively exhaustive tests is always true [-Wlogical-op]
+>>>
+>>> Source code is
+>>>
+>>>     if ((phydev->interface>=3D PHY_INTERFACE_MODE_RGMII_ID) ||
+>>>         (phydev->interface <=3D PHY_INTERFACE_MODE_RGMII_RXID)) {
+>>>
+>>> Maybe
+>>>
+>>>     if ((phydev->interface>=3D PHY_INTERFACE_MODE_RGMII_ID) &&
+>>>         (phydev->interface <=3D PHY_INTERFACE_MODE_RGMII_RXID)) {
+>> Sounds like the former is the intended comparison that will make sur=
+e
+>> that phydev->interface is between MODE_RGMII_ID and MODE_RGMII_RXID,=
+ and
+>> not below or after.
+> That is correct.  The internal delay only needs to be set if this is =
+declared
+> via the DT.  There can be one of 3 interface internal delay (RGMII_ID=
+), RX internal delay (RGMII_RX_ID) or TX
+> internal delay (RGMII_TX_ID).
 
-Oops, it was already reported by Alexei.
+Sorry, I meant to write the latter instead of the former here, the
+current code seems to be potentially too permissive, is not it? In that
+case, it seems to me like David's proposed fix is relevant.
 
-  Marcelo
+>=20
+> This internal delay is only applicable for RGMII and can be made spec=
+ific to the
+> board.
+>=20
+> The driver only needs to set the delay per the declaration in the DT.
+>=20
+> Dan
+>=20
+
+
+--=20
+=46lorian
