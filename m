@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] virtio_net: don't require ANY_LAYOUT with VERSION_1
-Date: Mon, 20 Jul 2015 12:42:59 -0700 (PDT)
-Message-ID: <20150720.124259.1513329118631759070.davem@davemloft.net>
-References: <1436963135-16592-1-git-send-email-mst@redhat.com>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: fix fid_mask when leaving bridge
+Date: Mon, 20 Jul 2015 12:44:32 -0700 (PDT)
+Message-ID: <20150720.124432.1153242227929722638.davem@davemloft.net>
+References: <1436969227-30006-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtio-dev@lists.oasis-open.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1436963135-16592-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, linux@roeck-us.net,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1436969227-30006-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Wed, 15 Jul 2015 15:26:19 +0300
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Wed, 15 Jul 2015 10:07:07 -0400
 
-> ANY_LAYOUT is a compatibility feature. It's implied
-> for VERSION_1 devices, and non-transitional devices
-> might not offer it. Change code to behave accordingly.
+> The mv88e6xxx_priv_state structure contains an fid_mask, where 1 means
+> the FID is free to use, 0 means the FID is in use.
 > 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> This patch fixes the bit clear in mv88e6xxx_leave_bridge() when
+> assigning a new FID to a port.
+> 
+> Example scenario: I have 7 ports, port 5 is CPU, port 6 is unused (no
+> PHY). After setting the ports 0, 1 and 2 in bridge br0, and ports 3 and
+> 4 in bridge br1, I have the following fid_mask: 0b111110010110 (0xf96).
+> 
+> Indeed, br0 uses FID 0, and br1 uses FID 3.
+> 
+> After setting nomaster for port 0, I get the wrong fid_mask: 0b10 (0x2).
+> 
+> With this patch we correctly get 0b111110010100 (0xf94), meaning port 0
+> uses FID 1, br0 uses FID 0, and br1 uses FID 3.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
 Applied.
