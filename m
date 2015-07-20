@@ -1,49 +1,40 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net-next 14/22] vxlan: Flow based tunneling
-Date: Mon, 20 Jul 2015 14:15:22 -0300
-Message-ID: <20150720171522.GA14393@localhost.localdomain>
-References: <cover.1437137396.git.tgraf@suug.ch>
- <f5cf9490a8f114416ec24e9e1de190d6640f25f0.1437137396.git.tgraf@suug.ch>
+From: Julien Grall <julien.grall@citrix.com>
+Subject: Re: [Xen-devel] [PATCH v2 17/20] net/xen-netfront: Make it running
+ on 64KB page granularity
+Date: Mon, 20 Jul 2015 18:26:06 +0100
+Message-ID: <55AD2F2E.9090204@citrix.com>
+References: <1436474552-31789-1-git-send-email-julien.grall@citrix.com>
+ <1436474552-31789-18-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
-	ebiederm@xmission.com, hannes@stressinduktion.org,
-	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
-	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
-	jiri@resnulli.us, stephen@networkplumber.org, jpettit@nicira.com,
-	kaber@trash.net, simon.horman@netronome.com,
-	joestringer@nicira.com, ja@ssi.bg, ast@plumgrid.com,
-	weichunc@plumgrid.com, netdev@vger.kernel.org, dev@openvswitch.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43963 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755224AbbGTRPc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jul 2015 13:15:32 -0400
-Content-Disposition: inline
-In-Reply-To: <f5cf9490a8f114416ec24e9e1de190d6640f25f0.1437137396.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <ian.campbell@citrix.com>, <netdev@vger.kernel.org>,
+	<stefano.stabellini@eu.citrix.com>, <linux-kernel@vger.kernel.org>,
+	"David Vrabel" <david.vrabel@citrix.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	<linux-arm-kernel@lists.infradead.org>
+To: <xen-devel@lists.xenproject.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1436474552-31789-18-git-send-email-julien.grall@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 17, 2015 at 02:55:33PM +0200, Thomas Graf wrote:
+Hi,
 
-[ snip ]
-
-> @@ -2373,6 +2470,12 @@ static void vxlan_setup(struct net_device *dev)
->  	netif_keep_dst(dev);                     ---> (a)
->  	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
->  
-> +	/* If in flow based mode, keep the dst including encapsulation
-> +	 * instructions for vxlan_xmit().
-> +	 */
-> +	if (vxlan->flags & VXLAN_F_FLOW_BASED)
-> +		netif_keep_dst(dev);             ---> (b)
+On 09/07/15 21:42, Julien Grall wrote:
+> +static void xennet_make_one_txreq(unsigned long mfn, unsigned int offset,
+> +				  unsigned int *len, void *data)
+> +{
+> +	struct xennet_gnttab_make_txreq *info = data;
 > +
->  	INIT_LIST_HEAD(&vxlan->next);
->  	spin_lock_init(&vxlan->hash_lock);
->  
+> +	info->tx->flags |= XEN_NETTXF_more_data;
+> +	skb_get(info->skb);
+> +	xennet_make_one_txreq(mfn, offset, len, data);
 
-Sounds like after 0287587884b1 ("net: better IFF_XMIT_DST_RELEASE
-support"), which introduced (a) above, (b) is not needed?
+This should be xennet_tx_setup_grant rather than calling itself. I did
+the mistake while cleaning up the code sorry.
 
-  Marcelo
+Regards,
+
+-- 
+Julien Grall
