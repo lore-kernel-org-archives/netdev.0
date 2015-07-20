@@ -1,57 +1,41 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next] bridge: mcast: fix br_multicast_dev_del
-	warn when igmp snooping is not defined
-Date: Mon, 20 Jul 2015 23:03:45 +0200
-Message-ID: <1437426225-28418-1-git-send-email-razor@blackwall.org>
-References: <201507210410.H5dNw6Lx%fengguang.wu@intel.com>
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Nikolay Aleksandrov <razor@blackwall.org>,
-	bridge@lists.linux-foundation.org, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <201507210410.H5dNw6Lx%fengguang.wu@intel.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Chris Metcalf <cmetcalf@ezchip.com>
+Subject: Re: [PATCH] nohz: prevent tilegx network driver interrupts
+Date: Mon, 20 Jul 2015 17:22:12 -0400
+Message-ID: <55AD6684.3080607@ezchip.com>
+References: <1436549624-16104-1-git-send-email-cmetcalf@ezchip.com>
+ <20150710182406.GC26428@lerouge> <55A0175E.2010200@ezchip.com>
+ <20150711143033.GE10257@lerouge>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Frederic Weisbecker <fweisbec@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150711143033.GE10257@lerouge>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix:
-net/bridge/br_if.c: In function 'br_dev_delete':
->> net/bridge/br_if.c:284:2: error: implicit declaration of function
->> 'br_multicast_dev_del' [-Werror=implicit-function-declaration]
-     br_multicast_dev_del(br);
-     ^
-   cc1: some warnings being treated as errors
+On 07/11/2015 10:30 AM, Frederic Weisbecker wrote:
+> On Fri, Jul 10, 2015 at 03:05:02PM -0400, Chris Metcalf wrote:
+>> The tilegx chips typically don't do cpu offlining anyway, since
+>> we've never really found a usecase, so whatever you boot with
+>> you always have available.  We do have support for a bare-metal
+>> mode which you can run on some of the cores, so you may start
+>> with fewer than cpu_possible actually running, but it will always
+>> be that same set of cores.
+> And that bare metal mode runs out of Linux?
 
-when igmp snooping is not defined.
+The bare metal environment runs on cpus that have been marked
+as unavailable to Linux, so Linux just sees them as permanently
+offlined.  There is a BME driver (which we haven't upstreamed,
+since the BME isn't upstreamed either) that arranges to share
+memory between the BME and Linux.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-Apologies for the mess.
+I don't think that many customers are using the BME in any
+case.  We push all of them towards using our dataplane mode
+instead, since it almost always works just as well from a
+performance perspective, and is easier to develop code for.
 
- net/bridge/br_private.h | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 2bada2279721..3ad1290528af 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -566,6 +566,10 @@ static inline void br_multicast_stop(struct net_bridge *br)
- {
- }
- 
-+static inline void br_multicast_dev_del(struct net_bridge *br)
-+{
-+}
-+
- static inline void br_multicast_deliver(struct net_bridge_mdb_entry *mdst,
- 					struct sk_buff *skb)
- {
 -- 
-1.9.3
+Chris Metcalf, EZChip Semiconductor
+http://www.ezchip.com
