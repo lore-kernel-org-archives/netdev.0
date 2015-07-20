@@ -1,135 +1,118 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH net-next 1/1] hv_netvsc: Wait for sub-channels to be
- processed during probe
-Date: Mon, 20 Jul 2015 09:39:03 +0000
-Message-ID: <da594b2ca2ed48f8b5119b7fb0269f2d@SIXPR30MB031.064d.mgd.msft.net>
-References: <1437074222-13020-1-git-send-email-kys@microsoft.com>
- <4fd650437f864cf2a58e8334253f5dcd@SIXPR30MB031.064d.mgd.msft.net>
- <BY2PR0301MB1654D90488532EDD2318B7B3A0980@BY2PR0301MB1654.namprd03.prod.outlook.com>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: sit: Set SKB_GSO_SIT bit when performing GRO
+Date: Mon, 20 Jul 2015 11:39:52 +0200
+Message-ID: <2740217.XDs18yAg2Z@stwm.de>
+References: <17762800.UBb5paxXY3@h2o.as.studentenwerk.mhn.de> <10491450.MOzxZjY76n@stwm.de> <20150720061459.GA12023@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: KY Srinivasan <kys@microsoft.com>, "davem@davemloft.net"
- <davem@davemloft.net>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "olaf@aepfle.de" <olaf@aepfle.de>, "apw@canonical.com" <apw@canonical.com>,
- "jasowang@redhat.com" <jasowang@redhat.com>, "vkuznets@redhat.com"
- <vkuznets@redhat.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <BY2PR0301MB1654D90488532EDD2318B7B3A0980@BY2PR0301MB1654.namprd03.prod.outlook.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Tom Herbert <tom@herbertland.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:37048 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753341AbbGTJjz convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jul 2015 05:39:55 -0400
+In-Reply-To: <20150720061459.GA12023@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: KY Srinivasan
-> Sent: Friday, July 17, 2015 23:33
-> > From: Dexuan Cui
-> > Sent: Friday, July 17, 2015 3:01 AM
-> > > From: K. Y. Srinivasan
-> > > Sent: Friday, July 17, 2015 3:17
-> > > Subject: [PATCH net-next 1/1] hv_netvsc: Wait for sub-channels to be
-> > processed
-> > > during probe
-> > > diff --git a/drivers/net/hyperv/hyperv_net.h
-> > b/drivers/net/hyperv/hyperv_net.h
-> > > ...
-> > > @@ -1116,6 +1127,9 @@ int rndis_filter_device_add(struct hv_device
-> > *dev,
-> > >  num_possible_rss_qs = cpumask_weight(node_cpu_mask);
-> > >  net_device->num_chn = min(num_possible_rss_qs, num_rss_qs);
-> > >
-> > > +num_rss_qs = net_device->num_chn - 1;
-> > > +net_device->num_sc_offered = num_rss_qs;
-> > > +
-> > >  if (net_device->num_chn == 1)
-> > >  goto out;
-> > >
-> > > @@ -1157,11 +1171,22 @@ int rndis_filter_device_add(struct hv_device
-> > *dev,
-> > >
-> > >  ret = rndis_filter_set_rss_param(rndis_device, net_device-
-> > >num_chn);
-> > >
-> > > +/*
-> > > + * Wait for the host to send us the sub-channel offers.
-> > > + */
-> > > +spin_lock_irqsave(&net_device->sc_lock, flags);
-> > > +sc_delta = net_device->num_chn - 1 - num_rss_qs;
-> > > +net_device->num_sc_offered -= sc_delta;
-> >
-> > Hi KY,
-> > IMO here the "-= " should be "+="?
-> >
-> > I think sc_delta is usually <= 0, meaning the host may allocate less
-> > subchannels than
-> > we expect.
-> > With "-=", net_device->num_sc_offered can become bigger -- this doesn't
-> > seem correct.
-> We control how many sub-channels we want the host to offer (say
-> sc_requested). Based on this
-> number we begin to track how many have actually been processed - we
-> decrement sc_requested
-> each time a sub-channel offer is processed. If the host were to actually offer all
-> that we have requested,
-> then checking for sc_requested to be zero is sufficient to ensure that we have
-> processed all the
-> potentially in-flight sub-channels. However, the host  may choose to offer less
-> than what we had asked for
-> and the variable "delta" is tracking this difference. Since we are counting down
-> from what we had asked for
-> we have to subtract "delta" for proper accounting.
+Am Montag, 20. Juli 2015, 14:14:59 schrieb Herbert Xu:
+> On Fri, Jul 17, 2015 at 05:38:30PM +0200, Wolfgang Walter wrote:
+> > eth1 stops sending with the patch after some time
+> > disabling gro on eth0 helps
+> > disabling tso or gso on eth0 and/or eth1 or both does not help
+> >=20
+> > eth0 and eth1 are both intel I350.
+>=20
+> What does ethtool -k eth1 say?
 
-Yes, I understand the rationale.
-Let me show the issue by example:
+With TSO enabled:
 
-Let's assume sc_requested is 7 and the host actually only offers 3 sub-channels:
-1. Just before sending the NVSP_MSG5_TYPE_SUBCHANNEL message, we have
-net_device->num_chn == 8,
-num_rss_qs ==  7
-net_device->num_sc_offered == 7
+# ethtool -k eth0
+=46eatures for eth0:
+rx-checksumming: on
+tx-checksumming: on
+        tx-checksum-ipv4: on
+        tx-checksum-ip-generic: off [fixed]
+        tx-checksum-ipv6: on
+        tx-checksum-fcoe-crc: off [fixed]
+        tx-checksum-sctp: on
+scatter-gather: on
+        tx-scatter-gather: on
+        tx-scatter-gather-fraglist: off [fixed]
+tcp-segmentation-offload: on
+        tx-tcp-segmentation: on
+        tx-tcp-ecn-segmentation: off [fixed]
+        tx-tcp6-segmentation: on
+udp-fragmentation-offload: off [fixed]                                 =
+        =20
+generic-segmentation-offload: on
+generic-receive-offload: on
+large-receive-offload: off [fixed]
+rx-vlan-offload: on
+tx-vlan-offload: on
+ntuple-filters: off [fixed]
+receive-hashing: on
+highdma: on [fixed]
+rx-vlan-filter: on [fixed]
+vlan-challenged: off [fixed]
+tx-lockless: off [fixed]
+netns-local: off [fixed]
+tx-gso-robust: off [fixed]
+tx-fcoe-segmentation: off [fixed]
+tx-gre-segmentation: off [fixed]
+tx-ipip-segmentation: off [fixed]
+tx-sit-segmentation: off [fixed]
+tx-udp_tnl-segmentation: off [fixed]
+fcoe-mtu: off [fixed]
+tx-nocache-copy: off
+loopback: off [fixed]
+rx-fcs: off [fixed]
+rx-all: off
+tx-vlan-stag-hw-insert: off [fixed]
+rx-vlan-stag-hw-parse: off [fixed]
+rx-vlan-stag-filter: off [fixed]
+l2-fwd-offload: off [fixed]
+busy-poll: off [fixed]
+hw-switch-offload: off [fixed]
 
-2. Just after we get the reply of the message,
-net_device->num_chn == 4
-sc_delta = net_device->num_chn - 1 - num_rss_qs, so sc_delta == 4 - 1 - 7 = -4
-net_device->num_sc_offered -= sc_delta, so
-net_device->num_sc_offered == 7 - (-4) = 11. It's not zero, so we sleep on the
-wait_for_completion().
+>=20
+> Can you confirm that disabling tso on eth1 does not help?
 
-3. Now we process the 3 sub-channel and net_device->num_sc_offered will
-become 11 -1 -1 -1 == 8 and no complete() will be invoked!
+Disabling TSO on eth1 does not help.
 
-That's why I think the "-=" in the line
-net_device->num_sc_offered -= sc_delta
-should be "+=".
+>=20
+> Because the most plausible explanation is that we're feeding
+> some bogus TSO packet to the hardware causing a tx lockup.
 
-> > Why not use
-> > "net_device->num_sc_offered = net_device->num_chn - 1;" directly?
-> > At this point, net_device->num_chn has been the number of the actual
-> > channels.
->
-> I am not sure what the question here is. num_sc_offered is initialized to the
-> number we
-> are going to ask and this is the number that will be decremented each time a
-> sub-channel
-> is processed. Since the host may decide to offer us less than what we had asked
-> and some
-> sub-channels may have already been processed (num_sc_offerred decremented
-> accordingly)
-> by the time we discover that the host has offered us less than what we asked for,
-> we adjust
-> num_sc_offered accordingly.
+I run the unpatched 4.1.2 again since saturday without look. With your =
+patch=20
+the network card hangs within 10 minutes or so.
 
-Sorry, I had a misunderstanding here.
-Please just ignore this question.
+On the other hand I run the the patched kernel on serveral other router=
+s (same=20
+hardware, by the way) without problems.
 
-Thanks,
--- Dexuan
+So maybe the problem is that the former one routes GRE-tunnel-packets w=
+hich=20
+contains ISATAP packets. I don't know how deep GRO/GSO inspects a packe=
+t.
+
+>=20
+> But in any case if it is a hardware lockup then it's no longer
+> just a pure software bug.  No matter what we do in the stack
+> the hardware should not lock up (unless of course we're feeding
+> it something that's completely bogus).
+>=20
+> If we can't figure this out then the safest solution would be
+> to disable tunnel GRO completely because it's broken as it stands.
+>=20
+> Cheers,
+
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
