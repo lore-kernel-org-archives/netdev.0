@@ -1,51 +1,43 @@
-From: Chris Metcalf <cmetcalf@ezchip.com>
-Subject: Re: [PATCH] nohz: prevent tilegx network driver interrupts
-Date: Mon, 20 Jul 2015 18:15:44 -0400
-Message-ID: <55AD7310.40000@ezchip.com>
-References: <1436549624-16104-1-git-send-email-cmetcalf@ezchip.com>
- <20150710182406.GC26428@lerouge> <55A0175E.2010200@ezchip.com>
- <20150711143033.GE10257@lerouge> <55AD6684.3080607@ezchip.com>
- <20150720214943.GC13032@lerouge>
+From: Alex Gartrell <alexgartrell@gmail.com>
+Subject: Why return E2BIG from bpf map update?
+Date: Mon, 20 Jul 2015 15:15:50 -0700
+Message-ID: <CALCkm3eCUYFOon6Gza4A8Ske8MS1rVFJJip_J9dWQp79ju8zBw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Frederic Weisbecker <fweisbec@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150720214943.GC13032@lerouge>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: ast@plumgrid.com, daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f46.google.com ([209.85.192.46]:34487 "EHLO
+	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757226AbbGTWQL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 18:16:11 -0400
+Received: by qgeu79 with SMTP id u79so23935578qge.1
+        for <netdev@vger.kernel.org>; Mon, 20 Jul 2015 15:16:10 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/20/2015 05:49 PM, Frederic Weisbecker wrote:
-> On Mon, Jul 20, 2015 at 05:22:12PM -0400, Chris Metcalf wrote:
->> On 07/11/2015 10:30 AM, Frederic Weisbecker wrote:
->>> On Fri, Jul 10, 2015 at 03:05:02PM -0400, Chris Metcalf wrote:
->>>> The tilegx chips typically don't do cpu offlining anyway, since
->>>> we've never really found a usecase, so whatever you boot with
->>>> you always have available.  We do have support for a bare-metal
->>>> mode which you can run on some of the cores, so you may start
->>>> with fewer than cpu_possible actually running, but it will always
->>>> be that same set of cores.
->>> And that bare metal mode runs out of Linux?
->> The bare metal environment runs on cpus that have been marked
->> as unavailable to Linux, so Linux just sees them as permanently
->> offlined.  There is a BME driver (which we haven't upstreamed,
->> since the BME isn't upstreamed either) that arranges to share
->> memory between the BME and Linux.
->>
->> I don't think that many customers are using the BME in any
->> case.  We push all of them towards using our dataplane mode
->> instead, since it almost always works just as well from a
->> performance perspective, and is easier to develop code for.
-> So bare metal mode is different than dataplane mode, right?
-> Where bare metal mode offlines the CPU and IIUC dataplane mode
-> instead uses CPUs that are available to Linux, just isolated
-> with nohz and various affinity stuff, right?
+The ship has probably sailed on this one, but it seems like ENOSPC
+makes more sense than E2BIG.  Any chance of changing it so that poor
+ebpf library maintainers in the future don't have to wonder how their
+argument list got too big?
 
-Yes, exactly.  Cores running the bare metal environment are
-NOT running Linux at all, just talking directly to the Tilera
-hypervisor.
+net-next/master:kernel/bpf/hashtab.c=static int
+htab_map_update_elem(struct bpf_map *map, void *key, void *value,
+--
+net-next/master:kernel/bpf/hashtab.c-
+net-next/master:kernel/bpf/hashtab.c-   if (!l_old &&
+unlikely(htab->count >= map->max_entries)) {
+net-next/master:kernel/bpf/hashtab.c-           /* if elem with this
+'key' doesn't exist and we've reached
+net-next/master:kernel/bpf/hashtab.c-            * max_entries limit,
+fail insertion of new elem
+net-next/master:kernel/bpf/hashtab.c-            */
+net-next/master:kernel/bpf/hashtab.c:           ret = -E2BIG;
+net-next/master:kernel/bpf/hashtab.c-           goto err;
+net-next/master:kernel/bpf/hashtab.c-   }
+net-next/master:kernel/bpf/hashtab.c-
+net-next/master:kernel/bpf/hashtab.c-   if (l_old && map_flags == BPF_NOEXIST) {
+net-next/master:kernel/bpf/hashtab.c-           /* elem already exists */
 
 -- 
-Chris Metcalf, EZChip Semiconductor
-http://www.ezchip.com
+Alex Gartrell <agartrell@fb.com>
