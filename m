@@ -1,47 +1,49 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Segmentation fault in iproute2 ss -p (versions 4.0.0, 4.1.0 and
- 4.1.1)
-Date: Mon, 20 Jul 2015 12:09:54 -0700
-Message-ID: <20150720120954.2639f2e4@urahara>
-References: <20150719140548.6d17a475@urahara>
-	<55AC9E25.9050804@openmailbox.org>
+From: subashab@codeaurora.org
+Subject: Re: [PATCH net-next] inet: Always increment refcount in
+ inet_twsk_schedule
+Date: Mon, 20 Jul 2015 19:14:35 -0000
+Message-ID: <99d6ce13c5da5ea403b3df747d770d54.squirrel@www.codeaurora.org>
+References: <d6222bf87f44ca3adf3988202bd31a3c.squirrel@www.codeaurora.org>
+    <1437295872.1026.37.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: 7BIT
 Cc: netdev@vger.kernel.org
-To: "j.ps@openmailbox.org" <j.ps@openmailbox.org>
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:34728 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751816AbbGTTJp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 15:09:45 -0400
-Received: by pacan13 with SMTP id an13so106550236pac.1
-        for <netdev@vger.kernel.org>; Mon, 20 Jul 2015 12:09:45 -0700 (PDT)
-In-Reply-To: <55AC9E25.9050804@openmailbox.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:54715 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750737AbbGTTOg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 15:14:36 -0400
+In-Reply-To: <1437295872.1026.37.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patches are always appreciated and this looks like a real bug.
-But before I can accept it there are a couple of small
-changes needed.
+>> //Initialize time wait socket and setup timer
+>> inet_twsk_alloc() tw_refcnt = 0
+>> __inet_twsk_hashdance() tw_refcnt = 3
+>> inet_twsk_schedule() tw_refcnt = 4
+>> inet_twsk_put() tw_refcnt = 3
+>>
+>> //Receive packet 1 in timewait state
+>> tcp_timewait_state_process() -> inet_twsk_schedule tw_refcnt = 3 (no
+>> change)
+>
+> This is obviously wrong.
+>
+> If a timewait socket is found, do we increment its refcnt before
+> proceeding.
+We do not increment refcount currently when we find a timewait socket.
 
-1. There is no need to check for NULL when calling free().
-   Glibc free is documented to accept NULL as a valid request
-   and do nothing.
+> I've received some private mails about tw issues, that turned to be
+> caused by buggy drivers or buggy arch specific code.
+>
+> Are you crashed observed on x86 ?
+>
+This is observed on ARM devices. In the current debug, all time wait
+socket refcount changes were happening in TCP stack only and there was no
+platform / driver code involved.
 
-2. Please add a Signed-off-by: line with a real name.
-   Signed-off-by has legal meaning for the Developer's Certificate of Origin
-   see kernel documentation if you need more explaination.
-
-3. Although what you found is important, giving a full paragraph
-   of personal comment about it is not required. The point is software
-   should read like one source independent of who the authors are.
-   Your comment is basically just justifying using strncpy.
-
-4. Rather than strncpy() which has issues with maximal sized strings
-   consider using strlcpy() instead.
-
-5. Iproute2 uses kernel identation and style, consider running checkpatch
-   on your changes.
-
-Please fixup and resubmit to netdev.
+According to my understanding, we would need to increment the time wait
+socket refcount first before proceeding with any subsequent operations.
+However, I request your expert opinion on this.
