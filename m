@@ -1,41 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ss: fix display of raw sockets
-Date: Mon, 20 Jul 2015 14:58:39 -0700
-Message-ID: <20150720145839.79557d38@urahara>
-References: <55A64D99.9090702@beyondsemi.com>
-	<1436964642-35194-1-git-send-email-nikolay@cumulusnetworks.com>
+From: Chris Metcalf <cmetcalf@ezchip.com>
+Subject: Re: [PATCH] nohz: prevent tilegx network driver interrupts
+Date: Mon, 20 Jul 2015 18:15:44 -0400
+Message-ID: <55AD7310.40000@ezchip.com>
+References: <1436549624-16104-1-git-send-email-cmetcalf@ezchip.com>
+ <20150710182406.GC26428@lerouge> <55A0175E.2010200@ezchip.com>
+ <20150711143033.GE10257@lerouge> <55AD6684.3080607@ezchip.com>
+ <20150720214943.GC13032@lerouge>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	miham@beyondsemi.com, vadim4j@gmail.com, davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:36532 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756924AbbGTV62 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 17:58:28 -0400
-Received: by pdjr16 with SMTP id r16so109729098pdj.3
-        for <netdev@vger.kernel.org>; Mon, 20 Jul 2015 14:58:28 -0700 (PDT)
-In-Reply-To: <1436964642-35194-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Frederic Weisbecker <fweisbec@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150720214943.GC13032@lerouge>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Jul 2015 05:50:42 -0700
-Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+On 07/20/2015 05:49 PM, Frederic Weisbecker wrote:
+> On Mon, Jul 20, 2015 at 05:22:12PM -0400, Chris Metcalf wrote:
+>> On 07/11/2015 10:30 AM, Frederic Weisbecker wrote:
+>>> On Fri, Jul 10, 2015 at 03:05:02PM -0400, Chris Metcalf wrote:
+>>>> The tilegx chips typically don't do cpu offlining anyway, since
+>>>> we've never really found a usecase, so whatever you boot with
+>>>> you always have available.  We do have support for a bare-metal
+>>>> mode which you can run on some of the cores, so you may start
+>>>> with fewer than cpu_possible actually running, but it will always
+>>>> be that same set of cores.
+>>> And that bare metal mode runs out of Linux?
+>> The bare metal environment runs on cpus that have been marked
+>> as unavailable to Linux, so Linux just sees them as permanently
+>> offlined.  There is a BME driver (which we haven't upstreamed,
+>> since the BME isn't upstreamed either) that arranges to share
+>> memory between the BME and Linux.
+>>
+>> I don't think that many customers are using the BME in any
+>> case.  We push all of them towards using our dataplane mode
+>> instead, since it almost always works just as well from a
+>> performance perspective, and is easier to develop code for.
+> So bare metal mode is different than dataplane mode, right?
+> Where bare metal mode offlines the CPU and IIUC dataplane mode
+> instead uses CPUs that are available to Linux, just isolated
+> with nohz and various affinity stuff, right?
 
-> After commit 8250bc9ff4e5 ("ss: Unify inet sockets output") raw sockets
-> are displayed as udp because dgram_show_line() is used for both and
-> thus IPPROTO_UDP is used for both so proto_name() returns "udp".
-> Fix this by checking dg_proto which is set according to the caller of
-> dgram_show_line().
-> 
-> Reported-by: Miha Marolt <miham@beyondsemi.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> ---
-> note: use 0 instead of IPPROTO_RAW like Eric suggested
-> 
->  misc/ss.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
+Yes, exactly.  Cores running the bare metal environment are
+NOT running Linux at all, just talking directly to the Tilera
+hypervisor.
 
-Applied, thanks.
+-- 
+Chris Metcalf, EZChip Semiconductor
+http://www.ezchip.com
