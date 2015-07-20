@@ -1,50 +1,47 @@
-From: Frederic Weisbecker <fweisbec@gmail.com>
-Subject: Re: [PATCH] nohz: prevent tilegx network driver interrupts
-Date: Mon, 20 Jul 2015 23:49:44 +0200
-Message-ID: <20150720214943.GC13032@lerouge>
-References: <1436549624-16104-1-git-send-email-cmetcalf@ezchip.com>
- <20150710182406.GC26428@lerouge>
- <55A0175E.2010200@ezchip.com>
- <20150711143033.GE10257@lerouge>
- <55AD6684.3080607@ezchip.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next iproute2] support batching of ip route get
+ commands
+Date: Mon, 20 Jul 2015 14:56:09 -0700
+Message-ID: <20150720145609.77a0d85c@urahara>
+References: <1437005196-8914-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Chris Metcalf <cmetcalf@ezchip.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <55AD6684.3080607@ezchip.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:36466 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756835AbbGTVz7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 17:55:59 -0400
+Received: by pdjr16 with SMTP id r16so109701475pdj.3
+        for <netdev@vger.kernel.org>; Mon, 20 Jul 2015 14:55:58 -0700 (PDT)
+In-Reply-To: <1437005196-8914-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 20, 2015 at 05:22:12PM -0400, Chris Metcalf wrote:
-> On 07/11/2015 10:30 AM, Frederic Weisbecker wrote:
-> >On Fri, Jul 10, 2015 at 03:05:02PM -0400, Chris Metcalf wrote:
-> >>The tilegx chips typically don't do cpu offlining anyway, since
-> >>we've never really found a usecase, so whatever you boot with
-> >>you always have available.  We do have support for a bare-metal
-> >>mode which you can run on some of the cores, so you may start
-> >>with fewer than cpu_possible actually running, but it will always
-> >>be that same set of cores.
-> >And that bare metal mode runs out of Linux?
-> 
-> The bare metal environment runs on cpus that have been marked
-> as unavailable to Linux, so Linux just sees them as permanently
-> offlined.  There is a BME driver (which we haven't upstreamed,
-> since the BME isn't upstreamed either) that arranges to share
-> memory between the BME and Linux.
-> 
-> I don't think that many customers are using the BME in any
-> case.  We push all of them towards using our dataplane mode
-> instead, since it almost always works just as well from a
-> performance perspective, and is easier to develop code for.
+On Wed, 15 Jul 2015 17:06:36 -0700
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
 
-So bare metal mode is different than dataplane mode, right?
-Where bare metal mode offlines the CPU and IIUC dataplane mode
-instead uses CPUs that are available to Linux, just isolated
-with nohz and various affinity stuff, right?
-
-> -- 
-> Chris Metcalf, EZChip Semiconductor
-> http://www.ezchip.com
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 > 
+> This patch replaces exits with returns in
+> ip route get command handling. This allows batching
+> of ip route get commands.
+> 
+> $cat route_get_batch.txt
+> route get 10.0.14.2
+> route get 12.0.14.2
+> route get 10.0.14.4
+> 
+> $ip -batch route_get_batch.txt
+> local 10.0.14.2 dev lo  src 10.0.14.2
+>     cache <local>
+> 12.0.14.2 via 192.168.0.2 dev eth0  src 192.168.0.15
+>     cache
+> 10.0.14.4 dev dummy0  src 10.0.14.2
+>     cache
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+
+Looks good and simple, applied.
