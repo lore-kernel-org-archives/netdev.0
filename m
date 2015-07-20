@@ -1,36 +1,50 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2 -next] net: fib: use fib result when zero-length prefix
- aliases exist
-Date: Tue, 21 Jul 2015 00:25:08 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1507210022570.1631@ja.home.ssi.bg>
-References: <1437154621-18180-1-git-send-email-fw@strlen.de> <alpine.LFD.2.11.1507180045330.2410@ja.home.ssi.bg> <20150718180546.GA7835@breakpoint.cc> <alpine.LFD.2.11.1507191327090.1658@ja.home.ssi.bg> <20150719230345.GA11985@breakpoint.cc>
- <alpine.LFD.2.11.1507200938570.1481@ja.home.ssi.bg> <20150720111539.GB11985@breakpoint.cc>
+From: Frederic Weisbecker <fweisbec@gmail.com>
+Subject: Re: [PATCH] nohz: prevent tilegx network driver interrupts
+Date: Mon, 20 Jul 2015 23:49:44 +0200
+Message-ID: <20150720214943.GC13032@lerouge>
+References: <1436549624-16104-1-git-send-email-cmetcalf@ezchip.com>
+ <20150710182406.GC26428@lerouge>
+ <55A0175E.2010200@ezchip.com>
+ <20150711143033.GE10257@lerouge>
+ <55AD6684.3080607@ezchip.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:37120 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756980AbbGTVZ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jul 2015 17:25:27 -0400
-In-Reply-To: <20150720111539.GB11985@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Chris Metcalf <cmetcalf@ezchip.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <55AD6684.3080607@ezchip.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Jul 20, 2015 at 05:22:12PM -0400, Chris Metcalf wrote:
+> On 07/11/2015 10:30 AM, Frederic Weisbecker wrote:
+> >On Fri, Jul 10, 2015 at 03:05:02PM -0400, Chris Metcalf wrote:
+> >>The tilegx chips typically don't do cpu offlining anyway, since
+> >>we've never really found a usecase, so whatever you boot with
+> >>you always have available.  We do have support for a bare-metal
+> >>mode which you can run on some of the cores, so you may start
+> >>with fewer than cpu_possible actually running, but it will always
+> >>be that same set of cores.
+> >And that bare metal mode runs out of Linux?
+> 
+> The bare metal environment runs on cpus that have been marked
+> as unavailable to Linux, so Linux just sees them as permanently
+> offlined.  There is a BME driver (which we haven't upstreamed,
+> since the BME isn't upstreamed either) that arranges to share
+> memory between the BME and Linux.
+> 
+> I don't think that many customers are using the BME in any
+> case.  We push all of them towards using our dataplane mode
+> instead, since it almost always works just as well from a
+> performance perspective, and is easier to develop code for.
 
-	Hello,
+So bare metal mode is different than dataplane mode, right?
+Where bare metal mode offlines the CPU and IIUC dataplane mode
+instead uses CPUs that are available to Linux, just isolated
+with nohz and various affinity stuff, right?
 
-On Mon, 20 Jul 2015, Florian Westphal wrote:
-
-> Could you please submit your two patches (tos fix and this one)
-> formally?
-
-	In a day or two, I have to extend the patch and
-do some tests...
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+> -- 
+> Chris Metcalf, EZChip Semiconductor
+> http://www.ezchip.com
+> 
