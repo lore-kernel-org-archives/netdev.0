@@ -1,39 +1,45 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH] net: vnet: relocate netlink code section comment
-Date: Mon, 20 Jul 2015 11:51:24 -0700
-Message-ID: <CAHA+R7NEXSM_p5i3544dzcmZA3_Ey=Ly3tk7hu0okq5AJOQT3g@mail.gmail.com>
-References: <7f4c030ea15ee6217af4809c834a7cbebcd66709.1437291650.git.baruch@tkos.co.il>
-	<CAHA+R7P63k8Fy+2fcXDdj1fKhYs+CUq=AihnoF7weM3ROnLnHA@mail.gmail.com>
-	<20150720171252.GP13027@tarshish>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH v2 1/2] sctp: add new getsockopt option
+ SCTP_SOCKOPT_PEELOFF_KERNEL
+Date: Mon, 20 Jul 2015 15:53:26 -0300
+Message-ID: <20150720185326.GA2456@localhost.localdomain>
+References: <cover.1436891629.git.marcelo.leitner@gmail.com>
+ <6091a8542d13f43fbe1abfa25062d28d15b15e66.1436891629.git.marcelo.leitner@gmail.com>
+ <55A7B698.8080409@gmail.com>
+ <20150716140314.GC1855@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Baruch Siach <baruch@tkos.co.il>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f180.google.com ([209.85.160.180]:36221 "EHLO
-	mail-yk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752913AbbGTSvZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 14:51:25 -0400
-Received: by ykay190 with SMTP id y190so146138892yka.3
-        for <netdev@vger.kernel.org>; Mon, 20 Jul 2015 11:51:24 -0700 (PDT)
-In-Reply-To: <20150720171252.GP13027@tarshish>
+Received: from mx1.redhat.com ([209.132.183.28]:57684 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754032AbbGTSxa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jul 2015 14:53:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20150716140314.GC1855@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 20, 2015 at 10:12 AM, Baruch Siach <baruch@tkos.co.il> wrote:
-> Hi Cong Wang,
->
-> On Mon, Jul 20, 2015 at 10:07:00AM -0700, Cong Wang wrote:
->> On Sun, Jul 19, 2015 at 12:40 AM, Baruch Siach <baruch@tkos.co.il> wrote:
->> > The veth_setup() routine and the VETH_FEATURES macro are also part of the
->> > netlink interface (referenced from struct rtnl_link_ops). Include them under
->> > the netlink code section comment.
->>
->> Or just remove it? I don't think comment like this one is useful.
->
-> The veth.c file contain a few more separator comments. Would you suggest to
-> remove them all?
->
+On Thu, Jul 16, 2015 at 11:03:14AM -0300, Marcelo Ricardo Leitner wrote:
+> On Thu, Jul 16, 2015 at 09:50:16AM -0400, Vlad Yasevich wrote:
+...
+> > I am not familiar enough with DLM and its history, but my question is this:
+> > If dlm always peels off a socket for a new associations, why is it using
+> > 1-to-many api in the first place?  Doing a quick scan of DLM lowcoms code
+> > for sctp specific things, I see nothing that has specific dependencies
+> > on 1-to-many api.  It might be simpler to switch to using 1-to-1 api, similar
+> > to dlm tcp and eliminate this dependency.
+> > 
+> > Is that a naive point of view?
+> 
+> Not at all, that's a very good question. I also don't know much of DLM
+> code itself, I'll check that.
 
-Yes, they look all useless for me myself.
+Sounds like DLM is using 1-to-many just in an attempt to use
+multi-homing, but we can do that with 1-to-1 too. I'll draft a patch and
+see how it goes, and perhaps with that we can avoid/postpone this
+question regarding indirect call to sctp_do_peeloff by kernel.
+
+  Marcelo
