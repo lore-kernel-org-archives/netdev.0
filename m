@@ -1,118 +1,138 @@
-From: Wolfgang Walter <linux@stwm.de>
-Subject: Re: sit: Set SKB_GSO_SIT bit when performing GRO
-Date: Mon, 20 Jul 2015 11:39:52 +0200
-Message-ID: <2740217.XDs18yAg2Z@stwm.de>
-References: <17762800.UBb5paxXY3@h2o.as.studentenwerk.mhn.de> <10491450.MOzxZjY76n@stwm.de> <20150720061459.GA12023@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Tom Herbert <tom@herbertland.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next] cxgb4: Add debugfs entry to enable/disable backdoor access
+Date: Mon, 20 Jul 2015 20:24:11 +0530
+Message-ID: <1437404051-7020-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:37048 "EHLO
-	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753341AbbGTJjz convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jul 2015 05:39:55 -0400
-In-Reply-To: <20150720061459.GA12023@gondor.apana.org.au>
+Received: from stargate.chelsio.com ([67.207.112.58]:18404 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751949AbbGTJkG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 05:40:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Montag, 20. Juli 2015, 14:14:59 schrieb Herbert Xu:
-> On Fri, Jul 17, 2015 at 05:38:30PM +0200, Wolfgang Walter wrote:
-> > eth1 stops sending with the patch after some time
-> > disabling gro on eth0 helps
-> > disabling tso or gso on eth0 and/or eth1 or both does not help
-> >=20
-> > eth0 and eth1 are both intel I350.
->=20
-> What does ethtool -k eth1 say?
+Add debugfs entry 'use_backdoor' to enable/disable backdoor access
+to read sge context. By default, we read sge context's via firmware. In
+case of FW issues, one can enable backdoor access via debugfs to dump
+sge context for debugging purpose.
 
-With TSO enabled:
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |  7 +++++--
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         | 19 ++++++++++++-------
+ 3 files changed, 18 insertions(+), 9 deletions(-)
 
-# ethtool -k eth0
-=46eatures for eth0:
-rx-checksumming: on
-tx-checksumming: on
-        tx-checksum-ipv4: on
-        tx-checksum-ip-generic: off [fixed]
-        tx-checksum-ipv6: on
-        tx-checksum-fcoe-crc: off [fixed]
-        tx-checksum-sctp: on
-scatter-gather: on
-        tx-scatter-gather: on
-        tx-scatter-gather-fraglist: off [fixed]
-tcp-segmentation-offload: on
-        tx-tcp-segmentation: on
-        tx-tcp-ecn-segmentation: off [fixed]
-        tx-tcp6-segmentation: on
-udp-fragmentation-offload: off [fixed]                                 =
-        =20
-generic-segmentation-offload: on
-generic-receive-offload: on
-large-receive-offload: off [fixed]
-rx-vlan-offload: on
-tx-vlan-offload: on
-ntuple-filters: off [fixed]
-receive-hashing: on
-highdma: on [fixed]
-rx-vlan-filter: on [fixed]
-vlan-challenged: off [fixed]
-tx-lockless: off [fixed]
-netns-local: off [fixed]
-tx-gso-robust: off [fixed]
-tx-fcoe-segmentation: off [fixed]
-tx-gre-segmentation: off [fixed]
-tx-ipip-segmentation: off [fixed]
-tx-sit-segmentation: off [fixed]
-tx-udp_tnl-segmentation: off [fixed]
-fcoe-mtu: off [fixed]
-tx-nocache-copy: off
-loopback: off [fixed]
-rx-fcs: off [fixed]
-rx-all: off
-tx-vlan-stag-hw-insert: off [fixed]
-rx-vlan-stag-hw-parse: off [fixed]
-rx-vlan-stag-filter: off [fixed]
-l2-fwd-offload: off [fixed]
-busy-poll: off [fixed]
-hw-switch-offload: off [fixed]
-
->=20
-> Can you confirm that disabling tso on eth1 does not help?
-
-Disabling TSO on eth1 does not help.
-
->=20
-> Because the most plausible explanation is that we're feeding
-> some bogus TSO packet to the hardware causing a tx lockup.
-
-I run the unpatched 4.1.2 again since saturday without look. With your =
-patch=20
-the network card hangs within 10 minutes or so.
-
-On the other hand I run the the patched kernel on serveral other router=
-s (same=20
-hardware, by the way) without problems.
-
-So maybe the problem is that the former one routes GRE-tunnel-packets w=
-hich=20
-contains ISATAP packets. I don't know how deep GRO/GSO inspects a packe=
-t.
-
->=20
-> But in any case if it is a hardware lockup then it's no longer
-> just a pure software bug.  No matter what we do in the stack
-> the hardware should not lock up (unless of course we're feeding
-> it something that's completely bogus).
->=20
-> If we can't figure this out then the safest solution would be
-> to disable tunnel GRO completely because it's broken as it stands.
->=20
-> Cheers,
-
-Regards,
---=20
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 629f75d..58de444 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -767,6 +767,7 @@ struct adapter {
+ 	bool tid_release_task_busy;
+ 
+ 	struct dentry *debugfs_root;
++	u32 use_bd;     /* Use SGE Back Door intfc for reading SGE Contexts */
+ 
+ 	spinlock_t stats_lock;
+ 	spinlock_t win0_lock ____cacheline_aligned_in_smp;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+index b135d05..5b525a7 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+@@ -2386,8 +2386,11 @@ int t4_setup_debugfs(struct adapter *adap)
+ 					EXT_MEM_SIZE_G(size));
+ 	}
+ 
+-	de = debugfs_create_file_size("flash", S_IRUSR, adap->debugfs_root, adap,
+-				      &flash_debugfs_fops, adap->params.sf_size);
++	de = debugfs_create_file_size("flash", S_IRUSR, adap->debugfs_root,
++				      adap, &flash_debugfs_fops,
++				      adap->params.sf_size);
++	debugfs_create_bool("use_backdoor", S_IWUSR | S_IRUSR,
++			    adap->debugfs_root, &adap->use_bd);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 1e6597d..f8f446e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -3689,6 +3689,11 @@ int t4_read_rss(struct adapter *adapter, u16 *map)
+ 	return 0;
+ }
+ 
++static unsigned int t4_use_ldst(struct adapter *adap)
++{
++	return (adap->flags & FW_OK) || (!adap->use_bd);
++}
++
+ /**
+  *	t4_fw_tp_pio_rw - Access TP PIO through LDST
+  *	@adap: the adapter
+@@ -3732,7 +3737,7 @@ static void t4_fw_tp_pio_rw(struct adapter *adap, u32 *vals, unsigned int nregs,
+  */
+ void t4_read_rss_key(struct adapter *adap, u32 *key)
+ {
+-	if (adap->flags & FW_OK)
++	if (t4_use_ldst(adap))
+ 		t4_fw_tp_pio_rw(adap, key, 10, TP_RSS_SECRET_KEY0_A, 1);
+ 	else
+ 		t4_read_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A, key, 10,
+@@ -3762,7 +3767,7 @@ void t4_write_rss_key(struct adapter *adap, const u32 *key, int idx)
+ 	    (vrt & KEYEXTEND_F) && (KEYMODE_G(vrt) == 3))
+ 		rss_key_addr_cnt = 32;
+ 
+-	if (adap->flags & FW_OK)
++	if (t4_use_ldst(adap))
+ 		t4_fw_tp_pio_rw(adap, (void *)key, 10, TP_RSS_SECRET_KEY0_A, 0);
+ 	else
+ 		t4_write_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A, key, 10,
+@@ -3791,7 +3796,7 @@ void t4_write_rss_key(struct adapter *adap, const u32 *key, int idx)
+ void t4_read_rss_pf_config(struct adapter *adapter, unsigned int index,
+ 			   u32 *valp)
+ {
+-	if (adapter->flags & FW_OK)
++	if (t4_use_ldst(adapter))
+ 		t4_fw_tp_pio_rw(adapter, valp, 1,
+ 				TP_RSS_PF0_CONFIG_A + index, 1);
+ 	else
+@@ -3831,7 +3836,7 @@ void t4_read_rss_vf_config(struct adapter *adapter, unsigned int index,
+ 
+ 	/* Grab the VFL/VFH values ...
+ 	 */
+-	if (adapter->flags & FW_OK) {
++	if (t4_use_ldst(adapter)) {
+ 		t4_fw_tp_pio_rw(adapter, vfl, 1, TP_RSS_VFL_CONFIG_A, 1);
+ 		t4_fw_tp_pio_rw(adapter, vfh, 1, TP_RSS_VFH_CONFIG_A, 1);
+ 	} else {
+@@ -3852,7 +3857,7 @@ u32 t4_read_rss_pf_map(struct adapter *adapter)
+ {
+ 	u32 pfmap;
+ 
+-	if (adapter->flags & FW_OK)
++	if (t4_use_ldst(adapter))
+ 		t4_fw_tp_pio_rw(adapter, &pfmap, 1, TP_RSS_PF_MAP_A, 1);
+ 	else
+ 		t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
+@@ -3870,7 +3875,7 @@ u32 t4_read_rss_pf_mask(struct adapter *adapter)
+ {
+ 	u32 pfmask;
+ 
+-	if (adapter->flags & FW_OK)
++	if (t4_use_ldst(adapter))
+ 		t4_fw_tp_pio_rw(adapter, &pfmask, 1, TP_RSS_PF_MSK_A, 1);
+ 	else
+ 		t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
+@@ -6275,7 +6280,7 @@ int t4_init_tp_params(struct adapter *adap)
+ 	/* Cache the adapter's Compressed Filter Mode and global Incress
+ 	 * Configuration.
+ 	 */
+-	if (adap->flags & FW_OK) {
++	if (t4_use_ldst(adap)) {
+ 		t4_fw_tp_pio_rw(adap, &adap->params.tp.vlan_pri_map, 1,
+ 				TP_VLAN_PRI_MAP_A, 1);
+ 		t4_fw_tp_pio_rw(adap, &adap->params.tp.ingress_config, 1,
+-- 
+2.3.4
