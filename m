@@ -1,74 +1,94 @@
 From: Lucas Stach <l.stach@pengutronix.de>
-Subject: [PATCH] net: fec: fix runtime PM when probing MII bus
-Date: Mon, 20 Jul 2015 15:48:14 +0200
-Message-ID: <1437400094-11453-1-git-send-email-l.stach@pengutronix.de>
+Subject: [PATCH 2/2] net: fec: introduce fec_ptp_stop and use in probe fail path
+Date: Mon, 20 Jul 2015 15:51:38 +0200
+Message-ID: <1437400298-17379-2-git-send-email-l.stach@pengutronix.de>
+References: <1437400298-17379-1-git-send-email-l.stach@pengutronix.de>
 Cc: Duan Andy <fugang.duan@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>,
-	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	Frank Li <Frank.Li@freescale.com>, netdev@vger.kernel.org,
 	kernel@pengutronix.de, patchwork-lst@pengutronix.de
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:53447 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:59612 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751681AbbGTNsW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 09:48:22 -0400
+	with ESMTP id S1751333AbbGTNvm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 09:51:42 -0400
+In-Reply-To: <1437400298-17379-1-git-send-email-l.stach@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the case where there is no "mdio" bus specified in the devicetree a plain
-mdiobus_register() will be called, which tries to probe the connected PHY
-by doing mdio_read() on the bus.
-Since 6c3e921b18ed (net: fec: Ensure clocks are enabled while using mdio bus)
-this needs runtime PM to be available, but as RPM is only later set up in the
-FEC probe function those calls will fail, which in turn prevents the FEC
-driver to be registered successfully.
+This function frees resources and cancels delayed work item that
+have been initialized in fec_ptp_init().
 
-Fix this by moving the RPM setup calls before the MII bus probing.
-
-Also move autosuspend init calls before runtime_pm_enable() so that the RPM
-callbacks aren't invoked several times during the probe function.
+Use this to do proper error handling if something goes wrong in
+probe function after fec_ptp_init has been called.
 
 Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
 ---
-The offending commit got in with v4.2-rc3, so this should be applied as
-a fix for 4.2.
----
- drivers/net/ethernet/freescale/fec_main.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/freescale/fec.h      |  1 +
+ drivers/net/ethernet/freescale/fec_main.c |  5 ++---
+ drivers/net/ethernet/freescale/fec_ptp.c  | 10 ++++++++++
+ 3 files changed, 13 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 1eee73cccdf5..99d33e2d35e6 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -562,6 +562,7 @@ struct fec_enet_private {
+ };
+ 
+ void fec_ptp_init(struct platform_device *pdev);
++void fec_ptp_stop(struct platform_device *pdev);
+ void fec_ptp_start_cyclecounter(struct net_device *ndev);
+ int fec_ptp_set(struct net_device *ndev, struct ifreq *ifr);
+ int fec_ptp_get(struct net_device *ndev, struct ifreq *ifr);
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 42e20e5385ac..349365d85b92 100644
+index b3287c6b069b..7526e4cf62fe 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -3431,6 +3431,11 @@ fec_probe(struct platform_device *pdev)
- 		fep->reg_phy = NULL;
- 	}
+@@ -3494,6 +3494,7 @@ failed_register:
+ failed_mii_init:
+ failed_irq:
+ failed_init:
++	fec_ptp_stop(pdev);
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+ failed_regulator:
+@@ -3515,14 +3516,12 @@ fec_drv_remove(struct platform_device *pdev)
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
  
-+	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
-+	pm_runtime_use_autosuspend(&pdev->dev);
-+	pm_runtime_set_active(&pdev->dev);
-+	pm_runtime_enable(&pdev->dev);
+-	cancel_delayed_work_sync(&fep->time_keep);
+ 	cancel_work_sync(&fep->tx_timeout_work);
++	fec_ptp_stop(pdev);
+ 	unregister_netdev(ndev);
+ 	fec_enet_mii_remove(fep);
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+-	if (fep->ptp_clock)
+-		ptp_clock_unregister(fep->ptp_clock);
+ 	of_node_put(fep->phy_node);
+ 	free_netdev(ndev);
+ 
+diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+index a15663ad7f5e..f457a23d0bfb 100644
+--- a/drivers/net/ethernet/freescale/fec_ptp.c
++++ b/drivers/net/ethernet/freescale/fec_ptp.c
+@@ -604,6 +604,16 @@ void fec_ptp_init(struct platform_device *pdev)
+ 	schedule_delayed_work(&fep->time_keep, HZ);
+ }
+ 
++void fec_ptp_stop(struct platform_device *pdev)
++{
++	struct net_device *ndev = platform_get_drvdata(pdev);
++	struct fec_enet_private *fep = netdev_priv(ndev);
 +
- 	fec_reset_phy(pdev);
- 
- 	if (fep->bufdesc_ex)
-@@ -3465,8 +3470,6 @@ fec_probe(struct platform_device *pdev)
- 	netif_carrier_off(ndev);
- 	fec_enet_clk_enable(ndev, false);
- 	pinctrl_pm_select_sleep_state(&pdev->dev);
--	pm_runtime_set_active(&pdev->dev);
--	pm_runtime_enable(&pdev->dev);
- 
- 	ret = register_netdev(ndev);
- 	if (ret)
-@@ -3481,8 +3484,6 @@ fec_probe(struct platform_device *pdev)
- 	fep->rx_copybreak = COPYBREAK_DEFAULT;
- 	INIT_WORK(&fep->tx_timeout_work, fec_enet_timeout_work);
- 
--	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
--	pm_runtime_use_autosuspend(&pdev->dev);
- 	pm_runtime_mark_last_busy(&pdev->dev);
- 	pm_runtime_put_autosuspend(&pdev->dev);
- 
++	cancel_delayed_work_sync(&fep->time_keep);
++	if (fep->ptp_clock)
++		ptp_clock_unregister(fep->ptp_clock);
++}
++
+ /**
+  * fec_ptp_check_pps_event
+  * @fep: the fec_enet_private structure handle
 -- 
 2.1.4
