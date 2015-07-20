@@ -1,40 +1,49 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: Re: [PATCH] net: vnet: relocate netlink code section comment
-Date: Mon, 20 Jul 2015 20:12:52 +0300
-Message-ID: <20150720171252.GP13027@tarshish>
-References: <7f4c030ea15ee6217af4809c834a7cbebcd66709.1437291650.git.baruch@tkos.co.il>
- <CAHA+R7P63k8Fy+2fcXDdj1fKhYs+CUq=AihnoF7weM3ROnLnHA@mail.gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next 14/22] vxlan: Flow based tunneling
+Date: Mon, 20 Jul 2015 14:15:22 -0300
+Message-ID: <20150720171522.GA14393@localhost.localdomain>
+References: <cover.1437137396.git.tgraf@suug.ch>
+ <f5cf9490a8f114416ec24e9e1de190d6640f25f0.1437137396.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
+Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
+	ebiederm@xmission.com, hannes@stressinduktion.org,
+	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
+	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
+	jiri@resnulli.us, stephen@networkplumber.org, jpettit@nicira.com,
+	kaber@trash.net, simon.horman@netronome.com,
+	joestringer@nicira.com, ja@ssi.bg, ast@plumgrid.com,
+	weichunc@plumgrid.com, netdev@vger.kernel.org, dev@openvswitch.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from guitar.tcltek.co.il ([192.115.133.116]:34885 "EHLO
-	mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756136AbbGTRM5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jul 2015 13:12:57 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:43963 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755224AbbGTRPc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jul 2015 13:15:32 -0400
 Content-Disposition: inline
-In-Reply-To: <CAHA+R7P63k8Fy+2fcXDdj1fKhYs+CUq=AihnoF7weM3ROnLnHA@mail.gmail.com>
+In-Reply-To: <f5cf9490a8f114416ec24e9e1de190d6640f25f0.1437137396.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Cong Wang,
+On Fri, Jul 17, 2015 at 02:55:33PM +0200, Thomas Graf wrote:
 
-On Mon, Jul 20, 2015 at 10:07:00AM -0700, Cong Wang wrote:
-> On Sun, Jul 19, 2015 at 12:40 AM, Baruch Siach <baruch@tkos.co.il> wrote:
-> > The veth_setup() routine and the VETH_FEATURES macro are also part of the
-> > netlink interface (referenced from struct rtnl_link_ops). Include them under
-> > the netlink code section comment.
-> 
-> Or just remove it? I don't think comment like this one is useful.
+[ snip ]
 
-The veth.c file contain a few more separator comments. Would you suggest to 
-remove them all?
+> @@ -2373,6 +2470,12 @@ static void vxlan_setup(struct net_device *dev)
+>  	netif_keep_dst(dev);                     ---> (a)
+>  	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+>  
+> +	/* If in flow based mode, keep the dst including encapsulation
+> +	 * instructions for vxlan_xmit().
+> +	 */
+> +	if (vxlan->flags & VXLAN_F_FLOW_BASED)
+> +		netif_keep_dst(dev);             ---> (b)
+> +
+>  	INIT_LIST_HEAD(&vxlan->next);
+>  	spin_lock_init(&vxlan->hash_lock);
+>  
 
-baruch
+Sounds like after 0287587884b1 ("net: better IFF_XMIT_DST_RELEASE
+support"), which introduced (a) above, (b) is not needed?
 
--- 
-     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
+  Marcelo
