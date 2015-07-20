@@ -1,40 +1,43 @@
-From: Andreas Schwab <schwab@linux-m68k.org>
-Subject: Re: "ss -p" segfaults
-Date: Mon, 20 Jul 2015 20:14:17 +0200
-Message-ID: <87mvyqelxi.fsf@igel.home>
-References: <55AC9E8C.7040200@openmailbox.org>
-	<55AD3073.3000302@openmailbox.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v3 0/5] switchdev: avoid duplicate packet
+ forwarding
+Date: Mon, 20 Jul 2015 20:08:55 +0200
+Message-ID: <20150720180855.GH14842@lunn.ch>
+References: <1437269092-17669-1-git-send-email-sfeldma@gmail.com>
+ <55AD3687.9010002@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: "j.ps\@openmailbox.org" <j.ps@openmailbox.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org, jiri@resnulli.us,
+	roopa@cumulusnetworks.com, simon.horman@netronome.com,
+	nicolas.dichtel@6wind.com, vivien.didelot@savoirfairelinux.com,
+	linux@roeck-us.net
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:34917 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751262AbbGTSOU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 14:14:20 -0400
-In-Reply-To: <55AD3073.3000302@openmailbox.org> (j.ps@openmailbox.org's
-	message of "Mon, 20 Jul 2015 18:31:31 +0100")
+Received: from vps0.lunn.ch ([178.209.37.122]:44432 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753183AbbGTSPb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jul 2015 14:15:31 -0400
+Content-Disposition: inline
+In-Reply-To: <55AD3687.9010002@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"j.ps@openmailbox.org" <j.ps@openmailbox.org> writes:
+> This looks good to me, and it looks like this is also relevant for
+> DSA-driven switches, however I am not exactly clear on how we could
+> potentially use this on such switches.
+> 
+> For Broadcom tags, there is a reason code forwarded along with the tag
+> making it to the CPU, and the "mirror" bit sounds like something that
+> should dictate whether we should be setting the fwd_mark or not.
+> 
+> What does it look like on Marvell switches?
 
-> -			free(p->process);
-> -			free(p->process_ctx);
-> -			free(p->socket_ctx);
-> +			if (p->process)
-> +				free(p->process);
-> +			if (p->process_ctx)
-> +				free(p->process_ctx);
-> +			if (p->socket_ctx)
-> +				free(p->socket_ctx);
+Hi Florian
 
-free(NULL) is a no-op.
+There are some bits indicating some status information. But these are
+more to do with BDPU, IGMP/MLD and ARP.
 
-Andreas.
+I've not yet had time to dig into the details here. I suspect the D in
+DSA is going to make this very interesting.
 
--- 
-Andreas Schwab, schwab@linux-m68k.org
-GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+    Andrew
