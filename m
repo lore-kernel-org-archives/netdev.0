@@ -1,51 +1,74 @@
-From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Subject: RE: [RFC,v3,12/12] fsl/fman: Add FMan MAC driver
-Date: Mon, 20 Jul 2015 13:33:29 +0000
-Message-ID: <BL2PR03MB545971A75540877E4B4FFD3E6850@BL2PR03MB545.namprd03.prod.outlook.com>
-References: <1430299742-29428-1-git-send-email-igal.liberman@freescale.com>
-	 <1437394575.10831.18.camel@transmode.se>
-	 <BL2PR03MB5450DB021D160D507432FC5E6850@BL2PR03MB545.namprd03.prod.outlook.com>
- <1437397042.10831.34.camel@transmode.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Liberman Igal <Igal.Liberman@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1437397042.10831.34.camel@transmode.se>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lucas Stach <l.stach@pengutronix.de>
+Subject: [PATCH] net: fec: fix runtime PM when probing MII bus
+Date: Mon, 20 Jul 2015 15:48:14 +0200
+Message-ID: <1437400094-11453-1-git-send-email-l.stach@pengutronix.de>
+Cc: Duan Andy <fugang.duan@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	kernel@pengutronix.de, patchwork-lst@pengutronix.de
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:53447 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751681AbbGTNsW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 09:48:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Joakim Tjernlund [mailto:joakim.tjernlund@transmode.se]
-> Sent: Monday, July 20, 2015 3:57 PM
-> To: netdev@vger.kernel.org; Liberman Igal-B31950; Bucur Madalin-Cristian-
-> B32716
-> Cc: linuxppc-dev@lists.ozlabs.org; linux-kernel@vger.kernel.org
-> Subject: Re: [RFC,v3,12/12] fsl/fman: Add FMan MAC driver
-> 
-> On Mon, 2015-07-20 at 12:28 +0000, Madalin-Cristian Bucur wrote:
-> > Hi Joakim,
-> >
-> > It seems we just need to align to the API introduced by Thomas Petazzoni
-> > in 3be2a49e.
-> >
-> > Madalin
-> 
-> So it seems, any idea when the next spin will be ready?
-> Could you also push it onto
->   http://git.freescale.com/git/cgit.cgi/ppc/upstream/linux.git/
-> ?
-> 
->  Jocke
+In the case where there is no "mdio" bus specified in the devicetree a plain
+mdiobus_register() will be called, which tries to probe the connected PHY
+by doing mdio_read() on the bus.
+Since 6c3e921b18ed (net: fec: Ensure clocks are enabled while using mdio bus)
+this needs runtime PM to be available, but as RPM is only later set up in the
+FEC probe function those calls will fail, which in turn prevents the FEC
+driver to be registered successfully.
 
-We're working on addressing all the feedback received to date (you've just added
-a bit more) then we'll re-submit the FMan driver together with the DPAA Ethernet
-driver. A push in the public git is also going to take place after the patches are sent
-for review.
+Fix this by moving the RPM setup calls before the MII bus probing.
 
-Madalin
+Also move autosuspend init calls before runtime_pm_enable() so that the RPM
+callbacks aren't invoked several times during the probe function.
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+The offending commit got in with v4.2-rc3, so this should be applied as
+a fix for 4.2.
+---
+ drivers/net/ethernet/freescale/fec_main.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 42e20e5385ac..349365d85b92 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -3431,6 +3431,11 @@ fec_probe(struct platform_device *pdev)
+ 		fep->reg_phy = NULL;
+ 	}
+ 
++	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
++	pm_runtime_use_autosuspend(&pdev->dev);
++	pm_runtime_set_active(&pdev->dev);
++	pm_runtime_enable(&pdev->dev);
++
+ 	fec_reset_phy(pdev);
+ 
+ 	if (fep->bufdesc_ex)
+@@ -3465,8 +3470,6 @@ fec_probe(struct platform_device *pdev)
+ 	netif_carrier_off(ndev);
+ 	fec_enet_clk_enable(ndev, false);
+ 	pinctrl_pm_select_sleep_state(&pdev->dev);
+-	pm_runtime_set_active(&pdev->dev);
+-	pm_runtime_enable(&pdev->dev);
+ 
+ 	ret = register_netdev(ndev);
+ 	if (ret)
+@@ -3481,8 +3484,6 @@ fec_probe(struct platform_device *pdev)
+ 	fep->rx_copybreak = COPYBREAK_DEFAULT;
+ 	INIT_WORK(&fep->tx_timeout_work, fec_enet_timeout_work);
+ 
+-	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
+-	pm_runtime_use_autosuspend(&pdev->dev);
+ 	pm_runtime_mark_last_busy(&pdev->dev);
+ 	pm_runtime_put_autosuspend(&pdev->dev);
+ 
+-- 
+2.1.4
