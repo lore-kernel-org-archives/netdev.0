@@ -1,48 +1,81 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2 0/2] sctp: fix src address selection if using
- secondary address
-Date: Mon, 20 Jul 2015 10:43:02 -0400
-Message-ID: <20150720144302.GB10706@hmsreliant.think-freely.org>
-References: <cover.1437145508.git.marcelo.leitner@gmail.com>
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: Re: [RFC PATCH 0/2] net: macb: Add mdio driver for accessing multiple
+ phy devices
+Date: Mon, 20 Jul 2015 15:30:36 +0200
+Message-ID: <55ACF7FC.4020408@xilinx.com>
+References: <1436762920-32107-1-git-send-email-punnaia@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: harinik@xilinx.com, kpc528@gmail.com,
+	kalluripunnaiahchoudary@gmail.com, netdev@vger.kernel.org,
+	Punnaiah Choudary Kalluri <punnaia@xilinx.com>
+To: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>,
+	nicolas.ferre@atmel.com, anirudh@xilinx.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:54583 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932307AbbGTOnJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 10:43:09 -0400
-Content-Disposition: inline
-In-Reply-To: <cover.1437145508.git.marcelo.leitner@gmail.com>
+Received: from mail-bl2on0056.outbound.protection.outlook.com ([65.55.169.56]:7282
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932604AbbGTPEZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jul 2015 11:04:25 -0400
+In-Reply-To: <1436762920-32107-1-git-send-email-punnaia@xilinx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 17, 2015 at 12:34:16PM -0300, Marcelo Ricardo Leitner wrote:
-> This series improves the way SCTP chooses its src address so that the
-> choosen one will always belong to the interface being used for output.
-> 
-> v1->v2:
->  - split out the refactoring from the fix itself
->  - Doing a full reverse routing as in v1 is not necessary. Only looking
->    for the interface that has the address and comparing its number is
->    enough.
-> 
-> Marcelo Ricardo Leitner (2):
->   sctp: reduce indent level on sctp_v4_get_dst
->   sctp: fix src address selection if using secondary addresses
-> 
->  net/sctp/protocol.c | 42 +++++++++++++++++++++++++++---------------
->  1 file changed, 27 insertions(+), 15 deletions(-)
-> 
-> -- 
-> 2.4.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Hi Nicolas,
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+have you had a time to look at this?
+
+Thanks,
+Michal
+
+On 07/13/2015 06:48 AM, Punnaiah Choudary Kalluri wrote:
+> This patch is to add support for the design that has multiple ethernet
+> mac controllers and single mdio bus connected to multiple phy devices.
+> i.e mdio lines are connected to any of the ethernet mac controller and
+> all the phy devices will be accessed using the phy maintenance interface
+> in that mac controller.
+> 
+>  ______                   _____
+> |      |                 |PHY0 |
+> | MAC0 |-----------------|     |
+> |______|       |         |_____|
+>                |           
+>  ______        |          _____
+> |      |       |         |     |
+> | MAC1 |       |_________|PHY1 | 
+> |______|                 |____ |
+> 
+> So, i come up with two implementations for addressing the above configuration.
+> 
+> Implementation 1:
+>  Have separate driver for mdio bus
+>  Create a DT node for all the PHY devices connected to the mdio bus
+>  This driver will share the register space of the mac controller that has
+>  mdio bus connected.  
+> 
+> Implementation 2:
+>  Add new property "has-mdio" and it should be 1 for the mac that has mdio bus
+>  connected.
+>  Create the mdio bus only when the has-mdio property is 1
+> 
+> Please review the two implementations and suggest which one is better to proceed
+> further. In my opinion implementation 1 will be the ideal one.
+> 
+> Currently i have tested the patches with single mac and single phy
+> configuration. I need to take care of few more cases before releasing the final patch
+> but before that i would like to have your opinion on the above implementations
+> and finalize one implementation. so that i can enhance it further.
+> 
+> Punnaiah Choudary Kalluri (1):
+>   net: macb: Add mdio driver for accessing multiple phy devices
+>   net: macb: Add support for single mac managing more than one phy
+> 
+> 
+>  drivers/net/ethernet/cadence/Makefile    |    2 +-
+>  drivers/net/ethernet/cadence/macb.c      |   93 +-------------
+>  drivers/net/ethernet/cadence/macb.h      |    3 +-
+>  drivers/net/ethernet/cadence/macb_mdio.c |  204 ++++++++++++++++++++++++++++++
+>  4 files changed, 211 insertions(+), 91 deletions(-)
+>  create mode 100644 drivers/net/ethernet/cadence/macb_mdio.c
+> 
