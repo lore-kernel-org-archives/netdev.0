@@ -1,40 +1,45 @@
-From: Julien Grall <julien.grall@citrix.com>
-Subject: Re: [Xen-devel] [PATCH v2 17/20] net/xen-netfront: Make it running
- on 64KB page granularity
-Date: Mon, 20 Jul 2015 18:26:06 +0100
-Message-ID: <55AD2F2E.9090204@citrix.com>
-References: <1436474552-31789-1-git-send-email-julien.grall@citrix.com>
- <1436474552-31789-18-git-send-email-julien.grall@citrix.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: drivers/net/phy/dp83867.c:167: possible bad if ?
+Date: Mon, 20 Jul 2015 10:28:38 -0700
+Message-ID: <55AD2FC6.60508@gmail.com>
+References: <DUB128-W6216BE4A8E21E94EEB06DE9C850@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <ian.campbell@citrix.com>, <netdev@vger.kernel.org>,
-	<stefano.stabellini@eu.citrix.com>, <linux-kernel@vger.kernel.org>,
-	"David Vrabel" <david.vrabel@citrix.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	<linux-arm-kernel@lists.infradead.org>
-To: <xen-devel@lists.xenproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1436474552-31789-18-git-send-email-julien.grall@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: David Binderman <dcb314@hotmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, dmurphy@ti.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34831 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756431AbbGTRac (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 13:30:32 -0400
+Received: by pabkd10 with SMTP id kd10so32352822pab.2
+        for <netdev@vger.kernel.org>; Mon, 20 Jul 2015 10:30:32 -0700 (PDT)
+In-Reply-To: <DUB128-W6216BE4A8E21E94EEB06DE9C850@phx.gbl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Adding Dan,
 
-On 09/07/15 21:42, Julien Grall wrote:
-> +static void xennet_make_one_txreq(unsigned long mfn, unsigned int offset,
-> +				  unsigned int *len, void *data)
-> +{
-> +	struct xennet_gnttab_make_txreq *info = data;
-> +
-> +	info->tx->flags |= XEN_NETTXF_more_data;
-> +	skb_get(info->skb);
-> +	xennet_make_one_txreq(mfn, offset, len, data);
+On 20/07/15 05:37, David Binderman wrote:
+> Hello there,
+>=20
+> drivers/net/phy/dp83867.c:167:57: warning: logical =E2=80=98or=E2=80=99=
+ of collectively exhaustive tests is always true [-Wlogical-op]
+>=20
+> Source code is
+>=20
+>     if ((phydev->interface>=3D PHY_INTERFACE_MODE_RGMII_ID) ||
+>         (phydev->interface <=3D PHY_INTERFACE_MODE_RGMII_RXID)) {
+>=20
+> Maybe
+>=20
+>     if ((phydev->interface>=3D PHY_INTERFACE_MODE_RGMII_ID) &&
+>         (phydev->interface <=3D PHY_INTERFACE_MODE_RGMII_RXID)) {
 
-This should be xennet_tx_setup_grant rather than calling itself. I did
-the mistake while cleaning up the code sorry.
-
-Regards,
-
--- 
-Julien Grall
+Sounds like the former is the intended comparison that will make sure
+that phydev->interface is between MODE_RGMII_ID and MODE_RGMII_RXID, an=
+d
+not below or after.
+--=20
+=46lorian
