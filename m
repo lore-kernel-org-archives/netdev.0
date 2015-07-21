@@ -1,43 +1,50 @@
-From: Sowmini Varadhan <sowmini05@gmail.com>
-Subject: Re: ARP response with link local IP, why not broadcast
-Date: Tue, 21 Jul 2015 21:39:06 +0200
-Message-ID: <CACP96tRrCzFwTC-fSMxGTWr+zFSkid=Bd6JkGZA822HbEjk4_Q@mail.gmail.com>
-References: <55AE5958.3020009@gmx.de>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: [PATCH net v5 0/4] net: enable inband link state negotiation only when explicitly requested
+Date: Tue, 21 Jul 2015 22:18:00 +0200
+Message-ID: <87vbddmfif.fsf@natisbad.org>
+References: <1437439798-12622-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Sebastian Fett <db_extern@gmx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:37072 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752230AbbGUTjH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 15:39:07 -0400
-Received: by wibud3 with SMTP id ud3so140494610wib.0
-        for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 12:39:06 -0700 (PDT)
-In-Reply-To: <55AE5958.3020009@gmx.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, mxs@sbrk.org,
+	devicetree@vger.kernel.org, thomas.petazzoni@free-electrons.com
+To: Florian Fainelli <f.fainelli@gmail.com>, stsp@users.sourceforge.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 21, 2015 at 4:38 PM, Sebastian Fett <db_extern@gmx.de> wrote:
-> Hello!
+Hi guys,
+
+Florian Fainelli <f.fainelli@gmail.com> writes:
+
+> Changes in v5:
 >
-> According to RFC3927 every ARP packet (reply and request) should be sent as
-> link layer broadcast as long as the sender IP is a link local address. (see
-> chapter 2.5).
-
-Because broadcast replies are noisy and should be avoided.
-if possible- it creates a broadcast flood that would wake up all receivers,
-and is especially undesirable in today's world, where bcast would wake
-up sleepy devices, or require other inefficient processes in a cloud env.
-See also https://www.ietf.org/id/draft-nordmark-6man-dad-approaches-01.txt
-
-> That functionality would help me a lot with a use case I have with our
-> application.
-
-what is your use case?
-
+> - removed an invalid use of the link_update callback in the SF2 driver
+>   was appeared after merging "net: phy: fixed_phy: handle link-down case"
 >
-> But it is not implemented in the kernel that way.
-> Does anyone know why?
+> - reworded the commit message for patch 2 to make it clear what it fixes and
+>   why this is required
+>
+> Initial cover letter from Stas:
+>
+> Hello.
+>
+> Currently the link status auto-negotiation is enabled
+> for any SGMII link with fixed-link DT binding.
+> The regression was reported:
+> https://lkml.org/lkml/2015/7/8/865
+> Apparently not all HW that implements SGMII protocol, generates the
+> inband status for the auto-negotiation to work.
+> More details here:
+> https://lkml.org/lkml/2015/7/10/206
+>
+> The following patches reverts to the old behavior by default,
+> which is to not enable the auto-negotiation for fixed-link.
+> The new DT property is added that allows to explicitly request
+> the auto-negotiation.
 
---Sowmini
+FWIW, I tested this v5 series on mirabox (2 mvneta interfaces using
+RGMII); both interfaces still work as expected, i.e. no regression
+on my side.
+
+a+
