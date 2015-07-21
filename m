@@ -1,61 +1,49 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Subject: Re: [PATCH net v2] macvtap: fix network header pointer for VLAN tagged
- pkts
-Date: Tue, 21 Jul 2015 23:44:58 +0900
-Message-ID: <55AE5AEA.5010802@gmail.com>
-References: <1437463115-2881-1-git-send-email-ivecera@redhat.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH] netcp:Fix error handling in the function netcp_xgbe_serdes_config
+Date: Tue, 21 Jul 2015 10:57:24 -0400
+Message-ID: <55AE5DD4.3060304@ti.com>
+References: <1437407684-1750-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com
-To: Ivan Vecera <ivecera@redhat.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36349 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932067AbbGUOpD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 10:45:03 -0400
-Received: by pachj5 with SMTP id hj5so121623064pac.3
-        for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 07:45:02 -0700 (PDT)
-In-Reply-To: <1437463115-2881-1-git-send-email-ivecera@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Nicholas Krause <xerofoify@gmail.com>, <w-kwok2@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437407684-1750-1-git-send-email-xerofoify@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 15/07/21 (火) 16:18, Ivan Vecera wrote:
-> Network header is set with offset ETH_HLEN but it is not true for VLAN
-> (multiple-)tagged and results in checksum issues in lower devices.
-> 
-> v2: leave skb->protocol untouched (thx Vlad), comment added
-> 
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+On 07/20/2015 11:54 AM, Nicholas Krause wrote:
+> This fixes error handling in the function netcp_xgbe_serdes_config
+> by putting the return value of netcp_xgbe_serdes_check_lane into
+> the variable ret and return this value to the caller as this function
+> can fail when called by returning the error code -ETIMEOUT.
+>
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
 > ---
->   drivers/net/macvtap.c | 7 +++++++
->   1 file changed, 7 insertions(+)
-> 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 3b933bb..b75776b 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -796,6 +796,13 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
->   	skb_reset_mac_header(skb);
->   	skb->protocol = eth_hdr(skb)->h_proto;
->   
-> +	/* Move network header to the right position for VLAN tagged packets */
-> +	if (skb_vlan_tagged(skb)) {
+>   drivers/net/ethernet/ti/netcp_xgbepcsr.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/ti/netcp_xgbepcsr.c b/drivers/net/ethernet/ti/netcp_xgbepcsr.c
+> index 33571ac..0c79e3d 100644
+> --- a/drivers/net/ethernet/ti/netcp_xgbepcsr.c
+> +++ b/drivers/net/ethernet/ti/netcp_xgbepcsr.c
+> @@ -483,7 +483,7 @@ static int netcp_xgbe_serdes_config(void __iomem *serdes_regs,
+>   		return ret;
+>
+>   	netcp_xgbe_serdes_enable_xgmii_port(sw_regs);
+> -	netcp_xgbe_serdes_check_lane(serdes_regs, sw_regs);
+> +	ret = netcp_xgbe_serdes_check_lane(serdes_regs, sw_regs);
+>   	return ret;
+>   }
+>
+>
+Nicholas,
 
-I guess you don't need the condition skb_vlan_tag_present(skb), i.e.,
+Thanks for the patch.
 
-if (skb->protocol == htons(ETH_P_8021Q) ||
-    skb->protocol == htons(ETH_P_8021AD))
+Acked-by: Murali Karicheri <m-karicheri2@ti.com>
 
-> +		int depth;
-> +		__vlan_get_protocol(skb, skb->protocol, &depth);
-
-__vlan_get_protocol() can fail, and then, depth will not be initialized.
-
-> +		skb_set_network_header(skb, depth);
-
-I think you should set network_header after
-skb_probe_transport_header(). It calls skb_flow_dissect_flow_keys(),
-which seems to expect network_header to be ETH_HLEN.
-
-Toshiaki Makita
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
