@@ -1,36 +1,55 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: Why return E2BIG from bpf map update?
-Date: Tue, 21 Jul 2015 14:34:39 -0700
-Message-ID: <55AEBAEF.8090707@plumgrid.com>
-References: <CALCkm3eCUYFOon6Gza4A8Ske8MS1rVFJJip_J9dWQp79ju8zBw@mail.gmail.com>
- <55AD7514.7040906@plumgrid.com> <55AE1374.6010608@iogearbox.net>
- <CALCkm3ck95Py=vPq+fWrcps=EVwtgFhDvGGyfoZ0AkLraaZJNA@mail.gmail.com>
+From: Nishanth Aravamudan <nacc-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v2] openvswitch: allocate nr_node_ids
+ flow_stats instead of num_possible_nodes
+Date: Tue, 21 Jul 2015 15:02:22 -0700
+Message-ID: <20150721220222.GB29402@linux.vnet.ibm.com>
+References: <20150721162418.GM38815@linux.vnet.ibm.com>
+ <1437500193-10255-1-git-send-email-chris.j.arges@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Alex Gartrell <alexgartrell@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:36346 "EHLO
-	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752203AbbGUVel (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 17:34:41 -0400
-Received: by qkdv3 with SMTP id v3so142059228qkd.3
-        for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 14:34:40 -0700 (PDT)
-In-Reply-To: <CALCkm3ck95Py=vPq+fWrcps=EVwtgFhDvGGyfoZ0AkLraaZJNA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-numa-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Chris J Arges <chris.j.arges-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1437500193-10255-1-git-send-email-chris.j.arges-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 7/21/15 3:13 AM, Alex Gartrell wrote:
-> But, the EINVAL errno has similarly been
-> abused to death
-
-there was a thread few month ago trying to come up with
-a generic solution for aliased error codes, but unfortunately
-nothing concrete came out of it.
-The one I liked sounded that the kernel may be able to extend
-syscall interface to return a string together with errno,
-but it's quite hard to do at present.
-May be extensions to vdso data writable by kernel can
-improve the situation.
+T24gMjEuMDcuMjAxNSBbMTI6MzY6MzMgLTA1MDBdLCBDaHJpcyBKIEFyZ2VzIHdyb3RlOgo+IFNv
+bWUgYXJjaGl0ZWN0dXJlcyBsaWtlIFBPV0VSIGNhbiBoYXZlIGEgTlVNQSBub2RlX3Bvc3NpYmxl
+X21hcCB0aGF0Cj4gY29udGFpbnMgc3BhcnNlIGVudHJpZXMuIFRoaXMgY2F1c2VzIG1lbW9yeSBj
+b3JydXB0aW9uIHdpdGggb3BlbnZzd2l0Y2gKPiBzaW5jZSBpdCBhbGxvY2F0ZXMgZmxvd19jYWNo
+ZSB3aXRoIGEgbXVsdGlwbGUgb2YgbnVtX3Bvc3NpYmxlX25vZGVzKCkgYW5kCj4gYXNzdW1lcyB0
+aGUgbm9kZSB2YXJpYWJsZSByZXR1cm5lZCBieSBmb3JfZWFjaF9ub2RlIHdpbGwgaW5kZXggaW50
+bwo+IGZsb3ctPnN0YXRzW25vZGVdLgo+IAo+IFVzZSBucl9ub2RlX2lkcyB0byBhbGxvY2F0ZSBh
+IG1heGltYWwgc3BhcnNlIGFycmF5IGluc3RlYWQgb2YKPiBudW1fcG9zc2libGVfbm9kZXMoKS4K
+PiAKPiBUaGUgY3Jhc2ggd2FzIG5vdGljZWQgYWZ0ZXIgM2FmMjI5ZjIgd2FzIGFwcGxpZWQgYXMg
+aXQgY2hhbmdlZCB0aGUKPiBub2RlX3Bvc3NpYmxlX21hcCB0byBtYXRjaCBub2RlX29ubGluZV9t
+YXAgb24gYm9vdC4KPiBGaXhlczogM2FmMjI5ZjIwNzFmNWI1Y2IzMTY2NGJlNjEwOTU2MWZiZTE5
+Yzg2MQo+IAo+IFNpZ25lZC1vZmYtYnk6IENocmlzIEogQXJnZXMgPGNocmlzLmouYXJnZXNAY2Fu
+b25pY2FsLmNvbT4KQWNrZWQtYnk6IE5pc2hhbnRoIEFyYXZhbXVkYW4gPG5hY2NAbGludXgudm5l
+dC5pYm0uY29tPgo+IC0tLQo+ICBuZXQvb3BlbnZzd2l0Y2gvZmxvd190YWJsZS5jIHwgMiArLQo+
+ICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDEgZGVsZXRpb24oLSkKPiAKPiBkaWZm
+IC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Zsb3dfdGFibGUuYyBiL25ldC9vcGVudnN3aXRjaC9m
+bG93X3RhYmxlLmMKPiBpbmRleCA0NjEzZGY4Li42NTUyMzk0IDEwMDY0NAo+IC0tLSBhL25ldC9v
+cGVudnN3aXRjaC9mbG93X3RhYmxlLmMKPiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvd190YWJs
+ZS5jCj4gQEAgLTc1Miw3ICs3NTIsNyBAQCBpbnQgb3ZzX2Zsb3dfaW5pdCh2b2lkKQo+ICAJQlVJ
+TERfQlVHX09OKHNpemVvZihzdHJ1Y3Qgc3dfZmxvd19rZXkpICUgc2l6ZW9mKGxvbmcpKTsKPiAK
+PiAgCWZsb3dfY2FjaGUgPSBrbWVtX2NhY2hlX2NyZWF0ZSgic3dfZmxvdyIsIHNpemVvZihzdHJ1
+Y3Qgc3dfZmxvdykKPiAtCQkJCSAgICAgICArIChudW1fcG9zc2libGVfbm9kZXMoKQo+ICsJCQkJ
+ICAgICAgICsgKG5yX25vZGVfaWRzCj4gIAkJCQkJICAqIHNpemVvZihzdHJ1Y3QgZmxvd19zdGF0
+cyAqKSksCj4gIAkJCQkgICAgICAgMCwgMCwgTlVMTCk7Cj4gIAlpZiAoZmxvd19jYWNoZSA9PSBO
+VUxMKQo+IC0tIAo+IDEuOS4xCj4gCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDov
+L29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
