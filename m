@@ -1,223 +1,175 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 17/22] fib: Add fib rule match on tunnel id
-Date: Tue, 21 Jul 2015 10:44:01 +0200
-Message-ID: <a985e4e4343d7a74ba10b2de166838ee46f2073d.1437468140.git.tgraf@suug.ch>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: [PATCH net-next 12/22] dst: Metadata destinations
+Date: Tue, 21 Jul 2015 10:43:56 +0200
+Message-ID: <42fab7b78b2f0f5056b9ab83ba7cc9ea6d0c5a7d.1437468140.git.tgraf@suug.ch>
 References: <cover.1437468140.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: roopa@cumulusnetworks.com, rshearma@brocade.com,
-	ebiederm@xmission.com, hannes@stressinduktion.org,
-	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
-	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
-	jiri@resnulli.us, marcelo.leitner@gmail.com,
-	stephen@networkplumber.org, jpettit@nicira.com, kaber@trash.net,
-	simon.horman@netronome.com, joestringer@nicira.com, ja@ssi.bg,
-	ast@plumgrid.com, weichunc@plumgrid.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:40147 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754231AbbGUIoc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 04:44:32 -0400
-In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
-In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
-References: <cover.1437468140.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, rshearma-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+ hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org,
+ edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+ simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, ja-FgGsKACvmQM@public.gmane.org,
+ ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, weichunc-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <cover.1437468140.git.tgraf-G/eBtMaohhA@public.gmane.org>
+In-Reply-To: <cover.1437468140.git.tgraf-G/eBtMaohhA@public.gmane.org>
+References: <cover.1437468140.git.tgraf-G/eBtMaohhA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-This add the ability to select a routing table based on the tunnel
-id which allows to maintain separate routing tables for each virtual
-tunnel network.
-
-ip rule add from all tunnel-id 100 lookup 100
-ip rule add from all tunnel-id 200 lookup 200
-
-A new static key controls the collection of metadata at tunnel level
-upon demand.
-
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- drivers/net/vxlan.c            |  3 ++-
- include/net/fib_rules.h        |  1 +
- include/net/ip_tunnels.h       | 11 +++++++++++
- include/uapi/linux/fib_rules.h |  2 +-
- net/core/fib_rules.c           | 24 ++++++++++++++++++++++--
- net/ipv4/ip_tunnel_core.c      | 16 ++++++++++++++++
- 6 files changed, 53 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 9486d7e..2587ac8 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -143,7 +143,8 @@ static struct workqueue_struct *vxlan_wq;
- 
- static inline bool vxlan_collect_metadata(struct vxlan_sock *vs)
- {
--	return vs->flags & VXLAN_F_COLLECT_METADATA;
-+	return vs->flags & VXLAN_F_COLLECT_METADATA ||
-+	       ip_tunnel_collect_metadata();
- }
- 
- #if IS_ENABLED(CONFIG_IPV6)
-diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-index 903a55e..4e8f804 100644
---- a/include/net/fib_rules.h
-+++ b/include/net/fib_rules.h
-@@ -19,6 +19,7 @@ struct fib_rule {
- 	u8			action;
- 	/* 3 bytes hole, try to use */
- 	u32			target;
-+	__be64			tun_id;
- 	struct fib_rule __rcu	*ctarget;
- 	struct net		*fr_net;
- 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 0b7e18c..0a5a776 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -303,6 +303,17 @@ static inline struct ip_tunnel_info *lwt_tun_info(struct lwtunnel_state *lwtstat
- 	return (struct ip_tunnel_info *)lwtstate->data;
- }
- 
-+extern struct static_key ip_tunnel_metadata_cnt;
-+
-+/* Returns > 0 if metadata should be collected */
-+static inline int ip_tunnel_collect_metadata(void)
-+{
-+	return static_key_false(&ip_tunnel_metadata_cnt);
-+}
-+
-+void ip_tunnel_need_metadata(void);
-+void ip_tunnel_unneed_metadata(void);
-+
- #endif /* CONFIG_INET */
- 
- #endif /* __NET_IP_TUNNELS_H */
-diff --git a/include/uapi/linux/fib_rules.h b/include/uapi/linux/fib_rules.h
-index 2b82d7e..96161b8 100644
---- a/include/uapi/linux/fib_rules.h
-+++ b/include/uapi/linux/fib_rules.h
-@@ -43,7 +43,7 @@ enum {
- 	FRA_UNUSED5,
- 	FRA_FWMARK,	/* mark */
- 	FRA_FLOW,	/* flow/class id */
--	FRA_UNUSED6,
-+	FRA_TUN_ID,
- 	FRA_SUPPRESS_IFGROUP,
- 	FRA_SUPPRESS_PREFIXLEN,
- 	FRA_TABLE,	/* Extended table id */
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 9a12668..ae8306e 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -16,6 +16,7 @@
- #include <net/net_namespace.h>
- #include <net/sock.h>
- #include <net/fib_rules.h>
-+#include <net/ip_tunnels.h>
- 
- int fib_default_rule_add(struct fib_rules_ops *ops,
- 			 u32 pref, u32 table, u32 flags)
-@@ -186,6 +187,9 @@ static int fib_rule_match(struct fib_rule *rule, struct fib_rules_ops *ops,
- 	if ((rule->mark ^ fl->flowi_mark) & rule->mark_mask)
- 		goto out;
- 
-+	if (rule->tun_id && (rule->tun_id != fl->flowi_tun_key.tun_id))
-+		goto out;
-+
- 	ret = ops->match(rule, fl, flags);
- out:
- 	return (rule->flags & FIB_RULE_INVERT) ? !ret : ret;
-@@ -330,6 +334,9 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
- 	if (tb[FRA_FWMASK])
- 		rule->mark_mask = nla_get_u32(tb[FRA_FWMASK]);
- 
-+	if (tb[FRA_TUN_ID])
-+		rule->tun_id = nla_get_be64(tb[FRA_TUN_ID]);
-+
- 	rule->action = frh->action;
- 	rule->flags = frh->flags;
- 	rule->table = frh_get_table(frh, tb);
-@@ -407,6 +414,9 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
- 	if (unresolved)
- 		ops->unresolved_rules++;
- 
-+	if (rule->tun_id)
-+		ip_tunnel_need_metadata();
-+
- 	notify_rule_change(RTM_NEWRULE, rule, ops, nlh, NETLINK_CB(skb).portid);
- 	flush_route_cache(ops);
- 	rules_ops_put(ops);
-@@ -473,6 +483,10 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh)
- 		    (rule->mark_mask != nla_get_u32(tb[FRA_FWMASK])))
- 			continue;
- 
-+		if (tb[FRA_TUN_ID] &&
-+		    (rule->tun_id != nla_get_be64(tb[FRA_TUN_ID])))
-+			continue;
-+
- 		if (!ops->compare(rule, frh, tb))
- 			continue;
- 
-@@ -487,6 +501,9 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh)
- 				goto errout;
- 		}
- 
-+		if (rule->tun_id)
-+			ip_tunnel_unneed_metadata();
-+
- 		list_del_rcu(&rule->list);
- 
- 		if (rule->action == FR_ACT_GOTO) {
-@@ -535,7 +552,8 @@ static inline size_t fib_rule_nlmsg_size(struct fib_rules_ops *ops,
- 			 + nla_total_size(4) /* FRA_SUPPRESS_PREFIXLEN */
- 			 + nla_total_size(4) /* FRA_SUPPRESS_IFGROUP */
- 			 + nla_total_size(4) /* FRA_FWMARK */
--			 + nla_total_size(4); /* FRA_FWMASK */
-+			 + nla_total_size(4) /* FRA_FWMASK */
-+			 + nla_total_size(8); /* FRA_TUN_ID */
- 
- 	if (ops->nlmsg_payload)
- 		payload += ops->nlmsg_payload(rule);
-@@ -591,7 +609,9 @@ static int fib_nl_fill_rule(struct sk_buff *skb, struct fib_rule *rule,
- 	    ((rule->mark_mask || rule->mark) &&
- 	     nla_put_u32(skb, FRA_FWMASK, rule->mark_mask)) ||
- 	    (rule->target &&
--	     nla_put_u32(skb, FRA_GOTO, rule->target)))
-+	     nla_put_u32(skb, FRA_GOTO, rule->target)) ||
-+	    (rule->tun_id &&
-+	     nla_put_be64(skb, FRA_TUN_ID, rule->tun_id)))
- 		goto nla_put_failure;
- 
- 	if (rule->suppress_ifgroup != -1) {
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 025b76e..630e6d5 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -32,6 +32,7 @@
- #include <linux/etherdevice.h>
- #include <linux/if_ether.h>
- #include <linux/if_vlan.h>
-+#include <linux/static_key.h>
- 
- #include <net/ip.h>
- #include <net/icmp.h>
-@@ -304,3 +305,18 @@ static void __exit ip_tunnel_core_exit(void)
- 	lwtunnel_encap_del_ops(&ip_tun_lwt_ops, LWTUNNEL_ENCAP_IP);
- }
- module_exit(ip_tunnel_core_exit);
-+
-+struct static_key ip_tunnel_metadata_cnt = STATIC_KEY_INIT_FALSE;
-+EXPORT_SYMBOL(ip_tunnel_metadata_cnt);
-+
-+void ip_tunnel_need_metadata(void)
-+{
-+	static_key_slow_inc(&ip_tunnel_metadata_cnt);
-+}
-+EXPORT_SYMBOL_GPL(ip_tunnel_need_metadata);
-+
-+void ip_tunnel_unneed_metadata(void)
-+{
-+	static_key_slow_dec(&ip_tunnel_metadata_cnt);
-+}
-+EXPORT_SYMBOL_GPL(ip_tunnel_unneed_metadata);
--- 
-2.4.3
+SW50cm9kdWNlcyBhIG5ldyBkc3RfbWV0YWRhdGEgd2hpY2ggZW5hYmxlcyB0byBjYXJyeSBwZXIg
+cGFja2V0IG1ldGFkYXRhCmJldHdlZW4gZm9yd2FyZGluZyBhbmQgcHJvY2Vzc2luZyBlbGVtZW50
+cyB2aWEgdGhlIHNrYi0+ZHN0IHBvaW50ZXIuCgpUaGUgc3RydWN0dXJlIGlzIHNldCB1cCB0byBi
+ZSBhIHVuaW9uLiBUaHVzLCBlYWNoIHNlcGFyYXRlIHR5cGUgb2YKbWV0YWRhdGEgcmVxdWlyZXMg
+aXRzIG93biBkc3QgaW5zdGFuY2UuIElmIGRlbWFuZCBhcmlzZXMgdG8gY2FycnkKbXVsdGlwbGUg
+dHlwZXMgb2YgbWV0YWRhdGEgY29uY3VycmVudGx5LCBtZXRhZGF0YSBkc3QgZW50cmllcyBjYW4g
+YmUKbWFkZSBzdGFja2FibGUuCgpUaGUgbWV0YWRhdGEgZHN0IGVudHJ5IGlzIHJlZmNudCdlZCBh
+cyBleHBlY3RlZCBmb3Igbm93IGJ1dCBhIG5vbgpyZWZlcmVuY2UgY291bnRlZCB1c2UgaXMgcG9z
+c2libGUgaWYgdGhlIHJlZmVyZW5jZSBpcyBmb3JjZWQgYmVmb3JlCnF1ZXVlaW5nIHRoZSBza2Iu
+CgpJbiBvcmRlciB0byBhbGxvdyBhbGxvY2F0aW5nIGRzdHMgd2l0aCB2YXJpYWJsZSBsZW5ndGgs
+IHRoZSBleGlzdGluZwpkc3RfYWxsb2MoKSBpcyBzcGxpdCBpbnRvIGEgZHN0X2FsbG9jKCkgYW5k
+IGRzdF9pbml0KCkgZnVuY3Rpb24uIFRoZQpleGlzdGluZyBkc3RfaW5pdCgpIGZ1bmN0aW9uIHRv
+IGluaXRpYWxpemUgdGhlIHN1YnN5c3RlbSBpcyBiZWluZwpyZW5hbWVkIHRvIGRzdF9zdWJzeXNf
+aW5pdCgpIHRvIG1ha2UgaXQgY2xlYXIgd2hhdCBpcyB3aGF0LgoKVGhlIGNoZWNrIGJlZm9yZSBp
+cF9yb3V0ZV9pbnB1dCgpIGlzIGNoYW5nZWQgdG8gaWdub3JlIG1ldGFkYXRhIGRzdHMKYW5kIGRy
+b3AgdGhlIGRzdCBpbnNpZGUgdGhlIHJvdXRpbmcgZnVuY3Rpb24gdGh1cyBhbGxvd2luZyB0byBp
+bnRlcnByZXQKbWV0YWRhdGEgaW4gYSBsYXRlciBjb21taXQuCgpTaWduZWQtb2ZmLWJ5OiBUaG9t
+YXMgR3JhZiA8dGdyYWZAc3V1Zy5jaD4KLS0tCiBpbmNsdWRlL25ldC9kc3QuaCAgICAgICAgICB8
+ICA2ICsrKy0KIGluY2x1ZGUvbmV0L2RzdF9tZXRhZGF0YS5oIHwgMzIgKysrKysrKysrKysrKysr
+KysrCiBuZXQvY29yZS9kZXYuYyAgICAgICAgICAgICB8ICAyICstCiBuZXQvY29yZS9kc3QuYyAg
+ICAgICAgICAgICB8IDg0ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrLS0t
+LS0tLS0KIG5ldC9pcHY0L2lwX2lucHV0LmMgICAgICAgIHwgIDMgKy0KIG5ldC9pcHY0L3JvdXRl
+LmMgICAgICAgICAgIHwgIDIgKysKIDYgZmlsZXMgY2hhbmdlZCwgMTEyIGluc2VydGlvbnMoKyks
+IDE3IGRlbGV0aW9ucygtKQogY3JlYXRlIG1vZGUgMTAwNjQ0IGluY2x1ZGUvbmV0L2RzdF9tZXRh
+ZGF0YS5oCgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvZHN0LmggYi9pbmNsdWRlL25ldC9kc3Qu
+aAppbmRleCAyYmM3M2Y4YS4uMjU3ODgxMSAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvZHN0LmgK
+KysrIGIvaW5jbHVkZS9uZXQvZHN0LmgKQEAgLTU3LDYgKzU3LDcgQEAgc3RydWN0IGRzdF9lbnRy
+eSB7CiAjZGVmaW5lIERTVF9GQUtFX1JUQUJMRQkJMHgwMDQwCiAjZGVmaW5lIERTVF9YRlJNX1RV
+Tk5FTAkJMHgwMDgwCiAjZGVmaW5lIERTVF9YRlJNX1FVRVVFCQkweDAxMDAKKyNkZWZpbmUgRFNU
+X01FVEFEQVRBCQkweDAyMDAKIAogCXVuc2lnbmVkIHNob3J0CQlwZW5kaW5nX2NvbmZpcm07CiAK
+QEAgLTM1Niw2ICszNTcsOSBAQCBzdGF0aWMgaW5saW5lIGludCBkc3RfZGlzY2FyZChzdHJ1Y3Qg
+c2tfYnVmZiAqc2tiKQogfQogdm9pZCAqZHN0X2FsbG9jKHN0cnVjdCBkc3Rfb3BzICpvcHMsIHN0
+cnVjdCBuZXRfZGV2aWNlICpkZXYsIGludCBpbml0aWFsX3JlZiwKIAkJaW50IGluaXRpYWxfb2Jz
+b2xldGUsIHVuc2lnbmVkIHNob3J0IGZsYWdzKTsKK3ZvaWQgZHN0X2luaXQoc3RydWN0IGRzdF9l
+bnRyeSAqZHN0LCBzdHJ1Y3QgZHN0X29wcyAqb3BzLAorCSAgICAgIHN0cnVjdCBuZXRfZGV2aWNl
+ICpkZXYsIGludCBpbml0aWFsX3JlZiwgaW50IGluaXRpYWxfb2Jzb2xldGUsCisJICAgICAgdW5z
+aWduZWQgc2hvcnQgZmxhZ3MpOwogdm9pZCBfX2RzdF9mcmVlKHN0cnVjdCBkc3RfZW50cnkgKmRz
+dCk7CiBzdHJ1Y3QgZHN0X2VudHJ5ICpkc3RfZGVzdHJveShzdHJ1Y3QgZHN0X2VudHJ5ICpkc3Qp
+OwogCkBAIC00NTcsNyArNDYxLDcgQEAgc3RhdGljIGlubGluZSBzdHJ1Y3QgZHN0X2VudHJ5ICpk
+c3RfY2hlY2soc3RydWN0IGRzdF9lbnRyeSAqZHN0LCB1MzIgY29va2llKQogCXJldHVybiBkc3Q7
+CiB9CiAKLXZvaWQgZHN0X2luaXQodm9pZCk7Cit2b2lkIGRzdF9zdWJzeXNfaW5pdCh2b2lkKTsK
+IAogLyogRmxhZ3MgZm9yIHhmcm1fbG9va3VwIGZsYWdzIGFyZ3VtZW50LiAqLwogZW51bSB7CmRp
+ZmYgLS1naXQgYS9pbmNsdWRlL25ldC9kc3RfbWV0YWRhdGEuaCBiL2luY2x1ZGUvbmV0L2RzdF9t
+ZXRhZGF0YS5oCm5ldyBmaWxlIG1vZGUgMTAwNjQ0CmluZGV4IDAwMDAwMDAuLjRmNzY5NGYKLS0t
+IC9kZXYvbnVsbAorKysgYi9pbmNsdWRlL25ldC9kc3RfbWV0YWRhdGEuaApAQCAtMCwwICsxLDMy
+IEBACisjaWZuZGVmIF9fTkVUX0RTVF9NRVRBREFUQV9ICisjZGVmaW5lIF9fTkVUX0RTVF9NRVRB
+REFUQV9IIDEKKworI2luY2x1ZGUgPGxpbnV4L3NrYnVmZi5oPgorI2luY2x1ZGUgPG5ldC9pcF90
+dW5uZWxzLmg+CisjaW5jbHVkZSA8bmV0L2RzdC5oPgorCitzdHJ1Y3QgbWV0YWRhdGFfZHN0IHsK
+KwlzdHJ1Y3QgZHN0X2VudHJ5CQlkc3Q7CisJc2l6ZV90CQkJCW9wdHNfbGVuOworfTsKKworc3Rh
+dGljIGlubGluZSBzdHJ1Y3QgbWV0YWRhdGFfZHN0ICpza2JfbWV0YWRhdGFfZHN0KHN0cnVjdCBz
+a19idWZmICpza2IpCit7CisJc3RydWN0IG1ldGFkYXRhX2RzdCAqbWRfZHN0ID0gKHN0cnVjdCBt
+ZXRhZGF0YV9kc3QgKikgc2tiX2RzdChza2IpOworCisJaWYgKG1kX2RzdCAmJiBtZF9kc3QtPmRz
+dC5mbGFncyAmIERTVF9NRVRBREFUQSkKKwkJcmV0dXJuIG1kX2RzdDsKKworCXJldHVybiBOVUxM
+OworfQorCitzdGF0aWMgaW5saW5lIGJvb2wgc2tiX3ZhbGlkX2RzdChjb25zdCBzdHJ1Y3Qgc2tf
+YnVmZiAqc2tiKQoreworCXN0cnVjdCBkc3RfZW50cnkgKmRzdCA9IHNrYl9kc3Qoc2tiKTsKKwor
+CXJldHVybiBkc3QgJiYgIShkc3QtPmZsYWdzICYgRFNUX01FVEFEQVRBKTsKK30KKworc3RydWN0
+IG1ldGFkYXRhX2RzdCAqbWV0YWRhdGFfZHN0X2FsbG9jKHU4IG9wdHNsZW4sIGdmcF90IGZsYWdz
+KTsKKworI2VuZGlmIC8qIF9fTkVUX0RTVF9NRVRBREFUQV9IICovCmRpZmYgLS1naXQgYS9uZXQv
+Y29yZS9kZXYuYyBiL25ldC9jb3JlL2Rldi5jCmluZGV4IDJlZTE1YWYuLmNiNTJjYmEgMTAwNjQ0
+Ci0tLSBhL25ldC9jb3JlL2Rldi5jCisrKyBiL25ldC9jb3JlL2Rldi5jCkBAIC03NjY5LDcgKzc2
+NjksNyBAQCBzdGF0aWMgaW50IF9faW5pdCBuZXRfZGV2X2luaXQodm9pZCkKIAlvcGVuX3NvZnRp
+cnEoTkVUX1JYX1NPRlRJUlEsIG5ldF9yeF9hY3Rpb24pOwogCiAJaG90Y3B1X25vdGlmaWVyKGRl
+dl9jcHVfY2FsbGJhY2ssIDApOwotCWRzdF9pbml0KCk7CisJZHN0X3N1YnN5c19pbml0KCk7CiAJ
+cmMgPSAwOwogb3V0OgogCXJldHVybiByYzsKZGlmZiAtLWdpdCBhL25ldC9jb3JlL2RzdC5jIGIv
+bmV0L2NvcmUvZHN0LmMKaW5kZXggZTk1NmNlNi4uOTE3MzY0ZiAxMDA2NDQKLS0tIGEvbmV0L2Nv
+cmUvZHN0LmMKKysrIGIvbmV0L2NvcmUvZHN0LmMKQEAgLTIyLDYgKzIyLDcgQEAKICNpbmNsdWRl
+IDxsaW51eC9wcmVmZXRjaC5oPgogCiAjaW5jbHVkZSA8bmV0L2RzdC5oPgorI2luY2x1ZGUgPG5l
+dC9kc3RfbWV0YWRhdGEuaD4KIAogLyoKICAqIFRoZW9yeSBvZiBvcGVyYXRpb25zOgpAQCAtMTU4
+LDE5ICsxNTksMTAgQEAgY29uc3QgdTMyIGRzdF9kZWZhdWx0X21ldHJpY3NbUlRBWF9NQVggKyAx
+XSA9IHsKIAlbUlRBWF9NQVhdID0gMHhkZWFkYmVlZiwKIH07CiAKLQotdm9pZCAqZHN0X2FsbG9j
+KHN0cnVjdCBkc3Rfb3BzICpvcHMsIHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsCi0JCWludCBpbml0
+aWFsX3JlZiwgaW50IGluaXRpYWxfb2Jzb2xldGUsIHVuc2lnbmVkIHNob3J0IGZsYWdzKQordm9p
+ZCBkc3RfaW5pdChzdHJ1Y3QgZHN0X2VudHJ5ICpkc3QsIHN0cnVjdCBkc3Rfb3BzICpvcHMsCisJ
+ICAgICAgc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgaW50IGluaXRpYWxfcmVmLCBpbnQgaW5pdGlh
+bF9vYnNvbGV0ZSwKKwkgICAgICB1bnNpZ25lZCBzaG9ydCBmbGFncykKIHsKLQlzdHJ1Y3QgZHN0
+X2VudHJ5ICpkc3Q7Ci0KLQlpZiAob3BzLT5nYyAmJiBkc3RfZW50cmllc19nZXRfZmFzdChvcHMp
+ID4gb3BzLT5nY190aHJlc2gpIHsKLQkJaWYgKG9wcy0+Z2Mob3BzKSkKLQkJCXJldHVybiBOVUxM
+OwotCX0KLQlkc3QgPSBrbWVtX2NhY2hlX2FsbG9jKG9wcy0+a21lbV9jYWNoZXAsIEdGUF9BVE9N
+SUMpOwotCWlmICghZHN0KQotCQlyZXR1cm4gTlVMTDsKIAlkc3QtPmNoaWxkID0gTlVMTDsKIAlk
+c3QtPmRldiA9IGRldjsKIAlpZiAoZGV2KQpAQCAtMjAwLDYgKzE5MiwyNSBAQCB2b2lkICpkc3Rf
+YWxsb2Moc3RydWN0IGRzdF9vcHMgKm9wcywgc3RydWN0IG5ldF9kZXZpY2UgKmRldiwKIAlkc3Qt
+Pm5leHQgPSBOVUxMOwogCWlmICghKGZsYWdzICYgRFNUX05PQ09VTlQpKQogCQlkc3RfZW50cmll
+c19hZGQob3BzLCAxKTsKK30KK0VYUE9SVF9TWU1CT0woZHN0X2luaXQpOworCit2b2lkICpkc3Rf
+YWxsb2Moc3RydWN0IGRzdF9vcHMgKm9wcywgc3RydWN0IG5ldF9kZXZpY2UgKmRldiwKKwkJaW50
+IGluaXRpYWxfcmVmLCBpbnQgaW5pdGlhbF9vYnNvbGV0ZSwgdW5zaWduZWQgc2hvcnQgZmxhZ3Mp
+Cit7CisJc3RydWN0IGRzdF9lbnRyeSAqZHN0OworCisJaWYgKG9wcy0+Z2MgJiYgZHN0X2VudHJp
+ZXNfZ2V0X2Zhc3Qob3BzKSA+IG9wcy0+Z2NfdGhyZXNoKSB7CisJCWlmIChvcHMtPmdjKG9wcykp
+CisJCQlyZXR1cm4gTlVMTDsKKwl9CisKKwlkc3QgPSBrbWVtX2NhY2hlX2FsbG9jKG9wcy0+a21l
+bV9jYWNoZXAsIEdGUF9BVE9NSUMpOworCWlmICghZHN0KQorCQlyZXR1cm4gTlVMTDsKKworCWRz
+dF9pbml0KGRzdCwgb3BzLCBkZXYsIGluaXRpYWxfcmVmLCBpbml0aWFsX29ic29sZXRlLCBmbGFn
+cyk7CisKIAlyZXR1cm4gZHN0OwogfQogRVhQT1JUX1NZTUJPTChkc3RfYWxsb2MpOwpAQCAtMjQ4
+LDcgKzI1OSwxMSBAQCBhZ2FpbjoKIAkJZHN0LT5vcHMtPmRlc3Ryb3koZHN0KTsKIAlpZiAoZHN0
+LT5kZXYpCiAJCWRldl9wdXQoZHN0LT5kZXYpOwotCWttZW1fY2FjaGVfZnJlZShkc3QtPm9wcy0+
+a21lbV9jYWNoZXAsIGRzdCk7CisKKwlpZiAoZHN0LT5mbGFncyAmIERTVF9NRVRBREFUQSkKKwkJ
+a2ZyZWUoZHN0KTsKKwllbHNlCisJCWttZW1fY2FjaGVfZnJlZShkc3QtPm9wcy0+a21lbV9jYWNo
+ZXAsIGRzdCk7CiAKIAlkc3QgPSBjaGlsZDsKIAlpZiAoZHN0KSB7CkBAIC0zMjcsNiArMzQyLDQ3
+IEBAIHZvaWQgX19kc3RfZGVzdHJveV9tZXRyaWNzX2dlbmVyaWMoc3RydWN0IGRzdF9lbnRyeSAq
+ZHN0LCB1bnNpZ25lZCBsb25nIG9sZCkKIH0KIEVYUE9SVF9TWU1CT0woX19kc3RfZGVzdHJveV9t
+ZXRyaWNzX2dlbmVyaWMpOwogCitzdGF0aWMgc3RydWN0IGRzdF9vcHMgbWRfZHN0X29wcyA9IHsK
+KwkuZmFtaWx5ID0JCUFGX1VOU1BFQywKK307CisKK3N0YXRpYyBpbnQgZHN0X21kX2Rpc2NhcmRf
+c2soc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQoreworCVdBUk5fT05DRSgx
+LCAiQXR0ZW1wdGluZyB0byBjYWxsIG91dHB1dCBvbiBtZXRhZGF0YSBkc3RcbiIpOworCWtmcmVl
+X3NrYihza2IpOworCXJldHVybiAwOworfQorCitzdGF0aWMgaW50IGRzdF9tZF9kaXNjYXJkKHN0
+cnVjdCBza19idWZmICpza2IpCit7CisJV0FSTl9PTkNFKDEsICJBdHRlbXB0aW5nIHRvIGNhbGwg
+aW5wdXQgb24gbWV0YWRhdGEgZHN0XG4iKTsKKwlrZnJlZV9za2Ioc2tiKTsKKwlyZXR1cm4gMDsK
+K30KKworc3RydWN0IG1ldGFkYXRhX2RzdCAqbWV0YWRhdGFfZHN0X2FsbG9jKHU4IG9wdHNsZW4s
+IGdmcF90IGZsYWdzKQoreworCXN0cnVjdCBtZXRhZGF0YV9kc3QgKm1kX2RzdDsKKwlzdHJ1Y3Qg
+ZHN0X2VudHJ5ICpkc3Q7CisKKwltZF9kc3QgPSBrbWFsbG9jKHNpemVvZigqbWRfZHN0KSArIG9w
+dHNsZW4sIGZsYWdzKTsKKwlpZiAoIW1kX2RzdCkKKwkJcmV0dXJuIEVSUl9QVFIoLUVOT01FTSk7
+CisKKwlkc3QgPSAmbWRfZHN0LT5kc3Q7CisJZHN0X2luaXQoZHN0LCAmbWRfZHN0X29wcywgTlVM
+TCwgMSwgRFNUX09CU09MRVRFX05PTkUsCisJCSBEU1RfTUVUQURBVEEgfCBEU1RfTk9DQUNIRSB8
+IERTVF9OT0NPVU5UKTsKKworCWRzdC0+aW5wdXQgPSBkc3RfbWRfZGlzY2FyZDsKKwlkc3QtPm91
+dHB1dCA9IGRzdF9tZF9kaXNjYXJkX3NrOworCisJbWVtc2V0KGRzdCArIDEsIDAsIHNpemVvZigq
+bWRfZHN0KSArIG9wdHNsZW4gLSBzaXplb2YoKmRzdCkpOworCW1kX2RzdC0+b3B0c19sZW4gPSBv
+cHRzbGVuOworCisJcmV0dXJuIG1kX2RzdDsKK30KK0VYUE9SVF9TWU1CT0xfR1BMKG1ldGFkYXRh
+X2RzdF9hbGxvYyk7CisKIC8qIERpcnR5IGhhY2suIFdlIGRpZCBpdCBpbiAyLjIgKGluIF9fZHN0
+X2ZyZWUpLAogICogd2UgaGF2ZSBfdmVyeV8gZ29vZCByZWFzb25zIG5vdCB0byByZXBlYXQKICAq
+IHRoaXMgbWlzdGFrZSBpbiAyLjMsIGJ1dCB3ZSBoYXZlIG5vIGNob2ljZQpAQCAtMzkxLDcgKzQ0
+Nyw3IEBAIHN0YXRpYyBzdHJ1Y3Qgbm90aWZpZXJfYmxvY2sgZHN0X2Rldl9ub3RpZmllciA9IHsK
+IAkucHJpb3JpdHkgPSAtMTAsIC8qIG11c3QgYmUgY2FsbGVkIGFmdGVyIG90aGVyIG5ldHdvcmsg
+bm90aWZpZXJzICovCiB9OwogCi12b2lkIF9faW5pdCBkc3RfaW5pdCh2b2lkKQordm9pZCBfX2lu
+aXQgZHN0X3N1YnN5c19pbml0KHZvaWQpCiB7CiAJcmVnaXN0ZXJfbmV0ZGV2aWNlX25vdGlmaWVy
+KCZkc3RfZGV2X25vdGlmaWVyKTsKIH0KZGlmZiAtLWdpdCBhL25ldC9pcHY0L2lwX2lucHV0LmMg
+Yi9uZXQvaXB2NC9pcF9pbnB1dC5jCmluZGV4IDJkYjRjODcuLmY0ZmM4YTcgMTAwNjQ0Ci0tLSBh
+L25ldC9pcHY0L2lwX2lucHV0LmMKKysrIGIvbmV0L2lwdjQvaXBfaW5wdXQuYwpAQCAtMTQ2LDYg
+KzE0Niw3IEBACiAjaW5jbHVkZSA8bmV0L3hmcm0uaD4KICNpbmNsdWRlIDxsaW51eC9tcm91dGUu
+aD4KICNpbmNsdWRlIDxsaW51eC9uZXRsaW5rLmg+CisjaW5jbHVkZSA8bmV0L2RzdF9tZXRhZGF0
+YS5oPgogCiAvKgogICoJUHJvY2VzcyBSb3V0ZXIgQXR0ZW50aW9uIElQIG9wdGlvbiAoUkZDIDIx
+MTMpCkBAIC0zMzEsNyArMzMyLDcgQEAgc3RhdGljIGludCBpcF9yY3ZfZmluaXNoKHN0cnVjdCBz
+b2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYikKIAkgKglJbml0aWFsaXNlIHRoZSB2aXJ0dWFs
+IHBhdGggY2FjaGUgZm9yIHRoZSBwYWNrZXQuIEl0IGRlc2NyaWJlcwogCSAqCWhvdyB0aGUgcGFj
+a2V0IHRyYXZlbHMgaW5zaWRlIExpbnV4IG5ldHdvcmtpbmcuCiAJICovCi0JaWYgKCFza2JfZHN0
+KHNrYikpIHsKKwlpZiAoIXNrYl92YWxpZF9kc3Qoc2tiKSkgewogCQlpbnQgZXJyID0gaXBfcm91
+dGVfaW5wdXRfbm9yZWYoc2tiLCBpcGgtPmRhZGRyLCBpcGgtPnNhZGRyLAogCQkJCQkgICAgICAg
+aXBoLT50b3MsIHNrYi0+ZGV2KTsKIAkJaWYgKHVubGlrZWx5KGVycikpIHsKZGlmZiAtLWdpdCBh
+L25ldC9pcHY0L3JvdXRlLmMgYi9uZXQvaXB2NC9yb3V0ZS5jCmluZGV4IGNkMzE1N2MuLjRjOGU4
+NGUgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L3JvdXRlLmMKKysrIGIvbmV0L2lwdjQvcm91dGUuYwpA
+QCAtMTY5MCw2ICsxNjkwLDggQEAgc3RhdGljIGludCBpcF9yb3V0ZV9pbnB1dF9zbG93KHN0cnVj
+dCBza19idWZmICpza2IsIF9fYmUzMiBkYWRkciwgX19iZTMyIHNhZGRyLAogCSAgIGJ5IGZpYl9s
+b29rdXAuCiAJICovCiAKKwlza2JfZHN0X2Ryb3Aoc2tiKTsKKwogCWlmIChpcHY0X2lzX211bHRp
+Y2FzdChzYWRkcikgfHwgaXB2NF9pc19sYmNhc3Qoc2FkZHIpKQogCQlnb3RvIG1hcnRpYW5fc291
+cmNlOwogCi0tIAoyLjQuMwoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVu
+dnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
