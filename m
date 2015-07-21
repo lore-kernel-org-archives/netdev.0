@@ -1,50 +1,76 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/1] tipc: fix compatibility bug
-Date: Tue, 21 Jul 2015 06:42:28 -0400
-Message-ID: <1437475348-2163-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:41142 "EHLO
-	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754043AbbGUKnI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 06:43:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH,v2 net] net: sched: validate that class is found in
+ qdisc_tree_decrease_qlen
+Date: Tue, 21 Jul 2015 12:52:25 +0200
+Message-ID: <1437475945.9913.7.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1437421248-2796139-1-git-send-email-agartrell@fb.com>
+	 <55AE1939.105@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Alex Gartrell <agartrell@fb.com>, xiyou.wangcong@gmail.com,
+	davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com,
+	stable@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <55AE1939.105@mojatatu.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In commit d999297c3dbbe7fdd832f7fa4ec84301e170b3e6
-("tipc: reduce locking scope during packet reception") we introduced
-a new function tipc_link_proto_rcv(). This function contains a bug,
-so that it sometimes by error sends out a non-zero link priority value
-in created protocol messages.
+On Tue, 2015-07-21 at 06:04 -0400, Jamal Hadi Salim wrote:
 
-The bug may lead to an extra link reset at initial link establising
-with older nodes. This will never happen more than once, whereafter
-the link will work as intended.
+> It is worrisome to fix the core code for this. The root cause seems to
+> be codel. Dont have time but in general, reset would be something like:
+> 
+> struct fq_codel_sched_data *q = qdisc_priv(sch);
+> qdisc_reset(q)
 
-We fix this bug in this commit.
+This only works for very simple qdisc with one queue.
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/link.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> or something along those lines...
+> But certainly dequeue semantics dont seem right there..
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 55b675d..b63d573 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1639,7 +1639,7 @@ static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
- 			rcvgap = peers_snd_nxt - l->rcv_nxt;
- 		if (rcvgap || (msg_probe(hdr)))
- 			tipc_link_build_proto_msg(l, STATE_MSG, 0, rcvgap,
--						  0, l->mtu, xmitq);
-+						  0, 0, xmitq);
- 		tipc_link_release_pkts(l, msg_ack(hdr));
+Well, reset() is trivial to implement like this
+
+while (skb = local_dequeue(sch)) {
+	kfree_skb(skb);
+}
+
+And I guess I copy/pasted sfq code here, because I was lazy.
+
+But yes, qdisc_tree_decrease_qlen() would have to be not called.
+
+It seems I coded fq_reset() differently.
+
+Alex, please try instead :
+
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index 21ca33c9f036..3f0320ab6029 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -288,10 +288,21 @@ begin:
  
- 		/* If NACK, retransmit will now start at right position */
--- 
-1.9.1
+ static void fq_codel_reset(struct Qdisc *sch)
+ {
+-	struct sk_buff *skb;
++	struct fq_codel_sched_data *q = qdisc_priv(sch);
++	int i;
+ 
+-	while ((skb = fq_codel_dequeue(sch)) != NULL)
+-		kfree_skb(skb);
++	INIT_LIST_HEAD(&q->new_flows);
++	INIT_LIST_HEAD(&q->old_flows);
++	for (i = 0; i < q->flows_cnt; i++) {
++		struct fq_codel_flow *flow = q->flows + i;
++
++		while (flow->head)
++			kfree_skb(dequeue_head(flow));
++
++		INIT_LIST_HEAD(&flow->flowchain);
++	}
++	memset(q->backlogs, 0, q->flows_cnt * sizeof(u32));
++	sch->q.qlen = 0;
+ }
+ 
+ static const struct nla_policy fq_codel_policy[TCA_FQ_CODEL_MAX + 1] = {
