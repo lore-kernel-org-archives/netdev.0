@@ -1,55 +1,50 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH 1/1] drivers: net: cpsw: remove tx event processing in rx napi poll
-Date: Tue, 21 Jul 2015 16:00:42 +0530
-Message-ID: <1437474642-32175-1-git-send-email-mugunthanvnm@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: fix compatibility bug
+Date: Tue, 21 Jul 2015 06:38:30 -0400
+Message-ID: <1437475110-1836-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:38203 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754562AbbGUKat (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 06:30:49 -0400
+Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:40607 "EHLO
+	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752945AbbGUKjI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 06:39:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With commit c03abd84634d ("net: ethernet: cpsw: don't requests IRQs
-we don't use") common isr and napi are separated into separate tx isr
-and rx isr/napi, but still in rx napi tx events are handled. So removing
-the tx event handling in rx napi.
+In commit d999297c3dbbe7fdd832f7fa4ec84301e170b3e6
+("tipc: reduce locking scope during packet reception") we introduced
+a new function tipc_link_proto_rcv(). This function contains a bug,
+so that it sometimes by error sends out a non-zero link priority value
+in created protocol messages.
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+The bug may lead to an extra link reset at initial link establising
+with older nodes. This will never happen more than once, whereafter
+the link will work as intended.
+
+We fix this bug in this commit.
+
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- drivers/net/ethernet/ti/cpsw.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
+ net/tipc/link.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index f335bf1..d155bf2 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -793,9 +793,7 @@ static irqreturn_t cpsw_rx_interrupt(int irq, void *dev_id)
- static int cpsw_poll(struct napi_struct *napi, int budget)
- {
- 	struct cpsw_priv	*priv = napi_to_priv(napi);
--	int			num_tx, num_rx;
--
--	num_tx = cpdma_chan_process(priv->txch, 128);
-+	int			num_rx;
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 55b675d..b63d573 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1639,7 +1639,7 @@ static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
+ 			rcvgap = peers_snd_nxt - l->rcv_nxt;
+ 		if (rcvgap || (msg_probe(hdr)))
+ 			tipc_link_build_proto_msg(l, STATE_MSG, 0, rcvgap,
+-						  0, l->mtu, xmitq);
++						  0, 0, xmitq);
+ 		tipc_link_release_pkts(l, msg_ack(hdr));
  
- 	num_rx = cpdma_chan_process(priv->rxch, budget);
- 	if (num_rx < budget) {
-@@ -810,9 +808,8 @@ static int cpsw_poll(struct napi_struct *napi, int budget)
- 		}
- 	}
- 
--	if (num_rx || num_tx)
--		cpsw_dbg(priv, intr, "poll %d rx, %d tx pkts\n",
--			 num_rx, num_tx);
-+	if (num_rx)
-+		cpsw_dbg(priv, intr, "poll %d rx pkts\n", num_rx);
- 
- 	return num_rx;
- }
+ 		/* If NACK, retransmit will now start at right position */
 -- 
-2.5.0.rc2.13.g961abca
+1.9.1
