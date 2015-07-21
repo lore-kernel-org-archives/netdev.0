@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 1/1] tipc: fix compatibility bug
-Date: Tue, 21 Jul 2015 06:38:30 -0400
-Message-ID: <1437475110-1836-1-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/1] tipc: fix compatibility bug
+Date: Tue, 21 Jul 2015 06:42:28 -0400
+Message-ID: <1437475348-2163-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
 	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
@@ -9,10 +9,10 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:40607 "EHLO
+Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:41142 "EHLO
 	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752945AbbGUKjI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 06:39:08 -0400
+	by vger.kernel.org with ESMTP id S1754043AbbGUKnI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 06:43:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
