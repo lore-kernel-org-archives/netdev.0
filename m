@@ -1,24 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ravb: fix race updating TCCR
-Date: Mon, 20 Jul 2015 20:42:21 -0700 (PDT)
-Message-ID: <20150720.204221.665725597328229621.davem@davemloft.net>
-References: <6587398.M5V25fvqHl@wasted.cogentembedded.com>
+Subject: Re: [PATCH net-next 1/1] Microchip's LAN7800 family USB 2/3 to
+ 10/100/1000 Ethernet device driver
+Date: Mon, 20 Jul 2015 20:44:41 -0700 (PDT)
+Message-ID: <20150720.204441.153673057236321524.davem@davemloft.net>
+References: <9235D6609DB808459E95D78E17F2E43D52C48B@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <6587398.M5V25fvqHl@wasted.cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Woojung.Huh@microchip.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54536 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751268AbbGUDom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 23:44:42 -0400
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D52C48B@CHN-SV-EXMX02.mchp-main.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Fri, 17 Jul 2015 00:28:38 +0300
+From: <Woojung.Huh@microchip.com>
+Date: Thu, 16 Jul 2015 22:16:05 +0000
 
-> The TCCR.TSRQn bit may get clearead after TCCR gets read, so that TCCR write
-> would get skipped. We don't need to check this bit before setting.
-> 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> +static int eee_control = -1;
+> +module_param(eee_control, int, 0444);
+> +MODULE_PARM_DESC(eee_control, "EEPROM default(-1), disable(0) & enable(1)");
 
-Applied, thanks.
+Please don't add module parameters for things configurable via ethtool and
+other generic, standard, mechanisms.
+
+Thanks.
