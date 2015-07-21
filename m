@@ -1,86 +1,72 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH,v2 net] net: sched: validate that class is found in qdisc_tree_decrease_qlen
-Date: Tue, 21 Jul 2015 06:04:41 -0400
-Message-ID: <55AE1939.105@mojatatu.com>
-References: <1437421248-2796139-1-git-send-email-agartrell@fb.com>
+From: Alex Gartrell <alexgartrell@gmail.com>
+Subject: Re: Why return E2BIG from bpf map update?
+Date: Tue, 21 Jul 2015 03:13:27 -0700
+Message-ID: <CALCkm3ck95Py=vPq+fWrcps=EVwtgFhDvGGyfoZ0AkLraaZJNA@mail.gmail.com>
+References: <CALCkm3eCUYFOon6Gza4A8Ske8MS1rVFJJip_J9dWQp79ju8zBw@mail.gmail.com>
+ <55AD7514.7040906@plumgrid.com> <55AE1374.6010608@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, kernel-team@fb.com,
-	stable@vger.kernel.org
-To: Alex Gartrell <agartrell@fb.com>, xiyou.wangcong@gmail.com,
-	davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:33874 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754799AbbGUKEo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 06:04:44 -0400
-Received: by wibud3 with SMTP id ud3so109533682wib.1
-        for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 03:04:42 -0700 (PDT)
-In-Reply-To: <1437421248-2796139-1-git-send-email-agartrell@fb.com>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:35567 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751997AbbGUKNr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 06:13:47 -0400
+Received: by qgii95 with SMTP id i95so54035675qgi.2
+        for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 03:13:46 -0700 (PDT)
+In-Reply-To: <55AE1374.6010608@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/20/15 15:40, Alex Gartrell wrote:
-> We have an application that invokes tc to delete the root every time the
-> config changes. As a result we stress the cleanup code and were seeing the
-> following panic:
+On Tue, Jul 21, 2015 at 2:40 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 07/21/2015 12:24 AM, Alexei Starovoitov wrote:
+>>
+>> On 7/20/15 3:15 PM, Alex Gartrell wrote:
+>>>
+>>> The ship has probably sailed on this one, but it seems like ENOSPC
+>>> makes more sense than E2BIG.  Any chance of changing it so that poor
+>>> ebpf library maintainers in the future don't have to wonder how their
+>>> argument list got too big?
+>>
+>>
+>> sorry, too late.
+>> It's in tests and even document in bpf manpage:
+>> "E2BIG - indicates that the number of elements in the map reached the
+>> max_entries limit specified at map creation time."
+>> I read E2BIG as "too big" and not as "argument list is too long" :)
 >
->    crash> bt
->    PID: 630839  TASK: ffff8823c990d280  CPU: 14  COMMAND: "tc"
->     [... snip ...]
->     #8 [ffff8820ceec17a0] page_fault at ffffffff8160a8c2
->        [exception RIP: htb_qlen_notify+24]
->        RIP: ffffffffa0841718  RSP: ffff8820ceec1858  RFLAGS: 00010282
->        RAX: 0000000000000000  RBX: 0000000000000000  RCX: ffff88241747b400
->        RDX: ffff88241747b408  RSI: 0000000000000000  RDI: ffff8811fb27d000
->        RBP: ffff8820ceec1868   R8: ffff88120cdeff24   R9: ffff88120cdeff30
->        R10: 0000000000000bd4  R11: ffffffffa0840919  R12: ffffffffa0843340
->        R13: 0000000000000000  R14: 0000000000000001  R15: ffff8808dae5c2e8
->        ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018
->     #9 [...] qdisc_tree_decrease_qlen at ffffffff81565375
->    #10 [...] fq_codel_dequeue at ffffffffa084e0a0 [sch_fq_codel]
->    #11 [...] fq_codel_reset at ffffffffa084e2f8 [sch_fq_codel]
->    #12 [...] qdisc_destroy at ffffffff81560d2d
->    #13 [...] htb_destroy_class at ffffffffa08408f8 [sch_htb]
->    #14 [...] htb_put at ffffffffa084095c [sch_htb]
->    #15 [...] tc_ctl_tclass at ffffffff815645a3
->    #16 [...] rtnetlink_rcv_msg at ffffffff81552cb0
->    [... snip ...]
 >
-> To my understanding, the following situation is taking place.
->
+> If some libraries do an strerror(3) on errno then it certainly sounds
+> a bit weird, "no space left on device" perhaps also a bit misleading.
+> The bpf(2) manpage was actually submitted/discussed longer time ago,
+> but I still didn't see it in Michael's tree yet, will ping him again.
 
->    tc_ctl_tclass
+I was just being whiny :)
 
->     -> htb_delete
->       -> class is deleted from clhash
->     -> htb_put
->       -> qdisc_destroy
->         -> fq_codel_reset
+The options really are
+ENOMEM -- really should mean allocation failed
+E2BIG -- really should mean argument list too big
+ENOSPC -- really should mean that a physical device is full
 
-=========> this part looks suspicious. Why is reset invoking
-a dequeue? Shouldnt a destroy just purge the queue?
+I suppose there's also
+EDQUOT -- Disk Quota Exceeded
 
->           -> fq_codel_dequeue
->             -> qdidsc_tree_decrease_qlen
->               -> cl = htb_get # returns NULL, removed in htb_delete
->                 -> htb_qlen_notify(sch, NULL) # BOOM
->
+And if you're really stretching
+EXFULL - Exchange Full
 
-It is worrisome to fix the core code for this. The root cause seems to
-be codel. Dont have time but in general, reset would be something like:
+but I've never seen either of the last two in my life.
 
-struct fq_codel_sched_data *q = qdisc_priv(sch);
-qdisc_reset(q)
+So clearly this is all very subjective and people who complain about
+it on mailing lists (me) are the worst.
 
-or something along those lines...
-But certainly dequeue semantics dont seem right there..
+The only complaint I'd have though is E2BIG actually does mean that
+your bpf_attr argument is too big as well, so that part confused me
+for a couple of minutes.  But, the EINVAL errno has similarly been
+abused to death so I don't think it's that big of a deal.
 
-cheers,
-jamal
+/bikeshedding
 
-
-
-cheers,
-jamal
+-- 
+Alex Gartrell <agartrell@fb.com>
