@@ -1,49 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/14][pull request] Intel Wired LAN Driver Updates
- 2015-07-17
-Date: Mon, 20 Jul 2015 20:50:35 -0700 (PDT)
-Message-ID: <20150720.205035.664905720168689836.davem@davemloft.net>
-References: <1437143123-5031-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2 net-next 0/2] bpf: introduce bpf_skb_vlan_push/pop()
+ helpers
+Date: Mon, 20 Jul 2015 20:52:45 -0700 (PDT)
+Message-ID: <20150720.205245.649321634564529110.davem@davemloft.net>
+References: <1437449659-23765-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, john.ronciak@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: edumazet@google.com, holzheu@linux.vnet.ibm.com,
+	daniel@iogearbox.net, netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54587 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54612 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751268AbbGUDug (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 23:50:36 -0400
-In-Reply-To: <1437143123-5031-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1751489AbbGUDwr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 23:52:47 -0400
+In-Reply-To: <1437449659-23765-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 17 Jul 2015 07:25:09 -0700
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Mon, 20 Jul 2015 20:34:17 -0700
 
-> This series contains updates to igb, ixgbe, ixgbevf, i40e, bnx2x,
-> freescale, siena and dp83640.
+> Let TC+eBPF programs call skb_vlan_push/pop via helpers.
 > 
-> Jacob provides several patches to clarify the intended way to implement
-> both SIOCSHWTSTAMP and ethtool's get_ts_info().  It is okay to support
-> the specific filters in SIOCSHWTSTAMP by upscaling them to the generic
-> filters.
-> 
-> Alex Duyck provides a igb patch to pull the time stamp from the fragment
-> before it gets added to the skb, to avoid a possible issue in which the
-> fragment can possibly be less than IGB_RX_HDR_LEN due to the time stamp
-> being pulled after the copybreak check.  Also provides a ixgbevf patch to
-> fold the ixgbevf_pull_tail() call into ixgbevf_add_rx_frag(), which gives
-> the advantage that the fragment does not have to be modified after it is
-> added to the skb.
-> 
-> Fan provides patches for ixgbe/ixgbevf to set the receive hash type
-> based on receive descriptor RSS type.
-> 
-> Todd provides a fix for igb where on check for link on any media other
-> than copper was not being detected since it was looking on the incorrect
-> PHY page (due to the page being used gets switched before the function
-> to check link gets executed).
+> v1->v2:
+> - reworded commit log to better explain correctness of re-caching
+>   and fixed comparison of mixed endiannes (suggested by Eric)
 
-Pulled, thanks a lot Jeff.
+Series applied, thanks Alexei.
