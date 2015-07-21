@@ -1,55 +1,75 @@
-From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: Re: [PATCH] packet: Allow packets with only a header (but no payload)
-Date: Tue, 21 Jul 2015 18:38:12 +0200
-Message-ID: <CAFBinCB4xOBzxwkEQYrpi1q7Xm4_-hpj2jUE2r-fQ5f2grjZ=Q@mail.gmail.com>
-References: <1437495247-471-1-git-send-email-martin.blumenstingl@googlemail.com>
- <CA+FuTScr0o0ZmwWxVP4FZoQosRRiQG6+MDvCahMCWmjLkg+33g@mail.gmail.com>
+From: Konstantin Khlebnikov <khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org>
+Subject: [PATCH] cgroup: net_cls: fix false-positive "suspicious RCU usage"
+Date: Tue, 21 Jul 2015 19:46:29 +0300
+Message-ID: <20150721164629.18385.14538.stgit@buzz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	David Miller <davem@davemloft.net>, mostrows@earthlink.net
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:34669 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755417AbbGUQid (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 12:38:33 -0400
-Received: by lbbzr7 with SMTP id zr7so119835115lbb.1
-        for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 09:38:31 -0700 (PDT)
-In-Reply-To: <CA+FuTScr0o0ZmwWxVP4FZoQosRRiQG6+MDvCahMCWmjLkg+33g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Willem,
+In dev_queue_xmit() net_cls protected with rcu-bh.
 
-On Tue, Jul 21, 2015 at 6:28 PM, Willem de Bruijn <willemb@google.com> wrote:
-> Interesting. 9c7077622dd9 only extended the check from tpacket_snd to
-> packet_snd to make the two paths equivalent. The existing check had the
-> ominous statement
->
->     /* net device doesn't like empty head */
-OK, I guess it's best to find out what the purpose of this comment is.
+[  270.730026] ===============================
+[  270.730029] [ INFO: suspicious RCU usage. ]
+[  270.730033] 4.2.0-rc3+ #2 Not tainted
+[  270.730036] -------------------------------
+[  270.730040] include/linux/cgroup.h:353 suspicious rcu_dereference_check() usage!
+[  270.730041] other info that might help us debug this:
+[  270.730043] rcu_scheduler_active = 1, debug_locks = 1
+[  270.730045] 2 locks held by dhclient/748:
+[  270.730046]  #0:  (rcu_read_lock_bh){......}, at: [<ffffffff81682b70>] __dev_queue_xmit+0x50/0x960
+[  270.730085]  #1:  (&qdisc_tx_lock){+.....}, at: [<ffffffff81682d60>] __dev_queue_xmit+0x240/0x960
+[  270.730090] stack backtrace:
+[  270.730096] CPU: 0 PID: 748 Comm: dhclient Not tainted 4.2.0-rc3+ #2
+[  270.730098] Hardware name: OpenStack Foundation OpenStack Nova, BIOS Bochs 01/01/2011
+[  270.730100]  0000000000000001 ffff8800bafeba58 ffffffff817ad487 0000000000000007
+[  270.730103]  ffff880232a0a780 ffff8800bafeba88 ffffffff810ca4f2 ffff88022fb23e00
+[  270.730105]  ffff880232a0a780 ffff8800bafebb68 ffff8800bafebb68 ffff8800bafebaa8
+[  270.730108] Call Trace:
+[  270.730121]  [<ffffffff817ad487>] dump_stack+0x4c/0x65
+[  270.730148]  [<ffffffff810ca4f2>] lockdep_rcu_suspicious+0xe2/0x120
+[  270.730153]  [<ffffffff816a62d2>] task_cls_state+0x92/0xa0
+[  270.730158]  [<ffffffffa00b534f>] cls_cgroup_classify+0x4f/0x120 [cls_cgroup]
+[  270.730164]  [<ffffffff816aac74>] tc_classify_compat+0x74/0xc0
+[  270.730166]  [<ffffffff816ab573>] tc_classify+0x33/0x90
+[  270.730170]  [<ffffffffa00bcb0a>] htb_enqueue+0xaa/0x4a0 [sch_htb]
+[  270.730172]  [<ffffffff81682e26>] __dev_queue_xmit+0x306/0x960
+[  270.730174]  [<ffffffff81682b70>] ? __dev_queue_xmit+0x50/0x960
+[  270.730176]  [<ffffffff816834a3>] dev_queue_xmit_sk+0x13/0x20
+[  270.730185]  [<ffffffff81787770>] dev_queue_xmit+0x10/0x20
+[  270.730187]  [<ffffffff8178b91c>] packet_snd.isra.62+0x54c/0x760
+[  270.730190]  [<ffffffff8178be25>] packet_sendmsg+0x2f5/0x3f0
+[  270.730203]  [<ffffffff81665245>] ? sock_def_readable+0x5/0x190
+[  270.730210]  [<ffffffff817b64bb>] ? _raw_spin_unlock+0x2b/0x40
+[  270.730216]  [<ffffffff8173bcbc>] ? unix_dgram_sendmsg+0x5cc/0x640
+[  270.730219]  [<ffffffff8165f367>] sock_sendmsg+0x47/0x50
+[  270.730221]  [<ffffffff8165f42f>] sock_write_iter+0x7f/0xd0
+[  270.730232]  [<ffffffff811fd4c7>] __vfs_write+0xa7/0xf0
+[  270.730234]  [<ffffffff811fe5b8>] vfs_write+0xb8/0x190
+[  270.730236]  [<ffffffff811fe8c2>] SyS_write+0x52/0xb0
+[  270.730239]  [<ffffffff817b6bae>] entry_SYSCALL_64_fastpath+0x12/0x76
 
-> so allowing a header-only packet while correct in your case may not be
-> safe in some edge cases (specific device drivers?).
-I'm wondering how a good fix would look like (I can think of a few
-things, like renaming hard_header_len to something min_packet_size)?
-I am open for suggestions since I have zero knowledge about the inner
-workings of the packet framework.
+Signed-off-by: Konstantin Khlebnikov <khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org>
+---
+ net/core/netclassid_cgroup.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-> This was also discussed previously
->
->   http://www.spinics.net/lists/netdev/msg309677.html
->
-> In any case, I don't think that reverting the patch and restoring the old
-> inconsistent state is a fix.
-I totally agree with you that it's a bad fix if this means that we
-could break other drivers.
-My primary goal was to fix PPPoE connections - I guess I should have
-simply added "RFC" to the subject.
-
-
-Regards,
-Martin
+diff --git a/net/core/netclassid_cgroup.c b/net/core/netclassid_cgroup.c
+index 1f2a126f4ffa..515939034298 100644
+--- a/net/core/netclassid_cgroup.c
++++ b/net/core/netclassid_cgroup.c
+@@ -23,7 +23,8 @@ static inline struct cgroup_cls_state *css_cls_state(struct cgroup_subsys_state
+ 
+ struct cgroup_cls_state *task_cls_state(struct task_struct *p)
+ {
+-	return css_cls_state(task_css(p, net_cls_cgrp_id));
++       return css_cls_state(task_css_check(p, net_cls_cgrp_id,
++			       rcu_read_lock_bh_held()));
+ }
+ EXPORT_SYMBOL_GPL(task_cls_state);
+ 
