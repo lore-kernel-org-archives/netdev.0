@@ -1,55 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: correct the MAC address for "follow"
- fail_over_mac policy
-Date: Mon, 20 Jul 2015 20:30:09 -0700 (PDT)
-Message-ID: <20150720.203009.2006764612728170046.davem@davemloft.net>
-References: <55A76B8A.5040804@huawei.com>
+Subject: Re: [PATCH] inet: frags: fix defragmented packet's IP header for
+ af_packet
+Date: Mon, 20 Jul 2015 20:31:19 -0700 (PDT)
+Message-ID: <20150720.203119.344614621480451223.davem@davemloft.net>
+References: <1437036881-708-1-git-send-email-edjee@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org, fengtiantian@huawei.com,
-	hahaer.guo@huawei.com
-To: dingtianhong@huawei.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: willemb@google.com, edumazet@google.com, hkchu@google.com,
+	netdev@vger.kernel.org
+To: edjee@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54336 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54355 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752000AbbGUDaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 23:30:10 -0400
-In-Reply-To: <55A76B8A.5040804@huawei.com>
+	with ESMTP id S1753769AbbGUDbU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 23:31:20 -0400
+In-Reply-To: <1437036881-708-1-git-send-email-edjee@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Thu, 16 Jul 2015 16:30:02 +0800
-
-> The "follow" fail_over_mac policy is useful for multiport devices that
-> either become confused or incur a performance penalty when multiple
-> ports are programmed with the same MAC address, but the same MAC
-> address still may happened by this steps for this policy:
-> 
-> 1) echo +eth0 > /sys/class/net/bond0/bonding/slaves
->    bond0 has the same mac address with eth0, it is MAC1.
-> 
-> 2) echo +eth1 > /sys/class/net/bond0/bonding/slaves
->    eth1 is backup, eth1 has MAC2.
-> 
-> 3) ifconfig eth0 down
->    eth1 became active slave, bond will swap MAC for eth0 and eth1,
->    so eth1 has MAC1, and eth0 has MAC2.
-> 
-> 4) ifconfig eth1 down
->    there is no active slave, and eth1 still has MAC1, eth2 has MAC2.
-> 
-> 5) ifconfig eth0 up
->    the eth0 became active slave again, the bond set eth0 to MAC1.
-> 
-> Something wrong here, then if you set eth1 up, the eth0 and eth1 will have the same
-> MAC address, it will break this policy for ACTIVE_BACKUP mode.
-> 
-> This patch will fix this problem by finding the old active slave and
-> swap them MAC address before change active slave.
-> 
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-
-Applied and queued up for -stable, thanks.
+RnJvbTogRWR3YXJkIEplZSA8ZWRqZWVAZ29vZ2xlLmNvbT4NCkRhdGU6IFRodSwgMTYgSnVsIDIw
+MTUgMDE6NTQ6NDEgLTA3MDANCg0KPiBXaGVuIGlwX2ZyYWdfcXVldWUoKSBjb21wdXRlcyBwb3Np
+dGlvbnMsIGl0IGFzc3VtZXMgdGhhdCB0aGUgcGFzc2VkDQo+IHNrX2J1ZmYgZG9lcyBub3QgY29u
+dGFpbiBMMiBoZWFkZXJzLiBIb3dldmVyLCB3aGVuDQo+IFBBQ0tFVF9GQU5PVVRfRkxBR19ERUZS
+QUcgaXMgdXNlZCwgSVAgZGVmcmFnbWVudGF0aW9uIGZ1bmN0aW9ucyBjYW4gYmUNCj4gY2FsbGVk
+IG9uIG91dGdvaW5nIHBhY2tldHMgdGhhdCBjb250YWluIEwyIGhlYWRlcnMuIEFsc28sIElQdjQN
+Cj4gY2hlY2tzdW0gaXMgbm90IGNvcnJlY3RlZCBhZnRlciBkZWZyYWdtZW50YXRpb24uDQo+IA0K
+PiBGaXhlczogNzczNmQzM2Y0MjYyICgicGFja2V0OiBBZGQgcHJlLWRlZnJhZ21lbnRhdGlvbiBz
+dXBwb3J0IGZvciBpcHY0IGZhbm91dHMuIikNCj4gU2lnbmVkLW9mZi1ieTogRWR3YXJkIEh5dW5r
+b28gSmVlIDxlZGplZUBnb29nbGUuY29tPg0KPiBBY2tlZC1ieTogRXJpYyBEdW1hemV0IDxlZHVt
+YXpldEBnb29nbGUuY29tPg0KDQpUaGlzIGRvZXNuJ3QgY29tcGlsZS4NCg0KbmV0L2lwdjQvaXBf
+ZnJhZ21lbnQuYzogSW4gZnVuY3Rpb24goWlwX2ZyYWdfcmVhc22iOg0KbmV0L2lwdjQvaXBfZnJh
+Z21lbnQuYzo2NDQ6MjM6IGVycm9yOiChc2tioiB1bmRlY2xhcmVkIChmaXJzdCB1c2UgaW4gdGhp
+cyBmdW5jdGlvbikNCiAgaXBfc2VuZF9jaGVjayhpcF9oZHIoc2tiKSk7DQogICAgICAgICAgICAg
+ICAgICAgICAgIF4NCm5ldC9pcHY0L2lwX2ZyYWdtZW50LmM6NjQ0OjIzOiBub3RlOiBlYWNoIHVu
+ZGVjbGFyZWQgaWRlbnRpZmllciBpcyByZXBvcnRlZCBvbmx5IG9uY2UgZm9yIGVhY2ggZnVuY3Rp
+b24gaXQgYXBwZWFycyBpbg0Kc2NyaXB0cy9NYWtlZmlsZS5idWlsZDoyNTg6IHJlY2lwZSBmb3Ig
+dGFyZ2V0ICduZXQvaXB2NC9pcF9mcmFnbWVudC5vJyBmYWlsZWQNCm1ha2VbMV06ICoqKiBbbmV0
+L2lwdjQvaXBfZnJhZ21lbnQub10gRXJyb3IgMQ0KTWFrZWZpbGU6MTUyNzogcmVjaXBlIGZvciB0
+YXJnZXQgJ25ldC9pcHY0L2lwX2ZyYWdtZW50Lm8nIGZhaWxlZA0KbWFrZTogKioqIFtuZXQvaXB2
+NC9pcF9mcmFnbWVudC5vXSBFcnJvciAyDQo=
