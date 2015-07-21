@@ -1,7 +1,7 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 20/22] openvswitch: Move dev pointer into vport itself
-Date: Tue, 21 Jul 2015 10:44:04 +0200
-Message-ID: <a3626e983f8f8bc06201699ccbc29b9b8cb306c3.1437468140.git.tgraf@suug.ch>
+Subject: [PATCH net-next 19/22] openvswitch: Make tunnel set action attach a metadata dst
+Date: Tue, 21 Jul 2015 10:44:03 +0200
+Message-ID: <66d82b4945ef28076d42c3b350e614907066d513.1437468140.git.tgraf@suug.ch>
 References: <cover.1437468140.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org
 To: roopa@cumulusnetworks.com, rshearma@brocade.com,
@@ -13,379 +13,257 @@ To: roopa@cumulusnetworks.com, rshearma@brocade.com,
 	simon.horman@netronome.com, joestringer@nicira.com, ja@ssi.bg,
 	ast@plumgrid.com, weichunc@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:40202 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:40181 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754258AbbGUIof (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 04:44:35 -0400
+	with ESMTP id S1754053AbbGUIoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 04:44:34 -0400
 In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
 In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
 References: <cover.1437468140.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the first step in representing all OVS vports as regular
-struct net_devices. Move the net_device pointer into the vport
-structure itself to get rid of struct vport_netdev.
+Utilize the new metadata dst to attach encapsulation instructions to
+the skb. The existing egress_tun_info via the OVS_CB() is left in
+place until all tunnel vports have been converted to the new method.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/openvswitch/datapath.c           |  7 +--
- net/openvswitch/dp_notify.c          |  5 +--
- net/openvswitch/vport-internal_dev.c | 37 +++++++---------
- net/openvswitch/vport-netdev.c       | 86 ++++++++++++++++--------------------
- net/openvswitch/vport-netdev.h       | 12 -----
- net/openvswitch/vport.h              |  3 +-
- 6 files changed, 59 insertions(+), 91 deletions(-)
+ net/openvswitch/actions.c      | 10 ++++++-
+ net/openvswitch/datapath.c     |  8 +++---
+ net/openvswitch/flow.h         |  5 ++++
+ net/openvswitch/flow_netlink.c | 64 +++++++++++++++++++++++++++++++++++++-----
+ net/openvswitch/flow_netlink.h |  1 +
+ net/openvswitch/flow_table.c   |  4 ++-
+ 6 files changed, 79 insertions(+), 13 deletions(-)
 
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 27c1687..cf04c2f 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -733,7 +733,15 @@ static int execute_set_action(struct sk_buff *skb,
+ {
+ 	/* Only tunnel set execution is supported without a mask. */
+ 	if (nla_type(a) == OVS_KEY_ATTR_TUNNEL_INFO) {
+-		OVS_CB(skb)->egress_tun_info = nla_data(a);
++		struct ovs_tunnel_info *tun = nla_data(a);
++
++		skb_dst_drop(skb);
++		dst_hold((struct dst_entry *)tun->tun_dst);
++		skb_dst_set(skb, (struct dst_entry *)tun->tun_dst);
++
++		/* FIXME: Remove when all vports have been converted */
++		OVS_CB(skb)->egress_tun_info = &tun->tun_dst->u.tun_info;
++
+ 		return 0;
+ 	}
+ 
 diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 0208210..19df28e 100644
+index ff8c4a4..0208210 100644
 --- a/net/openvswitch/datapath.c
 +++ b/net/openvswitch/datapath.c
-@@ -188,7 +188,7 @@ static int get_dpifindex(const struct datapath *dp)
- 
- 	local = ovs_vport_rcu(dp, OVSP_LOCAL);
- 	if (local)
--		ifindex = netdev_vport_priv(local)->dev->ifindex;
-+		ifindex = local->dev->ifindex;
- 	else
- 		ifindex = 0;
- 
-@@ -2219,13 +2219,10 @@ static void __net_exit list_vports_from_net(struct net *net, struct net *dnet,
- 			struct vport *vport;
- 
- 			hlist_for_each_entry(vport, &dp->ports[i], dp_hash_node) {
--				struct netdev_vport *netdev_vport;
--
- 				if (vport->ops->type != OVS_VPORT_TYPE_INTERNAL)
- 					continue;
- 
--				netdev_vport = netdev_vport_priv(vport);
--				if (dev_net(netdev_vport->dev) == dnet)
-+				if (dev_net(vport->dev) == dnet)
- 					list_add(&vport->detach_list, head);
- 			}
+@@ -1018,7 +1018,7 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
  		}
-diff --git a/net/openvswitch/dp_notify.c b/net/openvswitch/dp_notify.c
-index 2c631fe..a7a80a6 100644
---- a/net/openvswitch/dp_notify.c
-+++ b/net/openvswitch/dp_notify.c
-@@ -58,13 +58,10 @@ void ovs_dp_notify_wq(struct work_struct *work)
- 			struct hlist_node *n;
+ 		ovs_unlock();
  
- 			hlist_for_each_entry_safe(vport, n, &dp->ports[i], dp_hash_node) {
--				struct netdev_vport *netdev_vport;
--
- 				if (vport->ops->type != OVS_VPORT_TYPE_NETDEV)
- 					continue;
- 
--				netdev_vport = netdev_vport_priv(vport);
--				if (!(netdev_vport->dev->priv_flags & IFF_OVS_DATAPATH))
-+				if (!(vport->dev->priv_flags & IFF_OVS_DATAPATH))
- 					dp_detach_port_notify(vport);
- 			}
- 		}
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 6a55f71..a2c205d 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -156,49 +156,44 @@ static void do_setup(struct net_device *netdev)
- static struct vport *internal_dev_create(const struct vport_parms *parms)
- {
- 	struct vport *vport;
--	struct netdev_vport *netdev_vport;
- 	struct internal_dev *internal_dev;
- 	int err;
- 
--	vport = ovs_vport_alloc(sizeof(struct netdev_vport),
--				&ovs_internal_vport_ops, parms);
-+	vport = ovs_vport_alloc(0, &ovs_internal_vport_ops, parms);
- 	if (IS_ERR(vport)) {
- 		err = PTR_ERR(vport);
- 		goto error;
+-		ovs_nla_free_flow_actions(old_acts);
++		ovs_nla_free_flow_actions_rcu(old_acts);
+ 		ovs_flow_free(new_flow, false);
  	}
  
--	netdev_vport = netdev_vport_priv(vport);
--
--	netdev_vport->dev = alloc_netdev(sizeof(struct internal_dev),
--					 parms->name, NET_NAME_UNKNOWN,
--					 do_setup);
--	if (!netdev_vport->dev) {
-+	vport->dev = alloc_netdev(sizeof(struct internal_dev),
-+				  parms->name, NET_NAME_UNKNOWN, do_setup);
-+	if (!vport->dev) {
- 		err = -ENOMEM;
- 		goto error_free_vport;
- 	}
- 
--	dev_net_set(netdev_vport->dev, ovs_dp_get_net(vport->dp));
--	internal_dev = internal_dev_priv(netdev_vport->dev);
-+	dev_net_set(vport->dev, ovs_dp_get_net(vport->dp));
-+	internal_dev = internal_dev_priv(vport->dev);
- 	internal_dev->vport = vport;
- 
- 	/* Restrict bridge port to current netns. */
- 	if (vport->port_no == OVSP_LOCAL)
--		netdev_vport->dev->features |= NETIF_F_NETNS_LOCAL;
-+		vport->dev->features |= NETIF_F_NETNS_LOCAL;
- 
- 	rtnl_lock();
--	err = register_netdevice(netdev_vport->dev);
-+	err = register_netdevice(vport->dev);
- 	if (err)
- 		goto error_free_netdev;
- 
--	dev_set_promiscuity(netdev_vport->dev, 1);
-+	dev_set_promiscuity(vport->dev, 1);
- 	rtnl_unlock();
--	netif_start_queue(netdev_vport->dev);
-+	netif_start_queue(vport->dev);
- 
- 	return vport;
- 
- error_free_netdev:
- 	rtnl_unlock();
--	free_netdev(netdev_vport->dev);
-+	free_netdev(vport->dev);
- error_free_vport:
- 	ovs_vport_free(vport);
+@@ -1030,7 +1030,7 @@ err_unlock_ovs:
+ 	ovs_unlock();
+ 	kfree_skb(reply);
+ err_kfree_acts:
+-	kfree(acts);
++	ovs_nla_free_flow_actions(acts);
+ err_kfree_flow:
+ 	ovs_flow_free(new_flow, false);
  error:
-@@ -207,21 +202,19 @@ error:
+@@ -1157,7 +1157,7 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ 	if (reply)
+ 		ovs_notify(&dp_flow_genl_family, reply, info);
+ 	if (old_acts)
+-		ovs_nla_free_flow_actions(old_acts);
++		ovs_nla_free_flow_actions_rcu(old_acts);
  
- static void internal_dev_destroy(struct vport *vport)
- {
--	struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
--
--	netif_stop_queue(netdev_vport->dev);
-+	netif_stop_queue(vport->dev);
- 	rtnl_lock();
--	dev_set_promiscuity(netdev_vport->dev, -1);
-+	dev_set_promiscuity(vport->dev, -1);
+ 	return 0;
  
- 	/* unregister_netdevice() waits for an RCU grace period. */
--	unregister_netdevice(netdev_vport->dev);
-+	unregister_netdevice(vport->dev);
+@@ -1165,7 +1165,7 @@ err_unlock_ovs:
+ 	ovs_unlock();
+ 	kfree_skb(reply);
+ err_kfree_acts:
+-	kfree(acts);
++	ovs_nla_free_flow_actions(acts);
+ error:
+ 	return error;
+ }
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index cadc6c5..b62cdb3 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -33,6 +33,7 @@
+ #include <linux/flex_array.h>
+ #include <net/inet_ecn.h>
+ #include <net/ip_tunnels.h>
++#include <net/dst_metadata.h>
  
- 	rtnl_unlock();
+ struct sk_buff;
+ 
+@@ -45,6 +46,10 @@ struct sk_buff;
+ #define TUN_METADATA_OPTS(flow_key, opt_len) \
+ 	((void *)((flow_key)->tun_opts + TUN_METADATA_OFFSET(opt_len)))
+ 
++struct ovs_tunnel_info {
++	struct metadata_dst	*tun_dst;
++};
++
+ #define OVS_SW_FLOW_KEY_METADATA_SIZE			\
+ 	(offsetof(struct sw_flow_key, recirc_id) +	\
+ 	FIELD_SIZEOF(struct sw_flow_key, recirc_id))
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index ecfa530..e7906df 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -1548,11 +1548,48 @@ static struct sw_flow_actions *nla_alloc_flow_actions(int size, bool log)
+ 	return sfa;
  }
  
- static int internal_dev_recv(struct vport *vport, struct sk_buff *skb)
- {
--	struct net_device *netdev = netdev_vport_priv(vport)->dev;
-+	struct net_device *netdev = vport->dev;
- 	int len;
- 
- 	if (unlikely(!(netdev->flags & IFF_UP))) {
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index 33e6d6e..1c96966 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -83,104 +83,97 @@ static struct net_device *get_dpdev(const struct datapath *dp)
- 
- 	local = ovs_vport_ovsl(dp, OVSP_LOCAL);
- 	BUG_ON(!local);
--	return netdev_vport_priv(local)->dev;
-+	return local->dev;
- }
- 
--static struct vport *netdev_create(const struct vport_parms *parms)
-+static struct vport *netdev_link(struct vport *vport, const char *name)
- {
--	struct vport *vport;
--	struct netdev_vport *netdev_vport;
- 	int err;
- 
--	vport = ovs_vport_alloc(sizeof(struct netdev_vport),
--				&ovs_netdev_vport_ops, parms);
--	if (IS_ERR(vport)) {
--		err = PTR_ERR(vport);
--		goto error;
--	}
--
--	netdev_vport = netdev_vport_priv(vport);
--
--	netdev_vport->dev = dev_get_by_name(ovs_dp_get_net(vport->dp), parms->name);
--	if (!netdev_vport->dev) {
-+	vport->dev = dev_get_by_name(ovs_dp_get_net(vport->dp), name);
-+	if (!vport->dev) {
- 		err = -ENODEV;
- 		goto error_free_vport;
- 	}
- 
--	if (netdev_vport->dev->flags & IFF_LOOPBACK ||
--	    netdev_vport->dev->type != ARPHRD_ETHER ||
--	    ovs_is_internal_dev(netdev_vport->dev)) {
-+	if (vport->dev->flags & IFF_LOOPBACK ||
-+	    vport->dev->type != ARPHRD_ETHER ||
-+	    ovs_is_internal_dev(vport->dev)) {
- 		err = -EINVAL;
- 		goto error_put;
- 	}
- 
- 	rtnl_lock();
--	err = netdev_master_upper_dev_link(netdev_vport->dev,
-+	err = netdev_master_upper_dev_link(vport->dev,
- 					   get_dpdev(vport->dp));
- 	if (err)
- 		goto error_unlock;
- 
--	err = netdev_rx_handler_register(netdev_vport->dev, netdev_frame_hook,
-+	err = netdev_rx_handler_register(vport->dev, netdev_frame_hook,
- 					 vport);
- 	if (err)
- 		goto error_master_upper_dev_unlink;
- 
--	dev_disable_lro(netdev_vport->dev);
--	dev_set_promiscuity(netdev_vport->dev, 1);
--	netdev_vport->dev->priv_flags |= IFF_OVS_DATAPATH;
-+	dev_disable_lro(vport->dev);
-+	dev_set_promiscuity(vport->dev, 1);
-+	vport->dev->priv_flags |= IFF_OVS_DATAPATH;
- 	rtnl_unlock();
- 
- 	return vport;
- 
- error_master_upper_dev_unlink:
--	netdev_upper_dev_unlink(netdev_vport->dev, get_dpdev(vport->dp));
-+	netdev_upper_dev_unlink(vport->dev, get_dpdev(vport->dp));
- error_unlock:
- 	rtnl_unlock();
- error_put:
--	dev_put(netdev_vport->dev);
-+	dev_put(vport->dev);
- error_free_vport:
- 	ovs_vport_free(vport);
--error:
- 	return ERR_PTR(err);
- }
- 
-+static struct vport *netdev_create(const struct vport_parms *parms)
++static void ovs_nla_free_set_action(const struct nlattr *a)
 +{
-+	struct vport *vport;
++	const struct nlattr *ovs_key = nla_data(a);
++	struct ovs_tunnel_info *ovs_tun;
 +
-+	vport = ovs_vport_alloc(0, &ovs_netdev_vport_ops, parms);
-+	if (IS_ERR(vport))
-+		return vport;
-+
-+	return netdev_link(vport, parms->name);
++	switch (nla_type(ovs_key)) {
++	case OVS_KEY_ATTR_TUNNEL_INFO:
++		ovs_tun = nla_data(ovs_key);
++		dst_release((struct dst_entry *)ovs_tun->tun_dst);
++		break;
++	}
 +}
 +
- static void free_port_rcu(struct rcu_head *rcu)
++void ovs_nla_free_flow_actions(struct sw_flow_actions *sf_acts)
++{
++	const struct nlattr *a;
++	int rem;
++
++	if (!sf_acts)
++		return;
++
++	nla_for_each_attr(a, sf_acts->actions, sf_acts->actions_len, rem) {
++		switch (nla_type(a)) {
++		case OVS_ACTION_ATTR_SET:
++			ovs_nla_free_set_action(a);
++			break;
++		}
++	}
++
++	kfree(sf_acts);
++}
++
++static void __ovs_nla_free_flow_actions(struct rcu_head *head)
++{
++	ovs_nla_free_flow_actions(container_of(head, struct sw_flow_actions, rcu));
++}
++
+ /* Schedules 'sf_acts' to be freed after the next RCU grace period.
+  * The caller must hold rcu_read_lock for this to be sensible. */
+-void ovs_nla_free_flow_actions(struct sw_flow_actions *sf_acts)
++void ovs_nla_free_flow_actions_rcu(struct sw_flow_actions *sf_acts)
  {
--	struct netdev_vport *netdev_vport = container_of(rcu,
--					struct netdev_vport, rcu);
-+	struct vport *vport = container_of(rcu, struct vport, rcu);
- 
--	dev_put(netdev_vport->dev);
--	ovs_vport_free(vport_from_priv(netdev_vport));
-+	dev_put(vport->dev);
-+	ovs_vport_free(vport);
+-	kfree_rcu(sf_acts, rcu);
++	call_rcu(&sf_acts->rcu, __ovs_nla_free_flow_actions);
  }
  
- void ovs_netdev_detach_dev(struct vport *vport)
+ static struct nlattr *reserve_sfa_size(struct sw_flow_actions **sfa,
+@@ -1746,7 +1783,9 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
  {
--	struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
--
- 	ASSERT_RTNL();
--	netdev_vport->dev->priv_flags &= ~IFF_OVS_DATAPATH;
--	netdev_rx_handler_unregister(netdev_vport->dev);
--	netdev_upper_dev_unlink(netdev_vport->dev,
--				netdev_master_upper_dev_get(netdev_vport->dev));
--	dev_set_promiscuity(netdev_vport->dev, -1);
-+	vport->dev->priv_flags &= ~IFF_OVS_DATAPATH;
-+	netdev_rx_handler_unregister(vport->dev);
-+	netdev_upper_dev_unlink(vport->dev,
-+				netdev_master_upper_dev_get(vport->dev));
-+	dev_set_promiscuity(vport->dev, -1);
+ 	struct sw_flow_match match;
+ 	struct sw_flow_key key;
++	struct metadata_dst *tun_dst;
+ 	struct ip_tunnel_info *tun_info;
++	struct ovs_tunnel_info *ovs_tun;
+ 	struct nlattr *a;
+ 	int err = 0, start, opts_type;
+ 
+@@ -1771,12 +1810,22 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 	if (start < 0)
+ 		return start;
+ 
++	tun_dst = metadata_dst_alloc(key.tun_opts_len, GFP_KERNEL);
++	if (!tun_dst)
++		return -ENOMEM;
++
+ 	a = __add_action(sfa, OVS_KEY_ATTR_TUNNEL_INFO, NULL,
+-			 sizeof(*tun_info) + key.tun_opts_len, log);
+-	if (IS_ERR(a))
++			 sizeof(*ovs_tun), log);
++	if (IS_ERR(a)) {
++		dst_release((struct dst_entry *)tun_dst);
+ 		return PTR_ERR(a);
++	}
++
++	ovs_tun = nla_data(a);
++	ovs_tun->tun_dst = tun_dst;
+ 
+-	tun_info = nla_data(a);
++	tun_info = &tun_dst->u.tun_info;
++	tun_info->mode = IP_TUNNEL_INFO_TX;
+ 	tun_info->key = key.tun_key;
+ 	tun_info->options_len = key.tun_opts_len;
+ 
+@@ -2177,7 +2226,7 @@ int ovs_nla_copy_actions(const struct nlattr *attr,
+ 	err = __ovs_nla_copy_actions(attr, key, 0, sfa, key->eth.type,
+ 				     key->eth.tci, log);
+ 	if (err)
+-		kfree(*sfa);
++		ovs_nla_free_flow_actions(*sfa);
+ 
+ 	return err;
  }
+@@ -2227,7 +2276,8 @@ static int set_action_to_attr(const struct nlattr *a, struct sk_buff *skb)
  
- static void netdev_destroy(struct vport *vport)
- {
--	struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
--
- 	rtnl_lock();
--	if (netdev_vport->dev->priv_flags & IFF_OVS_DATAPATH)
-+	if (vport->dev->priv_flags & IFF_OVS_DATAPATH)
- 		ovs_netdev_detach_dev(vport);
- 	rtnl_unlock();
+ 	switch (key_type) {
+ 	case OVS_KEY_ATTR_TUNNEL_INFO: {
+-		struct ip_tunnel_info *tun_info = nla_data(ovs_key);
++		struct ovs_tunnel_info *ovs_tun = nla_data(ovs_key);
++		struct ip_tunnel_info *tun_info = &ovs_tun->tun_dst->u.tun_info;
  
--	call_rcu(&netdev_vport->rcu, free_port_rcu);
-+	call_rcu(&vport->rcu, free_port_rcu);
- }
+ 		start = nla_nest_start(skb, OVS_ACTION_ATTR_SET);
+ 		if (!start)
+diff --git a/net/openvswitch/flow_netlink.h b/net/openvswitch/flow_netlink.h
+index ec53eb6..acd0744 100644
+--- a/net/openvswitch/flow_netlink.h
++++ b/net/openvswitch/flow_netlink.h
+@@ -69,5 +69,6 @@ int ovs_nla_put_actions(const struct nlattr *attr,
+ 			int len, struct sk_buff *skb);
  
- const char *ovs_netdev_get_name(const struct vport *vport)
- {
--	const struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
--	return netdev_vport->dev->name;
-+	return vport->dev->name;
- }
+ void ovs_nla_free_flow_actions(struct sw_flow_actions *);
++void ovs_nla_free_flow_actions_rcu(struct sw_flow_actions *);
  
- static unsigned int packet_length(const struct sk_buff *skb)
-@@ -195,18 +188,17 @@ static unsigned int packet_length(const struct sk_buff *skb)
+ #endif /* flow_netlink.h */
+diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+index 4613df8..b70d845 100644
+--- a/net/openvswitch/flow_table.c
++++ b/net/openvswitch/flow_table.c
+@@ -18,6 +18,7 @@
  
- static int netdev_send(struct vport *vport, struct sk_buff *skb)
- {
--	struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
--	int mtu = netdev_vport->dev->mtu;
-+	int mtu = vport->dev->mtu;
- 	int len;
+ #include "flow.h"
+ #include "datapath.h"
++#include "flow_netlink.h"
+ #include <linux/uaccess.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+@@ -143,7 +144,8 @@ static void flow_free(struct sw_flow *flow)
  
- 	if (unlikely(packet_length(skb) > mtu && !skb_is_gso(skb))) {
- 		net_warn_ratelimited("%s: dropped over-mtu packet: %d > %d\n",
--				     netdev_vport->dev->name,
-+				     vport->dev->name,
- 				     packet_length(skb), mtu);
- 		goto drop;
- 	}
- 
--	skb->dev = netdev_vport->dev;
-+	skb->dev = vport->dev;
- 	len = skb->len;
- 	dev_queue_xmit(skb);
- 
-diff --git a/net/openvswitch/vport-netdev.h b/net/openvswitch/vport-netdev.h
-index 6f7038e..1c52aed 100644
---- a/net/openvswitch/vport-netdev.h
-+++ b/net/openvswitch/vport-netdev.h
-@@ -26,18 +26,6 @@
- 
- struct vport *ovs_netdev_get_vport(struct net_device *dev);
- 
--struct netdev_vport {
--	struct rcu_head rcu;
--
--	struct net_device *dev;
--};
--
--static inline struct netdev_vport *
--netdev_vport_priv(const struct vport *vport)
--{
--	return vport_priv(vport);
--}
--
- const char *ovs_netdev_get_name(const struct vport *);
- void ovs_netdev_detach_dev(struct vport *);
- 
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index 75d6824..e05ec68 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -107,7 +107,7 @@ struct vport_portids {
-  * @detach_list: list used for detaching vport in net-exit call.
-  */
- struct vport {
--	struct rcu_head rcu;
-+	struct net_device *dev;
- 	struct datapath	*dp;
- 	struct vport_portids __rcu *upcall_portids;
- 	u16 port_no;
-@@ -120,6 +120,7 @@ struct vport {
- 
- 	struct vport_err_stats err_stats;
- 	struct list_head detach_list;
-+	struct rcu_head rcu;
- };
- 
- /**
+ 	if (ovs_identifier_is_key(&flow->id))
+ 		kfree(flow->id.unmasked_key);
+-	kfree((struct sw_flow_actions __force *)flow->sf_acts);
++	if (flow->sf_acts)
++		ovs_nla_free_flow_actions((struct sw_flow_actions __force *)flow->sf_acts);
+ 	for_each_node(node)
+ 		if (flow->stats[node])
+ 			kmem_cache_free(flow_stats_cache,
 -- 
 2.4.3
