@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: mvneta: fix refilling for Rx DMA buffers
-Date: Tue, 21 Jul 2015 00:30:33 -0700 (PDT)
-Message-ID: <20150721.003033.1524284435822402813.davem@davemloft.net>
-References: <1437303653-2236-1-git-send-email-simon.guinot@sequanux.org>
+Subject: Re: [PATCH net-next] qmi_wwan: Add support for Dell Wireless 5809e
+ 4G Modem
+Date: Tue, 21 Jul 2015 00:31:35 -0700 (PDT)
+Message-ID: <20150721.003135.180255390682440511.davem@davemloft.net>
+References: <1437380053-5444-1-git-send-email-pieter@hollants.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, jason@lakedaemon.net,
-	andrew@lunn.ch, gregory.clement@free-electrons.com,
-	sebastian.hesselbarth@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, vdonnefort@gmail.com,
-	yoann@sculo.fr, stable@vger.kernel.org
-To: simon.guinot@sequanux.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1437303653-2236-1-git-send-email-simon.guinot@sequanux.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, bjorn@mork.no
+To: pieter@hollants.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56192 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752917AbbGUHbh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 03:31:37 -0400
+In-Reply-To: <1437380053-5444-1-git-send-email-pieter@hollants.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Guinot <simon.guinot@sequanux.org>
-Date: Sun, 19 Jul 2015 13:00:53 +0200
+From: Pieter Hollants <pieter@hollants.com>
+Date: Mon, 20 Jul 2015 10:14:13 +0200
 
-> With the actual code, if a memory allocation error happens while
-> refilling a Rx descriptor, then the original Rx buffer is both passed
-> to the networking stack (in a SKB) and let in the Rx ring. This leads
-> to various kernel oops and crashes.
+> Added the USB IDs 0x413c:0x81b1 for the "Dell Wireless 5809e Gobi(TM) 4G
+> LTE Mobile Broadband Card", a Dell-branded Sierra Wireless EM7305 LTE
+> card in M.2 form factor, used eg. in Dell's Latitude E7540 Notebook
+> series.
 > 
-> As a fix, this patch moves Rx descriptor refilling ahead of building
-> SKB with the associated Rx buffer. In case of a memory allocation
-> failure, data is dropped and the original DMA buffer is put back into
-> the Rx ring.
-> 
-> Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
-> Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP network unit")
-> Cc: <stable@vger.kernel.org> # v3.8+
-> Tested-by: Yoann Sculo <yoann@sculo.fr>
+> Signed-off-by: Pieter Hollants <pieter@hollants.com>
 
 Applied, thanks.
