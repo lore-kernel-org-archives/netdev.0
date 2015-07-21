@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net/vxlan: Fix kernel unaligned access in
- __vxlan_find_mac
-Date: Tue, 21 Jul 2015 00:12:56 -0700 (PDT)
-Message-ID: <20150721.001256.2277736594553600193.davem@davemloft.net>
-References: <20150720075450.GB20398@oracle.com>
+Subject: Re: [PATCH] net/mdio: fix mdio_bus_match for c45 PHY
+Date: Tue, 21 Jul 2015 00:17:04 -0700 (PDT)
+Message-ID: <20150721.001704.649972038239229587.davem@davemloft.net>
+References: <1437127639-48082-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	therbert@google.com, marcelo.leitner@gmail.com,
-	nicolas.dichtel@6wind.com, tgraf@suug.ch, jiri@resnulli.us,
-	jbenc@redhat.com, azhou@nicira.com, jesse@nicira.com
-To: sowmini.varadhan@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150720075450.GB20398@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Shaohui.Xie@freescale.com
+To: shh.xie@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56028 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752501AbbGUHRF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 03:17:05 -0400
+In-Reply-To: <1437127639-48082-1-git-send-email-shh.xie@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Mon, 20 Jul 2015 09:54:50 +0200
+From: <shh.xie@gmail.com>
+Date: Fri, 17 Jul 2015 18:07:19 +0800
 
+> From: Shaohui Xie <Shaohui.Xie@freescale.com>
 > 
-> __vxlan_find_mac invokes ether_addr_equal on the eth_addr field,
-> which triggers unaligned access messages, so rearrange vxlan_fdb
-> to avoid this in the most non-intrusive way.
+> We store c45 PHY's id information in c45_ids, so it should be used to
+> check the matching between PHY driver and PHY device for c45 PHY.
 > 
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> ---
-> v2: Alexander Duyck comments: place eth_addr[] to be 64b aligned
+> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
 
 Applied, thanks.
