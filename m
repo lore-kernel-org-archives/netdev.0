@@ -1,49 +1,223 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: [PATCH net-next 06/22] ipv4: redirect dst output to
-	lwtunnel output
-Date: Tue, 21 Jul 2015 10:43:50 +0200
-Message-ID: <94de0c414dbab2f36b7e67f5c9011c9e1ed6f7d0.1437468140.git.tgraf@suug.ch>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next 17/22] fib: Add fib rule match on tunnel id
+Date: Tue, 21 Jul 2015 10:44:01 +0200
+Message-ID: <a985e4e4343d7a74ba10b2de166838ee46f2073d.1437468140.git.tgraf@suug.ch>
 References: <cover.1437468140.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, rshearma-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
- hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org,
- edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
- simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, ja-FgGsKACvmQM@public.gmane.org,
- ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, weichunc-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1437468140.git.tgraf-G/eBtMaohhA@public.gmane.org>
-In-Reply-To: <cover.1437468140.git.tgraf-G/eBtMaohhA@public.gmane.org>
-References: <cover.1437468140.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: roopa@cumulusnetworks.com, rshearma@brocade.com,
+	ebiederm@xmission.com, hannes@stressinduktion.org,
+	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
+	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
+	jiri@resnulli.us, marcelo.leitner@gmail.com,
+	stephen@networkplumber.org, jpettit@nicira.com, kaber@trash.net,
+	simon.horman@netronome.com, joestringer@nicira.com, ja@ssi.bg,
+	ast@plumgrid.com, weichunc@plumgrid.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:40147 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754231AbbGUIoc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 04:44:32 -0400
+In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
+In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
+References: <cover.1437468140.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUm9vcGEgUHJhYmh1IDxyb29wYUBjdW11bHVzbmV0d29ya3MuY29tPgoKRm9yIGlucHV0
-IHJvdXRlcyB3aXRoIHR1bm5lbCBlbmNhcCBzdGF0ZSB0aGlzIHBhdGNoIHJlZGlyZWN0cwpkc3Qg
-b3V0cHV0IGZ1bmN0aW9ucyB0byBsd3R1bm5lbF9vdXRwdXQgd2hpY2ggbGF0ZXIgcmVzb2x2ZXMg
-dG8KdGhlIGNvcnJlc3BvbmRpbmcgbHd0dW5uZWwgb3V0cHV0IGZ1bmN0aW9uLgoKVGhpcyBoYXMg
-YmVlbiB0ZXN0ZWQgdG8gd29yayB3aXRoIG1wbHMgaXAgdHVubmVscy4KClNpZ25lZC1vZmYtYnk6
-IFJvb3BhIFByYWJodSA8cm9vcGFAY3VtdWx1c25ldHdvcmtzLmNvbT4KLS0tCiBuZXQvaXB2NC9y
-b3V0ZS5jIHwgMiArKwogMSBmaWxlIGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKQoKZGlmZiAtLWdp
-dCBhL25ldC9pcHY0L3JvdXRlLmMgYi9uZXQvaXB2NC9yb3V0ZS5jCmluZGV4IDIyNjU3MGIuLmNk
-MzE1N2MgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L3JvdXRlLmMKKysrIGIvbmV0L2lwdjQvcm91dGUu
-YwpAQCAtMTYzMyw2ICsxNjMzLDggQEAgc3RhdGljIGludCBfX21rcm91dGVfaW5wdXQoc3RydWN0
-IHNrX2J1ZmYgKnNrYiwKIAlydGgtPmRzdC5vdXRwdXQgPSBpcF9vdXRwdXQ7CiAKIAlydF9zZXRf
-bmV4dGhvcChydGgsIGRhZGRyLCByZXMsIGZuaGUsIHJlcy0+ZmksIHJlcy0+dHlwZSwgaXRhZyk7
-CisJaWYgKGx3dHVubmVsX291dHB1dF9yZWRpcmVjdChydGgtPnJ0X2x3dHN0YXRlKSkKKwkJcnRo
-LT5kc3Qub3V0cHV0ID0gbHd0dW5uZWxfb3V0cHV0OwogCXNrYl9kc3Rfc2V0KHNrYiwgJnJ0aC0+
-ZHN0KTsKIG91dDoKIAllcnIgPSAwOwotLSAKMi40LjMKCl9fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNo
-Lm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+This add the ability to select a routing table based on the tunnel
+id which allows to maintain separate routing tables for each virtual
+tunnel network.
+
+ip rule add from all tunnel-id 100 lookup 100
+ip rule add from all tunnel-id 200 lookup 200
+
+A new static key controls the collection of metadata at tunnel level
+upon demand.
+
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ drivers/net/vxlan.c            |  3 ++-
+ include/net/fib_rules.h        |  1 +
+ include/net/ip_tunnels.h       | 11 +++++++++++
+ include/uapi/linux/fib_rules.h |  2 +-
+ net/core/fib_rules.c           | 24 ++++++++++++++++++++++--
+ net/ipv4/ip_tunnel_core.c      | 16 ++++++++++++++++
+ 6 files changed, 53 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 9486d7e..2587ac8 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -143,7 +143,8 @@ static struct workqueue_struct *vxlan_wq;
+ 
+ static inline bool vxlan_collect_metadata(struct vxlan_sock *vs)
+ {
+-	return vs->flags & VXLAN_F_COLLECT_METADATA;
++	return vs->flags & VXLAN_F_COLLECT_METADATA ||
++	       ip_tunnel_collect_metadata();
+ }
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 903a55e..4e8f804 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -19,6 +19,7 @@ struct fib_rule {
+ 	u8			action;
+ 	/* 3 bytes hole, try to use */
+ 	u32			target;
++	__be64			tun_id;
+ 	struct fib_rule __rcu	*ctarget;
+ 	struct net		*fr_net;
+ 
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 0b7e18c..0a5a776 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -303,6 +303,17 @@ static inline struct ip_tunnel_info *lwt_tun_info(struct lwtunnel_state *lwtstat
+ 	return (struct ip_tunnel_info *)lwtstate->data;
+ }
+ 
++extern struct static_key ip_tunnel_metadata_cnt;
++
++/* Returns > 0 if metadata should be collected */
++static inline int ip_tunnel_collect_metadata(void)
++{
++	return static_key_false(&ip_tunnel_metadata_cnt);
++}
++
++void ip_tunnel_need_metadata(void);
++void ip_tunnel_unneed_metadata(void);
++
+ #endif /* CONFIG_INET */
+ 
+ #endif /* __NET_IP_TUNNELS_H */
+diff --git a/include/uapi/linux/fib_rules.h b/include/uapi/linux/fib_rules.h
+index 2b82d7e..96161b8 100644
+--- a/include/uapi/linux/fib_rules.h
++++ b/include/uapi/linux/fib_rules.h
+@@ -43,7 +43,7 @@ enum {
+ 	FRA_UNUSED5,
+ 	FRA_FWMARK,	/* mark */
+ 	FRA_FLOW,	/* flow/class id */
+-	FRA_UNUSED6,
++	FRA_TUN_ID,
+ 	FRA_SUPPRESS_IFGROUP,
+ 	FRA_SUPPRESS_PREFIXLEN,
+ 	FRA_TABLE,	/* Extended table id */
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 9a12668..ae8306e 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -16,6 +16,7 @@
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+ #include <net/fib_rules.h>
++#include <net/ip_tunnels.h>
+ 
+ int fib_default_rule_add(struct fib_rules_ops *ops,
+ 			 u32 pref, u32 table, u32 flags)
+@@ -186,6 +187,9 @@ static int fib_rule_match(struct fib_rule *rule, struct fib_rules_ops *ops,
+ 	if ((rule->mark ^ fl->flowi_mark) & rule->mark_mask)
+ 		goto out;
+ 
++	if (rule->tun_id && (rule->tun_id != fl->flowi_tun_key.tun_id))
++		goto out;
++
+ 	ret = ops->match(rule, fl, flags);
+ out:
+ 	return (rule->flags & FIB_RULE_INVERT) ? !ret : ret;
+@@ -330,6 +334,9 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ 	if (tb[FRA_FWMASK])
+ 		rule->mark_mask = nla_get_u32(tb[FRA_FWMASK]);
+ 
++	if (tb[FRA_TUN_ID])
++		rule->tun_id = nla_get_be64(tb[FRA_TUN_ID]);
++
+ 	rule->action = frh->action;
+ 	rule->flags = frh->flags;
+ 	rule->table = frh_get_table(frh, tb);
+@@ -407,6 +414,9 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ 	if (unresolved)
+ 		ops->unresolved_rules++;
+ 
++	if (rule->tun_id)
++		ip_tunnel_need_metadata();
++
+ 	notify_rule_change(RTM_NEWRULE, rule, ops, nlh, NETLINK_CB(skb).portid);
+ 	flush_route_cache(ops);
+ 	rules_ops_put(ops);
+@@ -473,6 +483,10 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ 		    (rule->mark_mask != nla_get_u32(tb[FRA_FWMASK])))
+ 			continue;
+ 
++		if (tb[FRA_TUN_ID] &&
++		    (rule->tun_id != nla_get_be64(tb[FRA_TUN_ID])))
++			continue;
++
+ 		if (!ops->compare(rule, frh, tb))
+ 			continue;
+ 
+@@ -487,6 +501,9 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ 				goto errout;
+ 		}
+ 
++		if (rule->tun_id)
++			ip_tunnel_unneed_metadata();
++
+ 		list_del_rcu(&rule->list);
+ 
+ 		if (rule->action == FR_ACT_GOTO) {
+@@ -535,7 +552,8 @@ static inline size_t fib_rule_nlmsg_size(struct fib_rules_ops *ops,
+ 			 + nla_total_size(4) /* FRA_SUPPRESS_PREFIXLEN */
+ 			 + nla_total_size(4) /* FRA_SUPPRESS_IFGROUP */
+ 			 + nla_total_size(4) /* FRA_FWMARK */
+-			 + nla_total_size(4); /* FRA_FWMASK */
++			 + nla_total_size(4) /* FRA_FWMASK */
++			 + nla_total_size(8); /* FRA_TUN_ID */
+ 
+ 	if (ops->nlmsg_payload)
+ 		payload += ops->nlmsg_payload(rule);
+@@ -591,7 +609,9 @@ static int fib_nl_fill_rule(struct sk_buff *skb, struct fib_rule *rule,
+ 	    ((rule->mark_mask || rule->mark) &&
+ 	     nla_put_u32(skb, FRA_FWMASK, rule->mark_mask)) ||
+ 	    (rule->target &&
+-	     nla_put_u32(skb, FRA_GOTO, rule->target)))
++	     nla_put_u32(skb, FRA_GOTO, rule->target)) ||
++	    (rule->tun_id &&
++	     nla_put_be64(skb, FRA_TUN_ID, rule->tun_id)))
+ 		goto nla_put_failure;
+ 
+ 	if (rule->suppress_ifgroup != -1) {
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 025b76e..630e6d5 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -32,6 +32,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/if_ether.h>
+ #include <linux/if_vlan.h>
++#include <linux/static_key.h>
+ 
+ #include <net/ip.h>
+ #include <net/icmp.h>
+@@ -304,3 +305,18 @@ static void __exit ip_tunnel_core_exit(void)
+ 	lwtunnel_encap_del_ops(&ip_tun_lwt_ops, LWTUNNEL_ENCAP_IP);
+ }
+ module_exit(ip_tunnel_core_exit);
++
++struct static_key ip_tunnel_metadata_cnt = STATIC_KEY_INIT_FALSE;
++EXPORT_SYMBOL(ip_tunnel_metadata_cnt);
++
++void ip_tunnel_need_metadata(void)
++{
++	static_key_slow_inc(&ip_tunnel_metadata_cnt);
++}
++EXPORT_SYMBOL_GPL(ip_tunnel_need_metadata);
++
++void ip_tunnel_unneed_metadata(void)
++{
++	static_key_slow_dec(&ip_tunnel_metadata_cnt);
++}
++EXPORT_SYMBOL_GPL(ip_tunnel_unneed_metadata);
+-- 
+2.4.3
