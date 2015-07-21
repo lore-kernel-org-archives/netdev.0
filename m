@@ -1,94 +1,134 @@
-From: Lucas Stach <l.stach@pengutronix.de>
-Subject: [PATCH v2 2/2] net: fec: introduce fec_ptp_stop and use in probe fail path
-Date: Tue, 21 Jul 2015 17:11:02 +0200
-Message-ID: <1437491462-28599-2-git-send-email-l.stach@pengutronix.de>
-References: <1437491462-28599-1-git-send-email-l.stach@pengutronix.de>
-Cc: Duan Andy <fugang.duan@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>, netdev@vger.kernel.org,
-	kernel@pengutronix.de, patchwork-lst@pengutronix.de
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:41211 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933021AbbGUPLI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 11:11:08 -0400
-In-Reply-To: <1437491462-28599-1-git-send-email-l.stach@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chris J Arges <chris.j.arges@canonical.com>
+Subject: [PATCH] openvswitch: make for_each_node loops work with sparse numa systems
+Date: Tue, 21 Jul 2015 10:32:34 -0500
+Message-ID: <1437492756-22777-1-git-send-email-chris.j.arges@canonical.com>
+Cc: linuxppc-dev@lists.ozlabs.org, nacc@linux.vnet.ibm.com,
+	benh@kernel.crashing.org, linux-numa@vger.kernel.org,
+	Chris J Arges <chris.j.arges@canonical.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	dev@openvswitch.org, linux-kernel@vger.kernel.org
+To: pshelar@nicira.com
+Return-path: <linux-numa-owner@vger.kernel.org>
+Sender: linux-numa-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This function frees resources and cancels delayed work item that
-have been initialized in fec_ptp_init().
+Some architectures like POWER can have a NUMA node_possible_map that
+contains sparse entries. This causes memory corruption with openvswitch
+since it allocates flow_cache with a multiple of num_possible_nodes() and
+assumes the node variable returned by for_each_node will index into
+flow->stats[node].
 
-Use this to do proper error handling if something goes wrong in
-probe function after fec_ptp_init has been called.
+For example, if node_possible_map is 0x30003, this patch will map node to
+node_cnt as follows:
+    0,1,16,17 => 0,1,2,3
 
-Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+The crash was noticed after 3af229f2 was applied as it changed the
+node_possible_map to match node_online_map on boot.
+Fixes: 3af229f2071f5b5cb31664be6109561fbe19c861
+
+Signed-off-by: Chris J Arges <chris.j.arges@canonical.com>
 ---
- drivers/net/ethernet/freescale/fec.h      |  1 +
- drivers/net/ethernet/freescale/fec_main.c |  5 ++---
- drivers/net/ethernet/freescale/fec_ptp.c  | 10 ++++++++++
- 3 files changed, 13 insertions(+), 3 deletions(-)
+ net/openvswitch/flow.c       | 10 ++++++----
+ net/openvswitch/flow_table.c | 18 +++++++++++-------
+ 2 files changed, 17 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 1eee73cccdf5..99d33e2d35e6 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -562,6 +562,7 @@ struct fec_enet_private {
- };
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index bc7b0ab..425d45d 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -134,14 +134,14 @@ void ovs_flow_stats_get(const struct sw_flow *flow,
+ 			struct ovs_flow_stats *ovs_stats,
+ 			unsigned long *used, __be16 *tcp_flags)
+ {
+-	int node;
++	int node, node_cnt = 0;
  
- void fec_ptp_init(struct platform_device *pdev);
-+void fec_ptp_stop(struct platform_device *pdev);
- void fec_ptp_start_cyclecounter(struct net_device *ndev);
- int fec_ptp_set(struct net_device *ndev, struct ifreq *ifr);
- int fec_ptp_get(struct net_device *ndev, struct ifreq *ifr);
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index a7f1bdf718f8..32e3807c650e 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -3494,6 +3494,7 @@ failed_register:
- failed_mii_init:
- failed_irq:
- failed_init:
-+	fec_ptp_stop(pdev);
- 	if (fep->reg_phy)
- 		regulator_disable(fep->reg_phy);
- failed_regulator:
-@@ -3515,14 +3516,12 @@ fec_drv_remove(struct platform_device *pdev)
- 	struct net_device *ndev = platform_get_drvdata(pdev);
- 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	*used = 0;
+ 	*tcp_flags = 0;
+ 	memset(ovs_stats, 0, sizeof(*ovs_stats));
  
--	cancel_delayed_work_sync(&fep->time_keep);
- 	cancel_work_sync(&fep->tx_timeout_work);
-+	fec_ptp_stop(pdev);
- 	unregister_netdev(ndev);
- 	fec_enet_mii_remove(fep);
- 	if (fep->reg_phy)
- 		regulator_disable(fep->reg_phy);
--	if (fep->ptp_clock)
--		ptp_clock_unregister(fep->ptp_clock);
- 	of_node_put(fep->phy_node);
- 	free_netdev(ndev);
+ 	for_each_node(node) {
+-		struct flow_stats *stats = rcu_dereference_ovsl(flow->stats[node]);
++		struct flow_stats *stats = rcu_dereference_ovsl(flow->stats[node_cnt]);
  
-diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
-index a15663ad7f5e..f457a23d0bfb 100644
---- a/drivers/net/ethernet/freescale/fec_ptp.c
-+++ b/drivers/net/ethernet/freescale/fec_ptp.c
-@@ -604,6 +604,16 @@ void fec_ptp_init(struct platform_device *pdev)
- 	schedule_delayed_work(&fep->time_keep, HZ);
+ 		if (stats) {
+ 			/* Local CPU may write on non-local stats, so we must
+@@ -155,16 +155,17 @@ void ovs_flow_stats_get(const struct sw_flow *flow,
+ 			ovs_stats->n_bytes += stats->byte_count;
+ 			spin_unlock_bh(&stats->lock);
+ 		}
++		node_cnt++;
+ 	}
  }
  
-+void fec_ptp_stop(struct platform_device *pdev)
-+{
-+	struct net_device *ndev = platform_get_drvdata(pdev);
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+
-+	cancel_delayed_work_sync(&fep->time_keep);
-+	if (fep->ptp_clock)
-+		ptp_clock_unregister(fep->ptp_clock);
-+}
-+
- /**
-  * fec_ptp_check_pps_event
-  * @fep: the fec_enet_private structure handle
+ /* Called with ovs_mutex. */
+ void ovs_flow_stats_clear(struct sw_flow *flow)
+ {
+-	int node;
++	int node, node_cnt = 0;
+ 
+ 	for_each_node(node) {
+-		struct flow_stats *stats = ovsl_dereference(flow->stats[node]);
++		struct flow_stats *stats = ovsl_dereference(flow->stats[node_cnt]);
+ 
+ 		if (stats) {
+ 			spin_lock_bh(&stats->lock);
+@@ -174,6 +175,7 @@ void ovs_flow_stats_clear(struct sw_flow *flow)
+ 			stats->tcp_flags = 0;
+ 			spin_unlock_bh(&stats->lock);
+ 		}
++		node_cnt++;
+ 	}
+ }
+ 
+diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+index 4613df8..5d10c54 100644
+--- a/net/openvswitch/flow_table.c
++++ b/net/openvswitch/flow_table.c
+@@ -77,7 +77,7 @@ struct sw_flow *ovs_flow_alloc(void)
+ {
+ 	struct sw_flow *flow;
+ 	struct flow_stats *stats;
+-	int node;
++	int node, node_cnt = 0;
+ 
+ 	flow = kmem_cache_alloc(flow_cache, GFP_KERNEL);
+ 	if (!flow)
+@@ -99,9 +99,11 @@ struct sw_flow *ovs_flow_alloc(void)
+ 
+ 	RCU_INIT_POINTER(flow->stats[0], stats);
+ 
+-	for_each_node(node)
++	for_each_node(node) {
+ 		if (node != 0)
+-			RCU_INIT_POINTER(flow->stats[node], NULL);
++			RCU_INIT_POINTER(flow->stats[node_cnt], NULL);
++		node_cnt++;
++	}
+ 
+ 	return flow;
+ err:
+@@ -139,15 +141,17 @@ static struct flex_array *alloc_buckets(unsigned int n_buckets)
+ 
+ static void flow_free(struct sw_flow *flow)
+ {
+-	int node;
++	int node, node_cnt = 0;
+ 
+ 	if (ovs_identifier_is_key(&flow->id))
+ 		kfree(flow->id.unmasked_key);
+ 	kfree((struct sw_flow_actions __force *)flow->sf_acts);
+-	for_each_node(node)
+-		if (flow->stats[node])
++	for_each_node(node) {
++		if (flow->stats[node_cnt])
+ 			kmem_cache_free(flow_stats_cache,
+-					(struct flow_stats __force *)flow->stats[node]);
++					(struct flow_stats __force *)flow->stats[node_cnt]);
++		node_cnt++;
++	}
+ 	kmem_cache_free(flow_cache, flow);
+ }
+ 
 -- 
-2.1.4
+1.9.1
