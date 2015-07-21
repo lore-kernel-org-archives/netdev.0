@@ -1,12 +1,13 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net v5 4/4] mvneta: use inband status only when explicitly enabled
-Date: Mon, 20 Jul 2015 17:49:58 -0700
-Message-ID: <1437439798-12622-5-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net v5 2/4] net: phy: fixed_phy: handle link-down case
+Date: Mon, 20 Jul 2015 17:49:56 -0700
+Message-ID: <1437439798-12622-3-git-send-email-f.fainelli@gmail.com>
 References: <1437439798-12622-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org, mxs@sbrk.org,
 	arno@natisbad.org, stsp@users.sourceforge.net,
 	devicetree@vger.kernel.org, thomas.petazzoni@free-electrons.com,
-	Stas Sergeev <stsp@list.ru>
+	Stas Sergeev <stsp@list.ru>,
+	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1437439798-12622-1-git-send-email-f.fainelli@gmail.com>
@@ -15,61 +16,60 @@ List-Id: netdev.vger.kernel.org
 
 From: Stas Sergeev <stsp@list.ru>
 
-The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band link state
-signaling") implemented the link parameters auto-negotiation unconditionally.
-Unfortunately it appears that some HW that implements SGMII protocol,
-doesn't generate the inband status, so it is not possible to auto-negotiate
-anything with such HW.
+fixed_phy_register() currently hardcodes the fixed PHY link to 1, and
+expects to find a "speed" parameter to provide correct information
+towards the fixed PHY consumer.
 
-This patch enables the auto-negotiation only if explicitly requested with
-the 'managed' DT property.
+In a subsequent change, where we allow "managed" (e.g: (RS)GMII in-band
+status auto-negotiation) fixed PHYs, none of these parameters can be
+provided since they will be auto-negotiated, hence, we just provide a
+zero-initialized fixed_phy_status to fixed_phy_register() which makes it
+fail when we call fixed_phy_update_regs() since status.speed = 0 which
+makes us hit the "default" label and error out.
 
-This patch fixes the following regression:
-https://lkml.org/lkml/2015/7/8/865
+Without this change, we would also see potentially inconsistent
+speed/duplex parameters for fixed PHYs when the link is DOWN.
 
-Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
-
-CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 CC: netdev@vger.kernel.org
 CC: linux-kernel@vger.kernel.org
+Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
+[florian: add more background to why this is correct and desirable]
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/phy/fixed_phy.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 370e20ed224c..e4fb172d91a6 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -3029,8 +3029,8 @@ static int mvneta_probe(struct platform_device *pdev)
- 	const char *dt_mac_addr;
- 	char hw_mac_addr[ETH_ALEN];
- 	const char *mac_from;
-+	const char *managed;
- 	int phy_mode;
--	int fixed_phy = 0;
- 	int err;
+diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
+index 1960b46add65..479b93f9581c 100644
+--- a/drivers/net/phy/fixed_phy.c
++++ b/drivers/net/phy/fixed_phy.c
+@@ -52,6 +52,10 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
+ 	u16 lpagb = 0;
+ 	u16 lpa = 0;
  
- 	/* Our multiqueue support is not complete, so for now, only
-@@ -3064,7 +3064,6 @@ static int mvneta_probe(struct platform_device *pdev)
- 			dev_err(&pdev->dev, "cannot register fixed PHY\n");
- 			goto err_free_irq;
- 		}
--		fixed_phy = 1;
- 
- 		/* In the case of a fixed PHY, the DT node associated
- 		 * to the PHY is the Ethernet MAC DT node.
-@@ -3088,8 +3087,10 @@ static int mvneta_probe(struct platform_device *pdev)
- 	pp = netdev_priv(dev);
- 	pp->phy_node = phy_node;
- 	pp->phy_interface = phy_mode;
--	pp->use_inband_status = (phy_mode == PHY_INTERFACE_MODE_SGMII) &&
--				fixed_phy;
++	if (!fp->status.link)
++		goto done;
++	bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
 +
-+	err = of_property_read_string(dn, "managed", &managed);
-+	pp->use_inband_status = (err == 0 &&
-+				 strcmp(managed, "in-band-status") == 0);
+ 	if (fp->status.duplex) {
+ 		bmcr |= BMCR_FULLDPLX;
  
- 	pp->clk = devm_clk_get(&pdev->dev, NULL);
- 	if (IS_ERR(pp->clk)) {
+@@ -96,15 +100,13 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
+ 		}
+ 	}
+ 
+-	if (fp->status.link)
+-		bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
+-
+ 	if (fp->status.pause)
+ 		lpa |= LPA_PAUSE_CAP;
+ 
+ 	if (fp->status.asym_pause)
+ 		lpa |= LPA_PAUSE_ASYM;
+ 
++done:
+ 	fp->regs[MII_PHYSID1] = 0;
+ 	fp->regs[MII_PHYSID2] = 0;
+ 
 -- 
 2.1.0
