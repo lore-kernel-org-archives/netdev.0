@@ -1,13 +1,18 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net v5 2/4] net: phy: fixed_phy: handle link-down case
-Date: Mon, 20 Jul 2015 17:49:56 -0700
-Message-ID: <1437439798-12622-3-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net v5 3/4] of_mdio: add new DT property 'managed' to specify the PHY management type
+Date: Mon, 20 Jul 2015 17:49:57 -0700
+Message-ID: <1437439798-12622-4-git-send-email-f.fainelli@gmail.com>
 References: <1437439798-12622-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org, mxs@sbrk.org,
 	arno@natisbad.org, stsp@users.sourceforge.net,
 	devicetree@vger.kernel.org, thomas.petazzoni@free-electrons.com,
-	Stas Sergeev <stsp@list.ru>,
-	Florian Fainelli <f.fainelli@gmail.com>
+	Stas Sergeev <stsp@list.ru>, Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Grant Likely <grant.likely@linaro.org>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1437439798-12622-1-git-send-email-f.fainelli@gmail.com>
@@ -16,60 +21,103 @@ List-Id: netdev.vger.kernel.org
 
 From: Stas Sergeev <stsp@list.ru>
 
-fixed_phy_register() currently hardcodes the fixed PHY link to 1, and
-expects to find a "speed" parameter to provide correct information
-towards the fixed PHY consumer.
+Currently the PHY management type is selected by the MAC driver arbitrary.
+The decision is based on the presence of the "fixed-link" node and on a
+will of the driver's authors.
+This caused a regression recently, when mvneta driver suddenly started
+to use the in-band status for auto-negotiation on fixed links.
+It appears the auto-negotiation may not work when expected by the MAC driver.
+Sebastien Rannou explains:
+<< Yes, I confirm that my HW does not generate an in-band status. AFAIK, it's
+a PHY that aggregates 4xSGMIIs to 1xQSGMII ; the MAC side of the PHY (with
+inband status) is connected to the switch through QSGMII, and in this context
+we are on the media side of the PHY. >>
+https://lkml.org/lkml/2015/7/10/206
 
-In a subsequent change, where we allow "managed" (e.g: (RS)GMII in-band
-status auto-negotiation) fixed PHYs, none of these parameters can be
-provided since they will be auto-negotiated, hence, we just provide a
-zero-initialized fixed_phy_status to fixed_phy_register() which makes it
-fail when we call fixed_phy_update_regs() since status.speed = 0 which
-makes us hit the "default" label and error out.
+This patch introduces the new string property 'managed' that allows
+the user to set the management type explicitly.
+The supported values are:
+"auto" - default. Uses either MDIO or nothing, depending on the presence
+of the fixed-link node
+"in-band-status" - use in-band status
 
-Without this change, we would also see potentially inconsistent
-speed/duplex parameters for fixed PHYs when the link is DOWN.
-
-CC: netdev@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
 Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
-[florian: add more background to why this is correct and desirable]
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/fixed_phy.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
-index 1960b46add65..479b93f9581c 100644
---- a/drivers/net/phy/fixed_phy.c
-+++ b/drivers/net/phy/fixed_phy.c
-@@ -52,6 +52,10 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
- 	u16 lpagb = 0;
- 	u16 lpa = 0;
+CC: Rob Herring <robh+dt@kernel.org>
+CC: Pawel Moll <pawel.moll@arm.com>
+CC: Mark Rutland <mark.rutland@arm.com>
+CC: Ian Campbell <ijc+devicetree@hellion.org.uk>
+CC: Kumar Gala <galak@codeaurora.org>
+CC: Florian Fainelli <f.fainelli@gmail.com>
+CC: Grant Likely <grant.likely@linaro.org>
+CC: devicetree@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+CC: netdev@vger.kernel.org
+---
+ Documentation/devicetree/bindings/net/ethernet.txt |  4 ++++
+ drivers/of/of_mdio.c                               | 19 +++++++++++++++++--
+ 2 files changed, 21 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
+index 41b3f3f864e8..5d88f37480b6 100644
+--- a/Documentation/devicetree/bindings/net/ethernet.txt
++++ b/Documentation/devicetree/bindings/net/ethernet.txt
+@@ -25,7 +25,11 @@ The following properties are common to the Ethernet controllers:
+   flow control thresholds.
+ - tx-fifo-depth: the size of the controller's transmit fifo in bytes. This
+   is used for components that can have configurable fifo sizes.
++- managed: string, specifies the PHY management type. Supported values are:
++  "auto", "in-band-status". "auto" is the default, it usess MDIO for
++  management if fixed-link is not specified.
  
-+	if (!fp->status.link)
-+		goto done;
-+	bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
-+
- 	if (fp->status.duplex) {
- 		bmcr |= BMCR_FULLDPLX;
+ Child nodes of the Ethernet controller are typically the individual PHY devices
+ connected via the MDIO bus (sometimes the MDIO bus controller is separate).
+ They are described in the phy.txt file in this same directory.
++For non-MDIO PHY management see fixed-link.txt.
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index fdc60db60829..7c8c23cc6896 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -266,7 +266,8 @@ EXPORT_SYMBOL(of_phy_attach);
+ bool of_phy_is_fixed_link(struct device_node *np)
+ {
+ 	struct device_node *dn;
+-	int len;
++	int len, err;
++	const char *managed;
  
-@@ -96,15 +100,13 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
- 		}
+ 	/* New binding */
+ 	dn = of_get_child_by_name(np, "fixed-link");
+@@ -275,6 +276,10 @@ bool of_phy_is_fixed_link(struct device_node *np)
+ 		return true;
  	}
  
--	if (fp->status.link)
--		bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
--
- 	if (fp->status.pause)
- 		lpa |= LPA_PAUSE_CAP;
++	err = of_property_read_string(np, "managed", &managed);
++	if (err == 0 && strcmp(managed, "auto") != 0)
++		return true;
++
+ 	/* Old binding */
+ 	if (of_get_property(np, "fixed-link", &len) &&
+ 	    len == (5 * sizeof(__be32)))
+@@ -289,8 +294,18 @@ int of_phy_register_fixed_link(struct device_node *np)
+ 	struct fixed_phy_status status = {};
+ 	struct device_node *fixed_link_node;
+ 	const __be32 *fixed_link_prop;
+-	int len;
++	int len, err;
+ 	struct phy_device *phy;
++	const char *managed;
++
++	err = of_property_read_string(np, "managed", &managed);
++	if (err == 0) {
++		if (strcmp(managed, "in-band-status") == 0) {
++			/* status is zeroed, namely its .link member */
++			phy = fixed_phy_register(PHY_POLL, &status, np);
++			return IS_ERR(phy) ? PTR_ERR(phy) : 0;
++		}
++	}
  
- 	if (fp->status.asym_pause)
- 		lpa |= LPA_PAUSE_ASYM;
- 
-+done:
- 	fp->regs[MII_PHYSID1] = 0;
- 	fp->regs[MII_PHYSID2] = 0;
- 
+ 	/* New binding */
+ 	fixed_link_node = of_get_child_by_name(np, "fixed-link");
 -- 
 2.1.0
