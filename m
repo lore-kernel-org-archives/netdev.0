@@ -1,49 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] stmmac clean up for 4.3 part1
-Date: Mon, 20 Jul 2015 20:46:15 -0700 (PDT)
-Message-ID: <20150720.204615.1806841438159186089.davem@davemloft.net>
-References: <1437085572-11371-1-git-send-email-manabian@gmail.com>
+Subject: Re: [PATCH net-next 0/6] net: bcmgenet: PHY initialization rework
+Date: Mon, 20 Jul 2015 20:48:32 -0700 (PDT)
+Message-ID: <20150720.204832.1520625602781168041.davem@davemloft.net>
+References: <1437087079-21678-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, arnd@arndb.de, b.galvani@gmail.com,
-	netdev@vger.kernel.org
-To: manabian@gmail.com
+Cc: netdev@vger.kernel.org, pgynther@google.com, jaedon.shin@gmail.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54557 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54576 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751489AbbGUDqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 23:46:16 -0400
-In-Reply-To: <1437085572-11371-1-git-send-email-manabian@gmail.com>
+	with ESMTP id S1751794AbbGUDsd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 23:48:33 -0400
+In-Reply-To: <1437087079-21678-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joachim Eastwood <manabian@gmail.com>
-Date: Fri, 17 Jul 2015 00:26:04 +0200
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Thu, 16 Jul 2015 15:51:13 -0700
 
-> This patch set continues the conversion of the dwmac glue layers
-> to more proper platform drivers. The first part of the patch set
-> cleans up stmmac_platform a bit. Refactors code from the common
-> probe function and exports two functions that will be used in
-> the dwmac-* drivers.
+> This patch series reworks how we perform PHY initialization and resets in the
+> GENET driver. Although this contains mostly fixes, some of the changes are a
+> bit too intrusive to be backported to 'net' at the moment.
 > 
-> Second part converts two simple dwmac-* drivers to have their
-> own probe function and use the exported functions. This brings
-> us closer to point where stmmac_platform is only a library of
-> common functions for the dwmac-* drivers to use.
+> Some of the motivations behind these changes were to reduce the time spent in how
+> performing MDIO transactions, since it is better to perform then when we have
+> interrupts enabled. This reduces the bring-up time of GENET from ~600 msecs down
+> to ~8 msecs, and about the same time for suspend/resume.
 > 
-> The plan next is:
->  * add probe functions to the rest of the dwmac-* drivers
->  * move probe function in stmmac_platform to dwmac-generic
->  * remove struct stmmac_of_data and let those drivers
->    that actually need match data handle it themselves
->  * clean up include/linux/stmmac.h
-> 
-> Note that this patch set has only been tested on lpc18xx so
-> testing on other platforms is greatly appreciated.
-> 
-> Previous parts can be found here:
-> http://www.spinics.net/lists/netdev/msg328997.html
-> http://www.spinics.net/lists/netdev/msg329932.html
+> Since I do not currently have a system which is not DT-aware, can you (Petri,
+> Jaedon) give this a try and confirm things keep working as expected?
 
-Series applied, thanks.
+Series applied, thanks Florian.
