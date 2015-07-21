@@ -1,49 +1,32 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH net] macvtap: fix network header pointer for VLAN tagged
- pkts
-Date: Tue, 21 Jul 2015 09:11:38 +0200
-Message-ID: <55ADF0AA.1020209@redhat.com>
-References: <1437407061-8698-1-git-send-email-ivecera@redhat.com> <55AD2502.5060203@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: ratelimit warnings about dst entry refcount
+ underflow or overflow
+Date: Tue, 21 Jul 2015 00:11:54 -0700 (PDT)
+Message-ID: <20150721.001154.1929992682470432462.davem@davemloft.net>
+References: <20150717110111.16718.77665.stgit@buzz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: khlebnikov@yandex-team.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46778 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752597AbbGUHKz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jul 2015 03:10:55 -0400
-In-Reply-To: <55AD2502.5060203@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55986 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751236AbbGUHLz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 03:11:55 -0400
+In-Reply-To: <20150717110111.16718.77665.stgit@buzz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/20/2015 06:42 PM, Vlad Yasevich wrote:
-> On 07/20/2015 11:44 AM, Ivan Vecera wrote:
->> Network header is set with offset ETH_HLEN but it is not true for VLAN
->> (multiple-)tagged and results in checksum issues in lower devices.
->>
->> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
->> ---
->>   drivers/net/macvtap.c | 6 ++++++
->>   1 file changed, 6 insertions(+)
->>
->> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
->> index 3b933bb..cdcbab4 100644
->> --- a/drivers/net/macvtap.c
->> +++ b/drivers/net/macvtap.c
->> @@ -796,6 +796,12 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
->>   	skb_reset_mac_header(skb);
->>   	skb->protocol = eth_hdr(skb)->h_proto;
->>
->> +	if (skb_vlan_tagged(skb)) {
->> +		int depth;
->> +		skb->protocol = __vlan_get_protocol(skb, skb->protocol, &depth);
->
-> I don't think this is right.  This would reset the protocol to the encapsulated
-> protocol which isn't really the case since you are not really stripping vlan
-> encapsulations.
->
-> -vlad
-Yup, you are right, skb->protocol should be untouched. Will post v2.
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Date: Fri, 17 Jul 2015 14:01:11 +0300
 
-Ivan
+> Kernel generates a lot of warnings when dst entry reference counter
+> overflows and becomes negative. That bug was seen several times at
+> machines with outdated 3.10.y kernels. Most like it's already fixed
+> in upstream. Anyway that flood completely kills machine and makes
+> further debugging impossible.
+> 
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+
+Applied.
