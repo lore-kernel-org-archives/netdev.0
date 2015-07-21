@@ -1,34 +1,76 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net v5 0/4] net: enable inband link state negotiation
- only when explicitly requested
-Date: Tue, 21 Jul 2015 16:13:15 -0700 (PDT)
-Message-ID: <20150721.161315.521614166214151302.davem@davemloft.net>
-References: <1437439798-12622-1-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mxs-i6rsG8ix9II@public.gmane.org,
-	arno-LkuqDEemtHBg9hUCZPvPmw@public.gmane.org, stsp-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
-To: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1437439798-12622-1-git-send-email-f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: raj@tardy.usa.hp.com (Rick Jones)
+Subject: [PATCH net-next] net: track success and failure of TCP PMTU probing
+Date: Tue, 21 Jul 2015 16:14:13 -0700 (PDT)
+Message-ID: <20150721231413.9BCA62900711@tardy>
+Cc: <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g2t1383g.austin.hp.com ([15.217.136.92]:48846 "EHLO
+	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932830AbbGUXOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 19:14:23 -0400
+Received: from g1t5424.austin.hp.com (g1t5424.austin.hp.com [15.216.225.54])
+	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id F2E835729
+	for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 23:14:15 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Mon, 20 Jul 2015 17:49:54 -0700
+From: Rick Jones <rick.jones2@hp.com>
 
-> Changes in v5:
-> 
-> - removed an invalid use of the link_update callback in the SF2 driver
->   was appeared after merging "net: phy: fixed_phy: handle link-down case"
-> 
-> - reworded the commit message for patch 2 to make it clear what it fixes and
->   why this is required
+Track success and failure of TCP PMTU probing.
 
-Series applied, thanks Florian.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
+
+---
+
+Tested by loading-up into an OpenStack instance and kicking the MTU
+out from under it in the corresponding router namespace.
+
+diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
+index eee8968..25a9ad8 100644
+--- a/include/uapi/linux/snmp.h
++++ b/include/uapi/linux/snmp.h
+@@ -278,6 +278,8 @@ enum
+ 	LINUX_MIB_TCPACKSKIPPEDCHALLENGE,	/* TCPACKSkippedChallenge */
+ 	LINUX_MIB_TCPWINPROBE,			/* TCPWinProbe */
+ 	LINUX_MIB_TCPKEEPALIVE,			/* TCPKeepAlive */
++	LINUX_MIB_TCPMTUPFAIL,			/* TCPMTUPFail */
++	LINUX_MIB_TCPMTUPSUCCESS,		/* TCPMTUPSuccess */
+ 	__LINUX_MIB_MAX
+ };
+ 
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index da5d483..3abd9d7 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -300,6 +300,8 @@ static const struct snmp_mib snmp4_net_list[] = {
+ 	SNMP_MIB_ITEM("TCPACKSkippedChallenge", LINUX_MIB_TCPACKSKIPPEDCHALLENGE),
+ 	SNMP_MIB_ITEM("TCPWinProbe", LINUX_MIB_TCPWINPROBE),
+ 	SNMP_MIB_ITEM("TCPKeepAlive", LINUX_MIB_TCPKEEPALIVE),
++	SNMP_MIB_ITEM("TCPMTUPFail", LINUX_MIB_TCPMTUPFAIL),
++	SNMP_MIB_ITEM("TCPMTUPSuccess", LINUX_MIB_TCPMTUPSUCCESS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 1578fc2..cda3ffe 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2593,6 +2593,7 @@ static void tcp_mtup_probe_failed(struct sock *sk)
+ 
+ 	icsk->icsk_mtup.search_high = icsk->icsk_mtup.probe_size - 1;
+ 	icsk->icsk_mtup.probe_size = 0;
++	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPMTUPFAIL);
+ }
+ 
+ static void tcp_mtup_probe_success(struct sock *sk)
+@@ -2612,6 +2613,7 @@ static void tcp_mtup_probe_success(struct sock *sk)
+ 	icsk->icsk_mtup.search_low = icsk->icsk_mtup.probe_size;
+ 	icsk->icsk_mtup.probe_size = 0;
+ 	tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);
++	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPMTUPSUCCESS);
+ }
+ 
+ /* Do a simple retransmit without using the backoff mechanisms in
