@@ -1,55 +1,89 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 01/22] rtnetlink: introduce new RTA_ENCAP_TYPE and RTA_ENCAP attributes
-Date: Tue, 21 Jul 2015 10:43:45 +0200
-Message-ID: <22f4bb3dd1adbb7b1edaeff611c60ef067286a9c.1437468140.git.tgraf@suug.ch>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: [PATCH net-next 05/22] lwtunnel: support dst output
+	redirect function
+Date: Tue, 21 Jul 2015 10:43:49 +0200
+Message-ID: <7c3d66ca9d920ebe040f2fcdbad0173e469655e1.1437468140.git.tgraf@suug.ch>
 References: <cover.1437468140.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: roopa@cumulusnetworks.com, rshearma@brocade.com,
-	ebiederm@xmission.com, hannes@stressinduktion.org,
-	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
-	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
-	jiri@resnulli.us, marcelo.leitner@gmail.com,
-	stephen@networkplumber.org, jpettit@nicira.com, kaber@trash.net,
-	simon.horman@netronome.com, joestringer@nicira.com, ja@ssi.bg,
-	ast@plumgrid.com, weichunc@plumgrid.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:39867 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753779AbbGUIoR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 04:44:17 -0400
-In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
-In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
-References: <cover.1437468140.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, rshearma-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+ hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org,
+ edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+ simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, ja-FgGsKACvmQM@public.gmane.org,
+ ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, weichunc-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <cover.1437468140.git.tgraf-G/eBtMaohhA@public.gmane.org>
+In-Reply-To: <cover.1437468140.git.tgraf-G/eBtMaohhA@public.gmane.org>
+References: <cover.1437468140.git.tgraf-G/eBtMaohhA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-
-This patch introduces two new RTA attributes to attach encap
-data to fib routes.
-
-Example iproute2 command to attach mpls encap data to ipv4 routes
-
-$ip route add 10.1.1.0/30 encap mpls 200 via inet 10.1.1.1 dev swp1
-
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-Suggested-by: Eric W. Biederman <ebiederm@xmission.com>
----
- include/uapi/linux/rtnetlink.h | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index fdd8f07..0d3d3cc 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -308,6 +308,8 @@ enum rtattr_type_t {
- 	RTA_VIA,
- 	RTA_NEWDST,
- 	RTA_PREF,
-+	RTA_ENCAP_TYPE,
-+	RTA_ENCAP,
- 	__RTA_MAX
- };
- 
--- 
-2.4.3
+RnJvbTogUm9vcGEgUHJhYmh1IDxyb29wYUBjdW11bHVzbmV0d29ya3MuY29tPgoKVGhpcyBwYXRj
+aCBpbnRyb2R1Y2VzIGx3dHVubmVsX291dHB1dCBmdW5jdGlvbiB0byBjYWxsIGNvcnJlc3BvbmRp
+bmcKbHd0dW5uZWxzIG91dHB1dCBmdW5jdGlvbiB0byB4bWl0IHRoZSBwYWNrZXQuCgpJdCBhZGRz
+IHR3byB2YXJpYW50cyBsd3R1bm5lbF9vdXRwdXQgYW5kIGx3dHVubmVsX291dHB1dDYgZm9yIGlw
+djQgYW5kCmlwdjYgcmVzcGVjdGl2ZWx5IHRvZGF5LiBCdXQgdGhpcyBpcyBzdWJqZWN0IHRvIGNo
+YW5nZSB3aGVuIGx3dHN0YXRlIHdpbGwKcmVzaWRlIGluIGRzdCBvciBkc3RfbWV0YWRhdGEgKGFz
+IHBlciB1cHN0cmVhbSBkaXNjdXNzaW9ucykuCgpTaWduZWQtb2ZmLWJ5OiBSb29wYSBQcmFiaHUg
+PHJvb3BhQGN1bXVsdXNuZXR3b3Jrcy5jb20+Ci0tLQogaW5jbHVkZS9uZXQvbHd0dW5uZWwuaCB8
+IDEyICsrKysrKysrKysrCiBuZXQvY29yZS9sd3R1bm5lbC5jICAgIHwgNTYgKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysKIDIgZmlsZXMgY2hhbmdlZCwg
+NjggaW5zZXJ0aW9ucygrKQoKZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2x3dHVubmVsLmggYi9p
+bmNsdWRlL25ldC9sd3R1bm5lbC5oCmluZGV4IGRmMjRiMzYuLjkxOGUwM2MgMTAwNjQ0Ci0tLSBh
+L2luY2x1ZGUvbmV0L2x3dHVubmVsLmgKKysrIGIvaW5jbHVkZS9uZXQvbHd0dW5uZWwuaApAQCAt
+NjksNiArNjksOCBAQCBpbnQgbHd0dW5uZWxfZmlsbF9lbmNhcChzdHJ1Y3Qgc2tfYnVmZiAqc2ti
+LAogaW50IGx3dHVubmVsX2dldF9lbmNhcF9zaXplKHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAqbHd0
+c3RhdGUpOwogc3RydWN0IGx3dHVubmVsX3N0YXRlICpsd3R1bm5lbF9zdGF0ZV9hbGxvYyhpbnQg
+aGRyX2xlbik7CiBpbnQgbHd0dW5uZWxfY21wX2VuY2FwKHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAq
+YSwgc3RydWN0IGx3dHVubmVsX3N0YXRlICpiKTsKK2ludCBsd3R1bm5lbF9vdXRwdXQoc3RydWN0
+IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsKK2ludCBsd3R1bm5lbF9vdXRwdXQ2KHN0
+cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYik7CiAKICNlbHNlCiAKQEAgLTEyNyw2
+ICsxMjksMTYgQEAgc3RhdGljIGlubGluZSBpbnQgbHd0dW5uZWxfY21wX2VuY2FwKHN0cnVjdCBs
+d3R1bm5lbF9zdGF0ZSAqYSwKIAlyZXR1cm4gMDsKIH0KIAorc3RhdGljIGlubGluZSBpbnQgbHd0
+dW5uZWxfb3V0cHV0KHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYikKK3sKKwly
+ZXR1cm4gLUVPUE5PVFNVUFA7Cit9CisKK3N0YXRpYyBpbmxpbmUgaW50IGx3dHVubmVsX291dHB1
+dDYoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQoreworCXJldHVybiAtRU9Q
+Tk9UU1VQUDsKK30KKwogI2VuZGlmCiAKICNlbmRpZiAvKiBfX05FVF9MV1RVTk5FTF9IICovCmRp
+ZmYgLS1naXQgYS9uZXQvY29yZS9sd3R1bm5lbC5jIGIvbmV0L2NvcmUvbHd0dW5uZWwuYwppbmRl
+eCBkN2FlM2EyLi5iYjU4ODI2IDEwMDY0NAotLS0gYS9uZXQvY29yZS9sd3R1bm5lbC5jCisrKyBi
+L25ldC9jb3JlL2x3dHVubmVsLmMKQEAgLTI1LDYgKzI1LDcgQEAKIAogI2luY2x1ZGUgPG5ldC9s
+d3R1bm5lbC5oPgogI2luY2x1ZGUgPG5ldC9ydG5ldGxpbmsuaD4KKyNpbmNsdWRlIDxuZXQvaXA2
+X2ZpYi5oPgogCiBzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmx3dHVubmVsX3N0YXRlX2FsbG9jKGlu
+dCBlbmNhcF9sZW4pCiB7CkBAIC0xNzcsMyArMTc4LDU4IEBAIGludCBsd3R1bm5lbF9jbXBfZW5j
+YXAoc3RydWN0IGx3dHVubmVsX3N0YXRlICphLCBzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmIpCiAJ
+cmV0dXJuIHJldDsKIH0KIEVYUE9SVF9TWU1CT0wobHd0dW5uZWxfY21wX2VuY2FwKTsKKworaW50
+IF9fbHd0dW5uZWxfb3V0cHV0KHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYiwK
+KwkJICAgICAgc3RydWN0IGx3dHVubmVsX3N0YXRlICpsd3RzdGF0ZSkKK3sKKwljb25zdCBzdHJ1
+Y3QgbHd0dW5uZWxfZW5jYXBfb3BzICpvcHM7CisJaW50IHJldCA9IC1FSU5WQUw7CisKKwlpZiAo
+IWx3dHN0YXRlKQorCQlnb3RvIGRyb3A7CisKKwlpZiAobHd0c3RhdGUtPnR5cGUgPT0gTFdUVU5O
+RUxfRU5DQVBfTk9ORSB8fAorCSAgICBsd3RzdGF0ZS0+dHlwZSA+IExXVFVOTkVMX0VOQ0FQX01B
+WCkKKwkJcmV0dXJuIDA7CisKKwlyZXQgPSAtRU9QTk9UU1VQUDsKKwlyY3VfcmVhZF9sb2NrKCk7
+CisJb3BzID0gcmN1X2RlcmVmZXJlbmNlKGx3dHVuX2VuY2Fwc1tsd3RzdGF0ZS0+dHlwZV0pOwor
+CWlmIChsaWtlbHkob3BzICYmIG9wcy0+b3V0cHV0KSkKKwkJcmV0ID0gb3BzLT5vdXRwdXQoc2ss
+IHNrYik7CisJcmN1X3JlYWRfdW5sb2NrKCk7CisKKwlpZiAocmV0ID09IC1FT1BOT1RTVVBQKQor
+CQlnb3RvIGRyb3A7CisKKwlyZXR1cm4gcmV0OworCitkcm9wOgorCWtmcmVlKHNrYik7CisKKwly
+ZXR1cm4gcmV0OworfQorCitpbnQgbHd0dW5uZWxfb3V0cHV0NihzdHJ1Y3Qgc29jayAqc2ssIHN0
+cnVjdCBza19idWZmICpza2IpCit7CisJc3RydWN0IHJ0Nl9pbmZvICpydCA9IChzdHJ1Y3QgcnQ2
+X2luZm8gKilza2JfZHN0KHNrYik7CisJc3RydWN0IGx3dHVubmVsX3N0YXRlICpsd3RzdGF0ZSA9
+IE5VTEw7CisKKwlpZiAocnQpCisJCWx3dHN0YXRlID0gcnQtPnJ0NmlfbHd0c3RhdGU7CisKKwly
+ZXR1cm4gX19sd3R1bm5lbF9vdXRwdXQoc2ssIHNrYiwgbHd0c3RhdGUpOworfQorRVhQT1JUX1NZ
+TUJPTChsd3R1bm5lbF9vdXRwdXQ2KTsKKworaW50IGx3dHVubmVsX291dHB1dChzdHJ1Y3Qgc29j
+ayAqc2ssIHN0cnVjdCBza19idWZmICpza2IpCit7CisJc3RydWN0IHJ0YWJsZSAqcnQgPSAoc3Ry
+dWN0IHJ0YWJsZSAqKXNrYl9kc3Qoc2tiKTsKKwlzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmx3dHN0
+YXRlID0gTlVMTDsKKworCWlmIChydCkKKwkJbHd0c3RhdGUgPSBydC0+cnRfbHd0c3RhdGU7CisK
+KwlyZXR1cm4gX19sd3R1bm5lbF9vdXRwdXQoc2ssIHNrYiwgbHd0c3RhdGUpOworfQorRVhQT1JU
+X1NZTUJPTChsd3R1bm5lbF9vdXRwdXQpOwotLSAKMi40LjMKCl9fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dp
+dGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
