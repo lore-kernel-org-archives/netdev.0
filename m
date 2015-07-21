@@ -1,76 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH,v2 net] net: sched: validate that class is found in
- qdisc_tree_decrease_qlen
-Date: Tue, 21 Jul 2015 12:52:25 +0200
-Message-ID: <1437475945.9913.7.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1437421248-2796139-1-git-send-email-agartrell@fb.com>
-	 <55AE1939.105@mojatatu.com>
+From: Stas Sergeev <stsp@list.ru>
+Subject: Re: [PATCH net v5 0/4] net: enable inband link state negotiation only
+ when explicitly requested
+Date: Tue, 21 Jul 2015 14:17:40 +0300
+Message-ID: <55AE2A54.3010701@list.ru>
+References: <1437439798-12622-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alex Gartrell <agartrell@fb.com>, xiyou.wangcong@gmail.com,
-	davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com,
-	stable@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <55AE1939.105@mojatatu.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org, mxs@sbrk.org,
+	arno@natisbad.org, stsp@users.sourceforge.net,
+	devicetree@vger.kernel.org, thomas.petazzoni@free-electrons.com
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437439798-12622-1-git-send-email-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-07-21 at 06:04 -0400, Jamal Hadi Salim wrote:
-
-> It is worrisome to fix the core code for this. The root cause seems to
-> be codel. Dont have time but in general, reset would be something like:
-> 
-> struct fq_codel_sched_data *q = qdisc_priv(sch);
-> qdisc_reset(q)
-
-This only works for very simple qdisc with one queue.
-
-> 
-> or something along those lines...
-> But certainly dequeue semantics dont seem right there..
-
-Well, reset() is trivial to implement like this
-
-while (skb = local_dequeue(sch)) {
-	kfree_skb(skb);
-}
-
-And I guess I copy/pasted sfq code here, because I was lazy.
-
-But yes, qdisc_tree_decrease_qlen() would have to be not called.
-
-It seems I coded fq_reset() differently.
-
-Alex, please try instead :
-
-diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-index 21ca33c9f036..3f0320ab6029 100644
---- a/net/sched/sch_fq_codel.c
-+++ b/net/sched/sch_fq_codel.c
-@@ -288,10 +288,21 @@ begin:
- 
- static void fq_codel_reset(struct Qdisc *sch)
- {
--	struct sk_buff *skb;
-+	struct fq_codel_sched_data *q = qdisc_priv(sch);
-+	int i;
- 
--	while ((skb = fq_codel_dequeue(sch)) != NULL)
--		kfree_skb(skb);
-+	INIT_LIST_HEAD(&q->new_flows);
-+	INIT_LIST_HEAD(&q->old_flows);
-+	for (i = 0; i < q->flows_cnt; i++) {
-+		struct fq_codel_flow *flow = q->flows + i;
-+
-+		while (flow->head)
-+			kfree_skb(dequeue_head(flow));
-+
-+		INIT_LIST_HEAD(&flow->flowchain);
-+	}
-+	memset(q->backlogs, 0, q->flows_cnt * sizeof(u32));
-+	sch->q.qlen = 0;
- }
- 
- static const struct nla_policy fq_codel_policy[TCA_FQ_CODEL_MAX + 1] = {
+21.07.2015 03:49, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> Hi all,
+>
+> Changes in v5:
+>
+> - removed an invalid use of the link_update callback in the SF2 drive=
+r
+>    was appeared after merging "net: phy: fixed_phy: handle link-down =
+case"
+Thanks for bringing this forward!
+=46or the future, perhaps it will make sense to also
+teach phylib to never read link status (including speed)
+when link is down. Will help to narrow more of such problems.
