@@ -1,75 +1,33 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net v5 1/4] net: dsa: bcm_sf2: Do not override speed settings
-Date: Mon, 20 Jul 2015 17:49:55 -0700
-Message-ID: <1437439798-12622-2-git-send-email-f.fainelli@gmail.com>
-References: <1437439798-12622-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org, mxs@sbrk.org,
-	arno@natisbad.org, stsp@users.sourceforge.net,
-	devicetree@vger.kernel.org, thomas.petazzoni@free-electrons.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1437439798-12622-1-git-send-email-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] rocker: forward packets to CPU when port is
+ joined to openvswitch
+Date: Mon, 20 Jul 2015 18:26:49 -0700 (PDT)
+Message-ID: <20150720.182649.818342477366209714.davem@davemloft.net>
+References: <1437010754-29038-1-git-send-email-simon.horman@netronome.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sfeldma@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org
+To: simon.horman@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53424 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757128AbbGUB0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 21:26:53 -0400
+In-Reply-To: <1437010754-29038-1-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The SF2 driver currently overrides speed settings for its port
-configured using a fixed PHY, this is both unnecessary and incorrect,
-because we keep feedback to the hardware parameters that we read from
-the PHY device, which in the case of a fixed PHY cannot possibly change
-speed.
+From: Simon Horman <simon.horman@netronome.com>
+Date: Thu, 16 Jul 2015 10:39:14 +0900
 
-This is a required change to allow the fixed PHY code to allow
-registering a PHY with a link configured as DOWN by default and avoid
-some sort of circular dependency where we require the link_update
-callback to run to program the hardware, and we then utilize the fixed
-PHY parameters to program the hardware with the same settings.
+> Teach rocker to forward packets to CPU when a port is joined to Open vSwitch.
+> There is scope to later refine what is passed up as per Open vSwitch flows
+> on a port.
+> 
+> This does not change the behaviour of rocker ports that are
+> not joined to Open vSwitch.
+> 
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
-Fixes: 246d7f773c13 ("net: dsa: add Broadcom SF2 switch driver")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/dsa/bcm_sf2.c | 18 +-----------------
- 1 file changed, 1 insertion(+), 17 deletions(-)
-
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 972982f8bea7..3297604f8216 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -890,15 +890,11 @@ static void bcm_sf2_sw_fixed_link_update(struct dsa_switch *ds, int port,
- 					 struct fixed_phy_status *status)
- {
- 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
--	u32 duplex, pause, speed;
-+	u32 duplex, pause;
- 	u32 reg;
- 
- 	duplex = core_readl(priv, CORE_DUPSTS);
- 	pause = core_readl(priv, CORE_PAUSESTS);
--	speed = core_readl(priv, CORE_SPDSTS);
--
--	speed >>= (port * SPDSTS_SHIFT);
--	speed &= SPDSTS_MASK;
- 
- 	status->link = 0;
- 
-@@ -933,18 +929,6 @@ static void bcm_sf2_sw_fixed_link_update(struct dsa_switch *ds, int port,
- 		reg &= ~LINK_STS;
- 	core_writel(priv, reg, CORE_STS_OVERRIDE_GMIIP_PORT(port));
- 
--	switch (speed) {
--	case SPDSTS_10:
--		status->speed = SPEED_10;
--		break;
--	case SPDSTS_100:
--		status->speed = SPEED_100;
--		break;
--	case SPDSTS_1000:
--		status->speed = SPEED_1000;
--		break;
--	}
--
- 	if ((pause & (1 << port)) &&
- 	    (pause & (1 << (port + PAUSESTS_TX_PAUSE_SHIFT)))) {
- 		status->asym_pause = 1;
--- 
-2.1.0
+Applied, thanks Simon.
