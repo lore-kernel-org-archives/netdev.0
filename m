@@ -1,165 +1,399 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: [PATCH net-next 00/22 v2] Lightweight & flow based
-	encapsulation
-Date: Tue, 21 Jul 2015 10:43:44 +0200
-Message-ID: <cover.1437468140.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, rshearma-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
- hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org,
- edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
- simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, ja-FgGsKACvmQM@public.gmane.org,
- ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, weichunc-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next 09/22] mpls: ip tunnel support
+Date: Tue, 21 Jul 2015 10:43:53 +0200
+Message-ID: <4e19277f267e125782a204c29a4919f0abe17d54.1437468140.git.tgraf@suug.ch>
+References: <cover.1437468140.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: roopa@cumulusnetworks.com, rshearma@brocade.com,
+	ebiederm@xmission.com, hannes@stressinduktion.org,
+	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
+	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
+	jiri@resnulli.us, marcelo.leitner@gmail.com,
+	stephen@networkplumber.org, jpettit@nicira.com, kaber@trash.net,
+	simon.horman@netronome.com, joestringer@nicira.com, ja@ssi.bg,
+	ast@plumgrid.com, weichunc@plumgrid.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:39997 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753277AbbGUIoW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 04:44:22 -0400
+In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
+In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
+References: <cover.1437468140.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhpcyBzZXJpZXMgY29tYmluZXMgdGhlIHdvcmsgcHJldmlvdXNseSBwb3N0ZWQgYnkgUm9vcGEs
-IFJvYmVydCBhbmQKbXlzZWxmLiBJdCdzIGFjY29yZGluZyB0byB3aGF0IHdlIGRpc2N1c3NlZCBh
-dCBORldTLiBUaGUgbW90aXZhdGlvbgpvZiB0aGlzIHNlcmllcyBpcyB0bzoKCiAqIENvbnNvbGlk
-YXRlIGNvZGUgYmV0d2VlbiBPVlMgYW5kIHRoZSByZXN0IG9mIHRoZSBrZXJuZWwgYW5kIGdldAog
-ICByaWQgb2YgT1ZTIHZwb3J0cyBhbmQgaW5zdGVhZCByZXByZXNlbnQgdGhlbSBhcyBwdXJlIG5l
-dF9kZXZpY2VzLgogKiBJbnRyb2R1Y2UgYSBsaWdodHdlaWdodCB0dW5uZWxpbmcgbWVjaGFuaXNt
-IHdoaWNoIGVuYWJsZXMgZmxvdwogICBiYXNlZCBlbmNhcHN1bGF0aW9uIHRvIGltcHJvdmUgc2Nh
-bGFiaWxpdHkgb24gYm90aCBSWCBhbmQgVFguCiAqIERvIHRoZSBhYm92ZSBpbiBhbiBlbmNhcHN1
-bGF0aW9uIHVuc3BlY2lmaWMgd2F5IHNvIHRoYXQgdGhlCiAgIGVuY2Fwc3VsYXRpb24gdHlwZSBp
-cyBldmVudHVhbGx5IGFic3RyYWN0ZWQgYXdheSBmcm9tIHRoZSB1c2VyLgogKiBVc2UgdGhlIHNh
-bWUgZm9yd2FyZGluZyBkZWNpc2lvbiBmb3IgYm90aCBuYXRpdmUgZm9yd2FyZGluZyBhbmQKICAg
-ZW5jYXBzdWxhdGlvbiB0aHVzIGFsbG93aW5nIHRvIHN3aXRjaCBiZXR3ZWVuIG5hdGl2ZSBJUHY2
-IGFuZAogICBVRFAgZW5jYXBzdWxhdGlvbiBiYXNlZCBvbiBlbmRwb2ludCB3aXRob3V0IHJlcXVp
-cmluZyBhZGRpdGlvbmFsCiAgIGxvZ2ljCgpUaGUgZnVuZGFtZW50YWwgY2hhbmdlcyBpbnRyb2R1
-Y2VzIGluIHRoaXMgc2VyaWVzIGFyZToKICogQSBuZXcgUlRBX0VOQ0FQIE5ldGxpbmsgYXR0cmli
-dXRlIGZvciByb3V0ZXMgY2FycnlpbmcgZW5jYXBzdWxhdGlvbgogICBpbnN0cnVjdGlvbnMuIERl
-cGVuZGluZyBvbiB0aGUgc3BlY2lmaWVkIHR5cGUsIHRoZSBpbnN0cnVjdGlvbnMKICAgYXBwbHkg
-dG8gVURQIGVuY2Fwc3VsYXRpb25zLCBNUExTIGFuZCBwb3NzaWJsZSBvdGhlciBpbiB0aGUgZnV0
-dXJlLgogKiBEZXBlbmRpbmcgb24gdGhlIGVuY2Fwc3VsYXRpb24gdHlwZSwgdGhlIG91dHB1dCBm
-dW5jdGlvbiBvZiB0aGUKICAgZHN0IGlzIGRpcmVjdGx5IG92ZXJ3cml0dGVuIG9yIHRoZSBkc3Qg
-bWVyZWx5IGF0dGFjaGVzIG1ldGFkYXRhIGFuZAogICByZWxpZXMgb24gYSBzdWJzZXF1ZW50IG5l
-dF9kZXZpY2UgdG8gYXBwbHkgaXQgdG8gdGhlIHBhY2tldC4gVGhlCiAgIGxhdHRlciBpcyB0eXBp
-Y2FsbHkgdXNlZCBpZiBhbiBpbm5lciBhbmQgb3V0ZXIgSVAgaGVhZGVyIGV4aXN0IHdoaWNoCiAg
-IHJlcXVpcmUgdHdvIHN1YnNlcXVlbnQgcm91dGluZyBsb29rdXBzIHRvIGJlIHBlcmZvcm1lZC4K
-ICogQSBuZXcgbWV0YWRhdGFfZHN0IHN0cnVjdHVyZSB3aGljaCBjYW4gYmUgYXR0YWNoZWQgdG8g
-c2ticyB0bwogICBjYXJyeSBtZXRhZGF0YSBpbiBiZXR3ZWVuIHN1YnN5c3RlbXMuIFRoaXMgbmV3
-IG1ldGFkYXRhIHRyYW5zcG9ydAogICBpcyB1c2VkIHRvIHByb3ZpZGUgYSBzaW5nbGUgaW50ZXJm
-YWNlIGZvciBWWExBTiwgcm91dGluZyBhbmQgT1ZTCiAgIHRvIGNvbW11bmljYXRlIHRocm91Z2gg
-bWV0YWRhdGEuCgpUaGUgT1ZTIGludGVyZmFjZXMgcmVtYWluIGFzLWlzIGJ1dCB3aWxsIHRyYW5z
-cGFyZW50bHkgY3JlYXRlIGEgcmVhbApWWExBTiBuZXRfZGV2aWNlIGluIHRoZSBiYWNrZ3JvdW5k
-LiBpcHJvdXRlMiBpcyBleHRlbmRlZCB3aXRoIGEgbmV3CnVzZSBjYXNlczoKCiAgVlhMQU46CiAg
-aXAgcm91dGUgYWRkIDQwLjEuMS4xLzMyIGVuY2FwIHZ4bGFuIGlkIDEwIGRzdCA1MC4xLjEuMiBk
-ZXYgdnhsYW4wCgogIE1QTFM6CiAgaXAgcm91dGUgYWRkIDEwLjEuMS4wLzMwIGVuY2FwIG1wbHMg
-MjAwIHZpYSBpbmV0IDEwLjEuMS4xIGRldiBzd3AxCgpQZXJmb3JtYW5jZSBpbXBsaWNhdGlvbnM6
-CiAgVGhlIGFkZGl0aW9uYWwgbWVtb3J5IGFsbG9jYXRpb24gaW4gdGhlIHJlY2VpdmUgcGF0aCBz
-aG91bGQgaGF2ZQogIHBlcmZvcm1hbmNlIGltcGxpY2F0aW9ucyBhbHRob3VnaCBpdCBpcyBub3Qg
-b2JzZXJ2YWJsZSBpbiBzdGFuZGFyZAogIHRocm91Z2hwdXQgdGVzdHMgaWYgR1JPIGlzIHByb3Bl
-cmx5IGRvbmUuIFRoZSBjb3JyZWN0IG5ldF9kZXZpY2UKICBtb2RlbCBvdXR3ZWlnaHRzIHRoZSBh
-ZGRpdGlvbmFsIGNvc3Qgb2YgdGhlIGFsbG9jYXRpb24uIEZ1cnRoZXJtb3JlLAogIHRoaXMgaW1w
-bGljYXRpb24gY2FuIGJlIHJlbGF4ZWQgYnkgcmVpbnRyb2R1Y2luZyBhIGRpcmVjdCB1bnF1ZXVl
-ZAogIHBhdGggZnJvbSBhIHNvZnR3YXJlIGRldmljZSB0byBhIGNvbnN1bWVyIGxpa2UgYnJpZGdl
-IG9yIE9WUyBpZgogIG5lZWRlZC4KCiAgICAkIG5ldHBlcmYgIC10IFRDUF9TVFJFQU0gLUggMTUu
-MS4xLjIwMQogICAgTUlHUkFURUQgVENQIFNUUkVBTSBURVNUIGZyb20gMC4wLjAuMCAoMC4wLjAu
-MCkgcG9ydCAwIEFGX0lORVQgdG8KICAgIDE1LjEuMS4yMDEgKDE1LjEuMS4yMDEpIHBvcnQgMCBB
-Rl9JTkVUIDogZGVtbwogICAgUmVjdiAgIFNlbmQgICAgU2VuZAogICAgU29ja2V0IFNvY2tldCAg
-TWVzc2FnZSAgRWxhcHNlZAogICAgU2l6ZSAgIFNpemUgICAgU2l6ZSAgICAgVGltZSAgICAgVGhy
-b3VnaHB1dAogICAgYnl0ZXMgIGJ5dGVzICAgYnl0ZXMgICAgc2Vjcy4gICAgMTBeNmJpdHMvc2Vj
-CgogICAgIDg3MzgwICAxNjM4NCAgMTYzODQgICAgMTAuMDAgICAgOTExOC4xNwoKQ2hhbmdlcyBz
-aW5jZSB2MToKICogUHJvcGVybHkgaW5pdGlhbGl6ZSB0dW5faWQgYXMgcmVwb3J0ZWQgYnkgSnVs
-aWFuCiAqIERyb3AgZHVwbGlhdGUgbmV0aWZfa2VlcF9kc3QoKSBhcyByZXBvcnRlZCBieSBBbGV4
-ZWkKClJvb3BhIFByYWJodSAoOSk6CiAgcnRuZXRsaW5rOiBpbnRyb2R1Y2UgbmV3IFJUQV9FTkNB
-UF9UWVBFIGFuZCBSVEFfRU5DQVAgYXR0cmlidXRlcwogIGx3dHVubmVsOiBpbmZyYXN0cnVjdHVy
-ZSBmb3IgaGFuZGxpbmcgbGlnaHQgd2VpZ2h0IHR1bm5lbHMgbGlrZSBtcGxzCiAgaXB2NDogc3Vw
-cG9ydCBmb3IgZmliIHJvdXRlIGx3dHVubmVsIGVuY2FwIGF0dHJpYnV0ZXMKICBpcHY2OiBzdXBw
-b3J0IGZvciBmaWIgcm91dGUgbHd0dW5uZWwgZW5jYXAgYXR0cmlidXRlcwogIGx3dHVubmVsOiBz
-dXBwb3J0IGRzdCBvdXRwdXQgcmVkaXJlY3QgZnVuY3Rpb24KICBpcHY0OiByZWRpcmVjdCBkc3Qg
-b3V0cHV0IHRvIGx3dHVubmVsIG91dHB1dAogIGlwdjY6IHJ0Nl9pbmZvIG91dHB1dCByZWRpcmVj
-dCB0byB0dW5uZWwgb3V0cHV0CiAgbXBsczogZXhwb3J0IG1wbHMgZnVuY3Rpb25zIGZvciB1c2Ug
-YnkgbXBscyBpcHR1bm5lbHMKICBtcGxzOiBpcCB0dW5uZWwgc3VwcG9ydAoKVGhvbWFzIEdyYWYg
-KDEzKToKICBpcF90dW5uZWw6IE1ha2Ugb3ZzX3R1bm5lbF9pbmZvIGFuZCBvdnNfa2V5X2lwdjRf
-dHVubmVsIGdlbmVyaWMKICBpY21wOiBEb24ndCBsZWFrIG9yaWdpbmFsIGRzdCBpbnRvIGlwX3Jv
-dXRlX2lucHV0KCkKICBkc3Q6IE1ldGFkYXRhIGRlc3RpbmF0aW9ucwogIGFycDogSW5oZXJpdCBt
-ZXRhZGF0YSBkc3Qgd2hlbiBjcmVhdGluZyBBUlAgcmVxdWVzdHMKICB2eGxhbjogRmxvdyBiYXNl
-ZCB0dW5uZWxpbmcKICByb3V0ZTogRXh0ZW5kIGZsb3cgcmVwcmVzZW50YXRpb24gd2l0aCB0dW5u
-ZWwga2V5CiAgcm91dGU6IFBlciByb3V0ZSBJUCB0dW5uZWwgbWV0YWRhdGEgdmlhIGxpZ2h0d2Vp
-Z2h0IHR1bm5lbAogIGZpYjogQWRkIGZpYiBydWxlIG1hdGNoIG9uIHR1bm5lbCBpZAogIHZ4bGFu
-OiBGYWN0b3Igb3V0IGRldmljZSBjb25maWd1cmF0aW9uCiAgb3BlbnZzd2l0Y2g6IE1ha2UgdHVu
-bmVsIHNldCBhY3Rpb24gYXR0YWNoIGEgbWV0YWRhdGEgZHN0CiAgb3BlbnZzd2l0Y2g6IE1vdmUg
-ZGV2IHBvaW50ZXIgaW50byB2cG9ydCBpdHNlbGYKICBvcGVudnN3aXRjaDogQWJzdHJhY3QgdnBv
-cnQgbmFtZSB0aHJvdWdoIG92c192cG9ydF9uYW1lKCkKICBvcGVudnN3aXRjaDogVXNlIHJlZ3Vs
-YXIgVlhMQU4gbmV0X2RldmljZSBkZXZpY2UKCiBkcml2ZXJzL25ldC92eGxhbi5jICAgICAgICAg
-ICAgICAgICAgfCA2NzIgKysrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0KIGluY2x1
-ZGUvbGludXgvbHd0dW5uZWwuaCAgICAgICAgICAgICB8ICAgNiArCiBpbmNsdWRlL2xpbnV4L21w
-bHNfaXB0dW5uZWwuaCAgICAgICAgfCAgIDYgKwogaW5jbHVkZS9saW51eC9za2J1ZmYuaCAgICAg
-ICAgICAgICAgIHwgICAxICsKIGluY2x1ZGUvbmV0L2RzdC5oICAgICAgICAgICAgICAgICAgICB8
-ICAgNiArLQogaW5jbHVkZS9uZXQvZHN0X21ldGFkYXRhLmggICAgICAgICAgIHwgIDU1ICsrKwog
-aW5jbHVkZS9uZXQvZmliX3J1bGVzLmggICAgICAgICAgICAgIHwgICAxICsKIGluY2x1ZGUvbmV0
-L2Zsb3cuaCAgICAgICAgICAgICAgICAgICB8ICAgOCArCiBpbmNsdWRlL25ldC9pcDZfZmliLmgg
-ICAgICAgICAgICAgICAgfCAgIDMgKwogaW5jbHVkZS9uZXQvaXBfZmliLmggICAgICAgICAgICAg
-ICAgIHwgICA1ICstCiBpbmNsdWRlL25ldC9pcF90dW5uZWxzLmggICAgICAgICAgICAgfCAgOTUg
-KysrKy0KIGluY2x1ZGUvbmV0L2x3dHVubmVsLmggICAgICAgICAgICAgICB8IDE0NCArKysrKysr
-KwogaW5jbHVkZS9uZXQvbXBsc19pcHR1bm5lbC5oICAgICAgICAgIHwgIDI5ICsrCiBpbmNsdWRl
-L25ldC9yb3V0ZS5oICAgICAgICAgICAgICAgICAgfCAgIDEgKwogaW5jbHVkZS9uZXQvcnRuZXRs
-aW5rLmggICAgICAgICAgICAgIHwgICAxICsKIGluY2x1ZGUvbmV0L3Z4bGFuLmggICAgICAgICAg
-ICAgICAgICB8ICA4NSArKysrLQogaW5jbHVkZS91YXBpL2xpbnV4L2ZpYl9ydWxlcy5oICAgICAg
-IHwgICAyICstCiBpbmNsdWRlL3VhcGkvbGludXgvaWZfbGluay5oICAgICAgICAgfCAgIDEgKwog
-aW5jbHVkZS91YXBpL2xpbnV4L2x3dHVubmVsLmggICAgICAgIHwgIDE2ICsKIGluY2x1ZGUvdWFw
-aS9saW51eC9tcGxzX2lwdHVubmVsLmggICB8ICAyOCArKwogaW5jbHVkZS91YXBpL2xpbnV4L29w
-ZW52c3dpdGNoLmggICAgIHwgICAyICstCiBpbmNsdWRlL3VhcGkvbGludXgvcnRuZXRsaW5rLmgg
-ICAgICAgfCAgMTcgKwogbmV0L0tjb25maWcgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICA3
-ICsKIG5ldC9jb3JlL01ha2VmaWxlICAgICAgICAgICAgICAgICAgICB8ICAgMSArCiBuZXQvY29y
-ZS9kZXYuYyAgICAgICAgICAgICAgICAgICAgICAgfCAgIDIgKy0KIG5ldC9jb3JlL2RzdC5jICAg
-ICAgICAgICAgICAgICAgICAgICB8ICA4NCArKysrLQogbmV0L2NvcmUvZmliX3J1bGVzLmMgICAg
-ICAgICAgICAgICAgIHwgIDI0ICstCiBuZXQvY29yZS9sd3R1bm5lbC5jICAgICAgICAgICAgICAg
-ICAgfCAyMzUgKysrKysrKysrKysrCiBuZXQvY29yZS9ydG5ldGxpbmsuYyAgICAgICAgICAgICAg
-ICAgfCAgMjYgKy0KIG5ldC9pcHY0L2FycC5jICAgICAgICAgICAgICAgICAgICAgICB8ICA2NSAr
-Ky0tCiBuZXQvaXB2NC9maWJfZnJvbnRlbmQuYyAgICAgICAgICAgICAgfCAgMTAgKwogbmV0L2lw
-djQvZmliX3NlbWFudGljcy5jICAgICAgICAgICAgIHwgIDk2ICsrKystCiBuZXQvaXB2NC9pY21w
-LmMgICAgICAgICAgICAgICAgICAgICAgfCAgIDEgKwogbmV0L2lwdjQvaXBfaW5wdXQuYyAgICAg
-ICAgICAgICAgICAgIHwgICAzICstCiBuZXQvaXB2NC9pcF90dW5uZWxfY29yZS5jICAgICAgICAg
-ICAgfCAxMzAgKysrKysrKwogbmV0L2lwdjQvcm91dGUuYyAgICAgICAgICAgICAgICAgICAgIHwg
-IDI4ICstCiBuZXQvaXB2Ni9pcDZfZmliLmMgICAgICAgICAgICAgICAgICAgfCAgIDIgKwogbmV0
-L2lwdjYvcm91dGUuYyAgICAgICAgICAgICAgICAgICAgIHwgIDM0ICstCiBuZXQvbXBscy9LY29u
-ZmlnICAgICAgICAgICAgICAgICAgICAgfCAgIDggKy0KIG5ldC9tcGxzL01ha2VmaWxlICAgICAg
-ICAgICAgICAgICAgICB8ICAgMSArCiBuZXQvbXBscy9hZl9tcGxzLmMgICAgICAgICAgICAgICAg
-ICAgfCAgMTEgKy0KIG5ldC9tcGxzL2ludGVybmFsLmggICAgICAgICAgICAgICAgICB8ICAgOSAr
-LQogbmV0L21wbHMvbXBsc19pcHR1bm5lbC5jICAgICAgICAgICAgIHwgMjMzICsrKysrKysrKysr
-KwogbmV0L29wZW52c3dpdGNoL0tjb25maWcgICAgICAgICAgICAgIHwgIDEyIC0KIG5ldC9vcGVu
-dnN3aXRjaC9NYWtlZmlsZSAgICAgICAgICAgICB8ICAgMSAtCiBuZXQvb3BlbnZzd2l0Y2gvYWN0
-aW9ucy5jICAgICAgICAgICAgfCAgMTIgKy0KIG5ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jICAg
-ICAgICAgICB8ICAxOSArLQogbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmggICAgICAgICAgIHwg
-ICA1ICstCiBuZXQvb3BlbnZzd2l0Y2gvZHBfbm90aWZ5LmMgICAgICAgICAgfCAgIDUgKy0KIG5l
-dC9vcGVudnN3aXRjaC9mbG93LmMgICAgICAgICAgICAgICB8ICAgNCArLQogbmV0L29wZW52c3dp
-dGNoL2Zsb3cuaCAgICAgICAgICAgICAgIHwgIDc5ICstLS0KIG5ldC9vcGVudnN3aXRjaC9mbG93
-X25ldGxpbmsuYyAgICAgICB8ICA4NCArKysrLQogbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGlu
-ay5oICAgICAgIHwgICAzICstCiBuZXQvb3BlbnZzd2l0Y2gvZmxvd190YWJsZS5jICAgICAgICAg
-fCAgIDQgKy0KIG5ldC9vcGVudnN3aXRjaC92cG9ydC1nZW5ldmUuYyAgICAgICB8ICAxNyArLQog
-bmV0L29wZW52c3dpdGNoL3Zwb3J0LWdyZS5jICAgICAgICAgIHwgIDE2ICstCiBuZXQvb3BlbnZz
-d2l0Y2gvdnBvcnQtaW50ZXJuYWxfZGV2LmMgfCAgMzggKy0KIG5ldC9vcGVudnN3aXRjaC92cG9y
-dC1uZXRkZXYuYyAgICAgICB8IDI4OSArKysrKysrKysrKystLS0KIG5ldC9vcGVudnN3aXRjaC92
-cG9ydC1uZXRkZXYuaCAgICAgICB8ICAxMyAtCiBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQtdnhsYW4u
-YyAgICAgICAgfCAzMjIgLS0tLS0tLS0tLS0tLS0tLS0KIG5ldC9vcGVudnN3aXRjaC92cG9ydC12
-eGxhbi5oICAgICAgICB8ICAxMSAtCiBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQuYyAgICAgICAgICAg
-ICAgfCAgMzQgKy0KIG5ldC9vcGVudnN3aXRjaC92cG9ydC5oICAgICAgICAgICAgICB8ICAyMSAr
-LQogNjMgZmlsZXMgY2hhbmdlZCwgMjIzMSBpbnNlcnRpb25zKCspLCA5NTIgZGVsZXRpb25zKC0p
-CiBjcmVhdGUgbW9kZSAxMDA2NDQgaW5jbHVkZS9saW51eC9sd3R1bm5lbC5oCiBjcmVhdGUgbW9k
-ZSAxMDA2NDQgaW5jbHVkZS9saW51eC9tcGxzX2lwdHVubmVsLmgKIGNyZWF0ZSBtb2RlIDEwMDY0
-NCBpbmNsdWRlL25ldC9kc3RfbWV0YWRhdGEuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGluY2x1ZGUv
-bmV0L2x3dHVubmVsLmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBpbmNsdWRlL25ldC9tcGxzX2lwdHVu
-bmVsLmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBpbmNsdWRlL3VhcGkvbGludXgvbHd0dW5uZWwuaAog
-Y3JlYXRlIG1vZGUgMTAwNjQ0IGluY2x1ZGUvdWFwaS9saW51eC9tcGxzX2lwdHVubmVsLmgKIGNy
-ZWF0ZSBtb2RlIDEwMDY0NCBuZXQvY29yZS9sd3R1bm5lbC5jCiBjcmVhdGUgbW9kZSAxMDA2NDQg
-bmV0L21wbHMvbXBsc19pcHR1bm5lbC5jCiBkZWxldGUgbW9kZSAxMDA2NDQgbmV0L29wZW52c3dp
-dGNoL3Zwb3J0LXZ4bGFuLmMKIGRlbGV0ZSBtb2RlIDEwMDY0NCBuZXQvb3BlbnZzd2l0Y2gvdnBv
-cnQtdnhsYW4uaAoKLS0gCjIuNC4zCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDov
-L29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+
+This implementation uses lwtunnel infrastructure to register
+hooks for mpls tunnel encaps.
+
+It picks cues from iptunnel_encaps infrastructure and previous
+mpls iptunnel RFC patches from Eric W. Biederman and Robert Shearman
+
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ include/linux/mpls_iptunnel.h      |   6 +
+ include/net/mpls_iptunnel.h        |  29 +++++
+ include/uapi/linux/mpls_iptunnel.h |  28 +++++
+ net/mpls/Kconfig                   |   8 +-
+ net/mpls/Makefile                  |   1 +
+ net/mpls/mpls_iptunnel.c           | 233 +++++++++++++++++++++++++++++++++++++
+ 6 files changed, 304 insertions(+), 1 deletion(-)
+ create mode 100644 include/linux/mpls_iptunnel.h
+ create mode 100644 include/net/mpls_iptunnel.h
+ create mode 100644 include/uapi/linux/mpls_iptunnel.h
+ create mode 100644 net/mpls/mpls_iptunnel.c
+
+diff --git a/include/linux/mpls_iptunnel.h b/include/linux/mpls_iptunnel.h
+new file mode 100644
+index 0000000..ef29eb2
+--- /dev/null
++++ b/include/linux/mpls_iptunnel.h
+@@ -0,0 +1,6 @@
++#ifndef _LINUX_MPLS_IPTUNNEL_H
++#define _LINUX_MPLS_IPTUNNEL_H
++
++#include <uapi/linux/mpls_iptunnel.h>
++
++#endif  /* _LINUX_MPLS_IPTUNNEL_H */
+diff --git a/include/net/mpls_iptunnel.h b/include/net/mpls_iptunnel.h
+new file mode 100644
+index 0000000..4757997
+--- /dev/null
++++ b/include/net/mpls_iptunnel.h
+@@ -0,0 +1,29 @@
++/*
++ * Copyright (c) 2015 Cumulus Networks, Inc.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ */
++
++#ifndef _NET_MPLS_IPTUNNEL_H
++#define _NET_MPLS_IPTUNNEL_H 1
++
++#define MAX_NEW_LABELS 2
++
++struct mpls_iptunnel_encap {
++	u32	label[MAX_NEW_LABELS];
++	u32	labels;
++};
++
++static inline struct mpls_iptunnel_encap *mpls_lwtunnel_encap(struct lwtunnel_state *lwtstate)
++{
++	return (struct mpls_iptunnel_encap *)lwtstate->data;
++}
++
++#endif
+diff --git a/include/uapi/linux/mpls_iptunnel.h b/include/uapi/linux/mpls_iptunnel.h
+new file mode 100644
+index 0000000..d80a049
+--- /dev/null
++++ b/include/uapi/linux/mpls_iptunnel.h
+@@ -0,0 +1,28 @@
++/*
++ *	mpls tunnel api
++ *
++ *	Authors:
++ *		Roopa Prabhu <roopa@cumulusnetworks.com>
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++
++#ifndef _UAPI_LINUX_MPLS_IPTUNNEL_H
++#define _UAPI_LINUX_MPLS_IPTUNNEL_H
++
++/* MPLS tunnel attributes
++ * [RTA_ENCAP] = {
++ *     [MPLS_IPTUNNEL_DST]
++ * }
++ */
++enum {
++	MPLS_IPTUNNEL_UNSPEC,
++	MPLS_IPTUNNEL_DST,
++	__MPLS_IPTUNNEL_MAX,
++};
++#define MPLS_IPTUNNEL_MAX (__MPLS_IPTUNNEL_MAX - 1)
++
++#endif /* _UAPI_LINUX_MPLS_IPTUNNEL_H */
+diff --git a/net/mpls/Kconfig b/net/mpls/Kconfig
+index 17bde79..5c467ef 100644
+--- a/net/mpls/Kconfig
++++ b/net/mpls/Kconfig
+@@ -24,7 +24,13 @@ config NET_MPLS_GSO
+ 
+ config MPLS_ROUTING
+ 	tristate "MPLS: routing support"
+-	help
++	---help---
+ 	 Add support for forwarding of mpls packets.
+ 
++config MPLS_IPTUNNEL
++	tristate "MPLS: IP over MPLS tunnel support"
++	depends on LWTUNNEL && MPLS_ROUTING
++	---help---
++	 mpls ip tunnel support.
++
+ endif # MPLS
+diff --git a/net/mpls/Makefile b/net/mpls/Makefile
+index 65bbe68..9ca9236 100644
+--- a/net/mpls/Makefile
++++ b/net/mpls/Makefile
+@@ -3,5 +3,6 @@
+ #
+ obj-$(CONFIG_NET_MPLS_GSO) += mpls_gso.o
+ obj-$(CONFIG_MPLS_ROUTING) += mpls_router.o
++obj-$(CONFIG_MPLS_IPTUNNEL) += mpls_iptunnel.o
+ 
+ mpls_router-y := af_mpls.o
+diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
+new file mode 100644
+index 0000000..eea096f
+--- /dev/null
++++ b/net/mpls/mpls_iptunnel.c
+@@ -0,0 +1,233 @@
++/*
++ * mpls tunnels	An implementation mpls tunnels using the light weight tunnel
++ *		infrastructure
++ *
++ * Authors:	Roopa Prabhu, <roopa@cumulusnetworks.com>
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ */
++#include <linux/types.h>
++#include <linux/skbuff.h>
++#include <linux/net.h>
++#include <linux/module.h>
++#include <linux/mpls.h>
++#include <linux/vmalloc.h>
++#include <net/ip.h>
++#include <net/dst.h>
++#include <net/lwtunnel.h>
++#include <net/netevent.h>
++#include <net/netns/generic.h>
++#include <net/ip6_fib.h>
++#include <net/route.h>
++#include <net/mpls_iptunnel.h>
++#include <linux/mpls_iptunnel.h>
++#include "internal.h"
++
++static const struct nla_policy mpls_iptunnel_policy[MPLS_IPTUNNEL_MAX + 1] = {
++	[MPLS_IPTUNNEL_DST]	= { .type = NLA_U32 },
++};
++
++static unsigned int mpls_encap_size(struct mpls_iptunnel_encap *en)
++{
++	/* The size of the layer 2.5 labels to be added for this route */
++	return en->labels * sizeof(struct mpls_shim_hdr);
++}
++
++int mpls_output(struct sock *sk, struct sk_buff *skb)
++{
++	struct mpls_iptunnel_encap *tun_encap_info;
++	struct mpls_shim_hdr *hdr;
++	struct net_device *out_dev;
++	unsigned int hh_len;
++	unsigned int new_header_size;
++	unsigned int mtu;
++	struct dst_entry *dst = skb_dst(skb);
++	struct rtable *rt = NULL;
++	struct rt6_info *rt6 = NULL;
++	struct lwtunnel_state *lwtstate = NULL;
++	int err = 0;
++	bool bos;
++	int i;
++	unsigned int ttl;
++
++	/* Obtain the ttl */
++	if (skb->protocol == htons(ETH_P_IP)) {
++		ttl = ip_hdr(skb)->ttl;
++		rt = (struct rtable *)dst;
++		lwtstate = rt->rt_lwtstate;
++	} else if (skb->protocol == htons(ETH_P_IPV6)) {
++		ttl = ipv6_hdr(skb)->hop_limit;
++		rt6 = (struct rt6_info *)dst;
++		lwtstate = rt6->rt6i_lwtstate;
++	} else {
++		goto drop;
++	}
++
++	skb_orphan(skb);
++
++	/* Find the output device */
++	out_dev = rcu_dereference(dst->dev);
++	if (!mpls_output_possible(out_dev) ||
++	    !lwtstate || skb_warn_if_lro(skb))
++		goto drop;
++
++	skb_forward_csum(skb);
++
++	tun_encap_info = mpls_lwtunnel_encap(lwtstate);
++
++	/* Verify the destination can hold the packet */
++	new_header_size = mpls_encap_size(tun_encap_info);
++	mtu = mpls_dev_mtu(out_dev);
++	if (mpls_pkt_too_big(skb, mtu - new_header_size))
++		goto drop;
++
++	hh_len = LL_RESERVED_SPACE(out_dev);
++	if (!out_dev->header_ops)
++		hh_len = 0;
++
++	/* Ensure there is enough space for the headers in the skb */
++	if (skb_cow(skb, hh_len + new_header_size))
++		goto drop;
++
++	skb_push(skb, new_header_size);
++	skb_reset_network_header(skb);
++
++	skb->dev = out_dev;
++	skb->protocol = htons(ETH_P_MPLS_UC);
++
++	/* Push the new labels */
++	hdr = mpls_hdr(skb);
++	bos = true;
++	for (i = tun_encap_info->labels - 1; i >= 0; i--) {
++		hdr[i] = mpls_entry_encode(tun_encap_info->label[i],
++					   ttl, 0, bos);
++		bos = false;
++	}
++
++	if (rt)
++		err = neigh_xmit(NEIGH_ARP_TABLE, out_dev, &rt->rt_gateway,
++				 skb);
++	else if (rt6)
++		err = neigh_xmit(NEIGH_ND_TABLE, out_dev, &rt6->rt6i_gateway,
++				 skb);
++	if (err)
++		net_dbg_ratelimited("%s: packet transmission failed: %d\n",
++				    __func__, err);
++
++	return 0;
++
++drop:
++	kfree_skb(skb);
++	return -EINVAL;
++}
++
++static int mpls_build_state(struct net_device *dev, struct nlattr *nla,
++			    struct lwtunnel_state **ts)
++{
++	struct mpls_iptunnel_encap *tun_encap_info;
++	struct nlattr *tb[MPLS_IPTUNNEL_MAX + 1];
++	struct lwtunnel_state *newts;
++	int tun_encap_info_len;
++	int ret;
++
++	ret = nla_parse_nested(tb, MPLS_IPTUNNEL_MAX, nla,
++			       mpls_iptunnel_policy);
++	if (ret < 0)
++		return ret;
++
++	if (!tb[MPLS_IPTUNNEL_DST])
++		return -EINVAL;
++
++	tun_encap_info_len = sizeof(*tun_encap_info);
++
++	newts = lwtunnel_state_alloc(tun_encap_info_len);
++	if (!newts)
++		return -ENOMEM;
++
++	newts->len = tun_encap_info_len;
++	tun_encap_info = mpls_lwtunnel_encap(newts);
++	ret = nla_get_labels(tb[MPLS_IPTUNNEL_DST], MAX_NEW_LABELS,
++			     &tun_encap_info->labels, tun_encap_info->label);
++	if (ret)
++		goto errout;
++	newts->type = LWTUNNEL_ENCAP_MPLS;
++	newts->flags |= LWTUNNEL_STATE_OUTPUT_REDIRECT;
++
++	*ts = newts;
++
++	return 0;
++
++errout:
++	kfree(newts);
++	*ts = NULL;
++
++	return ret;
++}
++
++static int mpls_fill_encap_info(struct sk_buff *skb,
++				struct lwtunnel_state *lwtstate)
++{
++	struct mpls_iptunnel_encap *tun_encap_info;
++	
++	tun_encap_info = mpls_lwtunnel_encap(lwtstate);
++
++	if (nla_put_labels(skb, MPLS_IPTUNNEL_DST, tun_encap_info->labels,
++			   tun_encap_info->label))
++		goto nla_put_failure;
++
++	return 0;
++
++nla_put_failure:
++	return -EMSGSIZE;
++}
++
++static int mpls_encap_nlsize(struct lwtunnel_state *lwtstate)
++{
++	struct mpls_iptunnel_encap *tun_encap_info;
++
++	tun_encap_info = mpls_lwtunnel_encap(lwtstate);
++
++	return nla_total_size(tun_encap_info->labels * 4);
++}
++
++static int mpls_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
++{
++	struct mpls_iptunnel_encap *a_hdr = mpls_lwtunnel_encap(a);
++	struct mpls_iptunnel_encap *b_hdr = mpls_lwtunnel_encap(b);
++	int l;
++
++	if (a_hdr->labels != b_hdr->labels)
++		return 1;
++
++	for (l = 0; l < MAX_NEW_LABELS; l++)
++		if (a_hdr->label[l] != b_hdr->label[l])
++			return 1;
++	return 0;
++}
++
++static const struct lwtunnel_encap_ops mpls_iptun_ops = {
++	.build_state = mpls_build_state,
++	.output = mpls_output,
++	.fill_encap = mpls_fill_encap_info,
++	.get_encap_size = mpls_encap_nlsize,
++	.cmp_encap = mpls_encap_cmp,
++};
++
++static int __init mpls_iptunnel_init(void)
++{
++	return lwtunnel_encap_add_ops(&mpls_iptun_ops, LWTUNNEL_ENCAP_MPLS);
++}
++module_init(mpls_iptunnel_init);
++
++static void __exit mpls_iptunnel_exit(void)
++{
++	lwtunnel_encap_del_ops(&mpls_iptun_ops, LWTUNNEL_ENCAP_MPLS);
++}
++module_exit(mpls_iptunnel_exit);
++
++MODULE_DESCRIPTION("MultiProtocol Label Switching IP Tunnels");
++MODULE_LICENSE("GPL v2");
+-- 
+2.4.3
