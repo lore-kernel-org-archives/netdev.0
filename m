@@ -1,104 +1,43 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: reproducable panic eviction work queue
-Date: Tue, 21 Jul 2015 20:34:53 +0200
-Message-ID: <20150721183453.GL11985@breakpoint.cc>
-References: <F8D94413-90A2-4F80-AAA2-7A6AB57DF314@transip.nl>
- <1437209795.1026.31.camel@edumazet-glaptop2.roam.corp.google.com>
- <5FD5C17E-B321-404E-80A2-EE46BB8AA746@transip.nl>
- <55AA243D.5020306@cumulusnetworks.com>
- <22C5EB62-8974-432D-9C3B-45F4E4067A45@transip.nl>
- <55AA717D.8080800@cumulusnetworks.com>
- <55ACEDE9.3090205@transip.nl>
- <20150720143023.GC11985@breakpoint.cc>
- <55AE3208.8090403@transip.nl>
+From: Sowmini Varadhan <sowmini05@gmail.com>
+Subject: Re: ARP response with link local IP, why not broadcast
+Date: Tue, 21 Jul 2015 21:39:06 +0200
+Message-ID: <CACP96tRrCzFwTC-fSMxGTWr+zFSkid=Bd6JkGZA822HbEjk4_Q@mail.gmail.com>
+References: <55AE5958.3020009@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Johan Schuijt <johan@transip.nl>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"nikolay@redhat.com" <nikolay@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"chutzpah@gentoo.org" <chutzpah@gentoo.org>,
-	Robin Geuze <robing@transip.nl>,
-	netdev <netdev@vger.kernel.org>
-To: Frank Schreuder <fschreuder@transip.nl>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Sebastian Fett <db_extern@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:37751 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933342AbbGUSfA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 14:35:00 -0400
-Content-Disposition: inline
-In-Reply-To: <55AE3208.8090403@transip.nl>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:37072 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752230AbbGUTjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 15:39:07 -0400
+Received: by wibud3 with SMTP id ud3so140494610wib.0
+        for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 12:39:06 -0700 (PDT)
+In-Reply-To: <55AE5958.3020009@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Frank Schreuder <fschreuder@transip.nl> wrote:
+On Tue, Jul 21, 2015 at 4:38 PM, Sebastian Fett <db_extern@gmx.de> wrote:
+> Hello!
+>
+> According to RFC3927 every ARP packet (reply and request) should be sent as
+> link layer broadcast as long as the sender IP is a link local address. (see
+> chapter 2.5).
 
-[ inet frag evictor crash ]
+Because broadcast replies are noisy and should be avoided.
+if possible- it creates a broadcast flood that would wake up all receivers,
+and is especially undesirable in today's world, where bcast would wake
+up sleepy devices, or require other inefficient processes in a cloud env.
+See also https://www.ietf.org/id/draft-nordmark-6man-dad-approaches-01.txt
 
-We believe we found the bug.  This patch should fix it.
+> That functionality would help me a lot with a use case I have with our
+> application.
 
-We cannot share list for buckets and evictor, the flag member is
-subject to race conditions so flags & INET_FRAG_EVICTED test is not
-reliable.
+what is your use case?
 
-It would be great if you could confirm that this fixes the problem
-for you, we'll then make formal patch submission.
+>
+> But it is not implemented in the kernel that way.
+> Does anyone know why?
 
-Please apply this on kernel without previous test patches, wheter you
-use affected -stable or net-next kernel shouldn't matter since those are
-similar enough.
-
-Many thanks!
-
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -45,6 +45,7 @@ enum {
-  * @flags: fragment queue flags
-  * @max_size: maximum received fragment size
-  * @net: namespace that this frag belongs to
-+ * @list_evictor: list of queues to forcefully evict (e.g. due to low memory)
-  */
- struct inet_frag_queue {
- 	spinlock_t		lock;
-@@ -59,6 +60,7 @@ struct inet_frag_queue {
- 	__u8			flags;
- 	u16			max_size;
- 	struct netns_frags	*net;
-+	struct hlist_node	list_evictor;
- };
- 
- #define INETFRAGS_HASHSZ	1024
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 5e346a0..1722348 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -151,14 +151,13 @@ evict_again:
- 		}
- 
- 		fq->flags |= INET_FRAG_EVICTED;
--		hlist_del(&fq->list);
--		hlist_add_head(&fq->list, &expired);
-+		hlist_add_head(&fq->list_evictor, &expired);
- 		++evicted;
- 	}
- 
- 	spin_unlock(&hb->chain_lock);
- 
--	hlist_for_each_entry_safe(fq, n, &expired, list)
-+	hlist_for_each_entry_safe(fq, n, &expired, list_evictor)
- 		f->frag_expire((unsigned long) fq);
- 
- 	return evicted;
-@@ -284,8 +283,7 @@ static inline void fq_unlink(struct inet_frag_queue *fq, struct inet_frags *f)
- 	struct inet_frag_bucket *hb;
- 
- 	hb = get_frag_bucket_locked(fq, f);
--	if (!(fq->flags & INET_FRAG_EVICTED))
--		hlist_del(&fq->list);
-+	hlist_del(&fq->list);
- 	spin_unlock(&hb->chain_lock);
- }
- 
+--Sowmini
