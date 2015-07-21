@@ -1,49 +1,31 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: [PATCH] netcp:Fix error handling in the function netcp_xgbe_serdes_config
-Date: Tue, 21 Jul 2015 10:57:24 -0400
-Message-ID: <55AE5DD4.3060304@ti.com>
-References: <1437407684-1750-1-git-send-email-xerofoify@gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: rtlwifi: rtl8821ae: Fix an expression that is always false
+Date: Tue, 21 Jul 2015 14:59:08 +0000 (UTC)
+Message-ID: <20150721145908.9F8EC141A64@smtp.codeaurora.org>
+References: <1436368730-636-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Nicholas Krause <xerofoify@gmail.com>, <w-kwok2@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1437407684-1750-1-git-send-email-xerofoify@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>,
+	David Binderman <dcb314@hotmail.com>
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1436368730-636-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/20/2015 11:54 AM, Nicholas Krause wrote:
-> This fixes error handling in the function netcp_xgbe_serdes_config
-> by putting the return value of netcp_xgbe_serdes_check_lane into
-> the variable ret and return this value to the caller as this function
-> can fail when called by returning the error code -ETIMEOUT.
->
-> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
-> ---
->   drivers/net/ethernet/ti/netcp_xgbepcsr.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/ti/netcp_xgbepcsr.c b/drivers/net/ethernet/ti/netcp_xgbepcsr.c
-> index 33571ac..0c79e3d 100644
-> --- a/drivers/net/ethernet/ti/netcp_xgbepcsr.c
-> +++ b/drivers/net/ethernet/ti/netcp_xgbepcsr.c
-> @@ -483,7 +483,7 @@ static int netcp_xgbe_serdes_config(void __iomem *serdes_regs,
->   		return ret;
->
->   	netcp_xgbe_serdes_enable_xgmii_port(sw_regs);
-> -	netcp_xgbe_serdes_check_lane(serdes_regs, sw_regs);
-> +	ret = netcp_xgbe_serdes_check_lane(serdes_regs, sw_regs);
->   	return ret;
->   }
->
->
-Nicholas,
 
-Thanks for the patch.
+> In routine _rtl8821ae_set_media_status(), an incorrect mask results in a test
+> for AP status to always be false. Similar bugs were fixed in rtl8192cu and
+> rtl8192de, but this instance was missed at that time.
+> 
+> Reported-by: David Binderman <dcb314@hotmail.com>
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> Cc: Stable <stable@vger.kernel.org> [3.18+]
+> Cc: David Binderman <dcb314@hotmail.com>
 
-Acked-by: Murali Karicheri <m-karicheri2@ti.com>
+Thanks, applied to wireless-drivers-next.git.
 
--- 
-Murali Karicheri
-Linux Kernel, Keystone
+Kalle Valo
