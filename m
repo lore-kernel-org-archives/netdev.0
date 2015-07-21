@@ -1,64 +1,46 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH] packet: Allow packets with only a header (but no payload)
-Date: Tue, 21 Jul 2015 12:51:04 -0400
-Message-ID: <CA+FuTSctXr=2eC_-e793hvAPu=XyEhLeLoowH95tbOBx8CGj7g@mail.gmail.com>
-References: <1437495247-471-1-git-send-email-martin.blumenstingl@googlemail.com>
- <CA+FuTScr0o0ZmwWxVP4FZoQosRRiQG6+MDvCahMCWmjLkg+33g@mail.gmail.com> <CAFBinCB4xOBzxwkEQYrpi1q7Xm4_-hpj2jUE2r-fQ5f2grjZ=Q@mail.gmail.com>
+From: Dan Murphy <dmurphy@ti.com>
+Subject: [PATCH] net: phy: dp83867: Fix warning check for setting the internal delay
+Date: Tue, 21 Jul 2015 12:06:45 -0500
+Message-ID: <1437498405-1723-1-git-send-email-dmurphy@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	David Miller <davem@davemloft.net>, johann.baudy@gnu-log.net
-To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <dcb314@hotmail.com>, <f.fainelli@gmail.com>,
+	Dan Murphy <dmurphy@ti.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f172.google.com ([209.85.160.172]:34346 "EHLO
-	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751503AbbGUQvf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 12:51:35 -0400
-Received: by ykax123 with SMTP id x123so171161969yka.1
-        for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 09:51:34 -0700 (PDT)
-In-Reply-To: <CAFBinCB4xOBzxwkEQYrpi1q7Xm4_-hpj2jUE2r-fQ5f2grjZ=Q@mail.gmail.com>
+Received: from comal.ext.ti.com ([198.47.26.152]:56496 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755557AbbGURGs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jul 2015 13:06:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 21, 2015 at 12:38 PM, Martin Blumenstingl
-<martin.blumenstingl@googlemail.com> wrote:
-> Hi Willem,
->
-> On Tue, Jul 21, 2015 at 6:28 PM, Willem de Bruijn <willemb@google.com> wrote:
->> Interesting. 9c7077622dd9 only extended the check from tpacket_snd to
->> packet_snd to make the two paths equivalent. The existing check had the
->> ominous statement
->>
->>     /* net device doesn't like empty head */
-> OK, I guess it's best to find out what the purpose of this comment is.
->
->> so allowing a header-only packet while correct in your case may not be
->> safe in some edge cases (specific device drivers?).
-> I'm wondering how a good fix would look like (I can think of a few
-> things, like renaming hard_header_len to something min_packet_size)?
-> I am open for suggestions since I have zero knowledge about the inner
-> workings of the packet framework.
+=46ix warning: logical =E2=80=98or=E2=80=99 of collectively exhaustive =
+tests is always true
 
-I don't see a simple way of verifying the safety of allowing packets
-without data short of a code audit, which would be huge, especially
-when taking device driver logic into account. Perhaps someone
-remembers why that statement was added and what edge case(s)
-it refers to. I'm afraid that I don't. It was added in 69e3c75f4d54. I
-added the author to this thread.
+Change the internal delay check from an 'or' condition to an 'and'
+condition.
 
->> This was also discussed previously
->>
->>   http://www.spinics.net/lists/netdev/msg309677.html
->>
->> In any case, I don't think that reverting the patch and restoring the old
->> inconsistent state is a fix.
-> I totally agree with you that it's a bad fix if this means that we
-> could break other drivers.
-> My primary goal was to fix PPPoE connections - I guess I should have
-> simply added "RFC" to the subject.
->
->
-> Regards,
-> Martin
+Reported-by: David Binderman <dcb314@hotmail.com>
+Signed-off-by: Dan Murphy <dmurphy@ti.com>
+---
+ drivers/net/phy/dp83867.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
+index c7a12e2..8a3bf54 100644
+--- a/drivers/net/phy/dp83867.c
++++ b/drivers/net/phy/dp83867.c
+@@ -164,7 +164,7 @@ static int dp83867_config_init(struct phy_device *p=
+hydev)
+ 			return ret;
+ 	}
+=20
+-	if ((phydev->interface >=3D PHY_INTERFACE_MODE_RGMII_ID) ||
++	if ((phydev->interface >=3D PHY_INTERFACE_MODE_RGMII_ID) &&
+ 	    (phydev->interface <=3D PHY_INTERFACE_MODE_RGMII_RXID)) {
+ 		val =3D phy_read_mmd_indirect(phydev, DP83867_RGMIICTL,
+ 					    DP83867_DEVADDR, phydev->addr);
+--=20
+1.9.1
