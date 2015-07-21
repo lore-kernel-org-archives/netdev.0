@@ -1,324 +1,124 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 16/22] route: Per route IP tunnel metadata via lightweight tunnel
-Date: Tue, 21 Jul 2015 10:44:00 +0200
-Message-ID: <b1b08922946946e2bf7f467b3c0727795049ce27.1437468140.git.tgraf@suug.ch>
-References: <cover.1437468140.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: roopa@cumulusnetworks.com, rshearma@brocade.com,
-	ebiederm@xmission.com, hannes@stressinduktion.org,
-	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
-	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
-	jiri@resnulli.us, marcelo.leitner@gmail.com,
-	stephen@networkplumber.org, jpettit@nicira.com, kaber@trash.net,
-	simon.horman@netronome.com, joestringer@nicira.com, ja@ssi.bg,
-	ast@plumgrid.com, weichunc@plumgrid.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:40124 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754229AbbGUIoa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 04:44:30 -0400
-In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
-In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
-References: <cover.1437468140.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: [PATCH V3 0/7] introduce Hyper-V VM Sockets(hvsock)
+Date: Tue, 21 Jul 2015 03:56:45 -0700
+Message-ID: <1437476205-6727-1-git-send-email-decui@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: gregkh@linuxfoundation.org, davem@davemloft.net,
+ stephen@networkplumber.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, driverdev-devel@linuxdriverproject.org,
+ olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com, kys@microsoft.com,
+ pebolle@tiscali.nl, stefanha@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-This introduces a new IP tunnel lightweight tunnel type which allows
-to specify IP tunnel instructions per route. Only IPv4 is supported
-at this point.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- drivers/net/vxlan.c            |  10 +++-
- include/net/dst_metadata.h     |  12 ++++-
- include/net/ip_tunnels.h       |   7 ++-
- include/uapi/linux/lwtunnel.h  |   1 +
- include/uapi/linux/rtnetlink.h |  15 ++++++
- net/ipv4/ip_tunnel_core.c      | 114 +++++++++++++++++++++++++++++++++++++++++
- net/ipv4/route.c               |   2 +-
- net/openvswitch/vport.h        |   1 +
- 8 files changed, 157 insertions(+), 5 deletions(-)
+Changes since v1:
+- updated "[PATCH 6/7] hvsock: introduce Hyper-V VM Sockets feature"
+	- added __init and __exit for the module init/exit functions
+	- net/hv_sock/Kconfig: "default m" -> "default m if HYPERV"
+	- MODULE_LICENSE: "Dual MIT/GPL" -> "Dual BSD/GPL" 
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 06c092b..9486d7e 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1935,7 +1935,7 @@ static void vxlan_encap_bypass(struct sk_buff *skb, struct vxlan_dev *src_vxlan,
- static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 			   struct vxlan_rdst *rdst, bool did_rsc)
- {
--	struct ip_tunnel_info *info = skb_tunnel_info(skb);
-+	struct ip_tunnel_info *info;
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 	struct sock *sk = vxlan->vn_sock->sock->sk;
- 	struct rtable *rt = NULL;
-@@ -1952,6 +1952,9 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	int err;
- 	u32 flags = vxlan->flags;
- 
-+	/* FIXME: Support IPv6 */
-+	info = skb_tunnel_info(skb, AF_INET);
-+
- 	if (rdst) {
- 		dst_port = rdst->remote_port ? rdst->remote_port : vxlan->dst_port;
- 		vni = rdst->remote_vni;
-@@ -2141,12 +2144,15 @@ tx_free:
- static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
--	const struct ip_tunnel_info *info = skb_tunnel_info(skb);
-+	const struct ip_tunnel_info *info;
- 	struct ethhdr *eth;
- 	bool did_rsc = false;
- 	struct vxlan_rdst *rdst, *fdst = NULL;
- 	struct vxlan_fdb *f;
- 
-+	/* FIXME: Support IPv6 */
-+	info = skb_tunnel_info(skb, AF_INET);
-+
- 	skb_reset_mac_header(skb);
- 	eth = eth_hdr(skb);
- 
-diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
-index e843937..7b03068 100644
---- a/include/net/dst_metadata.h
-+++ b/include/net/dst_metadata.h
-@@ -23,13 +23,23 @@ static inline struct metadata_dst *skb_metadata_dst(struct sk_buff *skb)
- 	return NULL;
- }
- 
--static inline struct ip_tunnel_info *skb_tunnel_info(struct sk_buff *skb)
-+static inline struct ip_tunnel_info *skb_tunnel_info(struct sk_buff *skb,
-+						     int family)
- {
- 	struct metadata_dst *md_dst = skb_metadata_dst(skb);
-+	struct rtable *rt;
- 
- 	if (md_dst)
- 		return &md_dst->u.tun_info;
- 
-+	switch (family) {
-+	case AF_INET:
-+		rt = (struct rtable *)skb_dst(skb);
-+		if (rt && rt->rt_lwtstate)
-+			return lwt_tun_info(rt->rt_lwtstate);
-+		break;
-+	}
-+
- 	return NULL;
- }
- 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index d11530f..0b7e18c 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -9,9 +9,9 @@
- #include <net/dsfield.h>
- #include <net/gro_cells.h>
- #include <net/inet_ecn.h>
--#include <net/ip.h>
- #include <net/netns/generic.h>
- #include <net/rtnetlink.h>
-+#include <net/lwtunnel.h>
- 
- #if IS_ENABLED(CONFIG_IPV6)
- #include <net/ipv6.h>
-@@ -298,6 +298,11 @@ static inline void *ip_tunnel_info_opts(struct ip_tunnel_info *info, size_t n)
- 	return info + 1;
- }
- 
-+static inline struct ip_tunnel_info *lwt_tun_info(struct lwtunnel_state *lwtstate)
-+{
-+	return (struct ip_tunnel_info *)lwtstate->data;
-+}
-+
- #endif /* CONFIG_INET */
- 
- #endif /* __NET_IP_TUNNELS_H */
-diff --git a/include/uapi/linux/lwtunnel.h b/include/uapi/linux/lwtunnel.h
-index aa611d9..31377bb 100644
---- a/include/uapi/linux/lwtunnel.h
-+++ b/include/uapi/linux/lwtunnel.h
-@@ -6,6 +6,7 @@
- enum lwtunnel_encap_types {
- 	LWTUNNEL_ENCAP_NONE,
- 	LWTUNNEL_ENCAP_MPLS,
-+	LWTUNNEL_ENCAP_IP,
- 	__LWTUNNEL_ENCAP_MAX,
- };
- 
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 0d3d3cc..47d24cb 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -286,6 +286,21 @@ enum rt_class_t {
- 
- /* Routing message attributes */
- 
-+enum ip_tunnel_t {
-+	IP_TUN_UNSPEC,
-+	IP_TUN_ID,
-+	IP_TUN_DST,
-+	IP_TUN_SRC,
-+	IP_TUN_TTL,
-+	IP_TUN_TOS,
-+	IP_TUN_SPORT,
-+	IP_TUN_DPORT,
-+	IP_TUN_FLAGS,
-+	__IP_TUN_MAX,
-+};
-+
-+#define IP_TUN_MAX (__IP_TUN_MAX - 1)
-+
- enum rtattr_type_t {
- 	RTA_UNSPEC,
- 	RTA_DST,
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 6a51a71..025b76e 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -190,3 +190,117 @@ struct rtnl_link_stats64 *ip_tunnel_get_stats64(struct net_device *dev,
- 	return tot;
- }
- EXPORT_SYMBOL_GPL(ip_tunnel_get_stats64);
-+
-+static const struct nla_policy ip_tun_policy[IP_TUN_MAX + 1] = {
-+	[IP_TUN_ID]		= { .type = NLA_U64 },
-+	[IP_TUN_DST]		= { .type = NLA_U32 },
-+	[IP_TUN_SRC]		= { .type = NLA_U32 },
-+	[IP_TUN_TTL]		= { .type = NLA_U8 },
-+	[IP_TUN_TOS]		= { .type = NLA_U8 },
-+	[IP_TUN_SPORT]		= { .type = NLA_U16 },
-+	[IP_TUN_DPORT]		= { .type = NLA_U16 },
-+	[IP_TUN_FLAGS]		= { .type = NLA_U16 },
-+};
-+
-+static int ip_tun_build_state(struct net_device *dev, struct nlattr *attr,
-+			      struct lwtunnel_state **ts)
-+{
-+	struct ip_tunnel_info *tun_info;
-+	struct lwtunnel_state *new_state;
-+	struct nlattr *tb[IP_TUN_MAX + 1];
-+	int err;
-+
-+	err = nla_parse_nested(tb, IP_TUN_MAX, attr, ip_tun_policy);
-+	if (err < 0)
-+		return err;
-+
-+	new_state = lwtunnel_state_alloc(sizeof(*tun_info));
-+	if (!new_state)
-+		return -ENOMEM;
-+
-+	new_state->type = LWTUNNEL_ENCAP_IP;
-+
-+	tun_info = lwt_tun_info(new_state);
-+
-+	if (tb[IP_TUN_ID])
-+		tun_info->key.tun_id = nla_get_u64(tb[IP_TUN_ID]);
-+
-+	if (tb[IP_TUN_DST])
-+		tun_info->key.ipv4_dst = nla_get_be32(tb[IP_TUN_DST]);
-+
-+	if (tb[IP_TUN_SRC])
-+		tun_info->key.ipv4_src = nla_get_be32(tb[IP_TUN_SRC]);
-+
-+	if (tb[IP_TUN_TTL])
-+		tun_info->key.ipv4_ttl = nla_get_u8(tb[IP_TUN_TTL]);
-+
-+	if (tb[IP_TUN_TOS])
-+		tun_info->key.ipv4_tos = nla_get_u8(tb[IP_TUN_TOS]);
-+
-+	if (tb[IP_TUN_SPORT])
-+		tun_info->key.tp_src = nla_get_be16(tb[IP_TUN_SPORT]);
-+
-+	if (tb[IP_TUN_DPORT])
-+		tun_info->key.tp_dst = nla_get_be16(tb[IP_TUN_DPORT]);
-+
-+	if (tb[IP_TUN_FLAGS])
-+		tun_info->key.tun_flags = nla_get_u16(tb[IP_TUN_FLAGS]);
-+
-+	tun_info->mode = IP_TUNNEL_INFO_TX;
-+	tun_info->options = NULL;
-+	tun_info->options_len = 0;
-+
-+	*ts = new_state;
-+
-+	return 0;
-+}
-+
-+static int ip_tun_fill_encap_info(struct sk_buff *skb,
-+				  struct lwtunnel_state *lwtstate)
-+{
-+	struct ip_tunnel_info *tun_info = lwt_tun_info(lwtstate);
-+
-+	if (nla_put_u64(skb, IP_TUN_ID, tun_info->key.tun_id) ||
-+	    nla_put_be32(skb, IP_TUN_DST, tun_info->key.ipv4_dst) ||
-+	    nla_put_be32(skb, IP_TUN_SRC, tun_info->key.ipv4_src) ||
-+	    nla_put_u8(skb, IP_TUN_TOS, tun_info->key.ipv4_tos) ||
-+	    nla_put_u8(skb, IP_TUN_TTL, tun_info->key.ipv4_ttl) ||
-+	    nla_put_u16(skb, IP_TUN_SPORT, tun_info->key.tp_src) ||
-+	    nla_put_u16(skb, IP_TUN_DPORT, tun_info->key.tp_dst) ||
-+	    nla_put_u16(skb, IP_TUN_FLAGS, tun_info->key.tun_flags))
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+static int ip_tun_encap_nlsize(struct lwtunnel_state *lwtstate)
-+{
-+	return nla_total_size(8)	/* IP_TUN_ID */
-+		+ nla_total_size(4)	/* IP_TUN_DST */
-+		+ nla_total_size(4)	/* IP_TUN_SRC */
-+		+ nla_total_size(1)	/* IP_TUN_TOS */
-+		+ nla_total_size(1)	/* IP_TUN_TTL */
-+		+ nla_total_size(2)	/* IP_TUN_SPORT */
-+		+ nla_total_size(2)	/* IP_TUN_DPORT */
-+		+ nla_total_size(2);	/* IP_TUN_FLAGS */
-+}
-+
-+static const struct lwtunnel_encap_ops ip_tun_lwt_ops = {
-+	.build_state = ip_tun_build_state,
-+	.fill_encap = ip_tun_fill_encap_info,
-+	.get_encap_size = ip_tun_encap_nlsize,
-+};
-+
-+static int __init ip_tunnel_core_init(void)
-+{
-+	lwtunnel_encap_add_ops(&ip_tun_lwt_ops, LWTUNNEL_ENCAP_IP);
-+
-+	return 0;
-+}
-+module_init(ip_tunnel_core_init);
-+
-+static void __exit ip_tunnel_core_exit(void)
-+{
-+	lwtunnel_encap_del_ops(&ip_tun_lwt_ops, LWTUNNEL_ENCAP_IP);
-+}
-+module_exit(ip_tunnel_core_exit);
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 91da18b..519ec23 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1693,7 +1693,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	   by fib_lookup.
- 	 */
- 
--	tun_info = skb_tunnel_info(skb);
-+	tun_info = skb_tunnel_info(skb, AF_INET);
- 	if (tun_info && tun_info->mode == IP_TUNNEL_INFO_RX)
- 		fl4.flowi4_tun_key.tun_id = tun_info->key.tun_id;
- 	else
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index 4750fb6..75d6824 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -27,6 +27,7 @@
- #include <linux/skbuff.h>
- #include <linux/spinlock.h>
- #include <linux/u64_stats_sync.h>
-+#include <net/route.h>
- 
- #include "datapath.h"
- 
+Changes since v2:
+- fixed various coding issue pointed by David Miller
+	- fix indentation issues
+	- removed pr_debug in net/hv_sock/af_hvsock.c
+	- used reverse-Chrismas-tree style for local variables.
+	- EXPORT_SYMBOL -> EXPORT_SYMBOL_GPL
+
+Hyper-V VM Sockets (hvsock) is a byte-stream based communication mechanism
+between Windowsd 10 (or later) host and a guest. It's kind of TCP over
+VMBus, but the transportation layer (VMBus) is much simpler than IP.
+With Hyper-V VM Sockets, applications between the host and a guest can
+talk with each other directly by the traditional BSD-style socket APIs.
+
+The patchset implements the necessary support in the guest side by adding
+the necessary new APIs in the vmbus driver, and introducing a new driver
+hv_sock.ko, which implements_a new socket address family AF_HYPERV.
+
+I know the kernel has already had a VM Sockets driver (AF_VSOCK) based
+on VMware's VMCI (net/vmw_vsock/, drivers/misc/vmw_vmci), and KVM is
+proposing AF_VSOCK of virtio version:
+http://thread.gmane.org/gmane.linux.network/365205.
+
+However, though Hyper-V VM Sockets may seem conceptually similar to
+AF_VOSCK, there are differences in the transportation layer, and IMO these
+make the direct code reusing impractical:
+
+1. In AF_VSOCK, the endpoint type is: <u32 ContextID, u32 Port>, but in
+AF_HYPERV, the endpoint type is: <GUID VM_ID, GUID ServiceID>. Here GUID
+is 128-bit.
+
+2. AF_VSOCK supports SOCK_DGRAM, while AF_HYPERV doesn't.
+
+3. AF_VSOCK supports some special sock opts, like SO_VM_SOCKETS_BUFFER_SIZE,
+SO_VM_SOCKETS_BUFFER_MIN/MAX_SIZE and SO_VM_SOCKETS_CONNECT_TIMEOUT.
+These are meaningless to AF_HYPERV.
+
+4. Some AF_VSOCK's VMCI transportation ops are meanless to AF_HYPERV/VMBus,
+like    .notify_recv_init
+        .notify_recv_pre_block
+        .notify_recv_pre_dequeue
+        .notify_recv_post_dequeue
+        .notify_send_init
+        .notify_send_pre_block
+        .notify_send_pre_enqueue
+        .notify_send_post_enqueue
+etc.
+
+So I think we'd better introduce a new address family: AF_HYPERV.
+
+Please review the patchset.
+
+Looking forward to your comments!
+
+Dexuan Cui (7):
+  Drivers: hv: vmbus: define the new offer type for Hyper-V socket
+    (hvsock)
+  Drivers: hv: vmbus: define a new VMBus message type for hvsock
+  Drivers: hv: vmbus: add APIs to send/recv hvsock packet and get the
+    r/w-ability
+  Drivers: hv: vmbus: add APIs to register callbacks to process hvsock
+    connection
+  Drivers: hv: vmbus: add a helper function to set a channel's pending
+    send size
+  hvsock: introduce Hyper-V VM Sockets feature
+  Drivers: hv: vmbus: disable local interrupt when hvsock's callback is
+    running
+
+ MAINTAINERS                   |    2 +
+ drivers/hv/Makefile           |    4 +-
+ drivers/hv/channel.c          |  148 +++++
+ drivers/hv/channel_mgmt.c     |   13 +
+ drivers/hv/connection.c       |   15 +-
+ drivers/hv/hvsock_callbacks.c |   71 ++
+ drivers/hv/hyperv_vmbus.h     |    4 +
+ drivers/hv/ring_buffer.c      |   14 +
+ include/linux/hyperv.h        |   68 ++
+ include/linux/socket.h        |    4 +-
+ include/net/af_hvsock.h       |   44 ++
+ include/uapi/linux/hyperv.h   |   16 +
+ net/Kconfig                   |    1 +
+ net/Makefile                  |    1 +
+ net/hv_sock/Kconfig           |   10 +
+ net/hv_sock/Makefile          |    3 +
+ net/hv_sock/af_hvsock.c       | 1430 +++++++++++++++++++++++++++++++++++++++++
+ 17 files changed, 1845 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/hv/hvsock_callbacks.c
+ create mode 100644 include/net/af_hvsock.h
+ create mode 100644 net/hv_sock/Kconfig
+ create mode 100644 net/hv_sock/Makefile
+ create mode 100644 net/hv_sock/af_hvsock.c
+
 -- 
-2.4.3
+2.1.0
