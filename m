@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: fix cut and paste issue in comment
-Date: Tue, 21 Jul 2015 00:21:55 -0700 (PDT)
-Message-ID: <20150721.002155.2017726726827816640.davem@davemloft.net>
-References: <c77ce1886beb4879f76bf7ca47b0d801609296df.1437151659.git.marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next 0/4] cxgb4 DCB updates
+Date: Tue, 21 Jul 2015 00:23:38 -0700 (PDT)
+Message-ID: <20150721.002338.229420322213404581.davem@davemloft.net>
+References: <1437163953-15447-1-git-send-email-anish@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	nhorman@tuxdriver.com, vyasevich@gmail.com
-To: marcelo.leitner@gmail.com
+Cc: netdev@vger.kernel.org, hariprasad@chelsio.com
+To: anish@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56081 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56094 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752444AbbGUHV4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 03:21:56 -0400
-In-Reply-To: <c77ce1886beb4879f76bf7ca47b0d801609296df.1437151659.git.marcelo.leitner@gmail.com>
+	with ESMTP id S1752968AbbGUHXj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 03:23:39 -0400
+In-Reply-To: <1437163953-15447-1-git-send-email-anish@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Fri, 17 Jul 2015 13:50:21 -0300
+From: Anish Bhatt <anish@chelsio.com>
+Date: Fri, 17 Jul 2015 13:12:29 -0700
 
-> Cookie ACK is always received by the association initiator, so fix the
-> comment to avoid confusion.
+> The following patchset covers changes to work better with  the userspace
+> tools cgdcbxd and cgrulesengd and improves firmware support for
+> host-managed mode.
 > 
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Also exports traffic class information that was previously not being
+> exported via dcbnl_ops and unfifies how app selector information is passed
+> to firmware.
 
-Applied, thanks.
+Series applied, thank you.
