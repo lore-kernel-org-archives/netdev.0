@@ -1,64 +1,75 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net v5 0/4] net: enable inband link state negotiation only when explicitly requested
-Date: Mon, 20 Jul 2015 17:49:54 -0700
-Message-ID: <1437439798-12622-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mxs-i6rsG8ix9II@public.gmane.org,
-	arno-LkuqDEemtHBg9hUCZPvPmw@public.gmane.org, stsp-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net v5 4/4] mvneta: use inband status only when explicitly enabled
+Date: Mon, 20 Jul 2015 17:49:58 -0700
+Message-ID: <1437439798-12622-5-git-send-email-f.fainelli@gmail.com>
+References: <1437439798-12622-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org, mxs@sbrk.org,
+	arno@natisbad.org, stsp@users.sourceforge.net,
+	devicetree@vger.kernel.org, thomas.petazzoni@free-electrons.com,
+	Stas Sergeev <stsp@list.ru>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437439798-12622-1-git-send-email-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+From: Stas Sergeev <stsp@list.ru>
 
-Changes in v5:
+The commit 898b2970e2c9 ("mvneta: implement SGMII-based in-band link state
+signaling") implemented the link parameters auto-negotiation unconditionally.
+Unfortunately it appears that some HW that implements SGMII protocol,
+doesn't generate the inband status, so it is not possible to auto-negotiate
+anything with such HW.
 
-- removed an invalid use of the link_update callback in the SF2 driver
-  was appeared after merging "net: phy: fixed_phy: handle link-down case"
+This patch enables the auto-negotiation only if explicitly requested with
+the 'managed' DT property.
 
-- reworded the commit message for patch 2 to make it clear what it fixes and
-  why this is required
-
-Initial cover letter from Stas:
-
-Hello.
-
-Currently the link status auto-negotiation is enabled
-for any SGMII link with fixed-link DT binding.
-The regression was reported:
+This patch fixes the following regression:
 https://lkml.org/lkml/2015/7/8/865
-Apparently not all HW that implements SGMII protocol, generates the
-inband status for the auto-negotiation to work.
-More details here:
-https://lkml.org/lkml/2015/7/10/206
 
-The following patches reverts to the old behavior by default,
-which is to not enable the auto-negotiation for fixed-link.
-The new DT property is added that allows to explicitly request
-the auto-negotiation.
+Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
 
-Florian Fainelli (1):
-  net: dsa: bcm_sf2: Do not override speed settings
+CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+CC: netdev@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+---
+ drivers/net/ethernet/marvell/mvneta.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-Stas Sergeev (3):
-  net: phy: fixed_phy: handle link-down case
-  of_mdio: add new DT property 'managed' to specify the PHY management
-    type
-  mvneta: use inband status only when explicitly enabled
-
- Documentation/devicetree/bindings/net/ethernet.txt |  4 ++++
- drivers/net/dsa/bcm_sf2.c                          | 18 +-----------------
- drivers/net/ethernet/marvell/mvneta.c              |  9 +++++----
- drivers/net/phy/fixed_phy.c                        |  8 +++++---
- drivers/of/of_mdio.c                               | 19 +++++++++++++++++--
- 5 files changed, 32 insertions(+), 26 deletions(-)
-
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 370e20ed224c..e4fb172d91a6 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3029,8 +3029,8 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	const char *dt_mac_addr;
+ 	char hw_mac_addr[ETH_ALEN];
+ 	const char *mac_from;
++	const char *managed;
+ 	int phy_mode;
+-	int fixed_phy = 0;
+ 	int err;
+ 
+ 	/* Our multiqueue support is not complete, so for now, only
+@@ -3064,7 +3064,6 @@ static int mvneta_probe(struct platform_device *pdev)
+ 			dev_err(&pdev->dev, "cannot register fixed PHY\n");
+ 			goto err_free_irq;
+ 		}
+-		fixed_phy = 1;
+ 
+ 		/* In the case of a fixed PHY, the DT node associated
+ 		 * to the PHY is the Ethernet MAC DT node.
+@@ -3088,8 +3087,10 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	pp = netdev_priv(dev);
+ 	pp->phy_node = phy_node;
+ 	pp->phy_interface = phy_mode;
+-	pp->use_inband_status = (phy_mode == PHY_INTERFACE_MODE_SGMII) &&
+-				fixed_phy;
++
++	err = of_property_read_string(dn, "managed", &managed);
++	pp->use_inband_status = (err == 0 &&
++				 strcmp(managed, "in-band-status") == 0);
+ 
+ 	pp->clk = devm_clk_get(&pdev->dev, NULL);
+ 	if (IS_ERR(pp->clk)) {
 -- 
 2.1.0
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
