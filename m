@@ -1,24 +1,23 @@
 From: "j.ps@openmailbox.org" <j.ps@openmailbox.org>
-Subject: Re: Segmentation fault in iproute2 ss -p (versions 4.0.0, 4.1.0 and
- 4.1.1)
-Date: Tue, 21 Jul 2015 10:50:54 +0100
-Message-ID: <55AE15FE.6020802@openmailbox.org>
-References: <20150719140548.6d17a475@urahara>
- <55AC9E25.9050804@openmailbox.org> <20150720120954.2639f2e4@urahara>
+Subject: Re: "ss -p" segfaults
+Date: Tue, 21 Jul 2015 10:54:05 +0100
+Message-ID: <55AE16BD.40607@openmailbox.org>
+References: <55AE15FE.6020802@openmailbox.org>
 Reply-To: j.ps@openmailbox.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <stephen@networkplumber.org>
+Content-Transfer-Encoding: 7bit
+Cc: schwab@linux-m68k.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp29.openmailbox.org ([62.4.1.63]:34840 "EHLO
-	smtp29.openmailbox.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754903AbbGUJvB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 05:51:01 -0400
-In-Reply-To: <20150720120954.2639f2e4@urahara>
+Received: from smtp26.openmailbox.org ([62.4.1.60]:54623 "EHLO
+	smtp26.openmailbox.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753422AbbGUJyI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 05:54:08 -0400
+In-Reply-To: <55AE15FE.6020802@openmailbox.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
 
 Patch for 4.1.1.
 
@@ -34,8 +33,6 @@ after:
 
 Also patched some other situations (strcpy and sprintf uses) that
 potentially produce the same results.
-
-Note: As far as I know strlcpy isn't (yet) available in glibc.
 
 Signed-off-by: Jose P Santos <j.ps@openmailbox.org>
 
