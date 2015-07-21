@@ -1,123 +1,75 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net v5 3/4] of_mdio: add new DT property 'managed' to specify the PHY management type
-Date: Mon, 20 Jul 2015 17:49:57 -0700
-Message-ID: <1437439798-12622-4-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net v5 1/4] net: dsa: bcm_sf2: Do not override speed settings
+Date: Mon, 20 Jul 2015 17:49:55 -0700
+Message-ID: <1437439798-12622-2-git-send-email-f.fainelli@gmail.com>
 References: <1437439798-12622-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org, mxs@sbrk.org,
 	arno@natisbad.org, stsp@users.sourceforge.net,
 	devicetree@vger.kernel.org, thomas.petazzoni@free-electrons.com,
-	Stas Sergeev <stsp@list.ru>, Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Grant Likely <grant.likely@linaro.org>
+	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1437439798-12622-1-git-send-email-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stas Sergeev <stsp@list.ru>
+The SF2 driver currently overrides speed settings for its port
+configured using a fixed PHY, this is both unnecessary and incorrect,
+because we keep feedback to the hardware parameters that we read from
+the PHY device, which in the case of a fixed PHY cannot possibly change
+speed.
 
-Currently the PHY management type is selected by the MAC driver arbitrary.
-The decision is based on the presence of the "fixed-link" node and on a
-will of the driver's authors.
-This caused a regression recently, when mvneta driver suddenly started
-to use the in-band status for auto-negotiation on fixed links.
-It appears the auto-negotiation may not work when expected by the MAC driver.
-Sebastien Rannou explains:
-<< Yes, I confirm that my HW does not generate an in-band status. AFAIK, it's
-a PHY that aggregates 4xSGMIIs to 1xQSGMII ; the MAC side of the PHY (with
-inband status) is connected to the switch through QSGMII, and in this context
-we are on the media side of the PHY. >>
-https://lkml.org/lkml/2015/7/10/206
+This is a required change to allow the fixed PHY code to allow
+registering a PHY with a link configured as DOWN by default and avoid
+some sort of circular dependency where we require the link_update
+callback to run to program the hardware, and we then utilize the fixed
+PHY parameters to program the hardware with the same settings.
 
-This patch introduces the new string property 'managed' that allows
-the user to set the management type explicitly.
-The supported values are:
-"auto" - default. Uses either MDIO or nothing, depending on the presence
-of the fixed-link node
-"in-band-status" - use in-band status
-
-Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
-
-CC: Rob Herring <robh+dt@kernel.org>
-CC: Pawel Moll <pawel.moll@arm.com>
-CC: Mark Rutland <mark.rutland@arm.com>
-CC: Ian Campbell <ijc+devicetree@hellion.org.uk>
-CC: Kumar Gala <galak@codeaurora.org>
-CC: Florian Fainelli <f.fainelli@gmail.com>
-CC: Grant Likely <grant.likely@linaro.org>
-CC: devicetree@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
-CC: netdev@vger.kernel.org
+Fixes: 246d7f773c13 ("net: dsa: add Broadcom SF2 switch driver")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- Documentation/devicetree/bindings/net/ethernet.txt |  4 ++++
- drivers/of/of_mdio.c                               | 19 +++++++++++++++++--
- 2 files changed, 21 insertions(+), 2 deletions(-)
+ drivers/net/dsa/bcm_sf2.c | 18 +-----------------
+ 1 file changed, 1 insertion(+), 17 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
-index 41b3f3f864e8..5d88f37480b6 100644
---- a/Documentation/devicetree/bindings/net/ethernet.txt
-+++ b/Documentation/devicetree/bindings/net/ethernet.txt
-@@ -25,7 +25,11 @@ The following properties are common to the Ethernet controllers:
-   flow control thresholds.
- - tx-fifo-depth: the size of the controller's transmit fifo in bytes. This
-   is used for components that can have configurable fifo sizes.
-+- managed: string, specifies the PHY management type. Supported values are:
-+  "auto", "in-band-status". "auto" is the default, it usess MDIO for
-+  management if fixed-link is not specified.
- 
- Child nodes of the Ethernet controller are typically the individual PHY devices
- connected via the MDIO bus (sometimes the MDIO bus controller is separate).
- They are described in the phy.txt file in this same directory.
-+For non-MDIO PHY management see fixed-link.txt.
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index fdc60db60829..7c8c23cc6896 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -266,7 +266,8 @@ EXPORT_SYMBOL(of_phy_attach);
- bool of_phy_is_fixed_link(struct device_node *np)
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 972982f8bea7..3297604f8216 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -890,15 +890,11 @@ static void bcm_sf2_sw_fixed_link_update(struct dsa_switch *ds, int port,
+ 					 struct fixed_phy_status *status)
  {
- 	struct device_node *dn;
--	int len;
-+	int len, err;
-+	const char *managed;
+ 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
+-	u32 duplex, pause, speed;
++	u32 duplex, pause;
+ 	u32 reg;
  
- 	/* New binding */
- 	dn = of_get_child_by_name(np, "fixed-link");
-@@ -275,6 +276,10 @@ bool of_phy_is_fixed_link(struct device_node *np)
- 		return true;
- 	}
+ 	duplex = core_readl(priv, CORE_DUPSTS);
+ 	pause = core_readl(priv, CORE_PAUSESTS);
+-	speed = core_readl(priv, CORE_SPDSTS);
+-
+-	speed >>= (port * SPDSTS_SHIFT);
+-	speed &= SPDSTS_MASK;
  
-+	err = of_property_read_string(np, "managed", &managed);
-+	if (err == 0 && strcmp(managed, "auto") != 0)
-+		return true;
-+
- 	/* Old binding */
- 	if (of_get_property(np, "fixed-link", &len) &&
- 	    len == (5 * sizeof(__be32)))
-@@ -289,8 +294,18 @@ int of_phy_register_fixed_link(struct device_node *np)
- 	struct fixed_phy_status status = {};
- 	struct device_node *fixed_link_node;
- 	const __be32 *fixed_link_prop;
--	int len;
-+	int len, err;
- 	struct phy_device *phy;
-+	const char *managed;
-+
-+	err = of_property_read_string(np, "managed", &managed);
-+	if (err == 0) {
-+		if (strcmp(managed, "in-band-status") == 0) {
-+			/* status is zeroed, namely its .link member */
-+			phy = fixed_phy_register(PHY_POLL, &status, np);
-+			return IS_ERR(phy) ? PTR_ERR(phy) : 0;
-+		}
-+	}
+ 	status->link = 0;
  
- 	/* New binding */
- 	fixed_link_node = of_get_child_by_name(np, "fixed-link");
+@@ -933,18 +929,6 @@ static void bcm_sf2_sw_fixed_link_update(struct dsa_switch *ds, int port,
+ 		reg &= ~LINK_STS;
+ 	core_writel(priv, reg, CORE_STS_OVERRIDE_GMIIP_PORT(port));
+ 
+-	switch (speed) {
+-	case SPDSTS_10:
+-		status->speed = SPEED_10;
+-		break;
+-	case SPDSTS_100:
+-		status->speed = SPEED_100;
+-		break;
+-	case SPDSTS_1000:
+-		status->speed = SPEED_1000;
+-		break;
+-	}
+-
+ 	if ((pause & (1 << port)) &&
+ 	    (pause & (1 << (port + PAUSESTS_TX_PAUSE_SHIFT)))) {
+ 		status->asym_pause = 1;
 -- 
 2.1.0
