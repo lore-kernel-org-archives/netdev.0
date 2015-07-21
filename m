@@ -1,55 +1,64 @@
-From: Nishanth Aravamudan <nacc-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v2] openvswitch: allocate nr_node_ids
- flow_stats instead of num_possible_nodes
-Date: Tue, 21 Jul 2015 15:02:22 -0700
-Message-ID: <20150721220222.GB29402@linux.vnet.ibm.com>
-References: <20150721162418.GM38815@linux.vnet.ibm.com>
- <1437500193-10255-1-git-send-email-chris.j.arges@canonical.com>
+From: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>
+Subject: Re: [PATCH] openvswitch: make for_each_node loops work with sparse
+ numa systems
+Date: Tue, 21 Jul 2015 15:04:30 -0700
+Message-ID: <20150721220430.GC29402@linux.vnet.ibm.com>
+References: <1437492756-22777-1-git-send-email-chris.j.arges@canonical.com>
+ <20150721162418.GM38815@linux.vnet.ibm.com>
+ <20150721163058.GA8589@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-numa-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Chris J Arges <chris.j.arges-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: pshelar@nicira.com, linuxppc-dev@lists.ozlabs.org,
+	benh@kernel.crashing.org, linux-numa@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	dev@openvswitch.org, linux-kernel@vger.kernel.org
+To: Chris J Arges <chris.j.arges@canonical.com>
+Return-path: <linux-numa-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1437500193-10255-1-git-send-email-chris.j.arges-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20150721163058.GA8589@canonical.com>
+Sender: linux-numa-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gMjEuMDcuMjAxNSBbMTI6MzY6MzMgLTA1MDBdLCBDaHJpcyBKIEFyZ2VzIHdyb3RlOgo+IFNv
-bWUgYXJjaGl0ZWN0dXJlcyBsaWtlIFBPV0VSIGNhbiBoYXZlIGEgTlVNQSBub2RlX3Bvc3NpYmxl
-X21hcCB0aGF0Cj4gY29udGFpbnMgc3BhcnNlIGVudHJpZXMuIFRoaXMgY2F1c2VzIG1lbW9yeSBj
-b3JydXB0aW9uIHdpdGggb3BlbnZzd2l0Y2gKPiBzaW5jZSBpdCBhbGxvY2F0ZXMgZmxvd19jYWNo
-ZSB3aXRoIGEgbXVsdGlwbGUgb2YgbnVtX3Bvc3NpYmxlX25vZGVzKCkgYW5kCj4gYXNzdW1lcyB0
-aGUgbm9kZSB2YXJpYWJsZSByZXR1cm5lZCBieSBmb3JfZWFjaF9ub2RlIHdpbGwgaW5kZXggaW50
-bwo+IGZsb3ctPnN0YXRzW25vZGVdLgo+IAo+IFVzZSBucl9ub2RlX2lkcyB0byBhbGxvY2F0ZSBh
-IG1heGltYWwgc3BhcnNlIGFycmF5IGluc3RlYWQgb2YKPiBudW1fcG9zc2libGVfbm9kZXMoKS4K
-PiAKPiBUaGUgY3Jhc2ggd2FzIG5vdGljZWQgYWZ0ZXIgM2FmMjI5ZjIgd2FzIGFwcGxpZWQgYXMg
-aXQgY2hhbmdlZCB0aGUKPiBub2RlX3Bvc3NpYmxlX21hcCB0byBtYXRjaCBub2RlX29ubGluZV9t
-YXAgb24gYm9vdC4KPiBGaXhlczogM2FmMjI5ZjIwNzFmNWI1Y2IzMTY2NGJlNjEwOTU2MWZiZTE5
-Yzg2MQo+IAo+IFNpZ25lZC1vZmYtYnk6IENocmlzIEogQXJnZXMgPGNocmlzLmouYXJnZXNAY2Fu
-b25pY2FsLmNvbT4KQWNrZWQtYnk6IE5pc2hhbnRoIEFyYXZhbXVkYW4gPG5hY2NAbGludXgudm5l
-dC5pYm0uY29tPgo+IC0tLQo+ICBuZXQvb3BlbnZzd2l0Y2gvZmxvd190YWJsZS5jIHwgMiArLQo+
-ICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDEgZGVsZXRpb24oLSkKPiAKPiBkaWZm
-IC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Zsb3dfdGFibGUuYyBiL25ldC9vcGVudnN3aXRjaC9m
-bG93X3RhYmxlLmMKPiBpbmRleCA0NjEzZGY4Li42NTUyMzk0IDEwMDY0NAo+IC0tLSBhL25ldC9v
-cGVudnN3aXRjaC9mbG93X3RhYmxlLmMKPiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvd190YWJs
-ZS5jCj4gQEAgLTc1Miw3ICs3NTIsNyBAQCBpbnQgb3ZzX2Zsb3dfaW5pdCh2b2lkKQo+ICAJQlVJ
-TERfQlVHX09OKHNpemVvZihzdHJ1Y3Qgc3dfZmxvd19rZXkpICUgc2l6ZW9mKGxvbmcpKTsKPiAK
-PiAgCWZsb3dfY2FjaGUgPSBrbWVtX2NhY2hlX2NyZWF0ZSgic3dfZmxvdyIsIHNpemVvZihzdHJ1
-Y3Qgc3dfZmxvdykKPiAtCQkJCSAgICAgICArIChudW1fcG9zc2libGVfbm9kZXMoKQo+ICsJCQkJ
-ICAgICAgICsgKG5yX25vZGVfaWRzCj4gIAkJCQkJICAqIHNpemVvZihzdHJ1Y3QgZmxvd19zdGF0
-cyAqKSksCj4gIAkJCQkgICAgICAgMCwgMCwgTlVMTCk7Cj4gIAlpZiAoZmxvd19jYWNoZSA9PSBO
-VUxMKQo+IC0tIAo+IDEuOS4xCj4gCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDov
-L29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+On 21.07.2015 [11:30:58 -0500], Chris J Arges wrote:
+> On Tue, Jul 21, 2015 at 09:24:18AM -0700, Nishanth Aravamudan wrote:
+> > On 21.07.2015 [10:32:34 -0500], Chris J Arges wrote:
+> > > Some architectures like POWER can have a NUMA node_possible_map that
+> > > contains sparse entries. This causes memory corruption with openvswitch
+> > > since it allocates flow_cache with a multiple of num_possible_nodes() and
+> > 
+> > Couldn't this also be fixed by just allocationg with a multiple of
+> > nr_node_ids (which seems to have been the original intent all along)?
+> > You could then make your stats array be sparse or not.
+> > 
+> 
+> Yea originally this is what I did, but I thought it would be wasting memory.
+> 
+> > > assumes the node variable returned by for_each_node will index into
+> > > flow->stats[node].
+> > > 
+> > > For example, if node_possible_map is 0x30003, this patch will map node to
+> > > node_cnt as follows:
+> > >     0,1,16,17 => 0,1,2,3
+> > > 
+> > > The crash was noticed after 3af229f2 was applied as it changed the
+> > > node_possible_map to match node_online_map on boot.
+> > > Fixes: 3af229f2071f5b5cb31664be6109561fbe19c861
+> > 
+> > My concern with this version of the fix is that you're relying on,
+> > implicitly, the order of for_each_node's iteration corresponding to the
+> > entries in stats 1:1. But what about node hotplug? It seems better to
+> > have the enumeration of the stats array match the topology accurately,
+> > rather, or to maintain some sort of internal map in the OVS code between
+> > the NUMA node and the entry in the stats array?
+> > 
+> > I'm willing to be convinced otherwise, though :)
+> > 
+> > -Nish
+> >
+> 
+> Nish,
+> 
+> The method I described should work for hotplug since it's using possible map
+> which AFAIK is static rather than the online map. 
+
+Oh you're right, I'm sorry!
