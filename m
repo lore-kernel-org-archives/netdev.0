@@ -1,42 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] inet: frags: fix defragmented packet's IP header for
- af_packet
-Date: Mon, 20 Jul 2015 20:31:19 -0700 (PDT)
-Message-ID: <20150720.203119.344614621480451223.davem@davemloft.net>
-References: <1437036881-708-1-git-send-email-edjee@google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: willemb@google.com, edumazet@google.com, hkchu@google.com,
-	netdev@vger.kernel.org
-To: edjee@google.com
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v2 net-next 0/2] bpf: introduce bpf_skb_vlan_push/pop() helpers
+Date: Mon, 20 Jul 2015 20:34:17 -0700
+Message-ID: <1437449659-23765-1-git-send-email-ast@plumgrid.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+	Michael Holzheu <holzheu@linux.vnet.ibm.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54355 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753769AbbGUDbU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 23:31:20 -0400
-In-Reply-To: <1437036881-708-1-git-send-email-edjee@google.com>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:33182 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751577AbbGUDe0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2015 23:34:26 -0400
+Received: by pdbnt7 with SMTP id nt7so40950609pdb.0
+        for <netdev@vger.kernel.org>; Mon, 20 Jul 2015 20:34:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRWR3YXJkIEplZSA8ZWRqZWVAZ29vZ2xlLmNvbT4NCkRhdGU6IFRodSwgMTYgSnVsIDIw
-MTUgMDE6NTQ6NDEgLTA3MDANCg0KPiBXaGVuIGlwX2ZyYWdfcXVldWUoKSBjb21wdXRlcyBwb3Np
-dGlvbnMsIGl0IGFzc3VtZXMgdGhhdCB0aGUgcGFzc2VkDQo+IHNrX2J1ZmYgZG9lcyBub3QgY29u
-dGFpbiBMMiBoZWFkZXJzLiBIb3dldmVyLCB3aGVuDQo+IFBBQ0tFVF9GQU5PVVRfRkxBR19ERUZS
-QUcgaXMgdXNlZCwgSVAgZGVmcmFnbWVudGF0aW9uIGZ1bmN0aW9ucyBjYW4gYmUNCj4gY2FsbGVk
-IG9uIG91dGdvaW5nIHBhY2tldHMgdGhhdCBjb250YWluIEwyIGhlYWRlcnMuIEFsc28sIElQdjQN
-Cj4gY2hlY2tzdW0gaXMgbm90IGNvcnJlY3RlZCBhZnRlciBkZWZyYWdtZW50YXRpb24uDQo+IA0K
-PiBGaXhlczogNzczNmQzM2Y0MjYyICgicGFja2V0OiBBZGQgcHJlLWRlZnJhZ21lbnRhdGlvbiBz
-dXBwb3J0IGZvciBpcHY0IGZhbm91dHMuIikNCj4gU2lnbmVkLW9mZi1ieTogRWR3YXJkIEh5dW5r
-b28gSmVlIDxlZGplZUBnb29nbGUuY29tPg0KPiBBY2tlZC1ieTogRXJpYyBEdW1hemV0IDxlZHVt
-YXpldEBnb29nbGUuY29tPg0KDQpUaGlzIGRvZXNuJ3QgY29tcGlsZS4NCg0KbmV0L2lwdjQvaXBf
-ZnJhZ21lbnQuYzogSW4gZnVuY3Rpb24goWlwX2ZyYWdfcmVhc22iOg0KbmV0L2lwdjQvaXBfZnJh
-Z21lbnQuYzo2NDQ6MjM6IGVycm9yOiChc2tioiB1bmRlY2xhcmVkIChmaXJzdCB1c2UgaW4gdGhp
-cyBmdW5jdGlvbikNCiAgaXBfc2VuZF9jaGVjayhpcF9oZHIoc2tiKSk7DQogICAgICAgICAgICAg
-ICAgICAgICAgIF4NCm5ldC9pcHY0L2lwX2ZyYWdtZW50LmM6NjQ0OjIzOiBub3RlOiBlYWNoIHVu
-ZGVjbGFyZWQgaWRlbnRpZmllciBpcyByZXBvcnRlZCBvbmx5IG9uY2UgZm9yIGVhY2ggZnVuY3Rp
-b24gaXQgYXBwZWFycyBpbg0Kc2NyaXB0cy9NYWtlZmlsZS5idWlsZDoyNTg6IHJlY2lwZSBmb3Ig
-dGFyZ2V0ICduZXQvaXB2NC9pcF9mcmFnbWVudC5vJyBmYWlsZWQNCm1ha2VbMV06ICoqKiBbbmV0
-L2lwdjQvaXBfZnJhZ21lbnQub10gRXJyb3IgMQ0KTWFrZWZpbGU6MTUyNzogcmVjaXBlIGZvciB0
-YXJnZXQgJ25ldC9pcHY0L2lwX2ZyYWdtZW50Lm8nIGZhaWxlZA0KbWFrZTogKioqIFtuZXQvaXB2
-NC9pcF9mcmFnbWVudC5vXSBFcnJvciAyDQo=
+Let TC+eBPF programs call skb_vlan_push/pop via helpers.
+
+v1->v2:
+- reworded commit log to better explain correctness of re-caching
+  and fixed comparison of mixed endiannes (suggested by Eric)
+
+Alexei Starovoitov (2):
+  bpf: introduce bpf_skb_vlan_push/pop() helpers
+  test_bpf: add bpf_skb_vlan_push/pop() tests
+
+ arch/s390/net/bpf_jit_comp.c |    4 ++
+ arch/x86/net/bpf_jit_comp.c  |   80 ++++++++++++++++++----------------
+ include/linux/bpf.h          |    2 +
+ include/linux/filter.h       |    1 +
+ include/uapi/linux/bpf.h     |    2 +
+ kernel/bpf/core.c            |    1 +
+ lib/test_bpf.c               |   98 ++++++++++++++++++++++++++++++++++++++++--
+ net/core/filter.c            |   50 +++++++++++++++++++++
+ 8 files changed, 197 insertions(+), 41 deletions(-)
+
+-- 
+1.7.9.5
