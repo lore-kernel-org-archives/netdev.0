@@ -1,64 +1,161 @@
-From: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>
-Subject: Re: [PATCH] openvswitch: make for_each_node loops work with sparse
- numa systems
-Date: Tue, 21 Jul 2015 15:04:30 -0700
-Message-ID: <20150721220430.GC29402@linux.vnet.ibm.com>
-References: <1437492756-22777-1-git-send-email-chris.j.arges@canonical.com>
- <20150721162418.GM38815@linux.vnet.ibm.com>
- <20150721163058.GA8589@canonical.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] ravb: fix ring memory allocation
+Date: Wed, 22 Jul 2015 01:31:59 +0300
+Message-ID: <1836998.fscmK2EJWV@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pshelar@nicira.com, linuxppc-dev@lists.ozlabs.org,
-	benh@kernel.crashing.org, linux-numa@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	dev@openvswitch.org, linux-kernel@vger.kernel.org
-To: Chris J Arges <chris.j.arges@canonical.com>
-Return-path: <linux-numa-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150721163058.GA8589@canonical.com>
-Sender: linux-numa-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 21.07.2015 [11:30:58 -0500], Chris J Arges wrote:
-> On Tue, Jul 21, 2015 at 09:24:18AM -0700, Nishanth Aravamudan wrote:
-> > On 21.07.2015 [10:32:34 -0500], Chris J Arges wrote:
-> > > Some architectures like POWER can have a NUMA node_possible_map that
-> > > contains sparse entries. This causes memory corruption with openvswitch
-> > > since it allocates flow_cache with a multiple of num_possible_nodes() and
-> > 
-> > Couldn't this also be fixed by just allocationg with a multiple of
-> > nr_node_ids (which seems to have been the original intent all along)?
-> > You could then make your stats array be sparse or not.
-> > 
-> 
-> Yea originally this is what I did, but I thought it would be wasting memory.
-> 
-> > > assumes the node variable returned by for_each_node will index into
-> > > flow->stats[node].
-> > > 
-> > > For example, if node_possible_map is 0x30003, this patch will map node to
-> > > node_cnt as follows:
-> > >     0,1,16,17 => 0,1,2,3
-> > > 
-> > > The crash was noticed after 3af229f2 was applied as it changed the
-> > > node_possible_map to match node_online_map on boot.
-> > > Fixes: 3af229f2071f5b5cb31664be6109561fbe19c861
-> > 
-> > My concern with this version of the fix is that you're relying on,
-> > implicitly, the order of for_each_node's iteration corresponding to the
-> > entries in stats 1:1. But what about node hotplug? It seems better to
-> > have the enumeration of the stats array match the topology accurately,
-> > rather, or to maintain some sort of internal map in the OVS code between
-> > the NUMA node and the entry in the stats array?
-> > 
-> > I'm willing to be convinced otherwise, though :)
-> > 
-> > -Nish
-> >
-> 
-> Nish,
-> 
-> The method I described should work for hotplug since it's using possible map
-> which AFAIK is static rather than the online map. 
+The driver is written as if it can adapt to a low memory situation  allocating
+less RX  skbs and TX aligned buffers than the respective RX/TX ring sizes.  In
+reality  though  the driver  would malfunction in this case. Stop being overly
+smart and just fail in such situation -- this is achieved by moving the memory
+allocation from ravb_ring_format() to ravb_ring_init().
 
-Oh you're right, I'm sorry!
+We leave dma_map_single() calls in place but make their failure non-fatal
+by marking the corresponding RX descriptors  with zero data size which should
+prevent DMA to an invalid addresses.
+
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+---
+The patch is against Dave Miller's 'net.git' repo.
+
+drivers/net/ethernet/renesas/ravb_main.c |   59 +++++++++++++++++--------------
+ 1 file changed, 34 insertions(+), 25 deletions(-)
+
+Index: net/drivers/net/ethernet/renesas/ravb_main.c
+===================================================================
+--- net.orig/drivers/net/ethernet/renesas/ravb_main.c
++++ net/drivers/net/ethernet/renesas/ravb_main.c
+@@ -228,9 +228,7 @@ static void ravb_ring_format(struct net_
+ 	struct ravb_desc *desc = NULL;
+ 	int rx_ring_size = sizeof(*rx_desc) * priv->num_rx_ring[q];
+ 	int tx_ring_size = sizeof(*tx_desc) * priv->num_tx_ring[q];
+-	struct sk_buff *skb;
+ 	dma_addr_t dma_addr;
+-	void *buffer;
+ 	int i;
+ 
+ 	priv->cur_rx[q] = 0;
+@@ -241,41 +239,28 @@ static void ravb_ring_format(struct net_
+ 	memset(priv->rx_ring[q], 0, rx_ring_size);
+ 	/* Build RX ring buffer */
+ 	for (i = 0; i < priv->num_rx_ring[q]; i++) {
+-		priv->rx_skb[q][i] = NULL;
+-		skb = netdev_alloc_skb(ndev, PKT_BUF_SZ + RAVB_ALIGN - 1);
+-		if (!skb)
+-			break;
+-		ravb_set_buffer_align(skb);
+ 		/* RX descriptor */
+ 		rx_desc = &priv->rx_ring[q][i];
+ 		/* The size of the buffer should be on 16-byte boundary. */
+ 		rx_desc->ds_cc = cpu_to_le16(ALIGN(PKT_BUF_SZ, 16));
+-		dma_addr = dma_map_single(&ndev->dev, skb->data,
++		dma_addr = dma_map_single(&ndev->dev, priv->rx_skb[q][i]->data,
+ 					  ALIGN(PKT_BUF_SZ, 16),
+ 					  DMA_FROM_DEVICE);
+-		if (dma_mapping_error(&ndev->dev, dma_addr)) {
+-			dev_kfree_skb(skb);
+-			break;
+-		}
+-		priv->rx_skb[q][i] = skb;
++		/* We just set the data size to 0 for a failed mapping which
++		 * should prevent DMA from happening...
++		 */
++		if (dma_mapping_error(&ndev->dev, dma_addr))
++			rx_desc->ds_cc = cpu_to_le16(0);
+ 		rx_desc->dptr = cpu_to_le32(dma_addr);
+ 		rx_desc->die_dt = DT_FEMPTY;
+ 	}
+ 	rx_desc = &priv->rx_ring[q][i];
+ 	rx_desc->dptr = cpu_to_le32((u32)priv->rx_desc_dma[q]);
+ 	rx_desc->die_dt = DT_LINKFIX; /* type */
+-	priv->dirty_rx[q] = (u32)(i - priv->num_rx_ring[q]);
+ 
+ 	memset(priv->tx_ring[q], 0, tx_ring_size);
+ 	/* Build TX ring buffer */
+ 	for (i = 0; i < priv->num_tx_ring[q]; i++) {
+-		priv->tx_skb[q][i] = NULL;
+-		priv->tx_buffers[q][i] = NULL;
+-		buffer = kmalloc(PKT_BUF_SZ + RAVB_ALIGN - 1, GFP_KERNEL);
+-		if (!buffer)
+-			break;
+-		/* Aligned TX buffer */
+-		priv->tx_buffers[q][i] = buffer;
+ 		tx_desc = &priv->tx_ring[q][i];
+ 		tx_desc->die_dt = DT_EEMPTY;
+ 	}
+@@ -298,7 +283,10 @@ static void ravb_ring_format(struct net_
+ static int ravb_ring_init(struct net_device *ndev, int q)
+ {
+ 	struct ravb_private *priv = netdev_priv(ndev);
++	struct sk_buff *skb;
+ 	int ring_size;
++	void *buffer;
++	int i;
+ 
+ 	/* Allocate RX and TX skb rings */
+ 	priv->rx_skb[q] = kcalloc(priv->num_rx_ring[q],
+@@ -308,12 +296,28 @@ static int ravb_ring_init(struct net_dev
+ 	if (!priv->rx_skb[q] || !priv->tx_skb[q])
+ 		goto error;
+ 
++	for (i = 0; i < priv->num_rx_ring[q]; i++) {
++		skb = netdev_alloc_skb(ndev, PKT_BUF_SZ + RAVB_ALIGN - 1);
++		if (!skb)
++			goto error;
++		ravb_set_buffer_align(skb);
++		priv->rx_skb[q][i] = skb;
++	}
++
+ 	/* Allocate rings for the aligned buffers */
+ 	priv->tx_buffers[q] = kcalloc(priv->num_tx_ring[q],
+ 				      sizeof(*priv->tx_buffers[q]), GFP_KERNEL);
+ 	if (!priv->tx_buffers[q])
+ 		goto error;
+ 
++	for (i = 0; i < priv->num_tx_ring[q]; i++) {
++		buffer = kmalloc(PKT_BUF_SZ + RAVB_ALIGN - 1, GFP_KERNEL);
++		if (!buffer)
++			goto error;
++		/* Aligned TX buffer */
++		priv->tx_buffers[q][i] = buffer;
++	}
++
+ 	/* Allocate all RX descriptors. */
+ 	ring_size = sizeof(struct ravb_ex_rx_desc) * (priv->num_rx_ring[q] + 1);
+ 	priv->rx_ring[q] = dma_alloc_coherent(NULL, ring_size,
+@@ -524,6 +528,10 @@ static bool ravb_rx(struct net_device *n
+ 		if (--boguscnt < 0)
+ 			break;
+ 
++		/* We use 0-byte descriptors to mark the DMA mapping errors */
++		if (!pkt_len)
++			continue;
++
+ 		if (desc_status & MSC_MC)
+ 			stats->multicast++;
+ 
+@@ -587,10 +595,11 @@ static bool ravb_rx(struct net_device *n
+ 						  le16_to_cpu(desc->ds_cc),
+ 						  DMA_FROM_DEVICE);
+ 			skb_checksum_none_assert(skb);
+-			if (dma_mapping_error(&ndev->dev, dma_addr)) {
+-				dev_kfree_skb_any(skb);
+-				break;
+-			}
++			/* We just set the data size to 0 for a failed mapping
++			 * which should prevent DMA  from happening...
++			 */
++			if (dma_mapping_error(&ndev->dev, dma_addr))
++				desc->ds_cc = cpu_to_le16(0);
+ 			desc->dptr = cpu_to_le32(dma_addr);
+ 			priv->rx_skb[q][entry] = skb;
+ 		}
+
