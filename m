@@ -1,7 +1,7 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 07/22] ipv6: rt6_info output redirect to tunnel output
-Date: Tue, 21 Jul 2015 10:43:51 +0200
-Message-ID: <bd7bca2d5bd5e7eab4dd11909c81c1f5a1f86552.1437468140.git.tgraf@suug.ch>
+Subject: [PATCH net-next 13/22] arp: Inherit metadata dst when creating ARP requests
+Date: Tue, 21 Jul 2015 10:43:57 +0200
+Message-ID: <2b3f52bcb192b1d0a6b74251791c7f84501dd300.1437468140.git.tgraf@suug.ch>
 References: <cover.1437468140.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org
 To: roopa@cumulusnetworks.com, rshearma@brocade.com,
@@ -13,37 +13,113 @@ To: roopa@cumulusnetworks.com, rshearma@brocade.com,
 	simon.horman@netronome.com, joestringer@nicira.com, ja@ssi.bg,
 	ast@plumgrid.com, weichunc@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:39958 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:40067 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754199AbbGUIoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 04:44:19 -0400
+	with ESMTP id S1754226AbbGUIo1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 04:44:27 -0400
 In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
 In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
 References: <cover.1437468140.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+If output device wants to see the dst, inherit the dst of the
+original skb and pass it on to generate the ARP request.
 
-This is similar to ipv4 redirect of dst output to lwtunnel
-output function for encapsulation and xmit.
-
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- net/ipv6/route.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/ipv4/arp.c | 65 +++++++++++++++++++++++++++++++++-------------------------
+ 1 file changed, 37 insertions(+), 28 deletions(-)
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index b3431b7..7f2214f 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1780,6 +1780,7 @@ int ip6_route_add(struct fib6_config *cfg)
- 			goto out;
- 		lwtunnel_state_get(lwtstate);
- 		rt->rt6i_lwtstate = lwtstate;
-+		rt->dst.output = lwtunnel_output6;
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 933a928..1d59e50 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -291,6 +291,40 @@ static void arp_error_report(struct neighbour *neigh, struct sk_buff *skb)
+ 	kfree_skb(skb);
+ }
+ 
++/* Create and send an arp packet. */
++static void arp_send_dst(int type, int ptype, __be32 dest_ip,
++			 struct net_device *dev, __be32 src_ip,
++			 const unsigned char *dest_hw,
++			 const unsigned char *src_hw,
++			 const unsigned char *target_hw, struct sk_buff *oskb)
++{
++	struct sk_buff *skb;
++
++	/* arp on this interface. */
++	if (dev->flags & IFF_NOARP)
++		return;
++
++	skb = arp_create(type, ptype, dest_ip, dev, src_ip,
++			 dest_hw, src_hw, target_hw);
++	if (!skb)
++		return;
++
++	if (oskb)
++		skb_dst_copy(skb, oskb);
++
++	arp_xmit(skb);
++}
++
++void arp_send(int type, int ptype, __be32 dest_ip,
++	      struct net_device *dev, __be32 src_ip,
++	      const unsigned char *dest_hw, const unsigned char *src_hw,
++	      const unsigned char *target_hw)
++{
++	arp_send_dst(type, ptype, dest_ip, dev, src_ip, dest_hw, src_hw,
++		     target_hw, NULL);
++}
++EXPORT_SYMBOL(arp_send);
++
+ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ {
+ 	__be32 saddr = 0;
+@@ -346,8 +380,9 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 		}
  	}
  
- 	ipv6_addr_prefix(&rt->rt6i_dst.addr, &cfg->fc_dst, cfg->fc_dst_len);
+-	arp_send(ARPOP_REQUEST, ETH_P_ARP, target, dev, saddr,
+-		 dst_hw, dev->dev_addr, NULL);
++	arp_send_dst(ARPOP_REQUEST, ETH_P_ARP, target, dev, saddr,
++		     dst_hw, dev->dev_addr, NULL,
++		     dev->priv_flags & IFF_XMIT_DST_RELEASE ? NULL : skb);
+ }
+ 
+ static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
+@@ -597,32 +632,6 @@ void arp_xmit(struct sk_buff *skb)
+ EXPORT_SYMBOL(arp_xmit);
+ 
+ /*
+- *	Create and send an arp packet.
+- */
+-void arp_send(int type, int ptype, __be32 dest_ip,
+-	      struct net_device *dev, __be32 src_ip,
+-	      const unsigned char *dest_hw, const unsigned char *src_hw,
+-	      const unsigned char *target_hw)
+-{
+-	struct sk_buff *skb;
+-
+-	/*
+-	 *	No arp on this interface.
+-	 */
+-
+-	if (dev->flags&IFF_NOARP)
+-		return;
+-
+-	skb = arp_create(type, ptype, dest_ip, dev, src_ip,
+-			 dest_hw, src_hw, target_hw);
+-	if (!skb)
+-		return;
+-
+-	arp_xmit(skb);
+-}
+-EXPORT_SYMBOL(arp_send);
+-
+-/*
+  *	Process an arp request.
+  */
+ 
 -- 
 2.4.3
