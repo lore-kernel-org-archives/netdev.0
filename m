@@ -1,83 +1,37 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: [PATCH V3 7/7] Drivers: hv: vmbus: disable local interrupt when
- hvsock's callback is running
-Date: Tue, 21 Jul 2015 03:58:55 -0700
-Message-ID: <1437476335-6974-1-git-send-email-decui@microsoft.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: Why return E2BIG from bpf map update?
+Date: Tue, 21 Jul 2015 11:40:04 +0200
+Message-ID: <55AE1374.6010608@iogearbox.net>
+References: <CALCkm3eCUYFOon6Gza4A8Ske8MS1rVFJJip_J9dWQp79ju8zBw@mail.gmail.com> <55AD7514.7040906@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: gregkh@linuxfoundation.org, davem@davemloft.net,
- stephen@networkplumber.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, driverdev-devel@linuxdriverproject.org,
- olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com, kys@microsoft.com,
- pebolle@tiscali.nl, stefanha@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: Alex Gartrell <alexgartrell@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:55433 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753879AbbGUJkL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 05:40:11 -0400
+In-Reply-To: <55AD7514.7040906@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In the SMP guest case, when the per-channel callback hvsock_events() is
-running on virtual CPU A, if the guest tries to close the connection on
-virtual CPU B: we invoke vmbus_close() -> vmbus_close_internal(),
-then we can have trouble: on B, vmbus_close_internal() will send IPI
-reset_channel_cb() to A, trying to set channel->onchannel_callbackto NULL;
-on A, if the IPI handler happens between
-"if (channel->onchannel_callback != NULL)" and invoking
-channel->onchannel_callback, we'll invoke a function pointer of NULL.
+On 07/21/2015 12:24 AM, Alexei Starovoitov wrote:
+> On 7/20/15 3:15 PM, Alex Gartrell wrote:
+>> The ship has probably sailed on this one, but it seems like ENOSPC
+>> makes more sense than E2BIG.  Any chance of changing it so that poor
+>> ebpf library maintainers in the future don't have to wonder how their
+>> argument list got too big?
+>
+> sorry, too late.
+> It's in tests and even document in bpf manpage:
+> "E2BIG - indicates that the number of elements in the map reached the
+> max_entries limit specified at map creation time."
+> I read E2BIG as "too big" and not as "argument list is too long" :)
 
-This is why the patch is necessary.
-
-Signed-off-by: Dexuan Cui <decui@microsoft.com>
----
- drivers/hv/connection.c | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/hv/connection.c b/drivers/hv/connection.c
-index 4fc2e88..4766fd8 100644
---- a/drivers/hv/connection.c
-+++ b/drivers/hv/connection.c
-@@ -319,6 +319,9 @@ static void process_chn_event(u32 relid)
- 	void *arg;
- 	bool read_state;
- 	u32 bytes_to_read;
-+	bool is_hvsock = false;
-+
-+	local_irq_disable();
- 
- 	/*
- 	 * Find the channel based on this relid and invokes the
-@@ -327,7 +330,11 @@ static void process_chn_event(u32 relid)
- 	channel = pcpu_relid2channel(relid);
- 
- 	if (!channel)
--		return;
-+		goto out;
-+
-+	is_hvsock = is_hvsock_channel(channel);
-+	if (!is_hvsock)
-+		local_irq_enable();
- 
- 	/*
- 	 * A channel once created is persistent even when there
-@@ -363,6 +370,12 @@ static void process_chn_event(u32 relid)
- 				bytes_to_read = 0;
- 		} while (read_state && (bytes_to_read != 0));
- 	}
-+
-+	/* local_irq_enable() is alredy invoked above */
-+	if (!is_hvsock)
-+		return;
-+out:
-+	local_irq_enable();
- }
- 
- /*
--- 
-2.1.0
+If some libraries do an strerror(3) on errno then it certainly sounds
+a bit weird, "no space left on device" perhaps also a bit misleading.
+The bpf(2) manpage was actually submitted/discussed longer time ago,
+but I still didn't see it in Michael's tree yet, will ping him again.
