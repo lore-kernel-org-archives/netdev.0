@@ -1,35 +1,38 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH] inet: frags: fix defragmented packet's IP header for af_packet
-Date: Tue, 21 Jul 2015 09:29:15 +0200
-Message-ID: <CANn89iJxCt0UJAHbw-OdTdFm8WoWUN1fzkK9aDWgQxipJkv=Ew@mail.gmail.com>
-References: <1437036881-708-1-git-send-email-edjee@google.com>
-	<20150720.203119.344614621480451223.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: mvneta: fix refilling for Rx DMA buffers
+Date: Tue, 21 Jul 2015 00:30:33 -0700 (PDT)
+Message-ID: <20150721.003033.1524284435822402813.davem@davemloft.net>
+References: <1437303653-2236-1-git-send-email-simon.guinot@sequanux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Edward Jee <edjee@google.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Jerry Chu <hkchu@google.com>, netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:35875 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752225AbbGUH3R convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 03:29:17 -0400
-Received: by wgbcc4 with SMTP id cc4so55321733wgb.3
-        for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 00:29:16 -0700 (PDT)
-In-Reply-To: <20150720.203119.344614621480451223.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: thomas.petazzoni@free-electrons.com, jason@lakedaemon.net,
+	andrew@lunn.ch, gregory.clement@free-electrons.com,
+	sebastian.hesselbarth@gmail.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, vdonnefort@gmail.com,
+	yoann@sculo.fr, stable@vger.kernel.org
+To: simon.guinot@sequanux.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1437303653-2236-1-git-send-email-simon.guinot@sequanux.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> This doesn't compile.
->
-> net/ipv4/ip_fragment.c: In function =E2=80=98ip_frag_reasm=E2=80=99:
-> net/ipv4/ip_fragment.c:644:23: error: =E2=80=98skb=E2=80=99 undeclare=
-d (first use in this function)
->   ip_send_check(ip_hdr(skb));
+From: Simon Guinot <simon.guinot@sequanux.org>
+Date: Sun, 19 Jul 2015 13:00:53 +0200
 
-This was meant to be
-  ip_send_check(iph);
+> With the actual code, if a memory allocation error happens while
+> refilling a Rx descriptor, then the original Rx buffer is both passed
+> to the networking stack (in a SKB) and let in the Rx ring. This leads
+> to various kernel oops and crashes.
+> 
+> As a fix, this patch moves Rx descriptor refilling ahead of building
+> SKB with the associated Rx buffer. In case of a memory allocation
+> failure, data is dropped and the original DMA buffer is put back into
+> the Rx ring.
+> 
+> Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
+> Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP network unit")
+> Cc: <stable@vger.kernel.org> # v3.8+
+> Tested-by: Yoann Sculo <yoann@sculo.fr>
 
-Sorry, will send a v2
+Applied, thanks.
