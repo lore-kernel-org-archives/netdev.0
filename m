@@ -1,219 +1,711 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: [PATCH net-next 02/22] lwtunnel: infrastructure for
-	handling light weight tunnels like mpls
-Date: Tue, 21 Jul 2015 10:43:46 +0200
-Message-ID: <b001afd76401d705eed7f7f9058032ff90fa94e7.1437468140.git.tgraf@suug.ch>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next 10/22] ip_tunnel: Make ovs_tunnel_info and ovs_key_ipv4_tunnel generic
+Date: Tue, 21 Jul 2015 10:43:54 +0200
+Message-ID: <79c373380a1374e86b3ded70829acb277b131012.1437468140.git.tgraf@suug.ch>
 References: <cover.1437468140.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, rshearma-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
- hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org,
- edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
- simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, ja-FgGsKACvmQM@public.gmane.org,
- ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, weichunc-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1437468140.git.tgraf-G/eBtMaohhA@public.gmane.org>
-In-Reply-To: <cover.1437468140.git.tgraf-G/eBtMaohhA@public.gmane.org>
-References: <cover.1437468140.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: roopa@cumulusnetworks.com, rshearma@brocade.com,
+	ebiederm@xmission.com, hannes@stressinduktion.org,
+	pshelar@nicira.com, jesse@nicira.com, davem@davemloft.net,
+	daniel@iogearbox.net, tom@herbertland.com, edumazet@google.com,
+	jiri@resnulli.us, marcelo.leitner@gmail.com,
+	stephen@networkplumber.org, jpettit@nicira.com, kaber@trash.net,
+	simon.horman@netronome.com, joestringer@nicira.com, ja@ssi.bg,
+	ast@plumgrid.com, weichunc@plumgrid.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:40014 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754209AbbGUIoX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 04:44:23 -0400
+In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
+In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
+References: <cover.1437468140.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUm9vcGEgUHJhYmh1IDxyb29wYUBjdW11bHVzbmV0d29ya3MuY29tPgoKUHJvdmlkZXMg
-aW5mcmFzdHJ1Y3R1cmUgdG8gcGFyc2UvZHVtcC9zdG9yZSBlbmNhcCBpbmZvcm1hdGlvbiBmb3IK
-bGlnaHQgd2VpZ2h0IHR1bm5lbHMgbGlrZSBtcGxzLiBFbmNhcCBpbmZvcm1hdGlvbiBmb3Igc3Vj
-aCB0dW5uZWxzCmlzIGFzc29jaWF0ZWQgd2l0aCBmaWIgcm91dGVzLgoKVGhpcyBpbmZyYXN0cnVj
-dHVyZSBpcyBiYXNlZCBvbiBwcmV2aW91cyBzdWdnZXN0aW9ucyBmcm9tCkVyaWMgQmllZGVybWFu
-IHRvIGZvbGxvdyB0aGUgeGZybSBpbmZyYXN0cnVjdHVyZS4KClNpZ25lZC1vZmYtYnk6IFJvb3Bh
-IFByYWJodSA8cm9vcGFAY3VtdWx1c25ldHdvcmtzLmNvbT4KLS0tCiBpbmNsdWRlL2xpbnV4L2x3
-dHVubmVsLmggICAgICB8ICAgNiArKwogaW5jbHVkZS9uZXQvbHd0dW5uZWwuaCAgICAgICAgfCAx
-MzIgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKwogaW5jbHVkZS91YXBpL2xpbnV4L2x3
-dHVubmVsLmggfCAgMTUgKysrKwogbmV0L0tjb25maWcgICAgICAgICAgICAgICAgICAgfCAgIDcg
-KysKIG5ldC9jb3JlL01ha2VmaWxlICAgICAgICAgICAgIHwgICAxICsKIG5ldC9jb3JlL2x3dHVu
-bmVsLmMgICAgICAgICAgIHwgMTc5ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKwogNiBmaWxlcyBjaGFuZ2VkLCAzNDAgaW5zZXJ0aW9ucygrKQogY3JlYXRlIG1vZGUg
-MTAwNjQ0IGluY2x1ZGUvbGludXgvbHd0dW5uZWwuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGluY2x1
-ZGUvbmV0L2x3dHVubmVsLmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBpbmNsdWRlL3VhcGkvbGludXgv
-bHd0dW5uZWwuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IG5ldC9jb3JlL2x3dHVubmVsLmMKCmRpZmYg
-LS1naXQgYS9pbmNsdWRlL2xpbnV4L2x3dHVubmVsLmggYi9pbmNsdWRlL2xpbnV4L2x3dHVubmVs
-LmgKbmV3IGZpbGUgbW9kZSAxMDA2NDQKaW5kZXggMDAwMDAwMC4uOTdmMzJmOAotLS0gL2Rldi9u
-dWxsCisrKyBiL2luY2x1ZGUvbGludXgvbHd0dW5uZWwuaApAQCAtMCwwICsxLDYgQEAKKyNpZm5k
-ZWYgX0xJTlVYX0xXVFVOTkVMX0hfCisjZGVmaW5lIF9MSU5VWF9MV1RVTk5FTF9IXworCisjaW5j
-bHVkZSA8dWFwaS9saW51eC9sd3R1bm5lbC5oPgorCisjZW5kaWYgLyogX0xJTlVYX0xXVFVOTkVM
-X0hfICovCmRpZmYgLS1naXQgYS9pbmNsdWRlL25ldC9sd3R1bm5lbC5oIGIvaW5jbHVkZS9uZXQv
-bHd0dW5uZWwuaApuZXcgZmlsZSBtb2RlIDEwMDY0NAppbmRleCAwMDAwMDAwLi5kZjI0YjM2Ci0t
-LSAvZGV2L251bGwKKysrIGIvaW5jbHVkZS9uZXQvbHd0dW5uZWwuaApAQCAtMCwwICsxLDEzMiBA
-QAorI2lmbmRlZiBfX05FVF9MV1RVTk5FTF9ICisjZGVmaW5lIF9fTkVUX0xXVFVOTkVMX0ggMQor
-CisjaW5jbHVkZSA8bGludXgvbHd0dW5uZWwuaD4KKyNpbmNsdWRlIDxsaW51eC9uZXRkZXZpY2Uu
-aD4KKyNpbmNsdWRlIDxsaW51eC9za2J1ZmYuaD4KKyNpbmNsdWRlIDxsaW51eC90eXBlcy5oPgor
-I2luY2x1ZGUgPG5ldC9yb3V0ZS5oPgorCisjZGVmaW5lIExXVFVOTkVMX0hBU0hfQklUUyAgIDcK
-KyNkZWZpbmUgTFdUVU5ORUxfSEFTSF9TSVpFICAgKDEgPDwgTFdUVU5ORUxfSEFTSF9CSVRTKQor
-CisvKiBsdyB0dW5uZWwgc3RhdGUgZmxhZ3MgKi8KKyNkZWZpbmUgTFdUVU5ORUxfU1RBVEVfT1VU
-UFVUX1JFRElSRUNUIDB4MQorCitzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgeworCV9fdTE2CQl0eXBl
-OworCV9fdTE2CQlmbGFnczsKKwlhdG9taWNfdAlyZWZjbnQ7CisJaW50ICAgICAgICAgICAgIGxl
-bjsKKwlfX3U4ICAgICAgICAgICAgZGF0YVswXTsKK307CisKK3N0cnVjdCBsd3R1bm5lbF9lbmNh
-cF9vcHMgeworCWludCAoKmJ1aWxkX3N0YXRlKShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1
-Y3QgbmxhdHRyICplbmNhcCwKKwkJCSAgIHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAqKnRzKTsKKwlp
-bnQgKCpvdXRwdXQpKHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYik7CisJaW50
-ICgqZmlsbF9lbmNhcCkoc3RydWN0IHNrX2J1ZmYgKnNrYiwKKwkJCSAgc3RydWN0IGx3dHVubmVs
-X3N0YXRlICpsd3RzdGF0ZSk7CisJaW50ICgqZ2V0X2VuY2FwX3NpemUpKHN0cnVjdCBsd3R1bm5l
-bF9zdGF0ZSAqbHd0c3RhdGUpOworCWludCAoKmNtcF9lbmNhcCkoc3RydWN0IGx3dHVubmVsX3N0
-YXRlICphLCBzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmIpOworfTsKKworZXh0ZXJuIGNvbnN0IHN0
-cnVjdCBsd3R1bm5lbF9lbmNhcF9vcHMgX19yY3UgKgorCQlsd3R1bl9lbmNhcHNbTFdUVU5ORUxf
-RU5DQVBfTUFYKzFdOworCisjaWZkZWYgQ09ORklHX0xXVFVOTkVMCitzdGF0aWMgaW5saW5lIHZv
-aWQgbHd0dW5uZWxfc3RhdGVfZ2V0KHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAqbHdzKQoreworCWF0
-b21pY19pbmMoJmx3cy0+cmVmY250KTsKK30KKworc3RhdGljIGlubGluZSB2b2lkIGx3dHVubmVs
-X3N0YXRlX3B1dChzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmx3cykKK3sKKwlpZiAoIWx3cykKKwkJ
-cmV0dXJuOworCisJaWYgKGF0b21pY19kZWNfYW5kX3Rlc3QoJmx3cy0+cmVmY250KSkKKwkJa2Zy
-ZWUobHdzKTsKK30KKworc3RhdGljIGlubGluZSBib29sIGx3dHVubmVsX291dHB1dF9yZWRpcmVj
-dChzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmx3dHN0YXRlKQoreworCWlmIChsd3RzdGF0ZSAmJiAo
-bHd0c3RhdGUtPmZsYWdzICYgTFdUVU5ORUxfU1RBVEVfT1VUUFVUX1JFRElSRUNUKSkKKwkJcmV0
-dXJuIHRydWU7CisKKwlyZXR1cm4gZmFsc2U7Cit9CisKK2ludCBsd3R1bm5lbF9lbmNhcF9hZGRf
-b3BzKGNvbnN0IHN0cnVjdCBsd3R1bm5lbF9lbmNhcF9vcHMgKm9wLAorCQkJICAgdW5zaWduZWQg
-aW50IG51bSk7CitpbnQgbHd0dW5uZWxfZW5jYXBfZGVsX29wcyhjb25zdCBzdHJ1Y3QgbHd0dW5u
-ZWxfZW5jYXBfb3BzICpvcCwKKwkJCSAgIHVuc2lnbmVkIGludCBudW0pOworaW50IGx3dHVubmVs
-X2J1aWxkX3N0YXRlKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHUxNiBlbmNhcF90eXBlLAorCQkJ
-IHN0cnVjdCBubGF0dHIgKmVuY2FwLAorCQkJIHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAqKmx3cyk7
-CitpbnQgbHd0dW5uZWxfZmlsbF9lbmNhcChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAorCQkJc3RydWN0
-IGx3dHVubmVsX3N0YXRlICpsd3RzdGF0ZSk7CitpbnQgbHd0dW5uZWxfZ2V0X2VuY2FwX3NpemUo
-c3RydWN0IGx3dHVubmVsX3N0YXRlICpsd3RzdGF0ZSk7CitzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUg
-Kmx3dHVubmVsX3N0YXRlX2FsbG9jKGludCBoZHJfbGVuKTsKK2ludCBsd3R1bm5lbF9jbXBfZW5j
-YXAoc3RydWN0IGx3dHVubmVsX3N0YXRlICphLCBzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmIpOwor
-CisjZWxzZQorCitzdGF0aWMgaW5saW5lIHZvaWQgbHd0dW5uZWxfc3RhdGVfZ2V0KHN0cnVjdCBs
-d3R1bm5lbF9zdGF0ZSAqbHdzKQoreworfQorCitzdGF0aWMgaW5saW5lIHZvaWQgbHd0dW5uZWxf
-c3RhdGVfcHV0KHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAqbHdzKQoreworfQorCitzdGF0aWMgaW5s
-aW5lIGJvb2wgbHd0dW5uZWxfb3V0cHV0X3JlZGlyZWN0KHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAq
-bHd0c3RhdGUpCit7CisJcmV0dXJuIGZhbHNlOworfQorCitzdGF0aWMgaW5saW5lIGludCBsd3R1
-bm5lbF9lbmNhcF9hZGRfb3BzKGNvbnN0IHN0cnVjdCBsd3R1bm5lbF9lbmNhcF9vcHMgKm9wLAor
-CQkJCQkgdW5zaWduZWQgaW50IG51bSkKK3sKKwlyZXR1cm4gLUVPUE5PVFNVUFA7CisKK30KKwor
-c3RhdGljIGlubGluZSBpbnQgbHd0dW5uZWxfZW5jYXBfZGVsX29wcyhjb25zdCBzdHJ1Y3QgbHd0
-dW5uZWxfZW5jYXBfb3BzICpvcCwKKwkJCQkJIHVuc2lnbmVkIGludCBudW0pCit7CisJcmV0dXJu
-IC1FT1BOT1RTVVBQOworfQorCitzdGF0aWMgaW5saW5lIGludCBsd3R1bm5lbF9idWlsZF9zdGF0
-ZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1MTYgZW5jYXBfdHlwZSwKKwkJCQkgICAgICAgc3Ry
-dWN0IG5sYXR0ciAqZW5jYXAsCisJCQkJICAgICAgIHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAqKmx3
-cykKK3sKKwlyZXR1cm4gLUVPUE5PVFNVUFA7Cit9CisKK3N0YXRpYyBpbmxpbmUgaW50IGx3dHVu
-bmVsX2ZpbGxfZW5jYXAoc3RydWN0IHNrX2J1ZmYgKnNrYiwKKwkJCQkgICAgICBzdHJ1Y3QgbHd0
-dW5uZWxfc3RhdGUgKmx3dHN0YXRlKQoreworCXJldHVybiAwOworfQorCitzdGF0aWMgaW5saW5l
-IGludCBsd3R1bm5lbF9nZXRfZW5jYXBfc2l6ZShzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmx3dHN0
-YXRlKQoreworCXJldHVybiAwOworfQorCitzdGF0aWMgaW5saW5lIHN0cnVjdCBsd3R1bm5lbF9z
-dGF0ZSAqbHd0dW5uZWxfc3RhdGVfYWxsb2MoaW50IGhkcl9sZW4pCit7CisJcmV0dXJuIE5VTEw7
-Cit9CisKK3N0YXRpYyBpbmxpbmUgaW50IGx3dHVubmVsX2NtcF9lbmNhcChzdHJ1Y3QgbHd0dW5u
-ZWxfc3RhdGUgKmEsCisJCQkJICAgICBzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmIpCit7CisJcmV0
-dXJuIDA7Cit9CisKKyNlbmRpZgorCisjZW5kaWYgLyogX19ORVRfTFdUVU5ORUxfSCAqLwpkaWZm
-IC0tZ2l0IGEvaW5jbHVkZS91YXBpL2xpbnV4L2x3dHVubmVsLmggYi9pbmNsdWRlL3VhcGkvbGlu
-dXgvbHd0dW5uZWwuaApuZXcgZmlsZSBtb2RlIDEwMDY0NAppbmRleCAwMDAwMDAwLi5hYTYxMWQ5
-Ci0tLSAvZGV2L251bGwKKysrIGIvaW5jbHVkZS91YXBpL2xpbnV4L2x3dHVubmVsLmgKQEAgLTAs
-MCArMSwxNSBAQAorI2lmbmRlZiBfVUFQSV9MV1RVTk5FTF9IXworI2RlZmluZSBfVUFQSV9MV1RV
-Tk5FTF9IXworCisjaW5jbHVkZSA8bGludXgvdHlwZXMuaD4KKworZW51bSBsd3R1bm5lbF9lbmNh
-cF90eXBlcyB7CisJTFdUVU5ORUxfRU5DQVBfTk9ORSwKKwlMV1RVTk5FTF9FTkNBUF9NUExTLAor
-CV9fTFdUVU5ORUxfRU5DQVBfTUFYLAorfTsKKworI2RlZmluZSBMV1RVTk5FTF9FTkNBUF9NQVgg
-KF9fTFdUVU5ORUxfRU5DQVBfTUFYIC0gMSkKKworCisjZW5kaWYgLyogX1VBUElfTFdUVU5ORUxf
-SF8gKi8KZGlmZiAtLWdpdCBhL25ldC9LY29uZmlnIGIvbmV0L0tjb25maWcKaW5kZXggNTdhN2M1
-YS4uNzAyMWMxYiAxMDA2NDQKLS0tIGEvbmV0L0tjb25maWcKKysrIGIvbmV0L0tjb25maWcKQEAg
-LTM3NCw2ICszNzQsMTMgQEAgc291cmNlICJuZXQvY2FpZi9LY29uZmlnIgogc291cmNlICJuZXQv
-Y2VwaC9LY29uZmlnIgogc291cmNlICJuZXQvbmZjL0tjb25maWciCiAKK2NvbmZpZyBMV1RVTk5F
-TAorCWJvb2wgIk5ldHdvcmsgbGlnaHQgd2VpZ2h0IHR1bm5lbHMiCisJLS0taGVscC0tLQorCSAg
-VGhpcyBmZWF0dXJlIHByb3ZpZGVzIGFuIGluZnJhc3RydWN0dXJlIHRvIHN1cHBvcnQgbGlnaHQg
-d2VpZ2h0CisJICB0dW5uZWxzIGxpa2UgbXBscy4gVGhlcmUgaXMgbm8gbmV0ZGV2aWNlIGFzc29j
-aWF0ZWQgd2l0aCBhIGxpZ2h0CisJICB3ZWlnaHQgdHVubmVsIGVuZHBvaW50LiBUdW5uZWwgZW5j
-YXBzdWxhdGlvbiBwYXJhbWV0ZXJzIGFyZSBzdG9yZWQKKwkgIHdpdGggbGlnaHQgd2VpZ2h0IHR1
-bm5lbCBzdGF0ZSBhc3NvY2lhdGVkIHdpdGggZmliIHJvdXRlcy4KIAogZW5kaWYgICAjIGlmIE5F
-VAogCmRpZmYgLS1naXQgYS9uZXQvY29yZS9NYWtlZmlsZSBiL25ldC9jb3JlL01ha2VmaWxlCmlu
-ZGV4IGZlYzA4NTYuLjA4NmIwMWYgMTAwNjQ0Ci0tLSBhL25ldC9jb3JlL01ha2VmaWxlCisrKyBi
-L25ldC9jb3JlL01ha2VmaWxlCkBAIC0yMywzICsyMyw0IEBAIG9iai0kKENPTkZJR19ORVRXT1JL
-X1BIWV9USU1FU1RBTVBJTkcpICs9IHRpbWVzdGFtcGluZy5vCiBvYmotJChDT05GSUdfTkVUX1BU
-UF9DTEFTU0lGWSkgKz0gcHRwX2NsYXNzaWZpZXIubwogb2JqLSQoQ09ORklHX0NHUk9VUF9ORVRf
-UFJJTykgKz0gbmV0cHJpb19jZ3JvdXAubwogb2JqLSQoQ09ORklHX0NHUk9VUF9ORVRfQ0xBU1NJ
-RCkgKz0gbmV0Y2xhc3NpZF9jZ3JvdXAubworb2JqLSQoQ09ORklHX0xXVFVOTkVMKSArPSBsd3R1
-bm5lbC5vCmRpZmYgLS1naXQgYS9uZXQvY29yZS9sd3R1bm5lbC5jIGIvbmV0L2NvcmUvbHd0dW5u
-ZWwuYwpuZXcgZmlsZSBtb2RlIDEwMDY0NAppbmRleCAwMDAwMDAwLi5kN2FlM2EyCi0tLSAvZGV2
-L251bGwKKysrIGIvbmV0L2NvcmUvbHd0dW5uZWwuYwpAQCAtMCwwICsxLDE3OSBAQAorLyoKKyAq
-IGx3dHVubmVsCUluZnJhc3RydWN0dXJlIGZvciBsaWdodCB3ZWlnaHQgdHVubmVscyBsaWtlIG1w
-bHMKKyAqCisgKiBBdXRob3JzOglSb29wYSBQcmFiaHUsIDxyb29wYUBjdW11bHVzbmV0d29ya3Mu
-Y29tPgorICoKKyAqCQlUaGlzIHByb2dyYW0gaXMgZnJlZSBzb2Z0d2FyZTsgeW91IGNhbiByZWRp
-c3RyaWJ1dGUgaXQgYW5kL29yCisgKgkJbW9kaWZ5IGl0IHVuZGVyIHRoZSB0ZXJtcyBvZiB0aGUg
-R05VIEdlbmVyYWwgUHVibGljIExpY2Vuc2UKKyAqCQlhcyBwdWJsaXNoZWQgYnkgdGhlIEZyZWUg
-U29mdHdhcmUgRm91bmRhdGlvbjsgZWl0aGVyIHZlcnNpb24KKyAqCQkyIG9mIHRoZSBMaWNlbnNl
-LCBvciAoYXQgeW91ciBvcHRpb24pIGFueSBsYXRlciB2ZXJzaW9uLgorICoKKyAqLworCisjaW5j
-bHVkZSA8bGludXgvY2FwYWJpbGl0eS5oPgorI2luY2x1ZGUgPGxpbnV4L21vZHVsZS5oPgorI2lu
-Y2x1ZGUgPGxpbnV4L3R5cGVzLmg+CisjaW5jbHVkZSA8bGludXgva2VybmVsLmg+CisjaW5jbHVk
-ZSA8bGludXgvc2xhYi5oPgorI2luY2x1ZGUgPGxpbnV4L3VhY2Nlc3MuaD4KKyNpbmNsdWRlIDxs
-aW51eC9za2J1ZmYuaD4KKyNpbmNsdWRlIDxsaW51eC9uZXRkZXZpY2UuaD4KKyNpbmNsdWRlIDxs
-aW51eC9sd3R1bm5lbC5oPgorI2luY2x1ZGUgPGxpbnV4L2luLmg+CisjaW5jbHVkZSA8bGludXgv
-aW5pdC5oPgorI2luY2x1ZGUgPGxpbnV4L2Vyci5oPgorCisjaW5jbHVkZSA8bmV0L2x3dHVubmVs
-Lmg+CisjaW5jbHVkZSA8bmV0L3J0bmV0bGluay5oPgorCitzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUg
-Kmx3dHVubmVsX3N0YXRlX2FsbG9jKGludCBlbmNhcF9sZW4pCit7CisJc3RydWN0IGx3dHVubmVs
-X3N0YXRlICpsd3M7CisKKwlsd3MgPSBremFsbG9jKHNpemVvZigqbHdzKSArIGVuY2FwX2xlbiwg
-R0ZQX0FUT01JQyk7CisKKwlyZXR1cm4gbHdzOworfQorRVhQT1JUX1NZTUJPTChsd3R1bm5lbF9z
-dGF0ZV9hbGxvYyk7CisKK2NvbnN0IHN0cnVjdCBsd3R1bm5lbF9lbmNhcF9vcHMgX19yY3UgKgor
-CQlsd3R1bl9lbmNhcHNbTFdUVU5ORUxfRU5DQVBfTUFYICsgMV0gX19yZWFkX21vc3RseTsKKwor
-aW50IGx3dHVubmVsX2VuY2FwX2FkZF9vcHMoY29uc3Qgc3RydWN0IGx3dHVubmVsX2VuY2FwX29w
-cyAqb3BzLAorCQkJICAgdW5zaWduZWQgaW50IG51bSkKK3sKKwlpZiAobnVtID4gTFdUVU5ORUxf
-RU5DQVBfTUFYKQorCQlyZXR1cm4gLUVSQU5HRTsKKworCXJldHVybiAhY21weGNoZygoY29uc3Qg
-c3RydWN0IGx3dHVubmVsX2VuY2FwX29wcyAqKikKKwkJCSZsd3R1bl9lbmNhcHNbbnVtXSwKKwkJ
-CU5VTEwsIG9wcykgPyAwIDogLTE7Cit9CitFWFBPUlRfU1lNQk9MKGx3dHVubmVsX2VuY2FwX2Fk
-ZF9vcHMpOworCitpbnQgbHd0dW5uZWxfZW5jYXBfZGVsX29wcyhjb25zdCBzdHJ1Y3QgbHd0dW5u
-ZWxfZW5jYXBfb3BzICpvcHMsCisJCQkgICB1bnNpZ25lZCBpbnQgZW5jYXBfdHlwZSkKK3sKKwlp
-bnQgcmV0OworCisJaWYgKGVuY2FwX3R5cGUgPT0gTFdUVU5ORUxfRU5DQVBfTk9ORSB8fAorCSAg
-ICBlbmNhcF90eXBlID4gTFdUVU5ORUxfRU5DQVBfTUFYKQorCQlyZXR1cm4gLUVSQU5HRTsKKwor
-CXJldCA9IChjbXB4Y2hnKChjb25zdCBzdHJ1Y3QgbHd0dW5uZWxfZW5jYXBfb3BzICoqKQorCQkg
-ICAgICAgJmx3dHVuX2VuY2Fwc1tlbmNhcF90eXBlXSwKKwkJICAgICAgIG9wcywgTlVMTCkgPT0g
-b3BzKSA/IDAgOiAtMTsKKworCXN5bmNocm9uaXplX25ldCgpOworCisJcmV0dXJuIHJldDsKK30K
-K0VYUE9SVF9TWU1CT0wobHd0dW5uZWxfZW5jYXBfZGVsX29wcyk7CisKK2ludCBsd3R1bm5lbF9i
-dWlsZF9zdGF0ZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1MTYgZW5jYXBfdHlwZSwKKwkJCSBz
-dHJ1Y3QgbmxhdHRyICplbmNhcCwgc3RydWN0IGx3dHVubmVsX3N0YXRlICoqbHdzKQoreworCWNv
-bnN0IHN0cnVjdCBsd3R1bm5lbF9lbmNhcF9vcHMgKm9wczsKKwlpbnQgcmV0ID0gLUVJTlZBTDsK
-KworCWlmIChlbmNhcF90eXBlID09IExXVFVOTkVMX0VOQ0FQX05PTkUgfHwKKwkgICAgZW5jYXBf
-dHlwZSA+IExXVFVOTkVMX0VOQ0FQX01BWCkKKwkJcmV0dXJuIHJldDsKKworCXJldCA9IC1FT1BO
-T1RTVVBQOworCXJjdV9yZWFkX2xvY2soKTsKKwlvcHMgPSByY3VfZGVyZWZlcmVuY2UobHd0dW5f
-ZW5jYXBzW2VuY2FwX3R5cGVdKTsKKwlpZiAobGlrZWx5KG9wcyAmJiBvcHMtPmJ1aWxkX3N0YXRl
-KSkKKwkJcmV0ID0gb3BzLT5idWlsZF9zdGF0ZShkZXYsIGVuY2FwLCBsd3MpOworCXJjdV9yZWFk
-X3VubG9jaygpOworCisJcmV0dXJuIHJldDsKK30KK0VYUE9SVF9TWU1CT0wobHd0dW5uZWxfYnVp
-bGRfc3RhdGUpOworCitpbnQgbHd0dW5uZWxfZmlsbF9lbmNhcChzdHJ1Y3Qgc2tfYnVmZiAqc2ti
-LCBzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmx3dHN0YXRlKQoreworCWNvbnN0IHN0cnVjdCBsd3R1
-bm5lbF9lbmNhcF9vcHMgKm9wczsKKwlzdHJ1Y3QgbmxhdHRyICpuZXN0OworCWludCByZXQgPSAt
-RUlOVkFMOworCisJaWYgKCFsd3RzdGF0ZSkKKwkJcmV0dXJuIDA7CisKKwlpZiAobHd0c3RhdGUt
-PnR5cGUgPT0gTFdUVU5ORUxfRU5DQVBfTk9ORSB8fAorCSAgICBsd3RzdGF0ZS0+dHlwZSA+IExX
-VFVOTkVMX0VOQ0FQX01BWCkKKwkJcmV0dXJuIDA7CisKKwlyZXQgPSAtRU9QTk9UU1VQUDsKKwlu
-ZXN0ID0gbmxhX25lc3Rfc3RhcnQoc2tiLCBSVEFfRU5DQVApOworCXJjdV9yZWFkX2xvY2soKTsK
-KwlvcHMgPSByY3VfZGVyZWZlcmVuY2UobHd0dW5fZW5jYXBzW2x3dHN0YXRlLT50eXBlXSk7CisJ
-aWYgKGxpa2VseShvcHMgJiYgb3BzLT5maWxsX2VuY2FwKSkKKwkJcmV0ID0gb3BzLT5maWxsX2Vu
-Y2FwKHNrYiwgbHd0c3RhdGUpOworCXJjdV9yZWFkX3VubG9jaygpOworCisJaWYgKHJldCkKKwkJ
-Z290byBubGFfcHV0X2ZhaWx1cmU7CisJbmxhX25lc3RfZW5kKHNrYiwgbmVzdCk7CisJcmV0ID0g
-bmxhX3B1dF91MTYoc2tiLCBSVEFfRU5DQVBfVFlQRSwgbHd0c3RhdGUtPnR5cGUpOworCWlmIChy
-ZXQpCisJCWdvdG8gbmxhX3B1dF9mYWlsdXJlOworCisJcmV0dXJuIDA7CisKK25sYV9wdXRfZmFp
-bHVyZToKKwlubGFfbmVzdF9jYW5jZWwoc2tiLCBuZXN0KTsKKworCXJldHVybiAocmV0ID09IC1F
-T1BOT1RTVVBQID8gMCA6IHJldCk7Cit9CitFWFBPUlRfU1lNQk9MKGx3dHVubmVsX2ZpbGxfZW5j
-YXApOworCitpbnQgbHd0dW5uZWxfZ2V0X2VuY2FwX3NpemUoc3RydWN0IGx3dHVubmVsX3N0YXRl
-ICpsd3RzdGF0ZSkKK3sKKwljb25zdCBzdHJ1Y3QgbHd0dW5uZWxfZW5jYXBfb3BzICpvcHM7CisJ
-aW50IHJldCA9IDA7CisKKwlpZiAoIWx3dHN0YXRlKQorCQlyZXR1cm4gMDsKKworCWlmIChsd3Rz
-dGF0ZS0+dHlwZSA9PSBMV1RVTk5FTF9FTkNBUF9OT05FIHx8CisJICAgIGx3dHN0YXRlLT50eXBl
-ID4gTFdUVU5ORUxfRU5DQVBfTUFYKQorCQlyZXR1cm4gMDsKKworCXJjdV9yZWFkX2xvY2soKTsK
-KwlvcHMgPSByY3VfZGVyZWZlcmVuY2UobHd0dW5fZW5jYXBzW2x3dHN0YXRlLT50eXBlXSk7CisJ
-aWYgKGxpa2VseShvcHMgJiYgb3BzLT5nZXRfZW5jYXBfc2l6ZSkpCisJCXJldCA9IG5sYV90b3Rh
-bF9zaXplKG9wcy0+Z2V0X2VuY2FwX3NpemUobHd0c3RhdGUpKTsKKwlyY3VfcmVhZF91bmxvY2so
-KTsKKworCXJldHVybiByZXQ7Cit9CitFWFBPUlRfU1lNQk9MKGx3dHVubmVsX2dldF9lbmNhcF9z
-aXplKTsKKworaW50IGx3dHVubmVsX2NtcF9lbmNhcChzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmEs
-IHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAqYikKK3sKKwljb25zdCBzdHJ1Y3QgbHd0dW5uZWxfZW5j
-YXBfb3BzICpvcHM7CisJaW50IHJldCA9IDA7CisKKwlpZiAoIWEgJiYgIWIpCisJCXJldHVybiAw
-OworCisJaWYgKCFhIHx8ICFiKQorCQlyZXR1cm4gMTsKKworCWlmIChhLT50eXBlICE9IGItPnR5
-cGUpCisJCXJldHVybiAxOworCisJaWYgKGEtPnR5cGUgPT0gTFdUVU5ORUxfRU5DQVBfTk9ORSB8
-fAorCSAgICBhLT50eXBlID4gTFdUVU5ORUxfRU5DQVBfTUFYKQorCQlyZXR1cm4gMDsKKworCXJj
-dV9yZWFkX2xvY2soKTsKKwlvcHMgPSByY3VfZGVyZWZlcmVuY2UobHd0dW5fZW5jYXBzW2EtPnR5
-cGVdKTsKKwlpZiAobGlrZWx5KG9wcyAmJiBvcHMtPmNtcF9lbmNhcCkpCisJCXJldCA9IG9wcy0+
-Y21wX2VuY2FwKGEsIGIpOworCXJjdV9yZWFkX3VubG9jaygpOworCisJcmV0dXJuIHJldDsKK30K
-K0VYUE9SVF9TWU1CT0wobHd0dW5uZWxfY21wX2VuY2FwKTsKLS0gCjIuNC4zCgpfX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRl
-dkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZv
-L2Rldgo=
+Rename the tunnel metadata data structures currently internal to
+OVS and make them generic for use by all IP tunnels.
+
+Both structures are kernel internal and will stay that way. Their
+members are exposed to user space through individual Netlink
+attributes by OVS. It will therefore be possible to extend/modify
+these structures without affecting user ABI.
+
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ include/net/ip_tunnels.h         | 63 +++++++++++++++++++++++++++++++++
+ include/uapi/linux/openvswitch.h |  2 +-
+ net/openvswitch/actions.c        |  2 +-
+ net/openvswitch/datapath.h       |  5 +--
+ net/openvswitch/flow.c           |  4 +--
+ net/openvswitch/flow.h           | 76 ++--------------------------------------
+ net/openvswitch/flow_netlink.c   | 16 ++++-----
+ net/openvswitch/flow_netlink.h   |  2 +-
+ net/openvswitch/vport-geneve.c   | 17 +++++----
+ net/openvswitch/vport-gre.c      | 16 ++++-----
+ net/openvswitch/vport-vxlan.c    | 18 +++++-----
+ net/openvswitch/vport.c          | 30 ++++++++--------
+ net/openvswitch/vport.h          | 12 +++----
+ 13 files changed, 128 insertions(+), 135 deletions(-)
+
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index d8214cb..6b9d559 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -22,6 +22,28 @@
+ /* Keep error state on tunnel for 30 sec */
+ #define IPTUNNEL_ERR_TIMEO	(30*HZ)
+ 
++/* Used to memset ip_tunnel padding. */
++#define IP_TUNNEL_KEY_SIZE					\
++	(offsetof(struct ip_tunnel_key, tp_dst) +		\
++	 FIELD_SIZEOF(struct ip_tunnel_key, tp_dst))
++
++struct ip_tunnel_key {
++	__be64			tun_id;
++	__be32			ipv4_src;
++	__be32			ipv4_dst;
++	__be16			tun_flags;
++	__u8			ipv4_tos;
++	__u8			ipv4_ttl;
++	__be16			tp_src;
++	__be16			tp_dst;
++} __packed __aligned(4); /* Minimize padding. */
++
++struct ip_tunnel_info {
++	struct ip_tunnel_key	key;
++	const void		*options;
++	u8			options_len;
++};
++
+ /* 6rd prefix/relay information */
+ #ifdef CONFIG_IPV6_SIT_6RD
+ struct ip_tunnel_6rd_parm {
+@@ -136,6 +158,47 @@ int ip_tunnel_encap_add_ops(const struct ip_tunnel_encap_ops *op,
+ int ip_tunnel_encap_del_ops(const struct ip_tunnel_encap_ops *op,
+ 			    unsigned int num);
+ 
++static inline void __ip_tunnel_info_init(struct ip_tunnel_info *tun_info,
++					 __be32 saddr, __be32 daddr,
++					 u8 tos, u8 ttl,
++					 __be16 tp_src, __be16 tp_dst,
++					 __be64 tun_id, __be16 tun_flags,
++					 const void *opts, u8 opts_len)
++{
++	tun_info->key.tun_id = tun_id;
++	tun_info->key.ipv4_src = saddr;
++	tun_info->key.ipv4_dst = daddr;
++	tun_info->key.ipv4_tos = tos;
++	tun_info->key.ipv4_ttl = ttl;
++	tun_info->key.tun_flags = tun_flags;
++
++	/* For the tunnel types on the top of IPsec, the tp_src and tp_dst of
++	 * the upper tunnel are used.
++	 * E.g: GRE over IPSEC, the tp_src and tp_port are zero.
++	 */
++	tun_info->key.tp_src = tp_src;
++	tun_info->key.tp_dst = tp_dst;
++
++	/* Clear struct padding. */
++	if (sizeof(tun_info->key) != IP_TUNNEL_KEY_SIZE)
++		memset((unsigned char *)&tun_info->key + IP_TUNNEL_KEY_SIZE,
++		       0, sizeof(tun_info->key) - IP_TUNNEL_KEY_SIZE);
++
++	tun_info->options = opts;
++	tun_info->options_len = opts_len;
++}
++
++static inline void ip_tunnel_info_init(struct ip_tunnel_info *tun_info,
++				       const struct iphdr *iph,
++				       __be16 tp_src, __be16 tp_dst,
++				       __be64 tun_id, __be16 tun_flags,
++				       const void *opts, u8 opts_len)
++{
++	__ip_tunnel_info_init(tun_info, iph->saddr, iph->daddr,
++			      iph->tos, iph->ttl, tp_src, tp_dst,
++			      tun_id, tun_flags, opts, opts_len);
++}
++
+ #ifdef CONFIG_INET
+ 
+ int ip_tunnel_init(struct net_device *dev);
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index 1dab776..d6b8854 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -321,7 +321,7 @@ enum ovs_key_attr {
+ 				 * the accepted length of the array. */
+ 
+ #ifdef __KERNEL__
+-	OVS_KEY_ATTR_TUNNEL_INFO,  /* struct ovs_tunnel_info */
++	OVS_KEY_ATTR_TUNNEL_INFO,  /* struct ip_tunnel_info */
+ #endif
+ 	__OVS_KEY_ATTR_MAX
+ };
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 8a8c0b8..27c1687 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -611,7 +611,7 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+ 			    struct sw_flow_key *key, const struct nlattr *attr,
+ 			    const struct nlattr *actions, int actions_len)
+ {
+-	struct ovs_tunnel_info info;
++	struct ip_tunnel_info info;
+ 	struct dp_upcall_info upcall;
+ 	const struct nlattr *a;
+ 	int rem;
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index cd691e9..6b28c5c 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -25,6 +25,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>
+ #include <linux/u64_stats_sync.h>
++#include <net/ip_tunnels.h>
+ 
+ #include "flow.h"
+ #include "flow_table.h"
+@@ -98,7 +99,7 @@ struct datapath {
+  * when a packet is received by OVS.
+  */
+ struct ovs_skb_cb {
+-	struct ovs_tunnel_info  *egress_tun_info;
++	struct ip_tunnel_info  *egress_tun_info;
+ 	struct vport		*input_vport;
+ };
+ #define OVS_CB(skb) ((struct ovs_skb_cb *)(skb)->cb)
+@@ -114,7 +115,7 @@ struct ovs_skb_cb {
+  * @egress_tun_info: If nonnull, becomes %OVS_PACKET_ATTR_EGRESS_TUN_KEY.
+  */
+ struct dp_upcall_info {
+-	const struct ovs_tunnel_info *egress_tun_info;
++	const struct ip_tunnel_info *egress_tun_info;
+ 	const struct nlattr *userdata;
+ 	const struct nlattr *actions;
+ 	int actions_len;
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index bc7b0ab..8db22ef 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -682,12 +682,12 @@ int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key)
+ 	return key_extract(skb, key);
+ }
+ 
+-int ovs_flow_key_extract(const struct ovs_tunnel_info *tun_info,
++int ovs_flow_key_extract(const struct ip_tunnel_info *tun_info,
+ 			 struct sk_buff *skb, struct sw_flow_key *key)
+ {
+ 	/* Extract metadata from packet. */
+ 	if (tun_info) {
+-		memcpy(&key->tun_key, &tun_info->tunnel, sizeof(key->tun_key));
++		memcpy(&key->tun_key, &tun_info->key, sizeof(key->tun_key));
+ 
+ 		if (tun_info->options) {
+ 			BUILD_BUG_ON((1 << (sizeof(tun_info->options_len) *
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index a076e44..cadc6c5 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -32,31 +32,10 @@
+ #include <linux/time.h>
+ #include <linux/flex_array.h>
+ #include <net/inet_ecn.h>
++#include <net/ip_tunnels.h>
+ 
+ struct sk_buff;
+ 
+-/* Used to memset ovs_key_ipv4_tunnel padding. */
+-#define OVS_TUNNEL_KEY_SIZE					\
+-	(offsetof(struct ovs_key_ipv4_tunnel, tp_dst) +		\
+-	 FIELD_SIZEOF(struct ovs_key_ipv4_tunnel, tp_dst))
+-
+-struct ovs_key_ipv4_tunnel {
+-	__be64 tun_id;
+-	__be32 ipv4_src;
+-	__be32 ipv4_dst;
+-	__be16 tun_flags;
+-	u8   ipv4_tos;
+-	u8   ipv4_ttl;
+-	__be16 tp_src;
+-	__be16 tp_dst;
+-} __packed __aligned(4); /* Minimize padding. */
+-
+-struct ovs_tunnel_info {
+-	struct ovs_key_ipv4_tunnel tunnel;
+-	const void *options;
+-	u8 options_len;
+-};
+-
+ /* Store options at the end of the array if they are less than the
+  * maximum size. This allows us to get the benefits of variable length
+  * matching for small options.
+@@ -66,55 +45,6 @@ struct ovs_tunnel_info {
+ #define TUN_METADATA_OPTS(flow_key, opt_len) \
+ 	((void *)((flow_key)->tun_opts + TUN_METADATA_OFFSET(opt_len)))
+ 
+-static inline void __ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+-					    __be32 saddr, __be32 daddr,
+-					    u8 tos, u8 ttl,
+-					    __be16 tp_src,
+-					    __be16 tp_dst,
+-					    __be64 tun_id,
+-					    __be16 tun_flags,
+-					    const void *opts,
+-					    u8 opts_len)
+-{
+-	tun_info->tunnel.tun_id = tun_id;
+-	tun_info->tunnel.ipv4_src = saddr;
+-	tun_info->tunnel.ipv4_dst = daddr;
+-	tun_info->tunnel.ipv4_tos = tos;
+-	tun_info->tunnel.ipv4_ttl = ttl;
+-	tun_info->tunnel.tun_flags = tun_flags;
+-
+-	/* For the tunnel types on the top of IPsec, the tp_src and tp_dst of
+-	 * the upper tunnel are used.
+-	 * E.g: GRE over IPSEC, the tp_src and tp_port are zero.
+-	 */
+-	tun_info->tunnel.tp_src = tp_src;
+-	tun_info->tunnel.tp_dst = tp_dst;
+-
+-	/* Clear struct padding. */
+-	if (sizeof(tun_info->tunnel) != OVS_TUNNEL_KEY_SIZE)
+-		memset((unsigned char *)&tun_info->tunnel + OVS_TUNNEL_KEY_SIZE,
+-		       0, sizeof(tun_info->tunnel) - OVS_TUNNEL_KEY_SIZE);
+-
+-	tun_info->options = opts;
+-	tun_info->options_len = opts_len;
+-}
+-
+-static inline void ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+-					  const struct iphdr *iph,
+-					  __be16 tp_src,
+-					  __be16 tp_dst,
+-					  __be64 tun_id,
+-					  __be16 tun_flags,
+-					  const void *opts,
+-					  u8 opts_len)
+-{
+-	__ovs_flow_tun_info_init(tun_info, iph->saddr, iph->daddr,
+-				 iph->tos, iph->ttl,
+-				 tp_src, tp_dst,
+-				 tun_id, tun_flags,
+-				 opts, opts_len);
+-}
+-
+ #define OVS_SW_FLOW_KEY_METADATA_SIZE			\
+ 	(offsetof(struct sw_flow_key, recirc_id) +	\
+ 	FIELD_SIZEOF(struct sw_flow_key, recirc_id))
+@@ -122,7 +52,7 @@ static inline void ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+ struct sw_flow_key {
+ 	u8 tun_opts[255];
+ 	u8 tun_opts_len;
+-	struct ovs_key_ipv4_tunnel tun_key;  /* Encapsulating tunnel key. */
++	struct ip_tunnel_key tun_key;	/* Encapsulating tunnel key. */
+ 	struct {
+ 		u32	priority;	/* Packet QoS priority. */
+ 		u32	skb_mark;	/* SKB mark. */
+@@ -273,7 +203,7 @@ void ovs_flow_stats_clear(struct sw_flow *);
+ u64 ovs_flow_used_time(unsigned long flow_jiffies);
+ 
+ int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key);
+-int ovs_flow_key_extract(const struct ovs_tunnel_info *tun_info,
++int ovs_flow_key_extract(const struct ip_tunnel_info *tun_info,
+ 			 struct sk_buff *skb,
+ 			 struct sw_flow_key *key);
+ /* Extract key from packet coming from userspace. */
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index 624e41c..ecfa530 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -641,7 +641,7 @@ static int vxlan_opt_to_nlattr(struct sk_buff *skb,
+ }
+ 
+ static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
+-				const struct ovs_key_ipv4_tunnel *output,
++				const struct ip_tunnel_key *output,
+ 				const void *tun_opts, int swkey_tun_opts_len)
+ {
+ 	if (output->tun_flags & TUNNEL_KEY &&
+@@ -689,7 +689,7 @@ static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
+ }
+ 
+ static int ipv4_tun_to_nlattr(struct sk_buff *skb,
+-			      const struct ovs_key_ipv4_tunnel *output,
++			      const struct ip_tunnel_key *output,
+ 			      const void *tun_opts, int swkey_tun_opts_len)
+ {
+ 	struct nlattr *nla;
+@@ -708,9 +708,9 @@ static int ipv4_tun_to_nlattr(struct sk_buff *skb,
+ }
+ 
+ int ovs_nla_put_egress_tunnel_key(struct sk_buff *skb,
+-				  const struct ovs_tunnel_info *egress_tun_info)
++				  const struct ip_tunnel_info *egress_tun_info)
+ {
+-	return __ipv4_tun_to_nlattr(skb, &egress_tun_info->tunnel,
++	return __ipv4_tun_to_nlattr(skb, &egress_tun_info->key,
+ 				    egress_tun_info->options,
+ 				    egress_tun_info->options_len);
+ }
+@@ -1746,7 +1746,7 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ {
+ 	struct sw_flow_match match;
+ 	struct sw_flow_key key;
+-	struct ovs_tunnel_info *tun_info;
++	struct ip_tunnel_info *tun_info;
+ 	struct nlattr *a;
+ 	int err = 0, start, opts_type;
+ 
+@@ -1777,7 +1777,7 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 		return PTR_ERR(a);
+ 
+ 	tun_info = nla_data(a);
+-	tun_info->tunnel = key.tun_key;
++	tun_info->key = key.tun_key;
+ 	tun_info->options_len = key.tun_opts_len;
+ 
+ 	if (tun_info->options_len) {
+@@ -2227,13 +2227,13 @@ static int set_action_to_attr(const struct nlattr *a, struct sk_buff *skb)
+ 
+ 	switch (key_type) {
+ 	case OVS_KEY_ATTR_TUNNEL_INFO: {
+-		struct ovs_tunnel_info *tun_info = nla_data(ovs_key);
++		struct ip_tunnel_info *tun_info = nla_data(ovs_key);
+ 
+ 		start = nla_nest_start(skb, OVS_ACTION_ATTR_SET);
+ 		if (!start)
+ 			return -EMSGSIZE;
+ 
+-		err = ipv4_tun_to_nlattr(skb, &tun_info->tunnel,
++		err = ipv4_tun_to_nlattr(skb, &tun_info->key,
+ 					 tun_info->options_len ?
+ 						tun_info->options : NULL,
+ 					 tun_info->options_len);
+diff --git a/net/openvswitch/flow_netlink.h b/net/openvswitch/flow_netlink.h
+index 5c3d75b..ec53eb6 100644
+--- a/net/openvswitch/flow_netlink.h
++++ b/net/openvswitch/flow_netlink.h
+@@ -55,7 +55,7 @@ int ovs_nla_put_mask(const struct sw_flow *flow, struct sk_buff *skb);
+ int ovs_nla_get_match(struct sw_flow_match *, const struct nlattr *key,
+ 		      const struct nlattr *mask, bool log);
+ int ovs_nla_put_egress_tunnel_key(struct sk_buff *,
+-				  const struct ovs_tunnel_info *);
++				  const struct ip_tunnel_info *);
+ 
+ bool ovs_nla_get_ufid(struct sw_flow_id *, const struct nlattr *, bool log);
+ int ovs_nla_get_identifier(struct sw_flow_id *sfid, const struct nlattr *ufid,
+diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
+index 208c576..1da3a14 100644
+--- a/net/openvswitch/vport-geneve.c
++++ b/net/openvswitch/vport-geneve.c
+@@ -77,7 +77,7 @@ static void geneve_rcv(struct geneve_sock *gs, struct sk_buff *skb)
+ 	struct vport *vport = gs->rcv_data;
+ 	struct genevehdr *geneveh = geneve_hdr(skb);
+ 	int opts_len;
+-	struct ovs_tunnel_info tun_info;
++	struct ip_tunnel_info tun_info;
+ 	__be64 key;
+ 	__be16 flags;
+ 
+@@ -90,10 +90,9 @@ static void geneve_rcv(struct geneve_sock *gs, struct sk_buff *skb)
+ 
+ 	key = vni_to_tunnel_id(geneveh->vni);
+ 
+-	ovs_flow_tun_info_init(&tun_info, ip_hdr(skb),
+-			       udp_hdr(skb)->source, udp_hdr(skb)->dest,
+-			       key, flags,
+-			       geneveh->options, opts_len);
++	ip_tunnel_info_init(&tun_info, ip_hdr(skb),
++			    udp_hdr(skb)->source, udp_hdr(skb)->dest,
++			    key, flags, geneveh->options, opts_len);
+ 
+ 	ovs_vport_receive(vport, skb, &tun_info);
+ }
+@@ -165,8 +164,8 @@ error:
+ 
+ static int geneve_tnl_send(struct vport *vport, struct sk_buff *skb)
+ {
+-	const struct ovs_key_ipv4_tunnel *tun_key;
+-	struct ovs_tunnel_info *tun_info;
++	const struct ip_tunnel_key *tun_key;
++	struct ip_tunnel_info *tun_info;
+ 	struct net *net = ovs_dp_get_net(vport->dp);
+ 	struct geneve_port *geneve_port = geneve_vport(vport);
+ 	__be16 dport = inet_sk(geneve_port->gs->sock->sk)->inet_sport;
+@@ -183,7 +182,7 @@ static int geneve_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 		goto error;
+ 	}
+ 
+-	tun_key = &tun_info->tunnel;
++	tun_key = &tun_info->key;
+ 	rt = ovs_tunnel_route_lookup(net, tun_key, skb->mark, &fl, IPPROTO_UDP);
+ 	if (IS_ERR(rt)) {
+ 		err = PTR_ERR(rt);
+@@ -225,7 +224,7 @@ static const char *geneve_get_name(const struct vport *vport)
+ }
+ 
+ static int geneve_get_egress_tun_info(struct vport *vport, struct sk_buff *skb,
+-				      struct ovs_tunnel_info *egress_tun_info)
++				      struct ip_tunnel_info *egress_tun_info)
+ {
+ 	struct geneve_port *geneve_port = geneve_vport(vport);
+ 	struct net *net = ovs_dp_get_net(vport->dp);
+diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+index f17ac96..b87656c 100644
+--- a/net/openvswitch/vport-gre.c
++++ b/net/openvswitch/vport-gre.c
+@@ -67,9 +67,9 @@ static struct sk_buff *__build_header(struct sk_buff *skb,
+ 				      int tunnel_hlen)
+ {
+ 	struct tnl_ptk_info tpi;
+-	const struct ovs_key_ipv4_tunnel *tun_key;
++	const struct ip_tunnel_key *tun_key;
+ 
+-	tun_key = &OVS_CB(skb)->egress_tun_info->tunnel;
++	tun_key = &OVS_CB(skb)->egress_tun_info->key;
+ 
+ 	skb = gre_handle_offloads(skb, !!(tun_key->tun_flags & TUNNEL_CSUM));
+ 	if (IS_ERR(skb))
+@@ -97,7 +97,7 @@ static __be64 key_to_tunnel_id(__be32 key, __be32 seq)
+ static int gre_rcv(struct sk_buff *skb,
+ 		   const struct tnl_ptk_info *tpi)
+ {
+-	struct ovs_tunnel_info tun_info;
++	struct ip_tunnel_info tun_info;
+ 	struct ovs_net *ovs_net;
+ 	struct vport *vport;
+ 	__be64 key;
+@@ -108,8 +108,8 @@ static int gre_rcv(struct sk_buff *skb,
+ 		return PACKET_REJECT;
+ 
+ 	key = key_to_tunnel_id(tpi->key, tpi->seq);
+-	ovs_flow_tun_info_init(&tun_info, ip_hdr(skb), 0, 0, key,
+-			       filter_tnl_flags(tpi->flags), NULL, 0);
++	ip_tunnel_info_init(&tun_info, ip_hdr(skb), 0, 0, key,
++			    filter_tnl_flags(tpi->flags), NULL, 0);
+ 
+ 	ovs_vport_receive(vport, skb, &tun_info);
+ 	return PACKET_RCVD;
+@@ -134,7 +134,7 @@ static int gre_err(struct sk_buff *skb, u32 info,
+ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
+ {
+ 	struct net *net = ovs_dp_get_net(vport->dp);
+-	const struct ovs_key_ipv4_tunnel *tun_key;
++	const struct ip_tunnel_key *tun_key;
+ 	struct flowi4 fl;
+ 	struct rtable *rt;
+ 	int min_headroom;
+@@ -147,7 +147,7 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 		goto err_free_skb;
+ 	}
+ 
+-	tun_key = &OVS_CB(skb)->egress_tun_info->tunnel;
++	tun_key = &OVS_CB(skb)->egress_tun_info->key;
+ 	rt = ovs_tunnel_route_lookup(net, tun_key, skb->mark, &fl, IPPROTO_GRE);
+ 	if (IS_ERR(rt)) {
+ 		err = PTR_ERR(rt);
+@@ -277,7 +277,7 @@ static void gre_tnl_destroy(struct vport *vport)
+ }
+ 
+ static int gre_get_egress_tun_info(struct vport *vport, struct sk_buff *skb,
+-				   struct ovs_tunnel_info *egress_tun_info)
++				   struct ip_tunnel_info *egress_tun_info)
+ {
+ 	return ovs_tunnel_get_egress_info(egress_tun_info,
+ 					  ovs_dp_get_net(vport->dp),
+diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+index 6d39766..6f7986f 100644
+--- a/net/openvswitch/vport-vxlan.c
++++ b/net/openvswitch/vport-vxlan.c
+@@ -64,7 +64,7 @@ static inline struct vxlan_port *vxlan_vport(const struct vport *vport)
+ static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb,
+ 		      struct vxlan_metadata *md)
+ {
+-	struct ovs_tunnel_info tun_info;
++	struct ip_tunnel_info tun_info;
+ 	struct vxlan_port *vxlan_port;
+ 	struct vport *vport = vs->data;
+ 	struct iphdr *iph;
+@@ -82,9 +82,9 @@ static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb,
+ 	/* Save outer tunnel values */
+ 	iph = ip_hdr(skb);
+ 	key = cpu_to_be64(ntohl(md->vni) >> 8);
+-	ovs_flow_tun_info_init(&tun_info, iph,
+-			       udp_hdr(skb)->source, udp_hdr(skb)->dest,
+-			       key, flags, &opts, sizeof(opts));
++	ip_tunnel_info_init(&tun_info, iph,
++			    udp_hdr(skb)->source, udp_hdr(skb)->dest,
++			    key, flags, &opts, sizeof(opts));
+ 
+ 	ovs_vport_receive(vport, skb, &tun_info);
+ }
+@@ -205,13 +205,13 @@ error:
+ 
+ static int vxlan_ext_gbp(struct sk_buff *skb)
+ {
+-	const struct ovs_tunnel_info *tun_info;
++	const struct ip_tunnel_info *tun_info;
+ 	const struct ovs_vxlan_opts *opts;
+ 
+ 	tun_info = OVS_CB(skb)->egress_tun_info;
+ 	opts = tun_info->options;
+ 
+-	if (tun_info->tunnel.tun_flags & TUNNEL_VXLAN_OPT &&
++	if (tun_info->key.tun_flags & TUNNEL_VXLAN_OPT &&
+ 	    tun_info->options_len >= sizeof(*opts))
+ 		return opts->gbp;
+ 	else
+@@ -224,7 +224,7 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 	struct vxlan_port *vxlan_port = vxlan_vport(vport);
+ 	struct sock *sk = vxlan_port->vs->sock->sk;
+ 	__be16 dst_port = inet_sk(sk)->inet_sport;
+-	const struct ovs_key_ipv4_tunnel *tun_key;
++	const struct ip_tunnel_key *tun_key;
+ 	struct vxlan_metadata md = {0};
+ 	struct rtable *rt;
+ 	struct flowi4 fl;
+@@ -238,7 +238,7 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 		goto error;
+ 	}
+ 
+-	tun_key = &OVS_CB(skb)->egress_tun_info->tunnel;
++	tun_key = &OVS_CB(skb)->egress_tun_info->key;
+ 	rt = ovs_tunnel_route_lookup(net, tun_key, skb->mark, &fl, IPPROTO_UDP);
+ 	if (IS_ERR(rt)) {
+ 		err = PTR_ERR(rt);
+@@ -269,7 +269,7 @@ error:
+ }
+ 
+ static int vxlan_get_egress_tun_info(struct vport *vport, struct sk_buff *skb,
+-				     struct ovs_tunnel_info *egress_tun_info)
++				     struct ip_tunnel_info *egress_tun_info)
+ {
+ 	struct net *net = ovs_dp_get_net(vport->dp);
+ 	struct vxlan_port *vxlan_port = vxlan_vport(vport);
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index 067a3ff..af23ba0 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -469,7 +469,7 @@ u32 ovs_vport_find_upcall_portid(const struct vport *vport, struct sk_buff *skb)
+  * skb->data should point to the Ethernet header.
+  */
+ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb,
+-		       const struct ovs_tunnel_info *tun_info)
++		       const struct ip_tunnel_info *tun_info)
+ {
+ 	struct pcpu_sw_netstats *stats;
+ 	struct sw_flow_key key;
+@@ -572,22 +572,22 @@ void ovs_vport_deferred_free(struct vport *vport)
+ }
+ EXPORT_SYMBOL_GPL(ovs_vport_deferred_free);
+ 
+-int ovs_tunnel_get_egress_info(struct ovs_tunnel_info *egress_tun_info,
++int ovs_tunnel_get_egress_info(struct ip_tunnel_info *egress_tun_info,
+ 			       struct net *net,
+-			       const struct ovs_tunnel_info *tun_info,
++			       const struct ip_tunnel_info *tun_info,
+ 			       u8 ipproto,
+ 			       u32 skb_mark,
+ 			       __be16 tp_src,
+ 			       __be16 tp_dst)
+ {
+-	const struct ovs_key_ipv4_tunnel *tun_key;
++	const struct ip_tunnel_key *tun_key;
+ 	struct rtable *rt;
+ 	struct flowi4 fl;
+ 
+ 	if (unlikely(!tun_info))
+ 		return -EINVAL;
+ 
+-	tun_key = &tun_info->tunnel;
++	tun_key = &tun_info->key;
+ 
+ 	/* Route lookup to get srouce IP address.
+ 	 * The process may need to be changed if the corresponding process
+@@ -602,22 +602,22 @@ int ovs_tunnel_get_egress_info(struct ovs_tunnel_info *egress_tun_info,
+ 	/* Generate egress_tun_info based on tun_info,
+ 	 * saddr, tp_src and tp_dst
+ 	 */
+-	__ovs_flow_tun_info_init(egress_tun_info,
+-				 fl.saddr, tun_key->ipv4_dst,
+-				 tun_key->ipv4_tos,
+-				 tun_key->ipv4_ttl,
+-				 tp_src, tp_dst,
+-				 tun_key->tun_id,
+-				 tun_key->tun_flags,
+-				 tun_info->options,
+-				 tun_info->options_len);
++	__ip_tunnel_info_init(egress_tun_info,
++			      fl.saddr, tun_key->ipv4_dst,
++			      tun_key->ipv4_tos,
++			      tun_key->ipv4_ttl,
++			      tp_src, tp_dst,
++			      tun_key->tun_id,
++			      tun_key->tun_flags,
++			      tun_info->options,
++			      tun_info->options_len);
+ 
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(ovs_tunnel_get_egress_info);
+ 
+ int ovs_vport_get_egress_tun_info(struct vport *vport, struct sk_buff *skb,
+-				  struct ovs_tunnel_info *info)
++				  struct ip_tunnel_info *info)
+ {
+ 	/* get_egress_tun_info() is only implemented on tunnel ports. */
+ 	if (unlikely(!vport->ops->get_egress_tun_info))
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index bc85331..4750fb6 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -58,15 +58,15 @@ u32 ovs_vport_find_upcall_portid(const struct vport *, struct sk_buff *);
+ 
+ int ovs_vport_send(struct vport *, struct sk_buff *);
+ 
+-int ovs_tunnel_get_egress_info(struct ovs_tunnel_info *egress_tun_info,
++int ovs_tunnel_get_egress_info(struct ip_tunnel_info *egress_tun_info,
+ 			       struct net *net,
+-			       const struct ovs_tunnel_info *tun_info,
++			       const struct ip_tunnel_info *tun_info,
+ 			       u8 ipproto,
+ 			       u32 skb_mark,
+ 			       __be16 tp_src,
+ 			       __be16 tp_dst);
+ int ovs_vport_get_egress_tun_info(struct vport *vport, struct sk_buff *skb,
+-				  struct ovs_tunnel_info *info);
++				  struct ip_tunnel_info *info);
+ 
+ /* The following definitions are for implementers of vport devices: */
+ 
+@@ -176,7 +176,7 @@ struct vport_ops {
+ 
+ 	int (*send)(struct vport *, struct sk_buff *);
+ 	int (*get_egress_tun_info)(struct vport *, struct sk_buff *,
+-				   struct ovs_tunnel_info *);
++				   struct ip_tunnel_info *);
+ 
+ 	struct module *owner;
+ 	struct list_head list;
+@@ -226,7 +226,7 @@ static inline struct vport *vport_from_priv(void *priv)
+ }
+ 
+ void ovs_vport_receive(struct vport *, struct sk_buff *,
+-		       const struct ovs_tunnel_info *);
++		       const struct ip_tunnel_info *);
+ 
+ static inline void ovs_skb_postpush_rcsum(struct sk_buff *skb,
+ 				      const void *start, unsigned int len)
+@@ -239,7 +239,7 @@ int ovs_vport_ops_register(struct vport_ops *ops);
+ void ovs_vport_ops_unregister(struct vport_ops *ops);
+ 
+ static inline struct rtable *ovs_tunnel_route_lookup(struct net *net,
+-						     const struct ovs_key_ipv4_tunnel *key,
++						     const struct ip_tunnel_key *key,
+ 						     u32 mark,
+ 						     struct flowi4 *fl,
+ 						     u8 protocol)
+-- 
+2.4.3
