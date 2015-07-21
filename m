@@ -1,49 +1,39 @@
-From: Chris J Arges <chris.j.arges@canonical.com>
-Subject: [PATCH v2] openvswitch: allocate nr_node_ids flow_stats instead of num_possible_nodes
-Date: Tue, 21 Jul 2015 12:36:33 -0500
-Message-ID: <1437500193-10255-1-git-send-email-chris.j.arges@canonical.com>
-References: <20150721162418.GM38815@linux.vnet.ibm.com>
-Cc: linuxppc-dev@lists.ozlabs.org, benh@kernel.crashing.org,
-	linux-numa@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, dev@openvswitch.org,
-	linux-kernel@vger.kernel.org,
-	Chris J Arges <chris.j.arges@canonical.com>
-To: nacc@linux.vnet.ibm.com, pshelar@nicira.com
-Return-path: <linux-numa-owner@vger.kernel.org>
-In-Reply-To: <20150721162418.GM38815@linux.vnet.ibm.com>
-Sender: linux-numa-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net] inet: frags: fix defragmented packet's IP
+ header for af_packet
+Date: Tue, 21 Jul 2015 10:37:53 -0700 (PDT)
+Message-ID: <20150721.103753.1054475332849936583.davem@davemloft.net>
+References: <1437464639.1026.48.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edjee@google.com, willemb@google.com,
+	hkchu@google.com, edumazet@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60408 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933274AbbGURh5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 13:37:57 -0400
+In-Reply-To: <1437464639.1026.48.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some architectures like POWER can have a NUMA node_possible_map that
-contains sparse entries. This causes memory corruption with openvswitch
-since it allocates flow_cache with a multiple of num_possible_nodes() and
-assumes the node variable returned by for_each_node will index into
-flow->stats[node].
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 21 Jul 2015 09:43:59 +0200
 
-Use nr_node_ids to allocate a maximal sparse array instead of
-num_possible_nodes().
+> From: Edward Hyunkoo Jee <edjee@google.com>
+> 
+> When ip_frag_queue() computes positions, it assumes that the passed
+> sk_buff does not contain L2 headers.
+> 
+> However, when PACKET_FANOUT_FLAG_DEFRAG is used, IP reassembly
+> functions can be called on outgoing packets that contain L2 headers. 
+> 
+> Also, IPv4 checksum is not corrected after reassembly.
+> 
+> Fixes: 7736d33f4262 ("packet: Add pre-defragmentation support for ipv4 fanouts.")
+> Signed-off-by: Edward Hyunkoo Jee <edjee@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-The crash was noticed after 3af229f2 was applied as it changed the
-node_possible_map to match node_online_map on boot.
-Fixes: 3af229f2071f5b5cb31664be6109561fbe19c861
-
-Signed-off-by: Chris J Arges <chris.j.arges@canonical.com>
----
- net/openvswitch/flow_table.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
-index 4613df8..6552394 100644
---- a/net/openvswitch/flow_table.c
-+++ b/net/openvswitch/flow_table.c
-@@ -752,7 +752,7 @@ int ovs_flow_init(void)
- 	BUILD_BUG_ON(sizeof(struct sw_flow_key) % sizeof(long));
- 
- 	flow_cache = kmem_cache_create("sw_flow", sizeof(struct sw_flow)
--				       + (num_possible_nodes()
-+				       + (nr_node_ids
- 					  * sizeof(struct flow_stats *)),
- 				       0, 0, NULL);
- 	if (flow_cache == NULL)
--- 
-1.9.1
+Applied and queued up for -stable, thanks.
