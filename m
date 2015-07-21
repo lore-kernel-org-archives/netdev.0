@@ -1,61 +1,88 @@
 From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: [PATCH V2 net 1/3] ARM: net: fix condition for load_order > 0 when
- translating load instructions.
-Date: Tue, 21 Jul 2015 14:14:12 +0200
-Message-ID: <1437480854-22684-2-git-send-email-nschichan@freebox.fr>
-References: <1437480854-22684-1-git-send-email-nschichan@freebox.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Subject: [PATCH V2 net-next 3/3] ARM: net: add support for BPF_ANC | SKF_AD_HATYPE in ARM JIT.
+Date: Tue, 21 Jul 2015 14:16:40 +0200
+Message-ID: <1437481000-22835-4-git-send-email-nschichan@freebox.fr>
+References: <1437481000-22835-1-git-send-email-nschichan@freebox.fr>
 Cc: Russell King <linux@arm.linux.org.uk>,
- Alexei Starovoitov <ast@plumgrid.com>
+	Alexei Starovoitov <ast@plumgrid.com>
 To: "David S. Miller" <davem@davemloft.net>,
- Daniel Borkmann <dborkman@redhat.com>,
- Nicolas Schichan <nschichan@freebox.fr>,
- Mircea Gherzan <mgherzan@gmail.com>, linux-arm-kernel@lists.infradead.org,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1437480854-22684-1-git-send-email-nschichan@freebox.fr>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+	Daniel Borkmann <dborkman@redhat.com>,
+	Nicolas Schichan <nschichan@freebox.fr>,
+	Mircea Gherzan <mgherzan@gmail.com>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437481000-22835-1-git-send-email-nschichan@freebox.fr>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
-
-To check whether the load should take the fast path or not, the code
-would check that (r_skb_hlen - load_order) is greater than the offset
-of the access using an "Unsigned higher or same" condition. For
-halfword accesses and an skb length of 1 at offset 0, that test is
-valid, as we end up comparing 0xffffffff(-1) and 0, so the fast path
-is taken and the filter allows the load to wrongly succeed. A similar
-issue exists for word loads at offset 0 and an skb length of less than
-4.
-
-Fix that by using the condition "Signed greater than or equal"
-condition for the fast path code for load orders greater than 0.
 
 Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
 ---
- arch/arm/net/bpf_jit_32.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/arm/net/bpf_jit_32.c | 22 ++++++++++++++++++++--
+ arch/arm/net/bpf_jit_32.h |  3 +++
+ 2 files changed, 23 insertions(+), 2 deletions(-)
 
 diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
-index 4550d24..21f5ace 100644
+index fe28beb..6dcff2b 100644
 --- a/arch/arm/net/bpf_jit_32.c
 +++ b/arch/arm/net/bpf_jit_32.c
-@@ -547,7 +547,7 @@ load_common:
- 				emit(ARM_SUB_I(r_scratch, r_skb_hl,
- 					       1 << load_order), ctx);
- 				emit(ARM_CMP_R(r_scratch, r_off), ctx);
--				condt = ARM_COND_HS;
-+				condt = ARM_COND_GE;
- 			} else {
- 				emit(ARM_CMP_R(r_skb_hl, r_off), ctx);
- 				condt = ARM_COND_HI;
+@@ -828,7 +828,9 @@ b_epilogue:
+ 			emit(ARM_LDR_I(r_A, r_scratch, off), ctx);
+ 			break;
+ 		case BPF_ANC | SKF_AD_IFINDEX:
++		case BPF_ANC | SKF_AD_HATYPE:
+ 			/* A = skb->dev->ifindex */
++			/* A = skb->dev->type */
+ 			ctx->seen |= SEEN_SKB;
+ 			off = offsetof(struct sk_buff, dev);
+ 			emit(ARM_LDR_I(r_scratch, r_skb, off), ctx);
+@@ -838,8 +840,24 @@ b_epilogue:
+ 
+ 			BUILD_BUG_ON(FIELD_SIZEOF(struct net_device,
+ 						  ifindex) != 4);
+-			off = offsetof(struct net_device, ifindex);
+-			emit(ARM_LDR_I(r_A, r_scratch, off), ctx);
++			BUILD_BUG_ON(FIELD_SIZEOF(struct net_device,
++						  type) != 2);
++
++			if (code == (BPF_ANC | SKF_AD_IFINDEX)) {
++				off = offsetof(struct net_device, ifindex);
++				emit(ARM_LDR_I(r_A, r_scratch, off), ctx);
++			} else {
++				/*
++				 * offset of field "type" in "struct
++				 * net_device" is above what can be
++				 * used in the ldrh rd, [rn, #imm]
++				 * instruction, so load the offset in
++				 * a register and use ldrh rd, [rn, rm]
++				 */
++				off = offsetof(struct net_device, type);
++				emit_mov_i(ARM_R3, off, ctx);
++				emit(ARM_LDRH_R(r_A, r_scratch, ARM_R3), ctx);
++			}
+ 			break;
+ 		case BPF_ANC | SKF_AD_MARK:
+ 			ctx->seen |= SEEN_SKB;
+diff --git a/arch/arm/net/bpf_jit_32.h b/arch/arm/net/bpf_jit_32.h
+index b2d7d92..4b17d5ab 100644
+--- a/arch/arm/net/bpf_jit_32.h
++++ b/arch/arm/net/bpf_jit_32.h
+@@ -74,6 +74,7 @@
+ #define ARM_INST_LDRB_I		0x05d00000
+ #define ARM_INST_LDRB_R		0x07d00000
+ #define ARM_INST_LDRH_I		0x01d000b0
++#define ARM_INST_LDRH_R		0x019000b0
+ #define ARM_INST_LDR_I		0x05900000
+ 
+ #define ARM_INST_LDM		0x08900000
+@@ -160,6 +161,8 @@
+ 				 | (rm))
+ #define ARM_LDRH_I(rt, rn, off)	(ARM_INST_LDRH_I | (rt) << 12 | (rn) << 16 \
+ 				 | (((off) & 0xf0) << 4) | ((off) & 0xf))
++#define ARM_LDRH_R(rt, rn, rm)	(ARM_INST_LDRH_R | (rt) << 12 | (rn) << 16 \
++				 | (rm))
+ 
+ #define ARM_LDM(rn, regs)	(ARM_INST_LDM | (rn) << 16 | (regs))
+ 
 -- 
 1.9.1
