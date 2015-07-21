@@ -1,31 +1,33 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: rtlwifi: rtl8821ae: Fix an expression that is always false
-Date: Tue, 21 Jul 2015 14:59:08 +0000 (UTC)
-Message-ID: <20150721145908.9F8EC141A64@smtp.codeaurora.org>
-References: <1436368730-636-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [v2] brcmsmac: Use kstrdup to simplify code
+Date: Tue, 21 Jul 2015 14:59:55 +0000 (UTC)
+Message-ID: <20150721145955.0E500141A8D@smtp.codeaurora.org>
+References: <1436386966-16148-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>,
-	David Binderman <dcb314@hotmail.com>
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1436368730-636-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: stable-owner@vger.kernel.org
+Cc: brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+To: Christophe Jaillet <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1436386966-16148-1-git-send-email-christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
-> In routine _rtl8821ae_set_media_status(), an incorrect mask results in a test
-> for AP status to always be false. Similar bugs were fixed in rtl8192cu and
-> rtl8192de, but this instance was missed at that time.
+> Replace a kmalloc+strcpy by an equivalent kstrdup in order to improve
+> readability.
 > 
-> Reported-by: David Binderman <dcb314@hotmail.com>
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> Cc: Stable <stable@vger.kernel.org> [3.18+]
-> Cc: David Binderman <dcb314@hotmail.com>
+> Signed-off-by: Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+> Acked-by: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 
 Thanks, applied to wireless-drivers-next.git.
 
 Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
