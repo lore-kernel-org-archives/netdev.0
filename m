@@ -1,7 +1,7 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 15/22] route: Extend flow representation with tunnel key
-Date: Tue, 21 Jul 2015 10:43:59 +0200
-Message-ID: <4ddc4d8086ea817a91caa87e33e2441c8de7f500.1437468140.git.tgraf@suug.ch>
+Subject: [PATCH net-next 16/22] route: Per route IP tunnel metadata via lightweight tunnel
+Date: Tue, 21 Jul 2015 10:44:00 +0200
+Message-ID: <b1b08922946946e2bf7f467b3c0727795049ce27.1437468140.git.tgraf@suug.ch>
 References: <cover.1437468140.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org
 To: roopa@cumulusnetworks.com, rshearma@brocade.com,
@@ -13,134 +13,312 @@ To: roopa@cumulusnetworks.com, rshearma@brocade.com,
 	simon.horman@netronome.com, joestringer@nicira.com, ja@ssi.bg,
 	ast@plumgrid.com, weichunc@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:40107 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:40124 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754227AbbGUIo3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 04:44:29 -0400
+	with ESMTP id S1754229AbbGUIoa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 04:44:30 -0400
 In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
 In-Reply-To: <cover.1437468140.git.tgraf@suug.ch>
 References: <cover.1437468140.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a new flowi_tunnel structure which is a subset of ip_tunnel_key to
-allow routes to match on tunnel metadata. For now, the tunnel id is
-added to flowi_tunnel which allows for routes to be bound to specific
-virtual tunnels.
+This introduces a new IP tunnel lightweight tunnel type which allows
+to specify IP tunnel instructions per route. Only IPv4 is supported
+at this point.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- include/net/flow.h      | 8 ++++++++
- net/ipv4/fib_frontend.c | 2 ++
- net/ipv4/route.c        | 8 ++++++++
- 3 files changed, 18 insertions(+)
+ drivers/net/vxlan.c            |  10 +++-
+ include/net/dst_metadata.h     |  12 ++++-
+ include/net/ip_tunnels.h       |   7 ++-
+ include/uapi/linux/lwtunnel.h  |   1 +
+ include/uapi/linux/rtnetlink.h |  15 ++++++
+ net/ipv4/ip_tunnel_core.c      | 114 +++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/route.c               |   2 +-
+ net/openvswitch/vport.h        |   1 +
+ 8 files changed, 157 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/flow.h b/include/net/flow.h
-index 8109a15..3098ae3 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -19,6 +19,10 @@
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 06c092b..9486d7e 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1935,7 +1935,7 @@ static void vxlan_encap_bypass(struct sk_buff *skb, struct vxlan_dev *src_vxlan,
+ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 			   struct vxlan_rdst *rdst, bool did_rsc)
+ {
+-	struct ip_tunnel_info *info = skb_tunnel_info(skb);
++	struct ip_tunnel_info *info;
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+ 	struct sock *sk = vxlan->vn_sock->sock->sk;
+ 	struct rtable *rt = NULL;
+@@ -1952,6 +1952,9 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	int err;
+ 	u32 flags = vxlan->flags;
  
- #define LOOPBACK_IFINDEX	1
- 
-+struct flowi_tunnel {
-+	__be64			tun_id;
-+};
++	/* FIXME: Support IPv6 */
++	info = skb_tunnel_info(skb, AF_INET);
 +
- struct flowi_common {
- 	int	flowic_oif;
- 	int	flowic_iif;
-@@ -30,6 +34,7 @@ struct flowi_common {
- #define FLOWI_FLAG_ANYSRC		0x01
- #define FLOWI_FLAG_KNOWN_NH		0x02
- 	__u32	flowic_secid;
-+	struct flowi_tunnel flowic_tun_key;
+ 	if (rdst) {
+ 		dst_port = rdst->remote_port ? rdst->remote_port : vxlan->dst_port;
+ 		vni = rdst->remote_vni;
+@@ -2141,12 +2144,15 @@ tx_free:
+ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+-	const struct ip_tunnel_info *info = skb_tunnel_info(skb);
++	const struct ip_tunnel_info *info;
+ 	struct ethhdr *eth;
+ 	bool did_rsc = false;
+ 	struct vxlan_rdst *rdst, *fdst = NULL;
+ 	struct vxlan_fdb *f;
+ 
++	/* FIXME: Support IPv6 */
++	info = skb_tunnel_info(skb, AF_INET);
++
+ 	skb_reset_mac_header(skb);
+ 	eth = eth_hdr(skb);
+ 
+diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
+index e843937..7b03068 100644
+--- a/include/net/dst_metadata.h
++++ b/include/net/dst_metadata.h
+@@ -23,13 +23,23 @@ static inline struct metadata_dst *skb_metadata_dst(struct sk_buff *skb)
+ 	return NULL;
+ }
+ 
+-static inline struct ip_tunnel_info *skb_tunnel_info(struct sk_buff *skb)
++static inline struct ip_tunnel_info *skb_tunnel_info(struct sk_buff *skb,
++						     int family)
+ {
+ 	struct metadata_dst *md_dst = skb_metadata_dst(skb);
++	struct rtable *rt;
+ 
+ 	if (md_dst)
+ 		return &md_dst->u.tun_info;
+ 
++	switch (family) {
++	case AF_INET:
++		rt = (struct rtable *)skb_dst(skb);
++		if (rt && rt->rt_lwtstate)
++			return lwt_tun_info(rt->rt_lwtstate);
++		break;
++	}
++
+ 	return NULL;
+ }
+ 
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index d11530f..0b7e18c 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -9,9 +9,9 @@
+ #include <net/dsfield.h>
+ #include <net/gro_cells.h>
+ #include <net/inet_ecn.h>
+-#include <net/ip.h>
+ #include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
++#include <net/lwtunnel.h>
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ #include <net/ipv6.h>
+@@ -298,6 +298,11 @@ static inline void *ip_tunnel_info_opts(struct ip_tunnel_info *info, size_t n)
+ 	return info + 1;
+ }
+ 
++static inline struct ip_tunnel_info *lwt_tun_info(struct lwtunnel_state *lwtstate)
++{
++	return (struct ip_tunnel_info *)lwtstate->data;
++}
++
+ #endif /* CONFIG_INET */
+ 
+ #endif /* __NET_IP_TUNNELS_H */
+diff --git a/include/uapi/linux/lwtunnel.h b/include/uapi/linux/lwtunnel.h
+index aa611d9..31377bb 100644
+--- a/include/uapi/linux/lwtunnel.h
++++ b/include/uapi/linux/lwtunnel.h
+@@ -6,6 +6,7 @@
+ enum lwtunnel_encap_types {
+ 	LWTUNNEL_ENCAP_NONE,
+ 	LWTUNNEL_ENCAP_MPLS,
++	LWTUNNEL_ENCAP_IP,
+ 	__LWTUNNEL_ENCAP_MAX,
  };
  
- union flowi_uli {
-@@ -66,6 +71,7 @@ struct flowi4 {
- #define flowi4_proto		__fl_common.flowic_proto
- #define flowi4_flags		__fl_common.flowic_flags
- #define flowi4_secid		__fl_common.flowic_secid
-+#define flowi4_tun_key		__fl_common.flowic_tun_key
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 0d3d3cc..47d24cb 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -286,6 +286,21 @@ enum rt_class_t {
  
- 	/* (saddr,daddr) must be grouped, same order as in IP header */
- 	__be32			saddr;
-@@ -95,6 +101,7 @@ static inline void flowi4_init_output(struct flowi4 *fl4, int oif,
- 	fl4->flowi4_proto = proto;
- 	fl4->flowi4_flags = flags;
- 	fl4->flowi4_secid = 0;
-+	fl4->flowi4_tun_key.tun_id = 0;
- 	fl4->daddr = daddr;
- 	fl4->saddr = saddr;
- 	fl4->fl4_dport = dport;
-@@ -165,6 +172,7 @@ struct flowi {
- #define flowi_proto	u.__fl_common.flowic_proto
- #define flowi_flags	u.__fl_common.flowic_flags
- #define flowi_secid	u.__fl_common.flowic_secid
-+#define flowi_tun_key	u.__fl_common.flowic_tun_key
- } __attribute__((__aligned__(BITS_PER_LONG/8)));
+ /* Routing message attributes */
  
- static inline struct flowi *flowi4_to_flowi(struct flowi4 *fl4)
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 9b2019c..6b98de0 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -280,6 +280,7 @@ __be32 fib_compute_spec_dst(struct sk_buff *skb)
- 		fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
- 		fl4.flowi4_scope = scope;
- 		fl4.flowi4_mark = IN_DEV_SRC_VMARK(in_dev) ? skb->mark : 0;
-+		fl4.flowi4_tun_key.tun_id = 0;
- 		if (!fib_lookup(net, &fl4, &res, 0))
- 			return FIB_RES_PREFSRC(net, res);
- 	} else {
-@@ -313,6 +314,7 @@ static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
- 	fl4.saddr = dst;
- 	fl4.flowi4_tos = tos;
- 	fl4.flowi4_scope = RT_SCOPE_UNIVERSE;
-+	fl4.flowi4_tun_key.tun_id = 0;
- 
- 	no_addr = idev->ifa_list == NULL;
- 
++enum ip_tunnel_t {
++	IP_TUN_UNSPEC,
++	IP_TUN_ID,
++	IP_TUN_DST,
++	IP_TUN_SRC,
++	IP_TUN_TTL,
++	IP_TUN_TOS,
++	IP_TUN_SPORT,
++	IP_TUN_DPORT,
++	IP_TUN_FLAGS,
++	__IP_TUN_MAX,
++};
++
++#define IP_TUN_MAX (__IP_TUN_MAX - 1)
++
+ enum rtattr_type_t {
+ 	RTA_UNSPEC,
+ 	RTA_DST,
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 6a51a71..025b76e 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -190,3 +190,117 @@ struct rtnl_link_stats64 *ip_tunnel_get_stats64(struct net_device *dev,
+ 	return tot;
+ }
+ EXPORT_SYMBOL_GPL(ip_tunnel_get_stats64);
++
++static const struct nla_policy ip_tun_policy[IP_TUN_MAX + 1] = {
++	[IP_TUN_ID]		= { .type = NLA_U64 },
++	[IP_TUN_DST]		= { .type = NLA_U32 },
++	[IP_TUN_SRC]		= { .type = NLA_U32 },
++	[IP_TUN_TTL]		= { .type = NLA_U8 },
++	[IP_TUN_TOS]		= { .type = NLA_U8 },
++	[IP_TUN_SPORT]		= { .type = NLA_U16 },
++	[IP_TUN_DPORT]		= { .type = NLA_U16 },
++	[IP_TUN_FLAGS]		= { .type = NLA_U16 },
++};
++
++static int ip_tun_build_state(struct net_device *dev, struct nlattr *attr,
++			      struct lwtunnel_state **ts)
++{
++	struct ip_tunnel_info *tun_info;
++	struct lwtunnel_state *new_state;
++	struct nlattr *tb[IP_TUN_MAX + 1];
++	int err;
++
++	err = nla_parse_nested(tb, IP_TUN_MAX, attr, ip_tun_policy);
++	if (err < 0)
++		return err;
++
++	new_state = lwtunnel_state_alloc(sizeof(*tun_info));
++	if (!new_state)
++		return -ENOMEM;
++
++	new_state->type = LWTUNNEL_ENCAP_IP;
++
++	tun_info = lwt_tun_info(new_state);
++
++	if (tb[IP_TUN_ID])
++		tun_info->key.tun_id = nla_get_u64(tb[IP_TUN_ID]);
++
++	if (tb[IP_TUN_DST])
++		tun_info->key.ipv4_dst = nla_get_be32(tb[IP_TUN_DST]);
++
++	if (tb[IP_TUN_SRC])
++		tun_info->key.ipv4_src = nla_get_be32(tb[IP_TUN_SRC]);
++
++	if (tb[IP_TUN_TTL])
++		tun_info->key.ipv4_ttl = nla_get_u8(tb[IP_TUN_TTL]);
++
++	if (tb[IP_TUN_TOS])
++		tun_info->key.ipv4_tos = nla_get_u8(tb[IP_TUN_TOS]);
++
++	if (tb[IP_TUN_SPORT])
++		tun_info->key.tp_src = nla_get_be16(tb[IP_TUN_SPORT]);
++
++	if (tb[IP_TUN_DPORT])
++		tun_info->key.tp_dst = nla_get_be16(tb[IP_TUN_DPORT]);
++
++	if (tb[IP_TUN_FLAGS])
++		tun_info->key.tun_flags = nla_get_u16(tb[IP_TUN_FLAGS]);
++
++	tun_info->mode = IP_TUNNEL_INFO_TX;
++	tun_info->options = NULL;
++	tun_info->options_len = 0;
++
++	*ts = new_state;
++
++	return 0;
++}
++
++static int ip_tun_fill_encap_info(struct sk_buff *skb,
++				  struct lwtunnel_state *lwtstate)
++{
++	struct ip_tunnel_info *tun_info = lwt_tun_info(lwtstate);
++
++	if (nla_put_u64(skb, IP_TUN_ID, tun_info->key.tun_id) ||
++	    nla_put_be32(skb, IP_TUN_DST, tun_info->key.ipv4_dst) ||
++	    nla_put_be32(skb, IP_TUN_SRC, tun_info->key.ipv4_src) ||
++	    nla_put_u8(skb, IP_TUN_TOS, tun_info->key.ipv4_tos) ||
++	    nla_put_u8(skb, IP_TUN_TTL, tun_info->key.ipv4_ttl) ||
++	    nla_put_u16(skb, IP_TUN_SPORT, tun_info->key.tp_src) ||
++	    nla_put_u16(skb, IP_TUN_DPORT, tun_info->key.tp_dst) ||
++	    nla_put_u16(skb, IP_TUN_FLAGS, tun_info->key.tun_flags))
++		return -ENOMEM;
++
++	return 0;
++}
++
++static int ip_tun_encap_nlsize(struct lwtunnel_state *lwtstate)
++{
++	return nla_total_size(8)	/* IP_TUN_ID */
++		+ nla_total_size(4)	/* IP_TUN_DST */
++		+ nla_total_size(4)	/* IP_TUN_SRC */
++		+ nla_total_size(1)	/* IP_TUN_TOS */
++		+ nla_total_size(1)	/* IP_TUN_TTL */
++		+ nla_total_size(2)	/* IP_TUN_SPORT */
++		+ nla_total_size(2)	/* IP_TUN_DPORT */
++		+ nla_total_size(2);	/* IP_TUN_FLAGS */
++}
++
++static const struct lwtunnel_encap_ops ip_tun_lwt_ops = {
++	.build_state = ip_tun_build_state,
++	.fill_encap = ip_tun_fill_encap_info,
++	.get_encap_size = ip_tun_encap_nlsize,
++};
++
++static int __init ip_tunnel_core_init(void)
++{
++	lwtunnel_encap_add_ops(&ip_tun_lwt_ops, LWTUNNEL_ENCAP_IP);
++
++	return 0;
++}
++module_init(ip_tunnel_core_init);
++
++static void __exit ip_tunnel_core_exit(void)
++{
++	lwtunnel_encap_del_ops(&ip_tun_lwt_ops, LWTUNNEL_ENCAP_IP);
++}
++module_exit(ip_tunnel_core_exit);
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 4c8e84e..91da18b 100644
+index 91da18b..519ec23 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -91,6 +91,7 @@
- #include <linux/slab.h>
- #include <linux/jhash.h>
- #include <net/dst.h>
-+#include <net/dst_metadata.h>
- #include <net/net_namespace.h>
- #include <net/protocol.h>
- #include <net/ip.h>
-@@ -110,6 +111,7 @@
- #include <linux/kmemleak.h>
- #endif
- #include <net/secure_seq.h>
-+#include <net/ip_tunnels.h>
- 
- #define RT_FL_TOS(oldflp4) \
- 	((oldflp4)->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK))
-@@ -1673,6 +1675,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- {
- 	struct fib_result res;
- 	struct in_device *in_dev = __in_dev_get_rcu(dev);
-+	struct ip_tunnel_info *tun_info;
- 	struct flowi4	fl4;
- 	unsigned int	flags = 0;
- 	u32		itag = 0;
-@@ -1690,6 +1693,11 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+@@ -1693,7 +1693,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
  	   by fib_lookup.
  	 */
  
-+	tun_info = skb_tunnel_info(skb);
-+	if (tun_info && tun_info->mode == IP_TUNNEL_INFO_RX)
-+		fl4.flowi4_tun_key.tun_id = tun_info->key.tun_id;
-+	else
-+		fl4.flowi4_tun_key.tun_id = 0;
- 	skb_dst_drop(skb);
+-	tun_info = skb_tunnel_info(skb);
++	tun_info = skb_tunnel_info(skb, AF_INET);
+ 	if (tun_info && tun_info->mode == IP_TUNNEL_INFO_RX)
+ 		fl4.flowi4_tun_key.tun_id = tun_info->key.tun_id;
+ 	else
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index 4750fb6..75d6824 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -27,6 +27,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/spinlock.h>
+ #include <linux/u64_stats_sync.h>
++#include <net/route.h>
  
- 	if (ipv4_is_multicast(saddr) || ipv4_is_lbcast(saddr))
+ #include "datapath.h"
+ 
 -- 
 2.4.3
