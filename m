@@ -1,44 +1,29 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net v2] macvtap: fix network header pointer for VLAN tagged pkts
-Date: Tue, 21 Jul 2015 09:18:35 +0200
-Message-ID: <1437463115-2881-1-git-send-email-ivecera@redhat.com>
-Cc: vyasevich@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41324 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751940AbbGUHRt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jul 2015 03:17:49 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: mac80211 2015-07-17
+Date: Tue, 21 Jul 2015 00:18:22 -0700 (PDT)
+Message-ID: <20150721.001822.1980540939930930362.davem@davemloft.net>
+References: <1437139894.1933.16.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1437139894.1933.16.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Network header is set with offset ETH_HLEN but it is not true for VLAN
-(multiple-)tagged and results in checksum issues in lower devices.
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Fri, 17 Jul 2015 15:31:34 +0200
 
-v2: leave skb->protocol untouched (thx Vlad), comment added
+> We've accumulated some wireless fixes, please pull. Arik's fix is a bit
+> bigger than I might like, but it fixes a real locking issue and we
+> didn't really see a good way to make a smaller version.
+> 
+> Let me know if there's any problem.
 
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/macvtap.c | 7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 3b933bb..b75776b 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -796,6 +796,13 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 	skb_reset_mac_header(skb);
- 	skb->protocol = eth_hdr(skb)->h_proto;
- 
-+	/* Move network header to the right position for VLAN tagged packets */
-+	if (skb_vlan_tagged(skb)) {
-+		int depth;
-+		__vlan_get_protocol(skb, skb->protocol, &depth);
-+		skb_set_network_header(skb, depth);
-+	}
-+
- 	if (vnet_hdr_len) {
- 		err = macvtap_skb_from_vnet_hdr(q, skb, &vnet_hdr);
- 		if (err)
--- 
-2.3.6
+Pulled, thanks a lot Johannes.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
