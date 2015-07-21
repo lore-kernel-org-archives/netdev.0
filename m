@@ -1,128 +1,86 @@
-From: "j.ps@openmailbox.org" <j.ps@openmailbox.org>
-Subject: Re: "ss -p" segfaults
-Date: Tue, 21 Jul 2015 10:54:05 +0100
-Message-ID: <55AE16BD.40607@openmailbox.org>
-References: <55AE15FE.6020802@openmailbox.org>
-Reply-To: j.ps@openmailbox.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH,v2 net] net: sched: validate that class is found in qdisc_tree_decrease_qlen
+Date: Tue, 21 Jul 2015 06:04:41 -0400
+Message-ID: <55AE1939.105@mojatatu.com>
+References: <1437421248-2796139-1-git-send-email-agartrell@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: schwab@linux-m68k.org
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, kernel-team@fb.com,
+	stable@vger.kernel.org
+To: Alex Gartrell <agartrell@fb.com>, xiyou.wangcong@gmail.com,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp26.openmailbox.org ([62.4.1.60]:54623 "EHLO
-	smtp26.openmailbox.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753422AbbGUJyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 05:54:08 -0400
-In-Reply-To: <55AE15FE.6020802@openmailbox.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:33874 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754799AbbGUKEo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 06:04:44 -0400
+Received: by wibud3 with SMTP id ud3so109533682wib.1
+        for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 03:04:42 -0700 (PDT)
+In-Reply-To: <1437421248-2796139-1-git-send-email-agartrell@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 07/20/15 15:40, Alex Gartrell wrote:
+> We have an application that invokes tc to delete the root every time the
+> config changes. As a result we stress the cleanup code and were seeing the
+> following panic:
+>
+>    crash> bt
+>    PID: 630839  TASK: ffff8823c990d280  CPU: 14  COMMAND: "tc"
+>     [... snip ...]
+>     #8 [ffff8820ceec17a0] page_fault at ffffffff8160a8c2
+>        [exception RIP: htb_qlen_notify+24]
+>        RIP: ffffffffa0841718  RSP: ffff8820ceec1858  RFLAGS: 00010282
+>        RAX: 0000000000000000  RBX: 0000000000000000  RCX: ffff88241747b400
+>        RDX: ffff88241747b408  RSI: 0000000000000000  RDI: ffff8811fb27d000
+>        RBP: ffff8820ceec1868   R8: ffff88120cdeff24   R9: ffff88120cdeff30
+>        R10: 0000000000000bd4  R11: ffffffffa0840919  R12: ffffffffa0843340
+>        R13: 0000000000000000  R14: 0000000000000001  R15: ffff8808dae5c2e8
+>        ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018
+>     #9 [...] qdisc_tree_decrease_qlen at ffffffff81565375
+>    #10 [...] fq_codel_dequeue at ffffffffa084e0a0 [sch_fq_codel]
+>    #11 [...] fq_codel_reset at ffffffffa084e2f8 [sch_fq_codel]
+>    #12 [...] qdisc_destroy at ffffffff81560d2d
+>    #13 [...] htb_destroy_class at ffffffffa08408f8 [sch_htb]
+>    #14 [...] htb_put at ffffffffa084095c [sch_htb]
+>    #15 [...] tc_ctl_tclass at ffffffff815645a3
+>    #16 [...] rtnetlink_rcv_msg at ffffffff81552cb0
+>    [... snip ...]
+>
+> To my understanding, the following situation is taking place.
+>
 
-Patch for 4.1.1.
+>    tc_ctl_tclass
 
-Essentially all that is needed to get rid of this issue is the
-addition of:
+>     -> htb_delete
+>       -> class is deleted from clhash
+>     -> htb_put
+>       -> qdisc_destroy
+>         -> fq_codel_reset
 
-    memset(u, 0, sizeof(*u));
+=========> this part looks suspicious. Why is reset invoking
+a dequeue? Shouldnt a destroy just purge the queue?
 
-after:
+>           -> fq_codel_dequeue
+>             -> qdidsc_tree_decrease_qlen
+>               -> cl = htb_get # returns NULL, removed in htb_delete
+>                 -> htb_qlen_notify(sch, NULL) # BOOM
+>
 
-    if (!(u = malloc(sizeof(*u))))
-            break;
+It is worrisome to fix the core code for this. The root cause seems to
+be codel. Dont have time but in general, reset would be something like:
 
-Also patched some other situations (strcpy and sprintf uses) that
-potentially produce the same results.
+struct fq_codel_sched_data *q = qdisc_priv(sch);
+qdisc_reset(q)
 
-Signed-off-by: Jose P Santos <j.ps@openmailbox.org>
+or something along those lines...
+But certainly dequeue semantics dont seem right there..
 
---- iproute2-4.1.1/misc/ss.c.orig	2015-07-06 22:57:34.000000000 +0100
-+++ iproute2-4.1.1/misc/ss.c	2015-07-21 10:26:45.000000000 +0100
-@@ -456,7 +456,10 @@ static void user_ent_hash_build(void)
-
- 	user_ent_hash_build_init = 1;
-
--	strcpy(name, root);
-+	/* Avoid buffer overrun if input size from PROC_ROOT > name */
-+	memset(name, 0, sizeof(name));
-+	strncpy(name, root, sizeof(name)-2);
-+
- 	if (strlen(name) == 0 || name[strlen(name)-1] != '/')
- 		strcat(name, "/");
-
-@@ -480,7 +483,7 @@ static void user_ent_hash_build(void)
- 		if (getpidcon(pid, &pid_context) != 0)
- 			pid_context = strdup(no_ctx);
-
--		sprintf(name + nameoff, "%d/fd/", pid);
-+		snprintf(name + nameoff, sizeof(name) - nameoff, "%d/fd/", pid);
- 		pos = strlen(name);
- 		if ((dir1 = opendir(name)) == NULL)
- 			continue;
-@@ -499,7 +502,7 @@ static void user_ent_hash_build(void)
- 			if (sscanf(d1->d_name, "%d%c", &fd, &crap) != 1)
- 				continue;
-
--			sprintf(name+pos, "%d", fd);
-+			snprintf(name+pos, sizeof(name) - pos, "%d", fd);
-
- 			link_len = readlink(name, lnk, sizeof(lnk)-1);
- 			if (link_len == -1)
-@@ -2722,6 +2725,11 @@ static int unix_show(struct filter *f)
- 		if (!(u = malloc(sizeof(*u))))
- 			break;
-
-+		/* Zero initialization of 'u' struct avoids a segfault
-+		 * when freeing memory 'free(name)' at 'unix_list_free()'.
-+		 */
-+		memset(u, 0, sizeof(*u));
-+
- 		if (sscanf(buf, "%x: %x %x %x %x %x %d %s",
- 			   &u->rport, &u->rq, &u->wq, &flags, &u->type,
- 			   &u->state, &u->ino, name) < 8)
-@@ -3064,11 +3072,13 @@ static int netlink_show_one(struct filte
- 			strncpy(procname, "kernel", 6);
- 		} else if (pid > 0) {
- 			FILE *fp;
--			sprintf(procname, "%s/%d/stat",
-+			snprintf(procname, sizeof(procname), "%s/%d/stat",
- 				getenv("PROC_ROOT") ? : "/proc", pid);
- 			if ((fp = fopen(procname, "r")) != NULL) {
- 				if (fscanf(fp, "%*d (%[^)])", procname) == 1) {
--					sprintf(procname+strlen(procname), "/%d", pid);
-+					snprintf(procname+strlen(procname),
-+						sizeof(procname)-strlen(procname),
-+						"/%d", pid);
- 					done = 1;
- 				}
- 				fclose(fp);
+cheers,
+jamal
 
 
 
-On 2015-07-20 20:09, Stephen Hemminger wrote:
-> Patches are always appreciated and this looks like a real bug.
-> But before I can accept it there are a couple of small
-> changes needed.
-> 
-> 1. There is no need to check for NULL when calling free().
->    Glibc free is documented to accept NULL as a valid request
->    and do nothing.
-> 
-> 2. Please add a Signed-off-by: line with a real name.
->    Signed-off-by has legal meaning for the Developer's Certificate of Origin
->    see kernel documentation if you need more explaination.
-> 
-> 3. Although what you found is important, giving a full paragraph
->    of personal comment about it is not required. The point is software
->    should read like one source independent of who the authors are.
->    Your comment is basically just justifying using strncpy.
-> 
-> 4. Rather than strncpy() which has issues with maximal sized strings
->    consider using strlcpy() instead.
-> 
-> 5. Iproute2 uses kernel identation and style, consider running checkpatch
->    on your changes.
-> 
-> Please fixup and resubmit to netdev.
-> 
-> 
+cheers,
+jamal
