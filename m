@@ -1,100 +1,63 @@
-From: Madalin Bucur <madalin.bucur@freescale.com>
-Subject: [PATCH 01/10] devres: add devm_alloc_percpu()
-Date: Wed, 22 Jul 2015 19:16:37 +0300
-Message-ID: <1437581806-17420-1-git-send-email-madalin.bucur@freescale.com>
-Reply-To: madalin.bucur@freescale.com
+From: Antonio Borneo <borneo.antonio@gmail.com>
+Subject: Re: via rhine build regression for arch/sh
+Date: Thu, 23 Jul 2015 00:33:10 +0800
+Message-ID: <CAAj6DX2dAORB58rypV3Bdy1WfQ4xs_h8J8MUZVGCq2Q6Dqczbg@mail.gmail.com>
+References: <20150722135424.GG4477@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: pebolle@tiscali.nl, linux-kernel@vger.kernel.org, ppc@mindchasers.com,
- igal.liberman@freescale.com, scottwood@freescale.com, joe@perches.com,
- linuxppc-dev@lists.ozlabs.org, Madalin Bucur <madalin.bucur@freescale.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexey Charkov <alchark@gmail.com>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:35875 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965137AbbGVQdL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 12:33:11 -0400
+In-Reply-To: <20150722135424.GG4477@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SW50cm9kdWNlIG1hbmFnZWQgY291bnRlcnBhcnRzIGZvciBhbGxvY19wZXJjcHUoKSBhbmQgZnJl
-ZV9wZXJjcHUoKS4KQWRkIGRldm1fYWxsb2NfcGVyY3B1KCkgYW5kIGRldm1fZnJlZV9wZXJjcHUo
-KSBpbnRvIHRoZSBtYW5hZ2VkCmludGVyZmFjZXMgbGlzdC4KClNpZ25lZC1vZmYtYnk6IE1hZGFs
-aW4gQnVjdXIgPG1hZGFsaW4uYnVjdXJAZnJlZXNjYWxlLmNvbT4KLS0tCiBEb2N1bWVudGF0aW9u
-L2RyaXZlci1tb2RlbC9kZXZyZXMudHh0IHwgIDQgKysrCiBkcml2ZXJzL2Jhc2UvZGV2cmVzLmMg
-ICAgICAgICAgICAgICAgIHwgNjQgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysK
-IGluY2x1ZGUvbGludXgvZGV2aWNlLmggICAgICAgICAgICAgICAgfCAxOSArKysrKysrKysrKwog
-MyBmaWxlcyBjaGFuZ2VkLCA4NyBpbnNlcnRpb25zKCspCgpkaWZmIC0tZ2l0IGEvRG9jdW1lbnRh
-dGlvbi9kcml2ZXItbW9kZWwvZGV2cmVzLnR4dCBiL0RvY3VtZW50YXRpb24vZHJpdmVyLW1vZGVs
-L2RldnJlcy50eHQKaW5kZXggODMxYTUzNi4uNTk1ZmQxYiAxMDA2NDQKLS0tIGEvRG9jdW1lbnRh
-dGlvbi9kcml2ZXItbW9kZWwvZGV2cmVzLnR4dAorKysgYi9Eb2N1bWVudGF0aW9uL2RyaXZlci1t
-b2RlbC9kZXZyZXMudHh0CkBAIC0zMTIsNiArMzEyLDEwIEBAIE1FTQogICBkZXZtX2t2YXNwcmlu
-dGYoKQogICBkZXZtX2t6YWxsb2MoKQogCitQRVItQ1BVIE1FTQorICBkZXZtX2FsbG9jX3BlcmNw
-dSgpCisgIGRldm1fZnJlZV9wZXJjcHUoKQorCiBQQ0kKICAgcGNpbV9lbmFibGVfZGV2aWNlKCkJ
-OiBhZnRlciBzdWNjZXNzLCBhbGwgUENJIG9wcyBiZWNvbWUgbWFuYWdlZAogICBwY2ltX3Bpbl9k
-ZXZpY2UoKQk6IGtlZXAgUENJIGRldmljZSBlbmFibGVkIGFmdGVyIHJlbGVhc2UKZGlmZiAtLWdp
-dCBhL2RyaXZlcnMvYmFzZS9kZXZyZXMuYyBiL2RyaXZlcnMvYmFzZS9kZXZyZXMuYwppbmRleCBj
-OGE1M2QxLi5kZWIyZWEwIDEwMDY0NAotLS0gYS9kcml2ZXJzL2Jhc2UvZGV2cmVzLmMKKysrIGIv
-ZHJpdmVycy9iYXNlL2RldnJlcy5jCkBAIC0xMCw2ICsxMCw3IEBACiAjaW5jbHVkZSA8bGludXgv
-ZGV2aWNlLmg+CiAjaW5jbHVkZSA8bGludXgvbW9kdWxlLmg+CiAjaW5jbHVkZSA8bGludXgvc2xh
-Yi5oPgorI2luY2x1ZGUgPGxpbnV4L3BlcmNwdS5oPgogCiAjaW5jbHVkZSAiYmFzZS5oIgogCkBA
-IC05ODQsMyArOTg1LDY2IEBAIHZvaWQgZGV2bV9mcmVlX3BhZ2VzKHN0cnVjdCBkZXZpY2UgKmRl
-diwgdW5zaWduZWQgbG9uZyBhZGRyKQogCQkJICAgICAgICZkZXZyZXMpKTsKIH0KIEVYUE9SVF9T
-WU1CT0xfR1BMKGRldm1fZnJlZV9wYWdlcyk7CisKK3N0YXRpYyB2b2lkIGRldm1fcGVyY3B1X3Jl
-bGVhc2Uoc3RydWN0IGRldmljZSAqZGV2LCB2b2lkICpwZGF0YSkKK3sKKwl2b2lkIF9fcGVyY3B1
-ICpwOworCisJcCA9ICoodm9pZCBfX3BlcmNwdSAqKilwZGF0YTsKKwlmcmVlX3BlcmNwdShwKTsK
-K30KKworc3RhdGljIGludCBkZXZtX3BlcmNwdV9tYXRjaChzdHJ1Y3QgZGV2aWNlICpkZXYsIHZv
-aWQgKmRhdGEsIHZvaWQgKnApCit7CisJc3RydWN0IGRldnJlcyAqZGV2ciA9IGNvbnRhaW5lcl9v
-ZihkYXRhLCBzdHJ1Y3QgZGV2cmVzLCBkYXRhKTsKKworCXJldHVybiAqKHZvaWQgKiopZGV2ci0+
-ZGF0YSA9PSBwOworfQorCisvKioKKyAqIF9fZGV2bV9hbGxvY19wZXJjcHUgLSBSZXNvdXJjZS1t
-YW5hZ2VkIGFsbG9jX3BlcmNwdQorICogQGRldjogRGV2aWNlIHRvIGFsbG9jYXRlIHBlci1jcHUg
-bWVtb3J5IGZvcgorICogQHNpemU6IFNpemUgb2YgcGVyLWNwdSBtZW1vcnkgdG8gYWxsb2NhdGUK
-KyAqIEBhbGlnbjogQWxpZ25lbWVudCBvZiBwZXItY3B1IG1lbW9yeSB0byBhbGxvY2F0ZQorICoK
-KyAqIE1hbmFnZWQgYWxsb2NfcGVyY3B1LiBQZXItY3B1IG1lbW9yeSBhbGxvY2F0ZWQgd2l0aCB0
-aGlzIGZ1bmN0aW9uIGlzCisgKiBhdXRvbWF0aWNhbGx5IGZyZWVkIG9uIGRyaXZlciBkZXRhY2gu
-CisgKgorICogUkVUVVJOUzoKKyAqIFBvaW50ZXIgdG8gYWxsb2NhdGVkIG1lbW9yeSBvbiBzdWNj
-ZXNzLCBOVUxMIG9uIGZhaWx1cmUuCisgKi8KK3ZvaWQgX19wZXJjcHUgKl9fZGV2bV9hbGxvY19w
-ZXJjcHUoc3RydWN0IGRldmljZSAqZGV2LCBzaXplX3Qgc2l6ZSwKKwkJc2l6ZV90IGFsaWduKQor
-eworCXZvaWQgKnA7CisJdm9pZCBfX3BlcmNwdSAqcGNwdTsKKworCXBjcHUgPSBfX2FsbG9jX3Bl
-cmNwdShzaXplLCBhbGlnbik7CisJaWYgKCFwY3B1KQorCQlyZXR1cm4gTlVMTDsKKworCXAgPSBk
-ZXZyZXNfYWxsb2MoZGV2bV9wZXJjcHVfcmVsZWFzZSwgc2l6ZW9mKHZvaWQgKiksIEdGUF9LRVJO
-RUwpOworCWlmICghcCkKKwkJcmV0dXJuIE5VTEw7CisKKwkqKHZvaWQgX19wZXJjcHUgKiopcCA9
-IHBjcHU7CisKKwlkZXZyZXNfYWRkKGRldiwgcCk7CisKKwlyZXR1cm4gcGNwdTsKK30KK0VYUE9S
-VF9TWU1CT0xfR1BMKF9fZGV2bV9hbGxvY19wZXJjcHUpOworCisvKioKKyAqIGRldm1fZnJlZV9w
-ZXJjcHUgLSBSZXNvdXJjZS1tYW5hZ2VkIGZyZWVfcGVyY3B1CisgKiBAZGV2OiBEZXZpY2UgdGhp
-cyBtZW1vcnkgYmVsb25ncyB0bworICogQHBkYXRhOiBQZXItY3B1IG1lbW9yeSB0byBmcmVlCisg
-KgorICogRnJlZSBtZW1vcnkgYWxsb2NhdGVkIHdpdGggZGV2bV9hbGxvY19wZXJjcHUoKS4KKyAq
-Lwordm9pZCBkZXZtX2ZyZWVfcGVyY3B1KHN0cnVjdCBkZXZpY2UgKmRldiwgdm9pZCBfX3BlcmNw
-dSAqcGRhdGEpCit7CisJV0FSTl9PTihkZXZyZXNfZGVzdHJveShkZXYsIGRldm1fcGVyY3B1X3Jl
-bGVhc2UsIGRldm1fcGVyY3B1X21hdGNoLAorCQkJICAgICAgICh2b2lkICopcGRhdGEpKTsKK30K
-K0VYUE9SVF9TWU1CT0xfR1BMKGRldm1fZnJlZV9wZXJjcHUpOwpkaWZmIC0tZ2l0IGEvaW5jbHVk
-ZS9saW51eC9kZXZpY2UuaCBiL2luY2x1ZGUvbGludXgvZGV2aWNlLmgKaW5kZXggNWEzMWJmMy4u
-ZjYyM2I1NSAxMDA2NDQKLS0tIGEvaW5jbHVkZS9saW51eC9kZXZpY2UuaAorKysgYi9pbmNsdWRl
-L2xpbnV4L2RldmljZS5oCkBAIC02NzIsNiArNjcyLDI1IEBAIHZvaWQgX19pb21lbSAqZGV2bV9p
-b3JlbWFwX3Jlc291cmNlKHN0cnVjdCBkZXZpY2UgKmRldiwgc3RydWN0IHJlc291cmNlICpyZXMp
-OwogaW50IGRldm1fYWRkX2FjdGlvbihzdHJ1Y3QgZGV2aWNlICpkZXYsIHZvaWQgKCphY3Rpb24p
-KHZvaWQgKiksIHZvaWQgKmRhdGEpOwogdm9pZCBkZXZtX3JlbW92ZV9hY3Rpb24oc3RydWN0IGRl
-dmljZSAqZGV2LCB2b2lkICgqYWN0aW9uKSh2b2lkICopLCB2b2lkICpkYXRhKTsKIAorLyoqCisg
-KiBkZXZtX2FsbG9jX3BlcmNwdSAtIFJlc291cmNlLW1hbmFnZWQgYWxsb2NfcGVyY3B1CisgKiBA
-ZGV2OiBEZXZpY2UgdG8gYWxsb2NhdGUgcGVyLWNwdSBtZW1vcnkgZm9yCisgKiBAdHlwZTogVHlw
-ZSB0byBhbGxvY2F0ZSBwZXItY3B1IG1lbW9yeSBmb3IKKyAqCisgKiBNYW5hZ2VkIGFsbG9jX3Bl
-cmNwdS4gUGVyLWNwdSBtZW1vcnkgYWxsb2NhdGVkIHdpdGggdGhpcyBmdW5jdGlvbiBpcworICog
-YXV0b21hdGljYWxseSBmcmVlZCBvbiBkcml2ZXIgZGV0YWNoLgorICoKKyAqIFJFVFVSTlM6Cisg
-KiBQb2ludGVyIHRvIGFsbG9jYXRlZCBtZW1vcnkgb24gc3VjY2VzcywgTlVMTCBvbiBmYWlsdXJl
-LgorICovCisjZGVmaW5lIGRldm1fYWxsb2NfcGVyY3B1KGRldiwgdHlwZSkgICAgICBcCisJKHR5
-cGVvZih0eXBlKSBfX3BlcmNwdSAqKV9fZGV2bV9hbGxvY19wZXJjcHUoZGV2LCBzaXplb2YodHlw
-ZSksIFwKKwkJCQkJCSAgICAgX19hbGlnbm9mX18odHlwZSkpCisKK3ZvaWQgX19wZXJjcHUgKl9f
-ZGV2bV9hbGxvY19wZXJjcHUoc3RydWN0IGRldmljZSAqZGV2LCBzaXplX3Qgc2l6ZSwKKwkJCQkg
-ICBzaXplX3QgYWxpZ24pOwordm9pZCBkZXZtX2ZyZWVfcGVyY3B1KHN0cnVjdCBkZXZpY2UgKmRl
-diwgdm9pZCBfX3BlcmNwdSAqcGRhdGEpOworCiBzdHJ1Y3QgZGV2aWNlX2RtYV9wYXJhbWV0ZXJz
-IHsKIAkvKgogCSAqIGEgbG93IGxldmVsIGRyaXZlciBtYXkgc2V0IHRoZXNlIHRvIHRlYWNoIElP
-TU1VIGNvZGUgYWJvdXQKLS0gCjEuNy4xMS43CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRl
-dkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9saW51
-eHBwYy1kZXY=
+On Wed, Jul 22, 2015 at 9:54 PM, Paul Gortmaker
+<paul.gortmaker@windriver.com> wrote:
+> The builds of arch/sh are failing in linux-next with:
+>
+> drivers/net/ethernet/via/via-rhine.c:1098:2: error: implicit declaration
+> of function 'pci_iomap' [-Werror=implicit-function-declaration]
+> drivers/net/ethernet/via/via-rhine.c:1119:2: error: implicit declaration
+> of function 'pci_iounmap' [-Werror=implicit-function-declaration]
+> cc1: some warnings being treated as errors
+> make[5]: *** [drivers/net/ethernet/via/via-rhine.o] Error 1
+>
+> http://kisskb.ellerman.id.au/kisskb/buildresult/12468878/
+>
+> It either is the one line change in:
+>
+> commit b7d3282a245f44286b88e436b1d08c518cdf4569
+> Author: Antonio Borneo <borneo.antonio@gmail.com>
+> Date:   Wed Jun 17 19:42:31 2015 +0800
+>
+>     net: via/Kconfig: replace USE_OF with OF_???
+>
+>
+> ..or maybe it goes back to the original OF support patch:
+>
+> commit 2d283862dc62daead9db0dc89cd0d0351e91f765
+> Author: Alexey Charkov <alchark@gmail.com>
+> Date:   Tue Apr 22 19:28:09 2014 +0400
+>
+>     net: via-rhine: add OF bus binding
+>
+>
+> I have not bisected to check which, but it seems likely that
+> it is one of the above.
+>
+> Paul.
+>
+
+Hi Paul,
+
+yes, I can reproduce it and depends on my patch.
+I'm sending out a fix. Could you please check it?
+
+Best Regards,
+Antonio
