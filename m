@@ -1,59 +1,43 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net] bridge: netlink: fix
-	slave_changelink/br_setport race conditions
-Date: Wed, 22 Jul 2015 13:03:40 +0200
-Message-ID: <1437563020-23506-1-git-send-email-razor@blackwall.org>
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	bridge@lists.linux-foundation.org, jiri@resnulli.us, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [RFC PATCH v2 net-next 1/3] tcp: replace cnt & rtt with struct in pkts_acked()
+Date: Wed, 22 Jul 2015 07:04:58 -0400
+Message-ID: <CADVnQyk8CsHBi3mLR+DGO5wX5xz++HHfC1GfkZ4T7bRmyvy3dQ@mail.gmail.com>
+References: <1437538896-1330704-1-git-send-email-brakmo@fb.com>
+	<1437538896-1330704-2-git-send-email-brakmo@fb.com>
+	<1437544010.16824.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:36809 "EHLO
+	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933446AbbGVLE7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 07:04:59 -0400
+Received: by oibn4 with SMTP id n4so141354799oib.3
+        for <netdev@vger.kernel.org>; Wed, 22 Jul 2015 04:04:58 -0700 (PDT)
+In-Reply-To: <1437544010.16824.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+On Wed, Jul 22, 2015 at 1:46 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2015-07-21 at 21:21 -0700, Lawrence Brakmo wrote:
+>> Replace 2 arguments (cnt and rtt) in the congestion control modules'
+>> pkts_acked() function with a struct. This will allow adding more
+>> information without having to modify existing congestion control
+>> modules (tcp_nv in particular needs bytes in flight when packet
+>> was sent).
+>>
+>> This was proposed by Neal Cardwell in his comments to the tcp_nv patch.
+>
+> Are you sure Neal suggested to pass a struct as argument ?
+>
+> It was probably a struct pointer instead.
 
-Since slave_changelink support was added there have been a few race
-conditions when using br_setport() since some of the port functions it
-uses require the bridge lock. It is very easy to trigger a lockup due to
-some internal spin_lock() usage without bh disabled, also it's possible to
-get the bridge into an inconsistent state.
+Yes, I may not have specified, but I definitely agree we should pass
+the struct by pointer, as the intent is that the struct may grow over
+time, and we don't want to pay more overhead to copy the struct for
+the call.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Fixes: 3ac636b8591c ("bridge: implement rtnl_link_ops->slave_changelink")
----
- net/bridge/br_netlink.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
-
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 364bdc98bd9b..3da5525eb8a2 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -693,9 +693,17 @@ static int br_port_slave_changelink(struct net_device *brdev,
- 				    struct nlattr *tb[],
- 				    struct nlattr *data[])
- {
-+	struct net_bridge *br = netdev_priv(brdev);
-+	int ret;
-+
- 	if (!data)
- 		return 0;
--	return br_setport(br_port_get_rtnl(dev), data);
-+
-+	spin_lock_bh(&br->lock);
-+	ret = br_setport(br_port_get_rtnl(dev), data);
-+	spin_unlock_bh(&br->lock);
-+
-+	return ret;
- }
- 
- static int br_port_fill_slave_info(struct sk_buff *skb,
--- 
-2.4.3
+neal
