@@ -1,90 +1,79 @@
-From: Alex Gartrell <alexgartrell@gmail.com>
-Subject: Re: [RFC PATCH net-next] ebpf: Allow dereferences of PTR_TO_STACK registers
-Date: Wed, 22 Jul 2015 00:18:06 -0700
-Message-ID: <CALCkm3dPFuOTDW835+5hmtDUg-zfKRJmHVusp04nRpWoosUEpA@mail.gmail.com>
-References: <1437530440-1474680-1-git-send-email-agartrell@fb.com> <20150722030047.GA14620@ast-dev1>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next] r8152: support the new RTL8153 chip
+Date: Wed, 22 Jul 2015 15:27:41 +0800
+Message-ID: <1394712342-15778-147-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alex Gartrell <agartrell@fb.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	netdev <netdev@vger.kernel.org>, kernel-team <kernel-team@fb.com>
-To: Alexei Starovoitov <ast@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:33416 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754083AbbGVHS1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 03:18:27 -0400
-Received: by qged69 with SMTP id d69so69688689qge.0
-        for <netdev@vger.kernel.org>; Wed, 22 Jul 2015 00:18:26 -0700 (PDT)
-In-Reply-To: <20150722030047.GA14620@ast-dev1>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 21, 2015 at 8:00 PM, Alexei Starovoitov <ast@kernel.org> wrote:
-> On Tue, Jul 21, 2015 at 07:00:40PM -0700, Alex Gartrell wrote:
->>         mov %rsp, %r1           ; r1 = rsp
->>         add $-8, %r1            ; r1 = rsp - 8
->>         store_q $123, -8(%rsp)  ; *(u64*)r1 = 123  <- valid
->>         store_q $123, (%r1)     ; *(u64*)r1 = 123  <- previously invalid
->>         mov $0, %r0
->>         exit                    ; Always need to exit
->
-> Is this your new eBPF assembler syntax? :)
-> imo gnu style looks ugly... ;)
+Support the new USB gigabit ethernet.
 
-If you think this is ugly, you'll love the "instruction" I added to be
-compatible with the map fd -> immediate conversion hack :)
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
 
-> It's great to see such in-depth understanding of verifier!!
->
->> And we'd get the following error:
->>
->>       0: (bf) r1 = r10
->>       1: (07) r1 += -8
->>       2: (7a) *(u64 *)(r10 -8) = 999
->>       3: (7a) *(u64 *)(r1 +0) = 999
->>       R1 invalid mem access 'fp'
->>
->>       Unable to load program
->>
->> We already know that a register is a stack address and the appropriate
->> offset, so we should be able to validate those references as well.
->
-> yes, we can teach verifier to do that.
-> Though llvm doesn't generate such code. It's small enough change.
-
-I happened upon this as I was playing around with the bytecode in our
-4.0 kernels.  I believe that we can write general purpose utilities
-without needing to write C code for each use case that do things like
-filtering/counting packets or syscalls and outputting that data into
-maps at low cost, but I'm still just prototyping so I'm not ready to
-be an assertive jerk about it (yet)
-
-> real_off is missing alignment and bounds checks.
-> something like:
-> if (state->regs[regno].type == PTR_TO_STACK)
->         off += state->regs[regno].imm;
-> if (off % size != 0)
-> ...
-
-Yeah, I'm an idiot and assumed that a bounds check happened in the
-check_stack_read function.  I'll find a way to do this without
-copy-pasta'ing but I'm going to stick to my moral high ground and not
-mutate a parameter (this lead to a bug in a job interview 6 years ago
-and I've never forgiven myself because the interviewer was an OpenBSD
-guy)
-
-> else if (state->regs[regno].type == FRAME_PTR || == PTR_TO_STACK)
-> .. as-is here ...
->
-> would fix it.
->
-> please add few accept and reject tests for this to test_verifier.c as well.
-
-psh, tests...
-
-
-I'll update this stuff and submit a patch.
-
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 7f6419e..57b72ec 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -622,6 +622,7 @@ enum rtl_version {
+ 	RTL_VER_03,
+ 	RTL_VER_04,
+ 	RTL_VER_05,
++	RTL_VER_06,
+ 	RTL_VER_MAX
+ };
+ 
+@@ -2560,7 +2561,10 @@ static void r8153_hw_phy_cfg(struct r8152 *tp)
+ 	u32 ocp_data;
+ 	u16 data;
+ 
+-	ocp_reg_write(tp, OCP_ADC_CFG, CKADSEL_L | ADC_EN | EN_EMI_L);
++	if (tp->version == RTL_VER_03 || tp->version == RTL_VER_04 ||
++	    tp->version == RTL_VER_05)
++		ocp_reg_write(tp, OCP_ADC_CFG, CKADSEL_L | ADC_EN | EN_EMI_L);
++
+ 	data = r8152_mdio_read(tp, MII_BMCR);
+ 	if (data & BMCR_PDOWN) {
+ 		data &= ~BMCR_PDOWN;
+@@ -3274,6 +3278,13 @@ static void r8153_init(struct r8152 *tp)
+ 		else
+ 			ocp_data |= DYNAMIC_BURST;
+ 		ocp_write_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY1, ocp_data);
++	} else if (tp->version == RTL_VER_06) {
++		ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY1);
++		if (ocp_read_word(tp, MCU_TYPE_USB, USB_BURST_SIZE) == 0)
++			ocp_data &= ~DYNAMIC_BURST;
++		else
++			ocp_data |= DYNAMIC_BURST;
++		ocp_write_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY1, ocp_data);
+ 	}
+ 
+ 	ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY2);
+@@ -3908,6 +3919,10 @@ static void r8152b_get_version(struct r8152 *tp)
+ 		tp->version = RTL_VER_05;
+ 		tp->mii.supports_gmii = 1;
+ 		break;
++	case 0x5c30:
++		tp->version = RTL_VER_06;
++		tp->mii.supports_gmii = 1;
++		break;
+ 	default:
+ 		netif_info(tp, probe, tp->netdev,
+ 			   "Unknown version 0x%04x\n", version);
+@@ -3953,6 +3968,7 @@ static int rtl_ops_init(struct r8152 *tp)
+ 	case RTL_VER_03:
+ 	case RTL_VER_04:
+ 	case RTL_VER_05:
++	case RTL_VER_06:
+ 		ops->init		= r8153_init;
+ 		ops->enable		= rtl8153_enable;
+ 		ops->disable		= rtl8153_disable;
 -- 
-Alex Gartrell <agartrell@fb.com>
+2.4.2
