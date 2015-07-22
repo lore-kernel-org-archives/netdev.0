@@ -1,44 +1,91 @@
-From: roopa <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Subject: Re: [PATCH net-next 00/22 v2] Lightweight & flow based
- encapsulation
-Date: Wed, 22 Jul 2015 08:43:58 -0700
-Message-ID: <55AFBA3E.80209@cumulusnetworks.com>
-References: <cover.1437468140.git.tgraf@suug.ch>
- <17034_1437555506_55AF5B32_17034_5736_1_55AF5B30.8070208@orange.com>
+From: Madalin Bucur <madalin.bucur@freescale.com>
+Subject: [PATCH 00/10] dpaa_eth: Add the Freescale DPAA Ethernet driver
+Date: Wed, 22 Jul 2015 19:15:56 +0300
+Message-ID: <1437581756-17371-1-git-send-email-madalin.bucur@freescale.com>
+Reply-To: <madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org,
- dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ja-FgGsKACvmQM@public.gmane.org,
- simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
- tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
- stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, weichunc-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org,
- rshearma-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org
-To: thomas.morin-C0LM0jrOve7QT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <17034_1437555506_55AF5B32_17034_5736_1_55AF5B30.8070208-C0LM0jrOve7QT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+	<scottwood@freescale.com>, <igal.liberman@freescale.com>,
+	<ppc@mindchasers.com>, <joe@perches.com>, <pebolle@tiscali.nl>,
+	<joakim.tjernlund@transmode.se>,
+	Madalin Bucur <madalin.bucur@freescale.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gNy8yMi8xNSwgMTo1OCBBTSwgdGhvbWFzLm1vcmluQG9yYW5nZS5jb20gd3JvdGU6Cj4gSGkg
-VGhvbWFzLAo+Cj4gVGhpcyBsb29rcyBwcm9taXNpbmcuCj4KPiBPbmUgcXVlc3Rpb246IHdpbGwg
-dGhpcyBhcHByb2FjaCBhbGxvdyBNUExTLWluLUdSRSBhbmQgTVBMUy1pbi1VRFAgPwo+ClRoZSBj
-dXJyZW50IHNlcmllcyB3YXMgZm9jdXNlZCBvbiBJUCB0byBNUExTIHR1bm5lbHMuIEJ1dCwgdGhl
-IAppbmZyYXN0cnVjdHVyZSBhbGxvd3MgYXNzb2NpYXRpbmcgZW5jYXAgc3RhdGUgd2l0aCByb3V0
-ZXMgYW5kIGNhbGxpbmcgCnRoZSByZXNwZWN0aXZlIGVuY2Fwc3VsYXRpb24gb3V0cHV0IGhhbmRs
-ZXJzLgoKRm9yIE1QTFMtaW4tR1JFIGFuZCBNUExTLWluLVVEUCwgaXQgYXBwZWFycyB0aGF0IE1Q
-TFMgTFNQIHJvdXRlcyAKKGFmX21wbHMuYykgY291bGQgc3VwcG9ydCBhc3NvY2lhdGluZyBHUkUg
-YW5kIFVEUCBlbmNhcCBpbmZvIChSVEFfRU5DQVAgCmFuZCBSVEFfRU5DQVBfVFlQRSkgc2ltaWxh
-ciB0byBJUCByb3V0ZXMgYW5kIHRoZSByZS1kaXJlY3Rpb24gZnJvbSBNUExTIAp0byBHUkUgb3Ig
-TVBMUyB0byBVRFAgY2FuIGJlIGFjaGlldmVkIGluIGEgc2ltaWxhciB3YXkgdXNpbmcgdGhlIHNh
-bWUgCmluZnJhc3RydWN0dXJlLgoKVGhhbmtzLApSb29wYQoKX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0
-Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+This patch series adds the Ethernet driver for the Freescale
+QorIQ Data Path Acceleration Architecture (DPAA).
+
+This version includes changes following the feedback received
+on previous RFC versions from Eric Dumazet, Bob Cochran, Joe Perches,
+Paul Bolle, Joakim Tjernlund, Scott Wood - thank you for your support.	
+
+Together with the driver a managed version of alloc_percpu
+is provided that simplifies the release of percpu memory.
+
+The Freescale DPAA architecture consists in a series of hardware
+blocks that support the Ethernet connectivity. The Ethernet driver
+depends upon the following drivers that are currently in the Linux
+kernel or in review:
+ - Peripheral Access Memory Unit (PAMU)
+    drivers/iommu/fsl_*
+ - Frame Manager (FMan)
+    drivers/net/ethernet/freescale/fman
+ - Queue Manager (QMan), Buffer Manager (BMan)
+    drivers/soc/fsl/qbman
+
+The latest FMan driver patches were submitted by Igal Liberman:
+
+https://patchwork.ozlabs.org/project/netdev/list/?submitter=64715&state=*&q=[v3,
+
+The latest Q/BMan drivers were submitted by Roy Pledge:
+
+https://patchwork.ozlabs.org/project/linuxppc-dev/list/?submitter=66331&state=*&q=11
+
+Madalin Bucur (10):
+  devres: add devm_alloc_percpu()
+  dpaa_eth: add support for DPAA Ethernet
+  dpaa_eth: add configurable bpool thresholds
+  dpaa_eth: add support for S/G frames
+  dpaa_eth: add driver's Tx queue selection mechanism
+  dpaa_eth: add ethtool functionality
+  dpaa_eth: add sysfs exports
+  dpaa_eth: add debugfs counters
+  dpaa_eth: add debugfs entries
+  dpaa_eth: add trace points
+
+ Documentation/driver-model/devres.txt              |    4 +
+ drivers/base/devres.c                              |   64 +
+ drivers/net/ethernet/freescale/Kconfig             |    2 +
+ drivers/net/ethernet/freescale/Makefile            |    1 +
+ drivers/net/ethernet/freescale/dpaa/Kconfig        |   81 ++
+ drivers/net/ethernet/freescale/dpaa/Makefile       |   17 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.c |  273 ++++
+ drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.h |   43 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |  873 +++++++++++++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |  496 +++++++
+ .../net/ethernet/freescale/dpaa/dpaa_eth_common.c  | 1367 ++++++++++++++++++++
+ .../net/ethernet/freescale/dpaa/dpaa_eth_common.h  |  130 ++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c  |  704 ++++++++++
+ .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   |  167 +++
+ .../net/ethernet/freescale/dpaa/dpaa_eth_trace.h   |  141 ++
+ drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c |  230 ++++
+ include/linux/device.h                             |   19 +
+ 17 files changed, 4612 insertions(+)
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/Kconfig
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.h
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
+
+-- 
+1.7.11.7
