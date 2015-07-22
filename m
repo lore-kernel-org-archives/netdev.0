@@ -1,33 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ip_tunnel: Provide tunnel metadata API for
- CONFIG_INET=n
-Date: Wed, 22 Jul 2015 11:09:43 -0700 (PDT)
-Message-ID: <20150722.110943.692744854884325882.davem@davemloft.net>
-References: <592e4753a6a5752b12cebab65ad426cce20535ca.1437568711.git.tgraf@suug.ch>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH net-next 1/1] Microchip's LAN7800 family USB 2/3 to
+ 10/100/1000 Ethernet device driver
+Date: Wed, 22 Jul 2015 18:29:33 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D530D8F@CHN-SV-EXMX02.mchp-main.com>
+References: <9235D6609DB808459E95D78E17F2E43D52C48B@CHN-SV-EXMX02.mchp-main.com>
+	<20150720.204441.153673057236321524.davem@davemloft.net>
+	<9235D6609DB808459E95D78E17F2E43D530C84@CHN-SV-EXMX02.mchp-main.com>
+ <20150722.110613.773745844332814391.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswtich.org,
-	roopa@cumulusnetworks.com
-To: tgraf@suug.ch
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43637 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752103AbbGVSJo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 14:09:44 -0400
-In-Reply-To: <592e4753a6a5752b12cebab65ad426cce20535ca.1437568711.git.tgraf@suug.ch>
+Received: from exsmtp02.microchip.com ([198.175.253.38]:64022 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751154AbbGVS3f convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 14:29:35 -0400
+In-Reply-To: <20150722.110613.773745844332814391.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Wed, 22 Jul 2015 14:43:58 +0200
+Thanks.
+Will post new patch.
 
-> Account for the configuration FIB_RULES=y && INET=n as FIB_RULES can
-> be selected by IPV6 or DECNET without INET.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, July 22, 2015 2:06 PM
+> To: Woojung Huh - C21699
+> Cc: netdev@vger.kernel.org
+> Subject: Re: [PATCH net-next 1/1] Microchip's LAN7800 family USB 2/3 to
+> 10/100/1000 Ethernet device driver
 > 
-> Fixes: e7030878fc84 ("fib: Add fib rule match on tunnel id")
-> Fixes: 3093fbe7ff4b ("route: Per route IP tunnel metadata via lightweight tunnel")
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-
-Applied.
+> 
+> DO not reply to feedback to post a new version of your patch.
+> 
+> Instead, make a new, fresh, patch posting.
