@@ -1,33 +1,39 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2] bridge: Fix setting a flag in br_fill_ifvlaninfo_range().
-Date: Tue, 21 Jul 2015 22:52:09 -0700
-Message-ID: <55AF2F89.3060401@cumulusnetworks.com>
-References: <1437541022-14250-1-git-send-email-rami.rosen@intel.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 0/6] bnx2x: update FW, rebrand and more
+Date: Wed, 22 Jul 2015 09:16:21 +0300
+Message-ID: <1437545787-22097-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	stephen@networkplumber.org
-To: Rami Rosen <rami.rosen@intel.com>
+Content-Type: text/plain
+Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:36627 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752434AbbGVFwM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 01:52:12 -0400
-Received: by pachj5 with SMTP id hj5so132751158pac.3
-        for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 22:52:11 -0700 (PDT)
-In-Reply-To: <1437541022-14250-1-git-send-email-rami.rosen@intel.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:13314 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753838AbbGVGQ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 02:16:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/21/15, 9:57 PM, Rami Rosen wrote:
-> This patch fixes setting of vinfo.flags in the br_fill_ifvlaninfo_range() method. The
-> assignment of vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN has no effect and is
-> unneeded, as vinfo.flags value is overriden by the  immediately following
-> vinfo.flags = flags | BRIDGE_VLAN_INFO_RANGE_END assignement.
->
-> Signed-off-by: Rami Rosen <rami.rosen@intel.com>
->
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+This patch series does several things - it updates the bnx2x FW into
+7.12.30 which both contains some small fixes as well as opening the door
+for several new features for the device - mainly vxlan/geneve offloads
+and vlan filtering offload.
+It then adds a new Multi-function mode [BD] which requires this FW in
+order to operate.
 
-Thanks.
+In addition, this finally rebrands the driver from a 'broadcom' driver
+into a 'qlogic' driver [although it would still reside under Broadcom's
+tree in the kernel].
+
+Dave,
+
+Please consider applying this series to `net-next'.
+
+[Do notice some of these don't pass checkpatch cleanly, usually due
+to confirming with already existing 'bad' styles.
+E.g., preprocessor `#define' which is shifted]
+
+Thanks,
+Yuval
+-- 
+1.8.3.1
