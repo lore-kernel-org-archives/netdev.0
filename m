@@ -1,47 +1,43 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 10/10] netfilter: nf_conntrack: Support expectations in different zones
-Date: Thu, 23 Jul 2015 01:00:52 +0200
-Message-ID: <1437606052-5179-11-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 07/10] ipvs: fix crash with sync protocol v0 and FTP
+Date: Thu, 23 Jul 2015 01:00:49 +0200
+Message-ID: <1437606052-5179-8-git-send-email-pablo@netfilter.org>
 References: <1437606052-5179-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54459 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:54443 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753414AbbGVWza (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jul 2015 18:55:30 -0400
+	id S1753414AbbGVWz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jul 2015 18:55:26 -0400
 In-Reply-To: <1437606052-5179-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Stringer <joestringer@nicira.com>
+From: Julian Anastasov <ja@ssi.bg>
 
-When zones were originally introduced, the expectation functions were
-all extended to perform lookup using the zone. However, insertion was
-not modified to check the zone. This means that two expectations which
-are intended to apply for different connections that have the same tuple
-but exist in different zones cannot both be tracked.
+Fix crash in 3.5+ if FTP is used after switching
+sync_version to 0.
 
-Fixes: 5d0aa2ccd4 (netfilter: nf_conntrack: add support for "conntrack zones")
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Fixes: 749c42b620a9 ("ipvs: reduce sync rate with time thresholds")
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/nf_conntrack_expect.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/netfilter/ipvs/ip_vs_sync.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
-index 7a17070..b45a422 100644
---- a/net/netfilter/nf_conntrack_expect.c
-+++ b/net/netfilter/nf_conntrack_expect.c
-@@ -219,7 +219,8 @@ static inline int expect_clash(const struct nf_conntrack_expect *a,
- 			a->mask.src.u3.all[count] & b->mask.src.u3.all[count];
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index b08ba95..d99ad93 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -612,7 +612,7 @@ static void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp,
+ 			pkts = atomic_add_return(1, &cp->in_pkts);
+ 		else
+ 			pkts = sysctl_sync_threshold(ipvs);
+-		ip_vs_sync_conn(net, cp->control, pkts);
++		ip_vs_sync_conn(net, cp, pkts);
  	}
- 
--	return nf_ct_tuple_mask_cmp(&a->tuple, &b->tuple, &intersect_mask);
-+	return nf_ct_tuple_mask_cmp(&a->tuple, &b->tuple, &intersect_mask) &&
-+	       nf_ct_zone(a->master) == nf_ct_zone(b->master);
  }
  
- static inline int expect_matches(const struct nf_conntrack_expect *a,
 -- 
 1.7.10.4
