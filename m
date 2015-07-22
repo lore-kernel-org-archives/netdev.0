@@ -1,40 +1,57 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCH nf] netfilter: Support expectations in different zones
-Date: Tue, 21 Jul 2015 21:37:31 -0700
-Message-ID: <1437539851-65437-1-git-send-email-joestringer@nicira.com>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH,v2 net] net: sched: validate that class is found in
+ qdisc_tree_decrease_qlen
+Date: Wed, 22 Jul 2015 06:41:19 +0200
+Message-ID: <1437540079.9913.13.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1437421248-2796139-1-git-send-email-agartrell@fb.com>
+	 <55AE1939.105@mojatatu.com>
+	 <1437475945.9913.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAM_iQpWWzMFLuLsJZD4rJLW7rNWNOEotrjj7o4Z+0Pr330M2Fw@mail.gmail.com>
+	 <1437512271.9913.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAM_iQpXwxyB0NKqkmxSUTDyi+mGk6T1i-JQ6XEk8z=_jq7K20w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alex Gartrell <agartrell@fb.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	kernel-team@fb.com, stable@vger.kernel.org
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpXwxyB0NKqkmxSUTDyi+mGk6T1i-JQ6XEk8z=_jq7K20w@mail.gmail.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When zones were originally introduced, the expectation functions were
-all extended to perform lookup using the zone. However, insertion was
-not modified to check the zone. This means that two expectations which
-are intended to apply for different connections that have the same tuple
-but exist in different zones cannot both be tracked.
+On Tue, 2015-07-21 at 19:03 -0700, Cong Wang wrote:
+> On Tue, Jul 21, 2015 at 1:57 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Tue, 2015-07-21 at 11:12 -0700, Cong Wang wrote:
+> >
+> >> > -               kfree_skb(skb);
+> >> > +       INIT_LIST_HEAD(&q->new_flows);
+> >> > +       INIT_LIST_HEAD(&q->old_flows);
+> >> > +       for (i = 0; i < q->flows_cnt; i++) {
+> >> > +               struct fq_codel_flow *flow = q->flows + i;
+> >> > +
+> >> > +               while (flow->head)
+> >> > +                       kfree_skb(dequeue_head(flow));
+> >> > +
+> >> > +               INIT_LIST_HEAD(&flow->flowchain);
+> >>
+> >>
+> >> You probably need to call codel_vars_init(&flow->cvars) as well.
+> >
+> > It is not necessary : flow->cvars only matter in the event of a dequeue,
+> > but whole qdisc is dismantled and no packet will be dequeued.
+> >
+> 
+> But it will affect the next dequeue _after_ reset? which is not supposed
+> to happen as we expect a fresh start after reset?
 
-Fixes: 5d0aa2ccd4 (netfilter: nf_conntrack: add support for "conntrack zones")
+Hmm... I thought reset() was only done at queue dismantle, so no new
+packet should be added later, and since no packet should be left after
+reset, no dequeue should happen.
 
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
----
- net/netfilter/nf_conntrack_expect.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+For completeness, we still can add the codel_vars_init(), no problem.
 
-diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
-index 7a17070..b45a422 100644
---- a/net/netfilter/nf_conntrack_expect.c
-+++ b/net/netfilter/nf_conntrack_expect.c
-@@ -219,7 +219,8 @@ static inline int expect_clash(const struct nf_conntrack_expect *a,
- 			a->mask.src.u3.all[count] & b->mask.src.u3.all[count];
- 	}
- 
--	return nf_ct_tuple_mask_cmp(&a->tuple, &b->tuple, &intersect_mask);
-+	return nf_ct_tuple_mask_cmp(&a->tuple, &b->tuple, &intersect_mask) &&
-+	       nf_ct_zone(a->master) == nf_ct_zone(b->master);
- }
- 
- static inline int expect_matches(const struct nf_conntrack_expect *a,
--- 
-2.1.4
-
+Thanks.
