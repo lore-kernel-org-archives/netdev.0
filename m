@@ -1,79 +1,142 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next] r8152: support the new RTL8153 chip
-Date: Wed, 22 Jul 2015 15:27:41 +0800
-Message-ID: <1394712342-15778-147-Taiwan-albertk@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Erik Kline <ek@google.com>
+Subject: [PATCH net-next v5] ipv6: sysctl to restrict candidate source addresses
+Date: Wed, 22 Jul 2015 16:38:25 +0900
+Message-ID: <1437550705-10508-1-git-send-email-ek@google.com>
+Cc: hannes@stressinduktion.org, lorenzo@google.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	Erik Kline <ek@google.com>
+To: hideaki.yoshifuji@miraclelinux.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36658 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932921AbbGVHif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 03:38:35 -0400
+Received: by pachj5 with SMTP id hj5so134248625pac.3
+        for <netdev@vger.kernel.org>; Wed, 22 Jul 2015 00:38:35 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Support the new USB gigabit ethernet.
+Per RFC 6724, section 4, "Candidate Source Addresses":
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+    It is RECOMMENDED that the candidate source addresses be the set
+    of unicast addresses assigned to the interface that will be used
+    to send to the destination (the "outgoing" interface).
+
+Add a sysctl to enable this behaviour.
+
+Signed-off-by: Erik Kline <ek@google.com>
 ---
- drivers/net/usb/r8152.c | 18 +++++++++++++++++-
- 1 file changed, 17 insertions(+), 1 deletion(-)
+ Documentation/networking/ip-sysctl.txt |  7 +++++++
+ include/linux/ipv6.h                   |  1 +
+ include/uapi/linux/ipv6.h              |  1 +
+ net/ipv6/addrconf.c                    | 22 +++++++++++++++++++---
+ 4 files changed, 28 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 7f6419e..57b72ec 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -622,6 +622,7 @@ enum rtl_version {
- 	RTL_VER_03,
- 	RTL_VER_04,
- 	RTL_VER_05,
-+	RTL_VER_06,
- 	RTL_VER_MAX
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index f63aeef..1a5ab21b 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1460,6 +1460,13 @@ router_solicitations - INTEGER
+ 	routers are present.
+ 	Default: 3
+ 
++use_oif_addrs_only - BOOLEAN
++	When enabled, the candidate source addresses for destinations
++	routed via this interface are restricted to the set of addresses
++	configured on this interface (vis. RFC 6724, section 4).
++
++	Default: false
++
+ use_tempaddr - INTEGER
+ 	Preference for Privacy Extensions (RFC3041).
+ 	  <= 0 : disable Privacy Extensions
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 1319a6b..06ed637 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -57,6 +57,7 @@ struct ipv6_devconf {
+ 		bool initialized;
+ 		struct in6_addr secret;
+ 	} stable_secret;
++	__s32		use_oif_addrs_only;
+ 	void		*sysctl;
  };
  
-@@ -2560,7 +2561,10 @@ static void r8153_hw_phy_cfg(struct r8152 *tp)
- 	u32 ocp_data;
- 	u16 data;
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 5efa54a..641a146 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -171,6 +171,7 @@ enum {
+ 	DEVCONF_USE_OPTIMISTIC,
+ 	DEVCONF_ACCEPT_RA_MTU,
+ 	DEVCONF_STABLE_SECRET,
++	DEVCONF_USE_OIF_ADDRS_ONLY,
+ 	DEVCONF_MAX
+ };
  
--	ocp_reg_write(tp, OCP_ADC_CFG, CKADSEL_L | ADC_EN | EN_EMI_L);
-+	if (tp->version == RTL_VER_03 || tp->version == RTL_VER_04 ||
-+	    tp->version == RTL_VER_05)
-+		ocp_reg_write(tp, OCP_ADC_CFG, CKADSEL_L | ADC_EN | EN_EMI_L);
-+
- 	data = r8152_mdio_read(tp, MII_BMCR);
- 	if (data & BMCR_PDOWN) {
- 		data &= ~BMCR_PDOWN;
-@@ -3274,6 +3278,13 @@ static void r8153_init(struct r8152 *tp)
- 		else
- 			ocp_data |= DYNAMIC_BURST;
- 		ocp_write_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY1, ocp_data);
-+	} else if (tp->version == RTL_VER_06) {
-+		ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY1);
-+		if (ocp_read_word(tp, MCU_TYPE_USB, USB_BURST_SIZE) == 0)
-+			ocp_data &= ~DYNAMIC_BURST;
-+		else
-+			ocp_data |= DYNAMIC_BURST;
-+		ocp_write_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY1, ocp_data);
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 32153c2..eb0c6a3 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -211,7 +211,8 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 	.accept_ra_mtu		= 1,
+ 	.stable_secret		= {
+ 		.initialized = false,
+-	}
++	},
++	.use_oif_addrs_only	= 0,
+ };
+ 
+ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+@@ -253,6 +254,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	.stable_secret		= {
+ 		.initialized = false,
+ 	},
++	.use_oif_addrs_only	= 0,
+ };
+ 
+ /* Check if a valid qdisc is available */
+@@ -1472,11 +1474,16 @@ int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
+ 	 *    include addresses assigned to interfaces
+ 	 *    belonging to the same site as the outgoing
+ 	 *    interface.)
++	 *  - "It is RECOMMENDED that the candidate source addresses
++	 *    be the set of unicast addresses assigned to the
++	 *    interface that will be used to send to the destination
++	 *    (the 'outgoing' interface)." (RFC 6724)
+ 	 */
+ 	if (dst_dev) {
++		idev = __in6_dev_get(dst_dev);
+ 		if ((dst_type & IPV6_ADDR_MULTICAST) ||
+-		    dst.scope <= IPV6_ADDR_SCOPE_LINKLOCAL) {
+-			idev = __in6_dev_get(dst_dev);
++		    dst.scope <= IPV6_ADDR_SCOPE_LINKLOCAL ||
++		    (idev && idev->cnf.use_oif_addrs_only)) {
+ 			use_oif_addr = true;
+ 		}
  	}
+@@ -4607,6 +4614,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] = cnf->accept_ra_from_local;
+ 	array[DEVCONF_ACCEPT_RA_MTU] = cnf->accept_ra_mtu;
+ 	/* we omit DEVCONF_STABLE_SECRET for now */
++	array[DEVCONF_USE_OIF_ADDRS_ONLY] = cnf->use_oif_addrs_only;
+ }
  
- 	ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY2);
-@@ -3908,6 +3919,10 @@ static void r8152b_get_version(struct r8152 *tp)
- 		tp->version = RTL_VER_05;
- 		tp->mii.supports_gmii = 1;
- 		break;
-+	case 0x5c30:
-+		tp->version = RTL_VER_06;
-+		tp->mii.supports_gmii = 1;
-+		break;
- 	default:
- 		netif_info(tp, probe, tp->netdev,
- 			   "Unknown version 0x%04x\n", version);
-@@ -3953,6 +3968,7 @@ static int rtl_ops_init(struct r8152 *tp)
- 	case RTL_VER_03:
- 	case RTL_VER_04:
- 	case RTL_VER_05:
-+	case RTL_VER_06:
- 		ops->init		= r8153_init;
- 		ops->enable		= rtl8153_enable;
- 		ops->disable		= rtl8153_disable;
+ static inline size_t inet6_ifla6_size(void)
+@@ -5606,6 +5614,14 @@ static struct addrconf_sysctl_table
+ 			.proc_handler	= addrconf_sysctl_stable_secret,
+ 		},
+ 		{
++			.procname       = "use_oif_addrs_only",
++			.data           = &ipv6_devconf.use_oif_addrs_only,
++			.maxlen         = sizeof(int),
++			.mode           = 0644,
++			.proc_handler   = proc_dointvec,
++
++		},
++		{
+ 			/* sentinel */
+ 		}
+ 	},
 -- 
-2.4.2
+2.4.3.573.g4eafbef
