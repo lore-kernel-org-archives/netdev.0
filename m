@@ -1,43 +1,46 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [RFC PATCH v2 net-next 1/3] tcp: replace cnt & rtt with struct in pkts_acked()
-Date: Wed, 22 Jul 2015 07:04:58 -0400
-Message-ID: <CADVnQyk8CsHBi3mLR+DGO5wX5xz++HHfC1GfkZ4T7bRmyvy3dQ@mail.gmail.com>
+Subject: Re: [RFC PATCH v2 net-next 3/3] tcp: add NV congestion control
+Date: Wed, 22 Jul 2015 07:27:00 -0400
+Message-ID: <CADVnQym6x7Mue-T4xnDRfa4QSStdJ1CQ1bzfNZs+o=tQb+G0+A@mail.gmail.com>
 References: <1437538896-1330704-1-git-send-email-brakmo@fb.com>
-	<1437538896-1330704-2-git-send-email-brakmo@fb.com>
-	<1437544010.16824.8.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1437538896-1330704-4-git-send-email-brakmo@fb.com>
+	<CAK6E8=cmjY1HNhwx3rnXq3h3Gz2c5Mj7x_7LVg97bLwJ0EqeCw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Kernel Team <kernel-team@fb.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:36809 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933446AbbGVLE7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 07:04:59 -0400
-Received: by oibn4 with SMTP id n4so141354799oib.3
-        for <netdev@vger.kernel.org>; Wed, 22 Jul 2015 04:04:58 -0700 (PDT)
-In-Reply-To: <1437544010.16824.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:36146 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934001AbbGVL1C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 07:27:02 -0400
+Received: by obnw1 with SMTP id w1so132025401obn.3
+        for <netdev@vger.kernel.org>; Wed, 22 Jul 2015 04:27:01 -0700 (PDT)
+In-Reply-To: <CAK6E8=cmjY1HNhwx3rnXq3h3Gz2c5Mj7x_7LVg97bLwJ0EqeCw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 22, 2015 at 1:46 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2015-07-21 at 21:21 -0700, Lawrence Brakmo wrote:
->> Replace 2 arguments (cnt and rtt) in the congestion control modules'
->> pkts_acked() function with a struct. This will allow adding more
->> information without having to modify existing congestion control
->> modules (tcp_nv in particular needs bytes in flight when packet
->> was sent).
+On Wed, Jul 22, 2015 at 2:50 AM, Yuchung Cheng <ycheng@google.com> wrote:
+> On Tue, Jul 21, 2015 at 9:21 PM, Lawrence Brakmo <brakmo@fb.com> wrote:
+>> This is a request for comments.
 >>
->> This was proposed by Neal Cardwell in his comments to the tcp_nv patch.
->
-> Are you sure Neal suggested to pass a struct as argument ?
->
-> It was probably a struct pointer instead.
+>> TCP-NV (New Vegas) is a major update to TCP-Vegas. An earlier version of
+>> NV was presented at 2010's LPC (slides). It is a delayed based
+>> congestion avoidance for the data center. This version has been tested
+>> within a 10G rack where the HW RTTs are 20-50us.
+>>
+>> A description of TCP-NV, including implementation and experimental
+>> results, can be found at:
+>> http://www.brakmo.org/networking/tcp-nv/TCPNV.html
+>>
+>> The current version includes many module parameters to support
+>> experimentation with the parameters.
+...
+>> +extern int sysctl_tcp_nv_enable;
 
-Yes, I may not have specified, but I definitely agree we should pass
-the struct by pointer, as the intent is that the struct may grow over
-time, and we don't want to pay more overhead to copy the struct for
-the call.
+The sysctl_tcp_nv_enable only seems to be used within the NV module.
+Can it be a module parameter instead of sysctl?
 
 neal
