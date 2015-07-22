@@ -1,88 +1,62 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next] bridge: mcast: when multicast is disabled
-	flush the groups
-Date: Wed, 22 Jul 2015 03:28:49 -0700
-Message-ID: <1437560929-25827-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: bridge@lists.linux-foundation.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH V3 3/7] Drivers: hv: vmbus: add APIs to send/recv hvsock
+ packet and get the r/w-ability
+Date: Wed, 22 Jul 2015 13:35:46 +0300
+Message-ID: <20150722103546.GO5371@mwanda>
+References: <1437476293-6837-1-git-send-email-decui@microsoft.com>
+ <87zj2pk3jf.fsf@vitty.brq.redhat.com>
+ <4538264677374d43961c2d709afb1dd3@SIXPR30MB031.064d.mgd.msft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
+ "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>, "olaf@aepfle.de" <olaf@aepfle.de>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "stephen@networkplumber.org" <stephen@networkplumber.org>,
+ "stefanha@redhat.com" <stefanha@redhat.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Dexuan Cui <decui@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <4538264677374d43961c2d709afb1dd3@SIXPR30MB031.064d.mgd.msft.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-From: Satish Ashok <sashok@cumulusnetworks.com>
+On Wed, Jul 22, 2015 at 10:09:10AM +0000, Dexuan Cui wrote:
+> > I'd suggest you do something like
+> > 
+> >     if (ret == -EAGIAIN)
+> >         return 0;
+> >     else if (ret)
+> >         return ret;
+> > 
+> > to make it future-proof (e.g. when a new error is returned by
+> > hv_ringbuffer_peek). And a comment would also be useful as it is unclear
+> > why we silence errors here.
+> Hi Vitaly,
+> Thanks! 
+> I think I made a mistake here:
+> the "if (ret != 0) return 0;" should be changed
+> to   "if (ret != 0) return ret;"
 
-Once multicast gets disabled we should flush the groups.
-Example:
-# bridge mdb add dev br0 port eth3 grp 239.0.0.1
-# bridge mdb
-dev br0 port eth3 grp 239.0.0.1 temp
-# echo 0 > multicast_snooping
-# bridge mdb
+The double negative really doesn't not make the code more complicated.
+I like using a quadruple negative instead.
 
-Signed-off-by: Satish Ashok <sashok@cumulusnetworks.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/bridge/br_multicast.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+	if (ret != 0 != 0)
+		return ret;
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 0dd3cd90962c..cf79bfc16e30 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -39,6 +39,7 @@ static void br_multicast_start_querier(struct net_bridge *br,
- 				       struct bridge_mcast_own_query *query);
- static void br_multicast_add_router(struct net_bridge *br,
- 				    struct net_bridge_port *port);
-+static void br_multicast_del_grps(struct net_bridge *br);
- unsigned int br_mdb_rehash_seq;
- 
- static inline int br_ip_equal(const struct br_ip *a, const struct br_ip *b)
-@@ -553,6 +554,7 @@ static struct net_bridge_mdb_entry *br_multicast_get_group(
- 			err = -E2BIG;
- disable:
- 			br->multicast_disabled = 1;
-+			br_multicast_del_grps(br);
- 			goto err;
- 		}
- 	}
-@@ -1866,6 +1868,17 @@ static void br_multicast_start_querier(struct net_bridge *br,
- 	}
- }
- 
-+static void br_multicast_del_grps(struct net_bridge *br)
-+{
-+	struct net_bridge_port *port, *bn;
-+	struct net_bridge_port_group *pg;
-+	struct hlist_node *n;
-+
-+	list_for_each_entry_safe(port, bn, &br->port_list, list)
-+		hlist_for_each_entry_safe(pg, n, &port->mglist, mglist)
-+			br_multicast_del_pg(br, pg);
-+}
-+
- int br_multicast_toggle(struct net_bridge *br, unsigned long val)
- {
- 	int err = 0;
-@@ -1876,8 +1889,10 @@ int br_multicast_toggle(struct net_bridge *br, unsigned long val)
- 		goto unlock;
- 
- 	br->multicast_disabled = !val;
--	if (br->multicast_disabled)
-+	if (br->multicast_disabled) {
-+		br_multicast_del_grps(br);
- 		goto unlock;
-+	}
- 
- 	if (!netif_running(br->dev))
- 		goto unlock;
--- 
-2.4.3
+regards,
+dan carpenter
