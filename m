@@ -1,25 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net 0/3] BPF JIT fixes for ARM
-Date: Tue, 21 Jul 2015 22:20:12 -0700 (PDT)
-Message-ID: <20150721.222012.857420707584092557.davem@davemloft.net>
-References: <1437480854-22684-1-git-send-email-nschichan@freebox.fr>
+Subject: Re: [PATCH net-next 0/9] sfc: support for cascaded multicast
+ filtering
+Date: Tue, 21 Jul 2015 22:21:49 -0700 (PDT)
+Message-ID: <20150721.222149.1949874133910212214.davem@davemloft.net>
+References: <55AE5230.3040605@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, mgherzan@gmail.com,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux@arm.linux.org.uk, ast@plumgrid.com
-To: nschichan@freebox.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1437480854-22684-1-git-send-email-nschichan@freebox.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: ecree@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36744 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932093AbbGVFVu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 01:21:50 -0400
+In-Reply-To: <55AE5230.3040605@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Schichan <nschichan@freebox.fr>
-Date: Tue, 21 Jul 2015 14:14:11 +0200
+From: Edward Cree <ecree@solarflare.com>
+Date: Tue, 21 Jul 2015 15:07:44 +0100
 
-> These patches are fixing bugs in the ARM JIT and should probably find
-> their way to a stable kernel. All 60 test_bpf tests in Linux 4.1 release
-> are now passing OK (was 54 out of 60 before).
+> Recent versions of firmware for SFC9100 adapters add support for filter
+>  chaining, in which packets matching multiple filters are delivered to all
+>  filters' recipients, rather than only the highest match-priority filter as was
+>  previously the case.
+> This patch series enables this feature and redesigns the filter handling code
+>  to make use of it; in particular, subscribing to a multicast address on one
+>  function no longer prevents traffic to that address reaching another function
+>  which is in promiscuous or allmulti mode.
+> If the firmware does not support filter chaining, the driver will fall back to
+>  the old behaviour.
 
 Series applied, thanks.
