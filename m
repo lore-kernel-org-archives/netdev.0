@@ -1,57 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH,v2 net] net: sched: validate that class is found in
- qdisc_tree_decrease_qlen
-Date: Wed, 22 Jul 2015 06:41:19 +0200
-Message-ID: <1437540079.9913.13.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1437421248-2796139-1-git-send-email-agartrell@fb.com>
-	 <55AE1939.105@mojatatu.com>
-	 <1437475945.9913.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAM_iQpWWzMFLuLsJZD4rJLW7rNWNOEotrjj7o4Z+0Pr330M2Fw@mail.gmail.com>
-	 <1437512271.9913.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAM_iQpXwxyB0NKqkmxSUTDyi+mGk6T1i-JQ6XEk8z=_jq7K20w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alex Gartrell <agartrell@fb.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	kernel-team@fb.com, stable@vger.kernel.org
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpXwxyB0NKqkmxSUTDyi+mGk6T1i-JQ6XEk8z=_jq7K20w@mail.gmail.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rami Rosen <rami.rosen@intel.com>
+Subject: [PATCH net-next v2] bridge: Fix setting a flag in br_fill_ifvlaninfo_range().
+Date: Wed, 22 Jul 2015 07:57:02 +0300
+Message-ID: <1437541022-14250-1-git-send-email-rami.rosen@intel.com>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	stephen@networkplumber.org, Rami Rosen <rami.rosen@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:20526 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751836AbbGVE5K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jul 2015 00:57:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-07-21 at 19:03 -0700, Cong Wang wrote:
-> On Tue, Jul 21, 2015 at 1:57 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Tue, 2015-07-21 at 11:12 -0700, Cong Wang wrote:
-> >
-> >> > -               kfree_skb(skb);
-> >> > +       INIT_LIST_HEAD(&q->new_flows);
-> >> > +       INIT_LIST_HEAD(&q->old_flows);
-> >> > +       for (i = 0; i < q->flows_cnt; i++) {
-> >> > +               struct fq_codel_flow *flow = q->flows + i;
-> >> > +
-> >> > +               while (flow->head)
-> >> > +                       kfree_skb(dequeue_head(flow));
-> >> > +
-> >> > +               INIT_LIST_HEAD(&flow->flowchain);
-> >>
-> >>
-> >> You probably need to call codel_vars_init(&flow->cvars) as well.
-> >
-> > It is not necessary : flow->cvars only matter in the event of a dequeue,
-> > but whole qdisc is dismantled and no packet will be dequeued.
-> >
-> 
-> But it will affect the next dequeue _after_ reset? which is not supposed
-> to happen as we expect a fresh start after reset?
+This patch fixes setting of vinfo.flags in the br_fill_ifvlaninfo_range() method. The
+assignment of vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN has no effect and is
+unneeded, as vinfo.flags value is overriden by the  immediately following 
+vinfo.flags = flags | BRIDGE_VLAN_INFO_RANGE_END assignement.
 
-Hmm... I thought reset() was only done at queue dismantle, so no new
-packet should be added later, and since no packet should be left after
-reset, no dequeue should happen.
+Signed-off-by: Rami Rosen <rami.rosen@intel.com>
+---
+ net/bridge/br_netlink.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-For completeness, we still can add the codel_vars_init(), no problem.
-
-Thanks.
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 364bdc9..793d247 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -164,8 +164,6 @@ static int br_fill_ifvlaninfo_range(struct sk_buff *skb, u16 vid_start,
+ 			    sizeof(vinfo), &vinfo))
+ 			goto nla_put_failure;
+ 
+-		vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN;
+-
+ 		vinfo.vid = vid_end;
+ 		vinfo.flags = flags | BRIDGE_VLAN_INFO_RANGE_END;
+ 		if (nla_put(skb, IFLA_BRIDGE_VLAN_INFO,
+-- 
+1.9.3
