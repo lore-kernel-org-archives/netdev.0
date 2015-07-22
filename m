@@ -1,81 +1,47 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 3/4] net/mlx4_core: Relieve cpu load average on the port sending flow
-Date: Wed, 22 Jul 2015 16:53:48 +0300
-Message-ID: <1437573229-13127-4-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net 4/4] net/mlx4_en: Remove BUG_ON assert when checking if ring is full
+Date: Wed, 22 Jul 2015 16:53:49 +0300
+Message-ID: <1437573229-13127-5-git-send-email-ogerlitz@mellanox.com>
 References: <1437573229-13127-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Tal Alon <talal@mellanox.com>, Ido Shamay <idos@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:54936 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:54960 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S934191AbbGVNyQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jul 2015 09:54:16 -0400
+	id S965222AbbGVNyX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jul 2015 09:54:23 -0400
 In-Reply-To: <1437573229-13127-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+From: Ido Shamay <idos@mellanox.com>
 
-When a port is not attached, the FW requires a longer than usual time to
-execute the SENSE_PORT command. In the command flow, the
-wait_for_completion_timeout call used in mlx4_cmd_wait puts the kernel
-thread into the uninterruptible state during this time. This, in turn,
-due to the computation method, causes the CPU load average to increase.
+In mlx4_en_is_ring_empty we check if ring surpassed its size.
+Since the prod and cons indicators are u32, there might be a state where
+prod wrapped around and cons, making this assert false, although no
+actual bug exists (other code segment can cope with this state).
 
-Fix this by using wait_for_completion_interruptible_timeout() for the
-SENSE_PORT command, which puts the thread in the interruptible state.
-In this state, the thread does not contribute to the CPU load average.
-
-Treat the interrupted case as if the SENSE_PORT command returned
-port_type = NONE.
-
-Fix suggested by Gideon Naim <gideonn@mellanox.com> and
-Bart Van Assche <bart.vanassche@sandisk.com>.
-
-
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Ido Shamay <idos@mellanox.com>
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c | 17 +++++++++++++++--
- 1 file changed, 15 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 8204013..0a32020 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -686,6 +686,7 @@ static int mlx4_cmd_wait(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 7a4f20b..9c145dd 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -246,7 +246,6 @@ static int mlx4_en_prepare_rx_desc(struct mlx4_en_priv *priv,
+ 
+ static inline bool mlx4_en_is_ring_empty(struct mlx4_en_rx_ring *ring)
  {
- 	struct mlx4_cmd *cmd = &mlx4_priv(dev)->cmd;
- 	struct mlx4_cmd_context *context;
-+	long ret_wait;
- 	int err = 0;
+-	BUG_ON((u32)(ring->prod - ring->cons) > ring->actual_size);
+ 	return ring->prod == ring->cons;
+ }
  
- 	down(&cmd->event_sem);
-@@ -711,8 +712,20 @@ static int mlx4_cmd_wait(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
- 	if (err)
- 		goto out_reset;
- 
--	if (!wait_for_completion_timeout(&context->done,
--					 msecs_to_jiffies(timeout))) {
-+	if (op == MLX4_CMD_SENSE_PORT) {
-+		ret_wait =
-+			wait_for_completion_interruptible_timeout(&context->done,
-+								  msecs_to_jiffies(timeout));
-+		if (ret_wait < 0) {
-+			context->fw_status = 0;
-+			context->out_param = 0;
-+			context->result = 0;
-+		}
-+	} else {
-+		ret_wait = (long)wait_for_completion_timeout(&context->done,
-+							     msecs_to_jiffies(timeout));
-+	}
-+	if (!ret_wait) {
- 		mlx4_warn(dev, "command 0x%x timed out (go bit not cleared)\n",
- 			  op);
- 		if (op == MLX4_CMD_NOP) {
 -- 
 2.3.7
