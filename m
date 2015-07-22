@@ -1,53 +1,26 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] bridge: mcast: when multicast is
- disabled flush the groups
-Date: Wed, 22 Jul 2015 20:01:45 +0200
-Message-ID: <55AFDA89.1080304@cumulusnetworks.com>
-References: <1437560929-25827-1-git-send-email-nikolay@cumulusnetworks.com>
-	<CAHA+R7PTV5aTk2JyaaCQ1awi_Cwz+jzA4tv9n2nEvaFxhuD0Pg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/1] Microchip's LAN7800 family USB 2/3 to
+ 10/100/1000 Ethernet device driver
+Date: Wed, 22 Jul 2015 11:06:13 -0700 (PDT)
+Message-ID: <20150722.110613.773745844332814391.davem@davemloft.net>
+References: <9235D6609DB808459E95D78E17F2E43D52C48B@CHN-SV-EXMX02.mchp-main.com>
+	<20150720.204441.153673057236321524.davem@davemloft.net>
+	<9235D6609DB808459E95D78E17F2E43D530C84@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAHA+R7PTV5aTk2JyaaCQ1awi_Cwz+jzA4tv9n2nEvaFxhuD0Pg@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Woojung.Huh@microchip.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43611 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751916AbbGVSGO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 14:06:14 -0400
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D530C84@CHN-SV-EXMX02.mchp-main.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/22/2015 07:03 PM, Cong Wang wrote:
-> On Wed, Jul 22, 2015 at 3:28 AM, Nikolay Aleksandrov
-> <nikolay@cumulusnetworks.com> wrote:
->> From: Satish Ashok <sashok@cumulusnetworks.com>
->>
->> Once multicast gets disabled we should flush the groups.
->> Example:
->> # bridge mdb add dev br0 port eth3 grp 239.0.0.1
->> # bridge mdb
->> dev br0 port eth3 grp 239.0.0.1 temp
->> # echo 0 > multicast_snooping
->> # bridge mdb
-> 
-> Why? Why we can't save the mdb config for a mcast snooping flip?
-> 
 
-Right, I've discussed this with my colleagues and we think this doesn't have any
-value for upstream and shouldn't have been sent which is bad judgment on my side.
-It actually makes things worse because it removes the user's permanent entries on
-snooping disable and it may happen automatically by hash exhaustion.
+DO not reply to feedback to post a new version of your patch.
 
-Anyway, please drop this patch and sorry for the noise, I should've given this
-change more thought.
-
-Thanks,
- Nik
+Instead, make a new, fresh, patch posting.
