@@ -1,25 +1,47 @@
-From: "Raymond" <tya@a.36066.org>
-Subject: $0.92/pc monopod selfie stick,on promotion
-Date: Wed, 22 Jul 2015 20:14:56 +0800
-Message-ID: <201507222014560951234@a.36066.org>
-Reply-To: raymondpower@163.com
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next] af_mpls: fix undefined reference to
+ ip6_route_output
+Date: Wed, 22 Jul 2015 14:23:09 +0200
+Message-ID: <20150722122309.GB968@pox.localdomain>
+References: <1437549003-35563-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="GB2312"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 142.108-203-104.rdns.scalabledns.com ([104.203.108.142]:4841
-	"HELO a.36066.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with SMTP id S934035AbbGVMUH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jul 2015 08:20:07 -0400
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:37577 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964797AbbGVMXM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 08:23:12 -0400
+Received: by wibud3 with SMTP id ud3so169741251wib.0
+        for <netdev@vger.kernel.org>; Wed, 22 Jul 2015 05:23:11 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1437549003-35563-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RGVhciANCkdvb2QgZGF5IA0KJDAuOTIvcGMgbW9ub3BvZCBzZWxmaWUgc3RpY2sgd2l0aCBjYWJs
-ZSB0YWtlIHBvbGUsb25seSBmcm9tIHVzLHRoZSBhcmNwZWFrcyBmYWN0b3J5DQpQbGVhc2UgZmVl
-bCBmcmVlIHRvIGNvbnRhY3QgbWUgZm9yIG1vcmUgZGV0YWlscw0KVGhhbmtzDQpCZXN0IFJlZ2Fy
-ZHMNClJheQ0KYXJjcGVha3MuZW4uYWxpYmFiYS5jb20NClNreXBlOnNpeGl3ZW56aGkNCk1PQklM
-Ois4NiAxODkyNDY0OTUzMg0KDQpXZSB3aWxsIGF0dGVuZCBIb25nIGtvbmcgRWxlY3Ryb25pY3Mg
-RmFpcihBdXR1bW4gRWRpdGlvbikgT24gIE9jdCAxM3RoIHRvIDE2dGgsMjAxNQ0KT3VyIGJvb3Ro
-IGxvY2F0ZWQgYXQgIEVELUQyNiBhdCBFeHBvIERyaXZlIEhhbGwNCldlbGNvbWU=
+On 07/22/15 at 12:10am, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> seen with CONFIG_IPV6 disabled. Wrap the code
+> around IS_ENABLED(CONFIG_IPV6)
+> 
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+
+We need the same for CONFIG_INET=n in inet_fib_lookup_dev:
+
+/home/tgraf/dev/linux/net-next/include/net/route.h:122: undefined reference to `ip_route_output_flow'
+
+Is it worth returning EAFNOSUPPORT instead of ENODEV in these
+cases?  Something like this:
+
+>  }
+> +#else
+> +static struct net_device *inet6_fib_lookup_dev(struct net *net, void *addr)
+> +{
+ +	return ERR_PTR(-EAFNOSUPPORT);
+> +}
+> +#endif
+
+And then IS_ERR() in mpls_route_add()?
