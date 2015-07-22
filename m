@@ -1,88 +1,119 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next] af_mpls: fix undefined reference to ip6_route_output
-Date: Wed, 22 Jul 2015 16:10:48 -0700
-Message-ID: <1437606648-6789-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, tgraf@suug.ch
+From: Petri Gynther <pgynther@google.com>
+Subject: Re: [PATCH net-next] net: bcmgenet: Remove checks on clock handles
+Date: Wed, 22 Jul 2015 16:52:00 -0700
+Message-ID: <CAGXr9JEtRD0eY9aS1_M+cVYueoa8xnPBSwtCs1LEHyeyrDyLxA@mail.gmail.com>
+References: <1437603114-27235-1-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jaedon Shin <jaedon.shin@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:33418 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751820AbbGVXKy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 19:10:54 -0400
-Received: by pdbnt7 with SMTP id nt7so74910192pdb.0
-        for <netdev@vger.kernel.org>; Wed, 22 Jul 2015 16:10:53 -0700 (PDT)
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:33769 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751154AbbGVXwC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 19:52:02 -0400
+Received: by wicmv11 with SMTP id mv11so1247025wic.0
+        for <netdev@vger.kernel.org>; Wed, 22 Jul 2015 16:52:00 -0700 (PDT)
+In-Reply-To: <1437603114-27235-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Wed, Jul 22, 2015 at 3:11 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>
+> Instead of multiplying the number of checks for IS_ERR(priv->clk),
+> simply NULLify the 'struct clk' pointer which is something the Linux
+> common clock framework perfectly deals with and does early return for
+> each and every single clk_* API functions.
+>
+> Having every single function check for !IS_ERR(priv->clk) is both
+> redundant and error prone, as it turns out, we were doing it for the
+> main GENET clock: priv->clk, but not for the Wake-on-LAN or EEE clock,
+> so let's just be consistent here.
+>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 20 ++++++++++----------
+>  1 file changed, 10 insertions(+), 10 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> index 5bf7ce0ae221..133bb10fdd34 100644
+> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> @@ -2625,8 +2625,7 @@ static int bcmgenet_open(struct net_device *dev)
+>         netif_dbg(priv, ifup, dev, "bcmgenet_open\n");
+>
+>         /* Turn on the clock */
+> -       if (!IS_ERR(priv->clk))
+> -               clk_prepare_enable(priv->clk);
+> +       clk_prepare_enable(priv->clk);
+>
+>         /* If this is an internal GPHY, power it back on now, before UniMAC is
+>          * brought out of reset as absolutely no UniMAC activity is allowed
+> @@ -2703,8 +2702,7 @@ err_irq0:
+>  err_fini_dma:
+>         bcmgenet_fini_dma(priv);
+>  err_clk_disable:
+> -       if (!IS_ERR(priv->clk))
+> -               clk_disable_unprepare(priv->clk);
+> +       clk_disable_unprepare(priv->clk);
+>         return ret;
+>  }
+>
+> @@ -2761,8 +2759,7 @@ static int bcmgenet_close(struct net_device *dev)
+>         if (priv->internal_phy)
+>                 ret = bcmgenet_power_down(priv, GENET_POWER_PASSIVE);
+>
+> -       if (!IS_ERR(priv->clk))
+> -               clk_disable_unprepare(priv->clk);
+> +       clk_disable_unprepare(priv->clk);
+>
+>         return ret;
+>  }
+> @@ -3215,11 +3212,12 @@ static int bcmgenet_probe(struct platform_device *pdev)
+>                 priv->version = pd->genet_version;
+>
+>         priv->clk = devm_clk_get(&priv->pdev->dev, "enet");
+> -       if (IS_ERR(priv->clk))
+> +       if (IS_ERR(priv->clk)) {
+>                 dev_warn(&priv->pdev->dev, "failed to get enet clock\n");
+> +               priv->clk = NULL;
+> +       }
 
-seen with CONFIG_IPV6 disabled. Wrap the code around
-IS_BUILTIN(CONFIG_IPV6). Also fixes undefined reference
-to ip_route_output with CONFIG_INET=n
+Wouldn't the above be a fatal error? If you can't get the enet main
+clock, any point to go further in this code?
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Reported-by: Thomas Graf <tgraf@suug.ch>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
-could not think of a better way. This uses IS_BUILTIN instead
-of IS_ENABLED to avoid the case where CONFIG_IPV6=m.
-I am not sure if this could confuse the user.
+>
+> -       if (!IS_ERR(priv->clk))
+> -               clk_prepare_enable(priv->clk);
+> +       clk_prepare_enable(priv->clk);
+>
+>         bcmgenet_set_hw_params(priv);
+>
+> @@ -3230,8 +3228,10 @@ static int bcmgenet_probe(struct platform_device *pdev)
+>         INIT_WORK(&priv->bcmgenet_irq_work, bcmgenet_irq_task);
+>
+>         priv->clk_wol = devm_clk_get(&priv->pdev->dev, "enet-wol");
+> -       if (IS_ERR(priv->clk_wol))
+> +       if (IS_ERR(priv->clk_wol)) {
+>                 dev_warn(&priv->pdev->dev, "failed to get enet-wol clock\n");
+> +               priv->clk_wol = NULL;
+> +       }
+>
+>         priv->clk_eee = devm_clk_get(&priv->pdev->dev, "enet-eee");
+>         if (IS_ERR(priv->clk_eee)) {
+> --
+> 2.1.0
+>
 
- net/mpls/af_mpls.c |   19 ++++++++++++++++++-
- 1 file changed, 18 insertions(+), 1 deletion(-)
+Looking at the rest of the code in bcmgenet_probe(), I still see:
+        /* Turn off the main clock, WOL clock is handled separately */
+        if (!IS_ERR(priv->clk))
+                clk_disable_unprepare(priv->clk);
 
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 49f1b0e..71dbc4b 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -331,6 +331,7 @@ static unsigned find_free_label(struct net *net)
- 	return LABEL_NOT_SPECIFIED;
- }
- 
-+#if IS_ENABLED(CONFIG_INET)
- static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
- {
- 	struct net_device *dev = NULL;
-@@ -350,7 +351,14 @@ static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
- errout:
- 	return dev;
- }
-+#else
-+static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
-+{
-+	return ERR_PTR(-EAFNOSUPPORT);
-+}
-+#endif
- 
-+#if IS_BUILTIN(CONFIG_IPV6)
- static struct net_device *inet6_fib_lookup_dev(struct net *net, void *addr)
- {
- 	struct net_device *dev = NULL;
-@@ -371,6 +379,12 @@ errout:
- 
- 	return dev;
- }
-+#else
-+static struct net_device *inet6_fib_lookup_dev(struct net *net, void *addr)
-+{
-+	return ERR_PTR(-EAFNOSUPPORT);
-+}
-+#endif
- 
- static struct net_device *find_outdev(struct net *net,
- 				      struct mpls_route_config *cfg)
-@@ -427,8 +441,11 @@ static int mpls_route_add(struct mpls_route_config *cfg)
- 
- 	err = -ENODEV;
- 	dev = find_outdev(net, cfg);
--	if (!dev)
-+	if (IS_ERR(dev)) {
-+		err = PTR_ERR(dev);
-+		dev = NULL;
- 		goto errout;
-+	}
- 
- 	/* Ensure this is a supported device */
- 	err = -EINVAL;
--- 
-1.7.10.4
+err_clk_disable:
+        if (!IS_ERR(priv->clk))
+                clk_disable_unprepare(priv->clk);
+
+you probably want to convert those as well, right?
