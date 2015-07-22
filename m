@@ -1,96 +1,44 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/10] ipvs: skb_orphan in case of forwarding
-Date: Thu, 23 Jul 2015 01:00:48 +0200
-Message-ID: <1437606052-5179-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 01/10] netfilter: ctnetlink: put back references to master ct and expect objects
+Date: Thu, 23 Jul 2015 01:00:43 +0200
+Message-ID: <1437606052-5179-2-git-send-email-pablo@netfilter.org>
 References: <1437606052-5179-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:54418 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753334AbbGVWzR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jul 2015 18:55:17 -0400
 In-Reply-To: <1437606052-5179-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alex Gartrell <agartrell@fb.com>
+We have to put back the references to the master conntrack and the expectation
+that we just created, otherwise we'll leak them.
 
-It is possible that we bind against a local socket in early_demux when we
-are actually going to want to forward it.  In this case, the socket serves
-no purpose and only serves to confuse things (particularly functions which
-implicitly expect sk_fullsock to be true, like ip_local_out).
-Additionally, skb_set_owner_w is totally broken for non full-socks.
-
-Signed-off-by: Alex Gartrell <agartrell@fb.com>
-Fixes: 41063e9dd119 ("ipv4: Early TCP socket demux.")
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Fixes: 0ef71ee1a5b9 ("netfilter: ctnetlink: refactor ctnetlink_create_expect")
+Reported-by: Tim Wiess <Tim.Wiess@watchguard.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_xmit.c |   27 +++++++++++++++++++++++++++
- 1 file changed, 27 insertions(+)
+ net/netfilter/nf_conntrack_netlink.c |    5 -----
+ 1 file changed, 5 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index ec30d68..34dc142 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -533,6 +533,21 @@ static inline int ip_vs_tunnel_xmit_prepare(struct sk_buff *skb,
- 	return ret;
- }
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index d1c2394..6b8b0ab 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -2995,11 +2995,6 @@ ctnetlink_create_expect(struct net *net, u16 zone,
+ 	}
  
-+/* In the event of a remote destination, it's possible that we would have
-+ * matches against an old socket (particularly a TIME-WAIT socket). This
-+ * causes havoc down the line (ip_local_out et. al. expect regular sockets
-+ * and invalid memory accesses will happen) so simply drop the association
-+ * in this case.
-+*/
-+static inline void ip_vs_drop_early_demux_sk(struct sk_buff *skb)
-+{
-+	/* If dev is set, the packet came from the LOCAL_IN callback and
-+	 * not from a local TCP socket.
-+	 */
-+	if (skb->dev)
-+		skb_orphan(skb);
-+}
-+
- /* return NF_STOLEN (sent) or NF_ACCEPT if local=1 (not sent) */
- static inline int ip_vs_nat_send_or_cont(int pf, struct sk_buff *skb,
- 					 struct ip_vs_conn *cp, int local)
-@@ -544,12 +559,21 @@ static inline int ip_vs_nat_send_or_cont(int pf, struct sk_buff *skb,
- 		ip_vs_notrack(skb);
- 	else
- 		ip_vs_update_conntrack(skb, cp, 1);
-+
-+	/* Remove the early_demux association unless it's bound for the
-+	 * exact same port and address on this host after translation.
-+	 */
-+	if (!local || cp->vport != cp->dport ||
-+	    !ip_vs_addr_equal(cp->af, &cp->vaddr, &cp->daddr))
-+		ip_vs_drop_early_demux_sk(skb);
-+
- 	if (!local) {
- 		skb_forward_csum(skb);
- 		NF_HOOK(pf, NF_INET_LOCAL_OUT, NULL, skb,
- 			NULL, skb_dst(skb)->dev, dst_output_sk);
- 	} else
- 		ret = NF_ACCEPT;
-+
- 	return ret;
- }
- 
-@@ -563,6 +587,7 @@ static inline int ip_vs_send_or_cont(int pf, struct sk_buff *skb,
- 	if (likely(!(cp->flags & IP_VS_CONN_F_NFCT)))
- 		ip_vs_notrack(skb);
- 	if (!local) {
-+		ip_vs_drop_early_demux_sk(skb);
- 		skb_forward_csum(skb);
- 		NF_HOOK(pf, NF_INET_LOCAL_OUT, NULL, skb,
- 			NULL, skb_dst(skb)->dev, dst_output_sk);
-@@ -851,6 +876,8 @@ ip_vs_prepare_tunneled_skb(struct sk_buff *skb, int skb_af,
- 	struct ipv6hdr *old_ipv6h = NULL;
- #endif
- 
-+	ip_vs_drop_early_demux_sk(skb);
-+
- 	if (skb_headroom(skb) < max_headroom || skb_cloned(skb)) {
- 		new_skb = skb_realloc_headroom(skb, max_headroom);
- 		if (!new_skb)
+ 	err = nf_ct_expect_related_report(exp, portid, report);
+-	if (err < 0)
+-		goto err_exp;
+-
+-	return 0;
+-err_exp:
+ 	nf_ct_expect_put(exp);
+ err_ct:
+ 	nf_ct_put(ct);
 -- 
 1.7.10.4
-
