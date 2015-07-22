@@ -1,46 +1,43 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [RFC PATCH v2 net-next 3/3] tcp: add NV congestion control
-Date: Wed, 22 Jul 2015 07:27:00 -0400
-Message-ID: <CADVnQym6x7Mue-T4xnDRfa4QSStdJ1CQ1bzfNZs+o=tQb+G0+A@mail.gmail.com>
-References: <1437538896-1330704-1-git-send-email-brakmo@fb.com>
-	<1437538896-1330704-4-git-send-email-brakmo@fb.com>
-	<CAK6E8=cmjY1HNhwx3rnXq3h3Gz2c5Mj7x_7LVg97bLwJ0EqeCw@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [RFC net-next 1/1] : sctp: denoise deprecation log on
+ SCTP_EVENTS
+Date: Wed, 22 Jul 2015 11:48:31 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB6952D@AcuExch.aculab.com>
+References: <559E4F17.9090107@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Jamal Hadi Salim' <jhs@mojatatu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:36146 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934001AbbGVL1C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 07:27:02 -0400
-Received: by obnw1 with SMTP id w1so132025401obn.3
-        for <netdev@vger.kernel.org>; Wed, 22 Jul 2015 04:27:01 -0700 (PDT)
-In-Reply-To: <CAK6E8=cmjY1HNhwx3rnXq3h3Gz2c5Mj7x_7LVg97bLwJ0EqeCw@mail.gmail.com>
+Received: from smtp-out4.electric.net ([192.162.216.188]:55205 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933918AbbGVLul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 07:50:41 -0400
+In-Reply-To: <559E4F17.9090107@mojatatu.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 22, 2015 at 2:50 AM, Yuchung Cheng <ycheng@google.com> wrote:
-> On Tue, Jul 21, 2015 at 9:21 PM, Lawrence Brakmo <brakmo@fb.com> wrote:
->> This is a request for comments.
->>
->> TCP-NV (New Vegas) is a major update to TCP-Vegas. An earlier version of
->> NV was presented at 2010's LPC (slides). It is a delayed based
->> congestion avoidance for the data center. This version has been tested
->> within a 10G rack where the HW RTTs are 20-50us.
->>
->> A description of TCP-NV, including implementation and experimental
->> results, can be found at:
->> http://www.brakmo.org/networking/tcp-nv/TCPNV.html
->>
->> The current version includes many module parameters to support
->> experimentation with the parameters.
-...
->> +extern int sysctl_tcp_nv_enable;
-
-The sysctl_tcp_nv_enable only seems to be used within the NV module.
-Can it be a module parameter instead of sysctl?
-
-neal
+RnJvbTogSmFtYWwgSGFkaSBTYWxpbQ0KPiBTZW50OiAwOSBKdWx5IDIwMTUgMTE6MzgNCj4gDQo+
+IEluIHRoZSBuZXdlciBrZXJuZWxzIHRoaXMgbWVzc2FnZSBpcyBleHRyZW1lbHkgbm9pc3kuIEFm
+dGVyIGEgcXVpY2sNCj4gZGlzY3Vzc2lvbiB3aXRoIERhbmllbCBpdCBzZWVtcyB0byBtZSBpdCB3
+aWxsIGJlIHZlcnkgaGFyZCB0byBnZXQNCj4gZXhpc3RpbmcgYXBwcyB0aGF0IG5vYm9keSBpcyBn
+b2luZyB0byB1cGRhdGUgdG8gY29udGludWUgdG8gd29yaw0KPiAoaS5lIG5vIGZvcndhcmQgY29t
+cGF0KS4gQW5kIG5ld2VyIGFwcHMgdGhhdCBkZXNpcmUgdG8gcGxheSBpbiBib3RoDQo+IG9sZGVy
+IGtlcm5lbHMgYW5kIG5ldyBrZXJuZWxzIHdpbGwgaGF2ZSB0byBwbGF5IHNvbWUgdHJpY2tzIHRv
+IHdvcmsNCj4gKGkuZSB3ZWFrIGJhY2t3YXJkIGNvbXBhdGliaWxpdHkpLiAgVGhlc2UgYXJlIGdv
+b2QgcmVhc29ucw0KPiB0byB0b3RhbGx5IGdldCByaWQgb2YgdGhpcyBtZXNzYWdlLiBBdCBtaW5p
+bWFsIHRvIG5ldXRyZSBpdC4NCj4gVGhlIGF0dGFjaGVkIGNoYW5nZSB0cmllcyB0byBkbyB0aGF0
+LiBIb3dldmVyLCBpZiB5b3UgaGFkIG11bHRpcGxlDQo+IGFwcHMsIHlvdSB3aWxsIG9ubHkgZ2V0
+IHdhcm5pbmcgZm9yIHRoZSBmaXJzdCBvbmUuDQoNCk5ldmVyIG1pbmQgc3Bhbm5pbmcgdGhlIGtl
+cm5lbCBsb2csIHRoZXJlIHdpbGwgYmUgcGVyZm9ybWFuY2UNCmlzc3VlcyB3aXRoIHN5c3RlbXMg
+dGhhdCBhcmUgc2VuZGluZyBzaWduaWZpY2FudCBhbW91bnRzIG9mIFNDVFAgZGF0YS4NCkknbSBu
+b3Qgc3VyZSB5b3UnbGwgZ2V0IDEwMDAwKy9zZWMgdGhyb3VnaCB0aGUgdHJhY2Ugc3lzdGVtLg0K
+DQpJJ20gZ29pbmcgdG8gaGF2ZSB0byBmaW5kIHdoaWNoIHZlcnNpb24gdGhpcyB0cmFjZSB3ZW50
+IGludG8gYW5kDQptYWtlIHN1cmUgd2UgdGVsbCBjdXN0b21lcnMgbm90IHRvIHVzZSB0aGUgcmVs
+ZXZhbnQga2VybmVsIHZlcnNpb25zLg0KDQoJRGF2aWQNCg0K
