@@ -1,40 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: suppress a division by zero warning
-Date: Tue, 21 Jul 2015 22:13:29 -0700 (PDT)
-Message-ID: <20150721.221329.589521534912591124.davem@davemloft.net>
-References: <1437541320.16824.6.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH V2 net 0/3] BPF JIT fixes for ARM
+Date: Tue, 21 Jul 2015 22:20:12 -0700 (PDT)
+Message-ID: <20150721.222012.857420707584092557.davem@davemloft.net>
+References: <1437480854-22684-1-git-send-email-nschichan@freebox.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36686 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752308AbbGVFNm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 01:13:42 -0400
-In-Reply-To: <1437541320.16824.6.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dborkman@redhat.com, mgherzan@gmail.com,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux@arm.linux.org.uk, ast@plumgrid.com
+To: nschichan@freebox.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437480854-22684-1-git-send-email-nschichan@freebox.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 22 Jul 2015 07:02:00 +0200
+From: Nicolas Schichan <nschichan@freebox.fr>
+Date: Tue, 21 Jul 2015 14:14:11 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Andrew Morton reported following warning on one ARM build
-> with gcc-4.4 :
-> 
-> net/ipv4/inet_hashtables.c: In function 'inet_ehash_locks_alloc':
-> net/ipv4/inet_hashtables.c:617: warning: division by zero
-> 
-> Even guarded with a test on sizeof(spinlock_t), compiler does not
-> like current construct on a !CONFIG_SMP build.
-> 
-> Remove the warning by using a temporary variable.
-> 
-> Fixes: 095dc8e0c368 ("tcp: fix/cleanup inet_ehash_locks_alloc()")
-> Reported-by: Andrew Morton <akpm@linux-foundation.org>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> These patches are fixing bugs in the ARM JIT and should probably find
+> their way to a stable kernel. All 60 test_bpf tests in Linux 4.1 release
+> are now passing OK (was 54 out of 60 before).
 
-Applied, thanks.
+Series applied, thanks.
