@@ -1,66 +1,88 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/10] netfilter: IDLETIMER: fix lockdep warning
-Date: Thu, 23 Jul 2015 01:00:44 +0200
-Message-ID: <1437606052-5179-3-git-send-email-pablo@netfilter.org>
-References: <1437606052-5179-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1437606052-5179-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next] af_mpls: fix undefined reference to ip6_route_output
+Date: Wed, 22 Jul 2015 16:10:48 -0700
+Message-ID: <1437606648-6789-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, tgraf@suug.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:33418 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751820AbbGVXKy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 19:10:54 -0400
+Received: by pdbnt7 with SMTP id nt7so74910192pdb.0
+        for <netdev@vger.kernel.org>; Wed, 22 Jul 2015 16:10:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Torokhov <dtor@google.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Dynamically allocated sysfs attributes should be initialized with
-sysfs_attr_init() otherwise lockdep will be angry with us:
+seen with CONFIG_IPV6 disabled. Wrap the code around
+IS_BUILTIN(CONFIG_IPV6). Also fixes undefined reference
+to ip_route_output with CONFIG_INET=n
 
-[   45.468653] BUG: key ffffffc030fad4e0 not in .data!
-[   45.468655] ------------[ cut here ]------------
-[   45.468666] WARNING: CPU: 0 PID: 1176 at /mnt/host/source/src/third_party/kernel/v3.18/kernel/locking/lockdep.c:2991 lockdep_init_map+0x12c/0x490()
-[   45.468672] DEBUG_LOCKS_WARN_ON(1)
-[   45.468672] CPU: 0 PID: 1176 Comm: iptables Tainted: G     U  W 3.18.0 #43
-[   45.468674] Hardware name: XXX
-[   45.468675] Call trace:
-[   45.468680] [<ffffffc0002072b4>] dump_backtrace+0x0/0x10c
-[   45.468683] [<ffffffc0002073d0>] show_stack+0x10/0x1c
-[   45.468688] [<ffffffc000a86cd4>] dump_stack+0x74/0x94
-[   45.468692] [<ffffffc000217ae0>] warn_slowpath_common+0x84/0xb0
-[   45.468694] [<ffffffc000217b84>] warn_slowpath_fmt+0x4c/0x58
-[   45.468697] [<ffffffc0002530a4>] lockdep_init_map+0x128/0x490
-[   45.468701] [<ffffffc000367ef0>] __kernfs_create_file+0x80/0xe4
-[   45.468704] [<ffffffc00036862c>] sysfs_add_file_mode_ns+0x104/0x170
-[   45.468706] [<ffffffc00036870c>] sysfs_create_file_ns+0x58/0x64
-[   45.468711] [<ffffffc000930430>] idletimer_tg_checkentry+0x14c/0x324
-[   45.468714] [<ffffffc00092a728>] xt_check_target+0x170/0x198
-[   45.468717] [<ffffffc000993efc>] check_target+0x58/0x6c
-[   45.468720] [<ffffffc000994c64>] translate_table+0x30c/0x424
-[   45.468723] [<ffffffc00099529c>] do_ipt_set_ctl+0x144/0x1d0
-[   45.468728] [<ffffffc0009079f0>] nf_setsockopt+0x50/0x60
-[   45.468732] [<ffffffc000946870>] ip_setsockopt+0x8c/0xb4
-[   45.468735] [<ffffffc0009661c0>] raw_setsockopt+0x10/0x50
-[   45.468739] [<ffffffc0008c1550>] sock_common_setsockopt+0x14/0x20
-[   45.468742] [<ffffffc0008bd190>] SyS_setsockopt+0x88/0xb8
-[   45.468744] ---[ end trace 41d156354d18c039 ]---
-
-Signed-off-by: Dmitry Torokhov <dtor@google.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Reported-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- net/netfilter/xt_IDLETIMER.c |    1 +
- 1 file changed, 1 insertion(+)
+could not think of a better way. This uses IS_BUILTIN instead
+of IS_ENABLED to avoid the case where CONFIG_IPV6=m.
+I am not sure if this could confuse the user.
 
-diff --git a/net/netfilter/xt_IDLETIMER.c b/net/netfilter/xt_IDLETIMER.c
-index f407ebc1..29d2c31 100644
---- a/net/netfilter/xt_IDLETIMER.c
-+++ b/net/netfilter/xt_IDLETIMER.c
-@@ -126,6 +126,7 @@ static int idletimer_tg_create(struct idletimer_tg_info *info)
- 		goto out;
- 	}
+ net/mpls/af_mpls.c |   19 ++++++++++++++++++-
+ 1 file changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 49f1b0e..71dbc4b 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -331,6 +331,7 @@ static unsigned find_free_label(struct net *net)
+ 	return LABEL_NOT_SPECIFIED;
+ }
  
-+	sysfs_attr_init(&info->timer->attr.attr);
- 	info->timer->attr.attr.name = kstrdup(info->label, GFP_KERNEL);
- 	if (!info->timer->attr.attr.name) {
- 		ret = -ENOMEM;
++#if IS_ENABLED(CONFIG_INET)
+ static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
+ {
+ 	struct net_device *dev = NULL;
+@@ -350,7 +351,14 @@ static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
+ errout:
+ 	return dev;
+ }
++#else
++static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
++{
++	return ERR_PTR(-EAFNOSUPPORT);
++}
++#endif
+ 
++#if IS_BUILTIN(CONFIG_IPV6)
+ static struct net_device *inet6_fib_lookup_dev(struct net *net, void *addr)
+ {
+ 	struct net_device *dev = NULL;
+@@ -371,6 +379,12 @@ errout:
+ 
+ 	return dev;
+ }
++#else
++static struct net_device *inet6_fib_lookup_dev(struct net *net, void *addr)
++{
++	return ERR_PTR(-EAFNOSUPPORT);
++}
++#endif
+ 
+ static struct net_device *find_outdev(struct net *net,
+ 				      struct mpls_route_config *cfg)
+@@ -427,8 +441,11 @@ static int mpls_route_add(struct mpls_route_config *cfg)
+ 
+ 	err = -ENODEV;
+ 	dev = find_outdev(net, cfg);
+-	if (!dev)
++	if (IS_ERR(dev)) {
++		err = PTR_ERR(dev);
++		dev = NULL;
+ 		goto errout;
++	}
+ 
+ 	/* Ensure this is a supported device */
+ 	err = -EINVAL;
 -- 
 1.7.10.4
-
