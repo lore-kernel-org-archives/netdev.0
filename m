@@ -1,62 +1,44 @@
-From: Antonio Borneo <borneo.antonio@gmail.com>
-Subject: [PATCH] net: via/Kconfig: GENERIC_PCI_IOMAP required if PCI not selected
-Date: Thu, 23 Jul 2015 00:34:14 +0800
-Message-ID: <1437582854-3320-1-git-send-email-borneo.antonio@gmail.com>
-Cc: Alexey Charkov <alchark@gmail.com>,
-	Antonio Borneo <borneo.antonio@gmail.com>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [PATCH iproute2] tc: fix bpf compilation with old glibc
+Date: Wed, 22 Jul 2015 09:47:02 -0700
+Message-ID: <20150722094702.2eb3c0ea@urahara>
+References: <1437568170-16995-1-git-send-email-nicolas.dichtel@6wind.com>
+	<19c76849dd1f4a94875b0aa5d3d7e96c@HQ1WP-EXMB12.corp.brocade.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:37887 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934498AbbGVQfW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 12:35:22 -0400
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:45323 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934322AbbGVQrL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 12:47:11 -0400
+In-Reply-To: <19c76849dd1f4a94875b0aa5d3d7e96c@HQ1WP-EXMB12.corp.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The builds of arch/sh are failing in linux-next with:
+On Wed, 22 Jul 2015 13:05:32 +0000
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-drivers/net/ethernet/via/via-rhine.c:1098:2: error: implicit declaration
-of function 'pci_iomap' [-Werror=implicit-function-declaration]
-drivers/net/ethernet/via/via-rhine.c:1119:2: error: implicit declaration
-of function 'pci_iounmap' [-Werror=implicit-function-declaration]
-cc1: some warnings being treated as errors
-make[5]: *** [drivers/net/ethernet/via/via-rhine.o] Error 1
+> On 07/22/2015 02:29 PM, Nicolas Dichtel wrote:
+> > Error was:
+> > f_bpf.o: In function `bpf_parse_opt':
+> > f_bpf.c:(.text+0x88f): undefined reference to `secure_getenv'
+> > m_bpf.o: In function `parse_bpf':
+> > m_bpf.c:(.text+0x587): undefined reference to `secure_getenv'
+> > collect2: error: ld returned 1 exit status
+> >
+> > CC: Daniel Borkmann <daniel@iogearbox.net>
+> > Fixes: 88eea5395483 ("tc: {f,m}_bpf: allow to retrieve uds path from env")
+> > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> 
+> Thanks Nicolas! I am thinking we should probably just stick to getenv()
+> and convert these two users.
+> 
+> Thanks,
+> Daniel
 
-The logic in include/asm-generic/{io,iomap,pci_iomap}.h
-requires GENERIC_PCI_IOMAP to inline empty pci_iomap/pci_iounmap
-when PCI is not selected.
-
-Add GENERIC_PCI_IOMAP in the dependency list for VIA_RHINE and
-VIA_VELOCITY.
-
-Reported-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-Signed-off-by: Antonio Borneo <borneo.antonio@gmail.com>
----
- drivers/net/ethernet/via/Kconfig | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/via/Kconfig b/drivers/net/ethernet/via/Kconfig
-index 9bf3ff1..96c527c 100644
---- a/drivers/net/ethernet/via/Kconfig
-+++ b/drivers/net/ethernet/via/Kconfig
-@@ -19,7 +19,7 @@ if NET_VENDOR_VIA
- 
- config VIA_RHINE
- 	tristate "VIA Rhine support"
--	depends on (PCI || OF_IRQ)
-+	depends on (PCI || (OF_IRQ && GENERIC_PCI_IOMAP))
- 	depends on HAS_DMA
- 	select CRC32
- 	select MII
-@@ -44,7 +44,7 @@ config VIA_RHINE_MMIO
- 
- config VIA_VELOCITY
- 	tristate "VIA Velocity support"
--	depends on (PCI || (OF_ADDRESS && OF_IRQ))
-+	depends on (PCI || (OF_ADDRESS && OF_IRQ && GENERIC_PCI_IOMAP))
- 	depends on HAS_DMA
- 	select CRC32
- 	select CRC_CCITT
--- 
-2.4.6
+Yes, please use getenv() unless there is a obvious special
+security requirement involved. 
